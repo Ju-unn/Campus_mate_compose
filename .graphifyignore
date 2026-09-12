@@ -1,0 +1,7 @@
+# graphify 지식 그래프 대상에서 제외 (docs/GRAPHIFY.md)
+# 아이콘·런처·목업 PNG 는 의미 추출(비전) 대상이 아니라 --update 마다 재큐잉되는 것을 막는다.
+*.png
+*.PNG
+*.jpg
+*.jpeg
+*.webp

@@ -8,4 +8,5 @@
 - `datingApp.pen` 원본은 이 저장소에 없다(OneDrive `datingApp` 저장소). 절대 여기서 만들어내거나 추측하지 말 것
 - Supabase · OpenAI 키를 저장소에 넣지 말 것
 - UI 작업은 `docs/DESIGN.md` 를 먼저 읽고 시작할 것
+- 코드베이스를 탐색하기 전에 `../docs/GRAPHIFY.md` 대로 지식 그래프(`python -m graphify query`)를 먼저 조회할 것. Grep 은 그래프가 답을 못 줄 때만. 문서를 고쳤으면 작업 끝에 `/graphify . --update`
 - git 작업(브랜치·커밋·푸시·PR)은 `../docs/GIT.md` 를 먼저 읽고 시작할 것 — gitmoji 커밋 형식, `main` 직접 푸시 금지, **커밋→푸시→draft PR 까지만 하고 merge 는 사용자가 한다**
