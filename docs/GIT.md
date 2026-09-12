@@ -124,11 +124,8 @@ Claude 는 작업이 끝나면 **커밋 → 푸시 → draft PR 생성까지 진
 - `git add -A` 대신 **변경한 파일을 이름으로 지정**해 스테이징한다 (비밀값 혼입 방지)
 - 스테이징 후 `git status` 로 의도한 파일만 올라갔는지 확인한다
 - **테스트가 없는 비-private 클래스가 포함된 상태로는 커밋하지 않는다**
-- Claude 가 커밋할 때는 메시지 끝에 아래를 붙인다
-
-  ```
-  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
-  ```
+- **커밋 메시지에 도구 표식을 붙이지 않는다.** `Co-Authored-By: Claude ...`, `Claude-Session: ...`,
+  `🤖 Generated with ...` 같은 줄은 커밋 메시지에도 PR 본문에도 넣지 않는다 (2026-09-12 사용자 결정)
 
 ### 5.3 푸시 전 확인
 
