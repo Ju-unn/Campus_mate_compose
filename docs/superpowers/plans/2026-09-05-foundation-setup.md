@@ -142,7 +142,7 @@ npx --yes supabase --version
 
 ## Task 2: Flutter 프로젝트 생성과 패키지 골격
 
-> **진행 상황 (2026-09-12).** Step 1·2·3·5·6 완료, **Step 4(의존성)·7(iOS 권한 문구)·8(분석·테스트)·9(커밋) 남음.**
+> **진행 상황 (2026-09-12).** **Task 2 완료** (Step 1~9). UI 작업이 없어 디자인 확정 전에 먼저 끝냈다.
 >
 > 계획과 달라진 점:
 > - 저장소 구조가 **단일 저장소 안의 `frontend/` + `backend/` + `docs/`** 로 바뀌었다. 아래 명령의 작업 디렉터리는 모두 `frontend/` 다
@@ -188,7 +188,7 @@ grep -r "io.github.juunn.campusmate" android/app/build.gradle.kts ios/Runner.xco
 기대 결과: `applicationId = "io.github.juunn.campusmate"` 와 iOS 번들 ID가 함께 잡힌다.
 **여기서 틀리면 나중에 고치기 어렵다.** 다르면 이 단계에서 바로잡는다.
 
-- [ ] **Step 4: 의존성 추가**
+- [x] **Step 4: 의존성 추가** — 완료 (2026-09-12. supabase_flutter 2.17.2, flutter_riverpod 3.4.3, go_router 18.0.1, image_picker 1.2.3, cached_network_image 4.0.0, dev:mocktail 1.0.5. riverpod 가 3.x 라 `Notifier` 는 그대로 쓰고 provider 기본값이 auto-dispose 다)
 
 버전은 고정하지 않고 `flutter pub add` 가 해석하게 둔다. 손으로 적은 버전은 틀리기 쉽다.
 
@@ -230,7 +230,7 @@ ios/Runner/GoogleService-Info.plist
 android/app/google-services.json
 ```
 
-- [ ] **Step 7: iOS 권한 문구 추가**
+- [x] **Step 7: iOS 권한 문구 추가** — 완료 (NSPhotoLibraryUsageDescription · NSCameraUsageDescription)
 
 사진 선택 권한 문구를 미리 넣어둔다. 조각 2에서 사진 업로드를 붙일 때 필요한데,
 **문구가 없으면 앱스토어 심사에서 반려된다.** 지금 넣어두면 나중에 빠뜨릴 일이 없다.
@@ -252,7 +252,7 @@ grep -A1 "NSPhotoLibraryUsageDescription" ios/Runner/Info.plist
 
 기대 결과: 방금 넣은 한국어 문구가 출력된다.
 
-- [ ] **Step 8: 기본 상태에서 분석과 테스트가 통과하는지 확인**
+- [x] **Step 8: 기본 상태에서 분석과 테스트가 통과하는지 확인** — 완료 (`No issues found!`, 기본 위젯 테스트 통과)
 
 ```bash
 flutter analyze
@@ -261,7 +261,7 @@ flutter test
 
 기대 결과: `flutter analyze` 는 `No issues found!`, `flutter test` 는 flutter create가 만든 기본 위젯 테스트가 통과한다.
 
-- [ ] **Step 9: 커밋**
+- [x] **Step 9: 커밋** — 완료 (커밋 메시지는 `docs/GIT.md` 의 gitmoji 규칙을 따른다)
 
 ```bash
 git add -A

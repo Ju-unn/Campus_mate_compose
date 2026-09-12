@@ -53,8 +53,9 @@
 | 수익 모델 | 가입비 없음(남녀 동일 무료). **하트 1개 = 40원**, 추가 카드 50하트(**구매 시점은 자유, 지급 주기당 1장**), 아바타 재생성 10하트 (설계 문서 §2.4) |
 | 채팅 상한 | **없음** — 매칭 후 24h/48h 신뢰 확인 게이트가 방치된 대화를 정리 (설계 문서 §2.5). **채팅은 텍스트만, 이미지 전송 불가** |
 
-**현재 상태: 조각 0(기반 공사) 진행 중.** `flutter create` 와 기능별 패키지 골격, 패키지 ID(`io.github.juunn.campusmate`) 설정까지 끝났다.
-아직 남은 것: **의존성 추가**(`supabase_flutter`·`flutter_riverpod`·`go_router`·`image_picker`·`cached_network_image`·`mocktail`), iOS 사진 권한 문구, `run.md`, 그리고 계획서 Task 3 이후 전부. 실제 진행 상황은 `../docs/superpowers/plans/2026-09-05-foundation-setup.md` 의 체크박스를 기준으로 삼는다.
+**현재 상태: 조각 0(기반 공사) 진행 중 — 계획서 Task 2 까지 완료.** `flutter create`, 기능별 패키지 골격, 패키지 ID(`io.github.juunn.campusmate`), 의존성 6개, iOS 사진·카메라 권한 문구까지 끝났다.
+**디자인이 아직 확정되지 않아 UI 작업은 보류한다.** 그래서 Task 4(디자인 토큰·테마)와 Task 6(라우팅 골격 — `AppTheme.light()` 에 의존)은 뒤로 미룬다.
+다음 순서: **Task 3(Result·Failure) → Task 5(Supabase 설정) → Task 7(스키마·RLS) → Task 8(시드·RLS 검증)**. 실제 진행 상황은 `../docs/superpowers/plans/2026-09-05-foundation-setup.md` 의 체크박스를 기준으로 삼는다.
 
 ### 2.1 문서 지도
 
