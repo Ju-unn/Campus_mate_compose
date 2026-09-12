@@ -1,6 +1,3 @@
-# campus_mate_frontend는 자체 git 저장소(github.com/Ju-unn/campus_mate)라 여기서 추적하지 않는다
-campus_mate_frontend/
-
 # OS/에디터
 .DS_Store
 Thumbs.db

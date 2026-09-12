@@ -1,0 +1,73 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# The .vscode folder contains launch configuration and tasks you configure in
+# VS Code which you may wish to be included in version control, so this line
+# is commented out by default.
+#.vscode/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+/coverage/
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will place build artifacts here
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# Widget Preview related
+.widget_preview/
+
+# --- 비밀값 (절대 커밋 금지) ---
+.env
+*.env
+!.env.example
+**/secrets.dart
+**/*.keystore
+**/*.jks
+key.properties
+android/key.properties
+
+# --- Supabase ---
+supabase/.temp/
+supabase/.branches/
+
+# --- 실존 인물 목업 이미지 (공개 저장소에 올리지 않는다 — CLAUDE.md §11) ---
+# 로컬 개발용으로만 두고 커밋하지 않는다. mock 이 필요하면 animal-face-* 일러스트를 쓴다.
+assets/images/human1.*
+assets/images/human2.*
+assets/images/card-m.*
+assets/images/card-w.*
+assets/images/avatar-m.*
+assets/images/avatar-w.*
+assets/images/rail-m.*
+assets/images/rail-w.*
