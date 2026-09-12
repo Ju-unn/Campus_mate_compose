@@ -62,20 +62,21 @@
 
 **사용자 수행이 필요한 태스크다.** 코드 변경은 없고, 이후 모든 태스크의 전제 조건을 갖춘다.
 
-현재 상태 (확인 완료):
+현재 상태 (2026-09-12 재확인):
 
-| 도구            | 상태                                                         |
-| --------------- | ------------------------------------------------------------ |
-| Android Studio  | 설치됨 (`C:\Program Files\Android\Android Studio`)           |
-| Android SDK     | 설치됨 (`C:\Users\apf_temp_admin\AppData\Local\Android\Sdk`) |
-| Java            | 21.0.8 ✓                                                     |
-| Git             | 2.49.0 ✓                                                     |
-| Node.js         | v24.11.0 ✓                                                   |
-| **Flutter SDK** | **없음 — 설치 필요**                                         |
-| Supabase CLI    | 없음 —`npx` 로 대체                                          |
-| Docker          | 없음 — 로컬 Supabase 스택 대신**클라우드 프로젝트 사용**     |
+| 도구            | 상태                                                     |
+| --------------- | -------------------------------------------------------- |
+| Android Studio  | 설치됨 (`C:\Program Files\Android\Android Studio`)       |
+| Android SDK     | 설치됨 (`C:\Users\home\AppData\Local\Android\Sdk`)       |
+| Java            | 21.0.8 ✓                                                 |
+| Git             | 2.49.0 ✓                                                 |
+| Node.js         | v24.11.0 ✓                                               |
+| **Flutter SDK** | **설치됨 — 3.47.3 stable (`C:\dev\flutter`)** ✓          |
+| GitHub CLI      | 설치됨 (draft PR 생성용) ✓                               |
+| Supabase CLI    | 없음 —`npx` 로 대체                                      |
+| Docker          | 없음 — 로컬 Supabase 스택 대신**클라우드 프로젝트 사용** |
 
-- [ ] **Step 1: Flutter SDK 설치**
+- [x] **Step 1: Flutter SDK 설치** — 완료 (3.47.3 stable)
 
 사용자가 직접 수행한다. [https://docs.flutter.dev/get-started/install/windows](https://docs.flutter.dev/get-started/install/windows) 의 zip을 받아
 `C:\src\flutter` 에 풀고, `C:\src\flutter\bin` 을 사용자 환경변수 `Path` 에 추가한다.
@@ -140,6 +141,13 @@ npx --yes supabase --version
 
 ## Task 2: Flutter 프로젝트 생성과 패키지 골격
 
+> **진행 상황 (2026-09-12).** Step 1·2·3·5·6 완료, **Step 4(의존성)·7(iOS 권한 문구)·8(분석·테스트)·9(커밋) 남음.**
+>
+> 계획과 달라진 점:
+> - 저장소 구조가 **단일 저장소 안의 `frontend/` + `backend/` + `docs/`** 로 바뀌었다. 아래 명령의 작업 디렉터리는 모두 `frontend/` 다
+> - Dart 패키지명은 `campusmate` 가 아니라 **`campus_mate`** 다 (저장소명·Dart 관례에 맞춤). 이 문서의 `package:campus_mate/...` import 가 실제와 맞는 표기다
+> - `flutter create` 가 `--org` 없이 실행돼 `com.example.*` 로 만들어져 있었고, 2026-09-12 에 `io.github.juunn.campusmate` 로 고쳤다
+
 **Files:**
 
 - Create: `.gitignore`, `pubspec.yaml`, `lib/main.dart` (flutter create가 생성)
@@ -151,26 +159,26 @@ npx --yes supabase --version
 - Consumes: Task 1의 Flutter SDK
 - Produces: 빌드 가능한 Flutter 프로젝트. 이후 모든 태스크가 이 위에서 작업한다
 
-- [ ] **Step 1: git 저장소 초기화**
+- [x] **Step 1: git 저장소 초기화** — 완료 (단일 저장소 Campus_mate_compose 로 통합)
 
 **사용자에게 먼저 확인한다** (프로젝트 규칙: `git init` 은 사전 확인 대상).
 
 ```bash
-cd "C:/Users/apf_temp_admin/Desktop/datingApp"
+cd "C:/Users/home/AndroidStudioProjects/campus_mate_compose/frontend"
 git init
 git branch -M main
 ```
 
-- [ ] **Step 2: Flutter 프로젝트 생성**
+- [x] **Step 2: Flutter 프로젝트 생성** — 완료 (실제로는 패키지명 campus_mate, 저장소 루트가 아니라 frontend/ 에 생성됨)
 
 현재 디렉터리에 생성한다. `docs/` 는 그대로 유지된다.
 
 ```bash
-cd "C:/Users/apf_temp_admin/Desktop/datingApp"
+cd "C:/Users/home/AndroidStudioProjects/campus_mate_compose/frontend"
 flutter create --org io.github.juunn --project-name campusmate --platforms android,ios .
 ```
 
-- [ ] **Step 3: 패키지명이 올바른지 확인**
+- [x] **Step 3: 패키지명이 올바른지 확인** — 완료 (com.example.* 로 생성돼 있던 것을 2026-09-12 에 io.github.juunn.campusmate 로 수정)
 
 ```bash
 grep -r "io.github.juunn.campusmate" android/app/build.gradle.kts ios/Runner.xcodeproj/project.pbxproj | head -5
@@ -188,12 +196,12 @@ flutter pub add supabase_flutter flutter_riverpod go_router image_picker cached_
 flutter pub add dev:mocktail
 ```
 
-- [ ] **Step 5: 패키지 골격 디렉터리 생성**
+- [x] **Step 5: 패키지 골격 디렉터리 생성** — 완료
 
 빈 디렉터리는 git이 추적하지 않으므로 `.gitkeep` 을 넣는다.
 
 ```bash
-cd "C:/Users/apf_temp_admin/Desktop/datingApp"
+cd "C:/Users/home/AndroidStudioProjects/campus_mate_compose/frontend"
 for feature in auth profile matching chat safety billing; do
   for layer in model view viewmodel; do
     mkdir -p "lib/$feature/$layer" && touch "lib/$feature/$layer/.gitkeep"
@@ -206,7 +214,7 @@ mkdir -p test/common test/core/theme test/core/supabase test/core/router
 `supabase/` 는 만들지 않는다. Task 7에서 `supabase init` 이 직접 생성한다.
 미리 만들어두면 init 이 기존 디렉터리와 충돌한다.
 
-- [ ] **Step 6: `.gitignore` 에 비밀 파일 추가**
+- [x] **Step 6: `.gitignore` 에 비밀 파일 추가** — 완료 (실존 인물 목업 이미지 제외 규칙도 함께 추가)
 
 `.gitignore` 끝에 아래를 덧붙인다. **Supabase 키가 저장소에 들어가면 안 된다.**
 
@@ -289,7 +297,7 @@ git commit -m "chore: Flutter 프로젝트 생성 및 패키지 골격 구성
 `test/common/failure_test.dart`:
 
 ```dart
-import 'package:campusmate/common/failure.dart';
+import 'package:campus_mate/common/failure.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -319,7 +327,7 @@ void main() {
 flutter test test/common/failure_test.dart
 ```
 
-기대 결과: FAIL — `Target of URI doesn't exist: 'package:campusmate/common/failure.dart'`
+기대 결과: FAIL — `Target of URI doesn't exist: 'package:campus_mate/common/failure.dart'`
 
 - [ ] **Step 3: Failure 구현**
 
@@ -379,8 +387,8 @@ flutter test test/common/failure_test.dart
 `test/common/result_test.dart`:
 
 ```dart
-import 'package:campusmate/common/failure.dart';
-import 'package:campusmate/common/result.dart';
+import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/common/result.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -436,7 +444,7 @@ flutter test test/common/result_test.dart
 `lib/common/result.dart`:
 
 ```dart
-import 'package:campusmate/common/failure.dart';
+import 'package:campus_mate/common/failure.dart';
 
 /// 성공과 실패를 하나의 타입으로 표현한다.
 /// 값을 꺼내는 getter 를 두지 않고 [when] 으로만 다루게 해서
@@ -525,9 +533,9 @@ git commit -m "feat(common): Result 와 Failure 공용 타입 추가
 `test/core/theme/app_theme_test.dart`:
 
 ```dart
-import 'package:campusmate/core/theme/app_colors.dart';
-import 'package:campusmate/core/theme/app_spacing.dart';
-import 'package:campusmate/core/theme/app_theme.dart';
+import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/core/theme/app_spacing.dart';
+import 'package:campus_mate/core/theme/app_theme.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -628,7 +636,7 @@ abstract final class AppSpacing {
 `lib/core/theme/app_theme.dart`:
 
 ```dart
-import 'package:campusmate/core/theme/app_colors.dart';
+import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 
 /// 토큰을 조립해 앱 전역 테마를 만든다.
@@ -697,7 +705,7 @@ git commit -m "feat(core): 디자인 토큰과 라이트 테마 추가
 `test/core/supabase/supabase_config_test.dart`:
 
 ```dart
-import 'package:campusmate/core/supabase/supabase_config.dart';
+import 'package:campus_mate/core/supabase/supabase_config.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -804,7 +812,7 @@ flutter test test/core/supabase/supabase_config_test.dart
 `lib/core/supabase/supabase_initializer.dart`:
 
 ```dart
-import 'package:campusmate/core/supabase/supabase_config.dart';
+import 'package:campus_mate/core/supabase/supabase_config.dart';
 
 /// 앱 시작 시 Supabase 연결을 준비한다.
 ///
@@ -901,8 +909,8 @@ git commit -m "feat(core): Supabase 설정 주입과 초기화 추가
 `test/core/router/auth_redirect_test.dart`:
 
 ```dart
-import 'package:campusmate/core/router/app_routes.dart';
-import 'package:campusmate/core/router/auth_redirect.dart';
+import 'package:campus_mate/core/router/app_routes.dart';
+import 'package:campus_mate/core/router/auth_redirect.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -970,7 +978,7 @@ abstract final class AppRoutes {
 `lib/core/router/auth_redirect.dart`:
 
 ```dart
-import 'package:campusmate/core/router/app_routes.dart';
+import 'package:campus_mate/core/router/app_routes.dart';
 
 /// 로그인 여부에 따라 이동해야 할 경로를 판단한다.
 ///
@@ -1020,8 +1028,8 @@ flutter test test/core/router/auth_redirect_test.dart
 `test/core/router/app_router_test.dart`:
 
 ```dart
-import 'package:campusmate/core/router/app_router.dart';
-import 'package:campusmate/core/theme/app_theme.dart';
+import 'package:campus_mate/core/router/app_router.dart';
+import 'package:campus_mate/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -1063,7 +1071,7 @@ flutter test test/core/router/app_router_test.dart
 `lib/core/router/placeholder_screens.dart`:
 
 ```dart
-import 'package:campusmate/core/theme/app_spacing.dart';
+import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:flutter/material.dart';
 
 /// 앱 진입 직후 잠시 보이는 화면.
@@ -1122,9 +1130,9 @@ class HomeScreen extends StatelessWidget {
 `lib/core/router/app_router.dart`:
 
 ```dart
-import 'package:campusmate/core/router/app_routes.dart';
-import 'package:campusmate/core/router/auth_redirect.dart';
-import 'package:campusmate/core/router/placeholder_screens.dart';
+import 'package:campus_mate/core/router/app_routes.dart';
+import 'package:campus_mate/core/router/auth_redirect.dart';
+import 'package:campus_mate/core/router/placeholder_screens.dart';
 import 'package:go_router/go_router.dart';
 
 /// 앱의 라우터를 구성한다.
@@ -1171,10 +1179,10 @@ flutter test test/core/router/
 `lib/main.dart` 전체를 아래로 바꾼다. flutter create가 만든 기본 카운터 앱을 지운다.
 
 ```dart
-import 'package:campusmate/core/router/app_router.dart';
-import 'package:campusmate/core/supabase/supabase_config.dart';
-import 'package:campusmate/core/supabase/supabase_initializer.dart';
-import 'package:campusmate/core/theme/app_theme.dart';
+import 'package:campus_mate/core/router/app_router.dart';
+import 'package:campus_mate/core/supabase/supabase_config.dart';
+import 'package:campus_mate/core/supabase/supabase_initializer.dart';
+import 'package:campus_mate/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -1205,7 +1213,7 @@ class CampusMateApp extends StatelessWidget {
 flutter create가 만든 `test/widget_test.dart` 는 카운터 앱을 검사하므로 이제 실패한다. 아래로 교체한다.
 
 ```dart
-import 'package:campusmate/main.dart';
+import 'package:campus_mate/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -1262,7 +1270,7 @@ git commit -m "feat(core): 라우팅 골격과 인증 리다이렉트 추가
 - [ ] **Step 1: Supabase 프로젝트 초기화와 연결**
 
 ```bash
-cd "C:/Users/apf_temp_admin/Desktop/datingApp"
+cd "C:/Users/home/AndroidStudioProjects/campus_mate_compose/frontend"
 npx --yes supabase init
 npx --yes supabase login
 npx --yes supabase link --project-ref <프로젝트 참조 ID>
