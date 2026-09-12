@@ -100,7 +100,8 @@
 | `feature/*` | 모든 작업 단위. `main` 에서 분기해 **PR 로 `main` 에 병합** |
 
 - 브랜치명은 **kebab-case**. 한글·공백·언더스코어 금지 (예: `feature/foundation-setup`)
-- 작업 브랜치는 항상 **`main` 최신 상태에서 분기**한다
+- 작업 브랜치는 **로컬 `main` 에서 분기**한다. 로컬 `main` 이 원격보다 뒤처져 있으면 **당기지 말고 사용자에게 먼저 알린다** (§5.5)
+- **merge 된 브랜치는 바로 지운다.** 브랜치 목록에 끝난 작업을 남기지 않는다 (§5.5)
 - **`develop` · `release/*` · `hotfix/*` 는 첫 배포 이후에 도입한다.** 그 전까지 git flow 전체를 적용하지 않는다
 
 ---
@@ -115,6 +116,8 @@
 | 푸시 (`feature/*`) | **Claude** |
 | draft PR 생성 | **Claude** |
 | 리뷰 후 최종 merge | **사용자** |
+| merge 후 브랜치 삭제 | **Claude** (사용자가 merge 했다고 알려주면 자동) |
+| `main` 당겨오기(pull) | **사용자가 요청할 때만** |
 
 Claude 는 작업이 끝나면 **커밋 → 푸시 → draft PR 생성까지 진행하고 멈춘다.** merge 는 하지 않는다.
 모든 작업은 `git` / `gh` **명령어로만** 수행한다.
@@ -149,6 +152,27 @@ gh pr create --draft --base main --title "<이모지> <타입>: <요약>" --body
 - 제목은 커밋과 같은 형식 (`<이모지> <타입>: <요약>`)
 - 본문에는 **변경 요약** 과 **사용자가 확인해야 할 지점** 을 적는다
 - base 브랜치는 `main`
+
+### 5.5 merge 이후 정리 (2026-09-12 사용자 결정)
+
+**브랜치 삭제는 Claude 가 자동으로 한다.**
+사용자가 "PR 했어" · "merge 했어" 라고 알리면, 따로 물지 않고 해당 `feature/*` 브랜치를 로컬과 원격 양쪽에서 지운다.
+
+```bash
+git branch -d <branch>                  # -D 는 쓰지 않는다 (merge 안 된 브랜치 보호)
+git push origin --delete <branch>
+git remote prune origin
+```
+
+- `git branch -d` 가 거부하면 **merge 되지 않은 작업이 남아 있다는 뜻**이다. `-D` 로 강제하지 말고 사용자에게 알린다
+- `git branch -r --merged origin/main` 으로 예전에 남은 merge 된 원격 브랜치도 같이 정리한다
+- `main` 과 `origin/HEAD` 는 당연히 지우지 않는다
+
+**pull 은 Claude 가 먼저 하지 않는다.**
+merge 는 GitHub 서버에서 일어나므로 로컬 `main` 은 그대로 뒤처져 있다. 그래도 **`git pull` · `git merge origin/main` 은 사용자가 요청할 때만 실행한다.**
+
+- 상태 확인용 `git fetch` 와 `git status` 는 작업 트리를 바꾸지 않으므로 자유롭게 쓴다
+- 로컬 `main` 이 뒤처져 있으면 **몇 커밋 차이인지 알리고 기다린다.** 새 작업을 시작해야 하는 상황이면 그 사실을 명시한다
 
 ---
 
