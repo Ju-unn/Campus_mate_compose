@@ -73,7 +73,8 @@
 | Node.js         | v24.11.0 ✓                                               |
 | **Flutter SDK** | **설치됨 — 3.47.3 stable (`C:\dev\flutter`)** ✓          |
 | GitHub CLI      | 설치됨 (draft PR 생성용) ✓                               |
-| Supabase CLI    | 없음 —`npx` 로 대체                                      |
+| Supabase CLI    | 설치됨 (`C:\dev\supabase-cli`, PATH 등록) ✓ — `npx` 불필요 |
+| graphify        | 설치됨 (`graphifyy` 0.9.58 + 스킬) — 코드베이스 탐색용, `docs/GRAPHIFY.md` |
 | Docker          | 없음 — 로컬 Supabase 스택 대신**클라우드 프로젝트 사용** |
 
 - [x] **Step 1: Flutter SDK 설치** — 완료 (3.47.3 stable)
@@ -99,7 +100,7 @@ flutter doctor -v
 `Android license status unknown` 이 뜨면 `flutter doctor --android-licenses` 로 라이선스에 동의한다.
 `Visual Studio` / `Xcode` 항목의 경고는 무시한다 (Windows 데스크톱·iOS 로컬 빌드를 하지 않는다).
 
-- [ ] **Step 3: Supabase 클라우드 프로젝트 생성**
+- [x] **Step 3: Supabase 클라우드 프로젝트 생성** — 완료 (프로젝트 `campus_mate`, 조직 CampusMate, Seoul. URL·anon 키는 문서에 적지 않고 MCP `get_project_url` · `get_publishable_keys` 로 조회한다)
 
 사용자가 [https://supabase.com/dashboard](https://supabase.com/dashboard) 에서 새 프로젝트를 만든다.
 
@@ -112,7 +113,7 @@ flutter doctor -v
 - `Project URL` (예: `https://xxxxx.supabase.co`)
 - `anon public` 키
 
-- [ ] **Step 4: pgvector 확장 활성화 확인**
+- [ ] **Step 4: pgvector 확장 활성화 확인** — 미완료 (2026-09-12 확인: `vector` 꺼져 있음). **대시보드에서 손으로 켜지 않는다** — Task 7 첫 마이그레이션 맨 앞에 `create extension if not exists vector with schema extensions;` 로 켠다 (`frontend/CLAUDE.md` §10.1)
 
 Supabase 대시보드 **Database → Extensions** 에서 `vector` 를 검색해 활성화한다.
 (조각 3에서 쓰지만, 프로젝트 생성 시점에 켜두는 편이 낫다.)
@@ -125,7 +126,7 @@ select extname from pg_extension where extname = 'vector';
 
 기대 결과: `vector` 한 행이 나온다.
 
-- [ ] **Step 5: Supabase CLI 동작 확인**
+- [x] **Step 5: Supabase CLI 동작 확인** — 완료 (`supabase --version` → 2.117.0, `C:\dev\supabase-cli`)
 
 Node가 있으므로 전역 설치 없이 `npx` 로 쓴다.
 

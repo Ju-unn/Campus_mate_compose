@@ -26,7 +26,9 @@
 6. **MVVM 에 맞게, 기능(조각)별로 패키지를 나눌 것.** 각 기능 아래 `model` / `view` / `viewmodel` 을 둔다.
 7. **모든 비(non-)private 클래스는 테스트를 가질 것.** 테스트 없는 클래스가 포함된 채로 커밋 메시지를 제안하지 않는다.
 8. **새 의존성 추가는 사전에 사용자에게 확인할 것.**
-9. **git 작업(브랜치·커밋·푸시) 전에 `../docs/GIT.md` 를 먼저 읽을 것.** 커밋 메시지는 gitmoji + Conventional Commits 형식을 따르고, `git push` 는 사용자가 명시적으로 지시했을 때만 실행한다.
+9. **git 작업(브랜치·커밋·푸시·PR) 전에 `../docs/GIT.md` 를 먼저 읽을 것.** 커밋 메시지는 gitmoji + Conventional Commits 형식, `main` 직접 푸시 금지, 커밋→푸시→draft PR 까지만 하고 merge 는 사용자가 한다.
+10. **코드베이스를 탐색하기 전에 지식 그래프를 먼저 조회할 것** (`../docs/GRAPHIFY.md`). "X 는 어디서 쓰이나", "흐름 추적" 같은 질문은 `python -m graphify query` 가 먼저다. Grep·Read 로 뒤지는 건 그래프가 답을 못 줄 때만. **문서를 고친 작업 끝에는 `/graphify . --update` 를 실행**한다 (코드는 커밋 hook 이 자동 갱신).
+11. **Supabase 작업(스키마·RLS·Storage·Auth) 전에 §10.1 을 먼저 읽을 것.** 스키마 변경은 반드시 `supabase/migrations/*.sql` 파일로 남기고, 프로젝트 URL·키·ref 는 문서와 코드에 쓰지 않는다.
 
 ---
 
@@ -61,6 +63,7 @@
 | `../docs/superpowers/specs/2026-09-05-campusmate-foundation-design.md` | 제품·아키텍처·매칭·보안 전체 설계. **모든 결정의 기준**. FastAPI 백엔드도 참조하므로 이 저장소(frontend) 밖, workspace 루트에 둔다 |
 | `../docs/superpowers/plans/2026-09-05-foundation-setup.md` | 조각 0 실행 계획 (작업 단위) |
 | `../docs/GIT.md` | **Git 규칙 — gitmoji 커밋 형식, 브랜치 전략, 푸시 규칙.** git 작업 전 필독 |
+| `../docs/GRAPHIFY.md` | **코드베이스 탐색 규칙 — 지식 그래프 조회·갱신.** Grep 전에 그래프 먼저 |
 | `docs/DESIGN.md` | 디자인 시스템 전문. 색·타이포·컴포넌트·미결 항목 |
 | `assets/images/` | DESIGN.md 기준 확정 채택된 UI용 PNG 자산 |
 | *(별도 저장소)* `datingApp.pen` · `preview/*.png` | Pencil 시안 원본과 화면 미리보기. OneDrive `datingApp` 저장소에 있음 (이 저장소에는 없음) |
@@ -261,6 +264,43 @@ supabase db reset                # 빈 DB 에 마이그레이션 처음부터 �
 supabase test db                 # RLS 정책 SQL 테스트
 ```
 
+### 10.1 Supabase 작업 규칙
+
+Supabase **MCP 플러그인(`supabase`)이 설치·인증돼 있다.** 클라우드 프로젝트는 `campus_mate`(조직 CampusMate, Seoul) 하나뿐이고, 아직 테이블·마이그레이션이 없다. 로컬 스택(Docker)은 없으므로 적용 대상은 항상 이 클라우드 프로젝트다.
+
+**시작할 때**
+
+- 스키마·RLS·Storage·Auth 를 건드리기 전에 `supabase:supabase` 스킬(보안 체크리스트)과 `supabase:supabase-postgres-best-practices` 스킬을 로드한다
+- 현재 상태는 추측하지 않고 MCP `list_tables` · `list_extensions` · `list_migrations` 로 확인한다
+
+**키·식별자 취급**
+
+- 프로젝트 URL · project ref · anon/publishable 키 · `service_role` 키 · DB 비밀번호는 **문서·코드·커밋·PR 에 쓰지 않는다.** 필요할 때 MCP `get_project_url` · `get_publishable_keys` 로 조회하고, 앱에는 `--dart-define` 으로 주입한다 (§11)
+- `service_role` 키는 FastAPI 서버 전용이다. Flutter 쪽 코드·설정에는 절대 두지 않는다
+
+**스키마 변경 = 마이그레이션 파일**
+
+- 모든 스키마 변경은 `supabase/migrations/<timestamp>_<name>.sql` 로 저장소에 남긴다 (설계 문서 §5.4). 대시보드·`execute_sql` 로 DDL 을 손으로 실행하지 않는다
+- 파일 이름은 `supabase migration new <name>` 으로 만든다. 직접 지어내지 않는다
+- 클라우드 적용은 `supabase db push`, 또는 MCP `apply_migration` 에 **그 파일 내용을 그대로** 넘긴다 (파일 ↔ 원격 이력 1:1)
+- 적용 직후 MCP `get_advisors`(security · performance)를 돌려 경고를 0 으로 만든다
+- 프로덕션 DB 에서 `execute_sql` 은 **읽기 전용 조회**에만 쓴다
+
+**RLS 체크리스트 (정책 SQL 을 쓸 때마다)**
+
+- `public` 스키마의 모든 테이블은 RLS 를 켠다
+- 정책은 `to authenticated` + `using ((select auth.uid()) = user_id)` 꼴. `auth.uid()` 는 항상 `(select …)` 로 감싼다
+- `auth.role()` 은 쓰지 않는다(deprecated). `to authenticated` 만으로는 인가가 아니다 — 소유자 조건을 반드시 붙인다
+- UPDATE 정책은 `using` + `with check` 둘 다 쓴다. UPDATE 는 SELECT 정책이 있어야 동작한다
+- `user_metadata` 로 권한을 판단하지 않는다(사용자가 수정 가능). 권한 데이터는 `app_metadata`
+- `security definer` 함수는 쓰지 않는다(권한 오류 우회용 금지). 뷰는 `with (security_invoker = true)`
+- Storage upsert 는 INSERT + SELECT + UPDATE 정책 3개가 다 있어야 한다
+- RLS 테스트는 pgTAP (`supabase/tests/*.sql`) — 다른 사용자로 조회 시 0행 (§8)
+
+**pgvector**
+
+- 아직 꺼져 있다. 대시보드에서 손으로 켜지 않고, Task 7 첫 마이그레이션 맨 앞에서 켠다: `create extension if not exists vector with schema extensions;`
+
 ---
 
 ## 11. 저장소와 자산 주의사항
@@ -289,6 +329,7 @@ supabase test db                 # RLS 정책 SQL 테스트
 3. **Pencil 앱 설치** — `.pen` 편집용. OneDrive `datingApp` 저장소에서 시안 작업을 할 때만 필요하고, 이 저장소에서 코드만 작업할 때는 필요 없다
 4. **Pretendard 폰트 설치** — 없으면 시안 렌더링이 대체 폰트로 틀어진다
 5. Flutter SDK, Supabase CLI, GitHub CLI(`gh` — draft PR 생성용)
+5-1. **graphify** — `pip install graphifyy` → `python -m graphify install --platform claude` → 저장소 루트에서 `/graphify .` 로 그래프 빌드 → `python -m graphify hook install`. 자세한 건 `../docs/GRAPHIFY.md` §6. `graphify-out/` 은 저장소에 없으니 반드시 로컬에서 빌드한다
 6. **IDE 는 저장소 루트가 아니라 `frontend/` 를 연다.** Flutter 프로젝트 루트가 `frontend/` 이기 때문이다
 7. **실존 인물 목업 이미지는 저장소에 없다**(§11, `.gitignore` 제외). 필요하면 OneDrive `datingApp` 저장소에서 로컬로만 가져온다
 
