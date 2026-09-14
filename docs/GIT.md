@@ -43,8 +43,9 @@
 - **이모지는 유니코드로 직접 넣는다** (`✨`). `:sparkles:` 코드는 GitHub 웹에서만 렌더링되고 `git log` 에서는 그대로 보인다
 - **한 커밋에 이모지는 하나.** 두 개가 필요하면 커밋을 나눈다 (기능 `✨` → 테스트 `✅` → 문서 `📝`)
 - **타입은 영문 소문자, 설명은 한국어**
-- scope 는 기능 패키지명: `auth`, `profile`, `matching`, `chat`, `safety`, `billing`, `core`, `design`, `docs`
+- scope 는 기능 패키지명: `auth`, `profile`, `matching`, `chat`, `safety`, `billing`, `core`, `design`, `docs`, `supabase`(Supabase 설정·문서), `slice<N>`(마이그레이션 조각, 예 `slice1`)
   - 백엔드 작업은 `backend`, 저장소 구조·설정 작업은 scope 를 생략한다
+  - 문서 작업은 문서 이름을 scope 로 쓴다 (예: `docs(git)` · `docs(erd)` · `docs(plan)`)
 
 ---
 
@@ -68,11 +69,11 @@
 
 ## 3. 보조 gitmoji
 
-기본 8종으로 부족할 때만 쓴다. 타입은 그대로 붙인다 (예: `🗃️ chore(core): ...`).
+기본 8종으로 부족할 때만 쓴다. 타입은 §2 표의 것을 그대로 붙인다 (예: `🔒 fix(auth): ...`). 🗃️ 만 전용 타입 `db` 를 쓴다.
 
 | 이모지 | 코드 | 용도 | 이 프로젝트에서 |
 | --- | --- | --- | --- |
-| 🗃️ | `:card_file_box:` | DB 관련 변경 | Supabase 마이그레이션·스키마 |
+| 🗃️ | `:card_file_box:` | DB 관련 변경 | Supabase 마이그레이션·스키마. 타입 `db` 를 쓴다 (`🗃️ db(slice1): ...`) |
 | 🔒 | `:lock:` | 보안 수정 | RLS 정책, 키 취급 |
 | ➕ | `:heavy_plus_sign:` | 의존성 추가 | **추가 전 사용자 확인 필수** |
 | ➖ | `:heavy_minus_sign:` | 의존성 제거 | |
@@ -92,14 +93,14 @@
 
 ## 4. 브랜치 전략
 
-**지금은 `main` + `feature/*` 두 가지만 쓴다.**
+**지금은 `main` + 작업 브랜치 `<타입>/<주제>` 두 가지만 쓴다.**
 
 | 브랜치 | 역할 |
 | --- | --- |
 | `main` | 통합 브랜치. **직접 커밋·직접 푸시 금지** |
-| `feature/*` | 모든 작업 단위. `main` 에서 분기해 **PR 로 `main` 에 병합** |
+| `<타입>/<주제>` | 모든 작업 단위. 앞부분은 §2·§3 의 타입(`feat/` · `fix/` · `docs/` · `db/` 등). `main` 에서 분기해 **PR 로 `main` 에 병합** |
 
-- 브랜치명은 **kebab-case**. 한글·공백·언더스코어 금지 (예: `feature/foundation-setup`)
+- 브랜치명은 **kebab-case**. 한글·공백·언더스코어 금지 (예: `docs/postapply-wording-0914`)
 - 작업 브랜치는 **로컬 `main` 에서 분기**한다. 로컬 `main` 이 원격보다 뒤처져 있으면 **당기지 말고 사용자에게 먼저 알린다** (§5.5)
 - **merge 된 브랜치는 바로 지운다.** 브랜치 목록에 끝난 작업을 남기지 않는다 (§5.5)
 - **`develop` · `release/*` · `hotfix/*` 는 첫 배포 이후에 도입한다.** 그 전까지 git flow 전체를 적용하지 않는다
@@ -113,7 +114,7 @@
 | 단계 | 담당 |
 | --- | --- |
 | 커밋 | **Claude** |
-| 푸시 (`feature/*`) | **Claude** |
+| 푸시 (작업 브랜치) | **Claude** |
 | draft PR 생성 | **Claude** |
 | 리뷰 후 최종 merge | **사용자** |
 | merge 후 브랜치 삭제 | **Claude** (사용자가 merge 했다고 알려주면 자동) |
@@ -134,7 +135,7 @@ Claude 는 작업이 끝나면 **커밋 → 푸시 → draft PR 생성까지 진
 
 1. `git status` — 키·`.env`·인증서·실존 인물 사진이 섞이지 않았는지
 2. `flutter analyze` / `flutter test` 통과 (`frontend/` 변경 시)
-3. 현재 브랜치가 `feature/*` 인지 — **`main` 직접 푸시 금지**
+3. 현재 브랜치가 작업 브랜치(`<타입>/<주제>`)인지 — **`main` 직접 푸시 금지**
 
 금지 사항:
 
@@ -145,18 +146,18 @@ Claude 는 작업이 끝나면 **커밋 → 푸시 → draft PR 생성까지 진
 ### 5.4 PR 규칙
 
 ```bash
-gh pr create --draft --base main --title "<이모지> <타입>: <요약>" --body "..."
+gh pr create --draft --base main --title "<이모지> <타입>(<scope>): <요약>" --body "..."
 ```
 
 - **항상 `--draft`** 로 만든다. 리뷰·merge 는 사용자가 한다
-- 제목은 커밋과 같은 형식 (`<이모지> <타입>: <요약>`)
+- 제목은 커밋과 같은 형식 (`<이모지> <타입>(<scope>): <요약>`)
 - 본문에는 **변경 요약** 과 **사용자가 확인해야 할 지점** 을 적는다
 - base 브랜치는 `main`
 
 ### 5.5 merge 이후 정리 (2026-09-12 사용자 결정)
 
 **브랜치 삭제는 Claude 가 자동으로 한다.**
-사용자가 "PR 했어" · "merge 했어" 라고 알리면, 따로 물지 않고 해당 `feature/*` 브랜치를 로컬과 원격 양쪽에서 지운다.
+사용자가 "PR 했어" · "merge 했어" 라고 알리면, 따로 물지 않고 해당 작업 브랜치를 로컬과 원격 양쪽에서 지운다.
 
 ```bash
 git branch -d <branch>                  # -D 는 쓰지 않는다 (merge 안 된 브랜치 보호)

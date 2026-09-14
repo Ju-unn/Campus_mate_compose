@@ -238,7 +238,7 @@ if (status == statusPending) { ... }   // 대기 상태일 때만 처리
 
 - 커밋 메시지는 **`<이모지> <타입>(<scope>): <한국어 요약>`** — 예: `✨ feat(auth): 인증 코드 입력 화면 구현`
 - 이모지는 **유니코드로 직접** 넣고, **한 커밋에 하나**만 쓴다
-- 브랜치는 **`main` + `feature/*`** 만 쓴다. `main` 최신 상태에서 분기하고, **`main` 직접 커밋·푸시 금지**
+- 브랜치는 **`main` + 작업 브랜치 `<타입>/<주제>`**(`feat/` · `fix/` · `docs/` · `db/` 등)만 쓴다. `main` 최신 상태에서 분기하고, **`main` 직접 커밋·푸시 금지**
   (`develop`·`release/*`·`hotfix/*` 는 첫 배포 이후 도입)
 - **Claude 는 커밋 → 푸시 → draft PR 생성까지 하고 멈춘다.** 최종 merge 는 사용자가 한다
 - **merge 가 끝나면 해당 브랜치를 로컬·원격 양쪽에서 바로 지운다** (묻지 않고 자동)
@@ -269,7 +269,7 @@ supabase test db                 # RLS 정책 SQL 테스트
 
 ### 10.1 Supabase 작업 규칙
 
-Supabase **MCP 플러그인(`supabase`)이 설치·인증돼 있다.** 클라우드 프로젝트는 `campus_mate`(조직 CampusMate, Seoul) 하나뿐이다. 조각 0(테이블 4·RLS·정책 4·private 버킷 `profile-photos`·seed 20행)은 2026-09-14 사용자 승인 후 적용됐고, 조각 1 이후는 미적용이다(현재 상태는 `docs/ERD.md` 상태줄 기준). 로컬 스택(Docker)은 없으므로 적용 대상은 항상 이 클라우드 프로젝트다.
+Supabase **MCP 플러그인(`supabase`)이 설치·인증돼 있다.** 클라우드 프로젝트는 `campus_mate`(조직 CampusMate, Seoul) 하나뿐이다. 조각 0(테이블 4·RLS·정책 4·private 버킷 `profile-photos`·seed `universities` 20행·`university_email_domains` 20행)은 2026-09-14 사용자 승인 후 적용됐다. 조각 1 은 마이그레이션 초안만 있고 미적용, 조각 2 이후는 파일도 없다(현재 상태는 `docs/ERD.md` 상태줄 기준). 로컬 스택(Docker)은 없으므로 적용 대상은 항상 이 클라우드 프로젝트다.
 
 **시작할 때**
 

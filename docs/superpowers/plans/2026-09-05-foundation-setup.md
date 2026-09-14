@@ -1614,6 +1614,8 @@ select count(*) as university_count from public.universities where region_group 
 
 `supabase/tests/rls_slice0_test.sql`:
 
+> 아래 DO 블록과 Step 5 의 대시보드 SQL Editor 실행 · "RLS 검증 통과" NOTICE 는 조각 0 당시 기록이다. 실제 파일은 pgTAP 21항목이고 로컬 스택에서 `supabase test db` 로 돌린다(Docker 설치 후, ERD §12-35).
+
 ```sql
 -- RLS 회귀 검증.
 -- RLS 는 잘못돼도 앱이 정상 동작하기 때문에, 남의 행이 실제로 막히는지를
@@ -1872,7 +1874,7 @@ scope 는 기능 패키지명(`auth`, `profile`, `matching`, `chat`, `safety`, `
 flutter run --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...
 flutter test
 flutter analyze
-npx --yes supabase db push
+npx --yes supabase db push   # 사용 안 함 — MCP apply_migration 으로 적용(2026-09-14 결정, ERD §12-33)
 ```
 
 ## 9. 보안
@@ -1962,7 +1964,7 @@ flutter run \
 
 다음 조각에서 다룬다. 여기서 미리 만들지 않는다.
 
-- 실제 로그인·인증 로직, Auth Hook 도메인 검증 → 조각 1
+- 실제 로그인·인증 로직, Auth Hook 도메인 검증 → 조각 1 (DB 마이그레이션 초안만 2026-09-14 작성, 미적용)
 - 프로필 입력 화면, 설문, 태그, 사진 업로드 → 조각 2
 - 벡터 테이블, 임베딩 생성(FastAPI 엔드포인트, 2026-09-12: Edge Function에서 이전) → 조각 3
 - 일일 카드 배치, 수락/거절, 푸시 알림 → 조각 4
