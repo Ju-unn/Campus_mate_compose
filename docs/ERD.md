@@ -144,7 +144,7 @@ erDiagram
         uuid university_id FK "조각0 · 메일 도메인으로 서버가 정함"
         text nickname UK "조각0 · lower 유니크 · 한글영문 2~5자"
         gender gender "조각0 · 하드 필터"
-        gender looking_for "조각0 · 하드 필터"
+        gender looking_for "조각0 · 조각2 삭제 예정(§12-36)"
         smallint birth_year "조각0 · 연 나이 19세 이상"
         smallint height_cm "조각0 · 필수 · 공개"
         smallint preferred_height_min "조각0 · null이면 상관없음"
@@ -583,7 +583,7 @@ enum 값은 만든 뒤 지울 수 없다(추가·이름 변경만 된다). 그�
 
 ## 12. 남은 검토
 
-해결된 번호(1 · 4 · 15~19 · 22~33)는 `docs/ERD_DECISIONS.md` §12 에 번호 그대로 옮겼다. 새 검토는 36번부터 이 표에 잇는다.
+해결된 번호(1 · 4 · 15~19 · 22~33)는 `docs/ERD_DECISIONS.md` §12 에 번호 그대로 옮겼다. 새 검토는 37번부터 이 표에 잇는다.
 
 | # | 내용 | 조각 | 근거 |
 | --- | --- | --- | --- |
@@ -603,6 +603,7 @@ enum 값은 만든 뒤 지울 수 없다(추가·이름 변경만 된다). 그�
 | 21 | FastAPI 가 PostgREST 가 아니라 DB 에 직접 붙을 때 쓸 DB 역할. 지금 grant 는 `service_role` 전제 | 1 | ERD §2 |
 | 34 | Supabase advisor 보안 WARN 0028 · 0029 → 결정(다음 클라우드 쓰기 때 revoke, 2026-09-14 사용자 결정) — `public.rls_auto_enable()`(SECURITY DEFINER, owner `postgres`, event trigger `ensure_rls` 가 부름)을 `anon` · `authenticated` 가 RPC 로 실행할 수 있다고 뜬다. 우리 마이그레이션 파일에는 없고, 프로젝트를 만들 때 켠 자동 RLS 옵션이 만든 것으로 보인다. 반환형이 `event_trigger` 라 RPC 로 부르면 "trigger functions can only be called as triggers" 로 막히고 본문도 `pg_event_trigger_ddl_commands()` 만 써서, 실제 위험이 아니라 lint 성 경고로 판단한다. 지금은 조치하지 않고, 다음 클라우드 쓰기 승인 때 `revoke execute on function public.rls_auto_enable() from anon, authenticated, public` 을 같이 묶는다. 로컬 fresh DB 에는 이 함수가 없으니 그 마이그레이션은 함수 존재를 확인하는 guard 가 필요하다 | 1 | Supabase advisor 0028 · 0029 |
 | 35 | pgTAP `supabase/tests/rls_slice0_test.sql`(21개 항목)은 작성만 하고 실행하지 않았다 — 로컬에 Docker 가 없다 | 0 후속 | 계획서 Task 8 |
+| 36 | "찾는 성별" 폐지(반대 성별 자동 매칭, 2026-09-14 사용자 결정) 뒤처리 — 조각 0 에 적용된 `profiles.looking_for` 컬럼과 `active` 전환 check 의 `looking_for is not null`(§3) 을 조각 2 프로필 마이그레이션(`supabase migration new`)에서 삭제한다. 조각 0 마이그레이션 파일은 고치지 않는다. pgTAP `supabase/tests/rls_slice0_test.sql` 의 `looking_for` 설정도 그때 함께 고친다. 클라우드 적용은 사용자 승인 뒤 | 2 | DESIGN §13-113 · 설계 §6.1 · §6.8 |
 
 ## 13. 문서 갱신 대상 → `docs/ERD_DECISIONS.md` §13
 
