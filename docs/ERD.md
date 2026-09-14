@@ -1,6 +1,6 @@
 # CampusMate DB ERD
 
-> **상태: 초안 v3 (2026-09-13 ~ 09-14) · 2차 검수 반려 반영 · 최종 검토 반영 · 탈퇴 정책 결정 반영 · Supabase 미적용.** 검수를 통과하면 조각 0 범위부터 `supabase/migrations/` 로 옮긴다.
+> **상태: 초안 v3 (2026-09-13 ~ 09-14) · 2차 검수 반려 반영 · 최종 검토 반영 · 탈퇴 정책 결정 반영 · 조각 0 Supabase 적용 완료(2026-09-14, MCP apply_migration + seed).** 조각 0 은 `supabase/migrations/` 4개 + `seed.sql` 로 적용됐다. 조각 1 이후는 미적용.
 > 근거: 설계 문서 `docs/superpowers/specs/2026-09-05-campusmate-foundation-design.md` (§2·§5·§6·§7·§13), `frontend/docs/DESIGN.md` (§5.2·§8·§9), 2026-09-13 ~ 09-14 사용자 결정(§11).
 
 ## 읽는 법
@@ -624,7 +624,7 @@ enum 값은 만든 뒤 지울 수 없다(추가·이름 변경만 된다). 그�
 | 19 | ~~Auth Hook DB 함수용 `supabase_auth_admin` grant~~ → 해당 없음(§11-12, 훅은 FastAPI HTTP 훅) | 1 | frontend/CLAUDE.md §10.1 |
 | 20 | 학교 메일로 가입한 뒤 이메일 변경(`updateUser`)으로 아무 메일로 바꾸는 우회 — 이메일 변경을 막거나 변경 때도 도메인을 검사한다 | 1 | 설계 §7.3 |
 | 21 | FastAPI 가 PostgREST 가 아니라 DB 에 직접 붙을 때 쓸 DB 역할. 지금 grant 는 `service_role` 전제 | 1 | ERD §2 |
-| 22 | `supabase/config.toml` 의 `major_version = 17` 이 클라우드 Postgres 버전과 같은지 적용 전에 읽기로 확인 | 0 | config.toml 주석 |
+| 22 | ~~`supabase/config.toml` 의 `major_version = 17` 이 클라우드 Postgres 버전과 같은지 적용 전에 읽기로 확인~~ → 해결(클라우드 Postgres 17.6 읽기 확인, 2026-09-14) | 0 | config.toml 주석 |
 | 23 | ~~결제 기록을 탈퇴 cascade 의 예외로 남길지~~ → 해결(§11-14) | 7 | §11-11 |
 | 24 | ~~상대가 탈퇴하면 남은 사람의 채팅과 신고 근거가 바로 사라짐~~ → 해결(§11-15) | 5 · 6 | 설계 §2.6 · §11-11 |
 | 25 | ~~상대가 탈퇴하면 남은 사람이 잃는 하트·보상~~ → 해결(§11-16, 알려진 한계) | 4 · 7 | §11-11 · §8 `heart_reason` |
@@ -635,6 +635,9 @@ enum 값은 만든 뒤 지울 수 없다(추가·이름 변경만 된다). 그�
 | 30 | ~~`reports.target_snapshot` 보관 기간~~ → 해결(§11-23, 처리 후 1년) | 6 | §5 · 설계 미결21 |
 | 31 | ~~정지(`suspended`) 계정이 탈퇴 2개월 뒤 재가입해 정지를 벗어남~~ → 해결(§11-22, 기간 없는 재가입 제한) | 6 | §11-17 · 설계 §2.6 |
 | 32 | ~~본인 카카오톡 아이디 조회 경로~~ → 해결(§11-20, FastAPI 가 내려줌) | 2 | §2 · DESIGN §13-104 |
+| 33 | ~~원격 마이그레이션 버전이 로컬 파일명과 다름~~ → 결정(기록만, 2026-09-14 사용자 결정) — 원격 `20260914045614` · `045656` · `045723` · `045746`, 로컬 파일 `20260913054542` · `054544` · `054547` · `054549`. MCP `apply_migration` 은 버전 인자가 없어 적용 시각으로 찍혔다. CLI `db push` · `migration list` 로 보면 로컬 4개는 미적용, 원격 4개는 로컬에 없는 이력으로 보인다. `migration repair` 는 하지 않고, 이후 조각도 MCP 플러그인 `apply_migration` 으로 적용해 일관되게 간다 | 1 | 계획서 Task 7 Step 6 · frontend/CLAUDE.md §10.1 |
+| 34 | Supabase advisor 보안 WARN 0028 · 0029 → 결정(다음 클라우드 쓰기 때 revoke, 2026-09-14 사용자 결정) — `public.rls_auto_enable()`(SECURITY DEFINER, owner `postgres`, event trigger `ensure_rls` 가 부름)을 `anon` · `authenticated` 가 RPC 로 실행할 수 있다고 뜬다. 우리 마이그레이션 파일에는 없고, 프로젝트를 만들 때 켠 자동 RLS 옵션이 만든 것으로 보인다. 반환형이 `event_trigger` 라 RPC 로 부르면 "trigger functions can only be called as triggers" 로 막히고 본문도 `pg_event_trigger_ddl_commands()` 만 써서, 실제 위험이 아니라 lint 성 경고로 판단한다. 지금은 조치하지 않고, 다음 클라우드 쓰기 승인 때 `revoke execute on function public.rls_auto_enable() from anon, authenticated, public` 을 같이 묶는다. 로컬 fresh DB 에는 이 함수가 없으니 그 마이그레이션은 함수 존재를 확인하는 guard 가 필요하다 | 1 | Supabase advisor 0028 · 0029 |
+| 35 | pgTAP `supabase/tests/rls_slice0_test.sql`(21개 항목)은 작성만 하고 실행하지 않았다 — 로컬에 Docker 가 없다 | 0 후속 | 계획서 Task 8 |
 
 ## 13. 문서 갱신 대상 (결정과 무관한 오래된 서술)
 
