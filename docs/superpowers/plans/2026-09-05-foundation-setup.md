@@ -1503,6 +1503,8 @@ npx --yes supabase db push
 
 기대 결과: 4개 마이그레이션이 순서대로 적용됐다는 출력이 나온다.
 
+> **실제 적용 기록(2026-09-14).** `supabase login` · `link` · `db push` 없이 MCP 플러그인 `apply_migration` 으로 `supabase/migrations/` 4개를 순서대로 적용했다. 원격 버전은 적용 시각으로 찍혀 `20260914045614` · `20260914045656` · `20260914045723` · `20260914045746` 이다(로컬 파일명과 다름, ERD §12-33). 시드 `supabase/seed.sql` 은 `execute_sql` 로 넣었다. 읽기 검증: public 테이블 4개(`universities` · `university_email_domains` · `profiles` · `profile_photos`) 모두 RLS on, 정책 4개, `profile-photos` 버킷 private, `universities` 20행.
+
 - [ ] **Step 7: 적용 결과 확인**
 
 Supabase 대시보드 SQL Editor에서 실행:
@@ -1544,6 +1546,8 @@ git commit -m "feat(core): Supabase 스키마와 RLS 정책 추가
 > ⚠️ **이 Task 아래의 SQL도 Task 7과 같은 이유로 조각 0 시점 초안이며, 실제 최종본이 아니다.** 시드는 `university_email_domains` 분리에 맞춰 다시 쓰고, 기본 위치는 `supabase/seed.sql` 하나로 둔다(2026-09-13 결정 — `seeds/` 폴더를 쓰려면 `config.toml`에 `[db.seed] sql_paths` 를 추가해야 하지만 기본값이면 충분하다).
 >
 > **실제로는 `supabase/seed.sql`(서울권 대학 20개)과 `supabase/tests/rls_slice0_test.sql`(pgTAP 21개 항목)을 작성 완료했고, 분석 검수·최종 검토·재검수를 모두 통과했다(2026-09-13).** pgTAP은 작성만 하고 아직 실행하지 않았다. Supabase 클라우드 프로젝트에는 쓰기(마이그레이션 적용·`db push`·`supabase link`·쓰기 `execute_sql`)를 하지 않았다 — 사용자가 ERD 그림을 검토·승인하기 전까지는 금지한다. 아래 SQL은 조각 0 당시의 기록으로만 남긴다 — 실제 최종 SQL은 `supabase/seed.sql`·`supabase/tests/rls_slice0_test.sql`을 본다.
+>
+> **실제 적용 기록(2026-09-14).** 위 기록 뒤 조각 0 이 클라우드에 적용됐다. `supabase login` · `link` · `db push` 없이 마이그레이션 4개는 MCP 플러그인 `apply_migration`, `supabase/seed.sql` 은 `execute_sql` 로 넣었다(원격 버전 · 읽기 검증 결과는 Task 7 Step 6). pgTAP 은 여전히 실행하지 않았다(Docker 없음, ERD §12-35).
 
 **Files:**
 
@@ -1938,7 +1942,7 @@ git checkout develop
 - [ ] `flutter analyze` 가 `No issues found!` 를 출력한다
 - [ ] `flutter test` 전체가 통과한다 (Task 3·4·5·6의 테스트 포함)
 - [ ] 앱이 Android에서 실행되고 로그인 자리 화면까지 도달한다
-- [ ] `supabase db push` 로 마이그레이션이 빈 DB에 처음부터 적용된다
+- [ ] `supabase db push` 로 마이그레이션이 빈 DB에 처음부터 적용된다 (실제는 MCP apply 로 대체, ERD §12-33)
 - [ ] `rls_profiles_test.sql` 이 "RLS 검증 통과" 를 출력한다
 - [ ] `universities` 에 서울권 20개 대학이 들어 있다
 - [ ] 루트에 `CLAUDE.md` 가 있다
