@@ -75,6 +75,7 @@ select is_empty(
 -- 테이블 단위(relacl)와 컬럼 단위(attacl, "테이블.컬럼" 으로 표시), PUBLIC 에 준 권한까지 본다.
 -- 모든 테이블의 anon · authenticated 쓰기 42501 은 이 검사로 보장하고, 아래 3 · 4 에서 대표로 확인한다.
 -- 테이블이나 컬럼 grant 를 추가하면 이 기대값도 ERD §2 표대로 함께 고친다.
+-- `supabase test db` 는 모든 조각의 마이그레이션이 올라간 DB 에서 도므로 조각 1 의 profile_private 도 여기 들어간다.
 select results_eq(
   $$select g.object_name, g.grantee, g.privilege_type
       from (
@@ -105,6 +106,12 @@ select results_eq(
       ('profile_photos', 'service_role', 'INSERT'),
       ('profile_photos', 'service_role', 'SELECT'),
       ('profile_photos', 'service_role', 'UPDATE'),
+      ('profile_private', 'service_role', 'DELETE'),
+      ('profile_private', 'service_role', 'INSERT'),
+      ('profile_private', 'service_role', 'SELECT'),
+      ('profile_private', 'service_role', 'UPDATE'),
+      ('profile_private.profile_id', 'authenticated', 'SELECT'),
+      ('profile_private.real_name', 'authenticated', 'SELECT'),
       ('profiles', 'authenticated', 'SELECT'),
       ('profiles', 'service_role', 'DELETE'),
       ('profiles', 'service_role', 'INSERT'),
