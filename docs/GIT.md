@@ -45,6 +45,7 @@
 - **타입은 영문 소문자, 설명은 한국어**
 - scope 는 기능 패키지명: `auth`, `profile`, `matching`, `chat`, `safety`, `billing`, `core`, `design`, `docs`, `supabase`(Supabase 설정·문서), `slice<N>`(마이그레이션 조각, 예 `slice1`)
   - 백엔드 작업은 `backend`, 저장소 구조·설정 작업은 scope 를 생략한다
+  - 문서 작업은 문서 이름을 scope 로 쓴다 (예: `docs(git)` · `docs(erd)` · `docs(plan)`)
 
 ---
 
@@ -145,11 +146,11 @@ Claude 는 작업이 끝나면 **커밋 → 푸시 → draft PR 생성까지 진
 ### 5.4 PR 규칙
 
 ```bash
-gh pr create --draft --base main --title "<이모지> <타입>: <요약>" --body "..."
+gh pr create --draft --base main --title "<이모지> <타입>(<scope>): <요약>" --body "..."
 ```
 
 - **항상 `--draft`** 로 만든다. 리뷰·merge 는 사용자가 한다
-- 제목은 커밋과 같은 형식 (`<이모지> <타입>: <요약>`)
+- 제목은 커밋과 같은 형식 (`<이모지> <타입>(<scope>): <요약>`)
 - 본문에는 **변경 요약** 과 **사용자가 확인해야 할 지점** 을 적는다
 - base 브랜치는 `main`
 
