@@ -8,7 +8,7 @@
 - **코드/네이밍**: 영어 / **주석·설명·문서**: 한국어
 
 > ⚠️ **이 저장소는 공개(public)다.** `github.com/Ju-unn/Campus_mate_compose` 단일 저장소이고,
-> 이 문서가 있는 `frontend/` 가 Flutter 프로젝트 루트다 (`backend/` 는 FastAPI 자리, `docs/` 는 공통 문서).
+> 이 문서가 있는 `frontend/` 가 Flutter 프로젝트 루트다 (`backend/` 는 FastAPI 자리, `docs/` 는 공통 문서, `supabase/` 는 마이그레이션·시드·pgTAP 자리 — 셋 다 저장소 루트에 있고 `frontend/` 안이 아니다).
 > 키·`.env`·실존 인물 사진을 커밋하지 않는다. 자세한 규칙은 `../docs/GIT.md`.
 >
 > ℹ️ 디자인 원본(`datingApp.pen`, 시안 미리보기, 경쟁사 리서치)은 이 저장소에 없다. OneDrive `datingApp`
@@ -28,7 +28,7 @@
 8. **새 의존성 추가는 사전에 사용자에게 확인할 것.**
 9. **git 작업(브랜치·커밋·푸시·PR) 전에 `../docs/GIT.md` 를 먼저 읽을 것.** 커밋 메시지는 gitmoji + Conventional Commits 형식, `main` 직접 푸시 금지, 커밋→푸시→draft PR 까지만 하고 merge 는 사용자가 한다.
 10. **코드베이스를 탐색하기 전에 지식 그래프를 먼저 조회할 것** (`../docs/GRAPHIFY.md`). "X 는 어디서 쓰이나", "흐름 추적" 같은 질문은 `python -m graphify query` 가 먼저다. Grep·Read 로 뒤지는 건 그래프가 답을 못 줄 때만. **문서를 고친 작업 끝에는 `/graphify . --update` 를 실행**한다 (코드는 커밋 hook 이 자동 갱신).
-11. **Supabase 작업(스키마·RLS·Storage·Auth) 전에 §10.1 을 먼저 읽을 것.** 스키마 변경은 반드시 `supabase/migrations/*.sql` 파일로 남기고, 프로젝트 URL·키·ref 는 문서와 코드에 쓰지 않는다.
+11. **Supabase 작업(스키마·RLS·Storage·Auth) 전에 §10.1 을 먼저 읽을 것.** 스키마 변경은 반드시 저장소 루트 `supabase/migrations/*.sql` 파일로 남기고, 프로젝트 URL·키·ref 는 문서와 코드에 쓰지 않는다.
 
 ---
 
@@ -46,11 +46,11 @@
 | 벡터 검색 | PostgreSQL + pgvector |
 | 임베딩 | OpenAI `text-embedding-3-small` (512차원) |
 | 인증 | 대학 이메일 6자리 인증코드 (비밀번호 없음) + **학생증 또는 졸업증명서 사진 검증** |
-| 가입 자격 | **만 19세 이상**, 재학생·졸업생 모두 가능. 앱 등급 19+ (설계 문서 §13 미결1·2) |
+| 가입 자격 | **연 나이 기준 만 19세 이상**(만 19세가 되는 해 1월 1일부터, 청소년보호법 방식, Asia/Seoul 기준 — 2026-09-13 확정, ERD.md §11-1), 재학생·졸업생 모두 가능. 앱 등급 19+ (설계 문서 §13 미결1) |
 | 핵심 형태 | **가변 주기 큐레이션 카드(초기 주 2회 → 확대) + 상호 수락 + 매칭 후 신뢰 확인 게이트** |
 | 핵심 차별점 | **지인 리뷰** — 추천 코드로 연결된 지인이 남긴 평가를 카드에 노출 (설계 문서 §2.8) |
 | 출시 방식 | **학교별 코호트 순차 오픈** — 14일 모집 후 예고한 날짜에 카드 지급 시작 (설계 문서 §2.9) |
-| 수익 모델 | 가입비 없음(남녀 동일 무료). **하트 1개 = 40원**, 추가 카드 50하트(**구매 시점은 자유, 지급 주기당 1장**), 아바타 재생성 10하트 (설계 문서 §2.4) |
+| 수익 모델 | 가입비 없음(남녀 동일 무료). **하트 1개 = 60원**(2026-09-14 가격 개편, 종전 40원 폐기 — 설계 문서 §13-114), 추가 카드 50하트(**구매 시점은 자유, 지급 주기당 1장**), 아바타 재생성 10하트 (설계 문서 §2.4) |
 | 채팅 상한 | **없음** — 매칭 후 24h/48h 신뢰 확인 게이트가 방치된 대화를 정리 (설계 문서 §2.5). **채팅은 텍스트만, 이미지 전송 불가** |
 
 **현재 상태: 조각 0(기반 공사) 진행 중 — 계획서 Task 2 까지 완료.** `flutter create`, 기능별 패키지 골격, 패키지 ID(`io.github.juunn.campusmate`), 의존성 6개, iOS 사진·카메라 권한 문구까지 끝났다.
@@ -202,7 +202,7 @@ if (status == statusPending) { ... }   // 대기 상태일 때만 처리
   - **예외: 하트 재화 글리프.** 잔액·번들·리워드·CTA·아바타 코스트·설정 보유하트 등 "재화" 의미의 하트는 Lucide 가 아니라 이미지 자산 `assets/images/heart-flat-vector-v3.png` 를 쓴다 (2026-09-10, DESIGN.md §5.4·§8.10). 바텀 내비 오늘 탭·호감 하트·매칭 기록 등 비(非)재화 하트는 계속 Lucide `heart`. 재화 글리프는 다크 배경에서도 읽히는 렌더 + `@2x`/`@3x` 자산 + `Semantics(label: '하트')` 를 갖춘다
 - **버튼 라벨은 18/700.** `{colors.primary}` (#FF385C) 위 흰 글씨는 대비 3.52:1 이라 **큰 글씨 예외에 의존한다.** 이보다 작게 쓰면 접근성 기준에 미달한다 (DESIGN.md §2.1)
 - **`{colors.primary}` 는 채움 전용.** 흰 배경 위 텍스트에는 `{colors.primary-text}` (#C4224B) 를 쓴다
-- **사용자는 전 화면에서 닉네임으로만 표시한다. 실명(`real_name`)은 서버 응답에 담지 않는다** (2026-09-10 개정, DESIGN.md §8.7 · 설계 문서 §7 예외 2). 실명은 학생증 OCR 대조·운영 조회 전용이고 본인만 설정에서 조회한다. 예전 `김○○` 마스킹 방식은 폐기
+- **사용자는 전 화면에서 닉네임으로만 표시한다. 실명(`real_name`)은 서버 응답에 담지 않는다** (2026-09-10 개정, DESIGN.md §8.7 · 설계 문서 §7.3, ERD.md §11-2 — "설계 문서 §7 예외 2"는 설계 문서에 없는 참조였다). 실명은 `3b`에서 입력받아 `profile_private.real_name`(민감 컬럼)에만 저장하고, 학생증 대조와 본인 조회(16e) 전용이다. 예전 `김○○` 마스킹 방식은 폐기
 - **`MediaQuery.disableAnimations` 를 존중한다.** 켜져 있으면 모든 모션 시간을 0으로 만들고 최종 상태를 즉시 그린다
 - 문자열은 하드코딩하지 않는다
 
@@ -218,7 +218,7 @@ if (status == statusPending) { ... }   // 대기 상태일 때만 처리
 | Repository | `test/` | 인터페이스 뒤 **Fake 구현**으로 검증 |
 | ViewModel | `test/` | Riverpod 컨테이너 + Fake repository |
 | 화면 · 위젯 | `test/` | `testWidgets` 위젯 테스트 |
-| **RLS 정책** | `supabase/tests/` | **다른 사용자로 조회 시 0행인지 SQL 로 검증** |
+| **RLS 정책** | `../supabase/tests/` | **다른 사용자로 조회 시 0행인지 SQL 로 검증** |
 
 마지막 항목을 별도로 두는 이유: **RLS 는 틀려도 앱이 정상 동작한다.** 테스트가 없으면 유출을 출시 후에야 알게 된다.
 
@@ -260,7 +260,7 @@ flutter analyze                  # 정적 분석
 flutter build apk --debug
 ```
 
-Supabase 마이그레이션:
+Supabase 마이그레이션(**저장소 루트**에서 실행 — `supabase/` 가 `frontend/` 밖에 있다):
 
 ```powershell
 supabase db reset                # 빈 DB 에 마이그레이션 처음부터 적용
@@ -283,22 +283,24 @@ Supabase **MCP 플러그인(`supabase`)이 설치·인증돼 있다.** 클라우
 
 **스키마 변경 = 마이그레이션 파일**
 
-- 모든 스키마 변경은 `supabase/migrations/<timestamp>_<name>.sql` 로 저장소에 남긴다 (설계 문서 §5.4). 대시보드·`execute_sql` 로 DDL 을 손으로 실행하지 않는다
-- 파일 이름은 `supabase migration new <name>` 으로 만든다. 직접 지어내지 않는다
+- **`supabase/` 는 저장소 루트에 있다(`../supabase/`), `frontend/` 안이 아니다**(2026-09-13 사용자 결정). 모든 스키마 변경은 `../supabase/migrations/<timestamp>_<name>.sql` 로 저장소에 남긴다 (설계 문서 §5.4). 대시보드·`execute_sql` 로 DDL 을 손으로 실행하지 않는다
+- 파일 이름은 `supabase migration new <name>` 으로 만든다(저장소 루트에서 실행). 직접 지어내지 않는다
 - 클라우드 적용은 `supabase db push`, 또는 MCP `apply_migration` 에 **그 파일 내용을 그대로** 넘긴다 (파일 ↔ 원격 이력 1:1)
 - 적용 직후 MCP `get_advisors`(security · performance)를 돌려 경고를 0 으로 만든다
 - 프로덕션 DB 에서 `execute_sql` 은 **읽기 전용 조회**에만 쓴다
 
-**RLS 체크리스트 (정책 SQL 을 쓸 때마다)**
+**RLS 체크리스트 (정책 SQL 을 쓸 때마다)** — 테이블별 실제 접근 표는 `docs/ERD.md` §2 가 기준이다
 
 - `public` 스키마의 모든 테이블은 RLS 를 켠다
 - 정책은 `to authenticated` + `using ((select auth.uid()) = user_id)` 꼴. `auth.uid()` 는 항상 `(select …)` 로 감싼다
-- `auth.role()` 은 쓰지 않는다(deprecated). `to authenticated` 만으로는 인가가 아니다 — 소유자 조건을 반드시 붙인다
+- `auth.role()` 은 쓰지 않는다(deprecated). `to authenticated` 만으로는 인가가 아니다 — **소유자 조건을 반드시 붙인다.** 예외는 공개 참조 테이블 4개뿐이다: `universities`·`university_email_domains`·`region_group_settings`·`faq`. 이 중 `anon` 까지 여는 건 앞의 2개(`universities`·`university_email_domains`)뿐이고, 나머지 둘은 `authenticated` 전체까지만 연다(ERD.md §2)
 - UPDATE 정책은 `using` + `with check` 둘 다 쓴다. UPDATE 는 SELECT 정책이 있어야 동작한다
 - `user_metadata` 로 권한을 판단하지 않는다(사용자가 수정 가능). 권한 데이터는 `app_metadata`
 - `security definer` 함수는 쓰지 않는다(권한 오류 우회용 금지). 뷰는 `with (security_invoker = true)`
-- Storage upsert 는 INSERT + SELECT + UPDATE 정책 3개가 다 있어야 한다
-- RLS 테스트는 pgTAP (`supabase/tests/*.sql`) — 다른 사용자로 조회 시 0행 (§8)
+- **클라이언트 쓰기 정책은 두지 않는다.** 쓰기는 전부 FastAPI가 `service_role`로 한다(2026-09-13 확정, ERD.md §11-8). `anon`·`authenticated`에는 INSERT·UPDATE·DELETE 권한 자체를 주지 않는다(42501로 끝난다)
+- **grant는 RLS와 같은 마이그레이션에 둔다.** 새 테이블에 `anon`·`authenticated` 권한이 자동으로 붙는지는 프로젝트 설정마다 달라 믿지 않는다 — 테이블마다 `revoke all ... from anon, authenticated, service_role` 뒤에 ERD.md §2 표대로 `anon`·`authenticated`에는 필요한 `select`만 주고, `service_role`에는 `select`·`insert`·`update`·`delete`를 모두 준다. `service_role`까지 revoke하는 이유는 자동 grant 여부(프로젝트 설정·적용 시점)와 상관없이 결과를 같게 만들기 위해서다
+- ~~Storage upsert 는 INSERT + SELECT + UPDATE 정책 3개가 다 있어야 한다~~ → **클라이언트 Storage 정책은 두지 않는다.** 업로드·조회는 FastAPI가 발급하는 서명 업로드 URL·서명 URL로만 한다(2026-09-13 확정, ERD.md §9·§11-8)
+- RLS 테스트는 pgTAP (`../supabase/tests/*.sql`) — 다른 사용자로 조회 시 0행뿐 아니라, `anon`·`authenticated`·`service_role`·`PUBLIC`의 테이블·컬럼 권한(ACL), Storage 버킷·정책, 탈퇴 cascade까지 표대로 맞는지 검사한다. 기대값 기준은 ERD.md §2 (§8)
 
 **pgvector**
 

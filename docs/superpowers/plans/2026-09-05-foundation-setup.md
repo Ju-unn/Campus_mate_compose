@@ -4,7 +4,7 @@
 
 **Goal:** CampusMate 앱의 뼈대를 세운다 — Flutter 프로젝트, 공용 기반 코드, Supabase 스키마와 권한, 코딩 규칙 문서까지. 빈 화면이 뜨고 DB가 준비된 상태에서 끝난다.
 
-**Architecture:** 기능별 최상위 패키지 아래 `model / view / viewmodel` 3단으로 나누는 MVVM. 상태 관리는 Riverpod, 라우팅은 go_router. **백엔드는 FastAPI(비즈니스 로직) + Supabase(Auth·DB·RLS·Storage) 로 나눈다(2026-09-12 확정, 설계 문서 §1·§7·§13 미결38).** 다만 이 조각 0 범위는 여전히 Flutter 프로젝트 뼈대 + Supabase 스키마/RLS뿐이다 — FastAPI 서버 자체는 그 로직이 처음 필요해지는 조각(매칭·결제)에서 시작한다. 화면과 무관한 판단 로직(라우팅 리다이렉트, 설정 검증)은 순수 Dart 클래스로 분리해 위젯 없이 테스트한다.
+**Architecture:** 기능별 최상위 패키지 아래 `model / view / viewmodel` 3단으로 나누는 MVVM. 상태 관리는 Riverpod, 라우팅은 go_router. **백엔드는 FastAPI(비즈니스 로직) + Supabase(Auth·DB·RLS·Storage) 로 나눈다(2026-09-12 확정, 설계 문서 §1·§7·§13 미결38).** 다만 이 조각 0 범위는 여전히 Flutter 프로젝트 뼈대 + Supabase 스키마/RLS뿐이다 — FastAPI 서버 자체는 그 로직이 처음 필요해지는 조각에서 시작한다는 원칙은 그대로이되, ~~(매칭·결제)~~ → **조각 1부터다(2026-09-13 확정, ERD.md §11-8)**: 클라이언트 쓰기가 전부 FastAPI를 거치는 구조(설계 문서 §7.1)라 이메일 인증 직후 `profiles` 생성과 `3b` 학생증 OCR부터 이미 FastAPI가 필요하다. 화면과 무관한 판단 로직(라우팅 리다이렉트, 설정 검증)은 순수 Dart 클래스로 분리해 위젯 없이 테스트한다.
 
 **Tech Stack:** Flutter (Dart), Riverpod, go_router, supabase_flutter, PostgreSQL + pgvector, mocktail
 
@@ -49,10 +49,12 @@
 | `lib/core/router/auth_redirect.dart`          | 로그인 여부에 따른 이동 판단 (순수 로직)                   |
 | `lib/core/router/app_router.dart`             | go_router 구성                                             |
 | `lib/core/router/placeholder_screens.dart`    | 스플래시·로그인·홈 자리 화면                               |
-| `supabase/migrations/*.sql`                   | 테이블·RLS·Storage 버킷                                    |
-| `supabase/seeds/seoul_universities.sql`       | 서울권 대학 도메인 시드                                    |
-| `supabase/tests/rls_profiles_test.sql`        | RLS가 남의 행을 막는지 검증                                |
+| `supabase/migrations/*.sql`¹                  | 테이블·RLS·Storage 버킷                                    |
+| `supabase/seed.sql`¹                          | 서울권 대학 도메인 시드                                    |
+| `supabase/tests/*.sql`¹                       | RLS가 남의 행을 막는지 검증(pgTAP)                         |
 | `CLAUDE.md`                                   | 이 프로젝트의 코딩 규칙 (Dart 기준)                        |
+
+¹ **`supabase/` 는 저장소 루트 기준이다** — 위의 `lib/`·`test/`·`CLAUDE.md` 와 달리 `frontend/` 안이 아니다(2026-09-13 사용자 결정). Task 7·8은 이 경로로 작업한다.
 
 **분리 원칙**: `supabase_config.dart` 는 값 검증만 하고 `supabase_initializer.dart` 가 실제 초기화를 맡는다. 이렇게 나눠야 설정 검증을 네트워크 없이 테스트할 수 있다. 같은 이유로 `auth_redirect.dart` 를 `app_router.dart` 에서 떼어냈다.
 
@@ -1253,6 +1255,10 @@ git commit -m "feat(core): 라우팅 골격과 인증 리다이렉트 추가
 
 ## Task 7: Supabase 스키마와 RLS 정책
 
+> ⚠️ **이 Task 아래의 SQL은 조각 0 시점(설계 문서 §5.3) 초안이며, 실제 최종본이 아니다.** `docs/ERD.md` v3(2026-09-13 검수 통과)가 스키마 기준을 크게 바꿨다 — `hide_same_major` 삭제·`admission_year` 추가, `email_domain` → `university_email_domains` 분리, 클라이언트 INSERT·UPDATE 정책 제거(쓰기는 전부 FastAPI), Storage 정책 제거(서명 URL로 대체), `auth.uid()` → `(select auth.uid())`, grant를 RLS와 같은 마이그레이션에 명시 추가 등.
+>
+> **사이클 B에서 `docs/ERD.md` §2·§10을 기준으로 마이그레이션을 새로 작성했다(완료).** 실제 산출물은 `supabase/migrations/` 4개(universities, profiles, profile_photos, 비공개 Storage 버킷)이며, 분석 검수·최종 검토·재검수를 모두 통과했다(2026-09-13). 아래 SQL은 조각 0 당시의 기록으로만 남긴다 — 실제 최종 SQL은 `supabase/migrations/`를 본다. Supabase 클라우드에는 아직 적용하지 않았다. 사용자가 ERD 그림을 검토·승인하기 전까지는 적용을 금지한다.
+
 **Files:**
 
 - Create: `supabase/migrations/20260905000001_create_universities.sql`
@@ -1271,15 +1277,15 @@ git commit -m "feat(core): 라우팅 골격과 인증 리다이렉트 추가
 - [ ] **Step 1: Supabase 프로젝트 초기화와 연결**
 
 ```bash
-cd "C:/Users/home/AndroidStudioProjects/campus_mate_compose/frontend"
+cd "C:/Users/home/AndroidStudioProjects/campus_mate_compose"
 npx --yes supabase init
 npx --yes supabase login
 npx --yes supabase link --project-ref <프로젝트 참조 ID>
-mkdir -p supabase/seeds supabase/tests
+mkdir -p supabase/tests
 ```
 
-`<프로젝트 참조 ID>` 는 Supabase 대시보드 URL의 `https://supabase.com/dashboard/project/여기` 부분이다.
-`supabase init` 이 `supabase/migrations` 와 `config.toml` 을 만들고, `seeds` 와 `tests` 는 직접 추가한다.
+**`frontend/` 가 아니라 저장소 루트에서 실행한다**(2026-09-13 사용자 결정 — File Structure 각주 참조). `<프로젝트 참조 ID>` 는 Supabase 대시보드 URL의 `https://supabase.com/dashboard/project/여기` 부분이다.
+`supabase init` 이 `supabase/migrations` 와 `config.toml` 을 만든다. 시드는 기본 위치인 `supabase/seed.sql` 하나만 쓰고(2026-09-13 결정), `tests`는 직접 추가한다.
 
 - [ ] **Step 2: universities 마이그레이션 작성**
 
@@ -1317,9 +1323,9 @@ create policy "universities are readable by everyone"
 > **범위 주의 (2026-09-10 갱신).** 이 마이그레이션은 조각 0 시점에 알던 컬럼만 담는다. 이후
 > 스펙(§5.3)에서 확정됐지만 **여기 없는 컬럼은 해당 조각에서 추가**한다(스펙 §5.4 원칙):
 > - `phone_number`(평문·필수), `real_name`(평문·필수), `student_id_verified` → **조각 1** (§5.3·§7 예외 1·2·§7.3)
-> - `preferred_age_min`/`preferred_age_max` → 조각 4 (§13 미결32)
+> - `preferred_age_min`/`preferred_age_max` → 조각 4 (~~§13 미결32~~ → §13 미결28, 나이계수 감점 방식으로 해결. 2026-09-13, 문서 정정 — ERD.md §13)
 > - `is_smoker`, `animal_type`, `impression_type`, `preferred_animal_types`,
->   `preferred_impression_types` → 조각 2·3 (§6.6a, §13 미결36)
+>   `preferred_impression_types` → 조각 2·3 (§6.6a·§6.6b, ~~§13 미결36~~ → DESIGN.md §13-49, 상호 매칭 확정. 2026-09-13, 문서 정정 — ERD.md §13. 미결36은 HMAC 키 교체 절차로 무관한 참조였다)
 > - `nickname_changed_at`(30일 1회 변경 제한 추적) → 조각 2
 >
 > `ideal_description`은 폐기됐다(§6.3, `ideal_text` 임베딩과 함께). 아래 SQL에서 제외한다.
@@ -1534,10 +1540,14 @@ git commit -m "feat(core): Supabase 스키마와 RLS 정책 추가
 
 ## Task 8: 서울권 대학 시드와 RLS 검증
 
+> ⚠️ **이 Task 아래의 SQL도 Task 7과 같은 이유로 조각 0 시점 초안이며, 실제 최종본이 아니다.** 시드는 `university_email_domains` 분리에 맞춰 다시 쓰고, 기본 위치는 `supabase/seed.sql` 하나로 둔다(2026-09-13 결정 — `seeds/` 폴더를 쓰려면 `config.toml`에 `[db.seed] sql_paths` 를 추가해야 하지만 기본값이면 충분하다).
+>
+> **실제로는 `supabase/seed.sql`(서울권 대학 20개)과 `supabase/tests/rls_slice0_test.sql`(pgTAP 21개 항목)을 작성 완료했고, 분석 검수·최종 검토·재검수를 모두 통과했다(2026-09-13).** pgTAP은 작성만 하고 아직 실행하지 않았다. Supabase 클라우드 프로젝트에는 쓰기(마이그레이션 적용·`db push`·`supabase link`·쓰기 `execute_sql`)를 하지 않았다 — 사용자가 ERD 그림을 검토·승인하기 전까지는 금지한다. 아래 SQL은 조각 0 당시의 기록으로만 남긴다 — 실제 최종 SQL은 `supabase/seed.sql`·`supabase/tests/rls_slice0_test.sql`을 본다.
+
 **Files:**
 
-- Create: `supabase/seeds/seoul_universities.sql`
-- Create: `supabase/tests/rls_profiles_test.sql`
+- Create: `supabase/seed.sql`
+- Create: `supabase/tests/*.sql`(pgTAP)
 
 **Interfaces:**
 
