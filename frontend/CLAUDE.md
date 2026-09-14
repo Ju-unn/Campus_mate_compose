@@ -269,7 +269,7 @@ supabase test db                 # RLS 정책 SQL 테스트
 
 ### 10.1 Supabase 작업 규칙
 
-Supabase **MCP 플러그인(`supabase`)이 설치·인증돼 있다.** 클라우드 프로젝트는 `campus_mate`(조직 CampusMate, Seoul) 하나뿐이고, 아직 테이블·마이그레이션이 없다. 로컬 스택(Docker)은 없으므로 적용 대상은 항상 이 클라우드 프로젝트다.
+Supabase **MCP 플러그인(`supabase`)이 설치·인증돼 있다.** 클라우드 프로젝트는 `campus_mate`(조직 CampusMate, Seoul) 하나뿐이다. 조각 0(테이블 4·RLS·정책 4·private 버킷 `profile-photos`·seed 20행)은 2026-09-14 사용자 승인 후 적용됐고, 조각 1 이후는 미적용이다(현재 상태는 `docs/ERD.md` 상태줄 기준). 로컬 스택(Docker)은 없으므로 적용 대상은 항상 이 클라우드 프로젝트다.
 
 **시작할 때**
 
@@ -285,7 +285,7 @@ Supabase **MCP 플러그인(`supabase`)이 설치·인증돼 있다.** 클라우
 
 - **`supabase/` 는 저장소 루트에 있다(`../supabase/`), `frontend/` 안이 아니다**(2026-09-13 사용자 결정). 모든 스키마 변경은 `../supabase/migrations/<timestamp>_<name>.sql` 로 저장소에 남긴다 (설계 문서 §5.4). 대시보드·`execute_sql` 로 DDL 을 손으로 실행하지 않는다
 - 파일 이름은 `supabase migration new <name>` 으로 만든다(저장소 루트에서 실행). 직접 지어내지 않는다
-- 클라우드 적용은 `supabase db push`, 또는 MCP `apply_migration` 에 **그 파일 내용을 그대로** 넘긴다 (파일 ↔ 원격 이력 1:1)
+- 클라우드 적용은 MCP `apply_migration` 에 **그 파일 내용을 그대로** 넘긴다(2026-09-14 사용자 결정, ERD §12-33). `apply_migration` 은 원격 버전을 적용 시각으로 찍어 파일명과 다르므로 `supabase db push`·`migration list` 는 `migration repair` 없이는 쓸 수 없고, repair 도 클라우드 쓰기라 사용자 승인이 필요하다. 클라우드 쓰기는 매번 사용자가 직접 승인한 뒤에만 한다.
 - 적용 직후 MCP `get_advisors`(security · performance)를 돌려 경고를 0 으로 만든다
 - 프로덕션 DB 에서 `execute_sql` 은 **읽기 전용 조회**에만 쓴다
 

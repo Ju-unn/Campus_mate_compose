@@ -557,7 +557,7 @@ enum 값은 만든 뒤 지울 수 없다(추가·이름 변경만 된다). 그�
 | `heart-task-proofs` | 비공개 | 7 | 무료 하트 인증샷 |
 | `student-id-temp` | 비공개 | 1 제안 | 학생증 사진. 자동 대조 실패 시 사람이 재검토해야 해서(설계 §7.3) **검증이 끝날 때까지만 임시 보관하고, 끝나면 즉시 삭제**한다. 검증이 끝나기 전에 탈퇴한 사람의 파일은 탈퇴 즉시(30일 보관 예외, §11-19), 가입 도중 이탈한 사람의 파일도 FastAPI 가 지운다(이탈 판단 시점은 조각 1에서 정한다) |
 
-## 10. 조각 0 마이그레이션 범위 (다음 사이클 SQL 입력)
+## 10. 조각 0 마이그레이션 범위 (2026-09-14 클라우드 적용 완료 · 실제 SQL 은 `supabase/migrations/` 4개 파일)
 
 - 첫 마이그레이션 맨 앞에서 `create extension if not exists vector with schema extensions;` (frontend/CLAUDE.md §10.1). 조각 3에서 벡터 컬럼을 만들 때는 타입을 `extensions.vector` 로 쓰거나 `search_path` 에 `extensions` 가 있는지 확인한다
 - `universities` — 코호트 컬럼 제외. `university_email_domains` 함께 생성(학교당 도메인 여러 개)
