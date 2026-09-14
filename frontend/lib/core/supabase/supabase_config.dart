@@ -28,7 +28,7 @@ class SupabaseConfig {
 
   /// Supabase 클라이언트를 실제로 초기화한다.
   Future<void> connect() {
-    // supabase_flutter 2.17 부터 anonKey 매개변수는 deprecated 다.
+    // supabase_flutter 2.13 부터 anonKey 매개변수는 deprecated 다.
     // publishableKey 와 같은 자리라서 legacy anon 키를 넣어도 똑같이 동작한다.
     return Supabase.initialize(url: _url, publishableKey: _anonKey);
   }

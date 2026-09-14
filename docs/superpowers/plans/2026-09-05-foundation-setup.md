@@ -99,7 +99,8 @@ flutter doctor -v
 ```
 
 기대 결과: `Flutter`, `Android toolchain`, `Android Studio` 항목이 체크(✓)로 표시된다.
-Flutter 3.47.3 은 Android Studio 항목을 따로 보이지 않음 — Android toolchain 의 Java binary 가 Android Studio\jbr 인지로 확인
+Flutter 3.47.3 은 Android Studio 항목을 따로 보이지 않음 — Android toolchain 의 Java binary 가 Android Studio\jbr 인지로 확인한다.
+
 `Android license status unknown` 이 뜨면 `flutter doctor --android-licenses` 로 라이선스에 동의한다.
 `Visual Studio` / `Xcode` 항목의 경고는 무시한다 (Windows 데스크톱·iOS 로컬 빌드를 하지 않는다).
 
@@ -803,7 +804,7 @@ class SupabaseConfig {
 }
 ```
 
-- [x] **Step 4: 테스트 통과 확인** — 완료 (5 tests PASS)
+- [x] **Step 4: 테스트 통과 확인** — 완료 (5 tests PASS. 초기화 테스트 1개 추가(CLAUDE.md §1-7))
 
 ```bash
 flutter test test/core/supabase/supabase_config_test.dart
