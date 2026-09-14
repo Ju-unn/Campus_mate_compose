@@ -8,7 +8,7 @@
 | --- | --- |
 | 저장소 | `github.com/Ju-unn/Campus_mate_compose` (단일 저장소) |
 | 공개 범위 | **public** |
-| 구조 | `frontend/`(Flutter 앱) · `backend/`(FastAPI, 조각 4에서 시작) · `docs/`(공통 문서) |
+| 구조 | `frontend/`(Flutter 앱) · `backend/`(FastAPI, 조각 1에서 시작) · `docs/`(공통 문서) |
 
 > ⚠️ **공개 저장소다.** 한 번 푸시하면 히스토리·캐시·크롤러에 남아 되돌리기 어렵다.
 >
@@ -43,7 +43,7 @@
 - **이모지는 유니코드로 직접 넣는다** (`✨`). `:sparkles:` 코드는 GitHub 웹에서만 렌더링되고 `git log` 에서는 그대로 보인다
 - **한 커밋에 이모지는 하나.** 두 개가 필요하면 커밋을 나눈다 (기능 `✨` → 테스트 `✅` → 문서 `📝`)
 - **타입은 영문 소문자, 설명은 한국어**
-- scope 는 기능 패키지명: `auth`, `profile`, `matching`, `chat`, `safety`, `billing`, `core`, `design`, `docs`, `supabase`(Supabase 설정·문서), `slice<N>`(마이그레이션 조각, 예 `slice1`)
+- scope 는 기능 패키지명: `auth`, `profile`, `matching`, `chat`, `safety`, `billing`, `core`, `design`, `supabase`(`supabase/` 의 config · seed · tests 등 마이그레이션 외 설정), `slice<N>`(마이그레이션 조각, 예 `slice1`)
   - 백엔드 작업은 `backend`, 저장소 구조·설정 작업은 scope 를 생략한다
   - 문서 작업은 문서 이름을 scope 로 쓴다 (예: `docs(git)` · `docs(erd)` · `docs(plan)`)
 
