@@ -1,6 +1,6 @@
 # CampusMate DB ERD
 
-> **상태: 초안 v3 (2026-09-13 ~ 09-14) · 2차 검수 반려 반영 · 최종 검토 반영 · 탈퇴 정책 결정 반영 · 조각 0 Supabase 적용 완료(2026-09-14, MCP apply_migration + seed) · 조각 1 초안 작성, 미적용.** 조각 0 은 `supabase/migrations/` 4개 + `seed.sql` 로 적용됐다. 조각 1 은 마이그레이션 초안 5개(`20260914055607` ~ `061304`)와 `supabase/tests/rls_slice1_test.sql` 을 작성만 했다(2026-09-14, 클라우드 미적용 · pgTAP 미실행). 조각 2 이후는 파일 없음.
+> **상태: 초안 v3 (2026-09-13 ~ 09-14) · 2차 검수 반려 반영 · 최종 검토 반영 · 탈퇴 정책 결정 반영 · 조각 0 Supabase 적용 완료(2026-09-14, MCP apply_migration + seed) · 조각 1 초안 작성, 미적용.** 조각 0 은 `supabase/migrations/` 4개 + `seed.sql` 로 적용됐다. 조각 1 은 마이그레이션 초안 6개(`20260914055607` ~ `061821`)와 `supabase/tests/rls_slice1_test.sql` 을 작성만 했다(2026-09-14, 클라우드 미적용 · pgTAP 미실행). 조각 2 이후는 파일 없음.
 > 근거: 설계 문서 `docs/superpowers/specs/2026-09-05-campusmate-foundation-design.md` (§2·§5·§6·§7·§13), `frontend/docs/DESIGN.md` (§5.2·§8·§9), 2026-09-13 ~ 09-14 사용자 결정(§11).
 
 ## 읽는 법
@@ -97,7 +97,7 @@ erDiagram
 - `anon` 은 `universities` · `university_email_domains` 읽기만 된다
 - `profiles` 제약: 온보딩 컬럼 없는 `pending` 행 insert 는 성공, 필수값 없이 `active` 로 바꾸면 check 위반, 대소문자만 다른 닉네임은 unique 위반(§3)
 - `service_role` 은 테이블마다 `select` · `insert` · `update` · `delete` 가 모두 있다. 하나라도 빠지면 FastAPI 쓰기가 깨진다
-- `profile-photos` · `student-id-temp` 버킷은 비공개이고 `storage.objects` 에는 정책이 없다(§9). `student-id-temp` 는 10MB · `image/jpeg` · `image/png` 제한이 걸린다
+- `profile-photos` · `student-id-temp` 버킷은 비공개이고 `storage.objects` 에는 정책이 없다(§9). 두 버킷 모두 10MB · `image/jpeg` · `image/png` 제한이 걸린다(조각 1)
 - 계정 삭제 cascade(탈퇴 30일 뒤, §11-15): `auth.users` 행을 지우면 `profiles` · `profile_photos` · `profile_private` · `student_verification_attempts` 행이 함께 지워진다
 
 ## 3. 계정 · 프로필 (조각 0~3)
@@ -566,7 +566,7 @@ enum 값은 만든 뒤 지울 수 없다(추가·이름 변경만 된다). 그�
 
 | 버킷 | 공개 | 조각 | 내용 |
 | --- | --- | --- | --- |
-| `profile-photos` | 비공개 | 0 | 실사진 2~4장. 서명 URL은 본인과, 신뢰 확인을 통과한 상대에게만 준다. 사진 주인이 탈퇴(`withdrawn`)하면 남은 상대에게도 주지 않는다(§3). 이미 발급한 서명 URL 은 만료까지 열리므로 실사진 서명 URL 만료는 짧게 둔다(조각 5) |
+| `profile-photos` | 비공개 | 0 | 실사진 2~4장. 서명 URL은 본인과, 신뢰 확인을 통과한 상대에게만 준다. 사진 주인이 탈퇴(`withdrawn`)하면 남은 상대에게도 주지 않는다(§3). 이미 발급한 서명 URL 은 만료까지 열리므로 실사진 서명 URL 만료는 짧게 둔다(조각 5). **제한: 파일 10MB · `image/jpeg` `image/png`**(2026-09-14 사용자 결정, 조각 0 파일은 두고 조각 1 마이그레이션에서 추가 · 미적용) — 클라이언트가 업로드 전에 압축하고 JPEG 로 다시 인코딩한다. 파일 내용(매직 바이트) 검사는 FastAPI 가 한다 |
 | `avatars` | 비공개 | 2 | 만화 아바타. 항상 노출되는 이미지라 공개 버킷으로 바꾸자는 안은 설계 §7.4 예외라서 조각 2에서 결정 — 검토2 |
 | `heart-task-proofs` | 비공개 | 7 | 무료 하트 인증샷 |
 | `student-id-temp` | 비공개 | 1 제안 | 학생증 사진. 자동 대조 실패 시 사람이 재검토해야 해서(설계 §7.3) **검증이 끝날 때까지만 임시 보관하고, 끝나면 즉시 삭제**한다. 검증이 끝나기 전에 탈퇴한 사람의 파일은 탈퇴 즉시(30일 보관 예외, §11-19), 가입 도중 이탈한 사람의 파일도 FastAPI 가 지운다(이탈 판단 시점은 조각 1에서 정한다). **제한: 파일 10MB · `image/jpeg` `image/png`**(2026-09-14 사용자 결정) — 클라이언트가 업로드 전에 압축하고 JPEG 로 다시 인코딩한다. 버킷 제한은 업로드 쪽이 신고한 content type 과 크기로만 막으므로(413 · 400), 파일 내용(매직 바이트)은 FastAPI 가 업로드 뒤 대조 전에 검사한다(조각 1 서버) |
