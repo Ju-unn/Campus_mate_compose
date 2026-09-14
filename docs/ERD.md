@@ -1,6 +1,6 @@
 # CampusMate DB ERD
 
-> **상태: 초안 v3 (2026-09-13 ~ 09-14) · 2차 검수 반려 반영 · 최종 검토 반영 · 탈퇴 정책 결정 반영 · 조각 0 Supabase 적용 완료(2026-09-14, MCP apply_migration + seed).** 조각 0 은 `supabase/migrations/` 4개 + `seed.sql` 로 적용됐다. 조각 1 이후는 미적용.
+> **상태: 초안 v3 (2026-09-13 ~ 09-14) · 2차 검수 반려 반영 · 최종 검토 반영 · 탈퇴 정책 결정 반영 · 조각 0 Supabase 적용 완료(2026-09-14, MCP apply_migration + seed) · 조각 1 초안 작성, 미적용.** 조각 0 은 `supabase/migrations/` 4개 + `seed.sql` 로 적용됐다. 조각 1 은 마이그레이션 초안 4개(`20260914055607` ~ `055631`)와 `supabase/tests/rls_slice1_test.sql` 을 작성만 했다(2026-09-14, 클라우드 미적용 · pgTAP 미실행 · `verification_status` 값 사용자 확정 전). 조각 2 이후는 파일 없음.
 > 근거: 설계 문서 `docs/superpowers/specs/2026-09-05-campusmate-foundation-design.md` (§2·§5·§6·§7·§13), `frontend/docs/DESIGN.md` (§5.2·§8·§9), 2026-09-13 ~ 09-14 사용자 결정(§11).
 
 ## 읽는 법
