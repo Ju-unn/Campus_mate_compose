@@ -38,9 +38,9 @@ Supabase **MCP 플러그인(`supabase`)이 설치·인증돼 있다.** 클라우
 - `security definer` 함수는 쓰지 않는다(권한 오류 우회용 금지). 뷰는 `with (security_invoker = true)`
 - **클라이언트 쓰기 정책은 두지 않는다.** 쓰기는 전부 FastAPI가 `service_role`로 한다(2026-09-13 확정, ERD.md §11-8). `anon`·`authenticated`에는 INSERT·UPDATE·DELETE 권한 자체를 주지 않는다(42501로 끝난다)
 - **grant는 RLS와 같은 마이그레이션에 둔다.** 새 테이블에 `anon`·`authenticated` 권한이 자동으로 붙는지는 프로젝트 설정마다 달라 믿지 않는다 — 테이블마다 `revoke all ... from anon, authenticated, service_role` 뒤에 ERD.md §2 표대로 `anon`·`authenticated`에는 필요한 `select`만 주고, `service_role`에는 `select`·`insert`·`update`·`delete`를 모두 준다. `service_role`까지 revoke하는 이유는 자동 grant 여부(프로젝트 설정·적용 시점)와 상관없이 결과를 같게 만들기 위해서다
-- ~~Storage upsert 는 INSERT + SELECT + UPDATE 정책 3개가 다 있어야 한다~~ → **클라이언트 Storage 정책은 두지 않는다.** 업로드·조회는 FastAPI가 발급하는 서명 업로드 URL·서명 URL로만 한다(2026-09-13 확정, ERD.md §9·§11-8)
+- **클라이언트 Storage 정책은 두지 않는다.** 업로드·조회는 FastAPI가 발급하는 서명 업로드 URL·서명 URL로만 한다(2026-09-13 확정, ERD.md §9·§11-8)
 - RLS 테스트는 pgTAP (`supabase/tests/*.sql`) — 다른 사용자로 조회 시 0행뿐 아니라, `anon`·`authenticated`·`service_role`·`PUBLIC`의 테이블·컬럼 권한(ACL), Storage 버킷·정책, 탈퇴 cascade까지 표대로 맞는지 검사한다. 기대값 기준은 ERD.md §2 (`frontend/CLAUDE.md` §8)
 
 ## 6. pgvector
 
-- 아직 꺼져 있다. 대시보드에서 손으로 켜지 않고, Task 7 첫 마이그레이션 맨 앞에서 켠다: `create extension if not exists vector with schema extensions;`
+- 조각 0 첫 마이그레이션(`20260913054542`) 맨 앞에서 `create extension if not exists vector with schema extensions;` 로 켰고, 2026-09-14 클라우드에 적용됐다. 대시보드에서 손으로 켜지 않는다. 조각 3 벡터 컬럼의 타입 주의는 `docs/ERD.md` §3
