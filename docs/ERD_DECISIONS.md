@@ -7,7 +7,7 @@
 
 - 첫 마이그레이션 맨 앞에서 `create extension if not exists vector with schema extensions;` (frontend/CLAUDE.md §10.1). 조각 3에서 벡터 컬럼을 만들 때는 타입을 `extensions.vector` 로 쓰거나 `search_path` 에 `extensions` 가 있는지 확인한다
 - `universities` — 코호트 컬럼 제외. `university_email_domains` 함께 생성(학교당 도메인 여러 개)
-- `profiles` — 위 표의 `조각0` 컬럼. 계획서 Task 7 SQL 대비 **`hide_same_major` 삭제, `admission_year` 추가, `email_domain` 은 `university_email_domains` 로 이동, `not null` 은 `university_id` · `status` 만 두고 온보딩 컬럼은 `active` 전환 check 로**(§3 주석)
+- `profiles` — ERD.md §3 표의 `조각0` 컬럼. 계획서 Task 7 SQL 대비 **`hide_same_major` 삭제, `admission_year` 추가, `email_domain` 은 `university_email_domains` 로 이동, `not null` 은 `university_id` · `status` 만 두고 온보딩 컬럼은 `active` 전환 check 로**(§3 주석)
 - `profile_photos` — `position` 0~3, `unique (profile_id, position) deferrable initially deferred`. `is_avatar_source` 는 조각 2
 - RLS — 전 테이블 enable. 클라이언트 정책은 §2 표의 SELECT 뿐. **계획서의 INSERT·UPDATE 정책은 넣지 않는다.** `auth.uid()` 는 항상 `(select auth.uid())`
 - grant — RLS 와 같은 마이그레이션에서 §2 원칙대로. 조각 0 기준 `anon` 은 `universities` · `university_email_domains` select, `authenticated` 는 여기에 `profiles` · `profile_photos` select 추가, `service_role` 은 전 테이블 select · insert · update · delete
@@ -73,7 +73,7 @@
 | 32 | ~~본인 카카오톡 아이디 조회 경로~~ → 해결(§11-20, FastAPI 가 내려줌) | 2 | §2 · DESIGN §13-104 |
 | 33 | ~~원격 마이그레이션 버전이 로컬 파일명과 다름~~ → 결정(기록만, 2026-09-14 사용자 결정) — 원격 `20260914045614` · `045656` · `045723` · `045746`, 로컬 파일 `20260913054542` · `054544` · `054547` · `054549`. MCP `apply_migration` 은 버전 인자가 없어 적용 시각으로 찍혔다. CLI `db push` · `migration list` 로 보면 로컬 4개는 미적용, 원격 4개는 로컬에 없는 이력으로 보인다. `migration repair` 는 하지 않고, 이후 조각도 MCP 플러그인 `apply_migration` 으로 적용해 일관되게 간다 | 1 | 계획서 Task 7 실제 적용 기록 · frontend/CLAUDE.md §10.1 |
 
-## 13. 문서 갱신 대상 (결정과 무관한 오래된 서술)
+## 13. 문서 갱신 대상 (결정과 무관한 오래된 서술) — 2026-09-14 기준 전부 반영
 
 - 설계 §5.1 조망도 `profiles ──< profile_vectors`(1:N) → 1:1
 - 설계 §5.2 `profile_vectors` "벡터 4종" → `self_survey` · `self_text` 2종 + `shyness_score`

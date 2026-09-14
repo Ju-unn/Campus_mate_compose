@@ -670,7 +670,7 @@ git commit -m "feat(core): 라우팅 골격과 인증 리다이렉트 추가
 - [ ] `flutter test` 전체가 통과한다 (Task 3·4·5·6의 테스트 포함)
 - [ ] 앱이 Android에서 실행되고 로그인 자리 화면까지 도달한다
 - [x] 조각 0 마이그레이션 4개가 클라우드에 적용됐다 (MCP `apply_migration`, 2026-09-14, ERD §12-33)
-- [ ] `supabase/tests/rls_slice0_test.sql`(pgTAP 21항목)이 통과한다 (Docker 설치 후 실행, ERD §12-35)
+- [ ] `supabase/tests/rls_slice0_test.sql`(pgTAP 21항목)이 통과한다 (Docker 설치 후 실행, 로컬 빈 DB 에 마이그레이션 처음부터 적용 포함, ERD §12-34 guard · §12-35)
 - [x] `universities` 에 서울권 20개 대학이 들어 있다 (2026-09-14 적용)
 - [x] `frontend/CLAUDE.md` 가 있다
 
