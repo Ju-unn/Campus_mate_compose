@@ -6,7 +6,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(29);
+select plan(30);
 
 -- 준비 (postgres) -------------------------------------------------------------
 -- 사용자 A = ...aa, 사용자 B = ...bb, 테스트 대학 = ...01
@@ -58,6 +58,12 @@ select ok(
   (select file_size_limit = 10485760 and allowed_mime_types = array['image/jpeg', 'image/png']
      from storage.buckets where id = 'student-id-temp'),
   'student-id-temp 버킷은 10MB · image/jpeg · image/png 로 제한된다'
+);
+
+select ok(
+  (select file_size_limit = 10485760 and allowed_mime_types = array['image/jpeg', 'image/png']
+     from storage.buckets where id = 'profile-photos'),
+  'profile-photos 버킷도 10MB · image/jpeg · image/png 로 제한된다'
 );
 
 select is(
