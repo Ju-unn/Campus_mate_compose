@@ -1612,7 +1612,7 @@ select count(*) as university_count from public.universities where region_group 
 
 - [ ] **Step 4: RLS 검증 스크립트 작성**
 
-`supabase/tests/rls_profiles_test.sql`:
+`supabase/tests/rls_slice0_test.sql`:
 
 ```sql
 -- RLS 회귀 검증.
