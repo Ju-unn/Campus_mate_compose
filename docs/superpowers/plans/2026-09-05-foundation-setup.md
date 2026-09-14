@@ -99,6 +99,8 @@ flutter doctor -v
 ```
 
 기대 결과: `Flutter`, `Android toolchain`, `Android Studio` 항목이 체크(✓)로 표시된다.
+Flutter 3.47.3 은 Android Studio 항목을 따로 보이지 않음 — Android toolchain 의 Java binary 가 Android Studio\jbr 인지로 확인한다.
+
 `Android license status unknown` 이 뜨면 `flutter doctor --android-licenses` 로 라이선스에 동의한다.
 `Visual Studio` / `Xcode` 항목의 경고는 무시한다 (Windows 데스크톱·iOS 로컬 빌드를 하지 않는다).
 
@@ -703,7 +705,7 @@ git commit -m "feat(core): 디자인 토큰과 라이트 테마 추가
 
 **설계 의도**: 키를 코드에 넣지 않고 `--dart-define` 으로 주입한다. 값 검증(`isComplete`)과 실제 연결(`connect`)을 나눠서, 검증은 네트워크 없이 테스트한다. `SupabaseConfig` 의 인스턴스 변수는 2개(url, anonKey)로 규칙을 지킨다.
 
-- [ ] **Step 1: 실패 테스트 작성**
+- [x] **Step 1: 실패 테스트 작성**
 
 `test/core/supabase/supabase_config_test.dart`:
 
@@ -753,7 +755,7 @@ void main() {
 마지막 테스트가 성립하는 이유: `flutter test` 는 `--dart-define` 없이 실행되므로
 `String.fromEnvironment` 가 빈 문자열을 돌려준다.
 
-- [ ] **Step 2: 테스트가 실패하는지 확인**
+- [x] **Step 2: 테스트가 실패하는지 확인** — 완료 (FAIL — `Method not found: 'SupabaseConfig'`)
 
 ```bash
 flutter test test/core/supabase/supabase_config_test.dart
@@ -761,7 +763,7 @@ flutter test test/core/supabase/supabase_config_test.dart
 
 기대 결과: FAIL — `supabase_config.dart` 없음
 
-- [ ] **Step 3: SupabaseConfig 구현**
+- [x] **Step 3: SupabaseConfig 구현** — 완료 (supabase_flutter 2.17.2 에서 `anonKey` 매개변수가 deprecated 라 `connect()` 안 호출만 `publishableKey: _anonKey` 로 바꿨다. 라이브러리 안에서 같은 키 자리다. 생성자는 `prefer_initializing_formals` 를 피하려고 Dart 3.13 private named parameter `required this._url, required this._anonKey` 로 썼다. 호출부는 그대로 `url:`·`anonKey:`)
 
 `lib/core/supabase/supabase_config.dart`:
 
@@ -802,7 +804,7 @@ class SupabaseConfig {
 }
 ```
 
-- [ ] **Step 4: 테스트 통과 확인**
+- [x] **Step 4: 테스트 통과 확인** — 완료 (5 tests PASS. 초기화 테스트 1개 추가(CLAUDE.md §1-7))
 
 ```bash
 flutter test test/core/supabase/supabase_config_test.dart
@@ -810,7 +812,7 @@ flutter test test/core/supabase/supabase_config_test.dart
 
 기대 결과: PASS (5 tests)
 
-- [ ] **Step 5: 초기화 진입점 구현**
+- [x] **Step 5: 초기화 진입점 구현**
 
 `lib/core/supabase/supabase_initializer.dart`:
 
@@ -836,7 +838,7 @@ abstract final class SupabaseInitializer {
 }
 ```
 
-- [ ] **Step 6: 분석 통과 확인**
+- [x] **Step 6: 분석 통과 확인** — 완료 (`No issues found!`. 원문의 초기화 목록은 prefer_initializing_formals info 2건이 떠서 Step 3 처럼 바꿨다)
 
 ```bash
 flutter analyze
@@ -844,7 +846,7 @@ flutter analyze
 
 기대 결과: `No issues found!`
 
-- [ ] **Step 7: 실행 방법 문서화**
+- [x] **Step 7: 실행 방법 문서화** — 완료 (`frontend/run.md`. 계획서 코드펜스가 깨져 있어 개발 실행·테스트·주의 세 절을 모두 넣었고, 주의 절에 publishable key / legacy anon key 안내 한 줄을 더했다)
 
 프로젝트 루트에 `run.md` 를 만든다. 키를 기억에 의존하지 않게 하기 위한 것이다.
 
@@ -876,7 +878,7 @@ flutter test
 
 ````
 
-- [ ] **Step 8: 커밋**
+- [x] **Step 8: 커밋** — 완료 (커밋 메시지는 `docs/GIT.md` 의 gitmoji 규칙을 따른다)
 
 ```bash
 git add lib/core/supabase test/core/supabase run.md
