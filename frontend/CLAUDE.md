@@ -28,7 +28,7 @@
 8. **새 의존성 추가는 사전에 사용자에게 확인할 것.**
 9. **git 작업(브랜치·커밋·푸시·PR) 전에 `../docs/GIT.md` 를 먼저 읽을 것.** 커밋 메시지는 gitmoji + Conventional Commits 형식, `main` 직접 푸시 금지, 커밋→푸시→draft PR 까지만 하고 merge 는 사용자가 한다.
 10. **코드베이스를 탐색하기 전에 지식 그래프를 먼저 조회할 것** (`../docs/GRAPHIFY.md`). "X 는 어디서 쓰이나", "흐름 추적" 같은 질문은 `python -m graphify query` 가 먼저다. Grep·Read 로 뒤지는 건 그래프가 답을 못 줄 때만. **문서를 고친 작업 끝에는 `/graphify . --update` 를 실행**한다 (코드는 커밋 hook 이 자동 갱신).
-11. **Supabase 작업(스키마·RLS·Storage·Auth) 전에 `../docs/SUPABASE.md` 를 먼저 읽을 것** (금지 규칙 요약은 §10.1). 스키마 변경은 반드시 저장소 루트 `supabase/migrations/*.sql` 파일로 남기고, 프로젝트 URL·키·ref 는 문서와 코드에 쓰지 않는다.
+11. **Supabase 작업(스키마·RLS·Storage·Auth) 전에 `../docs/SUPABASE.md` 를 먼저 읽을 것** (금지 규칙 요약은 §10.1). 스키마 변경은 반드시 저장소 루트 `supabase/migrations/*.sql` 파일로 남기고, 프로젝트 URL·키·ref 는 문서와 코드에 쓰지 않는다. **클라우드 쓰기는 매번 사용자가 직접 승인한 뒤에만** 한다.
 
 ---
 
@@ -54,7 +54,7 @@
 | 채팅 상한 | **없음** — 매칭 후 24h/48h 신뢰 확인 게이트가 방치된 대화를 정리 (설계 문서 §2.5). **채팅은 텍스트만, 이미지 전송 불가** |
 
 **현재 상태: 조각 0(기반 공사) 진행 중 — 계획서 Task 1·2·3·5·7·8·9 완료.** Flutter 골격·의존성·Result/Failure·Supabase 설정(Task 2·3·5)에 이어, 조각 0 DB(Task 7·8 — 테이블·RLS·Storage 버킷·대학 시드)가 2026-09-14 사용자 승인 후 클라우드에 적용됐다(pgTAP 은 Docker 가 없어 미실행). 조각 1 DB 는 마이그레이션 초안만 있다.
-**디자인은 확정됐다(2026-09-14 사용자 확인).** 다음 순서: **Task 4(디자인 토큰·테마 — `docs/DESIGN.md` §12 확정값) → Task 6(라우팅 골격)**.
+**디자인은 확정됐다(2026-09-14 사용자 확인).** 단, `docs/DESIGN.md` §13 에 열린 채 남은 행(예: 102·103·107·109·111·118)에 걸리는 구현은 먼저 사용자에게 묻는다. 다음 순서: **Task 4(디자인 토큰·테마 — `docs/DESIGN.md` §12 확정값) → Task 6(라우팅 골격)**.
 실제 진행 상황은 `../docs/superpowers/plans/2026-09-05-foundation-setup.md` 의 체크박스, DB 적용 상태는 `../docs/ERD.md` 상태줄을 기준으로 삼는다.
 
 ### 2.1 문서 지도
