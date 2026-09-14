@@ -30,6 +30,8 @@
 | [`docs/GRAPHIFY.md`](docs/GRAPHIFY.md) | **코드베이스 탐색 규칙** — `/graphify` 지식 그래프 조회·갱신. Grep 전에 그래프 먼저 |
 | [`docs/superpowers/specs/`](docs/superpowers/specs/) | 제품·아키텍처·매칭·보안 전체 설계. 모든 결정의 기준 |
 | [`docs/superpowers/plans/`](docs/superpowers/plans/) | 조각별 실행 계획 |
+| [`docs/ERD.md`](docs/ERD.md) | DB ERD — 테이블 · 컬럼 · RLS · 권한 기준 |
+| [`docs/ERD_DECISIONS.md`](docs/ERD_DECISIONS.md) | ERD 결정 기록 · 끝난 검토 · 조각 0 적용 범위 |
 | [`frontend/CLAUDE.md`](frontend/CLAUDE.md) | 코딩 규칙 (아키텍처·네이밍·테스트) |
 | [`frontend/docs/DESIGN.md`](frontend/docs/DESIGN.md) | 디자인 시스템 — 색·타이포·컴포넌트 |
 
