@@ -862,7 +862,6 @@ flutter run \
   --dart-define=SUPABASE_URL=https://<프로젝트>.supabase.co \
   --dart-define=SUPABASE_ANON_KEY=<anon key>
 ```
-````
 
 ## 테스트
 
@@ -886,7 +885,7 @@ git commit -m "feat(core): Supabase 설정 주입과 초기화 추가
 
 - 키를 소스에 넣지 않고 --dart-define 으로 주입
 - 설정 검증과 실제 연결을 분리해 네트워크 없이 테스트 가능하게 함"
-````
+```
 
 ---
 

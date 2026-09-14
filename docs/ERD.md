@@ -1,7 +1,7 @@
 # CampusMate DB ERD
 
-> **상태: 초안 v3 (2026-09-13) · 2차 검수 반려 반영 · 최종 검토 반영 · 탈퇴 정책 결정 반영 · Supabase 미적용.** 검수를 통과하면 조각 0 범위부터 `supabase/migrations/` 로 옮긴다.
-> 근거: 설계 문서 `docs/superpowers/specs/2026-09-05-campusmate-foundation-design.md` (§2·§5·§6·§7·§13), `frontend/docs/DESIGN.md` (§5.2·§8·§9), 2026-09-13 사용자 결정(§11).
+> **상태: 초안 v3 (2026-09-13 ~ 09-14) · 2차 검수 반려 반영 · 최종 검토 반영 · 탈퇴 정책 결정 반영 · Supabase 미적용.** 검수를 통과하면 조각 0 범위부터 `supabase/migrations/` 로 옮긴다.
+> 근거: 설계 문서 `docs/superpowers/specs/2026-09-05-campusmate-foundation-design.md` (§2·§5·§6·§7·§13), `frontend/docs/DESIGN.md` (§5.2·§8·§9), 2026-09-13 ~ 09-14 사용자 결정(§11).
 
 ## 읽는 법
 
@@ -90,7 +90,7 @@ erDiagram
 
 - 읽기가 있는 테이블: 남의 행 0행. `match_participants` 는 같은 매칭 상대의 행도 0행, `messages` 는 비당사자와 `left_at` 이 찍힌 본인 모두 0행
 - 읽기가 없는 테이블(FastAPI · 서버 전용): 본인 행이라도 `select` 가 42501
-- 컬럼 grant 테이블: `profile_private` 에서 본인 `select real_name` 은 1행, `select *` 는 42501(조각 1)
+- 컬럼 grant 테이블: `profile_private` 에서 본인 `select real_name` 은 1행, `select *` 는 42501(조각 1). 본인 `select kakao_id` 도 42501(§11-20)
 - 모든 테이블: `anon` · `authenticated` 의 INSERT · UPDATE · DELETE 가 42501
 - `anon` 은 `universities` · `university_email_domains` 읽기만 된다
 - `profiles` 제약: 온보딩 컬럼 없는 `pending` 행 insert 는 성공, 필수값 없이 `active` 로 바꾸면 check 위반, 대소문자만 다른 닉네임은 unique 위반(§3)
@@ -388,7 +388,7 @@ erDiagram
 - **16b 목록의 이름·끝 4자리는 서버에 두지 않는다**(§11-9). 8d에서 고를 때 앱이 기기 안에만 저장하고, FastAPI가 등록 응답으로 돌려준 `contact_blocks.id` 를 키로 짝지어 보여준다. `contact_hmac` 을 키로 쓰지 않는 이유: HMAC 키를 교체하면(검토9) 값이 바뀌어 이름이 전부 끊기고, 클라이언트에 HMAC 값을 줄 필요도 없어진다. 앱을 재설치하거나 기기를 바꾸면 이름 없이 "이전에 차단한 연락처"로 보이지만 차단과 해제는 그대로 된다
 - **매칭 중 차단은 `matches` 에 기록하지 않는다.** `chat_closed_at` 같은 공유 값으로 처리하면 상대가 차단을 추론한다. 차단한 사람의 `match_participants.left_at` 과 `blocks` 행으로만 처리한다(설계 §7.2 "차단당한 쪽은 알 수 없어야")
 - `reports.target_snapshot` — 게이트 실패 채팅 삭제(설계 §2.5)나 탈퇴 30일 뒤 삭제(§11-15)로 신고된 원본이 사라져도 24시간 조치 근거(애플 심사 지침 1.2)가 남아야 한다. `reporter_id` 는 `on delete set null`. 처리가 끝나고(`resolved_at`) 1년 뒤 행째 지운다(§11-23). check 후보 `(status = 'open') = (resolved_at is null)`
-- `signup_blocks` 는 탈퇴로 `profiles` 가 지워진 뒤에도 남아야 하므로 관계가 없다. 원본 이메일을 남기지 않으려고 HMAC 으로 제안. 가입 때 FastAPI HTTP Auth Hook 이 메일 도메인 화이트리스트와 함께 이 표를 검사한다(§11-12). 정지 중 탈퇴는 `blocked_until` 을 `infinity` 로 써서 기간 없이 막는다(§11-22)
+- `signup_blocks` 는 탈퇴로 `profiles` 가 지워진 뒤에도 남아야 하므로 관계가 없다. 원본 이메일을 남기지 않으려고 HMAC 으로 제안. 가입 때 FastAPI HTTP Auth Hook 이 메일 도메인 화이트리스트와 함께 이 표를 검사한다(§11-12). 정지 중 탈퇴는 `blocked_until` 을 `infinity` 로 써서 기간 없이 막는다(§11-22). 기한(`blocked_until`)이 지난 행은 FastAPI 배치(신고 1년 삭제와 같은 배치)가 지운다. 남기면 재탈퇴 때 `email_hmac` PK 가 충돌한다
 
 ## 6. 하트 · 추천 · 지인 리뷰 (조각 7 전후)
 
@@ -569,7 +569,7 @@ enum 값은 만든 뒤 지울 수 없다(추가·이름 변경만 된다). 그�
 - 계정 삭제(탈퇴 30일 뒤) cascade 가 Storage 파일을 지우지 않는다는 주석
 - 시드 — 서울권 학교 + 메일 도메인
 
-## 11. 결정 기록 (2026-09-13 사용자 결정)
+## 11. 결정 기록 (2026-09-13 ~ 09-14 사용자 결정)
 
 문서 최신화 담당이 오른쪽 열의 문서를 고친다.
 
@@ -594,7 +594,7 @@ enum 값은 만든 뒤 지울 수 없다(추가·이름 변경만 된다). 그�
 | 17 | **재가입하면 기록이 풀리는 것은 2개월 재가입 제한만으로 둔다**(알려진 한계) — 새 계정에는 차단(`blocks`)·영구 제외(§11-4)·추천 1회 제한·프로모션 코드 1코드 1계정(`promo_redemptions`)이 적용되지 않는다. 남이 건 연락처 차단은 새 계정의 `phone_hmac` 으로 다시 대조돼 유지되지만, 본인이 건 `contact_blocks` 는 30일 뒤 `owner_id` cascade 로 사라진다. 2개월은 탈퇴 요청 시각부터 센다 | `signup_blocks.blocked_until` 주석, §12-26 해결 | 설계 §2.5 "매칭 기록은 남긴다(재노출 악용 방지)"에 재가입한 계정에는 적용되지 않는다는 한 줄, 설계 §2.6 재가입 제한 기준 시각 |
 | 18 | **운영자는 `profile_private` 를 FastAPI 관리 기능으로만 본다** — Supabase 대시보드·SQL 직접 조회 금지. 접속 기록 보관 기간은 개인정보 안전성 확보조치 기준을 확인해 조각 2 전에 정한다 | §3 주석, §12-27 해결 | 설계 §7.6b 운영자 조회 방법 |
 | 19 | **탈퇴 30일 보관에서 학생증 사진만 뺀다** — `student-id-temp` 파일은 탈퇴 즉시 지운다(탈퇴로 검증 목적이 끝났고 신고·분쟁 대응에 쓰지 않는다). `profile_private`(실명·전화번호·`phone_hmac`·카카오톡 아이디)는 신고·수사 요청 때 신원 확인에 쓰도록 30일 보관한다 | §3 탈퇴 주석 · §9 `student-id-temp`, §12-29 해결 | 설계 §2.6 "`phone_number` 를 포함한 개인정보는 즉시 파기한다" → 학생증 사진은 즉시, 나머지는 30일 뒤. 개인정보처리방침(미결21)·가입 동의 문구의 30일 보관 항목에 실명·전화번호·카카오톡 아이디 |
-| 20 | **본인 카카오톡 아이디는 FastAPI 가 내려준다**(2026-09-14) — `profile_private` 컬럼 grant 는 `profile_id` · `real_name` 그대로 두고, 16e · 14f · 16e-1 은 본인 `kakao_id` 를 FastAPI 로 읽는다. 카카오톡 아이디가 클라이언트로 나가는 길은 읽기·수정 모두 FastAPI 하나이고, 조회는 §11-13 구조화 로그에 남는다 | §2 접근 표 비고, §2 grant 테스트 기대값 그대로, §12-32 해결 | DESIGN §13-104 해결 처리(16e `irepB` · 14f · 16e-1 `bWrnD` 의 조회 출처 FastAPI) |
+| 20 | **본인 카카오톡 아이디는 FastAPI 가 내려준다**(2026-09-14) — `profile_private` 컬럼 grant 는 `profile_id` · `real_name` 그대로 두고, 16e · 14f · 16e-1 은 본인 `kakao_id` 를 FastAPI 로 읽는다. 카카오톡 아이디가 클라이언트로 나가는 길은 읽기·수정 모두 FastAPI 하나이고, 조회는 §11-13 구조화 로그에 남는다 | §2 접근 표 비고, §2 grant 테스트 기대값에 본인 `select kakao_id` 42501 추가(컬럼 grant 는 그대로), §12-32 해결 | DESIGN §13-104 해결 처리(16e `irepB` · 14f · 16e-1 `bWrnD` 의 조회 출처 FastAPI) |
 | 21 | **탈퇴는 되돌릴 수 없다**(2026-09-14) — 30일 보관은 신고·분쟁 대응용이지 본인 복구용이 아니다. 탈퇴 즉시 걸린 로그인 차단은 30일 동안 풀지 않는다 | §3 탈퇴 주석, §12-28 해결 | 설계 §2.6 "되돌리기" 항목 → 되돌릴 수 없음. 설계 §2.6 확인 화면과 DESIGN `account-delete-sheet` 에 되돌릴 수 없다는 안내(이미 있으면 그대로) |
 | 22 | **정지(`suspended`) 중에 탈퇴한 계정은 같은 학교 메일로 다시 가입할 수 없다**(2026-09-14) — FastAPI 가 탈퇴 처리에서 `status` 를 `withdrawn` 으로 덮기 전에 `suspended` 인지 보고, 그렇다면 `signup_blocks.blocked_until` 을 탈퇴 요청 시각 + 2개월 대신 `infinity` 로 쓴다(스키마 변경 없음). 다른 메일로 가입하는 우회는 막지 못한다(알려진 한계, "한 번호 한 계정"은 §12-5) | §5 `signup_blocks.blocked_until` 주석, §12-31 해결 | 설계 §2.6 재가입 제한에 "정지 중 탈퇴는 기간 없이 제한" 한 줄. 개인정보처리방침(설계 §7.7 · 미결21)에 이 경우 `email_hmac` 을 기간 없이 보관한다는 항목 |
 | 23 | **신고는 처리가 끝나고 1년 뒤 사본(`target_snapshot`)과 함께 지운다**(2026-09-14) — 조치·기각하면 FastAPI 가 `reports.resolved_at` 을 쓰고, 1년 지난 `reports` 행을 FastAPI 가 지운다(사본만이 아니라 행째 삭제, 2026-09-14 사용자 확인). 열린(`open`) 신고는 지우지 않는다. 최종 기간은 출시 전 법무 검토(설계 미결21)에서 확인 | §5 `reports.resolved_at` 추가 · 주석, §12-30 해결 | 개인정보처리방침(설계 §7.7 · 미결21)의 보유 기간에 "신고 기록: 처리 후 1년" |
@@ -611,7 +611,7 @@ enum 값은 만든 뒤 지울 수 없다(추가·이름 변경만 된다). 그�
 | 6 | 추천 어뷰징 "동일 기기 차단"의 기기 식별값 저장처 | 7 | 설계 §2.7 |
 | 7 | 지인 리뷰 태그 최소 개수 (DESIGN §13-25는 최대 3개만 정함) | — | DESIGN §13-25 |
 | 8 | `animal_type` 최종 값 | 2 | DESIGN §5.4·§8.5 |
-| 9 | HMAC 키 교체 절차 — `phone_hmac` · `contact_hmac` · `signup_blocks.email_hmac` 세 곳에 같이 걸린다 | 6 | 설계 미결36 |
+| 9 | HMAC 키 교체 절차 — `phone_hmac` · `contact_hmac` · `signup_blocks.email_hmac` 세 곳에 같이 걸린다. `signup_blocks` 는 원본 메일이 없어 새 키로 재계산할 수 없다. `contact_hmac` 도 원본을 서버에 두지 않아 같다(§5). 새 키로 다시 계산할 수 있는 것은 `profile_private` 의 번호 암호문이 있는 `phone_hmac` 뿐이다. `blocked_until` 이 `infinity` 인 행이 있으면 옛 키를 계속 보관해야 한다 | 6 | 설계 미결36 |
 | 10 | 신고 사유 목록 | 6 | 설계 §2.8 |
 | 11 | DESIGN 16d "내 글의 새 댓글" 토글 — 댓글 도입 전까지 컬럼 없음, 도입 때 `notification_settings` 에 추가. 이번 스코프 한정 결정이라 DESIGN 은 지금 고치지 않는다 | 4 | DESIGN §8.11 · §9 16d |
 | 12 | 받은 수락함에도 "거절한 상대는 다시 나오지 않는다"를 적용할지 — B가 이미 거절한 A의 수락은 B의 수락함에 넣지 않는다(A에게는 무응답과 같다) | 4 | 설계 §2.1 |
