@@ -46,6 +46,7 @@
 - scope 는 기능 패키지명: `auth`, `profile`, `matching`, `chat`, `safety`, `billing`, `core`, `design`, `supabase`(`supabase/` 의 config · seed · tests 등 마이그레이션 외 설정), `slice<N>`(마이그레이션 조각, 예 `slice1`)
   - 백엔드 작업은 `backend`, 저장소 구조·설정 작업은 scope 를 생략한다
   - 문서 작업은 문서 이름을 scope 로 쓴다 (예: `docs(git)` · `docs(erd)` · `docs(plan)`)
+  - 한 커밋이 여러 문서를 조금씩 고치면 scope 를 생략하고(`📝 docs: …`) 요약에 고친 파일을 적는다. 한 문서를 나누거나 옮기면서 새 문서 · 참조를 같이 고치는 커밋은 원래 문서 이름을 scope 로 쓴다 (예: `🚚 docs(erd)`)
 
 ---
 
