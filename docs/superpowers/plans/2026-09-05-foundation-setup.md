@@ -92,7 +92,7 @@ flutter --version
 
 기대 결과: 버전 정보가 출력된다 (`command not found` 가 아니어야 한다).
 
-- [ ] **Step 2: Flutter 환경 점검**
+- [x] **Step 2: Flutter 환경 점검** — 완료 (2026-09-14. Flutter 3.47.3 · Android toolchain(SDK 36.1.0, 라이선스 동의됨) ✓. 이 Flutter 버전은 Android Studio 를 별도 항목으로 보이지 않고 Android toolchain 이 Android Studio 번들 JDK 를 쓴다. Visual Studio ✗ 는 무시 항목)
 
 ```bash
 flutter doctor -v
@@ -295,7 +295,7 @@ git commit -m "chore: Flutter 프로젝트 생성 및 패키지 골격 구성
 
 **설계 의도**: 값을 꺼내는 getter를 만들지 않는다. `when` 으로 두 경우를 모두 처리하게 강제하면 분기 누락이 컴파일 단계에서 걸린다 (Tell, Don't Ask).
 
-- [ ] **Step 1: Failure 실패 테스트 작성**
+- [x] **Step 1: Failure 실패 테스트 작성**
 
 `test/common/failure_test.dart`:
 
@@ -324,7 +324,7 @@ void main() {
 }
 ```
 
-- [ ] **Step 2: 테스트가 실패하는지 확인**
+- [x] **Step 2: 테스트가 실패하는지 확인**
 
 ```bash
 flutter test test/common/failure_test.dart
@@ -332,7 +332,7 @@ flutter test test/common/failure_test.dart
 
 기대 결과: FAIL — `Target of URI doesn't exist: 'package:campus_mate/common/failure.dart'`
 
-- [ ] **Step 3: Failure 구현**
+- [x] **Step 3: Failure 구현**
 
 `lib/common/failure.dart`:
 
@@ -377,7 +377,7 @@ final class UnknownFailure extends Failure {
 }
 ```
 
-- [ ] **Step 4: 테스트 통과 확인**
+- [x] **Step 4: 테스트 통과 확인**
 
 ```bash
 flutter test test/common/failure_test.dart
@@ -385,7 +385,7 @@ flutter test test/common/failure_test.dart
 
 기대 결과: PASS (3 tests)
 
-- [ ] **Step 5: Result 실패 테스트 작성**
+- [x] **Step 5: Result 실패 테스트 작성**
 
 `test/common/result_test.dart`:
 
@@ -434,7 +434,7 @@ void main() {
 }
 ```
 
-- [ ] **Step 6: 테스트가 실패하는지 확인**
+- [x] **Step 6: 테스트가 실패하는지 확인**
 
 ```bash
 flutter test test/common/result_test.dart
@@ -442,7 +442,7 @@ flutter test test/common/result_test.dart
 
 기대 결과: FAIL — `result.dart` 를 찾을 수 없다
 
-- [ ] **Step 7: Result 구현**
+- [x] **Step 7: Result 구현**
 
 `lib/common/result.dart`:
 
@@ -493,7 +493,7 @@ final class FailureResult<T> extends Result<T> {
 }
 ```
 
-- [ ] **Step 8: 테스트 통과와 분석 확인**
+- [x] **Step 8: 테스트 통과와 분석 확인** — 완료 (6 tests PASS, `No issues found!`)
 
 ```bash
 flutter test test/common/
@@ -502,7 +502,7 @@ flutter analyze
 
 기대 결과: 6 tests PASS, `No issues found!`
 
-- [ ] **Step 9: 커밋**
+- [x] **Step 9: 커밋** — 완료 (커밋 메시지는 `docs/GIT.md` 의 gitmoji 규칙을 따른다)
 
 ```bash
 git add lib/common test/common
