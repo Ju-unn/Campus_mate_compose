@@ -1,6 +1,6 @@
 # CampusMate DB ERD
 
-> **상태: 초안 v3 (2026-09-13 ~ 09-14) · 2차 검수 반려 반영 · 최종 검토 반영 · 탈퇴 정책 결정 반영 · 조각 0 Supabase 적용 완료(2026-09-14, MCP apply_migration + seed) · 조각 1 초안 작성, 미적용.** 조각 0 은 `supabase/migrations/` 4개 + `seed.sql` 로 적용됐다. 조각 1 은 마이그레이션 초안 4개(`20260914055607` ~ `055631`)와 `supabase/tests/rls_slice1_test.sql` 을 작성만 했다(2026-09-14, 클라우드 미적용 · pgTAP 미실행 · `verification_status` 값 사용자 확정 전). 조각 2 이후는 파일 없음.
+> **상태: 초안 v3 (2026-09-13 ~ 09-14) · 2차 검수 반려 반영 · 최종 검토 반영 · 탈퇴 정책 결정 반영 · 조각 0 Supabase 적용 완료(2026-09-14, MCP apply_migration + seed) · 조각 1 초안 작성, 미적용.** 조각 0 은 `supabase/migrations/` 4개 + `seed.sql` 로 적용됐다. 조각 1 은 마이그레이션 초안 5개(`20260914055607` ~ `061304`)와 `supabase/tests/rls_slice1_test.sql` 을 작성만 했다(2026-09-14, 클라우드 미적용 · pgTAP 미실행). 조각 2 이후는 파일 없음.
 > 근거: 설계 문서 `docs/superpowers/specs/2026-09-05-campusmate-foundation-design.md` (§2·§5·§6·§7·§13), `frontend/docs/DESIGN.md` (§5.2·§8·§9), 2026-09-13 ~ 09-14 사용자 결정(§11).
 
 ## 읽는 법
@@ -21,6 +21,7 @@ erDiagram
     universities ||--o{ profiles : "소속"
     region_group_settings ||..o{ universities : "region_group"
     profiles ||--o| profile_private : "민감 정보"
+    profiles ||--o{ student_verification_attempts : "학생증 제출"
     profiles ||--o{ profile_photos : "실사진"
     profiles ||--o{ profile_avatars : "아바타"
     profiles ||--o{ survey_answers : "설문 원본"
@@ -70,6 +71,7 @@ erDiagram
 | `region_group_settings` | `authenticated` 전체 | 다음 지급 시각 표시 |
 | `profiles` | 본인 행 (`id`) | |
 | `profile_private` | 본인 행 (`profile_id`) · 컬럼 grant `profile_id` · `real_name` 만 | 16e 본인 실명 조회. 번호 암호문·`phone_hmac`·카카오톡 아이디는 내려가지 않는다. 앱은 `select *` 대신 컬럼을 지정한다. 본인 `kakao_id`(16e · 14f · 16e-1)는 FastAPI 가 내려준다(§11-20) |
+| `student_verification_attempts` | 없음 | FastAPI 전용 — 본인 반려 사유는 FastAPI 응답으로 내려주고, 재시도 횟수는 행 수로 FastAPI 가 센다(§12-4) |
 | `profile_photos` · `profile_avatars` · `survey_answers` | 본인 행 (`profile_id`) | |
 | `profile_vectors` | 없음 | FastAPI 전용 |
 | `daily_cards` · `card_decisions` · `acceptance_responses` | 없음 | FastAPI 전용 — 카드 화면에는 상대 정보가 섞인다 |
@@ -95,8 +97,8 @@ erDiagram
 - `anon` 은 `universities` · `university_email_domains` 읽기만 된다
 - `profiles` 제약: 온보딩 컬럼 없는 `pending` 행 insert 는 성공, 필수값 없이 `active` 로 바꾸면 check 위반, 대소문자만 다른 닉네임은 unique 위반(§3)
 - `service_role` 은 테이블마다 `select` · `insert` · `update` · `delete` 가 모두 있다. 하나라도 빠지면 FastAPI 쓰기가 깨진다
-- `profile-photos` 버킷은 비공개이고 `storage.objects` 에는 정책이 없다(§9)
-- 계정 삭제 cascade(탈퇴 30일 뒤, §11-15): `auth.users` 행을 지우면 `profiles` · `profile_photos` 행이 함께 지워진다
+- `profile-photos` · `student-id-temp` 버킷은 비공개이고 `storage.objects` 에는 정책이 없다(§9). `student-id-temp` 는 10MB · `image/jpeg` · `image/png` 제한이 걸린다
+- 계정 삭제 cascade(탈퇴 30일 뒤, §11-15): `auth.users` 행을 지우면 `profiles` · `profile_photos` · `profile_private` · `student_verification_attempts` 행이 함께 지워진다
 
 ## 3. 계정 · 프로필 (조각 0~3)
 
@@ -108,6 +110,7 @@ erDiagram
     universities ||--o{ profiles : "소속"
     region_group_settings ||..o{ universities : "region_group"
     profiles ||--o| profile_private : "민감 정보"
+    profiles ||--o{ student_verification_attempts : "학생증 제출 한 번에 한 행"
     profiles ||--o{ profile_photos : "실사진 2~4장"
     profiles ||--o{ profile_avatars : "생성 이력"
     profile_photos |o--o{ profile_avatars : "원본 사진"
@@ -155,7 +158,7 @@ erDiagram
         profile_status status "조각0 · 기본 pending · withdrawn 은 조각6"
         timestamptz last_active_at "조각0 · 활동성 계수"
         timestamptz created_at "조각0"
-        verification_status student_verification "조각1 · 검토4"
+        verification_status student_verification "조각1 · 기본 none · FastAPI 만 바꿈"
         timestamptz nickname_changed_at "조각2 · 30일 1회"
         boolean is_smoker "조각2 · 감점 계수"
         religion religion "조각2 · 감점 계수"
@@ -181,6 +184,16 @@ erDiagram
         bytea phone_hmac "조각6 · 민감 · 지인 차단 대조 · 유니크 여부 검토5"
         text kakao_id "조각2 · 민감 · 04-1b 가입 시 필수 입력(2026-09-14 개정, 종전 조각5 신뢰 확인 시점 수집) · 신뢰 확인 통과 후 상대에게만 · 주인이 withdrawn 이면 상대에게 주지 않음(§3)"
         timestamptz updated_at
+    }
+
+    student_verification_attempts {
+        bigint id PK "조각1 · identity"
+        uuid profile_id FK "조각1 · cascade"
+        text file_path "조각1 · student-id-temp 객체 경로"
+        verification_status result "조각1 · 기본 pending · none 불가"
+        text reject_reason "조각1 · rejected 일 때"
+        timestamptz submitted_at "조각1"
+        timestamptz reviewed_at "조각1 · 판정 전 null"
     }
 
     profile_photos {
@@ -228,7 +241,8 @@ erDiagram
 - `universities.name` 은 unique 다(시드가 이름으로 도메인을 짝짓는다). `university_email_domains.domain` 은 소문자 도메인 형식 check `^[a-z0-9-]+(\.[a-z0-9-]+)+$`. 도메인 1개는 대학 1개에만 속하고, 서울 밖 캠퍼스도 따로 나누지 않는다(§11-10)
 - 조각 4에서 `universities.region_group` 에 `region_group_settings` FK 를 걸 때는 같은 마이그레이션에서 `seoul` 행을 먼저 넣는다
 - 민감 값(`real_name` · `phone_number` · `phone_hmac` · `kakao_id`)은 `profile_private` 로 분리했다. 서버 코드가 남의 프로필을 `select *` 로 읽어도 민감 값이 딸려 나오지 않는다. 접근 감사 로그는 테이블 없이 FastAPI 구조화 로그로 남긴다(§11-13). 운영자도 FastAPI 관리 기능으로만 조회하고 Supabase 대시보드·SQL 로 직접 보지 않는다(§11-18)
-- `student_verification` 은 boolean이 아니라 상태값 후보(`none` `pending` `verified` `rejected`)다. 3b의 "조금 더 확인이 필요해요" 대기 상태와 재시도 횟수(설계 미결3)를 담아야 하기 때문이다 — 검토4
+- `student_verification` 은 boolean이 아니라 상태값(`none` `pending` `verified` `rejected`, 2026-09-14 확정)이다. 3b의 "조금 더 확인이 필요해요" 대기 상태를 담아야 하기 때문이다
+- `student_verification_attempts` 는 학생증 제출 한 번에 한 행이다(§12-4, 2026-09-14 사용자 결정). 재시도 횟수(설계 미결3)는 이 테이블의 행 수로 FastAPI 가 세고, 반려 사유(`reject_reason`)는 본인에게 FastAPI 응답으로 내려준다. `result` 는 제출 직후 `pending` 이고 `none` 일 수 없다(check). 클라이언트 권한은 없다(§2)
 - `profile_photos` 장수 2~4장: 상한은 `position` 범위로, 하한은 FastAPI 온보딩 완료 검사로 막는다
 - `profile_photos` 는 `unique (profile_id, position) deferrable initially deferred` — 순서를 맞바꿀 때 중간 충돌을 피한다. `storage_path` 는 unique — 두 행이 같은 파일을 가리키면 한 행을 지울 때 남은 행의 사진도 사라진다
 - `profile_photos.is_avatar_source` 는 부분 유니크 인덱스 `(profile_id) where is_avatar_source` 로 1장만 허용
@@ -524,7 +538,7 @@ enum 값은 만든 뒤 지울 수 없다(추가·이름 변경만 된다). 그�
 | --- | --- | --- |
 | `gender` | `male` `female` | 설계 §5.3 |
 | `profile_status` | `pending` `active` `suspended` `withdrawn`(조각6 제안 · §11-15) | 설계 §5.3 |
-| `verification_status` | `none` `pending` `verified` `rejected` — **후보, 조각 1에서 확정** | 설계 §7.3·미결3, DESIGN 화면 3b |
+| `verification_status` | `none` `pending` `verified` `rejected` — **확정(2026-09-14 사용자 결정) · 미적용** | 설계 §7.3·미결3, DESIGN 화면 3b |
 | `major_field` | `humanities` `social` `business` `engineering` `natural_science` `medical` `arts_sports` `education` | 계획서 Task 7 |
 | `religion` | `none` `protestant` `catholic` `buddhist` | DESIGN §8.5 무교·기독교·천주교·불교 |
 | `animal_type` | 후보 `dog` `cat` `fox` `bear` `rabbit` `deer` `wolf` `hamster` — **조각 2에서 확정** | DESIGN §5.4 `animal-face-*` 일러스트 8종 |
@@ -555,7 +569,7 @@ enum 값은 만든 뒤 지울 수 없다(추가·이름 변경만 된다). 그�
 | `profile-photos` | 비공개 | 0 | 실사진 2~4장. 서명 URL은 본인과, 신뢰 확인을 통과한 상대에게만 준다. 사진 주인이 탈퇴(`withdrawn`)하면 남은 상대에게도 주지 않는다(§3). 이미 발급한 서명 URL 은 만료까지 열리므로 실사진 서명 URL 만료는 짧게 둔다(조각 5) |
 | `avatars` | 비공개 | 2 | 만화 아바타. 항상 노출되는 이미지라 공개 버킷으로 바꾸자는 안은 설계 §7.4 예외라서 조각 2에서 결정 — 검토2 |
 | `heart-task-proofs` | 비공개 | 7 | 무료 하트 인증샷 |
-| `student-id-temp` | 비공개 | 1 제안 | 학생증 사진. 자동 대조 실패 시 사람이 재검토해야 해서(설계 §7.3) **검증이 끝날 때까지만 임시 보관하고, 끝나면 즉시 삭제**한다. 검증이 끝나기 전에 탈퇴한 사람의 파일은 탈퇴 즉시(30일 보관 예외, §11-19), 가입 도중 이탈한 사람의 파일도 FastAPI 가 지운다(이탈 판단 시점은 조각 1에서 정한다) |
+| `student-id-temp` | 비공개 | 1 제안 | 학생증 사진. 자동 대조 실패 시 사람이 재검토해야 해서(설계 §7.3) **검증이 끝날 때까지만 임시 보관하고, 끝나면 즉시 삭제**한다. 검증이 끝나기 전에 탈퇴한 사람의 파일은 탈퇴 즉시(30일 보관 예외, §11-19), 가입 도중 이탈한 사람의 파일도 FastAPI 가 지운다(이탈 판단 시점은 조각 1에서 정한다). **제한: 파일 10MB · `image/jpeg` `image/png`**(2026-09-14 사용자 결정) — 클라이언트가 업로드 전에 압축하고 JPEG 로 다시 인코딩한다. 버킷 제한은 업로드 쪽이 신고한 content type 과 크기로만 막으므로(413 · 400), 파일 내용(매직 바이트)은 FastAPI 가 업로드 뒤 대조 전에 검사한다(조각 1 서버) |
 
 ## 10. 조각 0 마이그레이션 범위 (2026-09-14 클라우드 적용 완료 · 실제 SQL 은 `supabase/migrations/` 4개 파일)
 
@@ -606,7 +620,7 @@ enum 값은 만든 뒤 지울 수 없다(추가·이름 변경만 된다). 그�
 | 1 | ~~지인 연락처 저장 방식과 16b 표시~~ → 해결(§11-9) | 6 | 설계 §7.6b, DESIGN §8.12 |
 | 2 | `avatars` 버킷을 공개로 바꿀지 (설계 §7.4 예외) | 2 | 설계 §7.4 |
 | 3 | 조각 번호가 없는 기능: 지인 리뷰·커뮤니티·FAQ·프로모션 코드. (추천인은 설계 §2.7에 조각 7, 커뮤니티 도입 자체는 설계 미결14에서 확정) | — | 설계 §3.1 |
-| 4 | 학생증 인증 상태값과 재시도 횟수 | 1 | 설계 §7.3·미결3 |
+| 4 | ~~학생증 인증 상태값과 재시도 횟수~~ → 결정(2026-09-14 사용자 결정): 상태값 4개 확정(§8), 재시도 횟수는 시도 기록 테이블 `student_verification_attempts` 행 수(§3) | 1 | 설계 §7.3·미결3 |
 | 5 | "한 번호 한 계정" 규칙 여부 → `phone_hmac` 유니크 여부. 문서에는 추천 보상 한정 동일 번호 차단(§2.7)만 있다. 유니크로 정하면 탈퇴 뒤 30일 동안 `profile_private` 가 남아(§11-19) 같은 번호로 다른 메일 가입도 막힌다(메일 기준 `signup_blocks` 와 별개) | 6 | 설계 §2.7 |
 | 6 | 추천 어뷰징 "동일 기기 차단"의 기기 식별값 저장처 | 7 | 설계 §2.7 |
 | 7 | 지인 리뷰 태그 최소 개수 (DESIGN §13-25는 최대 3개만 정함) | — | DESIGN §13-25 |
