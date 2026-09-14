@@ -6,7 +6,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(21);
+select plan(29);
 
 -- 준비 (postgres) -------------------------------------------------------------
 -- 사용자 A = ...aa, 사용자 B = ...bb, 테스트 대학 = ...01
@@ -52,6 +52,19 @@ select is(
   (select public from storage.buckets where id = 'student-id-temp'),
   false,
   'student-id-temp 버킷은 비공개다'
+);
+
+select ok(
+  (select file_size_limit = 10485760 and allowed_mime_types = array['image/jpeg', 'image/png']
+     from storage.buckets where id = 'student-id-temp'),
+  'student-id-temp 버킷은 10MB · image/jpeg · image/png 로 제한된다'
+);
+
+select is(
+  (select relrowsecurity from pg_class
+    where oid = 'public.student_verification_attempts'::regclass),
+  true,
+  'student_verification_attempts 는 RLS 가 켜져 있다'
 );
 
 -- 2. authenticated (사용자 A) --------------------------------------------------
@@ -106,6 +119,12 @@ select throws_ok(
   'A 도 본인 학생증 인증 상태를 직접 바꿀 수 없다'
 );
 
+select throws_ok(
+  $$select id from public.student_verification_attempts$$,
+  '42501', null,
+  'A 도 학생증 시도 기록을 읽을 수 없다(반려 사유는 FastAPI 가 내려준다)'
+);
+
 -- 3. anon (로그인 전) ---------------------------------------------------------
 
 set local role anon;
@@ -134,6 +153,19 @@ select throws_ok(
   $$delete from public.profile_private$$,
   '42501', null,
   'anon 은 profile_private 를 delete 할 수 없다'
+);
+
+select throws_ok(
+  $$select id from public.student_verification_attempts$$,
+  '42501', null,
+  'anon 은 학생증 시도 기록을 읽을 수 없다'
+);
+
+select throws_ok(
+  $$insert into public.student_verification_attempts (profile_id, file_path)
+    values ('00000000-0000-0000-0000-0000000000aa', 'aa/student-id.jpg')$$,
+  '42501', null,
+  'anon 은 학생증 시도 기록을 insert 할 수 없다'
 );
 
 -- 4. service_role (FastAPI) ----------------------------------------------------
@@ -171,6 +203,19 @@ select lives_ok(
   'service_role 은 학생증 인증 상태를 바꾼다'
 );
 
+select lives_ok(
+  $$insert into public.student_verification_attempts (profile_id, file_path)
+    values ('00000000-0000-0000-0000-0000000000aa', 'aa/student-id.jpg')$$,
+  'service_role 은 학생증 시도 기록 1행을 insert 한다'
+);
+
+select throws_ok(
+  $$insert into public.student_verification_attempts (profile_id, file_path, result)
+    values ('00000000-0000-0000-0000-0000000000aa', 'aa/student-id.jpg', 'none')$$,
+  '23514', null,
+  '시도 기록의 결과는 none 일 수 없다'
+);
+
 -- 5. 탈퇴 cascade (postgres) ----------------------------------------------------
 
 reset role;
@@ -181,6 +226,12 @@ select is_empty(
   $$select 1 from public.profile_private
      where profile_id = '00000000-0000-0000-0000-0000000000aa'$$,
   '계정을 지우면 profile_private 행도 지워진다'
+);
+
+select is_empty(
+  $$select 1 from public.student_verification_attempts
+     where profile_id = '00000000-0000-0000-0000-0000000000aa'$$,
+  '계정을 지우면 학생증 시도 기록도 지워진다'
 );
 
 select * from finish();
