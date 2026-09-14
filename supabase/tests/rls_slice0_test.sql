@@ -72,7 +72,8 @@ select is_empty(
 
 -- 표에 없는 권한(특히 anon · authenticated 의 insert · update · delete)이 붙거나
 -- service_role 의 select · insert · update · delete 가 하나라도 빠지면 여기서 깨진다.
--- 테이블 단위(relacl)와 컬럼 단위(attacl, "테이블.컬럼" 으로 표시), PUBLIC 에 준 권한까지 본다.
+-- 테이블 · 시퀀스 단위(relacl)와 컬럼 단위(attacl, "테이블.컬럼" 으로 표시), PUBLIC 에 준 권한까지 본다.
+-- 시퀀스(조각 1 student_verification_attempts_id_seq)는 권한을 모두 걷어 기대 행이 없다.
 -- 모든 테이블의 anon · authenticated 쓰기 42501 은 이 검사로 보장하고, 아래 3 · 4 에서 대표로 확인한다.
 -- 테이블이나 컬럼 grant 를 추가하면 이 기대값도 ERD §2 표대로 함께 고친다.
 -- `supabase test db` 는 모든 조각의 마이그레이션이 올라간 DB 에서 도므로 조각 1 의 profile_private · student_verification_attempts 도 여기 들어간다.
@@ -86,7 +87,7 @@ select results_eq(
           cross join lateral aclexplode(c.relacl) a
           left join pg_roles r on r.oid = a.grantee
          where c.relnamespace = 'public'::regnamespace
-           and c.relkind in ('r', 'p')
+           and c.relkind in ('r', 'p', 'S')
         union all
         select c.relname::text || '.' || att.attname::text,
                coalesce(r.rolname::text, 'PUBLIC'),
@@ -96,7 +97,7 @@ select results_eq(
           cross join lateral aclexplode(att.attacl) a
           left join pg_roles r on r.oid = a.grantee
          where c.relnamespace = 'public'::regnamespace
-           and c.relkind in ('r', 'p')
+           and c.relkind in ('r', 'p', 'S')
       ) g
      where g.grantee in ('anon', 'authenticated', 'service_role', 'PUBLIC')
      order by g.object_name collate "C", g.grantee collate "C", g.privilege_type collate "C"$$,

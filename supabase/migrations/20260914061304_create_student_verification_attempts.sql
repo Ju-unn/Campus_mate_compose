@@ -30,6 +30,9 @@ comment on table public.student_verification_attempts is '학생증 제출 한 �
 alter table public.student_verification_attempts enable row level security;
 
 -- 권한(ERD §2): anon · authenticated 는 없음, service_role 은 select·insert·update·delete.
--- identity 컬럼은 insert 권한만으로 번호를 받으므로 시퀀스 grant 는 따로 주지 않는다.
 revoke all on table public.student_verification_attempts from anon, authenticated, service_role;
 grant select, insert, update, delete on table public.student_verification_attempts to service_role;
+
+-- Supabase 기본 권한(default privileges)이 identity 시퀀스에도 붙을 수 있어 자동 grant 를 믿지 않고 명시로 걷는다(ERD §2).
+-- identity 컬럼은 테이블 insert 권한만으로 번호를 받으므로 service_role 도 시퀀스 권한이 필요 없다.
+revoke all on sequence public.student_verification_attempts_id_seq from anon, authenticated, service_role;
