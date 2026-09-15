@@ -52,6 +52,7 @@ Airbnb 의 색 체계를 그대로 가져왔다. 캔버스는 **순백**, 잉크
 | `{colors.primary-pressed}` | `#E00B41` | 눌림 상태 (Airbnb 의 Rausch Active) |
 | `{colors.primary-text}` | `#C4224B` | **흰 배경 위 핑크 텍스트·링크 전용.** 채움에는 쓰지 않는다 |
 | `{colors.primary-wash}` | `#FFF0F2` | 아주 옅은 핑크 표면. 수락 대기 행, 선택된 칩 |
+| `{colors.primary-disabled}` | `#E5E5E5` | 비활성 버튼 채움 (2026-09-15 사용자 결정으로 토큰화). 연한 핑크는 대비 1.55:1 이라 쓰지 않는다 — §8.3 |
 | `{colors.on-primary}` | `#FFFFFF` | Rausch 채움 위의 텍스트·아이콘 |
 
 **Rausch 를 텍스트에 그대로 쓰지 않는 이유.** `#FF385C` 는 흰 배경 대비 **3.52:1** 로 본문 기준(4.5:1)에 미달한다. 그래서 텍스트·링크는 `{colors.primary-text}`(`#C4224B`, 5.71:1)를 쓰고, `#FF385C` 는 **채움 전용**으로 둔다. 색은 거의 같아 보이지만 읽히는 정도가 다르다.
@@ -960,38 +961,20 @@ fontFamilyFallback: ['Apple SD Gothic Neo', 'Noto Sans KR', 'sans-serif']
 
 ## 12. Flutter 토큰 매핑
 
-`lib/core/theme/` 아래 일곱 개 파일로 구현한다. 위젯은 이 토큰을 통해서만 값을 읽는다.
+`lib/core/theme/` 아래 일곱 개 파일로 구현한다(`app_icons.dart` 는 첫 화면 조각에서 여덟 번째로 붙는다). 위젯은 이 토큰을 통해서만 값을 읽는다.
 
 | 파일 | 클래스 | 내용 |
 | --- | --- | --- |
-| `app_colors.dart` | `AppColors` | §2 의 모든 색 (`on-ink` 포함) |
+| `app_colors.dart` | `AppColors` | §2 의 모든 색 (`on-ink` · `primary-disabled` 포함) |
 | `app_typography.dart` | `AppTypography` | §3.2 의 `TextStyle` 13종 (`nav-title` 포함) |
 | `app_spacing.dart` | `AppSpacing` | §4.1 간격 7종 |
 | `app_radius.dart` | `AppRadius` | §5.1 라운드 5종. `circle` 은 고정 dp 가 아니라 `BoxShape.circle` 로 쓴다 |
 | `app_motion.dart` | `AppMotion` | §7 시간·커브 3종 (`flip` 은 §13-80 으로 폐기) |
 | `app_elevation.dart` | `AppElevation` | §6 카드 그림자 두 겹 |
+| `app_icons.dart` | `AppIcons` | §5.3 Lucide 이름 매핑. 아이콘을 쓰는 화면이 생기는 **첫 화면 조각에서 추가한다** |
 | `assets/mascot/` | — | §5.4 마스코트 원본. `mascot-male.png` · `mascot-female.png` · `mascot-male-waiting.png` · `mascot-female-reward.png` · `mascot-female-sad.png` 5종을 `pubspec.yaml` 에 등록 |
 | `assets/illust/` | — | §5.4 소프트 3D 자산. `heart-flat-vector-v3.png`(재화 글리프, §8.10) · `heart-value-scene.png` · `campus-trust-icon-v1.png` · `animal-face-*-2d-v1.png` 8종. 재화 글리프는 @2x·@3x 또는 충분히 큰 원본 필요, `Semantics(label: '하트')` |
 | `app_theme.dart` | `AppTheme` | 위를 조립한 `ThemeData light()` |
-
-### 조각 0 계획에서 바꿔야 하는 값
-
-`docs/superpowers/plans/2026-09-05-foundation-setup.md` Task 4 의 임시 팔레트를 아래로 교체한다.
-
-| 항목 | 기존 (임시) | 확정 | 이유 |
-| --- | --- | --- | --- |
-| `primary` | `0xFFE85D75` | `0xFFFF385C` | Airbnb Rausch. 채움 전용 (§2.1) |
-| `outline` | `0xFFD9D5D8` | `0xFF767676` | 컨트롤 경계 대비 1.5:1 로 **비텍스트 3:1 미달**. 4.54:1 로 교체 |
-| `onSurface` | `0xFF1C1B1F` | `0xFF222222` | Airbnb 잉크 |
-| `error` | `0xFFB3261E` | `0xFFC13515` | Airbnb 에러 |
-| `background` | `0xFFFDFBFB` | `0xFFFFFFFF` | **순백** |
-| `surface` | `0xFFFFFFFF` | 유지 | — |
-| — | 없음 | `primaryPressed` `primaryText` `primaryWash` `primaryDisabled`(`#E5E5E5`, 2026-09-15 결정) `onInk` `surfaceSoft` `surfaceStrong` `surfaceInk` `body` `muted` `disabled` `hairline` `hairlineSoft` `success` `scrim` 추가 | §2 |
-| `AppSpacing` | 4/8/16/24/32 | **4/8/12/16/24/32/48** | 12 와 48 추가 (§4.1) |
-| `cornerRadius` 단일값 12 | — | `AppRadius` 5단계로 분리 (`circle` 은 `BoxShape.circle`) | §5.1 |
-| 폰트 | 미지정 | **Pretendard 정적 4종 번들 + `pubspec.yaml` 등록** | §3.1 |
-
-Task 4 의 테스트도 이 값에 맞춰 갱신해야 한다.
 
 ---
 
