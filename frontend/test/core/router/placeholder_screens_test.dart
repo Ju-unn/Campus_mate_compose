@@ -15,12 +15,6 @@ void main() {
     expect(text.style?.fontWeight, AppTypography.headline.fontWeight);
   });
 
-  testWidgets('로그인 화면 자리는 "로그인" 문구를 보인다', (tester) async {
-    await tester.pumpWidget(const MaterialApp(home: LoginScreen()));
-
-    expect(find.text('로그인'), findsOneWidget);
-  });
-
   testWidgets('홈 화면 자리는 "오늘의 카드" 문구를 보인다', (tester) async {
     await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
 

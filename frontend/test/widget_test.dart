@@ -7,6 +7,6 @@ void main() {
     await tester.pumpWidget(const ProviderScope(child: CampusMateApp()));
     await tester.pumpAndSettle();
 
-    expect(find.text('로그인'), findsOneWidget);
+    expect(find.text('대학 이메일로 시작해요'), findsOneWidget);
   });
 }
