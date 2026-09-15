@@ -1,6 +1,7 @@
 import 'package:campus_mate/core/router/app_router.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -8,18 +9,22 @@ void main() {
     final router = AppRouter.create(isAuthenticated: false);
 
     await tester.pumpWidget(
-      MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+      ProviderScope(
+        child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+      ),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('로그인'), findsOneWidget);
+    expect(find.text('대학 이메일로 시작해요'), findsOneWidget);
   });
 
   testWidgets('로그인하면 홈 화면이 보인다', (tester) async {
     final router = AppRouter.create(isAuthenticated: true);
 
     await tester.pumpWidget(
-      MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+      ProviderScope(
+        child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+      ),
     );
     await tester.pumpAndSettle();
 

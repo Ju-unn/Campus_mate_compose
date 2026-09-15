@@ -1,4 +1,3 @@
-import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 
@@ -12,23 +11,6 @@ class SplashScreen extends StatelessWidget {
     return const Scaffold(
       body: Center(
         child: Text('CampusMate', style: AppTypography.headline),
-      ),
-    );
-  }
-}
-
-/// 로그인 화면 자리. 실제 인증은 조각 1에서 구현한다.
-class LoginScreen extends StatelessWidget {
-  const LoginScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: const Text('로그인', style: AppTypography.headline),
-        ),
       ),
     );
   }
