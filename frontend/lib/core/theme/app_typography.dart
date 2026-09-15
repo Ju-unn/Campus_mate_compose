@@ -17,6 +17,8 @@ abstract final class AppTypography {
     fontWeight: FontWeight.w700,
     height: 1.10,
     letterSpacing: -0.03 * 48,
+    // 1초마다 숫자가 바뀌어도 자릿수 폭이 흔들리지 않게 (DESIGN §3.1)
+    fontFeatures: <FontFeature>[FontFeature.tabularFigures()],
   );
 
   /// 온보딩 단계 헤드라인, 매칭 성사 화면

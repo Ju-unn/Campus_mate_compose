@@ -33,6 +33,13 @@ void main() {
     expect(AppTypography.badge.fontWeight, FontWeight.w600);
   });
 
+  test('countdown 은 자릿수가 흔들리지 않게 tabular figures 를 쓴다 (§3.1)', () {
+    expect(
+      AppTypography.countdown.fontFeatures,
+      contains(const FontFeature.tabularFigures()),
+    );
+  });
+
   test('모든 스타일은 Pretendard 폰트를 쓴다', () {
     for (final style in AppTypography.values) {
       expect(style.fontFamily, 'Pretendard');
