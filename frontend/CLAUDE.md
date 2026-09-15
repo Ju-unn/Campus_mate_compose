@@ -53,8 +53,8 @@
 | 수익 모델 | 가입비 없음(남녀 동일 무료). **하트 1개 = 60원**(2026-09-14 가격 개편, 종전 40원 폐기 — DESIGN.md §13-114), 추가 카드 50하트(**구매 시점은 자유, 지급 주기당 1장**), 아바타 재생성 10하트 (설계 문서 §2.4) |
 | 채팅 상한 | **없음** — 매칭 후 24h/48h 신뢰 확인 게이트가 방치된 대화를 정리 (설계 문서 §2.5). **채팅은 텍스트만, 이미지 전송 불가** |
 
-**현재 상태: 조각 0(기반 공사) 진행 중 — 계획서 Task 1·2·3·5·7·8·9 완료.** Flutter 골격·의존성·Result/Failure·Supabase 설정(Task 2·3·5)에 이어, 조각 0 DB(Task 7·8 — 테이블·RLS·Storage 버킷·대학 시드)가 2026-09-14 사용자 승인 후 클라우드에 적용됐다(pgTAP 은 Docker 가 없어 미실행). 조각 1 DB 는 마이그레이션 초안만 있다.
-**디자인은 확정됐다(2026-09-14 사용자 확인).** 단, `docs/DESIGN.md` §13 에 열린 채 남은 행(예: 102·103·107·109·111·118)에 걸리는 구현은 먼저 사용자에게 묻는다. 다음 순서: **Task 4(디자인 토큰·테마 — `docs/DESIGN.md` §12 확정값) → Task 6(라우팅 골격)**.
+**현재 상태: 조각 0(기반 공사) — 계획서 Task 1~9 완료.** Flutter 골격·의존성·Result/Failure·Supabase 설정(Task 2·3·5)에 이어, 조각 0 DB(Task 7·8 — 테이블·RLS·Storage 버킷·대학 시드)가 2026-09-14 사용자 승인 후 클라우드에 적용됐고(pgTAP 은 Docker 가 없어 미실행), 디자인 토큰·테마(Task 4)와 라우팅 골격(Task 6)이 2026-09-15 에 들어갔다. 조각 1 DB 는 마이그레이션 초안만 있다.
+**디자인은 확정됐다(2026-09-14 사용자 확인).** 단, `docs/DESIGN.md` §13 에 열린 채 남은 행(예: 102·103·107·109·111·118)에 걸리는 구현은 먼저 사용자에게 묻는다. 다음 순서: **조각 1(학생 인증) 첫 화면**. 화면 작업을 시작할 때 `AppIcons`(§5.3 Lucide 매핑)를 함께 추가한다.
 실제 진행 상황은 `../docs/superpowers/plans/2026-09-05-foundation-setup.md` 의 체크박스, DB 적용 상태는 `../docs/ERD.md` 상태줄을 기준으로 삼는다.
 
 ### 2.1 문서 지도
@@ -196,11 +196,14 @@ if (status == statusPending) { ... }   // 대기 상태일 때만 처리
   | 파일 | 클래스 | 근거 |
   | --- | --- | --- |
   | `app_colors.dart` | `AppColors` | DESIGN.md §2 |
-  | `app_type.dart` | `AppType` | §3 |
-  | `app_space.dart` | `AppSpace` | §4.1 |
+  | `app_typography.dart` | `AppTypography` | §3.2 |
+  | `app_spacing.dart` | `AppSpacing` | §4.1 |
   | `app_radius.dart` | `AppRadius` | §5.1 |
-  | `app_icons.dart` | `AppIcons` | §5.3 Lucide 이름 매핑 |
   | `app_motion.dart` | `AppMotion` | §7 |
+  | `app_elevation.dart` | `AppElevation` | §6 |
+  | `app_theme.dart` | `AppTheme` | 위를 조립한 `ThemeData light()` |
+
+  `app_icons.dart`(`AppIcons`, §5.3 Lucide 이름 매핑)는 첫 화면 조각에서 추가한다.
 
 - **아이콘은 Lucide (`lucide_icons`)** 로 통일한다. 위젯에서 `LucideIcons.*` 를 직접 부르지 않고 `AppIcons` 상수를 거친다 (DESIGN.md §5.3)
   - **예외: 하트 재화 글리프.** 잔액·번들·리워드·CTA·아바타 코스트·설정 보유하트 등 "재화" 의미의 하트는 Lucide 가 아니라 이미지 자산 `assets/images/heart-flat-vector-v3.png` 를 쓴다 (2026-09-10, DESIGN.md §5.4·§8.10). 바텀 내비 오늘 탭·호감 하트·매칭 기록 등 비(非)재화 하트는 계속 Lucide `heart`. 재화 글리프는 다크 배경에서도 읽히는 렌더 + `@2x`/`@3x` 자산 + `Semantics(label: '하트')` 를 갖춘다
