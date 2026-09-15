@@ -9,4 +9,8 @@ void main() {
     expect(AppRadius.xl, 32);
     expect(AppRadius.pill, 9999);
   });
+
+  test('버튼 라운드는 DESIGN.md §8.3 토스 비례값(16)을 쓴다', () {
+    expect(AppRadius.button, 16);
+  });
 }

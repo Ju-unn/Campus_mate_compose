@@ -17,4 +17,7 @@ abstract final class AppRadius {
 
   /// 필터 칩, MBTI 토글, 카운트 뱃지, 인증 뱃지
   static const double pill = 9999;
+
+  /// 56dp 채움 버튼 전용 (토스 TDS 비례, DESIGN.md §8.3·§13-107 — `sm` 과 별개 리터럴을 토큰화)
+  static const double button = 16;
 }
