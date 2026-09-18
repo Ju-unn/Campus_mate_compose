@@ -4,9 +4,9 @@
 
 **Goal:** 대학 이메일 OTP로 가입해 인증된 Supabase 세션을 얻고, FastAPI HTTP Auth Hook이 가입 시점에 학교 도메인 화이트리스트·재가입 제한을 검사해 통과한 사용자만 `profiles`(pending) 행을 갖도록 만든다.
 
-**Architecture:** Flutter는 `supabase_flutter`로 `signInWithOtp`(코드 요청)·`verifyOTP`(코드 검증)만 직접 호출한다 — 이 둘은 Supabase Auth 표준 기능이라 클라이언트가 호출해도 "쓰기는 FastAPI 경유" 원칙에 어긋나지 않는다(auth.users 자체는 Supabase Auth 소유). 도메인 화이트리스트·재가입 제한 검사와 `profiles` 행 생성은 클라이언트가 호출하지 않고, Supabase가 가입 요청 시점에 자동으로 호출하는 **Before User Created HTTP Auth Hook**(FastAPI, Cloud Run) 안에서 서버가 처리한다. 이 훅은 Supabase가 만들 예정인 사용자 id를 페이로드로 미리 받으므로, 승인 응답을 돌려주기 전에 같은 요청 안에서 `profiles` pending 행까지 service_role로 만든다 — 별도의 "가입 완료" 엔드포인트를 두지 않는다.
+**Architecture:** Flutter는 `supabase_flutter`로 `signInWithOtp`(코드 요청)·`verifyOTP`(코드 검증)만 직접 호출한다 — 이 둘은 Supabase Auth 표준 기능이라 클라이언트가 호출해도 "쓰기는 FastAPI 경유" 원칙에 어긋나지 않는다(auth.users 자체는 Supabase Auth 소유). 도메인 화이트리스트·재가입 제한 검사는 클라이언트가 호출하지 않고, Supabase가 가입 요청 시점에 자동으로 호출하는 **Before User Created HTTP Auth Hook**(FastAPI, Cloud Run) 안에서 서버가 처리해 승인/거부만 결정한다. `profiles` pending 행은 이 훅이 아니라 **`auth.users` INSERT 후 Postgres 트리거**가 만든다 — Before User Created 훅은 이름 그대로 `auth.users` 행이 실제로 커밋되기 **전에** 불리므로, 그 시점에 `profiles.id → auth.users.id` FK를 참조하는 insert를 하면 FK 위반으로 실패한다(2026-09-18 리뷰 지적, 표준 Supabase 패턴으로 정정). 트리거는 `SECURITY DEFINER`가 필요한 좁은 예외다 — `auth` 스키마의 INSERT를 계기로 `public.profiles`에 쓰는 절차라 클라이언트가 우회 호출할 RPC가 아니고, "security definer 함수는 쓰지 않는다"(SUPABASE.md §5) 원칙의 대상인 "권한 오류 우회용" RPC와는 다르다. 도메인을 못 찾으면 훅이 이미 거부했을 것이므로 트리거는 방어적으로만 `raise`한다.
 
-**Tech Stack:** Flutter/Riverpod(기존 스택 그대로), `supabase_flutter` ^2.17.2(이미 의존성), FastAPI + Python 3.13, httpx, uvicorn, Docker, Google Cloud Run asia-northeast3(서울)
+**Tech Stack:** Flutter/Riverpod(기존 스택 그대로), `supabase_flutter` ^2.17.2(이미 의존성), FastAPI + Python 3.12, httpx, uvicorn, Docker, Google Cloud Run asia-northeast3(서울)
 
 **Spec:** `docs/superpowers/specs/2026-09-05-campusmate-foundation-design.md` §3.1·§7.3·§13-37·§13-38·§13-39, `docs/ERD.md` §2·§3, `docs/ERD_DECISIONS.md` §11-8·§11-12
 
@@ -66,7 +66,7 @@
 | `backend/app/main.py` | FastAPI 앱, `/healthz`, 훅 라우터 등록 |
 | `backend/app/settings.py` | `pydantic-settings` 기반 설정 |
 | `backend/app/webhook_signature.py` | Standard Webhooks HMAC 서명 검증 |
-| `backend/app/signup_policy.py` | 도메인 화이트리스트·재가입 제한 검사, pending 프로필 생성 |
+| `backend/app/signup_policy.py` | 도메인 화이트리스트·재가입 제한 검사(허용/거부 판단만, 프로필 생성은 하지 않는다) |
 | `backend/app/auth_hooks/schemas.py` | 훅 요청·응답 pydantic 모델 |
 | `backend/app/auth_hooks/router.py` | `POST /hooks/before-user-created` |
 | `backend/tests/test_webhook_signature.py` | 서명 검증 단위 테스트 |
@@ -77,8 +77,10 @@
 
 | 파일 | 책임 |
 | --- | --- |
+| `supabase/migrations/20260914055631_revoke_rls_auto_enable_execute.sql` (기존, 적용만) | advisor WARN 0028·0029 대응. 이미 저장소에 있고 미적용 상태다(ERD.md §12-34) |
 | `supabase/migrations/<timestamp>_create_signup_blocks.sql` | `signup_blocks` 테이블·RLS·grant |
-| `supabase/tests/rls_slice1_test.sql` (수정) | `signup_blocks` 접근 제어 pgTAP 추가 |
+| `supabase/migrations/<timestamp>_create_handle_new_user_profile_trigger.sql` | `auth.users` INSERT 후 `profiles` pending 행을 만드는 트리거 |
+| `supabase/tests/rls_slice1_test.sql` (수정) | `signup_blocks` 접근 제어 + 트리거 동작 pgTAP 추가 |
 
 ---
 
@@ -1701,7 +1703,7 @@ Expected: FAIL — 모듈 없음
 [project]
 name = "campus-mate-backend"
 version = "0.1.0"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
@@ -1737,7 +1739,7 @@ Expected: PASS
 - [ ] **Step 6: Dockerfile**
 
 ```dockerfile
-FROM python:3.13-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 
@@ -2051,9 +2053,11 @@ git commit -m "✨ feat(backend): Auth Hook 요청·응답 스키마 추가"
 
 **Interfaces:**
 - Consumes: `Settings`(Task B2)
-- Produces: `SignupPolicy.find_university_id`, `SignupPolicy.is_blocked`, `SignupPolicy.create_pending_profile` — Task B7이 씀
+- Produces: `SignupPolicy.find_university_id`, `SignupPolicy.is_blocked` — Task B7이 씀
 
 `signup_blocks.email_hmac`은 `bytea`라 PostgREST 필터에는 `\x<hex>` 리터럴로 보낸다. HMAC 키는 `AUTH_HOOK_SIGNING_SECRET`과 별개로 두지 않고, 이 조각에서는 같은 시크릿을 재사용한다 — `signup_blocks`에 실제로 쓰는 조각 6에서 키 분리가 필요해지면 그때 나눈다(YAGNI).
+
+`profiles` pending 행 생성은 이 클래스가 아니라 Part C의 DB 트리거가 한다(Before User Created 훅은 `auth.users` 커밋 전에 불려 FK를 참조하는 insert를 할 수 없다 — Architecture 절 참고). `SignupPolicy`는 허용/거부 판단까지만 맡는다.
 
 - [ ] **Step 1: 실패하는 테스트 작성**
 
@@ -2101,20 +2105,6 @@ async def test_is_blocked_false_when_no_row(transport_factory):
     policy = SignupPolicy("https://x.supabase.co/rest/v1", "service-key", transport_factory(handler))
 
     assert await policy.is_blocked(b"\x01\x02") is False
-
-
-async def test_create_pending_profile_posts_id_and_university(transport_factory):
-    captured = {}
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        captured["json"] = request.content
-        return httpx.Response(201)
-
-    policy = SignupPolicy("https://x.supabase.co/rest/v1", "service-key", transport_factory(handler))
-
-    await policy.create_pending_profile("33333333-3333-3333-3333-333333333333", "22222222-2222-2222-2222-222222222222")
-
-    assert b"33333333-3333-3333-3333-333333333333" in captured["json"]
 ```
 
 - [ ] **Step 2: 테스트 실패 확인**
@@ -2159,14 +2149,6 @@ class SignupPolicy:
         )
         response.raise_for_status()
         return len(response.json()) > 0
-
-    async def create_pending_profile(self, user_id: str, university_id: str) -> None:
-        response = await self._client.post(
-            f"{self._postgrest_url}/profiles",
-            json={"id": user_id, "university_id": university_id},
-            headers={**self._headers, "Prefer": "return=minimal"},
-        )
-        response.raise_for_status()
 ```
 
 - [ ] **Step 4: 테스트 통과 확인**
@@ -2178,7 +2160,7 @@ Expected: PASS
 
 ```bash
 git add backend/app/signup_policy.py backend/tests/test_signup_policy.py
-git commit -m "✨ feat(backend): 도메인 화이트리스트·재가입 제한 검사, pending 프로필 생성"
+git commit -m "✨ feat(backend): 도메인 화이트리스트·재가입 제한 검사 구현"
 ```
 
 ---
@@ -2253,7 +2235,7 @@ git commit -m "✨ feat(backend): 재가입 제한 대조용 이메일 HMAC 함�
 - Consumes: `verify_webhook_signature`(B3), `BeforeUserCreatedPayload`·`HookDecision`(B4), `SignupPolicy`·`hash_email`(B5·B6), `Settings`(B2)
 - Produces: `POST /hooks/before-user-created` — Supabase가 호출하는 최종 엔드포인트
 
-서명이 틀리면 401, 도메인이 화이트리스트에 없거나 재가입 제한에 걸리면 `HookDecision.reject`를 담아 200으로 돌려준다(Supabase Auth Hook 규격 — 거부도 200 + reject 바디).
+서명이 틀리면 401, 도메인이 화이트리스트에 없거나 재가입 제한에 걸리면 `HookDecision.reject`를 담아 200으로 돌려준다(Supabase Auth Hook 규격 — 거부도 200 + reject 바디). 이 엔드포인트는 승인/거부만 결정하고 `profiles` 행을 쓰지 않는다 — `auth.users`가 아직 커밋되기 전이라 FK 위반이 나기 때문이다(Architecture 절, Part C Task C2가 트리거로 만든다).
 
 - [ ] **Step 1: 실패하는 테스트 작성**
 
@@ -2306,13 +2288,11 @@ def _post_hook(client: TestClient, body: dict, mock_transport: httpx.MockTranspo
     return client.post("/hooks/before-user-created", content=raw_body, headers=headers)
 
 
-def test_allows_known_domain_and_creates_profile():
+def test_allows_known_domain():
     def handler(request: httpx.Request) -> httpx.Response:
         if "university_email_domains" in str(request.url):
             return httpx.Response(200, json=[{"university_id": "22222222-2222-2222-2222-222222222222"}])
-        if "signup_blocks" in str(request.url):
-            return httpx.Response(200, json=[])
-        return httpx.Response(201)
+        return httpx.Response(200, json=[])
 
     client = TestClient(app)
     response = _post_hook(
@@ -2417,7 +2397,6 @@ async def before_user_created(request: Request) -> HookDecision:
     if await policy.is_blocked(email_hmac):
         return HookDecision.reject("재가입이 제한된 이메일이에요")
 
-    await policy.create_pending_profile(str(payload.user_id), university_id)
     return HookDecision.allow()
 
 
@@ -2521,6 +2500,33 @@ git commit -m "📝 docs(backend): Cloud Run 배포 절차 문서화"
 
 ## Part C: Supabase 설정 (사용자 승인 후)
 
+### Task C0: 기존 advisor 대응 마이그레이션 적용
+
+**Files:**
+- Apply only: `supabase/migrations/20260914055631_revoke_rls_auto_enable_execute.sql` (이미 저장소에 있음, 새로 만들지 않는다)
+
+**Interfaces:** 없음(스키마)
+
+Supabase advisor 보안 WARN 0028·0029에 대한 대응이다(`docs/ERD.md` §12-34, 2026-09-14 사용자 결정: "다음 클라우드 쓰기 승인 때 같이 묶는다"). `public.rls_auto_enable()`(클라우드 프로젝트 생성 시 자동 RLS 옵션이 만든 함수)에서 `anon`·`authenticated`의 실행 권한을 뺀다. 함수가 없는 fresh DB에서도 안전하도록 존재 여부를 먼저 확인하는 guard가 이미 파일에 있다.
+
+- [ ] **Step 1: 파일 내용 확인 (수정하지 않는다)**
+
+```sql
+do $$
+begin
+  if to_regprocedure('public.rls_auto_enable()') is not null then
+    revoke execute on function public.rls_auto_enable() from anon, authenticated, public;
+  end if;
+end
+$$;
+```
+
+- [ ] **Step 2: 클라우드 적용 (Task C1·C2와 같은 승인 게이트)**
+
+사용자 승인 후 MCP `apply_migration`에 이 기존 파일 내용을 그대로 넘긴다. 새 커밋은 필요 없다(파일이 이미 커밋돼 있음) — 적용 완료만 `docs/ERD_DECISIONS.md`에 기록한다.
+
+---
+
 ### Task C1: `signup_blocks` 마이그레이션
 
 **Files:**
@@ -2564,14 +2570,72 @@ git commit -m "🗃️ db(slice1): signup_blocks 테이블 마이그레이션 �
 
 ---
 
-### Task C2: pgTAP 회귀 테스트 추가
+### Task C2: `auth.users` INSERT 트리거 — `profiles` pending 행 생성
+
+**Files:**
+- Create: `supabase/migrations/<timestamp>_create_handle_new_user_profile_trigger.sql`
+
+**Interfaces:** 없음(스키마) — Part B의 Auth Hook이 승인한 가입 건에 대해 Supabase가 `auth.users`를 커밋하면 이 트리거가 자동으로 뒤이어 실행된다
+
+Before User Created 훅(Part B)은 `auth.users` 행이 실제로 만들어지기 **전에** 불려서, 그 안에서 `profiles.id → auth.users.id` FK를 참조하는 insert를 하면 위반이 난다(2026-09-18 리뷰 지적). 대신 `auth.users` INSERT **후**에 도는 트리거가 `profiles` pending 행을 만든다 — Supabase 공식 문서의 "hooks 없이 새 사용자에 프로필을 붙이는" 표준 패턴이다. `SECURITY DEFINER`는 `auth` 스키마 이벤트로 `public.profiles`에 쓰기 위해 필요한 좁은 예외이고, `set search_path = ''`로 스키마 스푸핑을 막는다.
+
+- [ ] **Step 1: 마이그레이션 파일 작성**
+
+```sql
+-- 조각 1a: auth.users INSERT 뒤 profiles pending 행을 만드는 트리거.
+-- Before User Created 훅(FastAPI)은 auth.users 커밋 전에 불려 FK 를 못 지키므로
+-- 이 트리거가 대신 만든다(2026-09-18 리뷰, 표준 Supabase 패턴).
+-- 도메인을 못 찾는 경우는 Auth Hook 이 이미 거부했어야 하므로 방어적으로만 막는다.
+create function public.handle_new_user_profile()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  matched_university_id uuid;
+begin
+  select university_id into matched_university_id
+    from public.university_email_domains
+    where domain = lower(split_part(new.email, '@', 2));
+
+  if matched_university_id is null then
+    raise exception 'no matching university domain for %', new.email;
+  end if;
+
+  insert into public.profiles (id, university_id) values (new.id, matched_university_id);
+  return new;
+end;
+$$;
+
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user_profile();
+```
+
+- [ ] **Step 2: 커밋 (아직 클라우드 적용 전 — 파일만)**
+
+```bash
+git add supabase/migrations/<timestamp>_create_handle_new_user_profile_trigger.sql
+git commit -m "🗃️ db(slice1): auth.users INSERT 트리거로 profiles pending 행 생성"
+```
+
+- [ ] **Step 3: 클라우드 적용 (Task C0·C1과 같은 승인 게이트)**
+
+사용자 승인 후 MCP `apply_migration`에 이 파일 내용을 그대로 넘긴다. 적용 직후 `get_advisors`로 새 `SECURITY DEFINER` 함수에 대한 경고가 없는지 확인한다(`search_path` 고정으로 스키마 스푸핑 경고는 뜨지 않아야 한다).
+
+**문서 정합 메모(별도 문서 라운드에서 처리, 이 계획은 코드만 다룬다):** 설계 문서 §7.1·§7.3의 "FastAPI가 profiles를 만든다"는 서술과 `docs/ERD.md` §2의 "FastAPI가 행을 만들 때는" 주석이 이 트리거 방식과 어긋난다. 문서담당이 spec/ERD에 "profiles pending 행은 `auth.users` INSERT 트리거가 만든다(2026-09-18, FK 순서 문제로 정정)" 한 줄을 spec §13·ERD_DECISIONS.md §11에 추가해야 한다.
+
+---
+
+### Task C3: pgTAP 회귀 테스트 추가
 
 **Files:**
 - Modify: `supabase/tests/rls_slice1_test.sql`
 
 **Interfaces:** 없음(SQL 테스트)
 
-- [ ] **Step 1: `plan(30)` 을 `plan(33)` 으로 바꾸고 "5. 탈퇴 cascade" 앞에 새 절 추가**
+- [ ] **Step 1: `plan(30)` 을 `plan(35)` 으로 바꾸고 "5. 탈퇴 cascade" 앞에 새 절 추가**
 
 ```sql
 -- 4b. signup_blocks 접근 제어 (postgres) ------------------------------------
@@ -2602,9 +2666,27 @@ select lives_ok(
   $$select * from public.signup_blocks where email_hmac = '\x0102030405'::bytea$$,
   'service_role 은 signup_blocks 를 읽을 수 있다'
 );
+
+-- 4c. auth.users INSERT 트리거 (postgres, Task C2) ---------------------------
+
+insert into auth.users (id, email) values
+  ('00000000-0000-0000-0000-0000000000cc', 'rls-c@test.ac.kr');
+
+select is(
+  (select university_id from public.profiles where id = '00000000-0000-0000-0000-0000000000cc'),
+  '00000000-0000-0000-0000-000000000001'::uuid,
+  '트리거가 도메인에 맞는 university_id 로 profiles pending 행을 만든다'
+);
+
+select throws_ok(
+  $$insert into auth.users (id, email)
+    values ('00000000-0000-0000-0000-0000000000dd', 'rls-d@unknown-domain.ac.kr')$$,
+  'P0001', null,
+  '화이트리스트에 없는 도메인이면 트리거가 막는다'
+);
 ```
 
-`plan(30)`을 `plan(33)`으로 바꾸는 이유: 위 3개 `throws_ok`/`lives_ok`가 새 검증이다.
+`plan(30)`을 `plan(35)`으로 바꾸는 이유: 위 5개(`throws_ok`·`lives_ok`·`is`)가 새 검증이다.
 
 - [ ] **Step 2: 커밋**
 
@@ -2617,7 +2699,7 @@ Docker 로컬 스택이 없어 `supabase test db`는 아직 실행하지 않는�
 
 ---
 
-### Task C3: Supabase Auth 설정 (사용자 승인 후 수동)
+### Task C4: Supabase Auth 설정 (사용자 승인 후 수동)
 
 **Files:** 없음(Supabase Dashboard 또는 Management API 조작) — 문서화된 MCP 도구가 없어 체크리스트로 남긴다
 
@@ -2642,5 +2724,8 @@ Docker 로컬 스택이 없어 `supabase test db`는 아직 실행하지 않는�
 - [ ] spec §13-38 OTP 정책(10분·60초·시간당 5회)이 반영됐는가 — 10분·시간당 5회는 Part C(Supabase 설정), 60초는 Part A(`VerifyCodeViewModel` 쿨다운)
 - [ ] spec §13-39 메일 발신(1a는 기본 메일)이 반영됐는가 — 이 계획 어디에도 커스텀 SMTP 코드가 없음, 반영됨
 - [ ] ERD.md §11-12(재가입 제한을 Auth Hook이 검사)가 반영됐는가 — Task B5·B7
+- [ ] `profiles` pending 행 생성이 FK 순서를 지키는가 — Before User Created 훅(B7)은 승인/거부만 하고, `auth.users` INSERT 후 트리거(Task C2)가 만든다(2026-09-18 리뷰로 정정)
+- [ ] 사용자 준비 가이드와 Python 버전이 맞는가 — `requires-python`·Dockerfile 모두 3.12(2026-09-18 리뷰로 3.13에서 정정)
+- [ ] ERD.md §12-34(advisor WARN 0028·0029 revoke)가 다음 클라우드 쓰기에 같이 묶였는가 — Task C0
 - [ ] 플레이스홀더 스캔 — "TBD"·"나중에 구현"·"적절히 처리" 문구 없음(직접 검색 완료)
-- [ ] 타입 일관성 — `AuthRepository.requestOtp`/`verifyOtp` 시그니처가 Task A3·A4·A5·A7에서 동일, `SignupPolicy`의 메서드명이 Task B5·B7에서 동일
+- [ ] 타입 일관성 — `AuthRepository.requestOtp`/`verifyOtp` 시그니처가 Task A3·A4·A5·A7에서 동일, `SignupPolicy`의 메서드명이 Task B5·B7에서 동일(`create_pending_profile`은 삭제됨)
