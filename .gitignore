@@ -7,3 +7,11 @@ Thumbs.db
 .idea/
 .vscode/
 *.iml
+
+# Python (backend)
+backend/.venv/
+backend/**/__pycache__/
+backend/**/*.pyc
+backend/.pytest_cache/
+backend/*.egg-info/
+backend/.env
