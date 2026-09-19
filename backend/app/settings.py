@@ -11,3 +11,7 @@ class Settings(BaseSettings):
     @property
     def postgrest_url(self) -> str:
         return f"{self.supabase_url}/rest/v1"
+
+    @property
+    def auth_url(self) -> str:
+        return f"{self.supabase_url}/auth/v1"
