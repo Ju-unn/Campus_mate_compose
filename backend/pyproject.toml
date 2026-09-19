@@ -7,6 +7,9 @@ dependencies = [
     "uvicorn[standard]>=0.32",
     "httpx>=0.27",
     "pydantic-settings>=2.6",
+    "google-cloud-vision>=3.9",
+    # FastAPI 의 multipart 폼(학생증 사진 업로드)에 필요하다.
+    "python-multipart>=0.0.9",
 ]
 
 [project.optional-dependencies]

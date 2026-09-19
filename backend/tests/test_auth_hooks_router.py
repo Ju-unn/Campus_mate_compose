@@ -32,6 +32,8 @@ def settings_override(monkeypatch):
             supabase_url="https://x.supabase.co",
             supabase_service_role_key="service-key",
             auth_hook_signing_secret=SECRET,
+            discord_webhook_url="https://discord.com/api/webhooks/test",
+            google_cloud_project="campus-mate-test",
         ),
     )
 
