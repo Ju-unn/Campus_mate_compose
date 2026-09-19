@@ -1,4 +1,5 @@
 import 'package:campus_mate/auth/model/school_name_provider.dart';
+import 'package:campus_mate/auth/view/info_note.dart';
 import 'package:campus_mate/auth/viewmodel/school_info_ui_state.dart';
 import 'package:campus_mate/auth/viewmodel/school_info_view_model.dart';
 import 'package:campus_mate/common/failure.dart';
@@ -144,7 +145,7 @@ class _SchoolInfoForm extends StatelessWidget {
         onChanged: viewModel.changeStudentNumber,
       ),
       const SizedBox(height: AppSpacing.sm),
-      const _DisclosureNote(),
+      const InfoNote(icon: AppIcons.eye, text: '학교·학과·학번은 카드와 프로필에 공개돼요.'),
       if (state.errorMessage != null) ...[
         const SizedBox(height: AppSpacing.sm),
         Text(state.errorMessage!, style: AppTypography.caption.copyWith(color: AppColors.error)),
@@ -153,8 +154,8 @@ class _SchoolInfoForm extends StatelessWidget {
   }
 }
 
-/// 읽기 전용 학교 확인 행 — `graduation-cap` + 학교명 + "확인됨" 뱃지 (§9 3c).
-/// 입력칸이 아니라는 것이 한눈에 보이도록 필드 앞에 둔다.
+/// 읽기 전용 학교 확인 행 — `graduation-cap` + 학교명 + "확인됨" 뱃지 (§9 3c, pen `G4PVWE`).
+/// 입력칸이 아니라는 것이 한눈에 보이도록 `surface-soft` 카드에 얹어 필드 앞에 둔다.
 class _SchoolConfirmedRow extends StatelessWidget {
   const _SchoolConfirmedRow({required this.schoolName});
 
@@ -162,6 +163,18 @@ class _SchoolConfirmedRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return Container(
+      // pen 실측 14. 간격 토큰 sm(12)·md(16) 사이 값이라 토큰으로 갈음하지 않는다
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceSoft,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+      ),
+      child: _row(),
+    );
+  }
+
+  Widget _row() {
     return Row(
       children: [
         _icon(),
@@ -172,13 +185,14 @@ class _SchoolConfirmedRow extends StatelessWidget {
     );
   }
 
-  /// 원형 아이콘 표면. `circle` 은 위젯 크기의 50% 라 토큰이 아니라 [BoxShape.circle] 로 쓴다(§5.1).
+  /// 원형 아이콘 표면 (pen `e1vPBC`). 카드가 `surface-soft` 라 원은 캔버스 색으로 띄운다.
+  /// `circle` 은 위젯 크기의 50% 라 토큰이 아니라 [BoxShape.circle] 로 쓴다(§5.1).
   Widget _icon() {
     return Container(
       width: 40,
       height: 40,
       alignment: Alignment.center,
-      decoration: const BoxDecoration(color: AppColors.surfaceSoft, shape: BoxShape.circle),
+      decoration: const BoxDecoration(color: AppColors.canvas, shape: BoxShape.circle),
       child: const Icon(AppIcons.graduationCap, size: 20, color: AppColors.muted),
     );
   }
@@ -187,7 +201,7 @@ class _SchoolConfirmedRow extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('학교', style: AppTypography.caption.copyWith(color: AppColors.muted)),
+        Text('학교', style: AppTypography.bodySmall.copyWith(color: AppColors.muted)),
         Text(schoolName, style: AppTypography.bodyStrong.copyWith(color: AppColors.ink)),
       ],
     );
@@ -195,7 +209,7 @@ class _SchoolConfirmedRow extends StatelessWidget {
 }
 
 /// "확인됨" 뱃지 — `primary-wash` 채움 pill 에 `primary-text` 아이콘·글자 (pen `B9Hu7` 실측).
-/// 글자가 12/600 이라 11/600 인 `AppTypography.badge` 대신 `caption` 에 굵기만 얹는다.
+/// 글자는 인증 뱃지 전용 토큰 `AppTypography.badge`(11/600)를 그대로 쓴다.
 class _VerifiedBadge extends StatelessWidget {
   const _VerifiedBadge();
 
@@ -217,10 +231,7 @@ class _VerifiedBadge extends StatelessWidget {
       children: [
         const Icon(AppIcons.badgeCheck, size: 14, color: AppColors.primaryText),
         const SizedBox(width: AppSpacing.xxs),
-        Text(
-          '확인됨',
-          style: AppTypography.caption.copyWith(color: AppColors.primaryText, fontWeight: FontWeight.w600),
-        ),
+        Text('확인됨', style: AppTypography.badge.copyWith(color: AppColors.primaryText)),
       ],
     );
   }
@@ -280,28 +291,6 @@ class _LabeledTextField extends StatelessWidget {
         hintText: placeholder,
         hintStyle: AppTypography.body.copyWith(color: AppColors.disabled),
       ),
-    );
-  }
-}
-
-/// 공개 범위 안내 (§9 3c). 3b 의 비공개 안내와 반대로 "공개된다"를 알리는 자리라
-/// 아이콘만 `primary-text` 로 세우고 글자는 다른 보조 설명과 같은 톤으로 둔다.
-class _DisclosureNote extends StatelessWidget {
-  const _DisclosureNote();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const Icon(AppIcons.eye, size: 14, color: AppColors.primaryText),
-        const SizedBox(width: AppSpacing.xxs),
-        Expanded(
-          child: Text(
-            '학교·학과·학번은 카드와 프로필에 공개돼요.',
-            style: AppTypography.caption.copyWith(color: AppColors.muted),
-          ),
-        ),
-      ],
     );
   }
 }

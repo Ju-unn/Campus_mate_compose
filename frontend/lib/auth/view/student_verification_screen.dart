@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:campus_mate/auth/view/info_note.dart';
 import 'package:campus_mate/auth/viewmodel/student_verification_ui_state.dart';
 import 'package:campus_mate/auth/viewmodel/student_verification_view_model.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
@@ -159,7 +160,7 @@ class _SubmitForm extends StatelessWidget {
       const SizedBox(height: AppSpacing.lg),
       _PhotoZone(photo: state.selectedPhoto, onTap: viewModel.pickPhoto),
       const SizedBox(height: AppSpacing.sm),
-      const _PrivacyNote(),
+      const InfoNote(icon: AppIcons.lock, text: '인증 서류는 프로필에 공개되지 않아요.'),
     ];
   }
 }
@@ -274,27 +275,6 @@ class _PhotoZone extends StatelessWidget {
           child: photo == null ? const _PhotoPrompt() : Image.file(photo!, fit: BoxFit.cover),
         ),
       ),
-    );
-  }
-}
-
-/// 업로드 존 아래 공개 범위 안내 (pen `Rg1VT` 실측).
-class _PrivacyNote extends StatelessWidget {
-  const _PrivacyNote();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const Icon(AppIcons.lock, size: 14, color: AppColors.muted),
-        const SizedBox(width: AppSpacing.xxs),
-        Expanded(
-          child: Text(
-            '인증 서류는 프로필에 공개되지 않아요.',
-            style: AppTypography.caption.copyWith(color: AppColors.muted),
-          ),
-        ),
-      ],
     );
   }
 }
