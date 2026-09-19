@@ -34,5 +34,6 @@ void main() {
     expect(AppIcons.phone, LucideIcons.phone);
     expect(AppIcons.contactRound, LucideIcons.contactRound);
     expect(AppIcons.trash2, LucideIcons.trash2);
+    expect(AppIcons.eye, LucideIcons.eye);
   });
 }

@@ -34,4 +34,7 @@ abstract final class AppIcons {
   static const IconData phone = LucideIcons.phone;
   static const IconData contactRound = LucideIcons.contactRound;
   static const IconData trash2 = LucideIcons.trash2;
+
+  /// 공개 범위 안내 (DESIGN.md 화면 3c — "카드와 프로필에 공개돼요")
+  static const IconData eye = LucideIcons.eye;
 }
