@@ -17,6 +17,10 @@ void main() {
     test('스플래시에서도 로그인 화면으로 보낸다', () {
       expect(redirect.resolve(AppRoutes.splash), AppRoutes.login);
     });
+
+    test('인증코드 화면에서는 이동시키지 않는다', () {
+      expect(redirect.resolve(AppRoutes.verifyCode), isNull);
+    });
   });
 
   group('로그인한 사용자', () {

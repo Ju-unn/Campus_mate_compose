@@ -25,9 +25,9 @@ class AuthRedirect {
     return null;
   }
 
-  /// 로그인하지 않은 사용자는 로그인 화면 외에는 갈 수 없다.
+  /// 로그인하지 않은 사용자는 로그인·인증코드 화면 외에는 갈 수 없다.
   String? _resolveForGuest(String location) {
-    if (location == AppRoutes.login) {
+    if (location == AppRoutes.login || location == AppRoutes.verifyCode) {
       return null;
     }
     return AppRoutes.login;

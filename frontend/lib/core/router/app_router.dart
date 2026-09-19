@@ -1,17 +1,25 @@
+import 'package:campus_mate/auth/model/university_email.dart';
 import 'package:campus_mate/auth/view/sign_up_screen.dart';
+import 'package:campus_mate/auth/view/verify_code_screen.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/router/auth_redirect.dart';
 import 'package:campus_mate/core/router/placeholder_screens.dart';
+import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
 /// 앱의 라우터를 구성한다.
 /// 이동 판단은 [AuthRedirect] 가 맡고 여기서는 경로와 화면만 연결한다.
 abstract final class AppRouter {
-  static GoRouter create({required bool isAuthenticated}) {
-    final redirect = AuthRedirect(isAuthenticated);
+  static GoRouter create({
+    required bool Function() isAuthenticated,
+    Listenable? refreshListenable,
+  }) {
     return GoRouter(
       initialLocation: AppRoutes.splash,
-      redirect: (context, state) => redirect.resolve(state.matchedLocation),
+      refreshListenable: refreshListenable,
+      redirect: (context, state) {
+        return AuthRedirect(isAuthenticated()).resolve(state.matchedLocation);
+      },
       routes: _routes(),
     );
   }
@@ -27,9 +35,23 @@ abstract final class AppRouter {
         builder: (context, state) => const SignUpScreen(),
       ),
       GoRoute(
+        path: AppRoutes.verifyCode,
+        redirect: _verifyCodeGuard,
+        builder: _buildVerifyCode,
+      ),
+      GoRoute(
         path: AppRoutes.home,
         builder: (context, state) => const HomeScreen(),
       ),
     ];
+  }
+
+  /// 이메일 없이 이 경로에 들어오면 로그인부터 다시 시작한다.
+  static String? _verifyCodeGuard(BuildContext context, GoRouterState state) {
+    return state.extra is UniversityEmail ? null : AppRoutes.login;
+  }
+
+  static Widget _buildVerifyCode(BuildContext context, GoRouterState state) {
+    return VerifyCodeScreen(email: state.extra as UniversityEmail);
   }
 }
