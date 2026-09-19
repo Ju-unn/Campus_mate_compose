@@ -46,6 +46,7 @@
 | 23 | **신고는 처리가 끝나고 1년 뒤 사본(`target_snapshot`)과 함께 지운다**(2026-09-14) — 조치·기각하면 FastAPI 가 `reports.resolved_at` 을 쓰고, 1년 지난 `reports` 행을 FastAPI 가 지운다(사본만이 아니라 행째 삭제, 2026-09-14 사용자 확인). 열린(`open`) 신고는 지우지 않는다. 최종 기간은 출시 전 법무 검토(설계 미결21)에서 확인 | §5 `reports.resolved_at` 추가 · 주석, §12-30 해결 | 개인정보처리방침(설계 §7.7 · 미결21)의 보유 기간에 "신고 기록: 처리 후 1년" |
 | 24 | **학생증 인증 상태값은 `none` `pending` `verified` `rejected` 4개로 확정하고, 재시도 횟수는 시도 기록 테이블의 행 수로 센다**(2026-09-14) — 제출 한 번에 `student_verification_attempts` 한 행, 반려 사유 · 재검토 시각도 여기 남는다. 클라이언트는 이 테이블을 읽지 않고 본인 반려 사유는 FastAPI 응답으로 받는다. 재시도 상한 값과 고객 지원 경로는 정하지 않았다(설계 미결3, 조각 1 서버) | §8 `verification_status` 확정, §3 `student_verification_attempts` · §2 접근 표, §12-4 해결 | 설계 §7.3 학생인증 상태값 서술에 시도 기록 테이블, 설계 미결3 에서 저장 방식은 해결 · 상한 값과 고객 지원 경로는 남김 |
 | 25 | **`profile-photos` · `student-id-temp` 버킷은 파일 10MB · `image/jpeg` `image/png` 로 제한한다**(2026-09-14) — 클라이언트가 업로드 전에 압축하고 JPEG 로 다시 인코딩한다. 버킷 제한은 업로드 쪽이 신고한 content type 과 크기만 보므로(413 · 400) 파일 내용(매직 바이트)은 FastAPI 가 검사한다 | §9 두 버킷 제한, §2 pgTAP 기대값 | 설계 §7.4 Storage 서술에 제한값과 매직 바이트 검사 주체, DESIGN 사진 업로드 안내(앱이 압축 · JPEG 재인코딩) |
+| 26 | **`profiles` pending 행은 FastAPI가 아니라 `auth.users` INSERT 후 Postgres 트리거(`handle_new_user_profile`)가 만든다**(2026-09-18, FK 순서 문제로 정정) — Before User Created 훅은 `auth.users` 행이 커밋되기 전에 불려서 그 안에서 `profiles.id → auth.users.id` FK를 참조하는 insert를 하면 위반이 난다. 훅은 승인/거부만 결정하고, `auth.users` INSERT 직후에 도는 `AFTER INSERT` 트리거가 pending 행을 만든다 | §3 `profiles` 행 생성 주체 서술 정정 | 설계 §7.3 "FastAPI가 이메일 인증 직후 만든다" → 트리거가 만든다, 설계 §13 새 항목(40) |
 
 ## 12. 남은 검토 — 해결된 행
 

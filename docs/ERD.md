@@ -232,7 +232,7 @@ erDiagram
 ```
 
 - `profiles` 폐기 컬럼 — 만들지 않는다: `hide_same_major`(설계 미결27), `ideal_description`(설계 미결33)
-- `profiles` 행은 FastAPI가 이메일 인증 직후 만든다. 3b의 `profile_private` 가 이 행을 FK로 가리키므로 먼저 있어야 한다. 클라이언트 INSERT는 없다(§2)
+- `profiles` 행은 FastAPI가 아니라 **`auth.users` INSERT 후 Postgres 트리거(`handle_new_user_profile`)**가 만든다(2026-09-18, FK 순서 문제로 정정 — §11-26). Before User Created 훅 시점엔 `auth.users` 행이 아직 커밋 전이라 거기서 `profiles` insert 를 하면 FK 위반이 난다. 3b의 `profile_private` 가 이 행을 FK로 가리키므로 먼저 있어야 한다. 클라이언트 INSERT는 없다(§2)
 - **이 시점에 정해지는 `university_id`(메일 도메인으로) · `status`(`pending`)만 `not null` 이다.** 온보딩(DESIGN 04-1 이후)에서 받는 `nickname` · `gender` · `looking_for` · `birth_year` · `height_cm` 는 null 허용이고, 아래 check 로 필수값 없는 `active` 전환을 막는다. 조각 0 계획서 초안처럼 온보딩 컬럼을 `not null` 로 두면 FastAPI insert가 실패한다
   `check (status <> 'active' or (nickname is not null and gender is not null and looking_for is not null and birth_year is not null and height_cm is not null))`
 - 가입 나이의 "올해"는 Asia/Seoul 기준이다(UTC 12월 31일 15:00 경계). check 에 `now()` 를 넣지 않고 FastAPI가 검사한다. DB에는 `now()` 없는 정적 범위 check만 둔다
