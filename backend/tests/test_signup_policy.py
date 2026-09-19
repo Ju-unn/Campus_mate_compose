@@ -1,6 +1,18 @@
 import httpx
 import pytest
-from app.signup_policy import SignupPolicy
+from app.signup_policy import SignupPolicy, hash_email
+
+
+def test_hash_email_is_deterministic():
+    assert hash_email("secret", "hong@snu.ac.kr") == hash_email("secret", "hong@snu.ac.kr")
+
+
+def test_hash_email_differs_by_secret():
+    assert hash_email("secret-a", "hong@snu.ac.kr") != hash_email("secret-b", "hong@snu.ac.kr")
+
+
+def test_hash_email_normalizes_case():
+    assert hash_email("secret", "HONG@SNU.AC.KR") == hash_email("secret", "hong@snu.ac.kr")
 
 
 @pytest.fixture

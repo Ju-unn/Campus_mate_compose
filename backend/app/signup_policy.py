@@ -1,4 +1,13 @@
+import hashlib
+import hmac
+
 import httpx
+
+
+def hash_email(secret: str, email: str) -> bytes:
+    """탈퇴 후 재가입 제한 대조용 HMAC. 원본 이메일은 저장하지 않는다
+    (ERD.md `signup_blocks`, §11-12)."""
+    return hmac.new(secret.encode(), email.strip().lower().encode(), hashlib.sha256).digest()
 
 
 class SignupPolicy:
