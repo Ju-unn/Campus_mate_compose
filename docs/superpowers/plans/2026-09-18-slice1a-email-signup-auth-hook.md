@@ -10,6 +10,8 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-05-campusmate-foundation-design.md` §3.1·§7.3·§13-37·§13-38·§13-39, `docs/ERD.md` §2·§3, `docs/ERD_DECISIONS.md` §11-8·§11-12
 
+**상태(2026-09-19):** 조각 1a 에뮬레이터 실기기 테스트는 보류한다 — 뒤 조각(학생증 인증 등)과 묶어 한 번에 진행한다.
+
 ## Global Constraints
 
 스펙·CLAUDE.md·GIT.md·SUPABASE.md 에서 그대로 가져온 전역 요구사항.
