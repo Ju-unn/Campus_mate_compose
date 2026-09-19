@@ -1,0 +1,19 @@
+import pytest
+from app.settings import Settings
+
+
+def test_settings_reads_from_env(monkeypatch):
+    monkeypatch.setenv("SUPABASE_URL", "https://example.supabase.co")
+    monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", "service-key")
+    monkeypatch.setenv("AUTH_HOOK_SIGNING_SECRET", "whsec_test")
+
+    settings = Settings()
+
+    assert settings.supabase_url == "https://example.supabase.co"
+    assert settings.postgrest_url == "https://example.supabase.co/rest/v1"
+
+
+def test_settings_requires_all_values(monkeypatch):
+    monkeypatch.delenv("SUPABASE_URL", raising=False)
+    with pytest.raises(Exception):
+        Settings(_env_file=None)
