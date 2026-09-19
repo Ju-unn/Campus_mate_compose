@@ -1,0 +1,252 @@
+import json
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
+from uuid import UUID
+
+import httpx
+import pytest
+from fastapi.testclient import TestClient
+
+import app.student_verification.router as router_module
+from app.main import app
+from app.settings import Settings
+
+PROFILE_ID = UUID("11111111-1111-1111-1111-111111111111")
+JPEG = b"\xff\xd8\xff" + b"fake-student-id-bytes"
+AUTH_HEADERS = {"Authorization": "Bearer valid-token"}
+
+
+@pytest.fixture(autouse=True)
+def overrides(monkeypatch):
+    monkeypatch.setattr(
+        router_module,
+        "get_settings",
+        lambda: Settings(
+            supabase_url="https://x.supabase.co",
+            supabase_service_role_key="service-key",
+            auth_hook_signing_secret="whsec_test",
+            discord_webhook_url="https://discord.com/api/webhooks/test",
+            google_cloud_project="campus-mate-test",
+        ),
+    )
+    yield
+    router_module._client_override = None
+    router_module._vision_client_override = None
+
+
+def _vision_client(ocr_text: str) -> AsyncMock:
+    client = AsyncMock()
+    client.text_detection.return_value = SimpleNamespace(
+        error=SimpleNamespace(message=""),
+        text_annotations=[SimpleNamespace(description=ocr_text)],
+    )
+    return client
+
+
+def _wire(gate_row: dict, ocr_text: str = "", reject_reason: str | None = None) -> tuple[list[httpx.Request], AsyncMock]:
+    """목 트랜스포트와 목 Vision 클라이언트를 라우터에 주입하고, 나간 요청 목록을 돌려준다."""
+    sent: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        sent.append(request)
+        url = str(request.url)
+        if "/auth/v1/user" in url:
+            return httpx.Response(200, json={"id": str(PROFILE_ID)})
+        if "/storage/v1/" in url:
+            return httpx.Response(200, json={"Key": "student-id-temp/x.jpg"})
+        if "discord.com" in url:
+            return httpx.Response(204)
+        if "/rest/v1/student_verification_attempts" in url and request.method == "GET":
+            return httpx.Response(200, json=[{"reject_reason": reject_reason}])
+        if "/rest/v1/profiles" in url and request.method == "GET":
+            return httpx.Response(200, json=[gate_row])
+        return httpx.Response(200, json=[])
+
+    router_module._client_override = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    vision_client = _vision_client(ocr_text)
+    router_module._vision_client_override = vision_client
+    return sent, vision_client
+
+
+def _gate_row(status: str = "none", department: str | None = None) -> dict:
+    return {"student_verification": status, "department": department, "universities": {"name": "서울대학교"}}
+
+
+def _submit(real_name: str = "홍길동", photo: bytes = JPEG, headers: dict = AUTH_HEADERS):
+    return TestClient(app).post(
+        "/student-verification",
+        files={"photo": ("student-id.jpg", photo, "image/jpeg")},
+        data={"real_name": real_name},
+        headers=headers,
+    )
+
+
+def _calls(sent: list[httpx.Request], method: str, fragment: str) -> list[httpx.Request]:
+    return [r for r in sent if r.method == method and fragment in str(r.url)]
+
+
+# --- POST /student-verification ---------------------------------------------
+
+
+def test_submit_returns_verified_when_ocr_matches():
+    sent, vision_client = _wire(_gate_row("none"), ocr_text="서울대학교 학생증 홍길동 2021123456")
+
+    response = _submit()
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "verified"}
+    vision_client.text_detection.assert_awaited_once()
+    # 업로드 → 실명 → 시도 기록(pending) → 상태 pending → 상태 verified 가 모두 나간다.
+    upload = _calls(sent, "POST", "/storage/v1/object/student-id-temp/")[0]
+    assert upload.url.host == "x.supabase.co"
+    assert str(upload.url).startswith(f"https://x.supabase.co/storage/v1/object/student-id-temp/{PROFILE_ID}/")
+    assert upload.content == JPEG
+    assert json.loads(_calls(sent, "POST", "/profile_private")[0].content)["real_name"] == "홍길동"
+    attempt = json.loads(_calls(sent, "POST", "/student_verification_attempts")[0].content)
+    assert attempt["result"] == "pending"
+    assert attempt["profile_id"] == str(PROFILE_ID)
+    patched = [json.loads(r.content)["student_verification"] for r in _calls(sent, "PATCH", "/rest/v1/profiles")]
+    assert patched == ["pending", "verified"]
+    assert _calls(sent, "POST", "discord.com") == []
+
+
+def test_submit_returns_pending_and_notifies_discord_when_ocr_does_not_match():
+    sent, vision_client = _wire(_gate_row("none"), ocr_text="서울대학교 학생증 김철수")
+
+    response = _submit()
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "pending"}
+    vision_client.text_detection.assert_awaited_once()
+    patched = [json.loads(r.content)["student_verification"] for r in _calls(sent, "PATCH", "/rest/v1/profiles")]
+    assert patched == ["pending"]
+    assert len(_calls(sent, "POST", "discord.com")) == 1
+
+
+def test_submit_falls_back_to_pending_when_vision_fails():
+    # Vision 이 죽었다고 500 을 내면 상태가 pending 으로 굳어 재제출이 409 로 막힌다 — 사람 재검토로 넘긴다.
+    sent, vision_client = _wire(_gate_row("none"))
+    vision_client.text_detection.side_effect = RuntimeError("429 quota exceeded")
+
+    response = _submit()
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "pending"}
+    assert len(_calls(sent, "POST", "discord.com")) == 1
+
+
+def test_submit_returns_409_while_review_is_pending():
+    sent, vision_client = _wire(_gate_row("pending"), ocr_text="서울대학교 홍길동")
+
+    response = _submit()
+
+    assert response.status_code == 409
+    vision_client.text_detection.assert_not_awaited()
+    assert _calls(sent, "POST", "/storage/v1/") == []
+    assert _calls(sent, "POST", "/student_verification_attempts") == []
+
+
+def test_submit_returns_400_for_non_image_file():
+    sent, vision_client = _wire(_gate_row("none"), ocr_text="서울대학교 홍길동")
+
+    response = _submit(photo=b"not-an-image")
+
+    assert response.status_code == 400
+    vision_client.text_detection.assert_not_awaited()
+    assert _calls(sent, "POST", "/storage/v1/") == []
+
+
+def test_submit_returns_400_for_blank_real_name():
+    sent, vision_client = _wire(_gate_row("none"), ocr_text="서울대학교 홍길동")
+
+    response = _submit(real_name="   ")
+
+    assert response.status_code == 400
+    vision_client.text_detection.assert_not_awaited()
+    assert _calls(sent, "POST", "/storage/v1/") == []
+    assert _calls(sent, "POST", "/profile_private") == []
+
+
+def test_submit_returns_401_without_authorization_header():
+    sent, vision_client = _wire(_gate_row("none"), ocr_text="서울대학교 홍길동")
+
+    response = _submit(headers={})
+
+    assert response.status_code == 401
+    vision_client.text_detection.assert_not_awaited()
+    assert _calls(sent, "GET", "/rest/v1/profiles") == []
+
+
+# --- GET /me/verification-status --------------------------------------------
+
+
+def _fetch_status(headers: dict = AUTH_HEADERS):
+    return TestClient(app).get("/me/verification-status", headers=headers)
+
+
+def test_status_verified_with_school_info():
+    sent, _ = _wire(_gate_row("verified", department="컴퓨터공학과"))
+
+    response = _fetch_status()
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "verified", "has_school_info": True, "reject_reason": None}
+    assert _calls(sent, "GET", "/student_verification_attempts") == []
+
+
+def test_status_verified_without_school_info():
+    _wire(_gate_row("verified", department=None))
+
+    response = _fetch_status()
+
+    assert response.json() == {"status": "verified", "has_school_info": False, "reject_reason": None}
+
+
+def test_status_rejected_includes_reject_reason():
+    sent, _ = _wire(_gate_row("rejected"), reject_reason="사진이 흐려요")
+
+    response = _fetch_status()
+
+    assert response.json() == {"status": "rejected", "has_school_info": False, "reject_reason": "사진이 흐려요"}
+    assert len(_calls(sent, "GET", "/student_verification_attempts")) == 1
+
+
+def test_status_returns_401_without_authorization_header():
+    sent, _ = _wire(_gate_row("none"))
+
+    response = _fetch_status(headers={})
+
+    assert response.status_code == 401
+    assert _calls(sent, "GET", "/rest/v1/profiles") == []
+
+
+# --- POST /school-info -------------------------------------------------------
+
+
+def _post_school_info(headers: dict = AUTH_HEADERS):
+    return TestClient(app).post(
+        "/school-info",
+        json={"department": "컴퓨터공학과", "student_number": "2021123456"},
+        headers=headers,
+    )
+
+
+def test_school_info_saves_when_verified():
+    sent, _ = _wire(_gate_row("verified"))
+
+    response = _post_school_info()
+
+    assert response.status_code == 200
+    assert response.json() == {"ok": True}
+    patch = _calls(sent, "PATCH", "/rest/v1/profiles")[0]
+    assert json.loads(patch.content) == {"department": "컴퓨터공학과", "student_number": "2021123456"}
+    assert dict(patch.url.params) == {"id": f"eq.{PROFILE_ID}"}
+
+
+def test_school_info_returns_403_when_not_verified():
+    sent, _ = _wire(_gate_row("pending"))
+
+    response = _post_school_info()
+
+    assert response.status_code == 403
+    assert _calls(sent, "PATCH", "/rest/v1/profiles") == []
