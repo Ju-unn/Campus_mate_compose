@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     supabase_service_role_key: str
     auth_hook_signing_secret: str
     discord_webhook_url: str
+    # ADC/google-cloud 라이브러리가 환경변수로 직접 읽는다 — 이 필드는 부팅 시 존재를 강제하는 용도다.
     google_cloud_project: str
 
     @property

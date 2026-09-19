@@ -7,6 +7,7 @@ from uuid import UUID
 import httpx
 import pytest
 from fastapi.testclient import TestClient
+from google.cloud import vision
 
 import app.student_verification.router as router_module
 from app.main import app
@@ -37,10 +38,15 @@ def overrides(monkeypatch):
 
 
 def _vision_client(ocr_text: str) -> AsyncMock:
-    client = AsyncMock()
-    client.text_detection.return_value = SimpleNamespace(
-        error=SimpleNamespace(message=""),
-        text_annotations=[SimpleNamespace(description=ocr_text)],
+    # spec 을 주지 않으면 없는 메서드까지 만들어 내서 API 불일치를 테스트가 못 잡는다.
+    client = AsyncMock(spec=vision.ImageAnnotatorAsyncClient)
+    client.batch_annotate_images.return_value = SimpleNamespace(
+        responses=[
+            SimpleNamespace(
+                error=SimpleNamespace(message=""),
+                text_annotations=[SimpleNamespace(description=ocr_text)],
+            )
+        ]
     )
     return client
 
@@ -115,7 +121,7 @@ def test_submit_returns_verified_when_ocr_matches():
 
     assert response.status_code == 200
     assert response.json() == {"status": "verified"}
-    vision_client.text_detection.assert_awaited_once()
+    vision_client.batch_annotate_images.assert_awaited_once()
     # 업로드 → 실명 → 시도 기록(pending) → 상태 pending → 상태 verified 가 모두 나간다.
     upload = _calls(sent, "POST", "/storage/v1/object/student-id-temp/")[0]
     assert upload.url.host == "x.supabase.co"
@@ -137,7 +143,7 @@ def test_submit_returns_pending_and_notifies_discord_when_ocr_does_not_match():
 
     assert response.status_code == 200
     assert response.json() == {"status": "pending"}
-    vision_client.text_detection.assert_awaited_once()
+    vision_client.batch_annotate_images.assert_awaited_once()
     patched = [json.loads(r.content)["student_verification"] for r in _calls(sent, "PATCH", "/rest/v1/profiles")]
     assert patched == ["pending"]
     assert len(_calls(sent, "POST", "discord.com")) == 1
@@ -151,7 +157,7 @@ def test_submit_marks_attempt_row_verified_on_the_verified_path():
     assert response.json() == {"status": "verified"}
     patch = _calls(sent, "PATCH", "/student_verification_attempts")[0]
     assert dict(patch.url.params) == {"profile_id": f"eq.{PROFILE_ID}", "file_path": f"eq.{_uploaded_path(sent)}"}
-    assert json.loads(patch.content) == {"result": "verified"}
+    assert json.loads(patch.content) == {"result": "verified", "reviewed_at": "now()"}
 
 
 def test_submit_leaves_attempt_row_pending_on_the_no_match_path():
@@ -202,7 +208,7 @@ def test_submit_falls_back_to_pending_when_final_status_patch_fails():
 def test_submit_falls_back_to_pending_when_vision_fails():
     # Vision 이 죽었다고 500 을 내면 상태가 pending 으로 굳어 재제출이 409 로 막힌다 — 사람 재검토로 넘긴다.
     sent, vision_client = _wire(_gate_row("none"))
-    vision_client.text_detection.side_effect = RuntimeError("429 quota exceeded")
+    vision_client.batch_annotate_images.side_effect = RuntimeError("429 quota exceeded")
 
     response = _submit()
 
@@ -211,13 +217,23 @@ def test_submit_falls_back_to_pending_when_vision_fails():
     assert len(_calls(sent, "POST", "discord.com")) == 1
 
 
+def test_submit_does_not_swallow_programming_errors_from_vision():
+    # Vision 장애만 "사람 재검토"로 넘긴다 — 우리 코드 버그(예: 없는 메서드 호출)까지 묻으면
+    # 자동 인증이 영영 안 되는데도 아무도 모른다. 테스트·스테이징에서 500 으로 드러나야 한다.
+    _, vision_client = _wire(_gate_row("none"))
+    vision_client.batch_annotate_images.side_effect = AttributeError("no such method")
+
+    with pytest.raises(AttributeError):
+        _submit()
+
+
 def test_submit_returns_409_while_review_is_pending():
     sent, vision_client = _wire(_gate_row("pending"), ocr_text="서울대학교 홍길동")
 
     response = _submit()
 
     assert response.status_code == 409
-    vision_client.text_detection.assert_not_awaited()
+    vision_client.batch_annotate_images.assert_not_awaited()
     assert _calls(sent, "POST", "/storage/v1/") == []
     assert _calls(sent, "POST", "/student_verification_attempts") == []
 
@@ -228,7 +244,7 @@ def test_submit_returns_400_for_non_image_file():
     response = _submit(photo=b"not-an-image")
 
     assert response.status_code == 400
-    vision_client.text_detection.assert_not_awaited()
+    vision_client.batch_annotate_images.assert_not_awaited()
     assert _calls(sent, "POST", "/storage/v1/") == []
 
 
@@ -238,7 +254,7 @@ def test_submit_returns_400_for_blank_real_name():
     response = _submit(real_name="   ")
 
     assert response.status_code == 400
-    vision_client.text_detection.assert_not_awaited()
+    vision_client.batch_annotate_images.assert_not_awaited()
     assert _calls(sent, "POST", "/storage/v1/") == []
     assert _calls(sent, "POST", "/profile_private") == []
 
@@ -249,7 +265,7 @@ def test_submit_returns_401_without_authorization_header():
     response = _submit(headers={})
 
     assert response.status_code == 401
-    vision_client.text_detection.assert_not_awaited()
+    vision_client.batch_annotate_images.assert_not_awaited()
     assert _calls(sent, "GET", "/rest/v1/profiles") == []
 
 

@@ -22,7 +22,10 @@ class StudentVerificationRepository:
             headers=self._headers,
         )
         response.raise_for_status()
-        return response.json()[0]
+        rows = response.json()
+        if not rows:
+            raise ValueError(f"프로필 행이 없다: {profile_id}")
+        return rows[0]
 
     async def fetch_reject_reason(self, profile_id: UUID) -> str | None:
         response = await self._client.get(
@@ -55,7 +58,8 @@ class StudentVerificationRepository:
         response = await self._client.patch(
             f"{self._postgrest_url}/student_verification_attempts",
             params={"profile_id": f"eq.{profile_id}", "file_path": f"eq.{file_path}"},
-            json={"result": result},
+            # reviewed_at 은 "대조·재검토가 끝난 시각"이라 확정과 같은 요청에서 채운다(마이그레이션 주석).
+            json={"result": result, "reviewed_at": "now()"},
             headers=self._headers,
         )
         response.raise_for_status()

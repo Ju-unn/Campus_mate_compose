@@ -41,6 +41,13 @@ async def test_fetch_gate_status_returns_first_row():
     assert result == {"student_verification": "pending", "department": None, "universities": {"name": "서울대학교"}}
 
 
+async def test_fetch_gate_status_raises_clear_error_when_profile_row_missing():
+    repo = _repo(lambda request: httpx.Response(200, json=[]))
+
+    with pytest.raises(ValueError, match=str(PROFILE_ID)):
+        await repo.fetch_gate_status(PROFILE_ID)
+
+
 async def test_fetch_reject_reason_returns_reason_when_row_exists():
     captured: dict = {}
 
@@ -147,7 +154,8 @@ async def test_update_attempt_result_patches_the_matching_attempt_row():
     assert captured["method"] == "PATCH"
     assert captured["url"] == f"{POSTGREST_URL}/student_verification_attempts"
     assert captured["params"] == {"profile_id": f"eq.{PROFILE_ID}", "file_path": f"eq.{PROFILE_ID}/abc.jpg"}
-    assert captured["json"] == {"result": "verified"}
+    # reviewed_at 은 대조가 끝난 시각이라 확정과 같은 요청에서 채워야 null 로 남지 않는다.
+    assert captured["json"] == {"result": "verified", "reviewed_at": "now()"}
 
 
 async def test_update_attempt_result_raises_on_error():

@@ -1,14 +1,16 @@
+import asyncio
 import logging
 from functools import lru_cache
 
 import httpx
 from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile
+from google.api_core.exceptions import GoogleAPIError
 from google.cloud import vision
 
 from app.settings import Settings
 from app.student_verification.current_user import get_current_user_id
 from app.student_verification.discord_notifier import DiscordNotifier
-from app.student_verification.image_validation import is_valid_student_id_photo
+from app.student_verification.image_validation import student_id_content_type
 from app.student_verification.matching import matches_school_and_name
 from app.student_verification.ocr import VisionOcr
 from app.student_verification.repository import StudentVerificationRepository
@@ -55,12 +57,12 @@ async def submit_student_verification(
         raise HTTPException(status_code=400, detail="실명을 입력해 주세요")
 
     data = await photo.read()
-    if not is_valid_student_id_photo(data):
+    # 클라이언트가 보낸 Content-Type 은 믿지 않는다 — 실제 Flutter 앱은 application/octet-stream 을 보내는데
+    # 버킷의 mime 허용목록은 jpeg·png 뿐이다. 매직바이트가 진짜 타입이고, 검증과 판정을 한 번에 한다.
+    content_type = student_id_content_type(data)
+    if content_type is None:
         raise HTTPException(status_code=400, detail="사진을 다시 확인해 주세요")
 
-    # 클라이언트가 보낸 Content-Type 은 믿지 않는다 — 실제 Flutter 앱은 application/octet-stream 을 보내는데
-    # 버킷의 mime 허용목록은 jpeg·png 뿐이다. 방금 검증한 매직바이트가 진짜 타입이다.
-    content_type = "image/png" if data.startswith(b"\x89PNG") else "image/jpeg"
     storage = StudentIdStorage(settings.storage_url, settings.supabase_service_role_key, client)
     file_path = await storage.upload(profile_id, data, content_type)
 
@@ -71,9 +73,10 @@ async def submit_student_verification(
 
     try:
         ocr_text = await VisionOcr(_vision_client_override or get_vision_client()).extract_text(data)
-    except Exception:
+    except (GoogleAPIError, RuntimeError, asyncio.TimeoutError):
         # Vision 장애·할당량 초과로 500 을 내면 상태가 pending 에 갇혀 재제출이 409 로 막힌다.
         # 자동 대조 실패로 보고 사람 재검토로 넘긴다(그게 pending 의 뜻이다).
+        # 잡는 범위는 진짜 Vision 장애로 한정한다 — 넓게 잡으면 우리 코드 버그까지 "대조 실패"로 묻힌다.
         _logger.exception("Vision OCR 실패 — 사람 재검토로 넘긴다")
         ocr_text = ""
 

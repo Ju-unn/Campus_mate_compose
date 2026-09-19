@@ -9,9 +9,17 @@ class VisionOcr:
         self._client = client
 
     async def extract_text(self, image_bytes: bytes) -> str:
-        image = vision.Image(content=image_bytes)
-        response = await self._client.text_detection(image=image)
-        if response.error.message:
-            raise RuntimeError(response.error.message)
-        annotations = response.text_annotations
+        # 비동기 클라이언트에는 text_detection 편의 메서드가 없다(동기 클라이언트 전용) — 원본 RPC 를 직접 부른다.
+        response = await self._client.batch_annotate_images(
+            requests=[
+                {
+                    "image": vision.Image(content=image_bytes),
+                    "features": [{"type_": vision.Feature.Type.TEXT_DETECTION}],
+                }
+            ]
+        )
+        result = response.responses[0]
+        if result.error.message:
+            raise RuntimeError(result.error.message)
+        annotations = result.text_annotations
         return annotations[0].description if annotations else ""

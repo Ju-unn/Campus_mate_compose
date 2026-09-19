@@ -16,7 +16,9 @@ class StudentIdStorage:
         self._client = client
 
     async def upload(self, profile_id: UUID, data: bytes, content_type: str) -> str:
-        path = f"{profile_id}/{uuid4()}.jpg"
+        # 사람이 대시보드에서 내려받아 여는 파일이라 확장자가 실제 형식과 맞아야 한다.
+        extension = "png" if content_type == "image/png" else "jpg"
+        path = f"{profile_id}/{uuid4()}.{extension}"
         response = await self._client.post(
             f"{self._storage_url}/object/student-id-temp/{path}",
             content=data,

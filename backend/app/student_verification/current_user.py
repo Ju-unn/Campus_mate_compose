@@ -1,7 +1,7 @@
 from uuid import UUID
 
 import httpx
-from fastapi import Header, HTTPException
+from fastapi import HTTPException
 
 from app.settings import Settings
 
@@ -9,7 +9,7 @@ from app.settings import Settings
 async def get_current_user_id(
     settings: Settings,
     client: httpx.AsyncClient,
-    authorization: str | None = Header(default=None),
+    authorization: str | None = None,
 ) -> UUID:
     if authorization is None:
         raise HTTPException(status_code=401, detail="로그인이 필요해요")
