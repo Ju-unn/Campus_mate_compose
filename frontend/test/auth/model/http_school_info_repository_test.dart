@@ -70,4 +70,20 @@ void main() {
 
     expect(result.when(onSuccess: (_) => null, onFailure: (f) => f), isA<RateLimitedFailure>());
   });
+
+  test('서버 내부 오류(5xx)는 문구를 지어내지 않고 UnknownFailure', () async {
+    final client = MockClient((request) async => http.Response('<html>500</html>', 500));
+
+    final result = await buildRepository(client).submit(department, studentNumber);
+
+    expect(result.when(onSuccess: (_) => null, onFailure: (f) => f), isA<UnknownFailure>());
+  });
+
+  test('네트워크 연결이 끊기면 예외가 새지 않고 NetworkFailure', () async {
+    final client = MockClient((request) async => throw Exception('연결 실패'));
+
+    final result = await buildRepository(client).submit(department, studentNumber);
+
+    expect(result.when(onSuccess: (_) => null, onFailure: (f) => f), isA<NetworkFailure>());
+  });
 }

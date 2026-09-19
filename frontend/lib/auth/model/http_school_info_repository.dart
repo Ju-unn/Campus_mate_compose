@@ -1,9 +1,9 @@
 import 'dart:convert';
 
 import 'package:campus_mate/auth/model/department.dart';
+import 'package:campus_mate/auth/model/http_send.dart';
 import 'package:campus_mate/auth/model/school_info_repository.dart';
 import 'package:campus_mate/auth/model/student_number.dart';
-import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -29,14 +29,10 @@ class HttpSchoolInfoRepository implements SchoolInfoRepository {
   }
 
   Future<Result<void>> _send(http.BaseRequest request) async {
-    final response = await http.Response.fromStream(await _client.send(request));
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      return const Success(null);
-    }
-    if (response.statusCode == 429) {
-      return const FailureResult(RateLimitedFailure());
-    }
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
-    return FailureResult(ServerRejectedFailure(body['detail'] as String? ?? '알 수 없는 오류가 발생했습니다'));
+    final result = await sendHttpRequest(_client, request);
+    return result.when(
+      onSuccess: (_) => const Success(null),
+      onFailure: (failure) => FailureResult(failure),
+    );
   }
 }

@@ -76,6 +76,14 @@ void main() {
     expect(result.when(onSuccess: (_) => null, onFailure: (f) => f), isA<RateLimitedFailure>());
   });
 
+  test('네트워크 연결이 끊기면 예외가 새지 않고 NetworkFailure', () async {
+    final client = MockClient((request) async => throw Exception('연결 실패'));
+
+    final result = await buildRepository(client).submit(realName, photo);
+
+    expect(result.when(onSuccess: (_) => null, onFailure: (f) => f), isA<NetworkFailure>());
+  });
+
   test('상태 조회가 성공하면 거절 사유를 함께 담는다', () async {
     final client = MockClient((request) async {
       expect(request.method, 'GET');

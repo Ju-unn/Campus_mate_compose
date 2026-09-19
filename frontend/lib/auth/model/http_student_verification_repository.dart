@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:campus_mate/auth/model/http_send.dart';
 import 'package:campus_mate/auth/model/real_name.dart';
 import 'package:campus_mate/auth/model/student_verification_repository.dart';
-import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -33,15 +33,15 @@ class HttpStudentVerificationRepository implements StudentVerificationRepository
   }
 
   Future<Result<VerificationOutcome>> _send(http.BaseRequest request) async {
-    final response = await http.Response.fromStream(await _client.send(request));
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      final body = jsonDecode(response.body) as Map<String, dynamic>;
-      return Success(VerificationOutcome(status: body['status'] as String, rejectReason: body['reject_reason'] as String?));
-    }
-    if (response.statusCode == 429) {
-      return const FailureResult(RateLimitedFailure());
-    }
+    final result = await sendHttpRequest(_client, request);
+    return result.when(
+      onSuccess: (response) => Success(_toOutcome(response)),
+      onFailure: (failure) => FailureResult(failure),
+    );
+  }
+
+  VerificationOutcome _toOutcome(http.Response response) {
     final body = jsonDecode(response.body) as Map<String, dynamic>;
-    return FailureResult(ServerRejectedFailure(body['detail'] as String? ?? '알 수 없는 오류가 발생했습니다'));
+    return VerificationOutcome(status: body['status'] as String, rejectReason: body['reject_reason'] as String?);
   }
 }
