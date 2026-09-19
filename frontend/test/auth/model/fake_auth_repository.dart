@@ -12,14 +12,16 @@ class FakeAuthRepository implements AuthRepository {
   final List<VerificationCode> verifiedCodes = [];
 
   @override
-  Future<Result<void>> requestOtp(UniversityEmail email) async {
+  Future<Result<void>> requestOtp(UniversityEmail email) {
     requestedEmails.add(email);
-    return nextRequestOtpResult;
+    // 실제 네트워크 호출처럼 마이크로태스크 이상의 지연을 흉내 내,
+    // 위젯 테스트가 로딩 중 프레임을 pump() 로 관찰할 수 있게 한다.
+    return Future.delayed(Duration.zero, () => nextRequestOtpResult);
   }
 
   @override
-  Future<Result<void>> verifyOtp(UniversityEmail email, VerificationCode code) async {
+  Future<Result<void>> verifyOtp(UniversityEmail email, VerificationCode code) {
     verifiedCodes.add(code);
-    return nextVerifyOtpResult;
+    return Future.delayed(Duration.zero, () => nextVerifyOtpResult);
   }
 }

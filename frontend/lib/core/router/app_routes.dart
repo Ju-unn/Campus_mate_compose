@@ -7,6 +7,9 @@ abstract final class AppRoutes {
   /// 로그인·가입 화면
   static const String login = '/login';
 
+  /// 인증코드 입력 화면 (로그인 화면에서 이메일과 함께 이동)
+  static const String verifyCode = '/verify-code';
+
   /// 로그인 후 첫 화면
   static const String home = '/home';
 }

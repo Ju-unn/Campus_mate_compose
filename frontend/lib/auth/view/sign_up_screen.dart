@@ -1,5 +1,7 @@
+import 'package:campus_mate/auth/viewmodel/sign_up_ui_state.dart';
 import 'package:campus_mate/auth/viewmodel/sign_up_view_model.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -7,6 +9,7 @@ import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 /// 대학 이메일로 가입을 시작하는 화면 (DESIGN.md 화면 02, pen `emHNY`).
 ///
@@ -32,6 +35,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(signUpViewModelProvider);
     final viewModel = ref.read(signUpViewModelProvider.notifier);
+    ref.listen(signUpViewModelProvider, _onStateChanged);
 
     return Scaffold(
       body: SafeArea(
@@ -61,6 +65,10 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
               _EmailField(controller: _emailController, onChanged: viewModel.changeEmail),
               const SizedBox(height: AppSpacing.xs),
               const _DomainHint(),
+              if (state.errorMessage != null) ...[
+                const SizedBox(height: AppSpacing.sm),
+                Text(state.errorMessage!, style: AppTypography.caption.copyWith(color: AppColors.error)),
+              ],
               const Spacer(),
               AppButton(label: '인증 메일 받기', onPressed: state.canSubmit ? viewModel.submit : null),
               const SizedBox(height: AppSpacing.sm),
@@ -73,6 +81,15 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         ),
       ),
     );
+  }
+
+  void _onStateChanged(SignUpUiState? previous, SignUpUiState next) {
+    final email = next.otpSentTo;
+    if (email == null) {
+      return;
+    }
+    ref.read(signUpViewModelProvider.notifier).acknowledgeNavigation();
+    context.go(AppRoutes.verifyCode, extra: email);
   }
 }
 

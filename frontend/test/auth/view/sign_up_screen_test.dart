@@ -1,5 +1,9 @@
+import 'package:campus_mate/auth/model/auth_repository_provider.dart';
 import 'package:campus_mate/auth/view/sign_up_screen.dart';
+import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/common/result.dart';
 import 'package:flutter/material.dart';
+import '../model/fake_auth_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -44,6 +48,46 @@ void main() {
 
       final button = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
       expect(button.enabled, isTrue);
+    });
+
+    testWidgets('제출 중에는 CTA 가 비활성이다', (tester) async {
+      // 성공 결과를 쓰면 요청이 끝나자마자 인증코드 화면으로 이동을 시도하는데,
+      // 이 테스트는 라우터 없는 MaterialApp 이라 그 이동이 죽는다. 로딩 중
+      // 상태만 보면 되므로 실패 결과로 두고, 끝나면 pumpAndSettle 로 지연 타이머를 정리한다.
+      final repository = FakeAuthRepository()..nextRequestOtpResult = const FailureResult(RateLimitedFailure());
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [authRepositoryProvider.overrideWithValue(repository)],
+          child: const MaterialApp(home: SignUpScreen()),
+        ),
+      );
+      await tester.enterText(find.byType(TextField), 'hong@snu.ac.kr');
+      await tester.pump();
+
+      await tester.tap(find.text('인증 메일 받기'));
+      await tester.pump();
+
+      final button = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
+      expect(button.enabled, isFalse);
+
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('요청이 실패하면 에러 문구를 보여준다', (tester) async {
+      final repository = FakeAuthRepository()..nextRequestOtpResult = const FailureResult(RateLimitedFailure());
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [authRepositoryProvider.overrideWithValue(repository)],
+          child: const MaterialApp(home: SignUpScreen()),
+        ),
+      );
+      await tester.enterText(find.byType(TextField), 'hong@snu.ac.kr');
+      await tester.pump();
+
+      await tester.tap(find.text('인증 메일 받기'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('너무 많이 시도했어요. 잠시 후 다시 시도해 주세요'), findsOneWidget);
     });
   });
 }
