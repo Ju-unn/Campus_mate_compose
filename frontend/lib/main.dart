@@ -1,8 +1,8 @@
 import 'dart:async';
 
-import 'package:campus_mate/auth/model/verification_gate_repository_provider.dart';
 import 'package:campus_mate/core/router/app_router.dart';
 import 'package:campus_mate/core/router/verification_gate_listenable.dart';
+import 'package:campus_mate/core/router/verification_gate_listenable_provider.dart';
 import 'package:campus_mate/core/supabase/auth_session_listenable.dart';
 import 'package:campus_mate/core/supabase/supabase_config.dart';
 import 'package:campus_mate/core/supabase/supabase_initializer.dart';
@@ -36,16 +36,19 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
   void initState() {
     super.initState();
     _authSession = AuthSessionListenable(Supabase.instance.client);
-    _verificationGate = VerificationGateListenable(ref.read(verificationGateRepositoryProvider));
+    // 3b·3c ViewModel 이 인증 직후 부르는 것과 같은 인스턴스여야 라우터가 다시 평가된다.
+    _verificationGate = ref.read(verificationGateListenableProvider);
     _authSession.addListener(_refreshVerificationGate);
     _router = _createRouter();
     _refreshVerificationGate();
   }
 
   /// 세션이 바뀔 때마다 게이트를 다시 조회한다.
-  /// 로그아웃 상태에서는 조회에 쓸 토큰이 없어 건너뛴다.
+  /// 로그아웃하면 조회에 쓸 토큰이 없고, 앞 사용자의 통과 상태를
+  /// 다음 사용자가 물려받으면 안 되므로 캐시를 비운다.
   void _refreshVerificationGate() {
     if (!_authSession.isAuthenticated) {
+      _verificationGate.reset();
       return;
     }
     unawaited(_verificationGate.refresh());
@@ -59,11 +62,11 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
     );
   }
 
+  /// 게이트는 provider 가 소유해 [ProviderScope] 와 함께 정리된다 — 여기서 dispose 하지 않는다.
   @override
   void dispose() {
     _authSession.removeListener(_refreshVerificationGate);
     _authSession.dispose();
-    _verificationGate.dispose();
     super.dispose();
   }
 

@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:campus_mate/auth/model/department.dart';
 import 'package:campus_mate/auth/model/school_info_repository_provider.dart';
 import 'package:campus_mate/auth/model/student_number.dart';
 import 'package:campus_mate/auth/viewmodel/school_info_ui_state.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/core/router/verification_gate_listenable_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final schoolInfoViewModelProvider = NotifierProvider<SchoolInfoViewModel, SchoolInfoUiState>(
@@ -39,6 +42,17 @@ class SchoolInfoViewModel extends Notifier<SchoolInfoUiState> {
     }
     state = _copyWith(isSubmitting: true, errorMessage: null);
     state = await _submittedState(department, studentNumber);
+    _refreshGateIfCompleted();
+  }
+
+  /// 제출이 끝나면 게이트를 다시 조회해 라우터가 3c 를 벗어나게 한다(A10).
+  /// 이 신호가 없으면 학과를 제출한 사용자가 앱을 다시 켤 때까지 3c 에 갇힌다.
+  /// [_submittedState] 의 try 밖에 두어, 게이트 조회가 제출 성공을 실패로 뒤집지 못하게 한다.
+  void _refreshGateIfCompleted() {
+    if (!state.completed) {
+      return;
+    }
+    unawaited(ref.read(verificationGateListenableProvider).refresh());
   }
 
   /// 저장소 호출이 던지는 예외까지 흡수해 `isSubmitting` 이 영원히 true 로 굳지 않게 한다.
@@ -54,7 +68,7 @@ class SchoolInfoViewModel extends Notifier<SchoolInfoUiState> {
     }
   }
 
-  /// 성공하면 `completed` 를 켜 라우터가 인증 게이트를 다시 평가하게 한다.
+  /// 성공하면 `completed` 를 켠다 — 게이트 재조회가 이 값을 보고 움직인다.
   SchoolInfoUiState _stateFromResult(Result<void> result) {
     return result.when(
       onSuccess: (_) => _copyWith(isSubmitting: false, completed: true),

@@ -31,7 +31,8 @@ class SchoolInfoUiState {
   /// 조회·제출이 실패했을 때 보여줄 문구.
   final String? errorMessage;
 
-  /// 제출이 끝났는지 — 라우터가 이 값을 보고 인증 게이트를 다시 평가한다(Task A10).
+  /// 제출이 성공했는지 — ViewModel 이 이 값을 보고 인증 게이트를 다시 조회하고,
+  /// 화면 전환은 라우터가 게이트 변화로 처리한다(Task A10).
   final bool completed;
 
   bool get canSubmit => department != null && studentNumber != null && !isSubmitting;

@@ -1,6 +1,7 @@
 import 'package:campus_mate/auth/model/department.dart';
 import 'package:campus_mate/auth/model/school_info_repository_provider.dart';
 import 'package:campus_mate/auth/model/student_number.dart';
+import 'package:campus_mate/auth/model/verification_gate_repository_provider.dart';
 import 'package:campus_mate/auth/viewmodel/school_info_ui_state.dart';
 import 'package:campus_mate/auth/viewmodel/school_info_view_model.dart';
 import 'package:campus_mate/common/failure.dart';
@@ -9,17 +10,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../model/fake_school_info_repository.dart';
+import '../model/fake_verification_gate_repository.dart';
 
 void main() {
   late FakeSchoolInfoRepository repository;
+  late FakeVerificationGateRepository gateRepository;
 
   setUp(() {
     repository = FakeSchoolInfoRepository();
+    gateRepository = FakeVerificationGateRepository();
   });
 
   ProviderContainer buildContainer() {
     final container = ProviderContainer(
-      overrides: [schoolInfoRepositoryProvider.overrideWithValue(repository)],
+      overrides: [
+        schoolInfoRepositoryProvider.overrideWithValue(repository),
+        verificationGateRepositoryProvider.overrideWithValue(gateRepository),
+      ],
     );
     addTearDown(container.dispose);
     return container;
@@ -88,6 +95,25 @@ void main() {
     expect(repository.submittedStudentNumbers, [StudentNumber.tryParse('20240001')]);
     expect(readState(container).completed, isTrue);
     expect(readState(container).isSubmitting, isFalse);
+  });
+
+  test('제출에 성공하면 라우터가 3c 를 벗어나도록 게이트를 다시 조회한다', () async {
+    final container = buildContainer();
+    final viewModel = buildSubmittableViewModel(container);
+
+    await viewModel.submit();
+
+    expect(gateRepository.fetchCount, 1);
+  });
+
+  test('제출에 실패하면 게이트를 다시 조회하지 않는다', () async {
+    repository.nextSubmitResult = const FailureResult(ServerRejectedFailure('이미 제출한 정보예요'));
+    final container = buildContainer();
+    final viewModel = buildSubmittableViewModel(container);
+
+    await viewModel.submit();
+
+    expect(gateRepository.fetchCount, 0);
   });
 
   test('제출에 실패하면 errorMessage 가 채워지고 completed 는 그대로다', () async {

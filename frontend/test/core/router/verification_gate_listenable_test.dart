@@ -1,29 +1,18 @@
 import 'package:campus_mate/auth/model/verification_gate.dart';
-import 'package:campus_mate/auth/model/verification_gate_repository.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/router/verification_gate_listenable.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// 이 파일 밖에서는 쓰지 않아 private 으로 둔다.
-class _FakeVerificationGateRepository implements VerificationGateRepository {
-  Result<VerificationGate> nextResult = const Success(VerificationGate.complete);
-  int fetchCount = 0;
-
-  @override
-  Future<Result<VerificationGate>> fetchGate() async {
-    fetchCount++;
-    return nextResult;
-  }
-}
+import '../../auth/model/fake_verification_gate_repository.dart';
 
 void main() {
-  late _FakeVerificationGateRepository repository;
+  late FakeVerificationGateRepository repository;
   late VerificationGateListenable listenable;
   late int notifyCount;
 
   setUp(() {
-    repository = _FakeVerificationGateRepository();
+    repository = FakeVerificationGateRepository();
     listenable = VerificationGateListenable(repository);
     notifyCount = 0;
     listenable.addListener(() => notifyCount++);
@@ -59,5 +48,21 @@ void main() {
 
     expect(listenable.value, VerificationGate.complete);
     expect(notifyCount, 1);
+  });
+
+  test('reset 하면 통과 상태를 버리고 기본값으로 돌아가며 알린다', () async {
+    await listenable.refresh();
+
+    listenable.reset();
+
+    expect(listenable.value, VerificationGate.needsStudentVerification);
+    expect(notifyCount, 2);
+  });
+
+  test('이미 기본값이면 reset 해도 알리지 않는다', () {
+    listenable.reset();
+
+    expect(listenable.value, VerificationGate.needsStudentVerification);
+    expect(notifyCount, 0);
   });
 }

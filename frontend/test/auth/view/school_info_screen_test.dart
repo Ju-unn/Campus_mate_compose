@@ -1,5 +1,6 @@
 import 'package:campus_mate/auth/model/school_info_repository_provider.dart';
 import 'package:campus_mate/auth/model/school_name_provider.dart';
+import 'package:campus_mate/auth/model/verification_gate_repository_provider.dart';
 import 'package:campus_mate/auth/view/school_info_screen.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
@@ -8,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../model/fake_school_info_repository.dart';
+import '../model/fake_verification_gate_repository.dart';
 
 /// 학교명 조회가 이미 끝난 기본 상태. 학교명은 인증(3b)으로 정해진 값이라 화면이 바꾸지 못한다.
 const AsyncValue<String> _loadedSchoolName = AsyncData<String>('서울대학교');
@@ -25,6 +27,8 @@ void main() {
       overrides: [
         schoolInfoRepositoryProvider.overrideWithValue(repository),
         schoolNameProvider.overrideWithValue(schoolName),
+        // 제출에 성공하면 ViewModel 이 게이트를 다시 조회한다(A10)
+        verificationGateRepositoryProvider.overrideWithValue(FakeVerificationGateRepository()),
       ],
     );
     addTearDown(container.dispose);

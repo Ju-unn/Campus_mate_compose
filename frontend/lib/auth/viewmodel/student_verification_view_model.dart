@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:campus_mate/auth/model/face_detector_provider.dart';
@@ -7,6 +8,7 @@ import 'package:campus_mate/auth/model/student_verification_repository.dart';
 import 'package:campus_mate/auth/model/student_verification_repository_provider.dart';
 import 'package:campus_mate/auth/viewmodel/student_verification_ui_state.dart';
 import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/core/router/verification_gate_listenable_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -17,6 +19,9 @@ final studentVerificationViewModelProvider =
 
 /// 서버가 돌려주는 '반려' 상태 값. 이때만 반려 사유를 문구로 함께 보여준다.
 const String _rejectedStatus = 'rejected';
+
+/// 서버가 돌려주는 '통과' 상태 값. 이때만 라우터에 게이트 재조회를 알린다.
+const String _verifiedStatus = 'verified';
 
 /// `_copyWith` 에서 "이 필드는 건드리지 않는다" 를 뜻하는 표식.
 /// 넘기지 않은 것과 `null` 을 넘겨 값을 지우는 것을 구분하기 위해 필요하다
@@ -52,6 +57,16 @@ class StudentVerificationViewModel extends Notifier<StudentVerificationUiState> 
       return; // 조회가 끝나기 전에 화면을 떠났으면(provider 폐기) 상태를 건드리지 않는다.
     }
     state = result.when(onSuccess: _stateFromOutcome, onFailure: _stateFromLoadFailure);
+    _refreshGateIfVerified();
+  }
+
+  /// 인증이 끝나면 게이트를 다시 조회해 라우터가 다음 화면으로 넘겨준다(A10).
+  /// 폴링은 pending 일 때만 돌아, 이 신호가 없으면 통과한 사용자가 3b 에 갇힌다.
+  void _refreshGateIfVerified() {
+    if (state.status != _verifiedStatus) {
+      return;
+    }
+    unawaited(ref.read(verificationGateListenableProvider).refresh());
   }
 
   /// 서버가 알려준 상태만 반영한 새 상태. 입력하던 실명·사진은 더 필요 없으므로 비운다.
@@ -127,6 +142,8 @@ class StudentVerificationViewModel extends Notifier<StudentVerificationUiState> 
       onSuccess: _stateFromOutcome,
       onFailure: (failure) => _copyWith(isSubmitting: false, errorMessage: failure.toDisplayMessage()),
     );
+    // 서버가 제출 즉시 통과시키면 폴링이 돌지 않아, 여기서도 알려야 3b 를 벗어난다.
+    _refreshGateIfVerified();
   }
 
   /// 넘긴 필드만 바꾼 새 상태를 만든다.

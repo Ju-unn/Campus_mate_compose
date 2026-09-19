@@ -5,6 +5,7 @@ import 'package:campus_mate/auth/model/image_compressor_provider.dart';
 import 'package:campus_mate/auth/model/real_name.dart';
 import 'package:campus_mate/auth/model/student_verification_repository.dart';
 import 'package:campus_mate/auth/model/student_verification_repository_provider.dart';
+import 'package:campus_mate/auth/model/verification_gate_repository_provider.dart';
 import 'package:campus_mate/auth/viewmodel/student_verification_ui_state.dart';
 import 'package:campus_mate/auth/viewmodel/student_verification_view_model.dart';
 import 'package:campus_mate/common/failure.dart';
@@ -15,17 +16,20 @@ import 'package:flutter_test/flutter_test.dart';
 import '../model/fake_face_detector.dart';
 import '../model/fake_image_compressor.dart';
 import '../model/fake_student_verification_repository.dart';
+import '../model/fake_verification_gate_repository.dart';
 
 void main() {
   late FakeStudentVerificationRepository repository;
   late FakeFaceDetector faceDetector;
   late FakeImageCompressor imageCompressor;
+  late FakeVerificationGateRepository gateRepository;
   final photo = File('${Directory.systemTemp.path}/student_id.jpg');
 
   setUp(() {
     repository = FakeStudentVerificationRepository();
     faceDetector = FakeFaceDetector();
     imageCompressor = FakeImageCompressor();
+    gateRepository = FakeVerificationGateRepository();
   });
 
   ProviderContainer buildContainer() {
@@ -34,6 +38,7 @@ void main() {
         studentVerificationRepositoryProvider.overrideWithValue(repository),
         faceDetectorProvider.overrideWithValue(faceDetector),
         imageCompressorProvider.overrideWithValue(imageCompressor),
+        verificationGateRepositoryProvider.overrideWithValue(gateRepository),
       ],
     );
     addTearDown(container.dispose);
@@ -64,6 +69,28 @@ void main() {
 
     expect(readState(container).status, 'pending');
     expect(readState(container).isLoadingStatus, isFalse);
+  });
+
+  test('폴링이 통과를 알아채면 라우터가 3b 를 벗어나도록 게이트를 다시 조회한다', () async {
+    repository.nextFetchStatusResult = const Success(VerificationOutcome(status: 'verified'));
+    final container = buildContainer();
+
+    expect(readState(container).isLoadingStatus, isTrue); // 첫 read 가 조회를 띄운다
+    await pumpEventQueue();
+
+    expect(readState(container).status, 'verified');
+    expect(gateRepository.fetchCount, 1);
+  });
+
+  test('아직 검토 중이면 게이트를 다시 조회하지 않는다', () async {
+    repository.nextFetchStatusResult = const Success(VerificationOutcome(status: 'pending'));
+    final container = buildContainer();
+
+    expect(readState(container).isLoadingStatus, isTrue); // 첫 read 가 조회를 띄운다
+    await pumpEventQueue();
+
+    expect(readState(container).status, 'pending');
+    expect(gateRepository.fetchCount, 0);
   });
 
   test('상태 조회가 실패하면 errorMessage 를 남기고 로딩을 끝낸다', () async {
