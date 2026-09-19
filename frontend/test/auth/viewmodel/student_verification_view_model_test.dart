@@ -77,6 +77,19 @@ void main() {
     expect(readState(container).isLoadingStatus, isFalse);
   });
 
+  test('반려 상태로 돌아오면 반려 사유를 errorMessage 에 담는다', () async {
+    repository.nextFetchStatusResult = const Success(
+      VerificationOutcome(status: 'rejected', rejectReason: '사진이 흐려요'),
+    );
+    final container = buildContainer();
+
+    expect(readState(container).isLoadingStatus, isTrue);
+    await pumpEventQueue();
+
+    expect(readState(container).status, 'rejected');
+    expect(readState(container).errorMessage, '사진이 흐려요');
+  });
+
   test('실명이 형식에 어긋나면 realName 이 다시 비워져 제출할 수 없다', () async {
     final container = buildContainer();
     final viewModel = await buildSubmittableViewModel(container);

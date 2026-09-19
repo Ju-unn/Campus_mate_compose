@@ -15,6 +15,9 @@ final studentVerificationViewModelProvider =
   StudentVerificationViewModel.new,
 );
 
+/// 서버가 돌려주는 '반려' 상태 값. 이때만 반려 사유를 문구로 함께 보여준다.
+const String _rejectedStatus = 'rejected';
+
 /// `_copyWith` 에서 "이 필드는 건드리지 않는다" 를 뜻하는 표식.
 /// 넘기지 않은 것과 `null` 을 넘겨 값을 지우는 것을 구분하기 위해 필요하다
 /// (실명이 형식에 어긋나면 `realName` 을 다시 `null` 로 지워야 한다).
@@ -50,8 +53,13 @@ class StudentVerificationViewModel extends Notifier<StudentVerificationUiState> 
   }
 
   /// 서버가 알려준 상태만 반영한 새 상태. 입력하던 실명·사진은 더 필요 없으므로 비운다.
+  /// 반려 상태면 사유를 `errorMessage` 에 실어, 화면이 폼 위 배너로 보여줄 수 있게 한다(Task A11).
   StudentVerificationUiState _stateFromOutcome(VerificationOutcome outcome) {
-    return StudentVerificationUiState(status: outcome.status, isLoadingStatus: false);
+    return StudentVerificationUiState(
+      status: outcome.status,
+      isLoadingStatus: false,
+      errorMessage: outcome.status == _rejectedStatus ? outcome.rejectReason : null,
+    );
   }
 
   StudentVerificationUiState _stateFromLoadFailure(Failure failure) {
