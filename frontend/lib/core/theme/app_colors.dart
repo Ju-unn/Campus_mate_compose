@@ -62,6 +62,10 @@ abstract final class AppColors {
   /// 인증 실패, 입력 오류, 신고 확인
   static const Color error = Color(0xFFC13515);
 
+  /// 아주 옅은 에러 표면 — 반려 사유 배너 바탕 (2026-09-19 신설, 화면 3b).
+  /// [primaryWash] 와 같은 성격의 워시 토큰. 위에 올리는 텍스트는 [error] 로 둔다
+  static const Color errorWash = Color(0xFFFAEFEC);
+
   /// 매칭 성사, 학생 인증 완료
   static const Color success = Color(0xFF25795A);
 }

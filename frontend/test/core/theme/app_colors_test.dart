@@ -39,6 +39,7 @@ void main() {
 
   test('의미색은 DESIGN.md §2.5 확정값을 쓴다', () {
     expect(AppColors.error, const Color(0xFFC13515));
+    expect(AppColors.errorWash, const Color(0xFFFAEFEC));
     expect(AppColors.success, const Color(0xFF25795A));
   });
 }

@@ -57,3 +57,21 @@ final class SignUpRejectedFailure extends Failure {
   @override
   String toDisplayMessage() => _message;
 }
+
+/// 학생증 사진에서 얼굴을 찾지 못한 경우(기기 안 ML Kit 판단, 설계 §7.3).
+final class NoFaceDetectedFailure extends Failure {
+  const NoFaceDetectedFailure();
+
+  @override
+  String toDisplayMessage() => '얼굴이 보이는 사진으로 다시 올려주세요';
+}
+
+/// 학생증 인증 서버가 거부한 경우(예: 검토 중 재제출). 서버 메시지를 그대로 보여준다.
+final class ServerRejectedFailure extends Failure {
+  const ServerRejectedFailure(this._message);
+
+  final String _message;
+
+  @override
+  String toDisplayMessage() => _message;
+}
