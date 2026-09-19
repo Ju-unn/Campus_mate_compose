@@ -6,7 +6,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(35);
+select plan(38);
 
 -- 준비 (postgres) -------------------------------------------------------------
 -- 사용자 A = ...aa, 사용자 B = ...bb, 테스트 대학 = ...01
@@ -249,6 +249,34 @@ reset role;
 select lives_ok(
   $$select * from public.signup_blocks where email_hmac = '\x0102030405'::bytea$$,
   'service_role 은 signup_blocks 를 읽을 수 있다'
+);
+
+-- 4d. 학생증 확정 시 사진 삭제 트리거 (postgres) -------------------------------
+
+insert into storage.objects (bucket_id, name)
+  values ('student-id-temp', '00000000-0000-0000-0000-0000000000aa/test.jpg');
+
+set local role service_role;
+
+select lives_ok(
+  $$insert into public.student_verification_attempts (profile_id, file_path)
+    values ('00000000-0000-0000-0000-0000000000aa', '00000000-0000-0000-0000-0000000000aa/test.jpg')$$,
+  '학생증 시도 기록을 만든다'
+);
+
+select lives_ok(
+  $$update public.profiles set student_verification = 'verified'
+     where id = '00000000-0000-0000-0000-0000000000aa'$$,
+  'service_role 이 학생증 인증 상태를 verified 로 바꾼다'
+);
+
+reset role;
+
+select is_empty(
+  $$select 1 from storage.objects
+     where bucket_id = 'student-id-temp'
+       and name = '00000000-0000-0000-0000-0000000000aa/test.jpg'$$,
+  'verified 로 바뀌면 트리거가 학생증 사진을 지운다'
 );
 
 -- 4c. auth.users INSERT 트리거 (postgres, Task C2) ---------------------------
