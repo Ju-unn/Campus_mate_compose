@@ -6,7 +6,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(30);
+select plan(35);
 
 -- 준비 (postgres) -------------------------------------------------------------
 -- 사용자 A = ...aa, 사용자 B = ...bb, 테스트 대학 = ...01
@@ -220,6 +220,53 @@ select throws_ok(
     values ('00000000-0000-0000-0000-0000000000aa', 'aa/student-id.jpg', 'none')$$,
   '23514', null,
   '시도 기록의 결과는 none 일 수 없다'
+);
+
+-- 4b. signup_blocks 접근 제어 (postgres) ------------------------------------
+
+insert into public.signup_blocks (email_hmac, blocked_until)
+  values ('\x0102030405'::bytea, now() + interval '1 day');
+
+set role anon;
+
+select throws_ok(
+  $$select * from public.signup_blocks$$,
+  '42501', null,
+  'anon 은 signup_blocks 를 읽을 수 없다'
+);
+
+reset role;
+set role authenticated;
+
+select throws_ok(
+  $$select * from public.signup_blocks$$,
+  '42501', null,
+  'authenticated 도 signup_blocks 를 읽을 수 없다'
+);
+
+reset role;
+
+select lives_ok(
+  $$select * from public.signup_blocks where email_hmac = '\x0102030405'::bytea$$,
+  'service_role 은 signup_blocks 를 읽을 수 있다'
+);
+
+-- 4c. auth.users INSERT 트리거 (postgres, Task C2) ---------------------------
+
+insert into auth.users (id, email) values
+  ('00000000-0000-0000-0000-0000000000cc', 'rls-c@test.ac.kr');
+
+select is(
+  (select university_id from public.profiles where id = '00000000-0000-0000-0000-0000000000cc'),
+  '00000000-0000-0000-0000-000000000001'::uuid,
+  '트리거가 도메인에 맞는 university_id 로 profiles pending 행을 만든다'
+);
+
+select throws_ok(
+  $$insert into auth.users (id, email)
+    values ('00000000-0000-0000-0000-0000000000dd', 'rls-d@unknown-domain.ac.kr')$$,
+  'P0001', null,
+  '화이트리스트에 없는 도메인이면 트리거가 막는다'
 );
 
 -- 5. 탈퇴 cascade (postgres) ----------------------------------------------------
