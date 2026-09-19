@@ -125,7 +125,7 @@ class _SubmitForm extends StatelessWidget {
       children: [
         Expanded(child: SingleChildScrollView(child: _content())),
         const SizedBox(height: AppSpacing.md),
-        AppButton(label: '학생증 제출하기', onPressed: state.canSubmit ? viewModel.submit : null),
+        AppButton(label: '확인 요청하기', onPressed: state.canSubmit ? viewModel.submit : null),
       ],
     );
   }
@@ -158,6 +158,8 @@ class _SubmitForm extends StatelessWidget {
       Text('학생증 확인에만 쓰고 다른 사람에게는 안 보여요', style: AppTypography.caption.copyWith(color: AppColors.muted)),
       const SizedBox(height: AppSpacing.lg),
       _PhotoZone(photo: state.selectedPhoto, onTap: viewModel.pickPhoto),
+      const SizedBox(height: AppSpacing.sm),
+      const _PrivacyNote(),
     ];
   }
 }
@@ -198,7 +200,7 @@ class _RejectedBanner extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.error.withValues(alpha: 0.08),
+        color: AppColors.errorWash,
         borderRadius: BorderRadius.circular(AppRadius.md),
       ),
       child: Column(
@@ -237,7 +239,13 @@ class _RealNameField extends StatelessWidget {
         initialValue: initialValue,
         onChanged: onChanged,
         style: AppTypography.body.copyWith(color: AppColors.ink),
-        decoration: const InputDecoration(isDense: true, border: InputBorder.none, contentPadding: EdgeInsets.zero),
+        decoration: InputDecoration(
+          isDense: true,
+          border: InputBorder.none,
+          contentPadding: EdgeInsets.zero,
+          hintText: '학생증에 표기된 이름',
+          hintStyle: AppTypography.body.copyWith(color: AppColors.disabled),
+        ),
       ),
     );
   }
@@ -266,6 +274,27 @@ class _PhotoZone extends StatelessWidget {
           child: photo == null ? const _PhotoPrompt() : Image.file(photo!, fit: BoxFit.cover),
         ),
       ),
+    );
+  }
+}
+
+/// 업로드 존 아래 공개 범위 안내 (pen `Rg1VT` 실측).
+class _PrivacyNote extends StatelessWidget {
+  const _PrivacyNote();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Icon(AppIcons.lock, size: 14, color: AppColors.muted),
+        const SizedBox(width: AppSpacing.xxs),
+        Expanded(
+          child: Text(
+            '인증 서류는 프로필에 공개되지 않아요.',
+            style: AppTypography.caption.copyWith(color: AppColors.muted),
+          ),
+        ),
+      ],
     );
   }
 }

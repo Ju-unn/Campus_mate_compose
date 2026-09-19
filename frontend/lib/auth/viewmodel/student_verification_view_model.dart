@@ -64,8 +64,15 @@ class StudentVerificationViewModel extends Notifier<StudentVerificationUiState> 
     );
   }
 
+  /// 조회가 실패하면 지금 아는 상태를 그대로 둔다.
+  /// 대기 중(pending) 폴링이 한 번 실패했다고 상태를 'none' 으로 떨어뜨리면
+  /// 검토 중인 사용자에게 빈 제출 폼이 다시 열려 중복 제출로 이어진다(Task A11 리뷰).
   StudentVerificationUiState _stateFromLoadFailure(Failure failure) {
-    return StudentVerificationUiState(isLoadingStatus: false, errorMessage: failure.toDisplayMessage());
+    return StudentVerificationUiState(
+      isLoadingStatus: false,
+      status: state.status,
+      errorMessage: failure.toDisplayMessage(),
+    );
   }
 
   void changeRealName(String value) {

@@ -7,6 +7,7 @@ import 'package:campus_mate/auth/model/student_verification_repository.dart';
 import 'package:campus_mate/auth/model/student_verification_repository_provider.dart';
 import 'package:campus_mate/auth/view/student_verification_screen.dart';
 import 'package:campus_mate/auth/viewmodel/student_verification_view_model.dart';
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -88,6 +89,9 @@ void main() {
 
       expect(find.text('학생증에 적힌 이름과 같게 입력하세요'), findsOneWidget);
       expect(find.text('학생증 확인에만 쓰고 다른 사람에게는 안 보여요'), findsOneWidget);
+      expect(find.text('학생증에 표기된 이름'), findsOneWidget); // 실명 입력칸 플레이스홀더 (pen Rg1VT)
+      expect(find.text('인증 서류는 프로필에 공개되지 않아요.'), findsOneWidget);
+      expect(find.text('확인 요청하기'), findsOneWidget);
     });
 
     testWidgets('실명과 사진이 모두 없으면 CTA 가 비활성이다', (tester) async {
@@ -127,7 +131,7 @@ void main() {
       await tester.tap(find.text('학생증 사진 올리기'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('학생증 제출하기'));
+      await tester.tap(find.text('확인 요청하기'));
       await tester.pumpAndSettle();
 
       expect(find.text('얼굴이 보이는 사진으로 다시 올려주세요'), findsOneWidget);
@@ -158,6 +162,19 @@ void main() {
       await tester.pump();
 
       expect(find.text('사진이 흐려요'), findsOneWidget);
+    });
+
+    testWidgets('pending 중 폴링이 한 번 실패해도 대기 화면이 유지된다', (tester) async {
+      repository.nextFetchStatusResult = const Success(VerificationOutcome(status: 'pending'));
+      await pumpLoadedScreen(tester);
+      repository.nextFetchStatusResult = const FailureResult(NetworkFailure());
+
+      await tester.pump(const Duration(seconds: 30));
+      await tester.pump(Duration.zero);
+      await tester.pump();
+
+      expect(find.text('조금 더 확인이 필요해요'), findsOneWidget);
+      expect(find.byType(TextField), findsNothing); // 빈 제출 폼으로 떨어지지 않는다
     });
 
     testWidgets('반려되면 사유를 보여주고 폼으로 다시 제출할 수 있다', (tester) async {
