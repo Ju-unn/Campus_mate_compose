@@ -5,6 +5,7 @@ from functools import lru_cache
 import httpx
 from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile
 from google.api_core.exceptions import GoogleAPIError
+from google.auth.exceptions import GoogleAuthError
 from google.cloud import vision
 
 from app.settings import Settings
@@ -48,8 +49,12 @@ async def submit_student_verification(
     repo = StudentVerificationRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
 
     gate = await repo.fetch_gate_status(profile_id)
-    if gate["student_verification"] == "pending":
+    status = gate["student_verification"]
+    if status == "pending":
         raise HTTPException(status_code=409, detail="이미 검토 중이에요, 결과를 기다려 주세요")
+    # 끝난 인증을 다시 제출하면 pending 으로 되돌아가 삭제 트리거의 "pending → verified/rejected" 전이가 꼬인다.
+    if status == "verified":
+        raise HTTPException(status_code=409, detail="이미 인증이 완료됐어요")
 
     # 앱의 RealName 이 이미 막지만 여기가 신뢰 경계다 — 빈 실명은 OCR 대조에서 무조건 통과해 버린다.
     name = real_name.strip()
@@ -73,7 +78,7 @@ async def submit_student_verification(
 
     try:
         ocr_text = await VisionOcr(_vision_client_override or get_vision_client()).extract_text(data)
-    except (GoogleAPIError, RuntimeError, asyncio.TimeoutError):
+    except (GoogleAPIError, RuntimeError, asyncio.TimeoutError, GoogleAuthError):
         # Vision 장애·할당량 초과로 500 을 내면 상태가 pending 에 갇혀 재제출이 409 로 막힌다.
         # 자동 대조 실패로 보고 사람 재검토로 넘긴다(그게 pending 의 뜻이다).
         # 잡는 범위는 진짜 Vision 장애로 한정한다 — 넓게 잡으면 우리 코드 버그까지 "대조 실패"로 묻힌다.

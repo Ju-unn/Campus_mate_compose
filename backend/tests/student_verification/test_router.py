@@ -238,6 +238,18 @@ def test_submit_returns_409_while_review_is_pending():
     assert _calls(sent, "POST", "/student_verification_attempts") == []
 
 
+def test_submit_returns_409_when_already_verified():
+    # 끝난 인증을 다시 제출하면 pending 으로 되돌아가 사진 삭제 트리거가 꼬인다 — 아무 일도 하지 않고 막는다.
+    sent, vision_client = _wire(_gate_row("verified"), ocr_text="서울대학교 홍길동")
+
+    response = _submit()
+
+    assert response.status_code == 409
+    vision_client.batch_annotate_images.assert_not_awaited()
+    assert _calls(sent, "POST", "/storage/v1/") == []
+    assert _calls(sent, "POST", "/student_verification_attempts") == []
+
+
 def test_submit_returns_400_for_non_image_file():
     sent, vision_client = _wire(_gate_row("none"), ocr_text="서울대학교 홍길동")
 
@@ -331,7 +343,7 @@ def test_school_info_saves_when_verified():
     assert response.status_code == 200
     assert response.json() == {"ok": True}
     patch = _calls(sent, "PATCH", "/rest/v1/profiles")[0]
-    assert json.loads(patch.content) == {"department": "컴퓨터공학과", "student_number": "2021123456"}
+    assert json.loads(patch.content) == {"major": "컴퓨터공학과", "student_number": "2021123456"}
     assert dict(patch.url.params) == {"id": f"eq.{PROFILE_ID}"}
 
 

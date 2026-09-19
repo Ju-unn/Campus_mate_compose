@@ -34,7 +34,8 @@ async def test_fetch_gate_status_returns_first_row():
     assert captured["url"] == f"{POSTGREST_URL}/profiles"
     assert captured["params"] == {
         "id": f"eq.{PROFILE_ID}",
-        "select": "student_verification,department,universities(name)",
+        # 실제 컬럼은 major, 응답 키는 별칭 department 로 돌아온다.
+        "select": "student_verification,department:major,universities(name)",
     }
     assert captured["headers"]["apikey"] == "service-key"
     assert captured["headers"]["authorization"] == "Bearer service-key"
@@ -209,7 +210,7 @@ async def test_save_school_info_patches_department_and_student_number():
     assert captured["method"] == "PATCH"
     assert captured["url"] == f"{POSTGREST_URL}/profiles"
     assert captured["params"] == {"id": f"eq.{PROFILE_ID}"}
-    assert captured["json"] == {"department": "컴퓨터공학과", "student_number": "2021123456"}
+    assert captured["json"] == {"major": "컴퓨터공학과", "student_number": "2021123456"}
 
 
 async def test_save_school_info_raises_on_error():

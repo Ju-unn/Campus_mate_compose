@@ -18,7 +18,9 @@ class StudentVerificationRepository:
     async def fetch_gate_status(self, profile_id: UUID) -> dict:
         response = await self._client.get(
             f"{self._postgrest_url}/profiles",
-            params={"id": f"eq.{profile_id}", "select": "student_verification,department,universities(name)"},
+            # 학과는 온보딩이 이미 채우는 profiles.major 를 그대로 쓴다. API·클라이언트가 아는 이름은
+            # department 라서 PostgREST 별칭으로 돌려준다(alias:column).
+            params={"id": f"eq.{profile_id}", "select": "student_verification,department:major,universities(name)"},
             headers=self._headers,
         )
         response.raise_for_status()
@@ -77,7 +79,8 @@ class StudentVerificationRepository:
         response = await self._client.patch(
             f"{self._postgrest_url}/profiles",
             params={"id": f"eq.{profile_id}"},
-            json={"department": department, "student_number": student_number},
+            # 컬럼 이름은 major 다 — department 는 API·클라이언트 쪽 이름이라 여기서만 바꿔 준다.
+            json={"major": department, "student_number": student_number},
             headers=self._headers,
         )
         response.raise_for_status()
