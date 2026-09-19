@@ -2,6 +2,7 @@ import base64
 import hashlib
 import hmac
 import json
+import time
 
 import httpx
 import pytest
@@ -37,10 +38,11 @@ def settings_override(monkeypatch):
 
 def _post_hook(client: TestClient, body: dict, mock_transport: httpx.MockTransport):
     raw_body = json.dumps(body).encode()
+    timestamp = str(int(time.time()))
     headers = {
         "webhook-id": "msg_1",
-        "webhook-timestamp": "1700000000",
-        "webhook-signature": _sign("msg_1", "1700000000", raw_body),
+        "webhook-timestamp": timestamp,
+        "webhook-signature": _sign("msg_1", timestamp, raw_body),
     }
     router_module._client_override = httpx.AsyncClient(transport=mock_transport)
     return client.post("/hooks/before-user-created", content=raw_body, headers=headers)
