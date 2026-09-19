@@ -40,7 +40,7 @@ gcloud run deploy campus-mate-backend \
 엔드포인트가 `--allow-unauthenticated`라 토큰 없이 바로 확인한다:
 
 ```bash
-curl https://<서비스 URL>/healthz
+curl https://<서비스 URL>/health
 ```
 
 `{"status":"ok"}` 가 나오면 성공.

@@ -63,7 +63,7 @@
 | `backend/Dockerfile` | Cloud Run 컨테이너 이미지 |
 | `backend/.dockerignore` | 이미지에서 제외할 파일 |
 | `backend/.env.example` | 필요한 환경변수 이름만(값 없음) |
-| `backend/app/main.py` | FastAPI 앱, `/healthz`, 훅 라우터 등록 |
+| `backend/app/main.py` | FastAPI 앱, `/health`, 훅 라우터 등록 |
 | `backend/app/settings.py` | `pydantic-settings` 기반 설정 |
 | `backend/app/webhook_signature.py` | Standard Webhooks HMAC 서명 검증 |
 | `backend/app/signup_policy.py` | 도메인 화이트리스트·재가입 제한 검사(허용/거부 판단만, 프로필 생성은 하지 않는다) |
@@ -1676,7 +1676,7 @@ git commit -m "✨ feat(auth): 실제 Supabase 세션으로 라우팅 인증 상
 - Test: `backend/tests/test_main.py`
 
 **Interfaces:**
-- Produces: `app.main:app`(FastAPI 인스턴스), `GET /healthz` — Cloud Run 헬스체크·이후 모든 Task가 씀
+- Produces: `app.main:app`(FastAPI 인스턴스), `GET /health` — Cloud Run 헬스체크·이후 모든 Task가 씀
 
 - [ ] **Step 1: 실패하는 테스트 작성**
 
@@ -1685,9 +1685,9 @@ from fastapi.testclient import TestClient
 from app.main import app
 
 
-def test_healthz_returns_ok():
+def test_health_returns_ok():
     client = TestClient(app)
-    response = client.get("/healthz")
+    response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
 ```
@@ -1726,8 +1726,8 @@ from fastapi import FastAPI
 app = FastAPI(title="CampusMate Backend")
 
 
-@app.get("/healthz")
-def healthz() -> dict[str, str]:
+@app.get("/health")
+def health() -> dict[str, str]:
     return {"status": "ok"}
 ```
 
@@ -2420,8 +2420,8 @@ app = FastAPI(title="CampusMate Backend")
 app.include_router(auth_hooks_router)
 
 
-@app.get("/healthz")
-def healthz() -> dict[str, str]:
+@app.get("/health")
+def health() -> dict[str, str]:
     return {"status": "ok"}
 ```
 
@@ -2491,7 +2491,7 @@ gcloud run deploy campus-mate-backend \
 엔드포인트가 `--allow-unauthenticated`라 토큰 없이 바로 확인한다:
 
 ​```bash
-curl https://<서비스 URL>/healthz
+curl https://<서비스 URL>/health
 ​```
 
 `{"status":"ok"}` 가 나오면 성공.
