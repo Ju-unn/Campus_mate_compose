@@ -6,7 +6,7 @@
 
 ## 1. 현재 상태
 
-Supabase **MCP 플러그인(`supabase`)이 설치·인증돼 있다.** 클라우드 프로젝트는 `campus_mate`(조직 CampusMate, Seoul) 하나뿐이다. 조각 0(테이블 4·RLS·정책 4·private 버킷 `profile-photos`·seed `universities` 20행·`university_email_domains` 20행)은 2026-09-14 사용자 승인 후 적용됐다. 조각 1 은 마이그레이션 초안만 있고 미적용, 조각 2 이후는 파일도 없다(현재 상태는 `docs/ERD.md` 상태줄 기준). 로컬 스택(Docker)은 없으므로 적용 대상은 항상 이 클라우드 프로젝트다.
+Supabase **MCP 플러그인(`supabase`)이 설치·인증돼 있다.** 클라우드 프로젝트는 `campus_mate`(조직 CampusMate, Seoul) 하나뿐이다. 조각 0(테이블 4·RLS·정책 4·private 버킷 `profile-photos`·seed `universities` 20행·`university_email_domains` 20행)은 2026-09-14 사용자 승인 후 적용됐다. 조각 1(이메일 인증 훅)·조각 1b(학생증 인증 — 학번 컬럼, 확정 시 임시 사진 삭제 트리거 포함)는 마이그레이션 초안 11개까지 나와 있고 전부 미적용, 조각 2 이후는 파일도 없다(현재 상태는 `docs/ERD.md` 상태줄 기준). 로컬 스택(Docker)은 없으므로 적용 대상은 항상 이 클라우드 프로젝트다.
 
 ## 2. 시작할 때
 
