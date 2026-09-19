@@ -2,6 +2,7 @@ import 'package:campus_mate/auth/model/department.dart';
 import 'package:campus_mate/auth/model/school_info_repository_provider.dart';
 import 'package:campus_mate/auth/model/student_number.dart';
 import 'package:campus_mate/auth/viewmodel/school_info_ui_state.dart';
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -37,9 +38,20 @@ class SchoolInfoViewModel extends Notifier<SchoolInfoUiState> {
       return;
     }
     state = _copyWith(isSubmitting: true, errorMessage: null);
-    final repository = ref.read(schoolInfoRepositoryProvider);
-    final result = await repository.submit(department, studentNumber);
-    state = _stateFromResult(result);
+    state = await _submittedState(department, studentNumber);
+  }
+
+  /// 저장소 호출이 던지는 예외까지 흡수해 `isSubmitting` 이 영원히 true 로 굳지 않게 한다.
+  /// (세션 만료·비정상 응답 바디로 `Result` 밖으로 새는 `TypeError` 등 — 해당 파일은 이 작업 범위 밖이라
+  /// ViewModel 에서 막는다). `on Exception` 만으로는 `Error` 계열을 놓치므로 넓게 잡는다.
+  Future<SchoolInfoUiState> _submittedState(Department department, StudentNumber studentNumber) async {
+    try {
+      final repository = ref.read(schoolInfoRepositoryProvider);
+      final result = await repository.submit(department, studentNumber);
+      return _stateFromResult(result);
+    } catch (_) {
+      return _copyWith(isSubmitting: false, errorMessage: const UnknownFailure().toDisplayMessage());
+    }
   }
 
   /// 성공하면 `completed` 를 켜 라우터가 인증 게이트를 다시 평가하게 한다.

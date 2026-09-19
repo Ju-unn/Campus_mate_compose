@@ -112,4 +112,16 @@ void main() {
     expect(readState(container).canSubmit, isFalse);
     await future;
   });
+
+  test('저장소가 Result 밖으로 예외를 던져도 isSubmitting 이 갇히지 않는다', () async {
+    repository.nextSubmitError = ArgumentError('세션이 만료됐다');
+    final container = buildContainer();
+    final viewModel = buildSubmittableViewModel(container);
+
+    await viewModel.submit();
+
+    expect(readState(container).isSubmitting, isFalse);
+    expect(readState(container).completed, isFalse);
+    expect(readState(container).errorMessage, isNotNull);
+  });
 }
