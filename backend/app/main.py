@@ -6,6 +6,6 @@ app = FastAPI(title="CampusMate Backend")
 app.include_router(auth_hooks_router)
 
 
-@app.get("/healthz")
-def healthz() -> dict[str, str]:
+@app.get("/health")
+def health() -> dict[str, str]:
     return {"status": "ok"}
