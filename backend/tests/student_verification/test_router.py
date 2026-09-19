@@ -1,4 +1,5 @@
 import json
+from collections.abc import Callable
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from uuid import UUID
@@ -13,6 +14,7 @@ from app.settings import Settings
 
 PROFILE_ID = UUID("11111111-1111-1111-1111-111111111111")
 JPEG = b"\xff\xd8\xff" + b"fake-student-id-bytes"
+PNG = b"\x89PNG\r\n\x1a\n" + b"fake-student-id-bytes"
 AUTH_HEADERS = {"Authorization": "Bearer valid-token"}
 
 
@@ -43,13 +45,20 @@ def _vision_client(ocr_text: str) -> AsyncMock:
     return client
 
 
-def _wire(gate_row: dict, ocr_text: str = "", reject_reason: str | None = None) -> tuple[list[httpx.Request], AsyncMock]:
+def _wire(
+    gate_row: dict,
+    ocr_text: str = "",
+    reject_reason: str | None = None,
+    fails: Callable[[httpx.Request], bool] = lambda request: False,
+) -> tuple[list[httpx.Request], AsyncMock]:
     """목 트랜스포트와 목 Vision 클라이언트를 라우터에 주입하고, 나간 요청 목록을 돌려준다."""
     sent: list[httpx.Request] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
         sent.append(request)
         url = str(request.url)
+        if fails(request):
+            return httpx.Response(500, json={"message": "boom"})
         if "/auth/v1/user" in url:
             return httpx.Response(200, json={"id": str(PROFILE_ID)})
         if "/storage/v1/" in url:
@@ -72,10 +81,16 @@ def _gate_row(status: str = "none", department: str | None = None) -> dict:
     return {"student_verification": status, "department": department, "universities": {"name": "서울대학교"}}
 
 
-def _submit(real_name: str = "홍길동", photo: bytes = JPEG, headers: dict = AUTH_HEADERS):
+def _submit(
+    real_name: str = "홍길동",
+    photo: bytes = JPEG,
+    headers: dict = AUTH_HEADERS,
+    # 실제 Flutter 클라이언트(http.MultipartFile.fromPath)가 보내는 값 — 확장자를 보지 않는다.
+    part_content_type: str = "application/octet-stream",
+):
     return TestClient(app).post(
         "/student-verification",
-        files={"photo": ("student-id.jpg", photo, "image/jpeg")},
+        files={"photo": ("student-id.jpg", photo, part_content_type)},
         data={"real_name": real_name},
         headers=headers,
     )
@@ -83,6 +98,11 @@ def _submit(real_name: str = "홍길동", photo: bytes = JPEG, headers: dict = A
 
 def _calls(sent: list[httpx.Request], method: str, fragment: str) -> list[httpx.Request]:
     return [r for r in sent if r.method == method and fragment in str(r.url)]
+
+
+def _uploaded_path(sent: list[httpx.Request]) -> str:
+    upload = _calls(sent, "POST", "/storage/v1/object/student-id-temp/")[0]
+    return str(upload.url).split("/object/student-id-temp/")[1]
 
 
 # --- POST /student-verification ---------------------------------------------
@@ -120,6 +140,62 @@ def test_submit_returns_pending_and_notifies_discord_when_ocr_does_not_match():
     vision_client.text_detection.assert_awaited_once()
     patched = [json.loads(r.content)["student_verification"] for r in _calls(sent, "PATCH", "/rest/v1/profiles")]
     assert patched == ["pending"]
+    assert len(_calls(sent, "POST", "discord.com")) == 1
+
+
+def test_submit_marks_attempt_row_verified_on_the_verified_path():
+    sent, _ = _wire(_gate_row("none"), ocr_text="서울대학교 학생증 홍길동")
+
+    response = _submit()
+
+    assert response.json() == {"status": "verified"}
+    patch = _calls(sent, "PATCH", "/student_verification_attempts")[0]
+    assert dict(patch.url.params) == {"profile_id": f"eq.{PROFILE_ID}", "file_path": f"eq.{_uploaded_path(sent)}"}
+    assert json.loads(patch.content) == {"result": "verified"}
+
+
+def test_submit_leaves_attempt_row_pending_on_the_no_match_path():
+    # 사람이 재검토할 행이라 result 는 pending 그대로 둔다.
+    sent, _ = _wire(_gate_row("none"), ocr_text="서울대학교 학생증 김철수")
+
+    response = _submit()
+
+    assert response.json() == {"status": "pending"}
+    assert _calls(sent, "PATCH", "/student_verification_attempts") == []
+
+
+def test_submit_uploads_with_content_type_derived_from_magic_bytes():
+    # 클라이언트가 보낸 application/octet-stream 을 그대로 넘기면 버킷의 mime 허용목록에 걸린다.
+    sent, _ = _wire(_gate_row("none"), ocr_text="서울대학교 학생증 홍길동")
+
+    _submit()
+
+    assert _calls(sent, "POST", "/storage/v1/")[0].headers["content-type"] == "image/jpeg"
+
+
+def test_submit_uploads_png_with_png_content_type():
+    sent, _ = _wire(_gate_row("none"), ocr_text="서울대학교 학생증 홍길동")
+
+    _submit(photo=PNG)
+
+    assert _calls(sent, "POST", "/storage/v1/")[0].headers["content-type"] == "image/png"
+
+
+def test_submit_falls_back_to_pending_when_final_status_patch_fails():
+    # verified PATCH 가 깨지면 상태가 pending 에 갇히는데 verified 경로는 디스코드를 부르지 않아 아무도 모른다.
+    def is_verified_patch(request: httpx.Request) -> bool:
+        return (
+            request.method == "PATCH"
+            and "/rest/v1/profiles" in str(request.url)
+            and json.loads(request.content).get("student_verification") == "verified"
+        )
+
+    sent, _ = _wire(_gate_row("none"), ocr_text="서울대학교 학생증 홍길동", fails=is_verified_patch)
+
+    response = _submit()
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "pending"}
     assert len(_calls(sent, "POST", "discord.com")) == 1
 
 

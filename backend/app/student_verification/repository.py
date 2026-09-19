@@ -50,6 +50,16 @@ class StudentVerificationRepository:
         )
         response.raise_for_status()
 
+    async def update_attempt_result(self, profile_id: UUID, file_path: str, result: str) -> None:
+        # 자동 통과한 시도는 여기서 확정한다 — 그래야 result='pending' 행이 사람이 볼 재검토 대기열로만 남는다.
+        response = await self._client.patch(
+            f"{self._postgrest_url}/student_verification_attempts",
+            params={"profile_id": f"eq.{profile_id}", "file_path": f"eq.{file_path}"},
+            json={"result": result},
+            headers=self._headers,
+        )
+        response.raise_for_status()
+
     async def update_verification_status(self, profile_id: UUID, status: str) -> None:
         response = await self._client.patch(
             f"{self._postgrest_url}/profiles",

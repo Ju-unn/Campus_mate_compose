@@ -58,8 +58,11 @@ async def submit_student_verification(
     if not is_valid_student_id_photo(data):
         raise HTTPException(status_code=400, detail="사진을 다시 확인해 주세요")
 
+    # 클라이언트가 보낸 Content-Type 은 믿지 않는다 — 실제 Flutter 앱은 application/octet-stream 을 보내는데
+    # 버킷의 mime 허용목록은 jpeg·png 뿐이다. 방금 검증한 매직바이트가 진짜 타입이다.
+    content_type = "image/png" if data.startswith(b"\x89PNG") else "image/jpeg"
     storage = StudentIdStorage(settings.storage_url, settings.supabase_service_role_key, client)
-    file_path = await storage.upload(profile_id, data, photo.content_type or "image/jpeg")
+    file_path = await storage.upload(profile_id, data, content_type)
 
     await repo.upsert_real_name(profile_id, name)
     # 결과가 어느 쪽이든 먼저 pending 으로 남긴다 — 삭제 트리거가 "pending → verified/rejected" 전이만 보기 때문이다.
@@ -74,12 +77,18 @@ async def submit_student_verification(
         _logger.exception("Vision OCR 실패 — 사람 재검토로 넘긴다")
         ocr_text = ""
 
-    if not matches_school_and_name(ocr_text, gate["universities"]["name"], name):
-        await DiscordNotifier(settings.discord_webhook_url, client).notify_pending_review()
-        return {"status": "pending"}
+    if matches_school_and_name(ocr_text, gate["universities"]["name"], name):
+        try:
+            await repo.update_verification_status(profile_id, "verified")
+            # 자동 통과한 시도 행도 확정한다 — pending 으로 두면 사람이 볼 재검토 대기열에 남는다.
+            await repo.update_attempt_result(profile_id, file_path, "verified")
+            return {"status": "verified"}
+        except httpx.HTTPError:
+            # 확정을 못 쓰면 상태가 pending 에 갇혀 재제출이 409 로 막힌다 — OCR 실패와 같게 사람 재검토로 넘긴다.
+            _logger.exception("학생증 인증 확정 실패 — 사람 재검토로 넘긴다")
 
-    await repo.update_verification_status(profile_id, "verified")
-    return {"status": "verified"}
+    await DiscordNotifier(settings.discord_webhook_url, client).notify_pending_review()
+    return {"status": "pending"}
 
 
 @router.get("/me/verification-status")

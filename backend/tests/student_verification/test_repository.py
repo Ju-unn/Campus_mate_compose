@@ -130,6 +130,33 @@ async def test_record_attempt_raises_on_error():
         await repo.record_attempt(PROFILE_ID, "path.jpg", "approved")
 
 
+async def test_update_attempt_result_patches_the_matching_attempt_row():
+    captured: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["url"] = str(request.url.copy_with(query=None))
+        captured["params"] = dict(request.url.params)
+        captured["json"] = json.loads(request.content)
+        captured["method"] = request.method
+        return httpx.Response(200, json=[])
+
+    repo = _repo(handler)
+
+    await repo.update_attempt_result(PROFILE_ID, f"{PROFILE_ID}/abc.jpg", "verified")
+
+    assert captured["method"] == "PATCH"
+    assert captured["url"] == f"{POSTGREST_URL}/student_verification_attempts"
+    assert captured["params"] == {"profile_id": f"eq.{PROFILE_ID}", "file_path": f"eq.{PROFILE_ID}/abc.jpg"}
+    assert captured["json"] == {"result": "verified"}
+
+
+async def test_update_attempt_result_raises_on_error():
+    repo = _repo(lambda request: httpx.Response(500))
+
+    with pytest.raises(httpx.HTTPStatusError):
+        await repo.update_attempt_result(PROFILE_ID, "path.jpg", "verified")
+
+
 async def test_update_verification_status_patches_profiles():
     captured: dict = {}
 
