@@ -34,6 +34,15 @@ def test_tampered_body_fails():
     assert verify_webhook_signature(secret, "msg_1", timestamp, b'{"type":"tampered"}', signature) is False
 
 
+def test_dashboard_v1_prefixed_secret_passes():
+    raw_secret = "whsec_" + base64.b64encode(b"test-secret-key-32-bytes-long!!").decode()
+    body = b'{"type":"test"}'
+    timestamp = _fresh_timestamp()
+    signature = _sign(raw_secret, "msg_1", timestamp, body)
+
+    assert verify_webhook_signature("v1," + raw_secret, "msg_1", timestamp, body, signature) is True
+
+
 def test_one_matching_signature_among_several_passes():
     secret = "whsec_" + base64.b64encode(b"test-secret-key-32-bytes-long!!").decode()
     body = b'{"type":"test"}'

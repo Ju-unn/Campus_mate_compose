@@ -20,7 +20,8 @@ def verify_webhook_signature(
     if not _is_timestamp_fresh(timestamp):
         return False
 
-    key = base64.b64decode(secret.removeprefix("whsec_"))
+    # Supabase 대시보드는 시크릿을 "v1,whsec_<base64>" 로 보여준다 — 그대로 붙여넣혀도 되게 둘 다 벗긴다.
+    key = base64.b64decode(secret.removeprefix("v1,").removeprefix("whsec_"))
     signed_content = f"{webhook_id}.{timestamp}.{body.decode()}".encode()
     expected = hmac.new(key, signed_content, hashlib.sha256).digest()
     expected_encoded = base64.b64encode(expected).decode()
