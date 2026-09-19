@@ -15,3 +15,7 @@ class Settings(BaseSettings):
     @property
     def auth_url(self) -> str:
         return f"{self.supabase_url}/auth/v1"
+
+    @property
+    def storage_url(self) -> str:
+        return f"{self.supabase_url}/storage/v1"

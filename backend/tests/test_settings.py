@@ -13,6 +13,8 @@ def test_settings_reads_from_env(monkeypatch):
 
     assert settings.supabase_url == "https://example.supabase.co"
     assert settings.postgrest_url == "https://example.supabase.co/rest/v1"
+    assert settings.auth_url == "https://example.supabase.co/auth/v1"
+    assert settings.storage_url == "https://example.supabase.co/storage/v1"
     assert settings.discord_webhook_url == "https://discord.com/api/webhooks/test"
     assert settings.google_cloud_project == "campus-mate-test"
 
