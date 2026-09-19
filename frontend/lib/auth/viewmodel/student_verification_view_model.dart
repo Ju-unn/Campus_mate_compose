@@ -40,11 +40,13 @@ class StudentVerificationViewModel extends Notifier<StudentVerificationUiState> 
   StudentVerificationUiState build() {
     // build() 는 동기라서 상태 조회는 마이크로태스크로 띄운다.
     // 앱을 나갔다 돌아온 pending 사용자에게 검토 중 화면을 바로 보여주기 위함이다.
-    Future.microtask(_loadStatus);
+    Future.microtask(refreshStatus);
     return const StudentVerificationUiState();
   }
 
-  Future<void> _loadStatus() async {
+  /// 인증 상태를 서버에 다시 물어본다.
+  /// 화면을 열 때 한 번, 그리고 대기 중이면 화면이 30초마다 다시 부른다(Task A11 폴링).
+  Future<void> refreshStatus() async {
     final result = await ref.read(studentVerificationRepositoryProvider).fetchStatus();
     if (!ref.mounted) {
       return; // 조회가 끝나기 전에 화면을 떠났으면(provider 폐기) 상태를 건드리지 않는다.

@@ -90,6 +90,20 @@ void main() {
     expect(readState(container).errorMessage, '사진이 흐려요');
   });
 
+  test('refreshStatus() 는 상태를 다시 불러온다(3b 대기 화면 폴링)', () async {
+    repository.nextFetchStatusResult = const Success(VerificationOutcome(status: 'pending'));
+    final container = buildContainer();
+    await pumpEventQueue();
+    repository.nextFetchStatusResult = const Success(
+      VerificationOutcome(status: 'rejected', rejectReason: '사진이 흐려요'),
+    );
+
+    await container.read(studentVerificationViewModelProvider.notifier).refreshStatus();
+
+    expect(readState(container).status, 'rejected');
+    expect(readState(container).errorMessage, '사진이 흐려요');
+  });
+
   test('실명이 형식에 어긋나면 realName 이 다시 비워져 제출할 수 없다', () async {
     final container = buildContainer();
     final viewModel = await buildSubmittableViewModel(container);
