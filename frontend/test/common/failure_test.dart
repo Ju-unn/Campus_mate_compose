@@ -19,4 +19,14 @@ void main() {
 
     expect(failure.toDisplayMessage(), '알 수 없는 오류가 발생했습니다');
   });
+
+  test('시간당 재전송 한도 실패는 잠시 후 다시 시도하라는 안내를 보여준다', () {
+    const failure = RateLimitedFailure();
+    expect(failure.toDisplayMessage(), '너무 많이 시도했어요. 잠시 후 다시 시도해 주세요');
+  });
+
+  test('가입 거부 실패는 서버가 준 이유를 그대로 보여준다', () {
+    const failure = SignUpRejectedFailure('허용되지 않은 학교 이메일이에요');
+    expect(failure.toDisplayMessage(), '허용되지 않은 학교 이메일이에요');
+  });
 }
