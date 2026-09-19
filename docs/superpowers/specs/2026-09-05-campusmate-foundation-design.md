@@ -607,6 +607,8 @@ Supabase Auth는 기본적으로 아무 이메일이나 받는다.
 **Auth Hook**(DB 함수가 아니라 **FastAPI HTTP Auth Hook**, 2026-09-13 사용자 결정 — ERD.md §11-12)을 걸어 가입 시점에 **`university_email_domains`(학교당 도메인 여러 개, ERD.md §3)** 화이트리스트와 **`signup_blocks`(탈퇴 후 재가입 제한, §2.6)를 함께 검사**하고,
 목록에 없는 도메인이거나 재가입 제한에 걸리면 거부한다. **도메인 1개는 학교 1개에만 속하고, 캠퍼스 분리는 두지 않는다**(첫 출시는 서울권뿐, ERD.md §11-10).
 
+**가입 흐름 전체(조각 1a, 2026-09-18 결정)**: 이메일 OTP 요청(6자리 코드, 유효 10분, 재전송 60초 경과 후, 시간당 최대 5회) → Before User Created HTTP Auth Hook(FastAPI, Google Cloud Run 서울)이 위 화이트리스트·재가입 제한을 검사 → 통과하면 Supabase Auth가 `auth.users` 계정을 생성 → **`profiles` pending 행은 앱도 FastAPI도 아니라, `auth.users` INSERT 직후에 도는 Postgres 트리거(`handle_new_user_profile`, `AFTER INSERT ON auth.users`)가 만든다.** Before User Created 훅은 `auth.users` 행이 커밋되기 전에 불려서 그 안에서 `profiles.id → auth.users.id` FK를 참조하는 insert를 하면 위반이 나기 때문에, 승인/거부만 결정하고 행을 쓰지 않는다(2026-09-18 리뷰로 정정 — ERD.md §11-26, ERD_DECISIONS.md §11-26).
+
 **OTP 정책(조각 1a, 2026-09-18 사용자 결정).** 인증코드 유효 시간 10분, 재전송은 60초 경과 후에만 가능, 시간당 최대 5회로 제한한다. Supabase Auth 설정값을 그대로 맞춘다(OTP expiry 600초, rate limit).
 
 **졸업 여부는 따지지 않는다(2026-09-18 사용자 결정, §13 미결1).** 학교 이메일로 가입만 되면 졸업생도 그대로 이용할 수 있고, 정기 재인증 주기는 두지 않는다. 부적절한 이용은 신고와 학생증 재인증(조각 1b)으로 보완한다.
@@ -743,6 +745,7 @@ Free 티어는 1주일간 트래픽이 없으면 프로젝트가 자동 정지�
 | 37 | 해결(2026-09-18) — FastAPI 호스팅은 **Google Cloud Run asia-northeast3(서울)**. 사진은 앱이 Supabase Storage 에 직접 업로드하고 FastAPI 는 검증·판정만 담당, OpenAI 는 임베딩만 생성하고 유사도 계산은 pgvector 가 맡는다. 비용은 §11 참조 | 조각 1 착수 전 |
 | 38 | 해결(2026-09-18) — **OTP 정책**: 인증코드 유효 10분, 재전송은 60초 경과 후, 시간당 최대 5회. Supabase Auth 설정값(OTP expiry 600초, rate limit)에 맞춘다 · §7.3 | 조각 1a |
 | 39 | 해결(2026-09-18) — **메일 발신**: 조각 1a는 Supabase 기본 메일로 개발·테스트한다. 우리 도메인 메일(커스텀 SMTP)은 출시 조각에서 붙인다 | 조각 1a → 출시 조각 |
+| 40 | 해결(2026-09-18, FK 순서 문제로 정정) — **`profiles` pending 행은 FastAPI가 아니라 `auth.users` INSERT 후 Postgres 트리거(`handle_new_user_profile`)가 만든다.** Before User Created 훅 시점엔 `auth.users` 행이 아직 커밋 전이라 그 안에서 `profiles` insert 를 하면 FK 위반이 난다 · §7.3, ERD.md §11-26 | 조각 1a |
 
 ### 출시 전 결정 사항
 
