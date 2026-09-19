@@ -1267,6 +1267,8 @@ select is_empty(
 
 ### Task C2: GCP·Secret Manager 설정 (사용자 승인 후에만 실행)
 
+**준비 완료 2026-09-20** — Vision API 사용 설정, 디스코드 웹훅 시크릿 등록까지는 사용자가 GCP 콘솔에서 직접 마쳤다(`backend/DEPLOY.md` §0 참조). **단, 실제 등록된 시크릿 이름은 `discord-review-webhook-url`이다** — 아래 초안 명령의 `discord-webhook-url`은 계획 작성 시점의 가칭이었고, 실제 배포 명령에는 `discord-review-webhook-url`을 쓴다. 남은 건 Cloud Run 서비스에 env/secret 연결(Step 3)과 `DEPLOY.md` 반영(Step 2)뿐이다.
+
 **Files:**
 - Modify: `backend/DEPLOY.md`
 
@@ -1275,12 +1277,12 @@ select is_empty(
 ```bash
 gcloud services enable vision.googleapis.com
 
-echo -n "<discord webhook url>" | gcloud secrets create discord-webhook-url --data-file=-
+echo -n "<discord webhook url>" | gcloud secrets create discord-review-webhook-url --data-file=-
 
 gcloud run services update campus-mate-backend \
   --region asia-northeast3 \
   --set-env-vars GOOGLE_CLOUD_PROJECT=<PROJECT_ID> \
-  --set-secrets DISCORD_WEBHOOK_URL=discord-webhook-url:latest
+  --set-secrets DISCORD_WEBHOOK_URL=discord-review-webhook-url:latest
 ```
 
 Vision API는 Cloud Run 기본 컴퓨트 서비스 계정에 별도 IAM 역할이 필요 없다(API 활성화 + 유효한 ADC 자격으로 호출 가능, 리소스 단위 IAM 바인딩이 없는 API). 배포 후 `curl`로 실제 학생증 사진 한 장을 보내 Vision 호출이 402/403 없이 되는지 확인한다.
