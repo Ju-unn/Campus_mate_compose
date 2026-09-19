@@ -18,5 +18,17 @@ void main() {
 
       expect(state.canSubmit, isTrue);
     });
+
+    test('제출 중이면 canSubmit 이 false', () {
+      final state = SignUpUiState(email: UniversityEmail.tryParse('hong@snu.ac.kr'), isSubmitting: true);
+      expect(state.canSubmit, isFalse);
+    });
+  });
+
+  test('기본값은 제출 중이 아니고 에러도 없다', () {
+    const state = SignUpUiState();
+    expect(state.isSubmitting, isFalse);
+    expect(state.errorMessage, isNull);
+    expect(state.otpSentTo, isNull);
   });
 }

@@ -36,3 +36,24 @@ final class UnknownFailure extends Failure {
     return '알 수 없는 오류가 발생했습니다';
   }
 }
+
+/// 시간당 재전송·요청 한도에 걸린 경우.
+final class RateLimitedFailure extends Failure {
+  const RateLimitedFailure();
+
+  @override
+  String toDisplayMessage() {
+    return '너무 많이 시도했어요. 잠시 후 다시 시도해 주세요';
+  }
+}
+
+/// Auth Hook이 도메인 화이트리스트·재가입 제한으로 가입을 거부한 경우.
+/// 서버가 돌려준 문구를 그대로 보여준다(내부 사정을 새로 지어내지 않는다).
+final class SignUpRejectedFailure extends Failure {
+  const SignUpRejectedFailure(this._message);
+
+  final String _message;
+
+  @override
+  String toDisplayMessage() => _message;
+}
