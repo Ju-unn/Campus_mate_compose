@@ -113,6 +113,32 @@ void main() {
     expect(readState(container).isSubmitting, isFalse);
   });
 
+  test('사진을 처리하지 못해 플러그인이 예외를 던져도 제출 중 상태에 갇히지 않는다', () async {
+    faceDetector.nextError = Exception('사진을 디코드하지 못했다');
+    final container = buildContainer();
+    final viewModel = await buildSubmittableViewModel(container);
+
+    await viewModel.submit();
+
+    expect(repository.submittedRealNames, isEmpty);
+    expect(readState(container).isSubmitting, isFalse);
+    expect(readState(container).errorMessage, isNotNull);
+    expect(readState(container).canSubmit, isTrue); // 다시 제출할 수 있어야 한다
+  });
+
+  test('원본이 아니라 압축된 사진으로 얼굴을 검출하고 업로드한다', () async {
+    final compressed = File('${Directory.systemTemp.path}/student_id_compressed.jpg');
+    imageCompressor.nextResult = compressed;
+    final container = buildContainer();
+    final viewModel = await buildSubmittableViewModel(container);
+
+    await viewModel.submit();
+
+    expect(imageCompressor.compressedSources, [photo]);
+    expect(faceDetector.hasFaceCalls, [compressed]);
+    expect(repository.submittedPhotos, [compressed]);
+  });
+
   test('제출에 성공하면 status 가 갱신된다', () async {
     repository.nextSubmitResult = const Success(VerificationOutcome(status: 'pending'));
     final container = buildContainer();
