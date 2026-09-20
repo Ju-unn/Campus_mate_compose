@@ -7,6 +7,7 @@ import 'package:campus_mate/auth/view/verify_code_screen.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/router/auth_redirect.dart';
 import 'package:campus_mate/core/router/placeholder_screens.dart';
+import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
@@ -16,13 +17,15 @@ abstract final class AppRouter {
   static GoRouter create({
     required bool Function() isAuthenticated,
     required VerificationGate Function() verificationGate,
+    required OnboardingStep Function() onboardingStep,
     Listenable? refreshListenable,
   }) {
     return GoRouter(
       initialLocation: AppRoutes.splash,
       refreshListenable: refreshListenable,
       redirect: (context, state) {
-        return AuthRedirect(isAuthenticated(), verificationGate()).resolve(state.matchedLocation);
+        return AuthRedirect(isAuthenticated(), verificationGate(), onboardingStep())
+            .resolve(state.matchedLocation);
       },
       routes: _routes(),
     );

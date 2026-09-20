@@ -1,15 +1,17 @@
 import 'package:campus_mate/auth/model/verification_gate.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
+import 'package:campus_mate/profile/model/onboarding_step.dart';
 
 /// 로그인 여부와 인증 게이트에 따라 이동해야 할 경로를 판단한다.
 ///
 /// 라우터에서 떼어낸 이유는 이 판단이 화면과 무관한 규칙이고,
 /// 위젯을 띄우지 않고 테스트해야 하기 때문이다.
 class AuthRedirect {
-  const AuthRedirect(this._isAuthenticated, this._gate);
+  const AuthRedirect(this._isAuthenticated, this._gate, this._onboardingStep);
 
   final bool _isAuthenticated;
   final VerificationGate _gate;
+  final OnboardingStep _onboardingStep;
 
   /// 이동이 필요 없으면 null 을 돌려준다 (go_router 의 규약).
   String? resolve(String location) {
@@ -19,12 +21,17 @@ class AuthRedirect {
     return _resolveForGuest(location);
   }
 
-  /// 게이트를 통과하지 못했으면 그 화면에 묶어두고,
-  /// 통과했으면 로그인·스플래시·게이트 화면에 머무를 이유가 없다.
+  /// 게이트를 통과하지 못했으면 그 화면에 묶어두고, 게이트는 통과했지만 온보딩이 남았으면
+  /// 그 다음 온보딩 화면에 묶어둔다. 둘 다 끝났으면 로그인·스플래시·게이트·온보딩 화면에
+  /// 머무를 이유가 없다.
   String? _resolveForMember(String location) {
     final gateTarget = _gateTarget();
     if (gateTarget != null) {
       return location == gateTarget ? null : gateTarget;
+    }
+    final onboardingTarget = _onboardingTarget();
+    if (onboardingTarget != null) {
+      return location == onboardingTarget ? null : onboardingTarget;
     }
     if (_isBeforeHome(location)) {
       return AppRoutes.home;
@@ -41,13 +48,48 @@ class AuthRedirect {
     };
   }
 
+  /// 아직 끝내지 못한 온보딩 화면. 모두 끝냈으면 null.
+  String? _onboardingTarget() {
+    return switch (_onboardingStep) {
+      OnboardingStep.basicInfo => AppRoutes.onboardingBasicInfo,
+      OnboardingStep.kakaoId => AppRoutes.onboardingKakaoId,
+      OnboardingStep.photos => AppRoutes.onboardingPhotos,
+      OnboardingStep.avatar => AppRoutes.onboardingAvatar,
+      OnboardingStep.appearanceType => AppRoutes.onboardingAppearanceType,
+      OnboardingStep.interests => AppRoutes.onboardingInterests,
+      OnboardingStep.myTraits => AppRoutes.onboardingMyTraits,
+      OnboardingStep.survey => AppRoutes.onboardingSurvey,
+      OnboardingStep.idealConditions => AppRoutes.onboardingIdealConditions,
+      OnboardingStep.idealTraits => AppRoutes.onboardingIdealTraits,
+      OnboardingStep.idealNote => AppRoutes.onboardingIdealNote,
+      OnboardingStep.bio => AppRoutes.onboardingBio,
+      OnboardingStep.complete => null,
+    };
+  }
+
   /// 홈에 도착하기 전에만 지나는 화면들.
   bool _isBeforeHome(String location) {
     return location == AppRoutes.login ||
         location == AppRoutes.splash ||
         location == AppRoutes.studentVerification ||
-        location == AppRoutes.schoolInfo;
+        location == AppRoutes.schoolInfo ||
+        _onboardingRoutes.contains(location);
   }
+
+  static const _onboardingRoutes = <String>{
+    AppRoutes.onboardingBasicInfo,
+    AppRoutes.onboardingKakaoId,
+    AppRoutes.onboardingPhotos,
+    AppRoutes.onboardingAvatar,
+    AppRoutes.onboardingAppearanceType,
+    AppRoutes.onboardingInterests,
+    AppRoutes.onboardingMyTraits,
+    AppRoutes.onboardingSurvey,
+    AppRoutes.onboardingIdealConditions,
+    AppRoutes.onboardingIdealTraits,
+    AppRoutes.onboardingIdealNote,
+    AppRoutes.onboardingBio,
+  };
 
   /// 로그인하지 않은 사용자는 로그인·인증코드 화면 외에는 갈 수 없다.
   String? _resolveForGuest(String location) {
