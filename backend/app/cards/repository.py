@@ -11,6 +11,10 @@ _CARD_PROFILE_COLUMNS = (
     "interest_tags,my_traits,ideal_traits,ideal_note,bio,"
     "universities(name),profile_avatars(storage_path,status,created_at)"
 )
+# 10b 상세(`TORAs`)는 앞면 + 키·MBTI·학번·종교·흡연까지 본다. 실사진·연락처는 여전히 없다.
+_CARD_DETAIL_COLUMNS = f"{_CARD_PROFILE_COLUMNS},height_cm,mbti,student_number,religion,is_smoker"
+# 성향은 9축이고 축 번호 순서로 내려보낸다(조각 3 survey_vector 와 같은 번호).
+SURVEY_AXES = range(1, 10)
 _NOTIFICATION_COLUMNS = (
     "profile_id,card_arrived,acceptance_received,match_made,new_message,"
     "trust_reminder,new_friend_review,marketing,quiet_hours"
@@ -140,6 +144,27 @@ class CardRepository:
     async def fetch_card_profile(self, profile_id: UUID | str) -> dict:
         rows = await self._get("profiles", {"id": f"eq.{profile_id}", "select": _CARD_PROFILE_COLUMNS})
         return rows[0] if rows else {}
+
+    async def fetch_card_detail_profile(self, profile_id: UUID | str) -> dict:
+        rows = await self._get("profiles", {"id": f"eq.{profile_id}", "select": _CARD_DETAIL_COLUMNS})
+        return rows[0] if rows else {}
+
+    async def fetch_survey(self, profile_id: UUID | str) -> list[float]:
+        """9축을 번호 순서로. 답하지 않은 축은 0 이다 — 화면이 빈 칸 대신 가운데를 그린다."""
+        rows = await self._get("survey_answers", {
+            "profile_id": f"eq.{profile_id}", "select": "axis,value",
+        })
+        answers = {int(row["axis"]): float(row["value"]) for row in rows}
+        return [answers.get(axis, 0.0) for axis in SURVEY_AXES]
+
+    async def fetch_region_group(self, profile_id: UUID | str) -> str | None:
+        """지역그룹은 프로필이 아니라 학교가 들고 있다(universities.region_group)."""
+        rows = await self._get("profiles", {
+            "id": f"eq.{profile_id}", "select": "universities(region_group)",
+        })
+        if not rows:
+            return None
+        return (rows[0].get("universities") or {}).get("region_group")
 
     # 푸시 · 알림 --------------------------------------------------------------
     async def upsert_push_token(self, token: str, profile_id: UUID | str, platform: str) -> None:
