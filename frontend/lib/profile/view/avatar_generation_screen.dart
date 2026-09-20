@@ -1,4 +1,5 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
@@ -33,14 +34,8 @@ class _AvatarGenerationScreenState extends ConsumerState<AvatarGenerationScreen>
     final state = ref.watch(avatarGenerationViewModelProvider);
     final viewModel = ref.read(avatarGenerationViewModelProvider.notifier);
     return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: 56,
-        backgroundColor: AppColors.canvas,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        automaticallyImplyLeading: false,
-        title: Text('아바타 만들기', style: AppTypography.navTitle.copyWith(color: AppColors.ink)),
-      ),
+      // 사진 단계에 딸린 자동 처리라 진행 점은 사진(3번째)에 머문다.
+      appBar: const OnboardingAppBar(current: 2, total: 6),
       body: SafeArea(
         child: Center(child: _content(state, viewModel)),
       ),
