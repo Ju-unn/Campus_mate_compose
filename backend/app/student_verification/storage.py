@@ -26,3 +26,17 @@ class StudentIdStorage:
         )
         response.raise_for_status()
         return path
+
+    async def delete(self, path: str) -> bool:
+        """확정(verified) 직후 FastAPI가 직접 지운다 — SQL `delete from storage.objects`는 메타 행만 지우고
+        실제 파일은 고아로 남는다(Supabase storage/management 문서, 2026-09-20 분석담당 리뷰). 실패해도
+        예외를 던지지 않는다 — 인증 자체는 이미 끝났으니 삭제 실패로 응답을 실패시키지 않고, 호출부가
+        고아 파일 알림만 보내게 bool 로 알려준다."""
+        try:
+            response = await self._client.delete(
+                f"{self._storage_url}/object/student-id-temp/{path}",
+                headers=self._headers,
+            )
+        except httpx.HTTPError:
+            return False
+        return response.status_code < 400

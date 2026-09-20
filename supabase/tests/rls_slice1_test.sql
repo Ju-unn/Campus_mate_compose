@@ -6,21 +6,29 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(38);
+select plan(35);
 
 -- 준비 (postgres) -------------------------------------------------------------
 -- 사용자 A = ...aa, 사용자 B = ...bb, 테스트 대학 = ...01
+
+-- on_auth_user_created 트리거(조각 1a, handle_new_user_profile)가 auth.users insert 직후 도메인으로
+-- university_email_domains 를 찾으므로, 그 행이 auth.users 보다 먼저 있어야 한다(2026-09-20 분석담당 리뷰).
+insert into public.universities (id, name, region_group)
+values ('00000000-0000-0000-0000-000000000001', '테스트대학교', 'seoul');
+
+insert into public.university_email_domains (domain, university_id)
+values ('test.ac.kr', '00000000-0000-0000-0000-000000000001');
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000aa', 'rls-a@test.ac.kr'),
   ('00000000-0000-0000-0000-0000000000bb', 'rls-b@test.ac.kr');
 
-insert into public.universities (id, name, region_group)
-values ('00000000-0000-0000-0000-000000000001', '테스트대학교', 'seoul');
-
+-- 위 auth.users insert 때 트리거가 이미 pending 행 2개를 만들어 뒀다 — 수동 insert 는 PK 충돌하니
+-- on conflict do nothing 으로 바꾼다(2026-09-20 분석담당 리뷰).
 insert into public.profiles (id, university_id) values
   ('00000000-0000-0000-0000-0000000000aa', '00000000-0000-0000-0000-000000000001'),
-  ('00000000-0000-0000-0000-0000000000bb', '00000000-0000-0000-0000-000000000001');
+  ('00000000-0000-0000-0000-0000000000bb', '00000000-0000-0000-0000-000000000001')
+on conflict (id) do nothing;
 
 insert into public.profile_private (profile_id, real_name) values
   ('00000000-0000-0000-0000-0000000000aa', '김가나'),
@@ -251,33 +259,10 @@ select lives_ok(
   'service_role 은 signup_blocks 를 읽을 수 있다'
 );
 
--- 4d. 학생증 확정 시 사진 삭제 트리거 (postgres) -------------------------------
-
-insert into storage.objects (bucket_id, name)
-  values ('student-id-temp', '00000000-0000-0000-0000-0000000000aa/test.jpg');
-
-set local role service_role;
-
-select lives_ok(
-  $$insert into public.student_verification_attempts (profile_id, file_path)
-    values ('00000000-0000-0000-0000-0000000000aa', '00000000-0000-0000-0000-0000000000aa/test.jpg')$$,
-  '학생증 시도 기록을 만든다'
-);
-
-select lives_ok(
-  $$update public.profiles set student_verification = 'verified'
-     where id = '00000000-0000-0000-0000-0000000000aa'$$,
-  'service_role 이 학생증 인증 상태를 verified 로 바꾼다'
-);
-
-reset role;
-
-select is_empty(
-  $$select 1 from storage.objects
-     where bucket_id = 'student-id-temp'
-       and name = '00000000-0000-0000-0000-0000000000aa/test.jpg'$$,
-  'verified 로 바뀌면 트리거가 학생증 사진을 지운다'
-);
+-- 4d(제거, 2026-09-20): 학생증 확정 시 사진 삭제는 SQL 트리거가 아니라 FastAPI 가 Storage API 로 직접
+-- 한다(supabase/tests 대신 backend/tests/student_verification/test_router.py 가 검증한다) — 트리거 마이그레이션
+-- 20260919181357 은 클라우드 미적용 상태에서 파일째 삭제했다(분석담당 리뷰, SQL delete 는 메타 행만 지우고
+-- 실제 파일은 고아로 남긴다).
 
 -- 4c. auth.users INSERT 트리거 (postgres, Task C2) ---------------------------
 

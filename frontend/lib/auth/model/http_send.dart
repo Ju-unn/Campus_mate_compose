@@ -29,11 +29,19 @@ Result<http.Response> _classify(http.Response response) {
   return FailureResult(_toRejection(response));
 }
 
-/// 4xx(429 제외) 만 여기로 온다. `detail` 이 있으면 서버 메시지를 그대로 보여주고,
-/// 없으면 내부 사정을 새로 지어내지 않고 [UnknownFailure] 로 처리한다.
+/// 4xx(429 제외) 만 여기로 온다. `detail` 이 문자열이면 서버 메시지를 그대로 보여주고,
+/// 없거나 다른 모양이면 내부 사정을 새로 지어내지 않고 [UnknownFailure] 로 처리한다.
+///
+/// FastAPI 422(검증 실패)는 `detail` 이 문자열이 아니라 오류 목록(`List`)이다 — 이때 `as String?` 캐스트가
+/// 던지는 `TypeError`는 `Exception` 이 아니라서 [sendHttpRequest] 의 `on Exception catch` 를 뚫고 앱을
+/// 그대로 죽였다(2026-09-20 분석담당 리뷰). `is` 검사로 모양이 다르면 조용히 [UnknownFailure] 로 떨어뜨린다.
 Failure _toRejection(http.Response response) {
-  final detail = (jsonDecode(response.body) as Map<String, dynamic>)['detail'] as String?;
-  if (detail == null) {
+  final body = jsonDecode(response.body);
+  if (body is! Map<String, dynamic>) {
+    return const UnknownFailure();
+  }
+  final detail = body['detail'];
+  if (detail is! String) {
     return const UnknownFailure();
   }
   return ServerRejectedFailure(detail);

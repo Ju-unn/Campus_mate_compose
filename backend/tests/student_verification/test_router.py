@@ -160,6 +160,35 @@ def test_submit_marks_attempt_row_verified_on_the_verified_path():
     assert json.loads(patch.content) == {"result": "verified", "reviewed_at": "now()"}
 
 
+def test_submit_deletes_the_photo_from_storage_when_auto_verified():
+    # SQL 트리거가 아니라 FastAPI 가 직접 지운다 — `delete from storage.objects`는 메타 행만 지우고
+    # 실제 파일은 고아로 남는다(2026-09-20 분석담당 리뷰).
+    sent, _ = _wire(_gate_row("none"), ocr_text="서울대학교 학생증 홍길동")
+
+    response = _submit()
+
+    assert response.json() == {"status": "verified"}
+    deletion = _calls(sent, "DELETE", "/storage/v1/object/student-id-temp/")
+    assert len(deletion) == 1
+    assert str(deletion[0].url).endswith(f"/object/student-id-temp/{_uploaded_path(sent)}")
+    assert _calls(sent, "POST", "discord.com") == []
+
+
+def test_submit_still_returns_verified_and_notifies_discord_when_storage_delete_fails():
+    # 삭제 실패로 응답 자체를 실패시키면 이미 끝난 인증까지 무효가 된다 — 고아 파일 알림만 보낸다.
+    def delete_fails(request: httpx.Request) -> bool:
+        return request.method == "DELETE" and "/storage/v1/object/student-id-temp/" in str(request.url)
+
+    sent, _ = _wire(_gate_row("none"), ocr_text="서울대학교 학생증 홍길동", fails=delete_fails)
+
+    response = _submit()
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "verified"}
+    assert len(_calls(sent, "DELETE", "/storage/v1/object/student-id-temp/")) == 1
+    assert len(_calls(sent, "POST", "discord.com")) == 1
+
+
 def test_submit_leaves_attempt_row_pending_on_the_no_match_path():
     # 사람이 재검토할 행이라 result 는 pending 그대로 둔다.
     sent, _ = _wire(_gate_row("none"), ocr_text="서울대학교 학생증 김철수")
