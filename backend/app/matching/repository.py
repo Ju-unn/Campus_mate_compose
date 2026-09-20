@@ -1,6 +1,7 @@
 from uuid import UUID
 
 import httpx
+from fastapi import HTTPException
 
 from app.profile_onboarding.repository import _raise_for_status
 
@@ -9,7 +10,7 @@ _MATERIAL_COLUMNS = (
     "preferred_animal_types,preferred_impression_types,ideal_note"
 )
 _OWNER_COLUMNS = (
-    "id,gender,mbti,preferred_mbti_flags,height_cm,preferred_height_min,preferred_height_max,"
+    "id,status,gender,mbti,preferred_mbti_flags,height_cm,preferred_height_min,preferred_height_max,"
     "birth_year,preferred_age_min,preferred_age_max,is_smoker,religion"
 )
 
@@ -62,7 +63,25 @@ class MatchingRepository:
             headers=self._headers,
         )
         _raise_for_status(response)
-        return response.json()[0]
+        rows = response.json()
+        if not rows:
+            # 토큰은 살아 있는데 프로필이 지워졌을 때다 — 500 대신 404 로 말해준다.
+            raise HTTPException(status_code=404, detail="프로필을 찾을 수 없어요")
+        return rows[0]
+
+    async def has_vectors(self, profile_id: UUID | str) -> bool:
+        """세 벡터가 다 있어야 match_candidates 가 점수를 낸다 — 없으면 RPC 를 부르지 않는다."""
+        response = await self._client.get(
+            f"{self._postgrest_url}/profile_vectors",
+            params={
+                "profile_id": f"eq.{profile_id}", "select": "profile_id",
+                "self_survey": "not.is.null", "self_embedding": "not.is.null",
+                "want_embedding": "not.is.null",
+            },
+            headers=self._headers,
+        )
+        _raise_for_status(response)
+        return bool(response.json())
 
     async def fetch_candidates(self, profile_id: UUID | str) -> list[dict]:
         response = await self._client.post(

@@ -41,7 +41,7 @@ def _wire(handler: Callable[[httpx.Request], httpx.Response]) -> TestClient:
 def test_candidates_are_sorted_by_score_and_cut_to_limit():
     now = datetime.now(timezone.utc).isoformat()
     owner = {
-        "id": PROFILE_ID, "gender": "male", "mbti": None, "preferred_mbti_flags": {},
+        "id": PROFILE_ID, "status": "active", "gender": "male", "mbti": None, "preferred_mbti_flags": {},
         "height_cm": 180, "preferred_height_min": None, "preferred_height_max": None,
         "birth_year": 2002, "preferred_age_min": None, "preferred_age_max": None,
         "is_smoker": True, "religion": "none",
@@ -62,6 +62,8 @@ def test_candidates_are_sorted_by_score_and_cut_to_limit():
             ])
         if "/profiles" in url:
             return httpx.Response(200, json=[owner])
+        if "/profile_vectors" in url:
+            return httpx.Response(200, json=[{"profile_id": PROFILE_ID}])
         return httpx.Response(200, json=[])
 
     response = _wire(handler).get("/matching/candidates", headers=AUTH_HEADERS, params={"limit": 1})
@@ -88,3 +90,52 @@ def test_candidates_requires_verified_student():
     response = TestClient(app).get("/matching/candidates", headers=AUTH_HEADERS)
 
     assert response.status_code == 403
+
+
+def _owner(**overrides) -> dict:
+    return {
+        "id": PROFILE_ID, "status": "active", "gender": "male", "mbti": None,
+        "preferred_mbti_flags": {}, "height_cm": 180, "preferred_height_min": None,
+        "preferred_height_max": None, "birth_year": 2002, "preferred_age_min": None,
+        "preferred_age_max": None, "is_smoker": True, "religion": "none", **overrides,
+    }
+
+
+def test_candidates_requires_active_profile():
+    """온보딩을 끝내지 않은 사람은 후보를 볼 수 없다(2026-09-20 리뷰 제안 8)."""
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "/profiles" in str(request.url):
+            return httpx.Response(200, json=[_owner(status="pending")])
+        return httpx.Response(200, json=[])
+
+    response = _wire(handler).get("/matching/candidates", headers=AUTH_HEADERS)
+
+    assert response.status_code == 403
+
+
+def test_candidates_are_empty_without_my_own_vectors():
+    """내 벡터가 없으면 결과가 비므로 RPC 를 부르지 않는다(제안 1)."""
+    called: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if "/rpc/match_candidates" in url:
+            called.append(url)
+        if "/profiles" in url:
+            return httpx.Response(200, json=[_owner()])
+        return httpx.Response(200, json=[])
+
+    response = _wire(handler).get("/matching/candidates", headers=AUTH_HEADERS)
+
+    assert response.status_code == 200
+    assert response.json() == {"candidates": []}
+    assert called == []
+
+
+def test_candidates_return_404_when_profile_row_is_gone():
+    """토큰은 살아 있는데 프로필이 지워졌을 때 IndexError 로 500 이 되지 않게 한다(제안 2)."""
+    response = _wire(lambda request: httpx.Response(200, json=[])).get(
+        "/matching/candidates", headers=AUTH_HEADERS
+    )
+
+    assert response.status_code == 404

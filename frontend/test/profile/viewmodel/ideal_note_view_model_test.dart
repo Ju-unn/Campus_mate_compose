@@ -25,14 +25,6 @@ void main() {
 
   tearDown(() => container.dispose());
 
-  test('건너뛰어도 빈 문자열을 저장해 다시 묻지 않게 한다', () async {
-    await container.read(idealNoteViewModelProvider.notifier).skip();
-
-    expect(repository.submittedNote, '');
-    expect(container.read(idealNoteViewModelProvider).completed, isTrue);
-    expect(onboardingRepository.fetchCount, 1);
-  });
-
   test('쓴 글은 앞뒤 공백을 떼고 저장한다', () async {
     final vm = container.read(idealNoteViewModelProvider.notifier);
     vm.changeNote('  대화가 잘 통하는 사람  ');
@@ -42,9 +34,16 @@ void main() {
     expect(repository.submittedNote, '대화가 잘 통하는 사람');
   });
 
-  test('아무것도 쓰지 않으면 "다음"으로는 저장되지 않는다', () async {
+  test('아무것도 쓰지 않으면 저장하지 않는다 — 건너뛰는 길은 없다', () async {
     await container.read(idealNoteViewModelProvider.notifier).submit();
 
     expect(repository.submittedNote, isNull);
+    expect(container.read(idealNoteViewModelProvider).completed, isFalse);
+  });
+
+  test('공백만 쓴 글로는 "다음"이 켜지지 않는다', () {
+    container.read(idealNoteViewModelProvider.notifier).changeNote('   ');
+
+    expect(container.read(idealNoteViewModelProvider).canSubmit, isFalse);
   });
 }

@@ -7,7 +7,7 @@ _EMPTY_PROFILE = {
     "interest_tags": [], "my_traits": [],
     "survey_answer_count": 0, "religion": None, "is_smoker": None,
     "preferred_age_min": None, "preferred_animal_types": [], "preferred_impression_types": [],
-    "ideal_traits": [], "ideal_note_seen": False, "bio": None,
+    "ideal_traits": [], "ideal_note": "", "bio": None,
 }
 
 
@@ -38,7 +38,39 @@ def test_next_step_is_complete_when_everything_filled():
         "animal_type": "dog", "impression_type": "kind",
         "interest_tags": ["a", "b", "c"], "my_traits": ["a", "b", "c"],
         "survey_answer_count": 9, "religion": "none", "is_smoker": False,
-        "preferred_age_min": 20, "preferred_animal_types": [], "preferred_impression_types": [],
-        "ideal_traits": ["a", "b", "c"], "ideal_note_seen": True, "bio": "안녕하세요",
+        "preferred_age_min": 20, "preferred_animal_types": ["cat"], "preferred_impression_types": ["kind"],
+        "ideal_traits": ["a", "b", "c"], "ideal_note": "말 잘 통하는 사람", "bio": "안녕하세요",
     }
     assert next_step(profile) == "complete"
+
+
+def test_next_step_stays_on_ideal_conditions_until_face_and_impression_are_picked():
+    """얼굴상·인상은 선택 입력이 아니다(2026-09-20 사용자 결정) — 나이만 저장되면 아직 그 단계다."""
+    profile = {
+        **_EMPTY_PROFILE, "nickname": "가나", "phone_set": True, "kakao_id_set": True,
+        "photo_count": 2, "has_avatar_source": True, "avatar_ready": True,
+        "animal_type": "dog", "impression_type": "kind",
+        "interest_tags": ["a", "b", "c"], "my_traits": ["a", "b", "c"],
+        "survey_answer_count": 9, "religion": "none", "is_smoker": False,
+        "preferred_age_min": 20,
+    }
+    assert next_step(profile) == "ideal_conditions"
+
+    profile = {**profile, "preferred_animal_types": ["cat"], "preferred_impression_types": ["kind"]}
+    assert next_step(profile) == "ideal_traits"
+
+
+def test_next_step_stays_on_ideal_note_until_it_is_written():
+    """건너뛰기가 없어졌다 — 빈 글은 "아직 안 썼다"로 본다."""
+    profile = {
+        **_EMPTY_PROFILE, "nickname": "가나", "phone_set": True, "kakao_id_set": True,
+        "photo_count": 2, "has_avatar_source": True, "avatar_ready": True,
+        "animal_type": "dog", "impression_type": "kind",
+        "interest_tags": ["a", "b", "c"], "my_traits": ["a", "b", "c"],
+        "survey_answer_count": 9, "religion": "none", "is_smoker": False,
+        "preferred_age_min": 20, "preferred_animal_types": ["cat"], "preferred_impression_types": ["kind"],
+        "ideal_traits": ["a", "b", "c"],
+    }
+    assert next_step(profile) == "ideal_note"
+
+    assert next_step({**profile, "ideal_note": "말 잘 통하는 사람"}) == "bio"

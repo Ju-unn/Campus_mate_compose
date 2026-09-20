@@ -25,15 +25,6 @@ class IdealNoteViewModel extends Notifier<IdealNoteUiState> {
     await _send(state.note.trim());
   }
 
-  /// 건너뛰어도 빈 문자열을 저장한다 — `ideal_note` 가 null 이 아니면 "본 것"으로 치기 때문에
-  /// 그래야 다음 진입에서 다시 묻지 않는다(DB 에 `ideal_note_seen` 컬럼이 없다).
-  Future<void> skip() async {
-    if (state.isSubmitting) {
-      return;
-    }
-    await _send('');
-  }
-
   Future<void> _send(String note) async {
     state = state.copyWith(isSubmitting: true, errorMessage: null);
     try {

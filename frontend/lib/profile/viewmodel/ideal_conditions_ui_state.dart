@@ -30,7 +30,7 @@ class IdealConditionsUiState {
   static const int heightCeiling = 190;
   static const int heightStep = 5;
 
-  /// 얼굴상·인상 선호는 각각 최대 3개(DESIGN.md §8.5).
+  /// 얼굴상·인상 선호는 각각 1~3개 필수다(DESIGN.md §8.5, 2026-09-20 사용자 결정으로 선택 → 필수).
   static const int maxAppearanceChoices = 3;
 
   /// 선호 MBTI 토글 8극(DESIGN.md §8.5 `mbti-toggle`).
@@ -53,7 +53,9 @@ class IdealConditionsUiState {
     return !isSubmitting &&
         preferredAgeMin <= preferredAgeMax &&
         preferredHeightMin <= preferredHeightMax &&
+        preferredAnimalTypes.isNotEmpty &&
         preferredAnimalTypes.length <= maxAppearanceChoices &&
+        preferredImpressionTypes.isNotEmpty &&
         preferredImpressionTypes.length <= maxAppearanceChoices;
   }
 

@@ -34,7 +34,7 @@ class IdealConditionsScreen extends ConsumerWidget {
                   Text('어떤 사람이 좋아요?', style: AppTypography.headline.copyWith(color: AppColors.ink)),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    '얼굴상·인상은 최대 3개까지, 참고용이에요.',
+                    '얼굴상·인상은 1~3개씩 골라 주세요.',
                     style: AppTypography.body.copyWith(color: AppColors.body),
                   ),
                 ],
@@ -46,13 +46,13 @@ class IdealConditionsScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const _SectionTitle('선호하는 얼굴상', hint: '최대 3개'),
+                    const _SectionTitle('선호하는 얼굴상', hint: '1~3개'),
                     AnimalTypePicker(
                       selected: state.preferredAnimalTypes.toSet(),
                       onTap: viewModel.toggleAnimalType,
                     ),
                     const SizedBox(height: AppSpacing.xl),
-                    const _SectionTitle('선호하는 인상', hint: '최대 3개'),
+                    const _SectionTitle('선호하는 인상', hint: '1~3개'),
                     ImpressionTypePicker(
                       selected: state.preferredImpressionTypes.toSet(),
                       onTap: viewModel.toggleImpressionType,

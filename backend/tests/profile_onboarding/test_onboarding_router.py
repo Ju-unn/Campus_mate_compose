@@ -305,7 +305,8 @@ def test_bio_draft_returns_the_saved_draft_without_calling_openai():
     router_module._openai_client_override.chat.completions.create.assert_not_called()
 
 
-def test_ideal_note_saves_whitespace_only_text_as_empty():
+def test_ideal_note_rejects_blank_text():
+    """필수 입력이다(2026-09-20 사용자 결정) — 공백만 쓴 글은 저장하지 않고 422 를 돌려준다."""
     patched: list[dict] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -318,8 +319,31 @@ def test_ideal_note_saves_whitespace_only_text_as_empty():
         "/profile-onboarding/ideal-note", headers=AUTH_HEADERS, json={"note": "   \n  "}
     )
 
-    assert response.status_code == 200
-    assert patched == [{"ideal_note": ""}]
+    assert response.status_code == 422
+    assert patched == []
+
+
+def test_ideal_conditions_rejects_empty_face_or_impression_choice():
+    """선호 얼굴상·인상도 각 1개 이상 필수다."""
+    patched: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "/rest/v1/profiles" in str(request.url) and request.method == "PATCH":
+            patched.append(json.loads(request.content))
+        return httpx.Response(200, json=[])
+
+    client = _wire(handler)
+    response = client.post(
+        "/profile-onboarding/ideal-conditions",
+        headers=AUTH_HEADERS,
+        json={
+            "preferred_age_min": 20, "preferred_age_max": 26,
+            "preferred_animal_types": [], "preferred_impression_types": ["kind"],
+        },
+    )
+
+    assert response.status_code == 422
+    assert patched == []
 
 
 def test_ideal_note_refreshes_matching_vectors():

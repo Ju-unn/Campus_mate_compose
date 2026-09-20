@@ -6,24 +6,35 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(12);
+select plan(15);
 
 -- 준비 (postgres) -------------------------------------------------------------
 -- 사용자 A = ...aa(남), 사용자 B = ...bb(여), 테스트 대학 = ...01
+-- 하드 필터에 걸려야 하는 사람들: C = ...cc(A 와 같은 성별), D = ...dd(다른 지역그룹), E = ...ee(16일 미접속)
 -- on_auth_user_created 트리거가 auth.users insert 직후 도메인으로 대학을 찾으므로 도메인 행이 먼저다.
 insert into public.universities (id, name, region_group)
 values ('00000000-0000-0000-0000-000000000001', '테스트대학교', 'seoul');
 
-insert into public.university_email_domains (domain, university_id)
-values ('test.ac.kr', '00000000-0000-0000-0000-000000000001');
+insert into public.universities (id, name, region_group)
+values ('00000000-0000-0000-0000-000000000002', '부산테스트대학교', 'busan');
+
+insert into public.university_email_domains (domain, university_id) values
+  ('test.ac.kr', '00000000-0000-0000-0000-000000000001'),
+  ('test2.ac.kr', '00000000-0000-0000-0000-000000000002');
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000aa', 'm3-a@test.ac.kr'),
-  ('00000000-0000-0000-0000-0000000000bb', 'm3-b@test.ac.kr');
+  ('00000000-0000-0000-0000-0000000000bb', 'm3-b@test.ac.kr'),
+  ('00000000-0000-0000-0000-0000000000cc', 'm3-c@test.ac.kr'),
+  ('00000000-0000-0000-0000-0000000000dd', 'm3-d@test2.ac.kr'),
+  ('00000000-0000-0000-0000-0000000000ee', 'm3-e@test.ac.kr');
 
 insert into public.profiles (id, university_id) values
   ('00000000-0000-0000-0000-0000000000aa', '00000000-0000-0000-0000-000000000001'),
-  ('00000000-0000-0000-0000-0000000000bb', '00000000-0000-0000-0000-000000000001')
+  ('00000000-0000-0000-0000-0000000000bb', '00000000-0000-0000-0000-000000000001'),
+  ('00000000-0000-0000-0000-0000000000cc', '00000000-0000-0000-0000-000000000001'),
+  ('00000000-0000-0000-0000-0000000000dd', '00000000-0000-0000-0000-000000000002'),
+  ('00000000-0000-0000-0000-0000000000ee', '00000000-0000-0000-0000-000000000001')
 on conflict (id) do nothing;
 
 update public.profiles set
@@ -42,6 +53,31 @@ update public.profiles set
   height_cm = 165, birth_year = 2003, mbti = 'ISFJ', last_active_at = now()
 where id = '00000000-0000-0000-0000-0000000000bb';
 
+-- C·D·E 는 하드 필터 한 가지씩만 어기고 나머지는 B 와 같다 — 걸러지는 이유가 그 한 가지임을 분명히 한다.
+update public.profiles set
+  nickname = '사아자', gender = 'male', status = 'active',
+  interest_tags = array['카페가기','등산','전시회'],
+  my_traits = array['다정한','활발한','차분한'],
+  ideal_traits = array['유머러스한','성실한','솔직한'],
+  height_cm = 175, birth_year = 2003, mbti = 'ISFJ', last_active_at = now()
+where id = '00000000-0000-0000-0000-0000000000cc';
+
+update public.profiles set
+  nickname = '차카타', gender = 'female', status = 'active',
+  interest_tags = array['카페가기','등산','전시회'],
+  my_traits = array['다정한','활발한','차분한'],
+  ideal_traits = array['유머러스한','성실한','솔직한'],
+  height_cm = 165, birth_year = 2003, mbti = 'ISFJ', last_active_at = now()
+where id = '00000000-0000-0000-0000-0000000000dd';
+
+update public.profiles set
+  nickname = '파하가', gender = 'female', status = 'active',
+  interest_tags = array['카페가기','등산','전시회'],
+  my_traits = array['다정한','활발한','차분한'],
+  ideal_traits = array['유머러스한','성실한','솔직한'],
+  height_cm = 165, birth_year = 2003, mbti = 'ISFJ', last_active_at = now() - interval '16 days'
+where id = '00000000-0000-0000-0000-0000000000ee';
+
 insert into public.profile_vectors (profile_id, self_survey, shyness_score, self_embedding, want_embedding)
 values
   ('00000000-0000-0000-0000-0000000000aa',
@@ -49,6 +85,18 @@ values
    ('[' || 1 || repeat(',0', 511) || ']')::extensions.vector,
    ('[' || 1 || repeat(',0', 511) || ']')::extensions.vector),
   ('00000000-0000-0000-0000-0000000000bb',
+   '[1,0,0,0,0,0,0,0]', -0.5,
+   ('[' || 1 || repeat(',0', 511) || ']')::extensions.vector,
+   ('[' || 1 || repeat(',0', 511) || ']')::extensions.vector),
+  ('00000000-0000-0000-0000-0000000000cc',
+   '[1,0,0,0,0,0,0,0]', -0.5,
+   ('[' || 1 || repeat(',0', 511) || ']')::extensions.vector,
+   ('[' || 1 || repeat(',0', 511) || ']')::extensions.vector),
+  ('00000000-0000-0000-0000-0000000000dd',
+   '[1,0,0,0,0,0,0,0]', -0.5,
+   ('[' || 1 || repeat(',0', 511) || ']')::extensions.vector,
+   ('[' || 1 || repeat(',0', 511) || ']')::extensions.vector),
+  ('00000000-0000-0000-0000-0000000000ee',
    '[1,0,0,0,0,0,0,0]', -0.5,
    ('[' || 1 || repeat(',0', 511) || ']')::extensions.vector,
    ('[' || 1 || repeat(',0', 511) || ']')::extensions.vector);
@@ -106,6 +154,25 @@ select is(
   (select round(tag_score, 4) from public.match_candidates('00000000-0000-0000-0000-0000000000aa')),
   round(((2::numeric/4) + ((1::numeric/5) + (2::numeric/4)) / 2) / 2, 4),
   '태그점수 = 평균[관심사 자카드, 양방향 특징 자카드의 평균]'
+);
+
+-- 4. 하드 필터 — 걸려야 하는 사람은 안 나온다(설계 §6.7) ------------------------
+select is(
+  (select count(*) from public.match_candidates('00000000-0000-0000-0000-0000000000aa')
+    where candidate_id = '00000000-0000-0000-0000-0000000000cc'),
+  0::bigint, '같은 성별은 후보가 아니다'
+);
+
+select is(
+  (select count(*) from public.match_candidates('00000000-0000-0000-0000-0000000000aa')
+    where candidate_id = '00000000-0000-0000-0000-0000000000dd'),
+  0::bigint, '다른 지역그룹은 후보가 아니다'
+);
+
+select is(
+  (select count(*) from public.match_candidates('00000000-0000-0000-0000-0000000000aa')
+    where candidate_id = '00000000-0000-0000-0000-0000000000ee'),
+  0::bigint, '15일을 넘게 접속하지 않은 사람은 후보가 아니다'
 );
 
 select * from finish();
