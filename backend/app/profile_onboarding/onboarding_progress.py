@@ -1,3 +1,5 @@
+from app.profile_onboarding.schemas import IDEAL_NOTE_MIN_LENGTH
+
 # 순서는 DESIGN.md §9 04-1~06-3 화면 순서를 그대로 따른다. 각 단계는 "이 단계까지 끝났다"는 최소 조건만 본다
 # — 태그 개수 3~5 같은 상세 규칙은 저장 시점(Task B9 각 엔드포인트)에서 tags.validate_tag_selection 이 본다.
 _STEPS = [
@@ -12,7 +14,8 @@ _STEPS = [
     ("ideal_conditions", lambda p: p["preferred_age_min"] is not None
         and p["preferred_animal_types"] and p["preferred_impression_types"]),
     ("ideal_traits", lambda p: len(p["ideal_traits"]) >= 3),
-    ("ideal_note", lambda p: p["ideal_note"]),
+    # 최소 10자(2026-09-21 사용자 결정) — 저장 기준과 같아야 짧은 글로 넘어간 사람이 다시 이 단계로 돌아온다.
+    ("ideal_note", lambda p: len((p["ideal_note"] or "").strip()) >= IDEAL_NOTE_MIN_LENGTH),
     ("bio", lambda p: p["bio"]),
 ]
 

@@ -60,16 +60,21 @@ class IdealConditionsRequest(BaseModel):
     preferred_impression_types: list[str] = Field(min_length=1, max_length=3)
 
 
+IDEAL_NOTE_MIN_LENGTH = 10
+
+
 class IdealNoteRequest(BaseModel):
     note: str
 
     @field_validator("note")
     @classmethod
-    def _not_blank(cls, note: str) -> str:
-        """공백만 쓴 글은 안 쓴 것과 같다 — 자기소개와 같이 최소 길이 제한 없이 "비어 있지 알만" 본다."""
+    def _long_enough(cls, note: str) -> str:
+        """앞뒤 공백을 뗀 길이로 최소 10자를 본다(2026-09-21 사용자 결정).
+        이 글은 "원해" 문장 임베딩의 재료라 한두 글자면 매칭 점수가 의미를 잃는다.
+        자기소개(bio)는 최소 길이가 없다 — 그쪽은 초안 생성이 따로 돕는다."""
         stripped = note.strip()
-        if not stripped:
-            raise ValueError("어떤 사람이 좋은지 적어 주세요")
+        if len(stripped) < IDEAL_NOTE_MIN_LENGTH:
+            raise ValueError(f"{IDEAL_NOTE_MIN_LENGTH}자 이상 입력해 주세요")
         return stripped
 
 

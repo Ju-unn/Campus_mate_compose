@@ -61,7 +61,7 @@ def test_next_step_stays_on_ideal_conditions_until_face_and_impression_are_picke
 
 
 def test_next_step_stays_on_ideal_note_until_it_is_written():
-    """건너뛰기가 없어졌다 — 빈 글은 "아직 안 썼다"로 본다."""
+    """건너뛰기가 없어졌다 — 빈 글도, 10자 미만도 "아직 안 썼다"로 본다(2026-09-21 사용자 결정)."""
     profile = {
         **_EMPTY_PROFILE, "nickname": "가나", "phone_set": True, "kakao_id_set": True,
         "photo_count": 2, "has_avatar_source": True, "avatar_ready": True,
@@ -72,5 +72,8 @@ def test_next_step_stays_on_ideal_note_until_it_is_written():
         "ideal_traits": ["a", "b", "c"],
     }
     assert next_step(profile) == "ideal_note"
+
+    # 9자(공백 뗀 길이)는 저장 기준에 못 미치니 아직 같은 단계다.
+    assert next_step({**profile, "ideal_note": "  말이잘통하는사람요  "}) == "ideal_note"
 
     assert next_step({**profile, "ideal_note": "말 잘 통하는 사람"}) == "bio"
