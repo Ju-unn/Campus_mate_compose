@@ -6,10 +6,26 @@ import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 /// 이 파일은 경로·화면 연결만 본다. 게이트별 이동 규칙은 auth_redirect_test 가 맡는다.
 VerificationGate _passedGate() => VerificationGate.complete;
 OnboardingStep _passedStep() => OnboardingStep.complete;
+
+const _onboardingPaths = <String>[
+  AppRoutes.onboardingBasicInfo,
+  AppRoutes.onboardingKakaoId,
+  AppRoutes.onboardingPhotos,
+  AppRoutes.onboardingAvatar,
+  AppRoutes.onboardingAppearanceType,
+  AppRoutes.onboardingInterests,
+  AppRoutes.onboardingMyTraits,
+  AppRoutes.onboardingSurvey,
+  AppRoutes.onboardingIdealConditions,
+  AppRoutes.onboardingIdealTraits,
+  AppRoutes.onboardingIdealNote,
+  AppRoutes.onboardingBio,
+];
 
 void main() {
   testWidgets('로그인하지 않으면 로그인 화면이 보인다', (tester) async {
@@ -59,5 +75,17 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('대학 이메일로 시작해요'), findsOneWidget);
+  });
+
+  test('온보딩 경로 12개가 전부 라우터에 등록돼 있다', () {
+    final router = AppRouter.create(
+      isAuthenticated: () => true,
+      verificationGate: _passedGate,
+      onboardingStep: _passedStep,
+    );
+    final registered = router.configuration.routes.whereType<GoRoute>().map((route) => route.path);
+
+    // 하나라도 빠지면 AuthRedirect 가 보낸 곳에 화면이 없어 앱이 오류 페이지로 떨어진다.
+    expect(registered, containsAll(_onboardingPaths));
   });
 }
