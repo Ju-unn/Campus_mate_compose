@@ -16,11 +16,14 @@ class HttpTagPickerRepository implements TagPickerRepository {
 
   @override
   Future<Result<void>> submit(String endpoint, List<String> tags) async {
-    final request = http.Request('POST', Uri.parse('$_baseUrl/profile-onboarding/$endpoint'))
-      ..headers['Authorization'] = 'Bearer ${_auth.currentSession!.accessToken}'
+    final result = await sendAuthorizedRequest(
+      _client,
+      _auth,
+      (accessToken) => http.Request('POST', Uri.parse('$_baseUrl/profile-onboarding/$endpoint'))
+      ..headers['Authorization'] = 'Bearer $accessToken'
       ..headers['Content-Type'] = 'application/json'
-      ..body = jsonEncode({'tags': tags});
-    final result = await sendHttpRequest(_client, request);
+      ..body = jsonEncode({'tags': tags}),
+    );
     return result.when(
       onSuccess: (_) => const Success(null),
       onFailure: (failure) => FailureResult(failure),

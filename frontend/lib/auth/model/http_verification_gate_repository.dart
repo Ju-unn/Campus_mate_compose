@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:campus_mate/auth/model/http_send.dart';
@@ -17,13 +18,14 @@ class HttpVerificationGateRepository implements VerificationGateRepository {
 
   @override
   Future<Result<VerificationGate>> fetchGate() async {
-    final request = http.Request('GET', Uri.parse('$_baseUrl/me/verification-status'))
-      ..headers['Authorization'] = 'Bearer ${_auth.currentSession!.accessToken}';
-    return _send(request);
+    return _send((accessToken) => http.Request('GET', Uri.parse('$_baseUrl/me/verification-status'))
+      ..headers['Authorization'] = 'Bearer $accessToken');
   }
 
-  Future<Result<VerificationGate>> _send(http.BaseRequest request) async {
-    final result = await sendHttpRequest(_client, request);
+  Future<Result<VerificationGate>> _send(
+    FutureOr<http.BaseRequest> Function(String accessToken) buildRequest,
+  ) async {
+    final result = await sendAuthorizedRequest(_client, _auth, buildRequest);
     return result.when(
       onSuccess: (response) => Success(_toGate(response)),
       onFailure: (failure) => FailureResult(failure),

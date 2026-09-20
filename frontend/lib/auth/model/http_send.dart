@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// 인증 관련 HTTP Repository(A5·A6·A7)가 공유하는 요청-전송·상태코드 분류.
 /// 네트워크 예외(연결 실패)와 비정상 응답 바디(파싱 실패)를 모두 [Failure] 로 감싸
@@ -45,4 +47,19 @@ Failure _toRejection(http.Response response) {
     return const UnknownFailure();
   }
   return ServerRejectedFailure(detail);
+}
+
+/// 로그인한 사람만 부를 수 있는 요청을 보낸다. 세션이 없으면 요청을 만들지도 않고 실패로 돌려준다 —
+/// `currentSession!` 을 Repository 마다 직접 쓰면 세션이 만료된 순간 `Result` 를 벗어난 예외로 앱이
+/// 그대로 죽는다(2026-09-20 리뷰 제안 f).
+Future<Result<http.Response>> sendAuthorizedRequest(
+  http.Client client,
+  GoTrueClient auth,
+  FutureOr<http.BaseRequest> Function(String accessToken) buildRequest,
+) async {
+  final session = auth.currentSession;
+  if (session == null) {
+    return const FailureResult(SessionExpiredFailure());
+  }
+  return sendHttpRequest(client, await buildRequest(session.accessToken));
 }

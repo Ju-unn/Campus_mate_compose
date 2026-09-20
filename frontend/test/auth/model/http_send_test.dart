@@ -5,6 +5,12 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:mocktail/mocktail.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+class MockGoTrueClient extends Mock implements GoTrueClient {}
+
+class MockSession extends Mock implements Session {}
 
 void main() {
   http.Request buildRequest() {
@@ -82,5 +88,41 @@ void main() {
     final result = await sendHttpRequest(client, buildRequest());
 
     expect(result.when(onSuccess: (_) => null, onFailure: (f) => f), isA<NetworkFailure>());
+  });
+
+  test('세션이 있으면 토큰을 붙여 보낸다', () async {
+    final auth = MockGoTrueClient();
+    final session = MockSession();
+    when(() => session.accessToken).thenReturn('token-abc');
+    when(() => auth.currentSession).thenReturn(session);
+    String? sentHeader;
+    final client = MockClient((request) async {
+      sentHeader = request.headers['Authorization'];
+      return http.Response('ok', 200);
+    });
+
+    final result = await sendAuthorizedRequest(
+      client,
+      auth,
+      (accessToken) => buildRequest()..headers['Authorization'] = 'Bearer $accessToken',
+    );
+
+    expect(sentHeader, 'Bearer token-abc');
+    expect(result.when(onSuccess: (response) => response.body, onFailure: (_) => null), 'ok');
+  });
+
+  test('세션이 없으면 요청을 만들지도 않고 SessionExpiredFailure', () async {
+    final auth = MockGoTrueClient();
+    when(() => auth.currentSession).thenReturn(null);
+    var built = false;
+    final client = MockClient((request) async => http.Response('ok', 200));
+
+    final result = await sendAuthorizedRequest(client, auth, (accessToken) {
+      built = true;
+      return buildRequest();
+    });
+
+    expect(built, isFalse);
+    expect(result.when(onSuccess: (_) => null, onFailure: (f) => f), isA<SessionExpiredFailure>());
   });
 }

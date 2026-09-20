@@ -8,6 +8,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final bioViewModelProvider = NotifierProvider<BioViewModel, BioUiState>(BioViewModel.new);
 
+const _draftFailedMessage = '초안을 만들지 못했어요. 직접 써 주세요';
+
 /// 자기소개 초안 생성(06-2b)과 저장(06-3)의 흐름을 맡는다.
 class BioViewModel extends Notifier<BioUiState> {
   /// "직접 쓸게요" 를 누른 뒤 뒤늦게 도착한 초안이 사용자가 쓰던 글을 덮지 않게 막는 표식.
@@ -22,8 +24,9 @@ class BioViewModel extends Notifier<BioUiState> {
     state = state.copyWith(isLoadingDraft: false, draftLoaded: true);
   }
 
-  /// 06-2b 진입 즉시 한 번 부른다. 실패해도 오류 화면을 띄우지 않고 빈 값으로 06-3 에 보낸다
-  /// (DESIGN.md §9 8 — "직접 쓸게요"/생성 실패 시 빈 상태로 진입). 다시 만들기 버튼은 없다.
+  /// 06-2b 진입 즉시 한 번 부른다. 실패해도 오류 화면을 띄우지 않고 빈 값으로 06-3 에 보내되,
+  /// 왜 칸이 비었는지는 안내 문구로 남긴다(2026-09-20 리뷰 필수 4 — 실패를 삼키지 않는다).
+  /// 다시 만들기 버튼은 없다.
   Future<void> loadDraft() async {
     if (state.draftLoaded || state.isLoadingDraft) {
       return;
@@ -36,14 +39,23 @@ class BioViewModel extends Notifier<BioUiState> {
       }
       state = result.when(
         onSuccess: (draft) => state.copyWith(bio: draft, isLoadingDraft: false, draftLoaded: true),
-        onFailure: (_) => state.copyWith(isLoadingDraft: false, draftLoaded: true),
+        onFailure: (_) => _draftFailedState(),
       );
     } catch (_) {
       if (_skipped) {
         return;
       }
-      state = state.copyWith(isLoadingDraft: false, draftLoaded: true);
+      state = _draftFailedState();
     }
+  }
+
+  /// 실패 원인이 무엇이든 사용자가 할 일은 하나다 — 직접 쓰면 된다.
+  BioUiState _draftFailedState() {
+    return state.copyWith(
+      isLoadingDraft: false,
+      draftLoaded: true,
+      errorMessage: _draftFailedMessage,
+    );
   }
 
   void changeBio(String value) {

@@ -36,7 +36,7 @@ void main() {
     expect(state.isLoadingDraft, isFalse);
   });
 
-  test('생성 실패하면 빈 값으로 06-3 에 진입한다("직접 쓸게요")', () async {
+  test('생성 실패하면 빈 값으로 06-3 에 진입하되 왜 비었는지 알려 준다', () async {
     repository.nextDraftResult = const FailureResult<String>(UnknownFailure());
 
     await container.read(bioViewModelProvider.notifier).loadDraft();
@@ -44,10 +44,10 @@ void main() {
     final state = container.read(bioViewModelProvider);
     expect(state.bio, '');
     expect(state.draftLoaded, isTrue);
-    expect(state.errorMessage, isNull);
+    expect(state.errorMessage, '초안을 만들지 못했어요. 직접 써 주세요');
   });
 
-  test('초안은 한 번만 부른다(서버가 두 번째부터 409 를 준다)', () async {
+  test('초안은 한 번만 부른다(서버는 두 번째부터 저장해 둔 초안을 그대로 준다)', () async {
     final vm = container.read(bioViewModelProvider.notifier);
     await vm.loadDraft();
     await vm.loadDraft();

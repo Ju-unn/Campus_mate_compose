@@ -16,11 +16,14 @@ class HttpIdealNoteRepository implements IdealNoteRepository {
 
   @override
   Future<Result<void>> submit(String note) async {
-    final request = http.Request('POST', Uri.parse('$_baseUrl/profile-onboarding/ideal-note'))
-      ..headers['Authorization'] = 'Bearer ${_auth.currentSession!.accessToken}'
+    final result = await sendAuthorizedRequest(
+      _client,
+      _auth,
+      (accessToken) => http.Request('POST', Uri.parse('$_baseUrl/profile-onboarding/ideal-note'))
+      ..headers['Authorization'] = 'Bearer $accessToken'
       ..headers['Content-Type'] = 'application/json'
-      ..body = jsonEncode({'note': note});
-    final result = await sendHttpRequest(_client, request);
+      ..body = jsonEncode({'note': note}),
+    );
     return result.when(
       onSuccess: (_) => const Success(null),
       onFailure: (failure) => FailureResult(failure),

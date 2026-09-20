@@ -18,9 +18,12 @@ class HttpBasicInfoRepository implements BasicInfoRepository {
   Future<Result<bool>> checkNicknameAvailability(String nickname) async {
     final uri = Uri.parse('$_baseUrl/profile-onboarding/nickname-availability')
         .replace(queryParameters: {'nickname': nickname});
-    final request = http.Request('GET', uri)
-      ..headers['Authorization'] = 'Bearer ${_auth.currentSession!.accessToken}';
-    final result = await sendHttpRequest(_client, request);
+    final result = await sendAuthorizedRequest(
+      _client,
+      _auth,
+      (accessToken) => http.Request('GET', uri)
+      ..headers['Authorization'] = 'Bearer $accessToken',
+    );
     return result.when(
       onSuccess: (response) => Success((jsonDecode(response.body) as Map<String, dynamic>)['available'] as bool),
       onFailure: (failure) => FailureResult(failure),
@@ -29,18 +32,21 @@ class HttpBasicInfoRepository implements BasicInfoRepository {
 
   @override
   Future<Result<void>> submit(BasicInfoSubmission submission) async {
-    final request = http.Request('POST', Uri.parse('$_baseUrl/profile-onboarding/basic-info'))
-      ..headers['Authorization'] = 'Bearer ${_auth.currentSession!.accessToken}'
+    final result = await sendAuthorizedRequest(
+      _client,
+      _auth,
+      (accessToken) => http.Request('POST', Uri.parse('$_baseUrl/profile-onboarding/basic-info'))
+      ..headers['Authorization'] = 'Bearer $accessToken'
       ..headers['Content-Type'] = 'application/json'
       ..body = jsonEncode({
-        'nickname': submission.nickname,
-        'birth_year': submission.birthYear,
-        'height_cm': submission.heightCm,
-        'phone_number': submission.phoneNumber,
-        'gender': submission.gender,
-        'mbti': submission.mbti,
-      });
-    final result = await sendHttpRequest(_client, request);
+      'nickname': submission.nickname,
+      'birth_year': submission.birthYear,
+      'height_cm': submission.heightCm,
+      'phone_number': submission.phoneNumber,
+      'gender': submission.gender,
+      'mbti': submission.mbti,
+      }),
+    );
     return result.when(
       onSuccess: (_) => const Success(null),
       onFailure: (failure) => FailureResult(failure),

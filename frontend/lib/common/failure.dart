@@ -17,6 +17,16 @@ final class NetworkFailure extends Failure {
   }
 }
 
+/// 로그인 세션이 없거나 만료된 경우. FastAPI 401 과 같은 문구를 쓴다.
+final class SessionExpiredFailure extends Failure {
+  const SessionExpiredFailure();
+
+  @override
+  String toDisplayMessage() {
+    return '세션이 만료됐어요, 다시 로그인해 주세요';
+  }
+}
+
 /// 요청한 리소스가 존재하지 않는 경우.
 final class NotFoundFailure extends Failure {
   const NotFoundFailure();

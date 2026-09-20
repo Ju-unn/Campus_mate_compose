@@ -62,6 +62,15 @@ void main() {
     expect(container.read(photosViewModelProvider).photos, hasLength(4));
   });
 
+  test('4장이 다 차면 말없이 무시하지 않고 안내 문구를 남긴다', () async {
+    final viewModel = buildViewModel([File('a.jpg'), File('b.jpg'), File('c.jpg'), File('d.jpg'), File('e.jpg')]);
+    for (var i = 0; i < 5; i++) {
+      await viewModel.addPhoto();
+    }
+
+    expect(container.read(photosViewModelProvider).errorMessage, '사진은 최대 4장까지 올릴 수 있어요');
+  });
+
   test('2장 이상 + 아바타 원본 1장이면 제출할 수 있고 성공하면 completed 가 켜진다', () async {
     final viewModel = buildViewModel([File('a.jpg'), File('b.jpg')]);
     await viewModel.addPhoto();

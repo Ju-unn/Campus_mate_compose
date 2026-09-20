@@ -16,9 +16,12 @@ class HttpBioRepository implements BioRepository {
 
   @override
   Future<Result<String>> generateDraft() async {
-    final request = http.Request('POST', Uri.parse('$_baseUrl/profile-onboarding/bio-draft'))
-      ..headers['Authorization'] = 'Bearer ${_auth.currentSession!.accessToken}';
-    final result = await sendHttpRequest(_client, request);
+    final result = await sendAuthorizedRequest(
+      _client,
+      _auth,
+      (accessToken) => http.Request('POST', Uri.parse('$_baseUrl/profile-onboarding/bio-draft'))
+      ..headers['Authorization'] = 'Bearer $accessToken',
+    );
     return result.when(
       onSuccess: (response) => Success((jsonDecode(response.body) as Map<String, dynamic>)['draft'] as String),
       onFailure: (failure) => FailureResult(failure),
@@ -27,11 +30,14 @@ class HttpBioRepository implements BioRepository {
 
   @override
   Future<Result<void>> submit(String bio) async {
-    final request = http.Request('POST', Uri.parse('$_baseUrl/profile-onboarding/bio'))
-      ..headers['Authorization'] = 'Bearer ${_auth.currentSession!.accessToken}'
+    final result = await sendAuthorizedRequest(
+      _client,
+      _auth,
+      (accessToken) => http.Request('POST', Uri.parse('$_baseUrl/profile-onboarding/bio'))
+      ..headers['Authorization'] = 'Bearer $accessToken'
       ..headers['Content-Type'] = 'application/json'
-      ..body = jsonEncode({'bio': bio});
-    final result = await sendHttpRequest(_client, request);
+      ..body = jsonEncode({'bio': bio}),
+    );
     return result.when(
       onSuccess: (_) => const Success(null),
       onFailure: (failure) => FailureResult(failure),

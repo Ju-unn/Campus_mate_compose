@@ -17,15 +17,18 @@ class HttpSurveyRepository implements SurveyRepository {
 
   @override
   Future<Result<void>> submit(Map<int, double> answers, Religion religion, bool isSmoker) async {
-    final request = http.Request('POST', Uri.parse('$_baseUrl/profile-onboarding/survey'))
-      ..headers['Authorization'] = 'Bearer ${_auth.currentSession!.accessToken}'
+    final result = await sendAuthorizedRequest(
+      _client,
+      _auth,
+      (accessToken) => http.Request('POST', Uri.parse('$_baseUrl/profile-onboarding/survey'))
+      ..headers['Authorization'] = 'Bearer $accessToken'
       ..headers['Content-Type'] = 'application/json'
       ..body = jsonEncode({
-        'answers': answers.map((axis, value) => MapEntry(axis.toString(), value)),
-        'religion': religion.name,
-        'is_smoker': isSmoker,
-      });
-    final result = await sendHttpRequest(_client, request);
+      'answers': answers.map((axis, value) => MapEntry(axis.toString(), value)),
+      'religion': religion.name,
+      'is_smoker': isSmoker,
+      }),
+    );
     return result.when(
       onSuccess: (_) => const Success(null),
       onFailure: (failure) => FailureResult(failure),
