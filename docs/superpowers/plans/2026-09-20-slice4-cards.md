@@ -27,7 +27,8 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-05-campusmate-foundation-design.md` §2.1 · §2.2 · §2.4 · §2.6 ·
 §6.7 · §6.8 · §7.1, `docs/ERD.md` §2(권한 표) · §3(`region_group_settings` · `matching_paused`) · §4(조각 4~5
-테이블), `frontend/docs/DESIGN.md` §8.1 · §8.2 · §8.6, pen `datingApp.pen` §3 "카드 · 매칭 · 채팅"(`qXpwn`)
+테이블), `frontend/docs/DESIGN.md` §8.1 · §8.2 · §8.6 · §8.9 · §9, pen
+`OneDrive\Desktop\datingApp\design\datingApp.pen` §3 "카드 · 매칭 · 채팅"(`qXpwn`)
 
 ## 새 의존성 (사용자 승인 필요 — 승인 전에는 Part A 착수 금지)
 
@@ -76,8 +77,10 @@
 - **커밋 · PR 에 AI/도구 표식을 넣지 않는다**(`[[feedback-no-tool-attribution]]`). 커밋 형식은
   `<이모지> <타입>(<scope>): <한국어 요약>`, **`git add -A` 금지**(파일 이름으로만 스테이징).
 - **화면은 pen 을 보고 만든다.** Part A 의 모든 화면 Task 는 작업 시작 전에 pencil MCP 로
-  `filePath: "C:\\Users\\home\\OneDrive\\Desktop\\datingApp.pen"` 의 해당 노드를 **읽고** 시작한다.
-  노드 id 는 각 Task 에 적혀 있다. pen 파일은 읽기만 한다(수정 금지).
+  `filePath: "C:\\Users\\home\\OneDrive\\Desktop\\datingApp\\design\\datingApp.pen"` 의 해당 노드를
+  **읽고** 시작한다. 노드 id 는 각 Task 에 적혀 있다. pen 파일은 읽기만 한다(수정 금지).
+  **경로 주의(2026-09-21 확인):** 바탕화면 바로 아래의 `datingApp.pen` 에는 ERD 보드만 들어 있어
+  화면을 하나도 찾을 수 없다. 화면은 `datingApp\design\` 아래 파일에 있다.
 
 ## 확정 전제 (2026-09-19 · 2026-09-21 사용자 확정 — 다시 묻지 않는다)
 
@@ -156,10 +159,12 @@ backend/app/main.py                B3  라우터 등록
 backend/DEPLOY.md                  B8  Cloud Scheduler · 시크릿 · IAM 문서
 
 frontend/lib/matching/model/        A2  카드 모델 · Repository · Provider
-frontend/lib/matching/viewmodel/    A2  UiState · ViewModel
-frontend/lib/matching/view/         A3~A6  화면
-frontend/lib/core/push/             A7  FCM 초기화 · 토큰 등록 · 수신 처리
-frontend/lib/core/router/           A3  경로 추가
+frontend/lib/matching/viewmodel/    A3~A8  UiState · ViewModel
+frontend/lib/matching/view/         A3~A8  화면(오늘의 카드 · 10b 상세 · 12 매칭 · 13 대화 · 16·16d 설정)
+frontend/lib/common/widgets/        A3·A4·A6  AppBottomNav · TraitBar · CardActionBar(+ AppButton 높이 인자)
+frontend/lib/core/push/             A7  PushMessaging 래퍼 · 토큰 등록 · route 변환
+frontend/lib/core/router/           A3~A8  경로 추가(HomeScreen → ComingSoonScreen)
+frontend/android/ · lib/main.dart   A1  Firebase 배선(google-services.json 은 커밋하지 않는다)
 ```
 
 **PR 은 Part 마다 하나씩 3개**(조각 2 · 3 과 같은 방식). 전부 base `main` 의 **draft** 로 열고 merge 는
@@ -2290,27 +2295,2609 @@ gh pr create --draft --base main --title "조각 4 Part B: 카드 지급 배치�
 
 ---
 
-## Part A: Flutter — 아직 쓰지 않음 (작성 중단 지점)
+## Part A: Flutter (`frontend/lib/matching/` · `frontend/lib/core/push/`)
 
-2026-09-21, 사용자 지시로 조각 4 착수 전 정지. 이 계획서는 **미완성 초안**이다.
+**Part A 는 맨 위 "새 의존성" 표의 사용자 승인 뒤에 시작한다.** 승인 전에도 Part C · Part B 는 전부 할 수 있다.
 
-**쓴 것:** 헤더 · 새 의존성 목록 · Global Constraints · 확정 전제 · 실행 전 확인 사항 6건 ·
-파일 구조 · Task 0(.gitignore) · **Part C**(C1~C6, DB 마이그레이션 + pgTAP 전문) ·
-**Part B**(B1~B8, FastAPI 사다리·저장소·FCM·배치·카드 API·받은 수락함·알림 설정·배포 문서).
+새 feature 루트 `frontend/lib/matching/` 은 조각 2 의 `frontend/lib/profile/` 와 같은 모양이다 —
+`model/`(불변 모델 + Repository 인터페이스 + `Http*` 구현 + Provider) · `viewmodel/`(불변 `UiState` +
+Riverpod `Notifier`) · `view/`(화면). 테스트도 같은 모양을 그대로 쓴다:
 
-**안 쓴 것 — 이어받는 사람이 할 일:**
-
-| Task | 내용 | pen 노드 id |
+| 층 | 표본 파일 | 도구 |
 | --- | --- | --- |
-| A1 | 의존성 추가 · `google-services.json` 이동 · Firebase 초기화 | — |
-| A2 | 모델 · Repository · Provider (조각 3 `http_*` 패턴 그대로) | — |
-| A3 | 오늘의 카드 목록 · 빈 상태 · 로딩 · 구매 카드 | `W0CjO` 10 오늘의 카드, `eDPkz` 카드 없음, `Ukg21` 로딩, `Keynu` 구매 카드 있음, `i4VFS`·`k2fF9y` 11 카드 대기, `iQZoa` 11b 매칭 가능한 사람 없음 / components `v26S7z` DailyCardSummary, `BpP33` DailyCardLocked, `x4FuK` Skeleton Card, `PKbwO` Card Waiting Mascot |
-| A4 | 10b 카드 상세 · 수락/거절 | `TORAs` |
-| A5 | 매칭 성사 화면 + 09b 메인 배너 | `UFNSi`, `bpA8x` |
-| A6 | 받은 수락함(13 대화 화면 상단 sticky 섹션) | `CeqVY` (섹션 `P5A282`, 행 `XCN1f`·`Q7zmGt`) |
-| A7 | 푸시 수신 · 토큰 등록 · `data.route` 로 화면 열기 | — |
-| A8 | 알림 설정 · 매칭 일시중지 토글 | `NMgCa` 16d |
+| Repository | `test/auth/model/http_verification_gate_repository_test.dart` | `MockClient`(`package:http/testing.dart`) + `mocktail` 로 `GoTrueClient` 흉내 |
+| ViewModel | `test/profile/viewmodel/ideal_note_view_model_test.dart` | `Fake*Repository` + `ProviderContainer(overrides: …)` |
+| 화면 | `test/auth/view/school_info_screen_test.dart` | `UncontrolledProviderScope` + `MaterialApp(home: …)` 위젯 테스트 |
 
-**남은 정리 작업:** 화면 목록(pen id) 표 · 테스트 전략 표 · 백로그 섹션.
+**pen 파일 경로 정정 (2026-09-21 master3 확인 — 차이 보고 대상).** 이 계획서 위쪽(Global Constraints)과
+대장 지시문의 `C:\Users\home\OneDrive\Desktop\datingApp.pen` 에는 **ERD 보드만** 들어 있고 화면이 하나도
+없다(`qXpwn` 을 찾을 수 없다). 화면이 있는 파일은
+**`C:\Users\home\OneDrive\Desktop\datingApp\design\datingApp.pen`** 이다. 아래 Task 의 노드 id 는 전부
+이 파일에서 직접 읽은 값이다. `filePath` 를 반드시 명시해서 읽고, **pen 은 읽기만 한다**.
 
-**섹션 3 전체 pen id:** `qXpwn`.
+**Part A 가정 4건 (대장 보고 대상 — 계획서 위 "실행 전 확인 사항" 과는 별개로 Part A 를 쓰면서 새로 생긴 판단)**
+
+1. **09b 메인 화면(`bpA8x`)은 조각 4 범위 밖이다.** 09b 는 `hero-today` · `mosaic-rail` · `stat-panel` ·
+   `review-strip` · `campus-strip` 으로 이루어진 별도 화면이고, 그 재료(지인 리뷰 · 참여 대학 지표)는 조각 6
+   이후에 생긴다. 그래서 `lvmAj` 의 "결정 대기 카드가 2장 남아 있어요" 배너(`Diw5U`)는 **백로그**로 옮긴다 —
+   배너만 먼저 만들면 붙일 화면이 없다. 카드로 가는 길은 하단 내비 "오늘" 탭이 담당한다.
+2. **하단 내비(`Migf0`)는 5탭을 그리되 이번 조각이 채우는 것은 "오늘"·"대화" 두 탭뿐이다.** 메인 · 커뮤니티 ·
+   나 탭은 기존 `placeholder_screens.dart` 의 자리 화면을 그대로 띄운다(각각 조각 6·6·2+). 내비 없이 만들면
+   받은 수락함(13)으로 가는 길이 앱 안에 존재하지 않게 된다.
+3. **설정(16, `lMDpY`)은 조각 4 가 소유한 두 줄만 만든다** — 매칭 활성화 토글(`TLrmq`)과 "알림"(→ 16d).
+   나머지 11줄(하트 · 차단 · 약관 · 탈퇴 …)은 조각 5~7 이 각자 붙인다. 진입점은 **오늘 탭 앱바 우측 아이콘**
+   이다. DESIGN §9 화면15 는 "내 프로필(15)의 앱바 설정 아이콘이 16 의 유일한 진입점"이라고 적지만 15 는
+   조각 4 에 없다 — 15 가 생기면 진입점을 그리로 옮기고 오늘 탭에서는 뗀다(백로그).
+4. **잠금 카드(`daily-card-locked` `BpP33`) · 추가 카드 시트(10c `x2yPl`) · 구매 후(10e `wDKXv`) · 결정 대기
+   구매 카드(`Keynu`)는 그리지 않는다.** 전부 하트를 쓰는 화면이라 조각 7 이다(확정 전제 "하트 소비는 조각 7").
+   `GET /cards/today` 의 `locked_card_available` 은 받아만 두고 이번 조각에서는 쓰지 않는다.
+
+**Part B 보완 1건 (A2 가 못 박는 계약).** `GET /cards/today` 응답에 **`candidate_pool_empty`(bool)** 을
+추가한다. 화면 11(`i4VFS` "내일 오전 7시에 새로운 한 명이 도착해요")과 11b(`iQZoa` "지금은 소개할 사람이
+없어요")를 가르는 값이 지금 응답에 없다. Task B5 가 **`cards` 가 비었을 때만** `match_candidates(owner, 1)`
+를 한 번 더 불러 채운다(카드가 있으면 부르지 않는다 — 평소에는 추가 쿼리가 0 이다).
+
+---
+
+### Task A1: 의존성 · `google-services.json` · Firebase 초기화
+
+**Files:**
+- Modify: `frontend/pubspec.yaml`
+- Modify: `frontend/android/settings.gradle.kts`
+- Modify: `frontend/android/app/build.gradle.kts`
+- Modify: `frontend/android/app/src/main/AndroidManifest.xml`
+- Modify: `frontend/lib/main.dart`
+- Move(커밋하지 않는다): 바탕화면 `google-services.json` → `frontend/android/app/google-services.json`
+
+**Interfaces:**
+- Consumes: Task 0 의 `.gitignore`(`**/google-services.json`) — **끝나 있어야 이 Task 를 시작한다**
+- Produces: `Firebase.initializeApp()` 이 끝난 앱 — Task A7 의 `FirebaseMessaging.instance` 가 이것 없이는 죽는다
+
+- [ ] **Step 1: 파일을 옮기기 전에 git 이 막는지부터 확인**
+
+```bash
+cd frontend
+git check-ignore -v android/app/google-services.json
+```
+
+Expected: `.gitignore:<줄번호>:**/google-services.json` 이 나온다. **아무것도 안 나오면 멈추고 Task 0 을 먼저
+끝낸다.** 그 뒤에 파일을 옮긴다(경로는 대장이 안다).
+
+- [ ] **Step 2: 옮긴 뒤 git 이 정말 안 보는지 다시 확인**
+
+```bash
+git status --porcelain frontend/android/app/google-services.json
+```
+
+Expected: **아무것도 출력되지 않는다.** 한 줄이라도 나오면 커밋하지 말고 멈춘다.
+
+- [ ] **Step 3: `pubspec.yaml` 에 의존성 2개 추가**
+
+`dependencies:` 의 `path_provider` 아래에 붙인다(승인된 표 그대로):
+
+```yaml
+  # 푸시 알림(조각 4). firebase_core 는 firebase_messaging 이 요구해서 함께 들어간다.
+  firebase_core: ^4.1.1
+  firebase_messaging: ^16.0.2
+```
+
+Run: `cd frontend && flutter pub get`
+Expected: 오류 없이 끝난다. **버전이 표(^4.x · ^16.x)를 벗어나면 멈추고 대장에게 보고한다.**
+
+- [ ] **Step 4: Gradle 플러그인 배선(Kotlin DSL 2곳)**
+
+`android/settings.gradle.kts` 의 `plugins { … }` 블록 맨 아래에 한 줄:
+
+```kotlin
+    id("com.google.gms.google-services") version "4.4.4" apply false
+```
+
+`android/app/build.gradle.kts` 의 `plugins { … }` 블록 맨 아래에 한 줄(Flutter 플러그인 **뒤**여야 한다):
+
+```kotlin
+    id("com.google.gms.google-services")
+```
+
+- [ ] **Step 5: 매니페스트에 알림 권한과 기본 채널을 적는다**
+
+`android/app/src/main/AndroidManifest.xml` — `<manifest>` 바로 아래에 권한 한 줄,
+`<application>` 안(`<activity>` 뒤)에 메타데이터 두 줄:
+
+```xml
+    <!-- Android 13+ 는 알림을 보내기 전에 사용자에게 물어봐야 한다(조각 4). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATION" />
+```
+
+```xml
+        <!-- 앱이 꺼져 있을 때 시스템이 알림을 띄울 채널. 지정하지 않으면 안드로이드가 경고를 남긴다. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="campus_mate_default" />
+```
+
+**주의:** 권한 이름은 `android.permission.POST_NOTIFICATIONS`(복수형 S)다 — 위 블록을 그대로 붙여 넣은 뒤
+**`POST_NOTIFICATION` 을 `POST_NOTIFICATIONS` 로 고친다**(오타가 나면 권한 요청이 조용히 무시된다).
+
+- [ ] **Step 6: `main.dart` 에서 Firebase 를 켠다**
+
+`main()` 의 `SupabaseInitializer.run(...)` **앞**에 한 줄을 넣는다:
+
+```dart
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // 안드로이드는 google-services 플러그인이 넣어 준 리소스를 읽으므로 options 를 코드에 적지 않는다
+  // (firebase_options.dart 를 만들지 않는 이유 — flutterfire CLI 를 새로 들이지 않는다).
+  await Firebase.initializeApp();
+  await SupabaseInitializer.run(SupabaseConfig.fromEnvironment());
+  runApp(const ProviderScope(child: CampusMateApp()));
+}
+```
+
+`import 'package:firebase_core/firebase_core.dart';` 를 함께 추가한다.
+
+- [ ] **Step 7: 앱이 실제로 빌드되는지 본다 (이 Task 의 유일한 검증)**
+
+```bash
+cd frontend
+flutter analyze
+flutter test
+flutter build apk --debug
+```
+
+Expected: `analyze` 무경고 · `flutter test` **280 passed**(기준선, 줄면 무언가 깨진 것이다) ·
+APK 빌드 성공. 빌드가 `google-services.json` 을 못 찾는다고 하면 Step 1~2 로 돌아간다.
+
+로직이 없는 배선 Task 라 단위 테스트를 새로 쓰지 않는다 — **빌드가 곧 테스트**다.
+
+- [ ] **Step 8: 커밋**
+
+```bash
+git add frontend/pubspec.yaml frontend/pubspec.lock frontend/android/settings.gradle.kts \
+        frontend/android/app/build.gradle.kts frontend/android/app/src/main/AndroidManifest.xml \
+        frontend/lib/main.dart
+git commit -m "🔔 feat(slice4): Firebase 메시징 의존성과 초기화를 붙인다"
+```
+
+`git status` 로 **`google-services.json` 이 스테이징되지 않았는지 눈으로 확인한 뒤** 커밋한다.
+
+---
+
+### Task A2: 카드 모델 · Repository · Provider
+
+**Files:**
+- Create: `frontend/lib/matching/model/card_profile.dart`
+- Create: `frontend/lib/matching/model/daily_card.dart`
+- Create: `frontend/lib/matching/model/card_detail.dart`
+- Create: `frontend/lib/matching/model/acceptance.dart`
+- Create: `frontend/lib/matching/model/notification_preferences.dart`
+- Create: `frontend/lib/matching/model/card_repository.dart`
+- Create: `frontend/lib/matching/model/http_card_repository.dart`
+- Create: `frontend/lib/matching/model/card_repository_provider.dart`
+- Test: `frontend/test/matching/model/http_card_repository_test.dart`
+
+**Interfaces:**
+- Consumes: Task B5 `GET /cards/today` · `GET /cards/{card_id}` · `POST /cards/{card_id}/decision`,
+  Task B6 `GET /cards/acceptances` · `POST /cards/acceptances/{card_id}`,
+  Task B7 `POST·DELETE /cards/push-tokens` · `GET·PATCH /cards/notification-settings` ·
+  `PATCH /cards/matching-paused`
+- Produces: `CardRepository`(추상) · `CardProfile` · `DailyCard` · `TodayCards` · `CardDetail` ·
+  `Acceptance` · `AcceptanceOutcome` · `NotificationPreferences` · `cardRepositoryProvider` —
+  Task A3~A8 이 전부 이 이름만 쓴다.
+- **Produces(계약): `GET /cards/{card_id}` 응답 모양.** Task B5 가 이 모양으로 내려보내야 한다:
+
+```json
+{"card_id": "…", "profile": {"profile_id": "…", "nickname": "여우비", "age": 23,
+                             "university": "테스트대학교", "major": "컴퓨터공학과",
+                             "avatar_url": "https://…"},
+ "survey": [0.5, -1.0, 0.0, 0.5, 1.0, -0.5, 0.0, 0.5, 1.0],
+ "animal_type": "cat", "impression_type": "chic",
+ "height_cm": 178, "mbti": "ENFP", "student_number": "21",
+ "religion": "none", "is_smoker": false,
+ "interests": ["등산", "재즈"], "my_traits": ["유머러스"], "ideal_traits": ["다정한"],
+ "bio": "…", "ideal_note": "…"}
+```
+
+`survey` 는 **9축 순서 그대로의 배열**이다(05-01 활동성 … 05-09 새로움 — `survey_vector.py` 의 축 번호
+1~9 와 같은 순서, 낯가림 2번 축도 표시에는 그대로 들어간다). `animal_type`·`impression_type`·`religion`
+문자열은 **조각 2 `frontend/lib/profile/model/profile_enums.dart` 의 `name`** 과 같은 값이다.
+
+- [ ] **Step 1: 실패하는 테스트를 쓴다**
+
+```dart
+// frontend/test/matching/model/http_card_repository_test.dart
+import 'dart:convert';
+
+import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/matching/model/card_repository.dart';
+import 'package:campus_mate/matching/model/http_card_repository.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:mocktail/mocktail.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+class MockGoTrueClient extends Mock implements GoTrueClient {}
+
+class MockSession extends Mock implements Session {}
+
+void main() {
+  late MockGoTrueClient auth;
+
+  setUp(() {
+    auth = MockGoTrueClient();
+    final session = MockSession();
+    when(() => session.accessToken).thenReturn('token-abc');
+    when(() => auth.currentSession).thenReturn(session);
+  });
+
+  HttpCardRepository buildRepository(http.Client client) {
+    return HttpCardRepository('https://api.test', client, auth);
+  }
+
+  http.Response jsonResponse(Object body) {
+    return http.Response(
+      jsonEncode(body),
+      200,
+      headers: {'content-type': 'application/json; charset=utf-8'},
+    );
+  }
+
+  test('오늘의 카드를 프로필까지 붙여 읽는다', () async {
+    final client = MockClient((request) async {
+      expect(request.url.toString(), 'https://api.test/cards/today');
+      expect(request.headers['Authorization'], 'Bearer token-abc');
+      return jsonResponse({
+        'cards': [
+          {
+            'card_id': 'card-1',
+            'source': 'daily',
+            'expires_at': '2026-09-24T07:00:00+09:00',
+            'profile': {
+              'profile_id': 't1',
+              'nickname': '여우비',
+              'age': 23,
+              'university': '테스트대학교',
+              'major': '컴퓨터공학과',
+              'avatar_url': 'https://cdn.test/a.png',
+            },
+          },
+        ],
+        'next_issue_at': '2026-09-24T07:00:00+09:00',
+        'locked_card_available': true,
+        'candidate_pool_empty': false,
+      });
+    });
+
+    final result = await buildRepository(client).fetchToday();
+
+    final today = result.when(onSuccess: (value) => value, onFailure: (_) => null);
+    expect(today!.cards.single.profile.nameWithAge, '여우비, 23');
+    expect(today.cards.single.profile.schoolLine, '테스트대학교 · 컴퓨터공학과');
+    expect(today.nextIssueAt, DateTime.parse('2026-09-24T07:00:00+09:00'));
+  });
+
+  test('카드가 하나도 없고 후보 풀도 비었으면 그 사실이 그대로 올라온다', () async {
+    final client = MockClient((request) async => jsonResponse({
+          'cards': <Object>[],
+          'next_issue_at': null,
+          'locked_card_available': false,
+          'candidate_pool_empty': true,
+        }));
+
+    final result = await buildRepository(client).fetchToday();
+
+    final today = result.when(onSuccess: (value) => value, onFailure: (_) => null);
+    expect(today!.cards, isEmpty);
+    expect(today.candidatePoolEmpty, isTrue);
+  });
+
+  test('결정은 decision 값을 그대로 보낸다', () async {
+    late http.Request sent;
+    final client = MockClient((request) async {
+      sent = request as http.Request;
+      return jsonResponse({'ok': true});
+    });
+
+    await buildRepository(client).decide('card-1', CardDecision.reject);
+
+    expect(sent.method, 'POST');
+    expect(sent.url.toString(), 'https://api.test/cards/card-1/decision');
+    expect(jsonDecode(sent.body), {'decision': 'reject'});
+  });
+
+  test('수락함 응답이 매칭으로 이어지면 match_id 가 올라온다', () async {
+    final client = MockClient((request) async => jsonResponse({'matched': true, 'match_id': 'm-1'}));
+
+    final result = await buildRepository(client).respondToAcceptance('card-1', CardDecision.accept);
+
+    final outcome = result.when(onSuccess: (value) => value, onFailure: (_) => null);
+    expect(outcome!.matched, isTrue);
+    expect(outcome.matchId, 'm-1');
+  });
+
+  test('기한이 지난 수락(410)은 서버 문구를 그대로 보여준다', () async {
+    final client = MockClient((request) async => http.Response(
+          jsonEncode({'detail': '기한이 지났어요'}),
+          410,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        ));
+
+    final result = await buildRepository(client).respondToAcceptance('card-1', CardDecision.accept);
+
+    expect(
+      result.when(onSuccess: (_) => null, onFailure: (f) => f.toDisplayMessage()),
+      '기한이 지났어요',
+    );
+  });
+
+  test('연결이 끊겨도 예외가 새지 않고 NetworkFailure 로 돌아온다', () async {
+    final client = MockClient((request) async => throw Exception('연결 실패'));
+
+    final result = await buildRepository(client).fetchToday();
+
+    expect(result.when(onSuccess: (_) => null, onFailure: (f) => f), isA<NetworkFailure>());
+  });
+}
+```
+
+- [ ] **Step 2: 실패 확인**
+
+Run: `cd frontend && flutter test test/matching/model/http_card_repository_test.dart`
+Expected: FAIL — `card_repository.dart` 를 찾을 수 없다(컴파일 오류)
+
+- [ ] **Step 3: 모델을 쓴다**
+
+```dart
+// frontend/lib/matching/model/card_profile.dart
+/// 카드 앞면·수락함 행이 쓰는 최소 프로필(설계 §7.1 — 실명·연락처는 서버가 내려보내지 않는다).
+class CardProfile {
+  const CardProfile({
+    required this.profileId,
+    required this.nickname,
+    required this.age,
+    this.university,
+    this.major,
+    this.avatarUrl,
+  });
+
+  final String profileId;
+  final String nickname;
+  final int age;
+  final String? university;
+  final String? major;
+
+  /// 표시용 만화 아바타. 실사진은 신뢰 확인(조각 5) 전까지 존재하지 않는다(§5.2).
+  final String? avatarUrl;
+
+  /// pen `eWD7g` 가 "여우비, 23" 한 줄로 쓴다.
+  String get nameWithAge => '$nickname, $age';
+
+  /// pen `Q8c2Y3` 가 "서울대학교 · 컴퓨터공학과" 한 줄로 쓴다. 한쪽이 비면 가운뎃점도 없앤다.
+  String get schoolLine => [university, major].whereType<String>().join(' · ');
+
+  factory CardProfile.fromJson(Map<String, dynamic> json) {
+    return CardProfile(
+      profileId: json['profile_id'] as String,
+      nickname: json['nickname'] as String,
+      age: json['age'] as int,
+      university: json['university'] as String?,
+      major: json['major'] as String?,
+      avatarUrl: json['avatar_url'] as String?,
+    );
+  }
+}
+```
+
+```dart
+// frontend/lib/matching/model/daily_card.dart
+import 'package:campus_mate/matching/model/card_profile.dart';
+
+/// 카드가 어디서 왔는지(ERD `card_source`). 구매 카드는 조각 7 에서 생긴다.
+enum CardSource {
+  daily,
+  purchased;
+
+  static CardSource fromWire(String value) => value == 'purchased' ? purchased : daily;
+}
+
+/// 받은 카드 한 장(화면 10 `W0CjO`).
+class DailyCard {
+  const DailyCard({
+    required this.cardId,
+    required this.source,
+    required this.profile,
+    this.expiresAt,
+  });
+
+  final String cardId;
+  final CardSource source;
+  final CardProfile profile;
+
+  /// 무응답 만료 시각. 구매 카드는 만료가 없어 null 이다(설계 §2.4).
+  final DateTime? expiresAt;
+
+  factory DailyCard.fromJson(Map<String, dynamic> json) {
+    return DailyCard(
+      cardId: json['card_id'] as String,
+      source: CardSource.fromWire(json['source'] as String),
+      profile: CardProfile.fromJson(json['profile'] as Map<String, dynamic>),
+      expiresAt: _parseTime(json['expires_at']),
+    );
+  }
+}
+
+/// `GET /cards/today` 응답 전체(화면 10 · 11 · 11b 가 이 하나로 갈린다).
+class TodayCards {
+  const TodayCards({
+    required this.cards,
+    this.nextIssueAt,
+    this.lockedCardAvailable = false,
+    this.candidatePoolEmpty = false,
+  });
+
+  final List<DailyCard> cards;
+
+  /// 다음 지급 시각. 화면 11 의 카운트다운 재료다.
+  final DateTime? nextIssueAt;
+
+  /// 잠금 카드를 열 후보가 남아 있는지. **조각 7(하트) 전까지는 읽지 않는다.**
+  final bool lockedCardAvailable;
+
+  /// 후보 풀 자체가 비었는지. 화면 11(`i4VFS`)과 11b(`iQZoa`)를 가르는 값이다.
+  final bool candidatePoolEmpty;
+
+  factory TodayCards.fromJson(Map<String, dynamic> json) {
+    return TodayCards(
+      cards: (json['cards'] as List<dynamic>)
+          .map((card) => DailyCard.fromJson(card as Map<String, dynamic>))
+          .toList(),
+      nextIssueAt: _parseTime(json['next_issue_at']),
+      lockedCardAvailable: json['locked_card_available'] as bool? ?? false,
+      candidatePoolEmpty: json['candidate_pool_empty'] as bool? ?? false,
+    );
+  }
+}
+
+DateTime? _parseTime(Object? value) => value == null ? null : DateTime.parse(value as String);
+```
+
+```dart
+// frontend/lib/matching/model/card_detail.dart
+import 'package:campus_mate/matching/model/card_profile.dart';
+import 'package:campus_mate/profile/model/profile_enums.dart';
+
+/// 10b 상대 프로필 상세(`TORAs`). 카드 앞면보다 많은 것을 보여주지만
+/// 실사진·카카오톡 아이디는 여전히 없다 — 그건 신뢰 확인(조각 5) 뒤다.
+class CardDetail {
+  const CardDetail({
+    required this.cardId,
+    required this.profile,
+    required this.survey,
+    required this.animalType,
+    required this.impressionType,
+    required this.religion,
+    required this.isSmoker,
+    required this.interests,
+    required this.myTraits,
+    required this.idealTraits,
+    this.heightCm,
+    this.mbti,
+    this.studentNumber,
+    this.bio,
+    this.idealNote,
+  });
+
+  final String cardId;
+  final CardProfile profile;
+
+  /// 9축 성향 값(-1.0 ~ 1.0). 축 순서는 05-01 활동성 … 05-09 새로움이다.
+  final List<double> survey;
+  final AnimalType animalType;
+  final ImpressionType impressionType;
+  final Religion religion;
+  final bool isSmoker;
+  final List<String> interests;
+  final List<String> myTraits;
+  final List<String> idealTraits;
+  final int? heightCm;
+  final String? mbti;
+  final String? studentNumber;
+  final String? bio;
+  final String? idealNote;
+
+  factory CardDetail.fromJson(Map<String, dynamic> json) {
+    return CardDetail(
+      cardId: json['card_id'] as String,
+      profile: CardProfile.fromJson(json['profile'] as Map<String, dynamic>),
+      survey: (json['survey'] as List<dynamic>).map((v) => (v as num).toDouble()).toList(),
+      animalType: AnimalType.values.byName(json['animal_type'] as String),
+      impressionType: ImpressionType.values.byName(json['impression_type'] as String),
+      religion: Religion.values.byName(json['religion'] as String),
+      isSmoker: json['is_smoker'] as bool,
+      interests: _strings(json['interests']),
+      myTraits: _strings(json['my_traits']),
+      idealTraits: _strings(json['ideal_traits']),
+      heightCm: json['height_cm'] as int?,
+      mbti: json['mbti'] as String?,
+      studentNumber: json['student_number'] as String?,
+      bio: json['bio'] as String?,
+      idealNote: json['ideal_note'] as String?,
+    );
+  }
+}
+
+List<String> _strings(Object? value) =>
+    (value as List<dynamic>? ?? const []).map((v) => v as String).toList();
+```
+
+```dart
+// frontend/lib/matching/model/acceptance.dart
+import 'package:campus_mate/matching/model/card_profile.dart';
+
+/// 나를 수락한 사람 한 명(13 대화 화면의 수락 대기 행 `XCN1f`).
+/// 7일이 지난 수락은 서버가 아예 내려보내지 않는다 — 앱은 만료를 계산하지 않는다.
+class Acceptance {
+  const Acceptance({required this.cardId, required this.profile, this.expiresAt});
+
+  final String cardId;
+  final CardProfile profile;
+  final DateTime? expiresAt;
+
+  factory Acceptance.fromJson(Map<String, dynamic> json) {
+    return Acceptance(
+      cardId: json['card_id'] as String,
+      profile: CardProfile.fromJson(json['profile'] as Map<String, dynamic>),
+      expiresAt: json['expires_at'] == null
+          ? null
+          : DateTime.parse(json['expires_at'] as String),
+    );
+  }
+}
+
+/// 수락함에 응답한 결과. 쌍방 수락이면 [matched] 가 참이고 [matchId] 가 채워진다.
+class AcceptanceOutcome {
+  const AcceptanceOutcome({required this.matched, this.matchId});
+
+  final bool matched;
+  final String? matchId;
+
+  factory AcceptanceOutcome.fromJson(Map<String, dynamic> json) {
+    return AcceptanceOutcome(
+      matched: json['matched'] as bool,
+      matchId: json['match_id'] as String?,
+    );
+  }
+}
+```
+
+```dart
+// frontend/lib/matching/model/notification_preferences.dart
+/// 알림 스위치(화면 16d `NMgCa`). 서버에 행이 없으면 전부 켜짐 + 마케팅만 꺼짐이다(Task C4 기본값).
+class NotificationPreferences {
+  const NotificationPreferences({
+    this.cardArrived = true,
+    this.acceptanceReceived = true,
+    this.matchMade = true,
+    this.newMessage = true,
+    this.trustReminder = true,
+    this.newFriendReview = true,
+    this.marketing = false,
+    this.quietHours = true,
+  });
+
+  final bool cardArrived;
+  final bool acceptanceReceived;
+  final bool matchMade;
+  final bool newMessage;
+  final bool trustReminder;
+  final bool newFriendReview;
+  final bool marketing;
+  final bool quietHours;
+
+  factory NotificationPreferences.fromJson(Map<String, dynamic> json) {
+    bool read(String key, {bool fallback = true}) => json[key] as bool? ?? fallback;
+    return NotificationPreferences(
+      cardArrived: read('card_arrived'),
+      acceptanceReceived: read('acceptance_received'),
+      matchMade: read('match_made'),
+      newMessage: read('new_message'),
+      trustReminder: read('trust_reminder'),
+      newFriendReview: read('new_friend_review'),
+      marketing: read('marketing', fallback: false),
+      quietHours: read('quiet_hours'),
+    );
+  }
+
+  NotificationPreferences withValue(String key, bool value) {
+    return NotificationPreferences(
+      cardArrived: key == 'card_arrived' ? value : cardArrived,
+      acceptanceReceived: key == 'acceptance_received' ? value : acceptanceReceived,
+      matchMade: key == 'match_made' ? value : matchMade,
+      newMessage: key == 'new_message' ? value : newMessage,
+      trustReminder: key == 'trust_reminder' ? value : trustReminder,
+      newFriendReview: key == 'new_friend_review' ? value : newFriendReview,
+      marketing: key == 'marketing' ? value : marketing,
+      quietHours: key == 'quiet_hours' ? value : quietHours,
+    );
+  }
+
+  bool valueOf(String key) => switch (key) {
+        'card_arrived' => cardArrived,
+        'acceptance_received' => acceptanceReceived,
+        'match_made' => matchMade,
+        'new_message' => newMessage,
+        'trust_reminder' => trustReminder,
+        'new_friend_review' => newFriendReview,
+        'marketing' => marketing,
+        _ => quietHours,
+      };
+}
+```
+
+- [ ] **Step 4: Repository 인터페이스와 HTTP 구현을 쓴다**
+
+```dart
+// frontend/lib/matching/model/card_repository.dart
+import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/matching/model/acceptance.dart';
+import 'package:campus_mate/matching/model/card_detail.dart';
+import 'package:campus_mate/matching/model/daily_card.dart';
+import 'package:campus_mate/matching/model/notification_preferences.dart';
+
+/// 수락·거절 한 쌍. 카드 결정과 수락함 응답이 같은 값을 쓴다(ERD `card_decision`).
+enum CardDecision {
+  accept,
+  reject;
+
+  String get wire => name;
+}
+
+/// 조각 4 가 쓰는 서버 호출 전부. 화면은 이 인터페이스만 보고 `Http…` 구현을 모른다.
+abstract interface class CardRepository {
+  Future<Result<TodayCards>> fetchToday();
+  Future<Result<CardDetail>> fetchCard(String cardId);
+  Future<Result<void>> decide(String cardId, CardDecision decision);
+  Future<Result<List<Acceptance>>> fetchAcceptances();
+  Future<Result<AcceptanceOutcome>> respondToAcceptance(String cardId, CardDecision decision);
+  Future<Result<void>> registerPushToken(String token);
+  Future<Result<void>> deletePushToken(String token);
+  Future<Result<NotificationPreferences>> fetchNotificationPreferences();
+  Future<Result<void>> updateNotificationPreference(String key, bool value);
+  Future<Result<void>> setMatchingPaused(bool paused);
+}
+```
+
+```dart
+// frontend/lib/matching/model/http_card_repository.dart
+import 'dart:convert';
+
+import 'package:campus_mate/auth/model/http_send.dart';
+import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/matching/model/acceptance.dart';
+import 'package:campus_mate/matching/model/card_detail.dart';
+import 'package:campus_mate/matching/model/card_repository.dart';
+import 'package:campus_mate/matching/model/daily_card.dart';
+import 'package:campus_mate/matching/model/notification_preferences.dart';
+import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+/// [CardRepository] 를 FastAPI 호출로 구현한다. 상태코드 분류와 세션 확인은
+/// 조각 1b 의 [sendAuthorizedRequest] 가 이미 하므로 여기서는 URL·바디·파싱만 맡는다.
+class HttpCardRepository implements CardRepository {
+  const HttpCardRepository(this._baseUrl, this._client, this._auth);
+
+  final String _baseUrl;
+  final http.Client _client;
+  final GoTrueClient _auth;
+
+  Future<Result<T>> _send<T>(
+    String method,
+    String path,
+    T Function(Object body) parse, {
+    Map<String, Object?>? body,
+  }) async {
+    final result = await sendAuthorizedRequest(_client, _auth, (accessToken) {
+      final request = http.Request(method, Uri.parse('$_baseUrl$path'))
+        ..headers['Authorization'] = 'Bearer $accessToken';
+      if (body != null) {
+        request
+          ..headers['Content-Type'] = 'application/json'
+          ..body = jsonEncode(body);
+      }
+      return request;
+    });
+    return result.when(
+      onSuccess: (response) => Success(parse(jsonDecode(response.body))),
+      onFailure: (failure) => FailureResult(failure),
+    );
+  }
+
+  @override
+  Future<Result<TodayCards>> fetchToday() =>
+      _send('GET', '/cards/today', (body) => TodayCards.fromJson(body as Map<String, dynamic>));
+
+  @override
+  Future<Result<CardDetail>> fetchCard(String cardId) =>
+      _send('GET', '/cards/$cardId', (body) => CardDetail.fromJson(body as Map<String, dynamic>));
+
+  @override
+  Future<Result<void>> decide(String cardId, CardDecision decision) => _send(
+        'POST',
+        '/cards/$cardId/decision',
+        (_) {},
+        body: {'decision': decision.wire},
+      );
+
+  @override
+  Future<Result<List<Acceptance>>> fetchAcceptances() => _send(
+        'GET',
+        '/cards/acceptances',
+        (body) => ((body as Map<String, dynamic>)['acceptances'] as List<dynamic>)
+            .map((item) => Acceptance.fromJson(item as Map<String, dynamic>))
+            .toList(),
+      );
+
+  @override
+  Future<Result<AcceptanceOutcome>> respondToAcceptance(String cardId, CardDecision decision) =>
+      _send(
+        'POST',
+        '/cards/acceptances/$cardId',
+        (body) => AcceptanceOutcome.fromJson(body as Map<String, dynamic>),
+        body: {'decision': decision.wire},
+      );
+
+  @override
+  Future<Result<void>> registerPushToken(String token) =>
+      _send('POST', '/cards/push-tokens', (_) {}, body: {'token': token, 'platform': 'android'});
+
+  @override
+  Future<Result<void>> deletePushToken(String token) =>
+      _send('DELETE', '/cards/push-tokens/$token', (_) {});
+
+  @override
+  Future<Result<NotificationPreferences>> fetchNotificationPreferences() => _send(
+        'GET',
+        '/cards/notification-settings',
+        (body) => NotificationPreferences.fromJson(body as Map<String, dynamic>),
+      );
+
+  @override
+  Future<Result<void>> updateNotificationPreference(String key, bool value) =>
+      _send('PATCH', '/cards/notification-settings', (_) {}, body: {key: value});
+
+  @override
+  Future<Result<void>> setMatchingPaused(bool paused) =>
+      _send('PATCH', '/cards/matching-paused', (_) {}, body: {'paused': paused});
+}
+```
+
+```dart
+// frontend/lib/matching/model/card_repository_provider.dart
+import 'package:campus_mate/core/env.dart';
+import 'package:campus_mate/matching/model/card_repository.dart';
+import 'package:campus_mate/matching/model/http_card_repository.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+final cardRepositoryProvider = Provider<CardRepository>((ref) {
+  return HttpCardRepository(Env.apiBaseUrl, http.Client(), Supabase.instance.client.auth);
+});
+```
+
+- [ ] **Step 5: 통과 확인**
+
+Run: `cd frontend && flutter test test/matching/model/http_card_repository_test.dart`
+Expected: 6 passed
+
+- [ ] **Step 6: 커밋**
+
+```bash
+git add frontend/lib/matching/model frontend/test/matching/model
+git commit -m "✨ feat(slice4): 카드 모델과 저장소를 추가한다"
+```
+
+---
+
+### Task A3: 오늘의 카드 화면 · 하단 내비 · 라우트
+
+**Files:**
+- Create: `frontend/lib/matching/viewmodel/today_cards_ui_state.dart`
+- Create: `frontend/lib/matching/viewmodel/today_cards_view_model.dart`
+- Create: `frontend/lib/matching/view/today_cards_screen.dart`
+- Create: `frontend/lib/matching/view/daily_card_summary.dart`
+- Create: `frontend/lib/common/widgets/app_bottom_nav.dart`
+- Modify: `frontend/lib/core/router/app_routes.dart`
+- Modify: `frontend/lib/core/router/app_router.dart`
+- Modify: `frontend/lib/core/router/placeholder_screens.dart`(`HomeScreen` 삭제)
+- Modify: `frontend/lib/core/router/auth_redirect.dart`(주석만 — `home` 이 이제 오늘의 카드다)
+- Test: `frontend/test/matching/model/fake_card_repository.dart`
+- Test: `frontend/test/matching/viewmodel/today_cards_view_model_test.dart`
+- Test: `frontend/test/matching/view/today_cards_screen_test.dart`
+- Test: `frontend/test/core/router/placeholder_screens_test.dart`(`HomeScreen` 케이스 제거)
+
+**Interfaces:**
+- Consumes: Task A2 `cardRepositoryProvider`
+- Produces: `todayCardsViewModelProvider`(A7 의 푸시 수신이 `refresh()` 를 부른다) ·
+  `AppRoutes.cardDetail`(`/cards/:cardId`) · `AppRoutes.conversations`(`/conversations`) ·
+  `AppBottomNav`(A6 의 13 화면이 같은 위젯을 쓴다)
+
+**pen (읽고 시작한다 — `…\datingApp\design\datingApp.pen`)**
+
+| 화면 | 노드 | 쓰는 것 |
+| --- | --- | --- |
+| 10 오늘의 카드 | `W0CjO` | 앱바 `KJyqC`(ref `YTDwe`) · 본문 `ECqGe` · 요약 카드 `X3jQt1`(ref `v26S7z`) · 하단 내비 `dSsgj`(ref `Migf0`) |
+| 10 추가 카드 없음 | `eDPkz` | 요약 카드 1장만(`CnP1B`) — 이번 조각이 그리는 기본 모양이다 |
+| 10 로딩 | `Ukg21` | `N4wO4` 안에 `Skeleton · Card`(ref `x4FuK`) 2장 |
+| 11 카드 대기 | `i4VFS` | `xpiH6` "오늘 카드는 확인했어요" · `k1jPSY` "내일 오전 7시에 새로운 한 명이 도착해요" · `RcOFN` 카운트다운 · 마스코트 `XDUao`(ref `PKbwO`) |
+| 11 다음 후보 없음 | `k2fF9y` | 같은 모양, 부제만 `exnx7` "월요일 오전 7시에 새로운 사람을 찾아볼게요" |
+| 11b 후보 없음 | `iQZoa` | `kt3O8` "지금은 소개할 사람이 없어요" · `tdnaR` 2줄 설명 · 마스코트 2개(`gc8xO`·`Ev7dZ`) · 버튼 2개(`fqMl2`·`o1cRB`) |
+| DailyCardSummary | `v26S7z` | `kaRGO` 배지 행 · `JvMzE` 아바타 96dp · `eWD7g` "여우비, 23" · `Q8c2Y3` 학교·학과 · `t4484l` "프로필 자세히 보기 ›" |
+| BottomNav | `Migf0` | 탭 5개 — `DfsQO` 메인(house) · `FrwCV` 오늘(heart) · `fv6Kq` 커뮤니티(users) · `oaD2e` 대화(message-circle) · `eTvYk` 나(user-round) |
+
+- [ ] **Step 1: 실패하는 테스트를 쓴다**
+
+```dart
+// frontend/test/matching/model/fake_card_repository.dart
+import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/matching/model/acceptance.dart';
+import 'package:campus_mate/matching/model/card_detail.dart';
+import 'package:campus_mate/matching/model/card_repository.dart';
+import 'package:campus_mate/matching/model/daily_card.dart';
+import 'package:campus_mate/matching/model/notification_preferences.dart';
+
+/// 화면·ViewModel 테스트용 가짜 저장소. 돌려줄 값을 필드로 바꿔 끼운다.
+class FakeCardRepository implements CardRepository {
+  Result<TodayCards> today = const Success(TodayCards(cards: []));
+  Result<CardDetail>? card;
+  Result<List<Acceptance>> acceptances = const Success([]);
+  Result<AcceptanceOutcome> acceptanceOutcome = const Success(AcceptanceOutcome(matched: false));
+  Result<void> writeResult = const Success(null);
+  Result<NotificationPreferences> preferences = const Success(NotificationPreferences());
+
+  int fetchTodayCount = 0;
+  final List<({String cardId, CardDecision decision})> decisions = [];
+  final List<({String key, bool value})> preferenceUpdates = [];
+  final List<String> registeredTokens = [];
+  final List<String> deletedTokens = [];
+  bool? pausedValue;
+
+  @override
+  Future<Result<TodayCards>> fetchToday() async {
+    fetchTodayCount += 1;
+    return today;
+  }
+
+  @override
+  Future<Result<CardDetail>> fetchCard(String cardId) async => card!;
+
+  @override
+  Future<Result<void>> decide(String cardId, CardDecision decision) async {
+    decisions.add((cardId: cardId, decision: decision));
+    return writeResult;
+  }
+
+  @override
+  Future<Result<List<Acceptance>>> fetchAcceptances() async => acceptances;
+
+  @override
+  Future<Result<AcceptanceOutcome>> respondToAcceptance(String cardId, CardDecision decision) async {
+    decisions.add((cardId: cardId, decision: decision));
+    return acceptanceOutcome;
+  }
+
+  @override
+  Future<Result<void>> registerPushToken(String token) async {
+    registeredTokens.add(token);
+    return writeResult;
+  }
+
+  @override
+  Future<Result<void>> deletePushToken(String token) async {
+    deletedTokens.add(token);
+    return writeResult;
+  }
+
+  @override
+  Future<Result<NotificationPreferences>> fetchNotificationPreferences() async => preferences;
+
+  @override
+  Future<Result<void>> updateNotificationPreference(String key, bool value) async {
+    preferenceUpdates.add((key: key, value: value));
+    return writeResult;
+  }
+
+  @override
+  Future<Result<void>> setMatchingPaused(bool paused) async {
+    pausedValue = paused;
+    return writeResult;
+  }
+}
+```
+
+```dart
+// frontend/test/matching/viewmodel/today_cards_view_model_test.dart
+import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/matching/model/card_profile.dart';
+import 'package:campus_mate/matching/model/card_repository_provider.dart';
+import 'package:campus_mate/matching/model/daily_card.dart';
+import 'package:campus_mate/matching/viewmodel/today_cards_ui_state.dart';
+import 'package:campus_mate/matching/viewmodel/today_cards_view_model.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import '../model/fake_card_repository.dart';
+
+const _profile = CardProfile(profileId: 't1', nickname: '여우비', age: 23);
+const _card = DailyCard(cardId: 'card-1', source: CardSource.daily, profile: _profile);
+
+void main() {
+  late FakeCardRepository repository;
+  late ProviderContainer container;
+
+  setUp(() {
+    repository = FakeCardRepository();
+    container = ProviderContainer(
+      overrides: [cardRepositoryProvider.overrideWithValue(repository)],
+    );
+  });
+
+  tearDown(() => container.dispose());
+
+  Future<TodayCardsUiState> load() async {
+    await container.read(todayCardsViewModelProvider.notifier).refresh();
+    return container.read(todayCardsViewModelProvider);
+  }
+
+  test('카드가 있으면 카드 상태가 된다', () async {
+    repository.today = const Success(TodayCards(cards: [_card]));
+
+    final state = await load();
+
+    expect(state.phase, TodayCardsPhase.cards);
+    expect(state.cards.single.cardId, 'card-1');
+  });
+
+  test('카드가 없고 다음 지급일이 있으면 대기 상태다 (화면 11)', () async {
+    repository.today = Success(TodayCards(cards: const [], nextIssueAt: DateTime(2026, 9, 24, 7)));
+
+    final state = await load();
+
+    expect(state.phase, TodayCardsPhase.waiting);
+  });
+
+  test('후보 풀이 비었으면 대기가 아니라 "소개할 사람 없음"이다 (화면 11b)', () async {
+    repository.today = Success(
+      TodayCards(cards: const [], nextIssueAt: DateTime(2026, 9, 24, 7), candidatePoolEmpty: true),
+    );
+
+    final state = await load();
+
+    expect(state.phase, TodayCardsPhase.noCandidates);
+  });
+
+  test('실패하면 오류 문구를 들고 실패 상태가 된다', () async {
+    repository.today = const FailureResult(NetworkFailure());
+
+    final state = await load();
+
+    expect(state.phase, TodayCardsPhase.failed);
+    expect(state.errorMessage, const NetworkFailure().toDisplayMessage());
+  });
+
+  test('결정하면 목록을 다시 읽는다 — 카드가 사라진 화면을 남기지 않는다', () async {
+    repository.today = const Success(TodayCards(cards: [_card]));
+    await load();
+
+    await container.read(todayCardsViewModelProvider.notifier).markDecided();
+
+    expect(repository.fetchTodayCount, 2);
+  });
+}
+```
+
+```dart
+// frontend/test/matching/view/today_cards_screen_test.dart
+import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/matching/model/card_profile.dart';
+import 'package:campus_mate/matching/model/card_repository_provider.dart';
+import 'package:campus_mate/matching/model/daily_card.dart';
+import 'package:campus_mate/matching/view/today_cards_screen.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import '../model/fake_card_repository.dart';
+
+void main() {
+  Future<void> pump(WidgetTester tester, FakeCardRepository repository) async {
+    final container = ProviderContainer(
+      overrides: [cardRepositoryProvider.overrideWithValue(repository)],
+    );
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: TodayCardsScreen()),
+      ),
+    );
+    await tester.pump();
+  }
+
+  testWidgets('카드가 있으면 닉네임·나이와 학교 줄을 보여준다', (tester) async {
+    final repository = FakeCardRepository()
+      ..today = const Success(
+        TodayCards(
+          cards: [
+            DailyCard(
+              cardId: 'card-1',
+              source: CardSource.daily,
+              profile: CardProfile(
+                profileId: 't1',
+                nickname: '여우비',
+                age: 23,
+                university: '테스트대학교',
+                major: '컴퓨터공학과',
+              ),
+            ),
+          ],
+        ),
+      );
+
+    await pump(tester, repository);
+
+    expect(find.text('여우비, 23'), findsOneWidget);
+    expect(find.text('테스트대학교 · 컴퓨터공학과'), findsOneWidget);
+    expect(find.text('프로필 자세히 보기'), findsOneWidget);
+  });
+
+  testWidgets('후보 풀이 비면 11b 문구를 보여준다', (tester) async {
+    final repository = FakeCardRepository()
+      ..today = const Success(TodayCards(cards: [], candidatePoolEmpty: true));
+
+    await pump(tester, repository);
+
+    expect(find.text('지금은 소개할 사람이 없어요'), findsOneWidget);
+  });
+}
+```
+
+- [ ] **Step 2: 실패 확인**
+
+Run: `cd frontend && flutter test test/matching`
+Expected: FAIL — `today_cards_view_model.dart` 없음(컴파일 오류)
+
+- [ ] **Step 3: UiState 와 ViewModel 을 쓴다**
+
+```dart
+// frontend/lib/matching/viewmodel/today_cards_ui_state.dart
+import 'package:campus_mate/matching/model/daily_card.dart';
+
+/// 오늘 탭이 그릴 수 있는 다섯 모양. 화면은 이 값 하나로 갈린다.
+enum TodayCardsPhase {
+  /// 첫 조회 중 — `Skeleton · Card` 2장(화면 `Ukg21`)
+  loading,
+
+  /// 받은 카드가 있다(화면 `W0CjO`·`eDPkz`)
+  cards,
+
+  /// 오늘 몫은 끝났고 다음 지급일을 기다린다(화면 `i4VFS`)
+  waiting,
+
+  /// 후보 풀 자체가 비었다(화면 `iQZoa`)
+  noCandidates,
+
+  /// 조회 실패 — 다시 시도 버튼
+  failed,
+}
+
+class TodayCardsUiState {
+  const TodayCardsUiState({
+    this.phase = TodayCardsPhase.loading,
+    this.cards = const [],
+    this.nextIssueAt,
+    this.errorMessage,
+  });
+
+  final TodayCardsPhase phase;
+  final List<DailyCard> cards;
+  final DateTime? nextIssueAt;
+  final String? errorMessage;
+}
+```
+
+```dart
+// frontend/lib/matching/viewmodel/today_cards_view_model.dart
+import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/matching/model/card_repository_provider.dart';
+import 'package:campus_mate/matching/model/daily_card.dart';
+import 'package:campus_mate/matching/viewmodel/today_cards_ui_state.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+final todayCardsViewModelProvider =
+    NotifierProvider<TodayCardsViewModel, TodayCardsUiState>(TodayCardsViewModel.new);
+
+/// 오늘 탭(DESIGN.md 화면 10·11·11b)의 흐름을 맡는다.
+class TodayCardsViewModel extends Notifier<TodayCardsUiState> {
+  @override
+  TodayCardsUiState build() {
+    // 화면이 붙자마자 한 번 읽는다. 결과가 오기 전까지는 loading 이다.
+    Future.microtask(refresh);
+    return const TodayCardsUiState();
+  }
+
+  Future<void> refresh() async {
+    final result = await ref.read(cardRepositoryProvider).fetchToday();
+    state = result.when(
+      onSuccess: _fromToday,
+      onFailure: (failure) => TodayCardsUiState(
+        phase: TodayCardsPhase.failed,
+        errorMessage: failure.toDisplayMessage(),
+      ),
+    );
+  }
+
+  /// 10b 에서 결정하고 돌아왔을 때. 결정한 카드가 그대로 남아 있으면 안 된다.
+  Future<void> markDecided() => refresh();
+
+  TodayCardsUiState _fromToday(TodayCards today) {
+    if (today.cards.isNotEmpty) {
+      return TodayCardsUiState(
+        phase: TodayCardsPhase.cards,
+        cards: today.cards,
+        nextIssueAt: today.nextIssueAt,
+      );
+    }
+    return TodayCardsUiState(
+      // 후보가 아예 없으면 기다려도 오지 않는다 — 기다리라고 쓰지 않는다(화면 11b).
+      phase: today.candidatePoolEmpty ? TodayCardsPhase.noCandidates : TodayCardsPhase.waiting,
+      nextIssueAt: today.nextIssueAt,
+    );
+  }
+}
+```
+
+- [ ] **Step 4: 요약 카드 위젯을 쓴다**
+
+```dart
+// frontend/lib/matching/view/daily_card_summary.dart
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/core/theme/app_elevation.dart';
+import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/core/theme/app_radius.dart';
+import 'package:campus_mate/core/theme/app_spacing.dart';
+import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/matching/model/daily_card.dart';
+import 'package:flutter/material.dart';
+
+/// 요약 카드(DESIGN.md §8.1 `daily-card-summary`, pen `v26S7z`).
+/// 카드 전체가 탭 영역이고, 누르면 10b 상세로 이동한다 — 여기에 액션 바는 없다.
+class DailyCardSummary extends StatelessWidget {
+  const DailyCardSummary({required this.card, required this.onTap, super.key});
+
+  final DailyCard card;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceSoft,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          border: Border.all(color: AppColors.hairlineSoft),
+          boxShadow: AppElevation.card,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _BadgeRow(card: card),
+            const SizedBox(height: AppSpacing.sm),
+            _SummaryRow(card: card),
+            const SizedBox(height: AppSpacing.sm),
+            const Divider(height: 1, color: AppColors.hairlineSoft),
+            const SizedBox(height: AppSpacing.sm),
+            Row(
+              children: [
+                Text(
+                  '프로필 자세히 보기',
+                  style: AppTypography.label.copyWith(color: AppColors.primaryText),
+                ),
+                const Icon(AppIcons.chevronRight, size: 18, color: AppColors.primaryText),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// pen `kaRGO`. 이번 조각에서 켜지는 배지는 "학생 인증" 하나다 —
+/// 구매 카드 배지는 조각 7, "무료 카드 초기화" 배지는 다음 지급 시각을 카드마다 들고 있어야 해서 백로그다.
+class _BadgeRow extends StatelessWidget {
+  const _BadgeRow({required this.card});
+
+  final DailyCard card;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceInk,
+            borderRadius: BorderRadius.circular(AppRadius.pill),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(AppIcons.badgeCheck, size: 13, color: AppColors.onInk),
+              const SizedBox(width: AppSpacing.xxs),
+              Text('학생 인증', style: AppTypography.badge.copyWith(color: AppColors.onInk)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SummaryRow extends StatelessWidget {
+  const _SummaryRow({required this.card});
+
+  final DailyCard card;
+
+  @override
+  Widget build(BuildContext context) {
+    final profile = card.profile;
+    return Row(
+      children: [
+        _Avatar(url: profile.avatarUrl),
+        const SizedBox(width: AppSpacing.md),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(profile.nameWithAge, style: AppTypography.title.copyWith(color: AppColors.ink)),
+              Text(
+                profile.schoolLine,
+                style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 96dp 원형 + 흰 링 3px(§8.1). 아바타가 아직 없는 사람은 회색 원으로 둔다.
+class _Avatar extends StatelessWidget {
+  const _Avatar({required this.url});
+
+  final String? url;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 96,
+      height: 96,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: AppColors.surfaceStrong,
+        border: Border.all(color: AppColors.canvas, width: 3),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: url == null
+          ? const Icon(AppIcons.userRound, color: AppColors.disabled)
+          : CachedNetworkImage(imageUrl: url!, fit: BoxFit.cover),
+    );
+  }
+}
+```
+
+- [ ] **Step 5: 하단 내비를 쓴다**
+
+```dart
+// frontend/lib/common/widgets/app_bottom_nav.dart
+import 'package:campus_mate/core/router/app_routes.dart';
+import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+
+/// 하단 내비(DESIGN.md §8.9, pen `Migf0`). 탭 5개는 시안 그대로 두고,
+/// 조각 4 가 채우는 것은 "오늘"·"대화" 둘뿐이다 — 나머지는 자리 화면으로 간다.
+enum AppTab { main, today, community, chat, me }
+
+class AppBottomNav extends StatelessWidget {
+  const AppBottomNav({required this.current, super.key});
+
+  final AppTab current;
+
+  static const _routes = <AppTab, String>{
+    AppTab.main: AppRoutes.home,
+    AppTab.today: AppRoutes.today,
+    AppTab.community: AppRoutes.community,
+    AppTab.chat: AppRoutes.conversations,
+    AppTab.me: AppRoutes.myProfile,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return NavigationBar(
+      selectedIndex: AppTab.values.indexOf(current),
+      onDestinationSelected: (index) => context.go(_routes[AppTab.values[index]]!),
+      backgroundColor: AppColors.canvas,
+      indicatorColor: Colors.transparent,
+      labelTextStyle: WidgetStatePropertyAll<TextStyle>(
+        AppTypography.caption.copyWith(color: AppColors.muted),
+      ),
+      destinations: const [
+        NavigationDestination(icon: Icon(AppIcons.house), label: '메인'),
+        NavigationDestination(
+          icon: Icon(AppIcons.heart),
+          selectedIcon: Icon(AppIcons.heart, color: AppColors.primary),
+          label: '오늘',
+        ),
+        NavigationDestination(icon: Icon(AppIcons.users), label: '커뮤니티'),
+        NavigationDestination(icon: Icon(AppIcons.messageCircle), label: '대화'),
+        NavigationDestination(icon: Icon(AppIcons.userRound), label: '나'),
+      ],
+    );
+  }
+}
+```
+
+- [ ] **Step 6: 화면과 라우트를 쓴다**
+
+`app_routes.dart` 에 상수 6개를 더한다(`home` 은 09b 메인 자리 화면 그대로 둔다):
+
+```dart
+  /// 조각 4 — 오늘의 카드(화면 10), 카드 상세(10b), 매칭 성사(12), 대화(13), 설정(16)·알림(16d)
+  static const String today = '/today';
+  static const String cardDetail = '/cards'; // `/cards/:cardId`
+  static const String matchMade = '/match-made';
+  static const String conversations = '/conversations';
+  static const String settings = '/settings';
+  static const String notificationSettings = '/settings/notifications';
+
+  /// 아직 화면이 없는 탭 — 자리 화면으로 보낸다(커뮤니티 조각 6, 내 프로필 후속)
+  static const String community = '/community';
+  static const String myProfile = '/me';
+```
+
+`app_router.dart` 의 `_routes()` 에 더한다:
+
+```dart
+      GoRoute(path: AppRoutes.today, builder: (context, state) => const TodayCardsScreen()),
+      GoRoute(
+        path: '${AppRoutes.cardDetail}/:cardId',
+        builder: (context, state) => CardDetailScreen(cardId: state.pathParameters['cardId']!),
+      ),
+      GoRoute(path: AppRoutes.conversations, builder: (context, state) => const ConversationsScreen()),
+      GoRoute(path: AppRoutes.community, builder: (context, state) => const ComingSoonScreen(tab: AppTab.community)),
+      GoRoute(path: AppRoutes.myProfile, builder: (context, state) => const ComingSoonScreen(tab: AppTab.me)),
+```
+
+`placeholder_screens.dart` 의 `HomeScreen` 은 **오늘의 카드가 실물이 됐으므로 이름만 남기지 않고 지운다.**
+대신 아직 화면이 없는 탭을 위한 자리 화면 하나를 둔다:
+
+```dart
+/// 아직 만들지 않은 탭(메인 09b·커뮤니티·나). 하단 내비는 5탭을 그리므로 갈 곳은 있어야 한다.
+class ComingSoonScreen extends StatelessWidget {
+  const ComingSoonScreen({required this.tab, super.key});
+
+  final AppTab tab;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(child: Text('곧 만나요', style: AppTypography.headline)),
+      bottomNavigationBar: AppBottomNav(current: tab),
+    );
+  }
+}
+```
+
+`AppRoutes.home` 은 `ComingSoonScreen(tab: AppTab.main)` 으로 연결한다(09b 는 범위 밖 — Part A 가정 1).
+`auth_redirect.dart` 는 **고치지 않는다** — 온보딩을 마치면 `home` 으로 보내고, 거기서 사용자가 "오늘" 탭을
+누른다. 다만 `_isBeforeHome` 위 주석에 "홈 = 09b 자리 화면, 카드 화면은 `/today`" 한 줄을 더한다.
+
+```dart
+// frontend/lib/matching/view/today_cards_screen.dart (발췌)
+class TodayCardsScreen extends ConsumerWidget {
+  const TodayCardsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(todayCardsViewModelProvider);
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('오늘의 카드', style: AppTypography.navTitle),
+        actions: [
+          IconButton(
+            // 설정(16) 진입점. 내 프로필(15)이 생기면 그리로 옮긴다(Part A 가정 3).
+            icon: const Icon(AppIcons.settings),
+            onPressed: () => context.push(AppRoutes.settings),
+          ),
+        ],
+      ),
+      bottomNavigationBar: const AppBottomNav(current: AppTab.today),
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: ref.read(todayCardsViewModelProvider.notifier).refresh,
+          child: switch (state.phase) {
+            TodayCardsPhase.loading => const _SkeletonCards(),
+            TodayCardsPhase.cards => _CardList(cards: state.cards),
+            TodayCardsPhase.waiting => _WaitingPanel(nextIssueAt: state.nextIssueAt),
+            TodayCardsPhase.noCandidates => const _NoCandidatesPanel(),
+            TodayCardsPhase.failed => _FailedPanel(message: state.errorMessage),
+          },
+        ),
+      ),
+    );
+  }
+}
+```
+
+각 조각의 알맹이:
+
+- `_SkeletonCards` — `Container` 2장(328×231, `AppColors.surfaceStrong`, `AppRadius.lg`). 반짝임 애니메이션은
+  넣지 않는다(pen `x4FuK` 도 정적이다).
+- `_CardList` — `ListView` 에 `DailyCardSummary`. 탭하면
+  `context.push('${AppRoutes.cardDetail}/${card.cardId}')` 로 가고, **돌아오면**
+  `ref.read(todayCardsViewModelProvider.notifier).markDecided()` 를 부른다(`push` 의 `Future` 를 `await`).
+- `_WaitingPanel` — "오늘 카드는 확인했어요"(`AppTypography.title`) + `nextIssueAt` 을 한국어로 푼 부제
+  ("내일 오전 7시에 새로운 한 명이 도착해요" / 내일이 아니면 "목요일 오전 7시에 …") + 남은 시간
+  `hh:mm:ss`(`AppTypography.countdown`) + 마스코트 이미지.
+  카운트다운은 `_CountdownText` 라는 작은 `StatefulWidget` 이 `Timer.periodic(Duration(seconds: 1))` 로
+  1초마다 `setState` 한다. `dispose` 에서 타이머를 **반드시 취소**한다.
+- `_NoCandidatesPanel` — "지금은 소개할 사람이 없어요" + "지금 만날 수 있는 분들은 모두 소개해드렸어요.\n
+  새로운 사람이 들어오면 바로 알려드릴게요." 두 줄 + 마스코트. **버튼 2개(초대 링크·커뮤니티)는 넣지 않는다** —
+  초대는 조각 7, 커뮤니티는 조각 6 이라 지금 누르면 갈 곳이 없다(백로그).
+- `_FailedPanel` — 문구 + `AppButton(label: '다시 시도', …)`.
+
+- [ ] **Step 7: 통과 확인**
+
+Run: `cd frontend && flutter test && flutter analyze`
+Expected: 새 테스트 전부 passed · 기존 280개도 그대로 통과(`HomeScreen` 테스트는 이 Task 에서 지운 만큼
+줄어든다 — 줄어든 개수가 지운 케이스 수와 같은지 확인한다) · analyze 무경고
+
+- [ ] **Step 8: 커밋**
+
+```bash
+git add frontend/lib/matching frontend/lib/common/widgets/app_bottom_nav.dart \
+        frontend/lib/core/router frontend/test/matching frontend/test/core/router
+git commit -m "✨ feat(slice4): 오늘의 카드 화면과 하단 내비를 추가한다"
+```
+
+---
+
+### Task A4: 10b 상대 프로필 상세 · 수락/거절
+
+**Files:**
+- Create: `frontend/lib/matching/viewmodel/card_detail_ui_state.dart`
+- Create: `frontend/lib/matching/viewmodel/card_detail_view_model.dart`
+- Create: `frontend/lib/matching/view/card_detail_screen.dart`
+- Create: `frontend/lib/common/widgets/trait_bar.dart`
+- Create: `frontend/lib/common/widgets/card_action_bar.dart`
+- Test: `frontend/test/matching/viewmodel/card_detail_view_model_test.dart`
+- Test: `frontend/test/matching/view/card_detail_screen_test.dart`
+
+**Interfaces:**
+- Consumes: A2 `fetchCard` · `decide`, A3 `AppRoutes.cardDetail`
+- Produces: `cardDetailViewModelProvider(cardId)`(family) · `TraitBar` · `CardActionBar`
+
+**pen:** `TORAs` "10b 상대 프로필 상세 · 결정" — 앱바 `q5MtRk`, 본문 `ROQRv`(`daily-card-back`),
+성향 라벨 `cWQ08` "성향", 외모 타입 `MqLmZ`, 관심사 `wf9FY`, 특징 `CeA3f`, 이상형 특징 `EfI7z`.
+**이름 행 오른쪽 "사진 보기" 버튼은 2026-09-14 에 삭제됐다 — 다시 만들지 않는다**(§9 10b).
+
+- [ ] **Step 1: 실패하는 테스트를 쓴다**
+
+```dart
+// frontend/test/matching/viewmodel/card_detail_view_model_test.dart
+void main() {
+  late FakeCardRepository repository;
+  late ProviderContainer container;
+
+  setUp(() {
+    repository = FakeCardRepository()..card = Success(_detail);
+    container = ProviderContainer(
+      overrides: [cardRepositoryProvider.overrideWithValue(repository)],
+    );
+  });
+
+  tearDown(() => container.dispose());
+
+  test('상세를 읽어 상태에 담는다', () async {
+    await container.read(cardDetailViewModelProvider('card-1').notifier).load();
+
+    final state = container.read(cardDetailViewModelProvider('card-1'));
+    expect(state.detail!.profile.nickname, '여우비');
+    expect(state.survey.length, 9);
+  });
+
+  test('수락하면 수락으로 보내고 결정 완료 상태가 된다', () async {
+    final viewModel = container.read(cardDetailViewModelProvider('card-1').notifier);
+    await viewModel.load();
+
+    await viewModel.decide(CardDecision.accept);
+
+    expect(repository.decisions.single.decision, CardDecision.accept);
+    expect(container.read(cardDetailViewModelProvider('card-1')).decided, isTrue);
+  });
+
+  test('이미 결정한 카드(409)는 서버 문구를 그대로 보여준다', () async {
+    repository.writeResult = const FailureResult(ServerRejectedFailure('이미 결정한 카드예요'));
+    final viewModel = container.read(cardDetailViewModelProvider('card-1').notifier);
+    await viewModel.load();
+
+    await viewModel.decide(CardDecision.reject);
+
+    expect(
+      container.read(cardDetailViewModelProvider('card-1')).errorMessage,
+      '이미 결정한 카드예요',
+    );
+    expect(container.read(cardDetailViewModelProvider('card-1')).decided, isFalse);
+  });
+
+  test('보내는 동안에는 두 번 눌러도 한 번만 간다', () async {
+    final viewModel = container.read(cardDetailViewModelProvider('card-1').notifier);
+    await viewModel.load();
+
+    await Future.wait([viewModel.decide(CardDecision.accept), viewModel.decide(CardDecision.accept)]);
+
+    expect(repository.decisions.length, 1);
+  });
+}
+```
+
+(`_detail` 은 `CardDetail(cardId: 'card-1', profile: …, survey: List.filled(9, 0.5), animalType:
+AnimalType.cat, impressionType: ImpressionType.chic, religion: Religion.none, isSmoker: false,
+interests: ['등산'], myTraits: ['유머러스'], idealTraits: ['다정한'])` 로 파일 맨 위에 둔다.)
+
+- [ ] **Step 2: 실패 확인**
+
+Run: `cd frontend && flutter test test/matching/viewmodel/card_detail_view_model_test.dart`
+Expected: FAIL — `cardDetailViewModelProvider` 없음
+
+- [ ] **Step 3: ViewModel 을 쓴다**
+
+```dart
+// frontend/lib/matching/viewmodel/card_detail_view_model.dart
+final cardDetailViewModelProvider =
+    NotifierProvider.family<CardDetailViewModel, CardDetailUiState, String>(
+  CardDetailViewModel.new,
+);
+
+/// 10b 상세 화면(`TORAs`)의 흐름. 카드 하나마다 상태가 따로 산다.
+class CardDetailViewModel extends FamilyNotifier<CardDetailUiState, String> {
+  @override
+  CardDetailUiState build(String cardId) {
+    Future.microtask(load);
+    return const CardDetailUiState();
+  }
+
+  Future<void> load() async {
+    final result = await ref.read(cardRepositoryProvider).fetchCard(arg);
+    state = result.when(
+      onSuccess: (detail) => CardDetailUiState(detail: detail),
+      onFailure: (failure) => CardDetailUiState(errorMessage: failure.toDisplayMessage()),
+    );
+  }
+
+  Future<void> decide(CardDecision decision) async {
+    // 연타·중복 전송 방지. 수락이 두 번 가면 서버는 409 로 막지만 화면이 흔들린다.
+    if (state.isSubmitting || state.decided) {
+      return;
+    }
+    state = state.copyWith(isSubmitting: true, errorMessage: null);
+    final result = await ref.read(cardRepositoryProvider).decide(arg, decision);
+    state = result.when(
+      onSuccess: (_) => state.copyWith(isSubmitting: false, decided: true, decision: decision),
+      onFailure: (failure) =>
+          state.copyWith(isSubmitting: false, errorMessage: failure.toDisplayMessage()),
+    );
+  }
+}
+```
+
+`CardDetailUiState` 는 `detail` · `isSubmitting` · `decided` · `decision` · `errorMessage` 5개와
+`copyWith`, 그리고 화면이 쓰는 `List<double> get survey => detail?.survey ?? const []` 를 갖는다
+(조각 2 의 `*_ui_state.dart` 들과 같은 모양 — `errorMessage` 는 `copyWith` 에서 **덮어쓰기**다).
+
+- [ ] **Step 4: 표시 전용 성향 바와 액션 바를 쓴다**
+
+```dart
+// frontend/lib/common/widgets/trait_bar.dart
+/// 표시 전용 성향 바(DESIGN.md §8.1 10b — 입력용 `TraitSlider` 와 별개다).
+/// 라벨 고정폭 60 · 간격 8 · 바 150 은 시안 실측값이다(2026-09-13 라운드2 에서
+/// 라벨 64 → 60 으로 줄여 우측 라벨이 잘리던 버그를 고쳤다 — 되돌리지 않는다).
+class TraitBar extends StatelessWidget {
+  const TraitBar({
+    required this.leftLabel,
+    required this.rightLabel,
+    required this.value,
+    super.key,
+  });
+
+  final String leftLabel;
+  final String rightLabel;
+
+  /// -1.0 ~ 1.0
+  final double value;
+
+  @override
+  Widget build(BuildContext context) {
+    final ratio = ((value + 1) / 2).clamp(0.0, 1.0);
+    return Row(
+      children: [
+        SizedBox(
+          width: 60,
+          child: Text(
+            leftLabel,
+            style: AppTypography.caption.copyWith(color: AppColors.muted),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.xs),
+        SizedBox(
+          width: 150,
+          child: Stack(
+            alignment: Alignment.centerLeft,
+            children: [
+              Container(height: 2, color: AppColors.hairline),
+              Align(
+                alignment: Alignment(ratio * 2 - 1, 0),
+                child: Container(
+                  width: 12,
+                  height: 12,
+                  decoration: const BoxDecoration(
+                    color: AppColors.primary,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: AppSpacing.xs),
+        SizedBox(
+          width: 60,
+          child: Text(
+            rightLabel,
+            textAlign: TextAlign.right,
+            style: AppTypography.caption.copyWith(color: AppColors.muted),
+          ),
+        ),
+      ],
+    );
+  }
+}
+```
+
+```dart
+// frontend/lib/common/widgets/card_action_bar.dart
+/// 카드 액션 바(DESIGN.md §8.2). 거절 40% · 수락 60%, 높이 56, 사이 간격 `{space.sm}`.
+/// 수락이 시각적으로 더 크다 — 거절을 어렵게 만들지는 않는다.
+class CardActionBar extends StatelessWidget {
+  const CardActionBar({required this.onReject, required this.onAccept, super.key});
+
+  final VoidCallback? onReject;
+  final VoidCallback? onAccept;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Container(
+        decoration: const BoxDecoration(
+          color: AppColors.canvas,
+          border: Border(top: BorderSide(color: AppColors.hairline)),
+        ),
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Row(
+          children: [
+            Expanded(
+              flex: 40,
+              child: AppButton(
+                label: '거절',
+                onPressed: onReject,
+                variant: AppButtonVariant.secondary,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(flex: 60, child: AppButton(label: '수락', onPressed: onAccept)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+```
+
+- [ ] **Step 5: 상세 화면을 쓴다**
+
+`CardDetailScreen(cardId:)` 은 `Scaffold`:
+- `appBar` — `AppBar`(뒤로가기 기본), 제목 없음(§8.8 하위 화면 규격)
+- `bottomNavigationBar` — `CardActionBar`. `isSubmitting` 이면 두 버튼 모두 `null`(비활성)
+- `body` — `SingleChildScrollView` 안에 위에서부터:
+  1. 아바타 + 이름 `AppTypography.title.copyWith(fontSize: 22, fontWeight: FontWeight.w700)`
+     (§8.1 "22/700" — 토큰표 밖 드리프트라고 문서가 못 박아 둔 값이다)
+  2. Facts 행 — 학과 · 키 · MBTI · 학번 · 종교 · 흡연 6칸(3열 2행, `Wrap`). 값이 없는 칸은 "—"
+  3. "성향" 라벨 + `TraitBar` 9개. 라벨은 DESIGN.md §8.5 문항 표의 양 끝 라벨을 그대로 쓴다:
+
+```dart
+const _axisLabels = <({String left, String right})>[
+  (left: '집이 편해요', right: '밖이 좋아요'),
+  (left: '낯을 많이 가려요', right: '금방 친해져요'),
+  (left: '즉흥적이에요', right: '계획적이에요'),
+  (left: '필요할 때만 해요', right: '자주 연락해요'),
+  (left: '담백해요', right: '표현이 풍부해요'),
+  (left: '거의 안 마셔요', right: '자주 즐겨요'),
+  (left: '관심 없어요', right: '꾸준히 해요'),
+  (left: '천천히요', right: '빠르게요'),
+  (left: '익숙한 게 편해요', right: '새로운 걸 찾아요'),
+];
+```
+
+  4. "외모 타입" — `AnimalType.iconAsset` 이미지 48dp + `animalType.label` · `impressionType.label`
+  5. "관심사" · "특징" · "이상형 특징" — `Wrap` + `SelectChip`(조각 2 `common/widgets/select_chip.dart`
+     재사용, 선택 상태 없이 표시만)
+  6. 자기소개 전문(`bio`) · "이런 사람이 좋아요"(`idealNote`)
+  7. 신고/차단 진입점은 **조각 6** 이다 — 지금 그리지 않는다
+
+결정이 끝나면(`decided`) `Navigator.pop` 한다. **수락이 쌍방이어도 이 화면에서는 매칭 화면으로 가지
+않는다** — 상대의 수락은 나중에 오고, 매칭 성사(12)는 받은 수락함(A6)에서만 발생한다.
+
+- [ ] **Step 6: 통과 확인**
+
+Run: `cd frontend && flutter test test/matching && flutter analyze`
+
+- [ ] **Step 7: 커밋**
+
+```bash
+git add frontend/lib/matching frontend/lib/common/widgets/trait_bar.dart \
+        frontend/lib/common/widgets/card_action_bar.dart frontend/test/matching
+git commit -m "✨ feat(slice4): 카드 상세 화면과 수락·거절을 추가한다"
+```
+
+---
+
+### Task A5: 12 매칭 성사 화면
+
+**Files:**
+- Create: `frontend/lib/matching/view/match_made_screen.dart`
+- Modify: `frontend/lib/core/router/app_router.dart`
+- Test: `frontend/test/matching/view/match_made_screen_test.dart`
+
+**Interfaces:**
+- Consumes: A6 의 `AcceptanceOutcome`(닉네임과 함께 `extra` 로 넘어온다)
+- Produces: `AppRoutes.matchMade` — A6 과 A7(푸시 `route=match`)이 둘 다 이리로 보낸다
+
+**pen:** `UFNSi` "12 수락 완료 매칭 성사" — 마스코트 `sMv9a`(ref `i5Ud2`),
+헤드라인 `T5kQ4x` "매칭됐어요!", 서브텍스트 `lPoQb` "{닉네임} 님도 수락했어요.\n대화를 시작해 보세요.",
+CTA `U1dLF4`(ref `HE8FZ`), 아래 텍스트 버튼 `LMHxg` "나중에 확인하기".
+
+- [ ] **Step 1: 실패하는 테스트를 쓴다**
+
+```dart
+// frontend/test/matching/view/match_made_screen_test.dart
+testWidgets('상대 닉네임을 넣은 두 줄 서브텍스트를 보여준다', (tester) async {
+  await tester.pumpWidget(
+    const ProviderScope(child: MaterialApp(home: MatchMadeScreen(nickname: '토끼'))),
+  );
+
+  expect(find.text('매칭됐어요!'), findsOneWidget);
+  expect(find.text('토끼 님도 수락했어요.\n대화를 시작해 보세요.'), findsOneWidget);
+  expect(find.text('나중에 확인하기'), findsOneWidget);
+});
+```
+
+- [ ] **Step 2: 실패 확인**
+
+Run: `cd frontend && flutter test test/matching/view/match_made_screen_test.dart`
+Expected: FAIL — `MatchMadeScreen` 없음
+
+- [ ] **Step 3: 화면을 쓴다**
+
+```dart
+/// 매칭 성사(DESIGN.md 화면 12, pen `UFNSi`). 채팅방은 조각 5 라 "대화 시작"은
+/// 대화 목록(13)으로 보낸다 — 아직 방이 없다.
+class MatchMadeScreen extends StatelessWidget {
+  const MatchMadeScreen({required this.nickname, super.key});
+
+  final String nickname;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Image.asset('assets/images/mascot-female-reward-v1.png', width: 120),
+              const SizedBox(height: AppSpacing.lg),
+              Text('매칭됐어요!', style: AppTypography.headline.copyWith(color: AppColors.ink)),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                '$nickname 님도 수락했어요.\n대화를 시작해 보세요.',
+                textAlign: TextAlign.center,
+                style: AppTypography.body.copyWith(color: AppColors.muted),
+              ),
+              const SizedBox(height: 40),
+              AppButton(
+                label: '대화 시작하기',
+                onPressed: () => context.go(AppRoutes.conversations),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              AppButton(
+                label: '나중에 확인하기',
+                variant: AppButtonVariant.text,
+                onPressed: () => context.go(AppRoutes.today),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+```
+
+**마스코트 자산 확인:** `assets/images/` 에 `mascot-female-reward` 계열 파일이 실제로 있는지 먼저 본다
+(`ls frontend/assets/images | grep mascot`). 없으면 **이미지를 새로 만들지 말고** 그 자리를 비운 채
+헤드라인부터 그린 뒤 대장에게 보고한다(자산은 디자인 세션 몫이다).
+
+라우트:
+
+```dart
+      GoRoute(
+        path: AppRoutes.matchMade,
+        builder: (context, state) => MatchMadeScreen(nickname: state.extra as String? ?? '상대'),
+      ),
+```
+
+- [ ] **Step 4: 통과 확인**
+
+Run: `cd frontend && flutter test test/matching/view/match_made_screen_test.dart`
+
+- [ ] **Step 5: 커밋**
+
+```bash
+git add frontend/lib/matching/view/match_made_screen.dart frontend/lib/core/router/app_router.dart \
+        frontend/test/matching/view/match_made_screen_test.dart
+git commit -m "✨ feat(slice4): 매칭 성사 화면을 추가한다"
+```
+
+---
+
+### Task A6: 받은 수락함 (13 대화 화면 상단 sticky 섹션)
+
+**Files:**
+- Create: `frontend/lib/matching/viewmodel/acceptances_ui_state.dart`
+- Create: `frontend/lib/matching/viewmodel/acceptances_view_model.dart`
+- Create: `frontend/lib/matching/view/conversations_screen.dart`
+- Create: `frontend/lib/matching/view/acceptance_row.dart`
+- Test: `frontend/test/matching/viewmodel/acceptances_view_model_test.dart`
+- Test: `frontend/test/matching/view/conversations_screen_test.dart`
+
+**Interfaces:**
+- Consumes: A2 `fetchAcceptances` · `respondToAcceptance`, A5 `AppRoutes.matchMade`
+- Produces: `acceptancesViewModelProvider`(A7 의 푸시 수신이 `refresh()` 를 부른다)
+
+**pen:** `CeqVY` "13 대화" — 섹션 헤더 `P5A282`(ref `Ymhdq`), 수락 대기 행 `XCN1f`·`Q7zmGt`,
+"대화 중" 헤더 `Yjs6e`, 채팅 행 `H0LiJ3`(ref `L061P2`). 빈 상태 `LD7Kb`, 로딩 `lpsOn`.
+행 구조(§8.6 `acceptance-row`): **윗단 = 아바타 44dp + 이름·나이(`pbmGF`) + 대학·학과(`Kzv6q`),
+아랫단 = 거절(`HCUo1`, 폭 104) + 수락하고 대화 시작(`T643ZR`, 나머지 폭), 둘 다 높이 44dp.**
+배경 `{colors.primary-wash}`. 버튼을 이름과 한 줄에 두지 않는다(학과명이 길면 어긋난다 — 시안에서
+확인된 실제 문제다).
+
+**이번 조각은 "수락 대기" 섹션만 그린다.** "대화 중" 목록(`chat-list-row`)은 조각 5 다 —
+§8.6 의 "건수가 0이면 섹션 전체를 그리지 않는다" 규칙을 그대로 지키면 지금은 그려지지 않는다.
+
+- [ ] **Step 1: 실패하는 테스트를 쓴다**
+
+```dart
+// frontend/test/matching/viewmodel/acceptances_view_model_test.dart
+// 파일 맨 위에 둔다(다른 테스트와 같은 setUp/tearDown 모양):
+//   const _acceptance = Acceptance(
+//     cardId: 'card-1',
+//     profile: CardProfile(
+//       profileId: 'p1', nickname: '초코라떼', age: 25,
+//       university: '고려대학교', major: '경영학과',
+//     ),
+//   );
+test('수락함을 읽어 목록에 담는다', () async {
+  repository.acceptances = const Success([_acceptance]);
+
+  await container.read(acceptancesViewModelProvider.notifier).refresh();
+
+  expect(container.read(acceptancesViewModelProvider).acceptances.single.cardId, 'card-1');
+});
+
+test('수락하면 매칭 결과를 상태에 올린다 — 화면이 12로 넘어갈 재료다', () async {
+  repository.acceptances = const Success([_acceptance]);
+  repository.acceptanceOutcome = const Success(AcceptanceOutcome(matched: true, matchId: 'm-1'));
+  final viewModel = container.read(acceptancesViewModelProvider.notifier);
+  await viewModel.refresh();
+
+  await viewModel.respond('card-1', CardDecision.accept);
+
+  final state = container.read(acceptancesViewModelProvider);
+  expect(state.matchedNickname, '초코라떼');
+  expect(state.acceptances, isEmpty);
+});
+
+test('거절은 목록에서만 사라지고 매칭 화면으로 가지 않는다', () async {
+  repository.acceptances = const Success([_acceptance]);
+  final viewModel = container.read(acceptancesViewModelProvider.notifier);
+  await viewModel.refresh();
+
+  await viewModel.respond('card-1', CardDecision.reject);
+
+  final state = container.read(acceptancesViewModelProvider);
+  expect(state.matchedNickname, isNull);
+  expect(state.acceptances, isEmpty);
+});
+
+test('기한이 지난 수락(410)은 문구를 보여주고 목록을 다시 읽는다', () async {
+  repository.acceptances = const Success([_acceptance]);
+  final viewModel = container.read(acceptancesViewModelProvider.notifier);
+  await viewModel.refresh();
+  repository.acceptanceOutcome = const FailureResult(ServerRejectedFailure('기한이 지났어요'));
+  repository.acceptances = const Success([]);
+
+  await viewModel.respond('card-1', CardDecision.accept);
+
+  expect(container.read(acceptancesViewModelProvider).errorMessage, '기한이 지났어요');
+  expect(container.read(acceptancesViewModelProvider).acceptances, isEmpty);
+});
+```
+
+- [ ] **Step 2: 실패 확인**
+
+Run: `cd frontend && flutter test test/matching/viewmodel/acceptances_view_model_test.dart`
+Expected: FAIL — `acceptancesViewModelProvider` 없음
+
+- [ ] **Step 3: ViewModel 을 쓴다**
+
+```dart
+final acceptancesViewModelProvider =
+    NotifierProvider<AcceptancesViewModel, AcceptancesUiState>(AcceptancesViewModel.new);
+
+/// 받은 수락함(DESIGN.md 화면 13 상단 섹션). 7일 만료 판정은 서버가 하고 앱은 목록을 그대로 그린다.
+class AcceptancesViewModel extends Notifier<AcceptancesUiState> {
+  @override
+  AcceptancesUiState build() {
+    Future.microtask(refresh);
+    return const AcceptancesUiState();
+  }
+
+  Future<void> refresh() async {
+    final result = await ref.read(cardRepositoryProvider).fetchAcceptances();
+    state = result.when(
+      onSuccess: (list) => state.copyWith(
+        isLoading: false,
+        acceptances: list,
+        errorMessage: null,
+      ),
+      onFailure: (failure) =>
+          state.copyWith(isLoading: false, errorMessage: failure.toDisplayMessage()),
+    );
+  }
+
+  Future<void> respond(String cardId, CardDecision decision) async {
+    if (state.respondingCardId != null) {
+      return;
+    }
+    // 화면이 12 로 넘어간 뒤 뒤로 돌아와도 같은 매칭이 또 뜨지 않게 미리 비운다.
+    final nickname = state.nicknameOf(cardId);
+    state = state.copyWith(respondingCardId: cardId, errorMessage: null);
+    final result = await ref.read(cardRepositoryProvider).respondToAcceptance(cardId, decision);
+    state = result.when(
+      onSuccess: (outcome) => state.copyWith(
+        respondingCardId: null,
+        matchedNickname: outcome.matched ? nickname : null,
+      ),
+      onFailure: (failure) =>
+          state.copyWith(respondingCardId: null, errorMessage: failure.toDisplayMessage()),
+    );
+    // 성공이든 실패든(410 만료 포함) 목록은 서버 기준으로 다시 맞춘다.
+    await refresh();
+  }
+
+  /// 12 화면으로 한 번 보낸 뒤에는 상태에서 지운다 — 목록에 돌아왔을 때 또 튀지 않게.
+  void consumeMatched() => state = state.copyWith(matchedNickname: null);
+}
+```
+
+`AcceptancesUiState` 는 `isLoading` · `acceptances` · `respondingCardId` · `matchedNickname` ·
+`errorMessage` 와 `copyWith`, `String? nicknameOf(String cardId)` 를 갖는다. `matchedNickname` 과
+`errorMessage` 는 `copyWith` 에서 **덮어쓰기**(null 로도 지워져야 한다).
+
+- [ ] **Step 4: 화면을 쓴다**
+
+`ConversationsScreen` 은 `ConsumerWidget`:
+- `appBar` — 제목 "대화"(pen `PjvNd`)
+- `bottomNavigationBar` — `AppBottomNav(current: AppTab.chat)`
+- `body` — `isLoading` 이면 스켈레톤 2행, 목록이 비면 `LD7Kb` 빈 상태 문구,
+  아니면 `CustomScrollView` + `SliverPersistentHeader(pinned: true)` 에 섹션 헤더
+  ("수락 대기" + 우측 "N명" — §8.6 은 "3 / 5" 같은 분수 표기를 금지한다) + `SliverList` 에 `AcceptanceRow`
+- `ref.listen(acceptancesViewModelProvider, …)` 으로 `matchedNickname` 이 생기면
+  `consumeMatched()` 를 부르고 `context.push(AppRoutes.matchMade, extra: nickname)` 한다
+
+```dart
+// frontend/lib/matching/view/acceptance_row.dart (요지)
+Container(
+  decoration: BoxDecoration(
+    color: AppColors.primaryWash,
+    borderRadius: BorderRadius.circular(AppRadius.md),
+  ),
+  padding: const EdgeInsets.all(AppSpacing.sm),
+  child: Column(
+    children: [
+      Row(children: [_avatar44, Expanded(child: _nameAndSchool)]),      // 윗단
+      const SizedBox(height: AppSpacing.xs),
+      Row(                                                              // 아랫단
+        children: [
+          SizedBox(width: 104, height: 44, child: AppButton(label: '거절', …)),
+          const SizedBox(width: AppSpacing.xs),
+          Expanded(child: SizedBox(height: 44, child: AppButton(label: '수락하고 대화 시작', …))),
+        ],
+      ),
+    ],
+  ),
+)
+```
+
+`AppButton` 은 높이가 56 고정이라 44dp 행에서는 `SizedBox` 로 감싸도 넘친다 —
+**`AppButton` 에 `height` 선택 인자(기본 56)를 더해** 44 를 넘긴다(§8.3 "인라인 버튼 높이 변형"이 이미
+44dp 를 인정한다). `frontend/test/common/widgets/app_button_test.dart` 에 높이 케이스 한 줄을 더한다.
+
+- [ ] **Step 5: 통과 확인**
+
+Run: `cd frontend && flutter test && flutter analyze`
+
+- [ ] **Step 6: 커밋**
+
+```bash
+git add frontend/lib/matching frontend/lib/common/widgets/app_button.dart \
+        frontend/test/matching frontend/test/common/widgets/app_button_test.dart
+git commit -m "✨ feat(slice4): 받은 수락함과 대화 목록 화면을 추가한다"
+```
+
+---
+
+### Task A7: 푸시 토큰 등록 · 수신 · `data.route` 로 화면 열기
+
+**Files:**
+- Create: `frontend/lib/core/push/push_route.dart`
+- Create: `frontend/lib/core/push/push_messaging.dart`
+- Create: `frontend/lib/core/push/push_registrar.dart`
+- Create: `frontend/lib/core/push/push_provider.dart`
+- Modify: `frontend/lib/main.dart`
+- Test: `frontend/test/core/push/push_route_test.dart`
+- Test: `frontend/test/core/push/push_registrar_test.dart`
+
+**Interfaces:**
+- Consumes: A2 `registerPushToken`·`deletePushToken`, Task B3 의 `data` 페이로드
+  (`route` = `daily_card` · `acceptances` · `match`)
+- Produces: `PushRoute.resolve(Map<String, dynamic>)` → 경로 문자열(모르면 `null`) ·
+  `PushMessaging`(인터페이스) · `PushRegistrar` · `pushRegistrarProvider`
+  (앱 시작·로그인 시 `start()`, 로그아웃 시 `stop()`)
+
+- [ ] **Step 1: 실패하는 테스트를 쓴다 — 경로 변환은 순수 함수다**
+
+```dart
+// frontend/test/core/push/push_route_test.dart
+void main() {
+  test('카드 도착 알림은 오늘 탭으로 간다', () {
+    expect(PushRoute.resolve({'route': 'daily_card', 'card_id': 'c1'}), AppRoutes.today);
+  });
+
+  test('받은 수락 알림은 대화 목록으로 간다', () {
+    expect(PushRoute.resolve({'route': 'acceptances', 'card_id': 'c1'}), AppRoutes.conversations);
+  });
+
+  test('매칭 성사 알림도 대화 목록으로 간다 — 채팅방은 조각 5다', () {
+    expect(PushRoute.resolve({'route': 'match', 'match_id': 'm1'}), AppRoutes.conversations);
+  });
+
+  test('모르는 route 는 아무 데도 보내지 않는다', () {
+    expect(PushRoute.resolve({'route': 'new_message'}), isNull);
+    expect(PushRoute.resolve(const {}), isNull);
+  });
+}
+```
+
+```dart
+// frontend/test/core/push/push_registrar_test.dart
+test('토큰을 받으면 서버에 등록한다', () async {
+  final messaging = FakePushMessaging(token: 'tok-1');
+  final repository = FakeCardRepository();
+
+  await PushRegistrar(messaging, repository).start();
+
+  expect(repository.registeredTokens, ['tok-1']);
+});
+
+test('권한을 거부하면 토큰을 묻지도 않는다', () async {
+  final messaging = FakePushMessaging(token: 'tok-1', granted: false);
+  final repository = FakeCardRepository();
+
+  await PushRegistrar(messaging, repository).start();
+
+  expect(repository.registeredTokens, isEmpty);
+});
+
+test('토큰이 갱신되면 새 토큰도 등록한다', () async {
+  final messaging = FakePushMessaging(token: 'tok-1');
+  final repository = FakeCardRepository();
+  await PushRegistrar(messaging, repository).start();
+
+  messaging.emitRefreshedToken('tok-2');
+  await Future<void>.delayed(Duration.zero);
+
+  expect(repository.registeredTokens, ['tok-1', 'tok-2']);
+});
+
+test('로그아웃하면 그 기기의 토큰을 지운다 — 다음 사람에게 내 알림이 가면 안 된다', () async {
+  final messaging = FakePushMessaging(token: 'tok-1');
+  final repository = FakeCardRepository();
+  final registrar = PushRegistrar(messaging, repository);
+  await registrar.start();
+
+  await registrar.stop();
+
+  expect(repository.deletedTokens, ['tok-1']);
+});
+```
+
+`FakePushMessaging` 은 같은 폴더(`test/core/push/fake_push_messaging.dart`)에 둔다:
+
+```dart
+class FakePushMessaging implements PushMessaging {
+  FakePushMessaging({required this.token, this.granted = true});
+
+  final String token;
+  final bool granted;
+  final StreamController<String> _refresh = StreamController<String>.broadcast();
+
+  void emitRefreshedToken(String value) => _refresh.add(value);
+
+  @override
+  Future<bool> requestPermission() async => granted;
+
+  @override
+  Future<String?> getToken() async => token;
+
+  @override
+  Stream<String> get onTokenRefresh => _refresh.stream;
+
+  @override
+  Stream<Map<String, dynamic>> get onMessage => const Stream.empty();
+
+  @override
+  Stream<Map<String, dynamic>> get onMessageOpenedApp => const Stream.empty();
+
+  @override
+  Future<Map<String, dynamic>?> initialMessage() async => null;
+}
+```
+
+- [ ] **Step 2: 실패 확인**
+
+Run: `cd frontend && flutter test test/core/push`
+Expected: FAIL — `push_route.dart` 없음
+
+- [ ] **Step 3: 경로 변환과 얇은 래퍼를 쓴다**
+
+```dart
+// frontend/lib/core/push/push_route.dart
+/// 푸시 `data.route`(Task B3)를 앱 경로로 바꾼다.
+/// 모르는 값이면 null 을 돌려주고 **아무 데도 보내지 않는다** — 알림 하나 때문에
+/// 사용자가 보던 화면을 빼앗지 않는다.
+abstract final class PushRoute {
+  static String? resolve(Map<String, dynamic> data) => switch (data['route']) {
+        'daily_card' => AppRoutes.today,
+        // 받은 수락도 매칭 성사도 지금은 대화 목록(13)이 종착지다. 채팅방은 조각 5.
+        'acceptances' || 'match' => AppRoutes.conversations,
+        _ => null,
+      };
+}
+```
+
+```dart
+// frontend/lib/core/push/push_messaging.dart
+/// `FirebaseMessaging` 을 감싼 얇은 인터페이스. 테스트가 Firebase 를 켜지 않아도 되게 한다
+/// (조각 1b 의 `FaceDetector` 래퍼와 같은 이유).
+abstract interface class PushMessaging {
+  Future<bool> requestPermission();
+  Future<String?> getToken();
+  Stream<String> get onTokenRefresh;
+  Stream<Map<String, dynamic>> get onMessage;
+  Stream<Map<String, dynamic>> get onMessageOpenedApp;
+  Future<Map<String, dynamic>?> initialMessage();
+}
+
+class FirebasePushMessaging implements PushMessaging {
+  FirebasePushMessaging(this._messaging);
+
+  final FirebaseMessaging _messaging;
+
+  @override
+  Future<bool> requestPermission() async {
+    final settings = await _messaging.requestPermission();
+    return settings.authorizationStatus == AuthorizationStatus.authorized ||
+        settings.authorizationStatus == AuthorizationStatus.provisional;
+  }
+
+  @override
+  Future<String?> getToken() => _messaging.getToken();
+
+  @override
+  Stream<String> get onTokenRefresh => _messaging.onTokenRefresh;
+
+  @override
+  Stream<Map<String, dynamic>> get onMessage =>
+      FirebaseMessaging.onMessage.map((message) => message.data);
+
+  @override
+  Stream<Map<String, dynamic>> get onMessageOpenedApp =>
+      FirebaseMessaging.onMessageOpenedApp.map((message) => message.data);
+
+  @override
+  Future<Map<String, dynamic>?> initialMessage() async =>
+      (await _messaging.getInitialMessage())?.data;
+}
+```
+
+```dart
+// frontend/lib/core/push/push_registrar.dart
+/// 토큰 등록·해제와 갱신 구독. 앱이 켜질 때 한 번 [start], 로그아웃할 때 [stop].
+class PushRegistrar {
+  PushRegistrar(this._messaging, this._repository);
+
+  final PushMessaging _messaging;
+  final CardRepository _repository;
+
+  StreamSubscription<String>? _refreshSubscription;
+  String? _registeredToken;
+
+  Future<void> start() async {
+    if (!await _messaging.requestPermission()) {
+      // 거부해도 앱은 그대로 쓴다. 알림 설정 화면(16d)에서 다시 켤 수 있다.
+      return;
+    }
+    final token = await _messaging.getToken();
+    if (token != null) {
+      await _register(token);
+    }
+    _refreshSubscription ??= _messaging.onTokenRefresh.listen(_register);
+  }
+
+  Future<void> _register(String token) async {
+    _registeredToken = token;
+    await _repository.registerPushToken(token);
+  }
+
+  /// 로그아웃. 토큰을 남겨 두면 다음에 로그인한 사람에게 내 알림이 간다.
+  Future<void> stop() async {
+    await _refreshSubscription?.cancel();
+    _refreshSubscription = null;
+    final token = _registeredToken;
+    _registeredToken = null;
+    if (token != null) {
+      await _repository.deletePushToken(token);
+    }
+  }
+}
+```
+
+- [ ] **Step 4: 앱에 배선한다**
+
+`push_provider.dart` 에 `pushMessagingProvider`(실제 `FirebasePushMessaging`)와
+`pushRegistrarProvider` 를 둔다. `main.dart` 의 `_CampusMateAppState` 에서:
+
+- 로그인 상태가 되면 `ref.read(pushRegistrarProvider).start()`, 로그아웃하면 `stop()`
+  (`_refreshVerificationGate` 가 이미 로그인·로그아웃마다 불리므로 **그 안에 두 줄만 더한다**)
+- `onMessage`(앱이 켜져 있을 때) — 화면을 빼앗지 않는다. `route` 를 보고
+  `todayCardsViewModelProvider.refresh()` 또는 `acceptancesViewModelProvider.refresh()` 만 부른다
+  (계획서 맨 위 "새 의존성" 표가 `flutter_local_notifications` 를 안 쓰기로 한 이유가 이것이다)
+- `onMessageOpenedApp` · `initialMessage()`(알림을 눌러서 열었을 때) —
+  `PushRoute.resolve(data)` 가 null 이 아니면 `_router.go(path)`
+
+백그라운드 수신 핸들러는 **만들지 않는다.** 서버가 `notification` 페이로드를 함께 보내므로 앱이 꺼져
+있을 때의 알림은 안드로이드 시스템이 직접 띄운다(Task B3 `FcmSender.send`).
+
+- [ ] **Step 5: 통과 확인**
+
+Run: `cd frontend && flutter test test/core/push && flutter analyze`
+Expected: 8 passed · 무경고
+
+- [ ] **Step 6: 커밋**
+
+```bash
+git add frontend/lib/core/push frontend/lib/main.dart frontend/test/core/push
+git commit -m "🔔 feat(slice4): 푸시 토큰 등록과 알림 열기 처리를 추가한다"
+```
+
+---
+
+### Task A8: 알림 설정(16d) · 매칭 일시중지 · Part A PR
+
+**Files:**
+- Create: `frontend/lib/matching/viewmodel/notification_settings_ui_state.dart`
+- Create: `frontend/lib/matching/viewmodel/notification_settings_view_model.dart`
+- Create: `frontend/lib/matching/view/notification_settings_screen.dart`
+- Create: `frontend/lib/matching/view/settings_screen.dart`
+- Modify: `frontend/lib/core/router/app_router.dart`
+- Test: `frontend/test/matching/viewmodel/notification_settings_view_model_test.dart`
+- Test: `frontend/test/matching/view/notification_settings_screen_test.dart`
+
+**Interfaces:**
+- Consumes: A2 `fetchNotificationPreferences` · `updateNotificationPreference` · `setMatchingPaused`
+- Produces: `AppRoutes.settings` · `AppRoutes.notificationSettings`
+
+**pen:** `NMgCa` "16d 알림 설정" — 앱바 `zViPy`(제목 `HAIO1` "알림"), 목록 `UgGYL`.
+섹션 4개와 그 안의 행(전부 `iF24N MatchToggle`):
+
+| 섹션 | 노드 | 행 |
+| --- | --- | --- |
+| 매칭 | `imosa` / 카드 `c1W9t` | `ojaTK` 오늘의 카드 도착(`card_arrived`) · `Q7FGf` 받은 수락(`acceptance_received`) · `ZZmwy` 매칭 성립(`match_made`) |
+| 대화 | `SLbwX` / `i1tdWe` | `D06sT` 새 메시지(`new_message`) · `IrYuh` 신뢰 확인 리마인드(`trust_reminder`) |
+| 지인 리뷰·커뮤니티 | `oGFQl` / `b7JTyy` | `azFlB` 새 지인 리뷰(`new_friend_review`) · `KjGQd` 내 글의 새 댓글 |
+| 기타 | `vpI3J` / `BGX6r` | `HokjM` 혜택·이벤트 소식(`marketing`, 기본 꺼짐 `C1OIUA`) · `L7yfzj` 방해 금지 시간(`quiet_hours`, 값 표시 `EMS3s` "22:00 ~ 08:00") |
+
+**노드 id 정정:** 계획서 "실행 전 확인 사항" 6번이 카드 도착 스위치를 `WUdhM` 로 적었지만, pen 실측 id 는
+**`ojaTK`**(행) / `ZXJIi`(토글 인스턴스)다. 6번 항목 본문은 그대로 두고 여기에 정정만 적는다.
+
+**행이 8개인데 서버 스위치는 7개다.** "내 글의 새 댓글"(`KjGQd`)은 `notification_settings` 에 대응 컬럼이
+없다(Task C4 표 참조 — 커뮤니티는 조각 6). **이 행은 이번 조각에서 그리지 않는다.** 방해 금지 시간은
+켜고 끄는 스위치이고 시간대(22:00~08:00)는 고정값이라 값만 표시한다(시간 고르기는 백로그).
+
+- [ ] **Step 1: 실패하는 테스트를 쓴다**
+
+```dart
+test('행이 없는 사람은 전부 켜짐, 마케팅만 꺼짐으로 그린다', () async {
+  repository.preferences = const Success(NotificationPreferences());
+
+  await container.read(notificationSettingsViewModelProvider.notifier).refresh();
+
+  final state = container.read(notificationSettingsViewModelProvider);
+  expect(state.preferences.cardArrived, isTrue);
+  expect(state.preferences.marketing, isFalse);
+});
+
+test('스위치를 끄면 그 값만 서버로 간다', () async {
+  await container.read(notificationSettingsViewModelProvider.notifier).refresh();
+
+  await container.read(notificationSettingsViewModelProvider.notifier)
+      .toggle('card_arrived', false);
+
+  expect(repository.preferenceUpdates.single, (key: 'card_arrived', value: false));
+});
+
+test('저장에 실패하면 스위치를 원래대로 되돌린다', () async {
+  await container.read(notificationSettingsViewModelProvider.notifier).refresh();
+  repository.writeResult = const FailureResult(NetworkFailure());
+
+  await container.read(notificationSettingsViewModelProvider.notifier)
+      .toggle('match_made', false);
+
+  final state = container.read(notificationSettingsViewModelProvider);
+  expect(state.preferences.matchMade, isTrue);
+  expect(state.errorMessage, const NetworkFailure().toDisplayMessage());
+});
+
+test('매칭 일시중지는 프로필 쪽으로 간다', () async {
+  await container.read(notificationSettingsViewModelProvider.notifier).setPaused(true);
+
+  expect(repository.pausedValue, isTrue);
+});
+```
+
+- [ ] **Step 2: 실패 확인**
+
+Run: `cd frontend && flutter test test/matching/viewmodel/notification_settings_view_model_test.dart`
+Expected: FAIL — provider 없음
+
+- [ ] **Step 3: ViewModel 을 쓴다**
+
+```dart
+/// 알림 설정(화면 16d)과 매칭 일시중지(화면 16 `TLrmq`).
+/// 스위치는 **먼저 화면에서 바꾸고 실패하면 되돌린다** — 토글은 즉시 반응해야 한다.
+class NotificationSettingsViewModel extends Notifier<NotificationSettingsUiState> {
+  @override
+  NotificationSettingsUiState build() {
+    Future.microtask(refresh);
+    return const NotificationSettingsUiState();
+  }
+
+  Future<void> refresh() async {
+    final result = await ref.read(cardRepositoryProvider).fetchNotificationPreferences();
+    state = result.when(
+      onSuccess: (preferences) => state.copyWith(isLoading: false, preferences: preferences),
+      onFailure: (failure) =>
+          state.copyWith(isLoading: false, errorMessage: failure.toDisplayMessage()),
+    );
+  }
+
+  Future<void> toggle(String key, bool value) async {
+    final previous = state.preferences;
+    state = state.copyWith(preferences: previous.withValue(key, value), errorMessage: null);
+    final result = await ref.read(cardRepositoryProvider).updateNotificationPreference(key, value);
+    result.when(
+      onSuccess: (_) {},
+      onFailure: (failure) => state = state.copyWith(
+        preferences: previous,
+        errorMessage: failure.toDisplayMessage(),
+      ),
+    );
+  }
+
+  Future<void> setPaused(bool paused) async {
+    final previous = state.matchingPaused;
+    state = state.copyWith(matchingPaused: paused, errorMessage: null);
+    final result = await ref.read(cardRepositoryProvider).setMatchingPaused(paused);
+    result.when(
+      onSuccess: (_) {},
+      onFailure: (failure) => state = state.copyWith(
+        matchingPaused: previous,
+        errorMessage: failure.toDisplayMessage(),
+      ),
+    );
+  }
+}
+```
+
+- [ ] **Step 4: 화면 2개를 쓴다**
+
+`NotificationSettingsScreen` — 앱바 "알림" + 섹션 4개. 한 행은
+`SwitchListTile.adaptive`(제목 `AppTypography.subtitle`, 설명 `AppTypography.bodySmall`)로 그리고
+`activeThumbColor` 는 `AppColors.primary` 를 쓴다. 행 문구는 pen 그대로:
+
+| 키 | 제목 | 아이콘 |
+| --- | --- | --- |
+| `card_arrived` | 오늘의 카드 도착 | `AppIcons.heart` |
+| `acceptance_received` | 받은 수락 | `AppIcons.userPlus` |
+| `match_made` | 매칭 성립 | `AppIcons.badgeCheck` |
+| `new_message` | 새 메시지 | `AppIcons.messageCircle` |
+| `trust_reminder` | 신뢰 확인 리마인드 | `AppIcons.timer`(§5.3 — 이 세트에 `clock` 이 없다) |
+| `new_friend_review` | 새 지인 리뷰 | `AppIcons.users` |
+| `marketing` | 혜택·이벤트 소식 | `AppIcons.bell` |
+| `quiet_hours` | 방해 금지 시간 (22:00 ~ 08:00) | `AppIcons.pause` |
+
+맨 아래에 안내 한 줄: "오늘의 카드 도착 알림은 방해 금지 시간에도 보내드려요. 카드가 도착하는 시각이
+아침 7시예요."(계획서 "실행 전 확인 사항" 6번을 사용자에게 설명하는 문장 — 없으면 설정이 거짓말이 된다.)
+
+`SettingsScreen` — 앱바 "설정" + 두 줄만:
+1. **매칭 활성화**(pen `LJOdb`/`EoeQS`) — 제목 "매칭 활성화", 설명 "잠시 쉬고 싶으면 꺼두세요",
+   스위치. **꺼짐 = `matching_paused = true`** 이므로 `setPaused(!value)` 로 뒤집어 보낸다.
+2. **알림** — `AppIcons.bell` + `chevron-right`, 탭하면 `AppRoutes.notificationSettings`
+
+- [ ] **Step 5: 전체 통과 확인**
+
+```bash
+cd frontend && flutter test && flutter analyze
+cd ../backend && python -m pytest -q
+```
+
+Expected: flutter 테스트가 **280 + 이번 조각에서 더한 개수**만큼 통과(줄어든 것은 A3 에서 지운
+`HomeScreen` 케이스뿐이어야 한다) · analyze 무경고 · pytest 는 Part B 까지 포함해 전부 통과
+
+- [ ] **Step 6: 커밋 + Part A PR**
+
+```bash
+git add frontend/lib/matching frontend/lib/core/router/app_router.dart frontend/test/matching
+git commit -m "✨ feat(slice4): 알림 설정과 매칭 일시중지 화면을 추가한다"
+git push -u origin feat/slice4-part-a-flutter
+"C:/Program Files/GitHub CLI/gh.exe" pr create --draft --base main \
+  --title "조각 4 Part A: 오늘의 카드·수락함·푸시 화면" --body "..."
+```
+
+---
+
+## 화면 목록 (pen 노드 id)
+
+파일: **`C:\Users\home\OneDrive\Desktop\datingApp\design\datingApp.pen`**, 섹션 3 "카드·매칭·채팅"(`qXpwn`) —
+행 `M40CgR`(카드·매칭)과 `xaESY`(대화·채팅). Task 를 시작하기 전에 해당 노드를 pencil MCP 로 읽는다.
+
+| § 9 | 화면 | pen 노드 | 조각 4 | Task |
+| --- | --- | --- | --- | --- |
+| 10 | 오늘의 카드 | `W0CjO` | ○ | A3 |
+| 10 | 오늘의 카드 · 추가 카드 없음 | `eDPkz` | ○ (기본 모양) | A3 |
+| 10 | 오늘의 카드 · 로딩 | `Ukg21` | ○ | A3 |
+| 10 | 오늘의 카드 · 결정 대기 구매 카드 있음 | `Keynu` | ✕ 조각 7 | — |
+| 10b | 상대 프로필 상세 · 결정 | `TORAs` | ○ | A4 |
+| 10c | 추가 카드 바텀시트 | `x2yPl` | ✕ 조각 7 | — |
+| 10e | 오늘의 카드 · 추가 카드 구매 후 | `wDKXv` | ✕ 조각 7 | — |
+| 11 | 카드 대기 | `i4VFS` | ○ | A3 |
+| 11 | 카드 대기 · 다음 후보 없음 | `k2fF9y` | ○ (부제만 다르다) | A3 |
+| 11b | 매칭 가능한 사람 없음 | `iQZoa` | ○ (버튼 2개 제외) | A3 |
+| 12 | 수락 완료 · 매칭 성사 | `UFNSi` | ○ | A5 |
+| 13 | 대화 (수락 대기 + 대화 중) | `CeqVY` | △ 수락 대기 섹션만 | A6 |
+| 13 | 대화 · 빈 상태 | `LD7Kb` | ○ | A6 |
+| 13 | 대화 · 로딩 | `lpsOn` | ○ | A6 |
+| 14~14h | 채팅방 계열 | `ioKLk`·`p0XJA6`·`SJWl0`·`KGjJx`·`albnG` | ✕ 조각 5 | — |
+| 16 | 설정 | `lMDpY` | △ 2줄만(`TLrmq` 매칭 활성화 · 알림) | A8 |
+| 16d | 알림 설정 | `NMgCa` | ○ (댓글 행 제외) | A8 |
+| 09b | 메인 | `bpA8x` · `lvmAj`(배너 `Diw5U`) | ✕ 범위 밖 | 백로그 |
+
+**공용 컴포넌트(마스터 노드)**
+
+| 컴포넌트 | pen | Flutter |
+| --- | --- | --- |
+| `DailyCardSummary` | `v26S7z` | `matching/view/daily_card_summary.dart` |
+| `DailyCardLocked` | `BpP33` | 조각 7 |
+| `AcceptanceRow` | `iKKP0`(13 화면은 인라인 `XCN1f`) | `matching/view/acceptance_row.dart` |
+| `BottomNav` | `Migf0` | `common/widgets/app_bottom_nav.dart` |
+| `AppBar · Tab` | `YTDwe` | `AppBar`(화면마다 인라인) |
+| `MatchToggle` / `Switch · Off` | `iF24N` / `C1OIUA` | `SwitchListTile.adaptive` |
+| `Skeleton · Card` / `· AcceptanceRow` | `x4FuK` / `R688B` | 화면 안 `Container` |
+| `Mascot … Waiting` / `· Reward` / `· Calm Sad` | `PKbwO` / `i5Ud2` / `BSPUP` | `assets/images/` PNG |
+| `Button` | `HE8FZ` | `common/widgets/app_button.dart` |
+| `SectionHeader` | `Ymhdq` | 13 화면 안 sliver 헤더 |
+
+---
+
+## 테스트 전략
+
+| 층 | 무엇을 | 어떻게 | Task |
+| --- | --- | --- | --- |
+| 요일 사다리 | 임계값 경계(199/200/499/500) · 요일 계산 · 다음 지급일 | 순수 함수 단위 테스트 | B1 |
+| FCM 전송 | 죽은 토큰 삭제 · 조용한 시간 · 카드 도착 예외 · 스위치 꺼짐 | `httpx.MockTransport` + 가짜 자격증명 | B3 |
+| 지급 배치 | 지급일이 아니면 0장 · 1인 1장 · 이미 받은 사람 제외 · 공유 비밀 없으면 401 | `MockTransport` + `TestClient` | B4 |
+| 카드 API | 남의 카드 404 · 만료 409 · 중복 결정 409 · 수락만 알림 | `TestClient` + `MockTransport`(조각 2 `_wire`) | B5·B6·B7 |
+| DB | RLS 정책 0건 · ACL · 순서 제약 · 하드 필터 3종 · 쿨다운 14일 | pgTAP `supabase test db` | C6 |
+| Flutter 저장소 | URL · 바디 · 4xx 문구 · 네트워크 실패 | `MockClient`(`package:http/testing.dart`) | A2 |
+| Flutter ViewModel | 5가지 화면 상태 전환 · 연타 방지 · 실패 시 토글 되돌리기 · 결정 뒤 재조회 | `Fake CardRepository` + `ProviderContainer` | A3·A4·A6·A8 |
+| Flutter 화면 | 카드 문구("여우비, 23") · 11b 빈 문구 · 12 서브텍스트 두 줄 | `UncontrolledProviderScope` 위젯 테스트 | A3·A5 |
+| 푸시 | `route` → 경로 변환 · 권한 거부 · 토큰 갱신 · 로그아웃 삭제 | 순수 함수 + `FakePushMessaging` | A7 |
+| 빌드 | Gradle 플러그인 · `google-services.json` 배선 | `flutter build apk --debug` | A1 |
+
+**실제 FCM · 실제 Supabase 클라우드는 테스트에서 부르지 않는다.** 로컬 스택(Docker)은 pgTAP 에만 쓴다.
+Flutter 테스트는 Firebase 를 켜지 않는다 — A7 의 `PushMessaging` 인터페이스가 그 경계다.
+
+**기준선(2026-09-21):** pytest 149 · flutter test 280 · pgTAP 111. 조각 4 가 끝나면 세 숫자가 모두
+늘어야 하고, **줄어든 항목이 있으면 무언가 깨진 것이다**(예외: A3 에서 지우는 `HomeScreen` 테스트 케이스).
+
+---
+
+## 백로그 (이번 조각에서 하지 않는다)
+
+**조각이 정해져 있는 것**
+
+- 잠금 카드 · 추가 카드 바텀시트(10c) · 구매 후(10e) · 결정 대기 구매 카드(`Keynu`) — 조각 7(하트)
+- 채팅방(14 계열) · 대화 중 목록(`chat-list-row`) · 신뢰 확인 게이트 — 조각 5
+- 차단(`blocks`) 하드 필터 · 신고 진입점(10b 하단) — 조각 6
+- 09b 메인 화면과 "결정 대기 카드가 N장 남아 있어요" 배너(`Diw5U`) — 09b 를 만드는 조각
+- 내 프로필(15)이 생기면 설정(16) 진입점을 오늘 탭 앱바에서 그리로 옮긴다
+- 11b 의 "친구에게 초대 링크 보내기"(조각 7 추천) · "커뮤니티 둘러보기"(조각 6)
+- 16d "내 글의 새 댓글" 스위치 — 커뮤니티(조각 6)가 컬럼과 함께 만든다
+
+**조각이 정해져 있지 않은 것**
+
+- 조용한 시간에 버려진 알림을 아침에 모아 보내기(지금은 그냥 버린다 — `push.py` 의 `ponytail:` 주석)
+- 배치 실행이 600초를 넘으면 지역그룹별로 Cloud Scheduler job 나누기(B8)
+- 요약 카드 "무료 카드 초기화" 배지("목요일 오전 7시까지") — 카드마다 다음 지급 시각이 필요해 응답 확장이 따른다
+- 방해 금지 시간대 직접 고르기(지금은 22:00~08:00 고정)
+- iOS APNs 설정(`device_platform` enum 에는 이미 `ios` 가 있다)
+- 알림 권한을 거부한 사람에게 16d 에서 "기기 알림 설정 열기 ›" 링크 붙이기(pen `U6Lcq`)
+- 카드 만료를 앱이 실시간으로 지우기(지금은 다음 조회 때 서버가 빼고 내려준다)
+
+**앞 조각에서 넘어온 것(조각 3 백로그 유지)**
+
+- `httpx` 클라이언트를 FastAPI lifespan 으로 옮기기 · `_raise_for_status` 공용화
+- `BackgroundTasks` 로 임베딩 재생성 옮기기 · `/school-info` 재생성 배선
+- ERD.md §3 `profile_vectors` 그림 갱신(erd 세션 몫)
