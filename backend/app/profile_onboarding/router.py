@@ -1,11 +1,14 @@
 import logging
 from functools import lru_cache
+from uuid import UUID
 
 import httpx
 from fastapi import APIRouter, File, Form, Header, HTTPException, Query, UploadFile
 from google.cloud import vision
 from openai import AsyncOpenAI
 
+from app.matching.repository import MatchingRepository
+from app.matching.vectors import refresh_vectors
 from app.profile_onboarding.avatars import AvatarGenerator, get_openai_client
 from app.profile_onboarding.encryption import set_encrypted_phone_number
 from app.profile_onboarding.hearts import grant_hearts
@@ -54,6 +57,16 @@ def _repo(settings: Settings, client: httpx.AsyncClient) -> ProfileOnboardingRep
     return ProfileOnboardingRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
 
 
+async def _refresh_vectors(settings: Settings, client: httpx.AsyncClient, profile_id: UUID) -> None:
+    """문장·설문 재료가 바뀐 직후 매칭 벡터를 다시 만든다(설계 §6.3 "수정하면 즉시 재생성").
+
+    태그 3종은 부르지 않는다 — 태그는 문장 재료가 아니고 자카드는 조회 시점 계산이다.
+    실패는 refresh_vectors 안에서 삼킨다(사용자 저장은 이미 끝났다)."""
+    repo = MatchingRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
+    openai_client = _openai_client_override or get_openai_client(settings.openai_api_key)
+    await refresh_vectors(repo, openai_client, profile_id)
+
+
 @router.get("/profile-onboarding/nickname-availability")
 async def check_nickname_availability(
     nickname: str = Query(pattern=NICKNAME_PATTERN),
@@ -84,6 +97,7 @@ async def submit_basic_info(
         settings.postgrest_url, settings.supabase_service_role_key, client,
         profile_id, body.phone_number, settings.phone_encryption_key,
     )
+    await _refresh_vectors(settings, client, profile_id)
     return {"ok": True}
 
 
@@ -200,6 +214,7 @@ async def submit_appearance_type(
     client = _client_override or httpx.AsyncClient()
     profile_id = await get_verified_user_id(settings, client, authorization)
     await _repo(settings, client).update_appearance_type(profile_id, body.animal_type, body.impression_type)
+    await _refresh_vectors(settings, client, profile_id)
     return {"ok": True}
 
 
@@ -242,6 +257,7 @@ async def submit_survey(body: SurveyRequest, authorization: str | None = Header(
     client = _client_override or httpx.AsyncClient()
     profile_id = await get_verified_user_id(settings, client, authorization)
     await _repo(settings, client).insert_survey_answers(profile_id, body.answers, body.religion, body.is_smoker)
+    await _refresh_vectors(settings, client, profile_id)
     return {"ok": True}
 
 
@@ -257,6 +273,7 @@ async def submit_ideal_conditions(
         body.preferred_height_min, body.preferred_height_max,
         body.preferred_mbti_flags, body.preferred_animal_types, body.preferred_impression_types,
     )
+    await _refresh_vectors(settings, client, profile_id)
     return {"ok": True}
 
 
@@ -268,6 +285,7 @@ async def submit_ideal_note(
     client = _client_override or httpx.AsyncClient()
     profile_id = await get_verified_user_id(settings, client, authorization)
     await _repo(settings, client).update_ideal_note(profile_id, body.note)
+    await _refresh_vectors(settings, client, profile_id)
     return {"ok": True}
 
 
@@ -307,6 +325,7 @@ async def submit_bio(body: BioRequest, authorization: str | None = Header(defaul
     snapshot["bio"] = body.bio
     if next_step(snapshot) == "complete":
         await repo.activate_profile(profile_id)
+    await _refresh_vectors(settings, client, profile_id)
     return {"ok": True}
 
 

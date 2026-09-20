@@ -1,6 +1,7 @@
 import json
 from collections.abc import Callable
 from datetime import datetime
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from uuid import UUID
 
@@ -33,6 +34,11 @@ def overrides(monkeypatch):
             openai_api_key="sk-test",
             phone_encryption_key="phone-key-test",
         ),
+    )
+    # 저장 엔드포인트마다 매칭 벡터를 즉시 다시 만든다(조각 3) — 실제 OpenAI 를 부르지 않게 목을 끼운다.
+    router_module._openai_client_override = AsyncMock()
+    router_module._openai_client_override.embeddings.create.return_value = SimpleNamespace(
+        data=[SimpleNamespace(embedding=[0.1] * 512), SimpleNamespace(embedding=[0.2] * 512)]
     )
     yield
     router_module._client_override = None
@@ -314,3 +320,32 @@ def test_ideal_note_saves_whitespace_only_text_as_empty():
 
     assert response.status_code == 200
     assert patched == [{"ideal_note": ""}]
+
+
+def test_ideal_note_refreshes_matching_vectors():
+    """저장 재료가 바뀌면 매칭 벡터를 즉시 다시 만든다(조각 3, 설계 §6.3)."""
+    saved: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if "/rest/v1/profiles" in url and request.method == "GET":
+            return httpx.Response(200, json=[{
+                "major": "컴퓨터공학과", "mbti": "ENFP", "bio": "등산 좋아해요.",
+                "ideal_note": "말 잘 통하는 사람이요.",
+            }])
+        if "/rest/v1/profile_vectors" in url and request.method == "POST":
+            saved.append(json.loads(request.content))
+            return httpx.Response(201, json=[])
+        return httpx.Response(200, json=[])
+
+    client = _wire(handler)
+    response = client.post(
+        "/profile-onboarding/ideal-note",
+        headers=AUTH_HEADERS,
+        json={"note": "말 잘 통하는 사람이요."},
+    )
+
+    assert response.status_code == 200
+    assert len(saved) == 1
+    assert len(saved[0]["self_embedding"]) == 512
+    assert len(saved[0]["want_embedding"]) == 512
