@@ -6,8 +6,9 @@
 > **실행 순서는 Task 0(.gitignore) → Part C(Supabase) → Part B(FastAPI) → Part A(Flutter)** 다.
 > **Part C 는 파일 작성 + 로컬 스택 검증까지만 하고 클라우드 적용은 하지 않는다**(`[[supabase-apply-gate]]` —
 > ERD 그림 · 사용자 검토 · 사용자 승인 후 별도 supabase 세션이 적용한다).
-> **Part A 는 새 의존성(firebase_core · firebase_messaging · google-services Gradle 플러그인) 사용자 승인
-> 전에는 시작하지 않는다.** 승인 전에도 Part C · Part B 는 전부 할 수 있다.
+> **Part A 의 새 의존성(firebase_core · firebase_messaging · google-services Gradle 플러그인)은
+> 2026-09-21 사용자 승인이 끝났다.** 다만 `google-services.json` 은 Task 0(.gitignore)이 끝나기 전에
+> 프로젝트 폴더로 옮기지 않는다.
 
 **Goal:** 지역그룹마다 정해진 요일 아침 7시에 **이성 1명을 카드로 자동 지급**하고, 받은 사람이 수락 · 거절하고,
 상대가 다시 수락하면 **매칭(matches)까지 만들고**, 그 세 순간(카드 도착 · 받은 수락 · 매칭 성사)을 **FCM 푸시로
@@ -23,14 +24,14 @@
 
 **Tech Stack:** Postgres 17 (Supabase) + FastAPI + httpx(PostgREST · FCM 직접 호출) + **FCM HTTP v1**
 (Cloud Run 서비스 계정 ADC, Vision 과 같은 방식) + Cloud Scheduler + Flutter(Riverpod `Notifier`) +
-`firebase_core` · `firebase_messaging`(**새 의존성 — 사용자 승인 필요**).
+`firebase_core` · `firebase_messaging`(**새 의존성 — 2026-09-21 사용자 승인 완료**).
 
 **Spec:** `docs/superpowers/specs/2026-09-05-campusmate-foundation-design.md` §2.1 · §2.2 · §2.4 · §2.6 ·
 §6.7 · §6.8 · §7.1, `docs/ERD.md` §2(권한 표) · §3(`region_group_settings` · `matching_paused`) · §4(조각 4~5
 테이블), `frontend/docs/DESIGN.md` §8.1 · §8.2 · §8.6 · §8.9 · §9, pen
 `OneDrive\Desktop\datingApp\design\datingApp.pen` §3 "카드 · 매칭 · 채팅"(`qXpwn`)
 
-## 새 의존성 (사용자 승인 필요 — 승인 전에는 Part A 착수 금지)
+## 새 의존성 (2026-09-21 사용자 승인 완료)
 
 | 구분 | 패키지 · 도구 | 용도 | 왜 없으면 안 되나 |
 | --- | --- | --- | --- |
@@ -94,7 +95,9 @@
 카드 무응답     → 다음 지급일 아침 7시에 자동 만료(expired). 거절이 아니다. 상대에게 아무 신호도 가지 않는다.
 받은 수락함     → 수락을 받은 지 7일이 지나면 자동 만료. 역시 상대에게 신호 없음.
 구매 카드       → 만료 없음(expires_at is null). 조각 7 에서 만든다.
-재노출          → 무응답으로 만료된 상대만 다시 후보가 된다. 결정(수락 · 거절)한 상대는 영구 제외.
+재노출          → 무응답 만료(expired)는 만료 시각 + 14일 뒤 다시 후보. 수락 · 거절로 결정한 상대는
+                  결정 시각 + 90일 뒤 다시 후보(2026-09-21 사용자 수정 — 종전 "영구 제외" 폐기).
+                  매칭이 성사된 쌍은 기간과 무관하게 영구 제외.
 점수            → 조각 3 scoring.py 그대로(활동성 계수 · 흡연 0.5 · 종교 0.8 포함). 카드는 1위 1명.
 하드 필터 추가  → matching_paused(일시중지) 제외 + 이미 카드로 받은 사람 제외. 차단(blocks)은 조각 6.
 스케줄러        → Cloud Scheduler 1개 job → FastAPI /batch/daily-cards (아래 "실행 전 확인 사항" 1번 참조).
@@ -102,6 +105,11 @@
 ```
 
 ## 실행 전 확인 사항 (코드 쓰기 전에 대장에게 보고 — 차이만)
+
+**2026-09-21 사용자 확정:** 1 · 2 · 3 · 5 · 6번은 적힌 그대로 승인. **4번만 수정** — 무응답 만료는 14일,
+수락 · 거절로 결정한 상대는 90일 뒤 다시 후보가 된다(종전 "영구 제외" 폐기). 새 의존성 3건도 승인됐고,
+Part A 의 가정 4건(pen 경로 정정 · 09b 메인 범위 밖 · 하단 내비 오늘·대화만 · `candidate_pool_empty` 추가)도
+함께 승인됐다. **아래 1~6번 본문은 그때의 판단 근거로 남겨 둔다 — 결론은 이 문단이다.**
 
 1. **스케줄러를 `pg_cron` 이 아니라 Cloud Scheduler 로 택했다.** 설계 §2.1 은 "서버 배치(`pg_cron`)가
    생성한다"고 적혀 있다. 바꾼 이유 셋: ① 배치가 **푸시를 보내야 하는데** FCM 호출은 파이썬 쪽 일이라, pg_cron
@@ -120,16 +128,21 @@
    컬럼이 없으면 "200명 · 500명"이 파이썬 상수로 굳어 조정할 때마다 배포해야 한다.
    대신 `issue_weekdays` 는 **사다리가 계산해 채우는 결과값**이 된다(배치가 매일 갱신). 요일을 직접 정하는
    손잡이는 두지 않는다 — 같은 값을 정하는 손잡이가 둘이면 어느 쪽이 이겼는지 아무도 모르게 된다.
-4. **재노출 금지 기간을 14일로 제안한다.** 설계 §2.4 는 "무응답 만료만 재노출 대상 복귀"라고만 쓰고 기간을
-   정하지 않았다. 기간이 없으면 **무응답 상대가 바로 다음 지급일에 또 나온다**(점수 1위는 잘 안 바뀌므로 거의
-   확실하다). 14일 = 주 2회 지급 기준 3~4번의 지급을 건너뛴다. `match_candidates` 의 `interval '14 days'`
-   한 곳만 고치면 바뀐다.
+4. **재노출 금지 기간 — 무응답 14일 · 결정 90일(2026-09-21 사용자 확정, 이 항목만 수정됨).**
+   설계 §2.4 는 "무응답 만료만 재노출 대상 복귀"라고만 쓰고 기간을 정하지 않았다. 기간이 없으면
+   **무응답 상대가 바로 다음 지급일에 또 나온다**(점수 1위는 잘 안 바뀌므로 거의 확실하다).
+   14일 = 주 2회 지급 기준 3~4번의 지급을 건너뛴다.
+   **수락 · 거절로 결정한 상대는 종전 "영구 제외"에서 90일로 바뀌었다** — 한 번의 거절이 평생 가지 않게
+   하되, 90일(약 3개월)이면 서로를 잊을 만큼은 된다는 사용자 판단이다. **매칭이 성사된 쌍만 영구 제외**로
+   남는다(`matches` 조건이 따로 막는다). 세 기간은 전부 `match_candidates` 한 함수 안에 있어
+   `interval '14 days'` · `interval '90 days'` 두 곳만 고치면 바뀐다.
 5. **"남녀 각각 N명" 은 둘 중 적은 쪽으로 판정한다.** 남 300 · 여 150 이면 **150 기준(주 2회)** 이다. 카드가
    성별 무관 1장씩 나가므로 적은 쪽이 후보 풀의 병목이고, 많은 쪽에 맞추면 같은 사람이 계속 카드로 나간다.
 6. **아침 7시 카드 알림은 조용한 시간(22~8시) 예외로 둔다.** `notification_settings.quiet_hours` 를 그대로
    적용하면 **지급 시각 07:00 이 조용한 시간 안이라 카드 도착 알림이 영영 안 간다**. 카드 도착 알림만 예외로
    보내고(사용자가 시간을 알고 기다리는 알림이다), 받은 수락 · 매칭 성사 · 그 밖의 알림은 조용한 시간을 지킨다.
-   카드 알림 자체를 끄는 스위치는 `card_arrived` 로 따로 있다(화면 `NMgCa` 행 `WUdhM`).
+   카드 알림 자체를 끄는 스위치는 `card_arrived` 로 따로 있다(화면 `NMgCa` 행 `ojaTK`, 토글 인스턴스
+   `ZXJIi` — 2026-09-21 pen 실측으로 정정, 종전 `WUdhM` 은 잘못 적힌 id 였다).
 
 **이름에 관한 메모(차이 아님):** 대장 지시문의 `card_responses/acceptances` · `fcm_tokens` 는 ERD §4 의
 `card_decisions` · `acceptance_responses` · `push_tokens` 와 같은 것을 가리킨다. **ERD 이름을 쓴다**(ERD 가
@@ -721,10 +734,11 @@ supabase migration new update_match_candidates_slice4
 ```sql
     -- 조각 4 ---------------------------------------------------------------
     and not c.matching_paused                                  -- 일시중지(설계 §2.6)
-    -- 이미 카드로 받은 사람(설계 §6.7). 세 가지를 한 번에 본다:
-    --   ① 결정을 내린 카드 → 영구 제외(거절한 상대는 다시 안 나온다, 설계 §2.1)
-    --   ② 아직 살아 있는 카드 → 중복 지급 방지(구매 카드는 expires_at is null 이라 항상 여기 걸린다)
-    --   ③ 무응답으로 만료된 카드 → 만료 후 14일은 쉬어 간다(재노출 금지 기간, 계획서 "실행 전 확인" 4번)
+    -- 이미 카드로 받은 사람(설계 §6.7 · 2026-09-21 사용자 확정). 세 가지를 한 번에 본다:
+    --   ① 아직 결정하지 않았고 만료도 안 된 카드 → 중복 지급 방지
+    --      (구매 카드는 expires_at is null 이라 결정하기 전까지 항상 여기 걸린다)
+    --   ② 수락·거절로 결정한 카드 → 결정 시각 + 90일은 쉬어 간다(영구 제외가 아니다)
+    --   ③ 무응답으로 만료된 카드 → 만료 시각 + 14일은 쉬어 간다
     and not exists (
       select 1
       from public.daily_cards dc
@@ -732,19 +746,21 @@ supabase migration new update_match_candidates_slice4
       where dc.owner_id = me.id
         and dc.target_id = c.id
         and (
-          cd.card_id is not null
-          or dc.expires_at is null
-          or dc.expires_at > now()
-          or dc.expires_at > now() - interval '14 days'
+          (cd.card_id is null and (dc.expires_at is null or dc.expires_at > now()))
+          or (cd.card_id is not null and cd.decided_at > now() - interval '90 days')
+          or (cd.card_id is null and dc.expires_at is not null
+              and dc.expires_at > now() - interval '14 days')
         )
     )
-    -- 내가 수락 응답을 한 상대(= 내가 수락을 받았던 상대)도 다시 나오지 않는다(설계 §6.7)
+    -- 내가 수락 응답을 한 상대(= 내가 수락을 받았던 상대)도 같은 90일을 쉰다(설계 §6.7).
+    -- 쌍방 수락이었다면 아래 matches 조건이 영구히 막으므로 여기서 기간을 따질 일이 없다.
     and not exists (
       select 1
       from public.acceptance_responses ar
       join public.daily_cards dc2 on dc2.id = ar.card_id
       where ar.responder_id = me.id
         and dc2.owner_id = c.id
+        and ar.decided_at > now() - interval '90 days'
     )
     -- 이미 매칭된 상대(설계 §6.7)
     and not exists (
@@ -782,7 +798,7 @@ git commit -m "✨ feat(slice4): 일시중지·이미 받은 카드를 후보에
 
 **Interfaces:**
 - Consumes: Task C1~C5 의 테이블 · 함수 전부
-- Produces: `supabase test db` 로 도는 회귀 테스트 18건
+- Produces: `supabase test db` 로 도는 회귀 테스트 19건
 
 - [ ] **Step 1: 테스트 파일을 쓴다(먼저 실패하는 채로)**
 
@@ -793,11 +809,12 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(18);
+select plan(19);
 
 -- 준비 --------------------------------------------------------------------
 -- A = ...aa(남), B = ...bb(여), P = ...pp(여·일시중지), Q = ...qq(여·무응답 만료 3일 전),
--- R = ...rr(여·무응답 만료 20일 전 → 다시 후보), S = ...ss(여·이미 거절한 상대)
+-- R = ...rr(여·무응답 만료 20일 전 → 다시 후보), S = ...ss(여·10일 전 거절 → 90일 안이라 제외),
+-- T = ...tt(여·100일 전 거절 → 90일이 지나 다시 후보, 2026-09-21 사용자 확정)
 insert into public.universities (id, name, region_group)
 values ('00000000-0000-0000-0000-000000000001', '테스트대학교', 'seoul');
 
@@ -810,7 +827,8 @@ insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000pp', 'm4-p@test.ac.kr'),
   ('00000000-0000-0000-0000-0000000000qq', 'm4-q@test.ac.kr'),
   ('00000000-0000-0000-0000-0000000000rr', 'm4-r@test.ac.kr'),
-  ('00000000-0000-0000-0000-0000000000ss', 'm4-s@test.ac.kr');
+  ('00000000-0000-0000-0000-0000000000ss', 'm4-s@test.ac.kr'),
+  ('00000000-0000-0000-0000-0000000000tt', 'm4-t@test.ac.kr');
 
 insert into public.profiles (id, university_id)
 select id, '00000000-0000-0000-0000-000000000001' from auth.users
@@ -832,6 +850,7 @@ update public.profiles set nickname = '사아자' where id = '00000000-0000-0000
 update public.profiles set nickname = '차카타' where id = '00000000-0000-0000-0000-0000000000qq';
 update public.profiles set nickname = '파하거' where id = '00000000-0000-0000-0000-0000000000rr';
 update public.profiles set nickname = '너더러' where id = '00000000-0000-0000-0000-0000000000ss';
+update public.profiles set nickname = '머버서' where id = '00000000-0000-0000-0000-0000000000tt';
 
 -- 일시중지한 사람
 update public.profiles set matching_paused = true where id = '00000000-0000-0000-0000-0000000000pp';
@@ -850,12 +869,17 @@ insert into public.daily_cards (id, owner_id, target_id, source, issued_at, expi
   -- R: 20일 전 만료, 무응답 → 다시 후보가 된다
   ('00000000-0000-0000-0000-00000000c002', '00000000-0000-0000-0000-0000000000aa',
    '00000000-0000-0000-0000-0000000000rr', 'daily', now() - interval '23 days', now() - interval '20 days'),
-  -- S: 거절한 상대 → 영구 제외
+  -- S: 10일 전에 거절한 상대 → 결정 후 90일 안이라 아직 후보가 아니다
   ('00000000-0000-0000-0000-00000000c003', '00000000-0000-0000-0000-0000000000aa',
-   '00000000-0000-0000-0000-0000000000ss', 'daily', now() - interval '30 days', now() - interval '27 days');
+   '00000000-0000-0000-0000-0000000000ss', 'daily', now() - interval '13 days', now() - interval '10 days'),
+  -- T: 100일 전에 거절한 상대 → 90일이 지나 다시 후보가 된다(2026-09-21 사용자 확정)
+  ('00000000-0000-0000-0000-00000000c004', '00000000-0000-0000-0000-0000000000aa',
+   '00000000-0000-0000-0000-0000000000tt', 'daily', now() - interval '103 days', now() - interval '100 days');
 
-insert into public.card_decisions (card_id, decision)
-values ('00000000-0000-0000-0000-00000000c003', 'reject');
+-- decided_at 을 직접 넣는다 — 90일 경계를 보는 테스트라 기본값 now() 로는 T 를 만들 수 없다.
+insert into public.card_decisions (card_id, decision, decided_at) values
+  ('00000000-0000-0000-0000-00000000c003', 'reject', now() - interval '10 days'),
+  ('00000000-0000-0000-0000-00000000c004', 'reject', now() - interval '100 days');
 
 -- 1. 구조 · 제약 -------------------------------------------------------------
 select has_table('public', 'daily_cards', 'daily_cards 테이블이 있다');
@@ -933,7 +957,13 @@ select is(
 select is(
   (select count(*) from public.match_candidates('00000000-0000-0000-0000-0000000000aa')
     where candidate_id = '00000000-0000-0000-0000-0000000000ss'),
-  0::bigint, '거절한 상대는 다시 후보가 되지 않는다'
+  0::bigint, '거절한 지 90일이 지나지 않은 상대는 아직 후보가 아니다'
+);
+
+select is(
+  (select count(*) from public.match_candidates('00000000-0000-0000-0000-0000000000aa')
+    where candidate_id = '00000000-0000-0000-0000-0000000000tt'),
+  1::bigint, '거절한 지 90일이 지난 상대는 다시 후보가 된다'
 );
 
 select is(
@@ -959,13 +989,13 @@ select * from finish();
 rollback;
 ```
 
-- [ ] **Step 2: 돌려서 18건이 다 통과하는지 본다**
+- [ ] **Step 2: 돌려서 19건이 다 통과하는지 본다**
 
 ```bash
 supabase db reset && supabase test db
 ```
 
-Expected: `rls_slice4_test.sql .. ok`, 18/18. 실패하면 마이그레이션(C1~C5)을 고친다 — **테스트의 기대값을
+Expected: `rls_slice4_test.sql .. ok`, 19/19. 실패하면 마이그레이션(C1~C5)을 고친다 — **테스트의 기대값을
 고쳐 통과시키지 않는다**(기대값의 근거는 ERD §2 와 설계 §6.7 이다).
 
 - [ ] **Step 3: 조각 0~3 테스트가 같이 통과하는지 확인**
@@ -2297,7 +2327,7 @@ gh pr create --draft --base main --title "조각 4 Part B: 카드 지급 배치�
 
 ## Part A: Flutter (`frontend/lib/matching/` · `frontend/lib/core/push/`)
 
-**Part A 는 맨 위 "새 의존성" 표의 사용자 승인 뒤에 시작한다.** 승인 전에도 Part C · Part B 는 전부 할 수 있다.
+**새 의존성 3건은 2026-09-21 사용자 승인이 끝났다** — Part A 착수를 막는 관문은 이제 Task 0(.gitignore)뿐이다.
 
 새 feature 루트 `frontend/lib/matching/` 은 조각 2 의 `frontend/lib/profile/` 와 같은 모양이다 —
 `model/`(불변 모델 + Repository 인터페이스 + `Http*` 구현 + Provider) · `viewmodel/`(불변 `UiState` +
@@ -2315,7 +2345,7 @@ Riverpod `Notifier`) · `view/`(화면). 테스트도 같은 모양을 그대로
 **`C:\Users\home\OneDrive\Desktop\datingApp\design\datingApp.pen`** 이다. 아래 Task 의 노드 id 는 전부
 이 파일에서 직접 읽은 값이다. `filePath` 를 반드시 명시해서 읽고, **pen 은 읽기만 한다**.
 
-**Part A 가정 4건 (대장 보고 대상 — 계획서 위 "실행 전 확인 사항" 과는 별개로 Part A 를 쓰면서 새로 생긴 판단)**
+**Part A 가정 4건 (2026-09-21 사용자 승인 완료 — Part A 를 쓰면서 새로 생긴 판단이고, 넷 다 그대로 간다)**
 
 1. **09b 메인 화면(`bpA8x`)은 조각 4 범위 밖이다.** 09b 는 `hero-today` · `mosaic-rail` · `stat-panel` ·
    `review-strip` · `campus-strip` 으로 이루어진 별도 화면이고, 그 재료(지인 리뷰 · 참여 대학 지표)는 조각 6
@@ -2332,7 +2362,8 @@ Riverpod `Notifier`) · `view/`(화면). 테스트도 같은 모양을 그대로
    구매 카드(`Keynu`)는 그리지 않는다.** 전부 하트를 쓰는 화면이라 조각 7 이다(확정 전제 "하트 소비는 조각 7").
    `GET /cards/today` 의 `locked_card_available` 은 받아만 두고 이번 조각에서는 쓰지 않는다.
 
-**Part B 보완 1건 (A2 가 못 박는 계약).** `GET /cards/today` 응답에 **`candidate_pool_empty`(bool)** 을
+**Part B 보완 1건 (2026-09-21 사용자 승인 — A2 가 못 박는 계약).**
+`GET /cards/today` 응답에 **`candidate_pool_empty`(bool)** 을
 추가한다. 화면 11(`i4VFS` "내일 오전 7시에 새로운 한 명이 도착해요")과 11b(`iQZoa` "지금은 소개할 사람이
 없어요")를 가르는 값이 지금 응답에 없다. Task B5 가 **`cards` 가 비었을 때만** `match_candidates(owner, 1)`
 를 한 번 더 불러 채운다(카드가 있으면 부르지 않는다 — 평소에는 추가 쿼리가 0 이다).
@@ -4659,8 +4690,8 @@ git commit -m "🔔 feat(slice4): 푸시 토큰 등록과 알림 열기 처리�
 | 지인 리뷰·커뮤니티 | `oGFQl` / `b7JTyy` | `azFlB` 새 지인 리뷰(`new_friend_review`) · `KjGQd` 내 글의 새 댓글 |
 | 기타 | `vpI3J` / `BGX6r` | `HokjM` 혜택·이벤트 소식(`marketing`, 기본 꺼짐 `C1OIUA`) · `L7yfzj` 방해 금지 시간(`quiet_hours`, 값 표시 `EMS3s` "22:00 ~ 08:00") |
 
-**노드 id 정정:** 계획서 "실행 전 확인 사항" 6번이 카드 도착 스위치를 `WUdhM` 로 적었지만, pen 실측 id 는
-**`ojaTK`**(행) / `ZXJIi`(토글 인스턴스)다. 6번 항목 본문은 그대로 두고 여기에 정정만 적는다.
+**노드 id 정정(2026-09-21 반영 완료):** 카드 도착 스위치의 pen 실측 id 는 **`ojaTK`**(행) /
+`ZXJIi`(토글 인스턴스)다. "실행 전 확인 사항" 6번 본문의 `WUdhM` 도 같은 값으로 고쳐 뒀다.
 
 **행이 8개인데 서버 스위치는 7개다.** "내 글의 새 댓글"(`KjGQd`)은 `notification_settings` 에 대응 컬럼이
 없다(Task C4 표 참조 — 커뮤니티는 조각 6). **이 행은 이번 조각에서 그리지 않는다.** 방해 금지 시간은
@@ -4859,7 +4890,7 @@ git push -u origin feat/slice4-part-a-flutter
 | FCM 전송 | 죽은 토큰 삭제 · 조용한 시간 · 카드 도착 예외 · 스위치 꺼짐 | `httpx.MockTransport` + 가짜 자격증명 | B3 |
 | 지급 배치 | 지급일이 아니면 0장 · 1인 1장 · 이미 받은 사람 제외 · 공유 비밀 없으면 401 | `MockTransport` + `TestClient` | B4 |
 | 카드 API | 남의 카드 404 · 만료 409 · 중복 결정 409 · 수락만 알림 | `TestClient` + `MockTransport`(조각 2 `_wire`) | B5·B6·B7 |
-| DB | RLS 정책 0건 · ACL · 순서 제약 · 하드 필터 3종 · 쿨다운 14일 | pgTAP `supabase test db` | C6 |
+| DB | RLS 정책 0건 · ACL · 순서 제약 · 하드 필터 3종 · 쿨다운 경계(무응답 14일 · 결정 90일) | pgTAP `supabase test db` | C6 |
 | Flutter 저장소 | URL · 바디 · 4xx 문구 · 네트워크 실패 | `MockClient`(`package:http/testing.dart`) | A2 |
 | Flutter ViewModel | 5가지 화면 상태 전환 · 연타 방지 · 실패 시 토글 되돌리기 · 결정 뒤 재조회 | `Fake CardRepository` + `ProviderContainer` | A3·A4·A6·A8 |
 | Flutter 화면 | 카드 문구("여우비, 23") · 11b 빈 문구 · 12 서브텍스트 두 줄 | `UncontrolledProviderScope` 위젯 테스트 | A3·A5 |
