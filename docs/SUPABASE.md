@@ -6,7 +6,7 @@
 
 ## 1. 현재 상태
 
-Supabase **MCP 플러그인(`supabase`)이 설치·인증돼 있다.** 클라우드 프로젝트는 `campus_mate`(조직 CampusMate, Seoul) 하나뿐이다. 조각 0(테이블 4·RLS·정책 4·private 버킷 `profile-photos`·seed `universities` 20행·`university_email_domains` 20행)은 2026-09-14 사용자 승인 후 적용됐다. 조각 1(이메일 인증 훅)·조각 1b(학생증 인증 — 학번 컬럼, 확정 시 임시 사진 삭제 트리거 포함)는 마이그레이션 초안 11개까지 나와 있고 전부 미적용, 조각 2 이후는 파일도 없다(현재 상태는 `docs/ERD.md` 상태줄 기준). 로컬 스택(Docker)은 없으므로 적용 대상은 항상 이 클라우드 프로젝트다.
+Supabase **MCP 플러그인(`supabase`)이 설치·인증돼 있다.** 클라우드 프로젝트는 `campus_mate`(조직 CampusMate, Seoul) 하나뿐이다. 조각 0(테이블 4·RLS·정책 4·private 버킷 `profile-photos`·seed `universities` 20행·`university_email_domains` 20행)은 2026-09-14 사용자 승인 후 적용됐다. **조각 1(1a 이메일 인증 훅)·조각 1b(학생증 인증) 마이그레이션 클라우드 적용 완료(2026-09-20, MCP `list_migrations` 확인).** 1b 쪽 적용분: `20260914055607`(학생증 인증 컬럼)·`20260914055617`(profile_private)·`20260914055624`(student-id-temp 버킷)·`20260914061304`(student_verification_attempts)·`20260914061821`(profile-photos 버킷 제한)·`20260919181319`(student_number 컬럼) — `20260914055631`(RLS 자동 활성 execute revoke)은 이전 라운드에 이미 적용됐다. **학생증 사진 삭제 트리거 마이그레이션(`20260919181357`)은 클라우드에 올라간 적 없이 폐기·삭제됐다** — SQL 트리거로 `storage.objects` 를 지우면 메타 행만 지워지고 실제 파일은 고아로 남아, FastAPI 가 확정 직후 Storage API로 직접 지우는 방식으로 바꿨다(§7, ERD.md §9, ERD_DECISIONS.md §11-27). 조각 2 이후는 파일도 없다(세부 스키마 상태는 `docs/ERD.md` 상태줄 기준). 로컬 스택(Docker)은 없으므로 적용 대상은 항상 이 클라우드 프로젝트다.
 
 ## 2. 시작할 때
 
@@ -44,3 +44,11 @@ Supabase **MCP 플러그인(`supabase`)이 설치·인증돼 있다.** 클라우
 ## 6. pgvector
 
 - 조각 0 첫 마이그레이션(`20260913054542`) 맨 앞에서 `create extension if not exists vector with schema extensions;` 로 켰고, 2026-09-14 클라우드에 적용됐다. 대시보드에서 손으로 켜지 않는다. 조각 3 벡터 컬럼의 타입 주의는 `docs/ERD.md` §3
+
+## 7. 학생증 재검토 — 대시보드 수동 확정
+
+자동 대조(OCR)가 애매하거나 실패하면 담당자가 Supabase 대시보드에서 학생증 사진을 직접 열어 육안으로 재검토한다(설계 §7.3). 자동 확정과 다르게 이 경로는 FastAPI를 거치지 않으므로, 사람이 손으로 아래 순서를 그대로 따라야 한다 — 순서를 바꾸면 안 되는 이유는 자동 경로와 같다: `student_verification_attempts` 를 먼저 확정하고 남에게 보이는 `profiles` 를 나중에 바꾼다(§11-27, 2026-09-20 결정).
+
+1. **`student_verification_attempts`** 에서 해당 제출 행을 찾아 `result` 를 `verified` 또는 `rejected` 로 바꾸고, `reviewed_at` 을 지금 시각으로 채운다. `rejected` 면 `reject_reason` 도 채운다(본인에게 재검토 결과로 내려간다)
+2. 같은 `profile_id` 의 **`profiles.student_verification`** 을 1번과 같은 값으로 바꾼다(자동 경로와 같은 순서 — attempts 먼저, profiles 나중)
+3. **`student-id-temp` 버킷에서 해당 파일을 Storage UI 로 손으로 지운다.** 자동 확정은 FastAPI 가 확정 직후 Storage API로 파일을 지우지만(§1, ERD.md §9), 대시보드 수동 확정은 이 자동 삭제 경로를 타지 않으므로 지우지 않으면 파일이 그대로 남는다
