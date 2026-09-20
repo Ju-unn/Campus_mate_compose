@@ -18,17 +18,7 @@ class IdealNoteScreen extends ConsumerWidget {
     final state = ref.watch(idealNoteViewModelProvider);
     final viewModel = ref.read(idealNoteViewModelProvider.notifier);
     return Scaffold(
-      appBar: OnboardingAppBar(
-        current: 1,
-        total: 3,
-        action: TextButton(
-          onPressed: state.isSubmitting ? null : viewModel.skip,
-          child: Text(
-            '건너뛰기',
-            style: AppTypography.labelSmall.copyWith(color: AppColors.primaryText),
-          ),
-        ),
-      ),
+      appBar: const OnboardingAppBar(current: 1, total: 3),
       body: SafeArea(
         top: false,
         child: Padding(
@@ -47,7 +37,7 @@ class IdealNoteScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: AppSpacing.xs),
                       Text(
-                        '입력하지 않아도 괜찮아요',
+                        '매칭에 쓰이니 한 줄이라도 적어 주세요',
                         style: AppTypography.body.copyWith(color: AppColors.body),
                       ),
                       const SizedBox(height: AppSpacing.xl),
