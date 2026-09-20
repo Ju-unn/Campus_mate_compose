@@ -1,0 +1,23 @@
+# 순서는 DESIGN.md §9 04-1~06-3 화면 순서를 그대로 따른다. 각 단계는 "이 단계까지 끝났다"는 최소 조건만 본다
+# — 태그 개수 3~5 같은 상세 규칙은 저장 시점(Task B9 각 엔드포인트)에서 tags.validate_tag_selection 이 본다.
+_STEPS = [
+    ("basic_info", lambda p: p["nickname"] and p["phone_set"]),
+    ("kakao_id", lambda p: p["kakao_id_set"]),
+    ("photos", lambda p: p["photo_count"] >= 2 and p["has_avatar_source"]),
+    ("avatar", lambda p: p["avatar_ready"]),
+    ("appearance_type", lambda p: p["animal_type"] and p["impression_type"]),
+    ("interests", lambda p: len(p["interest_tags"]) >= 3),
+    ("my_traits", lambda p: len(p["my_traits"]) >= 3),
+    ("survey", lambda p: p["survey_answer_count"] >= 9 and p["religion"] is not None and p["is_smoker"] is not None),
+    ("ideal_conditions", lambda p: p["preferred_age_min"] is not None),
+    ("ideal_traits", lambda p: len(p["ideal_traits"]) >= 3),
+    ("ideal_note", lambda p: p["ideal_note_seen"]),
+    ("bio", lambda p: p["bio"]),
+]
+
+
+def next_step(profile: dict) -> str:
+    for step_name, is_done in _STEPS:
+        if not is_done(profile):
+            return step_name
+    return "complete"
