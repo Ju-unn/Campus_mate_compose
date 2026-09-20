@@ -1,4 +1,4 @@
-from datetime import datetime, time, timedelta
+from datetime import datetime, time, timedelta, timezone
 from functools import lru_cache
 
 import httpx
@@ -7,7 +7,7 @@ from pydantic import BaseModel, field_validator
 
 from app.cards.ladder import next_issue_at
 from app.cards.push import FcmSender, notify
-from app.cards.repository import CardRepository
+from app.cards.repository import NOTIFICATION_DEFAULTS, CardRepository
 from app.matching.repository import MatchingRepository
 from app.profile_onboarding.schemas import SEOUL
 from app.settings import Settings
@@ -37,6 +37,22 @@ class DecisionRequest(BaseModel):
         if value not in ("accept", "reject"):
             raise ValueError("accept 또는 reject 만 받는다")
         return value
+
+
+class PushTokenRequest(BaseModel):
+    token: str
+    platform: str
+
+    @field_validator("platform")
+    @classmethod
+    def _known(cls, value: str) -> str:
+        if value not in ("android", "ios"):
+            raise ValueError("device_platform 에 있는 값만 받는다")
+        return value
+
+
+class MatchingPausedRequest(BaseModel):
+    paused: bool
 
 
 class _Wiring:
@@ -200,6 +216,59 @@ async def respond_to_acceptance(card_id: str, body: DecisionRequest,
                  f"{other['nickname']} 님과 대화를 시작해 보세요",
                  {"route": "match", "match_id": match["id"]}, now=now)
     return {"matched": True, "match_id": match["id"]}
+
+
+@router.post("/cards/push-tokens")
+async def register_push_token(body: PushTokenRequest,
+                              authorization: str | None = Header(default=None)) -> dict:
+    """앱이 받은 FCM 토큰을 등록한다. 같은 토큰이 다시 오면 주인만 갱신된다(기기 인계)."""
+    wiring = await _wire(authorization)
+    await wiring.repo.upsert_push_token(body.token, wiring.profile_id, body.platform)
+    return {"ok": True}
+
+
+@router.delete("/cards/push-tokens/{token}")
+async def delete_push_token(token: str, authorization: str | None = Header(default=None)) -> dict:
+    """로그아웃 때 부른다 — 남의 기기로 알림이 가지 않게 토큰을 지운다."""
+    wiring = await _wire(authorization)
+    await wiring.repo.delete_push_token(token)
+    return {"ok": True}
+
+
+@router.get("/cards/notification-settings")
+async def get_notification_settings(authorization: str | None = Header(default=None)) -> dict:
+    """알림 스위치 8개(화면 16d `NMgCa`). 저장한 적이 없으면 기본값이 내려간다."""
+    wiring = await _wire(authorization)
+    settings = await wiring.repo.fetch_notification_settings(wiring.profile_id)
+    return {key: settings.get(key, default) for key, default in NOTIFICATION_DEFAULTS.items()}
+
+
+@router.patch("/cards/notification-settings")
+async def update_notification_settings(body: dict,
+                                       authorization: str | None = Header(default=None)) -> dict:
+    """바뀐 스위치만 보낸다. 이름을 그대로 컬럼으로 쓰기 때문에 아는 이름만 받는다."""
+    unknown = set(body) - set(NOTIFICATION_DEFAULTS)
+    if unknown or not all(isinstance(value, bool) for value in body.values()):
+        raise HTTPException(status_code=422, detail="알 수 없는 알림 설정이에요")
+
+    wiring = await _wire(authorization)
+    fields = dict(body)
+    if "marketing" in fields:
+        # 동의 시각은 서버가 적는다 — 법적 근거가 되는 값이라 앱이 보낸 시각을 믿지 않는다.
+        fields["marketing_consented_at"] = (
+            datetime.now(timezone.utc).isoformat() if fields["marketing"] else None
+        )
+    await wiring.repo.update_notification_settings(wiring.profile_id, **fields)
+    return {"ok": True}
+
+
+@router.patch("/cards/matching-paused")
+async def update_matching_paused(body: MatchingPausedRequest,
+                                 authorization: str | None = Header(default=None)) -> dict:
+    """매칭 활성화 토글(화면 16 `TLrmq`). 끄면 다음 지급부터 카드가 오지도 가지도 않는다."""
+    wiring = await _wire(authorization)
+    await wiring.repo.set_matching_paused(wiring.profile_id, body.paused)
+    return {"ok": True}
 
 
 # ↓ 아래에 새 `/cards/...` 경로를 두지 않는다. `{card_id}` 가 먼저 먹어 버린다.
