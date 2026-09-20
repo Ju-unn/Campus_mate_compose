@@ -148,7 +148,7 @@ erDiagram
         smallint height_cm "조각0 · 필수 · 공개"
         smallint preferred_height_min "조각0 · null이면 상관없음"
         smallint preferred_height_max "조각0"
-        text bio "조각0 · self_text 원본"
+        text bio "조각0 · self_embedding 원본"
         text mbti "조각0 · null이면 모름"
         jsonb preferred_mbti_flags "조각0 · 8극 토글"
         text major "조각0 · 표시만 · 조각1b부터 department 로도 별칭 응답"
@@ -165,15 +165,15 @@ erDiagram
         religion religion "조각2 · 감점 계수"
         animal_type animal_type "조각2 · 본인 1개"
         impression_type impression_type "조각2 · 본인 1개"
-        animal_type[] preferred_animal_types "조각2 · 최대 3 · 빈 배열이면 상관없음"
-        impression_type[] preferred_impression_types "조각2 · 최대 3"
+        animal_type[] preferred_animal_types "조각2 · 1~3개 · 필수(2026-09-20 선택→필수)"
+        impression_type[] preferred_impression_types "조각2 · 1~3개 · 필수(2026-09-20 선택→필수)"
         text[] my_traits "조각2 · 48개 풀 3~5개"
         text[] ideal_traits "조각2 · 45개 풀 3~5개"
         smallint preferred_age_min "조각2 · null이면 상관없음"
         smallint preferred_age_max "조각2"
         acquisition_channel acquisition_channel "조각2 · 20d 유입경로 · 선택"
         text acquisition_note "조각2 · 기타 한 줄"
-        text ideal_note "조각2 · 이런 사람이 좋아요 자유 글 · 선택 · 빈 문자열=미입력, 매칭 임베딩에서 없음 처리"
+        text ideal_note "조각2 · 이런 사람이 좋아요 자유 글 · 필수(2026-09-20 선택→필수) · 빈 문자열=미입력, 매칭 임베딩에서 없음 처리"
         text bio_draft "조각2 · AI 자기소개 초안 저장본 · bio-draft 재호출 시 재생성 대신 이 값 반환"
         timestamptz bio_draft_generated_at "조각2 · 초안 생성 시각 · 1회 제한(설계 §13-71)"
         boolean matching_paused "조각4 · 일시중지 토글"
@@ -229,15 +229,16 @@ erDiagram
         uuid profile_id PK, FK "조각3"
         vector(8) self_survey "낯가림 제외 8축 · 가중치 사전 곱셈 · L2"
         numeric shyness_score "낯가림 원값 · 5점"
-        vector(512) self_text "bio 임베딩 · 현재 점수 미반영"
+        vector(512) self_embedding "나는 문장 임베딩 · 학과계열+MBTI+얼굴상인상+자기소개 · 코사인"
+        vector(512) want_embedding "원해 문장 임베딩 · 선호얼굴상인상+이런사람이좋아요 · 코사인"
         timestamptz updated_at
     }
 ```
 
 - `profiles` 폐기 컬럼 — 만들지 않는다: `hide_same_major`(설계 미결27), `ideal_description`(설계 미결33). `looking_for`는 조각0에 만들었다가 "찾는 성별" 폐지(반대 성별 자동 매칭, 2026-09-14 사용자 결정)로 조각2 마이그레이션에서 지웠다 — 조각0 마이그레이션 파일은 고치지 않았다(§12-36 완료)
 - `profiles` 행은 FastAPI가 아니라 **`auth.users` INSERT 후 Postgres 트리거(`handle_new_user_profile`)**가 만든다(2026-09-18, FK 순서 문제로 정정 — §11-26). Before User Created 훅 시점엔 `auth.users` 행이 아직 커밋 전이라 거기서 `profiles` insert 를 하면 FK 위반이 난다. 3b의 `profile_private` 가 이 행을 FK로 가리키므로 먼저 있어야 한다. 클라이언트 INSERT는 없다(§2)
-- **이 시점에 정해지는 `university_id`(메일 도메인으로) · `status`(`pending`)만 `not null` 이다.** 온보딩(DESIGN 04-1 이후)에서 받는 `nickname` · `gender` · `looking_for` · `birth_year` · `height_cm` 는 null 허용이고, 아래 check 로 필수값 없는 `active` 전환을 막는다. 조각 0 계획서 초안처럼 온보딩 컬럼을 `not null` 로 두면 FastAPI insert가 실패한다
-  `check (status <> 'active' or (nickname is not null and gender is not null and looking_for is not null and birth_year is not null and height_cm is not null))`
+- **이 시점에 정해지는 `university_id`(메일 도메인으로) · `status`(`pending`)만 `not null` 이다.** 온보딩(DESIGN 04-1 이후)에서 받는 `nickname` · `gender` · `birth_year` · `height_cm` 는 null 허용이고, 아래 check 로 필수값 없는 `active` 전환을 막는다. 조각 0 계획서 초안처럼 온보딩 컬럼을 `not null` 로 두면 FastAPI insert가 실패한다. **`looking_for` 는 이 check 에서도 조각2 마이그레이션 때 함께 빠졌다**(§12-36)
+  `check (status <> 'active' or (nickname is not null and gender is not null and birth_year is not null and height_cm is not null))`
 - 가입 나이의 "올해"는 Asia/Seoul 기준이다(UTC 12월 31일 15:00 경계). check 에 `now()` 를 넣지 않고 FastAPI가 검사한다. DB에는 `now()` 없는 정적 범위 check만 둔다
 - `profiles` 정적 check(조각 0): `nickname` 한글·영문 2~5자, `birth_year` 1950~2020, `height_cm` 120~230, `preferred_height_min` · `max` 도 120~230 이고 min ≤ max, `admission_year` 1950~2100(두 자리 입력을 그대로 저장하는 실수 방지), `mbti` `^[EI][NS][TF][JP]$`, `preferred_mbti_flags` 는 JSON 객체(키 E I N S T F J P, 값 boolean · true 가 ok, 설계 §6.4 — 기본 `{}` 는 전부 ok 와 같은 결과), `interest_tags` 5개 이하(하한 3개는 FastAPI 온보딩 완료 검사)
 - 선호 키·나이 슬라이더(DESIGN `range-slider` 프리셋)의 끝 표기 "150cm 이하" · "190cm 이상" · "35세 이상"은 그쪽 경계를 null 로 저장한다. 끝값 150 을 그대로 저장하면 145cm 상대가 빠진다
