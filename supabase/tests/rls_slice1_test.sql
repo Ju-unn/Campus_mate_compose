@@ -1,6 +1,6 @@
 -- 조각 1 RLS · 권한 회귀 검증. 기대값 기준은 docs/ERD.md §2 "사이클 B pgTAP 기대값의 기준".
 -- 전 테이블 권한(ACL) 표 · 모든 테이블 RLS · storage.objects 정책 없음은 rls_slice0_test.sql 이 누적으로 본다.
--- 로컬 스택에서 `supabase test db` 로 돌린다. 로컬 Docker 스택이 생기기 전까지는 실행하지 않는다(2026-09-13 결정).
+-- 로컬 스택에서 `supabase test db` 로 돌린다.
 -- 트랜잭션 안에서만 돌고 rollback 으로 흔적을 남기지 않는다.
 begin;
 

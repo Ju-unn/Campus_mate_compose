@@ -1,12 +1,12 @@
 -- 조각 2 RLS · 권한 회귀 검증. 기대값 기준은 docs/ERD.md §2 "사이클 B pgTAP 기대값의 기준".
 -- 전 테이블 권한(ACL) 표 · 모든 테이블 RLS · storage.objects 정책 없음은 rls_slice0_test.sql 이 누적으로 본다.
--- 로컬 스택에서 `supabase test db` 로 돌린다. 로컬 Docker 스택이 생기기 전까지는 실행하지 않는다(2026-09-13 결정).
+-- 로컬 스택에서 `supabase test db` 로 돌린다.
 -- 트랜잭션 안에서만 돌고 rollback 으로 흔적을 남기지 않는다.
 begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(38);
+select plan(40);
 
 -- 준비 (postgres) -------------------------------------------------------------
 -- 사용자 A = ...aa, 사용자 B = ...bb, 테스트 대학 = ...01
@@ -132,6 +132,12 @@ insert into public.heart_transactions (profile_id, amount, reason) values
   ('00000000-0000-0000-0000-0000000000aa', 10, 'admin_adjust'),
   ('00000000-0000-0000-0000-0000000000bb', 10, 'admin_adjust');
 
+-- 06-2b AI 초안 본문(2026-09-20 리뷰 필수 4). 화면을 다시 열면 이 값을 그대로 돌려준다.
+update public.profiles set bio_draft = '저는 조용한 편이에요', bio_draft_generated_at = now()
+  where id = '00000000-0000-0000-0000-0000000000aa';
+update public.profiles set bio_draft = '저는 활발한 편이에요', bio_draft_generated_at = now()
+  where id = '00000000-0000-0000-0000-0000000000bb';
+
 -- 2. authenticated (사용자 A) --------------------------------------------------
 
 set local role authenticated;
@@ -192,6 +198,18 @@ select is_empty(
   $$select 1 from public.entitlements
      where profile_id = '00000000-0000-0000-0000-0000000000bb'$$,
   'A 는 남의 하트 잔액을 볼 수 없다'
+);
+
+select results_eq(
+  $$select bio_draft from public.profiles$$,
+  $$values ('저는 조용한 편이에요'::text)$$,
+  'A 는 본인 자기소개 초안을 다시 읽는다'
+);
+
+select is_empty(
+  $$select 1 from public.profiles
+     where id = '00000000-0000-0000-0000-0000000000bb'$$,
+  'A 는 남의 자기소개 초안을 볼 수 없다'
 );
 
 select results_eq(
