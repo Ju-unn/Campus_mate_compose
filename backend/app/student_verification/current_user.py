@@ -37,4 +37,6 @@ async def get_verified_user_id(
     gate = await repo.fetch_gate_status(profile_id)
     if gate["student_verification"] != "verified":
         raise HTTPException(status_code=403, detail="학생증 인증을 먼저 끝내 주세요")
+    if gate["department"] is None:
+        raise HTTPException(status_code=403, detail="학과 정보를 먼저 입력해 주세요")
     return profile_id

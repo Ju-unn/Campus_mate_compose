@@ -1,5 +1,6 @@
 import json
 from collections.abc import Callable
+from datetime import datetime
 from unittest.mock import AsyncMock
 from uuid import UUID
 
@@ -9,6 +10,7 @@ from fastapi.testclient import TestClient
 
 import app.profile_onboarding.router as router_module
 from app.main import app
+from app.profile_onboarding.schemas import SEOUL
 from app.settings import Settings
 
 PROFILE_ID = UUID("11111111-1111-1111-1111-111111111111")
@@ -39,15 +41,17 @@ def overrides(monkeypatch):
 
 
 def _wire(
-    handler: Callable[[httpx.Request], httpx.Response], verification: str = "verified"
+    handler: Callable[[httpx.Request], httpx.Response],
+    verification: str = "verified",
+    department: str | None = "컴퓨터공학과",
 ) -> TestClient:
     def wrapped(request: httpx.Request) -> httpx.Response:
         url = str(request.url)
         if "/auth/v1/user" in url:
             return httpx.Response(200, json={"id": str(PROFILE_ID)})
-        # 학생 인증 관문(get_verified_user_id)이 보는 조회. 기본은 인증을 마친 사용자다.
+        # 학생 인증 관문(get_verified_user_id)이 보는 조회. 기본은 인증도 학과 입력도 끝낸 사용자다.
         if "student_verification" in url and request.method == "GET":
-            return httpx.Response(200, json=[{"student_verification": verification}])
+            return httpx.Response(200, json=[{"student_verification": verification, "department": department}])
         return handler(request)
 
     router_module._client_override = httpx.AsyncClient(transport=httpx.MockTransport(wrapped))
@@ -135,6 +139,32 @@ def test_onboarding_rejects_unverified_student_with_403():
 
     assert response.status_code == 403
     assert "학생증" in response.json()["detail"]
+
+
+def test_onboarding_rejects_missing_school_info_with_403():
+    client = _wire(lambda request: httpx.Response(200, json=[]), department=None)
+    response = client.get("/profile-onboarding/next-step", headers=AUTH_HEADERS)
+
+    assert response.status_code == 403
+    assert "학과" in response.json()["detail"]
+
+
+def test_basic_info_rejects_under_nineteen_with_422():
+    """가입 나이 자격은 Asia/Seoul 기준 올해 - birth_year >= 19 다(ERD.md). 경계값 19/18 을 같이 본다."""
+    this_year = datetime.now(SEOUL).year
+    body = {"nickname": "가나", "height_cm": 170, "phone_number": "01012345678", "gender": "male"}
+    client = _wire(lambda request: httpx.Response(200, json=[]))
+
+    just_old_enough = client.post(
+        "/profile-onboarding/basic-info", headers=AUTH_HEADERS, json=body | {"birth_year": this_year - 19}
+    )
+    too_young = client.post(
+        "/profile-onboarding/basic-info", headers=AUTH_HEADERS, json=body | {"birth_year": this_year - 18}
+    )
+
+    assert just_old_enough.status_code == 200
+    assert too_young.status_code == 422
+    assert "19" in json.dumps(too_young.json(), ensure_ascii=False)
 
 
 def test_nickname_availability_rejects_ilike_wildcard_with_422():
