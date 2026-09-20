@@ -102,7 +102,8 @@ class CardRepository:
     async def fetch_card(self, card_id: UUID | str) -> dict | None:
         rows = await self._get("daily_cards", {
             "id": f"eq.{card_id}",
-            "select": "id,owner_id,target_id,source,issued_at,expires_at,card_decisions(decision,decided_at)",
+            "select": "id,owner_id,target_id,source,issued_at,expires_at,"
+                      "card_decisions(decision,decided_at),acceptance_responses(responder_id)",
         })
         return rows[0] if rows else None
 

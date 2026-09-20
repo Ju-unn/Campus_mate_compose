@@ -1,4 +1,4 @@
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from functools import lru_cache
 
 import httpx
@@ -14,6 +14,9 @@ from app.settings import Settings
 from app.student_verification.current_user import get_verified_user_id
 
 router = APIRouter()
+
+# 받은 수락은 7일이 지나면 목록에서도, 응답에서도 사라진다(2026-09-21 사용자 확정).
+ACCEPTANCE_TTL_DAYS = 7
 
 # 테스트가 실제 Supabase·FCM 대신 목을 주입할 수 있게 하는 훅(조각1b·2·3 라우터와 같은 패턴).
 _client_override: httpx.AsyncClient | None = None
@@ -143,6 +146,60 @@ async def decide_card(card_id: str, body: DecisionRequest,
                      "나를 수락한 사람이 있어요", f"{me['nickname']} 님이 대화를 하고 싶어 해요",
                      {"route": "acceptances", "card_id": card_id}, now=now)
     return {"ok": True}
+
+
+@router.get("/cards/acceptances")
+async def get_acceptances(authorization: str | None = Header(default=None)) -> dict:
+    """받은 수락함(화면 13 `XCN1f`). 7일이 지난 것은 아예 내려보내지 않는다 —
+    앱이 만료를 계산하지 않게 한다(2026-09-21 확정)."""
+    wiring = await _wire(authorization)
+    now = datetime.now(SEOUL)
+
+    acceptances = []
+    for row in await wiring.repo.fetch_pending_acceptances(wiring.profile_id, ACCEPTANCE_TTL_DAYS):
+        accepter_id = row["daily_cards"]["owner_id"]
+        profile = await wiring.repo.fetch_card_profile(accepter_id)
+        decided_at = datetime.fromisoformat(row["decided_at"])
+        acceptances.append({
+            "card_id": row["card_id"],
+            "expires_at": (decided_at + timedelta(days=ACCEPTANCE_TTL_DAYS)).isoformat(),
+            "profile": _card_profile(profile, wiring.settings.supabase_url, now),
+        })
+    return {"acceptances": acceptances}
+
+
+@router.post("/cards/acceptances/{card_id}")
+async def respond_to_acceptance(card_id: str, body: DecisionRequest,
+                                authorization: str | None = Header(default=None)) -> dict:
+    """받은 수락에 답한다. 내가 수락하면 그 자리에서 매칭이 성사된다(설계 §2.2)."""
+    wiring = await _wire(authorization)
+    now = datetime.now(SEOUL)
+
+    card = await wiring.repo.fetch_card(card_id)
+    accepted = [d for d in (card or {}).get("card_decisions", []) if d["decision"] == "accept"]
+    if card is None or card["target_id"] != wiring.profile_id or not accepted:
+        raise HTTPException(status_code=404, detail="수락을 찾을 수 없어요")
+    if card["acceptance_responses"]:
+        raise HTTPException(status_code=409, detail="이미 답한 수락이에요")
+    decided_at = datetime.fromisoformat(accepted[0]["decided_at"])
+    if decided_at <= now - timedelta(days=ACCEPTANCE_TTL_DAYS):
+        raise HTTPException(status_code=410, detail="기한이 지났어요")
+
+    await wiring.repo.insert_acceptance_response(card_id, wiring.profile_id, body.decision)
+    if body.decision != "accept":
+        return {"matched": False}
+
+    match = await wiring.repo.create_match(card["owner_id"], wiring.profile_id)
+    me = await wiring.repo.fetch_card_profile(wiring.profile_id)
+    other = await wiring.repo.fetch_card_profile(card["owner_id"])
+    # 매칭 성사는 양쪽 모두에게 알린다(화면 12 `UFNSi`).
+    await notify(wiring.repo, wiring.sender, card["owner_id"], "match_made", "매칭됐어요!",
+                 f"{me['nickname']} 님도 수락했어요",
+                 {"route": "match", "match_id": match["id"]}, now=now)
+    await notify(wiring.repo, wiring.sender, wiring.profile_id, "match_made", "매칭됐어요!",
+                 f"{other['nickname']} 님과 대화를 시작해 보세요",
+                 {"route": "match", "match_id": match["id"]}, now=now)
+    return {"matched": True, "match_id": match["id"]}
 
 
 # ↓ 아래에 새 `/cards/...` 경로를 두지 않는다. `{card_id}` 가 먼저 먹어 버린다.
