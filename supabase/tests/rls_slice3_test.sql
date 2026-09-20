@@ -15,6 +15,11 @@ select plan(15);
 insert into public.universities (id, name, region_group)
 values ('00000000-0000-0000-0000-000000000001', '테스트대학교', 'seoul');
 
+-- 조각 4 부터 universities.region_group 은 region_group_settings 를 가리키는 FK 다 — 설정 행이 먼저다.
+insert into public.region_group_settings (region_group)
+values ('busan')
+on conflict (region_group) do nothing;
+
 insert into public.universities (id, name, region_group)
 values ('00000000-0000-0000-0000-000000000002', '부산테스트대학교', 'busan');
 
