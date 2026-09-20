@@ -44,7 +44,7 @@ select throws_ok(
 
 select lives_ok(
   $$update public.profiles
-       set nickname = '가나', gender = 'male', looking_for = 'female',
+       set nickname = '가나', gender = 'male',
            birth_year = 2002, height_cm = 178, status = 'active'
      where id = '00000000-0000-0000-0000-0000000000aa'$$,
   '필수값을 채우면 active 로 바꿀 수 있다'
@@ -83,7 +83,9 @@ select is_empty(
 -- 테이블이나 컬럼 grant 를 추가하면 이 기대값도 ERD §2 표대로 함께 고친다.
 -- `supabase test db` 는 모든 조각의 마이그레이션이 올라간 DB 에서 도므로 조각 1 의 profile_private · student_verification_attempts 도 여기 들어간다.
 select results_eq(
-  $$select g.object_name, g.grantee, g.privilege_type
+  $$select g.object_name collate "C" as object_name,
+           g.grantee collate "C" as grantee,
+           g.privilege_type collate "C" as privilege_type
       from (
         select c.relname::text as object_name,
                coalesce(r.rolname::text, 'PUBLIC') as grantee,
@@ -107,6 +109,21 @@ select results_eq(
      where g.grantee in ('anon', 'authenticated', 'service_role', 'PUBLIC')
      order by g.object_name collate "C", g.grantee collate "C", g.privilege_type collate "C"$$,
   $$values
+      ('entitlements'::text collate "C", 'authenticated'::text collate "C", 'SELECT'::text collate "C"),
+      ('entitlements', 'service_role', 'DELETE'),
+      ('entitlements', 'service_role', 'INSERT'),
+      ('entitlements', 'service_role', 'SELECT'),
+      ('entitlements', 'service_role', 'UPDATE'),
+      ('heart_transactions', 'authenticated', 'SELECT'),
+      ('heart_transactions', 'service_role', 'DELETE'),
+      ('heart_transactions', 'service_role', 'INSERT'),
+      ('heart_transactions', 'service_role', 'SELECT'),
+      ('heart_transactions', 'service_role', 'UPDATE'),
+      ('profile_avatars', 'authenticated', 'SELECT'),
+      ('profile_avatars', 'service_role', 'DELETE'),
+      ('profile_avatars', 'service_role', 'INSERT'),
+      ('profile_avatars', 'service_role', 'SELECT'),
+      ('profile_avatars', 'service_role', 'UPDATE'),
       ('profile_photos', 'authenticated', 'SELECT'),
       ('profile_photos', 'service_role', 'DELETE'),
       ('profile_photos', 'service_role', 'INSERT'),
@@ -123,10 +140,19 @@ select results_eq(
       ('profiles', 'service_role', 'INSERT'),
       ('profiles', 'service_role', 'SELECT'),
       ('profiles', 'service_role', 'UPDATE'),
+      ('signup_blocks', 'service_role', 'DELETE'),
+      ('signup_blocks', 'service_role', 'INSERT'),
+      ('signup_blocks', 'service_role', 'SELECT'),
+      ('signup_blocks', 'service_role', 'UPDATE'),
       ('student_verification_attempts', 'service_role', 'DELETE'),
       ('student_verification_attempts', 'service_role', 'INSERT'),
       ('student_verification_attempts', 'service_role', 'SELECT'),
       ('student_verification_attempts', 'service_role', 'UPDATE'),
+      ('survey_answers', 'authenticated', 'SELECT'),
+      ('survey_answers', 'service_role', 'DELETE'),
+      ('survey_answers', 'service_role', 'INSERT'),
+      ('survey_answers', 'service_role', 'SELECT'),
+      ('survey_answers', 'service_role', 'UPDATE'),
       ('universities', 'anon', 'SELECT'),
       ('universities', 'authenticated', 'SELECT'),
       ('universities', 'service_role', 'DELETE'),
@@ -139,7 +165,7 @@ select results_eq(
       ('university_email_domains', 'service_role', 'INSERT'),
       ('university_email_domains', 'service_role', 'SELECT'),
       ('university_email_domains', 'service_role', 'UPDATE')$$,
-  'anon · authenticated · service_role 권한은 ERD §2 표대로다'
+  'anon · authenticated · service_role 권한은 ERD §2 표대로다(조각2 신규 테이블 포함)'
 );
 
 -- 사진 업로드 · 조회는 서명 URL 로만 한다. 버킷이 늘어도 storage.objects 정책은 두지 않는다(ERD §9).
