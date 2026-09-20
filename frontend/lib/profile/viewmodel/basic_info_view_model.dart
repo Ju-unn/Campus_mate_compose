@@ -50,7 +50,19 @@ class BasicInfoViewModel extends Notifier<BasicInfoUiState> {
   void changeHeight(String value) => state = _copyWith(heightInput: value);
   void changePhoneNumber(String value) => state = _copyWith(phoneNumberInput: value);
   void changeGender(String value) => state = _copyWith(gender: value);
-  void changeMbti(String? value) => state = _copyWith(mbti: value);
+  /// 같은 축의 다른 극은 자동으로 꺼진다 — 축마다 하나만 고른다.
+  void toggleMbtiPole(String pole) {
+    final axis = BasicInfoUiState.mbtiAxes.firstWhere((axis) => axis.contains(pole));
+    final poles = {...state.mbtiPoles}..removeAll(axis);
+    if (!state.mbtiPoles.contains(pole)) {
+      poles.add(pole);
+    }
+    state = _copyWith(mbtiPoles: poles, isMbtiUnknown: false);
+  }
+
+  void toggleMbtiUnknown() {
+    state = _copyWith(mbtiPoles: const {}, isMbtiUnknown: !state.isMbtiUnknown);
+  }
 
   Future<void> submit() async {
     if (!state.canSubmit) {
@@ -100,7 +112,8 @@ class BasicInfoViewModel extends Notifier<BasicInfoUiState> {
     String? heightInput,
     String? phoneNumberInput,
     String? gender,
-    Object? mbti = _keep,
+    Set<String>? mbtiPoles,
+    bool? isMbtiUnknown,
     bool? isSubmitting,
     Object? errorMessage = _keep,
     bool? completed,
@@ -112,7 +125,8 @@ class BasicInfoViewModel extends Notifier<BasicInfoUiState> {
       heightInput: heightInput ?? state.heightInput,
       phoneNumberInput: phoneNumberInput ?? state.phoneNumberInput,
       gender: gender ?? state.gender,
-      mbti: identical(mbti, _keep) ? state.mbti : mbti as String?,
+      mbtiPoles: mbtiPoles ?? state.mbtiPoles,
+      isMbtiUnknown: isMbtiUnknown ?? state.isMbtiUnknown,
       isSubmitting: isSubmitting ?? state.isSubmitting,
       errorMessage: identical(errorMessage, _keep) ? state.errorMessage : errorMessage as String?,
       completed: completed ?? state.completed,

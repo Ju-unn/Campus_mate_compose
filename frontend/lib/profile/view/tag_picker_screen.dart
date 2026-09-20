@@ -1,4 +1,6 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
+import 'package:campus_mate/common/widgets/select_chip.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
@@ -19,18 +21,24 @@ class TagPickerScreen extends ConsumerWidget {
     final state = ref.watch(tagPickerViewModelProvider(kind));
     final viewModel = ref.read(tagPickerViewModelProvider(kind).notifier);
     return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: 56,
-        backgroundColor: AppColors.canvas,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        automaticallyImplyLeading: false,
-        title: Text(kind.headline, style: AppTypography.navTitle.copyWith(color: AppColors.ink)),
-      ),
+      appBar: OnboardingAppBar(current: kind.dotIndex, total: kind.dotTotal),
       body: SafeArea(
+        top: false,
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(child: _TagGrid(kind: kind, state: state, onToggle: viewModel.toggle)),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.md),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(kind.headline, style: AppTypography.headline.copyWith(color: AppColors.ink)),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(kind.subtext, style: AppTypography.body.copyWith(color: AppColors.body)),
+                ],
+              ),
+            ),
+            Expanded(child: _TagSection(kind: kind, state: state, onToggle: viewModel.toggle)),
             _Footer(state: state, onSubmit: viewModel.submit),
           ],
         ),
@@ -39,8 +47,8 @@ class TagPickerScreen extends ConsumerWidget {
   }
 }
 
-class _TagGrid extends StatelessWidget {
-  const _TagGrid({required this.kind, required this.state, required this.onToggle});
+class _TagSection extends StatelessWidget {
+  const _TagSection({required this.kind, required this.state, required this.onToggle});
 
   final TagPickerKind kind;
   final TagPickerUiState state;
@@ -49,17 +57,24 @@ class _TagGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      child: Wrap(
-        spacing: AppSpacing.xs,
-        runSpacing: AppSpacing.xs,
+      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (final tag in kind.pool)
-            FilterChip(
-              label: Text(tag),
-              selected: state.selected.contains(tag),
-              onSelected: (_) => onToggle(tag),
-            ),
+          Text(kind.tagLabel, style: AppTypography.labelSmall.copyWith(color: AppColors.body)),
+          const SizedBox(height: AppSpacing.xs),
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
+            children: [
+              for (final tag in kind.pool)
+                SelectChip(
+                  label: tag,
+                  isSelected: state.selected.contains(tag),
+                  onTap: () => onToggle(tag),
+                ),
+            ],
+          ),
         ],
       ),
     );
@@ -75,7 +90,7 @@ class _Footer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, 28),
+      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 28),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

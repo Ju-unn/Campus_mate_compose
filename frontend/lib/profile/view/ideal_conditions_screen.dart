@@ -1,6 +1,7 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/mbti_pole_toggle.dart';
+import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
-import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/profile/view/appearance_pickers.dart';
@@ -9,7 +10,7 @@ import 'package:campus_mate/profile/viewmodel/ideal_conditions_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// 이상형 조건 화면(DESIGN.md 화면 06-1).
+/// 이상형 조건 화면(DESIGN.md 화면 06-1, datingApp.pen `06-1 이상형 조건`).
 /// 순서는 얼굴상 → 인상 → 선호 MBTI → 선호 나이 → 선호 키(§9 7, 2026-09-13 확정).
 class IdealConditionsScreen extends ConsumerWidget {
   const IdealConditionsScreen({super.key});
@@ -19,91 +20,112 @@ class IdealConditionsScreen extends ConsumerWidget {
     final state = ref.watch(idealConditionsViewModelProvider);
     final viewModel = ref.read(idealConditionsViewModelProvider.notifier);
     return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: 56,
-        backgroundColor: AppColors.canvas,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        automaticallyImplyLeading: false,
-        title: Text('어떤 분을 만나고 싶나요?', style: AppTypography.navTitle.copyWith(color: AppColors.ink)),
-      ),
+      appBar: const OnboardingAppBar(current: 0, total: 3),
       body: SafeArea(
         top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, 28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const _SectionTitle('어떤 얼굴상이 좋으세요?', hint: '최대 3개, 안 고르면 상관없어요'),
-                      AnimalTypePicker(
-                        selected: state.preferredAnimalTypes.toSet(),
-                        onTap: viewModel.toggleAnimalType,
-                      ),
-                      const SizedBox(height: AppSpacing.xl),
-                      const _SectionTitle('어떤 인상이 좋으세요?', hint: '최대 3개, 안 고르면 상관없어요'),
-                      ImpressionTypePicker(
-                        selected: state.preferredImpressionTypes.toSet(),
-                        onTap: viewModel.toggleImpressionType,
-                      ),
-                      const SizedBox(height: AppSpacing.xl),
-                      const _SectionTitle('선호하는 MBTI가 있나요?', hint: '해당하는 글자만 켜주세요'),
-                      _MbtiToggles(
-                        flags: state.preferredMbtiFlags,
-                        onToggle: viewModel.toggleMbtiPole,
-                      ),
-                      const SizedBox(height: AppSpacing.xl),
-                      const _SectionTitle('선호하는 나이 범위'),
-                      _RangeField(
-                        summary: _ageSummary(state),
-                        values: RangeValues(
-                          state.preferredAgeMin.toDouble(),
-                          state.preferredAgeMax.toDouble(),
-                        ),
-                        min: IdealConditionsUiState.ageFloor.toDouble(),
-                        max: IdealConditionsUiState.ageCeiling.toDouble(),
-                        divisions: IdealConditionsUiState.ageCeiling - IdealConditionsUiState.ageFloor,
-                        ignoreLabel: '나이는 상관없어요',
-                        ignored: state.ageIgnored,
-                        onChanged: (values) =>
-                            viewModel.changeAgeRange(values.start.round(), values.end.round()),
-                        onIgnoredChanged: viewModel.changeAgeIgnored,
-                      ),
-                      const SizedBox(height: AppSpacing.xl),
-                      const _SectionTitle('선호하는 키 범위'),
-                      _RangeField(
-                        summary: _heightSummary(state),
-                        values: RangeValues(
-                          state.preferredHeightMin.toDouble(),
-                          state.preferredHeightMax.toDouble(),
-                        ),
-                        min: IdealConditionsUiState.heightFloor.toDouble(),
-                        max: IdealConditionsUiState.heightCeiling.toDouble(),
-                        divisions: (IdealConditionsUiState.heightCeiling -
-                                IdealConditionsUiState.heightFloor) ~/
-                            IdealConditionsUiState.heightStep,
-                        ignoreLabel: '키는 상관없어요',
-                        ignored: state.heightIgnored,
-                        onChanged: (values) =>
-                            viewModel.changeHeightRange(values.start.round(), values.end.round()),
-                        onIgnoredChanged: viewModel.changeHeightIgnored,
-                      ),
-                    ],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.md),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('어떤 사람이 좋아요?', style: AppTypography.headline.copyWith(color: AppColors.ink)),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    '얼굴상·인상은 최대 3개까지, 참고용이에요.',
+                    style: AppTypography.body.copyWith(color: AppColors.body),
                   ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.lg),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const _SectionTitle('선호하는 얼굴상', hint: '최대 3개'),
+                    AnimalTypePicker(
+                      selected: state.preferredAnimalTypes.toSet(),
+                      onTap: viewModel.toggleAnimalType,
+                    ),
+                    const SizedBox(height: AppSpacing.xl),
+                    const _SectionTitle('선호하는 인상', hint: '최대 3개'),
+                    ImpressionTypePicker(
+                      selected: state.preferredImpressionTypes.toSet(),
+                      onTap: viewModel.toggleImpressionType,
+                    ),
+                    const SizedBox(height: AppSpacing.xl),
+                    const _SectionTitle('선호하는 성향 (MBTI)', hint: '선택하지 않으면 상관없어요.'),
+                    MbtiPoleToggle(
+                      poles: IdealConditionsUiState.mbtiPoles,
+                      selected: {
+                        for (final entry in state.preferredMbtiFlags.entries)
+                          if (entry.value) entry.key,
+                      },
+                      onTap: viewModel.toggleMbtiPole,
+                    ),
+                    const SizedBox(height: AppSpacing.xl),
+                    const _SectionTitle('선호하는 나이 범위'),
+                    _RangeField(
+                      summary: _ageSummary(state),
+                      values: RangeValues(
+                        state.preferredAgeMin.toDouble(),
+                        state.preferredAgeMax.toDouble(),
+                      ),
+                      min: IdealConditionsUiState.ageFloor.toDouble(),
+                      max: IdealConditionsUiState.ageCeiling.toDouble(),
+                      divisions: IdealConditionsUiState.ageCeiling - IdealConditionsUiState.ageFloor,
+                      endLabels: const ('19세', '1세 단위', '35세 이상'),
+                      ignoreLabel: '나이는 상관없어요',
+                      ignored: state.ageIgnored,
+                      onChanged: (values) =>
+                          viewModel.changeAgeRange(values.start.round(), values.end.round()),
+                      onIgnoredChanged: viewModel.changeAgeIgnored,
+                    ),
+                    const SizedBox(height: AppSpacing.xl),
+                    const _SectionTitle('선호하는 키 범위'),
+                    _RangeField(
+                      summary: _heightSummary(state),
+                      values: RangeValues(
+                        state.preferredHeightMin.toDouble(),
+                        state.preferredHeightMax.toDouble(),
+                      ),
+                      min: IdealConditionsUiState.heightFloor.toDouble(),
+                      max: IdealConditionsUiState.heightCeiling.toDouble(),
+                      divisions:
+                          (IdealConditionsUiState.heightCeiling - IdealConditionsUiState.heightFloor) ~/
+                              IdealConditionsUiState.heightStep,
+                      endLabels: const ('150cm 이하', '5cm 단위', '190cm 이상'),
+                      ignoreLabel: '키는 상관없어요',
+                      ignored: state.heightIgnored,
+                      onChanged: (values) =>
+                          viewModel.changeHeightRange(values.start.round(), values.end.round()),
+                      onIgnoredChanged: viewModel.changeHeightIgnored,
+                    ),
+                  ],
                 ),
               ),
-              if (state.errorMessage != null) ...[
-                const SizedBox(height: AppSpacing.xs),
-                Text(state.errorMessage!, style: AppTypography.caption.copyWith(color: AppColors.error)),
-              ],
-              const SizedBox(height: AppSpacing.md),
-              AppButton(label: '다음', onPressed: state.canSubmit ? viewModel.submit : null),
-            ],
-          ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 28),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (state.errorMessage != null) ...[
+                    Text(
+                      state.errorMessage!,
+                      style: AppTypography.caption.copyWith(color: AppColors.error),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                  ],
+                  AppButton(label: '다음', onPressed: state.canSubmit ? viewModel.submit : null),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -137,67 +159,25 @@ class _SectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.baseline,
+        textBaseline: TextBaseline.alphabetic,
         children: [
-          Text(title, style: AppTypography.title.copyWith(color: AppColors.ink)),
-          if (hint != null)
-            Text(hint!, style: AppTypography.caption.copyWith(color: AppColors.muted)),
+          Text(title, style: AppTypography.labelSmall.copyWith(color: AppColors.body)),
+          if (hint != null) ...[
+            const SizedBox(width: AppSpacing.xs),
+            Expanded(
+              child: Text(hint!, style: AppTypography.caption.copyWith(color: AppColors.muted)),
+            ),
+          ],
         ],
       ),
     );
   }
 }
 
-/// 선호 MBTI 8극 pill 토글(DESIGN.md §8.5 `mbti-toggle`). 체크 아이콘 없이 색만으로 표시한다.
-class _MbtiToggles extends StatelessWidget {
-  const _MbtiToggles({required this.flags, required this.onToggle});
-
-  final Map<String, bool> flags;
-  final ValueChanged<String> onToggle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: AppSpacing.xs,
-      runSpacing: AppSpacing.xs,
-      children: [
-        for (final pole in IdealConditionsUiState.mbtiPoles)
-          _MbtiPill(pole: pole, isOn: flags[pole] ?? false, onTap: () => onToggle(pole)),
-      ],
-    );
-  }
-}
-
-class _MbtiPill extends StatelessWidget {
-  const _MbtiPill({required this.pole, required this.isOn, required this.onTap});
-
-  final String pole;
-  final bool isOn;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppRadius.pill),
-      child: Ink(
-        decoration: BoxDecoration(
-          color: isOn ? AppColors.primaryWash : AppColors.surfaceSoft,
-          borderRadius: BorderRadius.circular(AppRadius.pill),
-          border: Border.all(color: isOn ? AppColors.primary : Colors.transparent),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-          child: Text(pole, style: AppTypography.label.copyWith(color: AppColors.ink)),
-        ),
-      ),
-    );
-  }
-}
-
-/// 나이·키 공통 `range-slider`(DESIGN.md §8.5). "상관없어요"를 켜면 슬라이더가 비활성된다.
+/// 나이·키 공통 range-slider(DESIGN.md §8.5). "상관없어요"를 켜면 슬라이더가 비활성된다.
 class _RangeField extends StatelessWidget {
   const _RangeField({
     required this.summary,
@@ -205,6 +185,7 @@ class _RangeField extends StatelessWidget {
     required this.min,
     required this.max,
     required this.divisions,
+    required this.endLabels,
     required this.ignoreLabel,
     required this.ignored,
     required this.onChanged,
@@ -216,6 +197,9 @@ class _RangeField extends StatelessWidget {
   final double min;
   final double max;
   final int divisions;
+
+  /// 슬라이더 아래 왼끝·단위·오른끝 라벨.
+  final (String, String, String) endLabels;
   final String ignoreLabel;
   final bool ignored;
   final ValueChanged<RangeValues> onChanged;
@@ -238,6 +222,19 @@ class _RangeField extends StatelessWidget {
           max: max,
           divisions: divisions,
           onChanged: ignored ? null : onChanged,
+        ),
+        Row(
+          children: [
+            Text(endLabels.$1, style: AppTypography.caption.copyWith(color: AppColors.muted)),
+            Expanded(
+              child: Text(
+                endLabels.$2,
+                textAlign: TextAlign.center,
+                style: AppTypography.caption.copyWith(color: AppColors.muted),
+              ),
+            ),
+            Text(endLabels.$3, style: AppTypography.caption.copyWith(color: AppColors.muted)),
+          ],
         ),
         InkWell(
           onTap: () => onIgnoredChanged(!ignored),
