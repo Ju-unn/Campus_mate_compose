@@ -1,4 +1,6 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/labeled_field.dart';
+import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
@@ -6,8 +8,8 @@ import 'package:campus_mate/profile/viewmodel/ideal_note_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// "이런 사람이 좋아요" 화면(DESIGN.md 화면 06-2a, 2026-09-19 신설).
-/// 매칭 점수의 절반을 차지하는 자유 글이지만 AI 는 쓰지 않는다 — 쓴 문장을 그대로 임베딩한다.
+/// "이런 사람이 좋아요" 자유 글 화면(DESIGN.md 화면 06-2a, datingApp.pen `06-2a 자유 입력`).
+/// 2026-09-19 매칭 공식 결정으로 되살아난 화면이다 — AI 는 쓰지 않고 문장 임베딩에만 쓴다.
 class IdealNoteScreen extends ConsumerWidget {
   const IdealNoteScreen({super.key});
 
@@ -16,18 +18,16 @@ class IdealNoteScreen extends ConsumerWidget {
     final state = ref.watch(idealNoteViewModelProvider);
     final viewModel = ref.read(idealNoteViewModelProvider.notifier);
     return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: 56,
-        backgroundColor: AppColors.canvas,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        automaticallyImplyLeading: false,
-        actions: [
-          TextButton(
-            onPressed: state.isSubmitting ? null : viewModel.skip,
-            child: Text('건너뛰기', style: AppTypography.labelSmall.copyWith(color: AppColors.primaryText)),
+      appBar: OnboardingAppBar(
+        current: 1,
+        total: 3,
+        action: TextButton(
+          onPressed: state.isSubmitting ? null : viewModel.skip,
+          child: Text(
+            '건너뛰기',
+            style: AppTypography.labelSmall.copyWith(color: AppColors.primaryText),
           ),
-        ],
+        ),
       ),
       body: SafeArea(
         top: false,
@@ -41,25 +41,24 @@ class IdealNoteScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('이런 사람이 좋아요', style: AppTypography.headline.copyWith(color: AppColors.ink)),
+                      Text(
+                        '이런 사람이 좋아요를\n자유롭게 적어주세요',
+                        style: AppTypography.headline.copyWith(color: AppColors.ink),
+                      ),
                       const SizedBox(height: AppSpacing.xs),
                       Text(
-                        '어떤 사람과 잘 맞을지 자유롭게 적어주세요. 적은 만큼 더 잘 맞는 사람을 찾아드려요.',
-                        style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+                        '입력하지 않아도 괜찮아요',
+                        style: AppTypography.body.copyWith(color: AppColors.body),
                       ),
                       const SizedBox(height: AppSpacing.xl),
-                      TextFormField(
+                      LabeledField(
+                        label: '이런 사람이 좋아요',
+                        placeholder: '말이 잘 통하는 사람이 좋아요',
                         initialValue: state.note,
                         onChanged: viewModel.changeNote,
+                        errorText: state.errorMessage,
                         maxLines: 6,
-                        decoration: const InputDecoration(
-                          hintText: '예) 취미 얘기를 오래 할 수 있는 사람이면 좋겠어요',
-                        ),
                       ),
-                      if (state.errorMessage != null) ...[
-                        const SizedBox(height: AppSpacing.sm),
-                        Text(state.errorMessage!, style: AppTypography.caption.copyWith(color: AppColors.error)),
-                      ],
                     ],
                   ),
                 ),

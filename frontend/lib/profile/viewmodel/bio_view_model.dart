@@ -10,8 +10,17 @@ final bioViewModelProvider = NotifierProvider<BioViewModel, BioUiState>(BioViewM
 
 /// 자기소개 초안 생성(06-2b)과 저장(06-3)의 흐름을 맡는다.
 class BioViewModel extends Notifier<BioUiState> {
+  /// "직접 쓸게요" 를 누른 뒤 뒤늦게 도착한 초안이 사용자가 쓰던 글을 덮지 않게 막는 표식.
+  bool _skipped = false;
+
   @override
   BioUiState build() => const BioUiState();
+
+  /// 06-2b 에서 "직접 쓸게요" 를 누르면 초안을 기다리지 않고 빈 상태로 06-3 에 들어간다.
+  void skipDraft() {
+    _skipped = true;
+    state = state.copyWith(isLoadingDraft: false, draftLoaded: true);
+  }
 
   /// 06-2b 진입 즉시 한 번 부른다. 실패해도 오류 화면을 띄우지 않고 빈 값으로 06-3 에 보낸다
   /// (DESIGN.md §9 8 — "직접 쓸게요"/생성 실패 시 빈 상태로 진입). 다시 만들기 버튼은 없다.
@@ -22,11 +31,17 @@ class BioViewModel extends Notifier<BioUiState> {
     state = state.copyWith(isLoadingDraft: true);
     try {
       final result = await ref.read(bioRepositoryProvider).generateDraft();
+      if (_skipped) {
+        return;
+      }
       state = result.when(
         onSuccess: (draft) => state.copyWith(bio: draft, isLoadingDraft: false, draftLoaded: true),
         onFailure: (_) => state.copyWith(isLoadingDraft: false, draftLoaded: true),
       );
     } catch (_) {
+      if (_skipped) {
+        return;
+      }
       state = state.copyWith(isLoadingDraft: false, draftLoaded: true);
     }
   }

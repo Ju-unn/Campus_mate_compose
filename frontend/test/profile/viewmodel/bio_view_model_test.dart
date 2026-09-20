@@ -71,4 +71,28 @@ void main() {
 
     expect(repository.submittedBio, isNull);
   });
+
+  test('"직접 쓸게요"를 누르면 기다리지 않고 06-3 으로 넘어간다', () async {
+    final vm = container.read(bioViewModelProvider.notifier);
+    final pending = vm.loadDraft();
+
+    vm.skipDraft();
+
+    final skipped = container.read(bioViewModelProvider);
+    expect(skipped.isLoadingDraft, isFalse);
+    expect(skipped.draftLoaded, isTrue);
+
+    await pending;
+  });
+
+  test('"직접 쓸게요" 뒤 늦게 온 초안은 사용자가 쓰던 글을 덮지 않는다', () async {
+    final vm = container.read(bioViewModelProvider.notifier);
+    final pending = vm.loadDraft();
+
+    vm.skipDraft();
+    vm.changeBio('제가 직접 쓴 소개예요');
+    await pending;
+
+    expect(container.read(bioViewModelProvider).bio, '제가 직접 쓴 소개예요');
+  });
 }
