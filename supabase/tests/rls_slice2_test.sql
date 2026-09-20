@@ -6,7 +6,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(37);
+select plan(38);
 
 -- 준비 (postgres) -------------------------------------------------------------
 -- 사용자 A = ...aa, 사용자 B = ...bb, 테스트 대학 = ...01
@@ -103,6 +103,16 @@ select is(
   (select public from storage.buckets where id = 'profile-photos'),
   false,
   'profile-photos 버킷은 비공개다'
+);
+
+select is(
+  (select count(*) from pg_proc
+     where pronamespace = 'public'::regnamespace
+       and proname in ('decrypt_phone_number', 'set_phone_number', 'grant_hearts')
+       and proconfig is not null
+       and exists (select 1 from unnest(proconfig) cfg where cfg like 'search_path=%')),
+  3::bigint,
+  'decrypt_phone_number·set_phone_number·grant_hearts 는 search_path 가 고정돼 있다(advisor WARN 조치)'
 );
 
 -- 각 테이블에 A·B 한 행씩 준비한다(RLS 우회 상태에서).
