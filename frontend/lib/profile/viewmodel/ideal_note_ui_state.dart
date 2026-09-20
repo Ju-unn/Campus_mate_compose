@@ -13,8 +13,18 @@ class IdealNoteUiState {
   final String? errorMessage;
   final bool completed;
 
-  /// 하단 "다음"은 뭔가 썼을 때만 켜다 — 공백만 쓴 글은 서버도 422 로 돌려보낸다.
-  bool get canSubmit => note.trim().isNotEmpty && !isSubmitting;
+  /// 최소 글자 수(2026-09-21 사용자 결정). 서버 `IDEAL_NOTE_MIN_LENGTH` 와 같은 값이다.
+  static const int minLength = 10;
+
+  /// 서버가 보는 길이와 같게 센다 — 파이썬 `len()` 은 글자(코드 포인트) 수라 `runes` 가 맞다.
+  int get _trimmedLength => note.trim().runes.length;
+
+  /// 하단 "다음"은 10자 이상 썼을 때만 켠다 — 짧은 글은 서버도 422 로 돌려보낸다.
+  bool get canSubmit => _trimmedLength >= minLength && !isSubmitting;
+
+  /// 쓰는 도중 10자에 못 미칠 때만 알려준다 — 화면에 들어오자마자 빨간 글씨를 보여주지 않는다.
+  String? get lengthMessage =>
+      _trimmedLength == 0 || _trimmedLength >= minLength ? null : '$minLength자 이상 입력해 주세요';
 
   IdealNoteUiState copyWith({
     String? note,

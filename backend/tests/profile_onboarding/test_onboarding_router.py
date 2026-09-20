@@ -323,6 +323,42 @@ def test_ideal_note_rejects_blank_text():
     assert patched == []
 
 
+def test_ideal_note_rejects_nine_characters():
+    """최소 10자(2026-09-21 사용자 결정). 공백을 뗀 9자는 경계 바로 아래라 422 다."""
+    patched: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "/rest/v1/profiles" in str(request.url) and request.method == "PATCH":
+            patched.append(json.loads(request.content))
+        return httpx.Response(200, json=[])
+
+    client = _wire(handler)
+    response = client.post(
+        "/profile-onboarding/ideal-note", headers=AUTH_HEADERS, json={"note": "  말이잘통하는사람요  "}
+    )
+
+    assert response.status_code == 422
+    assert patched == []
+
+
+def test_ideal_note_accepts_exactly_ten_characters():
+    """경계 바로 위 10자는 저장한다 — 앞뒤 공백을 뗀 글이 그대로 들어간다."""
+    patched: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "/rest/v1/profiles" in str(request.url) and request.method == "PATCH":
+            patched.append(json.loads(request.content))
+        return httpx.Response(200, json=[])
+
+    client = _wire(handler)
+    response = client.post(
+        "/profile-onboarding/ideal-note", headers=AUTH_HEADERS, json={"note": "  말 잘 통하는 사람  "}
+    )
+
+    assert response.status_code == 200
+    assert patched[0]["ideal_note"] == "말 잘 통하는 사람"
+
+
 def test_ideal_conditions_rejects_empty_face_or_impression_choice():
     """선호 얼굴상·인상도 각 1개 이상 필수다."""
     patched: list[dict] = []
