@@ -37,7 +37,7 @@ class IdealNoteScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: AppSpacing.xs),
                       Text(
-                        '매칭에 쓰이니 한 줄이라도 적어 주세요',
+                        '10자 이상 자유롭게 적어주세요',
                         style: AppTypography.body.copyWith(color: AppColors.body),
                       ),
                       const SizedBox(height: AppSpacing.xl),
@@ -46,7 +46,8 @@ class IdealNoteScreen extends ConsumerWidget {
                         placeholder: '말이 잘 통하는 사람이 좋아요',
                         initialValue: state.note,
                         onChanged: viewModel.changeNote,
-                        errorText: state.errorMessage,
+                        // 서버가 돌려준 오류가 먼저다. 그런 오류가 없을 때만 길이 안내를 보여준다.
+                        errorText: state.errorMessage ?? state.lengthMessage,
                         maxLines: 6,
                       ),
                     ],
