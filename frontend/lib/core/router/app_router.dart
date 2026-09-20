@@ -7,6 +7,18 @@ import 'package:campus_mate/auth/view/verify_code_screen.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/router/auth_redirect.dart';
 import 'package:campus_mate/core/router/placeholder_screens.dart';
+import 'package:campus_mate/profile/model/onboarding_step.dart';
+import 'package:campus_mate/profile/view/appearance_type_screen.dart';
+import 'package:campus_mate/profile/view/avatar_generation_screen.dart';
+import 'package:campus_mate/profile/view/basic_info_screen.dart';
+import 'package:campus_mate/profile/view/bio_draft_loading_screen.dart';
+import 'package:campus_mate/profile/view/ideal_conditions_screen.dart';
+import 'package:campus_mate/profile/view/ideal_note_screen.dart';
+import 'package:campus_mate/profile/view/kakao_id_screen.dart';
+import 'package:campus_mate/profile/view/photos_screen.dart';
+import 'package:campus_mate/profile/view/survey_screen.dart';
+import 'package:campus_mate/profile/view/tag_picker_screen.dart';
+import 'package:campus_mate/profile/viewmodel/tag_picker_kind.dart';
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
@@ -16,13 +28,15 @@ abstract final class AppRouter {
   static GoRouter create({
     required bool Function() isAuthenticated,
     required VerificationGate Function() verificationGate,
+    required OnboardingStep Function() onboardingStep,
     Listenable? refreshListenable,
   }) {
     return GoRouter(
       initialLocation: AppRoutes.splash,
       refreshListenable: refreshListenable,
       redirect: (context, state) {
-        return AuthRedirect(isAuthenticated(), verificationGate()).resolve(state.matchedLocation);
+        return AuthRedirect(isAuthenticated(), verificationGate(), onboardingStep())
+            .resolve(state.matchedLocation);
       },
       routes: _routes(),
     );
@@ -36,7 +50,43 @@ abstract final class AppRouter {
       GoRoute(path: AppRoutes.verifyCode, redirect: _verifyCodeGuard, builder: _buildVerifyCode),
       GoRoute(path: AppRoutes.studentVerification, builder: (context, state) => const StudentVerificationScreen()),
       GoRoute(path: AppRoutes.schoolInfo, builder: (context, state) => const SchoolInfoScreen()),
+      ..._onboardingRoutes(),
       GoRoute(path: AppRoutes.home, builder: (context, state) => const HomeScreen()),
+    ];
+  }
+
+  /// 조각 2 온보딩 04-1~06-3. 순서는 [AppRoutes] 상수 순서이자 서버 `next-step` 응답 순서다.
+  /// 06-2b(초안 생성)는 06-3 과 같은 `bio` 단계라 라우트를 따로 두지 않는다
+  /// ([BioDraftLoadingScreen] 이 끝나면 스스로 06-3 으로 바뀐다).
+  static List<RouteBase> _onboardingRoutes() {
+    return <RouteBase>[
+      GoRoute(path: AppRoutes.onboardingBasicInfo, builder: (context, state) => const BasicInfoScreen()),
+      GoRoute(path: AppRoutes.onboardingKakaoId, builder: (context, state) => const KakaoIdScreen()),
+      GoRoute(path: AppRoutes.onboardingPhotos, builder: (context, state) => const PhotosScreen()),
+      GoRoute(path: AppRoutes.onboardingAvatar, builder: (context, state) => const AvatarGenerationScreen()),
+      GoRoute(
+        path: AppRoutes.onboardingAppearanceType,
+        builder: (context, state) => const AppearanceTypeScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.onboardingInterests,
+        builder: (context, state) => const TagPickerScreen(kind: TagPickerKind.interests),
+      ),
+      GoRoute(
+        path: AppRoutes.onboardingMyTraits,
+        builder: (context, state) => const TagPickerScreen(kind: TagPickerKind.myTraits),
+      ),
+      GoRoute(path: AppRoutes.onboardingSurvey, builder: (context, state) => const SurveyScreen()),
+      GoRoute(
+        path: AppRoutes.onboardingIdealConditions,
+        builder: (context, state) => const IdealConditionsScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.onboardingIdealTraits,
+        builder: (context, state) => const TagPickerScreen(kind: TagPickerKind.idealTraits),
+      ),
+      GoRoute(path: AppRoutes.onboardingIdealNote, builder: (context, state) => const IdealNoteScreen()),
+      GoRoute(path: AppRoutes.onboardingBio, builder: (context, state) => const BioDraftLoadingScreen()),
     ];
   }
 

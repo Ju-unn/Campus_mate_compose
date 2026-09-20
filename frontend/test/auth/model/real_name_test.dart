@@ -13,4 +13,12 @@ void main() {
   test('30자를 넘으면 null', () {
     expect(RealName.tryParse('가' * 31), isNull);
   });
+
+  test('1자면 null', () {
+    expect(RealName.tryParse('김'), isNull);
+  });
+
+  test('2자면 통과', () {
+    expect(RealName.tryParse('김가')!.toRequestValue(), '김가');
+  });
 }

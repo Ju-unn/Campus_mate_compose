@@ -18,4 +18,18 @@ abstract final class AppRoutes {
 
   /// 로그인 후 첫 화면
   static const String home = '/home';
+
+  /// 조각 2 온보딩 화면(04-1~06-3). 순서는 DESIGN.md §9, 서버 `next-step` 응답과 1:1 대응.
+  static const String onboardingBasicInfo = '/onboarding/basic-info';
+  static const String onboardingKakaoId = '/onboarding/kakao-id';
+  static const String onboardingPhotos = '/onboarding/photos';
+  static const String onboardingAvatar = '/onboarding/avatar';
+  static const String onboardingAppearanceType = '/onboarding/appearance-type';
+  static const String onboardingInterests = '/onboarding/interests';
+  static const String onboardingMyTraits = '/onboarding/my-traits';
+  static const String onboardingSurvey = '/onboarding/survey';
+  static const String onboardingIdealConditions = '/onboarding/ideal-conditions';
+  static const String onboardingIdealTraits = '/onboarding/ideal-traits';
+  static const String onboardingIdealNote = '/onboarding/ideal-note';
+  static const String onboardingBio = '/onboarding/bio';
 }
