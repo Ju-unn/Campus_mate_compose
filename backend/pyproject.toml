@@ -10,6 +10,8 @@ dependencies = [
     "google-cloud-vision>=3.9",
     # FastAPI 의 multipart 폼(학생증 사진 업로드)에 필요하다.
     "python-multipart>=0.0.9",
+    # 조각 2: 아바타 생성(gpt-image-1)·자기소개 AI 초안. max_retries=0 으로 호출한다(2026-09-20 사용자 결정).
+    "openai>=1.50",
 ]
 
 [project.optional-dependencies]
