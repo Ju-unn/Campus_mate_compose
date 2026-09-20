@@ -34,6 +34,8 @@ def settings_override(monkeypatch):
             auth_hook_signing_secret=SECRET,
             discord_webhook_url="https://discord.com/api/webhooks/test",
             google_cloud_project="campus-mate-test",
+            openai_api_key="sk-test",
+            phone_encryption_key="phone-key-test",
         ),
     )
 

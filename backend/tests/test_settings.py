@@ -8,6 +8,8 @@ def test_settings_reads_from_env(monkeypatch):
     monkeypatch.setenv("AUTH_HOOK_SIGNING_SECRET", "whsec_test")
     monkeypatch.setenv("DISCORD_WEBHOOK_URL", "https://discord.com/api/webhooks/test")
     monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "campus-mate-test")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setenv("PHONE_ENCRYPTION_KEY", "phone-key-test")
 
     settings = Settings()
 
