@@ -67,6 +67,15 @@ class ProfilePhotoStorage:
         response.raise_for_status()
         return path
 
+    async def delete(self, path: str) -> None:
+        """행을 지울 때 파일도 같이 지운다 — profile_photos 는 cascade 로 지워져도 Storage 파일은
+        남기 때문이다(ERD §3, 파일 삭제는 FastAPI 몫)."""
+        response = await self._client.delete(
+            f"{self._storage_url}/object/profile-photos/{path}",
+            headers=self._headers,
+        )
+        response.raise_for_status()
+
     async def download(self, path: str) -> bytes:
         response = await self._client.get(
             f"{self._storage_url}/object/profile-photos/{path}",

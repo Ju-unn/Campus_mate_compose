@@ -35,6 +35,9 @@ def validate_tag_selection(
     unknown = set(selected) - set(pool)
     if unknown:
         raise ValueError(f"목록에 없는 태그: {sorted(unknown)}")
+    # 같은 태그를 두 번 보내면 개수 검사를 그냥 통과해 버린다.
+    if len(set(selected)) != len(selected):
+        raise ValueError("같은 태그를 두 번 고를 수 없어요")
     if len(selected) < minimum:
         raise ValueError(f"최소 {minimum}개를 골라야 해요")
     if len(selected) > maximum:

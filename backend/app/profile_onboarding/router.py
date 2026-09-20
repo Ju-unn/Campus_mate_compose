@@ -2,7 +2,7 @@ import logging
 from functools import lru_cache
 
 import httpx
-from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, Header, HTTPException, Query, UploadFile
 from google.cloud import vision
 from openai import AsyncOpenAI
 
@@ -13,6 +13,7 @@ from app.profile_onboarding.onboarding_progress import next_step
 from app.profile_onboarding.photos import check_safe_search
 from app.profile_onboarding.repository import ProfileOnboardingRepository
 from app.profile_onboarding.schemas import (
+    NICKNAME_PATTERN,
     AppearanceTypeRequest,
     BasicInfoRequest,
     BioRequest,
@@ -27,7 +28,7 @@ from app.profile_onboarding.schemas import (
 from app.profile_onboarding.storage import AvatarStorage, ProfilePhotoStorage
 from app.profile_onboarding.tags import IDEAL_TRAITS, INTEREST_TAGS, MY_TRAITS, validate_tag_selection
 from app.settings import Settings
-from app.student_verification.current_user import get_current_user_id
+from app.student_verification.current_user import get_verified_user_id
 from app.student_verification.image_validation import student_id_content_type
 
 router = APIRouter()
@@ -55,11 +56,12 @@ def _repo(settings: Settings, client: httpx.AsyncClient) -> ProfileOnboardingRep
 
 @router.get("/profile-onboarding/nickname-availability")
 async def check_nickname_availability(
-    nickname: str, authorization: str | None = Header(default=None)
+    nickname: str = Query(pattern=NICKNAME_PATTERN),
+    authorization: str | None = Header(default=None),
 ) -> NicknameAvailabilityResponse:
     settings = get_settings()
     client = _client_override or httpx.AsyncClient()
-    await get_current_user_id(settings, client, authorization)
+    await get_verified_user_id(settings, client, authorization)
     available = await _repo(settings, client).check_nickname_availability(nickname)
     return NicknameAvailabilityResponse(available=available)
 
@@ -70,15 +72,13 @@ async def submit_basic_info(
 ) -> dict[str, bool]:
     settings = get_settings()
     client = _client_override or httpx.AsyncClient()
-    profile_id = await get_current_user_id(settings, client, authorization)
+    profile_id = await get_verified_user_id(settings, client, authorization)
     repo = _repo(settings, client)
 
-    try:
-        await repo.update_basic_info(
-            profile_id, body.nickname, body.birth_year, body.height_cm, body.gender, body.mbti
-        )
-    except ValueError as error:
-        raise HTTPException(status_code=409, detail=str(error)) from error
+    # 닉네임 중복(23505)은 repository 의 공통 변환이 409 로 바꿔 준다.
+    await repo.update_basic_info(
+        profile_id, body.nickname, body.birth_year, body.height_cm, body.gender, body.mbti
+    )
 
     await set_encrypted_phone_number(
         settings.postgrest_url, settings.supabase_service_role_key, client,
@@ -93,7 +93,7 @@ async def submit_kakao_id(
 ) -> dict[str, bool]:
     settings = get_settings()
     client = _client_override or httpx.AsyncClient()
-    profile_id = await get_current_user_id(settings, client, authorization)
+    profile_id = await get_verified_user_id(settings, client, authorization)
     await _repo(settings, client).update_kakao_id(profile_id, body.kakao_id)
     return {"ok": True}
 
@@ -101,13 +101,14 @@ async def submit_kakao_id(
 @router.post("/profile-onboarding/photos")
 async def upload_photo(
     photo: UploadFile = File(),
-    position: int = Form(),
+    # 자리는 0~3 이다(profile_photos_position_range). 여기서 막아야 체크 제약 위반이 500 으로 새지 않는다.
+    position: int = Form(ge=0, le=3),
     is_avatar_source: bool = Form(default=False),
     authorization: str | None = Header(default=None),
 ) -> dict[str, bool]:
     settings = get_settings()
     client = _client_override or httpx.AsyncClient()
-    profile_id = await get_current_user_id(settings, client, authorization)
+    profile_id = await get_verified_user_id(settings, client, authorization)
 
     data = await photo.read()
     content_type = student_id_content_type(data)
@@ -120,7 +121,30 @@ async def upload_photo(
 
     storage = ProfilePhotoStorage(settings.storage_url, settings.supabase_service_role_key, client)
     storage_path = await storage.upload(profile_id, data, content_type)
-    await _repo(settings, client).insert_photo(profile_id, storage_path, position, is_avatar_source)
+    replaced_path = await _repo(settings, client).save_photo(
+        profile_id, storage_path, position, is_avatar_source
+    )
+    # 같은 자리를 덮어썼으면 밀려난 파일은 아무도 가리키지 않으니 버킷에서도 지운다.
+    if replaced_path is not None:
+        await storage.delete(replaced_path)
+    return {"ok": True}
+
+
+@router.delete("/profile-onboarding/photos/{position}")
+async def delete_photo(position: int, authorization: str | None = Header(default=None)) -> dict[str, bool]:
+    settings = get_settings()
+    client = _client_override or httpx.AsyncClient()
+    profile_id = await get_verified_user_id(settings, client, authorization)
+    repo = _repo(settings, client)
+
+    storage_path = await repo.fetch_photo_path(profile_id, position)
+    if storage_path is None:
+        raise HTTPException(status_code=404, detail="지울 사진이 없어요")
+
+    await repo.delete_photo_row(profile_id, position)
+    await ProfilePhotoStorage(
+        settings.storage_url, settings.supabase_service_role_key, client
+    ).delete(storage_path)
     return {"ok": True}
 
 
@@ -128,8 +152,12 @@ async def upload_photo(
 async def generate_avatar(authorization: str | None = Header(default=None)) -> dict:
     settings = get_settings()
     client = _client_override or httpx.AsyncClient()
-    profile_id = await get_current_user_id(settings, client, authorization)
+    profile_id = await get_verified_user_id(settings, client, authorization)
     repo = _repo(settings, client)
+
+    # 무료 생성은 1회다 — 하트를 쓰는 재생성은 조각 7 에서 붙인다(2026-09-20 사용자 결정).
+    if await repo.has_ready_avatar(profile_id):
+        raise HTTPException(status_code=409, detail="아바타는 한 번만 만들 수 있어요")
 
     source_path = await repo.fetch_avatar_source_photo_path(profile_id)
     if source_path is None:
@@ -170,7 +198,7 @@ async def submit_appearance_type(
 ) -> dict[str, bool]:
     settings = get_settings()
     client = _client_override or httpx.AsyncClient()
-    profile_id = await get_current_user_id(settings, client, authorization)
+    profile_id = await get_verified_user_id(settings, client, authorization)
     await _repo(settings, client).update_appearance_type(profile_id, body.animal_type, body.impression_type)
     return {"ok": True}
 
@@ -193,14 +221,16 @@ async def submit_ideal_traits(body: TagsRequest, authorization: str | None = Hea
 async def _submit_tags(
     body: TagsRequest, authorization: str | None, pool: list[str], repo_method_name: str
 ) -> dict[str, bool]:
+    # 누구인지·인증을 마쳤는지 먼저 본다 — 인증 안 한 사람에게 태그 목록이 맞는지 알려줄 이유가 없다.
+    settings = get_settings()
+    client = _client_override or httpx.AsyncClient()
+    profile_id = await get_verified_user_id(settings, client, authorization)
+
     try:
         validate_tag_selection(pool, body.tags)
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
 
-    settings = get_settings()
-    client = _client_override or httpx.AsyncClient()
-    profile_id = await get_current_user_id(settings, client, authorization)
     repo = _repo(settings, client)
     await getattr(repo, repo_method_name)(profile_id, body.tags)
     return {"ok": True}
@@ -210,7 +240,7 @@ async def _submit_tags(
 async def submit_survey(body: SurveyRequest, authorization: str | None = Header(default=None)) -> dict[str, bool]:
     settings = get_settings()
     client = _client_override or httpx.AsyncClient()
-    profile_id = await get_current_user_id(settings, client, authorization)
+    profile_id = await get_verified_user_id(settings, client, authorization)
     await _repo(settings, client).insert_survey_answers(profile_id, body.answers, body.religion, body.is_smoker)
     return {"ok": True}
 
@@ -221,7 +251,7 @@ async def submit_ideal_conditions(
 ) -> dict[str, bool]:
     settings = get_settings()
     client = _client_override or httpx.AsyncClient()
-    profile_id = await get_current_user_id(settings, client, authorization)
+    profile_id = await get_verified_user_id(settings, client, authorization)
     await _repo(settings, client).update_ideal_conditions(
         profile_id, body.preferred_age_min, body.preferred_age_max,
         body.preferred_height_min, body.preferred_height_max,
@@ -236,7 +266,7 @@ async def submit_ideal_note(
 ) -> dict[str, bool]:
     settings = get_settings()
     client = _client_override or httpx.AsyncClient()
-    profile_id = await get_current_user_id(settings, client, authorization)
+    profile_id = await get_verified_user_id(settings, client, authorization)
     await _repo(settings, client).update_ideal_note(profile_id, body.note)
     return {"ok": True}
 
@@ -247,11 +277,13 @@ async def generate_bio_draft_endpoint(authorization: str | None = Header(default
 
     settings = get_settings()
     client = _client_override or httpx.AsyncClient()
-    profile_id = await get_current_user_id(settings, client, authorization)
+    profile_id = await get_verified_user_id(settings, client, authorization)
     repo = _repo(settings, client)
 
-    if await repo.fetch_bio_draft_generated_at(profile_id) is not None:
-        raise HTTPException(status_code=409, detail="자기소개 초안은 한 번만 만들 수 있어요")
+    # 이미 만든 초안이 있으면 그것을 그대로 돌려준다(화면을 다시 열어도 빈 칸이 되지 않게).
+    saved_draft = await repo.fetch_bio_draft(profile_id)
+    if saved_draft is not None:
+        return {"draft": saved_draft}
 
     snapshot = await repo.fetch_onboarding_snapshot(profile_id)
     survey_summary = f"religion={snapshot['religion']}, is_smoker={snapshot['is_smoker']}"
@@ -259,7 +291,7 @@ async def generate_bio_draft_endpoint(authorization: str | None = Header(default
         _openai_client_override or get_openai_client(settings.openai_api_key),
         survey_summary, snapshot["interest_tags"], snapshot["my_traits"],
     )
-    await repo.mark_bio_draft_generated(profile_id)
+    await repo.save_bio_draft(profile_id, draft)
     return {"draft": draft}
 
 
@@ -267,7 +299,7 @@ async def generate_bio_draft_endpoint(authorization: str | None = Header(default
 async def submit_bio(body: BioRequest, authorization: str | None = Header(default=None)) -> dict[str, bool]:
     settings = get_settings()
     client = _client_override or httpx.AsyncClient()
-    profile_id = await get_current_user_id(settings, client, authorization)
+    profile_id = await get_verified_user_id(settings, client, authorization)
     repo = _repo(settings, client)
 
     await repo.update_bio(profile_id, body.bio)
@@ -282,7 +314,7 @@ async def submit_bio(body: BioRequest, authorization: str | None = Header(defaul
 async def get_next_step(authorization: str | None = Header(default=None)) -> NextStepResponse:
     settings = get_settings()
     client = _client_override or httpx.AsyncClient()
-    profile_id = await get_current_user_id(settings, client, authorization)
+    profile_id = await get_verified_user_id(settings, client, authorization)
     repo = _repo(settings, client)
     snapshot = await repo.fetch_onboarding_snapshot(profile_id)
     return NextStepResponse(step=next_step(snapshot))
