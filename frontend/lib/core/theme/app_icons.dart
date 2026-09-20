@@ -35,6 +35,14 @@ abstract final class AppIcons {
   static const IconData contactRound = LucideIcons.contactRound;
   static const IconData trash2 = LucideIcons.trash2;
 
+  /// 초안 만들기 단계 표시 (DESIGN.md §5.3 — 끝난 단계 / 하는 중 / 기다리는 중)
+  static const IconData circleCheck = LucideIcons.circleCheck;
+  static const IconData circleDot = LucideIcons.circleDot;
+  static const IconData circle = LucideIcons.circle;
+
+  /// 안내 카드 머리말·입력칸 오류 (DESIGN.md §5.3)
+  static const IconData circleAlert = LucideIcons.circleAlert;
+
   /// 공개 범위 안내 (DESIGN.md 화면 3c — "카드와 프로필에 공개돼요")
   static const IconData eye = LucideIcons.eye;
 }
