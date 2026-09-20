@@ -79,4 +79,39 @@ void main() {
     expect(repository.submitted?.nickname, '가나다');
     expect(onboardingRepository.fetchCount, 1);
   });
+
+  test('MBTI 는 축마다 하나만 켜지고, 네 축을 다 골라야 글자가 완성된다', () {
+    final vm = container.read(basicInfoViewModelProvider.notifier);
+    vm.toggleMbtiPole('E');
+    vm.toggleMbtiPole('I');
+
+    expect(container.read(basicInfoViewModelProvider).mbtiPoles, {'I'});
+    expect(container.read(basicInfoViewModelProvider).mbti, isNull);
+
+    vm.toggleMbtiPole('N');
+    vm.toggleMbtiPole('T');
+    vm.toggleMbtiPole('J');
+
+    expect(container.read(basicInfoViewModelProvider).mbti, 'INTJ');
+  });
+
+  test('"모름"을 누르면 고른 MBTI 가 비워지고, 다시 고르면 모름이 꺼진다', () {
+    final vm = container.read(basicInfoViewModelProvider.notifier);
+    for (final pole in ['I', 'N', 'T', 'J']) {
+      vm.toggleMbtiPole(pole);
+    }
+
+    vm.toggleMbtiUnknown();
+
+    final unknown = container.read(basicInfoViewModelProvider);
+    expect(unknown.isMbtiUnknown, isTrue);
+    expect(unknown.mbtiPoles, isEmpty);
+    expect(unknown.mbti, isNull);
+
+    vm.toggleMbtiPole('E');
+
+    final again = container.read(basicInfoViewModelProvider);
+    expect(again.isMbtiUnknown, isFalse);
+    expect(again.mbtiPoles, {'E'});
+  });
 }

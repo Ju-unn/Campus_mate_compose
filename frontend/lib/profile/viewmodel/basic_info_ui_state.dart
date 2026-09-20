@@ -7,7 +7,8 @@ class BasicInfoUiState {
     this.heightInput = '',
     this.phoneNumberInput = '',
     this.gender,
-    this.mbti,
+    this.mbtiPoles = const {},
+    this.isMbtiUnknown = false,
     this.isSubmitting = false,
     this.errorMessage,
     this.completed = false,
@@ -21,7 +22,26 @@ class BasicInfoUiState {
   final String heightInput;
   final String phoneNumberInput;
   final String? gender;
-  final String? mbti;
+  /// 축마다 고른 극(E/I · N/S · T/F · J/P). 네 축을 다 골라야 서버로 보낼 값이 된다.
+  final Set<String> mbtiPoles;
+
+  /// "모름" 을 고른 상태. 값은 보내지 않는다(MBTI 는 선택 항목이다).
+  final bool isMbtiUnknown;
+
+  static const List<List<String>> mbtiAxes = [
+    ['E', 'I'],
+    ['N', 'S'],
+    ['T', 'F'],
+    ['J', 'P'],
+  ];
+
+  /// 네 축을 모두 고른 경우에만 채워진다.
+  String? get mbti {
+    final letters = [
+      for (final axis in mbtiAxes) axis.firstWhere(mbtiPoles.contains, orElse: () => ''),
+    ];
+    return letters.contains('') ? null : letters.join();
+  }
   final bool isSubmitting;
   final String? errorMessage;
   final bool completed;
