@@ -23,6 +23,7 @@ Supabase **MCP 플러그인(`supabase`)이 설치·인증돼 있다.** 클라우
 - **`supabase/` 는 저장소 루트에 있다, `frontend/` 안이 아니다**(2026-09-13 사용자 결정). 모든 스키마 변경은 `supabase/migrations/<timestamp>_<name>.sql` 로 저장소에 남긴다 (설계 문서 §5.4). 대시보드·`execute_sql` 로 DDL 을 손으로 실행하지 않는다
 - 파일 이름은 `supabase migration new <name>` 으로 만든다(저장소 루트에서 실행). 직접 지어내지 않는다
 - 클라우드 적용은 MCP `apply_migration` 에 **그 파일 내용을 그대로** 넘긴다(2026-09-14 사용자 결정, ERD §12-33). `apply_migration` 은 원격 버전을 적용 시각으로 찍어 파일명과 다르므로 `supabase db push`·`migration list` 는 `migration repair` 없이는 쓸 수 없고, repair 도 클라우드 쓰기라 사용자 승인이 필요하다. 클라우드 쓰기는 매번 사용자가 직접 승인한 뒤에만 한다.
+- **클라우드 마이그레이션 적용 절차 (2026-09-20 정책으로 고정).** 클라우드 마이그레이션은 MCP `apply_migration` 으로만 적용한다(사용자 승인 후). `supabase db push` · `migration repair` · `db pull` 은 쓰지 않는다 — 원격 `version` 이 적용 시각으로 기록돼 로컬 파일명과 다르기 때문이다(`name` 은 1:1 일치). 적용 전에는 `list_migrations` 의 `name` 과 로컬 파일 `name` 을 대조해 아직 적용되지 않은 파일만 적용한다. 로컬 검증은 `supabase db reset` + `supabase test db` 로 한다
 - 적용 직후 MCP `get_advisors`(security · performance)를 돌려 경고를 0 으로 만든다
 - 프로덕션 DB 에서 `execute_sql` 은 **읽기 전용 조회**에만 쓴다
 
