@@ -1,8 +1,17 @@
-from pydantic import BaseModel, Field
+from datetime import datetime, timedelta, timezone
+
+from pydantic import BaseModel, Field, field_validator
 
 # 닉네임은 한글·영문 2~5자다(DESIGN.md 04-1, frontend BasicInfoUiState 와 같은 정규식).
 # 서버도 같은 검사를 해야 `%`·`_` 가 PostgREST ilike 의 와일드카드로 들어가지 않는다.
 NICKNAME_PATTERN = r"^[가-힣a-zA-Z]{2,5}$"
+
+# 가입 나이 자격은 컬럼이 아니라 FastAPI 가 센다(ERD.md §"컬럼 없이 계산하는 값").
+# 만 나이가 아니라 "올해 − 태어난 해" 이고, 서버 시계가 UTC 라도 한국 날짜로 해를 세야
+# 12월 31일 밤에 기준이 하루 어긋나지 않는다.
+# 한국은 서머타임이 없어 고정 +9 로 충분하다(zoneinfo 는 윈도우에서 tzdata 패키지를 더 요구한다).
+SEOUL = timezone(timedelta(hours=9))
+MIN_AGE = 19
 
 
 class BasicInfoRequest(BaseModel):
@@ -12,6 +21,13 @@ class BasicInfoRequest(BaseModel):
     phone_number: str
     gender: str
     mbti: str | None = None
+
+    @field_validator("birth_year")
+    @classmethod
+    def _old_enough(cls, birth_year: int) -> int:
+        if datetime.now(SEOUL).year - birth_year < MIN_AGE:
+            raise ValueError(f"만 {MIN_AGE}세 이상만 가입할 수 있어요")
+        return birth_year
 
 
 class KakaoIdRequest(BaseModel):

@@ -5,7 +5,8 @@ from fastapi import HTTPException
 
 # PostgREST 는 Postgres 오류 코드를 그대로 돌려준다. 제약 위반이 500 으로 새어 나가지 않게
 # 여기 한 곳에서 4xx 로 바꾼다(2026-09-20 리뷰 필수 2②).
-_CONSTRAINT_STATUS = {"23505": 409, "23514": 422, "22P02": 422}
+# 23503 = FK 위반(없는 대학·없는 프로필을 가리킴), 23502 = not null 위반.
+_CONSTRAINT_STATUS = {"23505": 409, "23503": 409, "23514": 422, "22P02": 422, "23502": 422}
 
 
 def _error_code(response: httpx.Response) -> str | None:
@@ -244,7 +245,9 @@ class ProfileOnboardingRepository:
             headers=self._headers,
         )
         _raise_for_status(response)
-        return response.json()[0]["bio_draft"]
+        rows = response.json()
+        # 프로필 행이 없을 일은 없지만, 없더라도 500 대신 "초안 없음"으로 본다.
+        return rows[0]["bio_draft"] if rows else None
 
     async def update_bio(self, profile_id: UUID, bio: str) -> None:
         await self._patch_profile(profile_id, {"bio": bio})
