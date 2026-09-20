@@ -54,9 +54,12 @@ Riverpod + go_router. **새 Flutter 패키지는 없다** — 슬라이더·다�
 - **커밋·PR 에 AI/도구 표식을 넣지 않는다**(`[[feedback-no-tool-attribution]]`).
 - **온보딩 하한값(태그 최소 3개, 사진 최소 2장 등)은 DB check 가 아니라 FastAPI 온보딩 완료 검사가 본다** — 조각
   0/1 에서 이미 확립된 관례(`profiles.interest_tags` 주석 참고). DB check 는 상한만 건다.
-- **태그 문구(관심사 45·나의 특징 46·이상형 특징 44)의 정확한 한글 라벨은 pen 04-5/04-6/06-2 에만 있다.** 이
-  계획서는 정확한 개수·컬럼·검증 규칙만 정하고, 라벨 문자열 배열은 "pen 라벨을 그대로 옮겨 적을 것"이라고
-  표시해 둔다 — 구현 시점에 erd 세션이 내려주는 최종 라벨로 채운다(임의로 지어내지 않는다).
+- **태그 문구(관심사 45·나의 특징 46·이상형 특징 44)는 erd 세션이 pen 04-5/04-6/06-2 에서 추출해 확정했다**
+  (2026-09-20, 개수 45/46/44 일치 확인·수정 없음). Task B3/A2 의 상수 리스트는 이 라벨을 그대로 옮긴 것이며,
+  이상형 특징의 "리더쉽 있는"은 2026-09-19 결정대로 "리더십 있는"으로 오타를 고쳐 옮긴다.
+- **frontend `RealName` 값 객체(`frontend/lib/auth/model/real_name.dart`)에 최소 2자 검사를 추가한다**(백엔드
+  `student_verification/schemas.py`·`router.py` 의 `Form(min_length=2, max_length=30)` 과 동일 규칙, 2026-09-20
+  분석담당 리뷰 제안1 을 프론트에도 반영 — spec §13 백로그 41-⑤). Task A1 에 포함한다.
 - **동물상 8종은 이미 확정.** `dog, cat, fox, bear, rabbit, deer, wolf, hamster` (`designMaterials/animal-face-*-2d-v1.png` 8개 에셋 파일명 그대로, DESIGN.md §5.4). ERD §8 "후보" 표기는 이 계획서로 확정한다.
 - **아바타 버킷은 공개(public)로 만든다.** 경로는 순번이 아니라 `profile_id`(UUID) + 랜덤 파일명으로 열거를
   막는다. 쓰기(업로드·교체·삭제)는 `service_role` 전용, 클라이언트 직접 쓰기 금지(2026-09-20 사용자 승인).
@@ -688,13 +691,34 @@ Expected: FAIL — module not found
 
 ```python
 # 태그 문구는 pen 04-5(관심사)·04-6(나의 특징)·06-2(이상형 특징)의 최종 라벨을 그대로 옮긴 것이다
-# (2026-09-19 개정: 관심사 45·특징 46·이상형특징 44, "리더쉽"→"리더십" 오타 수정, 대학생 대상이 아닌
-# "높은 연봉"·"뛰어난 커리어"·"안정적인 직업" 삭제 — 메모리 project_slice2_decisions_2026-09-19).
-# TODO(구현자): 아래 리스트는 erd 세션이 pen 에서 추출해 내려주는 최종 라벨로 반드시 교체한다 — 이 계획서는
-# 개수·검증 규칙만 확정하고, 정확한 문구는 여기 채워 넣지 않는다(임의로 지어내면 실제 pen 라벨과 어긋난다).
-INTEREST_TAGS: list[str] = []  # len == 45, erd 세션 라벨로 채운다
-MY_TRAITS: list[str] = []  # len == 46
-IDEAL_TRAITS: list[str] = []  # len == 44
+# (erd 세션이 2026-09-20 추출, 개수 45/46/44 일치 확인. 2026-09-19 결정대로 이상형 특징의 "리더쉽 있는"만
+# "리더십 있는"으로 오타 수정 — 메모리 project_slice2_decisions_2026-09-19).
+INTEREST_TAGS: list[str] = [
+    "카페가기", "자전거", "패션", "반려동물", "술", "산책", "피트니스", "게임", "악기연주", "애니",
+    "공연관람", "격투기", "미용", "음악감상", "학회", "사진촬영", "영화", "맛집투어", "웹툰", "드라이브",
+    "댄스", "봉사활동", "쇼핑", "요가·필라테스", "덕질", "자기계발", "드라마", "IT", "노래부르기", "독서·아티클",
+    "전시회관람", "글쓰기", "외국어·어학", "요리", "스포츠", "재테크", "그림그리기", "인테리어", "여행", "스타트업",
+    "연극·뮤지컬", "등산", "캠핑", "러닝", "보드게임",
+]  # len == 45
+
+MY_TRAITS: list[str] = [
+    "깨끗한 피부", "좋은 비율", "달달한 목소리", "섹시한 두뇌", "타투", "워커홀릭", "애교 천재", "긍정적인 마인드",
+    "고학력", "건강미", "뛰어난 노래 실력", "리액션 부자", "솔직한 성격", "훌륭한 매너", "동안", "애정 표현 부자",
+    "유머러스", "맛집 고수", "높은 자존감", "츤데레", "철저한 자기관리", "계획적", "눈웃음", "자차 보유", "고양이상",
+    "강아지상", "짙은 눈썹", "하얀 피부", "구릿빛 피부", "요리 잘하는", "리더십", "감성적", "웃음이 많은",
+    "공감 잘하는", "배려심 깊은", "안정적인", "한결같은", "성실한", "차분한", "엉뚱한", "허세 없는", "미소가 예쁜",
+    "운동 매니아", "운전 잘하는", "집안일 잘하는", "좋은 체력",
+]  # len == 46
+
+IDEAL_TRAITS: list[str] = [
+    # "리더십 있는": pen 원본은 "리더쉽 있는" — 2026-09-19 결정으로 오타 수정해 옮긴다.
+    "연상", "연하", "동갑", "애교 많은", "두뇌가 섹시한", "진한 이목구비", "인상이 좋은", "귀여운", "어른스러운",
+    "매너 좋은", "진지한", "연락 잘하는", "애정 표현 많은", "섹시한", "다정한", "이성 친구 없는",
+    "자기 관리 철저한", "솔직한", "외향적인", "가까이 사는", "리더십 있는", "긍정적인", "옷 잘 입는",
+    "말 예쁘게 하는", "계획적인", "여행 좋아하는", "부지런한", "자차가 있는", "자신감 있는", "자존감이 높은",
+    "논리적인", "가정적인", "유머러스한", "공감 잘하는", "배려심 깊은", "차분한", "웃음이 많은", "동안인",
+    "요리 잘하는", "운동 좋아하는", "대화가 잘 통하는", "취미가 잘 맞는", "술 잘 안 마시는", "한결같은",
+]  # len == 44
 
 
 def validate_tag_selection(
@@ -709,12 +733,7 @@ def validate_tag_selection(
         raise ValueError(f"최대 {maximum}개까지 고를 수 있어요")
 ```
 
-**주의(구현자에게):** `INTEREST_TAGS`/`MY_TRAITS`/`IDEAL_TRAITS` 가 빈 리스트인 채로는 `test_interest_tags_pool_size`
-가 실패한다 — erd 세션의 라벨을 받기 전까지 이 Task 는 "구현 보류" 상태로 둔다(BLOCKED 로 보고하고, 라벨을
-받으면 재개). 나머지 검증 로직 테스트는 `INTEREST_TAGS[:N]` 슬라이스만 쓰므로 라벨 내용과 무관하게 먼저
-통과시킬 수 있다.
-
-- [ ] **Step 4: 테스트 통과 확인(라벨 채운 뒤)**
+- [ ] **Step 4: 테스트 통과 확인**
 
 Run: `cd backend && pytest tests/profile_onboarding/test_tags.py -v`
 
@@ -1577,7 +1596,7 @@ test('3개 미만 고르면 다음 버튼이 비활성', () {
 
 test('5개 넘게 고르려 하면 무시한다', () {
   final vm = container.read(tagPickerViewModelProvider(TagPickerKind.interests).notifier);
-  for (final tag in INTEREST_TAGS.take(6)) {
+  for (final tag in interestTags.take(6)) {
     vm.toggle(tag);
   }
   final state = container.read(tagPickerViewModelProvider(TagPickerKind.interests));
@@ -1589,13 +1608,51 @@ test('5개 넘게 고르려 하면 무시한다', () {
 
 Run: `cd frontend && flutter test test/profile/viewmodel/tag_picker_view_model_test.dart`
 
-- [ ] **Step 3: `TagPickerKind`·ViewModel 구현**
+- [ ] **Step 3: `tags.dart` 라벨 작성 + `TagPickerKind`·ViewModel 구현**
+
+태그 문구는 백엔드 Task B3 의 `INTEREST_TAGS`/`MY_TRAITS`/`IDEAL_TRAITS`(erd 세션이 pen 04-5/04-6/06-2 에서
+추출한 최종 라벨, 2026-09-20)와 완전히 동일한 순서·문구로 옮긴다. 두 언어에서 값이 갈리면 서버가 거부하는
+태그를 클라이언트가 보여주게 된다.
+
+```dart
+// tags.dart
+const List<String> interestTags = [
+  '카페가기', '자전거', '패션', '반려동물', '술', '산책', '피트니스', '게임', '악기연주', '애니',
+  '공연관람', '격투기', '미용', '음악감상', '학회', '사진촬영', '영화', '맛집투어', '웹툰', '드라이브',
+  '댄스', '봉사활동', '쇼핑', '요가·필라테스', '덕질', '자기계발', '드라마', 'IT', '노래부르기', '독서·아티클',
+  '전시회관람', '글쓰기', '외국어·어학', '요리', '스포츠', '재테크', '그림그리기', '인테리어', '여행', '스타트업',
+  '연극·뮤지컬', '등산', '캠핑', '러닝', '보드게임',
+]; // len == 45
+
+const List<String> myTraits = [
+  '깨끗한 피부', '좋은 비율', '달달한 목소리', '섹시한 두뇌', '타투', '워커홀릭', '애교 천재', '긍정적인 마인드',
+  '고학력', '건강미', '뛰어난 노래 실력', '리액션 부자', '솔직한 성격', '훌륭한 매너', '동안', '애정 표현 부자',
+  '유머러스', '맛집 고수', '높은 자존감', '츤데레', '철저한 자기관리', '계획적', '눈웃음', '자차 보유', '고양이상',
+  '강아지상', '짙은 눈썹', '하얀 피부', '구릿빛 피부', '요리 잘하는', '리더십', '감성적', '웃음이 많은',
+  '공감 잘하는', '배려심 깊은', '안정적인', '한결같은', '성실한', '차분한', '엉뚱한', '허세 없는', '미소가 예쁜',
+  '운동 매니아', '운전 잘하는', '집안일 잘하는', '좋은 체력',
+]; // len == 46
+
+const List<String> idealTraits = [
+  // "리더십 있는": pen 원본은 "리더쉽 있는" — 2026-09-19 결정으로 오타 수정해 옮긴다.
+  '연상', '연하', '동갑', '애교 많은', '두뇌가 섹시한', '진한 이목구비', '인상이 좋은', '귀여운', '어른스러운',
+  '매너 좋은', '진지한', '연락 잘하는', '애정 표현 많은', '섹시한', '다정한', '이성 친구 없는',
+  '자기 관리 철저한', '솔직한', '외향적인', '가까이 사는', '리더십 있는', '긍정적인', '옷 잘 입는',
+  '말 예쁘게 하는', '계획적인', '여행 좋아하는', '부지런한', '자차가 있는', '자신감 있는', '자존감이 높은',
+  '논리적인', '가정적인', '유머러스한', '공감 잘하는', '배려심 깊은', '차분한', '웃음이 많은', '동안인',
+  '요리 잘하는', '운동 좋아하는', '대화가 잘 통하는', '취미가 잘 맞는', '술 잘 안 마시는', '한결같은',
+]; // len == 44
+```
+
+`INTEREST_TAGS`/`MY_TRAITS`/`IDEAL_TRAITS` 는 위 세 상수의 별칭이 아니라 테스트 코드에서 쓰는 표기다 — 실제
+Dart 관례(lowerCamelCase 상수)에 맞춰 `interestTags`/`myTraits`/`idealTraits` 로 선언하고, 이어지는 `TagPickerKind`
+정의에서 그 이름을 그대로 참조한다.
 
 ```dart
 enum TagPickerKind {
-  interests(pool: INTEREST_TAGS, endpoint: 'interests', headline: '관심사를 골라주세요'),
-  myTraits(pool: MY_TRAITS, endpoint: 'my-traits', headline: '나를 표현하는 특징을 골라주세요'),
-  idealTraits(pool: IDEAL_TRAITS, endpoint: 'ideal-traits', headline: '어떤 분을 만나고 싶나요?');
+  interests(pool: interestTags, endpoint: 'interests', headline: '관심사를 골라주세요'),
+  myTraits(pool: myTraits, endpoint: 'my-traits', headline: '나를 표현하는 특징을 골라주세요'),
+  idealTraits(pool: idealTraits, endpoint: 'ideal-traits', headline: '어떤 분을 만나고 싶나요?');
 
   const TagPickerKind({required this.pool, required this.endpoint, required this.headline});
   final List<String> pool;
@@ -2034,14 +2091,74 @@ git add frontend/lib/core/router/app_router.dart
 git commit -m "🧭 feat(slice2): 온보딩 화면 라우팅 배선"
 ```
 
+### Task A8: `RealName` 최소 2자 검사(분석담당 리뷰 반영)
+
+**Files:**
+- Modify: `frontend/lib/auth/model/real_name.dart`
+- Test: `frontend/test/auth/model/real_name_test.dart`
+
+**Interfaces:**
+- Consumes: 없음(순수 값 객체)
+- Produces: 없음 — 기존 `RealName.tryParse(String) -> RealName?` 시그니처 그대로, 검증 규칙만 강화한다.
+
+조각 1b 리뷰(2026-09-20, 분석담당 제안1)에서 백엔드 `student_verification/schemas.py`·`router.py` 가
+`Form(min_length=2, max_length=30)`으로 이미 고쳤지만 프론트 값 객체는 상한(30자)만 보고 하한이 없었다 —
+1글자 실명은 학생증 대조를 사실상 무력화한다. 서버가 신뢰 경계이므로 이 수정이 없어도 보안엔 문제 없지만,
+사용자가 1글자를 입력하고도 화면상 오류 없이 제출 버튼을 누를 수 있는 건 UX 결함이다(spec §13 백로그 41-⑤).
+
+- [ ] **Step 1: 실패하는 테스트 작성**
+
+```dart
+// real_name_test.dart 에 추가
+test('1자면 null', () {
+  expect(RealName.tryParse('김'), isNull);
+});
+
+test('2자면 통과', () {
+  expect(RealName.tryParse('김가')!.toRequestValue(), '김가');
+});
+```
+
+- [ ] **Step 2: 테스트 실행해 실패 확인**
+
+Run: `cd frontend && flutter test test/auth/model/real_name_test.dart`
+Expected: FAIL — `김` 이 `RealName`으로 파싱됨(현재는 `isEmpty` 만 본다)
+
+- [ ] **Step 3: 구현**
+
+```dart
+// real_name.dart — tryParse 안의 조건문만 수정
+static RealName? tryParse(String raw) {
+  final normalized = raw.trim();
+  // 서버 student_verification/schemas.py·router.py 의 Form(min_length=2, max_length=30) 과 하한·상한을 맞춘다
+  // (2026-09-20 분석담당 리뷰 제안1 — 1글자 실명은 OCR 부분문자열 대조를 사실상 무력화한다).
+  if (normalized.length < 2 || normalized.length > 30) {
+    return null;
+  }
+  return RealName._(normalized);
+}
+```
+
+- [ ] **Step 4: 테스트 통과 확인**
+
+Run: `cd frontend && flutter test test/auth/model/real_name_test.dart`
+Expected: PASS — 기존 3개 + 새 2개 = 5개
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add frontend/lib/auth/model/real_name.dart frontend/test/auth/model/real_name_test.dart
+git commit -m "✅ feat(slice2): RealName 최소 2자 검사(서버와 동일 규칙)"
+```
+
 ---
 
 ## 실행 순서·보류 항목 요약
 
 1. **Part C 부터** — 파일만 작성, 커밋, draft PR. 클라우드 적용 금지.
-2. **Part B** — Task B3(태그 라벨)은 erd 세션이 pen 라벨을 내려줄 때까지 그 리스트만 비워두고 나머지부터 진행
-   가능. Task B2/B4 는 각각 Task C2/C5 마이그레이션 파일에 RPC 함수를 사후 추가해야 한다 — Part C 커밋 뒤에
-   와서 보강하는 구조다(계획서에 미리 표시해 둠).
-3. **Part A** — Task A2 의 태그 라벨도 같은 이유로 Task B3 완료(라벨 확보) 후에 마무리한다.
+2. **Part B** — Task B2/B4 는 각각 Task C2/C5 마이그레이션 파일에 RPC 함수(`set_phone_number`·`grant_hearts`)를
+   사후 추가해야 한다 — Part C 커밋 뒤에 와서 보강하는 구조다. 태그 라벨(Task B3)은 erd 세션이 2026-09-20
+   확정해 이미 채워져 있어 더는 순서 제약이 없다.
+3. **Part A** — Task A8(RealName 최소 2자)은 다른 태스크와 독립적이라 아무 때나 끼워 넣어도 된다.
 4. 계획서 전체 커밋 뒤 draft PR을 올리고, 새 의존성 표(`openai`)를 대장에게 별도 보고한다. 코드 착수는 사용자
    승인 후.
