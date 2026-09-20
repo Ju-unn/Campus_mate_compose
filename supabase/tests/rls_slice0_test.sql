@@ -11,23 +11,28 @@ select plan(21);
 -- 준비 (postgres) -------------------------------------------------------------
 -- 사용자 A = ...aa, 사용자 B = ...bb, 테스트 대학 = ...01
 
-insert into auth.users (id, email) values
-  ('00000000-0000-0000-0000-0000000000aa', 'rls-a@test.ac.kr'),
-  ('00000000-0000-0000-0000-0000000000bb', 'rls-b@test.ac.kr');
-
+-- on_auth_user_created 트리거(조각 1a, handle_new_user_profile)가 auth.users insert 직후 도메인으로
+-- university_email_domains 를 찾으므로, 그 행이 auth.users 보다 먼저 있어야 한다(2026-09-20 분석담당 리뷰).
 insert into public.universities (id, name, region_group)
 values ('00000000-0000-0000-0000-000000000001', '테스트대학교', 'seoul');
 
 insert into public.university_email_domains (domain, university_id)
 values ('test.ac.kr', '00000000-0000-0000-0000-000000000001');
 
+insert into auth.users (id, email) values
+  ('00000000-0000-0000-0000-0000000000aa', 'rls-a@test.ac.kr'),
+  ('00000000-0000-0000-0000-0000000000bb', 'rls-b@test.ac.kr');
+
 -- 1. profiles 제약 (ERD §3) ------------------------------------------------------
 
+-- on_auth_user_created 트리거가 위 auth.users insert 때 이미 pending 행 2개를 만들어 뒀다
+-- (2026-09-20 분석담당 리뷰 — 수동 insert 는 트리거 행과 PK 충돌해 on conflict do nothing 으로 바꾼다).
 select lives_ok(
   $$insert into public.profiles (id, university_id) values
       ('00000000-0000-0000-0000-0000000000aa', '00000000-0000-0000-0000-000000000001'),
-      ('00000000-0000-0000-0000-0000000000bb', '00000000-0000-0000-0000-000000000001')$$,
-  '온보딩 컬럼이 비어 있는 pending 프로필은 만들 수 있다'
+      ('00000000-0000-0000-0000-0000000000bb', '00000000-0000-0000-0000-000000000001')
+    on conflict (id) do nothing$$,
+  '온보딩 컬럼이 비어 있는 pending 프로필은 트리거가 만든다'
 );
 
 select throws_ok(

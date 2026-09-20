@@ -39,7 +39,9 @@ def get_vision_client() -> vision.ImageAnnotatorAsyncClient:
 
 @router.post("/student-verification")
 async def submit_student_verification(
-    real_name: str = Form(),
+    # 1글자 실명은 matching.py 의 부분문자열 대조를 사실상 무력화한다(2026-09-20 분석담당 리뷰) — 최소 2자.
+    # 상한은 frontend RealName 값 객체(frontend/lib/auth/model/real_name.dart)와 맞춘다.
+    real_name: str = Form(min_length=2, max_length=30),
     photo: UploadFile = File(),
     authorization: str | None = Header(default=None),
 ) -> dict[str, str]:
@@ -87,9 +89,16 @@ async def submit_student_verification(
 
     if matches_school_and_name(ocr_text, gate["universities"]["name"], name):
         try:
-            await repo.update_verification_status(profile_id, "verified")
-            # 자동 통과한 시도 행도 확정한다 — pending 으로 두면 사람이 볼 재검토 대기열에 남는다.
+            # 시도 행을 먼저 확정하고(2026-09-20 분석담당 리뷰 — 제안3, 종전엔 profiles 가 먼저였다),
+            # 남에게 보이는 최종 상태인 profiles 를 나중에 바꾼다.
             await repo.update_attempt_result(profile_id, file_path, "verified")
+            await repo.update_verification_status(profile_id, "verified")
+            # SQL 트리거가 아니라 여기서 직접 지운다 — `delete from storage.objects`는 메타 행만 지우고
+            # 실제 파일은 고아로 남는다(Supabase storage/management 문서, 2026-09-20 분석담당 리뷰).
+            # 삭제 실패는 인증 결과를 실패시키지 않고 디스코드로만 알린다(고아 파일 수동 정리용).
+            if not await storage.delete(file_path):
+                _logger.error("학생증 사진 삭제 실패 — 고아 파일, profile_id=%s file_path=%s", profile_id, file_path)
+                await DiscordNotifier(settings.discord_webhook_url, client).notify_orphaned_file(file_path)
             return {"status": "verified"}
         except httpx.HTTPError:
             # 확정을 못 쓰면 상태가 pending 에 갇혀 재제출이 409 로 막힌다 — OCR 실패와 같게 사람 재검토로 넘긴다.

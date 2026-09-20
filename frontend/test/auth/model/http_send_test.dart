@@ -43,6 +43,23 @@ void main() {
     expect(failure!.toDisplayMessage(), '이미 검토 중이에요');
   });
 
+  test('FastAPI 422 처럼 detail 이 리스트면 앱이 죽지 않고 UnknownFailure', () async {
+    final client = MockClient((request) async {
+      return http.Response(
+        jsonEncode({
+          'detail': [
+            {'loc': ['body', 'real_name'], 'msg': 'field required', 'type': 'value_error.missing'},
+          ],
+        }),
+        422,
+      );
+    });
+
+    final result = await sendHttpRequest(client, buildRequest());
+
+    expect(result.when(onSuccess: (_) => null, onFailure: (f) => f), isA<UnknownFailure>());
+  });
+
   test('4xx 에 detail 이 없으면 문구를 새로 짓지 않고 UnknownFailure', () async {
     final client = MockClient((request) async => http.Response(jsonEncode({}), 400));
 
