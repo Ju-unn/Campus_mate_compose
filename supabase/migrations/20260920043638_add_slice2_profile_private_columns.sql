@@ -28,20 +28,6 @@ $$;
 revoke all on function public.decrypt_phone_number(uuid, text) from public, anon, authenticated;
 grant execute on function public.decrypt_phone_number(uuid, text) to service_role;
 
--- decrypt_phone_number 의 짝. PostgREST 는 컬럼 값에 SQL 표현식(pgp_sym_encrypt 호출)을 직접 못 넣으므로
--- 암호화도 RPC 함수로 한다(Part B Task B2 `encryption.py` 가 이 함수명을 그대로 부른다, 2026-09-20 사후 추가).
-create or replace function public.set_phone_number(p_profile_id uuid, p_phone text, p_key text)
-returns void
-language sql
-as $$
-  update public.profile_private
-  set phone_number = extensions.pgp_sym_encrypt(p_phone, p_key), updated_at = now()
-  where profile_id = p_profile_id;
-$$;
-
-revoke all on function public.set_phone_number(uuid, text, text) from public, anon, authenticated;
-grant execute on function public.set_phone_number(uuid, text, text) to service_role;
-
 -- 적용 뒤 확인할 것(supabase 세션 몫, 이 파일 자체는 실행하지 않는다):
 -- 1. Supabase 대시보드 Database > Query Performance(pg_stat_statements) 에서 이 함수·
 --    pgp_sym_encrypt 호출이 찍힌 행을 열어 key 인자가 `$1`(파라미터 자리표시자)로만 보이는지 확인한다
