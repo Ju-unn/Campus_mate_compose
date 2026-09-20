@@ -44,7 +44,7 @@ select throws_ok(
 
 select lives_ok(
   $$update public.profiles
-       set nickname = '가나', gender = 'male', looking_for = 'female',
+       set nickname = '가나', gender = 'male',
            birth_year = 2002, height_cm = 178, status = 'active'
      where id = '00000000-0000-0000-0000-0000000000aa'$$,
   '필수값을 채우면 active 로 바꿀 수 있다'
