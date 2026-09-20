@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -18,22 +19,22 @@ class HttpStudentVerificationRepository implements StudentVerificationRepository
 
   @override
   Future<Result<VerificationOutcome>> submit(RealName realName, File photo) async {
-    final request = http.MultipartRequest('POST', Uri.parse('$_baseUrl/student-verification'))
-      ..headers['Authorization'] = 'Bearer ${_auth.currentSession!.accessToken}'
+    return _send((accessToken) async => http.MultipartRequest('POST', Uri.parse('$_baseUrl/student-verification'))
+      ..headers['Authorization'] = 'Bearer $accessToken'
       ..fields['real_name'] = realName.toRequestValue()
-      ..files.add(await http.MultipartFile.fromPath('photo', photo.path));
-    return _send(request);
+      ..files.add(await http.MultipartFile.fromPath('photo', photo.path)));
   }
 
   @override
   Future<Result<VerificationOutcome>> fetchStatus() async {
-    final request = http.Request('GET', Uri.parse('$_baseUrl/me/verification-status'))
-      ..headers['Authorization'] = 'Bearer ${_auth.currentSession!.accessToken}';
-    return _send(request);
+    return _send((accessToken) => http.Request('GET', Uri.parse('$_baseUrl/me/verification-status'))
+      ..headers['Authorization'] = 'Bearer $accessToken');
   }
 
-  Future<Result<VerificationOutcome>> _send(http.BaseRequest request) async {
-    final result = await sendHttpRequest(_client, request);
+  Future<Result<VerificationOutcome>> _send(
+    FutureOr<http.BaseRequest> Function(String accessToken) buildRequest,
+  ) async {
+    final result = await sendAuthorizedRequest(_client, _auth, buildRequest);
     return result.when(
       onSuccess: (response) => Success(_toOutcome(response)),
       onFailure: (failure) => FailureResult(failure),

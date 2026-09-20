@@ -16,12 +16,15 @@ class HttpPhotosRepository implements PhotosRepository {
 
   @override
   Future<Result<void>> uploadPhoto(File photo, int position, bool isAvatarSource) async {
-    final request = http.MultipartRequest('POST', Uri.parse('$_baseUrl/profile-onboarding/photos'))
-      ..headers['Authorization'] = 'Bearer ${_auth.currentSession!.accessToken}'
+    final result = await sendAuthorizedRequest(
+      _client,
+      _auth,
+      (accessToken) async => http.MultipartRequest('POST', Uri.parse('$_baseUrl/profile-onboarding/photos'))
+      ..headers['Authorization'] = 'Bearer $accessToken'
       ..fields['position'] = position.toString()
       ..fields['is_avatar_source'] = isAvatarSource.toString()
-      ..files.add(await http.MultipartFile.fromPath('photo', photo.path));
-    final result = await sendHttpRequest(_client, request);
+      ..files.add(await http.MultipartFile.fromPath('photo', photo.path)),
+    );
     return result.when(
       onSuccess: (_) => const Success(null),
       onFailure: (failure) => FailureResult(failure),

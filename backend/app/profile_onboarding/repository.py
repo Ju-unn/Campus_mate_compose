@@ -1,6 +1,33 @@
 from uuid import UUID
 
 import httpx
+from fastapi import HTTPException
+
+# PostgREST 는 Postgres 오류 코드를 그대로 돌려준다. 제약 위반이 500 으로 새어 나가지 않게
+# 여기 한 곳에서 4xx 로 바꾼다(2026-09-20 리뷰 필수 2②).
+_CONSTRAINT_STATUS = {"23505": 409, "23514": 422, "22P02": 422}
+
+
+def _error_code(response: httpx.Response) -> str | None:
+    try:
+        body = response.json()
+    except ValueError:
+        return None
+    return body.get("code") if isinstance(body, dict) else None
+
+
+def _raise_for_status(response: httpx.Response, conflict_detail: str = "이미 등록된 정보예요") -> None:
+    if response.status_code < 400:
+        return
+    # 코드가 없어도 PostgREST 가 409 로 답했으면 중복 충돌로 본다.
+    status = _CONSTRAINT_STATUS.get(_error_code(response) or "")
+    if status is None and response.status_code == 409:
+        status = 409
+    if status == 409:
+        raise HTTPException(status_code=409, detail=conflict_detail)
+    if status == 422:
+        raise HTTPException(status_code=422, detail="입력한 값을 다시 확인해 주세요")
+    response.raise_for_status()
 
 
 class ProfileOnboardingRepository:
@@ -23,7 +50,7 @@ class ProfileOnboardingRepository:
             params={"nickname": f"ilike.{nickname}", "select": "id"},
             headers=self._headers,
         )
-        response.raise_for_status()
+        _raise_for_status(response)
         return len(response.json()) == 0
 
     async def update_basic_info(
@@ -38,9 +65,7 @@ class ProfileOnboardingRepository:
             },
             headers=self._headers,
         )
-        if response.status_code == 409:
-            raise ValueError("이미 있는 닉네임이에요")
-        response.raise_for_status()
+        _raise_for_status(response, conflict_detail="이미 있는 닉네임이에요")
 
     async def update_kakao_id(self, profile_id: UUID, kakao_id: str) -> None:
         response = await self._client.patch(
@@ -49,9 +74,21 @@ class ProfileOnboardingRepository:
             json={"kakao_id": kakao_id, "updated_at": "now()"},
             headers=self._headers,
         )
-        response.raise_for_status()
+        _raise_for_status(response)
 
-    async def insert_photo(self, profile_id: UUID, storage_path: str, position: int, is_avatar_source: bool) -> None:
+    async def save_photo(
+        self, profile_id: UUID, storage_path: str, position: int, is_avatar_source: bool
+    ) -> str | None:
+        """같은 자리에 다시 올리면 먼저 있던 행을 지우고 새로 넣는다. (profile_id, position) 유니크 제약이
+        `deferrable initially deferred` 라서 PostgREST upsert 의 중재자로 쓸 수 없다 — Postgres 가
+        "ON CONFLICT does not support deferrable unique constraints" 로 거부한다(로컬 DB 확인, 2026-09-20).
+        지워진 행이 가리키던 Storage 경로를 돌려주니 라우터가 그 파일도 같이 지운다."""
+        replaced_path = await self.fetch_photo_path(profile_id, position)
+        if replaced_path is not None:
+            await self.delete_photo_row(profile_id, position)
+        if is_avatar_source:
+            await self._clear_avatar_source(profile_id)
+
         response = await self._client.post(
             f"{self._postgrest_url}/profile_photos",
             json={
@@ -60,7 +97,38 @@ class ProfileOnboardingRepository:
             },
             headers=self._headers,
         )
-        response.raise_for_status()
+        _raise_for_status(response)
+        return replaced_path
+
+    async def _clear_avatar_source(self, profile_id: UUID) -> None:
+        """`profile_photos_one_avatar_source` 부분 유니크 인덱스 때문에 새 원본을 넣기 전에 내려야 한다."""
+        response = await self._client.patch(
+            f"{self._postgrest_url}/profile_photos",
+            params={"profile_id": f"eq.{profile_id}", "is_avatar_source": "eq.true"},
+            json={"is_avatar_source": False},
+            headers=self._headers,
+        )
+        _raise_for_status(response)
+
+    async def fetch_photo_path(self, profile_id: UUID, position: int) -> str | None:
+        response = await self._client.get(
+            f"{self._postgrest_url}/profile_photos",
+            params={
+                "profile_id": f"eq.{profile_id}", "position": f"eq.{position}", "select": "storage_path",
+            },
+            headers=self._headers,
+        )
+        _raise_for_status(response)
+        rows = response.json()
+        return rows[0]["storage_path"] if rows else None
+
+    async def delete_photo_row(self, profile_id: UUID, position: int) -> None:
+        response = await self._client.delete(
+            f"{self._postgrest_url}/profile_photos",
+            params={"profile_id": f"eq.{profile_id}", "position": f"eq.{position}"},
+            headers=self._headers,
+        )
+        _raise_for_status(response)
 
     async def fetch_avatar_source_photo_path(self, profile_id: UUID) -> str | None:
         response = await self._client.get(
@@ -68,7 +136,7 @@ class ProfileOnboardingRepository:
             params={"profile_id": f"eq.{profile_id}", "is_avatar_source": "eq.true", "select": "storage_path"},
             headers=self._headers,
         )
-        response.raise_for_status()
+        _raise_for_status(response)
         rows = response.json()
         return rows[0]["storage_path"] if rows else None
 
@@ -78,7 +146,20 @@ class ProfileOnboardingRepository:
             json={"profile_id": str(profile_id), "status": status, "storage_path": storage_path},
             headers=self._headers,
         )
-        response.raise_for_status()
+        _raise_for_status(response)
+
+    async def has_ready_avatar(self, profile_id: UUID) -> bool:
+        """아바타는 한 번만 만든다(2026-09-20 사용자 결정, 하트 차감 재생성은 조각 7).
+        `profile_avatars` 주석의 "무료 재생성 횟수는 ready 행 개수로 센다"를 그대로 따른다."""
+        response = await self._client.get(
+            f"{self._postgrest_url}/profile_avatars",
+            params={
+                "profile_id": f"eq.{profile_id}", "status": "eq.ready", "select": "id", "limit": "1",
+            },
+            headers=self._headers,
+        )
+        _raise_for_status(response)
+        return len(response.json()) > 0
 
     async def count_recent_consecutive_avatar_failures(self, profile_id: UUID) -> int:
         response = await self._client.get(
@@ -86,7 +167,7 @@ class ProfileOnboardingRepository:
             params={"profile_id": f"eq.{profile_id}", "order": "created_at.desc", "select": "status"},
             headers=self._headers,
         )
-        response.raise_for_status()
+        _raise_for_status(response)
         count = 0
         for row in response.json():
             if row["status"] != "failed":
@@ -101,7 +182,7 @@ class ProfileOnboardingRepository:
             json={"animal_type": animal_type, "impression_type": impression_type},
             headers=self._headers,
         )
-        response.raise_for_status()
+        _raise_for_status(response)
 
     async def update_interests(self, profile_id: UUID, tags: list[str]) -> None:
         await self._patch_profile(profile_id, {"interest_tags": tags})
@@ -121,7 +202,7 @@ class ProfileOnboardingRepository:
             json=rows,
             headers={**self._headers, "Prefer": "resolution=merge-duplicates"},
         )
-        response.raise_for_status()
+        _raise_for_status(response)
         await self._patch_profile(profile_id, {"religion": religion, "is_smoker": is_smoker})
 
     async def update_ideal_conditions(
@@ -148,19 +229,22 @@ class ProfileOnboardingRepository:
     async def update_ideal_note(self, profile_id: UUID, note: str | None) -> None:
         # 건너뛰어도 빈 문자열로 저장한다 — null 은 "아직 이 화면에 온 적 없다"와 구분이 안 되기 때문이다
         # (profiles.ideal_note_seen 컬럼을 새로 만들지 않고 이 컬럼 하나로 두 상태를 나눈다, 2026-09-20 결정).
-        await self._patch_profile(profile_id, {"ideal_note": note or ""})
+        # 공백만 쓴 글은 안 쓴 것과 같게 본다(빈 문자열 = "화면은 봤고 안 썼다").
+        await self._patch_profile(profile_id, {"ideal_note": (note or "").strip()})
 
-    async def mark_bio_draft_generated(self, profile_id: UUID) -> None:
-        await self._patch_profile(profile_id, {"bio_draft_generated_at": "now()"})
+    async def save_bio_draft(self, profile_id: UUID, draft: str) -> None:
+        await self._patch_profile(profile_id, {"bio_draft": draft, "bio_draft_generated_at": "now()"})
 
-    async def fetch_bio_draft_generated_at(self, profile_id: UUID) -> str | None:
+    async def fetch_bio_draft(self, profile_id: UUID) -> str | None:
+        """이미 만든 초안이 있으면 본문을 그대로 돌려준다 — 화면을 다시 열었을 때 빈 칸이 되지 않게 한다
+        (2026-09-20 리뷰 필수 4). 초안을 새로 만드는 것은 여전히 1회뿐이다."""
         response = await self._client.get(
             f"{self._postgrest_url}/profiles",
-            params={"id": f"eq.{profile_id}", "select": "bio_draft_generated_at"},
+            params={"id": f"eq.{profile_id}", "select": "bio_draft"},
             headers=self._headers,
         )
-        response.raise_for_status()
-        return response.json()[0]["bio_draft_generated_at"]
+        _raise_for_status(response)
+        return response.json()[0]["bio_draft"]
 
     async def update_bio(self, profile_id: UUID, bio: str) -> None:
         await self._patch_profile(profile_id, {"bio": bio})
@@ -179,7 +263,7 @@ class ProfileOnboardingRepository:
             },
             headers=self._headers,
         )
-        profile_response.raise_for_status()
+        _raise_for_status(profile_response)
         profile = profile_response.json()[0]
 
         private_response = await self._client.get(
@@ -187,7 +271,7 @@ class ProfileOnboardingRepository:
             params={"profile_id": f"eq.{profile_id}", "select": "phone_number,kakao_id"},
             headers=self._headers,
         )
-        private_response.raise_for_status()
+        _raise_for_status(private_response)
         private_rows = private_response.json()
         private = private_rows[0] if private_rows else {"phone_number": None, "kakao_id": None}
 
@@ -196,7 +280,7 @@ class ProfileOnboardingRepository:
             params={"profile_id": f"eq.{profile_id}", "select": "is_avatar_source"},
             headers=self._headers,
         )
-        photos_response.raise_for_status()
+        _raise_for_status(photos_response)
         photos = photos_response.json()
 
         avatars_response = await self._client.get(
@@ -204,14 +288,14 @@ class ProfileOnboardingRepository:
             params={"profile_id": f"eq.{profile_id}", "status": "eq.ready", "select": "id", "limit": "1"},
             headers=self._headers,
         )
-        avatars_response.raise_for_status()
+        _raise_for_status(avatars_response)
 
         survey_response = await self._client.get(
             f"{self._postgrest_url}/survey_answers",
             params={"profile_id": f"eq.{profile_id}", "select": "axis"},
             headers=self._headers,
         )
-        survey_response.raise_for_status()
+        _raise_for_status(survey_response)
 
         return {
             "nickname": profile["nickname"],
@@ -243,4 +327,4 @@ class ProfileOnboardingRepository:
             json=fields,
             headers=self._headers,
         )
-        response.raise_for_status()
+        _raise_for_status(response)

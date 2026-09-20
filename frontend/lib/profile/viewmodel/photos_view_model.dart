@@ -29,9 +29,11 @@ class PhotosViewModel extends Notifier<PhotosUiState> {
   @override
   PhotosUiState build() => const PhotosUiState();
 
-  /// 갤러리에서 사진을 골라 압축해 담는다. 이미 4장이거나 고르지 않고 닫으면 아무 일도 하지 않는다.
+  /// 갤러리에서 사진을 골라 압축해 담는다. 고르지 않고 닫으면 아무 일도 하지 않는다.
+  /// 이미 4장이면 말없이 무시하지 않고 왜 안 되는지 알려 준다(2026-09-20 리뷰 제안 d).
   Future<void> addPhoto() async {
     if (state.photos.length >= _maxPhotos) {
+      state = PhotosUiState(photos: state.photos, errorMessage: '사진은 최대 $_maxPhotos장까지 올릴 수 있어요');
       return;
     }
     final picked = await pickFromGallery();

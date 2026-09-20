@@ -17,9 +17,12 @@ class HttpOnboardingRepository implements OnboardingRepository {
 
   @override
   Future<Result<OnboardingStep>> fetchNextStep() async {
-    final request = http.Request('GET', Uri.parse('$_baseUrl/profile-onboarding/next-step'))
-      ..headers['Authorization'] = 'Bearer ${_auth.currentSession!.accessToken}';
-    final result = await sendHttpRequest(_client, request);
+    final result = await sendAuthorizedRequest(
+      _client,
+      _auth,
+      (accessToken) => http.Request('GET', Uri.parse('$_baseUrl/profile-onboarding/next-step'))
+      ..headers['Authorization'] = 'Bearer $accessToken',
+    );
     return result.when(
       onSuccess: (response) => Success(_toStep(response)),
       onFailure: (failure) => FailureResult(failure),

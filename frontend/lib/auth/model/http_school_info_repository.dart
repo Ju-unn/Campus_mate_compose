@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:campus_mate/auth/model/department.dart';
@@ -18,18 +19,19 @@ class HttpSchoolInfoRepository implements SchoolInfoRepository {
 
   @override
   Future<Result<void>> submit(Department department, StudentNumber studentNumber) async {
-    final request = http.Request('POST', Uri.parse('$_baseUrl/school-info'))
-      ..headers['Authorization'] = 'Bearer ${_auth.currentSession!.accessToken}'
+    return _send((accessToken) => http.Request('POST', Uri.parse('$_baseUrl/school-info'))
+      ..headers['Authorization'] = 'Bearer $accessToken'
       ..headers['Content-Type'] = 'application/json'
       ..body = jsonEncode({
-        'department': department.toRequestValue(),
-        'student_number': studentNumber.toRequestValue(),
-      });
-    return _send(request);
+      'department': department.toRequestValue(),
+      'student_number': studentNumber.toRequestValue(),
+      }));
   }
 
-  Future<Result<void>> _send(http.BaseRequest request) async {
-    final result = await sendHttpRequest(_client, request);
+  Future<Result<void>> _send(
+    FutureOr<http.BaseRequest> Function(String accessToken) buildRequest,
+  ) async {
+    final result = await sendAuthorizedRequest(_client, _auth, buildRequest);
     return result.when(
       onSuccess: (_) => const Success(null),
       onFailure: (failure) => FailureResult(failure),

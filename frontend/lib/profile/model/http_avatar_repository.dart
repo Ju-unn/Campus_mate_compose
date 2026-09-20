@@ -17,9 +17,12 @@ class HttpAvatarRepository implements AvatarRepository {
 
   @override
   Future<Result<AvatarGenerationOutcome>> generateAvatar() async {
-    final request = http.Request('POST', Uri.parse('$_baseUrl/profile-onboarding/avatar/generate'))
-      ..headers['Authorization'] = 'Bearer ${_auth.currentSession!.accessToken}';
-    final result = await sendHttpRequest(_client, request);
+    final result = await sendAuthorizedRequest(
+      _client,
+      _auth,
+      (accessToken) => http.Request('POST', Uri.parse('$_baseUrl/profile-onboarding/avatar/generate'))
+      ..headers['Authorization'] = 'Bearer $accessToken',
+    );
     return result.when(
       onSuccess: (response) => Success(_toOutcome(response)),
       onFailure: (failure) => FailureResult(failure),

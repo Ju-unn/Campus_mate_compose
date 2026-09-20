@@ -17,11 +17,14 @@ class HttpAppearanceTypeRepository implements AppearanceTypeRepository {
 
   @override
   Future<Result<void>> submit(AnimalType animalType, ImpressionType impressionType) async {
-    final request = http.Request('POST', Uri.parse('$_baseUrl/profile-onboarding/appearance-type'))
-      ..headers['Authorization'] = 'Bearer ${_auth.currentSession!.accessToken}'
+    final result = await sendAuthorizedRequest(
+      _client,
+      _auth,
+      (accessToken) => http.Request('POST', Uri.parse('$_baseUrl/profile-onboarding/appearance-type'))
+      ..headers['Authorization'] = 'Bearer $accessToken'
       ..headers['Content-Type'] = 'application/json'
-      ..body = jsonEncode({'animal_type': animalType.name, 'impression_type': impressionType.name});
-    final result = await sendHttpRequest(_client, request);
+      ..body = jsonEncode({'animal_type': animalType.name, 'impression_type': impressionType.name}),
+    );
     return result.when(
       onSuccess: (_) => const Success(null),
       onFailure: (failure) => FailureResult(failure),

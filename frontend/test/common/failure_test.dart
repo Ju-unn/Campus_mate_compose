@@ -8,6 +8,11 @@ void main() {
     expect(failure.toDisplayMessage(), '네트워크 연결을 확인해 주세요');
   });
 
+  test('세션 만료 실패는 다시 로그인하라는 안내를 보여준다', () {
+    const failure = SessionExpiredFailure();
+    expect(failure.toDisplayMessage(), '세션이 만료됐어요, 다시 로그인해 주세요');
+  });
+
   test('찾을 수 없음 실패는 대상이 없다는 안내를 보여준다', () {
     const failure = NotFoundFailure();
 
