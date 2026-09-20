@@ -22,14 +22,17 @@ async def refresh_vectors(
     try:
         materials = await repo.fetch_vector_materials(profile_id)
         vector, shyness = survey_vector(materials.get("survey_answers") or {})
-        sentences = [self_sentence(materials), want_sentence(materials)]
-        # 두 문장 다 비면 임베딩을 부르지 않는다(온보딩 초반). 설문만이라도 저장한다.
-        embeddings = await embed(openai_client, sentences) if any(sentences) else []
+        sentences = {
+            "self_embedding": self_sentence(materials),
+            "want_embedding": want_sentence(materials),
+        }
+        # 빈 문장은 OpenAI 에 보내지 않고 payload 에서도 뺀다 — 기본정보 단계에서는 "원해" 재료가
+        # 아직 없고, 빈 칸을 보내면 upsert 가 전에 저장한 벡터를 덮어쓴다.
+        filled = {column: text for column, text in sentences.items() if text}
+        embeddings = await embed(openai_client, list(filled.values()))
 
         fields = {"self_survey": vector, "shyness_score": shyness}
-        if embeddings:
-            fields["self_embedding"] = embeddings[0]
-            fields["want_embedding"] = embeddings[1]
+        fields.update(zip(filled, embeddings))
         await repo.save_vectors(profile_id, **fields)
     except Exception:  # noqa: BLE001 — 벡터 실패가 사용자 저장을 깨지 않게 한다
         _logger.exception("매칭 벡터 재생성 실패: profile_id=%s", profile_id)
