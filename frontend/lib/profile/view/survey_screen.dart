@@ -1,4 +1,6 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
+import 'package:campus_mate/common/widgets/trait_slider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -10,18 +12,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 성향 설문 문항(DESIGN.md §8.5 "성향 설문 슬라이더 문항 카피", 9축 × 1회).
+/// 문구는 datingApp.pen 05-01~05-09 를 따른다(2026-09-20 사용자 결정 C1).
 typedef _Axis = ({int axis, String headline, String left, String right});
 
 const List<_Axis> _axes = [
-  (axis: 1, headline: '쉬는 날, 밖으로 나가야 힘이 나나요?', left: '집콕', right: '밖으로'),
-  (axis: 2, headline: '처음 만난 사람과 금방 친해지나요?', left: '낯가림', right: '금방 친해짐'),
-  (axis: 3, headline: '약속·일정을 미리 계획하는 편인가요?', left: '즉흥적', right: '계획적'),
-  (axis: 4, headline: '연인과 연락은 자주 하고 싶나요?', left: '필요할 때만', right: '자주'),
-  (axis: 5, headline: '좋고 싫음을 겉으로 잘 드러내나요?', left: '담백한 편', right: '표현이 풍부'),
-  (axis: 6, headline: '술자리를 자주 즐기나요?', left: '거의 안 마셔요', right: '자주 즐겨요'),
-  (axis: 7, headline: '평소 운동을 꾸준히 하나요?', left: '거의 안 해요', right: '꾸준히 해요'),
-  (axis: 8, headline: '호감이 생기면 빠르게 다가가는 편인가요?', left: '천천히 알아가요', right: '확신하면 빠르게'),
-  (axis: 9, headline: '익숙한 것과 새로운 것, 어느 쪽이 편한가요?', left: '익숙한 게 좋아요', right: '새로운 게 좋아요'),
+  (axis: 1, headline: '밖에 나가서 활동하는 걸 좋아하시나요?', left: '집이 편해요', right: '밖이 좋아요'),
+  (axis: 2, headline: '낯선 사람과 빨리 친해지는 편인가요?', left: '낯을 많이 가려요', right: '금방 친해져요'),
+  (axis: 3, headline: '미리 계획을 세우는 편인가요?', left: '즉흥적이에요', right: '계획적이에요'),
+  (axis: 4, headline: '연애할 때 연락을 자주 하는 편인가요?', left: '필요할 때만 해요', right: '자주 연락해요'),
+  (axis: 5, headline: '감정 표현이 풍부한 편인가요?', left: '담백해요', right: '표현이 풍부해요'),
+  (axis: 6, headline: '술자리를 즐기는 편인가요?', left: '거의 안 마셔요', right: '자주 즐겨요'),
+  (axis: 7, headline: '운동을 꾸준히 하는 편인가요?', left: '관심 없어요', right: '꾸준히 해요'),
+  (axis: 8, headline: '마음이 확실하면 관계를 빠르게 진전시키나요?', left: '천천히요', right: '빠르게요'),
+  (axis: 9, headline: '새로운 걸 시도하는 걸 좋아하시나요?', left: '익숙한 게 편해요', right: '새로운 걸 찾아요'),
 ];
 
 /// 9축 + 종교 + 흡연 = 11화면(DESIGN.md 화면 05-01~05-11).
@@ -55,29 +58,21 @@ class _SurveyScreenState extends ConsumerState<SurveyScreen> {
     final state = ref.watch(surveyViewModelProvider);
     final viewModel = ref.read(surveyViewModelProvider.notifier);
     return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: 56,
-        backgroundColor: AppColors.canvas,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: _page == 0 ? null : BackButton(color: AppColors.ink, onPressed: _goBack),
-        automaticallyImplyLeading: false,
+      appBar: OnboardingAppBar(
+        current: _page,
+        total: _pageCount,
+        isBar: true,
+        onBack: _page == 0 ? null : _goBack,
       ),
       body: SafeArea(
         top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, 28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              LinearProgressIndicator(
-                value: (_page + 1) / _pageCount,
-                minHeight: 5,
-                backgroundColor: AppColors.hairlineSoft,
-                color: AppColors.primary,
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Padding(
+                // 디자인 파일이 질문을 앱바에서 116 아래에 둔다.
+                padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 116, AppSpacing.lg, 0),
                 child: PageView(
                   controller: _controller,
                   physics: const NeverScrollableScrollPhysics(),
@@ -94,14 +89,24 @@ class _SurveyScreenState extends ConsumerState<SurveyScreen> {
                   ],
                 ),
               ),
-              if (state.errorMessage != null) ...[
-                const SizedBox(height: AppSpacing.xs),
-                Text(state.errorMessage!, style: AppTypography.caption.copyWith(color: AppColors.error)),
-              ],
-              const SizedBox(height: AppSpacing.md),
-              AppButton(label: '다음', onPressed: _canAdvance(state) ? _advance : null),
-            ],
-          ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 28),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (state.errorMessage != null) ...[
+                    Text(
+                      state.errorMessage!,
+                      style: AppTypography.caption.copyWith(color: AppColors.error),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                  ],
+                  AppButton(label: '다음', onPressed: _canAdvance(state) ? _advance : null),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -147,13 +152,11 @@ class _TraitSliderPage extends StatelessWidget {
         Text(axis.headline, style: AppTypography.headline.copyWith(color: AppColors.ink)),
         const SizedBox(height: AppSpacing.xxl),
         // 5단계 -1/-0.5/0/0.5/1 (설계 문서 §6.2). 숫자는 노출하지 않는다.
-        Slider(value: value ?? 0, min: -1, max: 1, divisions: 4, onChanged: onChanged),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(axis.left, style: AppTypography.caption.copyWith(color: AppColors.muted)),
-            Text(axis.right, style: AppTypography.caption.copyWith(color: AppColors.muted)),
-          ],
+        TraitSlider(
+          value: value,
+          onChanged: onChanged,
+          leftLabel: axis.left,
+          rightLabel: axis.right,
         ),
       ],
     );
@@ -177,8 +180,8 @@ class _ReligionPage extends StatelessWidget {
           crossAxisCount: 2,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: AppSpacing.xs,
-          crossAxisSpacing: AppSpacing.xs,
+          mainAxisSpacing: AppSpacing.sm,
+          crossAxisSpacing: AppSpacing.sm,
           mainAxisExtent: 56,
           children: [
             for (final religion in Religion.values)
@@ -218,7 +221,7 @@ class _SmokePage extends StatelessWidget {
                   onTap: () => onSelected(true),
                 ),
               ),
-              const SizedBox(width: AppSpacing.xs),
+              const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: _ChoiceCell(
                   label: '안 한다',
@@ -234,8 +237,8 @@ class _SmokePage extends StatelessWidget {
   }
 }
 
-/// 종교·흡연 공통 "칸 선택"(DESIGN.md §8.5 `religion-select`·`smoke-toggle`).
-/// 비선택 채움이 `{colors.primary-disabled}` 인 점만 얼굴상 칸과 다르다(2026-09-15 사용자 결정).
+/// 종교·흡연 공통 "칸 선택"(DESIGN.md §8.5 religion-select·smoke-toggle).
+/// 비선택 채움이 colors.primary-disabled 인 점만 얼굴상 칸과 다르다(2026-09-15 사용자 결정).
 class _ChoiceCell extends StatelessWidget {
   const _ChoiceCell({required this.label, required this.isSelected, required this.onTap});
 
