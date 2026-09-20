@@ -227,11 +227,9 @@ class ProfileOnboardingRepository:
             "preferred_impression_types": preferred_impression_types,
         })
 
-    async def update_ideal_note(self, profile_id: UUID, note: str | None) -> None:
-        # 건너뛰어도 빈 문자열로 저장한다 — null 은 "아직 이 화면에 온 적 없다"와 구분이 안 되기 때문이다
-        # (profiles.ideal_note_seen 컬럼을 새로 만들지 않고 이 컬럼 하나로 두 상태를 나눈다, 2026-09-20 결정).
-        # 공백만 쓴 글은 안 쓴 것과 같게 본다(빈 문자열 = "화면은 봤고 안 썼다").
-        await self._patch_profile(profile_id, {"ideal_note": (note or "").strip()})
+    async def update_ideal_note(self, profile_id: UUID, note: str) -> None:
+        # 필수 입력이다(2026-09-20 사용자 결정) — 공백만 쓴 글은 스키마가 422 로 막는다.
+        await self._patch_profile(profile_id, {"ideal_note": note.strip()})
 
     async def save_bio_draft(self, profile_id: UUID, draft: str) -> None:
         await self._patch_profile(profile_id, {"bio_draft": draft, "bio_draft_generated_at": "now()"})
@@ -318,7 +316,7 @@ class ProfileOnboardingRepository:
             "preferred_animal_types": profile["preferred_animal_types"],
             "preferred_impression_types": profile["preferred_impression_types"],
             "ideal_traits": profile["ideal_traits"],
-            "ideal_note_seen": profile["ideal_note"] is not None,
+            "ideal_note": (profile["ideal_note"] or "").strip(),
             "bio": profile["bio"],
             "_gender": profile["gender"],
         }

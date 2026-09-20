@@ -9,9 +9,10 @@ _STEPS = [
     ("interests", lambda p: len(p["interest_tags"]) >= 3),
     ("my_traits", lambda p: len(p["my_traits"]) >= 3),
     ("survey", lambda p: p["survey_answer_count"] >= 9 and p["religion"] is not None and p["is_smoker"] is not None),
-    ("ideal_conditions", lambda p: p["preferred_age_min"] is not None),
+    ("ideal_conditions", lambda p: p["preferred_age_min"] is not None
+        and p["preferred_animal_types"] and p["preferred_impression_types"]),
     ("ideal_traits", lambda p: len(p["ideal_traits"]) >= 3),
-    ("ideal_note", lambda p: p["ideal_note_seen"]),
+    ("ideal_note", lambda p: p["ideal_note"]),
     ("bio", lambda p: p["bio"]),
 ]
 

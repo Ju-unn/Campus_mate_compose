@@ -55,12 +55,22 @@ class IdealConditionsRequest(BaseModel):
     preferred_height_min: int | None = None
     preferred_height_max: int | None = None
     preferred_mbti_flags: dict[str, bool] = {}
-    preferred_animal_types: list[str] = []
-    preferred_impression_types: list[str] = []
+    # 선호 얼굴상·인상은 각 1~3개 필수다(2026-09-20 사용자 결정 "온보딩 입력은 전부 필수").
+    preferred_animal_types: list[str] = Field(min_length=1, max_length=3)
+    preferred_impression_types: list[str] = Field(min_length=1, max_length=3)
 
 
 class IdealNoteRequest(BaseModel):
-    note: str | None = None
+    note: str
+
+    @field_validator("note")
+    @classmethod
+    def _not_blank(cls, note: str) -> str:
+        """공백만 쓴 글은 안 쓴 것과 같다 — 자기소개와 같이 최소 길이 제한 없이 "비어 있지 알만" 본다."""
+        stripped = note.strip()
+        if not stripped:
+            raise ValueError("어떤 사람이 좋은지 적어 주세요")
+        return stripped
 
 
 class BioRequest(BaseModel):
