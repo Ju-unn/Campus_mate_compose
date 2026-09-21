@@ -200,16 +200,18 @@ async def respond_to_acceptance(card_id: str, body: DecisionRequest,
     if body.decision != "accept":
         return {"matched": False}
 
-    match = await wiring.repo.create_match(card["owner_id"], wiring.profile_id)
-    me = await wiring.repo.fetch_card_profile(wiring.profile_id)
-    other = await wiring.repo.fetch_card_profile(card["owner_id"])
-    # 매칭 성사는 양쪽 모두에게 알린다(화면 12 `UFNSi`).
-    await notify(wiring.repo, wiring.sender, card["owner_id"], "match_made", "매칭됐어요!",
-                 f"{me['nickname']} 님도 수락했어요",
-                 {"route": "match", "match_id": match["id"]}, now=now)
-    await notify(wiring.repo, wiring.sender, wiring.profile_id, "match_made", "매칭됐어요!",
-                 f"{other['nickname']} 님과 대화를 시작해 보세요",
-                 {"route": "match", "match_id": match["id"]}, now=now)
+    match, is_new = await wiring.repo.create_match(card["owner_id"], wiring.profile_id)
+    # 매칭 성사는 양쪽 모두에게 알린다(화면 12 `UFNSi`). 다만 신규일 때만이다 —
+    # A→B, B→A 카드가 같은 날 나가 둘 다 수락하면 두 번째 수락은 이미 있는 매칭을 다시 본다.
+    if is_new:
+        me = await wiring.repo.fetch_card_profile(wiring.profile_id)
+        other = await wiring.repo.fetch_card_profile(card["owner_id"])
+        await notify(wiring.repo, wiring.sender, card["owner_id"], "match_made", "매칭됐어요!",
+                     f"{me['nickname']} 님도 수락했어요",
+                     {"route": "match", "match_id": match["id"]}, now=now)
+        await notify(wiring.repo, wiring.sender, wiring.profile_id, "match_made", "매칭됐어요!",
+                     f"{other['nickname']} 님과 대화를 시작해 보세요",
+                     {"route": "match", "match_id": match["id"]}, now=now)
     return {"matched": True, "match_id": match["id"]}
 
 

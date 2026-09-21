@@ -8,8 +8,9 @@ TUESDAY_7AM = datetime(2026, 9, 22, 7, 0, tzinfo=SEOUL)    # 화요일
 
 
 class _FakeCardRepo:
-    def __init__(self, owners, counts=None, settings=None):
+    def __init__(self, owners, counts=None, settings=None, issued_today=()):
         self._owners = owners
+        self._issued_today = set(issued_today)
         self._counts = counts or {"seoul": {"male": 10, "female": 10}}
         self._settings = settings or [{
             "region_group": "seoul", "issue_weekdays": [1, 4], "issue_time": "07:00",
@@ -26,6 +27,10 @@ class _FakeCardRepo:
 
     async def fetch_issue_owners(self):
         return self._owners
+
+    async def fetch_owners_issued_since(self, since):
+        self.issued_since = since
+        return set(self._issued_today)
 
     async def save_issue_weekdays(self, region_group, weekdays):
         self.saved_weekdays.append((region_group, weekdays))
@@ -110,6 +115,41 @@ async def test_ladder_moves_up_and_is_written_back():
 
     assert result["issued"] == 1
     assert repo.saved_weekdays == [("seoul", [1, 2, 3, 4, 5, 6, 7])]
+
+
+async def test_rerunning_the_same_day_does_not_issue_a_second_card():
+    """오늘 카드를 이미 받고 수락·거절까지 끝낸 사람은 card_issue_owners() 에 다시 올라온다.
+    Cloud Scheduler 재시도나 손으로 다시 돌릴 때 한 장이 더 나가면 안 된다."""
+    repo = _FakeCardRepo([{"profile_id": "owner-1", "region_group": "seoul"}],
+                         issued_today={"owner-1"})
+    matching = _FakeMatchingRepo([_candidate("high", 0.9)])
+
+    result = await issue_daily_cards(repo, matching, sender=None, now=MONDAY_7AM)
+
+    assert result["issued"] == 0
+    assert repo.cards == []
+    # 기준 시각은 배치가 도는 날의 자정(KST)이다 — 어제 받은 사람까지 걸러 내면 안 된다.
+    assert repo.issued_since == datetime(2026, 9, 21, 0, 0, tzinfo=SEOUL)
+
+
+async def test_one_failing_push_does_not_stop_the_batch():
+    """카드는 이미 insert_card 로 들어간 뒤다. 알림 한 건이 터졌다고 뒷사람이 카드를 못 받으면 안 된다."""
+    class _ExplodingSender:
+        async def send(self, *args, **kwargs):
+            raise RuntimeError("FCM 죽음")
+
+    repo = _FakeCardRepo([{"profile_id": "owner-1", "region_group": "seoul"},
+                          {"profile_id": "owner-2", "region_group": "seoul"}])
+    repo.fetch_push_tokens = lambda profile_id: _tokens()
+    matching = _FakeMatchingRepo([_candidate("high", 0.9)])
+
+    result = await issue_daily_cards(repo, matching, _ExplodingSender(), now=MONDAY_7AM)
+
+    assert result["issued"] == 2
+
+
+async def _tokens():
+    return ["tok"]
 
 
 async def test_owner_without_candidates_is_counted_not_crashed():

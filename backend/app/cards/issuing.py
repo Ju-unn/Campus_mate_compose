@@ -34,6 +34,11 @@ async def issue_daily_cards(card_repo, matching_repo, sender, now: datetime) -> 
         if now.isoweekday() not in weekdays:
             skipped.append(region)
 
+    # 오늘 이미 받은 사람은 건너뛴다 — 배치를 두 번 돌려도 하루 한 장이다.
+    issued_today = await card_repo.fetch_owners_issued_since(
+        now.replace(hour=0, minute=0, second=0, microsecond=0)
+    )
+
     issued = 0
     no_candidate = 0
     for owner in await card_repo.fetch_issue_owners():
@@ -43,6 +48,8 @@ async def issue_daily_cards(card_repo, matching_repo, sender, now: datetime) -> 
             continue
 
         owner_id = owner["profile_id"]
+        if owner_id in issued_today:
+            continue
         owner_row = await matching_repo.fetch_owner(owner_id)
         ranked = rank(owner_row, await matching_repo.fetch_candidates(owner_id))
         if not ranked:
@@ -56,10 +63,14 @@ async def issue_daily_cards(card_repo, matching_repo, sender, now: datetime) -> 
         issued += 1
 
         if sender is not None:
-            await notify(
-                card_repo, sender, owner_id, "card_arrived",
-                "오늘의 카드가 도착했어요", "지금 확인해 보세요",
-                {"route": "daily_card", "card_id": str(card["id"])}, now=now,
-            )
+            try:
+                await notify(
+                    card_repo, sender, owner_id, "card_arrived",
+                    "오늘의 카드가 도착했어요", "지금 확인해 보세요",
+                    {"route": "daily_card", "card_id": str(card["id"])}, now=now,
+                )
+            except Exception:
+                # 카드는 이미 들어갔다. 알림 한 건 때문에 뒷사람 지급까지 멈추는 쪽이 훨씬 나쁘다.
+                logger.exception("카드 도착 알림 실패 owner=%s", owner_id)
 
     return {"issued": issued, "no_candidate": no_candidate, "skipped_regions": skipped}
