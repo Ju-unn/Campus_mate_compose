@@ -7,7 +7,7 @@
 import math
 from datetime import datetime, timezone
 
-from app.profile_onboarding.schemas import SEOUL
+from app.core.time import SEOUL
 
 _AXES = (("E", "I"), ("N", "S"), ("T", "F"), ("J", "P"))
 

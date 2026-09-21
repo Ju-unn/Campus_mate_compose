@@ -3,7 +3,7 @@ from datetime import datetime
 import httpx
 
 from app.cards.push import FcmSender, notify
-from app.profile_onboarding.schemas import SEOUL
+from app.core.time import SEOUL
 
 
 class _FakeCredentials:

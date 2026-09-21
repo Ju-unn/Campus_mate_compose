@@ -10,8 +10,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 import app.profile_onboarding.router as router_module
+from app.core.deps import get_client, get_settings, get_vision_client
+from app.core.time import SEOUL
 from app.main import app
-from app.profile_onboarding.schemas import SEOUL
 from app.settings import Settings
 
 PROFILE_ID = UUID("11111111-1111-1111-1111-111111111111")
@@ -21,11 +22,8 @@ _PNG_BYTES = b"\x89PNG\r\n\x1a\n" + b"0" * 32
 
 
 @pytest.fixture(autouse=True)
-def overrides(monkeypatch):
-    monkeypatch.setattr(
-        router_module,
-        "get_settings",
-        lambda: Settings(
+def overrides():
+    app.dependency_overrides[get_settings] = lambda: Settings(
             supabase_url="https://x.supabase.co",
             supabase_service_role_key="service-key",
             auth_hook_signing_secret="whsec_test",
@@ -33,17 +31,15 @@ def overrides(monkeypatch):
             google_cloud_project="campus-mate-test",
             openai_api_key="sk-test",
             phone_encryption_key="phone-key-test",
-        ),
     )
     # 저장 엔드포인트마다 매칭 벡터를 즉시 다시 만든다(조각 3) — 실제 OpenAI 를 부르지 않게 목을 끼운다.
-    router_module._openai_client_override = AsyncMock()
-    router_module._openai_client_override.embeddings.create.return_value = SimpleNamespace(
+    openai_client = AsyncMock()
+    openai_client.embeddings.create.return_value = SimpleNamespace(
         data=[SimpleNamespace(embedding=[0.1] * 512), SimpleNamespace(embedding=[0.2] * 512)]
     )
+    app.dependency_overrides[router_module.get_openai] = lambda: openai_client
     yield
-    router_module._client_override = None
-    router_module._openai_client_override = None
-    router_module._vision_client_override = None
+    app.dependency_overrides.clear()
 
 
 def _wire(
@@ -60,7 +56,7 @@ def _wire(
             return httpx.Response(200, json=[{"student_verification": verification, "department": department}])
         return handler(request)
 
-    router_module._client_override = httpx.AsyncClient(transport=httpx.MockTransport(wrapped))
+    app.dependency_overrides[get_client] = lambda: httpx.AsyncClient(transport=httpx.MockTransport(wrapped))
     return TestClient(app)
 
 
@@ -126,8 +122,9 @@ def test_avatar_generate_grants_ten_hearts_on_fifth_consecutive_failure():
             return httpx.Response(200)
         return httpx.Response(200, json=[])
 
-    router_module._openai_client_override = AsyncMock()
-    router_module._openai_client_override.images.edit.side_effect = Exception("openai down")
+    openai_client = AsyncMock()
+    openai_client.images.edit.side_effect = Exception("openai down")
+    app.dependency_overrides[router_module.get_openai] = lambda: openai_client
 
     client = _wire(handler)
     response = client.post("/profile-onboarding/avatar/generate", headers=AUTH_HEADERS)
@@ -214,7 +211,7 @@ def test_photo_upload_replaces_same_position_and_deletes_the_old_file():
             return httpx.Response(200, json={})
         return httpx.Response(200, json={})
 
-    router_module._vision_client_override = _safe_vision()
+    app.dependency_overrides[get_vision_client] = _safe_vision
     client = _wire(handler)
     response = client.post(
         "/profile-onboarding/photos",
@@ -238,7 +235,7 @@ def test_photo_upload_turns_unique_violation_into_409():
             return httpx.Response(409, json={"code": "23505", "message": "duplicate key"})
         return httpx.Response(200, json={})
 
-    router_module._vision_client_override = _safe_vision()
+    app.dependency_overrides[get_vision_client] = _safe_vision
     client = _wire(handler)
     response = client.post(
         "/profile-onboarding/photos",
@@ -296,13 +293,14 @@ def test_avatar_generate_rejects_second_try_with_409():
 
 
 def test_bio_draft_returns_the_saved_draft_without_calling_openai():
-    router_module._openai_client_override = AsyncMock()
+    openai_client = AsyncMock()
+    app.dependency_overrides[router_module.get_openai] = lambda: openai_client
     client = _wire(lambda request: httpx.Response(200, json=[{"bio_draft": "저장해 둔 초안이에요"}]))
     response = client.post("/profile-onboarding/bio-draft", headers=AUTH_HEADERS)
 
     assert response.status_code == 200
     assert response.json()["draft"] == "저장해 둔 초안이에요"
-    router_module._openai_client_override.chat.completions.create.assert_not_called()
+    openai_client.chat.completions.create.assert_not_called()
 
 
 def test_ideal_note_rejects_blank_text():

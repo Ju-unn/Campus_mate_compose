@@ -1,27 +1,22 @@
 from datetime import datetime, time, timedelta, timezone
 
 import httpx
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, field_validator
 
 from app.cards.ladder import next_issue_at
 from app.cards.push import FcmSender, notify
 from app.cards.repository import NOTIFICATION_DEFAULTS, CardRepository
 from app.core import errors
-from app.core.deps import get_settings
+from app.core.deps import Caller, get_client, get_settings, get_verified_caller
+from app.core.time import SEOUL
 from app.matching.repository import MatchingRepository
-from app.profile_onboarding.schemas import SEOUL
 from app.settings import Settings
-from app.student_verification.current_user import get_verified_user_id
 
 router = APIRouter()
 
 # 받은 수락은 7일이 지나면 목록에서도, 응답에서도 사라진다(2026-09-21 사용자 확정).
 ACCEPTANCE_TTL_DAYS = 7
-
-# 테스트가 실제 Supabase·FCM 대신 목을 주입할 수 있게 하는 훅(조각1b·2·3 라우터와 같은 패턴).
-_client_override: httpx.AsyncClient | None = None
-_sender_override = None
 
 
 class DecisionRequest(BaseModel):
@@ -52,7 +47,7 @@ class MatchingPausedRequest(BaseModel):
 
 
 class _Wiring:
-    """엔드포인트마다 똑같이 반복되는 배선(설정 · 클라이언트 · 본인 확인 · 저장소)을 한 곳에 둔다."""
+    """공통 배선(core/deps 의 Caller) 위에 카드 기능의 저장소·푸시 발송기를 얹은 것."""
 
     def __init__(self, settings: Settings, client: httpx.AsyncClient, profile_id: str,
                  repo: CardRepository, sender: FcmSender):
@@ -63,12 +58,19 @@ class _Wiring:
         self.sender = sender
 
 
-async def _wire(authorization: str | None) -> _Wiring:
-    settings = get_settings()
-    client = _client_override or httpx.AsyncClient()
-    profile_id = await get_verified_user_id(settings, client, authorization)
+def get_sender(
+    settings: Settings = Depends(get_settings), client: httpx.AsyncClient = Depends(get_client)
+) -> FcmSender:
+    """푸시 발송기. 테스트는 이 자리에 목 자격증명을 쓰는 발송기를 끼운다."""
+    return FcmSender(settings.google_cloud_project, client)
+
+
+async def _wire(
+    caller: Caller = Depends(get_verified_caller), sender: FcmSender = Depends(get_sender)
+) -> _Wiring:
+    settings, client, profile_id = caller
     repo = CardRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
-    sender = _sender_override or FcmSender(settings.google_cloud_project, client)
+    # owner_id·target_id 는 PostgREST 에서 문자열로 오니 비교가 되게 str 로 맞춘다.
     return _Wiring(settings, client, str(profile_id), repo, sender)
 
 
@@ -102,10 +104,9 @@ async def _next_issue_at(repo: CardRepository, profile_id: str, now: datetime) -
 
 
 @router.get("/cards/today")
-async def get_today_cards(authorization: str | None = Header(default=None)) -> dict:
+async def get_today_cards(wiring: _Wiring = Depends(_wire)) -> dict:
     """오늘의 카드(화면 10 `W0CjO`). 살아 있는 카드가 없으면 빈 목록 + 다음 지급 시각만 내려간다
     (화면 11 `i4VFS` 가 그 상태를 그린다)."""
-    wiring = await _wire(authorization)
     now = datetime.now(SEOUL)
 
     cards = []
@@ -137,9 +138,8 @@ async def get_today_cards(authorization: str | None = Header(default=None)) -> d
 
 @router.post("/cards/{card_id}/decision")
 async def decide_card(card_id: str, body: DecisionRequest,
-                      authorization: str | None = Header(default=None)) -> dict:
+                      wiring: _Wiring = Depends(_wire)) -> dict:
     """수락·거절을 남긴다. 저장이 먼저고 알림이 나중이다 — 알림이 실패해도 결정은 남는다."""
-    wiring = await _wire(authorization)
     now = datetime.now(SEOUL)
 
     card = await wiring.repo.fetch_card(card_id)
@@ -161,10 +161,9 @@ async def decide_card(card_id: str, body: DecisionRequest,
 
 
 @router.get("/cards/acceptances")
-async def get_acceptances(authorization: str | None = Header(default=None)) -> dict:
+async def get_acceptances(wiring: _Wiring = Depends(_wire)) -> dict:
     """받은 수락함(화면 13 `XCN1f`). 7일이 지난 것은 아예 내려보내지 않는다 —
     앱이 만료를 계산하지 않게 한다(2026-09-21 확정)."""
-    wiring = await _wire(authorization)
     now = datetime.now(SEOUL)
 
     acceptances = []
@@ -182,9 +181,8 @@ async def get_acceptances(authorization: str | None = Header(default=None)) -> d
 
 @router.post("/cards/acceptances/{card_id}")
 async def respond_to_acceptance(card_id: str, body: DecisionRequest,
-                                authorization: str | None = Header(default=None)) -> dict:
+                                wiring: _Wiring = Depends(_wire)) -> dict:
     """받은 수락에 답한다. 내가 수락하면 그 자리에서 매칭이 성사된다(설계 §2.2)."""
-    wiring = await _wire(authorization)
     now = datetime.now(SEOUL)
 
     card = await wiring.repo.fetch_card(card_id)
@@ -217,38 +215,34 @@ async def respond_to_acceptance(card_id: str, body: DecisionRequest,
 
 @router.post("/cards/push-tokens")
 async def register_push_token(body: PushTokenRequest,
-                              authorization: str | None = Header(default=None)) -> dict:
+                              wiring: _Wiring = Depends(_wire)) -> dict:
     """앱이 받은 FCM 토큰을 등록한다. 같은 토큰이 다시 오면 주인만 갱신된다(기기 인계)."""
-    wiring = await _wire(authorization)
     await wiring.repo.upsert_push_token(body.token, wiring.profile_id, body.platform)
     return {"ok": True}
 
 
 @router.delete("/cards/push-tokens/{token}")
-async def delete_push_token(token: str, authorization: str | None = Header(default=None)) -> dict:
+async def delete_push_token(token: str, wiring: _Wiring = Depends(_wire)) -> dict:
     """로그아웃 때 부른다 — 남의 기기로 알림이 가지 않게 토큰을 지운다."""
-    wiring = await _wire(authorization)
     await wiring.repo.delete_push_token(token)
     return {"ok": True}
 
 
 @router.get("/cards/notification-settings")
-async def get_notification_settings(authorization: str | None = Header(default=None)) -> dict:
+async def get_notification_settings(wiring: _Wiring = Depends(_wire)) -> dict:
     """알림 스위치 8개(화면 16d `NMgCa`). 저장한 적이 없으면 기본값이 내려간다."""
-    wiring = await _wire(authorization)
     settings = await wiring.repo.fetch_notification_settings(wiring.profile_id)
     return {key: settings.get(key, default) for key, default in NOTIFICATION_DEFAULTS.items()}
 
 
 @router.patch("/cards/notification-settings")
 async def update_notification_settings(body: dict,
-                                       authorization: str | None = Header(default=None)) -> dict:
+                                       wiring: _Wiring = Depends(_wire)) -> dict:
     """바뀐 스위치만 보낸다. 이름을 그대로 컬럼으로 쓰기 때문에 아는 이름만 받는다."""
     unknown = set(body) - set(NOTIFICATION_DEFAULTS)
     if unknown or not all(isinstance(value, bool) for value in body.values()):
         raise HTTPException(status_code=422, detail=errors.UNKNOWN_NOTIFICATION_SETTING)
 
-    wiring = await _wire(authorization)
     fields = dict(body)
     if "marketing" in fields:
         # 동의 시각은 서버가 적는다 — 법적 근거가 되는 값이라 앱이 보낸 시각을 믿지 않는다.
@@ -261,9 +255,8 @@ async def update_notification_settings(body: dict,
 
 @router.patch("/cards/matching-paused")
 async def update_matching_paused(body: MatchingPausedRequest,
-                                 authorization: str | None = Header(default=None)) -> dict:
+                                 wiring: _Wiring = Depends(_wire)) -> dict:
     """매칭 활성화 토글(화면 16 `TLrmq`). 끄면 다음 지급부터 카드가 오지도 가지도 않는다."""
-    wiring = await _wire(authorization)
     await wiring.repo.set_matching_paused(wiring.profile_id, body.paused)
     return {"ok": True}
 
@@ -271,9 +264,8 @@ async def update_matching_paused(body: MatchingPausedRequest,
 # ↓ 아래에 새 `/cards/...` 경로를 두지 않는다. `{card_id}` 가 먼저 먹어 버린다.
 @router.get("/cards/{card_id}")
 async def get_card_detail(card_id: str,
-                          authorization: str | None = Header(default=None)) -> dict:
+                          wiring: _Wiring = Depends(_wire)) -> dict:
     """10b 상대 프로필 상세(`TORAs`). 카드 주인에게만 보인다."""
-    wiring = await _wire(authorization)
     now = datetime.now(SEOUL)
 
     card = await wiring.repo.fetch_card(card_id)

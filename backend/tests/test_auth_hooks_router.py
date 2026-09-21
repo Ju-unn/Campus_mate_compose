@@ -8,9 +8,9 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
+from app.core.deps import get_client, get_settings
 from app.main import app
 from app.settings import Settings
-import app.auth_hooks.router as router_module
 
 
 SECRET = "whsec_" + base64.b64encode(b"test-secret-key-32-bytes-long!!").decode()
@@ -24,20 +24,18 @@ def _sign(webhook_id: str, timestamp: str, body: bytes) -> str:
 
 
 @pytest.fixture(autouse=True)
-def settings_override(monkeypatch):
-    monkeypatch.setattr(
-        router_module,
-        "get_settings",
-        lambda: Settings(
-            supabase_url="https://x.supabase.co",
-            supabase_service_role_key="service-key",
-            auth_hook_signing_secret=SECRET,
-            discord_webhook_url="https://discord.com/api/webhooks/test",
-            google_cloud_project="campus-mate-test",
-            openai_api_key="sk-test",
-            phone_encryption_key="phone-key-test",
-        ),
+def settings_override():
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        supabase_url="https://x.supabase.co",
+        supabase_service_role_key="service-key",
+        auth_hook_signing_secret=SECRET,
+        discord_webhook_url="https://discord.com/api/webhooks/test",
+        google_cloud_project="campus-mate-test",
+        openai_api_key="sk-test",
+        phone_encryption_key="phone-key-test",
     )
+    yield
+    app.dependency_overrides.clear()
 
 
 def _post_hook(client: TestClient, body: dict, mock_transport: httpx.MockTransport):
@@ -48,7 +46,7 @@ def _post_hook(client: TestClient, body: dict, mock_transport: httpx.MockTranspo
         "webhook-timestamp": timestamp,
         "webhook-signature": _sign("msg_1", timestamp, raw_body),
     }
-    router_module._client_override = httpx.AsyncClient(transport=mock_transport)
+    app.dependency_overrides[get_client] = lambda: httpx.AsyncClient(transport=mock_transport)
     return client.post("/hooks/before-user-created", content=raw_body, headers=headers)
 
 

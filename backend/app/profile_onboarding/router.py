@@ -2,12 +2,12 @@ import logging
 from uuid import UUID
 
 import httpx
-from fastapi import APIRouter, File, Form, Header, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from google.cloud import vision
 from openai import AsyncOpenAI
 
 from app.core import errors
-from app.core.deps import get_settings, get_vision_client
+from app.core.deps import Caller, get_settings, get_verified_caller, get_vision_client
 from app.matching.repository import MatchingRepository
 from app.matching.vectors import refresh_vectors
 from app.profile_onboarding.avatars import AvatarGenerator, get_openai_client
@@ -32,51 +32,49 @@ from app.profile_onboarding.schemas import (
 from app.profile_onboarding.storage import AvatarStorage, ProfilePhotoStorage
 from app.profile_onboarding.tags import IDEAL_TRAITS, INTEREST_TAGS, MY_TRAITS, validate_tag_selection
 from app.settings import Settings
-from app.student_verification.current_user import get_verified_user_id
 from app.student_verification.image_validation import student_id_content_type
 
 router = APIRouter()
 _logger = logging.getLogger(__name__)
 
-# 테스트가 실제 Supabase·OpenAI·Vision 대신 목을 주입할 수 있게 하는 훅(조각1b student_verification 패턴).
-_client_override: httpx.AsyncClient | None = None
-_vision_client_override: vision.ImageAnnotatorAsyncClient | None = None
-_openai_client_override: AsyncOpenAI | None = None
+
+def get_openai(settings: Settings = Depends(get_settings)) -> AsyncOpenAI:
+    """임베딩·아바타·자기소개 초안이 쓰는 OpenAI 클라이언트. 테스트는 이 자리에 목을 끼운다."""
+    return get_openai_client(settings.openai_api_key)
 
 
 def _repo(settings: Settings, client: httpx.AsyncClient) -> ProfileOnboardingRepository:
     return ProfileOnboardingRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
 
 
-async def _refresh_vectors(settings: Settings, client: httpx.AsyncClient, profile_id: UUID) -> None:
+async def _refresh_vectors(
+    settings: Settings, client: httpx.AsyncClient, openai_client: AsyncOpenAI, profile_id: UUID
+) -> None:
     """문장·설문 재료가 바뀐 직후 매칭 벡터를 다시 만든다(설계 §6.3 "수정하면 즉시 재생성").
 
     태그 3종은 부르지 않는다 — 태그는 문장 재료가 아니고 자카드는 조회 시점 계산이다.
     실패는 refresh_vectors 안에서 삼킨다(사용자 저장은 이미 끝났다)."""
     repo = MatchingRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
-    openai_client = _openai_client_override or get_openai_client(settings.openai_api_key)
     await refresh_vectors(repo, openai_client, profile_id)
 
 
 @router.get("/profile-onboarding/nickname-availability")
 async def check_nickname_availability(
     nickname: str = Query(pattern=NICKNAME_PATTERN),
-    authorization: str | None = Header(default=None),
+    caller: Caller = Depends(get_verified_caller),
 ) -> NicknameAvailabilityResponse:
-    settings = get_settings()
-    client = _client_override or httpx.AsyncClient()
-    await get_verified_user_id(settings, client, authorization)
+    settings, client, _ = caller
     available = await _repo(settings, client).check_nickname_availability(nickname)
     return NicknameAvailabilityResponse(available=available)
 
 
 @router.post("/profile-onboarding/basic-info")
 async def submit_basic_info(
-    body: BasicInfoRequest, authorization: str | None = Header(default=None)
+    body: BasicInfoRequest,
+    caller: Caller = Depends(get_verified_caller),
+    openai_client: AsyncOpenAI = Depends(get_openai),
 ) -> dict[str, bool]:
-    settings = get_settings()
-    client = _client_override or httpx.AsyncClient()
-    profile_id = await get_verified_user_id(settings, client, authorization)
+    settings, client, profile_id = caller
     repo = _repo(settings, client)
 
     # 닉네임 중복(23505)은 repository 의 공통 변환이 409 로 바꿔 준다.
@@ -88,17 +86,15 @@ async def submit_basic_info(
         settings.postgrest_url, settings.supabase_service_role_key, client,
         profile_id, body.phone_number, settings.phone_encryption_key,
     )
-    await _refresh_vectors(settings, client, profile_id)
+    await _refresh_vectors(settings, client, openai_client, profile_id)
     return {"ok": True}
 
 
 @router.post("/profile-onboarding/kakao-id")
 async def submit_kakao_id(
-    body: KakaoIdRequest, authorization: str | None = Header(default=None)
+    body: KakaoIdRequest, caller: Caller = Depends(get_verified_caller)
 ) -> dict[str, bool]:
-    settings = get_settings()
-    client = _client_override or httpx.AsyncClient()
-    profile_id = await get_verified_user_id(settings, client, authorization)
+    settings, client, profile_id = caller
     await _repo(settings, client).update_kakao_id(profile_id, body.kakao_id)
     return {"ok": True}
 
@@ -109,18 +105,17 @@ async def upload_photo(
     # 자리는 0~3 이다(profile_photos_position_range). 여기서 막아야 체크 제약 위반이 500 으로 새지 않는다.
     position: int = Form(ge=0, le=3),
     is_avatar_source: bool = Form(default=False),
-    authorization: str | None = Header(default=None),
+    caller: Caller = Depends(get_verified_caller),
+    vision_client: vision.ImageAnnotatorAsyncClient = Depends(get_vision_client),
 ) -> dict[str, bool]:
-    settings = get_settings()
-    client = _client_override or httpx.AsyncClient()
-    profile_id = await get_verified_user_id(settings, client, authorization)
+    settings, client, profile_id = caller
 
     data = await photo.read()
     content_type = student_id_content_type(data)
     if content_type is None:
         raise HTTPException(status_code=400, detail=errors.PHOTO_UNREADABLE)
 
-    is_safe = await check_safe_search(_vision_client_override or get_vision_client(), data)
+    is_safe = await check_safe_search(vision_client, data)
     if not is_safe:
         raise HTTPException(status_code=422, detail=errors.PHOTO_NOT_SAFE)
 
@@ -136,10 +131,8 @@ async def upload_photo(
 
 
 @router.delete("/profile-onboarding/photos/{position}")
-async def delete_photo(position: int, authorization: str | None = Header(default=None)) -> dict[str, bool]:
-    settings = get_settings()
-    client = _client_override or httpx.AsyncClient()
-    profile_id = await get_verified_user_id(settings, client, authorization)
+async def delete_photo(position: int, caller: Caller = Depends(get_verified_caller)) -> dict[str, bool]:
+    settings, client, profile_id = caller
     repo = _repo(settings, client)
 
     storage_path = await repo.fetch_photo_path(profile_id, position)
@@ -154,10 +147,11 @@ async def delete_photo(position: int, authorization: str | None = Header(default
 
 
 @router.post("/profile-onboarding/avatar/generate")
-async def generate_avatar(authorization: str | None = Header(default=None)) -> dict:
-    settings = get_settings()
-    client = _client_override or httpx.AsyncClient()
-    profile_id = await get_verified_user_id(settings, client, authorization)
+async def generate_avatar(
+    caller: Caller = Depends(get_verified_caller),
+    openai_client: AsyncOpenAI = Depends(get_openai),
+) -> dict:
+    settings, client, profile_id = caller
     repo = _repo(settings, client)
 
     # 무료 생성은 1회다 — 하트를 쓰는 재생성은 조각 7 에서 붙인다(2026-09-20 사용자 결정).
@@ -173,7 +167,7 @@ async def generate_avatar(authorization: str | None = Header(default=None)) -> d
 
     recent_failures = await repo.count_recent_consecutive_avatar_failures(profile_id)
     generator = AvatarGenerator(
-        _openai_client_override or get_openai_client(settings.openai_api_key),
+        openai_client,
         AvatarStorage(settings.storage_url, settings.supabase_service_role_key, client),
         failure_counts={str(profile_id): recent_failures},
     )
@@ -199,38 +193,36 @@ async def generate_avatar(authorization: str | None = Header(default=None)) -> d
 
 @router.post("/profile-onboarding/appearance-type")
 async def submit_appearance_type(
-    body: AppearanceTypeRequest, authorization: str | None = Header(default=None)
+    body: AppearanceTypeRequest,
+    caller: Caller = Depends(get_verified_caller),
+    openai_client: AsyncOpenAI = Depends(get_openai),
 ) -> dict[str, bool]:
-    settings = get_settings()
-    client = _client_override or httpx.AsyncClient()
-    profile_id = await get_verified_user_id(settings, client, authorization)
+    settings, client, profile_id = caller
     await _repo(settings, client).update_appearance_type(profile_id, body.animal_type, body.impression_type)
-    await _refresh_vectors(settings, client, profile_id)
+    await _refresh_vectors(settings, client, openai_client, profile_id)
     return {"ok": True}
 
 
 @router.post("/profile-onboarding/interests")
-async def submit_interests(body: TagsRequest, authorization: str | None = Header(default=None)) -> dict[str, bool]:
-    return await _submit_tags(body, authorization, INTEREST_TAGS, "update_interests")
+async def submit_interests(body: TagsRequest, caller: Caller = Depends(get_verified_caller)) -> dict[str, bool]:
+    return await _submit_tags(body, caller, INTEREST_TAGS, "update_interests")
 
 
 @router.post("/profile-onboarding/my-traits")
-async def submit_my_traits(body: TagsRequest, authorization: str | None = Header(default=None)) -> dict[str, bool]:
-    return await _submit_tags(body, authorization, MY_TRAITS, "update_my_traits")
+async def submit_my_traits(body: TagsRequest, caller: Caller = Depends(get_verified_caller)) -> dict[str, bool]:
+    return await _submit_tags(body, caller, MY_TRAITS, "update_my_traits")
 
 
 @router.post("/profile-onboarding/ideal-traits")
-async def submit_ideal_traits(body: TagsRequest, authorization: str | None = Header(default=None)) -> dict[str, bool]:
-    return await _submit_tags(body, authorization, IDEAL_TRAITS, "update_ideal_traits")
+async def submit_ideal_traits(body: TagsRequest, caller: Caller = Depends(get_verified_caller)) -> dict[str, bool]:
+    return await _submit_tags(body, caller, IDEAL_TRAITS, "update_ideal_traits")
 
 
 async def _submit_tags(
-    body: TagsRequest, authorization: str | None, pool: list[str], repo_method_name: str
+    body: TagsRequest, caller: Caller, pool: list[str], repo_method_name: str
 ) -> dict[str, bool]:
     # 누구인지·인증을 마쳤는지 먼저 본다 — 인증 안 한 사람에게 태그 목록이 맞는지 알려줄 이유가 없다.
-    settings = get_settings()
-    client = _client_override or httpx.AsyncClient()
-    profile_id = await get_verified_user_id(settings, client, authorization)
+    settings, client, profile_id = caller
 
     try:
         validate_tag_selection(pool, body.tags)
@@ -243,50 +235,53 @@ async def _submit_tags(
 
 
 @router.post("/profile-onboarding/survey")
-async def submit_survey(body: SurveyRequest, authorization: str | None = Header(default=None)) -> dict[str, bool]:
-    settings = get_settings()
-    client = _client_override or httpx.AsyncClient()
-    profile_id = await get_verified_user_id(settings, client, authorization)
+async def submit_survey(
+    body: SurveyRequest,
+    caller: Caller = Depends(get_verified_caller),
+    openai_client: AsyncOpenAI = Depends(get_openai),
+) -> dict[str, bool]:
+    settings, client, profile_id = caller
     await _repo(settings, client).insert_survey_answers(profile_id, body.answers, body.religion, body.is_smoker)
-    await _refresh_vectors(settings, client, profile_id)
+    await _refresh_vectors(settings, client, openai_client, profile_id)
     return {"ok": True}
 
 
 @router.post("/profile-onboarding/ideal-conditions")
 async def submit_ideal_conditions(
-    body: IdealConditionsRequest, authorization: str | None = Header(default=None)
+    body: IdealConditionsRequest,
+    caller: Caller = Depends(get_verified_caller),
+    openai_client: AsyncOpenAI = Depends(get_openai),
 ) -> dict[str, bool]:
-    settings = get_settings()
-    client = _client_override or httpx.AsyncClient()
-    profile_id = await get_verified_user_id(settings, client, authorization)
+    settings, client, profile_id = caller
     await _repo(settings, client).update_ideal_conditions(
         profile_id, body.preferred_age_min, body.preferred_age_max,
         body.preferred_height_min, body.preferred_height_max,
         body.preferred_mbti_flags, body.preferred_animal_types, body.preferred_impression_types,
     )
-    await _refresh_vectors(settings, client, profile_id)
+    await _refresh_vectors(settings, client, openai_client, profile_id)
     return {"ok": True}
 
 
 @router.post("/profile-onboarding/ideal-note")
 async def submit_ideal_note(
-    body: IdealNoteRequest, authorization: str | None = Header(default=None)
+    body: IdealNoteRequest,
+    caller: Caller = Depends(get_verified_caller),
+    openai_client: AsyncOpenAI = Depends(get_openai),
 ) -> dict[str, bool]:
-    settings = get_settings()
-    client = _client_override or httpx.AsyncClient()
-    profile_id = await get_verified_user_id(settings, client, authorization)
+    settings, client, profile_id = caller
     await _repo(settings, client).update_ideal_note(profile_id, body.note)
-    await _refresh_vectors(settings, client, profile_id)
+    await _refresh_vectors(settings, client, openai_client, profile_id)
     return {"ok": True}
 
 
 @router.post("/profile-onboarding/bio-draft")
-async def generate_bio_draft_endpoint(authorization: str | None = Header(default=None)) -> dict[str, str]:
+async def generate_bio_draft_endpoint(
+    caller: Caller = Depends(get_verified_caller),
+    openai_client: AsyncOpenAI = Depends(get_openai),
+) -> dict[str, str]:
     from app.profile_onboarding.bio_draft import generate_bio_draft
 
-    settings = get_settings()
-    client = _client_override or httpx.AsyncClient()
-    profile_id = await get_verified_user_id(settings, client, authorization)
+    settings, client, profile_id = caller
     repo = _repo(settings, client)
 
     # 이미 만든 초안이 있으면 그것을 그대로 돌려준다(화면을 다시 열어도 빈 칸이 되지 않게).
@@ -297,7 +292,7 @@ async def generate_bio_draft_endpoint(authorization: str | None = Header(default
     snapshot = await repo.fetch_onboarding_snapshot(profile_id)
     survey_summary = f"religion={snapshot['religion']}, is_smoker={snapshot['is_smoker']}"
     draft = await generate_bio_draft(
-        _openai_client_override or get_openai_client(settings.openai_api_key),
+        openai_client,
         survey_summary, snapshot["interest_tags"], snapshot["my_traits"],
     )
     await repo.save_bio_draft(profile_id, draft)
@@ -305,10 +300,12 @@ async def generate_bio_draft_endpoint(authorization: str | None = Header(default
 
 
 @router.post("/profile-onboarding/bio")
-async def submit_bio(body: BioRequest, authorization: str | None = Header(default=None)) -> dict[str, bool]:
-    settings = get_settings()
-    client = _client_override or httpx.AsyncClient()
-    profile_id = await get_verified_user_id(settings, client, authorization)
+async def submit_bio(
+    body: BioRequest,
+    caller: Caller = Depends(get_verified_caller),
+    openai_client: AsyncOpenAI = Depends(get_openai),
+) -> dict[str, bool]:
+    settings, client, profile_id = caller
     repo = _repo(settings, client)
 
     await repo.update_bio(profile_id, body.bio)
@@ -316,15 +313,13 @@ async def submit_bio(body: BioRequest, authorization: str | None = Header(defaul
     snapshot["bio"] = body.bio
     if next_step(snapshot) == "complete":
         await repo.activate_profile(profile_id)
-    await _refresh_vectors(settings, client, profile_id)
+    await _refresh_vectors(settings, client, openai_client, profile_id)
     return {"ok": True}
 
 
 @router.get("/profile-onboarding/next-step")
-async def get_next_step(authorization: str | None = Header(default=None)) -> NextStepResponse:
-    settings = get_settings()
-    client = _client_override or httpx.AsyncClient()
-    profile_id = await get_verified_user_id(settings, client, authorization)
+async def get_next_step(caller: Caller = Depends(get_verified_caller)) -> NextStepResponse:
+    settings, client, profile_id = caller
     repo = _repo(settings, client)
     snapshot = await repo.fetch_onboarding_snapshot(profile_id)
     return NextStepResponse(step=next_step(snapshot))
