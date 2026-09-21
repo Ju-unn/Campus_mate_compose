@@ -1,22 +1,15 @@
-from functools import lru_cache
-
 import httpx
 from fastapi import APIRouter, Header, HTTPException, Query
 
+from app.core.deps import get_settings
 from app.matching.repository import MatchingRepository
 from app.matching.scoring import rank
-from app.settings import Settings
 from app.student_verification.current_user import get_verified_user_id
 
 router = APIRouter()
 
 # 테스트가 실제 Supabase 대신 목을 주입할 수 있게 하는 훅(조각1b·2 라우터와 같은 패턴).
 _client_override: httpx.AsyncClient | None = None
-
-
-@lru_cache
-def get_settings() -> Settings:
-    return Settings()
 
 
 @router.get("/matching/candidates")

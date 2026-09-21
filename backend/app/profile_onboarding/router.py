@@ -1,5 +1,4 @@
 import logging
-from functools import lru_cache
 from uuid import UUID
 
 import httpx
@@ -7,6 +6,7 @@ from fastapi import APIRouter, File, Form, Header, HTTPException, Query, UploadF
 from google.cloud import vision
 from openai import AsyncOpenAI
 
+from app.core.deps import get_settings, get_vision_client
 from app.matching.repository import MatchingRepository
 from app.matching.vectors import refresh_vectors
 from app.profile_onboarding.avatars import AvatarGenerator, get_openai_client
@@ -41,16 +41,6 @@ _logger = logging.getLogger(__name__)
 _client_override: httpx.AsyncClient | None = None
 _vision_client_override: vision.ImageAnnotatorAsyncClient | None = None
 _openai_client_override: AsyncOpenAI | None = None
-
-
-@lru_cache
-def get_settings() -> Settings:
-    return Settings()
-
-
-@lru_cache
-def get_vision_client() -> vision.ImageAnnotatorAsyncClient:
-    return vision.ImageAnnotatorAsyncClient()
 
 
 def _repo(settings: Settings, client: httpx.AsyncClient) -> ProfileOnboardingRepository:

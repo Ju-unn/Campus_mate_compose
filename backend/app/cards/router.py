@@ -1,5 +1,4 @@
 from datetime import datetime, time, timedelta, timezone
-from functools import lru_cache
 
 import httpx
 from fastapi import APIRouter, Header, HTTPException
@@ -8,6 +7,7 @@ from pydantic import BaseModel, field_validator
 from app.cards.ladder import next_issue_at
 from app.cards.push import FcmSender, notify
 from app.cards.repository import NOTIFICATION_DEFAULTS, CardRepository
+from app.core.deps import get_settings
 from app.matching.repository import MatchingRepository
 from app.profile_onboarding.schemas import SEOUL
 from app.settings import Settings
@@ -21,11 +21,6 @@ ACCEPTANCE_TTL_DAYS = 7
 # 테스트가 실제 Supabase·FCM 대신 목을 주입할 수 있게 하는 훅(조각1b·2·3 라우터와 같은 패턴).
 _client_override: httpx.AsyncClient | None = None
 _sender_override = None
-
-
-@lru_cache
-def get_settings() -> Settings:
-    return Settings()
 
 
 class DecisionRequest(BaseModel):

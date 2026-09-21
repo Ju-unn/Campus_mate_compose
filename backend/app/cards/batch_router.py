@@ -1,6 +1,5 @@
 import hmac
 from datetime import datetime
-from functools import lru_cache
 
 import httpx
 from fastapi import APIRouter, Header, HTTPException
@@ -8,18 +7,13 @@ from fastapi import APIRouter, Header, HTTPException
 from app.cards.issuing import issue_daily_cards
 from app.cards.push import FcmSender
 from app.cards.repository import CardRepository
+from app.core.deps import get_settings
 from app.matching.repository import MatchingRepository
 from app.profile_onboarding.schemas import SEOUL
-from app.settings import Settings
 
 router = APIRouter()
 
 _client_override: httpx.AsyncClient | None = None
-
-
-@lru_cache
-def get_settings() -> Settings:
-    return Settings()
 
 
 @router.post("/batch/daily-cards")

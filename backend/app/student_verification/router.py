@@ -1,6 +1,5 @@
 import asyncio
 import logging
-from functools import lru_cache
 
 import httpx
 from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile
@@ -8,7 +7,7 @@ from google.api_core.exceptions import GoogleAPIError
 from google.auth.exceptions import GoogleAuthError
 from google.cloud import vision
 
-from app.settings import Settings
+from app.core.deps import get_settings, get_vision_client
 from app.student_verification.current_user import get_current_user_id
 from app.student_verification.discord_notifier import DiscordNotifier
 from app.student_verification.image_validation import student_id_content_type
@@ -24,17 +23,6 @@ _logger = logging.getLogger(__name__)
 # 테스트가 실제 Supabase·Vision 대신 목을 주입할 수 있게 하는 훅(1a auth_hooks/router.py 와 같은 패턴).
 _client_override: httpx.AsyncClient | None = None
 _vision_client_override: vision.ImageAnnotatorAsyncClient | None = None
-
-
-@lru_cache
-def get_settings() -> Settings:
-    return Settings()
-
-
-@lru_cache
-def get_vision_client() -> vision.ImageAnnotatorAsyncClient:
-    # ADC 로 인증하므로 인자가 없다. 만드는 값이 비싸 프로세스당 하나만 둔다.
-    return vision.ImageAnnotatorAsyncClient()
 
 
 @router.post("/student-verification")
