@@ -3,7 +3,8 @@ from uuid import UUID
 import httpx
 from fastapi import HTTPException
 
-from app.profile_onboarding.repository import _raise_for_status
+from app.core import errors
+from app.core.http import raise_for_status
 
 _MATERIAL_COLUMNS = (
     "major,major_field,mbti,animal_type,impression_type,bio,"
@@ -34,7 +35,7 @@ class MatchingRepository:
             params={"id": f"eq.{profile_id}", "select": _MATERIAL_COLUMNS},
             headers=self._headers,
         )
-        _raise_for_status(response)
+        raise_for_status(response)
         rows = response.json()
         profile = rows[0] if rows else {}
 
@@ -43,7 +44,7 @@ class MatchingRepository:
             params={"profile_id": f"eq.{profile_id}", "select": "axis,value"},
             headers=self._headers,
         )
-        _raise_for_status(answers_response)
+        raise_for_status(answers_response)
         profile["survey_answers"] = {r["axis"]: float(r["value"]) for r in answers_response.json()}
         return profile
 
@@ -54,7 +55,7 @@ class MatchingRepository:
             json={"profile_id": str(profile_id), "updated_at": "now()", **fields},
             headers={**self._headers, "Prefer": "resolution=merge-duplicates"},
         )
-        _raise_for_status(response)
+        raise_for_status(response)
 
     async def fetch_owner(self, profile_id: UUID | str) -> dict:
         response = await self._client.get(
@@ -62,11 +63,11 @@ class MatchingRepository:
             params={"id": f"eq.{profile_id}", "select": _OWNER_COLUMNS},
             headers=self._headers,
         )
-        _raise_for_status(response)
+        raise_for_status(response)
         rows = response.json()
         if not rows:
             # 토큰은 살아 있는데 프로필이 지워졌을 때다 — 500 대신 404 로 말해준다.
-            raise HTTPException(status_code=404, detail="프로필을 찾을 수 없어요")
+            raise HTTPException(status_code=404, detail=errors.PROFILE_NOT_FOUND)
         return rows[0]
 
     async def has_vectors(self, profile_id: UUID | str) -> bool:
@@ -80,7 +81,7 @@ class MatchingRepository:
             },
             headers=self._headers,
         )
-        _raise_for_status(response)
+        raise_for_status(response)
         return bool(response.json())
 
     async def fetch_candidates(self, profile_id: UUID | str) -> list[dict]:
@@ -89,5 +90,5 @@ class MatchingRepository:
             json={"p_owner": str(profile_id)},
             headers=self._headers,
         )
-        _raise_for_status(response)
+        raise_for_status(response)
         return response.json()

@@ -1,5 +1,4 @@
 from datetime import datetime, time, timedelta, timezone
-from functools import lru_cache
 
 import httpx
 from fastapi import APIRouter, Header, HTTPException
@@ -8,6 +7,8 @@ from pydantic import BaseModel, field_validator
 from app.cards.ladder import next_issue_at
 from app.cards.push import FcmSender, notify
 from app.cards.repository import NOTIFICATION_DEFAULTS, CardRepository
+from app.core import errors
+from app.core.deps import get_settings
 from app.matching.repository import MatchingRepository
 from app.profile_onboarding.schemas import SEOUL
 from app.settings import Settings
@@ -21,11 +22,6 @@ ACCEPTANCE_TTL_DAYS = 7
 # 테스트가 실제 Supabase·FCM 대신 목을 주입할 수 있게 하는 훅(조각1b·2·3 라우터와 같은 패턴).
 _client_override: httpx.AsyncClient | None = None
 _sender_override = None
-
-
-@lru_cache
-def get_settings() -> Settings:
-    return Settings()
 
 
 class DecisionRequest(BaseModel):
@@ -148,11 +144,11 @@ async def decide_card(card_id: str, body: DecisionRequest,
 
     card = await wiring.repo.fetch_card(card_id)
     if card is None or card["owner_id"] != wiring.profile_id:
-        raise HTTPException(status_code=404, detail="카드를 찾을 수 없어요")
+        raise HTTPException(status_code=404, detail=errors.CARD_NOT_FOUND)
     if card["card_decisions"]:
-        raise HTTPException(status_code=409, detail="이미 결정한 카드예요")
+        raise HTTPException(status_code=409, detail=errors.CARD_ALREADY_DECIDED)
     if card["expires_at"] and datetime.fromisoformat(card["expires_at"]) <= now:
-        raise HTTPException(status_code=409, detail="지난 카드예요")
+        raise HTTPException(status_code=409, detail=errors.CARD_EXPIRED)
 
     await wiring.repo.insert_decision(card_id, body.decision)
     if body.decision == "accept":
@@ -195,12 +191,12 @@ async def respond_to_acceptance(card_id: str, body: DecisionRequest,
     # 임베드는 객체 하나 아니면 null 이다(카드 한 장당 결정도 응답도 최대 한 건).
     accepted = (card or {}).get("card_decisions") or {}
     if card is None or card["target_id"] != wiring.profile_id or accepted.get("decision") != "accept":
-        raise HTTPException(status_code=404, detail="수락을 찾을 수 없어요")
+        raise HTTPException(status_code=404, detail=errors.ACCEPTANCE_NOT_FOUND)
     if card["acceptance_responses"]:
-        raise HTTPException(status_code=409, detail="이미 답한 수락이에요")
+        raise HTTPException(status_code=409, detail=errors.ACCEPTANCE_ALREADY_ANSWERED)
     decided_at = datetime.fromisoformat(accepted["decided_at"])
     if decided_at <= now - timedelta(days=ACCEPTANCE_TTL_DAYS):
-        raise HTTPException(status_code=410, detail="기한이 지났어요")
+        raise HTTPException(status_code=410, detail=errors.ACCEPTANCE_EXPIRED)
 
     await wiring.repo.insert_acceptance_response(card_id, wiring.profile_id, body.decision)
     if body.decision != "accept":
@@ -250,7 +246,7 @@ async def update_notification_settings(body: dict,
     """바뀐 스위치만 보낸다. 이름을 그대로 컬럼으로 쓰기 때문에 아는 이름만 받는다."""
     unknown = set(body) - set(NOTIFICATION_DEFAULTS)
     if unknown or not all(isinstance(value, bool) for value in body.values()):
-        raise HTTPException(status_code=422, detail="알 수 없는 알림 설정이에요")
+        raise HTTPException(status_code=422, detail=errors.UNKNOWN_NOTIFICATION_SETTING)
 
     wiring = await _wire(authorization)
     fields = dict(body)
@@ -282,7 +278,7 @@ async def get_card_detail(card_id: str,
 
     card = await wiring.repo.fetch_card(card_id)
     if card is None or card["owner_id"] != wiring.profile_id:
-        raise HTTPException(status_code=404, detail="카드를 찾을 수 없어요")
+        raise HTTPException(status_code=404, detail=errors.CARD_NOT_FOUND)
 
     profile = await wiring.repo.fetch_card_detail_profile(card["target_id"])
     return {

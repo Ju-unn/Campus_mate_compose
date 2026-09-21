@@ -1,34 +1,9 @@
 from uuid import UUID
 
 import httpx
-from fastapi import HTTPException
 
-# PostgREST 는 Postgres 오류 코드를 그대로 돌려준다. 제약 위반이 500 으로 새어 나가지 않게
-# 여기 한 곳에서 4xx 로 바꾼다(2026-09-20 리뷰 필수 2②).
-# 23503 = FK 위반(없는 대학·없는 프로필을 가리킴), 23502 = not null 위반.
-_CONSTRAINT_STATUS = {"23505": 409, "23503": 409, "23514": 422, "22P02": 422, "23502": 422}
-
-
-def _error_code(response: httpx.Response) -> str | None:
-    try:
-        body = response.json()
-    except ValueError:
-        return None
-    return body.get("code") if isinstance(body, dict) else None
-
-
-def _raise_for_status(response: httpx.Response, conflict_detail: str = "이미 등록된 정보예요") -> None:
-    if response.status_code < 400:
-        return
-    # 코드가 없어도 PostgREST 가 409 로 답했으면 중복 충돌로 본다.
-    status = _CONSTRAINT_STATUS.get(_error_code(response) or "")
-    if status is None and response.status_code == 409:
-        status = 409
-    if status == 409:
-        raise HTTPException(status_code=409, detail=conflict_detail)
-    if status == 422:
-        raise HTTPException(status_code=422, detail="입력한 값을 다시 확인해 주세요")
-    response.raise_for_status()
+from app.core import errors
+from app.core.http import raise_for_status
 
 
 class ProfileOnboardingRepository:
@@ -51,7 +26,7 @@ class ProfileOnboardingRepository:
             params={"nickname": f"ilike.{nickname}", "select": "id"},
             headers=self._headers,
         )
-        _raise_for_status(response)
+        raise_for_status(response)
         return len(response.json()) == 0
 
     async def update_basic_info(
@@ -66,7 +41,7 @@ class ProfileOnboardingRepository:
             },
             headers=self._headers,
         )
-        _raise_for_status(response, conflict_detail="이미 있는 닉네임이에요")
+        raise_for_status(response, conflict_detail=errors.NICKNAME_TAKEN)
 
     async def update_kakao_id(self, profile_id: UUID, kakao_id: str) -> None:
         response = await self._client.patch(
@@ -75,7 +50,7 @@ class ProfileOnboardingRepository:
             json={"kakao_id": kakao_id, "updated_at": "now()"},
             headers=self._headers,
         )
-        _raise_for_status(response)
+        raise_for_status(response)
 
     async def save_photo(
         self, profile_id: UUID, storage_path: str, position: int, is_avatar_source: bool
@@ -98,7 +73,7 @@ class ProfileOnboardingRepository:
             },
             headers=self._headers,
         )
-        _raise_for_status(response)
+        raise_for_status(response)
         return replaced_path
 
     async def _clear_avatar_source(self, profile_id: UUID) -> None:
@@ -109,7 +84,7 @@ class ProfileOnboardingRepository:
             json={"is_avatar_source": False},
             headers=self._headers,
         )
-        _raise_for_status(response)
+        raise_for_status(response)
 
     async def fetch_photo_path(self, profile_id: UUID, position: int) -> str | None:
         response = await self._client.get(
@@ -119,7 +94,7 @@ class ProfileOnboardingRepository:
             },
             headers=self._headers,
         )
-        _raise_for_status(response)
+        raise_for_status(response)
         rows = response.json()
         return rows[0]["storage_path"] if rows else None
 
@@ -129,7 +104,7 @@ class ProfileOnboardingRepository:
             params={"profile_id": f"eq.{profile_id}", "position": f"eq.{position}"},
             headers=self._headers,
         )
-        _raise_for_status(response)
+        raise_for_status(response)
 
     async def fetch_avatar_source_photo_path(self, profile_id: UUID) -> str | None:
         response = await self._client.get(
@@ -137,7 +112,7 @@ class ProfileOnboardingRepository:
             params={"profile_id": f"eq.{profile_id}", "is_avatar_source": "eq.true", "select": "storage_path"},
             headers=self._headers,
         )
-        _raise_for_status(response)
+        raise_for_status(response)
         rows = response.json()
         return rows[0]["storage_path"] if rows else None
 
@@ -147,7 +122,7 @@ class ProfileOnboardingRepository:
             json={"profile_id": str(profile_id), "status": status, "storage_path": storage_path},
             headers=self._headers,
         )
-        _raise_for_status(response)
+        raise_for_status(response)
 
     async def has_ready_avatar(self, profile_id: UUID) -> bool:
         """아바타는 한 번만 만든다(2026-09-20 사용자 결정, 하트 차감 재생성은 조각 7).
@@ -159,7 +134,7 @@ class ProfileOnboardingRepository:
             },
             headers=self._headers,
         )
-        _raise_for_status(response)
+        raise_for_status(response)
         return len(response.json()) > 0
 
     async def count_recent_consecutive_avatar_failures(self, profile_id: UUID) -> int:
@@ -168,7 +143,7 @@ class ProfileOnboardingRepository:
             params={"profile_id": f"eq.{profile_id}", "order": "created_at.desc", "select": "status"},
             headers=self._headers,
         )
-        _raise_for_status(response)
+        raise_for_status(response)
         count = 0
         for row in response.json():
             if row["status"] != "failed":
@@ -183,7 +158,7 @@ class ProfileOnboardingRepository:
             json={"animal_type": animal_type, "impression_type": impression_type},
             headers=self._headers,
         )
-        _raise_for_status(response)
+        raise_for_status(response)
 
     async def update_interests(self, profile_id: UUID, tags: list[str]) -> None:
         await self._patch_profile(profile_id, {"interest_tags": tags})
@@ -203,7 +178,7 @@ class ProfileOnboardingRepository:
             json=rows,
             headers={**self._headers, "Prefer": "resolution=merge-duplicates"},
         )
-        _raise_for_status(response)
+        raise_for_status(response)
         await self._patch_profile(profile_id, {"religion": religion, "is_smoker": is_smoker})
 
     async def update_ideal_conditions(
@@ -242,7 +217,7 @@ class ProfileOnboardingRepository:
             params={"id": f"eq.{profile_id}", "select": "bio_draft"},
             headers=self._headers,
         )
-        _raise_for_status(response)
+        raise_for_status(response)
         rows = response.json()
         # 프로필 행이 없을 일은 없지만, 없더라도 500 대신 "초안 없음"으로 본다.
         return rows[0]["bio_draft"] if rows else None
@@ -264,7 +239,7 @@ class ProfileOnboardingRepository:
             },
             headers=self._headers,
         )
-        _raise_for_status(profile_response)
+        raise_for_status(profile_response)
         profile = profile_response.json()[0]
 
         private_response = await self._client.get(
@@ -272,7 +247,7 @@ class ProfileOnboardingRepository:
             params={"profile_id": f"eq.{profile_id}", "select": "phone_number,kakao_id"},
             headers=self._headers,
         )
-        _raise_for_status(private_response)
+        raise_for_status(private_response)
         private_rows = private_response.json()
         private = private_rows[0] if private_rows else {"phone_number": None, "kakao_id": None}
 
@@ -281,7 +256,7 @@ class ProfileOnboardingRepository:
             params={"profile_id": f"eq.{profile_id}", "select": "is_avatar_source"},
             headers=self._headers,
         )
-        _raise_for_status(photos_response)
+        raise_for_status(photos_response)
         photos = photos_response.json()
 
         avatars_response = await self._client.get(
@@ -289,14 +264,14 @@ class ProfileOnboardingRepository:
             params={"profile_id": f"eq.{profile_id}", "status": "eq.ready", "select": "id", "limit": "1"},
             headers=self._headers,
         )
-        _raise_for_status(avatars_response)
+        raise_for_status(avatars_response)
 
         survey_response = await self._client.get(
             f"{self._postgrest_url}/survey_answers",
             params={"profile_id": f"eq.{profile_id}", "select": "axis"},
             headers=self._headers,
         )
-        _raise_for_status(survey_response)
+        raise_for_status(survey_response)
 
         return {
             "nickname": profile["nickname"],
@@ -328,4 +303,4 @@ class ProfileOnboardingRepository:
             json=fields,
             headers=self._headers,
         )
-        _raise_for_status(response)
+        raise_for_status(response)

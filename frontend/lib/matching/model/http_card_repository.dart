@@ -1,7 +1,7 @@
 import 'dart:convert';
 
-import 'package:campus_mate/auth/model/http_send.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/core/http/http_send.dart';
 import 'package:campus_mate/matching/model/acceptance.dart';
 import 'package:campus_mate/matching/model/card_detail.dart';
 import 'package:campus_mate/matching/model/card_repository.dart';

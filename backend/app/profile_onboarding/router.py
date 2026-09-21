@@ -1,5 +1,4 @@
 import logging
-from functools import lru_cache
 from uuid import UUID
 
 import httpx
@@ -7,6 +6,8 @@ from fastapi import APIRouter, File, Form, Header, HTTPException, Query, UploadF
 from google.cloud import vision
 from openai import AsyncOpenAI
 
+from app.core import errors
+from app.core.deps import get_settings, get_vision_client
 from app.matching.repository import MatchingRepository
 from app.matching.vectors import refresh_vectors
 from app.profile_onboarding.avatars import AvatarGenerator, get_openai_client
@@ -41,16 +42,6 @@ _logger = logging.getLogger(__name__)
 _client_override: httpx.AsyncClient | None = None
 _vision_client_override: vision.ImageAnnotatorAsyncClient | None = None
 _openai_client_override: AsyncOpenAI | None = None
-
-
-@lru_cache
-def get_settings() -> Settings:
-    return Settings()
-
-
-@lru_cache
-def get_vision_client() -> vision.ImageAnnotatorAsyncClient:
-    return vision.ImageAnnotatorAsyncClient()
 
 
 def _repo(settings: Settings, client: httpx.AsyncClient) -> ProfileOnboardingRepository:
@@ -127,11 +118,11 @@ async def upload_photo(
     data = await photo.read()
     content_type = student_id_content_type(data)
     if content_type is None:
-        raise HTTPException(status_code=400, detail="사진을 다시 확인해 주세요")
+        raise HTTPException(status_code=400, detail=errors.PHOTO_UNREADABLE)
 
     is_safe = await check_safe_search(_vision_client_override or get_vision_client(), data)
     if not is_safe:
-        raise HTTPException(status_code=422, detail="부적절한 사진은 올릴 수 없어요")
+        raise HTTPException(status_code=422, detail=errors.PHOTO_NOT_SAFE)
 
     storage = ProfilePhotoStorage(settings.storage_url, settings.supabase_service_role_key, client)
     storage_path = await storage.upload(profile_id, data, content_type)
@@ -153,7 +144,7 @@ async def delete_photo(position: int, authorization: str | None = Header(default
 
     storage_path = await repo.fetch_photo_path(profile_id, position)
     if storage_path is None:
-        raise HTTPException(status_code=404, detail="지울 사진이 없어요")
+        raise HTTPException(status_code=404, detail=errors.PHOTO_NOT_FOUND)
 
     await repo.delete_photo_row(profile_id, position)
     await ProfilePhotoStorage(
@@ -171,11 +162,11 @@ async def generate_avatar(authorization: str | None = Header(default=None)) -> d
 
     # 무료 생성은 1회다 — 하트를 쓰는 재생성은 조각 7 에서 붙인다(2026-09-20 사용자 결정).
     if await repo.has_ready_avatar(profile_id):
-        raise HTTPException(status_code=409, detail="아바타는 한 번만 만들 수 있어요")
+        raise HTTPException(status_code=409, detail=errors.AVATAR_ALREADY_CREATED)
 
     source_path = await repo.fetch_avatar_source_photo_path(profile_id)
     if source_path is None:
-        raise HTTPException(status_code=409, detail="아바타 원본 사진을 먼저 골라 주세요")
+        raise HTTPException(status_code=409, detail=errors.AVATAR_SOURCE_REQUIRED)
     source_photo = await ProfilePhotoStorage(
         settings.storage_url, settings.supabase_service_role_key, client
     ).download(source_path)

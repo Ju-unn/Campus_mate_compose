@@ -1,7 +1,7 @@
 import 'dart:convert';
 
-import 'package:campus_mate/auth/model/http_send.dart';
 import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/core/http/http_send.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';

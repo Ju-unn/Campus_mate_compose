@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:campus_mate/auth/model/http_send.dart';
 import 'package:campus_mate/auth/model/verification_gate.dart';
 import 'package:campus_mate/auth/model/verification_gate_repository.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/core/http/http_send.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 

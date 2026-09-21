@@ -1,9 +1,9 @@
-from functools import lru_cache
-
 import httpx
 from fastapi import APIRouter, HTTPException, Request
 
 from app.auth_hooks.schemas import BeforeUserCreatedPayload, HookDecision
+from app.core import errors
+from app.core.deps import get_settings
 from app.settings import Settings
 from app.signup_policy import SignupPolicy, hash_email
 from app.webhook_signature import verify_webhook_signature
@@ -13,11 +13,6 @@ router = APIRouter()
 # 테스트가 실제 Supabase 대신 목 트랜스포트를 주입할 수 있게 하는 훅.
 # 프로덕션에서는 None 이라 매 요청마다 새 AsyncClient 를 만든다.
 _client_override: httpx.AsyncClient | None = None
-
-
-@lru_cache
-def get_settings() -> Settings:
-    return Settings()
 
 
 @router.post("/hooks/before-user-created")
@@ -47,4 +42,4 @@ def _verify_signature_or_raise(settings: Settings, headers, body: bytes) -> None
     signature = headers.get("webhook-signature", "")
     valid = verify_webhook_signature(settings.auth_hook_signing_secret, webhook_id, timestamp, body, signature)
     if not valid:
-        raise HTTPException(status_code=401, detail="invalid signature")
+        raise HTTPException(status_code=401, detail=errors.INVALID_SIGNATURE)
