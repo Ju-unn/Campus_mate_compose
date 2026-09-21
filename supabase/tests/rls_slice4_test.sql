@@ -4,12 +4,13 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(20);
+select plan(22);
 
 -- 준비 --------------------------------------------------------------------
 -- A = ...aa(남), B = ...bb(여), P = ...fa(여·일시중지), Q = ...fb(여·무응답 만료 3일 전),
 -- R = ...fc(여·무응답 만료 20일 전 → 다시 후보), S = ...fd(여·10일 전 거절 → 90일 안이라 제외),
 -- T = ...fe(여·100일 전 거절 → 90일이 지나 다시 후보, 2026-09-21 사용자 확정)
+-- U = ...f0(여·A 와 이미 매칭 → 영구 제외), W = ...f1(여·A 가 10일 전 수락 응답 → 90일 제외)
 insert into public.universities (id, name, region_group)
 values ('00000000-0000-0000-0000-000000000001', '테스트대학교', 'seoul');
 
@@ -23,7 +24,9 @@ insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000fb', 'm4-q@test.ac.kr'),
   ('00000000-0000-0000-0000-0000000000fc', 'm4-r@test.ac.kr'),
   ('00000000-0000-0000-0000-0000000000fd', 'm4-s@test.ac.kr'),
-  ('00000000-0000-0000-0000-0000000000fe', 'm4-t@test.ac.kr');
+  ('00000000-0000-0000-0000-0000000000fe', 'm4-t@test.ac.kr'),
+  ('00000000-0000-0000-0000-0000000000f0', 'm4-u@test.ac.kr'),
+  ('00000000-0000-0000-0000-0000000000f1', 'm4-w@test.ac.kr');
 
 insert into public.profiles (id, university_id)
 select id, '00000000-0000-0000-0000-000000000001' from auth.users
@@ -44,6 +47,8 @@ update public.profiles set nickname = '차카타' where id = '00000000-0000-0000
 update public.profiles set nickname = '파하거' where id = '00000000-0000-0000-0000-0000000000fc';
 update public.profiles set nickname = '너더러' where id = '00000000-0000-0000-0000-0000000000fd';
 update public.profiles set nickname = '머버서' where id = '00000000-0000-0000-0000-0000000000fe';
+update public.profiles set nickname = '어저처' where id = '00000000-0000-0000-0000-0000000000f0';
+update public.profiles set nickname = '커터퍼' where id = '00000000-0000-0000-0000-0000000000f1';
 
 update public.profiles set
   gender = 'female', status = 'active',
@@ -79,6 +84,24 @@ insert into public.daily_cards (id, owner_id, target_id, source, issued_at, expi
 insert into public.card_decisions (card_id, decision, decided_at) values
   ('00000000-0000-0000-0000-00000000c003', 'reject', now() - interval '10 days'),
   ('00000000-0000-0000-0000-00000000c004', 'reject', now() - interval '100 days');
+
+-- U: A 와 이미 매칭된 상대. 기간과 상관없이 영원히 후보가 아니다(설계 §6.7).
+-- 카드나 결정 기록은 일부러 넣지 않는다 — 걸러지는 이유가 matches 하나임을 분명히 한다.
+insert into public.matches (profile_a, profile_b) values
+  ('00000000-0000-0000-0000-0000000000aa', '00000000-0000-0000-0000-0000000000f0');
+
+-- W: W 가 주인인 카드를 A 가 받아 10일 전에 수락 응답을 했다. 쌍방이 아니었으니 매칭은 없지만
+-- 그래도 90일은 쉬어 간다 — A 쪽 daily_cards 에는 아무 기록이 없어서 이 조건이 유일한 이유다.
+insert into public.daily_cards (id, owner_id, target_id, source, issued_at, expires_at) values
+  ('00000000-0000-0000-0000-00000000c005', '00000000-0000-0000-0000-0000000000f1',
+   '00000000-0000-0000-0000-0000000000aa', 'daily', now() - interval '13 days', now() - interval '10 days');
+
+insert into public.card_decisions (card_id, decision, decided_at) values
+  ('00000000-0000-0000-0000-00000000c005', 'accept', now() - interval '11 days');
+
+insert into public.acceptance_responses (card_id, responder_id, decision, decided_at) values
+  ('00000000-0000-0000-0000-00000000c005', '00000000-0000-0000-0000-0000000000aa',
+   'accept', now() - interval '10 days');
 
 -- 1. 구조 · 제약 -------------------------------------------------------------
 select has_table('public', 'daily_cards', 'daily_cards 테이블이 있다');
@@ -175,6 +198,18 @@ select is(
   (select count(*) from public.match_candidates('00000000-0000-0000-0000-0000000000aa')
     where candidate_id = '00000000-0000-0000-0000-0000000000fc'),
   1::bigint, '무응답 만료 뒤 14일이 지난 상대는 다시 후보가 된다'
+);
+
+select is(
+  (select count(*) from public.match_candidates('00000000-0000-0000-0000-0000000000aa')
+    where candidate_id = '00000000-0000-0000-0000-0000000000f0'),
+  0::bigint, '이미 매칭된 상대는 기간과 상관없이 영원히 후보가 아니다'
+);
+
+select is(
+  (select count(*) from public.match_candidates('00000000-0000-0000-0000-0000000000aa')
+    where candidate_id = '00000000-0000-0000-0000-0000000000f1'),
+  0::bigint, '내가 수락 응답을 한 상대는 90일이 지나기 전까지 후보가 아니다'
 );
 
 -- 4. 지급 대상 함수 -----------------------------------------------------------
