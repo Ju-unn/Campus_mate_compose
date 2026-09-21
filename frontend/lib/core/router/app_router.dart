@@ -8,6 +8,7 @@ import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/router/auth_redirect.dart';
 import 'package:campus_mate/core/router/placeholder_screens.dart';
+import 'package:campus_mate/matching/view/card_detail_screen.dart';
 import 'package:campus_mate/matching/view/today_cards_screen.dart';
 import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:campus_mate/profile/view/appearance_type_screen.dart';
@@ -65,6 +66,10 @@ abstract final class AppRouter {
         builder: (context, state) => const ComingSoonScreen(tab: AppTab.main),
       ),
       GoRoute(path: AppRoutes.today, builder: (context, state) => const TodayCardsScreen()),
+      GoRoute(
+        path: '${AppRoutes.cardDetail}/:cardId',
+        builder: (context, state) => CardDetailScreen(cardId: state.pathParameters['cardId']!),
+      ),
       GoRoute(
         path: AppRoutes.community,
         builder: (context, state) => const ComingSoonScreen(tab: AppTab.community),
