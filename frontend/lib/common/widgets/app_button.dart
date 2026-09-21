@@ -12,6 +12,7 @@ class AppButton extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.variant = AppButtonVariant.primary,
+    this.height,
     super.key,
   });
 
@@ -19,13 +20,17 @@ class AppButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final AppButtonVariant variant;
 
+  /// 목록 안 인라인 버튼만 다른 높이를 쓴다(§8.3 "인라인 버튼 높이 변형" — 수락함 행이 44dp).
+  /// 비워 두면 전체 폭 버튼 규격(56, text variant 는 48)이다.
+  final double? height;
+
   bool get _isTextVariant => variant == AppButtonVariant.text;
 
   @override
   Widget build(BuildContext context) {
     return ElevatedButton(
       onPressed: onPressed,
-      style: _styleFor(_isTextVariant ? 48 : 56),
+      style: _styleFor(height ?? (_isTextVariant ? 48 : 56)),
       child: Text(label, style: _isTextVariant ? AppTypography.labelSmall : AppTypography.label),
     );
   }

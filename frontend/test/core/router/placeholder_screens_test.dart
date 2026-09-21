@@ -14,10 +14,4 @@ void main() {
     expect(text.style?.fontSize, AppTypography.headline.fontSize);
     expect(text.style?.fontWeight, AppTypography.headline.fontWeight);
   });
-
-  testWidgets('홈 화면 자리는 "오늘의 카드" 문구를 보인다', (tester) async {
-    await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
-
-    expect(find.text('오늘의 카드'), findsOneWidget);
-  });
 }

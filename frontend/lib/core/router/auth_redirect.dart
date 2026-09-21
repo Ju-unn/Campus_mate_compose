@@ -68,6 +68,7 @@ class AuthRedirect {
   }
 
   /// 홈에 도착하기 전에만 지나는 화면들.
+  /// 홈은 09b 메인 자리 화면이고, 오늘의 카드는 하단 내비의 `/today` 다(조각 4).
   bool _isBeforeHome(String location) {
     return location == AppRoutes.login ||
         location == AppRoutes.splash ||

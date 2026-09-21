@@ -45,6 +45,7 @@ void main() {
     expect(find.text('대학 이메일로 시작해요'), findsOneWidget);
   });
 
+  // 조각 4 부터 홈은 09b 메인 자리 화면이다. 오늘의 카드는 하단 내비 "오늘" 탭(`/today`)에 있다.
   testWidgets('로그인하면 홈 화면이 보인다', (tester) async {
     final router = AppRouter.create(
       isAuthenticated: () => true,
@@ -59,7 +60,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('오늘의 카드'), findsOneWidget);
+    expect(find.text('곧 만나요'), findsOneWidget);
   });
 
   testWidgets('extra 없이 인증코드 화면에 진입하면 로그인 화면으로 보낸다', (tester) async {

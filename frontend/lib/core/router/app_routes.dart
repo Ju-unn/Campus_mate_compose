@@ -32,4 +32,16 @@ abstract final class AppRoutes {
   static const String onboardingIdealTraits = '/onboarding/ideal-traits';
   static const String onboardingIdealNote = '/onboarding/ideal-note';
   static const String onboardingBio = '/onboarding/bio';
+
+  /// 조각 4 — 오늘의 카드(화면 10), 카드 상세(10b), 매칭 성사(12), 대화(13), 설정(16)·알림(16d)
+  static const String today = '/today';
+  static const String cardDetail = '/cards'; // `/cards/:cardId`
+  static const String matchMade = '/match-made';
+  static const String conversations = '/conversations';
+  static const String settings = '/settings';
+  static const String notificationSettings = '/settings/notifications';
+
+  /// 아직 화면이 없는 탭 — 자리 화면으로 보낸다(커뮤니티 조각 6, 내 프로필 후속)
+  static const String community = '/community';
+  static const String myProfile = '/me';
 }
