@@ -192,12 +192,13 @@ async def respond_to_acceptance(card_id: str, body: DecisionRequest,
     now = datetime.now(SEOUL)
 
     card = await wiring.repo.fetch_card(card_id)
-    accepted = [d for d in (card or {}).get("card_decisions", []) if d["decision"] == "accept"]
-    if card is None or card["target_id"] != wiring.profile_id or not accepted:
+    # 임베드는 객체 하나 아니면 null 이다(카드 한 장당 결정도 응답도 최대 한 건).
+    accepted = (card or {}).get("card_decisions") or {}
+    if card is None or card["target_id"] != wiring.profile_id or accepted.get("decision") != "accept":
         raise HTTPException(status_code=404, detail="수락을 찾을 수 없어요")
     if card["acceptance_responses"]:
         raise HTTPException(status_code=409, detail="이미 답한 수락이에요")
-    decided_at = datetime.fromisoformat(accepted[0]["decided_at"])
+    decided_at = datetime.fromisoformat(accepted["decided_at"])
     if decided_at <= now - timedelta(days=ACCEPTANCE_TTL_DAYS):
         raise HTTPException(status_code=410, detail="기한이 지났어요")
 

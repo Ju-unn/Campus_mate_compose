@@ -66,4 +66,7 @@ class TodayCards {
   }
 }
 
-DateTime? _parseTime(Object? value) => value == null ? null : DateTime.parse(value as String);
+/// 서버는 `+09:00` 이 붙은 시각을 준다. `DateTime.parse` 는 그걸 UTC DateTime 으로 만들어
+/// `.hour` 가 9시간 어긋나니(오전 7시 → 22시) 반드시 기기 시간대로 돌려놓는다.
+DateTime? _parseTime(Object? value) =>
+    value == null ? null : DateTime.parse(value as String).toLocal();

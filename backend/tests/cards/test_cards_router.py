@@ -63,7 +63,7 @@ def _wire(handler: Callable[[httpx.Request], httpx.Response]) -> TestClient:
 def _live_card(**overrides) -> dict:
     return {"id": "card-1", "owner_id": PROFILE_ID, "target_id": "t1", "source": "daily",
             "issued_at": "2026-09-21T07:00:00+09:00", "expires_at": "2126-09-24T07:00:00+09:00",
-            "card_decisions": [], **overrides}
+            "card_decisions": None, **overrides}
 
 
 def test_today_returns_the_live_card_with_profile():
@@ -157,8 +157,8 @@ def test_expired_card_cannot_be_decided():
 def test_deciding_twice_is_conflict():
     def handler(request: httpx.Request) -> httpx.Response:
         if "/rest/v1/daily_cards" in str(request.url):
-            return httpx.Response(200, json=[_live_card(card_decisions=[{"decision": "accept",
-                                                                         "decided_at": "2026-09-21T08:00:00+09:00"}])])
+            return httpx.Response(200, json=[_live_card(card_decisions={"decision": "accept",
+                                                                        "decided_at": "2026-09-21T08:00:00+09:00"})])
         return httpx.Response(200, json=[])
 
     response = _wire(handler).post("/cards/card-1/decision", headers=AUTH_HEADERS,

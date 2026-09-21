@@ -62,8 +62,9 @@ def _accepted_card(decided_at: str, **overrides) -> dict:
     return {
         "id": "card-1", "owner_id": OTHER_ID, "target_id": PROFILE_ID, "source": "daily",
         "issued_at": _hours_ago(48), "expires_at": None,
-        "card_decisions": [{"decision": "accept", "decided_at": decided_at}],
-        "acceptance_responses": [], **overrides,
+        # PostgREST 는 card_id 가 PK 인 두 테이블을 one-to-one 으로 보고 객체/null 을 준다.
+        "card_decisions": {"decision": "accept", "decided_at": decided_at},
+        "acceptance_responses": None, **overrides,
     }
 
 
@@ -104,8 +105,8 @@ def test_acceptances_list_shows_who_accepted_me():
         if "/rest/v1/card_decisions" in url:
             return httpx.Response(200, json=[{
                 "card_id": "card-1", "decided_at": decided_at,
-                "daily_cards": {"id": "card-1", "owner_id": OTHER_ID, "target_id": PROFILE_ID},
-                "acceptance_responses": [],
+                "daily_cards": {"id": "card-1", "owner_id": OTHER_ID, "target_id": PROFILE_ID,
+                                "acceptance_responses": None},
             }])
         if "/rest/v1/profiles" in url:
             return httpx.Response(200, json=[ACCEPTER_PROFILE])
@@ -171,7 +172,7 @@ def test_responding_twice_is_conflict():
     def handler(request: httpx.Request) -> httpx.Response:
         if "/rest/v1/daily_cards" in str(request.url):
             return httpx.Response(200, json=[_accepted_card(
-                _hours_ago(24), acceptance_responses=[{"responder_id": PROFILE_ID}],
+                _hours_ago(24), acceptance_responses={"responder_id": PROFILE_ID},
             )])
         return httpx.Response(200, json=[])
 
