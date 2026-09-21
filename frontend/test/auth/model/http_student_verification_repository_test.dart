@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:campus_mate/core/http/api_client.dart';
 import 'package:campus_mate/auth/model/http_student_verification_repository.dart';
 import 'package:campus_mate/auth/model/real_name.dart';
 import 'package:campus_mate/common/failure.dart';
@@ -35,7 +36,7 @@ void main() {
   });
 
   HttpStudentVerificationRepository buildRepository(http.Client client) {
-    return HttpStudentVerificationRepository('https://api.test', client, auth);
+    return HttpStudentVerificationRepository(ApiClient('https://api.test', client, auth));
   }
 
   test('제출이 성공하면 Success 로 VerificationOutcome 을 돌려준다', () async {

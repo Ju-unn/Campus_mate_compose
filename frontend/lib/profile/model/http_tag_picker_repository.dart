@@ -1,32 +1,14 @@
-import 'dart:convert';
-
 import 'package:campus_mate/common/result.dart';
-import 'package:campus_mate/core/http/http_send.dart';
+import 'package:campus_mate/core/http/api_client.dart';
 import 'package:campus_mate/profile/model/tag_picker_repository.dart';
-import 'package:http/http.dart' as http;
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// [TagPickerRepository]를 FastAPI 호출로 구현한다.
 class HttpTagPickerRepository implements TagPickerRepository {
-  const HttpTagPickerRepository(this._baseUrl, this._client, this._auth);
+  const HttpTagPickerRepository(this._api);
 
-  final String _baseUrl;
-  final http.Client _client;
-  final GoTrueClient _auth;
+  final ApiClient _api;
 
   @override
-  Future<Result<void>> submit(String endpoint, List<String> tags) async {
-    final result = await sendAuthorizedRequest(
-      _client,
-      _auth,
-      (accessToken) => http.Request('POST', Uri.parse('$_baseUrl/profile-onboarding/$endpoint'))
-      ..headers['Authorization'] = 'Bearer $accessToken'
-      ..headers['Content-Type'] = 'application/json'
-      ..body = jsonEncode({'tags': tags}),
-    );
-    return result.when(
-      onSuccess: (_) => const Success(null),
-      onFailure: (failure) => FailureResult(failure),
-    );
-  }
+  Future<Result<void>> submit(String endpoint, List<String> tags) =>
+      _api.send('POST', '/profile-onboarding/$endpoint', (_) {}, body: {'tags': tags});
 }

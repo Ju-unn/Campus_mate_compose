@@ -1,56 +1,29 @@
-import 'dart:convert';
-
 import 'package:campus_mate/common/result.dart';
-import 'package:campus_mate/core/http/http_send.dart';
+import 'package:campus_mate/core/http/api_client.dart';
 import 'package:campus_mate/matching/model/acceptance.dart';
 import 'package:campus_mate/matching/model/card_detail.dart';
 import 'package:campus_mate/matching/model/card_repository.dart';
 import 'package:campus_mate/matching/model/daily_card.dart';
 import 'package:campus_mate/matching/model/notification_preferences.dart';
-import 'package:http/http.dart' as http;
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/foundation.dart';
 
 /// [CardRepository] 를 FastAPI 호출로 구현한다. 상태코드 분류와 세션 확인은
-/// 조각 1b 의 [sendAuthorizedRequest] 가 이미 하므로 여기서는 URL·바디·파싱만 맡는다.
+/// 조각 1b 의 `sendAuthorizedRequest` 가 이미 하므로 여기서는 URL·바디·파싱만 맡는다.
 class HttpCardRepository implements CardRepository {
-  const HttpCardRepository(this._baseUrl, this._client, this._auth);
+  const HttpCardRepository(this._api);
 
-  final String _baseUrl;
-  final http.Client _client;
-  final GoTrueClient _auth;
-
-  Future<Result<T>> _send<T>(
-    String method,
-    String path,
-    T Function(Object body) parse, {
-    Map<String, Object?>? body,
-  }) async {
-    final result = await sendAuthorizedRequest(_client, _auth, (accessToken) {
-      final request = http.Request(method, Uri.parse('$_baseUrl$path'))
-        ..headers['Authorization'] = 'Bearer $accessToken';
-      if (body != null) {
-        request
-          ..headers['Content-Type'] = 'application/json'
-          ..body = jsonEncode(body);
-      }
-      return request;
-    });
-    return result.when(
-      onSuccess: (response) => Success(parse(jsonDecode(response.body))),
-      onFailure: (failure) => FailureResult(failure),
-    );
-  }
+  final ApiClient _api;
 
   @override
-  Future<Result<TodayCards>> fetchToday() =>
-      _send('GET', '/cards/today', (body) => TodayCards.fromJson(body as Map<String, dynamic>));
+  Future<Result<TodayCards>> fetchToday() => _api.send(
+      'GET', '/cards/today', (body) => TodayCards.fromJson(body as Map<String, dynamic>));
 
   @override
-  Future<Result<CardDetail>> fetchCard(String cardId) =>
-      _send('GET', '/cards/$cardId', (body) => CardDetail.fromJson(body as Map<String, dynamic>));
+  Future<Result<CardDetail>> fetchCard(String cardId) => _api.send(
+      'GET', '/cards/$cardId', (body) => CardDetail.fromJson(body as Map<String, dynamic>));
 
   @override
-  Future<Result<void>> decide(String cardId, CardDecision decision) => _send(
+  Future<Result<void>> decide(String cardId, CardDecision decision) => _api.send(
         'POST',
         '/cards/$cardId/decision',
         (_) {},
@@ -58,7 +31,7 @@ class HttpCardRepository implements CardRepository {
       );
 
   @override
-  Future<Result<List<Acceptance>>> fetchAcceptances() => _send(
+  Future<Result<List<Acceptance>>> fetchAcceptances() => _api.send(
         'GET',
         '/cards/acceptances',
         (body) => ((body as Map<String, dynamic>)['acceptances'] as List<dynamic>)
@@ -68,7 +41,7 @@ class HttpCardRepository implements CardRepository {
 
   @override
   Future<Result<AcceptanceOutcome>> respondToAcceptance(String cardId, CardDecision decision) =>
-      _send(
+      _api.send(
         'POST',
         '/cards/acceptances/$cardId',
         (body) => AcceptanceOutcome.fromJson(body as Map<String, dynamic>),
@@ -76,15 +49,25 @@ class HttpCardRepository implements CardRepository {
       );
 
   @override
-  Future<Result<void>> registerPushToken(String token) =>
-      _send('POST', '/cards/push-tokens', (_) {}, body: {'token': token, 'platform': 'android'});
+  Future<Result<void>> registerPushToken(String token) => _api.send(
+        'POST',
+        '/cards/push-tokens',
+        (_) {},
+        // device_platform enum 에는 ios 도 있다 — 'android' 를 박아 두면 아이폰 토큰까지
+        // android 로 들어가서, 나중에 기기별로 손댈 때 구분할 근거가 사라진다.
+        // dart:io 의 Platform 대신 defaultTargetPlatform 을 보는 건 테스트에서 덮어쓸 수 있어서다.
+        body: {
+          'token': token,
+          'platform': defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android',
+        },
+      );
 
   @override
   Future<Result<void>> deletePushToken(String token) =>
-      _send('DELETE', '/cards/push-tokens/$token', (_) {});
+      _api.send('DELETE', '/cards/push-tokens/$token', (_) {});
 
   @override
-  Future<Result<NotificationPreferences>> fetchNotificationPreferences() => _send(
+  Future<Result<NotificationPreferences>> fetchNotificationPreferences() => _api.send(
         'GET',
         '/cards/notification-settings',
         (body) => NotificationPreferences.fromJson(body as Map<String, dynamic>),
@@ -92,9 +75,9 @@ class HttpCardRepository implements CardRepository {
 
   @override
   Future<Result<void>> updateNotificationPreference(String key, bool value) =>
-      _send('PATCH', '/cards/notification-settings', (_) {}, body: {key: value});
+      _api.send('PATCH', '/cards/notification-settings', (_) {}, body: {key: value});
 
   @override
   Future<Result<void>> setMatchingPaused(bool paused) =>
-      _send('PATCH', '/cards/matching-paused', (_) {}, body: {'paused': paused});
+      _api.send('PATCH', '/cards/matching-paused', (_) {}, body: {'paused': paused});
 }

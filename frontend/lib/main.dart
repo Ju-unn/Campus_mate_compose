@@ -92,6 +92,10 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
     unawaited(ref.read(pushRegistrarProvider).start());
   }
 
+  /// 세션이 이미 끝난 뒤에 불리는 뒷정리다 — 토큰 삭제는 세션이 살아 있어야 되므로
+  /// 로그아웃은 `signOut(registrar, auth)` 로 먼저 지우고 나간다(`core/auth/sign_out.dart`).
+  /// 여기 `stop()` 은 그때 이미 비워진 토큰을 다시 지우려 하지 않고,
+  /// 세션 만료처럼 우리가 부르지 않은 종료에서만 실제로 할 일이 남는다.
   void _stopPush() {
     if (_pushSubscriptions.isEmpty) {
       return;
