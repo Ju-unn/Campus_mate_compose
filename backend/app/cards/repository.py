@@ -3,7 +3,7 @@ from uuid import UUID
 
 import httpx
 
-from app.profile_onboarding.repository import _raise_for_status
+from app.core.http import raise_for_status
 
 # 카드 앞면(요약)과 뒷면(10b 상세)이 쓰는 프로필 컬럼. 실명·연락처는 한 글자도 넣지 않는다.
 _CARD_PROFILE_COLUMNS = (
@@ -44,7 +44,7 @@ class CardRepository:
         response = await self._client.get(
             f"{self._postgrest_url}/{path}", params=params, headers=self._headers
         )
-        _raise_for_status(response)
+        raise_for_status(response)
         return response.json()
 
     async def _post(self, path: str, json: dict | list, prefer: str = "return=representation",
@@ -53,7 +53,7 @@ class CardRepository:
             f"{self._postgrest_url}/{path}", params=params, json=json,
             headers={**self._headers, "Prefer": prefer}
         )
-        _raise_for_status(response)
+        raise_for_status(response)
         return response.json() if response.content else []
 
     # 배치 ------------------------------------------------------------------
@@ -77,7 +77,7 @@ class CardRepository:
             json={"issue_weekdays": weekdays, "updated_at": "now()"},
             headers=self._headers,
         )
-        _raise_for_status(response)
+        raise_for_status(response)
 
     # 카드 ------------------------------------------------------------------
     async def insert_card(
@@ -192,7 +192,7 @@ class CardRepository:
             f"{self._postgrest_url}/push_tokens",
             params={"token": f"eq.{token}"}, headers=self._headers,
         )
-        _raise_for_status(response)
+        raise_for_status(response)
 
     async def fetch_push_tokens(self, profile_id: UUID | str) -> list[str]:
         rows = await self._get("push_tokens", {"profile_id": f"eq.{profile_id}", "select": "token"})
@@ -216,4 +216,4 @@ class CardRepository:
             json={"matching_paused": paused},
             headers=self._headers,
         )
-        _raise_for_status(response)
+        raise_for_status(response)
