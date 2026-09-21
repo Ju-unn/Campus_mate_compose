@@ -798,7 +798,7 @@ git commit -m "✨ feat(slice4): 일시중지·이미 받은 카드를 후보에
 
 **Interfaces:**
 - Consumes: Task C1~C5 의 테이블 · 함수 전부
-- Produces: `supabase test db` 로 도는 회귀 테스트 19건
+- Produces: `supabase test db` 로 도는 회귀 테스트 20건(구현에서 1건 늘었다 — 아래 "구현 편차 기록" 참고)
 
 - [ ] **Step 1: 테스트 파일을 쓴다(먼저 실패하는 채로)**
 
@@ -809,7 +809,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(19);
+select plan(20);
 
 -- 준비 --------------------------------------------------------------------
 -- A = ...aa(남), B = ...bb(여), P = ...pp(여·일시중지), Q = ...qq(여·무응답 만료 3일 전),
@@ -995,7 +995,7 @@ rollback;
 supabase db reset && supabase test db
 ```
 
-Expected: `rls_slice4_test.sql .. ok`, 19/19. 실패하면 마이그레이션(C1~C5)을 고친다 — **테스트의 기대값을
+Expected: `rls_slice4_test.sql .. ok`, 20/20. 실패하면 마이그레이션(C1~C5)을 고친다 — **테스트의 기대값을
 고쳐 통과시키지 않는다**(기대값의 근거는 ERD §2 와 설계 §6.7 이다).
 
 - [ ] **Step 3: 조각 0~3 테스트가 같이 통과하는지 확인**
@@ -4932,3 +4932,63 @@ Flutter 테스트는 Firebase 를 켜지 않는다 — A7 의 `PushMessaging` �
 - `httpx` 클라이언트를 FastAPI lifespan 으로 옮기기 · `_raise_for_status` 공용화
 - `BackgroundTasks` 로 임베딩 재생성 옮기기 · `/school-info` 재생성 배선
 - ERD.md §3 `profile_vectors` 그림 갱신(erd 세션 몫)
+
+---
+
+## 구현 편차 기록 (2026-09-21)
+
+계획서와 실제로 머지된 코드가 다른 곳. **계획서 본문은 그대로 두고 여기에 모은다** — 본문을 고치면
+"무엇을 계획했고 왜 달라졌는지" 가 사라진다. 아래 내용은 전부 머지된 코드에서 직접 확인한 것이다.
+
+### Part C (마이그레이션 · pgTAP)
+
+- **C6 테스트 개수 19 → 20.** 계획서 SQL 블록에는 원래부터 단언이 20개였는데 `select plan(19)` 와
+  본문 설명만 19 로 적혀 있었다. 실제 `supabase/tests/rls_slice4_test.sql` 은 `plan(20)` 이다.
+  (이 문서의 해당 세 자리는 2026-09-21 문서 라운드에서 20 으로 고쳤다.)
+- **테스트 사용자 UUID 접미사.** 계획서의 `…pp`·`…qq`·`…rr`·`…ss`·`…tt` 는 16진수가 아니라
+  UUID 로 파싱되지 않는다. 구현은 `…fa`·`…fb`·`…fc`·`…fd`·`…fe` 로 바꿨다(사람 표기 A·B·P·Q·R·S·T 는 그대로).
+
+### PR #65 — 백엔드 카드 · 수락 (편차 5)
+
+1. **`SEOUL` 상수를 새로 만들지 않고 `app/core/time.py` 것을 쓴다.** 조각 3 까지는
+   `profile_onboarding.schemas` 안에 있어서 카드 모듈이 상관없는 온보딩 모듈을 거쳐 가져다 썼다.
+2. **받은 수락함 조회의 시각 비교를 `gte` 로 고쳤다.** `fetch_pending_acceptances` 는
+   `decided_at=gte.<7일 전>` 으로 거른다 — 계획서의 비교 방향으로는 경계일이 빠졌다.
+3. **저장소 메서드가 3개 늘었다**: `fetch_card_detail_profile`(10b 상세용 컬럼) ·
+   `fetch_survey`(9축 원값) · `fetch_region_group`. 계획서 목록은 18개, 실제는 21개다.
+4. **`/cards/acceptances` 라우트를 `/cards/{card_id}` 보다 먼저 선언한다.** 순서가 반대면
+   `acceptances` 가 `card_id` 로 먹혀 422 가 난다. 지금 `GET /cards/{card_id}` 는 라우터 맨 끝에 있다.
+5. **`locked_card_available` 은 항상 `false` 로 내려간다.** 잠금 카드(추가 카드)는 조각 7(하트) 몫이라
+   이번 조각에선 응답 모양만 맞춰 두고 판정을 하지 않는다.
+
+### PR #66 — Flutter 카드 화면 · 푸시 (편차 10)
+
+1. **`FamilyNotifier` 대신 `Notifier` + 생성자.** Riverpod 3 에서 `FamilyNotifier` 가 없어졌다.
+   `NotifierProvider.family(CardDetailViewModel.new)` 로 인자를 생성자가 받는다.
+2. **겹쳐 들어온 조회는 `Future` 를 재사용한다.** `CardDetailViewModel._inFlight` — 화면이 붙을 때와
+   사용자가 다시 시도할 때가 겹쳐도 요청은 한 번만 나가고, 늦은 응답이 결정 상태를 덮어쓰지 않는다.
+3. **받은 수락함 `refresh()` 가 `matchedNickname`·`errorMessage` 를 지우지 않는다.** 매칭 성사 직후
+   푸시로 들어온 갱신이 방금 띄운 "매칭됐어요" 문구를 지워 버리던 것을 막는다.
+4. **마스코트 파일명 정정**: `mascot-male-waiting.png`(카드 대기) · `mascot-female-sad.png`(후보 없음) ·
+   `mascot-female-reward.png`(매칭 성사).
+5. **알림 스위치는 7개가 아니라 8개.** `card_arrived` · `acceptance_received` · `match_made` ·
+   `new_message` · `trust_reminder` · `new_friend_review` · `marketing` · **`quiet_hours`**.
+   `quiet_hours` 를 계획서가 컬럼으로만 세고 화면 스위치로는 세지 않았다.
+6. **10b 상세에 구역이 둘 늘었다.** `_SectionLabel('자기소개')` 와 `_SectionLabel('이런 사람이 좋아요')` —
+   계획서가 적어 둔 pen 노드 목록(`cWQ08` 성향 · `MqLmZ` 외모 타입 · `wf9FY` 관심사 · `CeA3f` 특징 ·
+   `EfI7z` 이상형 특징)에는 없던 것이다. 성향 9축의 양끝 라벨은 DESIGN §8.5 표가 기준이고 계획서와 같다.
+7. **`app_router_test` 의 자리표시자 문구는 '곧 만나요'** — `placeholder_screens.dart` 실제 문구와 맞췄다.
+8. **`POST_NOTIFICATIONS` 권한을 `AndroidManifest.xml` 에 넣는다.** Android 13+ 에서 이게 없으면
+   권한 요청 다이얼로그 자체가 뜨지 않는다.
+9. **불필요한 캐스트를 걷어냈다**(계획서 예시 코드에 남아 있던 `as` 들).
+10. **푸시는 로그인한 뒤에만 Firebase 를 건드린다.** `main.dart` 의 `_startPush()`/`_stopPush()` 가
+    세션 상태에 붙어 있다 — 로그인 전에는 토큰을 등록할 주인이 없고, Firebase 를 켜지 않은 테스트도
+    이 경로로는 들어오지 않는다.
+
+### PR #67 — 리뷰 수정 3건
+
+1. **PostgREST 임베드는 배열이 아니라 객체/`null`.** `card_decisions`·`acceptance_responses` 는
+   `card_id` 가 PK 이자 `daily_cards` 참조라 PostgREST 가 one-to-one 으로 본다. 목록으로 읽던 곳을 고쳤다.
+2. **`matches` 삽입을 `on_conflict=profile_a,profile_b` upsert 로.** A→B, B→A 카드가 같은 날 나가면
+   두 사람이 각각 매칭을 만들려 해서 나중 쪽이 `matches_pair_unique` 로 터진다.
+3. **시각은 앱에서 `.toLocal()` 로 바꿔 보여준다**(`daily_card.dart`) — 서버는 UTC 로 내려준다.
