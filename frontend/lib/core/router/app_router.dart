@@ -11,6 +11,8 @@ import 'package:campus_mate/core/router/placeholder_screens.dart';
 import 'package:campus_mate/matching/view/card_detail_screen.dart';
 import 'package:campus_mate/matching/view/conversations_screen.dart';
 import 'package:campus_mate/matching/view/match_made_screen.dart';
+import 'package:campus_mate/matching/view/notification_settings_screen.dart';
+import 'package:campus_mate/matching/view/settings_screen.dart';
 import 'package:campus_mate/matching/view/today_cards_screen.dart';
 import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:campus_mate/profile/view/appearance_type_screen.dart';
@@ -79,6 +81,11 @@ abstract final class AppRouter {
       GoRoute(
         path: AppRoutes.matchMade,
         builder: (context, state) => MatchMadeScreen(nickname: state.extra as String? ?? '상대'),
+      ),
+      GoRoute(path: AppRoutes.settings, builder: (context, state) => const SettingsScreen()),
+      GoRoute(
+        path: AppRoutes.notificationSettings,
+        builder: (context, state) => const NotificationSettingsScreen(),
       ),
       GoRoute(
         path: AppRoutes.community,
