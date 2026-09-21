@@ -4,7 +4,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-import app.cards.batch_router as batch_module
+from app.core.deps import get_client, get_settings
 from app.main import app
 from app.settings import Settings
 
@@ -19,14 +19,15 @@ def _settings(**overrides) -> Settings:
 
 
 @pytest.fixture(autouse=True)
-def overrides(monkeypatch):
-    monkeypatch.setattr(batch_module, "get_settings", lambda: _settings(card_batch_secret="right"))
+def overrides():
+    app.dependency_overrides[get_settings] = lambda: _settings(card_batch_secret="right")
     yield
-    batch_module._client_override = None
+    app.dependency_overrides.clear()
 
 
 def _wire(handler: Callable[[httpx.Request], httpx.Response]) -> TestClient:
-    batch_module._client_override = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    app.dependency_overrides[get_client] = lambda: client
     return TestClient(app)
 
 
@@ -47,9 +48,9 @@ def test_batch_with_the_secret_runs_the_issuing_pass():
     assert response.json() == {"issued": 0, "no_candidate": 0, "skipped_regions": []}
 
 
-def test_batch_is_closed_when_the_secret_is_not_configured(monkeypatch):
+def test_batch_is_closed_when_the_secret_is_not_configured():
     """시크릿을 안 넣고 배포하면 엔드포인트가 열린 채로 남는다 — 그때는 아무도 못 부르게 한다."""
-    monkeypatch.setattr(batch_module, "get_settings", lambda: _settings(card_batch_secret=""))
+    app.dependency_overrides[get_settings] = lambda: _settings(card_batch_secret="")
 
     assert TestClient(app).post(
         "/batch/daily-cards", headers={"X-Batch-Secret": ""}

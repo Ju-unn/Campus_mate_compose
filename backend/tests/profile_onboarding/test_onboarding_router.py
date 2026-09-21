@@ -10,6 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import app.profile_onboarding.router as router_module
+from app.core.deps import get_client, get_settings
 from app.core.time import SEOUL
 from app.main import app
 from app.settings import Settings
@@ -21,11 +22,8 @@ _PNG_BYTES = b"\x89PNG\r\n\x1a\n" + b"0" * 32
 
 
 @pytest.fixture(autouse=True)
-def overrides(monkeypatch):
-    monkeypatch.setattr(
-        router_module,
-        "get_settings",
-        lambda: Settings(
+def overrides():
+    app.dependency_overrides[get_settings] = lambda: Settings(
             supabase_url="https://x.supabase.co",
             supabase_service_role_key="service-key",
             auth_hook_signing_secret="whsec_test",
@@ -33,7 +31,6 @@ def overrides(monkeypatch):
             google_cloud_project="campus-mate-test",
             openai_api_key="sk-test",
             phone_encryption_key="phone-key-test",
-        ),
     )
     # 저장 엔드포인트마다 매칭 벡터를 즉시 다시 만든다(조각 3) — 실제 OpenAI 를 부르지 않게 목을 끼운다.
     router_module._openai_client_override = AsyncMock()
@@ -41,7 +38,7 @@ def overrides(monkeypatch):
         data=[SimpleNamespace(embedding=[0.1] * 512), SimpleNamespace(embedding=[0.2] * 512)]
     )
     yield
-    router_module._client_override = None
+    app.dependency_overrides.clear()
     router_module._openai_client_override = None
     router_module._vision_client_override = None
 
@@ -60,7 +57,7 @@ def _wire(
             return httpx.Response(200, json=[{"student_verification": verification, "department": department}])
         return handler(request)
 
-    router_module._client_override = httpx.AsyncClient(transport=httpx.MockTransport(wrapped))
+    app.dependency_overrides[get_client] = lambda: httpx.AsyncClient(transport=httpx.MockTransport(wrapped))
     return TestClient(app)
 
 

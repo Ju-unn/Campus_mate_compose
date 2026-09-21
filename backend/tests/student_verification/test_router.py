@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from google.cloud import vision
 
 import app.student_verification.router as router_module
+from app.core.deps import get_client, get_settings
 from app.main import app
 from app.settings import Settings
 
@@ -20,11 +21,8 @@ AUTH_HEADERS = {"Authorization": "Bearer valid-token"}
 
 
 @pytest.fixture(autouse=True)
-def overrides(monkeypatch):
-    monkeypatch.setattr(
-        router_module,
-        "get_settings",
-        lambda: Settings(
+def overrides():
+    app.dependency_overrides[get_settings] = lambda: Settings(
             supabase_url="https://x.supabase.co",
             supabase_service_role_key="service-key",
             auth_hook_signing_secret="whsec_test",
@@ -32,10 +30,9 @@ def overrides(monkeypatch):
             google_cloud_project="campus-mate-test",
             openai_api_key="sk-test",
             phone_encryption_key="phone-key-test",
-        ),
     )
     yield
-    router_module._client_override = None
+    app.dependency_overrides.clear()
     router_module._vision_client_override = None
 
 
@@ -79,7 +76,7 @@ def _wire(
             return httpx.Response(200, json=[gate_row])
         return httpx.Response(200, json=[])
 
-    router_module._client_override = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    app.dependency_overrides[get_client] = lambda: httpx.AsyncClient(transport=httpx.MockTransport(handler))
     vision_client = _vision_client(ocr_text)
     router_module._vision_client_override = vision_client
     return sent, vision_client

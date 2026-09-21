@@ -5,7 +5,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-import app.matching.router as router_module
+from app.core.deps import get_client, get_settings
 from app.main import app
 from app.settings import Settings
 
@@ -14,15 +14,15 @@ AUTH_HEADERS = {"Authorization": "Bearer valid-token"}
 
 
 @pytest.fixture(autouse=True)
-def overrides(monkeypatch):
-    monkeypatch.setattr(router_module, "get_settings", lambda: Settings(
+def overrides():
+    app.dependency_overrides[get_settings] = lambda: Settings(
         supabase_url="https://x.supabase.co", supabase_service_role_key="service-key",
         auth_hook_signing_secret="whsec_test", discord_webhook_url="https://discord.com/api/webhooks/t",
         google_cloud_project="campus-mate-test", openai_api_key="sk-test",
         phone_encryption_key="phone-key-test",
-    ))
+    )
     yield
-    router_module._client_override = None
+    app.dependency_overrides.clear()
 
 
 def _wire(handler: Callable[[httpx.Request], httpx.Response]) -> TestClient:
@@ -34,7 +34,7 @@ def _wire(handler: Callable[[httpx.Request], httpx.Response]) -> TestClient:
             return httpx.Response(200, json=[{"student_verification": "verified", "department": "컴공"}])
         return handler(request)
 
-    router_module._client_override = httpx.AsyncClient(transport=httpx.MockTransport(wrapped))
+    app.dependency_overrides[get_client] = lambda: httpx.AsyncClient(transport=httpx.MockTransport(wrapped))
     return TestClient(app)
 
 
@@ -86,7 +86,7 @@ def test_candidates_requires_verified_student():
             return httpx.Response(200, json=[{"student_verification": "pending", "department": None}])
         return handler(request)
 
-    router_module._client_override = httpx.AsyncClient(transport=httpx.MockTransport(unverified))
+    app.dependency_overrides[get_client] = lambda: httpx.AsyncClient(transport=httpx.MockTransport(unverified))
     response = TestClient(app).get("/matching/candidates", headers=AUTH_HEADERS)
 
     assert response.status_code == 403

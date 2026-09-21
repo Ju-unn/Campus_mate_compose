@@ -2,14 +2,13 @@ import asyncio
 import logging
 
 import httpx
-from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from google.api_core.exceptions import GoogleAPIError
 from google.auth.exceptions import GoogleAuthError
 from google.cloud import vision
 
 from app.core import errors
-from app.core.deps import get_settings, get_vision_client
-from app.student_verification.current_user import get_current_user_id
+from app.core.deps import Caller, get_caller, get_vision_client
 from app.student_verification.discord_notifier import DiscordNotifier
 from app.student_verification.image_validation import student_id_content_type
 from app.student_verification.matching import matches_school_and_name
@@ -21,8 +20,7 @@ from app.student_verification.storage import StudentIdStorage
 router = APIRouter()
 _logger = logging.getLogger(__name__)
 
-# 테스트가 실제 Supabase·Vision 대신 목을 주입할 수 있게 하는 훅(1a auth_hooks/router.py 와 같은 패턴).
-_client_override: httpx.AsyncClient | None = None
+# 테스트가 실제 Vision 대신 목을 주입할 수 있게 하는 훅(1a auth_hooks/router.py 와 같은 패턴).
 _vision_client_override: vision.ImageAnnotatorAsyncClient | None = None
 
 
@@ -32,11 +30,9 @@ async def submit_student_verification(
     # 상한은 frontend RealName 값 객체(frontend/lib/auth/model/real_name.dart)와 맞춘다.
     real_name: str = Form(min_length=2, max_length=30),
     photo: UploadFile = File(),
-    authorization: str | None = Header(default=None),
+    caller: Caller = Depends(get_caller),
 ) -> dict[str, str]:
-    settings = get_settings()
-    client = _client_override or httpx.AsyncClient()
-    profile_id = await get_current_user_id(settings, client, authorization)
+    settings, client, profile_id = caller
     repo = StudentVerificationRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
 
     gate = await repo.fetch_gate_status(profile_id)
@@ -98,10 +94,8 @@ async def submit_student_verification(
 
 
 @router.get("/me/verification-status")
-async def fetch_verification_status(authorization: str | None = Header(default=None)) -> VerificationStatusResponse:
-    settings = get_settings()
-    client = _client_override or httpx.AsyncClient()
-    profile_id = await get_current_user_id(settings, client, authorization)
+async def fetch_verification_status(caller: Caller = Depends(get_caller)) -> VerificationStatusResponse:
+    settings, client, profile_id = caller
     repo = StudentVerificationRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
 
     gate = await repo.fetch_gate_status(profile_id)
@@ -114,10 +108,8 @@ async def fetch_verification_status(authorization: str | None = Header(default=N
 
 
 @router.post("/school-info")
-async def save_school_info(body: SchoolInfoRequest, authorization: str | None = Header(default=None)) -> dict[str, bool]:
-    settings = get_settings()
-    client = _client_override or httpx.AsyncClient()
-    profile_id = await get_current_user_id(settings, client, authorization)
+async def save_school_info(body: SchoolInfoRequest, caller: Caller = Depends(get_caller)) -> dict[str, bool]:
+    settings, client, profile_id = caller
     repo = StudentVerificationRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
 
     gate = await repo.fetch_gate_status(profile_id)
