@@ -14,9 +14,17 @@
 
 ## 1. 최초 1회
 
+**시크릿 값을 파일에서 읽어 넣을 때는 반드시 `tr -d '\r\n'` 을 거친다(2026-09-21 사고).**
+윈도우에서 만든 파일은 줄 끝이 `\r\n` 이라 `--data-file=` 로 그대로 넣으면 **`\r` 이 값의 일부로 저장된다.**
+눈으로는 보이지 않고 길이만 1 바이트 길어져서, `card-batch-secret` 이 이 사고로 오염돼 Cloud Scheduler 가
+계속 401 을 받았다(버전 2 를 새로 올려 고쳤다 — 아래 §4). `echo -n` 으로 직접 넣을 때도 `-n` 을 빠뜨리면 같은 일이 난다.
+
 ```bash
 gcloud config set project <PROJECT_ID>
 gcloud services enable run.googleapis.com secretmanager.googleapis.com vision.googleapis.com
+
+# 파일에서 읽어 넣는 경우 — 줄바꿈을 반드시 떼어낸다
+tr -d '\r\n' < secret.txt | gcloud secrets create <이름> --data-file=-
 
 # 시크릿 등록 (값은 여기 문서에 남기지 않는다)
 # auth-hook-signing-secret 은 최초 배포 시 자리표시자 값으로 등록한다 — Supabase가 Auth Hook을
@@ -45,8 +53,11 @@ Cloud Run 이 자기 서비스 계정(ADC)으로 보낸다(2026-09-20 준비 가
 # 조각 4: 같은 서비스 계정에 FCM 전송 권한만 더한다
 gcloud projects add-iam-policy-binding <PROJECT_ID> \
   --member=serviceAccount:<PROJECT_NUMBER>-compute@developer.gserviceaccount.com \
-  --role=roles/firebasemessaging.admin
+  --role=roles/firebasecloudmessaging.admin
 ```
+
+역할 이름은 `roles/firebasecloudmessaging.admin` 이다 — `roles/firebasemessaging.admin` 은 없는 역할이라
+`add-iam-policy-binding` 이 그 자리에서 거부한다(2026-09-21 배포 중 정정).
 
 ## 2. 배포
 
@@ -109,3 +120,21 @@ gcloud scheduler jobs run campus-mate-daily-cards --location=asia-northeast3
 
 **주의:** 이 배치는 조각 4 의 DB 마이그레이션(`region_group_settings` · `daily_cards` …)이 클라우드에
 적용된 뒤에야 돈다. 적용 전에 job 을 만들면 매일 500 이 쌓인다 — 마이그레이션 적용 뒤에 만든다.
+
+## 5. 현재 배포 상태 (2026-09-21 기준)
+
+| 항목 | 값 |
+| --- | --- |
+| Cloud Run 서비스 | `campus-mate-backend` (asia-northeast3) |
+| 돌고 있는 revision | `campus-mate-backend-00009-*` — 조각 4 까지 반영 |
+| Cloud Scheduler job | `campus-mate-daily-cards` (asia-northeast3), `0 7 * * *` · Asia/Seoul |
+| `card-batch-secret` | **version 2** 를 쓴다 — version 1 은 값에 `\r` 이 섞여 401 이 나던 것이라 폐기했다 |
+
+`--set-secrets` 는 `card-batch-secret:latest` 를 참조하므로 새 버전을 올리면 재배포 없이 따라간다.
+반대로 **Scheduler 헤더 값은 자동으로 따라가지 않는다** — 시크릿 버전을 올렸으면 job 도 같이 고친다:
+
+```bash
+gcloud scheduler jobs update http campus-mate-daily-cards \
+  --location=asia-northeast3 \
+  --update-headers="X-Batch-Secret=<새 값>"
+```
