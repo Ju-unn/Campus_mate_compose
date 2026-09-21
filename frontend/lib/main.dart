@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:campus_mate/core/push/push_provider.dart';
+import 'package:campus_mate/core/push/push_route.dart';
 import 'package:campus_mate/core/router/app_router.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
@@ -9,6 +11,8 @@ import 'package:campus_mate/core/supabase/auth_session_listenable.dart';
 import 'package:campus_mate/core/supabase/supabase_config.dart';
 import 'package:campus_mate/core/supabase/supabase_initializer.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
+import 'package:campus_mate/matching/viewmodel/acceptances_view_model.dart';
+import 'package:campus_mate/matching/viewmodel/today_cards_view_model.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -38,6 +42,7 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
   late final VerificationGateListenable _verificationGate;
   late final OnboardingStepListenable _onboardingStep;
   late final GoRouter _router;
+  final List<StreamSubscription<Map<String, dynamic>>> _pushSubscriptions = [];
 
   @override
   void initState() {
@@ -58,10 +63,60 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
     if (!_authSession.isAuthenticated) {
       _verificationGate.reset();
       _onboardingStep.reset();
+      _stopPush();
       return;
     }
     unawaited(_verificationGate.refresh());
     unawaited(_onboardingStep.refresh());
+    _startPush();
+  }
+
+  /// 로그인한 뒤에만 FCM 을 건드린다 — 로그인 전에는 등록할 주인이 없고,
+  /// Firebase 를 켜지 않은 테스트도 이 경로로는 들어오지 않는다.
+  void _startPush() {
+    if (_pushSubscriptions.isNotEmpty) {
+      return;
+    }
+    final messaging = ref.read(pushMessagingProvider);
+    _pushSubscriptions.addAll([
+      // 앱이 켜져 있을 때는 알림 배너 대신 화면을 갱신한다(새 의존성 표의 결정).
+      messaging.onMessage.listen(_refreshForRoute),
+      // 알림을 눌러서 열었을 때만 화면을 옮긴다.
+      messaging.onMessageOpenedApp.listen(_openRoute),
+    ]);
+    unawaited(messaging.initialMessage().then((data) {
+      if (data != null) {
+        _openRoute(data);
+      }
+    }));
+    unawaited(ref.read(pushRegistrarProvider).start());
+  }
+
+  void _stopPush() {
+    if (_pushSubscriptions.isEmpty) {
+      return;
+    }
+    for (final subscription in _pushSubscriptions) {
+      unawaited(subscription.cancel());
+    }
+    _pushSubscriptions.clear();
+    unawaited(ref.read(pushRegistrarProvider).stop());
+  }
+
+  void _refreshForRoute(Map<String, dynamic> data) {
+    switch (data['route']) {
+      case 'daily_card':
+        unawaited(ref.read(todayCardsViewModelProvider.notifier).refresh());
+      case 'acceptances' || 'match':
+        unawaited(ref.read(acceptancesViewModelProvider.notifier).refresh());
+    }
+  }
+
+  void _openRoute(Map<String, dynamic> data) {
+    final path = PushRoute.resolve(data);
+    if (path != null) {
+      _router.go(path);
+    }
   }
 
   GoRouter _createRouter() {
@@ -76,6 +131,9 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
   /// 게이트는 provider 가 소유해 [ProviderScope] 와 함께 정리된다 — 여기서 dispose 하지 않는다.
   @override
   void dispose() {
+    for (final subscription in _pushSubscriptions) {
+      unawaited(subscription.cancel());
+    }
     _authSession.removeListener(_refreshVerificationGate);
     _authSession.dispose();
     super.dispose();
