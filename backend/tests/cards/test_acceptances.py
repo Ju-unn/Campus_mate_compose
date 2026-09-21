@@ -36,7 +36,6 @@ def overrides():
     )
     yield
     app.dependency_overrides.clear()
-    router_module._sender_override = None
 
 
 def _wire(handler: Callable[[httpx.Request], httpx.Response]) -> TestClient:
@@ -50,7 +49,7 @@ def _wire(handler: Callable[[httpx.Request], httpx.Response]) -> TestClient:
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(wrapped))
     app.dependency_overrides[get_client] = lambda: client
-    router_module._sender_override = FcmSender("campus-mate-test", client, credentials=_FakeCredentials())
+    app.dependency_overrides[router_module.get_sender] = lambda: FcmSender("campus-mate-test", client, credentials=_FakeCredentials())
     return TestClient(app)
 
 

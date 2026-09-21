@@ -9,8 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 from google.cloud import vision
 
-import app.student_verification.router as router_module
-from app.core.deps import get_client, get_settings
+from app.core.deps import get_client, get_settings, get_vision_client_factory
 from app.main import app
 from app.settings import Settings
 
@@ -33,7 +32,6 @@ def overrides():
     )
     yield
     app.dependency_overrides.clear()
-    router_module._vision_client_override = None
 
 
 def _vision_client(ocr_text: str) -> AsyncMock:
@@ -78,7 +76,8 @@ def _wire(
 
     app.dependency_overrides[get_client] = lambda: httpx.AsyncClient(transport=httpx.MockTransport(handler))
     vision_client = _vision_client(ocr_text)
-    router_module._vision_client_override = vision_client
+    # 제공자가 "만드는 함수"를 돌려주는 자리라 람다가 두 겹이다(core/deps.get_vision_client_factory).
+    app.dependency_overrides[get_vision_client_factory] = lambda: lambda: vision_client
     return sent, vision_client
 
 

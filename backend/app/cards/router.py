@@ -8,7 +8,7 @@ from app.cards.ladder import next_issue_at
 from app.cards.push import FcmSender, notify
 from app.cards.repository import NOTIFICATION_DEFAULTS, CardRepository
 from app.core import errors
-from app.core.deps import Caller, get_verified_caller
+from app.core.deps import Caller, get_client, get_settings, get_verified_caller
 from app.core.time import SEOUL
 from app.matching.repository import MatchingRepository
 from app.settings import Settings
@@ -17,9 +17,6 @@ router = APIRouter()
 
 # 받은 수락은 7일이 지나면 목록에서도, 응답에서도 사라진다(2026-09-21 사용자 확정).
 ACCEPTANCE_TTL_DAYS = 7
-
-# 테스트가 실제 FCM 대신 목을 주입할 수 있게 하는 훅(조각1b·2·3 라우터와 같은 패턴).
-_sender_override = None
 
 
 class DecisionRequest(BaseModel):
@@ -61,10 +58,18 @@ class _Wiring:
         self.sender = sender
 
 
-async def _wire(caller: Caller = Depends(get_verified_caller)) -> _Wiring:
+def get_sender(
+    settings: Settings = Depends(get_settings), client: httpx.AsyncClient = Depends(get_client)
+) -> FcmSender:
+    """푸시 발송기. 테스트는 이 자리에 목 자격증명을 쓰는 발송기를 끼운다."""
+    return FcmSender(settings.google_cloud_project, client)
+
+
+async def _wire(
+    caller: Caller = Depends(get_verified_caller), sender: FcmSender = Depends(get_sender)
+) -> _Wiring:
     settings, client, profile_id = caller
     repo = CardRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
-    sender = _sender_override or FcmSender(settings.google_cloud_project, client)
     # owner_id·target_id 는 PostgREST 에서 문자열로 오니 비교가 되게 str 로 맞춘다.
     return _Wiring(settings, client, str(profile_id), repo, sender)
 

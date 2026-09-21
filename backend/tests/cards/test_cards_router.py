@@ -42,7 +42,6 @@ def overrides():
     )
     yield
     app.dependency_overrides.clear()
-    router_module._sender_override = None
 
 
 def _wire(handler: Callable[[httpx.Request], httpx.Response]) -> TestClient:
@@ -57,7 +56,7 @@ def _wire(handler: Callable[[httpx.Request], httpx.Response]) -> TestClient:
     client = httpx.AsyncClient(transport=httpx.MockTransport(wrapped))
     app.dependency_overrides[get_client] = lambda: client
     # FCM 은 목 클라이언트로 보낸다 — ADC 자격증명을 테스트에서 찾지 않게 한다.
-    router_module._sender_override = FcmSender("campus-mate-test", client, credentials=_FakeCredentials())
+    app.dependency_overrides[router_module.get_sender] = lambda: FcmSender("campus-mate-test", client, credentials=_FakeCredentials())
     return TestClient(app)
 
 

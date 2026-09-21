@@ -7,7 +7,7 @@ from google.cloud import vision
 from openai import AsyncOpenAI
 
 from app.core import errors
-from app.core.deps import Caller, get_verified_caller, get_vision_client
+from app.core.deps import Caller, get_settings, get_verified_caller, get_vision_client
 from app.matching.repository import MatchingRepository
 from app.matching.vectors import refresh_vectors
 from app.profile_onboarding.avatars import AvatarGenerator, get_openai_client
@@ -37,22 +37,24 @@ from app.student_verification.image_validation import student_id_content_type
 router = APIRouter()
 _logger = logging.getLogger(__name__)
 
-# 테스트가 실제 OpenAI·Vision 대신 목을 주입할 수 있게 하는 훅(조각1b student_verification 패턴).
-_vision_client_override: vision.ImageAnnotatorAsyncClient | None = None
-_openai_client_override: AsyncOpenAI | None = None
+
+def get_openai(settings: Settings = Depends(get_settings)) -> AsyncOpenAI:
+    """임베딩·아바타·자기소개 초안이 쓰는 OpenAI 클라이언트. 테스트는 이 자리에 목을 끼운다."""
+    return get_openai_client(settings.openai_api_key)
 
 
 def _repo(settings: Settings, client: httpx.AsyncClient) -> ProfileOnboardingRepository:
     return ProfileOnboardingRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
 
 
-async def _refresh_vectors(settings: Settings, client: httpx.AsyncClient, profile_id: UUID) -> None:
+async def _refresh_vectors(
+    settings: Settings, client: httpx.AsyncClient, openai_client: AsyncOpenAI, profile_id: UUID
+) -> None:
     """문장·설문 재료가 바뀐 직후 매칭 벡터를 다시 만든다(설계 §6.3 "수정하면 즉시 재생성").
 
     태그 3종은 부르지 않는다 — 태그는 문장 재료가 아니고 자카드는 조회 시점 계산이다.
     실패는 refresh_vectors 안에서 삼킨다(사용자 저장은 이미 끝났다)."""
     repo = MatchingRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
-    openai_client = _openai_client_override or get_openai_client(settings.openai_api_key)
     await refresh_vectors(repo, openai_client, profile_id)
 
 
@@ -68,7 +70,9 @@ async def check_nickname_availability(
 
 @router.post("/profile-onboarding/basic-info")
 async def submit_basic_info(
-    body: BasicInfoRequest, caller: Caller = Depends(get_verified_caller)
+    body: BasicInfoRequest,
+    caller: Caller = Depends(get_verified_caller),
+    openai_client: AsyncOpenAI = Depends(get_openai),
 ) -> dict[str, bool]:
     settings, client, profile_id = caller
     repo = _repo(settings, client)
@@ -82,7 +86,7 @@ async def submit_basic_info(
         settings.postgrest_url, settings.supabase_service_role_key, client,
         profile_id, body.phone_number, settings.phone_encryption_key,
     )
-    await _refresh_vectors(settings, client, profile_id)
+    await _refresh_vectors(settings, client, openai_client, profile_id)
     return {"ok": True}
 
 
@@ -102,6 +106,7 @@ async def upload_photo(
     position: int = Form(ge=0, le=3),
     is_avatar_source: bool = Form(default=False),
     caller: Caller = Depends(get_verified_caller),
+    vision_client: vision.ImageAnnotatorAsyncClient = Depends(get_vision_client),
 ) -> dict[str, bool]:
     settings, client, profile_id = caller
 
@@ -110,7 +115,7 @@ async def upload_photo(
     if content_type is None:
         raise HTTPException(status_code=400, detail=errors.PHOTO_UNREADABLE)
 
-    is_safe = await check_safe_search(_vision_client_override or get_vision_client(), data)
+    is_safe = await check_safe_search(vision_client, data)
     if not is_safe:
         raise HTTPException(status_code=422, detail=errors.PHOTO_NOT_SAFE)
 
@@ -142,7 +147,10 @@ async def delete_photo(position: int, caller: Caller = Depends(get_verified_call
 
 
 @router.post("/profile-onboarding/avatar/generate")
-async def generate_avatar(caller: Caller = Depends(get_verified_caller)) -> dict:
+async def generate_avatar(
+    caller: Caller = Depends(get_verified_caller),
+    openai_client: AsyncOpenAI = Depends(get_openai),
+) -> dict:
     settings, client, profile_id = caller
     repo = _repo(settings, client)
 
@@ -159,7 +167,7 @@ async def generate_avatar(caller: Caller = Depends(get_verified_caller)) -> dict
 
     recent_failures = await repo.count_recent_consecutive_avatar_failures(profile_id)
     generator = AvatarGenerator(
-        _openai_client_override or get_openai_client(settings.openai_api_key),
+        openai_client,
         AvatarStorage(settings.storage_url, settings.supabase_service_role_key, client),
         failure_counts={str(profile_id): recent_failures},
     )
@@ -185,11 +193,13 @@ async def generate_avatar(caller: Caller = Depends(get_verified_caller)) -> dict
 
 @router.post("/profile-onboarding/appearance-type")
 async def submit_appearance_type(
-    body: AppearanceTypeRequest, caller: Caller = Depends(get_verified_caller)
+    body: AppearanceTypeRequest,
+    caller: Caller = Depends(get_verified_caller),
+    openai_client: AsyncOpenAI = Depends(get_openai),
 ) -> dict[str, bool]:
     settings, client, profile_id = caller
     await _repo(settings, client).update_appearance_type(profile_id, body.animal_type, body.impression_type)
-    await _refresh_vectors(settings, client, profile_id)
+    await _refresh_vectors(settings, client, openai_client, profile_id)
     return {"ok": True}
 
 
@@ -225,16 +235,22 @@ async def _submit_tags(
 
 
 @router.post("/profile-onboarding/survey")
-async def submit_survey(body: SurveyRequest, caller: Caller = Depends(get_verified_caller)) -> dict[str, bool]:
+async def submit_survey(
+    body: SurveyRequest,
+    caller: Caller = Depends(get_verified_caller),
+    openai_client: AsyncOpenAI = Depends(get_openai),
+) -> dict[str, bool]:
     settings, client, profile_id = caller
     await _repo(settings, client).insert_survey_answers(profile_id, body.answers, body.religion, body.is_smoker)
-    await _refresh_vectors(settings, client, profile_id)
+    await _refresh_vectors(settings, client, openai_client, profile_id)
     return {"ok": True}
 
 
 @router.post("/profile-onboarding/ideal-conditions")
 async def submit_ideal_conditions(
-    body: IdealConditionsRequest, caller: Caller = Depends(get_verified_caller)
+    body: IdealConditionsRequest,
+    caller: Caller = Depends(get_verified_caller),
+    openai_client: AsyncOpenAI = Depends(get_openai),
 ) -> dict[str, bool]:
     settings, client, profile_id = caller
     await _repo(settings, client).update_ideal_conditions(
@@ -242,22 +258,27 @@ async def submit_ideal_conditions(
         body.preferred_height_min, body.preferred_height_max,
         body.preferred_mbti_flags, body.preferred_animal_types, body.preferred_impression_types,
     )
-    await _refresh_vectors(settings, client, profile_id)
+    await _refresh_vectors(settings, client, openai_client, profile_id)
     return {"ok": True}
 
 
 @router.post("/profile-onboarding/ideal-note")
 async def submit_ideal_note(
-    body: IdealNoteRequest, caller: Caller = Depends(get_verified_caller)
+    body: IdealNoteRequest,
+    caller: Caller = Depends(get_verified_caller),
+    openai_client: AsyncOpenAI = Depends(get_openai),
 ) -> dict[str, bool]:
     settings, client, profile_id = caller
     await _repo(settings, client).update_ideal_note(profile_id, body.note)
-    await _refresh_vectors(settings, client, profile_id)
+    await _refresh_vectors(settings, client, openai_client, profile_id)
     return {"ok": True}
 
 
 @router.post("/profile-onboarding/bio-draft")
-async def generate_bio_draft_endpoint(caller: Caller = Depends(get_verified_caller)) -> dict[str, str]:
+async def generate_bio_draft_endpoint(
+    caller: Caller = Depends(get_verified_caller),
+    openai_client: AsyncOpenAI = Depends(get_openai),
+) -> dict[str, str]:
     from app.profile_onboarding.bio_draft import generate_bio_draft
 
     settings, client, profile_id = caller
@@ -271,7 +292,7 @@ async def generate_bio_draft_endpoint(caller: Caller = Depends(get_verified_call
     snapshot = await repo.fetch_onboarding_snapshot(profile_id)
     survey_summary = f"religion={snapshot['religion']}, is_smoker={snapshot['is_smoker']}"
     draft = await generate_bio_draft(
-        _openai_client_override or get_openai_client(settings.openai_api_key),
+        openai_client,
         survey_summary, snapshot["interest_tags"], snapshot["my_traits"],
     )
     await repo.save_bio_draft(profile_id, draft)
@@ -279,7 +300,11 @@ async def generate_bio_draft_endpoint(caller: Caller = Depends(get_verified_call
 
 
 @router.post("/profile-onboarding/bio")
-async def submit_bio(body: BioRequest, caller: Caller = Depends(get_verified_caller)) -> dict[str, bool]:
+async def submit_bio(
+    body: BioRequest,
+    caller: Caller = Depends(get_verified_caller),
+    openai_client: AsyncOpenAI = Depends(get_openai),
+) -> dict[str, bool]:
     settings, client, profile_id = caller
     repo = _repo(settings, client)
 
@@ -288,7 +313,7 @@ async def submit_bio(body: BioRequest, caller: Caller = Depends(get_verified_cal
     snapshot["bio"] = body.bio
     if next_step(snapshot) == "complete":
         await repo.activate_profile(profile_id)
-    await _refresh_vectors(settings, client, profile_id)
+    await _refresh_vectors(settings, client, openai_client, profile_id)
     return {"ok": True}
 
 

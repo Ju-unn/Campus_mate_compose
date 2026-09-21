@@ -25,7 +25,6 @@ def overrides():
     )
     yield
     app.dependency_overrides.clear()
-    router_module._sender_override = None
 
 
 def _wire(handler: Callable[[httpx.Request], httpx.Response]) -> TestClient:
