@@ -33,8 +33,11 @@ class FcmSender:
             await asyncio.to_thread(self._credentials.refresh, GoogleAuthRequest())
         return self._credentials.token
 
-    async def send(self, token: str, title: str, body: str, data: dict[str, str]) -> bool:
-        """보냈으면 True. 토큰이 죽었으면(404 UNREGISTERED) False — 부른 쪽이 그 토큰을 지운다."""
+    async def send(self, token: str, title: str, body: str, data: dict[str, str]) -> str:
+        """`"sent"` · `"dead"` · `"failed"` 중 하나. `"dead"` 일 때만 부른 쪽이 토큰을 지운다.
+
+        400 은 죽은 토큰이 아니라 우리가 보낸 payload 가 잘못됐다는 뜻이다 — 예전에는 404 와
+        한데 묶여서 멀쩡한 사람의 토큰을 조용히 지웠다."""
         payload = {
             "message": {
                 "token": token,
@@ -49,13 +52,13 @@ class FcmSender:
             json=payload,
             headers={"Authorization": f"Bearer {await self._access_token()}"},
         )
-        if response.status_code in (404, 400):
-            return False
+        if response.status_code == 404:
+            return "dead"
         if not response.is_success:
             # 푸시 실패가 카드 지급을 되돌리게 두지 않는다 — 로그만 남기고 넘어간다.
             logger.warning("FCM 전송 실패 %s %s", response.status_code, response.text[:200])
-            return False
-        return True
+            return "failed"
+        return "sent"
 
 
 def _is_quiet(now: datetime) -> bool:
@@ -74,9 +77,10 @@ async def notify(repo, sender: FcmSender, profile_id, kind: str,
 
     sent = 0
     for token in await repo.fetch_push_tokens(profile_id):
-        if await sender.send(token, title, body, data):
+        result = await sender.send(token, title, body, data)
+        if result == "sent":
             sent += 1
-        else:
+        elif result == "dead":
             # 이 토큰은 방금 profile_id 로 꺼내 온 것이라 주인이 확실하다.
             await repo.delete_push_token(token, profile_id)
     return sent

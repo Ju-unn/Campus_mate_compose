@@ -55,6 +55,15 @@ class CardRepository(PostgrestRepository):
     async def fetch_issue_owners(self) -> list[dict]:
         return await self._rows_post("rpc/card_issue_owners", {}, prefer="")
 
+    async def fetch_owners_issued_since(self, since: datetime) -> set[str]:
+        """그 시각 이후로 무료 카드를 이미 받은 사람. `card_issue_owners()` 는 "결정 안 한 카드가
+        있는 사람"만 빼므로 오늘 수락·거절을 끝낸 사람은 배치를 다시 돌리면 또 대상이 된다 —
+        Cloud Scheduler 재시도나 손으로 다시 돌릴 때 한 장이 더 나가는 걸 여기서 막는다."""
+        rows = await self._rows("daily_cards", {
+            "issued_at": f"gte.{since.isoformat()}", "source": "eq.daily", "select": "owner_id",
+        })
+        return {row["owner_id"] for row in rows}
+
     async def save_issue_weekdays(self, region_group: str, weekdays: list[int]) -> None:
         response = await self._patch(
             "region_group_settings",
@@ -76,12 +85,13 @@ class CardRepository(PostgrestRepository):
 
     async def fetch_live_cards(self, owner_id: UUID | str) -> list[dict]:
         """아직 결정하지 않았고 만료도 되지 않은 카드. 노출 순서는 설계 §2.4 대로
-        [이번 주기 무료 → 이전 주기 구매] 라서 issued_at 오름차순이 아니라 source 로 정렬한다."""
+        [이번 주기 무료 → 이전 주기 구매] 다. card_source enum 이 ('daily','purchased') 순서로
+        선언돼 있어 source 오름차순이 곧 [무료 → 구매]이고, 같은 source 안에서는 최근 것이 먼저다."""
         rows = await self._rows("daily_cards", {
             "owner_id": f"eq.{owner_id}",
             "select": "id,target_id,source,issued_at,expires_at,card_decisions(card_id)",
             "or": "(expires_at.is.null,expires_at.gt.now())",
-            "order": "issued_at.desc",
+            "order": "source.asc,issued_at.desc",
         })
         # card_decisions.card_id 가 PK 라 임베드는 배열이 아니라 객체/null 이다 — 결정이 없으면 null.
         return [row for row in rows if not row["card_decisions"]]
@@ -122,22 +132,30 @@ class CardRepository(PostgrestRepository):
             "card_id": str(card_id), "responder_id": str(responder_id), "decision": decision,
         }, prefer="")
 
-    async def create_match(self, profile_a: UUID | str, profile_b: UUID | str) -> dict:
-        """C3 의 check (profile_a < profile_b) 를 지키려고 여기서 한 번만 정렬한다.
-        A→B, B→A 카드가 같은 날 나가면 두 사람이 각각 매칭을 만들려 해서 두 번 들어온다.
-        나중 쪽이 matches_pair_unique 로 터지지 않게 upsert 로 기존 행을 그대로 돌려준다."""
+    async def create_match(self, profile_a: UUID | str, profile_b: UUID | str) -> tuple[dict, bool]:
+        """`(매칭 행, 이번에 새로 생겼나)`. C3 의 check (profile_a < profile_b) 를 지키려고
+        여기서 한 번만 정렬한다. A→B, B→A 카드가 같은 날 나가면 두 사람이 각각 매칭을 만들려 해서
+        두 번 들어오는데, 나중 쪽이 matches_pair_unique 로 터지면 안 된다.
+
+        ignore-duplicates(= on conflict do nothing) 면 실제로 넣은 행만 돌아온다 — 빈 응답이 곧
+        "이미 있었다" 라서 부른 쪽이 "매칭됐어요" 푸시를 두 번 보내지 않는다. 경합에도 안전하다."""
         first, second = sorted([str(profile_a), str(profile_b)])
-        rows = await self._rows_post(
+        inserted = await self._rows_post(
             "matches", {"profile_a": first, "profile_b": second},
-            prefer="resolution=merge-duplicates,return=representation",
+            prefer="resolution=ignore-duplicates,return=representation",
             params={"on_conflict": "profile_a,profile_b"},
         )
-        match = rows[0]
+        if inserted:
+            match = inserted[0]
+        else:
+            match = (await self._rows("matches", {
+                "profile_a": f"eq.{first}", "profile_b": f"eq.{second}", "select": "*",
+            }))[0]
         await self._rows_post("match_participants", [
             {"match_id": match["id"], "profile_id": first},
             {"match_id": match["id"], "profile_id": second},
         ], prefer="resolution=merge-duplicates", params={"on_conflict": "match_id,profile_id"})
-        return match
+        return match, bool(inserted)
 
     # 프로필 요약 --------------------------------------------------------------
     async def fetch_card_profile(self, profile_id: UUID | str) -> dict:

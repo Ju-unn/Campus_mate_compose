@@ -38,16 +38,30 @@ async def test_send_posts_to_fcm_v1_with_bearer_token():
         seen.append(request)
         return httpx.Response(200, json={"name": "projects/campus-mate/messages/1"})
 
-    assert await _sender(handler).send("tok", "제목", "본문", {"route": "daily_card"}) is True
+    assert await _sender(handler).send("tok", "제목", "본문", {"route": "daily_card"}) == "sent"
     assert seen[0].url.path == "/v1/projects/campus-mate/messages:send"
     assert seen[0].headers["Authorization"] == "Bearer ya29.test"
 
 
-async def test_dead_token_is_reported_as_false():
+async def test_dead_token_is_reported_as_dead():
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(404, json={"error": {"status": "NOT_FOUND"}})
 
-    assert await _sender(handler).send("dead", "제목", "본문", {}) is False
+    assert await _sender(handler).send("dead", "제목", "본문", {}) == "dead"
+
+
+async def test_bad_request_is_our_fault_not_a_dead_token():
+    """400 은 payload 가 잘못됐다는 뜻이다. 죽은 토큰으로 보고 지우면 멀쩡한 사람의 알림이 끊긴다."""
+    repo = _FakeRepo(["살아있는-토큰"], {"acceptance_received": True, "quiet_hours": False})
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(400, json={"error": {"status": "INVALID_ARGUMENT"}})
+
+    sent = await notify(repo, _sender(handler), "p1", "acceptance_received", "제목", "본문", {},
+                        now=datetime(2026, 9, 21, 12, 0, tzinfo=SEOUL))
+
+    assert sent == 0
+    assert repo.deleted == []
 
 
 async def test_notify_deletes_tokens_that_came_back_dead():

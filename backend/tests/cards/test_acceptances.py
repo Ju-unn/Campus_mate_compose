@@ -139,6 +139,30 @@ def test_accepting_creates_a_match_and_notifies_both():
     assert len(pushes) == 2
 
 
+def test_an_already_existing_match_does_not_notify_twice():
+    """A→B, B→A 카드가 같은 날 나가 둘 다 수락하면 두 번째 수락은 이미 있는 매칭을 본다.
+    빈 insert 응답(on conflict do nothing)이 그 신호다 — 여기서 또 보내면 알림이 두 번 간다."""
+    def extra(request: httpx.Request) -> httpx.Response:
+        if "/rest/v1/daily_cards" in str(request.url):
+            return httpx.Response(200, json=[_accepted_card(_hours_ago(24))])
+        return httpx.Response(200, json=[])
+
+    handler, pushes, posted = _pushes_and_matches(extra)
+
+    def conflicting(request: httpx.Request) -> httpx.Response:
+        if "/rest/v1/matches" in str(request.url):
+            if request.method == "POST":
+                return httpx.Response(201, json=[])
+            return httpx.Response(200, json=[{"id": "match-1"}])
+        return handler(request)
+
+    response = _wire(conflicting).post("/cards/acceptances/card-1", headers=AUTH_HEADERS,
+                                       json={"decision": "accept"})
+
+    assert response.json() == {"matched": True, "match_id": "match-1"}
+    assert pushes == []
+
+
 def test_rejecting_does_not_notify_anyone():
     """거절은 조용히 끝난다 — 상대에게 신호가 가지 않는다(설계 §2.2)."""
     def extra(request: httpx.Request) -> httpx.Response:
