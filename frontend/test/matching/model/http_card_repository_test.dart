@@ -66,7 +66,9 @@ void main() {
     final today = result.when(onSuccess: (value) => value, onFailure: (_) => null);
     expect(today!.cards.single.profile.nameWithAge, '여우비, 23');
     expect(today.cards.single.profile.schoolLine, '테스트대학교 · 컴퓨터공학과');
-    expect(today.nextIssueAt, DateTime.parse('2026-09-24T07:00:00+09:00'));
+    // `+09:00` 을 그대로 두면 UTC DateTime 이라 화면이 7시를 22시로 읽는다 — 기기 시간대로 온다.
+    expect(today.nextIssueAt, DateTime.parse('2026-09-24T07:00:00+09:00').toLocal());
+    expect(today.nextIssueAt!.isUtc, isFalse);
   });
 
   test('카드가 하나도 없고 후보 풀도 비었으면 그 사실이 그대로 올라온다', () async {
