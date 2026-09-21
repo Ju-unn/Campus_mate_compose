@@ -224,7 +224,7 @@ async def register_push_token(body: PushTokenRequest,
 @router.delete("/cards/push-tokens/{token}")
 async def delete_push_token(token: str, wiring: _Wiring = Depends(_wire)) -> dict:
     """로그아웃 때 부른다 — 남의 기기로 알림이 가지 않게 토큰을 지운다."""
-    await wiring.repo.delete_push_token(token)
+    await wiring.repo.delete_push_token(token, wiring.profile_id)
     return {"ok": True}
 
 

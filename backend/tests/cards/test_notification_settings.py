@@ -81,6 +81,14 @@ def test_push_token_is_deleted_on_logout():
     assert seen[-1].url.params["token"] == "eq.tok-1"
 
 
+def test_deleting_a_push_token_is_scoped_to_the_owner():
+    """토큰 값만 보고 지우면 남의 토큰 값을 아는 사람이 남의 알림을 꺼버릴 수 있다."""
+    handler, seen = _recorder()
+    _wire(handler).delete("/cards/push-tokens/남의-토큰", headers=AUTH_HEADERS)
+
+    assert seen[-1].url.params["profile_id"] == f"eq.{PROFILE_ID}"
+
+
 def test_settings_row_missing_returns_defaults():
     """한 번도 저장한 적 없는 사람은 전부 켜짐(마케팅만 꺼짐)으로 본다 — 화면이 빈 스위치를 그리지 않는다."""
     body = _wire(_recorder()[0]).get("/cards/notification-settings", headers=AUTH_HEADERS).json()

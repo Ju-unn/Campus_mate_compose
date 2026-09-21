@@ -77,5 +77,6 @@ async def notify(repo, sender: FcmSender, profile_id, kind: str,
         if await sender.send(token, title, body, data):
             sent += 1
         else:
-            await repo.delete_push_token(token)
+            # 이 토큰은 방금 profile_id 로 꺼내 온 것이라 주인이 확실하다.
+            await repo.delete_push_token(token, profile_id)
     return sent

@@ -171,8 +171,11 @@ class CardRepository(PostgrestRepository):
             "token": token, "profile_id": str(profile_id), "platform": platform, "updated_at": "now()",
         }, prefer="resolution=merge-duplicates")
 
-    async def delete_push_token(self, token: str) -> None:
-        response = await self._delete("push_tokens", params={"token": f"eq.{token}"})
+    async def delete_push_token(self, token: str, profile_id: UUID | str) -> None:
+        """주인까지 맞아야 지운다 — 토큰 값만 보면 남의 기기 알림을 끌 수 있다."""
+        response = await self._delete("push_tokens", params={
+            "token": f"eq.{token}", "profile_id": f"eq.{profile_id}",
+        })
         raise_for_status(response)
 
     async def fetch_push_tokens(self, profile_id: UUID | str) -> list[str]:
