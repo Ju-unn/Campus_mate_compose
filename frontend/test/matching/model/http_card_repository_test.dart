@@ -87,7 +87,7 @@ void main() {
   test('결정은 decision 값을 그대로 보낸다', () async {
     late http.Request sent;
     final client = MockClient((request) async {
-      sent = request as http.Request;
+      sent = request;
       return jsonResponse({'ok': true});
     });
 

@@ -1,3 +1,4 @@
+import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 
@@ -16,16 +17,17 @@ class SplashScreen extends StatelessWidget {
   }
 }
 
-/// 홈 화면 자리. 오늘의 카드는 조각 4에서 구현한다.
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+/// 아직 만들지 않은 탭(메인 09b·커뮤니티·나). 하단 내비는 5탭을 그리므로 갈 곳은 있어야 한다.
+class ComingSoonScreen extends StatelessWidget {
+  const ComingSoonScreen({required this.tab, super.key});
+
+  final AppTab tab;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: Text('오늘의 카드', style: AppTypography.headline),
-      ),
+      body: const Center(child: Text('곧 만나요', style: AppTypography.headline)),
+      bottomNavigationBar: AppBottomNav(current: tab),
     );
   }
 }

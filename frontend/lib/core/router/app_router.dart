@@ -4,9 +4,11 @@ import 'package:campus_mate/auth/view/school_info_screen.dart';
 import 'package:campus_mate/auth/view/sign_up_screen.dart';
 import 'package:campus_mate/auth/view/student_verification_screen.dart';
 import 'package:campus_mate/auth/view/verify_code_screen.dart';
+import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/router/auth_redirect.dart';
 import 'package:campus_mate/core/router/placeholder_screens.dart';
+import 'package:campus_mate/matching/view/today_cards_screen.dart';
 import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:campus_mate/profile/view/appearance_type_screen.dart';
 import 'package:campus_mate/profile/view/avatar_generation_screen.dart';
@@ -51,7 +53,26 @@ abstract final class AppRouter {
       GoRoute(path: AppRoutes.studentVerification, builder: (context, state) => const StudentVerificationScreen()),
       GoRoute(path: AppRoutes.schoolInfo, builder: (context, state) => const SchoolInfoScreen()),
       ..._onboardingRoutes(),
-      GoRoute(path: AppRoutes.home, builder: (context, state) => const HomeScreen()),
+      ..._slice4Routes(),
+    ];
+  }
+
+  /// 조각 4 — 오늘의 카드와 그 주변. 09b 메인은 아직 없어 `home` 도 자리 화면이다(Part A 가정 1).
+  static List<RouteBase> _slice4Routes() {
+    return <RouteBase>[
+      GoRoute(
+        path: AppRoutes.home,
+        builder: (context, state) => const ComingSoonScreen(tab: AppTab.main),
+      ),
+      GoRoute(path: AppRoutes.today, builder: (context, state) => const TodayCardsScreen()),
+      GoRoute(
+        path: AppRoutes.community,
+        builder: (context, state) => const ComingSoonScreen(tab: AppTab.community),
+      ),
+      GoRoute(
+        path: AppRoutes.myProfile,
+        builder: (context, state) => const ComingSoonScreen(tab: AppTab.me),
+      ),
     ];
   }
 
