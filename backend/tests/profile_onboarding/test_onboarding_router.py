@@ -10,8 +10,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 import app.profile_onboarding.router as router_module
+from app.core.time import SEOUL
 from app.main import app
-from app.profile_onboarding.schemas import SEOUL
 from app.settings import Settings
 
 PROFILE_ID = UUID("11111111-1111-1111-1111-111111111111")

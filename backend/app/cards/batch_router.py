@@ -9,8 +9,8 @@ from app.cards.push import FcmSender
 from app.cards.repository import CardRepository
 from app.core import errors
 from app.core.deps import get_settings
+from app.core.time import SEOUL
 from app.matching.repository import MatchingRepository
-from app.profile_onboarding.schemas import SEOUL
 
 router = APIRouter()
 

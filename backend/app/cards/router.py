@@ -9,8 +9,8 @@ from app.cards.push import FcmSender, notify
 from app.cards.repository import NOTIFICATION_DEFAULTS, CardRepository
 from app.core import errors
 from app.core.deps import get_settings
+from app.core.time import SEOUL
 from app.matching.repository import MatchingRepository
-from app.profile_onboarding.schemas import SEOUL
 from app.settings import Settings
 from app.student_verification.current_user import get_verified_user_id
 

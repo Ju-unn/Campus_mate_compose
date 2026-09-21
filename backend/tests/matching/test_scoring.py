@@ -1,8 +1,8 @@
 import math
 from datetime import datetime, timedelta, timezone
 
+from app.core.time import SEOUL
 from app.matching.scoring import activity_coefficient, final_score, mbti_coefficient, rank
-from app.profile_onboarding.schemas import SEOUL
 
 # 설계 §6.4 판정 예시: 내 설정이 E ok, I ok, N ok, S no, T ok, F no, J ok, P ok
 MY_FLAGS = {"E": True, "I": True, "N": True, "S": False, "T": True, "F": False, "J": True, "P": True}

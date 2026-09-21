@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from app.cards.issuing import issue_daily_cards
-from app.profile_onboarding.schemas import SEOUL
+from app.core.time import SEOUL
 
 MONDAY_7AM = datetime(2026, 9, 21, 7, 0, tzinfo=SEOUL)     # 월요일
 TUESDAY_7AM = datetime(2026, 9, 22, 7, 0, tzinfo=SEOUL)    # 화요일

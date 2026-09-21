@@ -1,7 +1,7 @@
 from datetime import datetime, time
 
 from app.cards.ladder import bottleneck_count, ladder_weekdays, next_issue_at
-from app.profile_onboarding.schemas import SEOUL
+from app.core.time import SEOUL
 
 
 def test_under_two_hundred_is_twice_a_week():
