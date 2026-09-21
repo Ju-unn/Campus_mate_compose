@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:campus_mate/core/http/api_client.dart';
 import 'package:campus_mate/auth/model/http_verification_gate_repository.dart';
 import 'package:campus_mate/auth/model/verification_gate.dart';
 import 'package:campus_mate/common/failure.dart';
@@ -24,7 +25,7 @@ void main() {
   });
 
   HttpVerificationGateRepository buildRepository(http.Client client) {
-    return HttpVerificationGateRepository('https://api.test', client, auth);
+    return HttpVerificationGateRepository(ApiClient('https://api.test', client, auth));
   }
 
   Future<VerificationGate?> fetchGateWith(String status, bool hasSchoolInfo) async {

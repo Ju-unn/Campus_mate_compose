@@ -1,8 +1,10 @@
 import 'dart:convert';
 
+import 'package:campus_mate/core/http/api_client.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/matching/model/card_repository.dart';
 import 'package:campus_mate/matching/model/http_card_repository.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -24,7 +26,7 @@ void main() {
   });
 
   HttpCardRepository buildRepository(http.Client client) {
-    return HttpCardRepository('https://api.test', client, auth);
+    return HttpCardRepository(ApiClient('https://api.test', client, auth));
   }
 
   http.Response jsonResponse(Object body) {
@@ -131,5 +133,20 @@ void main() {
     final result = await buildRepository(client).fetchToday();
 
     expect(result.when(onSuccess: (_) => null, onFailure: (f) => f), isA<NetworkFailure>());
+  });
+
+  test('아이폰에서 등록한 토큰은 ios 로 보낸다', () async {
+    // 'android' 가 박혀 있으면 device_platform enum 의 ios 가 영영 쓰이지 않는다.
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    late Map<String, dynamic> sent;
+    final client = MockClient((request) async {
+      sent = jsonDecode(request.body) as Map<String, dynamic>;
+      return jsonResponse({'ok': true});
+    });
+
+    await buildRepository(client).registerPushToken('tok-1');
+
+    expect(sent['platform'], 'ios');
   });
 }

@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:campus_mate/core/http/api_client.dart';
 import 'package:campus_mate/auth/model/department.dart';
 import 'package:campus_mate/auth/model/http_school_info_repository.dart';
 import 'package:campus_mate/auth/model/student_number.dart';
@@ -27,7 +28,7 @@ void main() {
   });
 
   HttpSchoolInfoRepository buildRepository(http.Client client) {
-    return HttpSchoolInfoRepository('https://api.test', client, auth);
+    return HttpSchoolInfoRepository(ApiClient('https://api.test', client, auth));
   }
 
   test('제출이 성공하면 Success 를 돌려준다', () async {
