@@ -2,6 +2,7 @@ from uuid import UUID
 
 import httpx
 
+from app.core import errors
 from app.core.http import raise_for_status
 
 
@@ -40,7 +41,7 @@ class ProfileOnboardingRepository:
             },
             headers=self._headers,
         )
-        raise_for_status(response, conflict_detail="이미 있는 닉네임이에요")
+        raise_for_status(response, conflict_detail=errors.NICKNAME_TAKEN)
 
     async def update_kakao_id(self, profile_id: UUID, kakao_id: str) -> None:
         response = await self._client.patch(

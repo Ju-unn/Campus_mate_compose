@@ -3,6 +3,7 @@ from uuid import UUID
 import httpx
 from fastapi import HTTPException
 
+from app.core import errors
 from app.core.http import raise_for_status
 
 _MATERIAL_COLUMNS = (
@@ -66,7 +67,7 @@ class MatchingRepository:
         rows = response.json()
         if not rows:
             # 토큰은 살아 있는데 프로필이 지워졌을 때다 — 500 대신 404 로 말해준다.
-            raise HTTPException(status_code=404, detail="프로필을 찾을 수 없어요")
+            raise HTTPException(status_code=404, detail=errors.PROFILE_NOT_FOUND)
         return rows[0]
 
     async def has_vectors(self, profile_id: UUID | str) -> bool:

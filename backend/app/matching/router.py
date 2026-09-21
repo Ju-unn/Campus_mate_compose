@@ -1,6 +1,7 @@
 import httpx
 from fastapi import APIRouter, Header, HTTPException, Query
 
+from app.core import errors
 from app.core.deps import get_settings
 from app.matching.repository import MatchingRepository
 from app.matching.scoring import rank
@@ -27,7 +28,7 @@ async def get_candidates(
     owner = await repo.fetch_owner(profile_id)
     if owner["status"] != "active":
         # 온보딩을 끝내야 카드를 받는다(설계 §6.7 하드 필터는 후보쪽만 본다).
-        raise HTTPException(status_code=403, detail="프로필을 먼저 완성해 주세요")
+        raise HTTPException(status_code=403, detail=errors.PROFILE_INCOMPLETE)
     if not await repo.has_vectors(profile_id):
         # 내 벡터가 아직 없으면 어차피 후보가 안 나온다 — RPC 를 건너뙱다.
         return {"candidates": []}

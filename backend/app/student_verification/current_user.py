@@ -3,6 +3,7 @@ from uuid import UUID
 import httpx
 from fastapi import HTTPException
 
+from app.core import errors
 from app.settings import Settings
 from app.student_verification.repository import StudentVerificationRepository
 
@@ -13,13 +14,13 @@ async def get_current_user_id(
     authorization: str | None = None,
 ) -> UUID:
     if authorization is None:
-        raise HTTPException(status_code=401, detail="로그인이 필요해요")
+        raise HTTPException(status_code=401, detail=errors.LOGIN_REQUIRED)
     response = await client.get(
         f"{settings.auth_url}/user",
         headers={"Authorization": authorization, "apikey": settings.supabase_service_role_key},
     )
     if response.status_code != 200:
-        raise HTTPException(status_code=401, detail="세션이 만료됐어요, 다시 로그인해 주세요")
+        raise HTTPException(status_code=401, detail=errors.SESSION_EXPIRED)
     return UUID(response.json()["id"])
 
 
@@ -36,7 +37,7 @@ async def get_verified_user_id(
     )
     gate = await repo.fetch_gate_status(profile_id)
     if gate["student_verification"] != "verified":
-        raise HTTPException(status_code=403, detail="학생증 인증을 먼저 끝내 주세요")
+        raise HTTPException(status_code=403, detail=errors.STUDENT_VERIFICATION_REQUIRED)
     if gate["department"] is None:
-        raise HTTPException(status_code=403, detail="학과 정보를 먼저 입력해 주세요")
+        raise HTTPException(status_code=403, detail=errors.DEPARTMENT_REQUIRED)
     return profile_id

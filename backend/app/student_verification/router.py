@@ -7,6 +7,7 @@ from google.api_core.exceptions import GoogleAPIError
 from google.auth.exceptions import GoogleAuthError
 from google.cloud import vision
 
+from app.core import errors
 from app.core.deps import get_settings, get_vision_client
 from app.student_verification.current_user import get_current_user_id
 from app.student_verification.discord_notifier import DiscordNotifier
@@ -41,22 +42,22 @@ async def submit_student_verification(
     gate = await repo.fetch_gate_status(profile_id)
     status = gate["student_verification"]
     if status == "pending":
-        raise HTTPException(status_code=409, detail="이미 검토 중이에요, 결과를 기다려 주세요")
+        raise HTTPException(status_code=409, detail=errors.VERIFICATION_IN_REVIEW)
     # 끝난 인증을 다시 제출하면 pending 으로 되돌아가 삭제 트리거의 "pending → verified/rejected" 전이가 꼬인다.
     if status == "verified":
-        raise HTTPException(status_code=409, detail="이미 인증이 완료됐어요")
+        raise HTTPException(status_code=409, detail=errors.VERIFICATION_ALREADY_DONE)
 
     # 앱의 RealName 이 이미 막지만 여기가 신뢰 경계다 — 빈 실명은 OCR 대조에서 무조건 통과해 버린다.
     name = real_name.strip()
     if not name:
-        raise HTTPException(status_code=400, detail="실명을 입력해 주세요")
+        raise HTTPException(status_code=400, detail=errors.REAL_NAME_REQUIRED)
 
     data = await photo.read()
     # 클라이언트가 보낸 Content-Type 은 믿지 않는다 — 실제 Flutter 앱은 application/octet-stream 을 보내는데
     # 버킷의 mime 허용목록은 jpeg·png 뿐이다. 매직바이트가 진짜 타입이고, 검증과 판정을 한 번에 한다.
     content_type = student_id_content_type(data)
     if content_type is None:
-        raise HTTPException(status_code=400, detail="사진을 다시 확인해 주세요")
+        raise HTTPException(status_code=400, detail=errors.PHOTO_UNREADABLE)
 
     storage = StudentIdStorage(settings.storage_url, settings.supabase_service_role_key, client)
     file_path = await storage.upload(profile_id, data, content_type)
@@ -121,7 +122,7 @@ async def save_school_info(body: SchoolInfoRequest, authorization: str | None = 
 
     gate = await repo.fetch_gate_status(profile_id)
     if gate["student_verification"] != "verified":
-        raise HTTPException(status_code=403, detail="학생증 인증을 먼저 끝내 주세요")
+        raise HTTPException(status_code=403, detail=errors.STUDENT_VERIFICATION_REQUIRED)
 
     await repo.save_school_info(profile_id, body.department, body.student_number)
     return {"ok": True}

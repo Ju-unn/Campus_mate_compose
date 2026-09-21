@@ -9,6 +9,8 @@
 import httpx
 from fastapi import HTTPException
 
+from app.core import errors
+
 # PostgREST 는 Postgres 오류 코드를 그대로 돌려준다. 제약 위반이 500 으로 새어 나가지 않게
 # 여기 한 곳에서 4xx 로 바꾼다(2026-09-20 리뷰 필수 2②).
 # 23503 = FK 위반(없는 대학·없는 프로필을 가리킴), 23502 = not null 위반.
@@ -23,7 +25,7 @@ def _error_code(response: httpx.Response) -> str | None:
     return body.get("code") if isinstance(body, dict) else None
 
 
-def raise_for_status(response: httpx.Response, conflict_detail: str = "이미 등록된 정보예요") -> None:
+def raise_for_status(response: httpx.Response, conflict_detail: str = errors.ALREADY_REGISTERED) -> None:
     if response.status_code < 400:
         return
     # 코드가 없어도 PostgREST 가 409 로 답했으면 중복 충돌로 본다.
@@ -33,5 +35,5 @@ def raise_for_status(response: httpx.Response, conflict_detail: str = "이미 �
     if status == 409:
         raise HTTPException(status_code=409, detail=conflict_detail)
     if status == 422:
-        raise HTTPException(status_code=422, detail="입력한 값을 다시 확인해 주세요")
+        raise HTTPException(status_code=422, detail=errors.INVALID_INPUT)
     response.raise_for_status()

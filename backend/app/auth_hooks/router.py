@@ -2,6 +2,7 @@ import httpx
 from fastapi import APIRouter, HTTPException, Request
 
 from app.auth_hooks.schemas import BeforeUserCreatedPayload, HookDecision
+from app.core import errors
 from app.core.deps import get_settings
 from app.settings import Settings
 from app.signup_policy import SignupPolicy, hash_email
@@ -41,4 +42,4 @@ def _verify_signature_or_raise(settings: Settings, headers, body: bytes) -> None
     signature = headers.get("webhook-signature", "")
     valid = verify_webhook_signature(settings.auth_hook_signing_secret, webhook_id, timestamp, body, signature)
     if not valid:
-        raise HTTPException(status_code=401, detail="invalid signature")
+        raise HTTPException(status_code=401, detail=errors.INVALID_SIGNATURE)
