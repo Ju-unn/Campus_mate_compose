@@ -45,6 +45,10 @@ dependencies:
   http: ^1.2.2
   path_provider: ^2.1.4
 
+  # 푸시 알림(조각 4). firebase_core 는 firebase_messaging 이 요구해서 함께 들어간다.
+  firebase_core: ^4.1.1
+  firebase_messaging: ^16.0.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
