@@ -3,6 +3,7 @@ from uuid import UUID
 
 import httpx
 import pytest
+from fastapi import HTTPException
 
 from app.student_verification.repository import StudentVerificationRepository
 
@@ -218,3 +219,14 @@ async def test_save_school_info_raises_on_error():
 
     with pytest.raises(httpx.HTTPStatusError):
         await repo.save_school_info(PROFILE_ID, "컴퓨터공학과", "2021123456")
+
+
+async def test_db_constraint_violations_come_back_as_4xx_not_500():
+    """생 raise_for_status 는 제약 위반을 500 으로 흘려보냈다. core/http 를 거치면 422 다."""
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(400, json={"code": "23502", "message": "null value"})
+
+    with pytest.raises(HTTPException) as caught:
+        await _repo(handler).record_attempt(PROFILE_ID, "path.jpg", "pending")
+
+    assert caught.value.status_code == 422

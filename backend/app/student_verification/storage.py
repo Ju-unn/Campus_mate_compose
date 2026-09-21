@@ -2,6 +2,8 @@ from uuid import UUID, uuid4
 
 import httpx
 
+from app.core.http import raise_for_status
+
 
 class StudentIdStorage:
     """`student-id-temp` 비공개 버킷에 업로드한다(설계 §7.4). 삭제는 이 클래스가 하지 않는다 —
@@ -24,7 +26,7 @@ class StudentIdStorage:
             content=data,
             headers={**self._headers, "Content-Type": content_type},
         )
-        response.raise_for_status()
+        raise_for_status(response)
         return path
 
     async def delete(self, path: str) -> bool:
