@@ -6,7 +6,7 @@ import 'package:campus_mate/common/result.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// 인증 관련 HTTP Repository(A5·A6·A7)가 공유하는 요청-전송·상태코드 분류.
+/// 모든 기능의 HTTP Repository(인증·온보딩·매칭)가 공유하는 요청-전송·상태코드 분류.
 /// 네트워크 예외(연결 실패)와 비정상 응답 바디(파싱 실패)를 모두 [Failure] 로 감싸
 /// [Result] 를 벗어나 예외가 그대로 튀는 일이 없게 한다.
 Future<Result<http.Response>> sendHttpRequest(http.Client client, http.BaseRequest request) async {
