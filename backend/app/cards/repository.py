@@ -47,9 +47,11 @@ class CardRepository:
         _raise_for_status(response)
         return response.json()
 
-    async def _post(self, path: str, json: dict | list, prefer: str = "return=representation") -> list[dict]:
+    async def _post(self, path: str, json: dict | list, prefer: str = "return=representation",
+                    params: dict | None = None) -> list[dict]:
         response = await self._client.post(
-            f"{self._postgrest_url}/{path}", json=json, headers={**self._headers, "Prefer": prefer}
+            f"{self._postgrest_url}/{path}", params=params, json=json,
+            headers={**self._headers, "Prefer": prefer}
         )
         _raise_for_status(response)
         return response.json() if response.content else []
@@ -97,9 +99,12 @@ class CardRepository:
             "or": "(expires_at.is.null,expires_at.gt.now())",
             "order": "issued_at.desc",
         })
+        # card_decisions.card_id 가 PK 라 임베드는 배열이 아니라 객체/null 이다 — 결정이 없으면 null.
         return [row for row in rows if not row["card_decisions"]]
 
     async def fetch_card(self, card_id: UUID | str) -> dict | None:
+        """card_decisions·acceptance_responses 는 card_id 가 PK 이자 daily_cards 참조라
+        PostgREST 가 one-to-one 으로 보고 객체 하나(없으면 null)를 준다 — 목록이 아니다."""
         rows = await self._get("daily_cards", {
             "id": f"eq.{card_id}",
             "select": "id,owner_id,target_id,source,issued_at,expires_at,"
@@ -113,15 +118,18 @@ class CardRepository:
     # 받은 수락함 -------------------------------------------------------------
     async def fetch_pending_acceptances(self, profile_id: UUID | str, days: int = 7) -> list[dict]:
         """내가 받은 수락 중 7일이 지나지 않았고 아직 답하지 않은 것(설계 §2.2, 2026-09-21 확정).
-        건수가 1인당 하루 0.3~0.5건이라 응답 여부는 파이썬에서 거른다 — 전용 SQL 함수를 만들지 않는다."""
+        건수가 1인당 하루 0.3~0.5건이라 응답 여부는 파이썬에서 거른다 — 전용 SQL 함수를 만들지 않는다.
+        card_decisions 와 acceptance_responses 사이에는 FK 가 없어(둘 다 daily_cards 만 가리킨다)
+        곧바로 임베드하면 PGRST200 이다 — daily_cards 를 거쳐서 붙인다."""
         since = datetime.now(timezone.utc) - timedelta(days=days)
         rows = await self._get("card_decisions", {
-            "select": "card_id,decided_at,daily_cards!inner(id,owner_id,target_id),acceptance_responses(card_id)",
+            "select": "card_id,decided_at,"
+                      "daily_cards!inner(id,owner_id,target_id,acceptance_responses(card_id))",
             "decision": "eq.accept",
             "decided_at": f"gte.{since.isoformat()}", "daily_cards.target_id": f"eq.{profile_id}",
             "order": "decided_at.desc",
         })
-        return [row for row in rows if not row["acceptance_responses"]]
+        return [row for row in rows if not row["daily_cards"]["acceptance_responses"]]
 
     async def insert_acceptance_response(
         self, card_id: UUID | str, responder_id: UUID | str, decision: str
