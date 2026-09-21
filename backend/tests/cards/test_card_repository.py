@@ -88,3 +88,24 @@ async def test_create_match_orders_the_pair():
 
     assert seen[0]["profile_a"] == "aaaa"
     assert seen[0]["profile_b"] == "bbbb"
+
+
+async def test_create_match_upserts_so_a_second_accept_does_not_blow_up():
+    """A→B, B→A 카드가 같은 날 나가면 양쪽이 각자 매칭을 만들려 한다.
+    나중 쪽이 matches_pair_unique 로 500 나지 않게 기존 행을 그대로 받아야 한다."""
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json=[{"id": "match-1"}])
+
+    repo, _ = _repo(handler)
+    match = await repo.create_match("bbbb", "aaaa")
+
+    assert match["id"] == "match-1"
+    matches, participants = seen[0], seen[1]
+    assert matches.url.params["on_conflict"] == "profile_a,profile_b"
+    assert "resolution=merge-duplicates" in matches.headers["Prefer"]
+    assert "return=representation" in matches.headers["Prefer"]
+    assert participants.url.params["on_conflict"] == "match_id,profile_id"
+    assert "resolution=merge-duplicates" in participants.headers["Prefer"]

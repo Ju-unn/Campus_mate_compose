@@ -139,14 +139,20 @@ class CardRepository:
         }, prefer="")
 
     async def create_match(self, profile_a: UUID | str, profile_b: UUID | str) -> dict:
-        """C3 의 check (profile_a < profile_b) 를 지키려고 여기서 한 번만 정렬한다."""
+        """C3 의 check (profile_a < profile_b) 를 지키려고 여기서 한 번만 정렬한다.
+        A→B, B→A 카드가 같은 날 나가면 두 사람이 각각 매칭을 만들려 해서 두 번 들어온다.
+        나중 쪽이 matches_pair_unique 로 터지지 않게 upsert 로 기존 행을 그대로 돌려준다."""
         first, second = sorted([str(profile_a), str(profile_b)])
-        rows = await self._post("matches", {"profile_a": first, "profile_b": second})
+        rows = await self._post(
+            "matches", {"profile_a": first, "profile_b": second},
+            prefer="resolution=merge-duplicates,return=representation",
+            params={"on_conflict": "profile_a,profile_b"},
+        )
         match = rows[0]
         await self._post("match_participants", [
             {"match_id": match["id"], "profile_id": first},
             {"match_id": match["id"], "profile_id": second},
-        ], prefer="")
+        ], prefer="resolution=merge-duplicates", params={"on_conflict": "match_id,profile_id"})
         return match
 
     # 프로필 요약 --------------------------------------------------------------
