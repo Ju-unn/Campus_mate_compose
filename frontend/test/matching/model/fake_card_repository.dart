@@ -7,6 +7,11 @@ import 'package:campus_mate/matching/model/notification_preferences.dart';
 
 /// 화면·ViewModel 테스트용 가짜 저장소. 돌려줄 값을 필드로 바꿔 끼운다.
 class FakeCardRepository implements CardRepository {
+  FakeCardRepository({this.onDelete});
+
+  /// 토큰 삭제가 일어난 "시점"을 보고 싶을 때만 쓴다(로그아웃 순서 테스트).
+  final void Function()? onDelete;
+
   Result<TodayCards> today = const Success(TodayCards(cards: []));
   Result<CardDetail>? card;
   Result<List<Acceptance>> acceptances = const Success([]);
@@ -54,6 +59,7 @@ class FakeCardRepository implements CardRepository {
   @override
   Future<Result<void>> deletePushToken(String token) async {
     deletedTokens.add(token);
+    onDelete?.call();
     return writeResult;
   }
 
