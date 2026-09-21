@@ -22,7 +22,7 @@ class _FakeRepo:
     async def fetch_notification_settings(self, profile_id):
         return dict(self._settings)
 
-    async def delete_push_token(self, token):
+    async def delete_push_token(self, token, profile_id):
         self.deleted.append(token)
 
 
