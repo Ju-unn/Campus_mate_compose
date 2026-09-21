@@ -9,6 +9,7 @@ import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/router/auth_redirect.dart';
 import 'package:campus_mate/core/router/placeholder_screens.dart';
 import 'package:campus_mate/matching/view/card_detail_screen.dart';
+import 'package:campus_mate/matching/view/conversations_screen.dart';
 import 'package:campus_mate/matching/view/match_made_screen.dart';
 import 'package:campus_mate/matching/view/today_cards_screen.dart';
 import 'package:campus_mate/profile/model/onboarding_step.dart';
@@ -70,6 +71,10 @@ abstract final class AppRouter {
       GoRoute(
         path: '${AppRoutes.cardDetail}/:cardId',
         builder: (context, state) => CardDetailScreen(cardId: state.pathParameters['cardId']!),
+      ),
+      GoRoute(
+        path: AppRoutes.conversations,
+        builder: (context, state) => const ConversationsScreen(),
       ),
       GoRoute(
         path: AppRoutes.matchMade,

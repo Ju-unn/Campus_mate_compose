@@ -86,6 +86,15 @@ void main() {
 
       expect(style.minimumSize?.resolve({})?.height, 48);
     });
+
+    testWidgets('height 를 주면 그 높이를 쓴다 (수락함 행의 44dp 인라인 버튼)', (tester) async {
+      final style = await styleOf(
+        tester,
+        const AppButton(label: '거절', onPressed: null, height: 44),
+      );
+
+      expect(style.minimumSize?.resolve({})?.height, 44);
+    });
   });
 
   group('AppButton 색 (DESIGN.md §8.3)', () {
