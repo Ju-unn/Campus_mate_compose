@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     openai_api_key: str
     # 조각 2: Secret Manager 키 이름 `phone-number-encryption-key` — pgcrypto pgp_sym_encrypt/decrypt 에 넘긴다.
     phone_encryption_key: str
+    # 조각 4: Secret Manager 키 이름 `card-batch-secret` — /batch/daily-cards 를 Cloud Scheduler 만 부르게 한다.
+    # 비어 있으면 엔드포인트가 아무도 통과시키지 않는다(설정을 빠뜨린 배포가 열린 문이 되지 않게).
+    card_batch_secret: str = ""
 
     @property
     def postgrest_url(self) -> str:

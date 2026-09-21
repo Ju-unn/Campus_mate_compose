@@ -26,6 +26,10 @@ echo -n "<service-role-key>" | gcloud secrets create supabase-service-role-key -
 echo -n "<placeholder-until-supabase-issues-whsec>" | gcloud secrets create auth-hook-signing-secret --data-file=-
 echo -n "<discord webhook url>" | gcloud secrets create discord-review-webhook-url --data-file=-
 
+# 조각 4: /batch/daily-cards 를 Cloud Scheduler 만 부르게 하는 공유 비밀.
+# 값은 아무 난수나 길게(예: openssl rand -base64 32) — 이 문서에 값을 적지 않는다.
+echo -n "<card batch secret>" | gcloud secrets create card-batch-secret --data-file=-
+
 # Cloud Run 기본 compute 서비스 계정이 위 시크릿을 읽을 수 있도록 권한을 부여한다
 gcloud projects add-iam-policy-binding <PROJECT_ID> \
   --member=serviceAccount:<PROJECT_NUMBER>-compute@developer.gserviceaccount.com \
@@ -33,6 +37,16 @@ gcloud projects add-iam-policy-binding <PROJECT_ID> \
 ```
 
 Vision API는 Cloud Run 기본 컴퓨트 서비스 계정에 별도 IAM 역할이 필요 없다(API 활성화 + ADC 자격만으로 호출 가능).
+
+푸시(FCM HTTP v1)는 Vision 과 달리 역할이 하나 필요하다. **FCM 서버 키(자격증명 시크릿)는 만들지 않는다** —
+Cloud Run 이 자기 서비스 계정(ADC)으로 보낸다(2026-09-20 준비 가이드 확정).
+
+```bash
+# 조각 4: 같은 서비스 계정에 FCM 전송 권한만 더한다
+gcloud projects add-iam-policy-binding <PROJECT_ID> \
+  --member=serviceAccount:<PROJECT_NUMBER>-compute@developer.gserviceaccount.com \
+  --role=roles/firebasemessaging.admin
+```
 
 ## 2. 배포
 
@@ -43,8 +57,11 @@ gcloud run deploy campus-mate-backend \
   --region asia-northeast3 \
   --allow-unauthenticated \
   --set-env-vars SUPABASE_URL=<project-url>,GOOGLE_CLOUD_PROJECT=<PROJECT_ID> \
-  --set-secrets SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest,AUTH_HOOK_SIGNING_SECRET=auth-hook-signing-secret:latest,DISCORD_WEBHOOK_URL=discord-review-webhook-url:latest
+  --set-secrets SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest,AUTH_HOOK_SIGNING_SECRET=auth-hook-signing-secret:latest,DISCORD_WEBHOOK_URL=discord-review-webhook-url:latest,CARD_BATCH_SECRET=card-batch-secret:latest
 ```
+
+`CARD_BATCH_SECRET` 을 빠뜨리면 `/batch/daily-cards` 는 **아무 요청도 통과시키지 않는다**(전부 401).
+열린 채로 남는 쪽보다 닫힌 채로 실패하는 쪽을 택했다 — 카드가 안 나가면 바로 눈에 띈다.
 
 `--allow-unauthenticated` 로 배포한다 — Supabase HTTP Auth Hook은 GCP IAM 아이덴티티 토큰을 발급할 수 없어서, IAM 인증을 걸면 훅 호출 자체가 막힌다. 대신 요청 인증은 Standard Webhooks HMAC 서명 검증 + timestamp ±5분 범위 검사(코드에 구현됨)가 담당한다.
 
@@ -57,3 +74,38 @@ curl https://<서비스 URL>/health
 ```
 
 `{"status":"ok"}` 가 나오면 성공.
+
+## 4. 카드 지급 배치 (조각 4, 2026-09-21)
+
+하루 한 번 07:00 Asia/Seoul 에 `/batch/daily-cards` 를 부른다. **요일 사다리(주 2회 · 3회 · 매일) 판정은
+코드가 하므로 job 은 하나면 된다** — 요일마다 job 을 만들지 않는다. 무료 한도 3 job 안이라 비용은 0 이다.
+
+```bash
+gcloud services enable cloudscheduler.googleapis.com
+
+# 매일 07:00 Asia/Seoul. 요일 판정은 코드가 하므로 job 은 하나면 된다.
+gcloud scheduler jobs create http campus-mate-daily-cards \
+  --location=asia-northeast3 \
+  --schedule="0 7 * * *" \
+  --time-zone="Asia/Seoul" \
+  --uri="https://<cloud-run-url>/batch/daily-cards" \
+  --http-method=POST \
+  --headers="X-Batch-Secret=<card-batch-secret 값>" \
+  --attempt-deadline=600s
+```
+
+- 헤더 값은 위에서 만든 `card-batch-secret` 과 **같은 값**이어야 한다. 서버는 `hmac.compare_digest` 로 맞춰 본다.
+- Cloud Run 이 `--allow-unauthenticated` 라 이 엔드포인트는 스스로를 지킨다(조각 1a auth hook 과 같은 이유).
+- 비밀이 없거나 틀리면 401 이고, 그때는 아무 카드도 나가지 않는다.
+- 실행 결과는 `{"issued": 3, "no_candidate": 1, "skipped_regions": ["busan"]}` 모양으로 돌아오고
+  Cloud Logging 에 남는다. `skipped_regions` 는 오늘이 지급 요일이 아닌 지역그룹이다.
+- 실행 시간이 600초를 넘기 시작하면 지역그룹별로 job 을 나눈다(백로그).
+
+손으로 한 번 돌려 보려면:
+
+```bash
+gcloud scheduler jobs run campus-mate-daily-cards --location=asia-northeast3
+```
+
+**주의:** 이 배치는 조각 4 의 DB 마이그레이션(`region_group_settings` · `daily_cards` …)이 클라우드에
+적용된 뒤에야 돈다. 적용 전에 job 을 만들면 매일 500 이 쌓인다 — 마이그레이션 적용 뒤에 만든다.
