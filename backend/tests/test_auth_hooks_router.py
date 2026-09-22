@@ -127,11 +127,12 @@ def test_blocked_email_hash_uses_identity_key():
 
 
 def test_invalid_signature_returns_401():
-    client = TestClient(app)
-    response = client.post(
-        "/hooks/before-user-created",
-        content=b'{"user_id":"11111111-1111-1111-1111-111111111111","user":{"email":"hong@snu.ac.kr"}}',
-        headers={"webhook-id": "msg_1", "webhook-timestamp": "1700000000", "webhook-signature": "v1,invalid"},
-    )
+    # 서명에서 막히는 테스트라 get_client 을 덮어쓰지 않는다 — lifespan 을 켜둔다.
+    with TestClient(app) as client:
+        response = client.post(
+            "/hooks/before-user-created",
+            content=b'{"user_id":"11111111-1111-1111-1111-111111111111","user":{"email":"hong@snu.ac.kr"}}',
+            headers={"webhook-id": "msg_1", "webhook-timestamp": "1700000000", "webhook-signature": "v1,invalid"},
+        )
 
     assert response.status_code == 401

@@ -2,9 +2,6 @@
 
 원래 profile_onboarding.repository 안에 있었고 cards·matching 저장소가 밑줄 붙은 이름을
 건너서 import 하고 있었다 — 공용이면 공용 자리에 둔다.
-
-백로그: httpx.AsyncClient 를 lifespan 에서 하나 만들어 공유하는 일도 여기로 온다.
-지금은 라우터마다 요청 때 새로 만든다(동작에는 문제가 없고, 연결 재사용만 손해다).
 """
 import httpx
 from fastapi import HTTPException
