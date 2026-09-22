@@ -30,7 +30,7 @@ def overrides():
             discord_webhook_url="https://discord.com/api/webhooks/test",
             google_cloud_project="campus-mate-test",
             openai_api_key="sk-test",
-            phone_encryption_key="phone-key-test",
+            phone_encryption_key="phone-key-test", identity_hmac_key="identity-key-test",
     )
     # 저장 엔드포인트마다 매칭 벡터를 즉시 다시 만든다(조각 3) — 실제 OpenAI 를 부르지 않게 목을 끼운다.
     openai_client = AsyncMock()

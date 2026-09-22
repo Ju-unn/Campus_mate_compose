@@ -33,7 +33,7 @@ def _settings(**overrides) -> Settings:
         supabase_url="https://x.supabase.co", supabase_service_role_key="service-key",
         auth_hook_signing_secret="whsec_test", discord_webhook_url="https://discord.com/api/webhooks/t",
         google_cloud_project="campus-mate-test", openai_api_key="sk-test",
-        phone_encryption_key="phone-key-test", **overrides,
+        phone_encryption_key="phone-key-test", identity_hmac_key="identity-key-test", **overrides,
     )
 
 
@@ -192,9 +192,10 @@ def secret_overrides():
 
 
 def test_the_batch_endpoint_requires_the_shared_secret(secret_overrides):
-    client = TestClient(app)
-    assert client.post("/batch/chat-gate").status_code == 401
-    assert client.post("/batch/chat-gate", headers={"X-Batch-Secret": "wrong"}).status_code == 401
+    # get_client 을 덮어쓰지 않는 테스트라 lifespan 을 켜둔다(`with`).
+    with TestClient(app) as client:
+        assert client.post("/batch/chat-gate").status_code == 401
+        assert client.post("/batch/chat-gate", headers={"X-Batch-Secret": "wrong"}).status_code == 401
 
 
 def test_the_batch_endpoint_runs_with_the_right_secret(secret_overrides):
@@ -210,8 +211,7 @@ def test_the_batch_endpoint_runs_with_the_right_secret(secret_overrides):
 def test_the_batch_endpoint_is_closed_when_no_secret_is_configured():
     app.dependency_overrides[get_settings] = lambda: _settings(card_batch_secret="")
     try:
-        assert TestClient(app).post(
-            "/batch/chat-gate", headers={"X-Batch-Secret": ""}
-        ).status_code == 401
+        with TestClient(app) as client:
+            assert client.post("/batch/chat-gate", headers={"X-Batch-Secret": ""}).status_code == 401
     finally:
         app.dependency_overrides.clear()

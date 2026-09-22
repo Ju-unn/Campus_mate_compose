@@ -121,6 +121,35 @@ void main() {
     expect(find.byType(ConversationsScreen), findsOneWidget);
   });
 
+  // 백로그 23: 앱바 화살표만 고쳐 두면 안드로이드 시스템 뒤로가기에서 앱이 그냥 닫힌다.
+  testWidgets('푸시로 연 채팅방에서 시스템 뒤로가기를 해도 대화 목록이 보인다', (tester) async {
+    final router = AppRouter.create(
+      isAuthenticated: () => true,
+      verificationGate: _passedGate,
+      onboardingStep: _passedStep,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
+          chatRepositoryProvider
+              .overrideWithValue(FakeChatRepository()..room = Success(roomFixture())),
+          messageStreamProvider.overrideWithValue(FakeMessageStream()),
+        ],
+        child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+      ),
+    );
+    router.go('${AppRoutes.chatRoom}/m1');
+    await tester.pumpAndSettle();
+
+    // false 면 안드로이드가 뒤로가기를 "앱 종료" 로 처리한다.
+    expect(await tester.binding.handlePopRoute(), isTrue);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ConversationsScreen), findsOneWidget);
+  });
+
   test('온보딩 경로 12개가 전부 라우터에 등록돼 있다', () {
     final router = AppRouter.create(
       isAuthenticated: () => true,

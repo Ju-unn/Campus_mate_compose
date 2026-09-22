@@ -41,6 +41,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
   final ScrollController _scroll = ScrollController();
   late final ChatRepository _repository;
   late final ConversationsViewModel _conversations;
+  late final AppLifecycleListener _lifecycle;
   bool _sheetShown = false;
 
   @override
@@ -50,10 +51,13 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
     _repository = ref.read(chatRepositoryProvider);
     _conversations = ref.read(conversationsViewModelProvider.notifier);
     _scroll.addListener(_loadMoreAtTop);
+    // 백그라운드에 있는 동안 온 메시지는 구독으로 오지 않는다 — 돌아오면 다시 읽는다(백로그 18).
+    _lifecycle = AppLifecycleListener(onResume: _reconnect);
   }
 
   @override
   void dispose() {
+    _lifecycle.dispose();
     _scroll.dispose();
     // 나갈 때 한 번 더 읽음을 찍는다(ERD §4) — 방에서 본 것이 목록에 안 읽은 채로 남지 않게.
     unawaited(_repository.markRead(widget.matchId).then((_) => _conversations.refresh()));
@@ -69,6 +73,12 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
 
   ChatRoomViewModel get _viewModel =>
       ref.read(chatRoomViewModelProvider(widget.matchId).notifier);
+
+  void _reconnect() {
+    if (mounted) {
+      unawaited(_viewModel.reconnect());
+    }
+  }
 
   /// 방을 닫는 유일한 길(뒤로가기 · 나가기 뒤). 푸시·매칭 성사에서는 `go` 로 들어와
   /// **스택이 한 장뿐**이라 pop 할 것이 없다 — 그대로 pop 하면 디버그에서 assert 로 걸리고
@@ -95,6 +105,20 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
     });
 
     final room = state.room;
+    return PopScope(
+      // 안드로이드 시스템 뒤로가기도 앱바 화살표와 같은 길로 보낸다(백로그 23).
+      // 푸시로 연 방은 스택이 한 장이라 그냥 두면 go_router 가 pop 하지 못하고 앱이 닫힌다.
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          _exit();
+        }
+      },
+      child: _buildRoom(context, state, room),
+    );
+  }
+
+  Widget _buildRoom(BuildContext context, ChatRoomUiState state, ChatRoom? room) {
     return Scaffold(
       appBar: AppBar(
         leading: BackButton(color: AppColors.ink, onPressed: _exit),
@@ -114,7 +138,17 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            _Banner(state: state, onAccept: _accept),
+            if (state.isDisconnected)
+              TrustBanner(
+                isMuted: true,
+                icon: AppIcons.circleAlert,
+                title: '연결이 끊겼어요',
+                caption: '새 메시지가 오지 않을 수 있어요. 다시 시도하면 못 받은 메시지도 같이 가져와요',
+                actionLabel: '다시 시도',
+                onAction: _reconnect,
+              )
+            else
+              _Banner(state: state, onAccept: _accept),
             Expanded(child: _MessageList(state: state, controller: _scroll)),
             if (state.errorMessage != null) _ErrorLine(message: state.errorMessage!),
             if (state.isPartnerGone)

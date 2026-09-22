@@ -9,7 +9,7 @@ from typing import NamedTuple
 from uuid import UUID
 
 import httpx
-from fastapi import Depends, Header
+from fastapi import Depends, Header, Request
 from google.cloud import vision
 
 from app.settings import Settings
@@ -36,12 +36,16 @@ def get_vision_client_factory() -> Callable[[], vision.ImageAnnotatorAsyncClient
     return get_vision_client
 
 
-def get_client() -> httpx.AsyncClient:
-    """요청 한 건이 쓰는 HTTP 클라이언트(Supabase·PostgREST·FCM 호출).
+def get_client(request: Request) -> httpx.AsyncClient:
+    """앱 전체가 나눠 쓰는 HTTP 클라이언트(Supabase·PostgREST·FCM 호출).
 
-    백로그: lifespan 에서 하나 만들어 공유하기(core/http.py 참고). 지금은 요청마다 새로 만든다.
+    만드는 것은 lifespan 한 곳이다(main.py, 미결 41③). 요청마다 새로 만들면 커넥션과
+    TLS 악수를 매번 다시 한다 — 요청 하나가 PostgREST 를 여러 번 부르는 구조라
+    그 손해가 그대로 지연이 된다.
+
+    테스트는 `app.dependency_overrides[get_client]` 로 덮어써 lifespan 을 켜지 않는다.
     """
-    return httpx.AsyncClient()
+    return request.app.state.http_client
 
 
 class Caller(NamedTuple):

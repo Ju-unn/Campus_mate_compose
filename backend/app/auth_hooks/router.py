@@ -27,7 +27,7 @@ async def before_user_created(
     if university_id is None:
         return HookDecision.reject("허용되지 않은 학교 이메일이에요")
 
-    email_hmac = hash_email(settings.auth_hook_signing_secret, payload.email)
+    email_hmac = hash_email(settings.identity_hmac_key, payload.email)
     if await policy.is_blocked(email_hmac):
         return HookDecision.reject("재가입이 제한된 이메일이에요")
 

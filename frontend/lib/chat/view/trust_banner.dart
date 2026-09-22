@@ -12,6 +12,7 @@ class TrustBanner extends StatelessWidget {
     required this.title,
     required this.caption,
     this.isMuted = false,
+    this.icon,
     this.actionLabel,
     this.onAction,
     super.key,
@@ -22,6 +23,9 @@ class TrustBanner extends StatelessWidget {
 
   /// 종료 예정(14h)은 회색 바탕이다 — 좋은 소식이 아닌 자리에 분홍을 쓰지 않는다.
   final bool isMuted;
+
+  /// 게이트가 아닌 배너(연결 끊김)가 같은 자리를 빌려 쓸 때만 넘긴다. 안 넘기면 게이트 아이콘.
+  final IconData? icon;
 
   /// 미리 수락 배너에만 버튼이 있다. 거절 버튼은 두지 않는다 —
   /// 24시간 전의 거절은 되돌릴 수 없는데 얻는 게 없다(시트에서 충분히 고민한 뒤에 하면 된다).
@@ -41,7 +45,7 @@ class TrustBanner extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(
-                isMuted ? AppIcons.timer : AppIcons.shieldCheck,
+                icon ?? (isMuted ? AppIcons.timer : AppIcons.shieldCheck),
                 size: 20,
                 color: isMuted ? AppColors.muted : AppColors.primaryText,
               ),
