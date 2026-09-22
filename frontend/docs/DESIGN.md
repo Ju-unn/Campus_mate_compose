@@ -304,6 +304,7 @@ fontFamilyFallback: ['Apple SD Gothic Neo', 'Noto Sans KR', 'sans-serif']
 | 진행 중 단계 표시(06-2b) | `circle-dot` |
 | 기다리는 단계 표시(06-2b) | `circle` |
 | 안내 카드 머리말 · 입력칸 오류 | `circle-alert` |
+| 카카오톡 아이디 복사(14b) | `copy` (2026-09-22 추가, §13-124) |
 
 - **아이콘만 있는 버튼을 만들지 않는다.** 라벨이 화면에 없으면 `Semantics(label:)` 을 반드시 붙이고, 시각 크기와 무관하게 44×44 터치 영역을 확보한다
 - **이모지를 아이콘으로 쓰지 않는다.** 기기·OS 버전마다 다르게 그려지고 색을 제어할 수 없다
