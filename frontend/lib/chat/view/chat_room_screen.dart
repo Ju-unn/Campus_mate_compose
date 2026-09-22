@@ -17,6 +17,7 @@ import 'package:campus_mate/chat/view/trust_reveal_bubble.dart';
 import 'package:campus_mate/chat/viewmodel/chat_room_ui_state.dart';
 import 'package:campus_mate/chat/viewmodel/chat_room_view_model.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
+import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_motion.dart';
@@ -24,6 +25,7 @@ import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 /// 채팅방(DESIGN.md 화면 14, pen `ioKLk`). 게이트 배너·시트(14b·14f·14g·14h)도 이 화면이 얹는다.
 class ChatRoomScreen extends ConsumerStatefulWidget {
@@ -68,13 +70,25 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
   ChatRoomViewModel get _viewModel =>
       ref.read(chatRoomViewModelProvider(widget.matchId).notifier);
 
+  /// 방을 닫는 유일한 길(뒤로가기 · 나가기 뒤). 푸시·매칭 성사에서는 `go` 로 들어와
+  /// **스택이 한 장뿐**이라 pop 할 것이 없다 — 그대로 pop 하면 디버그에서 assert 로 걸리고
+  /// 릴리스에서는 빈 화면이 남는다. 그때는 대화 목록으로 내려보낸다.
+  void _exit() {
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.pop();
+      return;
+    }
+    GoRouter.maybeOf(context)?.go(AppRoutes.conversations);
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(chatRoomViewModelProvider(widget.matchId));
 
     ref.listen(chatRoomViewModelProvider(widget.matchId), (previous, next) {
       if (next.hasLeft && previous?.hasLeft != true && context.mounted) {
-        Navigator.of(context).pop();
+        _exit();
         return;
       }
       _maybeShowSheet(next);
@@ -83,7 +97,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
     final room = state.room;
     return Scaffold(
       appBar: AppBar(
-        leading: BackButton(color: AppColors.ink, onPressed: () => Navigator.of(context).pop()),
+        leading: BackButton(color: AppColors.ink, onPressed: _exit),
         titleSpacing: 0,
         title: room == null ? null : _Title(room: room, revealed: state.room!.gate.passed),
         actions: [

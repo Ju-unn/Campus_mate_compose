@@ -1,9 +1,12 @@
 import 'package:campus_mate/auth/model/verification_gate.dart';
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
+import 'package:campus_mate/chat/view/chat_room_screen.dart';
+import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/router/app_router.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
+import 'package:campus_mate/matching/view/conversations_screen.dart';
 import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -86,6 +89,36 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('대학 이메일로 시작해요'), findsOneWidget);
+  });
+
+  // 푸시·매칭 성사는 `go` 로 방을 여는데 그때 스택에는 방 한 장뿐이다.
+  // 뒤로가기가 그 한 장을 pop 하면 빈 화면이 남는다 — 목록으로 내려보내야 한다.
+  testWidgets('푸시로 연 채팅방에서 뒤로가기를 누르면 대화 목록이 보인다', (tester) async {
+    final router = AppRouter.create(
+      isAuthenticated: () => true,
+      verificationGate: _passedGate,
+      onboardingStep: _passedStep,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
+          chatRepositoryProvider
+              .overrideWithValue(FakeChatRepository()..room = Success(roomFixture())),
+          messageStreamProvider.overrideWithValue(FakeMessageStream()),
+        ],
+        child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+      ),
+    );
+    router.go('${AppRoutes.chatRoom}/m1');
+    await tester.pumpAndSettle();
+    expect(find.byType(ChatRoomScreen), findsOneWidget);
+
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ConversationsScreen), findsOneWidget);
   });
 
   test('온보딩 경로 12개가 전부 라우터에 등록돼 있다', () {
