@@ -30,6 +30,7 @@ async def run_chat_gate(repo: ChatRepository, push_repo: CardRepository, sender:
     남은 사람의 기록만 목록에서 감춰진다."""
     reminded = 0
     closed = 0
+    passed = 0
     for match in await repo.fetch_open_matches():
         participants = match["match_participants"]
         if any(p["left_at"] for p in participants):
@@ -37,6 +38,12 @@ async def run_chat_gate(repo: ChatRepository, push_repo: CardRepository, sender:
 
         created_at = datetime.fromisoformat(match["created_at"])
         if gate.remaining(created_at, now).total_seconds() <= 0:
+            if gate.is_passed([p["trust_response"] for p in participants]):
+                # 양쪽 다 수락했는데 도장이 없는 방은 닫지 않고 찍는다. /trust 가 도장 직전에
+                # 끊겼을 때 남는 자국인데, 닫아 버리면 되살릴 길이 없다.
+                if await repo.pass_trust_gate(match["id"], now):
+                    passed += 1
+                continue
             # 닫는다 = chat_closed_at 한 칸을 찍는 것뿐이다. 메시지는 남는다(결정 3·4).
             if await repo.close_chat(match["id"], now):
                 closed += 1
@@ -58,7 +65,7 @@ async def run_chat_gate(repo: ChatRepository, push_repo: CardRepository, sender:
             # 알림을 끈 사람은 0 이 돌아온다 — 보낸 사람만 센다.
             reminded += 1 if sent else 0
 
-    return {"reminded": reminded, "closed": closed}
+    return {"reminded": reminded, "closed": closed, "passed": passed}
 
 
 @router.post("/batch/chat-gate")

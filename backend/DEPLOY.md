@@ -141,7 +141,9 @@ gcloud scheduler jobs create http campus-mate-chat-gate \
 
 - **새 시크릿을 만들지 않는다.** 카드 배치와 같은 `card-batch-secret` 을 쓴다 — 둘 다 우리 스케줄러만
   부르는 엔드포인트라 비밀을 나눌 이유가 없다. 시크릿 버전을 올리면 이 job 의 헤더도 같이 고쳐야 한다.
-- 실행 결과는 `{"reminded": 2, "closed": 1}` 모양이고 Cloud Logging 에 남는다.
+- 실행 결과는 `{"reminded": 2, "closed": 1, "passed": 0}` 모양이고 Cloud Logging 에 남는다.
+  `passed` 는 **양쪽이 수락했는데 통과 도장이 빠진 방을 배치가 대신 찍어 준 수**다. 0 이 정상이고,
+  계속 올라오면 `/trust` 가 중간에 끊기고 있다는 뜻이다.
 - **매시 정각을 건너뛰면 그 시간에 걸린 리마인드는 다시 오지 않는다.** 보낼 시각을 한 시간짜리 창으로
   판정하기 때문이다("보냈다" 표시 컬럼을 두지 않으려고 고른 방식). 마감(`chat_closed_at`)은 다음 시간에
   따라잡으므로 문제가 없다.

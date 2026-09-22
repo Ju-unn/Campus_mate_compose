@@ -1,8 +1,11 @@
+import logging
 from datetime import datetime
 from uuid import UUID
 
 from app.core.http import raise_for_status
 from app.core.postgrest import PostgrestRepository
+
+logger = logging.getLogger(__name__)
 
 # 방을 열 때 한 번에 가져오는 메시지 수(결정 9). 위로 올리면 같은 수만큼 더 가져온다.
 MESSAGE_PAGE_SIZE = 50
@@ -95,10 +98,13 @@ class ChatRepository(PostgrestRepository):
         }
         if before is not None:
             cursor = before.isoformat()
-            params["or"] = (
-                f"(created_at.lt.{cursor},and(created_at.eq.{cursor},id.lt.{before_id}))"
-                if before_id else f"(created_at.lt.{cursor})"
-            )
+            if before_id:
+                params["or"] = (
+                    f"(created_at.lt.{cursor},and(created_at.eq.{cursor},id.lt.{before_id}))"
+                )
+            else:
+                # id 가 없으면 고를 것이 하나뿐이라 or 로 감쌀 이유가 없다.
+                params["created_at"] = f"lt.{cursor}"
         return await self._rows("messages", params)
 
     async def fetch_last_message(self, match_id: UUID | str) -> dict | None:
@@ -172,12 +178,16 @@ class ChatRepository(PostgrestRepository):
 
     async def fetch_open_matches(self, limit: int = _OPEN_MATCH_LIMIT) -> list[dict]:
         """아직 통과도 종료도 하지 않은 매칭 + 참가자 두 행(매시 배치용)."""
-        return await self._rows("matches", {
+        rows = await self._rows("matches", {
             "trust_passed_at": "is.null",
             "chat_closed_at": "is.null",
             "select": f"{_MATCH_COLUMNS},match_participants({_PARTICIPANT_COLUMNS})",
             "limit": limit,
         })
+        if len(rows) >= limit:
+            # 잘린 줄 모르면 뒤쪽 매칭이 리마인드도 마감도 못 받고 조용히 밀린다.
+            logger.warning("열린 매칭이 상한 %s 에 닿았다 — 배치를 나눌 때가 됐다", limit)
+        return rows
 
     # 게이트를 통과한 뒤에만 부르는 것 ------------------------------------------
     async def fetch_kakao_id(self, profile_id: UUID | str) -> str | None:
