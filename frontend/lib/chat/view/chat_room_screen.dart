@@ -95,6 +95,20 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
     });
 
     final room = state.room;
+    return PopScope(
+      // 안드로이드 시스템 뒤로가기도 앱바 화살표와 같은 길로 보낸다(백로그 23).
+      // 푸시로 연 방은 스택이 한 장이라 그냥 두면 go_router 가 pop 하지 못하고 앱이 닫힌다.
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          _exit();
+        }
+      },
+      child: _buildRoom(context, state, room),
+    );
+  }
+
+  Widget _buildRoom(BuildContext context, ChatRoomUiState state, ChatRoom? room) {
     return Scaffold(
       appBar: AppBar(
         leading: BackButton(color: AppColors.ink, onPressed: _exit),
