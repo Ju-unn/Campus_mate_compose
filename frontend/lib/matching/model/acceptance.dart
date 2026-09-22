@@ -20,6 +20,10 @@ class Acceptance {
   }
 }
 
+/// 매칭 성사 화면(12)으로 넘기는 값. 조각 5 부터 "대화 시작하기" 가 방으로 바로 들어가는데,
+/// 닉네임만으로는 어느 방인지 알 수 없어 매칭 id 를 같이 싣는다.
+typedef MatchMadeArgs = ({String nickname, String? matchId});
+
 /// 수락함에 응답한 결과. 쌍방 수락이면 [matched] 가 참이고 [matchId] 가 채워진다.
 class AcceptanceOutcome {
   const AcceptanceOutcome({required this.matched, this.matchId});
