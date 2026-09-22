@@ -124,13 +124,18 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
     if (!_alive) {
       return;
     }
-    state = result.when(
-      onSuccess: (message) => state.copyWith(
-        isSending: false,
-        messages: message == null ? state.messages : [...state.messages, message],
-      ),
-      onFailure: (failure) =>
-          state.copyWith(isSending: false, errorMessage: chatFailureMessage(failure)),
+    state = state.copyWith(isSending: false);
+    result.when<void>(
+      // 서버는 INSERT 를 끝내고 닉네임 조회·푸시까지 한 뒤에 응답한다 — 구독 줄이 응답보다
+      // 먼저 오는 것이 정상이다. 응답 줄도 같은 id 가드에 태워 두 번 그리지 않는다.
+      onSuccess: (message) {
+        if (message != null) {
+          _receive(message);
+        }
+      },
+      onFailure: (failure) {
+        state = state.copyWith(errorMessage: chatFailureMessage(failure));
+      },
     );
   }
 

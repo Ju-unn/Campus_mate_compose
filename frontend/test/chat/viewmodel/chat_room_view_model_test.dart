@@ -106,6 +106,20 @@ void main() {
     expect(state.messages.last.body, '네!');
   });
 
+  test('보낸 줄이 구독으로 먼저 와도 응답 때문에 두 번 그려지지 않는다', () async {
+    repository.sendResult = Success(messageFixture(id: 'msg-9', senderId: myId, body: '네!'));
+    final container = containerFor();
+    await opened(container);
+
+    // 서버는 INSERT 뒤에 닉네임 조회·푸시를 하고 응답하므로 구독 줄이 먼저 오는 쪽이 정상이다.
+    stream.push(messageFixture(id: 'msg-9', senderId: myId, body: '네!'));
+    await Future<void>.delayed(Duration.zero);
+    await container.read(chatRoomViewModelProvider('m1').notifier).send('네!');
+
+    final messages = container.read(chatRoomViewModelProvider('m1')).messages;
+    expect(messages.where((message) => message.id == 'msg-9').length, 1);
+  });
+
   test('나가기가 끝나면 화면이 목록으로 돌아갈 준비를 한다', () async {
     final container = containerFor();
     await opened(container);
