@@ -33,6 +33,9 @@ abstract final class AppIcons {
   static const IconData shieldCheck = LucideIcons.shieldCheck;
   static const IconData phone = LucideIcons.phone;
   static const IconData contactRound = LucideIcons.contactRound;
+
+  /// 신뢰 확인 후 카카오톡 아이디 복사 (화면 14b `MAn9h` 의 `FZqNL`)
+  static const IconData copy = LucideIcons.copy;
   static const IconData trash2 = LucideIcons.trash2;
 
   /// 초안 만들기 단계 표시 (DESIGN.md §5.3 — 끝난 단계 / 하는 중 / 기다리는 중)

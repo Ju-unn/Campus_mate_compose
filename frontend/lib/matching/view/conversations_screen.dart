@@ -1,3 +1,6 @@
+import 'package:campus_mate/chat/view/chat_list_row.dart';
+import 'package:campus_mate/chat/viewmodel/conversations_ui_state.dart';
+import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -12,82 +15,127 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-/// 대화(DESIGN.md 화면 13, pen `CeqVY`). 이번 조각이 그리는 것은 상단 "수락 대기" 섹션뿐이고,
-/// "대화 중" 목록은 조각 5 다 — §8.6 의 "건수가 0이면 섹션을 그리지 않는다" 규칙이 그대로 적용된다.
+/// 대화(DESIGN.md 화면 13, pen `CeqVY`). **수락 대기**(위) + **대화 중**(아래) 두 섹션이고,
+/// 두 섹션은 각자 provider 를 보며 서로를 모른다. §8.6 의 "건수가 0이면 섹션을 그리지 않는다".
 class ConversationsScreen extends ConsumerWidget {
   const ConversationsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(acceptancesViewModelProvider);
     ref.listen(acceptancesViewModelProvider, (previous, next) {
       final nickname = next.matchedNickname;
       if (nickname != null && previous?.matchedNickname != nickname) {
         ref.read(acceptancesViewModelProvider.notifier).consumeMatched();
-        context.push(AppRoutes.matchMade, extra: nickname);
+        // 방으로 바로 들어가려면 닉네임만으로는 모자라다 — 매칭 id 를 같이 넘긴다.
+        context.push(
+          AppRoutes.matchMade,
+          extra: (nickname: nickname, matchId: next.matchedMatchId),
+        );
       }
     });
 
     return Scaffold(
       appBar: AppBar(title: Text('대화', style: AppTypography.navTitle)),
       bottomNavigationBar: const AppBottomNav(current: AppTab.chat),
-      body: SafeArea(child: _Body(state: state)),
+      body: const SafeArea(child: _Body()),
     );
   }
 }
 
 class _Body extends ConsumerWidget {
-  const _Body({required this.state});
-
-  final AcceptancesUiState state;
+  const _Body();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (state.isLoading) {
+    final acceptances = ref.watch(acceptancesViewModelProvider);
+    final chats = ref.watch(conversationsViewModelProvider);
+
+    if (acceptances.isLoading || chats.isLoading) {
       return const _SkeletonRows();
     }
+    final errorMessage = acceptances.errorMessage ?? chats.errorMessage;
+    if (acceptances.acceptances.isEmpty && chats.conversations.isEmpty) {
+      return _EmptyState(errorMessage: errorMessage);
+    }
+    return RefreshIndicator(
+      onRefresh: () => Future.wait([
+        ref.read(acceptancesViewModelProvider.notifier).refresh(),
+        ref.read(conversationsViewModelProvider.notifier).refresh(),
+      ]),
+      child: CustomScrollView(
+        slivers: [
+          if (errorMessage != null) SliverToBoxAdapter(child: _ErrorLine(message: errorMessage)),
+          ..._acceptanceSlivers(ref, acceptances),
+          ..._conversationSlivers(context, chats),
+          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.md)),
+        ],
+      ),
+    );
+  }
+
+  /// 수락 대기. 대화 목록이 길어져도 **상단에 sticky 로 고정**한다(§8.6).
+  List<Widget> _acceptanceSlivers(WidgetRef ref, AcceptancesUiState state) {
     if (state.acceptances.isEmpty) {
-      return _EmptyState(errorMessage: state.errorMessage);
+      return const [];
     }
     final viewModel = ref.read(acceptancesViewModelProvider.notifier);
     final isBusy = state.respondingCardId != null;
-    return CustomScrollView(
-      slivers: [
-        SliverPersistentHeader(
-          pinned: true,
-          delegate: _SectionHeader(count: state.acceptances.length),
-        ),
-        if (state.errorMessage != null)
-          SliverToBoxAdapter(child: _ErrorLine(message: state.errorMessage!)),
-        SliverList.separated(
-          itemCount: state.acceptances.length,
-          separatorBuilder: (context, index) => const SizedBox(height: AppSpacing.xs),
-          itemBuilder: (context, index) {
-            final acceptance = state.acceptances[index];
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-              child: AcceptanceRow(
-                acceptance: acceptance,
-                onReject: isBusy
-                    ? null
-                    : () => viewModel.respond(acceptance.cardId, CardDecision.reject),
-                onAccept: isBusy
-                    ? null
-                    : () => viewModel.respond(acceptance.cardId, CardDecision.accept),
-              ),
-            );
-          },
-        ),
-        const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.md)),
-      ],
-    );
+    return [
+      SliverPersistentHeader(
+        pinned: true,
+        delegate: _SectionHeader(title: '수락 대기', count: state.acceptances.length),
+      ),
+      SliverList.separated(
+        itemCount: state.acceptances.length,
+        separatorBuilder: (context, index) => const SizedBox(height: AppSpacing.xs),
+        itemBuilder: (context, index) {
+          final acceptance = state.acceptances[index];
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            child: AcceptanceRow(
+              acceptance: acceptance,
+              onReject:
+                  isBusy ? null : () => viewModel.respond(acceptance.cardId, CardDecision.reject),
+              onAccept:
+                  isBusy ? null : () => viewModel.respond(acceptance.cardId, CardDecision.accept),
+            ),
+          );
+        },
+      ),
+    ];
+  }
+
+  /// 대화 중. 닫힌 방과 내가 나간 방은 서버가 이미 빼고 준다 —
+  /// **상대가 나간 방은 그대로 보이고**, 미리보기에 "OO님이 채팅방을 나갔어요" 가 뜬다(결정 7).
+  List<Widget> _conversationSlivers(BuildContext context, ConversationsUiState state) {
+    if (state.conversations.isEmpty) {
+      return const [];
+    }
+    return [
+      SliverPersistentHeader(
+        delegate: _SectionHeader(title: '대화 중', count: state.conversations.length),
+      ),
+      SliverList.separated(
+        itemCount: state.conversations.length,
+        separatorBuilder: (context, index) =>
+            const Divider(height: 1, thickness: 1, color: AppColors.hairline),
+        itemBuilder: (context, index) {
+          final conversation = state.conversations[index];
+          return ChatListRow(
+            conversation: conversation,
+            onTap: () => context.push('${AppRoutes.chatRoom}/${conversation.matchId}'),
+          );
+        },
+      ),
+    ];
   }
 }
 
-/// 섹션 헤더(pen `Ymhdq`). 우측은 "N명" — §8.6 은 "3 / 5" 같은 분수 표기를 금지한다.
+/// 섹션 헤더(pen `Ymhdq`·`Yjs6e`). 우측은 "N명" — §8.6 은 "3 / 5" 같은 분수 표기를 금지한다.
 class _SectionHeader extends SliverPersistentHeaderDelegate {
-  const _SectionHeader({required this.count});
+  const _SectionHeader({required this.title, required this.count});
 
+  final String title;
   final int count;
 
   @override
@@ -104,9 +152,7 @@ class _SectionHeader extends SliverPersistentHeaderDelegate {
       alignment: Alignment.centerLeft,
       child: Row(
         children: [
-          Expanded(
-            child: Text('수락 대기', style: AppTypography.title.copyWith(color: AppColors.ink)),
-          ),
+          Expanded(child: Text(title, style: AppTypography.title.copyWith(color: AppColors.ink))),
           Text('$count명', style: AppTypography.bodySmall.copyWith(color: AppColors.muted)),
         ],
       ),
@@ -114,7 +160,8 @@ class _SectionHeader extends SliverPersistentHeaderDelegate {
   }
 
   @override
-  bool shouldRebuild(_SectionHeader oldDelegate) => oldDelegate.count != count;
+  bool shouldRebuild(_SectionHeader oldDelegate) =>
+      oldDelegate.count != count || oldDelegate.title != title;
 }
 
 class _EmptyState extends StatelessWidget {
@@ -166,7 +213,7 @@ class _ErrorLine extends StatelessWidget {
   }
 }
 
-/// 조회 중(pen `lpsOn`). `Skeleton · AcceptanceRow`(`R688B`) 2행을 정적으로 둔다.
+/// 조회 중(pen `lpsOn`). 수락 대기 스켈레톤 2행 + 채팅 스켈레톤 3행.
 class _SkeletonRows extends StatelessWidget {
   const _SkeletonRows();
 
@@ -174,17 +221,19 @@ class _SkeletonRows extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.all(AppSpacing.md),
-      children: List<Widget>.generate(
-        2,
-        (_) => Container(
-          height: 104,
-          margin: const EdgeInsets.only(bottom: AppSpacing.xs),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceStrong,
-            borderRadius: BorderRadius.circular(AppRadius.md),
-          ),
-        ),
-      ),
+      children: [
+        for (var i = 0; i < 2; i++) _bar(104),
+        for (var i = 0; i < 3; i++) _bar(72),
+      ],
     );
   }
+
+  Widget _bar(double height) => Container(
+        height: height,
+        margin: const EdgeInsets.only(bottom: AppSpacing.xs),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceStrong,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+        ),
+      );
 }
