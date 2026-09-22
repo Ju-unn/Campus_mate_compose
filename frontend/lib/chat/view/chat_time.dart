@@ -31,6 +31,17 @@ String countdownLabel(Duration remaining) {
   return '${two(total.inHours)}:${two(total.inMinutes % 60)}:${two(total.inSeconds % 60)}';
 }
 
+/// 14h 배너처럼 큰 단위로만 말하는 자리의 "3시간" · "40분".
+/// `inHours` 만 쓰면 한 시간이 안 남았을 때 **"0시간 뒤 종료돼요"** 가 뜬다(조각 5 리뷰 권고 8번).
+String coarseRemainingLabel(Duration remaining) {
+  final total = remaining.isNegative ? Duration.zero : remaining;
+  if (total.inHours >= 1) {
+    return '${total.inHours}시간';
+  }
+  // 1분도 안 남은 마지막 순간에 "0분" 이 되지 않게 바닥을 1분으로 잡는다.
+  return '${total.inMinutes < 1 ? 1 : total.inMinutes}분';
+}
+
 /// 1초마다 남은 시간을 다시 그린다. **기준은 서버가 준 기한이고 계산은 기기 시계**로 한다
 /// (조각 4 PR #67 과 같은 방식 — 시간대는 기기 것을 따른다).
 class CountdownBuilder extends StatefulWidget {

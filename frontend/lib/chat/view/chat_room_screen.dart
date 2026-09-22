@@ -262,7 +262,7 @@ class _Banner extends StatelessWidget {
           deadlineAt: room.gate.deadlineAt,
           builder: (context, remaining) => TrustBanner(
             isMuted: true,
-            title: '이 대화는 ${remaining.inHours}시간 뒤 종료돼요',
+            title: '이 대화는 ${coarseRemainingLabel(remaining)} 뒤 종료돼요',
             caption: '응답 기한이 지나면 대화 목록에서 사라져요',
           ),
         );

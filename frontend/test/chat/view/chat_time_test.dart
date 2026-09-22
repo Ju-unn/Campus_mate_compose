@@ -26,4 +26,12 @@ void main() {
     // 기한이 지나도 음수를 보여주지 않는다.
     expect(countdownLabel(const Duration(seconds: -5)), '00:00:00');
   });
+
+  test('큰 단위 표기는 한 시간이 안 남으면 분으로 내려간다', () {
+    expect(coarseRemainingLabel(const Duration(hours: 3, minutes: 20)), '3시간');
+    expect(coarseRemainingLabel(const Duration(hours: 1)), '1시간');
+    // "0시간 뒤 종료돼요" 가 뜨면 안 된다.
+    expect(coarseRemainingLabel(const Duration(minutes: 40)), '40분');
+    expect(coarseRemainingLabel(const Duration(seconds: 20)), '1분');
+  });
 }
