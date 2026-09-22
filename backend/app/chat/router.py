@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, field_validator
 
 from app.cards.push import FcmSender, notify
@@ -198,7 +198,9 @@ async def get_chat_room(match_id: str, wiring: _Wiring = Depends(_wire)) -> dict
 @router.get("/chat/matches/{match_id}/messages")
 async def get_messages(match_id: str, before: datetime | None = None,
                        before_id: str | None = None,
-                       limit: int = MESSAGE_PAGE_SIZE,
+                       # 0 이나 음수를 그대로 PostgREST 에 넘기면 빈 페이지가 돌아와
+                       # 앱이 "더 없음" 으로 읽는다. 문 앞에서 막는다.
+                       limit: int = Query(default=MESSAGE_PAGE_SIZE, ge=1),
                        wiring: _Wiring = Depends(_wire)) -> dict:
     """최근 50건. 위로 올리면 **화면에 있는 가장 오래된 줄의 `created_at` 과 `id` 를 그대로**
     `before` · `before_id` 로 보내 50건씩 더 가져간다(결정 9).
@@ -289,6 +291,13 @@ async def accept_trust_gate(match_id: str, wiring: _Wiring = Depends(_wire)) -> 
     if not await wiring.repo.save_trust_accept(match_id, wiring.profile_id, now):
         raise HTTPException(status_code=409, detail=errors.TRUST_ALREADY_ANSWERED)
 
+    # **통과 도장이 수락 바로 다음이다.** 사이에 시스템 줄이나 푸시를 끼우면, 그 한 번이 끊겼을 때
+    # trust_response=accept 인데 trust_passed_at 은 비어 있는 방이 남는다. 다시 눌러도 409 고
+    # 48시간 배치가 그 방을 닫아 버려 되살릴 길이 없다.
+    passed = gate.is_passed(["accept", partner["trust_response"]])
+    # False 면 같은 순간에 양쪽이 눌러 상대가 먼저 찍은 것이다 — 알림은 찍은 쪽이 보냈다.
+    stamped = passed and await wiring.repo.pass_trust_gate(match_id, now)
+
     nickname = await wiring.repo.fetch_nickname(wiring.profile_id)
     # 수락은 상대에게 보인다(결정 10). 거절만 보이지 않는데, 그 거절은 이제 나가기다(결정 11).
     await wiring.repo.insert_message(
@@ -298,10 +307,9 @@ async def accept_trust_gate(match_id: str, wiring: _Wiring = Depends(_wire)) -> 
     await _notify_message(wiring, partner, nickname,
                           "카카오톡 아이디·실사진 공개를 수락했어요", match_id, now)
 
-    if not gate.is_passed(["accept", partner["trust_response"]]):
+    if not passed:
         return {"passed": False}
-    if not await wiring.repo.pass_trust_gate(match_id, now):
-        # 같은 순간에 양쪽이 눌렀다. 찍은 쪽이 알림을 보냈으니 여기서는 보내지 않는다.
+    if not stamped:
         return {"passed": True}
 
     partner_nickname = (await wiring.repo.fetch_partner_profile(partner["profile_id"])).get("nickname")

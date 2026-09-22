@@ -166,6 +166,14 @@ def test_room_after_the_gate_carries_the_kakao_id_and_signed_photos():
     ]
 
 
+def test_a_zero_page_is_refused():
+    """0 을 그대로 넘기면 빈 페이지가 돌아와 앱이 "더 없음" 으로 읽는다(#77 리뷰 권고 4번)."""
+    response = _wire(_handler(_Calls(), _match())).get(
+        f"/chat/matches/{MATCH_ID}/messages?limit=0", headers=AUTH_HEADERS
+    )
+    assert response.status_code == 422
+
+
 # 보내기 ----------------------------------------------------------------------
 
 def test_sending_stores_the_message_and_pushes_once():
@@ -311,6 +319,36 @@ def test_both_accepting_opens_the_gate_right_away():
     assert len(stamped) == 1
     # 수락 알림 1건 + 통과 알림 2건(양쪽)
     assert len(calls.pushes) == 3
+
+
+def test_the_gate_is_stamped_before_the_system_line():
+    """통과 도장이 수락 바로 다음에 찍혀야 한다(#77 리뷰 필수 1번).
+
+    시스템 줄 INSERT 가 터져도 trust_passed_at 은 이미 찍혀 있다. 순서가 반대면 그 자리에서
+    끊겼을 때 trust_response=accept 인데 도장이 없는 방이 남고, 다시 눌러도 409 라 되살릴 수 없다."""
+    both = _match(participants=[
+        {"profile_id": PROFILE_ID, "trust_response": None, "left_at": None, "last_read_at": None},
+        {"profile_id": PARTNER_ID, "trust_response": "accept", "left_at": None, "last_read_at": None},
+    ])
+    calls = _Calls()
+    order: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if "/rest/v1/matches" in url and request.method == "PATCH":
+            order.append("stamp")
+            calls.patches.append((url, json.loads(request.content)))
+            return httpx.Response(200, json=[both])
+        if "/rest/v1/messages" in url and request.method == "POST":
+            order.append("system_line")
+            return httpx.Response(500, json={"message": "서버가 끊겼다"})
+        return _handler(calls, both)(request)
+
+    with pytest.raises(httpx.HTTPStatusError):
+        _wire(handler).post(f"/chat/matches/{MATCH_ID}/trust", headers=AUTH_HEADERS)
+
+    assert order == ["stamp", "system_line"]
+    assert [patch for _, patch in calls.patches if "trust_passed_at" in patch]
 
 
 def test_a_simultaneous_second_accept_does_not_push_the_reveal_twice():

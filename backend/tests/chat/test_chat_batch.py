@@ -86,7 +86,8 @@ class _Run:
 
 async def test_nothing_happens_before_the_reminder_window():
     run = _Run([_match()])
-    assert await run.at(MATCHED_AT + timedelta(hours=23, minutes=40)) == {"reminded": 0, "closed": 0}
+    early = MATCHED_AT + timedelta(hours=23, minutes=40)
+    assert await run.at(early) == {"reminded": 0, "closed": 0, "passed": 0}
     assert run.pushes == []
 
 
@@ -94,7 +95,7 @@ async def test_both_sides_are_reminded_inside_the_window():
     run = _Run([_match()])
     result = await run.at(datetime(2026, 9, 21, 14, 0, tzinfo=SEOUL))
 
-    assert result == {"reminded": 2, "closed": 0}
+    assert result == {"reminded": 2, "closed": 0, "passed": 0}
     assert run.pushes[0]["data"]["route"] == "chat"
 
 
@@ -123,9 +124,24 @@ async def test_the_room_is_closed_once_the_deadline_passes():
     run = _Run([_match()])
     result = await run.at(MATCHED_AT + timedelta(hours=48, minutes=1))
 
-    assert result == {"reminded": 0, "closed": 1}
+    assert result == {"reminded": 0, "closed": 1, "passed": 0}
     # 닫는다 = 한 칸 찍기다. 메시지를 지우는 요청은 나가지 않는다(결정 3·4).
     assert run.patches == [{"chat_closed_at": (MATCHED_AT + timedelta(hours=48, minutes=1)).isoformat()}]
+
+
+async def test_a_stranded_double_accept_is_stamped_instead_of_closed():
+    """양쪽 다 수락했는데 도장이 없는 방은 닫지 않고 배치가 대신 찍는다(#77 리뷰 권고 1번).
+
+    `/trust` 가 도장 직전에 끊기면 이 모양이 남는다. 닫아 버리면 되살릴 길이 없다."""
+    stranded = _match(participants=[
+        {"profile_id": A, "trust_response": "accept", "left_at": None, "last_read_at": None},
+        {"profile_id": B, "trust_response": "accept", "left_at": None, "last_read_at": None},
+    ])
+    run = _Run([stranded])
+    now = MATCHED_AT + timedelta(hours=49)
+
+    assert await run.at(now) == {"reminded": 0, "closed": 0, "passed": 1}
+    assert run.patches == [{"trust_passed_at": now.isoformat()}]
 
 
 async def test_the_room_is_not_closed_a_minute_early():
@@ -147,8 +163,9 @@ async def test_a_room_someone_left_is_skipped_by_both_passes():
         {"profile_id": B, "trust_response": None, "left_at": None, "last_read_at": None},
     ])
 
-    assert await _Run([gone]).at(datetime(2026, 9, 21, 14, 0, tzinfo=SEOUL)) == {"reminded": 0, "closed": 0}
-    assert await _Run([gone]).at(MATCHED_AT + timedelta(hours=49)) == {"reminded": 0, "closed": 0}
+    quiet = {"reminded": 0, "closed": 0, "passed": 0}
+    assert await _Run([gone]).at(datetime(2026, 9, 21, 14, 0, tzinfo=SEOUL)) == quiet
+    assert await _Run([gone]).at(MATCHED_AT + timedelta(hours=49)) == quiet
 
 
 async def test_a_failing_push_does_not_stop_the_rest_of_the_run():
@@ -162,7 +179,7 @@ async def test_a_failing_push_does_not_stop_the_rest_of_the_run():
 
     run._handler = handler
     # 첫 사람의 알림이 터져도 두 번째 사람까지 돌고 200 으로 끝난다.
-    assert await run.at(datetime(2026, 9, 21, 14, 0, tzinfo=SEOUL)) == {"reminded": 0, "closed": 0}
+    assert await run.at(datetime(2026, 9, 21, 14, 0, tzinfo=SEOUL)) == {"reminded": 0, "closed": 0, "passed": 0}
 
 
 # 엔드포인트 -------------------------------------------------------------------
@@ -187,7 +204,7 @@ def test_the_batch_endpoint_runs_with_the_right_secret(secret_overrides):
     response = TestClient(app).post("/batch/chat-gate", headers={"X-Batch-Secret": "right"})
 
     assert response.status_code == 200
-    assert response.json() == {"reminded": 0, "closed": 0}
+    assert response.json() == {"reminded": 0, "closed": 0, "passed": 0}
 
 
 def test_the_batch_endpoint_is_closed_when_no_secret_is_configured():

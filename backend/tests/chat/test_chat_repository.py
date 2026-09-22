@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import datetime
 
 import httpx
@@ -50,6 +51,7 @@ async def test_messages_ask_for_the_newest_fifty_first():
 
 
 async def test_older_messages_are_asked_for_with_before():
+    """id 가 없으면 고를 것이 하나뿐이라 or 로 감싸지 않는다(#77 리뷰 권고 2번)."""
     seen: list[httpx.QueryParams] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -59,7 +61,8 @@ async def test_older_messages_are_asked_for_with_before():
     before = datetime(2026, 9, 22, 10, 0, tzinfo=SEOUL)
     await _repo(handler).fetch_messages(MATCH, before=before)
 
-    assert seen[0]["or"] == f"(created_at.lt.{before.isoformat()})"
+    assert seen[0]["created_at"] == f"lt.{before.isoformat()}"
+    assert "or" not in seen[0]
 
 
 async def test_the_cursor_keeps_ties_from_being_skipped():
@@ -170,6 +173,17 @@ async def test_open_matches_skip_passed_and_closed_ones():
     assert seen[0]["chat_closed_at"] == "is.null"
     # 상한이 없으면 db-max-rows 에 조용히 잘려 마감이 밀린다.
     assert int(seen[0]["limit"]) > 0
+
+
+async def test_open_matches_warn_when_the_limit_is_reached(caplog):
+    """상한에 닿으면 뒤쪽 매칭이 리마인드도 마감도 못 받는다 — 조용히 넘기지 않는다(권고 3번)."""
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=[{"id": MATCH}, {"id": MATCH}])
+
+    with caplog.at_level(logging.WARNING):
+        await _repo(handler).fetch_open_matches(limit=2)
+
+    assert "상한" in caplog.text
 
 
 async def test_fetch_match_refuses_someone_elses_room():
