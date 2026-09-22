@@ -4,7 +4,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(10);
+select plan(11);
 
 -- 준비 --------------------------------------------------------------------
 -- A = ...a0(나), B = ...b0(A 와 매칭된 상대, 둘 다 나가지 않음),
@@ -129,6 +129,12 @@ select throws_ok(
     values ('00000000-0000-0000-0000-000000005001',
             '00000000-0000-0000-0000-0000000000a0', 'shout', '고함')$$,
   '23514', null, '정해지지 않은 kind 는 들어가지 않는다'
+);
+
+-- 조각 6 탈퇴가 이 인덱스로 지운다(백로그 7). 빠지면 탈퇴 한 건이 messages 전체를 훑는다.
+select has_index(
+  'public', 'messages', 'messages_sender_index', 'sender_id',
+  'sender_id 인덱스가 있다(탈퇴 cascade 가 탄다)'
 );
 
 select * from finish();
