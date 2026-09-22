@@ -41,6 +41,9 @@ abstract final class AppRoutes {
   static const String settings = '/settings';
   static const String notificationSettings = '/settings/notifications';
 
+  /// 조각 5 — 채팅방(화면 14). `/chat/:matchId`
+  static const String chatRoom = '/chat';
+
   /// 아직 화면이 없는 탭 — 자리 화면으로 보낸다(커뮤니티 조각 6, 내 프로필 후속)
   static const String community = '/community';
   static const String myProfile = '/me';

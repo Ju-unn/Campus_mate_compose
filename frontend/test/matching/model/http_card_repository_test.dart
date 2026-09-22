@@ -149,4 +149,37 @@ void main() {
 
     expect(sent['platform'], 'ios');
   });
+
+  test('안드로이드·아이폰이 아니면 토큰을 아예 보내지 않는다', () async {
+    // 예전에는 웹·데스크톱이 전부 android 로 떨어졌다(조각 4 리뷰 권고 5번).
+    // device_platform enum 에 없는 값을 보내느니 요청 자체를 하지 않는다.
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    var called = false;
+    final client = MockClient((request) async {
+      called = true;
+      return jsonResponse({'ok': true});
+    });
+
+    final result = await buildRepository(client).registerPushToken('tok-1');
+
+    expect(called, isFalse);
+    // 보낼 것이 없을 뿐 실패한 것은 아니다.
+    expect(result.when(onSuccess: (_) => true, onFailure: (_) => false), isTrue);
+  });
+
+  test('학생증·프로필 사진은 같은 multipart 통로를 쓴다', () async {
+    // 권고 4번: Authorization 을 저장소가 각자 달던 것을 ApiClient 로 모았다.
+    late http.BaseRequest seen;
+    final client = MockClient((request) async {
+      seen = request;
+      return jsonResponse({'ok': true});
+    });
+
+    await ApiClient('https://api.test', client, auth)
+        .sendMultipart('/profile-onboarding/photos', {'position': '0'}, 'pubspec.yaml');
+
+    expect(seen.headers['Authorization'], 'Bearer token-abc');
+    expect(seen.url.toString(), 'https://api.test/profile-onboarding/photos');
+  });
 }

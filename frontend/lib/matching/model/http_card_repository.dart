@@ -49,18 +49,32 @@ class HttpCardRepository implements CardRepository {
       );
 
   @override
-  Future<Result<void>> registerPushToken(String token) => _api.send(
-        'POST',
-        '/cards/push-tokens',
-        (_) {},
-        // device_platform enum 에는 ios 도 있다 — 'android' 를 박아 두면 아이폰 토큰까지
-        // android 로 들어가서, 나중에 기기별로 손댈 때 구분할 근거가 사라진다.
-        // dart:io 의 Platform 대신 defaultTargetPlatform 을 보는 건 테스트에서 덮어쓸 수 있어서다.
-        body: {
-          'token': token,
-          'platform': defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android',
-        },
-      );
+  Future<Result<void>> registerPushToken(String token) {
+    final platform = _devicePlatform();
+    if (platform == null) {
+      // 웹·데스크톱에는 등록할 자리가 없다(`device_platform` enum 이 android·ios 둘뿐이다).
+      // 보낼 것이 없을 뿐 실패한 것은 아니라서 성공으로 돌려준다.
+      return Future.value(const Success(null));
+    }
+    // device_platform enum 에는 ios 도 있다 — 'android' 를 박아 두면 아이폰 토큰까지
+    // android 로 들어가서, 나중에 기기별로 손댈 때 구분할 근거가 사라진다.
+    return _api.send('POST', '/cards/push-tokens', (_) {},
+        body: {'token': token, 'platform': platform});
+  }
+
+  /// dart:io 의 `Platform` 대신 [defaultTargetPlatform] 을 보는 건 테스트에서 덮어쓸 수 있어서다.
+  /// 다만 그 값은 **웹·데스크톱에서 android 로 떨어진다** — `kIsWeb` 을 먼저 보고,
+  /// 모르는 플랫폼이면 android 로 뭉뚱그리지 않고 null 을 돌려준다(조각 4 리뷰 권고 5번).
+  String? _devicePlatform() {
+    if (kIsWeb) {
+      return null;
+    }
+    return switch (defaultTargetPlatform) {
+      TargetPlatform.android => 'android',
+      TargetPlatform.iOS => 'ios',
+      _ => null,
+    };
+  }
 
   @override
   Future<Result<void>> deletePushToken(String token) =>
