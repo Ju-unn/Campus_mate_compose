@@ -121,6 +121,35 @@ gcloud scheduler jobs run campus-mate-daily-cards --location=asia-northeast3
 **주의:** 이 배치는 조각 4 의 DB 마이그레이션(`region_group_settings` · `daily_cards` …)이 클라우드에
 적용된 뒤에야 돈다. 적용 전에 job 을 만들면 매일 500 이 쌓인다 — 마이그레이션 적용 뒤에 만든다.
 
+## 4-1. 신뢰 확인 게이트 배치 (조각 5, 2026-09-22)
+
+매시 정각 Asia/Seoul 에 `/batch/chat-gate` 를 부른다. 두 가지를 한다 — ① 매칭 24시간을 막 넘긴
+사람에게 신뢰 확인 리마인드 푸시 ② 48시간을 넘긴 매칭을 닫기(`chat_closed_at` 기록). **무료 한도
+3 job 중 두 번째**라 비용은 여전히 0 이다.
+
+```bash
+# 매시 정각 Asia/Seoul. 리마인드 시각 판정은 코드가 하므로 job 은 하나면 된다.
+gcloud scheduler jobs create http campus-mate-chat-gate \
+  --location=asia-northeast3 \
+  --schedule="0 * * * *" \
+  --time-zone="Asia/Seoul" \
+  --uri="https://<cloud-run-url>/batch/chat-gate" \
+  --http-method=POST \
+  --headers="X-Batch-Secret=<card-batch-secret 값>" \
+  --attempt-deadline=600s
+```
+
+- **새 시크릿을 만들지 않는다.** 카드 배치와 같은 `card-batch-secret` 을 쓴다 — 둘 다 우리 스케줄러만
+  부르는 엔드포인트라 비밀을 나눌 이유가 없다. 시크릿 버전을 올리면 이 job 의 헤더도 같이 고쳐야 한다.
+- 실행 결과는 `{"reminded": 2, "closed": 1}` 모양이고 Cloud Logging 에 남는다.
+- **매시 정각을 건너뛰면 그 시간에 걸린 리마인드는 다시 오지 않는다.** 보낼 시각을 한 시간짜리 창으로
+  판정하기 때문이다("보냈다" 표시 컬럼을 두지 않으려고 고른 방식). 마감(`chat_closed_at`)은 다음 시간에
+  따라잡으므로 문제가 없다.
+- 새벽(22~8시)에 걸린 리마인드는 서버가 **아침 8시로 미뤄** 보낸다. 조용한 시간에 버려지면 창이 한 번뿐이라
+  영영 못 가기 때문이다.
+
+**주의:** 이 job 도 조각 5 의 `messages` 마이그레이션이 클라우드에 적용된 뒤에 만든다.
+
 ## 5. 현재 배포 상태 (2026-09-21 기준)
 
 | 항목 | 값 |

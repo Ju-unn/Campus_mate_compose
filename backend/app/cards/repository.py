@@ -1,8 +1,18 @@
+import logging
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
+from fastapi import HTTPException
+
+from app.core import errors
 from app.core.http import raise_for_status
 from app.core.postgrest import PostgrestRepository
+
+logger = logging.getLogger(__name__)
+
+# PostgREST 의 db-max-rows 에 조용히 잘리지 않게 우리가 상한을 정해 놓고, 거기 닿으면 경고를 남긴다.
+# 잘린 줄 모르고 지나가면 이미 카드를 받은 사람이 목록에서 빠져 한 장을 더 받는다(리뷰 권고 2번).
+_ISSUED_OWNERS_LIMIT = 5000
 
 # 카드 앞면(요약)과 뒷면(10b 상세)이 쓰는 프로필 컬럼. 실명·연락처는 한 글자도 넣지 않는다.
 _CARD_PROFILE_COLUMNS = (
@@ -61,7 +71,13 @@ class CardRepository(PostgrestRepository):
         Cloud Scheduler 재시도나 손으로 다시 돌릴 때 한 장이 더 나가는 걸 여기서 막는다."""
         rows = await self._rows("daily_cards", {
             "issued_at": f"gte.{since.isoformat()}", "source": "eq.daily", "select": "owner_id",
+            "limit": _ISSUED_OWNERS_LIMIT,
         })
+        if len(rows) == _ISSUED_OWNERS_LIMIT:
+            logger.warning(
+                "오늘 지급분 조회가 상한 %s 에 닿았다 — 이미 받은 사람이 빠져 카드가 두 번 나갈 수 있다",
+                _ISSUED_OWNERS_LIMIT,
+            )
         return {row["owner_id"] for row in rows}
 
     async def save_issue_weekdays(self, region_group: str, weekdays: list[int]) -> None:
@@ -148,9 +164,14 @@ class CardRepository(PostgrestRepository):
         if inserted:
             match = inserted[0]
         else:
-            match = (await self._rows("matches", {
+            # 되읽기가 비는 경우는 그 사이에 매칭이 지워진 때뿐이다. 빈 목록을 그대로 [0] 하면
+            # IndexError 가 500 으로 새어 나간다(조각 4 리뷰 권고 1번).
+            rows = await self._rows("matches", {
                 "profile_a": f"eq.{first}", "profile_b": f"eq.{second}", "select": "*",
-            }))[0]
+            })
+            if not rows:
+                raise HTTPException(status_code=409, detail=errors.MATCH_CONFLICT)
+            match = rows[0]
         await self._rows_post("match_participants", [
             {"match_id": match["id"], "profile_id": first},
             {"match_id": match["id"], "profile_id": second},

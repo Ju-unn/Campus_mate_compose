@@ -93,3 +93,16 @@ async def test_quiet_hours_block_everything_except_the_card_alarm():
 
     assert await notify(repo, _sender(handler), "p1", "acceptance_received", "제", "본", {}, now=night) == 0
     assert await notify(repo, _sender(handler), "p1", "card_arrived", "제", "본", {}, now=night) == 1
+
+
+async def test_chat_messages_ignore_quiet_hours_but_gate_reminders_do_not():
+    """조각 5 결정 5(2026-09-22 사용자): 대화는 밤에도 오간다 — 채팅 푸시만 예외다.
+
+    게이트 리마인드는 예외가 아니다. 대신 보낼 시각 자체를 아침으로 미뤄서(chat/gate.py 의
+    reminder_at) 조용한 시간에 버려지지 않게 한다."""
+    dawn = datetime(2026, 9, 22, 3, 0, tzinfo=SEOUL)
+    repo = _FakeRepo(["tok"], {"new_message": True, "trust_reminder": True, "quiet_hours": True})
+    handler = lambda request: httpx.Response(200, json={})
+
+    assert await notify(repo, _sender(handler), "p1", "new_message", "제", "본", {}, now=dawn) == 1
+    assert await notify(repo, _sender(handler), "p1", "trust_reminder", "제", "본", {}, now=dawn) == 0
