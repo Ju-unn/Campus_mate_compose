@@ -42,9 +42,11 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
     if (!await _loadRoom()) {
       return;
     }
+    // 구독을 **첫 페이지 조회보다 먼저** 건다 — 그 사이에 들어온 줄이 영영 안 보이는 창을 없앤다.
+    // 겹치는 줄은 id 가드와 아래의 이어 붙이기가 걸러 낸다(조각 5 리뷰 권고 4번).
+    _subscribe();
     await _loadFirstPage();
     await markRead();
-    _subscribe();
   }
 
   Future<bool> _loadRoom() async {
@@ -68,7 +70,11 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
     state = result.when(
       onSuccess: (page) => state.copyWith(
         isLoading: false,
-        messages: page.messages,
+        // 조회하는 동안 구독이 붙여 둔 줄은 조회 결과에 없을 수 있다 — 덮어쓰지 않고 뒤에 잇는다.
+        messages: [
+          ...page.messages,
+          ...state.messages.where((held) => page.messages.every((row) => row.id != held.id)),
+        ],
         hasMore: page.hasMore,
       ),
       onFailure: (failure) =>

@@ -22,6 +22,9 @@ class FakeChatRepository implements ChatRepository {
   int leaveCount = 0;
   int trustCount = 0;
 
+  /// 조회 중에 구독 줄이 들어오는 상황을 만들 때 쓴다.
+  void Function()? onFetchMessages;
+
   @override
   Future<Result<List<Conversation>>> fetchConversations() async => conversations;
 
@@ -35,6 +38,7 @@ class FakeChatRepository implements ChatRepository {
     String? beforeId,
   }) async {
     pages.add((before: before, beforeId: beforeId));
+    onFetchMessages?.call();
     return messages;
   }
 

@@ -57,6 +57,18 @@ void main() {
     expect(container.read(chatRoomViewModelProvider('m1')).messages.last.body, '반가워요');
   });
 
+  test('첫 페이지를 읽는 동안 구독으로 온 줄도 남는다', () async {
+    final container = containerFor();
+    // 구독이 먼저 걸려 있으니 조회가 끝나기 전에 줄이 올 수 있다 — 조회 결과가 그것을 덮으면 안 된다.
+    repository.onFetchMessages = () => stream.push(messageFixture(id: 'msg-live', body: '먼저 왔어요'));
+
+    await opened(container);
+    await Future<void>.delayed(Duration.zero);
+
+    final messages = container.read(chatRoomViewModelProvider('m1')).messages;
+    expect(messages.map((message) => message.id), contains('msg-live'));
+  });
+
   test('같은 줄이 두 번 와도 한 번만 그린다', () async {
     final container = containerFor();
     await opened(container);
