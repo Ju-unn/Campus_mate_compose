@@ -4,10 +4,12 @@ import 'package:campus_mate/auth/view/school_info_screen.dart';
 import 'package:campus_mate/auth/view/sign_up_screen.dart';
 import 'package:campus_mate/auth/view/student_verification_screen.dart';
 import 'package:campus_mate/auth/view/verify_code_screen.dart';
+import 'package:campus_mate/chat/view/chat_room_screen.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/router/auth_redirect.dart';
 import 'package:campus_mate/core/router/placeholder_screens.dart';
+import 'package:campus_mate/matching/model/acceptance.dart';
 import 'package:campus_mate/matching/view/card_detail_screen.dart';
 import 'package:campus_mate/matching/view/conversations_screen.dart';
 import 'package:campus_mate/matching/view/match_made_screen.dart';
@@ -80,7 +82,14 @@ abstract final class AppRouter {
       ),
       GoRoute(
         path: AppRoutes.matchMade,
-        builder: (context, state) => MatchMadeScreen(nickname: state.extra as String? ?? '상대'),
+        builder: (context, state) {
+          final args = state.extra as MatchMadeArgs?;
+          return MatchMadeScreen(nickname: args?.nickname ?? '상대', matchId: args?.matchId);
+        },
+      ),
+      GoRoute(
+        path: '${AppRoutes.chatRoom}/:matchId',
+        builder: (context, state) => ChatRoomScreen(matchId: state.pathParameters['matchId']!),
       ),
       GoRoute(path: AppRoutes.settings, builder: (context, state) => const SettingsScreen()),
       GoRoute(

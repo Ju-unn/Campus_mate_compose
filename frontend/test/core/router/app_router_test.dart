@@ -1,12 +1,17 @@
 import 'package:campus_mate/auth/model/verification_gate.dart';
+import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/core/router/app_router.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
+import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+
+import '../../chat/model/fake_chat_repository.dart';
+import '../../matching/model/fake_card_repository.dart';
 
 /// 이 파일은 경로·화면 연결만 본다. 게이트별 이동 규칙은 auth_redirect_test 가 맡는다.
 VerificationGate _passedGate() => VerificationGate.complete;
@@ -55,6 +60,11 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
+        // 하단 내비 뱃지가 수락 대기·안 읽은 메시지를 읽는다(§8.8).
+        overrides: [
+          cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
+          chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
+        ],
         child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
       ),
     );
