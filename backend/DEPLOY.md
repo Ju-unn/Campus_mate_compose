@@ -152,20 +152,26 @@ gcloud scheduler jobs create http campus-mate-chat-gate \
 
 **주의:** 이 job 도 조각 5 의 `messages` 마이그레이션이 클라우드에 적용된 뒤에 만든다.
 
-## 5. 현재 배포 상태 (2026-09-21 기준)
+## 5. 현재 배포 상태 (2026-09-22 기준)
 
 | 항목 | 값 |
 | --- | --- |
 | Cloud Run 서비스 | `campus-mate-backend` (asia-northeast3) |
-| 돌고 있는 revision | `campus-mate-backend-00009-*` — 조각 4 까지 반영 |
-| Cloud Scheduler job | `campus-mate-daily-cards` (asia-northeast3), `0 7 * * *` · Asia/Seoul |
-| `card-batch-secret` | **version 2** 를 쓴다 — version 1 은 값에 `\r` 이 섞여 401 이 나던 것이라 폐기했다 |
+| 돌고 있는 revision | `campus-mate-backend-00011-*` — 조각 5(채팅 · 신뢰 확인 게이트)까지 반영 |
+| Cloud Scheduler job | **2개** — `campus-mate-daily-cards` (`0 7 * * *` · Asia/Seoul) · `campus-mate-chat-gate` (**매시 정각**, `0 * * * *` · Asia/Seoul). 둘 다 asia-northeast3, 무료 한도 3개 안 |
+| 마이그레이션 | **30개** (조각 5 `messages` 포함) |
+| `card-batch-secret` | **version 2** 를 쓴다 — version 1 은 값에 `\r` 이 섞여 401 이 나던 것이라 폐기했다. **두 job 이 같은 비밀을 쓴다**(§4-1) |
 
 `--set-secrets` 는 `card-batch-secret:latest` 를 참조하므로 새 버전을 올리면 재배포 없이 따라간다.
 반대로 **Scheduler 헤더 값은 자동으로 따라가지 않는다** — 시크릿 버전을 올렸으면 job 도 같이 고친다:
 
 ```bash
+# job 이 둘이므로 둘 다 고친다 — 하나만 고치면 다른 하나가 401 로 조용히 멈춘다.
 gcloud scheduler jobs update http campus-mate-daily-cards \
+  --location=asia-northeast3 \
+  --update-headers="X-Batch-Secret=<새 값>"
+
+gcloud scheduler jobs update http campus-mate-chat-gate \
   --location=asia-northeast3 \
   --update-headers="X-Batch-Secret=<새 값>"
 ```
