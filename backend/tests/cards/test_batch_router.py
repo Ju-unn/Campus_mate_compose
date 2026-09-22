@@ -14,7 +14,7 @@ def _settings(**overrides) -> Settings:
         supabase_url="https://x.supabase.co", supabase_service_role_key="service-key",
         auth_hook_signing_secret="whsec_test", discord_webhook_url="https://discord.com/api/webhooks/t",
         google_cloud_project="campus-mate-test", openai_api_key="sk-test",
-        phone_encryption_key="phone-key-test", **overrides,
+        phone_encryption_key="phone-key-test", identity_hmac_key="identity-key-test", **overrides,
     )
 
 

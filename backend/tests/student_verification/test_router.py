@@ -28,7 +28,7 @@ def overrides():
             discord_webhook_url="https://discord.com/api/webhooks/test",
             google_cloud_project="campus-mate-test",
             openai_api_key="sk-test",
-            phone_encryption_key="phone-key-test",
+            phone_encryption_key="phone-key-test", identity_hmac_key="identity-key-test",
     )
     yield
     app.dependency_overrides.clear()

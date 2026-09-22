@@ -11,9 +11,11 @@ from fastapi.testclient import TestClient
 from app.core.deps import get_client, get_settings
 from app.main import app
 from app.settings import Settings
+from app.signup_policy import hash_email
 
 
 SECRET = "whsec_" + base64.b64encode(b"test-secret-key-32-bytes-long!!").decode()
+IDENTITY_KEY = "identity-key-test"
 
 
 def _sign(webhook_id: str, timestamp: str, body: bytes) -> str:
@@ -33,6 +35,7 @@ def settings_override():
         google_cloud_project="campus-mate-test",
         openai_api_key="sk-test",
         phone_encryption_key="phone-key-test",
+        identity_hmac_key=IDENTITY_KEY,
     )
     yield
     app.dependency_overrides.clear()
@@ -96,6 +99,31 @@ def test_rejects_blocked_email():
     )
 
     assert response.json()["decision"] == "reject"
+
+
+def test_blocked_email_hash_uses_identity_key():
+    """재가입 차단 해시는 **신원 키**로 만든다(미결 41①).
+
+    서명 키로 만들면 서명 키를 바꾸는 순간 저장된 해시가 전부 안 맞아 차단이 풀린다.
+    """
+    asked: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "university_email_domains" in str(request.url):
+            return httpx.Response(200, json=[{"university_id": "22222222-2222-2222-2222-222222222222"}])
+        asked.append(request.url.params.get("email_hmac", ""))
+        return httpx.Response(200, json=[])
+
+    client = TestClient(app)
+    _post_hook(
+        client,
+        {"user_id": "11111111-1111-1111-1111-111111111111", "user": {"email": "hong@snu.ac.kr"}},
+        httpx.MockTransport(handler),
+    )
+
+    expected = hash_email(IDENTITY_KEY, "hong@snu.ac.kr")
+    assert asked == [f"eq.\\x{expected.hex()}"]
+    assert hash_email(SECRET, "hong@snu.ac.kr") != expected
 
 
 def test_invalid_signature_returns_401():
