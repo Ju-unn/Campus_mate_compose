@@ -1,12 +1,20 @@
 import 'package:campus_mate/auth/model/verification_gate.dart';
+import 'package:campus_mate/chat/model/chat_repository_provider.dart';
+import 'package:campus_mate/chat/view/chat_room_screen.dart';
+import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/router/app_router.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
+import 'package:campus_mate/matching/model/card_repository_provider.dart';
+import 'package:campus_mate/matching/view/conversations_screen.dart';
 import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+
+import '../../chat/model/fake_chat_repository.dart';
+import '../../matching/model/fake_card_repository.dart';
 
 /// 이 파일은 경로·화면 연결만 본다. 게이트별 이동 규칙은 auth_redirect_test 가 맡는다.
 VerificationGate _passedGate() => VerificationGate.complete;
@@ -55,6 +63,11 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
+        // 하단 내비 뱃지가 수락 대기·안 읽은 메시지를 읽는다(§8.8).
+        overrides: [
+          cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
+          chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
+        ],
         child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
       ),
     );
@@ -76,6 +89,36 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('대학 이메일로 시작해요'), findsOneWidget);
+  });
+
+  // 푸시·매칭 성사는 `go` 로 방을 여는데 그때 스택에는 방 한 장뿐이다.
+  // 뒤로가기가 그 한 장을 pop 하면 빈 화면이 남는다 — 목록으로 내려보내야 한다.
+  testWidgets('푸시로 연 채팅방에서 뒤로가기를 누르면 대화 목록이 보인다', (tester) async {
+    final router = AppRouter.create(
+      isAuthenticated: () => true,
+      verificationGate: _passedGate,
+      onboardingStep: _passedStep,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
+          chatRepositoryProvider
+              .overrideWithValue(FakeChatRepository()..room = Success(roomFixture())),
+          messageStreamProvider.overrideWithValue(FakeMessageStream()),
+        ],
+        child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+      ),
+    );
+    router.go('${AppRoutes.chatRoom}/m1');
+    await tester.pumpAndSettle();
+    expect(find.byType(ChatRoomScreen), findsOneWidget);
+
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ConversationsScreen), findsOneWidget);
   });
 
   test('온보딩 경로 12개가 전부 라우터에 등록돼 있다', () {

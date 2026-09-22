@@ -27,11 +27,13 @@ class AcceptancesViewModel extends Notifier<AcceptancesUiState> {
         isLoading: false,
         acceptances: list,
         matchedNickname: state.matchedNickname,
+        matchedMatchId: state.matchedMatchId,
         errorMessage: state.errorMessage,
       ),
       onFailure: (failure) => state.copyWith(
         isLoading: false,
         matchedNickname: state.matchedNickname,
+        matchedMatchId: state.matchedMatchId,
         errorMessage: failure.toDisplayMessage(),
       ),
     );
@@ -49,6 +51,7 @@ class AcceptancesViewModel extends Notifier<AcceptancesUiState> {
       onSuccess: (outcome) => state.copyWith(
         respondingCardId: null,
         matchedNickname: outcome.matched ? nickname : null,
+        matchedMatchId: outcome.matched ? outcome.matchId : null,
       ),
       onFailure: (failure) =>
           state.copyWith(respondingCardId: null, errorMessage: failure.toDisplayMessage()),
@@ -58,5 +61,5 @@ class AcceptancesViewModel extends Notifier<AcceptancesUiState> {
   }
 
   /// 12 화면으로 한 번 보낸 뒤에는 상태에서 지운다 — 목록에 돌아왔을 때 또 튀지 않게.
-  void consumeMatched() => state = state.copyWith(matchedNickname: null);
+  void consumeMatched() => state = state.copyWith(matchedNickname: null, matchedMatchId: null);
 }

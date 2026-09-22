@@ -5,7 +5,6 @@ import 'package:campus_mate/auth/model/real_name.dart';
 import 'package:campus_mate/auth/model/student_verification_repository.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/http/api_client.dart';
-import 'package:http/http.dart' as http;
 
 /// [StudentVerificationRepository]를 FastAPI 호출로 구현한다.
 class HttpStudentVerificationRepository implements StudentVerificationRepository {
@@ -16,11 +15,10 @@ class HttpStudentVerificationRepository implements StudentVerificationRepository
   /// 학생증 사진은 multipart 라 JSON 지름길([ApiClient.send])을 쓰지 못한다.
   @override
   Future<Result<VerificationOutcome>> submit(RealName realName, File photo) async {
-    final result = await _api.sendRequest(
-      (accessToken) async => http.MultipartRequest('POST', _api.uri('/student-verification'))
-        ..headers['Authorization'] = 'Bearer $accessToken'
-        ..fields['real_name'] = realName.toRequestValue()
-        ..files.add(await http.MultipartFile.fromPath('photo', photo.path)),
+    final result = await _api.sendMultipart(
+      '/student-verification',
+      {'real_name': realName.toRequestValue()},
+      photo.path,
     );
     return result.when(
       onSuccess: (response) => Success(_toOutcome(jsonDecode(response.body))),

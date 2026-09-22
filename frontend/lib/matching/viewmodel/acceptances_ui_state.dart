@@ -8,6 +8,7 @@ class AcceptancesUiState {
     this.acceptances = const [],
     this.respondingCardId,
     this.matchedNickname,
+    this.matchedMatchId,
     this.errorMessage,
   });
 
@@ -19,6 +20,9 @@ class AcceptancesUiState {
 
   /// 매칭이 성사된 상대의 닉네임. 화면 12 로 한 번 보내고 비운다.
   final String? matchedNickname;
+
+  /// 그 매칭의 방. 화면 12 의 "대화 시작하기" 가 이걸로 방을 연다(조각 5).
+  final String? matchedMatchId;
   final String? errorMessage;
 
   String? nicknameOf(String cardId) {
@@ -35,6 +39,7 @@ class AcceptancesUiState {
     List<Acceptance>? acceptances,
     String? respondingCardId,
     String? matchedNickname,
+    String? matchedMatchId,
     String? errorMessage,
   }) {
     return AcceptancesUiState(
@@ -42,6 +47,7 @@ class AcceptancesUiState {
       acceptances: acceptances ?? this.acceptances,
       respondingCardId: respondingCardId,
       matchedNickname: matchedNickname,
+      matchedMatchId: matchedMatchId,
       errorMessage: errorMessage,
     );
   }

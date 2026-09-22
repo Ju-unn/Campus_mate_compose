@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
 import 'package:campus_mate/core/push/push_provider.dart';
 import 'package:campus_mate/core/push/push_route.dart';
 import 'package:campus_mate/core/router/app_router.dart';
@@ -107,12 +108,18 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
     unawaited(ref.read(pushRegistrarProvider).stop());
   }
 
+  /// 앱이 켜져 있는 동안에는 **어떤 알림도 배너로 띄우지 않고** 해당 화면만 갱신한다.
+  /// 서버는 "상대가 방을 보고 있으면 새 메시지 푸시를 보내지 않는다" 를 `last_read_at` 30초로
+  /// 눈대중하는데, 그 눈대중이 빗나가도 여기서 배너가 되지 않는다는 것이 앱 쪽 계약이다.
   void _refreshForRoute(Map<String, dynamic> data) {
     switch (data['route']) {
       case 'daily_card':
         unawaited(ref.read(todayCardsViewModelProvider.notifier).refresh());
       case 'acceptances' || 'match':
         unawaited(ref.read(acceptancesViewModelProvider.notifier).refresh());
+      // 방을 열어 두고 있으면 Realtime 이 이미 줄을 붙였다 — 여기서는 목록만 맞춘다.
+      case 'chat':
+        unawaited(ref.read(conversationsViewModelProvider.notifier).refresh());
     }
   }
 

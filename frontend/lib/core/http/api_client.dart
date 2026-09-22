@@ -53,7 +53,19 @@ class ApiClient {
     );
   }
 
-  /// 본문이 JSON 이 아닌 요청(사진 업로드 multipart)이 쓴다. 헤더는 부른 쪽이 단다.
+  /// 사진을 올리는 두 곳(학생증 3b · 프로필 사진 04-2)이 쓴다. 둘 다 파일 칸 이름이 `photo` 다.
+  /// 예전에는 저장소가 각자 `Authorization` 을 달았다 — 그 한 줄을 여기로 모았다(조각 4 리뷰 권고 4번).
+  Future<Result<http.Response>> sendMultipart(
+    String path,
+    Map<String, String> fields,
+    String photoPath,
+  ) =>
+      sendRequest((accessToken) async => http.MultipartRequest('POST', uri(path))
+        ..headers['Authorization'] = 'Bearer $accessToken'
+        ..fields.addAll(fields)
+        ..files.add(await http.MultipartFile.fromPath('photo', photoPath)));
+
+  /// 위 두 가지에 들지 않는 요청이 쓴다. 헤더는 부른 쪽이 단다.
   Future<Result<http.Response>> sendRequest(
     FutureOr<http.BaseRequest> Function(String accessToken) buildRequest,
   ) =>
