@@ -43,3 +43,12 @@ ACCEPTANCE_NOT_FOUND = "수락을 찾을 수 없어요"
 ACCEPTANCE_ALREADY_ANSWERED = "이미 답한 수락이에요"
 ACCEPTANCE_EXPIRED = "기한이 지났어요"
 UNKNOWN_NOTIFICATION_SETTING = "알 수 없는 알림 설정이에요"
+MATCH_CONFLICT = "매칭 정보를 다시 확인해 주세요"
+
+# 채팅 · 신뢰 확인 게이트
+CHAT_NOT_FOUND = "대화를 찾을 수 없어요"
+CHAT_CLOSED = "종료된 대화예요"
+CHAT_LEFT = "이미 나간 대화예요"
+CHAT_PARTNER_LEFT = "상대가 대화를 나갔어요"
+TRUST_ALREADY_ANSWERED = "이미 수락했어요"
+TRUST_DEADLINE_PASSED = "응답 기한이 지났어요"

@@ -122,6 +122,36 @@ async def test_create_match_says_it_is_new_only_when_it_inserted_a_row():
     assert match["id"] == "match-1"
 
 
+async def test_create_match_raises_409_when_the_reread_comes_back_empty():
+    """넣지도 못했는데 되읽기까지 비면(그 사이 매칭이 지워진 경우) 예전에는 IndexError 로 500 이 났다
+    — 조각 4 리뷰 권고 1번."""
+    import pytest
+    from fastapi import HTTPException
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=[])
+
+    repo, _ = _repo(handler)
+    with pytest.raises(HTTPException) as caught:
+        await repo.create_match("bbbb", "aaaa")
+
+    assert caught.value.status_code == 409
+
+
+async def test_issued_owners_query_has_an_explicit_limit():
+    """PostgREST db-max-rows 에 조용히 잘리면 이미 받은 사람이 빠져 카드가 두 번 나간다(권고 2번)."""
+    seen: list[httpx.QueryParams] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url.params)
+        return httpx.Response(200, json=[])
+
+    repo, _ = _repo(handler)
+    await repo.fetch_owners_issued_since(datetime(2026, 9, 22, tzinfo=timezone.utc))
+
+    assert int(seen[0]["limit"]) > 0
+
+
 async def test_create_match_upserts_so_a_second_accept_does_not_blow_up():
     """A→B, B→A 카드가 같은 날 나가면 양쪽이 각자 매칭을 만들려 한다.
     나중 쪽이 matches_pair_unique 로 500 나지 않게 기존 행을 그대로 받아야 한다."""

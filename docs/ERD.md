@@ -76,7 +76,7 @@ erDiagram
 | `profile_vectors` | 없음 | FastAPI 전용 |
 | `daily_cards` · `card_decisions` · `acceptance_responses` | 없음 | FastAPI 전용 — 카드 화면에는 상대 정보가 섞인다 |
 | `matches` | 당사자 (`profile_a` · `profile_b`) | 둘 다 알아도 되는 값만 있다 |
-| `match_participants` | 본인 행 (`profile_id`) | 상대의 게이트 응답·채팅방 나가기는 보이지 않는다 |
+| `match_participants` | 본인 행 (`profile_id`) | 이 테이블로는 상대 행을 못 읽는다. 상대의 수락·나가기는 `messages` 의 시스템 줄로 전해진다(§4) |
 | `messages` | 참여 중인 매칭의 메시지 | `exists (select 1 from match_participants mp where mp.match_id = messages.match_id and mp.profile_id = (select auth.uid()) and mp.left_at is null)` |
 | `push_tokens` | 없음 | FastAPI 전용 |
 | `notification_settings` | 본인 행 | |
@@ -314,15 +314,15 @@ erDiagram
         uuid profile_b FK
         timestamptz created_at "게이트 시계 시작 · 기한은 +48시간"
         timestamptz trust_passed_at "조각5 · 양쪽 수락 순간 · 둘 다 아는 사실"
-        timestamptz chat_closed_at "조각5 · 기한 도달 시에만 기록"
+        timestamptz chat_closed_at "조각5 · 기한 도달 시에만 · 한쪽이 나간 방은 안 닫는다"
     }
 
     match_participants {
         uuid match_id PK, FK "조각4"
         uuid profile_id PK, FK "조각4 · 본인 행만 조회"
-        trust_response trust_response "조각5 · null이면 미응답 · 상대에게 비공개"
+        trust_response trust_response "조각5 · accept 또는 null · 거절은 left_at 으로 남는다"
         timestamptz responded_at "조각5"
-        timestamptz left_at "조각5 · 채팅방 나가기 · 상대에게 비공개"
+        timestamptz left_at "조각5 · 채팅방 나가기(게이트 거절 포함) · 상대에게 시스템 줄로 보인다"
         timestamptz last_read_at "조각5 제안 · 방 진입·이탈 때 갱신 · 상대에게 비공개"
     }
 
@@ -330,6 +330,7 @@ erDiagram
         uuid id PK "조각5"
         uuid match_id FK
         uuid sender_id FK
+        text kind "text 말풍선 · left 나감 · trust_accept 수락 · 기본 text"
         text body "텍스트만"
         timestamptz created_at
     }
@@ -356,9 +357,10 @@ erDiagram
 ```
 
 - `matches` 는 `unique (profile_a, profile_b)` + `check (profile_a < profile_b)`
-- **당사자별 값은 `match_participants` 에 둔다.** `matches` 행은 두 사람이 다 읽으므로, 게이트 응답·나가기를 거기 두면 상대의 거절·나가기가 보인다(설계 §2.5 "상대에게 알리지 않음")
+- **당사자별 값은 `match_participants` 에 둔다.** `matches` 행은 두 사람이 다 읽으므로, 사람마다 다른 값(응답 시각·읽음·나간 시각)을 거기 두면 상대 것까지 딸려 보인다
+- **게이트 동작은 전부 상대에게 보인다(2026-09-22 사용자 결정 10·11).** 수락하면 `messages` 에 `kind='trust_accept'` 시스템 줄이, 나가면 `kind='left'` 시스템 줄이 남는다. 거절은 따로 저장하지 않는다 — **거절은 곧 채팅방 나가기**라서 `trust_response` 에는 `accept` 아니면 null 만 들어간다. 수락은 매칭 순간부터 할 수 있고 양쪽이 수락하면 48시간 전이라도 그 자리에서 공개된다
 - 게이트 판정(설계 §2.5): 기한(`created_at` + 48시간) 전에 양쪽이 accept → FastAPI가 `trust_passed_at` 기록 + 카카오톡 아이디 공유 + 실사진 공개. 기한까지 `trust_passed_at` 이 없으면 그때 `chat_closed_at` 을 기록하고 채팅을 닫는다
-- **`chat_closed_at` 은 기한이 됐을 때만 기록한다.** 거절 즉시 찍으면 상대가 거절을 추론한다
+- **`chat_closed_at` 은 기한이 됐을 때만 기록한다.** 단 **한쪽이라도 나간 매칭은 아예 닫지 않는다** — 닫을 사람이 없는데 닫으면 남은 사람의 지난 대화만 목록에서 사라진다. 닫는다는 것은 이 칸 하나를 찍는 것뿐이고 메시지는 지우지 않는다(조각 7 "잠긴 방"이 다시 쓴다)
 - 채팅방의 "신뢰 확인 완료" 카드(`trust-reveal-bubble`)는 메시지 행이 아니라 `matches.trust_passed_at` 으로 그린다
 - **읽음은 메시지가 아니라 `match_participants.last_read_at` 에 둔다.** `messages.read_at` 은 두 사람이 다 읽으므로, 상대가 조용히 나가면 내 메시지가 계속 안 읽힘으로 남아 나가기가 드러난다. 안 읽은 수는 상대가 보낸 메시지 중 `created_at` > 내 `last_read_at` 이고, 갱신은 메시지마다가 아니라 방에 들어올 때와 나갈 때 한 번씩이다(나갈 때도 갱신해야 방 안에서 받은 메시지가 안 읽음으로 남지 않는다). 상대에게 보이는 읽음 표시는 없다
 - 수락이 겹치는 경로 두 가지: A의 카드에서 A accept → B가 받은 수락함에서 응답(`acceptance_responses`), 또는 서로의 카드에서 둘 다 accept. 어느 쪽이든 양쪽 accept 가 되면 FastAPI가 `matches` 와 `match_participants` 2행을 만든다

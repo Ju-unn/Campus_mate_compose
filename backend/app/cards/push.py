@@ -13,7 +13,10 @@ _SCOPE = "https://www.googleapis.com/auth/firebase.messaging"
 _QUIET_START_HOUR = 22
 _QUIET_END_HOUR = 8
 # 카드 도착 알림은 지급 시각(07:00)이 조용한 시간 안이라 예외다 — 아니면 영영 못 간다.
-_QUIET_HOURS_EXEMPT = {"card_arrived"}
+# 채팅도 예외다(2026-09-22 사용자 결정, 조각 5 결정 5) — 대화는 밤에도 오간다.
+# 게이트 알림(trust_reminder · match_made)은 예외가 아니다. 대신 리마인드는 보낼 시각 자체를
+# 아침 8시로 밀어 두기 때문에 조용한 시간에 버려지지 않는다(chat/gate.py 의 reminder_at).
+_QUIET_HOURS_EXEMPT = {"card_arrived", "new_message"}
 
 
 class FcmSender:

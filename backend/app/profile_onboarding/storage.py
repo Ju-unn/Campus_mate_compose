@@ -83,3 +83,15 @@ class ProfilePhotoStorage:
         )
         response.raise_for_status()
         return response.content
+
+    async def create_signed_url(self, path: str, expires_in: int) -> str:
+        """비공개 버킷의 사진을 정해진 시간 동안만 볼 수 있는 URL 로 바꾼다.
+        조각 5 에서 신뢰 확인을 통과한 상대의 실사진을 내려보낼 때 쓴다(설계 §2.5)."""
+        response = await self._client.post(
+            f"{self._storage_url}/object/sign/profile-photos/{path}",
+            json={"expiresIn": expires_in},
+            headers={**self._headers, "Content-Type": "application/json"},
+        )
+        response.raise_for_status()
+        # 응답은 "/object/sign/..." 같은 상대 경로라 앞에 Storage 주소를 붙여야 열린다.
+        return f"{self._storage_url}{response.json()['signedURL']}"
