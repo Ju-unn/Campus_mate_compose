@@ -34,6 +34,7 @@ class ChatRoomUiState {
     this.isSending = false,
     this.hasLeft = false,
     this.sheetDismissed = false,
+    this.isDisconnected = false,
     this.errorMessage,
   });
 
@@ -53,6 +54,10 @@ class ChatRoomUiState {
 
   /// 이번 방문에 14f 시트를 닫았다. 다시 들어오면 또 뜬다(설계 §2.5).
   final bool sheetDismissed;
+
+  /// 실시간 통로가 끊겼다(백로그 19). 대화는 그대로 보이고 배너만 얹는다 —
+  /// 보낸 메시지는 HTTP 로 가서 끊긴 동안에도 들어간다. 못 받는 것은 상대의 줄뿐이다.
+  final bool isDisconnected;
   final String? errorMessage;
 
   bool get isEmpty => messages.isEmpty;
@@ -94,6 +99,7 @@ class ChatRoomUiState {
     bool? isSending,
     bool? hasLeft,
     bool? sheetDismissed,
+    bool? isDisconnected,
     String? errorMessage,
   }) {
     return ChatRoomUiState(
@@ -105,6 +111,7 @@ class ChatRoomUiState {
       isSending: isSending ?? this.isSending,
       hasLeft: hasLeft ?? this.hasLeft,
       sheetDismissed: sheetDismissed ?? this.sheetDismissed,
+      isDisconnected: isDisconnected ?? this.isDisconnected,
       // 덮어쓰기다 — null 로도 지워져야 한다.
       errorMessage: errorMessage,
     );

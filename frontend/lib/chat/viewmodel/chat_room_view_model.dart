@@ -22,6 +22,10 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
   final String _matchId;
 
   StreamSubscription<Message>? _subscription;
+
+  /// 구독 세대. 재연결 때 옛 구독이 늦게 뱉는 줄·오류를 걸러 낸다 —
+  /// 끊긴 채널은 닫는 데 시간이 걸려서 닫히기를 기다리지 않고 새로 건다.
+  int _generation = 0;
   bool _alive = true;
 
   @override
@@ -70,11 +74,8 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
     state = result.when(
       onSuccess: (page) => state.copyWith(
         isLoading: false,
-        // 조회하는 동안 구독이 붙여 둔 줄은 조회 결과에 없을 수 있다 — 덮어쓰지 않고 뒤에 잇는다.
-        messages: [
-          ...page.messages,
-          ...state.messages.where((held) => page.messages.every((row) => row.id != held.id)),
-        ],
+        // 조회하는 동안 구독이 붙여 둔 줄은 조회 결과에 없을 수 있다 — 덮어쓰지 않고 합친다.
+        messages: _merge(state.messages, page.messages),
         hasMore: page.hasMore,
       ),
       onFailure: (failure) =>
@@ -82,9 +83,55 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
     );
   }
 
+  /// 들고 있던 줄과 새로 읽은 줄을 id 로 겹치지 않게 합쳐 시간순으로 세운다.
+  /// 재연결 때는 위로 올려 읽어 둔 옛 줄이 남아 있어서 앞뒤로 그냥 붙이면 순서가 어긋난다 —
+  /// 서버 커서와 같은 `(created_at, id)` 순으로 맞춘다.
+  static List<Message> _merge(List<Message> held, List<Message> fetched) {
+    final byId = {for (final message in [...held, ...fetched]) message.id: message};
+    return byId.values.toList()
+      ..sort((a, b) {
+        final byTime = a.createdAt.compareTo(b.createdAt);
+        return byTime != 0 ? byTime : a.id.compareTo(b.id);
+      });
+  }
+
   /// 구독은 **화면이 살아 있는 동안만**. 끊는 것은 [build] 의 `onDispose` 가 한다.
   void _subscribe() {
-    _subscription ??= ref.read(messageStreamProvider).subscribe(_matchId).listen(_receive);
+    if (_subscription != null) {
+      return;
+    }
+    final generation = ++_generation;
+    _subscription = ref.read(messageStreamProvider).subscribe(_matchId).listen(
+          (message) => generation == _generation ? _receive(message) : null,
+          onError: (Object _) {
+            if (generation == _generation) {
+              _onDisconnected();
+            }
+          },
+        );
+  }
+
+  /// 실시간 통로가 끊겼다(백로그 19). 혼자 조용히 다시 붙지 않는다 —
+  /// 끊긴 동안 온 줄을 같이 가져와야 해서, 사용자가 누를 때 [reconnect] 한 번으로 묶는다.
+  void _onDisconnected() {
+    if (_alive) {
+      state = state.copyWith(isDisconnected: true);
+    }
+  }
+
+  /// 배너의 "다시 시도" 와 앱 복귀(백로그 18)가 같이 쓴다.
+  /// 구독을 새로 걸고 최근 50건을 다시 읽는다 — 끊긴 동안 들어온 줄은 구독으로는 영영 오지 않는다.
+  Future<void> reconnect() async {
+    if (!_alive) {
+      return;
+    }
+    // 닫히기를 기다리지 않는다 — 이미 끊긴 채널은 닫는 데 얼마가 걸릴지 모른다.
+    // 늦게 오는 줄은 세대 검사가 버린다.
+    unawaited(_subscription?.cancel());
+    _subscription = null;
+    state = state.copyWith(isDisconnected: false);
+    _subscribe();
+    await _loadFirstPage();
   }
 
   /// 내가 보낸 줄도 구독으로 한 번 더 돌아온다 — id 로 걸러 두 번 그리지 않는다.

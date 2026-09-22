@@ -143,6 +143,9 @@ class FakeMessageStream implements MessageStream {
   }
 
   void push(Message message) => _controller.add(message);
+
+  /// 통로가 끊긴 상황(백로그 19). 실제 구현은 Realtime 의 channelError·timedOut 을 이렇게 올린다.
+  void pushError() => _controller.addError(StateError('realtime channelError'));
 }
 
 extension _CancelHook<T> on Stream<T> {

@@ -182,6 +182,57 @@ void main() {
     );
   });
 
+  test('구독이 끊기면 배너 표시만 켜고 대화는 그대로 둔다', () async {
+    repository.messages = Success(MessagePage(messages: [messageFixture()], hasMore: false));
+    final container = containerFor();
+    await opened(container);
+
+    stream.pushError();
+    await Future<void>.delayed(Duration.zero);
+
+    final state = container.read(chatRoomViewModelProvider('m1'));
+    expect(state.isDisconnected, isTrue);
+    expect(state.messages, hasLength(1));
+  });
+
+  test('다시 시도하면 구독을 새로 걸고 못 받은 줄을 가져온다', () async {
+    repository.messages = Success(MessagePage(messages: [messageFixture(id: 'msg-1')], hasMore: false));
+    final container = containerFor();
+    await opened(container);
+    stream.pushError();
+    await Future<void>.delayed(Duration.zero);
+
+    // 끊긴 동안 들어온 줄은 구독으로는 영영 오지 않는다 — 재조회가 데려와야 한다.
+    repository.messages = Success(MessagePage(
+      messages: [messageFixture(id: 'msg-1'), messageFixture(id: 'msg-2', body: '그동안 온 줄')],
+      hasMore: false,
+    ));
+
+    await container.read(chatRoomViewModelProvider('m1').notifier).reconnect();
+    final state = container.read(chatRoomViewModelProvider('m1'));
+
+    expect(state.isDisconnected, isFalse);
+    expect(state.messages.map((message) => message.id), ['msg-1', 'msg-2']);
+    expect(stream.subscribed, ['m1', 'm1']);
+  });
+
+  test('재연결 재조회가 위로 올려 읽어 둔 옛 줄보다 앞에 끼어들지 않는다', () async {
+    final older = messageFixture(id: 'msg-0', createdAt: DateTime(2026, 9, 22, 9));
+    final newer = messageFixture(id: 'msg-5', createdAt: DateTime(2026, 9, 22, 15));
+    repository.messages = Success(MessagePage(messages: [older], hasMore: false));
+    final container = containerFor();
+    await opened(container);
+
+    repository.messages = Success(MessagePage(messages: [newer], hasMore: false));
+    await container.read(chatRoomViewModelProvider('m1').notifier).reconnect();
+
+    // 새로 읽은 50건을 앞에 그냥 붙이면 옛 줄이 아래로 내려간다.
+    expect(
+      container.read(chatRoomViewModelProvider('m1')).messages.map((message) => message.id),
+      ['msg-0', 'msg-5'],
+    );
+  });
+
   test('방을 못 읽으면 메시지도 읽지 않는다', () async {
     repository.room = const FailureResult(NotFoundFailure());
 

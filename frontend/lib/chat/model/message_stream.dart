@@ -8,6 +8,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// (조각 4 의 `PushMessaging` 과 같은 경계).
 abstract interface class MessageStream {
   /// 구독을 끊으면 채널도 닫힌다. 목록 화면은 구독하지 않는다(푸시 + 당겨서 새로고침).
+  ///
+  /// 통로가 끊기면 **스트림 오류**가 온다 — 받는 쪽은 그때 배너를 띄우고 다시 구독한다(백로그 19).
   Stream<Message> subscribe(String matchId);
 }
 
@@ -43,7 +45,14 @@ class RealtimeMessageStream implements MessageStream {
                 }
               },
             )
-            .subscribe();
+            // 끊김·타임아웃만 오류로 올린다. `closed` 는 우리가 [removeChannel] 한 뒤에도
+            // 오는 값이라 그것까지 받으면 화면을 닫을 때마다 "끊겼어요" 가 뜬다.
+            .subscribe((status, error) {
+          if (status == RealtimeSubscribeStatus.channelError ||
+              status == RealtimeSubscribeStatus.timedOut) {
+            controller.addError(error ?? StateError('realtime ${status.name}'));
+          }
+        });
       },
       onCancel: () async {
         final open = channel;

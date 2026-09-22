@@ -133,6 +133,21 @@ void main() {
     expect(repository.leaveCount, 0);
   });
 
+  testWidgets('구독이 끊기면 배너가 뜨고 다시 시도로 메시지를 다시 읽는다', (tester) async {
+    await pump(tester);
+    final pagesBefore = repository.pages.length;
+
+    stream.pushError();
+    await tester.pumpAndSettle();
+    expect(find.text('연결이 끊겼어요'), findsOneWidget);
+
+    await tester.tap(find.text('다시 시도'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('연결이 끊겼어요'), findsNothing);
+    expect(repository.pages.length, pagesBefore + 1);
+  });
+
   testWidgets('통과한 방에는 신뢰 확인 카드와 카카오톡 아이디가 붙는다', (tester) async {
     repository.room = Success(roomFixture(passed: true, kakaoId: 'fox_rain'));
 
