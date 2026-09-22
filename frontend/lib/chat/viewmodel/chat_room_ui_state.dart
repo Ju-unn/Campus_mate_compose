@@ -82,6 +82,9 @@ class ChatRoomUiState {
     return sheetDismissed ? TrustGateStage.ending : TrustGateStage.sheet;
   }
 
+  /// **[errorMessage] 만 규칙이 다르다** — 넘기지 않으면 유지가 아니라 지워진다.
+  /// 오류 문구는 "다음 동작이 시작되면 사라져야" 하는 값이라 그 편이 부르는 쪽 실수가 적다.
+  /// 대신 문구를 남겨 둔 채 다른 칸만 바꾸고 싶다면 `errorMessage` 를 다시 실어야 한다.
   ChatRoomUiState copyWith({
     bool? isLoading,
     ChatRoom? room,
