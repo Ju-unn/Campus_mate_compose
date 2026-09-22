@@ -216,6 +216,17 @@ void main() {
     expect(stream.subscribed, ['m1', 'm1']);
   });
 
+  test('다시 시도는 머리말도 다시 읽는다', () async {
+    final container = containerFor();
+    await opened(container);
+
+    // 끊긴 사이에 상대가 나갔다. 머리말을 안 읽으면 입력창이 열린 채로 남아 보내기가 409 로 막힌다.
+    repository.room = Success(roomFixture(partnerLeft: true));
+    await container.read(chatRoomViewModelProvider('m1').notifier).reconnect();
+
+    expect(container.read(chatRoomViewModelProvider('m1')).isPartnerGone, isTrue);
+  });
+
   test('재연결 재조회가 위로 올려 읽어 둔 옛 줄보다 앞에 끼어들지 않는다', () async {
     final older = messageFixture(id: 'msg-0', createdAt: DateTime(2026, 9, 22, 9));
     final newer = messageFixture(id: 'msg-5', createdAt: DateTime(2026, 9, 22, 15));

@@ -120,7 +120,9 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
   }
 
   /// 배너의 "다시 시도" 와 앱 복귀(백로그 18)가 같이 쓴다.
-  /// 구독을 새로 걸고 최근 50건을 다시 읽는다 — 끊긴 동안 들어온 줄은 구독으로는 영영 오지 않는다.
+  /// 구독을 새로 걸고 **머리말과** 최근 50건을 다시 읽는다 — 끊긴 동안 들어온 줄은 구독으로는
+  /// 영영 오지 않고, 그 사이에 상대가 나가거나 게이트가 통과됐을 수도 있다(머리말을 안 읽으면
+  /// 입력창이 열린 채로 남아 409 가 나고 통과 카드도 안 뜬다).
   Future<void> reconnect() async {
     if (!_alive) {
       return;
@@ -131,6 +133,7 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
     _subscription = null;
     state = state.copyWith(isDisconnected: false);
     _subscribe();
+    await _loadRoom();
     await _loadFirstPage();
   }
 
