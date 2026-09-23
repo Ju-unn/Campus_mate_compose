@@ -58,12 +58,27 @@ void main() {
     expect(find.text('프로필 자세히 보기'), findsOneWidget);
   });
 
-  testWidgets('후보 풀이 비면 11b 문구를 보여준다', (tester) async {
+  testWidgets('후보 풀이 비면 11b 문구와 알림 안내를 보여준다', (tester) async {
     final repository = FakeCardRepository()
       ..today = const Success(TodayCards(cards: [], candidatePoolEmpty: true));
 
     await pump(tester, repository);
 
     expect(find.text('지금은 소개할 사람이 없어요'), findsOneWidget);
+    expect(find.text('새로운 사람이 오면 알림을 보내드려요'), findsOneWidget);
+  });
+
+  testWidgets('오늘 몫이 끝나면 카운트다운과 "내일 만날 사람들" 띠를 보여준다', (tester) async {
+    // pen `i4VFS` — 띠는 눌러도 열리지 않는다는 말까지 같이 보여준다.
+    final repository = FakeCardRepository()
+      ..today = Success(TodayCards(cards: const [], nextIssueAt: DateTime.now().add(
+        const Duration(hours: 3),
+      )));
+
+    await pump(tester, repository);
+
+    expect(find.text('오늘 카드는 확인했어요'), findsOneWidget);
+    expect(find.text('내일 만날 사람들'), findsOneWidget);
+    expect(find.text('탭해도 열리지 않아요'), findsOneWidget);
   });
 }

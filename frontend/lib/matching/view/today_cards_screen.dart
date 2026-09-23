@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show ImageFilter;
 
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
@@ -25,15 +26,11 @@ class TodayCardsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(todayCardsViewModelProvider);
     return Scaffold(
+      // 탭 앱바 제목은 x20 에서 시작한다(pen). 오른쪽 아이콘은 없다 —
+      // 알림 종은 "메인" 탭에만 두기로 했고(2026-09-23 사용자 결정), 설정 진입점은 따로 정해진다.
       appBar: AppBar(
+        titleSpacing: 20,
         title: Text('오늘의 카드', style: AppTypography.navTitle),
-        actions: [
-          IconButton(
-            // 설정(16) 진입점. 내 프로필(15)이 생기면 그리로 옮긴다(Part A 가정 3).
-            icon: const Icon(AppIcons.settings),
-            onPressed: () => context.push(AppRoutes.settings),
-          ),
-        ],
       ),
       bottomNavigationBar: const AppBottomNav(current: AppTab.today),
       body: SafeArea(
@@ -102,6 +99,7 @@ class _CardList extends ConsumerWidget {
 }
 
 /// 화면 11 — 오늘 몫은 끝났고 다음 지급일을 기다린다.
+/// 세로 간격 6 · 22 · 24 · 14 는 pen `i4VFS` 실측값이라 간격 토큰과 맞지 않는다.
 class _WaitingPanel extends StatelessWidget {
   const _WaitingPanel({required this.nextIssueAt});
 
@@ -110,19 +108,78 @@ class _WaitingPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _CenteredPanel(
+      horizontalPadding: AppSpacing.md,
+      // 가운데로 모으면 시안보다 아래로 내려간다 — 앱바 아래 28 에서 시작하고 남는 공간은 아래에 둔다.
+      topPadding: 28,
       children: [
-        Text('오늘 카드는 확인했어요', style: AppTypography.title.copyWith(color: AppColors.ink)),
-        const SizedBox(height: AppSpacing.xs),
+        Text(
+          '오늘 카드는 확인했어요',
+          style: AppTypography.title.copyWith(color: AppColors.ink, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 6),
         Text(
           _waitingSubtitle(nextIssueAt),
           textAlign: TextAlign.center,
-          style: AppTypography.body.copyWith(color: AppColors.muted),
+          style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
         ),
-        const SizedBox(height: AppSpacing.lg),
+        const SizedBox(height: 22),
         if (nextIssueAt != null) _CountdownText(target: nextIssueAt!),
         const SizedBox(height: AppSpacing.lg),
-        Image.asset('assets/images/mascot-male-waiting.png', width: 120),
+        Image.asset('assets/images/mascot-male-waiting.png', width: 88),
+        const SizedBox(height: 14),
+        const _TomorrowBand(),
       ],
+    );
+  }
+}
+
+/// "내일 만날 사람들" 띠(pen `i4VFS`). 흐린 사진 위에 잉크 막을 덮어 **얼굴이 보이지 않는다** —
+/// 눌러도 아무 일도 없는 장식이라 탭 영역을 두지 않는다.
+///
+/// 원본이 1122×1402 라 그대로 디코드하면 6MB 를 물고 있는다. 화면에 필요한 폭은 360 남짓이라
+/// [cacheWidth] 720(2배 밀도)으로 줄여 받는다. 불투명도는 [Opacity] 레이어 대신 `Image.asset` 이
+/// 직접 처리하고, 옆 카운트다운이 1초마다 다시 그릴 때 블러까지 다시 계산되지 않게
+/// [RepaintBoundary] 로 끊는다.
+class _TomorrowBand extends StatelessWidget {
+  const _TomorrowBand();
+
+  @override
+  Widget build(BuildContext context) {
+    return RepaintBoundary(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        child: Container(
+          width: double.infinity,
+          height: 116,
+          color: AppColors.surfaceStrong,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              ImageFiltered(
+                imageFilter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                child: Image.asset(
+                  'assets/images/person-f4-blind-v1.png',
+                  fit: BoxFit.cover,
+                  cacheWidth: 720,
+                  opacity: const AlwaysStoppedAnimation<double>(0.55),
+                ),
+              ),
+              ColoredBox(color: AppColors.surfaceInk.withValues(alpha: 0.55)),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('내일 만날 사람들', style: AppTypography.subtitle.copyWith(color: AppColors.onInk)),
+                  const SizedBox(height: AppSpacing.xxs),
+                  Text(
+                    '탭해도 열리지 않아요',
+                    style: AppTypography.caption.copyWith(color: AppColors.onInkMuted),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -187,24 +244,132 @@ class _CountdownTextState extends State<_CountdownText> {
   }
 }
 
-/// 화면 11b — 후보 풀 자체가 비었다. 초대·커뮤니티 버튼은 갈 곳이 아직 없어 넣지 않는다(백로그).
+/// 화면 11b(pen `iQZoa`) — 후보 풀 자체가 비었다.
+/// 초대·커뮤니티 버튼은 갈 곳이 아직 없어 넣지 않는다(백로그).
 class _NoCandidatesPanel extends StatelessWidget {
   const _NoCandidatesPanel();
 
   @override
   Widget build(BuildContext context) {
     return _CenteredPanel(
+      horizontalPadding: 20,
       children: [
-        Text('지금은 소개할 사람이 없어요', style: AppTypography.title.copyWith(color: AppColors.ink)),
+        const _EmptyStage(),
+        const SizedBox(height: AppSpacing.lg),
+        Text(
+          '지금은 소개할 사람이 없어요',
+          style: AppTypography.title.copyWith(color: AppColors.ink, fontWeight: FontWeight.w700),
+        ),
         const SizedBox(height: AppSpacing.xs),
         Text(
           '지금 만날 수 있는 분들은 모두 소개해드렸어요.\n새로운 사람이 들어오면 바로 알려드릴게요.',
           textAlign: TextAlign.center,
-          style: AppTypography.body.copyWith(color: AppColors.muted),
+          style: AppTypography.bodySmall.copyWith(color: AppColors.muted, height: 1.5),
         ),
         const SizedBox(height: AppSpacing.lg),
-        Image.asset('assets/images/mascot-female-sad.png', width: 120),
+        const _NotifyNotice(),
       ],
+    );
+  }
+}
+
+/// 11b 그림 무대(pen `iQZoa`). 좌표·크기는 전부 시안 실측값이고 무대 왼쪽 위가 기준이다.
+class _EmptyStage extends StatelessWidget {
+  const _EmptyStage();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 240,
+      height: 200,
+      child: Stack(
+        children: [
+          Positioned(
+            left: 30,
+            top: 10,
+            child: Container(
+              width: 180,
+              height: 180,
+              decoration: const BoxDecoration(color: AppColors.primaryWash, shape: BoxShape.circle),
+            ),
+          ),
+          Positioned(
+            left: 34,
+            top: 28,
+            child: Image.asset('assets/images/mascot-female-sad.png', width: 150),
+          ),
+          // 기다리는 쪽이 앞에 선다 — 겹침 순서가 뒤집히면 둘 다 잘려 보인다.
+          Positioned(
+            left: 140,
+            top: 88,
+            child: Image.asset('assets/images/mascot-male-waiting.png', width: 96),
+          ),
+          const Positioned(left: 18, top: 40, child: _FloatingHeart(size: 18, opacity: 0.35)),
+          const Positioned(left: 196, top: 22, child: _FloatingHeart(size: 22, opacity: 0.6)),
+          const Positioned(left: 30, top: 168, child: _FloatingHeart(size: 14, opacity: 0.25)),
+        ],
+      ),
+    );
+  }
+}
+
+class _FloatingHeart extends StatelessWidget {
+  const _FloatingHeart({required this.size, required this.opacity});
+
+  final double size;
+  final double opacity;
+
+  @override
+  Widget build(BuildContext context) {
+    return Icon(
+      AppIcons.heart,
+      size: size,
+      color: AppColors.primary.withValues(alpha: opacity),
+    );
+  }
+}
+
+/// 11b 알림 안내 상자(pen `iQZoa`). 알림 설정으로 가는 길은 아직 없다 — 안내만 한다.
+class _NotifyNotice extends StatelessWidget {
+  const _NotifyNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceSoft,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(color: AppColors.primaryWash, shape: BoxShape.circle),
+            child: const Icon(AppIcons.bellRing, size: 20, color: AppColors.primaryText),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '새로운 사람이 오면 알림을 보내드려요',
+                  style: AppTypography.labelSmall.copyWith(color: AppColors.ink),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '알림은 설정에서 끄고 켤 수 있어요',
+                  style: AppTypography.caption.copyWith(color: AppColors.muted),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -235,9 +400,19 @@ class _FailedPanel extends ConsumerWidget {
 
 /// 당겨서 새로고침이 항상 먹게 스크롤을 남긴 가운데 정렬 패널.
 class _CenteredPanel extends StatelessWidget {
-  const _CenteredPanel({required this.children});
+  const _CenteredPanel({
+    required this.children,
+    this.horizontalPadding = AppSpacing.lg,
+    this.topPadding,
+  });
 
   final List<Widget> children;
+
+  /// 11 은 16, 11b 는 20 이다(pen `i4VFS`·`iQZoa`). 나머지 패널은 화면 기본 여백을 쓴다.
+  final double horizontalPadding;
+
+  /// 값을 주면 가운데 정렬 대신 **위에서부터** 쌓고 그만큼 띄운다(화면 11).
+  final double? topPadding;
 
   @override
   Widget build(BuildContext context) {
@@ -247,10 +422,15 @@ class _CenteredPanel extends StatelessWidget {
         child: ConstrainedBox(
           constraints: BoxConstraints(minHeight: constraints.maxHeight),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+            padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: children,
+              mainAxisAlignment: topPadding == null
+                  ? MainAxisAlignment.center
+                  : MainAxisAlignment.start,
+              children: [
+                if (topPadding != null) SizedBox(height: topPadding),
+                ...children,
+              ],
             ),
           ),
         ),
