@@ -132,6 +132,15 @@ class _AvatarBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Ink 는 가장 가까운 Material 에 칠해진다. 이게 없으면 Scaffold 에 칠해져 사진 뒤에 깔리고
+    // 흰 글씨만 떠 보여, 누를 수 있는 버튼인지·골랐는지 알 수 없었다(2026-09-23 실기기 테스트).
+    return Material(
+      type: MaterialType.transparency,
+      child: _inkWell(),
+    );
+  }
+
+  Widget _inkWell() {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppRadius.pill),
