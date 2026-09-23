@@ -5,6 +5,7 @@ import 'package:campus_mate/common/failure.dart';
 const String _chatClosed = '종료된 대화예요';
 const String _chatLeft = '이미 나간 대화예요';
 const String _trustDeadlinePassed = '응답 기한이 지났어요';
+const String _trustAlreadyAnswered = '이미 수락했어요';
 
 /// 기한이 지난 것과 이미 닫힌 것은 **사용자에게 같은 상황**이다 — 문장을 하나로 묶는다.
 const String gateOverMessage = '응답 기한이 지나 이 대화는 종료됐어요';
@@ -18,3 +19,8 @@ String chatFailureMessage(Failure failure) {
 /// 나가기를 두 번 눌렀거나 재시도한 경우. **이미 나갔다면 원하던 결과가 이미 났다** —
 /// 실패로 다루면 목록으로 못 돌아가고 방에 갇힌다.
 bool isAlreadyLeft(Failure failure) => failure.toDisplayMessage() == _chatLeft;
+
+/// 수락을 두 번 보냈다. **이미 수락돼 있으면 원하던 결과가 이미 났다** —
+/// 오류로 띄우면 수락해 놓고 실패한 것처럼 보인다.
+bool isTrustAlreadyAnswered(Failure failure) =>
+    failure.toDisplayMessage() == _trustAlreadyAnswered;

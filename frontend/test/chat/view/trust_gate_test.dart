@@ -77,6 +77,31 @@ void main() {
     expect(find.text('거절하고 나가기'), findsOneWidget);
   });
 
+  testWidgets('시트는 공유할 내 아이디를 보여주고 수락은 다이얼로그 없이 바로 간다', (tester) async {
+    // pen `p0XJA6` 에는 확인 다이얼로그가 없다 — 아이디까지 보여 준 시트가 곧 확인이다.
+    // 배너(14g)는 그대로 한 번 더 묻는다(위 테스트).
+    repository.room = Success(roomFixture(createdAt: hoursAgo(25), myKakaoId: 'fox_rain_me'));
+    await pump(tester);
+
+    expect(find.text('공유할 카카오톡 아이디'), findsOneWidget);
+    expect(find.text('fox_rain_me'), findsOneWidget);
+
+    await tester.tap(find.text('수락하고 공유하기'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('카카오톡 아이디·실사진 공개를 수락할까요?'), findsNothing);
+    expect(repository.trustCount, 1);
+  });
+
+  testWidgets('내 아이디를 못 받았으면 빈 칸 대신 자리를 보여준다', (tester) async {
+    // 서버 배포 전(응답에 my_kakao_id 가 없음)에도 시트가 무너지지 않아야 한다.
+    repository.room = Success(roomFixture(createdAt: hoursAgo(25)));
+    await pump(tester);
+
+    expect(find.text('공유할 카카오톡 아이디'), findsOneWidget);
+    expect(find.text('—'), findsOneWidget);
+  });
+
   testWidgets('시트를 닫으면 종료 예정 배너로 바뀐다', (tester) async {
     repository.room = Success(roomFixture(createdAt: hoursAgo(25)));
     await pump(tester);
