@@ -19,6 +19,7 @@ import 'package:campus_mate/matching/view/today_cards_screen.dart';
 import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:campus_mate/profile/view/appearance_type_screen.dart';
 import 'package:campus_mate/profile/view/avatar_generation_screen.dart';
+import 'package:campus_mate/profile/view/avatar_source_screen.dart';
 import 'package:campus_mate/profile/view/basic_info_screen.dart';
 import 'package:campus_mate/profile/view/bio_draft_loading_screen.dart';
 import 'package:campus_mate/profile/view/ideal_conditions_screen.dart';
@@ -123,6 +124,7 @@ abstract final class AppRouter {
       GoRoute(path: AppRoutes.onboardingBasicInfo, builder: (context, state) => const BasicInfoScreen()),
       GoRoute(path: AppRoutes.onboardingKakaoId, builder: (context, state) => const KakaoIdScreen()),
       GoRoute(path: AppRoutes.onboardingPhotos, builder: (context, state) => const PhotosScreen()),
+      GoRoute(path: AppRoutes.onboardingAvatarSource, builder: (context, state) => const AvatarSourceScreen()),
       GoRoute(path: AppRoutes.onboardingAvatar, builder: (context, state) => const AvatarGenerationScreen()),
       GoRoute(
         path: AppRoutes.onboardingAppearanceType,

@@ -31,7 +31,9 @@ class AuthRedirect {
     }
     final onboardingTarget = _onboardingTarget();
     if (onboardingTarget != null) {
-      return location == onboardingTarget ? null : onboardingTarget;
+      // 한 단계가 화면 둘로 나뉜 경우(04-2 → 04-3) 아래 경로도 같은 단계로 본다.
+      final isSameStep = location == onboardingTarget || location.startsWith('$onboardingTarget/');
+      return isSameStep ? null : onboardingTarget;
     }
     if (_isBeforeHome(location)) {
       return AppRoutes.home;
@@ -74,13 +76,22 @@ class AuthRedirect {
         location == AppRoutes.splash ||
         location == AppRoutes.studentVerification ||
         location == AppRoutes.schoolInfo ||
-        _onboardingRoutes.contains(location);
+        _isOnboardingRoute(location);
+  }
+
+  /// 아래 경로도 그 온보딩 화면으로 본다 — `_resolveForMember` 와 **같은 규칙**이어야 한다.
+  /// 규칙이 갈라지면 `/onboarding/photos/avatar-source` 같은 화면이 한쪽에서만 온보딩이 된다.
+  bool _isOnboardingRoute(String location) {
+    return _onboardingRoutes.any(
+      (route) => location == route || location.startsWith('$route/'),
+    );
   }
 
   static const _onboardingRoutes = <String>{
     AppRoutes.onboardingBasicInfo,
     AppRoutes.onboardingKakaoId,
     AppRoutes.onboardingPhotos,
+    AppRoutes.onboardingAvatarSource,
     AppRoutes.onboardingAvatar,
     AppRoutes.onboardingAppearanceType,
     AppRoutes.onboardingInterests,

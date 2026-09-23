@@ -53,6 +53,13 @@ void main() {
     test('온보딩 화면에도 머물지 않는다', () {
       expect(redirect.resolve(AppRoutes.onboardingBasicInfo), AppRoutes.home);
     });
+
+    test('온보딩 화면의 아래 경로에도 머물지 않는다', () {
+      // 04-2 아래에 04-3 이 붙는 것처럼 한 단계가 화면 둘로 나뉜 경우다.
+      // "다음 단계로 묶는 규칙"과 "홈 앞 화면 판정"이 갈라지면 여기서 걸린다.
+      expect(redirect.resolve(AppRoutes.onboardingAvatarSource), AppRoutes.home);
+      expect(redirect.resolve('${AppRoutes.onboardingPhotos}/무엇이든'), AppRoutes.home);
+    });
   });
 
   group('게이트를 통과하지 못한 사용자', () {
@@ -98,6 +105,24 @@ void main() {
       const redirect = AuthRedirect(true, VerificationGate.complete, OnboardingStep.basicInfo);
 
       expect(redirect.resolve(AppRoutes.onboardingBio), AppRoutes.onboardingBasicInfo);
+    });
+
+    test('photos 단계에서는 04-3 아바타 사진 고르기에 머물 수 있다', () {
+      const redirect = AuthRedirect(true, VerificationGate.complete, OnboardingStep.photos);
+
+      expect(redirect.resolve(AppRoutes.onboardingAvatarSource), isNull);
+    });
+
+    test('photos 가 끝났으면 04-3 에서 다음 단계로 보낸다', () {
+      const redirect = AuthRedirect(true, VerificationGate.complete, OnboardingStep.avatar);
+
+      expect(redirect.resolve(AppRoutes.onboardingAvatarSource), AppRoutes.onboardingAvatar);
+    });
+
+    test('온보딩을 마쳤으면 04-3 에서 홈으로 보낸다', () {
+      const redirect = AuthRedirect(true, VerificationGate.complete, OnboardingStep.complete);
+
+      expect(redirect.resolve(AppRoutes.onboardingAvatarSource), AppRoutes.home);
     });
   });
 }
