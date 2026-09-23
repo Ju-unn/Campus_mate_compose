@@ -223,22 +223,38 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
     }
   }
 
+  bool _acceptingTrust = false;
+
   /// 신뢰 확인 수락(결정 10). 매칭 순간부터 누를 수 있고 취소는 없다.
+  ///
+  /// 시트 버튼과 배너 버튼이 같은 길을 쓰고 응답이 오기 전에 한 번 더 눌릴 수 있다 —
+  /// 보내는 중이면 두 번째 호출은 그냥 버린다.
   Future<void> acceptTrust() async {
-    final result = await _repository.acceptTrust(_matchId);
-    if (!_alive) {
+    if (_acceptingTrust) {
       return;
     }
-    final failureMessage = result.when(
-      onSuccess: (_) => null,
-      onFailure: (failure) => chatFailureMessage(failure),
-    );
-    if (failureMessage != null) {
-      state = state.copyWith(errorMessage: failureMessage);
-      return;
+    _acceptingTrust = true;
+    // 응답을 읽다 예외가 나도 플래그는 풀어야 한다 — 굳으면 그 방에서 다시 수락할 수 없다.
+    try {
+      final result = await _repository.acceptTrust(_matchId);
+      if (!_alive) {
+        return;
+      }
+      final failureMessage = result.when(
+        onSuccess: (_) => null,
+        // 이미 수락된 방이면 원하던 결과가 이미 났다 — 방만 다시 읽으면 된다.
+        onFailure: (failure) =>
+            isTrustAlreadyAnswered(failure) ? null : chatFailureMessage(failure),
+      );
+      if (failureMessage != null) {
+        state = state.copyWith(errorMessage: failureMessage);
+        return;
+      }
+      // 카카오톡 아이디·실사진은 방을 다시 읽어야 내려온다(통과 전에는 키 자체가 없다).
+      await _loadRoom();
+    } finally {
+      _acceptingTrust = false;
     }
-    // 카카오톡 아이디·실사진은 방을 다시 읽어야 내려온다(통과 전에는 키 자체가 없다).
-    await _loadRoom();
   }
 
   /// 시트를 스와이프로 닫았다. 강제가 아니라서 닫으면 14h 배너로 바뀐다.

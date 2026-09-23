@@ -168,6 +168,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
     }
     _sheetShown = true;
     final deadlineAt = state.room!.gate.deadlineAt;
+    final myKakaoId = state.room!.myKakaoId;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) {
         return;
@@ -176,11 +177,16 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
         context: context,
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
+        // 기본 딤(0.8)은 시안보다 어둡다 — 모달 딤 토큰(0.5)을 쓴다.
+        barrierColor: AppColors.scrim,
         builder: (sheetContext) => TrustGateSheet(
           deadlineAt: deadlineAt,
+          myKakaoId: myKakaoId,
           onAccept: () {
             Navigator.of(sheetContext).pop();
-            unawaited(_accept());
+            // 시트는 확인 다이얼로그를 거치지 않는다 — 공유할 아이디까지 보여 준 시트가
+            // 이미 확인 절차다(pen `p0XJA6` 에 다이얼로그가 없다). 14g 배너는 그대로 한 번 더 묻는다.
+            unawaited(_viewModel.acceptTrust());
           },
           onLeave: () {
             Navigator.of(sheetContext).pop();

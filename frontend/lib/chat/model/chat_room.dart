@@ -54,6 +54,7 @@ class ChatRoom {
     required this.createdAt,
     required this.gate,
     this.kakaoId,
+    this.myKakaoId,
     this.photoUrls = const [],
   });
 
@@ -63,7 +64,13 @@ class ChatRoom {
   /// 매칭 성립 시각. 24시간 경과 판정과 카운트다운이 여기서 나온다.
   final DateTime createdAt;
   final TrustGate gate;
+
+  /// **상대** 카카오톡 아이디. 게이트를 통과하기 전에는 null 이다.
   final String? kakaoId;
+
+  /// **내** 카카오톡 아이디. 14f 시트가 "이걸 공유합니다" 로 보여준다 —
+  /// 게이트와 상관없이 오고, 앱은 `profile_private` 를 직접 읽을 수 없어 서버가 내려준다.
+  final String? myKakaoId;
 
   /// 상대 실사진 서명 URL. 헤더 아바타가 첫 장으로 바뀐다.
   final List<String> photoUrls;
@@ -78,6 +85,7 @@ class ChatRoom {
       createdAt: DateTime.parse(json['created_at'] as String).toLocal(),
       gate: TrustGate.fromJson(json['gate'] as Map<String, dynamic>),
       kakaoId: json['kakao_id'] as String?,
+      myKakaoId: json['my_kakao_id'] as String?,
       photoUrls:
           (json['photo_urls'] as List<dynamic>? ?? []).map((url) => url as String).toList(),
     );
