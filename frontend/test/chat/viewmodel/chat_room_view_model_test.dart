@@ -169,6 +169,24 @@ void main() {
     expect(state.stageAt(DateTime.now()), TrustGateStage.revealed);
   });
 
+  test('수락 중에 예외가 나도 다시 누를 수 있다', () async {
+    // 보내는 중 표시가 굳으면 그 방에서는 다시 수락할 길이 없다.
+    final container = containerFor();
+    await opened(container);
+    repository.throwOnTrust = true;
+    final viewModel = container.read(chatRoomViewModelProvider('m1').notifier);
+
+    await expectLater(viewModel.acceptTrust(), throwsStateError);
+
+    repository.throwOnTrust = false;
+    repository.trustResult = const Success(TrustAcceptOutcome(passed: true, kakaoId: 'fox_rain'));
+    repository.room = Success(roomFixture(passed: true, kakaoId: 'fox_rain'));
+    await viewModel.acceptTrust();
+
+    expect(repository.trustCount, 2);
+    expect(container.read(chatRoomViewModelProvider('m1')).room!.kakaoId, 'fox_rain');
+  });
+
   test('기한이 지났다는 409 는 종료 안내와 같은 문구로 보여준다', () async {
     repository.trustResult = const FailureResult(ServerRejectedFailure('응답 기한이 지났어요'));
     final container = containerFor();

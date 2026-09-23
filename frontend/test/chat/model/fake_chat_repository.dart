@@ -22,6 +22,9 @@ class FakeChatRepository implements ChatRepository {
   int leaveCount = 0;
   int trustCount = 0;
 
+  /// 응답을 읽다 터지는 경우. `Result` 로 감싸지지 않고 그대로 올라온다.
+  bool throwOnTrust = false;
+
   /// 조회 중에 구독 줄이 들어오는 상황을 만들 때 쓴다.
   void Function()? onFetchMessages;
 
@@ -63,6 +66,9 @@ class FakeChatRepository implements ChatRepository {
   @override
   Future<Result<TrustAcceptOutcome>> acceptTrust(String matchId) async {
     trustCount += 1;
+    if (throwOnTrust) {
+      throw StateError('boom');
+    }
     return trustResult;
   }
 }
@@ -77,6 +83,7 @@ ChatRoom roomFixture({
   bool passed = false,
   bool partnerLeft = false,
   String? kakaoId,
+  String? myKakaoId,
   List<String> photoUrls = const [],
 }) {
   final created = createdAt ?? DateTime.now();
@@ -91,6 +98,7 @@ ChatRoom roomFixture({
       myResponse: myResponse,
     ),
     kakaoId: kakaoId,
+    myKakaoId: myKakaoId,
     photoUrls: photoUrls,
   );
 }

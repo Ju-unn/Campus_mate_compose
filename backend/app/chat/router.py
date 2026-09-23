@@ -184,6 +184,9 @@ async def get_chat_room(match_id: str, wiring: _Wiring = Depends(_wire)) -> dict
             "avatar_url": _avatar_url(profile, wiring.settings.supabase_url),
         },
         "gate": _gate_state(match, mine, partner, now),
+        # 내 아이디는 게이트와 상관없이 내려간다 — 14f 시트가 "이 아이디를 공유합니다" 로 보여준다.
+        # 앱은 profile_private 를 직접 읽을 수 없어 본인 것도 FastAPI 를 거친다(ERD §11-20).
+        "my_kakao_id": await wiring.repo.fetch_kakao_id(wiring.profile_id),
     }
     if match["trust_passed_at"]:
         # 여기까지 와야 연락처와 실사진이 나간다(설계 §2.5). 통과 전에는 키 자체가 응답에 없다.

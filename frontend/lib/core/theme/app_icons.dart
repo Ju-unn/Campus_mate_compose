@@ -19,6 +19,12 @@ abstract final class AppIcons {
   static const IconData userX = LucideIcons.userX;
   static const IconData settings = LucideIcons.settings;
   static const IconData bell = LucideIcons.bell;
+
+  /// 11b 알림 안내 상자(pen `iQZoa`) — 켜져 있는 알림이라 `bell` 과 그림이 다르다
+  static const IconData bellRing = LucideIcons.bellRing;
+
+  /// 14f 남은 시간 상자(pen `p0XJA6`). `timer` 는 시안이 쓰지 않는 모래시계 쪽이다
+  static const IconData clock3 = LucideIcons.clock3;
   static const IconData arrowLeft = LucideIcons.arrowLeft;
   static const IconData ellipsis = LucideIcons.ellipsis;
   static const IconData camera = LucideIcons.camera;

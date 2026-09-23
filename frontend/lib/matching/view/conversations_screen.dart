@@ -35,7 +35,8 @@ class ConversationsScreen extends ConsumerWidget {
     });
 
     return Scaffold(
-      appBar: AppBar(title: Text('대화', style: AppTypography.navTitle)),
+      // 탭 앱바 제목은 x20 에서 시작한다(pen).
+      appBar: AppBar(titleSpacing: 20, title: Text('대화', style: AppTypography.navTitle)),
       bottomNavigationBar: const AppBottomNav(current: AppTab.chat),
       body: const SafeArea(child: _Body()),
     );
@@ -177,12 +178,20 @@ class _EmptyState extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text('아직 시작된 대화가 없어요', style: AppTypography.title.copyWith(color: AppColors.ink)),
-            const SizedBox(height: AppSpacing.xs),
+            // pen `LD7Kb` — 마스코트 120, 줄 사이는 전부 12 다.
+            Image.asset('assets/images/mascot-female.png', width: 120),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              '아직 시작된 대화가 없어요',
+              textAlign: TextAlign.center,
+              style: AppTypography.subtitle
+                  .copyWith(color: AppColors.ink, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: AppSpacing.sm),
             Text(
               '서로 수락하면 여기에서 대화를 시작할 수 있어요.',
               textAlign: TextAlign.center,
-              style: AppTypography.body.copyWith(color: AppColors.muted),
+              style: AppTypography.bodySmall.copyWith(color: AppColors.muted, height: 1.5),
             ),
             if (errorMessage != null) ...[
               const SizedBox(height: AppSpacing.md),
