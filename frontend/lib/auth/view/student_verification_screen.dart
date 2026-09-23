@@ -11,6 +11,7 @@ import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 사람이 재검토 중일 때 상태를 다시 물어보는 간격.
@@ -34,6 +35,9 @@ class StudentVerificationScreen extends ConsumerStatefulWidget {
 class _StudentVerificationScreenState extends ConsumerState<StudentVerificationScreen> {
   Timer? _pollTimer;
 
+  /// 고른 서류 종류. 폼 안이 아니라 화면이 들고 있어야 반려 배너가 붙어도 초기화되지 않는다.
+  _DocumentType _documentType = _DocumentType.studentId;
+
   @override
   void dispose() {
     _pollTimer?.cancel();
@@ -46,12 +50,30 @@ class _StudentVerificationScreenState extends ConsumerState<StudentVerificationS
     _syncPolling(state.status);
 
     return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, 28),
-          child: _body(state),
+      // pen `Rg1VT`·`EFK7V`·`uin4L` 제목줄.
+      appBar: AppBar(
+        title: Text('학생 인증', style: AppTypography.navTitle.copyWith(color: AppColors.ink)),
+        centerTitle: false,
+        backgroundColor: AppColors.canvas,
+        surfaceTintColor: Colors.transparent,
+        // 이 화면에는 `go` 로만 들어와 뒤로가기가 저절로 생기지 않는다 — `OnboardingAppBar` 처럼
+        // 자리를 항상 잡아 둔다. 갈 곳이 있으면 화살표, 없으면 빈 48 칸이다.
+        // 8 + 48 에 titleSpacing 4 — pen 처럼 화살표 가운데 x32, 제목 x60 이 된다.
+        automaticallyImplyLeading: false,
+        leadingWidth: 56,
+        titleSpacing: 4,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 8),
+          child: Navigator.of(context).canPop()
+              ? IconButton(
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  icon: const Icon(AppIcons.arrowLeft, color: AppColors.ink),
+                )
+              : const SizedBox(width: 48, height: 48),
         ),
       ),
+      // 여백은 화면 모양마다 다르다 — 확인 중 두 화면은 pen 이 [0,32,48,32] 로 따로 잡아 뒀다.
+      body: SafeArea(top: false, child: _body(state)),
     );
   }
 
@@ -74,50 +96,112 @@ class _StudentVerificationScreenState extends ConsumerState<StudentVerificationS
       return const Center(child: CircularProgressIndicator());
     }
     if (state.isSubmitting) {
-      return const _WaitingView(headline: '확인하고 있어요', description: '잠시만 기다려 주세요');
+      return const _WaitingView(
+        mascot: 'assets/images/mascot-female.png',
+        headline: '확인하고 있어요',
+        description: '보통 금방 끝나요. 앱을 나가도 완료되면 알려드릴게요.',
+      );
     }
     if (state.status == _pendingStatus) {
-      return const _WaitingView(headline: '조금 더 확인이 필요해요', description: '완료되면 알려드릴게요');
+      return const _WaitingView(
+        mascot: 'assets/images/mascot-male.png',
+        headline: '조금 더 확인이 필요해요',
+        description: '담당자가 서류를 확인하고 있어요. 완료되면 알림으로 알려드릴게요.',
+      );
     }
-    return _SubmitForm(state: state, viewModel: ref.read(studentVerificationViewModelProvider.notifier));
-  }
-}
-
-/// 마스코트 128dp + 문구 (DESIGN.md §5.4 "인증·검수 대기" 표).
-/// 재시도 버튼은 두지 않는다 — 폴링이 알아서 다음 화면으로 넘겨준다.
-class _WaitingView extends StatelessWidget {
-  const _WaitingView({required this.headline, required this.description});
-
-  final String headline;
-  final String description;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(
-            width: 128,
-            height: 128,
-            child: Image(image: AssetImage('assets/images/mascot-male-waiting.png'), fit: BoxFit.contain),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          Text(headline, style: AppTypography.headline.copyWith(color: AppColors.ink)),
-          const SizedBox(height: AppSpacing.xs),
-          Text(description, style: AppTypography.body.copyWith(color: AppColors.body)),
-        ],
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.xs, AppSpacing.md, 28),
+      child: _SubmitForm(
+        state: state,
+        viewModel: ref.read(studentVerificationViewModelProvider.notifier),
+        documentType: _documentType,
+        onDocumentTypeChanged: (type) => setState(() => _documentType = type),
       ),
     );
   }
 }
 
+/// 마스코트 128dp + 문구 + "나중에 확인하기" (pen `EFK7V`·`uin4L`).
+/// 재시도 버튼은 두지 않는다 — 폴링이 알아서 다음 화면으로 넘겨준다.
+/// "나중에 확인하기"는 앱을 내린다. 다음에 열면 이 화면에서 이어진다(DESIGN.md §9 3b).
+class _WaitingView extends StatelessWidget {
+  const _WaitingView({required this.mascot, required this.headline, required this.description});
+
+  final String mascot;
+  final String headline;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      // pen 여백 [위 0 · 오른쪽 32 · 아래 48 · 왼쪽 32]. 본문은 그 안을 꽉 채우고
+      // 세로·가로 모두 가운데다(pen `EFK7V`·`uin4L`).
+      padding: const EdgeInsets.fromLTRB(32, 0, 32, 48),
+      child: Center(
+        child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Image.asset(mascot, width: 128, height: 128, fit: BoxFit.contain),
+          const SizedBox(height: 14),
+          Text(headline, style: AppTypography.headline.copyWith(color: AppColors.ink)),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: 296,
+            child: Text(
+              description,
+              textAlign: TextAlign.center,
+              style: AppTypography.body.copyWith(color: AppColors.body, height: 1.5),
+            ),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: TextButton(
+              onPressed: () => unawaited(SystemNavigator.pop()),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.primaryText,
+                textStyle: AppTypography.labelSmall,
+              ),
+              child: const Text('나중에 확인하기'),
+            ),
+          ),
+        ],
+      ),
+      ),
+    );
+  }
+}
+
+/// 인증 서류 종류(pen `Rg1VT` ④ 탭). **서버로는 보내지 않는다** — 어느 서류든 같은 판독이다.
+/// 고른 값은 실명 칸 힌트와 업로드 안내 문구만 바꾼다(2026-09-23 사용자 결정).
+enum _DocumentType {
+  studentId('학생증', '학생증에 표기된 이름', '이름·학교·유효기간이 선명하게 보여야 해요'),
+  graduation('졸업증명서', '졸업증명서에 표기된 이름', '이름·학교·졸업 일자가 선명하게 보여야 해요');
+
+  const _DocumentType(this.label, this.nameHint, this.photoHint);
+
+  final String label;
+  final String nameHint;
+  final String photoHint;
+}
+
 /// 히어로 → 안내 문구 → 실명 `text-field` → 사진 업로더 → 하단 CTA.
 class _SubmitForm extends StatelessWidget {
-  const _SubmitForm({required this.state, required this.viewModel});
+  const _SubmitForm({
+    required this.state,
+    required this.viewModel,
+    required this.documentType,
+    required this.onDocumentTypeChanged,
+  });
 
   final StudentVerificationUiState state;
   final StudentVerificationViewModel viewModel;
+
+  /// 고른 탭은 **화면이 아니라 부모가** 들고 있다 — 반려 배너가 붙었다 떨어지면
+  /// 자식 위젯 자리가 밀려 `State` 가 새로 만들어지고 고른 탭이 학생증으로 돌아간다(권고 7).
+  final _DocumentType documentType;
+  final ValueChanged<_DocumentType> onDocumentTypeChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -151,16 +235,23 @@ class _SubmitForm extends StatelessWidget {
         _RejectedBanner(reason: state.errorMessage!),
         const SizedBox(height: AppSpacing.lg),
       ],
-      Text('실명', style: AppTypography.labelSmall.copyWith(color: AppColors.body)),
+      _DocumentTypeTabs(selected: documentType, onChanged: onDocumentTypeChanged),
+      const SizedBox(height: 20),
+      Text('실명 · 필수', style: AppTypography.labelSmall.copyWith(color: AppColors.body)),
       const SizedBox(height: AppSpacing.xs),
-      _RealNameField(initialValue: state.realNameInput, onChanged: viewModel.changeRealName),
-      const SizedBox(height: AppSpacing.xs),
-      Text('학생증에 적힌 이름과 같게 입력하세요', style: AppTypography.caption.copyWith(color: AppColors.muted)),
-      Text('학생증 확인에만 쓰고 다른 사람에게는 안 보여요', style: AppTypography.caption.copyWith(color: AppColors.muted)),
-      const SizedBox(height: AppSpacing.lg),
-      _PhotoZone(photo: state.selectedPhoto, onTap: viewModel.pickPhoto),
-      const SizedBox(height: AppSpacing.sm),
-      const InfoNote(icon: AppIcons.lock, text: '인증 서류는 프로필에 공개되지 않아요.'),
+      _RealNameField(
+        initialValue: state.realNameInput,
+        hintText: documentType.nameHint,
+        onChanged: viewModel.changeRealName,
+      ),
+      const SizedBox(height: 20),
+      _PhotoZone(
+        photo: state.selectedPhoto,
+        hint: documentType.photoHint,
+        onTap: viewModel.pickPhoto,
+      ),
+      const SizedBox(height: 20),
+      const InfoNote(icon: AppIcons.shieldCheck, text: '인증 서류는 프로필에 공개되지 않아요.'),
     ];
   }
 }
@@ -176,13 +267,17 @@ class _Hero extends StatelessWidget {
       children: [
         const SizedBox(
           width: double.infinity,
-          height: 120,
+          height: 112,
           child: Image(image: AssetImage('assets/images/campus-trust-icon-v1.png'), fit: BoxFit.contain),
         ),
-        Text('학생증으로 학교를 확인해요', style: AppTypography.headline.copyWith(color: AppColors.ink)),
-        const SizedBox(height: AppSpacing.xs),
-        Text('재학생만 만날 수 있도록 한 번만 확인할게요.', style: AppTypography.body.copyWith(color: AppColors.body)),
-        const SizedBox(height: AppSpacing.xl),
+        const SizedBox(height: 20),
+        Text('학교와 재학 상태를 확인해요', style: AppTypography.headline.copyWith(color: AppColors.ink)),
+        const SizedBox(height: 20),
+        Text(
+          '학생증이나 졸업증명서 한 장이면 충분해요. 확인 후 원본은 안전하게 처리해요.',
+          style: AppTypography.body.copyWith(color: AppColors.body, height: 1.5),
+        ),
+        const SizedBox(height: 20),
       ],
     );
   }
@@ -221,9 +316,16 @@ class _RejectedBanner extends StatelessWidget {
 /// 제출이 실패해 대기 화면에서 폼으로 돌아오면 필드가 다시 만들어지므로,
 /// 입력칸이 비어 보이는데 CTA 만 켜져 있는 일이 없게 [initialValue] 로 상태를 되살린다.
 class _RealNameField extends StatelessWidget {
-  const _RealNameField({required this.initialValue, required this.onChanged});
+  const _RealNameField({
+    required this.initialValue,
+    required this.hintText,
+    required this.onChanged,
+  });
 
   final String initialValue;
+
+  /// 고른 서류 종류에 맞는 힌트(학생증 / 졸업증명서).
+  final String hintText;
   final ValueChanged<String> onChanged;
 
   @override
@@ -244,7 +346,7 @@ class _RealNameField extends StatelessWidget {
           isDense: true,
           border: InputBorder.none,
           contentPadding: EdgeInsets.zero,
-          hintText: '학생증에 표기된 이름',
+          hintText: hintText,
           hintStyle: AppTypography.body.copyWith(color: AppColors.disabled),
         ),
       ),
@@ -252,27 +354,30 @@ class _RealNameField extends StatelessWidget {
   }
 }
 
-/// 사진 업로드 존. §10 대로 테두리 없이 `surface-soft` 채움 + 내부 아이콘·라벨로 탭 영역을 알린다.
-/// 비율은 실제 학생증(85.6×54mm, 약 8:5)을 따른다.
+/// 사진 업로드 존(pen `KeC6D`, 높이 264). 테두리 없이 `surface-soft` 채움 + 내부 아이콘·라벨로 탭 영역을 알린다.
 class _PhotoZone extends StatelessWidget {
-  const _PhotoZone({required this.photo, required this.onTap});
+  const _PhotoZone({required this.photo, required this.hint, required this.onTap});
 
   final File? photo;
+
+  /// 고른 서류 종류에 맞는 안내(유효기간 / 졸업 일자).
+  final String hint;
   final Future<void> Function() onTap;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () => unawaited(onTap()),
-      child: AspectRatio(
-        aspectRatio: 8 / 5,
+      child: SizedBox(
+        height: 264,
+        width: double.infinity,
         child: Container(
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             color: AppColors.surfaceSoft,
             borderRadius: BorderRadius.circular(AppRadius.md),
           ),
-          child: photo == null ? const _PhotoPrompt() : Image.file(photo!, fit: BoxFit.cover),
+          child: photo == null ? _PhotoPrompt(hint: hint) : Image.file(photo!, fit: BoxFit.cover),
         ),
       ),
     );
@@ -280,19 +385,83 @@ class _PhotoZone extends StatelessWidget {
 }
 
 class _PhotoPrompt extends StatelessWidget {
-  const _PhotoPrompt();
+  const _PhotoPrompt({required this.hint});
+
+  final String hint;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Icon(AppIcons.imagePlus, size: 28, color: AppColors.muted),
-        const SizedBox(height: AppSpacing.xs),
-        Text('학생증 사진 올리기', style: AppTypography.labelSmall.copyWith(color: AppColors.ink)),
-        const SizedBox(height: AppSpacing.xxs),
-        Text('얼굴과 이름이 잘 보이게 찍어주세요', style: AppTypography.caption.copyWith(color: AppColors.muted)),
+        Container(
+          width: 64,
+          height: 64,
+          decoration: const BoxDecoration(color: AppColors.primaryWash, shape: BoxShape.circle),
+          // pen `Rg1VT` 인스턴스가 덮어쓴 값이라 업로더 기본형(`imagePlus`)과 다르다.
+          child: const Icon(AppIcons.badgeCheck, size: 30, color: AppColors.primaryText),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Text('사진을 첨부해주세요', style: AppTypography.bodyStrong.copyWith(color: AppColors.ink)),
+        const SizedBox(height: AppSpacing.sm),
+        SizedBox(
+          width: 260,
+          child: Text(
+            hint,
+            textAlign: TextAlign.center,
+            style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+          ),
+        ),
       ],
+    );
+  }
+}
+
+/// 서류 종류 탭(pen `Rg1VT` ④). 고른 값은 서버로 가지 않고 화면 문구만 바꾼다.
+class _DocumentTypeTabs extends StatelessWidget {
+  const _DocumentTypeTabs({required this.selected, required this.onChanged});
+
+  final _DocumentType selected;
+  final ValueChanged<_DocumentType> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 48,
+      padding: const EdgeInsets.all(AppSpacing.xxs),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceSoft,
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+      ),
+      child: Row(
+        children: [
+          for (final type in _DocumentType.values) ...[
+            if (type != _DocumentType.values.first) const SizedBox(width: AppSpacing.xxs),
+            Expanded(
+              child: Semantics(
+                button: true,
+                selected: type == selected,
+                child: GestureDetector(
+                  onTap: () => onChanged(type),
+                  child: Container(
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: type == selected ? AppColors.canvas : Colors.transparent,
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                    ),
+                    child: Text(
+                      type.label,
+                      style: AppTypography.labelSmall.copyWith(
+                        color: type == selected ? AppColors.ink : AppColors.muted,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

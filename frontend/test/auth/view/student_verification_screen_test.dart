@@ -84,14 +84,51 @@ void main() {
       await tester.pumpAndSettle();
     });
 
-    testWidgets('DESIGN.md 화면 3b 확정 카피를 보여준다', (tester) async {
+    testWidgets('pen Rg1VT 카피를 보여준다', (tester) async {
       await pumpLoadedScreen(tester);
 
-      expect(find.text('학생증에 적힌 이름과 같게 입력하세요'), findsOneWidget);
-      expect(find.text('학생증 확인에만 쓰고 다른 사람에게는 안 보여요'), findsOneWidget);
+      expect(find.text('학생 인증'), findsOneWidget);
+      expect(find.text('학교와 재학 상태를 확인해요'), findsOneWidget);
+      expect(find.text('학생증'), findsOneWidget);
+      expect(find.text('졸업증명서'), findsOneWidget);
+      expect(find.text('실명 · 필수'), findsOneWidget);
+      expect(find.text('사진을 첨부해주세요'), findsOneWidget);
       expect(find.text('학생증에 표기된 이름'), findsOneWidget); // 실명 입력칸 플레이스홀더 (pen Rg1VT)
       expect(find.text('인증 서류는 프로필에 공개되지 않아요.'), findsOneWidget);
       expect(find.text('확인 요청하기'), findsOneWidget);
+    });
+
+    testWidgets('졸업증명서 탭을 고르면 실명 힌트와 업로드 안내가 함께 바뀐다', (tester) async {
+      await pumpLoadedScreen(tester);
+
+      await tester.tap(find.text('졸업증명서'));
+      await tester.pump();
+
+      expect(find.text('졸업증명서에 표기된 이름'), findsOneWidget);
+      expect(find.text('이름·학교·졸업 일자가 선명하게 보여야 해요'), findsOneWidget);
+      expect(find.text('학생증에 표기된 이름'), findsNothing);
+    });
+
+    testWidgets('반려 배너가 떠도 고른 탭이 학생증으로 되돌아가지 않는다', (tester) async {
+      // 배너가 붙으면 그 아래 위젯 자리가 한 칸씩 밀린다 —
+      // 탭 상태를 폼 안에 두면 `State` 가 새로 만들어져 학생증으로 돌아간다(권고 7).
+      final container = await pumpLoadedScreen(tester);
+      container.read(studentVerificationViewModelProvider.notifier).pickFromGallery = () async => photo;
+      repository.nextSubmitResult = const Success(
+        VerificationOutcome(status: 'rejected', rejectReason: '사진이 흐려요'),
+      );
+      await tester.tap(find.text('졸업증명서'));
+      await tester.pump();
+      await tester.enterText(find.byType(TextField), '홍길동');
+      await tester.ensureVisible(find.text('사진을 첨부해주세요'));
+      await tester.tap(find.text('사진을 첨부해주세요'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('확인 요청하기'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('사진이 흐려요'), findsOneWidget);
+      expect(find.text('졸업증명서에 표기된 이름'), findsOneWidget);
     });
 
     testWidgets('실명과 사진이 모두 없으면 CTA 가 비활성이다', (tester) async {
@@ -114,8 +151,8 @@ void main() {
       container.read(studentVerificationViewModelProvider.notifier).pickFromGallery = () async => photo;
 
       await tester.enterText(find.byType(TextField), '홍길동');
-      await tester.ensureVisible(find.text('학생증 사진 올리기')); // 작은 화면에서는 업로드 존이 스크롤 밖이다
-      await tester.tap(find.text('학생증 사진 올리기'));
+      await tester.ensureVisible(find.text('사진을 첨부해주세요')); // 작은 화면에서는 업로드 존이 스크롤 밖이다
+      await tester.tap(find.text('사진을 첨부해주세요'));
       await tester.pumpAndSettle();
 
       expect(find.byWidgetPredicate((widget) => widget is Image && widget.image is FileImage), findsOneWidget);
@@ -127,8 +164,8 @@ void main() {
       final container = await pumpLoadedScreen(tester);
       container.read(studentVerificationViewModelProvider.notifier).pickFromGallery = () async => photo;
       await tester.enterText(find.byType(TextField), '홍길동');
-      await tester.ensureVisible(find.text('학생증 사진 올리기'));
-      await tester.tap(find.text('학생증 사진 올리기'));
+      await tester.ensureVisible(find.text('사진을 첨부해주세요'));
+      await tester.tap(find.text('사진을 첨부해주세요'));
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('확인 요청하기'));
@@ -145,7 +182,8 @@ void main() {
       await pumpLoadedScreen(tester);
 
       expect(find.text('조금 더 확인이 필요해요'), findsOneWidget);
-      expect(find.text('완료되면 알려드릴게요'), findsOneWidget);
+      expect(find.text('담당자가 서류를 확인하고 있어요. 완료되면 알림으로 알려드릴게요.'), findsOneWidget);
+      expect(find.text('나중에 확인하기'), findsOneWidget);
       expect(find.byType(ElevatedButton), findsNothing);
       expect(find.byType(TextField), findsNothing);
     });
