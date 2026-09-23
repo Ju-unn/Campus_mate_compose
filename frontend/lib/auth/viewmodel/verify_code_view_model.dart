@@ -2,6 +2,7 @@ import 'package:campus_mate/auth/model/auth_repository_provider.dart';
 import 'package:campus_mate/auth/model/university_email.dart';
 import 'package:campus_mate/auth/model/verification_code.dart';
 import 'package:campus_mate/auth/viewmodel/verify_code_ui_state.dart';
+import 'package:campus_mate/common/failure.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final verifyCodeViewModelProvider = NotifierProvider.family<VerifyCodeViewModel, VerifyCodeUiState, UniversityEmail>(
@@ -10,6 +11,11 @@ final verifyCodeViewModelProvider = NotifierProvider.family<VerifyCodeViewModel,
 
 const _resendCooldown = Duration(seconds: 60);
 
+/// 코드 유효 시간(pen 값, 2026-09-23 사용자 결정).
+/// Supabase Auth 의 `otp_expiry`(supabase/config.toml 300초)와 **같아야 한다** —
+/// 여기만 줄이면 화면은 만료라고 말하는데 서버는 코드를 받아 준다.
+const codeLifetime = Duration(minutes: 5);
+
 /// 인증코드 입력 화면(DESIGN.md 화면 03)의 흐름을 맡는다.
 /// Riverpod 3.x 의 family notifier 는 인자를 생성자로 받는다(2.x `FamilyNotifier.build(arg)` 방식이 아니다).
 class VerifyCodeViewModel extends Notifier<VerifyCodeUiState> {
@@ -17,14 +23,21 @@ class VerifyCodeViewModel extends Notifier<VerifyCodeUiState> {
 
   final UniversityEmail _email;
 
-  @override
-  VerifyCodeUiState build() => const VerifyCodeUiState();
-
   /// 테스트에서 시각을 고정하기 위한 훅. 기본은 실제 현재 시각.
+  /// 필드 초기화가 [build] 보다 먼저라 여기서도 쓸 수 있다.
   DateTime Function() now = DateTime.now;
 
+  @override
+  // 이 화면은 로그인 화면이 코드를 보낸 직후에 열린다 — 화면이 열린 때를 보낸 때로 본다.
+  // 첫 계산은 훅을 갈아끼우기 **전에** 돌아가므로 테스트에서 고정할 수 없다(재전송 쪽은 고정된다).
+  VerifyCodeUiState build() => VerifyCodeUiState(codeExpiresAt: now().add(codeLifetime));
+
   void changeCode(String value) {
-    state = VerifyCodeUiState(codeInput: value, resendAvailableAt: state.resendAvailableAt);
+    state = VerifyCodeUiState(
+      codeInput: value,
+      resendAvailableAt: state.resendAvailableAt,
+      codeExpiresAt: state.codeExpiresAt,
+    );
   }
 
   Future<void> submit() async {
@@ -36,6 +49,7 @@ class VerifyCodeViewModel extends Notifier<VerifyCodeUiState> {
       codeInput: state.codeInput,
       isSubmitting: true,
       resendAvailableAt: state.resendAvailableAt,
+      codeExpiresAt: state.codeExpiresAt,
     );
     final result = await ref.read(authRepositoryProvider).verifyOtp(_email, code);
     state = result.when(
@@ -44,6 +58,8 @@ class VerifyCodeViewModel extends Notifier<VerifyCodeUiState> {
         codeInput: state.codeInput,
         errorMessage: failure.toDisplayMessage(),
         resendAvailableAt: state.resendAvailableAt,
+        codeExpiresAt: state.codeExpiresAt,
+        isCodeRejected: failure is WrongCodeFailure,
       ),
     );
   }
@@ -53,9 +69,10 @@ class VerifyCodeViewModel extends Notifier<VerifyCodeUiState> {
     if (!state.canResend(now())) {
       return;
     }
+    // 새 코드가 오므로 입력칸을 비운다 — 안 비우면 예전 코드가 남아 그대로 제출된다.
     state = VerifyCodeUiState(
-      codeInput: state.codeInput,
       resendAvailableAt: now().add(_resendCooldown),
+      codeExpiresAt: now().add(codeLifetime),
     );
     await ref.read(authRepositoryProvider).requestOtp(_email);
   }

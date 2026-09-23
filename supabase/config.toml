@@ -230,7 +230,8 @@ max_frequency = "1s"
 # Number of characters used in the email OTP.
 otp_length = 6
 # Number of seconds before the email OTP expires (defaults to 1 hour).
-otp_expiry = 3600
+# 2026-09-23 사용자 결정: 5분. 앱 codeLifetime(verify_code_view_model.dart)과 같은 값이어야 한다.
+otp_expiry = 300
 
 # Use a production-ready SMTP server
 # [auth.email.smtp]

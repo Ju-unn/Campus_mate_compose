@@ -68,6 +68,14 @@ final class SignUpRejectedFailure extends Failure {
   String toDisplayMessage() => _message;
 }
 
+/// 인증코드가 틀렸거나 만료된 경우(pen `Vn6w4` 오류 문구).
+final class WrongCodeFailure extends Failure {
+  const WrongCodeFailure();
+
+  @override
+  String toDisplayMessage() => '코드가 맞지 않아요. 다시 확인해 주세요.';
+}
+
 /// 학생증 사진에서 얼굴을 찾지 못한 경우(기기 안 ML Kit 판단, 설계 §7.3).
 final class NoFaceDetectedFailure extends Failure {
   const NoFaceDetectedFailure();
