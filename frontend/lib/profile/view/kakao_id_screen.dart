@@ -20,7 +20,8 @@ class KakaoIdScreen extends ConsumerWidget {
     final state = ref.watch(kakaoIdViewModelProvider);
     final viewModel = ref.read(kakaoIdViewModelProvider.notifier);
     return Scaffold(
-      appBar: const OnboardingAppBar(current: 1, total: 6),
+      // pen `sN9Il` 은 04-1 과 같은 첫째 점을 켠다 — 04-1b 는 04-1 에 딸린 화면이다.
+      appBar: const OnboardingAppBar(current: 0, total: 6),
       body: SafeArea(
         top: false,
         child: Padding(

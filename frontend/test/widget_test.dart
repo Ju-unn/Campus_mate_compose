@@ -4,6 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+/// [SplashHold] 의 기본 대기 시간. 이 시간이 지나야 라우터가 이동 판단을 다시 한다.
+const _splashHoldDuration = Duration(seconds: 2);
+
 void main() {
   // main.dart 가 실제 Supabase 세션을 읽으므로(A10), 이 스모크 테스트도
   // 더미 값으로나마 초기화해 둬야 CampusMateApp 이 죽지 않는다.
@@ -20,8 +23,14 @@ void main() {
     await Supabase.initialize(url: 'https://example.supabase.co', publishableKey: 'test-anon-key');
   });
 
-  testWidgets('앱을 실행하면 로그인 화면으로 진입한다', (tester) async {
+  testWidgets('앱을 실행하면 스플래시를 잠깐 보여준 뒤 로그인 화면으로 진입한다', (tester) async {
     await tester.pumpWidget(const ProviderScope(child: CampusMateApp()));
+    await tester.pumpAndSettle();
+
+    // SplashHold 가 붙잡아 두는 동안이다 (임시 장치 — 로고 작업 때 다시 본다).
+    expect(find.text('CampusMate'), findsOneWidget);
+
+    await tester.pump(_splashHoldDuration);
     await tester.pumpAndSettle();
 
     expect(find.text('대학 이메일로 시작해요'), findsOneWidget);

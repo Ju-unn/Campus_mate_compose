@@ -54,6 +54,30 @@ void main() {
     expect(container.read(photosViewModelProvider).canSubmit, isFalse);
   });
 
+  test('2장이면 04-3 으로 넘어갈 수 있고, 넘어갈 때 원본이 없으면 첫 장을 골라 둔다', () async {
+    final viewModel = buildViewModel([File('a.jpg'), File('b.jpg')]);
+    await viewModel.addPhoto();
+    await viewModel.addPhoto();
+    expect(container.read(photosViewModelProvider).canProceed, isTrue);
+
+    viewModel.prepareAvatarSource();
+
+    final photos = container.read(photosViewModelProvider).photos;
+    expect(photos.map((p) => p.isAvatarSource), [true, false]);
+    expect(container.read(photosViewModelProvider).canSubmit, isTrue);
+  });
+
+  test('이미 고른 원본은 04-3 으로 다시 넘어가도 바뀌지 않는다', () async {
+    final viewModel = buildViewModel([File('a.jpg'), File('b.jpg')]);
+    await viewModel.addPhoto();
+    await viewModel.addPhoto();
+    viewModel.setAvatarSource(1);
+
+    viewModel.prepareAvatarSource();
+
+    expect(container.read(photosViewModelProvider).photos.map((p) => p.isAvatarSource), [false, true]);
+  });
+
   test('최대 4장까지만 담긴다', () async {
     final viewModel = buildViewModel([File('a.jpg'), File('b.jpg'), File('c.jpg'), File('d.jpg'), File('e.jpg')]);
     for (var i = 0; i < 5; i++) {

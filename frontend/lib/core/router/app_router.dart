@@ -19,6 +19,7 @@ import 'package:campus_mate/matching/view/today_cards_screen.dart';
 import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:campus_mate/profile/view/appearance_type_screen.dart';
 import 'package:campus_mate/profile/view/avatar_generation_screen.dart';
+import 'package:campus_mate/profile/view/avatar_source_screen.dart';
 import 'package:campus_mate/profile/view/basic_info_screen.dart';
 import 'package:campus_mate/profile/view/bio_draft_loading_screen.dart';
 import 'package:campus_mate/profile/view/ideal_conditions_screen.dart';
@@ -38,18 +39,26 @@ abstract final class AppRouter {
     required bool Function() isAuthenticated,
     required VerificationGate Function() verificationGate,
     required OnboardingStep Function() onboardingStep,
+    bool Function() isSplashHeld = _splashNotHeld,
     Listenable? refreshListenable,
   }) {
     return GoRouter(
       initialLocation: AppRoutes.splash,
       refreshListenable: refreshListenable,
       redirect: (context, state) {
+        // 스플래시를 붙잡아 두는 동안에는 이동 판단을 미룬다 (임시 — [SplashHold] 주석 참고).
+        if (isSplashHeld() && state.matchedLocation == AppRoutes.splash) {
+          return null;
+        }
         return AuthRedirect(isAuthenticated(), verificationGate(), onboardingStep())
             .resolve(state.matchedLocation);
       },
       routes: _routes(),
     );
   }
+
+  /// 스플래시를 붙잡지 않는 기본값. 테스트는 기다릴 이유가 없다.
+  static bool _splashNotHeld() => false;
 
   /// 3b·3c 는 [AuthRedirect] 가 미인증·게이트 미충족을 이미 막아 화면 가드를 두지 않는다.
   static List<RouteBase> _routes() {
@@ -115,6 +124,7 @@ abstract final class AppRouter {
       GoRoute(path: AppRoutes.onboardingBasicInfo, builder: (context, state) => const BasicInfoScreen()),
       GoRoute(path: AppRoutes.onboardingKakaoId, builder: (context, state) => const KakaoIdScreen()),
       GoRoute(path: AppRoutes.onboardingPhotos, builder: (context, state) => const PhotosScreen()),
+      GoRoute(path: AppRoutes.onboardingAvatarSource, builder: (context, state) => const AvatarSourceScreen()),
       GoRoute(path: AppRoutes.onboardingAvatar, builder: (context, state) => const AvatarGenerationScreen()),
       GoRoute(
         path: AppRoutes.onboardingAppearanceType,

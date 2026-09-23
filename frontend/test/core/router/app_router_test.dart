@@ -36,6 +36,32 @@ const _onboardingPaths = <String>[
 ];
 
 void main() {
+  testWidgets('스플래시를 붙잡는 동안에는 스플래시가 보인다', (tester) async {
+    var isHeld = true;
+    final router = AppRouter.create(
+      isAuthenticated: () => false,
+      verificationGate: _passedGate,
+      onboardingStep: _passedStep,
+      isSplashHeld: () => isHeld,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('CampusMate'), findsOneWidget);
+
+    // 시간이 다 되면(SplashHold 가 알림) 원래 이동 규칙으로 돌아간다.
+    isHeld = false;
+    router.refresh();
+    await tester.pumpAndSettle();
+
+    expect(find.text('대학 이메일로 시작해요'), findsOneWidget);
+  });
+
   testWidgets('로그인하지 않으면 로그인 화면이 보인다', (tester) async {
     final router = AppRouter.create(
       isAuthenticated: () => false,

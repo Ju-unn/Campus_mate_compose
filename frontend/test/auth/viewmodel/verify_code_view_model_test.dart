@@ -53,6 +53,30 @@ void main() {
     expect(container.read(verifyCodeViewModelProvider(email)).resendAvailableAt, now.add(const Duration(seconds: 60)));
   });
 
+  test('코드 유효 시간은 5분이고 재전송하면 그만큼 다시 잡힌다', () async {
+    // supabase/config.toml 의 otp_expiry(300초)와 같은 값이어야 한다 — 다르면
+    // 화면은 만료라고 말하는데 서버는 코드를 받아 준다(2026-09-23 사용자 결정).
+    expect(codeLifetime, const Duration(minutes: 5));
+
+    final container = buildContainer(FakeAuthRepository());
+    final now = DateTime(2026, 1, 1, 12);
+    final viewModel = container.read(verifyCodeViewModelProvider(email).notifier)..now = () => now;
+
+    await viewModel.resend();
+
+    expect(container.read(verifyCodeViewModelProvider(email)).codeExpiresAt, now.add(codeLifetime));
+  });
+
+  test('재전송하면 입력해 둔 코드를 비운다', () async {
+    final container = buildContainer(FakeAuthRepository());
+    final viewModel = container.read(verifyCodeViewModelProvider(email).notifier);
+    viewModel.changeCode('123456');
+
+    await viewModel.resend();
+
+    expect(container.read(verifyCodeViewModelProvider(email)).codeInput, isEmpty);
+  });
+
   test('쿨다운 중에는 재전송을 보내지 않는다', () async {
     final repository = FakeAuthRepository();
     final container = buildContainer(repository);

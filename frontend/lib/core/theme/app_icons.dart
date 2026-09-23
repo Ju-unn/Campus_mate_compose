@@ -35,6 +35,7 @@ abstract final class AppIcons {
   static const IconData check = LucideIcons.check;
   static const IconData arrowRight = LucideIcons.arrowRight;
   static const IconData imagePlus = LucideIcons.imagePlus;
+  static const IconData plus = LucideIcons.plus;
   static const IconData timer = LucideIcons.timer;
   static const IconData shieldCheck = LucideIcons.shieldCheck;
   static const IconData phone = LucideIcons.phone;

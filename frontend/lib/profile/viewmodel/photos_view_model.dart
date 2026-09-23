@@ -22,7 +22,7 @@ Future<File?> _pickFromGallery() async {
   return picked == null ? null : File(picked.path);
 }
 
-/// 사진 업로드 화면(DESIGN.md 화면 04-2)의 흐름을 맡는다.
+/// 사진 업로드(04-2)와 아바타 사진 고르기(04-3)의 흐름을 맡는다. 두 화면이 같은 상태를 이어 쓴다.
 class PhotosViewModel extends Notifier<PhotosUiState> {
   Future<File?> Function() pickFromGallery = _pickFromGallery;
 
@@ -58,6 +58,14 @@ class PhotosViewModel extends Notifier<PhotosUiState> {
       for (var i = 0; i < state.photos.length; i++) state.photos[i].copyWith(isAvatarSource: i == index),
     ];
     state = PhotosUiState(photos: photos, errorMessage: null);
+  }
+
+  /// 04-2 → 04-3 으로 넘어갈 때 부른다. 아직 원본이 없으면(처음이거나 원본 사진을 뺐으면) 첫 장을 골라 둔다.
+  void prepareAvatarSource() {
+    if (state.photos.isEmpty || state.photos.any((p) => p.isAvatarSource)) {
+      return;
+    }
+    setAvatarSource(0);
   }
 
   Future<void> submit() async {

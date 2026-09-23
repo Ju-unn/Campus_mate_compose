@@ -1,20 +1,31 @@
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
+import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-/// 앱 진입 직후 잠시 보이는 화면. "CampusMate" 문구만 두고 스피너는 두지 않는다
-/// (DESIGN.md §13-3, 2026-09-15 사용자 결정). 실제 세션 확인 로직은 조각 1에서 채운다.
+/// 앱 진입 직후 잠시 보이는 화면(pen `jXJSY`). 스피너는 두지 않는다(DESIGN.md §13-3).
+/// 마스코트·부제는 2026-09-23 사용자 결정으로 pen 대로 넣었다.
 class SplashScreen extends StatelessWidget {
   const SplashScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    return Scaffold(
       body: Center(
-        child: Text('CampusMate', style: AppTypography.headline),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset('assets/images/mascot-female.png', width: 96, height: 96),
+            const SizedBox(height: AppSpacing.md),
+            Text('CampusMate', style: AppTypography.display.copyWith(color: AppColors.primary)),
+            const SizedBox(height: AppSpacing.md),
+            Text('하루 한 사람, 같은 캠퍼스에서', style: AppTypography.body.copyWith(color: AppColors.muted)),
+          ],
+        ),
       ),
     );
   }

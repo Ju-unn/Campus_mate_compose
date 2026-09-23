@@ -58,14 +58,54 @@ void main() {
     expect(result.when(onSuccess: (_) => true, onFailure: (_) => false), isTrue);
   });
 
-  test('검증 코드가 틀리면 UnknownFailure', () async {
+  test('기한이 지난 코드면 WrongCodeFailure', () async {
     final code = VerificationCode.tryParse('000000')!;
     when(
       () => auth.verifyOTP(email: any(named: 'email'), token: any(named: 'token'), type: OtpType.email),
-    ).thenThrow(const AuthException('Token has expired or is invalid'));
+    ).thenThrow(
+      const AuthException('Token has expired or is invalid', statusCode: '403', code: 'otp_expired'),
+    );
 
     final result = await repository.verifyOtp(email, code);
 
-    expect(result.when(onSuccess: (_) => null, onFailure: (f) => f), isA<UnknownFailure>());
+    expect(result.when(onSuccess: (_) => null, onFailure: (f) => f), isA<WrongCodeFailure>());
+  });
+
+  test('틀린 코드면 WrongCodeFailure', () async {
+    final code = VerificationCode.tryParse('000000')!;
+    when(
+      () => auth.verifyOTP(email: any(named: 'email'), token: any(named: 'token'), type: OtpType.email),
+    ).thenThrow(
+      const AuthException('Invalid login credentials', statusCode: '403', code: 'invalid_credentials'),
+    );
+
+    final result = await repository.verifyOtp(email, code);
+
+    expect(result.when(onSuccess: (_) => null, onFailure: (f) => f), isA<WrongCodeFailure>());
+  });
+
+  test('코드 값이 없는 403 은 예전처럼 코드 문제로 본다', () async {
+    final code = VerificationCode.tryParse('000000')!;
+    when(
+      () => auth.verifyOTP(email: any(named: 'email'), token: any(named: 'token'), type: OtpType.email),
+    ).thenThrow(const AuthException('Token has expired or is invalid', statusCode: '403'));
+
+    final result = await repository.verifyOtp(email, code);
+
+    expect(result.when(onSuccess: (_) => null, onFailure: (f) => f), isA<WrongCodeFailure>());
+  });
+
+  test('정지된 계정의 403 은 코드 탓으로 돌리지 않는다', () async {
+    // "코드가 맞지 않아요" 로 보이면 사용자가 멀쩡한 코드를 계속 다시 넣는다.
+    final code = VerificationCode.tryParse('123456')!;
+    when(
+      () => auth.verifyOTP(email: any(named: 'email'), token: any(named: 'token'), type: OtpType.email),
+    ).thenThrow(const AuthException('User is banned', statusCode: '403', code: 'user_banned'));
+
+    final result = await repository.verifyOtp(email, code);
+
+    final failure = result.when(onSuccess: (_) => null, onFailure: (f) => f);
+    expect(failure, isNot(isA<WrongCodeFailure>()));
+    expect(failure, isA<UnknownFailure>());
   });
 }

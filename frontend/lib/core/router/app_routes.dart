@@ -23,6 +23,9 @@ abstract final class AppRoutes {
   static const String onboardingBasicInfo = '/onboarding/basic-info';
   static const String onboardingKakaoId = '/onboarding/kakao-id';
   static const String onboardingPhotos = '/onboarding/photos';
+
+  /// 04-3 아바타 사진 고르기. 서버 단계로는 여전히 `photos` 라 04-2 아래 경로에 둔다.
+  static const String onboardingAvatarSource = '/onboarding/photos/avatar-source';
   static const String onboardingAvatar = '/onboarding/avatar';
   static const String onboardingAppearanceType = '/onboarding/appearance-type';
   static const String onboardingInterests = '/onboarding/interests';
