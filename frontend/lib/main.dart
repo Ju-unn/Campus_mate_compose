@@ -8,6 +8,7 @@ import 'package:campus_mate/core/router/onboarding_step_listenable.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/core/router/verification_gate_listenable.dart';
 import 'package:campus_mate/core/router/verification_gate_listenable_provider.dart';
+import 'package:campus_mate/core/router/splash_hold.dart';
 import 'package:campus_mate/core/supabase/auth_session_listenable.dart';
 import 'package:campus_mate/core/supabase/supabase_config.dart';
 import 'package:campus_mate/core/supabase/supabase_initializer.dart';
@@ -43,6 +44,8 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
   late final VerificationGateListenable _verificationGate;
   late final OnboardingStepListenable _onboardingStep;
   late final GoRouter _router;
+  /// 스플래시를 잠깐 붙잡아 두는 임시 장치 (로고 작업 때 다시 본다).
+  final SplashHold _splashHold = SplashHold();
   final List<StreamSubscription<Map<String, dynamic>>> _pushSubscriptions = [];
 
   @override
@@ -135,7 +138,8 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
       isAuthenticated: () => _authSession.isAuthenticated,
       verificationGate: () => _verificationGate.value,
       onboardingStep: () => _onboardingStep.value,
-      refreshListenable: Listenable.merge([_authSession, _verificationGate, _onboardingStep]),
+      isSplashHeld: _splashHold.isHolding,
+      refreshListenable: Listenable.merge([_authSession, _verificationGate, _onboardingStep, _splashHold]),
     );
   }
 
@@ -147,6 +151,7 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
     }
     _authSession.removeListener(_refreshVerificationGate);
     _authSession.dispose();
+    _splashHold.dispose();
     super.dispose();
   }
 

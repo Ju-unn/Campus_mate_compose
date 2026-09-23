@@ -38,18 +38,26 @@ abstract final class AppRouter {
     required bool Function() isAuthenticated,
     required VerificationGate Function() verificationGate,
     required OnboardingStep Function() onboardingStep,
+    bool Function() isSplashHeld = _splashNotHeld,
     Listenable? refreshListenable,
   }) {
     return GoRouter(
       initialLocation: AppRoutes.splash,
       refreshListenable: refreshListenable,
       redirect: (context, state) {
+        // 스플래시를 붙잡아 두는 동안에는 이동 판단을 미룬다 (임시 — [SplashHold] 주석 참고).
+        if (isSplashHeld() && state.matchedLocation == AppRoutes.splash) {
+          return null;
+        }
         return AuthRedirect(isAuthenticated(), verificationGate(), onboardingStep())
             .resolve(state.matchedLocation);
       },
       routes: _routes(),
     );
   }
+
+  /// 스플래시를 붙잡지 않는 기본값. 테스트는 기다릴 이유가 없다.
+  static bool _splashNotHeld() => false;
 
   /// 3b·3c 는 [AuthRedirect] 가 미인증·게이트 미충족을 이미 막아 화면 가드를 두지 않는다.
   static List<RouteBase> _routes() {
