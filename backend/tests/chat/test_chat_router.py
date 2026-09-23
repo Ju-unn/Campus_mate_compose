@@ -141,6 +141,26 @@ def test_room_before_the_gate_has_no_kakao_id_or_photos():
     assert "photo_urls" not in body
 
 
+def test_room_always_carries_my_own_kakao_id():
+    """14f 시트가 "이 아이디를 공유합니다" 로 보여준다 — 게이트 전에도 내 것은 내려간다."""
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if "/rest/v1/matches" in url:
+            return httpx.Response(200, json=[_match()])
+        if "/rest/v1/profile_private" in url:
+            # 내 행만 돌려준다 — 상대 아이디는 통과 전에 조회조차 하지 않는다.
+            assert f"eq.{PROFILE_ID}" in url
+            return httpx.Response(200, json=[{"kakao_id": "my_id"}])
+        if "/rest/v1/profiles" in url:
+            return httpx.Response(200, json=[PARTNER_PROFILE])
+        return httpx.Response(200, json=[])
+
+    body = _wire(handler).get(f"/chat/matches/{MATCH_ID}", headers=AUTH_HEADERS).json()
+
+    assert body["my_kakao_id"] == "my_id"
+    assert "kakao_id" not in body
+
+
 def test_room_after_the_gate_carries_the_kakao_id_and_signed_photos():
     passed = _match(trust_passed_at="2126-09-22T12:00:00+09:00")
 
@@ -149,6 +169,10 @@ def test_room_after_the_gate_carries_the_kakao_id_and_signed_photos():
         if "/rest/v1/matches" in url:
             return httpx.Response(200, json=[passed])
         if "/rest/v1/profile_private" in url:
+            # 내 행과 상대 행을 갈라 준다 — 두 아이디가 뒤바뀌면 아래 단언이 잡는다.
+            if f"eq.{PROFILE_ID}" in url:
+                return httpx.Response(200, json=[{"kakao_id": "my_id"}])
+            assert f"eq.{PARTNER_ID}" in url
             return httpx.Response(200, json=[{"kakao_id": "fox_rain"}])
         if "/rest/v1/profile_photos" in url:
             return httpx.Response(200, json=[{"storage_path": "p2/1.jpg", "position": 0}])
@@ -161,6 +185,7 @@ def test_room_after_the_gate_carries_the_kakao_id_and_signed_photos():
     body = _wire(handler).get(f"/chat/matches/{MATCH_ID}", headers=AUTH_HEADERS).json()
 
     assert body["kakao_id"] == "fox_rain"
+    assert body["my_kakao_id"] == "my_id"
     assert body["photo_urls"] == [
         "https://x.supabase.co/storage/v1/object/sign/profile-photos/p2/1.jpg?token=t"
     ]
