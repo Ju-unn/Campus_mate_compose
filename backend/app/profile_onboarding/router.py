@@ -63,8 +63,8 @@ async def check_nickname_availability(
     nickname: str = Query(pattern=NICKNAME_PATTERN),
     caller: Caller = Depends(get_verified_caller),
 ) -> NicknameAvailabilityResponse:
-    settings, client, _ = caller
-    available = await _repo(settings, client).check_nickname_availability(nickname)
+    settings, client, profile_id = caller
+    available = await _repo(settings, client).check_nickname_availability(profile_id, nickname)
     return NicknameAvailabilityResponse(available=available)
 
 
@@ -82,6 +82,7 @@ async def submit_basic_info(
         profile_id, body.nickname, body.birth_year, body.height_cm, body.gender, body.mbti
     )
 
+    await repo.ensure_private_row(profile_id)
     await set_encrypted_phone_number(
         settings.postgrest_url, settings.supabase_service_role_key, client,
         profile_id, body.phone_number, settings.phone_encryption_key,

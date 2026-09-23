@@ -9,11 +9,23 @@ class ProfileOnboardingRepository(PostgrestRepository):
     """온보딩 화면들이 쓰는 profiles·profile_private·profile_photos·profile_avatars·survey_answers 를
     PostgREST 로 읽고 쓴다(조각1b StudentVerificationRepository 와 같은 패턴). service_role 키로 직접 호출한다."""
 
-    async def check_nickname_availability(self, nickname: str) -> bool:
+    async def check_nickname_availability(self, profile_id: UUID, nickname: str) -> bool:
         # 유니크 인덱스가 lower(nickname) 이라 ilike(와일드카드 없이)로 대소문자 무시 비교한다.
-        response = await self._get("profiles", params={"nickname": f"ilike.{nickname}", "select": "id"})
+        # 자기 행은 뺀다 — 04-1 을 다시 채울 때 이미 저장된 자기 닉네임이 중복으로 막히지 않게.
+        response = await self._get(
+            "profiles", params={"nickname": f"ilike.{nickname}", "id": f"neq.{profile_id}", "select": "id"}
+        )
         raise_for_status(response)
         return len(response.json()) == 0
+
+    async def ensure_private_row(self, profile_id: UUID) -> None:
+        # 이 행은 보통 학생증 제출(upsert_real_name)이 만들지만, 그 단계를 거치지 않은 계정도 있다
+        # (대시보드에서 verified 로 바꾼 경우 등). 뒤이은 set_phone_number·update_kakao_id 가 UPDATE 라
+        # 행이 없으면 0행을 고치고 성공처럼 끝나므로, 온보딩 첫 저장에서 행을 보장한다. 있으면 건드리지 않는다.
+        response = await self._post(
+            "profile_private", json={"profile_id": str(profile_id)}, prefer="resolution=ignore-duplicates"
+        )
+        raise_for_status(response)
 
     async def update_basic_info(
         self, profile_id: UUID, nickname: str, birth_year: int, height_cm: int, gender: str, mbti: str | None

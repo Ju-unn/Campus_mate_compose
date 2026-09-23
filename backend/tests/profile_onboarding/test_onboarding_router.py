@@ -88,6 +88,53 @@ def test_basic_info_rejects_duplicate_nickname_with_409():
     assert "닉네임" in response.json()["detail"]
 
 
+def test_basic_info_creates_private_row_before_saving_phone():
+    """set_phone_number 는 UPDATE 라 profile_private 행이 없으면 0행을 고치고 조용히 끝난다.
+    학생증 단계를 거치지 않은 계정이면 행이 없어 전화번호가 안 남고 온보딩이 04-1 에 묶였다
+    (2026-09-23 실기기 테스트). 행을 먼저 보장해야 한다."""
+    calls: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if "/rest/v1/profile_private" in url and request.method == "POST":
+            calls.append("ensure_private_row")
+            assert request.headers["Prefer"] == "resolution=ignore-duplicates"
+            assert json.loads(request.content) == {"profile_id": str(PROFILE_ID)}
+            return httpx.Response(201)
+        if "/rest/v1/rpc/set_phone_number" in url:
+            calls.append("set_phone_number")
+        return httpx.Response(200, json=[])
+
+    response = _wire(handler).post(
+        "/profile-onboarding/basic-info",
+        headers=AUTH_HEADERS,
+        json={
+            "nickname": "가나", "birth_year": 2002, "height_cm": 170,
+            "phone_number": "01012345678", "gender": "male",
+        },
+    )
+
+    assert response.status_code == 200
+    assert calls == ["ensure_private_row", "set_phone_number"]
+
+
+def test_nickname_availability_ignores_callers_own_nickname():
+    """04-1 을 다시 채울 때 방금 저장된 자기 닉네임이 '이미 있는 닉네임' 으로 막히면 안 된다."""
+    seen_params: list[httpx.QueryParams] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "/rest/v1/profiles" in str(request.url):
+            seen_params.append(request.url.params)
+        return httpx.Response(200, json=[])
+
+    response = _wire(handler).get(
+        "/profile-onboarding/nickname-availability", headers=AUTH_HEADERS, params={"nickname": "가나"}
+    )
+
+    assert response.json() == {"available": True}
+    assert seen_params[0]["id"] == f"neq.{PROFILE_ID}"
+
+
 def test_interests_rejects_fewer_than_three_tags_with_422():
     client = _wire(lambda request: httpx.Response(200, json=[]))
     response = client.post(
