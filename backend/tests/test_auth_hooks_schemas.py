@@ -1,12 +1,11 @@
 from app.auth_hooks.schemas import BeforeUserCreatedPayload, HookDecision
 
 
-def test_payload_parses_user_id_and_email():
+def test_payload_parses_email_from_real_supabase_body():
     payload = BeforeUserCreatedPayload.model_validate(
-        {"user_id": "11111111-1111-1111-1111-111111111111", "user": {"email": "hong@SNU.ac.kr"}}
+        {"metadata": {"uuid": "11111111-1111-1111-1111-111111111111", "name": "before-user-created"}, "user": {"email": "hong@SNU.ac.kr"}}
     )
 
-    assert str(payload.user_id) == "11111111-1111-1111-1111-111111111111"
     assert payload.email_domain == "snu.ac.kr"
 
 

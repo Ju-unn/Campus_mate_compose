@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from typing import Literal
-from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -13,7 +12,9 @@ class _HookUser(BaseModel):
 
 
 class BeforeUserCreatedPayload(BaseModel):
-    user_id: UUID
+    # Supabase 가 실제로 보내는 본문은 {"metadata": {...}, "user": {...}} 다.
+    # 최상위 `user_id` 를 필수로 두는 바람에 훅이 500 으로 죽었다 (2026-09-22 실기기 테스트).
+    # 쓰는 곳이 없는 필드라 되살리지 않고 지운다. `metadata` 는 pydantic 이 알아서 흘린다.
     user: _HookUser
 
     @property

@@ -62,7 +62,7 @@ def test_allows_known_domain():
     client = TestClient(app)
     response = _post_hook(
         client,
-        {"user_id": "11111111-1111-1111-1111-111111111111", "user": {"email": "hong@snu.ac.kr"}},
+        {"metadata": {"uuid": "11111111-1111-1111-1111-111111111111", "name": "before-user-created"}, "user": {"email": "hong@snu.ac.kr"}},
         httpx.MockTransport(handler),
     )
 
@@ -77,7 +77,7 @@ def test_rejects_unknown_domain():
     client = TestClient(app)
     response = _post_hook(
         client,
-        {"user_id": "11111111-1111-1111-1111-111111111111", "user": {"email": "hong@unknown.ac.kr"}},
+        {"metadata": {"uuid": "11111111-1111-1111-1111-111111111111", "name": "before-user-created"}, "user": {"email": "hong@unknown.ac.kr"}},
         httpx.MockTransport(handler),
     )
 
@@ -94,7 +94,7 @@ def test_rejects_blocked_email():
     client = TestClient(app)
     response = _post_hook(
         client,
-        {"user_id": "11111111-1111-1111-1111-111111111111", "user": {"email": "hong@snu.ac.kr"}},
+        {"metadata": {"uuid": "11111111-1111-1111-1111-111111111111", "name": "before-user-created"}, "user": {"email": "hong@snu.ac.kr"}},
         httpx.MockTransport(handler),
     )
 
@@ -117,7 +117,7 @@ def test_blocked_email_hash_uses_identity_key():
     client = TestClient(app)
     _post_hook(
         client,
-        {"user_id": "11111111-1111-1111-1111-111111111111", "user": {"email": "hong@snu.ac.kr"}},
+        {"metadata": {"uuid": "11111111-1111-1111-1111-111111111111", "name": "before-user-created"}, "user": {"email": "hong@snu.ac.kr"}},
         httpx.MockTransport(handler),
     )
 
@@ -131,7 +131,7 @@ def test_invalid_signature_returns_401():
     with TestClient(app) as client:
         response = client.post(
             "/hooks/before-user-created",
-            content=b'{"user_id":"11111111-1111-1111-1111-111111111111","user":{"email":"hong@snu.ac.kr"}}',
+            content=b'{"metadata":{"uuid":"11111111-1111-1111-1111-111111111111"},"user":{"email":"hong@snu.ac.kr"}}',
             headers={"webhook-id": "msg_1", "webhook-timestamp": "1700000000", "webhook-signature": "v1,invalid"},
         )
 
