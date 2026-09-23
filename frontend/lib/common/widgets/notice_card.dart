@@ -7,6 +7,9 @@ import 'package:flutter/material.dart';
 
 /// 안내 카드(datingApp.pen 04-1b `Kakao Search Notice` 강조형 · 04-3 `Avatar Notice` 기본형).
 /// 꼭 읽어야 하는 안내는 강조형(분홍 바탕), 곁들이는 설명은 기본형(회색 바탕)이다.
+///
+/// 2026-09-23: 기본형 치수를 pen 04-3 `dWNkb` 값으로 맞췄다(모서리 12 · 아이콘 14 ·
+/// 아이콘-제목 6 · 제목-본문 6 · 본문 줄높이 1.5). 강조형은 04-1b 값 그대로 둔다.
 class NoticeCard extends StatelessWidget {
   const NoticeCard({
     required this.title,
@@ -38,7 +41,8 @@ class NoticeCard extends StatelessWidget {
           : const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 14),
       decoration: BoxDecoration(
         color: isEmphasis ? AppColors.primaryWash : AppColors.surfaceSoft,
-        borderRadius: BorderRadius.circular(isEmphasis ? AppRadius.md : AppRadius.sm),
+        // 기본형 모서리 12 는 토큰 sm(8)·md(14) 사이 pen 실측값이다.
+        borderRadius: BorderRadius.circular(isEmphasis ? AppRadius.md : 12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -48,14 +52,14 @@ class NoticeCard extends StatelessWidget {
             children: [
               Icon(
                 icon,
-                size: isEmphasis ? 20 : 18,
+                size: isEmphasis ? 20 : 14,
                 color: isEmphasis ? AppColors.primaryText : AppColors.body,
               ),
-              const SizedBox(width: AppSpacing.xs),
+              SizedBox(width: isEmphasis ? AppSpacing.xs : 6),
               Expanded(child: Text(title, style: _titleStyle)),
             ],
           ),
-          SizedBox(height: isEmphasis ? AppSpacing.sm : AppSpacing.xxs),
+          SizedBox(height: isEmphasis ? AppSpacing.sm : 6),
           Text(body, style: _bodyStyle),
           if (child != null) ...[
             const SizedBox(height: AppSpacing.sm),
@@ -86,6 +90,6 @@ class NoticeCard extends StatelessWidget {
   TextStyle get _bodyStyle {
     return isEmphasis
         ? AppTypography.bodySmall.copyWith(color: AppColors.body)
-        : AppTypography.caption.copyWith(color: AppColors.body);
+        : AppTypography.caption.copyWith(color: AppColors.body, height: 1.5);
   }
 }

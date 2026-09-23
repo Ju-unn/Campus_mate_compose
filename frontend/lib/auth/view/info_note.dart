@@ -1,6 +1,5 @@
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
-import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 
@@ -33,7 +32,8 @@ class InfoNote extends StatelessWidget {
     return Row(
       children: [
         Icon(icon, size: 20, color: AppColors.primaryText),
-        const SizedBox(width: AppSpacing.xs),
+        // pen 실측 10. 간격 토큰 xs(8)·sm(12) 사이 값이라 토큰으로 갈음하지 않는다
+        const SizedBox(width: 10),
         Expanded(
           child: Text(text, style: AppTypography.bodySmall.copyWith(color: AppColors.body)),
         ),
