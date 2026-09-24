@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:campus_mate/auth/model/face_detector_provider.dart';
 import 'package:campus_mate/auth/model/image_compressor_provider.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/profile/model/photos_repository_provider.dart';
@@ -10,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../auth/model/fake_face_detector.dart';
 import '../../auth/model/fake_image_compressor.dart';
 import '../model/fake_photos_repository.dart';
 
@@ -38,6 +40,7 @@ void main() {
       overrides: [
         photosRepositoryProvider.overrideWithValue(FakePhotosRepository()),
         imageCompressorProvider.overrideWithValue(FakeImageCompressor()),
+        faceDetectorProvider.overrideWithValue(FakeFaceDetector()),
       ],
     );
     addTearDown(container.dispose);
@@ -45,7 +48,7 @@ void main() {
     final files = [for (var i = 0; i < photoCount; i++) photoFile('photo-$i.png')];
     var index = 0;
     final viewModel = container.read(photosViewModelProvider.notifier)
-      ..pickFromGallery = () async => files[index++];
+      ..pickFromGallery = (limit) async => [files[index++]];
     for (var i = 0; i < photoCount; i++) {
       await viewModel.addPhoto();
     }
