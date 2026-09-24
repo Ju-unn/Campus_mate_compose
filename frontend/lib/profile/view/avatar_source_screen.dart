@@ -1,4 +1,5 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/notice_card.dart';
 import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -67,7 +68,12 @@ class AvatarSourceScreen extends ConsumerWidget {
               ),
               const SizedBox(height: AppSpacing.md),
               if (state.isSubmitting) ...[
-                const Center(child: _ConvertingToast()),
+                const Center(
+                  child: AppToast(
+                    leading: CircularProgressIndicator(strokeWidth: 2, color: AppColors.onInk),
+                    label: '아바타로 변환 중이에요',
+                  ),
+                ),
                 const SizedBox(height: AppSpacing.sm),
               ],
               AppButton(label: '이 사진으로 아바타 만들기', onPressed: state.canSubmit ? viewModel.submit : null),
@@ -171,30 +177,3 @@ class _SourceTile extends StatelessWidget {
   }
 }
 
-/// 올리는 동안 버튼 위에 뜨는 토스트(pen `I8UOWm`).
-class _ConvertingToast extends StatelessWidget {
-  const _ConvertingToast();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceInk,
-        borderRadius: BorderRadius.circular(AppRadius.pill),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(
-            width: 16,
-            height: 16,
-            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.onInk),
-          ),
-          const SizedBox(width: AppSpacing.xs),
-          Text('아바타로 변환 중이에요', style: AppTypography.labelSmall.copyWith(color: AppColors.onInk)),
-        ],
-      ),
-    );
-  }
-}
