@@ -1,5 +1,6 @@
 import json
 from collections.abc import Callable
+from datetime import datetime
 
 import httpx
 import pytest
@@ -7,7 +8,8 @@ from fastapi.testclient import TestClient
 
 import app.chat.router as router_module
 from app.cards.push import FcmSender
-from app.core.deps import get_client, get_settings
+from app.core.deps import get_client, get_now, get_settings
+from app.core.time import SEOUL
 from app.main import app
 from app.settings import Settings
 
@@ -15,6 +17,10 @@ PROFILE_ID = "11111111-1111-1111-1111-111111111111"
 PARTNER_ID = "22222222-2222-2222-2222-222222222222"
 MATCH_ID = "33333333-3333-3333-3333-333333333333"
 AUTH_HEADERS = {"Authorization": "Bearer valid-token"}
+# 시각은 의존성으로 끼운다. 벽시계를 그대로 쓰면 조용한 시간(22~08시)에 푸시가 버려져
+# 밤에 도는 CI 만 빨개진다 — 낮 하나, 밤 하나를 정해 두고 둘 다 본다.
+NOW = datetime(2026, 9, 22, 14, 0, tzinfo=SEOUL)
+NIGHT = datetime(2026, 9, 22, 23, 0, tzinfo=SEOUL)
 
 PARTNER_PROFILE = {
     "id": PARTNER_ID, "nickname": "여우비",
@@ -36,6 +42,9 @@ def overrides():
         google_cloud_project="campus-mate-test", openai_api_key="sk-test",
         phone_encryption_key="phone-key-test", identity_hmac_key="identity-key-test",
     )
+    # 푸시 건수를 세는 테스트가 quiet_hours 를 켜는 파일이라면 거기서도 get_now 를 같이 끼워야 한다.
+    # conftest 에 전역으로 두지는 말 것 — test_acceptances 의 _hours_ago 처럼 벽시계를 쓰는 곳이 깨진다.
+    app.dependency_overrides[get_now] = lambda: NOW
     yield
     app.dependency_overrides.clear()
 
@@ -217,14 +226,10 @@ def test_sending_stores_the_message_and_pushes_once():
 
 def test_no_push_when_the_partner_is_looking_at_the_room():
     """결정 5: 방을 보고 있으면 보내지 않는다. 방금 읽음이 찍힌 것으로 판정한다."""
-    from datetime import datetime
-
-    from app.core.time import SEOUL
-
     looking = _match(participants=[
         {"profile_id": PROFILE_ID, "trust_response": None, "left_at": None, "last_read_at": None},
         {"profile_id": PARTNER_ID, "trust_response": None, "left_at": None,
-         "last_read_at": datetime.now(SEOUL).isoformat()},
+         "last_read_at": NOW.isoformat()},
     ])
     calls = _Calls()
     _wire(_handler(calls, looking)).post(
@@ -323,20 +328,25 @@ def test_accepting_early_is_allowed_and_tells_the_partner():
     assert len(calls.pushes) == 1
 
 
-def test_both_accepting_opens_the_gate_right_away():
+def _accept_the_gate() -> tuple[dict, _Calls]:
+    """상대가 이미 수락한 방에서 내가 수락한다 — 그 자리에서 통과하는 길. 낮·밤 두 테스트가 같이 쓴다."""
     both = _match(participants=[
         {"profile_id": PROFILE_ID, "trust_response": None, "left_at": None, "last_read_at": None},
         {"profile_id": PARTNER_ID, "trust_response": "accept", "left_at": None, "last_read_at": None},
     ])
+    calls = _Calls()
 
     def handler(request: httpx.Request) -> httpx.Response:
-        url = str(request.url)
-        if "/rest/v1/profile_private" in url:
+        if "/rest/v1/profile_private" in str(request.url):
             return httpx.Response(200, json=[{"kakao_id": "fox_rain"}])
         return _handler(calls, both)(request)
 
-    calls = _Calls()
     body = _wire(handler).post(f"/chat/matches/{MATCH_ID}/trust", headers=AUTH_HEADERS).json()
+    return body, calls
+
+
+def test_both_accepting_opens_the_gate_right_away():
+    body, calls = _accept_the_gate()
 
     assert body["passed"] is True
     assert body["kakao_id"] == "fox_rain"
@@ -344,6 +354,24 @@ def test_both_accepting_opens_the_gate_right_away():
     assert len(stamped) == 1
     # 수락 알림 1건 + 통과 알림 2건(양쪽)
     assert len(calls.pushes) == 3
+
+
+def test_the_gate_opens_at_night_too_and_only_the_pass_alarm_waits():
+    """조용한 시간에도 문은 열린다. 채팅 푸시만 예외라(결정 5) 통과 알림 2건은 버려진다.
+
+    벽시계를 읽던 시절에는 22시 넘어 돌린 CI 가 이 차이 때문에 빨개졌다."""
+    app.dependency_overrides[get_now] = lambda: NIGHT
+
+    body, calls = _accept_the_gate()
+
+    assert body["passed"] is True
+    assert body["kakao_id"] == "fox_rain"
+    # 문이 열린 도장은 밤에도 똑같이 한 번 찍힌다 — 버려지는 건 푸시뿐이다.
+    stamped = [patch for url, patch in calls.patches if "trust_passed_at" in patch]
+    assert len(stamped) == 1
+    # 남는 건 수락 알림 하나뿐이다 — 채팅 갈래라 조용한 시간을 지나간다.
+    assert len(calls.pushes) == 1
+    assert calls.pushes[0]["notification"]["body"] == "카카오톡 아이디·실사진 공개를 수락했어요"
 
 
 def test_the_gate_is_stamped_before_the_system_line():

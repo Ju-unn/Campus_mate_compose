@@ -9,8 +9,7 @@ from app.cards.repository import CardRepository
 from app.chat import gate
 from app.chat.repository import MESSAGE_MAX_LENGTH, MESSAGE_PAGE_SIZE, ChatRepository
 from app.core import errors
-from app.core.deps import Caller, get_client, get_settings, get_verified_caller
-from app.core.time import SEOUL
+from app.core.deps import Caller, get_client, get_now, get_settings, get_verified_caller
 from app.profile_onboarding.storage import ProfilePhotoStorage
 from app.settings import Settings
 
@@ -46,13 +45,16 @@ class _Wiring:
     그대로 넘기는 편이 짧다."""
 
     def __init__(self, settings: Settings, profile_id: str, repo: ChatRepository,
-                 push_repo: CardRepository, sender: FcmSender, photos: ProfilePhotoStorage):
+                 push_repo: CardRepository, sender: FcmSender, photos: ProfilePhotoStorage,
+                 now: datetime):
         self.settings = settings
         self.profile_id = profile_id
         self.repo = repo
         self.push_repo = push_repo
         self.sender = sender
         self.photos = photos
+        # 이 요청의 "지금". 한 요청 안에서 두 번 읽으면 자정을 사이에 두고 갈릴 수 있다.
+        self.now = now
 
 
 def get_sender(
@@ -63,7 +65,8 @@ def get_sender(
 
 
 async def _wire(
-    caller: Caller = Depends(get_verified_caller), sender: FcmSender = Depends(get_sender)
+    caller: Caller = Depends(get_verified_caller), sender: FcmSender = Depends(get_sender),
+    now: datetime = Depends(get_now),
 ) -> _Wiring:
     settings, client, profile_id = caller
     key = settings.supabase_service_role_key
@@ -71,7 +74,7 @@ async def _wire(
     push_repo = CardRepository(settings.postgrest_url, key, client)
     photos = ProfilePhotoStorage(settings.storage_url, key, client)
     # profile_id 는 PostgREST 에서 문자열로 오니 비교가 되게 str 로 맞춘다.
-    return _Wiring(settings, str(profile_id), repo, push_repo, sender, photos)
+    return _Wiring(settings, str(profile_id), repo, push_repo, sender, photos, now)
 
 
 def _avatar_url(profile: dict, supabase_url: str) -> str | None:
@@ -128,7 +131,7 @@ async def get_conversations(wiring: _Wiring = Depends(_wire)) -> dict:
 
     ponytail: 방마다 상대 프로필·마지막 줄·안 읽은 수를 따로 읽는 N+1 이다. 한 사람의 대화가
     수십 개를 넘지 않는 동안은 이게 제일 단순하고, 수백 개가 되면 RPC 하나로 접는다(백로그)."""
-    now = datetime.now(SEOUL)
+    now = wiring.now
 
     conversations = []
     for row in await wiring.repo.fetch_conversations(wiring.profile_id):
@@ -162,7 +165,7 @@ async def get_conversations(wiring: _Wiring = Depends(_wire)) -> dict:
 @router.get("/chat/matches/{match_id}")
 async def get_chat_room(match_id: str, wiring: _Wiring = Depends(_wire)) -> dict:
     """방 머리말(화면 14). 게이트를 통과한 뒤에만 카카오톡 아이디와 실사진이 응답에 담긴다."""
-    now = datetime.now(SEOUL)
+    now = wiring.now
 
     match = await wiring.repo.fetch_match(match_id, wiring.profile_id)
     if match is None:
@@ -228,7 +231,7 @@ async def get_messages(match_id: str, before: datetime | None = None,
 async def send_message(match_id: str, body: MessageRequest,
                        wiring: _Wiring = Depends(_wire)) -> dict:
     """보내기. 저장이 먼저고 푸시가 나중이다 — 푸시가 실패해도 메시지는 남는다."""
-    now = datetime.now(SEOUL)
+    now = wiring.now
 
     match = await wiring.repo.fetch_match(match_id, wiring.profile_id)
     if match is None:
@@ -250,7 +253,7 @@ async def mark_read(match_id: str, wiring: _Wiring = Depends(_wire)) -> dict:
     if match is None:
         raise HTTPException(status_code=404, detail=errors.CHAT_NOT_FOUND)
 
-    await wiring.repo.touch_read(match_id, wiring.profile_id, datetime.now(SEOUL))
+    await wiring.repo.touch_read(match_id, wiring.profile_id, wiring.now)
     return {"ok": True}
 
 
@@ -259,7 +262,7 @@ async def leave_chat(match_id: str, wiring: _Wiring = Depends(_wire)) -> dict:
     """채팅방 나가기. 게이트 거절도 여기로 온다(결정 11) — 서버는 둘을 구분하지 않는다.
 
     되돌릴 수 없고 상대에게 시스템 줄로 보인다(결정 7)."""
-    now = datetime.now(SEOUL)
+    now = wiring.now
 
     match = await wiring.repo.fetch_match(match_id, wiring.profile_id)
     if match is None:
@@ -282,7 +285,7 @@ async def accept_trust_gate(match_id: str, wiring: _Wiring = Depends(_wire)) -> 
     """신뢰 확인 수락(화면 14f). **수락 전용이다** — 거절은 /leave 로 간다(결정 11).
 
     매칭 순간부터 부를 수 있고, 양쪽이 수락하면 48시간을 기다리지 않고 그 자리에서 공개된다(결정 10)."""
-    now = datetime.now(SEOUL)
+    now = wiring.now
 
     match = await wiring.repo.fetch_match(match_id, wiring.profile_id)
     if match is None:
