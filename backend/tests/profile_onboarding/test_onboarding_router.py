@@ -214,7 +214,7 @@ def test_avatar_generate_grants_ten_hearts_on_fifth_consecutive_failure():
         if "/rest/v1/profile_photos" in url and request.method == "GET":
             return httpx.Response(200, json=[{"storage_path": "aa/source.png"}])
         if "/storage/v1/object/profile-photos/" in url and request.method == "GET":
-            return httpx.Response(200, content=b"source-photo-bytes")
+            return httpx.Response(200, content=_PNG_BYTES)  # 판별 가능한 형식이어야 OpenAI 호출까지 간다
         if "/rest/v1/profile_avatars" in url and request.method == "GET":
             if "status=eq.ready" in url:
                 return httpx.Response(200, json=[])
