@@ -2,6 +2,7 @@ import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -9,6 +10,8 @@ import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/profile/viewmodel/photos_ui_state.dart';
 import 'package:campus_mate/profile/viewmodel/photos_view_model.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -71,6 +74,12 @@ class _PhotosScreenState extends ConsumerState<PhotosScreen> {
                         '갤러리에서 여러 장을 한 번에 고를 수 있어요. 최소 2장이 필요해요.',
                         style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
                       ),
+                      // pen `hco2A` 실측 6. 간격 토큰 xxs(4)·xs(8) 사이 값이라 토큰으로 갈음하지 않는다.
+                      const SizedBox(height: 6),
+                      Text(
+                        '사진을 길게 눌러 끌면 순서를 바꿀 수 있어요. 첫 칸이 대표 사진이에요.',
+                        style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+                      ),
                       if (state.errorMessage != null) ...[
                         const SizedBox(height: AppSpacing.xs),
                         Text(state.errorMessage!,
@@ -103,7 +112,7 @@ class _PhotoGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget slot(int index) => index < state.photos.length
-        ? _PhotoTile(index: index, state: state, viewModel: viewModel)
+        ? _DraggablePhotoTile(index: index, state: state, viewModel: viewModel)
         : _AddPhotoTile(onTap: viewModel.addPhoto);
     return Column(
       children: [
@@ -120,6 +129,101 @@ class _PhotoGrid extends StatelessWidget {
             ),
           ),
         ],
+      ],
+    );
+  }
+}
+
+/// 길게 눌러 끌면 두 칸이 자리를 바꾼다(15e 와 같은 방식, 2026-09-24 사용자 결정).
+/// 빈 "사진 추가" 칸은 받는 쪽이 아니다 — 사진을 빈 자리로 밀면 순서에 구멍이 생긴다.
+class _DraggablePhotoTile extends StatelessWidget {
+  const _DraggablePhotoTile({required this.index, required this.state, required this.viewModel});
+
+  final int index;
+  final PhotosUiState state;
+  final PhotosViewModel viewModel;
+
+  @override
+  Widget build(BuildContext context) {
+    final tile = _PhotoTile(index: index, state: state, viewModel: viewModel);
+    // 끄는 것은 자리가 아니라 사진이다 — 끄는 중에 다른 칸이 지워져 번호가 밀려도
+    // 처음 집은 사진이 그대로 옮겨지도록 파일 경로를 들고 다닌다.
+    final photoPath = state.photos[index].file.path;
+    return Semantics(
+      label: index == 0 ? '사진 1, 대표' : '사진 ${index + 1}',
+      // 끌지 못하는 사람도 대표를 바꿀 수 있어야 한다 — 토크백 메뉴에 액션으로 둔다.
+      // 첫 칸은 이미 대표라 액션이 없다(빈 맵을 주면 빈 메뉴가 생긴다).
+      customSemanticsActions: index == 0
+          ? null
+          : {const CustomSemanticsAction(label: '대표로 지정'): () => viewModel.swapPhotos(index, 0)},
+      child: LayoutBuilder(
+        builder: (context, constraints) => DragTarget<String>(
+          onWillAcceptWithDetails: (details) => details.data != photoPath,
+          onAcceptWithDetails: (details) =>
+              viewModel.swapPhotos(state.photos.indexWhere((p) => p.file.path == details.data), index),
+          builder: (context, candidates, _) => LongPressDraggable<String>(
+            data: photoPath,
+            // 길게 누른 순간 한 번만 울린다 — 끄는 내내 울리면 시끄럽다.
+            onDragStarted: HapticFeedback.selectionClick,
+            feedback: _LiftedTile(size: constraints.biggest, child: tile),
+            childWhenDragging: Opacity(opacity: 0.4, child: tile),
+            child: candidates.isEmpty ? tile : _DropOutline(child: tile),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 끄는 동안 손가락을 따라다니는 그림. pen 에 없는 모습이라 토큰 안에서 최소한으로 —
+/// 조금 크게(1.05) + 카드 그림자만으로 "들렸다"를 알린다.
+class _LiftedTile extends StatelessWidget {
+  const _LiftedTile({required this.size, required this.child});
+
+  final Size size;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: Transform.scale(
+        scale: 1.05,
+        child: SizedBox(
+          width: size.width,
+          height: size.height,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              boxShadow: AppElevation.card,
+            ),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 놓으면 여기로 온다는 표시. 테두리만 얹어 다른 칸이 밀리지 않게 한다.
+class _DropOutline extends StatelessWidget {
+  const _DropOutline({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Positioned.fill(child: child),
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border.all(color: AppColors.primary, width: 2),
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -149,7 +253,10 @@ class _PhotoTile extends StatelessWidget {
                   color: AppColors.surfaceInk,
                   borderRadius: BorderRadius.circular(AppRadius.pill),
                 ),
-                child: Text('대표', style: AppTypography.badge.copyWith(color: AppColors.onInk)),
+                // 칸 라벨이 이미 "사진 1, 대표" 라고 읽어 준다 — 여기서 또 읽으면 두 번 들린다.
+                child: ExcludeSemantics(
+                  child: Text('대표', style: AppTypography.badge.copyWith(color: AppColors.onInk)),
+                ),
               ),
             ),
           Positioned(
