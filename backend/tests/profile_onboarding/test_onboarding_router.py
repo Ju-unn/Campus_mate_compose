@@ -68,10 +68,16 @@ def _wire(
 
 
 def _safe_vision() -> AsyncMock:
-    vision_client = AsyncMock()
-    annotation = vision_client.safe_search_detection.return_value.safe_search_annotation
-    annotation.adult = 1
-    annotation.violence = 1
+    # spec 없는 목은 비동기 클라이언트에 없는 메서드까지 받아 준다 — 그래서 500 이 테스트를 빠져나갔다.
+    vision_client = AsyncMock(spec=vision.ImageAnnotatorAsyncClient)
+    vision_client.batch_annotate_images.return_value = SimpleNamespace(
+        responses=[
+            SimpleNamespace(
+                error=SimpleNamespace(message=""),
+                safe_search_annotation=SimpleNamespace(adult=1, violence=1),
+            )
+        ]
+    )
     return vision_client
 
 
@@ -351,9 +357,12 @@ def test_photo_upload_builds_vision_client_on_the_event_loop_thread(monkeypatch)
     # 제공자가 sync 면 FastAPI 가 AnyIO 워커 스레드에서 부르고, 거기엔 루프가 없어
     # grpc aio 채널을 여는 순간 500 이 됐다(2026-09-25 운영 사진 업로드 장애).
     # 그래서 여기서는 일부러 get_vision_client 를 override 하지 않는다.
+    # 목은 monkeypatch 앞에서 만든다 — 그래야 spec 이 가짜가 아닌 진짜 클래스를 가리킨다.
+    safe_client = _safe_vision()
+
     def fake_client() -> AsyncMock:
         asyncio.get_running_loop()
-        return _safe_vision()
+        return safe_client
 
     monkeypatch.setattr(vision, "ImageAnnotatorAsyncClient", fake_client)
 
