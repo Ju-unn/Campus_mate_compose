@@ -6,6 +6,8 @@ from uuid import uuid4
 
 from openai import AsyncOpenAI
 
+from app.student_verification.image_validation import student_id_content_type
+
 _logger = logging.getLogger(__name__)
 
 # "5회 연속 실패 → 기본 아바타+하트10"(project_slice2_decisions_2026-09-19). SDK 자체 재시도는 끄고
@@ -33,9 +35,14 @@ class AvatarGenerator:
 
     async def generate(self, profile_id: str, source_photo_bytes: bytes) -> AvatarResult:
         try:
+            # 맨 bytes 를 넘기면 SDK 가 파일명·타입 없이 application/octet-stream 으로 보내 OpenAI 가 400 을 낸다 —
+            # 업로드 때 쓰는 매직바이트 판별기를 그대로 쓴다. 판별이 안 되면 어차피 400 이라 아래 실패로 센다.
+            content_type = student_id_content_type(source_photo_bytes)
+            if content_type is None:
+                raise ValueError("아바타 원본 사진의 형식을 알 수 없다")
             response = await self._openai_client.images.edit(
                 model="gpt-image-1",
-                image=source_photo_bytes,
+                image=(f"source.{content_type.removeprefix('image/')}", source_photo_bytes, content_type),
                 prompt=(
                     "Turn this photo into a soft, friendly cartoon avatar illustration, "
                     "keeping the same hairstyle and general look, no text, no watermark."
