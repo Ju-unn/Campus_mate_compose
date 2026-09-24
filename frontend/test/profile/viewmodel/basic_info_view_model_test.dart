@@ -63,6 +63,37 @@ void main() {
     expect(state.canSubmit, isTrue);
   });
 
+  test('하이픈은 화면에만 남기고 서버에는 숫자만 보낸다', () async {
+    // 저장 형식(E.164)은 서버가 정한다 — 앱이 보내는 값에 하이픈이 섞이면 저장값이 두 갈래가 된다.
+    final vm = container.read(basicInfoViewModelProvider.notifier);
+    vm.changeNickname('가나다');
+    await Future<void>.delayed(const Duration(milliseconds: 350));
+    vm.changeBirthYear('2002');
+    vm.changeHeight('175');
+    vm.changePhoneNumber('010-1234-5678');
+    vm.changeGender('male');
+
+    await vm.submit();
+
+    expect(container.read(basicInfoViewModelProvider).phoneNumberInput, '010-1234-5678');
+    expect(repository.submitted?.phoneNumber, '01012345678');
+  });
+
+  test('전화번호가 11자리가 되기 전에는 제출할 수 없다', () async {
+    final vm = container.read(basicInfoViewModelProvider.notifier);
+    vm.changeNickname('가나다');
+    await Future<void>.delayed(const Duration(milliseconds: 350));
+    vm.changeBirthYear('2002');
+    vm.changeHeight('175');
+    vm.changeGender('male');
+
+    vm.changePhoneNumber('010-1234-567');
+    expect(container.read(basicInfoViewModelProvider).canSubmit, isFalse);
+
+    vm.changePhoneNumber('010-1234-5678');
+    expect(container.read(basicInfoViewModelProvider).canSubmit, isTrue);
+  });
+
   test('제출에 성공하면 completed 가 켜지고 온보딩 단계를 다시 조회한다', () async {
     final vm = container.read(basicInfoViewModelProvider.notifier);
     vm.changeNickname('가나다');

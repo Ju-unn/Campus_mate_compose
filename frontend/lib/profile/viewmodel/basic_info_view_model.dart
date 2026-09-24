@@ -80,7 +80,7 @@ class BasicInfoViewModel extends Notifier<BasicInfoUiState> {
         nickname: state.nicknameInput,
         birthYear: state.birthYear!,
         heightCm: state.heightCm!,
-        phoneNumber: state.phoneNumberInput,
+        phoneNumber: state.phoneDigits,
         gender: state.gender!,
         mbti: state.mbti,
       );

@@ -1,3 +1,5 @@
+import 'package:campus_mate/common/phone_number_formatter.dart';
+
 /// 기본 정보 화면(DESIGN.md 화면 04-1)의 상태.
 class BasicInfoUiState {
   const BasicInfoUiState({
@@ -51,6 +53,9 @@ class BasicInfoUiState {
     return (value != null && value >= 1950 && value <= 2020) ? value : null;
   }
 
+  /// 서버로는 하이픈 없이 숫자만 보낸다 — 저장 형식(E.164)은 서버가 정한다.
+  String get phoneDigits => phoneNumberInput.replaceAll(RegExp(r'\D'), '');
+
   int? get heightCm {
     final value = int.tryParse(heightInput);
     return (value != null && value >= 120 && value <= 230) ? value : null;
@@ -65,7 +70,8 @@ class BasicInfoUiState {
         _isNicknameValid &&
         birthYear != null &&
         heightCm != null &&
-        phoneNumberInput.isNotEmpty &&
+        // 반만 친 번호로 넘어가면 서버가 400 을 돌려주고 04-1 에 다시 갇힌다.
+        phoneDigits.length == PhoneNumberFormatter.maxDigits &&
         gender != null;
   }
 }
