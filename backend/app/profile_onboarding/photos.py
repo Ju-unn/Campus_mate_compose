@@ -5,6 +5,17 @@ _REJECT_THRESHOLD = 4  # LIKELY 이상이면 거부(사전 결정, project_slice
 
 
 async def check_safe_search(vision_client: vision.ImageAnnotatorAsyncClient, image_bytes: bytes) -> bool:
-    response = await vision_client.safe_search_detection(image=vision.Image(content=image_bytes))
-    annotation = response.safe_search_annotation
+    # 비동기 클라이언트에는 safe_search_detection 편의 메서드가 없다(동기 클라이언트 전용) — 원본 RPC 를 직접 부른다.
+    response = await vision_client.batch_annotate_images(
+        requests=[
+            {
+                "image": vision.Image(content=image_bytes),
+                "features": [{"type_": vision.Feature.Type.SAFE_SEARCH_DETECTION}],
+            }
+        ]
+    )
+    result = response.responses[0]
+    if result.error.message:
+        raise RuntimeError(result.error.message)
+    annotation = result.safe_search_annotation
     return annotation.adult < _REJECT_THRESHOLD and annotation.violence < _REJECT_THRESHOLD
