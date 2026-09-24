@@ -9,6 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 from google.cloud import vision
 
+from app.core import errors
 from app.core.deps import get_client, get_settings, get_vision_client_factory
 from app.main import app
 from app.settings import Settings
@@ -296,6 +297,40 @@ def test_submit_returns_400_for_blank_real_name():
     vision_client.batch_annotate_images.assert_not_awaited()
     assert _calls(sent, "POST", "/storage/v1/") == []
     assert _calls(sent, "POST", "/profile_private") == []
+
+
+def test_submit_returns_400_when_real_name_is_one_letter_with_spaces():
+    # Form(min_length=2) 는 공백까지 세서 " 김 " 이 통과한다 — 자른 뒤 길이로 다시 봐야 한다.
+    sent, vision_client = _wire(_gate_row("none"), ocr_text="서울대학교 홍길동")
+
+    response = _submit(real_name=" 김 ")
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == errors.REAL_NAME_REQUIRED
+    vision_client.batch_annotate_images.assert_not_awaited()
+    assert _calls(sent, "POST", "/profile_private") == []
+
+
+def test_submit_returns_400_when_real_name_has_digits_or_symbols():
+    # 앱이 이미 막지만 여기가 신뢰 경계다 — 학생증에 없는 글자가 섞이면 OCR 대조가 어긋난다.
+    sent, vision_client = _wire(_gate_row("none"), ocr_text="서울대학교 홍길동")
+
+    response = _submit(real_name="Mary-Jane")
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == errors.REAL_NAME_INVALID
+    vision_client.batch_annotate_images.assert_not_awaited()
+    assert _calls(sent, "POST", "/profile_private") == []
+
+
+def test_submit_accepts_an_english_name_with_a_space():
+    # 외국인 이름은 "Jun seok" 처럼 띄어 쓴다(2026-09-24 사용자 결정).
+    sent, _ = _wire(_gate_row("none"), ocr_text="서울대학교 Jun seok")
+
+    response = _submit(real_name="Jun seok")
+
+    assert response.status_code == 200
+    assert json.loads(_calls(sent, "POST", "/profile_private")[0].content)["real_name"] == "Jun seok"
 
 
 def test_submit_returns_401_without_authorization_header():

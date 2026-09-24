@@ -23,11 +23,13 @@ INVALID_INPUT = "입력한 값을 다시 확인해 주세요"
 VERIFICATION_IN_REVIEW = "이미 검토 중이에요, 결과를 기다려 주세요"
 VERIFICATION_ALREADY_DONE = "이미 인증이 완료됐어요"
 REAL_NAME_REQUIRED = "실명을 입력해 주세요"
+REAL_NAME_INVALID = "이름은 한글이나 영문으로만 적어 주세요"
 
 # 프로필 · 사진 · 아바타
 PROFILE_NOT_FOUND = "프로필을 찾을 수 없어요"
 PROFILE_INCOMPLETE = "프로필을 먼저 완성해 주세요"
 NICKNAME_TAKEN = "이미 있는 닉네임이에요"
+PHONE_NUMBER_INVALID = "전화번호를 다시 확인해 주세요"
 # 읽을 수 없는 사진(학생증 제출·프로필 사진 업로드가 같은 문구를 쓴다).
 PHOTO_UNREADABLE = "사진을 다시 확인해 주세요"
 PHOTO_NOT_SAFE = "부적절한 사진은 올릴 수 없어요"
