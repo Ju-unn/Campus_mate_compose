@@ -3,8 +3,11 @@ from datetime import datetime, timedelta, timezone
 import httpx
 
 from app.cards.repository import CardRepository
+from app.core.time import SEOUL
 
 URL = "https://x.supabase.co/rest/v1"
+# 기한 계산이 이 시각에서 나온다 — 실제 시계를 읽으면 "1분 안" 같은 어림밖에 못 쓴다.
+NOW = datetime(2026, 9, 22, 14, 0, tzinfo=SEOUL)
 
 
 def _repo(handler) -> tuple[CardRepository, httpx.AsyncClient]:
@@ -63,14 +66,16 @@ async def test_pending_acceptances_drop_already_answered_ones():
         ])
 
     repo, _ = _repo(handler)
-    pending = await repo.fetch_pending_acceptances("me")
+    pending = await repo.fetch_pending_acceptances("me", now=NOW)
 
     assert [p["card_id"] for p in pending] == ["c1"]
     # card_decisions 에서 acceptance_responses 로 바로 가면 PGRST200 이라 daily_cards 를 거쳐야 한다.
     assert "daily_cards!inner(id,owner_id,target_id,acceptance_responses(card_id))" in select[0]
     # 기한은 "7일"이 아니라 실제 시각으로 나가야 한다 — 숫자를 그대로 보내면 PostgREST 가 전부 돌려준다.
     cutoff = datetime.fromisoformat(seen[0].removeprefix("gte."))
-    assert abs(cutoff - (datetime.now(timezone.utc) - timedelta(days=7))) < timedelta(minutes=1)
+    assert cutoff == NOW.astimezone(timezone.utc) - timedelta(days=7)
+    # 저장된 값이 UTC 라 보내는 것도 UTC 여야 한다 — KST 로 나가면 9시간 어긋난 목록이 온다.
+    assert seen[0].endswith("+00:00")
 
 
 async def test_create_match_orders_the_pair():
