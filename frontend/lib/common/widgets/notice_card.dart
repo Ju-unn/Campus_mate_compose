@@ -29,7 +29,8 @@ class NoticeCard extends StatelessWidget {
   /// 강조형에서 카드 맨 아래에 붙는 작은 보충 설명.
   final String? footer;
 
-  /// 강조형 안에 끼워 넣는 흰 칸(04-1b 의 "아이디로 친구 추가 허용" 줄).
+  /// 강조형 본문 아래에 끼워 넣는 그림(04-1b 의 카카오톡 설정 화면 예시).
+  /// 칸의 배경·모서리는 넣는 쪽이 정한다 — 04-1b 예시는 카카오톡 화면을 흉내 낸 어두운 판이다.
   final Widget? child;
 
   @override
@@ -63,14 +64,7 @@ class NoticeCard extends StatelessWidget {
           Text(body, style: _bodyStyle),
           if (child != null) ...[
             const SizedBox(height: AppSpacing.sm),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: AppSpacing.sm),
-              decoration: BoxDecoration(
-                color: AppColors.canvas,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: child,
-            ),
+            child!,
           ],
           if (footer != null) ...[
             const SizedBox(height: AppSpacing.xs),
