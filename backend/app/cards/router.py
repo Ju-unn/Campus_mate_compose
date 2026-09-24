@@ -8,8 +8,7 @@ from app.cards.ladder import next_issue_at
 from app.cards.push import FcmSender, notify
 from app.cards.repository import NOTIFICATION_DEFAULTS, CardRepository
 from app.core import errors
-from app.core.deps import Caller, get_client, get_settings, get_verified_caller
-from app.core.time import SEOUL
+from app.core.deps import Caller, get_client, get_now, get_settings, get_verified_caller
 from app.matching.repository import MatchingRepository
 from app.settings import Settings
 
@@ -50,12 +49,14 @@ class _Wiring:
     """공통 배선(core/deps 의 Caller) 위에 카드 기능의 저장소·푸시 발송기를 얹은 것."""
 
     def __init__(self, settings: Settings, client: httpx.AsyncClient, profile_id: str,
-                 repo: CardRepository, sender: FcmSender):
+                 repo: CardRepository, sender: FcmSender, now: datetime):
         self.settings = settings
         self.client = client
         self.profile_id = profile_id
         self.repo = repo
         self.sender = sender
+        # 이 요청의 "지금". 한 요청 안에서 두 번 읽으면 자정을 사이에 두고 갈릴 수 있다.
+        self.now = now
 
 
 def get_sender(
@@ -66,12 +67,13 @@ def get_sender(
 
 
 async def _wire(
-    caller: Caller = Depends(get_verified_caller), sender: FcmSender = Depends(get_sender)
+    caller: Caller = Depends(get_verified_caller), sender: FcmSender = Depends(get_sender),
+    now: datetime = Depends(get_now),
 ) -> _Wiring:
     settings, client, profile_id = caller
     repo = CardRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
     # owner_id·target_id 는 PostgREST 에서 문자열로 오니 비교가 되게 str 로 맞춘다.
-    return _Wiring(settings, client, str(profile_id), repo, sender)
+    return _Wiring(settings, client, str(profile_id), repo, sender, now)
 
 
 def _card_profile(profile: dict, supabase_url: str, now: datetime) -> dict:
@@ -107,7 +109,7 @@ async def _next_issue_at(repo: CardRepository, profile_id: str, now: datetime) -
 async def get_today_cards(wiring: _Wiring = Depends(_wire)) -> dict:
     """오늘의 카드(화면 10 `W0CjO`). 살아 있는 카드가 없으면 빈 목록 + 다음 지급 시각만 내려간다
     (화면 11 `i4VFS` 가 그 상태를 그린다)."""
-    now = datetime.now(SEOUL)
+    now = wiring.now
 
     cards = []
     for card in await wiring.repo.fetch_live_cards(wiring.profile_id):
@@ -140,7 +142,7 @@ async def get_today_cards(wiring: _Wiring = Depends(_wire)) -> dict:
 async def decide_card(card_id: str, body: DecisionRequest,
                       wiring: _Wiring = Depends(_wire)) -> dict:
     """수락·거절을 남긴다. 저장이 먼저고 알림이 나중이다 — 알림이 실패해도 결정은 남는다."""
-    now = datetime.now(SEOUL)
+    now = wiring.now
 
     card = await wiring.repo.fetch_card(card_id)
     if card is None or card["owner_id"] != wiring.profile_id:
@@ -164,10 +166,12 @@ async def decide_card(card_id: str, body: DecisionRequest,
 async def get_acceptances(wiring: _Wiring = Depends(_wire)) -> dict:
     """받은 수락함(화면 13 `XCN1f`). 7일이 지난 것은 아예 내려보내지 않는다 —
     앱이 만료를 계산하지 않게 한다(2026-09-21 확정)."""
-    now = datetime.now(SEOUL)
+    now = wiring.now
 
     acceptances = []
-    for row in await wiring.repo.fetch_pending_acceptances(wiring.profile_id, ACCEPTANCE_TTL_DAYS):
+    for row in await wiring.repo.fetch_pending_acceptances(
+        wiring.profile_id, ACCEPTANCE_TTL_DAYS, now=now
+    ):
         accepter_id = row["daily_cards"]["owner_id"]
         profile = await wiring.repo.fetch_card_profile(accepter_id)
         decided_at = datetime.fromisoformat(row["decided_at"])
@@ -183,7 +187,7 @@ async def get_acceptances(wiring: _Wiring = Depends(_wire)) -> dict:
 async def respond_to_acceptance(card_id: str, body: DecisionRequest,
                                 wiring: _Wiring = Depends(_wire)) -> dict:
     """받은 수락에 답한다. 내가 수락하면 그 자리에서 매칭이 성사된다(설계 §2.2)."""
-    now = datetime.now(SEOUL)
+    now = wiring.now
 
     card = await wiring.repo.fetch_card(card_id)
     # 임베드는 객체 하나 아니면 null 이다(카드 한 장당 결정도 응답도 최대 한 건).
@@ -249,7 +253,7 @@ async def update_notification_settings(body: dict,
     if "marketing" in fields:
         # 동의 시각은 서버가 적는다 — 법적 근거가 되는 값이라 앱이 보낸 시각을 믿지 않는다.
         fields["marketing_consented_at"] = (
-            datetime.now(timezone.utc).isoformat() if fields["marketing"] else None
+            wiring.now.astimezone(timezone.utc).isoformat() if fields["marketing"] else None
         )
     await wiring.repo.update_notification_settings(wiring.profile_id, **fields)
     return {"ok": True}
@@ -268,7 +272,7 @@ async def update_matching_paused(body: MatchingPausedRequest,
 async def get_card_detail(card_id: str,
                           wiring: _Wiring = Depends(_wire)) -> dict:
     """10b 상대 프로필 상세(`TORAs`). 카드 주인에게만 보인다."""
-    now = datetime.now(SEOUL)
+    now = wiring.now
 
     card = await wiring.repo.fetch_card(card_id)
     if card is None or card["owner_id"] != wiring.profile_id:

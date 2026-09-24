@@ -1,18 +1,21 @@
 import json
 from collections.abc import Callable
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 import httpx
 import pytest
 from fastapi.testclient import TestClient
 
 import app.cards.router as router_module
-from app.core.deps import get_client, get_settings
+from app.core.deps import get_client, get_now, get_settings
+from app.core.time import SEOUL
 from app.main import app
 from app.settings import Settings
 
 PROFILE_ID = "11111111-1111-1111-1111-111111111111"
 AUTH_HEADERS = {"Authorization": "Bearer valid-token"}
+# 동의 시각을 서버가 적는지 보려면 그 "서버 시각" 이 무엇인지 알아야 한다 — 끼워서 고정한다.
+NOW = datetime(2026, 9, 22, 14, 0, tzinfo=SEOUL)
 
 
 @pytest.fixture(autouse=True)
@@ -23,6 +26,7 @@ def overrides():
         google_cloud_project="campus-mate-test", openai_api_key="sk-test",
         phone_encryption_key="phone-key-test", identity_hmac_key="identity-key-test",
     )
+    app.dependency_overrides[get_now] = lambda: NOW
     yield
     app.dependency_overrides.clear()
 
@@ -108,7 +112,8 @@ def test_marketing_opt_in_records_the_server_time():
     body = json.loads(seen[-1].content)
     assert body["marketing"] is True
     consented = datetime.fromisoformat(body["marketing_consented_at"])
-    assert abs(consented - datetime.now(timezone.utc)) < timedelta(minutes=1)
+    # 앱이 보낸 값이 아니라 서버 시계 그 시각이다 — "1분 안" 어림 대신 정확히 맞춘다.
+    assert consented == NOW.astimezone(timezone.utc)
 
 
 def test_marketing_opt_out_clears_the_consent_time():

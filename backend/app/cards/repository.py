@@ -126,12 +126,13 @@ class CardRepository(PostgrestRepository):
         await self._rows_post("card_decisions", {"card_id": str(card_id), "decision": decision}, prefer="")
 
     # 받은 수락함 -------------------------------------------------------------
-    async def fetch_pending_acceptances(self, profile_id: UUID | str, days: int = 7) -> list[dict]:
+    async def fetch_pending_acceptances(self, profile_id: UUID | str, days: int = 7,
+                                        *, now: datetime) -> list[dict]:
         """내가 받은 수락 중 7일이 지나지 않았고 아직 답하지 않은 것(설계 §2.2, 2026-09-21 확정).
         건수가 1인당 하루 0.3~0.5건이라 응답 여부는 파이썬에서 거른다 — 전용 SQL 함수를 만들지 않는다.
         card_decisions 와 acceptance_responses 사이에는 FK 가 없어(둘 다 daily_cards 만 가리킨다)
         곧바로 임베드하면 PGRST200 이다 — daily_cards 를 거쳐서 붙인다."""
-        since = datetime.now(timezone.utc) - timedelta(days=days)
+        since = now.astimezone(timezone.utc) - timedelta(days=days)
         rows = await self._rows("card_decisions", {
             "select": "card_id,decided_at,"
                       "daily_cards!inner(id,owner_id,target_id,acceptance_responses(card_id))",

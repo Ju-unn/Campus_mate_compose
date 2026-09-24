@@ -4,6 +4,7 @@
 목을 끼운다(예전에는 라우터마다 `_client_override` 같은 전역 변수를 뒀다).
 """
 from collections.abc import Callable
+from datetime import datetime
 from functools import lru_cache
 from typing import NamedTuple
 from uuid import UUID
@@ -12,6 +13,7 @@ import httpx
 from fastapi import Depends, Header, Request
 from google.cloud import vision
 
+from app.core.time import SEOUL
 from app.settings import Settings
 from app.student_verification.current_user import get_current_user_id, get_verified_user_id
 
@@ -46,6 +48,15 @@ def get_client(request: Request) -> httpx.AsyncClient:
     테스트는 `app.dependency_overrides[get_client]` 로 덮어써 lifespan 을 켜지 않는다.
     """
     return request.app.state.http_client
+
+
+def get_now() -> datetime:
+    """이번 요청의 "지금"(한국 시각). 엔드포인트가 벽시계를 직접 읽지 않게 하는 이음매다.
+
+    요청 하나는 어디서 읽어도 같은 시각을 본다. 테스트는 `app.dependency_overrides[get_now]` 로
+    시각을 고정한다 — 직접 읽으면 조용한 시간(22~08시)에 푸시가 버려져 밤에만 빨개지는 테스트가 생긴다.
+    """
+    return datetime.now(SEOUL)
 
 
 class Caller(NamedTuple):

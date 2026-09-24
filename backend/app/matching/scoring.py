@@ -56,6 +56,7 @@ def range_coefficient(
 def activity_coefficient(last_active_at: datetime | str) -> float:
     if isinstance(last_active_at, str):
         last_active_at = datetime.fromisoformat(last_active_at)
+    # 여기는 일부러 벽시계다 — 경계가 일 단위라 요청 안에서 갈릴 일이 없고, 시각에 걸린 푸시도 없다.
     days = (datetime.now(timezone.utc) - last_active_at).days
     if days <= 3:
         return 1.0
@@ -67,6 +68,7 @@ def activity_coefficient(last_active_at: datetime | str) -> float:
 def _age(profile: dict) -> int | None:
     """설계 §6.1 의 나이는 만 나이가 아니라 "올해 − 태어난 해"다(가입 자격 계산과 같은 기준)."""
     birth_year = profile.get("birth_year")
+    # 여기도 일부러 벽시계다 — 경계가 해 단위다. 요청 경로이긴 하지만 시각에 따라 갈리는 동작이 없다.
     return None if birth_year is None else datetime.now(SEOUL).year - birth_year
 
 
