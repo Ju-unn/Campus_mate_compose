@@ -10,9 +10,12 @@ import '../model/fake_auth_repository.dart';
 void main() {
   final email = UniversityEmail.tryParse('hong@snu.ac.kr')!;
 
-  ProviderContainer buildContainer(FakeAuthRepository repository) {
+  ProviderContainer buildContainer(FakeAuthRepository repository, {DateTime Function()? now}) {
     final container = ProviderContainer(
-      overrides: [authRepositoryProvider.overrideWithValue(repository)],
+      overrides: [
+        authRepositoryProvider.overrideWithValue(repository),
+        if (now != null) verifyCodeNowProvider.overrideWithValue(now),
+      ],
     );
     addTearDown(container.dispose);
     return container;
@@ -41,11 +44,25 @@ void main() {
     expect(state.verified, isFalse);
   });
 
+  test('화면을 열자마자 60초 쿨다운이 걸려 있다', () {
+    // 로그인 화면이 방금 메일을 보내고 이 화면을 연다 — 열자마자 버튼이 켜져 있으면
+    // 먼저 온 코드를 버리고 한 통을 더 보내게 된다(실기기 테스트에서 나온 문제).
+    final now = DateTime(2026, 1, 1, 12);
+    final container = buildContainer(FakeAuthRepository(), now: () => now);
+
+    final state = container.read(verifyCodeViewModelProvider(email));
+
+    expect(state.resendAvailableAt, now.add(const Duration(seconds: 60)));
+    expect(state.canResend(now), isFalse);
+  });
+
   test('재전송하면 60초 뒤로 resendAvailableAt 이 설정된다', () async {
     final repository = FakeAuthRepository();
-    final container = buildContainer(repository);
-    final now = DateTime(2026, 1, 1, 12);
-    final viewModel = container.read(verifyCodeViewModelProvider(email).notifier)..now = () => now;
+    var now = DateTime(2026, 1, 1, 12);
+    final container = buildContainer(repository, now: () => now);
+    final viewModel = container.read(verifyCodeViewModelProvider(email).notifier);
+    // 화면을 연 순간 걸린 첫 쿨다운을 지나 보낸다.
+    now = now.add(const Duration(seconds: 60));
 
     await viewModel.resend();
 
@@ -58,9 +75,10 @@ void main() {
     // 화면은 만료라고 말하는데 서버는 코드를 받아 준다(2026-09-23 사용자 결정).
     expect(codeLifetime, const Duration(minutes: 5));
 
-    final container = buildContainer(FakeAuthRepository());
-    final now = DateTime(2026, 1, 1, 12);
-    final viewModel = container.read(verifyCodeViewModelProvider(email).notifier)..now = () => now;
+    var now = DateTime(2026, 1, 1, 12);
+    final container = buildContainer(FakeAuthRepository(), now: () => now);
+    final viewModel = container.read(verifyCodeViewModelProvider(email).notifier);
+    now = now.add(const Duration(seconds: 60));
 
     await viewModel.resend();
 
@@ -68,9 +86,11 @@ void main() {
   });
 
   test('재전송하면 입력해 둔 코드를 비운다', () async {
-    final container = buildContainer(FakeAuthRepository());
+    var now = DateTime(2026, 1, 1, 12);
+    final container = buildContainer(FakeAuthRepository(), now: () => now);
     final viewModel = container.read(verifyCodeViewModelProvider(email).notifier);
     viewModel.changeCode('123456');
+    now = now.add(const Duration(seconds: 60));
 
     await viewModel.resend();
 
@@ -79,9 +99,10 @@ void main() {
 
   test('쿨다운 중에는 재전송을 보내지 않는다', () async {
     final repository = FakeAuthRepository();
-    final container = buildContainer(repository);
-    final now = DateTime(2026, 1, 1, 12);
-    final viewModel = container.read(verifyCodeViewModelProvider(email).notifier)..now = () => now;
+    var now = DateTime(2026, 1, 1, 12);
+    final container = buildContainer(repository, now: () => now);
+    final viewModel = container.read(verifyCodeViewModelProvider(email).notifier);
+    now = now.add(const Duration(seconds: 60));
     await viewModel.resend();
     repository.requestedEmails.clear();
 
