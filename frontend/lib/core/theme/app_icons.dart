@@ -53,6 +53,9 @@ abstract final class AppIcons {
   /// 안내 카드 머리말·입력칸 오류 (DESIGN.md §5.3)
   static const IconData circleAlert = LucideIcons.circleAlert;
 
+  /// 3b 인증 거절 배너 (pen Alert 마스터 `teNRJ`)
+  static const IconData circleX = LucideIcons.circleX;
+
   /// 공개 범위 안내 (DESIGN.md 화면 3c — "카드와 프로필에 공개돼요")
   static const IconData eye = LucideIcons.eye;
 }

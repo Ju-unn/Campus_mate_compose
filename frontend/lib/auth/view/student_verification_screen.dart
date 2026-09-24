@@ -219,9 +219,14 @@ class _SubmitForm extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _Hero(),
+        // 거절 상태는 마스코트·제목·부제 자리를 배너가 대신한다(pen `yrG1J`, 2026-09-24 사용자 결정).
+        if (state.status == _rejectedStatus) ...[
+          _RejectedBanner(reason: state.rejectReason),
+          const SizedBox(height: 20),
+        ] else
+          const _Hero(),
         ..._fields(),
-        if (state.status != _rejectedStatus && state.errorMessage != null) ...[
+        if (state.errorMessage != null) ...[
           const SizedBox(height: AppSpacing.sm),
           Text(state.errorMessage!, style: AppTypography.caption.copyWith(color: AppColors.error)),
         ],
@@ -231,10 +236,6 @@ class _SubmitForm extends StatelessWidget {
 
   List<Widget> _fields() {
     return [
-      if (state.status == _rejectedStatus && state.errorMessage != null) ...[
-        _RejectedBanner(reason: state.errorMessage!),
-        const SizedBox(height: AppSpacing.lg),
-      ],
       _DocumentTypeTabs(selected: documentType, onChanged: onDocumentTypeChanged),
       const SizedBox(height: 20),
       Text('실명 · 필수', style: AppTypography.labelSmall.copyWith(color: AppColors.body)),
@@ -244,6 +245,10 @@ class _SubmitForm extends StatelessWidget {
         hintText: documentType.nameHint,
         onChanged: viewModel.changeRealName,
       ),
+      if (state.realNameError != null) ...[
+        const SizedBox(height: AppSpacing.xs),
+        Text(state.realNameError!, style: AppTypography.caption.copyWith(color: AppColors.error)),
+      ],
       const SizedBox(height: 20),
       _PhotoZone(
         photo: state.selectedPhoto,
@@ -283,28 +288,43 @@ class _Hero extends StatelessWidget {
   }
 }
 
-/// 반려 사유 배너. 폼은 그대로 살아 있어 바로 다시 제출할 수 있다(재제출 상한 없음).
-/// §5.3 아이콘 표에 경고 아이콘이 없어, 색 대신 제목 문구로 뜻을 전한다.
+/// 인증 거절 배너(pen Alert 마스터 `teNRJ` 인스턴스, 3b `yrG1J` 의 `b1kMW`).
+/// 폼은 그대로 살아 있어 바로 다시 제출할 수 있다(재제출 상한 없음).
+/// 모서리를 둥글리지 않고 좌우로 가득 채운다 — 폼 맨 위를 가로지르는 띠다.
 class _RejectedBanner extends StatelessWidget {
   const _RejectedBanner({required this.reason});
 
-  final String reason;
+  /// 서버가 준 반려 사유. 없으면 "사유:" 를 빼고 안내만 보여준다.
+  final String? reason;
+
+  static const String _retryGuide = '다시 올리면 다시 확인해요';
 
   @override
   Widget build(BuildContext context) {
+    final detail = reason == null || reason!.isEmpty ? _retryGuide : '사유: $reason · $_retryGuide';
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.errorWash,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      color: AppColors.primaryWash,
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+      child: Row(
         children: [
-          Text('학생증을 다시 올려주세요', style: AppTypography.labelSmall.copyWith(color: AppColors.error)),
-          const SizedBox(height: AppSpacing.xxs),
-          Text(reason, style: AppTypography.caption.copyWith(color: AppColors.error)),
+          const Icon(AppIcons.circleX, size: 20, color: AppColors.primaryText),
+          // pen 실측 10. 간격 토큰 xs(8)·sm(12) 사이 값이라 토큰으로 갈음하지 않는다.
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 줄높이만 pen 값(1.5)으로 덮는다 — 토큰은 14/600 · 12/400 까지 같다.
+                Text(
+                  '인증이 거절됐어요',
+                  style: AppTypography.labelSmall.copyWith(color: AppColors.ink, height: 1.5),
+                ),
+                const SizedBox(height: 2),
+                Text(detail, style: AppTypography.caption.copyWith(color: AppColors.muted, height: 1.5)),
+              ],
+            ),
+          ),
         ],
       ),
     );

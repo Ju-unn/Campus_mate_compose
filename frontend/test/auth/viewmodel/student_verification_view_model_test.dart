@@ -104,7 +104,7 @@ void main() {
     expect(readState(container).isLoadingStatus, isFalse);
   });
 
-  test('반려 상태로 돌아오면 반려 사유를 errorMessage 에 담는다', () async {
+  test('반려 상태로 돌아오면 반려 사유를 rejectReason 에 담는다', () async {
     repository.nextFetchStatusResult = const Success(
       VerificationOutcome(status: 'rejected', rejectReason: '사진이 흐려요'),
     );
@@ -114,7 +114,7 @@ void main() {
     await pumpEventQueue();
 
     expect(readState(container).status, 'rejected');
-    expect(readState(container).errorMessage, '사진이 흐려요');
+    expect(readState(container).rejectReason, '사진이 흐려요');
   });
 
   test('refreshStatus() 는 상태를 다시 불러온다(3b 대기 화면 폴링)', () async {
@@ -128,7 +128,7 @@ void main() {
     await container.read(studentVerificationViewModelProvider.notifier).refreshStatus();
 
     expect(readState(container).status, 'rejected');
-    expect(readState(container).errorMessage, '사진이 흐려요');
+    expect(readState(container).rejectReason, '사진이 흐려요');
   });
 
   test('실명이 형식에 어긋나면 realName 이 다시 비워져 제출할 수 없다', () async {
@@ -140,6 +140,49 @@ void main() {
     expect(readState(container).realName, isNull);
     expect(readState(container).selectedPhoto, photo);
     expect(readState(container).canSubmit, isFalse);
+  });
+
+  test('반려된 뒤 제출이 실패해도 배너에 쓸 사유는 남는다', () async {
+    // 사유와 오류 문구가 한 칸을 같이 쓰면, 다시 올리다 실패하는 순간 배너가 네트워크 오류로 바뀐다.
+    repository.nextFetchStatusResult = const Success(
+      VerificationOutcome(status: 'rejected', rejectReason: '사진이 흐려요'),
+    );
+    final container = buildContainer();
+    final viewModel = await buildSubmittableViewModel(container);
+    repository.nextSubmitResult = const FailureResult(NetworkFailure());
+
+    await viewModel.submit();
+
+    expect(readState(container).rejectReason, '사진이 흐려요');
+    expect(readState(container).errorMessage, isNotNull);
+    expect(readState(container).status, 'rejected');
+  });
+
+  test('이름에 숫자·기호가 섞이면 안내를 띄우고, 고치면 걷는다', () async {
+    final container = buildContainer();
+    final viewModel = await buildSubmittableViewModel(container);
+
+    viewModel.changeRealName('홍길동1');
+    expect(readState(container).realNameError, realNameRuleMessage);
+    expect(readState(container).canSubmit, isFalse);
+
+    viewModel.changeRealName('홍길동');
+
+    expect(readState(container).realNameError, isNull);
+    expect(readState(container).canSubmit, isTrue);
+  });
+
+  test('이름 안내는 먼저 뜬 오류 문구를 덮지 않는다', () async {
+    // 반려 사유도 errorMessage 자리를 쓴다 — 이름을 고치는 중에 그 배너가 사라지면 안 된다.
+    faceDetector.nextResult = false;
+    final container = buildContainer();
+    final viewModel = await buildSubmittableViewModel(container);
+    await viewModel.submit();
+
+    viewModel.changeRealName('홍길동1');
+
+    expect(readState(container).realNameError, realNameRuleMessage);
+    expect(readState(container).errorMessage, '얼굴이 보이는 사진으로 다시 올려주세요');
   });
 
   test('얼굴이 검출되지 않으면 서버를 부르지 않고 안내 문구를 남긴다', () async {
