@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/http/http_send.dart';
 import 'package:http/http.dart' as http;
@@ -44,11 +45,22 @@ class ApiClient {
       return request;
     });
     return result.when(
-      // 본문 없이 성공만 알려주는 엔드포인트가 있다(예: POST /school-info).
-      // 빈 문자열을 jsonDecode 하면 FormatException 이라 그 전에 걸러 낸다.
-      onSuccess: (response) => Success(
-        parse(response.body.isEmpty ? const <String, dynamic>{} : jsonDecode(response.body)),
-      ),
+      onSuccess: (response) {
+        try {
+          // 본문 없이 성공만 알려주는 엔드포인트가 있다(예: POST /school-info).
+          // 빈 문자열을 jsonDecode 하면 FormatException 이라 그 전에 걸러 낸다.
+          return Success(
+            parse(response.body.isEmpty ? const <String, dynamic>{} : jsonDecode(response.body)),
+          );
+        } catch (_) {
+          // 서버가 약속과 다른 모양을 보내면 parse 안의 `as String` 캐스트가 TypeError 를 던진다 —
+          // Error 라서 sendHttpRequest 의 `on Exception catch` 를 뚫고 Result 밖으로 튀어 나가고,
+          // 그러면 화면이 로딩에서 그대로 멈춘다(운영 00020: ready 응답에 storage_path 가 없었다).
+          // 본문 파싱은 여기 한 곳뿐이라 여기서 막는다 — 대신 parse 콜백 자체의 버그도 서버가 이상한
+          // 것처럼 보이게 되는 값을 치른다. 잡는 범위를 Exception 으로 좁히면 이 버그를 다시 놓친다.
+          return FailureResult<T>(const UnknownFailure());
+        }
+      },
       onFailure: (failure) => FailureResult(failure),
     );
   }
