@@ -39,6 +39,9 @@ router = APIRouter()
 _logger = logging.getLogger(__name__)
 
 
+# aio 클라이언트를 만드는 의존성은 `async def` 로 둔다(deps.get_vision_client 참고) —
+# `def` 는 루프가 없는 AnyIO 워커 스레드에서 돌아 500 이 된다.
+# AsyncOpenAI 는 만들 때 루프를 잡지 않아 지금은 터지지 않는다.
 def get_openai(settings: Settings = Depends(get_settings)) -> AsyncOpenAI:
     """임베딩·아바타·자기소개 초안이 쓰는 OpenAI 클라이언트. 테스트는 이 자리에 목을 끼운다."""
     return get_openai_client(settings.openai_api_key)

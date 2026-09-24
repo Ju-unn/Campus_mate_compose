@@ -1,3 +1,4 @@
+import asyncio
 import json
 from collections.abc import Callable
 from datetime import datetime
@@ -10,7 +11,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 import app.profile_onboarding.router as router_module
-from app.core import errors
+from google.cloud import vision
+
+from app.core import deps, errors
 from app.core.deps import get_client, get_settings, get_vision_client
 from app.core.time import SEOUL
 from app.main import app
@@ -41,6 +44,9 @@ def overrides():
     app.dependency_overrides[router_module.get_openai] = lambda: openai_client
     yield
     app.dependency_overrides.clear()
+    # _wire 는 with 없이 TestClient 를 만들어 요청마다 루프가 새로 뜬다 —
+    # 캐시에 남은 클라이언트는 이미 닫힌 루프에 묶인 채널을 들고 다음 테스트로 새어난다.
+    deps._vision_client.cache_clear()
 
 
 def _wire(
@@ -339,6 +345,40 @@ def test_photo_upload_turns_unique_violation_into_409():
     )
 
     assert response.status_code == 409
+
+
+def test_photo_upload_builds_vision_client_on_the_event_loop_thread(monkeypatch):
+    # 제공자가 sync 면 FastAPI 가 AnyIO 워커 스레드에서 부르고, 거기엔 루프가 없어
+    # grpc aio 채널을 여는 순간 500 이 됐다(2026-09-25 운영 사진 업로드 장애).
+    # 그래서 여기서는 일부러 get_vision_client 를 override 하지 않는다.
+    def fake_client() -> AsyncMock:
+        asyncio.get_running_loop()
+        return _safe_vision()
+
+    monkeypatch.setattr(vision, "ImageAnnotatorAsyncClient", fake_client)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if "/rest/v1/profile_photos" in url and request.method == "GET":
+            return httpx.Response(200, json=[])
+        if "/rest/v1/profile_photos" in url and request.method == "POST":
+            return httpx.Response(201, json=[])
+        return httpx.Response(200, json={})
+
+    deps._vision_client.cache_clear()
+    try:
+        client = _wire(handler)
+        response = client.post(
+            "/profile-onboarding/photos",
+            headers=AUTH_HEADERS,
+            files={"photo": ("a.png", _PNG_BYTES, "image/png")},
+            data={"position": "0", "is_avatar_source": "false"},
+        )
+    finally:
+        # 가짜 클라이언트가 캐시에 남아 다음 테스트로 새어 나가지 않게.
+        deps._vision_client.cache_clear()
+
+    assert response.status_code == 200
 
 
 def test_delete_photo_removes_row_and_storage_file():
