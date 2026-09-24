@@ -91,4 +91,11 @@ void main() {
 
     expect(find.text('아바타로 선택'), findsOneWidget);
   });
+
+  testWidgets('04-3 에는 대표 배지를 보여주지 않는다(pen dWNkb)', (tester) async {
+    // 여기서 고르는 건 순서가 아니라 아바타 원본이다 — 대표 자리는 04-2 에서 정한다.
+    await pump(tester, photoCount: 4);
+
+    expect(find.text('대표'), findsNothing);
+  });
 }

@@ -52,6 +52,20 @@ class PhotosViewModel extends Notifier<PhotosUiState> {
     state = PhotosUiState(photos: photos, errorMessage: null);
   }
 
+  /// 길게 눌러 끌어다 놓으면 두 칸이 자리를 맞바꾼다(04-2, 2026-09-24 사용자 결정).
+  /// 대표는 **첫 칸**이라, 대표를 바꾸려면 그 사진을 첫 칸으로 끌면 된다 —
+  /// 종전에는 앞 사진을 전부 지워야 했다. 올릴 때 position 이 이 순서를 그대로 따라간다.
+  void swapPhotos(int from, int to) {
+    final count = state.photos.length;
+    if (from == to || from < 0 || to < 0 || from >= count || to >= count) {
+      return; // 빈 칸으로는 끌 수 없다 — 순서에 구멍이 나면 업로드 position 이 어긋난다.
+    }
+    final photos = [...state.photos];
+    photos[from] = state.photos[to];
+    photos[to] = state.photos[from];
+    state = PhotosUiState(photos: photos, errorMessage: null);
+  }
+
   /// 아바타 원본은 한 장만 고를 수 있다 — 나머지는 자동으로 꺼진다.
   void setAvatarSource(int index) {
     final photos = [
