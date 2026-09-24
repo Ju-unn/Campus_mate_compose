@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import json
 from collections.abc import Callable
 from datetime import datetime
@@ -204,6 +205,35 @@ def test_interests_rejects_fewer_than_three_tags_with_422():
 
     assert response.status_code == 422
     assert "최소 3개" in response.json()["detail"]
+
+
+def test_avatar_generate_returns_the_storage_path_on_ready():
+    """앱은 ready 응답에서도 storage_path 를 읽어 그림을 띄운다 — 빠지면 캐스트가 터져
+    "아바타를 만들고 있어요" 에서 화면이 영영 안 끝난다(운영 00020)."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if "/rest/v1/profile_photos" in url and request.method == "GET":
+            return httpx.Response(200, json=[{"storage_path": "aa/source.png"}])
+        if "/storage/v1/object/profile-photos/" in url and request.method == "GET":
+            return httpx.Response(200, content=_PNG_BYTES)  # 판별 가능한 형식이어야 OpenAI 호출까지 간다
+        return httpx.Response(200, json=[])  # 기존 ready 아바타도, 최근 실패 행도 없다
+
+    openai_client = AsyncMock()
+    openai_client.images.edit.return_value = SimpleNamespace(
+        data=[SimpleNamespace(b64_json=base64.b64encode(_PNG_BYTES).decode())]
+    )
+    app.dependency_overrides[router_module.get_openai] = lambda: openai_client
+
+    client = _wire(handler)
+    response = client.post("/profile-onboarding/avatar/generate", headers=AUTH_HEADERS)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ready"
+    # 업로드 경로는 AvatarGenerator 가 짓는다({profile_id}/{uuid4}.png) — 그 경로가 그대로 나와야 한다.
+    assert body["storage_path"].startswith(f"{PROFILE_ID}/")
+    assert body["storage_path"].endswith(".png")
 
 
 def test_avatar_generate_grants_ten_hearts_on_fifth_consecutive_failure():
