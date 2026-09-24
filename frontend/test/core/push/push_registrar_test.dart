@@ -1,3 +1,5 @@
+import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/push/push_registrar.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -21,6 +23,31 @@ void main() {
     await PushRegistrar(messaging, repository).start();
 
     expect(repository.registeredTokens, isEmpty);
+  });
+
+  test('등록이 막히면 다음 start() 에서 다시 보낸다', () async {
+    // 새로 가입한 사용자는 학생 인증 전이라 서버가 403 을 준다 —
+    // 인증 게이트가 열린 뒤 main.dart 가 다시 부르면 그때 등록돼야 한다.
+    final messaging = FakePushMessaging(token: 'tok-1');
+    final repository = FakeCardRepository()..writeResult = const FailureResult(UnknownFailure());
+    final registrar = PushRegistrar(messaging, repository);
+    await registrar.start();
+    repository.writeResult = const Success(null);
+
+    await registrar.start();
+
+    expect(repository.registeredTokens, ['tok-1', 'tok-1']);
+  });
+
+  test('이미 등록했으면 start() 를 다시 불러도 보내지 않는다', () async {
+    final messaging = FakePushMessaging(token: 'tok-1');
+    final repository = FakeCardRepository();
+    final registrar = PushRegistrar(messaging, repository);
+    await registrar.start();
+
+    await registrar.start();
+
+    expect(repository.registeredTokens, ['tok-1']);
   });
 
   test('토큰이 갱신되면 새 토큰도 등록한다', () async {
