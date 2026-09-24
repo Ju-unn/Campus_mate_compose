@@ -185,7 +185,8 @@ async def generate_avatar(
 
     if result.status == "ready":
         await repo.insert_avatar_attempt(profile_id, "ready", result.storage_path)
-        return {"status": "ready"}
+        # 앱은 ready 에서도 storage_path 를 읽는다 — 안 실어 보내 캐스트가 터졌다(운영 00020 무한 로딩).
+        return {"status": "ready", "storage_path": result.storage_path}
 
     await repo.insert_avatar_attempt(profile_id, "failed", None)
     if result.is_final_failure:
