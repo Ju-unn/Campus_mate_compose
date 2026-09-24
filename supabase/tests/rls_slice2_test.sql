@@ -6,7 +6,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(40);
+select plan(42);
 
 -- 준비 (postgres) -------------------------------------------------------------
 -- 사용자 A = ...aa, 사용자 B = ...bb, 테스트 대학 = ...01
@@ -275,6 +275,21 @@ select lives_ok(
   $$insert into public.profile_photos (profile_id, storage_path, position, is_avatar_source)
     values ('00000000-0000-0000-0000-0000000000aa', 'aa/photo1.jpg', 0, true)$$,
   'service_role 은 아바타 원본 사진 1장을 지정한다'
+);
+
+-- 아바타 생성 실패 이력에는 저장할 경로가 없다. 전에는 not null 에 막혀 실패 행이 한 줄도 안 쌓였고,
+-- 그래서 "5회 연속 실패 → 기본 아바타 + 하트 10" 이 영원히 안 걸렸다(운영 00018-pxb).
+select lives_ok(
+  $$insert into public.profile_avatars (profile_id, storage_path, status)
+    values ('00000000-0000-0000-0000-0000000000aa', null, 'failed')$$,
+  'service_role 은 저장 경로 없는 실패 이력을 넣는다'
+);
+
+select throws_ok(
+  $$insert into public.profile_avatars (profile_id, storage_path, status)
+    values ('00000000-0000-0000-0000-0000000000aa', null, 'ready')$$,
+  '23514', null,
+  'ready 인데 저장 경로가 없으면 막힌다'
 );
 
 select throws_ok(

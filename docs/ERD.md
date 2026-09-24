@@ -213,7 +213,7 @@ erDiagram
         uuid id PK "조각2 제안"
         uuid profile_id FK
         uuid source_photo_id FK "원본 사진 삭제되면 null"
-        text storage_path "변환 결과"
+        text storage_path "변환 결과 · 실패 이력은 null · ready 면 not null(check)"
         avatar_status status "pending ready failed"
         timestamptz created_at "최신 ready 가 현재 아바타"
     }
@@ -255,6 +255,7 @@ erDiagram
 - `profile_photos` 는 `unique (profile_id, position) deferrable initially deferred` — 순서를 맞바꿀 때 중간 충돌을 피한다. `storage_path` 는 unique — 두 행이 같은 파일을 가리키면 한 행을 지울 때 남은 행의 사진도 사라진다
 - `profile_photos.is_avatar_source` 는 부분 유니크 인덱스 `(profile_id) where is_avatar_source` 로 1장만 허용
 - **아바타 원본으로 고른 사진도 신뢰 확인을 통과하면 다른 실사진과 함께 공개한다**(§11-5). 어느 사진이 원본인지는 상대에게 드러내지 않는다
+- `profile_avatars.storage_path` 는 null 허용이고 경로가 진짜로 필요한 행만 `check (status <> 'ready' or storage_path is not null)` 으로 묶는다(마이그레이션 `20260924163241`, 2026-09-25 사용자 결정 A). 생성 실패 행에는 저장할 경로가 없는데 not null 이라 실패 이력이 한 줄도 안 쌓였고, 그래서 "5회 연속 실패 → 기본 아바타 + 하트 10" 이 걸리지 않았다(운영 00018-pxb). 읽는 쪽은 예전부터 `status = ready` 행만 골라 쓰므로(카드·채팅의 아바타 URL) 경로가 null 인 행이 화면으로 새지 않는다
 - `profile_vectors` 는 벡터 2종(§6.3)을 한 행에 둔다(1:1)
 - 벡터 확장(`vector`)은 조각 0 첫 마이그레이션에서 `extensions` 스키마에 켰다. 조각 3에서 벡터 컬럼을 만들 때는 타입을 `extensions.vector` 로 쓰거나 `search_path` 에 `extensions` 가 있는지 확인한다
 - **탈퇴는 30일 뒤에 지운다(§11-15).** 탈퇴하면 FastAPI 가 `status = withdrawn` · `withdrawn_at` 을 쓰고, 세션을 끊고 다시 로그인하거나 토큰을 갱신하지 못하게 막는다(Supabase Auth ban 전제, 토큰 갱신까지 막히는지는 조각 6에서 확인). 이미 발급된 access token 은 만료(`jwt_expiry`)까지 살아 있어 그동안 RLS 로 본인 행은 읽힌다. 본인 데이터라 RLS 에 status 조건은 넣지 않는다. `withdrawn` 계정의 요청은 FastAPI 가 받지 않는다
