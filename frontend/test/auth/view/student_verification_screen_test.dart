@@ -127,8 +127,39 @@ void main() {
       await tester.tap(find.text('확인 요청하기'));
       await tester.pumpAndSettle();
 
-      expect(find.text('사진이 흐려요'), findsOneWidget);
+      expect(find.text('사유: 사진이 흐려요 · 다시 올리면 다시 확인해요'), findsOneWidget);
       expect(find.text('졸업증명서에 표기된 이름'), findsOneWidget);
+    });
+
+    testWidgets('거절이면 히어로 자리에 거절 배너를 보여준다', (tester) async {
+      repository.nextFetchStatusResult = const Success(
+        VerificationOutcome(status: 'rejected', rejectReason: '사진이 흐려요'),
+      );
+
+      await pumpLoadedScreen(tester);
+
+      expect(find.text('인증이 거절됐어요'), findsOneWidget);
+      expect(find.text('사유: 사진이 흐려요 · 다시 올리면 다시 확인해요'), findsOneWidget);
+      // 마스코트·제목·부제 자리를 배너가 대신한다(pen `yrG1J`).
+      expect(find.text('학교와 재학 상태를 확인해요'), findsNothing);
+      // 배너 아래 폼은 원래 3b 그대로라 바로 다시 제출할 수 있다.
+      expect(find.text('확인 요청하기'), findsOneWidget);
+    });
+
+    testWidgets('거절 사유가 없으면 안내만 보여준다', (tester) async {
+      repository.nextFetchStatusResult = const Success(VerificationOutcome(status: 'rejected'));
+
+      await pumpLoadedScreen(tester);
+
+      expect(find.text('다시 올리면 다시 확인해요'), findsOneWidget);
+      expect(find.textContaining('사유:'), findsNothing);
+    });
+
+    testWidgets('처음 제출하는 화면에는 배너가 없다', (tester) async {
+      await pumpLoadedScreen(tester);
+
+      expect(find.text('인증이 거절됐어요'), findsNothing);
+      expect(find.text('학교와 재학 상태를 확인해요'), findsOneWidget);
     });
 
     testWidgets('실명과 사진이 모두 없으면 CTA 가 비활성이다', (tester) async {
@@ -199,7 +230,7 @@ void main() {
       await tester.pump(Duration.zero);
       await tester.pump();
 
-      expect(find.text('사진이 흐려요'), findsOneWidget);
+      expect(find.text('사유: 사진이 흐려요 · 다시 올리면 다시 확인해요'), findsOneWidget);
     });
 
     testWidgets('pending 중 폴링이 한 번 실패해도 대기 화면이 유지된다', (tester) async {
@@ -222,7 +253,7 @@ void main() {
 
       await pumpLoadedScreen(tester);
 
-      expect(find.text('사진이 흐려요'), findsOneWidget);
+      expect(find.text('사유: 사진이 흐려요 · 다시 올리면 다시 확인해요'), findsOneWidget);
       expect(find.byType(TextField), findsOneWidget);
       expect(find.byType(ElevatedButton), findsOneWidget);
     });

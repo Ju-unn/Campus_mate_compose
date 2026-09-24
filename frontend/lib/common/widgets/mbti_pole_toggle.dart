@@ -17,7 +17,9 @@ class MbtiPoleToggle extends StatelessWidget {
     super.key,
   });
 
-  static const List<String> allPoles = ['E', 'I', 'N', 'S', 'T', 'F', 'J', 'P'];
+  /// 위아래가 짝이 되게 늘어놓는다(E↔I · S↔N · F↔T · P↔J) — 한 줄에 네 칸이라
+  /// 첫 줄 E S F P 아래에 I N T J 가 그대로 겹친다(2026-09-24 사용자 결정).
+  static const List<String> allPoles = ['E', 'S', 'F', 'P', 'I', 'N', 'T', 'J'];
 
   /// 디자인 파일은 한 줄에 네 칸씩 끊어 놓는다.
   static const int _polesPerRow = 4;

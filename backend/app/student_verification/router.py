@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 from collections.abc import Callable
 
 import httpx
@@ -20,6 +21,10 @@ from app.student_verification.storage import StudentIdStorage
 
 router = APIRouter()
 _logger = logging.getLogger(__name__)
+
+# 한글 완성형·영문·띄어쓰기만 받는다(2026-09-24 사용자 결정, 앱 RealName 과 같은 규칙).
+# 숫자·기호·자모(ㄱ, ㅏ)가 섞인 이름은 학생증에 그대로 적혀 있지 않아 OCR 대조가 어긋난다.
+_REAL_NAME = re.compile(r"[가-힣a-zA-Z ]+")
 
 
 @router.post("/student-verification")
@@ -43,9 +48,12 @@ async def submit_student_verification(
         raise HTTPException(status_code=409, detail=errors.VERIFICATION_ALREADY_DONE)
 
     # 앱의 RealName 이 이미 막지만 여기가 신뢰 경계다 — 빈 실명은 OCR 대조에서 무조건 통과해 버린다.
+    # Form(min_length=2) 는 공백까지 세므로 " 김 " 이 통과한다 — 자르고 난 길이로 다시 본다.
     name = real_name.strip()
-    if not name:
+    if len(name) < 2:
         raise HTTPException(status_code=400, detail=errors.REAL_NAME_REQUIRED)
+    if not _REAL_NAME.fullmatch(name):
+        raise HTTPException(status_code=400, detail=errors.REAL_NAME_INVALID)
 
     data = await photo.read()
     # 클라이언트가 보낸 Content-Type 은 믿지 않는다 — 실제 Flutter 앱은 application/octet-stream 을 보내는데

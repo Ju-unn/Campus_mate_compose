@@ -23,6 +23,10 @@ const String _rejectedStatus = 'rejected';
 /// 서버가 돌려주는 '통과' 상태 값. 이때만 라우터에 게이트 재조회를 알린다.
 const String _verifiedStatus = 'verified';
 
+/// 글자 규칙에 어긋난 실명을 입력했을 때 폼 아래에 띄우는 안내.
+/// 서버 `errors.REAL_NAME_INVALID` 와 같은 문구다 — 앱에서 막힌 것과 서버가 막은 것이 같아 보이게.
+const String realNameRuleMessage = '이름은 한글이나 영문으로만 적어 주세요';
+
 /// `_copyWith` 에서 "이 필드는 건드리지 않는다" 를 뜻하는 표식.
 /// 넘기지 않은 것과 `null` 을 넘겨 값을 지우는 것을 구분하기 위해 필요하다
 /// (실명이 형식에 어긋나면 `realName` 을 다시 `null` 로 지워야 한다).
@@ -70,12 +74,12 @@ class StudentVerificationViewModel extends Notifier<StudentVerificationUiState> 
   }
 
   /// 서버가 알려준 상태만 반영한 새 상태. 입력하던 실명·사진은 더 필요 없으므로 비운다.
-  /// 반려 상태면 사유를 `errorMessage` 에 실어, 화면이 폼 위 배너로 보여줄 수 있게 한다(Task A11).
+  /// 반려 상태면 사유를 `rejectReason` 에 실어, 화면이 폼 맨 위 배너로 보여줄 수 있게 한다(Task A11).
   StudentVerificationUiState _stateFromOutcome(VerificationOutcome outcome) {
     return StudentVerificationUiState(
       status: outcome.status,
       isLoadingStatus: false,
-      errorMessage: outcome.status == _rejectedStatus ? outcome.rejectReason : null,
+      rejectReason: outcome.status == _rejectedStatus ? outcome.rejectReason : null,
     );
   }
 
@@ -86,12 +90,18 @@ class StudentVerificationViewModel extends Notifier<StudentVerificationUiState> 
     return StudentVerificationUiState(
       isLoadingStatus: false,
       status: state.status,
+      // 조회가 실패했다고 반려 사유까지 지우면 배너만 사라진 반려 화면이 남는다.
+      rejectReason: state.rejectReason,
       errorMessage: failure.toDisplayMessage(),
     );
   }
 
   void changeRealName(String value) {
-    state = _copyWith(realNameInput: value, realName: RealName.tryParse(value));
+    state = _copyWith(
+      realNameInput: value,
+      realName: RealName.tryParse(value),
+      realNameError: RealName.hasDisallowedCharacter(value) ? realNameRuleMessage : null,
+    );
   }
 
   /// 갤러리에서 사진을 고른다. 사용자가 고르지 않고 닫으면 아무 일도 하지 않는다.
@@ -147,7 +157,7 @@ class StudentVerificationViewModel extends Notifier<StudentVerificationUiState> 
   }
 
   /// 넘긴 필드만 바꾼 새 상태를 만든다.
-  /// `realName`·`errorMessage` 는 [_keep] 기본값이라 `null` 을 넘기면 실제로 값이 지워진다.
+  /// `realName`·`errorMessage`·`realNameError` 는 [_keep] 기본값이라 `null` 을 넘기면 실제로 값이 지워진다.
   StudentVerificationUiState _copyWith({
     String? realNameInput,
     Object? realName = _keep,
@@ -156,6 +166,7 @@ class StudentVerificationViewModel extends Notifier<StudentVerificationUiState> 
     bool? isLoadingStatus,
     String? status,
     Object? errorMessage = _keep,
+    Object? realNameError = _keep,
   }) {
     return StudentVerificationUiState(
       realNameInput: realNameInput ?? state.realNameInput,
@@ -165,6 +176,8 @@ class StudentVerificationViewModel extends Notifier<StudentVerificationUiState> 
       isLoadingStatus: isLoadingStatus ?? state.isLoadingStatus,
       status: status ?? state.status,
       errorMessage: identical(errorMessage, _keep) ? state.errorMessage : errorMessage as String?,
+      realNameError: identical(realNameError, _keep) ? state.realNameError : realNameError as String?,
+      rejectReason: state.rejectReason,
     );
   }
 }

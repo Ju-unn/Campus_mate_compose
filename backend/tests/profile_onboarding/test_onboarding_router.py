@@ -10,6 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import app.profile_onboarding.router as router_module
+from app.core import errors
 from app.core.deps import get_client, get_settings, get_vision_client
 from app.core.time import SEOUL
 from app.main import app
@@ -116,6 +117,52 @@ def test_basic_info_creates_private_row_before_saving_phone():
 
     assert response.status_code == 200
     assert calls == ["ensure_private_row", "set_phone_number"]
+
+
+def test_basic_info_saves_the_phone_number_in_e164():
+    """앱은 하이픈을 붙여 보내도 저장은 한 모양이어야 한다 —
+    조각 6 지인 차단이 E.164 로 정규화한 값에 HMAC 을 뜨기 때문이다(2026-09-24 대장 결정)."""
+    sent: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "/rest/v1/rpc/set_phone_number" in str(request.url):
+            sent.append(json.loads(request.content))
+        return httpx.Response(200, json=[])
+
+    response = _wire(handler).post(
+        "/profile-onboarding/basic-info",
+        headers=AUTH_HEADERS,
+        json={
+            "nickname": "가나", "birth_year": 2002, "height_cm": 170,
+            "phone_number": "010-1234-5678", "gender": "male",
+        },
+    )
+
+    assert response.status_code == 200
+    assert sent[0]["p_phone"] == "+821012345678"
+
+
+def test_basic_info_rejects_a_half_typed_phone_number():
+    """여기가 신뢰 경계다 — 앱이 막지 못한 값이 들어오면 아무것도 쓰지 않고 돌려보낸다."""
+    writes: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method in ("PATCH", "POST"):
+            writes.append(str(request.url))
+        return httpx.Response(200, json=[])
+
+    response = _wire(handler).post(
+        "/profile-onboarding/basic-info",
+        headers=AUTH_HEADERS,
+        json={
+            "nickname": "가나", "birth_year": 2002, "height_cm": 170,
+            "phone_number": "010-1", "gender": "male",
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == errors.PHONE_NUMBER_INVALID
+    assert writes == []
 
 
 def test_nickname_availability_ignores_callers_own_nickname():

@@ -14,6 +14,7 @@ from app.profile_onboarding.avatars import AvatarGenerator, get_openai_client
 from app.profile_onboarding.encryption import set_encrypted_phone_number
 from app.profile_onboarding.hearts import grant_hearts
 from app.profile_onboarding.onboarding_progress import next_step
+from app.profile_onboarding.phone_number import to_e164
 from app.profile_onboarding.photos import check_safe_search
 from app.profile_onboarding.repository import ProfileOnboardingRepository
 from app.profile_onboarding.schemas import (
@@ -77,6 +78,11 @@ async def submit_basic_info(
     settings, client, profile_id = caller
     repo = _repo(settings, client)
 
+    # 앱이 하이픈을 붙여 보내도 저장은 한 모양(E.164)이어야 한다 — 여기가 신뢰 경계다.
+    phone_number = to_e164(body.phone_number)
+    if phone_number is None:
+        raise HTTPException(status_code=400, detail=errors.PHONE_NUMBER_INVALID)
+
     # 닉네임 중복(23505)은 repository 의 공통 변환이 409 로 바꿔 준다.
     await repo.update_basic_info(
         profile_id, body.nickname, body.birth_year, body.height_cm, body.gender, body.mbti
@@ -85,7 +91,7 @@ async def submit_basic_info(
     await repo.ensure_private_row(profile_id)
     await set_encrypted_phone_number(
         settings.postgrest_url, settings.supabase_service_role_key, client,
-        profile_id, body.phone_number, settings.phone_encryption_key,
+        profile_id, phone_number, settings.phone_encryption_key,
     )
     await _refresh_vectors(settings, client, openai_client, profile_id)
     return {"ok": True}

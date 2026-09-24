@@ -3,12 +3,19 @@ import 'package:campus_mate/common/widgets/labeled_field.dart';
 import 'package:campus_mate/common/widgets/notice_card.dart';
 import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/profile/viewmodel/kakao_id_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+/// 아래 세 색은 **카카오톡 화면을 흉내 낸 그림에만** 쓴다 — 남의 브랜드 색이라
+/// core/theme 팔레트(우리 색)로 올리지 않고 이 파일 안에서만 둔다.
+const Color _kakaoPanel = Color(0xFF0A0A0A);
+const Color _kakaoYellow = Color(0xFFFEE500);
+const Color _kakaoCheckMark = Color(0xFF2B2200);
 
 /// 카카오톡 아이디 화면(DESIGN.md 화면 04-1b, datingApp.pen `04-1b 카카오톡 아이디`).
 /// 건너뛰기 없음(§13-100).
@@ -57,10 +64,10 @@ class KakaoIdScreen extends ConsumerWidget {
                       const NoticeCard(
                         isEmphasis: true,
                         title: '꼭 확인해 주세요',
-                        body: '카카오톡에서 \'아이디로 친구 추가 허용\'을 켜주셔야 상대가 내 아이디를 검색할 수 있어요. '
+                        body: '카카오톡에서 \'ID 검색 허용\'을 켜주셔야 상대가 내 아이디를 검색할 수 있어요. '
                             '꺼져 있으면 신뢰 확인을 마쳐도 연락이 닿지 않아요.',
-                        footer: '카카오톡 > 설정 > 프로필 관리에서 켤 수 있어요',
-                        child: _AllowSearchRow(),
+                        footer: '카카오톡 > 설정 > 프로필 관리 > 카카오톡 ID 에서 켤 수 있어요',
+                        child: _KakaoSettingExample(),
                       ),
                     ],
                   ),
@@ -76,36 +83,70 @@ class KakaoIdScreen extends ConsumerWidget {
   }
 }
 
-/// 카카오톡 설정 화면이 어떻게 생겼는지 보여주는 그림이다 — 여기서 켜고 끌 수는 없다.
-class _AllowSearchRow extends StatelessWidget {
-  const _AllowSearchRow();
+/// 카카오톡 설정 화면이 어떻게 생겼는지 보여주는 그림(pen `sN9Il` 의 `W2tFQt`)이다 —
+/// 우리 화면이 아니라 남의 앱 화면을 옮겨 그린 것이라 눌러도 아무 일이 없다.
+class _KakaoSettingExample extends StatelessWidget {
+  const _KakaoSettingExample();
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            '아이디로 친구 추가 허용',
-            style: AppTypography.bodySmall.copyWith(color: AppColors.ink),
+    // 조각을 하나씩 읽어 봐야 소용이 없는 그림이라 통째로 한 문장으로 읽힌다.
+    return Semantics(
+      label: '카카오톡 설정 예시, ID 검색 허용 켜짐',
+      image: true,
+      excludeSemantics: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '카카오톡 설정 화면 예시',
+            // 토큰 badge(11/600)에서 굵기만 pen 값으로 낮춘다.
+            style: AppTypography.badge.copyWith(color: AppColors.disabled, fontWeight: FontWeight.w500),
           ),
-        ),
-        Container(
-          width: 48,
-          height: 28,
-          padding: const EdgeInsets.all(AppSpacing.xxs),
-          alignment: Alignment.centerRight,
-          decoration: BoxDecoration(
-            color: AppColors.primary,
-            borderRadius: BorderRadius.circular(AppRadius.pill),
+          // 캡션과 패널 사이는 카드 gap 과 같은 12 다(pen 실측).
+          const SizedBox(height: AppSpacing.sm),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: AppSpacing.sm),
+            decoration: BoxDecoration(
+              color: _kakaoPanel,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('ID 검색 허용', style: AppTypography.labelSmall.copyWith(color: AppColors.onInk)),
+                const _KakaoToggleImage(),
+              ],
+            ),
           ),
-          child: Container(
-            width: 20,
-            height: 20,
-            decoration: const BoxDecoration(color: AppColors.canvas, shape: BoxShape.circle),
-          ),
-        ),
-      ],
+        ],
+      ),
+    );
+  }
+}
+
+/// 켜져 있는 카카오톡 토글 그림. 트랙 44×24 · 손잡이 20 (pen `W2tFQt`).
+class _KakaoToggleImage extends StatelessWidget {
+  const _KakaoToggleImage();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 44,
+      height: 24,
+      padding: const EdgeInsets.all(2),
+      alignment: Alignment.centerRight,
+      decoration: BoxDecoration(
+        color: _kakaoYellow,
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+      ),
+      child: Container(
+        width: 20,
+        height: 20,
+        alignment: Alignment.center,
+        decoration: const BoxDecoration(color: AppColors.canvas, shape: BoxShape.circle),
+        child: const Icon(AppIcons.check, size: 12, color: _kakaoCheckMark),
+      ),
     );
   }
 }

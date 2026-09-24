@@ -11,6 +11,10 @@ final verifyCodeViewModelProvider = NotifierProvider.family<VerifyCodeViewModel,
 
 const _resendCooldown = Duration(seconds: 60);
 
+/// 테스트에서 시각을 고정하는 자리. [VerifyCodeViewModel.build] 도 읽으므로
+/// 필드 훅과 달리 화면이 열린 **첫 계산부터** 고정된다.
+final verifyCodeNowProvider = Provider<DateTime Function()>((ref) => DateTime.now);
+
 /// 코드 유효 시간(pen 값, 2026-09-23 사용자 결정).
 /// Supabase Auth 의 `otp_expiry`(supabase/config.toml 300초)와 **같아야 한다** —
 /// 여기만 줄이면 화면은 만료라고 말하는데 서버는 코드를 받아 준다.
@@ -24,13 +28,19 @@ class VerifyCodeViewModel extends Notifier<VerifyCodeUiState> {
   final UniversityEmail _email;
 
   /// 테스트에서 시각을 고정하기 위한 훅. 기본은 실제 현재 시각.
-  /// 필드 초기화가 [build] 보다 먼저라 여기서도 쓸 수 있다.
-  DateTime Function() now = DateTime.now;
+  DateTime now() => ref.read(verifyCodeNowProvider)();
 
   @override
   // 이 화면은 로그인 화면이 코드를 보낸 직후에 열린다 — 화면이 열린 때를 보낸 때로 본다.
-  // 첫 계산은 훅을 갈아끼우기 **전에** 돌아가므로 테스트에서 고정할 수 없다(재전송 쪽은 고정된다).
-  VerifyCodeUiState build() => VerifyCodeUiState(codeExpiresAt: now().add(codeLifetime));
+  // 쿨다운도 그 시각부터 센다. 안 걸어 두면 화면을 열자마자 "메일 다시 받기"가 켜져 있어
+  // 방금 온 코드를 버리고 한 통을 더 보내게 된다(2026-09-23 실기기 테스트에서 확인).
+  VerifyCodeUiState build() {
+    final sentAt = now();
+    return VerifyCodeUiState(
+      resendAvailableAt: sentAt.add(_resendCooldown),
+      codeExpiresAt: sentAt.add(codeLifetime),
+    );
+  }
 
   void changeCode(String value) {
     state = VerifyCodeUiState(

@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:campus_mate/auth/model/auth_repository_provider.dart';
 import 'package:campus_mate/auth/model/university_email.dart';
 import 'package:campus_mate/auth/view/verify_code_screen.dart';
@@ -18,9 +16,13 @@ void main() {
   Future<ProviderContainer> pumpScreen(
     WidgetTester tester, {
     FakeAuthRepository? repository,
+    DateTime Function()? now,
   }) async {
     final container = ProviderContainer(
-      overrides: [authRepositoryProvider.overrideWithValue(repository ?? FakeAuthRepository())],
+      overrides: [
+        authRepositoryProvider.overrideWithValue(repository ?? FakeAuthRepository()),
+        if (now != null) verifyCodeNowProvider.overrideWithValue(now),
+      ],
     );
     addTearDown(container.dispose);
     await tester.pumpWidget(
@@ -38,7 +40,8 @@ void main() {
     expect(find.text('인증 코드를 입력해요'), findsOneWidget);
     expect(find.text('hong@snu.ac.kr 로 6자리 숫자를 보냈어요'), findsOneWidget);
     expect(find.textContaining('뒤에 만료돼요'), findsOneWidget);
-    expect(find.text('메일 다시 받기'), findsOneWidget);
+    // 로그인 화면이 방금 보낸 메일이라 열리는 순간부터 60초를 센다.
+    expect(find.text('메일 다시 받기 (60초)'), findsOneWidget);
   });
 
   testWidgets('입력한 숫자를 여섯 칸에 한 글자씩 그린다', (tester) async {
@@ -52,9 +55,12 @@ void main() {
   });
 
   testWidgets('메일을 다시 받으면 입력칸이 비고 버튼이 쿨다운 동안 꺼진다', (tester) async {
-    await pumpScreen(tester);
+    // 코드를 2분 전에 받은 화면이라 첫 쿨다운은 이미 지났다 — 그래야 버튼을 누를 수 있다.
+    var now = DateTime.now().subtract(const Duration(minutes: 2));
+    await pumpScreen(tester, now: () => now);
     await tester.enterText(find.byType(TextField), '123456');
     await tester.pump();
+    now = DateTime.now();
 
     await tester.tap(find.text('메일 다시 받기'));
     await tester.pump(const Duration(milliseconds: 1));
@@ -69,13 +75,8 @@ void main() {
 
   testWidgets('기한이 지나면 만료 문구가 뜨고 확인 버튼이 꺼진다', (tester) async {
     // 카운트다운은 기기 시계를 보므로 `tester.pump(5분)` 으로는 만료되지 않는다 —
-    // 뷰모델의 시각 훅을 과거로 돌리고 메일을 다시 받아 기한이 지난 상태를 만든다.
-    final container = await pumpScreen(tester);
-    final viewModel = container.read(verifyCodeViewModelProvider(email).notifier)
-      ..now = () => DateTime.now().subtract(codeLifetime * 2);
-    // 상태는 resend 안에서 곧바로 바뀐다. `await` 하면 가짜 시계가 멈춰 있어 끝나지 않는다.
-    unawaited(viewModel.resend());
-    await tester.pump(const Duration(milliseconds: 1));
+    // 코드를 받은 시각을 유효 시간의 두 배만큼 과거로 두고 화면을 연다.
+    await pumpScreen(tester, now: () => DateTime.now().subtract(codeLifetime * 2));
     await tester.enterText(find.byType(TextField), '123456');
     await tester.pump();
 

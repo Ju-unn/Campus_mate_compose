@@ -1,3 +1,4 @@
+import 'package:campus_mate/common/phone_number_formatter.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/labeled_field.dart';
 import 'package:campus_mate/common/widgets/mbti_pole_toggle.dart';
@@ -22,17 +23,28 @@ class BasicInfoScreen extends ConsumerWidget {
     final viewModel = ref.read(basicInfoViewModelProvider.notifier);
     return Scaffold(
       appBar: const OnboardingAppBar(current: 0, total: 6),
-      body: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, 28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(child: SingleChildScrollView(child: _Form(state: state, viewModel: viewModel))),
-              const SizedBox(height: AppSpacing.md),
-              AppButton(label: '다음', onPressed: state.canSubmit ? viewModel.submit : null),
-            ],
+      // 입력칸 밖 빈 곳을 누르면 키보드를 내린다 — 아래쪽 칸을 채우면 키보드가 "다음" 버튼을 덮는다.
+      body: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, 28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    // 스크롤을 끌기만 해도 내려간다.
+                    keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                    child: _Form(state: state, viewModel: viewModel),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                AppButton(label: '다음', onPressed: state.canSubmit ? viewModel.submit : null),
+              ],
+            ),
           ),
         ),
       ),
@@ -45,6 +57,14 @@ class _Form extends StatelessWidget {
 
   final BasicInfoUiState state;
   final BasicInfoViewModel viewModel;
+
+  /// 11자리를 다 채우면 키보드를 내린다 — 마지막 입력칸이라 더 칠 것이 없다.
+  void _changePhoneNumber(BuildContext context, String value) {
+    viewModel.changePhoneNumber(value);
+    if (value.replaceAll(RegExp(r'\D'), '').length == PhoneNumberFormatter.maxDigits) {
+      FocusScope.of(context).unfocus();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -97,7 +117,9 @@ class _Form extends StatelessWidget {
           label: '전화번호',
           placeholder: '010-0000-0000',
           initialValue: state.phoneNumberInput,
-          onChanged: viewModel.changePhoneNumber,
+          onChanged: (value) => _changePhoneNumber(context, value),
+          keyboardType: TextInputType.phone,
+          inputFormatters: const [PhoneNumberFormatter()],
           helper: '다른 사람이 나를 지인으로 등록했을 때만 사용돼요',
         ),
         const SizedBox(height: AppSpacing.sm),

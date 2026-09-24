@@ -34,7 +34,8 @@ class IdealConditionsUiState {
   static const int maxAppearanceChoices = 3;
 
   /// 선호 MBTI 토글 8극(DESIGN.md §8.5 `mbti-toggle`).
-  static const List<String> mbtiPoles = ['E', 'I', 'N', 'S', 'T', 'F', 'J', 'P'];
+  /// 04-1 과 같은 자리·같은 순서다(`MbtiPoleToggle.allPoles` — 위아래가 짝: E↔I · S↔N · F↔T · P↔J).
+  static const List<String> mbtiPoles = ['E', 'S', 'F', 'P', 'I', 'N', 'T', 'J'];
 
   final int preferredAgeMin;
   final int preferredAgeMax;

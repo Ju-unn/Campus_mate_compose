@@ -137,7 +137,7 @@ class _KakaoIdBlock extends StatelessWidget {
             const SizedBox(width: 6),
             Expanded(
               child: Text(
-                "카카오톡에서 '아이디로 친구 추가 허용'이 켜져 있어야 상대가 내 아이디를 검색할 수 있어요.",
+                "카카오톡에서 'ID 검색 허용'이 켜져 있어야 상대가 내 아이디를 검색할 수 있어요.",
                 style: AppTypography.caption.copyWith(
                   color: AppColors.primaryText,
                   fontWeight: FontWeight.w600,
