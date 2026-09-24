@@ -1,6 +1,7 @@
 import base64
 import logging
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Literal
 from uuid import uuid4
 
@@ -14,6 +15,39 @@ _logger = logging.getLogger(__name__)
 # (max_retries=0, get_openai_client 참고) 이 숫자는 우리 코드가 직접 센다 — SDK 재시도와 겹치면 안 된다
 # (2026-09-20 사용자 결정).
 MAX_CONSECUTIVE_FAILURES = 5
+
+# 화풍 기준 그림 1장을 같이 보낸다(2026-09-25 사용자 결정 B) — 지시문만으로는 "옷·머리·배경은 그대로,
+# 얼굴만 단순화" 하는 블라인드 아바타 화풍(frontend/docs/DESIGN.md §5.2)이 나오지 않았다(운영 00019).
+# 원본은 design/designMaterials/person-f3-blind-v1.png 로, 실사진과 구도가 같고 덧붙인 손동작·소품이 없다.
+# 모델이 입력을 짧은 변 512px 로 줄여 보므로 1122x1402 원본은 과하다 — 1024x1280 JPEG(품질 90)로 다시
+# 저장해 2.3MB 를 286KB 로 줄였다. 요청마다 같이 올라가는 파일이라 작을수록 낫다.
+# 파일이 없으면 import 에서 바로 터진다 — 배포 이미지에 안 들어간 것을 요청마다 실패로 알아채는 것보다 낫다.
+_STYLE_REFERENCE_BYTES = (Path(__file__).parent / "avatar_style_reference.jpg").read_bytes()
+
+# 모델이 가장 잘 따르는 언어라 영어로 적는다. 두 장을 보내므로 "두 번째는 화풍 참고일 뿐" 을 먼저 못박는다.
+# 금지 목록은 운영 00019 결과에서 실제로 나온 어긋남이다 — 단색 배경으로 교체, 옷 교체, 감은 초승달 눈에
+# 이가 다 보이는 웃음, 정사각형 크롭. 원본 표정이 어떻든 기준 그림의 차분한 표정으로 통일한다.
+_STYLE_PROMPT = (
+    "You are given two images. The FIRST image is the user photo to redraw. The SECOND image is a "
+    "style reference only: never copy its person, face, hairstyle, clothing, background or props.\n"
+    "Redraw the first photo in the style of the second image. Keep from the first photo: the same "
+    "vertical framing and crop, the same head position and pose, the same background scene, the "
+    "same clothes and their colour, the same hair shape and hair colour, and the same accessories "
+    "such as earrings or glasses. Repaint the background, the clothes and the hair as a flat gouache "
+    "and watercolour illustration on paper texture, with soft muted colours and visible brush "
+    "texture.\n"
+    "Simplify only the face, exactly like the reference: a round face with a thick dark brown "
+    "outline, two tall black oval dots for open eyes, one small dot for the nose, one small closed "
+    "curved smile, round pink blush patches with two or three hatch lines, short simple eyebrows "
+    "and simple ears. Keep the person's own skin tone, gender presentation and facial hair from "
+    "the first photo. Draw that same calm expression no matter how the person is smiling in the "
+    "photo.\n"
+    "Never do any of these: replace the background with a flat single colour or an empty studio "
+    "backdrop; change or recolour the clothes; crop to a square; draw closed crescent eyes, a wide "
+    "open mouth, teeth or an exaggerated grin; draw realistic eyes, nose, mouth or skin texture; "
+    "use glossy flat-vector clipart shading; add hands, gestures, props, text, watermark, logo or "
+    "frame."
+)
 
 
 @dataclass(frozen=True)
@@ -42,11 +76,22 @@ class AvatarGenerator:
                 raise ValueError("아바타 원본 사진의 형식을 알 수 없다")
             response = await self._openai_client.images.edit(
                 model="gpt-image-1",
-                image=(f"source.{content_type.removeprefix('image/')}", source_photo_bytes, content_type),
-                prompt=(
-                    "Turn this photo into a soft, friendly cartoon avatar illustration, "
-                    "keeping the same hairstyle and general look, no text, no watermark."
-                ),
+                image=[
+                    (f"source.{content_type.removeprefix('image/')}", source_photo_bytes, content_type),
+                    ("style-reference.jpg", _STYLE_REFERENCE_BYTES, "image/jpeg"),
+                ],
+                prompt=_STYLE_PROMPT,
+                # 원본의 구도·옷·머리·액세서리를 그대로 두는 것이 이 기능의 전부다. 두 장 모두에 걸리므로
+                # 첫 결과에서 기준 그림의 단발·벚꽃 같은 요소가 새어 나오면, 다음 손잡이는 기준 그림을
+                # 얼굴 위주로 잘라 넣는 것이다 — low 로 내리지는 말 것(원본 유지가 통째로 무너진다).
+                input_fidelity="high",
+                # 표시용 사진은 전부 세로 4:5 다(DESIGN §5.2) — 지원되는 비율 중 가장 가까운 세로를 고른다.
+                # 비용은 늘어난다 — 00019 는 정사각 high(약 $0.167)로 나왔는데 세로 high 는 약 $0.25 고,
+                # input_fidelity=high 가 입력 이미지마다 토큰을 더 물려 2장이면 약 +$0.12 다. 장당 약
+                # $0.17 → 약 $0.37 로 두 배쯤 된다(공개 가격표 기준 추정, 실청구는 아직 확인 못 했다).
+                # quality 를 medium 으로 내리면 출력값은 1/4 이지만 머리카락·종이 질감이 뭉개진다.
+                size="1024x1536",
+                quality="high",
             )
             image_bytes = base64.b64decode(response.data[0].b64_json)
         except Exception:
