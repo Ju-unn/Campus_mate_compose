@@ -24,9 +24,20 @@ def get_settings() -> Settings:
 
 
 @lru_cache
-def get_vision_client() -> vision.ImageAnnotatorAsyncClient:
+def _vision_client() -> vision.ImageAnnotatorAsyncClient:
     # ADC 로 인증하므로 인자가 없다. 만드는 값이 비싸 프로세스당 하나만 둔다.
     return vision.ImageAnnotatorAsyncClient()
+
+
+async def get_vision_client() -> vision.ImageAnnotatorAsyncClient:
+    """Vision 클라이언트를 **이벤트 루프 스레드에서** 만들어 준다.
+
+    `def` 로 두면 FastAPI 가 AnyIO 워커 스레드에서 부르는데, 거기에는 루프가 없어
+    `ImageAnnotatorAsyncClient()` 가 grpc aio 채널을 여는 순간
+    `RuntimeError: There is no current event loop in thread 'AnyIO worker thread'` 로 500 이 된다
+    (2026-09-25 운영 사진 업로드 500). `async def` 의존성은 루프 스레드에서 돈다.
+    """
+    return _vision_client()
 
 
 def get_vision_client_factory() -> Callable[[], vision.ImageAnnotatorAsyncClient]:
@@ -34,8 +45,9 @@ def get_vision_client_factory() -> Callable[[], vision.ImageAnnotatorAsyncClient
 
     학생증 OCR 은 ADC 자격증명 실패(GoogleAuthError)까지 엔드포인트의 try 안에서 잡아
     사람 재검토로 넘긴다 — 의존성이 미리 만들면 그 실패가 500 으로 새어 나간다.
+    부르는 곳이 async 엔드포인트 안이라 만드는 자리도 루프 스레드다.
     """
-    return get_vision_client
+    return _vision_client
 
 
 def get_client(request: Request) -> httpx.AsyncClient:
