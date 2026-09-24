@@ -1,14 +1,18 @@
+import 'dart:async';
 import 'dart:io';
 
+import 'package:campus_mate/auth/model/face_detector_provider.dart';
 import 'package:campus_mate/auth/model/image_compressor_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
 import 'package:campus_mate/profile/model/photos_repository_provider.dart';
+import 'package:campus_mate/profile/viewmodel/photos_ui_state.dart';
 import 'package:campus_mate/profile/viewmodel/photos_view_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../auth/model/fake_face_detector.dart';
 import '../../auth/model/fake_image_compressor.dart';
 import '../model/fake_onboarding_repository.dart';
 import '../model/fake_photos_repository.dart';
@@ -16,17 +20,20 @@ import '../model/fake_photos_repository.dart';
 void main() {
   late FakePhotosRepository repository;
   late FakeImageCompressor imageCompressor;
+  late FakeFaceDetector faceDetector;
   late FakeOnboardingRepository onboardingRepository;
   late ProviderContainer container;
 
   setUp(() {
     repository = FakePhotosRepository();
     imageCompressor = FakeImageCompressor();
+    faceDetector = FakeFaceDetector();
     onboardingRepository = FakeOnboardingRepository();
     container = ProviderContainer(
       overrides: [
         photosRepositoryProvider.overrideWithValue(repository),
         imageCompressorProvider.overrideWithValue(imageCompressor),
+        faceDetectorProvider.overrideWithValue(faceDetector),
         onboardingRepositoryProvider.overrideWithValue(onboardingRepository),
       ],
     );
@@ -37,9 +44,151 @@ void main() {
   PhotosViewModel buildViewModel(List<File> photosToPick) {
     final viewModel = container.read(photosViewModelProvider.notifier);
     var index = 0;
-    viewModel.pickFromGallery = () async => photosToPick[index++];
+    viewModel.pickFromGallery = (limit) async => [photosToPick[index++]];
     return viewModel;
   }
+
+  test('얼굴이 보이지 않는 사진은 칸에 넣지 않고 안내를 남긴다', () async {
+    final viewModel = buildViewModel([File('a.jpg')]);
+    faceDetector.nextResult = false;
+
+    await viewModel.addPhoto();
+
+    final state = container.read(photosViewModelProvider);
+    expect(state.photos, isEmpty);
+    expect(state.errorMessage, '얼굴이 보이는 사진을 골라 주세요');
+  });
+
+  test('여러 장을 한 번에 고르면 얼굴이 있는 것만 들어간다', () async {
+    final viewModel = container.read(photosViewModelProvider.notifier)
+      ..pickFromGallery = (limit) async => [File('a.jpg'), File('b.jpg'), File('c.jpg')];
+    // 가운데 두 장에 얼굴이 없다.
+    faceDetector.queuedResults.addAll([true, false, false]);
+
+    await viewModel.addPhoto();
+
+    final state = container.read(photosViewModelProvider);
+    expect([for (final photo in state.photos) photo.file.path], ['a.jpg']);
+    expect(state.errorMessage, '2장은 얼굴이 보이지 않아 빠졌어요');
+  });
+
+  test('일부만 빠지면 몇 장이 빠졌는지 알린다', () async {
+    final viewModel = container.read(photosViewModelProvider.notifier)
+      ..pickFromGallery = (limit) async => [File('a.jpg'), File('b.jpg')];
+    faceDetector.queuedResults.addAll([true, false]);
+
+    await viewModel.addPhoto();
+
+    expect(container.read(photosViewModelProvider).errorMessage, '1장은 얼굴이 보이지 않아 빠졌어요');
+  });
+
+  test('한 장도 못 들어가면 장수 대신 다시 고르라고 알린다', () async {
+    final viewModel = container.read(photosViewModelProvider.notifier)
+      ..pickFromGallery = (limit) async => [File('a.jpg'), File('b.jpg')];
+    faceDetector.nextResult = false;
+
+    await viewModel.addPhoto();
+
+    final state = container.read(photosViewModelProvider);
+    expect(state.photos, isEmpty);
+    expect(state.errorMessage, '얼굴이 보이는 사진을 골라 주세요');
+  });
+
+  test('압축에 실패한 사진도 빠진 장으로 세고 기다리는 표시를 내린다', () async {
+    // 압축이 try 밖에 있으면 예외가 새어 나가 기다리는 표시가 굳는다.
+    final viewModel = buildViewModel([File('a.jpg')]);
+    imageCompressor.nextError = Exception('사진을 읽지 못했다');
+
+    await viewModel.addPhoto();
+
+    final state = container.read(photosViewModelProvider);
+    expect(state.photos, isEmpty);
+    expect(state.isCheckingPhotos, isFalse);
+    expect(state.errorMessage, '얼굴이 보이는 사진을 골라 주세요');
+  });
+
+  test('갤러리가 예외를 던져도 기다리는 표시가 굳지 않는다', () async {
+    // 권한 거부 등 PlatformException — 고르지 않고 닫은 것과 같이 다룬다.
+    final viewModel = container.read(photosViewModelProvider.notifier)
+      ..pickFromGallery = (limit) async => throw Exception('권한 거부');
+
+    await viewModel.addPhoto();
+
+    final state = container.read(photosViewModelProvider);
+    expect(state.photos, isEmpty);
+    expect(state.isCheckingPhotos, isFalse);
+  });
+
+  test('살펴보는 중에 다시 눌러도 남은 칸을 두 번 세지 않는다', () async {
+    // 두 번 세면 5~6장이 담겨 "다음"이 영영 켜지지 않는다.
+    final viewModel = container.read(photosViewModelProvider.notifier)
+      ..pickFromGallery = (limit) async => [for (var i = 0; i < limit; i++) File('p$i.jpg')];
+    final gate = Completer<bool>();
+    faceDetector.gate = gate;
+
+    final first = viewModel.addPhoto();
+    await pumpEventQueue();
+    final second = viewModel.addPhoto();
+    gate.complete(true);
+    await Future.wait([first, second]);
+
+    expect(container.read(photosViewModelProvider).photos, hasLength(4));
+  });
+
+  test('남은 칸 수만큼만 고르게 하고, 더 돌려줘도 남은 칸까지만 담는다', () async {
+    final viewModel = buildViewModel([File('a.jpg')]);
+    await viewModel.addPhoto();
+    final limits = <int>[];
+    viewModel.pickFromGallery = (limit) async {
+      limits.add(limit);
+      return [for (var i = 0; i < 5; i++) File('p$i.jpg')];
+    };
+
+    await viewModel.addPhoto();
+
+    expect(limits, [3]);
+    expect(container.read(photosViewModelProvider).photos, hasLength(4));
+  });
+
+  test('copyWith 는 넘기지 않은 표시를 그대로 이어받는다', () {
+    // 검사가 늦게 끝난 addPhoto 가 isSubmitting 을 지우면 같은 사진을 두 번 올릴 수 있다.
+    const state = PhotosUiState(isSubmitting: true, errorMessage: '앗');
+
+    final next = state.copyWith(photos: [SelectedPhoto(File('a.jpg'))]);
+
+    expect(next.isSubmitting, isTrue);
+    expect(next.errorMessage, '앗');
+    expect(next.copyWith(errorMessage: null).errorMessage, isNull);
+  });
+
+  test('검출기가 예외를 던지면 막지 않고 통과시킨다', () async {
+    // 기기 검사는 1차 필터일 뿐이라, 검출기 장애로 사진을 못 고르게 막는 쪽이 더 나쁘다.
+    final viewModel = buildViewModel([File('a.jpg')]);
+    faceDetector.nextError = Exception('ML Kit 이 사진을 읽지 못했다');
+
+    await viewModel.addPhoto();
+
+    final state = container.read(photosViewModelProvider);
+    expect(state.photos.length, 1);
+    expect(state.errorMessage, isNull);
+  });
+
+  test('살펴보는 동안 isCheckingPhotos 가 켜진다', () async {
+    final viewModel = container.read(photosViewModelProvider.notifier);
+    final gate = Completer<bool>();
+    faceDetector.gate = gate;
+    viewModel.pickFromGallery = (limit) async => [File('a.jpg')];
+
+    final adding = viewModel.addPhoto();
+    await pumpEventQueue();
+    expect(container.read(photosViewModelProvider).isCheckingPhotos, isTrue);
+
+    gate.complete(true);
+    await adding;
+
+    expect(container.read(photosViewModelProvider).isCheckingPhotos, isFalse);
+    expect(container.read(photosViewModelProvider).photos.length, 1);
+  });
 
   test('사진이 2장 미만이면 제출할 수 없다', () async {
     final viewModel = buildViewModel([File('a.jpg')]);

@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:campus_mate/auth/model/face_detector_provider.dart';
 import 'package:campus_mate/auth/model/image_compressor_provider.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/profile/model/photos_repository_provider.dart';
 import 'package:campus_mate/profile/view/photos_screen.dart';
 import 'package:campus_mate/profile/viewmodel/photos_view_model.dart';
@@ -12,6 +15,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../auth/model/fake_face_detector.dart';
 import '../../auth/model/fake_image_compressor.dart';
 import '../model/fake_photos_repository.dart';
 
@@ -21,9 +25,11 @@ const _onePixelPng =
 
 void main() {
   late Directory tempDir;
+  late FakeFaceDetector faceDetector;
 
   setUp(() {
     tempDir = Directory.systemTemp.createTempSync('photos_screen_test');
+    faceDetector = FakeFaceDetector();
   });
 
   tearDown(() => tempDir.deleteSync(recursive: true));
@@ -31,7 +37,7 @@ void main() {
   File photoFile(String name) =>
       File('${tempDir.path}/$name')..writeAsBytesSync(base64Decode(_onePixelPng));
 
-  Future<void> pump(
+  Future<ProviderContainer> pump(
     WidgetTester tester, {
     required int photoCount,
     double textScale = 1.0,
@@ -40,6 +46,7 @@ void main() {
       overrides: [
         photosRepositoryProvider.overrideWithValue(FakePhotosRepository()),
         imageCompressorProvider.overrideWithValue(FakeImageCompressor()),
+        faceDetectorProvider.overrideWithValue(faceDetector),
       ],
     );
     addTearDown(container.dispose);
@@ -47,7 +54,7 @@ void main() {
     final files = [for (var i = 0; i < photoCount; i++) photoFile('photo-$i.png')];
     var index = 0;
     final viewModel = container.read(photosViewModelProvider.notifier)
-      ..pickFromGallery = () async => files[index++];
+      ..pickFromGallery = (limit) async => [files[index++]];
     for (var i = 0; i < photoCount; i++) {
       await viewModel.addPhoto();
     }
@@ -64,6 +71,7 @@ void main() {
       ),
     );
     await tester.pump();
+    return container;
   }
 
   /// CTA 가 화면 안에 남아 있는지. 넘치면 사용자가 다음으로 갈 수 없다.
@@ -165,5 +173,79 @@ void main() {
 
     expect(photoOrder(tester), ['photo-1.png', 'photo-0.png']);
     semantics.dispose();
+  });
+
+  testWidgets('얼굴이 없어 빠지면 버튼 위에 토스트로 알린다', (tester) async {
+    final semantics = tester.ensureSemantics();
+    final container = await pump(tester, photoCount: 2);
+    container.read(photosViewModelProvider.notifier).pickFromGallery =
+        (limit) async => [photoFile('photo-new.png')];
+    faceDetector.nextResult = false;
+
+    await tester.tap(find.text('사진 추가').first);
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('얼굴이 보이는 사진을 골라 주세요'), findsOneWidget);
+    // 토스트는 "다음" 버튼 위에 뜬다.
+    expect(
+      tester.getBottomLeft(find.byType(AppToast)).dy,
+      lessThanOrEqualTo(tester.getTopLeft(find.byType(AppButton)).dy),
+    );
+
+    // 초점을 받을 일이 없는 안내라 liveRegion 이라야 토크백이 바로 읽어 준다.
+    expect(tester.getSemantics(find.byType(AppToast)), isSemantics(isLiveRegion: true));
+
+    // 3초 뒤에는 저절로 사라진다.
+    await tester.pump(const Duration(seconds: 3));
+    expect(find.byType(AppToast), findsNothing);
+    semantics.dispose();
+  });
+
+  testWidgets('살펴보는 동안에는 "다음" 이 꺼지고 끝나면 다시 켜진다', (tester) async {
+    final container = await pump(tester, photoCount: 2);
+    container.read(photosViewModelProvider.notifier).pickFromGallery =
+        (limit) async => [photoFile('photo-new.png')];
+    final gate = Completer<bool>();
+    faceDetector.gate = gate;
+
+    await tester.tap(find.text('사진 추가').first);
+    await tester.pump();
+    await tester.pump();
+
+    // 두 장이라 이미 넘어갈 수 있지만, 늦게 끝난 검사가 04-3 이 올리는 목록에 끼어든다.
+    expect(tester.widget<ElevatedButton>(find.byType(ElevatedButton)).enabled, isFalse);
+
+    gate.complete(true);
+    faceDetector.gate = null;
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<ElevatedButton>(find.byType(ElevatedButton)).enabled, isTrue);
+  });
+
+  testWidgets('살펴보는 동안 들어올 칸에 기다리는 표시가 뜬다', (tester) async {
+    final container = await pump(tester, photoCount: 2);
+    container.read(photosViewModelProvider.notifier).pickFromGallery =
+        (limit) async => [photoFile('photo-new.png')];
+    final gate = Completer<bool>();
+    faceDetector.gate = gate;
+
+    await tester.tap(find.text('사진 추가').first);
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    // 두 장 다음 칸(아랫줄 왼쪽)에서 기다린다 — 엉뚱한 칸이 덮이면 고른 사진이 사라진 것처럼 보인다.
+    final spinner = tester.getRect(find.byType(CircularProgressIndicator));
+    final firstPhoto = tester.getRect(find.byType(Image).first);
+    expect(spinner.center.dy, greaterThan(firstPhoto.bottom));
+    expect(spinner.center.dx, lessThan(firstPhoto.right));
+
+    gate.complete(true);
+    faceDetector.gate = null;
+    await tester.pumpAndSettle();
+
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.byType(Image), findsNWidgets(3));
   });
 }

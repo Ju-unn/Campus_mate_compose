@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -30,6 +33,29 @@ class _PhotosScreenState extends ConsumerState<PhotosScreen> {
   /// 돌아올 때까지 버튼을 꺼 둔다.
   bool _isLeaving = false;
 
+  /// 지금 떠 있는 안내. 겹쳐 뜨지 않게 한 번에 하나만 들고 있는다(pen `EvcRf`).
+  String? _toast;
+  Timer? _toastTimer;
+
+  /// pen 에 표시 시간이 없고 앱에 정해 둔 값도 없어 3초로 둔다.
+  static const Duration _toastDuration = Duration(seconds: 3);
+
+  void _showToast(String message) {
+    _toastTimer?.cancel();
+    setState(() => _toast = message);
+    _toastTimer = Timer(_toastDuration, () {
+      if (mounted) {
+        setState(() => _toast = null);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _toastTimer?.cancel();
+    super.dispose();
+  }
+
   Future<void> _goToAvatarSource() async {
     setState(() => _isLeaving = true);
     ref.read(photosViewModelProvider.notifier).prepareAvatarSource();
@@ -43,6 +69,12 @@ class _PhotosScreenState extends ConsumerState<PhotosScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(photosViewModelProvider);
     final viewModel = ref.read(photosViewModelProvider.notifier);
+    // 안내는 칸 아래 글이 아니라 버튼 위 토스트로 나간다(pen `EvcRf`).
+    ref.listen(photosViewModelProvider, (previous, next) {
+      if (next.errorMessage != null) {
+        _showToast(next.errorMessage!);
+      }
+    });
     return Scaffold(
       appBar: const OnboardingAppBar(current: 1, total: 6),
       body: SafeArea(
@@ -80,19 +112,28 @@ class _PhotosScreenState extends ConsumerState<PhotosScreen> {
                         '사진을 길게 눌러 끌면 순서를 바꿀 수 있어요. 첫 칸이 대표 사진이에요.',
                         style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
                       ),
-                      if (state.errorMessage != null) ...[
-                        const SizedBox(height: AppSpacing.xs),
-                        Text(state.errorMessage!,
-                            style: AppTypography.caption.copyWith(color: AppColors.error)),
-                      ],
                     ],
                   ),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
+              if (_toast != null) ...[
+                Center(
+                  child: AppToast(
+                    leading: const Icon(AppIcons.alertTriangle, size: 16, color: AppColors.onInk),
+                    label: _toast!,
+                  ),
+                ),
+                // 버튼과 간격 12(pen 실측).
+                const SizedBox(height: AppSpacing.sm),
+              ],
               AppButton(
                 label: '다음',
-                onPressed: state.canProceed && !_isLeaving ? _goToAvatarSource : null,
+                // 살펴보는 중에 넘어가면 늦게 끝난 검사가 04-3 이 올리는 목록에 끼거나,
+                // 이미 올라간 화면 위에 '…빠졌어요' 토스트가 얹힌다.
+                onPressed: state.canProceed && !state.isCheckingPhotos && !_isLeaving
+                    ? _goToAvatarSource
+                    : null,
               ),
             ],
           ),
@@ -111,9 +152,16 @@ class _PhotoGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget slot(int index) => index < state.photos.length
-        ? _DraggablePhotoTile(index: index, state: state, viewModel: viewModel)
-        : _AddPhotoTile(onTap: viewModel.addPhoto);
+    Widget slot(int index) {
+      if (index < state.photos.length) {
+        return _DraggablePhotoTile(index: index, state: state, viewModel: viewModel);
+      }
+      // 살펴보는 중인 사진은 아직 칸에 없다 — 들어올 자리에서 기다리는 표시를 보여준다.
+      if (state.isCheckingPhotos && index == state.photos.length) {
+        return const _CheckingTile();
+      }
+      return _AddPhotoTile(onTap: viewModel.addPhoto);
+    }
     return Column(
       children: [
         for (var row = 0; row < 2; row++) ...[
@@ -288,6 +336,32 @@ class _PhotoTile extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// 얼굴이 보이는지 살펴보는 동안의 빈 칸. 모양은 "사진 추가" 칸과 같고 표시만 돈다.
+class _CheckingTile extends StatelessWidget {
+  const _CheckingTile();
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: '사진을 살펴보는 중',
+      child: DecoratedBox(
+        // pen `EvcRf` Skeleton — 칸과 같은 모서리(14)를 회색으로 덮고 가운데만 돈다.
+        decoration: BoxDecoration(
+          color: AppColors.hairlineSoft,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+        ),
+        child: const Center(
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.muted),
+          ),
+        ),
       ),
     );
   }

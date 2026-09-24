@@ -56,6 +56,9 @@ abstract final class AppIcons {
   /// 3b 인증 거절 배너 (pen Alert 마스터 `teNRJ`)
   static const IconData circleX = LucideIcons.circleX;
 
+  /// 04-2 얼굴 없음 토스트 (pen `EvcRf`)
+  static const IconData alertTriangle = LucideIcons.alertTriangle;
+
   /// 공개 범위 안내 (DESIGN.md 화면 3c — "카드와 프로필에 공개돼요")
   static const IconData eye = LucideIcons.eye;
 }
