@@ -1,4 +1,5 @@
 import json
+import logging
 from collections.abc import Callable
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -10,6 +11,7 @@ from fastapi.testclient import TestClient
 from google.cloud import vision
 
 from app.core import errors
+from app.student_verification.matching import REVIEW_REASON_LABELS
 from app.core.deps import get_client, get_settings, get_vision_client_factory
 from app.main import app
 from app.settings import Settings
@@ -110,6 +112,15 @@ def _uploaded_path(sent: list[httpx.Request]) -> str:
     return str(upload.url).split("/object/student-id-temp/")[1]
 
 
+def _review_warning(caplog: pytest.LogCaptureFixture) -> str:
+    """사람 재검토로 넘어간 이유를 적은 WARNING 한 줄."""
+    return next(r.getMessage() for r in caplog.records if "사람 재검토로 넘긴다: reason=" in r.getMessage())
+
+
+def _discord_content(sent: list[httpx.Request]) -> str:
+    return json.loads(_calls(sent, "POST", "discord.com")[0].content)["content"]
+
+
 # --- POST /student-verification ---------------------------------------------
 
 
@@ -196,6 +207,108 @@ def test_submit_leaves_attempt_row_pending_on_the_no_match_path():
 
     assert response.json() == {"status": "pending"}
     assert _calls(sent, "PATCH", "/student_verification_attempts") == []
+
+
+def test_verified_stays_verified_when_the_orphan_notice_fails(caplog):
+    """확정을 쓴 뒤의 뒷정리는 결과를 되돌리지 못한다.
+
+    사진 삭제가 실패해 고아 알림을 보내는데 그 알림까지 터지면, 종전에는 DB 는 verified 인데
+    응답과 사유가 confirm_failed 로 나갔다(2026-09-26 분석 권고1).
+    """
+
+    def storage_or_discord_fails(request: httpx.Request) -> bool:
+        url = str(request.url)
+        return (request.method == "DELETE" and "/storage/v1/" in url) or "discord.com" in url
+
+    sent, _ = _wire(
+        _gate_row("none"), ocr_text="서울대학교 학생증 홍길동", fails=storage_or_discord_fails
+    )
+
+    with caplog.at_level(logging.WARNING, logger="app.student_verification.router"):
+        response = _submit()
+
+    assert response.json() == {"status": "verified"}
+    patched = [json.loads(r.content)["student_verification"] for r in _calls(sent, "PATCH", "/rest/v1/profiles")]
+    assert patched == ["pending", "verified"]
+    assert [r for r in caplog.records if "reason=" in r.getMessage()] == []
+
+
+def test_verified_path_logs_no_review_warning(caplog):
+    sent, _ = _wire(_gate_row("none"), ocr_text="서울대학교 학생증 홍길동")
+
+    with caplog.at_level(logging.WARNING, logger="app.student_verification.router"):
+        assert _submit().json() == {"status": "verified"}
+
+    assert [r.getMessage() for r in caplog.records if r.levelno >= logging.WARNING] == []
+    assert _calls(sent, "POST", "discord.com") == []
+
+
+@pytest.mark.parametrize(
+    ("ocr_text", "reason"),
+    [
+        ("서울대학교 학생증 김철수", "name_not_found"),
+        ("미국대학교 학생증 홍길동", "school_not_found"),
+        ("부산대학교 학생증 김철수", "both_not_found"),
+        ("", "no_text"),
+    ],
+)
+def test_submit_logs_why_it_went_to_human_review(caplog, ocr_text, reason):
+    # 왜 사람이 봐야 하는지 로그 한 줄로 남긴다(2026-09-26 사용자 결정).
+    sent, _ = _wire(_gate_row("none"), ocr_text=ocr_text)
+
+    with caplog.at_level(logging.WARNING, logger="app.student_verification.router"):
+        assert _submit().json() == {"status": "pending"}
+
+    logged = _review_warning(caplog)
+    assert f"reason={reason}" in logged
+    assert f"profile_id={PROFILE_ID}" in logged
+    assert "school=서울대학교" in logged
+    assert f"ocr_chars={len(ocr_text)}" in logged
+    # 문구 자체는 test_discord_notifier 가 통째로 못 박는다 — 여기서는 "그 사유가 나갔는지"만 본다.
+    assert REVIEW_REASON_LABELS[reason] in _discord_content(sent)
+
+
+def test_submit_logs_vision_failure_as_its_own_reason(caplog):
+    # "대조가 어긋났다"와 "아예 못 물어봤다"는 손볼 곳이 다르다 — 같은 pending 이라도 갈라 적는다.
+    sent, vision_client = _wire(_gate_row("none"))
+    vision_client.batch_annotate_images.side_effect = RuntimeError("429 quota exceeded")
+
+    with caplog.at_level(logging.WARNING, logger="app.student_verification.router"):
+        assert _submit().json() == {"status": "pending"}
+
+    assert "reason=vision_error" in _review_warning(caplog)
+    assert REVIEW_REASON_LABELS["vision_error"] in _discord_content(sent)
+
+
+def test_submit_logs_confirm_failure_as_its_own_reason(caplog):
+    def is_verified_patch(request: httpx.Request) -> bool:
+        return (
+            request.method == "PATCH"
+            and "/rest/v1/profiles" in str(request.url)
+            and json.loads(request.content).get("student_verification") == "verified"
+        )
+
+    sent, _ = _wire(_gate_row("none"), ocr_text="서울대학교 학생증 홍길동", fails=is_verified_patch)
+
+    with caplog.at_level(logging.WARNING, logger="app.student_verification.router"):
+        assert _submit().json() == {"status": "pending"}
+
+    assert "reason=confirm_failed" in _review_warning(caplog)
+    assert REVIEW_REASON_LABELS["confirm_failed"] in _discord_content(sent)
+
+
+def test_review_log_never_carries_the_real_name_or_the_ocr_text(caplog):
+    # 개인정보다 — 사유·학교 이름·글자 수까지만 남긴다(설계 §7.3).
+    sent, _ = _wire(_gate_row("none"), ocr_text="서울대학교 학생증 김철수 2021123456")
+
+    with caplog.at_level(logging.WARNING, logger="app.student_verification.router"):
+        _submit(real_name="홍길동")
+
+    logged = _review_warning(caplog)
+    assert "홍길동" not in logged
+    assert "김철수" not in logged
+    assert "2021123456" not in logged
+    assert _uploaded_path(sent) not in logged
 
 
 def test_submit_uploads_with_content_type_derived_from_magic_bytes():
