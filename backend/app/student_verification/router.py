@@ -13,7 +13,7 @@ from app.core import errors
 from app.core.deps import Caller, get_caller, get_vision_client_factory
 from app.student_verification.discord_notifier import DiscordNotifier
 from app.student_verification.image_validation import student_id_content_type
-from app.student_verification.matching import matches_school_and_name
+from app.student_verification.matching import ReviewReason, missing_from_student_id
 from app.student_verification.ocr import VisionOcr
 from app.student_verification.repository import StudentVerificationRepository
 from app.student_verification.schemas import SchoolInfoRequest, VerificationStatusResponse
@@ -70,6 +70,7 @@ async def submit_student_verification(
     await repo.record_attempt(profile_id, file_path, "pending")
     await repo.update_verification_status(profile_id, "pending")
 
+    reason: ReviewReason | None = None
     try:
         ocr_text = await VisionOcr(make_vision_client()).extract_text(data)
     except (GoogleAPIError, RuntimeError, asyncio.TimeoutError, GoogleAuthError):
@@ -78,25 +79,50 @@ async def submit_student_verification(
         # 잡는 범위는 진짜 Vision 장애로 한정한다 — 넓게 잡으면 우리 코드 버그까지 "대조 실패"로 묻힌다.
         _logger.exception("Vision OCR 실패 — 사람 재검토로 넘긴다")
         ocr_text = ""
+        reason = "vision_error"
 
-    if matches_school_and_name(ocr_text, gate["universities"]["name"], name):
+    school_name = gate["universities"]["name"]
+    if reason is None:
+        reason = missing_from_student_id(ocr_text, school_name, name)
+
+    if reason is None:
         try:
             # 시도 행을 먼저 확정하고(2026-09-20 분석담당 리뷰 — 제안3, 종전엔 profiles 가 먼저였다),
             # 남에게 보이는 최종 상태인 profiles 를 나중에 바꾼다.
+            # **확정 쓰기 두 줄만** try 에 둔다 — 뒷정리까지 넣으면 이미 verified 인데 사유가
+            # confirm_failed 로 찍힌다(2026-09-26 분석 권고1).
             await repo.update_attempt_result(profile_id, file_path, "verified")
             await repo.update_verification_status(profile_id, "verified")
+        except httpx.HTTPError:
+            # 확정을 못 쓰면 상태가 pending 에 갇혀 재제출이 409 로 막힌다 — OCR 실패와 같게 사람 재검토로 넘긴다.
+            _logger.exception("학생증 인증 확정 실패 — 사람 재검토로 넘긴다")
+            reason = "confirm_failed"
+        else:
+            # 여기부터는 인증이 이미 끝난 뒤의 뒷정리다 — 무엇이 실패해도 결과는 verified 다.
             # SQL 트리거가 아니라 여기서 직접 지운다 — `delete from storage.objects`는 메타 행만 지우고
             # 실제 파일은 고아로 남는다(Supabase storage/management 문서, 2026-09-20 분석담당 리뷰).
             # 삭제 실패는 인증 결과를 실패시키지 않고 디스코드로만 알린다(고아 파일 수동 정리용).
             if not await storage.delete(file_path):
                 _logger.error("학생증 사진 삭제 실패 — 고아 파일, profile_id=%s file_path=%s", profile_id, file_path)
-                await DiscordNotifier(settings.discord_webhook_url, client).notify_orphaned_file(file_path)
+                try:
+                    await DiscordNotifier(settings.discord_webhook_url, client).notify_orphaned_file(file_path)
+                except httpx.HTTPError:
+                    # 알림까지 실패하면 위 로그가 마지막 흔적이다. 끝난 인증을 되돌리지는 않는다
+                    # (종전에는 이 예외가 바깥 except 에 걸려 verified 인데 사유가 confirm_failed 로 찍혔다).
+                    _logger.exception("고아 파일 알림 실패 — 로그만 남긴다")
             return {"status": "verified"}
-        except httpx.HTTPError:
-            # 확정을 못 쓰면 상태가 pending 에 갇혀 재제출이 409 로 막힌다 — OCR 실패와 같게 사람 재검토로 넘긴다.
-            _logger.exception("학생증 인증 확정 실패 — 사람 재검토로 넘긴다")
 
-    await DiscordNotifier(settings.discord_webhook_url, client).notify_pending_review()
+    # 사람이 왜 봐야 하는지 한 줄로 남긴다(2026-09-26 사용자 결정). **이 줄에는** 실명·OCR 원문·사진 경로를
+    # 넣지 않는다 — 학교 이름은 공개 데이터라 남기고, OCR 은 내용 대신 글자 수만 남겨 "아예 못 읽었는지"를
+    # 구분한다. (위 _logger.exception 의 스택에는 PATCH 주소가 찍혀 사진 경로가 섞일 수 있다.)
+    _logger.warning(
+        "학생증 자동 판정 실패 — 사람 재검토로 넘긴다: reason=%s profile_id=%s school=%s ocr_chars=%d",
+        reason,
+        profile_id,
+        school_name,
+        len(ocr_text),
+    )
+    await DiscordNotifier(settings.discord_webhook_url, client).notify_pending_review(reason, profile_id)
     return {"status": "pending"}
 
 
