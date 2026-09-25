@@ -49,7 +49,8 @@ class AppearanceTypeScreen extends ConsumerWidget {
                       selected: {?state.animalType},
                       onTap: viewModel.changeAnimalType,
                     ),
-                    const SizedBox(height: AppSpacing.xl),
+                    // 두 섹션 사이 24(pen `mpvfQ` 실측).
+                    const SizedBox(height: AppSpacing.lg),
                     _SectionLabel('인상'),
                     ImpressionTypePicker(
                       selected: {?state.impressionType},
@@ -90,7 +91,8 @@ class _SectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      // 섹션 라벨과 카드 묶음 사이 8(pen `mpvfQ` 실측).
+      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
       child: Text(label, style: AppTypography.labelSmall.copyWith(color: AppColors.body)),
     );
   }

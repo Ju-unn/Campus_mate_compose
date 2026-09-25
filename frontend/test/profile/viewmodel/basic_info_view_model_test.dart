@@ -1,12 +1,17 @@
+import 'dart:async';
+
 import 'package:campus_mate/profile/model/basic_info_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
 import 'package:campus_mate/profile/viewmodel/basic_info_view_model.dart';
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../model/fake_basic_info_repository.dart';
 import '../model/fake_onboarding_repository.dart';
+
+const _thisYear = 2026;
 
 void main() {
   late FakeBasicInfoRepository repository;
@@ -18,6 +23,7 @@ void main() {
     onboardingRepository = FakeOnboardingRepository();
     container = ProviderContainer(
       overrides: [
+        basicInfoNowProvider.overrideWithValue(() => DateTime(_thisYear, 6, 1)),
         basicInfoRepositoryProvider.overrideWithValue(repository),
         onboardingRepositoryProvider.overrideWithValue(onboardingRepository),
       ],
@@ -48,6 +54,132 @@ void main() {
     await Future<void>.delayed(const Duration(milliseconds: 350));
     final state = container.read(basicInfoViewModelProvider);
     expect(state.nicknameError, '이미 있는 닉네임이에요');
+  });
+
+  test('형식이 안 맞으면 서버에 묻지 않고 왜 안 되는지 알려 준다', () async {
+    // 종전에는 조용히 돌아가서 화면에 아무것도 안 떴다(2026-09-26 사용자 지적).
+    final vm = container.read(basicInfoViewModelProvider.notifier);
+    vm.changeNickname('가');
+    await Future<void>.delayed(const Duration(milliseconds: 350));
+    final state = container.read(basicInfoViewModelProvider);
+    expect(state.nicknameError, '한글 또는 영문 2~5자로 입력해 주세요');
+    expect(state.nicknameSuccess, isNull);
+    expect(repository.checkedNicknames, isEmpty);
+  });
+
+  test('쓸 수 있는 닉네임이면 성공 문구를 보여준다', () async {
+    final vm = container.read(basicInfoViewModelProvider.notifier);
+    vm.changeNickname('가나다');
+    await Future<void>.delayed(const Duration(milliseconds: 350));
+    final state = container.read(basicInfoViewModelProvider);
+    expect(state.nicknameSuccess, '사용할 수 있는 닉네임이에요');
+    expect(state.nicknameError, isNull);
+  });
+
+  test('서버 답을 기다리는 동안 "확인 중…" 을 보여주고, 답이 오면 내린다', () async {
+    repository.availabilityGate = Completer<void>();
+    final vm = container.read(basicInfoViewModelProvider.notifier);
+
+    vm.changeNickname('가나다');
+    await Future<void>.delayed(const Duration(milliseconds: 350));
+    expect(container.read(basicInfoViewModelProvider).nicknameChecking, '확인 중…');
+
+    repository.availabilityGate!.complete();
+    await Future<void>.delayed(Duration.zero);
+
+    final state = container.read(basicInfoViewModelProvider);
+    expect(state.nicknameChecking, isNull);
+    expect(state.nicknameSuccess, '사용할 수 있는 닉네임이에요');
+  });
+
+  test('확인이 실패하면 아무 말도 하지 않지만 도는 표시는 내린다', () async {
+    repository.nextAvailabilityResult = const FailureResult(NetworkFailure());
+    final vm = container.read(basicInfoViewModelProvider.notifier);
+
+    vm.changeNickname('가나다');
+    await Future<void>.delayed(const Duration(milliseconds: 350));
+
+    vm.changeBirthYear('2002');
+    vm.changeHeight('175');
+    vm.changePhoneNumber('01012345678');
+    vm.changeGender('male');
+
+    final state = container.read(basicInfoViewModelProvider);
+    expect(state.nicknameChecking, isNull);
+    expect(state.nicknameError, isNull);
+    expect(state.nicknameSuccess, isNull);
+    // 확인이 안 됐다고 04-1 에 가두지 않는다 — 진짜 중복이면 제출 때 서버가 막는다.
+    expect(state.canSubmit, isTrue);
+  });
+
+  test('입력이 바뀌면 지난 판정은 그 자리에서 지운다', () async {
+    final vm = container.read(basicInfoViewModelProvider.notifier);
+    vm.changeNickname('가나다');
+    await Future<void>.delayed(const Duration(milliseconds: 350));
+    expect(container.read(basicInfoViewModelProvider).nicknameSuccess, isNotNull);
+
+    vm.changeNickname('가나다라');
+
+    final state = container.read(basicInfoViewModelProvider);
+    expect(state.nicknameSuccess, isNull);
+    expect(state.nicknameError, isNull);
+  });
+
+  test('조회가 끝나기 전에 입력이 바뀌면 낡은 결과는 버린다', () async {
+    repository.availabilityGate = Completer<void>();
+    repository.nextAvailabilityResult = const Success(false);
+    final vm = container.read(basicInfoViewModelProvider.notifier);
+
+    vm.changeNickname('가나다');
+    await Future<void>.delayed(const Duration(milliseconds: 350)); // 조회가 시작돼 문 앞에서 기다린다
+    vm.changeNickname('라마바');
+    repository.availabilityGate!.complete(); // 이제야 '가나다' 조회가 끝난다
+    await Future<void>.delayed(Duration.zero);
+
+    expect(container.read(basicInfoViewModelProvider).nicknameError, isNull);
+  });
+
+  test('키는 3자리를 다 친 뒤 범위 밖일 때만 오류를 띄운다', () {
+    // 치는 도중에 띄우면 한 자 칠 때마다 문구가 깜빡인다(pen 04-1 — 도움말은 필요할 때만).
+    final vm = container.read(basicInfoViewModelProvider.notifier);
+
+    vm.changeHeight('1');
+    expect(container.read(basicInfoViewModelProvider).heightError, isNull);
+    vm.changeHeight('17');
+    expect(container.read(basicInfoViewModelProvider).heightError, isNull);
+
+    vm.changeHeight('999');
+    expect(container.read(basicInfoViewModelProvider).heightError, '숫자 3자리를 확인해 주세요');
+
+    vm.changeHeight('175');
+    expect(container.read(basicInfoViewModelProvider).heightError, isNull);
+  });
+
+  test('만 19세가 안 되는 출생연도는 "다음"이 켜지지 않는다', () async {
+    // 서버가 같은 기준을 본다(schemas.py MIN_AGE=19) — 앱이 더 느슨하면 422 를 받고 04-1 에 갇힌다.
+    final vm = container.read(basicInfoViewModelProvider.notifier);
+    vm.changeNickname('가나다');
+    await Future<void>.delayed(const Duration(milliseconds: 350));
+    vm.changeHeight('175');
+    vm.changePhoneNumber('01012345678');
+    vm.changeGender('male');
+
+    vm.changeBirthYear('${_thisYear - 19}');
+    expect(container.read(basicInfoViewModelProvider).canSubmit, isTrue);
+
+    vm.changeBirthYear('${_thisYear - 18}');
+    final state = container.read(basicInfoViewModelProvider);
+    expect(state.birthYear, isNull);
+    expect(state.canSubmit, isFalse);
+  });
+
+  test('출생연도는 범위를 벗어나도 오류 문구를 띄우지 않는다', () {
+    // pen 04-1 에 출생연도 오류 자리가 없다 — helper "숫자 4자리"만 둔다.
+    final vm = container.read(basicInfoViewModelProvider.notifier);
+    vm.changeBirthYear('1800');
+    final state = container.read(basicInfoViewModelProvider);
+    expect(state.birthYear, isNull);
+    expect(state.canSubmit, isFalse);
   });
 
   test('필요한 값을 다 채우면 제출할 수 있다', () async {

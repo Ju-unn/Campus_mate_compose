@@ -11,7 +11,26 @@ import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/profile/viewmodel/basic_info_ui_state.dart';
 import 'package:campus_mate/profile/viewmodel/basic_info_view_model.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+/// 한글·영문만 받는다(DESIGN §8.5 `nickname-field`). **자모(ㄱ-ㅎ·ㅏ-ㅣ)까지 허용해야 한다** —
+/// 한글 입력기는 조합 중에 자모를 먼저 넣기 때문에 막으면 기기에서 한글 자체를 칠 수 없다.
+/// 자모만 남은 값은 보내기 전 [BasicInfoUiState.nicknamePattern] 이 거른다.
+/// 글자 수는 여기서 자르지 않는다 — 조합 중인 글자를 잘라 내면 입력기가 꼬인다.
+final nicknameInputFormatters = [
+  FilteringTextInputFormatter.allow(RegExp(r'[가-힣a-zA-Zㄱ-ㅎㅏ-ㅣ]')),
+];
+
+/// 출생연도·키는 숫자만 받고 자릿수에서 끊는다(2026-09-26 사용자 요청).
+final birthYearInputFormatters = [
+  FilteringTextInputFormatter.digitsOnly,
+  LengthLimitingTextInputFormatter(4),
+];
+final heightInputFormatters = [
+  FilteringTextInputFormatter.digitsOnly,
+  LengthLimitingTextInputFormatter(3),
+];
 
 /// 기본 정보 화면(DESIGN.md 화면 04-1, datingApp.pen `04-1 기본 정보`).
 class BasicInfoScreen extends ConsumerWidget {
@@ -41,6 +60,12 @@ class BasicInfoScreen extends ConsumerWidget {
                     child: _Form(state: state, viewModel: viewModel),
                   ),
                 ),
+                // 오류는 **스크롤 밖**, 누른 버튼 바로 위다 — 스크롤 맨 아래에 두면 "다음"을 눌러도
+                // 화면에 안 보인다(서버 409 닉네임 중복도 여기로 온다).
+                if (state.errorMessage != null) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(state.errorMessage!, style: AppTypography.caption.copyWith(color: AppColors.error)),
+                ],
                 const SizedBox(height: AppSpacing.md),
                 AppButton(label: '다음', onPressed: state.canSubmit ? viewModel.submit : null),
               ],
@@ -88,6 +113,9 @@ class _Form extends StatelessWidget {
           onChanged: viewModel.changeNickname,
           helper: '2~5자, 한글 또는 영문',
           errorText: state.nicknameError,
+          successText: state.nicknameSuccess,
+          pendingText: state.nicknameChecking,
+          inputFormatters: nicknameInputFormatters,
         ),
         const SizedBox(height: AppSpacing.md),
         Row(
@@ -99,6 +127,9 @@ class _Form extends StatelessWidget {
                 placeholder: '예: 2003',
                 initialValue: state.birthYearInput,
                 onChanged: viewModel.changeBirthYear,
+                helper: '숫자 4자리',
+                keyboardType: TextInputType.number,
+                inputFormatters: birthYearInputFormatters,
               ),
             ),
             const SizedBox(width: AppSpacing.sm),
@@ -108,6 +139,9 @@ class _Form extends StatelessWidget {
                 placeholder: '예: 170',
                 initialValue: state.heightInput,
                 onChanged: viewModel.changeHeight,
+                errorText: state.heightError,
+                keyboardType: TextInputType.number,
+                inputFormatters: heightInputFormatters,
               ),
             ),
           ],
@@ -136,10 +170,6 @@ class _Form extends StatelessWidget {
           isUnknownSelected: state.isMbtiUnknown,
           onUnknownTap: viewModel.toggleMbtiUnknown,
         ),
-        if (state.errorMessage != null) ...[
-          const SizedBox(height: AppSpacing.sm),
-          Text(state.errorMessage!, style: AppTypography.caption.copyWith(color: AppColors.error)),
-        ],
       ],
     );
   }

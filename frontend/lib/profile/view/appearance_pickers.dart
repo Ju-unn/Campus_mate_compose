@@ -1,3 +1,4 @@
+import 'package:campus_mate/common/widgets/select_chip.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -15,24 +16,34 @@ class AnimalTypePicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 8종을 2행×4열로 깐다(datingApp.pen `mpvfQ` 안 `Ryq6H`) — 카드 72×112, 간격 8, 아이콘 위·이름 아래다.
+    // 폭을 숫자로 박지 않고 비율로 둔다 — 360dp 기준 실측이라 더 좁은 기기에서는 같이 줄어들어야 한다.
     return GridView.count(
-      crossAxisCount: 2,
+      crossAxisCount: 4,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       mainAxisSpacing: AppSpacing.xs,
       crossAxisSpacing: AppSpacing.xs,
-      childAspectRatio: 2.4,
+      childAspectRatio: 72 / 112,
       children: [
         for (final type in AnimalType.values)
           _PickerCell(
             isSelected: selected.contains(type),
             onTap: () => onTap(type),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Image.asset(type.iconAsset, width: 40, height: 40),
-                const SizedBox(width: AppSpacing.xxs),
-                Text(type.label, style: AppTypography.label.copyWith(color: AppColors.ink)),
+                // 카드 폭에 꽉 차는 정사각 그림(pen 72×72, 좌우 여백 없음).
+                AspectRatio(
+                  aspectRatio: 1,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                    child: Image.asset(type.iconAsset, fit: BoxFit.cover),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xxs),
+                // 4열이라 칸이 좁다 — '햄스터상'까지 한 줄에 들어가는 크기다(종전 label 18sp 는 넘친다).
+                Text(type.label, style: AppTypography.labelSmall.copyWith(color: AppColors.ink)),
               ],
             ),
           ),
@@ -50,22 +61,41 @@ class ImpressionTypePicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: AppSpacing.xs,
-      runSpacing: AppSpacing.xs,
+    // pen 은 한 줄에 3개씩 **균등 폭**이다 — 글자 폭으로 재면 '두부상'과 '청순상'의 칸 크기가 달라진다.
+    // 마지막 줄의 2개는 남은 폭을 그대로 나눠 가져 더 넓어진다.
+    return Column(
       children: [
-        for (final type in ImpressionType.values)
-          FilterChip(
-            label: Text(type.label),
-            selected: selected.contains(type),
-            onSelected: (_) => onTap(type),
+        for (var start = 0; start < ImpressionType.values.length; start += _perRow) ...[
+          if (start > 0) const SizedBox(height: AppSpacing.xs),
+          Row(
+            children: [
+              for (var i = start; i < start + _perRow && i < ImpressionType.values.length; i++) ...[
+                if (i > start) const SizedBox(width: AppSpacing.xs),
+                Expanded(child: _chip(ImpressionType.values[i])),
+              ],
+            ],
           ),
+        ],
       ],
+    );
+  }
+
+  static const int _perRow = 3;
+
+  /// 회색 채움 + 테두리 없음, 고르면 분홍 워시 + 분홍 테두리 — 04-1 성별·MBTI 칩과 같은 칸이다.
+  /// 높이만 다르다(pen `BGMWX` 40, 04-1 `Chip` 35).
+  Widget _chip(ImpressionType type) {
+    return SelectChip(
+      label: type.label,
+      isSelected: selected.contains(type),
+      onTap: () => onTap(type),
+      height: 40,
     );
   }
 }
 
 /// 선택 = `{colors.primary}` 1px 테두리 + `{colors.primary-wash}` 채움(DESIGN.md §8.5 "칸 선택" 패턴).
+/// 모서리 14 · 미선택 테두리 #EBEBEB(2026-09-26 사용자 확정 — pen 도 이 값으로 맞춘다).
 class _PickerCell extends StatelessWidget {
   const _PickerCell({required this.isSelected, required this.onTap, required this.child});
 
@@ -75,16 +105,21 @@ class _PickerCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppRadius.sm),
-      child: Ink(
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primaryWash : AppColors.canvas,
-          borderRadius: BorderRadius.circular(AppRadius.sm),
-          border: Border.all(color: isSelected ? AppColors.primary : AppColors.hairline),
+    // 낭독기에 "고름/안 고름"이 들어가야 한다 — 색만으로는 전달되지 않는다(SelectChip 과 같다).
+    return Semantics(
+      selected: isSelected,
+      button: true,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: isSelected ? AppColors.primaryWash : AppColors.canvas,
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            border: Border.all(color: isSelected ? AppColors.primary : AppColors.hairlineSoft),
+          ),
+          child: Center(child: child),
         ),
-        child: Center(child: child),
       ),
     );
   }

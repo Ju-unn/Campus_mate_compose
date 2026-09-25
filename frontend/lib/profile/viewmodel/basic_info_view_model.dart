@@ -15,6 +15,10 @@ final basicInfoViewModelProvider = NotifierProvider<BasicInfoViewModel, BasicInf
 /// `_copyWith` 에서 "이 필드는 건드리지 않는다" 를 뜻하는 표식(SchoolInfoViewModel 과 같은 패턴).
 const Object _keep = Object();
 
+/// 화면이 보는 "지금". 나이 하한을 세는 데만 쓴다 — 테스트가 올해를 고정할 수 있게 갈아끼운다
+/// (`verifyCodeNowProvider` 와 같은 방식).
+final basicInfoNowProvider = Provider<DateTime Function()>((ref) => DateTime.now);
+
 /// 기본 정보 화면(DESIGN.md 화면 04-1)의 흐름을 맡는다.
 class BasicInfoViewModel extends Notifier<BasicInfoUiState> {
   Timer? _debounce;
@@ -22,27 +26,38 @@ class BasicInfoViewModel extends Notifier<BasicInfoUiState> {
   @override
   BasicInfoUiState build() {
     ref.onDispose(() => _debounce?.cancel());
-    return const BasicInfoUiState();
+    return BasicInfoUiState(thisYear: ref.read(basicInfoNowProvider)().year);
   }
 
   void changeNickname(String value) {
-    state = _copyWith(nicknameInput: value, nicknameError: null);
+    // 입력이 바뀌는 순간 지난 판정은 지운다 — 다 지운 값에 "사용할 수 있어요" 가 남아 있으면 안 된다.
+    state = _copyWith(nicknameInput: value, nicknameCheck: NicknameCheck.none);
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 300), () => _checkNickname(value));
   }
 
+  /// 디바운스가 끝나면 형식부터 보고, 통과한 값만 서버에 묻는다. 어느 쪽이든 결과를 화면에 남긴다 —
+  /// 종전에는 형식이 안 맞으면 조용히 돌아가서 무엇이 잘못됐는지 아무 말도 없었다(2026-09-26 사용자 지적).
   Future<void> _checkNickname(String value) async {
-    if (!RegExp(r'^[가-힣a-zA-Z]{2,5}$').hasMatch(value)) {
+    if (value.isEmpty) {
+      return; // 아직 아무것도 안 쓴 칸과 같다 — 빈 칸에 빨간 글씨를 띄우지 않는다.
+    }
+    if (!BasicInfoUiState.nicknamePattern.hasMatch(value)) {
+      state = _copyWith(nicknameCheck: NicknameCheck.invalid);
       return;
     }
+    state = _copyWith(nicknameCheck: NicknameCheck.checking);
     final repository = ref.read(basicInfoRepositoryProvider);
     final result = await repository.checkNicknameAvailability(value);
     if (!ref.mounted || state.nicknameInput != value) {
       return; // 조회가 끝나기 전에 입력이 또 바뀌었으면 낡은 결과를 반영하지 않는다.
     }
     result.when(
-      onSuccess: (available) => state = _copyWith(nicknameError: available ? null : '이미 있는 닉네임이에요'),
-      onFailure: (_) {},
+      onSuccess: (available) =>
+          state = _copyWith(nicknameCheck: available ? NicknameCheck.available : NicknameCheck.taken),
+      // 확인 자체가 실패하면(네트워크) 아무 말도 하지 않는다 — 틀렸다고 단정할 근거가 없고, 제출 때 서버가 다시 본다.
+      // 다만 도는 표시는 반드시 내린다. 안 내리면 "확인 중…" 이 영영 남는다.
+      onFailure: (_) => state = _copyWith(nicknameCheck: NicknameCheck.none),
     );
   }
 
@@ -107,7 +122,7 @@ class BasicInfoViewModel extends Notifier<BasicInfoUiState> {
 
   BasicInfoUiState _copyWith({
     String? nicknameInput,
-    Object? nicknameError = _keep,
+    NicknameCheck? nicknameCheck,
     String? birthYearInput,
     String? heightInput,
     String? phoneNumberInput,
@@ -119,8 +134,9 @@ class BasicInfoViewModel extends Notifier<BasicInfoUiState> {
     bool? completed,
   }) {
     return BasicInfoUiState(
+      thisYear: state.thisYear,
       nicknameInput: nicknameInput ?? state.nicknameInput,
-      nicknameError: identical(nicknameError, _keep) ? state.nicknameError : nicknameError as String?,
+      nicknameCheck: nicknameCheck ?? state.nicknameCheck,
       birthYearInput: birthYearInput ?? state.birthYearInput,
       heightInput: heightInput ?? state.heightInput,
       phoneNumberInput: phoneNumberInput ?? state.phoneNumberInput,

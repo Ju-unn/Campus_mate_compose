@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 /// 라벨이 붙은 입력칸(datingApp.pen `TextInput`).
-/// 라벨 - 입력칸 - 도움말 순서로 쌓고, 오류가 있으면 도움말 대신 오류를 보여준다.
+/// 라벨 - 입력칸 - 도움말 순서로 쌓고, 입력칸 아래 한 줄은 오류 > 성공 > 도움말 순으로 하나만 보여준다.
 class LabeledField extends StatelessWidget {
   const LabeledField({
     required this.label,
@@ -17,6 +17,8 @@ class LabeledField extends StatelessWidget {
     this.placeholder,
     this.helper,
     this.errorText,
+    this.successText,
+    this.pendingText,
     this.keyboardType,
     this.inputFormatters,
     this.maxLines = 1,
@@ -30,6 +32,12 @@ class LabeledField extends StatelessWidget {
   final String? placeholder;
   final String? helper;
   final String? errorText;
+
+  /// 통과했다는 안내(예: 닉네임 중복확인). 색만으로 전달하지 않도록 체크 아이콘을 같이 그린다(DESIGN §8.5).
+  final String? successText;
+
+  /// 서버 답을 기다리는 동안의 안내. 회색 + 도는 표시를 같이 그린다(DESIGN §8.5).
+  final String? pendingText;
   final TextInputType? keyboardType;
   final List<TextInputFormatter>? inputFormatters;
   final int maxLines;
@@ -63,22 +71,37 @@ class LabeledField extends StatelessWidget {
             focusedBorder: _border(AppColors.primary),
           ),
         ),
-        if (errorText != null) ...[
-          const SizedBox(height: AppSpacing.xxs),
-          Row(
-            children: [
-              const Icon(AppIcons.circleAlert, size: 14, color: AppColors.error),
-              const SizedBox(width: AppSpacing.xxs),
-              Expanded(
-                child: Text(errorText!, style: AppTypography.caption.copyWith(color: AppColors.error)),
-              ),
-            ],
-          ),
-        ] else if (helper != null) ...[
+        if (errorText != null)
+          _note(const Icon(AppIcons.circleAlert, size: 14, color: AppColors.error), AppColors.error, errorText!)
+        else if (pendingText != null)
+          _note(_spinner, AppColors.muted, pendingText!)
+        else if (successText != null)
+          _note(const Icon(AppIcons.check, size: 14, color: AppColors.success), AppColors.success, successText!)
+        else if (helper != null) ...[
           const SizedBox(height: AppSpacing.xxs),
           Text(helper!, style: AppTypography.caption.copyWith(color: AppColors.muted)),
         ],
       ],
+    );
+  }
+
+  static const Widget _spinner = SizedBox(
+    width: 14,
+    height: 14,
+    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.muted),
+  );
+
+  /// 입력칸 바로 아래 한 줄(표식 + 문구). 색만으로 전달하지 않도록 표식을 항상 같이 둔다.
+  Widget _note(Widget leading, Color color, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.xxs),
+      child: Row(
+        children: [
+          leading,
+          const SizedBox(width: AppSpacing.xxs),
+          Expanded(child: Text(text, style: AppTypography.caption.copyWith(color: color))),
+        ],
+      ),
     );
   }
 
