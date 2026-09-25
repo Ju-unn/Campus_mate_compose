@@ -68,11 +68,15 @@ gcloud run deploy campus-mate-backend \
   --region asia-northeast3 \
   --allow-unauthenticated \
   --set-env-vars SUPABASE_URL=<project-url>,GOOGLE_CLOUD_PROJECT=<PROJECT_ID> \
-  --set-secrets SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest,AUTH_HOOK_SIGNING_SECRET=auth-hook-signing-secret:latest,DISCORD_WEBHOOK_URL=discord-review-webhook-url:latest,CARD_BATCH_SECRET=card-batch-secret:latest
+  --set-secrets SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest,AUTH_HOOK_SIGNING_SECRET=auth-hook-signing-secret:latest,DISCORD_WEBHOOK_URL=discord-review-webhook-url:latest,CARD_BATCH_SECRET=card-batch-secret:latest,IDENTITY_HMAC_KEY=identity-hmac-key:latest,OPENAI_API_KEY=open-api-key:latest,PHONE_ENCRYPTION_KEY=phone-number-encryption-key:latest
 ```
 
 `CARD_BATCH_SECRET` 을 빠뜨리면 `/batch/daily-cards` 는 **아무 요청도 통과시키지 않는다**(전부 401).
 열린 채로 남는 쪽보다 닫힌 채로 실패하는 쪽을 택했다 — 카드가 안 나가면 바로 눈에 띈다.
+
+**`IDENTITY_HMAC_KEY`·`OPENAI_API_KEY`·`PHONE_ENCRYPTION_KEY` 3개가 이 명령에서 빠져 있었다(PR #85 리뷰에서 잡음, §0 에는 시크릿 등록만 돼 있고 배포 명령에 연결이 안 됐던 것). `settings.py` 가 필수(`min_length=1` 등)로 요구하므로 빠지면 그 자리에서 기동이 실패한다.**
+
+**Auth OTP expiry — Supabase 대시보드 Authentication 설정의 OTP 유효시간을 300초(5분)로 맞춘다.** 기본값(3600초)과 앱의 인증 코드 화면 카운트다운(5분)이 어긋나 있었다(운영에서는 아직 3600초, 승인 대기 중).
 
 `--allow-unauthenticated` 로 배포한다 — Supabase HTTP Auth Hook은 GCP IAM 아이덴티티 토큰을 발급할 수 없어서, IAM 인증을 걸면 훅 호출 자체가 막힌다. 대신 요청 인증은 Standard Webhooks HMAC 서명 검증 + timestamp ±5분 범위 검사(코드에 구현됨)가 담당한다.
 
@@ -152,14 +156,14 @@ gcloud scheduler jobs create http campus-mate-chat-gate \
 
 **주의:** 이 job 도 조각 5 의 `messages` 마이그레이션이 클라우드에 적용된 뒤에 만든다.
 
-## 5. 현재 배포 상태 (2026-09-22 기준)
+## 5. 현재 배포 상태 (2026-09-26 기준)
 
 | 항목 | 값 |
 | --- | --- |
 | Cloud Run 서비스 | `campus-mate-backend` (asia-northeast3) |
-| 돌고 있는 revision | `campus-mate-backend-00011-*` — 조각 5(채팅 · 신뢰 확인 게이트)까지 반영 |
+| 돌고 있는 revision | `campus-mate-backend-00022-jpl` — PR #103 학생증 재검토 사유 기록 포함, 트래픽 100%(2026-09-26 배포, 경고 0) |
 | Cloud Scheduler job | **2개** — `campus-mate-daily-cards` (`0 7 * * *` · Asia/Seoul) · `campus-mate-chat-gate` (**매시 정각**, `0 * * * *` · Asia/Seoul). 둘 다 asia-northeast3, 무료 한도 3개 안 |
-| 마이그레이션 | **30개** (조각 5 `messages` 포함) |
+| 마이그레이션 | **32개**(저장소 `supabase/migrations/` 기준, PR #99 `profile_avatars` 포함) |
 | `card-batch-secret` | **version 2** 를 쓴다 — version 1 은 값에 `\r` 이 섞여 401 이 나던 것이라 폐기했다. **두 job 이 같은 비밀을 쓴다**(§4-1) |
 
 `--set-secrets` 는 `card-batch-secret:latest` 를 참조하므로 새 버전을 올리면 재배포 없이 따라간다.
