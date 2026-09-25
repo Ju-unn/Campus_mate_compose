@@ -438,6 +438,8 @@ create table public.reports (
 
 - [ ] `POST /contact-blocks` — 본문 `{numbers: ["+8210...", ...]}`(E.164). 서버가 HMAC 계산 후 저장,
       응답은 `[{id, contact_hmac 없음}]`. **원본도 해시도 클라이언트에 돌려주지 않는다**
+- [ ] **해시 입력 = 저장값(E.164).** HMAC 은 `set_phone_number` 가 저장하는 것과 같은 E.164 정규화 문자열로
+      계산한다 — 입력·저장 형식이 어긋나면 같은 번호인데도 해시가 달라 매칭 제외가 조용히 빠진다
 - [ ] `GET /contact-blocks` — `[{id, created_at}]` 만(이름은 기기에 있다)
 - [ ] `DELETE /contact-blocks/{id}`
 - [ ] **`phone_hmac` 채우기 — 경로 확정.** 지금 번호는 `set_phone_number(p_profile_id, p_phone, p_key)`
@@ -459,7 +461,7 @@ create table public.reports (
 
 - [ ] `GET /profiles/{profile_id}` — **매칭 상대일 때만**. 게이트 통과 전이면 아바타 · 닉네임 · 태그까지,
       통과 후면 실사진 · 카카오톡 아이디까지. 차단 · 탈퇴 · 정지 상대면 **404**
-- [ ] `GET /account/kakao-id` — 내 것(백로그 17, 14f 시트와 16e-1 이 같이 쓴다)
+- [ ] `GET /account/kakao-id` — 내 것(백로그 17, **16e-1 전용** — 14f 시트는 저장된 값을 그대로 보여줄 뿐 이 GET 을 쓰지 않는다)
 - [ ] 테스트: 매칭이 아닌 사람은 404 · 게이트 전후로 응답 키가 달라진다 · 정지 상대는 404
 
 ### Task B6: 배치 인증 OIDC 전환 (결정 9)
