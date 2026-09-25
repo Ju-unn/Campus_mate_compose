@@ -1,12 +1,17 @@
 import base64
 import logging
 from dataclasses import dataclass
+from datetime import timedelta
 from pathlib import Path
 from typing import Literal
-from uuid import uuid4
+from uuid import UUID, uuid4
 
+import httpx
 from openai import AsyncOpenAI
 
+from app.profile_onboarding.hearts import grant_hearts
+from app.profile_onboarding.storage import AvatarStorage
+from app.settings import Settings
 from app.student_verification.image_validation import student_id_content_type
 
 _logger = logging.getLogger(__name__)
@@ -15,6 +20,16 @@ _logger = logging.getLogger(__name__)
 # (max_retries=0, get_openai_client 참고) 이 숫자는 우리 코드가 직접 센다 — SDK 재시도와 겹치면 안 된다
 # (2026-09-20 사용자 결정).
 MAX_CONSECUTIVE_FAILURES = 5
+
+# 5회째 실패에 얹어 주는 보상 하트(project_slice2_decisions_2026-09-19). 앱에 숫자를 박지 않고
+# 서버가 준 값을 그대로 쓰게 응답에도 같이 싣는다.
+FALLBACK_COMPENSATION_HEARTS = 10
+
+# "만드는 중" 이 이보다 오래 남아 있으면 죽은 작업으로 본다(계획서 "10분 기준선").
+# 워커가 통째로 죽거나(배포 재시작·OOM) 큐가 240초에 요청을 끊으면 CancelledError 는 BaseException 이라
+# 워커 안에서 못 잡는다 — 이 정리가 유일한 복구 길이다. **POST 와 상태 조회가 같은 값을 본다.**
+# 둘이 어긋나면 "조회는 실패라는데 POST 는 아직 만드는 중이라고 튕기는" 잠긴 상태가 생긴다.
+STALE_PENDING_AFTER = timedelta(minutes=10)
 
 # 화풍 기준 그림 1장을 같이 보낸다(2026-09-25 사용자 결정 B) — 지시문만으로는 "옷·머리·배경은 그대로,
 # 얼굴만 단순화" 하는 블라인드 아바타 화풍(frontend/docs/DESIGN.md §5.2)이 나오지 않았다(운영 00019).
@@ -104,6 +119,33 @@ class AvatarGenerator:
         path = f"{profile_id}/{uuid4()}.png"
         storage_path = await self._storage.upload(path, image_bytes, "image/png")
         return AvatarResult(status="ready", storage_path=storage_path)
+
+
+async def apply_fallback_avatar(
+    repo, storage: AvatarStorage, settings: Settings, client: httpx.AsyncClient, profile_id: UUID
+) -> str:
+    """5회 연속 실패 보상: 기본 아바타 복사 → `is_fallback` 행 insert → 하트 10. 복사한 경로를 돌려준다.
+
+    **부르는 자리가 둘이다** — 워커가 5번째 생성에 실패했을 때, 그리고 POST 가 10분 정리 뒤 카운트 5 를
+    봤을 때. 두 자리에 같은 순서를 적으면 한쪽만 고쳐질 것이고, 그건 하트가 두 번 나가거나 안 나가는
+    길이다. 마지막 실패 행은 지우지 않는다 — 이력이 그대로 남아야 한다(행 두 줄).
+
+    라우터가 아니라 여기 있는 이유는, 두 라우터 중 한쪽에 두면 다른 쪽이 라우터를 import 하게 되기
+    때문이다. 협력자는 인자로 받는다(`AvatarGenerator` 와 같은 방식).
+    """
+    fallback_path = await storage.copy_fallback_avatar(profile_id)
+    await repo.insert_avatar_attempt(profile_id, "ready", fallback_path, is_fallback=True)
+    try:
+        await grant_hearts(
+            settings.postgrest_url, settings.supabase_service_role_key, client,
+            profile_id=profile_id, amount=FALLBACK_COMPENSATION_HEARTS, reason="admin_adjust",
+        )
+    except httpx.HTTPError:
+        # 하트를 못 줘도 기본 아바타 행은 **이미 들어갔다**. 여기서 터뜨리면 앱은 500 을 받고, 사람은
+        # 다시 눌러도 409(이미 ready)라 영영 못 빠져나온다 — 화면만 "하트를 드렸어요" 라고 말한다.
+        # 로그를 남기고 넘어간다(실명·사진 경로는 남기지 않는다 — profile_id 로 손으로 보정한다).
+        _logger.exception("보상 하트 지급 실패 — 사람이 보정해야 한다 profile_id=%s", profile_id)
+    return fallback_path
 
 
 def get_openai_client(api_key: str) -> AsyncOpenAI:

@@ -1,7 +1,8 @@
+from datetime import datetime
 from uuid import UUID
 
 from app.core import errors
-from app.core.http import raise_for_status
+from app.core.http import error_code, raise_for_status
 from app.core.postgrest import PostgrestRepository
 
 
@@ -107,12 +108,105 @@ class ProfileOnboardingRepository(PostgrestRepository):
         rows = response.json()
         return rows[0]["storage_path"] if rows else None
 
-    async def insert_avatar_attempt(self, profile_id: UUID, status: str, storage_path: str | None) -> None:
+    async def insert_avatar_attempt(
+        self, profile_id: UUID, status: str, storage_path: str | None, is_fallback: bool = False
+    ) -> UUID:
+        """끝난 이력 한 줄을 남기고 그 id 를 돌려준다.
+
+        `is_fallback` 은 5회 실패 보상으로 복사해 넣은 기본 아바타 행에만 켠다 — 결과 화면이
+        "하트를 드렸어요" 안내를 띄울지 이 칸으로 고른다(ERD §3, 마이그레이션 C1)."""
         response = await self._post(
             "profile_avatars",
-            json={"profile_id": str(profile_id), "status": status, "storage_path": storage_path},
+            json={
+                "profile_id": str(profile_id), "status": status,
+                "storage_path": storage_path, "is_fallback": is_fallback,
+            },
+            prefer="return=representation",
         )
         raise_for_status(response)
+        return UUID(response.json()[0]["id"])
+
+    async def insert_pending_avatar_attempt(self, profile_id: UUID) -> UUID | None:
+        """"만드는 중" 행을 넣고 id 를 돌려준다. **이미 만드는 중이면 `None`** 이다.
+
+        공용 `raise_for_status` 를 그냥 쓰면 부분 유니크 인덱스(`profile_avatars_one_pending`)의
+        23505 가 409 "이미 등록된 정보예요" 로 나가 버린다 — 중복 누름은 오류가 아니라 **같은 202** 다.
+        다른 제약 위반은 지금처럼 `raise_for_status` 에 맡긴다."""
+        response = await self._post(
+            "profile_avatars",
+            json={"profile_id": str(profile_id), "status": "pending", "storage_path": None},
+            prefer="return=representation",
+        )
+        if error_code(response) == "23505":
+            return None
+        raise_for_status(response)
+        return UUID(response.json()[0]["id"])
+
+    async def fetch_avatar_attempt(self, attempt_id: UUID) -> dict | None:
+        """워커가 시작할 때 "아직 만드는 중인가" 를 본다(읽기만 한다 — 여기서 상태를 바꾸면
+        `update_avatar_attempt` 의 pending 조건이 늘 0행이 된다)."""
+        response = await self._get(
+            "profile_avatars",
+            params={"id": f"eq.{attempt_id}", "select": "id,profile_id,status,created_at"},
+        )
+        raise_for_status(response)
+        rows = response.json()
+        return rows[0] if rows else None
+
+    async def update_avatar_attempt(
+        self, attempt_id: UUID, profile_id: UUID, status: str, storage_path: str | None
+    ) -> int:
+        """만드는 중인 **그 사람의** 행만 고치고 고쳐진 행 수를 돌려준다.
+
+        0 이면 생성하는 60초 사이에 다른 쪽(10분 정리 + 보상)이 먼저 끝냈다는 뜻이다 — 워커는 거기서
+        멈춰야 하트가 두 번 나가지 않는다. 시작할 때 한 번 읽어 본 것만으로는 이 경합을 못 막는다.
+        `profile_id` 까지 거는 것은 한 겹 더 두는 것이다 — 작업 본문의 두 값이 짝이 안 맞아도
+        남의 행에는 닿지 않는다."""
+        response = await self._patch(
+            "profile_avatars",
+            params={
+                "id": f"eq.{attempt_id}", "profile_id": f"eq.{profile_id}", "status": "eq.pending",
+            },
+            json={"status": status, "storage_path": storage_path},
+            prefer="return=representation",
+        )
+        raise_for_status(response)
+        return len(response.json())
+
+    async def fail_stale_pending_avatars(self, profile_id: UUID, before: datetime) -> int:
+        """`before` 보다 오래 만드는 중인 행을 실패로 내린다. 이 failed 는 5회 카운트에 들어간다.
+
+        `before` 는 부르는 쪽이 넘긴 **시간대 붙은** 값이다(`datetime.now(SEOUL)` 기준) — naive 시각으로
+        비교하면 9시간 어긋나 방금 등록한 행까지 "낡음" 으로 판정된다. 남의 행은 건드리지 않는다."""
+        response = await self._patch(
+            "profile_avatars",
+            params={
+                "profile_id": f"eq.{profile_id}", "status": "eq.pending",
+                "created_at": f"lt.{before.isoformat()}",
+            },
+            json={"status": "failed"},
+            prefer="return=representation",
+        )
+        raise_for_status(response)
+        return len(response.json())
+
+    async def delete_avatar_attempt(self, attempt_id: UUID) -> None:
+        """작업 등록에 실패했을 때 방금 만든 행을 되돌린다 — OpenAI 를 부르기도 전이라
+        "사람이 시도한 이력" 이 아니다. 행이 사라지면 유니크 인덱스도 풀려 바로 다시 누를 수 있다."""
+        response = await self._delete("profile_avatars", params={"id": f"eq.{attempt_id}"})
+        raise_for_status(response)
+
+    async def fetch_latest_avatar_attempt(self, profile_id: UUID) -> dict | None:
+        response = await self._get(
+            "profile_avatars",
+            params={
+                "profile_id": f"eq.{profile_id}", "order": "created_at.desc", "limit": "1",
+                "select": "id,status,storage_path,is_fallback,created_at",
+            },
+        )
+        raise_for_status(response)
+        rows = response.json()
+        return rows[0] if rows else None
 
     async def has_ready_avatar(self, profile_id: UUID) -> bool:
         """아바타는 한 번만 만든다(2026-09-20 사용자 결정, 하트 차감 재생성은 조각 7).
@@ -134,6 +228,10 @@ class ProfileOnboardingRepository(PostgrestRepository):
         raise_for_status(response)
         count = 0
         for row in response.json():
+            # 비동기에서는 **가장 최신 행이 pending** 이다 — 여기서 멈추면 카운트가 늘 0 이라
+            # 5회 규칙이 영영 안 걸린다. 만드는 중인 행은 아직 결과가 아니니 건너뛴다.
+            if row["status"] == "pending":
+                continue
             if row["status"] != "failed":
                 break
             count += 1
