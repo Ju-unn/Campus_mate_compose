@@ -988,6 +988,7 @@ def _normalize(value: str) -> str:
 - Test: `backend/tests/student_verification/test_discord_notifier.py`
 
 - [ ] **Step 1: 실패하는 테스트** — 웹훅 URL로 POST, 본문에 학교명 없이(개인정보 최소화 — 사진도 텍스트도 실명 자체는 안 보낸다, 재검토 담당자는 어차피 대시보드에서 사진을 직접 연다) "학생증 재검토가 1건 있어요"류 텍스트만 담기는지
+- [ ] `reason`·`profile_id` 를 받아 디스코드 본문에 사유 라벨(`REVIEW_REASON_LABELS[reason]`)과 계정 id 가 실리는지 — 사진·실명·학교명·OCR 원문은 여전히 안 싣는다(2026-09-26 정정 — PR #103)
 - [ ] **Step 2: 실패 확인**
 - [ ] **Step 3: 구현**
 
@@ -1000,9 +1001,11 @@ class DiscordNotifier:
         self._webhook_url = webhook_url
         self._client = client
 
-    async def notify_pending_review(self) -> None:
+    async def notify_pending_review(self, reason: ReviewReason, profile_id: UUID) -> None:
         # 사진·실명·학교명은 보내지 않는다(설계 §7.3, 2026-09-19 결정) — 담당자가 대시보드에서 직접 연다.
-        response = await self._client.post(self._webhook_url, json={"content": "학생증 재검토가 1건 있어요. Supabase 대시보드에서 확인해 주세요."})
+        # 사유 라벨과 계정 id 는 본문에 싣는다(2026-09-26 결정, PR #103) — id 는 대시보드에서 행을 찾는 값일 뿐 사람을 알려주지 않는다.
+        content = f"학생증 재검토가 1건 있어요 (사유: {REVIEW_REASON_LABELS[reason]}, 계정: {profile_id}). Supabase 대시보드에서 확인해 주세요."
+        response = await self._client.post(self._webhook_url, json={"content": content})
         response.raise_for_status()
 ```
 
