@@ -11,6 +11,7 @@ from app.chat.router import router as chat_router
 from app.core.deps import get_settings
 from app.matching.router import router as matching_router
 from app.profile_onboarding.router import router as profile_onboarding_router
+from app.profile_onboarding.tasks_router import router as profile_onboarding_tasks_router
 from app.student_verification.router import router as student_verification_router
 
 @asynccontextmanager
@@ -34,6 +35,7 @@ app = FastAPI(title="CampusMate Backend", lifespan=lifespan)
 app.include_router(auth_hooks_router)
 app.include_router(student_verification_router)
 app.include_router(profile_onboarding_router)
+app.include_router(profile_onboarding_tasks_router)
 app.include_router(matching_router)
 app.include_router(cards_batch_router)
 app.include_router(cards_router)

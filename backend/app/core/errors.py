@@ -36,6 +36,8 @@ PHOTO_NOT_SAFE = "부적절한 사진은 올릴 수 없어요"
 PHOTO_NOT_FOUND = "지울 사진이 없어요"
 AVATAR_ALREADY_CREATED = "아바타는 한 번만 만들 수 있어요"
 AVATAR_SOURCE_REQUIRED = "아바타 원본 사진을 먼저 골라 주세요"
+# 큐 설정이 비었거나(503) 작업 등록이 실패했을 때(502). 둘 다 사용자가 할 일은 같다 — 잠시 뒤 다시.
+AVATAR_QUEUE_UNAVAILABLE = "지금은 아바타를 만들 수 없어요, 잠시 뒤 다시 시도해 주세요"
 
 # 카드 · 수락함
 CARD_NOT_FOUND = "카드를 찾을 수 없어요"
