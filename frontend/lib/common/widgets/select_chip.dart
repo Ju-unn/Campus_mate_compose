@@ -11,6 +11,7 @@ class SelectChip extends StatelessWidget {
     required this.isSelected,
     required this.onTap,
     this.width,
+    this.height = 35,
     this.radius = AppRadius.sm,
     super.key,
   });
@@ -22,24 +23,32 @@ class SelectChip extends StatelessWidget {
   /// 디자인 파일이 칸 너비를 정해 둔 자리(성별 76, MBTI 48)에만 넘긴다.
   final double? width;
 
+  /// 디자인 파일의 칸 높이. 04-1 `Chip` 은 35, 04-4·06-1 인상 칩(`BGMWX`)은 40 이다.
+  final double height;
+
   /// 태그 칩은 모서리 8, 성별·MBTI 칩은 알약 모서리다.
   final double radius;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(radius),
-      child: Ink(
-        width: width,
-        height: 35,
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primaryWash : AppColors.surfaceSoft,
-          borderRadius: BorderRadius.circular(radius),
-          border: Border.all(color: isSelected ? AppColors.primary : Colors.transparent),
-        ),
-        child: Center(
-          child: Text(label, style: AppTypography.labelSmall.copyWith(color: AppColors.ink)),
+    // 낭독기에 "고름/안 고름"이 들어가야 한다 — 색만으로는 전달되지 않는다.
+    return Semantics(
+      selected: isSelected,
+      button: true,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(radius),
+        child: Ink(
+          width: width,
+          height: height,
+          decoration: BoxDecoration(
+            color: isSelected ? AppColors.primaryWash : AppColors.surfaceSoft,
+            borderRadius: BorderRadius.circular(radius),
+            border: Border.all(color: isSelected ? AppColors.primary : Colors.transparent),
+          ),
+          child: Center(
+            child: Text(label, style: AppTypography.labelSmall.copyWith(color: AppColors.ink)),
+          ),
         ),
       ),
     );
