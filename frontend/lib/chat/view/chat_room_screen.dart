@@ -357,8 +357,18 @@ class _MessageList extends StatelessWidget {
   /// 오래된 것부터 쌓고 마지막에 뒤집는다 — `reverse: true` 리스트는 0번이 맨 아래다.
   List<Widget> _items(ChatRoom room) {
     final widgets = <Widget>[];
+    // 14b 카드는 메시지가 아니라 `matches.trust_passed_at` 에서 나온다 — 줄로 저장하지 않는다.
+    final reveal = room.gate.passed ? TrustRevealBubble(kakaoId: room.kakaoId) : null;
+    final revealAt = state.revealAnchorAt;
+    var revealPlaced = reveal == null;
     DateTime? lastDay;
     for (final message in state.messages) {
+      // 그 시각보다 늦은 첫 줄 **앞**에 끼운다. 날짜가 바뀌는 줄이면 구분선도 카드 뒤로 간다 —
+      // 카드는 통과한 날에 속한다.
+      if (!revealPlaced && revealAt != null && message.createdAt.isAfter(revealAt)) {
+        widgets.add(reveal!);
+        revealPlaced = true;
+      }
       final day = DateUtils.dateOnly(message.createdAt);
       if (lastDay == null || day != lastDay) {
         widgets.add(DateDivider(date: message.createdAt));
@@ -366,9 +376,9 @@ class _MessageList extends StatelessWidget {
       }
       widgets.add(_bubble(room, message));
     }
-    // 14b 카드는 메시지가 아니라 `matches.trust_passed_at` 에서 나온다 — 줄로 저장하지 않는다.
-    if (room.gate.passed) {
-      widgets.add(TrustRevealBubble(kakaoId: room.kakaoId));
+    // 통과 뒤 대화가 없거나 통과 시각을 모르면(passed_at 을 내리기 전 서버) 끝에 붙는다.
+    if (!revealPlaced) {
+      widgets.add(reveal!);
     }
     if (state.isLoadingMore) {
       widgets.insert(0, const Center(child: CircularProgressIndicator()));

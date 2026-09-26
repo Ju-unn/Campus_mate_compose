@@ -2,6 +2,7 @@ import 'package:campus_mate/chat/model/chat_repository.dart';
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/chat/model/message.dart';
 import 'package:campus_mate/chat/view/chat_room_screen.dart';
+import 'package:campus_mate/chat/view/date_divider.dart';
 import 'package:campus_mate/chat/view/message_bubble.dart';
 import 'package:campus_mate/chat/view/system_message.dart';
 import 'package:campus_mate/chat/view/trust_reveal_bubble.dart';
@@ -157,5 +158,67 @@ void main() {
     expect(find.text('fox_rain'), findsOneWidget);
     // 14c 는 뒤 조각이라 버튼을 그리지 않는다.
     expect(find.text('상대 프로필 보기'), findsNothing);
+  });
+
+  group('14b 카드 자리(백로그 20)', () {
+    final passedAt = DateTime(2026, 9, 22, 12, 30);
+    // 서버 /trust 는 요청 시작 시각으로 통과 도장을 찍고 **그 뒤에** 두 번째 수락 줄을 넣는다 —
+    // 그래서 수락 줄이 통과 시각보다 몇 밀리초 늦다.
+    List<Message> conversation() => [
+          messageFixture(id: 'a', body: '안녕하세요', createdAt: DateTime(2026, 9, 22, 12)),
+          messageFixture(
+            id: 'b',
+            kind: MessageKind.trustAccept,
+            body: '여우비님이 카카오톡 아이디·실사진 공개를 수락했어요',
+            createdAt: passedAt.add(const Duration(milliseconds: 40)),
+          ),
+          messageFixture(
+            id: 'c',
+            senderId: myId,
+            body: '이제 카톡으로 얘기해요',
+            createdAt: DateTime(2026, 9, 22, 12, 40),
+          ),
+        ];
+
+    testWidgets('통과 뒤 대화보다 위, 마지막 수락 줄 바로 아래에 온다', (tester) async {
+      repository.room = Success(roomFixture(passed: true, passedAt: passedAt, kakaoId: 'fox_rain'));
+      repository.messages = Success(MessagePage(messages: conversation(), hasMore: false));
+
+      await pump(tester);
+
+      final card = tester.getTopLeft(find.byType(TrustRevealBubble)).dy;
+      expect(card, greaterThan(tester.getTopLeft(find.textContaining('수락했어요')).dy));
+      expect(card, lessThan(tester.getTopLeft(find.text('이제 카톡으로 얘기해요')).dy));
+    });
+
+    testWidgets('통과 시각을 모르면(서버 배포 전) 지금처럼 맨 아래에 둔다', (tester) async {
+      repository.room = Success(roomFixture(passed: true, kakaoId: 'fox_rain'));
+      repository.messages = Success(MessagePage(messages: conversation(), hasMore: false));
+
+      await pump(tester);
+
+      final card = tester.getTopLeft(find.byType(TrustRevealBubble)).dy;
+      expect(card, greaterThan(tester.getTopLeft(find.text('이제 카톡으로 얘기해요')).dy));
+    });
+
+    testWidgets('다음 날 대화가 이어지면 카드는 그날 구분선 위에 남는다', (tester) async {
+      repository.room = Success(roomFixture(passed: true, passedAt: passedAt, kakaoId: 'fox_rain'));
+      repository.messages = Success(MessagePage(
+        messages: [
+          ...conversation().take(2),
+          messageFixture(id: 'd', senderId: myId, body: '다음 날 인사', createdAt: DateTime(2026, 9, 23, 9)),
+        ],
+        hasMore: false,
+      ));
+
+      await pump(tester);
+
+      final card = tester.getTopLeft(find.byType(TrustRevealBubble)).dy;
+      final dividers = tester.widgetList<DateDivider>(find.byType(DateDivider)).toList();
+      expect(dividers, hasLength(2));
+      final nextDay = dividers.singleWhere((divider) => divider.date.day == 23);
+      expect(card, lessThan(tester.getTopLeft(find.byWidget(nextDay)).dy));
+      expect(card, greaterThan(tester.getTopLeft(find.textContaining('수락했어요')).dy));
+    });
   });
 }
