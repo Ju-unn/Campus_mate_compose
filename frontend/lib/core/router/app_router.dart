@@ -74,7 +74,7 @@ abstract final class AppRouter {
     ];
   }
 
-  /// 조각 4 — 오늘의 카드와 그 주변. `home` 은 09b 메인이고 아직 목데이터로 채운다(`homeRepositoryProvider`).
+  /// 조각 4 — 오늘의 카드와 그 주변. `home` 은 09b 메인이고 서버 `/home/summary` 로 채운다 — 사람들 칸·리뷰 칸만 목값이다(`homeRepositoryProvider`).
   static List<RouteBase> _slice4Routes() {
     return <RouteBase>[
       GoRoute(path: AppRoutes.home, builder: (context, state) => const HomeScreen()),
