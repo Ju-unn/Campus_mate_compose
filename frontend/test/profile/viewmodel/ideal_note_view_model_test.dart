@@ -41,25 +41,24 @@ void main() {
     expect(container.read(idealNoteViewModelProvider).completed, isFalse);
   });
 
-  test('공백만 쓴 글로는 "다음"이 켜지지 않는다', () {
+  test('공백만 써도 "다음"은 눌린다 — 누르면 빨간 오류로 이유를 알려준다', () {
     container.read(idealNoteViewModelProvider.notifier).changeNote('   ');
 
-    expect(container.read(idealNoteViewModelProvider).canSubmit, isFalse);
+    expect(container.read(idealNoteViewModelProvider).canSubmit, isTrue);
   });
 
-  test('공백을 뗀 9자로는 "다음"이 켜지지 않는다 — 최소 10자', () {
+  test('공백을 뗀 9자면 쓰는 도중 회색 안내가 나오고 오류는 아직 없다', () {
     container.read(idealNoteViewModelProvider.notifier).changeNote('  말이잘통하는사람요  ');
 
     final state = container.read(idealNoteViewModelProvider);
-    expect(state.canSubmit, isFalse);
     expect(state.lengthMessage, '10자 이상 입력해 주세요');
+    expect(state.errorMessage, isNull);
   });
 
   test('10자를 채우면 "다음"이 켜지고 길이 안내가 사라진다', () {
     container.read(idealNoteViewModelProvider.notifier).changeNote('말 잘 통하는 사람');
 
     final state = container.read(idealNoteViewModelProvider);
-    expect(state.canSubmit, isTrue);
     expect(state.lengthMessage, isNull);
   });
 
@@ -74,5 +73,33 @@ void main() {
     await vm.submit();
 
     expect(repository.submittedNote, isNull);
+  });
+
+  test('10자 전에 "다음"을 누르면 저장하지 않고 빨간 오류를 띄운다', () async {
+    final vm = container.read(idealNoteViewModelProvider.notifier);
+    vm.changeNote('말이잘통하는사람요');
+
+    await vm.submit();
+
+    expect(repository.submittedNote, isNull);
+    expect(container.read(idealNoteViewModelProvider).errorMessage, '10자 이상 입력해 주세요');
+  });
+
+  test('아무것도 안 쓰고 "다음"을 눌러도 빨간 오류를 띄운다', () async {
+    await container.read(idealNoteViewModelProvider.notifier).submit();
+
+    expect(container.read(idealNoteViewModelProvider).errorMessage, '10자 이상 입력해 주세요');
+  });
+
+  test('오류 뒤에 다시 쓰면 오류가 지워지고, 10자 전이면 회색 안내로 돌아간다', () async {
+    final vm = container.read(idealNoteViewModelProvider.notifier);
+    vm.changeNote('말이잘통하는');
+    await vm.submit();
+
+    vm.changeNote('말이잘통하는사');
+
+    final state = container.read(idealNoteViewModelProvider);
+    expect(state.errorMessage, isNull);
+    expect(state.lengthMessage, '10자 이상 입력해 주세요');
   });
 }

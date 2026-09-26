@@ -22,6 +22,11 @@ class IdealNoteViewModel extends Notifier<IdealNoteUiState> {
     if (!state.canSubmit) {
       return;
     }
+    // 짧은 글은 서버도 422 로 돌려보낸다 — 보내지 않고 오류로 바꾼다. 다시 쓰면 copyWith 가 지운다.
+    if (!state.isLongEnough) {
+      state = state.copyWith(errorMessage: IdealNoteUiState.lengthHint);
+      return;
+    }
     await _send(state.note.trim());
   }
 
