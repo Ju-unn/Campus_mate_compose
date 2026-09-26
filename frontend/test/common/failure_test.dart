@@ -35,6 +35,11 @@ void main() {
     expect(failure.toDisplayMessage(), '허용되지 않은 학교 이메일이에요');
   });
 
+  test('서버가 잠깐 못 받으면 잠시 뒤 다시 시도하라고 안내한다', () {
+    const failure = ServerUnavailableFailure();
+    expect(failure.toDisplayMessage(), '잠시 뒤 다시 시도해 주세요');
+  });
+
   test('얼굴이 없으면 재촬영을 안내한다', () {
     const failure = NoFaceDetectedFailure();
     expect(failure.toDisplayMessage(), '얼굴이 보이는 사진으로 다시 올려주세요');

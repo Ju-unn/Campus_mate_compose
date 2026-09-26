@@ -74,8 +74,18 @@ void main() {
     expect(result.when(onSuccess: (_) => null, onFailure: (f) => f), isA<UnknownFailure>());
   });
 
-  test('500 이상이면 서버 내부 사정을 노출하지 않고 UnknownFailure', () async {
-    final client = MockClient((request) async => http.Response('<html>502</html>', 502));
+  test('502·503 은 서버가 잠깐 못 받는 것이라 다시 시도하라는 ServerUnavailableFailure', () async {
+    for (final status in [502, 503]) {
+      final client = MockClient((request) async => http.Response('<html>$status</html>', status));
+
+      final result = await sendHttpRequest(client, buildRequest());
+
+      expect(result.when(onSuccess: (_) => null, onFailure: (f) => f), isA<ServerUnavailableFailure>());
+    }
+  });
+
+  test('그 밖의 5xx 는 서버 내부 사정을 노출하지 않고 UnknownFailure', () async {
+    final client = MockClient((request) async => http.Response('<html>500</html>', 500));
 
     final result = await sendHttpRequest(client, buildRequest());
 
