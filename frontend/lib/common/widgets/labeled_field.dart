@@ -66,9 +66,10 @@ class LabeledField extends StatelessWidget {
               horizontal: AppSpacing.md,
               vertical: AppSpacing.md,
             ),
+            // 오류 때는 테두리도 빨간 2px 다(pen 마스터 PccKZ) — 문구만 빨개서는 어느 칸 얘기인지 흐리다.
             border: _border(AppColors.outline),
-            enabledBorder: _border(AppColors.outline),
-            focusedBorder: _border(AppColors.primary),
+            enabledBorder: errorText != null ? _errorBorder : _border(AppColors.outline),
+            focusedBorder: errorText != null ? _errorBorder : _border(AppColors.primary),
           ),
         ),
         if (errorText != null)
@@ -105,10 +106,12 @@ class LabeledField extends StatelessWidget {
     );
   }
 
-  OutlineInputBorder _border(Color color) {
+  static final OutlineInputBorder _errorBorder = _border(AppColors.error, width: 2);
+
+  static OutlineInputBorder _border(Color color, {double width = 1}) {
     return OutlineInputBorder(
       borderRadius: BorderRadius.circular(AppRadius.sm),
-      borderSide: BorderSide(color: color),
+      borderSide: BorderSide(color: color, width: width),
     );
   }
 }
