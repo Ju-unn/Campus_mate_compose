@@ -12,6 +12,10 @@ dependencies = [
     "python-multipart>=0.0.9",
     # 조각 2: 아바타 생성(gpt-image-1)·자기소개 AI 초안. max_retries=0 으로 호출한다(2026-09-20 사용자 결정).
     "openai>=1.50",
+    # 아바타 작업 큐(Cloud Tasks)와 워커 인증이 직접 쓴다. google-cloud-vision 이 이미 끌고 오던 것을
+    # **이름으로 적어 둘 뿐**이라 실제로 받아 오는 패키지는 바뀌지 않는다 — Vision 을 걷어내는 날
+    # 조용히 사라지지 않게 하는 줄이다.
+    "google-auth>=2.38",
 ]
 
 [project.optional-dependencies]

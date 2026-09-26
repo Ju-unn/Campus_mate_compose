@@ -19,7 +19,9 @@ from app.core import errors
 _CONSTRAINT_STATUS = {"23505": 409, "23503": 422, "23514": 422, "22P02": 422, "23502": 422}
 
 
-def _error_code(response: httpx.Response) -> str | None:
+def error_code(response: httpx.Response) -> str | None:
+    """PostgREST 가 실은 Postgres 오류 코드. 저장소가 특정 제약 위반만 따로 다룰 때도 본다
+    (예: pending 유니크 인덱스 23505 = 이미 만드는 중)."""
     try:
         body = response.json()
     except ValueError:
@@ -31,7 +33,7 @@ def raise_for_status(response: httpx.Response, conflict_detail: str = errors.ALR
     if response.status_code < 400:
         return
     # 코드가 없어도 PostgREST 가 409 로 답했으면 중복 충돌로 본다.
-    status = _CONSTRAINT_STATUS.get(_error_code(response) or "")
+    status = _CONSTRAINT_STATUS.get(error_code(response) or "")
     if status is None and response.status_code == 409:
         status = 409
     if status == 409:

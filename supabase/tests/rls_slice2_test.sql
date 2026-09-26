@@ -6,7 +6,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(42);
+select plan(46);
 
 -- 준비 (postgres) -------------------------------------------------------------
 -- 사용자 A = ...aa, 사용자 B = ...bb, 테스트 대학 = ...01
@@ -290,6 +290,35 @@ select throws_ok(
     values ('00000000-0000-0000-0000-0000000000aa', null, 'ready')$$,
   '23514', null,
   'ready 인데 저장 경로가 없으면 막힌다'
+);
+
+-- 아바타 비동기 생성(2026-09-26). pending 행은 경로 없이 들어가고, 한 사람에게 한 줄만 있을 수 있다.
+select lives_ok(
+  $$insert into public.profile_avatars (profile_id, storage_path, status)
+    values ('00000000-0000-0000-0000-0000000000aa', null, 'pending')$$,
+  'service_role 은 저장 경로 없는 pending 행을 넣는다(만드는 중 표시)'
+);
+
+select is(
+  (select is_fallback from public.profile_avatars
+    where profile_id = '00000000-0000-0000-0000-0000000000aa' and status = 'pending'),
+  false,
+  'is_fallback 은 기본값이 false 다'
+);
+
+-- CTA 를 두 번 눌러도, 워커가 늦게 깨어나 POST 와 겹쳐도 여기서 막힌다 — 멱등성의 마지막 방어선.
+select throws_ok(
+  $$insert into public.profile_avatars (profile_id, storage_path, status)
+    values ('00000000-0000-0000-0000-0000000000aa', null, 'pending')$$,
+  '23505', null,
+  '한 사람에게 만드는 중(pending) 행은 한 줄뿐이다'
+);
+
+-- 끝난 이력은 몇 줄이든 쌓인다 — 부분 인덱스라 pending 밖의 행은 세지 않는다.
+select lives_ok(
+  $$insert into public.profile_avatars (profile_id, storage_path, status)
+    values ('00000000-0000-0000-0000-0000000000aa', 'avatars/aa/2.png', 'ready')$$,
+  '끝난 아바타 이력은 같은 사람에게 여러 줄 쌓인다'
 );
 
 select throws_ok(

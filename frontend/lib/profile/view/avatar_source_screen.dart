@@ -71,7 +71,8 @@ class AvatarSourceScreen extends ConsumerWidget {
                 const Center(
                   child: AppToast(
                     leading: CircularProgressIndicator(strokeWidth: 2, color: AppColors.onInk),
-                    label: '아바타로 변환 중이에요',
+                    // pen `04-3` 과 글자까지 같아야 한다 — 왜 아직 그림이 없는지 알려 주는 유일한 안내다.
+                    label: '아바타는 만드는 동안 다음 질문을 이어 가요',
                   ),
                 ),
                 const SizedBox(height: AppSpacing.sm),

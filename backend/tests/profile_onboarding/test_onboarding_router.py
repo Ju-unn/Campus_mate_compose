@@ -36,6 +36,9 @@ def overrides():
             google_cloud_project="campus-mate-test",
             openai_api_key="sk-test",
             phone_encryption_key="phone-key-test", identity_hmac_key="identity-key-test",
+            avatar_tasks_queue="avatar-generate",
+            avatar_worker_url="https://api.example.com/tasks/avatar-generate",
+            avatar_tasks_service_account="tasks@campus-mate-test.iam.gserviceaccount.com",
     )
     # 저장 엔드포인트마다 매칭 벡터를 즉시 다시 만든다(조각 3) — 실제 OpenAI 를 부르지 않게 목을 끼운다.
     openai_client = AsyncMock()
@@ -205,71 +208,6 @@ def test_interests_rejects_fewer_than_three_tags_with_422():
 
     assert response.status_code == 422
     assert "최소 3개" in response.json()["detail"]
-
-
-def test_avatar_generate_returns_the_storage_path_on_ready():
-    """앱은 ready 응답에서도 storage_path 를 읽어 그림을 띄운다 — 빠지면 캐스트가 터져
-    "아바타를 만들고 있어요" 에서 화면이 영영 안 끝난다(운영 00020)."""
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        url = str(request.url)
-        if "/rest/v1/profile_photos" in url and request.method == "GET":
-            return httpx.Response(200, json=[{"storage_path": "aa/source.png"}])
-        if "/storage/v1/object/profile-photos/" in url and request.method == "GET":
-            return httpx.Response(200, content=_PNG_BYTES)  # 판별 가능한 형식이어야 OpenAI 호출까지 간다
-        return httpx.Response(200, json=[])  # 기존 ready 아바타도, 최근 실패 행도 없다
-
-    openai_client = AsyncMock()
-    openai_client.images.edit.return_value = SimpleNamespace(
-        data=[SimpleNamespace(b64_json=base64.b64encode(_PNG_BYTES).decode())]
-    )
-    app.dependency_overrides[router_module.get_openai] = lambda: openai_client
-
-    client = _wire(handler)
-    response = client.post("/profile-onboarding/avatar/generate", headers=AUTH_HEADERS)
-
-    assert response.status_code == 200
-    body = response.json()
-    assert body["status"] == "ready"
-    # 업로드 경로는 AvatarGenerator 가 짓는다({profile_id}/{uuid4}.png) — 그 경로가 그대로 나와야 한다.
-    assert body["storage_path"].startswith(f"{PROFILE_ID}/")
-    assert body["storage_path"].endswith(".png")
-
-
-def test_avatar_generate_grants_ten_hearts_on_fifth_consecutive_failure():
-    hearts_requests: list[httpx.Request] = []
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        url = str(request.url)
-        if "/rest/v1/profile_photos" in url and request.method == "GET":
-            return httpx.Response(200, json=[{"storage_path": "aa/source.png"}])
-        if "/storage/v1/object/profile-photos/" in url and request.method == "GET":
-            return httpx.Response(200, content=_PNG_BYTES)  # 판별 가능한 형식이어야 OpenAI 호출까지 간다
-        if "/rest/v1/profile_avatars" in url and request.method == "GET":
-            if "status=eq.ready" in url:
-                return httpx.Response(200, json=[])
-            return httpx.Response(200, json=[{"status": "failed"}] * 4)
-        if "/rest/v1/profile_avatars" in url and request.method == "POST":
-            return httpx.Response(201, json=[])
-        if "/storage/v1/object/copy" in url:
-            return httpx.Response(200, json={"Key": "avatars/aa/fallback.png"})
-        if "/rest/v1/rpc/grant_hearts" in url:
-            hearts_requests.append(request)
-            return httpx.Response(200)
-        return httpx.Response(200, json=[])
-
-    openai_client = AsyncMock()
-    openai_client.images.edit.side_effect = Exception("openai down")
-    app.dependency_overrides[router_module.get_openai] = lambda: openai_client
-
-    client = _wire(handler)
-    response = client.post("/profile-onboarding/avatar/generate", headers=AUTH_HEADERS)
-
-    assert response.status_code == 200
-    body = response.json()
-    assert body["status"] == "fallback"
-    assert body["compensation_hearts"] == 10
-    assert len(hearts_requests) == 1
 
 
 def test_onboarding_rejects_unverified_student_with_403():
