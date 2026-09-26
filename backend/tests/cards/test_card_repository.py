@@ -176,3 +176,17 @@ async def test_create_match_upserts_so_a_second_accept_does_not_blow_up():
     assert "return=representation" in matches.headers["Prefer"]
     assert participants.url.params["on_conflict"] == "match_id,profile_id"
     assert "resolution=merge-duplicates" in participants.headers["Prefer"]
+
+
+async def test_profile_status_is_read_for_the_push_gate():
+    seen: list[httpx.QueryParams] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url.params)
+        return httpx.Response(200, json=[{"status": "suspended"}])
+
+    repo, _ = _repo(handler)
+
+    assert await repo.fetch_profile_status("p1") == "suspended"
+    assert seen[0]["id"] == "eq.p1"
+    assert seen[0]["select"] == "status"

@@ -71,6 +71,9 @@ def _is_quiet(now: datetime) -> bool:
 async def notify(repo, sender: FcmSender, profile_id, kind: str,
                  title: str, body: str, data: dict[str, str], now: datetime) -> int:
     """알림 스위치와 조용한 시간을 본 뒤 그 사람의 모든 기기로 보낸다. 보낸 건수를 돌려준다."""
+    if await repo.fetch_profile_status(profile_id) == "suspended":
+        # 조각 6: 정지 계정에는 어떤 알림도 보내지 않는다. 모든 푸시가 이 함수를 지나서 한 곳만 본다.
+        return 0
     settings = await repo.fetch_notification_settings(profile_id)
     if not settings.get(kind, True):
         return 0

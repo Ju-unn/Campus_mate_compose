@@ -218,6 +218,12 @@ class CardRepository(PostgrestRepository):
         })
         raise_for_status(response)
 
+    async def fetch_profile_status(self, profile_id: UUID | str) -> str | None:
+        """푸시 관문(push.notify)이 정지 계정을 거르는 데 쓴다. 행이나 칸이 없으면 None(= 막지 않는다,
+        로그인 관문과 같은 규칙)."""
+        rows = await self._rows("profiles", {"id": f"eq.{profile_id}", "select": "status"})
+        return rows[0].get("status") if rows else None
+
     async def fetch_push_tokens(self, profile_id: UUID | str) -> list[str]:
         rows = await self._rows("push_tokens", {"profile_id": f"eq.{profile_id}", "select": "token"})
         return [row["token"] for row in rows]
