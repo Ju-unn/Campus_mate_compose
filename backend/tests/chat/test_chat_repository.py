@@ -230,3 +230,18 @@ async def test_leave_and_announce_writes_nothing_when_already_left():
         MATCH, ME, datetime.now(SEOUL)) is False
 
     assert [method for method, _, _ in seen] == ["PATCH"]
+
+
+async def test_match_between_looks_the_pair_up_in_stored_order():
+    """matches 는 profile_a < profile_b 로 저장된다(create_match). 누가 먼저 묻든 같은 행을 찾아야 한다."""
+    seen: list[httpx.QueryParams] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url.params)
+        return httpx.Response(200, json=[])
+
+    assert await _repo(handler).fetch_match_between(MATCH, ME) is None
+
+    assert seen[0]["profile_a"] == f"eq.{ME}"
+    assert seen[0]["profile_b"] == f"eq.{MATCH}"
+    assert "match_participants(" in seen[0]["select"]

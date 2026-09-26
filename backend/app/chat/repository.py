@@ -68,6 +68,17 @@ class ChatRepository(PostgrestRepository):
             return None
         return match
 
+    async def fetch_match_between(self, profile_id: UUID | str, other_id: UUID | str) -> dict | None:
+        """두 사람 사이의 매칭(지금이든 과거든) + 참가자 두 행. 없으면 None.
+        한 쌍에 매칭은 하나뿐이고(matches_pair_unique) profile_a < profile_b 로 저장된다 —
+        cards `create_match` 와 같은 정렬로 찾는다."""
+        first, second = sorted([str(profile_id), str(other_id)])
+        rows = await self._rows("matches", {
+            "profile_a": f"eq.{first}", "profile_b": f"eq.{second}",
+            "select": f"{_MATCH_COLUMNS},match_participants({_PARTICIPANT_COLUMNS})",
+        })
+        return rows[0] if rows else None
+
     async def fetch_partner_profile(self, profile_id: UUID | str) -> dict:
         """상대의 닉네임·아바타. 실명·연락처는 한 글자도 가져오지 않는다(설계 §7.1)."""
         rows = await self._rows("profiles", {

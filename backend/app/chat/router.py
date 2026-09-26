@@ -77,10 +77,17 @@ async def _wire(
     return _Wiring(settings, str(profile_id), repo, push_repo, sender, photos, now)
 
 
-def _avatar_url(profile: dict, supabase_url: str) -> str | None:
+def latest_avatar_path(profile: dict) -> str | None:
+    """ready 아바타 중 최신의 storage 경로(없으면 None). 신고 스냅샷은 URL 이 아니라 이 경로를 남긴다."""
     avatars = [a for a in profile.get("profile_avatars", []) if a["status"] == "ready"]
     latest = max(avatars, key=lambda a: a["created_at"], default=None)
-    return f"{supabase_url}/storage/v1/object/public/avatars/{latest['storage_path']}" if latest else None
+    return latest["storage_path"] if latest else None
+
+
+def avatar_url(profile: dict, supabase_url: str) -> str | None:
+    """공개 아바타 URL. 차단 목록(safety)도 같은 규칙을 쓴다."""
+    path = latest_avatar_path(profile)
+    return f"{supabase_url}/storage/v1/object/public/avatars/{path}" if path else None
 
 
 def _sides(match: dict, profile_id: str) -> tuple[dict, dict]:
@@ -147,7 +154,7 @@ async def get_conversations(wiring: _Wiring = Depends(_wire)) -> dict:
             "partner": {
                 "profile_id": partner_id,
                 "nickname": profile.get("nickname"),
-                "avatar_url": _avatar_url(profile, wiring.settings.supabase_url),
+                "avatar_url": avatar_url(profile, wiring.settings.supabase_url),
             },
             "last_message": last["body"] if last else None,
             "last_message_kind": last["kind"] if last else None,
@@ -186,7 +193,7 @@ async def get_chat_room(match_id: str, wiring: _Wiring = Depends(_wire)) -> dict
         "partner": {
             "profile_id": partner["profile_id"],
             "nickname": profile.get("nickname"),
-            "avatar_url": _avatar_url(profile, wiring.settings.supabase_url),
+            "avatar_url": avatar_url(profile, wiring.settings.supabase_url),
         },
         "gate": _gate_state(match, mine, partner, now),
         # 내 아이디는 게이트와 상관없이 내려간다 — 14f 시트가 "이 아이디를 공유합니다" 로 보여준다.
