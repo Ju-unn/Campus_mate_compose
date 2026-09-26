@@ -67,7 +67,7 @@ gcloud run deploy campus-mate-backend \
   --source . \
   --region asia-northeast3 \
   --allow-unauthenticated \
-  --set-env-vars SUPABASE_URL=<project-url>,GOOGLE_CLOUD_PROJECT=<PROJECT_ID> \
+  --set-env-vars SUPABASE_URL=<project-url>,GOOGLE_CLOUD_PROJECT=<PROJECT_ID>,AVATAR_TASKS_QUEUE=<큐 이름>,AVATAR_WORKER_URL=<cloud-run-url>/tasks/avatar-generate,AVATAR_TASKS_SERVICE_ACCOUNT=<큐가 쓸 서비스 계정 이메일> \
   --set-secrets SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest,AUTH_HOOK_SIGNING_SECRET=auth-hook-signing-secret:latest,DISCORD_WEBHOOK_URL=discord-review-webhook-url:latest,CARD_BATCH_SECRET=card-batch-secret:latest,IDENTITY_HMAC_KEY=identity-hmac-key:latest,OPENAI_API_KEY=open-api-key:latest,PHONE_ENCRYPTION_KEY=phone-number-encryption-key:latest
 ```
 
@@ -155,6 +155,63 @@ gcloud scheduler jobs create http campus-mate-chat-gate \
   영영 못 가기 때문이다.
 
 **주의:** 이 job 도 조각 5 의 `messages` 마이그레이션이 클라우드에 적용된 뒤에 만든다.
+
+## 4-2. 아바타 작업 큐 (조각 2 후속, 2026-09-26)
+
+아바타를 만드는 데 1분 가까이 걸려서 요청 안에서 만들지 않는다. 04-3 의 "다음"은 **작업만 등록하고**
+바로 다음 질문으로 넘어가고, Cloud Tasks 가 워커(`/tasks/avatar-generate`)를 따로 부른다.
+스케줄러가 아니라 **큐**라 무료 한도 3 job 과는 상관이 없다.
+
+**전제: 큐 리전 = Cloud Run 리전(`asia-northeast3`).** 코드가 리전을 모듈 상수로 박고 있어서
+(`app/profile_onboarding/avatar_tasks.py`), 큐를 다른 리전에 만들면 작업 등록이 **조용히 404 로
+실패**한다. 화면에는 "잠시 뒤 다시 시도해 주세요"만 뜬다.
+
+```bash
+gcloud services enable cloudtasks.googleapis.com
+
+# 재시도는 끈다(--max-attempts=1). 실패 횟수는 우리 코드가 직접 세고(5회 → 기본 아바타 + 하트 10),
+# 큐가 몰래 한 번 더 부르면 그 카운트와 겹친다.
+# 동시 처리는 3~5 로 시작한다. 높이면 OpenAI 가 429 를 돌려주는데, 재시도가 없어서 그 429 가 그대로
+# **사람의 무료 5회 중 한 번**으로 깎인다. 느린 것보다 나쁘다.
+gcloud tasks queues create <큐 이름> \
+  --location=asia-northeast3 \
+  --max-attempts=1 \
+  --max-concurrent-dispatches=5
+
+# 큐가 워커를 부를 때 쓸 서비스 계정. 워커는 이 계정이 발급한 ID 토큰만 통과시킨다.
+gcloud iam service-accounts create <계정 이름> --display-name="avatar task invoker"
+gcloud run services add-iam-policy-binding campus-mate-backend \
+  --region=asia-northeast3 \
+  --member="serviceAccount:<계정 이메일>" \
+  --role="roles/run.invoker"
+
+# Cloud Run 서비스 계정이 큐에 작업을 넣고, 그 계정을 대신해 토큰을 만들 수 있어야 한다.
+gcloud tasks queues add-iam-policy-binding <큐 이름> \
+  --location=asia-northeast3 \
+  --member="serviceAccount:<Cloud Run 서비스 계정>" \
+  --role="roles/cloudtasks.enqueuer"
+gcloud iam service-accounts add-iam-policy-binding <계정 이메일> \
+  --member="serviceAccount:<Cloud Run 서비스 계정>" \
+  --role="roles/iam.serviceAccountTokenCreator"
+```
+
+- 환경변수 3개(`AVATAR_TASKS_QUEUE` · `AVATAR_WORKER_URL` · `AVATAR_TASKS_SERVICE_ACCOUNT`)는 §2 의
+  `--set-env-vars` 에 있다. **하나라도 비면** POST 는 행을 만들기 전에 503 을 내고 워커는 아무도
+  통과시키지 않는다 — 설정을 빠뜨린 배포가 열린 문이 되지 않게 한 쪽이다.
+- `AVATAR_WORKER_URL` 은 워커 주소이면서 **토큰의 audience** 다. 둘이 어긋나면 큐는 부르는데 워커가
+  401 로 튕긴다.
+- 작업이 240초를 넘기면 큐가 요청을 끊는다. 그때 남는 "만드는 중" 행은 **10분 뒤 다음 POST 가** 정리한다
+  (코드에서 못 잡는다 — 끊김은 `CancelledError` 라 `except Exception` 을 통과한다).
+- 급할 때 멈추려면 `gcloud tasks queues pause <큐 이름> --location=asia-northeast3`. **10분 안에 다시
+  푼다.** 넘기면 그동안 기다리던 사람들의 실패 횟수를 사람이 보정해야 한다.
+
+**주의:** 이 큐도 Part C 마이그레이션(`is_fallback` · `profile_avatars_one_pending`)이 클라우드에
+적용된 뒤에 만든다. 적용 전에 만들면 작업마다 500 이 쌓인다.
+
+**각주 — `OPENAI_API_KEY` 를 빠뜨리면 아무 오류도 안 보인다.** 비동기가 되면서 생성 실패가 워커 안에서
+나기 때문에 POST 는 멀쩡히 202 를 주고, 사람은 "다시 만들기" 를 다섯 번 누른 뒤 기본 아바타와 하트 10 을
+받는다 — 겉보기엔 정상 동작이다. 확인할 곳은 Cloud Run 로그의 `아바타 생성 실패`
+(`app/profile_onboarding/avatars.py`) 한 줄뿐이다.
 
 ## 5. 현재 배포 상태 (2026-09-26 기준)
 
