@@ -15,9 +15,10 @@ logger = logging.getLogger(__name__)
 _ISSUED_OWNERS_LIMIT = 5000
 
 # 카드 앞면(요약)과 뒷면(10b 상세)이 쓰는 프로필 컬럼. 실명·연락처는 한 글자도 넣지 않는다.
+# status · auto_hidden_at 은 응답에 싣지 않는다 — "카드에서 사라져야 하는가"(조각 6)를 가르는 재료다.
 _CARD_PROFILE_COLUMNS = (
     "id,nickname,birth_year,major,animal_type,impression_type,"
-    "interest_tags,my_traits,ideal_traits,ideal_note,bio,"
+    "interest_tags,my_traits,ideal_traits,ideal_note,bio,status,auto_hidden_at,"
     "universities(name),profile_avatars(storage_path,status,created_at)"
 )
 # 10b 상세(`TORAs`)는 앞면 + 키·MBTI·학번·종교·흡연까지 본다. 실사진·연락처는 여전히 없다.
@@ -187,6 +188,16 @@ class CardRepository(PostgrestRepository):
     async def fetch_card_detail_profile(self, profile_id: UUID | str) -> dict:
         rows = await self._rows("profiles", {"id": f"eq.{profile_id}", "select": _CARD_DETAIL_COLUMNS})
         return rows[0] if rows else {}
+
+    async def fetch_block_partner_ids(self, profile_id: UUID | str) -> set[str]:
+        """내가 막았거나 나를 막은 사람(조각 6). 카드마다가 아니라 요청마다 한 번 읽는다.
+        ponytail: 상한이 없다 — 한 사람의 차단이 db-max-rows(1000)를 넘으면 조용히 잘린다. 그때 RPC 로."""
+        rows = await self._rows("blocks", {
+            "or": f"(blocker_id.eq.{profile_id},blocked_id.eq.{profile_id})",
+            "select": "blocker_id,blocked_id",
+        })
+        me = str(profile_id)
+        return {row["blocked_id"] if row["blocker_id"] == me else row["blocker_id"] for row in rows}
 
     async def fetch_survey(self, profile_id: UUID | str) -> list[float]:
         """9축을 번호 순서로. 답하지 않은 축은 0 이다 — 화면이 빈 칸 대신 가운데를 그린다."""

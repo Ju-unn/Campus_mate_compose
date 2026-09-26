@@ -1,3 +1,4 @@
+import re
 from datetime import datetime, timedelta, timezone
 
 import httpx
@@ -176,6 +177,44 @@ async def test_create_match_upserts_so_a_second_accept_does_not_blow_up():
     assert "return=representation" in matches.headers["Prefer"]
     assert participants.url.params["on_conflict"] == "match_id,profile_id"
     assert "resolution=merge-duplicates" in participants.headers["Prefer"]
+
+
+# 조각 6: 카드에서 사라져야 하는 상대를 가를 재료 -----------------------------------------
+
+async def test_card_profiles_carry_status_and_auto_hidden_at():
+    """정지 · 탈퇴 · 자동 가림을 카드마다 따로 묻지 않도록 이미 읽는 프로필 조회에 두 칸을 싣는다."""
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url.params["select"])
+        return httpx.Response(200, json=[{"id": "t1"}])
+
+    repo, _ = _repo(handler)
+    await repo.fetch_card_profile("t1")
+    await repo.fetch_card_detail_profile("t1")
+
+    for select in seen:
+        # 임베드 안의 칸(profile_avatars(...,status,...))은 빼고 프로필 자신의 칸만 본다.
+        top_level = set(re.sub(r"\w+\([^)]*\)", "", select).split(","))
+        assert {"status", "auto_hidden_at"} <= top_level
+
+
+async def test_block_partners_are_read_both_ways_in_one_query():
+    """내가 막은 사람도, 나를 막은 사람도 카드에서 빠진다. 카드마다가 아니라 요청마다 한 번 읽는다."""
+    me = "11111111-1111-1111-1111-111111111111"
+    seen: list[httpx.QueryParams] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url.params)
+        return httpx.Response(200, json=[
+            {"blocker_id": me, "blocked_id": "i-blocked"},
+            {"blocker_id": "blocked-me", "blocked_id": me},
+        ])
+
+    repo, _ = _repo(handler)
+
+    assert await repo.fetch_block_partner_ids(me) == {"i-blocked", "blocked-me"}
+    assert seen[0]["or"] == f"(blocker_id.eq.{me},blocked_id.eq.{me})"
 
 
 async def test_profile_status_is_read_for_the_push_gate():
