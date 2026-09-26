@@ -87,21 +87,25 @@ class NotificationSettingsScreen extends ConsumerWidget {
             for (final section in _sections) ...[
               _SectionHeader(section.title),
               for (final row in section.rows)
-                SwitchListTile.adaptive(
-                  value: state.preferences.valueOf(row.key),
-                  onChanged: (value) => viewModel.toggle(row.key, value),
-                  secondary: Icon(row.icon, color: AppColors.muted),
-                  activeThumbColor: AppColors.primary,
-                  title: Text(
-                    row.title,
-                    style: AppTypography.subtitle.copyWith(color: AppColors.ink),
+                // 잉크는 가장 가까운 Material 에 그린다 — Scaffold 에 그리면 목록을 밀어도 눌림 테두리가 제자리에 뜬다(COMMON §4-2).
+                Material(
+                  type: MaterialType.transparency,
+                  child: SwitchListTile.adaptive(
+                    value: state.preferences.valueOf(row.key),
+                    onChanged: (value) => viewModel.toggle(row.key, value),
+                    secondary: Icon(row.icon, color: AppColors.muted),
+                    activeThumbColor: AppColors.primary,
+                    title: Text(
+                      row.title,
+                      style: AppTypography.subtitle.copyWith(color: AppColors.ink),
+                    ),
+                    subtitle: row.note == null
+                        ? null
+                        : Text(
+                            row.note!,
+                            style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+                          ),
                   ),
-                  subtitle: row.note == null
-                      ? null
-                      : Text(
-                          row.note!,
-                          style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
-                        ),
                 ),
             ],
             if (state.errorMessage != null)
