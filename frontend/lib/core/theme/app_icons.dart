@@ -32,6 +32,7 @@ abstract final class AppIcons {
   static const IconData lock = LucideIcons.lock;
   static const IconData users = LucideIcons.users;
   static const IconData chevronRight = LucideIcons.chevronRight;
+  static const IconData star = LucideIcons.star;
   static const IconData check = LucideIcons.check;
   static const IconData arrowRight = LucideIcons.arrowRight;
   static const IconData imagePlus = LucideIcons.imagePlus;
