@@ -1,10 +1,12 @@
 import 'package:campus_mate/auth/model/verification_gate.dart';
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/chat/view/chat_room_screen.dart';
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/router/app_router.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
+import 'package:campus_mate/home/model/home_repository_provider.dart';
 import 'package:campus_mate/home/view/home_screen.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:campus_mate/matching/view/conversations_screen.dart';
@@ -15,6 +17,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../chat/model/fake_chat_repository.dart';
+import '../../home/model/fake_home_repository.dart';
 import '../../matching/model/fake_card_repository.dart';
 
 /// 이 파일은 경로·화면 연결만 본다. 게이트별 이동 규칙은 auth_redirect_test 가 맡는다.
@@ -94,6 +97,7 @@ void main() {
         overrides: [
           cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
           chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
+          homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
         ],
         child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
       ),

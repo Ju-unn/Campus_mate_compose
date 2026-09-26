@@ -3,7 +3,8 @@ import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 
-const double _width = 112;
+/// 사람 칸·빈 칸 폭(pen `b9Rask` · `FqMYC`). 글자를 키워도 늘지 않아 레일이 한 벌 폭을 계산한다.
+const double mosaicTileWidth = 112;
 const double _height = 140;
 
 /// mosaic-rail 사람 칸(pen `b9Rask` · `Ch4h6`). Z54et 에 마스터가 없다. 실제 사람 사진은 넣지 않는다.
@@ -16,7 +17,7 @@ class MosaicPersonTile extends StatelessWidget {
   Widget build(BuildContext context) {
     // 그림을 decoration 으로 깐다 — Image 위젯은 그림 비율로 제 높이를 주장해 rail 높이를 흔든다.
     return Container(
-      width: _width,
+      width: mosaicTileWidth,
       constraints: const BoxConstraints(minHeight: _height),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(AppRadius.md),
@@ -34,7 +35,7 @@ class MosaicEmptyTile extends StatelessWidget {
   Widget build(BuildContext context) {
     // pen 높이 140 은 최소 높이다 — 글자를 키우면 늘어난다(DESIGN §11.2).
     return Container(
-      width: _width,
+      width: mosaicTileWidth,
       constraints: const BoxConstraints(minHeight: _height),
       padding: const EdgeInsets.only(top: 26, bottom: 6),
       decoration: BoxDecoration(
