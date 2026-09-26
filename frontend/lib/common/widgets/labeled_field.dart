@@ -77,7 +77,7 @@ class LabeledField extends StatelessWidget {
         else if (pendingText != null)
           _note(_spinner, AppColors.muted, pendingText!)
         else if (successText != null)
-          _note(const Icon(AppIcons.check, size: 14, color: AppColors.success), AppColors.success, successText!)
+          _note(const Icon(AppIcons.circleCheck, size: 14, color: AppColors.success), AppColors.success, successText!)
         else if (helper != null) ...[
           const SizedBox(height: AppSpacing.xxs),
           Text(helper!, style: AppTypography.caption.copyWith(color: AppColors.muted)),
@@ -93,9 +93,11 @@ class LabeledField extends StatelessWidget {
   );
 
   /// 입력칸 바로 아래 한 줄(표식 + 문구). 색만으로 전달하지 않도록 표식을 항상 같이 둔다.
+  /// 칸과의 간격 8 은 pen 확인 줄 a1eaV 값이다. 확인 중 표식은 pen 의 정지 아이콘(loader-circle) 대신
+  /// 도는 원을 그대로 둔다(DESIGN §8.5 "도는 표시").
   Widget _note(Widget leading, Color color, String text) {
     return Padding(
-      padding: const EdgeInsets.only(top: AppSpacing.xxs),
+      padding: const EdgeInsets.only(top: AppSpacing.xs),
       child: Row(
         children: [
           leading,

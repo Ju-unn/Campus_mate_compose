@@ -36,6 +36,20 @@ void main() {
     return (field.decoration!.enabledBorder! as OutlineInputBorder).borderSide;
   }
 
+  testWidgets('확인 줄은 입력칸 아래 끝에서 8 떨어진다', (tester) async {
+    await pump(tester, successText: '사용할 수 있는 닉네임이에요');
+    final fieldBottom = tester.getBottomLeft(find.byType(TextField)).dy;
+    final rowTop = tester.getTopLeft(find.byIcon(AppIcons.circleCheck)).dy;
+    // 아이콘은 17 높이 줄 안에서 세로 가운데라 줄 위 끝보다 1.5 아래에 있다.
+    expect(rowTop - fieldBottom, closeTo(8 + (17 - 14) / 2, 1));
+  });
+
+  testWidgets('사용 가능 표식은 동그라미 체크다', (tester) async {
+    await pump(tester, successText: '사용할 수 있는 닉네임이에요');
+    expect(find.byIcon(AppIcons.circleCheck), findsOneWidget);
+    expect(find.byIcon(AppIcons.check), findsNothing);
+  });
+
   testWidgets('오류가 있으면 입력칸 테두리가 빨간 2px 다', (tester) async {
     await pump(tester, errorText: '이미 있는 닉네임이에요');
     expect(enabledSide(tester), const BorderSide(color: AppColors.error, width: 2));
@@ -47,4 +61,15 @@ void main() {
     await pump(tester, successText: '사용할 수 있는 닉네임이에요');
     expect(enabledSide(tester), const BorderSide(color: AppColors.outline));
   });
+
+  for (final scale in [1.0, 1.3, 1.5, 2.0]) {
+    testWidgets('글자 배율 $scale 에서도 확인 줄 글자가 잘리지 않는다', (tester) async {
+      await pump(tester, errorText: '한글 또는 영문 2~5자로 입력해 주세요', textScale: scale);
+      expect(tester.takeException(), isNull);
+      final text = find.text('한글 또는 영문 2~5자로 입력해 주세요');
+      final paragraph = tester.renderObject<RenderParagraph>(text);
+      expect(paragraph.didExceedMaxLines, isFalse);
+      expect(tester.getSize(text).height, greaterThanOrEqualTo(12 * scale));
+    });
+  }
 }
