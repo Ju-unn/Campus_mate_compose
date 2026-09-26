@@ -118,6 +118,13 @@ class ChatRepository(PostgrestRepository):
                 params["created_at"] = f"lt.{cursor}"
         return await self._rows("messages", params)
 
+    async def fetch_message(self, message_id: UUID | str) -> dict | None:
+        """말풍선 한 줄(신고 대상 확인용). 없으면 None."""
+        rows = await self._rows("messages", {
+            "id": f"eq.{message_id}", "select": f"match_id,{_MESSAGE_COLUMNS}",
+        })
+        return rows[0] if rows else None
+
     async def fetch_last_message(self, match_id: UUID | str) -> dict | None:
         """목록 한 줄의 미리보기. 시스템 줄도 똑같이 마지막 줄이 된다(결정 7·10)."""
         rows = await self.fetch_messages(match_id, limit=1)

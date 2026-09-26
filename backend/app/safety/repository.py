@@ -1,6 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
+from app.core import errors
 from app.core.http import raise_for_status
 from app.core.postgrest import PostgrestRepository
 
@@ -44,3 +45,43 @@ class SafetyRepository(PostgrestRepository):
             "order": "created_at.desc",
             "limit": BLOCK_LIST_LIMIT,
         })
+
+    # 신고 -------------------------------------------------------------------
+    async def fetch_snapshot_profile(self, profile_id: UUID | str) -> dict:
+        """신고 스냅샷 재료. 실명 · 연락처는 가져오지 않는다."""
+        return (await self._rows("profiles", {
+            "id": f"eq.{profile_id}",
+            "select": "nickname,bio,profile_avatars(storage_path,status,created_at)",
+        }) or [{}])[0]
+
+    async def count_recent_reports(self, reporter_id: UUID | str, since: datetime, cap: int) -> int:
+        """since 이후 내가 넣은 신고 수. 상한(cap)까지만 센다 — 넘었는지만 알면 된다."""
+        return len(await self._rows("reports", {
+            "reporter_id": f"eq.{reporter_id}", "created_at": f"gte.{since.isoformat()}",
+            "select": "id", "limit": cap,
+        }))
+
+    async def insert_report(self, report: dict) -> str:
+        """새 신고의 id. 같은 사람이 같은 대상을 두 번 신고하면 409 "이미 신고한 사용자예요"
+        (unique reports_once_per_reporter → 23505)."""
+        response = await self._post("reports", json=report, prefer="return=representation")
+        raise_for_status(response, conflict_detail=errors.ALREADY_REPORTED)
+        return response.json()[0]["id"]
+
+    async def count_open_reporters(self, target_profile_id: UUID | str) -> int:
+        """아직 처리되지 않은(open) 신고의 서로 다른 신고자 수. 운영자가 dismissed 로 닫고 가림을 풀면
+        그 신고들은 빠진다 — 해제 뒤 한 건에 바로 다시 가려지지 않게(Ruling 9).
+        신고자가 탈퇴해 reporter_id 가 비면(on delete set null) 누구인지 몰라 세지 않는다."""
+        rows = await self._rows("reports", {
+            "target_profile_id": f"eq.{target_profile_id}", "status": "eq.open", "select": "reporter_id",
+        })
+        return len({row["reporter_id"] for row in rows if row["reporter_id"]})
+
+    async def auto_hide(self, profile_id: UUID | str, now: datetime) -> bool:
+        """auto_hidden_at 이 비어 있을 때만 찍는다. 이번에 찍었으면 True — 디스코드 ② 를 한 번만 보낸다."""
+        response = await self._patch(
+            "profiles", params={"id": f"eq.{profile_id}", "auto_hidden_at": "is.null", "select": "id"},
+            json={"auto_hidden_at": now.isoformat()}, prefer="return=representation",
+        )
+        raise_for_status(response)
+        return bool(response.json())
