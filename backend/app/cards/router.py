@@ -94,6 +94,12 @@ def _card_profile(profile: dict, supabase_url: str, now: datetime) -> dict:
     }
 
 
+def is_active(profile: dict) -> bool:
+    """정지 · 탈퇴 · 가입 중이 아닌가. 14c 상대 프로필(safety)도 같은 판정을 쓴다.
+    status 칸이 없는 행은 active 로 읽는다 — 로그인 관문이 status 없는 행을 통과시키는 것과 같은 규칙이다."""
+    return profile.get("status", "active") == "active"
+
+
 async def _next_issue_at(repo: CardRepository, profile_id: str, now: datetime) -> str | None:
     """다음 지급 시각(화면 11 의 카운트다운 재료). 지역 설정 행이 없으면 알 수 없으니 null 이다."""
     region = await repo.fetch_region_group(profile_id)
@@ -279,10 +285,15 @@ async def get_card_detail(card_id: str,
         raise HTTPException(status_code=404, detail=errors.CARD_NOT_FOUND)
 
     profile = await wiring.repo.fetch_card_detail_profile(card["target_id"])
+    return {"card_id": card["id"], **await profile_detail(wiring.repo, profile, wiring.settings.supabase_url, now)}
+
+
+async def profile_detail(repo: CardRepository, profile: dict, supabase_url: str, now: datetime) -> dict:
+    """10b 카드 상세와 14c 상대 프로필(safety)이 같이 쓰는 몸통. 둘이 같은 dict 를 만들어야 앱 모델이
+    하나로 남는다 — 키를 늘릴 때는 여기서만 늘린다. `profile` 은 `fetch_card_detail_profile` 이 읽은 행이다."""
     return {
-        "card_id": card["id"],
-        "profile": _card_profile(profile, wiring.settings.supabase_url, now),
-        "survey": await wiring.repo.fetch_survey(card["target_id"]),
+        "profile": _card_profile(profile, supabase_url, now),
+        "survey": await repo.fetch_survey(profile["id"]),
         "animal_type": profile.get("animal_type"),
         "impression_type": profile.get("impression_type"),
         "religion": profile.get("religion"),

@@ -201,13 +201,20 @@ async def get_chat_room(match_id: str, wiring: _Wiring = Depends(_wire)) -> dict
         "my_kakao_id": await wiring.repo.fetch_kakao_id(wiring.profile_id),
     }
     if match["trust_passed_at"]:
-        # 여기까지 와야 연락처와 실사진이 나간다(설계 §2.5). 통과 전에는 키 자체가 응답에 없다.
-        room["kakao_id"] = await wiring.repo.fetch_kakao_id(partner["profile_id"])
-        room["photo_urls"] = [
-            await wiring.photos.create_signed_url(path, PHOTO_URL_TTL_SECONDS)
-            for path in await wiring.repo.fetch_photo_paths(partner["profile_id"])
-        ]
+        room.update(await revealed_contact(wiring.repo, wiring.photos, partner["profile_id"]))
     return room
+
+
+async def revealed_contact(repo: ChatRepository, photos: ProfilePhotoStorage, partner_id: str) -> dict:
+    """게이트를 통과한 뒤에만 나가는 두 키(설계 §2.5). 방 머리말과 14c 상대 프로필(safety)이 같이 쓴다 —
+    부르는 쪽이 trust_passed_at 을 확인한다. 통과 전에는 키 자체가 응답에 없어야 한다."""
+    return {
+        "kakao_id": await repo.fetch_kakao_id(partner_id),
+        "photo_urls": [
+            await photos.create_signed_url(path, PHOTO_URL_TTL_SECONDS)
+            for path in await repo.fetch_photo_paths(partner_id)
+        ],
+    }
 
 
 @router.get("/chat/matches/{match_id}/messages")

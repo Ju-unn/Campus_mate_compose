@@ -11,10 +11,13 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, field_validator, model_validator
 
+from app.cards.repository import CardRepository
+from app.cards.router import is_active, profile_detail
 from app.chat.repository import ChatRepository
-from app.chat.router import avatar_url, latest_avatar_path
+from app.chat.router import avatar_url, latest_avatar_path, revealed_contact
 from app.core import errors
 from app.core.deps import Caller, get_now, get_verified_caller
+from app.profile_onboarding.storage import ProfilePhotoStorage
 from app.safety.discord import ReportNotifier, auto_hidden_line, report_line
 from app.safety.reasons import (
     AUTO_HIDE_REPORTERS,
@@ -58,7 +61,7 @@ class ReportRequest(BaseModel):
 
 
 class _Wiring:
-    """공통 배선(core/deps 의 Caller) 위에 안전 · 채팅 저장소를 얹은 것."""
+    """공통 배선(core/deps 의 Caller) 위에 안전 · 채팅 · 카드 저장소와 실사진 보관소를 얹은 것."""
 
     def __init__(self, caller: Caller, now: datetime):
         settings, client, profile_id = caller
@@ -69,6 +72,8 @@ class _Wiring:
         self.profile_id = str(profile_id)
         self.repo = SafetyRepository(settings.postgrest_url, key, client)
         self.chat = ChatRepository(settings.postgrest_url, key, client)
+        self.cards = CardRepository(settings.postgrest_url, key, client)
+        self.photos = ProfilePhotoStorage(settings.storage_url, key, client)
         self.now = now
 
 
@@ -205,3 +210,26 @@ async def unblock(profile_id: UUID, wiring: _Wiring = Depends(_wire)) -> dict:
     """해제. 없어도 200. **대화는 복구하지 않는다**(16f 문구) — left_at 은 그대로 둔다."""
     await wiring.repo.delete_block(wiring.profile_id, profile_id)
     return {"ok": True}
+
+
+@router.get("/profiles/{profile_id}")
+async def get_partner_profile(profile_id: UUID, wiring: _Wiring = Depends(_wire)) -> dict:
+    """14c 상대 프로필. 10b 카드 상세와 같은 몸통에 card_id 대신 match_id, 게이트를 통과했으면 연락처까지.
+
+    404 는 전부 같은 문구다 — 자기 자신 · 매칭 이력 없음 · 내가 나감 · **상대가 나감** · 차단(양방향) ·
+    상대가 active 가 아님(정지 · 탈퇴). 상대가 나간 방까지 막는 이유: "나를 차단한 상대"(나간 것처럼 보인다)와
+    "그냥 나간 상대"가 14c 에서 갈리면 차단 사실이 샌다(설계 §7.2, 편차 ②).
+    상대의 auto_hidden_at 은 막지 않는다 — 자동 가림은 카드에서만 빠진다(결정 3: 진행 중 채팅은 유지)."""
+    target = str(profile_id)
+    match = await find_match(wiring.chat, wiring.profile_id, target)
+    if any(p["left_at"] for p in match["match_participants"]):
+        raise HTTPException(status_code=404, detail=errors.PROFILE_NOT_FOUND)
+    profile = await wiring.cards.fetch_card_detail_profile(target)
+    if not is_active(profile) or target in await wiring.cards.fetch_block_partner_ids(wiring.profile_id):
+        raise HTTPException(status_code=404, detail=errors.PROFILE_NOT_FOUND)
+
+    detail = {"match_id": match["id"],
+              **await profile_detail(wiring.cards, profile, wiring.settings.supabase_url, wiring.now)}
+    if match["trust_passed_at"]:
+        detail.update(await revealed_contact(wiring.chat, wiring.photos, target))
+    return detail
