@@ -6,7 +6,7 @@ import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/home/model/home_summary.dart';
-import 'package:campus_mate/home/view/mosaic_tile.dart';
+import 'package:campus_mate/home/view/mosaic_rail.dart';
 import 'package:campus_mate/home/view/notify_icon_button.dart';
 import 'package:campus_mate/home/view/stat_tile.dart';
 import 'package:campus_mate/home/view/tag.dart';
@@ -49,7 +49,7 @@ class HomeScreen extends ConsumerWidget {
       const SizedBox(height: AppSpacing.md),
       const _RailHeader(),
       const SizedBox(height: 10),
-      _MosaicRail(images: summary.presentPeopleImages),
+      MosaicRail(images: summary.presentPeopleImages),
       const SizedBox(height: AppSpacing.md),
       // 글자를 키워 한 칸이 늘어나면 세 칸 높이를 같이 맞춘다.
       IntrinsicHeight(
@@ -155,56 +155,16 @@ class _HeroToday extends StatelessWidget {
   }
 }
 
-/// mosaic-rail 머리줄(pen `Ab3td`). "일시정지"는 무엇을 멈추는지 정해지지 않아 누를 곳을 두지 않는다.
+/// mosaic-rail 머리줄(pen `Ab3td` 328×25, 제목 `h7wmcH`). 오른쪽 "일시정지"(`gK0eT`)는 사용자 결정(2026-09-26)으로
+/// pen 에서도 지웠다 — 레일은 저절로 흐르고 누르고 있으면 멈춘다([MosaicRail]).
 class _RailHeader extends StatelessWidget {
   const _RailHeader();
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            '지금 함께 있는 사람들',
-            style: AppTypography.subtitle.copyWith(fontWeight: FontWeight.w700, color: AppColors.ink),
-          ),
-        ),
-        Row(
-          children: [
-            const Icon(AppIcons.pause, size: 14, color: AppColors.muted),
-            const SizedBox(width: AppSpacing.xxs),
-            Text('일시정지', style: AppTypography.caption.copyWith(color: AppColors.muted)),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-/// mosaic-rail(pen `P2sFxR`). 가로로 넘기고, 사람 칸 뒤에 빈 칸 하나를 붙인다.
-/// 높이는 칸 중 가장 높은 것을 따른다 — 배율 1.0 에서 140, 글자를 키우면 빈 칸 글자만큼 늘어난다.
-/// ponytail: Row 라 칸을 한 번에 다 그린다. 사람이 수십 명이 되면 높이를 배율로 계산해 ListView 로 되돌린다.
-class _MosaicRail extends StatelessWidget {
-  const _MosaicRail({required this.images});
-
-  final List<String> images;
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (final image in images) ...[
-              MosaicPersonTile(key: ValueKey(image), image: image),
-              const SizedBox(width: 10),
-            ],
-            const MosaicEmptyTile(),
-          ],
-        ),
-      ),
+    return Text(
+      '지금 함께 있는 사람들',
+      style: AppTypography.subtitle.copyWith(fontWeight: FontWeight.w700, color: AppColors.ink),
     );
   }
 }
