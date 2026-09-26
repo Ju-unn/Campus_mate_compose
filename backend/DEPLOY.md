@@ -185,15 +185,22 @@ gcloud run services add-iam-policy-binding campus-mate-backend \
   --member="serviceAccount:<계정 이메일>" \
   --role="roles/run.invoker"
 
-# Cloud Run 서비스 계정이 큐에 작업을 넣고, 그 계정을 대신해 토큰을 만들 수 있어야 한다.
+# Cloud Run 서비스 계정이 큐에 작업을 넣고, 그 계정을 대신해 오이디씨 토큰이 붙은 작업을 만들 수 있어야 한다.
 gcloud tasks queues add-iam-policy-binding <큐 이름> \
   --location=asia-northeast3 \
   --member="serviceAccount:<Cloud Run 서비스 계정>" \
   --role="roles/cloudtasks.enqueuer"
+# 2026-09-26 사용자 결정으로 개정, 종전 roles/iam.serviceAccountTokenCreator — 실기기에서 아바타 등록이
+# 403 으로 막혀서 잡힌 오류였다. oidcToken 을 붙인 작업을 만드는 호출자는 그 계정에 대해
+# iam.serviceAccounts.actAs 가 있어야 한다(Google Cloud "Create HTTP target tasks" 문서).
+# 토큰 자체는 Cloud Tasks 서비스 에이전트가 만든다(roles/cloudtasks.serviceAgent, API 를 켜면 자동 부여).
 gcloud iam service-accounts add-iam-policy-binding <계정 이메일> \
   --member="serviceAccount:<Cloud Run 서비스 계정>" \
-  --role="roles/iam.serviceAccountTokenCreator"
+  --role="roles/iam.serviceAccountUser"
 ```
+
+- **이 역할이 빠지면**: `POST /avatar/generate` 가 502, 백엔드 로그에 "아바타 작업 등록 실패" + Cloud Tasks 403, 앱에는 "알 수 없는 오류"가 뜬다.
+- 운영에는 2026-09-26 `serviceAccountUser` 를 추가했다. 종전 `serviceAccountTokenCreator` 는 아직 남아 있고, 빼는 것은 **결정 대기**다(둘 다 있어도 동작엔 지장 없지만 최소 권한 원칙상 정리할지는 사용자가 정한다).
 
 - 환경변수 3개(`AVATAR_TASKS_QUEUE` · `AVATAR_WORKER_URL` · `AVATAR_TASKS_SERVICE_ACCOUNT`)는 §2 의
   `--set-env-vars` 에 있다. **하나라도 비면** POST 는 행을 만들기 전에 503 을 내고 워커는 아무도
@@ -218,9 +225,10 @@ gcloud iam service-accounts add-iam-policy-binding <계정 이메일> \
 | 항목 | 값 |
 | --- | --- |
 | Cloud Run 서비스 | `campus-mate-backend` (asia-northeast3) |
-| 돌고 있는 revision | `campus-mate-backend-00022-jpl` — PR #103 학생증 재검토 사유 기록 포함, 트래픽 100%(2026-09-26 배포, 경고 0) |
+| 돌고 있는 revision | `campus-mate-backend-00024-wjn`(2026-09-26 사용자 결정으로 개정, 종전 `campus-mate-backend-00022-jpl` — PR #103 학생증 재검토 사유 기록 포함) — PR #106 아바타 비동기 포함, 트래픽 100%(2026-09-26 배포, 배포 후 30분 오류 0) |
 | Cloud Scheduler job | **2개** — `campus-mate-daily-cards` (`0 7 * * *` · Asia/Seoul) · `campus-mate-chat-gate` (**매시 정각**, `0 * * * *` · Asia/Seoul). 둘 다 asia-northeast3, 무료 한도 3개 안 |
-| 마이그레이션 | **32개**(저장소 `supabase/migrations/` 기준, PR #99 `profile_avatars` 포함) |
+| Cloud Tasks 큐 | `avatar-generate`(asia-northeast3) — 재시도 1회(실효상 끔), 동시 처리 5, 호출자 서비스 계정 `avatar-task-invoker`(이메일 마스킹, §4-2) |
+| 마이그레이션 | **33개**(2026-09-26 사용자 결정으로 개정, 종전 32개 — 09-22 작성된 `sender_index` 마이그레이션이 누락돼 있다가 이번 배포에 같이 들어갔다, 저장소 `supabase/migrations/` 기준) |
 | `card-batch-secret` | **version 2** 를 쓴다 — version 1 은 값에 `\r` 이 섞여 401 이 나던 것이라 폐기했다. **두 job 이 같은 비밀을 쓴다**(§4-1) |
 
 `--set-secrets` 는 `card-batch-secret:latest` 를 참조하므로 새 버전을 올리면 재배포 없이 따라간다.
