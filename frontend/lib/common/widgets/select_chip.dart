@@ -35,19 +35,24 @@ class SelectChip extends StatelessWidget {
     return Semantics(
       selected: isSelected,
       button: true,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(radius),
-        child: Ink(
-          width: width,
-          height: height,
-          decoration: BoxDecoration(
-            color: isSelected ? AppColors.primaryWash : AppColors.surfaceSoft,
-            borderRadius: BorderRadius.circular(radius),
-            border: Border.all(color: isSelected ? AppColors.primary : Colors.transparent),
-          ),
-          child: Center(
-            child: Text(label, style: AppTypography.labelSmall.copyWith(color: AppColors.ink)),
+      // `Ink` 는 **가장 가까운 Material** 에 칠한다 — 그게 Scaffold 면 회색 칸이 화면에 눌러앉아,
+      // 태그 목록을 당겼다 놓을 때 글자만 따라 움직인다(2026-09-26 실기기). 칩에 자기 Material 을 준다.
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(radius),
+          child: Ink(
+            width: width,
+            height: height,
+            decoration: BoxDecoration(
+              color: isSelected ? AppColors.primaryWash : AppColors.surfaceSoft,
+              borderRadius: BorderRadius.circular(radius),
+              border: Border.all(color: isSelected ? AppColors.primary : Colors.transparent),
+            ),
+            child: Center(
+              child: Text(label, style: AppTypography.labelSmall.copyWith(color: AppColors.ink)),
+            ),
           ),
         ),
       ),

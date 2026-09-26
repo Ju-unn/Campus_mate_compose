@@ -238,7 +238,8 @@ class _SmokePage extends StatelessWidget {
 }
 
 /// 종교·흡연 공통 "칸 선택"(DESIGN.md §8.5 religion-select·smoke-toggle).
-/// 비선택 채움이 colors.primary-disabled 인 점만 얼굴상 칸과 다르다(2026-09-15 사용자 결정).
+/// 비선택 채움은 표면 회색이다(pen `Rmfti`·`Y1TDq2` 2026-09-26 수정) —
+/// 종전 `primaryDisabled`(#E5E5E5)는 **비활성 채움** 토큰이라, 고를 수 있는 칸이 꺼진 버튼처럼 보였다.
 class _ChoiceCell extends StatelessWidget {
   const _ChoiceCell({required this.label, required this.isSelected, required this.onTap});
 
@@ -248,17 +249,21 @@ class _ChoiceCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppRadius.sm),
-      child: Ink(
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primaryWash : AppColors.primaryDisabled,
-          borderRadius: BorderRadius.circular(AppRadius.sm),
-          border: Border.all(color: isSelected ? AppColors.primary : Colors.transparent),
-        ),
-        child: Center(
-          child: Text(label, style: AppTypography.label.copyWith(color: AppColors.ink)),
+    // 칸이 자기 Material 을 들고 있어야 채움이 Scaffold 에 칠해지지 않는다(select_chip.dart 와 같다).
+    return Material(
+      type: MaterialType.transparency,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: isSelected ? AppColors.primaryWash : AppColors.surfaceSoft,
+            borderRadius: BorderRadius.circular(AppRadius.sm),
+            border: Border.all(color: isSelected ? AppColors.primary : Colors.transparent),
+          ),
+          child: Center(
+            child: Text(label, style: AppTypography.label.copyWith(color: AppColors.ink)),
+          ),
         ),
       ),
     );
