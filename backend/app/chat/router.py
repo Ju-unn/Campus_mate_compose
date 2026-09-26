@@ -109,6 +109,8 @@ def _gate_state(match: dict, mine: dict, partner: dict, now: datetime) -> dict:
     return {
         "my_response": mine["trust_response"],
         "passed": bool(match["trust_passed_at"]),
+        # 앱이 통과 카드를 대화 중 통과 시각 자리에 놓는다(백로그 20). DB 원문 그대로, 통과 전에는 null.
+        "passed_at": match["trust_passed_at"],
         "partner_left": bool(partner["left_at"]),
         "deadline_at": gate.deadline_at(created_at).isoformat(),
         "remaining_seconds": max(0, int(gate.remaining(created_at, now).total_seconds())),

@@ -145,6 +145,7 @@ def test_room_before_the_gate_has_no_kakao_id_or_photos():
     assert body["partner"]["nickname"] == "여우비"
     assert body["partner"]["avatar_url"].endswith("/avatars/p2/a.png")
     assert body["gate"]["passed"] is False
+    assert body["gate"]["passed_at"] is None
     # 통과 전에는 키 자체가 없어야 한다 — null 로라도 내려가면 앱이 자리를 그린다.
     assert "kakao_id" not in body
     assert "photo_urls" not in body
@@ -195,6 +196,8 @@ def test_room_after_the_gate_carries_the_kakao_id_and_signed_photos():
 
     assert body["kakao_id"] == "fox_rain"
     assert body["my_kakao_id"] == "my_id"
+    # 통과 카드를 대화 중 통과 시각 자리에 놓으려고 앱이 쓴다(백로그 20). 원문 그대로 내려간다.
+    assert body["gate"]["passed_at"] == "2126-09-22T12:00:00+09:00"
     assert body["photo_urls"] == [
         "https://x.supabase.co/storage/v1/object/sign/profile-photos/p2/1.jpg?token=t"
     ]
