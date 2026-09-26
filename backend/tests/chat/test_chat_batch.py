@@ -144,6 +144,23 @@ async def test_a_stranded_double_accept_is_stamped_instead_of_closed():
     assert run.patches == [{"trust_passed_at": now.isoformat()}]
 
 
+async def test_a_stranded_double_accept_is_stamped_before_the_deadline_too():
+    """기한 전이라도 다음 매시 배치에서 바로 찍는다(#78 리뷰 권고, 백로그 16).
+
+    기한 뒤에만 찍으면 둘 다 수락한 방이 최대 48시간 동안 잠겨 있다. 이미 둘 다 수락했으니
+    리마인드도 보내지 않는다."""
+    stranded = _match(participants=[
+        {"profile_id": A, "trust_response": "accept", "left_at": None, "last_read_at": None},
+        {"profile_id": B, "trust_response": "accept", "left_at": None, "last_read_at": None},
+    ])
+    run = _Run([stranded])
+    now = MATCHED_AT + timedelta(hours=23)
+
+    assert await run.at(now) == {"reminded": 0, "closed": 0, "passed": 1}
+    assert run.patches == [{"trust_passed_at": now.isoformat()}]
+    assert run.pushes == []
+
+
 async def test_the_room_is_not_closed_a_minute_early():
     run = _Run([_match()])
     assert (await run.at(MATCHED_AT + timedelta(hours=47, minutes=59)))["closed"] == 0
