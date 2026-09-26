@@ -414,6 +414,40 @@ def test_bio_draft_returns_the_saved_draft_without_calling_openai():
     openai_client.chat.completions.create.assert_not_called()
 
 
+def test_bio_draft_feeds_survey_mbti_religion_smoking_in_korean():
+    """초안 재료는 설문 문장·MBTI·종교·흡연 한국어다 — 영어 코드값(religion=none)을 넘기지 않는다(2026-09-26 실기기 e)."""
+    openai_client = AsyncMock()
+    openai_client.chat.completions.create.return_value.choices = [SimpleNamespace(message=SimpleNamespace(content="초안"))]
+    app.dependency_overrides[router_module.get_openai] = lambda: openai_client
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        path, select = request.url.path, request.url.params.get("select", "")
+        if request.method == "PATCH":
+            return httpx.Response(204)
+        if path.endswith("/profiles") and select == "bio_draft":
+            return httpx.Response(200, json=[{"bio_draft": None}])
+        if path.endswith("/profiles"):
+            return httpx.Response(200, json=[{
+                "nickname": "하늘", "gender": "male", "mbti": "ENFP", "animal_type": "dog",
+                "impression_type": "kind", "interest_tags": ["여행"], "my_traits": ["다정한"],
+                "religion": "none", "is_smoker": False, "preferred_age_min": 20,
+                "preferred_animal_types": ["cat"], "preferred_impression_types": ["chic"],
+                "ideal_traits": [], "ideal_note": "", "bio": None,
+            }])
+        if path.endswith("/survey_answers"):
+            return httpx.Response(200, json=[
+                {"axis": 1, "value": 1}, {"axis": 2, "value": -0.5}, {"axis": 3, "value": 0},
+            ])
+        return httpx.Response(200, json=[])
+
+    response = _wire(handler).post("/profile-onboarding/bio-draft", headers=AUTH_HEADERS)
+
+    assert response.status_code == 200
+    prompt = openai_client.chat.completions.create.call_args.kwargs["messages"][1]["content"]
+    assert "성향: 밖이 좋아요, 낯을 많이 가려요, MBTI ENFP, 종교 무교, 비흡연" in prompt
+    assert "religion=" not in prompt
+
+
 def test_ideal_note_rejects_blank_text():
     """필수 입력이다(2026-09-20 사용자 결정) — 공백만 쓴 글은 저장하지 않고 422 를 돌려준다."""
     patched: list[dict] = []

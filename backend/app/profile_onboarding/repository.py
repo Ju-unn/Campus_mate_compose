@@ -310,7 +310,7 @@ class ProfileOnboardingRepository(PostgrestRepository):
             "profiles",
             params={
                 "id": f"eq.{profile_id}",
-                "select": "nickname,gender,animal_type,impression_type,interest_tags,my_traits,religion,"
+                "select": "nickname,gender,mbti,animal_type,impression_type,interest_tags,my_traits,religion,"
                           "is_smoker,preferred_age_min,preferred_animal_types,preferred_impression_types,"
                           "ideal_traits,ideal_note,bio",
             },
@@ -341,9 +341,10 @@ class ProfileOnboardingRepository(PostgrestRepository):
 
         survey_response = await self._get(
             "survey_answers",
-            params={"profile_id": f"eq.{profile_id}", "select": "axis"},
+            params={"profile_id": f"eq.{profile_id}", "select": "axis,value"},
         )
         raise_for_status(survey_response)
+        survey_answers = {row["axis"]: float(row["value"]) for row in survey_response.json()}
 
         return {
             "nickname": profile["nickname"],
@@ -356,7 +357,9 @@ class ProfileOnboardingRepository(PostgrestRepository):
             "impression_type": profile["impression_type"],
             "interest_tags": profile["interest_tags"],
             "my_traits": profile["my_traits"],
-            "survey_answer_count": len(survey_response.json()),
+            "survey_answer_count": len(survey_answers),
+            "survey_answers": survey_answers,
+            "mbti": profile["mbti"],
             "religion": profile["religion"],
             "is_smoker": profile["is_smoker"],
             "preferred_age_min": profile["preferred_age_min"],
