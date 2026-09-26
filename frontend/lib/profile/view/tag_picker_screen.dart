@@ -1,6 +1,7 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/common/widgets/select_chip.dart';
+import 'package:campus_mate/common/widgets/select_count_bar.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
@@ -94,10 +95,7 @@ class _Footer extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            '${state.selected.length}/5 개 선택(최소 3개)',
-            style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
-          ),
+          SelectCountBar(selected: state.selected.length, max: 5, min: 3),
           if (state.errorMessage != null) ...[
             const SizedBox(height: AppSpacing.xs),
             Text(state.errorMessage!, style: AppTypography.caption.copyWith(color: AppColors.error)),
