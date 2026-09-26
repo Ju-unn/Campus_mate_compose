@@ -26,6 +26,14 @@ def test_mbti_coefficient_is_the_geometric_mean_of_both_directions():
     )
 
 
+def test_mbti_coefficient_reads_app_payload_with_only_chosen_poles():
+    """06-1 앱은 켠 극만 보낸다({"E": True}). 한 축에 하나만 켰으면 그 극만 ok 다(2026-09-26 실기기 d)."""
+    assert round(mbti_coefficient({"E": True}, "ISTJ", ALL_OK, "ENFP"), 4) == round(
+        0.6 + 0.4 * math.sqrt(0.75), 4
+    )
+    assert mbti_coefficient({"E": True, "I": True}, "ISTJ", ALL_OK, "ENFP") == 1.00
+
+
 def test_mbti_coefficient_is_one_when_partner_mbti_is_unknown():
     """모른다는 이유로 불이익을 주지 않는다(설계 §6.4)."""
     assert mbti_coefficient(MY_FLAGS, None, ALL_OK, "ENFP") == 1.00

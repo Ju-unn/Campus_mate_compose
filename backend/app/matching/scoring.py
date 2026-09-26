@@ -13,10 +13,11 @@ _AXES = (("E", "I"), ("N", "S"), ("T", "F"), ("J", "P"))
 
 
 def _fit(flags: dict, mbti: str) -> float:
-    """상대 4글자 중 내가 ok 로 둔 글자 비율. 한 축에서 양쪽을 다 끄면 그 축은 보지 않는다(설계 §6.4)."""
+    """상대 4글자 중 내가 ok 로 둔 글자 비율. 한 축에서 양쪽을 다 끄면 그 축은 보지 않는다(설계 §6.4).
+    앱은 켠 극만 보내므로 빠진 키는 꺼진 것으로 읽는다 — {} 는 전부 꺼짐 = 전부 상관없음."""
     ok = 0
     for left, right in _AXES:
-        left_ok, right_ok = flags.get(left, True), flags.get(right, True)
+        left_ok, right_ok = flags.get(left, False), flags.get(right, False)
         if left_ok == right_ok:  # 둘 다 ok 거나 둘 다 no = 상관없음
             ok += 1
         elif (left in mbti and left_ok) or (right in mbti and right_ok):
