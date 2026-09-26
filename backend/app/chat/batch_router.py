@@ -21,12 +21,13 @@ router = APIRouter()
 
 async def run_chat_gate(repo: ChatRepository, push_repo: CardRepository, sender: FcmSender,
                         now: datetime) -> dict:
-    """매시 정각(Asia/Seoul)에 도는 게이트 배치. 두 가지만 한다.
+    """매시 정각(Asia/Seoul)에 도는 게이트 배치. 세 가지만 한다.
 
-    ① 리마인드 창에 걸렸고 아직 수락하지 않은 사람에게 trust_reminder 푸시
-    ② 48시간을 넘겼고 아직 통과하지 않은 매칭에 chat_closed_at 기록
+    ① 양쪽 다 수락했는데 도장이 빠진 매칭에 trust_passed_at 기록(기한과 상관없이, 백로그 16)
+    ② 리마인드 창에 걸렸고 아직 수락하지 않은 사람에게 trust_reminder 푸시
+    ③ 48시간을 넘겼고 아직 통과하지 않은 매칭에 chat_closed_at 기록
 
-    둘 다 **한쪽이라도 나간 매칭은 건너뛴다**(결정 7·11). 거절은 곧 나가기라서, 닫아 봐야
+    셋 다 **한쪽이라도 나간 매칭은 건너뛴다**(결정 7·11). 거절은 곧 나가기라서, 닫아 봐야
     남은 사람의 기록만 목록에서 감춰진다."""
     reminded = 0
     closed = 0
@@ -36,14 +37,16 @@ async def run_chat_gate(repo: ChatRepository, push_repo: CardRepository, sender:
         if any(p["left_at"] for p in participants):
             continue
 
+        if gate.is_passed([p["trust_response"] for p in participants]):
+            # 양쪽 다 수락했는데 도장이 없는 방은 닫지 않고 찍는다. /trust 가 도장 직전에
+            # 끊겼을 때 남는 자국인데, 닫아 버리면 되살릴 길이 없다. 기한 분기보다 먼저 봐야
+            # 기한 전 방도 다음 매시 배치에서 바로 열린다(백로그 16). 둘 다 수락했으니 리마인드도 없다.
+            if await repo.pass_trust_gate(match["id"], now):
+                passed += 1
+            continue
+
         created_at = datetime.fromisoformat(match["created_at"])
         if gate.remaining(created_at, now).total_seconds() <= 0:
-            if gate.is_passed([p["trust_response"] for p in participants]):
-                # 양쪽 다 수락했는데 도장이 없는 방은 닫지 않고 찍는다. /trust 가 도장 직전에
-                # 끊겼을 때 남는 자국인데, 닫아 버리면 되살릴 길이 없다.
-                if await repo.pass_trust_gate(match["id"], now):
-                    passed += 1
-                continue
             # 닫는다 = chat_closed_at 한 칸을 찍는 것뿐이다. 메시지는 남는다(결정 3·4).
             if await repo.close_chat(match["id"], now):
                 closed += 1
