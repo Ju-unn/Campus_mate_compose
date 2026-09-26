@@ -48,6 +48,18 @@ void main() {
     );
   });
 
+  testWidgets('스위치 줄의 눌림 효과는 그 줄 안에서 그려진다', (tester) async {
+    // 잉크는 가장 가까운 Material 에 그린다 — 그게 Scaffold 면 목록을 밀어도 테두리가 제자리에 떠 있다(COMMON §4-2).
+    await pump(tester);
+
+    final tiles = find.byType(SwitchListTile);
+    expect(tiles, findsWidgets);
+    for (var i = 0; i < tiles.evaluate().length; i++) {
+      final material = find.ancestor(of: tiles.at(i), matching: find.byType(Material)).first;
+      expect(tester.getSize(material), tester.getSize(tiles.at(i)));
+    }
+  });
+
   testWidgets('스위치를 끄면 그 키만 서버로 간다', (tester) async {
     final repository = await pump(tester);
 
