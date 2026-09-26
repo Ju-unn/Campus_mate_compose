@@ -17,6 +17,7 @@ import 'package:campus_mate/matching/view/match_made_screen.dart';
 import 'package:campus_mate/matching/view/notification_settings_screen.dart';
 import 'package:campus_mate/matching/view/settings_screen.dart';
 import 'package:campus_mate/matching/view/today_cards_screen.dart';
+import 'package:campus_mate/me/view/my_profile_screen.dart';
 import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:campus_mate/profile/view/appearance_type_screen.dart';
 import 'package:campus_mate/profile/view/avatar_generation_screen.dart';
@@ -109,7 +110,7 @@ abstract final class AppRouter {
       ),
       GoRoute(
         path: AppRoutes.myProfile,
-        builder: (context, state) => const ComingSoonScreen(tab: AppTab.me),
+        builder: (context, state) => const MyProfileScreen(),
       ),
     ];
   }
