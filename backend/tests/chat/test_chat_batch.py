@@ -232,3 +232,38 @@ def test_the_batch_endpoint_is_closed_when_no_secret_is_configured():
             assert client.post("/batch/chat-gate", headers={"X-Batch-Secret": ""}).status_code == 401
     finally:
         app.dependency_overrides.clear()
+
+
+# 조각 6: 정지 ------------------------------------------------------------------------
+
+def _with_status(status_a: str, status_b: str, **overrides) -> dict:
+    participants = overrides.pop("participants", None) or [
+        {"profile_id": A, "trust_response": None, "left_at": None, "last_read_at": None},
+        {"profile_id": B, "trust_response": None, "left_at": None, "last_read_at": None},
+    ]
+    participants[0]["profiles"] = {"status": status_a}
+    participants[1]["profiles"] = {"status": status_b}
+    return _match(participants=participants, **overrides)
+
+
+async def test_a_room_with_a_suspended_side_is_left_untouched():
+    """정지 중에 시간이 흘러 방이 닫히면 풀어 줘도 대화가 돌아오지 않는다 — 도장 · 리마인드 · 마감 모두 건너뛴다."""
+    quiet = {"reminded": 0, "closed": 0, "passed": 0}
+    both_accepted = [
+        {"profile_id": A, "trust_response": "accept", "left_at": None, "last_read_at": None},
+        {"profile_id": B, "trust_response": "accept", "left_at": None, "last_read_at": None},
+    ]
+
+    for run, now in (
+        (_Run([_with_status("suspended", "active")]), datetime(2026, 9, 21, 14, 0, tzinfo=SEOUL)),
+        (_Run([_with_status("active", "suspended")]), MATCHED_AT + timedelta(hours=49)),
+        (_Run([_with_status("suspended", "active", participants=both_accepted)]), MATCHED_AT + timedelta(hours=23)),
+    ):
+        assert await run.at(now) == quiet
+        assert run.pushes == []
+        assert run.patches == []
+
+
+async def test_an_active_room_still_runs_after_a_suspension_is_lifted():
+    run = _Run([_with_status("active", "active")])
+    assert (await run.at(MATCHED_AT + timedelta(hours=49)))["closed"] == 1

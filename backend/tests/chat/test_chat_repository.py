@@ -245,3 +245,19 @@ async def test_match_between_looks_the_pair_up_in_stored_order():
     assert seen[0]["profile_a"] == f"eq.{ME}"
     assert seen[0]["profile_b"] == f"eq.{MATCH}"
     assert "match_participants(" in seen[0]["select"]
+
+
+async def test_rooms_carry_each_participants_status():
+    """정지는 조회 시점 판정이다(조각 6) — 방 · 배치 · 매칭 사이 조회가 참가자마다 status 를 같이 읽는다."""
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url.params["select"])
+        return httpx.Response(200, json=[])
+
+    repo = _repo(handler)
+    await repo.fetch_match(MATCH, ME)
+    await repo.fetch_open_matches()
+    await repo.fetch_match_between(MATCH, ME)
+
+    assert all("match_participants(" in s and "profiles(status)" in s for s in seen)

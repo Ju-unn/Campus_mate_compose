@@ -18,7 +18,8 @@ _CONVERSATION_LIMIT = 200
 _OPEN_MATCH_LIMIT = 5000
 
 _MATCH_COLUMNS = "id,profile_a,profile_b,created_at,trust_passed_at,chat_closed_at"
-_PARTICIPANT_COLUMNS = "profile_id,trust_response,left_at,last_read_at"
+# profiles(status): 정지는 left_at 을 찍지 않고 조회 시점에 가른다(조각 6, chat/gate.is_gone).
+_PARTICIPANT_COLUMNS = "profile_id,trust_response,left_at,last_read_at,profiles(status)"
 _MESSAGE_COLUMNS = "id,sender_id,kind,body,created_at"
 
 

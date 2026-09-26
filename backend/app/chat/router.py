@@ -105,8 +105,9 @@ def _guard_writable(match: dict, mine: dict, partner: dict) -> None:
         raise HTTPException(status_code=409, detail=errors.CHAT_CLOSED)
     if mine["left_at"]:
         raise HTTPException(status_code=409, detail=errors.CHAT_LEFT)
-    if partner["left_at"]:
+    if gate.is_gone(partner):
         # 결정 7: 상대가 나가면 입력창이 잠긴다. 대화는 읽을 수 있지만 더 쓰지는 못한다.
+        # 상대가 정지돼도 같은 응답이다(조각 6) — 정지 사실을 알리지 않는다.
         raise HTTPException(status_code=409, detail=errors.CHAT_PARTNER_LEFT)
 
 
@@ -118,7 +119,8 @@ def _gate_state(match: dict, mine: dict, partner: dict, now: datetime) -> dict:
         "passed": bool(match["trust_passed_at"]),
         # 앱이 통과 카드를 대화 중 통과 시각 자리에 놓는다(백로그 20). DB 원문 그대로, 통과 전에는 null.
         "passed_at": match["trust_passed_at"],
-        "partner_left": bool(partner["left_at"]),
+        # 정지된 상대도 나간 것처럼 보인다(조각 6, 계획서 B7). left_at 은 찍지 않는다.
+        "partner_left": gate.is_gone(partner),
         "deadline_at": gate.deadline_at(created_at).isoformat(),
         "remaining_seconds": max(0, int(gate.remaining(created_at, now).total_seconds())),
     }
