@@ -6,6 +6,7 @@ import 'package:campus_mate/auth/model/image_compressor_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/profile/model/photos_repository_provider.dart';
+import 'package:campus_mate/profile/viewmodel/avatar_generation_view_model.dart';
 import 'package:campus_mate/profile/viewmodel/photos_ui_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -149,13 +150,34 @@ class PhotosViewModel extends Notifier<PhotosUiState> {
     setAvatarSource(0);
   }
 
+  /// 04-3 "다음" — 사진을 올리고 **아바타 작업을 등록한 뒤** 다음 질문으로 넘어간다.
+  /// 등록이 먼저, 이동이 나중이다: 순서가 뒤집히면 넘어간 뒤에 등록이 실패해도 보여 줄 자리가 없다.
   Future<void> submit() async {
     if (!state.canSubmit) {
       return;
     }
     state = state.copyWith(isSubmitting: true, errorMessage: null);
-    state = await _submittedState();
+    // 여기서 바로 state 에 넣지 않는다 — 넣는 순간 isSubmitting 이 내려가 토스트가 꺼지고,
+    // 작업을 등록하는 동안 화면에 아무 표시도 없다. 한 번에 갱신해야 둘 다 덮인다.
+    var next = await _submittedState();
+    if (next.completed) {
+      next = await _withAvatarRequested(next);
+    }
+    state = next;
     _refreshOnboardingStepIfCompleted();
+  }
+
+  /// 아바타 작업을 등록한다. 만드는 데 1분쯤 걸리지만 **기다리지 않는다** — 서버가 202 를 바로 준다
+  /// (2026-09-25 사용자 결정 "누르면 바로 넘어가기"). 그림은 성향 질문을 마친 뒤 결과 화면에서 본다.
+  ///
+  /// 등록이 막히면 `completed` 를 세우지 않아 04-3 에 머문다 — 이 화면은 photos 상태만 그리므로
+  /// 오류도 그 상태로 나가야 보이고, `completed` 가 없어야 다음 단계 조회가 조용히 돌아간다.
+  Future<PhotosUiState> _withAvatarRequested(PhotosUiState uploaded) async {
+    final blocking = await ref.read(avatarGenerationViewModelProvider.notifier).generate();
+    if (blocking == null) {
+      return uploaded;
+    }
+    return uploaded.copyWith(completed: false, errorMessage: blocking);
   }
 
   Future<PhotosUiState> _submittedState() async {
