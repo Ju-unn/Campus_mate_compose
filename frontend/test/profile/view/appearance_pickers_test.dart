@@ -48,4 +48,15 @@ void main() {
 
     expect(tester.getSize(find.byType(SelectChip).first).height, 44);
   });
+
+  // 눌림 효과는 가장 가까운 Material 에 그린다 — 그게 Scaffold 면 스크롤해도 테두리만 떠 있다(COMMON §4-2).
+  testWidgets('동물상 칸 눌림 효과는 화면이 아니라 칸이 그린다', (tester) async {
+    await pumpNarrow(tester, AnimalTypePicker(selected: const {}, onTap: (_) {}));
+
+    final text = find.text(AnimalType.values.first.label);
+    final cell = find.ancestor(of: text, matching: find.byType(InkWell)).first;
+    final painter = find.ancestor(of: text, matching: find.byType(Material)).first;
+
+    expect(tester.getSize(painter), tester.getSize(cell));
+  });
 }
