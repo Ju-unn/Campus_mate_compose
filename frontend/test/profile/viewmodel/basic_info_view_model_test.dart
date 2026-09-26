@@ -32,72 +32,72 @@ void main() {
 
   tearDown(() => container.dispose());
 
-  test('닉네임 입력이 바뀌면 300ms 디바운스 후 중복 확인을 부른다', () async {
+  testWidgets('닉네임 입력이 바뀌면 300ms 디바운스 후 중복 확인을 부른다', (tester) async {
     final vm = container.read(basicInfoViewModelProvider.notifier);
     vm.changeNickname('가나다');
-    await Future<void>.delayed(const Duration(milliseconds: 350));
+    await tester.pump(const Duration(milliseconds: 350));
     expect(repository.checkedNicknames, ['가나다']);
   });
 
-  test('디바운스 중 다시 입력하면 마지막 값만 확인한다', () async {
+  testWidgets('디바운스 중 다시 입력하면 마지막 값만 확인한다', (tester) async {
     final vm = container.read(basicInfoViewModelProvider.notifier);
     vm.changeNickname('가나');
     vm.changeNickname('가나다');
-    await Future<void>.delayed(const Duration(milliseconds: 350));
+    await tester.pump(const Duration(milliseconds: 350));
     expect(repository.checkedNicknames, ['가나다']);
   });
 
-  test('중복 닉네임이면 인라인 에러를 보여준다', () async {
+  testWidgets('중복 닉네임이면 인라인 에러를 보여준다', (tester) async {
     repository.nextAvailabilityResult = const Success(false);
     final vm = container.read(basicInfoViewModelProvider.notifier);
     vm.changeNickname('중복닉네임');
-    await Future<void>.delayed(const Duration(milliseconds: 350));
+    await tester.pump(const Duration(milliseconds: 350));
     final state = container.read(basicInfoViewModelProvider);
     expect(state.nicknameError, '이미 있는 닉네임이에요');
   });
 
-  test('형식이 안 맞으면 서버에 묻지 않고 왜 안 되는지 알려 준다', () async {
+  testWidgets('형식이 안 맞으면 서버에 묻지 않고 왜 안 되는지 알려 준다', (tester) async {
     // 종전에는 조용히 돌아가서 화면에 아무것도 안 떴다(2026-09-26 사용자 지적).
     final vm = container.read(basicInfoViewModelProvider.notifier);
     vm.changeNickname('가');
-    await Future<void>.delayed(const Duration(milliseconds: 350));
+    await tester.pump(const Duration(milliseconds: 350));
     final state = container.read(basicInfoViewModelProvider);
     expect(state.nicknameError, '한글 또는 영문 2~5자로 입력해 주세요');
     expect(state.nicknameSuccess, isNull);
     expect(repository.checkedNicknames, isEmpty);
   });
 
-  test('쓸 수 있는 닉네임이면 성공 문구를 보여준다', () async {
+  testWidgets('쓸 수 있는 닉네임이면 성공 문구를 보여준다', (tester) async {
     final vm = container.read(basicInfoViewModelProvider.notifier);
     vm.changeNickname('가나다');
-    await Future<void>.delayed(const Duration(milliseconds: 350));
+    await tester.pump(const Duration(milliseconds: 350));
     final state = container.read(basicInfoViewModelProvider);
     expect(state.nicknameSuccess, '사용할 수 있는 닉네임이에요');
     expect(state.nicknameError, isNull);
   });
 
-  test('서버 답을 기다리는 동안 "확인 중…" 을 보여주고, 답이 오면 내린다', () async {
+  testWidgets('서버 답을 기다리는 동안 "확인 중…" 을 보여주고, 답이 오면 내린다', (tester) async {
     repository.availabilityGate = Completer<void>();
     final vm = container.read(basicInfoViewModelProvider.notifier);
 
     vm.changeNickname('가나다');
-    await Future<void>.delayed(const Duration(milliseconds: 350));
+    await tester.pump(const Duration(milliseconds: 350));
     expect(container.read(basicInfoViewModelProvider).nicknameChecking, '확인 중…');
 
     repository.availabilityGate!.complete();
-    await Future<void>.delayed(Duration.zero);
+    await tester.pump();
 
     final state = container.read(basicInfoViewModelProvider);
     expect(state.nicknameChecking, isNull);
     expect(state.nicknameSuccess, '사용할 수 있는 닉네임이에요');
   });
 
-  test('확인이 실패하면 아무 말도 하지 않지만 도는 표시는 내린다', () async {
+  testWidgets('확인이 실패하면 아무 말도 하지 않지만 도는 표시는 내린다', (tester) async {
     repository.nextAvailabilityResult = const FailureResult(NetworkFailure());
     final vm = container.read(basicInfoViewModelProvider.notifier);
 
     vm.changeNickname('가나다');
-    await Future<void>.delayed(const Duration(milliseconds: 350));
+    await tester.pump(const Duration(milliseconds: 350));
 
     vm.changeBirthYear('2002');
     vm.changeHeight('175');
@@ -112,10 +112,10 @@ void main() {
     expect(state.canSubmit, isTrue);
   });
 
-  test('입력이 바뀌면 지난 판정은 그 자리에서 지운다', () async {
+  testWidgets('입력이 바뀌면 지난 판정은 그 자리에서 지운다', (tester) async {
     final vm = container.read(basicInfoViewModelProvider.notifier);
     vm.changeNickname('가나다');
-    await Future<void>.delayed(const Duration(milliseconds: 350));
+    await tester.pump(const Duration(milliseconds: 350));
     expect(container.read(basicInfoViewModelProvider).nicknameSuccess, isNotNull);
 
     vm.changeNickname('가나다라');
@@ -123,20 +123,26 @@ void main() {
     final state = container.read(basicInfoViewModelProvider);
     expect(state.nicknameSuccess, isNull);
     expect(state.nicknameError, isNull);
+
+    // 마지막 입력의 디바운스를 흘려보낸다 — 살아 있는 타이머를 두고 끝내면 테스트가 실패한다.
+    await tester.pump(const Duration(milliseconds: 350));
   });
 
-  test('조회가 끝나기 전에 입력이 바뀌면 낡은 결과는 버린다', () async {
+  testWidgets('조회가 끝나기 전에 입력이 바뀌면 낡은 결과는 버린다', (tester) async {
     repository.availabilityGate = Completer<void>();
     repository.nextAvailabilityResult = const Success(false);
     final vm = container.read(basicInfoViewModelProvider.notifier);
 
     vm.changeNickname('가나다');
-    await Future<void>.delayed(const Duration(milliseconds: 350)); // 조회가 시작돼 문 앞에서 기다린다
+    await tester.pump(const Duration(milliseconds: 350)); // 조회가 시작돼 문 앞에서 기다린다
     vm.changeNickname('라마바');
     repository.availabilityGate!.complete(); // 이제야 '가나다' 조회가 끝난다
-    await Future<void>.delayed(Duration.zero);
+    await tester.pump();
 
     expect(container.read(basicInfoViewModelProvider).nicknameError, isNull);
+
+    // '라마바' 디바운스도 흘려보낸 뒤 끝낸다.
+    await tester.pump(const Duration(milliseconds: 350));
   });
 
   test('키는 3자리를 다 친 뒤 범위 밖일 때만 오류를 띄운다', () {
@@ -155,11 +161,11 @@ void main() {
     expect(container.read(basicInfoViewModelProvider).heightError, isNull);
   });
 
-  test('만 19세가 안 되는 출생연도는 "다음"이 켜지지 않는다', () async {
+  testWidgets('만 19세가 안 되는 출생연도는 "다음"이 켜지지 않는다', (tester) async {
     // 서버가 같은 기준을 본다(schemas.py MIN_AGE=19) — 앱이 더 느슨하면 422 를 받고 04-1 에 갇힌다.
     final vm = container.read(basicInfoViewModelProvider.notifier);
     vm.changeNickname('가나다');
-    await Future<void>.delayed(const Duration(milliseconds: 350));
+    await tester.pump(const Duration(milliseconds: 350));
     vm.changeHeight('175');
     vm.changePhoneNumber('01012345678');
     vm.changeGender('male');
@@ -182,10 +188,10 @@ void main() {
     expect(state.canSubmit, isFalse);
   });
 
-  test('필요한 값을 다 채우면 제출할 수 있다', () async {
+  testWidgets('필요한 값을 다 채우면 제출할 수 있다', (tester) async {
     final vm = container.read(basicInfoViewModelProvider.notifier);
     vm.changeNickname('가나다');
-    await Future<void>.delayed(const Duration(milliseconds: 350));
+    await tester.pump(const Duration(milliseconds: 350));
     vm.changeBirthYear('2002');
     vm.changeHeight('175');
     vm.changePhoneNumber('01012345678');
@@ -195,11 +201,11 @@ void main() {
     expect(state.canSubmit, isTrue);
   });
 
-  test('하이픈은 화면에만 남기고 서버에는 숫자만 보낸다', () async {
+  testWidgets('하이픈은 화면에만 남기고 서버에는 숫자만 보낸다', (tester) async {
     // 저장 형식(E.164)은 서버가 정한다 — 앱이 보내는 값에 하이픈이 섞이면 저장값이 두 갈래가 된다.
     final vm = container.read(basicInfoViewModelProvider.notifier);
     vm.changeNickname('가나다');
-    await Future<void>.delayed(const Duration(milliseconds: 350));
+    await tester.pump(const Duration(milliseconds: 350));
     vm.changeBirthYear('2002');
     vm.changeHeight('175');
     vm.changePhoneNumber('010-1234-5678');
@@ -211,10 +217,10 @@ void main() {
     expect(repository.submitted?.phoneNumber, '01012345678');
   });
 
-  test('전화번호가 11자리가 되기 전에는 제출할 수 없다', () async {
+  testWidgets('전화번호가 11자리가 되기 전에는 제출할 수 없다', (tester) async {
     final vm = container.read(basicInfoViewModelProvider.notifier);
     vm.changeNickname('가나다');
-    await Future<void>.delayed(const Duration(milliseconds: 350));
+    await tester.pump(const Duration(milliseconds: 350));
     vm.changeBirthYear('2002');
     vm.changeHeight('175');
     vm.changeGender('male');
@@ -226,10 +232,10 @@ void main() {
     expect(container.read(basicInfoViewModelProvider).canSubmit, isTrue);
   });
 
-  test('제출에 성공하면 completed 가 켜지고 온보딩 단계를 다시 조회한다', () async {
+  testWidgets('제출에 성공하면 completed 가 켜지고 온보딩 단계를 다시 조회한다', (tester) async {
     final vm = container.read(basicInfoViewModelProvider.notifier);
     vm.changeNickname('가나다');
-    await Future<void>.delayed(const Duration(milliseconds: 350));
+    await tester.pump(const Duration(milliseconds: 350));
     vm.changeBirthYear('2002');
     vm.changeHeight('175');
     vm.changePhoneNumber('01012345678');
