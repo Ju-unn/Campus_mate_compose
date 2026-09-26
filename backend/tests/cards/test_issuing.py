@@ -44,6 +44,9 @@ class _FakeCardRepo:
     async def fetch_card_profile(self, profile_id):
         return {"nickname": "여우비"}
 
+    async def fetch_profile_status(self, profile_id):
+        return "active"
+
     async def fetch_push_tokens(self, profile_id):
         return []
 

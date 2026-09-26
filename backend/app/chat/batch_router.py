@@ -28,13 +28,14 @@ async def run_chat_gate(repo: ChatRepository, push_repo: CardRepository, sender:
     ③ 48시간을 넘겼고 아직 통과하지 않은 매칭에 chat_closed_at 기록
 
     셋 다 **한쪽이라도 나간 매칭은 건너뛴다**(결정 7·11). 거절은 곧 나가기라서, 닫아 봐야
-    남은 사람의 기록만 목록에서 감춰진다."""
+    남은 사람의 기록만 목록에서 감춰진다. **한쪽이라도 정지된 매칭도 통째로 건너뛴다**(조각 6) —
+    정지 중에 시간이 흘러 방이 닫히면 풀어 줘도 대화가 돌아오지 않는다."""
     reminded = 0
     closed = 0
     passed = 0
     for match in await repo.fetch_open_matches():
         participants = match["match_participants"]
-        if any(p["left_at"] for p in participants):
+        if any(gate.is_gone(p) for p in participants):
             continue
 
         if gate.is_passed([p["trust_response"] for p in participants]):

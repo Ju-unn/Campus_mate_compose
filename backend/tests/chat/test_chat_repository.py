@@ -195,3 +195,69 @@ async def test_fetch_match_refuses_someone_elses_room():
         }])
 
     assert await _repo(handler).fetch_match(MATCH, ME) is None
+
+
+# 나가기 + 시스템 줄(조각 6: /leave 와 차단이 같이 쓴다) --------------------------------
+
+def _leave_handler(seen: list[tuple[str, str, dict | None]], *, stamped: bool):
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content) if request.content else None
+        seen.append((request.method, request.url.path, body))
+        if request.method == "PATCH":
+            return httpx.Response(200, json=[{"profile_id": ME}] if stamped else [])
+        if request.method == "GET":
+            return httpx.Response(200, json=[{"nickname": "가나다"}])
+        return httpx.Response(201, json=[{"id": "msg-1", **body}])
+    return handler
+
+
+async def test_leave_and_announce_stamps_first_then_writes_the_left_line():
+    seen: list[tuple[str, str, dict | None]] = []
+
+    assert await _repo(_leave_handler(seen, stamped=True)).leave_and_announce(
+        MATCH, ME, datetime.now(SEOUL)) is True
+
+    assert [method for method, _, _ in seen] == ["PATCH", "GET", "POST"]
+    line = seen[-1][2]
+    assert line["kind"] == "left"
+    assert line["body"] == "가나다님이 채팅방을 나갔어요"
+
+
+async def test_leave_and_announce_writes_nothing_when_already_left():
+    seen: list[tuple[str, str, dict | None]] = []
+
+    assert await _repo(_leave_handler(seen, stamped=False)).leave_and_announce(
+        MATCH, ME, datetime.now(SEOUL)) is False
+
+    assert [method for method, _, _ in seen] == ["PATCH"]
+
+
+async def test_match_between_looks_the_pair_up_in_stored_order():
+    """matches 는 profile_a < profile_b 로 저장된다(create_match). 누가 먼저 묻든 같은 행을 찾아야 한다."""
+    seen: list[httpx.QueryParams] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url.params)
+        return httpx.Response(200, json=[])
+
+    assert await _repo(handler).fetch_match_between(MATCH, ME) is None
+
+    assert seen[0]["profile_a"] == f"eq.{ME}"
+    assert seen[0]["profile_b"] == f"eq.{MATCH}"
+    assert "match_participants(" in seen[0]["select"]
+
+
+async def test_rooms_carry_each_participants_status():
+    """정지는 조회 시점 판정이다(조각 6) — 방 · 배치 · 매칭 사이 조회가 참가자마다 status 를 같이 읽는다."""
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url.params["select"])
+        return httpx.Response(200, json=[])
+
+    repo = _repo(handler)
+    await repo.fetch_match(MATCH, ME)
+    await repo.fetch_open_matches()
+    await repo.fetch_match_between(MATCH, ME)
+
+    assert all("match_participants(" in s and "profiles(status)" in s for s in seen)

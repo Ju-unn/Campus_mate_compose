@@ -77,10 +77,17 @@ async def _wire(
     return _Wiring(settings, str(profile_id), repo, push_repo, sender, photos, now)
 
 
-def _avatar_url(profile: dict, supabase_url: str) -> str | None:
+def latest_avatar_path(profile: dict) -> str | None:
+    """ready 아바타 중 최신의 storage 경로(없으면 None). 신고 스냅샷은 URL 이 아니라 이 경로를 남긴다."""
     avatars = [a for a in profile.get("profile_avatars", []) if a["status"] == "ready"]
     latest = max(avatars, key=lambda a: a["created_at"], default=None)
-    return f"{supabase_url}/storage/v1/object/public/avatars/{latest['storage_path']}" if latest else None
+    return latest["storage_path"] if latest else None
+
+
+def avatar_url(profile: dict, supabase_url: str) -> str | None:
+    """공개 아바타 URL. 차단 목록(safety)도 같은 규칙을 쓴다."""
+    path = latest_avatar_path(profile)
+    return f"{supabase_url}/storage/v1/object/public/avatars/{path}" if path else None
 
 
 def _sides(match: dict, profile_id: str) -> tuple[dict, dict]:
@@ -98,8 +105,9 @@ def _guard_writable(match: dict, mine: dict, partner: dict) -> None:
         raise HTTPException(status_code=409, detail=errors.CHAT_CLOSED)
     if mine["left_at"]:
         raise HTTPException(status_code=409, detail=errors.CHAT_LEFT)
-    if partner["left_at"]:
+    if gate.is_gone(partner):
         # 결정 7: 상대가 나가면 입력창이 잠긴다. 대화는 읽을 수 있지만 더 쓰지는 못한다.
+        # 상대가 정지돼도 같은 응답이다(조각 6) — 정지 사실을 알리지 않는다.
         raise HTTPException(status_code=409, detail=errors.CHAT_PARTNER_LEFT)
 
 
@@ -111,7 +119,8 @@ def _gate_state(match: dict, mine: dict, partner: dict, now: datetime) -> dict:
         "passed": bool(match["trust_passed_at"]),
         # 앱이 통과 카드를 대화 중 통과 시각 자리에 놓는다(백로그 20). DB 원문 그대로, 통과 전에는 null.
         "passed_at": match["trust_passed_at"],
-        "partner_left": bool(partner["left_at"]),
+        # 정지된 상대도 나간 것처럼 보인다(조각 6, 계획서 B7). left_at 은 찍지 않는다.
+        "partner_left": gate.is_gone(partner),
         "deadline_at": gate.deadline_at(created_at).isoformat(),
         "remaining_seconds": max(0, int(gate.remaining(created_at, now).total_seconds())),
     }
@@ -147,7 +156,7 @@ async def get_conversations(wiring: _Wiring = Depends(_wire)) -> dict:
             "partner": {
                 "profile_id": partner_id,
                 "nickname": profile.get("nickname"),
-                "avatar_url": _avatar_url(profile, wiring.settings.supabase_url),
+                "avatar_url": avatar_url(profile, wiring.settings.supabase_url),
             },
             "last_message": last["body"] if last else None,
             "last_message_kind": last["kind"] if last else None,
@@ -186,21 +195,30 @@ async def get_chat_room(match_id: str, wiring: _Wiring = Depends(_wire)) -> dict
         "partner": {
             "profile_id": partner["profile_id"],
             "nickname": profile.get("nickname"),
-            "avatar_url": _avatar_url(profile, wiring.settings.supabase_url),
+            "avatar_url": avatar_url(profile, wiring.settings.supabase_url),
         },
         "gate": _gate_state(match, mine, partner, now),
         # 내 아이디는 게이트와 상관없이 내려간다 — 14f 시트가 "이 아이디를 공유합니다" 로 보여준다.
         # 앱은 profile_private 를 직접 읽을 수 없어 본인 것도 FastAPI 를 거친다(ERD §11-20).
         "my_kakao_id": await wiring.repo.fetch_kakao_id(wiring.profile_id),
     }
-    if match["trust_passed_at"]:
-        # 여기까지 와야 연락처와 실사진이 나간다(설계 §2.5). 통과 전에는 키 자체가 응답에 없다.
-        room["kakao_id"] = await wiring.repo.fetch_kakao_id(partner["profile_id"])
-        room["photo_urls"] = [
-            await wiring.photos.create_signed_url(path, PHOTO_URL_TTL_SECONDS)
-            for path in await wiring.repo.fetch_photo_paths(partner["profile_id"])
-        ]
+    # 사용자 결정 2026-09-27: 게이트 뒤 나가기·차단이면 연락처·실사진 닫힘(14c 404 와 일관).
+    # 차단은 차단한 쪽의 left_at 이라 나가기와 같은 판정(is_gone)을 탄다 — 응답으로 둘이 갈리지 않는다(설계 §7.2).
+    if match["trust_passed_at"] and not gate.is_gone(partner):
+        room.update(await revealed_contact(wiring.repo, wiring.photos, partner["profile_id"]))
     return room
+
+
+async def revealed_contact(repo: ChatRepository, photos: ProfilePhotoStorage, partner_id: str) -> dict:
+    """게이트를 통과한 뒤에만 나가는 두 키(설계 §2.5). 방 머리말과 14c 상대 프로필(safety)이 같이 쓴다 —
+    부르는 쪽이 trust_passed_at 을 확인한다. 통과 전에는 키 자체가 응답에 없어야 한다."""
+    return {
+        "kakao_id": await repo.fetch_kakao_id(partner_id),
+        "photo_urls": [
+            await photos.create_signed_url(path, PHOTO_URL_TTL_SECONDS)
+            for path in await repo.fetch_photo_paths(partner_id)
+        ],
+    }
 
 
 @router.get("/chat/matches/{match_id}/messages")
@@ -264,21 +282,13 @@ async def leave_chat(match_id: str, wiring: _Wiring = Depends(_wire)) -> dict:
     """채팅방 나가기. 게이트 거절도 여기로 온다(결정 11) — 서버는 둘을 구분하지 않는다.
 
     되돌릴 수 없고 상대에게 시스템 줄로 보인다(결정 7)."""
-    now = wiring.now
-
     match = await wiring.repo.fetch_match(match_id, wiring.profile_id)
     if match is None:
         raise HTTPException(status_code=404, detail=errors.CHAT_NOT_FOUND)
 
-    # left_at 을 먼저 찍고 시스템 줄을 나중에 넣는다. 반대로 하면 줄만 남고 나가기가 실패할 수 있다.
-    if not await wiring.repo.leave(match_id, wiring.profile_id, now):
+    # 차단(safety)도 이 한 함수로 나간다 — 문장·kind 가 둘로 갈리면 상대가 차단을 알아챈다.
+    if not await wiring.repo.leave_and_announce(match_id, wiring.profile_id, wiring.now):
         raise HTTPException(status_code=409, detail=errors.CHAT_LEFT)
-
-    nickname = await wiring.repo.fetch_nickname(wiring.profile_id)
-    await wiring.repo.insert_message(
-        match_id, wiring.profile_id, f"{nickname}님이 채팅방을 나갔어요", kind="left"
-    )
-    # 푸시는 보내지 않는다 — 나갔다는 소식으로 알림을 울릴 일은 아니다. 다음에 방을 열면 보인다.
     return {"ok": True}
 
 

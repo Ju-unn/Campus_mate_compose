@@ -501,3 +501,53 @@ def test_read_mark_patches_my_participant_row():
 
     assert response.status_code == 200
     assert any("last_read_at" in patch for _, patch in calls.patches)
+
+
+# 조각 6: 상대 정지 --------------------------------------------------------------------
+# 정지는 left_at 을 찍지 않는다 — 조회 시점 판정이라 대시보드에서 status 한 칸만 되돌리면 그대로 돌아온다.
+
+def _partner_status(status: str) -> dict:
+    return _match(participants=[
+        {"profile_id": PROFILE_ID, "trust_response": None, "left_at": None, "last_read_at": None,
+         "profiles": {"status": "active"}},
+        {"profile_id": PARTNER_ID, "trust_response": None, "left_at": None, "last_read_at": None,
+         "profiles": {"status": status}},
+    ])
+
+
+def test_a_suspended_partner_looks_like_one_who_left():
+    calls = _Calls()
+    body = _wire(_handler(calls, _partner_status("suspended"))).get(
+        f"/chat/matches/{MATCH_ID}", headers=AUTH_HEADERS).json()
+
+    assert body["gate"]["partner_left"] is True
+    # 상대 left_at 은 찍지 않는다 — 풀면 그대로 돌아와야 한다.
+    assert calls.patches == []
+
+
+def test_sending_to_a_suspended_partner_is_the_partner_left_409():
+    calls = _Calls()
+    response = _wire(_handler(calls, _partner_status("suspended"))).post(
+        f"/chat/matches/{MATCH_ID}/messages", json={"body": "거기 있어요?"}, headers=AUTH_HEADERS)
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "상대가 대화를 나갔어요"
+    assert calls.messages == []
+    assert calls.pushes == []
+
+
+def test_accepting_the_gate_with_a_suspended_partner_is_the_partner_left_409():
+    response = _wire(_handler(_Calls(), _partner_status("suspended"))).post(
+        f"/chat/matches/{MATCH_ID}/trust", headers=AUTH_HEADERS)
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "상대가 대화를 나갔어요"
+
+
+def test_lifting_the_suspension_opens_the_room_again():
+    calls = _Calls()
+    client = _wire(_handler(calls, _partner_status("active")))
+
+    assert client.get(f"/chat/matches/{MATCH_ID}", headers=AUTH_HEADERS).json()["gate"]["partner_left"] is False
+    assert client.post(f"/chat/matches/{MATCH_ID}/messages", json={"body": "다시 안녕"},
+                       headers=AUTH_HEADERS).status_code == 201

@@ -25,6 +25,16 @@ def remaining(created_at: datetime, now: datetime) -> timedelta:
     return deadline_at(created_at) - now
 
 
+def is_gone(participant: dict) -> bool:
+    """이 참가자와는 대화를 이어 갈 수 없는가 — 나갔거나 정지됐다(조각 6).
+
+    정지는 left_at 을 찍지 않는다. 조회 시점 판정이라 대시보드에서 status 한 칸만 되돌리면 방이 그대로
+    돌아온다(left_at 으로 구현하면 해제가 불가능해진다). 상대에게는 둘이 같은 모양으로 보인다 —
+    정지 사실을 알리지 않는다. 방 머리말 · 보내기 · 게이트 수락 · 매시 배치가 모두 이 함수를 쓴다."""
+    status = (participant.get("profiles") or {}).get("status")
+    return bool(participant["left_at"]) or status == "suspended"
+
+
 def is_passed(responses: list[str | None]) -> bool:
     """둘 다 accept 여야 통과다. 한 명이라도 미응답이면 아직 아니다.
 
