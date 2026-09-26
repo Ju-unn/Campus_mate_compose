@@ -9,6 +9,7 @@ import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/router/auth_redirect.dart';
 import 'package:campus_mate/core/router/placeholder_screens.dart';
+import 'package:campus_mate/home/view/home_screen.dart';
 import 'package:campus_mate/matching/model/acceptance.dart';
 import 'package:campus_mate/matching/view/card_detail_screen.dart';
 import 'package:campus_mate/matching/view/conversations_screen.dart';
@@ -73,13 +74,10 @@ abstract final class AppRouter {
     ];
   }
 
-  /// 조각 4 — 오늘의 카드와 그 주변. 09b 메인은 아직 없어 `home` 도 자리 화면이다(Part A 가정 1).
+  /// 조각 4 — 오늘의 카드와 그 주변. `home` 은 09b 메인이고 아직 목데이터로 채운다(`homeRepositoryProvider`).
   static List<RouteBase> _slice4Routes() {
     return <RouteBase>[
-      GoRoute(
-        path: AppRoutes.home,
-        builder: (context, state) => const ComingSoonScreen(tab: AppTab.main),
-      ),
+      GoRoute(path: AppRoutes.home, builder: (context, state) => const HomeScreen()),
       GoRoute(path: AppRoutes.today, builder: (context, state) => const TodayCardsScreen()),
       GoRoute(
         path: '${AppRoutes.cardDetail}/:cardId',

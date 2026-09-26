@@ -96,7 +96,15 @@ class _NavItem extends StatelessWidget {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(label, style: AppTypography.badge.copyWith(color: color)),
+                  // 글자를 키우면(DESIGN §11.2) 칸 폭 안에서 말줄임한다.
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.badge.copyWith(color: color),
+                    ),
+                  ),
                   if (badge > 0) ...[const SizedBox(width: 4), _CountBadge(count: badge)],
                 ],
               ),
