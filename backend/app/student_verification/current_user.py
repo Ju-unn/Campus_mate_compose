@@ -36,6 +36,11 @@ async def get_verified_user_id(
         settings.postgrest_url, settings.supabase_service_role_key, client
     )
     gate = await repo.fetch_gate_status(profile_id)
+    if gate.get("status") == "suspended":
+        # 학생증 · 학과보다 먼저 본다. 403 은 그 두 관문도 쓰고 있어서 앱(정지 안내 화면)이 문구를
+        # 비교하지 않고 가를 수 있게 헤더를 싣는다(Ruling 8). 로그인 자체는 살려 둔다 — 안내를 띄워야 한다.
+        raise HTTPException(status_code=403, detail=errors.ACCOUNT_SUSPENDED,
+                            headers={"X-Account-Status": "suspended"})
     if gate["student_verification"] != "verified":
         raise HTTPException(status_code=403, detail=errors.STUDENT_VERIFICATION_REQUIRED)
     if gate["department"] is None:
