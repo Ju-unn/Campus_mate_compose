@@ -24,7 +24,7 @@ class TagPickerViewModel extends Notifier<TagPickerUiState> {
     final selected = {...state.selected};
     if (selected.contains(tag)) {
       selected.remove(tag);
-    } else if (selected.length < 5) {
+    } else if (selected.length < TagPickerKind.maxCount) {
       selected.add(tag);
     }
     state = state.copyWith(selected: selected);

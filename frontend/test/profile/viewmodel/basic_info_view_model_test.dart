@@ -39,6 +39,16 @@ void main() {
     expect(repository.checkedNicknames, ['가나다']);
   });
 
+  testWidgets('300ms 가 차기 전에는 중복 확인을 부르지 않는다', (tester) async {
+    final vm = container.read(basicInfoViewModelProvider.notifier);
+    vm.changeNickname('가나다');
+    await tester.pump(const Duration(milliseconds: 290));
+    expect(repository.checkedNicknames, isEmpty);
+
+    await tester.pump(const Duration(milliseconds: 20));
+    expect(repository.checkedNicknames, ['가나다']);
+  });
+
   testWidgets('디바운스 중 다시 입력하면 마지막 값만 확인한다', (tester) async {
     final vm = container.read(basicInfoViewModelProvider.notifier);
     vm.changeNickname('가나');
