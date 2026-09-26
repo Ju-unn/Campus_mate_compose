@@ -373,7 +373,7 @@ async def generate_bio_draft_endpoint(
     caller: Caller = Depends(get_verified_caller),
     openai_client: AsyncOpenAI = Depends(get_openai),
 ) -> dict[str, str]:
-    from app.profile_onboarding.bio_draft import generate_bio_draft
+    from app.profile_onboarding.bio_draft import generate_bio_draft, survey_summary
 
     settings, client, profile_id = caller
     repo = _repo(settings, client)
@@ -384,10 +384,12 @@ async def generate_bio_draft_endpoint(
         return {"draft": saved_draft}
 
     snapshot = await repo.fetch_onboarding_snapshot(profile_id)
-    survey_summary = f"religion={snapshot['religion']}, is_smoker={snapshot['is_smoker']}"
+    summary = survey_summary(
+        snapshot["survey_answers"], snapshot["mbti"], snapshot["religion"], snapshot["is_smoker"]
+    )
     draft = await generate_bio_draft(
         openai_client,
-        survey_summary, snapshot["interest_tags"], snapshot["my_traits"],
+        summary, snapshot["interest_tags"], snapshot["my_traits"],
     )
     await repo.save_bio_draft(profile_id, draft)
     return {"draft": draft}
