@@ -25,6 +25,9 @@ Result<http.Response> _classify(http.Response response) {
   if (response.statusCode == 429) {
     return const FailureResult(RateLimitedFailure());
   }
+  if (response.statusCode == 502 || response.statusCode == 503) {
+    return const FailureResult(ServerUnavailableFailure());
+  }
   if (response.statusCode >= 500) {
     return const FailureResult(UnknownFailure());
   }

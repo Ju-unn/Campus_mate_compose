@@ -47,6 +47,15 @@ final class UnknownFailure extends Failure {
   }
 }
 
+/// 서버가 잠깐 요청을 못 받는 경우(502·503 — 배포 중이거나 뒤쪽 작업 큐 등록이 실패함).
+/// 앱 쪽 잘못이 아니라서 다시 시도하면 되는 일이다(DEPLOY §4-2 와 같은 문구, 2026-09-26 사용자 결정).
+final class ServerUnavailableFailure extends Failure {
+  const ServerUnavailableFailure();
+
+  @override
+  String toDisplayMessage() => '잠시 뒤 다시 시도해 주세요';
+}
+
 /// 시간당 재전송·요청 한도에 걸린 경우.
 final class RateLimitedFailure extends Failure {
   const RateLimitedFailure();

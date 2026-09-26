@@ -83,7 +83,7 @@ void main() {
 
   test('큐 설정이 안 된 서버(503)면 넘어가지 않는다', () async {
     // 넘어가 봐야 결과 화면이 빈다.
-    repository.nextResult = const FailureResult(UnknownFailure());
+    repository.nextResult = const FailureResult(ServerUnavailableFailure());
 
     expect(await viewModel().generate(), isNotNull);
     expect(state().status, AvatarGenerationStatus.failed);
