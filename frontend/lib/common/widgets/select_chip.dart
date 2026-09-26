@@ -13,6 +13,7 @@ class SelectChip extends StatelessWidget {
     this.width,
     this.height = 35,
     this.radius = AppRadius.sm,
+    this.padding = EdgeInsets.zero,
     super.key,
   });
 
@@ -28,6 +29,10 @@ class SelectChip extends StatelessWidget {
 
   /// 태그 칩은 모서리 8, 성별·MBTI 칩은 알약 모서리다.
   final double radius;
+
+  /// 글자 좌우 여백. 칸 너비가 정해지지 않은 칩(태그 `WzXvK` 좌우 12)만 넘긴다 —
+  /// 너비를 받은 칩(성별 76·MBTI 48)은 글자를 가운데 둘 뿐이라 여백이 없다.
+  final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
@@ -50,8 +55,14 @@ class SelectChip extends StatelessWidget {
               borderRadius: BorderRadius.circular(radius),
               border: Border.all(color: isSelected ? AppColors.primary : Colors.transparent),
             ),
+            // 칸 너비를 받지 않은 칩은 **글자 폭만큼만** 차지한다 — `widthFactor` 가 없으면
+            // 줄 폭을 통째로 먹어서 `Wrap` 안에서 칩이 한 줄에 하나씩 쌓인다(2026-09-26 실기기).
             child: Center(
-              child: Text(label, style: AppTypography.labelSmall.copyWith(color: AppColors.ink)),
+              widthFactor: width == null ? 1 : null,
+              child: Padding(
+                padding: padding,
+                child: Text(label, style: AppTypography.labelSmall.copyWith(color: AppColors.ink)),
+              ),
             ),
           ),
         ),

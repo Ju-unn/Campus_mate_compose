@@ -386,12 +386,16 @@ class _TagChip extends StatelessWidget {
     return Container(
       height: 30,
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-      alignment: Alignment.center,
       decoration: BoxDecoration(
         color: AppColors.surfaceSoft,
         borderRadius: BorderRadius.circular(AppRadius.pill),
       ),
-      child: Text(label, style: AppTypography.bodySmall.copyWith(color: AppColors.body)),
+      // `alignment` 을 쓰면 폭 제한이 없는 `Wrap` 안에서 줄 폭을 통째로 먹어 칩이 세로로 쌓인다
+      // (2026-09-26 실기기). 글자 높이만 가운데로 맞추고 폭은 글자만큼만 차지한다.
+      child: Center(
+        widthFactor: 1,
+        child: Text(label, style: AppTypography.bodySmall.copyWith(color: AppColors.body)),
+      ),
     );
   }
 }
