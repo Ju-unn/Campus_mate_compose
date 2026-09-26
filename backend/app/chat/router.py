@@ -264,21 +264,13 @@ async def leave_chat(match_id: str, wiring: _Wiring = Depends(_wire)) -> dict:
     """채팅방 나가기. 게이트 거절도 여기로 온다(결정 11) — 서버는 둘을 구분하지 않는다.
 
     되돌릴 수 없고 상대에게 시스템 줄로 보인다(결정 7)."""
-    now = wiring.now
-
     match = await wiring.repo.fetch_match(match_id, wiring.profile_id)
     if match is None:
         raise HTTPException(status_code=404, detail=errors.CHAT_NOT_FOUND)
 
-    # left_at 을 먼저 찍고 시스템 줄을 나중에 넣는다. 반대로 하면 줄만 남고 나가기가 실패할 수 있다.
-    if not await wiring.repo.leave(match_id, wiring.profile_id, now):
+    # 차단(safety)도 이 한 함수로 나간다 — 문장·kind 가 둘로 갈리면 상대가 차단을 알아챈다.
+    if not await wiring.repo.leave_and_announce(match_id, wiring.profile_id, wiring.now):
         raise HTTPException(status_code=409, detail=errors.CHAT_LEFT)
-
-    nickname = await wiring.repo.fetch_nickname(wiring.profile_id)
-    await wiring.repo.insert_message(
-        match_id, wiring.profile_id, f"{nickname}님이 채팅방을 나갔어요", kind="left"
-    )
-    # 푸시는 보내지 않는다 — 나갔다는 소식으로 알림을 울릴 일은 아니다. 다음에 방을 열면 보인다.
     return {"ok": True}
 
 

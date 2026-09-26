@@ -151,6 +151,19 @@ class ChatRepository(PostgrestRepository):
         }, {"left_at": now.isoformat()})
         return bool(rows)
 
+    async def leave_and_announce(self, match_id: UUID | str, profile_id: UUID | str,
+                                 now: datetime) -> bool:
+        """나가기 한 번. `/leave` 와 차단(조각 6)이 같이 쓴다 — 상대에게 둘이 글자까지 같아야
+        차단 사실이 새지 않는다(설계 §7.2). 이번에 나갔으면 True.
+
+        left_at 을 먼저 찍고 시스템 줄을 나중에 넣는다. 반대로 하면 줄만 남고 나가기가 실패할 수 있다.
+        푸시는 보내지 않는다 — 나갔다는 소식으로 알림을 울릴 일은 아니다. 다음에 방을 열면 보인다."""
+        if not await self.leave(match_id, profile_id, now):
+            return False
+        nickname = await self.fetch_nickname(profile_id)
+        await self.insert_message(match_id, profile_id, f"{nickname}님이 채팅방을 나갔어요", kind="left")
+        return True
+
     async def save_trust_accept(self, match_id: UUID | str, profile_id: UUID | str,
                                 now: datetime) -> bool:
         """아직 응답하지 않았을 때만 'accept' 를 쓴다. 이미 있으면 False.

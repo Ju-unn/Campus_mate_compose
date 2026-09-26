@@ -195,3 +195,38 @@ async def test_fetch_match_refuses_someone_elses_room():
         }])
 
     assert await _repo(handler).fetch_match(MATCH, ME) is None
+
+
+# 나가기 + 시스템 줄(조각 6: /leave 와 차단이 같이 쓴다) --------------------------------
+
+def _leave_handler(seen: list[tuple[str, str, dict | None]], *, stamped: bool):
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content) if request.content else None
+        seen.append((request.method, request.url.path, body))
+        if request.method == "PATCH":
+            return httpx.Response(200, json=[{"profile_id": ME}] if stamped else [])
+        if request.method == "GET":
+            return httpx.Response(200, json=[{"nickname": "가나다"}])
+        return httpx.Response(201, json=[{"id": "msg-1", **body}])
+    return handler
+
+
+async def test_leave_and_announce_stamps_first_then_writes_the_left_line():
+    seen: list[tuple[str, str, dict | None]] = []
+
+    assert await _repo(_leave_handler(seen, stamped=True)).leave_and_announce(
+        MATCH, ME, datetime.now(SEOUL)) is True
+
+    assert [method for method, _, _ in seen] == ["PATCH", "GET", "POST"]
+    line = seen[-1][2]
+    assert line["kind"] == "left"
+    assert line["body"] == "가나다님이 채팅방을 나갔어요"
+
+
+async def test_leave_and_announce_writes_nothing_when_already_left():
+    seen: list[tuple[str, str, dict | None]] = []
+
+    assert await _repo(_leave_handler(seen, stamped=False)).leave_and_announce(
+        MATCH, ME, datetime.now(SEOUL)) is False
+
+    assert [method for method, _, _ in seen] == ["PATCH"]
