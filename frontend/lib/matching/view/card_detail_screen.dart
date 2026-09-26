@@ -264,53 +264,45 @@ class _Facts extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final facts = <({String label, String? value})?>[
+    final facts = <({String label, String? value})>[
       (label: '키', value: detail.heightCm == null ? null : '${detail.heightCm}cm'),
       (label: 'MBTI', value: detail.mbti),
       (label: '학번', value: detail.studentNumber == null ? null : '${detail.studentNumber}학번'),
       (label: '종교', value: detail.religion.label),
       (label: '흡연', value: detail.isSmoker ? '흡연' : '비흡연'),
-      // 3열 2줄이라 여섯 번째는 빈칸이다.
-      null,
     ];
-    return Column(
-      children: [
-        for (var row = 0; row < 2; row += 1)
-          Padding(
-            // 두 줄 사이 10, 열 사이 8, 라벨-값 사이 2 는 pen `TORAs` 실측값이다.
-            padding: EdgeInsets.only(top: row == 0 ? 0 : 10),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (var col = 0; col < 3; col += 1) ...[
-                  if (col > 0) const SizedBox(width: AppSpacing.xs),
-                  Expanded(
-                    child: switch (facts[row * 3 + col]) {
-                      null => const SizedBox.shrink(),
-                      final fact => Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            fact.label,
-                            style: AppTypography.caption.copyWith(
-                              fontSize: 11,
-                              color: AppColors.muted,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            fact.value ?? '—',
-                            style: AppTypography.bodyStrong.copyWith(color: AppColors.ink),
-                          ),
-                        ],
-                      ),
-                    },
-                  ),
-                ],
-              ],
-            ),
-          ),
-      ],
+    // 두 줄 사이 10, 열 사이 8, 라벨-값 사이 2 는 pen `TORAs` 실측값이다.
+    // 칸 폭(3열 균등, pen 91)은 최소값이다 — 글자를 키워(§11.2) 값이 칸을 넘으면 그 칸만 넓어지고
+    // 뒤 칸은 다음 줄로 내려간다(백로그 31). 배율 1.0 에서는 지금처럼 3열 2줄이다.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cellWidth = (constraints.maxWidth - AppSpacing.xs * 2) / 3;
+        return Wrap(
+          spacing: AppSpacing.xs,
+          runSpacing: 10,
+          children: [
+            for (final fact in facts)
+              ConstrainedBox(
+                constraints: BoxConstraints(minWidth: cellWidth),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      fact.label,
+                      style: AppTypography.caption.copyWith(fontSize: 11, color: AppColors.muted),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      fact.value ?? '—',
+                      style: AppTypography.bodyStrong.copyWith(color: AppColors.ink),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }
@@ -384,7 +376,8 @@ class _TagChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 30,
+      // pen 칩 높이 30 은 최소값이다 — 글자를 키우면(§11.2) 칩이 따라 커진다(백로그 31).
+      constraints: const BoxConstraints(minHeight: 30),
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
       decoration: BoxDecoration(
         color: AppColors.surfaceSoft,
