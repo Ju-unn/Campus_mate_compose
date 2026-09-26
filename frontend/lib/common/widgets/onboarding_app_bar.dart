@@ -20,7 +20,7 @@ class OnboardingAppBar extends StatelessWidget implements PreferredSizeWidget {
   final int current;
   final int total;
 
-  /// 설문(05-01~05-11)은 점 대신 막대를 쓴다.
+  /// 설문(05-01~05-11)과 그 뒤 아바타 결과 화면(05-12 계열)은 점 대신 막대를 쓴다.
   final bool isBar;
 
   /// 화면 안에서 뒤로 갈 곳이 있을 때만 넘긴다(예: 설문 이전 문항).
