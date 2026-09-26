@@ -30,10 +30,10 @@ const List<_Axis> _axes = [
 ];
 
 /// 9축 + 종교 + 흡연 = 11화면(DESIGN.md 화면 05-01~05-11).
-const int _axisCount = 9;
-const int _pageCount = _axisCount + 2;
-const int _religionPage = _axisCount;
-const int _smokePage = _axisCount + 1;
+/// 축 개수는 뷰모델이 들고 있는 하나만 본다 — 화면에서 또 세면 둘이 어긋난 걸 아무도 못 본다.
+const int _pageCount = SurveyUiState.axisCount + 2;
+const int _religionPage = SurveyUiState.axisCount;
+const int _smokePage = SurveyUiState.axisCount + 1;
 
 /// 성향 설문 화면(DESIGN.md 화면 05-01~05-11).
 /// 11화면을 라우트로 쪼개지 않고 `PageView` 하나로 넘긴다 — 서버가 세는 단계는 설문 전체 1개다.
@@ -56,7 +56,7 @@ class _SurveyScreenState extends ConsumerState<SurveyScreen> {
 
   @override
   Widget build(BuildContext context) {
-    assert(_axes.length == _axisCount, '축 문항 수와 페이지 번호 계산이 어긋났다');
+    assert(_axes.length == SurveyUiState.axisCount, '축 문항 수와 페이지 번호 계산이 어긋났다');
     final state = ref.watch(surveyViewModelProvider);
     final viewModel = ref.read(surveyViewModelProvider.notifier);
     return Scaffold(

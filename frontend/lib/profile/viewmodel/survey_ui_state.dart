@@ -11,6 +11,9 @@ class SurveyUiState {
     this.completed = false,
   });
 
+  /// 성향 축 개수(1~9). 기본값을 채우는 쪽과 제출 조건이 같은 수를 봐야 한다.
+  static const int axisCount = 9;
+
   final Map<int, double> answers;
   final Religion? religion;
   final bool? isSmoker;
@@ -18,5 +21,6 @@ class SurveyUiState {
   final String? errorMessage;
   final bool completed;
 
-  bool get canSubmit => answers.length == 9 && religion != null && isSmoker != null && !isSubmitting;
+  bool get canSubmit =>
+      answers.length == axisCount && religion != null && isSmoker != null && !isSubmitting;
 }
