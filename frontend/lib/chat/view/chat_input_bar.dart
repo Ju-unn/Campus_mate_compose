@@ -59,10 +59,10 @@ class _ChatInputBarState extends State<ChatInputBar> {
                   minLines: 1,
                   maxLines: 4,
                   // 1,000자 상한(결정 8). 카운터는 두지 않는다 — 그 길이까지 쓰는 일이 드물다.
-                  maxLength: messageMaxLength,
-                  buildCounter: (context, {required currentLength, required isFocused, maxLength}) =>
-                      null,
-                  inputFormatters: [LengthLimitingTextInputFormatter(messageMaxLength)],
+                  // **코드포인트로 센다**(백로그 21) — 서버 len()·DB `messages_body_length`(char_length)
+                  // 가 그렇게 센다. maxLength·LengthLimitingTextInputFormatter 는 grapheme 으로 세서
+                  // 합성 이모지를 넣으면 앱은 통과시키고 서버가 422 로 막는다.
+                  inputFormatters: [_codePointLimit],
                   onChanged: (_) => setState(() {}),
                   onSubmitted: (_) => _send(),
                   style: AppTypography.body.copyWith(color: AppColors.ink),
@@ -91,6 +91,23 @@ class _ChatInputBarState extends State<ChatInputBar> {
     );
   }
 }
+
+/// 넘치면 앞 [messageMaxLength] 코드포인트만 남긴다.
+/// runes 로 자르니 서로게이트 쌍이 반으로 갈리지 않는다(합성 이모지의 ZWJ 사이는 갈릴 수 있다).
+final TextInputFormatter _codePointLimit = TextInputFormatter.withFunction((oldValue, newValue) {
+  if (newValue.text.runes.length <= messageMaxLength) {
+    return newValue;
+  }
+  // 이미 가득 찬 글에 한 글자 더 넣으면 입력을 무시한다 — 끝 글자를 밀어내지 않고 커서도 제자리다
+  // (옛 LengthLimitingTextInputFormatter 와 같은 동작).
+  if (oldValue.text.runes.length >= messageMaxLength && oldValue.selection.isCollapsed) {
+    return oldValue;
+  }
+  final text = String.fromCharCodes(newValue.text.runes.take(messageMaxLength));
+  // 커서는 입력한 자리에 두되 잘린 글 밖으로는 나가지 않게 한다.
+  final offset = newValue.selection.end.clamp(0, text.length);
+  return TextEditingValue(text: text, selection: TextSelection.collapsed(offset: offset));
+});
 
 /// 원형 40dp 전송 버튼(pen `S64lvQ`).
 class _SendButton extends StatelessWidget {
