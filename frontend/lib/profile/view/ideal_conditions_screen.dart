@@ -236,14 +236,19 @@ class _RangeField extends StatelessWidget {
             Text(endLabels.$3, style: AppTypography.caption.copyWith(color: AppColors.muted)),
           ],
         ),
-        InkWell(
-          onTap: () => onIgnoredChanged(!ignored),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Checkbox(value: ignored, onChanged: (value) => onIgnoredChanged(value ?? false)),
-              Text(ignoreLabel, style: AppTypography.bodySmall.copyWith(color: AppColors.body)),
-            ],
+        // 줄이 자기 Material 을 들고 있어야 눌림 효과가 Scaffold 에 그려지지 않는다 — 없으면
+        // 스크롤해도 테두리만 제자리에 떠 있다(2026-09-27 실기기, select_chip.dart 와 같은 자리).
+        Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            onTap: () => onIgnoredChanged(!ignored),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Checkbox(value: ignored, onChanged: (value) => onIgnoredChanged(value ?? false)),
+                Text(ignoreLabel, style: AppTypography.bodySmall.copyWith(color: AppColors.body)),
+              ],
+            ),
           ),
         ),
       ],
