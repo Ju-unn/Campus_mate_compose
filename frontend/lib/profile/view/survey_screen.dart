@@ -15,16 +15,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// 문구는 datingApp.pen 05-01~05-09 를 따른다(2026-09-20 사용자 결정 C1).
 typedef _Axis = ({int axis, String headline, String left, String right});
 
+/// 줄바꿈 자리도 pen 값이다(05-01~05-09, erd3 2026-09-26) — 기기 폭에 맡기면 두 줄이 어디서 끊길지
+/// 매번 달라져서, 짧은 질문이 한 줄로 붙고 긴 질문만 두 줄이 된다.
 const List<_Axis> _axes = [
-  (axis: 1, headline: '밖에 나가서 활동하는 걸 좋아하시나요?', left: '집이 편해요', right: '밖이 좋아요'),
-  (axis: 2, headline: '낯선 사람과 빨리 친해지는 편인가요?', left: '낯을 많이 가려요', right: '금방 친해져요'),
-  (axis: 3, headline: '미리 계획을 세우는 편인가요?', left: '즉흥적이에요', right: '계획적이에요'),
-  (axis: 4, headline: '연애할 때 연락을 자주 하는 편인가요?', left: '필요할 때만 해요', right: '자주 연락해요'),
-  (axis: 5, headline: '감정 표현이 풍부한 편인가요?', left: '담백해요', right: '표현이 풍부해요'),
-  (axis: 6, headline: '술자리를 즐기는 편인가요?', left: '거의 안 마셔요', right: '자주 즐겨요'),
-  (axis: 7, headline: '운동을 꾸준히 하는 편인가요?', left: '관심 없어요', right: '꾸준히 해요'),
-  (axis: 8, headline: '마음이 확실하면 관계를 빠르게 진전시키나요?', left: '천천히요', right: '빠르게요'),
-  (axis: 9, headline: '새로운 걸 시도하는 걸 좋아하시나요?', left: '익숙한 게 편해요', right: '새로운 걸 찾아요'),
+  (axis: 1, headline: '밖에 나가서 활동하는 걸\n좋아하시나요?', left: '집이 편해요', right: '밖이 좋아요'),
+  (axis: 2, headline: '낯선 사람과 빨리\n친해지는 편인가요?', left: '낯을 많이 가려요', right: '금방 친해져요'),
+  (axis: 3, headline: '미리 계획을\n세우는 편인가요?', left: '즉흥적이에요', right: '계획적이에요'),
+  (axis: 4, headline: '연애할 때 연락을\n자주 하는 편인가요?', left: '필요할 때만 해요', right: '자주 연락해요'),
+  (axis: 5, headline: '감정 표현이\n풍부한 편인가요?', left: '담백해요', right: '표현이 풍부해요'),
+  (axis: 6, headline: '술자리를\n즐기는 편인가요?', left: '거의 안 마셔요', right: '자주 즐겨요'),
+  (axis: 7, headline: '운동을 꾸준히\n하는 편인가요?', left: '관심 없어요', right: '꾸준히 해요'),
+  (axis: 8, headline: '마음이 확실하면 관계를\n빠르게 진전시키나요?', left: '천천히요', right: '빠르게요'),
+  (axis: 9, headline: '새로운 걸 시도하는 걸\n좋아하시나요?', left: '익숙한 게 편해요', right: '새로운 걸 찾아요'),
 ];
 
 /// 9축 + 종교 + 흡연 = 11화면(DESIGN.md 화면 05-01~05-11).

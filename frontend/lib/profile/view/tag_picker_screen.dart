@@ -64,6 +64,8 @@ class _TagSection extends StatelessWidget {
         children: [
           Text(kind.tagLabel, style: AppTypography.labelSmall.copyWith(color: AppColors.body)),
           const SizedBox(height: AppSpacing.xs),
+          // pen 은 그리드가 아니다 — 칩이 글자 폭만큼 넓어지고 한 줄에 들어가는 만큼 놓인다
+          // (erd3 실측 2026-09-26: 04-5 는 한 줄에 4·3·2개가 섞인다). 그게 `Wrap` 의 동작이다.
           Wrap(
             spacing: AppSpacing.xs,
             runSpacing: AppSpacing.xs,
@@ -71,6 +73,10 @@ class _TagSection extends StatelessWidget {
               for (final tag in kind.pool)
                 SelectChip(
                   label: tag,
+                  // 태그 칩은 pen 마스터 `WzXvK` 값이다 — 높이 36(여백 8×2 + 줄 20), 좌우 12.
+                  // `SelectChip` 기본값 35 는 04-1 Chip 값이라 그대로 둔다.
+                  height: 36,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
                   isSelected: state.selected.contains(tag),
                   onTap: () => onToggle(tag),
                 ),

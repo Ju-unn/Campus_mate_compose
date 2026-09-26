@@ -24,7 +24,7 @@ class SelectChip extends StatelessWidget {
   /// 디자인 파일이 칸 너비를 정해 둔 자리(성별 76, MBTI 48)에만 넘긴다.
   final double? width;
 
-  /// 디자인 파일의 칸 높이. 04-1 `Chip` 은 35, 04-4·06-1 인상 칩(`BGMWX`)은 40 이다.
+  /// 디자인 파일의 칸 높이. 04-1 `Chip` 은 35, 04-4·06-1 인상 칩(`BGMWX`)은 44 다.
   final double height;
 
   /// 태그 칩은 모서리 8, 성별·MBTI 칩은 알약 모서리다.
