@@ -20,15 +20,29 @@ def test_next_step_moves_to_kakao_id_after_basic_info():
     assert next_step(profile) == "kakao_id"
 
 
-def test_next_step_moves_through_photos_avatar_appearance():
+def test_next_step_moves_from_photos_straight_to_appearance():
+    """아바타는 만드는 동안 다음 질문을 이어 가므로(2026-09-25 사용자 결정) 결과 확인이 성향 질문 뒤로 갔다.
+    원본 사진 지정은 여전히 photos 단계 조건이다 — 작업 등록은 04-3(photos 의 마지막 화면)에서 한다."""
     profile = {**_EMPTY_PROFILE, "nickname": "가나", "phone_set": True, "kakao_id_set": True}
     assert next_step(profile) == "photos"
 
     profile = {**profile, "photo_count": 2, "has_avatar_source": True}
+    assert next_step(profile) == "appearance_type"
+
+
+def test_next_step_asks_for_the_avatar_after_the_survey():
+    profile = {
+        **_EMPTY_PROFILE, "nickname": "가나", "phone_set": True, "kakao_id_set": True,
+        "photo_count": 2, "has_avatar_source": True,
+        "animal_type": "dog", "impression_type": "kind",
+        "interest_tags": ["a", "b", "c"], "my_traits": ["a", "b", "c"],
+        "survey_answer_count": 9, "religion": "none", "is_smoker": False,
+    }
+    # 아직 만드는 중(avatar_ready=False)이면 결과 화면에서 기다린다.
     assert next_step(profile) == "avatar"
 
-    profile = {**profile, "avatar_ready": True}
-    assert next_step(profile) == "appearance_type"
+    # 이미 아바타가 있는 사람은 이 단계를 지나칠 뿐이다 — 데이터 이관이 없다.
+    assert next_step({**profile, "avatar_ready": True}) == "ideal_conditions"
 
 
 def test_next_step_is_complete_when_everything_filled():

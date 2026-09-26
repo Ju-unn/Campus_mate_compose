@@ -5,6 +5,7 @@ import 'package:campus_mate/auth/model/face_detector_provider.dart';
 import 'package:campus_mate/auth/model/image_compressor_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/profile/model/avatar_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
 import 'package:campus_mate/profile/model/photos_repository_provider.dart';
 import 'package:campus_mate/profile/viewmodel/photos_ui_state.dart';
@@ -14,6 +15,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../../auth/model/fake_face_detector.dart';
 import '../../auth/model/fake_image_compressor.dart';
+import '../model/fake_avatar_repository.dart';
 import '../model/fake_onboarding_repository.dart';
 import '../model/fake_photos_repository.dart';
 
@@ -22,6 +24,7 @@ void main() {
   late FakeImageCompressor imageCompressor;
   late FakeFaceDetector faceDetector;
   late FakeOnboardingRepository onboardingRepository;
+  late FakeAvatarRepository avatarRepository;
   late ProviderContainer container;
 
   setUp(() {
@@ -29,12 +32,15 @@ void main() {
     imageCompressor = FakeImageCompressor();
     faceDetector = FakeFaceDetector();
     onboardingRepository = FakeOnboardingRepository();
+    avatarRepository = FakeAvatarRepository();
     container = ProviderContainer(
       overrides: [
         photosRepositoryProvider.overrideWithValue(repository),
         imageCompressorProvider.overrideWithValue(imageCompressor),
         faceDetectorProvider.overrideWithValue(faceDetector),
         onboardingRepositoryProvider.overrideWithValue(onboardingRepository),
+        // 04-3 "다음"이 사진 업로드에 이어 아바타 작업까지 등록한다.
+        avatarRepositoryProvider.overrideWithValue(avatarRepository),
       ],
     );
   });
@@ -285,6 +291,56 @@ void main() {
     expect(repository.uploads[0].isAvatarSource, isTrue);
     expect(repository.uploads[1].isAvatarSource, isFalse);
     expect(onboardingRepository.fetchCount, 1);
+  });
+
+  test('사진을 다 올리면 이어서 아바타 작업까지 등록한다', () async {
+    // 등록이 먼저, 이동이 나중이다 — 순서가 뒤집히면 넘어간 뒤에 등록이 실패해도 보여 줄 자리가 없다.
+    final viewModel = buildViewModel([File('a.jpg'), File('b.jpg')]);
+    await viewModel.addPhoto();
+    await viewModel.addPhoto();
+    viewModel.setAvatarSource(0);
+
+    await viewModel.submit();
+
+    expect(avatarRepository.generateCount, 1);
+    expect(container.read(photosViewModelProvider).completed, isTrue);
+  });
+
+  test('아바타 등록이 막히면 04-3 에 머문다', () async {
+    // 원본 사진이 없다 같은, 사람이 고칠 수 있는 오류다. completed 를 세우면 그대로 넘어가 버린다.
+    avatarRepository.nextResult = const FailureResult(ServerRejectedFailure('아바타 원본 사진을 먼저 골라 주세요'));
+    final viewModel = buildViewModel([File('a.jpg'), File('b.jpg')]);
+    await viewModel.addPhoto();
+    await viewModel.addPhoto();
+    viewModel.setAvatarSource(0);
+
+    await viewModel.submit();
+
+    final state = container.read(photosViewModelProvider);
+    expect(state.completed, isFalse);
+    expect(state.errorMessage, '아바타 원본 사진을 먼저 골라 주세요');
+    expect(onboardingRepository.fetchCount, 0);
+  });
+
+  test('작업을 등록하는 동안에도 기다리는 표시가 내려가지 않는다', () async {
+    // 업로드가 끝나자마자 state 를 갈아 끼우면 isSubmitting 이 내려가 토스트가 꺼진다 —
+    // 등록하는 동안 화면에 아무 표시도 없게 된다.
+    avatarRepository.generateGate = Completer<void>();
+    final viewModel = buildViewModel([File('a.jpg'), File('b.jpg')]);
+    await viewModel.addPhoto();
+    await viewModel.addPhoto();
+    viewModel.setAvatarSource(0);
+
+    final submitting = viewModel.submit();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(container.read(photosViewModelProvider).isSubmitting, isTrue);
+    expect(avatarRepository.generateCount, 1);
+
+    avatarRepository.generateGate!.complete();
+    await submitting;
+
+    expect(container.read(photosViewModelProvider).isSubmitting, isFalse);
   });
 
   test('업로드가 실패하면 completed 가 켜지지 않는다', () async {
