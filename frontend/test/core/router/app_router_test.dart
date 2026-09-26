@@ -5,6 +5,7 @@ import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/router/app_router.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
+import 'package:campus_mate/home/view/home_screen.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:campus_mate/matching/view/conversations_screen.dart';
 import 'package:campus_mate/profile/model/onboarding_step.dart';
@@ -79,8 +80,8 @@ void main() {
     expect(find.text('대학 이메일로 시작해요'), findsOneWidget);
   });
 
-  // 조각 4 부터 홈은 09b 메인 자리 화면이다. 오늘의 카드는 하단 내비 "오늘" 탭(`/today`)에 있다.
-  testWidgets('로그인하면 홈 화면이 보인다', (tester) async {
+  // 홈은 09b 메인이다. 오늘의 카드는 하단 내비 "오늘" 탭(`/today`)에 있다.
+  testWidgets('로그인하면 09b 메인 화면이 보인다', (tester) async {
     final router = AppRouter.create(
       isAuthenticated: () => true,
       verificationGate: _passedGate,
@@ -99,7 +100,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('곧 만나요'), findsOneWidget);
+    expect(find.byType(HomeScreen), findsOneWidget);
   });
 
   testWidgets('extra 없이 인증코드 화면에 진입하면 로그인 화면으로 보낸다', (tester) async {
