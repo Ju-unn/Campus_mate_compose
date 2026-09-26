@@ -125,3 +125,104 @@ def test_feed_requires_student_verification():
         "/community/polls", headers=AUTH_HEADERS)
     assert response.status_code == 403
 
+
+def _routes(**responses: httpx.Response) -> Callable[[httpx.Request], httpx.Response]:
+    """rpc 이름 → 응답. DELETE 는 키 'delete' 로 준다."""
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "DELETE" and request.url.path.endswith("/polls"):
+            return responses["delete"]
+        name = request.url.path.rsplit("/rpc/", 1)[-1]
+        if request.method == "POST" and name in responses:
+            return responses[name]
+        return httpx.Response(404, json={"message": f"unexpected {request.method} {request.url}"})
+    return handler
+
+
+def test_create_trims_and_defaults_labels():
+    seen: list[httpx.Request] = []
+    response = _wire(_routes(create_poll=httpx.Response(200, json=POLL_ID)), seen).post(
+        "/community/polls", json={"question": "  짜장 vs 짬뽕  "}, headers=AUTH_HEADERS)
+    assert response.status_code == 201
+    assert response.json() == {"id": POLL_ID}
+    assert json.loads(seen[0].content) == {
+        "p_author": PROFILE_ID, "p_question": "짜장 vs 짬뽕", "p_option_a": "찬성", "p_option_b": "반대"}
+
+
+@pytest.mark.parametrize("body", [
+    {"question": "   "},
+    {"question": "가" * 81},
+    {"question": "질문", "option_a_label": "가" * 7},
+    {"question": "질문", "option_a_label": "좋아", "option_b_label": "좋아"},
+    {"question": "질문", "option_b_label": "  "},
+])
+def test_create_rejects_bad_input_before_db(body):
+    seen: list[httpx.Request] = []
+    response = _wire(_routes(create_poll=httpx.Response(200, json=POLL_ID)), seen).post(
+        "/community/polls", json=body, headers=AUTH_HEADERS)
+    assert response.status_code == 422
+    assert seen == []
+
+
+def test_create_daily_limit_is_429():
+    response = _wire(_routes(create_poll=httpx.Response(400, json={"code": "CM429", "message": "poll daily limit"}))).post(
+        "/community/polls", json={"question": "열한 번째"}, headers=AUTH_HEADERS)
+    assert response.status_code == 429
+    assert response.json()["detail"] == errors.POLL_DAILY_LIMIT
+
+
+def test_vote_returns_fresh_poll_and_reward():
+    seen: list[httpx.Request] = []
+    handler = _routes(cast_poll_vote=httpx.Response(200, json=True),
+                      poll_feed=httpx.Response(200, json=[_row(my_choice="a", a_count=6)]))
+    response = _wire(handler, seen).post(
+        f"/community/polls/{POLL_ID}/votes", json={"choice": "a"}, headers=AUTH_HEADERS)
+    assert response.status_code == 200
+    assert response.json()["rewarded"] is True
+    assert set(response.json()["poll"]) == POLL_KEYS
+    assert response.json()["poll"]["a_count"] == 6
+    assert json.loads(seen[0].content) == {"p_poll_id": POLL_ID, "p_voter": PROFILE_ID, "p_choice": "a"}
+
+
+def test_vote_twice_is_409():
+    handler = _routes(cast_poll_vote=httpx.Response(409, json={"code": "23505", "message": "duplicate key"}))
+    response = _wire(handler).post(f"/community/polls/{POLL_ID}/votes", json={"choice": "b"}, headers=AUTH_HEADERS)
+    assert response.status_code == 409
+    assert response.json()["detail"] == errors.POLL_ALREADY_VOTED
+
+
+@pytest.mark.parametrize("db_error", [
+    httpx.Response(400, json={"code": "CM404", "message": "poll not found"}),
+    # 확인과 insert 사이에 글이 지워짐 — PostgREST 는 FK 위반을 409 로 보낸다.
+    httpx.Response(409, json={"code": "23503", "message": "violates foreign key constraint"}),
+])
+def test_vote_on_missing_or_hidden_poll_is_404(db_error):
+    handler = _routes(cast_poll_vote=db_error)
+    response = _wire(handler).post(f"/community/polls/{POLL_ID}/votes", json={"choice": "a"}, headers=AUTH_HEADERS)
+    assert response.status_code == 404
+    assert response.json()["detail"] == errors.POLL_NOT_FOUND
+
+
+def test_vote_rejects_unknown_choice():
+    seen: list[httpx.Request] = []
+    response = _wire(_routes(cast_poll_vote=httpx.Response(200, json=True)), seen).post(
+        f"/community/polls/{POLL_ID}/votes", json={"choice": "c"}, headers=AUTH_HEADERS)
+    assert response.status_code == 422
+    assert seen == []
+
+
+def test_delete_own_poll_filters_by_author():
+    seen: list[httpx.Request] = []
+    response = _wire(_routes(delete=httpx.Response(200, json=[{"id": POLL_ID}])), seen).delete(
+        f"/community/polls/{POLL_ID}", headers=AUTH_HEADERS)
+    assert response.status_code == 204
+    # author_id 조건이 빠지면 남의 글 id 로 지울 수 있다.
+    assert seen[0].url.params["author_id"] == f"eq.{PROFILE_ID}"
+    assert seen[0].url.params["id"] == f"eq.{POLL_ID}"
+    assert seen[0].headers["Prefer"] == "return=representation"
+
+
+def test_delete_others_poll_is_404_not_403():
+    response = _wire(_routes(delete=httpx.Response(200, json=[]))).delete(
+        f"/community/polls/{POLL_ID}", headers=AUTH_HEADERS)
+    assert response.status_code == 404
+    assert response.json()["detail"] == errors.POLL_NOT_FOUND
