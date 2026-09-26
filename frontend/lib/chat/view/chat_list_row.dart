@@ -19,52 +19,56 @@ class ChatListRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final unread = conversation.unreadCount;
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        // 고정 height 72 면 배율 1.75 부터 이름·마지막 줄이 넘친다(백로그 28 곁).
-        // 최소값으로 두면 배율 1.0 에서는 pen 대로 72 이고 글자를 키우면 따라 늘어난다.
-        constraints: const BoxConstraints(minHeight: 72),
-        color: AppColors.canvas,
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-        child: Row(
-          children: [
-            _Avatar(url: conversation.partner.avatarUrl),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: Column(
+    // 배경을 행 안의 Material 이 칠해야 눌림 효과가 행과 함께 스크롤된다(COMMON §4-2).
+    // Container(color:) 로 칠하면 효과가 Scaffold 에 그려져 목록을 움직여도 공중에 남는다.
+    return Material(
+      color: AppColors.canvas,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          // 고정 height 72 면 배율 1.75 부터 이름·마지막 줄이 넘친다(백로그 28 곁).
+          // 최소값으로 두면 배율 1.0 에서는 pen 대로 72 이고 글자를 키우면 따라 늘어난다.
+          constraints: const BoxConstraints(minHeight: 72),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          child: Row(
+            children: [
+              _Avatar(url: conversation.partner.avatarUrl),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      conversation.partner.nickname,
+                      style: AppTypography.bodyStrong.copyWith(color: AppColors.ink),
+                    ),
+                    Text(
+                      // 아직 한 마디도 없는 방. 시스템 줄도 그냥 마지막 메시지라 여기로 들어온다.
+                      conversation.lastMessage ?? '아직 메시지가 없어요',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Column(
                 mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    conversation.partner.nickname,
-                    style: AppTypography.bodyStrong.copyWith(color: AppColors.ink),
+                    listTimeLabel(conversation.lastMessageAt, DateTime.now()),
+                    style: AppTypography.caption.copyWith(color: AppColors.muted),
                   ),
-                  Text(
-                    // 아직 한 마디도 없는 방. 시스템 줄도 그냥 마지막 메시지라 여기로 들어온다.
-                    conversation.lastMessage ?? '아직 메시지가 없어요',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
-                  ),
+                  const SizedBox(height: AppSpacing.xxs),
+                  // 0 이면 뱃지를 그리지 않는다(§8.8 빈 요소 금지).
+                  if (unread > 0) UnreadBadge(count: unread),
                 ],
               ),
-            ),
-            const SizedBox(width: AppSpacing.xs),
-            Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  listTimeLabel(conversation.lastMessageAt, DateTime.now()),
-                  style: AppTypography.caption.copyWith(color: AppColors.muted),
-                ),
-                const SizedBox(height: AppSpacing.xxs),
-                // 0 이면 뱃지를 그리지 않는다(§8.8 빈 요소 금지).
-                if (unread > 0) UnreadBadge(count: unread),
-              ],
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
