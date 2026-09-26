@@ -44,6 +44,10 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
   late final AppLifecycleListener _lifecycle;
   bool _sheetShown = false;
 
+  /// 24시간 경계에 한 번 울린다(백로그 22). 시트는 상태가 바뀔 때만, 배너는 그릴 때만 시각을
+  /// 보니 방에 머무는 동안 경계를 넘으면 아무것도 바뀌지 않았다.
+  Timer? _reminderTimer;
+
   @override
   void initState() {
     super.initState();
@@ -57,6 +61,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
 
   @override
   void dispose() {
+    _reminderTimer?.cancel();
     _lifecycle.dispose();
     _scroll.dispose();
     // 나갈 때 한 번 더 읽음을 찍는다(ERD §4) — 방에서 본 것이 목록에 안 읽은 채로 남지 않게.
@@ -70,6 +75,8 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
       unawaited(ref.read(chatRoomViewModelProvider(widget.matchId).notifier).loadMore());
     }
   }
+
+  DateTime _now() => ref.read(chatRoomNowProvider)();
 
   ChatRoomViewModel get _viewModel =>
       ref.read(chatRoomViewModelProvider(widget.matchId).notifier);
@@ -100,6 +107,9 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
       if (next.hasLeft && previous?.hasLeft != true && context.mounted) {
         _exit();
         return;
+      }
+      if (next.room != null && !identical(next.room, previous?.room)) {
+        _scheduleReminder(next.room!);
       }
       _maybeShowSheet(next);
     });
@@ -148,7 +158,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
                 onAction: _reconnect,
               )
             else
-              _Banner(state: state, onAccept: _accept),
+              _Banner(state: state, now: _now(), onAccept: _accept),
             Expanded(child: _MessageList(state: state, controller: _scroll)),
             if (state.errorMessage != null) _ErrorLine(message: state.errorMessage!),
             if (state.isPartnerGone)
@@ -161,9 +171,26 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
     );
   }
 
+  /// 방을 새로 읽을 때마다 경계 Timer 를 다시 맞춘다. 이미 지난 경계면 걸지 않는다 —
+  /// 그때는 [_maybeShowSheet] 가 바로 판단한다.
+  void _scheduleReminder(ChatRoom room) {
+    _reminderTimer?.cancel();
+    final wait = room.createdAt.add(trustGateReminderAfter).difference(_now());
+    if (wait <= Duration.zero) {
+      return;
+    }
+    _reminderTimer = Timer(wait, () {
+      if (!mounted) {
+        return;
+      }
+      setState(() {});
+      _maybeShowSheet(ref.read(chatRoomViewModelProvider(widget.matchId)));
+    });
+  }
+
   /// 24시간이 지났고 아직 수락하지 않았으면 **방에 들어올 때마다** 시트가 뜬다(설계 §2.5).
   void _maybeShowSheet(ChatRoomUiState state) {
-    if (_sheetShown || state.stageAt(DateTime.now()) != TrustGateStage.sheet) {
+    if (_sheetShown || state.stageAt(_now()) != TrustGateStage.sheet) {
       return;
     }
     _sheetShown = true;
@@ -269,9 +296,12 @@ class _Avatar extends StatelessWidget {
 
 /// 헤더 아래 배너. 어느 것이 뜨는지는 [ChatRoomUiState.stageAt] 한 곳에서 정한다.
 class _Banner extends StatelessWidget {
-  const _Banner({required this.state, required this.onAccept});
+  const _Banner({required this.state, required this.now, required this.onAccept});
 
   final ChatRoomUiState state;
+
+  /// 화면이 그리는 순간의 시각. 경계를 넘을 때 화면이 다시 그려 이 값이 바뀐다(백로그 22).
+  final DateTime now;
   final Future<void> Function() onAccept;
 
   @override
@@ -280,7 +310,7 @@ class _Banner extends StatelessWidget {
     if (room == null) {
       return const SizedBox.shrink();
     }
-    switch (state.stageAt(DateTime.now())) {
+    switch (state.stageAt(now)) {
       case TrustGateStage.preAccept:
         return TrustBanner(
           title: '카카오톡 아이디를 먼저 공유해도 돼요',

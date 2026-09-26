@@ -15,6 +15,10 @@ final chatRoomViewModelProvider =
   ChatRoomViewModel.new,
 );
 
+/// 채팅방 화면이 게이트 단계(배너·시트)를 가를 때 쓰는 시계. 테스트가 갈아끼운다
+/// (`verifyCodeNowProvider` 와 같은 방식) — 24시간 경계를 실제 시계 없이 넘기려고(백로그 22).
+final chatRoomNowProvider = Provider<DateTime Function()>((ref) => DateTime.now);
+
 /// 채팅방(화면 14)의 흐름. 게이트 수락·나가기도 여기서 맡는다 —
 /// 게이트 전용 ViewModel 을 따로 두면 같은 방 상태를 두 벌 들고 있어야 한다.
 class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
