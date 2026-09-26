@@ -49,5 +49,7 @@ abstract final class AppRoutes {
 
   /// 아직 화면이 없는 탭 — 자리 화면으로 보낸다(커뮤니티 조각 6, 내 프로필 후속)
   static const String community = '/community';
+  static const String communityNew = '/community/new';
+  static const String communityPoll = '/community/polls'; // `/community/polls/:pollId`
   static const String myProfile = '/me';
 }
