@@ -374,21 +374,29 @@ class _AddPhotoTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppRadius.md),
-      child: Ink(
-        decoration: BoxDecoration(
-          color: AppColors.primaryWash,
-          borderRadius: BorderRadius.circular(AppRadius.md),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(AppIcons.plus, size: 24, color: AppColors.primaryText),
-            const SizedBox(height: AppSpacing.xs),
-            Text('사진 추가', style: AppTypography.labelSmall.copyWith(color: AppColors.primaryText)),
-          ],
+    // 칸이 자기 Material 을 들고 있어야 분홍 바탕이 Scaffold 에 칠해지지 않는다
+    // (select_chip.dart 와 같은 자리 — 목록을 당겼다 놓으면 글자만 움직였다).
+    return Material(
+      type: MaterialType.transparency,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: AppColors.primaryWash,
+            borderRadius: BorderRadius.circular(AppRadius.md),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(AppIcons.plus, size: 24, color: AppColors.primaryText),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                '사진 추가',
+                style: AppTypography.labelSmall.copyWith(color: AppColors.primaryText),
+              ),
+            ],
+          ),
         ),
       ),
     );

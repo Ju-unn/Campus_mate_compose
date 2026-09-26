@@ -248,4 +248,16 @@ void main() {
     expect(find.byType(CircularProgressIndicator), findsNothing);
     expect(find.byType(Image), findsNWidgets(3));
   });
+
+  testWidgets('사진 추가 칸의 바탕은 화면이 아니라 칸이 칠한다', (tester) async {
+    // `Ink` 는 가장 가까운 Material 에 칠한다 — 그게 Scaffold 면 분홍 바탕이 화면에 눌러앉아,
+    // 목록을 당겼다 놓을 때 글자만 따라 움직인다(칩에서 사용자가 본 것과 같은 자리, 2026-09-26).
+    await pump(tester, photoCount: 0);
+
+    final label = find.text('사진 추가');
+    final tile = find.ancestor(of: label, matching: find.byType(InkWell)).first;
+    final painter = find.ancestor(of: label, matching: find.byType(Material)).first;
+
+    expect(tester.getSize(painter), tester.getSize(tile));
+  });
 }

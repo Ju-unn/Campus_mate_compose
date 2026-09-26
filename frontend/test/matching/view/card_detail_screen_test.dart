@@ -30,7 +30,7 @@ final _detail = CardDetail(
   impressionType: ImpressionType.chic,
   religion: Religion.none,
   isSmoker: false,
-  interests: const ['등산'],
+  interests: const ['등산', '영화'],
   myTraits: const ['유머러스'],
   idealTraits: const ['다정한'],
   mbti: 'ENFP',
@@ -66,6 +66,17 @@ void main() {
     expect(find.byType(TraitBar), findsNWidgets(9));
     expect(find.text('거절'), findsOneWidget);
     expect(find.text('수락하기'), findsOneWidget);
+  });
+
+  testWidgets('태그 칩은 줄 폭을 먹지 않아 같은 줄에 나란히 선다', (tester) async {
+    // 실기기에서 태그가 한 줄에 하나씩 세로로 쌓였다(백로그 24). `Container(alignment:)` 는 폭 제한이
+    // 없으면 `Wrap` 이 준 최대 폭을 통째로 먹는다 — 칩은 글자 폭만큼만 차지해야 한다.
+    await pump(tester);
+
+    final first = tester.getTopLeft(find.text('등산'));
+    final second = tester.getTopLeft(find.text('영화'));
+    expect(second.dy, first.dy);
+    expect(second.dx, greaterThan(first.dx));
   });
 
   testWidgets('"오늘" 탭 하단 내비를 달고 앱바에 톱니가 없다', (tester) async {

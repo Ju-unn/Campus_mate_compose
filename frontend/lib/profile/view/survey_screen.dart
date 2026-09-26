@@ -15,23 +15,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// 문구는 datingApp.pen 05-01~05-09 를 따른다(2026-09-20 사용자 결정 C1).
 typedef _Axis = ({int axis, String headline, String left, String right});
 
+/// 줄바꿈 자리도 pen 값이다(05-01~05-09, erd3 2026-09-26) — 기기 폭에 맡기면 두 줄이 어디서 끊길지
+/// 매번 달라져서, 짧은 질문이 한 줄로 붙고 긴 질문만 두 줄이 된다.
 const List<_Axis> _axes = [
-  (axis: 1, headline: '밖에 나가서 활동하는 걸 좋아하시나요?', left: '집이 편해요', right: '밖이 좋아요'),
-  (axis: 2, headline: '낯선 사람과 빨리 친해지는 편인가요?', left: '낯을 많이 가려요', right: '금방 친해져요'),
-  (axis: 3, headline: '미리 계획을 세우는 편인가요?', left: '즉흥적이에요', right: '계획적이에요'),
-  (axis: 4, headline: '연애할 때 연락을 자주 하는 편인가요?', left: '필요할 때만 해요', right: '자주 연락해요'),
-  (axis: 5, headline: '감정 표현이 풍부한 편인가요?', left: '담백해요', right: '표현이 풍부해요'),
-  (axis: 6, headline: '술자리를 즐기는 편인가요?', left: '거의 안 마셔요', right: '자주 즐겨요'),
-  (axis: 7, headline: '운동을 꾸준히 하는 편인가요?', left: '관심 없어요', right: '꾸준히 해요'),
-  (axis: 8, headline: '마음이 확실하면 관계를 빠르게 진전시키나요?', left: '천천히요', right: '빠르게요'),
-  (axis: 9, headline: '새로운 걸 시도하는 걸 좋아하시나요?', left: '익숙한 게 편해요', right: '새로운 걸 찾아요'),
+  (axis: 1, headline: '밖에 나가서 활동하는 걸\n좋아하시나요?', left: '집이 편해요', right: '밖이 좋아요'),
+  (axis: 2, headline: '낯선 사람과 빨리\n친해지는 편인가요?', left: '낯을 많이 가려요', right: '금방 친해져요'),
+  (axis: 3, headline: '미리 계획을\n세우는 편인가요?', left: '즉흥적이에요', right: '계획적이에요'),
+  (axis: 4, headline: '연애할 때 연락을\n자주 하는 편인가요?', left: '필요할 때만 해요', right: '자주 연락해요'),
+  (axis: 5, headline: '감정 표현이\n풍부한 편인가요?', left: '담백해요', right: '표현이 풍부해요'),
+  (axis: 6, headline: '술자리를\n즐기는 편인가요?', left: '거의 안 마셔요', right: '자주 즐겨요'),
+  (axis: 7, headline: '운동을 꾸준히\n하는 편인가요?', left: '관심 없어요', right: '꾸준히 해요'),
+  (axis: 8, headline: '마음이 확실하면 관계를\n빠르게 진전시키나요?', left: '천천히요', right: '빠르게요'),
+  (axis: 9, headline: '새로운 걸 시도하는 걸\n좋아하시나요?', left: '익숙한 게 편해요', right: '새로운 걸 찾아요'),
 ];
 
 /// 9축 + 종교 + 흡연 = 11화면(DESIGN.md 화면 05-01~05-11).
-const int _axisCount = 9;
-const int _pageCount = _axisCount + 2;
-const int _religionPage = _axisCount;
-const int _smokePage = _axisCount + 1;
+/// 축 개수는 뷰모델이 들고 있는 하나만 본다 — 화면에서 또 세면 둘이 어긋난 걸 아무도 못 본다.
+const int _pageCount = SurveyUiState.axisCount + 2;
+const int _religionPage = SurveyUiState.axisCount;
+const int _smokePage = SurveyUiState.axisCount + 1;
 
 /// 성향 설문 화면(DESIGN.md 화면 05-01~05-11).
 /// 11화면을 라우트로 쪼개지 않고 `PageView` 하나로 넘긴다 — 서버가 세는 단계는 설문 전체 1개다.
@@ -54,7 +56,7 @@ class _SurveyScreenState extends ConsumerState<SurveyScreen> {
 
   @override
   Widget build(BuildContext context) {
-    assert(_axes.length == _axisCount, '축 문항 수와 페이지 번호 계산이 어긋났다');
+    assert(_axes.length == SurveyUiState.axisCount, '축 문항 수와 페이지 번호 계산이 어긋났다');
     final state = ref.watch(surveyViewModelProvider);
     final viewModel = ref.read(surveyViewModelProvider.notifier);
     return Scaffold(
@@ -238,7 +240,8 @@ class _SmokePage extends StatelessWidget {
 }
 
 /// 종교·흡연 공통 "칸 선택"(DESIGN.md §8.5 religion-select·smoke-toggle).
-/// 비선택 채움이 colors.primary-disabled 인 점만 얼굴상 칸과 다르다(2026-09-15 사용자 결정).
+/// 비선택 채움은 표면 회색이다(pen `Rmfti`·`Y1TDq2` 2026-09-26 수정) —
+/// 종전 `primaryDisabled`(#E5E5E5)는 **비활성 채움** 토큰이라, 고를 수 있는 칸이 꺼진 버튼처럼 보였다.
 class _ChoiceCell extends StatelessWidget {
   const _ChoiceCell({required this.label, required this.isSelected, required this.onTap});
 
@@ -248,17 +251,21 @@ class _ChoiceCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppRadius.sm),
-      child: Ink(
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primaryWash : AppColors.primaryDisabled,
-          borderRadius: BorderRadius.circular(AppRadius.sm),
-          border: Border.all(color: isSelected ? AppColors.primary : Colors.transparent),
-        ),
-        child: Center(
-          child: Text(label, style: AppTypography.label.copyWith(color: AppColors.ink)),
+    // 칸이 자기 Material 을 들고 있어야 채움이 Scaffold 에 칠해지지 않는다(select_chip.dart 와 같다).
+    return Material(
+      type: MaterialType.transparency,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: isSelected ? AppColors.primaryWash : AppColors.surfaceSoft,
+            borderRadius: BorderRadius.circular(AppRadius.sm),
+            border: Border.all(color: isSelected ? AppColors.primary : Colors.transparent),
+          ),
+          child: Center(
+            child: Text(label, style: AppTypography.label.copyWith(color: AppColors.ink)),
+          ),
         ),
       ),
     );

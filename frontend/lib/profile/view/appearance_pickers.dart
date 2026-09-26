@@ -83,13 +83,13 @@ class ImpressionTypePicker extends StatelessWidget {
   static const int _perRow = 3;
 
   /// 회색 채움 + 테두리 없음, 고르면 분홍 워시 + 분홍 테두리 — 04-1 성별·MBTI 칩과 같은 칸이다.
-  /// 높이만 다르다(pen `BGMWX` 40, 04-1 `Chip` 35).
+  /// 높이만 다르다(pen `BGMWX` 44, 04-1 `Chip` 35).
   Widget _chip(ImpressionType type) {
     return SelectChip(
       label: type.label,
       isSelected: selected.contains(type),
       onTap: () => onTap(type),
-      height: 40,
+      height: 44,
     );
   }
 }
@@ -109,16 +109,21 @@ class _PickerCell extends StatelessWidget {
     return Semantics(
       selected: isSelected,
       button: true,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        child: Ink(
-          decoration: BoxDecoration(
-            color: isSelected ? AppColors.primaryWash : AppColors.canvas,
-            borderRadius: BorderRadius.circular(AppRadius.md),
-            border: Border.all(color: isSelected ? AppColors.primary : AppColors.hairlineSoft),
+      // 칸도 자기 Material 을 들고 있어야 한다 — 없으면 테두리·채움이 Scaffold 에 칠해져
+      // 목록을 당겼다 놓을 때 그림만 움직인다(SelectChip 과 같은 자리, 2026-09-26 실기기).
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          child: Ink(
+            decoration: BoxDecoration(
+              color: isSelected ? AppColors.primaryWash : AppColors.canvas,
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              border: Border.all(color: isSelected ? AppColors.primary : AppColors.hairlineSoft),
+            ),
+            child: Center(child: child),
           ),
-          child: Center(child: child),
         ),
       ),
     );

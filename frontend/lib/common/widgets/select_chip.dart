@@ -13,6 +13,7 @@ class SelectChip extends StatelessWidget {
     this.width,
     this.height = 35,
     this.radius = AppRadius.sm,
+    this.padding = EdgeInsets.zero,
     super.key,
   });
 
@@ -23,11 +24,15 @@ class SelectChip extends StatelessWidget {
   /// 디자인 파일이 칸 너비를 정해 둔 자리(성별 76, MBTI 48)에만 넘긴다.
   final double? width;
 
-  /// 디자인 파일의 칸 높이. 04-1 `Chip` 은 35, 04-4·06-1 인상 칩(`BGMWX`)은 40 이다.
+  /// 디자인 파일의 칸 높이. 04-1 `Chip` 은 35, 04-4·06-1 인상 칩(`BGMWX`)은 44 다.
   final double height;
 
   /// 태그 칩은 모서리 8, 성별·MBTI 칩은 알약 모서리다.
   final double radius;
+
+  /// 글자 좌우 여백. 칸 너비가 정해지지 않은 칩(태그 `WzXvK` 좌우 12)만 넘긴다 —
+  /// 너비를 받은 칩(성별 76·MBTI 48)은 글자를 가운데 둘 뿐이라 여백이 없다.
+  final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
@@ -35,19 +40,30 @@ class SelectChip extends StatelessWidget {
     return Semantics(
       selected: isSelected,
       button: true,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(radius),
-        child: Ink(
-          width: width,
-          height: height,
-          decoration: BoxDecoration(
-            color: isSelected ? AppColors.primaryWash : AppColors.surfaceSoft,
-            borderRadius: BorderRadius.circular(radius),
-            border: Border.all(color: isSelected ? AppColors.primary : Colors.transparent),
-          ),
-          child: Center(
-            child: Text(label, style: AppTypography.labelSmall.copyWith(color: AppColors.ink)),
+      // `Ink` 는 **가장 가까운 Material** 에 칠한다 — 그게 Scaffold 면 회색 칸이 화면에 눌러앉아,
+      // 태그 목록을 당겼다 놓을 때 글자만 따라 움직인다(2026-09-26 실기기). 칩에 자기 Material 을 준다.
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(radius),
+          child: Ink(
+            width: width,
+            height: height,
+            decoration: BoxDecoration(
+              color: isSelected ? AppColors.primaryWash : AppColors.surfaceSoft,
+              borderRadius: BorderRadius.circular(radius),
+              border: Border.all(color: isSelected ? AppColors.primary : Colors.transparent),
+            ),
+            // 칸 너비를 받지 않은 칩은 **글자 폭만큼만** 차지한다 — `widthFactor` 가 없으면
+            // 줄 폭을 통째로 먹어서 `Wrap` 안에서 칩이 한 줄에 하나씩 쌓인다(2026-09-26 실기기).
+            child: Center(
+              widthFactor: width == null ? 1 : null,
+              child: Padding(
+                padding: padding,
+                child: Text(label, style: AppTypography.labelSmall.copyWith(color: AppColors.ink)),
+              ),
+            ),
           ),
         ),
       ),

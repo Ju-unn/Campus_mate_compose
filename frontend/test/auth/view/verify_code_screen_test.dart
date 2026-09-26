@@ -35,13 +35,24 @@ void main() {
   }
 
   testWidgets('안내 문구·만료 타이머·메일 다시 받기를 보여준다(pen VuiDi)', (tester) async {
-    await pumpScreen(tester);
+    final sentAt = DateTime.now();
+    final container = await pumpScreen(tester, now: () => sentAt);
 
     expect(find.text('인증 코드를 입력해요'), findsOneWidget);
     expect(find.text('hong@snu.ac.kr 로 6자리 숫자를 보냈어요'), findsOneWidget);
     expect(find.textContaining('뒤에 만료돼요'), findsOneWidget);
-    // 로그인 화면이 방금 보낸 메일이라 열리는 순간부터 60초를 센다.
-    expect(find.text('메일 다시 받기 (60초)'), findsOneWidget);
+    // 로그인 화면이 방금 보낸 메일이라 열리는 순간부터 60초를 센다. 남은 초 **글자** 는
+    // `CountdownBuilder` 가 기기 시계를 보고 그리므로, 전체 실행이 첫 프레임까지 1초를 넘기면
+    // "(59초)" 로 찍힌다 — 60초라는 약속은 상태로 확인하고, 화면은 버튼이 꺼진 채
+    // 남은 초를 보여주는지만 본다.
+    expect(
+      container.read(verifyCodeViewModelProvider(email)).resendAvailableAt,
+      sentAt.add(const Duration(seconds: 60)),
+    );
+    final resend = tester.widget<TextButton>(
+      find.ancestor(of: find.textContaining('메일 다시 받기 ('), matching: find.byType(TextButton)),
+    );
+    expect(resend.enabled, isFalse);
   });
 
   testWidgets('입력한 숫자를 여섯 칸에 한 글자씩 그린다', (tester) async {
@@ -57,10 +68,11 @@ void main() {
   testWidgets('메일을 다시 받으면 입력칸이 비고 버튼이 쿨다운 동안 꺼진다', (tester) async {
     // 코드를 2분 전에 받은 화면이라 첫 쿨다운은 이미 지났다 — 그래야 버튼을 누를 수 있다.
     var now = DateTime.now().subtract(const Duration(minutes: 2));
-    await pumpScreen(tester, now: () => now);
+    final container = await pumpScreen(tester, now: () => now);
     await tester.enterText(find.byType(TextField), '123456');
     await tester.pump();
-    now = DateTime.now();
+    final resentAt = DateTime.now();
+    now = resentAt;
 
     await tester.tap(find.text('메일 다시 받기'));
     await tester.pump(const Duration(milliseconds: 1));
@@ -69,7 +81,15 @@ void main() {
     expect(find.text('1'), findsNothing);
     expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, isEmpty);
     // 쿨다운 동안 눌러도 아무 일이 없으므로 버튼을 끄고 남은 초를 보여준다.
-    final resend = tester.widget<TextButton>(find.widgetWithText(TextButton, '메일 다시 받기 (60초)'));
+    // 남은 초 **글자** 는 `CountdownBuilder` 가 기기 시계를 보고 그리므로 탭한 뒤 실제 1초가
+    // 지나면 "(59초)" 다 — 60초라는 약속은 상태로 확인한다(37줄 테스트와 같은 처방).
+    expect(
+      container.read(verifyCodeViewModelProvider(email)).resendAvailableAt,
+      resentAt.add(const Duration(seconds: 60)),
+    );
+    final resend = tester.widget<TextButton>(
+      find.ancestor(of: find.textContaining('메일 다시 받기 ('), matching: find.byType(TextButton)),
+    );
     expect(resend.enabled, isFalse);
   });
 

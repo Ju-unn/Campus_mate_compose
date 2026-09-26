@@ -62,7 +62,8 @@ class TraitSlider extends StatelessWidget {
   }
 
   Widget _dot({required bool isSelected}) {
-    final size = isSelected ? 18.0 : 12.0;
+    // pen `mkf89` 값(2026-09-26 erd3 수정). 종전 12/18 은 실기기에서 어디를 골랐는지 잘 안 보였다.
+    final size = isSelected ? 28.0 : 18.0;
     return Container(
       width: size,
       height: size,

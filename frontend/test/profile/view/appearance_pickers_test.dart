@@ -41,4 +41,11 @@ void main() {
     expect(widths[3], greaterThan(widths[0]));
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('인상 칩 높이는 pen 값 44 다', (tester) async {
+    // pen `BGMWX` 40 → 44(2026-09-26 erd3 수정). 손가락이 닿는 칸을 44 로 키운 값이다.
+    await pumpNarrow(tester, ImpressionTypePicker(selected: const {}, onTap: (_) {}));
+
+    expect(tester.getSize(find.byType(SelectChip).first).height, 44);
+  });
 }
