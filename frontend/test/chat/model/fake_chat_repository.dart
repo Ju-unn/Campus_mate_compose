@@ -22,6 +22,9 @@ class FakeChatRepository implements ChatRepository {
   int leaveCount = 0;
   int trustCount = 0;
 
+  /// 방 머리말을 읽은 횟수. 구독 줄 하나로 머리말을 다시 읽는지 볼 때 쓴다.
+  int roomFetchCount = 0;
+
   /// 응답을 읽다 터지는 경우. `Result` 로 감싸지지 않고 그대로 올라온다.
   bool throwOnTrust = false;
 
@@ -32,7 +35,14 @@ class FakeChatRepository implements ChatRepository {
   Future<Result<List<Conversation>>> fetchConversations() async => conversations;
 
   @override
-  Future<Result<ChatRoom>> fetchRoom(String matchId) async => room!;
+  Future<Result<ChatRoom>> fetchRoom(String matchId) async {
+    roomFetchCount += 1;
+    await holdRoom?.future;
+    return room!;
+  }
+
+  /// 채워 두면 머리말 조회가 이것이 끝날 때까지 멈춘다 — 조회 도중에 다른 일이 일어나는 상황용.
+  Completer<void>? holdRoom;
 
   @override
   Future<Result<MessagePage>> fetchMessages(
@@ -81,6 +91,7 @@ ChatRoom roomFixture({
   DateTime? createdAt,
   String? myResponse,
   bool passed = false,
+  DateTime? passedAt,
   bool partnerLeft = false,
   String? kakaoId,
   String? myKakaoId,
@@ -93,6 +104,7 @@ ChatRoom roomFixture({
     createdAt: created,
     gate: TrustGate(
       passed: passed,
+      passedAt: passedAt,
       partnerLeft: partnerLeft,
       deadlineAt: created.add(trustGateDeadline),
       myResponse: myResponse,

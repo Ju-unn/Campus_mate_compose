@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:campus_mate/chat/model/chat_repository.dart';
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
+import 'package:campus_mate/chat/model/message.dart';
 import 'package:campus_mate/chat/viewmodel/chat_room_ui_state.dart';
 import 'package:campus_mate/chat/viewmodel/chat_room_view_model.dart';
 import 'package:campus_mate/common/failure.dart';
@@ -169,6 +172,113 @@ void main() {
     expect(state.stageAt(DateTime.now()), TrustGateStage.revealed);
   });
 
+  test('방에 있는 동안 상대 수락 줄이 오면 머리말을 다시 읽어 통과를 반영한다', () async {
+    // 두 번째 수락은 상대 화면에서 일어난다 — 구독으로 수락 줄만 오고 통과 카드·카카오톡 아이디는
+    // 머리말을 다시 읽어야 내려온다(나갔다 들어와야 보이던 문제).
+    final container = containerFor();
+    await opened(container);
+    expect(repository.roomFetchCount, 1);
+    repository.room = Success(roomFixture(passed: true, kakaoId: 'fox_rain'));
+
+    stream.push(messageFixture(id: 'accept-2', senderId: partnerId, kind: MessageKind.trustAccept));
+    await Future<void>.delayed(Duration.zero);
+    final state = container.read(chatRoomViewModelProvider('m1'));
+
+    expect(repository.roomFetchCount, 2);
+    expect(state.room!.gate.passed, isTrue);
+    expect(state.room!.kakaoId, 'fox_rain');
+  });
+
+  test('상대 수락 줄로 다시 읽다 실패해도 오류 줄을 띄우지 않는다', () async {
+    // 사용자가 누른 것이 아니라 할 수 있는 일이 없다 — 방은 옛 머리말 그대로 둔다.
+    final container = containerFor();
+    await opened(container);
+    repository.room = const FailureResult(NetworkFailure());
+
+    stream.push(messageFixture(id: 'accept-2', senderId: partnerId, kind: MessageKind.trustAccept));
+    await Future<void>.delayed(Duration.zero);
+    final state = container.read(chatRoomViewModelProvider('m1'));
+
+    expect(repository.roomFetchCount, 2);
+    expect(state.errorMessage, isNull);
+    expect(state.room, isNotNull);
+  });
+
+  test('상대 수락 줄로 다시 읽는 동안 뜬 오류 줄은 지우지 않는다', () async {
+    final container = containerFor();
+    await opened(container);
+    final viewModel = container.read(chatRoomViewModelProvider('m1').notifier);
+    repository.room = Success(roomFixture(passed: true, kakaoId: 'fox_rain'));
+    repository.holdRoom = Completer<void>();
+
+    stream.push(messageFixture(id: 'accept-2', senderId: partnerId, kind: MessageKind.trustAccept));
+    await Future<void>.delayed(Duration.zero);
+    // 다시 읽는 사이에 보내기가 실패했다.
+    repository.sendResult = const FailureResult(NetworkFailure());
+    await viewModel.send('안녕');
+    final shown = container.read(chatRoomViewModelProvider('m1')).errorMessage;
+    expect(shown, isNotNull);
+    repository.holdRoom!.complete();
+    await Future<void>.delayed(Duration.zero);
+    final state = container.read(chatRoomViewModelProvider('m1'));
+
+    expect(state.room!.gate.passed, isTrue);
+    expect(state.errorMessage, shown);
+  });
+
+  test('구독 전에 들어온 상대 수락 줄이 첫 페이지에 있으면 머리말을 조용히 다시 읽는다', () async {
+    // 방을 읽은 직후 상대가 두 번째로 수락하면 그 줄은 구독이 아니라 첫 페이지로 들어온다.
+    repository.room = Success(roomFixture(myResponse: 'accept'));
+    repository.messages = Success(MessagePage(
+      messages: [messageFixture(id: 'accept-2', senderId: partnerId, kind: MessageKind.trustAccept)],
+      hasMore: false,
+    ));
+    repository.onFetchMessages = () =>
+        repository.room = Success(roomFixture(passed: true, kakaoId: 'fox_rain'));
+
+    final container = containerFor();
+    await opened(container);
+    await Future<void>.delayed(Duration.zero);
+    final state = container.read(chatRoomViewModelProvider('m1'));
+
+    expect(repository.roomFetchCount, 2);
+    expect(state.room!.gate.passed, isTrue);
+  });
+
+  test('상대만 먼저 수락한 방에 들어올 때는 머리말을 다시 읽지 않는다', () async {
+    // 내가 수락하지 않았으면 상대 수락 줄로 통과될 수 없다 — 들어올 때마다 헛요청을 보내지 않는다.
+    repository.messages = Success(MessagePage(
+      messages: [messageFixture(id: 'accept-2', senderId: partnerId, kind: MessageKind.trustAccept)],
+      hasMore: false,
+    ));
+
+    await opened(containerFor());
+    await Future<void>.delayed(Duration.zero);
+
+    expect(repository.roomFetchCount, 1);
+  });
+
+  test('내 수락 줄은 머리말을 다시 읽지 않는다 — 수락 응답 뒤에 이미 읽는다', () async {
+    final container = containerFor();
+    await opened(container);
+
+    stream.push(messageFixture(id: 'accept-1', senderId: myId, kind: MessageKind.trustAccept));
+    await Future<void>.delayed(Duration.zero);
+
+    expect(repository.roomFetchCount, 1);
+  });
+
+  test('이미 통과한 방에서는 수락 줄이 와도 머리말을 다시 읽지 않는다', () async {
+    repository.room = Success(roomFixture(passed: true, kakaoId: 'fox_rain'));
+    final container = containerFor();
+    await opened(container);
+
+    stream.push(messageFixture(id: 'accept-2', senderId: partnerId, kind: MessageKind.trustAccept));
+    await Future<void>.delayed(Duration.zero);
+
+    expect(repository.roomFetchCount, 1);
+  });
+
   test('수락 중에 예외가 나도 다시 누를 수 있다', () async {
     // 보내는 중 표시가 굳으면 그 방에서는 다시 수락할 길이 없다.
     final container = containerFor();
@@ -243,6 +353,27 @@ void main() {
     await container.read(chatRoomViewModelProvider('m1').notifier).reconnect();
 
     expect(container.read(chatRoomViewModelProvider('m1')).isPartnerGone, isTrue);
+  });
+
+  test('재연결 때 머리말 뒤 첫 페이지에 상대 수락 줄이 있으면 머리말을 조용히 다시 읽는다', () async {
+    // 머리말을 읽은 직후 상대가 두 번째로 수락하면 그 줄은 재조회 첫 페이지로만 들어온다.
+    repository.room = Success(roomFixture(myResponse: 'accept'));
+    final container = containerFor();
+    await opened(container);
+    expect(repository.roomFetchCount, 1);
+    repository.messages = Success(MessagePage(
+      messages: [messageFixture(id: 'accept-2', senderId: partnerId, kind: MessageKind.trustAccept)],
+      hasMore: false,
+    ));
+    repository.onFetchMessages = () =>
+        repository.room = Success(roomFixture(passed: true, kakaoId: 'fox_rain'));
+
+    await container.read(chatRoomViewModelProvider('m1').notifier).reconnect();
+    await Future<void>.delayed(Duration.zero);
+
+    // 재연결 머리말 1 + 병합 뒤 검사 1.
+    expect(repository.roomFetchCount, 3);
+    expect(container.read(chatRoomViewModelProvider('m1')).room!.gate.passed, isTrue);
   });
 
   test('재연결 재조회가 위로 올려 읽어 둔 옛 줄보다 앞에 끼어들지 않는다', () async {

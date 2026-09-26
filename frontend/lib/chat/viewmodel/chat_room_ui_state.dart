@@ -65,6 +65,22 @@ class ChatRoomUiState {
   /// 입력창을 잠가야 하는 방(결정 7). 대화는 읽을 수 있지만 더 쓰지는 못한다.
   bool get isPartnerGone => room?.gate.partnerLeft ?? false;
 
+  /// 14b 카드를 끼울 시각(백로그 20). 이 시각 **이하**의 줄 뒤에 온다.
+  ///
+  /// 통과 시각만 쓰면 카드가 두 번째 "수락했어요" 줄보다 위에 온다 — 서버 `/trust` 는 요청 시작
+  /// 시각으로 도장을 찍고 **그 뒤에** 수락 줄을 DB 기본 시각으로 넣는다. 그래서 수락 줄 중 가장
+  /// 늦은 것과 통과 시각 중 늦은 쪽을 쓴다. 통과 시각을 모르면 null(카드는 대화 끝).
+  DateTime? get revealAnchorAt {
+    final passedAt = room?.gate.passedAt;
+    if (passedAt == null) {
+      return null;
+    }
+    return messages
+        .where((message) => message.kind == MessageKind.trustAccept)
+        .map((message) => message.createdAt)
+        .fold<DateTime>(passedAt, (latest, at) => at.isAfter(latest) ? at : latest);
+  }
+
   TrustGateStage stageAt(DateTime now) {
     final room = this.room;
     if (room == null) {

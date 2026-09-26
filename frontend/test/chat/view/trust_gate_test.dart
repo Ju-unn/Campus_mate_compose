@@ -1,7 +1,9 @@
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
+import 'package:campus_mate/chat/model/chat_room.dart';
 import 'package:campus_mate/chat/view/chat_room_screen.dart';
 import 'package:campus_mate/chat/view/trust_banner.dart';
 import 'package:campus_mate/chat/view/trust_gate_sheet.dart';
+import 'package:campus_mate/chat/viewmodel/chat_room_view_model.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,11 +20,12 @@ void main() {
     stream = FakeMessageStream();
   });
 
-  Future<void> pump(WidgetTester tester) async {
+  Future<void> pump(WidgetTester tester, {DateTime Function()? now}) async {
     final container = ProviderContainer(
       overrides: [
         chatRepositoryProvider.overrideWithValue(repository),
         messageStreamProvider.overrideWithValue(stream),
+        if (now != null) chatRoomNowProvider.overrideWithValue(now),
       ],
     );
     addTearDown(container.dispose);
@@ -139,6 +142,25 @@ void main() {
 
     expect(find.byType(TrustGateSheet), findsNothing);
     expect(find.byType(TrustBanner), findsNothing);
+  });
+
+  testWidgets('방에 머무는 중 24시간 경계를 넘으면 그 자리에서 시트가 뜬다(백로그 22)', (tester) async {
+    // 실제 시계에 기대지 않는다 — 화면 시계를 갈아끼우고 Timer 는 가짜 시간으로 넘긴다.
+    var now = DateTime(2026, 9, 22, 12);
+    final created = now.subtract(trustGateReminderAfter).add(const Duration(minutes: 1));
+    repository.room = Success(roomFixture(createdAt: created));
+    await pump(tester, now: () => now);
+
+    expect(find.byType(TrustGateSheet), findsNothing);
+    expect(find.text('카카오톡 아이디를 먼저 공유해도 돼요'), findsOneWidget);
+
+    now = now.add(const Duration(minutes: 1));
+    await tester.pump(const Duration(minutes: 1));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TrustGateSheet), findsOneWidget);
+    // 미리 수락 배너도 같이 내려간다 — 시트가 뜨는 단계에는 배너가 없다.
+    expect(find.text('카카오톡 아이디를 먼저 공유해도 돼요'), findsNothing);
   });
 
   testWidgets('통과한 방에는 배너가 없다', (tester) async {

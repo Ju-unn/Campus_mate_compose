@@ -22,7 +22,9 @@ class ChatListRow extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Container(
-        height: 72,
+        // 고정 height 72 면 배율 1.75 부터 이름·마지막 줄이 넘친다(백로그 28 곁).
+        // 최소값으로 두면 배율 1.0 에서는 pen 대로 72 이고 글자를 키우면 따라 늘어난다.
+        constraints: const BoxConstraints(minHeight: 72),
         color: AppColors.canvas,
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
         child: Row(
@@ -78,8 +80,9 @@ class UnreadBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: const BoxConstraints(minWidth: 20),
-      height: 20,
+      // 고정 height 20 이면 배율 1.4 부터 숫자가 알약 밖으로 조용히 잘린다(백로그 28).
+      // 최소값으로 두면 배율 1.0 에서는 pen 대로 20 이고 글자를 키우면 따라 늘어난다(`_CountBadge` 와 같은 방식).
+      constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
       padding: const EdgeInsets.symmetric(horizontal: 6),
       alignment: Alignment.center,
       decoration: BoxDecoration(

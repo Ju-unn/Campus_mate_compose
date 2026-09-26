@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:campus_mate/chat/model/chat_errors.dart';
 import 'package:campus_mate/chat/model/chat_repository.dart';
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
+import 'package:campus_mate/chat/model/chat_room.dart';
 import 'package:campus_mate/chat/model/message.dart';
 import 'package:campus_mate/chat/viewmodel/chat_room_ui_state.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
@@ -13,6 +14,10 @@ final chatRoomViewModelProvider =
     NotifierProvider.autoDispose.family<ChatRoomViewModel, ChatRoomUiState, String>(
   ChatRoomViewModel.new,
 );
+
+/// 채팅방 화면이 게이트 단계(배너·시트)를 가를 때 쓰는 시계. 테스트가 갈아끼운다
+/// (`verifyCodeNowProvider` 와 같은 방식) — 24시간 경계를 실제 시계 없이 넘기려고(백로그 22).
+final chatRoomNowProvider = Provider<DateTime Function()>((ref) => DateTime.now);
 
 /// 채팅방(화면 14)의 흐름. 게이트 수락·나가기도 여기서 맡는다 —
 /// 게이트 전용 ViewModel 을 따로 두면 같은 방 상태를 두 벌 들고 있어야 한다.
@@ -50,13 +55,39 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
     // 겹치는 줄은 id 가드와 아래의 이어 붙이기가 걸러 낸다(조각 5 리뷰 권고 4번).
     _subscribe();
     await _loadFirstPage();
+    _refreshIfPartnerAcceptedMeanwhile();
     await markRead();
   }
 
-  Future<bool> _loadRoom() async {
+  /// 머리말을 읽은 직후 상대가 두 번째로 수락하면 그 줄은 구독이 아니라 첫 페이지로 들어와
+  /// [_receive] 를 타지 않는다. 첫 페이지를 합친 뒤([_open]·[reconnect]) 한 번 본다.
+  /// 내가 이미 수락한 방일 때만 본다 — 아니면 상대 수락 줄로는 통과될 수 없다.
+  void _refreshIfPartnerAcceptedMeanwhile() {
+    final room = state.room;
+    if (room != null &&
+        room.gate.accepted &&
+        !room.gate.passed &&
+        state.messages.any((message) => _isPartnerAccept(room, message))) {
+      unawaited(_loadRoom(quiet: true));
+    }
+  }
+
+  static bool _isPartnerAccept(ChatRoom room, Message message) =>
+      message.kind == MessageKind.trustAccept && message.senderId == room.partner.profileId;
+
+  /// [quiet] 는 사용자가 누르지 않은 백그라운드 재조회다 — 실패해도 오류 줄을 띄우지 않고,
+  /// 성공해도 떠 있던 오류 줄을 지우지 않는다(사용자가 할 수 있는 일이 없다).
+  Future<bool> _loadRoom({bool quiet = false}) async {
     final result = await _repository.fetchRoom(_matchId);
     if (!_alive) {
       return false;
+    }
+    if (quiet) {
+      result.when<void>(
+        onSuccess: (room) => state = state.copyWith(room: room, errorMessage: state.errorMessage),
+        onFailure: (_) {},
+      );
+      return state.room != null;
     }
     state = result.when(
       onSuccess: (room) => state.copyWith(room: room),
@@ -135,6 +166,7 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
     _subscribe();
     await _loadRoom();
     await _loadFirstPage();
+    _refreshIfPartnerAcceptedMeanwhile();
   }
 
   /// 내가 보낸 줄도 구독으로 한 번 더 돌아온다 — id 로 걸러 두 번 그리지 않는다.
@@ -143,6 +175,12 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
       return;
     }
     state = state.copyWith(messages: [...state.messages, message]);
+    // 상대가 두 번째로 수락해 통과되면 구독으로는 수락 줄만 온다 — 통과 카드·카카오톡 아이디·
+    // 실사진은 머리말을 다시 읽어야 내려온다. 내 수락은 [acceptTrust] 가 응답 뒤에 이미 읽는다.
+    final room = state.room;
+    if (room != null && !room.gate.passed && _isPartnerAccept(room, message)) {
+      unawaited(_loadRoom(quiet: true));
+    }
   }
 
   /// 위로 올려 50건 더(결정 9). 커서는 화면에 있는 가장 오래된 줄이다.

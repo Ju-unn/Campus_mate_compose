@@ -14,10 +14,15 @@ class TrustGate {
     required this.partnerLeft,
     required this.deadlineAt,
     this.myResponse,
+    this.passedAt,
   });
 
   /// 양쪽이 수락해 카카오톡 아이디·실사진이 공개된 상태.
   final bool passed;
+
+  /// 통과 도장 시각(`matches.trust_passed_at`). 14b 카드를 대화 사이 제자리에 끼우는 데 쓴다(백로그 20).
+  /// 이 키를 내려주기 전 서버와도 맞물리게 없으면 null — 그때 카드는 대화 끝에 붙는다.
+  final DateTime? passedAt;
 
   /// 상대가 나간 방. 게이트가 멈춘다 — 배너도 시트도 뜨지 않는다(결정 7).
   final bool partnerLeft;
@@ -41,6 +46,10 @@ class TrustGate {
       partnerLeft: json['partner_left'] as bool? ?? false,
       deadlineAt: DateTime.parse(json['deadline_at'] as String).toLocal(),
       myResponse: json['my_response'] as String?,
+      passedAt: switch (json['passed_at']) {
+        final String at => DateTime.parse(at).toLocal(),
+        _ => null,
+      },
     );
   }
 }
