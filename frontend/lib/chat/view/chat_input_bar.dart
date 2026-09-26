@@ -120,20 +120,21 @@ class _SendButton extends StatelessWidget {
     return Semantics(
       button: true,
       label: '보내기',
-      child: InkWell(
-        onTap: onPressed,
-        customBorder: const CircleBorder(),
-        child: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: onPressed == null ? AppColors.primaryDisabled : AppColors.primary,
-          ),
-          child: Icon(
-            AppIcons.send,
-            size: 18,
-            color: onPressed == null ? AppColors.disabled : AppColors.onPrimary,
+      // 원을 버튼 자신의 Material 이 칠해야 눌림 효과가 입력 바와 함께 움직인다(COMMON §4-2).
+      child: Material(
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        color: onPressed == null ? AppColors.primaryDisabled : AppColors.primary,
+        child: InkWell(
+          onTap: onPressed,
+          child: SizedBox(
+            width: 40,
+            height: 40,
+            child: Icon(
+              AppIcons.send,
+              size: 18,
+              color: onPressed == null ? AppColors.disabled : AppColors.onPrimary,
+            ),
           ),
         ),
       ),
