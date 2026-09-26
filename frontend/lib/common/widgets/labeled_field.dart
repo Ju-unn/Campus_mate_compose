@@ -66,9 +66,10 @@ class LabeledField extends StatelessWidget {
               horizontal: AppSpacing.md,
               vertical: AppSpacing.md,
             ),
+            // 오류 때는 테두리도 빨간 2px 다(pen 마스터 PccKZ) — 문구만 빨개서는 어느 칸 얘기인지 흐리다.
             border: _border(AppColors.outline),
-            enabledBorder: _border(AppColors.outline),
-            focusedBorder: _border(AppColors.primary),
+            enabledBorder: errorText != null ? _errorBorder : _border(AppColors.outline),
+            focusedBorder: errorText != null ? _errorBorder : _border(AppColors.primary),
           ),
         ),
         if (errorText != null)
@@ -76,7 +77,7 @@ class LabeledField extends StatelessWidget {
         else if (pendingText != null)
           _note(_spinner, AppColors.muted, pendingText!)
         else if (successText != null)
-          _note(const Icon(AppIcons.check, size: 14, color: AppColors.success), AppColors.success, successText!)
+          _note(const Icon(AppIcons.circleCheck, size: 14, color: AppColors.success), AppColors.success, successText!)
         else if (helper != null) ...[
           const SizedBox(height: AppSpacing.xxs),
           Text(helper!, style: AppTypography.caption.copyWith(color: AppColors.muted)),
@@ -92,9 +93,11 @@ class LabeledField extends StatelessWidget {
   );
 
   /// 입력칸 바로 아래 한 줄(표식 + 문구). 색만으로 전달하지 않도록 표식을 항상 같이 둔다.
+  /// 칸과의 간격 8 은 pen 확인 줄 a1eaV 값이다. 확인 중 표식은 pen 의 정지 아이콘(loader-circle) 대신
+  /// 도는 원을 그대로 둔다(DESIGN §8.5 "도는 표시").
   Widget _note(Widget leading, Color color, String text) {
     return Padding(
-      padding: const EdgeInsets.only(top: AppSpacing.xxs),
+      padding: const EdgeInsets.only(top: AppSpacing.xs),
       child: Row(
         children: [
           leading,
@@ -105,10 +108,12 @@ class LabeledField extends StatelessWidget {
     );
   }
 
-  OutlineInputBorder _border(Color color) {
+  static final OutlineInputBorder _errorBorder = _border(AppColors.error, width: 2);
+
+  static OutlineInputBorder _border(Color color, {double width = 1}) {
     return OutlineInputBorder(
       borderRadius: BorderRadius.circular(AppRadius.sm),
-      borderSide: BorderSide(color: color),
+      borderSide: BorderSide(color: color, width: width),
     );
   }
 }
