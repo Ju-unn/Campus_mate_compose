@@ -82,6 +82,17 @@ void main() {
       expect(tester.getSize(find.byType(ChatListRow)).height, 72.0);
     });
 
+    testWidgets('눌림 효과는 화면이 아니라 행이 그린다(§4-2)', (tester) async {
+      // `InkWell` 은 가장 가까운 Material 에 그린다 — 그게 Scaffold 면 목록을 움직여도
+      // 눌림 테두리가 제자리에 남아 공중에 뜬다(실기기 2026-09-27).
+      await pumpRow(tester, scale: 1.0);
+
+      final tile = find.descendant(of: find.byType(ChatListRow), matching: find.byType(InkWell));
+      final painter = find.ancestor(of: tile, matching: find.byType(Material)).first;
+
+      expect(tester.getSize(painter), tester.getSize(find.byType(ChatListRow)));
+    });
+
     for (final scale in [1.0, 1.3, 1.5, 2.0]) {
       testWidgets('글자 배율 $scale 에서 행 글자가 넘치거나 잘리지 않는다(백로그 28 곁)', (tester) async {
         await pumpRow(tester, scale: scale);
