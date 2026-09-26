@@ -202,7 +202,9 @@ async def get_chat_room(match_id: str, wiring: _Wiring = Depends(_wire)) -> dict
         # 앱은 profile_private 를 직접 읽을 수 없어 본인 것도 FastAPI 를 거친다(ERD §11-20).
         "my_kakao_id": await wiring.repo.fetch_kakao_id(wiring.profile_id),
     }
-    if match["trust_passed_at"]:
+    # 사용자 결정 2026-09-27: 게이트 뒤 나가기·차단이면 연락처·실사진 닫힘(14c 404 와 일관).
+    # 차단은 차단한 쪽의 left_at 이라 나가기와 같은 판정(is_gone)을 탄다 — 응답으로 둘이 갈리지 않는다(설계 §7.2).
+    if match["trust_passed_at"] and not gate.is_gone(partner):
         room.update(await revealed_contact(wiring.repo, wiring.photos, partner["profile_id"]))
     return room
 
