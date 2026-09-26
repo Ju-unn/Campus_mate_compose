@@ -24,14 +24,17 @@ const String _onePixelPngBase64 =
 void main() {
   late FakeStudentVerificationRepository repository;
   late FakeFaceDetector faceDetector;
+  late Directory tempDir;
   late File photo;
 
+  // 고정 이름을 쓰면 여러 워크트리가 동시에 테스트를 돌릴 때 남의 파일을 지운다 — 실행마다 새 폴더를 만든다.
   setUpAll(() {
-    photo = File('${Directory.systemTemp.path}/student_verification_screen_test.png')
+    tempDir = Directory.systemTemp.createTempSync('student_verification_screen_test');
+    photo = File('${tempDir.path}/photo.png')
       ..writeAsBytesSync(base64Decode(_onePixelPngBase64));
   });
 
-  tearDownAll(() => photo.deleteSync());
+  tearDownAll(() => tempDir.deleteSync(recursive: true));
 
   setUp(() {
     repository = FakeStudentVerificationRepository();

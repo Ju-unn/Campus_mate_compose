@@ -17,6 +17,7 @@ class MockSession extends Mock implements Session {}
 
 void main() {
   late MockGoTrueClient auth;
+  late Directory tempDir;
   late File photo;
   final realName = RealName.tryParse('홍길동')!;
 
@@ -25,15 +26,13 @@ void main() {
     final session = MockSession();
     when(() => session.accessToken).thenReturn('token-abc');
     when(() => auth.currentSession).thenReturn(session);
-    photo = File('${Directory.systemTemp.path}/student_verification_test_photo.jpg');
+    // 고정 이름을 쓰면 여러 워크트리가 동시에 테스트를 돌릴 때 남의 파일을 지운다 — 실행마다 새 폴더를 만든다.
+    tempDir = Directory.systemTemp.createTempSync('student_verification_test');
+    photo = File('${tempDir.path}/photo.jpg');
     await photo.writeAsBytes([0xFF, 0xD8, 0xFF]);
   });
 
-  tearDown(() async {
-    if (photo.existsSync()) {
-      await photo.delete();
-    }
-  });
+  tearDown(() => tempDir.deleteSync(recursive: true));
 
   HttpStudentVerificationRepository buildRepository(http.Client client) {
     return HttpStudentVerificationRepository(ApiClient('https://api.test', client, auth));
