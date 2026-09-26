@@ -56,3 +56,8 @@ CHAT_LEFT = "이미 나간 대화예요"
 CHAT_PARTNER_LEFT = "상대가 대화를 나갔어요"
 TRUST_ALREADY_ANSWERED = "이미 수락했어요"
 TRUST_DEADLINE_PASSED = "응답 기한이 지났어요"
+
+# 커뮤니티
+POLL_NOT_FOUND = "질문을 찾을 수 없어요"
+POLL_ALREADY_VOTED = "이미 투표했어요"
+POLL_DAILY_LIMIT = "오늘은 질문을 더 올릴 수 없어요"
