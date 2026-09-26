@@ -10,6 +10,7 @@ from app.chat.batch_router import router as chat_batch_router
 from app.chat.router import router as chat_router
 from app.core.deps import get_settings
 from app.home.router import router as home_router
+from app.me.router import router as me_router
 from app.matching.router import router as matching_router
 from app.profile_onboarding.router import router as profile_onboarding_router
 from app.profile_onboarding.tasks_router import router as profile_onboarding_tasks_router
@@ -43,6 +44,7 @@ app.include_router(cards_router)
 app.include_router(chat_batch_router)
 app.include_router(chat_router)
 app.include_router(home_router)
+app.include_router(me_router)
 
 
 @app.get("/health")
