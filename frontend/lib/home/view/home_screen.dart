@@ -29,7 +29,8 @@ class HomeScreen extends ConsumerWidget {
         titleSpacing: 20,
         title: Text('CampusMate', style: AppTypography.navTitle.copyWith(color: AppColors.primary)),
         actions: [
-          NotifyIconButton(count: summary?.unreadNotifications ?? 0),
+          // 숫자 배지는 알림함이 생길 때까지 숨긴다(사용자 결정 2026-09-26) — 안 읽은 알림 수의 출처가 아직 없다.
+          const NotifyIconButton(count: 0),
           const SizedBox(width: AppSpacing.xs),
         ],
       ),
@@ -51,6 +52,10 @@ class HomeScreen extends ConsumerWidget {
       const SizedBox(height: 10),
       MosaicRail(images: summary.presentPeopleImages),
       const SizedBox(height: AppSpacing.md),
+      // 세 숫자가 모두 0 이면 숫자 칸 줄(pen `krua8`) 대신 판 하나(`Tklrw` 의 `AJVDS`)를 둔다.
+      if (summary.deliveredCards == 0 && summary.signups == 0 && summary.conversationsStarted == 0)
+        const _StatEmptyPanel()
+      else
       // 글자를 키워 한 칸이 늘어나면 세 칸 높이를 같이 맞춘다.
       IntrinsicHeight(
         child: Row(
@@ -85,8 +90,11 @@ class HomeScreen extends ConsumerWidget {
       ),
       const SizedBox(height: AppSpacing.xs),
       Wrap(spacing: 6, runSpacing: 6, children: [for (final campus in summary.campuses) Tag(label: campus)]),
-      const SizedBox(height: AppSpacing.md),
-      _ProfileNudge(percent: summary.profileCompletionPercent),
+      // 다 채웠으면 권할 것이 없어 카드를 숨긴다(사용자 결정 2026-09-26).
+      if (summary.profileCompletionPercent < 100) ...[
+        const SizedBox(height: AppSpacing.md),
+        _ProfileNudge(percent: summary.profileCompletionPercent),
+      ],
     ];
   }
 
@@ -169,6 +177,41 @@ class _RailHeader extends StatelessWidget {
   }
 }
 
+/// 세 숫자가 모두 0 일 때의 판(pen `Tklrw` 안 `AJVDS`). 폭은 숫자 칸 줄 자리 그대로, 높이는 내용만큼.
+/// 배율 1.0 에서 12 + 마스코트 72 + 8 + 문구 20 + 12 = 124.
+class _StatEmptyPanel extends StatelessWidget {
+  const _StatEmptyPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    // 테두리가 안쪽 여백을 먹지 않게 Container 대신 DecoratedBox — Container 는 테두리 폭만큼 여백을 더한다.
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.canvas,
+        // 리터럴: `AJVDS` 테두리 #E9E9E9 · 모서리 12 와 같은 토큰이 없다(hairlineSoft #EBEBEB, AppRadius.sm 8 · md 14).
+        border: Border.all(color: const Color(0xFFE9E9E9)), // pen AJVDS 값, 토큰표 밖
+        borderRadius: BorderRadius.circular(12), // pen AJVDS 값, 토큰표 밖
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.sm),
+        child: Column(
+          children: [
+            // `U3fkT0` = 마스터 `J2kzx` "Mascot Male · Blue Scarf".
+            Image.asset('assets/images/mascot-male.png', width: 72, height: 72),
+            const SizedBox(height: AppSpacing.xs),
+            // `zcHB6` 14/600 — lineHeight 속성 없음, 렌더 20 이라 height 20/14.
+            Text(
+              '첫 기록이 쌓이는 중이에요',
+              textAlign: TextAlign.center,
+              style: AppTypography.bodySmall.copyWith(fontWeight: FontWeight.w600, height: 20 / 14, color: AppColors.ink),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// review-strip(pen `L7wKi`). 리뷰 쓰는 화면이 아직 없어 "리뷰 남기기"는 누를 곳을 두지 않는다.
 class _ReviewStrip extends StatelessWidget {
   const _ReviewStrip({required this.rating, required this.count});
@@ -228,7 +271,7 @@ class _ReviewStrip extends StatelessWidget {
   }
 }
 
-/// 사진 더 올리기 카드(pen `usk5M`). 프로필 편집 화면이 아직 없어 누를 곳을 두지 않는다.
+/// 프로필 완성도 카드(pen `usk5M`). 프로필 편집 화면이 아직 없어 누를 곳을 두지 않는다.
 class _ProfileNudge extends StatelessWidget {
   const _ProfileNudge({required this.percent});
 
@@ -236,7 +279,9 @@ class _ProfileNudge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lineStyle = AppTypography.bodySmall.copyWith(fontWeight: FontWeight.w700, color: AppColors.ink);
+    // pen 글자 상자 높이 20(`tV9Oa` · `KjqWO`)·16(`a8UzQ`) — lineHeight 속성 없음, 렌더 결과. 토큰은 21.7·15.4 라 맞춘다.
+    final lineStyle =
+        AppTypography.bodySmall.copyWith(fontWeight: FontWeight.w700, height: 20 / 14, color: AppColors.ink);
     // pen 높이 92 는 최소 높이다 — 글자를 키우면 늘어난다(DESIGN §11.2).
     return Container(
       constraints: const BoxConstraints(minHeight: 92),
@@ -254,9 +299,10 @@ class _ProfileNudge extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('사진을 한 장 더 올리면', style: lineStyle),
+                // 문구는 사용자 결정 2026-09-26 — pen `tV9Oa` · `KjqWO`.
+                Text('프로필을 조금 더 채우면', style: lineStyle),
                 const SizedBox(height: 5),
-                Text('더 잘 맞는 카드가 와요', style: lineStyle),
+                Text('나를 더 잘 보여 줄 수 있어요', style: lineStyle),
                 const SizedBox(height: 5),
                 Container(
                   width: 150,
@@ -279,7 +325,7 @@ class _ProfileNudge extends StatelessWidget {
                 const SizedBox(height: 5),
                 Text(
                   '프로필 완성도 $percent%',
-                  style: AppTypography.caption.copyWith(fontSize: 11, color: AppColors.muted),
+                  style: AppTypography.caption.copyWith(fontSize: 11, height: 16 / 11, color: AppColors.muted),
                 ),
               ],
             ),
