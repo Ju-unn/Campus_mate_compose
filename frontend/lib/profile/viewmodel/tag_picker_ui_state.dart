@@ -1,3 +1,5 @@
+import 'package:campus_mate/profile/viewmodel/tag_picker_kind.dart';
+
 /// 태그 선택 화면(04-5·04-6·06-2 공용)의 상태.
 class TagPickerUiState {
   const TagPickerUiState({
@@ -12,8 +14,8 @@ class TagPickerUiState {
   final String? errorMessage;
   final bool completed;
 
-  /// 최소 3개·최대 5개(백엔드 validate_tag_selection 과 같은 규칙, UX 상 먼저 막는다).
-  bool get canSubmit => selected.length >= 3 && selected.length <= 5 && !isSubmitting;
+  /// 최소·최대 개수는 [TagPickerKind] 에서 온다(서버보다 UX 상 먼저 막는다).
+  bool get canSubmit => selected.length >= TagPickerKind.minCount && selected.length <= TagPickerKind.maxCount && !isSubmitting;
 
   TagPickerUiState copyWith({
     Set<String>? selected,

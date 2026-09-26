@@ -80,4 +80,11 @@ void main() {
     expect(TagPickerKind.myTraits.pool, myTraits);
     expect(TagPickerKind.idealTraits.pool, idealTraits);
   });
+
+  test('최소·최대 개수는 한 곳에서 오고 라벨도 그 숫자를 쓴다', () {
+    expect((TagPickerKind.minCount, TagPickerKind.maxCount), (3, 5));
+    for (final kind in TagPickerKind.values) {
+      expect(kind.tagLabel, endsWith('(최소 3개 · 최대 5개)'));
+    }
+  });
 }

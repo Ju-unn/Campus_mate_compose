@@ -101,7 +101,11 @@ class _Footer extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SelectCountBar(selected: state.selected.length, max: 5, min: 3),
+          SelectCountBar(
+            selected: state.selected.length,
+            max: TagPickerKind.maxCount,
+            min: TagPickerKind.minCount,
+          ),
           if (state.errorMessage != null) ...[
             const SizedBox(height: AppSpacing.xs),
             Text(state.errorMessage!, style: AppTypography.caption.copyWith(color: AppColors.error)),
