@@ -81,6 +81,7 @@ ChatRoom roomFixture({
   DateTime? createdAt,
   String? myResponse,
   bool passed = false,
+  DateTime? passedAt,
   bool partnerLeft = false,
   String? kakaoId,
   String? myKakaoId,
@@ -93,6 +94,7 @@ ChatRoom roomFixture({
     createdAt: created,
     gate: TrustGate(
       passed: passed,
+      passedAt: passedAt,
       partnerLeft: partnerLeft,
       deadlineAt: created.add(trustGateDeadline),
       myResponse: myResponse,

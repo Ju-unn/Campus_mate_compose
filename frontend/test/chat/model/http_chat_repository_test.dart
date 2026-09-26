@@ -214,5 +214,30 @@ void main() {
     expect(room!.kakaoId, isNull);
     expect(room.photoUrls, isEmpty);
     expect(room.gate.accepted, isFalse);
+    // 서버가 passed_at 을 내려주기 전 응답과도 호환된다(백로그 20).
+    expect(room.gate.passedAt, isNull);
+  });
+
+  test('통과 시각을 읽어 14b 카드 자리를 정한다', () async {
+    final client = MockClient((request) async {
+      return jsonResponse({
+        'match_id': 'm1',
+        'created_at': '2026-09-22T10:00:00+09:00',
+        'partner': {'profile_id': 'p2', 'nickname': '여우비', 'avatar_url': null},
+        'gate': {
+          'my_response': 'accept',
+          'passed': true,
+          'passed_at': '2026-09-22T12:30:00+09:00',
+          'partner_left': false,
+          'deadline_at': '2026-09-24T10:00:00+09:00',
+        },
+        'kakao_id': 'fox_rain',
+      });
+    });
+
+    final result = await buildRepository(client).fetchRoom('m1');
+
+    final room = result.when(onSuccess: (value) => value, onFailure: (_) => null);
+    expect(room!.gate.passedAt, DateTime.parse('2026-09-22T03:30:00Z').toLocal());
   });
 }
