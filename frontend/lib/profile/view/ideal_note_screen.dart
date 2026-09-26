@@ -46,8 +46,9 @@ class IdealNoteScreen extends ConsumerWidget {
                         placeholder: '말이 잘 통하는 사람이 좋아요',
                         initialValue: state.note,
                         onChanged: viewModel.changeNote,
-                        // 서버가 돌려준 오류가 먼저다. 그런 오류가 없을 때만 길이 안내를 보여준다.
-                        errorText: state.errorMessage ?? state.lengthMessage,
+                        // 오류(짧은 채로 "다음" 또는 서버 오류)가 있으면 같은 자리의 회색 안내 대신 오류가 나온다.
+                        errorText: state.errorMessage,
+                        guideText: state.lengthMessage,
                         maxLines: 6,
                       ),
                     ],

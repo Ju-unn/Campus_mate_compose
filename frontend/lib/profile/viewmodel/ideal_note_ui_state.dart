@@ -16,15 +16,19 @@ class IdealNoteUiState {
   /// 최소 글자 수(2026-09-21 사용자 결정). 서버 `IDEAL_NOTE_MIN_LENGTH` 와 같은 값이다.
   static const int minLength = 10;
 
+  static const String lengthHint = '$minLength자 이상 입력해 주세요';
+
   /// 서버가 보는 길이와 같게 센다 — 파이썬 `len()` 은 글자(코드 포인트) 수라 `runes` 가 맞다.
   int get _trimmedLength => note.trim().runes.length;
 
-  /// 하단 "다음"은 10자 이상 썼을 때만 켠다 — 짧은 글은 서버도 422 로 돌려보낸다.
-  bool get canSubmit => _trimmedLength >= minLength && !isSubmitting;
+  bool get isLongEnough => _trimmedLength >= minLength;
 
-  /// 쓰는 도중 10자에 못 미칠 때만 알려준다 — 화면에 들어오자마자 빨간 글씨를 보여주지 않는다.
-  String? get lengthMessage =>
-      _trimmedLength == 0 || _trimmedLength >= minLength ? null : '$minLength자 이상 입력해 주세요';
+  /// 하단 "다음"은 보내는 중에만 끈다 — 짧을 때 누르면 저장 대신 빨간 오류로 이유를 알려준다
+  /// (2026-09-27 사용자 "나", 04-1 과 같은 방식).
+  bool get canSubmit => !isSubmitting;
+
+  /// 쓰는 도중 10자에 못 미칠 때의 회색 안내 — 화면에 들어오자마자(0자) 보여주지 않는다.
+  String? get lengthMessage => _trimmedLength == 0 || isLongEnough ? null : lengthHint;
 
   IdealNoteUiState copyWith({
     String? note,
