@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/community/model/community_repository_provider.dart';
 import 'package:campus_mate/community/view/poll_composer_screen.dart';
+import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -73,6 +76,22 @@ void main() {
     expect(repository.pageRequests, isNotEmpty);
   });
 
+  testWidgets('올리는 중(17b UqasS): 버튼이 꺼지고 스피너는 없다', (tester) async {
+    repository.holdCreate = Completer<void>();
+    await pump(tester);
+    await tester.enterText(find.byKey(PollComposerScreen.questionKey), '짜장 vs 짬뽕');
+    await tester.pump();
+    await tester.tap(find.text('익명으로 올리기'));
+    await tester.pump();
+    expect(submit(tester).onPressed, isNull);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+
+    repository.holdCreate!.complete();
+    await tester.pumpAndSettle();
+    expect(repository.created.length, 1);
+    expect(find.text('피드'), findsOneWidget);
+  });
+
   testWidgets('하루 10개를 넘기면(429) 한도 문구를 보이고 화면에 남는다', (tester) async {
     repository.createResult = const FailureResult(RateLimitedFailure());
     await pump(tester);
@@ -83,6 +102,20 @@ void main() {
 
     expect(find.text(pollDailyLimitMessage), findsOneWidget);
     expect(find.text('피드'), findsNothing);
+
+    // pen 17b 올리기 실패 `u4UOb`: 오류 글 error 색, 선택지 상자 아래 20 · 버튼 위 8, 버튼은 다시 켜진다.
+    // 글 높이는 보지 않는다 — bodySmall lh1.55(21.7)와 pen 렌더 23 이 다르다(줄높이 있는 글은 토큰을 따른다).
+    final error = find.text(pollDailyLimitMessage);
+    expect(tester.widget<Text>(error).style!.color, AppColors.error);
+    final optionBox = tester.getRect(
+      find.ancestor(of: find.byKey(PollComposerScreen.optionAKey), matching: find.byType(Container)).first,
+    );
+    final errorRect = tester.getRect(error);
+    final button = tester.getRect(find.widgetWithText(ElevatedButton, '익명으로 올리기'));
+    expect(errorRect.top - optionBox.bottom, 20);
+    expect(button.top - errorRect.bottom, 8);
+    expect(submit(tester).onPressed, isNotNull);
+    expect(button.height, 56);
   });
 
   testWidgets('입력칸은 80자 · 6자에서 더 받지 않는다', (tester) async {
