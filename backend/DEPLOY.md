@@ -67,7 +67,7 @@ gcloud run deploy campus-mate-backend \
   --source . \
   --region asia-northeast3 \
   --allow-unauthenticated \
-  --set-env-vars SUPABASE_URL=<project-url>,GOOGLE_CLOUD_PROJECT=<PROJECT_ID>,AVATAR_TASKS_QUEUE=<큐 이름>,AVATAR_WORKER_URL=<cloud-run-url>/tasks/avatar-generate,AVATAR_TASKS_SERVICE_ACCOUNT=<큐가 쓸 서비스 계정 이메일> \
+  --set-env-vars SUPABASE_URL=<project-url>,GOOGLE_CLOUD_PROJECT=<PROJECT_ID>,AVATAR_TASKS_QUEUE=<큐 이름>,AVATAR_WORKER_URL=<cloud-run-url>/tasks/avatar-generate,AVATAR_TASKS_SERVICE_ACCOUNT=<큐가 쓸 서비스 계정 이메일>,BATCH_AUDIENCE=<cloud-run-url>,BATCH_SERVICE_ACCOUNT=campus-mate-scheduler@<PROJECT_ID>.iam.gserviceaccount.com \
   --set-secrets SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest,AUTH_HOOK_SIGNING_SECRET=auth-hook-signing-secret:latest,DISCORD_WEBHOOK_URL=discord-review-webhook-url:latest,CARD_BATCH_SECRET=card-batch-secret:latest,IDENTITY_HMAC_KEY=identity-hmac-key:latest,OPENAI_API_KEY=open-api-key:latest,PHONE_ENCRYPTION_KEY=phone-number-encryption-key:latest,DISCORD_REPORT_WEBHOOK_URL=discord-report-webhook-url:latest
 ```
 
@@ -109,6 +109,8 @@ gcloud scheduler jobs create http campus-mate-daily-cards \
   --attempt-deadline=600s
 ```
 
+**조각 6 에서 OIDC 로 전환 — §4-3.**
+
 - 헤더 값은 위에서 만든 `card-batch-secret` 과 **같은 값**이어야 한다. 서버는 `hmac.compare_digest` 로 맞춰 본다.
 - Cloud Run 이 `--allow-unauthenticated` 라 이 엔드포인트는 스스로를 지킨다(조각 1a auth hook 과 같은 이유).
 - 비밀이 없거나 틀리면 401 이고, 그때는 아무 카드도 나가지 않는다.
@@ -142,6 +144,8 @@ gcloud scheduler jobs create http campus-mate-chat-gate \
   --headers="X-Batch-Secret=<card-batch-secret 값>" \
   --attempt-deadline=600s
 ```
+
+**조각 6 에서 OIDC 로 전환 — §4-3.**
 
 - **새 시크릿을 만들지 않는다.** 카드 배치와 같은 `card-batch-secret` 을 쓴다 — 둘 다 우리 스케줄러만
   부르는 엔드포인트라 비밀을 나눌 이유가 없다. 시크릿 버전을 올리면 이 job 의 헤더도 같이 고쳐야 한다.
@@ -219,6 +223,154 @@ gcloud iam service-accounts add-iam-policy-binding <계정 이메일> \
 나기 때문에 POST 는 멀쩡히 202 를 주고, 사람은 "다시 만들기" 를 다섯 번 누른 뒤 기본 아바타와 하트 10 을
 받는다 — 겉보기엔 정상 동작이다. 확인할 곳은 Cloud Run 로그의 `아바타 생성 실패`
 (`app/profile_onboarding/avatars.py`) 한 줄뿐이다.
+
+## 4-3. 배치 인증 OIDC 전환 (조각 6, 2026-09-27)
+
+§4 · §4-1 의 job 2개는 `X-Batch-Secret` 헤더에 공유 열쇠를 실어 온다. 열쇠가 job 설정과 서버 양쪽에
+복사돼 있어서 **한쪽만 바꾸면 그 사이 배치가 전부 401** 이다(§1 의 `\r` 사고). OIDC 로 바꾸면 job 이
+구글이 서명한 ID 토큰을 달고 오고, 서버는 공개키로 검증한 뒤 발급 계정까지 본다(`app/core/batch_auth.py`)
+— 복사해 둘 열쇠가 없어진다.
+
+서버는 지금 **둘 다 받는다** — 옛 헤더가 맞거나 **또는** ID 토큰이 맞으면 통과한다. 그래서 아래 순서대로
+가면 401 창이 없다. **각 단계의 "확인" 이 된 뒤에 다음 단계로 간다.**
+
+환경변수 2개가 새로 생긴다. 비밀이 아니라서 `--set-secrets` 가 아니라 §2 의 `--set-env-vars` 에 들어 있다.
+
+- `BATCH_AUDIENCE` — Cloud Run 서비스 URL, **경로 없이**(끝에 `/` 도 없이). 두 job 이 이 값 하나를 같이 쓴다.
+- `BATCH_SERVICE_ACCOUNT` — 스케줄러 서비스 계정 이메일 `campus-mate-scheduler@<PROJECT_ID>.iam.gserviceaccount.com`.
+- **둘 중 하나라도 비어 있으면 OIDC 로는 아무도 못 들어온다**(옛 헤더는 5단계 전까지 계속 된다).
+
+§2 70행과 아래 `<cloud-run-url>` 은 이 명령이 찍는 값 그대로다(`https://` 포함, 경로 · 끝 `/` 없이):
+
+```bash
+gcloud run services describe campus-mate-backend --region=asia-northeast3 --format='value(status.url)'
+```
+
+**1단계 — 서비스 계정 만들고 권한 주기**
+
+```bash
+gcloud iam service-accounts create campus-mate-scheduler --display-name="campus mate scheduler"
+
+# job 이 부를 Cloud Run 서비스에 호출 권한을 준다.
+gcloud run services add-iam-policy-binding campus-mate-backend \
+  --region=asia-northeast3 \
+  --member="serviceAccount:campus-mate-scheduler@<PROJECT_ID>.iam.gserviceaccount.com" \
+  --role="roles/run.invoker"
+
+# 3단계에서 job 에 이 계정을 붙이는 사람(= gcloud 로그인 계정)은 그 계정에 대해
+# iam.serviceAccounts.actAs 가 있어야 한다 — §4-2 의 403 과 같은 교훈이다.
+# 프로젝트 소유자면 이미 있지만, 없으면 3단계가 PERMISSION_DENIED 로 멈춘다.
+gcloud iam service-accounts add-iam-policy-binding campus-mate-scheduler@<PROJECT_ID>.iam.gserviceaccount.com \
+  --member="user:<gcloud 로그인 이메일>" \
+  --role="roles/iam.serviceAccountUser"
+```
+
+확인: `gcloud run services get-iam-policy campus-mate-backend --region=asia-northeast3` 에 `roles/run.invoker` 와 `campus-mate-scheduler@…` 가 같이 보인다.
+
+**2단계 — 이 서버를 배포하기**
+
+§2 명령으로 배포한다. **`BATCH_AUDIENCE` · `BATCH_SERVICE_ACCOUNT` 는 §2 명령에도 넣어 두었다** —
+`--set-env-vars` 는 전체 교체라 빠뜨리면 3단계 뒤 배치가 전부 401 이다.
+
+확인: 새 서버가 떴고 job 이 아직 옛 헤더로 들어오는지 본다. 옛 revision 도 200 을 주므로 200 만으로는
+배포 실패나 env 오류를 못 잡는다.
+
+```bash
+# 새 revision 의 env. BATCH_AUDIENCE 가 위에서 본 status.url 출력과 글자까지 같아야 한다
+# (Cloud Run URL 은 모양이 두 가지다 — …a.run.app 과 …<프로젝트 번호>.asia-northeast3.run.app).
+gcloud run services describe campus-mate-backend --region=asia-northeast3 --format=yaml | grep -A1 BATCH_
+
+# 카드 배치는 하루 한 장이라 손으로 한 번 더 돌려도 안전하다(issuing.py).
+gcloud scheduler jobs run campus-mate-daily-cards --location=asia-northeast3
+
+# 1~2분 뒤. /batch/daily-cards 가 200 이면 된다. chat-gate 는 다음 정각 실행을 같은 명령으로 본다.
+gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="campus-mate-backend" AND httpRequest.requestUrl:"/batch/"' \
+  --freshness=15m --limit=5 --format='value(timestamp,httpRequest.requestUrl,httpRequest.status)'
+
+# "batch /batch/daily-cards auth=secret" 이 보여야 통과다 — 이 로그 줄은 새 코드만 찍는다.
+gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="campus-mate-backend" AND textPayload:"auth="' \
+  --freshness=15m --limit=10 --format='value(timestamp,textPayload)'
+```
+
+**`auth=secret` 이 안 보이면 새 서버가 아직 안 떴다 — 3단계로 가면 배치가 전부 401.**
+
+**3단계 — job 2개를 OIDC 로 바꾸고 옛 헤더 빼기**
+
+```bash
+# --oidc-token-audience 는 **경로 없는** 서비스 URL 이다. 빠뜨리면 구글이 job 의 --uri 전체
+# (…/batch/daily-cards)를 audience 로 넣어 서버의 BATCH_AUDIENCE 와 어긋난다 → 401.
+# 두 job 이 같은 audience 를 써서 서버 설정이 하나로 끝난다.
+gcloud scheduler jobs update http campus-mate-daily-cards \
+  --location=asia-northeast3 \
+  --oidc-service-account-email=campus-mate-scheduler@<PROJECT_ID>.iam.gserviceaccount.com \
+  --oidc-token-audience=<cloud-run-url> \
+  --remove-headers=X-Batch-Secret
+
+gcloud scheduler jobs update http campus-mate-chat-gate \
+  --location=asia-northeast3 \
+  --oidc-service-account-email=campus-mate-scheduler@<PROJECT_ID>.iam.gserviceaccount.com \
+  --oidc-token-audience=<cloud-run-url> \
+  --remove-headers=X-Batch-Secret
+```
+
+헤더를 빼는 플래그는 `--remove-headers` 다(`gcloud scheduler jobs update http --help`, SDK 586 에서 확인).
+계획서 초안의 `--update-headers` 는 헤더를 **더하거나 고치는** 플래그라 여기 맞지 않는다.
+
+확인: `gcloud scheduler jobs describe campus-mate-daily-cards --location=asia-northeast3 --format='yaml(httpTarget)'`
+에 `oidcToken`(계정 · audience)이 있고 `X-Batch-Secret` 이 없다. `campus-mate-chat-gate` 도 같다.
+
+**4단계 — 손으로 돌려 `auth=oidc` 확인**
+
+```bash
+gcloud scheduler jobs run campus-mate-daily-cards --location=asia-northeast3
+gcloud scheduler jobs run campus-mate-chat-gate --location=asia-northeast3
+
+# 1~2분 뒤. 두 경로 모두 200 이어야 한다 — 헤더를 뺐으니 200 이면 토큰으로 들어온 것이다.
+gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="campus-mate-backend" AND httpRequest.requestUrl:"/batch/"' \
+  --freshness=15m --limit=5 --format='value(timestamp,httpRequest.requestUrl,httpRequest.status)'
+
+# 서버가 남기는 한 줄. "batch /batch/daily-cards auth=oidc" · "batch /batch/chat-gate auth=oidc" 가 보이면 된다.
+# 로깅 설정이 없어 파이썬 레벨이 severity 로 옮겨지지 않는다 — severity 조건은 걸지 않는다.
+gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="campus-mate-backend" AND textPayload:"auth="' \
+  --freshness=15m --limit=10 --format='value(timestamp,textPayload)'
+```
+
+- `auth=secret` 이 보이면 그 job 의 헤더가 아직 남아 있다 — 3단계 확인으로 돌아간다.
+- 401 이면 대개 audience 가 어긋난 것이다. job 의 `--oidc-token-audience` 와 `BATCH_AUDIENCE` 가 **글자 하나까지**
+  같은지(경로 · 끝 `/`) 본다. 급하면 옛 헤더를 다시 넣어(§5 의 `--update-headers` 명령) 바로 되살린다 — 5단계 전까지는 서버가 받는다.
+- chat-gate 를 손으로 돌리면 그 시간 리마인드 대상에게 알림이 한 번 더 갈 수 있다(`app/chat/gate.py` 의 한 시간 창). 한 번만 돌린다.
+
+**5단계 — 공유 열쇠 코드 삭제 (별도 작은 PR)**
+
+4단계가 확인된 뒤에 연다. 지우는 것: `settings.card_batch_secret` · `verify_batch_caller` 의 옛 헤더 분기 ·
+관련 테스트 · §2 `--set-secrets` 의 `CARD_BATCH_SECRET=card-batch-secret:latest`. 두 배치 라우터의
+`auth=` 로그 줄(`logger.warning`, 전환 확인용)도 같이 지운다.
+**이 PR 과 한 번에 넣지 않는 이유:** merge · 배포 순간 job 이 아직 옛 헤더라 배치가 전부 401 이 된다.
+
+확인: 배포 뒤 다음 정각 chat-gate 와 다음 날 07:00 daily-cards 가 200(4단계의 첫 `logging read`).
+
+**6단계 — 시크릿 폐기**
+
+5단계 배포에서 `CARD_BATCH_SECRET` 참조가 빠졌는지 **먼저** 본다. 남은 채로 버전을 끄면 새 인스턴스가
+시크릿을 못 읽어 뜨지 못한다.
+
+```bash
+# 0 이 나와야 한다.
+gcloud run services describe campus-mate-backend --region=asia-northeast3 --format=yaml | grep -c card-batch-secret
+
+gcloud secrets versions list card-batch-secret
+gcloud secrets versions disable <쓰던 버전 번호> --secret=card-batch-secret
+
+# 하루 지켜보고 배치가 계속 200 이면 통째로 지운다.
+gcloud secrets delete card-batch-secret
+```
+
+확인: 다음 날 두 job 모두 200 이고, `gcloud secrets list` 에 `card-batch-secret` 이 없다.
+
+**새 job 은 처음부터 OIDC 로 만든다** — 세 번째 job(정리 배치)도 `--oidc-service-account-email` ·
+`--oidc-token-audience=<cloud-run-url>` 로 만들고 `--headers` 는 붙이지 않는다. 계정 · 권한 · 서버 설정은 위 것을 그대로 쓴다.
+주소는 `--uri=<cloud-run-url>/batch/<경로>` 다 — 여기 `<cloud-run-url>` 은 `https://` 를 포함하므로 §4 처럼
+`https://` 를 또 붙이면 `https://https://` 가 된다.
 
 ## 5. 현재 배포 상태 (2026-09-26 기준)
 
