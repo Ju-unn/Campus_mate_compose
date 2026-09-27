@@ -93,7 +93,8 @@ class _CommunityFeedScreenState extends ConsumerState<CommunityFeedScreen> {
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
         itemCount: state.polls.length + (state.isLoadingMore ? 1 : 0),
         separatorBuilder: (context, index) => const SizedBox(height: AppSpacing.sm),
-        itemBuilder: (context, index) {
+        // 화면 context 를 쓴다 — 마지막 글을 지우면 목록이 빈 화면으로 바뀌어 항목 쪽 context 는 사라진다(삭제 뒤 토스트).
+        itemBuilder: (_, index) {
           if (index == state.polls.length) {
             return const Center(child: CircularProgressIndicator());
           }

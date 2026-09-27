@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
@@ -10,8 +12,10 @@ import 'package:campus_mate/community/view/community_feed_screen.dart';
 import 'package:campus_mate/community/view/poll_card.dart';
 import 'package:campus_mate/community/view/poll_donut.dart';
 import 'package:campus_mate/community/view/poll_time.dart';
+import 'package:campus_mate/community/view/poll_toast.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -328,6 +332,140 @@ void main() {
     await tester.pumpAndSettle();
     expect(repository.deleted, ['p1']);
     expect(find.byType(PollCard), findsNothing);
+    // 15d-5 `SKQgV`: "삭제했어요" 글자만(토스트 `VuCcc` 아이콘 끔).
+    expect(find.text(pollDeletedMessage), findsOneWidget);
+    expect(find.descendant(of: find.byType(AppToast), matching: find.byType(Icon)), findsNothing);
+  });
+
+  Future<void> openDeleteConfirm(WidgetTester tester) async {
+    await tester.tap(find.byTooltip('더보기'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('삭제하기'));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('삭제 중(15d-2 EIEFb): 확인 시트가 열린 채 "삭제하기" 만 꺼지고, 끝나면 닫히며 "삭제했어요"', (tester) async {
+    repository
+      ..page = Success(PollPage(polls: [pollFixture(isMine: true)], hasMore: false))
+      ..holdDelete = Completer<void>();
+    await pump(tester);
+    await openDeleteConfirm(tester);
+    final deleteButton = find.widgetWithText(ElevatedButton, '삭제하기');
+    await tester.tap(deleteButton);
+    await tester.pump();
+    // 시트 닫힘 애니메이션보다 길게 기다려도 그대로다.
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(find.text('이 질문을 삭제할까요?'), findsOneWidget);
+    expect(find.byType(PollCard), findsOneWidget);
+    final button = tester.widget<ElevatedButton>(deleteButton);
+    expect(button.onPressed, isNull);
+    // EIEFb: 채움 #E5E5E5 · 글자 #929292, 스피너 없음 — AppButton 의 꺼진 상태 그대로.
+    expect(button.style!.backgroundColor!.resolve({WidgetState.disabled}), AppColors.primaryDisabled);
+    expect(button.style!.foregroundColor!.resolve({WidgetState.disabled}), AppColors.disabled);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(tester.widget<ElevatedButton>(find.widgetWithText(ElevatedButton, '취소')).onPressed, isNotNull);
+
+    await tester.tap(deleteButton);
+    await tester.pump();
+    expect(repository.deleted.length, 1);
+
+    repository.holdDelete!.complete();
+    await tester.pumpAndSettle();
+    expect(find.text('이 질문을 삭제할까요?'), findsNothing);
+    expect(find.byType(PollCard), findsNothing);
+    expect(find.text(pollDeletedMessage), findsOneWidget);
+  });
+
+  testWidgets('지우기 실패(15d-6 f6fXkA · 토스트 ANlRW): 시트는 닫히고 카드는 남고, 내비 위 16 · 높이 40 경고 토스트', (tester) async {
+    repository
+      ..page = Success(PollPage(polls: [pollFixture(isMine: true)], hasMore: false))
+      ..deleteResult = const FailureResult(UnknownFailure());
+    await pump(tester);
+    await openDeleteConfirm(tester);
+    await tester.tap(find.widgetWithText(ElevatedButton, '삭제하기'));
+    await tester.pumpAndSettle();
+    expect(find.text('이 질문을 삭제할까요?'), findsNothing);
+    expect(find.byType(PollCard), findsOneWidget);
+    expect(find.text(const UnknownFailure().toDisplayMessage()), findsOneWidget);
+    expect(find.text(pollDeletedMessage), findsNothing);
+    final icon = tester.widget<Icon>(find.descendant(of: find.byType(AppToast), matching: find.byType(Icon)));
+    expect(icon.icon, AppIcons.alertTriangle);
+    expect(icon.size, 16);
+    final toast = tester.getRect(find.byType(AppToast));
+    expect(toast.height, 40);
+    expect(tester.getRect(find.byType(AppBottomNav)).top - toast.bottom, 16);
+    expect(toast.center.dx, 400);
+  });
+
+  testWidgets('지우는 중 "취소" 로 닫아도 요청이 끝나면 "삭제했어요" 를 알린다(서버에서는 지워졌다)', (tester) async {
+    repository
+      ..page = Success(PollPage(polls: [pollFixture(isMine: true)], hasMore: false))
+      ..holdDelete = Completer<void>();
+    await pump(tester);
+    await openDeleteConfirm(tester);
+    await tester.tap(find.widgetWithText(ElevatedButton, '삭제하기'));
+    await tester.pump();
+    await tester.tap(find.widgetWithText(ElevatedButton, '취소'));
+    await tester.pumpAndSettle();
+    expect(find.text('이 질문을 삭제할까요?'), findsNothing);
+    expect(find.text(pollDeletedMessage), findsNothing);
+
+    repository.holdDelete!.complete();
+    await tester.pumpAndSettle();
+    expect(repository.deleted, ['p1']);
+    expect(find.byType(PollCard), findsNothing);
+    expect(find.text(pollDeletedMessage), findsOneWidget);
+  });
+
+  testWidgets('시트가 닫히는 도중(애니메이션)에 지우기가 끝나도 아래 화면까지 닫지 않는다', (tester) async {
+    repository
+      ..page = Success(PollPage(polls: [pollFixture(isMine: true)], hasMore: false))
+      ..holdDelete = Completer<void>();
+    await pump(tester);
+    await openDeleteConfirm(tester);
+    await tester.tap(find.widgetWithText(ElevatedButton, '삭제하기'));
+    await tester.pump();
+    await tester.tap(find.widgetWithText(ElevatedButton, '취소'));
+    await tester.pump(); // 닫힘 애니메이션 첫 프레임 — 시트 State 는 아직 살아 있다.
+    repository.holdDelete!.complete();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.byType(CommunityFeedScreen), findsOneWidget);
+    expect(find.text(pollDeletedMessage), findsOneWidget);
+  });
+
+  testWidgets('"삭제했어요" 토스트는 하단 내비 위 16 · 높이 40 · 가운데(pen SKQgV 97×40)', (tester) async {
+    repository.page = Success(PollPage(polls: [pollFixture(isMine: true)], hasMore: false));
+    await pump(tester);
+    await openDeleteConfirm(tester);
+    await tester.tap(find.widgetWithText(ElevatedButton, '삭제하기'));
+    await tester.pumpAndSettle();
+    final toast = tester.getRect(find.byType(AppToast));
+    expect(toast.height, 40);
+    expect(tester.getRect(find.byType(AppBottomNav)).top - toast.bottom, 16);
+    expect(toast.center.dx, 400); // 가운데(기본 테스트 화면 폭 800)
+    // 폭 97 은 pen 글꼴 기준 — 테스트 글꼴(Ahem)에선 좌우 안쪽 16 + 글자 폭만 본다.
+    expect(toast.width, tester.getSize(find.text(pollDeletedMessage)).width + 16 * 2);
+  });
+
+  testWidgets('폰 폭(360) · 글자 2배에서 "삭제했어요" 토스트도 넘치거나 잘리지 않는다', (tester) async {
+    tester.view.physicalSize = const Size(360, 780);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    repository.page = Success(PollPage(polls: [pollFixture(isMine: true)], hasMore: false));
+    await pump(tester);
+    await openDeleteConfirm(tester);
+    await tester.tap(find.widgetWithText(ElevatedButton, '삭제하기'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    final p = tester.renderObject<RenderParagraph>(
+      find.descendant(of: find.byType(AppToast), matching: find.byType(RichText)),
+    );
+    expect(p.getMaxIntrinsicHeight(p.size.width), lessThanOrEqualTo(p.size.height + 0.5));
+    expect(p.getMinIntrinsicWidth(double.infinity), lessThanOrEqualTo(p.size.width + 0.5));
   });
 
   testWidgets('확인 창에서 취소하면 지우지 않는다', (tester) async {
