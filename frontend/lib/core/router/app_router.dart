@@ -5,7 +5,6 @@ import 'package:campus_mate/auth/view/sign_up_screen.dart';
 import 'package:campus_mate/auth/view/student_verification_screen.dart';
 import 'package:campus_mate/auth/view/verify_code_screen.dart';
 import 'package:campus_mate/chat/view/chat_room_screen.dart';
-import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/community/view/community_feed_screen.dart';
 import 'package:campus_mate/community/view/poll_composer_screen.dart';
 import 'package:campus_mate/community/view/poll_detail_screen.dart';
