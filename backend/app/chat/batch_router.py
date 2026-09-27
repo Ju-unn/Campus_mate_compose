@@ -1,15 +1,14 @@
-import hmac
 import logging
 from datetime import datetime
 
 import httpx
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header
 
 from app.cards.push import FcmSender, notify
 from app.cards.repository import CardRepository
 from app.chat import gate
 from app.chat.repository import ChatRepository
-from app.core import errors
+from app.core.batch_auth import verify_batch_caller
 from app.core.deps import get_client, get_settings
 from app.core.time import SEOUL
 from app.settings import Settings
@@ -75,14 +74,18 @@ async def run_chat_gate(repo: ChatRepository, push_repo: CardRepository, sender:
 @router.post("/batch/chat-gate")
 async def run_chat_gate_batch(
     x_batch_secret: str | None = Header(default=None),
+    authorization: str | None = Header(default=None),
     settings: Settings = Depends(get_settings),
     client: httpx.AsyncClient = Depends(get_client),
 ) -> dict:
     """Cloud Scheduler 전용. 카드 배치와 같은 공유 비밀을 쓴다 — 둘 다 우리 스케줄러만 부른다."""
-    if not settings.card_batch_secret or not x_batch_secret or not hmac.compare_digest(
-        x_batch_secret, settings.card_batch_secret
-    ):
-        raise HTTPException(status_code=401, detail=errors.UNAUTHORIZED)
+    method = await verify_batch_caller(
+        authorization=authorization, x_batch_secret=x_batch_secret,
+        batch_secret=settings.card_batch_secret, audience=settings.batch_audience,
+        service_account_email=settings.batch_service_account,
+    )
+    # 운영에 로깅 설정이 없어 INFO 는 안 보인다. 전환 확인용이고 5단계 PR 에서 이 줄째 지운다.
+    logger.warning("batch %s auth=%s", "/batch/chat-gate", method)
 
     key = settings.supabase_service_role_key
     repo = ChatRepository(settings.postgrest_url, key, client)
