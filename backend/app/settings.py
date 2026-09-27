@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     # 조각 4: Secret Manager 키 이름 `card-batch-secret` — /batch/daily-cards 를 Cloud Scheduler 만 부르게 한다.
     # 비어 있으면 엔드포인트가 아무도 통과시키지 않는다(설정을 빠뜨린 배포가 열린 문이 되지 않게).
     card_batch_secret: str = ""
+    batch_audience: str = ""
+    batch_service_account: str = ""
     # 조각 2 후속(아바타 비동기, 2026-09-25 결정): 작업 큐 이름 · 워커 URL · 작업을 부를 서비스 계정.
     # 리전과 프로젝트는 여기 두지 않는다 — 프로젝트는 위 google_cloud_project 가 이미 들고 있고
     # 리전은 Cloud Run 과 같이 움직여서, 칸을 늘려 봐야 배포할 때 빠뜨릴 자리만 는다(avatar_tasks.py).
