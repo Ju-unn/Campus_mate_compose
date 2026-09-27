@@ -179,6 +179,8 @@ def test_accept_notifies_the_target():
             return httpx.Response(200, json=[_live_card()])
         if "/rest/v1/push_tokens" in url:
             return httpx.Response(200, json=[{"token": "tok"}])
+        if "/rest/v1/blocks" in url:
+            return httpx.Response(200, json=[])  # 조각 6 차단 조회 — 아래 기본값(insert 모양)을 받지 않게
         if "/rest/v1/notification_settings" in url:
             return httpx.Response(200, json=[{"acceptance_received": True, "quiet_hours": False}])
         if "/rest/v1/profiles" in url:
@@ -206,6 +208,8 @@ def test_reject_notifies_nobody():
             return httpx.Response(200, json=[_live_card()])
         if "/rest/v1/push_tokens" in url:
             return httpx.Response(200, json=[{"token": "tok"}])
+        if "/rest/v1/blocks" in url:
+            return httpx.Response(200, json=[])  # 조각 6 차단 조회 — 아래 기본값(insert 모양)을 받지 않게
         return httpx.Response(201, json=[{"id": "x"}])
 
     response = _wire(handler).post("/cards/card-1/decision", headers=AUTH_HEADERS,

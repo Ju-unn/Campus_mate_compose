@@ -216,3 +216,28 @@ def test_responding_to_someone_elses_acceptance_is_404():
                                    json={"decision": "accept"})
 
     assert response.status_code == 404
+
+
+def test_accepting_reads_the_accepters_profile_only_once():
+    """숨김 검사(조각 6)에서 읽은 상대 프로필을 매칭 알림 문구에도 그대로 쓴다 — 같은 행을 두 번 읽지 않는다."""
+    card_profile_reads: list[str] = []
+
+    def extra(request: httpx.Request) -> httpx.Response:
+        if "/rest/v1/daily_cards" in str(request.url):
+            return httpx.Response(200, json=[_accepted_card(_hours_ago(24))])
+        return httpx.Response(200, json=[])
+
+    handler, pushes, _ = _pushes_and_matches(extra)
+
+    def counting(request: httpx.Request) -> httpx.Response:
+        params = request.url.params
+        if request.url.path == "/rest/v1/profiles" and "nickname" in params.get("select", ""):
+            card_profile_reads.append(params["id"])
+        return handler(request)
+
+    response = _wire(counting).post("/cards/acceptances/card-1", headers=AUTH_HEADERS,
+                                    json={"decision": "accept"})
+
+    assert response.json() == {"matched": True, "match_id": "match-1"}
+    assert len(pushes) == 2
+    assert card_profile_reads.count(f"eq.{OTHER_ID}") == 1

@@ -5,7 +5,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.settings import Settings
-from app.student_verification.current_user import get_current_user_id
+from app.student_verification.current_user import get_current_user_id, get_verified_user_id
 
 USER_ID = "11111111-1111-1111-1111-111111111111"
 
@@ -56,3 +56,42 @@ async def test_supabase_401_is_passed_through():
         await get_current_user_id(_settings(), client, authorization="Bearer expired-token")
 
     assert exc_info.value.status_code == 401
+
+
+# 조각 6: 정지 관문 ----------------------------------------------------------------
+
+def _gate_client(gate_row: dict) -> httpx.AsyncClient:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/auth/v1/user":
+            return httpx.Response(200, json={"id": USER_ID})
+        return httpx.Response(200, json=[gate_row])
+
+    return httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+
+async def test_a_suspended_account_is_403_with_a_status_header():
+    """403 은 학생증 · 학과 관문도 쓴다 — 앱이 문구를 비교하지 않고 정지를 가르게 헤더를 싣는다."""
+    client = _gate_client({"student_verification": "verified", "department": "컴공", "status": "suspended"})
+
+    with pytest.raises(HTTPException) as exc_info:
+        await get_verified_user_id(_settings(), client, authorization="Bearer valid-token")
+
+    assert exc_info.value.status_code == 403
+    assert exc_info.value.detail == "이용이 제한된 계정이에요"
+    assert exc_info.value.headers == {"X-Account-Status": "suspended"}
+
+
+async def test_suspension_is_checked_before_the_student_id_gate():
+    client = _gate_client({"student_verification": "pending", "department": None, "status": "suspended"})
+
+    with pytest.raises(HTTPException) as exc_info:
+        await get_verified_user_id(_settings(), client, authorization="Bearer valid-token")
+
+    assert exc_info.value.detail == "이용이 제한된 계정이에요"
+
+
+async def test_an_active_or_unknown_status_passes_the_gate():
+    for row in ({"student_verification": "verified", "department": "컴공", "status": "active"},
+                {"student_verification": "verified", "department": "컴공"}):
+        assert await get_verified_user_id(_settings(), _gate_client(row),
+                                          authorization="Bearer valid-token") == UUID(USER_ID)

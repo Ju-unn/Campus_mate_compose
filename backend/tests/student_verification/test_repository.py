@@ -36,7 +36,8 @@ async def test_fetch_gate_status_returns_first_row():
     assert captured["params"] == {
         "id": f"eq.{PROFILE_ID}",
         # 실제 컬럼은 major, 응답 키는 별칭 department 로 돌아온다.
-        "select": "student_verification,department:major,universities(name)",
+        # status 는 조각 6 정지 관문이 본다(current_user.get_verified_user_id).
+        "select": "student_verification,department:major,universities(name),status",
     }
     assert captured["headers"]["apikey"] == "service-key"
     assert captured["headers"]["authorization"] == "Bearer service-key"

@@ -12,9 +12,12 @@ class _FakeCredentials:
 
 
 class _FakeRepo:
-    def __init__(self, tokens, settings):
-        self._tokens, self._settings = tokens, settings
+    def __init__(self, tokens, settings, status="active"):
+        self._tokens, self._settings, self._status = tokens, settings, status
         self.deleted: list[str] = []
+
+    async def fetch_profile_status(self, profile_id):
+        return self._status
 
     async def fetch_push_tokens(self, profile_id):
         return list(self._tokens)
@@ -106,3 +109,22 @@ async def test_chat_messages_ignore_quiet_hours_but_gate_reminders_do_not():
 
     assert await notify(repo, _sender(handler), "p1", "new_message", "제", "본", {}, now=dawn) == 1
     assert await notify(repo, _sender(handler), "p1", "trust_reminder", "제", "본", {}, now=dawn) == 0
+
+
+async def test_a_suspended_recipient_gets_nothing_until_lifted():
+    """조각 6: 정지 계정에는 어떤 푸시도 보내지 않는다. 모든 푸시가 notify() 를 지나서 여기 한 곳만 본다."""
+    sent: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        sent.append(request)
+        return httpx.Response(200, json={})
+
+    noon = datetime(2026, 9, 21, 12, 0, tzinfo=SEOUL)
+    on = {"new_message": True, "quiet_hours": False}
+
+    suspended = _FakeRepo(["tok"], on, status="suspended")
+    assert await notify(suspended, _sender(handler), "p1", "new_message", "제", "본", {}, now=noon) == 0
+    assert sent == []
+
+    lifted = _FakeRepo(["tok"], on, status="active")
+    assert await notify(lifted, _sender(handler), "p1", "new_message", "제", "본", {}, now=noon) == 1

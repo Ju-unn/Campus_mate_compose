@@ -56,3 +56,9 @@ CHAT_LEFT = "이미 나간 대화예요"
 CHAT_PARTNER_LEFT = "상대가 대화를 나갔어요"
 TRUST_ALREADY_ANSWERED = "이미 수락했어요"
 TRUST_DEADLINE_PASSED = "응답 기한이 지났어요"
+
+# 신고 · 차단 · 정지(조각 6)
+ALREADY_REPORTED = "이미 신고한 사용자예요"
+REPORT_DAILY_LIMIT = "오늘은 더 신고할 수 없어요"
+MESSAGE_NOT_FOUND = "메시지를 찾을 수 없어요"
+ACCOUNT_SUSPENDED = "이용이 제한된 계정이에요"

@@ -18,7 +18,8 @@ _CONVERSATION_LIMIT = 200
 _OPEN_MATCH_LIMIT = 5000
 
 _MATCH_COLUMNS = "id,profile_a,profile_b,created_at,trust_passed_at,chat_closed_at"
-_PARTICIPANT_COLUMNS = "profile_id,trust_response,left_at,last_read_at"
+# profiles(status): 정지는 left_at 을 찍지 않고 조회 시점에 가른다(조각 6, chat/gate.is_gone).
+_PARTICIPANT_COLUMNS = "profile_id,trust_response,left_at,last_read_at,profiles(status)"
 _MESSAGE_COLUMNS = "id,sender_id,kind,body,created_at"
 
 
@@ -68,6 +69,17 @@ class ChatRepository(PostgrestRepository):
             return None
         return match
 
+    async def fetch_match_between(self, profile_id: UUID | str, other_id: UUID | str) -> dict | None:
+        """두 사람 사이의 매칭(지금이든 과거든) + 참가자 두 행. 없으면 None.
+        한 쌍에 매칭은 하나뿐이고(matches_pair_unique) profile_a < profile_b 로 저장된다 —
+        cards `create_match` 와 같은 정렬로 찾는다."""
+        first, second = sorted([str(profile_id), str(other_id)])
+        rows = await self._rows("matches", {
+            "profile_a": f"eq.{first}", "profile_b": f"eq.{second}",
+            "select": f"{_MATCH_COLUMNS},match_participants({_PARTICIPANT_COLUMNS})",
+        })
+        return rows[0] if rows else None
+
     async def fetch_partner_profile(self, profile_id: UUID | str) -> dict:
         """상대의 닉네임·아바타. 실명·연락처는 한 글자도 가져오지 않는다(설계 §7.1)."""
         rows = await self._rows("profiles", {
@@ -106,6 +118,13 @@ class ChatRepository(PostgrestRepository):
                 # id 가 없으면 고를 것이 하나뿐이라 or 로 감쌀 이유가 없다.
                 params["created_at"] = f"lt.{cursor}"
         return await self._rows("messages", params)
+
+    async def fetch_message(self, message_id: UUID | str) -> dict | None:
+        """말풍선 한 줄(신고 대상 확인용). 없으면 None."""
+        rows = await self._rows("messages", {
+            "id": f"eq.{message_id}", "select": f"match_id,{_MESSAGE_COLUMNS}",
+        })
+        return rows[0] if rows else None
 
     async def fetch_last_message(self, match_id: UUID | str) -> dict | None:
         """목록 한 줄의 미리보기. 시스템 줄도 똑같이 마지막 줄이 된다(결정 7·10)."""
@@ -150,6 +169,19 @@ class ChatRepository(PostgrestRepository):
             "match_id": f"eq.{match_id}", "profile_id": f"eq.{profile_id}", "left_at": "is.null",
         }, {"left_at": now.isoformat()})
         return bool(rows)
+
+    async def leave_and_announce(self, match_id: UUID | str, profile_id: UUID | str,
+                                 now: datetime) -> bool:
+        """나가기 한 번. `/leave` 와 차단(조각 6)이 같이 쓴다 — 상대에게 둘이 글자까지 같아야
+        차단 사실이 새지 않는다(설계 §7.2). 이번에 나갔으면 True.
+
+        left_at 을 먼저 찍고 시스템 줄을 나중에 넣는다. 반대로 하면 줄만 남고 나가기가 실패할 수 있다.
+        푸시는 보내지 않는다 — 나갔다는 소식으로 알림을 울릴 일은 아니다. 다음에 방을 열면 보인다."""
+        if not await self.leave(match_id, profile_id, now):
+            return False
+        nickname = await self.fetch_nickname(profile_id)
+        await self.insert_message(match_id, profile_id, f"{nickname}님이 채팅방을 나갔어요", kind="left")
+        return True
 
     async def save_trust_accept(self, match_id: UUID | str, profile_id: UUID | str,
                                 now: datetime) -> bool:

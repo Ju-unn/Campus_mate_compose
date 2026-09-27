@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     # 재가입 차단이 조용히 풀린다. 실제 키 길이는 Secret Manager 에 만들 때 사람이 지킨다.
     identity_hmac_key: str = Field(min_length=1)
     discord_webhook_url: str
+    discord_report_webhook_url: str = ""
     # ADC/google-cloud 라이브러리가 환경변수로 직접 읽는다 — 이 필드는 부팅 시 존재를 강제하는 용도다.
     google_cloud_project: str
     # 조각 2: Secret Manager 키 이름 `openai-api-key`(2026-09-19 준비 가이드 메모)

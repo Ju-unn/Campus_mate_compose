@@ -11,8 +11,9 @@ class StudentVerificationRepository(PostgrestRepository):
         response = await self._get(
             "profiles",
             # 학과는 온보딩이 이미 채우는 profiles.major 를 그대로 쓴다. API·클라이언트가 아는 이름은
-            # department 라서 PostgREST 별칭으로 돌려준다(alias:column).
-            params={"id": f"eq.{profile_id}", "select": "student_verification,department:major,universities(name)"},
+            # department 라서 PostgREST 별칭으로 돌려준다(alias:column). status 는 조각 6 정지 관문이 본다.
+            params={"id": f"eq.{profile_id}",
+                    "select": "student_verification,department:major,universities(name),status"},
         )
         raise_for_status(response)
         rows = response.json()
