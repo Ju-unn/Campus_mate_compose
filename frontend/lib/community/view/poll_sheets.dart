@@ -9,16 +9,26 @@ import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// 두 시트는 채팅탭 PR 5 의 `ChatRoomMenuSheet`(Menu · Chat `RzZT8`) · 차단 확인과 같은 마스터다(결정 D4).
-// PR 5 가 먼저 merge 되면 common/widgets 로 옮긴 그 시트를 쓴다(공유 파일 요청). 아니면 여기 두고 백로그 39 승격 줄에 합친다.
+// 두 시트는 채팅탭 `ChatRoomMenuSheet`(Menu · Chat `RzZT8`) · 차단 확인과 같은 마스터다(결정 D4) — 공통 승격은 백로그 39.
 
 /// 내 글 "…"(15d-1 `RCNu0`) → "삭제하기" → 확인(15d-2 `K64Q8p`) → 지우기(사용자 결정 2).
+/// 지우는 동안 확인 시트는 열린 채 "삭제하기" 만 꺼지고(15d-2 삭제 중 `EIEFb`), 끝나면 닫고 "삭제했어요"(15d-5 `SKQgV`)
+/// 또는 오류 토스트. 도중에 시트를 닫아도 요청이 끝나면 결과를 알린다 — 서버에서는 이미 지워졌을 수 있다.
 Future<void> showPollMenu(BuildContext context, WidgetRef ref, String pollId) async {
   final wantsDelete = await _showSheet<bool>(context, const _PollMenuSheet());
   if (wantsDelete != true || !context.mounted) return;
-  if (await _showSheet<bool>(context, const _DeleteConfirmSheet()) != true) return;
-  final error = await ref.read(communityFeedViewModelProvider.notifier).delete(pollId);
-  if (error != null && context.mounted) showPollToast(context, error);
+  Future<String?>? deleting;
+  await _showSheet<void>(
+    context,
+    _DeleteConfirmSheet(
+      onDelete: () async {
+        await (deleting = ref.read(communityFeedViewModelProvider.notifier).delete(pollId));
+      },
+    ),
+  );
+  if (deleting == null) return; // "삭제하기" 를 누르지 않고 닫았다.
+  final error = await deleting;
+  if (context.mounted) showPollToast(context, error ?? pollDeletedMessage);
 }
 
 Future<T?> _showSheet<T>(BuildContext context, Widget sheet) {
@@ -126,9 +136,26 @@ class _PollMenuSheet extends StatelessWidget {
 
 /// 15d-2 확인(AlertSheet `D0TvG` 인스턴스 `CCdBk`): 위 radius 24 · 그림자 #00000026 (0,-2) blur 16 ·
 /// 손잡이 영역 위아래 12 · 내용 [8,16,32,16] 간격 16 · 제목 20/700 · 본문 14/400 lh1.55 muted ·
-/// 버튼 세로 간격 8(button-danger 56 · button-text 48).
-class _DeleteConfirmSheet extends StatelessWidget {
-  const _DeleteConfirmSheet();
+/// 버튼 세로 간격 8(button-danger 56 · button-text 48). 지우는 중(`EIEFb`)엔 "삭제하기" 만 꺼진 모양
+/// (AppButton 비활성 = 채움 primaryDisabled · 글자 disabled, 스피너 없음), "취소" 는 그대로 닫는다.
+class _DeleteConfirmSheet extends StatefulWidget {
+  const _DeleteConfirmSheet({required this.onDelete});
+
+  final Future<void> Function() onDelete;
+
+  @override
+  State<_DeleteConfirmSheet> createState() => _DeleteConfirmSheetState();
+}
+
+class _DeleteConfirmSheetState extends State<_DeleteConfirmSheet> {
+  bool _deleting = false;
+
+  Future<void> _delete() async {
+    setState(() => _deleting = true);
+    await widget.onDelete();
+    // "취소" · 바깥 탭으로 이미 닫히는 중이면(애니메이션 동안 State 는 살아 있다) 또 닫지 않는다 — 아래 화면이 닫힌다.
+    if (mounted && ModalRoute.of(context)!.isCurrent) Navigator.of(context).pop();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -165,13 +192,13 @@ class _DeleteConfirmSheet extends StatelessWidget {
                     AppButton(
                       label: '삭제하기',
                       variant: AppButtonVariant.danger,
-                      onPressed: () => Navigator.of(context).pop(true),
+                      onPressed: _deleting ? null : _delete,
                     ),
                     const SizedBox(height: AppSpacing.xs),
                     AppButton(
                       label: '취소',
                       variant: AppButtonVariant.text,
-                      onPressed: () => Navigator.of(context).pop(false),
+                      onPressed: () => Navigator.of(context).pop(),
                     ),
                   ],
                 ),
