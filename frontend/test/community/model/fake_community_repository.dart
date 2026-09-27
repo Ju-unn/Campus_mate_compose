@@ -41,6 +41,12 @@ class FakeCommunityRepository implements CommunityRepository {
   /// 채워 두면 투표 응답이 이것이 끝날 때까지 멈춘다 — 누르는 도중 한 번 더 누르는 상황용.
   Completer<void>? holdVote;
 
+  /// 채워 두면 지우기 응답이 이것이 끝날 때까지 멈춘다 — 삭제 중(15d-2 `EIEFb`) 상태용.
+  Completer<void>? holdDelete;
+
+  /// 채워 두면 올리기 응답이 이것이 끝날 때까지 멈춘다 — 올리는 중(17b `UqasS`) 상태용.
+  Completer<void>? holdCreate;
+
   final List<({DateTime? before, String? beforeId})> pageRequests = [];
   final List<({String question, String optionA, String optionB})> created = [];
   final List<({String pollId, PollChoice choice})> votes = [];
@@ -66,6 +72,7 @@ class FakeCommunityRepository implements CommunityRepository {
     required String optionB,
   }) async {
     created.add((question: question, optionA: optionA, optionB: optionB));
+    await holdCreate?.future;
     return createResult;
   }
 
@@ -79,6 +86,7 @@ class FakeCommunityRepository implements CommunityRepository {
   @override
   Future<Result<void>> deletePoll(String pollId) async {
     deleted.add(pollId);
+    await holdDelete?.future;
     return deleteResult;
   }
 }
