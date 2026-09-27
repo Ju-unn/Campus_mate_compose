@@ -17,3 +17,5 @@ DAILY_REPORT_LIMIT = 10
 DAILY_REPORT_WINDOW = timedelta(hours=24)
 # "기타" 한 줄 입력 길이. DB 체크 제약(reports_reason_note_length)과 같은 값이다.
 REASON_NOTE_MAX = 200
+# 지인 차단 한 번에 보낼 수 있는 번호 수(계획서 B4). 앱은 이보다 많으면 나눠 보낸다.
+CONTACT_BLOCK_BATCH_MAX = 200
