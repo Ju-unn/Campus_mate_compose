@@ -52,6 +52,8 @@ class _PhotoSliderState extends State<PhotoSlider> {
             builder: (context, constraints) {
               // 한 페이지 = 사진 + 간격 8. 첫 장을 왼쪽에 붙이고(padEnds false) 남는 폭에 다음 장이 보인다.
               final fraction = math.min(1.0, (widget.photoSize.width + AppSpacing.xs) / constraints.maxWidth);
+              // 사진 + 간격이 폭보다 넓으면 한 장이 폭을 다 쓴다 — 오른쪽 간격 없이 꽉 채운다(14c 카드 안쪽 286).
+              final gap = widget.photoSize.width + AppSpacing.xs > constraints.maxWidth ? 0.0 : AppSpacing.xs;
               if (_controller?.viewportFraction != fraction) {
                 // viewportFraction 은 바꿀 수 없어 부모 폭이 바뀌면 새로 만든다. 옛것은 PageView 가 놓은 뒤 버린다.
                 final old = _controller;
@@ -64,7 +66,7 @@ class _PhotoSliderState extends State<PhotoSlider> {
                 itemCount: photos.length,
                 onPageChanged: (page) => setState(() => _page = page),
                 itemBuilder: (context, index) => Padding(
-                  padding: const EdgeInsets.only(right: AppSpacing.xs),
+                  padding: EdgeInsets.only(right: gap),
                   child: Semantics(
                     container: true,
                     image: true,

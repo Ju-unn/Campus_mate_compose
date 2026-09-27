@@ -129,7 +129,7 @@ class _DetailBody extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _ProfileCard(detail: detail),
+          ProfileCard(detail: detail),
           // 버튼은 카드 밖 14 아래에 붙어 함께 스크롤한다(pen `TORAs`).
           const SizedBox(height: 14),
           CardActionBar(onReject: onReject, onAccept: onAccept),
@@ -147,16 +147,30 @@ class _DetailBody extends StatelessWidget {
   }
 }
 
-class _ProfileCard extends StatelessWidget {
-  const _ProfileCard({required this.detail});
+/// 상대 프로필 카드 본문. 10b 와 14c(`safety/view/partner_profile_screen.dart`)가 같이 쓴다.
+///
+/// 14c 에만 있는 것(배지 · 카카오 카드 · 신고/차단 링크 · 실사진)은 카드가 모른다 — 슬롯 3개로 꽂는다
+/// (결정: 통합대장 09-27, pen `VTX3D` 기준). 셋 다 null 이면 10b 는 슬롯이 생기기 전과 같다.
+class ProfileCard extends StatelessWidget {
+  const ProfileCard({required this.detail, this.header, this.nameTrailing, this.footer, super.key});
 
   final CardDetail detail;
+
+  /// 테두리 안 맨 위, 이름 줄 위(pen 사진 슬라이더 자리). 크기와 아래 간격은 꽂는 쪽이 정한다.
+  final Widget? header;
+
+  /// 이름 줄 오른쪽 끝(pen `fVPgL` space_between).
+  final Widget? nameTrailing;
+
+  /// 테두리 안 맨 아래. **카드 아래 여백(20)까지 이 칸이 가진다** — 14c 링크 줄의 누르는 영역(48)이
+  /// 그 여백 안까지 내려가야 pen 의 보이는 간격을 지킬 수 있다. 아래 여백은 꽂는 쪽이 채운다.
+  final Widget? footer;
 
   @override
   Widget build(BuildContext context) {
     final profile = detail.profile;
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.fromLTRB(20, 20, 20, footer == null ? 20 : 0),
       decoration: BoxDecoration(
         color: AppColors.canvas,
         borderRadius: BorderRadius.circular(AppRadius.lg),
@@ -165,10 +179,8 @@ class _ProfileCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            profile.nameWithAge,
-            style: AppTypography.title.copyWith(color: AppColors.ink, fontWeight: FontWeight.w700),
-          ),
+          ?header,
+          _nameLine(profile.nameWithAge),
           const SizedBox(height: AppSpacing.xxs),
           _SchoolLine(detail: detail),
           if (detail.bio != null) ...[
@@ -204,7 +216,28 @@ class _ProfileCard extends StatelessWidget {
             const _SectionLabel('이런 사람이 좋아요'),
             Text(detail.idealNote!, style: AppTypography.body.copyWith(color: AppColors.body)),
           ],
+          ?footer,
         ],
+      ),
+    );
+  }
+
+  /// 오른쪽 칸이 없으면 이름 글자 하나만 — 10b 는 슬롯이 생기기 전과 같은 위젯을 그린다.
+  Widget _nameLine(String nameWithAge) {
+    final name = Text(
+      nameWithAge,
+      style: AppTypography.title.copyWith(color: AppColors.ink, fontWeight: FontWeight.w700),
+    );
+    final trailing = nameTrailing;
+    if (trailing == null) return name;
+    // 한 줄에 들어가면 이름은 왼쪽 · 오른쪽 칸은 오른쪽 끝(pen space_between). 글자를 키워 안 들어가면
+    // 오른쪽 칸이 다음 줄로 내려간다 — 이름을 좁은 칸에 욱여넣어 글자 단위로 끊지 않는다.
+    return SizedBox(
+      width: double.infinity,
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [name, trailing],
       ),
     );
   }

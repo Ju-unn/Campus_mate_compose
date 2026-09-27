@@ -33,6 +33,8 @@ import 'package:campus_mate/profile/view/photos_screen.dart';
 import 'package:campus_mate/profile/view/survey_screen.dart';
 import 'package:campus_mate/profile/view/tag_picker_screen.dart';
 import 'package:campus_mate/profile/viewmodel/tag_picker_kind.dart';
+import 'package:campus_mate/safety/view/block_list_screen.dart';
+import 'package:campus_mate/safety/view/partner_profile_screen.dart';
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
@@ -74,6 +76,18 @@ abstract final class AppRouter {
       GoRoute(path: AppRoutes.schoolInfo, builder: (context, state) => const SchoolInfoScreen()),
       ..._onboardingRoutes(),
       ..._slice4Routes(),
+      ..._slice6Routes(),
+    ];
+  }
+
+  /// 조각 6 — 16f 차단 목록(설정 아래), 14c 상대 프로필(채팅방 14b "상대 프로필 보기").
+  static List<RouteBase> _slice6Routes() {
+    return <RouteBase>[
+      GoRoute(path: AppRoutes.blockList, builder: (context, state) => const BlockListScreen()),
+      GoRoute(
+        path: '${AppRoutes.partnerProfile}/:profileId',
+        builder: (context, state) => PartnerProfileScreen(profileId: state.pathParameters['profileId']!),
+      ),
     ];
   }
 

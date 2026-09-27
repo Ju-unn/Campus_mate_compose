@@ -31,8 +31,14 @@ class FakeChatRepository implements ChatRepository {
   /// 조회 중에 구독 줄이 들어오는 상황을 만들 때 쓴다.
   void Function()? onFetchMessages;
 
+  /// 대화 목록을 읽은 횟수. 차단 뒤 목록을 새로 읽는지 볼 때 쓴다.
+  int conversationsFetchCount = 0;
+
   @override
-  Future<Result<List<Conversation>>> fetchConversations() async => conversations;
+  Future<Result<List<Conversation>>> fetchConversations() async {
+    conversationsFetchCount += 1;
+    return conversations;
+  }
 
   @override
   Future<Result<ChatRoom>> fetchRoom(String matchId) async {

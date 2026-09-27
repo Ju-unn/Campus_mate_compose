@@ -4,9 +4,12 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:campus_mate/chat/model/chat_repository.dart';
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/chat/model/chat_room.dart';
+import 'package:campus_mate/chat/model/conversation.dart';
 import 'package:campus_mate/chat/model/message.dart';
+import 'package:campus_mate/chat/view/bubble_report_menu.dart';
 import 'package:campus_mate/chat/view/chat_dialogs.dart';
 import 'package:campus_mate/chat/view/chat_input_bar.dart';
+import 'package:campus_mate/chat/view/chat_room_menu_sheet.dart';
 import 'package:campus_mate/chat/view/chat_time.dart';
 import 'package:campus_mate/chat/view/date_divider.dart';
 import 'package:campus_mate/chat/view/message_bubble.dart';
@@ -23,6 +26,8 @@ import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/safety/model/safety_repository.dart';
+import 'package:campus_mate/safety/view/safety_actions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -47,6 +52,9 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
   /// 24시간 경계에 한 번 울린다(백로그 22). 시트는 상태가 바뀔 때만, 배너는 그릴 때만 시각을
   /// 보니 방에 머무는 동안 경계를 넘으면 아무것도 바뀌지 않았다.
   Timer? _reminderTimer;
+
+  /// 차단 요청이 실패했을 때 입력 바 위에 띄우는 한 줄. 이 한 줄뿐이라 뷰모델을 따로 두지 않는다.
+  String? _safetyError;
 
   @override
   void initState() {
@@ -135,13 +143,12 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
         titleSpacing: 0,
         title: room == null ? null : _Title(room: room, revealed: state.room!.gate.passed),
         actions: [
-          // 신고·차단은 조각 6 이라 지금 메뉴에는 나가기 하나뿐이다(결정 6).
-          PopupMenuButton<String>(
-            icon: const Icon(AppIcons.ellipsis, color: AppColors.ink),
-            onSelected: (_) => _leave(),
-            itemBuilder: (context) => [
-              const PopupMenuItem(value: 'leave', child: Text('채팅방 나가기')),
-            ],
+          // pen `QEazm` 48×48 안 ellipsis 22. 누르면 드롭다운이 아니라 바텀시트다(pen `Lgdxu`).
+          IconButton(
+            icon: const Icon(AppIcons.ellipsis, size: 22, color: AppColors.ink),
+            tooltip: '더보기',
+            // 방을 못 읽어도 늘 누를 수 있다 — 나가기는 방을 못 읽어도 되어야 한다(main 동작 유지).
+            onPressed: () => _openMenu(room?.partner),
           ),
         ],
       ),
@@ -159,8 +166,18 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
               )
             else
               _Banner(state: state, now: _now(), onAccept: _accept),
-            Expanded(child: _MessageList(state: state, controller: _scroll)),
-            if (state.errorMessage != null) _ErrorLine(message: state.errorMessage!),
+            Expanded(
+              child: _MessageList(
+                state: state,
+                controller: _scroll,
+                onBubbleLongPress: _openBubbleMenu,
+                onViewProfile: room == null
+                    ? () {}
+                    : () => context.push('${AppRoutes.partnerProfile}/${room.partner.profileId}'),
+              ),
+            ),
+            if ((_safetyError ?? state.errorMessage) != null)
+              _ErrorLine(message: (_safetyError ?? state.errorMessage)!),
             if (state.isPartnerGone)
               const _PartnerGoneNotice()
             else
@@ -239,6 +256,45 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
       return;
     }
     await _viewModel.leave();
+  }
+
+  /// ⋯ 바텀시트(pen `Lgdxu`). 지난 차단 실패 문구는 다음 동작을 고르면 지운다.
+  /// [partner] 가 null 이면(방을 못 읽었다) 시트에 신고 · 차단 줄이 없어 나가기와 취소만 돌아온다.
+  Future<void> _openMenu(ChatPartner? partner) async {
+    setState(() => _safetyError = null);
+    final action = await showChatRoomMenuSheet(context, canTargetPartner: partner != null);
+    if (!mounted || action == null) {
+      return;
+    }
+    switch (action) {
+      case ChatRoomMenuAction.report:
+        await reportThenLeave(context, ref, ReportTarget.profile(partner!.profileId));
+      case ChatRoomMenuAction.block:
+        await _block(partner!);
+      case ChatRoomMenuAction.leave:
+        await _leave();
+    }
+  }
+
+  /// 상대 말풍선 롱프레스(pen `I8fOcN`) → 팝업 "이 메시지 신고" → 신고 시트.
+  Future<void> _openBubbleMenu(BuildContext bubbleContext, Message message) async {
+    if (!await showBubbleReportMenu(bubbleContext, message) || !mounted) {
+      return;
+    }
+    await reportThenLeave(context, ref, ReportTarget.message(message.id));
+  }
+
+  /// 14e 확인 → 차단 → 대화 목록(14c 와 같은 흐름). 실패하면 방에 남아 입력 바 위 한 줄로 알린다.
+  Future<void> _block(ChatPartner partner) async {
+    final error = await blockThenLeave(
+      context,
+      ref,
+      profileId: partner.profileId,
+      nickname: partner.nickname,
+    );
+    if (error != null && mounted) {
+      setState(() => _safetyError = error);
+    }
   }
 }
 
@@ -347,10 +403,21 @@ class _Banner extends StatelessWidget {
 }
 
 class _MessageList extends StatelessWidget {
-  const _MessageList({required this.state, required this.controller});
+  const _MessageList({
+    required this.state,
+    required this.controller,
+    required this.onBubbleLongPress,
+    required this.onViewProfile,
+  });
 
   final ChatRoomUiState state;
   final ScrollController controller;
+
+  /// 상대 텍스트 말풍선을 길게 눌렀을 때. 말풍선 자리를 잴 수 있게 그 말풍선의 context 를 넘긴다.
+  final void Function(BuildContext bubbleContext, Message message) onBubbleLongPress;
+
+  /// 14b 카드의 "상대 프로필 보기".
+  final VoidCallback onViewProfile;
 
   @override
   Widget build(BuildContext context) {
@@ -388,7 +455,11 @@ class _MessageList extends StatelessWidget {
   List<Widget> _items(ChatRoom room) {
     final widgets = <Widget>[];
     // 14b 카드는 메시지가 아니라 `matches.trust_passed_at` 에서 나온다 — 줄로 저장하지 않는다.
-    final reveal = room.gate.passed ? TrustRevealBubble(kakaoId: room.kakaoId) : null;
+    // 상대가 나갔거나 나를 차단한 방(앱에는 둘 다 "나간 방")에는 통째로 그리지 않는다 — 서버가 아이디 · 실사진을
+    // 내리지 않아 "아직 등록하지 않았어요" 로 잘못 읽히고, 14c 도 404 다(사용자 결정 09-27).
+    final reveal = room.gate.passed && !state.isPartnerGone
+        ? TrustRevealBubble(kakaoId: room.kakaoId, onViewProfile: onViewProfile)
+        : null;
     final revealAt = state.revealAnchorAt;
     var revealPlaced = reveal == null;
     DateTime? lastDay;
@@ -421,9 +492,16 @@ class _MessageList extends StatelessWidget {
       return SystemMessage(body: message.body);
     }
     // 내 id 를 따로 들고 다니지 않는다 — 상대가 아니면 내 것이다.
-    return MessageBubble(
-      message: message,
-      isMine: message.senderId != room.partner.profileId,
+    if (message.senderId != room.partner.profileId) {
+      return MessageBubble(message: message, isMine: true);
+    }
+    // 신고 메뉴는 상대 말풍선에만 있다(pen `I8fOcN`). Builder 로 이 말풍선 행의 context 를 잡는다.
+    return Builder(
+      builder: (bubbleContext) => MessageBubble(
+        message: message,
+        isMine: false,
+        onLongPress: () => onBubbleLongPress(bubbleContext, message),
+      ),
     );
   }
 }

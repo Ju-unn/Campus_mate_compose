@@ -47,6 +47,10 @@ abstract final class AppRoutes {
   /// 조각 5 — 채팅방(화면 14). `/chat/:matchId`
   static const String chatRoom = '/chat';
 
+  /// 조각 6 — 차단 목록(화면 16f), 상대 프로필 상세(14c). `/profiles/:profileId`
+  static const String blockList = '/settings/blocks';
+  static const String partnerProfile = '/profiles';
+
   /// 아직 화면이 없는 탭 — 자리 화면으로 보낸다(커뮤니티 조각 6, 내 프로필 후속)
   static const String community = '/community';
   static const String communityNew = '/community/new';

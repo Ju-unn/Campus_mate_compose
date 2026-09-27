@@ -7,6 +7,7 @@ import 'package:campus_mate/chat/view/message_bubble.dart';
 import 'package:campus_mate/chat/view/system_message.dart';
 import 'package:campus_mate/chat/view/trust_reveal_bubble.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -192,7 +193,7 @@ void main() {
   testWidgets('나가기는 확인 다이얼로그를 거친다', (tester) async {
     await pump(tester);
 
-    await tester.tap(find.byType(PopupMenuButton<String>));
+    await tester.tap(find.byIcon(AppIcons.ellipsis));
     await tester.pumpAndSettle();
     await tester.tap(find.text('채팅방 나가기'));
     await tester.pumpAndSettle();
@@ -228,8 +229,35 @@ void main() {
 
     expect(find.byType(TrustRevealBubble), findsOneWidget);
     expect(find.text('fox_rain'), findsOneWidget);
-    // 14c 는 뒤 조각이라 버튼을 그리지 않는다.
+    // 14c 로 가는 버튼(pen `vmfRQ`)이 카드 아래에 붙는다.
+    expect(find.text('상대 프로필 보기'), findsOneWidget);
+  });
+
+  // 서버는 상대가 나갔거나 나를 차단했으면 카톡 아이디 · 실사진을 내리지 않는다(나를 차단한 방도 앱에는 "나간 방").
+  // 카드를 그대로 두면 "아직 아이디를 등록하지 않았어요" 로 잘못 읽힌다 — 카드를 통째로 숨긴다(사용자 결정 09-27).
+  testWidgets('통과했어도 상대가 나간 방에는 14b 카드가 없다', (tester) async {
+    repository.room = Success(roomFixture(passed: true, partnerLeft: true));
+
+    await pump(tester);
+
+    expect(find.byType(TrustRevealBubble), findsNothing);
+    expect(find.text('상대가 아직 아이디를 등록하지 않았어요'), findsNothing);
     expect(find.text('상대 프로필 보기'), findsNothing);
+  });
+
+  testWidgets('방에 있는 동안 상대가 나가 방을 다시 읽으면 14b 카드가 사라진다', (tester) async {
+    repository.room = Success(roomFixture(passed: true, kakaoId: 'fox_rain'));
+    await pump(tester);
+    expect(find.byType(TrustRevealBubble), findsOneWidget);
+
+    // 머리말은 들어올 때 · 다시 연결할 때 새로 읽는다 — 끊겼다 다시 붙는 길로 새 머리말을 받는다.
+    repository.room = Success(roomFixture(passed: true, partnerLeft: true));
+    stream.pushError();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('다시 시도'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TrustRevealBubble), findsNothing);
   });
 
   group('14b 카드 자리(백로그 20)', () {

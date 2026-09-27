@@ -17,6 +17,12 @@ abstract final class AppIcons {
   static const IconData pause = LucideIcons.pause;
   static const IconData flag = LucideIcons.flag;
   static const IconData userX = LucideIcons.userX;
+
+  /// 14c 하단 "차단하기" 링크(pen `divm8`)
+  static const IconData ban = LucideIcons.ban;
+
+  /// 채팅방 ⋯ 시트 "채팅방 나가기"(pen `DLfZV`)
+  static const IconData logOut = LucideIcons.logOut;
   static const IconData settings = LucideIcons.settings;
   static const IconData bell = LucideIcons.bell;
 
