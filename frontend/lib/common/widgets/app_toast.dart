@@ -33,7 +33,8 @@ class AppToast extends StatelessWidget {
               SizedBox(width: 16, height: 16, child: leading),
               const SizedBox(width: AppSpacing.xs),
             ],
-            Text(label, style: AppTypography.labelSmall.copyWith(color: AppColors.onInk)),
+            // 줄높이 20/14 는 pen 렌더 기준(마스터 `I8UOWm` 글자 20, 두 줄 `yEDB9` 40).
+            Flexible(child: Text(label, style: AppTypography.labelSmall.copyWith(color: AppColors.onInk, height: 20 / 14))),
           ],
         ),
       ),
