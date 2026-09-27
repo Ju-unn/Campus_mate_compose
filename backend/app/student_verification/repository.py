@@ -21,6 +21,13 @@ class StudentVerificationRepository(PostgrestRepository):
             raise ValueError(f"프로필 행이 없다: {profile_id}")
         return rows[0]
 
+    async def fetch_status(self, profile_id: UUID) -> str | None:
+        """로그인만 보는 관문의 탈퇴 확인. 행이나 칸이 없으면 None(= 막지 않는다, 정지 관문과 같은 규칙)."""
+        response = await self._get("profiles", params={"id": f"eq.{profile_id}", "select": "status"})
+        raise_for_status(response)
+        rows = response.json()
+        return rows[0].get("status") if rows else None
+
     async def fetch_reject_reason(self, profile_id: UUID) -> str | None:
         response = await self._get(
             "student_verification_attempts",

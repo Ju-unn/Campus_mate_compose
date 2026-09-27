@@ -62,6 +62,7 @@ ALREADY_REPORTED = "이미 신고한 사용자예요"
 REPORT_DAILY_LIMIT = "오늘은 더 신고할 수 없어요"
 MESSAGE_NOT_FOUND = "메시지를 찾을 수 없어요"
 ACCOUNT_SUSPENDED = "이용이 제한된 계정이에요"
+ACCOUNT_WITHDRAWN = "탈퇴한 계정이에요"
 
 # 커뮤니티
 POLL_NOT_FOUND = "질문을 찾을 수 없어요"

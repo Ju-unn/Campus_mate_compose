@@ -24,6 +24,28 @@ async def get_current_user_id(
     return UUID(response.json()["id"])
 
 
+def _reject_withdrawn(status: str | None) -> None:
+    """탈퇴 계정은 모든 인증 API 에서 401 이다. 정지(403)와 같은 헤더로 앱이 문구 비교 없이 가른다(편차 1).
+    auth 사용자는 30일 정리 배치가 지울 때까지 남아 있어서, 토큰이 살아 있으면 여기까지 들어온다."""
+    if status == "withdrawn":
+        raise HTTPException(status_code=401, detail=errors.ACCOUNT_WITHDRAWN,
+                            headers={"X-Account-Status": "withdrawn"})
+
+
+async def get_signed_in_user_id(
+    settings: Settings,
+    client: httpx.AsyncClient,
+    authorization: str | None = None,
+) -> UUID:
+    """로그인만 확인하는 관문(get_caller). 학생증 · 정지는 보지 않고 탈퇴만 막는다 — 상태를 한 번 읽는다."""
+    profile_id = await get_current_user_id(settings, client, authorization)
+    repo = StudentVerificationRepository(
+        settings.postgrest_url, settings.supabase_service_role_key, client
+    )
+    _reject_withdrawn(await repo.fetch_status(profile_id))
+    return profile_id
+
+
 async def get_verified_user_id(
     settings: Settings,
     client: httpx.AsyncClient,
@@ -36,6 +58,7 @@ async def get_verified_user_id(
         settings.postgrest_url, settings.supabase_service_role_key, client
     )
     gate = await repo.fetch_gate_status(profile_id)
+    _reject_withdrawn(gate.get("status"))
     if gate.get("status") == "suspended":
         # 학생증 · 학과보다 먼저 본다. 403 은 그 두 관문도 쓰고 있어서 앱(정지 안내 화면)이 문구를
         # 비교하지 않고 가를 수 있게 헤더를 싣는다(Ruling 8). 로그인 자체는 살려 둔다 — 안내를 띄워야 한다.

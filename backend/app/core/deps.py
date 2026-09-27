@@ -15,7 +15,7 @@ from google.cloud import vision
 
 from app.core.time import SEOUL
 from app.settings import Settings
-from app.student_verification.current_user import get_current_user_id, get_verified_user_id
+from app.student_verification.current_user import get_signed_in_user_id, get_verified_user_id
 
 
 @lru_cache
@@ -84,8 +84,8 @@ async def get_caller(
     settings: Settings = Depends(get_settings),
     client: httpx.AsyncClient = Depends(get_client),
 ) -> Caller:
-    """로그인만 확인한다 — 학생증 관문 앞(조각 1b)의 엔드포인트가 쓴다."""
-    return Caller(settings, client, await get_current_user_id(settings, client, authorization))
+    """로그인만 확인한다 — 학생증 관문 앞(조각 1b)의 엔드포인트와 탈퇴가 쓴다. 탈퇴한 계정만 401 로 막는다."""
+    return Caller(settings, client, await get_signed_in_user_id(settings, client, authorization))
 
 
 async def get_verified_caller(

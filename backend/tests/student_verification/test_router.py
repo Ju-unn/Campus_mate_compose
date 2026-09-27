@@ -490,6 +490,24 @@ def test_status_rejected_includes_reject_reason():
     assert len(_calls(sent, "GET", "/student_verification_attempts")) == 1
 
 
+def test_a_login_only_api_turns_a_withdrawn_account_away_with_401_and_the_header():
+    """get_caller(로그인만) 쪽도 탈퇴 계정은 막는다 — 상태 한 번 조회로 가른다(편차 1)."""
+    _wire({**_gate_row("verified", department="컴퓨터공학과"), "status": "withdrawn"})
+
+    response = _fetch_status()
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "탈퇴한 계정이에요"
+    assert response.headers["X-Account-Status"] == "withdrawn"
+
+
+def test_a_login_only_api_still_answers_a_suspended_account():
+    """정지는 get_caller 에서 막지 않는다(그대로) — 정지 안내 화면과 탈퇴가 이 문으로 들어온다."""
+    _wire({**_gate_row("verified", department="컴퓨터공학과"), "status": "suspended"})
+
+    assert _fetch_status().status_code == 200
+
+
 def test_status_returns_401_without_authorization_header():
     sent, _ = _wire(_gate_row("none"))
 
