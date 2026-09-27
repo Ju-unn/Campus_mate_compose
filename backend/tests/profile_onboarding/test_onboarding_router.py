@@ -19,6 +19,7 @@ from app.core.deps import get_client, get_settings, get_vision_client
 from app.core.time import SEOUL
 from app.main import app
 from app.settings import Settings
+from app.signup_policy import bytea_literal, hash_phone
 
 PROFILE_ID = UUID("11111111-1111-1111-1111-111111111111")
 AUTH_HEADERS = {"Authorization": "Bearer valid-token"}
@@ -156,6 +157,8 @@ def test_basic_info_saves_the_phone_number_in_e164():
 
     assert response.status_code == 200
     assert sent[0]["p_phone"] == "+821012345678"
+    # 지인 차단 해시도 같은 E.164 값에서, 설정의 신원 키로 뜬다(조각 6 B4).
+    assert sent[0]["p_phone_hmac"] == bytea_literal(hash_phone("identity-key-test", "+821012345678"))
 
 
 def test_basic_info_rejects_a_half_typed_phone_number():

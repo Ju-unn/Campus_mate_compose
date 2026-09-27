@@ -15,6 +15,9 @@ _MOBILE = re.compile(r"01[0-9]{8,9}")
 def to_e164(raw: str) -> str | None:
     """숫자만 남겨 검사하고 `+8210…` 으로 돌려준다. 휴대전화 번호가 아니면 `None`."""
     digits = re.sub(r"\D", "", raw)
+    if digits.startswith("82"):
+        # 연락처 앱의 `+82 10-…`·`+82 010-…` 는 국내 형식(010…)으로 되돌려 같은 검사를 탄다 — 지인 차단 해시가 한 모양이 된다.
+        digits = "0" + digits[2:].lstrip("0")
     if not _MOBILE.fullmatch(digits):
         return None
     # 국가번호를 붙일 때 앞자리 0 은 뺀다(+82 10 1234 5678).

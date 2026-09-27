@@ -102,6 +102,7 @@ async def submit_basic_info(
     await set_encrypted_phone_number(
         settings.postgrest_url, settings.supabase_service_role_key, client,
         profile_id, phone_number, settings.phone_encryption_key,
+        identity_key=settings.identity_hmac_key,
     )
     await _refresh_vectors(settings, client, openai_client, profile_id)
     return {"ok": True}
