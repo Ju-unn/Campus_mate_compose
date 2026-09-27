@@ -1,4 +1,4 @@
-"""조각 6 안전: 신고 · 차단 · 차단 목록(16f).
+"""조각 6 안전: 신고 · 차단 · 차단 목록(16f) · 지인 차단.
 
 **차단당한 쪽은 알 수 없다**(설계 §7.2) — 상대에게 보이는 것은 조각 5 나가기와 글자까지 같은 시스템 줄뿐이다.
 """
@@ -9,7 +9,7 @@ from uuid import UUID
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.cards.repository import CardRepository
 from app.cards.router import is_active, profile_detail
@@ -17,16 +17,19 @@ from app.chat.repository import ChatRepository
 from app.chat.router import avatar_url, latest_avatar_path, revealed_contact
 from app.core import errors
 from app.core.deps import Caller, get_now, get_verified_caller
+from app.profile_onboarding.phone_number import to_e164
 from app.profile_onboarding.storage import ProfilePhotoStorage
 from app.safety.discord import ReportNotifier, auto_hidden_line, report_line
 from app.safety.reasons import (
     AUTO_HIDE_REPORTERS,
+    CONTACT_BLOCK_BATCH_MAX,
     DAILY_REPORT_LIMIT,
     DAILY_REPORT_WINDOW,
     REASON_LABELS,
     REASON_NOTE_MAX,
 )
 from app.safety.repository import SafetyRepository
+from app.signup_policy import IDENTITY_KEY_VERSION, bytea_literal, hash_phone
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +61,10 @@ class ReportRequest(BaseModel):
             raise ValueError(f"기타 사유는 한 줄(1~{REASON_NOTE_MAX}자)이 필요하다")
         self.reason_note = note
         return self
+
+
+class ContactBlocksRequest(BaseModel):
+    numbers: list[str] = Field(min_length=1, max_length=CONTACT_BLOCK_BATCH_MAX)
 
 
 class _Wiring:
@@ -233,3 +240,31 @@ async def get_partner_profile(profile_id: UUID, wiring: _Wiring = Depends(_wire)
     if match["trust_passed_at"]:
         detail.update(await revealed_contact(wiring.chat, wiring.photos, target))
     return detail
+
+
+@router.post("/contact-blocks")
+async def add_contact_blocks(body: ContactBlocksRequest, wiring: _Wiring = Depends(_wire)) -> dict:
+    """지인 차단 등록(B4). 서버는 번호의 HMAC 만 남긴다 — 번호 · 이름 · 해시는 응답에도 로그에도 없다.
+
+    응답은 입력과 같은 길이 · 같은 순서다. 앱이 기기에 (이름, id) 를 짝짓고, 휴대전화가 아닌 자리는 null 이다."""
+    key = wiring.settings.identity_hmac_key
+    hmacs = [None if (e164 := to_e164(raw)) is None else bytea_literal(hash_phone(key, e164))
+             for raw in body.numbers]
+    # 같은 번호가 두 번(010… · +82…) 오면 upsert 한 배치가 통째로 실패한다 — 보내기 전에 한 번으로 줄인다.
+    unique = list(dict.fromkeys(h for h in hmacs if h))
+    rows = await wiring.repo.upsert_contact_blocks(wiring.profile_id, unique, IDENTITY_KEY_VERSION) if unique else []
+    saved = {row["contact_hmac"]: {"id": row["id"], "created_at": row["created_at"]} for row in rows}
+    return {"blocks": [saved[h] if h else None for h in hmacs]}
+
+
+@router.get("/contact-blocks")
+async def list_contact_blocks(wiring: _Wiring = Depends(_wire)) -> dict:
+    """내 지인 차단 목록(최신순). id 와 등록일뿐이다 — 이름은 기기에 있다."""
+    return {"blocks": await wiring.repo.fetch_contact_blocks(wiring.profile_id)}
+
+
+@router.delete("/contact-blocks/{block_id}")
+async def remove_contact_block(block_id: UUID, wiring: _Wiring = Depends(_wire)) -> dict:
+    """해제. 주인까지 맞아야 지우고, 없어도 200(`DELETE /blocks` 와 같은 모양)."""
+    await wiring.repo.delete_contact_block(wiring.profile_id, block_id)
+    return {"ok": True}

@@ -8,10 +8,14 @@ from app.core.postgrest import PostgrestRepository
 # 차단 목록(16f)은 한 번에 다 준다. PostgREST db-max-rows 에 조용히 잘리지 않게 상한을 우리가 정한다
 # (chat `_CONVERSATION_LIMIT` 과 같은 이유).
 BLOCK_LIST_LIMIT = 200
+# 지인 차단 목록. 앱은 기기에 있는 이름과 id 를 짝지어 보여 줄 뿐이라 전부 준다.
+# ponytail: 한 사람이 1000개를 넘기면 오래된 것이 목록에서 빠진다(대조는 SQL 이 하니 차단은 그대로 걸린다).
+# 넘는 사람이 나오면 created_at 커서로 페이지를 나눈다.
+CONTACT_BLOCK_LIST_LIMIT = 1000
 
 
 class SafetyRepository(PostgrestRepository):
-    """조각 6 의 두 테이블(blocks · reports)의 출입구. 둘 다 클라이언트는 읽지도 못한다(설계 §7.2)."""
+    """조각 6 의 세 테이블(blocks · reports · contact_blocks)의 출입구. 셋 다 클라이언트는 읽지도 못한다(설계 §7.2)."""
 
     async def _rows(self, path: str, params: dict) -> list[dict]:
         response = await self._get(path, params=params)
@@ -45,6 +49,34 @@ class SafetyRepository(PostgrestRepository):
             "order": "created_at.desc",
             "limit": BLOCK_LIST_LIMIT,
         })
+
+    # 지인 차단 ----------------------------------------------------------------
+    async def upsert_contact_blocks(self, owner_id: UUID | str, contact_hmacs: list[str],
+                                    key_version: int) -> list[dict]:
+        """이미 있던 번호도 기존 id 를 돌려받는다(merge-duplicates 는 보낸 칸만 덮어 id · created_at 이 그대로다).
+        contact_hmacs 에 같은 값이 두 번 있으면 PostgREST 가 배치째 실패한다 — 부르는 쪽이 먼저 줄인다."""
+        response = await self._post(
+            "contact_blocks",
+            json=[{"owner_id": str(owner_id), "contact_hmac": h, "key_version": key_version}
+                  for h in contact_hmacs],
+            params={"on_conflict": "owner_id,contact_hmac", "select": "id,created_at,contact_hmac"},
+            prefer="resolution=merge-duplicates,return=representation",
+        )
+        raise_for_status(response)
+        return response.json()
+
+    async def fetch_contact_blocks(self, owner_id: UUID | str) -> list[dict]:
+        return await self._rows("contact_blocks", {
+            "owner_id": f"eq.{owner_id}", "select": "id,created_at",
+            "order": "created_at.desc", "limit": CONTACT_BLOCK_LIST_LIMIT,
+        })
+
+    async def delete_contact_block(self, owner_id: UUID | str, block_id: UUID | str) -> None:
+        """주인까지 맞아야 지운다 — id 만 보면 남의 지인 차단을 풀 수 있다. 없어도 성공이다."""
+        response = await self._delete("contact_blocks", params={
+            "id": f"eq.{block_id}", "owner_id": f"eq.{owner_id}",
+        })
+        raise_for_status(response)
 
     # 신고 -------------------------------------------------------------------
     async def fetch_snapshot_profile(self, profile_id: UUID | str) -> dict:

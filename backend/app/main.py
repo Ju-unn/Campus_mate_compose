@@ -3,6 +3,8 @@ from contextlib import asynccontextmanager
 import httpx
 from fastapi import FastAPI
 
+from app.account.batch_router import router as account_batch_router
+from app.account.router import router as account_router
 from app.auth_hooks.router import router as auth_hooks_router
 from app.cards.batch_router import router as cards_batch_router
 from app.cards.router import router as cards_router
@@ -49,6 +51,8 @@ app.include_router(home_router)
 app.include_router(me_router)
 app.include_router(safety_router)
 app.include_router(community_router)
+app.include_router(account_batch_router)
+app.include_router(account_router)
 
 
 @app.get("/health")

@@ -1,6 +1,9 @@
+import hashlib
+import hmac
+
 import httpx
 import pytest
-from app.signup_policy import SignupPolicy, hash_email
+from app.signup_policy import IDENTITY_KEY_VERSION, SignupPolicy, bytea_literal, hash_email, hash_phone
 
 
 def test_hash_email_is_deterministic():
@@ -13,6 +16,23 @@ def test_hash_email_differs_by_secret():
 
 def test_hash_email_normalizes_case():
     assert hash_email("secret", "HONG@SNU.AC.KR") == hash_email("secret", "hong@snu.ac.kr")
+
+
+def test_hash_phone_is_hmac_sha256_of_the_e164_value_as_given():
+    """지인 차단 대조는 서버 두 곳(온보딩 저장 · 연락처 등록)이 같은 바이트를 떠야 맞는다 — 입력을 손대지 않는다."""
+    expected = hmac.new(b"secret", b"+821012345678", hashlib.sha256).digest()
+
+    assert hash_phone("secret", "+821012345678") == expected
+    assert hash_phone("secret-b", "+821012345678") != expected
+
+
+def test_identity_key_version_starts_at_one():
+    # signup_blocks · profile_private.phone_hmac_key_version · contact_blocks.key_version 의 DB 기본값과 같다.
+    assert IDENTITY_KEY_VERSION == 1
+
+
+def test_bytea_literal_is_the_postgrest_hex_form():
+    assert bytea_literal(b"\x9a\x1b\xcd") == "\\x9a1bcd"
 
 
 @pytest.fixture

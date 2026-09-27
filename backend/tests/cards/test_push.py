@@ -128,3 +128,18 @@ async def test_a_suspended_recipient_gets_nothing_until_lifted():
 
     lifted = _FakeRepo(["tok"], on, status="active")
     assert await notify(lifted, _sender(handler), "p1", "new_message", "제", "본", {}, now=noon) == 1
+
+
+async def test_a_withdrawn_recipient_gets_nothing():
+    """탈퇴 뒤 토큰 삭제는 best-effort 라 남아 있을 수 있다 — 관문이 상태로 한 번 더 막는다."""
+    sent: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        sent.append(request)
+        return httpx.Response(200, json={})
+
+    noon = datetime(2026, 9, 21, 12, 0, tzinfo=SEOUL)
+    withdrawn = _FakeRepo(["tok"], {"new_message": True, "quiet_hours": False}, status="withdrawn")
+
+    assert await notify(withdrawn, _sender(handler), "p1", "new_message", "제", "본", {}, now=noon) == 0
+    assert sent == []

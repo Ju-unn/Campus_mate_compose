@@ -85,6 +85,7 @@ class FakeSupabase:
         self.discord: list[str] = []
         self.discord_status = 204
         self.discord_raises = False
+        self.contact_blocks: list[dict] = []  # {owner_id, contact_hmac("\\x.."), id, key_version, created_at}
 
     # ------------------------------------------------------------------
     def handle(self, request: httpx.Request) -> httpx.Response:
@@ -217,6 +218,36 @@ class FakeSupabase:
 
     def _push_tokens(self, method, params, body):
         return httpx.Response(200, json=[])
+
+    def _contact_blocks(self, method, params, body):
+        """PostgREST upsert 흉내. 한 배치에 같은 키가 두 번 오면 진짜처럼 실패한다(21000)."""
+        if method == "POST":
+            keys = [(row["owner_id"], row["contact_hmac"]) for row in body]
+            if len(set(keys)) != len(keys):
+                return httpx.Response(500, json={
+                    "code": "21000", "message": "ON CONFLICT DO UPDATE command cannot affect row a second time",
+                })
+            out = []
+            for row in body:
+                found = next((b for b in self.contact_blocks
+                              if (b["owner_id"], b["contact_hmac"]) == (row["owner_id"], row["contact_hmac"])), None)
+                if found is None:
+                    found = {"id": f"00000000-0000-0000-0000-{len(self.contact_blocks) + 1:012d}",
+                             "created_at": f"2026-09-27T10:{len(self.contact_blocks):02d}:00+09:00"}
+                    self.contact_blocks.append(found)
+                found.update(row)   # merge-duplicates: 보낸 칸만 덮고 id · created_at 은 그대로
+                out.append({"id": found["id"], "created_at": found["created_at"],
+                            "contact_hmac": found["contact_hmac"]})
+            return httpx.Response(201, json=out)
+        owner = self._eq(params, "owner_id")
+        if method == "DELETE":
+            block_id = self._eq(params, "id")
+            self.contact_blocks = [b for b in self.contact_blocks
+                                   if not (b["id"] == block_id and b["owner_id"] == owner)]
+            return httpx.Response(204)
+        rows = sorted((b for b in self.contact_blocks if b["owner_id"] == owner),
+                      key=lambda b: b["created_at"], reverse=True)
+        return httpx.Response(200, json=[{"id": b["id"], "created_at": b["created_at"]} for b in rows])
 
     # 도우미 ------------------------------------------------------------------
     def calls(self, method: str, table: str) -> list[httpx.Request]:

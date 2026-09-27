@@ -372,6 +372,49 @@ gcloud secrets delete card-batch-secret
 주소는 `--uri=<cloud-run-url>/batch/<경로>` 다 — 여기 `<cloud-run-url>` 은 `https://` 를 포함하므로 §4 처럼
 `https://` 를 또 붙이면 `https://https://` 가 된다.
 
+## 4-4. 탈퇴 · 지인 차단 · 정리 배치 (조각 6 PR 3, 2026-09-27)
+
+**적용 순서 — 이 순서대로, 앞 단계가 끝난 뒤에 다음 단계로 간다.**
+
+1. 마이그레이션 클라우드 적용 — `20260927030000_set_phone_number_with_hmac` · `20260927030100_create_withdraw_account`.
+2. `NOTIFY pgrst, 'reload schema';` (SQL 편집기) — 새 서버의 5인자 `set_phone_number` 호출이 옛 스키마 캐시에 걸리지 않게 한 번 새로 고친다.
+3. 새 서버 배포(§2 명령 그대로, 새 env · 시크릿 없음).
+4. 백필 한 번(아래) — 새 서버 배포 **뒤**에 돌린다. 그 전에는 옛 서버의 3인자 호출이 `phone_hmac` 을 null 로 덮고, null 행은 지인 차단 대조에서 빠진다.
+
+**백필** — 조각 6 전에 저장된 번호에 지인 차단 해시를 채운다. 한 번 쓰고 버리는 스크립트라 컨테이너에는 없다
+(`backend/scripts/`). 다시 돌려도 안전하다(빈 칸인 행만 고르고 빈 칸일 때만 쓴다).
+
+```bash
+cd backend
+# settings.py 가 §2 의 env 와 시크릿을 전부 요구한다. 시크릿은 Secret Manager 에서 env 로 넣는다 — 값은 여기 적지 않는다.
+#   예: export PHONE_ENCRYPTION_KEY="$(gcloud secrets versions access latest --secret=phone-number-encryption-key)"
+.venv/Scripts/python.exe -m scripts.backfill_phone_hmac
+# 출력은 건수뿐이다: filled=<채운 행> skipped=<휴대전화가 아니거나 복호화 결과가 없는 행>
+```
+
+**정리 배치 job** — 매일 04:00 Asia/Seoul 에 `/batch/cleanup`. **처음부터 OIDC 다**(§4-3 의 계정 · 권한 ·
+`BATCH_AUDIENCE` 를 그대로 쓰고 `--headers` 는 붙이지 않는다). 무료 한도 3 job 중 세 번째다. 3단계 배포 뒤에 만든다.
+
+```bash
+gcloud scheduler jobs create http campus-mate-cleanup \
+  --location=asia-northeast3 \
+  --schedule="0 4 * * *" \
+  --time-zone="Asia/Seoul" \
+  --uri="<cloud-run-url>/batch/cleanup" \
+  --http-method=POST \
+  --oidc-service-account-email=campus-mate-scheduler@<PROJECT_ID>.iam.gserviceaccount.com \
+  --oidc-token-audience=<cloud-run-url> \
+  --attempt-deadline=600s
+```
+
+- 하는 일: ① 탈퇴 30일 지난 계정의 Storage 파일(버킷 3개) → auth 사용자 삭제(profiles 는 cascade, 한 번에 100명)
+  ② 만든 지 1년 지난 신고 ③ 기한 지난 재가입 제한(무기한은 남는다) ④ 옛 키 버전 지인 차단 행 세기.
+- 결과는 `{"deleted_accounts", "skipped_accounts", "deleted_reports", "deleted_signup_blocks", "stale_key_rows"}` 모양이다.
+  `skipped_accounts` 는 파일 삭제가 실패해 **내일 다시** 할 사람이다. 며칠째 같은 수면 로그의 `탈퇴 계정 정리 건너뜀` 을 본다.
+  `stale_key_rows` 가 0 이 아니면 `identity-hmac-key` 를 바꾼 뒤 옛 행이 남은 것이다(`app/signup_policy.py` 의 `IDENTITY_KEY_VERSION`).
+- 확인: `gcloud scheduler jobs run campus-mate-cleanup --location=asia-northeast3` 뒤 §4-3 4단계의 `logging read` 로
+  `/batch/cleanup` 200 과 `batch /batch/cleanup auth=oidc` 한 줄을 본다. 다시 돌려도 안전하다(두 번째는 전부 0).
+
 ## 5. 현재 배포 상태 (2026-09-26 기준)
 
 | 항목 | 값 |
