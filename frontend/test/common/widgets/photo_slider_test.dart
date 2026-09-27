@@ -216,8 +216,25 @@ void main() {
     await pump(tester, photos: photos, photoSize: const Size(288, 260), width: 280);
 
     expect(tester.takeException(), isNull);
-    expect(tester.getRect(_photo(photos[0])).width, moreOrLessEquals(272));
+    // 오른쪽 간격 8 까지 없애고 폭을 꽉 채운다(통합대장 09-27).
+    expect(tester.getRect(_photo(photos[0])).width, moreOrLessEquals(280));
     // 다음 장은 x280 = 화면 밖에서 시작한다. PageView 는 화면 밖 장을 만들지 않는다(엿보기 없음).
+    expect(_photo(photos[1]), findsNothing);
+  });
+
+  testWidgets('14c 카드 안쪽 폭 286 에 288×260 이면 사진이 부모 좌우 끝에 딱 맞는다', (tester) async {
+    // 360 화면의 카드 안쪽 = 328 - 테두리 2 - 여백 40. 사진 + 간격 8 이 안 들어가 한 장이 폭을 다 쓴다.
+    final photos = _photos(2);
+    await pump(tester, photos: photos, photoSize: const Size(288, 260), width: 286);
+
+    expect(tester.takeException(), isNull);
+    final parent = tester.getRect(find.byType(PhotoSlider));
+    final first = tester.getRect(_photo(photos[0]));
+    expect(first.width, moreOrLessEquals(286));
+    expect(first.left, parent.left);
+    expect(first.right, moreOrLessEquals(parent.right));
+    expect(first.height, 260);
+    // 둘째 장은 엿보이지 않는다.
     expect(_photo(photos[1]), findsNothing);
   });
 
