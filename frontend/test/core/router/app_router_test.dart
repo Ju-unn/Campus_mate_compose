@@ -13,6 +13,9 @@ import 'package:campus_mate/matching/view/conversations_screen.dart';
 import 'package:campus_mate/me/model/me_repository_provider.dart';
 import 'package:campus_mate/me/view/my_profile_screen.dart';
 import 'package:campus_mate/profile/model/onboarding_step.dart';
+import 'package:campus_mate/safety/model/safety_repository_provider.dart';
+import 'package:campus_mate/safety/view/block_list_screen.dart';
+import 'package:campus_mate/safety/view/partner_profile_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -22,6 +25,7 @@ import '../../chat/model/fake_chat_repository.dart';
 import '../../home/model/fake_home_repository.dart';
 import '../../matching/model/fake_card_repository.dart';
 import '../../me/model/fake_me_repository.dart';
+import '../../safety/model/fake_safety_repository.dart';
 
 /// 이 파일은 경로·화면 연결만 본다. 게이트별 이동 규칙은 auth_redirect_test 가 맡는다.
 VerificationGate _passedGate() => VerificationGate.complete;
@@ -205,6 +209,71 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(ConversationsScreen), findsOneWidget);
+  });
+
+  group('조각 6 경로', () {
+    Future<GoRouter> pumpRouter(WidgetTester tester, {bool passedRoom = false}) async {
+      final router = AppRouter.create(
+        isAuthenticated: () => true,
+        verificationGate: _passedGate,
+        onboardingStep: _passedStep,
+      );
+      addTearDown(router.dispose);
+      // 방이 열린 채 테스트가 끝나면 방의 dispose(읽음 → 목록 새로 읽기)가 컨테이너보다 늦게 돈다 —
+      // 컨테이너는 위젯 트리를 걷어 낸 뒤에 닫는다.
+      final container = ProviderContainer(
+        overrides: [
+          cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
+          homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
+          chatRepositoryProvider.overrideWithValue(
+              FakeChatRepository()..room = Success(roomFixture(passed: passedRoom, kakaoId: 'fox_rain'))),
+          messageStreamProvider.overrideWithValue(FakeMessageStream()),
+          safetyRepositoryProvider.overrideWithValue(FakeSafetyRepository()),
+        ],
+      );
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+        ),
+      );
+      return router;
+    }
+
+    testWidgets('/settings/blocks 는 16f 차단 목록이다', (tester) async {
+      final router = await pumpRouter(tester);
+
+      router.go(AppRoutes.blockList);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(BlockListScreen), findsOneWidget);
+    });
+
+    testWidgets('/profiles/:profileId 는 그 사람의 14c 상대 프로필이다', (tester) async {
+      final router = await pumpRouter(tester);
+
+      router.go('${AppRoutes.partnerProfile}/p2');
+      await tester.pumpAndSettle();
+
+      expect(tester.widget<PartnerProfileScreen>(find.byType(PartnerProfileScreen)).profileId, 'p2');
+    });
+
+    // 경로가 없을 때는 14b 버튼이 go_router 오류 화면으로 떨어졌다.
+    testWidgets('채팅방 14b "상대 프로필 보기" 를 누르면 14c 가 열리고, 뒤로가면 방으로 돌아온다', (tester) async {
+      final router = await pumpRouter(tester, passedRoom: true);
+      router.go('${AppRoutes.chatRoom}/m1');
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('상대 프로필 보기'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PartnerProfileScreen), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+      expect(find.byType(ChatRoomScreen), findsOneWidget);
+    });
   });
 
   test('온보딩 경로 12개가 전부 라우터에 등록돼 있다', () {
