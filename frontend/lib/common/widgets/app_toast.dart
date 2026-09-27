@@ -8,10 +8,10 @@ import 'package:flutter/material.dart';
 ///
 /// 앞에 오는 16 짜리 그림만 화면마다 다르다(04-3 은 도는 표시, 04-2 는 경고 아이콘).
 class AppToast extends StatelessWidget {
-  const AppToast({required this.leading, required this.label, super.key});
+  const AppToast({required this.label, this.leading, super.key});
 
-  /// 16×16 자리에 들어가는 그림.
-  final Widget leading;
+  /// 16×16 자리에 들어가는 그림. 없으면 글자만 — 15d-3 투표 보상(재화 하트는 Lucide 로 그리지 않는다).
+  final Widget? leading;
   final String label;
 
   @override
@@ -29,8 +29,10 @@ class AppToast extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            SizedBox(width: 16, height: 16, child: leading),
-            const SizedBox(width: AppSpacing.xs),
+            if (leading != null) ...[
+              SizedBox(width: 16, height: 16, child: leading),
+              const SizedBox(width: AppSpacing.xs),
+            ],
             Text(label, style: AppTypography.labelSmall.copyWith(color: AppColors.onInk)),
           ],
         ),
