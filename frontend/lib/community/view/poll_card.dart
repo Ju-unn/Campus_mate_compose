@@ -8,9 +8,6 @@ import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 
-/// 찬성 O 버튼 파랑(pen `VhiAe`, DESIGN §8.11). 토큰표 밖 값이다. 색 뜻 결정 대기(계획서 "결정 대기").
-const Color _agreeBlue = Color(0xFF2D96DE);
-
 /// 카드 그림자(pen `RpRBi` #00000014 (0,1) blur 8). AppElevation 토큰과 값이 달라 여기 둔다.
 const List<BoxShadow> _cardShadow = [BoxShadow(color: Color(0x14000000), offset: Offset(0, 1), blurRadius: 8)];
 
@@ -132,7 +129,7 @@ class _BeforeVote extends StatelessWidget {
     VoidCallback? tap(PollChoice choice) => enabled ? () => onVote(choice) : null;
     final buttons = poll.usesDefaultLabels
         ? [
-            _IconVote(icon: AppIcons.circle, label: poll.optionA, color: _agreeBlue, onPressed: tap(PollChoice.a)),
+            _IconVote(icon: AppIcons.circle, label: poll.optionA, color: pollAgreeBlue, onPressed: tap(PollChoice.a)),
             _IconVote(icon: AppIcons.x, label: poll.optionB, color: AppColors.primary, onPressed: tap(PollChoice.b)),
           ]
         : [
