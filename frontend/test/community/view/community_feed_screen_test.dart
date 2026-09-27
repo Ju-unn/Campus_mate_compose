@@ -11,6 +11,7 @@ import 'package:campus_mate/community/view/poll_card.dart';
 import 'package:campus_mate/community/view/poll_donut.dart';
 import 'package:campus_mate/community/view/poll_time.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
+import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -126,6 +127,20 @@ void main() {
     expect(find.text('찬성 38% · 반대 62%'), findsOneWidget);
     expect(find.text('8명 참여'), findsOneWidget);
     expect(find.bySemanticsLabel('찬성'), findsNothing);
+  });
+
+  testWidgets('결과 도넛은 버튼 색을 따른다: 회색 고리 위에 A 파랑, 이어서 B 분홍', (tester) async {
+    repository.page = Success(
+      PollPage(polls: [pollFixture(aCount: 3, bCount: 5, myChoice: PollChoice.a)], hasMore: false),
+    );
+    await pump(tester);
+    expect(
+      find.descendant(of: find.byType(PollDonut), matching: find.byType(CustomPaint)),
+      paints
+        ..arc(color: AppColors.surfaceStrong)
+        ..arc(color: pollAgreeBlue)
+        ..arc(color: AppColors.primary),
+    );
   });
 
   testWidgets('pen 카드 틀: 폭 328 · 목록 위 8, 높이 투표 전 232 · 투표 후 279(RpRBi — 글자 상자 렌더 차 2 안)', (tester) async {
