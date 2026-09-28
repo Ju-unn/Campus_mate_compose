@@ -65,6 +65,9 @@ abstract final class AppRoutes {
   /// 조각 6 A4 — 정지 안내(pen `e7QaDh`). 정지된 계정은 어느 화면에서든 여기로 간다.
   static const String accountSuspended = '/account-suspended';
 
+  /// 16e 계정(설정 "계정" 줄에서 들어간다).
+  static const String account = '/settings/account';
+
   /// 아직 화면이 없는 탭 — 자리 화면으로 보낸다(커뮤니티 조각 6, 내 프로필 후속)
   static const String community = '/community';
   static const String communityNew = '/community/new';

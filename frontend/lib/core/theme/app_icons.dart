@@ -81,6 +81,9 @@ abstract final class AppIcons {
   /// 화면 15 "선호 나이 범위" 행 (pen `vFPb8`)
   static const IconData calendar = LucideIcons.calendar;
 
+  /// 화면 16e "가입일" 행 (pen `nntyt`)
+  static const IconData calendarCheck = LucideIcons.calendarCheck;
+
   /// 화면 15 "MBTI" Facts 행 (pen `Wb0JO`)
   static const IconData badge = LucideIcons.badge;
 }
