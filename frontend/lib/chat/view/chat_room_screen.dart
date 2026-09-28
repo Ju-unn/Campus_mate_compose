@@ -212,7 +212,6 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
     }
     _sheetShown = true;
     final deadlineAt = state.room!.gate.deadlineAt;
-    final myKakaoId = state.room!.myKakaoId;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) {
         return;
@@ -223,24 +222,37 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
         backgroundColor: Colors.transparent,
         // 기본 딤(0.8)은 시안보다 어둡다 — 모달 딤 토큰(0.5)을 쓴다.
         barrierColor: AppColors.scrim,
-        builder: (sheetContext) => TrustGateSheet(
-          deadlineAt: deadlineAt,
-          myKakaoId: myKakaoId,
-          onAccept: () {
-            Navigator.of(sheetContext).pop();
-            // 시트는 확인 다이얼로그를 거치지 않는다 — 공유할 아이디까지 보여 준 시트가
-            // 이미 확인 절차다(pen `p0XJA6` 에 다이얼로그가 없다). 14g 배너는 그대로 한 번 더 묻는다.
-            unawaited(_viewModel.acceptTrust());
-          },
-          onLeave: () {
-            Navigator.of(sheetContext).pop();
-            unawaited(_leave());
-          },
+        // 16e-1 에서 바꾸고 돌아오면 방을 다시 읽는다 — 시트는 떠 있는 채로 새 아이디를 보여 준다.
+        builder: (sheetContext) => Consumer(
+          builder: (_, sheetRef, _) => TrustGateSheet(
+            deadlineAt: deadlineAt,
+            myKakaoId: sheetRef.watch(chatRoomViewModelProvider(widget.matchId).select((s) => s.room?.myKakaoId)),
+            onChangeKakaoId: _changeKakaoId,
+            onAccept: () {
+              Navigator.of(sheetContext).pop();
+              // 시트는 확인 다이얼로그를 거치지 않는다 — 공유할 아이디까지 보여 준 시트가
+              // 이미 확인 절차다(pen `p0XJA6` 에 다이얼로그가 없다). 14g 배너는 그대로 한 번 더 묻는다.
+              unawaited(_viewModel.acceptTrust());
+            },
+            onLeave: () {
+              Navigator.of(sheetContext).pop();
+              unawaited(_leave());
+            },
+          ),
         ),
       );
       // 스와이프로 닫든 버튼으로 닫든 14h 배너로 바뀐다.
       _viewModel.dismissSheet();
     });
+  }
+
+  /// 14f "변경" → 16e-1. 시트 위에 올리고, 저장하고 돌아왔을 때만(true) 방을 다시 읽는다.
+  /// 방 머리말만 따로 읽는 공개 길이 없어 앱 복귀 때와 같은 [ChatRoomViewModel.reconnect] 를 쓴다.
+  Future<void> _changeKakaoId() async {
+    final saved = await context.push<bool>(AppRoutes.kakaoIdSettings);
+    if (saved == true && mounted) {
+      await _viewModel.reconnect();
+    }
   }
 
   Future<void> _accept() async {

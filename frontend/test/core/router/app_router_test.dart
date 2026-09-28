@@ -1,8 +1,12 @@
+import 'package:campus_mate/account/model/account_repository.dart';
+import 'package:campus_mate/account/view/account_suspended_screen.dart';
+import 'package:campus_mate/account/view/kakao_id_settings_screen.dart';
 import 'package:campus_mate/auth/model/verification_gate.dart';
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/chat/view/chat_room_screen.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/core/auth/account_status_listenable.dart';
 import 'package:campus_mate/core/router/app_router.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
@@ -21,6 +25,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../account/model/fake_account_repository.dart';
 import '../../chat/model/fake_chat_repository.dart';
 import '../../home/model/fake_home_repository.dart';
 import '../../matching/model/fake_card_repository.dart';
@@ -212,11 +217,16 @@ void main() {
   });
 
   group('조각 6 경로', () {
-    Future<GoRouter> pumpRouter(WidgetTester tester, {bool passedRoom = false}) async {
+    Future<GoRouter> pumpRouter(
+      WidgetTester tester, {
+      bool passedRoom = false,
+      AccountStatus Function()? accountStatus,
+    }) async {
       final router = AppRouter.create(
         isAuthenticated: () => true,
         verificationGate: _passedGate,
         onboardingStep: _passedStep,
+        accountStatus: accountStatus ?? () => AccountStatus.active,
       );
       addTearDown(router.dispose);
       // 방이 열린 채 테스트가 끝나면 방의 dispose(읽음 → 목록 새로 읽기)가 컨테이너보다 늦게 돈다 —
@@ -229,6 +239,8 @@ void main() {
               FakeChatRepository()..room = Success(roomFixture(passed: passedRoom, kakaoId: 'fox_rain'))),
           messageStreamProvider.overrideWithValue(FakeMessageStream()),
           safetyRepositoryProvider.overrideWithValue(FakeSafetyRepository()),
+          // 16e-1 이 열리면 저장된 아이디를 읽는다.
+          accountRepositoryProvider.overrideWithValue(FakeAccountRepository()),
         ],
       );
       addTearDown(container.dispose);
@@ -248,6 +260,15 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(BlockListScreen), findsOneWidget);
+    });
+
+    testWidgets('/settings/account/kakao-id 는 16e-1 카카오톡 아이디 변경이다', (tester) async {
+      final router = await pumpRouter(tester);
+
+      router.go(AppRoutes.kakaoIdSettings);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(KakaoIdSettingsScreen), findsOneWidget);
     });
 
     testWidgets('/profiles/:profileId 는 그 사람의 14c 상대 프로필이다', (tester) async {
@@ -273,6 +294,20 @@ void main() {
       await tester.tap(find.byType(BackButton));
       await tester.pumpAndSettle();
       expect(find.byType(ChatRoomScreen), findsOneWidget);
+    });
+
+    testWidgets('정지된 계정은 어느 화면으로 가도 정지 안내(pen e7QaDh)가 보인다', (tester) async {
+      var status = AccountStatus.active;
+      final router = await pumpRouter(tester, accountStatus: () => status);
+      router.go(AppRoutes.blockList);
+      await tester.pumpAndSettle();
+      expect(find.byType(BlockListScreen), findsOneWidget);
+
+      status = AccountStatus.suspended;
+      router.refresh();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AccountSuspendedScreen), findsOneWidget);
     });
   });
 

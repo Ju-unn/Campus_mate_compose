@@ -1,7 +1,10 @@
+import 'package:campus_mate/account/view/withdraw_sheets.dart';
+import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/core/auth/sign_out.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/matching/viewmodel/notification_settings_view_model.dart';
 import 'package:campus_mate/safety/view/contact_permission_sheets.dart';
@@ -71,6 +74,16 @@ class SettingsScreen extends ConsumerWidget {
                 ),
             ])
               Material(type: MaterialType.transparency, child: row),
+            // 위험 영역(pen `VmUvb` padding [24,16,28,16] · `rlWDn`). 목록 줄이 아니라 목록 아래 단독 버튼이다(대장 결정 2) —
+            // AppButton 은 자기 Material 에 잉크를 그려 위 목록 규칙(투명 Material)이 필요 없다.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.lg, AppSpacing.md, 28),
+              child: AppButton(
+                label: '탈퇴하기',
+                variant: AppButtonVariant.danger,
+                onPressed: () => showWithdrawSheets(context),
+              ),
+            ),
           ],
         ),
       ),

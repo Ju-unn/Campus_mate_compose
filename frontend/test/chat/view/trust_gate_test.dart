@@ -5,7 +5,11 @@ import 'package:campus_mate/chat/view/trust_banner.dart';
 import 'package:campus_mate/chat/view/trust_gate_sheet.dart';
 import 'package:campus_mate/chat/viewmodel/chat_room_view_model.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/core/router/app_routes.dart';
+import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -170,5 +174,145 @@ void main() {
 
     expect(find.byType(TrustBanner), findsNothing);
     expect(find.text('신뢰 확인 완료'), findsOneWidget);
+  });
+
+  group('저장된 아이디 "변경"(pen p0XJA6 dB7yu · Ek58H → 16e-1)', () {
+    Future<void> pumpSheet(WidgetTester tester, {VoidCallback? onChangeKakaoId}) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: TrustGateSheet(
+            deadlineAt: DateTime.now().add(const Duration(hours: 20)),
+            myKakaoId: 'fox_rain_me',
+            onAccept: () {},
+            onLeave: () {},
+            onChangeKakaoId: onChangeKakaoId,
+          ),
+        ),
+      ));
+    }
+
+    testWidgets('14f 변경 calls onChangeKakaoId', (tester) async {
+      var changes = 0;
+      await pumpSheet(tester, onChangeKakaoId: () => changes++);
+
+      await tester.tap(find.text('변경'));
+      await tester.pump();
+
+      expect(changes, 1);
+    });
+
+    testWidgets('변경은 아이디 칸 오른쪽, 누르는 높이 48, 글자 14/600 primary-text', (tester) async {
+      await pumpSheet(tester, onChangeKakaoId: () {});
+
+      final button = find.ancestor(of: find.text('변경'), matching: find.byType(TextButton));
+      expect(tester.getSize(button).height, 48);
+      expect(tester.getCenter(button).dy, tester.getCenter(find.text('fox_rain_me')).dy);
+      // 아이디 글자는 Expanded 라 오른쪽 끝이 곧 "변경"의 왼쪽 끝이다. 시트 좌우 16 안쪽, 칸 오른쪽 여백 4(pen d5T8Iu).
+      expect(tester.getRect(button).left, greaterThanOrEqualTo(tester.getRect(find.text('fox_rain_me')).right));
+      expect(tester.getRect(button).right, 800 - 16 - 4);
+      // 칸 높이 56(pen d5T8Iu) — 배율 1.0 에서는 최소 높이가 곧 높이다.
+      final box = find.ancestor(of: find.text('fox_rain_me'), matching: find.byType(Container)).first;
+      expect(tester.getSize(box).height, 56);
+      final style = tester.widget<Text>(find.text('변경')).style!;
+      expect((style.fontSize, style.fontWeight, style.color), (14, FontWeight.w600, AppColors.primaryText));
+    });
+
+    testWidgets('갈 곳을 받지 않으면 변경을 그리지 않는다', (tester) async {
+      await pumpSheet(tester);
+
+      expect(find.text('변경'), findsNothing);
+    });
+
+    // DESIGN §11.2 — "변경" 만큼 좁아진 칸에서 긴 아이디가 두 줄이 된다. 칸 높이를 56 에 묶으면 아래 줄이 표시 없이 잘린다.
+    for (final scale in [1.3, 1.5]) {
+      testWidgets('글자 배율 $scale 에서 "변경" 옆 긴 아이디가 잘리지 않는다', (tester) async {
+        tester.view.physicalSize = const Size(360, 780);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await tester.pumpWidget(MaterialApp(
+          home: Scaffold(
+            body: TrustGateSheet(
+              deadlineAt: DateTime.now().add(const Duration(hours: 20)),
+              myKakaoId: 'campus_fox_rain_2026',
+              onAccept: () {},
+              onLeave: () {},
+              onChangeKakaoId: () {},
+            ),
+          ),
+        ));
+
+        final id = tester.renderObject<RenderParagraph>(find.text('campus_fox_rain_2026'));
+        expect(id.getMaxIntrinsicHeight(id.size.width), lessThanOrEqualTo(id.size.height + 0.5));
+      });
+    }
+
+    Future<void> pumpRoomInRouter(WidgetTester tester) async {
+      final container = ProviderContainer(
+        overrides: [
+          chatRepositoryProvider.overrideWithValue(repository),
+          messageStreamProvider.overrideWithValue(stream),
+        ],
+      );
+      addTearDown(container.dispose);
+      final router = GoRouter(
+        initialLocation: '${AppRoutes.chatRoom}/m1',
+        routes: [
+          GoRoute(
+            path: '${AppRoutes.chatRoom}/:matchId',
+            builder: (context, state) => ChatRoomScreen(matchId: state.pathParameters['matchId']!),
+          ),
+          // 16e-1 자리. 저장 · 뒤로를 흉내 낸다.
+          GoRoute(
+            path: AppRoutes.kakaoIdSettings,
+            builder: (context, state) => Scaffold(
+              body: Column(children: [
+                TextButton(onPressed: () => context.pop(true), child: const Text('저장한 척')),
+                TextButton(onPressed: () => context.pop(), child: const Text('뒤로')),
+              ]),
+            ),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(container: container, child: MaterialApp.router(routerConfig: router)),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('chat room reloads after returning from 16e-1', (tester) async {
+      repository.room = Success(roomFixture(createdAt: hoursAgo(25), myKakaoId: 'old_id'));
+      await pumpRoomInRouter(tester);
+      expect(find.text('old_id'), findsOneWidget);
+      final fetchesBefore = repository.roomFetchCount;
+      repository.room = Success(roomFixture(createdAt: hoursAgo(25), myKakaoId: 'new_id'));
+
+      await tester.tap(find.text('변경'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('저장한 척'));
+      await tester.pumpAndSettle();
+
+      expect(repository.roomFetchCount, greaterThan(fetchesBefore));
+      // 시트는 그대로 떠 있고 새로 읽은 아이디를 보여 준다 — 돌아와서 바로 수락할 수 있다.
+      expect(find.byType(TrustGateSheet), findsOneWidget);
+      expect(find.text('new_id'), findsOneWidget);
+      expect(find.text('old_id'), findsNothing);
+    });
+
+    testWidgets('저장하지 않고 돌아오면 방을 다시 읽지 않는다', (tester) async {
+      repository.room = Success(roomFixture(createdAt: hoursAgo(25), myKakaoId: 'old_id'));
+      await pumpRoomInRouter(tester);
+      final fetchesBefore = repository.roomFetchCount;
+
+      await tester.tap(find.text('변경'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('뒤로'));
+      await tester.pumpAndSettle();
+
+      expect(repository.roomFetchCount, fetchesBefore);
+      expect(find.text('old_id'), findsOneWidget);
+    });
   });
 }

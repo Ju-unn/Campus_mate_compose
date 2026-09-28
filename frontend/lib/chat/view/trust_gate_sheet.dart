@@ -15,10 +15,14 @@ class TrustGateSheet extends StatelessWidget {
     required this.onAccept,
     required this.onLeave,
     this.myKakaoId,
+    this.onChangeKakaoId,
     super.key,
   });
 
   final DateTime deadlineAt;
+
+  /// 아이디 칸 오른쪽 "변경"(pen `dB7yu`) → 16e-1. 비우면 "변경"을 그리지 않는다.
+  final VoidCallback? onChangeKakaoId;
 
   /// 내가 공유하게 될 카카오톡 아이디. 서버가 방 조회에 실어 준다.
   final String? myKakaoId;
@@ -79,7 +83,7 @@ class TrustGateSheet extends StatelessWidget {
               const SizedBox(height: AppSpacing.md),
               _Countdown(deadlineAt: deadlineAt),
               const SizedBox(height: AppSpacing.md),
-              _KakaoIdBlock(myKakaoId: myKakaoId),
+              _KakaoIdBlock(myKakaoId: myKakaoId, onChange: onChangeKakaoId),
               const SizedBox(height: AppSpacing.md),
               AppButton(label: '수락하고 공유하기', onPressed: onAccept),
               const SizedBox(height: AppSpacing.xxs),
@@ -95,14 +99,12 @@ class TrustGateSheet extends StatelessWidget {
 
 /// 공유할 내 카카오톡 아이디(pen `p0XJA6`). 안내 카드 자리를 대신한다 —
 /// "허용을 켜 두라" 는 말은 아이디 바로 아래에 있어야 읽힌다.
-///
-/// [변경] 버튼은 16e-1(아이디 바꾸기) 화면이 아직 없어 붙이지 않았다 —
-/// 갈 곳 없는 버튼을 그리는 대신 비워 둔다(사용자 결정 대기).
 class _KakaoIdBlock extends StatelessWidget {
-  const _KakaoIdBlock({required this.myKakaoId});
+  const _KakaoIdBlock({required this.myKakaoId, required this.onChange});
 
   /// **내** 아이디다. 상대 아이디(`ChatRoom.kakaoId`)를 여기 넘기면 게이트 전에 새어 나간다.
   final String? myKakaoId;
+  final VoidCallback? onChange;
 
   @override
   Widget build(BuildContext context) {
@@ -113,17 +115,25 @@ class _KakaoIdBlock extends StatelessWidget {
         const SizedBox(height: AppSpacing.xs),
         Container(
           width: double.infinity,
-          height: 56,
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-          alignment: Alignment.centerLeft,
+          // 배율 1.0 에서 56(pen `d5T8Iu`). 글자를 키우면 "변경" 옆 긴 아이디가 두 줄이 되어 칸이 따라 자란다(DESIGN §11.2).
+          constraints: const BoxConstraints(minHeight: 56),
+          // pen `d5T8Iu` padding [0,4,0,16] — 오른쪽 4 안에 "변경" 터치 영역(50×48)이 붙는다.
+          padding: const EdgeInsets.only(left: AppSpacing.md, right: AppSpacing.xxs),
           decoration: BoxDecoration(
             color: AppColors.surfaceSoft,
             borderRadius: BorderRadius.circular(AppRadius.sm),
           ),
-          // 아이디를 아직 못 받았으면 빈 칸 대신 자리만 보여준다 — 가입 때 받는 값이라 보통 있다.
-          child: Text(
-            myKakaoId ?? '—',
-            style: AppTypography.bodyStrong.copyWith(color: AppColors.ink),
+          child: Row(
+            children: [
+              // 아이디를 아직 못 받았으면 빈 칸 대신 자리만 보여준다 — 가입 때 받는 값이라 보통 있다.
+              Expanded(
+                child: Text(
+                  myKakaoId ?? '—',
+                  style: AppTypography.bodyStrong.copyWith(color: AppColors.ink),
+                ),
+              ),
+              if (onChange != null) _ChangeButton(onPressed: onChange!),
+            ],
           ),
         ),
         const SizedBox(height: AppSpacing.xs),
@@ -148,6 +158,27 @@ class _KakaoIdBlock extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+/// "변경"(pen `dB7yu` 터치 영역 50×48 · padding [0,12], 글자 `Ek58H` 14/600 primary-text).
+/// 회색 칸(Container 색) 위에 있지만 TextButton 은 자기 Material 에 잉크를 그려 시트와 같이 움직인다(COMMON §4-2).
+class _ChangeButton extends StatelessWidget {
+  const _ChangeButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton(
+      onPressed: onPressed,
+      style: TextButton.styleFrom(
+        minimumSize: const Size(0, 48),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+        foregroundColor: AppColors.primaryText,
+      ),
+      child: Text('변경', style: AppTypography.labelSmall.copyWith(color: AppColors.primaryText, height: 1.5)),
     );
   }
 }

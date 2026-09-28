@@ -92,6 +92,69 @@ void main() {
     expect(result.when(onSuccess: (_) => null, onFailure: (f) => f), isA<UnknownFailure>());
   });
 
+  group('계정 상태 헤더(X-Account-Status, 조각 6 A4)', () {
+    http.Response rejected(int status, String detail, {String? accountStatus}) {
+      return http.Response(
+        jsonEncode({'detail': detail}),
+        status,
+        headers: {
+          'content-type': 'application/json; charset=utf-8',
+          'x-account-status': ?accountStatus,
+        },
+      );
+    }
+
+    test('403 with X-Account-Status suspended → SuspendedFailure', () async {
+      final client = MockClient((request) async => rejected(403, '이용이 제한된 계정이에요', accountStatus: 'suspended'));
+
+      final result = await sendHttpRequest(client, buildRequest());
+
+      final failure = result.when(onSuccess: (_) => null, onFailure: (f) => f);
+      expect(failure, isA<SuspendedFailure>());
+      expect(failure!.toDisplayMessage(), '이용이 제한된 계정이에요');
+    });
+
+    test('401 with X-Account-Status withdrawn → WithdrawnFailure', () async {
+      final client = MockClient((request) async => rejected(401, '탈퇴한 계정이에요', accountStatus: 'withdrawn'));
+
+      final result = await sendHttpRequest(client, buildRequest());
+
+      final failure = result.when(onSuccess: (_) => null, onFailure: (f) => f);
+      expect(failure, isA<WithdrawnFailure>());
+      expect(failure!.toDisplayMessage(), '탈퇴한 계정이에요');
+    });
+
+    test('401 without the header keeps the old classification', () async {
+      // 지금 동작을 그대로 고정한다 — 헤더 없는 401(세션 만료)은 서버 detail 을 담은 ServerRejectedFailure 다.
+      final client = MockClient((request) async => rejected(401, '세션이 만료됐어요, 다시 로그인해 주세요'));
+
+      final result = await sendHttpRequest(client, buildRequest());
+
+      final failure = result.when(onSuccess: (_) => null, onFailure: (f) => f);
+      expect(failure, isA<ServerRejectedFailure>());
+      expect(failure!.toDisplayMessage(), '세션이 만료됐어요, 다시 로그인해 주세요');
+    });
+
+    test('403 without the header keeps ServerRejectedFailure(detail)', () async {
+      // 학생증·학과 관문도 403 이다(Ruling 8) — 헤더가 없으면 정지로 읽지 않는다.
+      final client = MockClient((request) async => rejected(403, '학생 인증을 먼저 마쳐 주세요'));
+
+      final result = await sendHttpRequest(client, buildRequest());
+
+      final failure = result.when(onSuccess: (_) => null, onFailure: (f) => f);
+      expect(failure, isA<ServerRejectedFailure>());
+      expect(failure!.toDisplayMessage(), '학생 인증을 먼저 마쳐 주세요');
+    });
+
+    test('모르는 헤더 값은 계정 상태로 읽지 않는다', () async {
+      final client = MockClient((request) async => rejected(403, '거절', accountStatus: 'paused'));
+
+      final result = await sendHttpRequest(client, buildRequest());
+
+      expect(result.when(onSuccess: (_) => null, onFailure: (f) => f), isA<ServerRejectedFailure>());
+    });
+  });
+
   test('네트워크 연결 자체가 실패하면 예외가 새지 않고 NetworkFailure', () async {
     final client = MockClient((request) async => throw Exception('연결 실패'));
 

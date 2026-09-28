@@ -22,6 +22,10 @@ Result<http.Response> _classify(http.Response response) {
   if (response.statusCode >= 200 && response.statusCode < 300) {
     return Success(response);
   }
+  final accountStatus = _accountStatusFailure(response.headers['x-account-status']);
+  if (accountStatus != null) {
+    return FailureResult(accountStatus);
+  }
   if (response.statusCode == 429) {
     return const FailureResult(RateLimitedFailure());
   }
@@ -32,6 +36,16 @@ Result<http.Response> _classify(http.Response response) {
     return const FailureResult(UnknownFailure());
   }
   return FailureResult(_toRejection(response));
+}
+
+/// 정지·탈퇴는 문구 비교 대신 헤더로 가른다(Ruling 8 · 22) — 403 은 학생증·학과 관문에도 쓰여
+/// 상태코드만으로는 못 가른다. `http` 패키지는 헤더 이름을 소문자로 준다. 모르는 값은 계정 상태가 아니다.
+Failure? _accountStatusFailure(String? header) {
+  return switch (header) {
+    'suspended' => const SuspendedFailure(),
+    'withdrawn' => const WithdrawnFailure(),
+    _ => null,
+  };
 }
 
 /// 4xx(429 제외) 만 여기로 온다. `detail` 이 문자열이면 서버 메시지를 그대로 보여주고,

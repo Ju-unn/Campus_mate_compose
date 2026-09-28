@@ -1,8 +1,11 @@
 import 'dart:async';
 
+import 'package:campus_mate/account/model/login_notice.dart';
 import 'package:campus_mate/auth/model/verification_gate.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
+import 'package:campus_mate/core/auth/account_status_listenable.dart';
 import 'package:campus_mate/core/auth/session_scope.dart';
+import 'package:campus_mate/core/auth/sign_out.dart';
 import 'package:campus_mate/core/push/push_provider.dart';
 import 'package:campus_mate/core/push/push_route.dart';
 import 'package:campus_mate/core/router/app_router.dart';
@@ -48,6 +51,7 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
   late final AuthSessionListenable _authSession;
   late final VerificationGateListenable _verificationGate;
   late final OnboardingStepListenable _onboardingStep;
+  late final AccountStatusListenable _accountStatus;
   late final GoRouter _router;
   /// 스플래시를 잠깐 붙잡아 두는 임시 장치 (로고 작업 때 다시 본다).
   final SplashHold _splashHold = SplashHold();
@@ -60,11 +64,17 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
     // 3b·3c·온보딩 ViewModel 이 각 단계 직후 부르는 것과 같은 인스턴스여야 라우터가 다시 평가된다.
     _verificationGate = ref.read(verificationGateListenableProvider);
     _onboardingStep = ref.read(onboardingStepListenableProvider);
+    // apiClientProvider 가 실패를 올리는 것과 같은 인스턴스다. 로그아웃하면 SessionScope 가 새로 만든다.
+    _accountStatus = ref.read(accountStatusListenableProvider);
     _authSession.addListener(_refreshVerificationGate);
     _verificationGate.addListener(_startPushWhenGateOpens);
+    _accountStatus.addListener(_signOutWhenWithdrawn);
     _router = _createRouter();
     _refreshVerificationGate();
   }
+
+  /// 탈퇴(직접 16c 든 다른 기기에서든)면 로그인 화면용 알림을 남기고 로그아웃한다 — 로그아웃은 여기 한 곳뿐이다.
+  void _signOutWhenWithdrawn() => signOutWhenWithdrawn(_accountStatus.value, ref.read(signOutProvider));
 
   /// 세션이 바뀔 때마다 게이트·온보딩 단계를 다시 조회한다.
   /// 로그아웃하면 조회에 쓸 토큰이 없고, 앞 사용자의 통과 상태를
@@ -154,7 +164,8 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
       verificationGate: () => _verificationGate.value,
       onboardingStep: () => _onboardingStep.value,
       isSplashHeld: _splashHold.isHolding,
-      refreshListenable: Listenable.merge([_authSession, _verificationGate, _onboardingStep, _splashHold]),
+      accountStatus: () => _accountStatus.value,
+      refreshListenable: Listenable.merge([_authSession, _verificationGate, _onboardingStep, _accountStatus, _splashHold]),
     );
   }
 
@@ -165,6 +176,7 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
       unawaited(subscription.cancel());
     }
     _verificationGate.removeListener(_startPushWhenGateOpens);
+    _accountStatus.removeListener(_signOutWhenWithdrawn);
     _authSession.removeListener(_refreshVerificationGate);
     _authSession.dispose();
     _splashHold.dispose();

@@ -1,3 +1,5 @@
+import 'package:campus_mate/account/view/withdraw_sheets.dart';
+import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/core/auth/sign_out.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -183,5 +185,31 @@ void main() {
 
     expect(signOutCalls, 0);
     expect(find.byType(SafetyConfirmSheet), findsNothing);
+  });
+
+  // 대장 결정 2(2026-09-28): 탈퇴하기는 목록 줄이 아니라 목록 아래 위험 영역 단독 버튼이다.
+  testWidgets('"탈퇴하기"는 목록 밖, 로그아웃 아래 위험 영역 버튼이다(pen VmUvb · rlWDn)', (tester) async {
+    await pump(tester);
+
+    final button = find.ancestor(of: find.text('탈퇴하기'), matching: find.byType(AppButton));
+    // button-danger = #E5E5E5 채움 · #C13515 글자 · 56 · 모서리 16 · 18/700(DESIGN §8.3).
+    expect(tester.widget<AppButton>(button).variant, AppButtonVariant.danger);
+    expect(find.ancestor(of: find.text('탈퇴하기'), matching: find.byType(ListTile)), findsNothing);
+    // VmUvb padding [24,16,28,16].
+    expect(tester.getRect(button).top, tester.getRect(tile('로그아웃')).bottom + 24);
+    expect(tester.getRect(button).left, 16);
+    expect(tester.getSize(button).height, 56);
+    // 아래 28 — 위험 영역 틀(Padding)의 바닥이 버튼 바닥보다 28 아래다.
+    final zone = find.ancestor(of: button, matching: find.byType(Padding)).first;
+    expect(tester.getRect(zone).bottom - tester.getRect(button).bottom, 28);
+  });
+
+  testWidgets('"탈퇴하기"를 누르면 16c 1차 시트가 뜬다', (tester) async {
+    await pump(tester);
+
+    await tester.tap(find.text('탈퇴하기'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(WithdrawFirstSheet), findsOneWidget);
   });
 }

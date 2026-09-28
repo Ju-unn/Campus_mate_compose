@@ -1,6 +1,10 @@
+import 'dart:async';
+
+import 'package:campus_mate/account/model/login_notice.dart';
 import 'package:campus_mate/auth/viewmodel/sign_up_ui_state.dart';
 import 'package:campus_mate/auth/viewmodel/sign_up_view_model.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -25,8 +29,22 @@ class SignUpScreen extends ConsumerStatefulWidget {
 class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   final _emailController = TextEditingController();
 
+  /// 탈퇴한 계정이 로그아웃되며 남긴 알림(pen V12leV · EuJqq). 3초 뒤 지운다(04-2 토스트와 같은 시간).
+  String? _notice;
+  Timer? _noticeTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _notice = LoginNotice.take();
+    if (_notice != null) {
+      _noticeTimer = Timer(const Duration(seconds: 3), () => setState(() => _notice = null));
+    }
+  }
+
   @override
   void dispose() {
+    _noticeTimer?.cancel();
     _emailController.dispose();
     super.dispose();
   }
@@ -70,6 +88,15 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                 Text(state.errorMessage!, style: AppTypography.caption.copyWith(color: AppColors.error)),
               ],
               const Spacer(),
+              if (_notice != null) ...[
+                Center(
+                  child: AppToast(
+                    leading: const Icon(AppIcons.alertTriangle, size: 16, color: AppColors.onInk),
+                    label: _notice!,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm), // CTA 바로 위 12(pen KJnpw)
+              ],
               AppButton(label: '인증 메일 받기', onPressed: state.canSubmit ? viewModel.submit : null),
               const SizedBox(height: AppSpacing.sm),
               Text(

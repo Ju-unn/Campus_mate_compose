@@ -102,3 +102,19 @@ final class ServerRejectedFailure extends Failure {
   @override
   String toDisplayMessage() => _message;
 }
+
+/// 정지된 계정(403 + `X-Account-Status: suspended`). 서버 `errors.py` ACCOUNT_SUSPENDED 와 같은 글자.
+final class SuspendedFailure extends Failure {
+  const SuspendedFailure();
+
+  @override
+  String toDisplayMessage() => '이용이 제한된 계정이에요';
+}
+
+/// 탈퇴한 계정(401 + `X-Account-Status: withdrawn`). 서버 `errors.py` ACCOUNT_WITHDRAWN 과 같은 글자.
+final class WithdrawnFailure extends Failure {
+  const WithdrawnFailure();
+
+  @override
+  String toDisplayMessage() => '탈퇴한 계정이에요';
+}
