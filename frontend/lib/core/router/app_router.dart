@@ -1,3 +1,5 @@
+import 'package:campus_mate/account/view/account_suspended_screen.dart';
+import 'package:campus_mate/account/view/kakao_id_settings_screen.dart';
 import 'package:campus_mate/auth/model/university_email.dart';
 import 'package:campus_mate/auth/model/verification_gate.dart';
 import 'package:campus_mate/auth/view/school_info_screen.dart';
@@ -8,6 +10,7 @@ import 'package:campus_mate/chat/view/chat_room_screen.dart';
 import 'package:campus_mate/community/view/community_feed_screen.dart';
 import 'package:campus_mate/community/view/poll_composer_screen.dart';
 import 'package:campus_mate/community/view/poll_detail_screen.dart';
+import 'package:campus_mate/core/auth/account_status_listenable.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/router/auth_redirect.dart';
 import 'package:campus_mate/core/router/placeholder_screens.dart';
@@ -50,6 +53,7 @@ abstract final class AppRouter {
     required VerificationGate Function() verificationGate,
     required OnboardingStep Function() onboardingStep,
     bool Function() isSplashHeld = _splashNotHeld,
+    AccountStatus Function() accountStatus = _active,
     Listenable? refreshListenable,
   }) {
     return GoRouter(
@@ -60,7 +64,7 @@ abstract final class AppRouter {
         if (isSplashHeld() && state.matchedLocation == AppRoutes.splash) {
           return null;
         }
-        return AuthRedirect(isAuthenticated(), verificationGate(), onboardingStep())
+        return AuthRedirect(isAuthenticated(), verificationGate(), onboardingStep(), accountStatus: accountStatus())
             .resolve(state.matchedLocation);
       },
       routes: _routes(),
@@ -69,6 +73,9 @@ abstract final class AppRouter {
 
   /// 스플래시를 붙잡지 않는 기본값. 테스트는 기다릴 이유가 없다.
   static bool _splashNotHeld() => false;
+
+  /// 계정 상태를 넘기지 않으면 정상 계정으로 본다 — 기존 테스트가 그대로 돈다.
+  static AccountStatus _active() => AccountStatus.active;
 
   /// 3b·3c 는 [AuthRedirect] 가 미인증·게이트 미충족을 이미 막아 화면 가드를 두지 않는다.
   static List<RouteBase> _routes() {
@@ -84,12 +91,15 @@ abstract final class AppRouter {
     ];
   }
 
-  /// 조각 6 — 16f 차단 목록(설정 아래), 14c 상대 프로필(채팅방 14b "상대 프로필 보기").
+  /// 조각 6 — 16f 차단 목록(설정 아래), 14c 상대 프로필(채팅방 14b "상대 프로필 보기"),
+  /// 정지 안내, 16e-1 카카오톡 아이디 변경(16e 계정 · 14f "변경").
   static List<RouteBase> _slice6Routes() {
     return <RouteBase>[
       GoRoute(path: AppRoutes.blockList, builder: (context, state) => const BlockListScreen()),
       GoRoute(path: AppRoutes.contactBlocks, builder: (context, state) => const ContactBlockListScreen()),
       GoRoute(path: AppRoutes.contactPicker, builder: (context, state) => const ContactPickerScreen()),
+      GoRoute(path: AppRoutes.accountSuspended, builder: (context, state) => const AccountSuspendedScreen()),
+      GoRoute(path: AppRoutes.kakaoIdSettings, builder: (context, state) => const KakaoIdSettingsScreen()),
       GoRoute(
         path: '${AppRoutes.partnerProfile}/:profileId',
         builder: (context, state) => PartnerProfileScreen(profileId: state.pathParameters['profileId']!),

@@ -1,4 +1,5 @@
 import 'package:campus_mate/auth/model/verification_gate.dart';
+import 'package:campus_mate/core/auth/account_status_listenable.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/router/auth_redirect.dart';
 import 'package:campus_mate/profile/model/onboarding_step.dart';
@@ -135,6 +136,41 @@ void main() {
       const redirect = AuthRedirect(true, VerificationGate.complete, OnboardingStep.bio);
 
       expect(redirect.resolve(AppRoutes.onboardingReferral), AppRoutes.onboardingBio);
+    });
+  });
+
+  group('정지된 계정(조각 6 A4)', () {
+    test('suspended wins over onboarding default', () {
+      // 정지면 온보딩 단계 조회가 403 이라 기본값 basicInfo 에 머문다 — 그래도 04-1 로 튀지 않는다.
+      expect(
+        const AuthRedirect(true, VerificationGate.complete, OnboardingStep.basicInfo,
+                accountStatus: AccountStatus.suspended)
+            .resolve(AppRoutes.onboardingBasicInfo),
+        AppRoutes.accountSuspended,
+      );
+    });
+
+    test('게이트 기본값(학생증 미통과)보다도 앞선다', () {
+      const redirect = AuthRedirect(true, VerificationGate.needsStudentVerification, OnboardingStep.basicInfo,
+          accountStatus: AccountStatus.suspended);
+
+      expect(redirect.resolve(AppRoutes.splash), AppRoutes.accountSuspended);
+      expect(redirect.resolve(AppRoutes.home), AppRoutes.accountSuspended);
+    });
+
+    test('suspended stays on the notice screen', () {
+      const redirect = AuthRedirect(true, VerificationGate.complete, OnboardingStep.complete,
+          accountStatus: AccountStatus.suspended);
+
+      expect(redirect.resolve(AppRoutes.accountSuspended), isNull);
+    });
+
+    test('guest is never sent to the notice screen', () {
+      const redirect = AuthRedirect(false, VerificationGate.complete, OnboardingStep.complete,
+          accountStatus: AccountStatus.suspended);
+
+      expect(redirect.resolve(AppRoutes.login), isNull);
+      expect(redirect.resolve(AppRoutes.accountSuspended), AppRoutes.login);
     });
   });
 }

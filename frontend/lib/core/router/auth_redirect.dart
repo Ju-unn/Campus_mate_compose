@@ -1,4 +1,5 @@
 import 'package:campus_mate/auth/model/verification_gate.dart';
+import 'package:campus_mate/core/auth/account_status_listenable.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/profile/model/onboarding_step.dart';
 
@@ -7,11 +8,17 @@ import 'package:campus_mate/profile/model/onboarding_step.dart';
 /// 라우터에서 떼어낸 이유는 이 판단이 화면과 무관한 규칙이고,
 /// 위젯을 띄우지 않고 테스트해야 하기 때문이다.
 class AuthRedirect {
-  const AuthRedirect(this._isAuthenticated, this._gate, this._onboardingStep);
+  const AuthRedirect(
+    this._isAuthenticated,
+    this._gate,
+    this._onboardingStep, {
+    this._accountStatus = AccountStatus.active,
+  });
 
   final bool _isAuthenticated;
   final VerificationGate _gate;
   final OnboardingStep _onboardingStep;
+  final AccountStatus _accountStatus;
 
   /// 이동이 필요 없으면 null 을 돌려준다 (go_router 의 규약).
   String? resolve(String location) {
@@ -25,6 +32,10 @@ class AuthRedirect {
   /// 그 다음 온보딩 화면에 묶어둔다. 둘 다 끝났으면 로그인·스플래시·게이트·온보딩 화면에
   /// 머무를 이유가 없다.
   String? _resolveForMember(String location) {
+    // 정지가 가장 먼저다 — 정지면 게이트·온보딩 조회가 403 이라 기본값(3b · 04-1)에 머물러 있다.
+    if (_accountStatus == AccountStatus.suspended) {
+      return location == AppRoutes.accountSuspended ? null : AppRoutes.accountSuspended;
+    }
     final gateTarget = _gateTarget();
     if (gateTarget != null) {
       return location == gateTarget ? null : gateTarget;
