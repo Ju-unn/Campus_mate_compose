@@ -17,7 +17,7 @@ RECENT = "33333333-3333-3333-3333-333333333333"  # 29일 전 탈퇴
 AUTH = {"Authorization": "Bearer user-token"}
 EMAIL = "Hong@SNU.ac.kr"
 NOW = datetime(2026, 9, 27, 4, 0, tzinfo=SEOUL)
-BUCKETS = ("avatars", "profile-photos", "student-id-temp")
+BUCKETS = ("avatars", "profile-photos", "student-id-temp", "heart-task-proofs")
 INFINITY = datetime.max.replace(tzinfo=SEOUL)
 
 
@@ -124,6 +124,9 @@ class AccountWorld:
             return httpx.Response(200, json=[{"student_verification": row.get("student_verification"),
                                               "department": row.get("department"), "status": row["status"]}])
         return httpx.Response(200, json=[{"status": row["status"]}])
+
+    def _heart_task_submissions(self, method, params, body):
+        return httpx.Response(200, json=[])
 
     def _rpc_withdraw_account(self, method, params, body):
         self.withdraw_bodies.append(body)

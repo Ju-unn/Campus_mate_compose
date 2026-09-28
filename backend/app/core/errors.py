@@ -80,3 +80,7 @@ POLL_DAILY_LIMIT = "오늘은 질문을 더 올릴 수 없어요"
 # 지인 리뷰
 FRIEND_REVIEW_NOT_FOUND = "리뷰를 찾을 수 없어요"
 FRIEND_REVIEW_ALREADY_WRITTEN = "이미 리뷰를 남겼어요"
+
+# 무료로 하트 모으기
+HEART_TASK_IN_REVIEW = "이미 확인 중이에요, 결과를 기다려 주세요"
+HEART_TASK_MONTHLY_LIMIT = "이번 달에는 더 인증할 수 없어요"

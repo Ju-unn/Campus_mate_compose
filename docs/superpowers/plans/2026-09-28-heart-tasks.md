@@ -245,6 +245,12 @@ chevron-right 20 #6A6A6A(`nqlvc`) → 18a.
    "18b 에브리타임" 은 다음 묶음에서 그리고, 값이 다르면 대장이 알려 준다.
 7. **18c 로 넘어갈 때 18b 를 대체**(`pushReplacement`) — 18c 에서 뒤로 가면 18a. 제출이 성공하면 18a 목록을 다시 읽어 "검수중" 이 보인다.
 8. **반려 줄 아래 선 투명**은 pen `w3aZL` 그대로 둔다.
+9. **18b 사진 고르기 전 "제출하기" 는 꺼짐**(#E5E5E5 · 글자 #929292, 17b 질문 쓰기와 같다). pen `TVB6v` 은 켜진 분홍만
+   그렸다 — 꺼진 변형은 pen 다음 묶음에서 대장이 정한다(PR 3 검토 09-28).
+
+서버 편차(PR 2 착수 때 찾음, 대장 09-28 허락): B2 의 **기존 account 테스트 0줄 → 3줄**. 응답에 `deleted_heart_proofs`
+가 더해지면 `test_running_again_finds_nothing_left` 의 dict 비교가 깨지고, 가짜 세계에 `heart_task_submissions`
+처리기가 없으면 모든 배치 테스트가 정리 함수의 except 경로로 0 을 받아 우연히 통과한다.
 
 ---
 
@@ -254,7 +260,8 @@ chevron-right 20 #6A6A6A(`nqlvc`) → 18a.
 | --- | --- | --- |
 | `backend/app/core/errors.py` | 제목 주석 1줄 + 문구 2줄(`HEART_TASK_IN_REVIEW` · `HEART_TASK_MONTHLY_LIMIT`) | PR 2 |
 | `backend/app/main.py` | import 1줄 + `include_router` 1줄 | PR 2 |
-| `backend/app/account/batch_router.py` | **허락: 통합대장 09-28(미리)** — `STORAGE_BUCKETS` 에 `"heart-task-proofs"`(탈퇴 30일 뒤 폴더째) · import 3줄 · `run_cleanup_batch` 끝에 60일 정리 호출 3줄 · 주석 1줄 = 8줄(B2 Step 5 에 그대로). `run_cleanup` 시그니처 그대로, 기존 테스트 0줄 | PR 2 |
+| `backend/app/account/batch_router.py` | **허락: 통합대장 09-28(미리)** — `STORAGE_BUCKETS` 에 `"heart-task-proofs"`(탈퇴 30일 뒤 폴더째) · import 3줄 · `run_cleanup_batch` 끝에 60일 정리 호출 3줄 · 주석 1줄 = 8줄(B2 Step 5 에 그대로). `run_cleanup` 시그니처 그대로 | PR 2 |
+| `backend/tests/account/account_world.py` · `test_cleanup_batch.py` | **허락: 통합대장 09-28** — `BUCKETS` 에 `"heart-task-proofs"` 1줄 · `_heart_task_submissions` 처리기 2줄(GET → 빈 목록) · 기대 dict 에 `"deleted_heart_proofs": 0,` 1줄(B2 Step 5b) | PR 2 |
 | `frontend/lib/core/theme/app_icons.dart` | **허락: 통합대장 09-28(미리)** — 아이콘 4줄 `megaphone` · `share2` · `vote`(18a) · `gift`(설정 행). triangle-alert 는 이미 있는 `alertTriangle` 을 쓴다 | PR 3 |
 | `frontend/lib/core/router/app_routes.dart` | 주석 1줄 + 상수 3줄(18a · 18b · 18c) — A5 Step 3 그대로 | PR 3 |
 | `frontend/lib/core/router/app_router.dart` | import 4줄 + `_slice6Routes()` 끝에 라우트 3개(18b 는 잘못된 항목이면 18a 로 redirect) — A5 Step 3 그대로 | PR 3 |
@@ -306,7 +313,7 @@ frontend/test/billing/
 | PR | 브랜치 | 내용 | 관문 |
 | --- | --- | --- | --- |
 | 1 DB | `feat/heart-tasks`(지금 워크트리) | C1 · C2 | DB 차례(referral → 나 탭 grant_hearts 음수 수정 → 이것, 대장 09-28) — 대장 09-28: rebase 없이 b3f7a25 위에서(트리거는 양수 지급이라 grant_hearts 옛 함수로도 같다), heart-tasks 워크트리에서 `supabase db reset` 한 번 뒤 pgTAP → draft → 검토 PASS → merge → ERD.pen 그림 · 사용자 검토 · 승인 → 클라우드 적용(대장) |
-| 2 서버 | `feat/heart-tasks-server`(PR 1 merge 뒤 같은 워크트리에서 새 main 으로) | B1 · B2 + 공유 파일 3 | 운영 DB 에 PR 1 이 **적용된 뒤** 배포(대장) — 먼저 배포하면 RPC 404 로 500 |
+| 2 서버 | `feat/heart-tasks-server`(PR 1 헤드 위에 쌓음, PR 1 merge 뒤 새 main 으로 rebase) | B1 · B2 + 공유 파일 3 | 운영 DB 에 PR 1 이 **적용된 뒤** 배포(대장) — 먼저 배포하면 RPC 404 로 500, **그리고 정리 배치가 없는 버킷 `heart-task-proofs` 에서 막혀 탈퇴 30일 지난 계정이 전부 skipped**(최종 검토 09-28). 배포 뒤 첫 04:00 응답에서 `skipped_accounts` 0 · `deleted_heart_proofs` 칸을 본다 |
 | 3 앱 | `feat/heart-tasks-app` | Part A + 공유 파일 3 | 가짜 저장소로 PR 2 와 나란히(대장 허락 시), PR 2 배포 뒤 ready. settings 행은 프로필탭 · 안전 merge 뒤 |
 
 ---
@@ -1169,7 +1176,8 @@ def test_reject_reason_only_on_rejected_row():
 
 
 def test_resubmitted_after_reject_shows_reviewing_without_old_reason():
-    rows = _status(everytime_post={"reviewing": True, "used": 1, "last_status": "submitted"})
+    rows = _status(everytime_post={"reviewing": True, "used": 1, "last_status": "submitted",
+                                   "last_reject_reason": "date_missing"})
     task = _wire(_backend([rows])).get("/heart-tasks", headers=AUTH_HEADERS).json()["tasks"][0]
     assert (task["state"], task["reject_reason"]) == ("reviewing", None)
 
@@ -1253,6 +1261,21 @@ def test_discord_failure_still_201():
     after = _status(everytime_post={"reviewing": True, "used": 1})
     response = _post(_wire(_backend([_status(), after], discord=httpx.Response(500))))
     assert response.status_code == 201
+
+
+def test_no_answer_from_db_keeps_the_file():
+    # 답을 못 받았으면 줄이 이미 생겼을 수 있다 — 파일을 지우면 사진 없는 "검수 중" 줄에 사용자가 막힌다.
+    seen: list[httpx.Request] = []
+    backend = _backend([_status()])
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/rpc/submit_heart_task"):
+            raise httpx.ReadTimeout("no answer", request=request)
+        return backend(request)
+
+    with pytest.raises(httpx.ReadTimeout):
+        _post(_wire(handler, seen))
+    assert [r.method for r in _storage_calls(seen)] == ["POST"]
 
 
 def test_poll_vote_is_not_submittable():
@@ -1460,7 +1483,13 @@ async def submit_heart_task(
     path = await storage.upload(caller.profile_id, submission_id, data, content_type)
     try:
         await repo.submit(submission_id, caller.profile_id, task, path, REWARD_HEARTS[task])
-    except Exception:
+    except httpx.TransportError:
+        # 답을 못 받았다 — 줄이 이미 생겼을 수 있어 파일을 둔다(지우면 사진 없는 "검수 중" 줄에 막힌다).
+        # ponytail: 줄이 안 생겼으면 고아 파일 — 탈퇴 정리가 폴더째 지운다. 잦아지면 id 로 줄을 확인하고 지운다.
+        logger.warning("무료 하트 제출 응답 없음, 파일 둠 profile=%s submission=%s", caller.profile_id, submission_id)
+        raise
+    except (HTTPException, httpx.HTTPStatusError):
+        # DB 가 답하고 거절했다 = 롤백됐다. 방금 올린 파일을 지운다.
         try:
             await storage.delete([path])
         except httpx.HTTPError:
@@ -1488,10 +1517,10 @@ app.include_router(heart_tasks_router)
 - [ ] **Step 8: 통과를 확인한다.**
 
 Run: `cd backend && <루트 .venv python> -m pytest tests/heart_tasks/test_heart_tasks.py -q`
-Expected: 13 passed(11개 함수, parametrize 3개 포함).
+Expected: 14 passed(12개 함수, parametrize 3개 포함).
 
 Run: `cd backend && <루트 .venv python> -m pytest -q`
-Expected: 전부 PASS(기준선 수 + 13).
+Expected: 전부 PASS(기준선 수 + 14).
 
 - [ ] **Step 9: 커밋은 campus-git 이 한다** — "저장소 · 버킷", "라우터 · 문구 · 연결", "테스트" 로 나눈다.
 
@@ -1500,7 +1529,8 @@ Expected: 전부 PASS(기준선 수 + 13).
 **Files:**
 - Create: `backend/app/heart_tasks/cleanup.py`
 - Modify: `backend/app/heart_tasks/repository.py`(메서드 2개 추가)
-- Modify: `backend/app/account/batch_router.py`(공유 파일 — Step 5 의 줄만, 그때 대장 허락)
+- Modify: `backend/app/account/batch_router.py`(공유 파일 — Step 5 의 줄만, 대장 09-28 허락)
+- Modify: `backend/tests/account/account_world.py` · `test_cleanup_batch.py`(Step 5b 의 세 줄만, 대장 09-28 허락)
 - Test: `backend/tests/heart_tasks/test_proof_cleanup.py`
 
 **Interfaces:**
@@ -1567,6 +1597,8 @@ async def test_asks_only_for_rows_reviewed_60_days_ago_with_a_file():
     assert params["reviewed_at"] == f"lt.{(NOW - timedelta(days=60)).isoformat()}"
     assert params["storage_path"] == "not.is.null"
     assert params["select"] == "id,storage_path"
+    # 오래된 것부터 100개씩 — 한도가 빠지면 경로 비우기 주소가 한도 없이 길어진다.
+    assert (params["order"], params["limit"]) == ("reviewed_at", "100")
 
 
 async def test_nothing_expired_touches_nothing_else():
@@ -1627,8 +1659,10 @@ logger = logging.getLogger(__name__)
 # 검수가 끝나고 이만큼 지나면 인증샷을 지운다(계획서 D6). 단톡방 캡처에는 다른 학생 이름 · 대화가 찍힌다 —
 # 60일이면 운영자가 지난달 캡처와 비교할 수 있다.
 PROOF_RETENTION = timedelta(days=60)
-# ponytail: 하루 500장. 남은 것은 다음 날 이어서 지운다 — 하루 검수가 이보다 많아지면 올린다.
-PROOF_CLEANUP_LIMIT = 500
+# ponytail: 하루 100장(계정 정리 CLEANUP_ACCOUNT_LIMIT 와 같다). 남은 것은 다음 날 이어서 지운다. 경로 비우기가
+# id 를 주소(`in.(...)`)에 싣기 때문에 100개 ≈ 3.9KB — 500개면 19KB 로 게이트웨이 주소 한도(8~16KB)를 넘어 같은
+# 줄에서 매일 막힌다. 올려야 하면 clear_proof_paths 를 100개씩 나눠 PATCH 한다.
+PROOF_CLEANUP_LIMIT = 100
 
 
 async def purge_reviewed_proofs(repo: HeartTaskRepository, storage: HeartProofStorage, now: datetime) -> int:
@@ -1642,9 +1676,9 @@ async def purge_reviewed_proofs(repo: HeartTaskRepository, storage: HeartProofSt
             return 0
         await storage.delete([row["storage_path"] for row in rows])
         await repo.clear_proof_paths([row["id"] for row in rows])
-    except Exception:
-        # 계정 · 신고 정리를 멈추지 않는다. 내일 다시 고른다. 경로는 로그에 남기지 않는다.
-        logger.warning("무료 하트 인증샷 정리 건너뜀")
+    except Exception as exc:
+        # 계정 · 신고 정리를 멈추지 않는다. 내일 다시 고른다. 경로는 로그에 남기지 않는다 — 예외 종류만.
+        logger.warning("무료 하트 인증샷 정리 건너뜀 %s", type(exc).__name__)
         return 0
     return len(rows)
 ```
@@ -1678,11 +1712,23 @@ STORAGE_BUCKETS = ("avatars", "profile-photos", "student-id-temp", "heart-task-p
     return result
 ```
 
+- [ ] **Step 5b: 기존 account 테스트 세 줄(대장 09-28 허락, 이 줄만).**
+  - `backend/tests/account/account_world.py` — `BUCKETS` 끝에 `"heart-task-proofs"`, 그리고 테이블별 처리기 사이에
+    (지울 인증샷 없음 — 이 세계는 계정 정리만 본다. 실제로 지워지는 경로는 `test_proof_cleanup.py` 가 본다):
+
+```python
+    def _heart_task_submissions(self, method, params, body):
+        return httpx.Response(200, json=[])
+```
+
+  - `backend/tests/account/test_cleanup_batch.py` 의 `test_running_again_finds_nothing_left` 기대 dict 에
+    `"deleted_heart_proofs": 0,` 한 줄.
+
 - [ ] **Step 6: 통과를 확인한다.**
 
 Run: `cd backend && <루트 .venv python> -m pytest tests/heart_tasks tests/account -q`
-Expected: heart_tasks 17 passed, account 기존 전부 PASS(STORAGE_BUCKETS 를 세는 테스트가 있으면 그 기대값 4 로 — 있으면
-그 줄도 공유 파일 요청에 넣는다). 전체 `pytest -q` PASS.
+Expected: heart_tasks 18 passed, account 기존 전부 PASS. Step 5b 를 빼고 돌리면 `test_running_again_finds_nothing_left`
+FAIL 을 한 번 보고 되돌린다. 전체 `pytest -q` PASS.
 
 - [ ] **Step 7: 커밋은 campus-git 이 한다** — "60일 정리", "정리 배치 연결" 로 나눈다.
 
@@ -1693,6 +1739,8 @@ Expected: heart_tasks 17 passed, account 기존 전부 PASS(STORAGE_BUCKETS 를 
 작업 위치: `feat/heart-tasks-app`(PR 1 merge 뒤 새 main 에서 새 워크트리 — 이름은 그때 대장과 맞춘다). `cd frontend` 뒤
 `flutter test test/billing` · `flutter analyze`. **같은 워크트리에서 `flutter test` 를 두 개 동시에 돌리지 않는다.
 `dart format` 을 돌리지 않는다.** 로컬 DB 는 쓰지 않는다. 화면 값은 위 "화면 대조표" 가 기준이다.
+서버 422(없는 항목)는 FastAPI 기본 모양 `{"detail": [...]}` 목록이다 — 앱은 없는 항목을 보내지 않지만, 오류 문구를 꺼낼 때
+`detail` 이 문자열이 아니어도 터지지 않게 한다(PR 2 검토 09-28).
 
 ### Task A1: 모델 · 저장소 · 가짜 저장소
 
@@ -2187,6 +2235,7 @@ void main() {
   test('제출이 성공하면 압축본을 올리고 submitted 가 되며 18a 목록을 다시 읽는다', () async {
     container.listen(heartTasksViewModelProvider, (_, _) {});
     await pumpEventQueue();
+    compressor.nextResult = File('compressed.jpg');
     final viewModel = submitViewModel();
 
     await viewModel.pickPhoto();
@@ -2195,7 +2244,7 @@ void main() {
     await pumpEventQueue();
 
     expect(compressor.compressedSources, [photo]);
-    expect(repository.submitted, [(HeartTaskKind.everytimePost, photo.path)]);
+    expect(repository.submitted, [(HeartTaskKind.everytimePost, 'compressed.jpg')]);
     expect(container.read(heartTaskSubmitViewModelProvider).submitted, isTrue);
     expect(repository.fetchCount, 2);
   });
@@ -2213,14 +2262,19 @@ void main() {
     expect(state.photo, photo);
   });
 
-  test('검수 중 409 는 서버 문구 그대로다', () async {
+  test('검수 중 409 는 서버 문구 그대로고, 18a 목록도 다시 읽는다', () async {
     repository.submitResult = const FailureResult(ServerRejectedFailure('이미 확인 중이에요, 결과를 기다려 주세요'));
+    container.listen(heartTasksViewModelProvider, (_, _) {});
+    await pumpEventQueue();
     final viewModel = submitViewModel();
 
     await viewModel.pickPhoto();
     await viewModel.submit(HeartTaskKind.kakaoShare);
+    await pumpEventQueue();
 
     expect(container.read(heartTaskSubmitViewModelProvider).errorMessage, '이미 확인 중이에요, 결과를 기다려 주세요');
+    // 다른 기기가 먼저 냈거나 응답만 끊겼다 — 18a 로 돌아가면 "검수중" 이 보여야 한다.
+    expect(repository.fetchCount, 2);
   });
 
   test('압축이 사진을 못 읽으면 올리지 않고 사진 문구를 둔다', () async {
@@ -2242,9 +2296,10 @@ void main() {
     final first = viewModel.submit(HeartTaskKind.kakaoShare);
     await pumpEventQueue();
     expect(container.read(heartTaskSubmitViewModelProvider).isSubmitting, isTrue);
-    await viewModel.submit(HeartTaskKind.kakaoShare);
+    // 두 번째를 await 하지 않는다 — 막기가 빠지면 시간 초과가 아니라 아래 단정(2번)으로 떨어지게.
+    final second = viewModel.submit(HeartTaskKind.kakaoShare);
     repository.holdSubmit!.complete();
-    await first;
+    await Future.wait([first, second]);
 
     expect(repository.submitted, hasLength(1));
   });
@@ -2390,10 +2445,14 @@ class HeartTaskSubmitViewModel extends Notifier<HeartTaskSubmitUiState> {
         ref.invalidate(heartTasksViewModelProvider);
         return HeartTaskSubmitUiState(photo: photo, submitted: true);
       },
-      onFailure: (failure) => HeartTaskSubmitUiState(
-        photo: photo,
-        errorMessage: failure is RateLimitedFailure ? heartTaskMonthlyLimitMessage : failure.toDisplayMessage(),
-      ),
+      onFailure: (failure) {
+        // 응답만 끊겼거나 다른 기기가 먼저 냈을 수 있다 — 18a 로 돌아가면 서버 상태가 보이게 다시 읽는다.
+        ref.invalidate(heartTasksViewModelProvider);
+        return HeartTaskSubmitUiState(
+          photo: photo,
+          errorMessage: failure is RateLimitedFailure ? heartTaskMonthlyLimitMessage : failure.toDisplayMessage(),
+        );
+      },
     );
   }
 }
@@ -2490,6 +2549,8 @@ void main() {
     expect(find.text('완료'), findsOneWidget);
     expect(find.text('커뮤니티 투표'), findsOneWidget);
     expect(find.text('매일'), findsOneWidget);
+    // pen `Uaex2` 알약 높이 20(글자 칸 16 + 위아래 2).
+    expect(tester.getSize(find.ancestor(of: find.text('매일'), matching: find.byType(Container)).first).height, 20);
     expect(find.text('10 · 주 최대 30'), findsOneWidget);
     expect(find.text('참여'), findsOneWidget);
     expect(find.image(const AssetImage('assets/images/heart-flat-vector-v3.png')), findsNWidgets(3));
@@ -2757,7 +2818,11 @@ class _DailyBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(color: AppColors.surfaceStrong, borderRadius: BorderRadius.circular(AppRadius.pill)),
-      child: Text('매일', style: AppTypography.badge.copyWith(fontWeight: FontWeight.w700, color: AppColors.muted)),
+      // pen `klkPA` 글자 칸 16 — badge 토큰 줄높이(1.3)면 14.3 이라 알약이 18.3 으로 얇아진다.
+      child: Text(
+        '매일',
+        style: AppTypography.badge.copyWith(fontWeight: FontWeight.w700, color: AppColors.muted, height: 16 / 11),
+      ),
     );
   }
 }
@@ -2801,12 +2866,17 @@ class HeartTasksScreen extends ConsumerWidget {
         leadingWidth: 52,
         titleSpacing: 0,
         leading: Navigator.of(context).canPop()
-            ? Padding(
-                padding: const EdgeInsets.only(left: AppSpacing.xxs),
-                child: IconButton(
-                  tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-                  onPressed: () => Navigator.of(context).maybePop(),
-                  icon: const Icon(AppIcons.arrowLeft, size: 24, color: AppColors.ink),
+            // AppBar 의 leading 칸은 toolbarHeight 에 맞춰 세로로 늘어난다(NavigationToolbar 가 높이를 tight 로
+            // 준다). Align 으로 느슨한 제약을 다시 줘야 버튼이 pen 대로 48 로 남는다(브리프 코드는 56 이 됐다).
+            ? Align(
+                alignment: Alignment.centerLeft,
+                child: Padding(
+                  padding: const EdgeInsets.only(left: AppSpacing.xxs),
+                  child: IconButton(
+                    tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    icon: const Icon(AppIcons.arrowLeft, size: 24, color: AppColors.ink),
+                  ),
                 ),
               )
             : null,
@@ -2912,6 +2982,7 @@ import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -2984,6 +3055,10 @@ void main() {
 
   testWidgets('18b-2 — 사유 알림과 "다시 제출하기", pen 배치 16 · 99 · 138 · 374', (tester) async {
     await pump(tester, reason: HeartTaskRejectReason.dateMissing);
+    // 세로 좌표만 본다. 테스트 글꼴은 한글이 Pretendard 보다 넓어 안내(pen `qLG9R` 한 줄 264)가 360 폭에서 두 줄로
+    // 접힌다 — 접히지 않게 화면만 넓힌다(home_screen_test 와 같다). 위젯에 말줄임을 달지 않는다(글자 확대 때 잘린다).
+    tester.view.physicalSize = const Size(420, 780);
+    await tester.pumpAndSettle();
 
     expect(find.text('반려 사유: 날짜가 안 보여요'), findsOneWidget);
     expect(find.text('다시 찍어 올려 주세요'), findsOneWidget);
@@ -3043,12 +3118,16 @@ void main() {
     expect(tester.getSize(painter), tester.getSize(tile));
   });
 
-  testWidgets('글자 2배에서도 넘침 예외가 없다', (tester) async {
+  testWidgets('글자 2배에서도 넘침 예외가 없고 말줄임으로 잘린 글자도 없다', (tester) async {
     tester.platformDispatcher.textScaleFactorTestValue = 2;
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     await pump(tester, kind: HeartTaskKind.everytimePost, reason: HeartTaskRejectReason.notVerified);
 
     expect(tester.takeException(), isNull);
+    // 넘침 예외가 없어도 maxLines 로 조용히 잘릴 수 있다(DESIGN §11.2) — 화면 글자를 전부 본다.
+    for (final paragraph in tester.renderObjectList<RenderParagraph>(find.byType(RichText))) {
+      expect(paragraph.didExceedMaxLines, isFalse, reason: paragraph.text.toPlainText());
+    }
   });
 }
 ```
@@ -3146,12 +3225,16 @@ class _HeartTaskSubmitScreenState extends ConsumerState<HeartTaskSubmitScreen> {
         leadingWidth: 56,
         titleSpacing: AppSpacing.xxs,
         leading: Navigator.of(context).canPop()
-            ? Padding(
-                padding: const EdgeInsets.only(left: AppSpacing.xs),
-                child: IconButton(
-                  tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-                  onPressed: () => Navigator.of(context).maybePop(),
-                  icon: const Icon(AppIcons.arrowLeft, size: 22, color: AppColors.ink),
+            // 18a 와 같다 — Align 이 없으면 leading 칸이 56 으로 늘어나 pen `syyGc` 48×48(8,4)과 달라진다.
+            ? Align(
+                alignment: Alignment.centerLeft,
+                child: Padding(
+                  padding: const EdgeInsets.only(left: AppSpacing.xs),
+                  child: IconButton(
+                    tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    icon: const Icon(AppIcons.arrowLeft, size: 22, color: AppColors.ink),
+                  ),
                 ),
               )
             : null,
@@ -3264,7 +3347,7 @@ class _ProofUploader extends StatelessWidget {
                     Text(_uploaderLabel, style: AppTypography.labelSmall.copyWith(color: AppColors.disabled)),
                   ],
                 )
-              : Image.file(photo, fit: BoxFit.contain),
+              : Image.file(photo, fit: BoxFit.contain, semanticLabel: _uploaderLabel),
         ),
       ),
     );
@@ -3409,7 +3492,12 @@ class HeartTaskPendingScreen extends StatelessWidget {
                   // DESIGN 은 128 이지만 pen 88 을 따른다(대장 09-28, DESIGN 은 문서 정리 때).
                   Image.asset('assets/images/mascot-female.png', width: 88, height: 88, fit: BoxFit.contain),
                   const SizedBox(height: AppSpacing.md),
-                  Text(_title, textAlign: TextAlign.center, style: AppTypography.label.copyWith(color: AppColors.ink)),
+                  // pen `AI5GP` 18/700, 렌더 26(label 토큰 줄높이 1.2 면 22 라 묶음이 pen 보다 4 짧다).
+                  Text(
+                    _title,
+                    textAlign: TextAlign.center,
+                    style: AppTypography.label.copyWith(color: AppColors.ink, height: 26 / 18),
+                  ),
                   const SizedBox(height: AppSpacing.md),
                   Text(_body, textAlign: TextAlign.center, style: _bodyStyle),
                   const SizedBox(height: AppSpacing.md),
