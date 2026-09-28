@@ -13,6 +13,7 @@ from app.main import app
 from app.settings import Settings
 
 PROFILE_ID = "11111111-1111-1111-1111-111111111111"
+UNIVERSITY_ID = "22222222-2222-2222-2222-222222222222"
 AUTH_HEADERS = {"Authorization": "Bearer valid-token"}
 
 STATS_ROW = {
@@ -24,6 +25,8 @@ FULL_PROFILE = {
     "mbti": "INFP", "preferred_height_min": 170, "preferred_height_max": None,
     "interest_tags": ["영화", "카페가기", "여행", "독서", "요리"],
     "profile_photos": [{"count": 3}],
+    # 여는 시각 null = 코호트 없이 이미 열린 학교(지금 학교 전부).
+    "university_id": UNIVERSITY_ID, "universities": {"card_opens_at": None},
 }
 
 
@@ -65,6 +68,9 @@ def _handler(profile: dict, seen: list[httpx.Request] | None = None, touch_statu
                 return httpx.Response(200, json=[profile])
             if request.method == "PATCH":
                 return httpx.Response(touch_status)
+        # 모집 인원 세기는 university_id 키로 가른다 — 완성도 조회도 profiles 를 읽는다.
+        if request.method == "GET" and request.url.params.get("university_id") == f"eq.{UNIVERSITY_ID}":
+            return httpx.Response(200, json=[{"id": PROFILE_ID}], headers={"Content-Range": "0-0/37"})
         return httpx.Response(404, json={"message": f"unexpected {request.method} {request.url}"})
     return handler
 
@@ -77,6 +83,7 @@ def test_summary_returns_service_stats_and_my_completion():
         "delivered_cards": 1280, "signups": 342, "conversations_started": 57,
         "campuses": ["고려대학교", "서울대학교", "연세대학교"],
         "profile_completion_percent": 100,
+        "cohort": None,
     }
 
 
@@ -89,6 +96,52 @@ def test_summary_reads_my_profile_and_photo_count_in_one_request():
     assert len(reads) == 2
     profile_request = next(r for r in reads if r.url.path.endswith("/profiles"))
     assert "profile_photos(count)" in profile_request.url.params["select"]
+    assert "universities(card_opens_at)" in profile_request.url.params["select"]
+
+
+# 코호트(19): 학교 여는 시각이 아직 안 왔으면 첫 카드 시각과 모집 인원을 준다 --------------------------
+
+def _summary_with_opens_at(opens_at: str | None, seen: list[httpx.Request]) -> dict:
+    profile = {**FULL_PROFILE, "universities": {"card_opens_at": opens_at}}
+    response = _wire(_handler(profile, seen)).get("/home/summary", headers=AUTH_HEADERS)
+    assert response.status_code == 200
+    return response.json()
+
+
+def _recruit_counts(seen: list[httpx.Request]) -> list[httpx.Request]:
+    return [r for r in seen if "university_id" in r.url.params]
+
+
+def test_cohort_is_null_and_nothing_is_counted_when_the_school_has_no_opening_time():
+    """지금 운영 중인 학교는 전부 null 이다 — 이 사람들에게 인원 세기를 부르면 홈을 열 때마다 헛일이다."""
+    seen: list[httpx.Request] = []
+
+    assert _summary_with_opens_at(None, seen)["cohort"] is None
+    assert _recruit_counts(seen) == []
+
+
+def test_cohort_is_null_once_the_opening_time_has_passed():
+    seen: list[httpx.Request] = []
+    past = (datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat()
+
+    assert _summary_with_opens_at(past, seen)["cohort"] is None
+    assert _recruit_counts(seen) == []
+
+
+def test_cohort_has_first_card_time_and_active_recruit_count_before_opening():
+    seen: list[httpx.Request] = []
+    # PostgREST 는 timestamptz 를 +00:00 으로 준다. 서울 월요일 07:00 = UTC 일요일 22:00.
+    opens_at = "2099-01-04T22:00:00+00:00"
+
+    assert _summary_with_opens_at(opens_at, seen)["cohort"] == {
+        "first_card_at": opens_at, "recruit_count": 37,
+    }
+    [count] = _recruit_counts(seen)
+    assert count.url.path.endswith("/profiles")
+    assert count.url.params["university_id"] == f"eq.{UNIVERSITY_ID}"
+    # 모집 인원 = 가입을 다 끝낸 사람(계획서 결정 3, 홈 "가입 수"와 같은 기준).
+    assert count.url.params["status"] == "eq.active"
+    assert count.headers["prefer"] == "count=exact"
 
 
 # 활동 시각: 홈을 열 때 한 시간보다 오래됐을 때만 지금으로 바꾼다 ---------------------------------
