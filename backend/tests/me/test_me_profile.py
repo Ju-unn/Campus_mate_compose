@@ -32,10 +32,19 @@ FULL_PROFILE = {
     ],
     # PostgREST 는 embed 순서를 보장하지 않는다 — 일부러 섞어 둔다.
     "profile_photos": [
-        {"storage_path": f"{PROFILE_ID}/c.jpg", "position": 2},
-        {"storage_path": f"{PROFILE_ID}/a.jpg", "position": 0},
-        {"storage_path": f"{PROFILE_ID}/b.jpg", "position": 1},
+        {"id": "p-c", "storage_path": f"{PROFILE_ID}/c.jpg", "position": 2, "is_avatar_source": False},
+        {"id": "p-a", "storage_path": f"{PROFILE_ID}/a.jpg", "position": 0, "is_avatar_source": True},
+        {"id": "p-b", "storage_path": f"{PROFILE_ID}/b.jpg", "position": 1, "is_avatar_source": False},
     ],
+    "nickname_changed_at": "2026-09-20T14:00:00+09:00",   # NOW(09-27 14:00) 기준 7일 전 → 10-20 14:00 에 풀림
+    "interest_tags": ["카페가기", "여행", "요리"],
+    "my_traits": ["유머러스", "성실한", "차분한"],
+    "ideal_traits": ["다정한", "연락 잘하는", "솔직한"],
+    "preferred_mbti_flags": {"E": True},
+    "preferred_animal_types": ["dog"],
+    "preferred_impression_types": ["kind"],
+    # 1:1 embed 라 객체(없으면 null)로 온다.
+    "entitlements": {"heart_balance": 30},
 }
 
 
@@ -103,6 +112,20 @@ def test_profile_returns_my_fields():
         "preferred_age_min": 21, "preferred_age_max": 27,
         "preferred_height_min": 160, "preferred_height_max": None,
         "bio": "주말엔 산책해요",
+        "interest_tags": ["카페가기", "여행", "요리"],
+        "my_traits": ["유머러스", "성실한", "차분한"],
+        "ideal_traits": ["다정한", "연락 잘하는", "솔직한"],
+        "preferred_mbti_flags": {"E": True},
+        "preferred_animal_types": ["dog"],
+        "preferred_impression_types": ["kind"],
+        "photos": [
+            {"id": "p-a", "url": _signed("a.jpg"), "is_avatar_source": True},
+            {"id": "p-b", "url": _signed("b.jpg"), "is_avatar_source": False},
+            {"id": "p-c", "url": _signed("c.jpg"), "is_avatar_source": False},
+        ],
+        "heart_balance": 30,
+        "avatar_regen_cost": 10,   # FULL_PROFILE 은 ready 2장
+        "nickname_changeable_at": "2026-10-20T14:00:00+09:00",
     }
 
 
@@ -148,12 +171,19 @@ def test_empty_profile_gives_nulls_and_no_photos():
         "preferred_age_min": None, "preferred_age_max": None,
         "preferred_height_min": None, "preferred_height_max": None,
         "profile_avatars": [], "profile_photos": [],
+        # 태그 · 선호 칸은 DB 가 not null default '{}' 라 null 로 오지 않는다.
+        "nickname_changed_at": None,
+        "interest_tags": [], "my_traits": [], "ideal_traits": [],
+        "preferred_mbti_flags": {}, "preferred_animal_types": [], "preferred_impression_types": [],
+        "entitlements": None,
     }
     seen: list[httpx.Request] = []
 
     body = _get(profile, seen).json()
 
     assert body["photo_urls"] == []
+    assert body["photos"] == []
+    assert (body["heart_balance"], body["avatar_regen_cost"], body["nickname_changeable_at"]) == (0, 0, None)
     for key in ("bio", "age", "height_cm", "mbti", "major",
                 "preferred_age_min", "preferred_age_max", "preferred_height_min", "preferred_height_max"):
         assert body[key] is None
@@ -208,5 +238,34 @@ def test_select_asks_for_header_and_fact_columns():
     _get(FULL_PROFILE, seen)
 
     select = seen[0].url.params["select"]
-    for column in ("birth_year", "height_cm", "mbti", "major", "universities(name)"):
+    for column in ("birth_year", "height_cm", "mbti", "major", "universities(name)",
+                   "interest_tags", "nickname_changed_at", "entitlements(heart_balance)", "is_avatar_source"):
         assert column in select
+
+
+def test_each_photo_is_signed_once_for_both_lists():
+    seen: list[httpx.Request] = []
+    _get(FULL_PROFILE, seen)
+    assert len([r for r in seen if "/object/sign/" in r.url.path]) == 3
+
+
+@pytest.mark.parametrize(("entitlements", "balance"), [(None, 0), ({"heart_balance": 7}, 7)])
+def test_heart_balance_is_zero_without_an_entitlements_row(entitlements, balance):
+    assert _get({**FULL_PROFILE, "entitlements": entitlements}).json()["heart_balance"] == balance
+
+
+@pytest.mark.parametrize(("ready", "cost"), [(1, 0), (2, 10)])
+def test_regen_cost_follows_the_ready_count(ready, cost):
+    avatars = [{"status": "ready", "storage_path": f"{PROFILE_ID}/{i}.png", "created_at": f"2026-09-2{i}T00:00:00+00:00"}
+               for i in range(ready)]
+    assert _get({**FULL_PROFILE, "profile_avatars": avatars}).json()["avatar_regen_cost"] == cost
+
+
+@pytest.mark.parametrize(("changed_at", "changeable_at"), [
+    (None, None),                                                 # 한 번도 안 바꿈
+    ("2026-08-28T14:00:00+09:00", None),                          # 정확히 30일 전 — 지금 된다
+    ("2026-08-28T14:00:01+09:00", "2026-09-27T14:00:01+09:00"),   # 30일에서 1초 모자람 — 아직 잠김
+    ("2026-09-27T14:00:00+09:00", "2026-10-27T14:00:00+09:00"),   # 방금(pen 15d-2 "10월 27일부터")
+])
+def test_nickname_lock_is_judged_from_the_injected_now(changed_at, changeable_at):
+    assert _get({**FULL_PROFILE, "nickname_changed_at": changed_at}).json()["nickname_changeable_at"] == changeable_at
