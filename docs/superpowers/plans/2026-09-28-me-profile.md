@@ -408,3 +408,30 @@ async def get_my_card_preview(
 - 계획서 코드 그대로. 테스트 3개 RED(404) → GREEN, 전체 693 passed.
 - "누수 테스트가 누수를 잡는지" 변형 확인(응답에 카톡 칸을 일부러 더하기)은 권한 분류기가 막아 하지 않았다. 대신
   테스트가 키 · 값 · 서명 요청 · select 네 갈래로 본다.
+
+### A8 앞부분 (나 탭, 2026-09-28) — 저장소 · 시트 버튼 · 뷰모델 · 15b 시트(화면 15 연결 빼고)
+
+- `regenerateAvatar()` · `SafetySheetButton.primary(leading:)` · `regenerate()` 는 계획서 코드 그대로.
+- 옛 A8 Files 의 `test/safety/view/safety_sheet_test.dart` 는 없던 파일이라 새로 만들었다(`leading` 3개).
+- `FakeAvatarRepository.regenerateAvatar` 는 등록과 같은 `nextResult` · `generateGate` 를 쓰고 `regenerateCount` 만 따로 센다.
+- 15b 시트는 화면 15 연결 없이 **고른 것을 돌려주는 함수**로 뒀다 — `showAvatarRegenSheet(context, cost:, heartBalance:)
+  -> Future<AvatarRegenChoice?>`(`regenerate` · `chargeHearts`, 취소 · 바깥 null). 옛 A8 의 "하트 충전하기 → 시트 닫힘 +
+  '곧 열려요'" 중 토스트는 화면 15 연결 몫으로 남는다(히어로 pen 값 대기).
+- 하트 그림은 `heart-flat-vector-on-primary-v1.png`(pen `n3D3iC`) 한 장 — 사용자 결정 (가)(통합대장 전달 09-28)로 이
+  파일만 커밋 대상이 됐다. 1024 한 장이라 @2x/@3x 는 없다.
+- 화면 읽기: 하트 그림은 두 모양 모두 **뺀다**. 처음엔 15b 에서 "하트" 로 읽게 뒀는데, 검토 탐침에서 버튼과 따로 떨어진
+  노드가 되어 "10 쓰고 만들기, 버튼" · "하트" 로 두 번 멈췄다(검토 권고 1). 단위는 바로 위 설명("하트 10개가
+  차감돼요")이 읽는다. CLAUDE.md "재화 글리프는 `Semantics(label: '하트')`" 는 글리프가 단위를 혼자 나타낼 때의 규칙으로
+  보고, 버튼 장식인 이 자리는 뺐다.
+- 15b-2 제목은 4절 표에 따로 없어 15b 와 같은 "아바타를 다시 만들까요?" 로 뒀다 — pen 값표로 확인한다.
+
+### A8 앞부분 검토 반영 (campus-reviewer PASS · 필수 0, 2026-09-28)
+
+- **권고 2 — `regenerate()` 가 NetworkFailure 를 곧바로 실패로 두던 것.** 응답만 놓쳤으면 서버는 이미 큐에 넣었을 수 있어,
+  실패로 두면 15-3 "하트는 차감되지 않았어요" 가 뒤늦게 거짓이 된다. 온보딩 `_blockingMessage` 처럼 만드는 중으로 두고
+  상태 조회로 잇는다. 테스트 `응답만 놓치면(네트워크) 실패로 두지 않고 상태를 물어 이어 간다` — 분기를 끄면
+  `Expected: null, Actual: '네트워크 연결을 확인해 주세요'` 로 떨어지는 것을 봤다.
+- **사소 1 — 가드 테스트가 떨어질 때 30초 교착.** 두 번째 호출을 기다리기 전에 문을 열도록 순서를 바꿨다. 가드를 끄면
+  `Expected: <1>, Actual: <2>` 로 바로 떨어진다.
+- 사소 2(비활성 버튼의 하트 색)는 쓰는 곳이 없어 두었다.
+- 중간 검토 결과: `flutter test test/me test/profile test/safety test/core/router` 629 passed, analyze 0(반영 뒤 내가 다시 돌림).
