@@ -215,6 +215,42 @@ void main() {
     expect(profile.photoUrls, ['https://img.test/a.png', 'https://img.test/b.png']);
   });
 
+  group('updateProfile — PATCH /me/profile 는 보낸 칸만 고친다(계획서 2-5)', () {
+    Future<(http.Request, Result<void>)> patch(Future<Result<void>> Function(HttpMeRepository) call) async {
+      late http.Request sent;
+      final client = MockClient((request) async {
+        sent = request;
+        return jsonResponse({'ok': true});
+      });
+      final result = await call(buildRepository(client));
+      return (sent, result);
+    }
+
+    test('15c 는 자기소개만 보낸다', () async {
+      final (request, result) = await patch((repository) => repository.updateProfile(bio: '소개'));
+
+      expect(request.method, 'PATCH');
+      expect(request.url.toString(), 'https://api.test/me/profile');
+      expect(request.headers['Authorization'], 'Bearer token-abc');
+      expect(jsonDecode(request.body), {'bio': '소개'});
+      expect(result, isA<Success<void>>());
+    });
+
+    test('15d 는 닉네임 · 키만 보낸다 — null 인 칸은 본문에서 뺀다', () async {
+      final (request, _) = await patch((repository) => repository.updateProfile(nickname: '바다', heightCm: 180));
+
+      expect(jsonDecode(request.body), {'nickname': '바다', 'height_cm': 180});
+    });
+
+    test('서버가 거절하면 실패를 돌려준다', () async {
+      final client = MockClient((_) async => jsonResponse({'detail': 'boom'}, 500));
+
+      final result = await buildRepository(client).updateProfile(bio: '소개');
+
+      expect(result.when(onSuccess: (_) => null, onFailure: (f) => f), isA<Failure>());
+    });
+  });
+
   test('서버 오류면 실패를 돌려준다', () async {
     final client = MockClient((_) async => jsonResponse({'detail': 'boom'}, 500));
 
