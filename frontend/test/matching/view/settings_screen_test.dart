@@ -3,21 +3,27 @@ import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:campus_mate/matching/view/settings_screen.dart';
+import 'package:campus_mate/safety/model/contact_block_repository.dart';
+import 'package:campus_mate/safety/model/contact_name_store.dart';
+import 'package:campus_mate/safety/model/device_contacts.dart';
 import 'package:campus_mate/safety/model/safety_repository_provider.dart';
 import 'package:campus_mate/safety/view/block_list_screen.dart';
+import 'package:campus_mate/safety/view/contact_block_list_screen.dart';
+import 'package:campus_mate/safety/view/contact_picker_screen.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../safety/model/fake_contact_blocks.dart';
 import '../../safety/model/fake_safety_repository.dart';
 import '../model/fake_card_repository.dart';
 
 void main() {
   var signOutCalls = 0;
 
-  Future<FakeCardRepository> pump(WidgetTester tester) async {
+  Future<FakeCardRepository> pump(WidgetTester tester, {FakeDeviceContactSource? contacts}) async {
     signOutCalls = 0;
     final repository = FakeCardRepository();
     final container = ProviderContainer(
@@ -25,6 +31,9 @@ void main() {
         cardRepositoryProvider.overrideWithValue(repository),
         safetyRepositoryProvider.overrideWithValue(FakeSafetyRepository()),
         signOutProvider.overrideWithValue(() async => signOutCalls++),
+        deviceContactSourceProvider.overrideWithValue(contacts ?? FakeDeviceContactSource()),
+        contactBlockRepositoryProvider.overrideWithValue(FakeContactBlockRepository()),
+        contactNameStoreProvider.overrideWithValue(FakeContactNameStore()),
       ],
     );
     addTearDown(container.dispose);
@@ -34,6 +43,8 @@ void main() {
       routes: [
         GoRoute(path: AppRoutes.settings, builder: (context, state) => const SettingsScreen()),
         GoRoute(path: AppRoutes.blockList, builder: (context, state) => const BlockListScreen()),
+        GoRoute(path: AppRoutes.contactBlocks, builder: (context, state) => const ContactBlockListScreen()),
+        GoRoute(path: AppRoutes.contactPicker, builder: (context, state) => const ContactPickerScreen()),
       ],
     );
     addTearDown(router.dispose);
@@ -85,6 +96,34 @@ void main() {
     expect(find.byType(BlockListScreen), findsOneWidget);
   });
 
+  testWidgets('"연락처 차단" 줄은 차단 목록 바로 아래, contact-round 아이콘이다(pen lMDpY eGPnB)', (tester) async {
+    await pump(tester);
+
+    expect(tile('연락처 차단'), findsOneWidget);
+    expect(tester.getRect(tile('연락처 차단')).top, tester.getRect(tile('차단 목록')).bottom);
+    expect(find.descendant(of: tile('연락처 차단'), matching: find.byIcon(AppIcons.contactRound)), findsOneWidget);
+    expect(find.descendant(of: tile('연락처 차단'), matching: find.byIcon(AppIcons.chevronRight)), findsOneWidget);
+  });
+
+  testWidgets('권한이 이미 있으면 "연락처 차단" 은 16b 로 바로 간다', (tester) async {
+    await pump(tester, contacts: FakeDeviceContactSource(granted: true));
+
+    await tester.tap(find.text('연락처 차단'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ContactBlockListScreen), findsOneWidget);
+  });
+
+  testWidgets('권한이 없으면 "연락처 차단" 은 8a 안내 시트를 띄운다', (tester) async {
+    await pump(tester);
+
+    await tester.tap(find.text('연락처 차단'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('연락처 접근을 허용해 주세요'), findsOneWidget);
+    expect(find.byType(ContactBlockListScreen), findsNothing);
+  });
+
   testWidgets('모든 줄의 눌림 효과는 그 줄 안에서 그려진다', (tester) async {
     // 잉크는 가장 가까운 Material 에 그린다 — 그게 Scaffold 면 목록을 밀어도 테두리가 제자리에 떠 있다(COMMON §4-2).
     // 스위치 줄도 안에 ListTile 을 두므로 ListTile 만 훑으면 나중에 더해지는 줄까지 같이 본다.
@@ -102,7 +141,7 @@ void main() {
     await pump(tester);
 
     expect(tile('로그아웃'), findsOneWidget);
-    expect(tester.getRect(tile('로그아웃')).top, tester.getRect(tile('차단 목록')).bottom);
+    expect(tester.getRect(tile('로그아웃')).top, tester.getRect(tile('연락처 차단')).bottom);
     expect(find.descendant(of: tile('로그아웃'), matching: find.byIcon(AppIcons.logOut)), findsOneWidget);
     expect(find.descendant(of: tile('로그아웃'), matching: find.byIcon(AppIcons.chevronRight)), findsOneWidget);
   });
