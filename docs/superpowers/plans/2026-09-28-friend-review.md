@@ -1351,3 +1351,8 @@ pen 값표가 오면 채운다. 미리 정한 테스트:
 ### Part A 앱(A1 · A2, 2026-09-28)
 
 - **409 는 문구로 가른다(A2 "상태코드로" 와 다름).** `core/http/http_send.dart` 가 429 · 5xx 밖의 4xx 를 상태코드 없이 `ServerRejectedFailure(detail)` 로 묶는다 — 공유 파일을 고치지 않고는 상태코드를 볼 수 없다. `safety_errors.dart` · `chat_errors.dart` 와 같은 자리에 `friend_review_errors.dart` 의 `isAlreadyWritten` 을 두고, 문구는 서버 `FRIEND_REVIEW_ALREADY_WRITTEN` 과 바이트까지 같다. 백로그 47(서버 `code` 필드) 대상에 이 파일을 더한다.
+
+### Part C DB(C1, 2026-09-28)
+
+- **pgTAP 준비에 `university_email_domains` 한 줄을 넣고 `profiles` 직접 insert 를 뺐다.** 가입 트리거(`handle_new_user`)가 도메인이 없으면 예외를 내고, `profiles` 행은 트리거가 만든다(`referral_test.sql` 과 같은 준비). 파일 이름은 `20260928040000_create_friend_reviews.sql`(대장 09-28), `rls_slice0_test.sql` 권한 전수 표 +4(허락: 통합대장 09-28).
+- **pgTAP 15 → 18(검토 권고 1 · 사소 1).** 받은 사람 계정 삭제 cascade · 서버 embed 가 기대는 FK 이름 두 개와 `confdeltype = 'c'` · `policies_are` 정책 0 을 더했다. 전체 12파일 355 PASS.
