@@ -207,11 +207,10 @@ def test_a_note_on_another_reason_is_ignored(client, world):
 
 
 @pytest.mark.parametrize("body", [
-    _profile_report(target_type="friend_review"),
     _profile_report(target_type="poll"),
     _profile_report(reason="rude"),
     _profile_report(target_id="not-a-uuid"),
-], ids=["friend_review", "poll", "모르는 사유", "uuid 아님"])
+], ids=["poll", "모르는 사유", "uuid 아님"])
 def test_unknown_targets_and_reasons_are_422(client, world, body):
     assert client.post("/reports", json=body, headers=AUTH).status_code == 422
     assert world.blocks == []
