@@ -1,4 +1,4 @@
-"""계정: 탈퇴(B3) · 내 카카오톡 아이디(B5, 16e-1)."""
+"""계정: 탈퇴(B3) · 내 카카오톡 아이디(B5, 16e-1) · 계정 화면(16e)."""
 import logging
 
 from fastapi import APIRouter, Depends, Header
@@ -39,6 +39,23 @@ async def withdraw(caller: Caller = Depends(get_caller),
         except Exception:
             logger.warning("탈퇴 뒤 정리 실패 step=%s profile=%s", name, profile_id)
     return {"ok": True}
+
+
+@router.get("/account")
+async def get_my_account(caller: Caller = Depends(get_verified_caller)) -> dict:
+    """16e 계정 화면. 실명은 본인에게 가는 이 응답에만 싣고 로그에 찍지 않는다(DESIGN §9 16e · ERD §11-2).
+    이메일은 앱이 자기 세션에서 읽는다. 인증 상태는 싣지 않는다 — 관문을 지난 사람만 닿으니 늘 '인증 완료'다."""
+    settings, client, profile_id = caller
+    accounts = AccountRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
+    profile = await accounts.fetch_account(profile_id)
+    private = await accounts.fetch_private(profile_id)
+    return {
+        "real_name": private.get("real_name"),
+        "birth_year": profile["birth_year"],
+        "university": profile["universities"]["name"],
+        "joined_at": profile["created_at"],
+        "kakao_id": private.get("kakao_id"),
+    }
 
 
 @router.get("/account/kakao-id")

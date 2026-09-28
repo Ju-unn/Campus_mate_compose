@@ -1,3 +1,4 @@
+import 'package:campus_mate/account/view/account_screen.dart';
 import 'package:campus_mate/account/view/account_suspended_screen.dart';
 import 'package:campus_mate/account/view/kakao_id_settings_screen.dart';
 import 'package:campus_mate/auth/model/university_email.dart';
@@ -136,6 +137,7 @@ abstract final class AppRouter {
         path: AppRoutes.notificationSettings,
         builder: (context, state) => const NotificationSettingsScreen(),
       ),
+      GoRoute(path: AppRoutes.account, builder: (context, state) => const AccountScreen()),
       GoRoute(
         path: AppRoutes.community,
         builder: (context, state) => const CommunityFeedScreen(),

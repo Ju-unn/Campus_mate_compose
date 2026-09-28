@@ -1,4 +1,4 @@
-"""탈퇴 · 정리 배치가 부르는 Supabase 세 곳(PostgREST · auth admin · Storage)의 출입구.
+"""탈퇴 · 정리 배치 · 16e 계정 화면이 부르는 Supabase 세 곳(PostgREST · auth admin · Storage)의 출입구.
 
 전부 service_role 키다. 응답 · 로그에 이메일 · 해시 · 파일 경로를 싣지 않는다 — 부르는 쪽은 profile_id 와 건수만 본다.
 """
@@ -57,6 +57,23 @@ class AccountRepository(PostgrestRepository):
         return await self._delete_counted("signup_blocks", {
             "blocked_until": f"lt.{now.isoformat()}", "select": "key_version",
         })
+
+    # 16e 계정 화면 ------------------------------------------------------------
+    async def fetch_account(self, profile_id: UUID | str) -> dict:
+        response = await self._get("profiles", params={
+            "id": f"eq.{profile_id}", "select": "birth_year,created_at,universities(name)",
+        })
+        raise_for_status(response)
+        return response.json()[0]
+
+    async def fetch_private(self, profile_id: UUID | str) -> dict:
+        """실명 · 카톡 아이디. 관문을 지났으면 행이 늘 있지만(3b 에서 만든다), 없다고 500 을 내지 않는다."""
+        response = await self._get("profile_private", params={
+            "profile_id": f"eq.{profile_id}", "select": "real_name,kakao_id",
+        })
+        raise_for_status(response)
+        rows = response.json()
+        return rows[0] if rows else {}
 
     async def count_contact_blocks_not_on(self, key_version: int) -> int:
         response = await self._client.get(

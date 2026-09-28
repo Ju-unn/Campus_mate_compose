@@ -1110,10 +1110,12 @@ Expected: analyze 0, 전체 PASS.
 - Modify: `frontend/lib/account/view/account_screen.dart`
 - Test: `frontend/test/account/view/account_screen_test.dart`
 
-- [ ] **Step 1: 실패하는 테스트** — 카톡 줄을 누르면 A6 의 16e-1 화면이 열리고, 돌아오면 `FakeAccountRepository.calls` 가 하나 오른다(다시 읽기).
-- [ ] **Step 2: 실패를 본다.**
-- [ ] **Step 3: 구현** — 카톡 줄에 셰브런과 `onTap: () async { await context.push(AppRoutes.kakaoIdSettings); ref.invalidate(accountInfoProvider); }`.
-- [ ] **Step 4: 통과를 본다.**
+- [x] **Step 1: 실패하는 테스트** — 카톡 줄을 누르면 A6 의 16e-1 화면이 열리고, 저장하고(`true`) 돌아오면 `FakeAccountRepository.accountFetches` 가 하나 오른다(다시 읽기). 저장하지 않고 돌아오면 오르지 않는다.
+- [x] **Step 2: 실패를 본다.**
+- [x] **Step 3: 구현** — 카톡 줄에 셰브런과 `onTap: () async { final saved = await context.push<bool>(AppRoutes.kakaoIdSettings); if (saved == true && context.mounted) ref.invalidate(accountInfoProvider); }`.
+- [x] **Step 4: 통과를 본다.**
+
+> **편차(2026-09-28, 대장 결정 — 검토 R2 권고 2):** 처음 적은 "돌아오면 늘 다시 읽기" 대신 **저장하고 돌아올 때만** 다시 읽는다. 16e-1 은 저장하면 `true` 를 들고 닫히고(`kakao_id_settings_screen.dart`), 채팅방 14f "변경" 도 같은 방식이다. 그냥 뒤로 와도 실명이 든 `GET /account` 를 다시 부르고, 그때 네트워크가 끊기면 멀쩡한 화면이 다시 시도 화면으로 바뀌던 것을 막는다. A6(#153)가 먼저 merge 돼 이 Task 는 PR 2 가 했다.
 
 A6 가 나중이면 이 Task 는 A6 PR 이 한다(대장이 안전담당에게 이 절을 전한다).
 

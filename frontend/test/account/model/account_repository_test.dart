@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:campus_mate/account/model/account_info.dart';
 import 'package:campus_mate/account/model/account_repository.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/core/http/api_client.dart';
@@ -13,6 +14,8 @@ class MockGoTrueClient extends Mock implements GoTrueClient {}
 
 class MockSession extends Mock implements Session {}
 
+class MockUser extends Mock implements User {}
+
 void main() {
   late MockGoTrueClient auth;
   late List<http.Request> seen;
@@ -20,8 +23,11 @@ void main() {
   setUp(() {
     auth = MockGoTrueClient();
     final session = MockSession();
+    final user = MockUser();
     when(() => session.accessToken).thenReturn('token-abc');
     when(() => auth.currentSession).thenReturn(session);
+    when(() => user.email).thenReturn('hong@snu.ac.kr');
+    when(() => auth.currentUser).thenReturn(user);
     seen = [];
   });
 
@@ -30,7 +36,7 @@ void main() {
       seen.add(request);
       return response;
     });
-    return HttpAccountRepository(ApiClient('https://api.test', client, auth));
+    return HttpAccountRepository(ApiClient('https://api.test', client, auth), auth);
   }
 
   http.Response json(Object body, [int status = 200, Map<String, String> headers = const {}]) {
@@ -40,6 +46,41 @@ void main() {
       headers: {'content-type': 'application/json; charset=utf-8', ...headers},
     );
   }
+
+  test('GET /account 값과 세션 이메일을 AccountInfo 로 읽는다', () async {
+    final result = await repositoryReturning(json({
+      'real_name': '홍길동', 'birth_year': 2003, 'university': '서울대학교',
+      'joined_at': '2026-09-01T10:00:00+00:00', 'kakao_id': 'fox_rain',
+    })).fetchAccount();
+    final info = result.when<AccountInfo?>(onSuccess: (i) => i, onFailure: (_) => null)!;
+
+    expect(seen.single.method, 'GET');
+    expect(seen.single.url.toString(), 'https://api.test/account');
+    expect(info.email, 'hong@snu.ac.kr');
+    expect(info.realName, '홍길동');
+    expect(info.birthYear, 2003);
+    expect(info.university, '서울대학교');
+    expect(info.joinedAt, DateTime.utc(2026, 9, 1, 10));
+    expect(info.kakaoId, 'fox_rain');
+  });
+
+  test('빈 칸은 null 로 받는다', () async {
+    final result = await repositoryReturning(json({
+      'real_name': null, 'birth_year': null, 'university': '서울대학교',
+      'joined_at': '2026-09-01T10:00:00+00:00', 'kakao_id': null,
+    })).fetchAccount();
+    final info = result.when<AccountInfo?>(onSuccess: (i) => i, onFailure: (_) => null)!;
+
+    expect(info.realName, isNull);
+    expect(info.birthYear, isNull);
+    expect(info.kakaoId, isNull);
+  });
+
+  test('502 는 Failure 로 돌려준다', () async {
+    final result = await repositoryReturning(json({'detail': 'bad gateway'}, 502)).fetchAccount();
+
+    expect(result.when<Failure?>(onSuccess: (_) => null, onFailure: (f) => f), isA<ServerUnavailableFailure>());
+  });
 
   test('탈퇴는 POST /account/withdraw 이고 {ok:true} 면 성공이다', () async {
     final result = await repositoryReturning(json({'ok': true})).withdraw();

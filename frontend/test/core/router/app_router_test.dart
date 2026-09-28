@@ -1,4 +1,5 @@
 import 'package:campus_mate/account/model/account_repository.dart';
+import 'package:campus_mate/account/view/account_screen.dart';
 import 'package:campus_mate/account/view/account_suspended_screen.dart';
 import 'package:campus_mate/account/view/kakao_id_settings_screen.dart';
 import 'package:campus_mate/auth/model/verification_gate.dart';
@@ -239,7 +240,7 @@ void main() {
               FakeChatRepository()..room = Success(roomFixture(passed: passedRoom, kakaoId: 'fox_rain'))),
           messageStreamProvider.overrideWithValue(FakeMessageStream()),
           safetyRepositoryProvider.overrideWithValue(FakeSafetyRepository()),
-          // 16e-1 이 열리면 저장된 아이디를 읽는다.
+          // 16e 가 열리면 계정 정보를, 16e-1 이 열리면 저장된 아이디를 읽는다.
           accountRepositoryProvider.overrideWithValue(FakeAccountRepository()),
         ],
       );
@@ -260,6 +261,15 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(BlockListScreen), findsOneWidget);
+    });
+
+    testWidgets('/settings/account 는 16e 계정이다', (tester) async {
+      final router = await pumpRouter(tester);
+
+      router.go(AppRoutes.account);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AccountScreen), findsOneWidget);
     });
 
     testWidgets('/settings/account/kakao-id 는 16e-1 카카오톡 아이디 변경이다', (tester) async {

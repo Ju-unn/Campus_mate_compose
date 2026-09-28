@@ -1,3 +1,5 @@
+import 'package:campus_mate/account/model/account_repository.dart';
+import 'package:campus_mate/account/view/account_screen.dart';
 import 'package:campus_mate/account/view/withdraw_sheets.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/core/auth/sign_out.dart';
@@ -18,6 +20,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../account/model/fake_account_repository.dart';
 import '../../safety/model/fake_contact_blocks.dart';
 import '../../safety/model/fake_safety_repository.dart';
 import '../model/fake_card_repository.dart';
@@ -36,6 +39,7 @@ void main() {
         deviceContactSourceProvider.overrideWithValue(contacts ?? FakeDeviceContactSource()),
         contactBlockRepositoryProvider.overrideWithValue(FakeContactBlockRepository()),
         contactNameStoreProvider.overrideWithValue(FakeContactNameStore()),
+        accountRepositoryProvider.overrideWithValue(FakeAccountRepository()),
       ],
     );
     addTearDown(container.dispose);
@@ -47,6 +51,7 @@ void main() {
         GoRoute(path: AppRoutes.blockList, builder: (context, state) => const BlockListScreen()),
         GoRoute(path: AppRoutes.contactBlocks, builder: (context, state) => const ContactBlockListScreen()),
         GoRoute(path: AppRoutes.contactPicker, builder: (context, state) => const ContactPickerScreen()),
+        GoRoute(path: AppRoutes.account, builder: (context, state) => const AccountScreen()),
       ],
     );
     addTearDown(router.dispose);
@@ -78,6 +83,23 @@ void main() {
     await tester.pump();
 
     expect(repository.pausedValue, isTrue);
+  });
+
+  testWidgets('"계정" 줄은 매칭 활성화와 알림 사이, user-round 아이콘과 셰브런이다(pen lMDpY eCrlw)', (tester) async {
+    await pump(tester);
+
+    expect(tile('계정'), findsOneWidget);
+    expect(tester.getRect(tile('계정')).bottom, tester.getRect(tile('알림')).top);
+    expect(tester.getRect(tile('계정')).top, greaterThan(tester.getRect(find.text('매칭 활성화')).bottom));
+    expect(find.descendant(of: tile('계정'), matching: find.byIcon(AppIcons.userRound)), findsOneWidget);
+    expect(find.descendant(of: tile('계정'), matching: find.byIcon(AppIcons.chevronRight)), findsOneWidget);
+  });
+
+  testWidgets('"계정" 을 누르면 16e 가 열린다', (tester) async {
+    await pump(tester);
+    await tester.tap(find.text('계정'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AccountScreen), findsOneWidget);
   });
 
   testWidgets('"차단 목록" 줄은 알림 바로 아래, user-x 아이콘이다(pen lMDpY 8번 o0km6)', (tester) async {

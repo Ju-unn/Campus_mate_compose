@@ -42,6 +42,12 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               ),
               ListTile(
+                leading: const Icon(AppIcons.userRound, color: AppColors.muted),
+                title: Text('계정', style: AppTypography.subtitle.copyWith(color: AppColors.ink)),
+                trailing: const Icon(AppIcons.chevronRight, color: AppColors.muted),
+                onTap: () => context.push(AppRoutes.account),
+              ),
+              ListTile(
                 leading: const Icon(AppIcons.bell, color: AppColors.muted),
                 title: Text('알림', style: AppTypography.subtitle.copyWith(color: AppColors.ink)),
                 trailing: const Icon(AppIcons.chevronRight, color: AppColors.muted),
