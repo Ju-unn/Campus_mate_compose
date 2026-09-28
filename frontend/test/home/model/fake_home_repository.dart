@@ -8,6 +8,12 @@ class FakeHomeRepository implements HomeRepository {
 
   Result<HomeSummary> summary;
 
+  /// 요약을 읽은 수 — 19 대기 화면이 여는 시각에 다시 읽는지 본다.
+  int calls = 0;
+
   @override
-  Future<Result<HomeSummary>> fetchSummary() async => summary;
+  Future<Result<HomeSummary>> fetchSummary() async {
+    calls++;
+    return summary;
+  }
 }
