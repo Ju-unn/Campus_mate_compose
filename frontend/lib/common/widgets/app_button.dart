@@ -13,6 +13,7 @@ class AppButton extends StatelessWidget {
     required this.onPressed,
     this.variant = AppButtonVariant.primary,
     this.height,
+    this.isLoading = false,
     super.key,
   });
 
@@ -24,14 +25,29 @@ class AppButton extends StatelessWidget {
   /// 비워 두면 전체 폭 버튼 규격(56, text variant 는 48)이다.
   final double? height;
 
+  /// 저장 중(나 탭 편집 계획서 D8, pen 06-1 예시 `k5Gv4l`) — 글자 자리에 20 스피너(`sMuCd`)를 돌리고 누름을 막는다.
+  /// 채움은 평상시 색 그대로 둔다: 꺼진 회색 위에서는 흰 스피너가 보이지 않는다.
+  final bool isLoading;
+
   bool get _isTextVariant => variant == AppButtonVariant.text;
 
   @override
   Widget build(BuildContext context) {
     return ElevatedButton(
-      onPressed: onPressed,
+      onPressed: isLoading ? null : onPressed,
       style: _styleFor(height ?? (_isTextVariant ? 48 : 56)),
-      child: Text(label, style: _isTextVariant ? AppTypography.labelSmall : AppTypography.label),
+      child: isLoading
+          ? _spinner()
+          : Text(label, style: _isTextVariant ? AppTypography.labelSmall : AppTypography.label),
+    );
+  }
+
+  /// 글자가 빠져도 낭독기에는 버튼 이름이 들리게 스피너에 이름을 단다.
+  /// 선 두께 2 는 앱의 다른 작은 스피너(`LabeledField` 확인 중)와 같게 둔 것 — pen `sMuCd` 값이 오면 다시 맞춘다(대장 09-28).
+  Widget _spinner() {
+    return SizedBox.square(
+      dimension: 20,
+      child: CircularProgressIndicator(strokeWidth: 2, color: _idleForeground(), semanticsLabel: label),
     );
   }
 
@@ -52,6 +68,9 @@ class AppButton extends StatelessWidget {
 
   WidgetStateProperty<Color> _backgroundColor() {
     return WidgetStateProperty.resolveWith((states) {
+      if (isLoading) {
+        return _idleBackground();
+      }
       if (states.contains(WidgetState.disabled)) {
         return _isTextVariant ? Colors.transparent : AppColors.primaryDisabled;
       }
