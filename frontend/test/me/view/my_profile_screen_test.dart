@@ -129,6 +129,10 @@ void main() {
           path: AppRoutes.myIdealConditions,
           builder: (context, state) => const Scaffold(body: Text('06-1 편집 화면')),
         ),
+        GoRoute(
+          path: AppRoutes.myProfileEdit,
+          builder: (context, state) => const Scaffold(body: Text('15c 편집 화면')),
+        ),
       ],
     );
     addTearDown(router.dispose);
@@ -463,6 +467,65 @@ void main() {
     }
   });
 
+  // 계획서 A4 Step 5 — ProfileEntryRow `fN0xc` 인스턴스. 자기소개 `pP9uk` 뒤 24(`lFotP` gap), 누르면 15c.
+  group('15c 입구 행 `m2szef`', () {
+    final entry = find.widgetWithText(ProfileEntryRow, '자기소개 · 태그');
+
+    testWidgets('아이콘 tags(pen Lucide 이름 그대로), 제목 "자기소개 · 태그", 노트 "관심사 · 나의 특징 · 이상형"', (tester) async {
+      await pump(tester);
+      await scrollToEnd(tester);
+
+      final row = tester.widget<ProfileEntryRow>(entry);
+      expect((row.icon, row.title, row.note), (AppIcons.tags, '자기소개 · 태그', '관심사 · 나의 특징 · 이상형'));
+      expect(AppIcons.tags, LucideIcons.tags);
+      expect(find.descendant(of: entry, matching: find.byIcon(AppIcons.chevronRight)), findsOneWidget);
+    });
+
+    testWidgets('자기소개 아래 24 에 놓이고 폭 328 · 높이는 최소 84 다', (tester) async {
+      usePenFrame(tester);
+      await pump(tester);
+      await scrollToEnd(tester);
+
+      expect(tester.getTopLeft(entry).dy - tester.getBottomLeft(find.text(_bio)).dy, 24);
+      expect(tester.getTopLeft(entry).dx, 16);
+      // pen 은 84 다. 테스트 글꼴은 한글이 Pretendard 보다 넓어 노트가 두 줄이 되고 행이 늘어난다(84 는 최소값).
+      final size = tester.getSize(entry);
+      expect(size.width, 328);
+      expect(size.height, greaterThanOrEqualTo(84));
+    });
+
+    testWidgets('자기소개가 비어 섹션이 숨으면 선호 키 행 아래 24 에 놓인다', (tester) async {
+      await pump(tester, result: Success(_profile(bio: null)));
+      await scrollToEnd(tester);
+
+      final height = find.widgetWithText(ProfileEntryRow, '선호 키 범위');
+      expect(tester.getTopLeft(entry).dy - tester.getBottomLeft(height).dy, 24);
+    });
+
+    testWidgets('누르면 15c 자기소개·태그 수정(`/me/edit`)으로 간다', (tester) async {
+      await pump(tester);
+      await scrollToEnd(tester);
+
+      await tester.tap(entry);
+      await tester.pumpAndSettle();
+
+      expect(find.text('15c 편집 화면'), findsOneWidget);
+    });
+
+    testWidgets('눌림 효과 · 채움은 스크롤 밖이 아니라 행 크기 Material 이 그린다(COMMON §4-2)', (tester) async {
+      usePenFrame(tester);
+      await pump(tester);
+      await scrollToEnd(tester);
+
+      final ink = find.descendant(of: entry, matching: find.byType(InkWell));
+      final painter = find.ancestor(of: ink, matching: find.byType(Material)).first;
+      // 행 크기 그대로(가장 가까운 Material 이 화면 전체면 스크롤 뒤 눌림 효과가 공중에 뜬다).
+      expect(tester.getSize(painter), tester.getSize(entry));
+      expect(tester.getSize(ink), tester.getSize(entry));
+      expect(tester.getSize(entry).width, 328);
+    });
+  });
+
   testWidgets('pen 에서 뺀 세 개(아바타 다시 만들기·친구들이 본 나·프로필 수정)는 없다', (tester) async {
     await pump(tester);
 
@@ -579,12 +642,14 @@ void main() {
       expect(y(find.text(_bio)), 1055);
     });
 
-    testWidgets('본문 아래 여백 32 — 끝까지 스크롤하면 자기소개 끝과 내비 사이가 32', (tester) async {
+    // 입구 행 `m2szef` 가 자기소개 뒤 마지막 칸이 돼 "자기소개 끝" 을 "새 입구 행 끝" 으로 옮겼다(대장 허락 09-28).
+    testWidgets('본문 아래 여백 32 — 끝까지 스크롤하면 새 입구 행 끝과 내비 사이가 32', (tester) async {
       usePenFrame(tester);
       await pump(tester);
       await scrollToEnd(tester);
 
-      expect(tester.getTopLeft(find.byType(AppBottomNav)).dy - tester.getBottomLeft(find.text(_bio)).dy, 32);
+      final entry = find.widgetWithText(ProfileEntryRow, '자기소개 · 태그');
+      expect(tester.getTopLeft(find.byType(AppBottomNav)).dy - tester.getBottomLeft(entry).dy, 32);
       expect(tester.getTopLeft(find.text(_bio)).dx, 16);
     });
 

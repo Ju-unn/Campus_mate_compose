@@ -168,6 +168,14 @@ class _ProfileContent extends StatelessWidget {
           const SizedBox(height: AppSpacing.lg),
           _BioSection(bio: bio),
         ],
+        // 15c 입구 `m2szef`(ProfileEntryRow `fN0xc` 인스턴스) — 자기소개 뒤 24(`lFotP` gap). 계획서 U4 · A4.
+        const SizedBox(height: AppSpacing.lg),
+        ProfileEntryRow(
+          icon: AppIcons.tags,
+          title: '자기소개 · 태그',
+          note: '관심사 · 나의 특징 · 이상형',
+          onTap: () => context.push(AppRoutes.myProfileEdit),
+        ),
       ],
     );
   }

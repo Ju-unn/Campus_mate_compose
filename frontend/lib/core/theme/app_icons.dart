@@ -86,4 +86,7 @@ abstract final class AppIcons {
 
   /// 화면 15 "MBTI" Facts 행 (pen `Wb0JO`)
   static const IconData badge = LucideIcons.badge;
+
+  /// 화면 15 "자기소개 · 태그" 입구 행 (pen `m2szef`)
+  static const IconData tags = LucideIcons.tags;
 }
