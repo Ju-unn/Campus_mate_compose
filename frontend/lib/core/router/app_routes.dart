@@ -36,6 +36,10 @@ abstract final class AppRoutes {
   static const String onboardingIdealNote = '/onboarding/ideal-note';
   static const String onboardingBio = '/onboarding/bio';
 
+  /// 20 추천 코드 · 20d 유입경로. 06-3 뒤 앱에서만 잇는다(서버 next-step 단계 아님, 2026-09-28 대장 D2).
+  static const String onboardingReferral = '/onboarding/referral';
+  static const String onboardingAcquisition = '/onboarding/acquisition';
+
   /// 조각 4 — 오늘의 카드(화면 10), 카드 상세(10b), 매칭 성사(12), 대화(13), 설정(16)·알림(16d)
   static const String today = '/today';
   static const String cardDetail = '/cards'; // `/cards/:cardId`

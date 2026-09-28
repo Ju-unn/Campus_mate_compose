@@ -287,4 +287,15 @@ void main() {
     // 하나라도 빠지면 AuthRedirect 가 보낸 곳에 화면이 없어 앱이 오류 페이지로 떨어진다.
     expect(registered, containsAll(_onboardingPaths));
   });
+
+  test('06-3 뒤 앱에서만 잇는 20 · 20d 경로도 라우터에 등록돼 있다', () {
+    final router = AppRouter.create(
+      isAuthenticated: () => true,
+      verificationGate: _passedGate,
+      onboardingStep: _passedStep,
+    );
+    final registered = router.configuration.routes.whereType<GoRoute>().map((route) => route.path);
+
+    expect(registered, containsAll(<String>[AppRoutes.onboardingReferral, AppRoutes.onboardingAcquisition]));
+  });
 }
