@@ -16,6 +16,7 @@ import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/core/router/placeholder_screens.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
+import 'package:campus_mate/profile/model/acquisition_repository_provider.dart';
 import 'package:campus_mate/profile/model/appearance_type_repository_provider.dart';
 import 'package:campus_mate/profile/model/avatar_generation_outcome.dart';
 import 'package:campus_mate/profile/model/avatar_repository_provider.dart';
@@ -27,6 +28,7 @@ import 'package:campus_mate/profile/model/kakao_id_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
 import 'package:campus_mate/profile/model/photos_repository_provider.dart';
 import 'package:campus_mate/profile/model/survey_repository_provider.dart';
+import 'package:campus_mate/profile/view/acquisition_screen.dart';
 import 'package:campus_mate/profile/view/appearance_type_screen.dart';
 import 'package:campus_mate/profile/view/avatar_generation_screen.dart';
 import 'package:campus_mate/profile/view/avatar_source_screen.dart';
@@ -39,6 +41,8 @@ import 'package:campus_mate/profile/view/photos_screen.dart';
 import 'package:campus_mate/profile/view/survey_screen.dart';
 import 'package:campus_mate/profile/view/tag_picker_screen.dart';
 import 'package:campus_mate/profile/viewmodel/tag_picker_kind.dart';
+import 'package:campus_mate/referral/model/referral_repository_provider.dart';
+import 'package:campus_mate/referral/view/referral_code_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -51,6 +55,7 @@ import '../auth/model/fake_student_verification_repository.dart';
 import '../auth/model/fake_verification_gate_repository.dart';
 import '../chat/model/fake_chat_repository.dart';
 import '../matching/model/fake_card_repository.dart';
+import '../profile/model/fake_acquisition_repository.dart';
 import '../profile/model/fake_appearance_type_repository.dart';
 import '../profile/model/fake_avatar_repository.dart';
 import '../profile/model/fake_basic_info_repository.dart';
@@ -61,6 +66,7 @@ import '../profile/model/fake_kakao_id_repository.dart';
 import '../profile/model/fake_onboarding_repository.dart';
 import '../profile/model/fake_photos_repository.dart';
 import '../profile/model/fake_survey_repository.dart';
+import '../referral/model/fake_referral_repository.dart';
 
 /// 가입~온보딩 화면의 잉크 위젯이 전부 자기 칸 크기의 `Material` 위에 그려지는지 훑는다(COMMON §4-2).
 ///
@@ -194,6 +200,16 @@ final List<_Screen> _screens = [
   _Screen('BioDraftLoadingScreen', () => const BioDraftLoadingScreen(), settle: 0),
   // 초안이 도착하면 같은 경로가 06-3 BioScreen 으로 바뀐다.
   _Screen('BioDraftLoadingScreen→BioScreen', () => const BioDraftLoadingScreen(), settle: 3),
+  // 06-3 뒤 앱에서만 잇는 20 추천 코드(건너뛰기 _SkipButton) · 20d 유입경로(칩 · 기타 입력칸이 열린 상태).
+  _Screen('ReferralCodeScreen', () => const ReferralCodeScreen()),
+  _Screen(
+    'AcquisitionScreen(기타)',
+    () => const AcquisitionScreen(),
+    drive: (tester) async {
+      await tester.tap(find.text('기타'));
+      await tester.pump();
+    },
+  ),
   _Screen('ComingSoonScreen(me)', () => const ComingSoonScreen(tab: AppTab.me)),
   _Screen('ComingSoonScreen(community)', () => const ComingSoonScreen(tab: AppTab.community)),
 ];
@@ -219,6 +235,8 @@ Future<void> _pumpScreen(WidgetTester tester, _Screen screen) async {
       idealConditionsRepositoryProvider.overrideWithValue(FakeIdealConditionsRepository()),
       idealNoteRepositoryProvider.overrideWithValue(FakeIdealNoteRepository()),
       bioRepositoryProvider.overrideWithValue(FakeBioRepository()),
+      referralRepositoryProvider.overrideWithValue(FakeReferralRepository()),
+      acquisitionRepositoryProvider.overrideWithValue(FakeAcquisitionRepository()),
       chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
       cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
     ],
