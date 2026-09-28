@@ -1,12 +1,15 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/labeled_field.dart';
 import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
+import 'package:campus_mate/core/router/app_routes.dart';
+import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/profile/viewmodel/bio_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 /// 자기소개 화면(DESIGN.md 화면 06-3, datingApp.pen `06-3 자기소개`).
 /// 06-2b 가 받아 온 초안이 placeholder 가 아니라 실제 입력값으로 들어와 있다(§13-71).
@@ -30,6 +33,14 @@ class _BioScreenState extends ConsumerState<BioScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(bioViewModelProvider.select((s) => s.completed), (previous, completed) {
+      // 06-3 뒤에는 앱에서만 20 → 20d → 홈으로 잇는다(2026-09-28 대장 D2). 단계 캐시가 bio 인 동안 20 으로 가면
+      // redirect 가 06-3 으로 되돌리고, 뒤늦게 complete 가 되면 06-3 에서 홈으로 튕긴다 — 캐시가 바뀐 뒤(같은 프레임 안) 옮긴다.
+      if (!completed) return;
+      ref.read(onboardingStepListenableProvider).refresh().then((_) {
+        if (context.mounted) context.go(AppRoutes.onboardingReferral);
+      });
+    });
     final state = ref.watch(bioViewModelProvider);
     final viewModel = ref.read(bioViewModelProvider.notifier);
     return Scaffold(
