@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:campus_mate/auth/model/verification_gate.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
+import 'package:campus_mate/core/auth/session_scope.dart';
 import 'package:campus_mate/core/push/push_provider.dart';
 import 'package:campus_mate/core/push/push_route.dart';
 import 'package:campus_mate/core/router/app_router.dart';
@@ -28,7 +29,10 @@ Future<void> main() async {
   // (firebase_options.dart 를 만들지 않는 이유 — flutterfire CLI 를 새로 들이지 않는다).
   await Firebase.initializeApp();
   await SupabaseInitializer.run(SupabaseConfig.fromEnvironment());
-  runApp(const ProviderScope(child: CampusMateApp()));
+  runApp(SessionScope(
+    authChanges: Supabase.instance.client.auth.onAuthStateChange,
+    child: const CampusMateApp(),
+  ));
 }
 
 /// 앱 루트 위젯. 로그인 상태는 [AuthSessionListenable] 이,
