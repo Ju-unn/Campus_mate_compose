@@ -9,6 +9,8 @@ import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/home/view/cohort_wait_view.dart';
+import 'package:campus_mate/home/viewmodel/home_summary_provider.dart';
 import 'package:campus_mate/matching/model/daily_card.dart';
 import 'package:campus_mate/matching/view/daily_card_summary.dart';
 import 'package:campus_mate/matching/viewmodel/today_cards_ui_state.dart';
@@ -25,6 +27,7 @@ class TodayCardsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(todayCardsViewModelProvider);
+    final cohort = ref.watch(homeSummaryProvider).value?.cohort;
     return Scaffold(
       // 탭 앱바 제목은 x20 에서 시작한다(pen). 오른쪽 아이콘은 없다 —
       // 알림 종은 "메인" 탭에만 두기로 했고(2026-09-23 사용자 결정), 설정 진입점은 따로 정해진다.
@@ -33,7 +36,7 @@ class TodayCardsScreen extends ConsumerWidget {
         title: Text('오늘의 카드', style: AppTypography.navTitle),
       ),
       bottomNavigationBar: const AppBottomNav(current: AppTab.today),
-      body: SafeArea(
+      body: cohort != null ? CohortWaitView(cohort: cohort) : SafeArea(
         child: RefreshIndicator(
           onRefresh: ref.read(todayCardsViewModelProvider.notifier).refresh,
           child: switch (state.phase) {
