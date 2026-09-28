@@ -17,7 +17,11 @@ class HttpAvatarRepository implements AvatarRepository {
   Future<Result<AvatarGenerationOutcome>> fetchAvatarStatus() =>
       _api.send('GET', '/profile-onboarding/avatar/status', _toOutcome);
 
-  /// 두 엔드포인트가 같은 모양으로 답하므로 파서도 하나다 — 한쪽만 고치면 그 길에서만 터진다.
+  @override
+  Future<Result<AvatarGenerationOutcome>> regenerateAvatar() =>
+      _api.send('POST', '/me/avatar/regenerate', _toOutcome);
+
+  /// 세 엔드포인트가 같은 모양으로 답하므로 파서도 하나다 — 한쪽만 고치면 그 길에서만 터진다.
   AvatarGenerationOutcome _toOutcome(Object body) {
     final fields = body as Map<String, dynamic>;
     return switch (fields['status'] as String) {

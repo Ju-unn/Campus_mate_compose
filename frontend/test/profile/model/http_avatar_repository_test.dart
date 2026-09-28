@@ -81,6 +81,26 @@ void main() {
     expect(outcome, isA<AvatarFailed>());
   });
 
+  test('다시 만들기는 POST /me/avatar/regenerate 를 부르고 pending 을 AvatarPending 으로 읽는다', () async {
+    // 응답 모양이 온보딩 등록과 같다(계획서 2-3) — 같은 파서로 읽는다.
+    late http.Request sent;
+    final client = MockClient((request) async {
+      sent = request;
+      return http.Response(
+        jsonEncode({'status': 'pending', 'avatar_url': null, 'compensation_hearts': null}),
+        202,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      );
+    });
+    final repository = HttpAvatarRepository(ApiClient('https://api.test', client, auth));
+
+    final result = await repository.regenerateAvatar();
+
+    expect(sent.method, 'POST');
+    expect(sent.url.path, '/me/avatar/regenerate');
+    expect(result.when(onSuccess: (value) => value, onFailure: (_) => null), isA<AvatarPending>());
+  });
+
   test('ready 인데 그림 주소가 없으면 기다리지 않고 실패로 돌려준다', () async {
     // 운영 00020: 서버가 {"status": "ready"} 만 보냈고 `as String` 캐스트가 TypeError 를 던졌다.
     // Error 는 Result 밖으로 튀어 "아바타를 만들고 있어요" 화면이 영영 끝나지 않았다 — 실패여야 한다.

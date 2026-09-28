@@ -25,6 +25,16 @@ class FakeAvatarRepository implements AvatarRepository {
     return nextResult;
   }
 
+  int regenerateCount = 0;
+
+  /// 다시 만들기(15b)도 등록과 같은 [nextResult] · [generateGate] 를 쓴다 — 세는 수만 따로다.
+  @override
+  Future<Result<AvatarGenerationOutcome>> regenerateAvatar() async {
+    regenerateCount++;
+    await generateGate?.future;
+    return nextResult;
+  }
+
   @override
   Future<Result<AvatarGenerationOutcome>> fetchAvatarStatus() async {
     statusCount++;
