@@ -1,6 +1,7 @@
 from datetime import datetime
+from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.core.time import SEOUL
 
@@ -79,6 +80,27 @@ class IdealNoteRequest(BaseModel):
 
 class BioRequest(BaseModel):
     bio: str
+
+
+ACQUISITION_NOTE_MAX_LENGTH = 30  # pen 값이 다르면 여기와 앱 acquisitionNoteMaxLength 를 같이 바꾼다
+
+
+class AcquisitionRequest(BaseModel):
+    """20d 유입경로. 칩 값은 DB enum acquisition_channel 과 같은 다섯 개다."""
+
+    channel: Literal["everytime", "instagram", "friend", "community", "other"]
+    note: str | None = None
+
+    @model_validator(mode="after")
+    def _note_only_for_other(self) -> "AcquisitionRequest":
+        if self.channel != "other":
+            self.note = None
+            return self
+        note = (self.note or "").strip()
+        if not note or len(note) > ACQUISITION_NOTE_MAX_LENGTH:
+            raise ValueError("기타는 한 줄로 적어 주세요")
+        self.note = note
+        return self
 
 
 class NextStepResponse(BaseModel):

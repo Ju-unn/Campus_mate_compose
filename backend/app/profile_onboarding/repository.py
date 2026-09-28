@@ -302,6 +302,9 @@ class ProfileOnboardingRepository(PostgrestRepository):
     async def update_bio(self, profile_id: UUID, bio: str) -> None:
         await self._patch_profile(profile_id, {"bio": bio})
 
+    async def update_acquisition(self, profile_id: UUID, channel: str, note: str | None) -> None:
+        await self._patch_profile(profile_id, {"acquisition_channel": channel, "acquisition_note": note})
+
     async def activate_profile(self, profile_id: UUID) -> None:
         await self._patch_profile(profile_id, {"status": "active"})
 
