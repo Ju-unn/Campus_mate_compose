@@ -1,10 +1,13 @@
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
+import 'package:campus_mate/home/model/cohort_wait.dart';
 import 'package:campus_mate/home/model/home_repository_provider.dart';
 import 'package:campus_mate/home/model/home_summary.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/home/view/cohort_wait_view.dart';
 import 'package:campus_mate/home/view/home_screen.dart';
 import 'package:campus_mate/home/view/mosaic_rail.dart';
 import 'package:campus_mate/home/view/mosaic_tile.dart';
@@ -388,5 +391,40 @@ void main() {
 
     expect(find.text('지금 확인하기'), findsOneWidget);
     expect(find.text('전달된 카드'), findsNothing);
+    // 코호트인지 모르니 대기 화면도 없다 — 카드로 가는 길이 남는 쪽이 맞다(계획서 Review Focus 3).
+    expect(find.byType(CohortWaitView), findsNothing);
+  });
+
+  group('19 코호트 — 메인 탭 안에서 바꿔 끼운다(계획서 결정 1)', () {
+    testWidgets('cohort 가 있으면 대기 화면이 있고 09b 는 없다. 앱바 · 하단 내비는 그대로', (tester) async {
+      await pump(
+        tester,
+        Success(HomeSummary(
+          presentPeopleImages: summary.presentPeopleImages,
+          deliveredCards: summary.deliveredCards,
+          signups: summary.signups,
+          conversationsStarted: summary.conversationsStarted,
+          reviewRating: summary.reviewRating,
+          reviewCount: summary.reviewCount,
+          campuses: summary.campuses,
+          profileCompletionPercent: summary.profileCompletionPercent,
+          cohort: CohortWait(firstCardAt: DateTime.now().add(const Duration(days: 3)), recruitCount: 5),
+        )),
+      );
+
+      expect(find.byType(CohortWaitView), findsOneWidget);
+      expect(find.text('지금 확인하기'), findsNothing);
+      expect(find.text('전달된 카드'), findsNothing);
+      expect(find.text('CampusMate'), findsOneWidget);
+      expect(find.byType(NotifyIconButton), findsOneWidget);
+      expect(find.byType(AppBottomNav), findsOneWidget);
+    });
+
+    testWidgets('cohort 가 null 이면 09b 그대로다', (tester) async {
+      await pump(tester);
+
+      expect(find.byType(CohortWaitView), findsNothing);
+      expect(find.text('지금 확인하기'), findsOneWidget);
+    });
   });
 }
