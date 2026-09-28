@@ -5,6 +5,7 @@ import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart
 import 'package:campus_mate/profile/model/tag_picker_repository_provider.dart';
 import 'package:campus_mate/profile/viewmodel/tag_picker_kind.dart';
 import 'package:campus_mate/profile/viewmodel/tag_picker_ui_state.dart';
+import 'package:flutter/foundation.dart' show protected;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final tagPickerViewModelProvider =
@@ -46,14 +47,20 @@ class TagPickerViewModel extends Notifier<TagPickerUiState> {
       state = state.copyWith(isSubmitting: false, errorMessage: const UnknownFailure().toDisplayMessage());
       return;
     }
-    _refreshOnboardingStepIfCompleted();
+    _notifySavedIfCompleted();
   }
 
-  /// 저장이 끝나면 다음 온보딩 단계로 넘어가도록 캐시를 다시 조회한다(Task A1).
-  void _refreshOnboardingStepIfCompleted() {
+  void _notifySavedIfCompleted() {
     if (!state.completed) {
       return;
     }
+    onSaved();
+  }
+
+  /// 저장이 끝나면 다음 온보딩 단계로 넘어가도록 캐시를 다시 조회한다(Task A1).
+  /// 나 탭 편집 모드(`TagEditViewModel`)는 이것 대신 화면 15 값을 다시 읽게 한다 — 온보딩 단계는 조회하지 않는다.
+  @protected
+  void onSaved() {
     unawaited(ref.read(onboardingStepListenableProvider).refresh());
   }
 }

@@ -4,23 +4,37 @@ import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/me/view/edit_app_bar.dart';
+import 'package:campus_mate/me/viewmodel/ideal_conditions_edit_view_model.dart';
 import 'package:campus_mate/profile/view/appearance_pickers.dart';
 import 'package:campus_mate/profile/viewmodel/ideal_conditions_ui_state.dart';
 import 'package:campus_mate/profile/viewmodel/ideal_conditions_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 /// 이상형 조건 화면(DESIGN.md 화면 06-1, datingApp.pen `06-1 이상형 조건`).
 /// 순서는 얼굴상 → 인상 → 선호 MBTI → 선호 나이 → 선호 키(§9 7, 2026-09-13 확정).
 class IdealConditionsScreen extends ConsumerWidget {
-  const IdealConditionsScreen({super.key});
+  const IdealConditionsScreen({this.isEditing = false, super.key});
+
+  /// 나 탭 편집 모드(화면 15 선호 나이 · 키 행, 계획서 A5 · D5) — 서버 값으로 채우고, 편집 앱바 "이상형 조건 수정" 과
+  /// "저장" 을 쓰고, 저장이 끝나면 15 로 돌아간다. 본문은 온보딩과 같다.
+  final bool isEditing;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(idealConditionsViewModelProvider);
-    final viewModel = ref.read(idealConditionsViewModelProvider.notifier);
+    final NotifierProvider<IdealConditionsViewModel, IdealConditionsUiState> provider =
+        isEditing ? idealConditionsEditViewModelProvider : idealConditionsViewModelProvider;
+    final state = ref.watch(provider);
+    final viewModel = ref.read(provider.notifier);
+    if (isEditing) {
+      ref.listen(provider, (previous, next) {
+        if (next.completed && !(previous?.completed ?? false)) context.pop();
+      });
+    }
     return Scaffold(
-      appBar: const OnboardingAppBar(current: 0, total: 3),
+      appBar: isEditing ? const EditAppBar(title: '이상형 조건 수정') : const OnboardingAppBar(current: 0, total: 3),
       body: SafeArea(
         top: false,
         child: Column(
@@ -121,7 +135,12 @@ class IdealConditionsScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: AppSpacing.xs),
                   ],
-                  AppButton(label: '다음', onPressed: state.canSubmit ? viewModel.submit : null),
+                  // 편집 모드만 "저장" 과 저장 중 스피너(D8)를 쓴다 — 온보딩 모양은 그대로 둔다.
+                  AppButton(
+                    label: isEditing ? '저장' : '다음',
+                    onPressed: state.canSubmit ? viewModel.submit : null,
+                    isLoading: isEditing && state.isSubmitting,
+                  ),
                 ],
               ),
             ),

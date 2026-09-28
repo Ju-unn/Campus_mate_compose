@@ -149,14 +149,33 @@ class _ProfileContent extends StatelessWidget {
         const SizedBox(height: AppSpacing.lg),
         _ProfileFacts(profile: profile),
         const SizedBox(height: AppSpacing.lg),
-        ProfileEntryRow(icon: AppIcons.calendar, title: '선호 나이 범위', note: _ageRangeNote()),
+        // 두 행 모두 06-1 편집으로 간다 — 나이 · 키가 한 화면에 있다(U1).
+        ProfileEntryRow(
+          icon: AppIcons.calendar,
+          title: '선호 나이 범위',
+          note: _ageRangeNote(),
+          onTap: () => context.push(AppRoutes.myIdealConditions),
+        ),
         const SizedBox(height: AppSpacing.lg),
-        ProfileEntryRow(icon: AppIcons.ruler, title: '선호 키 범위', note: _heightRangeNote()),
+        ProfileEntryRow(
+          icon: AppIcons.ruler,
+          title: '선호 키 범위',
+          note: _heightRangeNote(),
+          onTap: () => context.push(AppRoutes.myIdealConditions),
+        ),
         // 온보딩이 필수로 받아 비는 일은 드물다 — 비면 섹션째 숨긴다(방어).
         if (bio.isNotEmpty) ...[
           const SizedBox(height: AppSpacing.lg),
           _BioSection(bio: bio),
         ],
+        // 15c 입구 `m2szef`(ProfileEntryRow `fN0xc` 인스턴스) — 자기소개 뒤 24(`lFotP` gap). 계획서 U4 · A4.
+        const SizedBox(height: AppSpacing.lg),
+        ProfileEntryRow(
+          icon: AppIcons.tags,
+          title: '자기소개 · 태그',
+          note: '관심사 · 나의 특징 · 이상형',
+          onTap: () => context.push(AppRoutes.myProfileEdit),
+        ),
       ],
     );
   }

@@ -17,7 +17,6 @@ void main() {
     heightCm: 178,
     mbti: null,
     avatarUrl: null,
-    photoUrls: [],
     preferredAgeMin: 22,
     preferredAgeMax: 27,
     preferredHeightMin: null,

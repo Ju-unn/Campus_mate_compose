@@ -6,6 +6,7 @@ import 'package:campus_mate/profile/model/ideal_conditions_repository.dart';
 import 'package:campus_mate/profile/model/ideal_conditions_repository_provider.dart';
 import 'package:campus_mate/profile/model/profile_enums.dart';
 import 'package:campus_mate/profile/viewmodel/ideal_conditions_ui_state.dart';
+import 'package:flutter/foundation.dart' show protected;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final idealConditionsViewModelProvider =
@@ -82,7 +83,7 @@ class IdealConditionsViewModel extends Notifier<IdealConditionsUiState> {
       state = state.copyWith(isSubmitting: false, errorMessage: const UnknownFailure().toDisplayMessage());
       return;
     }
-    _refreshOnboardingStepIfCompleted();
+    _notifySavedIfCompleted();
   }
 
   /// "키는 상관없어요"는 null 로, "나이는 상관없어요"는 전 구간으로 보낸다(서버가 나이는 필수로 받는다).
@@ -98,11 +99,17 @@ class IdealConditionsViewModel extends Notifier<IdealConditionsUiState> {
     );
   }
 
-  /// 저장이 끝나면 다음 온보딩 단계로 넘어가도록 캐시를 다시 조회한다(Task A1).
-  void _refreshOnboardingStepIfCompleted() {
+  void _notifySavedIfCompleted() {
     if (!state.completed) {
       return;
     }
+    onSaved();
+  }
+
+  /// 저장이 끝나면 다음 온보딩 단계로 넘어가도록 캐시를 다시 조회한다(Task A1).
+  /// 나 탭 편집 모드(`IdealConditionsEditViewModel`)는 이것 대신 화면 15 값을 다시 읽게 한다 — 온보딩 단계는 조회하지 않는다.
+  @protected
+  void onSaved() {
     unawaited(ref.read(onboardingStepListenableProvider).refresh());
   }
 }

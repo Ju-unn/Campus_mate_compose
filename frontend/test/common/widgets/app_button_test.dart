@@ -169,4 +169,55 @@ void main() {
       expect(style.foregroundColor?.resolve({WidgetState.disabled}), AppColors.disabled);
     });
   });
+
+  // 계획서 D8 — 06-1 예시 `k5Gv4l`: 저장 중엔 글자 자리에 흰 20 스피너(`sMuCd`), 누름은 막는다.
+  group('AppButton 저장 중(isLoading)', () {
+    testWidgets('글자 대신 흰 20 스피너가 돈다', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(home: Scaffold(body: AppButton(label: '저장', onPressed: () {}, isLoading: true))),
+      );
+
+      expect(find.text('저장'), findsNothing);
+      final spinner = find.descendant(of: find.byType(AppButton), matching: find.byType(CircularProgressIndicator));
+      expect(spinner, findsOneWidget);
+      expect(tester.getSize(spinner), const Size(20, 20));
+      expect(tester.widget<CircularProgressIndicator>(spinner).color, AppColors.onPrimary);
+    });
+
+    testWidgets('스피너 선 두께는 2 — 앱의 다른 작은 스피너와 같다(대장 09-28, pen `sMuCd` 값이 오면 다시 맞춘다)', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(home: Scaffold(body: AppButton(label: '저장', onPressed: () {}, isLoading: true))),
+      );
+
+      expect(tester.widget<CircularProgressIndicator>(find.byType(CircularProgressIndicator)).strokeWidth, 2);
+    });
+
+    testWidgets('눌러도 onPressed 가 불리지 않는다', (tester) async {
+      var tapped = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: AppButton(label: '저장', onPressed: () => tapped = true, isLoading: true)),
+        ),
+      );
+
+      await tester.tap(find.byType(AppButton));
+
+      expect(tapped, isFalse);
+    });
+
+    testWidgets('채움은 꺼진 회색이 아니라 평상시 primary 그대로다 — 흰 스피너가 보여야 한다', (tester) async {
+      // 화면은 저장 중이면 onPressed 를 null 로 넘긴다(canSubmit 에 isSubmitting 이 들어 있다).
+      final style = await styleOf(tester, const AppButton(label: '저장', onPressed: null, isLoading: true));
+
+      expect(style.backgroundColor?.resolve({WidgetState.disabled}), AppColors.primary);
+    });
+
+    testWidgets('낭독기에는 버튼 이름이 그대로 들린다', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(home: Scaffold(body: AppButton(label: '저장', onPressed: () {}, isLoading: true))),
+      );
+
+      expect(find.bySemanticsLabel('저장'), findsOneWidget);
+    });
+  });
 }

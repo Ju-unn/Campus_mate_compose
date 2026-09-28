@@ -16,8 +16,13 @@ import 'package:campus_mate/home/view/home_screen.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:campus_mate/matching/view/conversations_screen.dart';
 import 'package:campus_mate/me/model/me_repository_provider.dart';
+import 'package:campus_mate/me/model/my_profile.dart';
 import 'package:campus_mate/me/view/my_profile_screen.dart';
+import 'package:campus_mate/me/view/profile_edit_screen.dart';
 import 'package:campus_mate/profile/model/onboarding_step.dart';
+import 'package:campus_mate/profile/view/ideal_conditions_screen.dart';
+import 'package:campus_mate/profile/view/tag_picker_screen.dart';
+import 'package:campus_mate/profile/viewmodel/tag_picker_kind.dart';
 import 'package:campus_mate/safety/model/safety_repository_provider.dart';
 import 'package:campus_mate/safety/view/block_list_screen.dart';
 import 'package:campus_mate/safety/view/partner_profile_screen.dart';
@@ -36,6 +41,22 @@ import '../../safety/model/fake_safety_repository.dart';
 /// 이 파일은 경로·화면 연결만 본다. 게이트별 이동 규칙은 auth_redirect_test 가 맡는다.
 VerificationGate _passedGate() => VerificationGate.complete;
 OnboardingStep _passedStep() => OnboardingStep.complete;
+
+/// 나 탭 편집 화면이 읽는 내 프로필(지어낸 값).
+const _meProfile = MyProfile(
+  nickname: '여우',
+  age: 23,
+  university: '가나대학교',
+  major: null,
+  heightCm: null,
+  mbti: null,
+  avatarUrl: null,
+  preferredAgeMin: 22,
+  preferredAgeMax: 27,
+  preferredHeightMin: null,
+  preferredHeightMax: null,
+  bio: '안녕하세요',
+);
 
 const _onboardingPaths = <String>[
   AppRoutes.onboardingBasicInfo,
@@ -318,6 +339,71 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(AccountSuspendedScreen), findsOneWidget);
+    });
+  });
+
+  // 나 탭 편집(계획서 A2) — 완료한 사람이 가면 돌려보내지지 않고 그 화면이 편집 모드로 뜬다.
+  group('나 탭 편집 경로', () {
+    Future<GoRouter> pumpRouter(WidgetTester tester) async {
+      final router = AppRouter.create(
+        isAuthenticated: () => true,
+        verificationGate: _passedGate,
+        onboardingStep: _passedStep,
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            // 첫 화면(홈)이 하단 내비 뱃지와 요약을 읽는다.
+            cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
+            chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
+            homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
+            meRepositoryProvider.overrideWithValue(FakeMeRepository(const Success(_meProfile))),
+          ],
+          child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+        ),
+      );
+      return router;
+    }
+
+    testWidgets('/me/edit 는 15c 자기소개·태그 수정이다', (tester) async {
+      final router = await pumpRouter(tester);
+
+      router.go(AppRoutes.myProfileEdit);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ProfileEditScreen), findsOneWidget);
+    });
+
+    testWidgets('/me/ideal-conditions 는 06-1 편집 모드다', (tester) async {
+      final router = await pumpRouter(tester);
+
+      router.go(AppRoutes.myIdealConditions);
+      await tester.pumpAndSettle();
+
+      expect(tester.widget<IdealConditionsScreen>(find.byType(IdealConditionsScreen)).isEditing, isTrue);
+    });
+
+    for (final kind in TagPickerKind.values) {
+      testWidgets('/me/edit/tags/${kind.endpoint} 는 ${kind.name} 태그 편집 모드다', (tester) async {
+        final router = await pumpRouter(tester);
+
+        router.go('${AppRoutes.myTags}/${kind.endpoint}');
+        await tester.pumpAndSettle();
+
+        final screen = tester.widget<TagPickerScreen>(find.byType(TagPickerScreen));
+        expect((screen.kind, screen.isEditing), (kind, true));
+      });
+    }
+
+    testWidgets('없는 태그 종류(/me/edit/tags/없는값)는 15c 로 보낸다', (tester) async {
+      final router = await pumpRouter(tester);
+
+      router.go('${AppRoutes.myTags}/없는값');
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ProfileEditScreen), findsOneWidget);
+      expect(find.byType(TagPickerScreen), findsNothing);
     });
   });
 
