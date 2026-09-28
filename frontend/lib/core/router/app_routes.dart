@@ -79,4 +79,9 @@ abstract final class AppRoutes {
   static const String myProfileEdit = '/me/edit';
   static const String myIdealConditions = '/me/ideal-conditions';
   static const String myTags = '/me/edit/tags'; // `/me/edit/tags/:kind` — TagPickerKind.endpoint
+
+  /// 무료로 하트 모으기 — 18a 목록, 18b 인증샷 제출(`/heart-tasks/submit/:task`, 반려 뒤면 `?reason=`), 18c 검수 대기
+  static const String heartTasks = '/heart-tasks';
+  static const String heartTaskSubmit = '/heart-tasks/submit';
+  static const String heartTaskPending = '/heart-tasks/pending';
 }

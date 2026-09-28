@@ -7,6 +7,10 @@ import 'package:campus_mate/auth/view/school_info_screen.dart';
 import 'package:campus_mate/auth/view/sign_up_screen.dart';
 import 'package:campus_mate/auth/view/student_verification_screen.dart';
 import 'package:campus_mate/auth/view/verify_code_screen.dart';
+import 'package:campus_mate/billing/model/heart_task.dart';
+import 'package:campus_mate/billing/view/heart_task_pending_screen.dart';
+import 'package:campus_mate/billing/view/heart_task_submit_screen.dart';
+import 'package:campus_mate/billing/view/heart_tasks_screen.dart';
 import 'package:campus_mate/chat/view/chat_room_screen.dart';
 import 'package:campus_mate/community/view/community_feed_screen.dart';
 import 'package:campus_mate/community/view/poll_composer_screen.dart';
@@ -130,6 +134,18 @@ abstract final class AppRouter {
         path: '${AppRoutes.partnerProfile}/:profileId',
         builder: (context, state) => PartnerProfileScreen(profileId: state.pathParameters['profileId']!),
       ),
+      GoRoute(path: AppRoutes.heartTasks, builder: (context, state) => const HeartTasksScreen()),
+      GoRoute(
+        path: '${AppRoutes.heartTaskSubmit}/:task',
+        // 인증샷 항목이 아니면(투표 · 잘못된 값) 18a 로 돌려보낸다.
+        redirect: (context, state) =>
+            HeartTaskKind.tryParse(state.pathParameters['task'])?.needsProof == true ? null : AppRoutes.heartTasks,
+        builder: (context, state) => HeartTaskSubmitScreen(
+          kind: HeartTaskKind.tryParse(state.pathParameters['task'])!,
+          rejectReason: HeartTaskRejectReason.tryParse(state.uri.queryParameters['reason']),
+        ),
+      ),
+      GoRoute(path: AppRoutes.heartTaskPending, builder: (context, state) => const HeartTaskPendingScreen()),
     ];
   }
 

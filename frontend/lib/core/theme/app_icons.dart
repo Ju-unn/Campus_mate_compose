@@ -89,4 +89,10 @@ abstract final class AppIcons {
 
   /// 화면 15 "자기소개 · 태그" 입구 행 (pen `m2szef`)
   static const IconData tags = LucideIcons.tags;
+
+  /// 18a 무료로 하트 모으기 줄 아이콘(pen R99dx `Fwoqx`) · 16 설정 행(`JWxQo`).
+  static const IconData megaphone = LucideIcons.megaphone;
+  static const IconData share2 = LucideIcons.share2;
+  static const IconData vote = LucideIcons.vote;
+  static const IconData gift = LucideIcons.gift;
 }
