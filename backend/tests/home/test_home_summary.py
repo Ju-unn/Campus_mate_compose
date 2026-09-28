@@ -1,4 +1,7 @@
+import json
+import logging
 from collections.abc import Callable
+from datetime import datetime, timedelta, timezone
 
 import httpx
 import pytest
@@ -51,15 +54,17 @@ def _wire(handler: Callable[[httpx.Request], httpx.Response], verification: str 
     return TestClient(app)
 
 
-def _handler(profile: dict, seen: list[httpx.Request] | None = None):
+def _handler(profile: dict, seen: list[httpx.Request] | None = None, touch_status: int = 204):
     def handler(request: httpx.Request) -> httpx.Response:
         if seen is not None:
             seen.append(request)
         if request.method == "POST" and request.url.path.endswith("/rpc/home_stats"):
             return httpx.Response(200, json=[STATS_ROW])
-        if request.method == "GET" and request.url.path.endswith("/profiles") \
-                and request.url.params.get("id") == f"eq.{PROFILE_ID}":
-            return httpx.Response(200, json=[profile])
+        if request.url.path.endswith("/profiles") and request.url.params.get("id") == f"eq.{PROFILE_ID}":
+            if request.method == "GET":
+                return httpx.Response(200, json=[profile])
+            if request.method == "PATCH":
+                return httpx.Response(touch_status)
         return httpx.Response(404, json={"message": f"unexpected {request.method} {request.url}"})
     return handler
 
@@ -80,9 +85,46 @@ def test_summary_reads_my_profile_and_photo_count_in_one_request():
     seen: list[httpx.Request] = []
     _wire(_handler(FULL_PROFILE, seen)).get("/home/summary", headers=AUTH_HEADERS)
 
-    assert len(seen) == 2
-    profile_request = next(r for r in seen if r.url.path.endswith("/profiles"))
+    reads = [r for r in seen if r.method != "PATCH"]
+    assert len(reads) == 2
+    profile_request = next(r for r in reads if r.url.path.endswith("/profiles"))
     assert "profile_photos(count)" in profile_request.url.params["select"]
+
+
+# 활동 시각: 홈을 열 때 한 시간보다 오래됐을 때만 지금으로 바꾼다 ---------------------------------
+
+def _touch(seen: list[httpx.Request]) -> httpx.Request:
+    [touch] = [r for r in seen if r.method == "PATCH"]
+    return touch
+
+
+def test_summary_touches_last_active_only_when_older_than_an_hour():
+    """조건은 PostgREST 필터에 건다 — 읽고 비교한 뒤 쓰면 두 요청이 겹칠 때 둘 다 쓴다.
+    이 값이 안 바뀌면 가입 14일 뒤 카드가 끊기고 15일 뒤 남의 후보에서 빠진다(card_issue_owners · match_candidates)."""
+    seen: list[httpx.Request] = []
+    before = datetime.now(timezone.utc)
+    _wire(_handler(FULL_PROFILE, seen)).get("/home/summary", headers=AUTH_HEADERS)
+    after = datetime.now(timezone.utc)
+
+    touch = _touch(seen)
+    assert touch.url.path.endswith("/profiles")
+    assert touch.url.params["id"] == f"eq.{PROFILE_ID}"
+    op, threshold = touch.url.params["last_active_at"].split(".", 1)
+    assert op == "lt"
+    assert before - timedelta(hours=1) <= datetime.fromisoformat(threshold) <= after - timedelta(hours=1)
+    written = datetime.fromisoformat(json.loads(touch.content)["last_active_at"])
+    assert before <= written <= after
+
+
+def test_summary_succeeds_and_logs_when_the_touch_fails(caplog):
+    seen: list[httpx.Request] = []
+    with caplog.at_level(logging.WARNING, logger="app.home.router"):
+        response = _wire(_handler(FULL_PROFILE, seen, touch_status=500)).get("/home/summary", headers=AUTH_HEADERS)
+
+    assert _touch(seen)
+    assert response.status_code == 200
+    assert response.json()["profile_completion_percent"] == 100
+    assert "last_active_at" in caplog.text
 
 
 def test_summary_rejects_missing_login():
