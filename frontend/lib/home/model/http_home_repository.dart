@@ -1,5 +1,6 @@
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/http/api_client.dart';
+import 'package:campus_mate/home/model/cohort_wait.dart';
 import 'package:campus_mate/home/model/home_repository.dart';
 import 'package:campus_mate/home/model/home_summary.dart';
 
@@ -12,6 +13,7 @@ class HttpHomeRepository implements HomeRepository {
   @override
   Future<Result<HomeSummary>> fetchSummary() => _api.send('GET', '/home/summary', (body) {
         final json = body as Map<String, dynamic>;
+        final cohort = json['cohort'] as Map<String, dynamic>?;
         return HomeSummary(
           // ponytail: 서버에 아직 없는 값이라 목값을 채운다(사용자 결정 2026-09-26) — 실데이터가 생기면 교체.
           // 그림은 pen `b9Rask` · `Ch4h6` 과 같은 일러스트, 리뷰는 pen `L7wKi` 값.
@@ -23,6 +25,12 @@ class HttpHomeRepository implements HomeRepository {
           conversationsStarted: json['conversations_started'] as int,
           campuses: (json['campuses'] as List<dynamic>).cast<String>(),
           profileCompletionPercent: json['profile_completion_percent'] as int,
+          cohort: cohort == null
+              ? null
+              : CohortWait(
+                  firstCardAt: DateTime.parse(cohort['first_card_at'] as String).toLocal(),
+                  recruitCount: cohort['recruit_count'] as int,
+                ),
         );
       });
 }

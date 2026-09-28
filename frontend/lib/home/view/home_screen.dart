@@ -6,6 +6,7 @@ import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/home/model/home_summary.dart';
+import 'package:campus_mate/home/view/cohort_wait_view.dart';
 import 'package:campus_mate/home/view/mosaic_rail.dart';
 import 'package:campus_mate/home/view/notify_icon_button.dart';
 import 'package:campus_mate/home/view/stat_tile.dart';
@@ -23,6 +24,7 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final summary = ref.watch(homeSummaryProvider).value;
+    final cohort = summary?.cohort;
     return Scaffold(
       // pen `o57Mt` — 제목은 x20, 오른쪽 여백 8.
       appBar: AppBar(
@@ -35,13 +37,16 @@ class HomeScreen extends ConsumerWidget {
         ],
       ),
       bottomNavigationBar: const AppBottomNav(current: AppTab.main),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, 20),
-        children: [
-          const _HeroToday(),
-          if (summary != null) ..._summarySections(summary),
-        ],
-      ),
+      // 우리 학교가 아직 첫 카드를 안 열었으면 본문만 19 대기 화면으로 바꿔 끼운다(코호트 계획서 결정 1).
+      body: cohort != null
+          ? CohortWaitView(cohort: cohort)
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, 20),
+              children: [
+                const _HeroToday(),
+                if (summary != null) ..._summarySections(summary),
+              ],
+            ),
     );
   }
 

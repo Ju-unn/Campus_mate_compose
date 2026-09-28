@@ -72,6 +72,41 @@ void main() {
     expect(summary.reviewCount, 143);
   });
 
+  test('cohort 가 null 이면 대기 없음이다(이미 열린 학교)', () async {
+    final client = MockClient((_) async => jsonResponse({
+          'delivered_cards': 0,
+          'signups': 0,
+          'conversations_started': 0,
+          'campuses': <String>[],
+          'profile_completion_percent': 60,
+          'cohort': null,
+        }));
+
+    final result = await buildRepository(client).fetchSummary();
+
+    final summary = result.when<HomeSummary?>(onSuccess: (s) => s, onFailure: (_) => null)!;
+    expect(summary.cohort, isNull);
+  });
+
+  test('cohort 가 있으면 첫 카드 시각(기기 시간대)과 모집 인원을 읽는다', () async {
+    final client = MockClient((_) async => jsonResponse({
+          'delivered_cards': 0,
+          'signups': 0,
+          'conversations_started': 0,
+          'campuses': <String>[],
+          'profile_completion_percent': 60,
+          // 서울 월요일 07:00 = UTC 일요일 22:00. PostgREST 는 +00:00 으로 준다.
+          'cohort': {'first_card_at': '2099-01-04T22:00:00+00:00', 'recruit_count': 87},
+        }));
+
+    final result = await buildRepository(client).fetchSummary();
+
+    final cohort = result.when<HomeSummary?>(onSuccess: (s) => s, onFailure: (_) => null)!.cohort!;
+    expect(cohort.firstCardAt.toUtc(), DateTime.utc(2099, 1, 4, 22));
+    expect(cohort.firstCardAt.isUtc, isFalse, reason: '화면은 기기 시간대의 달력 날짜로 D-숫자를 센다');
+    expect(cohort.recruitCount, 87);
+  });
+
   test('서버 오류면 실패를 돌려준다', () async {
     final client = MockClient((_) async => jsonResponse({'detail': 'boom'}, 500));
 
