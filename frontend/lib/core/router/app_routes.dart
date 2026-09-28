@@ -48,6 +48,9 @@ abstract final class AppRoutes {
   static const String settings = '/settings';
   static const String notificationSettings = '/settings/notifications';
 
+  /// 조각 6 A6 — 16e-1 카카오톡 아이디 변경(pen `bWrnD`). 16e 계정 줄과 14f "변경" 이 연다(flat 경로, 프로필탭 합의).
+  static const String kakaoIdSettings = '/settings/account/kakao-id';
+
   /// 조각 5 — 채팅방(화면 14). `/chat/:matchId`
   static const String chatRoom = '/chat';
 
@@ -58,6 +61,9 @@ abstract final class AppRoutes {
   /// 조각 6 — 연락처(지인) 차단 관리(화면 16b)와 차단할 연락처 선택(8d)
   static const String contactBlocks = '/settings/contact-blocks';
   static const String contactPicker = '/settings/contact-blocks/pick';
+
+  /// 조각 6 A4 — 정지 안내(pen `e7QaDh`). 정지된 계정은 어느 화면에서든 여기로 간다.
+  static const String accountSuspended = '/account-suspended';
 
   /// 아직 화면이 없는 탭 — 자리 화면으로 보낸다(커뮤니티 조각 6, 내 프로필 후속)
   static const String community = '/community';
