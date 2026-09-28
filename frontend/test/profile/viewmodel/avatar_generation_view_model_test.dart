@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/profile/model/avatar_generation_outcome.dart';
@@ -220,6 +222,76 @@ void main() {
 
     expect(state().canRetry, isTrue);
     expect(repository.generateCount, 0);
+  });
+
+  group('화면 15 다시 만들기(15b regenerate)', () {
+    test('등록하면 만드는 중이 되고 곧바로 상태를 묻는다', () async {
+      // 재등록도 202 pending 이다 — 결과는 워커가 만든 뒤에 오니 여기서 폴링을 시작해야 한다.
+      final message = await viewModel().regenerate();
+
+      expect(message, isNull);
+      expect(repository.regenerateCount, 1);
+      expect(repository.generateCount, 0);
+      expect(repository.statusCount, 1);
+      expect(state().status, AvatarGenerationStatus.generating);
+    });
+
+    test('등록 뒤에도 5초마다 다시 묻는다', () async {
+      final vm = viewModel();
+      await vm.regenerate();
+      expect(repository.statusCount, 1);
+
+      await Future<void>.delayed(const Duration(seconds: 6));
+
+      expect(repository.statusCount, 2);
+    }, timeout: const Timeout(Duration(seconds: 30)));
+
+    test('등록이 끝나기 전에 또 눌러도 유료 호출은 한 번이다', () async {
+      // 돈이 나가는 길이다(D14 — 59초 사이 유료 호출 2회). 앱 쪽 가드가 generate 와 같아야 한다.
+      repository.generateGate = Completer<void>();
+      final vm = viewModel();
+
+      final first = vm.regenerate();
+      // 두 번째를 기다리기 전에 문을 연다 — 가드가 없으면 교착(시간 초과) 대신 "2회" 로 바로 떨어진다.
+      final second = vm.regenerate();
+      repository.generateGate!.complete();
+      await first;
+
+      expect(await second, isNull);
+      expect(repository.regenerateCount, 1);
+    });
+
+    test('응답만 놓치면(네트워크) 실패로 두지 않고 상태를 물어 이어 간다', () async {
+      // 서버는 이미 큐에 넣었을 수 있다 — 여기서 실패로 두면 15-3 "하트는 차감되지 않았어요" 가 거짓이 된다.
+      repository.nextResult = const FailureResult(NetworkFailure());
+
+      final message = await viewModel().regenerate();
+
+      expect(message, isNull);
+      expect(state().status, AvatarGenerationStatus.generating);
+      expect(repository.statusCount, 1);
+    });
+
+    test('하트가 모자라다고(402) 답하면 그 문구를 돌려주고 상태를 묻지 않는다', () async {
+      // 시트를 연 사이에 잔액이 줄었을 때. 화면 15 가 이 문구를 토스트로 보여 준다.
+      repository.nextResult = const FailureResult(ServerRejectedFailure('하트가 모자라요'));
+
+      final message = await viewModel().regenerate();
+
+      expect(message, '하트가 모자라요');
+      expect(state().status, AvatarGenerationStatus.failed);
+      expect(state().errorMessage, '하트가 모자라요');
+      expect(repository.statusCount, 0);
+    });
+
+    test('등록이 실패하면 실패 문구를 돌려준다', () async {
+      repository.nextResult = const FailureResult(ServerUnavailableFailure());
+
+      final message = await viewModel().regenerate();
+
+      expect(message, '잠시 뒤 다시 시도해 주세요');
+      expect(state().canRetry, isTrue);
+    });
   });
 
   test('다시 만들기가 실패해도 상태를 다시 물어 화면에 갇히지 않는다', () async {

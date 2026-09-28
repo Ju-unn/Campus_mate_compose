@@ -64,6 +64,37 @@ class AvatarGenerationViewModel extends Notifier<AvatarGenerationUiState> {
     await refreshStatus();
   }
 
+  /// 15b "만들기". 등록 → 상태 묻기는 [retry] 와 같은 모양이다 — 결과는 워커가 만든 뒤에 온다.
+  /// 하트는 서버가 **완성된 뒤에만** 뺀다(계획서 T2) — 여기서 잔액을 고치지 않는다. 화면 15 가 다시 읽는다.
+  ///
+  /// 온보딩 [generate] 와 달리 실패를 그냥 넘기지 않는다 — 402(하트 모자람) 등 문구를 화면 15 토스트가 보여 준다.
+  Future<String?> regenerate() async {
+    if (state.isGenerating) {
+      return null;
+    }
+    state = const AvatarGenerationUiState(status: AvatarGenerationStatus.generating);
+    final result = await ref.read(avatarRepositoryProvider).regenerateAvatar();
+    final message = result.when(
+      onSuccess: (outcome) {
+        state = _fromOutcome(outcome);
+        return null;
+      },
+      onFailure: (failure) {
+        // 응답만 놓쳤으면 서버는 이미 큐에 넣었을 수 있다 — 실패로 두면 15-3 "하트는 차감되지 않았어요" 가 뒤늦게
+        // 거짓이 된다. [_blockingMessage] 처럼 만드는 중으로 두고 상태 조회(가장 최근 시도)에 맡긴다.
+        if (failure is NetworkFailure) {
+          return null;
+        }
+        state = AvatarGenerationUiState(status: AvatarGenerationStatus.failed, errorMessage: failure.toDisplayMessage());
+        return failure.toDisplayMessage();
+      },
+    );
+    if (message == null) {
+      await refreshStatus();
+    }
+    return message;
+  }
+
   /// 결과 화면에 들어올 때 한 번, 그 뒤 만드는 중이면 [_pollInterval] 마다.
   Future<void> refreshStatus() async {
     final result = await ref.read(avatarRepositoryProvider).fetchAvatarStatus();
