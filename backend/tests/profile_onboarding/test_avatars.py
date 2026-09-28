@@ -1,9 +1,10 @@
 from unittest.mock import AsyncMock
 
 import httpx
+import pytest
 from openai import AsyncOpenAI
 
-from app.profile_onboarding.avatars import AvatarGenerator, MAX_CONSECUTIVE_FAILURES
+from app.profile_onboarding.avatars import AvatarGenerator, MAX_CONSECUTIVE_FAILURES, avatar_regen_cost
 
 # student_id_content_type 이 매직바이트로 JPEG 라고 인정하는 최소 바이트열.
 _JPEG_BYTES = b"\xff\xd8\xff" + b"0" * 32
@@ -122,3 +123,9 @@ async def test_generate_resets_failure_count_after_success():
     await generator.generate("profile-id", _JPEG_BYTES)
 
     assert failure_counts["profile-id"] == 0
+
+
+@pytest.mark.parametrize(("ready_count", "cost"), [(0, 0), (1, 0), (2, 10), (5, 10)])
+def test_avatar_regen_cost_is_free_once_after_the_first_avatar(ready_count, cost):
+    # 0 = 온보딩 첫 생성, 1 = 다음 한 번 무료, 2 이상 = 10하트(ERD 12줄, spec 93줄).
+    assert avatar_regen_cost(ready_count) == cost
