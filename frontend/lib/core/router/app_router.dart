@@ -24,6 +24,7 @@ import 'package:campus_mate/matching/view/notification_settings_screen.dart';
 import 'package:campus_mate/matching/view/settings_screen.dart';
 import 'package:campus_mate/matching/view/today_cards_screen.dart';
 import 'package:campus_mate/me/view/my_profile_screen.dart';
+import 'package:campus_mate/me/view/profile_edit_screen.dart';
 import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:campus_mate/profile/view/acquisition_screen.dart';
 import 'package:campus_mate/profile/view/appearance_type_screen.dart';
@@ -89,7 +90,31 @@ abstract final class AppRouter {
       ..._onboardingRoutes(),
       ..._slice4Routes(),
       ..._slice6Routes(),
+      ..._meRoutes(),
     ];
+  }
+
+  /// 나 탭 편집(계획서 2026-09-27-me-edit.md A2) — 15c, 그리고 온보딩 06-1 · 태그 3종을 편집 모드로 다시 띄운다.
+  /// 화면 15 · 15c 에서 push 로 연다.
+  static List<RouteBase> _meRoutes() {
+    return <RouteBase>[
+      GoRoute(path: AppRoutes.myProfileEdit, builder: (context, state) => const ProfileEditScreen()),
+      GoRoute(
+        path: AppRoutes.myIdealConditions,
+        builder: (context, state) => const IdealConditionsScreen(isEditing: true),
+      ),
+      GoRoute(
+        path: '${AppRoutes.myTags}/:kind',
+        // 모르는 종류면 15c 로 돌려보낸다 — 화면이 kind 없이는 뜰 수 없다.
+        redirect: (context, state) => _tagKind(state) == null ? AppRoutes.myProfileEdit : null,
+        builder: (context, state) => TagPickerScreen(kind: _tagKind(state)!, isEditing: true),
+      ),
+    ];
+  }
+
+  static TagPickerKind? _tagKind(GoRouterState state) {
+    final endpoint = state.pathParameters['kind'];
+    return TagPickerKind.values.where((kind) => kind.endpoint == endpoint).firstOrNull;
   }
 
   /// 조각 6 — 16f 차단 목록(설정 아래), 14c 상대 프로필(채팅방 14b "상대 프로필 보기"),

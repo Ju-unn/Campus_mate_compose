@@ -67,6 +67,17 @@ void main() {
       expect(redirect.resolve(AppRoutes.onboardingReferral), isNull);
       expect(redirect.resolve(AppRoutes.onboardingAcquisition), isNull);
     });
+
+    // 나 탭 편집은 온보딩 화면을 `/me/...` 에 다시 띄운다 — `/onboarding/...` 이 아니라 돌려보내지지 않는다(계획서 A2).
+    test('나 탭 편집 경로에는 머문다', () {
+      for (final path in [
+        AppRoutes.myProfileEdit,
+        AppRoutes.myIdealConditions,
+        '${AppRoutes.myTags}/interests',
+      ]) {
+        expect(redirect.resolve(path), isNull, reason: path);
+      }
+    });
   });
 
   group('게이트를 통과하지 못한 사용자', () {
@@ -112,6 +123,14 @@ void main() {
       const redirect = AuthRedirect(true, VerificationGate.complete, OnboardingStep.basicInfo);
 
       expect(redirect.resolve(AppRoutes.onboardingBio), AppRoutes.onboardingBasicInfo);
+    });
+
+    test('나 탭 편집 경로로 가도 남은 온보딩 화면으로 보낸다', () {
+      const redirect = AuthRedirect(true, VerificationGate.complete, OnboardingStep.interests);
+
+      for (final path in [AppRoutes.myProfileEdit, AppRoutes.myIdealConditions, '${AppRoutes.myTags}/interests']) {
+        expect(redirect.resolve(path), AppRoutes.onboardingInterests, reason: path);
+      }
     });
 
     test('photos 단계에서는 04-3 아바타 사진 고르기에 머물 수 있다', () {
