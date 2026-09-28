@@ -1,9 +1,11 @@
+import 'package:campus_mate/core/auth/sign_out.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:campus_mate/matching/view/settings_screen.dart';
 import 'package:campus_mate/safety/model/safety_repository_provider.dart';
 import 'package:campus_mate/safety/view/block_list_screen.dart';
+import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,12 +15,16 @@ import '../../safety/model/fake_safety_repository.dart';
 import '../model/fake_card_repository.dart';
 
 void main() {
+  var signOutCalls = 0;
+
   Future<FakeCardRepository> pump(WidgetTester tester) async {
+    signOutCalls = 0;
     final repository = FakeCardRepository();
     final container = ProviderContainer(
       overrides: [
         cardRepositoryProvider.overrideWithValue(repository),
         safetyRepositoryProvider.overrideWithValue(FakeSafetyRepository()),
+        signOutProvider.overrideWithValue(() async => signOutCalls++),
       ],
     );
     addTearDown(container.dispose);
@@ -42,6 +48,15 @@ void main() {
   }
 
   Finder tile(String title) => find.ancestor(of: find.text(title), matching: find.byType(ListTile));
+
+  // 줄 제목과 시트 확인 버튼 글자가 둘 다 "로그아웃" 이다 — 시트 안으로 좁혀 찾는다.
+  Finder inSheet(String text) =>
+      find.descendant(of: find.byType(SafetyConfirmSheet), matching: find.text(text));
+
+  Future<void> openLogoutSheet(WidgetTester tester) async {
+    await tester.tap(find.text('로그아웃'));
+    await tester.pumpAndSettle();
+  }
 
   testWidgets('매칭 활성화를 끄면 일시중지 참으로 보낸다', (tester) async {
     final repository = await pump(tester);
@@ -81,5 +96,53 @@ void main() {
       final material = find.ancestor(of: tiles.at(i), matching: find.byType(Material)).first;
       expect(tester.getSize(material), tester.getSize(tiles.at(i)));
     }
+  });
+
+  testWidgets('"로그아웃" 줄은 차단 목록 아래, log-out 아이콘과 셰브런이다(pen lMDpY ErFPL)', (tester) async {
+    await pump(tester);
+
+    expect(tile('로그아웃'), findsOneWidget);
+    expect(tester.getRect(tile('로그아웃')).top, tester.getRect(tile('차단 목록')).bottom);
+    expect(find.descendant(of: tile('로그아웃'), matching: find.byIcon(AppIcons.logOut)), findsOneWidget);
+    expect(find.descendant(of: tile('로그아웃'), matching: find.byIcon(AppIcons.chevronRight)), findsOneWidget);
+  });
+
+  testWidgets('"로그아웃" 을 누르면 16g 문구가 보인다(pen ZkOEb)', (tester) async {
+    await pump(tester);
+    await openLogoutSheet(tester);
+
+    expect(inSheet('로그아웃할까요?'), findsOneWidget);
+    expect(inSheet('다시 로그인하려면 학교 이메일로 인증 코드를 한 번 더 받아야 해요.'), findsOneWidget);
+    expect(inSheet('로그아웃'), findsOneWidget);
+    expect(inSheet('취소'), findsOneWidget);
+  });
+
+  testWidgets('확인하면 시트가 닫히고 로그아웃을 한 번 부른다 — 빠르게 두 번 눌러도 한 번', (tester) async {
+    await pump(tester);
+    await openLogoutSheet(tester);
+
+    await tester.tap(inSheet('로그아웃'));
+    await tester.pump();
+    // 닫히는 중인 시트를 한 번 더 누른다 — 두 번째 pop 이 설정 화면까지 닫으면 안 된다.
+    await tester.tap(inSheet('로그아웃'), warnIfMissed: false);
+    await tester.pumpAndSettle();
+
+    expect(signOutCalls, 1);
+    expect(find.byType(SafetyConfirmSheet), findsNothing);
+    expect(find.byType(SettingsScreen), findsOneWidget);
+  });
+
+  testWidgets('취소 · 바깥 누르기는 로그아웃을 부르지 않는다', (tester) async {
+    await pump(tester);
+
+    await openLogoutSheet(tester);
+    await tester.tap(inSheet('취소'));
+    await tester.pumpAndSettle();
+    await openLogoutSheet(tester);
+    await tester.tapAt(const Offset(10, 10)); // 딤
+    await tester.pumpAndSettle();
+
+    expect(signOutCalls, 0);
+    expect(find.byType(SafetyConfirmSheet), findsNothing);
   });
 }
