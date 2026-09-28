@@ -6,15 +6,15 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   // 화면 15 본문 폭 328(360 - 좌우 16) 에 놓는다.
-  Future<void> pump(WidgetTester tester) async {
+  Future<void> pump(WidgetTester tester, {VoidCallback? onTap}) async {
     await tester.pumpWidget(
-      const MaterialApp(
+      MaterialApp(
         home: Scaffold(
           body: Align(
             alignment: Alignment.topLeft,
             child: SizedBox(
               width: 328,
-              child: ProfileEntryRow(icon: AppIcons.calendar, title: '선호 나이 범위', note: '22세–27세'),
+              child: ProfileEntryRow(icon: AppIcons.calendar, title: '선호 나이 범위', note: '22세–27세', onTap: onTap),
             ),
           ),
         ),
@@ -69,12 +69,48 @@ void main() {
     expect(tester.getTopLeft(find.text('22세–27세')).dy - tester.getBottomLeft(find.text('선호 나이 범위')).dy, 3);
   });
 
-  testWidgets('누를 곳이 없다 — 값 수정 화면이 아직 없다(사용자 결정 2026-09-27)', (tester) async {
+  testWidgets('onTap 이 없으면 누를 곳이 없다', (tester) async {
     await pump(tester);
 
     final row = find.byType(ProfileEntryRow);
     expect(find.descendant(of: row, matching: find.byType(InkWell)), findsNothing);
     expect(find.descendant(of: row, matching: find.byType(GestureDetector)), findsNothing);
+  });
+
+  group('onTap 이 있으면(U1 — 셰브런이 값 수정 화면으로 잇는다)', () {
+    testWidgets('행 전체를 누르면 onTap 이 불린다', (tester) async {
+      var taps = 0;
+      await pump(tester, onTap: () => taps++);
+
+      await tester.tap(find.byType(ProfileEntryRow));
+
+      expect(taps, 1);
+    });
+
+    testWidgets('채움 · 모서리는 행 크기 Material 이 칠하고, 눌림 효과도 그 Material 에 그린다(COMMON §4-2)', (tester) async {
+      await pump(tester, onTap: () {});
+
+      final row = find.byType(ProfileEntryRow);
+      final ink = find.descendant(of: row, matching: find.byType(InkWell));
+      final painter = find.ancestor(of: ink, matching: find.byType(Material)).first;
+      // 가장 가까운 Material 이 화면(Scaffold)이면 스크롤 뒤 눌림 효과가 공중에 뜬다.
+      expect(tester.getSize(painter), const Size(328, 84));
+      expect(tester.getSize(ink), const Size(328, 84));
+      final material = tester.widget<Material>(painter);
+      expect((material.color, material.borderRadius), (AppColors.surfaceSoft, BorderRadius.circular(14)));
+      // 채움은 Material 한 곳만 — 안쪽 상자가 또 칠하면 눌림 효과가 그 밑에 깔려 안 보인다.
+      final fills = tester.widgetList<Container>(find.descendant(of: row, matching: find.byType(Container)));
+      expect(fills.where((c) => (c.decoration as BoxDecoration?)?.color == AppColors.surfaceSoft), isEmpty);
+    });
+
+    testWidgets('pen 규격은 그대로 — 328×84, 받침 원 (16,20), 셰브런 (292,32)', (tester) async {
+      await pump(tester, onTap: () {});
+
+      expect(tester.getSize(find.byType(ProfileEntryRow)), const Size(328, 84));
+      final surface = find.ancestor(of: find.byIcon(AppIcons.calendar), matching: find.byType(Container)).first;
+      expect(rectOf(tester, surface), const Rect.fromLTWH(16, 20, 44, 44));
+      expect(rectOf(tester, find.byIcon(AppIcons.chevronRight)), const Rect.fromLTWH(292, 32, 20, 20));
+    });
   });
 
   testWidgets('글자 배율 2.0 이면 넘치지 않고 행이 늘어난다(높이 84 는 최소값)', (tester) async {

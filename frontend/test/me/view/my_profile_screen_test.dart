@@ -125,6 +125,10 @@ void main() {
       routes: [
         GoRoute(path: AppRoutes.myProfile, builder: (context, state) => const MyProfileScreen()),
         GoRoute(path: AppRoutes.settings, builder: (context, state) => const Scaffold(body: Text('설정 화면'))),
+        GoRoute(
+          path: AppRoutes.myIdealConditions,
+          builder: (context, state) => const Scaffold(body: Text('06-1 편집 화면')),
+        ),
       ],
     );
     addTearDown(router.dispose);
@@ -361,7 +365,35 @@ void main() {
       expect((age.icon, age.title, age.note), (AppIcons.calendar, '선호 나이 범위', '22세–27세'));
       expect((height.icon, height.title, height.note), (AppIcons.ruler, '선호 키 범위', '165cm ~ 180cm'));
       expect(find.descendant(of: rows, matching: find.byIcon(AppIcons.chevronRight)), findsNWidgets(2));
-      expect(find.descendant(of: rows, matching: find.byType(InkWell)), findsNothing);
+    });
+
+    // U1 — 셰브런은 값을 고치는 화면(06-1 편집)으로 잇는다. 두 행 모두 같은 화면이다(06-1 에 나이 · 키가 같이 있다).
+    for (final (index, title) in [(0, '선호 나이 범위'), (1, '선호 키 범위')]) {
+      testWidgets('"$title" 행을 누르면 06-1 편집(`/me/ideal-conditions`)으로 간다', (tester) async {
+        await pump(tester);
+        await showRows(tester);
+        await tester.ensureVisible(find.byType(ProfileEntryRow).at(index));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text(title));
+        await tester.pumpAndSettle();
+
+        expect(find.text('06-1 편집 화면'), findsOneWidget);
+      });
+    }
+
+    testWidgets('눌림 효과 · 채움은 스크롤 밖이 아니라 행 크기 Material 이 그린다(COMMON §4-2)', (tester) async {
+      usePenFrame(tester);
+      await pump(tester);
+      await showRows(tester);
+
+      final rows = find.byType(ProfileEntryRow);
+      for (var i = 0; i < 2; i++) {
+        final ink = find.descendant(of: rows.at(i), matching: find.byType(InkWell));
+        final painter = find.ancestor(of: ink, matching: find.byType(Material)).first;
+        expect(tester.getSize(painter), const Size(328, 84));
+        expect(tester.getSize(ink), const Size(328, 84));
+      }
     });
 
     Future<String> noteOf(WidgetTester tester, int index, MyProfile profile) async {
