@@ -51,6 +51,10 @@ abstract final class AppRoutes {
   static const String blockList = '/settings/blocks';
   static const String partnerProfile = '/profiles';
 
+  /// 조각 6 — 연락처(지인) 차단 관리(화면 16b)와 차단할 연락처 선택(8d)
+  static const String contactBlocks = '/settings/contact-blocks';
+  static const String contactPicker = '/settings/contact-blocks/pick';
+
   /// 아직 화면이 없는 탭 — 자리 화면으로 보낸다(커뮤니티 조각 6, 내 프로필 후속)
   static const String community = '/community';
   static const String communityNew = '/community/new';
