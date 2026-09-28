@@ -73,4 +73,10 @@ abstract final class AppRoutes {
   static const String communityNew = '/community/new';
   static const String communityPoll = '/community/polls'; // `/community/polls/:pollId`
   static const String myProfile = '/me';
+
+  /// 나 탭 편집(계획서 2026-09-27-me-edit.md) — 15c 자기소개·태그, 그리고 온보딩 화면을 편집 모드로 다시 띄우는 자리.
+  /// `/onboarding/...` 은 완료한 사람을 홈으로 돌려보내므로(AuthRedirect) 경로를 따로 둔다.
+  static const String myProfileEdit = '/me/edit';
+  static const String myIdealConditions = '/me/ideal-conditions';
+  static const String myTags = '/me/edit/tags'; // `/me/edit/tags/:kind` — TagPickerKind.endpoint
 }
