@@ -12,6 +12,7 @@ from app.chat.batch_router import router as chat_batch_router
 from app.chat.router import router as chat_router
 from app.community.router import router as community_router
 from app.core.deps import get_settings
+from app.friend_reviews.router import router as friend_reviews_router
 from app.home.router import router as home_router
 from app.matching.router import router as matching_router
 from app.me.router import router as me_router
@@ -55,6 +56,7 @@ app.include_router(community_router)
 app.include_router(account_batch_router)
 app.include_router(account_router)
 app.include_router(referral_router)
+app.include_router(friend_reviews_router)
 
 
 @app.get("/health")
