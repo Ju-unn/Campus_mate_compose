@@ -7,6 +7,9 @@ from fastapi import APIRouter, Depends, Header
 from app.account.repository import AccountRepository, SupabaseAdmin
 from app.core.batch_auth import verify_batch_caller
 from app.core.deps import get_client, get_now, get_settings
+from app.heart_tasks.cleanup import purge_reviewed_proofs
+from app.heart_tasks.repository import HeartTaskRepository
+from app.heart_tasks.storage import HeartProofStorage
 from app.settings import Settings
 from app.signup_policy import IDENTITY_KEY_VERSION
 
@@ -21,7 +24,7 @@ REPORT_RETENTION = timedelta(days=365)
 # ponytail: 한 번에 100명. 남은 사람은 다음 날 이어서 지운다 — 하루 탈퇴가 이보다 많아지면 올리거나 여러 번 돈다.
 CLEANUP_ACCOUNT_LIMIT = 100
 # 사람마다 `{profile_id}/` 폴더가 있는 버킷 전부.
-STORAGE_BUCKETS = ("avatars", "profile-photos", "student-id-temp")
+STORAGE_BUCKETS = ("avatars", "profile-photos", "student-id-temp", "heart-task-proofs")
 
 
 async def run_cleanup(accounts: AccountRepository, admin: SupabaseAdmin, now: datetime) -> dict:
@@ -74,6 +77,12 @@ async def run_cleanup_batch(
     logger.warning("batch %s auth=%s", "/batch/cleanup", method)
 
     key = settings.supabase_service_role_key
-    return await run_cleanup(
+    result = await run_cleanup(
         AccountRepository(settings.postgrest_url, key, client), SupabaseAdmin(settings, client), now
     )
+    # ⑤ 검수 끝나고 60일 지난 무료 하트 인증샷(heart_tasks/cleanup.py).
+    result["deleted_heart_proofs"] = await purge_reviewed_proofs(
+        HeartTaskRepository(settings.postgrest_url, key, client),
+        HeartProofStorage(settings.storage_url, key, client), now,
+    )
+    return result

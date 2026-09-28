@@ -90,6 +90,7 @@ def test_running_again_finds_nothing_left(client, world):
     assert _run(client) == {
         "deleted_accounts": 0, "skipped_accounts": 0, "deleted_reports": 0,
         "deleted_signup_blocks": 0, "stale_key_rows": 0,
+        "deleted_heart_proofs": 0,
     }
 
 
