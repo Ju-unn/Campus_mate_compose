@@ -39,7 +39,8 @@ class AccountWorld:
         self.requests: list[httpx.Request] = []
         self.caller = ME
         self.profiles: dict[str, dict] = {
-            ME: {"status": "active", "withdrawn_at": None, "student_verification": "verified", "department": "컴공"},
+            ME: {"status": "active", "withdrawn_at": None, "student_verification": "verified", "department": "컴공",
+                 "birth_year": 2003, "created_at": "2026-09-01T10:00:00+00:00", "university": "서울대학교"},
         }
         self.emails: dict[str, str] = {ME: EMAIL}
         self.files: dict[str, dict[str, list[str]]] = {
@@ -47,6 +48,7 @@ class AccountWorld:
         }
         self.push_tokens: dict[str, list[str]] = {ME: ["tok-1", "tok-2"]}
         self.kakao_ids: dict[str, str] = {}
+        self.real_names: dict[str, str] = {}
         self.reports: list[dict] = []          # {id, created_at, resolved_at}
         self.signup_blocks: list[dict] = []    # {email_hmac, blocked_until}
         self.contact_key_versions: list[int] = []
@@ -115,6 +117,9 @@ class AccountWorld:
         row = self.profiles.get(self._eq(params, "id"))
         if row is None:
             return httpx.Response(200, json=[])
+        if "created_at" in params["select"]:
+            return httpx.Response(200, json=[{"birth_year": row["birth_year"], "created_at": row["created_at"],
+                                              "universities": {"name": row["university"]}}])
         if "student_verification" in params["select"]:
             return httpx.Response(200, json=[{"student_verification": row.get("student_verification"),
                                               "department": row.get("department"), "status": row["status"]}])
@@ -133,8 +138,11 @@ class AccountWorld:
         return httpx.Response(204)
 
     def _profile_private(self, method, params, body):
-        kakao = self.kakao_ids.get(self._eq(params, "profile_id"))
-        return httpx.Response(200, json=[{"kakao_id": kakao}] if kakao else [])
+        owner = self._eq(params, "profile_id")
+        row = {"kakao_id": self.kakao_ids.get(owner), "real_name": self.real_names.get(owner)}
+        if not any(row.values()):
+            return httpx.Response(200, json=[])
+        return httpx.Response(200, json=[{column: row[column] for column in params["select"].split(",")}])
 
     def _reports(self, method, params, body):
         assert method == "DELETE" and set(params) >= {"created_at"}
