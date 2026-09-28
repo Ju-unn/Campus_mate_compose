@@ -67,7 +67,7 @@ class KakaoIdScreen extends ConsumerWidget {
                         body: '카카오톡에서 \'ID 검색 허용\'을 켜주셔야 상대가 내 아이디를 검색할 수 있어요. '
                             '꺼져 있으면 신뢰 확인을 마쳐도 연락이 닿지 않아요.',
                         footer: '카카오톡 > 설정 > 프로필 관리 > 카카오톡 ID 에서 켤 수 있어요',
-                        child: _KakaoSettingExample(),
+                        child: KakaoSettingExample(),
                       ),
                     ],
                   ),
@@ -85,8 +85,8 @@ class KakaoIdScreen extends ConsumerWidget {
 
 /// 카카오톡 설정 화면이 어떻게 생겼는지 보여주는 그림(pen `sN9Il` 의 `W2tFQt`)이다 —
 /// 우리 화면이 아니라 남의 앱 화면을 옮겨 그린 것이라 눌러도 아무 일이 없다.
-class _KakaoSettingExample extends StatelessWidget {
-  const _KakaoSettingExample();
+class KakaoSettingExample extends StatelessWidget {
+  const KakaoSettingExample({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -114,8 +114,8 @@ class _KakaoSettingExample extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('ID 검색 허용', style: AppTypography.labelSmall.copyWith(color: AppColors.onInk)),
-                const _KakaoToggleImage(),
+                Flexible(child: Text('ID 검색 허용', style: AppTypography.labelSmall.copyWith(color: AppColors.onInk))),
+                const KakaoToggleImage(),
               ],
             ),
           ),
@@ -126,8 +126,8 @@ class _KakaoSettingExample extends StatelessWidget {
 }
 
 /// 켜져 있는 카카오톡 토글 그림. 트랙 44×24 · 손잡이 20 (pen `W2tFQt`).
-class _KakaoToggleImage extends StatelessWidget {
-  const _KakaoToggleImage();
+class KakaoToggleImage extends StatelessWidget {
+  const KakaoToggleImage({super.key});
 
   @override
   Widget build(BuildContext context) {

@@ -33,6 +33,9 @@ void main() {
     expect(find.text('카카오톡 설정 화면 예시'), findsOneWidget);
     expect(find.text('ID 검색 허용'), findsOneWidget);
     expect(find.text('카카오톡 > 설정 > 프로필 관리 > 카카오톡 ID 에서 켤 수 있어요'), findsOneWidget);
+    // 16e-1 이 같은 그림을 복사 없이 쓴다 — 두 화면이 한 위젯을 본다.
+    expect(find.byType(KakaoSettingExample), findsOneWidget);
+    expect(find.descendant(of: find.byType(KakaoSettingExample), matching: find.byType(KakaoToggleImage)), findsOneWidget);
   });
 
   testWidgets('그림이라 탭에 반응하지 않고 한 문장으로 읽힌다', (tester) async {
