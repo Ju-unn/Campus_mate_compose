@@ -17,6 +17,7 @@ from app.matching.router import router as matching_router
 from app.me.router import router as me_router
 from app.profile_onboarding.router import router as profile_onboarding_router
 from app.profile_onboarding.tasks_router import router as profile_onboarding_tasks_router
+from app.referral.router import router as referral_router
 from app.safety.router import router as safety_router
 from app.student_verification.router import router as student_verification_router
 
@@ -53,6 +54,7 @@ app.include_router(safety_router)
 app.include_router(community_router)
 app.include_router(account_batch_router)
 app.include_router(account_router)
+app.include_router(referral_router)
 
 
 @app.get("/health")

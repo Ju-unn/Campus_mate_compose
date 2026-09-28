@@ -26,6 +26,7 @@ from app.profile_onboarding.photos import check_safe_search
 from app.profile_onboarding.repository import ProfileOnboardingRepository
 from app.profile_onboarding.schemas import (
     NICKNAME_PATTERN,
+    AcquisitionRequest,
     AppearanceTypeRequest,
     BasicInfoRequest,
     BioRequest,
@@ -411,6 +412,17 @@ async def submit_bio(
     if next_step(snapshot) == "complete":
         await repo.activate_profile(profile_id)
     await _refresh_vectors(settings, client, openai_client, profile_id)
+    return {"ok": True}
+
+
+@router.post("/profile-onboarding/acquisition")
+async def submit_acquisition(
+    body: AcquisitionRequest, caller: Caller = Depends(get_verified_caller)
+) -> dict[str, bool]:
+    """20d 유입경로. 선택 화면이라 온보딩 단계(next_step)에는 넣지 않는다(통합대장 D2).
+    매칭에 안 쓰는 값이라 벡터를 다시 만들지 않는다."""
+    settings, client, profile_id = caller
+    await _repo(settings, client).update_acquisition(profile_id, body.channel, body.note)
     return {"ok": True}
 
 

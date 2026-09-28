@@ -38,6 +38,10 @@ AVATAR_ALREADY_CREATED = "아바타는 한 번만 만들 수 있어요"
 AVATAR_SOURCE_REQUIRED = "아바타 원본 사진을 먼저 골라 주세요"
 # 큐 설정이 비었거나(503) 작업 등록이 실패했을 때(502). 둘 다 사용자가 할 일은 같다 — 잠시 뒤 다시.
 AVATAR_QUEUE_UNAVAILABLE = "지금은 아바타를 만들 수 없어요, 잠시 뒤 다시 시도해 주세요"
+# 추천 코드(화면 20) — pen 값이 오면 문구를 맞춘다
+REFERRAL_CODE_NOT_FOUND = "없는 코드예요, 다시 확인해 주세요"
+REFERRAL_CODE_NOT_ALLOWED = "이 코드는 쓸 수 없어요"
+REFERRAL_ALREADY_REDEEMED = "추천 코드는 한 번만 입력할 수 있어요"
 
 # 카드 · 수락함
 CARD_NOT_FOUND = "카드를 찾을 수 없어요"
