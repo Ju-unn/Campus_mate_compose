@@ -13,7 +13,8 @@ from pydantic import BaseModel
 
 from app.core.batch_auth import verify_oidc_token
 from app.core.deps import get_client, get_settings
-from app.profile_onboarding.avatars import AvatarGenerator, apply_fallback_avatar
+from app.profile_onboarding.avatars import AvatarGenerator, apply_fallback_avatar, avatar_regen_cost
+from app.profile_onboarding.hearts import spend_hearts
 from app.profile_onboarding.repository import ProfileOnboardingRepository
 
 # 사람용 라우터의 제공자를 그대로 쓴다 — 테스트가 목을 끼우는 자리가 하나여야 한다.
@@ -64,6 +65,9 @@ async def generate_avatar_task(
     # (2) **카운트는 생성하기 전에 센다.** AvatarGenerator 는 넘겨받은 값에 +1 을 해서 5회를 판정한다
     #     — 이번 행을 failed 로 바꾼 뒤에 세면 그 행이 이중으로 잡혀 4회째에 보상이 나간다.
     recent_failures = await repo.count_recent_consecutive_avatar_failures(body.profile_id)
+    # 이미 완성된 아바타 수. 1 이상이면 이번 건은 "다시 만들기" 다 — 5회 보상을 걸지 않고(T3), 무료 차례가
+    # 지났으면 완성된 뒤에 하트를 뺀다(T2). pending 은 한 사람에 한 줄뿐이라 만드는 사이에 이 수는 안 바뀐다.
+    ready_before = await repo.count_ready_avatars(body.profile_id)
 
     source_path = await repo.fetch_avatar_source_photo_path(body.profile_id)
     if source_path is None:
@@ -96,8 +100,30 @@ async def generate_avatar_task(
             )
         return {"status": "skipped"}
 
-    if result.status == "failed" and result.is_final_failure:
+    if result.status == "failed" and result.is_final_failure and ready_before == 0:
         # 5회째다. 마지막 실패 행은 그대로 두고 보상 행을 따로 넣는다(이력이 남는다).
+        # 다시 만들기(ready_before >= 1)에는 걸지 않는다 — 멀쩡한 아바타가 기본 그림으로 바뀐다.
         await apply_fallback_avatar(repo, storage, settings, client, body.profile_id)
         return {"status": "fallback"}
+    if result.status == "ready" and (cost := avatar_regen_cost(ready_before)):
+        await _charge_regeneration(settings, client, body.profile_id, body.attempt_id, cost)
     return {"status": result.status}
+
+
+async def _charge_regeneration(
+    settings: Settings, client: httpx.AsyncClient, profile_id: UUID, attempt_id: UUID, cost: int
+) -> None:
+    """완성을 적은 **뒤에** 뺀다(T2). 빼지 못해도 200 이다 — 그림은 이미 적혔고, 여기서 5xx 를 내면 큐가 다시 부른다.
+
+    ponytail: 완성과 차감이 두 요청이라 만드는 1분 사이에 하트를 다 쓰면 그 한 장은 무료가 된다(최대 10하트).
+    악용이 보이면 두 쓰기를 DB 함수 하나로 묶는다."""
+    try:
+        spent = await spend_hearts(
+            settings.postgrest_url, settings.supabase_service_role_key, client,
+            profile_id=profile_id, amount=cost, reason="avatar_regen", ref_id=str(attempt_id),
+        )
+    except httpx.HTTPError:
+        spent = False
+    if not spent:
+        # 실명·사진 경로는 남기지 않는다 — profile_id 로 손으로 보정한다.
+        _logger.warning("아바타 다시 만들기 하트 차감 실패 — 이번 한 장은 무료로 둔다 profile_id=%s", profile_id)
