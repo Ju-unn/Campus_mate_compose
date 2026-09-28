@@ -29,13 +29,17 @@ REAL_NAME_INVALID = "이름은 한글이나 영문으로만 적어 주세요"
 PROFILE_NOT_FOUND = "프로필을 찾을 수 없어요"
 PROFILE_INCOMPLETE = "프로필을 먼저 완성해 주세요"
 NICKNAME_TAKEN = "이미 있는 닉네임이에요"
+NICKNAME_CHANGE_TOO_SOON = "닉네임은 30일에 한 번 바꿀 수 있어요"
 PHONE_NUMBER_INVALID = "전화번호를 다시 확인해 주세요"
 # 읽을 수 없는 사진(학생증 제출·프로필 사진 업로드가 같은 문구를 쓴다).
 PHOTO_UNREADABLE = "사진을 다시 확인해 주세요"
 PHOTO_NOT_SAFE = "부적절한 사진은 올릴 수 없어요"
 PHOTO_NOT_FOUND = "지울 사진이 없어요"
+PHOTOS_CHANGED = "사진이 바뀌었어요, 다시 열어 주세요"
 AVATAR_ALREADY_CREATED = "아바타는 한 번만 만들 수 있어요"
 AVATAR_SOURCE_REQUIRED = "아바타 원본 사진을 먼저 골라 주세요"
+AVATAR_NOT_CREATED = "아바타를 먼저 만들어 주세요"
+HEARTS_NOT_ENOUGH = "하트가 모자라요"
 # 큐 설정이 비었거나(503) 작업 등록이 실패했을 때(502). 둘 다 사용자가 할 일은 같다 — 잠시 뒤 다시.
 AVATAR_QUEUE_UNAVAILABLE = "지금은 아바타를 만들 수 없어요, 잠시 뒤 다시 시도해 주세요"
 # 추천 코드(화면 20) — pen 값이 오면 문구를 맞춘다

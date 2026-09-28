@@ -25,6 +25,18 @@ MAX_CONSECUTIVE_FAILURES = 5
 # 서버가 준 값을 그대로 쓰게 응답에도 같이 싣는다.
 FALLBACK_COMPENSATION_HEARTS = 10
 
+# 아바타 다시 만들기 값(spec 93줄 "아바타 재생성 10하트, 최초 1회 무료").
+AVATAR_REGEN_HEARTS = 10
+
+
+def avatar_regen_cost(ready_count: int) -> int:
+    """지금까지 완성된(ready) 아바타 수로 이번 한 장의 값을 정한다(ERD 12줄 — 무료 여부는 성공 건수로 센다).
+
+    0 은 온보딩 첫 생성이라 무료, 1 은 "최초 1회 무료" 다시 만들기, 그 뒤로 10하트. 기본 아바타(is_fallback)도
+    한 장으로 센다 — 05-12d 가 "다시 만들 수 있어요" 라고 약속한 그 한 번이다. 실패는 세지 않으니 무료 차례에
+    실패하면 다음에도 무료다. GET /me/profile · POST 다시 만들기 · 워커가 **이 함수 하나**를 본다."""
+    return 0 if ready_count <= 1 else AVATAR_REGEN_HEARTS
+
 # "만드는 중" 이 이보다 오래 남아 있으면 죽은 작업으로 본다(계획서 "10분 기준선").
 # 워커가 통째로 죽거나(배포 재시작·OOM) 큐가 240초에 요청을 끊으면 CancelledError 는 BaseException 이라
 # 워커 안에서 못 잡는다 — 이 정리가 유일한 복구 길이다. **POST 와 상태 조회가 같은 값을 본다.**
