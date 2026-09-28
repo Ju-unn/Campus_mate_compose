@@ -14,11 +14,14 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// 상태코드 분류와 세션 확인은 여전히 [sendAuthorizedRequest] 가 한다. 이 클래스는
 /// URL 을 붙이고, 헤더를 달고, 본문을 JSON 으로 싸고, 응답을 파싱할 뿐이다.
 class ApiClient {
-  const ApiClient(this._baseUrl, this._client, this._auth);
+  const ApiClient(this._baseUrl, this._client, this._auth, {this._onFailure});
 
   final String _baseUrl;
   final http.Client _client;
   final GoTrueClient _auth;
+
+  /// 모든 실패를 한 곳에서 본다 — 정지·탈퇴(헤더)를 화면마다 따로 살피지 않게(조각 6 A4).
+  final void Function(Failure)? _onFailure;
 
   Uri uri(String path, [Map<String, String>? query]) {
     final url = Uri.parse('$_baseUrl$path');
@@ -78,8 +81,12 @@ class ApiClient {
         ..files.add(await http.MultipartFile.fromPath('photo', photoPath)));
 
   /// 위 두 가지에 들지 않는 요청이 쓴다. 헤더는 부른 쪽이 단다.
+  /// [send] · [sendMultipart] 도 여기를 지나므로 실패를 [_onFailure] 에 넘기는 곳은 여기 하나다.
   Future<Result<http.Response>> sendRequest(
     FutureOr<http.BaseRequest> Function(String accessToken) buildRequest,
-  ) =>
-      sendAuthorizedRequest(_client, _auth, buildRequest);
+  ) async {
+    final result = await sendAuthorizedRequest(_client, _auth, buildRequest);
+    result.when<void>(onSuccess: (_) {}, onFailure: (failure) => _onFailure?.call(failure));
+    return result;
+  }
 }
