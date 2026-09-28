@@ -220,6 +220,15 @@ async def generate_avatar(
             hearts=FALLBACK_COMPENSATION_HEARTS,
         )
 
+    return await enqueue_avatar_attempt(repo, settings, client, profile_id, response)
+
+
+async def enqueue_avatar_attempt(
+    repo: ProfileOnboardingRepository, settings: Settings, client: httpx.AsyncClient,
+    profile_id: UUID, response: Response,
+) -> dict:
+    """만드는 중 행을 넣고 워커 작업을 등록한다 — 온보딩 첫 생성과 15b 다시 만들기(me/router.py)가 같이 쓴다.
+    부르는 쪽이 설정 검사 · 기존 검사 · 오래된 pending 정리를 먼저 끝낸다."""
     # (5) 이미 만드는 중이면(부분 유니크 인덱스 23505) 그 행을 그대로 쓰고 작업도 다시 등록하지 않는다.
     #     중복 누름은 오류가 아니라 **조용히 같은 202** 다.
     attempt_id = await repo.insert_pending_avatar_attempt(profile_id)

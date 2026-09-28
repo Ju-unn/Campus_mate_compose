@@ -629,3 +629,113 @@ def test_worker_fails_the_row_when_the_source_photo_is_gone(monkeypatch):
 
     assert response.json() == {"status": "failed"}
     assert json.loads(fake.calls("PATCH", "/rest/v1/profile_avatars")[0].content)["status"] == "failed"
+
+
+# --- 워커: 다시 만들기(나 탭 15b, 계획서 2026-09-27-me-edit T2 · T3) ------------
+
+
+def _ready(count: int) -> list[dict]:
+    return [{"id": str(uuid4())} for _ in range(count)]
+
+
+def test_worker_keeps_the_avatar_after_the_fifth_failed_regeneration(monkeypatch):
+    """이미 아바타가 있는 사람의 5번째 실패다 — 기본 그림으로 바꾸면 멀쩡한 아바타가 사라진다(T3)."""
+    _verifies(monkeypatch, {"email": SERVICE_ACCOUNT, "email_verified": True})
+    fake = _Fake(
+        latest_attempt=_pending_attempt(), ready_rows=_ready(1),
+        attempt_rows=[{"status": "pending"}] + _failed(4),
+    )
+
+    response = _worker(fake, _openai(False))
+
+    assert response.json() == {"status": "failed"}
+    assert fake.granted_hearts == []
+    assert fake.inserted_avatars == []
+    assert fake.calls("POST", "/storage/v1/object/copy") == []
+
+
+def test_worker_charges_nothing_for_the_free_regeneration(monkeypatch):
+    _verifies(monkeypatch, {"email": SERVICE_ACCOUNT, "email_verified": True})
+    fake = _Fake(latest_attempt=_pending_attempt(), ready_rows=_ready(1))
+
+    assert _worker(fake, _openai(True)).json() == {"status": "ready"}
+    assert fake.granted_hearts == []
+
+
+def test_worker_charges_ten_hearts_once_the_paid_regeneration_is_ready(monkeypatch):
+    _verifies(monkeypatch, {"email": SERVICE_ACCOUNT, "email_verified": True})
+    fake = _Fake(latest_attempt=_pending_attempt(), ready_rows=_ready(2))
+
+    assert _worker(fake, _openai(True)).json() == {"status": "ready"}
+    assert [json.loads(r.content) for r in fake.granted_hearts] == [{
+        "p_profile_id": str(PROFILE_ID), "p_amount": -10,
+        "p_reason": "avatar_regen", "p_ref_id": str(ATTEMPT_ID),
+    }]
+    # 완성을 적은 **뒤에** 뺀다(T2) — 기록 전에 빼면 기록이 0행일 때 돌려줄 길이 없다.
+    assert fake.requests.index(fake.calls("PATCH", "/rest/v1/profile_avatars")[0]) < \
+        fake.requests.index(fake.granted_hearts[0])
+
+
+def test_worker_charges_nothing_when_the_paid_regeneration_fails(monkeypatch):
+    _verifies(monkeypatch, {"email": SERVICE_ACCOUNT, "email_verified": True})
+    fake = _Fake(latest_attempt=_pending_attempt(), ready_rows=_ready(2))
+
+    assert _worker(fake, _openai(False)).json() == {"status": "failed"}
+    assert fake.granted_hearts == []
+
+
+def test_worker_still_answers_200_when_the_hearts_ran_out_meanwhile(monkeypatch, caplog):
+    """POST 는 잔액을 봤지만 만드는 1분 사이에 다 썼다. 그림은 이미 적혔다 — 로그만 남긴다(2-4 ponytail)."""
+    _verifies(monkeypatch, {"email": SERVICE_ACCOUNT, "email_verified": True})
+
+    class _Broke(_Fake):
+        def __call__(self, request):
+            if "/rest/v1/rpc/grant_hearts" in str(request.url):
+                self.requests.append(request)
+                return httpx.Response(400, json={"code": "23514", "message": "balance"})
+            return super().__call__(request)
+
+    fake = _Broke(latest_attempt=_pending_attempt(), ready_rows=_ready(2))
+
+    with caplog.at_level("WARNING", logger="app.profile_onboarding.tasks_router"):
+        response = _worker(fake, _openai(True))
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ready"}
+    assert len(fake.granted_hearts) == 1
+    assert any("차감" in r.getMessage() for r in caplog.records)
+
+
+def test_worker_still_answers_200_when_the_grant_call_itself_fails(monkeypatch, caplog):
+    """rpc/grant_hearts 가 23514 가 아니라 500 · 네트워크 오류로 죽어도 그림은 이미 적혔다 — 200 이다(로그만)."""
+    _verifies(monkeypatch, {"email": SERVICE_ACCOUNT, "email_verified": True})
+
+    class _Unreachable(_Fake):
+        def __call__(self, request):
+            if "/rest/v1/rpc/grant_hearts" in str(request.url):
+                self.requests.append(request)
+                return httpx.Response(500, json={"message": "boom"})
+            return super().__call__(request)
+
+    fake = _Unreachable(latest_attempt=_pending_attempt(), ready_rows=_ready(2))
+
+    with caplog.at_level("WARNING", logger="app.profile_onboarding.tasks_router"):
+        response = _worker(fake, _openai(True))
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ready"}
+    assert len(fake.granted_hearts) == 1
+    assert any("차감" in r.getMessage() for r in caplog.records)
+
+
+def test_worker_counts_ready_avatars_before_generating(monkeypatch):
+    _verifies(monkeypatch, {"email": SERVICE_ACCOUNT, "email_verified": True})
+    fake = _Fake(latest_attempt=_pending_attempt(), ready_rows=_ready(2))
+
+    _worker(fake, _openai(True))
+
+    counts = [r for r in fake.calls("GET", "/rest/v1/profile_avatars") if r.url.params.get("status") == "eq.ready"]
+    assert len(counts) == 1
+    # 한 줄만 보는 has_ready_avatar(limit=1)와 달리 **전부** 센다.
+    assert "limit" not in counts[0].url.params
+    assert fake.requests.index(counts[0]) < fake.requests.index(fake.calls("PATCH", "/rest/v1/profile_avatars")[0])

@@ -220,6 +220,16 @@ class ProfileOnboardingRepository(PostgrestRepository):
         raise_for_status(response)
         return len(response.json()) > 0
 
+    async def count_ready_avatars(self, profile_id: UUID) -> int:
+        """완성된 아바타 수. 다시 만들기 값(avatar_regen_cost)과 "이미 아바타가 있는가" 를 이 숫자 하나로 본다.
+        has_ready_avatar 와 달리 limit 을 걸지 않는다 — 0 · 1 · 2 이상을 갈라야 한다."""
+        response = await self._get(
+            "profile_avatars",
+            params={"profile_id": f"eq.{profile_id}", "status": "eq.ready", "select": "id"},
+        )
+        raise_for_status(response)
+        return len(response.json())
+
     async def count_recent_consecutive_avatar_failures(self, profile_id: UUID) -> int:
         response = await self._get(
             "profile_avatars",
