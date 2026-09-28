@@ -4,6 +4,7 @@ import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/matching/viewmodel/notification_settings_view_model.dart';
+import 'package:campus_mate/safety/view/contact_permission_sheets.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -48,6 +49,12 @@ class SettingsScreen extends ConsumerWidget {
                 title: Text('차단 목록', style: AppTypography.subtitle.copyWith(color: AppColors.ink)),
                 trailing: const Icon(AppIcons.chevronRight, color: AppColors.muted),
                 onTap: () => context.push(AppRoutes.blockList),
+              ),
+              ListTile(
+                leading: const Icon(AppIcons.contactRound, color: AppColors.muted),
+                title: Text('연락처 차단', style: AppTypography.subtitle.copyWith(color: AppColors.ink)),
+                trailing: const Icon(AppIcons.chevronRight, color: AppColors.muted),
+                onTap: () => openContactBlocks(context, ref),
               ),
               ListTile(
                 leading: const Icon(AppIcons.logOut, color: AppColors.muted),

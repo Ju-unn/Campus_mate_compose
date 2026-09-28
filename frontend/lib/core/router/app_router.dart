@@ -36,6 +36,8 @@ import 'package:campus_mate/profile/view/tag_picker_screen.dart';
 import 'package:campus_mate/profile/viewmodel/tag_picker_kind.dart';
 import 'package:campus_mate/referral/view/referral_code_screen.dart';
 import 'package:campus_mate/safety/view/block_list_screen.dart';
+import 'package:campus_mate/safety/view/contact_block_list_screen.dart';
+import 'package:campus_mate/safety/view/contact_picker_screen.dart';
 import 'package:campus_mate/safety/view/partner_profile_screen.dart';
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
@@ -86,6 +88,8 @@ abstract final class AppRouter {
   static List<RouteBase> _slice6Routes() {
     return <RouteBase>[
       GoRoute(path: AppRoutes.blockList, builder: (context, state) => const BlockListScreen()),
+      GoRoute(path: AppRoutes.contactBlocks, builder: (context, state) => const ContactBlockListScreen()),
+      GoRoute(path: AppRoutes.contactPicker, builder: (context, state) => const ContactPickerScreen()),
       GoRoute(
         path: '${AppRoutes.partnerProfile}/:profileId',
         builder: (context, state) => PartnerProfileScreen(profileId: state.pathParameters['profileId']!),

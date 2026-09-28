@@ -43,6 +43,8 @@ dependencies:
   google_mlkit_face_detection: ^0.13.1
   flutter_image_compress: ^2.3.0
   http: ^1.2.2
+  # 지인(연락처) 차단(조각 6, 2026-09-22 승인). 권한 요청까지 이 패키지 하나로 한다.
+  flutter_contacts: ^2.5.0
   path_provider: ^2.1.4
 
   # 푸시 알림(조각 4). firebase_core 는 firebase_messaging 이 요구해서 함께 들어간다.

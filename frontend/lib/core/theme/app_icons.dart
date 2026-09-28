@@ -52,6 +52,9 @@ abstract final class AppIcons {
   static const IconData copy = LucideIcons.copy;
   static const IconData trash2 = LucideIcons.trash2;
 
+  /// 8d 연락처 검색칸 (pen SearchField `y7Qlw` 의 돋보기 `r2d1a` — pen 에 아이콘 이름이 비어 있어 모양으로 고름)
+  static const IconData search = LucideIcons.search;
+
   /// 초안 만들기 단계 표시 (DESIGN.md §5.3 — 끝난 단계 / 하는 중 / 기다리는 중)
   static const IconData circleCheck = LucideIcons.circleCheck;
   static const IconData circleDot = LucideIcons.circleDot;

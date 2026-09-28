@@ -1,6 +1,10 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <!-- Android 13+ 는 알림을 보내기 전에 사용자에게 물어봐야 한다(조각 4). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- 지인 차단: 번호를 읽기만 한다. 패키지가 쓰기 권한을 붙여 와도 병합에서 뺀다(계획서 "새 의존성"). -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <uses-permission android:name="android.permission.WRITE_CONTACTS" tools:node="remove" />
     <application
         android:label="campus_mate"
         android:name="${applicationName}"
