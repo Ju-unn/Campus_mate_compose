@@ -70,5 +70,7 @@
 	<string>프로필 사진을 등록하기 위해 사진 접근 권한이 필요합니다.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>프로필 사진을 촬영하기 위해 카메라 접근 권한이 필요합니다.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>차단할 지인을 연락처에서 고르기 위해 사용해요. 번호는 암호화해 대조에만 쓰고 원본은 저장하지 않아요.</string>
 </dict>
 </plist>
