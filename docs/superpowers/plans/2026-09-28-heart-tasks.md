@@ -245,6 +245,8 @@ chevron-right 20 #6A6A6A(`nqlvc`) → 18a.
    "18b 에브리타임" 은 다음 묶음에서 그리고, 값이 다르면 대장이 알려 준다.
 7. **18c 로 넘어갈 때 18b 를 대체**(`pushReplacement`) — 18c 에서 뒤로 가면 18a. 제출이 성공하면 18a 목록을 다시 읽어 "검수중" 이 보인다.
 8. **반려 줄 아래 선 투명**은 pen `w3aZL` 그대로 둔다.
+9. **18b 사진 고르기 전 "제출하기" 는 꺼짐**(#E5E5E5 · 글자 #929292, 17b 질문 쓰기와 같다). pen `TVB6v` 은 켜진 분홍만
+   그렸다 — 꺼진 변형은 pen 다음 묶음에서 대장이 정한다(PR 3 검토 09-28).
 
 서버 편차(PR 2 착수 때 찾음, 대장 09-28 허락): B2 의 **기존 account 테스트 0줄 → 3줄**. 응답에 `deleted_heart_proofs`
 가 더해지면 `test_running_again_finds_nothing_left` 의 dict 비교가 깨지고, 가짜 세계에 `heart_task_submissions`
@@ -2233,6 +2235,7 @@ void main() {
   test('제출이 성공하면 압축본을 올리고 submitted 가 되며 18a 목록을 다시 읽는다', () async {
     container.listen(heartTasksViewModelProvider, (_, _) {});
     await pumpEventQueue();
+    compressor.nextResult = File('compressed.jpg');
     final viewModel = submitViewModel();
 
     await viewModel.pickPhoto();
@@ -2241,7 +2244,7 @@ void main() {
     await pumpEventQueue();
 
     expect(compressor.compressedSources, [photo]);
-    expect(repository.submitted, [(HeartTaskKind.everytimePost, photo.path)]);
+    expect(repository.submitted, [(HeartTaskKind.everytimePost, 'compressed.jpg')]);
     expect(container.read(heartTaskSubmitViewModelProvider).submitted, isTrue);
     expect(repository.fetchCount, 2);
   });
@@ -2259,14 +2262,19 @@ void main() {
     expect(state.photo, photo);
   });
 
-  test('검수 중 409 는 서버 문구 그대로다', () async {
+  test('검수 중 409 는 서버 문구 그대로고, 18a 목록도 다시 읽는다', () async {
     repository.submitResult = const FailureResult(ServerRejectedFailure('이미 확인 중이에요, 결과를 기다려 주세요'));
+    container.listen(heartTasksViewModelProvider, (_, _) {});
+    await pumpEventQueue();
     final viewModel = submitViewModel();
 
     await viewModel.pickPhoto();
     await viewModel.submit(HeartTaskKind.kakaoShare);
+    await pumpEventQueue();
 
     expect(container.read(heartTaskSubmitViewModelProvider).errorMessage, '이미 확인 중이에요, 결과를 기다려 주세요');
+    // 다른 기기가 먼저 냈거나 응답만 끊겼다 — 18a 로 돌아가면 "검수중" 이 보여야 한다.
+    expect(repository.fetchCount, 2);
   });
 
   test('압축이 사진을 못 읽으면 올리지 않고 사진 문구를 둔다', () async {
@@ -2288,9 +2296,10 @@ void main() {
     final first = viewModel.submit(HeartTaskKind.kakaoShare);
     await pumpEventQueue();
     expect(container.read(heartTaskSubmitViewModelProvider).isSubmitting, isTrue);
-    await viewModel.submit(HeartTaskKind.kakaoShare);
+    // 두 번째를 await 하지 않는다 — 막기가 빠지면 시간 초과가 아니라 아래 단정(2번)으로 떨어지게.
+    final second = viewModel.submit(HeartTaskKind.kakaoShare);
     repository.holdSubmit!.complete();
-    await first;
+    await Future.wait([first, second]);
 
     expect(repository.submitted, hasLength(1));
   });
@@ -2436,10 +2445,14 @@ class HeartTaskSubmitViewModel extends Notifier<HeartTaskSubmitUiState> {
         ref.invalidate(heartTasksViewModelProvider);
         return HeartTaskSubmitUiState(photo: photo, submitted: true);
       },
-      onFailure: (failure) => HeartTaskSubmitUiState(
-        photo: photo,
-        errorMessage: failure is RateLimitedFailure ? heartTaskMonthlyLimitMessage : failure.toDisplayMessage(),
-      ),
+      onFailure: (failure) {
+        // 응답만 끊겼거나 다른 기기가 먼저 냈을 수 있다 — 18a 로 돌아가면 서버 상태가 보이게 다시 읽는다.
+        ref.invalidate(heartTasksViewModelProvider);
+        return HeartTaskSubmitUiState(
+          photo: photo,
+          errorMessage: failure is RateLimitedFailure ? heartTaskMonthlyLimitMessage : failure.toDisplayMessage(),
+        );
+      },
     );
   }
 }
@@ -2536,6 +2549,8 @@ void main() {
     expect(find.text('완료'), findsOneWidget);
     expect(find.text('커뮤니티 투표'), findsOneWidget);
     expect(find.text('매일'), findsOneWidget);
+    // pen `Uaex2` 알약 높이 20(글자 칸 16 + 위아래 2).
+    expect(tester.getSize(find.ancestor(of: find.text('매일'), matching: find.byType(Container)).first).height, 20);
     expect(find.text('10 · 주 최대 30'), findsOneWidget);
     expect(find.text('참여'), findsOneWidget);
     expect(find.image(const AssetImage('assets/images/heart-flat-vector-v3.png')), findsNWidgets(3));
@@ -2803,7 +2818,11 @@ class _DailyBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(color: AppColors.surfaceStrong, borderRadius: BorderRadius.circular(AppRadius.pill)),
-      child: Text('매일', style: AppTypography.badge.copyWith(fontWeight: FontWeight.w700, color: AppColors.muted)),
+      // pen `klkPA` 글자 칸 16 — badge 토큰 줄높이(1.3)면 14.3 이라 알약이 18.3 으로 얇아진다.
+      child: Text(
+        '매일',
+        style: AppTypography.badge.copyWith(fontWeight: FontWeight.w700, color: AppColors.muted, height: 16 / 11),
+      ),
     );
   }
 }
@@ -2847,12 +2866,17 @@ class HeartTasksScreen extends ConsumerWidget {
         leadingWidth: 52,
         titleSpacing: 0,
         leading: Navigator.of(context).canPop()
-            ? Padding(
-                padding: const EdgeInsets.only(left: AppSpacing.xxs),
-                child: IconButton(
-                  tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-                  onPressed: () => Navigator.of(context).maybePop(),
-                  icon: const Icon(AppIcons.arrowLeft, size: 24, color: AppColors.ink),
+            // AppBar 의 leading 칸은 toolbarHeight 에 맞춰 세로로 늘어난다(NavigationToolbar 가 높이를 tight 로
+            // 준다). Align 으로 느슨한 제약을 다시 줘야 버튼이 pen 대로 48 로 남는다(브리프 코드는 56 이 됐다).
+            ? Align(
+                alignment: Alignment.centerLeft,
+                child: Padding(
+                  padding: const EdgeInsets.only(left: AppSpacing.xxs),
+                  child: IconButton(
+                    tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    icon: const Icon(AppIcons.arrowLeft, size: 24, color: AppColors.ink),
+                  ),
                 ),
               )
             : null,
@@ -2958,6 +2982,7 @@ import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -3030,6 +3055,10 @@ void main() {
 
   testWidgets('18b-2 — 사유 알림과 "다시 제출하기", pen 배치 16 · 99 · 138 · 374', (tester) async {
     await pump(tester, reason: HeartTaskRejectReason.dateMissing);
+    // 세로 좌표만 본다. 테스트 글꼴은 한글이 Pretendard 보다 넓어 안내(pen `qLG9R` 한 줄 264)가 360 폭에서 두 줄로
+    // 접힌다 — 접히지 않게 화면만 넓힌다(home_screen_test 와 같다). 위젯에 말줄임을 달지 않는다(글자 확대 때 잘린다).
+    tester.view.physicalSize = const Size(420, 780);
+    await tester.pumpAndSettle();
 
     expect(find.text('반려 사유: 날짜가 안 보여요'), findsOneWidget);
     expect(find.text('다시 찍어 올려 주세요'), findsOneWidget);
@@ -3089,12 +3118,16 @@ void main() {
     expect(tester.getSize(painter), tester.getSize(tile));
   });
 
-  testWidgets('글자 2배에서도 넘침 예외가 없다', (tester) async {
+  testWidgets('글자 2배에서도 넘침 예외가 없고 말줄임으로 잘린 글자도 없다', (tester) async {
     tester.platformDispatcher.textScaleFactorTestValue = 2;
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     await pump(tester, kind: HeartTaskKind.everytimePost, reason: HeartTaskRejectReason.notVerified);
 
     expect(tester.takeException(), isNull);
+    // 넘침 예외가 없어도 maxLines 로 조용히 잘릴 수 있다(DESIGN §11.2) — 화면 글자를 전부 본다.
+    for (final paragraph in tester.renderObjectList<RenderParagraph>(find.byType(RichText))) {
+      expect(paragraph.didExceedMaxLines, isFalse, reason: paragraph.text.toPlainText());
+    }
   });
 }
 ```
@@ -3192,12 +3225,16 @@ class _HeartTaskSubmitScreenState extends ConsumerState<HeartTaskSubmitScreen> {
         leadingWidth: 56,
         titleSpacing: AppSpacing.xxs,
         leading: Navigator.of(context).canPop()
-            ? Padding(
-                padding: const EdgeInsets.only(left: AppSpacing.xs),
-                child: IconButton(
-                  tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-                  onPressed: () => Navigator.of(context).maybePop(),
-                  icon: const Icon(AppIcons.arrowLeft, size: 22, color: AppColors.ink),
+            // 18a 와 같다 — Align 이 없으면 leading 칸이 56 으로 늘어나 pen `syyGc` 48×48(8,4)과 달라진다.
+            ? Align(
+                alignment: Alignment.centerLeft,
+                child: Padding(
+                  padding: const EdgeInsets.only(left: AppSpacing.xs),
+                  child: IconButton(
+                    tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    icon: const Icon(AppIcons.arrowLeft, size: 22, color: AppColors.ink),
+                  ),
                 ),
               )
             : null,
@@ -3310,7 +3347,7 @@ class _ProofUploader extends StatelessWidget {
                     Text(_uploaderLabel, style: AppTypography.labelSmall.copyWith(color: AppColors.disabled)),
                   ],
                 )
-              : Image.file(photo, fit: BoxFit.contain),
+              : Image.file(photo, fit: BoxFit.contain, semanticLabel: _uploaderLabel),
         ),
       ),
     );
@@ -3455,7 +3492,12 @@ class HeartTaskPendingScreen extends StatelessWidget {
                   // DESIGN 은 128 이지만 pen 88 을 따른다(대장 09-28, DESIGN 은 문서 정리 때).
                   Image.asset('assets/images/mascot-female.png', width: 88, height: 88, fit: BoxFit.contain),
                   const SizedBox(height: AppSpacing.md),
-                  Text(_title, textAlign: TextAlign.center, style: AppTypography.label.copyWith(color: AppColors.ink)),
+                  // pen `AI5GP` 18/700, 렌더 26(label 토큰 줄높이 1.2 면 22 라 묶음이 pen 보다 4 짧다).
+                  Text(
+                    _title,
+                    textAlign: TextAlign.center,
+                    style: AppTypography.label.copyWith(color: AppColors.ink, height: 26 / 18),
+                  ),
                   const SizedBox(height: AppSpacing.md),
                   Text(_body, textAlign: TextAlign.center, style: _bodyStyle),
                   const SizedBox(height: AppSpacing.md),
