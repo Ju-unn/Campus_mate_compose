@@ -7,6 +7,8 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, Upl
 from google.cloud import vision
 from openai import AsyncOpenAI
 
+from app.cards.repository import CardRepository
+from app.cards.router import profile_detail
 from app.core import errors
 from app.core.deps import Caller, get_now, get_verified_caller, get_vision_client
 from app.matching.repository import MatchingRepository
@@ -88,6 +90,19 @@ async def get_my_profile(
         # 앱 시계를 믿지 않는다 — PATCH 409 와 같은 함수로 판정해 15d-2 "M월 D일부터" 에 쓴다(C6).
         "nickname_changeable_at": changeable_at and changeable_at.isoformat(),
     }
+
+
+@router.get("/me/card-preview")
+async def get_my_card_preview(
+    caller: Caller = Depends(get_verified_caller), now: datetime = Depends(get_now),
+) -> dict:
+    """15-4 남이 보는 내 프로필. 10b 카드 상세 · 14c 와 같은 몸통(`profile_detail`)이라 상대가 보는 값과 어긋날 수
+    없다. 서로 수락한 뒤에만 열리는 실사진 · 카카오톡 아이디는 몸통에 없고, 14c 처럼 덧붙이지도 않는다.
+    card_id · match_id 자리는 없다 — 앱이 카드 모델을 채울 때 profile_id 를 넣는다."""
+    settings, client, profile_id = caller
+    cards = CardRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
+    profile = await cards.fetch_card_detail_profile(profile_id)
+    return await profile_detail(cards, profile, settings.supabase_url, now)
 
 
 @router.post("/me/avatar/regenerate")
