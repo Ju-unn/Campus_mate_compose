@@ -78,17 +78,20 @@ class SafetySheet extends StatelessWidget {
 /// AppButton(56, 모서리 16)과 크기·모서리가 달라 여기 둔다 — pen 도 Button 마스터(HE8FZ)가 아니다.
 class SafetySheetButton extends StatelessWidget {
   /// 주색 채움(#FF385C). 계획서의 danger 가 pen 에서는 이 색이다.
-  const SafetySheetButton.primary({required this.label, required this.onPressed, super.key})
+  /// [leading] 은 글자 앞 아이콘(15b 하트 CTA pen `wf0b2`, gap 8). 없으면 글자만 둔다.
+  const SafetySheetButton.primary({required this.label, required this.onPressed, this.leading, super.key})
       : _isPrimary = true;
 
   /// 회색 채움(surface-strong). 계획서의 글자 버튼이 pen 에서는 이 모양이다.
   const SafetySheetButton.neutral({required this.label, required this.onPressed, super.key})
-      : _isPrimary = false;
+      : _isPrimary = false,
+        leading = null;
 
   final String label;
 
   /// null 이면 비활성.
   final VoidCallback? onPressed;
+  final Widget? leading;
   final bool _isPrimary;
 
   @override
@@ -117,18 +120,28 @@ class SafetySheetButton extends StatelessWidget {
             child: Padding(
               // pen 라벨 렌더 26 이 y 13 에 놓인다.
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 13),
-              child: Center(
-                child: Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  // pen 18/700, 줄높이 속성 없음 · 렌더 26.
-                  style: AppTypography.label.copyWith(color: foreground, height: 26 / 18),
-                ),
-              ),
+              child: Center(child: _content(foreground)),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _content(Color foreground) {
+    final text = Text(
+      label,
+      textAlign: TextAlign.center,
+      // pen 18/700, 줄높이 속성 없음 · 렌더 26.
+      style: AppTypography.label.copyWith(color: foreground, height: 26 / 18),
+    );
+    // 아이콘이 없으면 기존 안전 시트 버튼과 똑같이 글자 하나만 둔다.
+    if (leading == null) {
+      return text;
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [leading!, const SizedBox(width: AppSpacing.xs), Flexible(child: text)],
     );
   }
 }
