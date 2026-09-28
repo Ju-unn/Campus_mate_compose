@@ -5,24 +5,39 @@ import 'package:campus_mate/common/widgets/select_count_bar.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/me/view/edit_app_bar.dart';
+import 'package:campus_mate/me/viewmodel/tag_edit_view_model.dart';
 import 'package:campus_mate/profile/viewmodel/tag_picker_kind.dart';
 import 'package:campus_mate/profile/viewmodel/tag_picker_ui_state.dart';
 import 'package:campus_mate/profile/viewmodel/tag_picker_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 /// 관심사(04-5)·나의 특징(04-6)·이상형 특징(06-2) 공용 화면.
 class TagPickerScreen extends ConsumerWidget {
-  const TagPickerScreen({required this.kind, super.key});
+  const TagPickerScreen({required this.kind, this.isEditing = false, super.key});
 
   final TagPickerKind kind;
 
+  /// 나 탭 편집 모드(15c "수정 ›", 계획서 A3 · D5 · T5) — 서버 값으로 채우고, 편집 앱바와 "저장" 을 쓰고,
+  /// 저장이 끝나면 15c 로 돌아간다. 본문 헤드라인 · 안내 · 칩은 온보딩과 같다.
+  final bool isEditing;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(tagPickerViewModelProvider(kind));
-    final viewModel = ref.read(tagPickerViewModelProvider(kind).notifier);
+    final provider = isEditing ? tagEditViewModelProvider(kind) : tagPickerViewModelProvider(kind);
+    final state = ref.watch(provider);
+    final viewModel = ref.read(provider.notifier);
+    if (isEditing) {
+      ref.listen(provider, (previous, next) {
+        if (next.completed && !(previous?.completed ?? false)) context.pop();
+      });
+    }
     return Scaffold(
-      appBar: OnboardingAppBar(current: kind.dotIndex, total: kind.dotTotal),
+      appBar: isEditing
+          ? EditAppBar(title: _editTitle())
+          : OnboardingAppBar(current: kind.dotIndex, total: kind.dotTotal),
       body: SafeArea(
         top: false,
         child: Column(
@@ -40,11 +55,21 @@ class TagPickerScreen extends ConsumerWidget {
               ),
             ),
             Expanded(child: _TagSection(kind: kind, state: state, onToggle: viewModel.toggle)),
-            _Footer(state: state, onSubmit: viewModel.submit),
+            _Footer(state: state, onSubmit: viewModel.submit, isEditing: isEditing),
           ],
         ),
       ),
     );
+  }
+
+  /// 편집 앱바 제목(D5). `tagName` 은 "관심사 태그" 라 "… 수정" 에 그대로 붙이면 pen 흐름과 어긋난다 —
+  /// [TagPickerKind] 에 칸을 늘리지 않고 여기서만 적는다.
+  String _editTitle() {
+    return switch (kind) {
+      TagPickerKind.interests => '관심사 수정',
+      TagPickerKind.myTraits => '나의 특징 수정',
+      TagPickerKind.idealTraits => '이상형 특징 수정',
+    };
   }
 }
 
@@ -89,10 +114,11 @@ class _TagSection extends StatelessWidget {
 }
 
 class _Footer extends StatelessWidget {
-  const _Footer({required this.state, required this.onSubmit});
+  const _Footer({required this.state, required this.onSubmit, required this.isEditing});
 
   final TagPickerUiState state;
   final Future<void> Function() onSubmit;
+  final bool isEditing;
 
   @override
   Widget build(BuildContext context) {
@@ -111,7 +137,12 @@ class _Footer extends StatelessWidget {
             Text(state.errorMessage!, style: AppTypography.caption.copyWith(color: AppColors.error)),
           ],
           const SizedBox(height: AppSpacing.sm),
-          AppButton(label: '다음', onPressed: state.canSubmit ? onSubmit : null),
+          // 편집 모드만 "저장" 과 저장 중 스피너(D8)를 쓴다 — 온보딩 모양은 그대로 둔다.
+          AppButton(
+            label: isEditing ? '저장' : '다음',
+            onPressed: state.canSubmit ? onSubmit : null,
+            isLoading: isEditing && state.isSubmitting,
+          ),
         ],
       ),
     );
