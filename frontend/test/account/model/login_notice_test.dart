@@ -99,7 +99,7 @@ void main() {
 
     test('direct withdraw 재시도: 401 + withdrawn 이 ApiClient 와 ViewModel 양쪽에 와도 signOut 은 한 번', () async {
       // 실제 배선 그대로 — ApiClient 가 먼저 observe 하고, ViewModel 이 성공으로 보고 markWithdrawn 한다.
-      repository = HttpAccountRepository(apiReturning(() => rejected(401, '탈퇴한 계정이에요', 'withdrawn')));
+      repository = HttpAccountRepository(apiReturning(() => rejected(401, '탈퇴한 계정이에요', 'withdrawn')), auth);
 
       await container.read(withdrawViewModelProvider.notifier).withdraw();
 
