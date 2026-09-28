@@ -67,7 +67,9 @@ MyProfile _profile({
       heightCm: heightCm,
       mbti: mbti,
       avatarUrl: avatarUrl,
-      photoUrls: photoUrls,
+      photos: [
+        for (final (index, url) in photoUrls.indexed) MyPhoto(id: 'p-$index', url: url, isAvatarSource: index == 0),
+      ],
       preferredAgeMin: preferredAgeMin,
       preferredAgeMax: preferredAgeMax,
       preferredHeightMin: preferredHeightMin,
