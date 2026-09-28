@@ -76,3 +76,7 @@ ACCOUNT_WITHDRAWN = "탈퇴한 계정이에요"
 POLL_NOT_FOUND = "질문을 찾을 수 없어요"
 POLL_ALREADY_VOTED = "이미 투표했어요"
 POLL_DAILY_LIMIT = "오늘은 질문을 더 올릴 수 없어요"
+
+# 지인 리뷰
+FRIEND_REVIEW_NOT_FOUND = "리뷰를 찾을 수 없어요"
+FRIEND_REVIEW_ALREADY_WRITTEN = "이미 리뷰를 남겼어요"
