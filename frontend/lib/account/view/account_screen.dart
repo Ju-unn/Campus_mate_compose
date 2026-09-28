@@ -1,14 +1,16 @@
 import 'package:campus_mate/account/model/account_info.dart';
 import 'package:campus_mate/account/viewmodel/account_info_provider.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-/// 16e 계정(pen `i3WGAa`). 16 "계정" 에서 들어온다. 값은 보기만 한다 — 카톡 줄은 16e-1 이 생기면 이동을 붙인다(T3).
+/// 16e 계정(pen `i3WGAa`). 16 "계정" 에서 들어온다. 값은 보기만 한다 — 카톡 줄만 16e-1 로 가고, 저장하고 돌아오면 다시 읽는다(T3).
 /// 불러오는 중 · 실패는 pen 에 없어 화면 15 와 같은 모양을 쓴다(사용자 결정 2026-09-27).
 class AccountScreen extends ConsumerWidget {
   const AccountScreen({super.key});
@@ -29,7 +31,14 @@ class AccountScreen extends ConsumerWidget {
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, stackTrace) => _LoadError(onRetry: () => ref.invalidate(accountInfoProvider)),
               data: (result) => result.when(
-                onSuccess: (info) => _AccountContent(info: info),
+                onSuccess: (info) => _AccountContent(
+                  info: info,
+                  // 16e-1 은 저장하면 true 를 들고 닫힌다 — 그때만 다시 읽는다(채팅방 14f "변경" 과 같다, 대장 결정 2026-09-28).
+                  onKakaoIdTap: () async {
+                    final saved = await context.push<bool>(AppRoutes.kakaoIdSettings);
+                    if (saved == true && context.mounted) ref.invalidate(accountInfoProvider);
+                  },
+                ),
                 onFailure: (_) => _LoadError(onRetry: () => ref.invalidate(accountInfoProvider)),
               ),
             ),
@@ -60,9 +69,10 @@ class _LoadError extends StatelessWidget {
 
 /// 본문(pen `n8lZI`) — 좌우 md · 위 sm · 아래 lg, 구역 사이 20, 구역 머리와 카드 사이 xs.
 class _AccountContent extends StatelessWidget {
-  const _AccountContent({required this.info});
+  const _AccountContent({required this.info, required this.onKakaoIdTap});
 
   final AccountInfo info;
+  final VoidCallback onKakaoIdTap;
 
   /// pen 구역 사이 간격 20 은 간격 토큰(md 16 · lg 24) 사이 값이다(block_list_screen `_gap` 과 같은 이유).
   static const double _sectionGap = 20;
@@ -110,6 +120,7 @@ class _AccountContent extends StatelessWidget {
               icon: AppIcons.messageCircle,
               label: '카카오톡 아이디',
               value: info.kakaoId ?? AccountScreen.emptyValue,
+              onTap: onKakaoIdTap,
             ),
           ]),
           const SizedBox(height: _sectionGap),
@@ -167,9 +178,9 @@ class _InfoCard extends StatelessWidget {
   }
 }
 
-/// 정보 줄. 모두 보기 전용이라 누르는 곳이 없다 — 잉크 Material 을 둘 곳이 없다.
+/// 정보 줄. [onTap] 을 주면(카톡 줄) 끝에 셰브런이 붙고, 잉크는 카드 [Material] 에 그린다.
 class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.icon, required this.label, required this.value, this.valueStyle});
+  const _InfoRow({required this.icon, required this.label, required this.value, this.valueStyle, this.onTap});
 
   final IconData icon;
   final String label;
@@ -177,6 +188,8 @@ class _InfoRow extends StatelessWidget {
 
   /// 기본 값 스타일과 다를 때만 준다("학생 인증" 의 "인증 완료" 는 굵게 primary-text).
   final TextStyle? valueStyle;
+
+  final VoidCallback? onTap;
 
   /// pen 높이 52 는 최소값이다 — 글자를 키우면 줄이 늘어난다(고정 높이면 조용히 잘린다).
   static const double _minHeight = 52;
@@ -186,7 +199,7 @@ class _InfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ConstrainedBox(
+    final row = ConstrainedBox(
       constraints: const BoxConstraints(minHeight: _minHeight),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: _horizontalPadding),
@@ -214,11 +227,16 @@ class _InfoRow extends StatelessWidget {
                   style: valueStyle ?? AppTypography.bodySmall.copyWith(color: AppColors.muted),
                 ),
               ),
+              if (onTap != null) ...[
+                const SizedBox(width: AppSpacing.sm),
+                const Icon(AppIcons.chevronRight, size: 18, color: AppColors.muted),
+              ],
             ],
           ),
         ),
       ),
     );
+    return onTap == null ? row : InkWell(onTap: onTap, child: row);
   }
 }
 
