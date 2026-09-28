@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/matching/model/card_detail.dart';
 import 'package:campus_mate/me/model/me_repository.dart';
 import 'package:campus_mate/me/model/my_profile.dart';
 
@@ -22,6 +24,16 @@ class FakeMeRepository implements MeRepository {
   Future<Result<MyProfile>> fetchProfile() async {
     calls++;
     return profile;
+  }
+
+  /// 15-4 가 읽는 내 카드. 채우지 않으면 실패로 돈다.
+  Result<CardDetail> cardPreview = const FailureResult(UnknownFailure());
+  int cardPreviewCalls = 0;
+
+  @override
+  Future<Result<CardDetail>> fetchCardPreview() async {
+    cardPreviewCalls++;
+    return cardPreview;
   }
 
   @override
