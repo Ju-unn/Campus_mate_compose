@@ -7,6 +7,19 @@ enum ImpressionType { arab, tofu, kind, chic, innocent }
 /// 종교 4종(백엔드 public.religion 과 값이 같다).
 enum Religion { none, protestant, catholic, buddhist }
 
+/// 20d 유입경로 칩 5개(DESIGN.md §9 화면 20d). `name` 이 곧 서버 값이다(백엔드 public.acquisition_channel).
+enum AcquisitionChannel {
+  everytime('에브리타임'),
+  instagram('인스타그램'),
+  friend('친구 소개'),
+  community('커뮤니티'),
+  other('기타');
+
+  const AcquisitionChannel(this.label);
+
+  final String label;
+}
+
 /// 화면에 쓰는 한글 라벨. 04-4(본인)와 06-1(선호)이 같은 문구를 쓴다(DESIGN.md §8.5).
 extension AnimalTypeLabel on AnimalType {
   String get label => switch (this) {

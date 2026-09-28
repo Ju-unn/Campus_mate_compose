@@ -21,6 +21,7 @@ import 'package:campus_mate/matching/view/settings_screen.dart';
 import 'package:campus_mate/matching/view/today_cards_screen.dart';
 import 'package:campus_mate/me/view/my_profile_screen.dart';
 import 'package:campus_mate/profile/model/onboarding_step.dart';
+import 'package:campus_mate/profile/view/acquisition_screen.dart';
 import 'package:campus_mate/profile/view/appearance_type_screen.dart';
 import 'package:campus_mate/profile/view/avatar_generation_screen.dart';
 import 'package:campus_mate/profile/view/avatar_source_screen.dart';
@@ -33,6 +34,7 @@ import 'package:campus_mate/profile/view/photos_screen.dart';
 import 'package:campus_mate/profile/view/survey_screen.dart';
 import 'package:campus_mate/profile/view/tag_picker_screen.dart';
 import 'package:campus_mate/profile/viewmodel/tag_picker_kind.dart';
+import 'package:campus_mate/referral/view/referral_code_screen.dart';
 import 'package:campus_mate/safety/view/block_list_screen.dart';
 import 'package:campus_mate/safety/view/partner_profile_screen.dart';
 import 'package:flutter/widgets.dart';
@@ -169,6 +171,8 @@ abstract final class AppRouter {
       ),
       GoRoute(path: AppRoutes.onboardingIdealNote, builder: (context, state) => const IdealNoteScreen()),
       GoRoute(path: AppRoutes.onboardingBio, builder: (context, state) => const BioDraftLoadingScreen()),
+      GoRoute(path: AppRoutes.onboardingReferral, builder: (context, state) => const ReferralCodeScreen()),
+      GoRoute(path: AppRoutes.onboardingAcquisition, builder: (context, state) => const AcquisitionScreen()),
     ];
   }
 

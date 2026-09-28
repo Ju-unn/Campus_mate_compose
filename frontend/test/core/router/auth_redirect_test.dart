@@ -60,6 +60,12 @@ void main() {
       expect(redirect.resolve(AppRoutes.onboardingAvatarSource), AppRoutes.home);
       expect(redirect.resolve('${AppRoutes.onboardingPhotos}/무엇이든'), AppRoutes.home);
     });
+
+    // 20 · 20d 는 서버 단계가 아니라 06-3 뒤 앱에서만 잇는다(2026-09-28 대장 D2) — auth_redirect 는 그대로 둔다.
+    test('온보딩을 끝낸 사람은 20 · 20d 에 머문다(홈으로 튕기지 않는다)', () {
+      expect(redirect.resolve(AppRoutes.onboardingReferral), isNull);
+      expect(redirect.resolve(AppRoutes.onboardingAcquisition), isNull);
+    });
   });
 
   group('게이트를 통과하지 못한 사용자', () {
@@ -123,6 +129,12 @@ void main() {
       const redirect = AuthRedirect(true, VerificationGate.complete, OnboardingStep.complete);
 
       expect(redirect.resolve(AppRoutes.onboardingAvatarSource), AppRoutes.home);
+    });
+
+    test('06-3 을 끝내기 전에는 20 으로 가도 06-3 으로 돌려보낸다', () {
+      const redirect = AuthRedirect(true, VerificationGate.complete, OnboardingStep.bio);
+
+      expect(redirect.resolve(AppRoutes.onboardingReferral), AppRoutes.onboardingBio);
     });
   });
 }
