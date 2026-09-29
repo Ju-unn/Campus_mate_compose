@@ -28,13 +28,14 @@ void main() {
     return HttpVerificationGateRepository(ApiClient('https://api.test', client, auth));
   }
 
-  Future<VerificationGate?> fetchGateWith(String status, bool hasSchoolInfo) async {
+  /// [consent] 를 null 로 두면 칸 자체가 없는 응답(동의 관문 전의 옛 서버)이다.
+  Future<VerificationGate?> fetchGateWith(String status, bool hasSchoolInfo, {String? consent = 'current'}) async {
     final client = MockClient((request) async {
       expect(request.method, 'GET');
       expect(request.url.toString(), 'https://api.test/me/verification-status');
       expect(request.headers['Authorization'], 'Bearer token-abc');
       return http.Response(
-        jsonEncode({'status': status, 'has_school_info': hasSchoolInfo}),
+        jsonEncode({'status': status, 'has_school_info': hasSchoolInfo, 'consent': ?consent}),
         200,
         headers: {'content-type': 'application/json; charset=utf-8'},
       );
@@ -42,6 +43,25 @@ void main() {
     final result = await buildRepository(client).fetchGate();
     return result.when(onSuccess: (value) => value, onFailure: (_) => null);
   }
+
+  test('동의 기록이 없으면 학생증보다 먼저 needsConsent', () async {
+    final gate = await fetchGateWith('none', false, consent: 'none');
+
+    expect(gate, VerificationGate.needsConsent);
+  });
+
+  test('옛 판에만 동의했으면 인증을 마친 계정도 needsConsentRenewal', () async {
+    final gate = await fetchGateWith('verified', true, consent: 'outdated');
+
+    expect(gate, VerificationGate.needsConsentRenewal);
+  });
+
+  test('consent 칸이 없는 옛 서버면 동의 관문 없이 지금 규칙 그대로', () async {
+    // 서버가 먼저 나가는 게 순서지만, 거꾸로 되더라도 앱이 없는 POST 앞에 갇히지 않게 한다.
+    final gate = await fetchGateWith('verified', true, consent: null);
+
+    expect(gate, VerificationGate.complete);
+  });
 
   test('학생증 인증 전이면 needsStudentVerification', () async {
     final gate = await fetchGateWith('pending', false);

@@ -19,8 +19,8 @@ void main() {
     addTearDown(listenable.dispose);
   });
 
-  test('조회 전에는 학생증 인증이 필요한 상태로 본다', () {
-    expect(listenable.value, VerificationGate.needsStudentVerification);
+  test('조회 전에는 첫 관문(약관 동의)이 필요한 상태로 본다', () {
+    expect(listenable.value, VerificationGate.needsConsent);
     expect(repository.fetchCount, 0);
   });
 
@@ -55,14 +55,14 @@ void main() {
 
     listenable.reset();
 
-    expect(listenable.value, VerificationGate.needsStudentVerification);
+    expect(listenable.value, VerificationGate.needsConsent);
     expect(notifyCount, 2);
   });
 
   test('이미 기본값이면 reset 해도 알리지 않는다', () {
     listenable.reset();
 
-    expect(listenable.value, VerificationGate.needsStudentVerification);
+    expect(listenable.value, VerificationGate.needsConsent);
     expect(notifyCount, 0);
   });
 }

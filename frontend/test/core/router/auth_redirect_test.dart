@@ -80,6 +80,54 @@ void main() {
     });
   });
 
+  group('약관 동의 전(02-c, 첫 관문)', () {
+    test('동의 전이면 3b 보다 먼저 02-c 로 보낸다', () {
+      const redirect = AuthRedirect(true, VerificationGate.needsConsent, OnboardingStep.basicInfo);
+
+      expect(redirect.resolve(AppRoutes.splash), AppRoutes.consent);
+      expect(redirect.resolve(AppRoutes.studentVerification), AppRoutes.consent);
+      expect(redirect.resolve(AppRoutes.home), AppRoutes.consent);
+    });
+
+    test('재동의도 같은 02-c 로 보낸다 — 온보딩을 마친 계정도', () {
+      const redirect = AuthRedirect(true, VerificationGate.needsConsentRenewal, OnboardingStep.complete);
+
+      expect(redirect.resolve(AppRoutes.home), AppRoutes.consent);
+      expect(redirect.resolve(AppRoutes.settings), AppRoutes.consent);
+    });
+
+    test('02-c 에 있으면 이동시키지 않는다', () {
+      for (final gate in [VerificationGate.needsConsent, VerificationGate.needsConsentRenewal]) {
+        expect(AuthRedirect(true, gate, OnboardingStep.basicInfo).resolve(AppRoutes.consent), isNull, reason: '$gate');
+      }
+    });
+
+    test('동의를 마치면 02-c 에서 다음 관문으로 보낸다', () {
+      expect(
+        const AuthRedirect(true, VerificationGate.needsStudentVerification, OnboardingStep.basicInfo)
+            .resolve(AppRoutes.consent),
+        AppRoutes.studentVerification,
+      );
+      expect(
+        const AuthRedirect(true, VerificationGate.complete, OnboardingStep.complete).resolve(AppRoutes.consent),
+        AppRoutes.home,
+      );
+    });
+
+    test('정지가 동의보다 먼저다', () {
+      const redirect = AuthRedirect(true, VerificationGate.needsConsent, OnboardingStep.basicInfo,
+          accountStatus: AccountStatus.suspended);
+
+      expect(redirect.resolve(AppRoutes.consent), AppRoutes.accountSuspended);
+    });
+
+    test('로그인 전에는 02-c 로 가도 로그인 화면으로 보낸다', () {
+      const redirect = AuthRedirect(false, VerificationGate.needsConsent, OnboardingStep.basicInfo);
+
+      expect(redirect.resolve(AppRoutes.consent), AppRoutes.login);
+    });
+  });
+
   group('게이트를 통과하지 못한 사용자', () {
     test('학생증 미인증이면 3b 로 보낸다', () {
       const redirect = AuthRedirect(true, VerificationGate.needsStudentVerification, OnboardingStep.basicInfo);
