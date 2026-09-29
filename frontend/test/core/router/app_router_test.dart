@@ -17,6 +17,7 @@ import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:campus_mate/matching/view/conversations_screen.dart';
 import 'package:campus_mate/me/model/me_repository_provider.dart';
 import 'package:campus_mate/me/model/my_profile.dart';
+import 'package:campus_mate/me/view/card_preview_screen.dart';
 import 'package:campus_mate/me/view/my_profile_screen.dart';
 import 'package:campus_mate/me/view/profile_edit_screen.dart';
 import 'package:campus_mate/me/view/profile_manage_screen.dart';
@@ -384,6 +385,16 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(ProfileManageScreen), findsOneWidget);
+    });
+
+    // 15 의 입구 "남이 보는 내 프로필 카드"(`k3r5C`)가 여는 화면.
+    testWidgets('/me/preview 는 15-4 남이 보는 내 프로필이다', (tester) async {
+      final router = await pumpRouter(tester);
+
+      router.go(AppRoutes.myCardPreview);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CardPreviewScreen), findsOneWidget);
     });
 
     testWidgets('/me/ideal-conditions 는 06-1 편집 모드다', (tester) async {
