@@ -23,6 +23,7 @@ import 'package:campus_mate/core/router/placeholder_screens.dart';
 import 'package:campus_mate/faq/view/faq_screen.dart';
 import 'package:campus_mate/friend_review/view/friend_review_compose_sheet.dart';
 import 'package:campus_mate/friend_review/view/received_reviews_screen.dart';
+import 'package:campus_mate/friend_review/view/written_reviews_screen.dart';
 import 'package:campus_mate/home/view/home_screen.dart';
 import 'package:campus_mate/matching/model/acceptance.dart';
 import 'package:campus_mate/matching/view/card_detail_screen.dart';
@@ -161,6 +162,7 @@ abstract final class AppRouter {
       ),
       GoRoute(path: AppRoutes.heartTaskPending, builder: (context, state) => const HeartTaskPendingScreen()),
       GoRoute(path: AppRoutes.friendReviews, builder: (context, state) => const ReceivedReviewsScreen()),
+      GoRoute(path: AppRoutes.friendReviewsWritten, builder: (context, state) => const WrittenReviewsScreen()),
     ];
   }
 
