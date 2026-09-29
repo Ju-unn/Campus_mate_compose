@@ -1,4 +1,5 @@
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/me/view/profile_entry_row.dart';
 import 'package:flutter/material.dart';
@@ -38,19 +39,37 @@ void main() {
     expect(rectOf(tester, find.text('선호 나이 범위')).left, 72);
   });
 
-  testWidgets('채움·모서리·아이콘 색은 pen 값과 같다', (tester) async {
+  // 사용자 결정 09-28(계획서 N5) — 흰 바탕 + 카드 그림자 두 겹. 누르지 않는 행도 같은 모양이다.
+  for (final tappable in [false, true]) {
+    testWidgets('틀 `fN0xc` — #FFFFFF · 모서리 14 · 그림자 = AppElevation.card, 그림자는 Material 밖 상자가 그린다'
+        '(${tappable ? '누르는 행' : '보이기만 하는 행'})', (tester) async {
+      await pump(tester, onTap: tappable ? () {} : null);
+
+      final shadow = find.descendant(
+        of: find.byType(ProfileEntryRow),
+        matching: find.byWidgetPredicate(
+          (w) => w is DecoratedBox && w.decoration is BoxDecoration && (w.decoration as BoxDecoration).boxShadow != null,
+        ),
+      );
+      expect(shadow, findsOneWidget);
+      final decoration = tester.widget<DecoratedBox>(shadow).decoration as BoxDecoration;
+      expect((decoration.boxShadow, decoration.borderRadius), (AppElevation.card, BorderRadius.circular(14)));
+      expect(tester.getSize(shadow), const Size(328, 84));
+      // 바탕은 그림자 상자 안 Material 이 칠한다 — Material elevation 은 쓰지 않는다(§6 한 단계 규칙).
+      final painter = find.descendant(of: shadow, matching: find.byType(Material)).first;
+      final material = tester.widget<Material>(painter);
+      expect((material.color, material.borderRadius, material.elevation), (AppColors.canvas, BorderRadius.circular(14), 0));
+      expect(tester.getSize(painter), const Size(328, 84));
+    });
+  }
+
+  testWidgets('아이콘 원 `zdZqS` #F7F7F7(흰 바탕 위라 원이 보인다), 아이콘 · 셰브런 색은 pen 값과 같다', (tester) async {
     await pump(tester);
 
-    final row = tester.widget<Container>(
-      find.descendant(of: find.byType(ProfileEntryRow), matching: find.byType(Container)).first,
-    );
-    final decoration = row.decoration! as BoxDecoration;
-    expect(decoration.color, AppColors.surfaceSoft);
-    expect(decoration.borderRadius, BorderRadius.circular(14));
     final surface = tester.widget<Container>(
       find.ancestor(of: find.byIcon(AppIcons.calendar), matching: find.byType(Container)).first,
     );
-    expect((surface.decoration! as BoxDecoration).color, AppColors.canvas);
+    expect((surface.decoration! as BoxDecoration).color, AppColors.surfaceSoft);
     expect((surface.decoration! as BoxDecoration).shape, BoxShape.circle);
     final icon = tester.widget<Icon>(find.byIcon(AppIcons.calendar));
     expect((icon.size, icon.color), (22, AppColors.muted));
@@ -97,10 +116,10 @@ void main() {
       expect(tester.getSize(painter), const Size(328, 84));
       expect(tester.getSize(ink), const Size(328, 84));
       final material = tester.widget<Material>(painter);
-      expect((material.color, material.borderRadius), (AppColors.surfaceSoft, BorderRadius.circular(14)));
+      expect((material.color, material.borderRadius), (AppColors.canvas, BorderRadius.circular(14)));
       // 채움은 Material 한 곳만 — 안쪽 상자가 또 칠하면 눌림 효과가 그 밑에 깔려 안 보인다.
       final fills = tester.widgetList<Container>(find.descendant(of: row, matching: find.byType(Container)));
-      expect(fills.where((c) => (c.decoration as BoxDecoration?)?.color == AppColors.surfaceSoft), isEmpty);
+      expect(fills.where((c) => (c.decoration as BoxDecoration?)?.color == AppColors.canvas), isEmpty);
     });
 
     testWidgets('pen 규격은 그대로 — 328×84, 받침 원 (16,20), 셰브런 (292,32)', (tester) async {
