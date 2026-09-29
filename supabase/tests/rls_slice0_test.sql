@@ -242,7 +242,9 @@ select results_eq(
       ('university_email_domains', 'service_role', 'DELETE'),
       ('university_email_domains', 'service_role', 'INSERT'),
       ('university_email_domains', 'service_role', 'SELECT'),
-      ('university_email_domains', 'service_role', 'UPDATE')$$,
+      ('university_email_domains', 'service_role', 'UPDATE'),
+      ('user_consents', 'service_role', 'INSERT'),
+      ('user_consents', 'service_role', 'SELECT')$$,
   'anon · authenticated · service_role 권한은 ERD §2 표대로다(조각2 신규 테이블 포함)'
 );
 
