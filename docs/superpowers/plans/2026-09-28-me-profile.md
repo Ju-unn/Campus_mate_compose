@@ -430,6 +430,29 @@ async def get_my_card_preview(
 - 테스트는 옛 A8 Step 1 그대로, `JaHig` 자리를 `R5Quru` 로.
 - 커밋: `regenerateAvatar` / 시트 버튼 `leading` / 뷰모델 `regenerate()` / 15b 시트 / 15 연결(15-2 · 15-3).
 
+## Part A — 앱 PR 4 (15e 사진 수정, 대장 배정 09-29 — PR 3-2 보다 먼저)
+
+브랜치 `feat/me-photos-app`, 워크트리 `…/campus_mate_compose-me-photos`. #161(PR 3, `75cecbf`) 위에 쌓고 #161 merge
+뒤 main 으로 옮긴다(`rebase --onto origin/main 75cecbf`).
+
+### Task A15: 15e 사진 수정 (옛 계획서 A1 사진 쓰기 · A2 `/me/photos` · A6 그대로 — 입구만 15-5)
+
+옛 계획서 `2026-09-27-me-edit.md` 의 Task A6(Files · Interfaces · `SelectedPhoto` 두 모양 · `MyPhotosViewModel.save()` ·
+Step), A1 에서 미룬 `PhotoSlot` · `savePhotos`(Interfaces · multipart 테스트 · 코드), A2 의 `myPhotos` 상수, 4절 15e
+표(C2 · C9 · D10 · U2 · U3), 공유 파일 허락 표(photos_ui_state · photos_view_model · photos_screen · avatar_source_screen ·
+11번째 `photo_tiles.dart`)를 그대로 따른다. 바뀌는 것만:
+
+- **입구**: 화면 15 의 "실제 사진 교체" 는 PR 3 에서 15-5(`profile_manage_screen.dart` 실제 사진 섹션 `E7Cv2`)로 옮겼다. 그
+  버튼의 `onTap` 을 "곧 열려요" 에서 `context.push(AppRoutes.myPhotos)` 로 바꾼다. 15-5 의 "곧 열려요" 테스트는 "누르면
+  사진 수정 화면으로 간다" 로 바꾼다. `me_toast.dart` 의 `comingSoonToast` 는 15-5 "수정 ›"(15d, PR 3-2) · 15b-3 충전이
+  계속 쓰므로 그대로 둔다.
+- **저장하면 15-5 로 돌아온다**(N8) — `pop` 이라 코드 변경 없음. 테스트: 15-5 → 15e 저장 → 15-5 의 사진 줄이 새 값.
+- **경로**: `app_routes.dart` 상수 1개(`myPhotos = '/me/photos'`) · `app_router.dart` `_meRoutes()` 안 GoRoute 1개 + import
+  1줄 — 옛 허락 표 범위.
+- 칸 모양은 04-2 모양(C9), 칸 수 대표 1 + 보조 3(D10). 값은 옛 4절 15e 표.
+- 커밋: `PhotoSlot` · `savePhotos` / `SelectedPhoto` 두 모양(온보딩 동작 그대로) / 칸 위젯 `photo_tiles.dart` 로 옮기기(04-2
+  동작 · 테스트 0 변경) / 편집 뷰모델 / 15e 화면 + `/me/photos` / 15-5 연결 / 계획서.
+
 ---
 
 ## 검증 · 보고
@@ -586,3 +609,63 @@ async def get_my_card_preview(
   폴링을 잇는다` — 고치기 전 `Expected: a value greater than <2>, Actual: <2>` 로 떨어지는 것을 봤다.
 - **사소 1** — 위 `sparkles` 줄을 실제 코드에 맞게 고쳤다. 공유 파일 허락은 이 절 위 A12 · A14 줄과 1절 N 결정에 적혀 있다.
 - **사소 2** — 알약 아래 10 누름 칸 `GestureDetector` 의 `excludeFromSemantics: true` 를 히어로 화면 읽기 테스트에 한 줄로 고정.
+
+### A15 (PR 4, campus-coder, 2026-09-29)
+
+**1 `PhotoSlot` · `savePhotos`** — 옛 A1 코드 그대로. `KeptPhoto` · `NewPhoto` 에 `==` · `hashCode`(행 id · 파일 경로)를
+더했다 — 뷰모델 테스트가 보낸 칸을 값으로 비교한다(`photo_slot_test` 3). multipart 테스트 4: 옛 A1 예(`layout`
+`[{"keep":"p-a"},{"new":0}]` · `avatar_source` `"1"` · 파일 칸 `photos` 1개), 새 사진 둘의 번호 · 파일 순서, 남길 사진만이면
+파일 칸 없음, 409 문구 그대로. 가짜 저장소에 `photoSaves` · `savePhotosResult` · `holdSavePhotos`.
+
+**2 `SelectedPhoto` 두 모양** — 옛 A6 코드 그대로. 온보딩 쪽은 끌기 열쇠 2줄(`photo.key`), 그림 2줄(04-2 · 04-3
+`Image(image: photo.image)`), 업로드 1줄(`photo.file!`). **기존 테스트 3줄**(`photos_view_model_test` 의 `photo.file.path`)이
+null 안전 컴파일 오류라 `photo.file!.path` 로 바꿨다(값 · 뜻 같음). 새 `photos_ui_state_test` 4.
+
+**3 `photo_tiles.dart`** — 칸 위젯 6개를 글자 그대로 옮겼다(옮기기 전 파일과 비교해 이름 3개 말고 같다). 15e 가 쓰는 셋
+(`DraggablePhotoTile` · `CheckingTile` · `AddPhotoTile`)만 공개, `_PhotoTile` · `_LiftedTile` · `_DropOutline` 는 private.
+공개 생성자에 `super.key`(린트 `use_key_in_widget_constructors`). 04-2 · 04-3 테스트 0 변경, `test/profile` 187 그대로 통과.
+
+**4 편집 뷰모델** — 옛 A6 `save()` 그대로에 둘을 더했다.
+- `canSave` = 2~4장 · 살펴보는 중 아님 · 저장 중 아님. 04-2 "다음" 과 같은 까닭(늦게 끝난 얼굴 검사가 보낸 목록에서 빠진다).
+  `PhotosUiState` 는 허락 범위 밖이라 뷰모델 getter 로 뒀다.
+- **실패해도 `invalidate(myProfileProvider)`.** 옛 A6 Step 1 은 "409 면 문구 · 칸 그대로" 만 적었고, 계약 2-2 는 "앱은 실패
+  문구를 보이고 화면을 다시 읽는다". 다시 읽지 않으면 409 "다시 열어 주세요" 뒤에 다시 열어도 같은 옛 id 로 채워져 409 가
+  되풀이된다. 칸은 그대로다(build 가 read 라 다시 읽혀도 안 바뀐다).
+- 테스트 12. 변형 4개(U3 기본값 0 빼기 · 실패 때 다시 읽기 빼기 · `keepAlive` 빼기 · 살펴보는 중 가드 빼기)가 각각 한 테스트씩
+  떨어뜨리는 것을 봤다.
+
+**5 15e 화면 · 경로**
+- 경로는 상수 1 · GoRoute 1 · import 1(허락 범위). 라우터 테스트 `/me/photos 는 15e 사진 수정이다`.
+- 칸 고르기(사진 / 살펴보는 중 / 빈 칸)는 04-2 `_PhotoGrid` 와 같은 세 갈래다. 04-2 쪽은 private 이라 15e 에 다시 적었다.
+- **대장 확인(pen `lfmT0` · `m2cAn`, 09-29)**: 사진 줄 `lfmT0` 은 alignItems start — **위 맞춤**(보조 184 가 대표 200 의 위에
+  붙고 아래 16 이 빈다). "저장" `m2cAn` 은 Spacer `BCwfQ` 뒤라 **바닥 고정 · 아래 28**(15c `zUZFx` 와 같은 구조). 둘 다 처음
+  구현 그대로이고, 테스트에 한 줄씩 고정했다(보조 위 = 대표 위, 버튼 아래 28).
+- 안내문 14/400 muted 줄 20(줄높이 속성 없음 · 두 줄 렌더 40), 폭 312 에서 줄을 바꾼다(C2).
+- 오류는 두 모양이다. 저장 실패 = 버튼 위 오류 글(편집 공통 규칙), 고르기 안내(얼굴 없음 · 최대 4장) = 04-2 모양 토스트
+  (alert-triangle, 버튼 위 12). 둘 다 `errorMessage` 로 와서, 화면이 "저장이 끝난 순간(isSubmitting true → false)의 문구" 만
+  오류 글로 가른다. 토스트 시간은 나 탭 `MeToastHost` 의 2초(04-2 는 3초).
+- 테스트 22. 변형(오류 글 가르기 · D10 빈 자리 · 저장 뒤 pop · 위 맞춤)이 모두 떨어지는 것을 봤다.
+
+**6 15-5 연결** — "실제 사진 교체" → `context.push(AppRoutes.myPhotos)`. "곧 열려요" 는 "수정 ›" 만 남아, 토스트 자리 · 줄인
+움직임 · 타이머 테스트는 "수정 ›" 를 누른다. 새 테스트: "교체 → 15e" · N8 `saving_in_15e_returns_to_15_5_with_the_new_photos`
+(실제 라우터 · 가짜 저장소, 저장 중에 서버 값을 바꿔 15-5 사진 줄이 새 값인지). `me_toast.dart` 주석 한 줄(교체는 연결됨).
+
+**배율** — 2.0 에서 66×88 "사진 추가" 칸(`AddPhotoTile` 의 Column)이 세로로 넘쳤다(테스트 글꼴 12, 계산 plus 24 + 8 + 글자
+두 줄 67.2 = 99.2 > 88). 1.3 · 1.5 는 글자가 두 줄로 바뀌고 칸 안에 들어간다. 옛 A6 대로 멈추고 물었고, **대장 결정 (가)(09-29)
+— 글자가 칸에 안 들어가면 더하기 아이콘만, 낭독 이름 "사진 추가" 는 아이콘에.** `AddPhotoTile` 만 고쳤다(허락 범위): `LayoutBuilder`
+안에서 `TextPainter` 로 실제 글꼴 · 배율 · 칸 폭의 글자 높이를 재어 아이콘 24 + 8 + 글자가 칸 높이를 넘으면 글자를 뺀다(배율 숫자를
+박지 않는다). 새 `photo_tiles_test` 6(66×88 1.0 · 1.3 · 1.5 글자 보임, 2.0 넘침 0 · 글자 숨김 · 아이콘 · 낭독 "사진 추가" + 누름,
+1.0 낭독도 같은 모양, 04-2 158×158 은 2.0 에서도 글자 보임) — 고치기 전 2.0 테스트가 `RenderFlex overflowed by 12` 로 떨어지는 것을
+봤다. 변형 2개(늘 숨기기 · 아이콘 낭독 이름 빼기)도 떨어진다. 04-2 테스트 그대로 통과, 15e 배율 2.0 테스트도 통과.
+
+**RED 로 본 것**: 1 · 2 · 4 · 5 는 없는 이름으로 컴파일 오류, 6 은 "교체" 를 눌러도 15e 가 안 뜨고(`Found 0 widgets with text
+"15e 사진 수정 화면"`) N8 은 `MyPhotosScreen` 0개. 1 의 번호 매기기는 `next++` → `next` 변형으로 layout 테스트가 떨어지는
+것을 봤다. 라우터는 GoRoute 를 빼면 `/me/photos` 테스트가 떨어진다.
+
+### PR 4 검토 반영 (campus-reviewer PASS · 필수 0 · 권고 0, 2026-09-29)
+
+- **사소 2 — 저장 중에도 칸이 눌리던 것.** 보내는 동안 칸을 바꾸면 성공 뒤 버려지고, 얼굴 검사 안내가 토스트 대신 저장 오류
+  자리로 샜다. `_PhotoSlots` 를 `IgnorePointer(ignoring: state.isSubmitting)` 로 감쌌다. 테스트 `저장 중에는 칸을 누를 수
+  없다` — 고치기 전 `Expected: <0>, Actual: <1>` 로 떨어지는 것을 봤다.
+- **사소 1 — 남김.** 409 직후 너무 빨리 다시 열면 `myProfileProvider`(autoDispose 아님)가 다시 읽는 동안 옛 값을 줘 409 가
+  한 번 더 뜰 수 있다. 다시 열면 풀린다. 실기기에서 보이면 편집 뷰모델 build 가 로딩 중일 때 칸을 비우는 쪽으로 고친다.
