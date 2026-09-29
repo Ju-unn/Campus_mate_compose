@@ -74,7 +74,7 @@ gcloud run deploy campus-mate-backend \
 `CARD_BATCH_SECRET` 을 빠뜨리면 `/batch/daily-cards` 는 **아무 요청도 통과시키지 않는다**(전부 401).
 열린 채로 남는 쪽보다 닫힌 채로 실패하는 쪽을 택했다 — 카드가 안 나가면 바로 눈에 띈다.
 
-**`IDENTITY_HMAC_KEY`·`OPENAI_API_KEY`·`PHONE_ENCRYPTION_KEY` 3개가 이 명령에서 빠져 있었다(PR #85 리뷰에서 잡음, §0 에는 시크릿 등록만 돼 있고 배포 명령에 연결이 안 됐던 것). `settings.py` 가 필수(`min_length=1` 등)로 요구하므로 빠지면 그 자리에서 기동이 실패한다.**
+**`IDENTITY_HMAC_KEY`·`OPENAI_API_KEY`·`PHONE_ENCRYPTION_KEY` 3개가 이 명령에서 빠져 있었다(PR #85 리뷰에서 잡음, §0 에는 시크릿 등록만 돼 있고 배포 명령에 연결이 안 됐던 것). `settings.py` 가 필수(`min_length=1` 등)로 요구하므로 빠지면 그 자리에서 기동이 실패한다.** → **2026-09-29 확인: 위 명령에 셋 다 들어 있다**(조각 6 배포 때 반영, 시크릿 이름 `identity-hmac-key` · `open-api-key` · `phone-number-encryption-key`). 조각 6 에서 `DISCORD_REPORT_WEBHOOK_URL`(`discord-report-webhook-url`, 신고 전용 채널 — 비어 있으면 신고 알림만 건너뛰고 경고 로그)이 더해졌다. `settings.py` 가 읽는 env · 시크릿은 위 한 줄로 전부다(2026-09-29 `settings.py` 와 대조)
 
 **Auth OTP expiry — Supabase 대시보드 Authentication 설정의 OTP 유효시간을 300초(5분)로 맞춘다.** 기본값(3600초)과 앱의 인증 코드 화면 카운트다운(5분)이 어긋나 있었다(운영에서는 아직 3600초, 승인 대기 중).
 
@@ -203,7 +203,7 @@ gcloud iam service-accounts add-iam-policy-binding <계정 이메일> \
   --role="roles/iam.serviceAccountUser"
 ```
 
-- **이 역할이 빠지면**: `POST /avatar/generate` 가 502, 백엔드 로그에 "아바타 작업 등록 실패" + Cloud Tasks 403, 앱에는 "알 수 없는 오류"가 뜬다.
+- **이 역할이 빠지면**: `POST /avatar/generate` 가 502, 백엔드 로그에 "아바타 작업 등록 실패" + Cloud Tasks 403, 앱에는 "알 수 없는 오류"가 뜬다. → **2026-09-26 PR #117 로 개정: 앱은 502 · 503 을 "잠시 뒤 다시 시도해 주세요" 로 보인다**(`ServerUnavailableFailure`). 그 밖의 5xx 는 여전히 "알 수 없는 오류" 다.
 - 운영에는 2026-09-26 `serviceAccountUser` 를 추가했다. 종전 `serviceAccountTokenCreator` 는 아직 남아 있고, 빼는 것은 **결정 대기**다(둘 다 있어도 동작엔 지장 없지만 최소 권한 원칙상 정리할지는 사용자가 정한다).
 
 - 환경변수 3개(`AVATAR_TASKS_QUEUE` · `AVATAR_WORKER_URL` · `AVATAR_TASKS_SERVICE_ACCOUNT`)는 §2 의
@@ -409,13 +409,56 @@ gcloud scheduler jobs create http campus-mate-cleanup \
 
 - 하는 일: ① 탈퇴 30일 지난 계정의 Storage 파일(버킷 3개) → auth 사용자 삭제(profiles 는 cascade, 한 번에 100명)
   ② 처리 끝나고 1년 지난 신고(열린 신고는 남는다) ③ 기한 지난 재가입 제한(무기한은 남는다) ④ 옛 키 버전 지인 차단 행 세기.
-- 결과는 `{"deleted_accounts", "skipped_accounts", "deleted_reports", "deleted_signup_blocks", "stale_key_rows"}` 모양이다.
+  - **2026-09-28 개정(무료 하트 인증 #154)**: ① 의 버킷은 **4개**다 — `avatars` · `profile-photos` · `student-id-temp` · `heart-task-proofs`(`app/account/batch_router.py` `STORAGE_BUCKETS`). **⑤ 검수 끝나고 60일 지난 무료 하트 인증샷**을 하루 100장씩 지운다(파일 먼저, 경로 비우기는 나중 — `app/heart_tasks/cleanup.py`). `heart-task-proofs` 버킷이 운영에 없으면 ① 이 그 버킷에서 막혀 탈퇴 계정이 전부 `skipped` 가 된다 — 무료 하트 마이그레이션(§4-5)이 먼저다.
+  - **2026-09-29 확인**: ② 는 `resolved_at` 기준이다(#165). 그 전 코드는 `created_at` 기준이라 1년 넘게 열린 신고까지 지웠다.
+- 결과는 `{"deleted_accounts", "skipped_accounts", "deleted_reports", "deleted_signup_blocks", "stale_key_rows"}` 모양이다. **2026-09-28 부터 `"deleted_heart_proofs"` 칸이 하나 더 붙는다**(⑤).
   `skipped_accounts` 는 파일 삭제가 실패해 **내일 다시** 할 사람이다. 며칠째 같은 수면 로그의 `탈퇴 계정 정리 건너뜀` 을 본다.
   `stale_key_rows` 가 0 이 아니면 `identity-hmac-key` 를 바꾼 뒤 옛 행이 남은 것이다(`app/signup_policy.py` 의 `IDENTITY_KEY_VERSION`).
 - 확인: `gcloud scheduler jobs run campus-mate-cleanup --location=asia-northeast3` 뒤 §4-3 4단계의 `logging read` 로
   `/batch/cleanup` 200 과 `batch /batch/cleanup auth=oidc` 한 줄을 본다. 다시 돌려도 안전하다(두 번째는 전부 0).
 
+## 4-5. 무료로 하트 모으기 — 검수 운영 절차 (2026-09-28, 계획서 `2026-09-28-heart-tasks.md`)
+
+새 env · 시크릿 · job 은 없다. 제출 알림은 학생증 재검토와 같은 디스코드 채널(`DISCORD_WEBHOOK_URL`)로 가고, 60일 정리는 §4-4 정리 배치 ⑤ 가 한다.
+
+**적용 순서(2026-09-28 적용 끝)**: 마이그레이션 번호 순서 그대로 한 번에 — `20260928010000_create_referrals` → `20260928020000_fix_grant_hearts_spend` → `20260928030000_create_heart_task_submissions` → `20260928030100_create_heart_task_functions` → `20260928040000_create_friend_reviews` → `NOTIFY pgrst, 'reload schema';` → 서버 배포. **서버를 먼저 배포하면** 목록 · 제출이 500 이고, 정리 배치가 없는 버킷에서 막혀 탈퇴 계정이 전부 skipped 된다. 코호트(`20260928050000`)도 서버(`/home/summary` 의 `cohort`)보다 먼저다.
+
+**검수(운영자)**
+
+1. 디스코드 "무료 하트 인증 1건 (제출: `<id>`, 계정: `<profile_id>`, 항목: `everytime_post`)" 을 본다. 사진 · 경로 · 이름은 싣지 않는다.
+2. Supabase 대시보드 → Table editor → `heart_task_submissions` 에서 `id` 로 줄을 찾고, `storage_path` 로 Storage → `heart-task-proofs` 의 파일을 연다.
+3. **승인**: 그 줄의 `status` 를 `approved` 로 저장한다 — 하트는 DB 트리거가 한 번만 준다(`reward_hearts` 만큼, 사유 `free_task`).
+   **반려**: **"Edit row" 패널에서 `status` = `rejected` 와 `reject_reason`(`date_missing` · `not_verified` · `reused`) 을 한 번에 저장**한다 — 한 칸씩 저장하면 check 23514 로 막힌다.
+   Edit row 가 바꾸지 않은 칸(`created_at` 등)까지 다시 보내 `CM409` 로 막히면 SQL Editor 에서 한 줄로 한다:
+
+```sql
+update public.heart_task_submissions set status = 'rejected', reject_reason = '<사유>' where id = '<id>';
+-- 승인은 set status = 'approved'
+```
+
+4. **되돌리기는 없다.** 승인 · 반려는 끝 상태다(승인 → 반려, 반려 → 승인 모두 막힘). 반려를 잘못했으면 사용자가 다시 내면 된다. 승인을 잘못했으면 원장을 운영 보정으로 뺀다 — `grant_hearts` 는 2026-09-28(`20260928020000`)부터 음수(쓰기)도 받는다:
+
+```sql
+select public.grant_hearts('<profile_id>', -<지급한 하트>, 'admin_adjust', '<제출 id>');
+```
+
+   잔액이 0 밑으로 내려가면 check(`heart_balance >= 0`)로 막힌다 — 그 사이 하트를 써 버렸으면 남은 만큼만 뺀다.
+
+**확인할 것**: 운영 첫 검수 때 Edit row 로 반려 저장이 되는지 한 번 본다(대시보드가 `created_at` 까지 다시 보내면 위 SQL 한 줄로). 배포 뒤 첫 04:00 정리 배치 응답에서 `skipped_accounts` 0 과 `deleted_heart_proofs` 칸을 본다.
+
 ## 5. 현재 배포 상태 (2026-09-26 기준)
+
+**2026-09-29 갱신(대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다).**
+
+| 항목 | 값 |
+| --- | --- |
+| 돌고 있는 revision | **`campus-mate-backend-00038-ggj`**(2026-09-29, 가입 동의 서버 #170 까지). 대장 기록에 남은 그 사이 revision: `00026-phq` · `00027-hbs` · `00030-9gn` · `00032-xfr` · `00033-tk6` · `00034-gxd` · `00035-rhd` · `00036-rtl` · `00037-kbv`(빠진 번호는 기록 없음) |
+| 마이그레이션 | 저장소 `supabase/migrations/` **52개**(2026-09-29 이 문서 담당이 셌다). 운영 마지막 적용 = `create_faq`(운영 기록 `20260929054505`), 그 앞 `create_user_consents`(`20260929051356`). 운영 쪽 개수는 세지 않았다 |
+| 조각 6 이후 새 시크릿 | `discord-report-webhook-url` → `DISCORD_REPORT_WEBHOOK_URL`(신고 전용 채널, version 1) |
+| 새 env | `BATCH_AUDIENCE` · `BATCH_SERVICE_ACCOUNT`(§4-3). **OIDC 전환(§4-3 1~6단계) · 정리 job `campus-mate-cleanup`(§4-4) 생성이 끝났는지는 이 문서에 확인된 값이 없다** — 대장 기록상 00030 배포 때는 두 값이 비어 옛 헤더만 쓰는 상태였다. 진행 상태를 확인해 아래 옛 표의 Scheduler job 칸을 고친다 |
+| Storage 버킷 | `avatars`(공개) · `profile-photos` · `student-id-temp` · `heart-task-proofs`(비공개 · 10MB · jpeg/png, 2026-09-28) — 정리 배치가 넷 다 비운다 |
+
+아래는 2026-09-26 기준 옛 표다(기록으로 남긴다).
 
 | 항목 | 값 |
 | --- | --- |
