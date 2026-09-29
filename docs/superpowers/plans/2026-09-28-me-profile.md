@@ -7,8 +7,8 @@
 > 그대로 쓰고, **화면 15 의 모양과 입구 자리만 이 계획서가 바꾼다**(사용자가 15 새 디자인을 확정, 대장 배정 09-28).
 > 15b 시트 · 15-2 · 15-3 의 값과 규칙(옛 A8, 옛 4절 15b 표, C4 · C5 · C7 · C8 · D6 · T2)은 옛 계획서 그대로이고,
 > 입구만 히어로 안 `R5Quru` 로 옮긴다.
-> **pen 값표 대기:** 대장이 campus-pen 으로 한 번에 뽑아 준다(목록 = 4절 "값표 대기" 칸). 값이 오면 4절을 채운 뒤
-> 그 칸을 쓰는 Task 를 시작한다. 값이 필요 없는 Task(S1 · A9 · A10)는 먼저 한다.
+> **pen 값표 받음(09-28, `Desktop/조각6_검토/값표_15_개편.md`)** — 4절에 옮겼고, 값표의 어긋남 · 빈 곳에 대한 대장
+> 결정은 1절 N10 ~ N19 다.
 
 **Goal:** 화면 15 를 새 디자인(`nkFJV`)으로 바꾼다 — 큰 아바타 히어로(`l8p6X`, 안에 "다시 만들기 · 10" → 15b), 입구
 두 줄("남이 보는 내 프로필 카드" → 15-4, "프로필 편집" → 15-5). 15 에 있던 실사진 · 기본 정보 · 선호 조건 · 자기소개는
@@ -41,7 +41,17 @@ S1)가 10b · 14c 와 같은 몸통 함수 `profile_detail()` 로 만든다. 15-
 | N6 | 15-4 신고 깃발 | 앱 미리보기에서는 숨기거나 못 누르게 | 대장 09-28 | N3 에 따라 지인 리뷰 PR 4 |
 | N7 | 히어로 "다시 만들기 · 10" | pen 높이 34 → **코드 누름 영역 44**. 학교 글자는 한 줄 말줄임 | 대장 09-28 | A14 · A8 |
 | N8 | 저장 뒤 돌아오는 곳 | 15d · 15e · 15c(와 태그 · 06-1)에서 저장하면 **15-5** 로 돌아온다(옛 U4 "15 로" 를 바꿈) | 대장 09-28 | A12(코드 변경 없음 — `pop`) |
-| N9 | pen 에 없는 상태 | 15 · 15-4 · 15-5 로딩 · 실패 = 지금 화면 15 모양(가운데 로딩 / "잠시 뒤 다시 시도해 주세요" + "다시 시도"). 아바타 없음 = 히어로 같은 크기 surface-soft 빈 칸(옛 15 와 같은 규칙) | 나 탭 판단(기존 패턴) | A12 · A13 · A14 |
+| N9 | pen 에 없는 상태 | 15 · 15-4 · 15-5 로딩 · 실패 = 지금 화면 15 모양(가운데 로딩 / "잠시 뒤 다시 시도해 주세요" + "다시 시도"). 아바타 없음 = 히어로 같은 크기 surface-soft 빈 칸(옛 15 와 같은 규칙). 만든 모양은 편차 절에 적는다 | 나 탭 판단(기존 패턴) · 대장 값표 결정 10 | A12 · A13 · A14 |
+| N10 | 15-2 비활성 알약 | 문구 "다시 만들기 · 10" 그대로 + #E5E5E5 / #929292 / 하트 숨김 — pen 대로 | 대장 09-28 값표 결정 1 | A8 |
+| N11 | 15 내비 대화 배지 "4" | pen 목데이터 — 앱은 지금처럼 실제 안 읽은 수 | 결정 2 | A14 |
+| N12 | 15-5 "수정 ›"(`A8LX2`) | pen 대로 회색 #6A6A6A 14/400 글자만(15c `cOkl1` 분홍과 달라도 화면마다 pen 기준). 누름 44 | 결정 3 | A12 |
+| N13 | 15b 딤 | 앱 기존 시트 딤 그대로. pen Scrim `RoxU2` #00000080 = `AppColors.scrim`(검정 0.5) 이라 같다 | 결정 8 | A8 |
+| N14 | 15-4 · 15-5 앱바 | `KH1hX` 대응 위젯(`EditAppBar`) 재사용 — 15c `iq3jl` 과 값 같음 | 결정 4 | A12 · A13 |
+| N15 | 보기 칩 `h9sFd` | #222222 불투명 — pen 대로 | 결정 5 | A14 |
+| N16 | 옛 `ffOFL` | 코드 · 테스트의 id 를 `hwVQB` 로 바꾼다(값 같음) | 결정 7 | A14 |
+| N17 | 15-4 카드 높이 | 내용 맞춤 | 결정 6 | A13 |
+| N18 | 15-2 · 15-3 토스트 자리 | 04-3 토스트와 같은 자리 | 결정 9 | A8 |
+| N19 | 15-5 저장 버튼 | 없다 — 화면마다 저장(pen 대로) | 결정 10 | A12 |
 
 ## 2. API — `GET /me/card-preview` (새로, 서버 PR `feat/me-card-preview`)
 
@@ -77,64 +87,93 @@ S1)가 10b · 14c 와 같은 몸통 함수 `profile_detail()` 로 만든다. 15-
    └─ Cux1p "친구들이 본 나" ────────────────────▶ 20c (채팅탭 지인 리뷰 PR 4)
 ```
 
-## 4. 화면 대조표
+## 4. 화면 대조표 (값표 `Desktop/조각6_검토/값표_15_개편.md` 1 ~ 12, PNG 5장 `값표_15_개편_png/`, 2026-09-28)
 
-pen 값은 대장이 campus-pen 으로 뽑아 주는 값표가 기준이다. 아래 "값표 대기" 칸은 그 값이 오면 채우고, 채운 뒤에
-그 칸의 Task 를 시작한다. 지금 적힌 값은 대장 배정문(09-28)에 있던 것이다.
+lh = 줄높이 속성, 없으면 렌더 높이로 맞춘다(화면 15 코드와 같은 방식 — `height: 렌더/글자`). "→" 는 인스턴스가 덮어쓴 값.
+pen 이 고정 높이여도 코드는 minHeight(DESIGN §11.2).
 
-**15 내 프로필 `nkFJV`(360×922)** — `lib/me/view/my_profile_screen.dart` · `lib/me/view/profile_hero.dart`
+**15 내 프로필 `nkFJV`(360×922, #FFFFFF)** — `lib/me/view/my_profile_screen.dart` · `lib/me/view/profile_hero.dart`
 
 | 요소 | pen 값 | 노드 id | 위젯 | Task |
 | --- | --- | --- | --- | --- |
-| 앱바 | YTDwe "내 프로필", 톱니 → 16. 값표 대기(옛 `ffOFL` 과 같은지) | `hwVQB` / `YTDwe` / `C7teyl` | 지금 `AppBar` 그대로 | A14 |
-| 히어로 자리 | 값표 대기(여백) | `nrcYh` | `_ProfileContent` 의 첫 칸 | A14 |
-| ProfileHero | 328×360. 모서리 · 그림 채움 값표 대기. "AI 아바타" 배지 없음 | `l8p6X`(인스턴스 `exlt1`) | `ProfileHero` | A14 |
-| 스크림 | 값표 대기(그라데이션 색 · 멈춤점 · 위치) | `gyzqh` | `ProfileHero` 안 `DecoratedBox` | A14 |
-| 위 줄 칩 | "상대에게 이렇게 보여요" 만. 값표 대기(바탕 · 모서리 · 여백 · 아이콘 · 글자) | `dd4Jv` / `h9sFd` | `_HeroChip` | A14 |
-| 아래 묶음 | 세로 gap 2. 여백 값표 대기 | `IUcwD` | `ProfileHero` 안 `Column` | A14 |
-| 닉네임 + 인증 | 값표 대기(글자 · 아이콘 · 간격) | `fXWlF` / `CM0QK` / `HxtCZ` | `ProfileHero` 안 `Row` | A14 |
-| 학교 줄 | 학교는 한 줄 말줄임(N7). 값표 대기(글자 · gap) | `p2UWV` / `JUKgk` / `C9JEi` | `Expanded(Text(maxLines: 1, ellipsis))` | A14 |
-| 다시 만들기 · 10 | 높이 34 → 누름 44(N7). 값표 대기(폭 · 여백 · 모서리 · 바탕 · 하트 · 글자) | `R5Quru` | `_RegenerateButton` | A14 · A8 |
-| 15-2 버튼 | 비활성 #E5E5E5 · 아이콘 끔 · 글자 #929292(배정문). 토스트 값표 대기 | `p3BJ38` / 히어로 `EAqjZ` | `_RegenerateButton(enabled: false)` | A8 |
-| 15-3 토스트 | 옛 계획서 C7 문구. 위치 값표 대기 | `LbGpP` / 히어로 `WfE36` | 화면 15 토스트 | A8 |
-| 본문 | 여백 · 히어로↔입구↔리뷰 간격 · 아래 여백 값표 대기 | `rcsgx` | `ListView` padding | A14 |
-| 입구 두 줄 | gap 12(배정문) | `sx7MA` | `SizedBox(height: 12)` | A14 |
-| 남이 보는 내 프로필 카드 | "남이 보는 내 프로필 카드" / "상대에게 보이는 모습을 미리 봐요", eye → 15-4 | `k3r5C` | `ProfileEntryRow` | A14 |
-| 프로필 편집 | "프로필 편집" / "사진·기본 정보·선호 조건·자기소개", pencil → 15-5 | `sC8BR` | `ProfileEntryRow` | A14 |
-| 지인 리뷰 섹션 | N3 — 채팅탭 PR 4. PR 3 은 자리 주석만 | `Cux1p` / `o9BA0` | — | — |
-| 내비 | 값표 대기(`AppBottomNav` 그대로인지) | `sXATD` | `AppBottomNav(current: AppTab.me)` | A14 |
+| 배치 | 앱바 0..56 / 히어로 자리 56..444 / 본문 444..841 / 내비 841..922 | `nkFJV` | `Scaffold` | A14 |
+| 앱바 | 56, padding [0,8,0,20]. 제목 "내 프로필" 20/700 #222222 lh1.5(렌더 31) x20. 톱니 48×48 settings 22 #222222, 오른쪽 여백 8. 알림 배지 꺼짐 — **옛 `ffOFL` 과 값 같음(N16) → 지금 `AppBar` 그대로, 주석 · 테스트 id 만 `hwVQB`** | `hwVQB` / `C7teyl` | `AppBar` | A14 |
+| 히어로 자리 | padding [8,16,20,16] | `nrcYh` | `ListView` 첫 칸 여백 | A14 |
+| 본문 | gap 32, padding [24,16,40,16] → 히어로 ↔ 입구 줄 = 20 + 24 = **44**, 입구 줄 ↔ 지인 리뷰 32, 아래 40 → 내비 | `rcsgx` | `ListView` padding | A14 |
+| 입구 두 줄 | gap 12 | `sx7MA` | `SizedBox(height: 12)` | A14 |
+| 남이 보는 내 프로필 카드 | eye, "남이 보는 내 프로필 카드" / "상대에게 보이는 모습을 미리 봐요" → 15-4 | `k3r5C` | `ProfileEntryRow` | A14 |
+| 프로필 편집 | pencil, "프로필 편집" / "사진·기본 정보·선호 조건·자기소개" → 15-5 | `sC8BR` | `ProfileEntryRow` | A14 |
+| 지인 리뷰 섹션 | 헤더 "지인 리뷰" 17/700 + 분홍 줄 `o9BA0` — **N3 채팅탭 PR 4.** PR 3 은 자리 주석만. 그래서 PR 3 의 본문 끝은 입구 줄 뒤 아래 여백 40 | `Cux1p` | — | — |
+| 내비 | `AppBottomNav(current: AppTab.me)` 그대로. 대화 배지 "4" 는 목데이터(N11) | `sXATD` | 그대로 | A14 |
+
+**ProfileHero 마스터 `l8p6X`(328×360)** — `lib/me/view/profile_hero.dart` (A14)
+
+| 요소 | pen 값 | 노드 id |
+| --- | --- | --- |
+| 틀 | 모서리 24, clip, padding [16,16,20,16], 세로 space_between(위 줄은 위, 이름 묶음은 아래) | `l8p6X` |
+| 그림 | 아바타 그림 **cover**(꽉 채워 자름). 아바타 없음 = 같은 크기 surface-soft 빈 칸(N9) | `l8p6X` |
+| 스크림 | 위치 y150, 높이 210(아래 끝까지), 위 → 아래 선형: #222222 α0 @0 · α0.45 @0.35 · α0.65 @0.6 · α0.85 @1 | `gyzqh` |
+| 위 줄 | 가로 space_between, 세로 가운데 — 칩 하나 | `dd4Jv` |
+| 보기 칩 | Badge `XPRBv` → eye 14 #FFFFFF + "상대에게 이렇게 보여요" 13/600 #FFFFFF lh1.5(렌더 21). 바탕 #222222 **불투명**(N15), r999, padding [6,10], gap 4(렌더 33) | `h9sFd` |
+| 이름 묶음 | 세로 gap 2, 자체 여백 없음 | `IUcwD` · `ynlrz` |
+| 이름 줄 | 가로 gap 8, 세로 가운데 | `fXWlF` |
+| 닉네임 | "늑대, 24" 24/700 #FFFFFF lh1.35(렌더 33) | `CM0QK` |
+| 인증 배지 | Badge `XPRBv` → 바탕 #FFFFFF, badge-check 13 #222222, "학생 인증" 12/600 #222222 lh1.5, r999, padding [6,10], gap 4(렌더 31) | `HxtCZ` |
+| 학교 줄 | 가로 gap 12, 세로 가운데. 학교 칸 fill + clip — 코드는 한 줄 말줄임(N7) | `p2UWV` / `JUKgk` |
+| 학교 | "서울대학교 · 컴퓨터공학과" 14/400 #FFFFFF lh1.55(렌더 23) | `C9JEi` |
+| 다시 만들기 알약 | 높이 34(**누름 44**, N7), 폭 hug, #FFFFFF, r9999, padding [0,10], gap 4, 테두리 없음 | `R5Quru` |
+| 알약 하트 | Heart Value Icon `l4vdk` 16×16 = `heart-flat-vector-v3.png`(흰 바탕이라 원본, DESIGN §8.3) | `yhwPU` |
+| 알약 글자 | "다시 만들기 · 10" 13/600 #C4224B lh1.5(렌더 21). 10 은 서버 `avatarRegenCost` 가 아니라 pen 고정(D6 — 무료 차례에도 같다) | `TXsBS` |
+
+**15-2 · 15-3** (A8 — 히어로 상태 + 토스트)
+
+| 요소 | pen 값 | 노드 id |
+| --- | --- | --- |
+| 15-2 알약 | #E5E5E5, 하트 숨김, 글자 #929292, 문구 "다시 만들기 · 10" 그대로(N10). 눌러도 아무 일 없음 | `EAqjZ` |
+| 15-2 토스트 | `AppToast`(Toast `I8UOWm` 기본): #222222 r9999 padding [10,16] gap 8, loader-circle 16 #FFFFFF + "아바타로 변환 중이에요" 14/600 #FFFFFF | `fLkE8` |
+| 15-3 알약 | 기본(활성)으로 돌아옴 | `WfE36` |
+| 15-3 토스트 | triangle-alert 16 + "아바타를 만들지 못했어요.\n하트는 차감되지 않았어요."(두 줄) | `k110R` |
+| 토스트 자리 | pen 은 흐름 배치만 — **04-3 토스트와 같은 자리**(N18) | — |
 
 **ProfileEntryRow 마스터 `fN0xc`** — `lib/me/view/profile_entry_row.dart` (A11)
 
 | 요소 | pen 값 | 노드 id |
 | --- | --- | --- |
-| 바탕 · 그림자 | #FFFFFF + `AppElevation.card`(N5) | `fN0xc` |
-| 모서리 · 높이 | 14 · 최소 84(글자를 키우면 늘어난다) | `fN0xc` |
-| 아이콘 원 | #F7F7F7(= `AppColors.surfaceSoft`). 크기 · 아이콘 값표 대기 | `zdZqS` |
-| 여백 · 제목 · 노트 · 셰브런 | 값표 대기(지금 16 · 16/600 렌더 25 · 14/400 · 셰브런 20 과 같은지) | `iksDh` · `ZMu82` · `B4ppA` · `vszZo` |
+| 틀 | 328×84(코드 minHeight 84), **#FFFFFF**, r14, 가로 gap 12, padding 16, 세로 가운데 | `fN0xc` |
+| 그림자 | 두 겹 #1A16190F (0,2) blur 8 · #1A161914 (0,8) blur 24 = `AppElevation.card` 그대로(N5) | `fN0xc` |
+| 아이콘 원 | 44×44 #F7F7F7 r999 — **지금 코드 `AppColors.canvas`(#FFFFFF)에서 바뀜**(흰 바탕 위라 원이 보여야 한다) | `zdZqS` |
+| 아이콘 | 22 #6A6A6A | `GAMlp` |
+| 글 칸 | 세로 gap 3, 제목 16/600 #222222 lh1.5(렌더 25), 노트 14/400 #6A6A6A lh1.5 | `iksDh` / `ZMu82` / `B4ppA` |
+| 셰브런 | chevron-right 20 #6A6A6A | `vszZo` |
+| (분홍 변형 `o9BA0` 은 채팅탭 PR 4 — 바탕 #FFF0F2 · 원 #FFFFFF · heart-handshake #C4224B · 셰브런 #C4224B) | — | `o9BA0` |
 
-**15-4 남이 보는 내 프로필 `gnEwq`** — `lib/me/view/card_preview_screen.dart` (A13). 내비 없음.
-
-| 요소 | pen 값 | 노드 id | 위젯 |
-| --- | --- | --- | --- |
-| 앱바 | 뒤로 + 제목. 값표 대기(제목 문구 · 15c `iq3jl` 과 같은지) | `QfTUe` / `KH1hX` | `EditAppBar`(같으면) |
-| 본문 | 값표 대기(여백 · 간격) | `iFAyO` | `ListView` |
-| 안내 | "대화 상대가 보는 내 프로필이에요. 실제 사진과 카카오톡 아이디는 둘 다 수락한 뒤에 공개돼요." 링크 끔. 값표 대기(바탕 · 모서리 · 여백 · 아이콘 · 글자) | `Ocmk4`(마스터 `WQIrY`) | `_PreviewNotice` |
-| 카드 | 14c 카드 사본 — 실사진 · 카톡 · 신고 줄 끔, 이름 · 학교 줄 있음. 이름 줄 오른쪽 "신뢰 확인 완료" 는 값표 대기 | `kpIeX` | `ProfileCard(detail:)` 슬롯 없음 |
-| 리뷰 섹션 | N3 — 채팅탭 PR 4(깃발 숨김 N6 포함) | `kpIeX` 안 | — |
-
-**15-5 프로필 편집 `rrJ27`** — `lib/me/view/profile_manage_screen.dart` (A12). 내비 없음.
+**15-4 남이 보는 내 프로필 `gnEwq`(360×1714)** — `lib/me/view/card_preview_screen.dart` (A13). 내비 없음.
 
 | 요소 | pen 값 | 노드 id | 위젯 |
 | --- | --- | --- | --- |
-| 앱바 | 뒤로 + "프로필 편집". 값표 대기(`iq3jl` 과 같은지) | `VBRNa` / `KH1hX` | `EditAppBar` |
-| 본문 | gap 32, padding 24/16/40/16(배정문) | `H4VWO` | `ListView` |
-| 실제 사진 | 교체 버튼 → 15e(PR 4 전까지 "곧 열려요"). 값표 대기(제목 문구 · 슬라이더 크기 · 배지 · 버튼) | `Rn3AC` | 15 에서 옮긴 `_RealPhotoSection` |
-| 기본 정보 | 카드 흰 바탕 + 그림자. 헤더 오른쪽 "수정 ›" → 15d(PR 3-2 전까지 "곧 열려요"), 누름 44. 값표 대기(헤더 글자 · 카드 모서리 · 여백 · 줄 칸들) | `QldHz` / `PfZjU` / `A8LX2` / `N1dIuc` | 15 에서 옮긴 `_ProfileFacts` + 헤더 |
-| 선호 조건 | 줄 → 06-1 편집. 값표 대기(헤더 · 줄 모양 · 간격) | `J0ZhR6` | 15 에서 옮긴 선호 나이 · 키 `ProfileEntryRow` |
-| 자기소개 | 글 + "자기소개 · 태그" 줄 → 15c. 값표 대기(헤더 · 글자 · 줄 모양) | `jVQAw` | 15 에서 옮긴 `_BioSection` + `m2szef` 줄 |
+| 앱바 | AppBar · Sub `KH1hX`: 56, padding [0,8], gap 4, 뒤로 48(arrow-left 22 #222222), 제목 "남이 보는 내 프로필" 20/700 lh1.5. 15c `iq3jl` 과 값 같음(N14) | `QfTUe` | `EditAppBar` |
+| 본문 | 세로 gap 32, padding [24,16,40,16] | `iFAyO` | `ListView` |
+| 안내 | #FFF0F2 r12 padding 14, **아이콘 없음**, 링크 끔. "대화 상대가 보는 내 프로필이에요. 실제 사진과 카카오톡 아이디는 둘 다 수락한 뒤에 공개돼요." 14/400 #3F3F3F lh1.5 | `Ocmk4`(`WQIrY`) | `_PreviewNotice` |
+| 카드 | 14c 카드 사본: #FFFFFF r24 테두리 #EBEBEB 1, padding 20, **높이는 내용 맞춤**(N17). 실사진 · 점 · 카카오 카드 · 구분선 · 신고/차단 줄 끔 | `kpIeX` | `ProfileCard(detail:)` 슬롯 없음 |
+| 이름 줄 오른쪽 | "신뢰 확인 완료" 자리 `CTtPd` **꺼짐** — `nameTrailing` 없음 | `CTtPd` | — |
+| 리뷰 섹션 | N3 — 채팅탭 PR 4(깃발 숨김 N6 포함) | `lLY1f` · `vOLQ1` · `muTFX` | — |
 
-**15b · 15-2 · 15-3** — 옛 계획서 4절 15b 표 · A8 그대로. 바뀌는 것은 입구(`JaHig` → `R5Quru`)와 15-2 모양(`EAqjZ`).
+**15-5 프로필 편집 `rrJ27`(360×1131)** — `lib/me/view/profile_manage_screen.dart` (A12). 내비 · 저장 버튼 없음(N19).
+
+| 요소 | pen 값 | 노드 id | 위젯 |
+| --- | --- | --- | --- |
+| 앱바 | `KH1hX` → "프로필 편집"(15-4 와 같음) | `VBRNa` | `EditAppBar` |
+| 본문 | 세로 gap 32, padding [24,16,40,16] | `H4VWO` | `ListView` |
+| 섹션 헤더 | SectionHeader `Ymhdq`: 제목 17/700 #222222(렌더 25), 오른쪽 글자 14/400 #6A6A6A(렌더 20), 가로 space_between. 섹션 안 gap 12 | `GimcE` · `PfZjU` · `Gjodp` · `ZpArm` | `_SectionHeader` |
+| 실제 사진 | 헤더 "실제 사진" + 오른쪽 "서로 수락하면 전달돼요". 슬라이더 gap 8, 사진 252×184 r14 cover, 배지 lock "수락 후 공개"(Badge · Small, 위 12 · 오른쪽 13), 점 6 gap 6 #222222/#DDDDDD, 교체 버튼 328×44 #F2F2F2 r8 "실제 사진 교체" 14/600 #222222 lh1.5 → **"곧 열려요"**(N4) | `Rn3AC` / `c9Co2` / `r6b8Vu` / `RaYKc` / `E7Cv2` | 15 에서 옮긴 `_RealPhotoSection` (제목만 헤더로) |
+| 기본 정보 | 헤더 "기본 정보" + "수정 ›" **14/400 #6A6A6A 글자만**(N12 — 15c 분홍과 다름), 누름 44 → "곧 열려요"(N4). 카드 **#FFFFFF r14 + 카드 그림자**, padding [4,16], 줄 48(아이콘 19 #6A6A6A · gap 10 · 라벨 14/400 #6A6A6A · 값 14/600 #222222), 구분선 없음. 내 키 · MBTI · 학과 | `QldHz` / `PfZjU` / `A8LX2` / `N1dIuc` | 15 에서 옮긴 `_ProfileFacts`(바탕 · 그림자만 바뀜) |
+| 선호 조건 | 헤더 "선호 조건"(오른쪽 없음) + ProfileEntryRow 2개 gap 12: calendar "선호 나이 범위" · ruler "선호 키 범위" → 06-1 편집 | `J0ZhR6` / `sR3If` · `t1Eok` | 15 에서 옮긴 두 행 |
+| 자기소개 | 헤더 "자기소개"(오른쪽 없음) → 본문 16/400 #3F3F3F lh1.6 → 12 → ProfileEntryRow tags "자기소개 · 태그" / "관심사 · 나의 특징 · 이상형" → 15c | `jVQAw` / `IUPXc` / `bTDTS` | 15 에서 옮긴 `_BioSection` + `m2szef` 행 |
+
+**15b 시트 `aGaPA` · `N5lXcc` · `i8rkW`** — 옛 계획서 4절 15b 표 그대로(A8 앞부분에서 구현 · 검토 끝). 값표로 확인한 것:
+15b-2 제목 "아바타를 다시 만들까요?"(`pHsgT`, 15b 와 같음) · 15b-3 CTA 하트 on-primary 26 gap 8(`DW3Zn`) · 15b-2 ·
+15b-3 도 취소 · 36 여백 있음 · `n3D3iC` = `heart-flat-vector-on-primary-v1.png`(md5 같음) · 딤 Scrim `RoxU2` #00000080 =
+`AppColors.scrim`(검정 0.5, N13 — 같다).
 
 ## Global Constraints
 
@@ -435,3 +474,115 @@ async def get_my_card_preview(
   `Expected: <1>, Actual: <2>` 로 바로 떨어진다.
 - 사소 2(비활성 버튼의 하트 색)는 쓰는 곳이 없어 두었다.
 - 중간 검토 결과: `flutter test test/me test/profile test/safety test/core/router` 629 passed, analyze 0(반영 뒤 내가 다시 돌림).
+
+### A10 · A11 · A12 · A13 (campus-coder, 2026-09-29)
+
+**A10 경로**
+- 상수 2개(`myProfileManage` · `myCardPreview`, 주석 포함) · `_meRoutes()` 안 GoRoute 2개 · import 2줄. `_meRoutes()` 안에
+  주석 한 줄("15 입구에서 push 로 연다")을 더했다. 경로는 A12 · A13 에 각각 붙였다(Step 5 그대로).
+- 화면 15 입구 두 줄 연결은 A14 몫이라 하지 않았다.
+
+**A11 ProfileEntryRow**
+- 계획서 코드 그대로(Material 밖 `DecoratedBox` 가 `AppElevation.card`, Material 은 canvas · elevation 0).
+- 누르지 않는 행도 같은 틀이다 — Material 이 바탕을 칠하고 InkWell 만 없다(모양을 한 갈래로).
+- `app_elevation.dart` 주석 한 줄에 15-5 기본 정보 카드 `N1dIuc` 도 같이 적었다(같은 토큰을 쓰는 두 번째 자리).
+
+**A12 15-5**
+- `_LoadError` 는 공개 `MeLoadError`(`lib/me/view/me_load_error.dart`)로 뺐다. 15 · 15-4 · 15-5 세 곳이 지금 쓴다 —
+  Interfaces 의 "A14 에서 모은다" 를 앞당겼다. 테스트 `test/me/view/me_load_error_test.dart` 2개.
+- "곧 열려요" 토스트는 15-5 에만 private 으로 둔다. 15 에는 누를 곳("실제 사진 교체")이 떠나 지웠다(15 는
+  `ConsumerWidget` 이 됐다). A8 의 15 연결(충전 → "곧 열려요", 15-2 · 15-3 토스트)에서 15 에 다시 필요하다 — 그때 두
+  화면이 같이 쓰는 모양으로 뺀다.
+- **사진 ↔ 점 간격 12(pen `rrJ27`) — 대장 (가) 허락(09-29) → 12.** 공용 `PhotoSlider` 에 선택 인자 `dotsGap`(기본 8 = 화면
+  15 · 14c 값) 하나만 더하고 15-5 가 12 를 넘긴다 → 실제 사진 섹션 295(pen 그대로). 14c · 기존 호출은 인자를 안 넘겨 그대로.
+- "수락 후 공개" 배지는 15 의 `_InkBadge(small)` 를 옮기지 않고 15-5 에 `_LockBadge` 로 새로 뒀다 — 15 는 A14 전까지 헤더 ·
+  아바타 배지로 `_InkBadge` 를 계속 쓴다. A14 에서 15 의 `_InkBadge` 가 없어지면 겹침도 없어진다.
+- "수정 ›" 누름 44(N12)는 15c `_TagSection` 과 같은 방식이다 — 위 섹션과의 간격 32 를 기본 정보 상자 안에 넣고 44 칸을
+  헤더 줄 가운데에 겹친다(상자 밖은 누름 검사가 닿지 않는다).
+- 자기소개가 비면 옛 15 는 섹션째 숨겼는데, 15-5 는 **본문만** 숨기고 헤더 · 15c 입구 행(`bTDTS`)을 남긴다 — 입구 행이
+  자기소개 섹션 안이라 숨기면 다시 채울 길이 없다. 옮긴 테스트도 이 규칙으로 바꿨다.
+- 자기소개 본문 줄높이는 pen 속성 1.6(body 토큰 그대로). pen 렌더는 81(3줄 × 27)이고 옛 15 는 렌더 25 로 맞췄었다 —
+  4절 규칙("lh 속성이 있으면 속성")대로 1.6.
+- 헤더 오른쪽 글자는 `Flexible` — 배율 2.0 에서 "서로 수락하면 전달돼요" 가 제목을 밀지 않고 줄을 바꾼다.
+- **pen 에 없는 상태(N9) 모양**: 로딩 = 가운데 `CircularProgressIndicator`, 실패 = `MeLoadError`("잠시 뒤 다시 시도해 주세요" +
+  "다시 시도"), 둘 다 앱바는 남는다. 토스트 자리 = 화면 아래 12 · 가로 가운데(하단 버튼 · 내비가 없어 §8.5 "버튼 위 12" 를
+  화면 끝에 적용).
+- 화면 15 테스트에서 옮긴 것: 실사진 · "실제 사진 교체" · Facts · 선호 행 두 개 · 자기소개 · 15c 입구(`m2szef`) 그룹 전부와
+  좌표 · 글자 · 아이콘 테스트의 해당 줄(값은 `rrJ27` 로 새로). 입구 행의 "자기소개 아래 24 · 폭 328" 과 "자기소개가 비면 선호
+  키 행 아래 24" 는 15-5 좌표 테스트와 "비면 헤더 아래 12" 테스트로 합쳤다. 15 에서 뺀 것: "본문 아래 32(입구 행 ↔ 내비)" —
+  입구 행이 떠나 뜻이 없어졌고 15-5 의 "아래 40" 이 갈음한다.
+
+**A13 15-4**
+- 계획서대로 `ProfileCard(detail:)` 슬롯 셋 다 null. 실패하면 안내 상자도 그리지 않고 `MeLoadError` 만(N9, 15-5 와 같다).
+- 안내 상자 모서리 12 · 안쪽 14 · 본문 아래 40 은 토큰 사이 값이라 리터럴(주석).
+- Review Focus 1 테스트(`card_preview_has_no_photos_kakao_or_report_links`)는 "차단하기" 까지 보고, 슬롯 테스트가 "신뢰 확인
+  완료" 없음(`CTtPd` 꺼짐)을 본다. 카드 끝 ↔ 화면 끝 40 도 확인했다.
+
+### A14 · A8 15 연결 (campus-coder, 2026-09-29)
+
+**A14 히어로 `l8p6X`(`lib/me/view/profile_hero.dart`)**
+- 글자 줄높이는 pen **속성**(닉네임 1.35 = headline 토큰, 학교 1.55 = bodySmall 토큰, 칩 · 배지 · 알약 1.5)이다. pen 렌더
+  높이(33 · 23 · 21)와 0.5 ~ 1.5 차이가 나서, 좌표 테스트는 pen 렌더 값이 아니라 속성으로 계산한 값을 본다(A12 자기소개와
+  같은 규칙).
+- 13 · 12 글자(칩 · 알약 · 인증 배지)는 타입 토큰 사이 값이라 `labelSmall`(14/600)에 `fontSize` 만 덮어썼다. 칩과 인증
+  배지는 같은 마스터(`XPRBv`)라 private `_PillBadge` 하나에 생성자 둘(`viewChip` · `verified`)로 뒀다.
+- **알약 누름 44(N7)는 아래로만 10 늘렸다.** 위로 늘리면 이름 줄이 5 밀려 pen 좌표가 어긋난다. 히어로 아래 여백 20 중 10 을
+  누름 칸이 쓰고(히어로 패딩 아래 10 + 칸 10), 몸통 밖 10 은 `GestureDetector`(화면 읽기 제외), 몸통 안은 `InkWell` 이 받는다 —
+  안쪽이 이겨 한 번만 불린다. 눌림 효과는 몸통(34) 크기 Material 위(COMMON §4-2). 그래서 학교 줄은 위 맞춤이고 학교 글자는
+  몸통 높이 34 안에서 스스로 가운데를 잡는다.
+- **알약은 학교 줄 폭의 3/4 까지**(`_pillMaxShare`). 글자를 키워 그보다 넓어지면 알약 글자가 줄을 바꾼다. 알약이 폭을 다
+  먹으면 학교가 안 보이고, 반대로 알약에 `Flexible` 만 주면 1.0 에서도 학교 칸이 반으로 묶인다. Pretendard 로 2.0 까지 한
+  줄(약 218 · 74%). 테스트 글꼴은 한글이 넓어 1.0 에서도 60% 로는 알약이 두 줄이 됐다(그래서 3/4).
+- 히어로 높이 360 은 최소값(§11.2) — 긴 닉네임 · 2.0 에서 늘어난다. 스크림은 y150 부터 **히어로 끝까지**라 같이 늘어난다.
+- 닉네임은 말줄임하지 않고 줄을 바꾼다(말줄임은 학교 줄만, Review Focus 4). 보기 칩 글자도 2.0 에서 줄을 바꾼다.
+- **화면 읽기.** 알약은 `MergeSemantics` 안의 버튼 하나 — 라벨 "하트\n다시 만들기 · 10"(하트 글리프 `Semantics(label: '하트')`,
+  CLAUDE.md §7). 15b 는 하트를 뺐지만(단위를 위 설명이 읽음) 여기는 "10" 의 단위를 읽어 줄 설명이 없어 넣었다. 테스트:
+  `getSemantics` 라벨 · 버튼 · 탭 동작 · 자식 노드 0, `bySemanticsLabel('하트')` 없음. 꺼진 알약은 누를 수 없는 버튼, 라벨
+  "다시 만들기 · 10". `MergeSemantics` 를 빼면 알약 글자가 그림 노드("내 AI 아바타")에 섞이는 것을 변형으로 봤다.
+- 아바타 그림은 있을 때만 "내 AI 아바타" 이미지로 읽는다(빈 칸은 이미지가 아니다). 히어로의 칩 · 이름 · 학교는 그 노드에 한
+  번에 읽힌다(카드 한 장 = 한 번 멈춤).
+- 아바타 없음(N9): 같은 크기 surface-soft 빈 칸 + 스크림 그대로 — 흰 글자가 밝은 빈 칸 위에서도 읽힌다.
+
+**A14 화면 15(`my_profile_screen.dart`)**
+- 본문은 `ListView` 하나(padding 16 · 8 · 16 · 40) — 히어로 자리 `nrcYh` 위 8 과 본문 `rcsgx` 아래 40 을 겉 여백으로, 히어로 ↔
+  입구 줄 44(20 + 24)를 `SizedBox` 로. 지인 리뷰 섹션 자리는 주석(N3).
+- 입구 두 줄 높이 84 는 최소값 — 테스트 글꼴은 두 노트가 두 줄로 내려가(127) 테스트는 폭 · 간격 · 최소값을 본다.
+- `app_icons.dart` 에 `pencil` 한 줄(대장 (가) 09-29). `sparkles` 는 이제 화면 15 에서 안 써서(추천 코드 화면만 쓴다) 주석을
+  "20 추천 코드 "마지막 단계" 배지 (pen `h1CMd`)" 로 고쳤다(대장 허락 09-29).
+- 옛 헤더 · 아바타 섹션 · `_InkBadge` · `_sectionTitleStyle` 은 지웠다. 코드 · 테스트에 `r8oJc` · `ffOFL` · `JaHig` · `ZCpM4` ·
+  `o0yhI0` 가 남지 않는다(`grep -rn` 0건).
+
+**A8 15 연결**
+- "곧 열려요" 토스트를 15 와 15-5 가 같이 쓰게 되어 `lib/me/view/me_toast.dart` 로 모았다 — `comingSoonToast` · `MeToastHost`
+  (2초 타이머 · 한 번에 하나 · dispose 때 끊음) · `MeToastLayer`(본문 아래 12 · 가로 가운데). 15-5 는 이것으로 바꿨다(동작 같음,
+  테스트 그대로 통과). 테스트 `test/me/view/me_toast_test.dart` 4개.
+- 토스트 자리(N18): 15 는 하단 버튼 대신 내비가 있어 **내비 위 12** — 04-3 "하단 버튼 위 12" 와 같은 규칙.
+- 한 번에 하나: 만드는 동안은 변환 중 토스트가 자리를 쥔다(그동안 알약이 꺼져 다른 안내가 생길 길이 없다). 끝나면 2초짜리
+  안내(15-3 · 서버 문구 · "곧 열려요")가 서로를 바로 바꾼다.
+- **실패 안내는 상태 변화 하나로 받는다.** generating → failed 에서 `errorMessage` 가 없으면 15-3, 있으면(402 등 등록 거절) 그
+  서버 문구를 같은 자리 · 모양(triangle-alert)으로. 처음엔 `regenerate()` 가 돌려주는 문구를 따로 띄우고 listener 는 문구 없는
+  실패만 봤는데, 변형(가드 제거)을 해 보니 같은 프레임에 뒤 토스트가 앞 것을 덮어 테스트로 가를 수 없었다 — 순서에 기대는
+  두 갈래 대신 한 곳에서 가른다. 402 토스트 아이콘은 pen 에 없어 15-3 과 같게 뒀다.
+- generating → ready(와 fallback)이면 `ref.invalidate(myProfileProvider)`. failed 는 다시 읽지 않는다(그림 · 하트 그대로).
+- 15 를 열 때 뷰모델이 **이미 만드는 중일 때만** `refreshStatus()`. idle 에서 부르면 `isWaiting` 이 idle 도 기다림으로 봐 계속
+  묻는다 — 테스트 "만드는 중이 아니면 화면을 열어도 상태를 묻지 않는다".
+- **더한 것 — 등록 응답을 기다리는 사이 떠나면.** dispose 의 `stopPolling()` 은 이미 지나갔고 그 뒤 `regenerate()` 가 폴링을
+  건다. `_regenerate` 가 끝난 뒤 `mounted` 가 아니면 `stopPolling()`. 테스트 "등록 응답을 기다리는 사이 떠나도 폴링이 남지 않는다".
+- 뷰모델 · 시트 · 온보딩 파일은 고치지 않았다.
+
+**PhotoSlider `dotsGap`(대장 (가) 09-29)** — 위 A12 줄 참고. `photo_slider_test` 에 `dotsGap: 12` 테스트 하나, 15-5 좌표
+테스트는 사진 ↔ 점 12 · 섹션 295 로.
+
+**RED 로 본 것**: 히어로 · 토스트 · `dotsGap` 은 컴파일 오류(없는 이름), 15-5 좌표는 `Expected 275 / Actual 271`, 화면 15 는
+`AppIcons.pencil` 없음 → 넣은 뒤 옛 화면에서 20개 실패. 변형으로 다시 떨어지는 것을 본 것: 떠날 때 `stopPolling` 빼기 ·
+돌아올 때 `refreshStatus` 빼기 · 기다리는 사이 떠날 때 가드 빼기 · ready invalidate 빼기 · 만드는 중에도 알약 켜기 · 402 문구를
+15-3 으로 · failed 분기 없애기 · 알약 누름 칸 10 빼기 · 닉네임 `Flexible` 빼기 · `MergeSemantics` 빼기.
+
+### PR 3 화면 검토 반영 (campus-reviewer PASS · 필수 0, 2026-09-29)
+
+- **권고 1 — 등록 응답을 기다리는 사이 떠났다가 응답 전에 돌아오면 "변환 중" 에 멈추던 것.** 뷰모델의 폴링 타이머는 하나라, 떠난
+  화면의 `if (!mounted) stopPolling()` 이 돌아온 화면의 폴링까지 끊었다. 열려 있는 화면 15 수(`_openCount`, initState ++ ·
+  dispose --)를 세어 0 일 때만 끊는다 — 뷰모델 파일은 그대로. 테스트 `등록 응답을 기다리는 사이 떠났다가 응답 전에 돌아오면
+  폴링을 잇는다` — 고치기 전 `Expected: a value greater than <2>, Actual: <2>` 로 떨어지는 것을 봤다.
+- **사소 1** — 위 `sparkles` 줄을 실제 코드에 맞게 고쳤다. 공유 파일 허락은 이 절 위 A12 · A14 줄과 1절 N 결정에 적혀 있다.
+- **사소 2** — 알약 아래 10 누름 칸 `GestureDetector` 의 `excludeFromSemantics: true` 를 히어로 화면 읽기 테스트에 한 줄로 고정.
