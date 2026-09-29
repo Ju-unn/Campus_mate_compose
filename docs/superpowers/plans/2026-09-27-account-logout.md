@@ -1129,3 +1129,24 @@ A6 가 나중이면 이 Task 는 A6 PR 이 한다(대장이 안전담당에게 �
 - **자리표시:** `[pen]` · `[pen 노드 id]` 는 대장 값표 대기다(맨 위 v1 표시). 값표를 받으면 v2 에서 모두 지운다. 그 밖의 TBD 는 없다.
 - **이름 일관성:** `signOutProvider` · `SessionScope` · `showSafetyConfirmSheet`(재사용) · `AccountInfo` · `AccountRepository.fetchAccount` · `accountRepositoryProvider` · `accountInfoProvider` · `FakeAccountRepository(result:)` · `AppRoutes.account` — Task 사이에서 같다.
 - **Review Focus:** 5개 모두 해당 Task 에 테스트가 있다.
+
+---
+
+## 구현 편차 기록 (2026-09-29 문서 정리 — PR #143 · #150 설명에서 옮김)
+
+### PR 1 로그아웃 (#143, 2026-09-28)
+
+- **로그아웃 뒤 앞 사람 화면 상태가 남던 문제를 같이 고쳤다** — provider 가 autoDispose 가 아니라 같은 폰에서 다른 계정으로 들어오면 앞 사람의 내 프로필 · 카드 · 대화 목록이 보일 수 있었다. `SessionScope` 가 `signedOut` 마다 `ProviderScope` 를 새 key 로 다시 만든다(버튼 로그아웃 · 세션 만료 모두). 토큰 갱신 · 로그인 이벤트에는 그대로 둔다.
+- **오프라인 로그아웃 예외를 삼킨다** — gotrue 가 기기 세션을 먼저 지운 뒤 서버 알림에서 `AuthRetryableFetchException` 을 던진다. 기기는 이미 로그아웃이다.
+- 16g 는 새 위젯 없이 안전 확인 시트(`showSafetyConfirmSheet`)를 그대로 쓴다(pen `ZkOEb` 가 `aCTy1` 과 같은 모양).
+- 1차 검토 FAIL(토큰 갱신 테스트가 pump 한 번뿐) → pump 한 줄 추가 뒤 PASS.
+- 남긴 것(백로그): 로그아웃 순간 옛 ViewModel 의 `UnmountedRefException` 로그 · 느린 망 두 번 누름 · `main.dart` dispose 의 `_router.dispose()` 없음 · `AuthSessionListenable` onError 없음 · 시트 쓸어 닫기 테스트 없음.
+
+### PR 2 16e 계정 (#150, 2026-09-28)
+
+- 16e 본문은 계획서의 `ListView` 대신 `SingleChildScrollView + Column`(구역 5개 고정, 테스트에서 게으른 ListView 가 마지막 구역을 그리지 않았다).
+- R0 FAIL(값이 카드 오른쪽 끝에 붙지 않음 · 360 폭 2.0배에서 카톡 값 잘림) → 라벨 최대 줄 폭 절반 · 값 Expanded 오른쪽 끝으로 고침 → R1 PASS.
+- 가입일 한국 날짜 테스트는 KST 기계에서는 `toLocal()` 회귀를 못 잡고 CI(UTC)에서만 RED 가 난다.
+- 리베이스 때 안전 6b(#153)의 `account_repository.dart` 와 같은 이름을 한 파일로 합쳤다(`HttpAccountRepository(api, auth)`).
+- Task 7(카톡 줄 → 16e-1)은 **저장하고 돌아올 때만** 다시 읽는다(위 Task 7 편차, 대장 결정).
+- 남은 사소: 값 글자 줄높이가 pen 과 1px 안쪽으로 다름(보이지 않음).
