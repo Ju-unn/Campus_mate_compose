@@ -7,6 +7,7 @@ import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/matching/viewmodel/notification_settings_view_model.dart';
+import 'package:campus_mate/referral/view/invite_friends_sheet.dart';
 import 'package:campus_mate/safety/view/contact_permission_sheets.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
@@ -46,6 +47,17 @@ class SettingsScreen extends ConsumerWidget {
                 title: Text('무료로 하트 모으기', style: AppTypography.subtitle.copyWith(color: AppColors.ink)),
                 trailing: const Icon(AppIcons.chevronRight, color: AppColors.muted),
                 onTap: () => context.push(AppRoutes.heartTasks),
+              ),
+              ListTile(
+                leading: const Icon(AppIcons.userPlus, color: AppColors.muted),
+                title: Text('친구 초대', style: AppTypography.subtitle.copyWith(color: AppColors.ink)),
+                // pen `b1fvA` 설명 줄. 글자 모양은 이웃 줄(매칭 활성화)에 맞춘다 — 16 전체 pen 맞추기는 백로그 70.
+                subtitle: Text(
+                  '내 추천 코드를 친구에게 보내요',
+                  style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+                ),
+                trailing: const Icon(AppIcons.chevronRight, color: AppColors.muted),
+                onTap: () => showInviteFriendsSheet(context),
               ),
               ListTile(
                 leading: const Icon(AppIcons.userRound, color: AppColors.muted),

@@ -6,6 +6,7 @@ class FakeReferralRepository implements ReferralRepository {
   Result<String> nextRedeem = const Success('22222222-2222-2222-2222-222222222222');
   Result<String> nextMyCode = const Success('K7QMX2');
   final redeemedCodes = <String>[];
+  int myCodeCalls = 0;
 
   @override
   Future<Result<String>> redeem(String code) async {
@@ -14,5 +15,8 @@ class FakeReferralRepository implements ReferralRepository {
   }
 
   @override
-  Future<Result<String>> myCode() async => nextMyCode;
+  Future<Result<String>> myCode() async {
+    myCodeCalls++;
+    return nextMyCode;
+  }
 }

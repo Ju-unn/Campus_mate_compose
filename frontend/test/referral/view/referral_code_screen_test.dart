@@ -132,7 +132,7 @@ void main() {
     expect(find.text('친구에게 받은 코드가 있나요?'), findsOneWidget);
     expect(find.text('코드를 입력하면 친구가 남긴 따뜻한 한마디를 프로필에 담을 수 있어요.'), findsOneWidget);
     expect(find.text('추천 코드'), findsOneWidget);
-    expect(find.text('예: K7Q2MX'), findsOneWidget);
+    expect(find.text('예: K7M2QX'), findsOneWidget);
     expect(find.text('코드 확인하기'), findsOneWidget);
   });
 
