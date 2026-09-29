@@ -103,4 +103,8 @@ abstract final class AppIcons {
 
   /// 화면 15 "프로필 편집" 입구 행 (pen `sC8BR`)
   static const IconData pencil = LucideIcons.pencil;
+
+  /// 화면 15 지인 리뷰 칸 — "친구들이 본 나" (pen `o9BA0/GAMlp`) · "내가 쓴 리뷰" (pen `tStBN/GAMlp`)
+  static const IconData heartHandshake = LucideIcons.heartHandshake;
+  static const IconData messageSquareText = LucideIcons.messageSquareText;
 }

@@ -5,6 +5,7 @@ import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/friend_review/view/my_friend_reviews_section.dart';
 import 'package:campus_mate/me/model/my_profile.dart';
 import 'package:campus_mate/me/view/avatar_regen_sheet.dart';
 import 'package:campus_mate/me/view/me_load_error.dart';
@@ -18,7 +19,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-/// 화면 15 내 프로필(pen `nkFJV`). 히어로(`l8p6X`) → 입구 두 줄(15-4 · 15-5). 실사진 · 기본 정보 · 선호 조건 ·
+/// 화면 15 내 프로필(pen `nkFJV`). 히어로(`l8p6X`) → 입구 두 줄(15-4 · 15-5) → 지인 리뷰 칸(20c · 20e). 실사진 · 기본 정보 · 선호 조건 ·
 /// 자기소개는 15-5 프로필 편집(`profile_manage_screen.dart`)으로 옮겼다(계획서 2026-09-28-me-profile.md N1).
 /// 앱바 톱니가 설정(16)으로 가는 유일한 문이다(DESIGN §9 화면 15).
 ///
@@ -156,7 +157,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> with MeToastH
   }
 }
 
-/// 본문 — 히어로 자리 `nrcYh`(위 8 · 좌우 16) → 히어로 → 44 → 입구 두 줄(`sx7MA`, 사이 12) → 아래 40.
+/// 본문 — 히어로 자리 `nrcYh`(위 8 · 좌우 16) → 히어로 → 44 → 입구 두 줄(`sx7MA`, 사이 12) → 32 → 지인 리뷰 칸(`Cux1p`) → 아래 40.
 class _ProfileContent extends StatelessWidget {
   const _ProfileContent({required this.profile, required this.onRegenerate});
 
@@ -189,8 +190,8 @@ class _ProfileContent extends StatelessWidget {
           note: '사진·기본 정보·선호 조건·자기소개',
           onTap: () => context.push(AppRoutes.myProfileManage),
         ),
-        // 지인 리뷰 섹션 `Cux1p`(헤더 "지인 리뷰" + 분홍 줄 `o9BA0` "친구들이 본 나" → 20c)은 채팅탭 지인 리뷰 PR 4 가
-        // 여기(입구 줄 아래 32)에 넣는다(N3).
+        const SizedBox(height: AppSpacing.xl), // 입구 줄 아래 32(N3)
+        const MyFriendReviewsSection(), // 지인 리뷰 `Cux1p` → 20c · 20e
       ],
     );
   }
