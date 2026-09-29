@@ -11,6 +11,7 @@ from app.cards.router import router as cards_router
 from app.chat.batch_router import router as chat_batch_router
 from app.chat.router import router as chat_router
 from app.community.router import router as community_router
+from app.consents.router import router as consents_router
 from app.core.deps import get_settings
 from app.friend_reviews.router import router as friend_reviews_router
 from app.heart_tasks.router import router as heart_tasks_router
@@ -42,6 +43,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="CampusMate Backend", lifespan=lifespan)
 app.include_router(auth_hooks_router)
+app.include_router(consents_router)
 app.include_router(student_verification_router)
 app.include_router(profile_onboarding_router)
 app.include_router(profile_onboarding_tasks_router)
