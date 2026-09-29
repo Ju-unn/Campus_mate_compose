@@ -8,20 +8,13 @@ import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/home/model/cohort_wait.dart';
 import 'package:campus_mate/home/viewmodel/home_summary_provider.dart';
+import 'package:campus_mate/referral/model/invite_share.dart';
 import 'package:campus_mate/referral/model/referral_repository_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:share_plus/share_plus.dart';
 
 /// 테스트가 시계를 바꿔 끼운다.
 final homeNowProvider = Provider<DateTime Function()>((ref) => DateTime.now);
-
-/// 휴대폰 공유 창(계획서 결정 5). 테스트는 받은 글을 모은다.
-final shareTextProvider = Provider<Future<void> Function(String)>(
-  (ref) => (text) async {
-    await SharePlus.instance.share(ShareParams(text: text));
-  },
-);
 
 /// "D-14" · 당일은 "D-day"(계획서 결정 8). 기기 시간대의 달력 날짜로 센다 —
 /// 시각 차이 `inDays` 는 06:59 와 07:00 사이에서 하루가 틀린다.
@@ -80,8 +73,7 @@ class _CohortWaitViewState extends ConsumerState<CohortWaitView> {
       final result = await ref.read(referralRepositoryProvider).myCode();
       if (!mounted) return;
       await result.when<Future<void>>(
-        // 공유 글은 계획서 결정 5 제안. 하트 숫자 · 스토어 링크는 넣지 않는다.
-        onSuccess: (code) => ref.read(shareTextProvider)('CampusMate 에서 같이 해요! 가입할 때 추천 코드 $code 를 넣어 줘.'),
+        onSuccess: (code) => ref.read(shareTextProvider)(inviteShareText(code)),
         onFailure: (failure) async => _showToast(failure.toDisplayMessage()),
       );
     } catch (_) {

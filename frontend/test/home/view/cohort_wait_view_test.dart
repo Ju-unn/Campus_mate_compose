@@ -13,6 +13,7 @@ import 'package:campus_mate/home/view/cohort_wait_view.dart';
 import 'package:campus_mate/home/view/home_screen.dart';
 import 'package:campus_mate/home/viewmodel/home_summary_provider.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
+import 'package:campus_mate/referral/model/invite_share.dart';
 import 'package:campus_mate/referral/model/referral_repository.dart';
 import 'package:campus_mate/referral/model/referral_repository_provider.dart';
 import 'package:flutter/material.dart';
