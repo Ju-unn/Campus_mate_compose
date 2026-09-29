@@ -1,4 +1,4 @@
-"""15c 자기소개 · 15d 닉네임 · 키 저장 PATCH /me/profile(계획서 2-5)."""
+"""15c 자기소개 · 15-6 닉네임 · 키 저장 PATCH /me/profile(계획서 2-5)."""
 import json
 from datetime import datetime, timedelta
 from types import SimpleNamespace
@@ -109,7 +109,7 @@ def test_new_nickname_saves_and_starts_the_thirty_days():
 
 def test_same_nickname_does_not_restart_the_thirty_days():
     seen = []
-    # 15d 는 키만 고쳐도 닉네임을 같이 보낸다. 같으면 잠금 검사도 안 하고 쓰지도 않는다.
+    # 15-6 은 키만 고쳐도 닉네임을 같이 보낸다. 같으면 잠금 검사도 안 하고 쓰지도 않는다.
     assert _patch({"nickname": "하늘", "height_cm": 180}, current=LOCKED, seen=seen).status_code == 200
     assert _profile_patches(seen) == [{"height_cm": 180}]
 

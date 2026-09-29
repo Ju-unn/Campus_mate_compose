@@ -1,4 +1,4 @@
-"""15e 실제 사진 한 번에 저장(계획서 2-2). 칸 배치 검사 자체는 test_photo_layout.py 가 본다."""
+"""15-7 실제 사진 한 번에 저장(계획서 2-2). 칸 배치 검사 자체는 test_photo_layout.py 가 본다."""
 import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock

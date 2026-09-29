@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.profile_onboarding.schemas import NICKNAME_PATTERN
 
-# 닉네임은 30일에 한 번(DESIGN §8.5 nickname-field). 잠금 판정(PATCH 409)과 15d-2 잠금 문구(GET 의 풀리는 때)가 이 값 하나를 본다.
+# 닉네임은 30일에 한 번(DESIGN §8.5 nickname-field). 잠금 판정(PATCH 409)과 15-6-2 잠금 문구(GET 의 풀리는 때)가 이 값 하나를 본다.
 NICKNAME_CHANGE_INTERVAL = timedelta(days=30)
 
 
@@ -17,7 +17,7 @@ def nickname_changeable_at(changed_at: datetime | None, now: datetime) -> dateti
 
 
 class ProfileUpdateRequest(BaseModel):
-    """15c(자기소개) · 15d(닉네임 · 키) 저장. **보낸 칸만** 고친다(model_fields_set) — 화면마다 따로 저장한다(U4)."""
+    """15c(자기소개) · 15-6(닉네임 · 키) 저장. **보낸 칸만** 고친다(model_fields_set) — 화면마다 따로 저장한다(U4)."""
 
     bio: str | None = None
     nickname: str | None = Field(default=None, pattern=NICKNAME_PATTERN)

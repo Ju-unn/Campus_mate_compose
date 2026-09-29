@@ -80,14 +80,14 @@ async def get_my_profile(
         "preferred_mbti_flags": profile["preferred_mbti_flags"],
         "preferred_animal_types": profile["preferred_animal_types"],
         "preferred_impression_types": profile["preferred_impression_types"],
-        # 15e 사진 교체는 행 id 로 "남길 사진" 을 가리킨다(PUT /me/photos).
+        # 15-7 사진 교체는 행 id 로 "남길 사진" 을 가리킨다(PUT /me/photos).
         "photos": [
             {"id": p["id"], "url": url, "is_avatar_source": p["is_avatar_source"]} for p, url in zip(ordered, urls)
         ],
         # entitlements 는 처음 하트를 받을 때 생긴다 — 1:1 embed 라 없으면 null 로 온다.
         "heart_balance": (profile["entitlements"] or {}).get("heart_balance", 0),
         "avatar_regen_cost": avatar_regen_cost(ready_count),
-        # 앱 시계를 믿지 않는다 — PATCH 409 와 같은 함수로 판정해 15d-2 "M월 D일부터" 에 쓴다(C6).
+        # 앱 시계를 믿지 않는다 — PATCH 409 와 같은 함수로 판정해 15-6-2 "M월 D일부터" 에 쓴다(C6).
         "nickname_changeable_at": changeable_at and changeable_at.isoformat(),
     }
 
@@ -211,7 +211,7 @@ async def update_my_profile(
     # 온보딩 라우터의 제공자를 그대로 쓴다 — 테스트가 목을 끼우는 자리가 하나여야 한다(tasks_router 와 같은 이유).
     openai_client: AsyncOpenAI = Depends(get_openai),
 ) -> dict[str, bool]:
-    """15c · 15d 저장. 온보딩 /bio 를 다시 쓰지 않는 이유 — 그쪽은 저장할 때마다 status 를 active 로 쓴다(계획서 0절)."""
+    """15c · 15-6 저장. 온보딩 /bio 를 다시 쓰지 않는 이유 — 그쪽은 저장할 때마다 status 를 active 로 쓴다(계획서 0절)."""
     settings, client, profile_id = caller
     repo = MeRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
     fields = body.model_dump(include=body.model_fields_set)
@@ -219,7 +219,7 @@ async def update_my_profile(
     if "nickname" in fields:
         current = await repo.fetch_nickname_state(profile_id)
         if fields["nickname"] == current["nickname"]:
-            # 키만 고친 15d 저장도 닉네임을 같이 보낸다 — 같으면 30일을 새로 세지 않는다.
+            # 키만 고친 15-6 저장도 닉네임을 같이 보낸다 — 같으면 30일을 새로 세지 않는다.
             del fields["nickname"]
         else:
             changed_at = current["nickname_changed_at"]
