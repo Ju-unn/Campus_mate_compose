@@ -19,6 +19,7 @@ import 'package:campus_mate/me/model/me_repository_provider.dart';
 import 'package:campus_mate/me/model/my_profile.dart';
 import 'package:campus_mate/me/view/my_profile_screen.dart';
 import 'package:campus_mate/me/view/profile_edit_screen.dart';
+import 'package:campus_mate/me/view/profile_manage_screen.dart';
 import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:campus_mate/profile/view/ideal_conditions_screen.dart';
 import 'package:campus_mate/profile/view/tag_picker_screen.dart';
@@ -373,6 +374,16 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(ProfileEditScreen), findsOneWidget);
+    });
+
+    // 화면 15 개편(계획서 2026-09-28-me-profile.md A10) — 15 의 입구 "프로필 편집"(`sC8BR`)이 여는 화면.
+    testWidgets('/me/manage 는 15-5 프로필 편집이다', (tester) async {
+      final router = await pumpRouter(tester);
+
+      router.go(AppRoutes.myProfileManage);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ProfileManageScreen), findsOneWidget);
     });
 
     testWidgets('/me/ideal-conditions 는 06-1 편집 모드다', (tester) async {

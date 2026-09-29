@@ -29,6 +29,7 @@ import 'package:campus_mate/matching/view/settings_screen.dart';
 import 'package:campus_mate/matching/view/today_cards_screen.dart';
 import 'package:campus_mate/me/view/my_profile_screen.dart';
 import 'package:campus_mate/me/view/profile_edit_screen.dart';
+import 'package:campus_mate/me/view/profile_manage_screen.dart';
 import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:campus_mate/profile/view/acquisition_screen.dart';
 import 'package:campus_mate/profile/view/appearance_type_screen.dart';
@@ -113,6 +114,8 @@ abstract final class AppRouter {
         redirect: (context, state) => _tagKind(state) == null ? AppRoutes.myProfileEdit : null,
         builder: (context, state) => TagPickerScreen(kind: _tagKind(state)!, isEditing: true),
       ),
+      // 화면 15 개편(계획서 2026-09-28-me-profile.md A10) — 15 입구에서 push 로 연다.
+      GoRoute(path: AppRoutes.myProfileManage, builder: (context, state) => const ProfileManageScreen()),
     ];
   }
 

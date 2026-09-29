@@ -84,4 +84,7 @@ abstract final class AppRoutes {
   static const String heartTasks = '/heart-tasks';
   static const String heartTaskSubmit = '/heart-tasks/submit';
   static const String heartTaskPending = '/heart-tasks/pending';
+
+  /// 화면 15 개편(계획서 2026-09-28-me-profile.md) — 15 의 입구 "프로필 편집"(`sC8BR`)이 여는 15-5(`rrJ27`).
+  static const String myProfileManage = '/me/manage';
 }
