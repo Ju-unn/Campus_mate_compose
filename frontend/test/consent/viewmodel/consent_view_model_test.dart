@@ -30,8 +30,6 @@ class _GatedOnboardingRepository extends FakeOnboardingRepository {
 const _required = {
   ConsentItem.terms,
   ConsentItem.privacy,
-  ConsentItem.sensitiveReligion,
-  ConsentItem.overseasTransfer,
 };
 
 void main() {
@@ -65,7 +63,7 @@ void main() {
     expect(state().canSubmit, isFalse);
   });
 
-  test('필수 4개를 켜면 보낼 수 있다 — 마케팅은 꺼져 있어도 된다', () {
+  test('필수를 다 켜면 보낼 수 있다 — 마케팅은 꺼져 있어도 된다', () {
     for (final item in _required) {
       vm().toggle(item);
     }
@@ -75,7 +73,7 @@ void main() {
 
   test('필수가 하나라도 꺼져 있으면 보낼 수 없다', () {
     vm().toggleAll();
-    vm().toggle(ConsentItem.overseasTransfer);
+    vm().toggle(ConsentItem.privacy);
     expect(state().canSubmit, isFalse);
     expect(state().allChecked, isFalse);
   });

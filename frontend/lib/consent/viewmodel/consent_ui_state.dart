@@ -13,7 +13,7 @@ class ConsentUiState {
   /// 전체 동의 줄의 체크 — 선택 항목(마케팅)까지 다 켜져야 켜진다.
   bool get allChecked => checked.length == ConsentItem.values.length;
 
-  /// 필수 4개가 다 켜져야 "동의하고 계속하기"가 켜진다. 마케팅은 꺼도 된다.
+  /// 필수를 다 켜야 "동의하고 계속하기"가 켜진다. 마케팅은 꺼도 된다.
   bool get canSubmit => !isSubmitting && ConsentItem.values.where((item) => item.isRequired).every(checked.contains);
 
   ConsentUiState copyWith({Set<ConsentItem>? checked, bool? isSubmitting, String? errorMessage}) {

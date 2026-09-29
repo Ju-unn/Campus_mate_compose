@@ -45,7 +45,7 @@ void main() {
     expect(requests.single.method, 'POST');
     expect(requests.single.url.toString(), 'https://api.test/me/consents');
     expect(jsonDecode(requests.single.body), {
-      'agreed': ['terms', 'privacy', 'sensitive_religion', 'overseas_transfer'],
+      'agreed': ['terms', 'privacy'],
       'marketing': true,
     });
   });

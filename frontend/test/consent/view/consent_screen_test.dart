@@ -107,10 +107,13 @@ void main() {
     for (final item in ConsentItem.values) {
       expect(find.text(item.label), findsOneWidget, reason: item.name);
     }
-    expect(find.text('필수'), findsNWidgets(4));
+    expect(find.text('필수'), findsNWidgets(2));
     expect(find.text('선택'), findsOneWidget);
-    expect(find.text('보기'), findsNWidgets(4));
+    expect(find.text('보기'), findsNWidgets(2));
     expect(find.text('동의하고 계속하기'), findsOneWidget);
+    // 09-29 최종 4칸 — 종교 · 국외 이전 줄은 없다.
+    expect(find.textContaining('종교'), findsNothing);
+    expect(find.textContaining('국외 이전'), findsNothing);
     expect(find.text('로그아웃'), findsOneWidget);
   });
 
@@ -121,7 +124,7 @@ void main() {
     expect(find.text('바뀐 내용을 확인하고 다시 동의해 주세요.'), findsOneWidget);
     expect(find.text(_title), findsNothing);
     expect(find.text('약관 동의'), findsOneWidget);
-    expect(find.text('보기'), findsNWidgets(4));
+    expect(find.text('보기'), findsNWidgets(2));
   });
 
   testWidgets('줄을 누르면 체크가 바뀌고, 필수를 다 켜야 버튼이 켜진다', (tester) async {
@@ -309,16 +312,13 @@ void main() {
       expect(view.height, 48);
     });
 
-    testWidgets('글은 16/400 lh 1.6 ink · 국외 이전은 두 줄', (tester) async {
+    testWidgets('글은 16/400 lh 1.6 ink', (tester) async {
       await pump(tester);
 
       for (final item in ConsentItem.values) {
         expect(tester.widget<Text>(find.text(item.label)).style, AppTypography.body.copyWith(color: AppColors.ink),
             reason: item.name);
       }
-      // pen 처럼 줄을 직접 바꾼 두 줄이다 — 한 줄 높이의 두 배(글꼴이 줄마다 반올림해 25.6 이 아니라 26).
-      final oneLine = tester.getRect(find.text(ConsentItem.terms.label)).height;
-      expect(tester.getRect(find.text(ConsentItem.overseasTransfer.label)).height, oneLine * 2);
     });
 
     testWidgets('체크 칸 zlg4q · ORl5o — 24 · 모서리 6 · 꺼짐 흰 바탕 #767676 1.5 · 켜짐 primary + 체크 16', (tester) async {
