@@ -67,6 +67,9 @@ abstract final class AppRoutes {
 
   /// 16e 계정(설정 "계정" 줄에서 들어간다).
   static const String account = '/settings/account';
+  /// 지인 리뷰 — 20c 받은 리뷰, 20b 리뷰 쓰기(`/home/friend-reviews/write/:profileId` — 푸시로 와도 홈 위에 시트)
+  static const String friendReviews = '/friend-reviews';
+  static const String friendReviewWrite = '/home/friend-reviews/write';
 
   /// 아직 화면이 없는 탭 — 자리 화면으로 보낸다(커뮤니티 조각 6, 내 프로필 후속)
   static const String community = '/community';
