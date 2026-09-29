@@ -10,6 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 from google.cloud import vision
 
+from app.consents.policy import CONSENT_VERSION, REQUIRED_KINDS
 from app.core import errors
 from app.student_verification.matching import REVIEW_REASON_LABELS
 from app.core.deps import get_client, get_settings, get_vision_client_factory
@@ -73,6 +74,9 @@ def _wire(
             return httpx.Response(204)
         if "/rest/v1/student_verification_attempts" in url and request.method == "GET":
             return httpx.Response(200, json=[{"reject_reason": reject_reason}])
+        # 가입 동의(02-c)는 3b 앞 관문이다. 여기 테스트는 이번 판 동의를 마친 사용자다(동의 전은 tests/consents).
+        if "/rest/v1/user_consents" in url and request.method == "GET":
+            return httpx.Response(200, json=[{"kind": k, "version": CONSENT_VERSION} for k in sorted(REQUIRED_KINDS)])
         if "/rest/v1/profiles" in url and request.method == "GET":
             return httpx.Response(200, json=[gate_row])
         return httpx.Response(200, json=[])
@@ -469,7 +473,8 @@ def test_status_verified_with_school_info():
     response = _fetch_status()
 
     assert response.status_code == 200
-    assert response.json() == {"status": "verified", "has_school_info": True, "reject_reason": None}
+    assert response.json() == {"status": "verified", "has_school_info": True, "reject_reason": None,
+                               "consent": "current"}
     assert _calls(sent, "GET", "/student_verification_attempts") == []
 
 
@@ -478,7 +483,8 @@ def test_status_verified_without_school_info():
 
     response = _fetch_status()
 
-    assert response.json() == {"status": "verified", "has_school_info": False, "reject_reason": None}
+    assert response.json() == {"status": "verified", "has_school_info": False, "reject_reason": None,
+                               "consent": "current"}
 
 
 def test_status_rejected_includes_reject_reason():
@@ -486,7 +492,8 @@ def test_status_rejected_includes_reject_reason():
 
     response = _fetch_status()
 
-    assert response.json() == {"status": "rejected", "has_school_info": False, "reject_reason": "사진이 흐려요"}
+    assert response.json() == {"status": "rejected", "has_school_info": False, "reject_reason": "사진이 흐려요",
+                               "consent": "current"}
     assert len(_calls(sent, "GET", "/student_verification_attempts")) == 1
 
 

@@ -9,6 +9,8 @@ from google.api_core.exceptions import GoogleAPIError
 from google.auth.exceptions import GoogleAuthError
 from google.cloud import vision
 
+from app.consents.policy import consent_state
+from app.consents.repository import ConsentRepository, require_current_consent
 from app.core import errors
 from app.core.deps import Caller, get_caller, get_vision_client_factory
 from app.student_verification.discord_notifier import DiscordNotifier
@@ -37,6 +39,7 @@ async def submit_student_verification(
     make_vision_client: Callable[[], vision.ImageAnnotatorAsyncClient] = Depends(get_vision_client_factory),
 ) -> dict[str, str]:
     settings, client, profile_id = caller
+    await require_current_consent(settings, client, profile_id)
     repo = StudentVerificationRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
 
     gate = await repo.fetch_gate_status(profile_id)
@@ -133,10 +136,12 @@ async def fetch_verification_status(caller: Caller = Depends(get_caller)) -> Ver
 
     gate = await repo.fetch_gate_status(profile_id)
     status = gate["student_verification"]
+    consents = ConsentRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
     return VerificationStatusResponse(
         status=status,
         has_school_info=gate["department"] is not None,
         reject_reason=await repo.fetch_reject_reason(profile_id) if status == "rejected" else None,
+        consent=consent_state(await consents.fetch_rows(profile_id)),
     )
 
 
