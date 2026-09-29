@@ -74,7 +74,7 @@ void main() {
     await viewModel.addPhoto();
 
     final state = container.read(photosViewModelProvider);
-    expect([for (final photo in state.photos) photo.file.path], ['a.jpg']);
+    expect([for (final photo in state.photos) photo.file!.path], ['a.jpg']);
     expect(state.errorMessage, '2장은 얼굴이 보이지 않아 빠졌어요');
   });
 
@@ -212,7 +212,7 @@ void main() {
     viewModel.swapPhotos(1, 0);
 
     final photos = container.read(photosViewModelProvider).photos;
-    expect(photos[0].file.path, 'b.jpg');
+    expect(photos[0].file!.path, 'b.jpg');
     expect(photos[0].isAvatarSource, isTrue);
     expect(photos[1].isAvatarSource, isFalse);
   });
@@ -226,7 +226,7 @@ void main() {
     viewModel.swapPhotos(0, 3);
 
     final photos = container.read(photosViewModelProvider).photos;
-    expect([for (final photo in photos) photo.file.path], ['a.jpg', 'b.jpg']);
+    expect([for (final photo in photos) photo.file!.path], ['a.jpg', 'b.jpg']);
   });
 
   test('아바타 원본을 정확히 1장 고르지 않으면 제출할 수 없다', () async {

@@ -195,8 +195,8 @@ class _DraggablePhotoTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final tile = _PhotoTile(index: index, state: state, viewModel: viewModel);
     // 끄는 것은 자리가 아니라 사진이다 — 끄는 중에 다른 칸이 지워져 번호가 밀려도
-    // 처음 집은 사진이 그대로 옮겨지도록 파일 경로를 들고 다닌다.
-    final photoPath = state.photos[index].file.path;
+    // 처음 집은 사진이 그대로 옮겨지도록 사진 열쇠(새 사진은 파일 경로, 올려 둔 사진은 행 id)를 들고 다닌다.
+    final photoPath = state.photos[index].key;
     return Semantics(
       label: index == 0 ? '사진 1, 대표' : '사진 ${index + 1}',
       // 끌지 못하는 사람도 대표를 바꿀 수 있어야 한다 — 토크백 메뉴에 액션으로 둔다.
@@ -208,7 +208,7 @@ class _DraggablePhotoTile extends StatelessWidget {
         builder: (context, constraints) => DragTarget<String>(
           onWillAcceptWithDetails: (details) => details.data != photoPath,
           onAcceptWithDetails: (details) =>
-              viewModel.swapPhotos(state.photos.indexWhere((p) => p.file.path == details.data), index),
+              viewModel.swapPhotos(state.photos.indexWhere((p) => p.key == details.data), index),
           builder: (context, candidates, _) => LongPressDraggable<String>(
             data: photoPath,
             // 길게 누른 순간 한 번만 울린다 — 끄는 내내 울리면 시끄럽다.
@@ -290,7 +290,7 @@ class _PhotoTile extends StatelessWidget {
       borderRadius: BorderRadius.circular(AppRadius.md),
       child: Stack(
         children: [
-          Positioned.fill(child: Image.file(state.photos[index].file, fit: BoxFit.cover)),
+          Positioned.fill(child: Image(image: state.photos[index].image, fit: BoxFit.cover)),
           if (index == 0)
             Positioned(
               left: AppSpacing.xs,
