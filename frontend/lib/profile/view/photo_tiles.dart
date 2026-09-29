@@ -199,10 +199,28 @@ class CheckingTile extends StatelessWidget {
   }
 }
 
+/// 빈 "사진 추가" 칸. 글자가 칸에 안 들어가면(15e 보조 칸 66×88 에 큰 글씨) 더하기 아이콘만 두고, 낭독 이름은
+/// "사진 추가" 그대로 아이콘에 단다(대장 결정 (가), 2026-09-29 — 잘림 · 넘침은 안 된다, DESIGN §11.2).
 class AddPhotoTile extends StatelessWidget {
   const AddPhotoTile({required this.onTap, super.key});
 
   final Future<void> Function() onTap;
+
+  static const String _label = '사진 추가';
+  static const double _iconSize = 24;
+  static final TextStyle _labelStyle = AppTypography.labelSmall.copyWith(color: AppColors.primaryText);
+
+  /// 아이콘 + 간격 + 글자가 칸 높이 안에 드는지 실제 글꼴 · 배율로 잰다(배율 숫자를 박지 않는다 — 글꼴이 바뀌어도 맞게).
+  static bool _labelFits(BuildContext context, BoxConstraints constraints) {
+    final painter = TextPainter(
+      text: TextSpan(text: _label, style: DefaultTextStyle.of(context).style.merge(_labelStyle)),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout(maxWidth: constraints.maxWidth);
+    final height = _iconSize + AppSpacing.xs + painter.height;
+    painter.dispose();
+    return height <= constraints.maxHeight;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -218,16 +236,25 @@ class AddPhotoTile extends StatelessWidget {
             color: AppColors.primaryWash,
             borderRadius: BorderRadius.circular(AppRadius.md),
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(AppIcons.plus, size: 24, color: AppColors.primaryText),
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                '사진 추가',
-                style: AppTypography.labelSmall.copyWith(color: AppColors.primaryText),
-              ),
-            ],
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final labelFits = _labelFits(context, constraints);
+              return Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    AppIcons.plus,
+                    size: _iconSize,
+                    color: AppColors.primaryText,
+                    semanticLabel: labelFits ? null : _label,
+                  ),
+                  if (labelFits) ...[
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(_label, style: _labelStyle),
+                  ],
+                ],
+              );
+            },
           ),
         ),
       ),
