@@ -4,11 +4,12 @@ from datetime import timedelta
 
 from account_world import BUCKETS, INFINITY, NOW, OLD, RECENT
 
-SECRET = {"X-Batch-Secret": "right"}
+# conftest 가 구글 서명 확인을 가짜로 통과시킨다.
+SCHEDULER_TOKEN = {"Authorization": "Bearer id-token"}
 
 
 def _run(client) -> dict:
-    response = client.post("/batch/cleanup", headers=SECRET)
+    response = client.post("/batch/cleanup", headers=SCHEDULER_TOKEN)
     assert response.status_code == 200
     return response.json()
 
@@ -109,12 +110,10 @@ def test_rows_under_an_old_key_version_are_counted_and_warned(client, world, cap
     assert "stale" in caplog.text
 
 
-def test_the_batch_needs_the_scheduler(client, world, caplog):
+def test_the_batch_needs_the_scheduler(client, world):
+    # 옛 공유 열쇠 헤더는 이제 문이 아니다(OIDC 전환 5단계).
     assert client.post("/batch/cleanup").status_code == 401
-    assert client.post("/batch/cleanup", headers={"X-Batch-Secret": "wrong"}).status_code == 401
+    assert client.post("/batch/cleanup", headers={"X-Batch-Secret": "right"}).status_code == 401
     assert world.requests == []
 
-    with caplog.at_level(logging.WARNING, logger="app.account.batch_router"):
-        _run(client)
-    # 다른 배치와 같은 한 줄(DEPLOY.md §4-3 전환 확인용).
-    assert "batch /batch/cleanup auth=secret" in caplog.text
+    _run(client)

@@ -120,7 +120,7 @@ class SupabaseAdmin:
     async def empty_folder(self, bucket: str, profile_id: UUID | str) -> None:
         """`{profile_id}/` 아래 파일을 전부 지운다. 목록 · 삭제 어느 쪽이든 실패하면 예외다.
 
-        경로는 세 버킷 모두 `{profile_id}/{uuid}.확장자` 한 층이라 한 번 목록으로 끝난다.
+        경로는 네 버킷 모두 `{profile_id}/{uuid}.확장자` 한 층이라 한 번 목록으로 끝난다.
         ponytail: 한 사람 파일이 1000개를 넘으면 남는다(사진 4장 + 아바타 몇 장이 전부다) — 넘으면 offset 으로 돈다."""
         listed = await self._client.post(
             f"{self._storage_url}/object/list/{bucket}",
