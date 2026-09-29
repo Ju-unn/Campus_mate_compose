@@ -27,7 +27,8 @@ void main() {
       expect(find.text('대학 이메일'), findsOneWidget);
       expect(find.text('@snu.ac.kr · @yonsei.ac.kr · @korea.ac.kr 외 17곳'), findsOneWidget);
       expect(find.text('인증 메일 받기'), findsOneWidget);
-      expect(find.text('계속하면 이용약관과 개인정보처리방침에 동의하게 돼요.'), findsOneWidget);
+      // 묵시 동의 줄은 지웠다 — 동의는 로그인 뒤 02-c 에서 항목별로 받는다(사용자 결정 2026-09-29, pen KGo76 삭제).
+      expect(find.textContaining('동의하게 돼요'), findsNothing);
     });
 
     testWidgets('앱바가 없다', (tester) async {

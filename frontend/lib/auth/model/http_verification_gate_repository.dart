@@ -15,7 +15,12 @@ class HttpVerificationGateRepository implements VerificationGateRepository {
 
   VerificationGate _toGate(Object body) {
     final fields = body as Map<String, dynamic>;
-    return _toGateFrom(fields['status'] as String, fields['has_school_info'] as bool);
+    // 칸이 없으면(동의 관문 전의 옛 서버) 지금 규칙 그대로 — 없는 POST /me/consents 앞에 갇히지 않게.
+    return switch (fields['consent']) {
+      'none' => VerificationGate.needsConsent,
+      'outdated' => VerificationGate.needsConsentRenewal,
+      _ => _toGateFrom(fields['status'] as String, fields['has_school_info'] as bool),
+    };
   }
 
   VerificationGate _toGateFrom(String status, bool hasSchoolInfo) {
