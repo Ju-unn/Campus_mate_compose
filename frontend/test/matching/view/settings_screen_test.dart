@@ -7,6 +7,9 @@ import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:campus_mate/matching/view/settings_screen.dart';
+import 'package:campus_mate/referral/model/invite_share.dart';
+import 'package:campus_mate/referral/model/referral_repository_provider.dart';
+import 'package:campus_mate/referral/view/invite_friends_sheet.dart';
 import 'package:campus_mate/safety/model/contact_block_repository.dart';
 import 'package:campus_mate/safety/model/contact_name_store.dart';
 import 'package:campus_mate/safety/model/device_contacts.dart';
@@ -21,6 +24,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../account/model/fake_account_repository.dart';
+import '../../referral/model/fake_referral_repository.dart';
 import '../../safety/model/fake_contact_blocks.dart';
 import '../../safety/model/fake_safety_repository.dart';
 import '../model/fake_card_repository.dart';
@@ -40,6 +44,8 @@ void main() {
         contactBlockRepositoryProvider.overrideWithValue(FakeContactBlockRepository()),
         contactNameStoreProvider.overrideWithValue(FakeContactNameStore()),
         accountRepositoryProvider.overrideWithValue(FakeAccountRepository()),
+        referralRepositoryProvider.overrideWithValue(FakeReferralRepository()),
+        shareTextProvider.overrideWithValue((_) async {}),
       ],
     );
     addTearDown(container.dispose);
@@ -94,6 +100,24 @@ void main() {
     expect(tester.getRect(tile('계정')).top, greaterThan(tester.getRect(find.text('매칭 활성화')).bottom));
     expect(find.descendant(of: tile('계정'), matching: find.byIcon(AppIcons.userRound)), findsOneWidget);
     expect(find.descendant(of: tile('계정'), matching: find.byIcon(AppIcons.chevronRight)), findsOneWidget);
+  });
+
+  testWidgets('"친구 초대" 줄은 계정 바로 위, user-plus 아이콘과 셰브런, 설명 줄이 있다(pen lMDpY b1fvA)', (tester) async {
+    await pump(tester);
+
+    expect(tile('친구 초대'), findsOneWidget);
+    expect(find.descendant(of: tile('친구 초대'), matching: find.text('내 추천 코드를 친구에게 보내요')), findsOneWidget);
+    expect(tester.getRect(tile('친구 초대')).bottom, tester.getRect(tile('계정')).top);
+    expect(find.descendant(of: tile('친구 초대'), matching: find.byIcon(AppIcons.userPlus)), findsOneWidget);
+    expect(find.descendant(of: tile('친구 초대'), matching: find.byIcon(AppIcons.chevronRight)), findsOneWidget);
+  });
+
+  testWidgets('"친구 초대" 를 누르면 16i 시트가 열린다', (tester) async {
+    await pump(tester);
+    await tester.tap(find.text('친구 초대'));
+    await tester.pumpAndSettle();
+    expect(find.byType(InviteFriendsSheet), findsOneWidget);
+    expect(find.text('K7QMX2'), findsOneWidget);
   });
 
   testWidgets('"계정" 을 누르면 16e 가 열린다', (tester) async {
@@ -182,6 +206,9 @@ void main() {
   });
 
   testWidgets('확인하면 시트가 닫히고 로그아웃을 한 번 부른다 — 빠르게 두 번 눌러도 한 번', (tester) async {
+    // 닫히는 시트는 누름을 아래 화면으로 흘려보낸다 — 두 번째 탭 자리 밑에 설정 줄이 오지 않게 화면을 길게 둔다.
+    tester.view.physicalSize = const Size(800, 1400) * tester.view.devicePixelRatio;
+    addTearDown(tester.view.reset);
     await pump(tester);
     await openLogoutSheet(tester);
 
@@ -236,12 +263,12 @@ void main() {
     expect(find.byType(WithdrawFirstSheet), findsOneWidget);
   });
 
-  testWidgets('"무료로 하트 모으기" 줄은 매칭 활성화 바로 아래 · 계정 바로 위, gift 아이콘과 셰브런이다(pen lMDpY oNgRd)', (tester) async {
+  testWidgets('"무료로 하트 모으기" 줄은 매칭 활성화 바로 아래 · 친구 초대 바로 위, gift 아이콘과 셰브런이다(pen lMDpY oNgRd)', (tester) async {
     await pump(tester);
 
     expect(tile('무료로 하트 모으기'), findsOneWidget);
     expect(tester.getRect(tile('무료로 하트 모으기')).top, tester.getRect(tile('매칭 활성화')).bottom);
-    expect(tester.getRect(tile('무료로 하트 모으기')).bottom, tester.getRect(tile('계정')).top);
+    expect(tester.getRect(tile('무료로 하트 모으기')).bottom, tester.getRect(tile('친구 초대')).top);
     expect(find.descendant(of: tile('무료로 하트 모으기'), matching: find.byIcon(AppIcons.gift)), findsOneWidget);
     expect(find.descendant(of: tile('무료로 하트 모으기'), matching: find.byIcon(AppIcons.chevronRight)), findsOneWidget);
   });
