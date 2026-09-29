@@ -5,7 +5,7 @@ import httpx
 from fastapi import APIRouter, Depends, Header
 
 from app.account.repository import AccountRepository, SupabaseAdmin
-from app.core.batch_auth import verify_batch_caller
+from app.core.batch_auth import verify_oidc_token
 from app.core.deps import get_client, get_now, get_settings
 from app.heart_tasks.cleanup import purge_reviewed_proofs
 from app.heart_tasks.repository import HeartTaskRepository
@@ -62,20 +62,17 @@ async def run_cleanup(accounts: AccountRepository, admin: SupabaseAdmin, now: da
 
 @router.post("/batch/cleanup")
 async def run_cleanup_batch(
-    x_batch_secret: str | None = Header(default=None),
     authorization: str | None = Header(default=None),
     settings: Settings = Depends(get_settings),
     client: httpx.AsyncClient = Depends(get_client),
     now: datetime = Depends(get_now),
 ) -> dict:
-    """Cloud Scheduler 전용. 카드 · 채팅 배치와 같은 문(옛 공유 비밀 또는 스케줄러 ID 토큰)을 쓴다."""
-    method = await verify_batch_caller(
-        authorization=authorization, x_batch_secret=x_batch_secret,
-        batch_secret=settings.card_batch_secret, audience=settings.batch_audience,
+    """Cloud Scheduler 전용. 카드 · 채팅 배치와 같은 문(스케줄러 ID 토큰)을 쓴다."""
+    await verify_oidc_token(
+        authorization,
+        audience=settings.batch_audience,
         service_account_email=settings.batch_service_account,
     )
-    # 운영에 로깅 설정이 없어 INFO 는 안 보인다. 전환 확인용이고 5단계 PR 에서 이 줄째 지운다.
-    logger.warning("batch %s auth=%s", "/batch/cleanup", method)
 
     key = settings.supabase_service_role_key
     result = await run_cleanup(
