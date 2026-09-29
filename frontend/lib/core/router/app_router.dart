@@ -8,6 +8,7 @@ import 'package:campus_mate/auth/view/sign_up_screen.dart';
 import 'package:campus_mate/auth/view/student_verification_screen.dart';
 import 'package:campus_mate/auth/view/verify_code_screen.dart';
 import 'package:campus_mate/billing/model/heart_task.dart';
+import 'package:campus_mate/consent/view/consent_screen.dart';
 import 'package:campus_mate/billing/view/heart_task_pending_screen.dart';
 import 'package:campus_mate/billing/view/heart_task_submit_screen.dart';
 import 'package:campus_mate/billing/view/heart_tasks_screen.dart';
@@ -91,6 +92,7 @@ abstract final class AppRouter {
       GoRoute(path: AppRoutes.splash, builder: (context, state) => const SplashScreen()),
       GoRoute(path: AppRoutes.login, builder: (context, state) => const SignUpScreen()),
       GoRoute(path: AppRoutes.verifyCode, redirect: _verifyCodeGuard, builder: _buildVerifyCode),
+      GoRoute(path: AppRoutes.consent, builder: (context, state) => const ConsentScreen()),
       GoRoute(path: AppRoutes.studentVerification, builder: (context, state) => const StudentVerificationScreen()),
       GoRoute(path: AppRoutes.schoolInfo, builder: (context, state) => const SchoolInfoScreen()),
       ..._onboardingRoutes(),
