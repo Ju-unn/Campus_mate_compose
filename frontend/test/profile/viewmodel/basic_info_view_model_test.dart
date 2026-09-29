@@ -189,12 +189,27 @@ void main() {
     expect(state.canSubmit, isFalse);
   });
 
-  test('출생연도는 범위를 벗어나도 오류 문구를 띄우지 않는다', () {
-    // pen 04-1 에 출생연도 오류 자리가 없다 — helper "숫자 4자리"만 둔다.
+  test('출생연도는 4자리를 다 친 뒤 나이가 모자랄 때만 "○○년생부터" 오류를 띄운다', () {
+    // 서버 422 문구(schemas.py)와 같다(사용자 결정 2026-09-29). 치는 도중엔 띄우지 않는다 — 키 칸과 같은 방식.
+    final vm = container.read(basicInfoViewModelProvider.notifier);
+
+    vm.changeBirthYear('201');
+    expect(container.read(basicInfoViewModelProvider).birthYearError, isNull);
+
+    vm.changeBirthYear('${_thisYear - 18}');
+    expect(container.read(basicInfoViewModelProvider).birthYearError, '${_thisYear - 19}년생부터 가입할 수 있어요');
+
+    vm.changeBirthYear('${_thisYear - 19}');
+    expect(container.read(basicInfoViewModelProvider).birthYearError, isNull);
+  });
+
+  test('1950 이전 출생연도는 오류 문구 없이 "다음"만 꺼진다', () {
+    // 문구는 나이 미달에만 단다(사용자 결정 2026-09-29) — 그 밖은 helper "숫자 4자리"만 둔다.
     final vm = container.read(basicInfoViewModelProvider.notifier);
     vm.changeBirthYear('1800');
     final state = container.read(basicInfoViewModelProvider);
     expect(state.birthYear, isNull);
+    expect(state.birthYearError, isNull);
     expect(state.canSubmit, isFalse);
   });
 

@@ -11,6 +11,7 @@ NICKNAME_PATTERN = r"^[가-힣a-zA-Z]{2,5}$"
 
 # 가입 나이 자격은 컬럼이 아니라 FastAPI 가 센다(ERD.md §"컬럼 없이 계산하는 값").
 # 만 나이가 아니라 "올해 − 태어난 해" 이고, 해는 한국 날짜로 센다(core/time.py 의 SEOUL).
+# 청소년보호법 "만 19세가 되는 해 1월 1일" 기준과 같아 문구도 "○○년생부터" 다(사용자 결정 2026-09-29).
 MIN_AGE = 19
 
 
@@ -25,8 +26,9 @@ class BasicInfoRequest(BaseModel):
     @field_validator("birth_year")
     @classmethod
     def _old_enough(cls, birth_year: int) -> int:
-        if datetime.now(SEOUL).year - birth_year < MIN_AGE:
-            raise ValueError(f"만 {MIN_AGE}세 이상만 가입할 수 있어요")
+        this_year = datetime.now(SEOUL).year
+        if this_year - birth_year < MIN_AGE:
+            raise ValueError(f"{this_year - MIN_AGE}년생부터 가입할 수 있어요")
         return birth_year
 
 

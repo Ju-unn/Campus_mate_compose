@@ -128,6 +128,7 @@ class _Form extends StatelessWidget {
                 initialValue: state.birthYearInput,
                 onChanged: viewModel.changeBirthYear,
                 helper: '숫자 4자리',
+                errorText: state.birthYearError,
                 keyboardType: TextInputType.number,
                 inputFormatters: birthYearInputFormatters,
               ),

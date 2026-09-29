@@ -60,7 +60,7 @@ class BasicInfoUiState {
   final String? errorMessage;
   final bool completed;
 
-  /// 범위 밖이면 오류 문구 없이 "다음"만 꺼진다(pen 04-1 — 출생연도에는 오류 자리가 없다).
+  /// 범위 밖이면 "다음"이 꺼진다. 문구는 나이 미달일 때만 [birthYearError] 가 단다.
   int? get birthYear {
     final value = int.tryParse(birthYearInput);
     return (value != null && value >= 1950 && value <= thisYear - minAge) ? value : null;
@@ -96,6 +96,13 @@ class BasicInfoUiState {
   /// (pen 04-1 "도움말은 필요할 때만"). 치는 도중에 띄우면 한 자 칠 때마다 문구가 깜빡인다.
   String? get heightError =>
       heightInput.length == 3 && heightCm == null ? '숫자 3자리를 확인해 주세요' : null;
+
+  /// 출생연도는 **나이가 모자랄 때만** 오류를 띄운다(사용자 결정 2026-09-29). 치는 도중(3자리 이하)은 값이 작아
+  /// 걸리지 않는다. 문구는 서버 422(schemas.py)와 같다 — 해가 바뀌면 연도도 따라 바뀐다. 1950 이전은 꺼지기만 한다.
+  String? get birthYearError {
+    final value = int.tryParse(birthYearInput);
+    return value != null && value > thisYear - minAge ? '${thisYear - minAge}년생부터 가입할 수 있어요' : null;
+  }
 
   /// 확인이 실패했거나(네트워크) 아직 안 끝났어도 막지 않는다 — 제출 때 서버가 다시 본다.
   bool get _isNicknameValid {

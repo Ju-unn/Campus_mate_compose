@@ -244,7 +244,8 @@ def test_basic_info_rejects_under_nineteen_with_422():
 
     assert just_old_enough.status_code == 200
     assert too_young.status_code == 422
-    assert "19" in json.dumps(too_young.json(), ensure_ascii=False)
+    # 문구는 "올해 − 19 년생부터"(사용자 결정 2026-09-29) — 앱 04-1 출생연도 칸 오류와 같다.
+    assert f"{this_year - 19}년생부터 가입할 수 있어요" in json.dumps(too_young.json(), ensure_ascii=False)
 
 
 def test_nickname_availability_rejects_ilike_wildcard_with_422():
