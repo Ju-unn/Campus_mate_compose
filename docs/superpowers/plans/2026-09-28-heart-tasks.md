@@ -247,6 +247,8 @@ chevron-right 20 #6A6A6A(`nqlvc`) → 18a.
 8. **반려 줄 아래 선 투명**은 pen `w3aZL` 그대로 둔다.
 9. **18b 사진 고르기 전 "제출하기" 는 꺼짐**(#E5E5E5 · 글자 #929292, 17b 질문 쓰기와 같다). pen `TVB6v` 은 켜진 분홍만
    그렸다 — 꺼진 변형은 pen 다음 묶음에서 대장이 정한다(PR 3 검토 09-28).
+10. **16 설정 "무료로 하트 모으기" 줄은 이웃 줄 모양**(대장 09-29 (가)): 매칭 활성화 아래 · 계정 위(pen `auq6h` 순서), `ListTile`
+   17/600 · 아이콘 24 #6A6A6A — 이 줄만 pen `oNgRd`(16/400 · 20 #3F3F3F)면 한 화면에서 어긋난다. 16 전체를 pen 에 맞추는 일은 백로그 70.
 
 서버 편차(PR 2 착수 때 찾음, 대장 09-28 허락): B2 의 **기존 account 테스트 0줄 → 3줄**. 응답에 `deleted_heart_proofs`
 가 더해지면 `test_running_again_finds_nothing_left` 의 dict 비교가 깨지고, 가짜 세계에 `heart_task_submissions`
