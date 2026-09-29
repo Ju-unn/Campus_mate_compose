@@ -17,6 +17,7 @@ void main() {
     WidgetTester tester,
     FriendReview review, {
     VoidCallback? onReport,
+    VoidCallback? onDelete,
     double width = 328,
     double scale = 1,
   }) async {
@@ -29,7 +30,10 @@ void main() {
       home: Scaffold(
         body: Align(
           alignment: Alignment.topLeft,
-          child: SizedBox(width: width, child: FriendReviewCard(review: review, onReport: onReport)),
+          child: SizedBox(
+            width: width,
+            child: FriendReviewCard(review: review, onReport: onReport, onDelete: onDelete),
+          ),
         ),
       ),
     ));
@@ -147,6 +151,28 @@ void main() {
     expect(cell.top - card.top, 16);
     await tester.tap(button);
     expect(reported, 1);
+  });
+
+  // 20e(pen `FEysN` 카드 v6BbW · kwBwj): 같은 누름칸 qRvp8 자리에 trash-2(E1Qfy7) 20 #6A6A6A.
+  testWidgets('onDelete 가 있으면 깃발 자리에 휴지통 20 muted · 누름칸 48×48, 낭독 "리뷰 지우기", 누르면 한 번 불린다', (tester) async {
+    final semantics = tester.ensureSemantics();
+    var deleted = 0;
+    await pump(tester, pen(), onDelete: () => deleted += 1);
+
+    expect(find.byIcon(AppIcons.flag), findsNothing);
+    final trash = tester.widget<Icon>(find.byIcon(AppIcons.trash2));
+    expect((trash.size, trash.color), (20, AppColors.muted));
+    final button = find.ancestor(of: find.byIcon(AppIcons.trash2), matching: find.byType(IconButton));
+    final cell = tester.getRect(button);
+    expect(cell.size, const Size(48, 48));
+    final card = tester.getRect(find.byType(FriendReviewCard));
+    expect(card.right - cell.right, 16);
+    expect(cell.top - card.top, 16);
+    // 낭독기는 툴팁을 읽는다(20c 깃발 "신고하기" 와 같은 방식).
+    expect(tester.getSemantics(button), isSemantics(tooltip: '리뷰 지우기', isButton: true, hasTapAction: true));
+    await tester.tap(button);
+    expect(deleted, 1);
+    semantics.dispose();
   });
 
   testWidgets('태그 3개가 좁은 폭(288)에서 넘치지 않고 다음 줄로 내려간다', (tester) async {

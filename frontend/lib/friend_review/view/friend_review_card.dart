@@ -73,12 +73,16 @@ class FriendReviewNotice extends StatelessWidget {
 /// 지인 리뷰 한 장(pen `S0MR2b`, 값표 B §3). 폭은 부모가 준다(20c · 14d 328, 14c 288).
 /// 틀 #FFF r14 hairline 1, 여백 16, 간격 12, 그림자 없음. 머리 48 → 태그 → 한마디.
 class FriendReviewCard extends StatelessWidget {
-  const FriendReviewCard({required this.review, this.onReport, super.key});
+  const FriendReviewCard({required this.review, this.onReport, this.onDelete, super.key})
+      : assert(onReport == null || onDelete == null, '머리 줄 오른쪽 누름칸(pen qRvp8)은 하나다');
 
   final FriendReview review;
 
   /// 20c 만 넘긴다(P2 · 대장 Q2 09-29) — null 이면 깃발이 없다.
   final VoidCallback? onReport;
+
+  /// 20e 만 넘긴다 — 깃발 자리(같은 누름칸)에 휴지통. [onReport] 와 함께 쓰지 않는다.
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -97,7 +101,15 @@ class FriendReviewCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _Header(review: review, onReport: onReport),
+          _Header(
+            review: review,
+            action: switch ((onReport, onDelete)) {
+              (final VoidCallback onPressed, _) => (icon: AppIcons.flag, label: '신고하기', onPressed: onPressed),
+              // pen 20e E1Qfy7 trash-2(20c 깃발 자리 override).
+              (_, final VoidCallback onPressed) => (icon: AppIcons.trash2, label: '리뷰 지우기', onPressed: onPressed),
+              _ => null,
+            },
+          ),
           const SizedBox(height: AppSpacing.sm),
           // pen 은 칩 2개만 그려 줄바꿈 간격이 없다 — 3개가 넘치면 가로 간격과 같은 8 로 내린다.
           Wrap(
@@ -120,12 +132,12 @@ class FriendReviewCard extends StatelessWidget {
   }
 }
 
-/// 머리 줄(pen `B095D`): 학교 배지 · 이니셜 · 이름 칸 · 신고 깃발, 간격 10, 세로 가운데.
+/// 머리 줄(pen `B095D`): 학교 배지 · 이니셜 · 이름 칸 · 신고 깃발(20c) 또는 휴지통(20e), 간격 10, 세로 가운데.
 class _Header extends StatelessWidget {
-  const _Header({required this.review, required this.onReport});
+  const _Header({required this.review, required this.action});
 
   final FriendReview review;
-  final VoidCallback? onReport;
+  final ({IconData icon, String label, VoidCallback onPressed})? action;
 
   @override
   Widget build(BuildContext context) {
@@ -149,15 +161,15 @@ class _Header extends StatelessWidget {
           ),
           const SizedBox(width: _headerGap),
           Expanded(child: _NameColumn(nickname: review.nickname)),
-          if (onReport != null) ...[
+          if (action case final action?) ...[
             const SizedBox(width: _headerGap),
             IconButton(
-              // 누름칸 48(pen qRvp8), 보이는 깃발 20.
+              // 누름칸 48(pen qRvp8), 보이는 아이콘 20.
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-              tooltip: '신고하기',
-              icon: const Icon(AppIcons.flag, size: 20, color: AppColors.muted),
-              onPressed: onReport,
+              tooltip: action.label,
+              icon: Icon(action.icon, size: 20, color: AppColors.muted),
+              onPressed: action.onPressed,
             ),
           ],
         ],
