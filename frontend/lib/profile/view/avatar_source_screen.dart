@@ -149,7 +149,7 @@ class _SourceTile extends StatelessWidget {
           decoration: BoxDecoration(borderRadius: BorderRadius.circular(AppRadius.md)),
           child: Stack(
             children: [
-              Positioned.fill(child: Image.file(photo.file, fit: BoxFit.cover)),
+              Positioned.fill(child: Image(image: photo.image, fit: BoxFit.cover)),
               if (isSelected)
                 Positioned(
                   left: AppSpacing.xs,

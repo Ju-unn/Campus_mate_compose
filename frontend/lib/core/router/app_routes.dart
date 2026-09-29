@@ -90,4 +90,7 @@ abstract final class AppRoutes {
 
   /// 화면 15 입구 "남이 보는 내 프로필 카드"(`k3r5C`)가 여는 15-4(`gnEwq`) — 상대에게 보이는 내 카드 미리보기.
   static const String myCardPreview = '/me/preview';
+
+  /// 15-5 "실제 사진 교체"(`E7Cv2`)가 여는 15e 사진 수정(`szJ79`, 계획서 2026-09-28-me-profile.md A15).
+  static const String myPhotos = '/me/photos';
 }

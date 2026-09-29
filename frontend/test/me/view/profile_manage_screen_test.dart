@@ -19,8 +19,10 @@ import 'package:campus_mate/home/model/home_repository_provider.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:campus_mate/me/model/me_repository_provider.dart';
 import 'package:campus_mate/me/model/my_profile.dart';
+import 'package:campus_mate/me/model/photo_slot.dart';
 import 'package:campus_mate/me/view/edit_app_bar.dart';
 import 'package:campus_mate/me/view/me_load_error.dart';
+import 'package:campus_mate/me/view/my_photos_screen.dart';
 import 'package:campus_mate/me/view/profile_edit_screen.dart';
 import 'package:campus_mate/me/view/profile_entry_row.dart';
 import 'package:campus_mate/me/view/profile_manage_screen.dart';
@@ -129,6 +131,10 @@ void main() {
       routes: [
         GoRoute(path: AppRoutes.myProfile, builder: (context, state) => const Scaffold(body: Text('화면 15'))),
         GoRoute(path: AppRoutes.myProfileManage, builder: (context, state) => const ProfileManageScreen()),
+        GoRoute(
+          path: AppRoutes.myPhotos,
+          builder: (context, state) => const Scaffold(body: Text('15e 사진 수정 화면')),
+        ),
         GoRoute(
           path: AppRoutes.myIdealConditions,
           builder: (context, state) => const Scaffold(body: Text('06-1 편집 화면')),
@@ -411,29 +417,38 @@ void main() {
     });
   });
 
-  group('"곧 열려요"(N4 — "수정 ›" 은 PR 3-2 15d, "교체" 는 PR 4 15e)', () {
-    for (final label in ['수정 ›', '실제 사진 교체']) {
-      testWidgets('"$label" 을 누르면 "곧 열려요" 가 뜨고 약 2초 뒤 사라진다', (tester) async {
-        await pump(tester);
+  // 계획서 2026-09-28-me-profile.md A15 — "교체" 는 PR 4 에서 15e 로 연결됐다.
+  testWidgets('"실제 사진 교체" 를 누르면 15e 사진 수정(/me/photos)으로 간다 — "곧 열려요" 는 뜨지 않는다', (tester) async {
+    await pump(tester);
 
-        await tapVisible(tester, find.text(label));
-        expect(find.text('곧 열려요'), findsOneWidget);
-        expect(find.byIcon(AppIcons.clock3), findsOneWidget);
-        // 아직 갈 화면이 없다 — 15-5 에 그대로 있다.
-        expect(find.byType(ProfileManageScreen), findsOneWidget);
+    await tapVisible(tester, find.text('실제 사진 교체'));
+    await tester.pumpAndSettle();
 
-        await tester.pump(const Duration(milliseconds: 1900));
-        expect(find.text('곧 열려요'), findsOneWidget);
-        await tester.pump(const Duration(milliseconds: 200));
-        expect(find.text('곧 열려요'), findsNothing);
-      });
-    }
+    expect(find.text('15e 사진 수정 화면'), findsOneWidget);
+    expect(find.text('곧 열려요'), findsNothing);
+  });
+
+  group('"곧 열려요"(N4 — "수정 ›" 은 PR 3-2 15d)', () {
+    testWidgets('"수정 ›" 을 누르면 "곧 열려요" 가 뜨고 약 2초 뒤 사라진다', (tester) async {
+      await pump(tester);
+
+      await tapVisible(tester, find.text('수정 ›'));
+      expect(find.text('곧 열려요'), findsOneWidget);
+      expect(find.byIcon(AppIcons.clock3), findsOneWidget);
+      // 아직 갈 화면이 없다 — 15-5 에 그대로 있다.
+      expect(find.byType(ProfileManageScreen), findsOneWidget);
+
+      await tester.pump(const Duration(milliseconds: 1900));
+      expect(find.text('곧 열려요'), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(find.text('곧 열려요'), findsNothing);
+    });
 
     testWidgets('안내는 화면 아래 12, 가로 가운데에 뜬다 — 하단 버튼 · 내비가 없는 화면', (tester) async {
       usePenFrame(tester);
       await pump(tester);
 
-      await tapVisible(tester, find.text('실제 사진 교체'));
+      await tapVisible(tester, find.text('수정 ›'));
 
       final toast = find.byType(AppToast);
       expect(780 - tester.getBottomLeft(toast).dy, 12);
@@ -445,7 +460,7 @@ void main() {
       addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
       await pump(tester);
 
-      await tapVisible(tester, find.text('실제 사진 교체'));
+      await tapVisible(tester, find.text('수정 ›'));
       expect(find.text('곧 열려요'), findsOneWidget);
       expect(find.ancestor(of: find.byType(AppToast), matching: find.byType(FadeTransition)), findsNothing);
       await tester.pump(const Duration(seconds: 2));
@@ -454,7 +469,7 @@ void main() {
 
     testWidgets('떠 있는 동안 화면을 떠나도 타이머가 남지 않는다', (tester) async {
       await pump(tester);
-      await tapVisible(tester, find.text('실제 사진 교체'));
+      await tapVisible(tester, find.text('수정 ›'));
 
       await tester.pumpWidget(const SizedBox());
 
@@ -672,6 +687,56 @@ void main() {
     await scrollToEnd(tester);
     expect(find.text('새 소개예요.'), findsOneWidget);
     expect(find.text(_bio), findsNothing);
+  });
+
+  // N8 — 15e 도 저장 뒤 invalidate 하고 pop 한다. 15-5 로 돌아와 실제 사진 줄이 새 값을 그린다.
+  testWidgets('saving_in_15e_returns_to_15_5_with_the_new_photos — 가짜 저장소 + 실제 라우터', (tester) async {
+    const urls = ['https://img.test/1.png', 'https://img.test/2.png', 'https://img.test/3.png'];
+    final me = FakeMeRepository(Success(_profile(photoUrls: urls)));
+    final router = AppRouter.create(
+      isAuthenticated: () => true,
+      verificationGate: () => VerificationGate.complete,
+      onboardingStep: () => OnboardingStep.complete,
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          // 첫 화면(홈)이 하단 내비 뱃지와 요약을 읽는다.
+          cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
+          chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
+          homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
+          meRepositoryProvider.overrideWithValue(me),
+        ],
+        child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+      ),
+    );
+    router.go(AppRoutes.myProfileManage);
+    await tester.pumpAndSettle();
+    expect(tester.widget<PhotoSlider>(find.byType(PhotoSlider)).photos, hasLength(3));
+    await tapVisible(tester, find.text('실제 사진 교체'));
+    await tester.pumpAndSettle();
+    expect(find.byType(MyPhotosScreen), findsOneWidget);
+
+    // 셋째 사진을 빼고 저장한다. 서버는 PUT 을 받는 동안 값을 바꾼다 — 15-5 가 다시 읽어야만 새 사진 줄이 보인다.
+    await tester.tap(find.byIcon(AppIcons.x).at(2));
+    await tester.pump();
+    me.holdSavePhotos = Completer<void>();
+    await tester.tap(find.widgetWithText(AppButton, '저장'));
+    await tester.pump();
+    me.profile = Success(_profile(photoUrls: urls.take(2).toList()));
+    me.holdSavePhotos!.complete();
+    await tester.pumpAndSettle();
+
+    final (slots, avatarSource) = me.photoSaves.single;
+    expect(slots, const [KeptPhoto('p-0'), KeptPhoto('p-1')]);
+    expect(avatarSource, 0);
+    expect(find.byType(MyPhotosScreen), findsNothing);
+    expect(find.byType(ProfileManageScreen), findsOneWidget);
+    expect(
+      tester.widget<PhotoSlider>(find.byType(PhotoSlider)).photos,
+      const [NetworkImage('https://img.test/1.png'), NetworkImage('https://img.test/2.png')],
+    );
   });
 
   // DESIGN §11.2 — 시스템 글꼴 확대(최대 2.0)에서도 깨지지 않는다. 화면 15 테스트와 같은 잣대.

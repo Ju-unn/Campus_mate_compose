@@ -185,7 +185,8 @@ class PhotosViewModel extends Notifier<PhotosUiState> {
       final repository = ref.read(photosRepositoryProvider);
       for (var position = 0; position < state.photos.length; position++) {
         final photo = state.photos[position];
-        final result = await repository.uploadPhoto(photo.file, position, photo.isAvatarSource);
+        // 온보딩은 늘 이번에 고른 사진뿐이다 — 이미 올려 둔 사진([SelectedPhoto.saved])은 15e 에만 있다.
+        final result = await repository.uploadPhoto(photo.file!, position, photo.isAvatarSource);
         final failure = result.when(onSuccess: (_) => null, onFailure: (failure) => failure);
         if (failure != null) {
           return state.copyWith(isSubmitting: false, errorMessage: failure.toDisplayMessage());

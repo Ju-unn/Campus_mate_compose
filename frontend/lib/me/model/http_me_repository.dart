@@ -1,11 +1,15 @@
+import 'dart:convert';
+
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/http/api_client.dart';
 import 'package:campus_mate/matching/model/card_detail.dart';
 import 'package:campus_mate/me/model/me_repository.dart';
 import 'package:campus_mate/me/model/my_profile.dart';
+import 'package:campus_mate/me/model/photo_slot.dart';
 import 'package:campus_mate/profile/model/profile_enums.dart';
+import 'package:http/http.dart' as http;
 
-/// [MeRepository] 를 FastAPI `GET · PATCH /me/profile` · `GET /me/card-preview` 로 구현한다.
+/// [MeRepository] 를 FastAPI `GET · PATCH /me/profile` · `GET /me/card-preview` · `PUT /me/photos` 로 구현한다.
 class HttpMeRepository implements MeRepository {
   const HttpMeRepository(this._api);
 
@@ -68,4 +72,30 @@ class HttpMeRepository implements MeRepository {
         (_) {},
         body: {'bio': ?bio, 'nickname': ?nickname, 'height_cm': ?heightCm},
       );
+
+  /// `ApiClient.sendMultipart` 는 파일 하나 · POST 전용이라 `sendRequest` 로 직접 만든다.
+  @override
+  Future<Result<void>> savePhotos(List<PhotoSlot> slots, int avatarSource) async {
+    final files = [for (final slot in slots) if (slot is NewPhoto) slot.file];
+    var next = 0;
+    // 새 파일 번호는 칸 순서대로 매긴다 — 서버는 번호가 파일 순서와 맞는지 본다(parse_layout).
+    final layout = [
+      for (final slot in slots)
+        switch (slot) {
+          KeptPhoto(:final id) => {'keep': id},
+          NewPhoto() => {'new': next++},
+        },
+    ];
+    final result = await _api.sendRequest((accessToken) async {
+      final request = http.MultipartRequest('PUT', _api.uri('/me/photos'))
+        ..headers['Authorization'] = 'Bearer $accessToken'
+        ..fields['layout'] = jsonEncode(layout)
+        ..fields['avatar_source'] = avatarSource.toString();
+      for (final file in files) {
+        request.files.add(await http.MultipartFile.fromPath('photos', file.path));
+      }
+      return request;
+    });
+    return result.when(onSuccess: (_) => const Success(null), onFailure: FailureResult.new);
+  }
 }

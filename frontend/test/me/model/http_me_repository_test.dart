@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
@@ -6,6 +7,7 @@ import 'package:campus_mate/core/http/api_client.dart';
 import 'package:campus_mate/matching/model/card_detail.dart';
 import 'package:campus_mate/me/model/http_me_repository.dart';
 import 'package:campus_mate/me/model/my_profile.dart';
+import 'package:campus_mate/me/model/photo_slot.dart';
 import 'package:campus_mate/profile/model/profile_enums.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -303,6 +305,80 @@ void main() {
       final result = await buildRepository(client).fetchCardPreview();
 
       expect(result.when(onSuccess: (_) => null, onFailure: (f) => f), isA<Failure>());
+    });
+  });
+
+  group('savePhotos — PUT /me/photos 는 칸 순서를 한 번에 보낸다(계획서 2026-09-27-me-edit.md 2-2 · U2)', () {
+    late Directory tempDir;
+
+    setUp(() => tempDir = Directory.systemTemp.createTempSync('me_photos_test'));
+    tearDown(() => tempDir.deleteSync(recursive: true));
+
+    File photoFile(String name) => File('${tempDir.path}/$name')..writeAsBytesSync([0xFF, 0xD8, 0xFF]);
+
+    /// multipart 글자 칸 하나 — 이름 줄 뒤 빈 줄, 값, 줄바꿈(http 패키지가 쓰는 모양).
+    String field(String name, String value) => 'name="$name"\r\n\r\n$value\r\n';
+
+    test('남길 사진은 keep, 새 사진은 new 번호로 — layout · avatar_source · 파일 칸 photos', () async {
+      late String body;
+      final client = MockClient((request) async {
+        expect(request.method, 'PUT');
+        expect(request.url.toString(), 'https://api.test/me/photos');
+        expect(request.headers['Authorization'], 'Bearer token-abc');
+        expect(request.headers['content-type'], startsWith('multipart/form-data'));
+        // 본문에 JPEG 바이트(0xFF)가 섞여 utf8 로는 못 읽는다.
+        body = latin1.decode(request.bodyBytes);
+        return jsonResponse({'ok': true});
+      });
+
+      final result = await buildRepository(client).savePhotos([const KeptPhoto('p-a'), NewPhoto(photoFile('new.jpg'))], 1);
+
+      expect(result, isA<Success<void>>());
+      expect(body, contains(field('layout', '[{"keep":"p-a"},{"new":0}]')));
+      expect(body, contains(field('avatar_source', '1')));
+      expect('name="photos"'.allMatches(body), hasLength(1));
+      expect(body, contains('filename="new.jpg"'));
+    });
+
+    test('새 사진 번호는 칸 순서대로 매기고 파일도 그 순서로 새 사진 수만큼 붙인다', () async {
+      late String body;
+      final client = MockClient((request) async {
+        body = latin1.decode(request.bodyBytes);
+        return jsonResponse({'ok': true});
+      });
+
+      await buildRepository(client).savePhotos(
+        [NewPhoto(photoFile('first.jpg')), const KeptPhoto('p-a'), NewPhoto(photoFile('second.jpg'))],
+        0,
+      );
+
+      expect(body, contains(field('layout', '[{"new":0},{"keep":"p-a"},{"new":1}]')));
+      expect('name="photos"'.allMatches(body), hasLength(2));
+      expect(body.indexOf('filename="first.jpg"'), lessThan(body.indexOf('filename="second.jpg"')));
+    });
+
+    test('남길 사진만 순서를 바꾸면 파일 칸이 없다', () async {
+      late String body;
+      final client = MockClient((request) async {
+        body = latin1.decode(request.bodyBytes);
+        return jsonResponse({'ok': true});
+      });
+
+      await buildRepository(client).savePhotos(const [KeptPhoto('p-b'), KeptPhoto('p-a')], 1);
+
+      expect(body, contains(field('layout', '[{"keep":"p-b"},{"keep":"p-a"}]')));
+      expect(body, isNot(contains('name="photos"')));
+    });
+
+    test('409 PHOTOS_CHANGED 는 서버 문구를 그대로 돌려준다', () async {
+      final client = MockClient((_) async => jsonResponse({'detail': '사진이 바뀌었어요, 다시 열어 주세요'}, 409));
+
+      final result = await buildRepository(client).savePhotos(const [KeptPhoto('p-a'), KeptPhoto('p-b')], 0);
+
+      expect(
+        result.when(onSuccess: (_) => null, onFailure: (failure) => failure.toDisplayMessage()),
+        '사진이 바뀌었어요, 다시 열어 주세요',
+      );
     });
   });
 
