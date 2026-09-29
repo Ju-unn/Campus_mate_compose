@@ -213,10 +213,14 @@ class _Hero extends StatelessWidget {
             style: AppTypography.labelSmall.copyWith(color: AppColors.primaryText, height: 1.5),
           ),
           const SizedBox(height: 8),
-          // `IDJ3M` 48/700 #222222 lh1.5(토큰 1.1). "오늘 오전 7시" · 긴 날짜 · 글자 확대에도 폭을 넘지 않게 줄여 보인다.
+          // `IDJ3M` 48/700 #222222 lh1.5 자간 0 — countdown `sZZ14`(lh1.1 · 자간 −1.44 · tabular) 인스턴스가 아니다.
+          // "오늘 오전 7시" · 긴 날짜 · 글자 확대에도 폭을 넘지 않게 줄여 보인다.
           FittedBox(
             fit: BoxFit.scaleDown,
-            child: Text(dateLabel, style: AppTypography.countdown.copyWith(color: AppColors.ink, height: 1.5)),
+            child: Text(
+              dateLabel,
+              style: AppTypography.display.copyWith(fontSize: 48, height: 1.5, letterSpacing: 0, color: AppColors.ink),
+            ),
           ),
           const SizedBox(height: 8),
           // `ocR77` 14/400 #6A6A6A.
@@ -240,9 +244,10 @@ class _RecruitPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // 92 는 최소 높이다 — 글자를 키우면 늘어난다(DESIGN §11.2).
+    // pen 은 padding 16 이지만 92 고정에 두 줄(63)을 가운데 둬 위아래가 15 · 14 다. 16 을 지키면 93 이 되어 위아래 14 로 둔다.
     return Container(
       constraints: const BoxConstraints(minHeight: 92),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       alignment: Alignment.centerLeft,
       decoration: BoxDecoration(
         color: AppColors.surfaceSoft,
@@ -252,9 +257,10 @@ class _RecruitPanel extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // `WEPFQ` 14/400 #6A6A6A · `ebHk4` 24/700 #222222.
-          Text('현재 모집 인원', style: AppTypography.bodySmall.copyWith(color: AppColors.muted)),
-          Text('$count명', style: AppTypography.headline.copyWith(color: AppColors.ink)),
+          // 왼쪽 열 `o6UY45` gap 4. `WEPFQ` 14/400 #6A6A6A lh1.5 · `ebHk4` 24/700 #222222 lh1.5.
+          Text('현재 모집 인원', style: AppTypography.bodySmall.copyWith(color: AppColors.muted, height: 1.5)),
+          const SizedBox(height: 4),
+          Text('$count명', style: AppTypography.headline.copyWith(color: AppColors.ink, height: 1.5)),
         ],
       ),
     );
