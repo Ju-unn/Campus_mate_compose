@@ -125,6 +125,8 @@
 - **`supabase/tests/rls_slice0_test.sql` 6번(모든 표 권한을 ERD §2 와 대조)** 이 새 표를 잡았다. 기대 목록에 `user_consents` service_role INSERT · SELECT 두 줄을 넣었다(§2 표에 없던 공유 파일).
 - 국외 이전 두 줄 줄: pen 렌더 78, 앱 76(글꼴이 줄마다 26 으로 반올림, pen 은 두 줄일 때 27). 토큰(16/400 lh 1.6)은 같다 — 렌더러 반올림 차이라 편차로 치지 않는다.
 - 안내 토스트에 주의 아이콘(alertTriangle 16)을 달았다. 가입 화면 안내와 같은 모양이다(편차 2 안).
+- **운영 적용(2026-09-29, 대장 · 사용자 "적용해")**: `20260929010000_create_user_consents.sql`(md5 255d9355) → 운영 기록 20260929051356(51번째). **이 SQL 파일은 더 고치지 않는다** — 바꿀 게 생기면 새 마이그레이션.
+- 대장 쪽 리뷰 권고 2개로 pgTAP 를 늘렸다(plan 9 → 11): service_role delete 권한 없음 단정, 프로필 삭제 뒤 동의 기록 is_empty(cascade — `fk_ok` 는 on delete 를 보지 않는다). DB 차례 안에서 이 워크트리로 db reset → `supabase test db` 17 files · 454 tests PASS. 변형(로컬만): service_role 에 delete grant → consents_test 8번 · rls_slice0 6번 실패 → revoke 뒤 권한 f · 454 PASS.
 
 ---
 
