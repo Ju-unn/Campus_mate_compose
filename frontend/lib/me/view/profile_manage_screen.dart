@@ -30,7 +30,7 @@ class ProfileManageScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileManageScreenState extends ConsumerState<ProfileManageScreen> with MeToastHost<ProfileManageScreen> {
-  /// "수정 ›"(15d, PR 3-2) · "실제 사진 교체"(15e, PR 4) — 갈 화면이 아직 없어 안내만 잠깐 띄운다(N4).
+  /// "수정 ›"(15d, PR 3-2) — 갈 화면이 아직 없어 안내만 잠깐 띄운다(N4).
   void _showComingSoon() => showTimedToast(comingSoonToast);
 
   @override
@@ -72,7 +72,7 @@ class _ManageContent extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.lg, AppSpacing.md, _bottomPadding),
       children: [
-        _RealPhotoSection(photoUrls: profile.photoUrls, onReplace: onComingSoon),
+        _RealPhotoSection(photoUrls: profile.photoUrls, onReplace: () => context.push(AppRoutes.myPhotos)),
         // 섹션 사이 32 를 기본 정보 상자 안에 둔다 — "수정 ›" 누름 칸이 그 자리로 삐져나간다([_BasicInfoSection]).
         _BasicInfoSection(profile: profile, topGap: AppSpacing.xl, onEdit: onComingSoon),
         const SizedBox(height: AppSpacing.xl),
@@ -171,7 +171,7 @@ class _LockBadge extends StatelessWidget {
   }
 }
 
-/// "실제 사진 교체" `E7Cv2` 328×44, surface-strong, 모서리 8, 14/600 ink. 교체 화면(15e)이 아직 없어 누르면 안내만 띄운다.
+/// "실제 사진 교체" `E7Cv2` 328×44, surface-strong, 모서리 8, 14/600 ink. 누르면 15e 사진 수정(A15).
 class _ReplacePhotoButton extends StatelessWidget {
   const _ReplacePhotoButton({required this.onTap});
 

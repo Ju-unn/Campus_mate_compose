@@ -6,7 +6,7 @@ import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:flutter/widgets.dart';
 
-/// "곧 열려요" — 갈 화면이 아직 없는 입구(15-5 "수정 ›" · "교체" N4, 15b-3 "하트 충전하기" C5).
+/// "곧 열려요" — 갈 화면이 아직 없는 입구(15-5 "수정 ›" N4, 15b-3 "하트 충전하기" C5). "교체" 는 15e 로 연결됐다(A15).
 const comingSoonToast = AppToast(
   leading: Icon(AppIcons.clock3, size: 16, color: AppColors.onInk),
   label: '곧 열려요',
