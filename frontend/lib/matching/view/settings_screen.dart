@@ -6,6 +6,7 @@ import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/faq/viewmodel/faq_provider.dart';
 import 'package:campus_mate/matching/viewmodel/notification_settings_view_model.dart';
 import 'package:campus_mate/referral/view/invite_friends_sheet.dart';
 import 'package:campus_mate/safety/view/contact_permission_sheets.dart';
@@ -21,6 +22,9 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(notificationSettingsViewModelProvider);
+    // DESIGN §8.13: 받지도 못하고 캐시도 없을 때만 숨긴다. 받는 중에는 보인다 — 늦게 튀어나와 아래 줄이 밀리지 않게.
+    final faq = ref.watch(faqProvider);
+    final showFaq = faq.isLoading || (faq.value?.isNotEmpty ?? false);
     return Scaffold(
       appBar: AppBar(title: Text('설정', style: AppTypography.navTitle)),
       body: SafeArea(
@@ -82,6 +86,14 @@ class SettingsScreen extends ConsumerWidget {
                 trailing: const Icon(AppIcons.chevronRight, color: AppColors.muted),
                 onTap: () => openContactBlocks(context, ref),
               ),
+              // pen `l1K4Xa`(지원 카드 첫 줄). 앱 16 은 아직 섹션 카드가 없어 순서만 맞춘다 — 카드 · 아이콘 색은 백로그 70.
+              if (showFaq)
+                ListTile(
+                  leading: const Icon(AppIcons.circleQuestionMark, color: AppColors.muted),
+                  title: Text('자주 묻는 질문', style: AppTypography.subtitle.copyWith(color: AppColors.ink)),
+                  trailing: const Icon(AppIcons.chevronRight, color: AppColors.muted),
+                  onTap: () => context.push(AppRoutes.faq),
+                ),
               ListTile(
                 leading: const Icon(AppIcons.logOut, color: AppColors.muted),
                 title: Text('로그아웃', style: AppTypography.subtitle.copyWith(color: AppColors.ink)),

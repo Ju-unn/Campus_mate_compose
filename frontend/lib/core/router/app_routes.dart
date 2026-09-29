@@ -70,6 +70,9 @@ abstract final class AppRoutes {
 
   /// 16e 계정(설정 "계정" 줄에서 들어간다).
   static const String account = '/settings/account';
+
+  /// 21 자주 묻는 질문(설정 "자주 묻는 질문" 줄이 연다, 계획서 2026-09-29-faq.md).
+  static const String faq = '/settings/faq';
   /// 지인 리뷰 — 20c 받은 리뷰, 20b 리뷰 쓰기(`/home/friend-reviews/write/:profileId` — 푸시로 와도 홈 위에 시트)
   static const String friendReviews = '/friend-reviews';
   static const String friendReviewWrite = '/home/friend-reviews/write';
