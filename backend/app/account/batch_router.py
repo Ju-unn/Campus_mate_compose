@@ -30,8 +30,9 @@ STORAGE_BUCKETS = ("avatars", "profile-photos", "student-id-temp", "heart-task-p
 async def run_cleanup(accounts: AccountRepository, admin: SupabaseAdmin, now: datetime) -> dict:
     """매일 04:00(Asia/Seoul). 네 가지를 하고 전부 멱등이다 — 다시 돌리면 0건이다.
 
-    ① 탈퇴 30일 지난 계정: 버킷 셋의 파일 → auth 사용자(profiles 는 cascade)
-    ② 처리 끝나고 1년 지난 신고(열린 신고는 남는다) ③ 만료된 재가입 제한 ④ 옛 키 버전 지인 차단 세기(경고)"""
+    ① 탈퇴 30일 지난 계정: 버킷 넷(STORAGE_BUCKETS)의 파일 → auth 사용자(profiles 는 cascade)
+    ② 처리 끝나고 1년 지난 신고(열린 신고는 남는다) ③ 만료된 재가입 제한 ④ 옛 키 버전 지인 차단 세기(경고)
+    ⑤ 검수 끝나고 60일 지난 하트 인증샷은 엔드포인트(run_cleanup_batch)가 이어서 지운다."""
     deleted = skipped = 0
     for profile_id in await accounts.fetch_withdrawn_before(now - WITHDRAWN_RETENTION, CLEANUP_ACCOUNT_LIMIT):
         try:
