@@ -34,6 +34,7 @@ erDiagram
     matches ||--o{ messages : "대화"
     profiles ||--o{ push_tokens : "기기"
     profiles ||--o| notification_settings : "알림"
+    profiles ||--o{ user_consents : "가입 동의"
     profiles ||--o{ blocks : "차단"
     profiles |o--o{ reports : "신고"
     profiles ||--o{ contact_blocks : "연락처 차단"
@@ -80,6 +81,7 @@ erDiagram
 | `messages` | 참여 중인 매칭의 메시지 | `exists (select 1 from match_participants mp where mp.match_id = messages.match_id and mp.profile_id = (select auth.uid()) and mp.left_at is null)` |
 | `push_tokens` | 없음 | FastAPI 전용 |
 | `notification_settings` | 본인 행 | |
+| `user_consents` | 없음 | FastAPI 전용. **`service_role` 도 `select` · `insert` 만** — 동의 기록은 고치지 않는다(위 "전 테이블" 규칙의 예외). 동의 여부는 `/me/verification-status` 의 `consent` 가 내려준다 |
 | `blocks` · `reports` | 없음 | FastAPI 전용 — 차단 목록(16f)은 상대 닉네임이 필요하다 |
 | `contact_blocks` | 본인 행 (`owner_id`) · 컬럼 grant `id` · `owner_id` · `created_at` 만 | 16b 목록. `contact_hmac` 은 내려가지 않는다 |
 | `entitlements` · `heart_transactions` · `purchases` · `heart_task_submissions` | 본인 행 | 잔액·내역·인증 상태 |
@@ -96,7 +98,7 @@ erDiagram
 - 모든 테이블: `anon` · `authenticated` 의 INSERT · UPDATE · DELETE 가 42501
 - `anon` 은 `universities` · `university_email_domains` 읽기만 된다
 - `profiles` 제약: 온보딩 컬럼 없는 `pending` 행 insert 는 성공, 필수값 없이 `active` 로 바꾸면 check 위반, 대소문자만 다른 닉네임은 unique 위반(§3)
-- `service_role` 은 테이블마다 `select` · `insert` · `update` · `delete` 가 모두 있다. 하나라도 빠지면 FastAPI 쓰기가 깨진다
+- `service_role` 은 테이블마다 `select` · `insert` · `update` · `delete` 가 모두 있다. 하나라도 빠지면 FastAPI 쓰기가 깨진다. 예외: `user_consents` 는 `select` · `insert` 만(동의 기록은 고치지 않는다, 위 표)
 - `public` 시퀀스에는 `anon` · `authenticated` · `service_role` 권한이 하나도 없다(0행). identity 컬럼은 테이블 `insert` 권한만으로 번호를 받는다(조각 1 `student_verification_attempts_id_seq`)
 - `profile-photos` · `student-id-temp` 버킷은 비공개이고 `storage.objects` 에는 정책이 없다(§9). 두 버킷 모두 10MB · `image/jpeg` · `image/png` 제한이 걸린다(조각 1)
 - 계정 삭제 cascade(탈퇴 30일 뒤, §11-15): `auth.users` 행을 지우면 `profiles` · `profile_photos` · `profile_private` · `student_verification_attempts` 행이 함께 지워진다
@@ -112,6 +114,7 @@ erDiagram
     region_group_settings ||..o{ universities : "region_group"
     profiles ||--o| profile_private : "민감 정보"
     profiles ||--o{ student_verification_attempts : "학생증 제출 한 번에 한 행"
+    profiles ||--o{ user_consents : "항목 × 판마다 한 행"
     profiles ||--o{ profile_photos : "실사진 2~4장"
     profiles ||--o{ profile_avatars : "생성 이력"
     profile_photos |o--o{ profile_avatars : "원본 사진"
@@ -198,6 +201,13 @@ erDiagram
         text reject_reason "조각1 · rejected 일 때"
         timestamptz submitted_at "조각1"
         timestamptz reviewed_at "조각1 · 판정 전 null"
+    }
+
+    user_consents {
+        uuid profile_id PK, FK "가입 동의 2026-09-29 · cascade"
+        consent_kind kind PK "terms · privacy 만 받음(09-29)"
+        text version PK "YYYY-MM-DD · FastAPI CONSENT_VERSION"
+        timestamptz agreed_at "기본 now() · 서버 시각"
     }
 
     profile_photos {
@@ -573,6 +583,7 @@ enum 값은 만든 뒤 지울 수 없다(추가·이름 변경만 된다). 그�
 | `content_status` | `visible` `blinded` | 설계 §2.8 |
 | `poll_choice` | `a` `b` | DESIGN §8.11 |
 | `faq_category` | `card_matching` `heart_payment` `photo_profile` `friend_review` `safety` `account` | DESIGN §8.13 |
+| `consent_kind` | `terms` `privacy` `sensitive_religion` `overseas_transfer` | 가입 동의(02-c) 필수 항목. **`sensitive_religion` · `overseas_transfer` 안 씀(09-29 사용자 결정** — 종교는 개인정보 수집·이용 안에, OpenAI 국외 이전은 처리방침 공개로 대신. 운영에 적용된 enum 이라 값만 남음) · 마케팅(선택)은 `notification_settings.marketing` |
 
 ## 9. Storage 버킷
 

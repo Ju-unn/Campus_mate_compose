@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Respon
 from google.cloud import vision
 from openai import AsyncOpenAI
 
+from app.consents.repository import require_current_consent
 from app.core import errors
 from app.core.deps import Caller, get_now, get_settings, get_verified_caller, get_vision_client
 from app.matching.repository import MatchingRepository
@@ -438,6 +439,8 @@ async def submit_acquisition(
 @router.get("/profile-onboarding/next-step")
 async def get_next_step(caller: Caller = Depends(get_verified_caller)) -> NextStepResponse:
     settings, client, profile_id = caller
+    # 약관이 바뀐 뒤 재동의 전에는 온보딩을 이어 가지 않는다(가입 동의 계획서 §0 "자리").
+    await require_current_consent(settings, client, profile_id)
     repo = _repo(settings, client)
     snapshot = await repo.fetch_onboarding_snapshot(profile_id)
     return NextStepResponse(step=next_step(snapshot))

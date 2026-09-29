@@ -11,6 +11,10 @@ SESSION_EXPIRED = "세션이 만료됐어요, 다시 로그인해 주세요"
 STUDENT_VERIFICATION_REQUIRED = "학생증 인증을 먼저 끝내 주세요"
 DEPARTMENT_REQUIRED = "학과 정보를 먼저 입력해 주세요"
 
+# 가입 동의(consents, 화면 02-c)
+CONSENT_REQUIRED = "약관 동의를 먼저 해 주세요"
+CONSENT_INCOMPLETE = "필수 항목에 모두 동의해 주세요"
+
 # 기계가 보는 응답(훅·배치). 사람에게 보이지 않아 한국어가 아니다.
 INVALID_SIGNATURE = "invalid signature"
 UNAUTHORIZED = "unauthorized"

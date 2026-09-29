@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -5,6 +7,8 @@ class VerificationStatusResponse(BaseModel):
     status: str
     has_school_info: bool
     reject_reason: str | None = None
+    # 가입 동의(02-c)가 첫 관문이라 인증 전에도 닿는 이 응답에 싣는다. outdated = 옛 판만 있음(재동의).
+    consent: Literal["none", "outdated", "current"]
 
 
 class SchoolInfoRequest(BaseModel):
