@@ -205,7 +205,7 @@ erDiagram
 
     user_consents {
         uuid profile_id PK, FK "가입 동의 2026-09-29 · cascade"
-        consent_kind kind PK "필수 4항목"
+        consent_kind kind PK "terms · privacy 만 받음(09-29)"
         text version PK "YYYY-MM-DD · FastAPI CONSENT_VERSION"
         timestamptz agreed_at "기본 now() · 서버 시각"
     }
@@ -583,7 +583,7 @@ enum 값은 만든 뒤 지울 수 없다(추가·이름 변경만 된다). 그�
 | `content_status` | `visible` `blinded` | 설계 §2.8 |
 | `poll_choice` | `a` `b` | DESIGN §8.11 |
 | `faq_category` | `card_matching` `heart_payment` `photo_profile` `friend_review` `safety` `account` | DESIGN §8.13 |
-| `consent_kind` | `terms` `privacy` `sensitive_religion` `overseas_transfer` | 가입 동의(02-c) 필수 4항목 · 마케팅(선택)은 `notification_settings.marketing` |
+| `consent_kind` | `terms` `privacy` `sensitive_religion` `overseas_transfer` | 가입 동의(02-c) 필수 항목. **`sensitive_religion` · `overseas_transfer` 안 씀(09-29 사용자 결정** — 종교는 개인정보 수집·이용 안에, OpenAI 국외 이전은 처리방침 공개로 대신. 운영에 적용된 enum 이라 값만 남음) · 마케팅(선택)은 `notification_settings.marketing` |
 
 ## 9. Storage 버킷
 
