@@ -97,12 +97,8 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                 ),
                 const SizedBox(height: AppSpacing.sm), // CTA 바로 위 12(pen KJnpw)
               ],
+              // 동의는 로그인 뒤 02-c 에서 항목별로 받는다 — 여기 있던 묵시 동의 줄은 지웠다(사용자 결정 2026-09-29).
               AppButton(label: '인증 메일 받기', onPressed: state.canSubmit ? viewModel.submit : null),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                '계속하면 이용약관과 개인정보처리방침에 동의하게 돼요.',
-                style: AppTypography.caption.copyWith(color: AppColors.muted),
-              ),
             ],
           ),
         ),
