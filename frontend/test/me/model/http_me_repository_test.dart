@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/http/api_client.dart';
+import 'package:campus_mate/matching/model/card_detail.dart';
 import 'package:campus_mate/me/model/http_me_repository.dart';
 import 'package:campus_mate/me/model/my_profile.dart';
 import 'package:campus_mate/profile/model/profile_enums.dart';
@@ -246,6 +247,60 @@ void main() {
       final client = MockClient((_) async => jsonResponse({'detail': 'boom'}, 500));
 
       final result = await buildRepository(client).updateProfile(bio: '소개');
+
+      expect(result.when(onSuccess: (_) => null, onFailure: (f) => f), isA<Failure>());
+    });
+  });
+
+  group('fetchCardPreview — GET /me/card-preview 는 10b 카드 상세 몸통이다(계획서 2026-09-28-me-profile.md 2절)', () {
+    const body = <String, Object?>{
+      'profile': {
+        'profile_id': 'me-1',
+        'nickname': '하늘',
+        'age': 24,
+        'university': '서울대학교',
+        'major': '컴퓨터공학과',
+        'avatar_url': null,
+      },
+      'survey': [0.1, 0.2, 0.3, 0.4, 0.0, 0.6, 0.7, 0.8, 0.9],
+      'animal_type': 'fox',
+      'impression_type': 'kind',
+      'religion': 'none',
+      'is_smoker': false,
+      'interests': ['카페가기', '여행', '요리'],
+      'my_traits': ['긍정적인', '성실한', '차분한'],
+      'ideal_traits': ['다정한', '연락 잘하는', '솔직한'],
+      'height_cm': 178,
+      'mbti': 'ENFP',
+      'student_number': '22',
+      'bio': '주말엔 산책해요',
+      'ideal_note': null,
+    };
+
+    test('카드 상세로 읽고 card_id 자리에 내 profile_id 를 넣는다', () async {
+      final client = MockClient((request) async {
+        expect(request.method, 'GET');
+        expect(request.url.toString(), 'https://api.test/me/card-preview');
+        expect(request.headers['Authorization'], 'Bearer token-abc');
+        return jsonResponse(body);
+      });
+
+      final result = await buildRepository(client).fetchCardPreview();
+      final detail = result.when<CardDetail?>(onSuccess: (d) => d, onFailure: (_) => null)!;
+
+      expect(detail.cardId, 'me-1');
+      expect(detail.profile.nameWithAge, '하늘, 24');
+      expect(detail.profile.schoolLine, '서울대학교 · 컴퓨터공학과');
+      expect(detail.animalType, AnimalType.fox);
+      expect(detail.interests, ['카페가기', '여행', '요리']);
+      expect(detail.bio, '주말엔 산책해요');
+      expect(detail.idealNote, isNull);
+    });
+
+    test('서버 오류면 실패를 돌려준다', () async {
+      final client = MockClient((_) async => jsonResponse({'detail': 'boom'}, 500));
+
+      final result = await buildRepository(client).fetchCardPreview();
 
       expect(result.when(onSuccess: (_) => null, onFailure: (f) => f), isA<Failure>());
     });

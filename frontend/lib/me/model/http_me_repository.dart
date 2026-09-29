@@ -1,10 +1,11 @@
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/http/api_client.dart';
+import 'package:campus_mate/matching/model/card_detail.dart';
 import 'package:campus_mate/me/model/me_repository.dart';
 import 'package:campus_mate/me/model/my_profile.dart';
 import 'package:campus_mate/profile/model/profile_enums.dart';
 
-/// [MeRepository] 를 FastAPI `GET · PATCH /me/profile` 로 구현한다.
+/// [MeRepository] 를 FastAPI `GET · PATCH /me/profile` · `GET /me/card-preview` 로 구현한다.
 class HttpMeRepository implements MeRepository {
   const HttpMeRepository(this._api);
 
@@ -50,6 +51,15 @@ class HttpMeRepository implements MeRepository {
         url: json['url'] as String,
         isAvatarSource: json['is_avatar_source'] as bool,
       );
+
+  /// 10b 카드 상세와 같은 몸통이라 모델을 다시 만들지 않는다 — card_id 자리에는 내 profile_id 를 넣는다
+  /// (14c 가 match_id 를 넣는 것과 같은 모양, `partner_profile.dart`).
+  @override
+  Future<Result<CardDetail>> fetchCardPreview() => _api.send('GET', '/me/card-preview', (body) {
+        final json = body as Map<String, dynamic>;
+        final profile = json['profile'] as Map<String, dynamic>;
+        return CardDetail.fromJson({...json, 'card_id': profile['profile_id']});
+      });
 
   @override
   Future<Result<void>> updateProfile({String? bio, String? nickname, int? heightCm}) => _api.send(

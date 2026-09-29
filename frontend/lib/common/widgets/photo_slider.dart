@@ -8,7 +8,13 @@ import 'package:flutter/material.dart';
 /// 실사진 가로 슬라이더 + 점 인디케이터(pen `o2Nhn` 화면 15, 14c "Real Photo Slider").
 /// pen 에 photo-slider 마스터가 없어 화면 15 plain 프레임 값을 따른다. 다음 장이 오른쪽에 잘려 엿보인다.
 class PhotoSlider extends StatefulWidget {
-  const PhotoSlider({required this.photos, required this.photoSize, this.firstPhotoBadge, super.key});
+  const PhotoSlider({
+    required this.photos,
+    required this.photoSize,
+    this.firstPhotoBadge,
+    this.dotsGap = AppSpacing.xs,
+    super.key,
+  });
 
   final List<ImageProvider> photos;
 
@@ -17,6 +23,9 @@ class PhotoSlider extends StatefulWidget {
 
   /// 첫 장 오른쪽 위에 얹는 배지(화면 15 "수락 후 공개", pen `E2kWIB`). 첫 페이지 안에 있어 같이 넘어간다.
   final Widget? firstPhotoBadge;
+
+  /// 사진 ↔ 점 줄 간격. 기본 8 = 화면 15 · 14c, 15-5 = 12(pen `rrJ27` 섹션 gap 12, 대장 (가) 09-29).
+  final double dotsGap;
 
   @override
   State<PhotoSlider> createState() => _PhotoSliderState();
@@ -94,7 +103,7 @@ class _PhotoSliderState extends State<PhotoSlider> {
           ),
         ),
         if (photos.length > 1) ...[
-          const SizedBox(height: AppSpacing.xs),
+          SizedBox(height: widget.dotsGap),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
