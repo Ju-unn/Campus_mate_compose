@@ -49,13 +49,13 @@ final _heightField = find.byType(TextField).at(1);
 
 Finder _valueOf(Finder field) => find.descendant(of: field, matching: find.byType(EditableText));
 
-/// 15d 기본 정보 수정(pen `mhdYA` · 15d-2 `ZuPTD` 360×780, 계획서 2026-09-28-me-profile.md A16 화면 대조표).
+/// 15-6 기본 정보 수정(pen `mhdYA` · 15-6-2 `ZuPTD` 360×780, 계획서 2026-09-28-me-profile.md A16 화면 대조표).
 void main() {
   late FakeMeRepository me;
   late FakeBasicInfoRepository nicknames;
   late ProviderContainer container;
 
-  /// 15d 가 pop 으로 돌려준 값. 아직 안 돌아왔으면 'open'.
+  /// 15-6 이 pop 으로 돌려준 값. 아직 안 돌아왔으면 'open'.
   late Object? popped;
 
   void usePenFrame(WidgetTester tester) {
@@ -64,12 +64,12 @@ void main() {
     addTearDown(tester.view.reset);
   }
 
-  Future<void> open15d(WidgetTester tester) async {
+  Future<void> openBasicInfo(WidgetTester tester) async {
     await tester.tap(find.text('15-5'));
     await tester.pumpAndSettle();
   }
 
-  /// 15-5 자리(내 프로필을 보고 있는 앞 화면) 위에 15d 를 올린다.
+  /// 15-5 자리(내 프로필을 보고 있는 앞 화면) 위에 15-6 을 올린다.
   Future<void> pump(WidgetTester tester, {MyProfile? profile}) async {
     me = FakeMeRepository(Success(profile ?? _profile()));
     nicknames = FakeBasicInfoRepository();
@@ -110,7 +110,7 @@ void main() {
     );
     await container.read(myProfileProvider.future);
     await tester.pump();
-    await open15d(tester);
+    await openBasicInfo(tester);
   }
 
   AppButton saveButton(WidgetTester tester) => tester.widget<AppButton>(find.byType(AppButton));
@@ -132,7 +132,7 @@ void main() {
     return (disabled ? decoration.disabledBorder : decoration.enabledBorder)! as OutlineInputBorder;
   }
 
-  group('15d `mhdYA` pen 값(배율 1.0, 360×780)', () {
+  group('15-6 `mhdYA` pen 값(배율 1.0, 360×780)', () {
     testWidgets('앱바 `m2PTHo` — 편집 앱바(B7), 제목 "기본 정보 수정", 내비 없음', (tester) async {
       usePenFrame(tester);
       await pump(tester);
@@ -234,7 +234,7 @@ void main() {
     });
   });
 
-  group('15d-2 `ZuPTD` 닉네임 잠김', () {
+  group('15-6-2 `ZuPTD` 닉네임 잠김', () {
     testWidgets('`V3sicJ` — 입력 불가, 테두리 hairline 1, 바탕 surface-soft 그대로, 값 disabled', (tester) async {
       usePenFrame(tester);
       await pump(tester, profile: _profile(nicknameChangeableAt: _unlocksAt));
@@ -319,7 +319,7 @@ void main() {
       await tester.pumpAndSettle();
     });
 
-    testWidgets('저장 중에는 칸을 고칠 수 없다 — 보내는 값과 화면 값이 갈라지지 않는다(검토 사소 1, 15e 와 같음)', (tester) async {
+    testWidgets('저장 중에는 칸을 고칠 수 없다 — 보내는 값과 화면 값이 갈라지지 않는다(검토 사소 1, 15-7 과 같음)', (tester) async {
       await pump(tester);
       await tester.enterText(_heightField, '180');
       await tester.pump();
@@ -509,7 +509,7 @@ void main() {
 
     await tester.tap(find.byTooltip('Back'));
     await tester.pumpAndSettle();
-    await open15d(tester);
+    await openBasicInfo(tester);
 
     expect(tester.widget<EditableText>(_valueOf(_heightField)).controller.text, '178');
     expect(saveButton(tester).onPressed, isNull);
@@ -534,7 +534,7 @@ void main() {
   // DESIGN §11.2 — 시스템 글꼴 확대(최대 2.0)에서도 넘치거나 잘리지 않는다. 상자 56 은 최소값이다.
   for (final locked in [false, true]) {
     for (final scale in [1.0, 1.3, 1.5, 2.0]) {
-      testWidgets('15d${locked ? '-2' : ''} — 폭 360 · 글자 배율 $scale 에서 넘침 · 잘림이 없다', (tester) async {
+      testWidgets('15-6${locked ? '-2' : ''} — 폭 360 · 글자 배율 $scale 에서 넘침 · 잘림이 없다', (tester) async {
         usePenFrame(tester);
         tester.platformDispatcher.textScaleFactorTestValue = scale;
         addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);

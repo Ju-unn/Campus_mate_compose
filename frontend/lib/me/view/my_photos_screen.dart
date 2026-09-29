@@ -13,7 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-/// 15e 사진 수정(pen `szJ79`, 계획서 2026-09-27-me-edit.md 4절 15e 표 · A6). 15-5 "실제 사진 교체"(`E7Cv2`)가 연다.
+/// 15-7 사진 수정(pen `szJ79`, 계획서 2026-09-27-me-edit.md 4절 15e 표 · A6). 15-5 "실제 사진 교체"(`E7Cv2`)가 연다.
 /// 지금 사진이 채워진 칸에서 빼기 · 넣기 · 길게 눌러 순서를 바꾼 뒤 "저장" 한 번에 올리고 15-5 로 돌아간다(U2 · N8).
 /// 칸 안은 04-2 칸 위젯 그대로(C9), 끌기 규칙도 같다.
 class MyPhotosScreen extends ConsumerStatefulWidget {

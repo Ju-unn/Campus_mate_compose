@@ -134,17 +134,17 @@ void main() {
         GoRoute(path: AppRoutes.myProfileManage, builder: (context, state) => const ProfileManageScreen()),
         GoRoute(
           path: AppRoutes.myPhotos,
-          builder: (context, state) => const Scaffold(body: Text('15e 사진 수정 화면')),
+          builder: (context, state) => const Scaffold(body: Text('15-7 사진 수정 화면')),
         ),
-        // 15d 자리 — 저장하면 true, 그냥 나가면 아무것도 돌려주지 않는다(BasicInfoEditScreen 과 같은 약속).
+        // 15-6 자리 — 저장하면 true, 그냥 나가면 아무것도 돌려주지 않는다(BasicInfoEditScreen 과 같은 약속).
         GoRoute(
           path: AppRoutes.myBasicInfo,
           builder: (context, state) => Scaffold(
             body: Column(
               children: [
-                const Text('15d 기본 정보 수정 화면'),
-                TextButton(onPressed: () => context.pop(true), child: const Text('15d 저장')),
-                TextButton(onPressed: () => context.pop(), child: const Text('15d 뒤로')),
+                const Text('15-6 기본 정보 수정 화면'),
+                TextButton(onPressed: () => context.pop(true), child: const Text('15-6 저장')),
+                TextButton(onPressed: () => context.pop(), child: const Text('15-6 뒤로')),
               ],
             ),
           ),
@@ -431,41 +431,41 @@ void main() {
     });
   });
 
-  // 계획서 2026-09-28-me-profile.md A15 — "교체" 는 PR 4 에서 15e 로 연결됐다.
-  testWidgets('"실제 사진 교체" 를 누르면 15e 사진 수정(/me/photos)으로 간다 — "곧 열려요" 는 뜨지 않는다', (tester) async {
+  // 계획서 2026-09-28-me-profile.md A15 — "교체" 는 PR 4 에서 15-7 로 연결됐다.
+  testWidgets('"실제 사진 교체" 를 누르면 15-7 사진 수정(/me/photos)으로 간다 — "곧 열려요" 는 뜨지 않는다', (tester) async {
     await pump(tester);
 
     await tapVisible(tester, find.text('실제 사진 교체'));
     await tester.pumpAndSettle();
 
-    expect(find.text('15e 사진 수정 화면'), findsOneWidget);
+    expect(find.text('15-7 사진 수정 화면'), findsOneWidget);
     expect(find.text('곧 열려요'), findsNothing);
   });
 
-  // 계획서 2026-09-28-me-profile.md A16 — "수정 ›" 은 PR 3-2 에서 15d 로 연결됐다. 저장하고 돌아오면 "저장했어요"(B4).
-  group('"수정 ›" → 15d 기본 정보 수정', () {
-    /// "수정 ›" 로 15d 를 열고 [button]("15d 저장" · "15d 뒤로")으로 돌아온다. 돌아온 첫 프레임에서 멈춘다.
-    Future<void> returnFrom15d(WidgetTester tester, String button) async {
+  // 계획서 2026-09-28-me-profile.md A16 — "수정 ›" 은 PR 3-2 에서 15-6 으로 연결됐다. 저장하고 돌아오면 "저장했어요"(B4).
+  group('"수정 ›" → 15-6 기본 정보 수정', () {
+    /// "수정 ›" 로 15-6 을 열고 [button]("15-6 저장" · "15-6 뒤로")으로 돌아온다. 돌아온 첫 프레임에서 멈춘다.
+    Future<void> returnFromBasicInfo(WidgetTester tester, String button) async {
       await tapVisible(tester, find.text('수정 ›'));
       await tester.pumpAndSettle();
       await tester.tap(find.text(button));
       await tester.pump();
     }
 
-    testWidgets('"수정 ›" 을 누르면 15d(/me/basic-info)로 간다 — "곧 열려요" 는 뜨지 않는다', (tester) async {
+    testWidgets('"수정 ›" 을 누르면 15-6(/me/basic-info)으로 간다 — "곧 열려요" 는 뜨지 않는다', (tester) async {
       await pump(tester);
 
       await tapVisible(tester, find.text('수정 ›'));
       await tester.pumpAndSettle();
 
-      expect(find.text('15d 기본 정보 수정 화면'), findsOneWidget);
+      expect(find.text('15-6 기본 정보 수정 화면'), findsOneWidget);
       expect(find.text('곧 열려요'), findsNothing);
     });
 
-    testWidgets('15d 에서 저장하고 돌아오면 "저장했어요"(circle-check 16 흰색)가 뜨고 약 2초 뒤 사라진다', (tester) async {
+    testWidgets('15-6 에서 저장하고 돌아오면 "저장했어요"(circle-check 16 흰색)가 뜨고 약 2초 뒤 사라진다', (tester) async {
       await pump(tester);
 
-      await returnFrom15d(tester, '15d 저장');
+      await returnFromBasicInfo(tester, '15-6 저장');
       expect(find.text('저장했어요'), findsOneWidget);
       final icon = tester.widget<Icon>(find.descendant(of: find.byType(AppToast), matching: find.byType(Icon)));
       expect((icon.icon, icon.size, icon.color), (AppIcons.circleCheck, 16, AppColors.onInk));
@@ -480,7 +480,7 @@ void main() {
     testWidgets('저장 없이 돌아오면 아무 안내도 없다', (tester) async {
       await pump(tester);
 
-      await returnFrom15d(tester, '15d 뒤로');
+      await returnFromBasicInfo(tester, '15-6 뒤로');
       await tester.pumpAndSettle();
 
       expect(find.byType(ProfileManageScreen), findsOneWidget);
@@ -491,7 +491,7 @@ void main() {
       usePenFrame(tester);
       await pump(tester);
 
-      await returnFrom15d(tester, '15d 저장');
+      await returnFromBasicInfo(tester, '15-6 저장');
       await tester.pumpAndSettle();
 
       final toast = find.byType(AppToast);
@@ -504,7 +504,7 @@ void main() {
       addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
       await pump(tester);
 
-      await returnFrom15d(tester, '15d 저장');
+      await returnFromBasicInfo(tester, '15-6 저장');
       expect(find.text('저장했어요'), findsOneWidget);
       await tester.pumpAndSettle();
       expect(find.ancestor(of: find.byType(AppToast), matching: find.byType(FadeTransition)), findsNothing);
@@ -514,7 +514,7 @@ void main() {
 
     testWidgets('떠 있는 동안 화면을 떠나도 타이머가 남지 않는다', (tester) async {
       await pump(tester);
-      await returnFrom15d(tester, '15d 저장');
+      await returnFromBasicInfo(tester, '15-6 저장');
 
       await tester.pumpWidget(const SizedBox());
 
@@ -734,8 +734,8 @@ void main() {
     expect(find.text(_bio), findsNothing);
   });
 
-  // N8 — 15e 도 저장 뒤 invalidate 하고 pop 한다. 15-5 로 돌아와 실제 사진 줄이 새 값을 그린다.
-  testWidgets('saving_in_15e_returns_to_15_5_with_the_new_photos — 가짜 저장소 + 실제 라우터', (tester) async {
+  // N8 — 15-7 도 저장 뒤 invalidate 하고 pop 한다. 15-5 로 돌아와 실제 사진 줄이 새 값을 그린다.
+  testWidgets('saving_in_15_7_returns_to_15_5_with_the_new_photos — 가짜 저장소 + 실제 라우터', (tester) async {
     const urls = ['https://img.test/1.png', 'https://img.test/2.png', 'https://img.test/3.png'];
     final me = FakeMeRepository(Success(_profile(photoUrls: urls)));
     final router = AppRouter.create(
@@ -784,8 +784,8 @@ void main() {
     );
   });
 
-  // N8 + B4 — 15d 는 저장 뒤 invalidate 하고 true 를 돌려주며 pop 한다. 15-5 로 돌아와 새 키를 그리고 "저장했어요" 를 띄운다.
-  testWidgets('saving_in_15d_returns_to_15_5_with_the_new_height_and_a_toast — 가짜 저장소 + 실제 라우터', (tester) async {
+  // N8 + B4 — 15-6 은 저장 뒤 invalidate 하고 true 를 돌려주며 pop 한다. 15-5 로 돌아와 새 키를 그리고 "저장했어요" 를 띄운다.
+  testWidgets('saving_in_15_6_returns_to_15_5_with_the_new_height_and_a_toast — 가짜 저장소 + 실제 라우터', (tester) async {
     final me = FakeMeRepository(Success(_profile()));
     final router = AppRouter.create(
       isAuthenticated: () => true,

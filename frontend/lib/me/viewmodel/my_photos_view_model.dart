@@ -9,7 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 final myPhotosViewModelProvider =
     NotifierProvider.autoDispose<MyPhotosViewModel, PhotosUiState>(MyPhotosViewModel.new);
 
-/// 15e 사진 수정(pen `szJ79`, 계획서 2026-09-27-me-edit.md A6). 04-2 의 고르기 · 얼굴 검사 · 빼기 · 맞바꾸기를 그대로
+/// 15-7 사진 수정(pen `szJ79`, 계획서 2026-09-27-me-edit.md A6). 04-2 의 고르기 · 얼굴 검사 · 빼기 · 맞바꾸기를 그대로
 /// 쓰고, 칸을 서버 사진으로 채워 "저장" 한 번에 올린다(U2).
 ///
 /// 편집 모드. 열 때마다 서버 값으로 채운다 — autoDispose 라 닫으면 고르다 만 값이 남지 않는다(Review Focus 5).

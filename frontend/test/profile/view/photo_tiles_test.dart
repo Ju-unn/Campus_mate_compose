@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// 빈 "사진 추가" 칸(`AddPhotoTile`) — 글자가 칸에 안 들어가면 더하기 아이콘만 보인다(대장 결정 (가), 2026-09-29).
-/// 15e 보조 칸 66×88 은 글자를 키우면 좁고, 04-2 칸(폭 360 에서 158×158)은 넉넉하다.
+/// 15-7 보조 칸 66×88 은 글자를 키우면 좁고, 04-2 칸(폭 360 에서 158×158)은 넉넉하다.
 void main() {
   Future<void> pumpTile(WidgetTester tester, {required Size size, required double scale}) async {
     tester.platformDispatcher.textScaleFactorTestValue = scale;

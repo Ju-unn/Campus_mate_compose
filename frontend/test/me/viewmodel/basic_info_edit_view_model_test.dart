@@ -36,7 +36,7 @@ MyProfile _profile({String nickname = '늑대', int? heightCm = 178, DateTime? n
       nicknameChangeableAt: nicknameChangeableAt,
     );
 
-/// 15d 기본 정보 수정(계획서 2026-09-28-me-profile.md A16 · 옛 A7 · B2 · B5).
+/// 15-6 기본 정보 수정(계획서 2026-09-28-me-profile.md A16 · 옛 A7 · B2 · B5).
 void main() {
   late FakeMeRepository me;
   late FakeBasicInfoRepository nicknames;
@@ -46,7 +46,7 @@ void main() {
   BasicInfoEditViewModel viewModel() => container.read(basicInfoEditViewModelProvider.notifier);
   BasicInfoEditUiState state() => subscription.read();
 
-  /// 15d 는 15-5 를 거쳐 열린다 — 그때는 내 프로필이 이미 읽혀 있다.
+  /// 15-6 은 15-5 를 거쳐 열린다 — 그때는 내 프로필이 이미 읽혀 있다.
   Future<void> open(MyProfile profile) async {
     me = FakeMeRepository(Success(profile));
     nicknames = FakeBasicInfoRepository();

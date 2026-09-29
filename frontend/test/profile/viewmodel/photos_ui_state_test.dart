@@ -4,7 +4,7 @@ import 'package:campus_mate/profile/viewmodel/photos_ui_state.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// `SelectedPhoto` 두 모양 — 이번에 고른 사진(04-2 · 04-3 · 15e) · 이미 올려 둔 사진(15e, 계획서 2026-09-27-me-edit.md A6).
+/// `SelectedPhoto` 두 모양 — 이번에 고른 사진(04-2 · 04-3 · 15-7) · 이미 올려 둔 사진(15-7, 계획서 2026-09-27-me-edit.md A6).
 void main() {
   group('이번에 고른 사진', () {
     final file = File('picked/a.jpg');

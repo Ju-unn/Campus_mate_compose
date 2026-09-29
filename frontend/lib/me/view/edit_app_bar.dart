@@ -4,7 +4,7 @@ import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 
-/// 나 탭 편집 화면 앱바(pen 15c `iq3jl` — 15e · 15d 도 같은 틀, 계획서 D5). 태그 3종 · 06-1 을 편집 모드로 띄울 때도 쓴다.
+/// 나 탭 편집 화면 앱바(pen 15c `iq3jl` — 15-7 · 15-6 도 같은 틀, 계획서 D5). 태그 3종 · 06-1 을 편집 모드로 띄울 때도 쓴다.
 /// 높이 56, 안쪽 [0,8] · 간격 4, 뒤로 48(arrow-left 22 ink), 제목 20/700 ink x60. 나 탭 전용이라 common 에 두지 않는다.
 class EditAppBar extends StatelessWidget implements PreferredSizeWidget {
   const EditAppBar({required this.title, super.key});

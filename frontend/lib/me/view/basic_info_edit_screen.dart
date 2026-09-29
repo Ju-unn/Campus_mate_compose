@@ -12,7 +12,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-/// 15d 기본 정보 수정(pen `mhdYA` · 15d-2 `ZuPTD`, 계획서 2026-09-28-me-profile.md A16). 15-5 "수정 ›"(`A8LX2`)이 연다.
+/// 15-6 기본 정보 수정(pen `mhdYA` · 15-6-2 `ZuPTD`, 계획서 2026-09-28-me-profile.md A16). 15-5 "수정 ›"(`A8LX2`)이 연다.
 /// 닉네임 → 16 → 키 → (빈 자리) → "저장". 저장하면 `true` 를 돌려주며 15-5 로 돌아간다 — 15-5 가 "저장했어요" 를 띄운다(B4).
 /// 출생연도 · 성별은 못 고치고 실명은 나오지 않는다(U6).
 class BasicInfoEditScreen extends ConsumerStatefulWidget {
@@ -88,7 +88,7 @@ class _BasicInfoEditScreenState extends ConsumerState<BasicInfoEditScreen> {
     );
   }
 
-  /// 닉네임 칸 아래 한 줄 — 잠김(15d-2) > 오류 > 확인 중 > 사용 가능 > 평소 안내(`G1tl8`). 04-1 과 같은 순서에 잠김만 더했다.
+  /// 닉네임 칸 아래 한 줄 — 잠김(15-6-2) > 오류 > 확인 중 > 사용 가능 > 평소 안내(`G1tl8`). 04-1 과 같은 순서에 잠김만 더했다.
   static _FieldNote _nicknameNote(BasicInfoEditUiState state) {
     if (state.nicknameUnlockText case final text?) {
       return _FieldNote(leading: const Icon(AppIcons.clock3, size: 14, color: AppColors.muted), color: AppColors.muted, text: text);
@@ -133,7 +133,7 @@ final _noteStyle = AppTypography.caption.copyWith(height: 17 / 12);
 /// · 세로 가운데. 모양은 04-1 `LabeledField` 와 같고(오류 때 테두리 error 2, 누르면 primary) 상자 높이 · 여백 · helper 표식만
 /// pen 값이라 여기서 그린다. 56 은 최소값이다 — 글자를 키우면 상자가 늘어난다(DESIGN §11.2).
 ///
-/// [isLocked] 면 15d-2 `V3sicJ` — 입력 불가, 테두리 hairline, 값 disabled, 오른쪽 lock 20(오른쪽 16 · 값과 8).
+/// [isLocked] 면 15-6-2 `V3sicJ` — 입력 불가, 테두리 hairline, 값 disabled, 오른쪽 lock 20(오른쪽 16 · 값과 8).
 class _InputField extends StatelessWidget {
   const _InputField({
     required this.label,
@@ -154,7 +154,7 @@ class _InputField extends StatelessWidget {
   final List<TextInputFormatter> inputFormatters;
   final bool isLocked;
 
-  /// 저장 중 — 모양은 그대로 두고 입력만 막는다. 키보드가 열린 채 계속 치면 보내는 값과 화면 값이 갈라진다(15e 도 저장 중엔
+  /// 저장 중 — 모양은 그대로 두고 입력만 막는다. 키보드가 열린 채 계속 치면 보내는 값과 화면 값이 갈라진다(15-7 도 저장 중엔
   /// 칸을 막는다).
   final bool isSaving;
   final TextInputType? keyboardType;
@@ -244,8 +244,8 @@ class _FieldNote extends StatelessWidget {
   }
 }
 
-/// 저장 실패 글(caption · error, 버튼 위 8 — 04-1 · 15e 와 같은 자리) → "저장"(`fx0HX` 312×56). 버튼을 화면 아래에 붙이고
-/// 아래 28 을 두는 것은 15c · 15e 와 같다(Spacer `YXKHl` 뒤, 본문 아래 28).
+/// 저장 실패 글(caption · error, 버튼 위 8 — 04-1 · 15-7 과 같은 자리) → "저장"(`fx0HX` 312×56). 버튼을 화면 아래에 붙이고
+/// 아래 28 을 두는 것은 15c · 15-7 과 같다(Spacer `YXKHl` 뒤, 본문 아래 28).
 class _Footer extends StatelessWidget {
   const _Footer({required this.error, required this.isSaving, required this.onSave});
 

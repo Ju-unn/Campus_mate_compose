@@ -5,14 +5,14 @@ import 'package:flutter/painting.dart';
 /// [PhotosUiState.copyWith] 에서 "안 넘긴 것"과 "null 로 지우는 것"을 가르는 표시(school_info_view_model 과 같은 방식).
 const Object _keep = Object();
 
-/// 칸의 사진 한 장 + 아바타 원본 여부. 온보딩(04-2 · 04-3)은 늘 이번에 고른 사진이고, 15e 사진 수정은 이미 올려 둔
+/// 칸의 사진 한 장 + 아바타 원본 여부. 온보딩(04-2 · 04-3)은 늘 이번에 고른 사진이고, 15-7 사진 수정은 이미 올려 둔
 /// 사진([SelectedPhoto.saved])과 섞인다(계획서 2026-09-27-me-edit.md A6).
 class SelectedPhoto {
   const SelectedPhoto(File this.file, {this.isAvatarSource = false}) : id = null, url = null;
   const SelectedPhoto.saved({required String this.id, required String this.url, this.isAvatarSource = false})
       : file = null;
 
-  /// 이번에 고른 사진. 이미 올려 둔 사진(15e 편집)이면 null.
+  /// 이번에 고른 사진. 이미 올려 둔 사진(15-7 편집)이면 null.
   final File? file;
 
   /// 이미 올려 둔 사진의 행 id · 서명 주소. 새로 고른 사진이면 null.
