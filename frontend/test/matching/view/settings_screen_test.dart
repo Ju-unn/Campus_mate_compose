@@ -1,10 +1,17 @@
+import 'dart:async';
+
 import 'package:campus_mate/account/model/account_repository.dart';
 import 'package:campus_mate/account/view/account_screen.dart';
 import 'package:campus_mate/account/view/withdraw_sheets.dart';
+import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/core/auth/sign_out.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/faq/model/faq_cache.dart';
+import 'package:campus_mate/faq/model/faq_item.dart';
+import 'package:campus_mate/faq/model/faq_repository.dart';
+import 'package:campus_mate/faq/view/faq_screen.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:campus_mate/matching/view/settings_screen.dart';
 import 'package:campus_mate/referral/model/invite_share.dart';
@@ -24,6 +31,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../account/model/fake_account_repository.dart';
+import '../../faq/model/fake_faq.dart';
 import '../../referral/model/fake_referral_repository.dart';
 import '../../safety/model/fake_contact_blocks.dart';
 import '../../safety/model/fake_safety_repository.dart';
@@ -32,7 +40,12 @@ import '../model/fake_card_repository.dart';
 void main() {
   var signOutCalls = 0;
 
-  Future<FakeCardRepository> pump(WidgetTester tester, {FakeDeviceContactSource? contacts}) async {
+  Future<FakeCardRepository> pump(
+    WidgetTester tester, {
+    FakeDeviceContactSource? contacts,
+    List<FaqItem> faq = faqFixture,
+    Future<void>? faqGate,
+  }) async {
     signOutCalls = 0;
     final repository = FakeCardRepository();
     final container = ProviderContainer(
@@ -46,6 +59,8 @@ void main() {
         accountRepositoryProvider.overrideWithValue(FakeAccountRepository()),
         referralRepositoryProvider.overrideWithValue(FakeReferralRepository()),
         shareTextProvider.overrideWithValue((_) async {}),
+        faqRepositoryProvider.overrideWithValue(FakeFaqRepository(Success(faq), gate: faqGate)),
+        faqCacheProvider.overrideWithValue(FakeFaqCache()),
       ],
     );
     addTearDown(container.dispose);
@@ -59,6 +74,7 @@ void main() {
         GoRoute(path: AppRoutes.contactPicker, builder: (context, state) => const ContactPickerScreen()),
         GoRoute(path: AppRoutes.account, builder: (context, state) => const AccountScreen()),
         GoRoute(path: AppRoutes.heartTasks, builder: (context, state) => const Text('18a')),
+        GoRoute(path: AppRoutes.faq, builder: (context, state) => const FaqScreen()),
       ],
     );
     addTearDown(router.dispose);
@@ -173,6 +189,45 @@ void main() {
     expect(find.byType(ContactBlockListScreen), findsNothing);
   });
 
+  // 앱 16 은 아직 섹션 카드가 없어 pen 순서(연락처 차단 → [지원] FAQ → … → 로그아웃)만 따른다 — 카드 · 아이콘 색은 백로그 70.
+  testWidgets('"자주 묻는 질문" 줄은 연락처 차단 바로 아래, circle-question-mark 아이콘과 셰브런이다(pen lMDpY l1K4Xa)',
+      (tester) async {
+    await pump(tester);
+
+    expect(tester.getRect(tile('자주 묻는 질문')).top, tester.getRect(tile('연락처 차단')).bottom);
+    expect(
+      find.descendant(of: tile('자주 묻는 질문'), matching: find.byIcon(AppIcons.circleQuestionMark)),
+      findsOneWidget,
+    );
+    expect(find.descendant(of: tile('자주 묻는 질문'), matching: find.byIcon(AppIcons.chevronRight)), findsOneWidget);
+  });
+
+  testWidgets('"자주 묻는 질문" 을 누르면 21 이 열린다', (tester) async {
+    await pump(tester);
+
+    await tester.tap(find.text('자주 묻는 질문'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(FaqScreen), findsOneWidget);
+  });
+
+  testWidgets('받는 중에도 줄이 보인다 — 늦게 튀어나와 아래 줄을 밀지 않게(대장 Q3)', (tester) async {
+    final gate = Completer<void>();
+    await pump(tester, faqGate: gate.future);
+    await tester.pump();
+
+    expect(find.text('자주 묻는 질문'), findsOneWidget);
+    gate.complete();
+  });
+
+  testWidgets('받지도 못하고 캐시도 없어 빈 목록이면 줄이 없다(DESIGN §8.13)', (tester) async {
+    await pump(tester, faq: const []);
+    await tester.pumpAndSettle();
+
+    expect(find.text('자주 묻는 질문'), findsNothing);
+    expect(tester.getRect(tile('로그아웃')).top, tester.getRect(tile('연락처 차단')).bottom);
+  });
+
   testWidgets('모든 줄의 눌림 효과는 그 줄 안에서 그려진다', (tester) async {
     // 잉크는 가장 가까운 Material 에 그린다 — 그게 Scaffold 면 목록을 밀어도 테두리가 제자리에 떠 있다(COMMON §4-2).
     // 스위치 줄도 안에 ListTile 을 두므로 ListTile 만 훑으면 나중에 더해지는 줄까지 같이 본다.
@@ -190,7 +245,7 @@ void main() {
     await pump(tester);
 
     expect(tile('로그아웃'), findsOneWidget);
-    expect(tester.getRect(tile('로그아웃')).top, tester.getRect(tile('연락처 차단')).bottom);
+    expect(tester.getRect(tile('로그아웃')).top, tester.getRect(tile('자주 묻는 질문')).bottom);
     expect(find.descendant(of: tile('로그아웃'), matching: find.byIcon(AppIcons.logOut)), findsOneWidget);
     expect(find.descendant(of: tile('로그아웃'), matching: find.byIcon(AppIcons.chevronRight)), findsOneWidget);
   });
@@ -257,6 +312,9 @@ void main() {
   testWidgets('"탈퇴하기"를 누르면 16c 1차 시트가 뜬다', (tester) async {
     await pump(tester);
 
+    // "자주 묻는 질문" 줄이 더해져 800×600 테스트 화면에선 버튼이 접힘 아래에 있다 — 밀어서 보이게 한 뒤 누른다.
+    await tester.ensureVisible(find.text('탈퇴하기'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('탈퇴하기'));
     await tester.pumpAndSettle();
 

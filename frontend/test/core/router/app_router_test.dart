@@ -11,6 +11,9 @@ import 'package:campus_mate/core/auth/account_status_listenable.dart';
 import 'package:campus_mate/core/router/app_router.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
+import 'package:campus_mate/faq/model/faq_cache.dart';
+import 'package:campus_mate/faq/model/faq_repository.dart';
+import 'package:campus_mate/faq/view/faq_screen.dart';
 import 'package:campus_mate/friend_review/model/friend_review_repository_provider.dart';
 import 'package:campus_mate/home/model/home_repository_provider.dart';
 import 'package:campus_mate/home/view/home_screen.dart';
@@ -38,6 +41,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../account/model/fake_account_repository.dart';
 import '../../chat/model/fake_chat_repository.dart';
+import '../../faq/model/fake_faq.dart';
 import '../../friend_review/model/fake_friend_review_repository.dart';
 import '../../home/model/fake_home_repository.dart';
 import '../../matching/model/fake_card_repository.dart';
@@ -270,6 +274,9 @@ void main() {
           // 16e 가 열리면 계정 정보를, 16e-1 이 열리면 저장된 아이디를 읽는다.
           accountRepositoryProvider.overrideWithValue(FakeAccountRepository()),
           friendReviewRepositoryProvider.overrideWithValue(FakeFriendReviewRepository()),
+          // 21 이 열리면 FAQ 를 읽는다.
+          faqRepositoryProvider.overrideWithValue(FakeFaqRepository(const Success(faqFixture))),
+          faqCacheProvider.overrideWithValue(FakeFaqCache()),
         ],
       );
       addTearDown(container.dispose);
@@ -307,6 +314,15 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(KakaoIdSettingsScreen), findsOneWidget);
+    });
+
+    testWidgets('/settings/faq 는 21 자주 묻는 질문이다', (tester) async {
+      final router = await pumpRouter(tester);
+
+      router.go(AppRoutes.faq);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(FaqScreen), findsOneWidget);
     });
 
     testWidgets('/friend-reviews 는 20c 받은 리뷰다', (tester) async {

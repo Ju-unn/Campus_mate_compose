@@ -20,6 +20,7 @@ import 'package:campus_mate/core/auth/account_status_listenable.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/router/auth_redirect.dart';
 import 'package:campus_mate/core/router/placeholder_screens.dart';
+import 'package:campus_mate/faq/view/faq_screen.dart';
 import 'package:campus_mate/friend_review/view/friend_review_compose_sheet.dart';
 import 'package:campus_mate/friend_review/view/received_reviews_screen.dart';
 import 'package:campus_mate/home/view/home_screen.dart';
@@ -204,6 +205,7 @@ abstract final class AppRouter {
         builder: (context, state) => const NotificationSettingsScreen(),
       ),
       GoRoute(path: AppRoutes.account, builder: (context, state) => const AccountScreen()),
+      GoRoute(path: AppRoutes.faq, builder: (context, state) => const FaqScreen()),
       GoRoute(
         path: AppRoutes.community,
         builder: (context, state) => const CommunityFeedScreen(),
