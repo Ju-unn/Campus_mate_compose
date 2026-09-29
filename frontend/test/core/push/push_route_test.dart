@@ -25,6 +25,19 @@ void main() {
     expect(PushRoute.resolve({'route': 'chat', 'match_id': ''}), AppRoutes.conversations);
   });
 
+  test('새 지인 리뷰 알림은 받은 리뷰(20c)로 간다', () {
+    expect(PushRoute.resolve({'route': 'friend_reviews'}), AppRoutes.friendReviews);
+  });
+
+  test('추천 가입 알림은 홈 위에 그 친구의 리뷰 쓰기(20b)를 연다', () {
+    expect(PushRoute.resolve({'route': 'friend_review_write', 'profile_id': 'p2'}), '/home/friend-reviews/write/p2');
+  });
+
+  test('누구에게 쓸지 모르는 리뷰 쓰기 알림은 아무 데도 보내지 않는다', () {
+    expect(PushRoute.resolve({'route': 'friend_review_write'}), isNull);
+    expect(PushRoute.resolve({'route': 'friend_review_write', 'profile_id': ''}), isNull);
+  });
+
   test('모르는 route 는 아무 데도 보내지 않는다', () {
     expect(PushRoute.resolve({'route': 'sticker'}), isNull);
     expect(PushRoute.resolve(const {}), isNull);

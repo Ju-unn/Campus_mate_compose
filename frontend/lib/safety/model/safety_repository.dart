@@ -2,14 +2,16 @@ import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/safety/model/partner_profile.dart';
 import 'package:campus_mate/safety/model/report_reason.dart';
 
-/// 무엇을 신고하는가. 화면 진입점이 프로필 · 메시지 둘뿐이라(결정 2) 두 가지만 만들 수 있다 —
-/// DB 에 미리 잡아 둔 `friend_review` · `poll` 은 화면이 생길 때 여기에 생성자를 더한다.
+/// 무엇을 신고하는가. 화면 진입점이 프로필 · 메시지 · 지인 리뷰(20c, 차단 안 함 — 서버 B3)뿐이라 세 가지만 만들 수 있다 —
+/// DB 에 미리 잡아 둔 `poll` 은 화면이 생길 때 여기에 생성자를 더한다.
 class ReportTarget {
   /// 채팅방 앱바 메뉴 · 14c 하단 액션 행에서 온 신고.
   const ReportTarget.profile(String profileId) : _type = 'profile', _id = profileId;
 
   /// 말풍선 롱프레스에서 온 신고. 서버가 이 id 로 본문 · 보낸 시각을 스냅샷에 담는다(B1 ③).
   const ReportTarget.message(String messageId) : _type = 'message', _id = messageId;
+
+  const ReportTarget.friendReview(String reviewId) : _type = 'friend_review', _id = reviewId;
 
   final String _type;
   final String _id;

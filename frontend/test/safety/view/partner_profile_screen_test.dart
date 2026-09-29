@@ -9,6 +9,8 @@ import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/friend_review/model/friend_review_repository_provider.dart';
+import 'package:campus_mate/friend_review/view/friend_review_card.dart';
 import 'package:campus_mate/matching/view/card_detail_screen.dart';
 import 'package:campus_mate/safety/model/safety_repository_provider.dart';
 import 'package:campus_mate/safety/view/partner_profile_screen.dart';
@@ -21,6 +23,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../chat/model/fake_chat_repository.dart';
+import '../../friend_review/model/fake_friend_review_repository.dart';
 import '../model/fake_safety_repository.dart';
 
 // 1×1 투명 PNG(photo_slider_test 와 같은 바이트). 테스트는 네트워크 대신 이 그림을 쓴다.
@@ -49,11 +52,13 @@ const _idealNote = '주말에 같이 산책하고 맛집을 찾아다니는 걸 
 void main() {
   late FakeSafetyRepository safety;
   late FakeChatRepository chat;
+  late FakeFriendReviewRepository reviews;
 
   setUp(() {
     safety = FakeSafetyRepository()
       ..partnerProfile = Success(partnerProfileFixture(kakaoId: 'fox_rain', photoUrls: const ['https://x/1.jpg']));
     chat = FakeChatRepository();
+    reviews = FakeFriendReviewRepository();
   });
 
   /// [pushed] 면 앞 화면 위에 push 로 연다(채팅방 14b 버튼과 같다). 아니면 `go` 로 바로 연다.
@@ -67,6 +72,7 @@ void main() {
       overrides: [
         safetyRepositoryProvider.overrideWithValue(safety),
         chatRepositoryProvider.overrideWithValue(chat),
+        friendReviewRepositoryProvider.overrideWithValue(reviews),
         _memoryPhotos,
       ],
     );
@@ -302,6 +308,21 @@ void main() {
     });
   });
 
+  // 지인 리뷰 섹션(pen t3hFo): 이상형 메모 뒤 13 → 헤더 → 8 → 카드 → 13 → 카카오 카드.
+  testWidgets('리뷰가 있으면 지인 리뷰 섹션이 이상형 메모 뒤 13 · 카카오 카드 앞 13 자리에 있다', (tester) async {
+    safety.partnerProfile = Success(
+      partnerProfileFixture(kakaoId: 'fox_rain', photoUrls: const ['https://x/1.jpg'], idealNote: _idealNote),
+    );
+    reviews.about = Success([friendReviewFixture(nickname: '달빛')]);
+    await pump(tester);
+    await tester.scrollUntilVisible(find.text('fox_rain'), 300, scrollable: _page);
+
+    expect(reviews.aboutRequests, ['p2']);
+    expect(tester.getRect(find.text('지인 리뷰')).top - tester.getRect(find.text(_idealNote)).bottom, 13);
+    final kakao = tester.getRect(find.ancestor(of: find.text('카카오톡 아이디'), matching: find.byType(Container)).first);
+    expect(kakao.top - tester.getRect(find.byType(FriendReviewCard)).bottom, 13);
+  });
+
   group('신고 · 차단(채팅방과 같은 결과)', () {
     testWidgets('신고하면 토스트를 띄우고 대화 목록을 새로 읽어 목록으로 간다', (tester) async {
       await pump(tester);
@@ -408,7 +429,11 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       final container = ProviderContainer(
-        overrides: [safetyRepositoryProvider.overrideWithValue(safety), _memoryPhotos],
+        overrides: [
+          safetyRepositoryProvider.overrideWithValue(safety),
+          friendReviewRepositoryProvider.overrideWithValue(reviews),
+          _memoryPhotos,
+        ],
       );
       addTearDown(container.dispose);
       await tester.pumpWidget(UncontrolledProviderScope(

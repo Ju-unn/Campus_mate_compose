@@ -11,6 +11,7 @@ import 'package:campus_mate/core/auth/account_status_listenable.dart';
 import 'package:campus_mate/core/router/app_router.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
+import 'package:campus_mate/friend_review/model/friend_review_repository_provider.dart';
 import 'package:campus_mate/home/model/home_repository_provider.dart';
 import 'package:campus_mate/home/view/home_screen.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
@@ -36,6 +37,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../account/model/fake_account_repository.dart';
 import '../../chat/model/fake_chat_repository.dart';
+import '../../friend_review/model/fake_friend_review_repository.dart';
 import '../../home/model/fake_home_repository.dart';
 import '../../matching/model/fake_card_repository.dart';
 import '../../me/model/fake_me_repository.dart';
@@ -266,6 +268,7 @@ void main() {
           safetyRepositoryProvider.overrideWithValue(FakeSafetyRepository()),
           // 16e 가 열리면 계정 정보를, 16e-1 이 열리면 저장된 아이디를 읽는다.
           accountRepositoryProvider.overrideWithValue(FakeAccountRepository()),
+          friendReviewRepositoryProvider.overrideWithValue(FakeFriendReviewRepository()),
         ],
       );
       addTearDown(container.dispose);
@@ -303,6 +306,32 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(KakaoIdSettingsScreen), findsOneWidget);
+    });
+
+    testWidgets('/friend-reviews 는 20c 받은 리뷰다', (tester) async {
+      final router = await pumpRouter(tester);
+
+      router.go(AppRoutes.friendReviews);
+      await tester.pumpAndSettle();
+
+      expect(find.text('받은 리뷰'), findsOneWidget);
+    });
+
+    // 추천 가입 푸시(`friend_review_write`)가 가는 곳 — 홈이 밑에 깔리고 그 위에 20b 시트(대장 Q1).
+    testWidgets('/home/friend-reviews/write/p2 는 09b 홈 위에 20b 시트를 띄우고, 닫으면 홈이다', (tester) async {
+      final router = await pumpRouter(tester);
+
+      router.go('${AppRoutes.friendReviewWrite}/p2');
+      await tester.pumpAndSettle();
+      expect(find.byType(HomeScreen), findsOneWidget);
+      expect(find.text('어떤 장점이 있나요?'), findsOneWidget);
+
+      // 기본 화면(800×600)에서는 664 시트가 화면을 다 덮어 딤이 없다 — 시스템 뒤로가기로 닫는다.
+      expect(await tester.binding.handlePopRoute(), isTrue);
+      await tester.pumpAndSettle();
+      expect(find.text('어떤 장점이 있나요?'), findsNothing);
+      expect(find.byType(HomeScreen), findsOneWidget);
+      expect(router.state.matchedLocation, AppRoutes.home);
     });
 
     testWidgets('/profiles/:profileId 는 그 사람의 14c 상대 프로필이다', (tester) async {

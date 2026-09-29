@@ -136,60 +136,65 @@
 
 ---
 
-## 화면 대조표 (pen 값표 대기 — v2 에서 채움)
+## 화면 대조표 (v2 — pen 값표 B 2026-09-29)
 
-대장이 campus-pen 으로 뽑아 줄 것: 20b · 20c · 14c 지인 리뷰 섹션 · 14d · `friend-review-card` S0MR2b · 오늘의 카드 상세에 리뷰 섹션이 있는지 · 푸시 문구가 있으면 그것.
+값 원본 = `C:/Users/user/OneDrive/Desktop/조각6_검토/값표_B_지인리뷰.md`(175줄) + PNG 4장(`값표_B_지인리뷰_png/`). 아래는 판정만 적는다 — 치수는 값표 원본을 본다. **pen 이 이긴다**(단 태그 12종 · 상한 3 · 100자는 결정이 이긴다, 대장 결정 1 · 2).
 
 | 화면 | pen 노드 | 칸 | 계획서 가정 | pen 값 | 판정 |
 |---|---|---|---|---|---|
-| friend-review-card | `S0MR2b` | 학교 배지 | 20dp, 한 색 + 학교명(§13-29) | | |
-| | | 아바타 | 32dp 원 | | |
-| | | 닉네임 | `{type.label}` | | |
-| | | 태그 칩 | `chip` 여러 개, 줄바꿈 | | |
-| | | 한마디 | `{type.body-small}` 2줄 말줄임 | | |
-| | | 한마디 없음 | 줄 자체를 뺀다 | | |
-| 14c 섹션 | (P4MiW 안) | 위치 | 특징 태그 뒤 · 카카오 카드 앞 | | |
-| | | 헤더 | "지인 리뷰" + "친구 N명이 남겼어요" | | |
-| | | 카드 수 | 2장 | | |
-| | | 모두 보기 | "N개 모두 보기 ›" `{colors.primary-text}` + chevron-right → 14d | | |
-| | | 0개 | 섹션 통째 숨김(P6) | | |
-| 14d | (P4MiW 안) | 높이 | 725(뷰포트 780 안) | | |
-| | | 헤더 | "친구들이 본 {닉네임}" + "리뷰 N개" | | |
-| | | 목록 | 카드 전부 세로 | | |
-| | | 끝 | 리뷰 정책 안내 문구 | | |
-| | | 닫기 | 없음(핸들 · 스크림) | | |
-| 20b | `NHcsP` / `Zr9gA` | 모양 | 바텀시트(DESIGN §8.8) | | |
-| | | 머리 | 상대 아바타 + 이름 | | |
-| | | 태그 | 12종 칩 그리드, 최대 3(시안 6종 무시) | | |
-| | | 한마디 | 한 줄 text-field, 선택, 0/100(시안 0/80 무시) | | |
-| | | 버튼 | `button-primary` "리뷰 남기기", 태그 0개면 꺼짐 | | |
-| | | 성공 | 시트 닫고 토스트(문구 pen) | | |
-| 20c | (P4MiW 안) | 입구 | 15 "친구들이 본 나" `ZCpM4` | | |
-| | | 목록 | 카드 세로 | | |
-| | | 안내 | "삭제할 수 없고 신고만 가능" 고정 문구 | | |
-| | | 신고 입구 | 카드마다(⋯ 또는 길게 누르기 — pen) | | |
-| | | 빈 상태 | `empty-state`(문구 pen) | | |
-| 10b | ? | 리뷰 섹션 | 있으면 v2 에 Task 추가(결정 5) | | |
+| 카드 | `S0MR2b` | 틀 | — | 폭 fill · hug, #FFF r14 stroke hairline 1, pad 16 gap 12, 그림자 없음 | pen |
+| | | 학교 배지 | 20dp 한 색 + 학교명 | **36×36 surfaceInk r8, 학교명 첫 글자 12/700 흰색** | pen(대장 6: 실제 학교). 학교 null 이면 배지 없음 |
+| | | 아바타 | 32dp 원 | **이니셜 원** 36 primaryWash, 첫 글자 14/700 primaryText | pen — avatar_url 안 씀(편차) |
+| | | 닉네임 · 관계 | label | 16/600 ink · 12/400 muted, gap 1 | 관계 = 고정 "추천으로 연결된 친구"(대장 Q3 가 09-29 — DB · API 에 관계 칸 없음, 추천은 학교를 안 따짐) |
+| | | 신고 | ⋯ 또는 길게 | **flag 20 muted, 누름칸 48** 머리 줄 오른쪽 | pen. `onReport` null 이면 없음 — 20c 만 넘긴다(P2 · 대장 Q2 09-29) |
+| | | 태그 칩 | chip 줄바꿈 | primaryWash r999 pad[6,10], 12/600 primaryText, gap 8 | pen + 3개면 `Wrap`(pen 은 2개만 그림) |
+| | | 한마디 | body-small 2줄 말줄임 | 14/400 body lh1.5 | pen, 말줄임 없음(pen 에 없음 — 100자라 전부 보인다). null 이면 줄 · 간격 없음 |
+| 14c 섹션 | `t3hFo`(원본 `HlGva`) | 위치 | 태그 뒤 · 카카오 앞 | 이상형 메모 뒤 13 → 헤더 → 8 → 카드 → 8 → 카드 → 13 → 카카오 | pen |
+| | | 헤더 | "친구 N명이 남겼어요" | "지인 리뷰" 14/600 muted · 오른쪽 "N개 모두 보기" 12/600 primaryText + chevron-right 14, gap 2 | pen(대장 5) |
+| | | 카드 수 | 2 | 2 | 같음 |
+| | | 모두 보기 | 늘 | 3개 이상일 때만(편차 — 2개 이하면 다 보인다), 누름 44 이상(대장 7) | 편차 |
+| | | 0개 · 1개 | 숨김 | pen 없음 | P6 숨김 · 1개면 카드 1장(대장 4) |
+| | | 신고 깃발 | — | pen 은 그림 | 없음(대장 Q2 09-29 — 서버가 받은 사람만 허용, pen 은 묶음 9 에서 정리) |
+| 14d | `FXNL4` | 모양 | 725 고정 | hug(카드 3장 = 750), r[24,24,0,0], 그림자 (0,-2) 16 #00000026, 손잡이 36×4 hairline r2, 닫기 없음 | pen. 많으면 화면 90% 까지 · 스크롤(편차) |
+| | | 헤더 | 같음 | "친구들이 본 {닉네임}" 20/700 ink · "리뷰 N개" 14/400 muted 오른쪽 | pen |
+| | | 목록 · 끝 | 같음 | 카드 gap 12 → 안내 상자(info 20 primaryText, "리뷰는 추천 코드로 연결된 지인만 남길 수 있어요. 부적절한 내용은 신고해주세요.") | pen |
+| 20b | `NHcsP`(판 `nIrPW`) | 모양 | 바텀시트 | 시트, 딤 #00000080, 664 고정, r[24,24,0,0], 그림자 없음, 손잡이 36×4 hairline r999, 제목 · X 없음 | pen. 12종이라 가운데 스크롤 · 버튼 바닥 고정(편차) |
+| | | 머리 | 아바타 + 이름 | 이니셜 원 44 primaryWash(16/700 ink) · 이름 17/600 · 관계 12/400 muted | pen, 관계 = "추천으로 연결된 친구"(Q3) |
+| | | 태그 | 12종 그리드 | "어떤 장점이 있나요?" 17/600 → 2열 칩 160×40 r999, 선택 = primaryWash · stroke primary · 14/600 primaryText / 안 선택 = 흰 · stroke hairline · 14/600 body, gap 8 | pen 모양 · 서버 12종(대장 2), 누름 44(대장 7) |
+| | | 한마디 | 한 줄, 0/100 | "한마디를 남겨주세요" 17/600 → Textarea 104h surfaceSoft r8 stroke outline, placeholder "이 사람을 잘 보여주는 따뜻한 이야기를 적어주세요.", 카운터 왼쪽 아래 12/400 muted | pen 모양 · **"n / 100"**(대장 1) |
+| | | 버튼 | button-primary | 328×52 primary r8, "리뷰 남기기" 18/700 흰색 | pen. 꺼짐 primaryDisabled/disabled, 보내는 중 버튼 안 스피너(대장 4) |
+| | | 성공 · 실패 · 409 | 토스트 | pen 없음 | 계획서 v1 문구 + 기존 토스트(대장 4 · 8) |
+| | | 푸시 진입 밑 화면 | D-A | pen 없음(가입 흐름 20 → 20b → 20d 만) | 홈 위 시트 `/home/friend-reviews/write/:id`(대장 Q1 가 09-29) |
+| 20c | `HWM2G` | 앱바 | — | 56h, 뒤로 48(arrow-left 22) + "받은 리뷰" 20/700, 하단 내비 없음 | pen |
+| | | 본문 | — | pad [8,16,24,16] gap 16, 안내 상자(info, "받은 리뷰는 직접 삭제할 수 없어요. 부적절한 내용은 신고해주세요.", 글 폭 270) → 카드들 | pen |
+| | | 개수 | — | 없음 | pen(없음) |
+| | | 신고 | ⋯ | 카드 깃발 → 기존 신고 시트, 성공 토스트 "신고했어요. 운영팀이 확인할게요", 이미 신고는 서버 문구 | 대장 9 |
+| | | 빈 · 로딩 · 실패 | empty-state | pen 없음 | 기존 앱 모양(대장 4) — 안내 상자는 늘 보인다 |
+| 10b | `TORAs` | 리뷰 섹션 | ? | 없음 | 14c + 14d 만(대장 8, P5) |
+| 푸시 | — | 문구 | v1 | 없음 | v1 그대로(대장 8) |
 
-pen 에 없는 상태(로딩 · 실패 · 신고 실패)는 PR 5 관례대로 정하고 PR 설명 "계획서 편차" 절에 적는다.
+pen 에 없는 상태는 기존 앱 모양으로 정하고 "구현 편차 기록" 에 적는다.
 
 ---
 
-## 공유 파일 (줄 단위 허락 필요 — 아직 허락 없음)
+## 공유 파일 (줄 단위 허락 — PR 2 · PR 3 줄은 통합대장 09-28 · 09-29 허락)
 
 | 파일 | 바꿀 줄 | 언제 |
 |---|---|---|
 | `backend/app/main.py` | import 1 · `include_router` 1 | PR 2 |
 | `backend/app/core/errors.py` | `FRIEND_REVIEW_NOT_FOUND` · `FRIEND_REVIEW_ALREADY_WRITTEN` 2줄 + 빈 줄 · 절 주석 = +4(허락: 통합대장 09-28) | PR 2 |
 | `backend/app/safety/router.py`(안전담당) | `ReportRequest.target_type` Literal 에 `"friend_review"` + 주석 1줄 수정 · `report()` 의 ① 분기 3줄 · ④⑦ 건너뛰기 조건 2줄 · `_friend_review_target()` 함수 약 12줄 | PR 2 |
-| `frontend/lib/safety/model/safety_repository.dart`(안전) | `ReportTarget.friendReview` 생성자 2줄 + 주석 1줄 수정 | PR 3 |
-| `frontend/lib/core/router/app_routes.dart` | 상수 2줄(`friendReviews` · `friendReviewWrite`) | PR 3 |
-| `frontend/lib/core/router/app_router.dart` | `GoRoute` 2개(약 8줄) + import 2 | PR 3 |
-| `frontend/lib/core/push/push_route.dart` | `'friend_reviews'` · `'friend_review_write'` 2갈래 + 도우미 함수 약 6줄 | PR 3 |
-| `frontend/lib/safety/view/partner_profile_screen.dart`(PR 5 에서 채팅탭이 만듦 · 안전 PR 6 과 겹칠 수 있음) | `_Footer` 에 섹션 한 자리 약 3줄 | PR 3 |
+| `frontend/lib/safety/model/safety_repository.dart`(안전) | +4 −2: 5~6줄 주석을 "세 가지"로(−2 +2) · 빈 줄 + 주석 1 + `ReportTarget.friendReview` 생성자 1 | PR 3 |
+| `frontend/lib/safety/model/safety_errors.dart`(안전) | +3 −2: `_friendReviewGone` 상수 1 · `isReportTargetGone` 주석 · 판별식(검토 권고 1, 허락 09-29) | PR 3 |
+| `frontend/lib/core/router/app_routes.dart` | +3: 주석 1 + 상수 2(`friendReviews` · `friendReviewWrite = '/home/friend-reviews/write'`), `account` 뒤 | PR 3 |
+| `frontend/lib/core/router/app_router.dart` | import 2 + `_slice6Routes` 끝에 20c `GoRoute` 1 + home `GoRoute` 에 `routes:` 로 20b 시트 페이지(−1 +7, 대장 Q1 09-29) | PR 3 |
+| `frontend/lib/core/push/push_route.dart` | +6: 주석 1 + `'friend_reviews'` 1 + `'friend_review_write'` 안쪽 switch 4 | PR 3 |
+| `frontend/test/core/push/push_route_test.dart` | +약 12: 테스트 3개(받은 목록 · 쓰기 id 있음 · id 없음 → null) | PR 3 |
+| `frontend/test/core/router/app_router_test.dart` | +약 15: import 2(화면 · 가짜 저장소) · 두 경로가 열리는 테스트 2개 | PR 3 |
+| `frontend/lib/safety/view/partner_profile_screen.dart`(채팅탭 PR 5 가 만듦) | +약 5: import 1 · `_ProfileBody` 인자 1 · `_Footer` 필드 1 + 생성자 1 · build 에 섹션 1(간격은 pen) | PR 3 |
 | `backend/app/referral/router.py`(온보딩) | 훅 자리에 푸시 1~3줄(+ sender 의존성) | referral merge 뒤 PR 4 |
-| `frontend/lib/referral/…`(온보딩) | 20b 자리 주석 → 1줄 | referral merge 뒤 PR 4 |
-| `frontend/lib/me/view/my_profile_screen.dart`(나 탭) | `ZCpM4` 입구 1줄 | 나 탭 PR merge 뒤 PR 4 |
+| `frontend/lib/referral/view/referral_code_screen.dart`(온보딩, main 에 있음) | 46~48줄 20b 자리 주석 2줄 + `context.go` → 20b 여는 줄(모양은 D-A) | PR 4 |
+| `frontend/lib/me/…`(나 탭 PR3 의 15 새 디자인 nkFJV) | 15 지인 리뷰 섹션 `Cux1p` + 분홍 줄 `o9BA0`(→ 20c) · 15-4 `gnEwq` 리뷰 섹션(카드 신고 깃발 숨김). 옛 `ZCpM4` 입구 대신(대장 09-28) | 나 탭 PR3 merge 뒤 PR 4 |
 
 ## 파일 구조
 
@@ -1275,42 +1280,74 @@ test('목록 실패는 errorMessage', () async {});
 - [ ] **Step 4: 통과 확인** — `flutter test test/friend_review` → PASS · `flutter analyze` → 0
 - [ ] **Step 5: 커밋 제안**: `✨ feat(friend-review): 작성 · 목록 ViewModel`
 
-### Task A3: `friend-review-card`(S0MR2b) — v2
+### Task A3: `FriendReviewCard`(S0MR2b) — v2(09-29)
 
-pen 값표가 오면 채운다. 미리 정한 테스트:
-- 배지 · 아바타 · 닉네임 · 태그 칩 · 한마디가 pen 순서대로 있다
-- 한마디 null 이면 그 줄이 없다(높이 차이로 확인)
-- 한마디 긴 글은 2줄에서 말줄임(`maxLines: 2`, `TextOverflow.ellipsis`)
-- 아바타 없음 → 기본 아바타(기존 카드 · 16f 와 같은 폴백)
-- 글자 크기 1.3 배에서 잘림 0(메모 project_ui_handoff 방식)
+**Files:** Create `frontend/lib/friend_review/view/friend_review_card.dart` · Test `frontend/test/friend_review/view/friend_review_card_test.dart`
 
-### Task A4: 20b 작성 시트 · 라우트 · 푸시 진입 — v2
+**Interfaces:** `class FriendReviewCard extends StatelessWidget { const FriendReviewCard({required FriendReview review, VoidCallback? onReport}); }` · `const String friendReviewRelationLabel = '추천으로 연결된 친구';`(20b 머리도 쓴다) · 이니셜 원을 20b 가 44 로 다시 쓰도록 `FriendReviewInitial({required String nickname, required double size, required TextStyle style})` 공개
 
-미리 정한 것:
-- 경로 `AppRoutes.friendReviewWrite = '/friend-reviews/write'`(`/:profileId`), 푸시 `route = friend_review_write` → 이 경로. `PushRoute` 테스트 두 줄(id 있음 → 경로, id 없음 → null)
-- **결정 대기 D-A**: pen 이 바텀시트면, 푸시로 들어올 때(`_router.go`) 밑에 깔 화면이 없다. 선택지 — ① 경로 화면이 시트 내용을 전체 화면으로 그린다(푸시 · 온보딩 공용, 가장 단순) ② 온보딩은 `showFriendReviewComposeSheet`, 푸시는 ① (코드 두 갈래). pen 값표를 본 뒤 대장에게 추천과 함께 묻는다.
-- 409 로 열리면 시트 대신 토스트 "이미 리뷰를 남겼어요"
-- 성공하면 닫고 토스트(문구 pen), 온보딩에서는 닫힌 뒤 20d 로(연결은 A7)
-- 한마디 입력칸 `maxLength: friendReviewCommentMaxLength`, 카운터 "n/100"
-- 태그 칩 12개 · 네 번째 누름 무시 · 잉크 칩마다 자기 Material(§4-2 테스트)
+값은 화면 대조표 "카드" 줄 + 값표 §3. 폭은 부모가 준다(20c · 14d 328, 14c 288).
 
-### Task A5: 14c 섹션 · 14d 시트 — v2
+- [ ] **Step 1: 실패하는 테스트**
+  - 순서: 학교 배지(학교명 첫 글자) · 이니셜(닉네임 첫 글자) · 닉네임 · 관계 문구 · 태그 칩 · 한마디가 있다
+  - `university` null → 배지 없음 · `comment` null → 한마디 줄 없음(카드 높이가 줄어든다)
+  - `onReport` null → flag 아이콘 없음 / 있으면 누름칸 48×48 · 누르면 한 번 불림
+  - 태그 3개가 좁은 폭(288)에서 넘치지 않는다(`Wrap`)
+  - 글자 크기 1.3 배에서 잘림 · overflow 0(메모 project_ui_handoff 방식)
+- [ ] **Step 2: RED** — `flutter test test/friend_review/view/friend_review_card_test.dart`
+- [ ] **Step 3: 구현** — 토큰(`AppColors.surfaceInk` · `primaryWash` · `primaryText` · `hairline` · `ink` · `muted` · `body`), 토큰에 없는 값은 파일 위 `const` + pen id 주석(referral_code_screen.dart 모양). 아바타 이미지 · avatar_url 은 쓰지 않는다(pen 이니셜)
+- [ ] **Step 4: GREEN** + `flutter analyze` 0
 
-미리 정한 것:
-- `PartnerReviewsSection(profileId)` 하나를 `partner_profile_screen.dart` `_Footer` 의 "특징 태그 뒤 · 카카오 카드 앞" 자리에 꽂는다(허락 줄 수 안)
-- 0개면 `SizedBox.shrink()`(P6), 로딩 · 실패 중에도 자리를 차지하지 않는다(14c 본문이 흔들리지 않게)
-- 2장만 보이고 "N개 모두 보기 ›" → `showPartnerReviewsSheet(context, profileId, nickname)`(14d, 같은 ViewModel family 인자라 다시 읽지 않는다)
-- 14d 닫기 버튼 없음, 높이는 pen 값, 끝에 정책 문구
-- 2개 이하일 때 "모두 보기"를 둘지는 pen 값으로
+### Task A4: 20b 리뷰 쓰기 시트 · 홈 위 경로 — v2(09-29)
 
-### Task A6: 20c 받은 리뷰 화면 · 신고 — v2
+**Files:** Create `frontend/lib/friend_review/view/friend_review_compose_sheet.dart` · Test `frontend/test/friend_review/view/friend_review_compose_sheet_test.dart` · Modify(허락) `app_router.dart` home `GoRoute` 에 `routes:`
 
-미리 정한 것:
-- 경로 `AppRoutes.friendReviews = '/friend-reviews'`, 푸시 `route = friend_reviews` → 이 경로
-- 고정 안내 문구(삭제 불가 · 신고만)
-- 신고: `ReportTarget.friendReview(review.id)` 로 기존 `showReportSheet` 를 연다. **차단 문구가 시트에 있으면 20c 에서는 빼야 한다(P1)** — pen 20c 값에 맞춘다. pen 에 차단 문구가 있으면 대장이 pen 을 고친다(09-28)
-- 신고 성공 뒤 그 카드는 그대로 둔다(가림은 운영자 몫, 결정 3), 토스트만
-- 빈 상태 `empty-state`
+**Interfaces:**
+- `Future<bool?> showFriendReviewComposeSheet(BuildContext context, String revieweeId)` — 온보딩(PR 4)이 부른다. 남기면 true
+- `FriendReviewComposePage(revieweeId)` — `Page` 를 상속해 `ModalBottomSheetRoute` 를 만드는 페이지. 홈 `GoRoute(routes: [GoRoute(path: 'friend-reviews/write/:profileId', pageBuilder: …)])` 가 쓴다. 푸시 `go('/home/friend-reviews/write/p2')` → 홈이 밑에 깔리고 시트가 뜬다(대장 Q1)
+- 두 길 다 같은 `FriendReviewComposeSheet(revieweeId)` 본문
+
+값은 화면 대조표 "20b" 줄 + 값표 §1. 시트 높이 664 · 딤 #00000080(`AppColors.scrim` 이 0.5 면 그것) · 손잡이 r999 · 제목/X 없음.
+
+- [ ] **Step 1: 실패하는 테스트**(가짜 저장소 = `fake_friend_review_repository.dart`)
+  - 대상 이름 · 관계 문구 · 이니셜 · 질문 두 줄 · 칩 12개(서버 순서) · placeholder · "0 / 100" · "리뷰 남기기"
+  - 태그 0개 → 버튼 꺼짐(primaryDisabled / disabled 글자) · 1개 → 켜짐 · 네 번째 칩은 눌러도 안 골라진다
+  - 칩 누름 영역 높이 ≥ 44 · 보이는 칩 40(대장 7) · 칩마다 잉크가 자기 모양 안(§4-2)
+  - 한마디 100자 넘게 못 친다 · 카운터가 따라간다
+  - 보내는 중 버튼 안 스피너 · 두 번 눌러도 한 번
+  - 성공 → 시트 닫힘 + 토스트 "리뷰를 남겼어요"(pen · v1 에 문구 없음 — 채팅탭 안, 대장에게 알림 09-29) · 결과 true
+  - 열 때 409 → 시트 대신 토스트 "이미 리뷰를 남겼어요" 뒤 닫힘 · 제출 409 · 기타 실패 → 토스트, 시트 유지
+  - 열 때 읽는 중 → 시트 안 가운데 로딩 · 실패 → 토스트 뒤 닫힘
+  - 12종이 664 안에 안 들어가도 overflow 0(가운데 스크롤, 버튼 바닥 고정) · 키보드가 올라와도 overflow 0 · 글자 1.3 배 overflow 0
+  - 경로: `go('/home/friend-reviews/write/p2')` → HomeScreen 위에 시트, 닫으면 HomeScreen(app_router_test)
+- [ ] **Step 2: RED** · **Step 3: 구현** · **Step 4: GREEN** + analyze 0
+
+### Task A5: 14c 섹션 · 14d 시트 — v2(09-29)
+
+**Files:** Create `frontend/lib/friend_review/view/partner_reviews_section.dart` · Test `frontend/test/friend_review/view/partner_reviews_section_test.dart` · Modify(허락) `partner_profile_screen.dart` 약 +5
+
+**Interfaces:** `PartnerReviewsSection({required String profileId, required String nickname})` · `Future<void> showPartnerReviewsSheet(BuildContext, {required String profileId, required String nickname})`(같은 family 인자 `(source: about, profileId:)` 라 다시 읽지 않는다)
+
+- [ ] **Step 1: 실패하는 테스트**
+  - 0개 · 읽는 중 · 실패 → `SizedBox.shrink()`(P6, 14c 가 흔들리지 않게)
+  - 1개 → 카드 1장, "모두 보기" 없음 · 2개 → 2장, 없음 · 3개 이상 → 2장 + "N개 모두 보기"(편차: 2개 이하면 다 보인다)
+  - "모두 보기" 누름 영역 ≥ 44(대장 7 — 보이는 85×17 은 그대로, 주변 칸을 누름 영역으로. `_Footer` 링크 줄과 같은 방식)
+  - 깃발 없음(14c · 14d 둘 다, 대장 Q2)
+  - 14d: 제목 "친구들이 본 {닉네임}" · "리뷰 N개" · 카드 전부 · 끝 안내 상자 · 닫기 버튼 없음 · 카드 10개여도 overflow 0(화면 90% 까지 스크롤)
+  - 14c 화면 테스트(partner_profile_screen_test 에 한 개): 리뷰가 있으면 섹션이 이상형 메모 뒤 · 카카오 카드 앞에 있다
+- [ ] **Step 2: RED** · **Step 3: 구현** — `_Footer` 에 `reviews` 위젯 자리 하나, 간격은 대조표(13 → 헤더 → 8 → 카드 → 8 → 카드 → 13) · **Step 4: GREEN** + analyze 0
+
+### Task A6: 20c 받은 리뷰 화면 · 신고 — v2(09-29)
+
+**Files:** Create `frontend/lib/friend_review/view/received_reviews_screen.dart` · Test `frontend/test/friend_review/view/received_reviews_screen_test.dart` · Modify(허락) `app_router.dart` `_slice6Routes` 끝 `GoRoute(path: AppRoutes.friendReviews, …)`
+
+- [ ] **Step 1: 실패하는 테스트**
+  - 앱바: 뒤로(48) + "받은 리뷰" · 하단 내비 없음 · 안내 상자 문구 · 카드마다 깃발
+  - 깃발 → 신고 시트(`showReportSheet(context, ReportTarget.friendReview(id))`) · 보낸 target = `{'target_type': 'friend_review', 'target_id': id}`
+  - 결과 reported → 토스트 "신고했어요. 운영팀이 확인할게요"(대장 9) · alreadyReported → 서버 문구 · 카드는 그대로(결정 3) · 화면을 떠나지 않는다 · 차단 문구 없음(P1)
+  - 0개 → 빈 상태(기존 앱 빈 상태 모양, 문구 "아직 받은 리뷰가 없어요") · 읽는 중 → 로딩 · 실패 → 문구 + 다시 시도 · 안내 상자는 늘 보인다
+  - 글자 1.3 배 overflow 0
+- [ ] **Step 2: RED** · **Step 3: 구현** — `reportThenLeave` 는 쓰지 않는다 · **Step 4: GREEN** + analyze 0
 
 ### Task A7: 연결 줄(PR 4 — 각 선행 PR merge 뒤)
 
@@ -1351,6 +1388,35 @@ pen 값표가 오면 채운다. 미리 정한 테스트:
 ### Part A 앱(A1 · A2, 2026-09-28)
 
 - **409 는 문구로 가른다(A2 "상태코드로" 와 다름).** `core/http/http_send.dart` 가 429 · 5xx 밖의 4xx 를 상태코드 없이 `ServerRejectedFailure(detail)` 로 묶는다 — 공유 파일을 고치지 않고는 상태코드를 볼 수 없다. `safety_errors.dart` · `chat_errors.dart` 와 같은 자리에 `friend_review_errors.dart` 의 `isAlreadyWritten` 을 두고, 문구는 서버 `FRIEND_REVIEW_ALREADY_WRITTEN` 과 바이트까지 같다. 백로그 47(서버 `code` 필드) 대상에 이 파일을 더한다.
+
+### Part A 앱 화면(A3~A6, 2026-09-29)
+
+pen 과 다르게 한 곳
+- **이니셜 원만 그린다.** 카드 · 20b 머리 모두 pen 대로 이니셜(닉네임 첫 글자). 서버 `avatar_url` 은 그리지 않는다(대장 09-29). 이니셜 · 학교 배지 글자 줄높이는 1(pen 1.5) — 가운데 정렬이라 보이는 자리는 같고 배율 2.0 에서 원 안에 든다. 학교 null 이면 배지 없음.
+- **관계 줄 = 고정 "추천으로 연결된 친구"**(대장 Q3 가). DB · API 에 관계 칸이 없고 추천은 학교를 따지지 않는다.
+- **카드 태그는 `Wrap`**(3개가 한 줄에 안 들어가면 다음 줄, 줄 사이 8). 한마디는 말줄임 없이 다 보이고 없으면 줄 · 간격이 없다. 머리 · 칩 · 버튼 높이는 고정 대신 minHeight(글자 확대).
+- **20c 안내 글 폭** fill(pen 270 고정) — 328 폭에서 결과 같다.
+- **14c · 14d 깃발 없음**(대장 Q2 — 서버가 받은 사람만 신고 허용, P2). 20c 만 깃발.
+- **14c "N개 모두 보기"는 3개 이상일 때만.** 누름 영역 44: 헤더 20 + 간격 8 + 첫 카드 위 여백 16 을 덮는 투명 칸을 줄 전체 폭으로 올렸다(위 13 은 앞 칸 몫). 높이는 보이지 않는 헤더 사본(`Visibility.maintain`)으로 재 배율을 키워도 덮는다.
+- **14d 높이** hug · 화면 90% 넘으면 스크롤. 딤 = `AppColors.scrim`(pen 은 시트만). 그림자 `Color(0x26000000)` (0,-2) 16 · 손잡이 r2 는 토큰 밖 리터럴(pen `FXNL4` · `w8UdMw`).
+- **20b 가운데 스크롤 · 버튼 바닥 고정**(12종이라 664 를 넘는다). 키보드가 오면 시트가 줄고 버튼은 키보드 위 24.
+- **20b 칩** 보이는 40 · 누름 48(TextButton padded) → 격자 위아래 간격을 16 − 4 로 잡아 보이는 자리를 pen 과 맞춤. 칩 안 좌우 여백 8 은 pen 에 없음(줄바꿈 때 곡선에 글자가 붙지 않게).
+- **20b 카운터 "n / 100"**(대장 1), 코드포인트 기준 · 신고 메모와 같은 formatter.
+- **20b 손잡이** pen 대로 r999 — 조각 6 `SheetHandle`(r8) 안 씀.
+
+pen 에 없어 정한 곳(대장 4 · 9 기존 모양)
+- 20b 버튼: 꺼짐 primaryDisabled 바탕 · disabled 글자, 보내는 중 평상시 색 위 흰 스피너 20(`_SubmitButton` — 조각 6 시트 버튼에 스피너 상태가 없다).
+- 20b 토스트(`showSafetyToast`): 성공 "리뷰를 남겼어요"(대장 09-29) · 열 때 409 "이미 리뷰를 남겼어요" · 열 때 실패 → 밑 화면에 띄우고 닫는다. 낼 때 실패(409 포함) → 시트 안(ScaffoldMessenger + 투명 Scaffold, 시트가 밑 화면 토스트를 가려서), 시트 유지. 열 때 읽는 중 = 가운데 스피너만.
+- 20c: 빈 상태 = 16f 모양(마스코트 120 → 24 → "아직 받은 리뷰가 없어요"), 실패 = 문구 + "다시 시도", 안내 상자는 늘. 신고 reported → "신고했어요. 운영팀이 확인할게요"(대장 9), 그 밖은 신고 시트 문구, 화면에 남고 차단 없음. 돌아갈 곳이 없으면(푸시 `go`) 뒤로 = `/me`(PopScope, 백로그 23 방식). 뒤로 = lucide arrow-left 22 IconButton(pen `miO1L`).
+- 20b 경로는 홈 하위 `friend-reviews/write/:profileId` → `FriendReviewComposePage`(ModalBottomSheetRoute 를 만드는 Page, 대장 Q1 가).
+
+공유 파일(허락 · 통합대장 09-29): app_routes +3 · push_route +6 · safety_repository +4 −2 · safety_errors +3 −2 · app_icons +2(info — pen `PMMX8` · `z5kJa6`, circle-alert 와 그림이 다르다) · partner_profile_screen +6 −1(클래스 주석 한 줄 포함) · app_router +15 −1 · app_router_test +29 · partner_profile_screen_test +26 −1 · push_route_test +13.
+
+검토(09-29) 반영
+- **필수 1** 20b 가 닫히는 중(뒤로 · 바깥 탭 애니메이션)에 응답이 오면 조건 없는 `pop` 이 밑 화면을 꺼냈다 — 푸시로 연 홈 위 시트면 go_router 가 "마지막 페이지" 단정으로 깨진다. `close()` 가 `ModalRoute.isCurrentOf` 일 때만 닫는다(poll_sheets 와 같은 방어) + 회귀 테스트.
+- **권고 1** 리뷰 신고 404 "리뷰를 찾을 수 없어요" 를 `isReportTargetGone` 이 몰라 시트가 안 닫혔다 → `safety_errors.dart` +3 −2(허락: 통합대장 09-29) + 20c 테스트.
+- 사소: 20b `useSafeArea`(낮은 화면에서 손잡이가 상태 표시줄 밑) · 14c 누름칸 높이 사본 `ExcludeSemantics`("지인 리뷰" 두 번 낭독) + 낭독 테스트.
+- 백로그 73 = main `report_sheet.dart:55` 같은 경합 · 74 = 리뷰 두 번 신고 토스트 "이미 신고한 사용자예요"(서버 문구 손볼 때).
 
 ### Part C DB(C1, 2026-09-28)
 
