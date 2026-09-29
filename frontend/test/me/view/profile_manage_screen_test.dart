@@ -20,6 +20,7 @@ import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:campus_mate/me/model/me_repository_provider.dart';
 import 'package:campus_mate/me/model/my_profile.dart';
 import 'package:campus_mate/me/model/photo_slot.dart';
+import 'package:campus_mate/me/view/basic_info_edit_screen.dart';
 import 'package:campus_mate/me/view/edit_app_bar.dart';
 import 'package:campus_mate/me/view/me_load_error.dart';
 import 'package:campus_mate/me/view/my_photos_screen.dart';
@@ -134,6 +135,19 @@ void main() {
         GoRoute(
           path: AppRoutes.myPhotos,
           builder: (context, state) => const Scaffold(body: Text('15e 사진 수정 화면')),
+        ),
+        // 15d 자리 — 저장하면 true, 그냥 나가면 아무것도 돌려주지 않는다(BasicInfoEditScreen 과 같은 약속).
+        GoRoute(
+          path: AppRoutes.myBasicInfo,
+          builder: (context, state) => Scaffold(
+            body: Column(
+              children: [
+                const Text('15d 기본 정보 수정 화면'),
+                TextButton(onPressed: () => context.pop(true), child: const Text('15d 저장')),
+                TextButton(onPressed: () => context.pop(), child: const Text('15d 뒤로')),
+              ],
+            ),
+          ),
         ),
         GoRoute(
           path: AppRoutes.myIdealConditions,
@@ -428,53 +442,84 @@ void main() {
     expect(find.text('곧 열려요'), findsNothing);
   });
 
-  group('"곧 열려요"(N4 — "수정 ›" 은 PR 3-2 15d)', () {
-    testWidgets('"수정 ›" 을 누르면 "곧 열려요" 가 뜨고 약 2초 뒤 사라진다', (tester) async {
+  // 계획서 2026-09-28-me-profile.md A16 — "수정 ›" 은 PR 3-2 에서 15d 로 연결됐다. 저장하고 돌아오면 "저장했어요"(B4).
+  group('"수정 ›" → 15d 기본 정보 수정', () {
+    /// "수정 ›" 로 15d 를 열고 [button]("15d 저장" · "15d 뒤로")으로 돌아온다. 돌아온 첫 프레임에서 멈춘다.
+    Future<void> returnFrom15d(WidgetTester tester, String button) async {
+      await tapVisible(tester, find.text('수정 ›'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(button));
+      await tester.pump();
+    }
+
+    testWidgets('"수정 ›" 을 누르면 15d(/me/basic-info)로 간다 — "곧 열려요" 는 뜨지 않는다', (tester) async {
       await pump(tester);
 
       await tapVisible(tester, find.text('수정 ›'));
-      expect(find.text('곧 열려요'), findsOneWidget);
-      expect(find.byIcon(AppIcons.clock3), findsOneWidget);
-      // 아직 갈 화면이 없다 — 15-5 에 그대로 있다.
-      expect(find.byType(ProfileManageScreen), findsOneWidget);
+      await tester.pumpAndSettle();
+
+      expect(find.text('15d 기본 정보 수정 화면'), findsOneWidget);
+      expect(find.text('곧 열려요'), findsNothing);
+    });
+
+    testWidgets('15d 에서 저장하고 돌아오면 "저장했어요"(circle-check 16 흰색)가 뜨고 약 2초 뒤 사라진다', (tester) async {
+      await pump(tester);
+
+      await returnFrom15d(tester, '15d 저장');
+      expect(find.text('저장했어요'), findsOneWidget);
+      final icon = tester.widget<Icon>(find.descendant(of: find.byType(AppToast), matching: find.byType(Icon)));
+      expect((icon.icon, icon.size, icon.color), (AppIcons.circleCheck, 16, AppColors.onInk));
 
       await tester.pump(const Duration(milliseconds: 1900));
-      expect(find.text('곧 열려요'), findsOneWidget);
+      expect(find.byType(ProfileManageScreen), findsOneWidget);
+      expect(find.text('저장했어요'), findsOneWidget);
       await tester.pump(const Duration(milliseconds: 200));
-      expect(find.text('곧 열려요'), findsNothing);
+      expect(find.text('저장했어요'), findsNothing);
+    });
+
+    testWidgets('저장 없이 돌아오면 아무 안내도 없다', (tester) async {
+      await pump(tester);
+
+      await returnFrom15d(tester, '15d 뒤로');
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ProfileManageScreen), findsOneWidget);
+      expect(find.byType(AppToast), findsNothing);
     });
 
     testWidgets('안내는 화면 아래 12, 가로 가운데에 뜬다 — 하단 버튼 · 내비가 없는 화면', (tester) async {
       usePenFrame(tester);
       await pump(tester);
 
-      await tapVisible(tester, find.text('수정 ›'));
+      await returnFrom15d(tester, '15d 저장');
+      await tester.pumpAndSettle();
 
       final toast = find.byType(AppToast);
       expect(780 - tester.getBottomLeft(toast).dy, 12);
       expect(tester.getCenter(toast).dx, 180);
     });
 
-    testWidgets('애니메이션 줄이기가 켜져 있어도 바로 뜨고 2초 뒤 사라진다 — 움직임이 없다', (tester) async {
+    testWidgets('애니메이션 줄이기가 켜져 있어도 바로 뜨고 움직임이 없다', (tester) async {
       tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
       addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
       await pump(tester);
 
-      await tapVisible(tester, find.text('수정 ›'));
-      expect(find.text('곧 열려요'), findsOneWidget);
+      await returnFrom15d(tester, '15d 저장');
+      expect(find.text('저장했어요'), findsOneWidget);
+      await tester.pumpAndSettle();
       expect(find.ancestor(of: find.byType(AppToast), matching: find.byType(FadeTransition)), findsNothing);
       await tester.pump(const Duration(seconds: 2));
-      expect(find.text('곧 열려요'), findsNothing);
+      expect(find.text('저장했어요'), findsNothing);
     });
 
     testWidgets('떠 있는 동안 화면을 떠나도 타이머가 남지 않는다', (tester) async {
       await pump(tester);
-      await tapVisible(tester, find.text('수정 ›'));
+      await returnFrom15d(tester, '15d 저장');
 
       await tester.pumpWidget(const SizedBox());
 
       // 타이머가 남아 있으면 flutter_test 가 "A Timer is still pending" 으로 실패시킨다.
-      expect(find.text('곧 열려요'), findsNothing);
+      expect(find.text('저장했어요'), findsNothing);
     });
   });
 
@@ -737,6 +782,56 @@ void main() {
       tester.widget<PhotoSlider>(find.byType(PhotoSlider)).photos,
       const [NetworkImage('https://img.test/1.png'), NetworkImage('https://img.test/2.png')],
     );
+  });
+
+  // N8 + B4 — 15d 는 저장 뒤 invalidate 하고 true 를 돌려주며 pop 한다. 15-5 로 돌아와 새 키를 그리고 "저장했어요" 를 띄운다.
+  testWidgets('saving_in_15d_returns_to_15_5_with_the_new_height_and_a_toast — 가짜 저장소 + 실제 라우터', (tester) async {
+    final me = FakeMeRepository(Success(_profile()));
+    final router = AppRouter.create(
+      isAuthenticated: () => true,
+      verificationGate: () => VerificationGate.complete,
+      onboardingStep: () => OnboardingStep.complete,
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          // 첫 화면(홈)이 하단 내비 뱃지와 요약을 읽는다.
+          cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
+          chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
+          homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
+          meRepositoryProvider.overrideWithValue(me),
+        ],
+        child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+      ),
+    );
+    router.go(AppRoutes.myProfileManage);
+    await tester.pumpAndSettle();
+    expect(find.text('178cm'), findsOneWidget);
+    await tapVisible(tester, find.text('수정 ›'));
+    await tester.pumpAndSettle();
+    expect(find.byType(BasicInfoEditScreen), findsOneWidget);
+
+    // 키만 고쳐 저장한다. 서버는 PATCH 를 받는 동안 값을 바꾼다 — 15-5 가 다시 읽어야만 새 키가 보인다.
+    await tester.enterText(find.byType(TextField).at(1), '181');
+    await tester.pump();
+    me.holdUpdate = Completer<void>();
+    await tester.tap(find.widgetWithText(AppButton, '저장'));
+    await tester.pump();
+    me.profile = Success(_profile(heightCm: 181));
+    me.holdUpdate!.complete();
+    await tester.pumpAndSettle();
+
+    expect(me.updates, [
+      {'height_cm': 181},
+    ]);
+    expect(find.byType(BasicInfoEditScreen), findsNothing);
+    expect(find.byType(ProfileManageScreen), findsOneWidget);
+    expect(find.text('저장했어요'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('181cm'), 200, scrollable: _list);
+    expect(find.text('181cm'), findsOneWidget);
+    expect(find.text('178cm'), findsNothing);
+    await tester.pump(const Duration(seconds: 2)); // 토스트 타이머를 끝내 둔다
   });
 
   // DESIGN §11.2 — 시스템 글꼴 확대(최대 2.0)에서도 깨지지 않는다. 화면 15 테스트와 같은 잣대.

@@ -6,10 +6,16 @@ import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:flutter/widgets.dart';
 
-/// "곧 열려요" — 갈 화면이 아직 없는 입구(15-5 "수정 ›" N4, 15b-3 "하트 충전하기" C5). "교체" 는 15e 로 연결됐다(A15).
+/// "곧 열려요" — 갈 화면이 아직 없는 입구(15b-3 "하트 충전하기" C5). 15-5 "교체" 는 15e(A15), "수정 ›" 은 15d(A16)로 연결됐다.
 const comingSoonToast = AppToast(
   leading: Icon(AppIcons.clock3, size: 16, color: AppColors.onInk),
   label: '곧 열려요',
+);
+
+/// "저장했어요" — 15d 에서 저장하고 15-5 로 돌아왔을 때(B4). 아이콘은 조각 6 완료 토스트(`yEDB9`)와 같은 circle-check 16.
+const savedToast = AppToast(
+  leading: Icon(AppIcons.circleCheck, size: 16, color: AppColors.onInk),
+  label: '저장했어요',
 );
 
 /// 나 탭 화면(15 · 15-5)이 잠깐 띄우는 안내 하나. 한 번에 하나 — 새 안내는 떠 있던 것을 바로 바꾸고 시간을 새로 잰다.

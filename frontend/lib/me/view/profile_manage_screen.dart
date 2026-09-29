@@ -30,8 +30,12 @@ class ProfileManageScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileManageScreenState extends ConsumerState<ProfileManageScreen> with MeToastHost<ProfileManageScreen> {
-  /// "수정 ›"(15d, PR 3-2) — 갈 화면이 아직 없어 안내만 잠깐 띄운다(N4).
-  void _showComingSoon() => showTimedToast(comingSoonToast);
+  /// "수정 ›" → 15d 기본 정보 수정(A16). 저장하고 돌아오면(true) "저장했어요" 를 잠깐 띄운다(B4 — 다른 편집 화면은 토스트 없이
+  /// 돌아온다). 새 값은 15d 가 invalidate 한 내 프로필을 이 화면이 다시 읽어 그린다(N8).
+  Future<void> _editBasicInfo() async {
+    final saved = await context.push<bool>(AppRoutes.myBasicInfo);
+    if (saved ?? false) showTimedToast(savedToast);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +52,7 @@ class _ProfileManageScreenState extends ConsumerState<ProfileManageScreen> with 
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, stackTrace) => MeLoadError(onRetry: _retry),
           data: (result) => result.when(
-            onSuccess: (profile) => _ManageContent(profile: profile, onComingSoon: _showComingSoon),
+            onSuccess: (profile) => _ManageContent(profile: profile, onEditBasicInfo: _editBasicInfo),
             onFailure: (_) => MeLoadError(onRetry: _retry),
           ),
         );
@@ -59,10 +63,10 @@ class _ProfileManageScreenState extends ConsumerState<ProfileManageScreen> with 
 
 /// 본문 `H4VWO` — 위 24 · 좌우 16 · 아래 40, 섹션 사이 32.
 class _ManageContent extends StatelessWidget {
-  const _ManageContent({required this.profile, required this.onComingSoon});
+  const _ManageContent({required this.profile, required this.onEditBasicInfo});
 
   final MyProfile profile;
-  final VoidCallback onComingSoon;
+  final VoidCallback onEditBasicInfo;
 
   /// 본문 아래 여백 40 은 pen 값(간격 토큰 xl 32 · xxl 48 사이).
   static const double _bottomPadding = 40;
@@ -74,7 +78,7 @@ class _ManageContent extends StatelessWidget {
       children: [
         _RealPhotoSection(photoUrls: profile.photoUrls, onReplace: () => context.push(AppRoutes.myPhotos)),
         // 섹션 사이 32 를 기본 정보 상자 안에 둔다 — "수정 ›" 누름 칸이 그 자리로 삐져나간다([_BasicInfoSection]).
-        _BasicInfoSection(profile: profile, topGap: AppSpacing.xl, onEdit: onComingSoon),
+        _BasicInfoSection(profile: profile, topGap: AppSpacing.xl, onEdit: onEditBasicInfo),
         const SizedBox(height: AppSpacing.xl),
         _PreferenceSection(profile: profile),
         const SizedBox(height: AppSpacing.xl),
