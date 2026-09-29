@@ -1,5 +1,4 @@
 import json
-import logging
 from datetime import datetime, timedelta
 
 import httpx
@@ -207,44 +206,23 @@ async def test_a_failing_push_does_not_stop_the_rest_of_the_run():
 # 엔드포인트 -------------------------------------------------------------------
 
 @pytest.fixture
-def secret_overrides():
-    app.dependency_overrides[get_settings] = lambda: _settings(card_batch_secret="right")
-    yield
-    app.dependency_overrides.clear()
-
-
-def test_the_batch_endpoint_requires_the_shared_secret(secret_overrides):
-    # get_client 을 덮어쓰지 않는 테스트라 lifespan 을 켜둔다(`with`).
-    with TestClient(app) as client:
-        assert client.post("/batch/chat-gate").status_code == 401
-        assert client.post("/batch/chat-gate", headers={"X-Batch-Secret": "wrong"}).status_code == 401
-
-
-def test_the_batch_endpoint_runs_with_the_right_secret(secret_overrides, caplog):
-    client = httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(200, json=[])))
-    app.dependency_overrides[get_client] = lambda: client
-
-    with caplog.at_level(logging.WARNING, logger="app.chat.batch_router"):
-        response = TestClient(app).post("/batch/chat-gate", headers={"X-Batch-Secret": "right"})
-
-    assert response.status_code == 200
-    assert response.json() == {"reminded": 0, "closed": 0, "passed": 0}
-    # OIDC 전환 중 운영자는 이 줄로 job 이 어느 문으로 들어왔는지 본다(DEPLOY.md). 운영 root 로거는
-    # WARNING 문턱이라(로깅 설정 없음) 그 문턱에서 잡혀야 Cloud Run 로그에 남는다.
-    assert "batch /batch/chat-gate auth=secret" in caplog.text
-
-
-@pytest.fixture
 def oidc_overrides():
     app.dependency_overrides[get_settings] = lambda: _settings(
-        card_batch_secret="right", batch_audience=AUDIENCE, batch_service_account=SCHEDULER
+        batch_audience=AUDIENCE, batch_service_account=SCHEDULER
     )
     yield
     app.dependency_overrides.clear()
 
 
-def test_the_batch_endpoint_runs_with_a_scheduler_id_token(oidc_overrides, monkeypatch, caplog):
-    """조각 6 OIDC 전환 — 헤더 없이 구글 ID 토큰만 달고 와도 같은 배치가 돈다."""
+def test_the_batch_endpoint_requires_a_scheduler_id_token(oidc_overrides):
+    """토큰 없이는 들어오지 못한다. 옛 공유 열쇠 헤더는 이제 문이 아니다(OIDC 전환 5단계)."""
+    # get_client 을 덮어쓰지 않는 테스트라 lifespan 을 켜둔다(`with`).
+    with TestClient(app) as client:
+        assert client.post("/batch/chat-gate").status_code == 401
+        assert client.post("/batch/chat-gate", headers={"X-Batch-Secret": "right"}).status_code == 401
+
+
+def test_the_batch_endpoint_runs_with_a_scheduler_id_token(oidc_overrides, monkeypatch):
     def fake_verify(token, request, audience):
         # 카드 배치와 같은 audience(경로 없는 서비스 URL) 하나를 쓴다 — 서버 설정이 하나다.
         assert audience == AUDIENCE
@@ -254,28 +232,10 @@ def test_the_batch_endpoint_runs_with_a_scheduler_id_token(oidc_overrides, monke
     client = httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(200, json=[])))
     app.dependency_overrides[get_client] = lambda: client
 
-    with caplog.at_level(logging.WARNING, logger="app.chat.batch_router"):
-        response = TestClient(app).post("/batch/chat-gate", headers={"Authorization": "Bearer id-token"})
+    response = TestClient(app).post("/batch/chat-gate", headers={"Authorization": "Bearer id-token"})
 
     assert response.status_code == 200
     assert response.json() == {"reminded": 0, "closed": 0, "passed": 0}
-    assert "batch /batch/chat-gate auth=oidc" in caplog.text
-
-
-def test_the_batch_endpoint_turns_away_a_call_without_either_even_with_oidc_configured(oidc_overrides):
-    """OIDC 문을 연 뒤에도 헤더도 토큰도 없거나 헤더만 틀린 호출은 들어오지 못한다."""
-    with TestClient(app) as client:
-        assert client.post("/batch/chat-gate").status_code == 401
-        assert client.post("/batch/chat-gate", headers={"X-Batch-Secret": "wrong"}).status_code == 401
-
-
-def test_the_batch_endpoint_is_closed_when_no_secret_is_configured():
-    app.dependency_overrides[get_settings] = lambda: _settings(card_batch_secret="")
-    try:
-        with TestClient(app) as client:
-            assert client.post("/batch/chat-gate", headers={"X-Batch-Secret": ""}).status_code == 401
-    finally:
-        app.dependency_overrides.clear()
 
 
 # 조각 6: 정지 ------------------------------------------------------------------------
