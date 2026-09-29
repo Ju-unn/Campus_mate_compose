@@ -8,9 +8,9 @@ import 'package:flutter/material.dart';
 
 /// 화면 15 · 15-5 진입 행(pen 마스터 `fN0xc` "ProfileEntryRow", 쇼케이스 `wmzn0` 안 — Z54et 밖).
 /// 받침 원 안 아이콘 → Title/Note → 셰브런. [onTap] 이 있으면 행 전체가 값 수정 화면으로 잇는다(U1 — 화면 15 결정 1
-/// "나중에" 의 그 "지금"). 강조 variant(친구들이 본 나)는 이번에 쓰지 않는다.
+/// "나중에" 의 그 "지금"). [emphasis] 는 15 "친구들이 본 나"(`o9BA0`) 분홍 줄이다.
 class ProfileEntryRow extends StatelessWidget {
-  const ProfileEntryRow({required this.icon, required this.title, required this.note, this.onTap, super.key});
+  const ProfileEntryRow({required this.icon, required this.title, required this.note, this.onTap, this.emphasis = false, super.key});
 
   final IconData icon;
   final String title;
@@ -18,6 +18,9 @@ class ProfileEntryRow extends StatelessWidget {
 
   /// null 이면 누를 곳이 없다(보이기만 하는 행).
   final VoidCallback? onTap;
+
+  /// 켜면 바탕 primaryWash · 원 흰색 · 아이콘 · 셰브런 primaryText(`o9BA0` override). 크기 · 그림자는 그대로.
+  final bool emphasis;
 
   @override
   Widget build(BuildContext context) {
@@ -36,7 +39,7 @@ class ProfileEntryRow extends StatelessWidget {
       // 바탕은 이 Material 이 칠한다 — 안쪽 상자가 또 칠하면 눌림 효과가 그 밑에 깔려 안 보인다. 화면 15 · 15-5 는
       // 스크롤 안이라 눌림 효과를 그릴 Material 을 행 크기로 둔다(COMMON §4-2).
       child: Material(
-        color: AppColors.canvas,
+        color: emphasis ? AppColors.primaryWash : AppColors.canvas,
         borderRadius: radius,
         child: tap == null ? content : InkWell(borderRadius: radius, onTap: tap, child: content),
       ),
@@ -50,14 +53,14 @@ class ProfileEntryRow extends StatelessWidget {
         Container(
           width: 44,
           height: 44,
-          decoration: const BoxDecoration(color: AppColors.surfaceSoft, shape: BoxShape.circle),
-          child: Icon(icon, size: 22, color: AppColors.muted),
+          decoration: BoxDecoration(color: emphasis ? AppColors.canvas : AppColors.surfaceSoft, shape: BoxShape.circle),
+          child: Icon(icon, size: 22, color: emphasis ? AppColors.primaryText : AppColors.muted),
         ),
         const SizedBox(width: AppSpacing.sm),
         Expanded(child: _Copy(title: title, note: note)),
         const SizedBox(width: AppSpacing.sm),
         // 셰브런 `vszZo` 20.
-        const Icon(AppIcons.chevronRight, size: 20, color: AppColors.muted),
+        Icon(AppIcons.chevronRight, size: 20, color: emphasis ? AppColors.primaryText : AppColors.muted),
       ],
     );
   }

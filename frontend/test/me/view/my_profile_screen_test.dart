@@ -11,6 +11,8 @@ import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
+import 'package:campus_mate/friend_review/model/friend_review_repository_provider.dart';
+import 'package:campus_mate/friend_review/view/my_friend_reviews_section.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:campus_mate/me/model/me_repository_provider.dart';
 import 'package:campus_mate/me/model/my_profile.dart';
@@ -31,6 +33,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:mocktail/mocktail.dart';
 
 import '../../chat/model/fake_chat_repository.dart';
+import '../../friend_review/model/fake_friend_review_repository.dart';
 import '../../matching/model/fake_card_repository.dart';
 import '../../profile/model/fake_avatar_repository.dart';
 import '../model/fake_me_repository.dart';
@@ -86,6 +89,8 @@ MyProfile _profile({
 final _list = find.byType(Scrollable).first;
 final _preview = find.widgetWithText(ProfileEntryRow, '남이 보는 내 프로필 카드');
 final _manage = find.widgetWithText(ProfileEntryRow, '프로필 편집');
+final _received = find.widgetWithText(ProfileEntryRow, '친구들이 본 나');
+final _written = find.widgetWithText(ProfileEntryRow, '내가 쓴 리뷰');
 
 /// 알약 몸통(흰 · 회색 알약을 칠하는 Material).
 final _pill = find.ancestor(of: find.text(_pillLabel), matching: find.byType(Material)).first;
@@ -134,6 +139,8 @@ void main() {
         // 하단 내비 뱃지가 수락 대기·안 읽은 메시지를 읽는다(§8.8).
         cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
         chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
+        // 지인 리뷰 칸(`Cux1p`)이 받은 · 쓴 리뷰 개수를 읽는다.
+        friendReviewRepositoryProvider.overrideWithValue(FakeFriendReviewRepository()),
       ],
     );
     addTearDown(container.dispose);
@@ -141,6 +148,8 @@ void main() {
       initialLocation: AppRoutes.myProfile,
       routes: [
         GoRoute(path: AppRoutes.myProfile, builder: (context, state) => const MyProfileScreen()),
+        GoRoute(path: AppRoutes.friendReviews, builder: (context, state) => const Scaffold(body: Text('20c 화면'))),
+        GoRoute(path: AppRoutes.friendReviewsWritten, builder: (context, state) => const Scaffold(body: Text('20e 화면'))),
         GoRoute(path: AppRoutes.settings, builder: (context, state) => const Scaffold(body: Text('설정 화면'))),
         GoRoute(path: AppRoutes.myCardPreview, builder: (context, state) => const CardPreviewScreen()),
         GoRoute(path: AppRoutes.myProfileManage, builder: (context, state) => const ProfileManageScreen()),
@@ -251,13 +260,28 @@ void main() {
       expect(manage.height, greaterThanOrEqualTo(84));
     });
 
-    testWidgets('본문 아래 40 — 끝까지 스크롤하면 "프로필 편집" 줄 끝과 하단 내비 사이 40', (tester) async {
-      // 지인 리뷰 섹션(`Cux1p`)은 채팅탭 PR 4 몫이라(N3) 지금 본문 끝은 입구 줄이다.
+    testWidgets('본문 아래 40 — 끝까지 스크롤하면 지인 리뷰 칸 끝("내가 쓴 리뷰" 줄)과 하단 내비 사이 40', (tester) async {
       usePenFrame(tester, height: 600);
       await pump(tester);
       await scrollToEnd(tester);
 
-      expect(tester.getTopLeft(find.byType(AppBottomNav)).dy - tester.getBottomLeft(_manage).dy, 40);
+      expect(tester.getTopLeft(find.byType(AppBottomNav)).dy - tester.getBottomLeft(_written).dy, 40);
+    });
+
+    testWidgets('지인 리뷰 칸 `Cux1p` 은 입구 줄 아래 32(N3) — 두 줄을 누르면 20c · 20e 로 간다', (tester) async {
+      usePenFrame(tester);
+      await pump(tester);
+
+      expect(tester.getTopLeft(find.byType(MyFriendReviewsSection)).dy - tester.getBottomLeft(_manage).dy, 32);
+      for (final (row, screen) in [(_received, '20c 화면'), (_written, '20e 화면')]) {
+        await tester.ensureVisible(row);
+        await tester.pumpAndSettle();
+        await tester.tap(row);
+        await tester.pumpAndSettle();
+        expect(find.text(screen), findsOneWidget);
+        expect(await tester.binding.handlePopRoute(), isTrue);
+        await tester.pumpAndSettle();
+      }
     });
   });
 
@@ -326,7 +350,6 @@ void main() {
         '프로필 수정',
         '상대에게는 이렇게 보여요',
         'AI 아바타',
-        '친구들이 본 나',
       ]) {
         expect(find.text(text), findsNothing, reason: '$pass · $text');
       }

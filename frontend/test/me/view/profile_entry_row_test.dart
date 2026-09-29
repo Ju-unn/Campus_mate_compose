@@ -77,6 +77,28 @@ void main() {
     expect((chevron.size, chevron.color), (20, AppColors.muted));
   });
 
+  testWidgets('강조(15 `o9BA0` "친구들이 본 나") — 바탕 #FFF0F2 · 원 #FFFFFF · 아이콘 · 셰브런 #C4224B, 크기 · 그림자는 그대로', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: Align(
+        alignment: Alignment.topLeft,
+        child: SizedBox(
+          width: 328,
+          child: ProfileEntryRow(emphasis: true, icon: AppIcons.calendar, title: '친구들이 본 나', note: '받은 리뷰 3개', onTap: () {}),
+        ),
+      ),
+    ));
+
+    final painter = find.ancestor(of: find.byType(InkWell), matching: find.byType(Material)).first;
+    expect(tester.widget<Material>(painter).color, AppColors.primaryWash);
+    expect(tester.getSize(painter), const Size(328, 84));
+    final surface = find.ancestor(of: find.byIcon(AppIcons.calendar), matching: find.byType(Container)).first;
+    expect((tester.widget<Container>(surface).decoration! as BoxDecoration).color, AppColors.canvas);
+    expect(tester.widget<Icon>(find.byIcon(AppIcons.calendar)).color, AppColors.primaryText);
+    expect(tester.widget<Icon>(find.byIcon(AppIcons.chevronRight)).color, AppColors.primaryText);
+    expect(find.byWidgetPredicate((w) => w is DecoratedBox && (w.decoration as BoxDecoration).boxShadow == AppElevation.card),
+        findsOneWidget);
+  });
+
   testWidgets('Title 16/600 ink 렌더 25(`ZMu82`), Note 14/400 muted 1.5(`B4ppA`), 둘 사이 3', (tester) async {
     await pump(tester);
 

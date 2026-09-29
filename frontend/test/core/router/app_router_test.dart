@@ -334,6 +334,15 @@ void main() {
       expect(find.text('받은 리뷰'), findsOneWidget);
     });
 
+    testWidgets('/friend-reviews/written 은 20e 내가 쓴 리뷰다', (tester) async {
+      final router = await pumpRouter(tester);
+
+      router.go(AppRoutes.friendReviewsWritten);
+      await tester.pumpAndSettle();
+
+      expect(find.text('내가 쓴 리뷰'), findsOneWidget);
+    });
+
     // 추천 가입 푸시(`friend_review_write`)가 가는 곳 — 홈이 밑에 깔리고 그 위에 20b 시트(대장 Q1).
     testWidgets('/home/friend-reviews/write/p2 는 09b 홈 위에 20b 시트를 띄우고, 닫으면 홈이다', (tester) async {
       final router = await pumpRouter(tester);
