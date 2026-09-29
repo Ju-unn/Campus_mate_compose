@@ -12,7 +12,8 @@ class FriendReview {
 
   final String id;
 
-  /// 서버 응답은 `reviewer` 로 묶여 오지만 화면은 한 줄만 쓰므로 여기서 펼쳐 둔다.
+  /// 카드 머리의 사람. 서버 응답은 `reviewer`(20c · 14c · 14d — 쓴 사람) 또는 `reviewee`(20e — 받은 사람)로
+  /// 묶여 오지만 화면은 한 줄만 쓰므로 여기서 펼쳐 둔다.
   final String nickname;
   final String? avatarUrl;
   final String? university;
@@ -25,12 +26,12 @@ class FriendReview {
   final DateTime createdAt;
 
   factory FriendReview.fromJson(Map<String, dynamic> json) {
-    final reviewer = json['reviewer'] as Map<String, dynamic>;
+    final person = (json['reviewer'] ?? json['reviewee']) as Map<String, dynamic>;
     return FriendReview(
       id: json['id'] as String,
-      nickname: reviewer['nickname'] as String,
-      avatarUrl: reviewer['avatar_url'] as String?,
-      university: reviewer['university'] as String?,
+      nickname: person['nickname'] as String,
+      avatarUrl: person['avatar_url'] as String?,
+      university: person['university'] as String?,
       tags: (json['tags'] as List<dynamic>).cast<String>(),
       comment: json['comment'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),

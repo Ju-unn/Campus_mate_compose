@@ -10,9 +10,13 @@ class FakeFriendReviewRepository implements FriendReviewRepository {
   Result<List<FriendReview>> received = const Success([]);
   Result<ReviewTarget> target = Success(reviewTargetFixture());
   Result<void> createResult = const Success(null);
+  Result<List<FriendReview>> written = const Success([]);
+  Result<void> deleteResult = const Success(null);
 
   final List<String> aboutRequests = [];
   int receivedCount = 0;
+  int writtenCount = 0;
+  final List<String> deletes = [];
   final List<String> targetRequests = [];
   final List<({String revieweeId, List<String> tags, String? comment})> creates = [];
 
@@ -24,6 +28,26 @@ class FakeFriendReviewRepository implements FriendReviewRepository {
 
   /// 채워 두면 fetchReceived() 가 이것이 끝날 때까지 멈춘다 — 20c 목록을 읽는 중에 닫는 상황용.
   Completer<void>? holdReceived;
+
+  /// 채워 두면 fetchWritten() 이 이것이 끝날 때까지 멈춘다 — 20e 목록을 읽는 중 상태용.
+  Completer<void>? holdWritten;
+
+  /// 채워 두면 delete() 가 이것이 끝날 때까지 멈춘다 — 지우는 중에 또 누르거나 시트를 닫는 상황용.
+  Completer<void>? holdDelete;
+
+  @override
+  Future<Result<List<FriendReview>>> fetchWritten() async {
+    writtenCount += 1;
+    await holdWritten?.future;
+    return written;
+  }
+
+  @override
+  Future<Result<void>> delete(String reviewId) async {
+    deletes.add(reviewId);
+    await holdDelete?.future;
+    return deleteResult;
+  }
 
   @override
   Future<Result<List<FriendReview>>> fetchAbout(String profileId) async {

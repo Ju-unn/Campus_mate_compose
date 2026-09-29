@@ -115,4 +115,39 @@ void main() {
     expect(target.profileId, 'p2');
     expect(target.nickname, '달빛');
   });
+
+  test('fetchWritten 은 GET /friend-reviews/written 의 reviewee 를 사람으로 읽는다', () async {
+    final (client, seen) = recording(jsonResponse({
+      'reviews': [
+        {
+          'id': 'r9',
+          'reviewee': {'nickname': '봄바람', 'avatar_url': null, 'university': null},
+          'tags': ['배려가 깊어요'],
+          'comment': null,
+          'created_at': '2026-09-29T05:00:00+00:00',
+        },
+      ],
+    }));
+
+    final result = await buildRepository(client).fetchWritten();
+
+    expect(seen.single.method, 'GET');
+    expect(seen.single.url.toString(), 'https://api.test/friend-reviews/written');
+    final reviews = result.when(onSuccess: (value) => value, onFailure: (_) => null)!;
+    expect(reviews.single.nickname, '봄바람');
+  });
+
+  test('delete 는 DELETE /friend-reviews/{id} — 204 본문 없음은 성공, 404 는 서버 문구', () async {
+    final (client, seen) = recording(http.Response('', 204));
+
+    final result = await buildRepository(client).delete('r9');
+
+    expect(seen.single.method, 'DELETE');
+    expect(seen.single.url.toString(), 'https://api.test/friend-reviews/r9');
+    expect(result.when(onSuccess: (_) => 'ok', onFailure: (failure) => failure.toDisplayMessage()), 'ok');
+
+    final (goneClient, _) = recording(jsonResponse({'detail': '리뷰를 찾을 수 없어요'}, 404));
+    final gone = await buildRepository(goneClient).delete('r9');
+    expect(gone.when(onSuccess: (_) => 'ok', onFailure: (failure) => failure.toDisplayMessage()), '리뷰를 찾을 수 없어요');
+  });
 }

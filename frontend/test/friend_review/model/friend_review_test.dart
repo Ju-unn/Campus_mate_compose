@@ -40,6 +40,19 @@ void main() {
     expect(review.comment, '믿음직해요');
   });
 
+  test('20e 응답은 reviewer 가 없고 reviewee(받은 사람)를 사람으로 읽는다', () {
+    final review = FriendReview.fromJson({
+      'id': 'r3',
+      'reviewee': {'nickname': '봄바람', 'avatar_url': null, 'university': '테스트대학교'},
+      'tags': ['배려가 깊어요'],
+      'comment': null,
+      'created_at': '2026-09-29T05:00:00+00:00',
+    });
+
+    expect(review.nickname, '봄바람');
+    expect(review.university, '테스트대학교');
+  });
+
   test('ReviewTarget.fromJson 은 20b 머리에 쓸 필드를 읽는다', () {
     final target = ReviewTarget.fromJson({
       'profile_id': 'p2',

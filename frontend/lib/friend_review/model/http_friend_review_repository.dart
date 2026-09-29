@@ -18,6 +18,14 @@ class HttpFriendReviewRepository implements FriendReviewRepository {
   Future<Result<List<FriendReview>>> fetchReceived() =>
       _api.send('GET', '/friend-reviews/received', _parseReviews);
 
+  @override
+  Future<Result<List<FriendReview>>> fetchWritten() =>
+      _api.send('GET', '/friend-reviews/written', _parseReviews);
+
+  /// 204 는 본문이 비어 있다 — `ApiClient.send` 가 빈 본문을 걸러 낸다.
+  @override
+  Future<Result<void>> delete(String reviewId) => _api.send('DELETE', '/friend-reviews/$reviewId', (_) {});
+
   List<FriendReview> _parseReviews(Object body) =>
       ((body as Map<String, dynamic>)['reviews'] as List<dynamic>)
           .map((item) => FriendReview.fromJson(item as Map<String, dynamic>))
