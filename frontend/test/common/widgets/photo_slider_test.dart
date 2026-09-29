@@ -95,6 +95,26 @@ void main() {
     expect((dot0.left + dot1.right) / 2, 164);
   });
 
+  testWidgets('dotsGap 을 주면 점 줄이 사진 아래 그 간격에 온다(15-5 `rrJ27` 12)', (tester) async {
+    // 기본값 8 은 위 테스트(화면 15 · 14c)가 본다. 15-5 실제 사진 섹션 `Rn3AC` 은 gap 12 한 벌이라 사진 ↔ 점도 12.
+    final photos = _photos(2);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: 328,
+              child: PhotoSlider(photos: photos, photoSize: const Size(252, 184), dotsGap: 12),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(tester.getRect(_dots.at(0)).top, tester.getRect(_photo(photos[0])).bottom + 12);
+  });
+
   testWidgets('점은 사진 수만큼, 처음엔 0번이 활성이고 넘기면 1번이 활성이다', (tester) async {
     // pen `SC7rv` — 활성 `oYvj4` #222222, 비활성 `GyrzV` #DDDDDD.
     final photos = _photos(3);
