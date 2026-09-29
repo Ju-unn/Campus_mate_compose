@@ -291,7 +291,7 @@ String cohortDateLabel(DateTime now, DateTime opensAt) {
 - A2 는 새 코드 0 — main 의 `referralRepositoryProvider.myCode()` · 테스트 `FakeReferralRepository` 를 그대로 쓴다.
 - A3 배치는 `SliverPadding` 대신 `SliverFillRemaining` 안쪽 `Padding` — SliverPadding 으로 감싸면 채움 높이가 아래 24 를 빼지 않아 버튼이 내비에 붙는다(테스트 "버튼 52 가 내비 위 24"로 잡음).
 - A3 타이머는 콜백에서 `setState(_schedule)` 하나로 자정 · 여는 시각 · 1분 재시도를 모두 다시 건다(열렸으면 요약이 cohort 없이 와서 위젯이 사라진다).
-- A3 검토 권고 반영: 앱으로 돌아오면(`AppLifecycleListener.onResume`) 지금 시각으로 다시 센다 — 잠든 시간은 타이머 시계에 안 잡힐 수 있다. 여는 시각이 지났으면 곧바로 요약을 다시 읽는다. `didUpdateWidget` 을 지키는 테스트도 더했다. 큰 줄 letterSpacing(`IDJ3M`, 지금 countdown 토큰 −1.44)도 pen 추출 대기.
+- A3 검토 권고 반영: 앱으로 돌아오면(`AppLifecycleListener.onResume`) 지금 시각으로 다시 센다 — 잠든 시간은 타이머 시계에 안 잡힐 수 있다. 여는 시각이 지났으면 곧바로 요약을 다시 읽는다. `didUpdateWidget` 을 지키는 테스트도 더했다. 큰 줄 letterSpacing(`IDJ3M`, 그때 countdown 토큰 −1.44)은 #159 merge 뒤 후속 PR 에서 맞췄다(아래 표, 대장 값표 `값표_작은값_0929.md` §1).
 - A4 공유 창이 예외를 던지면 `UnknownFailure` 문구로 토스트.
 - A4 토스트 자리는 pen 에 없어 `photos_screen` 과 같이 버튼 위 가운데 · 간격 12 · alertTriangle.
 - A5 는 대장 줄 단위 허락 그대로(import 2 · watch 1 · body 1줄). 기존 테스트 pump 에 home 저장소 override 한 줄을 더했다(없으면 실제 HTTP provider 를 부른다).
@@ -310,11 +310,11 @@ String cohortDateLabel(DateTime now, DateTime opensAt) {
 | 히어로 | `gFbj2` | 328×330 #FFF0F2 r32 gap 8 padding [20,20,18,20], 가운데 | `AppColors.primaryWash` · `AppRadius.xl` | |
 | 마스코트 | `of3fj` | 132, male | `Image.asset('assets/images/mascot-male.png', width: 132, height: 132)` | |
 | 작은 줄 | `BBGsm` | "우리 학교 첫 카드까지" 14/600 #C4224B lh1.5 — 뒤에 " · D-14"(Q1 (가)) | `AppTypography.labelSmall.copyWith(color: AppColors.primaryText, height: 1.5)` | 문구 |
-| 큰 줄 | `IDJ3M` | "9월 23일" 48/700 #222222 lh1.5 (184×74) · 당일 "오늘 오전 7시"(결정 8) | `AppTypography.countdown.copyWith(color: AppColors.ink, height: 1.5)`(토큰 lh1.1 → pen 1.5) + `FittedBox(scaleDown)` | 문구 · 1.3배 |
+| 큰 줄 | `IDJ3M` | "9월 23일" 48/700 #222222 lh1.5 자간 0 (184×74) · 당일 "오늘 오전 7시"(결정 8). countdown `sZZ14`(lh1.1 · −1.44) 인스턴스 아님(0929 값표) | `AppTypography.display.copyWith(fontSize: 48, height: 1.5, letterSpacing: 0, color: AppColors.ink)` — 날짜라 tabular 없음 + `FittedBox(scaleDown)` | 문구 · 1.3배 · 글자 값 |
 | 부제 | `ocR77` | "같은 날, 같은 설렘으로 시작해요" 14/400 #6A6A6A | `AppTypography.bodySmall` · `AppColors.muted` | 문구 |
-| 모집 판 | `u7XsyB` | 92h #F7F7F7 r14 padding 16, 양끝 | `AppColors.surfaceSoft` · `AppRadius.md`, 배지가 빠져(Q3) `Container(alignment: centerLeft)` 안 `Column` 두 줄, 높이는 `minHeight: 92`(글자 확대로 늘 수 있게). 두 줄 세로 배치(gap · justify · 줄 높이)는 값표에 없어 대장 pen 추출 대기 | |
-| 모집 라벨 | `WEPFQ` | "현재 모집 인원" 14/400 #6A6A6A | `bodySmall` · `muted` | 문구 |
-| 모집 숫자 | `ebHk4` | "87명" 24/700 #222222 | `AppTypography.headline` · `ink`, `'${cohort.recruitCount}명'` | 숫자 |
+| 모집 판 | `u7XsyB` | 92h #F7F7F7 r14 padding 16, 양끝 | `AppColors.surfaceSoft` · `AppRadius.md`, 배지가 빠져(Q3) `Container(alignment: centerLeft)` 안 `Column` 두 줄, 높이는 `minHeight: 92`(글자 확대로 늘 수 있게). 왼쪽 열 `o6UY45` vertical gap 4(0929 값표) → `SizedBox(height: 4)`. pen 은 92 고정에 두 줄(63)을 가운데 둬 위아래가 15 · 14 라, padding 16 을 지키면 93 이 되어 `symmetric(horizontal: 16, vertical: 14)` | 92 · 사이 4 |
+| 모집 라벨 | `WEPFQ` | "현재 모집 인원" 14/400 #6A6A6A lh1.5 | `bodySmall` · `muted`, `height: 1.5`(토큰 1.55) | 문구 · 줄 높이 |
+| 모집 숫자 | `ebHk4` | "87명" 24/700 #222222 lh1.5 | `AppTypography.headline` · `ink`, `height: 1.5`(토큰 1.35), `'${cohort.recruitCount}명'` | 숫자 · 줄 높이 |
 | 목표 배지 | `R6EEu`(`h1CMd`) | #FFFFFF, users 18, "첫 100명 모집 중" 134×35(글자 값 없음) | **없음(Q3 (가))** | 없음 단정 |
 | 초대 안내 | `G5OV3t` | "친구와 함께 시작하면 첫날부터 더 많은 캠퍼스 친구를 만날 수 있어요." 14/400 #3F3F3F lh1.5 (문구는 PNG 08) | `bodySmall.copyWith(color: AppColors.body, height: 1.5)` | 문구 |
 | 친구 초대 | `FftE4` | 일반 frame 328×52 #FF385C r8, "친구에게 초대 링크 보내기" 18/700 흰색. 본문 아래에 붙음(y567 + 52 = 619 = 본문 643 − 아래 24, PNG 로 잰 계산값) | 로컬 `ElevatedButton` 52h · `AppRadius.sm` · `AppColors.primary` · `AppTypography.label` 흰색(결정 10) | 누르면 공유(A4) |
