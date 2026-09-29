@@ -205,7 +205,11 @@ class _ProofUploader extends StatelessWidget {
                   children: [
                     const Icon(AppIcons.imagePlus, size: 32, color: AppColors.disabled),
                     const SizedBox(height: AppSpacing.xs),
-                    Text(_uploaderLabel, style: AppTypography.labelSmall.copyWith(color: AppColors.disabled)),
+                    // pen WmkOO 14/600, 줄높이 속성 없음 · 렌더 20.
+                    Text(
+                      _uploaderLabel,
+                      style: AppTypography.labelSmall.copyWith(color: AppColors.disabled, height: 20 / 14),
+                    ),
                   ],
                 )
               : Image.file(photo, fit: BoxFit.contain, semanticLabel: _uploaderLabel),

@@ -10,6 +10,7 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -136,6 +137,16 @@ void main() {
     expect(find.text('18c'), findsNothing);
     await tester.pump(const Duration(seconds: 3));
     expect(find.text(heartTaskMonthlyLimitMessage), findsNothing);
+  });
+
+  testWidgets('업로더 안 아이콘 32 · 간격 8 · 글자 렌더 20 이다(pen u7vbr sgGN4 · WmkOO)', (tester) async {
+    await pump(tester);
+
+    final icon = find.byIcon(AppIcons.imagePlus);
+    final label = find.text('스크린샷 첨부하기');
+    expect(tester.getSize(icon), const Size(32, 32));
+    expect(tester.getRect(label).top - tester.getRect(icon).bottom, 8);
+    expect(tester.getSize(label).height, 20);
   });
 
   testWidgets('업로더 잉크는 업로더 자신의 Material 에 그린다(COMMON §4-2)', (tester) async {
