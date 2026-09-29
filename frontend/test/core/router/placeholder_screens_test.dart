@@ -43,7 +43,7 @@ void main() {
       await tester.pump();
     }
 
-    // 설정(16)으로 가는 문은 15 내 프로필(`r8oJc`) 톱니 하나뿐이고 그 화면이 생겼다 — 준비 중 화면엔 어느 탭이든 톱니가 없다.
+    // 설정(16)으로 가는 문은 15 내 프로필(`nkFJV`) 톱니 하나뿐이고 그 화면이 생겼다 — 준비 중 화면엔 어느 탭이든 톱니가 없다.
     for (final tab in [AppTab.community, AppTab.me]) {
       testWidgets('${tab.name} 탭 준비 중 화면에는 톱니가 없다', (tester) async {
         await pumpTab(tester, tab);

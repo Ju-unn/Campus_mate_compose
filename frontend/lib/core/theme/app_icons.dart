@@ -72,7 +72,7 @@ abstract final class AppIcons {
   /// 공개 범위 안내 (DESIGN.md 화면 3c — "카드와 프로필에 공개돼요")
   static const IconData eye = LucideIcons.eye;
 
-  /// 화면 15 "AI 아바타" 작은 배지 (pen `CRZX0`)
+  /// 20 추천 코드 "마지막 단계" 배지 (pen `h1CMd`)
   static const IconData sparkles = LucideIcons.sparkles;
 
   /// 화면 15 "내 키" Facts 행·"선호 키 범위" 행 (pen `K31sZl` · `Te5KQ`)
@@ -95,4 +95,7 @@ abstract final class AppIcons {
   static const IconData share2 = LucideIcons.share2;
   static const IconData vote = LucideIcons.vote;
   static const IconData gift = LucideIcons.gift;
+
+  /// 화면 15 "프로필 편집" 입구 행 (pen `sC8BR`)
+  static const IconData pencil = LucideIcons.pencil;
 }
