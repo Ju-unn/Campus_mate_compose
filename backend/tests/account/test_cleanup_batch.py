@@ -55,17 +55,19 @@ def test_a_failure_does_not_stop_the_next_person_in_line(client, world):
     assert len(world.calls("DELETE", f"/auth/v1/admin/users/{RECENT}")) == 1
 
 
-def test_reports_go_one_year_after_they_were_made_not_after_they_were_resolved(client, world):
+def test_reports_go_one_year_after_they_were_resolved_and_open_ones_stay(client, world):
+    """ERD_DECISIONS §11-23: 처리(조치 · 기각)가 끝나고 1년 뒤 지운다. 열린 신고는 몇 년이 지나도 남는다."""
     world.reports = [
-        {"id": "r-old", "created_at": NOW - timedelta(days=366), "resolved_at": None},
-        {"id": "r-new", "created_at": NOW - timedelta(days=364), "resolved_at": NOW - timedelta(days=400)},
+        {"id": "r-open", "created_at": NOW - timedelta(days=800), "resolved_at": None},
+        {"id": "r-resolved-old", "created_at": NOW - timedelta(days=500), "resolved_at": NOW - timedelta(days=366)},
+        {"id": "r-resolved-new", "created_at": NOW - timedelta(days=500), "resolved_at": NOW - timedelta(days=364)},
     ]
 
     result = _run(client)
 
     assert result["deleted_reports"] == 1
-    assert [r["id"] for r in world.reports] == ["r-new"]
-    assert "resolved_at" not in world.calls("DELETE", "/rest/v1/reports")[0].url.params
+    assert [r["id"] for r in world.reports] == ["r-open", "r-resolved-new"]
+    assert "created_at" not in world.calls("DELETE", "/rest/v1/reports")[0].url.params
 
 
 def test_expired_signup_blocks_go_but_infinity_stays(client, world):
@@ -83,7 +85,9 @@ def test_expired_signup_blocks_go_but_infinity_stays(client, world):
 
 def test_running_again_finds_nothing_left(client, world):
     world.withdrawn(OLD, days_ago=31)
-    world.reports = [{"id": "r-old", "created_at": NOW - timedelta(days=366), "resolved_at": None}]
+    world.reports = [
+        {"id": "r-old", "created_at": NOW - timedelta(days=400), "resolved_at": NOW - timedelta(days=366)},
+    ]
     world.signup_blocks = [{"email_hmac": "a", "blocked_until": NOW - timedelta(days=1)}]
     _run(client)
 

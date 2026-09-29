@@ -148,9 +148,12 @@ class AccountWorld:
         return httpx.Response(200, json=[{column: row[column] for column in params["select"].split(",")}])
 
     def _reports(self, method, params, body):
-        assert method == "DELETE" and set(params) >= {"created_at"}
-        cutoff = _when(params["created_at"])
-        gone = [r for r in self.reports if r["created_at"] < cutoff]
+        assert method == "DELETE"
+        # 보낸 날짜 조건(lt.)을 전부 건다. SQL `<` 처럼 null(열린 신고의 resolved_at)은 걸리지 않는다.
+        cutoffs = {column: _when(value) for column, value in params.items() if column != "select"}
+        assert cutoffs
+        gone = [r for r in self.reports
+                if all(r[column] is not None and r[column] < cutoff for column, cutoff in cutoffs.items())]
         self.reports = [r for r in self.reports if r not in gone]
         return httpx.Response(200, json=[{"id": r["id"]} for r in gone])
 
