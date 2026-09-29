@@ -34,6 +34,7 @@ echo -n "<service-role-key>" | gcloud secrets create supabase-service-role-key -
 echo -n "<placeholder-until-supabase-issues-whsec>" | gcloud secrets create auth-hook-signing-secret --data-file=-
 echo -n "<discord webhook url>" | gcloud secrets create discord-review-webhook-url --data-file=-
 
+# 2026-09-29 OIDC 전환으로 더는 만들지 않는다 — 서버가 읽지 않고 §4-3 6단계에서 폐기한다(기록으로 남긴다).
 # 조각 4: /batch/daily-cards 를 Cloud Scheduler 만 부르게 하는 공유 비밀.
 # 값은 아무 난수나 길게(예: openssl rand -base64 32) — 이 문서에 값을 적지 않는다.
 echo -n "<card batch secret>" | gcloud secrets create card-batch-secret --data-file=-
@@ -68,11 +69,12 @@ gcloud run deploy campus-mate-backend \
   --region asia-northeast3 \
   --allow-unauthenticated \
   --set-env-vars SUPABASE_URL=<project-url>,GOOGLE_CLOUD_PROJECT=<PROJECT_ID>,AVATAR_TASKS_QUEUE=<큐 이름>,AVATAR_WORKER_URL=<cloud-run-url>/tasks/avatar-generate,AVATAR_TASKS_SERVICE_ACCOUNT=<큐가 쓸 서비스 계정 이메일>,BATCH_AUDIENCE=<cloud-run-url>,BATCH_SERVICE_ACCOUNT=campus-mate-scheduler@<PROJECT_ID>.iam.gserviceaccount.com \
-  --set-secrets SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest,AUTH_HOOK_SIGNING_SECRET=auth-hook-signing-secret:latest,DISCORD_WEBHOOK_URL=discord-review-webhook-url:latest,CARD_BATCH_SECRET=card-batch-secret:latest,IDENTITY_HMAC_KEY=identity-hmac-key:latest,OPENAI_API_KEY=open-api-key:latest,PHONE_ENCRYPTION_KEY=phone-number-encryption-key:latest,DISCORD_REPORT_WEBHOOK_URL=discord-report-webhook-url:latest
+  --set-secrets SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest,AUTH_HOOK_SIGNING_SECRET=auth-hook-signing-secret:latest,DISCORD_WEBHOOK_URL=discord-review-webhook-url:latest,IDENTITY_HMAC_KEY=identity-hmac-key:latest,OPENAI_API_KEY=open-api-key:latest,PHONE_ENCRYPTION_KEY=phone-number-encryption-key:latest,DISCORD_REPORT_WEBHOOK_URL=discord-report-webhook-url:latest
 ```
 
-`CARD_BATCH_SECRET` 을 빠뜨리면 `/batch/daily-cards` 는 **아무 요청도 통과시키지 않는다**(전부 401).
+`BATCH_AUDIENCE` · `BATCH_SERVICE_ACCOUNT` 중 하나라도 빠뜨리면 세 배치(`/batch/*`)는 **아무 요청도 통과시키지 않는다**(전부 401).
 열린 채로 남는 쪽보다 닫힌 채로 실패하는 쪽을 택했다 — 카드가 안 나가면 바로 눈에 띈다.
+2026-09-29 OIDC 전환 5단계로 `CARD_BATCH_SECRET` 은 이 명령과 서버 코드에서 빠졌다(§4-3).
 
 **`IDENTITY_HMAC_KEY`·`OPENAI_API_KEY`·`PHONE_ENCRYPTION_KEY` 3개가 이 명령에서 빠져 있었다(PR #85 리뷰에서 잡음, §0 에는 시크릿 등록만 돼 있고 배포 명령에 연결이 안 됐던 것). `settings.py` 가 필수(`min_length=1` 등)로 요구하므로 빠지면 그 자리에서 기동이 실패한다.** → **2026-09-29 확인: 위 명령에 셋 다 들어 있다**(조각 6 배포 때 반영, 시크릿 이름 `identity-hmac-key` · `open-api-key` · `phone-number-encryption-key`). 조각 6 에서 `DISCORD_REPORT_WEBHOOK_URL`(`discord-report-webhook-url`, 신고 전용 채널 — 비어 있으면 신고 알림만 건너뛰고 경고 로그)이 더해졌다. `settings.py` 가 읽는 env · 시크릿은 위 한 줄로 전부다(2026-09-29 `settings.py` 와 대조)
 
@@ -109,11 +111,11 @@ gcloud scheduler jobs create http campus-mate-daily-cards \
   --attempt-deadline=600s
 ```
 
-**조각 6 에서 OIDC 로 전환 — §4-3.**
+**2026-09-29 OIDC 로 바꿨다(§4-3).** 위 `--headers` 줄은 옛 방식이고 지금 서버는 그 헤더를 받지 않는다 —
+job 을 새로 만들면 `--headers` 대신 §4-3 의 `--oidc-service-account-email` · `--oidc-token-audience` 를 쓴다.
 
-- 헤더 값은 위에서 만든 `card-batch-secret` 과 **같은 값**이어야 한다. 서버는 `hmac.compare_digest` 로 맞춰 본다.
 - Cloud Run 이 `--allow-unauthenticated` 라 이 엔드포인트는 스스로를 지킨다(조각 1a auth hook 과 같은 이유).
-- 비밀이 없거나 틀리면 401 이고, 그때는 아무 카드도 나가지 않는다.
+- 토큰이 없거나 틀리면 401 이고, 그때는 아무 카드도 나가지 않는다.
 - 실행 결과는 `{"issued": 3, "no_candidate": 1, "skipped_regions": ["busan"]}` 모양으로 돌아오고
   Cloud Logging 에 남는다. `skipped_regions` 는 오늘이 지급 요일이 아닌 지역그룹이다.
 - 실행 시간이 600초를 넘기 시작하면 지역그룹별로 job 을 나눈다(백로그).
@@ -145,10 +147,9 @@ gcloud scheduler jobs create http campus-mate-chat-gate \
   --attempt-deadline=600s
 ```
 
-**조각 6 에서 OIDC 로 전환 — §4-3.**
+**2026-09-29 OIDC 로 바꿨다(§4-3).** 위 `--headers` 줄은 옛 방식이다 — 카드 배치와 같은 스케줄러 계정 ·
+audience 를 쓴다(둘 다 우리 스케줄러만 부르는 엔드포인트라 나눌 이유가 없다).
 
-- **새 시크릿을 만들지 않는다.** 카드 배치와 같은 `card-batch-secret` 을 쓴다 — 둘 다 우리 스케줄러만
-  부르는 엔드포인트라 비밀을 나눌 이유가 없다. 시크릿 버전을 올리면 이 job 의 헤더도 같이 고쳐야 한다.
 - 실행 결과는 `{"reminded": 2, "closed": 1, "passed": 0}` 모양이고 Cloud Logging 에 남는다.
   `passed` 는 **양쪽이 수락했는데 통과 도장이 빠진 방을 배치가 대신 찍어 준 수**다. 0 이 정상이고,
   계속 올라오면 `/trust` 가 중간에 끊기고 있다는 뜻이다.
@@ -231,14 +232,17 @@ gcloud iam service-accounts add-iam-policy-binding <계정 이메일> \
 구글이 서명한 ID 토큰을 달고 오고, 서버는 공개키로 검증한 뒤 발급 계정까지 본다(`app/core/batch_auth.py`)
 — 복사해 둘 열쇠가 없어진다.
 
-서버는 지금 **둘 다 받는다** — 옛 헤더가 맞거나 **또는** ID 토큰이 맞으면 통과한다. 그래서 아래 순서대로
-가면 401 창이 없다. **각 단계의 "확인" 이 된 뒤에 다음 단계로 간다.**
+**2026-09-29 진행: 1~4단계 끝**(대장 — revision `00039-mbr`, job 셋 다 `auth=oidc` 200). **5단계 = 공유 열쇠 코드
+삭제 PR.** 6단계는 그 배포 뒤에 남았다.
+
+서버는 4단계까지 **둘 다 받았다** — 옛 헤더가 맞거나 **또는** ID 토큰이 맞으면 통과했다. 그래서 아래 순서대로
+가면 401 창이 없다. **각 단계의 "확인" 이 된 뒤에 다음 단계로 간다.** 5단계부터는 ID 토큰만 받는다.
 
 환경변수 2개가 새로 생긴다. 비밀이 아니라서 `--set-secrets` 가 아니라 §2 의 `--set-env-vars` 에 들어 있다.
 
 - `BATCH_AUDIENCE` — Cloud Run 서비스 URL, **경로 없이**(끝에 `/` 도 없이). 두 job 이 이 값 하나를 같이 쓴다.
 - `BATCH_SERVICE_ACCOUNT` — 스케줄러 서비스 계정 이메일 `campus-mate-scheduler@<PROJECT_ID>.iam.gserviceaccount.com`.
-- **둘 중 하나라도 비어 있으면 OIDC 로는 아무도 못 들어온다**(옛 헤더는 5단계 전까지 계속 된다).
+- **둘 중 하나라도 비어 있으면 OIDC 로는 아무도 못 들어온다** — 5단계 전에는 옛 헤더가 대신 열었지만, 5단계 뒤에는 배치가 전부 401 이다.
 
 §2 70행과 아래 `<cloud-run-url>` 은 이 명령이 찍는 값 그대로다(`https://` 포함, 경로 · 끝 `/` 없이):
 
@@ -303,18 +307,22 @@ gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.serv
 gcloud scheduler jobs update http campus-mate-daily-cards \
   --location=asia-northeast3 \
   --oidc-service-account-email=campus-mate-scheduler@<PROJECT_ID>.iam.gserviceaccount.com \
-  --oidc-token-audience=<cloud-run-url> \
-  --remove-headers=X-Batch-Secret
+  --oidc-token-audience=<cloud-run-url>
 
 gcloud scheduler jobs update http campus-mate-chat-gate \
   --location=asia-northeast3 \
   --oidc-service-account-email=campus-mate-scheduler@<PROJECT_ID>.iam.gserviceaccount.com \
-  --oidc-token-audience=<cloud-run-url> \
-  --remove-headers=X-Batch-Secret
+  --oidc-token-audience=<cloud-run-url>
+
+# 헤더는 따로 뺀다. --clear-headers 는 job 에 붙인 헤더를 **전부** 지운다 —
+# §4 · §4-1 의 만들기 명령이 붙인 헤더는 X-Batch-Secret 하나뿐이다.
+gcloud scheduler jobs update http campus-mate-daily-cards --location=asia-northeast3 --clear-headers
+gcloud scheduler jobs update http campus-mate-chat-gate --location=asia-northeast3 --clear-headers
 ```
 
-헤더를 빼는 플래그는 `--remove-headers` 다(`gcloud scheduler jobs update http --help`, SDK 586 에서 확인).
-계획서 초안의 `--update-headers` 는 헤더를 **더하거나 고치는** 플래그라 여기 맞지 않는다.
+**2026-09-29 실제로 한 순서다.** 처음 적었던 `--remove-headers=X-Batch-Secret`(OIDC 플래그와 한 명령)은
+`gcloud scheduler jobs update http --help` 에는 있지만 SDK 586 에서 `TypeError` 로 죽었다. 그래서 OIDC 를 먼저
+따로 붙이고 헤더는 `--clear-headers` 로 뺐다. `--update-headers` 는 헤더를 **더하거나 고치는** 플래그라 여기 맞지 않는다.
 
 확인: `gcloud scheduler jobs describe campus-mate-daily-cards --location=asia-northeast3 --format='yaml(httpTarget)'`
 에 `oidcToken`(계정 · audience)이 있고 `X-Batch-Secret` 이 없다. `campus-mate-chat-gate` 도 같다.
@@ -347,14 +355,23 @@ gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.serv
 `auth=` 로그 줄(`logger.warning`, 전환 확인용)도 같이 지운다.
 **이 PR 과 한 번에 넣지 않는 이유:** merge · 배포 순간 job 이 아직 옛 헤더라 배치가 전부 401 이 된다.
 
-확인: 배포 뒤 다음 정각 chat-gate 와 다음 날 07:00 daily-cards 가 200(4단계의 첫 `logging read`).
+**2026-09-29 한 것:** 옛 헤더 분기를 지우면 `verify_batch_caller` 가 할 일이 없어서 통째로 지웠다 — 세 배치
+라우터(카드 · 채팅 · 정리)가 아바타 워커처럼 `verify_oidc_token` 을 바로 부른다. `auth=` 로그 줄도 세 곳 다
+지웠으니 이 배포 뒤로는 2 · 4단계의 `textPayload:"auth="` 조회에 아무것도 안 나온다 — 200 은 첫 `logging read`
+(`httpRequest.status`)로 본다.
+
+확인: 배포 뒤 다음 정각 chat-gate · 04:00 cleanup · 07:00 daily-cards 가 200(4단계의 첫 `logging read`).
 
 **6단계 — 시크릿 폐기**
 
-5단계 배포에서 `CARD_BATCH_SECRET` 참조가 빠졌는지 **먼저** 본다. 남은 채로 버전을 끄면 새 인스턴스가
-시크릿을 못 읽어 뜨지 못한다.
+**먼저 서비스에서 `CARD_BATCH_SECRET` 참조를 뺀다.** `--source` 만 주는 배포(`cm_deploy.sh`)는 서비스에 붙은
+`--set-secrets` 참조를 그대로 두어서 5단계 배포 뒤에도 남아 있다. 서버는 이 env 를 읽지 않으니 남아 있어도
+기동은 된다(`tests/test_settings.py`) — 하지만 남은 채로 버전을 끄면 새 인스턴스가 시크릿을 못 읽어 뜨지 못한다.
 
 ```bash
+# 새 revision 이 하나 생긴다(이미지 · 다른 env · 시크릿은 그대로).
+gcloud run services update campus-mate-backend --region=asia-northeast3 --remove-secrets=CARD_BATCH_SECRET
+
 # 0 이 나와야 한다.
 gcloud run services describe campus-mate-backend --region=asia-northeast3 --format=yaml | grep -c card-batch-secret
 
@@ -365,7 +382,7 @@ gcloud secrets versions disable <쓰던 버전 번호> --secret=card-batch-secre
 gcloud secrets delete card-batch-secret
 ```
 
-확인: 다음 날 두 job 모두 200 이고, `gcloud secrets list` 에 `card-batch-secret` 이 없다.
+확인: 다음 날 세 job 모두 200 이고, `gcloud secrets list` 에 `card-batch-secret` 이 없다.
 
 **새 job 은 처음부터 OIDC 로 만든다** — 세 번째 job(정리 배치)도 `--oidc-service-account-email` ·
 `--oidc-token-audience=<cloud-run-url>` 로 만들고 `--headers` 는 붙이지 않는다. 계정 · 권한 · 서버 설정은 위 것을 그대로 쓴다.
@@ -394,6 +411,7 @@ cd backend
 
 **정리 배치 job** — 매일 04:00 Asia/Seoul 에 `/batch/cleanup`. **처음부터 OIDC 다**(§4-3 의 계정 · 권한 ·
 `BATCH_AUDIENCE` 를 그대로 쓰고 `--headers` 는 붙이지 않는다). 무료 한도 3 job 중 세 번째다. 3단계 배포 뒤에 만든다.
+**2026-09-29 만들었다**(대장 — OIDC · 헤더 없음, 손으로 돌려 200 확인).
 
 ```bash
 gcloud scheduler jobs create http campus-mate-cleanup \
@@ -415,7 +433,7 @@ gcloud scheduler jobs create http campus-mate-cleanup \
   `skipped_accounts` 는 파일 삭제가 실패해 **내일 다시** 할 사람이다. 며칠째 같은 수면 로그의 `탈퇴 계정 정리 건너뜀` 을 본다.
   `stale_key_rows` 가 0 이 아니면 `identity-hmac-key` 를 바꾼 뒤 옛 행이 남은 것이다(`app/signup_policy.py` 의 `IDENTITY_KEY_VERSION`).
 - 확인: `gcloud scheduler jobs run campus-mate-cleanup --location=asia-northeast3` 뒤 §4-3 4단계의 `logging read` 로
-  `/batch/cleanup` 200 과 `batch /batch/cleanup auth=oidc` 한 줄을 본다. 다시 돌려도 안전하다(두 번째는 전부 0).
+  `/batch/cleanup` 200 을 본다(`auth=` 한 줄은 §4-3 5단계에서 지웠다). 다시 돌려도 안전하다(두 번째는 전부 0).
 
 ## 4-5. 무료로 하트 모으기 — 검수 운영 절차 (2026-09-28, 계획서 `2026-09-28-heart-tasks.md`)
 
@@ -452,10 +470,11 @@ select public.grant_hearts('<profile_id>', -<지급한 하트>, 'admin_adjust', 
 
 | 항목 | 값 |
 | --- | --- |
-| 돌고 있는 revision | **`campus-mate-backend-00038-ggj`**(2026-09-29, 가입 동의 서버 #170 까지). 대장 기록에 남은 그 사이 revision: `00026-phq` · `00027-hbs` · `00030-9gn` · `00032-xfr` · `00033-tk6` · `00034-gxd` · `00035-rhd` · `00036-rtl` · `00037-kbv`(빠진 번호는 기록 없음) |
+| 돌고 있는 revision | **`campus-mate-backend-00039-mbr`**(2026-09-29, `00038-ggj` 에 OIDC env 두 개만 더했다 — 코드는 00038 과 같다). `00038-ggj` 는 가입 동의 서버 #170 까지다. 대장 기록에 남은 그 사이 revision: `00026-phq` · `00027-hbs` · `00030-9gn` · `00032-xfr` · `00033-tk6` · `00034-gxd` · `00035-rhd` · `00036-rtl` · `00037-kbv`(빠진 번호는 기록 없음) |
 | 마이그레이션 | 저장소 `supabase/migrations/` **52개**(2026-09-29 이 문서 담당이 셌다). 운영 마지막 적용 = `create_faq`(운영 기록 `20260929054505`), 그 앞 `create_user_consents`(`20260929051356`). 운영 쪽 개수는 세지 않았다 |
 | 조각 6 이후 새 시크릿 | `discord-report-webhook-url` → `DISCORD_REPORT_WEBHOOK_URL`(신고 전용 채널, version 1) |
-| 새 env | `BATCH_AUDIENCE` · `BATCH_SERVICE_ACCOUNT`(§4-3). **OIDC 전환(§4-3 1~6단계) · 정리 job `campus-mate-cleanup`(§4-4) 생성이 끝났는지는 이 문서에 확인된 값이 없다** — 대장 기록상 00030 배포 때는 두 값이 비어 옛 헤더만 쓰는 상태였다. 진행 상태를 확인해 아래 옛 표의 Scheduler job 칸을 고친다 |
+| 새 env | `BATCH_AUDIENCE` · `BATCH_SERVICE_ACCOUNT`(§4-3) — `00039-mbr` 에 들어 있다. 호출 계정 `campus-mate-scheduler`(`roles/run.invoker`) |
+| Cloud Scheduler job | **3개, 전부 OIDC · `X-Batch-Secret` 헤더 없음**(2026-09-29 대장이 gcloud 로 확인, 로그 `auth=oidc` 200 셋 다) — `campus-mate-daily-cards`(`0 7 * * *`) · `campus-mate-chat-gate`(`0 * * * *`) · `campus-mate-cleanup`(`0 4 * * *`, 09-29 새로 만듦). 셋 다 Asia/Seoul · asia-northeast3, 무료 한도 3개가 찼다. §4-3 은 1~4단계 끝, 5단계(공유 열쇠 코드 삭제) 배포 → 시크릿 참조 빼기 → 6단계가 남았다 |
 | Storage 버킷 | `avatars`(공개) · `profile-photos` · `student-id-temp` · `heart-task-proofs`(비공개 · 10MB · jpeg/png, 2026-09-28) — 정리 배치가 넷 다 비운다 |
 
 아래는 2026-09-26 기준 옛 표다(기록으로 남긴다).
@@ -468,6 +487,8 @@ select public.grant_hearts('<profile_id>', -<지급한 하트>, 'admin_adjust', 
 | Cloud Tasks 큐 | `avatar-generate`(asia-northeast3) — 재시도 1회(실효상 끔), 동시 처리 5, 호출자 서비스 계정 `avatar-task-invoker`(이메일 마스킹, §4-2) |
 | 마이그레이션 | **33개**(2026-09-26 사용자 결정으로 개정, 종전 32개 — 09-22 작성된 `sender_index` 마이그레이션이 누락돼 있다가 이번 배포에 같이 들어갔다, 저장소 `supabase/migrations/` 기준) |
 | `card-batch-secret` | **version 2** 를 쓴다 — version 1 은 값에 `\r` 이 섞여 401 이 나던 것이라 폐기했다. **두 job 이 같은 비밀을 쓴다**(§4-1) |
+
+**2026-09-29 OIDC 전환 뒤로는 아래 절차를 쓰지 않는다** — job 에 헤더가 없고 서버도 읽지 않는다. 시크릿은 §4-3 6단계에서 폐기한다.
 
 `--set-secrets` 는 `card-batch-secret:latest` 를 참조하므로 새 버전을 올리면 재배포 없이 따라간다.
 반대로 **Scheduler 헤더 값은 자동으로 따라가지 않는다** — 시크릿 버전을 올렸으면 job 도 같이 고친다:
