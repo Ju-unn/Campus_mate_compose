@@ -15,7 +15,8 @@ insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000c7
 
 select has_table('public', 'user_consents', '동의 기록 표가 있다');
 select enum_has_labels('public', 'consent_kind',
-  array['terms', 'privacy', 'sensitive_religion', 'overseas_transfer'], '필수 4항목');
+  array['terms', 'privacy', 'sensitive_religion', 'overseas_transfer'],
+  'enum 4값 — sensitive_religion · overseas_transfer 는 09-29 결정으로 안 받음(운영 적용분이라 값은 남는다)');
 select col_is_pk('public', 'user_consents', array['profile_id', 'kind', 'version'], '같은 판을 두 번 쌓지 않는다');
 select is((select relrowsecurity from pg_class where oid = 'public.user_consents'::regclass), true, 'RLS 켜짐');
 select ok(not has_table_privilege('authenticated', 'public.user_consents', 'select'), '앱은 직접 못 읽는다');

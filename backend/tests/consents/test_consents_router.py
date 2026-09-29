@@ -17,7 +17,7 @@ from app.settings import Settings
 
 PROFILE_ID = UUID("11111111-1111-1111-1111-111111111111")
 AUTH_HEADERS = {"Authorization": "Bearer valid-token"}
-ALL = ["terms", "privacy", "sensitive_religion", "overseas_transfer"]
+ALL = ["terms", "privacy"]
 CURRENT_ROWS = [{"kind": k, "version": CONSENT_VERSION} for k in ALL]
 NOW = datetime(2026, 9, 29, 21, 0, tzinfo=SEOUL)
 
@@ -70,7 +70,7 @@ def _writes(sent: list[httpx.Request], table: str) -> list[httpx.Request]:
     return [r for r in sent if f"/rest/v1/{table}" in str(r.url) and r.method != "GET"]
 
 
-def test_submit_records_four_required_kinds_in_one_post_with_server_version():
+def test_submit_records_required_kinds_in_one_post_with_server_version():
     sent, client = _wire([])
 
     response = client.post("/me/consents", headers=AUTH_HEADERS, json={"agreed": ALL, "marketing": False})
@@ -88,7 +88,7 @@ def test_submit_records_four_required_kinds_in_one_post_with_server_version():
 def test_submit_missing_required_kind_is_400_without_writes():
     sent, client = _wire([])
 
-    response = client.post("/me/consents", headers=AUTH_HEADERS, json={"agreed": ALL[:3], "marketing": True})
+    response = client.post("/me/consents", headers=AUTH_HEADERS, json={"agreed": ALL[:1], "marketing": True})
 
     assert response.status_code == 400
     assert response.json()["detail"] == errors.CONSENT_INCOMPLETE
@@ -96,10 +96,12 @@ def test_submit_missing_required_kind_is_400_without_writes():
     assert _writes(sent, "notification_settings") == []
 
 
-def test_submit_unknown_kind_is_422_without_writes():
+@pytest.mark.parametrize("kind", ["adult", "sensitive_religion", "overseas_transfer"])
+def test_submit_unknown_or_retired_kind_is_422_without_writes(kind: str):
+    # 종교 · 국외 이전은 09-29 결정으로 받지 않는다(enum 에만 남은 값).
     sent, client = _wire([])
 
-    response = client.post("/me/consents", headers=AUTH_HEADERS, json={"agreed": [*ALL, "adult"], "marketing": False})
+    response = client.post("/me/consents", headers=AUTH_HEADERS, json={"agreed": [*ALL, kind], "marketing": False})
 
     assert response.status_code == 422
     assert _writes(sent, "user_consents") == []

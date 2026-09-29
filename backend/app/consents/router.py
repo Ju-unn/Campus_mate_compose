@@ -15,7 +15,8 @@ router = APIRouter()
 
 
 class ConsentRequest(BaseModel):
-    agreed: list[Literal["terms", "privacy", "sensitive_religion", "overseas_transfer"]]
+    # policy.REQUIRED_KINDS 와 같은 두 값만 받는다 — 종교 · 국외 이전은 09-29 결정으로 안 받음.
+    agreed: list[Literal["terms", "privacy"]]
     marketing: bool = False
 
 
@@ -23,7 +24,7 @@ class ConsentRequest(BaseModel):
 async def submit_consents(
     body: ConsentRequest, caller: Caller = Depends(get_caller), now: datetime = Depends(get_now)
 ) -> dict[str, bool]:
-    """필수 4항목은 이번 판으로 쌓는다. 학생증 관문 앞이라 get_caller 다(탈퇴만 막힌다)."""
+    """필수 항목(terms · privacy)은 이번 판으로 쌓는다. 학생증 관문 앞이라 get_caller 다(탈퇴만 막힌다)."""
     settings, client, profile_id = caller
     if set(body.agreed) != REQUIRED_KINDS:
         raise HTTPException(status_code=400, detail=errors.CONSENT_INCOMPLETE)
