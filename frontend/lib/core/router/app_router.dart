@@ -19,6 +19,8 @@ import 'package:campus_mate/core/auth/account_status_listenable.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/router/auth_redirect.dart';
 import 'package:campus_mate/core/router/placeholder_screens.dart';
+import 'package:campus_mate/friend_review/view/friend_review_compose_sheet.dart';
+import 'package:campus_mate/friend_review/view/received_reviews_screen.dart';
 import 'package:campus_mate/home/view/home_screen.dart';
 import 'package:campus_mate/matching/model/acceptance.dart';
 import 'package:campus_mate/matching/view/card_detail_screen.dart';
@@ -153,13 +155,25 @@ abstract final class AppRouter {
         ),
       ),
       GoRoute(path: AppRoutes.heartTaskPending, builder: (context, state) => const HeartTaskPendingScreen()),
+      GoRoute(path: AppRoutes.friendReviews, builder: (context, state) => const ReceivedReviewsScreen()),
     ];
   }
 
   /// 조각 4 — 오늘의 카드와 그 주변. `home` 은 09b 메인이고 서버 `/home/summary` 로 채운다 — 사람들 칸·리뷰 칸만 목값이다(`homeRepositoryProvider`).
   static List<RouteBase> _slice4Routes() {
     return <RouteBase>[
-      GoRoute(path: AppRoutes.home, builder: (context, state) => const HomeScreen()),
+      GoRoute(
+        path: AppRoutes.home,
+        builder: (context, state) => const HomeScreen(),
+        routes: [
+          // 20b — AppRoutes.friendReviewWrite/:profileId. 홈이 밑에 깔리고 그 위에 시트가 뜬다(추천 가입 푸시).
+          GoRoute(
+            path: 'friend-reviews/write/:profileId',
+            pageBuilder: (context, state) =>
+                FriendReviewComposePage(key: state.pageKey, revieweeId: state.pathParameters['profileId']!),
+          ),
+        ],
+      ),
       GoRoute(path: AppRoutes.today, builder: (context, state) => const TodayCardsScreen()),
       GoRoute(
         path: '${AppRoutes.cardDetail}/:cardId',

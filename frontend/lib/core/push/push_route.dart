@@ -10,6 +10,12 @@ abstract final class PushRoute {
         'acceptances' || 'match' => AppRoutes.conversations,
         // 새 메시지·신뢰 확인 리마인드·공개 알림은 그 방으로 바로 보낸다.
         'chat' => _chatRoom(data),
+        // 지인 리뷰 — 새 리뷰는 받은 목록, 추천 가입은 그 친구의 리뷰 쓰기. 누구에게 쓸지 모르면 보내지 않는다.
+        'friend_reviews' => AppRoutes.friendReviews,
+        'friend_review_write' => switch (data['profile_id']) {
+            final String id when id.isNotEmpty => '${AppRoutes.friendReviewWrite}/$id',
+            _ => null,
+          },
         _ => null,
       };
 

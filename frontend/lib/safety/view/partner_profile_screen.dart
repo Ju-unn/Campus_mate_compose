@@ -5,6 +5,7 @@ import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/friend_review/view/partner_reviews_section.dart';
 import 'package:campus_mate/matching/view/card_detail_screen.dart';
 import 'package:campus_mate/safety/model/partner_profile.dart';
 import 'package:campus_mate/safety/model/safety_repository.dart';
@@ -18,7 +19,7 @@ import 'package:go_router/go_router.dart';
 
 /// 14c 상대 프로필 상세(pen `VTX3D`). 본문은 10b 카드([ProfileCard])를 그대로 쓰고,
 /// 14c 에만 있는 것(실사진 · 신뢰 배지 · 카카오 카드 · 신고/차단 링크)을 카드 슬롯에 꽂는다.
-/// 10b 와 달리 결정 바(거절 · 수락)와 하단 내비가 없다. 지인 리뷰는 서버가 아직 내리지 않아 그리지 않는다.
+/// 10b 와 달리 결정 바(거절 · 수락)와 하단 내비가 없다. 지인 리뷰 섹션([PartnerReviewsSection])은 14c 에만 있다.
 class PartnerProfileScreen extends ConsumerWidget {
   const PartnerProfileScreen({required this.profileId, super.key});
 
@@ -107,6 +108,7 @@ class _ProfileBody extends ConsumerWidget {
         nameTrailing: revealed ? const _TrustBadge() : null,
         footer: _Footer(
           afterIdealNote: profile.detail.idealNote != null,
+          reviews: PartnerReviewsSection(profileId: profileId, nickname: profile.detail.profile.nickname),
           kakao: revealed ? _KakaoCard(kakaoId: profile.kakaoId) : null,
           onReport: () => reportThenLeave(context, ref, ReportTarget.profile(profileId)),
           onBlock: () => _block(context, ref),
@@ -180,6 +182,7 @@ class _TrustBadge extends StatelessWidget {
 class _Footer extends StatelessWidget {
   const _Footer({
     required this.afterIdealNote,
+    required this.reviews,
     required this.kakao,
     required this.onReport,
     required this.onBlock,
@@ -187,6 +190,7 @@ class _Footer extends StatelessWidget {
 
   /// 카드 마지막 칸이 "이런 사람이 좋아요" 글이다.
   final bool afterIdealNote;
+  final Widget reviews;
 
   /// 게이트 뒤에만 있다.
   final Widget? kakao;
@@ -201,6 +205,7 @@ class _Footer extends StatelessWidget {
         // 카드의 다른 마지막 칸(태그 · 외모 타입)은 섹션 간격 13(pen `TORAs`)으로 끝나는데 이 글만 0 으로 끝난다.
         // pen `VTX3D` 에는 이 칸이 없어 10b 값을 따른다(결정: 사용자 (가), 통합대장 09-27).
         if (afterIdealNote) const SizedBox(height: 13),
+        reviews,
         if (kakao != null) ...[kakao!, const SizedBox(height: 1)],
         const Divider(height: 1, thickness: 1, color: AppColors.hairlineSoft),
         // 배율을 키우면 두 링크가 한 줄에 안 들어간다 — 넘치지 않게 다음 줄로 내린다.
