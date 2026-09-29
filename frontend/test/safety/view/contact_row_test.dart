@@ -37,7 +37,8 @@ void main() {
     await pump(tester, ContactRow(name: '김지은', number: '010-****-2841', selected: false, onTap: () {}));
     expect(find.byIcon(AppIcons.check), findsNothing);
     final off = tester.widget<Container>(box(AppColors.canvas));
-    expect((off.decoration! as BoxDecoration).border, Border.all(color: AppColors.outline));
+    // pen zlg4q 테두리 1.5 — 약관 동의 02-c 와 같은 AppCheckbox 로 옮기며 1 에서 맞췄다(대장 허락 2026-09-29).
+    expect((off.decoration! as BoxDecoration).border, Border.all(color: AppColors.outline, width: 1.5));
 
     await pump(tester, ContactRow(name: '김지은', number: '010-****-2841', selected: true, onTap: () {}));
     final on = find.ancestor(of: find.byIcon(AppIcons.check), matching: box(AppColors.primary));

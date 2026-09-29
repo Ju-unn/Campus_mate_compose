@@ -1,6 +1,6 @@
 import 'package:campus_mate/account/view/withdraw_sheets.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
-import 'package:campus_mate/core/auth/sign_out.dart';
+import 'package:campus_mate/core/auth/confirm_sign_out.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -9,7 +9,6 @@ import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/matching/viewmodel/notification_settings_view_model.dart';
 import 'package:campus_mate/referral/view/invite_friends_sheet.dart';
 import 'package:campus_mate/safety/view/contact_permission_sheets.dart';
-import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -87,7 +86,7 @@ class SettingsScreen extends ConsumerWidget {
                 leading: const Icon(AppIcons.logOut, color: AppColors.muted),
                 title: Text('로그아웃', style: AppTypography.subtitle.copyWith(color: AppColors.ink)),
                 trailing: const Icon(AppIcons.chevronRight, color: AppColors.muted),
-                onTap: () => _confirmSignOut(context, ref),
+                onTap: () => confirmSignOut(context, ref),
               ),
               if (state.errorMessage != null)
                 ListTile(
@@ -112,20 +111,5 @@ class SettingsScreen extends ConsumerWidget {
         ),
       ),
     );
-  }
-
-  /// 16g(pen `ZkOEb`). 틀이 안전 확인 시트(`aCTy1`)와 같아 그대로 쓴다. 확인하면 시트가 먼저 닫히고,
-  /// 로그아웃이 끝나면 라우터가 로그인 화면으로 보낸다 — 여기서 이동하지 않는다.
-  Future<void> _confirmSignOut(BuildContext context, WidgetRef ref) async {
-    final signOut = ref.read(signOutProvider);
-    final confirmed = await showSafetyConfirmSheet(
-      context,
-      title: '로그아웃할까요?',
-      description: '다시 로그인하려면 학교 이메일로 인증 코드를 한 번 더 받아야 해요.',
-      confirmLabel: '로그아웃',
-    );
-    if (confirmed) {
-      await signOut();
-    }
   }
 }

@@ -1,3 +1,4 @@
+import 'package:campus_mate/common/widgets/app_checkbox.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -55,7 +56,7 @@ class ContactRow extends StatelessWidget {
           _Avatar(initial: showInitial && name.isNotEmpty ? name.characters.first : null),
           const SizedBox(width: AppSpacing.sm),
           Expanded(child: _NameColumn(name: name, number: number)),
-          if (selected != null) ...[const SizedBox(width: AppSpacing.sm), _CheckBox(checked: selected!)],
+          if (selected != null) ...[const SizedBox(width: AppSpacing.sm), AppCheckbox(checked: selected!)],
           if (onRemove != null) ...[const SizedBox(width: AppSpacing.sm), _RemoveButton(onPressed: onRemove!)],
         ],
       ),
@@ -128,32 +129,6 @@ class _Number extends StatelessWidget {
       label: number,
       excludeSemantics: true,
       child: Wrap(children: [for (final match in _segment.allMatches(number)) Text(match[0]!, style: style)]),
-    );
-  }
-}
-
-/// 체크 칸 24, 모서리 6. 켜짐(pen `ORl5o`) primary 채움 + 흰 체크 16, 꺼짐(`zlg4q`) 흰 채움 + outline 테두리.
-class _CheckBox extends StatelessWidget {
-  const _CheckBox({required this.checked});
-
-  final bool checked;
-
-  /// pen 모서리 6 은 라운드 토큰(sm 8)보다 작은 값이다.
-  static const double _radius = 6;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 24,
-      height: 24,
-      // 가운데 정렬이 없으면 Container 가 체크 아이콘을 24 로 조인다(pen 체크 16).
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: checked ? AppColors.primary : AppColors.canvas,
-        borderRadius: BorderRadius.circular(_radius),
-        border: checked ? null : Border.all(color: AppColors.outline),
-      ),
-      child: checked ? const Icon(AppIcons.check, size: 16, color: AppColors.onPrimary) : null,
     );
   }
 }
