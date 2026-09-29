@@ -90,6 +90,22 @@ def _item(row: dict, supabase_url: str) -> dict:
     }
 
 
+def _written_item(row: dict, supabase_url: str) -> dict:
+    """내가 쓴 리뷰 한 장. `_item` 과 같은 모양, 사람 키만 reviewee. reviewee_id 는 싣지 않는다."""
+    reviewee = row["reviewee"]
+    return {
+        "id": row["id"],
+        "reviewee": {
+            "nickname": reviewee["nickname"],
+            "avatar_url": avatar_url(reviewee, supabase_url),
+            "university": (reviewee.get("universities") or {}).get("name"),
+        },
+        "tags": row["tags"],
+        "comment": row["comment"],
+        "created_at": row["created_at"],
+    }
+
+
 async def _visible(w: _Wiring, reviewee: str, blocked: set[str]) -> dict:
     """reviewee 가 받은 리뷰 중 지금 보는 사람에게 보여 줄 것(결정 6). DB 가 active · visible 을 거르지만
     한 번 더 본다 — embed 필터 이름이 틀려도 탈퇴자 리뷰가 새지 않게. blocked 는 요청마다 한 번만 읽어 넘긴다."""
@@ -171,3 +187,19 @@ async def notify_review_request(cards: CardRepository, sender: FcmSender, referr
                      {"route": "friend_review_write", "profile_id": referee_id}, now=now)
     except Exception:
         logger.exception("추천 리뷰 요청 푸시 실패 referrer=%s referee=%s", referrer_id, referee_id)
+
+
+@router.get("/friend-reviews/written")
+async def list_written(w: _Wiring = Depends(_wire)) -> dict:
+    """20e "내가 쓴 리뷰"(결정 1 · 4). visible 만. 받은 사람이 탈퇴면 빠지고 정지는 남는다(내 글)."""
+    rows = await w.repo.fetch_written(w.profile_id)
+    # DB 가 탈퇴한 받은 사람을 거르지만 한 번 더 본다(`_visible` 과 같은 이유).
+    return {"reviews": [_written_item(row, w.settings.supabase_url) for row in rows
+                        if row["reviewee"].get("status") != "withdrawn"]}
+
+
+@router.delete("/friend-reviews/{review_id}", status_code=204)
+async def delete_review(review_id: UUID, w: _Wiring = Depends(_wire)) -> None:
+    """작성자 삭제(결정 1 · 2 · 6). 하드 삭제, 푸시 없음. 지운 행이 없으면 이유를 가르지 않고 같은 404."""
+    if not await w.repo.delete_own(review_id, w.profile_id):
+        raise HTTPException(status_code=404, detail=errors.FRIEND_REVIEW_NOT_FOUND)
