@@ -47,9 +47,11 @@ class AccountRepository(PostgrestRepository):
         return len(response.json())
 
     async def delete_reports_before(self, cutoff: datetime) -> int:
-        # 계획서 B3: 처리 시각(resolved_at)이 아니라 신고한 시각에서 1년이다 — 열린 신고도 1년이면 지운다.
+        # ERD_DECISIONS §11-23: 처리(조치 · 기각)가 끝난 시각에서 1년이다. 열린 신고는 resolved_at 이
+        # null 이라(reports_status_pair) `lt.` 에 걸리지 않고 남는다.
+        # ponytail: resolved_at 인덱스 없음(created_at 인덱스는 옛 기준) — 신고가 수만 건이면 인덱스 마이그레이션.
         return await self._delete_counted("reports", {
-            "created_at": f"lt.{cutoff.isoformat()}", "select": "id",
+            "resolved_at": f"lt.{cutoff.isoformat()}", "select": "id",
         })
 
     async def delete_signup_blocks_before(self, now: datetime) -> int:
