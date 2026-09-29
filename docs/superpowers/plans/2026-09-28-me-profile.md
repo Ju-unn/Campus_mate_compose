@@ -453,6 +453,56 @@ Step), A1 에서 미룬 `PhotoSlot` · `savePhotos`(Interfaces · multipart 테�
 - 커밋: `PhotoSlot` · `savePhotos` / `SelectedPhoto` 두 모양(온보딩 동작 그대로) / 칸 위젯 `photo_tiles.dart` 로 옮기기(04-2
   동작 · 테스트 0 변경) / 편집 뷰모델 / 15e 화면 + `/me/photos` / 15-5 연결 / 계획서.
 
+## Part A — 앱 PR 3-2 (15d 기본 정보 수정, 대장 배정 09-29 — PR 4 뒤)
+
+브랜치 `feat/me-basic-info-app`, 워크트리 `…/campus_mate_compose-me-basic`. PR 4(#166, `feat/me-photos-app` `718e83a`)
+위에 쌓는다 — 15-5 · 라우터가 겹친다. #166 merge 뒤 `rebase --onto origin/main 718e83a`.
+
+### 결정 (대장 09-29, 값표 `Desktop/조각6_검토/값표_15d.md` · PNG `값표_15d_png/` 01 mhdYA · 02 ZuPTD)
+
+| # | 무엇 | 답 |
+| --- | --- | --- |
+| B1 | 키 값 글자 색 | **#222222**(`AppColors.ink`). pen `BdRVU` 는 색 override 가 빠져 자리표시 #929292 — 채워진 수정 가능 값이라 대비 2.9 미달 |
+| B2 | 저장 꺼짐 | 바뀐 것이 없거나 형식 오류면 `AppButton` 꺼짐(button-disabled #E5E5E5 / #929292, DESIGN 462). 15d-2 도 키를 바꾸면 켜진다 |
+| B3 | 닉네임 확인 시트 | 만들지 않는다(pen 없음) — helper(30일 1회)로 충분 |
+| B4 | 저장 성공 | 15-5 로 돌아가 `me_toast` 토스트 **"저장했어요"**(15c · 태그 · 06-1 · 15e 는 토스트 없이 돌아온다 — 15d 만 다름) |
+| B5 | 오류 | **칸 탓 오류**(닉네임 형식 · 중복 · 서버 409 두 종 · 키 형식 · 키 422)는 **칸 아래 빨간 helper**, **칸 탓이 아닌 실패**(네트워크 등)는 04-1 처럼 **버튼 위 오류 글**(대장 확인 09-29 — 어느 칸의 잘못도 아니므로) |
+| B6 | 저장 중 | `AppButton(isLoading: true)`(버튼 안 흰 스피너, D8) |
+| B7 | 앱바 | `EditAppBar(title: '기본 정보 수정')` — pen `m2PTHo` 는 인스턴스가 아니지만 값이 같다 |
+
+### 화면 대조표 — 15d `mhdYA`(360×780) · 15d-2 `ZuPTD` — `lib/me/view/basic_info_edit_screen.dart`
+
+| 요소 | pen 값 | 노드 id |
+| --- | --- | --- |
+| 앱바 | 56, padding [0,8], gap 4, 뒤로 48(arrow-left 22 #222222), 제목 "기본 정보 수정" 20/700 lh1.5(렌더 31) | `m2PTHo` / `a5tD2` / `WyAy6` |
+| 본문 | padding [0,24,28,24], 위 32 → 닉네임 → 16 → 키 → Spacer(fill) → 저장. 내비 없음 | `fP8cs` / `We4y3` / `MNhYr` / `YXKHl` |
+| 칸 틀(TextInput `PccKZ`) | 세로 gap 8(라벨 ↔ 상자 ↔ helper). 라벨 14/600 #3F3F3F(렌더 20). 상자 높이 56, #F7F7F7, r8, 테두리 #767676 1, padding [0,16], 세로 가운데. 값 16/400(렌더 23). helper 12/400, 아이콘 14 + gap 4 | `PccKZ` / `VCwQo` / `TDM1r` / `p3T9Jb` / `a1eaV` |
+| 닉네임 | 라벨 "닉네임", 값 #222222, helper info #6A6A6A + "30일에 한 번 바꿀 수 있어요" #6A6A6A | `G1tl8` |
+| 키 | 라벨 **"키 (cm)"**(상자 안 단위 글자 없음), 값 **#222222(B1)**, helper 없음(오류 때만) | `BdRVU` |
+| 저장 | `AppButton` "저장" 312×56 #FF385C r16, 좌우 24 · 아래 28, 바닥 고정(15c · 15e 와 같은 구조) | `fx0HX` |
+| 15d-2 잠긴 닉네임 | 테두리 **#DDDDDD**(hairline), 바탕 #F7F7F7 그대로, 값 #929292(disabled), 오른쪽 lock 20 #929292(오른쪽 16, 값과 gap 8), 입력 불가. helper clock-3 14 #6A6A6A + "`M`월 `D`일부터 바꿀 수 있어요" #6A6A6A | `V3sicJ` |
+| 15d-2 키 · 저장 | 키는 고칠 수 있다. 저장은 B2 규칙 | `fFMVJ` / `qOevq` |
+| 오류 helper(B5) | circle-alert 14 #C13515 + 12/400 #C13515(마스터 `a1eaV` 기본값) — 04-1 과 같은 모양 | `PccKZ/a1eaV` |
+
+### Task A16: 15d 기본 정보 수정 (옛 계획서 A7 + A2 `/me/basic-info` — 입구만 15-5 `A8LX2`)
+
+옛 계획서 `2026-09-27-me-edit.md` Task A7(Interfaces · 날짜는 한국 시각 `at.toUtc().add(Duration(hours: 9))` · 닉네임 형식 ·
+중복 확인 · 키 3자리 · `updateProfile(nickname:, heightCm:)` · 서버 409 문구), A2 의 `myBasicInfo` 상수, 1절 U6 · C6 · D7,
+2-5 `PATCH /me/profile` 계약을 따른다. 바뀌는 것:
+
+- **입구**: 15-5 "수정 ›"(`A8LX2`) — "곧 열려요" 에서 `context.push(AppRoutes.myBasicInfo)` 로. 15-5 테스트 "수정 › → 곧 열려요" 는
+  "누르면 15d" 로 바꾼다. `comingSoonToast` 는 15b-3 충전이 계속 쓴다.
+- **저장 뒤**(B4): `context.pop(true)` → 15-5 가 `push` 결과가 true 면 `showTimedToast("저장했어요")`. 15-5 는 invalidate 된
+  `myProfileProvider` 로 새 값을 그린다.
+- **보내는 칸**: 바뀐 칸만 보낸다. 닉네임이 그대로면 보내지 않는다(잠금 중에 같은 닉네임을 보내는 일 자체를 없앤다). 키가
+  그대로면 보내지 않는다. 둘 다 그대로면 저장 꺼짐(B2).
+- **닉네임 중복 확인**: `GET /profile-onboarding/nickname-availability?nickname=`(서버가 내 행은 빼고 본다). 04-1 과 같은
+  형식 규칙 · 같은 확인 시점(04-1 뷰모델을 읽고 따른다). 지금 닉네임과 같으면 묻지 않는다.
+- **오류 자리**(B5): 닉네임 형식 · 중복 · 서버 409(`NICKNAME_TAKEN` · `NICKNAME_CHANGE_TOO_SOON`) → 닉네임 칸 아래. 키 형식 ·
+  서버 422(범위) → 키 칸 아래. 그 밖의 저장 실패(네트워크 등) → 04-1 이 저장 실패 문구를 두는 자리와 같게.
+- **글자 배율 · 잉크**: 배율 1.0 / 1.3 / 1.5 / 2.0 잘림 없음, 상자는 minHeight 56.
+- 커밋: 뷰모델 / 화면 + `/me/basic-info` / 15-5 연결 + "저장했어요" / 계획서.
+
 ---
 
 ## 검증 · 보고
@@ -669,3 +719,73 @@ null 안전 컴파일 오류라 `photo.file!.path` 로 바꿨다(값 · 뜻 같�
   없다` — 고치기 전 `Expected: <0>, Actual: <1>` 로 떨어지는 것을 봤다.
 - **사소 1 — 남김.** 409 직후 너무 빨리 다시 열면 `myProfileProvider`(autoDispose 아님)가 다시 읽는 동안 옛 값을 줘 409 가
   한 번 더 뜰 수 있다. 다시 열면 풀린다. 실기기에서 보이면 편집 뷰모델 build 가 로딩 중일 때 칸을 비우는 쪽으로 고친다.
+
+### A16 (PR 3-2, campus-coder, 2026-09-29)
+
+**뷰모델 `lib/me/viewmodel/basic_info_edit_view_model.dart`** — `BasicInfoEditViewModel`(autoDispose) + `BasicInfoEditUiState` 한
+파일(15c `profile_edit_view_model.dart` 와 같은 모양).
+- 열 때 `myProfileProvider` 를 read(watch 아님 — 15c · 15e 와 같다)해 닉네임 · 키 · `nicknameChangeableAt` 을 서버 값(saved)과
+  입력값에 같이 담는다. 키가 null 이면 빈 글자, 바꾸지 않으면 보내지 않는다.
+- 바뀐 칸만 보낸다(`isNicknameChanged` · `isHeightChanged`). 둘 다 그대로거나 바뀐 칸이 형식 오류면 `canSave` false(B2).
+- **중복 확인은 04-1 저장소(`basicInfoRepositoryProvider.checkNicknameAvailability`)를 그대로 쓴다** — 같은 GET 이라
+  `MeRepository` 에 새 메서드를 만들지 않았다. 형식 · 300ms 디바운스 · 낡은 결과 버리기 · 네트워크 실패는 말없이 = 04-1 과 같다.
+  지금 닉네임으로 되돌리면 묻지 않는다.
+- 문구(형식 · 중복 · 확인 중 · 사용 가능)는 UiState 에 다시 적었다 — 04-1 `BasicInfoUiState` 는 인스턴스 getter 라 빌려 쓸 수
+  없다. 테스트 하나가 04-1 문구와 글자 하나까지 같은지 고정한다. 키 범위 120~230 · "3자리를 다 친 뒤" 오류도 04-1 그대로.
+- 날짜는 `at.toUtc().add(9시간)` 의 월 · 일(옛 A7). `2026-10-26T15:00:00+00:00` → "10월 27일부터", `toLocal()` 로 받아도 같다.
+- **오류 자리(B5).** 서버 문구로 가른다(`chat_errors.dart` 방식): `NICKNAME_TAKEN` · `NICKNAME_CHANGE_TOO_SOON` → 닉네임 칸,
+  키를 보냈고 `INVALID_INPUT`(422) → 키 칸, 그 밖(네트워크 등) → 버튼 위 저장 실패 글(A16 "04-1 이 저장 실패 문구를 두는 자리").
+  B5 표의 "실패" 는 이 줄(A16 본문)로 읽었다. 서버 칸 오류는 그 칸을 고칠 때까지 남고 그동안 저장이 꺼진다(같은 409 반복 방지).
+  닉네임 · 키를 둘 다 보냈는데 422 면 어느 칸인지 몰라 버튼 위로 간다(앱 형식 검사가 막아 드물다).
+- 저장 중 `ref.keepAlive()`, 성공하면 `invalidate(myProfileProvider)` + completed. 실패하면 다시 읽지 않는다(15c 와 같다).
+
+**화면 `lib/me/view/basic_info_edit_screen.dart` + 경로**
+- `app_routes.dart` 상수 `myBasicInfo` 1 · `app_router.dart` `_meRoutes()` GoRoute 1 + import 1(허락 범위). 라우터 테스트
+  `/me/basic-info 는 15d 기본 정보 수정이다`.
+- **`app_icons.dart` 에 `info` 한 줄 + 주석(대장 (가) 09-29)** — 15d helper `G1tl8` 아이콘이 AppIcons 에 없었다. 채팅탭 지인 리뷰
+  PR 도 같은 이름을 넣는다 — rebase 때 정리는 대장 몫.
+- 칸은 04-1 `LabeledField`(common, 고치지 않음)를 쓰지 않고 `_InputField` 로 다시 그렸다 — 잠김(입력 불가 · hairline · lock
+  suffix) · helper 앞 아이콘(info · clock-3) · 상자 56 · 라벨 ↔ 상자 8 이 `LabeledField` 에 없다. 오류 모양(테두리 error 2 ·
+  circle-alert 14 · 12/400 error)과 누름 테두리 primary, 입력 포매터(`nicknameInputFormatters` · `heightInputFormatters`)는 04-1
+  그대로 가져왔다.
+- **값 여백.** Material 3 는 외곽선 칸 값 양옆에 `gapPadding`(4)을 더 둔다 — 그대로면 값이 pen 16 이 아니라 20 에서 시작해
+  `gapPadding: 0`. (04-1 `LabeledField` 도 같은 기본값이라 20 일 것으로 보인다 — 재지 않았고 고치지 않았다, 참고만.)
+- 상자 위아래 여백은 (56 − 23) / 2 = 16.5 — 자물쇠가 pen 대로 상자 한가운데(y18)에 온다. pen 값 글자는 y17 이라 0.5 차이.
+  56 은 `constraints` 최소값이라 글자를 키우면 늘어난다.
+- 줄높이는 pen 렌더: 라벨 20/14, 값 23/16(body 토큰 1.6 이면 상자가 57.6), helper 17/12(04-1 caption 1.4 는 16.8).
+- 잠김은 `TextField(enabled: false)` — 화면 읽기가 "사용 불가 입력란" 으로 읽는다. 자물쇠는 suffix(앞 4 + 입력기 4 = 값과 8,
+  뒤 16).
+- 닉네임 helper 순서: 잠김(clock-3) > 오류 > 확인 중(04-1 도는 원) > 사용 가능(circle-check success) > 평소(info). 확인 중 ·
+  사용 가능은 pen 에 없어 04-1 모양을 그대로 쓴다.
+- 저장은 15c · 15e 와 같은 바닥 고정 · 아래 28, 저장 중 `AppButton(isLoading: true)`(B6). 성공하면 `context.pop(true)`.
+- 04-1 의 3자리 제한 포매터는 이미 3자리면 더 친 글자를 버린다(옛 값 유지) — 키를 바꾸려면 지우고 친다. 04-1 과 같다.
+
+**15-5 연결** — "수정 ›" → `context.push<bool>(AppRoutes.myBasicInfo)`, 결과가 true 면 `showTimedToast(savedToast)`.
+`savedToast`("저장했어요")는 `me_toast.dart` 에 두었고 아이콘은 circle-check 16 흰색 — pen 에 이 토스트가 없어 조각 6 완료
+토스트(`yEDB9`, `showSafetyToast` 기본값)를 따랐다. `comingSoonToast` 는 15b-3 충전이 계속 쓴다(주석만 고침). 15-5 의 "곧 열려요"
+토스트 테스트 4개(2초 · 자리 · 줄인 움직임 · 떠날 때 타이머)는 "15d 에서 저장하고 돌아오기" 로 띄운다(15d 자리 가짜 화면이
+`pop(true)` · `pop()`). 새 테스트: "누르면 15d" · "저장 없이 돌아오면 안내 없음" · N8 + B4
+`saving_in_15d_returns_to_15_5_with_the_new_height_and_a_toast`(실제 라우터 · 가짜 저장소, 저장 중에 서버 키를 181 로 바꿔
+15-5 가 "181cm" + "저장했어요").
+- 남긴 것: 저장 중에 뒤로 나가면 저장은 끝까지 되고(keepAlive) 15-5 도 새 값을 그리지만, 15d 가 pop(true) 를 못 해 "저장했어요"
+  는 뜨지 않는다.
+
+**테스트** — 뷰모델 26 · 화면 37(배율 1.0/1.3/1.5/2.0 × 15d · 15d-2 = 8) · 15-5 +7(새 흐름) · 라우터 +1.
+**RED 로 본 것**: 뷰모델 · 화면은 없는 이름(파일 · `AppRoutes.myBasicInfo` · `AppIcons.info`)으로 컴파일 오류, 15-5 는 7개가
+"15d 기본 정보 수정 화면" · `BasicInfoEditScreen` 0개로 떨어졌다. 화면 첫 실행에서 자물쇠 중심 `Expected 144 / Actual 143.5`
+(→ 16.5 여백). 잉크 테스트는 `find.byType(InkResponse)` 가 하위 클래스 InkWell 을 못 찾아 빈 목록으로 통과하던 것을 "하나
+이상" 단언으로 잡고 술어로 고쳤다. 변형으로 다시 떨어지는 것을 본 것: keepAlive 즉시 닫기 · 닉네임 늘 보내기 · UTC 날짜 ·
+같은 닉네임도 묻기 · B2 빼기 · `gapPadding` 빼기 · `pop(true)` → `pop()` · 키 값 색 disabled · 잠금에도 입력 허용 · 오류 표식
+빼기 · 15-5 토스트 조건 빼기 · GoRoute 빼기.
+
+### PR 3-2 검토 반영 (campus-reviewer PASS · 필수 0 · 권고 0, 2026-09-29)
+
+- **사소 1 — 저장 중에도 칸에 입력이 들어가던 것.** 180 을 보내는 동안 190 을 치면 180 이 저장되고 190 은 말없이 버려졌다.
+  15e 처럼 저장 중엔 칸을 막는다 — 다만 `IgnorePointer` 는 이미 열린 키보드 입력을 못 막아 `TextField(readOnly: isSaving)`
+  로 막았다(`enabled` 를 끄면 테두리가 hairline 으로 바뀌어 모양이 달라진다). 테스트 `저장 중에는 칸을 고칠 수 없다` — 고치기
+  전 `Found 1 widget with text "190"` 으로 떨어지는 것을 봤다.
+- **사소 2** — 위 B5 줄을 "칸 탓 오류는 칸 아래, 칸 탓이 아닌 실패는 04-1 처럼 버튼 위" 로 고쳤다(대장 확인 09-29, 코드는 그대로).
+- **사소 3** — 날짜 테스트 상수에 "한국 시간대 PC 에서는 `toLocal()` 변형을 못 잡고 UTC CI 가 잡는다" 주석 한 줄.
+- **main 위로 옮기며(09-29) — `AppIcons.info` 겹침.** 채팅탭 지인 리뷰 PR 3(#167)가 먼저 merge 돼 main `app_icons.dart` 에 같은
+  이름 `info` 가 있다(20c · 14d). 대장 규칙대로 나중 쪽인 이 PR 이 자기 줄 · 주석을 빼고, main 줄의 주석에 "15d 닉네임
+  helper(`G1tl8`)" 만 덧붙였다(같은 이름 두 번이면 컴파일 오류). 화면 커밋을 고쳐 커밋마다 컴파일되게 했다.
