@@ -370,3 +370,127 @@ def test_review_request_push_failure_does_not_raise(caplog, monkeypatch):
     log_text = " ".join(record.getMessage() for record in caplog.records)
     assert "새싹" not in log_text
     assert ME in log_text
+
+
+# 내가 쓴 리뷰 읽기 · 지우기(B5). 기대값: docs/superpowers/plans/2026-09-29-friend-review-delete.md Task B5 ---
+
+WRITTEN_KEYS = {"id", "reviewee", "tags", "comment", "created_at"}
+
+
+def _written_row(**overrides) -> dict:
+    row = {
+        "id": REVIEW_ID, "reviewer_id": ME, "reviewee_id": FRIEND, "tags": ["약속을 잘 지켜요"],
+        "comment": "믿음직해요", "created_at": "2026-09-28T05:00:00+00:00",
+        "reviewee": {"nickname": "새싹", "status": "active", "universities": {"name": "테스트대학교"},
+                     "profile_avatars": [{"storage_path": "n/a.png", "status": "ready",
+                                          "created_at": "2026-09-01T00:00:00+00:00"}]},
+    }
+    return {**row, **overrides}
+
+
+def _written_handler(rows: list[dict]):
+    def handler(request: httpx.Request) -> httpx.Response:
+        if _table(request) == "friend_reviews" and request.method == "GET":
+            return httpx.Response(200, json=rows)
+        return httpx.Response(404, json={"message": f"unexpected {request.url}"})
+    return handler
+
+
+def test_written_lists_my_visible_reviews_newest_first():
+    seen: list[httpx.Request] = []
+    response = _wire(_written_handler([_written_row()]), seen).get("/friend-reviews/written", headers=AUTH_HEADERS)
+    assert response.status_code == 200
+    item = response.json()["reviews"][0]
+    assert set(item) == WRITTEN_KEYS
+    assert item["reviewee"] == {"nickname": "새싹", "university": "테스트대학교",
+                                "avatar_url": "https://x.supabase.co/storage/v1/object/public/avatars/n/a.png"}
+    query = next(r for r in seen if _table(r) == "friend_reviews").url.params
+    assert query["reviewer_id"] == f"eq.{ME}"
+    assert query["status"] == "eq.visible"
+    assert query["order"] == "created_at.desc"
+    assert "friend_reviews_reviewee_id_fkey!inner" in query["select"]
+    assert query["reviewee.status"] == "neq.withdrawn"
+
+
+def test_written_never_carries_ids_of_people():
+    body = _wire(_written_handler([_written_row()])).get("/friend-reviews/written", headers=AUTH_HEADERS).text
+    assert "reviewer_id" not in body
+    assert "reviewee_id" not in body
+
+
+def test_written_hides_withdrawn_reviewee_but_keeps_suspended():
+    # 탈퇴 행은 30일 뒤에야 지워진다 — 그동안 embed 필터가 틀려도 새지 않게 라우터도 거른다. 정지는 내 글이라 남는다.
+    rows = [_written_row(id="a", reviewee={**_written_row()["reviewee"], "status": "withdrawn"}),
+            _written_row(id="b", reviewee={**_written_row()["reviewee"], "status": "suspended"})]
+    response = _wire(_written_handler(rows)).get("/friend-reviews/written", headers=AUTH_HEADERS)
+    assert [r["id"] for r in response.json()["reviews"]] == ["b"]
+    assert "status" not in response.json()["reviews"][0]["reviewee"]
+
+
+def test_written_empty_is_empty_list():
+    response = _wire(_written_handler([])).get("/friend-reviews/written", headers=AUTH_HEADERS)
+    assert response.json() == {"reviews": []}
+
+
+def _delete_handler(deleted: list[dict]):
+    def handler(request: httpx.Request) -> httpx.Response:
+        if _table(request) == "friend_reviews" and request.method == "DELETE":
+            return httpx.Response(200, json=deleted)
+        return httpx.Response(404, json={"message": f"unexpected {request.url}"})
+    return handler
+
+
+def test_delete_own_review_is_204_and_scopes_to_me_and_visible():
+    seen: list[httpx.Request] = []
+    response = _wire(_delete_handler([{"id": REVIEW_ID}]), seen).delete(
+        f"/friend-reviews/{REVIEW_ID}", headers=AUTH_HEADERS)
+    assert response.status_code == 204
+    request = next(r for r in seen if r.method == "DELETE")
+    assert _table(request) == "friend_reviews"
+    assert request.url.params["id"] == f"eq.{REVIEW_ID}"
+    assert request.url.params["reviewer_id"] == f"eq.{ME}"
+    assert request.url.params["status"] == "eq.visible"
+    assert request.url.params["select"] == "id"
+    assert request.headers["Prefer"] == "return=representation"
+
+
+def test_delete_when_no_row_is_deleted_is_404():
+    # 지운 행이 없으면(남의 것 · 없음 · 가려짐 · 이미 지움) PostgREST 가 [] 를 돌려주고 전부 같은 404.
+    response = _wire(_delete_handler([])).delete(f"/friend-reviews/{REVIEW_ID}", headers=AUTH_HEADERS)
+    assert response.status_code == 404
+    assert response.json()["detail"] == errors.FRIEND_REVIEW_NOT_FOUND
+
+
+def test_delete_postgrest_error_is_not_204():
+    # raise_for_status 를 빼면 500 응답 본문(오류 JSON)이 "지운 행" 으로 읽혀 204 가 나간다.
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, json={"message": "boom"})
+
+    _wire(handler)
+    response = TestClient(app, raise_server_exceptions=False).delete(
+        f"/friend-reviews/{REVIEW_ID}", headers=AUTH_HEADERS)
+    assert response.status_code == 500
+
+
+def test_delete_bad_uuid_is_422():
+    assert _wire(_delete_handler([])).delete("/friend-reviews/not-a-uuid", headers=AUTH_HEADERS).status_code == 422
+
+
+def test_delete_sends_no_push(monkeypatch):
+    calls = []
+
+    async def fake_notify(*args, **kwargs):
+        calls.append(args)
+        return 1
+
+    monkeypatch.setattr(router_module, "notify", fake_notify)
+    seen: list[httpx.Request] = []
+    _wire(_delete_handler([{"id": REVIEW_ID}]), seen).delete(f"/friend-reviews/{REVIEW_ID}", headers=AUTH_HEADERS)
+    assert calls == []
+    assert {_table(r) for r in seen} == {"friend_reviews"}
+
+
+def test_written_and_delete_need_verified_caller():
+    client = _wire(_delete_handler([{"id": REVIEW_ID}]))
+    assert client.get("/friend-reviews/written").status_code in (401, 403)
+    assert client.delete(f"/friend-reviews/{REVIEW_ID}").status_code in (401, 403)

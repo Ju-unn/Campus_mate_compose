@@ -12,6 +12,14 @@ _REVIEW_SELECT = (
     "nickname,status,universities(name),profile_avatars(storage_path,status,created_at))"
 )
 
+# 내가 쓴 리뷰(20e)와 받은 사람. `!inner` + `reviewee.status=neq.withdrawn` 로 탈퇴한 사람(행은 30일 뒤 삭제)의
+# 리뷰는 빠진다 — ERD "탈퇴 즉시 노출에서 빠진다". 정지는 내 글이라 계속 보인다.
+_WRITTEN_SELECT = (
+    "id,tags,comment,created_at,"
+    "reviewee:profiles!friend_reviews_reviewee_id_fkey!inner("
+    "nickname,status,universities(name),profile_avatars(storage_path,status,created_at))"
+)
+
 
 class FriendReviewRepository(PostgrestRepository):
     """지인 리뷰. 쓰기가 insert 한 번, 읽기가 embed 한 번이라 DB 함수 없이 PostgREST 로 한다."""
@@ -63,3 +71,22 @@ class FriendReviewRepository(PostgrestRepository):
             "id": f"eq.{review_id}", "select": "id,reviewer_id,reviewee_id,tags,comment,status,created_at",
         })
         return rows[0] if rows else None
+
+    async def fetch_written(self, reviewer: UUID | str) -> list[dict]:
+        """내가 쓴 리뷰 최신순(20e). 가려진 것 · 받은 사람이 탈퇴한 것은 빠진다. 정지 · 차단이어도 내 글이라 보인다.
+        ponytail: 페이지 없음 — 쓰는 수 = 추천으로 이어진 사람 수."""
+        return await self._rows("friend_reviews", {
+            "reviewer_id": f"eq.{reviewer}", "status": "eq.visible", "reviewee.status": "neq.withdrawn",
+            "order": "created_at.desc", "select": _WRITTEN_SELECT,
+        })
+
+    async def delete_own(self, review_id: UUID | str, reviewer: UUID | str) -> bool:
+        """내 visible 리뷰 하나를 지운다. 지운 행이 없으면 False(남의 것 · 없음 · 가려짐 · 이미 지움 전부 같다).
+        부모 _delete 는 Prefer 를 못 받아 직접 부른다."""
+        response = await self._client.delete(
+            f"{self._postgrest_url}/friend_reviews",
+            params={"id": f"eq.{review_id}", "reviewer_id": f"eq.{reviewer}", "status": "eq.visible", "select": "id"},
+            headers=self._with_prefer("return=representation"),
+        )
+        raise_for_status(response)
+        return bool(response.json())
