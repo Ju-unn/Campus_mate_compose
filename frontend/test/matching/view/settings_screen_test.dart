@@ -52,6 +52,7 @@ void main() {
         GoRoute(path: AppRoutes.contactBlocks, builder: (context, state) => const ContactBlockListScreen()),
         GoRoute(path: AppRoutes.contactPicker, builder: (context, state) => const ContactPickerScreen()),
         GoRoute(path: AppRoutes.account, builder: (context, state) => const AccountScreen()),
+        GoRoute(path: AppRoutes.heartTasks, builder: (context, state) => const Text('18a')),
       ],
     );
     addTearDown(router.dispose);
@@ -233,5 +234,24 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(WithdrawFirstSheet), findsOneWidget);
+  });
+
+  testWidgets('"무료로 하트 모으기" 줄은 매칭 활성화 바로 아래 · 계정 바로 위, gift 아이콘과 셰브런이다(pen lMDpY oNgRd)', (tester) async {
+    await pump(tester);
+
+    expect(tile('무료로 하트 모으기'), findsOneWidget);
+    expect(tester.getRect(tile('무료로 하트 모으기')).top, tester.getRect(tile('매칭 활성화')).bottom);
+    expect(tester.getRect(tile('무료로 하트 모으기')).bottom, tester.getRect(tile('계정')).top);
+    expect(find.descendant(of: tile('무료로 하트 모으기'), matching: find.byIcon(AppIcons.gift)), findsOneWidget);
+    expect(find.descendant(of: tile('무료로 하트 모으기'), matching: find.byIcon(AppIcons.chevronRight)), findsOneWidget);
+  });
+
+  testWidgets('"무료로 하트 모으기" 를 누르면 18a 로 간다', (tester) async {
+    await pump(tester);
+
+    await tester.tap(find.text('무료로 하트 모으기'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('18a'), findsOneWidget);
   });
 }
