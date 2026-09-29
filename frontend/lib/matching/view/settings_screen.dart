@@ -42,6 +42,12 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               ),
               ListTile(
+                leading: const Icon(AppIcons.gift, color: AppColors.muted),
+                title: Text('무료로 하트 모으기', style: AppTypography.subtitle.copyWith(color: AppColors.ink)),
+                trailing: const Icon(AppIcons.chevronRight, color: AppColors.muted),
+                onTap: () => context.push(AppRoutes.heartTasks),
+              ),
+              ListTile(
                 leading: const Icon(AppIcons.userRound, color: AppColors.muted),
                 title: Text('계정', style: AppTypography.subtitle.copyWith(color: AppColors.ink)),
                 trailing: const Icon(AppIcons.chevronRight, color: AppColors.muted),
