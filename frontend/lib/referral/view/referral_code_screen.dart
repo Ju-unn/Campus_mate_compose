@@ -17,8 +17,8 @@ const _badgeLabel = '마지막 단계'; // pen zNhbv
 const _headline = '친구에게 받은 코드가 있나요?'; // pen De0I8
 const _description = '코드를 입력하면 친구가 남긴 따뜻한 한마디를 프로필에 담을 수 있어요.'; // pen Bl97e
 const _fieldLabel = '추천 코드'; // pen hrqDX
-// pen e8YTTe 는 "예: CAMPUS-2409" 인데 코드 형식(6자)과 달라 대장 결정(2026-09-28)으로 6자 예시를 쓴다. pen 은 나중에 고친다.
-const _fieldHint = '예: K7Q2MX';
+// pen e8YTTe 옛 글 "예: CAMPUS-2409" 는 코드 형식(6자)과 달랐다 — 대장이 pen 을 "예: K7M2QX" 로 고친다(2026-09-29).
+const _fieldHint = '예: K7M2QX';
 const _confirmLabel = '코드 확인하기'; // pen w4Fzb
 const _skipLabel = '건너뛰기'; // pen XtL3I
 
