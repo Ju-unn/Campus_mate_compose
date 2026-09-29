@@ -18,6 +18,7 @@ import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:campus_mate/matching/view/conversations_screen.dart';
 import 'package:campus_mate/me/model/me_repository_provider.dart';
 import 'package:campus_mate/me/model/my_profile.dart';
+import 'package:campus_mate/me/view/basic_info_edit_screen.dart';
 import 'package:campus_mate/me/view/card_preview_screen.dart';
 import 'package:campus_mate/me/view/my_photos_screen.dart';
 import 'package:campus_mate/me/view/my_profile_screen.dart';
@@ -435,6 +436,16 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(MyPhotosScreen), findsOneWidget);
+    });
+
+    // 15-5 "수정 ›"(`A8LX2`)이 여는 화면(계획서 2026-09-28-me-profile.md A16).
+    testWidgets('/me/basic-info 는 15d 기본 정보 수정이다', (tester) async {
+      final router = await pumpRouter(tester);
+
+      router.go(AppRoutes.myBasicInfo);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(BasicInfoEditScreen), findsOneWidget);
     });
 
     testWidgets('/me/ideal-conditions 는 06-1 편집 모드다', (tester) async {
