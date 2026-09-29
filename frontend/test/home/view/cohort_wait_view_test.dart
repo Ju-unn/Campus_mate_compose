@@ -214,6 +214,23 @@ void main() {
     expect(tester.getTopLeft(find.byType(AppBottomNav)).dy - tester.getBottomLeft(button).dy, 24);
   });
 
+  testWidgets('pen 값 — 큰 날짜 `IDJ3M` 은 countdown 이 아닌 48/700 lh1.5 자간 0 · 모집 판 두 줄은 lh1.5 사이 4', (tester) async {
+    now = DateTime(2099, 9, 7, 12);
+    await pump(tester);
+
+    final date = tester.widget<Text>(find.text('9월 21일')).style!;
+    expect(date.fontSize, 48);
+    expect(date.fontWeight, FontWeight.w700);
+    expect(date.height, 1.5);
+    expect(date.letterSpacing, 0);
+    // `WEPFQ` 14 · `ebHk4` 24 둘 다 lh1.5, 사이는 왼쪽 열 `o6UY45` gap 4. 판 92 는 위 테스트가 본다.
+    final label = find.text('현재 모집 인원');
+    final count = find.text('87명');
+    expect(tester.getSize(label).height, 21);
+    expect(tester.getSize(count).height, 36);
+    expect(tester.getTopLeft(count).dy - tester.getBottomLeft(label).dy, 4);
+  });
+
   testWidgets('여는 시각이 되면 요약을 다시 읽는다', (tester) async {
     now = opensAt.subtract(const Duration(seconds: 5));
     await pump(tester);
