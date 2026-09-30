@@ -1,5 +1,7 @@
 # 화면 15 개편 — 15 내 프로필 · 15-4 남이 보는 내 프로필 · 15-5 프로필 편집 · 15b 아바타 다시 만들기 Implementation Plan
 
+> **09-30 화면 번호 개정:** 15d→15-6(15d-2→15-6-2) · 15e→15-7. 본문은 옛 번호 그대로 둔다(DESIGN §13-136 ⑤).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or
 > superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 >

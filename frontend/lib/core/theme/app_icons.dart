@@ -65,7 +65,7 @@ abstract final class AppIcons {
 
   /// 안내 카드 머리말·입력칸 오류 (DESIGN.md §5.3)
   static const IconData circleAlert = LucideIcons.circleAlert;
-  /// 20c · 14d 지인 리뷰 안내 상자(pen `PMMX8` · `z5kJa6`) · 15d 닉네임 helper(`G1tl8`) — circle-alert(느낌표)와 그림이 다르다
+  /// 20c · 14d 지인 리뷰 안내 상자(pen `PMMX8` · `z5kJa6`) · 15-6 닉네임 helper(`G1tl8`) — circle-alert(느낌표)와 그림이 다르다
   static const IconData info = LucideIcons.info;
 
   /// 3b 인증 거절 배너 (pen Alert 마스터 `teNRJ`)

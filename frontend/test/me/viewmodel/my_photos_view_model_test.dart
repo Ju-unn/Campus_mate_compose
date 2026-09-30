@@ -47,7 +47,7 @@ void main() {
   MyPhotosViewModel viewModel() => container.read(myPhotosViewModelProvider.notifier);
   PhotosUiState state() => subscription.read();
 
-  /// [profile] 로 내 프로필을 읽은 뒤 15e 를 연다 — 15e 는 15-5 를 거쳐 열려 내 프로필이 이미 읽혀 있다.
+  /// [profile] 로 내 프로필을 읽은 뒤 15-7 을 연다 — 15-7 은 15-5 를 거쳐 열려 내 프로필이 이미 읽혀 있다.
   Future<void> open(MyProfile profile) async {
     me = FakeMeRepository(Success(profile));
     faceDetector = FakeFaceDetector();
@@ -182,7 +182,7 @@ void main() {
     expect(state().completed, isFalse);
     expect(state().isSubmitting, isFalse);
     expect([for (final photo in state().photos) photo.key], ['p-a', 'p-b']);
-    // 계획서 2-2 — 실패해도 서버가 일부를 바꿨을 수 있다(⑤~⑦). 15-5 와 다음 15e 가 지금 서버 값을 보게 한다.
+    // 계획서 2-2 — 실패해도 서버가 일부를 바꿨을 수 있다(⑤~⑦). 15-5 와 다음 15-7 이 지금 서버 값을 보게 한다.
     expect(me.calls, 2);
   });
 

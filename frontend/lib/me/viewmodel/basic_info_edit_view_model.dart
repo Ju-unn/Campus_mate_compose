@@ -18,7 +18,7 @@ const Set<String> _nicknameRejections = {'이미 있는 닉네임이에요', '�
 /// 서버 422(`errors.py` INVALID_INPUT) — 키 check(120~230) 위반이 이 문구로 온다.
 const String _invalidInput = '입력한 값을 다시 확인해 주세요';
 
-/// 15d 기본 정보 수정(pen `mhdYA` · 15d-2 `ZuPTD`, 계획서 2026-09-28-me-profile.md A16 · 옛 A7). 닉네임 · 키만 고친다(U6).
+/// 15-6 기본 정보 수정(pen `mhdYA` · 15-6-2 `ZuPTD`, 계획서 2026-09-28-me-profile.md A16 · 옛 A7). 닉네임 · 키만 고친다(U6).
 ///
 /// 편집 모드. 열 때마다 서버 값으로 채운다 — autoDispose 라 닫으면 고치다 만 값이 남지 않는다(Review Focus 5).
 /// 닉네임 형식 · 중복 확인은 04-1 과 같은 규칙 · 같은 시점(300ms 디바운스)이다. **바뀐 칸만** 보낸다 — 닉네임이 그대로면
@@ -115,7 +115,7 @@ class BasicInfoEditViewModel extends Notifier<BasicInfoEditUiState> {
 /// `copyWith` 에서 "이 칸은 그대로" 를 뜻하는 표식 — null 로 지우는 것과 가른다(04-1 `_keep` 과 같은 방식).
 const Object _keep = Object();
 
-/// 15d 의 상태. 닉네임 · 키의 서버 값(saved)과 지금 입력을 같이 들고 "바뀐 칸" 을 가린다.
+/// 15-6 의 상태. 닉네임 · 키의 서버 값(saved)과 지금 입력을 같이 들고 "바뀐 칸" 을 가린다.
 class BasicInfoEditUiState {
   const BasicInfoEditUiState({
     required this.savedNickname,
@@ -156,7 +156,7 @@ class BasicInfoEditUiState {
   bool get isNicknameChanged => nicknameInput != savedNickname;
   bool get isHeightChanged => heightInput != savedHeight;
 
-  /// 15d-2 helper(`V3sicJ`). **한국 시각의 월 · 일** — 운영 DB 는 `+00:00` 으로 주고, 한국 밤 9시 이후 바꾼 사람은 UTC
+  /// 15-6-2 helper(`V3sicJ`). **한국 시각의 월 · 일** — 운영 DB 는 `+00:00` 으로 주고, 한국 밤 9시 이후 바꾼 사람은 UTC
   /// 날짜가 하루 앞선다. `toLocal()` 은 기기 · CI 시간대를 따라가 테스트가 흔들린다(옛 A7).
   String? get nicknameUnlockText {
     final at = nicknameChangeableAt;

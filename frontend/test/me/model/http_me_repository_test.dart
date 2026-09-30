@@ -167,7 +167,7 @@ void main() {
     ]);
     expect(profile.heartBalance, 30);
     expect(profile.avatarRegenCost, 10);
-    // 다른 날짜 칸(chat_room.dart)처럼 기기 시간대로 바꿔 둔다 — 15d-2 "M월 D일" 은 기기 날짜로 적는다.
+    // 다른 날짜 칸(chat_room.dart)처럼 기기 시간대로 바꿔 둔다 — 15-6-2 "M월 D일" 은 기기 날짜로 적는다.
     final changeableAt = profile.nicknameChangeableAt!;
     expect(changeableAt.isUtc, isFalse);
     expect(changeableAt.isAtSameMomentAs(DateTime.utc(2026, 10, 27, 5)), isTrue);
@@ -239,7 +239,7 @@ void main() {
       expect(result, isA<Success<void>>());
     });
 
-    test('15d 는 닉네임 · 키만 보낸다 — null 인 칸은 본문에서 뺀다', () async {
+    test('15-6 은 닉네임 · 키만 보낸다 — null 인 칸은 본문에서 뺀다', () async {
       final (request, _) = await patch((repository) => repository.updateProfile(nickname: '바다', heightCm: 180));
 
       expect(jsonDecode(request.body), {'nickname': '바다', 'height_cm': 180});

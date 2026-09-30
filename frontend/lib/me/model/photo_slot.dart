@@ -1,6 +1,6 @@
 import 'dart:io';
 
-/// 15e 사진 수정의 칸 하나(계획서 2026-09-27-me-edit.md 2-2 · U2). 칸 순서 그대로 `PUT /me/photos` 의 `layout` 이 된다 —
+/// 15-7 사진 수정의 칸 하나(계획서 2026-09-27-me-edit.md 2-2 · U2). 칸 순서 그대로 `PUT /me/photos` 의 `layout` 이 된다 —
 /// 이미 올려 둔 사진은 행 id 로 남기고([KeptPhoto]), 이번에 고른 사진은 파일로 새로 올린다([NewPhoto]).
 sealed class PhotoSlot {
   const PhotoSlot();

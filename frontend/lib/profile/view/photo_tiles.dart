@@ -10,11 +10,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
-// 사진 칸 위젯 — 04-2 사진 업로드와 15e 사진 수정이 같이 쓴다(계획서 2026-09-27-me-edit.md C9: 15e 칸은 04-2 모양,
+// 사진 칸 위젯 — 04-2 사진 업로드와 15-7 사진 수정이 같이 쓴다(계획서 2026-09-27-me-edit.md C9: 15-7 칸은 04-2 모양,
 // 크기만 다르다). photos_screen.dart 에서 그대로 옮겼다 — 모양을 두 벌 두면 한쪽만 고쳐진다.
-// 칸 크기는 부모가 준다(04-2 는 Expanded + 높이 158, 15e 는 160×200 · 66×88).
+// 칸 크기는 부모가 준다(04-2 는 Expanded + 높이 158, 15-7 은 160×200 · 66×88).
 
-/// 길게 눌러 끌면 두 칸이 자리를 바꾼다(15e 와 같은 방식, 2026-09-24 사용자 결정).
+/// 길게 눌러 끌면 두 칸이 자리를 바꾼다(15-7 과 같은 방식, 2026-09-24 사용자 결정).
 /// 빈 "사진 추가" 칸은 받는 쪽이 아니다 — 사진을 빈 자리로 밀면 순서에 구멍이 생긴다.
 class DraggablePhotoTile extends StatelessWidget {
   const DraggablePhotoTile({required this.index, required this.state, required this.viewModel, super.key});
@@ -199,7 +199,7 @@ class CheckingTile extends StatelessWidget {
   }
 }
 
-/// 빈 "사진 추가" 칸. 글자가 칸에 안 들어가면(15e 보조 칸 66×88 에 큰 글씨) 더하기 아이콘만 두고, 낭독 이름은
+/// 빈 "사진 추가" 칸. 글자가 칸에 안 들어가면(15-7 보조 칸 66×88 에 큰 글씨) 더하기 아이콘만 두고, 낭독 이름은
 /// "사진 추가" 그대로 아이콘에 단다(대장 결정 (가), 2026-09-29 — 잘림 · 넘침은 안 된다, DESIGN §11.2).
 class AddPhotoTile extends StatelessWidget {
   const AddPhotoTile({required this.onTap, super.key});

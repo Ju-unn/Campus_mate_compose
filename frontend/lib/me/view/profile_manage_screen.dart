@@ -30,8 +30,8 @@ class ProfileManageScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileManageScreenState extends ConsumerState<ProfileManageScreen> with MeToastHost<ProfileManageScreen> {
-  /// "수정 ›" → 15d 기본 정보 수정(A16). 저장하고 돌아오면(true) "저장했어요" 를 잠깐 띄운다(B4 — 다른 편집 화면은 토스트 없이
-  /// 돌아온다). 새 값은 15d 가 invalidate 한 내 프로필을 이 화면이 다시 읽어 그린다(N8).
+  /// "수정 ›" → 15-6 기본 정보 수정(A16). 저장하고 돌아오면(true) "저장했어요" 를 잠깐 띄운다(B4 — 다른 편집 화면은 토스트 없이
+  /// 돌아온다). 새 값은 15-6 이 invalidate 한 내 프로필을 이 화면이 다시 읽어 그린다(N8).
   Future<void> _editBasicInfo() async {
     final saved = await context.push<bool>(AppRoutes.myBasicInfo);
     if (saved ?? false) showTimedToast(savedToast);
@@ -175,7 +175,7 @@ class _LockBadge extends StatelessWidget {
   }
 }
 
-/// "실제 사진 교체" `E7Cv2` 328×44, surface-strong, 모서리 8, 14/600 ink. 누르면 15e 사진 수정(A15).
+/// "실제 사진 교체" `E7Cv2` 328×44, surface-strong, 모서리 8, 14/600 ink. 누르면 15-7 사진 수정(A15).
 class _ReplacePhotoButton extends StatelessWidget {
   const _ReplacePhotoButton({required this.onTap});
 

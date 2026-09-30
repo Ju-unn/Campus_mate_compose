@@ -73,7 +73,7 @@ MyProfile _profile({List<String> ids = const ['p-a', 'p-b', 'p-c']}) => MyProfil
 /// 칸마다 하나씩 있는 "사진 빼기"(x 아이콘 — 누름 칸 44 의 가운데).
 final _removeButtons = find.byIcon(AppIcons.x);
 
-/// 15e 사진 수정(pen `szJ79` 360×780, 계획서 2026-09-27-me-edit.md 4절 15e 표 · A6, 2026-09-28-me-profile.md A15).
+/// 15-7 사진 수정(pen `szJ79` 360×780, 계획서 2026-09-27-me-edit.md 4절 15e 표 · A6, 2026-09-28-me-profile.md A15).
 void main() {
   final previousOverrides = HttpOverrides.current;
   setUpAll(() {
@@ -105,7 +105,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  /// 15-5 자리(내 프로필을 보고 있는 앞 화면) 위에 15e 를 올린다.
+  /// 15-5 자리(내 프로필을 보고 있는 앞 화면) 위에 15-7 을 올린다.
   Future<void> pump(WidgetTester tester, {MyProfile? profile}) async {
     me = FakeMeRepository(Success(profile ?? _profile()));
     faceDetector = FakeFaceDetector();
@@ -446,7 +446,7 @@ void main() {
   // DESIGN §11.2 — 시스템 글꼴 확대(최대 2.0)에서도 넘치거나 잘리지 않는다. 15c · 15-5 테스트와 같은 잣대.
   // 사진 2장이라 66×88 보조 칸에 "사진 추가" 가 둘 뜬다(옛 계획서 A6 배율 주의).
   for (final scale in [1.0, 1.3, 1.5, 2.0]) {
-    testWidgets('15e — 폭 360 · 글자 배율 $scale 에서 넘침 · 잘림이 없다(스크롤 전 · 끝)', (tester) async {
+    testWidgets('15-7 — 폭 360 · 글자 배율 $scale 에서 넘침 · 잘림이 없다(스크롤 전 · 끝)', (tester) async {
       usePenFrame(tester);
       tester.platformDispatcher.textScaleFactorTestValue = scale;
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);

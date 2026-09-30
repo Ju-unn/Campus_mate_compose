@@ -265,7 +265,7 @@ def test_regen_cost_follows_the_ready_count(ready, cost):
     (None, None),                                                 # 한 번도 안 바꿈
     ("2026-08-28T14:00:00+09:00", None),                          # 정확히 30일 전 — 지금 된다
     ("2026-08-28T14:00:01+09:00", "2026-09-27T14:00:01+09:00"),   # 30일에서 1초 모자람 — 아직 잠김
-    ("2026-09-27T14:00:00+09:00", "2026-10-27T14:00:00+09:00"),   # 방금(pen 15d-2 "10월 27일부터")
+    ("2026-09-27T14:00:00+09:00", "2026-10-27T14:00:00+09:00"),   # 방금(pen 15-6-2 "10월 27일부터")
 ])
 def test_nickname_lock_is_judged_from_the_injected_now(changed_at, changeable_at):
     assert _get({**FULL_PROFILE, "nickname_changed_at": changed_at}).json()["nickname_changeable_at"] == changeable_at
