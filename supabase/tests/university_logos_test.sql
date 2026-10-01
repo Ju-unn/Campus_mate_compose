@@ -51,7 +51,7 @@ select is(
 
 select is(
   (select file_size_limit from storage.buckets where id = 'university-logos'),
-  102400,
+  102400::bigint,
   '파일 크기 제한은 100KB 다'
 );
 
