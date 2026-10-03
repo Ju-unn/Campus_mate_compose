@@ -189,6 +189,22 @@ async def notify_review_request(cards: CardRepository, sender: FcmSender, referr
         logger.exception("추천 리뷰 요청 푸시 실패 referrer=%s referee=%s", referrer_id, referee_id)
 
 
+@router.get("/friend-reviews/writable")
+async def list_writable(w: _Wiring = Depends(_wire)) -> dict:
+    """20e 위 "리뷰를 기다리는 친구"(결함 A3, 사용자 10-03). 추천으로 이어졌고 아직 내 리뷰가 없는 사람 —
+    지우면 다시 나오고, 가입 · 알림 때 놓친 사람도 여기서 쓴다. 빠지는 조건은 20b 를 여는 _writable_target 과 같다."""
+    skip = await w.repo.fetch_reviewed_ids(w.profile_id) | await w.cards.fetch_block_partner_ids(w.profile_id)
+    # 서로 추천했으면(PK 가 referee_id 하나라 가능) 같은 사람이 두 번 온다 — 순서를 지키며 한 번만.
+    ids = [i for i in dict.fromkeys(await w.repo.fetch_linked_ids(w.profile_id)) if i not in skip]
+    people = {p["id"]: p for p in await w.repo.fetch_people(ids) if is_active(p)} if ids else {}
+    return {"friends": [
+        {"profile_id": i, "nickname": people[i]["nickname"],
+         "avatar_url": avatar_url(people[i], w.settings.supabase_url),
+         "university": (people[i].get("universities") or {}).get("name")}
+        for i in ids if i in people
+    ]}
+
+
 @router.get("/friend-reviews/written")
 async def list_written(w: _Wiring = Depends(_wire)) -> dict:
     """20e "내가 쓴 리뷰"(결정 1 · 4). visible 만. 받은 사람이 탈퇴면 빠지고 정지는 남는다(내 글)."""
