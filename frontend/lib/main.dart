@@ -9,6 +9,7 @@ import 'package:campus_mate/core/auth/sign_out.dart';
 import 'package:campus_mate/core/push/push_provider.dart';
 import 'package:campus_mate/core/push/push_route.dart';
 import 'package:campus_mate/core/router/app_router.dart';
+import 'package:campus_mate/core/router/auth_redirect.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/core/router/verification_gate_listenable.dart';
@@ -56,6 +57,8 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
   /// 스플래시를 잠깐 붙잡아 두는 임시 장치 (로고 작업 때 다시 본다).
   final SplashHold _splashHold = SplashHold();
   final List<StreamSubscription<Map<String, dynamic>>> _pushSubscriptions = [];
+  /// 알림을 눌러 연 경로. 라우터가 그대로 받아 줄 때까지 붙잡아 둔다([_openPendingPushRoute]).
+  String? _pendingPushPath;
 
   @override
   void initState() {
@@ -68,6 +71,8 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
     _accountStatus = ref.read(accountStatusListenableProvider);
     _authSession.addListener(_refreshVerificationGate);
     _verificationGate.addListener(_startPushWhenGateOpens);
+    _verificationGate.addListener(_openPendingPushRoute);
+    _onboardingStep.addListener(_openPendingPushRoute);
     _accountStatus.addListener(_signOutWhenWithdrawn);
     _router = _createRouter();
     _refreshVerificationGate();
@@ -81,6 +86,8 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
   /// 다음 사용자가 물려받으면 안 되므로 캐시를 비운다.
   void _refreshVerificationGate() {
     if (!_authSession.isAuthenticated) {
+      // 앞 사용자가 눌러 둔 알림 경로를 다음 사용자가 물려받지 않게 한다.
+      _pendingPushPath = null;
       _verificationGate.reset();
       _onboardingStep.reset();
       _stopPush();
@@ -152,10 +159,29 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
   }
 
   void _openRoute(Map<String, dynamic> data) {
-    final path = PushRoute.resolve(data);
-    if (path != null) {
-      _router.go(path);
+    _pendingPushPath = PushRoute.resolve(data);
+    _openPendingPushRoute();
+  }
+
+  /// 꺼진 앱을 알림으로 켜면 경로가 관문 · 온보딩 조회보다 먼저 온다(A10). 그때 열면 조회 전
+  /// 기본값(약관 동의)으로 끌려갔다가, 조회가 오면 홈으로 가서 목표 화면을 놓친다.
+  /// 그래서 라우터와 같은 규칙이 그 경로를 그대로 받아 줄 때만 열고, 아니면 다음 변화 때 다시 본다.
+  void _openPendingPushRoute() {
+    final path = _pendingPushPath;
+    if (path == null) {
+      return;
     }
+    final redirect = AuthRedirect(
+      _authSession.isAuthenticated,
+      _verificationGate.value,
+      _onboardingStep.value,
+      accountStatus: _accountStatus.value,
+    );
+    if (redirect.resolve(path) != null) {
+      return;
+    }
+    _pendingPushPath = null;
+    _router.go(path);
   }
 
   GoRouter _createRouter() {
@@ -176,6 +202,8 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
       unawaited(subscription.cancel());
     }
     _verificationGate.removeListener(_startPushWhenGateOpens);
+    _verificationGate.removeListener(_openPendingPushRoute);
+    _onboardingStep.removeListener(_openPendingPushRoute);
     _accountStatus.removeListener(_signOutWhenWithdrawn);
     _authSession.removeListener(_refreshVerificationGate);
     _authSession.dispose();
