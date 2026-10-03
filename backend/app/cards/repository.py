@@ -239,6 +239,23 @@ class CardRepository(PostgrestRepository):
         })
         raise_for_status(response)
 
+    # 밤에 보류된 알림(결정 4) — push.notify 가 넣고 push.send_pending 이 아침에 꺼내 지운다.
+    async def insert_pending_push(self, profile_id: UUID | str, kind: str, title: str, body: str,
+                                  data: dict[str, str]) -> None:
+        await self._rows_post("pending_pushes", {
+            "profile_id": str(profile_id), "kind": kind, "title": title, "body": body, "data": data,
+        }, prefer="return=minimal")
+
+    async def fetch_pending_pushes(self) -> list[dict]:
+        # ponytail: PostgREST 한 번에 최대 1000행. 넘치면 나머지는 다음 시각 배치가 보낸다.
+        return await self._rows("pending_pushes", {
+            "select": "id,profile_id,kind,title,body,data", "order": "created_at",
+        })
+
+    async def delete_pending_pushes(self, ids: list[str]) -> None:
+        response = await self._delete("pending_pushes", params={"id": f"in.({','.join(ids)})"})
+        raise_for_status(response)
+
     async def fetch_profile_status(self, profile_id: UUID | str) -> str | None:
         """푸시 관문(push.notify)이 정지 계정을 거르는 데 쓴다. 행이나 칸이 없으면 None(= 막지 않는다,
         로그인 관문과 같은 규칙)."""

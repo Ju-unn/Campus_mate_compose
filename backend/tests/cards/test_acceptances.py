@@ -266,3 +266,36 @@ def test_accepting_reads_the_accepters_profile_only_once():
     assert response.json() == {"matched": True, "match_id": "match-1"}
     assert len(pushes) == 2
     assert card_profile_reads.count(f"eq.{OTHER_ID}") == 1
+
+
+def test_a_night_match_is_kept_only_for_the_other_side():
+    """밤에 내가 눌러 생긴 매칭은 나에게 보류하지 않는다 — 방금 화면에서 본 것을 아침에 또 받으면 이상하다
+    (대장 10-03 ④ 나). 상대 쪽 "매칭됐어요!" 는 결정 4 대로 아침에 간다."""
+    import json
+
+    from app.core.deps import get_now
+    from app.core.time import SEOUL
+
+    app.dependency_overrides[get_now] = lambda: datetime(2026, 10, 3, 23, 0, tzinfo=SEOUL)
+    kept: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if "/rest/v1/pending_pushes" in url:
+            kept.append(json.loads(request.content)["profile_id"])
+            return httpx.Response(201)
+        if "/rest/v1/notification_settings" in url:
+            return httpx.Response(200, json=[{"match_made": True, "quiet_hours": True}])
+        if "/rest/v1/daily_cards" in url:
+            return httpx.Response(200, json=[_accepted_card(_hours_ago(24))])
+        if "/rest/v1/matches" in url and request.method == "POST":
+            return httpx.Response(201, json=[{"id": "match-1"}])
+        if "/rest/v1/profiles" in url:
+            return httpx.Response(200, json=[ACCEPTER_PROFILE])
+        return httpx.Response(200, json=[])
+
+    response = _wire(handler).post("/cards/acceptances/card-1", headers=AUTH_HEADERS,
+                                   json={"decision": "accept"})
+
+    assert response.status_code == 200
+    assert kept == [OTHER_ID]

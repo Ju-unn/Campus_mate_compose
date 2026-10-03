@@ -35,6 +35,7 @@ erDiagram
     matches ||--o{ messages : "대화"
     profiles ||--o{ push_tokens : "기기"
     profiles ||--o| notification_settings : "알림"
+    profiles ||--o{ pending_pushes : "밤 알림 보류"
     profiles ||--o{ user_consents : "가입 동의"
     profiles ||--o{ blocks : "차단"
     profiles |o--o{ reports : "신고"
@@ -82,6 +83,7 @@ erDiagram
 | `messages` | 참여 중인 매칭의 메시지 | `exists (select 1 from match_participants mp where mp.match_id = messages.match_id and mp.profile_id = (select auth.uid()) and mp.left_at is null)` |
 | `push_tokens` | 없음 | FastAPI 전용 |
 | `notification_settings` | 본인 행 | |
+| `pending_pushes` | 없음 | FastAPI 전용. **`service_role` 도 `select` · `insert` · `delete` 만** — 보류한 알림은 보내고 지울 뿐 고치지 않는다(§4) |
 | `user_consents` | 없음 | FastAPI 전용. **`service_role` 도 `select` · `insert` 만** — 동의 기록은 고치지 않는다(위 "전 테이블" 규칙의 예외). 동의 여부는 `/me/verification-status` 의 `consent` 가 내려준다 |
 | `blocks` · `reports` | 없음 | FastAPI 전용 — 차단 목록(16f)은 상대 닉네임이 필요하다. 신고자에게도 신고 목록을 주지 않는다 |
 | `contact_blocks` | 본인 행 (`owner_id`) · 컬럼 grant `id` · `owner_id` · `created_at` 만 | 16b 목록. `contact_hmac` 은 내려가지 않는다. **2026-09-27 구현 개정: 클라이언트 권한 0**(정책 없음, `authenticated` grant 없음). 16b 목록은 FastAPI `GET /contact-blocks` 가 준다 |
@@ -303,6 +305,7 @@ erDiagram
     profiles ||--o{ messages : "sender_id"
     profiles ||--o{ push_tokens : "기기"
     profiles ||--o| notification_settings : "16d"
+    profiles ||--o{ pending_pushes : "밤 알림 보류"
 
     daily_cards {
         uuid id PK "조각4"
@@ -372,6 +375,16 @@ erDiagram
         timestamptz marketing_consented_at "제안 · 수신 동의 시각"
         boolean quiet_hours "22시~8시"
     }
+
+    pending_pushes {
+        uuid id PK "결정4 · 2026-10-03 제안"
+        uuid profile_id FK "on delete cascade"
+        text kind "acceptance_received match_made new_friend_review verification_result"
+        text title "원래 알림 그대로"
+        text body
+        jsonb data "route 등"
+        timestamptz created_at
+    }
 ```
 
 - `matches` 는 `unique (profile_a, profile_b)` + `check (profile_a < profile_b)`
@@ -383,6 +396,7 @@ erDiagram
 - **읽음은 메시지가 아니라 `match_participants.last_read_at` 에 둔다.** `messages.read_at` 은 두 사람이 다 읽으므로, 상대가 조용히 나가면 내 메시지가 계속 안 읽힘으로 남아 나가기가 드러난다. 안 읽은 수는 상대가 보낸 메시지 중 `created_at` > 내 `last_read_at` 이고, 갱신은 메시지마다가 아니라 방에 들어올 때와 나갈 때 한 번씩이다(나갈 때도 갱신해야 방 안에서 받은 메시지가 안 읽음으로 남지 않는다). 상대에게 보이는 읽음 표시는 없다
 - 수락이 겹치는 경로 두 가지: A의 카드에서 A accept → B가 받은 수락함에서 응답(`acceptance_responses`), 또는 서로의 카드에서 둘 다 accept. 어느 쪽이든 양쪽 accept 가 되면 FastAPI가 `matches` 와 `match_participants` 2행을 만든다
 - **하드 필터 "이미 카드로 받은 사람"의 정의(§11-4, 설계 §6.7)**: 내가 결정한 카드의 상대(`card_decisions`) + 받은 수락함에서 응답한 상대(`acceptance_responses`) + 매칭 이력이 있는 상대(`matches`, 게이트 실패 포함) + 아직 만료되지 않은 카드의 상대. **무응답으로 만료된 무상 카드의 상대는 다시 나올 수 있다.** 그래서 `daily_cards (owner_id, target_id)` 는 unique가 아니라 일반 인덱스다
+- **`pending_pushes`(밤 알림 보류, 결정 4 · 2026-10-01 사용자 — 2026-10-03 제안, 운영 미적용)**: 조용한 시간(22~08시)에 걸린 받은 수락 · 매칭 · 지인 리뷰 · 학생증 검토 결과(A7) 알림을 버리지 않고 원래 제목 · 본문 · `data` 그대로 한 행씩 넣는다(`app/cards/push.py` `notify`). 매시 chat-gate 배치가 조용하지 않은 시각(08~21시)에 돌면 사람 × 가는 화면(`data.route`)으로 묶어 보내고 지운다 — 1건이면 원래 알림, 여러 건이면 "밤사이 2명이 나를 수락했어요" 식 묶음. 친구 가입(리뷰 쓰기) · 학생증 검토 결과 알림은 묶지 않고 한 건씩 보낸다. **내가 방금 한 행동으로 생긴 내 쪽 알림은 보류하지 않고 버린다**(대장 10-03) — 밤에 내가 눌러 생긴 매칭의 내 쪽 "매칭됐어요!", 마지막에 누른 사람 쪽 "카카오톡 아이디를 주고받았어요"(둘 다 방금 화면에서 봤다, `notify(defer=False)`). 보낼 때 `notify` 를 다시 지나서 밤사이 끈 알림 · 정지 · 탈퇴는 걸린다. 채팅 · 카드 도착은 조용한 시간 예외라, 신뢰 확인 리마인드는 보낼 시각을 08시로 미뤄 둬서 이 표에 오지 않는다. `kind` 는 enum 이 아니라 4값 check 다
 - 알림 토글은 지금 7개다. DESIGN 16d의 "내 글의 새 댓글"은 이번 스코프에 커뮤니티 댓글이 없어서(DESIGN §8.11) 컬럼을 두지 않고, 댓글을 도입할 때 추가한다 — 검토11. DESIGN 16d는 지금 고치지 않는다
 
 ## 5. 안전 · 계정 상태 (조각 6)

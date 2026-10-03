@@ -331,8 +331,10 @@ async def accept_trust_gate(match_id: str, wiring: _Wiring = Depends(_wire)) -> 
         return {"passed": True}
 
     partner_nickname = (await wiring.repo.fetch_partner_profile(partner["profile_id"])).get("nickname")
-    for target, other in ((partner["profile_id"], nickname), (wiring.profile_id, partner_nickname)):
+    # 내 쪽은 응답으로 카톡 아이디를 방금 봤다 — 밤이면 아침에 다시 알리지 않고 버린다(대장 10-03).
+    for target, other, defer in ((partner["profile_id"], nickname, True),
+                                 (wiring.profile_id, partner_nickname, False)):
         await notify(wiring.push_repo, wiring.sender, target, "match_made",
                      "카카오톡 아이디를 주고받았어요", f"{other} 님의 프로필이 공개됐어요",
-                     {"route": "chat", "match_id": str(match_id)}, now=now)
+                     {"route": "chat", "match_id": str(match_id)}, now=now, defer=defer)
     return {"passed": True, "kakao_id": await wiring.repo.fetch_kakao_id(partner["profile_id"])}
