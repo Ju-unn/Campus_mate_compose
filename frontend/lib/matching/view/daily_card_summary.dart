@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/common/widgets/school_label.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -137,8 +138,10 @@ class _SummaryRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(profile.nameWithAge, style: AppTypography.title.copyWith(color: AppColors.ink)),
-              Text(
-                profile.schoolLine,
+              // pen `dmdKV` — 로고는 첫 줄 가운데.
+              SchoolLabel(
+                profile.university ?? '',
+                text: profile.schoolLine,
                 style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
               ),
             ],
