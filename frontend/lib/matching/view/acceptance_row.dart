@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/school_label.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -45,8 +46,9 @@ class AcceptanceRow extends StatelessWidget {
                       profile.nameWithAge,
                       style: AppTypography.subtitle.copyWith(color: AppColors.ink),
                     ),
-                    Text(
-                      profile.schoolLine,
+                    SchoolLabel(
+                      profile.university ?? '',
+                      text: profile.schoolLine,
                       style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
                     ),
                   ],

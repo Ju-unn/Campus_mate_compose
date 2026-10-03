@@ -1,10 +1,13 @@
+import 'package:campus_mate/common/university_logos.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/common/widgets/school_label.dart';
 import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/matching/model/card_profile.dart';
 import 'package:campus_mate/matching/model/daily_card.dart';
 import 'package:campus_mate/matching/view/daily_card_summary.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _card = DailyCard(
@@ -13,8 +16,13 @@ const _card = DailyCard(
   profile: CardProfile(profileId: 't1', nickname: '여우비', age: 23, university: '테스트대학교', major: '컴퓨터공학과'),
 );
 
+Widget _scope(Widget child) => ProviderScope(
+      overrides: [universityLogosProvider.overrideWith((ref) => const <String, String>{})],
+      child: child,
+    );
+
 Future<void> _pump(WidgetTester tester, {DailyCard card = _card}) => tester.pumpWidget(
-      MaterialApp(home: Scaffold(body: DailyCardSummary(card: card, onTap: () {}))),
+      _scope(MaterialApp(home: Scaffold(body: DailyCardSummary(card: card, onTap: () {})))),
     );
 
 BoxDecoration _frame(WidgetTester tester) => tester
@@ -77,6 +85,16 @@ void main() {
     expect(tester.getTopLeft(find.byType(Divider)).dy - tester.getBottomLeft(avatar).dy, 16);
   });
 
+  testWidgets('학교 줄 `dmdKV` = SchoolLabel(학교로 로고를 찾고 "학교 · 학과" 를 그린다)', (tester) async {
+    await _pump(tester);
+
+    final label = tester.widget<SchoolLabel>(find.byType(SchoolLabel));
+    expect(label.university, '테스트대학교');
+    expect(label.text, '테스트대학교 · 컴퓨터공학과');
+    expect(label.style.fontSize, 14);
+    expect(label.style.color, const Color(0xFF6A6A6A));
+  });
+
   for (final scale in [1.3, 2.0]) {
     testWidgets('360 폭 · 글자 배율 $scale 에서 배지 줄이 넘치지 않는다', (tester) async {
       tester.view.physicalSize = const Size(360, 780);
@@ -84,7 +102,7 @@ void main() {
       addTearDown(tester.view.reset);
       final card = DailyCard(cardId: 'c1', source: CardSource.daily, profile: _card.profile, expiresAt: DateTime(2026, 10, 8, 7));
       await tester.pumpWidget(
-        MaterialApp(
+        _scope(MaterialApp(
           home: MediaQuery(
             data: MediaQueryData(size: const Size(360, 780), textScaler: TextScaler.linear(scale)),
             child: Scaffold(
@@ -94,7 +112,7 @@ void main() {
               ),
             ),
           ),
-        ),
+        )),
       );
 
       expect(tester.takeException(), isNull);

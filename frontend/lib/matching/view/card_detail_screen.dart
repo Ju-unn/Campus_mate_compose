@@ -1,5 +1,7 @@
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/card_action_bar.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/common/widgets/school_label.dart';
 import 'package:campus_mate/common/widgets/trait_bar.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -260,13 +262,15 @@ class _SchoolLine extends StatelessWidget {
     if (parts.isEmpty) {
       return const SizedBox.shrink();
     }
+    // 졸업모는 학교 줄 덩어리 가운데에 둔다(02_SCHOOL_ROW_HEIGHT_FIX `Mz21i` 등 flow-center).
     return Row(
       children: [
-        const Icon(AppIcons.graduationCap, size: 15, color: AppColors.muted),
-        const SizedBox(width: 5),
-        Expanded(
-          child: Text(
-            parts.join(' '),
+        const Icon3d(AppIcon3d.graduationCap, size: 28),
+        const SizedBox(width: AppSpacing.xs),
+        Flexible(
+          child: SchoolLabel(
+            profile.university ?? '',
+            text: parts.join(' '),
             style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
           ),
         ),
