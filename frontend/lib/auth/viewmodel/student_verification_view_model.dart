@@ -125,7 +125,7 @@ class StudentVerificationViewModel extends Notifier<StudentVerificationUiState> 
     // 지난 시도의 실패 문구가 로딩 중에 남아 있지 않도록 지운다.
     state = _copyWith(isSubmitting: true, errorMessage: null);
     final compressed = await _compressedPhoto(photo, requireFace: requireFace);
-    await _uploadOrStop(realName, compressed);
+    await _uploadOrStop(realName, compressed, requireFace: requireFace);
   }
 
   /// 압축한 사진을 돌려준다. 얼굴이 필요한데 없거나 사진 자체를 처리하지 못하면 `null`.
@@ -145,10 +145,12 @@ class StudentVerificationViewModel extends Notifier<StudentVerificationUiState> 
   }
 
   /// 쓸 수 있는 사진이 없으면 서버를 부르지 않고 끝낸다(설계 §7.3, 기기 안 1차 필터).
-  /// 얼굴이 없는 경우와 사진을 처리하지 못한 경우는 사용자가 할 일이 "다시 올리기"로 같아 문구도 같다.
-  Future<void> _uploadOrStop(RealName realName, File? photo) async {
+  /// 학생증은 얼굴이 없는 경우와 사진을 처리하지 못한 경우가 사용자가 할 일("다시 올리기")이 같아 문구도 같다.
+  /// 졸업증명서는 얼굴을 보지 않으니 null 이면 사진을 못 읽은 것뿐이다 — 얼굴 안내는 맞지 않는다(A8 리뷰 R1).
+  Future<void> _uploadOrStop(RealName realName, File? photo, {required bool requireFace}) async {
     if (photo == null) {
-      state = _copyWith(isSubmitting: false, errorMessage: const NoFaceDetectedFailure().toDisplayMessage());
+      final Failure failure = requireFace ? const NoFaceDetectedFailure() : const PhotoUnreadableFailure();
+      state = _copyWith(isSubmitting: false, errorMessage: failure.toDisplayMessage());
       return;
     }
     final result = await ref.read(studentVerificationRepositoryProvider).submit(realName, photo);

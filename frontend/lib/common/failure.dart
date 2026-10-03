@@ -93,6 +93,14 @@ final class NoFaceDetectedFailure extends Failure {
   String toDisplayMessage() => '얼굴이 보이는 사진으로 다시 올려주세요';
 }
 
+/// 고른 사진을 기기에서 읽지(압축하지) 못한 경우. 얼굴 검사를 하지 않는 졸업증명서에만 쓴다(결함 A8, 대장 10-03 문구).
+final class PhotoUnreadableFailure extends Failure {
+  const PhotoUnreadableFailure();
+
+  @override
+  String toDisplayMessage() => '사진을 읽을 수 없어요. 다른 사진으로 다시 올려주세요';
+}
+
 /// 학생증 인증 서버가 거부한 경우(예: 검토 중 재제출). 서버 메시지를 그대로 보여준다.
 final class ServerRejectedFailure extends Failure {
   const ServerRejectedFailure(this._message);
