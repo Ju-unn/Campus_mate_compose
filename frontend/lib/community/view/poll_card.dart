@@ -1,3 +1,4 @@
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/community/model/poll.dart';
 import 'package:campus_mate/community/view/poll_donut.dart';
 import 'package:campus_mate/community/view/poll_time.dart';
@@ -20,6 +21,7 @@ class PollCard extends StatelessWidget {
     required this.onVote,
     this.onOpen,
     this.onMore,
+    this.onReport,
     super.key,
   });
 
@@ -35,6 +37,9 @@ class PollCard extends StatelessWidget {
 
   /// 내 글에만 준다(… 메뉴, 사용자 결정 2).
   final VoidCallback? onMore;
+
+  /// 남의 글에만 준다(신고 버튼 `uPUf3`, A16). pen `mc9mW` 규칙 — 내 글이면 신고 대신 … 가 같은 자리에 선다.
+  final VoidCallback? onReport;
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +59,7 @@ class PollCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _Header(poll: poll, now: now, onMore: onMore),
+              _Header(poll: poll, now: now, onMore: onMore, onReport: onReport),
               const SizedBox(height: AppSpacing.sm),
               Text(
                 poll.question,
@@ -78,11 +83,12 @@ class PollCard extends StatelessWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.poll, required this.now, required this.onMore});
+  const _Header({required this.poll, required this.now, required this.onMore, required this.onReport});
 
   final Poll poll;
   final DateTime now;
   final VoidCallback? onMore;
+  final VoidCallback? onReport;
 
   @override
   Widget build(BuildContext context) {
@@ -96,14 +102,14 @@ class _Header extends StatelessWidget {
         ),
         const SizedBox(width: AppSpacing.xs),
         // pen `G85OOq` 은 11/500 — 11px 은 뱃지만이라 12 로 올린다(대장 예외).
-        Flexible(
+        Expanded(
           child: Text(
             relativeTimeLabel(poll.createdAt, now),
             style: AppTypography.caption.copyWith(fontWeight: FontWeight.w500, color: AppColors.muted),
           ),
         ),
-        // 신고 flag(`z7tzx`)는 안전 PR 6 뒤에 붙인다. "…" 는 pen `mc9mW`(터치 48 · ellipsis 20 muted) — 오른쪽 끝이
-        // 아니라 시각 바로 오른쪽(머리줄 간격 8)이고, 켜지면 머리줄이 48.
+        // 신고 버튼 · "…" 는 머리줄 오른쪽 끝 한 자리(10-01 개편, 간격 8) — 둘 중 하나만 켜지고, 켜지면 머리줄이 48.
+        // "…" 는 pen `mc9mW`(터치 48 · ellipsis 20 muted).
         if (onMore != null) ...[
           const SizedBox(width: AppSpacing.xs),
           IconButton(
@@ -111,8 +117,51 @@ class _Header extends StatelessWidget {
             icon: const Icon(AppIcons.ellipsis, size: 20, color: AppColors.muted),
             onPressed: onMore,
           ),
+        ] else if (onReport != null) ...[
+          const SizedBox(width: AppSpacing.xs),
+          _ReportButton(onPressed: onReport!),
         ],
       ],
+    );
+  }
+}
+
+/// 신고 버튼(pen `uPUf3` = Report Button · 3D Siren Label `OaLnA`): 터치 48 · 세로 가운데 · 사이렌 22 → 2 → "신고하기".
+/// 글자를 키우면 48 보다 커진다 — 고정 48 이면 글자가 조용히 잘린다.
+class _ReportButton extends StatelessWidget {
+  const _ReportButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      child: InkResponse(
+        onTap: onPressed,
+        radius: 24,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon3d(AppIcon3d.siren, size: 22),
+              const SizedBox(height: 2),
+              // pen `Wwsmw` 9/600 #6E5861, 줄높이 속성 없음 · 렌더 9. 9px · 이 색은 이 버튼에만 있어 토큰으로 올리지 않는다.
+              Text(
+                '신고하기',
+                style: AppTypography.caption.copyWith(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w600,
+                  height: 1,
+                  color: const Color(0xFF6E5861),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

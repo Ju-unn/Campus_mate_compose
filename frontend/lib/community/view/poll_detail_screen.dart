@@ -1,5 +1,6 @@
 import 'package:campus_mate/community/model/poll.dart';
 import 'package:campus_mate/community/view/poll_card.dart';
+import 'package:campus_mate/community/view/poll_sheets.dart';
 import 'package:campus_mate/community/view/poll_time.dart';
 import 'package:campus_mate/community/view/poll_toast.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
@@ -51,6 +52,7 @@ class PollDetailScreen extends ConsumerWidget {
                   now: ref.read(communityNowProvider)(),
                   isVoting: isVoting,
                   onVote: (choice) => _vote(context, ref, choice),
+                  onReport: poll.isMine ? null : () => reportPoll(context, poll.id),
                 ),
                 const SizedBox(height: AppSpacing.md),
                 // pen `LyR5Y` 12/500 #929292 → muted(대장 예외, 대비 4.5:1).

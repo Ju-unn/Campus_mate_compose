@@ -106,6 +106,7 @@ class _CommunityFeedScreenState extends ConsumerState<CommunityFeedScreen> {
             onVote: (choice) => _vote(poll.id, choice),
             onOpen: () => context.push('${AppRoutes.communityPoll}/${poll.id}'),
             onMore: poll.isMine ? () => showPollMenu(context, ref, poll.id) : null,
+            onReport: poll.isMine ? null : () => reportPoll(context, poll.id),
           );
         },
       ),
