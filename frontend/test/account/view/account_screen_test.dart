@@ -1,26 +1,70 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:campus_mate/account/model/account_info.dart';
 import 'package:campus_mate/account/model/account_repository.dart';
 import 'package:campus_mate/account/view/account_screen.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/common/university_logos.dart';
+import 'package:campus_mate/common/widgets/school_label.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mocktail/mocktail.dart';
 
 import '../model/fake_account_repository.dart';
 
+/// 로고 요청을 받기만 하고 답하지 않는 HttpClient — 로고는 "아직 오는 중"이라 자리만 잡는다(히어로 테스트와 같은 방식).
+class _PendingHttpClient extends Mock implements HttpClient {}
+
+class _PendingHttpOverrides extends HttpOverrides {
+  _PendingHttpOverrides(this._client);
+
+  final HttpClient _client;
+
+  @override
+  HttpClient createHttpClient(SecurityContext? context) => _client;
+}
+
+const _logoUrl = 'https://logo.test/snu.webp';
+
+/// 학교 로고 그림(간격 Padding 을 뺀 16×16 자리).
+final _logo = find.descendant(
+  of: find.byWidgetPredicate((w) => w is Image && w.image == const NetworkImage(_logoUrl)),
+  matching: find.byType(RawImage),
+);
+
 void main() {
-  Future<FakeAccountRepository> pump(WidgetTester tester, {FakeAccountRepository? repository}) async {
+  final previousOverrides = HttpOverrides.current;
+  setUpAll(() {
+    registerFallbackValue(Uri());
+    final client = _PendingHttpClient();
+    when(() => client.getUrl(any())).thenAnswer((_) => Completer<HttpClientRequest>().future);
+    HttpOverrides.global = _PendingHttpOverrides(client);
+  });
+  tearDownAll(() => HttpOverrides.global = previousOverrides);
+
+  Future<FakeAccountRepository> pump(
+    WidgetTester tester, {
+    FakeAccountRepository? repository,
+    Map<String, String> logos = const {'서울대학교': _logoUrl},
+  }) async {
     final fake = repository ?? FakeAccountRepository();
     await tester.pumpWidget(ProviderScope(
-      overrides: [accountRepositoryProvider.overrideWithValue(fake)],
+      overrides: [
+        accountRepositoryProvider.overrideWithValue(fake),
+        universityLogosProvider.overrideWith((ref) => logos),
+      ],
       child: const MaterialApp(home: AccountScreen()),
     ));
+    // 로고 그림은 끝나지 않는 요청이라 pumpAndSettle 은 그림 쪽을 기다리지 않는다.
     await tester.pumpAndSettle();
     return fake;
   }
@@ -87,6 +131,40 @@ void main() {
     // 카톡 줄은 셰브런(18)이 끝에 붙고, 값은 줄 간격 12 앞에서 끝난다.
     expect(tester.getRect(find.byIcon(AppIcons.chevronRight)).right, cardInnerRight);
     expect(lastGlyphRight('fox_rain'), closeTo(cardInnerRight - 18 - 12, 0.5));
+  });
+
+  group('학교 값 `SQQa9` · `FNU1J`(School Symbol)', () {
+    testWidgets('로고 16 → 4 → "서울대학교" 한 줄, 값 스타일(14 muted) 그대로, 오른쪽 끝에 붙는다', (tester) async {
+      usePenFrame(tester);
+      await pump(tester);
+
+      final label = tester.widget<SchoolLabel>(find.byType(SchoolLabel));
+      expect(label.university, '서울대학교');
+      expect(label.style, AppTypography.bodySmall.copyWith(color: AppColors.muted));
+      expect(tester.getSize(_logo), const Size(16, 16));
+      final text = tester.getRect(find.text('서울대학교'));
+      expect(text.left - tester.getTopRight(_logo).dx, 4);
+      // 테스트 글꼴은 줄 높이 21.7 을 22 로 반올림해 0.15 어긋난다.
+      expect(tester.getCenter(_logo).dy, closeTo(text.center.dy, 0.5), reason: '한 줄이면 로고는 줄 가운데');
+      // 로고는 "학교" 라벨과 같은 줄, 라벨보다 오른쪽.
+      expect(tester.getTopLeft(_logo).dx, greaterThan(tester.getTopRight(find.text('학교')).dx));
+      expect(tester.getCenter(_logo).dy, closeTo(tester.getCenter(find.text('학교')).dy, 1));
+    });
+
+    testWidgets('로고가 없는 학교는 글자만, 그대로 오른쪽 끝', (tester) async {
+      usePenFrame(tester);
+      await pump(tester, logos: const {});
+
+      expect(_logo, findsNothing);
+      expect(find.text('서울대학교'), findsOneWidget);
+      expect(tester.getTopRight(find.text('서울대학교')).dx, closeTo(330, 0.5));
+    });
+
+    testWidgets('다른 줄 값에는 로고가 없다', (tester) async {
+      await pump(tester);
+
+      expect(find.byType(SchoolLabel), findsOneWidget);
+    });
   });
 
   testWidgets('카카오톡 줄만 누를 수 있고 셰브런이 붙는다(pen ow0m3)', (tester) async {

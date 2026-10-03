@@ -1,6 +1,7 @@
 import 'package:campus_mate/account/model/account_info.dart';
 import 'package:campus_mate/account/viewmodel/account_info_provider.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/school_label.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -108,7 +109,7 @@ class _AccountContent extends StatelessWidget {
               label: '출생연도',
               value: info.birthYear?.toString() ?? AccountScreen.emptyValue,
             ),
-            _InfoRow(icon: AppIcons.graduationCap, label: '학교', value: info.university),
+            _InfoRow(icon: AppIcons.graduationCap, label: '학교', value: info.university, schoolLogo: true),
           ]),
           const SizedBox(height: _sectionGap),
           const _PrivacyNote(),
@@ -180,7 +181,14 @@ class _InfoCard extends StatelessWidget {
 
 /// 정보 줄. [onTap] 을 주면(카톡 줄) 끝에 셰브런이 붙고, 잉크는 카드 [Material] 에 그린다.
 class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.icon, required this.label, required this.value, this.valueStyle, this.onTap});
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.valueStyle,
+    this.schoolLogo = false,
+    this.onTap,
+  });
 
   final IconData icon;
   final String label;
@@ -188,6 +196,9 @@ class _InfoRow extends StatelessWidget {
 
   /// 기본 값 스타일과 다를 때만 준다("학생 인증" 의 "인증 완료" 는 굵게 primary-text).
   final TextStyle? valueStyle;
+
+  /// 학교 줄(pen `SQQa9` · `FNU1J` School Symbol) — 값 앞에 학교 로고를 붙인다. 로고가 없으면 글자만.
+  final bool schoolLogo;
 
   final VoidCallback? onTap;
 
@@ -199,6 +210,11 @@ class _InfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final style = valueStyle ?? AppTypography.bodySmall.copyWith(color: AppColors.muted);
+    final valueText = schoolLogo
+        // SchoolLabel 은 제 폭만큼만 차지한다 — 오른쪽 끝에 붙이려고 Align 으로 민다.
+        ? Align(alignment: Alignment.centerRight, child: SchoolLabel(value, style: style))
+        : Text(value, textAlign: TextAlign.end, style: style);
     final row = ConstrainedBox(
       constraints: const BoxConstraints(minHeight: _minHeight),
       child: Container(
@@ -220,13 +236,7 @@ class _InfoRow extends StatelessWidget {
               ),
               const SizedBox(width: AppSpacing.sm),
               // pen 은 라벨 fill · 값 hug — 값이 남은 폭을 다 받고 오른쪽 끝에 붙는다. 길면 줄바꿈만 한다(조용한 잘림 금지).
-              Expanded(
-                child: Text(
-                  value,
-                  textAlign: TextAlign.end,
-                  style: valueStyle ?? AppTypography.bodySmall.copyWith(color: AppColors.muted),
-                ),
-              ),
+              Expanded(child: valueText),
               if (onTap != null) ...[
                 const SizedBox(width: AppSpacing.sm),
                 const Icon(AppIcons.chevronRight, size: 18, color: AppColors.muted),

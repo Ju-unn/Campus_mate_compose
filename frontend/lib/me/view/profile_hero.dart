@@ -1,4 +1,5 @@
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/common/widgets/school_label.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -36,13 +37,8 @@ class ProfileHero extends StatelessWidget {
             Positioned.fill(child: _Picture(url: profile.avatarUrl)),
             const Positioned(top: _scrimTop, left: 0, right: 0, bottom: 0, child: _Scrim()),
             Padding(
-              // `l8p6X` 패딩 [16,16,20,16]. 아래 20 중 10 은 알약 누름 칸이 쓴다([_RegeneratePill.tapExtension]).
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.md,
-                AppSpacing.md,
-                AppSpacing.md,
-                20 - _RegeneratePill.tapExtension,
-              ),
+              // `l8p6X` 패딩 [16,16,20,16]. 알약 누름 칸 44 는 학교 줄 안에 든다([_SchoolRow]).
+              padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 20),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -208,17 +204,18 @@ class _Identity extends StatelessWidget {
         ),
         // Name Copy gap 2(토큰 밖 리터럴).
         const SizedBox(height: 2),
-        _SchoolRow(school: major == null ? profile.university : '${profile.university} · $major', onRegenerate: onRegenerate),
+        _SchoolRow(university: profile.university, major: major, onRegenerate: onRegenerate),
       ],
     );
   }
 }
 
-/// 학교 줄 `p2UWV` — 학교 칸(fill, 한 줄 말줄임 N7) → 12 → 알약.
+/// 학교 줄 `p2UWV` — 학교 칸(fill, School Symbol `NvYvt` 로고 + "학교\n학과" 두 줄 말줄임 N7) → 12 → 알약.
 class _SchoolRow extends StatelessWidget {
-  const _SchoolRow({required this.school, required this.onRegenerate});
+  const _SchoolRow({required this.university, required this.major, required this.onRegenerate});
 
-  final String school;
+  final String university;
+  final String? major;
   final VoidCallback? onRegenerate;
 
   /// 알약은 줄 폭의 3/4 까지다. 글자를 키워 그보다 넓어지면 알약 글자가 줄을 바꾸고, 학교 칸은 나머지(1/4 − 12)에서
@@ -229,24 +226,18 @@ class _SchoolRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) => Row(
-        // 위 맞춤 — 알약 누름 칸이 아래로만 10 늘어서(가운데 맞춤이면 학교 글자가 5 내려간다) 학교 칸이 알약 몸통 높이
-        // 안에서 스스로 가운데를 잡는다.
-        crossAxisAlignment: CrossAxisAlignment.start,
+        // pen alignItems center — 학교 글자 가운데 = 알약 몸통 가운데. 알약 누름 칸(위아래 5 씩 늘린 44)도 몸통을 가운데에
+        // 두므로 줄 높이 = max(학교 글자, 44) 이고, 모두 히어로 아래 패딩 20 위에서 끝난다.
         children: [
           Expanded(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: _RegeneratePill.height),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                heightFactor: 1,
-                child: Text(
-                  school,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  // `C9JEi` 14/400 lh1.55 = bodySmall 토큰.
-                  style: AppTypography.bodySmall.copyWith(color: AppColors.onInk),
-                ),
-              ),
+            child: SchoolLabel(
+              university,
+              // pen `NvYvt` 는 학교와 학과를 " · " 없이 줄바꿈으로 나눈다.
+              text: major == null ? university : '$university\n$major',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              // pen `LSwMj` 14/400 lh1.5(두 줄 42) — 14/1.5 토큰이 없어 bodySmall 에 줄높이만 덮어쓴다.
+              style: AppTypography.bodySmall.copyWith(color: AppColors.onInk, height: 1.5),
             ),
           ),
           const SizedBox(width: AppSpacing.sm),
@@ -263,16 +254,18 @@ class _SchoolRow extends StatelessWidget {
 /// "다시 만들기 · 10" 알약 `R5Quru` — 높이 34 · 흰 알약 · 좌우 10 · 하트 16 → 4 → 13/600 primary-text.
 /// 글자의 10 은 서버 `avatarRegenCost` 가 아니라 pen 고정이다(D6 — 무료 차례에도 같다. 실제 값은 15b 시트가 읽는다).
 ///
-/// 누름 칸은 44(N7)인데 pen 몸통은 34 다. 칸을 위로 늘리면 이름 줄이 밀리므로 **아래(히어로 아래 여백 20 쪽)로만 10**
-/// 늘린다 — 히어로가 그만큼 아래 여백을 덜 둔다. 몸통 밖 10 은 [GestureDetector] 가 받고, 몸통 안은 눌림 효과를 그리는
-/// [InkWell] 이 받는다(안쪽이 이겨 한 번만 불린다).
+/// 누름 칸은 44(N7)인데 pen 몸통은 34 다. **위아래로 5 씩** 늘려 몸통이 칸 가운데에 남게 한다 — 학교 줄의 가운데
+/// 맞춤이 깨지지 않는다. 몸통 밖 5 는 [GestureDetector] 가 받고, 몸통 안은 눌림 효과를 그리는 [InkWell] 이 받는다
+/// (안쪽이 이겨 한 번만 불린다).
 class _RegeneratePill extends StatelessWidget {
   const _RegeneratePill({required this.onTap});
 
   final VoidCallback? onTap;
 
   static const double height = 34;
-  static const double tapExtension = 10;
+
+  /// 누름 칸 44 = 5 + 몸통 34 + 5.
+  static const double _tapExtension = 5;
 
   @override
   Widget build(BuildContext context) {
@@ -284,7 +277,7 @@ class _RegeneratePill extends StatelessWidget {
       excludeFromSemantics: true,
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.only(bottom: tapExtension),
+        padding: const EdgeInsets.symmetric(vertical: _tapExtension),
         // 하트 라벨과 글자를 버튼 하나로 합친다 — "하트, 다시 만들기 · 10, 버튼" 을 한 번에 읽는다(15b 검토 권고 1).
         child: MergeSemantics(
           child: Semantics(
