@@ -8,6 +8,8 @@
 # 로그인 · 게이트(student_verification/current_user.py)
 LOGIN_REQUIRED = "로그인이 필요해요"
 SESSION_EXPIRED = "세션이 만료됐어요, 다시 로그인해 주세요"
+# Supabase 인증이 잠깐 못 받을 때(5xx · 429 · 연결 실패). 401 이 아니다 — 앱이 로그아웃시키지 않게.
+AUTH_UNAVAILABLE = "잠시 뒤 다시 시도해 주세요"
 STUDENT_VERIFICATION_REQUIRED = "학생증 인증을 먼저 끝내 주세요"
 DEPARTMENT_REQUIRED = "학과 정보를 먼저 입력해 주세요"
 

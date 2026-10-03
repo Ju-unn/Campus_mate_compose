@@ -4,6 +4,7 @@ import httpx
 import pytest
 from fastapi import HTTPException
 
+from app.core import errors
 from app.settings import Settings
 from app.student_verification.current_user import get_current_user_id, get_verified_user_id
 
@@ -49,13 +50,40 @@ async def test_missing_authorization_header_returns_401():
     assert exc_info.value.status_code == 401
 
 
-async def test_supabase_401_is_passed_through():
-    client = httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(401)))
+@pytest.mark.parametrize("status", [400, 401, 403, 404])
+async def test_supabase_refusing_the_token_is_401(status):
+    # 만료 · 끊긴 세션 · 지워진 계정 — 앱은 토큰을 새로 받아 보고, 그래도 401 이면 로그인 화면으로 간다(A11).
+    client = httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(status)))
 
     with pytest.raises(HTTPException) as exc_info:
         await get_current_user_id(_settings(), client, authorization="Bearer expired-token")
 
     assert exc_info.value.status_code == 401
+    assert exc_info.value.detail == errors.SESSION_EXPIRED
+
+
+@pytest.mark.parametrize("status", [429, 500, 502, 503, 504])
+async def test_supabase_auth_trouble_is_503_not_a_sign_out(status):
+    # Supabase 인증이 잠깐 못 받는 것은 이 로그인의 잘못이 아니다 — 401 이면 앱이 로그아웃시킨다(A11).
+    client = httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(status)))
+
+    with pytest.raises(HTTPException) as exc_info:
+        await get_current_user_id(_settings(), client, authorization="Bearer valid-token")
+
+    assert exc_info.value.status_code == 503
+    assert exc_info.value.detail == errors.AUTH_UNAVAILABLE
+
+
+async def test_supabase_auth_unreachable_is_503():
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("연결 실패")
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+    with pytest.raises(HTTPException) as exc_info:
+        await get_current_user_id(_settings(), client, authorization="Bearer valid-token")
+
+    assert exc_info.value.status_code == 503
 
 
 # 조각 6: 정지 관문 ----------------------------------------------------------------
