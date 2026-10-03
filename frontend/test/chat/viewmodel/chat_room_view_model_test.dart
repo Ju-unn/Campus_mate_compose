@@ -189,6 +189,34 @@ void main() {
     expect(state.room!.kakaoId, 'fox_rain');
   });
 
+  test('방에 있는 동안 상대가 나가면 머리말을 다시 읽어 입력창을 잠근다(결함 A12)', () async {
+    // 구독으로는 나감 줄만 온다 — 머리말을 안 읽으면 입력창이 남고 보내면 409(E-CHAT-61).
+    final container = containerFor();
+    await opened(container);
+    repository.room = Success(roomFixture(partnerLeft: true));
+
+    stream.push(messageFixture(id: 'left-1', kind: MessageKind.left, body: '여우비님이 채팅방을 나갔어요'));
+    await Future<void>.delayed(Duration.zero);
+
+    expect(repository.roomFetchCount, 2);
+    expect(container.read(chatRoomViewModelProvider('m1')).isPartnerGone, isTrue);
+  });
+
+  test('머리말을 읽은 뒤 구독 전에 상대가 나갔으면 첫 페이지의 나감 줄을 보고 머리말을 다시 읽는다', () async {
+    repository.messages = Success(MessagePage(
+      messages: [messageFixture(id: 'left-1', kind: MessageKind.left, body: '여우비님이 채팅방을 나갔어요')],
+      hasMore: false,
+    ));
+    repository.onFetchMessages = () => repository.room = Success(roomFixture(partnerLeft: true));
+    final container = containerFor();
+
+    await opened(container);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(repository.roomFetchCount, 2);
+    expect(container.read(chatRoomViewModelProvider('m1')).isPartnerGone, isTrue);
+  });
+
   test('상대 수락 줄로 다시 읽다 실패해도 오류 줄을 띄우지 않는다', () async {
     // 사용자가 누른 것이 아니라 할 수 있는 일이 없다 — 방은 옛 머리말 그대로 둔다.
     final container = containerFor();
@@ -342,6 +370,54 @@ void main() {
     expect(state.isDisconnected, isFalse);
     expect(state.messages.map((message) => message.id), ['msg-1', 'msg-2']);
     expect(stream.subscribed, ['m1', 'm1']);
+  });
+
+  test('끊겼던 통로가 스스로 다시 붙으면 배너를 내리고 끊긴 동안 온 줄을 다시 읽는다(결함 A12)', () async {
+    repository.messages = Success(MessagePage(messages: [messageFixture(id: 'msg-1')], hasMore: false));
+    final container = containerFor();
+    await opened(container);
+    stream.pushError();
+    await Future<void>.delayed(Duration.zero);
+    expect(container.read(chatRoomViewModelProvider('m1')).isDisconnected, isTrue);
+
+    repository.messages = Success(MessagePage(
+      messages: [messageFixture(id: 'msg-1'), messageFixture(id: 'msg-2', body: '그동안 온 줄')],
+      hasMore: false,
+    ));
+    stream.rejoin();
+    await Future<void>.delayed(Duration.zero);
+    final state = container.read(chatRoomViewModelProvider('m1'));
+
+    expect(state.isDisconnected, isFalse);
+    expect(state.messages.map((message) => message.id), ['msg-1', 'msg-2']);
+    expect(repository.roomFetchCount, 2);
+  });
+
+  test('다시 연결한 뒤 옛 구독이 늦게 "다시 붙음" 을 알려도 또 다시 읽지 않는다', () async {
+    final container = containerFor();
+    await opened(container);
+    await container.read(chatRoomViewModelProvider('m1').notifier).reconnect();
+    final fetches = repository.roomFetchCount;
+
+    stream.rejoin(subscription: 0);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(stream.subscribed, ['m1', 'm1']);
+    expect(repository.roomFetchCount, fetches);
+  });
+
+  test('이미 나간 방을 열면 첫 페이지에 나감 줄이 있어도 머리말을 한 번만 읽는다', () async {
+    repository
+      ..room = Success(roomFixture(partnerLeft: true))
+      ..messages = Success(MessagePage(
+        messages: [messageFixture(id: 'left-1', kind: MessageKind.left, body: '여우비님이 채팅방을 나갔어요')],
+        hasMore: false,
+      ));
+
+    await opened(containerFor());
+    await Future<void>.delayed(Duration.zero);
+
+    expect(repository.roomFetchCount, 1);
   });
 
   test('다시 시도는 머리말도 다시 읽는다', () async {

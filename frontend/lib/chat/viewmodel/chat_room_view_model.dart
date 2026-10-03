@@ -55,25 +55,32 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
     // 겹치는 줄은 id 가드와 아래의 이어 붙이기가 걸러 낸다(조각 5 리뷰 권고 4번).
     _subscribe();
     await _loadFirstPage();
-    _refreshIfPartnerAcceptedMeanwhile();
+    _refreshIfRoomChangedMeanwhile();
     await markRead();
   }
 
-  /// 머리말을 읽은 직후 상대가 두 번째로 수락하면 그 줄은 구독이 아니라 첫 페이지로 들어와
+  /// 머리말을 읽은 직후 상대가 두 번째로 수락하거나 나가면 그 줄은 구독이 아니라 첫 페이지로 들어와
   /// [_receive] 를 타지 않는다. 첫 페이지를 합친 뒤([_open]·[reconnect]) 한 번 본다.
-  /// 내가 이미 수락한 방일 때만 본다 — 아니면 상대 수락 줄로는 통과될 수 없다.
-  void _refreshIfPartnerAcceptedMeanwhile() {
+  /// 수락은 내가 이미 수락한 방일 때만 본다 — 아니면 상대 수락 줄로는 통과될 수 없다.
+  void _refreshIfRoomChangedMeanwhile() {
     final room = state.room;
-    if (room != null &&
-        room.gate.accepted &&
+    if (room == null) {
+      return;
+    }
+    final accepted = room.gate.accepted &&
         !room.gate.passed &&
-        state.messages.any((message) => _isPartnerAccept(room, message))) {
+        state.messages.any((message) => _isPartnerAccept(room, message));
+    if (accepted || state.messages.any((message) => _isUnseenLeft(room, message))) {
       unawaited(_loadRoom(quiet: true));
     }
   }
 
   static bool _isPartnerAccept(ChatRoom room, Message message) =>
       message.kind == MessageKind.trustAccept && message.senderId == room.partner.profileId;
+
+  /// 나감 줄은 상대만 남긴다(내가 나가면 방을 못 본다). 머리말이 아직 모르면 다시 읽어야 입력창이 잠긴다.
+  static bool _isUnseenLeft(ChatRoom room, Message message) =>
+      message.kind == MessageKind.left && !room.gate.partnerLeft;
 
   /// [quiet] 는 사용자가 누르지 않은 백그라운드 재조회다 — 실패해도 오류 줄을 띄우지 않고,
   /// 성공해도 떠 있던 오류 줄을 지우지 않는다(사용자가 할 수 있는 일이 없다).
@@ -132,7 +139,11 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
       return;
     }
     final generation = ++_generation;
-    _subscription = ref.read(messageStreamProvider).subscribe(_matchId).listen(
+    _subscription = ref
+        .read(messageStreamProvider)
+        // 짧게 끊겼다가 통로가 스스로 다시 붙었다 — 배너의 "다시 시도" 와 같은 길로 놓친 줄을 데려온다(결함 A12).
+        .subscribe(_matchId, onRejoined: () => generation == _generation ? unawaited(reconnect()) : null)
+        .listen(
           (message) => generation == _generation ? _receive(message) : null,
           onError: (Object _) {
             if (generation == _generation) {
@@ -142,8 +153,8 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
         );
   }
 
-  /// 실시간 통로가 끊겼다(백로그 19). 혼자 조용히 다시 붙지 않는다 —
-  /// 끊긴 동안 온 줄을 같이 가져와야 해서, 사용자가 누를 때 [reconnect] 한 번으로 묶는다.
+  /// 실시간 통로가 끊겼다(백로그 19). 배너만 켠다 — 끊긴 동안 온 줄을 같이 가져와야 해서 [reconnect] 한 번으로
+  /// 묶는다. 사용자가 "다시 시도" 를 누르거나, 통로가 스스로 다시 붙으면(결함 A12) 그 길을 탄다.
   void _onDisconnected() {
     if (_alive) {
       state = state.copyWith(isDisconnected: true);
@@ -166,7 +177,7 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
     _subscribe();
     await _loadRoom();
     await _loadFirstPage();
-    _refreshIfPartnerAcceptedMeanwhile();
+    _refreshIfRoomChangedMeanwhile();
   }
 
   /// 내가 보낸 줄도 구독으로 한 번 더 돌아온다 — id 로 걸러 두 번 그리지 않는다.
@@ -177,8 +188,10 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
     state = state.copyWith(messages: [...state.messages, message]);
     // 상대가 두 번째로 수락해 통과되면 구독으로는 수락 줄만 온다 — 통과 카드·카카오톡 아이디·
     // 실사진은 머리말을 다시 읽어야 내려온다. 내 수락은 [acceptTrust] 가 응답 뒤에 이미 읽는다.
+    // 상대가 나가도 구독으로는 나감 줄만 온다 — 머리말을 다시 읽어야 입력창이 안내로 바뀐다(결정 7 · 결함 A12).
     final room = state.room;
-    if (room != null && !room.gate.passed && _isPartnerAccept(room, message)) {
+    if (room != null &&
+        (!room.gate.passed && _isPartnerAccept(room, message) || _isUnseenLeft(room, message))) {
       unawaited(_loadRoom(quiet: true));
     }
   }

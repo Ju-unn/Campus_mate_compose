@@ -85,6 +85,18 @@ void main() {
     expect(find.byType(TextField), findsNothing);
   });
 
+  testWidgets('방을 보는 중에 상대가 나가면 그 자리에서 입력창이 안내로 바뀐다(E-CHAT-61)', (tester) async {
+    await pump(tester);
+    expect(find.byType(TextField), findsOneWidget);
+    repository.room = Success(roomFixture(partnerLeft: true));
+
+    stream.push(messageFixture(id: 'left-1', kind: MessageKind.left, body: '여우비님이 채팅방을 나갔어요'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('상대가 채팅방을 나가 더 이상 메시지를 보낼 수 없어요.'), findsOneWidget);
+    expect(find.byType(TextField), findsNothing);
+  });
+
   testWidgets('빈 입력으로는 보낼 수 없고 글자를 넣으면 보낼 수 있다', (tester) async {
     await pump(tester);
 
