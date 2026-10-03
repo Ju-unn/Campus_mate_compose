@@ -232,7 +232,8 @@ void main() {
 
     expect(tester.widget<ProfileHero>(find.byType(ProfileHero)).profile.nickname, '여우');
     expect(find.text('여우, 23'), findsOneWidget);
-    expect(find.text('가나대학교 · 경영학과'), findsOneWidget);
+    // 학교 줄 `NvYvt` — 학교와 학과를 줄바꿈으로 나눈 두 줄.
+    expect(find.text('가나대학교\n경영학과'), findsOneWidget);
     expect(_imageBox('https://img.test/avatar.png'), findsOneWidget);
     expect(find.text(_pillLabel), findsOneWidget);
   });
@@ -608,8 +609,8 @@ void main() {
       tester.platformDispatcher.textScaleFactorTestValue = scale;
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
 
-      // 앱바·내비까지 화면 전체를 본다. 내비 "커뮤니티" 는 칸 폭 안에서, 히어로 학교 줄은 한 줄로 일부러 말줄임한다(N7).
-      const intendedEllipsis = {'커뮤니티', '가나대학교 · 경영학과'};
+      // 앱바·내비까지 화면 전체를 본다. 내비 "커뮤니티" 는 칸 폭 안에서, 히어로 학교 줄은 두 줄로 일부러 말줄임한다(N7).
+      const intendedEllipsis = {'커뮤니티', '가나대학교\n경영학과'};
       List<String> clippedTexts() => [
             for (final element in find.byType(RichText).evaluate())
               if (element.renderObject case final RenderParagraph p

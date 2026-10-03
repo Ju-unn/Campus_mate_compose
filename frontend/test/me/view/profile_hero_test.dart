@@ -2,7 +2,9 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 
+import 'package:campus_mate/common/university_logos.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/common/widgets/school_label.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -11,6 +13,7 @@ import 'package:campus_mate/me/model/my_profile.dart';
 import 'package:campus_mate/me/view/profile_hero.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -28,6 +31,10 @@ class _PendingHttpOverrides extends HttpOverrides {
 
 const _avatarUrl = 'https://img.test/avatar.png';
 const _pillLabel = '다시 만들기 · 10';
+const _logoUrl = 'https://logo.test/gana.webp';
+
+/// 학교 줄 글자 — pen `NvYvt` "학교\n학과" 두 줄.
+const _schoolText = '가나대학교\n경영학과';
 
 /// 이름·학교는 지어낸 값이다.
 MyProfile _profile({
@@ -82,6 +89,12 @@ final _pill = find.ancestor(of: find.text(_pillLabel), matching: find.byType(Mat
 /// 알약의 누름 칸.
 final _pillTapTarget = find.ancestor(of: find.text(_pillLabel), matching: find.byType(GestureDetector)).last;
 
+/// 학교 로고 그림(간격 Padding 을 뺀 16×16 자리).
+final _logo = find.descendant(
+  of: find.byWidgetPredicate((w) => w is Image && w.image == const NetworkImage(_logoUrl)),
+  matching: find.byType(RawImage),
+);
+
 final _heart = find.byWidgetPredicate(
   (w) => w is Image && w.image is AssetImage && (w.image as AssetImage).assetName == 'assets/images/heart-flat-vector-v3.png',
 );
@@ -103,6 +116,7 @@ void main() {
     VoidCallback? onRegenerate,
     double scale = 1.0,
     double width = 360,
+    Map<String, String> logos = const {'가나대학교': _logoUrl},
   }) async {
     tester.view.physicalSize = Size(width, 800);
     tester.view.devicePixelRatio = 1;
@@ -110,16 +124,20 @@ void main() {
     tester.platformDispatcher.textScaleFactorTestValue = scale;
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light(),
-        home: Scaffold(
-          body: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
-            children: [ProfileHero(profile: profile ?? _profile(), onRegenerate: onRegenerate)],
+      ProviderScope(
+        overrides: [universityLogosProvider.overrideWith((ref) => logos)],
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          home: Scaffold(
+            body: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+              children: [ProfileHero(profile: profile ?? _profile(), onRegenerate: onRegenerate)],
+            ),
           ),
         ),
       ),
     );
+    await tester.pump();
   }
 
   /// 히어로 왼쪽 위를 (0, 0) 으로 본 자리.
@@ -237,27 +255,62 @@ void main() {
       expect(tester.getBottomLeft(find.text('학생 인증')).dy, lessThan(tester.getTopLeft(find.text('여우, 23')).dy));
     });
 
-    testWidgets('학교 `C9JEi` "학교 · 학과" 14/400 흰색 lh1.55 한 줄 말줄임, 12 뒤 알약', (tester) async {
+    testWidgets('학교 줄 `NvYvt`(School Symbol) — 학교 로고 + "학교 / 학과" 두 줄 14/400 흰색 lh1.5(`LSwMj`), 두 줄 말줄임, 12 뒤 알약',
+        (tester) async {
       await pump(tester, onRegenerate: () {});
 
-      expectStyle(tester, '가나대학교 · 경영학과', 14, FontWeight.w400, AppColors.onInk, 1.55);
-      final school = tester.widget<Text>(find.text('가나대학교 · 경영학과'));
-      expect((school.maxLines, school.overflow), (1, TextOverflow.ellipsis));
-      expect(tester.getTopLeft(_pill).dx - tester.getTopRight(find.text('가나대학교 · 경영학과')).dx, greaterThanOrEqualTo(12));
+      final label = tester.widget<SchoolLabel>(find.byType(SchoolLabel));
+      expect((label.university, label.text), ('가나대학교', _schoolText));
+      expectStyle(tester, _schoolText, 14, FontWeight.w400, AppColors.onInk, 1.5);
+      final school = tester.widget<Text>(find.text(_schoolText));
+      expect((school.maxLines, school.overflow), (2, TextOverflow.ellipsis));
+      expect(tester.getRect(find.text(_schoolText)).height, 42, reason: '학교 / 학과 두 줄 = pen `LSwMj` 42');
+      expect(tester.getTopLeft(_pill).dx - tester.getTopRight(find.text(_schoolText)).dx, greaterThanOrEqualTo(12));
       // 알약은 오른쪽 끝(학교 칸이 fill).
       expect(tester.getTopRight(_pill).dx - tester.getTopLeft(_hero).dx, 328 - 16);
     });
 
-    testWidgets('아래 20 · 이름 줄 ↔ 학교 줄 2 · 학교 글자는 알약 높이 34 안에서 세로 가운데', (tester) async {
+    testWidgets('학교 로고 16 은 학교 칸 왼쪽 끝(16 안쪽), 4 뒤 글자, 첫 줄 가운데', (tester) async {
       await pump(tester, onRegenerate: () {});
 
+      expect(tester.getSize(_logo), const Size(16, 16));
+      expect(at(tester, _logo).dx, 16);
+      expect(tester.getTopLeft(find.text(_schoolText)).dx - tester.getTopRight(_logo).dx, 4);
+      expect(tester.getCenter(_logo).dy, closeTo(tester.getTopLeft(find.text(_schoolText)).dy + 14 * 1.5 / 2, 0.01));
+    });
+
+    testWidgets('로고가 없는 학교는 글자만, 왼쪽 16 에서 시작', (tester) async {
+      await pump(tester, onRegenerate: () {}, logos: const {});
+
+      expect(_logo, findsNothing);
+      expect(at(tester, find.text(_schoolText)).dx, 16);
+    });
+
+    testWidgets('학교 줄 `p2UWV` 가운데 맞춤 — 두 줄 학교 글자 가운데 = 알약 몸통 가운데, 아래 20 안을 침범하지 않는다',
+        (tester) async {
+      await pump(tester, onRegenerate: () {});
+
+      final hero = tester.getRect(_hero);
       final pill = tester.getRect(_pill);
-      expect(pill.bottom - tester.getTopLeft(_hero).dy, 360 - 20);
-      expect(pill.left - tester.getTopLeft(_hero).dx, greaterThan(16));
-      final nameBottom = tester.getBottomLeft(find.text('여우, 23')).dy;
-      expect(pill.top - nameBottom, 2);
-      expect(tester.getCenter(find.text('가나대학교 · 경영학과')).dy, closeTo(pill.center.dy, 0.01));
-      expect(tester.getTopLeft(find.text('여우, 23')).dx - tester.getTopLeft(_hero).dx, 16);
+      final text = tester.getRect(find.text(_schoolText));
+      expect(hero.size, const Size(328, 360));
+      expect(text.center.dy, closeTo(pill.center.dy, 0.01));
+      // 학교 글자 · 알약 몸통 · 누름 칸 모두 히어로 아래 패딩 20 위에서 끝난다(리뷰 FAIL: 글자가 350 까지 내려갔다).
+      expect(text.bottom - hero.top, lessThanOrEqualTo(360 - 20));
+      expect(pill.bottom - hero.top, lessThanOrEqualTo(360 - 20));
+      expect(tester.getRect(_pillTapTarget).bottom - hero.top, 360 - 20);
+      expect(pill.left - hero.left, greaterThan(16));
+      // 이름 줄 → 2 → 학교 줄(누름 칸 44 가 학교 줄 높이를 정한다).
+      expect(tester.getRect(_pillTapTarget).top - tester.getBottomLeft(find.text('여우, 23')).dy, 2);
+      expect(tester.getTopLeft(find.text('여우, 23')).dx - hero.left, 16);
+    });
+
+    testWidgets('학과가 없어 한 줄이면 학교 글자는 알약 몸통과 세로 가운데', (tester) async {
+      await pump(tester, profile: _profile(major: null), onRegenerate: () {});
+
+      final hero = tester.getRect(_hero);
+      expect(tester.getCenter(find.text('가나대학교')).dy, closeTo(tester.getRect(_pill).center.dy, 0.01));
+      expect(tester.getRect(_pillTapTarget).bottom - hero.top, 360 - 20);
     });
 
     testWidgets('나이 · 학과가 없으면 그 부분만 뺀다', (tester) async {
@@ -291,23 +344,25 @@ void main() {
       expect(find.text(_pillLabel), findsOneWidget);
     });
 
-    testWidgets('누름 칸은 44 — 알약 아래(히어로 아래 여백 쪽)로 10 늘고, 어디를 눌러도 한 번만 불린다', (tester) async {
+    testWidgets('누름 칸은 44 — 알약 위아래로 5 씩 늘고, 어디를 눌러도 한 번만 불린다', (tester) async {
       var taps = 0;
       await pump(tester, onRegenerate: () => taps++);
 
       final pill = tester.getRect(_pill);
       final target = tester.getRect(_pillTapTarget);
       expect(target.height, 44);
-      expect((target.top, target.left, target.right), (pill.top, pill.left, pill.right));
+      expect((target.top, target.bottom, target.left, target.right), (pill.top - 5, pill.bottom + 5, pill.left, pill.right));
 
       await tester.tapAt(pill.center);
       expect(taps, 1);
-      // 알약 아래 5 — 보이는 알약 밖이지만 누름 칸 안.
-      await tester.tapAt(Offset(pill.center.dx, pill.bottom + 5));
+      // 알약 아래 · 위 3 — 보이는 알약 밖이지만 누름 칸 안.
+      await tester.tapAt(Offset(pill.center.dx, pill.bottom + 3));
       expect(taps, 2);
+      await tester.tapAt(Offset(pill.center.dx, pill.top - 3));
+      expect(taps, 3);
       // 누름 칸 밖(히어로 아래 끝 쪽)은 안 불린다.
       await tester.tapAt(Offset(pill.center.dx, target.bottom + 3));
-      expect(taps, 2);
+      expect(taps, 3);
     });
 
     testWidgets('눌림 효과는 보이는 알약 크기의 Material 이 그린다(COMMON §4-2)', (tester) async {
@@ -382,7 +437,7 @@ void main() {
     expect(tester.getSize(_hero), const Size(328, 360));
     // 흰 글자가 밝은 빈 칸 위에서도 읽히는 것은 스크림 덕이다 — 빈 칸에도 그대로 깐다.
     expect(_scrim, findsOneWidget);
-    for (final text in ['상대에게 이렇게 보여요', '여우, 23', '학생 인증', '가나대학교 · 경영학과', _pillLabel]) {
+    for (final text in ['상대에게 이렇게 보여요', '여우, 23', '학생 인증', _schoolText, _pillLabel]) {
       expect(find.text(text), findsOneWidget, reason: text);
     }
   });
@@ -390,7 +445,7 @@ void main() {
   // Review Focus 4 — 긴 닉네임 · 긴 학교 · 글자 배율. 학교만 말줄임하고 나머지는 줄을 바꿔 다 보인다.
   for (final scale in [1.0, 1.3, 1.5, 2.0]) {
     testWidgets('긴 닉네임 · 긴 학교 · 배율 $scale — 학교만 말줄임, 넘침 0, 알약 누름 44', (tester) async {
-      const school = '가나다라마바사아자차카타파하대학교 · 아주아주긴이름의학과';
+      const school = '가나다라마바사아자차카타파하대학교\n아주아주긴이름의학과';
       await pump(
         tester,
         profile: _profile(nickname: '가나다라마바사아자차', university: '가나다라마바사아자차카타파하대학교', major: '아주아주긴이름의학과'),
@@ -418,6 +473,10 @@ void main() {
       expect(tester.getSize(_pillTapTarget).height, greaterThanOrEqualTo(44));
       // 알약 · 이름 묶음이 히어로 안에 있다.
       expect(tester.getRect(_hero).contains(tester.getRect(_pillTapTarget).bottomRight - const Offset(0.5, 0.5)), isTrue);
+      // 학교 글자는 어느 배율에서도 알약 몸통과 세로 가운데, 히어로 아래 패딩 20 위에서 끝난다.
+      final schoolRect = tester.getRect(find.text(school));
+      expect(schoolRect.center.dy, closeTo(tester.getRect(_pill).center.dy, 0.01));
+      expect(schoolRect.bottom, lessThanOrEqualTo(tester.getRect(_hero).bottom - 20));
       expect(tester.getTopLeft(find.text('상대에게 이렇게 보여요')).dy, greaterThan(tester.getTopLeft(_hero).dy));
     });
   }
