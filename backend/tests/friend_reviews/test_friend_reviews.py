@@ -494,3 +494,97 @@ def test_written_and_delete_need_verified_caller():
     client = _wire(_delete_handler([{"id": REVIEW_ID}]))
     assert client.get("/friend-reviews/written").status_code in (401, 403)
     assert client.delete(f"/friend-reviews/{REVIEW_ID}").status_code in (401, 403)
+
+
+# 리뷰를 기다리는 친구(20e 위, 결함 A3 · 사용자 10-03 "가") ---------------------------------------
+# 추천으로 이어졌고 아직 내 리뷰가 없는 사람. 지우면 다시 나오고, 가입 · 알림 때 놓쳐도 여기서 쓴다.
+
+QUIET = "66666666-6666-6666-6666-666666666666"
+NEWBIE = "77777777-7777-7777-7777-777777777777"
+
+
+def _person(profile_id: str, nickname: str, status: str = "active") -> dict:
+    return {"id": profile_id, "nickname": nickname, "status": status, "universities": {"name": "테스트대학교"},
+            "profile_avatars": [{"storage_path": f"{nickname}.png", "status": "ready",
+                                 "created_at": "2026-09-01T00:00:00+00:00"}]}
+
+
+def _writable_handler(*, referrals: list[dict], people: list[dict], written: list[str] | None = None,
+                      blocked: list[dict] | None = None):
+    def handler(request: httpx.Request) -> httpx.Response:
+        table = _table(request)
+        if table == "referrals":
+            return httpx.Response(200, json=referrals)
+        if table == "friend_reviews" and request.method == "GET":
+            return httpx.Response(200, json=[{"reviewee_id": profile_id} for profile_id in written or []])
+        if table == "blocks":
+            return httpx.Response(200, json=blocked or [])
+        if table == "profiles":
+            return httpx.Response(200, json=people)
+        return httpx.Response(404, json={"message": f"unexpected {request.url}"})
+    return handler
+
+
+def test_writable_lists_linked_friends_both_ways_newest_link_first():
+    # 내가 추천받은 FRIEND 와 내가 추천한 NEWBIE. profiles 는 순서를 지키지 않는다 — 순서는 연결 최신순.
+    referrals = [{"referee_id": NEWBIE, "referrer_id": ME}, {"referee_id": ME, "referrer_id": FRIEND}]
+    people = [_person(FRIEND, "달빛"), _person(NEWBIE, "새싹")]
+    seen: list[httpx.Request] = []
+    response = _wire(_writable_handler(referrals=referrals, people=people), seen).get(
+        "/friend-reviews/writable", headers=AUTH_HEADERS)
+
+    assert response.status_code == 200
+    assert response.json() == {"friends": [
+        {"profile_id": NEWBIE, "nickname": "새싹", "university": "테스트대학교",
+         "avatar_url": "https://x.supabase.co/storage/v1/object/public/avatars/새싹.png"},
+        {"profile_id": FRIEND, "nickname": "달빛", "university": "테스트대학교",
+         "avatar_url": "https://x.supabase.co/storage/v1/object/public/avatars/달빛.png"},
+    ]}
+    query = next(r for r in seen if _table(r) == "referrals").url.params
+    assert query["or"] == f"(referee_id.eq.{ME},referrer_id.eq.{ME})"
+    assert query["order"] == "created_at.desc"
+
+
+def test_writable_skips_written_blocked_and_inactive_friends():
+    # 20b 를 여는 조건(_writable_target)과 같다: 이미 씀 · 차단(어느 방향이든) · active 아님이면 빠진다.
+    referrals = [{"referee_id": ME, "referrer_id": FRIEND}, {"referee_id": PARTNER, "referrer_id": ME},
+                 {"referee_id": QUIET, "referrer_id": ME}, {"referee_id": NEWBIE, "referrer_id": ME}]
+    # 차단한 PARTNER 도 프로필 응답에 둔다 — 없으면 차단 거르기를 빼도 프로필이 없어서 빠져 테스트가 못 잡는다.
+    people = [_person(PARTNER, "차단"), _person(QUIET, "고요", status="suspended"), _person(NEWBIE, "새싹")]
+    seen: list[httpx.Request] = []
+    response = _wire(_writable_handler(referrals=referrals, people=people, written=[FRIEND],
+                                       blocked=[{"blocker_id": PARTNER, "blocked_id": ME}]), seen).get(
+        "/friend-reviews/writable", headers=AUTH_HEADERS)
+
+    assert [friend["profile_id"] for friend in response.json()["friends"]] == [NEWBIE]
+    # 가려진 리뷰도 "쓴 것" 이다 — 한 사람에게 한 번(friend_reviews_once). 그래서 status 로 거르지 않는다.
+    written_query = next(r for r in seen if _table(r) == "friend_reviews").url.params
+    assert written_query["reviewer_id"] == f"eq.{ME}"
+    assert "status" not in written_query
+    # 이미 쓴 사람 · 차단한 사람은 프로필을 읽지도 않는다.
+    assert next(r for r in seen if _table(r) == "profiles").url.params["id"] == f"in.({QUIET},{NEWBIE})"
+
+
+def test_writable_shows_a_mutual_referral_once():
+    # referrals 의 PK 는 referee_id 하나라 A→B · B→A 가 둘 다 있을 수 있다 — 같은 친구가 두 줄이면 안 된다.
+    referrals = [{"referee_id": FRIEND, "referrer_id": ME}, {"referee_id": ME, "referrer_id": FRIEND}]
+    seen: list[httpx.Request] = []
+    response = _wire(_writable_handler(referrals=referrals, people=[_person(FRIEND, "달빛")]), seen).get(
+        "/friend-reviews/writable", headers=AUTH_HEADERS)
+
+    assert [friend["profile_id"] for friend in response.json()["friends"]] == [FRIEND]
+    assert next(r for r in seen if _table(r) == "profiles").url.params["id"] == f"in.({FRIEND})"
+
+
+def test_writable_without_links_is_empty_and_reads_no_profiles():
+    seen: list[httpx.Request] = []
+    response = _wire(_writable_handler(referrals=[], people=[]), seen).get(
+        "/friend-reviews/writable", headers=AUTH_HEADERS)
+
+    assert response.json() == {"friends": []}
+    assert not any(_table(r) == "profiles" for r in seen)
+
+
+def test_writable_needs_verified_caller():
+    client = _wire(_writable_handler(referrals=[], people=[]))
+    assert client.get("/friend-reviews/writable").status_code in (401, 403)
