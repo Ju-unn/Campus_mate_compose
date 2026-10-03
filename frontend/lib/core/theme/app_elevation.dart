@@ -47,4 +47,10 @@ abstract final class AppElevation {
   static const List<BoxShadow> badge = <BoxShadow>[
     BoxShadow(color: Color(0x1A6F4055), offset: Offset(0, 2), blurRadius: 10),
   ];
+
+  /// 화면 아래에 붙은 시트 · 바가 위로 드리우는 그림자 — #00000026 (0,-2) blur 16.
+  /// 투표 · 지인 리뷰 시트, 친구 초대 시트가 같은 리터럴을 따로 갖고 있던 것을 모았다(백로그 76).
+  static const List<BoxShadow> top = <BoxShadow>[
+    BoxShadow(color: Color(0x26000000), offset: Offset(0, -2), blurRadius: 16),
+  ];
 }

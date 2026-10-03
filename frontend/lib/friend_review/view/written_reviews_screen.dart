@@ -1,6 +1,7 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -120,7 +121,7 @@ class _DeleteConfirmSheetState extends State<_DeleteConfirmSheet> {
         color: AppColors.canvas,
         borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
         // pen D0TvG 그림자 — 토큰(AppElevation.card)과 방향이 달라 리터럴(poll_sheets · invite_friends_sheet 와 같다).
-        boxShadow: [BoxShadow(color: Color(0x26000000), offset: Offset(0, -2), blurRadius: 16)],
+        boxShadow: AppElevation.top,
       ),
       child: SafeArea(
         top: false,

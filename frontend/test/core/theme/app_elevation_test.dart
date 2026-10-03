@@ -47,4 +47,10 @@ void main() {
       BoxShadow(color: Color(0x1A6F4055), offset: Offset(0, 2), blurRadius: 10),
     ]);
   });
+
+  test('아래에 붙은 시트 · 바의 위쪽 그림자는 한 겹이다(백로그 76)', () {
+    expect(AppElevation.top, const <BoxShadow>[
+      BoxShadow(color: Color(0x26000000), offset: Offset(0, -2), blurRadius: 16),
+    ]);
+  });
 }

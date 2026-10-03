@@ -1,4 +1,5 @@
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -164,7 +165,7 @@ class PartnerReviewsSheet extends ConsumerWidget {
           color: AppColors.canvas,
           borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
           // pen 그림자 #00000026 (0,-2) 16 — 그림자 토큰(AppElevation.card, 아래로 두 겹)과 다른 위쪽 한 겹이라 리터럴.
-          boxShadow: [BoxShadow(color: Color(0x26000000), offset: Offset(0, -2), blurRadius: 16)],
+          boxShadow: AppElevation.top,
         ),
         child: SafeArea(
           top: false,
