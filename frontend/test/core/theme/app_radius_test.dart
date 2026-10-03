@@ -10,7 +10,12 @@ void main() {
     expect(AppRadius.pill, 9999);
   });
 
-  test('버튼 라운드는 DESIGN.md §8.3 토스 비례값(16)을 쓴다', () {
-    expect(AppRadius.button, 16);
+  test('버튼 라운드는 pen Button `HE8FZ` 14 다(2026-10-01 개편, 옛 16)', () {
+    expect(AppRadius.button, 14);
+  });
+
+  test('입력칸 라운드는 pen `TDM1r` 12, 카드 라운드는 pen Card `GvbBr` 16 이다(2026-10-01 개편)', () {
+    expect(AppRadius.input, 12);
+    expect(AppRadius.card, 16);
   });
 }
