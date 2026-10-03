@@ -4,7 +4,9 @@ import 'package:campus_mate/auth/view/sign_up_screen.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:flutter/material.dart';
 import '../model/fake_auth_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -35,6 +37,33 @@ void main() {
       await pumpScreen(tester);
 
       expect(find.byType(AppBar), findsNothing);
+    });
+
+    // 디자인 공통 PR 뒤 창별_할일(온보딩): 입력 상자 모서리 input 12 · 테두리 hairline, placeholder muted.
+    testWidgets('이메일 입력 상자는 모서리 12 · 테두리 hairline, placeholder 는 muted 다', (tester) async {
+      await pumpScreen(tester);
+
+      final field = find.byType(TextField);
+      final box = tester
+          .widget<Container>(find.ancestor(of: field, matching: find.byType(Container)).first)
+          .decoration! as BoxDecoration;
+      expect(box.borderRadius, BorderRadius.circular(AppRadius.input));
+      expect(box.border, Border.all(color: AppColors.hairline));
+      expect(tester.widget<TextField>(field).decoration!.hintStyle!.color, AppColors.muted);
+    });
+
+    // 52 는 최소값이다 — 글자 배율 1.75 부터 고정 52 면 한 줄이 잘린다(LabeledField 와 같이 minHeight).
+    testWidgets('글자 배율 2.0 에서 이메일 상자가 늘어나 글자가 잘리지 않는다', (tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await pumpScreen(tester);
+
+      // 글자칸이 제 한 줄 높이보다 낮으면 잘린 것이다.
+      final text = tester.renderObject<RenderBox>(find.byType(EditableText));
+      expect(text.size.height, greaterThanOrEqualTo(text.getMinIntrinsicHeight(text.size.width)));
     });
 
     testWidgets('이메일을 입력하기 전에는 CTA 가 비활성이다', (tester) async {

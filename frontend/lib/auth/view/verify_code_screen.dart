@@ -2,6 +2,7 @@ import 'package:campus_mate/auth/model/university_email.dart';
 import 'package:campus_mate/auth/viewmodel/verify_code_view_model.dart';
 import 'package:campus_mate/chat/view/chat_time.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -256,7 +257,7 @@ class _ExpiryTimer extends StatelessWidget {
         final seconds = (remaining.inSeconds % 60).toString().padLeft(2, '0');
         return Row(
           children: [
-            const Icon(AppIcons.timer, size: 16, color: AppColors.muted),
+            const Icon3d(AppIcon3d.clock, size: 16), // pen jYwqT · qVa0s
             const SizedBox(width: 6),
             Text(
               remaining == Duration.zero ? '코드가 만료됐어요. 메일을 다시 받아 주세요' : '$minutes:$seconds 뒤에 만료돼요',

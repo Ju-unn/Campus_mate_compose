@@ -1,6 +1,8 @@
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
+import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
 import 'package:campus_mate/friend_review/model/friend_review_repository_provider.dart';
 import 'package:campus_mate/friend_review/model/friend_review_tags.dart';
@@ -173,6 +175,18 @@ void main() {
     expect(find.text('추천 코드'), findsOneWidget);
     expect(find.text('예: K7M2QX'), findsOneWidget);
     expect(find.text('코드 확인하기'), findsOneWidget);
+  });
+
+  // 값표_온보딩화면 "가입 화면 3D(1004)" yjiCa — 배지 반짝임은 3D 18, 글자와 6.
+  testWidgets('pen yjiCa: "마지막 단계" 배지 아이콘은 반짝임 3D 18, 글자와 6', (tester) async {
+    await tester.pumpWidget(_app(FakeReferralRepository()));
+
+    final row = find.ancestor(of: find.text('마지막 단계'), matching: find.byType(Row)).first;
+    final icon3d = find.descendant(of: row, matching: find.byType(Icon3d));
+    expect(tester.widget<Icon3d>(icon3d).icon, AppIcon3d.sparkles);
+    expect(tester.getSize(icon3d), const Size(18, 18));
+    expect(tester.getTopLeft(find.text('마지막 단계')).dx - tester.getTopRight(icon3d).dx, 6);
+    expect(find.descendant(of: row, matching: find.byType(Icon)), findsNothing);
   });
 
   testWidgets('pen eI62H · bTBCQ: 확인은 높이 52 · 모서리 8 주색, 건너뛰기는 높이 48 · 확인과 같은 폭', (tester) async {

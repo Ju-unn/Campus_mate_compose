@@ -268,12 +268,13 @@ class _LabeledTextField extends StatelessWidget {
 
   Widget _field() {
     return Container(
-      height: 56,
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 14),
+      constraints: const BoxConstraints(minHeight: 52), // pen TDM1r. 글자 확대 때는 늘어난다
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      alignment: Alignment.centerLeft,
       decoration: BoxDecoration(
         color: AppColors.surfaceSoft,
-        border: Border.all(color: AppColors.outline),
-        borderRadius: BorderRadius.circular(AppRadius.sm),
+        border: Border.all(color: AppColors.hairline),
+        borderRadius: BorderRadius.circular(AppRadius.input),
       ),
       child: _input(),
     );
@@ -289,7 +290,7 @@ class _LabeledTextField extends StatelessWidget {
         border: InputBorder.none,
         contentPadding: EdgeInsets.zero,
         hintText: placeholder,
-        hintStyle: AppTypography.body.copyWith(color: AppColors.disabled),
+        hintStyle: AppTypography.body.copyWith(color: AppColors.muted),
       ),
     );
   }

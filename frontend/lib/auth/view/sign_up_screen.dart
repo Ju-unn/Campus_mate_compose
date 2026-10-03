@@ -125,11 +125,11 @@ class _EmailField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 52,
+      constraints: const BoxConstraints(minHeight: 52), // pen TDM1r. 글자 확대 때는 늘어난다
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
-        border: Border.all(color: AppColors.outline),
-        borderRadius: BorderRadius.circular(AppRadius.sm),
+        border: Border.all(color: AppColors.hairline),
+        borderRadius: BorderRadius.circular(AppRadius.input),
       ),
       child: Row(
         children: [
@@ -159,7 +159,7 @@ class _EmailInput extends StatelessWidget {
         isDense: true,
         border: InputBorder.none,
         hintText: 'hong@snu.ac.kr',
-        hintStyle: AppTypography.body.copyWith(color: AppColors.disabled),
+        hintStyle: AppTypography.body.copyWith(color: AppColors.muted),
       ),
     );
   }
