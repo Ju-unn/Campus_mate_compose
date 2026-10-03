@@ -41,6 +41,15 @@ void main() {
     expect(signOutCalls, 0);
   });
 
+  test('signOutWhenWithdrawn 은 로그인 만료(expired)도 알림을 남기고 로그아웃한다(A11)', () async {
+    var signOutCalls = 0;
+
+    signOutWhenWithdrawn(AccountStatus.expired, () async => signOutCalls++);
+
+    expect(LoginNotice.take(), '세션이 만료됐어요, 다시 로그인해 주세요');
+    expect(signOutCalls, 1);
+  });
+
   // 두 경로(대장 요구 2026-09-28). main.dart 처럼 listenable 에 리스너로 signOutWhenWithdrawn 을 건다.
   group('탈퇴 토스트의 두 경로', () {
     late ProviderContainer container;
@@ -126,12 +135,39 @@ void main() {
       (repository as FakeAccountRepository).withdrawResult = const FailureResult(NetworkFailure());
       await container.read(withdrawViewModelProvider.notifier).withdraw();
       await apiReturning(() => rejected(403, '이용이 제한된 계정이에요', 'suspended')).send('GET', '/a', (_) {});
-      await apiReturning(() => rejected(401, '세션이 만료됐어요, 다시 로그인해 주세요', null)).send('GET', '/b', (_) {});
       await apiReturning(() => http.Response('', 500)).send('GET', '/c', (_) {});
 
       expect(listenable.value, AccountStatus.suspended);
       expect(LoginNotice.take(), isNull);
       expect(signOutCalls, 0);
+    });
+
+    test('직접 탈퇴 뒤 로그아웃 중 요청이 401(헤더 없음)이어도 알림은 탈퇴 그대로, 로그아웃 한 번', () async {
+      // 탈퇴가 서버의 모든 로그인을 끊는다(account/router.py logout_everywhere) — 로그아웃 길의
+      // 알림 토큰 삭제(DELETE /cards/push-tokens)가 헤더 없는 401 을 받고 갱신도 실패한다.
+      when(() => auth.refreshSession()).thenThrow(const AuthException('Invalid Refresh Token'));
+      await container.read(withdrawViewModelProvider.notifier).withdraw();
+
+      await apiReturning(() => rejected(401, '세션이 만료됐어요, 다시 로그인해 주세요', null))
+          .send('DELETE', '/cards/push-tokens/tok', (_) {});
+
+      expect(listenable.value, AccountStatus.withdrawn);
+      expect(LoginNotice.take(), '탈퇴한 계정이에요');
+      expect(signOutCalls, 1);
+    });
+
+    test('expired: 401(헤더 없음)에 토큰도 새로 못 받으면 만료 알림을 남기고 한 번 로그아웃(A11)', () async {
+      when(() => auth.refreshSession()).thenThrow(const AuthException('User not found'));
+      final api = apiReturning(() => rejected(401, '세션이 만료됐어요, 다시 로그인해 주세요', null));
+
+      await Future.wait([
+        api.send('GET', '/home/summary', (_) {}),
+        api.send('GET', '/cards/today', (_) {}),
+      ]);
+
+      expect(listenable.value, AccountStatus.expired);
+      expect(LoginNotice.take(), '세션이 만료됐어요, 다시 로그인해 주세요');
+      expect(signOutCalls, 1);
     });
   });
 }
