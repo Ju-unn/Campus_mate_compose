@@ -43,6 +43,10 @@ abstract final class AppRoutes {
   static const String onboardingReferral = '/onboarding/referral';
   static const String onboardingAcquisition = '/onboarding/acquisition';
 
+  /// 06-4 지인 차단(가입 마지막, 결정 8 ①) · 거기서 여는 8d. 20d 뒤 앱에서만 잇는다 — 20 · 20d 와 같은 이유로 서버 단계가 아니다.
+  static const String onboardingContactBlock = '/onboarding/contact-block';
+  static const String onboardingContactPicker = '/onboarding/contact-block/pick';
+
   /// 조각 4 — 오늘의 카드(화면 10), 카드 상세(10b), 매칭 성사(12), 대화(13), 설정(16)·알림(16d)
   static const String today = '/today';
   static const String cardDetail = '/cards'; // `/cards/:cardId`
