@@ -9,6 +9,13 @@ class FakePushMessaging implements PushMessaging {
   final String token;
   final bool granted;
 
+  /// 기기 설정의 앱 알림 허용(16d-1). 테스트가 "설정에서 켜고 돌아옴"을 흉내 내려고 바꾼다.
+  bool permitted = true;
+
+  /// 주면 기기 설정 읽기가 이 Future 를 기다린다 — "읽는 중" 을 흉내 낸다.
+  Future<bool>? permittedPending;
+  int openedSettings = 0;
+
   /// 꺼진 앱을 이 알림을 눌러 켰다고 흉내 낸다. null 이면 그냥 켠 것이다.
   final Map<String, dynamic>? initial;
 
@@ -28,6 +35,12 @@ class FakePushMessaging implements PushMessaging {
 
   @override
   Future<bool> requestPermission() async => granted;
+
+  @override
+  Future<bool> isPermitted() async => permittedPending ?? permitted;
+
+  @override
+  Future<void> openNotificationSettings() async => openedSettings++;
 
   @override
   Future<String?> getToken() async {
