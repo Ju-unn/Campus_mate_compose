@@ -17,6 +17,18 @@ _QUIET_END_HOUR = 8
 # 게이트 알림(trust_reminder · match_made)은 예외가 아니다. 대신 리마인드는 보낼 시각 자체를
 # 아침 8시로 밀어 두기 때문에 조용한 시간에 버려지지 않는다(chat/gate.py 의 reminder_at).
 _QUIET_HOURS_EXEMPT = {"card_arrived", "new_message"}
+# 조용한 시간에 걸리면 버리지 않고 pending_pushes 에 넣어 아침에 묶어 보낸다(결정 4, 2026-10-01 사용자).
+# 학생증 검토 결과(A7)도 예외가 아니라 보관함으로 간다 — 예외는 채팅 · 카드 도착뿐이다(사용자 규칙).
+_DEFERRED = {"acceptance_received", "match_made", "new_friend_review", "verification_result"}
+# 아침 묶음 문구. 사람 × (kind, 가는 화면 data.route)로 묶는다 — 같은 kind 라도 가는 화면이 달라서다.
+# 여기 없는 짝(친구 가입 → 리뷰 쓰기, 학생증 검토 결과)은 알림마다 내용 · 갈 곳이 달라 묶지 않고 한 건씩 보낸다.
+_BUNDLES = {
+    ("acceptance_received", "acceptances"): ("나를 수락한 사람이 있어요", "밤사이 {n}명이 나를 수락했어요"),
+    ("match_made", "match"): ("매칭됐어요!", "밤사이 {n}명과 매칭됐어요"),
+    # 방 id 없이 보내면 앱이 방 대신 대화 목록을 연다(push_route.dart).
+    ("match_made", "chat"): ("카카오톡 아이디를 주고받았어요", "밤사이 {n}명과 프로필이 공개됐어요"),
+    ("new_friend_review", "friend_reviews"): ("새 지인 리뷰가 도착했어요", "밤사이 리뷰 {n}개가 도착했어요"),
+}
 
 
 class FcmSender:
@@ -69,8 +81,10 @@ def _is_quiet(now: datetime) -> bool:
 
 
 async def notify(repo, sender: FcmSender, profile_id, kind: str,
-                 title: str, body: str, data: dict[str, str], now: datetime) -> int:
-    """알림 스위치와 조용한 시간을 본 뒤 그 사람의 모든 기기로 보낸다. 보낸 건수를 돌려준다."""
+                 title: str, body: str, data: dict[str, str], now: datetime, defer: bool = True) -> int:
+    """알림 스위치와 조용한 시간을 본 뒤 그 사람의 모든 기기로 보낸다. 보낸 건수를 돌려준다.
+
+    `defer=False` 면 조용한 시간에 보류하지 않고 옛날처럼 버린다 — 방금 화면에서 본 일을 알리는 자리용이다."""
     if await repo.fetch_profile_status(profile_id) in ("suspended", "withdrawn"):
         # 조각 6: 정지 · 탈퇴 계정에는 어떤 알림도 보내지 않는다. 모든 푸시가 이 함수를 지나서 한 곳만 본다.
         # 탈퇴는 토큰도 지우지만 best-effort 라 남을 수 있어 여기서 한 번 더 막는다.
@@ -79,7 +93,8 @@ async def notify(repo, sender: FcmSender, profile_id, kind: str,
     if not settings.get(kind, True):
         return 0
     if settings.get("quiet_hours", True) and kind not in _QUIET_HOURS_EXEMPT and _is_quiet(now):
-        # ponytail: 지금은 그냥 버린다. 모아 뒀다 아침에 보내려면 큐가 필요하다(백로그).
+        if defer and kind in _DEFERRED:
+            await repo.insert_pending_push(profile_id, kind, title, body, data)
         return 0
 
     sent = 0
@@ -90,4 +105,33 @@ async def notify(repo, sender: FcmSender, profile_id, kind: str,
         elif result == "dead":
             # 이 토큰은 방금 profile_id 로 꺼내 온 것이라 주인이 확실하다.
             await repo.delete_push_token(token, profile_id)
+    return sent
+
+
+async def send_pending(repo, sender: FcmSender, now: datetime) -> int:
+    """매시 chat-gate 배치가 부른다. 조용하지 않은 시각이면 밤에 보류한 알림을 사람 × kind × 가는 화면으로 묶어
+    보내고 지운다 — 보통 08시에 비고, 08시 배치가 실패하면 다음 시각이 보낸다. 실제로 간 알림 수를 돌려준다."""
+    if _is_quiet(now):
+        return 0
+    groups: dict[tuple, list[dict]] = {}
+    for row in await repo.fetch_pending_pushes():
+        groups.setdefault((row["profile_id"], row["kind"], row["data"].get("route")), []).append(row)
+
+    sent = 0
+    for (profile_id, kind, route), rows in groups.items():
+        if len(rows) > 1 and (kind, route) in _BUNDLES:
+            title, body = _BUNDLES[(kind, route)]
+            # 묶음은 목록 화면으로 간다 — 어느 한 건의 card_id · match_id 를 달지 않는다.
+            pushes = [(kind, title, body.format(n=len(rows)), {"route": route})]
+        else:
+            pushes = [(row["kind"], row["title"], row["body"], row["data"]) for row in rows]
+        for kind, title, body, data in pushes:
+            try:
+                # notify 를 다시 지난다 — 밤사이 끈 알림 · 정지 · 탈퇴는 여기서 걸린다.
+                sent += 1 if await notify(repo, sender, profile_id, kind, title, body, data, now=now) else 0
+            except Exception:
+                # 한 사람 알림 때문에 뒷사람 묶음까지 멈추는 쪽이 훨씬 나쁘다.
+                logger.exception("아침 묶음 알림 실패 profile=%s route=%s", profile_id, route)
+        # 실패해도 지운다 — 남기면 매시 같은 실패를 되풀이하거나 점심에 "밤사이" 알림이 간다.
+        await repo.delete_pending_pushes([row["id"] for row in rows])
     return sent

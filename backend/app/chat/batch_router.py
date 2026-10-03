@@ -4,7 +4,7 @@ from datetime import datetime
 import httpx
 from fastapi import APIRouter, Depends, Header
 
-from app.cards.push import FcmSender, notify
+from app.cards.push import FcmSender, notify, send_pending
 from app.cards.repository import CardRepository
 from app.chat import gate
 from app.chat.repository import ChatRepository
@@ -89,4 +89,7 @@ async def run_chat_gate_batch(
     # notify() 가 보는 알림 스위치·기기 토큰은 조각 4 저장소가 들고 있다(router.py 와 같은 이유).
     push_repo = CardRepository(settings.postgrest_url, key, client)
     sender = FcmSender(settings.google_cloud_project, client)
-    return await run_chat_gate(repo, push_repo, sender, now=datetime.now(SEOUL))
+    now = datetime.now(SEOUL)
+    result = await run_chat_gate(repo, push_repo, sender, now=now)
+    # 밤에 보류한 알림을 아침에 묶어 보내는 일도 이 매시 배치에 붙인다(결정 4 — 새 스케줄러 없음).
+    return {**result, "deferred_sent": await send_pending(push_repo, sender, now)}
