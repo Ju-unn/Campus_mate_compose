@@ -55,6 +55,8 @@ class AuthRedirect {
   /// 아직 통과하지 못한 게이트 화면. 모두 통과했으면 null.
   String? _gateTarget() {
     return switch (_gate) {
+      VerificationGate.unknown => AppRoutes.splash,
+      VerificationGate.unreachable => AppRoutes.offline,
       VerificationGate.needsConsent || VerificationGate.needsConsentRenewal => AppRoutes.consent,
       VerificationGate.needsStudentVerification => AppRoutes.studentVerification,
       VerificationGate.needsSchoolInfo => AppRoutes.schoolInfo,
@@ -86,6 +88,7 @@ class AuthRedirect {
   bool _isBeforeHome(String location) {
     return location == AppRoutes.login ||
         location == AppRoutes.splash ||
+        location == AppRoutes.offline ||
         location == AppRoutes.consent ||
         location == AppRoutes.studentVerification ||
         location == AppRoutes.schoolInfo ||

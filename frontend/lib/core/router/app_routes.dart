@@ -4,6 +4,9 @@ abstract final class AppRoutes {
   /// 앱 진입 직후의 대기 화면
   static const String splash = '/';
 
+  /// 인증 관문을 처음부터 못 물어봤을 때의 인터넷 없음 화면(01-1, pen `NWGuf`).
+  static const String offline = '/offline';
+
   /// 로그인·가입 화면
   static const String login = '/login';
 

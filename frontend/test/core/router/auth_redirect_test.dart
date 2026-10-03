@@ -128,6 +128,48 @@ void main() {
     });
   });
 
+  group('관문을 아직 모를 때(결정 13, B10)', () {
+    test('묻는 중이면 동의 화면 대신 스플래시에 둔다', () {
+      const redirect = AuthRedirect(true, VerificationGate.unknown, OnboardingStep.basicInfo);
+
+      expect(redirect.resolve(AppRoutes.splash), isNull);
+      expect(redirect.resolve(AppRoutes.home), AppRoutes.splash);
+      expect(redirect.resolve(AppRoutes.consent), AppRoutes.splash);
+    });
+
+    test('조회가 실패했으면 인터넷 없음 화면으로 보낸다', () {
+      const redirect = AuthRedirect(true, VerificationGate.unreachable, OnboardingStep.basicInfo);
+
+      expect(redirect.resolve(AppRoutes.splash), AppRoutes.offline);
+      expect(redirect.resolve(AppRoutes.home), AppRoutes.offline);
+      expect(redirect.resolve(AppRoutes.offline), isNull);
+    });
+
+    test('연결이 돌아와 관문을 알면 인터넷 없음 화면에서 원래 화면으로 보낸다', () {
+      expect(
+        const AuthRedirect(true, VerificationGate.needsConsent, OnboardingStep.basicInfo).resolve(AppRoutes.offline),
+        AppRoutes.consent,
+      );
+      expect(
+        const AuthRedirect(true, VerificationGate.complete, OnboardingStep.complete).resolve(AppRoutes.offline),
+        AppRoutes.home,
+      );
+    });
+
+    test('정지가 인터넷 없음보다 먼저다', () {
+      const redirect = AuthRedirect(true, VerificationGate.unreachable, OnboardingStep.basicInfo,
+          accountStatus: AccountStatus.suspended);
+
+      expect(redirect.resolve(AppRoutes.offline), AppRoutes.accountSuspended);
+    });
+
+    test('로그인 전에는 인터넷 없음 화면도 로그인 화면으로 보낸다', () {
+      const redirect = AuthRedirect(false, VerificationGate.unreachable, OnboardingStep.basicInfo);
+
+      expect(redirect.resolve(AppRoutes.offline), AppRoutes.login);
+    });
+  });
+
   group('게이트를 통과하지 못한 사용자', () {
     test('학생증 미인증이면 3b 로 보낸다', () {
       const redirect = AuthRedirect(true, VerificationGate.needsStudentVerification, OnboardingStep.basicInfo);

@@ -17,6 +17,7 @@ import 'package:campus_mate/community/view/community_feed_screen.dart';
 import 'package:campus_mate/community/view/poll_composer_screen.dart';
 import 'package:campus_mate/community/view/poll_detail_screen.dart';
 import 'package:campus_mate/core/auth/account_status_listenable.dart';
+import 'package:campus_mate/core/offline/offline_screen.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/router/auth_redirect.dart';
 import 'package:campus_mate/core/router/placeholder_screens.dart';
@@ -96,6 +97,7 @@ abstract final class AppRouter {
   static List<RouteBase> _routes() {
     return <RouteBase>[
       GoRoute(path: AppRoutes.splash, builder: (context, state) => const SplashScreen()),
+      GoRoute(path: AppRoutes.offline, builder: (context, state) => const OfflineScreen()),
       GoRoute(path: AppRoutes.login, builder: (context, state) => const SignUpScreen()),
       GoRoute(path: AppRoutes.verifyCode, redirect: _verifyCodeGuard, builder: _buildVerifyCode),
       GoRoute(path: AppRoutes.consent, builder: (context, state) => const ConsentScreen()),

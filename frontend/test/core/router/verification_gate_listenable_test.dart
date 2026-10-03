@@ -19,9 +19,29 @@ void main() {
     addTearDown(listenable.dispose);
   });
 
-  test('조회 전에는 첫 관문(약관 동의)이 필요한 상태로 본다', () {
-    expect(listenable.value, VerificationGate.needsConsent);
+  test('조회 전에는 아직 모르는 상태로 본다', () {
+    expect(listenable.value, VerificationGate.unknown);
     expect(repository.fetchCount, 0);
+  });
+
+  test('첫 조회부터 실패하면 연결 안 됨으로 바꾸고 알린다', () async {
+    repository.nextResult = const FailureResult(NetworkFailure());
+
+    await listenable.refresh();
+
+    expect(listenable.value, VerificationGate.unreachable);
+    expect(notifyCount, 1);
+  });
+
+  test('연결 안 됨에서 다시 조회에 성공하면 원래 관문으로 돌아간다', () async {
+    repository.nextResult = const FailureResult(NetworkFailure());
+    await listenable.refresh();
+
+    repository.nextResult = const Success(VerificationGate.needsStudentVerification);
+    await listenable.refresh();
+
+    expect(listenable.value, VerificationGate.needsStudentVerification);
+    expect(notifyCount, 2);
   });
 
   test('refresh 하면 저장소를 조회해 값을 갱신하고 알린다', () async {
@@ -55,14 +75,14 @@ void main() {
 
     listenable.reset();
 
-    expect(listenable.value, VerificationGate.needsConsent);
+    expect(listenable.value, VerificationGate.unknown);
     expect(notifyCount, 2);
   });
 
   test('이미 기본값이면 reset 해도 알리지 않는다', () {
     listenable.reset();
 
-    expect(listenable.value, VerificationGate.needsConsent);
+    expect(listenable.value, VerificationGate.unknown);
     expect(notifyCount, 0);
   });
 }
