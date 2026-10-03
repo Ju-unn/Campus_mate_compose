@@ -187,8 +187,6 @@ class _TomorrowBand extends StatelessWidget {
   }
 }
 
-const _weekdayNames = <String>['월', '화', '수', '목', '금', '토', '일'];
-
 /// 화면 11 의 부제. 내일이면 시안 `k1jPSY`, 그 뒤면 `exnx7` 문구다.
 String _waitingSubtitle(DateTime? nextIssueAt) {
   if (nextIssueAt == null) {
@@ -197,17 +195,11 @@ String _waitingSubtitle(DateTime? nextIssueAt) {
   final now = DateTime.now();
   final today = DateTime(now.year, now.month, now.day);
   final issueDay = DateTime(nextIssueAt.year, nextIssueAt.month, nextIssueAt.day);
-  final time = _timeLabel(nextIssueAt);
+  final time = hourLabel(nextIssueAt);
   if (issueDay.difference(today).inDays <= 1) {
     return '내일 $time에 새로운 한 명이 도착해요';
   }
-  return '${_weekdayNames[nextIssueAt.weekday - 1]}요일 $time에 새로운 사람을 찾아볼게요';
-}
-
-String _timeLabel(DateTime value) {
-  final isMorning = value.hour < 12;
-  final hour = value.hour % 12 == 0 ? 12 : value.hour % 12;
-  return '${isMorning ? '오전' : '오후'} $hour시';
+  return '${weekdayNames[nextIssueAt.weekday - 1]}요일 $time에 새로운 사람을 찾아볼게요';
 }
 
 /// 남은 시간 `hh:mm:ss`. 1초마다 갱신하고 [dispose] 에서 타이머를 반드시 끈다.
