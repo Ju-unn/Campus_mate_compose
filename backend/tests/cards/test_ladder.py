@@ -4,17 +4,38 @@ from app.cards.ladder import bottleneck_count, ladder_weekdays, next_issue_at
 from app.core.time import SEOUL
 
 
-def test_under_two_hundred_is_twice_a_week():
-    assert ladder_weekdays(199, 200, 500) == [1, 4]
+# 결정 12(10-01 사용자 표)의 기준값. 운영 값은 region_group_settings 가 들고 있다.
+THRESHOLDS = (50, 500, 1000, 2000)
 
 
-def test_two_hundred_is_three_times_a_week():
-    assert ladder_weekdays(200, 200, 500) == [1, 3, 5]
-    assert ladder_weekdays(499, 200, 500) == [1, 3, 5]
+def test_under_fifty_is_once_a_week_on_monday():
+    """코호트 첫 지급이 월 07:00 이라(universities.card_opens_at check) 월요일은 모든 칸에 있다."""
+    assert ladder_weekdays(0, *THRESHOLDS) == [1]
+    assert ladder_weekdays(49, *THRESHOLDS) == [1]
 
 
-def test_five_hundred_is_every_day():
-    assert ladder_weekdays(500, 200, 500) == [1, 2, 3, 4, 5, 6, 7]
+def test_fifty_is_twice_a_week():
+    assert ladder_weekdays(50, *THRESHOLDS) == [1, 4]
+    assert ladder_weekdays(499, *THRESHOLDS) == [1, 4]
+
+
+def test_five_hundred_is_three_times_a_week():
+    assert ladder_weekdays(500, *THRESHOLDS) == [1, 3, 5]
+    assert ladder_weekdays(999, *THRESHOLDS) == [1, 3, 5]
+
+
+def test_thousand_is_four_times_a_week():
+    assert ladder_weekdays(1000, *THRESHOLDS) == [1, 3, 5, 7]
+    assert ladder_weekdays(1999, *THRESHOLDS) == [1, 3, 5, 7]
+
+
+def test_two_thousand_is_every_day():
+    assert ladder_weekdays(2000, *THRESHOLDS) == [1, 2, 3, 4, 5, 6, 7]
+
+
+def test_all_zero_thresholds_mean_every_day():
+    """E2E 그룹(결정 15)은 기준을 전부 0 으로 둔다 — 아무도 없어도 매일 나가야 한다."""
+    assert ladder_weekdays(0, 0, 0, 0, 0) == [1, 2, 3, 4, 5, 6, 7]
 
 
 def test_bottleneck_is_the_smaller_side():

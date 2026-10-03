@@ -25,7 +25,8 @@ async def issue_daily_cards(card_repo, matching_repo, sender, now: datetime) -> 
     for region, row in settings_by_region.items():
         weekdays = ladder_weekdays(
             bottleneck_count(counts.get(region, {})),
-            row["ladder_three_per_week_min"], row["ladder_daily_min"],
+            row["ladder_twice_per_week_min"], row["ladder_three_per_week_min"],
+            row["ladder_four_per_week_min"], row["ladder_daily_min"],
         )
         if weekdays != list(row["issue_weekdays"]):
             # 사다리 결과를 설정 행에 적어 둔다 — 앱이 "다음 지급은 O요일" 문구를 여기서 읽는다.
