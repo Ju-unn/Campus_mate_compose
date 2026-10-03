@@ -554,3 +554,25 @@ def test_school_info_returns_403_when_not_verified():
 
     assert response.status_code == 403
     assert _calls(sent, "PATCH", "/rest/v1/profiles") == []
+
+
+def test_school_info_is_403_with_the_status_header_for_a_suspended_account():
+    # 결정 9(B6, 10-01): 정지 계정은 학과 · 학번을 저장하지 못한다. 앱은 헤더로 정지 안내 화면을 띄운다.
+    sent, _ = _wire({**_gate_row("verified"), "status": "suspended"})
+
+    response = _post_school_info()
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == errors.ACCOUNT_SUSPENDED
+    assert response.headers["X-Account-Status"] == "suspended"
+    assert _calls(sent, "PATCH", "/rest/v1/profiles") == []
+
+
+def test_a_suspended_account_can_still_read_its_verification_status():
+    # 결정 9: 인증 상태 조회는 열어 둔다 — 정지 안내 화면까지 가는 길이다.
+    _wire({**_gate_row("verified", department="컴퓨터공학과"), "status": "suspended"})
+
+    response = _fetch_status()
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "verified"
