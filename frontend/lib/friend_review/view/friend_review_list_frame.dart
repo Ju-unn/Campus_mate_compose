@@ -25,6 +25,7 @@ class FriendReviewListFrame extends ConsumerWidget {
     required this.source,
     required this.cardBuilder,
     required this.empty,
+    this.header,
     super.key,
   });
 
@@ -33,6 +34,9 @@ class FriendReviewListFrame extends ConsumerWidget {
   final FriendReviewListSource source;
   final Widget Function(BuildContext context, FriendReview review) cardBuilder;
   final Widget empty;
+
+  /// 안내 상자와 카드 사이에 끼우는 칸(20e 위 "리뷰를 기다리는 친구"). null 이면 20c · 20e 그대로.
+  final Widget? header;
 
   ({FriendReviewListSource source, String? profileId}) get _args => (source: source, profileId: null);
 
@@ -69,13 +73,17 @@ class FriendReviewListFrame extends ConsumerWidget {
   }
 
   Widget _body(BuildContext context, WidgetRef ref, FriendReviewListUiState state) {
-    if (state.reviews.isNotEmpty) {
+    final header = this.header;
+    if (state.reviews.isNotEmpty || header != null) {
       return ListView(
         padding: _bodyPadding,
         children: [
           FriendReviewNotice(text: notice),
-          // pen geD87 · K2HbU 간격 16(안내 → 카드, 카드 사이).
+          // pen geD87 · K2HbU · bDZnr 간격 16(안내 → 머리 칸 → 카드, 카드 사이).
+          if (header != null) ...[const SizedBox(height: AppSpacing.md), header],
           for (final review in state.reviews) ...[const SizedBox(height: AppSpacing.md), cardBuilder(context, review)],
+          // 머리 칸이 길 수 있어 읽는 중 · 실패 · 빈 상태도 같이 스크롤한다(대장 ①).
+          if (state.reviews.isEmpty) ...[const SizedBox(height: AppSpacing.md), _placeholder(ref, state)],
         ],
       );
     }
