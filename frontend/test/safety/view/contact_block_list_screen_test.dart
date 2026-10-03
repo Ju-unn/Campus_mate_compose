@@ -1,5 +1,6 @@
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -64,7 +65,7 @@ void main() {
     expect(find.text('추가'), findsOneWidget);
     expect(find.text('김지은'), findsOneWidget);
     expect(maskedNumber('010-****-2841'), findsOneWidget);
-    expect(find.descendant(of: row('김지은'), matching: find.byIcon(AppIcons.trash2)), findsOneWidget);
+    expect(tester.widget<Icon3d>(find.descendant(of: row('김지은'), matching: find.byType(Icon3d))).icon, AppIcon3d.trash);
   });
 
   testWidgets('16b unknown row shows 이전에 차단한 연락처 / 이 기기에서 이름을 찾을 수 없어요', (tester) async {
@@ -86,15 +87,14 @@ void main() {
     expect(tester.getRect(row('김지은')).top, 124);
   });
 
-  testWidgets('trash is 20 visible, 48 to press, at the row right edge', (tester) async {
+  testWidgets('trash 3D is 24 visible, 48 to press, at the row right edge (pen x1DV8l)', (tester) async {
     await pump(tester);
 
     final button = tester.getRect(trash('김지은'));
     expect(button.size, const Size(48, 48));
-    final icon = tester.getRect(find.descendant(of: row('김지은'), matching: find.byIcon(AppIcons.trash2)));
-    expect(icon.size, const Size(20, 20));
+    final icon = tester.getRect(find.descendant(of: row('김지은'), matching: find.byType(Icon3d)));
+    expect(icon.size, const Size(24, 24));
     expect(icon.right, tester.getRect(row('김지은')).right);
-    expect(tester.widget<Icon>(find.byIcon(AppIcons.trash2).first).color, AppColors.disabled);
   });
 
   testWidgets('16b trash → confirm sheet → remove', (tester) async {

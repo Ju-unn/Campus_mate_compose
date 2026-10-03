@@ -1,4 +1,5 @@
 import 'package:campus_mate/common/widgets/app_checkbox.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -133,7 +134,7 @@ class _Number extends StatelessWidget {
   }
 }
 
-/// 휴지통(pen `w7vUs0` 20, disabled 색). pen 에 누르는 영역이 따로 없어 48×48 로 넓힌다(지시서).
+/// 삭제 3D(pen `x1DV8l` → `e2af0`, 24). pen 에 누르는 영역이 따로 없어 48×48 로 넓힌다(지시서).
 /// 아이콘은 오른쪽 끝에 붙여 pen 자리 그대로 둔다 — 넓힌 영역은 이름칸 쪽으로 자란다.
 class _RemoveButton extends StatelessWidget {
   const _RemoveButton({required this.onPressed});
@@ -144,8 +145,8 @@ class _RemoveButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return IconButton(
       onPressed: onPressed,
-      // 읽어 주기용 이름. pen 에 없는 글자라 화면에는 보이지 않게 semanticLabel 로만 단다.
-      icon: const Icon(AppIcons.trash2, size: 20, color: AppColors.disabled, semanticLabel: '차단 해제'),
+      // 읽어 주기용 이름. pen 에 없는 글자라 화면에는 보이지 않게 단다 — 3D 그림은 낭독기에서 빠진다.
+      icon: Semantics(label: '차단 해제', child: const Icon3d(AppIcon3d.trash, size: 24)),
       alignment: Alignment.centerRight,
       padding: EdgeInsets.zero,
       constraints: const BoxConstraints.tightFor(width: 48, height: 48),

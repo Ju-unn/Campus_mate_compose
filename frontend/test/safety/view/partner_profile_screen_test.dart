@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/photo_slider.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
@@ -175,9 +176,15 @@ void main() {
       // 카카오 카드 아래 1 뒤에 구분선.
       final kakao = tester.getRect(find.ancestor(of: find.text('카카오톡 아이디'), matching: find.byType(Container)).first);
       expect(divider.top - kakao.bottom, 1);
-      expect(tester.getRect(find.byIcon(AppIcons.flag)).size, const Size(14, 14));
-      expect(tester.getRect(find.byIcon(AppIcons.ban)).size, const Size(14, 14));
-      expect(report.left - tester.getRect(find.byIcon(AppIcons.flag)).right, 6);
+      // 사이렌 jsi9g · 금지 eUCJv 3D 18(인스턴스 iKLza · g9zv8 · wLyrG, 값표_안전화면_1004 참고 절).
+      Finder icon3d(AppIcon3d icon) => find.byWidgetPredicate((w) => w is Icon3d && w.icon == icon);
+      final siren = tester.getRect(icon3d(AppIcon3d.siren));
+      final ban = tester.getRect(icon3d(AppIcon3d.ban));
+      expect(siren.size, const Size(18, 18));
+      expect(ban.size, const Size(18, 18));
+      expect(report.left - siren.right, 6);
+      expect(block.left - ban.right, 6);
+      expect(siren.center.dy, report.center.dy);
       final style = tester.widget<Text>(find.text('신고하기')).style!;
       expect(style.color, AppColors.muted);
       expect(style.fontSize, 14);
