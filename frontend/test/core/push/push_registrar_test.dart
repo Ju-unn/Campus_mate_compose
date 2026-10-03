@@ -127,15 +127,16 @@ void main() {
       expect(repository.registeredTokens, ['tok-1', 'tok-1']);
     });
 
+    // 다시 하기 간격을 0 으로 두고 이벤트 큐만 비운다 — 실제 시계(몇 ms)를 기다리면 기기가 바쁠 때 흔들린다.
     test('기기 토큰 버리기도 실패하면 될 때까지 다시 한다', () async {
       final messaging = FakePushMessaging(token: 'tok-1')..deleteTokenFailures = 2;
       final repository = FakeCardRepository();
-      final registrar = PushRegistrar(messaging, repository, retryDelay: const Duration(milliseconds: 1));
+      final registrar = PushRegistrar(messaging, repository, retryDelay: Duration.zero);
       await registrar.start();
       repository.writeResult = const FailureResult(NetworkFailure());
 
       await registrar.stop();
-      await Future<void>.delayed(const Duration(milliseconds: 50));
+      await pumpEventQueue();
 
       expect(messaging.deleteTokenCalls, 3);
       expect(messaging.deletedOnDevice, 1);
@@ -144,7 +145,7 @@ void main() {
     test('그사이 다시 로그인해 등록되면 다시 하기를 멈춘다 — 새 주인의 토큰을 버리면 안 된다', () async {
       final messaging = FakePushMessaging(token: 'tok-1')..deleteTokenFailures = 1000;
       final repository = FakeCardRepository();
-      final registrar = PushRegistrar(messaging, repository, retryDelay: const Duration(milliseconds: 5));
+      final registrar = PushRegistrar(messaging, repository, retryDelay: Duration.zero);
       await registrar.start();
       repository.writeResult = const FailureResult(NetworkFailure());
       await registrar.stop();
@@ -152,7 +153,7 @@ void main() {
 
       await registrar.start();
       final callsAfterLogin = messaging.deleteTokenCalls;
-      await Future<void>.delayed(const Duration(milliseconds: 50));
+      await pumpEventQueue();
 
       expect(repository.registeredTokens, ['tok-1', 'tok-1']);
       expect(messaging.deleteTokenCalls, callsAfterLogin);
