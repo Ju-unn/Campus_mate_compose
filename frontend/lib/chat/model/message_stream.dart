@@ -10,7 +10,31 @@ abstract interface class MessageStream {
   /// 구독을 끊으면 채널도 닫힌다. 목록 화면은 구독하지 않는다(푸시 + 당겨서 새로고침).
   ///
   /// 통로가 끊기면 **스트림 오류**가 온다 — 받는 쪽은 그때 배너를 띄우고 다시 구독한다(백로그 19).
-  Stream<Message> subscribe(String matchId);
+  /// 끊겼던 통로가 스스로 다시 붙으면 [onRejoined] — 끊긴 동안 온 줄은 구독으로 안 오니 다시 읽어야 한다(결함 A12).
+  Stream<Message> subscribe(String matchId, {void Function()? onRejoined});
+}
+
+/// Realtime 채널 상태를 받는 쪽 신호로 바꾼다. 끊김·타임아웃은 [onError]. `closed` 는 우리가
+/// [SupabaseClient.removeChannel] 한 뒤에도 오는 값이라 올리지 않는다 — 받으면 화면을 닫을 때마다 "끊겼어요" 가 뜬다.
+/// Realtime 은 끊기면 channelError 를 준 뒤 스스로 다시 붙어 `subscribed` 를 또 준다 — **끊김 뒤의** `subscribed` 만
+/// [onRejoined]. 처음 붙기 전에 끊긴 것(타임아웃 · 소켓 연결 실패)도 그 사이 온 줄을 놓쳤으니 같다.
+/// 끊김 없는 `subscribed` 에 부르면 다시 구독 → 다시 붙음이 끝없이 돈다.
+void Function(RealtimeSubscribeStatus, Object?) channelStatusListener({
+  required void Function(Object error) onError,
+  void Function()? onRejoined,
+}) {
+  var dropped = false;
+  return (status, error) {
+    if (status == RealtimeSubscribeStatus.subscribed) {
+      if (dropped) {
+        onRejoined?.call();
+      }
+      dropped = false;
+    } else if (status == RealtimeSubscribeStatus.channelError || status == RealtimeSubscribeStatus.timedOut) {
+      dropped = true;
+      onError(error ?? StateError('realtime ${status.name}'));
+    }
+  };
 }
 
 /// Supabase Realtime 구현. 읽기 권한은 ERD §2 가 `messages` 에 걸어 둔 RLS 를 그대로 물려받는다 —
@@ -21,7 +45,7 @@ class RealtimeMessageStream implements MessageStream {
   final SupabaseClient _client;
 
   @override
-  Stream<Message> subscribe(String matchId) {
+  Stream<Message> subscribe(String matchId, {void Function()? onRejoined}) {
     RealtimeChannel? channel;
     late final StreamController<Message> controller;
     controller = StreamController<Message>(
@@ -45,14 +69,7 @@ class RealtimeMessageStream implements MessageStream {
                 }
               },
             )
-            // 끊김·타임아웃만 오류로 올린다. `closed` 는 우리가 [removeChannel] 한 뒤에도
-            // 오는 값이라 그것까지 받으면 화면을 닫을 때마다 "끊겼어요" 가 뜬다.
-            .subscribe((status, error) {
-          if (status == RealtimeSubscribeStatus.channelError ||
-              status == RealtimeSubscribeStatus.timedOut) {
-            controller.addError(error ?? StateError('realtime ${status.name}'));
-          }
-        });
+            .subscribe(channelStatusListener(onError: controller.addError, onRejoined: onRejoined));
       },
       onCancel: () async {
         final open = channel;
