@@ -9,13 +9,13 @@ def test_payload_parses_email_from_real_supabase_body():
     assert payload.email_domain == "snu.ac.kr"
 
 
-def test_reject_decision_serializes_with_message():
+def test_reject_decision_serializes_as_gotrue_error():
     decision = HookDecision.reject("허용되지 않은 학교 이메일이에요")
 
-    assert decision.model_dump() == {"decision": "reject", "message": "허용되지 않은 학교 이메일이에요"}
+    assert decision.model_dump(exclude_none=True) == {"error": {"http_code": 422, "message": "허용되지 않은 학교 이메일이에요"}}
 
 
-def test_continue_decision_has_no_message():
+def test_allow_decision_is_empty_object():
     decision = HookDecision.allow()
 
-    assert decision.model_dump() == {"decision": "continue", "message": None}
+    assert decision.model_dump(exclude_none=True) == {}
