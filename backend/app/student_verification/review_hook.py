@@ -49,7 +49,11 @@ async def verification_reviewed(
         raise HTTPException(status_code=401, detail=errors.UNAUTHORIZED)
 
     key = settings.supabase_service_role_key
-    gate = await StudentVerificationRepository(settings.postgrest_url, key, client).fetch_gate_status(body.profile_id)
+    try:
+        gate = await StudentVerificationRepository(settings.postgrest_url, key, client).fetch_gate_status(body.profile_id)
+    except ValueError:
+        # 프로필 행이 없다(탈퇴 정리 뒤 늦게 온 호출 등). 보낼 사람이 없을 뿐이라 오류로 남기지 않는다 — pg_net 은 다시 보내지 않는다.
+        return {"sent": 0}
     message = _MESSAGES.get(gate["student_verification"])
     if message is None:
         return {"sent": 0}

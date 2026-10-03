@@ -45,14 +45,16 @@ def overrides():
     app.dependency_overrides.clear()
 
 
-def _wire(status: str, pushes: list[dict]) -> TestClient:
-    """profiles 의 지금 상태 · 알림 스위치 · 토큰 한 개를 돌려주고, FCM 으로 간 본문을 모은다."""
+def _wire(status: str | None, pushes: list[dict]) -> TestClient:
+    """profiles 의 지금 상태 · 알림 스위치 · 토큰 한 개를 돌려주고, FCM 으로 간 본문을 모은다. status None = 프로필 행 없음."""
     def handler(request: httpx.Request) -> httpx.Response:
         if "fcm.googleapis.com" in str(request.url):
             pushes.append(json.loads(request.content))
             return httpx.Response(200, json={"name": "projects/x/messages/1"})
         table = request.url.path.rsplit("/", 1)[-1]
         select = request.url.params.get("select", "")
+        if table == "profiles" and status is None:
+            return httpx.Response(200, json=[])
         if table == "profiles" and "student_verification" in select:
             return httpx.Response(200, json=[{"student_verification": status, "department": None,
                                               "universities": {"name": "테스트대학교"}, "status": "active"}])
@@ -96,6 +98,16 @@ def test_reads_status_again_instead_of_trusting_the_body():
     # 트리거가 부른 뒤 대시보드에서 다시 pending 으로 돌렸으면 보내지 않는다 — 본문엔 상태를 받지도 않는다.
     pushes: list[dict] = []
     response = _wire("pending", pushes).post(URL, json={"profile_id": ME}, headers={"x-webhook-secret": SECRET})
+
+    assert response.status_code == 200
+    assert response.json() == {"sent": 0}
+    assert pushes == []
+
+
+def test_missing_profile_ends_quietly_instead_of_500():
+    # 탈퇴 정리 뒤 늦게 온 호출 등 — pg_net 은 다시 보내지 않으니 오류로 남길 일이 아니다(운영 10-03 확인).
+    pushes: list[dict] = []
+    response = _wire(None, pushes).post(URL, json={"profile_id": ME}, headers={"x-webhook-secret": SECRET})
 
     assert response.status_code == 200
     assert response.json() == {"sent": 0}
