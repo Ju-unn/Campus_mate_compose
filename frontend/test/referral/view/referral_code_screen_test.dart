@@ -2,6 +2,9 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
+import 'package:campus_mate/friend_review/model/friend_review_repository_provider.dart';
+import 'package:campus_mate/friend_review/model/friend_review_tags.dart';
+import 'package:campus_mate/friend_review/view/friend_review_compose_sheet.dart';
 import 'package:campus_mate/referral/model/referral_repository_provider.dart';
 import 'package:campus_mate/referral/view/referral_code_screen.dart';
 import 'package:flutter/material.dart';
@@ -9,10 +12,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../friend_review/model/fake_friend_review_repository.dart';
 import '../model/fake_referral_repository.dart';
 
+const _referrerId = '22222222-2222-2222-2222-222222222222';
+
 /// 20 → 20d 두 경로만 둔 라우터. 20d 자리는 글자 하나로 둬 A3 화면에 기대지 않는다.
-Widget _app(FakeReferralRepository repository) {
+Widget _app(FakeReferralRepository repository, {FakeFriendReviewRepository? reviews}) {
   final router = GoRouter(
     initialLocation: AppRoutes.onboardingReferral,
     routes: [
@@ -21,7 +27,10 @@ Widget _app(FakeReferralRepository repository) {
     ],
   );
   return ProviderScope(
-    overrides: [referralRepositoryProvider.overrideWithValue(repository)],
+    overrides: [
+      referralRepositoryProvider.overrideWithValue(repository),
+      friendReviewRepositoryProvider.overrideWithValue(reviews ?? FakeFriendReviewRepository()),
+    ],
     child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
   );
 }
@@ -59,9 +68,10 @@ void main() {
     expect(_onConfirm(tester), isNull);
   });
 
-  testWidgets('확인되면 20d 로 간다', (tester) async {
+  testWidgets('확인되면 코드를 준 친구의 리뷰 시트(20b)가 뜨고, 닫으면 20d 로 간다', (tester) async {
     final repository = FakeReferralRepository();
-    await tester.pumpWidget(_app(repository));
+    final reviews = FakeFriendReviewRepository();
+    await tester.pumpWidget(_app(repository, reviews: reviews));
 
     await tester.enterText(find.byType(TextField), 'k7qmx2');
     await tester.pump();
@@ -69,6 +79,35 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repository.redeemedCodes, ['K7QMX2']);
+    expect(tester.widget<FriendReviewComposeSheet>(find.byType(FriendReviewComposeSheet)).revieweeId, _referrerId);
+    expect(reviews.targetRequests, [_referrerId]);
+    expect(find.text('20d'), findsNothing);
+
+    // 안 쓰고 닫아도(뒤로 · 밖 누르기) 가입은 이어진다.
+    Navigator.of(tester.element(find.byType(FriendReviewComposeSheet))).pop();
+    await tester.pumpAndSettle();
+
+    expect(find.byType(FriendReviewComposeSheet), findsNothing);
+    expect(find.text('20d'), findsOneWidget);
+  });
+
+  testWidgets('20b 에서 리뷰를 남겨도 20d 로 간다', (tester) async {
+    final reviews = FakeFriendReviewRepository();
+    await tester.pumpWidget(_app(FakeReferralRepository(), reviews: reviews));
+    await tester.enterText(find.byType(TextField), 'k7qmx2');
+    await tester.pump();
+    await tester.tap(_confirm());
+    await tester.pumpAndSettle();
+
+    final chip = find.text(friendReviewTags.first);
+    await tester.ensureVisible(chip);
+    await tester.tap(chip);
+    await tester.pump();
+    await tester.tap(find.byKey(friendReviewSubmitKey));
+    await tester.pumpAndSettle();
+
+    expect(reviews.creates.single.revieweeId, _referrerId);
+    expect(find.byType(FriendReviewComposeSheet), findsNothing);
     expect(find.text('20d'), findsOneWidget);
   });
 
