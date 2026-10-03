@@ -12,10 +12,10 @@ import 'package:flutter/services.dart';
 
 // 사진 칸 위젯 — 04-2 사진 업로드와 15-7 사진 수정이 같이 쓴다(계획서 2026-09-27-me-edit.md C9: 15-7 칸은 04-2 모양,
 // 크기만 다르다). photos_screen.dart 에서 그대로 옮겼다 — 모양을 두 벌 두면 한쪽만 고쳐진다.
-// 칸 크기는 부모가 준다(04-2 는 Expanded + 높이 158, 15-7 은 [PhotoSlotGrid] 156×158).
+// 칸 크기는 부모가 준다 — 04-2 · 15-7 모두 [PhotoSlotGrid] 로 놓고 열 간격만 다르다.
 
 /// 사진 칸 2×2 배치 — 15-7 그리드(pen `u6AR7K`: 행 사이 12, 칸 높이 158). 칸 폭은 부모 폭에서 [columnGap] 을 뺀 반이다.
-/// 칸 그리기는 아래 칸 위젯이 맡고, 이 위젯은 어느 자리에 어느 칸을 놓을지만 정한다 — 04-2 도 옮겨 올 수 있게 화면 값은
+/// 칸 그리기는 아래 칸 위젯이 맡고, 이 위젯은 어느 자리에 어느 칸을 놓을지만 정한다 — 04-2 · 15-7 이 같이 쓰도록 화면 값은
 /// 열 간격만 받는다(04-2 는 12, 15-7 은 16).
 class PhotoSlotGrid extends StatelessWidget {
   const PhotoSlotGrid({required this.state, required this.viewModel, required this.columnGap, super.key});
