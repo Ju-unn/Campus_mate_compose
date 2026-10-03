@@ -2,6 +2,7 @@ import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/home/model/cohort_wait.dart';
 import 'package:campus_mate/home/model/home_repository_provider.dart';
@@ -99,12 +100,30 @@ void main() {
     expect(find.text('시작된 대화'), findsOneWidget);
   });
 
+  /// 기본 테스트 화면(800×600)에선 리뷰 띠가 화면 밖이다 — pen 프레임으로 본다.
+  void penFrame(WidgetTester tester) {
+    tester.view.physicalSize = const Size(360, 884);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+  }
+
   testWidgets('review-strip 은 평점과 평가 수를 보여준다', (tester) async {
+    penFrame(tester);
     await pump(tester);
 
     expect(find.text('4.6'), findsOneWidget);
     expect(find.text('(57명 평가)'), findsOneWidget);
     expect(find.text('리뷰 남기기'), findsOneWidget);
+  });
+
+  testWidgets('버튼 글자 — 히어로 `YiLtq` 18/700 · 리뷰 `ifX9K` 16/700', (tester) async {
+    penFrame(tester);
+    await pump(tester);
+
+    final hero = tester.widget<Text>(find.text('지금 확인하기')).style!;
+    expect((hero.fontSize, hero.fontWeight), (18, FontWeight.w700));
+    final review = tester.widget<Text>(find.text('리뷰 남기기')).style!;
+    expect((review.fontSize, review.fontWeight), (16, FontWeight.w700));
   });
 
   testWidgets('campus-strip 은 저장소의 대학을 태그 하나씩 보여준다', (tester) async {
@@ -363,7 +382,7 @@ void main() {
   });
   }
 
-  testWidgets('pen 좌표와 같다 — hero 버튼 y158 · 태그 y647 · 카드 y691 · 빈 칸 글자 x14', (tester) async {
+  testWidgets('pen 좌표와 같다 — hero 버튼 y146 · 숫자 칸 y423 높이 96 · 리뷰 y543 · 태그 y659 · 카드 y703 · 빈 칸 글자 x14', (tester) async {
     // pen `bpA8x` 값(앱바 56 포함). 글자 상자 높이 hero 29(`dIoz0`)·대학 제목 20(`YIoXQ`)은 렌더 결과(lineHeight 속성 없음), 빈 칸 글자 x14(`FqMYC`).
     tester.view.physicalSize = const Size(360, 884);
     tester.view.devicePixelRatio = 1;
@@ -372,18 +391,76 @@ void main() {
     await pump(tester);
 
     final heroButton = find.ancestor(of: find.text('지금 확인하기'), matching: find.byType(InkWell));
-    expect(tester.getTopLeft(heroButton).dy, 158);
-    expect(tester.getTopLeft(find.byType(Tag).first).dy, 647);
+    expect(tester.getTopLeft(heroButton).dy, 146);
+    final tile = find.ancestor(of: find.text('전달된 카드'), matching: find.byType(Container)).first;
+    expect(tester.getTopLeft(tile).dy, 423);
+    expect(tester.getSize(tile).height, 96);
+    final review = find.ancestor(of: find.text('리뷰 남기기'), matching: find.byType(Container)).last;
+    expect(tester.getTopLeft(review).dy, 543);
+    expect(tester.getTopLeft(find.byType(Tag).first).dy, 659);
     final nudge = find.ancestor(of: find.text('프로필을 조금 더 채우면'), matching: find.byType(Container)).last;
-    expect(tester.getTopLeft(nudge).dy, 691);
+    expect(tester.getTopLeft(nudge).dy, 703);
     final emptyTile = tester.getTopLeft(find.byType(MosaicEmptyTile).first);
     expect(tester.getTopLeft(find.text('아직 비어 있어요').first).dx - emptyTile.dx, 14);
   });
 
-  testWidgets('review-strip 별은 AppIcons.star 다섯 개다', (tester) async {
+  testWidgets('review-strip `L7wKi` — 바탕 #FFF8EC, 별은 3D 15 다섯 개(`hN4Ow` 외)', (tester) async {
+    penFrame(tester);
     await pump(tester);
 
-    expect(find.byIcon(AppIcons.star), findsNWidgets(5));
+    final strip = find.ancestor(of: find.text('리뷰 남기기'), matching: find.byType(Container)).last;
+    expect((tester.widget<Container>(strip).decoration! as BoxDecoration).color, const Color(0xFFFFF8EC));
+    final stars = find.descendant(of: strip, matching: find.byType(Icon3d));
+    expect(tester.widgetList<Icon3d>(stars).map((i) => (i.icon, i.size)), List.filled(5, (AppIcon3d.star, 15.0)));
+  });
+
+  testWidgets('hero `U1k8ZK` — 바탕 #FFF0F2 · 하트 장식 없음 · 마스코트 `S49nUs` x172 y-5 160×170 · 제목 #222 · 버튼 `t0Un8s` #FF385C 글자 흰색', (tester) async {
+    penFrame(tester);
+    await pump(tester);
+
+    final title = find.text('오늘의 카드가');
+    final hero = find.ancestor(of: title, matching: find.byType(Container)).last;
+    expect((tester.widget<Container>(hero).decoration! as BoxDecoration).color, const Color(0xFFFFF0F2));
+    expect(find.descendant(of: hero, matching: find.byIcon(AppIcons.heart)), findsNothing);
+    final mascot = find.descendant(of: hero, matching: find.byType(Image));
+    expect((tester.widget<Image>(mascot).image as AssetImage).assetName, 'assets/images/home-top-mascot-couple.webp');
+    expect(tester.getRect(mascot).shift(-tester.getTopLeft(hero)), const Rect.fromLTWH(172, -5, 160, 170));
+    expect(tester.widget<Text>(title).style!.color, const Color(0xFF222222));
+    final button = find.ancestor(of: find.text('지금 확인하기'), matching: find.byType(Material)).first;
+    expect(tester.widget<Material>(button).color, const Color(0xFFFF385C));
+    expect(tester.widget<Text>(find.text('지금 확인하기')).style!.color, const Color(0xFFFFFFFF));
+  });
+
+  testWidgets('stat-panel `krua8` — 칸 바탕 3색 · 3D 아이콘 36 · 숫자 18/700 #222 · 라벨 11 #6A6A6A', (tester) async {
+    await pump(tester);
+
+    for (final (label, color, icon) in [
+      ('전달된 카드', const Color(0xFFFFF6F8), AppIcon3d.send),
+      ('가입 수', const Color(0xFFF8F5FF), AppIcon3d.join),
+      ('시작된 대화', const Color(0xFFF5F7FF), AppIcon3d.chat),
+    ]) {
+      final tile = find.ancestor(of: find.text(label), matching: find.byType(Container)).first;
+      final box = tester.widget<Container>(tile).decoration! as BoxDecoration;
+      expect((box.color, box.borderRadius), (color, BorderRadius.circular(14)), reason: label);
+      final icon3d = tester.widget<Icon3d>(find.descendant(of: tile, matching: find.byType(Icon3d)));
+      expect((icon3d.icon, icon3d.size), (icon, 36.0), reason: label);
+      final labelStyle = tester.widget<Text>(find.text(label)).style!;
+      expect((labelStyle.fontSize, labelStyle.color), (11, const Color(0xFF6A6A6A)), reason: label);
+    }
+    final number = tester.widget<Text>(find.text('862')).style!;
+    expect((number.fontSize, number.fontWeight, number.color), (18, FontWeight.w700, const Color(0xFF222222)));
+  });
+
+  testWidgets('완성도 막대 `v8D23` — 흰 바탕 · 테두리 #D8C8D9 40 · 그림자 y1 blur4 #745C78 1C', (tester) async {
+    await pump(tester);
+    await tester.scrollUntilVisible(find.text('프로필 완성도 40%'), 200, scrollable: _mainList);
+
+    final bar = find.byWidgetPredicate((w) => w is Container && w.constraints?.maxWidth == 150 && w.constraints?.maxHeight == 6);
+    final box = tester.widget<Container>(bar).decoration! as BoxDecoration;
+    expect(box.color, const Color(0xFFFFFFFF));
+    // 테두리는 위에 그린다 — decoration 테두리는 Container 가 안쪽 여백으로 더해 채움 막대가 4 로 준다.
+    expect((tester.widget<Container>(bar).foregroundDecoration! as BoxDecoration).border, Border.all(color: const Color(0x40D8C8D9)));
+    expect(box.boxShadow, const [BoxShadow(color: Color(0x1C745C78), offset: Offset(0, 1), blurRadius: 4)]);
   });
 
   testWidgets('요약을 못 받아도 hero-today 는 남는다', (tester) async {
