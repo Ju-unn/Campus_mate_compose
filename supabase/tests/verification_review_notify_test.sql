@@ -14,7 +14,7 @@ insert into public.university_email_domains (domain, university_id)
 values ('review.ac.kr', '00000000-0000-0000-0000-00000000000d');
 insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000d7', 'd7@review.ac.kr');
 
-select has_extension('pg_net', 'pg_net 확장이 켜져 있다');
+select has_extension('extensions', 'pg_net', 'pg_net 확장은 extensions 스키마에 있다(advisor extension_in_public)');
 select has_trigger('public', 'profiles', 'on_student_verification_reviewed', '검토 결과 트리거가 있다');
 select is_definer('public', 'notify_verification_reviewed', array[]::text[], 'Vault 를 읽으려고 security definer 다');
 select is(
