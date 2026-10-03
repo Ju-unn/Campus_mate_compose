@@ -45,6 +45,26 @@ class FriendReviewRepository(PostgrestRepository):
         })
         return bool(rows)
 
+    async def fetch_linked_ids(self, me: UUID | str) -> list[str]:
+        """추천으로 이어진 사람 id(어느 방향이든), 최근 연결 먼저. ponytail: 페이지 없음 — 추천 수는 작다."""
+        rows = await self._rows("referrals", {
+            "or": f"(referee_id.eq.{me},referrer_id.eq.{me})",
+            "select": "referee_id,referrer_id", "order": "created_at.desc",
+        })
+        return [row["referrer_id"] if row["referee_id"] == str(me) else row["referee_id"] for row in rows]
+
+    async def fetch_reviewed_ids(self, reviewer: UUID | str) -> set[str]:
+        """내가 리뷰를 남긴 사람. 가려진 것도 센다 — 한 사람에게 한 번이다(friend_reviews_once)."""
+        rows = await self._rows("friend_reviews", {"reviewer_id": f"eq.{reviewer}", "select": "reviewee_id"})
+        return {row["reviewee_id"] for row in rows}
+
+    async def fetch_people(self, ids: list[str]) -> list[dict]:
+        """"리뷰를 기다리는 친구" 줄에 그릴 것(닉네임 · 학교 · 아바타)과 active 판정용 status. 순서는 지키지 않는다."""
+        return await self._rows("profiles", {
+            "id": f"in.({','.join(ids)})",
+            "select": "id,nickname,status,universities(name),profile_avatars(storage_path,status,created_at)",
+        })
+
     async def has_written(self, reviewer: UUID | str, reviewee: UUID | str) -> bool:
         rows = await self._rows("friend_reviews", {
             "reviewer_id": f"eq.{reviewer}", "reviewee_id": f"eq.{reviewee}", "select": "id",
