@@ -4,6 +4,8 @@ import 'package:campus_mate/auth/model/verification_gate_repository_provider.dar
 import 'package:campus_mate/auth/view/school_info_screen.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -95,6 +97,39 @@ void main() {
       expect(find.text('예: 컴퓨터공학과'), findsOneWidget);
       expect(find.text('학번 · 필수'), findsOneWidget);
       expect(find.text('예: 21'), findsOneWidget);
+    });
+
+    // 디자인 공통 PR 뒤 창별_할일(온보딩): 입력 상자 모서리 input 12 · 테두리 hairline, placeholder muted.
+    testWidgets('학과 · 학번 입력 상자는 52 · 모서리 12 · 테두리 hairline, placeholder 는 muted 다', (tester) async {
+      await pumpScreen(tester);
+
+      for (final field in [find.byType(TextField).at(0), find.byType(TextField).at(1)]) {
+        final container = find.ancestor(of: field, matching: find.byType(Container)).first;
+        final box = tester.widget<Container>(container).decoration! as BoxDecoration;
+        // TDM1r 56 → 52. 글자 한 줄(16 × 1.6)이 상자 안에서 잘리지 않아야 한다.
+        expect(tester.getSize(container).height, 52);
+        expect(tester.getSize(find.descendant(of: field, matching: find.byType(EditableText))).height,
+            greaterThanOrEqualTo(16 * 1.6));
+        expect(box.borderRadius, BorderRadius.circular(AppRadius.input));
+        expect(box.border, Border.all(color: AppColors.hairline));
+        expect(tester.widget<TextField>(field).decoration!.hintStyle!.color, AppColors.muted);
+      }
+    });
+
+    // 52 는 최소값이다 — 글자 배율 2.0 에서 고정 52 면 한 줄(16 × 1.6 × 2)이 잘린다(LabeledField 와 같이 minHeight).
+    testWidgets('글자 배율 2.0 에서 학과 · 학번 상자가 늘어나 글자가 잘리지 않는다', (tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await pumpScreen(tester);
+
+      for (final field in [find.byType(TextField).at(0), find.byType(TextField).at(1)]) {
+        // 글자칸이 제 한 줄 높이보다 낮으면 잘린 것이다.
+        final text = tester.renderObject<RenderBox>(find.descendant(of: field, matching: find.byType(EditableText)));
+        expect(text.size.height, greaterThanOrEqualTo(text.getMinIntrinsicHeight(text.size.width)));
+      }
     });
 
     testWidgets('학과·학번이 모두 비어 있으면 CTA 가 비활성이다', (tester) async {

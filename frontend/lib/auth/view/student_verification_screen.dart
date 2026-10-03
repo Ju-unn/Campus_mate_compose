@@ -356,12 +356,13 @@ class _RealNameField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 56,
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 14),
+      constraints: const BoxConstraints(minHeight: 52), // pen TDM1r. 글자 확대 때는 늘어난다
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      alignment: Alignment.centerLeft,
       decoration: BoxDecoration(
         color: AppColors.surfaceSoft,
-        border: Border.all(color: AppColors.outline),
-        borderRadius: BorderRadius.circular(AppRadius.sm),
+        border: Border.all(color: AppColors.hairline),
+        borderRadius: BorderRadius.circular(AppRadius.input),
       ),
       child: TextFormField(
         initialValue: initialValue,
@@ -372,7 +373,7 @@ class _RealNameField extends StatelessWidget {
           border: InputBorder.none,
           contentPadding: EdgeInsets.zero,
           hintText: hintText,
-          hintStyle: AppTypography.body.copyWith(color: AppColors.disabled),
+          hintStyle: AppTypography.body.copyWith(color: AppColors.muted),
         ),
       ),
     );
