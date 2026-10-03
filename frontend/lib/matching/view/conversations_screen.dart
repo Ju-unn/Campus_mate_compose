@@ -1,4 +1,6 @@
+import 'package:campus_mate/chat/view/chat_dialogs.dart';
 import 'package:campus_mate/chat/view/chat_list_row.dart';
+import 'package:campus_mate/chat/view/swipe_to_leave.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_ui_state.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
@@ -67,7 +69,7 @@ class _Body extends ConsumerWidget {
         slivers: [
           if (errorMessage != null) SliverToBoxAdapter(child: _ErrorLine(message: errorMessage)),
           ..._acceptanceSlivers(ref, acceptances),
-          ..._conversationSlivers(context, chats),
+          ..._conversationSlivers(context, ref, chats),
           const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.md)),
         ],
       ),
@@ -108,7 +110,7 @@ class _Body extends ConsumerWidget {
 
   /// 대화 중. 닫힌 방과 내가 나간 방은 서버가 이미 빼고 준다 —
   /// **상대가 나간 방은 그대로 보이고**, 미리보기에 "OO님이 채팅방을 나갔어요" 가 뜬다(결정 7).
-  List<Widget> _conversationSlivers(BuildContext context, ConversationsUiState state) {
+  List<Widget> _conversationSlivers(BuildContext context, WidgetRef ref, ConversationsUiState state) {
     if (state.conversations.isEmpty) {
       return const [];
     }
@@ -122,9 +124,18 @@ class _Body extends ConsumerWidget {
             const Divider(height: 1, thickness: 1, color: AppColors.hairline),
         itemBuilder: (context, index) {
           final conversation = state.conversations[index];
-          return ChatListRow(
-            conversation: conversation,
-            onTap: () => context.push('${AppRoutes.chatRoom}/${conversation.matchId}'),
+          // 13a 밀어서 나가기(결정 10, pen zMfIn) — 방 안 나가기와 같은 확인 다이얼로그 · 같은 호출.
+          return SwipeToLeave(
+            key: ValueKey(conversation.matchId),
+            onLeave: () async {
+              if (await confirmLeaveChat(context)) {
+                await ref.read(conversationsViewModelProvider.notifier).leave(conversation.matchId);
+              }
+            },
+            child: ChatListRow(
+              conversation: conversation,
+              onTap: () => context.push('${AppRoutes.chatRoom}/${conversation.matchId}'),
+            ),
           );
         },
       ),

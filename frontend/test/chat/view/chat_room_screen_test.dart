@@ -10,6 +10,8 @@ import 'package:campus_mate/chat/view/system_message.dart';
 import 'package:campus_mate/chat/view/trust_reveal_bubble.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -83,6 +85,43 @@ void main() {
 
     expect(find.text('상대가 채팅방을 나가 더 이상 메시지를 보낼 수 없어요.'), findsOneWidget);
     expect(find.byType(TextField), findsNothing);
+  });
+
+  testWidgets('14g 나간 방(pen z5ULI): #F7F7F7 [16,16,28,16] → 안내 #FFF0F2 r12 14 · 14/400 body 1.5 → 12 → "채팅방 나가기" 52', (tester) async {
+    tester.view.physicalSize = const Size(360, 780);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    repository.room = Success(roomFixture(partnerLeft: true));
+    await pump(tester);
+
+    const notice = '상대가 채팅방을 나가 더 이상 메시지를 보낼 수 없어요.';
+    final noticeBox = find.ancestor(of: find.text(notice), matching: find.byType(DecoratedBox)).first;
+    final boxDecoration = tester.widget<DecoratedBox>(noticeBox).decoration as BoxDecoration;
+    expect((boxDecoration.color, boxDecoration.borderRadius), (AppColors.primaryWash, BorderRadius.circular(12)));
+    final box = tester.getRect(noticeBox);
+    expect(tester.getTopLeft(find.text(notice)) - box.topLeft, const Offset(14, 14));
+    final style = tester.widget<Text>(find.text(notice)).style!;
+    expect((style.fontSize, style.fontWeight, style.color, style.height), (14, FontWeight.w400, AppColors.body, 1.5));
+    final button = tester.getRect(find.widgetWithText(AppButton, '채팅방 나가기'));
+    expect((button.height, button.top - box.bottom, button.left, 360 - button.right), (52, 12, 16, 16));
+    expect(box.left, 16);
+    expect(780 - button.bottom, 28);
+    final area = find.ancestor(of: noticeBox, matching: find.byType(ColoredBox)).first;
+    expect(tester.widget<ColoredBox>(area).color, AppColors.surfaceSoft);
+    expect(box.top - tester.getRect(area).top, 16);
+  });
+
+  testWidgets('14g "채팅방 나가기" → 확인 다이얼로그 → 나가면 저장소 leave', (tester) async {
+    repository.room = Success(roomFixture(partnerLeft: true));
+    await pump(tester);
+
+    await tester.tap(find.widgetWithText(AppButton, '채팅방 나가기'));
+    await tester.pumpAndSettle();
+    expect(find.text('채팅방을 나갈까요?'), findsOneWidget);
+    await tester.tap(find.widgetWithText(TextButton, '나가기'));
+    await tester.pumpAndSettle();
+
+    expect(repository.leaveCount, 1);
   });
 
   testWidgets('방을 보는 중에 상대가 나가면 그 자리에서 입력창이 안내로 바뀐다(E-CHAT-61)', (tester) async {
