@@ -44,6 +44,8 @@ async def submit_student_verification(
     repo = StudentVerificationRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
 
     gate = await repo.fetch_gate_status(profile_id)
+    # 결정 9: 정지 계정은 학생증을 다시 내지 못한다 — 사진 업로드 · OCR 비용 · 디스코드 알림이 열릴 이유가 없다.
+    reject_suspended(gate.get("status"))
     status = gate["student_verification"]
     if status == "pending":
         raise HTTPException(status_code=409, detail=errors.VERIFICATION_IN_REVIEW)
