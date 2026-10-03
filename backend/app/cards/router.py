@@ -8,7 +8,7 @@ from app.cards.ladder import next_issue_at
 from app.cards.push import FcmSender, notify
 from app.cards.repository import NOTIFICATION_DEFAULTS, CardRepository
 from app.core import errors
-from app.core.deps import Caller, get_client, get_now, get_settings, get_verified_caller
+from app.core.deps import Caller, get_caller, get_client, get_now, get_settings, get_verified_caller
 from app.matching.repository import MatchingRepository
 from app.settings import Settings
 
@@ -66,14 +66,27 @@ def get_sender(
     return FcmSender(settings.google_cloud_project, client)
 
 
-async def _wire(
-    caller: Caller = Depends(get_verified_caller), sender: FcmSender = Depends(get_sender),
-    now: datetime = Depends(get_now),
-) -> _Wiring:
+def _wiring(caller: Caller, sender: FcmSender, now: datetime) -> _Wiring:
     settings, client, profile_id = caller
     repo = CardRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
     # owner_id·target_id 는 PostgREST 에서 문자열로 오니 비교가 되게 str 로 맞춘다.
     return _Wiring(settings, client, str(profile_id), repo, sender, now)
+
+
+async def _wire(
+    caller: Caller = Depends(get_verified_caller), sender: FcmSender = Depends(get_sender),
+    now: datetime = Depends(get_now),
+) -> _Wiring:
+    return _wiring(caller, sender, now)
+
+
+async def _wire_signed_in(
+    caller: Caller = Depends(get_caller), sender: FcmSender = Depends(get_sender),
+    now: datetime = Depends(get_now),
+) -> _Wiring:
+    """학생증 관문 앞에서도 열린다 — 푸시 토큰 등록 · 삭제만 쓴다. 검토를 기다리는 사람이
+    토큰이 없으면 검토 결과 알림(결함 A7)을 받을 기기가 없다(대장 10-03 허락, 홈탭1 에 알림)."""
+    return _wiring(caller, sender, now)
 
 
 def _card_profile(profile: dict, supabase_url: str, now: datetime) -> dict:
@@ -252,14 +265,14 @@ async def respond_to_acceptance(card_id: str, body: DecisionRequest,
 
 @router.post("/cards/push-tokens")
 async def register_push_token(body: PushTokenRequest,
-                              wiring: _Wiring = Depends(_wire)) -> dict:
+                              wiring: _Wiring = Depends(_wire_signed_in)) -> dict:
     """앱이 받은 FCM 토큰을 등록한다. 같은 토큰이 다시 오면 주인만 갱신된다(기기 인계)."""
     await wiring.repo.upsert_push_token(body.token, wiring.profile_id, body.platform)
     return {"ok": True}
 
 
 @router.delete("/cards/push-tokens/{token}")
-async def delete_push_token(token: str, wiring: _Wiring = Depends(_wire)) -> dict:
+async def delete_push_token(token: str, wiring: _Wiring = Depends(_wire_signed_in)) -> dict:
     """로그아웃 때 부른다 — 남의 기기로 알림이 가지 않게 토큰을 지운다."""
     await wiring.repo.delete_push_token(token, wiring.profile_id)
     return {"ok": True}

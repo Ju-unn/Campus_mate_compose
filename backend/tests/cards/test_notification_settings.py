@@ -76,6 +76,28 @@ def test_unknown_platform_is_refused():
     assert response.status_code == 422
 
 
+@pytest.mark.parametrize("method, path", [("POST", "/cards/push-tokens"), ("DELETE", "/cards/push-tokens/tok-1")])
+def test_push_token_works_before_student_verification(method, path):
+    """검토를 기다리는 사람도 토큰이 있어야 검토 결과 알림(A7)을 받는다 — 학생증 관문을 보지 않는다."""
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "/auth/v1/user" in str(request.url):
+            return httpx.Response(200, json={"id": PROFILE_ID})
+        if request.method == "GET" and "student_verification" in request.url.params.get("select", ""):
+            return httpx.Response(200, json=[{"student_verification": "pending", "department": None}])
+        seen.append(request)
+        return httpx.Response(200, json=[])
+
+    app.dependency_overrides[get_client] = lambda: httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    body = {"token": "tok-1", "platform": "android"} if method == "POST" else None
+    response = TestClient(app).request(method, path, headers=AUTH_HEADERS, json=body)
+
+    assert response.status_code == 200
+    assert seen[-1].method == method
+    assert seen[-1].url.path.endswith("/push_tokens")
+
+
 def test_push_token_is_deleted_on_logout():
     handler, seen = _recorder()
     response = _wire(handler).delete("/cards/push-tokens/tok-1", headers=AUTH_HEADERS)
