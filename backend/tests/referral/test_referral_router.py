@@ -6,9 +6,11 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
+from app.cards.push import FcmSender
 from app.core import errors
 from app.core.deps import get_client, get_settings
 from app.main import app
+from app.referral import router as router_module
 from app.settings import Settings
 
 PROFILE_ID = UUID("11111111-1111-1111-1111-111111111111")
@@ -26,6 +28,18 @@ def overrides():
     )
     yield
     app.dependency_overrides.clear()
+
+
+@pytest.fixture(autouse=True)
+def review_requests(monkeypatch) -> list[tuple]:
+    # 푸시 내용은 friend_reviews 테스트가 본다. 여기서는 redeem 이 부르는지 · 누구에게인지만.
+    calls = []
+
+    async def fake_notify_review_request(cards, sender, referrer_id, referee_id, now):
+        calls.append((sender, referrer_id, referee_id))
+
+    monkeypatch.setattr(router_module, "notify_review_request", fake_notify_review_request)
+    return calls
 
 
 def _wire(handler, verification: str = "verified") -> TestClient:
@@ -83,16 +97,27 @@ def test_redeem_passes_raw_code_and_returns_referrer():
     assert seen["body"] == {"p_referee_id": str(PROFILE_ID), "p_code": " k7qmx2 "}
 
 
+def test_redeem_asks_referrer_for_a_review(review_requests):
+    response = _wire(lambda r: httpx.Response(200, json=REFERRER_ID)).post(
+        "/referral/redeem", headers=AUTH_HEADERS, json={"code": "K7QMX2"})
+
+    assert response.status_code == 200
+    [(sender, referrer_id, referee_id)] = review_requests
+    assert isinstance(sender, FcmSender)
+    assert (referrer_id, referee_id) == (REFERRER_ID, str(PROFILE_ID))
+
+
 @pytest.mark.parametrize(("code", "status", "detail"), [
     ("CM404", 404, errors.REFERRAL_CODE_NOT_FOUND),
     ("CM422", 422, errors.REFERRAL_CODE_NOT_ALLOWED),
     ("23505", 409, errors.REFERRAL_ALREADY_REDEEMED),
 ])
-def test_redeem_maps_db_errors(code, status, detail):
+def test_redeem_maps_db_errors(code, status, detail, review_requests):
     response = _wire(lambda r: _rpc_error(code)).post(
         "/referral/redeem", headers=AUTH_HEADERS, json={"code": "K7QMX2"})
     assert response.status_code == status
     assert response.json()["detail"] == detail
+    assert review_requests == []
 
 
 @pytest.mark.parametrize("code", ["", "   ", "A" * 21])
