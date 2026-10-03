@@ -32,6 +32,10 @@ class AuthRedirect {
   /// 그 다음 온보딩 화면에 묶어둔다. 둘 다 끝났으면 로그인·스플래시·게이트·온보딩 화면에
   /// 머무를 이유가 없다.
   String? _resolveForMember(String location) {
+    // 탈퇴 · 로그인 만료면 곧 main.dart 가 로그아웃해 로그인 화면으로 간다 — 그 사이 관문 화면으로 튀지 않게 제자리.
+    if (_accountStatus == AccountStatus.withdrawn || _accountStatus == AccountStatus.expired) {
+      return null;
+    }
     // 정지가 가장 먼저다 — 정지면 게이트·온보딩 조회가 403 이라 기본값(3b · 04-1)에 머물러 있다.
     if (_accountStatus == AccountStatus.suspended) {
       return location == AppRoutes.accountSuspended ? null : AppRoutes.accountSuspended;

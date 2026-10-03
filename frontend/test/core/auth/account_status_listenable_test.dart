@@ -49,6 +49,15 @@ void main() {
     expect(notified, 1);
   });
 
+  test('탈퇴 뒤에 온 정지 403 은 탈퇴를 덮지 않는다 — 정지 중 탈퇴 직후 나가던 요청이 늦게 돌아와도', () {
+    listenable
+      ..markWithdrawn()
+      ..observe(const SuspendedFailure());
+
+    expect(listenable.value, AccountStatus.withdrawn);
+    expect(notified, 1);
+  });
+
   test('observe(other failure) does nothing', () {
     for (final failure in <Failure>[
       const NetworkFailure(),
