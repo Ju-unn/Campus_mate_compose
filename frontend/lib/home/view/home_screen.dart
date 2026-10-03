@@ -1,6 +1,8 @@
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -66,17 +68,31 @@ class HomeScreen extends ConsumerWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // 칸 바탕 · 그림 확대는 pen `zUQMn` · `Rp7wY` · `iwSBr` 값(토큰표 밖).
             Expanded(
-              child: StatTile(icon: AppIcons.send, value: _thousands(summary.deliveredCards), label: '전달된 카드'),
-            ),
-            const SizedBox(width: AppSpacing.xs),
-            Expanded(
-              child: StatTile(icon: AppIcons.userPlus, value: _thousands(summary.signups), label: '가입 수'),
+              child: StatTile(
+                icon: AppIcon3d.send,
+                iconScale: 1.25,
+                color: const Color(0xFFFFF6F8),
+                value: _thousands(summary.deliveredCards),
+                label: '전달된 카드',
+              ),
             ),
             const SizedBox(width: AppSpacing.xs),
             Expanded(
               child: StatTile(
-                icon: AppIcons.messageCircle,
+                icon: AppIcon3d.join,
+                iconScale: 1.16,
+                color: const Color(0xFFF8F5FF),
+                value: _thousands(summary.signups),
+                label: '가입 수',
+              ),
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            Expanded(
+              child: StatTile(
+                icon: AppIcon3d.chat,
+                color: const Color(0xFFF5F7FF),
                 value: _thousands(summary.conversationsStarted),
                 label: '시작된 대화',
               ),
@@ -86,8 +102,8 @@ class HomeScreen extends ConsumerWidget {
       ),
       const SizedBox(height: AppSpacing.lg),
       _ReviewStrip(rating: summary.reviewRating, count: summary.reviewCount),
-      // pen 은 16 여백 둘(`sDLEb` · `o6qaj`)을 겹쳐 둔다.
-      const SizedBox(height: AppSpacing.xl),
+      // pen 은 여백 16 · 8(`sDLEb` · `o6qaj`)을 겹쳐 둔다.
+      const SizedBox(height: AppSpacing.lg),
       // pen 글자 상자 높이 20(`YIoXQ` 렌더 결과, lineHeight 속성 없음) — bodySmall 토큰은 22 라 맞춘다.
       Text(
         '참여 중인 대학',
@@ -107,7 +123,7 @@ class HomeScreen extends ConsumerWidget {
       n.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => ',');
 }
 
-/// hero-today(pen `U1k8ZK`). "지금 확인하기"는 오늘 탭으로 간다.
+/// hero-today(pen `U1k8ZK`). "지금 확인하기"는 오늘 탭으로 간다. 하트 장식 · "결정 대기" 문구는 `lvmAj` 에만 있다.
 class _HeroToday extends StatelessWidget {
   const _HeroToday();
 
@@ -117,30 +133,37 @@ class _HeroToday extends StatelessWidget {
     final lineStyle = AppTypography.title.copyWith(
       fontWeight: FontWeight.w700,
       height: 29 / 20,
-      color: AppColors.onPrimary,
+      color: AppColors.ink,
     );
     // pen 높이 160 은 최소 높이다 — 글자를 키우면 늘어난다(DESIGN §11.2).
     return Container(
       constraints: const BoxConstraints(minHeight: 160),
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: AppColors.primary,
+        color: AppColors.primaryWash,
         borderRadius: BorderRadius.circular(AppRadius.xl),
       ),
       child: Stack(
         children: [
-          Icon(AppIcons.heart, size: 108, color: AppColors.onPrimary.withValues(alpha: 0.13)),
+          // `S49nUs` 는 위로 5 삐져나가 카드 모서리에 잘린다. 글자를 키우면 글자가 그림 위로 온다.
+          Positioned(
+            left: 172,
+            top: -5,
+            width: 160,
+            height: 170,
+            child: Image.asset('assets/images/home-top-mascot-couple.webp', excludeFromSemantics: true),
+          ),
           Padding(
-            // 아래 10 은 배율 1.0 에서 20 + 글자 58 + 24 + 버튼 48 + 10 = 160 이 되게 한다.
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+            // 아래 22 는 배율 1.0 에서 20 + 글자 58 + 12 + 버튼 48 + 22 = 160 이 되게 한다.
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 22),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('오늘의 카드가', style: lineStyle),
                 Text('도착했어요', style: lineStyle),
-                const SizedBox(height: AppSpacing.lg),
+                const SizedBox(height: AppSpacing.sm),
                 Material(
-                  color: AppColors.canvas,
+                  color: AppColors.primary,
                   borderRadius: BorderRadius.circular(AppRadius.md),
                   child: InkWell(
                     borderRadius: BorderRadius.circular(AppRadius.md),
@@ -153,7 +176,7 @@ class _HeroToday extends StatelessWidget {
                         heightFactor: 1,
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-                          child: Text('지금 확인하기', style: AppTypography.label.copyWith(color: AppColors.primaryText)),
+                          child: Text('지금 확인하기', style: AppTypography.label.copyWith(color: AppColors.onPrimary)),
                         ),
                       ),
                     ),
@@ -230,13 +253,13 @@ class _ReviewStrip extends StatelessWidget {
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
-        color: AppColors.surfaceSoft,
+        color: const Color(0xFFFFF8EC), // pen L7wKi 값, 토큰표 밖
         borderRadius: BorderRadius.circular(AppRadius.md),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // pen 에서 왼쪽(171)+버튼(128)이 300 폭에 1 남기고 들어간다 — 글자가 커지면 왼쪽을 줄인다.
+          // 글자가 커지면 왼쪽을 줄인다 — 버튼 글자는 그대로 둔다.
           Flexible(
             child: FittedBox(
               fit: BoxFit.scaleDown,
@@ -250,7 +273,7 @@ class _ReviewStrip extends StatelessWidget {
                   const SizedBox(width: 6),
                   for (var i = 0; i < 5; i++) ...[
                     if (i > 0) const SizedBox(width: 1),
-                    const Icon(AppIcons.star, size: 13, color: AppColors.primary),
+                    const Icon3d(AppIcon3d.star, size: 15),
                   ],
                   const SizedBox(width: 6),
                   Text(
@@ -264,9 +287,9 @@ class _ReviewStrip extends StatelessWidget {
           SizedBox(
             height: 48,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
               child: Center(
-                child: Text('리뷰 남기기', style: AppTypography.label.copyWith(color: AppColors.primaryText)),
+                child: Text('리뷰 남기기', style: AppTypography.button.copyWith(color: AppColors.primaryText)),
               ),
             ),
           ),
@@ -315,6 +338,12 @@ class _ProfileNudge extends StatelessWidget {
                   alignment: Alignment.centerLeft,
                   decoration: BoxDecoration(
                     color: AppColors.canvas,
+                    borderRadius: BorderRadius.circular(AppRadius.pill),
+                    boxShadow: AppElevation.trait,
+                  ),
+                  // 테두리는 채움 위에 그린다 — decoration 테두리는 Container 가 안쪽 여백으로 더해 채움이 4 로 준다.
+                  foregroundDecoration: BoxDecoration(
+                    border: Border.all(color: const Color(0x40D8C8D9)), // pen v8D23 값, 토큰표 밖
                     borderRadius: BorderRadius.circular(AppRadius.pill),
                   ),
                   child: FractionallySizedBox(
