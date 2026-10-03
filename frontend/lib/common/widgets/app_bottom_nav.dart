@@ -12,7 +12,7 @@ import 'package:go_router/go_router.dart';
 enum AppTab { main, today, community, chat, me }
 
 /// 머티리얼 NavigationBar(높이 80·알약 표시·배지는 아이콘 위)로는 pen 모양이 안 나와 직접 그린다:
-/// 윗선 1 + 바 60, 고른 탭은 아이콘·글자 모두 primary, 숫자 배지는 "대화" 글자 오른쪽.
+/// 윗선 1 + 바 64(pen `YptYg`, 2026-10-01 개편 — 옛 60), 고른 탭은 아이콘·글자 모두 primary, 숫자 배지는 "대화" 글자 오른쪽.
 class AppBottomNav extends ConsumerWidget {
   const AppBottomNav({required this.current, super.key});
 
@@ -41,7 +41,7 @@ class AppBottomNav extends ConsumerWidget {
         child: SafeArea(
           top: false,
           child: SizedBox(
-            height: 60,
+            height: 64,
             child: Row(
               children: [
                 for (final (tab, icon, label, route) in _items)

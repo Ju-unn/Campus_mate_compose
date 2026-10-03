@@ -45,6 +45,12 @@ void main() {
     await tester.pump();
   }
 
+  testWidgets('바 높이는 64 다 — 윗선 1 은 바 안에 그린다(pen YptYg, 2026-10-01 개편 — 옛 60)', (tester) async {
+    await pump(tester, FakeChatRepository());
+
+    expect(tester.getSize(find.byType(AppBottomNav)).height, 64);
+  });
+
   testWidgets('뱃지가 세 자리면 99+ 로 줄여 보여준다', (tester) async {
     // §8.8 하한 — 숫자가 길어져도 바가 밀리지 않는다.
     final chat = FakeChatRepository()
