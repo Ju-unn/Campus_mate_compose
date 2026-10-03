@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Literal
-
 from pydantic import BaseModel
 
 
@@ -26,14 +24,22 @@ class BeforeUserCreatedPayload(BaseModel):
         return self.email.rsplit("@", 1)[-1]
 
 
+class _HookError(BaseModel):
+    http_code: int
+    message: str
+
+
 class HookDecision(BaseModel):
-    decision: Literal["continue", "reject"]
-    message: str | None = None
+    # GoTrue 의 before-user-created 출력은 빈 구조체라 `decision` 을 읽지 않는다 — 옛 {"decision": "reject"}
+    # 는 통과로 읽혀 재가입 제한이 뚫렸다(2026-10-03). 거절은 200 본문의 `error` 객체로만 읽힌다
+    # (4xx 상태면 본문을 안 읽고 500 으로 바꾼다 — supabase/auth internal/hooks/hookshttp).
+    # 422 는 앱이 "가입 거절" 로 읽는 값이다(supabase_auth_repository.dart `_toFailure`).
+    error: _HookError | None = None
 
     @classmethod
     def allow(cls) -> "HookDecision":
-        return cls(decision="continue")
+        return cls()
 
     @classmethod
     def reject(cls, message: str) -> "HookDecision":
-        return cls(decision="reject", message=message)
+        return cls(error=_HookError(http_code=422, message=message))
