@@ -16,6 +16,8 @@ abstract final class PushRoute {
             final String id when id.isNotEmpty => '${AppRoutes.friendReviewWrite}/$id',
             _ => null,
           },
+        // 학생증 검토 결과(A7) — 반려면 3b 가 사유 배너를 보이고, 통과면 관문이 3c 로 넘긴다.
+        'verification' => AppRoutes.studentVerification,
         _ => null,
       };
 

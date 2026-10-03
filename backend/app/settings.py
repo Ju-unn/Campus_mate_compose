@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     avatar_tasks_queue: str = ""
     avatar_worker_url: str = ""
     avatar_tasks_service_account: str = ""
+    # 결함 A7: 학생증 검토 결과 트리거(pg_net)가 보내는 공유 비밀. Secret Manager 와 Supabase Vault 에 같은 값.
+    # 비면 /hooks/verification-reviewed 가 아무도 통과시키지 않는다.
+    verification_hook_secret: str = ""
 
     @property
     def postgrest_url(self) -> str:

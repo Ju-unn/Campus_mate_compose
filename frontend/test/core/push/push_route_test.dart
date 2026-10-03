@@ -38,6 +38,10 @@ void main() {
     expect(PushRoute.resolve({'route': 'friend_review_write', 'profile_id': ''}), isNull);
   });
 
+  test('학생증 검토 결과 알림은 3b 로 간다 — 통과면 관문이 다음 화면으로 넘긴다', () {
+    expect(PushRoute.resolve({'route': 'verification'}), AppRoutes.studentVerification);
+  });
+
   test('모르는 route 는 아무 데도 보내지 않는다', () {
     expect(PushRoute.resolve({'route': 'sticker'}), isNull);
     expect(PushRoute.resolve(const {}), isNull);
