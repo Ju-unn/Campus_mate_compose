@@ -9,7 +9,9 @@ import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/friend_review/model/friend_review_repository_provider.dart';
+import 'package:campus_mate/friend_review/model/friend_review_tags.dart';
 import 'package:campus_mate/friend_review/view/friend_review_card.dart';
+import 'package:campus_mate/friend_review/view/friend_review_compose_sheet.dart';
 import 'package:campus_mate/friend_review/view/written_reviews_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -25,6 +27,8 @@ const _emptyBody = '추천으로 연결된 친구에게\n리뷰를 남기면 여
 const _sheetTitle = '리뷰를 지울까요?'; // pen UClUE/xd8je
 const _sheetBody = '지우면 봄바람님 프로필에서 바로 사라지고\n되돌릴 수 없어요.'; // pen UClUE/O7tR3q
 const _deleted = '리뷰를 지웠어요'; // pen W7HENj/LGEZH
+const _sectionTitle = '리뷰를 기다리는 친구'; // pen qa34E
+const _sectionBody = '추천 코드로 이어진 친구예요. 지웠거나 놓친 리뷰도 다시 쓸 수 있어요.'; // pen AJ2hf
 
 /// 20e 내가 쓴 리뷰(pen `FEysN`, 값표 20e §2~§5). 20c 사본 — 깃발 대신 휴지통, 지우면 카드가 빠진다.
 void main() {
@@ -187,6 +191,176 @@ void main() {
     });
   });
 
+  group('리뷰를 기다리는 친구(20e-4 pen bDZnr, 결함 A3)', () {
+    final haneul = reviewTargetFixture(profileId: 'p3', nickname: '하늘', university: '한빛대학교');
+    final saebyeok = reviewTargetFixture(profileId: 'p4', nickname: '새벽');
+
+    Finder section() => find.text(_sectionTitle);
+    // 앱바 제목과 같은 글이라 본문 안에서만 찾는다.
+    Finder subtitle() => find.descendant(of: find.byType(ListView), matching: find.text('내가 쓴 리뷰'));
+    Finder rowOf(String nickname) => find.ancestor(of: find.text(nickname), matching: find.byType(WritableFriendRow));
+    Finder writeOf(String nickname) =>
+        find.ancestor(of: find.descendant(of: rowOf(nickname), matching: find.text('쓰기')), matching: find.byType(Material)).first;
+
+    testWidgets('친구가 있으면 안내 → 16 → 섹션(J3d8g8: 제목 16/700 → 8 → 설명 13 muted 1.5 → 8 → 줄 사이 8) → 16 → 소제목 Q3eosx 16/700 → 16 → 카드', (tester) async {
+      reviews.writable = Success([haneul, saebyeok]);
+      await pump(tester);
+
+      final title = tester.getRect(section());
+      final body = tester.getRect(find.text(_sectionBody));
+      final rows = find.byType(WritableFriendRow);
+      expect(rows, findsNWidgets(2));
+      final first = tester.getRect(rows.at(0));
+      final second = tester.getRect(rows.at(1));
+      expect((title.top - noticeBox(tester).bottom, title.left), (16, 16));
+      expect(body.top - title.bottom, 8);
+      expect(first.top - body.bottom, 8);
+      expect(second.top - first.bottom, 8);
+      expect((first.left, first.width), (16, 328));
+      final sub = tester.getRect(subtitle());
+      expect((sub.top - second.bottom, sub.left), (16, 16));
+      expect(tester.getRect(find.byType(FriendReviewCard).first).top - sub.bottom, 16);
+      for (final heading in [section(), subtitle()]) {
+        final style = tester.widget<Text>(heading).style!;
+        expect((style.fontSize, style.fontWeight, style.color), (16, FontWeight.w700, AppColors.ink));
+      }
+      final bodyStyle = tester.widget<Text>(find.text(_sectionBody)).style!;
+      expect((bodyStyle.fontSize, bodyStyle.color, bodyStyle.height), (13, AppColors.muted, 1.5));
+      expect(reviews.writableCount, 1);
+    });
+
+    testWidgets('줄(LJhYM) 64 · 흰 바탕 r12 · 테두리 #EBEBEB 1 — 좌우 12, 이니셜 40 → 12 → 닉네임 15/600 · 2 · 학교, 오른쪽 "쓰기" 36 · 좌우 14 · r10 · rausch · 14/600 흰 글자', (tester) async {
+      reviews.writable = Success([haneul]);
+      await pump(tester);
+
+      final row = rowOf('하늘');
+      final rowRect = tester.getRect(row);
+      expect(rowRect.height, 64);
+      final decoration = tester.widget<DecoratedBox>(find.descendant(of: row, matching: find.byType(DecoratedBox)).first).decoration
+          as BoxDecoration;
+      expect(decoration.color, AppColors.canvas);
+      expect(decoration.borderRadius, BorderRadius.circular(12));
+      expect(decoration.border, Border.all(color: AppColors.hairlineSoft));
+      final initial = tester.getRect(find.descendant(of: row, matching: find.byType(FriendReviewInitial)));
+      expect(initial.size, const Size(40, 40));
+      expect((initial.left - rowRect.left, initial.center.dy), (12, rowRect.center.dy));
+      // HP0vI 원 #FFF0F2 · YAaTW 글자 17/600 #222222.
+      final initialStyle = tester.widget<Text>(find.descendant(of: row, matching: find.text('하'))).style!;
+      expect((initialStyle.fontSize, initialStyle.fontWeight, initialStyle.color), (17, FontWeight.w600, AppColors.ink));
+      final name = find.descendant(of: row, matching: find.text('하늘'));
+      expect(tester.getRect(name).left - initial.right, 12);
+      final nameStyle = tester.widget<Text>(name).style!;
+      expect((nameStyle.fontSize, nameStyle.fontWeight, nameStyle.color), (15, FontWeight.w600, AppColors.ink));
+      final school = find.descendant(of: row, matching: find.text('한빛대학교'));
+      expect(tester.getRect(school).top - tester.getRect(name).bottom, 2);
+      // YQMGC/ZD9sX 14 / 보통 / #3F3F3F / 1.5.
+      final schoolStyle = tester.widget<Text>(school).style!;
+      expect(
+        (schoolStyle.fontSize, schoolStyle.fontWeight, schoolStyle.color, schoolStyle.height),
+        (14, FontWeight.w400, AppColors.body, 1.5),
+      );
+      final write = writeOf('하늘');
+      final writeRect = tester.getRect(write);
+      expect((writeRect.height, rowRect.right - writeRect.right, writeRect.center.dy), (36, 12, rowRect.center.dy));
+      expect(tester.getRect(find.text('쓰기')).left - writeRect.left, 14);
+      final material = tester.widget<Material>(write);
+      expect((material.color, material.borderRadius), (AppColors.primary, BorderRadius.circular(10)));
+      final label = tester.widget<Text>(find.text('쓰기')).style!;
+      expect((label.fontSize, label.fontWeight, label.color), (14, FontWeight.w600, AppColors.onPrimary));
+    });
+
+    testWidgets('0명이면 섹션 · 소제목 없이 20e 그대로(안내 → 16 → 카드)', (tester) async {
+      await pump(tester);
+
+      expect(reviews.writableCount, 1);
+      expect(section(), findsNothing);
+      expect(find.text('내가 쓴 리뷰'), findsOneWidget); // 앱바 제목뿐
+    });
+
+    testWidgets('읽는 중이면 섹션을 숨기고 도는 표시도 없다 — 읽히면 나온다(대장 ②)', (tester) async {
+      reviews
+        ..writable = Success([haneul])
+        ..holdWritable = Completer<void>();
+      await pump(tester);
+
+      expect(section(), findsNothing);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.byType(FriendReviewCard), findsNWidgets(2));
+      reviews.holdWritable!.complete();
+      await tester.pumpAndSettle();
+      expect(section(), findsOneWidget);
+    });
+
+    testWidgets('읽기에 실패하면 섹션을 숨기고 오류 문구도 없다(대장 ②)', (tester) async {
+      reviews.writable = const FailureResult(NetworkFailure());
+      await pump(tester);
+
+      expect(section(), findsNothing);
+      expect(find.text('네트워크 연결을 확인해 주세요'), findsNothing);
+      expect(find.byType(FriendReviewCard), findsNWidgets(2));
+    });
+
+    testWidgets('친구는 있고 쓴 리뷰가 0개면 섹션 → 소제목 → 기존 빈 상태(대장 ①)', (tester) async {
+      reviews
+        ..written = const Success([])
+        ..writable = Success([haneul]);
+      await pump(tester);
+
+      expect(section(), findsOneWidget);
+      final sub = tester.getRect(subtitle());
+      expect(sub.top, greaterThan(tester.getRect(rowOf('하늘')).bottom));
+      expect(tester.getRect(find.text(_emptyTitle)).top, greaterThan(sub.bottom));
+      expect(find.text(_emptyBody), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('"쓰기" → 그 친구 20b, 남기면 두 목록을 다시 읽어 남긴 친구가 섹션에서 빠진다', (tester) async {
+      reviews.writable = Success([haneul, saebyeok]);
+      await pump(tester);
+
+      await tester.tap(writeOf('하늘'));
+      await tester.pumpAndSettle();
+      expect(tester.widget<FriendReviewComposeSheet>(find.byType(FriendReviewComposeSheet)).revieweeId, 'p3');
+      reviews.writable = Success([saebyeok]);
+      final chip = find.text(friendReviewTags.first);
+      await tester.ensureVisible(chip);
+      await tester.tap(chip);
+      await tester.pump();
+      await tester.tap(find.byKey(friendReviewSubmitKey));
+      await tester.pumpAndSettle();
+
+      expect(reviews.creates.single.revieweeId, 'p3');
+      expect((reviews.writableCount, reviews.writtenCount), (2, 2));
+      expect(rowOf('하늘'), findsNothing);
+      expect(rowOf('새벽'), findsOneWidget);
+    });
+
+    testWidgets('20b 를 남기지 않고 닫으면 다시 읽지 않는다', (tester) async {
+      reviews.writable = Success([haneul]);
+      await pump(tester);
+
+      await tester.tap(writeOf('하늘'));
+      await tester.pumpAndSettle();
+      Navigator.of(tester.element(find.byType(FriendReviewComposeSheet))).pop();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(FriendReviewComposeSheet), findsNothing);
+      expect((reviews.writableCount, reviews.writtenCount), (1, 1));
+    });
+
+    testWidgets('리뷰를 지우면 기다리는 친구를 다시 읽는다 — 지운 친구가 섹션에 다시 나온다', (tester) async {
+      await pump(tester);
+      reviews.writable = Success([reviewTargetFixture(profileId: 'p5', nickname: '봄바람')]);
+
+      await openSheet(tester);
+      await tester.tap(deleteButton());
+      await tester.pumpAndSettle();
+
+      expect(reviews.writableCount, 2);
+      expect(rowOf('봄바람'), findsOneWidget);
+    });
+  });
+
   group('지우기(20e-2 확인 → 20e-3 토스트)', () {
     testWidgets('휴지통 → AlertSheet(pen UClUE) — 제목 20/700 · 본문에 받은 사람 닉네임 14 muted 1.55 · 지우기 328×52 danger(HE8FZ 2026-10-01 개편) · 취소 48', (tester) async {
       await pump(tester);
@@ -273,6 +447,7 @@ void main() {
       expect(toast, findsOneWidget);
       expect(find.descendant(of: toast, matching: find.byIcon(AppIcons.circleAlert)), findsOneWidget);
       expect(find.text('봄바람'), findsOneWidget);
+      expect(reviews.writableCount, 1);
     });
 
     testWidgets('그새 없어진 리뷰(404)면 서버 문구 토스트, 카드는 목록에서 빠진다', (tester) async {
@@ -286,6 +461,8 @@ void main() {
       expect(find.widgetWithText(AppToast, '리뷰를 찾을 수 없어요'), findsOneWidget);
       expect(find.text('봄바람'), findsNothing);
       expect(reviews.writtenCount, 1);
+      // 카드가 빠졌으니 그 친구는 다시 쓸 수 있다 — 기다리는 친구를 다시 읽는다(검토 권고 1).
+      expect(reviews.writableCount, 2);
     });
 
     testWidgets('취소하면 아무것도 보내지 않는다', (tester) async {
@@ -341,9 +518,12 @@ void main() {
 
   // DESIGN §11.2 — 넘침(Flex 오류)과 잘림(고정 상자, 오류 없음)을 따로 본다. 빈 상태 · 확인 시트도 같이 본다.
   for (final scale in [1.3, 2.0]) {
-    for (final view in ['목록', '빈 상태', '확인 시트']) {
+    for (final view in ['목록', '빈 상태', '확인 시트', '기다리는 친구']) {
       testWidgets('글자 배율 $scale $view 에서 넘치거나 잘리는 글자가 없다', (tester) async {
         if (view == '빈 상태') reviews.written = const Success([]);
+        if (view == '기다리는 친구') {
+          reviews.writable = Success([reviewTargetFixture(profileId: 'p3', nickname: '하늘', university: '한빛대학교')]);
+        }
         await pump(tester, scale: scale);
         if (view == '확인 시트') {
           await tester.ensureVisible(trashOf('봄바람'));

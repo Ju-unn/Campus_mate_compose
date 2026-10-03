@@ -137,6 +137,23 @@ void main() {
     expect(reviews.single.nickname, '봄바람');
   });
 
+  test('fetchWritable 은 GET /friend-reviews/writable 의 friends 를 순서대로 읽는다', () async {
+    final (client, seen) = recording(jsonResponse({
+      'friends': [
+        {'profile_id': 'p3', 'nickname': '새싹', 'avatar_url': null, 'university': '테스트대학교'},
+        {'profile_id': 'p2', 'nickname': '달빛', 'avatar_url': null, 'university': null},
+      ],
+    }));
+
+    final result = await buildRepository(client).fetchWritable();
+
+    expect(seen.single.method, 'GET');
+    expect(seen.single.url.toString(), 'https://api.test/friend-reviews/writable');
+    final friends = result.when(onSuccess: (value) => value, onFailure: (_) => null)!;
+    expect(friends.map((friend) => friend.profileId), ['p3', 'p2']);
+    expect(friends.first.university, '테스트대학교');
+  });
+
   test('delete 는 DELETE /friend-reviews/{id} — 204 본문 없음은 성공, 404 는 서버 문구', () async {
     final (client, seen) = recording(http.Response('', 204));
 

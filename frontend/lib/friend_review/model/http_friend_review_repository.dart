@@ -26,6 +26,15 @@ class HttpFriendReviewRepository implements FriendReviewRepository {
   @override
   Future<Result<void>> delete(String reviewId) => _api.send('DELETE', '/friend-reviews/$reviewId', (_) {});
 
+  @override
+  Future<Result<List<ReviewTarget>>> fetchWritable() => _api.send(
+        'GET',
+        '/friend-reviews/writable',
+        (body) => ((body as Map<String, dynamic>)['friends'] as List<dynamic>)
+            .map((item) => ReviewTarget.fromJson(item as Map<String, dynamic>))
+            .toList(),
+      );
+
   List<FriendReview> _parseReviews(Object body) =>
       ((body as Map<String, dynamic>)['reviews'] as List<dynamic>)
           .map((item) => FriendReview.fromJson(item as Map<String, dynamic>))

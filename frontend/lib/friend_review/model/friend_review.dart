@@ -39,19 +39,24 @@ class FriendReview {
   }
 }
 
-/// 20b 를 열기 전에 머리에 띄울 대상(작성 상대). `GET /friend-reviews/targets/{id}`.
+/// 리뷰를 쓸 상대. 20b 머리(`GET /friend-reviews/targets/{id}`)와 20e 위 "리뷰를 기다리는 친구"
+/// 한 줄(`GET /friend-reviews/writable`)이 같이 쓴다.
 class ReviewTarget {
-  const ReviewTarget({required this.profileId, required this.nickname, this.avatarUrl});
+  const ReviewTarget({required this.profileId, required this.nickname, this.avatarUrl, this.university});
 
   final String profileId;
   final String nickname;
   final String? avatarUrl;
+
+  /// "리뷰를 기다리는 친구" 줄만 싣는다 — 20b 머리 응답에는 없다.
+  final String? university;
 
   factory ReviewTarget.fromJson(Map<String, dynamic> json) {
     return ReviewTarget(
       profileId: json['profile_id'] as String,
       nickname: json['nickname'] as String,
       avatarUrl: json['avatar_url'] as String?,
+      university: json['university'] as String?,
     );
   }
 }
