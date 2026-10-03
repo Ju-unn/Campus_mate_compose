@@ -12,10 +12,12 @@ class FakeFriendReviewRepository implements FriendReviewRepository {
   Result<void> createResult = const Success(null);
   Result<List<FriendReview>> written = const Success([]);
   Result<void> deleteResult = const Success(null);
+  Result<List<ReviewTarget>> writable = const Success([]);
 
   final List<String> aboutRequests = [];
   int receivedCount = 0;
   int writtenCount = 0;
+  int writableCount = 0;
   final List<String> deletes = [];
   final List<String> targetRequests = [];
   final List<({String revieweeId, List<String> tags, String? comment})> creates = [];
@@ -35,6 +37,9 @@ class FakeFriendReviewRepository implements FriendReviewRepository {
   /// 채워 두면 delete() 가 이것이 끝날 때까지 멈춘다 — 지우는 중에 또 누르거나 시트를 닫는 상황용.
   Completer<void>? holdDelete;
 
+  /// 채워 두면 fetchWritable() 이 이것이 끝날 때까지 멈춘다 — 20e 위 기다리는 친구를 읽는 중 상태용.
+  Completer<void>? holdWritable;
+
   @override
   Future<Result<List<FriendReview>>> fetchWritten() async {
     writtenCount += 1;
@@ -47,6 +52,13 @@ class FakeFriendReviewRepository implements FriendReviewRepository {
     deletes.add(reviewId);
     await holdDelete?.future;
     return deleteResult;
+  }
+
+  @override
+  Future<Result<List<ReviewTarget>>> fetchWritable() async {
+    writableCount += 1;
+    await holdWritable?.future;
+    return writable;
   }
 
   @override
@@ -85,8 +97,9 @@ ReviewTarget reviewTargetFixture({
   String profileId = 'p2',
   String nickname = '달빛',
   String? avatarUrl,
+  String? university,
 }) {
-  return ReviewTarget(profileId: profileId, nickname: nickname, avatarUrl: avatarUrl);
+  return ReviewTarget(profileId: profileId, nickname: nickname, avatarUrl: avatarUrl, university: university);
 }
 
 FriendReview friendReviewFixture({

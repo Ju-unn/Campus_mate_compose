@@ -63,6 +63,19 @@ void main() {
     expect(target.profileId, 'p2');
     expect(target.nickname, '달빛');
     expect(target.avatarUrl, isNull);
+    // 20b 머리 응답에는 학교가 없다 — "리뷰를 기다리는 친구" 줄만 싣는다.
+    expect(target.university, isNull);
+  });
+
+  test('ReviewTarget.fromJson 은 "리뷰를 기다리는 친구" 줄의 학교도 읽는다', () {
+    final target = ReviewTarget.fromJson({
+      'profile_id': 'p3',
+      'nickname': '새싹',
+      'avatar_url': null,
+      'university': '테스트대학교',
+    });
+
+    expect(target.university, '테스트대학교');
   });
 
   test('리뷰 신고 대상은 target_type friend_review 로 간다', () {

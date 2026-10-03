@@ -15,6 +15,10 @@ abstract interface class FriendReviewRepository {
   /// 20e 내가 쓴 리뷰 하나를 지운다(204). 없으면 404 "리뷰를 찾을 수 없어요".
   Future<Result<void>> delete(String reviewId);
 
+  /// 20e 위 "리뷰를 기다리는 친구" — 추천으로 이어졌고 아직 내 리뷰가 없는 사람. 최근 연결 순.
+  /// 지우면 다시 나온다(결함 A3).
+  Future<Result<List<ReviewTarget>>> fetchWritable();
+
   /// 20b 를 열기 전에 물어보는 대상. 이미 썼으면 409(계획서 P3, 앱은 시트 대신 토스트).
   Future<Result<ReviewTarget>> fetchTarget(String profileId);
 
