@@ -3,9 +3,11 @@ import 'dart:async';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/consent/model/open_url.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/faq/model/faq_cache.dart';
 import 'package:campus_mate/faq/model/faq_repository.dart';
@@ -74,38 +76,40 @@ void main() {
     expect(find.byType(CircularProgressIndicator), findsNothing);
   });
 
-  testWidgets('검색칸: 56 상자가 (16,72), #F7F7F7 · 테두리 #767676, search 20 은 (32,90), 안내 글자 x60(pen R0cge · u4ntu)', (tester) async {
+  testWidgets('검색칸: 공용 SearchField 48 상자가 (16,72), #F7F7F7 · 모서리 12 · 테두리 없음, 3D 돋보기 24 는 (32,84), 안내 글자 14 x64(pen y7Qlw, 대장 10-03)', (tester) async {
     await pump(tester);
 
     final field = find.byType(TextField);
     expect(tester.getTopLeft(field), const Offset(16, 72));
-    expect(tester.getSize(field).height, 56);
+    expect(tester.getSize(field).height, 48);
     final decoration = tester.widget<TextField>(field).decoration!;
     expect(decoration.fillColor, AppColors.surfaceSoft);
-    expect((decoration.enabledBorder! as OutlineInputBorder).borderSide.color, AppColors.outline);
+    for (final border in [decoration.enabledBorder!, decoration.focusedBorder!]) {
+      expect((border as OutlineInputBorder).borderSide, BorderSide.none);
+      expect(border.borderRadius, BorderRadius.circular(AppRadius.input));
+    }
 
-    // pen 아이콘 자리 (16,18) → 화면 (32,90), 가운데 (42,100). 아이콘 칸은 prefix 최소 높이 56 으로 세로만 늘어난다.
-    final icon = find.byIcon(AppIcons.search);
-    expect(tester.getCenter(icon), const Offset(42, 100));
-    expect(tester.getSize(icon).width, 20);
-    expect(tester.widget<Icon>(icon).size, 20);
-    expect(tester.widget<Icon>(icon).color, AppColors.muted);
-    expect(tester.getTopLeft(find.text('궁금한 내용을 검색해 보세요')).dx, 60);
+    // 좌우 16 · 간격 8: 아이콘 (32,84)~(56,108), 가운데 (44,96) → 안내 글자 x 16 + 16 + 24 + 8.
+    final icon = find.byType(Icon3d);
+    expect(tester.widget<Icon3d>(icon).icon, AppIcon3d.search);
+    expect(tester.getSize(icon), const Size(24, 24));
+    expect(tester.getCenter(icon), const Offset(44, 96));
+    expect(tester.getTopLeft(find.text('궁금한 내용을 검색해 보세요')).dx, 64);
     expect(decoration.hintStyle!.color, AppColors.muted);
-    expect(decoration.hintStyle!.fontSize, 16);
+    expect(decoration.hintStyle!.fontSize, 14);
   });
 
-  testWidgets('탭 줄: 여섯 묶음이 enum 순서, 보이는 줄 144~182 · 누름 칸 48, 활성은 14/700 #C4224B + 밑줄(pen Sg89A · H2Qyx)', (tester) async {
+  testWidgets('탭 줄: 여섯 묶음이 enum 순서, 보이는 줄 136~174 · 누름 칸 48, 활성은 14/700 #C4224B + 밑줄(pen Sg89A · H2Qyx)', (tester) async {
     await pump(tester);
 
     final labels = ['카드·매칭', '하트·결제', '사진·프로필', '지인 리뷰', '안전·신고', '계정'];
     final lefts = [for (final l in labels) tester.getTopLeft(find.text(l)).dx];
     expect(lefts, orderedEquals([...lefts]..sort()));
 
-    // 라벨은 보이는 줄 위(144)에서 10 아래. 누름 칸은 위로 10 더 올라가 48 이다(대장 09-29).
-    expect(tester.getTopLeft(find.text('카드·매칭')).dy, 154);
+    // 라벨은 보이는 줄 위(136)에서 10 아래. 누름 칸은 위로 10 더 올라가 48 이다(대장 09-29).
+    expect(tester.getTopLeft(find.text('카드·매칭')).dy, 146);
     final tab = find.ancestor(of: find.text('계정'), matching: find.byType(InkWell));
-    expect(tester.getRect(tab).top, 134);
+    expect(tester.getRect(tab).top, 126);
     expect(tester.getSize(tab).height, 48);
     expect(tester.getSize(tab).width, greaterThanOrEqualTo(48));
 
@@ -114,7 +118,7 @@ void main() {
     expect(styleOf(tester, '하트·결제').fontWeight, FontWeight.w500);
     expect(styleOf(tester, '하트·결제').color, AppColors.muted);
 
-    // 밑줄 2 는 탭 폭 그대로 보이는 줄 맨 아래(180~182). 비활성은 투명 밑줄이라 라벨 높이가 같다.
+    // 밑줄 2 는 탭 폭 그대로 보이는 줄 맨 아래(172~174). 비활성은 투명 밑줄이라 라벨 높이가 같다.
     Border underline(String label) {
       final tab = find.ancestor(of: find.text(label), matching: find.byType(InkWell));
       final box = tester.widget<Container>(find.descendant(of: tab, matching: find.byType(Container)).first);
@@ -123,13 +127,13 @@ void main() {
 
     expect(underline('카드·매칭').bottom, const BorderSide(color: AppColors.primaryText, width: 2));
     expect(underline('하트·결제').bottom, const BorderSide(color: Colors.transparent, width: 2));
-    expect(tester.getRect(tab).bottom, 182);
+    expect(tester.getRect(tab).bottom, 174);
   });
 
-  testWidgets('탭 화면은 고른 묶음 문항만 sort_order 순, 머리글 없이 본문 (16,198)부터(pen BqbHF · sI8Dm 꺼짐)', (tester) async {
+  testWidgets('탭 화면은 고른 묶음 문항만 sort_order 순, 머리글 없이 본문 (16,190)부터(pen BqbHF · sI8Dm 꺼짐)', (tester) async {
     await pump(tester);
 
-    expect(tester.getTopLeft(find.text('카드는 언제 오나요?')), const Offset(16, 198 + 16));
+    expect(tester.getTopLeft(find.text('카드는 언제 오나요?')), const Offset(16, 190 + 16));
     expect(
       tester.getTopLeft(find.text('카드는 언제 오나요?')).dy,
       lessThan(tester.getTopLeft(find.text('왜 한 번에 한 장만 오나요?')).dy),
@@ -222,11 +226,11 @@ void main() {
     expect(find.text('리뷰가 부적절하면 어떻게 하나요?'), findsNothing);
   });
 
-  testWidgets('검색 중 본문은 탭 줄 없이 (16,144+16)부터 — 검색칸 아래 여백 16(pen 21-1 qi9ib · jH9Da)', (tester) async {
+  testWidgets('검색 중 본문은 탭 줄 없이 (16,136+16)부터 — 검색칸 아래 여백 16(pen 21-1 qi9ib · jH9Da)', (tester) async {
     await pump(tester);
     await tester.enterText(find.byType(TextField), '신고');
     await tester.pumpAndSettle();
-    expect(tester.getTopLeft(find.text('지인 리뷰')), const Offset(16, 144 + 16));
+    expect(tester.getTopLeft(find.text('지인 리뷰')), const Offset(16, 136 + 16));
   });
 
   Future<void> searchNothing(WidgetTester tester) async {
@@ -262,10 +266,10 @@ void main() {
     expect(tester.getCenter(find.text('으로')).dy, tester.getCenter(find.text(mail)).dy);
     expect(tester.getTopLeft(find.text('으로')).dx, tester.getTopRight(find.text(mail)).dx + 4);
 
-    // 본문(144~600) 한가운데 — Empty `justifyContent center`.
+    // 본문(136~600) 한가운데 — Empty `justifyContent center`.
     final top = tester.getTopLeft(mascot).dy;
     final bottom = tester.getBottomLeft(find.text('물어봐 주세요')).dy;
-    expect((top + bottom) / 2, closeTo((144 + 600) / 2, 1));
+    expect((top + bottom) / 2, closeTo((136 + 600) / 2, 1));
   });
 
   testWidgets('메일 주소는 누름 48, 누르면 mailto 로 메일 앱을 연다(대장 09-29)', (tester) async {
@@ -319,7 +323,7 @@ void main() {
     expect(find.text('찾는 질문이 없어요'), findsOneWidget);
   });
 
-  testWidgets('✕ 는 검색어가 있을 때만, lucide x 20 #6A6A6A 가운데 (318,100) · 누름 48, 누르면 검색어를 지우고 고른 탭 화면으로(pen nXpvH/uvQHG)', (tester) async {
+  testWidgets('✕ 는 검색어가 있을 때만, lucide x 20 #6A6A6A 가운데 (318,96) · 누름 48, 누르면 검색어를 지우고 고른 탭 화면으로(pen nXpvH/uvQHG)', (tester) async {
     await pump(tester);
     expect(find.byIcon(AppIcons.x), findsNothing);
     await tester.tap(find.text('안전·신고'));
@@ -328,7 +332,7 @@ void main() {
     await tester.enterText(find.byType(TextField), '없는말');
     await tester.pumpAndSettle();
     final clear = find.byIcon(AppIcons.x);
-    expect(tester.getCenter(clear), const Offset(800 - 16 - 16 - 10, 100));
+    expect(tester.getCenter(clear), const Offset(800 - 16 - 16 - 10, 96));
     expect(tester.getSize(clear), const Size(20, 20));
     expect(tester.widget<Icon>(clear).color, AppColors.muted);
     expect(tester.getSize(find.ancestor(of: clear, matching: find.byType(IconButton))), const Size(48, 48));
