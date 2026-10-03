@@ -30,18 +30,18 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('pen `iq3jl` — 높이 56, 뒤로 48×48(x8, arrow-left 22 ink), 제목 x60 20/700 ink lh1.5', (tester) async {
+  testWidgets('pen `iq3jl` · AppBar · Sub `KH1hX` — 높이 56, 뒤로 48×48(x12, arrow-left 22 ink), 제목 `YSMvI` x64 18/700 ink lh1.5', (tester) async {
     await pumpPushed(tester);
 
     expect(tester.getSize(find.byType(AppBar)).height, 56);
     final back = find.byTooltip('Back');
-    expect(tester.getRect(back), const Rect.fromLTWH(8, 4, 48, 48));
+    expect(tester.getRect(back), const Rect.fromLTWH(12, 4, 48, 48));
     final icon = tester.widget<Icon>(find.byIcon(AppIcons.arrowLeft));
     expect((icon.size, icon.color), (22, AppColors.ink));
-    // `Gn6w4` x60 = 왼쪽 여백 8 + 뒤로 48 + gap 4.
-    expect(tester.getTopLeft(find.text('자기소개·태그 수정')).dx, 60);
+    // 제목 x64 = 왼쪽 여백 12 + 뒤로 48 + gap 4(`KH1hX` 2026-10-01 개편 — 옛 8 · x60).
+    expect(tester.getTopLeft(find.text('자기소개·태그 수정')).dx, 64);
     final style = tester.widget<Text>(find.text('자기소개·태그 수정')).style!;
-    expect((style.fontSize, style.fontWeight, style.color, style.height), (20, FontWeight.w700, AppColors.ink, 1.5));
+    expect((style.fontSize, style.fontWeight, style.color, style.height), (18, FontWeight.w700, AppColors.ink, 1.5));
   });
 
   testWidgets('뒤로를 누르면 앞 화면으로 돌아간다', (tester) async {

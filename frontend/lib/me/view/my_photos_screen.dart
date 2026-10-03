@@ -137,7 +137,7 @@ class _PhotoSlots extends StatelessWidget {
 }
 
 /// 고르기 안내 토스트(04-2 와 같은 모양, 버튼 위 12) → 저장 실패 글(caption · error, 버튼 위 8) → "저장"(`m2cAn` 312×56).
-/// 버튼을 화면 아래에 붙이고 아래 28 을 두는 것은 15c · 온보딩 화면과 같다(본문 `vAuNj` 아래 28).
+/// 버튼을 화면 아래에 붙이고 바 안쪽 [8,24,8,24](`A8INC6`, 2026-10-01 개편 — 옛 위 16 · 아래 28)를 두는 것은 15c 와 같다.
 class _Footer extends StatelessWidget {
   const _Footer({required this.toast, required this.error, required this.isSaving, required this.onSave});
 
@@ -151,7 +151,7 @@ class _Footer extends StatelessWidget {
     final toast = this.toast;
     final error = this.error;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 28),
+      padding: AppSpacing.bottomCta,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,

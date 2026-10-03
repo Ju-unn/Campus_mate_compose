@@ -108,12 +108,12 @@ class _BioField extends StatelessWidget {
           onChanged: onChanged,
           maxLines: null,
           textAlignVertical: TextAlignVertical.top,
-          // C1 — 값 글자는 #222222(pen 의 #929292 는 placeholder 색).
+          // C1 — 값 글자는 #222222. placeholder 는 muted(2026-10-01 개편 — 옛 #929292).
           style: AppTypography.body.copyWith(color: AppColors.ink),
           decoration: InputDecoration(
             // 06-3 과 같은 안내 문구 — 서버 값이 늘 있어 지운 뒤에만 보인다.
             hintText: '나를 한두 문장으로 소개해주세요',
-            hintStyle: AppTypography.body.copyWith(color: AppColors.disabled),
+            hintStyle: AppTypography.body.copyWith(color: AppColors.muted),
             filled: true,
             fillColor: AppColors.surfaceSoft,
             constraints: const BoxConstraints(minHeight: 120),
@@ -219,7 +219,7 @@ class _EditLink extends StatelessWidget {
   }
 }
 
-/// 칩 `WzXvK`(선택 꺼짐 모양) — surface-soft, 모서리 8, 안쪽 [8,12], 14/600 ink(렌더 20 → 칩 36). 누르지 않는다.
+/// 칩 `WzXvK`(선택 꺼짐 모양) — surface-soft, 알약 모서리(2026-10-01 개편 — 옛 8), 안쪽 [8,12], 14/600 ink(렌더 20 → 칩 36). 누르지 않는다.
 /// 폭은 글자만큼이다 — 줄 폭을 먹지 않아야 `Wrap` 이 한 줄에 여러 개를 놓는다.
 class _TagChip extends StatelessWidget {
   const _TagChip({required this.label});
@@ -230,7 +230,7 @@ class _TagChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       key: const ValueKey('tag-chip'),
-      decoration: BoxDecoration(color: AppColors.surfaceSoft, borderRadius: BorderRadius.circular(AppRadius.sm)),
+      decoration: BoxDecoration(color: AppColors.surfaceSoft, borderRadius: BorderRadius.circular(AppRadius.pill)),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
         child: Text(label, style: _labelStyle.copyWith(color: AppColors.ink)),
@@ -239,7 +239,7 @@ class _TagChip extends StatelessWidget {
   }
 }
 
-/// 버튼 위 오류 글(온보딩 화면과 같은 caption · error) → "저장"(`zUZFx` 312×56). 아래 28 은 온보딩 화면과 같다.
+/// 버튼 위 오류 글(온보딩 화면과 같은 caption · error) → "저장"(`zUZFx`). 바 안쪽은 `A8INC6` [8,24,8,24](2026-10-01 개편).
 /// 버튼을 화면 아래에 붙이고 본문 끝과 16 을 두는 것은 06-3 과 같은 판단이다 — pen 값표에 버튼 자리 · 간격이 없다.
 class _Footer extends StatelessWidget {
   const _Footer({required this.state, required this.onSave});
@@ -251,7 +251,7 @@ class _Footer extends StatelessWidget {
   Widget build(BuildContext context) {
     final error = state.errorMessage;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 28),
+      padding: AppSpacing.bottomCta,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -297,14 +297,14 @@ void main() {
       expect(_clippedTexts(), isNot(contains(_guide)));
     });
 
-    testWidgets('"저장" `m2cAn` — 312×56 · 좌우 24 · 화면 아래 28', (tester) async {
+    testWidgets('"저장" `m2cAn` — 312×52 · 좌우 24 · 화면 아래 8(Bottom Bar CTA `A8INC6` [8,24,8,24])', (tester) async {
       usePenFrame(tester);
       await pump(tester);
 
       expect(saveButton(tester).label, '저장');
-      expect(tester.getRect(find.byType(AppButton)), const Rect.fromLTWH(24, 780 - 28 - 56, 312, 56));
-      // pen `m2cAn` 은 Spacer `BCwfQ` 뒤라 바닥 고정 · 아래 28(대장 확인 09-29, 15c `zUZFx` 와 같은 구조).
-      expect(780 - tester.getBottomLeft(find.byType(AppButton)).dy, 28);
+      expect(tester.getRect(find.byType(AppButton)), const Rect.fromLTWH(24, 780 - 8 - 52, 312, 52));
+      // pen `m2cAn` 은 Spacer `BCwfQ` 뒤라 바닥 고정(대장 확인 09-29, 15c `zUZFx` 와 같은 구조) · 아래 8(`A8INC6` 2026-10-01 개편, 옛 28).
+      expect(780 - tester.getBottomLeft(find.byType(AppButton)).dy, 8);
     });
   });
 
