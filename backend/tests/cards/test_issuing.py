@@ -11,10 +11,12 @@ class _FakeCardRepo:
     def __init__(self, owners, counts=None, settings=None, issued_today=()):
         self._owners = owners
         self._issued_today = set(issued_today)
-        self._counts = counts or {"seoul": {"male": 10, "female": 10}}
+        # 기본은 주 2회 칸(적은 쪽 50 이상) — 아래 테스트들이 월 · 목 지급을 전제로 한다.
+        self._counts = counts or {"seoul": {"male": 60, "female": 60}}
         self._settings = settings or [{
             "region_group": "seoul", "issue_weekdays": [1, 4], "issue_time": "07:00",
-            "ladder_three_per_week_min": 200, "ladder_daily_min": 500,
+            "ladder_twice_per_week_min": 50, "ladder_three_per_week_min": 500,
+            "ladder_four_per_week_min": 1000, "ladder_daily_min": 2000,
         }]
         self.cards: list[dict] = []
         self.saved_weekdays: list[tuple] = []
@@ -107,10 +109,10 @@ async def test_non_issue_day_issues_nothing():
 
 
 async def test_ladder_moves_up_and_is_written_back():
-    """활성 500명을 넘으면 매일 지급으로 올라가고, 그 결과를 설정 행에 적어 둔다(앱이 읽는다)."""
+    """적은 쪽 활성 2000명을 넘으면 매일 지급으로 올라가고, 그 결과를 설정 행에 적어 둔다(앱이 읽는다)."""
     repo = _FakeCardRepo(
         [{"profile_id": "owner-1", "region_group": "seoul"}],
-        counts={"seoul": {"male": 600, "female": 700}},
+        counts={"seoul": {"male": 2100, "female": 2000}},
     )
     matching = _FakeMatchingRepo([_candidate("high", 0.9)])
 
@@ -118,6 +120,21 @@ async def test_ladder_moves_up_and_is_written_back():
 
     assert result["issued"] == 1
     assert repo.saved_weekdays == [("seoul", [1, 2, 3, 4, 5, 6, 7])]
+
+
+async def test_a_thin_pool_drops_to_monday_only_and_cards_last_a_week():
+    """적은 쪽 50 미만이면 주 1회(월)다(결정 12). 월요일 카드는 다음 월요일 07:00 에 만료된다."""
+    repo = _FakeCardRepo(
+        [{"profile_id": "owner-1", "region_group": "seoul"}],
+        counts={"seoul": {"male": 300, "female": 49}},
+    )
+    matching = _FakeMatchingRepo([_candidate("high", 0.9)])
+
+    result = await issue_daily_cards(repo, matching, sender=None, now=MONDAY_7AM)
+
+    assert result["issued"] == 1
+    assert repo.saved_weekdays == [("seoul", [1])]
+    assert repo.cards[0]["expires_at"] == datetime(2026, 9, 28, 7, 0, tzinfo=SEOUL)
 
 
 async def test_rerunning_the_same_day_does_not_issue_a_second_card():
