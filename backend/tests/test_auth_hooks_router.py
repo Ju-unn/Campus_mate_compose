@@ -66,8 +66,10 @@ def test_allows_known_domain():
         httpx.MockTransport(handler),
     )
 
+    # GoTrue 는 200 본문에 `error` 가 없으면 통과시킨다 — 빈 객체 + JSON Content-Type 이 문서의 "허용" 모양.
     assert response.status_code == 200
-    assert response.json() == {"decision": "continue", "message": None}
+    assert response.headers["content-type"].startswith("application/json")
+    assert response.json() == {}
 
 
 def test_rejects_unknown_domain():
@@ -81,8 +83,10 @@ def test_rejects_unknown_domain():
         httpx.MockTransport(handler),
     )
 
+    # GoTrue 는 4xx 상태 본문을 읽지 않고 500 으로 바꾼다 — 거절은 200 + `error` 객체여야 메시지가 앱까지 간다.
+    # http_code 422 는 앱이 "가입 거절" 로 읽는 값(supabase_auth_repository.dart `_toFailure`).
     assert response.status_code == 200
-    assert response.json()["decision"] == "reject"
+    assert response.json() == {"error": {"http_code": 422, "message": "허용되지 않은 학교 이메일이에요"}}
 
 
 def test_rejects_blocked_email():
@@ -98,7 +102,8 @@ def test_rejects_blocked_email():
         httpx.MockTransport(handler),
     )
 
-    assert response.json()["decision"] == "reject"
+    assert response.status_code == 200
+    assert response.json() == {"error": {"http_code": 422, "message": "재가입이 제한된 이메일이에요"}}
 
 
 def test_blocked_email_hash_uses_identity_key():

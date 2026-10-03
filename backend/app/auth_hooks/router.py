@@ -11,7 +11,7 @@ from app.webhook_signature import verify_webhook_signature
 router = APIRouter()
 
 
-@router.post("/hooks/before-user-created")
+@router.post("/hooks/before-user-created", response_model_exclude_none=True)
 async def before_user_created(
     request: Request,
     settings: Settings = Depends(get_settings),
