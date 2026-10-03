@@ -15,6 +15,7 @@ from app.cards.repository import CardRepository
 from app.cards.router import is_active, profile_detail
 from app.chat.repository import ChatRepository
 from app.chat.router import avatar_url, latest_avatar_path, revealed_contact
+from app.community.repository import CommunityRepository
 from app.core import errors
 from app.core.deps import Caller, get_now, get_verified_caller
 from app.friend_reviews.repository import FriendReviewRepository
@@ -38,8 +39,7 @@ router = APIRouter()
 
 
 class ReportRequest(BaseModel):
-    # poll 은 DB enum 에는 있지만 그 기능의 신고 입구가 아직 없다 — 여기서 422 로 막는다.
-    target_type: Literal["profile", "message", "friend_review"]
+    target_type: Literal["profile", "message", "friend_review", "poll"]
     target_id: UUID
     reason: str
     reason_note: str | None = None
@@ -132,6 +132,18 @@ async def _friend_review_target(wiring: _Wiring, review_id: UUID) -> dict:
     return review
 
 
+async def _poll_target(wiring: _Wiring, poll_id: UUID) -> dict:
+    """신고할 투표 글(A16). 피드(poll_feed)에 보이는 남의 글만 — 없는 글 · 가려진 글 · 글쓴이가 active 가 아닌 글 ·
+    내 글은 전부 같은 404."""
+    repo = CommunityRepository(wiring.settings.postgrest_url, wiring.settings.supabase_service_role_key,
+                               wiring.client)
+    poll = await repo.fetch_for_report(poll_id)
+    if not poll or poll["status"] != "visible" or poll["author"]["status"] != "active" \
+            or poll["author_id"] == wiring.profile_id:
+        raise HTTPException(status_code=404, detail=errors.POLL_NOT_FOUND)
+    return poll
+
+
 async def _profile_snapshot(wiring: _Wiring, target: str) -> dict:
     """서명 URL 이 아니라 **storage 경로**를 남긴다 — 서명 URL 은 만료돼 검토할 때 열리지 않는다."""
     profile = await wiring.repo.fetch_snapshot_profile(target)
@@ -149,7 +161,7 @@ async def report(body: ReportRequest, wiring: _Wiring = Depends(_wire)) -> dict:
     me = wiring.profile_id
 
     # ① 대상 확인 + 접근 권한(과거 매칭 상대만)
-    review = None
+    review = poll = None
     if body.target_type == "profile":
         target = str(body.target_id)
         match = await find_match(wiring.chat, me, target)
@@ -157,9 +169,12 @@ async def report(body: ReportRequest, wiring: _Wiring = Depends(_wire)) -> dict:
     elif body.target_type == "message":
         message, match = await _message_target(wiring, body.target_id)
         target = message["sender_id"]
-    else:
+    elif body.target_type == "friend_review":
         review = await _friend_review_target(wiring, body.target_id)
         target, match, message = review["reviewer_id"], None, None
+    else:
+        poll = await _poll_target(wiring, body.target_id)
+        target, match, message = poll["author_id"], None, None
 
     # ② 하루 상한
     since = wiring.now - DAILY_REPORT_WINDOW
@@ -170,6 +185,9 @@ async def report(body: ReportRequest, wiring: _Wiring = Depends(_wire)) -> dict:
     if review is not None:
         snapshot = {"review_id": review["id"], "tags": review["tags"],
                     "comment": review["comment"], "created_at": review["created_at"]}
+    elif poll is not None:
+        snapshot = {"poll_id": poll["id"], "question": poll["question"], "option_a_label": poll["option_a_label"],
+                    "option_b_label": poll["option_b_label"], "created_at": poll["created_at"]}
     else:
         snapshot = await _profile_snapshot(wiring, target) if message is None else {
             "message_id": message["id"], "match_id": message["match_id"],
@@ -180,8 +198,9 @@ async def report(body: ReportRequest, wiring: _Wiring = Depends(_wire)) -> dict:
     # 실패했을 때 "신고만 되고 차단은 안 된" 채로 갇힌다 — 다시 신고해도 409 라 영영 차단할 길이 없다.
     # 차단은 멱등이라 먼저 해도, 두 번 해도 안전하다. 반대로 차단만 되고 신고가 실패하면 앱이 시트를
     # 닫지 않고 다시 보낸다(차단 뒤에는 방 · 14c · 카드가 사라져 신고 진입점이 없어진다).
-    # 지인 리뷰 신고는 차단 · 자동 가림을 하지 않는다 — 받은 사람이 작성자를 막으면 받은 사람에게만 사라진다(계획서 P1).
-    if review is None:
+    # 지인 리뷰 · 투표 글 신고(match 없음)는 차단 · 자동 가림을 하지 않는다 — 받은 사람이 작성자를 막으면 받은 사람에게만
+    # 사라지고(계획서 P1), 투표 글쓴이는 익명이라 매칭 상대가 아니다. 글 가림은 운영자가 대시보드에서(ERD content_status).
+    if match is not None:
         await block_profile(wiring, match, target)
 
     # ⑤ 신고(중복이면 409 "이미 신고한 사용자예요")
@@ -205,7 +224,7 @@ async def report(body: ReportRequest, wiring: _Wiring = Depends(_wire)) -> dict:
     await notifier.send(report_line(report_id, target, body.reason, "?" if reporters is None else reporters))
 
     # ⑦ 서로 다른 신고자 3명이면 자동 가림. 조건부라 이번에 실제로 찍혔을 때만 한 줄 더 보낸다.
-    if review is None and reporters is not None and reporters >= AUTO_HIDE_REPORTERS \
+    if match is not None and reporters is not None and reporters >= AUTO_HIDE_REPORTERS \
             and await wiring.repo.auto_hide(target, wiring.now):
         await notifier.send(auto_hidden_line(target))
     return {"ok": True}
