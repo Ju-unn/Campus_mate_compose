@@ -18,12 +18,12 @@ Future<void> openContactBlocks(BuildContext context, WidgetRef ref) async {
 }
 
 /// 8d 로 간다. 권한이 없으면 8a 안내를 먼저 띄우고, OS 권한을 받지 못하면 8a-2 로 끝난다.
-/// 8d 에서 차단을 마쳤으면 true.
-Future<bool> openContactPicker(BuildContext context, WidgetRef ref) async {
+/// 8d 에서 차단을 마쳤으면 true. 06-4 는 [route] 로 온보딩 쪽 8d 를 연다.
+Future<bool> openContactPicker(BuildContext context, WidgetRef ref, {String route = AppRoutes.contactPicker}) async {
   final source = ref.read(deviceContactSourceProvider);
   final granted = await source.hasPermission() || (context.mounted && await _askPermission(context, source));
   if (!granted || !context.mounted) return false;
-  return await context.push<bool>(AppRoutes.contactPicker) ?? false;
+  return await context.push<bool>(route) ?? false;
 }
 
 /// 8a(pen `KgX8O`). "허용하고 계속"이면 OS 권한 창, 거부면 8a-2. "나중에 할게요"도 8a-2 로 간다

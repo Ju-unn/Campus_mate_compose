@@ -27,7 +27,7 @@ const _skipHeight = 48.0; // pen k8Mb37
 const _chipHeight = 36.0; // pen lVe24 · 마스터 WzXvK
 const _chipPadding = EdgeInsets.symmetric(horizontal: 12); // pen WzXvK padding [8,12]
 
-/// 유입경로 화면(DESIGN.md 화면 20d). **온보딩 마지막 화면**(§13-113 ④)이고, 저장하거나 건너뛰면 홈으로 간다.
+/// 유입경로 화면(DESIGN.md 화면 20d). 저장하거나 건너뛰면 가입 마지막 화면 06-4 지인 차단으로 간다(결정 8 ①).
 /// 서버 온보딩 단계가 아니라 앱에서만 잇는다(2026-09-28 대장 D2).
 class AcquisitionScreen extends ConsumerWidget {
   const AcquisitionScreen({super.key});
@@ -36,7 +36,7 @@ class AcquisitionScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     ref.listen(acquisitionViewModelProvider.select((s) => s.completed), (previous, completed) {
       if (completed) {
-        context.go(AppRoutes.home);
+        context.go(AppRoutes.onboardingContactBlock);
       }
     });
     final state = ref.watch(acquisitionViewModelProvider);
@@ -49,7 +49,7 @@ class AcquisitionScreen extends ConsumerWidget {
         total: 0,
         onBack: () => context.go(AppRoutes.onboardingReferral),
         action: TextButton(
-          onPressed: () => context.go(AppRoutes.home),
+          onPressed: () => context.go(AppRoutes.onboardingContactBlock),
           style: TextButton.styleFrom(padding: _skipPadding, minimumSize: const Size(0, _skipHeight)),
           child: Text(_skipLabel, style: AppTypography.labelSmall.copyWith(color: AppColors.primaryText)),
         ),

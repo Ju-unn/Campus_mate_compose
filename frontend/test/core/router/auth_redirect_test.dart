@@ -68,6 +68,12 @@ void main() {
       expect(redirect.resolve(AppRoutes.onboardingAcquisition), isNull);
     });
 
+    // 06-4 도 20d 뒤 앱에서만 잇는다(결정 8 ①). 거기서 여는 8d 도 같다 — 설정의 8d 로 가면 뒤로가 16 쪽으로 샌다.
+    test('온보딩을 끝낸 사람은 06-4 와 거기서 연 8d 에 머문다', () {
+      expect(redirect.resolve(AppRoutes.onboardingContactBlock), isNull);
+      expect(redirect.resolve(AppRoutes.onboardingContactPicker), isNull);
+    });
+
     // 나 탭 편집은 온보딩 화면을 `/me/...` 에 다시 띄운다 — `/onboarding/...` 이 아니라 돌려보내지지 않는다(계획서 A2).
     test('나 탭 편집 경로에는 머문다', () {
       for (final path in [
