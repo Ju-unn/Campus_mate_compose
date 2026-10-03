@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -95,9 +96,15 @@ void main() {
   });
   tearDownAll(() => HttpOverrides.global = previousOverrides);
 
-  /// 화면 15 자리(`nrcYh` 좌우 16 · 위 8) 그대로, 폭 360 프레임에 히어로 하나.
-  Future<void> pump(WidgetTester tester, {MyProfile? profile, VoidCallback? onRegenerate, double scale = 1.0}) async {
-    tester.view.physicalSize = const Size(360, 800);
+  /// 화면 15 자리(`nrcYh` 좌우 16 · 위 8) 그대로, 폭 360 프레임에 히어로 하나. [width] 는 줄 정렬을 볼 때만 넓힌다.
+  Future<void> pump(
+    WidgetTester tester, {
+    MyProfile? profile,
+    VoidCallback? onRegenerate,
+    double scale = 1.0,
+    double width = 360,
+  }) async {
+    tester.view.physicalSize = Size(width, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     tester.platformDispatcher.textScaleFactorTestValue = scale;
@@ -180,22 +187,54 @@ void main() {
     });
   });
 
+  group('인증 배지 `EQjrL`(위쪽 줄 `dd4Jv` 오른쪽)', () {
+    Finder badge() => _fill(AppColors.canvas, of: find.text('학생 인증')).first;
+
+    testWidgets('위쪽 줄 space_between — 칩은 왼쪽, 배지는 오른쪽 끝(16 안쪽), 둘은 세로 가운데', (tester) async {
+      // 폭 360 에선 테스트 글꼴로 칩이 두 줄로 꺾여 줄이 꽉 찬다(남는 공간 0) — 정렬을 보려면 빈 공간이 있어야 한다.
+      // 폭 420 → 히어로 388.
+      await pump(tester, onRegenerate: () {}, width: 420);
+
+      final chip = _fill(AppColors.surfaceInk, of: find.text('상대에게 이렇게 보여요')).first;
+      final hero = tester.getRect(_hero);
+      expect(hero.width, 388);
+      expect(tester.getTopLeft(chip).dx - hero.left, 16);
+      expect(tester.getTopRight(badge()).dx, hero.right - 16);
+      // 칩과 배지 사이에 최소 간격 8 보다 넓은 빈 공간이 있다 — 이 테스트가 줄이 꽉 차서 통과하는 게 아니다.
+      expect(tester.getTopLeft(badge()).dx - tester.getTopRight(chip).dx, greaterThan(8));
+      expect(tester.getCenter(badge()).dy, closeTo(tester.getCenter(chip).dy, 0.01));
+      expect(tester.getTopLeft(badge()).dx, greaterThan(tester.getTopRight(chip).dx));
+    });
+
+    testWidgets('흰 알약 · 그림자 #34223A24 y2 blur8 · 패딩 [6,10] · 3D badge-check 18 → 4 → "학생 인증" 11/600 ink', (tester) async {
+      await pump(tester, onRegenerate: () {});
+
+      final decoration = tester.widget<DecoratedBox>(badge()).decoration as BoxDecoration;
+      expect(decoration.borderRadius, BorderRadius.circular(AppRadius.pill));
+      expect(decoration.boxShadow, const [BoxShadow(color: Color(0x2434223A), offset: Offset(0, 2), blurRadius: 8)]);
+      final icon3d = find.descendant(of: badge(), matching: find.byType(Icon3d));
+      expect(icon3d, findsOneWidget);
+      expect((tester.widget<Icon3d>(icon3d).icon, tester.widget<Icon3d>(icon3d).size), (AppIcon3d.badgeCheck, 18));
+      expect(find.byIcon(AppIcons.badgeCheck), findsNothing, reason: '옛 Lucide 배지 아이콘은 없다');
+      // 아이콘 18 이 글자보다 높아 높이 = 6 + 18 + 6.
+      expect(tester.getSize(badge()).height, 6 + 18 + 6);
+      expect(tester.getTopLeft(icon3d).dx - tester.getTopLeft(badge()).dx, 10);
+      expect(tester.getTopLeft(find.text('학생 인증')).dx - tester.getTopRight(icon3d).dx, 4);
+      expect(tester.getTopRight(badge()).dx - tester.getTopRight(find.text('학생 인증')).dx, 10);
+      final style = tester.widget<Text>(find.text('학생 인증')).style!;
+      expect((style.fontSize, style.fontWeight, style.color), (11, FontWeight.w600, AppColors.ink));
+    });
+  });
+
   group('이름 묶음 `IUcwD`', () {
-    testWidgets('닉네임 `CM0QK` "닉네임, 나이" 24/700 흰색 lh1.35, 8 뒤 인증 배지 `HxtCZ`', (tester) async {
+    testWidgets('닉네임 `CM0QK` "닉네임, 나이" 24/700 흰색 lh1.35, 이름 줄 `fXWlF` 에 배지는 없다', (tester) async {
       await pump(tester, onRegenerate: () {});
 
       expectStyle(tester, '여우, 23', 24, FontWeight.w700, AppColors.onInk, 1.35);
-      final badge = _fill(AppColors.canvas, of: find.text('학생 인증')).first;
-      expect(tester.getTopLeft(badge).dx - tester.getTopRight(find.text('여우, 23')).dx, 8);
-      // 배지: 흰 바탕 알약 · badge-check 13 ink · "학생 인증" 12/600 ink lh1.5 · 패딩 [6,10].
-      expect((tester.widget<DecoratedBox>(badge).decoration as BoxDecoration).borderRadius,
-          BorderRadius.circular(AppRadius.pill));
-      expect(tester.getSize(badge).height, 6 + tester.getSize(find.text('학생 인증')).height + 6);
-      final icon = tester.widget<Icon>(find.byIcon(AppIcons.badgeCheck));
-      expect((icon.size, icon.color), (13, AppColors.ink));
-      expectStyle(tester, '학생 인증', 12, FontWeight.w600, AppColors.ink, 1.5);
-      // 이름 줄은 세로 가운데.
-      expect(tester.getCenter(badge).dy, closeTo(tester.getCenter(find.text('여우, 23')).dy, 0.01));
+      // 배지는 보기 칩과 같은 위쪽 줄에 있다(칩 안쪽 Row 가 first, 위쪽 줄이 last).
+      final topRow = find.ancestor(of: find.text('상대에게 이렇게 보여요'), matching: find.byType(Row)).last;
+      expect(find.descendant(of: topRow, matching: find.text('학생 인증')), findsOneWidget);
+      expect(tester.getBottomLeft(find.text('학생 인증')).dy, lessThan(tester.getTopLeft(find.text('여우, 23')).dy));
     });
 
     testWidgets('학교 `C9JEi` "학교 · 학과" 14/400 흰색 lh1.55 한 줄 말줄임, 12 뒤 알약', (tester) async {
