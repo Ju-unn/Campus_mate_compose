@@ -35,7 +35,7 @@ class ProfileEntryRow extends StatelessWidget {
     // 바탕 #FFFFFF + 카드 그림자 두 겹(pen `fN0xc`, 사용자 결정 09-28). 그림자는 §6 카드 토큰 그대로 Material 밖 상자가
     // 그린다 — Material elevation 은 모양이 토큰과 달라진다. 누르지 않는 행도 같은 모양이다.
     return DecoratedBox(
-      decoration: BoxDecoration(borderRadius: radius, boxShadow: AppElevation.card),
+      decoration: BoxDecoration(borderRadius: radius, boxShadow: AppElevation.row),
       // 바탕은 이 Material 이 칠한다 — 안쪽 상자가 또 칠하면 눌림 효과가 그 밑에 깔려 안 보인다. 화면 15 · 15-5 는
       // 스크롤 안이라 눌림 효과를 그릴 Material 을 행 크기로 둔다(COMMON §4-2).
       child: Material(

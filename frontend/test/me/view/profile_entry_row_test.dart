@@ -39,9 +39,9 @@ void main() {
     expect(rectOf(tester, find.text('선호 나이 범위')).left, 72);
   });
 
-  // 사용자 결정 09-28(계획서 N5) — 흰 바탕 + 카드 그림자 두 겹. 누르지 않는 행도 같은 모양이다.
+  // 사용자 결정 09-28(계획서 N5) — 흰 바탕 + 그림자. 2026-10-01 개편으로 목록 행 한 겹(AppElevation.row). 누르지 않는 행도 같은 모양이다.
   for (final tappable in [false, true]) {
-    testWidgets('틀 `fN0xc` — #FFFFFF · 모서리 14 · 그림자 = AppElevation.card, 그림자는 Material 밖 상자가 그린다'
+    testWidgets('틀 `fN0xc` — #FFFFFF · 모서리 14 · 그림자 = AppElevation.row, 그림자는 Material 밖 상자가 그린다'
         '(${tappable ? '누르는 행' : '보이기만 하는 행'})', (tester) async {
       await pump(tester, onTap: tappable ? () {} : null);
 
@@ -53,7 +53,7 @@ void main() {
       );
       expect(shadow, findsOneWidget);
       final decoration = tester.widget<DecoratedBox>(shadow).decoration as BoxDecoration;
-      expect((decoration.boxShadow, decoration.borderRadius), (AppElevation.card, BorderRadius.circular(14)));
+      expect((decoration.boxShadow, decoration.borderRadius), (AppElevation.row, BorderRadius.circular(14)));
       expect(tester.getSize(shadow), const Size(328, 84));
       // 바탕은 그림자 상자 안 Material 이 칠한다 — Material elevation 은 쓰지 않는다(§6 한 단계 규칙).
       final painter = find.descendant(of: shadow, matching: find.byType(Material)).first;
@@ -95,7 +95,7 @@ void main() {
     expect((tester.widget<Container>(surface).decoration! as BoxDecoration).color, AppColors.canvas);
     expect(tester.widget<Icon>(find.byIcon(AppIcons.calendar)).color, AppColors.primaryText);
     expect(tester.widget<Icon>(find.byIcon(AppIcons.chevronRight)).color, AppColors.primaryText);
-    expect(find.byWidgetPredicate((w) => w is DecoratedBox && (w.decoration as BoxDecoration).boxShadow == AppElevation.card),
+    expect(find.byWidgetPredicate((w) => w is DecoratedBox && (w.decoration as BoxDecoration).boxShadow == AppElevation.row),
         findsOneWidget);
   });
 
