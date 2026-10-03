@@ -2,16 +2,16 @@ import 'package:campus_mate/auth/model/verification_gate.dart';
 import 'package:campus_mate/auth/model/verification_gate_repository.dart';
 import 'package:flutter/foundation.dart';
 
-/// 조회 결과가 없을 때 쓰는 비관적 기본값.
+/// 조회 결과가 없을 때 쓰는 기본값 — "아직 모름".
 /// 생성 직후와 [VerificationGateListenable.reset] 이 같은 값을 써야 해 한곳에 둔다.
-const VerificationGate _defaultGate = VerificationGate.needsConsent;
+const VerificationGate _defaultGate = VerificationGate.unknown;
 
 /// 게이트 상태를 캐시하고, 바뀌면 go_router 재평가를 트리거한다.
 /// AuthSessionListenable(1a) 이 세션 변화를 알려줄 때마다 [refresh] 를 호출해 쓴다.
 ///
-/// 조회가 끝나기 전에는 첫 관문(약관 동의) 앞과 같게 다뤄 `needsConsent` 로 본다.
-/// 낙관적으로 통과시키면 "통과 전까지 다음 단계로 못 감"(설계 §7.3)이 깨지고,
-/// 반대로 이미 통과한 사용자는 게이트가 도착하는 즉시 되돌아가 짧은 깜빡임으로 끝난다.
+/// 조회가 끝나기 전에는 `unknown` 으로 두어 스플래시에 머문다. 낙관적으로 통과시키면
+/// "통과 전까지 다음 단계로 못 감"(설계 §7.3)이 깨진다. 예전 기본값 `needsConsent` 는
+/// 인터넷 없이 켜면 동의 화면에 세워 두었다(결함 B10) — 첫 조회가 실패하면 `unreachable` 이다.
 class VerificationGateListenable extends ChangeNotifier {
   VerificationGateListenable(this._repository);
 
@@ -30,7 +30,12 @@ class VerificationGateListenable extends ChangeNotifier {
     final result = await _repository.fetchGate();
     result.when(
       onSuccess: _cache,
-      onFailure: (_) {}, // 실패하면 캐시를 유지한다 — 다음 세션 변화 때 다시 시도
+      // 아는 관문이 있으면 그대로 둔다 — 다음 세션 변화 때 다시 시도. 모르는데 실패했으면 01-1 로.
+      onFailure: (_) {
+        if (_cached == VerificationGate.unknown) {
+          _cache(VerificationGate.unreachable);
+        }
+      },
     );
   }
 
