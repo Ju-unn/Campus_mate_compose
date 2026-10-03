@@ -12,7 +12,8 @@ import 'package:flutter/services.dart';
 class ChatInputBar extends StatefulWidget {
   const ChatInputBar({required this.onSend, required this.isSending, super.key});
 
-  final void Function(String body) onSend;
+  /// 보냈으면 true. false 면 비웠던 글을 입력칸에 되돌린다 — 인터넷이 끊겨도 다시 쓰지 않게(결함 A4).
+  final Future<bool> Function(String body) onSend;
 
   /// 보내는 동안 버튼만 잠근다. 낙관적 갱신은 하지 않는다 — 되돌리는 코드가 더 길다.
   final bool isSending;
@@ -33,12 +34,17 @@ class _ChatInputBarState extends State<ChatInputBar> {
   /// 공백만 남은 입력은 보낼 수 없다 — 서버도 같은 판단을 한다(422).
   bool get _canSend => !widget.isSending && _controller.text.trim().isNotEmpty;
 
-  void _send() {
+  Future<void> _send() async {
     if (!_canSend) {
       return;
     }
-    widget.onSend(_controller.text.trim());
+    final body = _controller.text.trim();
     _controller.clear();
+    // 보내는 동안 새로 쓴 글이 있으면 덮지 않는다.
+    if (!await widget.onSend(body) && mounted && _controller.text.isEmpty) {
+      setState(() => _controller.value =
+          TextEditingValue(text: body, selection: TextSelection.collapsed(offset: body.length)));
+    }
   }
 
   @override
