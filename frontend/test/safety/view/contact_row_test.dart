@@ -1,3 +1,4 @@
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/safety/view/contact_row.dart';
@@ -62,7 +63,10 @@ void main() {
 
     expect(find.byIcon(AppIcons.check), findsNothing);
     expect(box(AppColors.canvas), findsNothing);
-    await tester.tap(find.byIcon(AppIcons.trash2));
+    // 삭제 3D(pen x1DV8l → e2af0). 그림은 낭독기에서 빠지니 버튼 이름은 따로 단다.
+    expect(tester.widget<Icon3d>(find.byType(Icon3d)).icon, AppIcon3d.trash);
+    expect(find.bySemanticsLabel('차단 해제'), findsOneWidget);
+    await tester.tap(find.byType(Icon3d));
 
     expect(removes, 1);
   });
