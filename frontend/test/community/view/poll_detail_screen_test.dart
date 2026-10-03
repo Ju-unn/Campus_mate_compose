@@ -1,4 +1,5 @@
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/community/model/community_repository.dart';
 import 'package:campus_mate/community/model/community_repository_provider.dart';
 import 'package:campus_mate/community/model/poll.dart';
@@ -76,7 +77,7 @@ void main() {
     expect(find.text('질문을 찾을 수 없어요'), findsOneWidget);
   });
 
-  testWidgets('pen 17c: 제목 x60 · 뒤로 arrow-left 22, 본문 안쪽 16, 카드 249, 댓글 안내는 카드 아래 16(bcnJx · ZR52B · v9Pmy0 · LyR5Y)', (tester) async {
+  testWidgets('pen 17c: 제목 x60 · 뒤로 arrow-left 22, 본문 안쪽 16, 카드 275(신고 버튼 48 머리줄), 댓글 안내는 카드 아래 16(bcnJx · ZR52B · v9Pmy0 · LyR5Y)', (tester) async {
     tester.view.physicalSize = const Size(360, 780);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -88,7 +89,20 @@ void main() {
     final card = tester.getRect(find.byType(PollCard));
     expect(card.topLeft, const Offset(16, 56 + 16));
     expect(card.width, 328);
-    expect(card.height, closeTo(249, 2));
+    expect(card.height, closeTo(275, 2));
     expect(tester.getRect(find.text('댓글 기능은 아직 준비 중이에요')).top - card.bottom, 16);
+  });
+
+  testWidgets('17c 도 남의 글이면 머리줄 오른쪽 끝에 신고 버튼, 내 글이면 없다(A16 · uPUf3)', (tester) async {
+    final siren = find.byWidgetPredicate((w) => w is Icon3d && w.icon == AppIcon3d.siren);
+    repository.page = Success(PollPage(polls: [pollFixture(id: 'p1'), pollFixture(id: 'p2', isMine: true)], hasMore: false));
+
+    await pumpDetail(tester, 'p1');
+    final button = tester.getRect(find.ancestor(of: siren, matching: find.byType(InkResponse)).first);
+    expect(button.size, const Size(48, 48));
+    expect(button.right, tester.getRect(find.byType(PollCard)).right - 16);
+
+    await pumpDetail(tester, 'p2');
+    expect(siren, findsNothing);
   });
 }

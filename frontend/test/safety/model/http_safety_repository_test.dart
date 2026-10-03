@@ -87,6 +87,14 @@ void main() {
       });
     });
 
+    test('투표 글 신고는 글 id 를 target_id 로, 대상은 poll(A16 · 서버 #191)', () async {
+      final (client, seen) = recording(jsonResponse({'ok': true}, 201));
+
+      await buildRepository(client).report(target: const ReportTarget.poll('poll-3'), reason: ReportReason.spam);
+
+      expect(jsonDecode(seen.single.body), {'target_type': 'poll', 'target_id': 'poll-3', 'reason': 'spam'});
+    });
+
     test('기타여도 메모가 공백뿐이면 reason_note 를 싣지 않는다', () async {
       final (client, seen) = recording(jsonResponse({'ok': true}, 201));
 

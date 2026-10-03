@@ -7,10 +7,25 @@ import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/safety/model/safety_repository.dart';
+import 'package:campus_mate/safety/view/report_sheet.dart';
+import 'package:campus_mate/safety/view/safety_actions.dart';
+import 'package:campus_mate/safety/viewmodel/report_ui_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // 두 시트는 채팅탭 `ChatRoomMenuSheet`(Menu · Chat `RzZT8`) · 차단 확인과 같은 마스터다(결정 D4) — 공통 승격은 백로그 39.
+
+const String _pollReportedMessage = '신고했어요. 운영팀이 확인할게요';
+
+/// 남의 글 신고(A16 · 신고 버튼 `uPUf3`). 받은 리뷰 신고(20c)와 같은 흐름 — 글쓴이는 익명이라 차단할 상대가 없어
+/// `reportThenLeave` 를 쓰지 않고, 어느 결과든 카드는 그대로 남는다(가림은 운영자가 한다, 서버 #191).
+Future<void> reportPoll(BuildContext context, String pollId) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final result = await showReportSheet(context, ReportTarget.poll(pollId));
+  if (result == null) return;
+  showSafetyToast(messenger, result.outcome == ReportOutcome.reported ? _pollReportedMessage : result.message);
+}
 
 /// 내 글 "…"(15d-1 `RCNu0`) → "삭제하기" → 확인(15d-2 `K64Q8p`) → 지우기(사용자 결정 2).
 /// 지우는 동안 확인 시트는 열린 채 "삭제하기" 만 꺼지고(15d-2 삭제 중 `EIEFb`), 끝나면 닫고 "삭제했어요"(15d-5 `SKQgV`)

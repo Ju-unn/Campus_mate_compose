@@ -15,6 +15,10 @@ void main() {
     expect(isReportTargetGone(const ServerRejectedFailure('이미 신고한 사용자예요')), isFalse);
   });
 
+  test('신고하려던 투표 글이 사라진 404 도 알아본다 — 시트를 닫는다(A16 · 서버 POLL_NOT_FOUND)', () {
+    expect(isReportTargetGone(const ServerRejectedFailure('질문을 찾을 수 없어요')), isTrue);
+  });
+
   test('상대 프로필 404 만 프로필이 사라진 것으로 알아본다', () {
     expect(isProfileGone(const ServerRejectedFailure('프로필을 찾을 수 없어요')), isTrue);
     expect(isProfileGone(const ServerRejectedFailure('메시지를 찾을 수 없어요')), isFalse);

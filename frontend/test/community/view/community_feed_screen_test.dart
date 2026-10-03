@@ -16,7 +16,11 @@ import 'package:campus_mate/community/view/poll_toast.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
+import 'package:campus_mate/safety/model/report_reason.dart';
+import 'package:campus_mate/safety/model/safety_repository_provider.dart';
+import 'package:campus_mate/safety/view/report_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,12 +29,17 @@ import 'package:go_router/go_router.dart';
 
 import '../../chat/model/fake_chat_repository.dart';
 import '../../matching/model/fake_card_repository.dart';
+import '../../safety/model/fake_safety_repository.dart';
 import '../model/fake_community_repository.dart';
 
 void main() {
   late FakeCommunityRepository repository;
+  late FakeSafetyRepository safety;
 
-  setUp(() => repository = FakeCommunityRepository());
+  setUp(() {
+    repository = FakeCommunityRepository();
+    safety = FakeSafetyRepository();
+  });
 
   Future<void> pump(WidgetTester tester) async {
     final router = GoRouter(
@@ -49,6 +58,7 @@ void main() {
       ProviderScope(
         overrides: [
           communityRepositoryProvider.overrideWithValue(repository),
+          safetyRepositoryProvider.overrideWithValue(safety),
           communityNowProvider.overrideWithValue(() => DateTime(2026, 9, 27, 14)),
           // 하단 내비 뱃지가 대화 목록 · 수락함을 읽는다.
           chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
@@ -147,7 +157,7 @@ void main() {
     );
   });
 
-  testWidgets('pen 카드 틀: 폭 328 · 목록 위 8, 높이 투표 전 232 · 투표 후 279(RpRBi — 글자 상자 렌더 차 2 안)', (tester) async {
+  testWidgets('pen 카드 틀: 폭 328 · 목록 위 8, 높이 투표 전 258 · 투표 후 305(RpRBi — 신고 버튼 48 머리줄 · 글자 상자 렌더 차 2 안)', (tester) async {
     tester.view.physicalSize = const Size(360, 1600);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -162,8 +172,8 @@ void main() {
     expect(before.width, 328);
     expect(before.top, 56 + 8); // 앱바 56 + 목록 위 8(FXyNI)
     expect(after.top - before.bottom, 12); // 카드 사이 12(FXyNI)
-    expect(before.height, closeTo(232, 2));
-    expect(after.height, closeTo(279, 2));
+    expect(before.height, closeTo(258, 2));
+    expect(after.height, closeTo(305, 2));
     // "익명" 칩 22(LHkpo · MpYr6 속성 없음, 렌더 16), 도넛 96(raSK1).
     expect(tester.getSize(find.ancestor(of: find.text('익명').first, matching: find.byType(Container)).first).height, 22);
     expect(tester.getSize(find.byType(PollDonut)), const Size(96, 96));
@@ -305,17 +315,17 @@ void main() {
     expect(find.byTooltip('더보기'), findsOneWidget);
   });
 
-  testWidgets('pen "…": 터치 48 이 시각 바로 오른쪽(간격 8), 내 글 머리줄은 48(mc9mW · 15d-1 RCNu0)', (tester) async {
+  testWidgets('pen "…": 터치 48 이 머리줄 오른쪽 끝(신고 버튼 자리), 내 글 머리줄은 48(mc9mW · 10-01 개편)', (tester) async {
     repository.page = Success(PollPage(polls: [pollFixture(isMine: true)], hasMore: false));
     await pump(tester);
     // 툴팁은 버튼 몸체(40)만 감싼다 — 누르는 영역(48)은 IconButton 전체다.
     final more = tester.getRect(find.ancestor(of: find.byTooltip('더보기'), matching: find.byType(IconButton)));
     final time = tester.getRect(find.text('방금 전'));
+    final card = tester.getRect(find.byType(PollCard));
     expect(more.size, const Size(48, 48));
-    expect(more.left - time.right, 8);
+    expect(more.right, card.right - 16);
     expect(more.center.dy, time.center.dy);
     // 머리줄 48 → 질문은 카드 위 안쪽 16 + 48 + 12 아래.
-    final card = tester.getRect(find.byType(PollCard));
     expect(tester.getRect(find.text('첫 데이트 더치페이')).top - card.top, 16 + 48 + 12);
   });
 
@@ -546,5 +556,88 @@ void main() {
     await tester.pumpAndSettle();
     expect(repository.pageRequests.length, greaterThanOrEqualTo(2));
     expect(repository.pageRequests.last.beforeId, 'p19');
+  });
+
+  group('신고 버튼(A16 · pen uPUf3)', () {
+    final siren = find.byWidgetPredicate((w) => w is Icon3d && w.icon == AppIcon3d.siren);
+    Finder reportButton() => find.ancestor(of: siren, matching: find.byType(InkResponse)).first;
+
+    testWidgets('남의 글에만 있고, 내 글에는 신고 대신 … 만', (tester) async {
+      repository.page = Success(PollPage(polls: [pollFixture(isMine: true), pollFixture(id: 'p2')], hasMore: false));
+      await pump(tester);
+
+      final cards = find.byType(PollCard);
+      expect(find.descendant(of: cards.first, matching: siren), findsNothing);
+      expect(find.descendant(of: cards.first, matching: find.byTooltip('더보기')), findsOneWidget);
+      expect(find.descendant(of: cards.last, matching: siren), findsOneWidget);
+      expect(find.descendant(of: cards.last, matching: find.byTooltip('더보기')), findsNothing);
+    });
+
+    testWidgets('터치 48 · 머리줄 오른쪽 끝, 사이렌 22 → 2 → "신고하기" 9/600 #6E5861 (OaLnA · E6FpN · Wwsmw)', (tester) async {
+      repository.page = Success(PollPage(polls: [pollFixture()], hasMore: false));
+      await pump(tester);
+
+      final card = tester.getRect(find.byType(PollCard));
+      final button = tester.getRect(reportButton());
+      expect(button.size, const Size(48, 48));
+      expect(button.right, card.right - 16);
+      expect(button.center.dy, tester.getCenter(find.text('방금 전')).dy);
+      final icon = tester.getRect(siren);
+      expect(icon.size, const Size(22, 22));
+      expect(icon.center.dx, button.center.dx);
+      final label = find.descendant(of: find.byType(PollCard), matching: find.text('신고하기'));
+      expect(tester.getRect(label).top - icon.bottom, 2);
+      final style = tester.widget<Text>(label).style!;
+      expect((style.fontSize, style.fontWeight, style.color), (9, FontWeight.w600, const Color(0xFF6E5861)));
+      // 아이콘 22 + 2 + 글자 9 = 33 이 48 가운데.
+      expect(icon.top - button.top, 7.5);
+      // 머리줄 48 → 질문은 카드 위 안쪽 16 + 48 + 12 아래.
+      expect(tester.getRect(find.text('첫 데이트 더치페이')).top - card.top, 16 + 48 + 12);
+    });
+
+    testWidgets('누르면 신고 시트 → 사유 고르고 신고하기 → poll 대상으로 보내고 카드는 남는다', (tester) async {
+      repository.page = Success(PollPage(polls: [pollFixture(id: 'p2')], hasMore: false));
+      await pump(tester);
+
+      await tester.tap(reportButton());
+      await tester.pumpAndSettle();
+      expect(find.byType(ReportSheet), findsOneWidget);
+      await tester.tap(find.text('광고·스팸'));
+      await tester.pump();
+      await tester.tap(find.descendant(of: find.byType(ReportSheet), matching: find.text('신고하기')));
+      await tester.pumpAndSettle();
+
+      expect(safety.reports.single.target, {'target_type': 'poll', 'target_id': 'p2'});
+      expect(safety.reports.single.reason, ReportReason.spam);
+      expect(find.byType(ReportSheet), findsNothing);
+      expect(find.text('신고했어요. 운영팀이 확인할게요'), findsOneWidget);
+      expect(find.byType(PollCard), findsOneWidget);
+    });
+
+    testWidgets('낭독기는 "신고하기" 버튼 하나로 읽는다', (tester) async {
+      final semantics = tester.ensureSemantics();
+      repository.page = Success(PollPage(polls: [pollFixture()], hasMore: false));
+      await pump(tester);
+
+      expect(tester.getSemantics(reportButton()), matchesSemantics(label: '신고하기', isButton: true, hasTapAction: true, isFocusable: true, hasFocusAction: true));
+      semantics.dispose();
+    });
+
+    testWidgets('폰 폭(360) · 글자 2배에서 머리줄이 넘치지 않고 "신고하기" 도 잘리지 않는다', (tester) async {
+      tester.view.physicalSize = const Size(360, 780);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      repository.page = Success(PollPage(polls: [pollFixture()], hasMore: false));
+      await pump(tester);
+
+      expect(tester.takeException(), isNull);
+      final p = tester.renderObject<RenderParagraph>(
+        find.descendant(of: reportButton(), matching: find.byType(RichText)),
+      );
+      expect(p.getMaxIntrinsicHeight(p.size.width), lessThanOrEqualTo(p.size.height + 0.5));
+      expect(p.getMinIntrinsicWidth(double.infinity), lessThanOrEqualTo(p.size.width + 0.5));
+    });
   });
 }
