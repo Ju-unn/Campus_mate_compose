@@ -197,6 +197,20 @@ void main() {
     expect(readState(container).isSubmitting, isFalse);
   });
 
+  test('얼굴 검사를 끄면(졸업증명서) 얼굴이 없어도 압축한 사진을 업로드한다', () async {
+    final compressed = File('${Directory.systemTemp.path}/diploma_compressed.jpg');
+    imageCompressor.nextResult = compressed;
+    faceDetector.nextResult = false;
+    final container = buildContainer();
+    final viewModel = await buildSubmittableViewModel(container);
+
+    await viewModel.submit(requireFace: false);
+
+    expect(faceDetector.hasFaceCalls, isEmpty);
+    expect(repository.submittedPhotos, [compressed]);
+    expect(readState(container).errorMessage, isNull);
+  });
+
   test('사진을 처리하지 못해 플러그인이 예외를 던져도 제출 중 상태에 갇히지 않는다', () async {
     faceDetector.nextError = Exception('사진을 디코드하지 못했다');
     final container = buildContainer();

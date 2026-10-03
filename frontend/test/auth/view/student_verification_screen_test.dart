@@ -210,6 +210,24 @@ void main() {
       expect(findCallToAction(tester).enabled, isTrue); // 바로 다시 제출할 수 있다
     });
 
+    testWidgets('졸업증명서는 얼굴이 없어도 서버로 보낸다', (tester) async {
+      faceDetector.nextResult = false; // 졸업증명서에는 얼굴 사진이 없다
+      final container = await pumpLoadedScreen(tester);
+      container.read(studentVerificationViewModelProvider.notifier).pickFromGallery = () async => photo;
+      await tester.tap(find.text('졸업증명서'));
+      await tester.pump();
+      await tester.enterText(find.byType(TextField), '홍길동');
+      await tester.ensureVisible(find.text('사진을 첨부해주세요'));
+      await tester.tap(find.text('사진을 첨부해주세요'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('확인 요청하기'));
+      await tester.pumpAndSettle();
+
+      expect(repository.submittedRealNames, hasLength(1));
+      expect(find.text('얼굴이 보이는 사진으로 다시 올려주세요'), findsNothing);
+    });
+
     testWidgets('pending 이면 재시도 버튼 없이 대기 화면만 보여준다', (tester) async {
       repository.nextFetchStatusResult = const Success(VerificationOutcome(status: 'pending'));
 
