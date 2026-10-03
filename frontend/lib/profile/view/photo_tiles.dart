@@ -12,7 +12,58 @@ import 'package:flutter/services.dart';
 
 // 사진 칸 위젯 — 04-2 사진 업로드와 15-7 사진 수정이 같이 쓴다(계획서 2026-09-27-me-edit.md C9: 15-7 칸은 04-2 모양,
 // 크기만 다르다). photos_screen.dart 에서 그대로 옮겼다 — 모양을 두 벌 두면 한쪽만 고쳐진다.
-// 칸 크기는 부모가 준다(04-2 는 Expanded + 높이 158, 15-7 은 160×200 · 66×88).
+// 칸 크기는 부모가 준다(04-2 는 Expanded + 높이 158, 15-7 은 [PhotoSlotGrid] 156×158).
+
+/// 사진 칸 2×2 배치 — 15-7 그리드(pen `u6AR7K`: 행 사이 12, 칸 높이 158). 칸 폭은 부모 폭에서 [columnGap] 을 뺀 반이다.
+/// 칸 그리기는 아래 칸 위젯이 맡고, 이 위젯은 어느 자리에 어느 칸을 놓을지만 정한다 — 04-2 도 옮겨 올 수 있게 화면 값은
+/// 열 간격만 받는다(04-2 는 12, 15-7 은 16).
+class PhotoSlotGrid extends StatelessWidget {
+  const PhotoSlotGrid({required this.state, required this.viewModel, required this.columnGap, super.key});
+
+  final PhotosUiState state;
+  final PhotosViewModel viewModel;
+  final double columnGap;
+
+  static const int _columns = 2;
+  static const int _rows = 2;
+  static const double _tileHeight = 158;
+
+  @override
+  Widget build(BuildContext context) {
+    // 두 줄 높이만 차지한다 — 스크롤 밖에 놓여도 남는 세로를 먹지 않게.
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var row = 0; row < _rows; row++) ...[
+          if (row > 0) const SizedBox(height: AppSpacing.sm),
+          SizedBox(height: _tileHeight, child: _row(row)),
+        ],
+      ],
+    );
+  }
+
+  Widget _row(int row) {
+    return Row(
+      children: [
+        for (var column = 0; column < _columns; column++) ...[
+          if (column > 0) SizedBox(width: columnGap),
+          Expanded(child: _slot(row * _columns + column)),
+        ],
+      ],
+    );
+  }
+
+  /// 사진이 있으면 사진 칸, 살펴보는 중이면 들어올 자리에 기다리는 표시, 나머지는 빈 칸.
+  Widget _slot(int index) {
+    if (index < state.photos.length) {
+      return DraggablePhotoTile(index: index, state: state, viewModel: viewModel);
+    }
+    if (state.isCheckingPhotos && index == state.photos.length) {
+      return const CheckingTile();
+    }
+    return AddPhotoTile(onTap: viewModel.addPhoto);
+  }
+}
 
 /// 길게 눌러 끌면 두 칸이 자리를 바꾼다(15-7 과 같은 방식, 2026-09-24 사용자 결정).
 /// 빈 "사진 추가" 칸은 받는 쪽이 아니다 — 사진을 빈 자리로 밀면 순서에 구멍이 생긴다.
