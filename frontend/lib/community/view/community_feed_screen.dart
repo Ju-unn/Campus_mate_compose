@@ -61,12 +61,12 @@ class _CommunityFeedScreenState extends ConsumerState<CommunityFeedScreen> {
           IconButton(
             tooltip: '질문 올리기',
             onPressed: () => context.push(AppRoutes.communityNew),
-            // pen `uhk6J` 터치 48 · `I7U2Jp` 원 32 #F7F7F7 · `zuIJJ` plus 18.
+            // pen `uhk6J` 터치 48 · `I7U2Jp` 원 32 primary · `zuIJJ` 흰 plus 18.
             icon: Container(
               width: 32,
               height: 32,
-              decoration: const BoxDecoration(color: AppColors.surfaceSoft, shape: BoxShape.circle),
-              child: const Icon(AppIcons.plus, size: 18, color: AppColors.ink),
+              decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
+              child: const Icon(AppIcons.plus, size: 18, color: AppColors.onPrimary),
             ),
           ),
           const SizedBox(width: AppSpacing.xs),

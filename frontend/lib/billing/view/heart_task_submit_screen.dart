@@ -5,6 +5,7 @@ import 'package:campus_mate/billing/model/heart_task.dart';
 import 'package:campus_mate/billing/viewmodel/heart_task_submit_view_model.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -203,12 +204,13 @@ class _ProofUploader extends StatelessWidget {
               ? Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(AppIcons.imagePlus, size: 32, color: AppColors.disabled),
+                    // pen `C1BBE` 3D 업로드 70(ref `CR3C7`, 값표 1004).
+                    const Icon3d(AppIcon3d.upload, size: 70),
                     const SizedBox(height: AppSpacing.xs),
-                    // pen WmkOO 14/600, 줄높이 속성 없음 · 렌더 20.
+                    // pen WmkOO 14/600 muted, 줄높이 속성 없음 · 렌더 20.
                     Text(
                       _uploaderLabel,
-                      style: AppTypography.labelSmall.copyWith(color: AppColors.disabled, height: 20 / 14),
+                      style: AppTypography.labelSmall.copyWith(color: AppColors.muted, height: 20 / 14),
                     ),
                   ],
                 )

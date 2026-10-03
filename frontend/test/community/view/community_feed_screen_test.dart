@@ -177,9 +177,16 @@ void main() {
     // "익명" 칩 22(LHkpo · MpYr6 속성 없음, 렌더 16), 도넛 96(raSK1).
     expect(tester.getSize(find.ancestor(of: find.text('익명').first, matching: find.byType(Container)).first).height, 22);
     expect(tester.getSize(find.byType(PollDonut)), const Size(96, 96));
+    // 그림자 #00000010 (0,1) blur 6 · 모서리 14(RpRBi 값표 1004).
+    final frame = tester.widget<DecoratedBox>(
+      find.descendant(of: find.byType(PollCard).first, matching: find.byType(DecoratedBox)).first,
+    );
+    final decoration = frame.decoration as ShapeDecoration;
+    expect(decoration.shadows, const [BoxShadow(color: Color(0x10000000), offset: Offset(0, 1), blurRadius: 6)]);
+    expect((decoration.shape as RoundedRectangleBorder).borderRadius, BorderRadius.circular(14));
   });
 
-  testWidgets('pen 앱바: 제목 x20, + 는 터치 48 · 원 32, 오른쪽 여백 8(Iblb3 · uhk6J · I7U2Jp)', (tester) async {
+  testWidgets('pen 앱바: 제목 x20, + 는 터치 48 · 원 32 primary · 흰 plus 18, 오른쪽 여백 8(Iblb3 · uhk6J · I7U2Jp · zuIJJ)', (tester) async {
     tester.view.physicalSize = const Size(360, 780);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -189,6 +196,9 @@ void main() {
     expect(tester.getCenter(plus), const Offset(360 - 8 - 24, 28));
     final circle = find.descendant(of: plus, matching: find.byType(Container)).first;
     expect(tester.getSize(circle), const Size(32, 32));
+    expect((tester.widget<Container>(circle).decoration! as BoxDecoration).color, AppColors.primary);
+    final icon = tester.widget<Icon>(find.descendant(of: plus, matching: find.byIcon(AppIcons.plus)));
+    expect((icon.size, icon.color), (18.0, AppColors.onPrimary));
   });
 
   testWidgets('불러오기 실패와 빈 목록을 가른다 — 두 번째 쪽 실패는 목록을 지우지 않는다', (tester) async {
