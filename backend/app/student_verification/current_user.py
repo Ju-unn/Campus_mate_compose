@@ -32,6 +32,14 @@ def _reject_withdrawn(status: str | None) -> None:
                             headers={"X-Account-Status": "withdrawn"})
 
 
+def reject_suspended(status: str | None) -> None:
+    """정지 계정은 403. 403 은 학생증 · 학과 관문도 쓰고 있어서 앱(정지 안내 화면)이 문구를 비교하지 않고
+    가를 수 있게 헤더를 싣는다(Ruling 8). 로그인 자체는 살려 둔다 — 안내를 띄워야 한다."""
+    if status == "suspended":
+        raise HTTPException(status_code=403, detail=errors.ACCOUNT_SUSPENDED,
+                            headers={"X-Account-Status": "suspended"})
+
+
 async def get_signed_in_user_id(
     settings: Settings,
     client: httpx.AsyncClient,
@@ -59,11 +67,7 @@ async def get_verified_user_id(
     )
     gate = await repo.fetch_gate_status(profile_id)
     _reject_withdrawn(gate.get("status"))
-    if gate.get("status") == "suspended":
-        # 학생증 · 학과보다 먼저 본다. 403 은 그 두 관문도 쓰고 있어서 앱(정지 안내 화면)이 문구를
-        # 비교하지 않고 가를 수 있게 헤더를 싣는다(Ruling 8). 로그인 자체는 살려 둔다 — 안내를 띄워야 한다.
-        raise HTTPException(status_code=403, detail=errors.ACCOUNT_SUSPENDED,
-                            headers={"X-Account-Status": "suspended"})
+    reject_suspended(gate.get("status"))  # 학생증 · 학과보다 먼저 본다.
     if gate["student_verification"] != "verified":
         raise HTTPException(status_code=403, detail=errors.STUDENT_VERIFICATION_REQUIRED)
     if gate["department"] is None:
