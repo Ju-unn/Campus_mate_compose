@@ -64,8 +64,12 @@ class FakeChatRepository implements ChatRepository {
   @override
   Future<Result<Message?>> sendMessage(String matchId, String body) async {
     sent.add(body);
+    await holdSend?.future;
     return sendResult;
   }
+
+  /// 채워 두면 보내기가 이것이 끝날 때까지 멈춘다 — 보내는 동안 입력칸에 새로 쓰는 상황용.
+  Completer<void>? holdSend;
 
   @override
   Future<Result<void>> markRead(String matchId) async {

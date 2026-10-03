@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:campus_mate/chat/model/chat_repository.dart';
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/chat/model/message.dart';
@@ -6,6 +8,7 @@ import 'package:campus_mate/chat/view/date_divider.dart';
 import 'package:campus_mate/chat/view/message_bubble.dart';
 import 'package:campus_mate/chat/view/system_message.dart';
 import 'package:campus_mate/chat/view/trust_reveal_bubble.dart';
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:flutter/material.dart';
@@ -95,6 +98,53 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repository.sent, ['안녕하세요']);
+  });
+
+  testWidgets('보내기에 성공하면 입력칸을 비운다', (tester) async {
+    await pump(tester);
+
+    await tester.enterText(find.byType(TextField), '안녕하세요');
+    await tester.pump();
+    await tester.tap(find.bySemanticsLabel('보내기'));
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, isEmpty);
+  });
+
+  testWidgets('인터넷이 끊겨 못 보내면 쓴 글이 입력칸에 남아 다시 보낼 수 있다(결함 A4)', (tester) async {
+    repository.sendResult = const FailureResult(NetworkFailure());
+    await pump(tester);
+
+    await tester.enterText(find.byType(TextField), '안녕하세요');
+    await tester.pump();
+    await tester.tap(find.bySemanticsLabel('보내기'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('네트워크 연결을 확인해 주세요'), findsOneWidget);
+    expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, '안녕하세요');
+
+    repository.sendResult = const Success(null);
+    await tester.tap(find.bySemanticsLabel('보내기'));
+    await tester.pumpAndSettle();
+
+    expect(repository.sent, ['안녕하세요', '안녕하세요']);
+  });
+
+  testWidgets('보내는 동안 새로 쓴 글은 실패해도 옛 글로 덮지 않는다', (tester) async {
+    repository
+      ..sendResult = const FailureResult(NetworkFailure())
+      ..holdSend = Completer<void>();
+    await pump(tester);
+
+    await tester.enterText(find.byType(TextField), '안녕하세요');
+    await tester.pump();
+    await tester.tap(find.bySemanticsLabel('보내기'));
+    await tester.pump();
+    await tester.enterText(find.byType(TextField), '새 글');
+    repository.holdSend!.complete();
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, '새 글');
   });
 
   testWidgets('공백만 입력하면 보내지 않는다', (tester) async {
