@@ -174,16 +174,18 @@ class _WaitingView extends StatelessWidget {
 }
 
 /// 인증 서류 종류(pen `Rg1VT` ④ 탭). **서버로는 보내지 않는다** — 어느 서류든 같은 판독이다.
-/// 고른 값은 실명 칸 힌트와 업로드 안내 문구만 바꾼다(2026-09-23 사용자 결정).
+/// 고른 값은 실명 칸 힌트와 업로드 안내 문구, 그리고 기기 안 얼굴 검사 여부만 바꾼다(2026-09-23 사용자 결정).
+/// 졸업증명서에는 얼굴 사진이 없어 검사를 건너뛴다 — 하면 졸업생이 제출하지 못한다(결함 A8).
 enum _DocumentType {
-  studentId('학생증', '학생증에 표기된 이름', '이름·학교·유효기간이 선명하게 보여야 해요'),
-  graduation('졸업증명서', '졸업증명서에 표기된 이름', '이름·학교·졸업 일자가 선명하게 보여야 해요');
+  studentId('학생증', '학생증에 표기된 이름', '이름·학교·유효기간이 선명하게 보여야 해요', requiresFace: true),
+  graduation('졸업증명서', '졸업증명서에 표기된 이름', '이름·학교·졸업 일자가 선명하게 보여야 해요', requiresFace: false);
 
-  const _DocumentType(this.label, this.nameHint, this.photoHint);
+  const _DocumentType(this.label, this.nameHint, this.photoHint, {required this.requiresFace});
 
   final String label;
   final String nameHint;
   final String photoHint;
+  final bool requiresFace;
 }
 
 /// 히어로 → 안내 문구 → 실명 `text-field` → 사진 업로더 → 하단 CTA.
@@ -210,7 +212,10 @@ class _SubmitForm extends StatelessWidget {
       children: [
         Expanded(child: SingleChildScrollView(child: _content())),
         const SizedBox(height: AppSpacing.md),
-        AppButton(label: '확인 요청하기', onPressed: state.canSubmit ? viewModel.submit : null),
+        AppButton(
+          label: '확인 요청하기',
+          onPressed: state.canSubmit ? () => viewModel.submit(requireFace: documentType.requiresFace) : null,
+        ),
       ],
     );
   }

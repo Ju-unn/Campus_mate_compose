@@ -115,7 +115,8 @@ class StudentVerificationViewModel extends Notifier<StudentVerificationUiState> 
 
   /// 압축 → 얼굴 검출 → 업로드 순으로 제출한다.
   /// 실명·사진이 아직 없으면 아무 일도 하지 않는다.
-  Future<void> submit() async {
+  /// 졸업증명서에는 얼굴 사진이 없어 [requireFace] 를 끄고 검출을 건너뛴다(결함 A8) — 판독은 서버 OCR 이 같게 한다.
+  Future<void> submit({bool requireFace = true}) async {
     final realName = state.realName;
     final photo = state.selectedPhoto;
     if (realName == null || photo == null) {
@@ -123,16 +124,19 @@ class StudentVerificationViewModel extends Notifier<StudentVerificationUiState> 
     }
     // 지난 시도의 실패 문구가 로딩 중에 남아 있지 않도록 지운다.
     state = _copyWith(isSubmitting: true, errorMessage: null);
-    final compressed = await _compressedPhotoWithFace(photo);
+    final compressed = await _compressedPhoto(photo, requireFace: requireFace);
     await _uploadOrStop(realName, compressed);
   }
 
-  /// 압축한 사진을 돌려준다. 얼굴이 없거나 사진 자체를 처리하지 못하면 `null`.
+  /// 압축한 사진을 돌려준다. 얼굴이 필요한데 없거나 사진 자체를 처리하지 못하면 `null`.
   /// 압축·검출 플러그인은 읽을 수 없는 사진에 `PlatformException` 등을 던지는데, 그대로 새어 나가면
   /// `isSubmitting` 이 true 로 굳어 CTA 가 앱을 다시 켤 때까지 죽는다 — 여기서 흡수한다.
-  Future<File?> _compressedPhotoWithFace(File photo) async {
+  Future<File?> _compressedPhoto(File photo, {required bool requireFace}) async {
     try {
       final compressed = await ref.read(imageCompressorProvider).compressToJpeg(photo);
+      if (!requireFace) {
+        return compressed;
+      }
       final hasFace = await ref.read(faceDetectorProvider).hasFace(compressed);
       return hasFace ? compressed : null;
     } on Exception {
