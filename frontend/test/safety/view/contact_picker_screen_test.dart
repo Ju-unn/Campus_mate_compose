@@ -1,6 +1,7 @@
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -73,7 +74,11 @@ void main() {
 
     expect(find.text('차단할 연락처 선택'), findsOneWidget);
     expect(find.text('이름 검색'), findsOneWidget);
-    expect(find.byIcon(AppIcons.search), findsOneWidget);
+    // 돋보기는 3D 그림 24(pen Tvmq5 → QU7qi), 안내 글자는 14 muted(WFqyo, 디자인 공통 10-03).
+    expect(tester.widget<Icon3d>(find.byType(Icon3d)).icon, AppIcon3d.search);
+    final hint = tester.widget<Text>(find.text('이름 검색')).style!;
+    expect(hint.fontSize, 14);
+    expect(hint.color, AppColors.muted);
   });
 
   testWidgets('rows show name and the first number masked', (tester) async {
@@ -107,15 +112,19 @@ void main() {
 
     final notice = tester.getRect(find.text('번호는 암호화해 대조에만 쓰고 원본은 저장하지 않아요.'));
     final button = tester.getRect(cta());
-    // pen bzBZZ 여백 [16,24,28,24], 간격 8 — 안내 → 8 → 버튼 → 28 → 화면 끝.
+    // Bottom Bar CTA(A8INC6) 여백 [8,24,8,24], 간격 8 — 안내 → 8 → 버튼 → 8 → 화면 끝.
     expect(button.top - notice.bottom, 8);
-    expect(780 - button.bottom, 28);
+    expect(780 - button.bottom, 8);
     expect(button.height, 52); // HE8FZ 2026-10-01 개편
     expect(button.left, 24);
     expect(button.width, 312);
     final noticeText = tester.widget<Text>(find.text('번호는 암호화해 대조에만 쓰고 원본은 저장하지 않아요.'));
     expect(noticeText.style?.fontSize, 12);
     expect(noticeText.style?.color, AppColors.muted);
+    // A8INC6 · bzBZZ 위 선은 투명 — 하단 바에 테두리를 긋지 않는다(대장 pen 확인 10-03).
+    // Container 도 안에서 DecoratedBox 를 쓰니 DecoratedBox 하나로 둘 다 잡는다.
+    final boxes = tester.widgetList<DecoratedBox>(find.ancestor(of: cta(), matching: find.byType(DecoratedBox)));
+    expect(boxes.map((b) => b.decoration).whereType<BoxDecoration>().map((d) => d.border).whereType<Border>(), isEmpty);
   });
 
   testWidgets('search narrows the list by name and keeps selection', (tester) async {
@@ -131,17 +140,18 @@ void main() {
     expect(find.text('선택 완료 (1명)'), findsOneWidget);
   });
 
-  testWidgets('search field is 44 high under the app bar, list starts 12 below (pen ARlR7 · rpkaB)', (tester) async {
+  testWidgets('search field is 48 high under the app bar, list starts 12 below (pen y7Qlw · rpkaB)', (tester) async {
     await pump(tester);
 
     final field = tester.getRect(find.byType(TextField));
     expect(field.top, 56);
-    expect(field.height, 44);
+    expect(field.height, 48);
     expect(field.left, 24);
     expect(field.width, 312);
-    // pen 여백 [0,12] · 간격 8 — 돋보기는 왼쪽 12, 돋보기 오른쪽 끝에서 글자까지 8.
-    final icon = tester.getRect(find.byIcon(AppIcons.search));
-    expect(icon.left - field.left, 12);
+    // pen 여백 [0,16] · 간격 8 — 돋보기 24 는 왼쪽 16, 돋보기 오른쪽 끝에서 글자까지 8.
+    final icon = tester.getRect(find.byType(Icon3d));
+    expect(icon.size, const Size(24, 24));
+    expect(icon.left - field.left, 16);
     expect(tester.getRect(find.text('이름 검색')).left - icon.right, 8);
     final firstRow = tester.getRect(find.byType(ContactRow).first);
     expect(firstRow.top - field.bottom, 12);
