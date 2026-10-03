@@ -2,9 +2,11 @@ import 'dart:async';
 
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/common/university_logos.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/common/widgets/school_label.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -49,7 +51,13 @@ void main() {
     addTearDown(tester.view.reset);
     tester.platformDispatcher.textScaleFactorTestValue = scale;
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-    final container = ProviderContainer(overrides: [friendReviewRepositoryProvider.overrideWithValue(reviews)]);
+    final container = ProviderContainer(
+      overrides: [
+        friendReviewRepositoryProvider.overrideWithValue(reviews),
+        // 학교 줄(SchoolLabel)은 로고 없이 이름만 — 로고 자리 · 크기는 school_label_test 가 지킨다.
+        universityLogosProvider.overrideWith((ref) => const {}),
+      ],
+    );
     addTearDown(container.dispose);
     final router = GoRouter(
       initialLocation: pushed ? AppRoutes.myProfile : AppRoutes.friendReviewsWritten,
@@ -251,6 +259,8 @@ void main() {
       expect(tester.getRect(name).left - initial.right, 12);
       final nameStyle = tester.widget<Text>(name).style!;
       expect((nameStyle.fontSize, nameStyle.fontWeight, nameStyle.color), (15, FontWeight.w600, AppColors.ink));
+      // YQMGC = 학교 줄 위젯(로고 16 · 간격 4 는 위젯이 글자 14 에서 정한다).
+      expect(tester.widget<SchoolLabel>(find.descendant(of: row, matching: find.byType(SchoolLabel))).university, '한빛대학교');
       final school = find.descendant(of: row, matching: find.text('한빛대학교'));
       expect(tester.getRect(school).top - tester.getRect(name).bottom, 2);
       // YQMGC/ZD9sX 14 / 보통 / #3F3F3F / 1.5.

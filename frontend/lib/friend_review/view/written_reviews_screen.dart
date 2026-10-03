@@ -1,5 +1,6 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/common/widgets/school_label.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -269,9 +270,8 @@ class WritableFriendRow extends StatelessWidget {
                     Text(friend.nickname, style: AppTypography.bodyStrong.copyWith(fontSize: 15, color: AppColors.ink)),
                     if (university != null) ...[
                       const SizedBox(height: 2),
-                      // pen YQMGC/ZD9sX 14 / body / 1.5. 로고 16(HcLjG) · 간격 4 는 커뮤니티 학교 줄 위젯이 main 에
-                      // 들어오면 그것으로 바꾼다 — 지금은 글자만.
-                      Text(university, style: AppTypography.bodySmall.copyWith(color: AppColors.body, height: 1.5)),
+                      // pen YQMGC: 로고 16(HcLjG) · 간격 4 · ZD9sX 14 / body / 1.5.
+                      SchoolLabel(university, style: AppTypography.bodySmall.copyWith(color: AppColors.body, height: 1.5)),
                     ],
                   ],
                 ),
