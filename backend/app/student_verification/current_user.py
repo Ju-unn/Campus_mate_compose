@@ -15,10 +15,17 @@ async def get_current_user_id(
 ) -> UUID:
     if authorization is None:
         raise HTTPException(status_code=401, detail=errors.LOGIN_REQUIRED)
-    response = await client.get(
-        f"{settings.auth_url}/user",
-        headers={"Authorization": authorization, "apikey": settings.supabase_service_role_key},
-    )
+    # 401 이면 앱이 토큰을 새로 받아 보고, 그래도 401 이면 로그인 화면으로 보낸다(A11). 그래서 이 로그인을
+    # 거절한 것(4xx)만 401 이고, Supabase 인증이 잠깐 못 받는 것(5xx · 429 · 연결 실패)은 503 이다.
+    try:
+        response = await client.get(
+            f"{settings.auth_url}/user",
+            headers={"Authorization": authorization, "apikey": settings.supabase_service_role_key},
+        )
+    except httpx.HTTPError:
+        raise HTTPException(status_code=503, detail=errors.AUTH_UNAVAILABLE)
+    if response.status_code >= 500 or response.status_code == 429:
+        raise HTTPException(status_code=503, detail=errors.AUTH_UNAVAILABLE)
     if response.status_code != 200:
         raise HTTPException(status_code=401, detail=errors.SESSION_EXPIRED)
     return UUID(response.json()["id"])
