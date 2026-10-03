@@ -102,6 +102,20 @@ void main() {
     expect(jsonDecode(sent.body), {'decision': 'reject'});
   });
 
+  test('매칭 일시중지 값을 서버에서 읽는다', () async {
+    late http.Request sent;
+    final client = MockClient((request) async {
+      sent = request;
+      return jsonResponse({'paused': true});
+    });
+
+    final result = await buildRepository(client).fetchMatchingPaused();
+
+    expect(sent.method, 'GET');
+    expect(sent.url.toString(), 'https://api.test/cards/matching-paused');
+    expect(result.when(onSuccess: (paused) => paused, onFailure: (_) => null), isTrue);
+  });
+
   test('수락함 응답이 매칭으로 이어지면 match_id 가 올라온다', () async {
     final client = MockClient((request) async => jsonResponse({'matched': true, 'match_id': 'm-1'}));
 

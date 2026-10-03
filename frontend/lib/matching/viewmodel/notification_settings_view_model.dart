@@ -21,11 +21,18 @@ class NotificationSettingsViewModel extends Notifier<NotificationSettingsUiState
   Future<void> refresh() => _inFlight ??= _load().whenComplete(() => _inFlight = null);
 
   Future<void> _load() async {
-    final result = await ref.read(cardRepositoryProvider).fetchNotificationPreferences();
+    final repository = ref.read(cardRepositoryProvider);
+    // 일시중지도 서버 값으로 그린다 — 안 읽으면 꺼 둔 사람도 다시 열 때 "켜짐"으로 보인다(A14).
+    final (result, paused) =
+        await (repository.fetchNotificationPreferences(), repository.fetchMatchingPaused()).wait;
     state = result.when(
       onSuccess: (preferences) => state.copyWith(isLoading: false, preferences: preferences),
       onFailure: (failure) =>
           state.copyWith(isLoading: false, errorMessage: failure.toDisplayMessage()),
+    );
+    state = paused.when(
+      onSuccess: (value) => state.copyWith(matchingPaused: value, errorMessage: state.errorMessage),
+      onFailure: (failure) => state.copyWith(errorMessage: failure.toDisplayMessage()),
     );
   }
 
