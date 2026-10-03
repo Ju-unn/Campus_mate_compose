@@ -1,7 +1,8 @@
 """조각 6: "상대가 내 카드 화면에서 사라져야 하는가".
 
-차단(양방향) · 상대 status 가 active 가 아님(정지 · 탈퇴) · 상대 auto_hidden_at 이 있음. 후보 SQL 은 새 카드를
-막고(PR 1), 여기는 **이미 나간 카드와 받은 수락**을 막는다 — 차단한 상대의 수락을 눌러 매칭이 생기면 안 된다.
+차단(양방향) · 지인 차단(양방향, 결정 8 ②) · 상대 status 가 active 가 아님(정지 · 탈퇴) · 상대 auto_hidden_at 이 있음.
+후보 SQL 은 새 카드를 막고(PR 1), 여기는 **이미 나간 카드와 받은 수락**을 막는다 — 차단한 상대의 수락을 눌러 매칭이
+생기면 안 된다.
 """
 from datetime import datetime, timedelta, timezone
 
@@ -23,9 +24,31 @@ HIDDEN = {
     "auto-hidden": {"auto_hidden_at": "2026-09-26T10:00:00+09:00"},
     "suspended": {"status": "suspended"},
     "withdrawn": {"status": "withdrawn"},
+    "i-contact-blocked": {},
+    "contact-blocked-me": {},
 }
 VISIBLE = "visible"
 BLOCKS = [{"blocker_id": ME, "blocked_id": "i-blocked"}, {"blocker_id": "blocked-me", "blocked_id": ME}]
+# 번호 HMAC(PostgREST 가 bytea 를 돌려주는 `\x` + hex 모양). 없는 사람은 phone_hmac 이 null 이다.
+PHONES = {ME: "\\x6d65", "i-contact-blocked": "\\x6963", "contact-blocked-me": "\\x6362", VISIBLE: "\\x7669"}
+CONTACT_BLOCKS = [  # (owner_id, contact_hmac, key_version)
+    (ME, PHONES["i-contact-blocked"], 1),
+    (ME, PHONES[VISIBLE], 2),  # 키 버전이 다르면 같은 번호가 아니다(후보 SQL 과 같은 규칙) — VISIBLE 은 남는다.
+    ("contact-blocked-me", PHONES[ME], 1),
+    (VISIBLE, PHONES[ME], 2),  # 반대 방향도 키 버전까지 같아야 한다 — 내 번호는 버전 1 이라 VISIBLE 은 남는다.
+]
+
+
+def _in(value: str) -> list[str]:
+    return value.removeprefix("in.(").removesuffix(")").split(",")
+
+
+def _matches(params: httpx.QueryParams, key: str, value: str) -> bool:
+    """PostgREST 필터 eq. · in. 만 흉내 낸다. 필터가 없는 칸은 통과."""
+    condition = params.get(key)
+    if condition is None:
+        return True
+    return value == condition.removeprefix("eq.") if condition.startswith("eq.") else value in _in(condition)
 
 
 class _FakeCredentials:
@@ -69,6 +92,18 @@ class _World:
             return httpx.Response(200, json=[_profile(params["id"].removeprefix("eq."))])
         if table == "blocks":
             return httpx.Response(200, json=BLOCKS)
+        if table == "profile_private":
+            return httpx.Response(200, json=[
+                {"profile_id": i, "phone_hmac": PHONES.get(i), "phone_hmac_key_version": 1}
+                for i in _in(params["profile_id"])
+            ])
+        if table == "contact_blocks":
+            return httpx.Response(200, json=[
+                {"owner_id": owner, "contact_hmac": phone, "key_version": version}
+                for owner, phone, version in CONTACT_BLOCKS
+                if _matches(params, "owner_id", owner) and _matches(params, "contact_hmac", phone)
+                and _matches(params, "key_version", str(version))
+            ])
         if table == "daily_cards":
             if "id" in params:
                 return httpx.Response(200, json=[self._card(params["id"].removeprefix("eq.card-"))])
@@ -195,4 +230,7 @@ def test_blocks_are_read_once_per_request_not_per_card(world):
     TestClient(app).get("/cards/today", headers=AUTH)
 
     assert seen.count("/rest/v1/blocks") == 1
+    # 지인 차단은 번호 한 번 + 방향마다 한 번.
+    assert seen.count("/rest/v1/profile_private") == 1
+    assert seen.count("/rest/v1/contact_blocks") == 2
 

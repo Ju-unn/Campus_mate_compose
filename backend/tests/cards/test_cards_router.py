@@ -181,6 +181,8 @@ def test_accept_notifies_the_target():
             return httpx.Response(200, json=[{"token": "tok"}])
         if "/rest/v1/blocks" in url:
             return httpx.Response(200, json=[])  # 조각 6 차단 조회 — 아래 기본값(insert 모양)을 받지 않게
+        if "/rest/v1/profile_private" in url:
+            return httpx.Response(200, json=[])  # 지인 차단 번호 조회(결정 8 ②) — 번호가 없으면 더 묻지 않는다
         if "/rest/v1/notification_settings" in url:
             return httpx.Response(200, json=[{"acceptance_received": True, "quiet_hours": False}])
         if "/rest/v1/profiles" in url:
@@ -210,6 +212,8 @@ def test_reject_notifies_nobody():
             return httpx.Response(200, json=[{"token": "tok"}])
         if "/rest/v1/blocks" in url:
             return httpx.Response(200, json=[])  # 조각 6 차단 조회 — 아래 기본값(insert 모양)을 받지 않게
+        if "/rest/v1/profile_private" in url:
+            return httpx.Response(200, json=[])  # 지인 차단 번호 조회(결정 8 ②) — 번호가 없으면 더 묻지 않는다
         return httpx.Response(201, json=[{"id": "x"}])
 
     response = _wire(handler).post("/cards/card-1/decision", headers=AUTH_HEADERS,
