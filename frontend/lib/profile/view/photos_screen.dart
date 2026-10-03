@@ -9,7 +9,6 @@ import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/profile/view/photo_tiles.dart';
-import 'package:campus_mate/profile/viewmodel/photos_ui_state.dart';
 import 'package:campus_mate/profile/viewmodel/photos_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -97,7 +96,7 @@ class _PhotosScreenState extends ConsumerState<PhotosScreen> {
                         style: AppTypography.body.copyWith(color: AppColors.body, height: 1.6),
                       ),
                       const SizedBox(height: AppSpacing.xl),
-                      _PhotoGrid(state: state, viewModel: viewModel),
+                      PhotoSlotGrid(state: state, viewModel: viewModel, columnGap: AppSpacing.sm),
                       const SizedBox(height: AppSpacing.md),
                       Text(
                         '갤러리에서 여러 장을 한 번에 고를 수 있어요. 최소 2장이 필요해요.',
@@ -136,45 +135,6 @@ class _PhotosScreenState extends ConsumerState<PhotosScreen> {
           ),
         ),
       ),
-    );
-  }
-}
-
-/// 2×2 네 칸이 늘 보인다. 빈칸은 모두 "사진 추가" 칸이다.
-class _PhotoGrid extends StatelessWidget {
-  const _PhotoGrid({required this.state, required this.viewModel});
-
-  final PhotosUiState state;
-  final PhotosViewModel viewModel;
-
-  @override
-  Widget build(BuildContext context) {
-    Widget slot(int index) {
-      if (index < state.photos.length) {
-        return DraggablePhotoTile(index: index, state: state, viewModel: viewModel);
-      }
-      // 살펴보는 중인 사진은 아직 칸에 없다 — 들어올 자리에서 기다리는 표시를 보여준다.
-      if (state.isCheckingPhotos && index == state.photos.length) {
-        return const CheckingTile();
-      }
-      return AddPhotoTile(onTap: viewModel.addPhoto);
-    }
-    return Column(
-      children: [
-        for (var row = 0; row < 2; row++) ...[
-          if (row > 0) const SizedBox(height: AppSpacing.sm),
-          SizedBox(
-            height: 158,
-            child: Row(
-              children: [
-                Expanded(child: slot(row * 2)),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(child: slot(row * 2 + 1)),
-              ],
-            ),
-          ),
-        ],
-      ],
     );
   }
 }

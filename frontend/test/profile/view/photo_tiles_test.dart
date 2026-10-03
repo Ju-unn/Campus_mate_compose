@@ -63,7 +63,7 @@ void main() {
     expect(find.byIcon(AppIcons.plus), findsOneWidget);
   });
 
-  group('PhotoSlotGrid — 2×2 네 칸 배치(15-7, 04-2 도 옮겨 올 자리)', () {
+  group('PhotoSlotGrid — 2×2 네 칸 배치(04-2 · 15-7)', () {
     // 파일은 읽지 않는다 — 배치만 본다(그림은 아직 오는 중이어도 칸 크기는 같다).
     SelectedPhoto photo(String name) => SelectedPhoto(File('missing/$name.png'));
 
