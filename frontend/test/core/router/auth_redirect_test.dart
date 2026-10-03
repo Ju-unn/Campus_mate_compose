@@ -282,4 +282,14 @@ void main() {
       expect(redirect.resolve(AppRoutes.accountSuspended), AppRoutes.login);
     });
   });
+
+  test('탈퇴 · 로그인 만료면 제자리 — 로그아웃이 로그인 화면으로 보내기 전에 관문 화면(02-c)으로 튀지 않는다', () {
+    // 정지 화면에서 탈퇴하면 상태가 바뀌어 라우터가 다시 돈다. 게이트 기본값(약관 미동의)으로 떨어지면 안 된다.
+    for (final status in [AccountStatus.withdrawn, AccountStatus.expired]) {
+      final redirect = AuthRedirect(true, VerificationGate.needsConsent, OnboardingStep.basicInfo, accountStatus: status);
+
+      expect(redirect.resolve(AppRoutes.accountSuspended), isNull, reason: '$status');
+      expect(redirect.resolve(AppRoutes.home), isNull, reason: '$status');
+    }
+  });
 }

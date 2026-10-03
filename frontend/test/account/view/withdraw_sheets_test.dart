@@ -23,7 +23,7 @@ void main() {
   late ProviderContainer container;
 
   /// 설정 화면 대신 버튼 하나로 16c 를 연다. pen 프레임과 같은 360×780.
-  Future<void> openSheets(WidgetTester tester) async {
+  Future<void> openSheets(WidgetTester tester, {Future<void> Function(BuildContext) open = showWithdrawSheets}) async {
     tester.view.physicalSize = const Size(360, 780);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -42,7 +42,7 @@ void main() {
         child: MaterialApp(
           home: Scaffold(
             body: Builder(
-              builder: (context) => TextButton(onPressed: () => showWithdrawSheets(context), child: const Text('열기')),
+              builder: (context) => TextButton(onPressed: () => open(context), child: const Text('열기')),
             ),
           ),
         ),
@@ -220,6 +220,69 @@ void main() {
       expect(find.byType(WithdrawFinalSheet), findsNothing);
       expect(account.withdrawCalls, 0);
     });
+  });
+
+  group('정지 중 탈퇴 시트(pen XHGTs)', () {
+    Future<void> openSuspended(WidgetTester tester) => openSheets(tester, open: showSuspendedWithdrawSheet);
+
+    testWidgets('s7M9MC 틀에 제목 · 경고 문구만 다르다(대장 10-03)', (tester) async {
+      await openSuspended(tester);
+
+      for (final text in [
+        '정지 중에 탈퇴할까요?',
+        '프로필, 매칭 기록, 대화를 모두 영구적으로 삭제합니다. 이 작업은 취소할 수 없어요.',
+        '정지 중에 탈퇴하면 다시 가입할 수 없어요',
+        '정말 영구 삭제',
+        '취소',
+      ]) {
+        expect(inFinal(find.text(text)), findsOneWidget, reason: text);
+      }
+      expect(find.text('재가입은 탈퇴 후 2개월이 지나야 가능해요.'), findsNothing);
+      final badge = find.ancestor(
+        of: find.text('정지 중에 탈퇴하면 다시 가입할 수 없어요'),
+        matching: find.byWidgetPredicate(
+          (widget) => widget is Container && (widget.decoration as BoxDecoration?)?.color == AppColors.errorWash,
+        ),
+      );
+      expect(find.descendant(of: badge, matching: find.byIcon(AppIcons.alertTriangle)), findsOneWidget);
+    });
+
+    testWidgets('정말 영구 삭제는 일반 탈퇴와 같은 error 채움(dangerStrong) — 위험 무게를 같게(대장 10-03)', (tester) async {
+      await openSuspended(tester);
+
+      final button = tester.widget<AppButton>(inFinal(find.byType(AppButton)));
+      expect(button.label, '정말 영구 삭제');
+      expect(button.variant, AppButtonVariant.dangerStrong);
+    });
+
+    testWidgets('정말 영구 삭제 한 번이 곧 탈퇴다', (tester) async {
+      await openSuspended(tester);
+
+      await tester.tap(inFinal(find.text('정말 영구 삭제')));
+      await tester.pumpAndSettle();
+
+      expect(account.withdrawCalls, 1);
+      expect(container.read(accountStatusListenableProvider).value, AccountStatus.withdrawn);
+    });
+
+    for (final scale in [1.3, 2.0]) {
+      testWidgets('배율 $scale 에서 넘치거나 잘리는 글자가 없다', (tester) async {
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await openSuspended(tester);
+
+        expect(tester.takeException(), isNull);
+        expect(
+          [
+            for (final element in find.byType(RichText).evaluate())
+              if (element.renderObject case final RenderParagraph p
+                  when p.getMaxIntrinsicHeight(p.size.width) > p.size.height + 0.5)
+                p.text.toPlainText(),
+          ],
+          isEmpty,
+        );
+      });
+    }
   });
 
   // DESIGN §11.2 — 시스템 글꼴 확대. 넘침(Flex 오류)과 잘림(고정 상자, 오류 없음)을 따로 본다.

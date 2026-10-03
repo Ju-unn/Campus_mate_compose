@@ -19,7 +19,8 @@ class AccountStatusListenable extends ChangeNotifier {
   /// [ApiClient] 의 모든 실패가 여기로 온다. 정지·탈퇴·로그인 만료가 아니면 아무것도 하지 않는다.
   void observe(Failure failure) {
     switch (failure) {
-      case SuspendedFailure():
+      // 정지 중 탈퇴 직후 늦게 돌아온 403 이 탈퇴를 정지로 되돌리면 로그아웃 대신 정지 화면에 남는다.
+      case SuspendedFailure() when _status != AccountStatus.withdrawn:
         _set(AccountStatus.suspended);
       case WithdrawnFailure():
         _set(AccountStatus.withdrawn);

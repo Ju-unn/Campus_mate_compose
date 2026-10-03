@@ -1,9 +1,11 @@
 import 'dart:async';
 
+import 'package:campus_mate/account/view/withdraw_sheets.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/core/auth/sign_out.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
@@ -15,8 +17,8 @@ const String supportEmail = 'appmailerl4538@gmail.com'; // 2026-09-26 사용자 
 /// pen 프레임 `e7QaDh` 의 요소 사이 간격 20. 간격 토큰(md 16 · lg 24) 사이 값이다.
 const double _gap = 20;
 
-/// 정지 안내(pen `e7QaDh`). 정지된 계정은 어느 화면에서든 라우터가 여기로 보낸다.
-/// 앱바 · 하단 내비가 없다 — 할 수 있는 일은 로그아웃뿐이다.
+/// 정지 안내(pen `HG0d7`, 옛 `e7QaDh` 에 탈퇴하기 한 줄). 정지된 계정은 어느 화면에서든 라우터가 여기로 보낸다.
+/// 앱바 · 하단 내비가 없다 — 할 수 있는 일은 로그아웃과 탈퇴(A5)뿐이다.
 /// 문의 메일은 글자로만 보인다 — 메일 앱 열기(url_launcher)는 새 의존성이라 넣지 않았다.
 class AccountSuspendedScreen extends ConsumerWidget {
   const AccountSuspendedScreen({super.key});
@@ -34,6 +36,19 @@ class AccountSuspendedScreen extends ConsumerWidget {
               const Expanded(child: SingleChildScrollView(child: _SuspendedMessage())),
               const SizedBox(height: _gap),
               AppButton(label: '로그아웃', onPressed: () => unawaited(ref.read(signOutProvider)())),
+              const SizedBox(height: _gap),
+              // pen `r3KNbz` 312×44, 모서리 14, 14/700 muted, 밑줄 없음.
+              TextButton(
+                onPressed: () => showSuspendedWithdrawSheet(context),
+                style: TextButton.styleFrom(
+                  // 44 는 pen 의 target.compact — 기본 48 터치 여백을 붙이지 않는다.
+                  minimumSize: const Size(double.infinity, 44),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.button)),
+                  foregroundColor: AppColors.muted,
+                ),
+                child: Text('탈퇴하기', style: AppTypography.button.copyWith(color: AppColors.muted, fontSize: 14)),
+              ),
             ],
           ),
         ),

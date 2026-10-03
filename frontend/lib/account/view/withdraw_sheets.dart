@@ -22,6 +22,10 @@ Future<void> showWithdrawSheets(BuildContext context) async {
   await showSafetySheet<void>(context, (_) => const WithdrawFinalSheet());
 }
 
+/// 14f-1 정지 중 탈퇴(pen `XHGTs`). 정지 중엔 일시중지가 뜻이 없어 1차 시트 없이 최종 시트 한 장이다(A5 · 대장 10-03).
+Future<void> showSuspendedWithdrawSheet(BuildContext context) =>
+    showSafetySheet<void>(context, (_) => const WithdrawFinalSheet.suspended());
+
 /// 1차 시트(pen `t4KbA`). 탈퇴보다 먼저 매칭 일시중지를 권한다(설계 §2.6 — 재가입 2개월 제한).
 class WithdrawFirstSheet extends ConsumerWidget {
   const WithdrawFirstSheet({super.key});
@@ -59,8 +63,19 @@ class WithdrawFirstSheet extends ConsumerWidget {
 }
 
 /// 최종 시트(pen `s7M9MC`). "정말 영구 삭제" 한 번이 곧 탈퇴다.
+/// [WithdrawFinalSheet.suspended] 는 제목 · 경고만 다른 14f-1(pen `XHGTs`)이다 — 본문 · 버튼은 같은 위험 무게로 둔다(대장 10-03).
 class WithdrawFinalSheet extends ConsumerWidget {
-  const WithdrawFinalSheet({super.key});
+  const WithdrawFinalSheet({super.key})
+      : _title = '정말 삭제할까요?',
+        _warning = '재가입은 탈퇴 후 2개월이 지나야 가능해요.';
+
+  /// 정지 중 탈퇴는 재가입 제한이 무기한이다(서버 `withdraw_account`).
+  const WithdrawFinalSheet.suspended({super.key})
+      : _title = '정지 중에 탈퇴할까요?',
+        _warning = '정지 중에 탈퇴하면 다시 가입할 수 없어요';
+
+  final String _title;
+  final String _warning;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -68,12 +83,12 @@ class WithdrawFinalSheet extends ConsumerWidget {
     return _WithdrawSheetFrame(
       gap: AppSpacing.md,
       children: [
-        Text('정말 삭제할까요?', style: AppTypography.headline.copyWith(color: AppColors.ink, height: 1.5)),
+        Text(_title, style: AppTypography.headline.copyWith(color: AppColors.ink, height: 1.5)),
         Text(
           '프로필, 매칭 기록, 대화를 모두 영구적으로 삭제합니다. 이 작업은 취소할 수 없어요.',
           style: AppTypography.body.copyWith(color: AppColors.body, height: 1.5),
         ),
-        const _RejoinWarning(),
+        _RejoinWarning(_warning),
         // pen 에 없는 상태 — 탈퇴하지 못했을 때만 한 줄.
         if (state.errorMessage != null)
           Text(state.errorMessage!, style: AppTypography.caption.copyWith(color: AppColors.error)),
@@ -246,7 +261,9 @@ class _DeletedItems extends StatelessWidget {
 /// 재가입 안내 배지(pen `x36KQ`). padding 14, 간격 10, 모서리 14. 채움은 errorWash(#FAEFEC, 대장 결정 1 —
 /// pen 은 #FFF3F0 이었고 묶음 5 에서 #FAEFEC 로 고쳤다. 글자 #C13515 대비 4.9).
 class _RejoinWarning extends StatelessWidget {
-  const _RejoinWarning();
+  const _RejoinWarning(this.text);
+
+  final String text;
 
   @override
   Widget build(BuildContext context) {
@@ -262,7 +279,7 @@ class _RejoinWarning extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              '재가입은 탈퇴 후 2개월이 지나야 가능해요.',
+              text,
               style: AppTypography.labelSmall.copyWith(color: AppColors.error, height: 1.5),
             ),
           ),
