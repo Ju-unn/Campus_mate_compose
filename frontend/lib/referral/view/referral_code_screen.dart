@@ -5,6 +5,7 @@ import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/friend_review/view/friend_review_compose_sheet.dart';
 import 'package:campus_mate/referral/viewmodel/referral_code_ui_state.dart';
 import 'package:campus_mate/referral/viewmodel/referral_code_view_model.dart';
 import 'package:flutter/material.dart';
@@ -39,13 +40,15 @@ class ReferralCodeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    ref.listen(referralCodeViewModelProvider.select((s) => s.referrerId), (previous, next) {
+    ref.listen(referralCodeViewModelProvider.select((s) => s.referrerId), (previous, next) async {
       if (next == null) {
         return;
       }
-      // 20b 자리(채팅탭 feat/friend-review): 지인 리뷰 시트 showFriendReviewComposeSheet(context, revieweeId: next) 를
-      // 여기서 띄우고 닫힌 뒤 20d 로 간다. 이번에는 바로 20d(2026-09-28 대장 D1). 성공 토스트는 없다(대장 결정).
-      context.go(AppRoutes.onboardingAcquisition);
+      // 코드를 준 친구에게 리뷰(20b)를 남길 수 있게 띄우고, 남기든 닫든 20d 로 간다(결함 A3). 성공 토스트는 없다(대장 결정).
+      await showFriendReviewComposeSheet(context, next);
+      if (context.mounted) {
+        context.go(AppRoutes.onboardingAcquisition);
+      }
     });
     final state = ref.watch(referralCodeViewModelProvider);
     final viewModel = ref.read(referralCodeViewModelProvider.notifier);
