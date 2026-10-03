@@ -20,6 +20,7 @@ import 'package:campus_mate/chat/view/trust_reveal_bubble.dart';
 import 'package:campus_mate/chat/viewmodel/chat_room_ui_state.dart';
 import 'package:campus_mate/chat/viewmodel/chat_room_view_model.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
+import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -179,7 +180,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
             if ((_safetyError ?? state.errorMessage) != null)
               _ErrorLine(message: (_safetyError ?? state.errorMessage)!),
             if (state.isPartnerGone)
-              const _PartnerGoneNotice()
+              _PartnerGoneNotice(onLeave: _leave)
             else
               ChatInputBar(isSending: state.isSending, onSend: _viewModel.send),
           ],
@@ -518,23 +519,42 @@ class _MessageList extends StatelessWidget {
   }
 }
 
-/// 상대가 나간 방의 입력 바 자리(결정 7, pen 없음 — Notice 스타일 한 줄).
-/// **비활성 입력칸을 남겨 두지 않는다.** 눌러도 아무 일 없는 칸이 제일 나쁘다.
+/// 상대가 나간 방의 입력 바 자리(결정 7 · 10, pen 14g `z5ULI` `EyXt8`): 안내 위, "채팅방 나가기" 아래.
+/// **비활성 입력칸을 남겨 두지 않는다.** 눌러도 아무 일 없는 칸이 제일 나쁘다. 나가기는 ⋯ 메뉴와 같은 길이다.
 class _PartnerGoneNotice extends StatelessWidget {
-  const _PartnerGoneNotice();
+  const _PartnerGoneNotice({required this.onLeave});
+
+  final VoidCallback onLeave;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
+    // pen EyXt8 #F7F7F7 · 여백 [16,16,28,16] · 간격 12.
+    return ColoredBox(
       color: AppColors.surfaceSoft,
-      padding: const EdgeInsets.all(AppSpacing.md),
       child: SafeArea(
         top: false,
-        child: Text(
-          '상대가 채팅방을 나가 더 이상 메시지를 보낼 수 없어요.',
-          textAlign: TextAlign.center,
-          style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            spacing: AppSpacing.sm,
+            children: [
+              // pen cCeY1 #FFF0F2 r12 여백 14 — 문구 14 / 보통 / #3F3F3F / 1.5.
+              DecoratedBox(
+                decoration: BoxDecoration(color: AppColors.primaryWash, borderRadius: BorderRadius.circular(12)),
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Text(
+                    '상대가 채팅방을 나가 더 이상 메시지를 보낼 수 없어요.',
+                    style: AppTypography.bodySmall.copyWith(color: AppColors.body, height: 1.5),
+                  ),
+                ),
+              ),
+              // pen eGGuN 52 · #FF385C · r14 · 16/700 흰 = AppButton 기본.
+              AppButton(label: '채팅방 나가기', onPressed: onLeave),
+            ],
+          ),
         ),
       ),
     );
