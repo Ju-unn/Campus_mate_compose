@@ -1,4 +1,5 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -65,8 +66,8 @@ class ContactPickerScreen extends ConsumerWidget {
       contact.numbers.isEmpty ? '' : maskPhoneNumber(contact.numbers.first);
 }
 
-/// 검색칸(pen SearchField `y7Qlw` 인스턴스 `ARlR7`): 부모 여백 [0,24,12,24], 44 높이, surface-soft, 모서리 8, 테두리 없음,
-/// 여백 [0,12], 간격 8, 돋보기 18 · "이름 검색" 14/400 둘 다 disabled 색.
+/// 검색칸(pen SearchField `y7Qlw` 인스턴스 `ARlR7`): 부모 여백 [0,24,12,24], 48 높이, surface-soft, 모서리 12, 테두리 없음,
+/// 여백 [0,16], 간격 8, 돋보기 3D 24(`Tvmq5`) · "이름 검색" 14/400 muted(디자인 공통 10-03).
 class _SearchField extends StatelessWidget {
   const _SearchField({required this.onChanged});
 
@@ -74,7 +75,7 @@ class _SearchField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hintStyle = AppTypography.bodySmall.copyWith(color: AppColors.disabled);
+    final hintStyle = AppTypography.bodySmall.copyWith(color: AppColors.muted);
     return Padding(
       padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.sm),
       child: TextField(
@@ -88,17 +89,18 @@ class _SearchField extends StatelessWidget {
           fillColor: AppColors.surfaceSoft,
           isDense: true,
           // 높이는 최소값만 건다 — 글자를 키우면 칸이 따라 커진다.
-          constraints: const BoxConstraints(minHeight: 44),
-          // 세로 여백은 두지 않는다 — 높이는 위 최소값 44 가 정하고, 테두리가 outline 이라 글자는 가운데에 선다.
-          contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+          constraints: const BoxConstraints(minHeight: 48),
+          // 세로 여백은 두지 않는다 — 높이는 위 최소값 48 이 정하고, 테두리가 outline 이라 글자는 가운데에 선다.
+          contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
           prefixIcon: const Padding(
             // pen 간격 8 = 이 여백 4 + Material 3 가 prefix 뒤에 저절로 붙이는 4(input_decorator `prefixToInputGap`).
-            padding: EdgeInsets.only(left: AppSpacing.sm, right: AppSpacing.xxs),
-            child: Icon(AppIcons.search, size: 18, color: AppColors.disabled),
+            padding: EdgeInsets.only(left: AppSpacing.md, right: AppSpacing.xxs),
+            // 그림은 Icon 과 달리 스스로 가운데 서지 않는다 — 칸 높이 48 로 늘어나지 않게 세운다.
+            child: Center(widthFactor: 1, child: Icon3d(AppIcon3d.search, size: 24)),
           ),
-          prefixIconConstraints: const BoxConstraints(minHeight: 44),
+          prefixIconConstraints: const BoxConstraints(minHeight: 48),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(AppRadius.sm),
+            borderRadius: BorderRadius.circular(AppRadius.input),
             borderSide: BorderSide.none,
           ),
         ),
@@ -107,8 +109,8 @@ class _SearchField extends StatelessWidget {
   }
 }
 
-/// 하단 고정(pen Bottom Bar CTA `bzBZZ`): 여백 [16,24,28,24], 간격 8, 캔버스, 위 선 hairline 1.
-/// 안내 `mqa0S` 12/400 muted 1.5 → 버튼 `k4MqlT`(Button 마스터 `HE8FZ` = AppButton 56 · 모서리 16).
+/// 하단 고정(pen Bottom Bar CTA `bzBZZ` · 마스터 `A8INC6`): 여백 [8,24,8,24], 간격 8, 캔버스, 위 선 없음(투명).
+/// 안내 `mqa0S` 12/400 muted 1.5 → 버튼 `k4MqlT`(Button 마스터 `HE8FZ` = AppButton).
 class _BottomBar extends StatelessWidget {
   const _BottomBar({required this.state, required this.onSubmit});
 
@@ -117,16 +119,12 @@ class _BottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.canvas,
-        border: Border(top: BorderSide(color: AppColors.hairline)),
-      ),
+    return ColoredBox(
+      color: AppColors.canvas,
       child: SafeArea(
         top: false,
         child: Padding(
-          // pen 아래 여백 28 은 간격 토큰(lg 24 · xl 32) 사이 값이다.
-          padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 28),
+          padding: AppSpacing.bottomCta,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
