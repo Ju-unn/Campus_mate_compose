@@ -212,6 +212,8 @@ void main() {
     expect(tester.getRect(panel), const Rect.fromLTWH(16, 414, 328, 92));
     final button = find.ancestor(of: find.text('친구에게 초대 링크 보내기'), matching: find.byType(ElevatedButton));
     expect(tester.getSize(button), const Size(328, 52));
+    // 버튼 글자는 button 16/700(디자인 공통 1003).
+    expect(tester.widget<Text>(find.text('친구에게 초대 링크 보내기')).style!.fontSize, 16);
     expect(tester.getTopLeft(find.byType(AppBottomNav)).dy - tester.getBottomLeft(button).dy, 24);
   });
 

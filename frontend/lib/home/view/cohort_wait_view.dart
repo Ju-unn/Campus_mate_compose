@@ -285,7 +285,7 @@ class _InviteButton extends StatelessWidget {
       child: Text(
         '친구에게 초대 링크 보내기',
         textAlign: TextAlign.center,
-        style: AppTypography.label.copyWith(color: AppColors.onPrimary),
+        style: AppTypography.button.copyWith(color: AppColors.onPrimary),
       ),
     );
   }
