@@ -33,6 +33,22 @@ void main() {
     expect(notified, 1);
   });
 
+  test('observe(SessionRejectedFailure) → expired (A11)', () {
+    listenable.observe(const SessionRejectedFailure());
+
+    expect(listenable.value, AccountStatus.expired);
+    expect(notified, 1);
+  });
+
+  test('탈퇴 뒤에 온 만료는 탈퇴를 덮지 않는다 — 탈퇴하면 서버가 모든 로그인을 끊어 뒤따른 요청이 401 이다', () {
+    listenable
+      ..markWithdrawn()
+      ..observe(const SessionRejectedFailure());
+
+    expect(listenable.value, AccountStatus.withdrawn);
+    expect(notified, 1);
+  });
+
   test('observe(other failure) does nothing', () {
     for (final failure in <Failure>[
       const NetworkFailure(),

@@ -12,6 +12,8 @@ class MockGoTrueClient extends Mock implements GoTrueClient {}
 
 class MockSession extends Mock implements Session {}
 
+class MockUser extends Mock implements User {}
+
 void main() {
   http.Request buildRequest() {
     return http.Request('GET', Uri.parse('https://api.test/ping'));
@@ -124,14 +126,14 @@ void main() {
       expect(failure!.toDisplayMessage(), '탈퇴한 계정이에요');
     });
 
-    test('401 without the header keeps the old classification', () async {
-      // 지금 동작을 그대로 고정한다 — 헤더 없는 401(세션 만료)은 서버 detail 을 담은 ServerRejectedFailure 다.
+    test('401 without the header → SessionRejectedFailure (A11)', () async {
+      // 서버가 이 로그인을 받지 않는다(계정 삭제 · 세션 끊김 · 토큰 만료). 문구는 서버 401 과 같다.
       final client = MockClient((request) async => rejected(401, '세션이 만료됐어요, 다시 로그인해 주세요'));
 
       final result = await sendHttpRequest(client, buildRequest());
 
       final failure = result.when(onSuccess: (_) => null, onFailure: (f) => f);
-      expect(failure, isA<ServerRejectedFailure>());
+      expect(failure, isA<SessionRejectedFailure>());
       expect(failure!.toDisplayMessage(), '세션이 만료됐어요, 다시 로그인해 주세요');
     });
 
@@ -196,6 +198,99 @@ void main() {
     });
 
     expect(built, isFalse);
-    expect(result.when(onSuccess: (_) => null, onFailure: (f) => f), isA<SessionExpiredFailure>());
+    final failure = result.when(onSuccess: (_) => null, onFailure: (f) => f);
+    expect(failure, isA<SessionExpiredFailure>());
+    // 원래 로그인 상태가 아니다 — 로그인 화면으로 보내는 신호(SessionRejectedFailure)가 아니다.
+    expect(failure, isNot(isA<SessionRejectedFailure>()));
+  });
+
+  group('서버 401 이면 토큰을 새로 받아 한 번만 다시 보낸다(A11 · E-EDGE-09)', () {
+    late MockGoTrueClient auth;
+    late List<String?> sentTokens;
+
+    Session sessionWith(String token) {
+      final session = MockSession();
+      when(() => session.accessToken).thenReturn(token);
+      when(() => session.user).thenReturn(MockUser());
+      return session;
+    }
+
+    http.Response unauthorized() => http.Response(
+      jsonEncode({'detail': '세션이 만료됐어요, 다시 로그인해 주세요'}),
+      401,
+      headers: {'content-type': 'application/json; charset=utf-8'},
+    );
+
+    Future<Failure?> send(http.Response Function(String? token) respond) async {
+      final client = MockClient((request) async {
+        final token = request.headers['Authorization'];
+        sentTokens.add(token);
+        return respond(token);
+      });
+      final result = await sendAuthorizedRequest(
+        client,
+        auth,
+        (accessToken) => buildRequest()..headers['Authorization'] = 'Bearer $accessToken',
+      );
+      return result.when(onSuccess: (_) => null, onFailure: (f) => f);
+    }
+
+    setUp(() {
+      auth = MockGoTrueClient();
+      sentTokens = [];
+      final old = sessionWith('old');
+      when(() => auth.currentSession).thenReturn(old);
+    });
+
+    test('들고 있던 토큰만 만료였다면 새 토큰으로 다시 보내 성공한다', () async {
+      final fresh = sessionWith('new');
+      when(() => auth.refreshSession()).thenAnswer((_) async => AuthResponse(session: fresh));
+
+      final failure = await send((token) => token == 'Bearer new' ? http.Response('ok', 200) : unauthorized());
+
+      expect(failure, isNull);
+      expect(sentTokens, ['Bearer old', 'Bearer new']);
+    });
+
+    test('토큰을 새로 받지 못하면 SessionRejectedFailure, 다시 보내지 않는다', () async {
+      when(() => auth.refreshSession()).thenThrow(const AuthException('Invalid Refresh Token'));
+
+      final failure = await send((_) => unauthorized());
+
+      expect(failure, isA<SessionRejectedFailure>());
+      expect(sentTokens, ['Bearer old']);
+    });
+
+    test('새 토큰으로도 401 이면 SessionRejectedFailure, 갱신은 한 번뿐', () async {
+      final fresh = sessionWith('new');
+      when(() => auth.refreshSession()).thenAnswer((_) async => AuthResponse(session: fresh));
+
+      final failure = await send((_) => unauthorized());
+
+      expect(failure, isA<SessionRejectedFailure>());
+      expect(sentTokens, ['Bearer old', 'Bearer new']);
+      verify(() => auth.refreshSession()).called(1);
+    });
+
+    test('갱신이 네트워크로 실패하면 로그아웃 신호가 아니라 NetworkFailure', () async {
+      when(() => auth.refreshSession()).thenThrow(AuthRetryableFetchException());
+
+      final failure = await send((_) => unauthorized());
+
+      expect(failure, isA<NetworkFailure>());
+    });
+
+    test('401 이 아니면 갱신하지 않는다', () async {
+      final failure = await send(
+        (_) => http.Response(
+          jsonEncode({'detail': '학생 인증을 먼저 마쳐 주세요'}),
+          403,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        ),
+      );
+
+      expect(failure, isA<ServerRejectedFailure>());
+      verifyNever(() => auth.refreshSession());
+    });
   });
 }

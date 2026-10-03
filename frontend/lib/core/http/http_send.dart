@@ -26,6 +26,9 @@ Result<http.Response> _classify(http.Response response) {
   if (accountStatus != null) {
     return FailureResult(accountStatus);
   }
+  if (response.statusCode == 401) {
+    return const FailureResult(SessionRejectedFailure());
+  }
   if (response.statusCode == 429) {
     return const FailureResult(RateLimitedFailure());
   }
@@ -78,5 +81,23 @@ Future<Result<http.Response>> sendAuthorizedRequest(
   if (session == null) {
     return const FailureResult(SessionExpiredFailure());
   }
-  return sendHttpRequest(client, await buildRequest(session.accessToken));
+  final result = await sendHttpRequest(client, await buildRequest(session.accessToken));
+  final rejected = result.when(onSuccess: (_) => false, onFailure: (f) => f is SessionRejectedFailure);
+  if (!rejected) {
+    return result;
+  }
+  // 들고 있던 토큰이 만료만 됐을 수 있다(잠든 사이 · 시계 차이, E-EDGE-09) — 새로 받아 한 번만 다시 보낸다.
+  // 새로 받지 못하면 계정이 없어졌거나 세션이 끊긴 것이다(A11). 네트워크 실패는 로그아웃 이유가 아니다.
+  final String? refreshed;
+  try {
+    refreshed = (await auth.refreshSession()).session?.accessToken;
+  } on AuthRetryableFetchException {
+    return const FailureResult(NetworkFailure());
+  } on AuthException {
+    return const FailureResult(SessionRejectedFailure());
+  }
+  if (refreshed == null) {
+    return const FailureResult(SessionRejectedFailure());
+  }
+  return sendHttpRequest(client, await buildRequest(refreshed));
 }

@@ -21,12 +21,18 @@ abstract final class LoginNotice {
   }
 }
 
-/// main.dart 가 계정 상태 리스너에서 부르는 한 줄. 탈퇴일 때만 알림을 남기고 로그아웃한다.
+/// main.dart 가 계정 상태 리스너에서 부르는 한 줄. 탈퇴 · 로그인 만료일 때만 알림을 남기고 로그아웃한다.
 /// 직접 탈퇴(16c)든 다른 기기에서 탈퇴한 계정(아무 API 401 + withdrawn)이든 이 길 하나다.
+/// 로그인 만료(A11)도 같은 길로 로그인 화면(02)에 간다 — 그 화면이 알림을 띄운다.
 void signOutWhenWithdrawn(AccountStatus status, Future<void> Function() signOut) {
-  if (status != AccountStatus.withdrawn) {
+  final notice = switch (status) {
+    AccountStatus.withdrawn => const WithdrawnFailure(),
+    AccountStatus.expired => const SessionRejectedFailure(),
+    AccountStatus.active || AccountStatus.suspended => null,
+  };
+  if (notice == null) {
     return;
   }
-  LoginNotice.post(const WithdrawnFailure().toDisplayMessage());
+  LoginNotice.post(notice.toDisplayMessage());
   unawaited(signOut());
 }
