@@ -15,13 +15,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// 테스트가 pen 크기를 재는 데 쓰는 자리 표시.
 const Key contactBlockAddKey = ValueKey('contact-block-add');
 
-/// 16b 연락처 차단 관리(pen `fkjEh`, 빈 상태 `Gp5my`). 들어올 때마다 새로 읽는다(뷰모델이 autoDispose).
-class ContactBlockListScreen extends ConsumerWidget {
+/// 16b 연락처 차단 관리(pen `fkjEh`, 빈 상태 `Gp5my`). 틀(앱바)만 여기 있고 본문은 [ContactBlockListBody] 다.
+class ContactBlockListScreen extends StatelessWidget {
   const ContactBlockListScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(contactBlockListViewModelProvider);
+  Widget build(BuildContext context) {
     return Scaffold(
       // pen `K7lDk` 56 — 16f 와 같은 자리(화살표 x8, 제목 x60).
       appBar: AppBar(
@@ -32,19 +31,30 @@ class ContactBlockListScreen extends ConsumerWidget {
             : null,
         title: Text('연락처 차단', style: AppTypography.navTitle),
       ),
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // pen `OFWiR` 68: 버튼 위 8, 아래 16(목록 `ZwbzQ` 가 y124 에서 시작).
-            Padding(
-              padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.xs, AppSpacing.lg, AppSpacing.md),
-              child: _AddButton(onPressed: () => _add(context, ref)),
-            ),
-            Expanded(child: _body(context, ref, state)),
-          ],
+      body: const SafeArea(child: ContactBlockListBody()),
+    );
+  }
+}
+
+/// 16b 의 본문 — 추가 버튼 · 목록 · 빈 상태 · 읽기 실패. 가입 마지막 지인 차단(06-4, 결정 8 ①)도 이것을 그대로 쓴다.
+/// 틀(앱바 · 제목 · 건너뛰기)은 쓰는 쪽 몫이다. 높이가 정해진 자리에 둔다 — 목록이 남은 높이를 채운다.
+/// 들어올 때마다 새로 읽는다(뷰모델이 autoDispose).
+class ContactBlockListBody extends ConsumerWidget {
+  const ContactBlockListBody({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(contactBlockListViewModelProvider);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // pen `OFWiR` 68: 버튼 위 8, 아래 16(목록 `ZwbzQ` 가 y124 에서 시작).
+        Padding(
+          padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.xs, AppSpacing.lg, AppSpacing.md),
+          child: _AddButton(onPressed: () => _add(context, ref)),
         ),
-      ),
+        Expanded(child: _body(context, ref, state)),
+      ],
     );
   }
 

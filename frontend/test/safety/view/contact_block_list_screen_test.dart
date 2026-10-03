@@ -30,7 +30,7 @@ void main() {
     nameStore = FakeContactNameStore({'b1': const ContactLabel(name: '김지은', maskedNumber: '010-****-2841')});
   });
 
-  Future<void> pump(WidgetTester tester, {double scale = 1}) async {
+  Future<void> pump(WidgetTester tester, {double scale = 1, Widget page = const ContactBlockListScreen()}) async {
     tester.view.physicalSize = const Size(360, 780);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -43,7 +43,7 @@ void main() {
     ]);
     addTearDown(container.dispose);
     final router = GoRouter(initialLocation: AppRoutes.contactBlocks, routes: [
-      GoRoute(path: AppRoutes.contactBlocks, builder: (context, state) => const ContactBlockListScreen()),
+      GoRoute(path: AppRoutes.contactBlocks, builder: (context, state) => page),
       GoRoute(path: AppRoutes.contactPicker, builder: (context, state) => const ContactPickerScreen()),
     ]);
     addTearDown(router.dispose);
@@ -219,4 +219,33 @@ void main() {
       });
     }
   }
+
+  group('ContactBlockListBody — 16b 밖 다른 틀에서 쓰는 본문(가입 마지막 06-4, 결정 8 ①)', () {
+    // 틀(앱바 · 제목 · 건너뛰기)은 쓰는 쪽 몫이다. 본문은 높이가 정해진 자리에 둔다(안에서 목록이 남은 높이를 채운다).
+    const framed = Scaffold(body: SafeArea(child: ContactBlockListBody()));
+
+    testWidgets('앱바 없이 추가 버튼 · 목록을 그린다', (tester) async {
+      await pump(tester, page: framed);
+
+      expect(find.text('연락처 차단'), findsNothing);
+      expect(find.byKey(contactBlockAddKey), findsOneWidget);
+      expect(find.text('김지은'), findsOneWidget);
+      expect(find.text('이전에 차단한 연락처'), findsOneWidget);
+    });
+
+    testWidgets('빈 상태도 본문이 그린다', (tester) async {
+      repository.blocks = const Success([]);
+      await pump(tester, page: framed);
+
+      expect(find.text('아직 차단한 연락처가 없어요'), findsOneWidget);
+    });
+
+    testWidgets('읽기 실패면 다시 시도', (tester) async {
+      repository.blocks = const FailureResult(NetworkFailure());
+      await pump(tester, page: framed);
+
+      expect(find.text('네트워크 연결을 확인해 주세요'), findsOneWidget);
+      expect(find.text('다시 시도'), findsOneWidget);
+    });
+  });
 }
