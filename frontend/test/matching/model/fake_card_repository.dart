@@ -18,6 +18,7 @@ class FakeCardRepository implements CardRepository {
   Result<AcceptanceOutcome> acceptanceOutcome = const Success(AcceptanceOutcome(matched: false));
   Result<void> writeResult = const Success(null);
   Result<NotificationPreferences> preferences = const Success(NotificationPreferences());
+  Result<bool> paused = const Success(false);
 
   int fetchTodayCount = 0;
   final List<({String cardId, CardDecision decision})> decisions = [];
@@ -71,6 +72,9 @@ class FakeCardRepository implements CardRepository {
     preferenceUpdates.add((key: key, value: value));
     return writeResult;
   }
+
+  @override
+  Future<Result<bool>> fetchMatchingPaused() async => paused;
 
   @override
   Future<Result<void>> setMatchingPaused(bool paused) async {

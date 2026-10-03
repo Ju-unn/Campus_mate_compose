@@ -142,3 +142,19 @@ def test_pausing_matching_updates_the_profile():
     assert seen[-1].method == "PATCH"
     assert seen[-1].url.params["id"] == f"eq.{PROFILE_ID}"
     assert json.loads(seen[-1].content) == {"matching_paused": True}
+
+
+def test_matching_paused_is_read_from_the_profile():
+    """화면 16 토글은 서버 값으로 그린다 — 안 읽으면 일시중지해 둔 사람도 다시 열 때 "켜짐"으로 보인다(A14)."""
+    handler, seen = _recorder(rows=[{"matching_paused": True}])
+    response = _wire(handler).get("/cards/matching-paused", headers=AUTH_HEADERS)
+
+    assert response.status_code == 200
+    assert response.json() == {"paused": True}
+    assert seen[-1].url.params["id"] == f"eq.{PROFILE_ID}"
+
+
+def test_matching_paused_is_false_without_a_profile_row():
+    body = _wire(_recorder()[0]).get("/cards/matching-paused", headers=AUTH_HEADERS).json()
+
+    assert body == {"paused": False}

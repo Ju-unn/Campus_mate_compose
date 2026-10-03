@@ -260,6 +260,10 @@ class CardRepository(PostgrestRepository):
             "profile_id": str(profile_id), **fields,
         }, prefer="resolution=merge-duplicates")
 
+    async def fetch_matching_paused(self, profile_id: UUID | str) -> bool:
+        rows = await self._rows("profiles", {"id": f"eq.{profile_id}", "select": "matching_paused"})
+        return bool(rows and rows[0].get("matching_paused"))
+
     async def set_matching_paused(self, profile_id: UUID | str, paused: bool) -> None:
         response = await self._patch(
             "profiles",

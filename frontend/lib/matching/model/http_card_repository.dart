@@ -92,6 +92,10 @@ class HttpCardRepository implements CardRepository {
       _api.send('PATCH', '/cards/notification-settings', (_) {}, body: {key: value});
 
   @override
+  Future<Result<bool>> fetchMatchingPaused() => _api.send(
+      'GET', '/cards/matching-paused', (body) => (body as Map<String, dynamic>)['paused'] as bool);
+
+  @override
   Future<Result<void>> setMatchingPaused(bool paused) =>
       _api.send('PATCH', '/cards/matching-paused', (_) {}, body: {'paused': paused});
 }

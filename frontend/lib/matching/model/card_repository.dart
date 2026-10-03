@@ -23,5 +23,6 @@ abstract interface class CardRepository {
   Future<Result<void>> deletePushToken(String token);
   Future<Result<NotificationPreferences>> fetchNotificationPreferences();
   Future<Result<void>> updateNotificationPreference(String key, bool value);
+  Future<Result<bool>> fetchMatchingPaused();
   Future<Result<void>> setMatchingPaused(bool paused);
 }

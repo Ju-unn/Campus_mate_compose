@@ -57,4 +57,33 @@ void main() {
 
     expect(repository.pausedValue, isTrue);
   });
+
+  test('일시중지해 둔 사람은 다시 열어도 서버 값대로 꺼짐이다(A14)', () async {
+    repository.paused = const Success(true);
+
+    await container.read(notificationSettingsViewModelProvider.notifier).refresh();
+
+    expect(container.read(notificationSettingsViewModelProvider).matchingPaused, isTrue);
+  });
+
+  test('일시중지 값을 못 읽으면 안내를 띄운다 — 켜짐으로 아는 척하지 않는다', () async {
+    repository.paused = const FailureResult(NetworkFailure());
+
+    await container.read(notificationSettingsViewModelProvider.notifier).refresh();
+
+    final state = container.read(notificationSettingsViewModelProvider);
+    expect(state.isLoading, isFalse);
+    expect(state.errorMessage, const NetworkFailure().toDisplayMessage());
+  });
+
+  test('알림 설정만 못 읽어도 안내는 남고 일시중지는 서버 값대로다', () async {
+    repository.preferences = const FailureResult(NetworkFailure());
+    repository.paused = const Success(true);
+
+    await container.read(notificationSettingsViewModelProvider.notifier).refresh();
+
+    final state = container.read(notificationSettingsViewModelProvider);
+    expect(state.matchingPaused, isTrue);
+    expect(state.errorMessage, const NetworkFailure().toDisplayMessage());
+  });
 }
