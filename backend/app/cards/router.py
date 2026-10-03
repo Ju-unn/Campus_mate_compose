@@ -114,11 +114,19 @@ def is_active(profile: dict) -> bool:
 
 
 def _hidden_from_cards(other_id: str, profile: dict, blocked: set[str]) -> bool:
-    """상대가 내 카드 화면에서 사라져야 하는가(조각 6) — 차단(어느 방향이든) · 정지 · 탈퇴 · 자동 가림.
+    """상대가 내 카드 화면에서 사라져야 하는가(조각 6) — 차단 · 지인 차단(어느 방향이든) · 정지 · 탈퇴 · 자동 가림.
 
     후보 SQL(PR 1)은 새 카드가 나가는 것을 막고, 여기는 **이미 나간 카드와 받은 수락**을 막는다 —
     차단한 상대의 수락을 눌러 매칭이 생기면 안 된다. 오늘 카드 · 카드 상세 · 결정 · 수락함 · 수락 응답이 같이 쓴다."""
     return other_id in blocked or not is_active(profile) or bool(profile.get("auto_hidden_at"))
+
+
+async def _blocked_among(wiring: _Wiring, others: list[str]) -> set[str]:
+    """_hidden_from_cards 의 `blocked` — 차단한 · 차단당한 사람 전부와, others 중 지인 차단으로 이어진 사람(결정 8 ②:
+    나중에 지인 차단해도 이미 받은 카드 · 수락이 양쪽에서 바로 사라진다). 요청마다 한 번 읽는다.
+    지인 차단은 카드 · 수락에만 건다 — 이미 매칭된 방 · 14c · 지인 리뷰는 일반 차단만 본다."""
+    return await wiring.repo.fetch_block_partner_ids(wiring.profile_id) \
+        | await wiring.repo.fetch_contact_block_partner_ids(wiring.profile_id, others)
 
 
 async def _next_issue_at(repo: CardRepository, profile_id: str, now: datetime) -> str | None:
@@ -139,10 +147,11 @@ async def get_today_cards(wiring: _Wiring = Depends(_wire)) -> dict:
     now = wiring.now
 
     cards = []
-    blocked = await wiring.repo.fetch_block_partner_ids(wiring.profile_id)
+    live = await wiring.repo.fetch_live_cards(wiring.profile_id)
+    blocked = await _blocked_among(wiring, [card["target_id"] for card in live])
     # ponytail: 카드마다 프로필을 읽는 N+1 이다(조각 4 부터). 살아 있는 카드는 몇 장뿐이라 이대로 두고,
     # 수십 장이 되면 target_id in (...) 한 번으로 접는다. 차단은 요청마다 한 번만 읽는다.
-    for card in await wiring.repo.fetch_live_cards(wiring.profile_id):
+    for card in live:
         profile = await wiring.repo.fetch_card_profile(card["target_id"])
         if _hidden_from_cards(card["target_id"], profile, blocked):
             continue
@@ -180,8 +189,7 @@ async def decide_card(card_id: str, body: DecisionRequest,
     if card is None or card["owner_id"] != wiring.profile_id:
         raise HTTPException(status_code=404, detail=errors.CARD_NOT_FOUND)
     target = await wiring.repo.fetch_card_profile(card["target_id"])
-    if _hidden_from_cards(card["target_id"], target,
-                          await wiring.repo.fetch_block_partner_ids(wiring.profile_id)):
+    if _hidden_from_cards(card["target_id"], target, await _blocked_among(wiring, [card["target_id"]])):
         raise HTTPException(status_code=404, detail=errors.CARD_NOT_FOUND)
     if card["card_decisions"]:
         raise HTTPException(status_code=409, detail=errors.CARD_ALREADY_DECIDED)
@@ -205,12 +213,11 @@ async def get_acceptances(wiring: _Wiring = Depends(_wire)) -> dict:
     now = wiring.now
 
     acceptances = []
-    blocked = await wiring.repo.fetch_block_partner_ids(wiring.profile_id)
+    pending = await wiring.repo.fetch_pending_acceptances(wiring.profile_id, ACCEPTANCE_TTL_DAYS, now=now)
+    blocked = await _blocked_among(wiring, [row["daily_cards"]["owner_id"] for row in pending])
     # 이미 매칭된 상대는 답할 게 없다(결정 11) — 프로필을 읽기 전에 거른다.
     matched = await wiring.repo.fetch_match_partner_ids(wiring.profile_id)
-    for row in await wiring.repo.fetch_pending_acceptances(
-        wiring.profile_id, ACCEPTANCE_TTL_DAYS, now=now
-    ):
+    for row in pending:
         accepter_id = row["daily_cards"]["owner_id"]
         if accepter_id in matched:
             continue
@@ -239,8 +246,7 @@ async def respond_to_acceptance(card_id: str, body: DecisionRequest,
         raise HTTPException(status_code=404, detail=errors.ACCEPTANCE_NOT_FOUND)
     # 이미 받은 수락이라도 그사이 차단 · 정지 · 가림이 됐으면 매칭을 만들지 않는다(통합대장 결정).
     accepter = await wiring.repo.fetch_card_profile(card["owner_id"])
-    if _hidden_from_cards(card["owner_id"], accepter,
-                          await wiring.repo.fetch_block_partner_ids(wiring.profile_id)):
+    if _hidden_from_cards(card["owner_id"], accepter, await _blocked_among(wiring, [card["owner_id"]])):
         raise HTTPException(status_code=404, detail=errors.ACCEPTANCE_NOT_FOUND)
     if card["acceptance_responses"]:
         raise HTTPException(status_code=409, detail=errors.ACCEPTANCE_ALREADY_ANSWERED)
@@ -334,8 +340,7 @@ async def get_card_detail(card_id: str,
         raise HTTPException(status_code=404, detail=errors.CARD_NOT_FOUND)
 
     profile = await wiring.repo.fetch_card_detail_profile(card["target_id"])
-    if _hidden_from_cards(card["target_id"], profile,
-                          await wiring.repo.fetch_block_partner_ids(wiring.profile_id)):
+    if _hidden_from_cards(card["target_id"], profile, await _blocked_among(wiring, [card["target_id"]])):
         raise HTTPException(status_code=404, detail=errors.CARD_NOT_FOUND)
     return {"card_id": card["id"], **await profile_detail(wiring.repo, profile, wiring.settings.supabase_url, now)}
 

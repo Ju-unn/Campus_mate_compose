@@ -209,6 +209,38 @@ class CardRepository(PostgrestRepository):
         me = str(profile_id)
         return {row["profile_b"] if row["profile_a"] == me else row["profile_a"] for row in rows}
 
+    async def fetch_contact_block_partner_ids(self, profile_id: UUID | str, others: list[str]) -> set[str]:
+        """others 중 지인 차단(어느 방향이든)으로 이어진 사람(결정 8 ②). 후보 SQL(match_candidates)과 같은 규칙 —
+        번호 HMAC 과 키 버전이 둘 다 같아야 하고, 번호가 없는(phone_hmac null) 사람은 걸리지 않는다.
+        차단 목록 전체가 아니라 화면에 나갈 others 만 묻는다 — 연락처 차단은 수백 줄일 수 있다."""
+        me = str(profile_id)
+        if not others:
+            return set()
+        phones = {row["profile_id"]: (row["phone_hmac"], row["phone_hmac_key_version"])
+                  for row in await self._rows("profile_private", {
+                      "profile_id": f"in.({','.join([me, *others])})",
+                      "select": "profile_id,phone_hmac,phone_hmac_key_version",
+                  }) if row["phone_hmac"]}
+        hidden: set[str] = set()
+        # ① 내가 막은 번호가 상대 번호다.
+        their = {other: phones[other] for other in others if other in phones}
+        if their:
+            mine = {(row["contact_hmac"], row["key_version"]) for row in await self._rows("contact_blocks", {
+                "owner_id": f"eq.{me}",
+                "contact_hmac": f"in.({','.join(sorted({phone for phone, _ in their.values()}))})",
+                "select": "contact_hmac,key_version",
+            })}
+            hidden |= {other for other, phone in their.items() if phone in mine}
+        # ② 상대가 내 번호를 막았다.
+        if me in phones:
+            my_phone, my_version = phones[me]
+            hidden |= {row["owner_id"] for row in await self._rows("contact_blocks", {
+                "owner_id": f"in.({','.join(others)})",
+                "contact_hmac": f"eq.{my_phone}", "key_version": f"eq.{my_version}",
+                "select": "owner_id",
+            })}
+        return hidden
+
     async def fetch_survey(self, profile_id: UUID | str) -> list[float]:
         """9축을 번호 순서로. 답하지 않은 축은 0 이다 — 화면이 빈 칸 대신 가운데를 그린다."""
         rows = await self._rows("survey_answers", {
