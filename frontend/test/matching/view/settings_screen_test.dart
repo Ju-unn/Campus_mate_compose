@@ -5,9 +5,15 @@ import 'package:campus_mate/account/view/account_screen.dart';
 import 'package:campus_mate/account/view/withdraw_sheets.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/consent/model/consent_links.dart';
+import 'package:campus_mate/consent/model/open_url.dart';
 import 'package:campus_mate/core/auth/sign_out.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
+import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/faq/model/faq_cache.dart';
 import 'package:campus_mate/faq/model/faq_item.dart';
 import 'package:campus_mate/faq/model/faq_repository.dart';
@@ -26,6 +32,7 @@ import 'package:campus_mate/safety/view/contact_block_list_screen.dart';
 import 'package:campus_mate/safety/view/contact_picker_screen.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -39,6 +46,8 @@ import '../model/fake_card_repository.dart';
 
 void main() {
   var signOutCalls = 0;
+  late List<Uri> opened;
+  late Future<bool> Function(Uri) openUrl;
 
   Future<FakeCardRepository> pump(
     WidgetTester tester, {
@@ -47,6 +56,14 @@ void main() {
     Future<void>? faqGate,
   }) async {
     signOutCalls = 0;
+    opened = [];
+    openUrl = (uri) async {
+      opened.add(uri);
+      return true;
+    };
+    // 네 섹션 카드가 한 화면에 다 그려지게 길게 둔다 — 목록은 화면 밖 줄을 만들지 않는다.
+    tester.view.physicalSize = const Size(800, 1400) * tester.view.devicePixelRatio;
+    addTearDown(tester.view.reset);
     final repository = FakeCardRepository();
     final container = ProviderContainer(
       overrides: [
@@ -61,6 +78,7 @@ void main() {
         shareTextProvider.overrideWithValue((_) async {}),
         faqRepositoryProvider.overrideWithValue(FakeFaqRepository(Success(faq), gate: faqGate)),
         faqCacheProvider.overrideWithValue(FakeFaqCache()),
+        openUrlProvider.overrideWithValue((uri) => openUrl(uri)),
       ],
     );
     addTearDown(container.dispose);
@@ -90,6 +108,15 @@ void main() {
 
   Finder tile(String title) => find.ancestor(of: find.text(title), matching: find.byType(ListTile));
 
+  Icon3d icon3d(WidgetTester tester, String title) =>
+      tester.widget<Icon3d>(find.descendant(of: tile(title), matching: find.byType(Icon3d)));
+
+  /// 줄 아래 선(pen 행 stroke bottom #EBEBEB 1). 섹션 마지막 줄은 지운다.
+  BorderSide divider(WidgetTester tester, String title) {
+    final box = tester.widget<DecoratedBox>(find.ancestor(of: tile(title), matching: find.byType(DecoratedBox)).first);
+    return ((box.decoration as BoxDecoration).border as Border?)?.bottom ?? BorderSide.none;
+  }
+
   // 줄 제목과 시트 확인 버튼 글자가 둘 다 "로그아웃" 이다 — 시트 안으로 좁혀 찾는다.
   Finder inSheet(String text) =>
       find.descendant(of: find.byType(SafetyConfirmSheet), matching: find.text(text));
@@ -108,23 +135,25 @@ void main() {
     expect(repository.pausedValue, isTrue);
   });
 
-  testWidgets('"계정" 줄은 매칭 활성화와 알림 사이, user-round 아이콘과 셰브런이다(pen lMDpY eCrlw)', (tester) async {
+  testWidgets('"계정" 줄은 계정·정보 카드 첫 줄, 3D 프로필 24 와 셰브런이다(pen lMDpY eCrlw · hoe2L)', (tester) async {
     await pump(tester);
 
     expect(tile('계정'), findsOneWidget);
+    expect(tester.getRect(tile('계정')).top, tester.getRect(find.text('계정·정보')).bottom + 8);
     expect(tester.getRect(tile('계정')).bottom, tester.getRect(tile('알림')).top);
-    expect(tester.getRect(tile('계정')).top, greaterThan(tester.getRect(find.text('매칭 활성화')).bottom));
-    expect(find.descendant(of: tile('계정'), matching: find.byIcon(AppIcons.userRound)), findsOneWidget);
+    expect(icon3d(tester, '계정').icon, AppIcon3d.userRound);
     expect(find.descendant(of: tile('계정'), matching: find.byIcon(AppIcons.chevronRight)), findsOneWidget);
   });
 
-  testWidgets('"친구 초대" 줄은 계정 바로 위, user-plus 아이콘과 셰브런, 설명 줄이 있다(pen lMDpY b1fvA)', (tester) async {
+  testWidgets('"친구 초대" 줄은 하트 카드 마지막 72 줄, 3D 사용자 24 · 셰브런 · 설명 줄이 있다(pen lMDpY b1fvA · mDrtC)', (tester) async {
     await pump(tester);
 
     expect(tile('친구 초대'), findsOneWidget);
     expect(find.descendant(of: tile('친구 초대'), matching: find.text('내 추천 코드를 친구에게 보내요')), findsOneWidget);
-    expect(tester.getRect(tile('친구 초대')).bottom, tester.getRect(tile('계정')).top);
-    expect(find.descendant(of: tile('친구 초대'), matching: find.byIcon(AppIcons.userPlus)), findsOneWidget);
+    expect(tester.getSize(tile('친구 초대')).height, 72);
+    expect(icon3d(tester, '친구 초대').icon, AppIcon3d.users);
+    expect(icon3d(tester, '친구 초대').size, 24);
+    expect(divider(tester, '친구 초대'), BorderSide.none);
     expect(find.descendant(of: tile('친구 초대'), matching: find.byIcon(AppIcons.chevronRight)), findsOneWidget);
   });
 
@@ -143,12 +172,12 @@ void main() {
     expect(find.byType(AccountScreen), findsOneWidget);
   });
 
-  testWidgets('"차단 목록" 줄은 알림 바로 아래, user-x 아이콘이다(pen lMDpY 8번 o0km6)', (tester) async {
+  testWidgets('"차단 목록" 줄은 알림 바로 아래, 3D 차단 아이콘이다(pen lMDpY o0km6 · Dsuwe)', (tester) async {
     await pump(tester);
 
     expect(tile('차단 목록'), findsOneWidget);
     expect(tester.getRect(tile('차단 목록')).top, tester.getRect(tile('알림')).bottom);
-    expect(find.descendant(of: tile('차단 목록'), matching: find.byIcon(AppIcons.userX)), findsOneWidget);
+    expect(icon3d(tester, '차단 목록').icon, AppIcon3d.blockUser);
     expect(find.descendant(of: tile('차단 목록'), matching: find.byIcon(AppIcons.chevronRight)), findsOneWidget);
   });
 
@@ -161,12 +190,13 @@ void main() {
     expect(find.byType(BlockListScreen), findsOneWidget);
   });
 
-  testWidgets('"연락처 차단" 줄은 차단 목록 바로 아래, contact-round 아이콘이다(pen lMDpY eGPnB)', (tester) async {
+  testWidgets('"연락처 차단" 줄은 차단 목록 바로 아래 카드 마지막 줄, 3D 연락처 아이콘이다(pen lMDpY eGPnB · Cf6JI)', (tester) async {
     await pump(tester);
 
     expect(tile('연락처 차단'), findsOneWidget);
     expect(tester.getRect(tile('연락처 차단')).top, tester.getRect(tile('차단 목록')).bottom);
-    expect(find.descendant(of: tile('연락처 차단'), matching: find.byIcon(AppIcons.contactRound)), findsOneWidget);
+    expect(icon3d(tester, '연락처 차단').icon, AppIcon3d.contact);
+    expect(divider(tester, '연락처 차단'), BorderSide.none);
     expect(find.descendant(of: tile('연락처 차단'), matching: find.byIcon(AppIcons.chevronRight)), findsOneWidget);
   });
 
@@ -189,16 +219,12 @@ void main() {
     expect(find.byType(ContactBlockListScreen), findsNothing);
   });
 
-  // 앱 16 은 아직 섹션 카드가 없어 pen 순서(연락처 차단 → [지원] FAQ → … → 로그아웃)만 따른다 — 카드 · 아이콘 색은 백로그 70.
-  testWidgets('"자주 묻는 질문" 줄은 연락처 차단 바로 아래, circle-question-mark 아이콘과 셰브런이다(pen lMDpY l1K4Xa)',
-      (tester) async {
+  testWidgets('"자주 묻는 질문" 줄은 지원 카드 첫 줄, 3D 도움말 22 와 셰브런이다(pen lMDpY l1K4Xa · fmONi)', (tester) async {
     await pump(tester);
 
-    expect(tester.getRect(tile('자주 묻는 질문')).top, tester.getRect(tile('연락처 차단')).bottom);
-    expect(
-      find.descendant(of: tile('자주 묻는 질문'), matching: find.byIcon(AppIcons.circleQuestionMark)),
-      findsOneWidget,
-    );
+    expect(tester.getRect(tile('자주 묻는 질문')).top, tester.getRect(find.text('지원')).bottom + 8);
+    expect(icon3d(tester, '자주 묻는 질문').icon, AppIcon3d.help);
+    expect(icon3d(tester, '자주 묻는 질문').size, 22);
     expect(find.descendant(of: tile('자주 묻는 질문'), matching: find.byIcon(AppIcons.chevronRight)), findsOneWidget);
   });
 
@@ -225,7 +251,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('자주 묻는 질문'), findsNothing);
-    expect(tester.getRect(tile('로그아웃')).top, tester.getRect(tile('연락처 차단')).bottom);
+    expect(tester.getRect(tile('이용약관')).top, tester.getRect(find.text('지원')).bottom + 8);
   });
 
   testWidgets('모든 줄의 눌림 효과는 그 줄 안에서 그려진다', (tester) async {
@@ -241,12 +267,13 @@ void main() {
     }
   });
 
-  testWidgets('"로그아웃" 줄은 차단 목록 아래, log-out 아이콘과 셰브런이다(pen lMDpY ErFPL)', (tester) async {
+  testWidgets('"로그아웃" 줄은 개인정보처리방침 아래 지원 카드 마지막 줄, 3D 로그아웃 아이콘과 셰브런이다(pen lMDpY ErFPL · Pp2tM)', (tester) async {
     await pump(tester);
 
     expect(tile('로그아웃'), findsOneWidget);
-    expect(tester.getRect(tile('로그아웃')).top, tester.getRect(tile('자주 묻는 질문')).bottom);
-    expect(find.descendant(of: tile('로그아웃'), matching: find.byIcon(AppIcons.logOut)), findsOneWidget);
+    expect(tester.getRect(tile('로그아웃')).top, tester.getRect(tile('개인정보처리방침')).bottom);
+    expect(icon3d(tester, '로그아웃').icon, AppIcon3d.logout);
+    expect(divider(tester, '로그아웃'), BorderSide.none);
     expect(find.descendant(of: tile('로그아웃'), matching: find.byIcon(AppIcons.chevronRight)), findsOneWidget);
   });
 
@@ -261,9 +288,7 @@ void main() {
   });
 
   testWidgets('확인하면 시트가 닫히고 로그아웃을 한 번 부른다 — 빠르게 두 번 눌러도 한 번', (tester) async {
-    // 닫히는 시트는 누름을 아래 화면으로 흘려보낸다 — 두 번째 탭 자리 밑에 설정 줄이 오지 않게 화면을 길게 둔다.
-    tester.view.physicalSize = const Size(800, 1400) * tester.view.devicePixelRatio;
-    addTearDown(tester.view.reset);
+    // 닫히는 시트는 누름을 아래 화면으로 흘려보낸다 — pump 가 화면을 길게 두어 두 번째 탭 자리 밑에 설정 줄이 오지 않는다.
     await pump(tester);
     await openLogoutSheet(tester);
 
@@ -312,7 +337,7 @@ void main() {
   testWidgets('"탈퇴하기"를 누르면 16c 1차 시트가 뜬다', (tester) async {
     await pump(tester);
 
-    // "자주 묻는 질문" 줄이 더해져 800×600 테스트 화면에선 버튼이 접힘 아래에 있다 — 밀어서 보이게 한 뒤 누른다.
+    // 화면이 짧은 폰에선 버튼이 접힘 아래에 있다 — 밀어서 보이게 한 뒤 누른다.
     await tester.ensureVisible(find.text('탈퇴하기'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('탈퇴하기'));
@@ -321,13 +346,15 @@ void main() {
     expect(find.byType(WithdrawFirstSheet), findsOneWidget);
   });
 
-  testWidgets('"무료로 하트 모으기" 줄은 매칭 활성화 바로 아래 · 친구 초대 바로 위, gift 아이콘과 셰브런이다(pen lMDpY oNgRd)', (tester) async {
+  // 하트 충전 줄 · 보유 하트 블록(X4olk · zlpeY)은 스토어 화면이 없어 뺀다(대장 10-03, 결제 개편 때).
+  testWidgets('"무료로 하트 모으기" 줄은 하트 카드 첫 줄 · 친구 초대 바로 위, 3D 선물 24 와 셰브런이다(pen lMDpY oNgRd · oBpe4)', (tester) async {
     await pump(tester);
 
     expect(tile('무료로 하트 모으기'), findsOneWidget);
-    expect(tester.getRect(tile('무료로 하트 모으기')).top, tester.getRect(tile('매칭 활성화')).bottom);
+    expect(tester.getRect(tile('무료로 하트 모으기')).top, tester.getRect(find.text('하트')).bottom + 8);
     expect(tester.getRect(tile('무료로 하트 모으기')).bottom, tester.getRect(tile('친구 초대')).top);
-    expect(find.descendant(of: tile('무료로 하트 모으기'), matching: find.byIcon(AppIcons.gift)), findsOneWidget);
+    expect(icon3d(tester, '무료로 하트 모으기').icon, AppIcon3d.gift);
+    expect(find.text('하트 충전'), findsNothing);
     expect(find.descendant(of: tile('무료로 하트 모으기'), matching: find.byIcon(AppIcons.chevronRight)), findsOneWidget);
   });
 
@@ -338,5 +365,113 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('18a'), findsOneWidget);
+  });
+
+  testWidgets('섹션은 매칭 · 하트 · 계정·정보 · 지원 순, 머리글 14/700 #6A6A6A 아래 8 에 카드, 섹션 사이 20, 목록 여백 위 12 · 좌우 16(pen HM9xA · BOxgn)', (tester) async {
+    await pump(tester);
+
+    for (final header in ['매칭', '하트', '계정·정보', '지원']) {
+      final style = tester.renderObject<RenderParagraph>(find.text(header)).text.style!;
+      expect(style.fontSize, 14);
+      expect(style.fontWeight, FontWeight.w700);
+      expect(style.color, AppColors.muted);
+    }
+    expect(tester.getTopLeft(find.text('매칭')), const Offset(16, 56 + 12));
+    expect(tester.getRect(tile('매칭 활성화')).top, tester.getRect(find.text('매칭')).bottom + 8);
+    expect(tester.getRect(find.text('하트')).top, tester.getRect(tile('매칭 활성화')).bottom + 20);
+    expect(tester.getRect(find.text('계정·정보')).top, tester.getRect(tile('친구 초대')).bottom + 20);
+    expect(tester.getRect(find.text('지원')).top, tester.getRect(tile('연락처 차단')).bottom + 20);
+  });
+
+  testWidgets('카드는 #F7F7F7 · 모서리 12 · 테두리 #DDDDDD 1, 줄은 카드 폭 그대로(pen k2pmUO · LkmNK)', (tester) async {
+    await pump(tester);
+
+    final card = find.ancestor(of: tile('계정'), matching: find.byType(Container)).first;
+    final container = tester.widget<Container>(card);
+    final fill = container.decoration! as BoxDecoration;
+    expect(fill.color, AppColors.surfaceSoft);
+    expect(fill.borderRadius, BorderRadius.circular(AppRadius.input));
+    final outline = container.foregroundDecoration! as BoxDecoration;
+    expect(outline.border, Border.all(color: AppColors.hairline));
+    expect(container.clipBehavior, Clip.antiAlias);
+    expect(tester.getRect(card).left, 16);
+    expect(tester.getRect(tile('계정')).width, tester.getRect(card).width);
+  });
+
+  testWidgets('줄은 52 · 좌우 14 · 아이콘 24 → 12 → 제목 16/400 #222222, 셰브런 20 #6A6A6A, 아래 선 #EBEBEB(pen K4uiNp)', (tester) async {
+    await pump(tester);
+
+    final row = tester.getRect(tile('알림'));
+    expect(row.height, 52);
+    final icon = find.descendant(of: tile('알림'), matching: find.byType(Icon3d));
+    expect(tester.widget<Icon3d>(icon).icon, AppIcon3d.bell);
+    expect(tester.getSize(icon), const Size(24, 24));
+    expect(tester.getTopLeft(icon).dx, row.left + 14);
+    expect(tester.getCenter(icon).dy, row.center.dy);
+    expect(tester.getTopLeft(find.text('알림')).dx, row.left + 14 + 24 + 12);
+    final title = tester.renderObject<RenderParagraph>(find.text('알림')).text.style!;
+    expect(title.fontSize, 16);
+    expect(title.fontWeight, FontWeight.w400);
+    expect(title.color, AppColors.ink);
+    final chevron = find.descendant(of: tile('알림'), matching: find.byIcon(AppIcons.chevronRight));
+    expect(tester.getSize(chevron), const Size(20, 20));
+    expect(tester.widget<Icon>(chevron).color, AppColors.muted);
+    expect(tester.getTopRight(chevron).dx, row.right - 14);
+    expect(divider(tester, '알림'), const BorderSide(color: AppColors.hairlineSoft));
+  });
+
+  testWidgets('매칭 활성화는 72 줄, 3D 사용자 22, 설명 12 #6A6A6A(pen TLrmq · vBzsu)', (tester) async {
+    await pump(tester);
+
+    expect(tester.getSize(tile('매칭 활성화')).height, 72);
+    expect(icon3d(tester, '매칭 활성화').icon, AppIcon3d.users);
+    expect(icon3d(tester, '매칭 활성화').size, 22);
+    final note = tester.renderObject<RenderParagraph>(find.text('잠시 쉬고 싶으면 꺼두세요')).text.style!;
+    expect(note.fontSize, 12);
+    expect(note.color, AppColors.muted);
+  });
+
+  testWidgets('"이용약관" · "개인정보처리방침" 은 FAQ 와 로그아웃 사이, 3D 약관 · 개인정보 아이콘이다(A6, pen F4pb9 · yEBjk)', (tester) async {
+    await pump(tester);
+
+    expect(tester.getRect(tile('이용약관')).top, tester.getRect(tile('자주 묻는 질문')).bottom);
+    expect(tester.getRect(tile('개인정보처리방침')).top, tester.getRect(tile('이용약관')).bottom);
+    expect(icon3d(tester, '이용약관').icon, AppIcon3d.terms);
+    expect(icon3d(tester, '개인정보처리방침').icon, AppIcon3d.privacy);
+    expect(divider(tester, '개인정보처리방침'), const BorderSide(color: AppColors.hairlineSoft));
+  });
+
+  testWidgets('"이용약관" 은 약관 1부, "개인정보처리방침" 은 약관 페이지를 기기 브라우저로 연다(대장 10-03 나)', (tester) async {
+    await pump(tester);
+
+    await tester.tap(find.text('이용약관'));
+    await tester.pump();
+    await tester.tap(find.text('개인정보처리방침'));
+    await tester.pump();
+
+    expect(opened, [termsLink, privacyPolicyLink]);
+    expect(find.byType(AppToast), findsNothing);
+  });
+
+  testWidgets('약관을 못 열면 안내 토스트를 띄우고 설정에 남는다', (tester) async {
+    await pump(tester);
+    openUrl = (_) async => throw Exception('no browser');
+
+    await tester.tap(find.text('이용약관'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byType(AppToast), findsOneWidget);
+    expect(find.byType(SettingsScreen), findsOneWidget);
+  });
+
+  testWidgets('360 폭 · 2.0배에서도 넘치지 않는다', (tester) async {
+    await pump(tester);
+    tester.view.physicalSize = const Size(360, 1400) * tester.view.devicePixelRatio;
+    tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
   });
 }
