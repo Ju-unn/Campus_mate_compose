@@ -121,7 +121,7 @@ void main() {
       expect(tester.getRect(find.byType(TextField)), const Rect.fromLTWH(24, 116, 312, 120));
     });
 
-    testWidgets('자기소개 입력 모양 — 라벨 14/600 body, 채움 #F7F7F7 · 테두리 #767676 1 · 모서리 8 · 안쪽 [14,16], 값 16/400 #222222(C1)', (tester) async {
+    testWidgets('자기소개 입력 `YFZxt/TDM1r` — 라벨 14/600 body, 채움 #F7F7F7 · 테두리 #DDDDDD 1 · 모서리 12 · 안쪽 [14,16], 값 16/400 #222222(C1)', (tester) async {
       await pump(tester);
 
       final label = tester.widget<Text>(find.text('자기소개')).style!;
@@ -131,8 +131,12 @@ void main() {
       expect((decoration.filled, decoration.fillColor), (true, AppColors.surfaceSoft));
       expect(decoration.contentPadding, const EdgeInsets.symmetric(horizontal: 16, vertical: 14));
       final border = decoration.enabledBorder! as OutlineInputBorder;
-      expect((border.borderSide.color, border.borderSide.width), (AppColors.outline, 1));
-      expect(border.borderRadius, BorderRadius.circular(8));
+      expect((border.borderSide.color, border.borderSide.width), (AppColors.hairline, 1));
+      expect(border.borderRadius, BorderRadius.circular(12));
+      // 포커스는 pen 에 상태가 없다(YFZxt 는 정적 사본) — ink 2 는 대장 확인(2026-10-03).
+      final focused = decoration.focusedBorder! as OutlineInputBorder;
+      expect((focused.borderSide.color, focused.borderSide.width), (AppColors.ink, 2));
+      expect(focused.borderRadius, BorderRadius.circular(12));
       expect((field.style!.fontSize, field.style!.fontWeight, field.style!.color), (16, FontWeight.w400, AppColors.ink));
       // 글은 상자 위에서부터 쓴다(위 정렬).
       expect(field.textAlignVertical, TextAlignVertical.top);
