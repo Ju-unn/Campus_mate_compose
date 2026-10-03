@@ -27,6 +27,13 @@ final class SessionExpiredFailure extends Failure {
   }
 }
 
+/// 서버가 이 로그인을 받지 않는다(401, 탈퇴 표시 없음 — 계정 삭제 · 다른 곳에서 세션을 끊음). 토큰을 새로 받지
+/// 못했거나 새 토큰으로도 401 이었다. 원래 세션이 없던 [SessionExpiredFailure] 와 달리 아직 로그인 상태라
+/// 로그인 화면으로 보낸다(A11) — 로그아웃 직후 늦게 나간 요청이 만료 알림을 띄우지 않게 둘을 가른다.
+final class SessionRejectedFailure extends SessionExpiredFailure {
+  const SessionRejectedFailure();
+}
+
 /// 요청한 리소스가 존재하지 않는 경우.
 final class NotFoundFailure extends Failure {
   const NotFoundFailure();
