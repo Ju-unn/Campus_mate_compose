@@ -9,8 +9,8 @@ import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 
-/// 카드 그림자(pen `RpRBi` #00000014 (0,1) blur 8). AppElevation 토큰과 값이 달라 여기 둔다.
-const List<BoxShadow> _cardShadow = [BoxShadow(color: Color(0x14000000), offset: Offset(0, 1), blurRadius: 8)];
+/// 카드 그림자(pen `RpRBi` #00000010 (0,1) blur 6, 값표 1004). AppElevation 토큰과 값이 달라 여기 둔다.
+const List<BoxShadow> _cardShadow = [BoxShadow(color: Color(0x10000000), offset: Offset(0, 1), blurRadius: 6)];
 
 /// `poll-card`(pen 마스터 `RpRBi`). 15d 목록과 17c 상세가 같이 쓴다.
 class PollCard extends StatelessWidget {
