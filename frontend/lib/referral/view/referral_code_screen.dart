@@ -1,3 +1,4 @@
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/labeled_field.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -113,7 +114,7 @@ class _Content extends StatelessWidget {
   }
 }
 
-/// "마지막 단계" 배지(pen zNhbv · 마스터 h1CMd): sparkles 16 + 12/600 #C4224B, #FFF0F2 알약.
+/// "마지막 단계" 배지(pen zNhbv · 마스터 h1CMd): sparkles 3D 18(yjiCa) + 12/600 #C4224B, #FFF0F2 알약.
 class _StepBadge extends StatelessWidget {
   const _StepBadge();
 
@@ -128,7 +129,7 @@ class _StepBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(AppIcons.sparkles, size: 16, color: AppColors.primaryText),
+          const Icon3d(AppIcon3d.sparkles, size: 18), // pen yjiCa
           const SizedBox(width: _badgeGap),
           Text(
             _badgeLabel,

@@ -3,8 +3,10 @@ import 'package:campus_mate/auth/model/university_email.dart';
 import 'package:campus_mate/auth/view/verify_code_screen.dart';
 import 'package:campus_mate/auth/viewmodel/verify_code_view_model.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -53,6 +55,19 @@ void main() {
       find.ancestor(of: find.textContaining('메일 다시 받기 ('), matching: find.byType(TextButton)),
     );
     expect(resend.enabled, isFalse);
+  });
+
+  // 값표_온보딩화면 "가입 화면 3D(1004)" jYwqT · qVa0s — 만료 줄 시계는 3D 16, 글자와 6.
+  testWidgets('pen jYwqT: 만료 줄 아이콘은 시계 3D 16, 글자와 6', (tester) async {
+    await pumpScreen(tester);
+
+    final text = find.textContaining('뒤에 만료돼요');
+    final row = find.ancestor(of: text, matching: find.byType(Row)).first;
+    final icon3d = find.descendant(of: row, matching: find.byType(Icon3d));
+    expect(tester.widget<Icon3d>(icon3d).icon, AppIcon3d.clock);
+    expect(tester.getSize(icon3d), const Size(16, 16));
+    expect(tester.getTopLeft(text).dx - tester.getTopRight(icon3d).dx, 6);
+    expect(find.descendant(of: row, matching: find.byType(Icon)), findsNothing);
   });
 
   testWidgets('입력한 숫자를 여섯 칸에 한 글자씩 그린다', (tester) async {
