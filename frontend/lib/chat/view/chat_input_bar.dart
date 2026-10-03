@@ -49,9 +49,12 @@ class _ChatInputBarState extends State<ChatInputBar> {
 
   @override
   Widget build(BuildContext context) {
+    // pen JgryI 흰 바탕 · 위쪽 선만 #DDDDDD 1. 안쪽 [10,16,14,16] 은 화면 인스턴스 값(대장 Q4, 토큰 없음).
+    // 선은 pen 처럼 여백을 먹지 않게 위에 덧그린다 — decoration 의 border 는 그 두께만큼 안쪽 여백을 늘린다.
     return Container(
       color: AppColors.canvas,
-      padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.xs, AppSpacing.md, AppSpacing.xs),
+      foregroundDecoration: const BoxDecoration(border: Border(top: BorderSide(color: AppColors.hairline))),
+      padding: const EdgeInsets.fromLTRB(AppSpacing.md, 10, AppSpacing.md, 14),
       child: SafeArea(
         top: false,
         child: Row(
@@ -59,7 +62,8 @@ class _ChatInputBarState extends State<ChatInputBar> {
           children: [
             Expanded(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 44, maxHeight: 120),
+                // pen dT2J7 48 은 InputDecorator 최소 높이(누름칸 48)가 채운다 — 한 줄 글은 가운데, 줄이 늘면 120 까지.
+                constraints: const BoxConstraints(maxHeight: 120),
                 child: TextField(
                   controller: _controller,
                   minLines: 1,
@@ -72,14 +76,17 @@ class _ChatInputBarState extends State<ChatInputBar> {
                   onChanged: (_) => setState(() {}),
                   onSubmitted: (_) => _send(),
                   style: AppTypography.body.copyWith(color: AppColors.ink),
+                  textAlignVertical: TextAlignVertical.center,
                   decoration: InputDecoration(
                     hintText: '메시지를 입력하세요',
-                    hintStyle: AppTypography.body.copyWith(color: AppColors.disabled),
+                    // pen n1UArl 16 muted.
+                    hintStyle: AppTypography.body.copyWith(color: AppColors.muted),
+                    hintMaxLines: 1,
                     filled: true,
                     fillColor: AppColors.surfaceSoft,
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.md,
-                      vertical: AppSpacing.sm,
+                      vertical: AppSpacing.xs,
                     ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(22),

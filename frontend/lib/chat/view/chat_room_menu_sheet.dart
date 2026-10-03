@@ -1,3 +1,4 @@
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -56,21 +57,24 @@ class ChatRoomMenuSheet extends StatelessWidget {
               const Center(child: SheetHandle()),
               if (canTargetPartner) ...[
                 _MenuRow(
-                  icon: AppIcons.flag,
+                  icon: AppIcon3d.siren,
+                  iconSize: 22,
                   label: '신고하기',
                   color: AppColors.ink,
                   onTap: () => pick(ChatRoomMenuAction.report),
                 ),
-                // 되돌리기 어려운 동작이라 이 행만 빨강이다(pen `qXoWf` colors.error).
+                // 되돌리기 어려운 동작이라 이 행만 글자가 빨강이다(pen `H4oXC` #C13515).
                 _MenuRow(
-                  icon: AppIcons.userX,
+                  icon: AppIcon3d.blockUser,
+                  iconSize: 24,
                   label: '차단하기',
                   color: AppColors.error,
                   onTap: () => pick(ChatRoomMenuAction.block),
                 ),
               ],
               _MenuRow(
-                icon: AppIcons.logOut,
+                icon: AppIcon3d.logout,
+                iconSize: 24,
                 label: '채팅방 나가기',
                 color: AppColors.ink,
                 onTap: () => pick(ChatRoomMenuAction.leave),
@@ -94,16 +98,18 @@ class ChatRoomMenuSheet extends StatelessWidget {
   }
 }
 
-/// 한 행(pen `WAKrs` · `qXoWf` · `DLfZV`): 328×52, 여백 [0,4], 아이콘 20 과 글자 사이 12.
+/// 한 행(pen `WAKrs` · `H4oXC` · `RqpxU`): 328×52, 여백 [0,4], 3D 아이콘(22 · 24 — pen 행마다 다르다)과 글자 사이 12.
 class _MenuRow extends StatelessWidget {
   const _MenuRow({
     required this.icon,
+    required this.iconSize,
     required this.label,
     required this.color,
     required this.onTap,
   });
 
-  final IconData icon;
+  final AppIcon3d icon;
+  final double iconSize;
   final String label;
   final Color color;
   final VoidCallback onTap;
@@ -116,7 +122,7 @@ class _MenuRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxs),
         child: Row(
           children: [
-            Icon(icon, size: 20, color: color),
+            Icon3d(icon, size: iconSize),
             const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: Text(

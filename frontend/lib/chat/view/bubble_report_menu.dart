@@ -1,6 +1,8 @@
 import 'package:campus_mate/chat/model/message.dart';
 import 'package:campus_mate/chat/view/message_bubble.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -82,10 +84,7 @@ class BubbleReportMenu extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.canvas,
         borderRadius: BorderRadius.circular(AppRadius.md),
-        // pen `afUag` 실측 그림자(#00000033, y 4, blur 16). 그림자 토큰(AppElevation.card)과 값이 달라 리터럴로 둔다.
-        boxShadow: const [
-          BoxShadow(color: Color(0x33000000), offset: Offset(0, 4), blurRadius: 16),
-        ],
+        boxShadow: AppElevation.popover,
       ),
       child: Semantics(
         button: true,
@@ -100,7 +99,8 @@ class BubbleReportMenu extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxs),
                 child: Row(
                   children: [
-                    const Icon(AppIcons.flag, size: 20, color: AppColors.ink),
+                    // pen QecoP 3D 사이렌 22.
+                    const Icon3d(AppIcon3d.siren, size: 22),
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: Text(

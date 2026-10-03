@@ -1,4 +1,5 @@
 import 'package:campus_mate/chat/view/chat_room_menu_sheet.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:flutter/material.dart';
@@ -50,14 +51,29 @@ void main() {
     expect(block - report, 56);
   });
 
-  testWidgets('차단하기만 아이콘과 글자가 빨강(error)이다', (tester) async {
+  testWidgets('차단하기만 글자가 빨강(error)이다', (tester) async {
     await open(tester);
 
     expect(tester.widget<Text>(find.text('차단하기')).style!.color, AppColors.error);
-    expect(tester.widget<Icon>(find.byIcon(AppIcons.userX)).color, AppColors.error);
     expect(tester.widget<Text>(find.text('신고하기')).style!.color, AppColors.ink);
-    expect(tester.widget<Icon>(find.byIcon(AppIcons.flag)).color, AppColors.ink);
-    expect(tester.widget<Icon>(find.byIcon(AppIcons.logOut)).color, AppColors.ink);
+    expect(tester.widget<Text>(find.text('채팅방 나가기')).style!.color, AppColors.ink);
+  });
+
+  testWidgets('아이콘은 3D — 사이렌 22 · 차단 24 · 로그아웃 24, 글자와 12 (pen WAKrs · H4oXC · RqpxU)', (tester) async {
+    await open(tester);
+
+    for (final (label, icon, size) in [
+      ('신고하기', AppIcon3d.siren, 22.0),
+      ('차단하기', AppIcon3d.blockUser, 24.0),
+      ('채팅방 나가기', AppIcon3d.logout, 24.0),
+    ]) {
+      final row = find.ancestor(of: find.text(label), matching: find.byType(Row)).first;
+      final icon3d = find.descendant(of: row, matching: find.byType(Icon3d));
+      expect(tester.widget<Icon3d>(icon3d).icon, icon, reason: label);
+      expect(tester.getSize(icon3d), Size(size, size), reason: label);
+      expect(tester.getTopLeft(find.text(label)).dx - tester.getTopRight(icon3d).dx, 12, reason: label);
+    }
+    expect(find.descendant(of: find.byType(ChatRoomMenuSheet), matching: find.byType(Icon)), findsNothing);
   });
 
   testWidgets('pen 크기 — 시트 360×269, 행 328×52', (tester) async {
