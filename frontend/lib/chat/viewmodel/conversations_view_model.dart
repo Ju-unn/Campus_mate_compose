@@ -1,3 +1,4 @@
+import 'package:campus_mate/chat/model/chat_errors.dart';
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_ui_state.dart';
 import 'package:campus_mate/matching/viewmodel/acceptances_view_model.dart';
@@ -28,6 +29,22 @@ class ConversationsViewModel extends Notifier<ConversationsUiState> {
           state.copyWith(isLoading: false, errorMessage: failure.toDisplayMessage()),
     );
   }
+
+  /// 13a 밀어서 나가기(결정 10). 방 안 나가기와 같은 호출이다 — 나가면(이미 나갔어도) 그 줄을 빼고,
+  /// 실패면 줄은 두고 목록 위 오류 줄로 알린다.
+  Future<void> leave(String matchId) async {
+    final result = await ref.read(chatRepositoryProvider).leave(matchId);
+    state = result.when(
+      onSuccess: (_) => _without(matchId),
+      onFailure: (failure) => isAlreadyLeft(failure)
+          ? _without(matchId)
+          : state.copyWith(errorMessage: chatFailureMessage(failure)),
+    );
+  }
+
+  ConversationsUiState _without(String matchId) => state.copyWith(
+        conversations: [for (final c in state.conversations) if (c.matchId != matchId) c],
+      );
 }
 
 /// 하단 내비 "대화" 탭 뱃지(DESIGN §8.8). **수락 대기 + 안 읽은 메시지의 합** —

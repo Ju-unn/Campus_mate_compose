@@ -1,5 +1,6 @@
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/chat/model/message.dart';
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/matching/model/acceptance.dart';
 import 'package:campus_mate/matching/model/card_profile.dart';
@@ -121,5 +122,76 @@ void main() {
     await pump(tester, repository, chat);
 
     expect(find.text('4'), findsOneWidget);
+  });
+
+  group('13a 밀어서 나가기(결정 10 · B7, pen zMfIn)', () {
+    late FakeChatRepository chat;
+
+    setUp(() {
+      chat = FakeChatRepository()
+        ..conversations = Success([
+          conversationFixture(nickname: '여우비'),
+          conversationFixture(matchId: 'm2', nickname: '토끼'),
+        ]);
+    });
+
+    Future<void> swipeAndLeave(WidgetTester tester, String nickname) async {
+      await tester.drag(find.text(nickname), const Offset(-200, 0));
+      await tester.pumpAndSettle();
+      // 줄마다 숨은 "나가기" 가 있다 — 밀어서 드러난 것만 누를 수 있다.
+      await tester.tap(find.text('나가기').hitTestable());
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('밀고 "나가기" → 확인 다이얼로그 → 나가면 저장소 leave, 그 줄이 빠진다', (tester) async {
+      await pump(tester, FakeCardRepository(), chat);
+
+      await swipeAndLeave(tester, '여우비');
+      expect(find.text('채팅방을 나갈까요?'), findsOneWidget);
+      expect(chat.leaveCount, 0);
+      await tester.tap(find.widgetWithText(TextButton, '나가기'));
+      await tester.pumpAndSettle();
+
+      expect(chat.leaveCount, 1);
+      expect(find.text('여우비'), findsNothing);
+      expect(find.text('토끼'), findsOneWidget);
+      expect(find.text('1명'), findsOneWidget);
+    });
+
+    testWidgets('다이얼로그에서 취소하면 아무것도 보내지 않고 줄이 남는다', (tester) async {
+      await pump(tester, FakeCardRepository(), chat);
+
+      await swipeAndLeave(tester, '여우비');
+      await tester.tap(find.widgetWithText(TextButton, '취소'));
+      await tester.pumpAndSettle();
+
+      expect(chat.leaveCount, 0);
+      expect(find.text('여우비'), findsOneWidget);
+    });
+
+    testWidgets('나가기가 실패하면 줄은 남고 위에 오류 문구가 뜬다', (tester) async {
+      chat.writeResult = const FailureResult(NetworkFailure());
+      await pump(tester, FakeCardRepository(), chat);
+
+      await swipeAndLeave(tester, '여우비');
+      await tester.tap(find.widgetWithText(TextButton, '나가기'));
+      await tester.pumpAndSettle();
+
+      expect(chat.leaveCount, 1);
+      expect(find.text('여우비'), findsOneWidget);
+      expect(find.text(const NetworkFailure().toDisplayMessage()), findsOneWidget);
+    });
+
+    testWidgets('이미 나간 대화(409)면 실패가 아니다 — 줄이 빠지고 오류 문구도 없다', (tester) async {
+      chat.writeResult = const FailureResult(ServerRejectedFailure('이미 나간 대화예요'));
+      await pump(tester, FakeCardRepository(), chat);
+
+      await swipeAndLeave(tester, '여우비');
+      await tester.tap(find.widgetWithText(TextButton, '나가기'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('여우비'), findsNothing);
+      expect(find.text('이미 나간 대화예요'), findsNothing);
+    });
   });
 }
