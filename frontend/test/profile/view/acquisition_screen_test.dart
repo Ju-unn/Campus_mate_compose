@@ -16,14 +16,14 @@ import 'package:go_router/go_router.dart';
 
 import '../model/fake_acquisition_repository.dart';
 
-/// 20 · 20d · 홈 세 경로만 둔 라우터. 20 과 홈 자리는 글자 하나다.
+/// 20 · 20d · 06-4 세 경로만 둔 라우터. 20 과 06-4 자리는 글자 하나다.
 Widget _app(FakeAcquisitionRepository repository) {
   final router = GoRouter(
     initialLocation: AppRoutes.onboardingAcquisition,
     routes: [
       GoRoute(path: AppRoutes.onboardingAcquisition, builder: (context, state) => const AcquisitionScreen()),
       GoRoute(path: AppRoutes.onboardingReferral, builder: (context, state) => const Text('20')),
-      GoRoute(path: AppRoutes.home, builder: (context, state) => const Text('home')),
+      GoRoute(path: AppRoutes.onboardingContactBlock, builder: (context, state) => const Text('06-4')),
     ],
   );
   return ProviderScope(
@@ -91,7 +91,7 @@ void main() {
     expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, '가' * acquisitionNoteMaxLength);
   });
 
-  testWidgets('칩을 고르고 시작하기를 누르면 저장하고 홈으로 간다', (tester) async {
+  testWidgets('칩을 고르고 시작하기를 누르면 저장하고 06-4 지인 차단으로 간다', (tester) async {
     final repository = FakeAcquisitionRepository();
     await tester.pumpWidget(_app(repository));
 
@@ -101,7 +101,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repository.submitted, (AcquisitionChannel.instagram, null));
-    expect(find.text('home'), findsOneWidget);
+    expect(find.text('06-4'), findsOneWidget);
   });
 
   testWidgets('저장이 실패하면 문구를 보여 주고 머문다', (tester) async {
@@ -114,17 +114,17 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('네트워크 연결을 확인해 주세요'), findsOneWidget);
-    expect(find.text('home'), findsNothing);
+    expect(find.text('06-4'), findsNothing);
   });
 
-  testWidgets('건너뛰기는 저장 없이 홈으로 간다', (tester) async {
+  testWidgets('건너뛰기는 저장 없이 06-4 지인 차단으로 간다', (tester) async {
     final repository = FakeAcquisitionRepository();
     await tester.pumpWidget(_app(repository));
 
     await tester.tap(find.text('건너뛰기'));
     await tester.pumpAndSettle();
 
-    expect(find.text('home'), findsOneWidget);
+    expect(find.text('06-4'), findsOneWidget);
     expect(repository.submitted, isNull);
   });
 
