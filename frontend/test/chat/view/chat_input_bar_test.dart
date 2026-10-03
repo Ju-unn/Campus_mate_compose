@@ -38,7 +38,7 @@ void main() {
         body: Column(
           children: [
             const Spacer(),
-            ChatInputBar(onSend: (_) {}, isSending: false),
+            ChatInputBar(onSend: (_) async => true, isSending: false),
           ],
         ),
       ),

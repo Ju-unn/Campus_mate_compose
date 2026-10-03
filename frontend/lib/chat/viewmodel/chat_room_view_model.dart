@@ -209,26 +209,29 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
     );
   }
 
-  Future<void> send(String body) async {
+  /// 보냈으면 true — 입력 바가 실패 때 글을 되돌리는 데 쓴다.
+  Future<bool> send(String body) async {
     if (state.isSending) {
-      return;
+      return false;
     }
     state = state.copyWith(isSending: true, errorMessage: null);
     final result = await _repository.sendMessage(_matchId, body);
     if (!_alive) {
-      return;
+      return false;
     }
     state = state.copyWith(isSending: false);
-    result.when<void>(
+    return result.when(
       // 서버는 INSERT 를 끝내고 닉네임 조회·푸시까지 한 뒤에 응답한다 — 구독 줄이 응답보다
       // 먼저 오는 것이 정상이다. 응답 줄도 같은 id 가드에 태워 두 번 그리지 않는다.
       onSuccess: (message) {
         if (message != null) {
           _receive(message);
         }
+        return true;
       },
       onFailure: (failure) {
         state = state.copyWith(errorMessage: chatFailureMessage(failure));
+        return false;
       },
     );
   }
