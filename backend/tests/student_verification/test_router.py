@@ -372,6 +372,22 @@ def test_submit_does_not_swallow_programming_errors_from_vision():
         _submit()
 
 
+@pytest.mark.parametrize("verification", ["verified", "pending", "rejected"])
+def test_submit_is_403_with_the_status_header_for_a_suspended_account(verification):
+    # 결정 9(10-01 · 10-03 대장): 정지 중엔 바꾸지 못한다 — 사진 업로드 · OCR · 디스코드 알림 전에 막는다.
+    # 409(검토 중 · 이미 인증)보다 먼저다 — 헤더 없는 409 면 앱이 정지 안내로 못 간다.
+    sent, vision_client = _wire({**_gate_row(verification), "status": "suspended"}, ocr_text="서울대학교 홍길동")
+
+    response = _submit()
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == errors.ACCOUNT_SUSPENDED
+    assert response.headers["X-Account-Status"] == "suspended"
+    vision_client.batch_annotate_images.assert_not_awaited()
+    assert _calls(sent, "POST", "/storage/v1/") == []
+    assert _calls(sent, "POST", "/student_verification_attempts") == []
+
+
 def test_submit_returns_409_while_review_is_pending():
     sent, vision_client = _wire(_gate_row("pending"), ocr_text="서울대학교 홍길동")
 
