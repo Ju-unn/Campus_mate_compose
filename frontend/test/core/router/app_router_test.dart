@@ -517,7 +517,7 @@ void main() {
     expect(registered, containsAll(_onboardingPaths));
   });
 
-  test('06-3 뒤 앱에서만 잇는 20 · 20d 경로도 라우터에 등록돼 있다', () {
+  test('06-3 뒤 앱에서만 잇는 20 · 20d · 06-4 경로도 라우터에 등록돼 있다', () {
     final router = AppRouter.create(
       isAuthenticated: () => true,
       verificationGate: _passedGate,
@@ -525,6 +525,14 @@ void main() {
     );
     final registered = router.configuration.routes.whereType<GoRoute>().map((route) => route.path);
 
-    expect(registered, containsAll(<String>[AppRoutes.onboardingReferral, AppRoutes.onboardingAcquisition]));
+    expect(
+      registered,
+      containsAll(<String>[
+        AppRoutes.onboardingReferral,
+        AppRoutes.onboardingAcquisition,
+        AppRoutes.onboardingContactBlock,
+        AppRoutes.onboardingContactPicker,
+      ]),
+    );
   });
 }

@@ -48,6 +48,7 @@ import 'package:campus_mate/profile/view/bio_draft_loading_screen.dart';
 import 'package:campus_mate/profile/view/ideal_conditions_screen.dart';
 import 'package:campus_mate/profile/view/ideal_note_screen.dart';
 import 'package:campus_mate/profile/view/kakao_id_screen.dart';
+import 'package:campus_mate/profile/view/onboarding_contact_block_screen.dart';
 import 'package:campus_mate/profile/view/photos_screen.dart';
 import 'package:campus_mate/profile/view/survey_screen.dart';
 import 'package:campus_mate/profile/view/tag_picker_screen.dart';
@@ -259,6 +260,8 @@ abstract final class AppRouter {
       GoRoute(path: AppRoutes.onboardingBio, builder: (context, state) => const BioDraftLoadingScreen()),
       GoRoute(path: AppRoutes.onboardingReferral, builder: (context, state) => const ReferralCodeScreen()),
       GoRoute(path: AppRoutes.onboardingAcquisition, builder: (context, state) => const AcquisitionScreen()),
+      GoRoute(path: AppRoutes.onboardingContactBlock, builder: (context, state) => const OnboardingContactBlockScreen()),
+      GoRoute(path: AppRoutes.onboardingContactPicker, builder: (context, state) => const ContactPickerScreen()),
     ];
   }
 
