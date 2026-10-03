@@ -22,7 +22,7 @@ class AppButton extends StatelessWidget {
   final AppButtonVariant variant;
 
   /// 목록 안 인라인 버튼만 다른 높이를 쓴다(§8.3 "인라인 버튼 높이 변형" — 수락함 행이 44dp).
-  /// 비워 두면 전체 폭 버튼 규격(56, text variant 는 48)이다.
+  /// 비워 두면 전체 폭 버튼 규격(pen `HE8FZ` 52, text variant `rK7sg` 48)이다 — 2026-10-01 개편 전은 56.
   final double? height;
 
   /// 저장 중(나 탭 편집 계획서 D8, pen 06-1 예시 `k5Gv4l`) — 글자 자리에 20 스피너(`sMuCd`)를 돌리고 누름을 막는다.
@@ -31,14 +31,17 @@ class AppButton extends StatelessWidget {
 
   bool get _isTextVariant => variant == AppButtonVariant.text;
 
+  /// text variant 라벨(pen `rK7sg` 라벨 16/600).
+  static final TextStyle _textLabel = AppTypography.button.copyWith(fontWeight: FontWeight.w600);
+
   @override
   Widget build(BuildContext context) {
     return ElevatedButton(
       onPressed: isLoading ? null : onPressed,
-      style: _styleFor(height ?? (_isTextVariant ? 48 : 56)),
+      style: _styleFor(height ?? (_isTextVariant ? 48 : 52)),
       child: isLoading
           ? _spinner()
-          : Text(label, style: _isTextVariant ? AppTypography.labelSmall : AppTypography.label),
+          : Text(label, style: _isTextVariant ? _textLabel : AppTypography.button),
     );
   }
 

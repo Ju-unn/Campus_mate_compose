@@ -297,13 +297,13 @@ void main() {
     await pump(tester);
 
     final button = find.ancestor(of: find.text('탈퇴하기'), matching: find.byType(AppButton));
-    // button-danger = #E5E5E5 채움 · #C13515 글자 · 56 · 모서리 16 · 18/700(DESIGN §8.3).
+    // button-danger = #E5E5E5 채움 · #C13515 글자 · 52 · 모서리 14 · 16/700(HE8FZ 2026-10-01 개편, 옛 DESIGN §8.3 56).
     expect(tester.widget<AppButton>(button).variant, AppButtonVariant.danger);
     expect(find.ancestor(of: find.text('탈퇴하기'), matching: find.byType(ListTile)), findsNothing);
     // VmUvb padding [24,16,28,16].
     expect(tester.getRect(button).top, tester.getRect(tile('로그아웃')).bottom + 24);
     expect(tester.getRect(button).left, 16);
-    expect(tester.getSize(button).height, 56);
+    expect(tester.getSize(button).height, 52);
     // 아래 28 — 위험 영역 틀(Padding)의 바닥이 버튼 바닥보다 28 아래다.
     final zone = find.ancestor(of: button, matching: find.byType(Padding)).first;
     expect(tester.getRect(zone).bottom - tester.getRect(button).bottom, 28);

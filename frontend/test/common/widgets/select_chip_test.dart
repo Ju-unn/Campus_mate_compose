@@ -1,5 +1,6 @@
 import 'package:campus_mate/common/widgets/select_chip.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -25,6 +26,10 @@ void main() {
       tester.renderObject(find.byType(SelectChip)),
       paints..rrect(color: AppColors.surfaceSoft),
     );
+  });
+
+  test('기본 모서리는 알약이다(pen 칩 WzXvK 9999, 2026-10-01 개편 — 옛 8)', () {
+    expect(SelectChip(label: '여행', isSelected: false, onTap: () {}).radius, AppRadius.pill);
   });
 
   testWidgets('고른 칩도 칩 안에서 그려진다', (tester) async {

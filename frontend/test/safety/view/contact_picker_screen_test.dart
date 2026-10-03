@@ -110,7 +110,7 @@ void main() {
     // pen bzBZZ 여백 [16,24,28,24], 간격 8 — 안내 → 8 → 버튼 → 28 → 화면 끝.
     expect(button.top - notice.bottom, 8);
     expect(780 - button.bottom, 28);
-    expect(button.height, 56);
+    expect(button.height, 52); // HE8FZ 2026-10-01 개편
     expect(button.left, 24);
     expect(button.width, 312);
     final noticeText = tester.widget<Text>(find.text('번호는 암호화해 대조에만 쓰고 원본은 저장하지 않아요.'));
@@ -211,7 +211,7 @@ void main() {
       await tester.pump();
 
       expect(tester.takeException(), isNull);
-      // 하단 버튼은 공용 AppButton(높이 56 고정)이라 이 PR 이 고치지 않는다. 테스트 글꼴은 모든 글자가 한 칸(1em)이라
+      // 하단 버튼은 공용 AppButton(높이 52 고정, 2026-10-01 개편)이라 이 PR 이 고치지 않는다. 테스트 글꼴은 모든 글자가 한 칸(1em)이라
       // "선택 완료 (1명)" 이 2.0 에서 360 으로 재져 두 줄이 된다 — 보고서 걱정 항목에 적었다.
       final clipped = [
         for (final element in find

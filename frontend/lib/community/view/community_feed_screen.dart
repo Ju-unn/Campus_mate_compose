@@ -119,10 +119,10 @@ class _EmptyFeed extends StatelessWidget {
 
   static const _emptyAction = '질문 올리기';
 
-  /// AppButton 라벨(18/700)이 이 기기 글자 배율로 차지하는 폭.
+  /// AppButton 라벨(16/700, HE8FZ 2026-10-01 개편)이 이 기기 글자 배율로 차지하는 폭.
   static double _labelWidth(BuildContext context, String label) {
     final painter = TextPainter(
-      text: TextSpan(text: label, style: AppTypography.label),
+      text: TextSpan(text: label, style: AppTypography.button),
       textDirection: TextDirection.ltr,
       textScaler: MediaQuery.textScalerOf(context),
       maxLines: 1,

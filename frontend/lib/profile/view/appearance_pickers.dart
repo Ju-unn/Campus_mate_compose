@@ -90,6 +90,7 @@ class ImpressionTypePicker extends StatelessWidget {
       isSelected: selected.contains(type),
       onTap: () => onTap(type),
       height: 44,
+      radius: AppRadius.sm,
     );
   }
 }

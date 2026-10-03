@@ -115,7 +115,7 @@ void main() {
     expect(errorRect.top - optionBox.bottom, 20);
     expect(button.top - errorRect.bottom, 8);
     expect(submit(tester).onPressed, isNotNull);
-    expect(button.height, 56);
+    expect(button.height, 52); // HE8FZ 2026-10-01 개편
   });
 
   testWidgets('입력칸은 80자 · 6자에서 더 받지 않는다', (tester) async {
@@ -196,6 +196,6 @@ void main() {
     expect(optionBox.top - optionLabel.bottom, 6);
     expect(optionBox.height, 44);
     expect(button.top - optionBox.bottom, 20);
-    expect(button.height, 56);
+    expect(button.height, 52); // HE8FZ 2026-10-01 개편
   });
 }
