@@ -49,6 +49,20 @@ class CommunityRepository(PostgrestRepository):
         raise_for_status(response, conflict_detail=errors.POLL_ALREADY_VOTED)
         return response.json()
 
+    async def fetch_for_report(self, poll_id: UUID | str) -> dict | None:
+        """신고(safety POST /reports)용 — 글쓴이와 가려진 글 · 글쓴이 상태까지 읽고 판단은 부르는 쪽이 한다.
+
+        FK 힌트가 필요하다 — poll_votes(PK 가 두 FK)를 거치는 polls ↔ profiles 다대다가 하나 더 있어서 힌트가 없으면
+        PostgREST 가 300(PGRST201)을 돌려준다."""
+        response = await self._get("polls", {
+            "id": f"eq.{poll_id}",
+            "select": "id,author_id,question,option_a_label,option_b_label,status,created_at,"
+                      "author:profiles!polls_author_id_fkey(status)",
+        })
+        raise_for_status(response)
+        rows = response.json()
+        return rows[0] if rows else None
+
     async def delete_poll(self, poll_id: UUID, author: UUID) -> bool:
         """본인 글이면 지우고 참. 투표는 cascade 로 같이 지워진다(사용자 결정 2)."""
         # 지워진 행을 돌려받아야 "없었다" 와 "지웠다" 를 가른다 — 부모 _delete 는 Prefer 를 받지 않는다.
