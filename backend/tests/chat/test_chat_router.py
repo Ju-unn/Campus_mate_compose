@@ -87,6 +87,8 @@ class _Calls:
         self.messages: list[dict] = []
         self.pushes: list[dict] = []
         self.patches: list[tuple[str, dict]] = []
+        # 밤에 아침으로 보류된 알림의 받는 사람(pending_pushes, 결정 4).
+        self.kept: list[str] = []
 
 
 def _handler(calls: _Calls, match: dict, *, messages: list[dict] | None = None,
@@ -115,6 +117,9 @@ def _handler(calls: _Calls, match: dict, *, messages: list[dict] | None = None,
             return httpx.Response(200, json=[PARTNER_PROFILE if "nickname" not in url else PARTNER_PROFILE])
         if "/rest/v1/notification_settings" in url:
             return httpx.Response(200, json=[])
+        if "/rest/v1/pending_pushes" in url:
+            calls.kept.append(json.loads(request.content)["profile_id"])
+            return httpx.Response(201)
         if "/rest/v1/push_tokens" in url:
             return httpx.Response(200, json=[{"token": "tok"}])
         return httpx.Response(200, json=[])
@@ -360,7 +365,10 @@ def test_both_accepting_opens_the_gate_right_away():
 
 
 def test_the_gate_opens_at_night_too_and_only_the_pass_alarm_waits():
-    """조용한 시간에도 문은 열린다. 채팅 푸시만 예외라(결정 5) 통과 알림 2건은 버려진다.
+    """조용한 시간에도 문은 열린다. 채팅 푸시만 예외라(결정 5) 통과 알림 2건은 지금 안 간다.
+
+    상대 쪽은 아침으로 보류하고(결정 4), 마지막에 누른 내 쪽은 버린다 — 응답으로 카톡 아이디를 방금 봤다
+    ("내가 방금 한 행동으로 생긴 내 쪽 알림은 보류하지 않는다", 대장 10-03).
 
     벽시계를 읽던 시절에는 22시 넘어 돌린 CI 가 이 차이 때문에 빨개졌다."""
     app.dependency_overrides[get_now] = lambda: NIGHT
@@ -375,6 +383,7 @@ def test_the_gate_opens_at_night_too_and_only_the_pass_alarm_waits():
     # 남는 건 수락 알림 하나뿐이다 — 채팅 갈래라 조용한 시간을 지나간다.
     assert len(calls.pushes) == 1
     assert calls.pushes[0]["notification"]["body"] == "카카오톡 아이디·실사진 공개를 수락했어요"
+    assert calls.kept == [PARTNER_ID]
 
 
 def test_the_gate_is_stamped_before_the_system_line():

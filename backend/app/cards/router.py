@@ -244,9 +244,10 @@ async def respond_to_acceptance(card_id: str, body: DecisionRequest,
         await notify(wiring.repo, wiring.sender, card["owner_id"], "match_made", "매칭됐어요!",
                      f"{me['nickname']} 님도 수락했어요",
                      {"route": "match", "match_id": match["id"]}, now=now)
+        # 내 쪽은 방금 화면에서 매칭을 봤다 — 밤이면 아침에 다시 알리지 않고 버린다(대장 10-03).
         await notify(wiring.repo, wiring.sender, wiring.profile_id, "match_made", "매칭됐어요!",
                      f"{accepter['nickname']} 님과 대화를 시작해 보세요",
-                     {"route": "match", "match_id": match["id"]}, now=now)
+                     {"route": "match", "match_id": match["id"]}, now=now, defer=False)
     return {"matched": True, "match_id": match["id"]}
 
 
