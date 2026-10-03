@@ -137,6 +137,20 @@ async def test_a_thin_pool_drops_to_monday_only_and_cards_last_a_week():
     assert repo.cards[0]["expires_at"] == datetime(2026, 9, 28, 7, 0, tzinfo=SEOUL)
 
 
+async def test_a_pool_of_a_thousand_issues_four_times_a_week():
+    """적은 쪽 1000~1999 면 주 4회(월 · 수 · 금 · 일)다. 주 4회 기준과 매일 기준을 바꿔 읽으면 여기서 잡힌다."""
+    repo = _FakeCardRepo(
+        [{"profile_id": "owner-1", "region_group": "seoul"}],
+        counts={"seoul": {"male": 1500, "female": 1200}},
+    )
+    matching = _FakeMatchingRepo([_candidate("high", 0.9)])
+
+    await issue_daily_cards(repo, matching, sender=None, now=MONDAY_7AM)
+
+    assert repo.saved_weekdays == [("seoul", [1, 3, 5, 7])]
+    assert repo.cards[0]["expires_at"] == datetime(2026, 9, 23, 7, 0, tzinfo=SEOUL)
+
+
 async def test_rerunning_the_same_day_does_not_issue_a_second_card():
     """오늘 카드를 이미 받고 수락·거절까지 끝낸 사람은 card_issue_owners() 에 다시 올라온다.
     Cloud Scheduler 재시도나 손으로 다시 돌릴 때 한 장이 더 나가면 안 된다."""
