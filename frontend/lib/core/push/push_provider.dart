@@ -12,3 +12,8 @@ final pushMessagingProvider = Provider<PushMessaging>((ref) {
 final pushRegistrarProvider = Provider<PushRegistrar>((ref) {
   return PushRegistrar(ref.read(pushMessagingProvider), ref.read(cardRepositoryProvider));
 });
+
+/// 기기 설정의 앱 알림 허용(16d-1). 화면이 다시 보일 때 invalidate 해서 새로 읽는다.
+final deviceNotificationsPermittedProvider = FutureProvider.autoDispose<bool>(
+  (ref) => ref.read(pushMessagingProvider).isPermitted(),
+);

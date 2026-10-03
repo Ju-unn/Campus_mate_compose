@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/core/push/push_provider.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:campus_mate/matching/model/notification_preferences.dart';
 import 'package:campus_mate/matching/view/notification_settings_screen.dart';
@@ -6,14 +9,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../core/push/fake_push_messaging.dart';
 import '../model/fake_card_repository.dart';
 
 void main() {
-  Future<FakeCardRepository> pump(WidgetTester tester) async {
+  late FakePushMessaging messaging;
+
+  Future<FakeCardRepository> pump(WidgetTester tester, {bool permitted = true, Future<bool>? pending}) async {
     final repository = FakeCardRepository()
       ..preferences = const Success(NotificationPreferences());
+    messaging = FakePushMessaging(token: 't')
+      ..permitted = permitted
+      ..permittedPending = pending;
     final container = ProviderContainer(
-      overrides: [cardRepositoryProvider.overrideWithValue(repository)],
+      overrides: [
+        cardRepositoryProvider.overrideWithValue(repository),
+        pushMessagingProvider.overrideWithValue(messaging),
+      ],
     );
     addTearDown(container.dispose);
     await tester.pumpWidget(
@@ -67,5 +79,40 @@ void main() {
     await tester.pump();
 
     expect(repository.preferenceUpdates.single, (key: 'card_arrived', value: false));
+  });
+
+  testWidgets('기기 알림이 켜져 있으면 기기 설정 안내가 없다', (tester) async {
+    await pump(tester);
+
+    expect(find.text('기기 알림 설정 열기'), findsNothing);
+  });
+
+  testWidgets('기기 알림이 꺼져 있으면 안내를 띄우고 누르면 기기 설정을 연다(16d-1)', (tester) async {
+    // 앱 스위치가 다 켜져 있어도 기기에서 막으면 알림은 하나도 안 온다(A9).
+    await pump(tester, permitted: false);
+
+    await tester.tap(find.text('기기 알림 설정 열기'));
+    await tester.pump();
+
+    expect(messaging.openedSettings, 1);
+  });
+
+  testWidgets('기기 설정을 읽는 중에는 안내를 띄우지 않는다 — 켜진 사람에게 잠깐 떴다 사라지지 않게', (tester) async {
+    await pump(tester, pending: Completer<bool>().future);
+
+    expect(find.text('기기 알림 설정 열기'), findsNothing);
+  });
+
+  testWidgets('기기 설정에서 켜고 돌아오면 안내가 사라진다', (tester) async {
+    await pump(tester, permitted: false);
+    expect(find.text('기기 알림 설정 열기'), findsOneWidget);
+
+    messaging.permitted = true;
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('기기 알림 설정 열기'), findsNothing);
   });
 }

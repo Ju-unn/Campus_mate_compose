@@ -1,5 +1,8 @@
+import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/core/push/push_provider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/matching/viewmodel/notification_settings_view_model.dart';
@@ -72,11 +75,33 @@ const _sections = <({String title, List<_Row> rows})>[
 ];
 
 /// 알림 설정(DESIGN.md 화면 16d, pen `NMgCa`).
-class NotificationSettingsScreen extends ConsumerWidget {
+class NotificationSettingsScreen extends ConsumerStatefulWidget {
   const NotificationSettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<NotificationSettingsScreen> createState() => _NotificationSettingsScreenState();
+}
+
+class _NotificationSettingsScreenState extends ConsumerState<NotificationSettingsScreen> {
+  // 기기 설정에서 켜고 돌아오면 안내가 바로 사라져야 한다 — 돌아올 때마다 다시 읽는다.
+  late final AppLifecycleListener _lifecycle;
+
+  @override
+  void initState() {
+    super.initState();
+    _lifecycle = AppLifecycleListener(onResume: () => ref.invalidate(deviceNotificationsPermittedProvider));
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // 읽는 중 · 못 읽음은 켜짐으로 본다 — 확실할 때만 안내를 띄운다.
+    final deviceOff = ref.watch(deviceNotificationsPermittedProvider).value == false;
     final state = ref.watch(notificationSettingsViewModelProvider);
     final viewModel = ref.read(notificationSettingsViewModelProvider.notifier);
     return Scaffold(
@@ -84,6 +109,10 @@ class NotificationSettingsScreen extends ConsumerWidget {
       body: SafeArea(
         child: ListView(
           children: [
+            if (deviceOff)
+              _DeviceNotificationsOff(
+                onOpen: () => ref.read(pushMessagingProvider).openNotificationSettings(),
+              ),
             for (final section in _sections) ...[
               _SectionHeader(section.title),
               for (final row in section.rows)
@@ -141,6 +170,43 @@ class _SectionHeader extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.xs),
       child: Text(title, style: AppTypography.bodySmall.copyWith(color: AppColors.muted)),
+    );
+  }
+}
+
+/// 16d-1(pen `fnGUA`). 앱 스위치가 다 켜져 있어도 기기에서 막으면 알림이 하나도 안 온다(A9).
+/// 목록 틀 `Znioc` 위 12 · 좌우 16 · 간격 20, 안내 상자 `gvjXK`, 버튼 `WTUbC`(기본 버튼 52/14).
+class _DeviceNotificationsOff extends StatelessWidget {
+  const _DeviceNotificationsOff({required this.onOpen});
+
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: 20,
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: AppColors.primaryWash,
+              borderRadius: BorderRadius.circular(AppRadius.input),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              // pen 문구 "기기 설정에서 켜 주세요" 에 "알림을 눌러" 를 더했다 — 버튼이 알림 화면이 아니라
+              // 앱 설정 화면에 내려 준다(대장 10-03 가).
+              child: Text(
+                '기기 알림이 꺼져 있어요. 알림을 받으려면 기기 설정에서 알림을 눌러 켜 주세요',
+                style: AppTypography.bodySmall.copyWith(color: AppColors.body, height: 1.5),
+              ),
+            ),
+          ),
+          AppButton(label: '기기 알림 설정 열기', onPressed: onOpen),
+        ],
+      ),
     );
   }
 }
