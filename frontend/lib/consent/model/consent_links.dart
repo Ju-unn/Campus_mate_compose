@@ -9,3 +9,6 @@ final Uri termsLink = Uri.parse('$_page#792b6855eaa04bf8a24c19c86702d62f');
 
 /// 2부 2항 "처리하는 개인정보 항목". 종교(민감정보) 문단도 이 항 끝에 있다 — 종교 동의도 이 줄이 받는다(09-29).
 final Uri privacyItemsLink = Uri.parse('$_page#efcc38385bef4185b6577d663ebd3bc8');
+
+/// 설정 16 "개인정보처리방침" 줄(A6). 2부 첫 블록 앵커를 받기 전까지 페이지 맨 위(1부 · 2부가 다 보인다, 대장 10-03 나).
+final Uri privacyPolicyLink = Uri.parse(_page);
