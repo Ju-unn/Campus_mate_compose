@@ -1,4 +1,5 @@
 import 'package:campus_mate/billing/model/heart_task.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -33,7 +34,8 @@ class HeartTaskRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(_icon, size: 20, color: AppColors.body),
+          // pen 3D 28, 줄 안 x0 · 세로 가운데(공지 `k1Fst` · `MLkdv` d7e1q · 공유 n40Hd · 투표 x5QLa, 값표 1004).
+          Icon3d(_icon, size: 28),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Column(
@@ -76,10 +78,10 @@ class HeartTaskRow extends StatelessWidget {
     return Material(type: MaterialType.transparency, child: InkWell(onTap: onTap, child: row));
   }
 
-  IconData get _icon => switch (task.kind) {
-        HeartTaskKind.everytimePost => AppIcons.megaphone,
-        HeartTaskKind.kakaoShare => AppIcons.share2,
-        HeartTaskKind.pollVote => AppIcons.vote,
+  AppIcon3d get _icon => switch (task.kind) {
+        HeartTaskKind.everytimePost => AppIcon3d.megaphone,
+        HeartTaskKind.kakaoShare => AppIcon3d.share,
+        HeartTaskKind.pollVote => AppIcon3d.vote,
       };
 
   String get _title => switch (task.kind) {
@@ -100,14 +102,15 @@ class HeartTaskRow extends StatelessWidget {
             background: AppColors.primaryDisabled,
             foreground: AppColors.ink,
           ),
+        // pen `e2aMg` 안 3D 시계 `oq6tX` 16(값표 1004).
         HeartTaskState.reviewing => const _Chip(
-            icon: AppIcons.timer,
+            leading: Icon3d(AppIcon3d.clock, size: 16),
             label: '검수중',
             background: AppColors.surfaceStrong,
             foreground: AppColors.muted,
           ),
         HeartTaskState.done => const _Chip(
-            icon: AppIcons.check,
+            leading: Icon(AppIcons.check, size: 12, color: AppColors.primaryText),
             label: '완료',
             background: AppColors.primaryWash,
             foreground: AppColors.primaryText,
@@ -118,16 +121,16 @@ class HeartTaskRow extends StatelessWidget {
 
 /// pen Status `e2aMg` · Action `xGTbF` — 72×28 알약. 글자를 키우면 늘어난다.
 class _Chip extends StatelessWidget {
-  const _Chip({required this.label, required this.background, required this.foreground, this.icon});
+  const _Chip({required this.label, required this.background, required this.foreground, this.leading});
 
   final String label;
   final Color background;
   final Color foreground;
-  final IconData? icon;
+  final Widget? leading;
 
   @override
   Widget build(BuildContext context) {
-    final icon = this.icon;
+    final leading = this.leading;
     return ConstrainedBox(
       constraints: const BoxConstraints(minWidth: 72, minHeight: 28),
       child: DecoratedBox(
@@ -138,7 +141,7 @@ class _Chip extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              if (icon != null) ...[Icon(icon, size: 12, color: foreground), const SizedBox(width: AppSpacing.xxs)],
+              if (leading != null) ...[leading, const SizedBox(width: AppSpacing.xxs)],
               Text(label, style: AppTypography.badge.copyWith(fontWeight: FontWeight.w700, color: foreground)),
             ],
           ),

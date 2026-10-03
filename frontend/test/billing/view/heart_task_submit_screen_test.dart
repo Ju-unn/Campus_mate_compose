@@ -8,6 +8,7 @@ import 'package:campus_mate/billing/view/heart_task_submit_screen.dart';
 import 'package:campus_mate/billing/viewmodel/heart_task_submit_view_model.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -139,14 +140,18 @@ void main() {
     expect(find.text(heartTaskMonthlyLimitMessage), findsNothing);
   });
 
-  testWidgets('업로더 안 아이콘 32 · 간격 8 · 글자 렌더 20 이다(pen u7vbr sgGN4 · WmkOO)', (tester) async {
+  testWidgets('업로더 328×220, 안은 3D 업로드 70(y61) · 간격 8 · 글자 렌더 20 muted(pen u7vbr · C1BBE · WmkOO)', (tester) async {
     await pump(tester);
 
-    final icon = find.byIcon(AppIcons.imagePlus);
+    final uploader = tester.getRect(find.byKey(heartTaskUploaderKey));
+    final icon = find.byWidgetPredicate((w) => w is Icon3d && w.icon == AppIcon3d.upload);
     final label = find.text('스크린샷 첨부하기');
-    expect(tester.getSize(icon), const Size(32, 32));
+    expect(uploader.size, const Size(328, 220));
+    expect(tester.getSize(icon), const Size(70, 70));
+    expect(tester.getRect(icon).top - uploader.top, 61);
     expect(tester.getRect(label).top - tester.getRect(icon).bottom, 8);
     expect(tester.getSize(label).height, 20);
+    expect(tester.widget<Text>(label).style?.color, AppColors.muted);
   });
 
   testWidgets('업로더 잉크는 업로더 자신의 Material 에 그린다(COMMON §4-2)', (tester) async {

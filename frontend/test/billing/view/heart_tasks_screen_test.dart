@@ -5,8 +5,10 @@ import 'package:campus_mate/billing/model/heart_task_repository_provider.dart';
 import 'package:campus_mate/billing/view/heart_task_row.dart';
 import 'package:campus_mate/billing/view/heart_tasks_screen.dart';
 import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
+import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -78,8 +80,31 @@ void main() {
     expect(first.size, const Size(328, 64));
     expect(second.top - first.bottom, 8);
     expect(first.top - tester.getRect(find.textContaining('초기 보상 기준')).bottom, 24);
-    final chip = find.ancestor(of: find.text('검수중'), matching: find.byType(ConstrainedBox)).first;
+    // 시계 칩은 시험 글꼴 글자가 Pretendard 보다 넓어 72 를 넘는다 — 폭은 완료 칩으로 잰다.
+    final chip = find.ancestor(of: find.text('완료'), matching: find.byType(ConstrainedBox)).first;
     expect(tester.getSize(chip), const Size(72, 28));
+  });
+
+  testWidgets('pen 18a 아이콘 — 줄마다 3D 28 이 x0 · 줄 가운데(공유 n40Hd · 투표 x5QLa), 검수중 칩 시계 3D 16(e2aMg · oq6tX)', (tester) async {
+    await pump(tester);
+
+    Finder icon3d(AppIcon3d icon) => find.byWidgetPredicate((w) => w is Icon3d && w.icon == icon);
+    final rows = find.byType(HeartTaskRow);
+    for (final (i, icon) in [AppIcon3d.megaphone, AppIcon3d.share, AppIcon3d.vote].indexed) {
+      final row = tester.getRect(rows.at(i));
+      final rect = tester.getRect(find.descendant(of: rows.at(i), matching: icon3d(icon)));
+      expect(rect.size, const Size(28, 28));
+      // pen y18 — 아래 선 1 이 칸을 먹어 17.5.
+      expect(rect.left, row.left);
+      expect(rect.top - row.top, closeTo(18, 0.5));
+    }
+    final chip = find.ancestor(of: find.text('검수중'), matching: find.byType(ConstrainedBox)).first;
+    expect(tester.getSize(find.descendant(of: chip, matching: icon3d(AppIcon3d.clock))), const Size(16, 16));
+    expect(tester.getSize(chip).height, 28);
+    // 완료 칩은 그대로 lucide check 12 primaryText.
+    final done = find.ancestor(of: find.text('완료'), matching: find.byType(ConstrainedBox)).first;
+    final check = tester.widget<Icon>(find.descendant(of: done, matching: find.byIcon(AppIcons.check)));
+    expect((check.size, check.color), (12.0, AppColors.primaryText));
   });
 
   testWidgets('뒤로 누름 영역은 48 이고 아이콘은 x16 에서 시작한다', (tester) async {
@@ -109,7 +134,7 @@ void main() {
     await pump(tester);
 
     expect(find.text('다시 제출'), findsOneWidget);
-    await tester.tap(find.byIcon(AppIcons.megaphone));
+    await tester.tap(find.byWidgetPredicate((w) => w is Icon3d && w.icon == AppIcon3d.megaphone));
     await tester.pumpAndSettle();
 
     expect(find.text('제출 /heart-tasks/submit/everytime_post?reason=date_missing'), findsOneWidget);
