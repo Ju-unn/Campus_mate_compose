@@ -1,4 +1,5 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/photo_slider.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -213,13 +214,13 @@ class _Footer extends StatelessWidget {
           spacing: 6,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            _ActionLink(icon: AppIcons.flag, label: '신고하기', onTap: onReport),
+            _ActionLink(icon: AppIcon3d.siren, label: '신고하기', onTap: onReport),
             Padding(
               padding: _linkPadding,
               // pen `Z0DRuj` 14 / hairline.
               child: Text('·', style: _linkStyle),
             ),
-            _ActionLink(icon: AppIcons.ban, label: '차단하기', onTap: onBlock),
+            _ActionLink(icon: AppIcon3d.ban, label: '차단하기', onTap: onBlock),
           ],
         ),
         const SizedBox(height: 3),
@@ -234,11 +235,11 @@ const EdgeInsets _linkPadding = EdgeInsets.only(top: 11, bottom: 17);
 /// pen `bLICR` · `wOUWs` 14 / 보통 굵기, 줄높이 속성 없음 · 렌더 20. 가운데 점만 hairline 색이다.
 final TextStyle _linkStyle = AppTypography.bodySmall.copyWith(color: AppColors.hairline, height: 20 / 14);
 
-/// 회색 글자 링크(pen `divm8` — 버튼이 아니라 글자 모양, 빨강 없음).
+/// 회색 글자 링크(pen `divm8` — 버튼이 아니라 글자 모양, 빨강 없음). 앞 그림은 3D 18(사이렌 `jsi9g` · 금지 `eUCJv`).
 class _ActionLink extends StatelessWidget {
   const _ActionLink({required this.icon, required this.label, required this.onTap});
 
-  final IconData icon;
+  final AppIcon3d icon;
   final String label;
   final VoidCallback onTap;
 
@@ -256,7 +257,7 @@ class _ActionLink extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, size: 14, color: AppColors.muted),
+                Icon3d(icon, size: 18),
                 const SizedBox(width: 6),
                 Flexible(child: Text(label, style: _linkStyle.copyWith(color: AppColors.muted))),
               ],
