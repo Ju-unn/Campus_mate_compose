@@ -290,6 +290,12 @@ async def update_notification_settings(body: dict,
     return {"ok": True}
 
 
+@router.get("/cards/matching-paused")
+async def get_matching_paused(wiring: _Wiring = Depends(_wire)) -> dict:
+    """화면 16 토글이 그릴 값. 안 읽으면 일시중지해 둔 사람도 다시 열 때 "켜짐"으로 보인다."""
+    return {"paused": await wiring.repo.fetch_matching_paused(wiring.profile_id)}
+
+
 @router.patch("/cards/matching-paused")
 async def update_matching_paused(body: MatchingPausedRequest,
                                  wiring: _Wiring = Depends(_wire)) -> dict:
