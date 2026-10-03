@@ -123,7 +123,7 @@ class _Footer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 28),
+      padding: AppSpacing.bottomCta,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

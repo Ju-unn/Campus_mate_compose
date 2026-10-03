@@ -61,7 +61,7 @@ class AppearanceTypeScreen extends ConsumerWidget {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 28),
+              padding: AppSpacing.bottomCta,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

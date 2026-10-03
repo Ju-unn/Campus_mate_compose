@@ -99,7 +99,7 @@ class AcquisitionScreen extends ConsumerWidget {
   }
 }
 
-/// 단일 선택 `tag-chip` 5개(pen lVe24, 마스터 WzXvK — 높이 36 · 좌우 12 · 모서리 8 · 가로세로 간격 8).
+/// 단일 선택 `tag-chip` 5개(pen lVe24, 마스터 WzXvK — 높이 36 · 좌우 12 · 알약 · 가로세로 간격 8).
 /// pen 은 칩 폭을 89 · 89 · 80 · 76 · 50 으로 적었지만 글자 폭 + 좌우 12 라서 폭을 고정하지 않는다 —
 /// 글자를 키우면 칩이 따라 넓어지고 `Wrap` 이 줄을 바꾼다(360 폭에서 pen 과 같이 3 · 2 로 나뉜다).
 class _ChannelChips extends StatelessWidget {

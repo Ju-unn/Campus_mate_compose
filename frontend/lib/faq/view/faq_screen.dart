@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/consent/model/open_url.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -65,7 +66,8 @@ class FaqScreen extends ConsumerWidget {
   }
 }
 
-/// 검색칸(pen `R0cge` > `u4ntu`, 마스터 `PccKZ`): 56 · #F7F7F7 · r8 · 테두리 outline, search 20 muted.
+/// 검색칸 = 공용 SearchField(pen `y7Qlw`, 대장 10-03 — 21 의 `u4ntu` 는 옛 TextInput 인스턴스라 따르지 않는다):
+/// 48 · #F7F7F7 · r12 · 테두리 없음 · 좌우 16 · 간격 8, 3D 돋보기 24, 안내 14 muted.
 /// 글자가 있으면 뒤에 ✕(21-1 `nXpvH/uvQHG`, 누름 48 — 대장 09-29). 아래 여백은 탭 줄이 있을 때만 16 이 아니라 6 이다 —
 /// 탭의 누름 칸이 그 10 을 쓴다(`_Tabs`). 검색 중엔 탭 줄이 없어 pen 그대로 16.
 class _SearchField extends StatefulWidget {
@@ -101,26 +103,27 @@ class _SearchFieldState extends State<_SearchField> {
       child: TextField(
         controller: _controller,
         onChanged: widget.onChanged,
-        style: AppTypography.body.copyWith(color: AppColors.ink),
+        style: AppTypography.bodySmall.copyWith(color: AppColors.ink),
         textInputAction: TextInputAction.search,
         textAlignVertical: TextAlignVertical.center,
         decoration: InputDecoration(
           hintText: '궁금한 내용을 검색해 보세요',
-          hintStyle: AppTypography.body.copyWith(color: AppColors.muted),
+          hintStyle: AppTypography.bodySmall.copyWith(color: AppColors.muted),
           // 글자를 키우면 360 폭에서 한 줄에 다 안 들어가 말줄임이 된다 — 두 줄까지 두고 칸은 최소 높이라 따라 커진다.
           hintMaxLines: 2,
           filled: true,
           fillColor: AppColors.surfaceSoft,
           isDense: true,
           // 높이는 최소값만 건다 — 글자를 키우면 칸이 따라 커진다.
-          constraints: const BoxConstraints(minHeight: 56),
+          constraints: const BoxConstraints(minHeight: 48),
           contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
           prefixIcon: const Padding(
             // pen 간격 8 = 이 여백 4 + Material 3 가 prefix 뒤에 저절로 붙이는 4(input_decorator `prefixToInputGap`).
             padding: EdgeInsets.only(left: AppSpacing.md, right: AppSpacing.xxs),
-            child: Icon(AppIcons.search, size: 20, color: AppColors.muted),
+            // 칸 최소 높이 48 이 그림을 세로로 늘리지 않게 가운데 둔다.
+            child: Center(widthFactor: 1, child: Icon3d(AppIcon3d.search, size: 24)),
           ),
-          prefixIconConstraints: const BoxConstraints(minHeight: 56),
+          prefixIconConstraints: const BoxConstraints(minHeight: 48),
           suffixIcon: widget.query.isEmpty
               ? null
               // Material 3 는 suffix 를 상자 끝에 붙인다. pen 오른쪽 여백 16 = 누름 48 의 여유 14 + 이 2.
@@ -132,17 +135,17 @@ class _SearchFieldState extends State<_SearchField> {
                     icon: const Icon(AppIcons.x, size: 20, color: AppColors.muted),
                   ),
                 ),
-          border: _border(AppColors.outline),
-          enabledBorder: _border(AppColors.outline),
-          focusedBorder: _border(AppColors.primary),
+          border: _border,
+          enabledBorder: _border,
+          focusedBorder: _border,
         ),
       ),
     );
   }
 
-  static OutlineInputBorder _border(Color color) => OutlineInputBorder(
-    borderRadius: BorderRadius.circular(AppRadius.sm),
-    borderSide: BorderSide(color: color),
+  static final _border = OutlineInputBorder(
+    borderRadius: BorderRadius.circular(AppRadius.input),
+    borderSide: BorderSide.none,
   );
 }
 
