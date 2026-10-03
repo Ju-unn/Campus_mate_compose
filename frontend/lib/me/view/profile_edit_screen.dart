@@ -118,19 +118,20 @@ class _BioField extends StatelessWidget {
             fillColor: AppColors.surfaceSoft,
             constraints: const BoxConstraints(minHeight: 120),
             contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 14),
-            border: _border(AppColors.outline),
-            enabledBorder: _border(AppColors.outline),
-            focusedBorder: _border(AppColors.primary),
+            // `TDM1r` 테두리 hairline 1. 포커스는 pen 에 상태가 없어 ink 2(대장 확인 2026-10-03).
+            border: _border(AppColors.hairline),
+            enabledBorder: _border(AppColors.hairline),
+            focusedBorder: _border(AppColors.ink, width: 2),
           ),
         ),
       ],
     );
   }
 
-  static OutlineInputBorder _border(Color color) {
+  static OutlineInputBorder _border(Color color, {double width = 1}) {
     return OutlineInputBorder(
-      borderRadius: BorderRadius.circular(AppRadius.sm),
-      borderSide: BorderSide(color: color),
+      borderRadius: BorderRadius.circular(AppRadius.input),
+      borderSide: BorderSide(color: color, width: width),
     );
   }
 }

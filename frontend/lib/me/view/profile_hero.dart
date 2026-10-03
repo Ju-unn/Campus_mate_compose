@@ -1,3 +1,4 @@
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -6,7 +7,7 @@ import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/me/model/my_profile.dart';
 import 'package:flutter/material.dart';
 
-/// 화면 15 히어로(pen 마스터 `l8p6X` "ProfileHero", 328×360) — 아바타 그림 위에 보기 칩(위)과 이름 묶음(아래).
+/// 화면 15 히어로(pen 마스터 `l8p6X` "ProfileHero", 328×360) — 아바타 그림 위에 보기 칩 · 인증 배지(위)와 이름 묶음(아래).
 /// 이름 묶음 오른쪽 아래 "다시 만들기 · 10" 알약(`R5Quru`)이 15b 시트를 연다.
 class ProfileHero extends StatelessWidget {
   const ProfileHero({required this.profile, required this.onRegenerate, super.key});
@@ -46,8 +47,16 @@ class ProfileHero extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Top Row `dd4Jv` — 칩 하나, 왼쪽. 글자를 키워 폭이 모자라면 칩 글자가 줄을 바꾼다.
-                  const Row(children: [Flexible(child: _PillBadge.viewChip())]),
+                  // Top Row `dd4Jv` — space_between · 가운데 맞춤: 보기 칩 왼쪽, 인증 배지 오른쪽.
+                  // 글자를 키워 폭이 모자라면 칩 글자가 줄을 바꾼다. 사이 8 은 pen 에 없는 최소 간격(맞닿지 않게).
+                  const Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Flexible(child: _PillBadge.viewChip()),
+                      SizedBox(width: AppSpacing.xs),
+                      _VerifiedBadge(),
+                    ],
+                  ),
                   _Identity(profile: profile, onRegenerate: onRegenerate),
                 ],
               ),
@@ -113,15 +122,6 @@ class _PillBadge extends StatelessWidget {
         background = AppColors.surfaceInk,
         foreground = AppColors.onInk;
 
-  /// 인증 배지 `HxtCZ` — 흰 바탕 · badge-check 13 · "학생 인증" 12 ink. 늘 보인다 — `GET /me/profile` 은 인증된 사람만 닿는다.
-  const _PillBadge.verified()
-      : icon = AppIcons.badgeCheck,
-        iconSize = 13,
-        label = '학생 인증',
-        fontSize = 12,
-        background = AppColors.canvas,
-        foreground = AppColors.ink;
-
   final IconData icon;
   final double iconSize;
   final String label;
@@ -154,6 +154,38 @@ class _PillBadge extends StatelessWidget {
   }
 }
 
+/// 학생 인증 배지 `EQjrL`(3D) — 흰 알약 · 그림자 · [6,10] · 3D badge-check 18 → 4 → "학생 인증" 11/600 ink.
+/// 늘 보인다 — `GET /me/profile` 은 인증된 사람만 닿는다.
+class _VerifiedBadge extends StatelessWidget {
+  const _VerifiedBadge();
+
+  /// pen `EQjrL` 그림자 #34223A24 (0,2) blur 8. 그림자 토큰과 값이 달라(AppElevation.badge 는 #6F40551A blur 10) 리터럴로 둔다.
+  static const List<BoxShadow> _shadow = [BoxShadow(color: Color(0x2434223A), offset: Offset(0, 2), blurRadius: 8)];
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.canvas,
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+        boxShadow: _shadow,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon3d(AppIcon3d.badgeCheck, size: 18),
+            const SizedBox(width: AppSpacing.xxs),
+            // 11/600 — 줄높이는 pen 에 없어 보기 칩(Badge `XPRBv`)과 같은 1.5. 높이는 아이콘 18 이 정한다.
+            Text('학생 인증', style: AppTypography.labelSmall.copyWith(fontSize: 11, height: 1.5, color: AppColors.ink)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// Identity Block `IUcwD` — 이름 줄(`fXWlF`) → 2 → 학교 줄(`p2UWV`).
 class _Identity extends StatelessWidget {
   const _Identity({required this.profile, required this.onRegenerate});
@@ -168,18 +200,11 @@ class _Identity extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            // 닉네임 `CM0QK` 24/700 lh1.35 = headline 토큰. 길면 줄을 바꾼다 — 말줄임은 학교 줄만(N7).
-            Flexible(
-              child: Text(
-                age == null ? profile.nickname : '${profile.nickname}, $age',
-                style: AppTypography.headline.copyWith(color: AppColors.onInk),
-              ),
-            ),
-            const SizedBox(width: AppSpacing.xs),
-            const _PillBadge.verified(),
-          ],
+        // 이름 줄 `fXWlF`(gap 8) — 인증 배지가 위쪽 줄로 옮겨 가 닉네임 하나만 남았다.
+        // 닉네임 `CM0QK` 24/700 lh1.35 = headline 토큰. 길면 줄을 바꾼다 — 말줄임은 학교 줄만(N7).
+        Text(
+          age == null ? profile.nickname : '${profile.nickname}, $age',
+          style: AppTypography.headline.copyWith(color: AppColors.onInk),
         ),
         // Name Copy gap 2(토큰 밖 리터럴).
         const SizedBox(height: 2),

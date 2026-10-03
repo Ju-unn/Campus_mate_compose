@@ -183,37 +183,32 @@ void main() {
       expect(tester.getBottomLeft(find.byType(AppBar)).dy, 56);
     });
 
-    testWidgets('사진 줄 `lfmT0` — 대표 칸 160×200 (24, 위 32), gap 12, 보조 66×88 2행×2 gap 8 · 칸은 3개(D10)', (tester) async {
+    testWidgets('그리드 `u6AR7K` — 2×2, 폭 328(좌우 16, 위 32), 칸 156×158, 열 16 · 행 12', (tester) async {
       usePenFrame(tester);
       await pump(tester);
 
+      expect(tester.widget<PhotoSlotGrid>(find.byType(PhotoSlotGrid)).columnGap, 16);
       final photos = find.byType(DraggablePhotoTile);
       expect(photos, findsNWidgets(3));
-      expect(tester.getRect(photos.at(0)), const Rect.fromLTWH(24, 56 + 32, 160, 200));
-      expect(tester.getRect(photos.at(1)), const Rect.fromLTWH(196, 88, 66, 88));
-      expect(tester.getRect(photos.at(2)), const Rect.fromLTWH(270, 88, 66, 88));
-      // 넷째 칸(보조 2행 왼쪽)은 빈 "사진 추가" 칸이다.
-      expect(tester.getRect(find.byType(AddPhotoTile)), const Rect.fromLTWH(196, 184, 66, 88));
-      // pen `lfmT0` alignItems start(대장 확인 09-29) — 보조 그리드(184) 위 = 대표 칸(200) 위, 아래 16 이 빈다.
-      expect(tester.getTopLeft(photos.at(1)).dy, tester.getTopLeft(photos.at(0)).dy);
+      expect(tester.getRect(find.byType(PhotoSlotGrid)), const Rect.fromLTWH(16, 56 + 32, 328, 158 + 12 + 158));
+      expect(tester.getRect(photos.at(0)), const Rect.fromLTWH(16, 88, 156, 158));
+      expect(tester.getRect(photos.at(1)), const Rect.fromLTWH(188, 88, 156, 158));
+      expect(tester.getRect(photos.at(2)), const Rect.fromLTWH(16, 258, 156, 158));
+      // 넷째 칸(2행 오른쪽)은 빈 "사진 추가" 칸이다.
+      expect(tester.getRect(find.byType(AddPhotoTile)), const Rect.fromLTWH(188, 258, 156, 158));
     });
 
-    testWidgets('보조 2행 오른쪽(`myCJf` 자리)은 비워 둔다 — 사진은 최대 4장(D10)', (tester) async {
+    testWidgets('사진이 2장이면 사진 칸 2 + 빈 칸 2 — 네 칸이 늘 보인다', (tester) async {
       usePenFrame(tester);
       await pump(tester, profile: _profile(ids: ['p-a', 'p-b']));
 
-      // 사진 2 + 빈 칸 2 = 4칸. 다섯째 자리(270,184 ~ 336,272)에는 아무 칸도 없다.
+      expect(find.byType(DraggablePhotoTile), findsNWidgets(2));
       expect(find.byType(AddPhotoTile), findsNWidgets(2));
-      final emptySpot = const Rect.fromLTWH(270, 184, 66, 88).center;
-      for (final tile in [find.byType(DraggablePhotoTile), find.byType(AddPhotoTile)]) {
-        for (final element in tile.evaluate()) {
-          final box = element.renderObject! as RenderBox;
-          expect((box.localToGlobal(Offset.zero) & box.size).contains(emptySpot), isFalse);
-        }
-      }
+      expect(tester.getRect(find.byType(AddPhotoTile).first), const Rect.fromLTWH(16, 258, 156, 158));
+      expect(tester.getRect(find.byType(AddPhotoTile).last), const Rect.fromLTWH(188, 258, 156, 158));
     });
 
-    testWidgets('칸 모양은 04-2 그대로(C9) — 모서리 14, 대표 배지 첫 칸 (8,8), 지우기 28 원이 칸 오른쪽 위 8(대표 124,8 · 보조 30,8)', (tester) async {
+    testWidgets('칸 모양은 04-2 그대로(C9) — 모서리 14, 대표 배지 첫 칸 (8,8), 지우기 28 원은 칸 x120 · y8(오른쪽 8)', (tester) async {
       usePenFrame(tester);
       await pump(tester);
 
@@ -222,7 +217,7 @@ void main() {
       );
       expect(clip.borderRadius, BorderRadius.circular(14));
       expect(find.text('대표'), findsOneWidget);
-      expect(tester.getTopLeft(find.ancestor(of: find.text('대표'), matching: find.byType(Container)).first), const Offset(32, 96));
+      expect(tester.getTopLeft(find.ancestor(of: find.text('대표'), matching: find.byType(Container)).first), const Offset(24, 96));
       final circles = find.ancestor(
         of: find.byIcon(AppIcons.x),
         matching: find.byWidgetPredicate(
@@ -230,8 +225,9 @@ void main() {
         ),
       );
       expect(circles, findsNWidgets(3));
-      expect(tester.getRect(circles.at(0)), const Rect.fromLTWH(24 + 124, 88 + 8, 28, 28));
-      expect(tester.getRect(circles.at(1)), const Rect.fromLTWH(196 + 30, 88 + 8, 28, 28));
+      expect(tester.getRect(circles.at(0)), const Rect.fromLTWH(16 + 120, 88 + 8, 28, 28));
+      expect(tester.getRect(circles.at(1)), const Rect.fromLTWH(188 + 120, 88 + 8, 28, 28));
+      expect(tester.getRect(circles.at(2)), const Rect.fromLTWH(16 + 120, 258 + 8, 28, 28));
       final icon = tester.widget<Icon>(find.byIcon(AppIcons.x).first);
       expect((icon.size, icon.color), (14, AppColors.onInk));
     });
@@ -277,17 +273,17 @@ void main() {
 
       final tile = find.ancestor(of: find.text('사진 추가'), matching: find.byType(InkWell)).first;
       final painter = find.ancestor(of: find.text('사진 추가'), matching: find.byType(Material)).first;
-      expect(tester.getSize(tile), const Size(66, 88));
+      expect(tester.getSize(tile), const Size(156, 158));
       expect(tester.getSize(painter), tester.getSize(tile));
     });
 
-    testWidgets('안내문 `z5rhVO` — 사진 줄 16 아래 · 폭 312, 14/400 muted 줄 20, 줄을 바꾸고 잘리지 않는다(C2)', (tester) async {
+    testWidgets('캡션(`vAuNj` 자식) — 그리드 16 아래 · 폭 328, 14/400 muted 줄 20, 줄을 바꾸고 잘리지 않는다(C2)', (tester) async {
       usePenFrame(tester);
       await pump(tester);
 
       final rect = tester.getRect(find.text(_guide));
-      expect(rect.topLeft, const Offset(24, 88 + 200 + 16));
-      expect(rect.width, 312);
+      expect(rect.topLeft, const Offset(16, 88 + 158 + 12 + 158 + 16));
+      expect(rect.width, 328);
       final style = tester.widget<Text>(find.text(_guide)).style!;
       expect((style.fontSize, style.fontWeight, style.color), (14, FontWeight.w400, AppColors.muted));
       expect(style.fontSize! * style.height!, closeTo(20, 0.01));
@@ -420,7 +416,7 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(tester.getRect(find.byType(CheckingTile)), const Rect.fromLTWH(196, 184, 66, 88));
+    expect(tester.getRect(find.byType(CheckingTile)), const Rect.fromLTWH(188, 258, 156, 158));
     expect(saveButton(tester).onPressed, isNull);
     gate.complete(true);
     faceDetector.gate = null;
@@ -444,7 +440,7 @@ void main() {
   });
 
   // DESIGN §11.2 — 시스템 글꼴 확대(최대 2.0)에서도 넘치거나 잘리지 않는다. 15c · 15-5 테스트와 같은 잣대.
-  // 사진 2장이라 66×88 보조 칸에 "사진 추가" 가 둘 뜬다(옛 계획서 A6 배율 주의).
+  // 사진 2장이라 "사진 추가" 빈 칸이 둘 뜬다.
   for (final scale in [1.0, 1.3, 1.5, 2.0]) {
     testWidgets('15-7 — 폭 360 · 글자 배율 $scale 에서 넘침 · 잘림이 없다(스크롤 전 · 끝)', (tester) async {
       usePenFrame(tester);
