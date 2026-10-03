@@ -5,6 +5,10 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 abstract interface class PushMessaging {
   Future<bool> requestPermission();
   Future<String?> getToken();
+
+  /// 이 기기의 토큰을 FCM 에서 버린다. 로그인이 필요 없다 — 버린 토큰으로 보내면 FCM 이 404 를 준다.
+  /// 인터넷이 없으면 던진다.
+  Future<void> deleteToken();
   Stream<String> get onTokenRefresh;
   Stream<Map<String, dynamic>> get onMessage;
   Stream<Map<String, dynamic>> get onMessageOpenedApp;
@@ -25,6 +29,9 @@ class FirebasePushMessaging implements PushMessaging {
 
   @override
   Future<String?> getToken() => _messaging.getToken();
+
+  @override
+  Future<void> deleteToken() => _messaging.deleteToken();
 
   @override
   Stream<String> get onTokenRefresh => _messaging.onTokenRefresh;

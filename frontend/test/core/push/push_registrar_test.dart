@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/push/push_registrar.dart';
@@ -70,5 +72,90 @@ void main() {
     await registrar.stop();
 
     expect(repository.deletedTokens, ['tok-1']);
+    // 서버에서 지웠으면 기기 토큰은 그대로 둔다 — 다음 로그인이 같은 토큰을 다시 등록한다.
+    expect(messaging.deleteTokenCalls, 0);
+  });
+
+  group('서버에서 못 지우면 기기의 토큰을 버린다(A15)', () {
+    test('인터넷 없이 로그아웃하면 서버 삭제 대신 기기 토큰을 버린다', () async {
+      final messaging = FakePushMessaging(token: 'tok-1');
+      final repository = FakeCardRepository();
+      final registrar = PushRegistrar(messaging, repository);
+      await registrar.start();
+      repository.writeResult = const FailureResult(NetworkFailure());
+
+      await registrar.stop();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(repository.deletedTokens, ['tok-1']);
+      expect(messaging.deletedOnDevice, 1);
+    });
+
+    test('세션이 이미 끝나 서버가 받지 않아도 기기 토큰을 버린다', () async {
+      final messaging = FakePushMessaging(token: 'tok-1');
+      final repository = FakeCardRepository();
+      final registrar = PushRegistrar(messaging, repository);
+      await registrar.start();
+      repository.writeResult = const FailureResult(SessionExpiredFailure());
+
+      await registrar.stop();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(messaging.deletedOnDevice, 1);
+    });
+
+    test('로그아웃은 기기 토큰 버리기를 기다리지 않고, 그사이 다시 로그인하면 버린 뒤에 토큰을 받는다', () async {
+      // 느린 망에서 로그아웃 화면이 FCM 을 기다리며 멈추지 않게 · 곧 버려질 토큰을 새 주인으로 등록하지 않게.
+      final gate = Completer<void>();
+      final messaging = FakePushMessaging(token: 'tok-1');
+      final repository = FakeCardRepository();
+      final registrar = PushRegistrar(messaging, repository);
+      await registrar.start();
+      messaging.deleteTokenGate = gate;
+      repository.writeResult = const FailureResult(NetworkFailure());
+
+      await registrar.stop().timeout(const Duration(seconds: 1));
+      repository.writeResult = const Success(null);
+      final login = registrar.start();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(repository.registeredTokens, ['tok-1']);
+      gate.complete();
+      await login;
+
+      expect(messaging.getTokenAfterDeletes, [0, 1]);
+      expect(repository.registeredTokens, ['tok-1', 'tok-1']);
+    });
+
+    test('기기 토큰 버리기도 실패하면 될 때까지 다시 한다', () async {
+      final messaging = FakePushMessaging(token: 'tok-1')..deleteTokenFailures = 2;
+      final repository = FakeCardRepository();
+      final registrar = PushRegistrar(messaging, repository, retryDelay: const Duration(milliseconds: 1));
+      await registrar.start();
+      repository.writeResult = const FailureResult(NetworkFailure());
+
+      await registrar.stop();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(messaging.deleteTokenCalls, 3);
+      expect(messaging.deletedOnDevice, 1);
+    });
+
+    test('그사이 다시 로그인해 등록되면 다시 하기를 멈춘다 — 새 주인의 토큰을 버리면 안 된다', () async {
+      final messaging = FakePushMessaging(token: 'tok-1')..deleteTokenFailures = 1000;
+      final repository = FakeCardRepository();
+      final registrar = PushRegistrar(messaging, repository, retryDelay: const Duration(milliseconds: 5));
+      await registrar.start();
+      repository.writeResult = const FailureResult(NetworkFailure());
+      await registrar.stop();
+      repository.writeResult = const Success(null);
+
+      await registrar.start();
+      final callsAfterLogin = messaging.deleteTokenCalls;
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(repository.registeredTokens, ['tok-1', 'tok-1']);
+      expect(messaging.deleteTokenCalls, callsAfterLogin);
+    });
   });
 }
