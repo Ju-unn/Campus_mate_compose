@@ -28,6 +28,19 @@ void main() {
     expect(AppTypography.label.fontWeight, FontWeight.w700);
   });
 
+  test('button 은 채움 버튼 라벨용 16/700 이다 — pen Button `HE8FZ` 라벨 `ifX9K`(2026-10-01 개편)', () {
+    expect(AppTypography.button.fontSize, 16);
+    expect(AppTypography.button.fontWeight, FontWeight.w700);
+    expect(AppTypography.button.fontFamily, 'Pretendard');
+  });
+
+  test('subNavTitle 은 보조 앱바 제목용 18/700 · 줄높이 1.5 다 — pen AppBar · Sub `KH1hX` 제목 `YSMvI`', () {
+    expect(AppTypography.subNavTitle.fontSize, 18);
+    expect(AppTypography.subNavTitle.fontWeight, FontWeight.w700);
+    expect(AppTypography.subNavTitle.height, 1.5);
+    expect(AppTypography.subNavTitle.fontFamily, 'Pretendard');
+  });
+
   test('badge 는 가장 작은 11/600 이다', () {
     expect(AppTypography.badge.fontSize, 11);
     expect(AppTypography.badge.fontWeight, FontWeight.w600);

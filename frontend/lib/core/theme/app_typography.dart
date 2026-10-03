@@ -110,6 +110,27 @@ abstract final class AppTypography {
     letterSpacing: -0.01 * 18,
   );
 
+  /// 뒤로가 있는 보조 앱바 제목 (pen AppBar · Sub `KH1hX` 제목 `YSMvI` 18/700 · 1.5, 2026-10-01 개편).
+  /// 탭 머리 제목은 [navTitle] 20 그대로다
+  static const TextStyle subNavTitle = TextStyle(
+    fontFamily: _family,
+    fontFamilyFallback: _fallback,
+    fontSize: 18,
+    fontWeight: FontWeight.w700,
+    height: 1.50,
+  );
+
+  /// 채움 버튼 라벨 (pen Button `HE8FZ` 라벨 `ifX9K` 16/700, 2026-10-01 개편). 줄높이 · 자간은 pen 에 없어 [label] 과 같은 비율로 둔다
+  /// — 자간을 비우면 버튼 안에서 Material 기본(+0.1)이 끼어들어 글자 폭을 재는 화면(17 빈 상태 버튼)과 어긋난다.
+  static const TextStyle button = TextStyle(
+    fontFamily: _family,
+    fontFamilyFallback: _fallback,
+    fontSize: 16,
+    fontWeight: FontWeight.w700,
+    height: 1.20,
+    letterSpacing: -0.01 * 16,
+  );
+
   /// 리스트 안의 작은 버튼, 칩 버튼
   static const TextStyle labelSmall = TextStyle(
     fontFamily: _family,
@@ -144,12 +165,14 @@ abstract final class AppTypography {
     display,
     headline,
     navTitle,
+    subNavTitle,
     title,
     subtitle,
     body,
     bodyStrong,
     bodySmall,
     label,
+    button,
     labelSmall,
     caption,
     badge,

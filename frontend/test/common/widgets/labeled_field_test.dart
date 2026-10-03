@@ -6,6 +6,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // 값은 datingApp.pen 마스터 PccKZ(text-field) · 확인 줄 a1eaV, 04-1 보드 mUUet(2026-09-26 campus-pen 값표).
+// 상자 `TDM1r` 은 2026-10-01 개편 값(52 · 모서리 12 · 테두리 hairline 1 · 포커스 ink 2 `zJgrU` · placeholder `p3T9Jb` muted).
 void main() {
   Future<void> pump(
     WidgetTester tester, {
@@ -59,11 +60,25 @@ void main() {
     expect(enabledSide(tester), const BorderSide(color: AppColors.error, width: 2));
   });
 
-  testWidgets('확인 중·사용 가능이면 테두리는 기본 1px 그대로다', (tester) async {
+  testWidgets('확인 중·사용 가능이면 테두리는 기본 hairline 1px 그대로다', (tester) async {
     await pump(tester, pendingText: '확인 중…');
-    expect(enabledSide(tester), const BorderSide(color: AppColors.outline));
+    expect(enabledSide(tester), const BorderSide(color: AppColors.hairline));
     await pump(tester, successText: '사용할 수 있는 닉네임이에요');
-    expect(enabledSide(tester), const BorderSide(color: AppColors.outline));
+    expect(enabledSide(tester), const BorderSide(color: AppColors.hairline));
+  });
+
+  testWidgets('상자 `TDM1r` — 높이 52 · 모서리 12, 누르면 ink 2px(`zJgrU`), placeholder muted(`p3T9Jb`)', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: LabeledField(label: '닉네임', placeholder: '닉네임을 입력해 주세요'))),
+    );
+    final decoration = tester.widget<TextField>(find.byType(TextField)).decoration!;
+    final enabled = decoration.enabledBorder! as OutlineInputBorder;
+    final focused = decoration.focusedBorder! as OutlineInputBorder;
+
+    expect(tester.getSize(find.byType(TextField)).height, 52);
+    expect(enabled.borderRadius, BorderRadius.circular(12));
+    expect(focused.borderSide, const BorderSide(color: AppColors.ink, width: 2));
+    expect(decoration.hintStyle!.color, AppColors.muted);
   });
 
   for (final scale in [1.0, 1.3, 1.5, 2.0]) {
@@ -85,7 +100,7 @@ void main() {
     expect(tester.getTopLeft(text).dx, field.left);
     expect(find.byType(Icon), findsNothing);
     expect(tester.widget<Text>(text).style!.color, AppColors.muted);
-    expect(enabledSide(tester), const BorderSide(color: AppColors.outline));
+    expect(enabledSide(tester), const BorderSide(color: AppColors.hairline));
   });
 
   testWidgets('오류가 있으면 쓰는 도중 안내 대신 오류를 보여준다', (tester) async {

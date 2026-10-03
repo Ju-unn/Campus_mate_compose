@@ -3,7 +3,7 @@ import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 
-/// 고르는 칩(datingApp.pen `Chip` 인스턴스 — 높이 35 · 알약 모서리).
+/// 고르는 칩(datingApp.pen `Chip` 인스턴스 — 높이 35 · 알약 모서리, 태그 칩 `WzXvK` 도 2026-10-01 부터 알약).
 /// 04-1 성별·내 MBTI, 06-1 선호 MBTI 처럼 짧은 낱말을 고르는 자리에 쓴다.
 class SelectChip extends StatelessWidget {
   const SelectChip({
@@ -12,7 +12,7 @@ class SelectChip extends StatelessWidget {
     required this.onTap,
     this.width,
     this.height = 35,
-    this.radius = AppRadius.sm,
+    this.radius = AppRadius.pill,
     this.padding = EdgeInsets.zero,
     super.key,
   });
@@ -27,7 +27,7 @@ class SelectChip extends StatelessWidget {
   /// 디자인 파일의 칸 높이. 04-1 `Chip` 은 35, 04-4·06-1 인상 칩(`BGMWX`)은 44 다.
   final double height;
 
-  /// 태그 칩은 모서리 8, 성별·MBTI 칩은 알약 모서리다.
+  /// 기본은 알약(pen `WzXvK` 9999). 인상 칩 `BGMWX` 는 개편 여부를 pen 에서 아직 못 봐서 8 을 넘긴다(대장 10-03).
   final double radius;
 
   /// 글자 좌우 여백. 칸 너비가 정해지지 않은 칩(태그 `WzXvK` 좌우 12)만 넘긴다 —

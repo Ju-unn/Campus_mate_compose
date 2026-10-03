@@ -375,14 +375,14 @@ void main() {
       expect(tester.widget<Icon>(chevron).color, AppColors.muted);
     });
 
-    testWidgets('아래 묶음 [0,16,16,16] · 버튼 56 · 간격 4 · 로그아웃 48 14/600 muted', (tester) async {
+    testWidgets('아래 묶음 [0,16,16,16] · 버튼 52(HE8FZ 2026-10-01 개편) · 간격 4 · 로그아웃 48 14/600 muted', (tester) async {
       await pump(tester);
       final button = tester.getRect(find.byType(AppButton));
       final logout = tester.getRect(find.widgetWithText(InkWell, '로그아웃'));
 
       expect(button.left, 16);
       expect(button.width, 328);
-      expect(button.height, 56);
+      expect(button.height, 52);
       expect(logout.top, button.bottom + 4);
       expect(logout.height, 48);
       expect(logout.bottom, 780 - 16);

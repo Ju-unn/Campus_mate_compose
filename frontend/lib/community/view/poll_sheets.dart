@@ -2,6 +2,7 @@ import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/community/view/poll_toast.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -164,7 +165,7 @@ class _DeleteConfirmSheetState extends State<_DeleteConfirmSheet> {
       decoration: const BoxDecoration(
         color: AppColors.canvas,
         borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
-        boxShadow: [BoxShadow(color: Color(0x26000000), offset: Offset(0, -2), blurRadius: 16)],
+        boxShadow: AppElevation.top,
       ),
       child: SafeArea(
         top: false,

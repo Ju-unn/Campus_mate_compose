@@ -188,7 +188,7 @@ void main() {
   });
 
   group('지우기(20e-2 확인 → 20e-3 토스트)', () {
-    testWidgets('휴지통 → AlertSheet(pen UClUE) — 제목 20/700 · 본문에 받은 사람 닉네임 14 muted 1.55 · 지우기 328×56 danger · 취소 48', (tester) async {
+    testWidgets('휴지통 → AlertSheet(pen UClUE) — 제목 20/700 · 본문에 받은 사람 닉네임 14 muted 1.55 · 지우기 328×52 danger(HE8FZ 2026-10-01 개편) · 취소 48', (tester) async {
       await pump(tester);
 
       await openSheet(tester);
@@ -203,7 +203,7 @@ void main() {
       final delete = tester.widget<AppButton>(deleteButton());
       expect(delete.variant, AppButtonVariant.danger);
       final deleteRect = tester.getRect(deleteButton());
-      expect(deleteRect.size, const Size(328, 56));
+      expect(deleteRect.size, const Size(328, 52));
       final cancel = find.widgetWithText(AppButton, '취소');
       expect(tester.widget<AppButton>(cancel).variant, AppButtonVariant.text);
       final cancelRect = tester.getRect(cancel);

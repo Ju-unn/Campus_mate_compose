@@ -6,7 +6,7 @@ import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// 라벨이 붙은 입력칸(datingApp.pen `TextInput`).
+/// 라벨이 붙은 입력칸(datingApp.pen `TextInput` `PccKZ` — 상자 `TDM1r` 52 · 모서리 12 · 테두리 hairline 1, 2026-10-01 개편).
 /// 라벨 - 입력칸 - 도움말 순서로 쌓고, 입력칸 아래 한 줄은 오류 > 성공 > 도움말 순으로 하나만 보여준다.
 class LabeledField extends StatelessWidget {
   const LabeledField({
@@ -64,17 +64,17 @@ class LabeledField extends StatelessWidget {
           style: AppTypography.body.copyWith(color: AppColors.ink),
           decoration: InputDecoration(
             hintText: placeholder,
-            hintStyle: AppTypography.body.copyWith(color: AppColors.disabled),
+            // placeholder `p3T9Jb` 는 muted(#6A6A6A) — 2026-10-01 개편 전은 disabled(#929292).
+            hintStyle: AppTypography.body.copyWith(color: AppColors.muted),
             filled: true,
             fillColor: AppColors.surfaceSoft,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md,
-              vertical: AppSpacing.md,
-            ),
-            // 오류 때는 테두리도 빨간 2px 다(pen 마스터 PccKZ) — 문구만 빨개서는 어느 칸 얘기인지 흐리다.
-            border: _border(AppColors.outline),
-            enabledBorder: errorText != null ? _errorBorder : _border(AppColors.outline),
-            focusedBorder: errorText != null ? _errorBorder : _border(AppColors.primary),
+            constraints: const BoxConstraints(minHeight: _boxHeight),
+            contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+            // 오류 때는 테두리도 빨간 2px 다(pen 마스터 PccKZ `Z0KsG`) — 문구만 빨개서는 어느 칸 얘기인지 흐리다.
+            // 누르면 ink 2px(`zJgrU`).
+            border: _border(AppColors.hairline),
+            enabledBorder: errorText != null ? _errorBorder : _border(AppColors.hairline),
+            focusedBorder: errorText != null ? _errorBorder : _focusBorder,
           ),
         ),
         if (errorText != null)
@@ -113,11 +113,15 @@ class LabeledField extends StatelessWidget {
     );
   }
 
+  /// 상자 `TDM1r` 높이(최소값 — 글자를 키우면 늘어난다, DESIGN §11.2).
+  static const double _boxHeight = 52;
+
   static final OutlineInputBorder _errorBorder = _border(AppColors.error, width: 2);
+  static final OutlineInputBorder _focusBorder = _border(AppColors.ink, width: 2);
 
   static OutlineInputBorder _border(Color color, {double width = 1}) {
     return OutlineInputBorder(
-      borderRadius: BorderRadius.circular(AppRadius.sm),
+      borderRadius: BorderRadius.circular(AppRadius.input),
       borderSide: BorderSide(color: color, width: width),
     );
   }

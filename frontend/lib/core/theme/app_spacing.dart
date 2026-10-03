@@ -1,3 +1,5 @@
+import 'package:flutter/painting.dart';
+
 /// 간격 토큰 (DESIGN.md §4.1). 기본 단위 4px. 위젯은 이 상수만 읽는다.
 abstract final class AppSpacing {
   /// 아이콘과 라벨 사이, 칩 내부 세로
@@ -20,4 +22,10 @@ abstract final class AppSpacing {
 
   /// 화면 상단 여백, 빈 상태 위아래
   static const double xxl = 48;
+
+  /// 카드 안쪽 4면 (pen Card `GvbBr` · `sPWwm`, 2026-10-01 개편)
+  static const double card = 20;
+
+  /// 화면 아래 CTA 바 안쪽 (pen Bottom Bar CTA `A8INC6` [8,24,8,24], 2026-10-01 개편 — 옛 [16,24,28,24])
+  static const EdgeInsets bottomCta = EdgeInsets.fromLTRB(lg, xs, lg, xs);
 }

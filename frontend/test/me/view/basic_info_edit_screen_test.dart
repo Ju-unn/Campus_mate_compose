@@ -146,19 +146,19 @@ void main() {
       usePenFrame(tester);
       await pump(tester);
 
-      // 닉네임 `G1tl8` (24, 32) — 앱바 56 아래라 화면 y88. 라벨 렌더 20 → 8 → 상자 56 → 8 → helper 17.
+      // 닉네임 `G1tl8` (24, 32) — 앱바 56 아래라 화면 y88. 라벨 렌더 20 → 8 → 상자 `TDM1r` 52(2026-10-01 개편, 옛 56) → 8 → helper 17.
       expect(tester.getTopLeft(find.text('닉네임')), const Offset(24, 88));
       expect(tester.getSize(find.text('닉네임')).height, 20);
-      expect(tester.getRect(_nicknameField), const Rect.fromLTWH(24, 116, 312, 56));
+      expect(tester.getRect(_nicknameField), const Rect.fromLTWH(24, 116, 312, 52));
       final helper = find.text('30일에 한 번 바꿀 수 있어요');
-      expect(tester.getTopLeft(helper).dy, 180);
+      expect(tester.getTopLeft(helper).dy, 176);
       expect(tester.getSize(helper).height, 17);
-      // 키 줄 `Z7OpEp` — 닉네임 칸 끝(y197) 16 아래.
-      expect(tester.getTopLeft(find.text('키 (cm)')), const Offset(24, 213));
-      expect(tester.getRect(_heightField), const Rect.fromLTWH(24, 241, 312, 56));
+      // 키 줄 `Z7OpEp` — 닉네임 칸 끝(y193) 16 아래.
+      expect(tester.getTopLeft(find.text('키 (cm)')), const Offset(24, 209));
+      expect(tester.getRect(_heightField), const Rect.fromLTWH(24, 237, 312, 52));
     });
 
-    testWidgets('라벨 14/600 body · 상자 surface-soft · 모서리 8 · 테두리 outline 1', (tester) async {
+    testWidgets('라벨 14/600 body · 상자 surface-soft · 모서리 12 · 테두리 hairline 1(`TDM1r` 2026-10-01 개편)', (tester) async {
       usePenFrame(tester);
       await pump(tester);
 
@@ -168,8 +168,8 @@ void main() {
         final decoration = tester.widget<TextField>(field).decoration!;
         expect((decoration.filled, decoration.fillColor), (true, AppColors.surfaceSoft));
         final outline = border(tester, field);
-        expect((outline.borderSide.color, outline.borderSide.width), (AppColors.outline, 1));
-        expect(outline.borderRadius, BorderRadius.circular(8));
+        expect((outline.borderSide.color, outline.borderSide.width), (AppColors.hairline, 1));
+        expect(outline.borderRadius, BorderRadius.circular(12));
       }
     });
 
@@ -216,12 +216,12 @@ void main() {
       expect(find.byIcon(AppIcons.info), findsOneWidget);
     });
 
-    testWidgets('"저장" `fx0HX` — 312×56 · 좌우 24 · 화면 아래 28(바닥 고정)', (tester) async {
+    testWidgets('"저장" `fx0HX` — 312×52 · 좌우 24 · 화면 아래 8(바닥 고정, Bottom Bar CTA `A8INC6` [8,24,8,24])', (tester) async {
       usePenFrame(tester);
       await pump(tester);
 
       expect(saveButton(tester).label, '저장');
-      expect(tester.getRect(find.byType(AppButton)), const Rect.fromLTWH(24, 780 - 28 - 56, 312, 56));
+      expect(tester.getRect(find.byType(AppButton)), const Rect.fromLTWH(24, 780 - 8 - 52, 312, 52));
     });
 
     testWidgets('출생연도 · 성별 · 실명 · 전화번호 · MBTI 칸은 없다(U6) — 입력 칸은 닉네임 · 키 둘뿐', (tester) async {
@@ -245,7 +245,9 @@ void main() {
       expect((outline.borderSide.color, outline.borderSide.width), (AppColors.hairline, 1));
       expect(field.decoration!.fillColor, AppColors.surfaceSoft);
       expect(tester.widget<EditableText>(_valueOf(_nicknameField)).style.color, AppColors.disabled);
-      expect(tester.getRect(_nicknameField), const Rect.fromLTWH(24, 116, 312, 56));
+      // 모양은 그대로, 높이 52 · 모서리 12 만 개편을 따른다(`TDM1r` 2026-10-01).
+      expect(tester.getRect(_nicknameField), const Rect.fromLTWH(24, 116, 312, 52));
+      expect(outline.borderRadius, BorderRadius.circular(12));
     });
 
     testWidgets('오른쪽 lock 20 disabled — 상자 오른쪽 16 · 세로 가운데', (tester) async {
@@ -269,7 +271,7 @@ void main() {
       expect((icon.size, icon.color), (14, AppColors.muted));
       final style = tester.widget<Text>(find.text('10월 27일부터 바꿀 수 있어요')).style!;
       expect((style.fontSize, style.color), (12, AppColors.muted));
-      expect(tester.getTopLeft(find.text('10월 27일부터 바꿀 수 있어요')).dy, 180);
+      expect(tester.getTopLeft(find.text('10월 27일부터 바꿀 수 있어요')).dy, 176);
       expect(find.byIcon(AppIcons.info), findsNothing);
       expect(find.text('30일에 한 번 바꿀 수 있어요'), findsNothing);
     });
@@ -531,7 +533,7 @@ void main() {
     }
   });
 
-  // DESIGN §11.2 — 시스템 글꼴 확대(최대 2.0)에서도 넘치거나 잘리지 않는다. 상자 56 은 최소값이다.
+  // DESIGN §11.2 — 시스템 글꼴 확대(최대 2.0)에서도 넘치거나 잘리지 않는다. 상자 52(`TDM1r`)는 최소값이다.
   for (final locked in [false, true]) {
     for (final scale in [1.0, 1.3, 1.5, 2.0]) {
       testWidgets('15-6${locked ? '-2' : ''} — 폭 360 · 글자 배율 $scale 에서 넘침 · 잘림이 없다', (tester) async {
@@ -549,7 +551,7 @@ void main() {
         expect(tester.takeException(), isNull);
         expect(clipped, isEmpty);
         for (final field in [_nicknameField, _heightField]) {
-          expect(tester.getSize(field).height, greaterThanOrEqualTo(56));
+          expect(tester.getSize(field).height, greaterThanOrEqualTo(52));
           final box = tester.getRect(field);
           final value = tester.getRect(_valueOf(field));
           expect(value.top >= box.top && value.bottom <= box.bottom, isTrue, reason: '값이 상자 밖으로 삐져나간다');

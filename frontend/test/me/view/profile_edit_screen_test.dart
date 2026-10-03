@@ -177,13 +177,13 @@ void main() {
       expect(tester.getTopLeft(find.text('수정').first).dy, tester.getTopLeft(find.text('관심사 태그')).dy);
     });
 
-    testWidgets('칩 `WzXvK`(선택 꺼짐) — #F7F7F7 · 모서리 8 · 안쪽 [8,12], 14/600 ink, 높이 36, 누르지 않는다', (tester) async {
+    testWidgets('칩 `WzXvK`(선택 꺼짐) — #F7F7F7 · 알약 모서리(2026-10-01 개편, 옛 8) · 안쪽 [8,12], 14/600 ink, 높이 36, 누르지 않는다', (tester) async {
       await pump(tester);
 
       final chip = find.byKey(const ValueKey('tag-chip')).first;
       expect(tester.getSize(chip).height, 36);
       final decoration = tester.widget<DecoratedBox>(chip).decoration as BoxDecoration;
-      expect((decoration.color, decoration.borderRadius), (AppColors.surfaceSoft, BorderRadius.circular(8)));
+      expect((decoration.color, decoration.borderRadius), (AppColors.surfaceSoft, BorderRadius.circular(9999)));
       final text = find.descendant(of: chip, matching: find.byType(Text));
       expect(tester.getTopLeft(text) - tester.getTopLeft(chip), const Offset(12, 8));
       final style = tester.widget<Text>(text).style!;
@@ -191,12 +191,12 @@ void main() {
       expect(find.ancestor(of: chip, matching: find.byType(InkWell)), findsNothing);
     });
 
-    testWidgets('저장 `zUZFx` — 312×56 primary "저장", 화면 아래 28', (tester) async {
+    testWidgets('저장 `zUZFx` — 312×52 primary "저장", 화면 아래 8(Bottom Bar CTA `A8INC6` [8,24,8,24])', (tester) async {
       usePenFrame(tester);
       await pump(tester);
 
       final button = tester.getRect(find.byType(AppButton));
-      expect(button, const Rect.fromLTWH(24, 780 - 28 - 56, 312, 56));
+      expect(button, const Rect.fromLTWH(24, 780 - 8 - 52, 312, 52));
       expect(saveButton(tester).label, '저장');
       expect(saveButton(tester).variant, AppButtonVariant.primary);
     });

@@ -1,7 +1,5 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
-import 'package:campus_mate/core/theme/app_radius.dart';
-import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -41,17 +39,17 @@ void main() {
   });
 
   group('AppButton 라벨 스타일', () {
-    testWidgets('primary 는 label(18/700) 크기를 쓴다', (tester) async {
+    testWidgets('primary 는 button(16/700) 크기를 쓴다 — pen Button `HE8FZ` 라벨 `ifX9K`', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(home: Scaffold(body: AppButton(label: '다음으로', onPressed: null))),
       );
 
       final text = tester.widget<Text>(find.text('다음으로'));
-      expect(text.style?.fontSize, AppTypography.label.fontSize);
-      expect(text.style?.fontWeight, AppTypography.label.fontWeight);
+      expect(text.style?.fontSize, 16);
+      expect(text.style?.fontWeight, FontWeight.w700);
     });
 
-    testWidgets('text variant 는 labelSmall(14/600) 크기를 쓴다', (tester) async {
+    testWidgets('text variant 는 16/600 크기를 쓴다 — pen Text 변형 `rK7sg` 라벨', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
@@ -61,24 +59,24 @@ void main() {
       );
 
       final text = tester.widget<Text>(find.text('나중에'));
-      expect(text.style?.fontSize, AppTypography.labelSmall.fontSize);
-      expect(text.style?.fontWeight, AppTypography.labelSmall.fontWeight);
+      expect(text.style?.fontSize, 16);
+      expect(text.style?.fontWeight, FontWeight.w600);
     });
   });
 
   group('AppButton 크기·라운드 (DESIGN.md §8.3)', () {
-    testWidgets('56dp 계열 variant 는 높이 56, 라운드 16이다', (tester) async {
+    testWidgets('채움 variant 는 높이 52, 라운드 14다 — pen Button `HE8FZ`(2026-10-01 개편, 옛 56 · 16)', (tester) async {
       final style = await styleOf(
         tester,
         const AppButton(label: '다음으로', onPressed: null),
       );
 
-      expect(style.minimumSize?.resolve({})?.height, 56);
+      expect(style.minimumSize?.resolve({})?.height, 52);
       final shape = style.shape?.resolve({}) as RoundedRectangleBorder;
-      expect((shape.borderRadius as BorderRadius).topLeft.x, AppRadius.button);
+      expect((shape.borderRadius as BorderRadius).topLeft.x, 14);
     });
 
-    testWidgets('text variant 는 높이 48이다', (tester) async {
+    testWidgets('text variant 는 높이 48이다 — pen `rK7sg`', (tester) async {
       final style = await styleOf(
         tester,
         const AppButton(label: '나중에', onPressed: null, variant: AppButtonVariant.text),

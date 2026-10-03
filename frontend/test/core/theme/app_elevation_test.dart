@@ -16,4 +16,41 @@ void main() {
     expect(far.offset, const Offset(0, 8));
     expect(far.blurRadius, 24);
   });
+
+  test('오늘의 카드 요약 · 잠금 카드 그림자는 card 보다 옅은 두 겹이다 — pen `v26S7z` · `BpP33`(2026-10-01)', () {
+    expect(AppElevation.cardSoft, const <BoxShadow>[
+      BoxShadow(color: Color(0x0A1A1619), offset: Offset(0, 2), blurRadius: 8),
+      BoxShadow(color: Color(0x0F1A1619), offset: Offset(0, 8), blurRadius: 20),
+    ]);
+  });
+
+  test('말풍선 메뉴 그림자는 한 겹이다 — pen Popover · Bubble Menu `afUag`(2026-10-01)', () {
+    expect(AppElevation.popover, const <BoxShadow>[
+      BoxShadow(color: Color(0x1F000000), offset: Offset(0, 4), blurRadius: 12),
+    ]);
+  });
+
+  test('목록 행 그림자는 한 겹이다 — pen ProfileEntryRow `fN0xc`(2026-10-01)', () {
+    expect(AppElevation.row, const <BoxShadow>[
+      BoxShadow(color: Color(0x0D000000), offset: Offset(0, 1), blurRadius: 6),
+    ]);
+  });
+
+  test('성향 막대 그림자 — pen TraitProgressBar `IHitX`(2026-10-01)', () {
+    expect(AppElevation.trait, const <BoxShadow>[
+      BoxShadow(color: Color(0x1C745C78), offset: Offset(0, 1), blurRadius: 4),
+    ]);
+  });
+
+  test('모집 배지 그림자 — pen Goal Badge `R6EEu` · `RKJv5`(2026-10-01)', () {
+    expect(AppElevation.badge, const <BoxShadow>[
+      BoxShadow(color: Color(0x1A6F4055), offset: Offset(0, 2), blurRadius: 10),
+    ]);
+  });
+
+  test('아래에 붙은 시트 · 바의 위쪽 그림자는 한 겹이다(백로그 76)', () {
+    expect(AppElevation.top, const <BoxShadow>[
+      BoxShadow(color: Color(0x26000000), offset: Offset(0, -2), blurRadius: 16),
+    ]);
+  });
 }

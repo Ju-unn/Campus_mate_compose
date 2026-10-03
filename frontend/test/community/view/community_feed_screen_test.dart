@@ -69,12 +69,12 @@ void main() {
     expect(find.text('쓰기'), findsOneWidget);
   });
 
-  testWidgets('빈 상태 버튼 폭은 글자 + 좌우 20(pen l8vOF · Button HE8FZ padding [0,20]), 높이 56', (tester) async {
+  testWidgets('빈 상태 버튼 폭은 글자 + 좌우 20(pen l8vOF · Button HE8FZ padding [0,20]), 높이 52(2026-10-01 개편)', (tester) async {
     await pump(tester);
     final button = tester.getRect(find.widgetWithText(ElevatedButton, '질문 올리기'));
     final label = tester.getRect(find.text('질문 올리기'));
     expect(button.width, closeTo(label.width + 40, 0.5));
-    expect(button.height, 56);
+    expect(button.height, 52);
   });
 
   testWidgets('불러오기 실패는 빈 상태가 아니라 실패 문구와 다시 시도', (tester) async {
@@ -481,7 +481,7 @@ void main() {
     expect(find.byType(PollCard), findsOneWidget);
   });
 
-  testWidgets('pen 시트 높이: 메뉴 157(15d-1 ofjwb) · 확인 264(15d-2 CCdBk), 행 52 · 버튼 56/48', (tester) async {
+  testWidgets('pen 시트 높이: 메뉴 157(15d-1 ofjwb) · 확인 260(15d-2 CCdBk — 버튼 52 로 4 줄어듦, HE8FZ 2026-10-01 개편), 행 52 · 버튼 52/48', (tester) async {
     repository.page = Success(PollPage(polls: [pollFixture(isMine: true)], hasMore: false));
     await pump(tester);
     await tester.tap(find.byTooltip('더보기'));
@@ -492,8 +492,8 @@ void main() {
 
     await tester.tap(find.text('삭제하기'));
     await tester.pumpAndSettle();
-    expect(tester.getSize(find.byType(BottomSheet)).height, closeTo(264, 1));
-    expect(tester.getSize(find.widgetWithText(ElevatedButton, '삭제하기')).height, 56);
+    expect(tester.getSize(find.byType(BottomSheet)).height, closeTo(260, 1));
+    expect(tester.getSize(find.widgetWithText(ElevatedButton, '삭제하기')).height, 52);
     expect(tester.getSize(find.widgetWithText(ElevatedButton, '취소')).height, 48);
   });
 

@@ -108,3 +108,95 @@ abstract final class AppIcons {
   static const IconData heartHandshake = LucideIcons.heartHandshake;
   static const IconData messageSquareText = LucideIcons.messageSquareText;
 }
+
+/// 3D 그림 아이콘 (2026-10-01 디자인 개편 — pen 라이브러리 `Z54et > fIXLw 3D Icon Library`, 괄호 안은 타일 id).
+/// 그림은 `assets/icons/` 의 designMaterialsCompact WebP(512px)이고, 화면은 [Icon3d] 로 크기만 정해 그린다.
+/// pen 이 쓰지 않는 그림(아이콘 시트 · 옛 마스코트 · 옛 MBTI 등)은 넣지 않았다. 새 그림은 파일과 이 표를 같이 늘린다.
+enum AppIcon3d {
+  /// 학생 인증 `Trtii`
+  badgeCheck('ui-3d-badge-check'),
+  /// 금지 `eUCJv`
+  ban('ui-3d-ban'),
+  /// 알림 `WyOg1`
+  bell('ui-3d-bell'),
+  /// 차단 `K7lHf`
+  blockUser('ui-3d-block-user'),
+  /// 가입일 `UCEwf`
+  calendarCheck('ui-3d-calendar-check'),
+  /// 일정 `H62oC`
+  calendar('ui-3d-calendar'),
+  /// 시간 `oq6tX`
+  clock('ui-3d-clock'),
+  /// 연락처 `gTMRB`
+  contact('ui-3d-contact'),
+  /// 도움말 `Rb8A3`
+  help('ui-3d-faq'),
+  /// 선물 `e7HetT`
+  gift('ui-3d-gift'),
+  /// 학교 `E5TUHj`
+  graduationCap('ui-3d-graduation-cap'),
+  /// 친구 리뷰 `dAIki`
+  heartHandshake('ui-3d-heart-handshake'),
+  /// 하트 `zxXQG`
+  heart('ui-3d-heart'),
+  /// 안내 · 파란 느낌표 `s3b4k`
+  infoBlue('ui-3d-info-blue'),
+  /// 카드 도착 `wAQtn`
+  layers('ui-3d-layers'),
+  /// 로그아웃 `JdzhL`
+  logout('ui-3d-logout'),
+  /// 이메일 `m1RJR`
+  mail('ui-3d-mail'),
+  /// 마스코트 미리 보기 `t9q0v`
+  mascotPeek('ui-3d-mascot-peek-closeup'),
+  /// MBTI `MMIpS`
+  mbti('ui-3d-mbti-v2'),
+  /// 공지 `d7e1q`
+  megaphone('ui-3d-megaphone'),
+  /// 방해 금지 `I58co`
+  moon('ui-3d-moon'),
+  /// 편집 `DAILv`
+  pencil('ui-3d-pencil'),
+  /// 전화 `zsmST`
+  phone('ui-3d-phone'),
+  /// 개인정보 `BxTWT`
+  privacy('ui-3d-privacy'),
+  /// 키 `pIUSe`
+  ruler('ui-3d-ruler'),
+  /// 검색 `QU7qi`
+  search('ui-3d-search'),
+  /// 공유 `n40Hd`
+  share('ui-3d-share'),
+  /// 신고 사이렌 `jsi9g`
+  siren('ui-3d-siren'),
+  /// 반짝임 `ulHL7`
+  sparkles('ui-3d-sparkles'),
+  /// 태그 `aSyRM`
+  tags('ui-3d-tags'),
+  /// 약관 `vUQsU`
+  terms('ui-3d-terms'),
+  /// 삭제 `e2af0`
+  trash('ui-3d-trash'),
+  /// 이미지 첨부 `CR3C7`
+  upload('ui-3d-upload'),
+  /// 프로필 `PkqpC`
+  userRound('ui-3d-user-round'),
+  /// 사용자 `U17hk`
+  users('ui-3d-users'),
+  /// 투표 `x5QLa`
+  vote('ui-3d-vote'),
+  /// 대화 `Lua1H`
+  chat('feature-icon-chat-3d-tight'),
+  /// 홈 통계 · 가입(라이브러리 밖)
+  join('feature-icon-join-neutral-3d'),
+  /// 홈 통계 · 보냄(라이브러리 밖)
+  send('feature-icon-send-3d'),
+  /// 별점(라이브러리 밖)
+  star('feature-icon-star-3d');
+
+  const AppIcon3d(this._file);
+
+  final String _file;
+
+  String get asset => 'assets/icons/$_file.webp';
+}

@@ -89,11 +89,11 @@ void main() {
     expect(account.kakaoIdFetches, greaterThanOrEqualTo(1));
   });
 
-  testWidgets('저장 버튼은 하단 고정 312×56(pen u6wJjx), 아래 여백 28', (tester) async {
+  testWidgets('저장 버튼은 하단 고정 312×52(pen u6wJjx · Button HE8FZ 2026-10-01 개편), 아래 여백 28', (tester) async {
     await pump(tester);
 
     final save = find.byType(AppButton);
-    expect(tester.getSize(save), const Size(312, 56));
+    expect(tester.getSize(save), const Size(312, 52));
     expect(tester.getRect(save).bottom, 780 - 28);
   });
 

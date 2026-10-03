@@ -129,9 +129,9 @@ final _valueStyle = AppTypography.body.copyWith(height: 23 / 16);
 /// helper 12/400 — 줄높이 속성 없음 · 렌더 17(pen `XATaU`).
 final _noteStyle = AppTypography.caption.copyWith(height: 17 / 12);
 
-/// TextInput `PccKZ` — 라벨 → 8 → 상자 → 8 → helper. 상자는 surface-soft · 모서리 8 · 테두리 outline 1 · 안쪽 [0,16]
-/// · 세로 가운데. 모양은 04-1 `LabeledField` 와 같고(오류 때 테두리 error 2, 누르면 primary) 상자 높이 · 여백 · helper 표식만
-/// pen 값이라 여기서 그린다. 56 은 최소값이다 — 글자를 키우면 상자가 늘어난다(DESIGN §11.2).
+/// TextInput `PccKZ` — 라벨 → 8 → 상자 → 8 → helper. 상자는 surface-soft · 모서리 12 · 테두리 hairline 1 · 안쪽 [0,16]
+/// · 세로 가운데(2026-10-01 개편 — 옛 56 · 8 · outline). 모양은 04-1 `LabeledField` 와 같고(오류 때 테두리 error 2, 누르면 ink 2)
+/// 상자 높이 · 여백 · helper 표식만 pen 값이라 여기서 그린다. 52 는 최소값이다 — 글자를 키우면 상자가 늘어난다(DESIGN §11.2).
 ///
 /// [isLocked] 면 15-6-2 `V3sicJ` — 입력 불가, 테두리 hairline, 값 disabled, 오른쪽 lock 20(오른쪽 16 · 값과 8).
 class _InputField extends StatelessWidget {
@@ -161,7 +161,7 @@ class _InputField extends StatelessWidget {
   final Widget? note;
 
   /// 상자 `TDM1r` 높이(최소값).
-  static const double _boxHeight = 56;
+  static const double _boxHeight = 52;
 
   @override
   Widget build(BuildContext context) {
@@ -183,7 +183,7 @@ class _InputField extends StatelessWidget {
             filled: true,
             fillColor: AppColors.surfaceSoft,
             constraints: const BoxConstraints(minHeight: _boxHeight),
-            // 위아래는 (56 - 값 23) / 2 — 값과 자물쇠가 상자 한가운데에 온다(pen 자물쇠 y18).
+            // 위아래는 (52 - 값 23) / 2 — 값과 자물쇠가 상자 한가운데에 온다(pen 자물쇠 y18).
             contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: (_boxHeight - 23) / 2),
             // 값 ↔ 자물쇠 8 = 입력기가 넣는 4 + 여기 4. 자물쇠 뒤 16 은 상자 오른쪽 안쪽 여백.
             suffixIcon: isLocked
@@ -193,9 +193,9 @@ class _InputField extends StatelessWidget {
                   )
                 : null,
             suffixIconConstraints: const BoxConstraints(),
-            border: _border(AppColors.outline),
-            enabledBorder: hasError ? _errorBorder : _border(AppColors.outline),
-            focusedBorder: hasError ? _errorBorder : _border(AppColors.primary),
+            border: _border(AppColors.hairline),
+            enabledBorder: hasError ? _errorBorder : _border(AppColors.hairline),
+            focusedBorder: hasError ? _errorBorder : _focusBorder,
             disabledBorder: _border(AppColors.hairline),
           ),
         ),
@@ -205,12 +205,13 @@ class _InputField extends StatelessWidget {
   }
 
   static final OutlineInputBorder _errorBorder = _border(AppColors.error, width: 2);
+  static final OutlineInputBorder _focusBorder = _border(AppColors.ink, width: 2);
 
   /// `gapPadding` 0 — Material 3 는 외곽선 칸의 값 양옆에 이만큼 더 띄운다(떠오르는 라벨 자리). 라벨이 밖에 있어 필요 없고,
   /// 두면 값이 pen 16 이 아니라 20 에서 시작한다.
   static OutlineInputBorder _border(Color color, {double width = 1}) {
     return OutlineInputBorder(
-      borderRadius: BorderRadius.circular(AppRadius.sm),
+      borderRadius: BorderRadius.circular(AppRadius.input),
       borderSide: BorderSide(color: color, width: width),
       gapPadding: 0,
     );
@@ -245,7 +246,7 @@ class _FieldNote extends StatelessWidget {
 }
 
 /// 저장 실패 글(caption · error, 버튼 위 8 — 04-1 · 15-7 과 같은 자리) → "저장"(`fx0HX` 312×56). 버튼을 화면 아래에 붙이고
-/// 아래 28 을 두는 것은 15c · 15-7 과 같다(Spacer `YXKHl` 뒤, 본문 아래 28).
+/// 바 안쪽 [8,24,8,24](Bottom Bar CTA `A8INC6`, 2026-10-01 개편 — 옛 위 16 · 아래 28)를 두는 것은 15c · 15-7 과 같다.
 class _Footer extends StatelessWidget {
   const _Footer({required this.error, required this.isSaving, required this.onSave});
 
@@ -257,7 +258,7 @@ class _Footer extends StatelessWidget {
   Widget build(BuildContext context) {
     final error = this.error;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 28),
+      padding: AppSpacing.bottomCta,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -236,10 +236,10 @@ void main() {
       expect(tester.getSize(find.text('복사')).height, 20);
     });
 
-    testWidgets('공유하기는 기본 주 버튼(56), 닫기는 글자 버튼(48)', (tester) async {
+    testWidgets('공유하기는 기본 주 버튼(52, HE8FZ 2026-10-01 개편), 닫기는 글자 버튼(48)', (tester) async {
       await pump(tester);
       expect(tester.widget<AppButton>(find.widgetWithText(AppButton, '공유하기')).variant, AppButtonVariant.primary);
-      expect(tester.getSize(find.widgetWithText(AppButton, '공유하기')).height, 56);
+      expect(tester.getSize(find.widgetWithText(AppButton, '공유하기')).height, 52);
       expect(tester.widget<AppButton>(find.widgetWithText(AppButton, '닫기')).variant, AppButtonVariant.text);
       expect(tester.getSize(find.widgetWithText(AppButton, '닫기')).height, 48);
     });
