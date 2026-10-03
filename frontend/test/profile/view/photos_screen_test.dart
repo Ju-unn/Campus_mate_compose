@@ -6,7 +6,9 @@ import 'package:campus_mate/auth/model/face_detector_provider.dart';
 import 'package:campus_mate/auth/model/image_compressor_provider.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/profile/model/photos_repository_provider.dart';
+import 'package:campus_mate/profile/view/photo_tiles.dart';
 import 'package:campus_mate/profile/view/photos_screen.dart';
 import 'package:campus_mate/profile/viewmodel/photos_view_model.dart';
 import 'package:flutter/gestures.dart';
@@ -91,6 +93,13 @@ void main() {
     await pump(tester, photoCount: 4, textScale: 2.0);
 
     expectButtonOnScreen(tester);
+  });
+
+  // 2×2 배치는 15-7 과 같은 PhotoSlotGrid 를 쓴다 — 두 벌이면 한쪽만 고쳐진다. 04-2 열 간격은 12(pen F5DPI).
+  testWidgets('사진 칸은 공용 PhotoSlotGrid 로, 열 간격 12 다', (tester) async {
+    await pump(tester, photoCount: 2);
+
+    expect(tester.widget<PhotoSlotGrid>(find.byType(PhotoSlotGrid)).columnGap, AppSpacing.sm);
   });
 
   testWidgets('사진이 2장 미만이면 "다음" 이 꺼져 있다', (tester) async {
