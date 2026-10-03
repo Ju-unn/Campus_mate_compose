@@ -161,10 +161,13 @@ class FakeMessageStream implements MessageStream {
   final StreamController<Message> _controller = StreamController<Message>.broadcast();
   final List<String> subscribed = [];
   bool isClosed = false;
+  /// 구독마다 받은 "다시 붙음" 콜백. 옛 구독 것도 남겨 늦게 오는 신호를 흉내 낸다.
+  final List<void Function()?> _onRejoined = [];
 
   @override
-  Stream<Message> subscribe(String matchId) {
+  Stream<Message> subscribe(String matchId, {void Function()? onRejoined}) {
     subscribed.add(matchId);
+    _onRejoined.add(onRejoined);
     return _controller.stream.doOnCancel(() => isClosed = true);
   }
 
@@ -172,6 +175,9 @@ class FakeMessageStream implements MessageStream {
 
   /// 통로가 끊긴 상황(백로그 19). 실제 구현은 Realtime 의 channelError·timedOut 을 이렇게 올린다.
   void pushError() => _controller.addError(StateError('realtime channelError'));
+
+  /// 끊겼던 통로가 스스로 다시 붙은 상황(결함 A12) — 기본은 마지막 구독, [subscription] 으로 옛 구독(0부터).
+  void rejoin({int? subscription}) => _onRejoined[subscription ?? _onRejoined.length - 1]?.call();
 }
 
 extension _CancelHook<T> on Stream<T> {
