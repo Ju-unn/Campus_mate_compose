@@ -122,6 +122,31 @@ def test_acceptances_list_shows_who_accepted_me():
     assert datetime.fromisoformat(row["expires_at"]) == datetime.fromisoformat(decided_at) + timedelta(days=7)
 
 
+def test_acceptances_list_drops_someone_already_matched_with_me():
+    """A→B, B→A 카드를 둘 다 수락하면 이미 매칭인데 수락함에 상대가 남았다(결정 11, B8)."""
+    third_id = "33333333-3333-3333-3333-333333333333"
+    decided_at = _hours_ago(24)
+
+    def row(card_id: str, owner_id: str) -> dict:
+        return {"card_id": card_id, "decided_at": decided_at,
+                "daily_cards": {"id": card_id, "owner_id": owner_id, "target_id": PROFILE_ID,
+                                "acceptance_responses": None}}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if "/rest/v1/card_decisions" in url:
+            return httpx.Response(200, json=[row("card-1", OTHER_ID), row("card-3", third_id)])
+        if "/rest/v1/matches" in url:
+            return httpx.Response(200, json=[{"profile_a": PROFILE_ID, "profile_b": OTHER_ID}])
+        if "/rest/v1/profiles" in url:
+            return httpx.Response(200, json=[ACCEPTER_PROFILE])
+        return httpx.Response(200, json=[])
+
+    body = _wire(handler).get("/cards/acceptances", headers=AUTH_HEADERS).json()
+
+    assert [r["card_id"] for r in body["acceptances"]] == ["card-3"]
+
+
 def test_accepting_creates_a_match_and_notifies_both():
     """쌍방 수락이면 matches 한 행 + participants 두 행이 생기고, 두 사람 모두에게 알림이 간다(설계 §2.2)."""
     def extra(request: httpx.Request) -> httpx.Response:

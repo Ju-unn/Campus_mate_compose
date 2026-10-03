@@ -217,6 +217,26 @@ async def test_block_partners_are_read_both_ways_in_one_query():
     assert seen[0]["or"] == f"(blocker_id.eq.{me},blocked_id.eq.{me})"
 
 
+async def test_match_partners_are_read_from_either_side_in_one_query():
+    """matches 는 작은 uuid 가 profile_a 라 내가 어느 쪽인지 모른다 — 양쪽을 한 번에 읽는다."""
+    me = "11111111-1111-1111-1111-111111111111"
+    seen: list[httpx.QueryParams] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert "/matches" in str(request.url)
+        seen.append(request.url.params)
+        return httpx.Response(200, json=[
+            {"profile_a": "00000000-0000-0000-0000-000000000000", "profile_b": me},
+            {"profile_a": me, "profile_b": "ffffffff-ffff-ffff-ffff-ffffffffffff"},
+        ])
+
+    repo, _ = _repo(handler)
+
+    assert await repo.fetch_match_partner_ids(me) == {
+        "00000000-0000-0000-0000-000000000000", "ffffffff-ffff-ffff-ffff-ffffffffffff"}
+    assert seen[0]["or"] == f"(profile_a.eq.{me},profile_b.eq.{me})"
+
+
 async def test_profile_status_is_read_for_the_push_gate():
     seen: list[httpx.QueryParams] = []
 
