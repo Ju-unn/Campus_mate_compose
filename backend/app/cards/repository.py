@@ -199,6 +199,16 @@ class CardRepository(PostgrestRepository):
         me = str(profile_id)
         return {row["blocked_id"] if row["blocker_id"] == me else row["blocker_id"] for row in rows}
 
+    async def fetch_match_partner_ids(self, profile_id: UUID | str) -> set[str]:
+        """이미 나와 매칭된 사람(결정 11). 수락함에서 뺀다 — A→B, B→A 를 둘 다 수락하면 매칭이 먼저 생긴다.
+        ponytail: 상한이 없다 — 매칭이 db-max-rows(1000)를 넘으면 조용히 잘린다. 그때 RPC 로."""
+        rows = await self._rows("matches", {
+            "or": f"(profile_a.eq.{profile_id},profile_b.eq.{profile_id})",
+            "select": "profile_a,profile_b",
+        })
+        me = str(profile_id)
+        return {row["profile_b"] if row["profile_a"] == me else row["profile_a"] for row in rows}
+
     async def fetch_survey(self, profile_id: UUID | str) -> list[float]:
         """9축을 번호 순서로. 답하지 않은 축은 0 이다 — 화면이 빈 칸 대신 가운데를 그린다."""
         rows = await self._rows("survey_answers", {

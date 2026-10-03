@@ -193,10 +193,14 @@ async def get_acceptances(wiring: _Wiring = Depends(_wire)) -> dict:
 
     acceptances = []
     blocked = await wiring.repo.fetch_block_partner_ids(wiring.profile_id)
+    # 이미 매칭된 상대는 답할 게 없다(결정 11) — 프로필을 읽기 전에 거른다.
+    matched = await wiring.repo.fetch_match_partner_ids(wiring.profile_id)
     for row in await wiring.repo.fetch_pending_acceptances(
         wiring.profile_id, ACCEPTANCE_TTL_DAYS, now=now
     ):
         accepter_id = row["daily_cards"]["owner_id"]
+        if accepter_id in matched:
+            continue
         profile = await wiring.repo.fetch_card_profile(accepter_id)
         if _hidden_from_cards(accepter_id, profile, blocked):
             continue
