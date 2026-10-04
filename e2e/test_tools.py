@@ -33,6 +33,21 @@ class HubTest(unittest.TestCase):
             self.assertEqual(json.load(res), {'case': 'NEW'})
         self.assertIsNone(self.hub.wait(0.1))
 
+    def test_go_without_extra_is_just_go_true(self):
+        self.hub.go()
+        with urllib.request.urlopen(f'{self.base}/hear', timeout=5) as res:
+            self.assertEqual(json.load(res), {'go': True})
+
+    def test_go_carries_the_values_the_pc_gives(self):
+        self.hub.go({'token_hash': 'second'})
+        with urllib.request.urlopen(f'{self.base}/hear', timeout=5) as res:
+            self.assertEqual(json.load(res), {'go': True, 'token_hash': 'second'})
+
+    def test_go_values_cannot_turn_go_off(self):
+        self.hub.go({'go': False})
+        with urllib.request.urlopen(f'{self.base}/hear', timeout=5) as res:
+            self.assertEqual(json.load(res), {'go': True})
+
     def test_hear_with_nothing_queued_is_204(self):
         with urllib.request.urlopen(f'{self.base}/hear?wait=0', timeout=5) as res:
             self.assertEqual(res.status, 204)
