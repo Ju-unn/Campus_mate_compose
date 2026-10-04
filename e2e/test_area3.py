@@ -42,7 +42,7 @@ class Fake(FakeServer):
         """[reply] 는 Reply 또는 (보낸 것 dict) → Reply. 먼저 등록한 것이 먼저 맞는다."""
         self.handlers.append((method, re.compile(pattern), reply))
 
-    def __call__(self, method, url, headers=None, body=None, raw=None):
+    def __call__(self, method, url, headers=None, body=None, raw=None, **options):
         parts, headers = urlsplit(url), headers or {}
         sent = {'method': method, 'path': parts.path, 'query': dict(parse_qsl(parts.query)), 'body': body,
                 'auth': headers.get('Authorization', '').removeprefix('Bearer '), 'apikey': headers.get('apikey')}

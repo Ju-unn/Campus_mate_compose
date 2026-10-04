@@ -33,7 +33,7 @@ class Db(FakeDb):
         self.tokens = []
         self.fields = {'referral_code': 'K7M2QX', 'nickname': 'Aaaaa', 'status': 'active', 'matching_paused': False}
 
-    def __call__(self, method, url, headers=None, body=None, raw=None):
+    def __call__(self, method, url, headers=None, body=None, raw=None, **options):
         from urllib.parse import parse_qs, urlsplit
         parts = urlsplit(url)
         if parts.path == '/rest/v1/faq' and method == 'GET':

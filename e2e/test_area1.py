@@ -29,7 +29,7 @@ class FakeServer:
         self.users = []
         self._ids = 0  # 사용자를 지워도 id 가 다시 안 나오게
 
-    def __call__(self, method, url, headers=None, body=None, raw=None):
+    def __call__(self, method, url, headers=None, body=None, raw=None, **options):
         path = urlsplit(url).path
         self.calls.append((method, path, body))
         self.urls.append((method, url))
