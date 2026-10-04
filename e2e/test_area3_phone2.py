@@ -223,14 +223,14 @@ class OfflineSendTest(Phone2):
         return self.case('E-CHAT-25', answer, app)
 
     def good(self, job):
-        return said(error=NETWORK, input='테스트')
+        return said(error=NETWORK, error_cleared=True, input='테스트', disconnected=True)
 
     def airplane_calls(self):
         return [(i, e[2][-1]) for i, e in enumerate(self.events) if e[0] == 'adb' and e[2][-2:-1] == ('airplane-mode',)]
 
     def test_cut_then_go_then_restore_and_the_message_stays_in_the_input(self):
         (result, note), app = self.offline(self.good)
-        self.assertEqual((result, note), ('pass', ''))
+        self.assertEqual(result, 'pass')
         self.assertEqual(app.jobs, [{'token_hash': 'h', 'nickname': self.nick(2), 'text': '테스트'}])
         self.assertTrue(app.midway_given)
         names = [e if isinstance(e, str) else e[2][-1] for e in self.events]
@@ -243,6 +243,17 @@ class OfflineSendTest(Phone2):
         self.assertEqual(self.state['airplane'], 'disabled')
         self.assertEqual(self.rows('messages'), [])
         self.assert_all_home()
+
+    def test_note_tells_whether_realtime_cut_cleared_the_error_line(self):
+        for cleared, banner in ((True, True), (False, False)):
+            (result, note), _ = self.offline(lambda job: said(error=NETWORK, error_cleared=cleared, input='테스트', disconnected=banner))
+            self.assertEqual(result, 'pass')
+            self.assertIn(f'지우는지: {cleared}, 끊김 배너 {banner}', note)
+            self.assertIn('chat_room_ui_state.dart:106', note)
+
+    def test_fails_when_the_first_error_is_missing_even_if_cleared_later(self):
+        (result, _), _ = self.offline(said(error=None, error_cleared=True, input='테스트', disconnected=True))
+        self.assertEqual(result, 'fail')
 
     def test_fails_when_the_text_is_gone_the_message_differs_or_a_row_was_saved(self):
         for answer in (said(error=NETWORK, input=''), said(error=NETWORK), said(error='잠시 뒤 다시', input='테스트'),

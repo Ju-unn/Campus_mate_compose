@@ -111,7 +111,9 @@ def p_chat_25(run, phone):
     check.that(said.get('input') == '테스트', f"입력칸 {said.get('input', MISSING)!r}(기대 되돌아온 '테스트')")
     got = _sent(run, me, match_id)
     check.that(got == [], f'messages {got}(기대 새 행 0)')
-    return check.result()
+    # 판정은 처음 잡힌 문구다 — Realtime 이 끊기면 copyWith 가 오류 줄을 지워 끝 값은 None 일 수 있다
+    return check.result(f"오류 줄은 Realtime 끊김이 지우는지: {said.get('error_cleared', MISSING)}, 끊김 배너 {said.get('disconnected', MISSING)}"
+                        ' — copyWith 규칙(chat_room_ui_state.dart:106) 때문에 몇 초 뒤 사라질 수 있음(결함 후보 낮음)')
 
 
 def p_chat_43(run, phone):

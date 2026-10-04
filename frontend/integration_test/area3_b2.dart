@@ -208,14 +208,30 @@ final Map<String, Area1Case> area3Cases2 = {
   }),
   'E-CHAT-25': _session((tester, job) async {
     await _openAndType(tester, job, job['text'] as String);
-    await step('cut'); // PC 가 망을 끊는다
-    await tap(tester, _sendButton);
-    final watch = Stopwatch()..start();
-    while (_roomError(tester) == null && watch.elapsed < const Duration(seconds: 20)) {
-      await tester.pump(const Duration(milliseconds: 200));
+    final room = find.byType(ChatRoomScreen);
+    final container = ProviderScope.containerOf(tester.element(room));
+    final matchId = tester.widget<ChatRoomScreen>(room).matchId;
+    // 끊김(_onDisconnected)의 copyWith 가 방금 뜬 오류 줄을 지우므로, 처음 뜬 문구를 구독으로 잡아 둔다.
+    String? first;
+    final sub = container.listen(chatRoomViewModelProvider(matchId), (_, next) => first ??= next.errorMessage);
+    try {
+      await step('cut'); // PC 가 망을 끊는다
+      await tap(tester, _sendButton);
+      final watch = Stopwatch()..start();
+      while (first == null && watch.elapsed < const Duration(seconds: 20)) {
+        await tester.pump(const Duration(milliseconds: 200));
+      }
+      await wait(tester, const Duration(seconds: 1)); // 실패하면 쓴 글을 입력칸에 되돌린다
+      final state = container.read(chatRoomViewModelProvider(matchId));
+      return {
+        'error': first,
+        'error_cleared': state.errorMessage == null,
+        'input': _chatText(tester),
+        'disconnected': state.isDisconnected,
+      };
+    } finally {
+      sub.close();
     }
-    await wait(tester, const Duration(seconds: 1)); // 실패하면 쓴 글을 입력칸에 되돌린다
-    return {'error': _roomError(tester), 'input': _chatText(tester)};
   }),
   'E-CHAT-43': _session(_acceptTwice),
   'E-REV-01': _session(_composeAndSubmit),
