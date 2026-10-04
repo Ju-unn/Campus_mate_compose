@@ -22,6 +22,8 @@ REVIEW_GONE = '리뷰를 찾을 수 없어요'
 ALREADY_WRITTEN = '이미 리뷰를 남겼어요'
 PERMISSION = Reply(401, {'code': '42501', 'message': 'permission denied for table'})
 RACE_TABLES = {'user_consents', 'university_email_domains'}
+# 기본키가 여러 칸이라 id 칸이 없는 표 — 운영은 select=id 를 400(42703)으로 돌려준다.
+NO_ID_TABLES = {'blocks', 'poll_votes', 'referrals', 'push_tokens', 'notification_settings'}
 
 
 class Fake(FakeServer):
@@ -56,6 +58,8 @@ class Fake(FakeServer):
 
     def _table(self, method, name, sent):
         rows = self.tables.setdefault(name, [])
+        if name in NO_ID_TABLES and 'id' in sent['query'].get('select', '').split(','):
+            return Reply(400, {'code': '42703', 'message': f'column {name}.id does not exist'})
         match = [r for r in rows if all(str(r.get(k)) == v[3:] for k, v in sent['query'].items()
                                         if v.startswith('eq.') and k != 'select')]
         if method == 'POST':

@@ -126,6 +126,27 @@ class AccountTest(Base):
         written = json.loads((self.run.out / 'accounts.json').read_text(encoding='utf-8'))
         self.assertEqual([(a['id'], a['stage']) for a in written], [('id-1', 'new')])
 
+    def test_verify_429_waits_a_minute_and_retries_once(self):
+        fake = self.serve({('POST', '/auth/v1/verify'): [Reply(429, None), Reply(200, {'access_token': 'tok2'})]})
+        with mock.patch.object(tools.time, 'sleep') as slept:
+            self.assertEqual(self.run.sign_in('a@b.c'), 'tok2')
+        slept.assert_called_once_with(60)
+        self.assertEqual(fake.paths('POST').count('/auth/v1/verify'), 2)
+
+    def test_verify_429_twice_is_blocked(self):
+        fake = self.serve({('POST', '/auth/v1/verify'): [Reply(429, None), Reply(429, None)]})
+        with mock.patch.object(tools.time, 'sleep') as slept, self.assertRaisesRegex(Blocked, 'verify 429'):
+            self.run.sign_in('a@b.c')
+        slept.assert_called_once_with(60)
+        self.assertEqual(fake.paths('POST').count('/auth/v1/verify'), 2)
+
+    def test_other_verify_failure_is_blocked_without_waiting(self):
+        fake = self.serve({('POST', '/auth/v1/verify'): Reply(500, None)})
+        with mock.patch.object(tools.time, 'sleep') as slept, self.assertRaisesRegex(Blocked, 'verify 500'):
+            self.run.sign_in('a@b.c')
+        slept.assert_not_called()
+        self.assertEqual(fake.paths('POST').count('/auth/v1/verify'), 1)
+
     def test_unknown_stage_is_refused(self):
         with self.assertRaises(ValueError):
             self.run.account('chat')
