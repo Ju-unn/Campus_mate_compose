@@ -32,6 +32,7 @@ from e2e import area4_set2  # noqa: F401 — 영역 4 설정 2차(FAQ · 초대 
 from e2e import area2_phone3  # noqa: F401 — 영역 2 폰 A 3차(망 끊기 · 카드 · 알림 · 공유 창 · 하트 다시 만들기) 가설
 from e2e import area4_contacts  # noqa: F401 — 영역 4 연락처(B에뮬)
 from e2e import area3_contacts  # noqa: F401 — 영역 3 연락처 차단(B에뮬)
+from e2e import area2_time_api  # 영역 2 시간 API(배치 없이 DB 시각만 옮겨 API · RPC 로 확인)
 from e2e.tools import (DEVICE_PORT, DEVICES, ROOT, TEXT, Hub, Run, adb, cleanup, ensure_no_real_users, env, latest, scenario_rows,
                        serial, service_key, snapshot_blocks, verdict)
 
@@ -39,9 +40,11 @@ ENV_KEYS = ('SUPABASE_URL', 'SUPABASE_ANON_KEY', 'API_BASE_URL', 'E2E_MAIL_BASE'
 DESKTOP = next(p for p in (Path.home() / 'OneDrive' / 'Desktop', Path.home() / 'Desktop') if p.exists())
 SCENARIO = DESKTOP / 'E2E_최종테스트_시나리오.md'
 RESULTS = DESKTOP / 'E2E_결과'
-BUNDLES = {**area1.BUNDLES, **area2.BUNDLES, **area3.BUNDLES, **area3_safe.BUNDLES, **area5_api.BUNDLES}  # 묶음 이름 → 가설 번호들
+BUNDLES = {**area1.BUNDLES, **area2.BUNDLES, **area3.BUNDLES, **area3_safe.BUNDLES, **area5_api.BUNDLES,
+           **area2_time_api.BUNDLES}  # 묶음 이름 → 가설 번호들
 API_CASES = {**{c: area1 for c in area1.CASES}, **{c: area2 for c in area2.CASES}, **{c: area3 for c in area3.CASES},
-             **{c: area3_safe for c in area3_safe.CASES}, **{c: area5_api for c in area5_api.CASES}}  # API 가설 → 그것을 가진 모듈
+             **{c: area3_safe for c in area3_safe.CASES}, **{c: area5_api for c in area5_api.CASES},
+             **{c: area2_time_api for c in area2_time_api.CASES}}  # API 가설 → 그것을 가진 모듈
 
 
 def _run(args):
