@@ -14,13 +14,14 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from e2e import area1, area2, area3, area3_safe, tools
+from e2e import area1, area2, area3, area3_safe, area5_api, tools
 from e2e import area1_b2  # noqa: F401 — 묶음 2 가설을 area1.PHONE · CASES · BUNDLES 에 더한다
 from e2e import area3_phone  # noqa: F401 — 영역 3 폰 1차 가설을 area1.PHONE · area3.BUNDLES 에 더한다
 from e2e import area3_phone2  # noqa: F401 — 영역 3 폰 2차(입력 · 보내기 · 신고 · 수락 · 시트) 가설을 같은 곳에 더한다
 from e2e import area3_safe_phone  # noqa: F401 — 영역 3 안전 폰(신고 · 차단 · 정지) 가설을 같은 곳에 더한다
 from e2e import area1_b3  # 묶음 3(사진 세트) — 같은 방식
 from e2e import area1_b4  # noqa: F401 — 묶음 4(아바타) — 같은 방식
+from e2e import area1_b5  # noqa: F401 — 묶음 5(검토 이후 · 재부팅 · 식은 서버) — 같은 방식
 from e2e import area1_emu  # noqa: F401 — B에뮬 가설(네트워크 · 시계 · 브라우저)
 from e2e import emu
 from e2e import area4  # noqa: F401 — 영역 4 가설을 같은 곳에 더한다
@@ -38,9 +39,11 @@ ENV_KEYS = ('SUPABASE_URL', 'SUPABASE_ANON_KEY', 'API_BASE_URL', 'E2E_MAIL_BASE'
 DESKTOP = next(p for p in (Path.home() / 'OneDrive' / 'Desktop', Path.home() / 'Desktop') if p.exists())
 SCENARIO = DESKTOP / 'E2E_최종테스트_시나리오.md'
 RESULTS = DESKTOP / 'E2E_결과'
-BUNDLES = {**area1.BUNDLES, **area2.BUNDLES, **area3.BUNDLES, **area3_safe.BUNDLES, **area2_time_api.BUNDLES}  # 묶음 이름 → 가설 번호들
+BUNDLES = {**area1.BUNDLES, **area2.BUNDLES, **area3.BUNDLES, **area3_safe.BUNDLES, **area5_api.BUNDLES,
+           **area2_time_api.BUNDLES}  # 묶음 이름 → 가설 번호들
 API_CASES = {**{c: area1 for c in area1.CASES}, **{c: area2 for c in area2.CASES}, **{c: area3 for c in area3.CASES},
-             **{c: area3_safe for c in area3_safe.CASES}, **{c: area2_time_api for c in area2_time_api.CASES}}  # API 가설 → 그것을 가진 모듈
+             **{c: area3_safe for c in area3_safe.CASES}, **{c: area5_api for c in area5_api.CASES},
+             **{c: area2_time_api for c in area2_time_api.CASES}}  # API 가설 → 그것을 가진 모듈
 
 
 def _run(args):
@@ -73,7 +76,7 @@ def cmd_preflight(args):
     if missing:
         ok = False
         print(f'e2e.env 에 없음: {", ".join(missing)}')
-    attached = subprocess.run(['adb', 'devices'], **TEXT).stdout
+    attached = tools.devices()
     for name in args.device:
         sn, pc_port = serial(name, cfg), DEVICES[name]
         if not sn:
@@ -94,14 +97,34 @@ def cmd_preflight(args):
     sys.exit(0 if ok else 1)
 
 
-def run_case(once, case):
+def case_limit(case, phone_case):
+    """가설 하나에 줄 시간(초). 기기를 만지는 가설만 건다 — 서버 API 묶음은 그대로."""
+    return tools.CASE_LIMITS.get(case, tools.CASE_LIMIT) if phone_case else None
+
+
+def _seen(where):
+    """시간 초과 때 기기에 보이던 것 — 못 읽어도 시간 초과 메모는 그대로."""
+    if not where:
+        return ''
+    try:
+        return f' — 지금 보이는 것: {where()}'
+    except Exception:
+        return ''
+
+
+def run_case(once, case, limit=None, where=None):
     """가설 하나를 돈다(fail 이면 한 번 더) → (시도 횟수, 결과, 메모). 예상 밖 예외는 그 가설만 blocked 로 — 묶음이 죽지 않는다.
+    [limit] 초를 넘기면 그 가설만 blocked(시간 초과)로 끝내고 다시 하지 않는다 — [where] 가 있으면 그때 기기에 보이던 것을 메모에 적는다.
     Ctrl-C · sys.exit 는 Exception 이 아니라 그대로 멈춘다."""
     tools.take_retries()
     attempt, result, note = 0, 'blocked', ''
     for attempt in (1, 2):
         try:
-            result, note = once(case)
+            with tools.case_deadline(limit):
+                result, note = once(case)
+        except tools.CaseTimeout as e:
+            result, note = 'blocked', f'시간 초과 — {e}{_seen(where)}'
+            break
         except Exception as e:
             result, note = 'blocked', f'진행 프로그램 예외 {type(e).__name__}: {e}'
         if result != 'fail':
@@ -137,11 +160,26 @@ def cmd_run(args):
 
     try:
         for case in [c for name in args.case for c in BUNDLES.get(name, [name])]:
-            attempt, result, note = run_case(once, case)
+            attempt, result, note = _run_one(once, case, run, phone)
             print(run.record(case, result, f'{note} (시도 {attempt})'.lstrip()))
     finally:
         if phone:
             phone['hub'].close()
+
+
+def _run_one(once, case, run, phone):
+    phone_case = case in area1.PHONE or case not in API_CASES
+    return run_case(once, case, limit=case_limit(case, phone_case), where=lambda: _where(run, phone, case))
+
+
+def _where(run, phone, case):
+    """시간 초과 때 기기가 어떤 모습인지 — 화면 한 장을 shots/ 에 저장하고 맨 위 화면 이름을 돌려준다(PC 에만 둔다)."""
+    if not phone:
+        return '기기를 아직 안 만짐'
+    shot = run.shot(phone['sn'], f'{case}-시간초과')
+    top = next((line.strip() for line in tools.adb(phone['sn'], 'shell', 'dumpsys', 'activity', 'activities').splitlines()
+                if 'topResumedActivity' in line or 'mResumedActivity' in line), '알 수 없음')
+    return f'{top}' + (f' (화면 {shot.name})' if shot else '')
 
 
 def cmd_report(args):

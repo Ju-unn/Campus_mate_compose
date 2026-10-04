@@ -109,6 +109,12 @@ class CheckTest(unittest.TestCase):
         with mock.patch.object(batch_gate, 'now_seoul', return_value=at(6, '14:10')):
             batch_gate.check('chat-gate')  # 앞의 거절이 기록돼 있으면 여기서 걸린다
 
+    def test_a_damaged_history_line_is_skipped_not_fatal(self):
+        batch_gate.HISTORY.write_text('여기가 깨짐' + chr(10) + at(6, '14:10').isoformat() + chr(10), encoding='utf-8')
+        with mock.patch.object(batch_gate, 'now_seoul', return_value=at(6, '14:40')):
+            with self.assertRaisesRegex(Blocked, '15:06'):  # 깨진 줄은 건너뛰고 멀쩡한 줄은 그대로 읽는다
+                batch_gate.check('chat-gate')
+
     def test_other_jobs_leave_no_record(self):
         with mock.patch.object(batch_gate, 'now_seoul', return_value=at(6, '12:00')):
             batch_gate.check('cleanup')
