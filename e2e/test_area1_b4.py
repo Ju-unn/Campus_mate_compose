@@ -194,6 +194,24 @@ class ResultScreenTest(Base4):
         age = datetime.now(timezone.utc) - datetime.fromisoformat(body['created_at'])
         self.assertTrue(timedelta(minutes=10, seconds=30) < age < timedelta(minutes=12), age)
 
+    def test_cases_starting_at_the_result_screen_grant_notifications_first(self):
+        # 사진을 안 옮기는 05-12 시작 가설도 앞 묶음이 revoke 한 채면 권한 창이 화면을 가린다 — 앱을 켜기 **전에** 줘야 한다.
+        self.serve({AVATARS: Reply(200, [PENDING])})
+        adb = self.adb_calls
+
+        class Marking(FakePhone):
+            def __call__(this, *args, **job):
+                adb('APP')  # 앱을 켠 순간을 adb 기록에 같이 남긴다
+                return super().__call__(*args, **job)
+
+        phone = Marking()
+        phone.serial = 'S1'
+        self.assertEqual(area1.attempt_phone(self.run, 'E-ONB-35', phone)[0], 'pass')
+        calls = [c.args for c in adb.call_args_list]
+        grant = ('S1', 'shell', 'pm', 'grant', area1_b4.tools.PACKAGE, 'android.permission.POST_NOTIFICATIONS')
+        self.assertEqual(calls.count(grant), 1)
+        self.assertLess(calls.index(grant), calls.index(('APP',)))
+
     def test_onb_35_fails_when_the_screen_check_changed_the_row(self):
         self.serve({AVATARS: Reply(200, [{'status': 'failed', 'is_fallback': False}])})
         self.assertEqual(area1.attempt_phone(self.run, 'E-ONB-35', self.phone())[0], 'fail')
