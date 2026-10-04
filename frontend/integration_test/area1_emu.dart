@@ -26,19 +26,7 @@ Future<(bool, bool)> _arriveWatching(WidgetTester tester, String name, Duration 
 /// 버튼 종류 · 스크롤 문제가 아니다 — 폼의 AppButton 은 스크롤 영역 밖 하단에 고정이라 폼이 있으면 늘 트리에 있다.
 Future<void> _proofFormOrWhere(WidgetTester tester) async {
   if (await appears(tester, _proofForm, const Duration(seconds: 30)) != null) return;
-  final seen = <String, Finder>{
-    '로그인': screen('login'),
-    '동의': screen('consent'),
-    '3b 폼': screen('3b'),
-    '3c': screen('3c'),
-    '홈': screen('home'),
-    '인터넷 없음 01-1': screen('01-1'),
-    '대기("$_held")': find.text(_held),
-    '확인 중("확인하고 있어요")': find.text('확인하고 있어요'),
-    '상태 조회 스피너': find.byType(CircularProgressIndicator),
-  };
-  final here = [for (final entry in seen.entries) if (entry.value.evaluate().isNotEmpty) entry.key];
-  throw TestFailure('30초 안에 3b 제출 폼이 안 나옴 — 지금 보이는 것: ${here.isEmpty ? '알 수 없음' : here.join(', ')}');
+  throw TestFailure('30초 안에 3b 제출 폼이 안 나옴 — 지금 보이는 것: ${_whereNow()}');
 }
 
 final Map<String, Area1Case> _emuCases = {

@@ -337,6 +337,19 @@ class CaseTest(Base):
         self.assertIs(phone.jobs[1]['fresh'], False)
         self.assertEqual(len(offline), 1)
         self.assertGreaterEqual(len(online), 2)  # 앱이 멈춘 사이 + 끝에 한 번 더
+        # 에뮬(소프트웨어 렌더링 + 세션 새로고침)은 실폰 기준 5초가 모자란다 — 끝의 다시 실행은 30초까지 기다리고, 앱이 걸린 시간을 알린다
+        self.assertEqual(phone.jobs[2]['limit'], 30)
+
+    def test_auth_22_passes_on_with_the_apps_timing_notes_so_a_slow_pass_is_visible(self):
+        self.serve()
+        phone = FakePhone({'result': 'pass'}, {'result': 'pass', 'note': '다시 시도 → 홈 900ms'},
+                          {'result': 'pass', 'note': '7000ms (시나리오 5초 초과)'}, midway_step={'step': 'online'})
+        phone.serial = S
+        with mock.patch.object(emu, 'go_offline'), mock.patch.object(emu, 'go_online', return_value=True):
+            result, note = area1.attempt_phone(self.run, 'E-AUTH-22', phone)
+        self.assertEqual(result, 'pass')
+        self.assertIn('900ms', note)
+        self.assertIn('시나리오 5초 초과', note)
 
     def test_auth_22_app_failure_still_restores_the_network(self):
         self.serve()
