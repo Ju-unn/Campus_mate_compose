@@ -12,7 +12,7 @@ import time
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 
-from e2e import area1, area1_b2, area2, area4_set2, notify, tools
+from e2e import area1, area2, area4_set2, notify, tools
 from e2e.area1 import SEOUL, Check, _api, _app, _one, _patch, _rows, _signed_in
 from e2e.area2 import _card, _grant, _guard, _insert, _person
 from e2e.area4 import _cut, _offline, _restore, stepper
@@ -22,6 +22,7 @@ WEEKDAY_NAMES = '월화수목금토일'  # frontend/lib/matching/view/daily_card
 EVERY_DAY = [1, 2, 3, 4, 5, 6, 7]
 TWICE_A_WEEK = [1, 4]
 CARD_TITLE, CARD_BODY = '오늘의 카드가 도착했어요', '지금 확인해 보세요'  # issuing.py — 앱바 "오늘의 카드" 와는 별개
+FRIEND_TITLE = '친구가 가입했어요'  # friend_reviews/router.py notify_review_request
 LOW_HEARTS = '하트가 모자라요'  # errors.HEARTS_NOT_ENOUGH
 AI_WAIT = 480  # 아바타 한 장이 완성되기를 기다리는 시간(초) — 시나리오 "수 분 안"
 POLL = 5
@@ -54,13 +55,6 @@ def expected_subtitle(now, weekdays, hour=7):
     return f'{next_week}{WEEKDAY_NAMES[issue.weekday()]}요일 {_hour_label(hour)}에 새로운 사람을 찾아볼게요'
 
 
-def daytime_only(now=None):
-    """낮 08~22시(서울)만 — 22~08시에는 지인 리뷰 알림이 pending_pushes 로 보류돼 알림이 안 온다."""
-    now = now or now_seoul()
-    if not 8 <= now.hour < 22:
-        raise Blocked(f'지금 {now:%H:%M}(서울) — 알림 가설은 08~22시에만(조용한 시간엔 알림이 보류된다)')
-
-
 def real_ai_gate(env=None):
     """실제 AI(OpenAI 이미지 호출 = 비용) 가설은 E2E_REAL_AI=1 일 때만."""
     if (os.environ if env is None else env).get('E2E_REAL_AI') != '1':
@@ -77,12 +71,6 @@ def tap_point(xml, labels):
             x1, y1, x2, y2 = map(int, box.groups())
             return (x1 + x2) // 2, (y1 + y2) // 2
     return None
-
-
-def has_notification(dump, title, body=None):
-    """dumpsys notification 에서 우리 앱 알림 줄만 보고 [title](과 [body])이 있는지 — 다른 앱 줄은 못 본 것으로 친다."""
-    found = ' / '.join(area1_b2._ours(dump))
-    return title in found and (body is None or body in found)
 
 
 # ── 기기 · 서버 도우미 ───────────────────────────────────────────────────────────────────────────────
@@ -218,10 +206,6 @@ def _tap_label(serial, labels):
     return point is not None
 
 
-def _seen(phone):
-    return tools.adb(phone.serial, 'shell', 'dumpsys', 'notification', '--noredact', check=False)
-
-
 def _wait_for(until, seconds):
     deadline = time.monotonic() + seconds
     while not until():
@@ -244,18 +228,18 @@ def p_card_02(run, phone):
         # 기기 토큰이 서버에 올라와야 배치가 보낸 알림이 이 폰에 닿는다(E-SET-65 와 같은 기다림)
         if not _wait_for(lambda: _rows(run, f"push_tokens?profile_id=eq.{a['id']}&select=token"), 30):
             raise Blocked('30초 안에 기기 토큰이 서버에 안 올라옴 — 알림 권한 · FCM 확인')
-        tools.adb(phone.serial, 'shell', 'input', 'keyevent', 'KEYCODE_HOME')
+        before = notify.read_notifications(phone.serial)  # 앞에 남은 알림과 섞이지 않게 — 새로 생긴 것만 본다
+        notify.background(phone.serial)  # 앱이 앞에 있으면 배너가 안 뜬다(시나리오 G4)
         area2._batch('daily-cards')
         got = _wait_for(lambda: _rows(run, f"daily_cards?owner_id=eq.{a['id']}&source=eq.daily&select=id"), 90)
         check.that(got, '배치 뒤 90초 안에 A 의 daily_cards 가 안 생김')
         if not got:
             return
-        arrived = _wait_for(lambda: has_notification(_seen(phone), CARD_TITLE, CARD_BODY), 30)
-        check.that(arrived, f'30초 안에 알림 "{CARD_TITLE} / {CARD_BODY}" 없음')
+        new = notify.wait_new(phone.serial, before, seconds=30)
+        arrived = [n for n in new if (n.title, n.text) == (CARD_TITLE, CARD_BODY)]
+        check.that(arrived, f'30초 안에 알림 "{CARD_TITLE} / {CARD_BODY}" 없음(새 알림 {len(new)}건)')
         if arrived:
-            tools.adb(phone.serial, 'shell', 'cmd', 'statusbar', 'expand-notifications')
-            time.sleep(1.5)
-            check.that(_tap_label(phone.serial, [CARD_TITLE]), '알림 줄을 화면에서 못 찾아 누르지 못함')
+            notify.tap_notification(phone.serial, CARD_TITLE)
             time.sleep(1)
 
     notify.grant_notifications(phone.serial)
@@ -270,9 +254,21 @@ def p_card_02(run, phone):
 
 
 def p_ref_18(run, phone):
-    """영역 1 E-ONB-61 과 같은 줄 — 추천인 폰에 알림. 앱은 그 가설을 별칭으로 쓰고, 낮 시간 가드만 더한다."""
-    daytime_only()
-    return area1_b2.p_onb_61(run, phone)
+    """추천인 = 폰 A(홈까지 켠 뒤 HOME), 코드 입력 = API(새 계정). 낮 08~22시에만."""
+    notify.require_daytime()
+    check = Check()
+    referrer, token = _signed_in(run, 'home')
+    _app(check, phone(token_hash=token))
+    code = area4_set2._code(run, referrer['id'])
+    before = notify.read_notifications(phone.serial)
+    notify.background(phone.serial)
+    friend = run.account('ideal_note')
+    nickname = _one(run, f"profiles?id=eq.{friend['id']}&select=nickname").get('nickname') or ''
+    check.reply('코드 입력', _api(run, 'POST', '/referral/redeem', friend['token'], {'code': code}), 200)
+    want = (FRIEND_TITLE, f'{nickname} 님이 가입했어요, 리뷰를 남겨 주세요')
+    new = notify.wait_new(phone.serial, before, seconds=30)
+    check.that(any((n.title, n.text) == want for n in new), f'30초 안에 알림 "{want[0]} / {want[1]}" 없음(새 알림 {len(new)}건)')
+    return check.result()
 
 
 # ── 공유 창 1 ───────────────────────────────────────────────────────────────────────────────────────

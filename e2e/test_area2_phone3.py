@@ -5,7 +5,7 @@ import unittest
 from datetime import datetime
 from unittest import mock
 
-from e2e import area1, area2_phone3, tools
+from e2e import area1, area2_phone3, notify, tools
 from e2e.area1 import SEOUL
 from e2e.test_area1_phone import FakePhone
 from e2e.test_area2 import Base, Fake
@@ -38,13 +38,6 @@ class SubtitleTest(unittest.TestCase):
 
 
 class GuardsTest(unittest.TestCase):
-    def test_notification_window_is_8_to_22_seoul(self):
-        for hour in (8, 12, 21):
-            area2_phone3.daytime_only(datetime(2026, 10, 5, hour, 30, tzinfo=SEOUL))
-        for hour in (7, 22, 23, 0):
-            with self.assertRaises(Blocked):
-                area2_phone3.daytime_only(datetime(2026, 10, 5, hour, 0, tzinfo=SEOUL))
-
     def test_real_ai_gate_stays_shut_unless_the_flag_is_exactly_one(self):
         for env in ({}, {'E2E_REAL_AI': ''}, {'E2E_REAL_AI': '0'}, {'E2E_REAL_AI': 'yes'}):
             with self.assertRaises(Blocked):
@@ -59,24 +52,12 @@ DUMP = (
     '<node text="" content-desc="복사" bounds="[10,20][110,60]" />'
     '</hierarchy>'
 )
-RECORDS = (
-    'NotificationRecord(0x1 pkg=com.other user=0 id=1)\n  android.title=String (남의 제목)\n  android.text=String (남의 본문)\n'
-    'NotificationRecord(0x2 pkg=io.github.juunn.campusmate user=0 id=2)\n'
-    '  android.title=String (친구가 가입했어요)\n  android.text=String (Abcde 님이 가입했어요, 리뷰를 남겨 주세요)\n'
-)
-
-
 class DeviceTextTest(unittest.TestCase):
     def test_tap_point_is_the_centre_of_the_node_that_has_the_label_in_text_or_description(self):
         self.assertEqual(area2_phone3.tap_point(DUMP, ['오늘의 카드가 도착했어요']), (240, 330))
         self.assertEqual(area2_phone3.tap_point(DUMP, ['Copy', '복사']), (60, 40))
         self.assertIsNone(area2_phone3.tap_point(DUMP, ['없는 글']))
         self.assertIsNone(area2_phone3.tap_point('<hierarchy>', ['복사']))
-
-    def test_notification_check_reads_only_our_apps_lines(self):
-        self.assertTrue(area2_phone3.has_notification(RECORDS, '친구가 가입했어요', 'Abcde 님이 가입했어요, 리뷰를 남겨 주세요'))
-        self.assertFalse(area2_phone3.has_notification(RECORDS, '남의 제목'))  # 다른 앱 줄은 못 본 것으로
-        self.assertFalse(area2_phone3.has_notification(RECORDS, '친구가 가입했어요', '다른 닉 님이 가입했어요'))
 
 
 class OfflineTest(unittest.TestCase):
@@ -202,6 +183,9 @@ class WaitingCardTest(CaseBase):
             self.assertEqual(self.go('E-CARD-14', FakePhone(), self.rules())[0], 'blocked')
 
 
+CARD = notify.Notice('k1', '오늘의 카드가 도착했어요', '지금 확인해 보세요', 'cards')
+
+
 class CardNotificationTest(CaseBase):
     def rules(self, tokens=1):
         return [('GET', 'region_group_settings', lambda b, u: Reply(200, [dict(ROW)])),
@@ -210,29 +194,31 @@ class CardNotificationTest(CaseBase):
                 ('GET', 'select=nickname', lambda b, u: Reply(200, [{'nickname': 'Abcde', 'birth_year': 2004, 'universities': {'name': '테스트대학'}}])),
                 ('GET', 'daily_cards', lambda b, u: Reply(200, [{'id': 'c1', 'source': 'daily'}]))]
 
-    def run_case(self, phone, tokens=1):
-        dump = ('NotificationRecord(0x2 pkg=io.github.juunn.campusmate user=0 id=2)\n'
-                '  android.title=String (오늘의 카드가 도착했어요)\n  android.text=String (지금 확인해 보세요)\n')
+    def run_case(self, new=(CARD,), tokens=1):
         calls = []
+        before = [notify.Notice('old', '남은 알림', '', 'c')]
         patches = [mock.patch.object(area2_phone3.area2, '_batch', lambda name: calls.append(('batch', name))),
-                   mock.patch.object(area2_phone3.notify, 'grant_notifications', lambda s: None),
-                   mock.patch.object(area2_phone3.notify, 'revoke_notifications', lambda s: None),
-                   mock.patch.object(area2_phone3, '_dump', lambda s: DUMP),
-                   mock.patch.object(tools, 'adb', lambda s, *a, check=True: (calls.append(a) or dump) if 'dumpsys' in a else calls.append(a) or '')]
+                   mock.patch.object(notify, 'grant_notifications', lambda s: None),
+                   mock.patch.object(notify, 'revoke_notifications', lambda s: None),
+                   mock.patch.object(notify, 'read_notifications', lambda s: calls.append('read') or before),
+                   mock.patch.object(notify, 'background', lambda s: calls.append('background')),
+                   mock.patch.object(notify, 'wait_new', lambda s, b, count=1, seconds=0: calls.append(('wait_new', b == before, seconds)) or list(new)),
+                   mock.patch.object(notify, 'tap_notification', lambda s, title: calls.append(('tap', title)))]
         for patcher in patches:
             patcher.start()
             self.addCleanup(patcher.stop)
         phone = FakePhone(midway_step={'step': 'background'})
         phone.serial = 'S'
         phone.hub = mock.Mock()
-        return self.go('E-CARD-02', phone, self.rules(tokens)), phone, calls
+        with mock.patch.object(area2_phone3.time, 'monotonic', side_effect=iter(range(0, 10000))):
+            return self.go('E-CARD-02', phone, self.rules(tokens)), phone, calls
 
     def test_batch_runs_after_the_device_token_is_up_and_the_notification_is_tapped(self):
-        with mock.patch.object(area2_phone3.time, 'monotonic', side_effect=iter(range(0, 10000))):
-            result, phone, calls = self.run_case(None)
+        result, phone, calls = self.run_case()
         self.assertEqual(result[0], 'pass', result)
-        self.assertIn(('batch', 'daily-cards'), calls)
-        self.assertIn(('shell', 'input', 'tap', '240', '330'), calls)
+        # 알림 목록을 먼저 읽어 두고(앞 알림과 섞이지 않게) → HOME → 배치 → 새 알림 → 누르기
+        self.assertEqual([c for c in calls if c != 'read'], ['background', ('batch', 'daily-cards'), ('wait_new', True, 30), ('tap', '오늘의 카드가 도착했어요')])
+        self.assertLess(calls.index('read'), calls.index('background'))
         self.assertEqual(phone.jobs[0]['name_age'], f'Abcde, {area2_phone3.now_seoul().year - 2004 + 1}')
         self.assertEqual(phone.jobs[0]['school'], '테스트대학')
         patches = self.fake.bodies('PATCH', 'region_group_settings')
@@ -241,10 +227,59 @@ class CardNotificationTest(CaseBase):
         self.assertEqual(patches[-1], {key: ROW[key] for key in patches[0]})
 
     def test_no_device_token_means_no_batch(self):
-        with mock.patch.object(area2_phone3.time, 'monotonic', side_effect=iter(range(0, 10000))):
-            result, _, calls = self.run_case(None, tokens=0)
+        result, _, calls = self.run_case(tokens=0)
         self.assertEqual(result[0], 'blocked')
         self.assertNotIn(('batch', 'daily-cards'), calls)
+
+    def test_no_new_notification_is_a_fail_and_nothing_is_tapped(self):
+        result, _, calls = self.run_case(new=())
+        self.assertEqual(result[0], 'fail')
+        self.assertFalse([c for c in calls if isinstance(c, tuple) and c[0] == 'tap'])
+
+    def test_a_notification_with_other_words_is_a_fail(self):
+        other = notify.Notice('k2', '오늘의 카드가 도착했어요', '다른 본문', 'cards')
+        self.assertEqual(self.run_case(new=(other,))[0][0], 'fail')
+
+
+class ReferralNotificationTest(CaseBase):
+    BODY = 'Abcde 님이 가입했어요, 리뷰를 남겨 주세요'
+
+    def run_case(self, new, daytime=True):
+        calls = []
+        before = [notify.Notice('old', '남은 알림', '', 'c')]
+        patches = [mock.patch.object(notify, 'require_daytime', (lambda now=None: None) if daytime else mock.Mock(side_effect=Blocked('밤'))),
+                   mock.patch.object(notify, 'read_notifications', lambda s: calls.append('read') or before),
+                   mock.patch.object(notify, 'background', lambda s: calls.append('background')),
+                   mock.patch.object(notify, 'wait_new', lambda s, b, count=1, seconds=0: calls.append(('wait_new', b == before, seconds)) or list(new))]
+        for patcher in patches:
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        rules = [('POST', '/referral/redeem', lambda b, u: calls.append('redeem') or Reply(200, {'referrer_id': 'x'})),
+                 ('GET', 'select=nickname', lambda b, u: Reply(200, [{'nickname': 'Abcde'}])),
+                 ('GET', 'select=referral_code', lambda b, u: Reply(200, [{'referral_code': 'ABCDE2'}]))]
+        phone = FakePhone()
+        phone.serial = 'S'
+        return self.go('E-REF-18', phone, rules), phone, calls
+
+    def test_referrer_phone_goes_to_background_and_gets_the_friend_notification(self):
+        got = notify.Notice('k', '친구가 가입했어요', self.BODY, 'c')
+        result, phone, calls = self.run_case([got])
+        self.assertEqual(result[0], 'pass', result)
+        # 코드 입력 전에 앞 알림을 읽어 두고(새 알림만 보려고) → HOME → 코드 입력 → 그 목록을 기준으로 새 알림 대기
+        self.assertEqual(calls, ['read', 'background', 'redeem', ('wait_new', True, 30)])
+        self.assertEqual(self.fake.bodies('POST', '/referral/redeem'), [{'code': 'ABCDE2'}])
+        self.assertIn('token_hash', phone.jobs[0])
+
+    def test_a_wrong_nickname_or_no_notification_is_a_fail(self):
+        wrong = notify.Notice('k', '친구가 가입했어요', '다른 님이 가입했어요, 리뷰를 남겨 주세요', 'c')
+        self.assertEqual(self.run_case([wrong])[0][0], 'fail')
+        self.assertEqual(self.run_case([])[0][0], 'fail')
+
+    def test_at_night_it_is_blocked_before_the_phone_is_called(self):
+        result, phone, _ = self.run_case([], daytime=False)
+        self.assertEqual(result[0], 'blocked')
+        self.assertEqual(phone.jobs, [])
+        self.assertEqual(self.fake.users, [])
 
 
 class RealAiTest(CaseBase):
