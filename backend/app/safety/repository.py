@@ -94,7 +94,7 @@ class SafetyRepository(PostgrestRepository):
         }))
 
     async def insert_report(self, report: dict) -> str:
-        """새 신고의 id. 같은 사람이 같은 대상을 두 번 신고하면 409 "이미 신고한 사용자예요"
+        """새 신고의 id. 같은 사람이 같은 대상을 두 번 신고하면 409 "이미 신고를 완료했어요"
         (unique reports_once_per_reporter → 23505)."""
         response = await self._post("reports", json=report, prefer="return=representation")
         raise_for_status(response, conflict_detail=errors.ALREADY_REPORTED)
