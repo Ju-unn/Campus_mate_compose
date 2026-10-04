@@ -77,7 +77,7 @@ def _field(lines, name):
         if line.strip().startswith(f'android.{name}='):
             rest = []
             for follow in lines[i + 1:]:
-                if re.match(r'\s*(android\.\w+=|\}\s*$)', follow):
+                if re.match(r'\s*(android\.[\w.]+=|\}\s*$)', follow):  # `android.reduced.images=` 처럼 점이 든 키도 다음 칸의 시작이다
                     break
                 rest.append(follow)
             return _value('\n'.join([line.strip(), *rest]).rstrip())
@@ -111,12 +111,13 @@ def _fresh(now, before):
     return [n for n in now if n.key not in seen]
 
 
-def wait_new(serial, before, count=1, seconds=NOTICE_WAIT):
-    """[before] 에 없던 새 알림이 [count] 개 될 때까지(최대 [seconds] 초). 모자라도 그때까지 온 것을 돌려준다."""
+def wait_new(serial, before, count=1, seconds=NOTICE_WAIT, match=None):
+    """[before] 에 없던 새 알림이 [count] 개 될 때까지(최대 [seconds] 초). 모자라도 그때까지 온 것을 돌려준다.
+    [match] 가 있으면 개수 대신 "그 알림이 올 때까지" — 우리 앱 알림이 다른 것 하나 먼저 와도 기다리던 알림을 놓치지 않는다."""
     deadline = time.monotonic() + seconds
     while True:
         new = _fresh(read_notifications(serial), before)
-        if len(new) >= count or time.monotonic() >= deadline:
+        if (any(match(n) for n in new) if match else len(new) >= count) or time.monotonic() >= deadline:
             return new
         time.sleep(POLL_SECONDS)
 
