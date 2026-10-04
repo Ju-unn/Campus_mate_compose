@@ -65,8 +65,13 @@ class FakePushMessaging implements PushMessaging {
   @override
   Stream<String> get onTokenRefresh => _refresh.stream;
 
+  final StreamController<Map<String, dynamic>> _messages = StreamController<Map<String, dynamic>>.broadcast();
+
+  /// 앱이 켜져 있을 때 알림이 왔다고 흉내 낸다.
+  void emitMessage(Map<String, dynamic> data) => _messages.add(data);
+
   @override
-  Stream<Map<String, dynamic>> get onMessage => const Stream.empty();
+  Stream<Map<String, dynamic>> get onMessage => _messages.stream;
 
   @override
   Stream<Map<String, dynamic>> get onMessageOpenedApp => const Stream.empty();
