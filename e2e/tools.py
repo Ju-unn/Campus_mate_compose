@@ -125,6 +125,11 @@ def adb(serial, *args, check=True):
     return subprocess.run(['adb', '-s', serial, *args], **TEXT, check=check).stdout
 
 
+def screencap(serial):
+    """기기 화면 한 장(PNG 바이트)."""
+    return subprocess.run(['adb', '-s', serial, 'exec-out', 'screencap', '-p'], capture_output=True, check=True).stdout
+
+
 def service_key():
     """서비스 키를 Secret Manager 에서 받아 돌려준다 — 메모리에만 둔다."""
     return subprocess.run(
@@ -484,6 +489,16 @@ class Run:
             reply = on('bio', {'bio': '주말엔 카페에서 책을 읽어요.'})
         if reply[0] >= 300:
             raise Blocked(f'{step} {reply[0]} {reply[1]}')
+
+    def shot(self, serial, case):
+        """실패한 가설의 화면 한 장을 `<out>/shots/<번호>.png` 로 — 개인정보가 있을 수 있어 PC 에만 둔다. 못 찍어도 판정은 그대로."""
+        try:
+            path = self.out / 'shots' / f'{case}.png'
+            path.parent.mkdir(exist_ok=True)
+            path.write_bytes(screencap(serial))
+            return path
+        except Exception:
+            return None
 
     @property
     def results(self):
