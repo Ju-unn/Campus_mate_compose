@@ -5,6 +5,7 @@
   run 번호|묶음…          가설을 하나씩 돌려 results.jsonl 에 적는다(첫 실패는 한 번 다시). API 가설은 진행만, 폰 가설은 앱을 한 번 켤 때 하나
   report                가설마다 마지막 결과로 보고서.md
   cleanup               `+e2e` 계정 · 파일 · 시험이 만든 재가입 제한 뒷정리(KEEP 제외, 실사용자가 보이면 멈춤)
+  photos                E2E_결과/사진/ 에 사진 세트(묶음 3) 파일이 다 있는지 — 없는 이름을 알려 준다
 """
 
 import argparse
@@ -15,6 +16,7 @@ from pathlib import Path
 
 from e2e import area1
 from e2e import area1_b2  # noqa: F401 — 묶음 2 가설을 area1.PHONE · CASES · BUNDLES 에 더한다
+from e2e import area1_b3  # 묶음 3(사진 세트) — 같은 방식
 from e2e.tools import (DEVICE_PORT, DEVICES, ROOT, Hub, Run, adb, cleanup, ensure_no_real_users, env, latest, scenario_rows,
                        serial, service_key, snapshot_blocks, verdict)
 
@@ -121,6 +123,15 @@ def cmd_cleanup(args):
     cleanup(env(), service_key(), RESULTS)
 
 
+def cmd_photos(args):
+    folder = RESULTS / '사진'
+    absent = area1_b3.missing(folder)
+    print(f'{folder} — 사진 세트 {len(area1_b3.PHOTO_SET) - len(absent)}/{len(area1_b3.PHOTO_SET)}')
+    for name in absent:
+        print(f'없음: {name}')
+    sys.exit(1 if absent else 0)
+
+
 def build_parser():
     def common(parser, default):
         # 명령 앞(기본값을 정함) · 뒤(SUPPRESS — 안 주면 앞 값을 덮지 않음) 어디에 둬도 된다.
@@ -139,6 +150,7 @@ def build_parser():
     p.add_argument('--device', default='A', choices=DEVICES)
     sub.add_parser('report', parents=[after])
     sub.add_parser('cleanup', parents=[after])
+    sub.add_parser('photos', parents=[after])
     return parser
 
 
