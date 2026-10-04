@@ -39,20 +39,16 @@ class Fake(t1.FakeServer):
 
 
 class Base(t1.Base):
-    """계정 공장의 'home' 단계는 나탭2 PR 에서 온다 — 여기서는 같은 모양의 가짜를 끼운다."""
+    @staticmethod
+    def seeded(fake):
+        """가설이 프로필에 넣은 값(gender 가 든 PATCH) — 계정 공장이 student_verification 을 쓰는 PATCH 는 뺀다."""
+        return [b for b in fake.bodies('PATCH', '/rest/v1/profiles') if 'gender' in b]
+
+    """계정은 진짜 계정 공장(`Run.account('home')`, 나탭2 #243)이 가짜 서버 위에서 만든다 — 만든 순서대로 id-1, id-2 …."""
 
     def setUp(self):
         super().setUp()
         self.run = Run(self.root / 'area2-api', 'b', cfg=t1.CFG, key='svc')
-
-        def account(stage):
-            self.assertEqual(stage, 'home')
-            n, email = self.run.alias()
-            made = {'n': n, 'email': email, 'id': f'id-{n}', 'stage': 'home', 'at': 't', 'token': f'tok-{n}'}
-            self.run.remember(made)
-            return made
-
-        self.run.account = account
 
 
 class RegistryTest(unittest.TestCase):
@@ -69,12 +65,8 @@ class RegistryTest(unittest.TestCase):
 
 
 class SafetyNetTest(Base):
-    def test_missing_home_stage_is_blocked_not_a_crash(self):
-        real = Run(self.root / 'x', 'b', cfg=t1.CFG, key='svc')  # tools.STAGES 에 아직 'home' 이 없다
-        self.serve()
-        result, memo = area2.attempt(real, 'E-CARD-30')
-        self.assertEqual(result, 'blocked')
-        self.assertIn('home', memo)
+    def test_the_real_factory_knows_the_home_stage(self):
+        self.assertIn('home', tools.STAGES)
 
     def test_every_case_ends_as_fail_or_blocked_when_the_server_is_down(self):
         down = Fake([(m, '', lambda b, u: Reply(500, {'detail': '서버'})) for m in ('GET', 'POST', 'PATCH', 'DELETE')])
@@ -88,6 +80,7 @@ class SafetyNetTest(Base):
             self.assertIsInstance(memo, str, case)
 
     def test_writes_to_an_account_this_run_did_not_make_are_refused(self):
+        self.serve()
         with self.assertRaises(Blocked):
             area2._guard(self.run, 'someone-elses-id')
         made = self.run.account('home')
@@ -130,9 +123,9 @@ def _candidates_of(scores):
 
 class ScoringTest(Base):
     def world(self, expected_for):
-        """후보 응답을 [expected_for](키 → 점수)로 만든다 — 계정 id 는 만든 순서(O, C0 … C9)로 id-1001 …"""
+        """후보 응답을 [expected_for](키 → 점수)로 만든다 — 계정 id 는 만든 순서(O, C0 … C9)로 id-1 …"""
         names = ['O', *[f'C{i}' for i in range(10)]]
-        ids = {name: f'id-{1001 + i}' for i, name in enumerate(names)}
+        ids = {name: f'id-{1 + i}' for i, name in enumerate(names)}
         fake = Fake([('GET', '/matching/candidates', _candidates_of(lambda: [(ids[n], expected_for(n)) for n in names[1:]]))])
         patcher = mock.patch.object(tools, 'call', fake)
         patcher.start()
@@ -158,7 +151,7 @@ class ScoringTest(Base):
         """태그 점수 = (관심사 자카드 + (O.나는↔C.원해 + C.나는↔O.원해) / 2) / 2 — 서버 SQL 과 같은 식으로 시험 값에서 직접 계산한다."""
         fake = self.world(self.TRUE.get)
         area2.attempt(self.run, 'E-CARD-60')
-        profiles = fake.bodies('PATCH', '/rest/v1/profiles')
+        profiles = self.seeded(fake)
         owner, c0, c2 = profiles[0], profiles[1], profiles[3]
 
         def jaccard(x, y):
@@ -175,14 +168,14 @@ class ScoringTest(Base):
         fake = self.world(self.TRUE.get)
         area2.attempt(self.run, 'E-CARD-60')
         area2.attempt(self.run, 'E-CARD-61')
-        profiles = fake.bodies('PATCH', '/rest/v1/profiles')
+        profiles = self.seeded(fake)
         self.assertEqual(len(profiles), 11)  # O + C0~C9 — 두 번째 가설이 다시 만들지 않는다
         self.assertEqual([p['gender'] for p in profiles], ['male'] + ['female'] * 10)
         vectors = {b['profile_id']: b for b in fake.bodies('POST', '/rest/v1/profile_vectors')}
-        self.assertEqual(vectors['id-1001']['self_survey'], '[' + ','.join(['1'] * 8) + ']')
-        self.assertEqual(vectors['id-1003']['self_survey'], '[' + ','.join(['-1'] * 8) + ']')  # C1 = 정반대
-        self.assertEqual(json.loads(vectors['id-1001']['self_embedding'])[:2], [1, 0])
-        self.assertEqual(json.loads(vectors['id-1005']['self_embedding'])[:2], [0, 1])  # C3 = 직교
+        self.assertEqual(vectors['id-1']['self_survey'], '[' + ','.join(['1'] * 8) + ']')
+        self.assertEqual(vectors['id-3']['self_survey'], '[' + ','.join(['-1'] * 8) + ']')  # C1 = 정반대
+        self.assertEqual(json.loads(vectors['id-1']['self_embedding'])[:2], [1, 0])
+        self.assertEqual(json.loads(vectors['id-5']['self_embedding'])[:2], [0, 1])  # C3 = 직교
 
 
 class ReferralTest(Base):
@@ -327,6 +320,15 @@ class CleanupTest(Base):
                          ['/community/polls/p1', '/community/polls/p2'])
 
 
+class PhoneTest(Base):
+    def test_a_chosen_phone_goes_into_the_one_basic_info_save_of_the_factory(self):
+        fake = self.serve()
+        account = area2._home(self.run, 'female', phone='010-1234-5678')
+        saves = [b for m, p, b in fake.calls if m == 'POST' and p == '/profile-onboarding/basic-info']
+        self.assertEqual([b['phone_number'] for b in saves], ['010-1234-5678'])  # 다시 저장하지 않는다
+        self.assertEqual(account['phone'], '010-1234-5678')
+
+
 class ReviewGuardTest(Base):
     def test_review_writes_refuse_a_stranger_account(self):
         with self.assertRaises(Blocked):
@@ -335,18 +337,18 @@ class ReviewGuardTest(Base):
 
 class FilterTest(Base):
     def test_same_gender_is_not_a_candidate_and_opposite_is(self):
-        # 계정은 만든 순서: A(남) · 같은 성별 · 반대 성별 → id-1001 · id-1002 · id-1003
-        fake = Fake([('GET', '/matching/candidates', lambda b, u: Reply(200, {'candidates': [{'profile_id': 'id-1003', 'score': 1}]}))])
+        # 계정은 만든 순서: A(남) · 같은 성별 · 반대 성별 → id-1 · id-2 · id-3
+        fake = Fake([('GET', '/matching/candidates', lambda b, u: Reply(200, {'candidates': [{'profile_id': 'id-3', 'score': 1}]}))])
         patcher = mock.patch.object(tools, 'call', fake)
         patcher.start()
         self.addCleanup(patcher.stop)
         self.assertEqual(area2.attempt(self.run, 'E-CARD-30')[0], 'pass')
-        genders = [b['gender'] for b in fake.bodies('PATCH', '/rest/v1/profiles')]
+        genders = [b['gender'] for b in self.seeded(fake)]
         self.assertEqual(genders, ['male', 'male', 'female'])
 
     def test_a_same_gender_candidate_is_a_fail_with_the_name_of_the_problem(self):
         fake = Fake([('GET', '/matching/candidates', lambda b, u: Reply(200, {'candidates': [
-            {'profile_id': 'id-1002', 'score': 1}, {'profile_id': 'id-1003', 'score': 1}]}))])
+            {'profile_id': 'id-2', 'score': 1}, {'profile_id': 'id-3', 'score': 1}]}))])
         patcher = mock.patch.object(tools, 'call', fake)
         patcher.start()
         self.addCleanup(patcher.stop)

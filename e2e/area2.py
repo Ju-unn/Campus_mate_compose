@@ -1,6 +1,6 @@
 """영역 2 API 가설 — 진행만, 폰 없음(묶음 area2-api). 기대값은 바탕화면 E2E_최종테스트_시나리오.md 영역 2 의 그 줄이다.
 
-가설 하나 = 함수 하나 `(run) -> (결과, 메모)`. 계정은 `run.account('home')`(나탭2 영역 1 묶음 2 PR 의 홈 계정)으로 그때그때
+가설 하나 = 함수 하나 `(run) -> (결과, 메모)`. 계정은 `run.account('home')`(나탭2 #243 의 홈 계정)으로 그때그때
 새로 만든다. 쓰기는 이번 실행이 만든 계정 id 에만 한다([_guard]) — 시험대학 행(E-HOME-27)만 예외이고 거기는 원복한다.
 배치는 [_batch] 자리만 부르고 실제 호출은 대장이 한다(Run.batch).
 """
@@ -48,17 +48,9 @@ def _phone():
 
 
 def _home(run, gender='male', phone=None, **profile):
-    """홈 계정 + 프로필 값 한 번에. 전화번호를 정하려면 번호를 다시 저장한 뒤(벡터도 다시 만들어지므로 [_vectors] 는 그 다음에)."""
-    try:
-        account = run.account('home')
-    except ValueError as e:
-        raise Blocked(f'계정 단계 home 이 없다({e}) — 나탭2 영역 1 묶음 2 PR 이 merge 돼야 한다') from e
-    if phone:
-        info = tools.basic_info()
-        reply = _api(run, 'POST', '/profile-onboarding/basic-info', account['token'], {**info, 'phone_number': phone})
-        if reply[0] >= 300:
-            raise Blocked(f'전화번호 다시 저장 {reply[0]} {reply[1]}')
-        account['phone'] = phone
+    """홈 계정(`Run.account('home')` — 온보딩 끝 · 활성) + 프로필 값 한 번에. 전화번호는 계정 공장의 04-1 저장에 그대로 넣는다."""
+    account = run.account('home', **({'phone_number': phone} if phone else {}))
+    account['phone'] = phone
     _guard(run, account['id'])
     _patch(run, f"profiles?id=eq.{account['id']}", {'gender': gender, **profile})
     return account
@@ -260,7 +252,6 @@ def card_38(run):
     """번호 해시가 없는 계정은 번호를 막아도 걸리지 않는다."""
     check = Check()
     me, other = _person(run, 'male'), _person(run, 'female', phone=_phone())
-    _vectors(run, other)
     _guard(run, other['id'])
     _patch(run, f"profile_private?profile_id=eq.{other['id']}", {'phone_hmac': None})
     _contact_block(run, me, other['phone'])

@@ -452,6 +452,53 @@ def test_bio_draft_feeds_survey_mbti_religion_smoking_in_korean():
     assert "religion=" not in prompt
 
 
+_NINE_ANSWERS = {str(axis): 0.5 for axis in range(1, 10)}
+
+
+@pytest.mark.parametrize("body", [
+    {"answers": _NINE_ANSWERS, "religion": "jedi", "is_smoker": False},
+    {"answers": {**_NINE_ANSWERS, "1": 0.3}, "religion": "none", "is_smoker": False},
+    {"answers": {**_NINE_ANSWERS, "10": 0.5}, "religion": "none", "is_smoker": False},
+    {"answers": {k: v for k, v in _NINE_ANSWERS.items() if k != "9"}, "religion": "none", "is_smoker": False},
+    {"answers": {}, "religion": "none", "is_smoker": False},
+    {"answers": {**{k: v for k, v in _NINE_ANSWERS.items() if k != "9"}, "10": 0.5}, "religion": "none", "is_smoker": False},
+])
+def test_survey_rejects_bad_values_before_writing_anything(body):
+    """E2E D-01: 없는 종교면 답 9행을 먼저 넣은 뒤 프로필 PATCH 가 22P02 로 실패해 답만 남았다.
+    틀린 값은 쓰기 전에 막아 아무것도 남지 않는다 — 문구는 DB 가 막을 때와 같다."""
+    writes = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method != "GET":
+            writes.append((request.method, request.url.path))
+        return httpx.Response(201)
+
+    response = _wire(handler).post("/profile-onboarding/survey", headers=AUTH_HEADERS, json=body)
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": errors.INVALID_INPUT}
+    assert writes == []
+
+
+def test_survey_saves_every_allowed_value_and_religion():
+    writes = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method != "GET":
+            writes.append((request.method, request.url.path, json.loads(request.content)))
+        return httpx.Response(201)
+
+    answers = {"1": -1, "2": -0.5, "3": 0, "4": 0.5, "5": 1, "6": 1, "7": 1, "8": 1, "9": 1}
+    for religion in ("none", "protestant", "catholic", "buddhist"):
+        response = _wire(handler).post(
+            "/profile-onboarding/survey", headers=AUTH_HEADERS,
+            json={"answers": answers, "religion": religion, "is_smoker": True},
+        )
+        assert response.status_code == 200, religion
+    assert writes[0][1].endswith("/survey_answers") and len(writes[0][2]) == 9
+    assert writes[1][2] == {"religion": "none", "is_smoker": True}
+
+
 def test_ideal_note_rejects_blank_text():
     """필수 입력이다(2026-09-20 사용자 결정) — 공백만 쓴 글은 저장하지 않고 422 를 돌려준다."""
     patched: list[dict] = []

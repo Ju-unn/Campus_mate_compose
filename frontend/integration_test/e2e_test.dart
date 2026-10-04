@@ -41,6 +41,8 @@ void main() {
       final error = tester.takeException();
       if (error != null) throw TestFailure('$error');
       await say({'case': name, 'result': 'pass', if (extra is Map<String, Object?>) ...extra});
+    } on E2eBlocked catch (blocked) {
+      await say({'case': name, 'result': 'blocked', 'note': '$blocked'});
     } catch (error) {
       await say({'case': name, 'result': 'fail', 'note': '$error'});
       rethrow;

@@ -8,16 +8,24 @@ import 'package:campus_mate/common/widgets/app_checkbox.dart';
 import 'package:campus_mate/common/widgets/labeled_field.dart';
 import 'package:campus_mate/common/widgets/select_chip.dart';
 import 'package:campus_mate/consent/view/consent_row.dart';
+import 'package:campus_mate/common/widgets/trait_slider.dart';
+import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/profile/view/avatar_generation_screen.dart';
+import 'package:campus_mate/profile/viewmodel/ideal_conditions_view_model.dart';
+import 'package:campus_mate/profile/viewmodel/photos_view_model.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'support.dart';
+
+part 'area1_b2.dart';
 
 /// 영역 1 묶음 1 폰 가설 36(37 중 E-ONB-05 는 두 기기라 묶음 4). PC 쪽은 e2e/area1.py 의 같은 번호 — 계정을 만들어
 /// 1회용 토큰(`token_hash`)을 넘기고, 앱이 pass 를 말하면 DB 를 본다. 화면 글자는 시나리오가 아니라 지금 화면 코드에서 옮겼다.
@@ -35,6 +43,24 @@ const screens = {
   '04-1b': '카카오톡 아이디를 알려주세요', // kakao_id_screen
   '04-2': '실제 사진을 올려주세요', // photos_screen
   'suspended': '이용이 제한된 계정이에요', // account_suspended_screen
+  // 묶음 2(area1_b2.dart)
+  'consent-renew': '약관이 바뀌었어요', // 02-c-4 consent_screen
+  '04-4': '어떤 얼굴상인가요?', // appearance_type_screen
+  '04-5': '주로 관심 있는 게 뭐예요?', // tag_picker_kind interests
+  '04-6': '어떤 특징을 가지고 계신가요?', // tag_picker_kind myTraits
+  '05-01': '밖에 나가서 활동하는 걸\n좋아하시나요?', // survey_screen 첫 문항
+  // 05-12 는 완성 행이 없으면 실패 화면이라 글자로 못 찾는다 — screen() 이 화면 종류로 찾는다.
+  '05-12': '아바타 만들기', // avatar_generation_screen(완성)
+  '06-1': '어떤 사람이 좋아요?', // ideal_conditions_screen
+  '06-2': '어떤 분을 만나고 싶나요?', // tag_picker_kind idealTraits
+  '06-2a': '이런 사람이 좋아요를\n자유롭게 적어주세요', // ideal_note_screen
+  '06-2b': '설문을 읽고 있어요', // bio_draft_loading_screen
+  '06-3': '이렇게 소개해볼까요?', // bio_screen
+  '20': '친구에게 받은 코드가 있나요?', // referral_code_screen
+  '20d': 'CampusMate를 어떻게 알게 되셨나요?', // acquisition_screen
+  '06-4': '아는 사람을 만나고 싶지 않다면 연락처로 미리 막을 수 있어요', // onboarding_contact_block_screen("지인 차단" 은 두 번 나온다)
+  'home': 'CampusMate', // home_screen 앱바 — 코호트 대기 화면에서도 남는 글자
+  'settings': '설정', // settings_screen 앱바
 };
 
 const _rejected = '허용되지 않은 학교 이메일이에요';
@@ -45,7 +71,7 @@ const _nicknameTaken = '이미 있는 닉네임이에요';
 const _heightBad = '숫자 3자리를 확인해 주세요';
 const _consentCta = '동의하고 계속하기';
 
-Finder screen(String name) => find.text(screens[name]!);
+Finder screen(String name) => name == '05-12' ? find.byType(AvatarGenerationScreen) : find.text(screens[name]!);
 
 /// 입력칸 — 힌트(placeholder) 또는 라벨 글자로.
 Finder input(String hintOrLabel) => find.byWidgetPredicate(
@@ -505,4 +531,5 @@ final Map<String, Area1Case> area1Cases = {
     await arrive(tester, '04-2', timeout: const Duration(seconds: 10));
     return null;
   }),
+  ..._b2Cases,
 };

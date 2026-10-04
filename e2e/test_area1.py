@@ -25,19 +25,24 @@ class FakeServer:
         self.routes = {k: list(v) if isinstance(v, list) else v for k, v in (routes or {}).items()}
         self.calls = []
         self.urls = []
+        self.raws = []  # (메서드, 주소, 바이트) — multipart · 파일 올리기
         self.users = []
+        self._ids = 0  # 사용자를 지워도 id 가 다시 안 나오게
 
     def __call__(self, method, url, headers=None, body=None, raw=None):
         path = urlsplit(url).path
         self.calls.append((method, path, body))
         self.urls.append((method, url))
+        if raw:
+            self.raws.append((method, url, raw[0]))
         route = self.routes.get((method, path))
         if isinstance(route, list):
             return route.pop(0) if len(route) > 1 else route[0]
         if route is not None:
             return route
         if (method, path) in (('POST', '/auth/v1/admin/users'), ('POST', '/auth/v1/otp')):
-            user = {'id': f'id-{len(self.users) + 1}', 'email': body['email']}
+            self._ids += 1
+            user = {'id': f'id-{self._ids}', 'email': body['email']}
             self.users.append(user)
             return Reply(200, user)
         if (method, path) == ('GET', '/auth/v1/admin/users'):
@@ -123,7 +128,7 @@ class AccountTest(Base):
 
     def test_unknown_stage_is_refused(self):
         with self.assertRaises(ValueError):
-            self.run.account('home')
+            self.run.account('chat')
 
 
 class PatternTest(unittest.TestCase):
@@ -283,7 +288,7 @@ class HypothesisTest(Base):
             'E-AUTH-01', 'E-AUTH-02', 'E-AUTH-03', 'E-AUTH-04', 'E-AUTH-06', 'E-AUTH-13',
             'E-GATE-06', 'E-GATE-15', 'E-GATE-16', 'E-GATE-20', 'E-GATE-50', 'E-GATE-51', 'E-GATE-55',
             'E-ONB-08', 'E-ONB-14', 'E-ONB-29', 'E-ONB-32', 'E-ONB-45', 'E-ONB-69'])
-        self.assertEqual(set(area1.CASES), set(CASES))
+        self.assertLessEqual(set(CASES), set(area1.CASES))  # 묶음 2(area1_b2)가 더한 것은 빼고
 
     def test_expected_answers_pass_and_one_changed_answer_fails(self):
         for case, (good, bad) in CASES.items():
