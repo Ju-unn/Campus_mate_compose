@@ -136,4 +136,36 @@ void main() {
     expect(find.text('내일 만날 사람들'), findsOneWidget);
     expect(find.text('탭해도 열리지 않아요'), findsOneWidget);
   });
+
+  group('대기 부제 — 다음 주면 "다음 주 O요일"(사용자 결정 10-04 (나), 주는 서울 월요일 시작)', () {
+    // 서울 시각을 UTC 로 만든다 — 기기 시간대에 기대지 않는다. 2026-10-05 가 월요일.
+    DateTime seoul(int day, int hour) => DateTime.utc(2026, 10, day, hour).subtract(const Duration(hours: 9));
+
+    test('주 1회(월) — 월요일에 받고 나면 다음 주 월요일', () {
+      expect(waitingSubtitle(seoul(12, 7), seoul(5, 12)), '다음 주 월요일 오전 7시에 새로운 사람을 찾아볼게요');
+    });
+
+    test('주 2회(월 · 목) — 월요일 → 같은 주 목요일, 목요일 → 다음 주 월요일', () {
+      expect(waitingSubtitle(seoul(8, 7), seoul(5, 12)), '목요일 오전 7시에 새로운 사람을 찾아볼게요');
+      expect(waitingSubtitle(seoul(12, 7), seoul(8, 12)), '다음 주 월요일 오전 7시에 새로운 사람을 찾아볼게요');
+    });
+
+    test('주 3회(월 · 수 · 금) — 같은 주 금요일 → 다음 주 월요일', () {
+      expect(waitingSubtitle(seoul(7, 7), seoul(5, 12)), '수요일 오전 7시에 새로운 사람을 찾아볼게요');
+      expect(waitingSubtitle(seoul(12, 7), seoul(9, 12)), '다음 주 월요일 오전 7시에 새로운 사람을 찾아볼게요');
+    });
+
+    test('주 4회(월 · 수 · 금 · 일) — 금요일 → 같은 주 일요일', () {
+      expect(waitingSubtitle(seoul(11, 7), seoul(9, 12)), '일요일 오전 7시에 새로운 사람을 찾아볼게요');
+    });
+
+    test('일요일 → 월요일은 하루 남았으니 "내일"(대장 (가), 사용자 확인 대기)', () {
+      expect(waitingSubtitle(seoul(12, 7), seoul(11, 12)), '내일 오전 7시에 새로운 한 명이 도착해요');
+    });
+
+    test('주 경계는 서울 날짜 — UTC 로는 일요일이어도 서울이 월요일이면 같은 주 목요일', () {
+      // 서울 월요일 05:00 = UTC 일요일 20:00.
+      expect(waitingSubtitle(seoul(15, 7), seoul(12, 5)), '목요일 오전 7시에 새로운 사람을 찾아볼게요');
+    });
+  });
 }
