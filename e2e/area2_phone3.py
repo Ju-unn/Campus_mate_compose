@@ -188,7 +188,7 @@ def p_card_35(run, phone):
         _insert(run, 'blocks', [{'blocker_id': b['id'], 'blocked_id': a['id']}], a['id'], b['id'])
 
     _app(check, phone(midway=stepper(phone, block), token_hash=token))
-    check.that(not _rows(run, f'card_decisions?card_id=eq.{card}&select=id'), 'card_decisions 에 행이 생김(차단된 카드의 수락이 저장됨)')
+    check.that(not _rows(run, f'card_decisions?card_id=eq.{card}&select=card_id'), 'card_decisions 에 행이 생김(차단된 카드의 수락이 저장됨)')
     return check.result()
 
 

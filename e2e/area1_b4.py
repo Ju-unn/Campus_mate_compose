@@ -20,6 +20,7 @@ from e2e.tools import Blocked
 ALREADY = '아바타는 한 번만 만들 수 있어요'  # errors.AVATAR_ALREADY_CREATED
 GENERATE = '/profile-onboarding/avatar/generate'
 BROKEN = b'E2E broken avatar source'  # 매직바이트가 없어 워커가 형식을 못 알아본다(avatars.py 의 student_id_content_type)
+FALLBACK_SOURCE = 'defaults/fallback-avatar.png'  # storage.py _FALLBACK_AVATAR_SOURCE_PATH — avatars 버킷 안
 FALLBACK_HEARTS = 10
 WAIT_TURNS, WAIT_SECONDS = 30, 10  # 실제 생성은 1분쯤 — 5분까지 기다린다
 
@@ -214,6 +215,24 @@ def _registered_without_reward(run, account, check):
     check.that(_count(rows, 'pending') == 1 and len(rows) == 5, f'다시 만들기 뒤 아바타 행 {rows} — 실패 4 + 만드는 중 1 이어야 함')
 
 
+def _fallback_source_exists(run):
+    """5번째 실패 보상은 avatars 버킷의 [FALLBACK_SOURCE] 를 복사하는 것으로 시작한다. 없으면 행 0개 · 하트 없음으로만 보여
+    원인이 안 드러나므로 시작 전에 읽어 본다(읽기만)."""
+    folder = FALLBACK_SOURCE.rsplit('/', 1)[0]
+    try:
+        return FALLBACK_SOURCE in tools.storage_paths(run.cfg, run.key, 'avatars', folder)
+    except SystemExit as error:  # storage_paths 는 목록을 못 읽으면 SystemExit
+        raise Blocked(f'avatars 버킷 목록을 못 읽어 기본 아바타 원본을 확인하지 못함: {error}') from None
+
+
+def _needs_fallback_source(prepare):
+    def checked(run, account):
+        if not _fallback_source_exists(run):
+            raise Blocked(f'기본 아바타 원본({FALLBACK_SOURCE})이 운영 버킷에 없음 — 결함 D-02. 5번째 실패 보상이 복사에서 멈춘다')
+        prepare(run, account)
+    return checked
+
+
 def _prepare_four_failed_broken(run, account):
     _failed(run, account, 4)
     _break_source(run, account)
@@ -248,8 +267,8 @@ PHONE = {
     'E-ONB-34': _at_result(_pending, step=_ready_now),
     'E-ONB-35': _at_result(lambda run, account: _pending(run, account, minutes_ago=11), judge=_row_untouched),
     'E-ONB-36': _at_result(_break_source, judge=_one_new_row),
-    'E-ONB-37': _at_result(lambda run, account: _failed(run, account, 5), judge=_paid_once(5)),
-    'E-ONB-38': _at_result(_prepare_four_failed_broken, judge=_paid_once(5)),
+    'E-ONB-37': _at_result(_needs_fallback_source(lambda run, account: _failed(run, account, 5)), judge=_paid_once(5)),
+    'E-ONB-38': _at_result(_needs_fallback_source(_prepare_four_failed_broken), judge=_paid_once(5)),
     'E-ONB-39': _at_result(_prepare_four_failed_broken, step=_registered_without_reward),
     'E-ONB-41': p_onb_41,
 }

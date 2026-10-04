@@ -23,6 +23,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'area1.dart';
 import 'support.dart';
 
+part 'area3_contacts.dart';
 part 'area4_contacts.dart';
 part 'area4_set2.dart';
 
@@ -185,6 +186,7 @@ int _blockedRows() => find.byKey(blockedRowKey).evaluate().length;
 final Map<String, Area1Case> area4Cases = {
   ..._set2Cases,
   ..._contactsCases,
+  ..._safeContactsCases,
   'E-SET-01': _session((tester, job) async {
     await _openSettings(tester);
     await pumpUntil(tester, find.text('자주 묻는 질문'));
