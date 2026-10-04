@@ -47,6 +47,19 @@ class ParseTest(unittest.TestCase):
         [got] = notify.parse_notifications(dotted)
         self.assertEqual((got.title, got.text), ('친구가 가입했어요', '본문'))
 
+    def test_keys_that_are_not_android_dot_also_end_the_value(self):
+        # text 바로 뒤에 androidx · google 접두어 키가 와도 본문에 새지 않는다
+        dump = record(OURS, 'k1', '제목', '본문')
+        text_line = 'android.text=String (본문)'
+        tail = (text_line + '\n      androidx.core.app.extra.COMPAT_TEMPLATE=String (x)\n      google.sent_time=Long (1700000000000)')
+        [got] = notify.parse_notifications(dump.replace(text_line, tail))
+        self.assertEqual((got.title, got.text), ('제목', '본문'))
+
+    def test_a_body_line_with_an_equals_sign_is_still_part_of_the_body(self):
+        dump = record(OURS, 'k1', '제목', 'x').replace('android.text=String (x)', 'android.text=String (a\nb=c\nd.e=f)')
+        [got] = notify.parse_notifications(dump)
+        self.assertEqual(got.text, 'a\nb=c\nd.e=f')
+
     def test_a_multiline_body_is_read_whole_and_unwrapped(self):
         dump = record(OURS, 'k1', '제목', 'x').replace('android.text=String (x)', 'android.text=SpannableString (줄1\n줄2)')
         self.assertEqual(notify.parse_notifications(dump)[0].text, '줄1\n줄2')

@@ -71,13 +71,18 @@ def _value(text):
     return wrapped.group(1) if wrapped else value
 
 
+# 다음 칸의 시작 — `android.reduced.images=` 처럼 점이 든 키, 그리고 `androidx.…=` · `google.sent_time=` 처럼 android. 로 안 시작해도
+# 점이 든 키 + `종류 (값)` 이거나 null 인 줄. 본문 줄의 `a=b` 는 종류 모양이 아니라 본문으로 남는다.
+_NEXT_FIELD = re.compile(r'\s*(android\.[\w.]+=|[a-z][\w$]*(\.[\w$]+)+=(\w+ \(|null\s*$)|\}\s*$)')
+
+
 def _field(lines, name):
     """`android.<name>=` 줄부터 다음 `android.xxx=` 줄(또는 닫는 `}`) 직전까지 — 본문에 줄바꿈이 있으면 여러 줄이다."""
     for i, line in enumerate(lines):
         if line.strip().startswith(f'android.{name}='):
             rest = []
             for follow in lines[i + 1:]:
-                if re.match(r'\s*(android\.[\w.]+=|\}\s*$)', follow):  # `android.reduced.images=` 처럼 점이 든 키도 다음 칸의 시작이다
+                if re.match(_NEXT_FIELD, follow):
                     break
                 rest.append(follow)
             return _value('\n'.join([line.strip(), *rest]).rstrip())
