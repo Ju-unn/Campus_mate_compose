@@ -110,6 +110,14 @@ Future<void> _confirmLogout(WidgetTester tester) async {
   await tap(tester, find.widgetWithText(SafetySheetButton, '로그아웃'));
 }
 
+/// 망이 끊긴 사이 아바타 · 카드 사진을 늦게 받으려다 난 SocketException 은 화면에 안 보이는 로그다(폰 첫 실행 10-04, SET-02).
+/// 끝에서 프레임 오류로 치지 않게 비운다 — 그 밖의 오류는 그대로 실패.
+void _forgiveOfflineNoise(WidgetTester tester) {
+  for (var error = tester.takeException(); error != null; error = tester.takeException()) {
+    if (!'$error'.contains('SocketException')) throw TestFailure('$error');
+  }
+}
+
 final Map<String, Area1Case> _set2Cases = {
   'E-SET-02': _session((tester, job) async {
     await _faqCacheFile((file) {
@@ -125,6 +133,7 @@ final Map<String, Area1Case> _set2Cases = {
     for (final row in _settingsRows.where((r) => r != '자주 묻는 질문')) {
       await _reveal(tester, find.text(row));
     }
+    _forgiveOfflineNoise(tester);
     return null;
   }),
   'E-SET-03': _session((tester, job) async {
@@ -145,6 +154,7 @@ final Map<String, Area1Case> _set2Cases = {
     await tap(tester, find.text('자주 묻는 질문'));
     await pumpUntil(tester, _screenTitle('자주 묻는 질문'));
     await _seeQuestions(tester, _strings(job['questions']), '저장본');
+    _forgiveOfflineNoise(tester);
     return null;
   }),
   'E-SET-44': _session((tester, job) async {

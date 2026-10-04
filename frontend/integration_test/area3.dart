@@ -12,10 +12,13 @@ import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/friend_review/view/friend_review_card.dart';
+import 'package:campus_mate/friend_review/view/friend_review_compose_sheet.dart';
 import 'package:campus_mate/friend_review/view/partner_reviews_section.dart';
 import 'package:campus_mate/friend_review/view/received_reviews_screen.dart';
 import 'package:campus_mate/friend_review/view/written_reviews_screen.dart';
+import 'package:campus_mate/friend_review/viewmodel/friend_review_compose_view_model.dart';
 import 'package:campus_mate/me/view/my_profile_screen.dart';
+import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -24,6 +27,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'area1.dart';
 import 'support.dart';
+
+part 'area3_b2.dart';
 
 /// 영역 3 폰 A 한 대 1차 — 채팅 · 지인 리뷰 화면 읽기 19개. PC 쪽은 e2e/area3_phone.py 의 같은 번호(계정 · 매칭 · 메시지 ·
 /// 리뷰를 준비하고 앱이 말한 값을 판정한다). 앱은 화면을 읽기만 하고 본 것을 Map 으로 돌려준다.
@@ -108,14 +113,16 @@ Future<Map<String, Object?>> _badges(WidgetTester tester, Map<String, dynamic> j
 
 /// E-CHAT-18 · 19 · 20 — 방을 열고 맨 위까지 올린다. 맨 위 200 안에 들어가면 다음 쪽을 부르므로
 /// (chat_room_screen.dart:82-86) 그 바로 밑(201)까지 반 화면씩 올리며 그려진 말풍선을 모으고, 그때의 수를 적은 뒤 맨 위로 간다.
-/// 위에 새 쪽이 붙으면(최대 스크롤이 늘면) 다시, 5초 동안 안 붙으면 끝. 다음 쪽 요청 수는 뷰모델의 isLoadingMore 로 센다.
+/// 위에 새 쪽이 붙으면(뷰모델 messages 가 늘면) 다시, 5초 동안 안 붙으면 끝. 다음 쪽 요청 수는 뷰모델의 isLoadingMore 로 센다.
+/// 최대 스크롤은 늦게 그려지는 줄 때문에 쪽이 안 붙어도 변하므로(실기기 첫 실행: 같은 경계 값이 두 번 기록됨) 쪽 판정에 쓰지 않는다.
 Future<Map<String, Object?>> _scrollToTop(WidgetTester tester, Map<String, dynamic> job) async {
   await _openRoom(tester, job['nickname'] as String);
   await pumpUntil(tester, find.byType(MessageBubble));
   final room = find.byType(ChatRoomScreen);
   final container = ProviderScope.containerOf(tester.element(room));
   var requests = 0;
-  final watching = container.listen(chatRoomViewModelProvider(tester.widget<ChatRoomScreen>(room).matchId), (previous, next) {
+  final provider = chatRoomViewModelProvider(tester.widget<ChatRoomScreen>(room).matchId);
+  final watching = container.listen(provider, (previous, next) {
     if (next.isLoadingMore && previous?.isLoadingMore != true) requests++;
   });
   final list = find.descendant(of: find.descendant(of: room, matching: find.byType(ListView)), matching: find.byType(Scrollable)).first;
@@ -128,6 +135,8 @@ Future<Map<String, Object?>> _scrollToTop(WidgetTester tester, Map<String, dynam
     seen.addAll(bodies);
   }
 
+  int loaded() => container.read(provider).messages.length;
+  var known = loaded();
   final stages = <int>[];
   try {
     while (true) {
@@ -139,20 +148,20 @@ Future<Map<String, Object?>> _scrollToTop(WidgetTester tester, Map<String, dynam
       }
       look();
       final before = seen.length;
-      final extent = position().maxScrollExtent;
-      position().jumpTo(extent);
+      position().jumpTo(position().maxScrollExtent);
       final watch = Stopwatch()..start();
-      var grew = false;
+      var grew = loaded() > known;
       while (!grew && watch.elapsed < const Duration(seconds: 5)) {
         await tester.pump(const Duration(milliseconds: 200));
         look();
-        grew = position().maxScrollExtent > extent + 1;
+        grew = loaded() > known;
       }
       if (!grew) {
         stages.add(seen.length);
         break;
       }
       stages.add(before);
+      known = loaded();
     }
   } finally {
     watching.close();
@@ -299,4 +308,5 @@ final Map<String, Area1Case> area3Cases = {
   'E-REV-30': _session(_partnerReviews),
   'E-REV-32': _session(_reviewList),
   'E-REV-33': _session(_reviewList),
+  ...area3Cases2,
 };
