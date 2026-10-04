@@ -19,6 +19,7 @@ from e2e import area1_b2  # noqa: F401 — 묶음 2 가설을 area1.PHONE · CAS
 from e2e import area3_phone  # noqa: F401 — 영역 3 폰 1차 가설을 area1.PHONE · area3.BUNDLES 에 더한다
 from e2e import area3_phone2  # noqa: F401 — 영역 3 폰 2차(입력 · 보내기 · 신고 · 수락 · 시트) 가설을 같은 곳에 더한다
 from e2e import area1_b3  # 묶음 3(사진 세트) — 같은 방식
+from e2e import area1_b4  # noqa: F401 — 묶음 4(아바타) — 같은 방식
 from e2e import area1_emu  # noqa: F401 — B에뮬 가설(네트워크 · 시계 · 브라우저)
 from e2e import emu
 from e2e import area4  # noqa: F401 — 영역 4 가설을 같은 곳에 더한다

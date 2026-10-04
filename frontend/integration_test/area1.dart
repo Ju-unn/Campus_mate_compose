@@ -33,6 +33,7 @@ import 'support.dart';
 
 part 'area1_b2.dart';
 part 'area1_b3.dart';
+part 'area1_b4.dart';
 part 'area1_emu.dart';
 
 /// 영역 1 묶음 1 폰 가설 36(37 중 E-ONB-05 는 두 기기라 묶음 4). PC 쪽은 e2e/area1.py 의 같은 번호 — 계정을 만들어
@@ -549,5 +550,6 @@ final Map<String, Area1Case> area1Cases = {
   }),
   ..._b2Cases,
   ..._b3Cases,
+  ..._b4Cases,
   ..._emuCases,
 };
