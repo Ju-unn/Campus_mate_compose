@@ -12,12 +12,20 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 ///
 /// `auth.signOut()` 은 이 기기의 세션을 먼저 지우고 나서 서버에 알린다(gotrue 2.27 `_signOut`).
 /// 서버 알림이 네트워크 오류로 던져도 이 기기는 이미 로그아웃이고 토큰도 버렸다 — 화면까지 올리지 않는다.
+///
+/// 토큰 정리가 던져도 로그아웃은 한다(finally). 탈퇴 리스너는 상태가 바뀔 때 한 번만 부르고 auth_redirect 는
+/// 그동안 제자리라, 여기서 건너뛰면 앱을 다시 켜기 전에는 다시 시도할 길이 없다. (로그인 만료는 대개 gotrue 가
+/// refresh 실패 때 세션을 이미 지워 안 갇힌다 — refresh 응답에 세션이 없는 드문 경우만 여기에 기댄다.)
+/// 정리 오류는 로그아웃 뒤 그대로 던진다 — 숨기지 않는다.
 Future<void> signOut(PushRegistrar registrar, GoTrueClient auth) async {
-  await registrar.stop();
   try {
-    await auth.signOut();
-  } on AuthException {
-    // 위 주석 — 남은 것은 서버 쪽 알림뿐이다.
+    await registrar.stop();
+  } finally {
+    try {
+      await auth.signOut();
+    } on AuthException {
+      // 위 주석 — 남은 것은 서버 쪽 알림뿐이다.
+    }
   }
 }
 

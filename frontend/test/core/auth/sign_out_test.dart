@@ -38,4 +38,18 @@ void main() {
 
     await expectLater(signOut(registrar, auth), completes);
   });
+
+  test('푸시 토큰 정리가 던져도 이 기기의 로그아웃은 한다', () async {
+    // 탈퇴 리스너는 상태가 바뀔 때 한 번만 부른다 — 여기서 로그아웃을 건너뛰면
+    // 사용자는 그 화면에 그대로 남고(auth_redirect 제자리), 앱을 다시 켜기 전에는 다시 시도할 길이 없다.
+    final repository = FakeCardRepository(onDelete: () => throw StateError('push cleanup broke'));
+    final registrar = PushRegistrar(FakePushMessaging(token: 'tok-1'), repository);
+    await registrar.start();
+    final auth = MockGoTrueClient();
+    when(() => auth.signOut()).thenAnswer((_) async {});
+
+    await expectLater(signOut(registrar, auth), throwsStateError);
+
+    verify(() => auth.signOut()).called(1);
+  });
 }
