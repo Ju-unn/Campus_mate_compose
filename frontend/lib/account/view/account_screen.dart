@@ -213,7 +213,7 @@ class _InfoRow extends StatelessWidget {
     final style = valueStyle ?? AppTypography.bodySmall.copyWith(color: AppColors.muted);
     final valueText = schoolLogo
         // SchoolLabel 은 제 폭만큼만 차지한다 — 오른쪽 끝에 붙이려고 Align 으로 민다.
-        ? Align(alignment: Alignment.centerRight, child: SchoolLabel(value, style: style))
+        ? Align(alignment: Alignment.centerRight, child: SchoolLabel(value, style: style, textAlign: TextAlign.end))
         : Text(value, textAlign: TextAlign.end, style: style);
     final row = ConstrainedBox(
       constraints: const BoxConstraints(minHeight: _minHeight),

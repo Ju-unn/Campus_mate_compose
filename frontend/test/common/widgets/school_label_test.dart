@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:campus_mate/common/university_logos.dart';
 import 'package:campus_mate/common/widgets/school_label.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -102,6 +103,27 @@ void main() {
 
     expect(_logoPicture, findsNothing);
     expect(tester.getTopLeft(find.text(_school)).dx, 0);
+    debugNetworkImageHttpClientProvider = null;
+  });
+
+  testWidgets('textAlign end 로 두 줄이면 두 줄 다 칸 오른쪽 끝, 로고는 첫 줄 바로 앞 4', (tester) async {
+    const text = '$_school · 아주아주긴학과이름';
+    await pump(
+      tester,
+      const SchoolLabel(_school, text: text, textAlign: TextAlign.end, style: TextStyle(fontSize: 14, height: 1.5)),
+    );
+
+    final p = tester.renderObject<RenderParagraph>(find.text(text));
+    final lines = <double, List<TextBox>>{};
+    for (final box in p.getBoxesForSelection(const TextSelection(baseOffset: 0, extentOffset: text.length))) {
+      lines.putIfAbsent(box.top, () => []).add(box);
+    }
+    expect(lines, hasLength(2), reason: '폭 200 에서 두 줄이어야 이 테스트가 뜻이 있다');
+    for (final line in lines.values) {
+      expect(p.localToGlobal(Offset(line.last.right, 0)).dx, closeTo(200, 0.5));
+    }
+    final firstLineLeft = p.localToGlobal(Offset(lines.values.first.first.left, 0)).dx;
+    expect(firstLineLeft - tester.getTopRight(_logoPicture).dx, closeTo(4, 0.5));
     debugNetworkImageHttpClientProvider = null;
   });
 
