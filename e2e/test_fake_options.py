@@ -6,7 +6,7 @@
 
 import unittest
 
-from e2e import test_area1, test_area3, test_area3_safe, test_area4, test_area4_set2, test_notify_factory
+from e2e import test_area1, test_area3, test_area3_safe, test_area4, test_area4_set2, test_area5_api, test_notify_factory
 
 URL = 'https://sb.test/rest/v1/profiles?id=eq.id-1&select=status'
 
@@ -16,6 +16,7 @@ FAKES = {
     'test_area3_safe.SafeFake': test_area3_safe.SafeFake,
     'test_area4.FakeDb': test_area4.FakeDb,
     'test_area4_set2.Db': test_area4_set2.Db,
+    'test_area5_api.ApiFake': test_area5_api.ApiFake,
     'test_notify_factory.Recorder': test_notify_factory.Recorder,
 }
 

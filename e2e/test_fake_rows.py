@@ -4,10 +4,11 @@
 (E-SAFE-05 가 시스템 줄에만 kind 를 넣어 운영에서 막혔다 — 가짜가 받아 줘서 시험에서는 못 봤다.)"""
 import unittest
 
-from e2e import test_area3, test_area3_safe
+from e2e import test_area3, test_area3_safe, test_area5_api
 
 URL = 'https://sb.test/rest/v1/messages'
-FAKES = {'test_area3.Fake': test_area3.Fake, 'test_area3_safe.SafeFake': test_area3_safe.SafeFake}
+FAKES = {'test_area3.Fake': test_area3.Fake, 'test_area3_safe.SafeFake': test_area3_safe.SafeFake,
+         'test_area5_api.ApiFake': test_area5_api.ApiFake}
 
 
 class FakeRowsTest(unittest.TestCase):
