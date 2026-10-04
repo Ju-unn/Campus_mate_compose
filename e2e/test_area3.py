@@ -387,6 +387,13 @@ class RegistryTest(Base):
         self.assertEqual((row['profile_a'], row['profile_b']), ('id-1', 'id-9'))
         self.assertEqual({r['profile_id'] for r in self.fake.tables['match_participants']}, {'id-1', 'id-9'})
 
+    def test_main_runs_area3_cases_next_to_area1_and_area2(self):
+        from e2e import __main__ as main
+        self.assertEqual({main.API_CASES[c] for c in area3.CASES}, {area3})
+        self.assertEqual(main.BUNDLES['area3-api'], area3.BUNDLES['area3-api'])
+        self.assertIn('area1-b1', main.BUNDLES)  # 다른 영역의 묶음이 안 사라졌다
+        self.assertTrue(any(name.startswith('area2') for name in main.BUNDLES))
+
     def test_blocked_preparation_is_blocked_not_fail(self):
         self.fake.on('POST', r'/auth/v1/admin/users', Reply(500, {'msg': 'down'}))
         result, note = self.case('E-CHAT-14')
