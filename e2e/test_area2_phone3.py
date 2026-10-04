@@ -4,6 +4,7 @@
 import unittest
 from datetime import datetime
 from unittest import mock
+from urllib.parse import parse_qs, urlsplit
 
 from e2e import area1, area2_phone3, notify, tools
 from e2e.area1 import SEOUL
@@ -152,8 +153,18 @@ class BlockedCardTest(CaseBase):
         self.assertEqual(phone.acted, ['blocked'])
 
     def test_a_decision_row_is_a_fail(self):
-        rules = [('GET', 'card_decisions', lambda b, u: Reply(200, [{'id': 'd'}]))]
+        rules = [('GET', 'card_decisions', lambda b, u: Reply(200, [{'card_id': 'd'}]))]
         self.assertEqual(self.go('E-CARD-35', FakePhone(midway_step={'step': 'blocked'}), rules)[0], 'fail')
+
+    def test_only_columns_the_table_has_are_selected(self):
+        # card_decisions 의 기본키는 card_id — id 칸이 없어 select=id 는 운영에서 400(10-05 폰 실행에서 blocked)
+        def strict(body, url):
+            columns = parse_qs(urlsplit(url).query)['select'][0].split(',')
+            unknown = set(columns) - {'card_id', 'decision', 'decided_at'}
+            return Reply(400, {'message': f'column card_decisions.{sorted(unknown)[0]} does not exist'}) if unknown else Reply(200, [])
+
+        result = self.go('E-CARD-35', FakePhone(midway_step={'step': 'blocked'}), [('GET', 'card_decisions', strict)])
+        self.assertEqual(result[0], 'pass', result)
 
 
 class WaitingCardTest(CaseBase):
