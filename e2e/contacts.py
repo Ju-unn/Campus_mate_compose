@@ -19,6 +19,9 @@ TAG = 'e2e-'
 RAW = 'content://com.android.contacts/raw_contacts'
 DATA = 'content://com.android.contacts/data'
 REMOTE = '/data/local/tmp/e2e-contacts.sh'
+SCRIPT_PATIENCE = 900  # 연락처 스크립트 하나가 끝나기를 기다리는 최대 초
+BIG_LIMIT = 1500  # 201명을 넣는 가설 하나(넣기 900 + 앱 + 지우기)에 줄 시간 — 가설이 tools.CASE_LIMITS 에 스스로 적는다
+PARALLEL = 6  # content 명령(자바 기동)이 한 번에 1.8초라 하나씩 하면 603번에 18분 — 몇 개씩 같이 돌린다
 NAME_TYPE, PHONE_TYPE = 'vnd.android.cursor.item/name', 'vnd.android.cursor.item/phone_v2'
 # 권한 창 버튼 — 글자는 기기 언어를 타서 resource-id 로 찾는다.
 ALLOW = 'com.android.permissioncontroller:id/permission_allow_button'
@@ -75,9 +78,17 @@ def _run(serial, lines):
     """[lines] 를 기기 스크립트로 올려 한 번에 돌린다. 출력에 예외가 있으면 [Blocked]."""
     with tempfile.TemporaryDirectory() as folder:
         local = Path(folder) / 'e2e-contacts.sh'
-        local.write_text('\n'.join(lines) + '\n', encoding='utf-8', newline='\n')
+        batches = []
+        for start in range(0, len(lines), PARALLEL):
+            batches += [f'{line} &' for line in lines[start:start + PARALLEL]] + ['wait']
+        local.write_text('\n'.join(batches) + '\n', encoding='utf-8', newline='\n')
         tools.adb(serial, 'push', str(local), REMOTE)
-    out = tools.adb(serial, 'shell', 'sh', REMOTE)
+    try:
+        with tools.adb_patience(SCRIPT_PATIENCE):  # 201명이면 수 분 — 그래도 끝없이는 아니다
+            out = tools.adb(serial, 'shell', 'sh', REMOTE)
+    except tools.CaseTimeout:  # PC 쪽이 포기해도 기기에 남은 content 명령이 계속 넣으면 뒤처리 뒤에 연락처가 다시 생긴다
+        tools.adb(serial, 'shell', 'pkill', '-f', REMOTE, check=False)
+        raise
     tools.adb(serial, 'shell', 'rm', '-f', REMOTE, check=False)
     if 'Exception' in out or 'Error' in out:
         raise Blocked(f'연락처 스크립트 오류: {out.strip()[:200]}')
@@ -148,6 +159,7 @@ def on_device(serial, people, granted):
             notify.grant_notifications(serial)
         yield
     finally:
+        tools.lift_deadline()
         try:
             remove_all(serial)
         finally:  # 연락처 지우기가 터져도 권한은 되돌린다(터진 오류는 그대로 올라가고 본문 오류는 그 __context__ 에 남는다)

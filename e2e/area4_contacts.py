@@ -13,7 +13,7 @@ import itertools
 import random
 import time
 
-from e2e import area1, contacts
+from e2e import area1, contacts, tools
 from e2e.area1 import Check, _app, _rows, _signed_in
 from e2e.area1_emu import _emulator
 
@@ -105,4 +105,5 @@ PHONE = {
 }
 
 area1.PHONE.update(PHONE)
+tools.CASE_LIMITS['E-SET-39'] = contacts.BIG_LIMIT  # 201명
 area1.BUNDLES['area4-contacts'] = list(PHONE)
