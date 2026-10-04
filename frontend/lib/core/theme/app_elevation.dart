@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 /// 그림자 토큰 (DESIGN.md §6). 2026-10-01 개편으로 자리마다 세기가 갈렸다 — 화면은 아래 이름 중 하나를 고른다.
 ///
 /// Flutter 기본 `Card.elevation` 을 쓰면 이 규칙이 깨지므로,
-/// 오늘 탭 요약 카드·잠금 카드, 그리고 04-2 에서 길게 눌러 끄는 사진 칸에만
-/// [card] 로 `BoxShadow` 를 직접 지정한다(끌린 칸이 떠 보여야 어디로 가는지 알 수 있다).
-/// 화면 15 · 15-5 의 ProfileEntryRow(pen `fN0xc`, 사용자 결정 09-28)와 15-5 기본 정보 카드(`N1dIuc`)도 [card] 를 쓴다.
-/// 15-5 기본 정보 카드(`N1dIuc`)는 개편 뒤에도 [card] 그대로다.
+/// 그림자가 필요한 자리만 아래 이름으로 `BoxShadow` 를 직접 지정한다.
+/// [card] 는 04-2 에서 길게 눌러 끄는 사진 칸(끌린 칸이 떠 보여야 어디로 가는지 알 수 있다)과
+/// 15-5 기본 정보 카드(`N1dIuc`) 두 곳이다. 오늘 탭 요약 카드는 [cardSoft], 화면 15 · 15-5 의
+/// ProfileEntryRow(pen `fN0xc`)는 [row] 로 옮겼다(2026-10-01 개편).
 /// 나머지 표면(앱바·리스트·입력·버튼·바텀 내비)은 그림자 없이 평면으로 둔다.
 abstract final class AppElevation {
   static const List<BoxShadow> card = <BoxShadow>[

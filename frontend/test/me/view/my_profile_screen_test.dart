@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/common/university_logos.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/photo_slider.dart';
@@ -56,6 +57,7 @@ class _PendingHttpOverrides extends HttpOverrides {
 const _bio = '주말엔 카페 투어와 등산을 즐겨요. 새로운 사람을 만나는 걸 좋아하고, 대화가 잘 통하는 사람을 찾고 있어요.';
 const _pillLabel = '다시 만들기 · 10';
 const _failedMessage = '아바타를 만들지 못했어요.\n하트는 차감되지 않았어요.';
+const _logoUrl = 'https://logo.test/gana.webp';
 
 /// 이름·학교는 지어낸 값이다.
 MyProfile _profile({
@@ -141,6 +143,8 @@ void main() {
         chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
         // 지인 리뷰 칸(`Cux1p`)이 받은 · 쓴 리뷰 개수를 읽는다.
         friendReviewRepositoryProvider.overrideWithValue(FakeFriendReviewRepository()),
+        // 히어로 학교 줄이 로고를 읽는다 — 덮지 않으면 Supabase 를 부르다 실패해 이름만 그린다.
+        universityLogosProvider.overrideWith((ref) => const {'가나대학교': _logoUrl}),
       ],
     );
     addTearDown(container.dispose);
@@ -234,6 +238,7 @@ void main() {
     expect(find.text('여우, 23'), findsOneWidget);
     // 학교 줄 `NvYvt` — 학교와 학과를 줄바꿈으로 나눈 두 줄.
     expect(find.text('가나대학교\n경영학과'), findsOneWidget);
+    expect(find.image(const NetworkImage(_logoUrl)), findsOneWidget);
     expect(_imageBox('https://img.test/avatar.png'), findsOneWidget);
     expect(find.text(_pillLabel), findsOneWidget);
   });

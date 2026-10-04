@@ -278,7 +278,8 @@ class _EditLink extends StatelessWidget {
   }
 }
 
-/// 기본 정보 카드 `N1dIuc` — #FFFFFF · 모서리 14 · 카드 그림자(ProfileEntryRow `fN0xc` 와 같은 두 겹, 사용자 결정 09-28),
+/// 기본 정보 카드 `N1dIuc` — #FFFFFF · 모서리 14 · 카드 그림자 두 겹([AppElevation.card], 사용자 결정 09-28 —
+/// ProfileEntryRow `fN0xc` 는 10-01 개편으로 [AppElevation.row] 한 겹이 됐다),
 /// 패딩 위아래 4 · 좌우 16, 48 행 셋, 구분선 없음. MBTI 가 없으면 "선택 안 함"(사용자 결정 2026-09-27), 키·학과가 없으면
 /// "-"(판단값 — 온보딩 필수라 드물다).
 class _ProfileFacts extends StatelessWidget {
