@@ -429,14 +429,16 @@ def cleanup(cfg, key, root):
             print('재가입 제한 1행 지움')
 
 
-def form(url, token, fields, file, **options):
-    """multipart 한 번 — [file] = (칸 이름, 파일 이름, 바이트, Content-Type)."""
+def form(url, token, fields, file=None, method='POST', **options):
+    """multipart 한 번 — [file] = (칸 이름, 파일 이름, 바이트, Content-Type), 없으면 칸만 보낸다. [method] 는 PUT /me/photos 처럼 POST 가 아닌 것."""
     boundary = uuid.uuid4().hex
     parts = [f'--{boundary}\r\nContent-Disposition: form-data; name="{k}"\r\n\r\n{v}\r\n'.encode() for k, v in fields.items()]
-    name, filename, data, kind = file
-    parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"; filename="{filename}"\r\n'
-                 f'Content-Type: {kind}\r\n\r\n'.encode() + data + f'\r\n--{boundary}--\r\n'.encode())
-    return call('POST', url, {'Authorization': f'Bearer {token}'}, raw=(b''.join(parts), f'multipart/form-data; boundary={boundary}'), **options)
+    if file:
+        name, filename, data, kind = file
+        parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"; filename="{filename}"\r\n'
+                     f'Content-Type: {kind}\r\n\r\n'.encode() + data + b'\r\n')
+    parts.append(f'--{boundary}--\r\n'.encode())
+    return call(method, url, {'Authorization': f'Bearer {token}'}, raw=(b''.join(parts), f'multipart/form-data; boundary={boundary}'), **options)
 
 
 def batch(name):
