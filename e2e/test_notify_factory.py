@@ -20,7 +20,7 @@ class Recorder(FakeServer):
         super().__init__(routes)
         self.bearers = []
 
-    def __call__(self, method, url, headers=None, body=None, raw=None):
+    def __call__(self, method, url, headers=None, body=None, raw=None, **options):
         self.bearers.append((headers or {}).get('Authorization'))
         return super().__call__(method, url, headers, body, raw)
 

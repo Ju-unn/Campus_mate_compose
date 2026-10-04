@@ -27,7 +27,7 @@ class FakeDb(FakeServer):
         self.private = {}
         self.blocks = []
 
-    def __call__(self, method, url, headers=None, body=None, raw=None):
+    def __call__(self, method, url, headers=None, body=None, raw=None, **options):
         parts = urlsplit(url)
         path, query = parts.path, parse_qs(parts.query)
         self.calls.append((method, path, body))

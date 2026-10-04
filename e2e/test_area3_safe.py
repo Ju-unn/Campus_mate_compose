@@ -55,7 +55,7 @@ class SafeFake(Fake):
                 ('GET', r'/rest/v1/rpc/card_issue_owners', self._owners)):
             self.on(method, pattern, handler)
 
-    def __call__(self, method, url, headers=None, body=None, raw=None):
+    def __call__(self, method, url, headers=None, body=None, raw=None, **options):
         path = url.split('://', 1)[-1].split('/', 1)[-1].split('?')[0]
         token = (headers or {}).get('Authorization', '').removeprefix('Bearer ')
         if url.startswith('https://api.test') and token.startswith('tok-'):
