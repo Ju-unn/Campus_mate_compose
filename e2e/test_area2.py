@@ -7,10 +7,12 @@ import http.client
 import json
 import ssl
 import unittest
+from datetime import datetime
 from unittest import mock
 from urllib.parse import parse_qs, urlsplit
 
-from e2e import area2, test_area1 as t1, tools
+from e2e import area2, batch_gate, test_area1 as t1, tools
+from e2e.area1 import SEOUL
 from e2e.tools import Blocked, Reply, Run
 
 # 시나리오 영역 2 "묶음 범위" 표의 API만 50 — 가설을 빼먹거나 늘리면 여기서 걸린다.
@@ -53,6 +55,10 @@ class Base(t1.Base):
     def setUp(self):
         super().setUp()
         self.run = Run(self.root / 'area2-api', 'b', cfg=t1.CFG, key='svc')
+        # 배치 가설이 실제 시각(월요일 · 04:00 근처)에 막히지 않게 — 관문 자체는 test_batch_gate 가 본다
+        patcher = mock.patch.object(batch_gate, 'now_seoul', return_value=datetime(2026, 10, 6, 12, 0, tzinfo=SEOUL))
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
 
 class RegistryTest(unittest.TestCase):
