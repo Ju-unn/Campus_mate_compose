@@ -14,7 +14,7 @@ from datetime import datetime, timedelta, timezone
 
 from e2e import area1, tools
 from e2e.area1 import Check, _api, _app, _one, _patch, _rows, _signed_in
-from e2e.area1_b3 import _photos, _push
+from e2e.area1_b3 import _allow_notifications, _photos, _push
 from e2e.tools import Blocked
 
 ALREADY = '아바타는 한 번만 만들 수 있어요'  # errors.AVATAR_ALREADY_CREATED
@@ -169,6 +169,7 @@ def _at_result(prepare, judge=None, step=None):
     def case(run, phone):
         check = Check()
         account, token = _signed_in(run, 'survey')
+        _allow_notifications(phone)
         prepare(run, account)
         midway = (lambda said: step(run, account, check)) if step else None
         _app(check, phone(midway=midway, token_hash=token))

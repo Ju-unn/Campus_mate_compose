@@ -51,12 +51,16 @@ def _photos(run, *names):
     return [folder / name for name in dict.fromkeys(names)]
 
 
-def _push(phone, run, *names):
-    """[names] 를 폰 앱 캐시로 옮긴다(같은 이름은 한 번)."""
-    # 앞 묶음(영역 3)이 끝에서 알림 권한을 revoke 하면 권한 창이 앱을 가린다 — 사진을 쓰는 가설은 늘 여기를 지나므로 여기서 준다.
-    # 안드로이드 12 이하는 권한이 없어 Blocked 가 나지만 권한 창도 없다 — 그대로 간다(area1_emu 와 같은 규칙).
+def _allow_notifications(phone):
+    """앞 묶음(영역 3)이 끝에서 알림 권한을 revoke 하면 권한 창이 앱을 가린다 — 폰 가설은 앱을 켜기 전에 이걸 부른다.
+    안드로이드 12 이하는 권한이 없어 Blocked 가 나지만 권한 창도 없다 — 그대로 간다(area1_emu 와 같은 규칙)."""
     with contextlib.suppress(Blocked):
         notify.grant_notifications(getattr(phone, 'serial', None))
+
+
+def _push(phone, run, *names):
+    """[names] 를 폰 앱 캐시로 옮긴다(같은 이름은 한 번)."""
+    _allow_notifications(phone)
     serial = getattr(phone, 'serial', None)
     paths = _photos(run, *names)
     tools.adb(serial, 'shell', 'mkdir', '-p', REMOTE)
