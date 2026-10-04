@@ -3,10 +3,12 @@
 비밀값(서비스 키)은 [service_key] 로 그때그때 받아 메모리에만 둔다 — 파일 · 결과 · 로그에 적지 않는다.
 """
 
+import http.client
 import json
 import queue
 import random
 import re
+import ssl
 import string
 import subprocess
 import threading
@@ -150,8 +152,33 @@ class Reply(tuple):
     body = property(lambda self: self[1])
 
 
-def call(method, url, headers=None, body=None, raw=None):
-    """요청 하나 → [Reply]. 본문 JSON · JSON 아니면 글자 · 없으면 None — 4xx · 5xx 도 예외 없이 돌려준다(가설이 상태 코드를 본다).
+# 일시적인 끊김(WinError 10054 · SSL bad record mac · 시간 초과 · DNS) — 재시도하면 되는 것들. HTTPError(상태 코드)는 URLError 의 자식이지만
+# 아래 _send 가 먼저 Reply 로 바꾸므로 여기 오지 않는다.
+TRANSIENT = (ConnectionError, ssl.SSLError, TimeoutError, urllib.error.URLError, http.client.HTTPException)
+RETRIES = [0]  # 지난 take_retries 뒤로 다시 보낸 횟수 — 진행 프로그램이 가설 메모에 적는다
+
+
+def take_retries():
+    """가설 하나 동안 다시 보낸 횟수를 읽고 0 으로 돌린다."""
+    count, RETRIES[0] = RETRIES[0], 0
+    return count
+
+
+def call(method, url, headers=None, body=None, raw=None, tries=4):
+    """요청 하나 → [Reply]. 일시적인 끊김은 1 · 2 · 4초 간격으로 [tries]-1 번까지 다시 보낸다(안 되면 마지막 예외가 그대로 올라간다).
+    서버에 닿았는지 모호한 POST 도 다시 보낸다 — 시험 데이터라 중복돼도 뒷정리가 지운다."""
+    for attempt in range(tries):
+        try:
+            return _send(method, url, headers, body, raw)
+        except TRANSIENT:
+            if attempt == tries - 1:
+                raise
+            RETRIES[0] += 1
+            time.sleep(2 ** attempt)
+
+
+def _send(method, url, headers, body, raw):
+    """요청 한 번 → [Reply]. 본문 JSON · JSON 아니면 글자 · 없으면 None — 4xx · 5xx 도 예외 없이 돌려준다(가설이 상태 코드를 본다).
     [raw] = (바이트, Content-Type) 면 JSON 대신 그대로 보낸다(학생증 multipart)."""
     data, kind = raw if raw else (None if body is None else json.dumps(body).encode(), 'application/json')
     req = urllib.request.Request(url, data=data, method=method, headers={'Content-Type': kind, **(headers or {})})
