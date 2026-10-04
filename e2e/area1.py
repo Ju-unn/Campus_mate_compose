@@ -690,6 +690,9 @@ BUNDLES['area1-b1-phone'] = list(PHONE)
 def attempt_phone(run, case, phone):
     """폰 가설 하나. 계정 준비가 안 되거나 앱이 막혔다고 하면 blocked."""
     try:
-        return PHONE[case](run, phone)
+        result = PHONE[case](run, phone)
     except Blocked as e:
         return 'blocked', str(e)
+    if result[0] == 'fail' and getattr(phone, 'serial', None):
+        run.shot(phone.serial, case)
+    return result

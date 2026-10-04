@@ -8,6 +8,7 @@ import 'package:campus_mate/common/widgets/app_checkbox.dart';
 import 'package:campus_mate/common/widgets/labeled_field.dart';
 import 'package:campus_mate/common/widgets/select_chip.dart';
 import 'package:campus_mate/consent/view/consent_row.dart';
+import 'package:campus_mate/home/view/home_screen.dart';
 import 'package:campus_mate/common/widgets/trait_slider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -63,7 +64,7 @@ const screens = {
   '20': '친구에게 받은 코드가 있나요?', // referral_code_screen
   '20d': 'CampusMate를 어떻게 알게 되셨나요?', // acquisition_screen
   '06-4': '아는 사람을 만나고 싶지 않다면 연락처로 미리 막을 수 있어요', // onboarding_contact_block_screen("지인 차단" 은 두 번 나온다)
-  'home': 'CampusMate', // home_screen 앱바 — 코호트 대기 화면에서도 남는 글자
+  'home': 'CampusMate', // screen() 이 글자 대신 HomeScreen 으로 찾는다 — 스플래시(하단 내비 없음)에도 같은 글자가 있다
   'settings': '설정', // settings_screen 앱바
   // 묶음 3(area1_b3.dart)
   '04-3': '아바타로 만들 사진을 골라주세요', // avatar_source_screen
@@ -77,7 +78,11 @@ const _nicknameTaken = '이미 있는 닉네임이에요';
 const _heightBad = '숫자 3자리를 확인해 주세요';
 const _consentCta = '동의하고 계속하기';
 
-Finder screen(String name) => name == '05-12' ? find.byType(AvatarGenerationScreen) : find.text(screens[name]!);
+Finder screen(String name) => switch (name) {
+      '05-12' => find.byType(AvatarGenerationScreen),
+      'home' => find.byType(HomeScreen),
+      _ => find.text(screens[name]!),
+    };
 
 /// 입력칸 — 힌트(placeholder) 또는 라벨 글자로.
 Finder input(String hintOrLabel) => find.byWidgetPredicate(
