@@ -64,6 +64,9 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
   mocktail: ^1.0.5
+  # E2E 하네스(integration_test/) — 실기기에서 앱을 켜 가설을 돌린다(2026-10-04 허락, SDK 안 패키지).
+  integration_test:
+    sdk: flutter
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
