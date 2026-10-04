@@ -1,10 +1,10 @@
 """E2E 진행 프로그램. 저장소 루트에서 `python -m e2e <명령>`.
 
-  list [접두어]          시나리오 md 의 가설 번호 · 기기 · 방식
-  preflight             e2e.env 키 · 기기 연결 · adb reverse 확인
-  run 번호…              폰 가설을 앱을 한 번 켤 때 하나씩 돌려 results.jsonl 에 적는다(첫 실패는 한 번 다시)
+  list [접두어|묶음]      시나리오 md 의 가설 번호 · 기기 · 방식(`list area1` = 묶음 목록)
+  preflight             e2e.env 키 · 실사용자 0 · signup_blocks 시작 스냅샷 · 기기 연결 · adb reverse 확인
+  run 번호|묶음…          가설을 하나씩 돌려 results.jsonl 에 적는다(첫 실패는 한 번 다시). API 가설은 진행만, 폰 가설은 앱을 한 번 켤 때 하나
   report                가설마다 마지막 결과로 보고서.md
-  cleanup               `+e2e` 계정 뒷정리 — 계정 공장(T3)과 같이 들어온다
+  cleanup               `+e2e` 계정 · 파일 · 시험이 만든 재가입 제한 뒷정리(KEEP 제외, 실사용자가 보이면 멈춤)
 """
 
 import argparse
@@ -13,22 +13,35 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from e2e.tools import DEVICE_PORT, DEVICES, ROOT, Hub, Run, adb, env, latest, scenario_rows, serial, verdict
+from e2e import area1
+from e2e.tools import (DEVICE_PORT, DEVICES, ROOT, Hub, Run, adb, cleanup, ensure_no_real_users, env, latest, scenario_rows,
+                       serial, service_key, snapshot_blocks, verdict)
 
 ENV_KEYS = ('SUPABASE_URL', 'SUPABASE_ANON_KEY', 'API_BASE_URL', 'E2E_MAIL_BASE')
 DESKTOP = next(p for p in (Path.home() / 'OneDrive' / 'Desktop', Path.home() / 'Desktop') if p.exists())
 SCENARIO = DESKTOP / 'E2E_최종테스트_시나리오.md'
+RESULTS = DESKTOP / 'E2E_결과'
 
 
 def _run(args):
     build = args.build or subprocess.run(['git', 'rev-parse', '--short', 'HEAD'], cwd=ROOT, capture_output=True, text=True).stdout.strip()
-    return Run(DESKTOP / 'E2E_결과' / args.bundle, build, args.revision)
+    return Run(RESULTS / args.bundle, build, args.revision)
 
 
 def cmd_list(args):
-    for row in scenario_rows(SCENARIO.read_text(encoding='utf-8')):
-        if row['case'].startswith(args.prefix):
-            print(f"{row['case']}\t{row['device']}\t{row['method']}")
+    rows = scenario_rows(SCENARIO.read_text(encoding='utf-8'))
+    bundles = [b for b in area1.BUNDLES if args.prefix and b.startswith(args.prefix)]
+    if not bundles:
+        for row in rows:
+            if row['case'].startswith(args.prefix):
+                print(f"{row['case']}\t{row['device']}\t{row['method']}")
+        return
+    by_case = {r['case']: r for r in rows}
+    for bundle in bundles:
+        print(f'# {bundle}')
+        for case in area1.BUNDLES[bundle]:
+            row = by_case.get(case, {})
+            print(f"{case}\t{row.get('device', '시나리오에 없음')}\t{row.get('method', '')}")
 
 
 def cmd_preflight(args):
@@ -51,25 +64,43 @@ def cmd_preflight(args):
             continue
         adb(sn, 'reverse', f'tcp:{DEVICE_PORT}', f'tcp:{pc_port}')
         print(f'{name} 연결 · reverse {DEVICE_PORT}→{pc_port}')
-    # ponytail: 실사용자 0 확인은 서비스 키가 필요해 계정 공장(T3)과 같이 넣는다 — 그 전엔 운영 쓰기 가설을 돌리지 않는다.
+    if not missing:
+        # 운영 쓰기 전 마지막 문 — 시험 계정 · KEEP 말고 한 명이라도 있으면 돌리지 않는다(설계 2절 안전).
+        key = service_key()
+        print(f'실사용자 {ensure_no_real_users(cfg, key, RESULTS)}명')  # 있으면 여기서 멈춘다
+        snapshot_blocks(cfg, key, RESULTS)
     sys.exit(0 if ok else 1)
 
 
 def cmd_run(args):
-    sn, pc_port = serial(args.device, env()), DEVICES[args.device]
-    if not sn:
-        sys.exit(f'e2e.env 에 E2E_DEVICE_{args.device} 가 없다')
-    adb(sn, 'reverse', f'tcp:{DEVICE_PORT}', f'tcp:{pc_port}')
-    run, hub = _run(args), Hub(pc_port)
+    cfg, run = env(), _run(args)
+    run.cfg = cfg
+    phone = {}  # 폰 가설이 처음 나올 때 기기 · 우편함을 연다 — API 묶음만 돌릴 땐 폰이 없어도 된다
+
+    def once(case):
+        if case in area1.CASES:
+            if not run.key:  # preflight 를 건너뛰어도 운영 쓰기 전에 한 번 더 본다
+                run.key = service_key()
+                ensure_no_real_users(cfg, run.key, RESULTS)
+            return area1.attempt(run, case)
+        if not phone:
+            sn, pc_port = serial(args.device, cfg), DEVICES[args.device]
+            if not sn:
+                sys.exit(f'e2e.env 에 E2E_DEVICE_{args.device} 가 없다')
+            adb(sn, 'reverse', f'tcp:{DEVICE_PORT}', f'tcp:{pc_port}')
+            phone.update(sn=sn, hub=Hub(pc_port))
+        return verdict(run.phone(phone['hub'], phone['sn'], {'case': case}))
+
     try:
-        for case in args.case:
+        for case in [c for name in args.case for c in area1.BUNDLES.get(name, [name])]:
             for attempt in (1, 2):
-                result, note = verdict(run.phone(hub, sn, {'case': case}))
+                result, note = once(case)
                 if result != 'fail':
                     break
             print(run.record(case, result, f'{note} (시도 {attempt})'.lstrip()))
     finally:
-        hub.close()
+        if phone:
+            phone['hub'].close()
 
 
 def cmd_report(args):
@@ -84,7 +115,7 @@ def cmd_report(args):
 
 
 def cmd_cleanup(args):
-    sys.exit('cleanup 은 계정 공장(T3, e2e/area1.py)과 같이 들어온다 — 지금은 지울 계정을 만드는 코드가 없다.')
+    cleanup(env(), service_key(), RESULTS)
 
 
 def build_parser():
