@@ -394,17 +394,19 @@ class _PhotoZone extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () => unawaited(onTap()),
-      child: SizedBox(
-        height: 264,
+      // 264 는 최소값이다 — 글자 배율 2.0 에서 안내 글이 길어지면 칸이 늘어난다(DESIGN §11.2).
+      child: Container(
         width: double.infinity,
-        child: Container(
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            color: AppColors.surfaceSoft,
-            borderRadius: BorderRadius.circular(AppRadius.md),
-          ),
-          child: photo == null ? _PhotoPrompt(hint: hint) : Image.file(photo!, fit: BoxFit.cover),
+        constraints: const BoxConstraints(minHeight: 264),
+        alignment: Alignment.center,
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: AppColors.surfaceSoft,
+          borderRadius: BorderRadius.circular(AppRadius.md),
         ),
+        child: photo == null
+            ? _PhotoPrompt(hint: hint)
+            : Image.file(photo!, width: double.infinity, height: 264, fit: BoxFit.cover),
       ),
     );
   }

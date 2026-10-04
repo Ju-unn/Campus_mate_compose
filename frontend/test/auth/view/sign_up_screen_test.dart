@@ -52,6 +52,29 @@ void main() {
       expect(tester.widget<TextField>(field).decoration!.hintStyle!.color, AppColors.muted);
     });
 
+    // pen `TDM1r` padding [0,16] — school_info · student_verification 상자(AppSpacing.md)와 같다.
+    testWidgets('이메일 상자 안쪽 가로 여백은 16 이다', (tester) async {
+      await pumpScreen(tester);
+
+      final box = find.ancestor(of: find.byType(TextField), matching: find.byType(Container)).first;
+      expect(tester.widget<Container>(box).padding, const EdgeInsets.symmetric(horizontal: 16));
+    });
+
+    // DESIGN §11.2 — 폰 크기에서 글자 배율 2.0 이어도 화면이 넘치지 않는다(넘치면 스크롤된다).
+    testWidgets('폰 크기 · 글자 배율 2.0 에서 화면이 넘치지 않는다', (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await pumpScreen(tester);
+
+      expect(tester.takeException(), isNull);
+      await tester.ensureVisible(find.text('인증 메일 받기'));
+      await tester.pump();
+      expect(find.text('인증 메일 받기').hitTestable(), findsOneWidget);
+    });
+
     // 52 는 최소값이다 — 글자 배율 1.75 부터 고정 52 면 한 줄이 잘린다(LabeledField 와 같이 minHeight).
     testWidgets('글자 배율 2.0 에서 이메일 상자가 늘어나 글자가 잘리지 않는다', (tester) async {
       tester.view.physicalSize = const Size(800, 1600);
