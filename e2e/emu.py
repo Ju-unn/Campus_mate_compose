@@ -65,8 +65,10 @@ def check(serial, wait=0, sleep=time.sleep):
 def net(serial, on):
     require_emulator(serial)
     word = 'enable' if on else 'disable'
-    tools.adb(serial, 'shell', 'svc', 'wifi', word)
-    tools.adb(serial, 'shell', 'svc', 'data', word)
+    # 에뮬은 모바일 데이터가 없어 `svc data` 가 종료 코드 20 으로 끝난다(10-05 첫 실행) — 명령 결과는 보지 않고,
+    # 정말 끊겼는지 · 돌아왔는지는 호출한 쪽이 핑으로 다시 읽어 판정한다.
+    tools.adb(serial, 'shell', 'svc', 'wifi', word, check=False)
+    tools.adb(serial, 'shell', 'svc', 'data', word, check=False)
 
 
 _NO_LOSS = re.compile(r'(?<!\d)0% packet loss')

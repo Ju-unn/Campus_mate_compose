@@ -24,6 +24,13 @@ def _back_online(serial):
         raise emu.Blocked('네트워크를 다시 켰는데 닿지 않음')
 
 
+def _must_be_online(restored):
+    """가설이 끝난 뒤 핑으로 다시 읽은 결과가 안 닿으면 blocked — 안 그러면 다음 가설이 엉뚱하게 틀린다.
+    (가설이 예외로 끝난 경우엔 이 줄에 오지 않고 그 예외가 그대로 올라간다.)"""
+    if not restored:
+        raise emu.Blocked('끝난 뒤 네트워크를 켰는데 핑이 안 닿음 — 다음 가설 전에 에뮬 네트워크 확인')
+
+
 def p_auth_22(run, phone):
     """홈까지 로그인 → 네트워크를 끈 채 다시 켬(01-1) → 앱이 멈춘 사이 켜고 "다시 시도" → 홈. 끝에 한 번 더 다시 실행해도 홈."""
     serial = _emulator(phone)
@@ -35,7 +42,8 @@ def p_auth_22(run, phone):
         _app(check, phone(fresh=False, phase='offline', midway=lambda said: _back_online(serial)), '끈 채 켜기')
         _app(check, phone(fresh=False, phase='restart', expect='home'), '다시 실행')
     finally:
-        emu.go_online(serial)
+        restored = emu.go_online(serial)
+    _must_be_online(restored)
     return check.result()
 
 
@@ -68,7 +76,8 @@ def p_gate_47(run, phone):
     try:
         account = area1_b3._submit(run, phone, 'id_ok.jpg', check, on_step=lambda account: emu.go_offline(serial))
     finally:
-        emu.go_online(serial)
+        restored = emu.go_online(serial)
+    _must_be_online(restored)
     rows = area1_b3._attempts(run, account['id'])
     check.that(not rows, f'네트워크가 끊겼는데 서버에 제출 행 {len(rows)}개')
     return check.result()

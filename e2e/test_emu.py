@@ -129,6 +129,35 @@ class NetworkTest(unittest.TestCase):
             self.assertTrue(emu.go_online(S, sleep=lambda s: None))
         self.assertTrue(adb.ran('svc wifi enable') and adb.ran('svc data enable'))
 
+    def test_mobile_data_that_the_emulator_cannot_toggle_does_not_kill_the_case(self):
+        # 에뮬은 모바일 데이터가 없어 `svc data enable` 이 종료 코드 20 으로 끝난다(10-05 첫 실행) — 되는 것(와이파이)만으로 판정
+        calls = []
+
+        def adb(serial, *args, check=True):
+            line = ' '.join(args)
+            calls.append(line)
+            if 'svc data' in line and check:
+                raise tools.subprocess.CalledProcessError(20, 'adb')
+            return PONG if 'ping' in line else ''
+        with patched(adb):
+            self.assertTrue(emu.go_online(S, sleep=lambda s: None))
+        self.assertIn('shell svc wifi enable', calls)
+        self.assertIn('shell svc data enable', calls)  # 시도는 한다
+
+    def test_offline_still_cuts_wifi_when_data_cannot_be_cut(self):
+        online = [True]
+
+        def adb(serial, *args, check=True):
+            line = ' '.join(args)
+            if 'svc data' in line and check:
+                raise tools.subprocess.CalledProcessError(20, 'adb')
+            if 'svc wifi disable' in line:
+                online[0] = False
+            return PONG if online[0] and 'ping' in line else (LOSS if 'ping' in line else '')
+        with patched(adb):
+            emu.go_offline(S, sleep=lambda s: None)  # 예외 없이 끝난다
+        self.assertFalse(online[0])
+
     def test_go_online_gives_dns_a_moment_after_the_first_pong(self):
         pauses = []
         with patched(FakeAdb({'ping': PONG})):
@@ -288,6 +317,22 @@ class CaseTest(Base):
         with mock.patch.object(emu, 'go_offline'), mock.patch.object(emu, 'go_online', side_effect=lambda s: online.append(s) or True):
             self.assertEqual(area1.attempt_phone(self.run, 'E-AUTH-22', phone)[0], 'fail')
         self.assertTrue(online)
+
+    def test_auth_22_network_that_is_still_down_at_the_very_end_is_blocked(self):
+        # 앱이 멈춘 사이엔 켜졌지만(첫 호출 True) 끝에서 다시 읽었더니 안 닿는다 → 다음 가설이 엉뚱하게 틀리지 않게 blocked
+        self.serve()
+        phone = self.phone(midway_step={'step': 'online'})
+        with mock.patch.object(emu, 'go_offline'), mock.patch.object(emu, 'go_online', side_effect=[True, False]):
+            result, note = area1.attempt_phone(self.run, 'E-AUTH-22', phone)
+        self.assertEqual(result, 'blocked')
+        self.assertIn('네트워크', note)
+
+    def test_gate_47_network_that_is_still_down_at_the_end_is_blocked(self):
+        self.serve({('GET', '/rest/v1/student_verification_attempts'): Reply(200, [])})
+        with mock.patch.object(area1_emu.area1_b3, '_push'), mock.patch.object(area1_emu.area1_b3, '_photos'),                 mock.patch.object(emu, 'go_offline'), mock.patch.object(emu, 'go_online', return_value=False):
+            result, note = area1.attempt_phone(self.run, 'E-GATE-47', self.phone(midway_step={'step': 'filled'}))
+        self.assertEqual(result, 'blocked')
+        self.assertIn('네트워크', note)
 
     def test_auth_22_network_that_does_not_come_back_is_blocked(self):
         self.serve()
