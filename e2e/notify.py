@@ -53,8 +53,7 @@ def screen_has(serial, text):
 
 def _ui_dump(serial):
     """uiautomator dump 를 바이트로 받아 utf-8 로 읽은 글. 윈도 로케일(cp949)에 맡기면 한글에서 죽는다."""
-    done = subprocess.run(['adb', '-s', serial, 'shell', 'uiautomator', 'dump', '/dev/tty'], capture_output=True)
-    return done.stdout.decode('utf-8', 'replace')
+    return tools.adb_bytes(serial, 'shell', 'uiautomator', 'dump', '/dev/tty').decode('utf-8', 'replace')
 
 
 # ── 알림 읽기 · 누르기 ──────────────────────────────────────────────────────────────────────────
