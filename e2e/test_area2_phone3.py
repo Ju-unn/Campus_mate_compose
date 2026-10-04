@@ -133,6 +133,12 @@ class LowHeartsTest(CaseBase):
         self.assertEqual(len(self.fake.bodies('POST', '/me/avatar/regenerate')), 1)
         self.assertIn('token_hash', phone.jobs[0])
 
+    def test_the_regeneration_request_is_sent_only_once_even_when_the_link_drops(self):
+        rules = [('POST', '/me/avatar/regenerate', lambda b, u: Reply(402, {'detail': '하트가 모자라요'})), *self.RULES]
+        self.go('E-HEART-44', FakePhone(), rules)
+        sent = [o for m, path, o in self.fake.options if (m, path) == ('POST', '/me/avatar/regenerate')]
+        self.assertEqual(sent, [{'retry': False}])  # 서버에 닿았는지 모호해도 다시 보내지 않는다 — 열려 있으면 유료 호출이다
+
     def test_a_balance_other_than_nine_is_a_fail(self):
         rules = [('POST', '/me/avatar/regenerate', lambda b, u: Reply(402, {'detail': '하트가 모자라요'})),
                  self.RULES[0], ('GET', 'entitlements', lambda b, u: Reply(200, [{'heart_balance': 8}]))]

@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 
 from e2e import area1, area2, area4_set2, notify, tools
 from e2e.area1 import SEOUL, Check, _api, _app, _one, _patch, _rows, _signed_in
-from e2e.area2 import _card, _grant, _guard, _insert, _person
+from e2e.area2 import _ONCE, _card, _grant, _guard, _insert, _person
 from e2e.area4 import _cut, _offline, _restore, stepper
 from e2e.tools import Blocked
 
@@ -306,7 +306,8 @@ def p_heart_44(run, phone):
     _add_avatar(run, account)
     _give(run, account, 9)
     _app(check, phone(token_hash=token))
-    check.reply('API 다시 만들기', _api(run, 'POST', '/me/avatar/regenerate', account['token']), 402, LOW_HEARTS)
+    # 서버에 닿았는지 모호해도 다시 보내지 않는다 — 402 가 아니게 받아들여졌다면 그 요청이 곧 유료 AI 호출이다
+    check.reply('API 다시 만들기', _api(run, 'POST', '/me/avatar/regenerate', account['token'], **_ONCE), 402, LOW_HEARTS)
     check.that(len(_avatars(run, account)) == 2, '생성 시도가 새로 생김(기대 0)')
     check.that(_balance(run, account) == 9, '잔액이 9 가 아님')
     return check.result()
