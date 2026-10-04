@@ -2,7 +2,7 @@ import 'package:campus_mate/common/failure.dart';
 
 /// 서버가 신고에 돌려주는 거절 문구(backend `app/safety/`). 앱은 상태코드를 못 보고 문구만 받으므로,
 /// **시트를 닫을지가 달라지는 것들만** 여기서 알아본다.
-const String _alreadyReported = '이미 신고한 사용자예요'; // 409
+const String _alreadyReported = '이미 신고를 완료했어요'; // 409 — 서버 errors.py ALREADY_REPORTED 와 글자까지 같아야 한다
 const String _profileGone = '프로필을 찾을 수 없어요'; // 404
 const String _messageGone = '메시지를 찾을 수 없어요'; // 404
 const String _friendReviewGone = '리뷰를 찾을 수 없어요'; // 404 — 받은 리뷰가 아니거나 그새 가려졌다
@@ -12,7 +12,8 @@ const String _pollGone = '질문을 찾을 수 없어요'; // 404 — 그새 지
 /// 기다려도 오늘은 안 된다.
 const String reportLimitedMessage = '오늘은 더 신고할 수 없어요';
 
-/// 같은 사람을 두 번 신고했다. 첫 요청이 사실은 성공하고 응답만 잃었을 수도 있어 **끝난 것으로 친다**.
+/// 같은 대상(프로필 · 메시지 · 리뷰 · 투표 글)을 두 번 신고했다. 첫 요청이 사실은 성공하고 응답만 잃었을 수도 있어
+/// **끝난 것으로 친다**.
 bool isAlreadyReported(Failure failure) => failure.toDisplayMessage() == _alreadyReported;
 
 /// 신고하려던 프로필 · 메시지 · 리뷰 · 투표 글이 서버에 없다. 다시 보내도 같은 답이라 시트를 닫는다.

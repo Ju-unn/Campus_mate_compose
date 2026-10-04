@@ -203,7 +203,7 @@ async def report(body: ReportRequest, wiring: _Wiring = Depends(_wire)) -> dict:
     if match is not None:
         await block_profile(wiring, match, target)
 
-    # ⑤ 신고(중복이면 409 "이미 신고한 사용자예요")
+    # ⑤ 신고(중복이면 409 "이미 신고를 완료했어요")
     report_row = {
         "reporter_id": me, "target_type": body.target_type, "target_id": str(body.target_id),
         "target_profile_id": target, "target_snapshot": snapshot, "reason": body.reason,
