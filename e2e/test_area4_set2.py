@@ -303,7 +303,7 @@ class InviteCaseTest(Base):
         self.assertEqual(result, 'fail')
         self.assertIn('공유 창', note)
 
-    def test_60_fails_when_the_invite_text_is_not_on_the_sheet(self):
+    def run60(self, top, text_seen):
         db = serve(self)
 
         def app(midway=None, **job):
@@ -311,10 +311,21 @@ class InviteCaseTest(Base):
             return APP_PASS
 
         app.serial = 'S'
-        app.top = lambda: 'ChooserActivity'
-        with mock.patch.object(area4_set2.notify, 'screen_has', return_value=False), \
-                mock.patch.object(area4_set2.time, 'sleep'), mock.patch.object(tools, 'adb', return_value=''):
-            result, note = area1.attempt_phone(self.run, 'E-SET-60', app)
+        app.top = lambda: top
+        with mock.patch.object(area4_set2.notify, 'screen_has', return_value=text_seen),                 mock.patch.object(area4_set2.time, 'sleep'), mock.patch.object(tools, 'adb', return_value=''):
+            return area1.attempt_phone(self.run, 'E-SET-60', app)
+
+    def test_60_passes_with_a_note_when_the_sheet_is_up_but_the_phone_hides_the_preview(self):
+        result, note = self.run60('topResumedActivity=ActivityRecord{1 u0 android/com.android.internal.app.ChooserActivity t9}', False)
+        self.assertEqual(result, 'pass')
+        self.assertIn('미리보기', note)
+
+    def test_60_also_accepts_the_resolver_sheet(self):
+        result, note = self.run60('topResumedActivity=ActivityRecord{1 u0 android/com.android.internal.app.ResolverActivity t9}', False)
+        self.assertEqual(result, 'pass')
+
+    def test_60_fails_when_something_else_than_a_share_sheet_is_in_front_and_no_text(self):
+        result, note = self.run60('topResumedActivity=ActivityRecord{1 u0 com.android.settings/.Settings t9}', False)
         self.assertEqual(result, 'fail')
         self.assertIn('글', note)
 

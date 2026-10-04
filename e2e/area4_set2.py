@@ -203,16 +203,22 @@ def p_set_60(run, phone):
     check = Check()
     token, code = _invite(run)
     text = f'CampusMate 에서 같이 해요! 가입할 때 추천 코드 {code} 를 넣어 줘.'
+    note = []
 
     def sheet(said):
         time.sleep(3)  # 공유 창이 뜨기를 기다린다
         top = phone.top()
         check.that(tools.PACKAGE not in top, f'공유 창이 안 뜸 — 맨 앞이 아직 우리 앱({top[:80]})')
-        check.that(notify.screen_has(phone.serial, text), '공유 창에서 초대 글을 못 찾음(기기에 따라 미리보기가 없을 수 있다)')
+        if notify.screen_has(phone.serial, text):
+            note.append('공유 창에서 초대 글 확인')
+        elif 'Chooser' in top or 'Resolver' in top:  # 삼성 등은 공유 창에 미리보기를 안 그린다 — 글 자체는 invite_share_test 가 지킨다
+            note.append('공유 창은 뜸 · 이 기기는 미리보기가 없어 글은 못 읽음')
+        else:
+            check.that(False, '공유 창에서 초대 글을 못 찾음')
         tools.adb(phone.serial, 'shell', 'input', 'keyevent', 'KEYCODE_BACK')  # 공유 창을 닫고 앱으로
 
     _app(check, phone(midway=stepper(phone, sheet), token_hash=token, code=code))
-    return check.result()
+    return check.result('; '.join(note))
 
 
 def p_set_61(run, phone):
