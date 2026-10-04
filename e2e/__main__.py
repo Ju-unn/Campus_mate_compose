@@ -13,7 +13,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from e2e.tools import DEVICE_PORT, DEVICES, ROOT, Hub, Run, adb, env, latest, scenario_rows, serial
+from e2e.tools import DEVICE_PORT, DEVICES, ROOT, Hub, Run, adb, env, latest, scenario_rows, serial, verdict
 
 ENV_KEYS = ('SUPABASE_URL', 'SUPABASE_ANON_KEY', 'API_BASE_URL', 'E2E_MAIL_BASE')
 DESKTOP = next(p for p in (Path.home() / 'OneDrive' / 'Desktop', Path.home() / 'Desktop') if p.exists())
@@ -64,12 +64,10 @@ def cmd_run(args):
     try:
         for case in args.case:
             for attempt in (1, 2):
-                said = run.phone(hub, sn, {'case': case})
-                result = said['result'] if said else 'fail'
+                result, note = verdict(run.phone(hub, sn, {'case': case}))
                 if result != 'fail':
                     break
-            note = (said or {}).get('note', '앱이 시간 안에 답하지 않음')
-            print(run.record(case, result, f'{note} (시도 {attempt})'))
+            print(run.record(case, result, f'{note} (시도 {attempt})'.lstrip()))
     finally:
         hub.close()
 

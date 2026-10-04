@@ -4,7 +4,7 @@ import json
 import unittest
 import urllib.request
 
-from e2e.tools import Hub, call, latest, scenario_rows
+from e2e.tools import Hub, call, latest, scenario_rows, verdict
 
 
 class HubTest(unittest.TestCase):
@@ -80,6 +80,17 @@ class ScenarioRowsTest(unittest.TestCase):
             {'case': 'E-AUTH-01', 'hypothesis': '가입하면 프로필이 생긴다', 'device': '없음(진행만)', 'method': '자동'},
             {'case': 'E-GATE-07', 'hypothesis': '정지면 막힌다', 'device': '폰', 'method': '폰'},
         ])
+
+
+class VerdictTest(unittest.TestCase):
+    def test_app_answer_without_note_has_empty_note(self):
+        self.assertEqual(verdict({'case': 'SMOKE', 'result': 'pass'}), ('pass', ''))
+
+    def test_app_answer_keeps_its_note(self):
+        self.assertEqual(verdict({'case': 'X', 'result': 'fail', 'note': '안 나타남'}), ('fail', '안 나타남'))
+
+    def test_silence_is_fail_with_timeout_note(self):
+        self.assertEqual(verdict(None), ('fail', '앱이 시간 안에 답하지 않음'))
 
 
 if __name__ == '__main__':

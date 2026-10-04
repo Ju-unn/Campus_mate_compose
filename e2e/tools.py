@@ -156,6 +156,13 @@ def api(cfg, method, path, token, body=None):
     return call(method, f"{cfg['API_BASE_URL']}{path}", {'Authorization': f'Bearer {token}'}, body)
 
 
+def verdict(said):
+    """앱이 한 말 → (결과, 메모). 말이 없었으면 시간 초과 fail."""
+    if said is None:
+        return 'fail', '앱이 시간 안에 답하지 않음'
+    return said['result'], said.get('note', '')
+
+
 def latest(records):
     """가설마다 마지막 줄 — 재실행이 앞 결과를 덮는다."""
     return {r['case']: r for r in records}
@@ -200,10 +207,19 @@ class Run:
     def phone(self, hub, serial, job, timeout=180):
         """앱을 새로 켜서 가설 하나. 앱이 말한 결과(dict)를, 시간 안에 말이 없으면 None.
 
-        끌 때는 HOME 뒤 `am kill` — force-stop 은 FCM 을 멈춰 알림 가설을 망친다.
+        앞 프로세스를 `run-as … kill -9` 로 끝낸다(debug 빌드라 된다). `am kill` 은 방금 HOME 으로 내린 "직전 앱"
+        (oom adj 700)을 죽이지 않아 monkey 가 옛 프로세스를 꺼내기만 하고 main 이 다시 안 돈다(10-04 실폰 확인).
+        force-stop 은 앱을 stopped 상태로 만들어 FCM 을 멈추므로 쓰지 않는다 — kill -9 는 OS 가 메모리로 죽인 것과 같다.
         """
         adb(serial, 'shell', 'input', 'keyevent', 'KEYCODE_HOME')
-        adb(serial, 'shell', 'am', 'kill', PACKAGE)
+        for _ in range(10):
+            pid = adb(serial, 'shell', 'pidof', PACKAGE, check=False).strip()
+            if not pid:
+                break
+            adb(serial, 'shell', 'run-as', PACKAGE, 'kill', '-9', pid, check=False)
+            time.sleep(0.5)
+        else:
+            return {'case': job['case'], 'result': 'blocked', 'note': '앞 앱 프로세스가 꺼지지 않음(debug 빌드인가 — run-as 는 debug 만 된다)'}
         adb(serial, 'shell', 'monkey', '-p', PACKAGE, '-c', 'android.intent.category.LAUNCHER', '1')
         hub.tell(job)
         return hub.result(timeout)
