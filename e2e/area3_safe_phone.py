@@ -145,9 +145,10 @@ def p_safe_05(run, phone, check, made):
     """내 말풍선 · 시스템 줄은 길게 눌러도 메뉴가 없고(상대 말풍선은 있다 — 대조군), 서버도 그 두 id 를 404 로 막는다."""
     me, token, partner, match_id = _scene(run, made)
     mine, system, theirs = (str(uuid.uuid4()) for _ in range(3))
-    _insert(run, 'messages', [{'id': mine, 'match_id': match_id, 'sender_id': me['id'], 'body': MINE},
+    # 배열로 넣을 때 행마다 키가 같아야 한다(PostgREST PGRST102) — 그래서 kind 를 세 행 다 적는다
+    _insert(run, 'messages', [{'id': mine, 'match_id': match_id, 'sender_id': me['id'], 'kind': 'text', 'body': MINE},
                               {'id': system, 'match_id': match_id, 'sender_id': me['id'], 'kind': 'trust_accept', 'body': SYSTEM},
-                              {'id': theirs, 'match_id': match_id, 'sender_id': partner['id'], 'body': THEIRS}])
+                              {'id': theirs, 'match_id': match_id, 'sender_id': partner['id'], 'kind': 'text', 'body': THEIRS}])
     said = _app(check, phone(token_hash=token, nickname=partner['nickname'], mine=MINE, system=SYSTEM, theirs=THEIRS))
     check.that(said.get('menu_on_mine') is False, f"내 말풍선에 메뉴 {said.get('menu_on_mine', MISSING)}(기대 없음)")
     check.that(said.get('menu_on_system') is False, f"시스템 줄에 메뉴 {said.get('menu_on_system', MISSING)}(기대 없음)")

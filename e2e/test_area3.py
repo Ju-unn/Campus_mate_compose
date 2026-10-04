@@ -27,6 +27,12 @@ RACE_TABLES = {'user_consents', 'university_email_domains'}
 NO_ID_TABLES = {'blocks', 'poll_votes', 'referrals', 'push_tokens', 'notification_settings'}
 
 
+def mismatched_keys(body):
+    """PostgREST 는 배열로 넣을 때 행마다 키 집합이 다르면 400 PGRST102 로 막는다(운영에서 E-SAFE-05 가 막혔다)."""
+    if isinstance(body, list) and len({frozenset(row) for row in body}) > 1:
+        return Reply(400, {'code': 'PGRST102', 'message': 'All object keys must match'})
+
+
 class Fake(FakeServer):
     """표 저장소 + 시험이 정한 API 답. 계정은 만든 순서대로 id-1 · id-2 …, 토큰은 tok-1 · tok-2 …"""
 
@@ -64,6 +70,8 @@ class Fake(FakeServer):
         match = [r for r in rows if all(str(r.get(k)) == v[3:] for k, v in sent['query'].items()
                                         if v.startswith('eq.') and k != 'select')]
         if method == 'POST':
+            if mismatched_keys(sent['body']):
+                return mismatched_keys(sent['body'])
             rows += sent['body'] if isinstance(sent['body'], list) else [sent['body']]
             return Reply(201, None)
         if method == 'PATCH':
