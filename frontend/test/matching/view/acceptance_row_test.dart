@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+/// 수락 대기 행(pen `XCN1f`)의 학교 줄.
 void main() {
   testWidgets('학교 줄 = SchoolLabel(학교로 로고를 찾고 "학교 · 학과" 를 그린다)', (tester) async {
     await tester.pumpWidget(
