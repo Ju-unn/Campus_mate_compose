@@ -7,6 +7,7 @@ import unittest
 import urllib.error
 from unittest import mock
 
+from e2e import __main__ as cli
 from e2e import tools
 
 
@@ -93,3 +94,60 @@ class CallRetryTest(unittest.TestCase):
         self.call(ConnectionResetError())
         self.assertEqual(tools.take_retries(), 1)
         self.assertEqual(tools.take_retries(), 0)
+
+
+class RunCaseTest(unittest.TestCase):
+    def setUp(self):
+        tools.take_retries()
+
+    def test_an_unexpected_exception_blocks_only_that_case(self):
+        def once(case):
+            if case == 'E-A-01':
+                raise ConnectionResetError(10054, 'reset')
+            return 'pass', ''
+        results = [cli.run_case(once, case) for case in ('E-A-01', 'E-A-02')]
+        self.assertEqual(results[0][1], 'blocked')
+        self.assertIn('진행 프로그램 예외 ConnectionResetError', results[0][2])
+        self.assertEqual(results[1][1:], ('pass', ''))  # 다음 가설은 그대로
+
+    def test_a_fail_gets_a_second_try_and_the_attempt_number_is_reported(self):
+        answers = iter([('fail', 'x'), ('pass', '')])
+        self.assertEqual(cli.run_case(lambda case: next(answers), 'E-A-01'), (2, 'pass', ''))
+
+    def test_an_exception_on_the_second_try_is_still_blocked_not_a_crash(self):
+        answers = [('fail', 'x'), ConnectionResetError()]
+
+        def once(case):
+            answer = answers.pop(0)
+            if isinstance(answer, Exception):
+                raise answer
+            return answer
+        attempt, result, note = cli.run_case(once, 'E-A-01')
+        self.assertEqual((attempt, result), (2, 'blocked'))
+
+    def test_keyboard_interrupt_and_exit_still_stop_the_run(self):
+        for stop in (KeyboardInterrupt, SystemExit):
+            with self.assertRaises(stop):
+                cli.run_case(mock.Mock(side_effect=stop), 'E-A-01')
+
+    def test_retried_requests_are_written_in_the_note(self):
+        def once(case):
+            tools.RETRIES[0] += 2
+            return 'pass', ''
+        self.assertEqual(cli.run_case(once, 'E-A-01')[2], '통신 재시도 2번')
+
+    def test_retries_made_between_cases_do_not_leak_into_the_next_note(self):
+        tools.RETRIES[0] = 5  # 가설 밖(가설 사이 정리 등)에서 쌓인 재시도
+        self.assertEqual(cli.run_case(lambda case: ('pass', ''), 'E-A-01')[2], '')
+
+    def test_retries_of_one_case_do_not_leak_into_the_next(self):
+        def once(case):
+            if case == 'E-A-01':
+                tools.RETRIES[0] += 1
+            return 'pass', ''
+        cli.run_case(once, 'E-A-01')
+        self.assertEqual(cli.run_case(once, 'E-A-02')[2], '')
+
+
+if __name__ == '__main__':
+    unittest.main()
