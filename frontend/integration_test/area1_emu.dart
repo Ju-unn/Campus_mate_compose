@@ -22,6 +22,25 @@ Future<(bool, bool)> _arriveWatching(WidgetTester tester, String name, Duration 
   return (false, leaked);
 }
 
+/// 3b 제출 폼이 안 나오면 지금 어느 화면인지를 알려 준다(에뮬 첫 실행 E-GATE-47: 30초 동안 폼이 안 나왔는데 이유를 몰랐다).
+/// 버튼 종류 · 스크롤 문제가 아니다 — 폼의 AppButton 은 스크롤 영역 밖 하단에 고정이라 폼이 있으면 늘 트리에 있다.
+Future<void> _proofFormOrWhere(WidgetTester tester) async {
+  if (await appears(tester, _proofForm, const Duration(seconds: 30)) != null) return;
+  final seen = <String, Finder>{
+    '로그인': screen('login'),
+    '동의': screen('consent'),
+    '3b 폼': screen('3b'),
+    '3c': screen('3c'),
+    '홈': screen('home'),
+    '인터넷 없음 01-1': screen('01-1'),
+    '대기("$_held")': find.text(_held),
+    '확인 중("확인하고 있어요")': find.text('확인하고 있어요'),
+    '상태 조회 스피너': find.byType(CircularProgressIndicator),
+  };
+  final here = [for (final entry in seen.entries) if (entry.value.evaluate().isNotEmpty) entry.key];
+  throw TestFailure('30초 안에 3b 제출 폼이 안 나옴 — 지금 보이는 것: ${here.isEmpty ? '알 수 없음' : here.join(', ')}');
+}
+
 final Map<String, Area1Case> _emuCases = {
   // 로그인 → (PC 가 네트워크를 끔) 끈 채 켬 → 01-1 → 켜고 "다시 시도" → 홈 → (따로) 다시 실행해도 홈.
   'E-AUTH-22': _session((tester, job) async {
@@ -84,18 +103,29 @@ final Map<String, Area1Case> _emuCases = {
     must(shown != null, '"보기" 를 눌렀는데 2초 안에 토스트 "$_browserFailed" 가 안 뜸');
     must(toast.evaluate().length == 1, '토스트가 ${toast.evaluate().length}개');
     must(tester.getTopLeft(toast).dy < tester.getTopLeft(button(_consentCta).last).dy, '토스트가 동의 버튼 위가 아님');
+    // 토스트가 뜬 때부터 센다 — 탭부터 뜰 때까지([shown])는 수명이 아니다(처음엔 이 둘을 더해 5.6초로 잘못 쟀다, 10-05).
     final watch = Stopwatch()..start();
-    while (toast.evaluate().isNotEmpty && watch.elapsed < const Duration(seconds: 6)) {
+    var slowest = Duration.zero; // 프레임 하나가 오래 걸린 만큼 "사라짐" 을 늦게 본다 — 에뮬의 소프트웨어 렌더링 탓인지 가르는 값
+    var last = Duration.zero;
+    while (toast.evaluate().isNotEmpty && watch.elapsed < const Duration(seconds: 8)) {
       await tester.pump(const Duration(milliseconds: 100));
+      final now = watch.elapsed;
+      if (now - last > slowest) slowest = now - last;
+      last = now;
     }
-    must(toast.evaluate().isEmpty, '6초가 지나도 토스트가 안 사라짐');
-    final held = watch.elapsed + shown!;
-    must(held >= const Duration(milliseconds: 2500) && held <= const Duration(milliseconds: 3600), '토스트가 ${held.inMilliseconds}ms 떠 있었음(3초여야 함)');
+    must(toast.evaluate().isEmpty, '8초가 지나도 토스트가 안 사라짐');
+    final held = watch.elapsed;
+    final detail = '토스트 ${held.inMilliseconds}ms(뜨기까지 ${shown!.inMilliseconds}ms · 확인 간격 최대 ${slowest.inMilliseconds}ms)';
+    // 앱 타이머는 3초(consent_screen.dart _showNotice) — 확인 간격만큼 늦게 보이는 것은 허용하되 그 이상이면 앱 쪽을 의심한다.
+    // watch 는 "토스트가 처음 보인 때" 가 아니라 "appears 가 알린 때" 에 시작한다 — 알리기 직전 프레임이 느렸으면 그만큼 짧게 잰다.
+    must(held + slowest >= const Duration(milliseconds: 2500), '토스트가 너무 빨리 사라짐: $detail');
+    must(held <= const Duration(milliseconds: 3200) + slowest, '토스트가 3초보다 오래 떠 있음: $detail');
     must(screen('consent').evaluate().isNotEmpty, '토스트 뒤 02-c 를 벗어남');
-    return {'note': '토스트 ${held.inMilliseconds}ms'};
+    return {'note': detail};
   }),
   // 사진 · 실명을 다 넣고 멈춤 → PC 가 네트워크를 끊음 → 제출 → 문구가 뜨고 버튼이 다시 켜진다(스피너 굳음 0).
   'E-GATE-47': _session((tester, job) async {
+    await _proofFormOrWhere(tester);
     final container = await _fillProof(tester, job);
     await step('filled');
     await tap(tester, _proofForm);
