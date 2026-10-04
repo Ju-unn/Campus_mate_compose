@@ -8,7 +8,10 @@
 import json
 import math
 import random
+import subprocess
 import threading
+import time
+import urllib.error
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
@@ -100,7 +103,7 @@ def _insert(run, table, rows, *owners):
 
 def _card(run, owner, target, days=3):
     """살아 있는(결정 전 · 만료 전) 무료 카드 한 장 — id 는 이쪽에서 정한다(넣고 다시 읽지 않으려고)."""
-    card_id = str(uuid.uuid4())
+    card_id = _new_id()
     _insert(run, 'daily_cards', [{'id': card_id, 'owner_id': owner['id'], 'target_id': target['id'], 'source': 'daily',
                                  'expires_at': (_now() + timedelta(days=days)).isoformat()}], owner['id'], target['id'])
     return card_id
@@ -128,12 +131,27 @@ def _parallel(*calls):
         return [f.result() for f in [pool.submit(go, c) for c in calls]]
 
 
-def _batch(run, name):
-    """배치는 대장이 부른다 — Run.batch 가 없으면 준비 실패."""
-    batch = getattr(run, 'batch', None)
-    if batch is None:
-        raise Blocked('Run.batch 가 아직 없다 — 배치 호출은 대장 몫(나탭2 PR)')
-    return batch(name)
+def _new_id():
+    return str(uuid.uuid4())
+
+
+def _batch(name):
+    """Cloud Scheduler job 을 지금 한 번 돌린다(tools.batch = gcloud). 응답 본문은 못 읽고 끝도 기다려 주지 않는다 —
+    그래서 가설은 DB · 저장소를 다시 읽어 결과를 본다. 실제 호출이라 대장이 시각을 정해 돌린다."""
+    try:
+        tools.batch(name)
+    except (subprocess.CalledProcessError, OSError) as e:
+        raise Blocked(f'배치 {name} 호출 실패: {type(e).__name__} {getattr(e, "stderr", "") or e}') from e
+
+
+def _set_status(run, account, status):
+    """profiles.status 바꾸기. 탈퇴는 짝 칸(withdrawn_at)을 같이 채워야 한다 — profiles_withdrawn_pair
+    check((status = 'withdrawn') = (withdrawn_at is not null)), 20260927010100:12-14."""
+    _guard(run, account['id'])
+    fields = {'status': status}
+    if status == 'withdrawn':
+        fields['withdrawn_at'] = _now().isoformat()
+    _patch(run, f"profiles?id=eq.{account['id']}", fields)
 
 
 def _leaks(node, path='$'):
@@ -264,9 +282,8 @@ def card_39(run):
     me, suspended, withdrawn = _person(run, 'male'), _person(run, 'female'), _person(run, 'female')
     got = _candidates(run, me)
     check.that(suspended['id'] in got and withdrawn['id'] in got, '바꾸기 전에는 둘 다 후보여야 한다(준비가 틀림)')
-    _guard(run, suspended['id'], withdrawn['id'])
-    _patch(run, f"profiles?id=eq.{suspended['id']}", {'status': 'suspended'})
-    _patch(run, f"profiles?id=eq.{withdrawn['id']}", {'status': 'withdrawn'})
+    _set_status(run, suspended, 'suspended')
+    _set_status(run, withdrawn, 'withdrawn')
     got = _candidates(run, me)
     check.that(suspended['id'] not in got, '정지 계정이 후보다')
     check.that(withdrawn['id'] not in got, '탈퇴 계정이 후보다')
@@ -640,15 +657,53 @@ def heart_20(run):
     return check.result()
 
 
+SETTLE_SECONDS = 30  # 두 번째 배치 뒤 DB 를 다시 읽기 전에 기다리는 시간 — 스케줄러 호출은 끝을 알려 주지 않는다
+POLL_SECONDS = 5
+FIRST_BATCH_WAIT = 120  # 첫 배치가 오래된 인증샷을 지울 때까지
+
+
+def _seed_proof(run, account, task, days):
+    """검수가 [days] 일 전에 끝난 인증샷 한 줄 + 파일. 제출 줄은 시각을 옮길 수 없어(트리거) 처음부터 과거로 넣는다(시나리오 G7)."""
+    _guard(run, account['id'])
+    sid = _new_id()
+    path = f"{account['id']}/{sid}.jpg"
+    key = run.key
+    uploaded = tools.call('POST', f"{run.cfg['SUPABASE_URL']}/storage/v1/object/heart-task-proofs/{path}",
+                          {'apikey': key, 'Authorization': f'Bearer {key}'}, raw=(TINY_JPEG, 'image/jpeg'))
+    if uploaded[0] >= 300:
+        raise Blocked(f'인증샷 파일 올리기 {uploaded[0]} {_detail(uploaded[1])}')
+    past = (_now() - timedelta(days=days)).isoformat()
+    _insert(run, 'heart_task_submissions', [{'id': sid, 'profile_id': account['id'], 'task': task, 'storage_path': path,
+                                            'status': 'approved', 'reward_hearts': 50, 'created_at': past,
+                                            'reviewed_at': past}], account['id'])
+    return sid, path
+
+
+def _proof_state(run, account, sid, path):
+    """(DB 경로 칸, 파일이 버킷에 남았는지)."""
+    row = _rows(run, f'heart_task_submissions?id=eq.{sid}&select=storage_path')
+    files = set(tools.storage_paths(run.cfg, run.key, 'heart-task-proofs', account['id']))
+    return (row[0]['storage_path'] if row else 'ROW-GONE'), path in files
+
+
 def heart_24(run):
-    """정리 배치를 두 번 — 두 번째는 지울 것이 없어야 한다. 실제 호출은 대장."""
+    """정리 배치를 두 번 — 첫 배치는 검수 끝난 지 60일 넘은 인증샷을 지우고, 두 번째는 더 지울 것이 없다(멱등).
+    스케줄러 호출이라 응답의 deleted_heart_proofs 는 못 읽는다 — 61일 · 59일 두 줄의 DB · 파일 상태로 같은 것을 본다."""
     check = Check()
-    _batch(run, 'cleanup')
-    again = _batch(run, 'cleanup')
-    check.that(again[0] == 200, f'정리 배치 {again[0]}')
-    deleted = (again[1] or {}).get('deleted_heart_proofs') if isinstance(again[1], dict) else None
-    check.that(deleted == 0, f'deleted_heart_proofs {deleted}(기대 0)')
-    return check.result()
+    account = _home(run)
+    old, old_path = _seed_proof(run, account, 'everytime_post', 61)
+    fresh, fresh_path = _seed_proof(run, account, 'kakao_share', 59)
+    _batch('cleanup')
+    deadline = time.monotonic() + FIRST_BATCH_WAIT
+    while _proof_state(run, account, old, old_path)[0] is not None and time.monotonic() < deadline:
+        time.sleep(POLL_SECONDS)
+    check.that(_proof_state(run, account, old, old_path) == (None, False), f'첫 배치 뒤 61일 된 줄 {_proof_state(run, account, old, old_path)}(기대 경로 null · 파일 없음)')
+    check.that(_proof_state(run, account, fresh, fresh_path) == (fresh_path, True), '59일 된 줄이 첫 배치에서 지워짐')
+    _batch('cleanup')
+    time.sleep(SETTLE_SECONDS)
+    check.that(_proof_state(run, account, old, old_path) == (None, False), '두 번째 배치 뒤 61일 된 줄이 달라짐')
+    check.that(_proof_state(run, account, fresh, fresh_path) == (fresh_path, True), '두 번째 배치가 59일 된 줄을 지움(멱등이 아님)')
+    return check.result('deleted_heart_proofs 개수는 스케줄러 호출이라 못 읽음 — 줄 · 파일 상태로 확인')
 
 
 def heart_25(run):
@@ -739,9 +794,8 @@ def ref_11(run):
     check = Check()
     me, suspended, withdrawn = _home(run), _home(run), _home(run)
     codes = [_code(run, suspended), _code(run, withdrawn)]
-    _guard(run, suspended['id'], withdrawn['id'])
-    _patch(run, f"profiles?id=eq.{suspended['id']}", {'status': 'suspended'})
-    _patch(run, f"profiles?id=eq.{withdrawn['id']}", {'status': 'withdrawn'})
+    _set_status(run, suspended, 'suspended')
+    _set_status(run, withdrawn, 'withdrawn')
     for label, code in zip(('정지', '탈퇴'), codes):
         check.reply(f'{label} 계정 코드', _redeem(run, me, code), 404, CODE_NOT_FOUND)
     return check.result()
@@ -829,10 +883,16 @@ BUNDLES = {'area2-api': list(CASES)}
 
 
 def attempt(run, case):
-    """가설 하나. 준비가 안 되면 blocked, 시험 쪽 예외도 blocked(앱 결함으로 세지 않는다)."""
-    try:
-        return CASES[case](run)
-    except Blocked as e:
-        return 'blocked', str(e)
-    except Exception as e:  # 시험 쪽 버그 · 예상 밖 응답 모양 — 긴 실행이 한 가설 때문에 멈추지 않게
-        return 'blocked', f'진행 프로그램 예외 {type(e).__name__}: {e}'
+    """가설 하나. 준비가 안 되면 blocked, 시험 쪽 예외도 blocked(앱 결함으로 세지 않는다).
+    연결이 끊긴 것(운영 실행에서 가끔 — ConnectionResetError)은 가설을 처음부터 한 번 더 한다 — 계정은 매번 새로 만들고
+    쓰기는 이번 실행의 계정에만 하므로 다시 해도 안전하다. 두 번째에도 끊기면 blocked."""
+    for tries in (1, 2):
+        try:
+            return CASES[case](run)
+        except Blocked as e:
+            return 'blocked', str(e)
+        except (ConnectionError, TimeoutError, urllib.error.URLError) as e:
+            if tries == 2:
+                return 'blocked', f'연결이 두 번 끊김: {type(e).__name__} {e}'
+        except Exception as e:  # 시험 쪽 버그 · 예상 밖 응답 모양 — 긴 실행이 한 가설 때문에 멈추지 않게
+            return 'blocked', f'진행 프로그램 예외 {type(e).__name__}: {e}'

@@ -73,7 +73,8 @@ class SafetyNetTest(Base):
         patcher = mock.patch.object(tools, 'call', down)
         patcher.start()
         self.addCleanup(patcher.stop)
-        self.run.batch = lambda name: Reply(500, None)
+        mock.patch.object(tools, 'batch', lambda name: None).start()
+        self.addCleanup(mock.patch.stopall)
         for case in area2.CASES:
             result, memo = area2.attempt(self.run, case)
             self.assertIn(result, ('fail', 'blocked'), case)
@@ -237,16 +238,139 @@ class HeartTest(Base):
         self.assertEqual(result, 'fail')
         self.assertIn('23514', memo)
 
-    def test_cleanup_twice_second_must_be_zero_and_batch_is_the_captains(self):
-        self.serve()
-        self.assertEqual(area2.attempt(self.run, 'E-HEART-24')[0], 'blocked')  # Run.batch 자리가 없으면 blocked
-        answers = [Reply(200, {'deleted_heart_proofs': 3}), Reply(200, {'deleted_heart_proofs': 0})]
-        self.run.batch = lambda name: answers.pop(0)
-        self.assertEqual(area2.attempt(self.run, 'E-HEART-24')[0], 'pass')
-        answers[:] = [Reply(200, {'deleted_heart_proofs': 0}), Reply(200, {'deleted_heart_proofs': 2})]
-        result, memo = area2.attempt(self.run, 'E-HEART-24')
+    def _cleanup_world(self, after_batch, calls):
+        """정리 배치를 흉내 내는 가짜 — [after_batch](번째) 가 그 배치 뒤 오래된 줄이 어떻게 보일지 정한다."""
+        state = {'old_path': 'id-1/OLD.jpg', 'fresh_path': 'id-1/FRESH.jpg', 'files': ['OLD.jpg', 'FRESH.jpg']}
+
+        def batch(name):
+            calls.append(name)
+            after_batch(len(calls), state)
+
+        def row(path_key):
+            return lambda b, u: Reply(200, [{'storage_path': state[path_key], 'status': 'approved'}])
+
+        fake = Fake([
+            ('GET', 'heart_task_submissions?id=eq.OLD', row('old_path')),
+            ('GET', 'heart_task_submissions?id=eq.FRESH', row('fresh_path')),
+            ('POST', '/storage/v1/object/list/', lambda b, u: Reply(200, [{'id': 'x', 'name': n} for n in state['files']])),
+        ])
+        return fake, batch
+
+    def test_cleanup_twice_deletes_the_old_proof_once_keeps_the_fresh_one_and_goes_through_tools_batch(self):
+        calls = []
+
+        def after(n, state):
+            if n == 1:  # 첫 배치가 61일 된 것을 지운다 — 두 번째는 지울 것이 없다
+                state['old_path'] = None
+                state['files'] = ['FRESH.jpg']
+
+        fake, batch = self._cleanup_world(after, calls)
+        ids = iter(['OLD', 'FRESH'])
+        with mock.patch.object(tools, 'call', fake), mock.patch.object(tools, 'batch', batch),                 mock.patch.object(area2, 'SETTLE_SECONDS', 0), mock.patch.object(area2, '_new_id', lambda: next(ids)):
+            result, memo = area2.attempt(self.run, 'E-HEART-24')
+        self.assertEqual((result, calls), ('pass', ['cleanup', 'cleanup']))
+        self.assertIn('deleted_heart_proofs', memo)  # 스케줄러 호출이라 개수는 못 읽는다는 한계를 메모에 남긴다
+
+    def test_a_second_batch_that_deletes_the_fresh_proof_is_a_fail(self):
+        calls = []
+
+        def after(n, state):
+            state['old_path'] = None
+            state['files'] = ['FRESH.jpg']
+            if n == 2:  # 59일 된 것까지 지우면 멱등이 아니다
+                state['fresh_path'] = None
+                state['files'] = []
+
+        fake, batch = self._cleanup_world(after, calls)
+        ids = iter(['OLD', 'FRESH'])
+        with mock.patch.object(tools, 'call', fake), mock.patch.object(tools, 'batch', batch),                 mock.patch.object(area2, 'SETTLE_SECONDS', 0), mock.patch.object(area2, '_new_id', lambda: next(ids)):
+            result, memo = area2.attempt(self.run, 'E-HEART-24')
         self.assertEqual(result, 'fail')
-        self.assertIn('2', memo)
+        self.assertEqual(memo, '두 번째 배치가 59일 된 줄을 지움(멱등이 아님)')  # 이것 하나만 어긋난다
+
+    def test_a_failed_scheduler_call_is_blocked_not_a_crash(self):
+        import subprocess
+
+        def boom(name):
+            raise subprocess.CalledProcessError(1, 'gcloud')
+
+        fake, _ = self._cleanup_world(lambda n, s: None, [])
+        with mock.patch.object(tools, 'call', fake), mock.patch.object(tools, 'batch', boom),                 mock.patch.object(area2, '_new_id', lambda: 'OLD'):
+            result, memo = area2.attempt(self.run, 'E-HEART-24')
+        self.assertEqual(result, 'blocked')
+        self.assertIn('배치 cleanup 호출 실패', memo)  # 시험 쪽 예외가 아니라 배치 호출 실패로 말한다
+
+    def test_a_batch_that_never_deletes_the_old_proof_is_a_fail(self):
+        fake, batch = self._cleanup_world(lambda n, state: None, [])
+        ids = iter(['OLD', 'FRESH'])
+        with mock.patch.object(tools, 'call', fake), mock.patch.object(tools, 'batch', batch),                 mock.patch.object(area2, 'SETTLE_SECONDS', 0), mock.patch.object(area2, 'FIRST_BATCH_WAIT', 0),                 mock.patch.object(area2, '_new_id', lambda: next(ids)):
+            result, memo = area2.attempt(self.run, 'E-HEART-24')
+        self.assertEqual(result, 'fail')
+        self.assertIn('첫 배치 뒤 61일', memo)
+        self.assertIn('두 번째 배치 뒤 61일', memo)
+
+
+class WithdrawnTest(Base):
+    """탈퇴 상태는 짝 칸(withdrawn_at)을 같이 채워야 한다 — DB 제약 profiles_withdrawn_pair(20260927010100)."""
+
+    def test_withdrawn_is_written_together_with_withdrawn_at(self):
+        fake = Fake([('GET', '/matching/candidates', lambda b, u: Reply(200, {'candidates': [
+            {'profile_id': 'id-2', 'score': 1}, {'profile_id': 'id-3', 'score': 1}]}))])
+        with mock.patch.object(tools, 'call', fake):
+            area2.attempt(self.run, 'E-CARD-39')
+        gone = [b for b in fake.bodies('PATCH', '/rest/v1/profiles') if b.get('status') == 'withdrawn']
+        self.assertEqual(len(gone), 1)
+        self.assertTrue(gone[0].get('withdrawn_at'))
+        away = [b for b in fake.bodies('PATCH', '/rest/v1/profiles') if b.get('status') == 'suspended']
+        self.assertNotIn('withdrawn_at', away[0])  # 정지는 짝 칸이 없다
+
+    def test_referral_case_also_pairs_the_withdrawal(self):
+        fake = Fake([('GET', 'profiles?id=eq', lambda b, u: Reply(200, [{'referral_code': 'ABC234'}])),
+                     ('POST', '/referral/redeem', lambda b, u: Reply(404, {'detail': '없는 코드예요, 다시 확인해 주세요'}))])
+        with mock.patch.object(tools, 'call', fake):
+            area2.attempt(self.run, 'E-REF-11')
+        gone = [b for b in fake.bodies('PATCH', '/rest/v1/profiles') if b.get('status') == 'withdrawn']
+        self.assertEqual(len(gone), 1)
+        self.assertTrue(gone[0].get('withdrawn_at'))
+
+
+class RetryTest(Base):
+    def test_one_connection_reset_is_retried_and_the_second_try_decides(self):
+        import urllib.error
+        tries = []
+
+        def flaky(run):
+            tries.append(1)
+            if len(tries) == 1:
+                raise ConnectionResetError(10054, '연결 끊김')
+            return 'pass', ''
+
+        with mock.patch.dict(area2.CASES, {'E-HEART-48': flaky}):
+            self.assertEqual(area2.attempt(self.run, 'E-HEART-48'), ('pass', ''))
+        self.assertEqual(len(tries), 2)
+
+    def test_a_second_reset_is_blocked_after_exactly_two_tries(self):
+        tries = []
+
+        def down(run):
+            tries.append(1)
+            raise ConnectionResetError(10054, '연결 끊김')
+
+        with mock.patch.dict(area2.CASES, {'E-HEART-48': down}):
+            result, memo = area2.attempt(self.run, 'E-HEART-48')
+        self.assertEqual((result, len(tries)), ('blocked', 2))
+        self.assertIn('연결', memo)
+
+    def test_a_real_assertion_failure_is_not_retried(self):
+        tries = []
+
+        def wrong(run):
+            tries.append(1)
+            return 'fail', '값이 다르다'
+
+        with mock.patch.dict(area2.CASES, {'E-HEART-48': wrong}):
+            self.assertEqual(area2.attempt(self.run, 'E-HEART-48'), ('fail', '값이 다르다'))
+        self.assertEqual(len(tries), 1)
 
 
 class PollTest(Base):
