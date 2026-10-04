@@ -17,6 +17,8 @@ AVATARS = ('GET', '/rest/v1/profile_avatars')
 HEARTS = ('GET', '/rest/v1/heart_transactions')
 PHOTOS = ('GET', '/rest/v1/profile_photos')
 SOURCE = Reply(200, [{'storage_path': 'id-1/src.jpg'}])
+DEFAULTS = ('POST', '/storage/v1/object/list/avatars')
+HAS_FALLBACK_SOURCE = Reply(200, [{'name': 'fallback-avatar.png', 'id': 'o1'}])
 
 
 def failed(count):
@@ -169,6 +171,10 @@ class OrderTest(Base4):
 class ResultScreenTest(Base4):
     """05-12 에서 시작하는 가설 — 계정은 설문까지, 아바타 기록은 가설마다 DB 로 만든다."""
 
+    def serve(self, routes=None):
+        # 운영 avatars 버킷에 기본 아바타 원본(defaults/fallback-avatar.png)이 있는 보통의 경우.
+        return super().serve({DEFAULTS: HAS_FALLBACK_SOURCE, **(routes or {})})
+
     def test_onb_34_waits_with_a_pending_row_then_marks_only_this_accounts_row_ready(self):
         fake = self.serve()
         phone = self.phone(midway_step={'step': 'ready'})
@@ -237,6 +243,34 @@ class ResultScreenTest(Base4):
                              (failed(4) + [PENDING], [])):
             self.serve({PHOTOS: SOURCE, AVATARS: Reply(200, rows), HEARTS: Reply(200, hearts)})
             self.assertEqual(area1.attempt_phone(self.run, 'E-ONB-38', self.phone())[0], 'fail', (rows, hearts))
+
+    def test_onb_37_and_38_block_before_touching_anything_when_the_fallback_source_is_missing(self):
+        # 결함 D-02 — 운영 버킷에 defaults/fallback-avatar.png 가 없으면 5번째 실패 보상이 복사에서 멈춘다.
+        for case in ('E-ONB-37', 'E-ONB-38'):
+            fake = self.serve({DEFAULTS: Reply(200, []), PHOTOS: SOURCE})
+            result, note = area1.attempt_phone(self.run, case, self.phone())[:2]
+            self.assertEqual(result, 'blocked', case)
+            self.assertIn('defaults/fallback-avatar.png', note)
+            self.assertIn('D-02', note)
+            self.assertEqual(self.seeded(fake), [], case)
+            self.assertFalse(self.writes(fake, 'POST', 'storage/v1/object/profile-photos/id-1/src.jpg'), case)
+
+    def test_onb_37_blocks_when_only_other_files_are_in_defaults(self):
+        self.serve({DEFAULTS: Reply(200, [{'name': 'other.png', 'id': 'o2'}])})
+        result, note = area1.attempt_phone(self.run, 'E-ONB-37', self.phone())[:2]
+        self.assertEqual(result, 'blocked')
+        self.assertIn('D-02', note)
+
+    def test_onb_37_blocks_when_the_bucket_list_cannot_be_read(self):
+        self.serve({DEFAULTS: Reply(500, {'message': 'x'})})
+        result, note = area1.attempt_phone(self.run, 'E-ONB-37', self.phone())[:2]
+        self.assertEqual(result, 'blocked')
+        self.assertIn('avatars', note)
+
+    def test_other_result_screen_cases_do_not_look_for_the_fallback_source(self):
+        fake = self.serve({DEFAULTS: Reply(200, []), AVATARS: Reply(200, [PENDING])})
+        self.assertEqual(area1.attempt_phone(self.run, 'E-ONB-35', self.phone())[0], 'pass')
+        self.assertNotIn('/storage/v1/object/list/avatars', fake.paths())
 
     def run39(self, rows, hearts):
         self.serve({PHOTOS: SOURCE, AVATARS: Reply(200, rows), HEARTS: Reply(200, hearts)})
