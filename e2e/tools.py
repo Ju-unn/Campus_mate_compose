@@ -125,6 +125,10 @@ def adb(serial, *args, check=True):
     return subprocess.run(['adb', '-s', serial, *args], **TEXT, check=check).stdout
 
 
+def devices():
+    return subprocess.run(['adb', 'devices'], **TEXT).stdout
+
+
 def screencap(serial):
     """기기 화면 한 장(PNG 바이트)."""
     return subprocess.run(['adb', '-s', serial, 'exec-out', 'screencap', '-p'], capture_output=True, check=True).stdout
