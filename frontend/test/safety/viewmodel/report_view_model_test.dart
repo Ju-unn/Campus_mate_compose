@@ -104,13 +104,13 @@ void main() {
     });
 
     test('409 이미 신고함은 끝난 것으로 친다', () async {
-      repository.reportResult = const FailureResult(ServerRejectedFailure('이미 신고한 사용자예요'));
+      repository.reportResult = const FailureResult(ServerRejectedFailure('이미 신고를 완료했어요'));
       viewModel().selectReason(ReportReason.abuse);
 
       await viewModel().submit(target);
 
       expect(state().outcome, ReportOutcome.alreadyReported);
-      expect(state().closingMessage, '이미 신고한 사용자예요');
+      expect(state().closingMessage, '이미 신고를 완료했어요');
       expect(state().errorMessage, isNull);
     });
 
