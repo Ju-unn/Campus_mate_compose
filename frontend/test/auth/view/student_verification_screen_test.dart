@@ -191,8 +191,8 @@ void main() {
       tester.platformDispatcher.textScaleFactorTestValue = 2;
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
       await pumpLoadedScreen(tester);
-      // 사진 첨부 안내(_PhotoPrompt)가 2.0 에서 4px 넘친다 — 이 PR 밖, 백로그. 여기선 실명 상자만 본다.
-      expect(tester.takeException(), isFlutterError);
+      // 사진 첨부 안내(_PhotoPrompt)도 2.0 에서 넘치지 않는다 — 사진 칸 264 는 최소값이다.
+      expect(tester.takeException(), isNull);
 
       // 글자칸이 제 한 줄 높이보다 낮으면 잘린 것이다.
       final text = tester.renderObject<RenderBox>(find.byType(EditableText));
