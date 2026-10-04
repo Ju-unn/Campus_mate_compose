@@ -25,6 +25,7 @@ from e2e import area4  # noqa: F401 — 영역 4 가설을 같은 곳에 더한�
 from e2e import area2_phone  # noqa: F401 — 영역 2 폰 A 가설을 area1.PHONE · BUNDLES 에 더한다
 from e2e import area2_phone_b  # noqa: F401 — 영역 2 폰 A 2차 가설을 더한다
 from e2e import area4_set2  # noqa: F401 — 영역 4 설정 2차(FAQ · 초대 · 로그아웃 · 탈퇴)
+from e2e import area4_contacts  # noqa: F401 — 영역 4 연락처(B에뮬)
 from e2e.tools import (DEVICE_PORT, DEVICES, ROOT, TEXT, Hub, Run, adb, cleanup, ensure_no_real_users, env, latest, scenario_rows,
                        serial, service_key, snapshot_blocks, verdict)
 

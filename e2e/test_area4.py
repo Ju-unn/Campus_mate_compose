@@ -385,8 +385,8 @@ class BundleTest(unittest.TestCase):
     def test_contact_cases_are_listed_for_the_emulator_bundle_only(self):
         self.assertEqual(area4.EMULATOR, [f'E-SET-{n}' for n in range(29, 43)])
         for case in area4.EMULATOR:
-            self.assertNotIn(case, area1.PHONE)
-            self.assertNotIn(case, area1.BUNDLES['area4-set1'])
+            self.assertNotIn(case, area1.BUNDLES['area4-set1'])  # 폰 A 묶음에는 안 섞인다
+            self.assertIn(case, area1.BUNDLES['area4-contacts'])  # 에뮬 묶음(area4_contacts.py)에만 있다
 
 
 if __name__ == '__main__':
