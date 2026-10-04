@@ -134,7 +134,7 @@ class _EmailField extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       constraints: const BoxConstraints(minHeight: 52), // pen TDM1r. 글자 확대 때는 늘어난다
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md), // pen TDM1r padding [0,16]
       decoration: BoxDecoration(
         border: Border.all(color: AppColors.hairline),
         borderRadius: BorderRadius.circular(AppRadius.input),
