@@ -45,12 +45,13 @@ def p_auth_22(run, phone):
     try:
         _app(check, phone(token_hash=token, phase='login'), '로그인')
         emu.go_offline(serial)
-        _app(check, phone(fresh=False, phase='offline', midway=lambda said: _back_online(serial)), '끈 채 켜기')
-        _app(check, phone(fresh=False, phase='restart', expect='home'), '다시 실행')
+        retry = _app(check, phone(fresh=False, phase='offline', midway=lambda said: _back_online(serial)), '끈 채 켜기')
+        restart = _app(check, phone(fresh=False, phase='restart', expect='home', limit=30), '다시 실행')
     finally:
         restored = emu.go_online(serial)
     _must_be_online(restored)
-    return check.result()
+    # 앱이 잰 시간(느린 에뮬 탓인지 가리는 단서)을 통과해도 남긴다 — 5초를 넘기면 앱이 그 사실을 적는다
+    return check.result(' · '.join(n for n in (retry.get('note'), restart.get('note')) if n))
 
 
 def p_auth_19(run, phone):
