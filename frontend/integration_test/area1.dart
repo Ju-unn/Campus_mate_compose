@@ -12,7 +12,10 @@ import 'package:campus_mate/common/widgets/trait_slider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/profile/view/avatar_generation_screen.dart';
+import 'package:campus_mate/profile/viewmodel/avatar_generation_ui_state.dart';
+import 'package:campus_mate/profile/viewmodel/avatar_generation_view_model.dart';
 import 'package:campus_mate/profile/viewmodel/ideal_conditions_view_model.dart';
+import 'package:campus_mate/profile/viewmodel/photos_ui_state.dart';
 import 'package:campus_mate/profile/viewmodel/photos_view_model.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
@@ -26,6 +29,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'support.dart';
 
 part 'area1_b2.dart';
+part 'area1_b3.dart';
 
 /// 영역 1 묶음 1 폰 가설 36(37 중 E-ONB-05 는 두 기기라 묶음 4). PC 쪽은 e2e/area1.py 의 같은 번호 — 계정을 만들어
 /// 1회용 토큰(`token_hash`)을 넘기고, 앱이 pass 를 말하면 DB 를 본다. 화면 글자는 시나리오가 아니라 지금 화면 코드에서 옮겼다.
@@ -61,6 +65,8 @@ const screens = {
   '06-4': '아는 사람을 만나고 싶지 않다면 연락처로 미리 막을 수 있어요', // onboarding_contact_block_screen("지인 차단" 은 두 번 나온다)
   'home': 'CampusMate', // home_screen 앱바 — 코호트 대기 화면에서도 남는 글자
   'settings': '설정', // settings_screen 앱바
+  // 묶음 3(area1_b3.dart)
+  '04-3': '아바타로 만들 사진을 골라주세요', // avatar_source_screen
 };
 
 const _rejected = '허용되지 않은 학교 이메일이에요';
@@ -532,4 +538,5 @@ final Map<String, Area1Case> area1Cases = {
     return null;
   }),
   ..._b2Cases,
+  ..._b3Cases,
 };
