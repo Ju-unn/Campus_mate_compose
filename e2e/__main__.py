@@ -14,9 +14,10 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from e2e import area1
+from e2e import area1, area2, area3
 from e2e import area1_b2  # noqa: F401 — 묶음 2 가설을 area1.PHONE · CASES · BUNDLES 에 더한다
 from e2e import area1_b3  # 묶음 3(사진 세트) — 같은 방식
+from e2e import area4  # noqa: F401 — 영역 4 가설을 같은 곳에 더한다
 from e2e.tools import (DEVICE_PORT, DEVICES, ROOT, Hub, Run, adb, cleanup, ensure_no_real_users, env, latest, scenario_rows,
                        serial, service_key, snapshot_blocks, verdict)
 
@@ -24,6 +25,8 @@ ENV_KEYS = ('SUPABASE_URL', 'SUPABASE_ANON_KEY', 'API_BASE_URL', 'E2E_MAIL_BASE'
 DESKTOP = next(p for p in (Path.home() / 'OneDrive' / 'Desktop', Path.home() / 'Desktop') if p.exists())
 SCENARIO = DESKTOP / 'E2E_최종테스트_시나리오.md'
 RESULTS = DESKTOP / 'E2E_결과'
+BUNDLES = {**area1.BUNDLES, **area2.BUNDLES, **area3.BUNDLES}  # 묶음 이름 → 가설 번호들
+API_CASES = {**{c: area1 for c in area1.CASES}, **{c: area2 for c in area2.CASES}, **{c: area3 for c in area3.CASES}}  # API 가설 → 그것을 가진 모듈
 
 
 def _run(args):
@@ -33,7 +36,7 @@ def _run(args):
 
 def cmd_list(args):
     rows = scenario_rows(SCENARIO.read_text(encoding='utf-8'))
-    bundles = [b for b in area1.BUNDLES if args.prefix and b.startswith(args.prefix)]
+    bundles = [b for b in BUNDLES if args.prefix and b.startswith(args.prefix)]
     if not bundles:
         for row in rows:
             if row['case'].startswith(args.prefix):
@@ -42,9 +45,11 @@ def cmd_list(args):
     by_case = {r['case']: r for r in rows}
     for bundle in bundles:
         print(f'# {bundle}')
-        for case in area1.BUNDLES[bundle]:
+        for case in BUNDLES[bundle]:
             row = by_case.get(case, {})
             print(f"{case}\t{row.get('device', '시나리오에 없음')}\t{row.get('method', '')}")
+        for case, reason in (area2.SKIPPED if bundle in area2.BUNDLES else {}).items():
+            print(f'{case}\t빠짐\t{reason}')
 
 
 def cmd_preflight(args):
@@ -81,11 +86,13 @@ def cmd_run(args):
     phone = {}  # 폰 가설이 처음 나올 때 기기 · 우편함을 연다 — API 묶음만 돌릴 땐 폰이 없어도 된다
 
     def once(case):
-        if (case in area1.CASES or case in area1.PHONE) and not run.key:
+        if (case in API_CASES or case in area1.PHONE) and not run.key:
             run.key = service_key()  # preflight 를 건너뛰어도 운영 쓰기 전에 한 번 더 본다
             ensure_no_real_users(cfg, run.key, RESULTS)
-        if case in area1.CASES:
-            return area1.attempt(run, case)
+        if case in area2.SKIPPED:
+            return 'skip', area2.SKIPPED[case]
+        if case in API_CASES:
+            return API_CASES[case].attempt(run, case)
         if not phone:
             sn, pc_port = serial(args.device, cfg), DEVICES[args.device]
             if not sn:
@@ -97,7 +104,7 @@ def cmd_run(args):
         return verdict(run.phone(phone['hub'], phone['sn'], {'case': case}))
 
     try:
-        for case in [c for name in args.case for c in area1.BUNDLES.get(name, [name])]:
+        for case in [c for name in args.case for c in BUNDLES.get(name, [name])]:
             for attempt in (1, 2):
                 result, note = once(case)
                 if result != 'fail':

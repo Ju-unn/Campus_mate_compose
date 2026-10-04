@@ -159,13 +159,13 @@ void main() {
     });
 
     testWidgets('이미 신고했으면 시트가 준 서버 문구를 그대로 띄우고 화면에 남는다', (tester) async {
-      safety.reportResult = const FailureResult(ServerRejectedFailure('이미 신고한 사용자예요'));
+      safety.reportResult = const FailureResult(ServerRejectedFailure('이미 신고를 완료했어요'));
       await pump(tester);
 
       await report(tester, nickname: '봄바람');
 
       expect(safety.reports.single.target, {'target_type': 'friend_review', 'target_id': 'r2'});
-      expect(find.widgetWithText(AppToast, '이미 신고한 사용자예요'), findsOneWidget);
+      expect(find.widgetWithText(AppToast, '이미 신고를 완료했어요'), findsOneWidget);
       expect(find.text('봄바람'), findsOneWidget);
     });
 

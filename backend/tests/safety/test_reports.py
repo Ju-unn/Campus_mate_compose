@@ -103,7 +103,8 @@ def test_a_duplicate_report_is_409_and_the_block_already_went_out(client, world)
     response = client.post("/reports", json=_profile_report(), headers=AUTH)
 
     assert response.status_code == 409
-    assert response.json()["detail"] == "이미 신고한 사용자예요"
+    # 대상 종류(프로필 · 메시지 · 리뷰 · 투표 글)와 상관없는 한 문구다(사용자 10-04).
+    assert response.json()["detail"] == "이미 신고를 완료했어요"
     assert world.log.index("POST blocks") < world.log.index("POST reports")
     assert len(world.blocks) == 1
 

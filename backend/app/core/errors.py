@@ -72,7 +72,8 @@ TRUST_ALREADY_ANSWERED = "이미 수락했어요"
 TRUST_DEADLINE_PASSED = "응답 기한이 지났어요"
 
 # 신고 · 차단 · 정지(조각 6)
-ALREADY_REPORTED = "이미 신고한 사용자예요"
+# 대상 종류(프로필 · 메시지 · 리뷰 · 투표 글)와 상관없는 한 문구(사용자 10-04). 앱이 글자 그대로 비교한다(safety_errors.dart).
+ALREADY_REPORTED = "이미 신고를 완료했어요"
 REPORT_DAILY_LIMIT = "오늘은 더 신고할 수 없어요"
 MESSAGE_NOT_FOUND = "메시지를 찾을 수 없어요"
 ACCOUNT_SUSPENDED = "이용이 제한된 계정이에요"
