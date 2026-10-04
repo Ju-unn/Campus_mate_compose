@@ -51,8 +51,7 @@ def revoke(serial):
 
 
 def _dump(serial):
-    done = subprocess.run(['adb', '-s', serial, 'exec-out', 'uiautomator', 'dump', '/dev/tty'], capture_output=True)
-    return done.stdout.decode('utf-8', 'replace')
+    return tools.adb_bytes(serial, 'exec-out', 'uiautomator', 'dump', '/dev/tty').decode('utf-8', 'replace')
 
 
 def tap_dialog(serial, allow, timeout=15, sleep=time.sleep):

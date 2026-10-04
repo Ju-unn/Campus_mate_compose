@@ -195,8 +195,7 @@ def p_card_35(run, phone):
 # ── 알림 2 ──────────────────────────────────────────────────────────────────────────────────────────
 
 def _dump(serial):
-    done = subprocess.run(['adb', '-s', serial, 'shell', 'uiautomator', 'dump', '/dev/tty'], capture_output=True)
-    return done.stdout.decode('utf-8', 'replace')
+    return tools.adb_bytes(serial, 'shell', 'uiautomator', 'dump', '/dev/tty').decode('utf-8', 'replace')
 
 
 def _tap_label(serial, labels):
