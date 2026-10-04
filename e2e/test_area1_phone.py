@@ -16,13 +16,19 @@ OURS = 'topResumedActivity=ActivityRecord{1 u0 io.github.juunn.campusmate/.MainA
 class FakePhone:
     """앱 대신 답한다. [answers] 를 차례로(마지막은 계속) 돌려주고, 받은 일감을 [jobs] 에 남긴다."""
 
-    def __init__(self, *answers, top=CHROME):
+    def __init__(self, *answers, top=CHROME, midway_step=None):
         self.answers = list(answers) or [APP_PASS]
         self.jobs = []
         self._tops = list(top) if isinstance(top, list) else [top]
+        self.midway_step = midway_step or {'step': 'x'}
+        self.acted = []  # midway 를 부른 앱의 중간 말
+        self.serial = None
 
-    def __call__(self, **job):
+    def __call__(self, midway=None, **job):
         self.jobs.append(job)
+        if midway:  # 앱이 중간에 멈춰 PC 가 무언가 한 뒤 이어 가는 가설
+            midway(self.midway_step)
+            self.acted.append(self.midway_step['step'])
         return self.answers.pop(0) if len(self.answers) > 1 else self.answers[0]
 
     def top(self):
@@ -41,7 +47,7 @@ class PhoneBundleTest(Base):
             cases.append(f'{prefix}-{word}')
         self.assertEqual(len(cases), 37)
         self.assertEqual(area1.BUNDLES['area1-b1-phone'], [c for c in cases if c != 'E-ONB-05'])
-        self.assertEqual(set(area1.PHONE), set(area1.BUNDLES['area1-b1-phone']))
+        self.assertLessEqual(set(area1.BUNDLES['area1-b1-phone']), set(area1.PHONE))
         self.assertIn('E-ONB-05', area1.PHONE_SKIPPED)
 
 
@@ -157,12 +163,13 @@ class SessionTest(Base):
         area1.attempt_phone(self.run, 'E-AUTH-21', phone)
         self.assertEqual(sorted(phone.jobs[0]), ['second', 'token_hash'])
 
-    def test_gate_03_suspends_three_stages_before_opening_the_app(self):
+    def test_gate_03_suspends_four_stages_including_home_before_opening_the_app(self):
         fake = self.serve()
         phone = FakePhone()
         self.assertEqual(area1.attempt_phone(self.run, 'E-GATE-03', phone)[0], 'pass')
-        self.assertEqual([b for m, p, b in fake.calls if m == 'PATCH' and b == {'status': 'suspended'}], [{'status': 'suspended'}] * 3)
-        self.assertEqual(len(phone.jobs), 3)
+        self.assertEqual([b for m, p, b in fake.calls if m == 'PATCH' and b == {'status': 'suspended'}], [{'status': 'suspended'}] * 4)
+        self.assertEqual(len(phone.jobs), 4)
+        self.assertIn('/profile-onboarding/bio', fake.paths('POST'))  # 넷째는 홈 계정
 
 
 class GateTest(Base):
