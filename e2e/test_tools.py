@@ -3,7 +3,11 @@
 import json
 import unittest
 import urllib.request
+from email.parser import BytesParser
+from email.policy import default
+from unittest import mock
 
+from e2e import tools
 from e2e.__main__ import build_parser
 from e2e.tools import Hub, call, latest, scenario_rows, verdict
 
@@ -107,6 +111,34 @@ class VerdictTest(unittest.TestCase):
 
     def test_silence_is_fail_with_timeout_note(self):
         self.assertEqual(verdict(None), ('fail', '앱이 시간 안에 답하지 않음'))
+
+
+class FormTest(unittest.TestCase):
+    """tools.form — 학생증 · 사진 올리기(POST, 파일 하나)는 그대로, PUT · 파일 없음이 새로 된다(영역 5 PUT /me/photos)."""
+
+    def sent(self, *args, **kwargs):
+        with mock.patch.object(tools, 'call') as fake, mock.patch.object(tools.uuid, 'uuid4', return_value=mock.Mock(hex='B')):
+            tools.form('https://api.test/x', 't', *args, **kwargs)
+        (method, url, headers), options = fake.call_args.args[:3], dict(fake.call_args.kwargs)
+        return method, url, headers, options.pop('raw'), options
+
+    def test_a_file_upload_is_still_a_post_with_the_exact_bytes_it_always_had(self):
+        method, url, headers, raw, options = self.sent({'a': 'b'}, ('f', 'f.png', b'xyz', 'image/png'))
+        self.assertEqual((method, url, headers, options), ('POST', 'https://api.test/x', {'Authorization': 'Bearer t'}, {}))
+        self.assertEqual(raw, (b'--B\r\nContent-Disposition: form-data; name="a"\r\n\r\nb\r\n'
+                               b'--B\r\nContent-Disposition: form-data; name="f"; filename="f.png"\r\n'
+                               b'Content-Type: image/png\r\n\r\nxyz\r\n--B--\r\n', 'multipart/form-data; boundary=B'))
+
+    def test_options_still_reach_call(self):
+        *_, options = self.sent({'a': 'b'}, ('f', 'f.png', b'x', 'image/png'), retry=False)
+        self.assertEqual(options, {'retry': False})
+
+    def test_put_without_a_file_is_a_closed_multipart_of_only_the_fields(self):
+        method, _, _, (data, kind), _ = self.sent({'layout': '[1]', 'avatar_source': 0}, method='PUT')
+        self.assertEqual(method, 'PUT')
+        message = BytesParser(policy=default).parsebytes(f'Content-Type: {kind}\r\n\r\n'.encode() + data)
+        parts = {p.get_param('name', header='content-disposition'): (p.get_filename(), p.get_content()) for p in message.iter_parts()}
+        self.assertEqual(parts, {'layout': (None, '[1]'), 'avatar_source': (None, '0')})
 
 
 class ParserTest(unittest.TestCase):
