@@ -1,0 +1,44 @@
+import 'package:campus_mate/main.dart' as app;
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:integration_test/integration_test.dart';
+
+import 'support.dart';
+
+/// 가설 하나 = 앱을 한 번 켜서 도는 것. 진행 프로그램(`python -m e2e run`)이 앱을 켜고 우편함에 `{"case": 번호}` 를 넣는다.
+/// 빌드: `flutter build apk --debug -t integration_test/e2e_test.dart --dart-define-from-file=e2e.env`.
+final Map<String, Future<void> Function(WidgetTester tester, Map<String, dynamic> job)> cases = {
+  // 앱이 켜져 첫 화면이 그려지고 우편함 왕복이 된다.
+  'SMOKE': (tester, job) async {
+    await pumpUntil(tester, find.byType(Scaffold));
+  },
+  // 실패가 진행 프로그램까지 fail 로 닿는지 — 없는 글자를 짧게 기다린다.
+  'SMOKE-FAIL': (tester, job) async {
+    await pumpUntil(tester, find.text('E2E 에 없는 글자'), timeout: const Duration(seconds: 3));
+  },
+};
+
+void main() {
+  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+
+  testWidgets('e2e 가설 하나', (tester) async {
+    final job = await hear();
+    final name = job['case'] as String;
+    final run = cases[name];
+    if (run == null) {
+      await say({'case': name, 'result': 'blocked', 'note': '앱에 없는 가설'});
+      return;
+    }
+    await app.main();
+    try {
+      await run(tester, job);
+      // 넘침 같은 프레임 오류도 실패로 본다.
+      final error = tester.takeException();
+      if (error != null) throw TestFailure('$error');
+      await say({'case': name, 'result': 'pass'});
+    } catch (error) {
+      await say({'case': name, 'result': 'fail', 'note': '$error'});
+      rethrow;
+    }
+  });
+}
