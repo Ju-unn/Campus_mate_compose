@@ -79,6 +79,32 @@ class PhotoSetTest(PhotoBase):
         chmod = [c.args for c in self.adb_calls.call_args_list if 'chmod' in c.args]
         self.assertTrue(chmod and area1_b3.REMOTE in chmod[0])
 
+    def test_push_grants_notifications_before_the_app_starts(self):
+        # 앞 묶음이 알림 권한을 revoke 한 채 끝나면 권한 창이 앱을 가린다 — 사진을 옮기는 자리에서 늘 다시 준다.
+        self.put('face1.jpg')
+        phone = FakePhone()
+        phone.serial = 'S1'
+        area1_b3._push(phone, self.run, 'face1.jpg')
+        calls = [c.args for c in self.adb_calls.call_args_list]
+        grants = [i for i, a in enumerate(calls) if a == (
+            'S1', 'shell', 'pm', 'grant', area1_b3.tools.PACKAGE, 'android.permission.POST_NOTIFICATIONS')]
+        self.assertEqual(len(grants), 1, calls)
+
+    def test_push_still_copies_when_notification_grant_is_refused(self):
+        # 안드로이드 12 이하는 알림 권한이 없어 pm grant 가 실패한다 — 권한 창도 없으니 그대로 옮긴다(area1_emu 와 같은 규칙).
+        self.put('face1.jpg')
+        phone = FakePhone()
+        phone.serial = 'S1'
+
+        def refuse(serial, *args, **kwargs):
+            if 'grant' in args:
+                raise area1_b3.notify.subprocess.CalledProcessError(1, 'adb')
+            return ''
+
+        self.adb_calls.side_effect = refuse
+        area1_b3._push(phone, self.run, 'face1.jpg')
+        self.assertTrue(any(any(str(a).startswith('run-as') for a in c.args) for c in self.adb_calls.call_args_list))
+
     def test_check_lists_what_is_missing(self):
         self.put('face1.jpg')
         missing = area1_b3.missing(self.folder)
