@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:campus_mate/common/university_logos.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/school_label.dart';
@@ -83,39 +85,56 @@ void main() {
   });
 
   testWidgets('학교 줄 `Mz21i` — 졸업모 3D 28 · 간격 8 · 가운데, 글자는 SchoolLabel(로고 붙는 자리)', (tester) async {
-    await pump(
-      tester,
-      ProfileCard(
-        detail: CardDetail(
-          cardId: 'card-1',
-          profile: const CardProfile(
-            profileId: 't1',
-            nickname: '여우비',
-            age: 23,
-            university: '테스트대학교',
-            major: '컴퓨터공학과',
-          ),
-          studentNumber: '20',
-          survey: List.filled(9, 0.5),
-          animalType: AnimalType.cat,
-          impressionType: ImpressionType.chic,
-          religion: Religion.none,
-          isSmoker: false,
-          interests: const ['등산'],
-          myTraits: const ['유머러스'],
-          idealTraits: const ['다정한'],
-        ),
-      ),
-    );
+    // 글자 칸 폭 = 328 − 여백 21×2 − 졸업모 28 − 간격 8 = 250. 학과가 길면 테스트 글꼴(14 × 글자 수)로 두 줄이 된다.
+    await pump(tester, ProfileCard(detail: _schoolDetail('AI')));
 
     final label = tester.widget<SchoolLabel>(find.byType(SchoolLabel));
     expect(label.university, '테스트대학교');
-    expect(label.text, '테스트대학교 컴퓨터공학과 20학번');
+    expect(label.text, '테스트대학교 AI 20학번');
     final cap = find.byWidgetPredicate((w) => w is Icon3d && w.icon == AppIcon3d.graduationCap);
     expect(tester.widget<Icon3d>(cap).size, 28);
     final capRect = tester.getRect(cap);
     final labelRect = tester.getRect(find.byType(SchoolLabel));
+    expect(labelRect.height, lessThan(14 * 1.55 * 1.5), reason: '한 줄이어야 한 줄 정렬을 본다');
     expect(labelRect.left - capRect.right, 8);
     expect(labelRect.center.dy, capRect.center.dy);
   });
+
+  testWidgets('학교 줄 — 로고 목록이 아직 안 왔으면 학교 · 학과 · 학번 글자만 그린다', (tester) async {
+    await tester.pumpWidget(ProviderScope(
+      overrides: [universityLogosProvider.overrideWith((ref) => Completer<Map<String, String>>().future)],
+      child: MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(child: SizedBox(width: 328, child: ProfileCard(detail: _schoolDetail('컴퓨터공학과')))),
+        ),
+      ),
+    ));
+
+    expect(find.text('테스트대학교 컴퓨터공학과 20학번'), findsOneWidget);
+    expect(find.descendant(of: find.byType(SchoolLabel), matching: find.byType(Image)), findsNothing);
+  });
+
+  testWidgets('학교 줄 — 글자가 두 줄이면 졸업모는 두 줄 덩어리 가운데(flow-center)', (tester) async {
+    await pump(tester, ProfileCard(detail: _schoolDetail('인공지능융합소프트웨어데이터사이언스전공학부')));
+
+    final labelRect = tester.getRect(find.byType(SchoolLabel));
+    // bodySmall 14 × 줄높이 1.55 한 줄 = 21.7 — 두 줄로 넘어갔는지 먼저 본다.
+    expect(labelRect.height, greaterThan(14 * 1.55 * 1.5));
+    final capRect = tester.getRect(find.byWidgetPredicate((w) => w is Icon3d && w.icon == AppIcon3d.graduationCap));
+    expect(capRect.center.dy, labelRect.center.dy);
+  });
 }
+
+CardDetail _schoolDetail(String major) => CardDetail(
+      cardId: 'card-1',
+      profile: CardProfile(profileId: 't1', nickname: '여우비', age: 23, university: '테스트대학교', major: major),
+      studentNumber: '20',
+      survey: List.filled(9, 0.5),
+      animalType: AnimalType.cat,
+      impressionType: ImpressionType.chic,
+      religion: Religion.none,
+      isSmoker: false,
+      interests: const ['등산'],
+      myTraits: const ['유머러스'],
+      idealTraits: const ['다정한'],
+    );
