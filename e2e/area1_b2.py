@@ -399,6 +399,12 @@ def p_onb_62(run, phone):
     return _referred(run, phone, lambda code: f' {code.lower()} ')
 
 
+def _ours(dump):
+    """dumpsys notification 에서 우리 앱 알림의 제목 · 본문 줄만 — 다른 앱의 알림은 원문이 개인 것이라 보지도 남기지도 않는다."""
+    return [line.strip() for record in (dump or '').split('NotificationRecord(') if f'pkg={tools.PACKAGE}' in record
+            for line in record.splitlines() if 'android.title' in line or 'android.text' in line]
+
+
 def p_onb_61(run, phone):
     """추천인 = 폰 A(앱을 홈까지 켠 뒤 HOME 으로 내림), 코드 입력 = API(새 계정). 낮 08~22시에 돌린다."""
     check = Check()
@@ -409,17 +415,16 @@ def p_onb_61(run, phone):
     a = run.account('ideal_note')
     nickname = _one(run, f"profiles?id=eq.{a['id']}&select=nickname").get('nickname') or ''
     check.reply('코드 입력', _api(run, 'POST', '/referral/redeem', a['token'], {'code': code}), 200)
+    want = f'{nickname} 님이 가입했어요, 리뷰를 남겨 주세요'
     found = ''
     for _ in range(15):  # 30초
-        dump = tools.adb(phone.serial, 'shell', 'dumpsys', 'notification', '--noredact', check=False)
-        ours = [line.strip() for line in dump.splitlines() if 'android.title' in line or 'android.text' in line]
-        found = ' / '.join(ours)
-        if '친구가 가입했어요' in found:
+        found = ' / '.join(_ours(tools.adb(phone.serial, 'shell', 'dumpsys', 'notification', '--noredact', check=False)))
+        if want in found:  # 제목만 보면 앞 시도의 옛 알림에서 끊긴다 — 이 시도의 닉네임이 든 본문까지
             break
         time.sleep(2)
     # 실폰 알림 원문은 저장하지 않는다(설계 2절) — 맞으면 메모 없이, 틀리면 우리 글자만 남긴다.
     check.that('친구가 가입했어요' in found, '30초 안에 "친구가 가입했어요" 알림 없음')
-    check.that(f'{nickname} 님이 가입했어요, 리뷰를 남겨 주세요' in found, '본문이 "{닉네임} 님이 가입했어요, 리뷰를 남겨 주세요" 가 아님')
+    check.that(want in found, f'본문이 다름 — 기대 "{want}", 우리 앱 알림 글자: {found}')
     return check.result()
 
 
