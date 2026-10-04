@@ -14,11 +14,13 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from e2e import area1, area2, area3, area3_safe
+from e2e import area1, area2, area3, area3_safe, tools
 from e2e import area1_b2  # noqa: F401 — 묶음 2 가설을 area1.PHONE · CASES · BUNDLES 에 더한다
 from e2e import area3_phone  # noqa: F401 — 영역 3 폰 1차 가설을 area1.PHONE · area3.BUNDLES 에 더한다
 from e2e import area3_phone2  # noqa: F401 — 영역 3 폰 2차(입력 · 보내기 · 신고 · 수락 · 시트) 가설을 같은 곳에 더한다
 from e2e import area1_b3  # 묶음 3(사진 세트) — 같은 방식
+from e2e import area1_emu  # noqa: F401 — B에뮬 가설(네트워크 · 시계 · 브라우저)
+from e2e import emu
 from e2e import area4  # noqa: F401 — 영역 4 가설을 같은 곳에 더한다
 from e2e import area2_phone  # noqa: F401 — 영역 2 폰 A 가설을 area1.PHONE · BUNDLES 에 더한다
 from e2e import area4_set2  # noqa: F401 — 영역 4 설정 2차(FAQ · 초대 · 로그아웃 · 탈퇴)
@@ -85,6 +87,24 @@ def cmd_preflight(args):
     sys.exit(0 if ok else 1)
 
 
+def run_case(once, case):
+    """가설 하나를 돈다(fail 이면 한 번 더) → (시도 횟수, 결과, 메모). 예상 밖 예외는 그 가설만 blocked 로 — 묶음이 죽지 않는다.
+    Ctrl-C · sys.exit 는 Exception 이 아니라 그대로 멈춘다."""
+    tools.take_retries()
+    attempt, result, note = 0, 'blocked', ''
+    for attempt in (1, 2):
+        try:
+            result, note = once(case)
+        except Exception as e:
+            result, note = 'blocked', f'진행 프로그램 예외 {type(e).__name__}: {e}'
+        if result != 'fail':
+            break
+    retried = tools.take_retries()
+    if retried:
+        note = f'{note} (통신 재시도 {retried}번)' if note else f'통신 재시도 {retried}번'
+    return attempt, result, note
+
+
 def cmd_run(args):
     cfg, run = env(), _run(args)
     run.cfg = cfg
@@ -110,10 +130,7 @@ def cmd_run(args):
 
     try:
         for case in [c for name in args.case for c in BUNDLES.get(name, [name])]:
-            for attempt in (1, 2):
-                result, note = once(case)
-                if result != 'fail':
-                    break
+            attempt, result, note = run_case(once, case)
             print(run.record(case, result, f'{note} (시도 {attempt})'.lstrip()))
     finally:
         if phone:
@@ -133,6 +150,16 @@ def cmd_report(args):
 
 def cmd_cleanup(args):
     cleanup(env(), service_key(), RESULTS)
+
+
+def cmd_emu(args):
+    """에뮬(B) 준비 점검 — 읽기만 한다. 부팅이 끝나기를 --wait 초까지 기다린다. 필수 줄이 하나라도 안 되면 종료 코드 1."""
+    sn = serial(args.device, env())
+    rows = emu.check(sn, wait=args.wait)
+    for row in rows:
+        mark = 'OK' if row.ok else ('NO' if row.hard else '--')
+        print(f'[{mark}] {row.name}' + (f' — {row.detail}' if row.detail else ''))
+    sys.exit(0 if all(r.ok for r in rows if r.hard) else 1)
 
 
 def cmd_photos(args):
@@ -162,6 +189,9 @@ def build_parser():
     p.add_argument('--device', default='A', choices=DEVICES)
     sub.add_parser('report', parents=[after])
     sub.add_parser('cleanup', parents=[after])
+    p = sub.add_parser('emu', parents=[after])
+    p.add_argument('--device', default='B', choices=DEVICES)
+    p.add_argument('--wait', type=int, default=120)
     sub.add_parser('photos', parents=[after])
     return parser
 

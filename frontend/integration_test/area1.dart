@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:campus_mate/auth/viewmodel/student_verification_view_model.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/app_checkbox.dart';
 import 'package:campus_mate/common/widgets/labeled_field.dart';
 import 'package:campus_mate/common/widgets/select_chip.dart';
@@ -12,6 +13,7 @@ import 'package:campus_mate/home/view/home_screen.dart';
 import 'package:campus_mate/common/widgets/trait_slider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/home/viewmodel/home_summary_provider.dart';
 import 'package:campus_mate/profile/view/avatar_generation_screen.dart';
 import 'package:campus_mate/profile/viewmodel/avatar_generation_ui_state.dart';
 import 'package:campus_mate/profile/viewmodel/avatar_generation_view_model.dart';
@@ -31,6 +33,7 @@ import 'support.dart';
 
 part 'area1_b2.dart';
 part 'area1_b3.dart';
+part 'area1_emu.dart';
 
 /// 영역 1 묶음 1 폰 가설 36(37 중 E-ONB-05 는 두 기기라 묶음 4). PC 쪽은 e2e/area1.py 의 같은 번호 — 계정을 만들어
 /// 1회용 토큰(`token_hash`)을 넘기고, 앱이 pass 를 말하면 DB 를 본다. 화면 글자는 시나리오가 아니라 지금 화면 코드에서 옮겼다.
@@ -68,6 +71,8 @@ const screens = {
   'settings': '설정', // settings_screen 앱바
   // 묶음 3(area1_b3.dart)
   '04-3': '아바타로 만들 사진을 골라주세요', // avatar_source_screen
+  // B에뮬(area1_emu.dart)
+  '01-1': '인터넷 연결을 확인해 주세요', // offline_screen
 };
 
 const _rejected = '허용되지 않은 학교 이메일이에요';
@@ -544,4 +549,5 @@ final Map<String, Area1Case> area1Cases = {
   }),
   ..._b2Cases,
   ..._b3Cases,
+  ..._emuCases,
 };
