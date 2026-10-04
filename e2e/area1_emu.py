@@ -7,7 +7,9 @@
 도우미가 먼저 필요하다(이번에는 목록만).
 """
 
-from e2e import area1, area1_b3, emu
+import contextlib
+
+from e2e import area1, area1_b3, emu, notify
 from e2e.area1 import Check, _app, _signed_in
 
 # 시나리오와 다른 점: E-GATE-47 은 "제출 누르자마자" 끊는 대신 제출 직전(사진 · 실명을 다 넣은 뒤)에 끊는다 — 누른 뒤에 끊으면
@@ -15,13 +17,24 @@ from e2e.area1 import Check, _app, _signed_in
 
 
 def _emulator(phone):
+    """에뮬이어야 하고, 첫 로그인의 알림 권한 창이 가설 도중 앱 앞을 가리지 않게 미리 준다(영역 4 SET 도 같은 이유로 준다).
+    이 권한이 없는 기기(안드로이드 12 이하)는 창도 없으니 못 줘도 그대로 간다."""
     emu.require_emulator(getattr(phone, 'serial', None))
+    with contextlib.suppress(emu.Blocked):
+        notify.grant_notifications(phone.serial)
     return phone.serial
 
 
 def _back_online(serial):
     if not emu.go_online(serial):
         raise emu.Blocked('네트워크를 다시 켰는데 닿지 않음')
+
+
+def _must_be_online(restored):
+    """가설이 끝난 뒤 핑으로 다시 읽은 결과가 안 닿으면 blocked — 안 그러면 다음 가설이 엉뚱하게 틀린다.
+    (가설이 예외로 끝난 경우엔 이 줄에 오지 않고 그 예외가 그대로 올라간다.)"""
+    if not restored:
+        raise emu.Blocked('끝난 뒤 네트워크를 켰는데 핑이 안 닿음 — 다음 가설 전에 에뮬 네트워크 확인')
 
 
 def p_auth_22(run, phone):
@@ -35,7 +48,8 @@ def p_auth_22(run, phone):
         _app(check, phone(fresh=False, phase='offline', midway=lambda said: _back_online(serial)), '끈 채 켜기')
         _app(check, phone(fresh=False, phase='restart', expect='home'), '다시 실행')
     finally:
-        emu.go_online(serial)
+        restored = emu.go_online(serial)
+    _must_be_online(restored)
     return check.result()
 
 
@@ -68,7 +82,8 @@ def p_gate_47(run, phone):
     try:
         account = area1_b3._submit(run, phone, 'id_ok.jpg', check, on_step=lambda account: emu.go_offline(serial))
     finally:
-        emu.go_online(serial)
+        restored = emu.go_online(serial)
+    _must_be_online(restored)
     rows = area1_b3._attempts(run, account['id'])
     check.that(not rows, f'네트워크가 끊겼는데 서버에 제출 행 {len(rows)}개')
     return check.result()

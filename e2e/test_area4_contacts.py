@@ -31,6 +31,9 @@ class CaseTest(Base):
         patcher = mock.patch.object(contacts, 'on_device', self.recorder.on_device)
         patcher.start()
         self.addCleanup(patcher.stop)
+        granter = mock.patch('e2e.notify.grant_notifications')  # 에뮬 도우미가 알림 권한을 미리 준다 — 실제 adb 는 안 부른다
+        granter.start()
+        self.addCleanup(granter.stop)
         deleter = mock.patch.object(contacts, 'delete_person')  # 기기에서 지우는 일은 가짜로
         self.delete_person = deleter.start()
         self.addCleanup(deleter.stop)
