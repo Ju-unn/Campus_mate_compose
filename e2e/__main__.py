@@ -18,6 +18,8 @@ from e2e import area1, area2, area3, area3_safe
 from e2e import area1_b2  # noqa: F401 — 묶음 2 가설을 area1.PHONE · CASES · BUNDLES 에 더한다
 from e2e import area3_phone  # noqa: F401 — 영역 3 폰 1차 가설을 area1.PHONE · area3.BUNDLES 에 더한다
 from e2e import area1_b3  # 묶음 3(사진 세트) — 같은 방식
+from e2e import area1_emu  # noqa: F401 — B에뮬 가설(네트워크 · 시계 · 브라우저)
+from e2e import emu
 from e2e import area4  # noqa: F401 — 영역 4 가설을 같은 곳에 더한다
 from e2e import area2_phone  # noqa: F401 — 영역 2 폰 A 가설을 area1.PHONE · BUNDLES 에 더한다
 from e2e import area4_set2  # noqa: F401 — 영역 4 설정 2차(FAQ · 초대 · 로그아웃 · 탈퇴)
@@ -134,6 +136,16 @@ def cmd_cleanup(args):
     cleanup(env(), service_key(), RESULTS)
 
 
+def cmd_emu(args):
+    """에뮬(B) 준비 점검 — 읽기만 한다. 부팅이 끝나기를 --wait 초까지 기다린다. 필수 줄이 하나라도 안 되면 종료 코드 1."""
+    sn = serial(args.device, env())
+    rows = emu.check(sn, wait=args.wait)
+    for row in rows:
+        mark = 'OK' if row.ok else ('NO' if row.hard else '--')
+        print(f'[{mark}] {row.name}' + (f' — {row.detail}' if row.detail else ''))
+    sys.exit(0 if all(r.ok for r in rows if r.hard) else 1)
+
+
 def cmd_photos(args):
     folder = RESULTS / '사진'
     absent = area1_b3.missing(folder)
@@ -161,6 +173,9 @@ def build_parser():
     p.add_argument('--device', default='A', choices=DEVICES)
     sub.add_parser('report', parents=[after])
     sub.add_parser('cleanup', parents=[after])
+    p = sub.add_parser('emu', parents=[after])
+    p.add_argument('--device', default='B', choices=DEVICES)
+    p.add_argument('--wait', type=int, default=120)
     sub.add_parser('photos', parents=[after])
     return parser
 
