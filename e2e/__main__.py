@@ -87,20 +87,31 @@ def cmd_cleanup(args):
     sys.exit('cleanup 은 계정 공장(T3, e2e/area1.py)과 같이 들어온다 — 지금은 지울 계정을 만드는 코드가 없다.')
 
 
-def main():
-    parser = argparse.ArgumentParser(prog='python -m e2e')
-    parser.add_argument('--bundle', default='area1-1', help='결과 폴더 이름(바탕화면 E2E_결과/<묶음>)')
-    parser.add_argument('--build', help='앱 빌드 커밋(기본: 지금 HEAD)')
-    parser.add_argument('--revision', help='서버 Cloud Run revision')
+def build_parser():
+    def common(parser, default):
+        # 명령 앞(기본값을 정함) · 뒤(SUPPRESS — 안 주면 앞 값을 덮지 않음) 어디에 둬도 된다.
+        parser.add_argument('--bundle', default=default or 'area1-1', help='결과 폴더 이름(바탕화면 E2E_결과/<묶음>)')
+        parser.add_argument('--build', default=default, help='앱 빌드 커밋(기본: 지금 HEAD)')
+        parser.add_argument('--revision', default=default, help='서버 Cloud Run revision')
+        return parser
+
+    parser = common(argparse.ArgumentParser(prog='python -m e2e'), None)
+    after = common(argparse.ArgumentParser(add_help=False), argparse.SUPPRESS)
     sub = parser.add_subparsers(dest='command', required=True)
-    sub.add_parser('list').add_argument('prefix', nargs='?', default='')
-    sub.add_parser('preflight').add_argument('--device', nargs='+', default=['A'], choices=DEVICES)
-    p = sub.add_parser('run')
+    sub.add_parser('list', parents=[after]).add_argument('prefix', nargs='?', default='')
+    sub.add_parser('preflight', parents=[after]).add_argument('--device', nargs='+', default=['A'], choices=DEVICES)
+    p = sub.add_parser('run', parents=[after])
     p.add_argument('case', nargs='+')
     p.add_argument('--device', default='A', choices=DEVICES)
-    sub.add_parser('report')
-    sub.add_parser('cleanup')
-    args = parser.parse_args()
+    sub.add_parser('report', parents=[after])
+    sub.add_parser('cleanup', parents=[after])
+    return parser
+
+
+def main():
+    # 윈도 콘솔 기본 인코딩(cp949)은 시나리오의 '○' 같은 글자에서 print 가 터진다.
+    sys.stdout.reconfigure(encoding='utf-8')
+    args = build_parser().parse_args()
     globals()[f'cmd_{args.command}'](args)
 
 

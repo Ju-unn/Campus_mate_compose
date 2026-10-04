@@ -4,6 +4,7 @@ import json
 import unittest
 import urllib.request
 
+from e2e.__main__ import build_parser
 from e2e.tools import Hub, call, latest, scenario_rows, verdict
 
 
@@ -91,6 +92,17 @@ class VerdictTest(unittest.TestCase):
 
     def test_silence_is_fail_with_timeout_note(self):
         self.assertEqual(verdict(None), ('fail', '앱이 시간 안에 답하지 않음'))
+
+
+class ParserTest(unittest.TestCase):
+    def test_common_options_work_before_or_after_the_command(self):
+        for argv in (['--bundle', 'b1', '--revision', 'r1', 'run', 'SMOKE'],
+                     ['run', 'SMOKE', '--bundle', 'b1', '--revision', 'r1']):
+            args = build_parser().parse_args(argv)
+            self.assertEqual((args.bundle, args.revision, args.case), ('b1', 'r1', ['SMOKE']), argv)
+
+    def test_default_bundle_when_not_given(self):
+        self.assertEqual(build_parser().parse_args(['report']).bundle, 'area1-1')
 
 
 if __name__ == '__main__':
