@@ -218,6 +218,13 @@ class CompletionTest(PhoneBase):
         third = [r for m, u, r in fake.raws if u.endswith('/profile-onboarding/photos')][2]
         self.assertIn(b'name="position"\r\n\r\n2', third)
 
+    def test_home_05_the_third_photo_upload_keeps_the_default_retry(self):
+        # 같은 자리(position)에 다시 올리면 서버가 먼저 있던 행을 바꾼다 — 두 번 가도 결과가 같아 retry=False 를 붙이지 않는다.
+        fake = _neutral()
+        self.assertEqual(self.attempt('E-HOME-05', FakePhone(), fake)[0], 'pass')
+        sent = [o for m, p, o in fake.options if p == '/profile-onboarding/photos']
+        self.assertEqual(sent, [{}, {}, {}])
+
     def test_home_06_fills_all_four_then_wants_the_card_gone(self):
         fake = _neutral()
         phone = FakePhone()
