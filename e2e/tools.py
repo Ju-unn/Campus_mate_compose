@@ -5,7 +5,9 @@
 
 import json
 import queue
+import random
 import re
+import string
 import subprocess
 import threading
 import time
@@ -124,21 +126,35 @@ def service_key():
     ).stdout.strip()
 
 
-def call(method, url, headers=None, body=None):
-    """JSON 요청 하나. (상태 코드, 본문 JSON · JSON 아니면 글자 · 없으면 None) — 4xx · 5xx 도 예외 없이 돌려준다(가설이 상태 코드를 본다)."""
-    data = None if body is None else json.dumps(body).encode()
-    req = urllib.request.Request(url, data=data, method=method, headers={'Content-Type': 'application/json', **(headers or {})})
+class Reply(tuple):
+    """(상태 코드, 본문) — 둘로 풀어 쓰고, 응답 헤더는 [headers](소문자 키)로 본다(X-Account-Status 같은 가설)."""
+
+    def __new__(cls, status, body, headers=None):
+        reply = super().__new__(cls, (status, body))
+        reply.headers = {k.lower(): v for k, v in (headers or {}).items()}
+        return reply
+
+    status = property(lambda self: self[0])
+    body = property(lambda self: self[1])
+
+
+def call(method, url, headers=None, body=None, raw=None):
+    """요청 하나 → [Reply]. 본문 JSON · JSON 아니면 글자 · 없으면 None — 4xx · 5xx 도 예외 없이 돌려준다(가설이 상태 코드를 본다).
+    [raw] = (바이트, Content-Type) 면 JSON 대신 그대로 보낸다(학생증 multipart)."""
+    data, kind = raw if raw else (None if body is None else json.dumps(body).encode(), 'application/json')
+    req = urllib.request.Request(url, data=data, method=method, headers={'Content-Type': kind, **(headers or {})})
     try:
         with urllib.request.urlopen(req, timeout=30) as res:
-            status, raw = res.status, res.read()
+            status, got, head = res.status, res.read(), res.headers
     except urllib.error.HTTPError as e:
-        status, raw = e.code, e.read()
-    if not raw:
-        return status, None
+        status, got, head = e.code, e.read(), e.headers
+    head = dict(head.items()) if head else {}
+    if not got:
+        return Reply(status, None, head)
     try:
-        return status, json.loads(raw)
+        return Reply(status, json.loads(got), head)
     except ValueError:
-        return status, raw.decode(errors='replace')
+        return Reply(status, got.decode(errors='replace'), head)
 
 
 def rest(cfg, key, method, path, body=None, token=None):
@@ -154,6 +170,137 @@ def admin(cfg, key, method, path, body=None):
 def api(cfg, method, path, token, body=None):
     """FastAPI(API_BASE_URL) — 사용자 access_token 으로."""
     return call(method, f"{cfg['API_BASE_URL']}{path}", {'Authorization': f'Bearer {token}'}, body)
+
+
+class Blocked(Exception):
+    """가설 준비(계정 만들기 등)가 안 됨 — 결과는 fail 이 아니라 blocked."""
+
+
+# 뒷정리가 비우는 버킷 — 사용자 파일은 모두 `{id}/` 아래다.
+BUCKETS = ('avatars', 'profile-photos', 'student-id-temp', 'heart-task-proofs')
+BLOCKS_SNAPSHOT = 'signup_blocks_시작.json'  # E2E_결과/ 안 — 이 밖의 재가입 제한만 시험이 만든 것이다
+KEEP_FILE = 'KEEP.txt'  # E2E_결과/ 안 — 적힌 id 는 무슨 일이 있어도 지우지 않는다
+STAGES = ('new', 'consented', 'pending', 'verified', 'gate_done', 'basic')
+
+
+def mail_base(cfg):
+    """E2E_MAIL_BASE(`이름@도메인`) → (이름, 도메인). 시험 계정은 `이름+e2e번호@도메인`."""
+    local, _, domain = cfg['E2E_MAIL_BASE'].partition('@')
+    return local, domain or 'gmail.com'
+
+
+def e2e_pattern(cfg):
+    """뒷정리 대상 — 이 정규식에 맞는 주소만 지운다."""
+    local, domain = mail_base(cfg)
+    return re.compile(rf'^{re.escape(local)}\+e2e\d+@{re.escape(domain)}$')
+
+
+def keep_ids(text):
+    return set(re.findall(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', text))
+
+
+def keep(root):
+    path = Path(root) / KEEP_FILE
+    if not path.exists():
+        raise SystemExit(f'{path} 가 없다 — 지우면 안 되는 계정을 모르면 지우지 않는다.')
+    return keep_ids(path.read_text(encoding='utf-8'))
+
+
+def auth_users(cfg, key):
+    users, page = [], 1
+    while True:
+        status, body = admin(cfg, key, 'GET', f'users?page={page}&per_page=1000')
+        if status != 200:
+            raise SystemExit(f'사용자 목록을 못 읽었다({status})')
+        users += body['users']
+        if len(body['users']) < 1000:
+            return users
+        page += 1
+
+
+def real_users(users, pattern, keep):
+    """시험 계정(`+e2e` 별칭)도 KEEP 도 아닌 사용자 — 하나라도 있으면 운영 쓰기를 하지 않는다."""
+    return [u for u in users if u['id'] not in keep and not pattern.match((u.get('email') or '').lower())]
+
+
+def ensure_no_real_users(cfg, key, root):
+    """운영 쓰기 · 지우기 전마다 — 실사용자가 하나라도 보이면 멈춘다(설계 2절 안전). 통과하면 0."""
+    real = real_users(auth_users(cfg, key), e2e_pattern(cfg), keep(root))
+    if real:
+        raise SystemExit(f'실사용자 {len(real)}명이 보인다 — 멈춘다')
+    return 0
+
+
+def _service(cfg, key, method, path, body=None):
+    return call(method, f"{cfg['SUPABASE_URL']}{path}", {'apikey': key, 'Authorization': f'Bearer {key}'}, body)
+
+
+def storage_paths(cfg, key, bucket, prefix):
+    """버킷 안 [prefix] 아래 파일 경로 전부(폴더는 따라 들어간다)."""
+    status, items = _service(cfg, key, 'POST', f'/storage/v1/object/list/{bucket}', {'prefix': prefix, 'limit': 1000})
+    if status != 200:
+        raise SystemExit(f'{bucket}/{prefix} 목록을 못 읽었다({status})')
+    for item in items:
+        path = f"{prefix}/{item['name']}"
+        if item.get('id') is None:
+            yield from storage_paths(cfg, key, bucket, path)
+        else:
+            yield path
+
+
+def delete_user(cfg, key, uid, keep):
+    """버킷 4개의 `{id}/` 를 비우고 관리자 삭제(프로필 이하는 cascade). KEEP 은 여기서 한 번 더 막는다."""
+    if uid in keep:
+        raise SystemExit(f'{uid} 는 KEEP 이다 — 지우지 않는다')
+    for bucket in BUCKETS:
+        paths = list(storage_paths(cfg, key, bucket, uid))
+        if paths:
+            status, body = _service(cfg, key, 'DELETE', f'/storage/v1/object/{bucket}', {'prefixes': paths})
+            if status >= 300:  # 파일을 남긴 채 계정을 지우면 `{id}/` 가 고아가 된다
+                raise SystemExit(f'{bucket}/{uid}/ 비우기 실패({status}) {body}')
+    status, body = admin(cfg, key, 'DELETE', f'users/{uid}')
+    if status >= 300:
+        raise SystemExit(f'{uid} 삭제 실패({status}) {body}')
+
+
+def snapshot_blocks(cfg, key, root):
+    """처음 한 번만 — 그 뒤에 생긴 signup_blocks 행이 시험이 만든 것이다."""
+    path = Path(root) / BLOCKS_SNAPSHOT
+    if path.exists():
+        return
+    status, rows = rest(cfg, key, 'GET', 'signup_blocks?select=email_hmac')
+    if status != 200:
+        raise SystemExit(f'signup_blocks 를 못 읽었다({status})')
+    path.write_text(json.dumps([r['email_hmac'] for r in rows]), encoding='utf-8')
+
+
+def cleanup(cfg, key, root):
+    """`+e2e` 계정 · 파일 · 시험이 만든 재가입 제한을 지운다. 실사용자가 보이면 아무것도 건드리지 않고 멈춘다."""
+    kept, pattern = keep(root), e2e_pattern(cfg)
+    ensure_no_real_users(cfg, key, root)
+    for user in auth_users(cfg, key):
+        if user['id'] not in kept and pattern.match(user['email'].lower()):
+            delete_user(cfg, key, user['id'], kept)
+            print(f"지움 {user['email']}")
+    snapshot = Path(root) / BLOCKS_SNAPSHOT
+    if not snapshot.exists():
+        print(f'{snapshot.name} 가 없어 signup_blocks 는 건드리지 않았다')
+        return
+    start = set(json.loads(snapshot.read_text(encoding='utf-8')))
+    status, rows = rest(cfg, key, 'GET', 'signup_blocks?select=email_hmac')
+    if status != 200:
+        raise SystemExit(f'signup_blocks 를 못 읽었다({status})')
+    for row in rows:
+        if row['email_hmac'] not in start:
+            rest(cfg, key, 'DELETE', f"signup_blocks?email_hmac=eq.{urllib.parse.quote(row['email_hmac'])}")
+            print('재가입 제한 1행 지움')
+
+
+def basic_info():
+    """04-1 기본 정보 — 닉네임은 영문 5자 무작위(중복 금지), 번호도 무작위."""
+    return {'nickname': ''.join(random.choices(string.ascii_letters, k=5)), 'birth_year': datetime.now().year - 22,
+            'height_cm': 170, 'phone_number': f'010-{random.randint(0, 9999):04d}-{random.randint(0, 9999):04d}',
+            'gender': 'male', 'mbti': None}
 
 
 def verdict(said):
@@ -182,11 +329,71 @@ def scenario_rows(md):
 class Run:
     """한 묶음 실행 — 결과는 `<out>/results.jsonl` 한 줄씩(pass · fail · blocked · known · skip)."""
 
-    def __init__(self, out, build, revision=None):
+    def __init__(self, out, build, revision=None, cfg=None, key=None):
         self.out = Path(out)
         self.out.mkdir(parents=True, exist_ok=True)
         self.build = build
         self.revision = revision
+        self.cfg = cfg  # e2e.env — API 가설 · 계정 공장
+        self.key = key  # 서비스 키 — 메모리에만
+
+    def alias(self, domain=None):
+        """처음 쓰는 별칭 `이름+e2e번호@도메인`. 번호표는 E2E_결과/ 에 하나 — 묶음이 달라도 번호를 다시 쓰지 않는다."""
+        ticket = self.out.parent / '별칭_번호표.txt'
+        n = int(ticket.read_text(encoding='utf-8')) if ticket.exists() else 1001
+        ticket.write_text(str(n + 1), encoding='utf-8')  # 쓰기 전에 넘긴다 — 실패한 번호도 다시 안 쓴다
+        local, base = mail_base(self.cfg)
+        return n, f'{local}+e2e{n}@{domain or base}'
+
+    def remember(self, account):
+        """accounts.json — 만든 즉시 적고 단계가 오를 때마다 고친다. 토큰은 적지 않는다."""
+        path = self.out / 'accounts.json'
+        accounts = json.loads(path.read_text(encoding='utf-8')) if path.exists() else []
+        accounts = [a for a in accounts if a['n'] != account['n']] + [{k: account[k] for k in ('n', 'email', 'id', 'stage', 'at')}]
+        path.write_text(json.dumps(accounts, ensure_ascii=False, indent=1), encoding='utf-8')
+
+    def account(self, stage):
+        """새 시험 계정을 [stage] 까지 올려 {n, email, id, stage, at, token} 으로. 어느 단계든 안 되면 [Blocked]."""
+        if stage not in STAGES:
+            raise ValueError(f'{stage} — 계정 단계는 {STAGES}')
+        n, email = self.alias()
+        status, body = admin(self.cfg, self.key, 'POST', 'users', {'email': email, 'email_confirm': True})
+        if status != 200:
+            raise Blocked(f'계정 만들기 {status} {body}')
+        account = {'n': n, 'email': email, 'id': body['id'], 'stage': 'new',
+                   'at': datetime.now(timezone.utc).isoformat(timespec='seconds')}
+        self.remember(account)
+        token = self.sign_in(email)
+        steps = ['consented', 'pending'] if stage == 'pending' else ['consented', 'verified', 'gate_done', 'basic']
+        for step in steps[:steps.index(stage) + 1] if stage != 'new' else []:
+            self._step(step, account, token)
+            account['stage'] = step
+            self.remember(account)
+        return {**account, 'token': token}
+
+    def sign_in(self, email):
+        """관리자 generate_link 의 1회용 토큰으로 로그인 — 메일이 나가지 않는다."""
+        status, body = admin(self.cfg, self.key, 'POST', 'generate_link', {'type': 'magiclink', 'email': email})
+        hashed = (body or {}).get('hashed_token') or (body or {}).get('properties', {}).get('hashed_token')
+        if status != 200 or not hashed:
+            raise Blocked(f'generate_link {status}')
+        status, body = call('POST', f"{self.cfg['SUPABASE_URL']}/auth/v1/verify", {'apikey': self.cfg['SUPABASE_ANON_KEY']},
+                            {'type': 'magiclink', 'token_hash': hashed})
+        if status != 200:
+            raise Blocked(f'verify {status}')
+        return body['access_token']
+
+    def _step(self, step, account, token):
+        if step == 'consented':
+            reply = api(self.cfg, 'POST', '/me/consents', token, {'agreed': ['terms', 'privacy']})
+        elif step in ('pending', 'verified'):  # 검토는 사람이 하는 일이라 DB 로 바로 둔다
+            reply = rest(self.cfg, self.key, 'PATCH', f"profiles?id=eq.{account['id']}", {'student_verification': step})
+        elif step == 'gate_done':
+            reply = api(self.cfg, 'POST', '/school-info', token, {'department': '컴퓨터공학과', 'student_number': f"e2e{account['n']}"})
+        else:
+            reply = api(self.cfg, 'POST', '/profile-onboarding/basic-info', token, basic_info())
+        if reply[0] >= 300:
+            raise Blocked(f'{step} {reply[0]} {reply[1]}')
 
     @property
     def results(self):
