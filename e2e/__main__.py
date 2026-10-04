@@ -17,6 +17,7 @@ from pathlib import Path
 from e2e import area1, area2, area3, area3_safe
 from e2e import area1_b2  # noqa: F401 — 묶음 2 가설을 area1.PHONE · CASES · BUNDLES 에 더한다
 from e2e import area3_phone  # noqa: F401 — 영역 3 폰 1차 가설을 area1.PHONE · area3.BUNDLES 에 더한다
+from e2e import area3_phone2  # noqa: F401 — 영역 3 폰 2차(입력 · 보내기 · 신고 · 수락 · 시트) 가설을 같은 곳에 더한다
 from e2e import area1_b3  # 묶음 3(사진 세트) — 같은 방식
 from e2e import area4  # noqa: F401 — 영역 4 가설을 같은 곳에 더한다
 from e2e import area2_phone  # noqa: F401 — 영역 2 폰 A 가설을 area1.PHONE · BUNDLES 에 더한다
