@@ -11,7 +11,6 @@ import random
 import subprocess
 import threading
 import time
-import urllib.error
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
@@ -26,6 +25,9 @@ CODE_NOT_FOUND = '없는 코드예요, 다시 확인해 주세요'
 CODE_ALREADY = '추천 코드는 한 번만 입력할 수 있어요'
 EMBEDDING_DIMENSIONS = 512  # profile_vectors.self_embedding · want_embedding
 SCORE_TOLERANCE = 0.0001  # 점수는 서버가 소수 4자리로 돌려준다
+# 두 번 적용되면 결과가 달라지는 요청(결정 · 투표 · 글 · 제출 · 코드 입력 · 하트 증감 · 동시성 가설의 같은 요청 2건)은 끊겨도 다시 보내지 않는다 —
+# 끊김은 attempt 가 새 계정으로 가설을 처음부터 한 번 더 한다. tools.call 의 retry=False.
+_ONCE = {'retry': False}
 
 
 def _now():
@@ -103,7 +105,7 @@ def _insert(run, table, rows, *owners):
 
 def _card(run, owner, target, days=3):
     """살아 있는(결정 전 · 만료 전) 무료 카드 한 장 — id 는 이쪽에서 정한다(넣고 다시 읽지 않으려고)."""
-    card_id = _new_id()
+    card_id = _new_id()  # 두 번 가면 23505(Blocked) — 판정은 안 바뀌고 끊김은 그대로 다시 보내는 쪽이 더 많이 살려서 기본(재시도)
     _insert(run, 'daily_cards', [{'id': card_id, 'owner_id': owner['id'], 'target_id': target['id'], 'source': 'daily',
                                  'expires_at': (_now() + timedelta(days=days)).isoformat()}], owner['id'], target['id'])
     return card_id
@@ -116,7 +118,7 @@ def _ledger(run, account, reason):
 def _grant(run, account, amount, reason='free_task'):
     _guard(run, account['id'])
     return tools.rest(run.cfg, run.key, 'POST', 'rpc/grant_hearts',
-                      {'p_profile_id': account['id'], 'p_amount': amount, 'p_reason': reason, 'p_ref_id': None})
+                      {'p_profile_id': account['id'], 'p_amount': amount, 'p_reason': reason, 'p_ref_id': None}, **_ONCE)
 
 
 def _parallel(*calls):
@@ -251,7 +253,7 @@ def card_37(run):
     sent, wide = _person(run, 'female', phone=_phone()), _person(run, 'female', phone=_phone())
     check.that(wide['id'] in _candidates(run, me) and me['id'] in _candidates(run, wide), '차단 전에는 서로 후보여야 한다(준비가 틀림)')
     out_card, in_card = _card(run, me, sent), _card(run, sent, me)
-    check.reply('V 의 수락', _api(run, 'POST', f'/cards/{in_card}/decision', sent['token'], {'decision': 'accept'}), 200)
+    check.reply('V 의 수락', _api(run, 'POST', f'/cards/{in_card}/decision', sent['token'], {'decision': 'accept'}, **_ONCE), 200)
     today = _api(run, 'GET', '/cards/today', me['token'])
     inbox = _api(run, 'GET', '/cards/acceptances', me['token'])
     check.that(len((today[1] or {}).get('cards', [])) == 1, f'차단 전 오늘 카드 {today[0]}')
@@ -261,8 +263,8 @@ def card_37(run):
     check.that(me['id'] not in _candidates(run, wide), '지인 차단한 사람의 후보에 A 가 있다')
     check.that(not (_api(run, 'GET', '/cards/today', me['token'])[1] or {}).get('cards'), '미리 둔 카드가 오늘 탭에 남음')
     check.that(not (_api(run, 'GET', '/cards/acceptances', me['token'])[1] or {}).get('acceptances'), '미리 받은 수락이 수락함에 남음')
-    check.reply('숨은 카드 결정', _api(run, 'POST', f'/cards/{out_card}/decision', me['token'], {'decision': 'reject'}), 404)
-    check.reply('숨은 수락 응답', _api(run, 'POST', f'/cards/acceptances/{in_card}', me['token'], {'decision': 'reject'}), 404)
+    check.reply('숨은 카드 결정', _api(run, 'POST', f'/cards/{out_card}/decision', me['token'], {'decision': 'reject'}, **_ONCE), 404)
+    check.reply('숨은 수락 응답', _api(run, 'POST', f'/cards/acceptances/{in_card}', me['token'], {'decision': 'reject'}, **_ONCE), 404)
     return check.result()
 
 
@@ -402,9 +404,9 @@ def card_82(run):
     check = Check()
     owner, target = _person(run, 'male'), _person(run, 'female')
     card = _card(run, owner, target)
-    check.reply('수락', _api(run, 'POST', f'/cards/{card}/decision', owner['token'], {'decision': 'accept'}), 200)
-    check.reply('첫 응답', _api(run, 'POST', f'/cards/acceptances/{card}', target['token'], {'decision': 'reject'}), 200)
-    check.reply('두 번째 응답', _api(run, 'POST', f'/cards/acceptances/{card}', target['token'], {'decision': 'reject'}), 409,
+    check.reply('수락', _api(run, 'POST', f'/cards/{card}/decision', owner['token'], {'decision': 'accept'}, **_ONCE), 200)
+    check.reply('첫 응답', _api(run, 'POST', f'/cards/acceptances/{card}', target['token'], {'decision': 'reject'}, **_ONCE), 200)
+    check.reply('두 번째 응답', _api(run, 'POST', f'/cards/acceptances/{card}', target['token'], {'decision': 'reject'}, **_ONCE), 409,
                 '이미 답한 수락이에요')
     rows = _rows(run, f'acceptance_responses?card_id=eq.{card}&select=card_id')
     check.that(len(rows) == 1, f'acceptance_responses {len(rows)}행')
@@ -415,8 +417,8 @@ def card_83(run):
     check = Check()
     owner, target = _person(run, 'male'), _person(run, 'female')
     card = _card(run, owner, target)
-    check.reply('첫 결정', _api(run, 'POST', f'/cards/{card}/decision', owner['token'], {'decision': 'reject'}), 200)
-    check.reply('반대 결정', _api(run, 'POST', f'/cards/{card}/decision', owner['token'], {'decision': 'accept'}), 409,
+    check.reply('첫 결정', _api(run, 'POST', f'/cards/{card}/decision', owner['token'], {'decision': 'reject'}, **_ONCE), 200)
+    check.reply('반대 결정', _api(run, 'POST', f'/cards/{card}/decision', owner['token'], {'decision': 'accept'}, **_ONCE), 409,
                 '이미 결정한 카드예요')
     rows = _rows(run, f'card_decisions?card_id=eq.{card}&select=decision')
     check.that(rows == [{'decision': 'reject'}], f'card_decisions {rows}')
@@ -427,7 +429,7 @@ def card_88(run):
     check = Check()
     owner, target = _person(run, 'male'), _person(run, 'female')
     card = _card(run, owner, target)
-    check.reply('수락', _api(run, 'POST', f'/cards/{card}/decision', owner['token'], {'decision': 'accept'}), 200)
+    check.reply('수락', _api(run, 'POST', f'/cards/{card}/decision', owner['token'], {'decision': 'accept'}, **_ONCE), 200)
     # 오늘 카드 · 카드 상세는 받는 사람(target)이 주인인 카드로 본다 — 수락함은 위 수락이 만든다.
     other_card = _card(run, target, owner)
     for label, reply in (('오늘 카드', _api(run, 'GET', '/cards/today', target['token'])),
@@ -444,7 +446,7 @@ def card_89(run):
     owner, stranger = _person(run, 'male'), _person(run, 'female')
     card = _card(run, owner, stranger)
     check.reply('남의 카드 상세', _api(run, 'GET', f'/cards/{card}', stranger['token']), 404, '카드를 찾을 수 없어요')
-    check.reply('남의 카드 결정', _api(run, 'POST', f'/cards/{card}/decision', stranger['token'], {'decision': 'reject'}), 404,
+    check.reply('남의 카드 결정', _api(run, 'POST', f'/cards/{card}/decision', stranger['token'], {'decision': 'reject'}, **_ONCE), 404,
                 '카드를 찾을 수 없어요')
     check.that(not _rows(run, f'card_decisions?card_id=eq.{card}&select=card_id'), '남이 낸 결정이 저장됨')
     return check.result()
@@ -456,7 +458,7 @@ POLL_KEYS = {'id', 'question', 'option_a_label', 'option_b_label', 'created_at',
 
 
 def _poll(run, account, text):
-    reply = _api(run, 'POST', '/community/polls', account['token'], {'question': f'[E2E] {text}'})
+    reply = _api(run, 'POST', '/community/polls', account['token'], {'question': f'[E2E] {text}'}, **_ONCE)
     if reply[0] != 201:
         raise Blocked(f'글 올리기 {reply[0]} {_detail(reply[1])}')
     return reply[1]['id']
@@ -499,7 +501,7 @@ def poll_10(run):
 def _poll_10(run, author, voter):
     check = Check()
     first, second = _poll(run, author, '동시 1'), _poll(run, author, '동시 2')
-    replies = _parallel(*[lambda p=p: _api(run, 'POST', f'/community/polls/{p}/votes', voter['token'], {'choice': 'a'})
+    replies = _parallel(*[lambda p=p: _api(run, 'POST', f'/community/polls/{p}/votes', voter['token'], {'choice': 'a'}, **_ONCE)
                           for p in (first, second)])
     for i, reply in enumerate(replies, 1):
         check.reply(f'투표 {i}', reply, 200)
@@ -521,7 +523,7 @@ def _poll_17(run, author):
     check = Check()
     for i in range(9):
         _poll(run, author, f'하루 한도 {i + 1}')
-    replies = _parallel(*[lambda i=i: _api(run, 'POST', '/community/polls', author['token'], {'question': f'[E2E] 동시 {i}'})
+    replies = _parallel(*[lambda i=i: _api(run, 'POST', '/community/polls', author['token'], {'question': f'[E2E] 동시 {i}'}, **_ONCE)
                           for i in (1, 2)])
     check.that(sorted(r[0] for r in replies) == [201, 429], f'상태 {[r[0] for r in replies]}(기대 201 · 429)')
     rows = _rows(run, f"polls?author_id=eq.{author['id']}&select=id")
@@ -541,7 +543,7 @@ def _poll_24(run, author, leaver, other):
     check = Check()
     poll = _poll(run, author, '표 빠짐')
     for voter in (leaver, other):
-        check.reply('투표', _api(run, 'POST', f'/community/polls/{poll}/votes', voter['token'], {'choice': 'a'}), 200)
+        check.reply('투표', _api(run, 'POST', f'/community/polls/{poll}/votes', voter['token'], {'choice': 'a'}, **_ONCE), 200)
 
     def total():
         got = _api(run, 'GET', f'/community/polls/{poll}', author['token'])
@@ -558,7 +560,7 @@ def _poll_24(run, author, leaver, other):
 # ── 무료 하트 모으기 ────────────────────────────────────────────────────────────────────────────────
 
 def _submit(run, account, task='everytime_post', data=TINY_JPEG):
-    return _form(run, f'/heart-tasks/{task}/submissions', account['token'], {}, ('photo', 'proof.jpg', data))
+    return _form(run, f'/heart-tasks/{task}/submissions', account['token'], {}, ('photo', 'proof.jpg', data), **_ONCE)
 
 
 def _proofs(run, account):
@@ -574,7 +576,7 @@ def _review(run, account, submission, **fields):
     """운영자 검수 흉내 — 상태 · 사유 · 검수 시각을 한 번에 저장한다(check 제약 때문에 따로는 못 한다)."""
     _guard(run, account['id'])
     return tools.rest(run.cfg, run.key, 'PATCH', f'heart_task_submissions?id=eq.{submission}',
-                      {'reviewed_at': _now().isoformat(), **fields})
+                      {'reviewed_at': _now().isoformat(), **fields}, **_ONCE)  # 다시 보내면 DB 가 이미 찍은 reviewed_at 과 달라 가드 트리거가 거절한다
 
 
 def heart_07(run):
@@ -768,7 +770,7 @@ def _code(run, account):
 
 
 def _redeem(run, who, code):
-    return _api(run, 'POST', '/referral/redeem', who['token'], {'code': code})
+    return _api(run, 'POST', '/referral/redeem', who['token'], {'code': code}, **_ONCE)
 
 
 def ref_09(run):
@@ -884,14 +886,14 @@ BUNDLES = {'area2-api': list(CASES)}
 
 def attempt(run, case):
     """가설 하나. 준비가 안 되면 blocked, 시험 쪽 예외도 blocked(앱 결함으로 세지 않는다).
-    연결이 끊긴 것(운영 실행에서 가끔 — ConnectionResetError)은 가설을 처음부터 한 번 더 한다 — 계정은 매번 새로 만들고
+    연결이 끊긴 것(운영 실행에서 가끔 — ConnectionResetError · SSL · http.client 끊김, tools.TRANSIENT)은 가설을 처음부터 한 번 더 한다 — 계정은 매번 새로 만들고
     쓰기는 이번 실행의 계정에만 하므로 다시 해도 안전하다. 두 번째에도 끊기면 blocked."""
     for tries in (1, 2):
         try:
             return CASES[case](run)
         except Blocked as e:
             return 'blocked', str(e)
-        except (ConnectionError, TimeoutError, urllib.error.URLError) as e:
+        except tools.TRANSIENT as e:  # tools.call 이 한 번만 보내는 요청(_ONCE)의 끊김까지 여기서 받는다
             if tries == 2:
                 return 'blocked', f'연결이 두 번 끊김: {type(e).__name__} {e}'
         except Exception as e:  # 시험 쪽 버그 · 예상 밖 응답 모양 — 긴 실행이 한 가설 때문에 멈추지 않게
