@@ -108,7 +108,7 @@ void main() {
     });
 
     test('중복 신고 409 는 서버 문구를 담은 실패로 돌려준다', () async {
-      final (client, _) = recording(jsonResponse({'detail': '이미 신고한 사용자예요'}, 409));
+      final (client, _) = recording(jsonResponse({'detail': '이미 신고를 완료했어요'}, 409));
 
       final result = await buildRepository(client).report(
         target: const ReportTarget.profile('p2'),
@@ -116,7 +116,7 @@ void main() {
       );
 
       final failure = result.when(onSuccess: (_) => null, onFailure: (failure) => failure);
-      expect(failure!.toDisplayMessage(), '이미 신고한 사용자예요');
+      expect(failure!.toDisplayMessage(), '이미 신고를 완료했어요');
     });
 
     test('하루 상한 429 는 RateLimitedFailure 로 온다', () async {

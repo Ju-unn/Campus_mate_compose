@@ -349,7 +349,7 @@ void main() {
     });
 
     testWidgets('이미 신고했으면 역시 목록으로 간다', (tester) async {
-      safety.reportResult = const FailureResult(ServerRejectedFailure('이미 신고한 사용자예요'));
+      safety.reportResult = const FailureResult(ServerRejectedFailure('이미 신고를 완료했어요'));
       await pump(tester);
 
       await tapLink(tester, '신고하기');
