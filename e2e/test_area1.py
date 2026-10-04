@@ -180,9 +180,24 @@ class CleanupTest(Base):
 
         deletes = [(p, b) for m, p, b in fake.calls if m == 'DELETE']
         self.assertEqual(deletes, [('/storage/v1/object/avatars', {'prefixes': ['gone/a.png']}),
-                                   ('/auth/v1/admin/users/gone', None)])
+                                   ('/rest/v1/reports', None), ('/auth/v1/admin/users/gone', None)])
         listed = [p for m, p, b in fake.calls if p.startswith('/storage/v1/object/list/')]
         self.assertEqual(sorted(listed), sorted(f'/storage/v1/object/list/{b}' for b in tools.BUCKETS))
+
+    def test_reports_by_or_about_the_account_go_before_the_account(self):
+        # reports 는 계정을 지워도 set null 로 남아 대시보드에 주인 없는 열린 신고가 된다(create_reports.sql:9,13).
+        fake = self.serve()
+        tools.delete_user(CFG, 'svc', 'gone', set())
+        deletes = [u for m, u in fake.urls if m == 'DELETE']
+        self.assertEqual(deletes, ['https://sb.test/rest/v1/reports?or=(reporter_id.eq.gone,target_profile_id.eq.gone)',
+                                   'https://sb.test/auth/v1/admin/users/gone'])
+
+    def test_failed_reports_delete_stops_before_the_account_is_deleted(self):
+        # 계정이 먼저 지워지면 신고 칸이 비어 다음 뒷정리가 그 행을 찾을 길이 없다.
+        fake = self.serve({('DELETE', '/rest/v1/reports'): Reply(500, None)})
+        with self.assertRaisesRegex(SystemExit, '신고 지우기 실패'):
+            tools.delete_user(CFG, 'svc', 'gone', set())
+        self.assertNotIn('/auth/v1/admin/users/gone', fake.paths('DELETE'))
 
     def test_delete_user_refuses_a_kept_id(self):
         fake = self.serve()
@@ -307,7 +322,7 @@ class HypothesisTest(Base):
             with self.subTest(case=case):
                 fake = self.serve()
                 self.assertEqual(area1.CASES[case](self.run)[0], 'fail')
-                self.assertEqual(fake.paths('DELETE'), ['/auth/v1/admin/users/id-1'])
+                self.assertEqual(fake.paths('DELETE'), ['/rest/v1/reports', '/auth/v1/admin/users/id-1'])
 
     def test_fake_push_token_is_deleted_even_when_the_hypothesis_fails(self):
         fake = self.serve(CASES['E-GATE-50'][1])

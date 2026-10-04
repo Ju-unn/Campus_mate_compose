@@ -258,7 +258,7 @@ def storage_paths(cfg, key, bucket, prefix):
 
 
 def delete_user(cfg, key, uid, keep):
-    """버킷 4개의 `{id}/` 를 비우고 관리자 삭제(프로필 이하는 cascade). KEEP 은 여기서 한 번 더 막는다."""
+    """버킷 4개의 `{id}/` 와 그 계정이 넣었거나 받은 신고를 지우고 관리자 삭제(프로필 이하는 cascade). KEEP 은 여기서 한 번 더 막는다."""
     if uid in keep:
         raise SystemExit(f'{uid} 는 KEEP 이다 — 지우지 않는다')
     for bucket in BUCKETS:
@@ -267,6 +267,10 @@ def delete_user(cfg, key, uid, keep):
             status, body = _service(cfg, key, 'DELETE', f'/storage/v1/object/{bucket}', {'prefixes': paths})
             if status >= 300:  # 파일을 남긴 채 계정을 지우면 `{id}/` 가 고아가 된다
                 raise SystemExit(f'{bucket}/{uid}/ 비우기 실패({status}) {body}')
+    # 그 계정이 넣었거나 받은 신고 — 계정을 지우면 두 칸이 비어(on delete set null) 주인 없는 열린 신고로 남는다.
+    status, body = rest(cfg, key, 'DELETE', f'reports?or=(reporter_id.eq.{uid},target_profile_id.eq.{uid})')
+    if status >= 300:
+        raise SystemExit(f'{uid} 의 신고 지우기 실패({status}) {body}')
     status, body = admin(cfg, key, 'DELETE', f'users/{uid}')
     if status >= 300:
         raise SystemExit(f'{uid} 삭제 실패({status}) {body}')
