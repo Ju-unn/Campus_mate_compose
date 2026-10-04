@@ -248,7 +248,7 @@ final Map<String, Area1Case> _b2Cases = {
     await arrive(tester, '04-5', timeout: const Duration(seconds: 10));
     return null;
   }),
-  // 첫 켬: 갤러리 대신 마스코트 그림 3장을 고르고(올리지 않음) 끝. 다시 켬: 04-2 가 빈 칸으로.
+  // 첫 켬: 갤러리 대신 사진 세트(묶음 3, PC 가 앱 캐시에 넣음)의 얼굴 사진 3장을 고르고(올리지 않음) 끝. 다시 켬: 04-2 가 빈 칸으로.
   'E-ONB-55': _session((tester, job) async {
     if (!_fresh(job)) {
       await _arriveAt(tester, job);
@@ -256,20 +256,9 @@ final Map<String, Area1Case> _b2Cases = {
       return null;
     }
     await arrive(tester, '04-2');
-    final data = await rootBundle.load('assets/images/mascot-male.png');
-    final dir = (await getTemporaryDirectory()).path;
-    final files = [
-      for (var i = 0; i < 3; i++) await File('$dir/e2e-photo-$i.png').writeAsBytes(data.buffer.asUint8List()),
-    ];
-    final container = ProviderScope.containerOf(tester.element(screen('04-2')));
-    container.read(photosViewModelProvider.notifier).pickFromGallery = (limit) async => files.take(limit).toList();
-    await tap(tester, find.text('사진 추가').first);
-    await wait(tester, const Duration(seconds: 5)); // 압축 · 얼굴 검사
-    final kept = container.read(photosViewModelProvider).photos.length;
-    if (kept != 3) {
-      // 얼굴 검사가 그림을 빼면 이 가설은 사진 세트(묶음 3)가 있어야 한다.
-      throw E2eBlocked('고른 3장 중 $kept장만 남음(얼굴 검사) — 사진 세트 필요');
-    }
+    final names = _photoNames(job);
+    final state = await _pick(tester, names);
+    _facesKept(state, names.length);
     return null;
   }),
   'E-ONB-56': _session((tester, job) async {
