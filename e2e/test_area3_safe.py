@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from unittest import mock
 
 from e2e import area3_safe, tools
-from e2e.test_area3 import PERMISSION, Base, Fake
+from e2e.test_area3 import PERMISSION, Base, Fake, mismatched_keys
 from e2e.tools import ROOT, Reply
 
 PROFILE_GONE = '프로필을 찾을 수 없어요'
@@ -85,6 +85,8 @@ class SafeFake(Fake):
             self.phones.pop(query['profile_id'][3:], None)
             return Reply(200, None)
         if method == 'POST':
+            if mismatched_keys(body):
+                return mismatched_keys(body)
             for row in body if isinstance(body, list) else [body]:
                 row.setdefault('id', str(uuid.uuid4()))
                 if name == 'messages':
