@@ -387,8 +387,8 @@ class Phone:
     def __init__(self, run, hub, serial, case):
         self.run, self.hub, self.serial, self.case = run, hub, serial, case
 
-    def __call__(self, **job):
-        return self.run.phone(self.hub, self.serial, {'case': self.case, **job})
+    def __call__(self, midway=None, **job):
+        return self.run.phone(self.hub, self.serial, {'case': self.case, **job}, midway=midway)
 
     def top(self):
         return next((line.strip() for line in tools.adb(self.serial, 'shell', 'dumpsys', 'activity', 'activities').splitlines()
@@ -505,9 +505,9 @@ def p_gate_02(run, phone):
 
 
 def p_gate_03(run, phone):
-    """시나리오의 넷째(홈 계정)는 묶음 2 — 동의 전 · 학생증 전 · 온보딩 중 셋."""
+    """동의 전 · 학생증 전 · 온보딩 중 · 홈 계정 넷(홈은 묶음 2 의 계정 공장 home 단계)."""
     check = Check()
-    for stage in ('new', 'consented', 'basic'):
+    for stage in ('new', 'consented', 'basic', 'home'):
         account, token = _signed_in(run, stage)
         _patch(run, f"profiles?id=eq.{account['id']}", {'status': 'suspended'})
         _app(check, phone(token_hash=token), stage)
