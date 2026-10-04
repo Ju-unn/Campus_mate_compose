@@ -1,10 +1,13 @@
-"""영역 1 묶음 1 — API 가설 19(진행만, 폰 없음). 기대값은 바탕화면 E2E_최종테스트_시나리오.md 영역 1 의 그 줄이다.
+"""영역 1 묶음 1 — API 가설 19(진행만, 폰 없음, 묶음 area1-b1)와 폰 가설 36(아래 PHONE, 묶음 area1-b1-phone).
+기대값은 바탕화면 E2E_최종테스트_시나리오.md 영역 1 의 그 줄이다.
 
 가설 하나 = 함수 하나 `(run) -> (결과, 메모)`. 계정은 [Run.account] 로 그때그때 새로 만든다(별칭 번호는 다시 안 쓴다).
 """
 
 import base64
+import random
 import re
+import string
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -18,6 +21,7 @@ REJECTED = '허용되지 않은 학교 이메일이에요'
 SV_REQUIRED = '학생증 인증을 먼저 끝내 주세요'
 CONSENT_REQUIRED = '약관 동의를 먼저 해 주세요'
 INVALID_INPUT = '입력한 값을 다시 확인해 주세요'
+CONSENT_VERSION = '2026-09-29'  # backend/app/consents/policy.py CONSENT_VERSION
 TINY_JPEG = b'\xff\xd8\xff\xe0' + bytes(16) + b'\xff\xd9'  # 동의 확인이 사진보다 먼저라 내용은 상관없다
 
 
@@ -362,5 +366,330 @@ def attempt(run, case):
     """가설 하나. 준비가 안 되면 blocked."""
     try:
         return CASES[case](run)
+    except Blocked as e:
+        return 'blocked', str(e)
+
+
+# ── 폰 가설 37 중 36 ─────────────────────────────────────────────────────────────────────────────────
+# 함수 하나 `(run, phone) -> (결과, 메모)`. phone(**일감) 은 앱을 한 번 새로 켜 같은 번호의 앱 쪽
+# (frontend/integration_test/area1.dart)을 돌리고 앱이 한 말(dict, 답이 없으면 None)을 돌려준다. 일감 키:
+#   token_hash  관리자 generate_link 1회용 토큰 — 앱이 이것으로 로그인한다(없으면 로그아웃 상태로 시작)
+#   fresh=False 앱이 저장된 세션을 그대로 쓴다(재시작 가설). 기본은 앞 세션을 지우고 시작
+#   expect      도착해야 할 화면 이름(앱 쪽 `screens` 의 키)
+# 화면을 누르고 보는 판정은 앱이 하고, 여기서는 계정을 준비하고 DB 에 남은 것을 본다.
+
+PHONE_SKIPPED = {'E-ONB-05': '두 기기가 1초 안에 같이 눌러야 한다 — 묶음 4(에뮬) 에서'}
+
+
+class Phone:
+    """[tools.Run.phone] 을 가설 하나에 묶는다 — 일감에 번호를 붙이고, 맨 위 화면을 볼 수 있게 한다."""
+
+    def __init__(self, run, hub, serial, case):
+        self.run, self.hub, self.serial, self.case = run, hub, serial, case
+
+    def __call__(self, **job):
+        return self.run.phone(self.hub, self.serial, {'case': self.case, **job})
+
+    def top(self):
+        return next((line.strip() for line in tools.adb(self.serial, 'shell', 'dumpsys', 'activity', 'activities').splitlines()
+                     if 'topResumedActivity' in line or 'mResumedActivity' in line), '')
+
+
+def _app(check, said, label='앱'):
+    """앱이 한 말을 판정에 넣는다. 앱이 막혔다고 하면(blocked) 가설도 blocked."""
+    if said is None:
+        check.problems.append(f'{label}: 시간 안에 답하지 않음')
+        return {}
+    if said.get('result') == 'blocked':
+        raise Blocked(f"{label}: {said.get('note', '')}")
+    if said.get('result') != 'pass':
+        check.problems.append(f"{label}: {said.get('note') or said.get('result')}")
+    return said
+
+
+def _signed_in(run, stage):
+    """[stage] 계정과, 앱이 그 계정으로 로그인할 1회용 토큰."""
+    account = run.account(stage)
+    return account, run.link(account['email'])
+
+
+def _on_phone(stage, **job):
+    """계정 하나를 [stage] 로 만들어 앱에서 돌린다 — 판정은 앱이 다 한다."""
+    def case(run, phone):
+        check = Check()
+        _, token = _signed_in(run, stage)
+        _app(check, phone(token_hash=token, **job))
+        return check.result()
+    return case
+
+
+def _nickname():
+    """대문자로 시작하는 영문 5자 — 대소문자만 바꾼 이름이 같은 이름으로 막히는지 볼 때도 쓴다."""
+    return random.choice(string.ascii_uppercase) + ''.join(random.choices(string.ascii_lowercase, k=4))
+
+
+def _phone_number():
+    return f'010-{random.randint(1000, 9999)}-{random.randint(1000, 9999)}'
+
+
+def _basic(run, account, **override):
+    """04-1 을 API 로 채운다(닉네임 등을 정해서)."""
+    reply = _api(run, 'POST', '/profile-onboarding/basic-info', account['token'], {**tools.basic_info(), **override})
+    if reply[0] >= 300:
+        raise Blocked(f'기본 정보 저장 {reply[0]} {_detail(reply[1])}')
+
+
+def _one(run, path):
+    rows = _rows(run, path)
+    return rows[0] if rows else {}
+
+
+def _at(text):
+    return datetime.fromisoformat(text.replace('Z', '+00:00'))
+
+
+def p_auth_05(run, phone):
+    check = Check()
+    _, email = run.alias('example.com')
+    _app(check, phone(email=email))
+    _no_user(run, email, check)
+    return check.result()
+
+
+def p_auth_16(run, phone):
+    """앱이 실제로 코드를 요청한다 — 테스트대학 메일함에 메일 1통이 간다(읽지 않음)."""
+    check = Check()
+    n, email = run.alias()
+    _app(check, phone(email=email))
+    _signed_up(run, n, email, check)  # 요청으로 생긴 계정을 뒷정리 목록에
+    return check.result()
+
+
+def p_auth_17(run, phone):
+    """시나리오는 기기 둘 · force-stop — A폰 한 대, run-as kill 로 끈다(force-stop 은 FCM 을 멈춘다)."""
+    check = Check()
+    for stage, screen in (('new', 'consent'), ('verified', '3c'), ('basic', '04-1b')):
+        _, token = _signed_in(run, stage)
+        _app(check, phone(token_hash=token, expect=screen), f'{stage} 첫 로그인')
+        _app(check, phone(fresh=False, expect=screen), f'{stage} 다시 켬')
+    return check.result()
+
+
+def p_auth_20(run, phone):
+    check = Check()
+    account, token = _signed_in(run, 'consented')
+    _app(check, phone(token_hash=token, expect='3b'), '로그인')
+    out = tools.call('POST', f"{run.cfg['SUPABASE_URL']}/auth/v1/logout?scope=global",
+                     {'apikey': run.cfg['SUPABASE_ANON_KEY'], 'Authorization': f"Bearer {account['token']}"})
+    if out[0] >= 300:
+        raise Blocked(f'전체 로그아웃 {out[0]}')
+    _app(check, phone(fresh=False, expect='login'), '다시 켬')
+    return check.result()
+
+
+def p_auth_21(run, phone):
+    """X 는 시나리오의 '온보딩 끝' 대신 04-1b 계정 — 홈 계정은 묶음 2다. 앞 계정 상태를 안 물려받는지는 같다."""
+    check = Check()
+    _, first = _signed_in(run, 'basic')
+    _, second = _signed_in(run, 'new')
+    _app(check, phone(token_hash=first, second=second))
+    return check.result()
+
+
+def p_gate_02(run, phone):
+    check = Check()
+    for stage, screen in (('consented', '3b'), ('verified', '3c'), ('gate_done', '04-1')):
+        _, token = _signed_in(run, stage)
+        _app(check, phone(token_hash=token, expect=screen), stage)
+    return check.result()
+
+
+def p_gate_03(run, phone):
+    """시나리오의 넷째(홈 계정)는 묶음 2 — 동의 전 · 학생증 전 · 온보딩 중 셋."""
+    check = Check()
+    for stage in ('new', 'consented', 'basic'):
+        account, token = _signed_in(run, stage)
+        _patch(run, f"profiles?id=eq.{account['id']}", {'status': 'suspended'})
+        _app(check, phone(token_hash=token), stage)
+    return check.result()
+
+
+def _consents(run, account_id):
+    return _rows(run, f'user_consents?profile_id=eq.{account_id}&select=kind,version')
+
+
+def p_gate_08(run, phone):
+    check = Check()
+    account, token = _signed_in(run, 'new')
+    _app(check, phone(token_hash=token))
+    rows = _consents(run, account['id'])
+    check.that(sorted((r['kind'], r['version']) for r in rows) == [('privacy', CONSENT_VERSION), ('terms', CONSENT_VERSION)],
+               f'user_consents {rows}')
+    settings = _one(run, f"notification_settings?profile_id=eq.{account['id']}&select=marketing")
+    check.that(not settings.get('marketing'), f'marketing {settings}')
+    return check.result()
+
+
+def p_gate_09(run, phone):
+    check = Check()
+    account, token = _signed_in(run, 'new')
+    said = _app(check, phone(token_hash=token))
+    settings = _one(run, f"notification_settings?profile_id=eq.{account['id']}&select=marketing,marketing_consented_at")
+    check.that(settings.get('marketing') is True, f'marketing {settings}')
+    if said.get('tapped_at') and settings.get('marketing_consented_at'):
+        gap = abs((_at(settings['marketing_consented_at']) - _at(said['tapped_at'])).total_seconds())
+        check.that(gap <= 60, f"동의 시각이 누른 시각과 {gap:.0f}초 차이")
+    else:
+        check.that(False, f"시각 없음 — 앱 {said.get('tapped_at')} · 서버 {settings.get('marketing_consented_at')}")
+    return check.result()
+
+
+def p_gate_11(run, phone):
+    """앱은 "보기" 를 누르자마자 pass 를 말한다 — 브라우저가 뜨면 앱 프레임이 멎어 앱 쪽에선 기다릴 수 없다.
+    그래서 브라우저가 맨 위로 오는지는 여기서 1초 간격으로 10번까지 본다(처음 여는 브라우저는 5초를 넘기기도 한다)."""
+    check = Check()
+    _, token = _signed_in(run, 'new')
+    _app(check, phone(token_hash=token))
+    top = ''
+    for _ in range(10):
+        top = phone.top()
+        if top and tools.PACKAGE not in top:
+            break
+        time.sleep(1)
+    check.that(top and tools.PACKAGE not in top, f'맨 위 화면이 브라우저가 아님: {top or "못 읽음"}')
+    return check.result()
+
+
+def p_gate_13(run, phone):
+    check = Check()
+    account, token = _signed_in(run, 'new')
+    _app(check, phone(token_hash=token))
+    rows = _consents(run, account['id'])
+    check.that(len(rows) == 2, f'user_consents {len(rows)}행')
+    return check.result()
+
+
+def p_gate_52(run, phone):
+    check = Check()
+    account, token = _signed_in(run, 'verified')
+    university = _one(run, f"profiles?id=eq.{account['id']}&select=university_id").get('university_id') or _test_university(run)
+    name = _one(run, f'universities?id=eq.{university}&select=name').get('name')
+    if not name:
+        raise Blocked('테스트대학 이름을 못 읽음')
+    _app(check, phone(token_hash=token, university=name))
+    return check.result()
+
+
+def p_gate_54(run, phone):
+    check = Check()
+    account, token = _signed_in(run, 'verified')
+    _app(check, phone(token_hash=token))
+    saved = _one(run, f"profiles?id=eq.{account['id']}&select=major,student_number")
+    check.that(saved.get('major') == '컴퓨터공학과' and saved.get('student_number') == '21', f'profiles {saved}')
+    return check.result()
+
+
+def p_gate_56(run, phone):
+    """관문 앞 등록(A7) — 3c 에서 10초 기다린 뒤 1행, 저장해 관문이 열린 뒤 다시 켜도 같은 1행."""
+    check = Check()
+    account, token = _signed_in(run, 'verified')
+    tokens = f"push_tokens?profile_id=eq.{account['id']}&select=token"
+    _app(check, phone(token_hash=token), '3c 도착')
+    before = _rows(run, tokens)
+    check.that(len(before) == 1, f'저장 전 push_tokens {len(before)}행')
+    _app(check, phone(fresh=False), '저장')
+    after = _rows(run, tokens)
+    check.that(after == before, f'저장 뒤 push_tokens {after}(전 {before})')
+    return check.result()
+
+
+def p_onb_03(run, phone):
+    check = Check()
+    nickname = _nickname()
+    _basic(run, run.account('gate_done'), nickname=nickname)
+    _, token = _signed_in(run, 'gate_done')
+    _app(check, phone(token_hash=token, nickname=nickname))
+    return check.result()
+
+
+def p_onb_04(run, phone):
+    check = Check()
+    account = run.account('gate_done')
+    nickname = _nickname()
+    _basic(run, account, nickname=nickname)
+    _patch(run, f"profile_private?profile_id=eq.{account['id']}", {'phone_number': None})
+    _app(check, phone(token_hash=run.link(account['email']), nickname=nickname))
+    return check.result()
+
+
+def p_onb_06(run, phone):
+    return _on_phone('gate_done', year=datetime.now(SEOUL).year - 19)(run, phone)
+
+
+def _phone_stored(run, account_id, number, check):
+    """번호는 암호문으로 저장된다(사용자 결정 8) — 평문이 안 보이고 암호문 · 지인 대조 해시가 채워졌는지만 본다."""
+    row = _one(run, f'profile_private?profile_id=eq.{account_id}&select=phone_number,phone_hmac')
+    digits = number.replace('-', '')[1:]  # 010… → 10…(+82 뒤 모양)
+    check.that(row.get('phone_number') and digits not in str(row['phone_number']), f"phone_number {row.get('phone_number')!r}")
+    check.that(bool(row.get('phone_hmac')), 'phone_hmac 비어 있음')
+
+
+def p_onb_11(run, phone):
+    check = Check()
+    account, token = _signed_in(run, 'gate_done')
+    number = _phone_number()
+    _app(check, phone(token_hash=token, phone=number))
+    _phone_stored(run, account['id'], number, check)
+    return check.result()
+
+
+def p_onb_13(run, phone):
+    check = Check()
+    _, token = _signed_in(run, 'gate_done')
+    _app(check, phone(token_hash=token), '앱')
+    account = run.account('gate_done')
+    check.reply('API 10자리', _api(run, 'POST', '/profile-onboarding/basic-info', account['token'],
+                                  {**tools.basic_info(), 'phone_number': '011-123-4567'}), 200)
+    _phone_stored(run, account['id'], '011-123-4567', check)
+    return check.result()
+
+
+def _mbti_empty(run, phone):
+    check = Check()
+    account, token = _signed_in(run, 'gate_done')
+    _app(check, phone(token_hash=token))
+    saved = _one(run, f"profiles?id=eq.{account['id']}&select=mbti")
+    check.that(saved.get('mbti') is None, f'mbti {saved}')
+    return check.result()
+
+
+def p_onb_18(run, phone):
+    check = Check()
+    account, token = _signed_in(run, 'basic')
+    _app(check, phone(token_hash=token, kakao='  cm_test  '))
+    saved = _one(run, f"profile_private?profile_id=eq.{account['id']}&select=kakao_id")
+    check.that(saved.get('kakao_id') == 'cm_test', f'kakao_id {saved}')
+    return check.result()
+
+
+PHONE = {
+    'E-AUTH-05': p_auth_05, 'E-AUTH-16': p_auth_16, 'E-AUTH-17': p_auth_17, 'E-AUTH-20': p_auth_20, 'E-AUTH-21': p_auth_21,
+    'E-GATE-01': _on_phone('new'), 'E-GATE-02': p_gate_02, 'E-GATE-03': p_gate_03, 'E-GATE-07': _on_phone('new'),
+    'E-GATE-08': p_gate_08, 'E-GATE-09': p_gate_09, 'E-GATE-10': _on_phone('new'), 'E-GATE-11': p_gate_11,
+    'E-GATE-13': p_gate_13, 'E-GATE-14': _on_phone('new'), 'E-GATE-30': _on_phone('consented'),
+    'E-GATE-31': _on_phone('consented'), 'E-GATE-32': _on_phone('consented'), 'E-GATE-52': p_gate_52,
+    'E-GATE-53': _on_phone('verified'), 'E-GATE-54': p_gate_54, 'E-GATE-56': p_gate_56,
+    'E-ONB-01': _on_phone('gate_done'), 'E-ONB-02': _on_phone('gate_done'), 'E-ONB-03': p_onb_03, 'E-ONB-04': p_onb_04,
+    'E-ONB-06': p_onb_06, 'E-ONB-07': _on_phone('gate_done'), 'E-ONB-10': _on_phone('gate_done'), 'E-ONB-11': p_onb_11,
+    'E-ONB-12': _on_phone('gate_done'), 'E-ONB-13': p_onb_13, 'E-ONB-15': _on_phone('gate_done'), 'E-ONB-16': _mbti_empty,
+    'E-ONB-17': _mbti_empty, 'E-ONB-18': p_onb_18,
+}
+BUNDLES['area1-b1-phone'] = list(PHONE)
+
+
+def attempt_phone(run, case, phone):
+    """폰 가설 하나. 계정 준비가 안 되거나 앱이 막혔다고 하면 blocked."""
+    try:
+        return PHONE[case](run, phone)
     except Blocked as e:
         return 'blocked', str(e)

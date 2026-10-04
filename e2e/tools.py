@@ -371,14 +371,18 @@ class Run:
             self.remember(account)
         return {**account, 'token': token}
 
-    def sign_in(self, email):
-        """관리자 generate_link 의 1회용 토큰으로 로그인 — 메일이 나가지 않는다."""
+    def link(self, email):
+        """관리자 generate_link 의 1회용 토큰(token_hash) — 메일이 나가지 않는다. 폰 가설은 이것을 앱에 넘긴다."""
         status, body = admin(self.cfg, self.key, 'POST', 'generate_link', {'type': 'magiclink', 'email': email})
         hashed = (body or {}).get('hashed_token') or (body or {}).get('properties', {}).get('hashed_token')
         if status != 200 or not hashed:
             raise Blocked(f'generate_link {status}')
+        return hashed
+
+    def sign_in(self, email):
+        """[link] 로 받은 1회용 토큰으로 PC 쪽 로그인."""
         status, body = call('POST', f"{self.cfg['SUPABASE_URL']}/auth/v1/verify", {'apikey': self.cfg['SUPABASE_ANON_KEY']},
-                            {'type': 'magiclink', 'token_hash': hashed})
+                            {'type': 'magiclink', 'token_hash': self.link(email)})
         if status != 200:
             raise Blocked(f'verify {status}')
         return body['access_token']
