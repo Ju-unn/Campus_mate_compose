@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
 import 'area1.dart';
+import 'area4.dart';
 import 'support.dart';
 
 /// 가설 하나 = 앱을 한 번 켜서 도는 것. 진행 프로그램(`python -m e2e run`)이 앱을 켜고 우편함에 `{"case": 번호}` 를 넣는다.
@@ -11,6 +12,7 @@ import 'support.dart';
 /// 가설이 Map 을 돌려주면 pass 말에 같이 실어 보낸다(누른 시각 · 걸린 시간 같은 PC 판정 재료).
 final Map<String, Future<Object?> Function(WidgetTester tester, Map<String, dynamic> job)> cases = {
   ...area1Cases,
+  ...area4Cases,
   // 앱이 켜져 첫 화면이 그려지고 우편함 왕복이 된다.
   'SMOKE': (tester, job) async {
     await pumpUntil(tester, find.byType(Scaffold));

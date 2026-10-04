@@ -693,6 +693,6 @@ def attempt_phone(run, case, phone):
         result = PHONE[case](run, phone)
     except Blocked as e:
         return 'blocked', str(e)
-    if result[0] == 'fail' and phone.serial:
+    if result[0] == 'fail' and getattr(phone, 'serial', None):
         run.shot(phone.serial, case)
     return result

@@ -15,6 +15,7 @@ from pathlib import Path
 
 from e2e import area1, area2, area3
 from e2e import area1_b2  # noqa: F401 — 묶음 2 가설을 area1.PHONE · CASES · BUNDLES 에 더한다
+from e2e import area4  # noqa: F401 — 영역 4 가설을 같은 곳에 더한다
 from e2e.tools import (DEVICE_PORT, DEVICES, ROOT, TEXT, Hub, Run, adb, cleanup, ensure_no_real_users, env, latest, scenario_rows,
                        serial, service_key, snapshot_blocks, verdict)
 
