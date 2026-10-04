@@ -3,6 +3,7 @@
 비밀값(서비스 키)은 [service_key] 로 그때그때 받아 메모리에만 둔다 — 파일 · 결과 · 로그에 적지 않는다.
 """
 
+import contextlib
 import http.client
 import json
 import queue
@@ -86,10 +87,14 @@ class Hub:
         self._jobs.put({**(extra or {}), 'go': True})
 
     def wait(self, timeout):
-        """앱이 보낸 다음 말. [timeout] 초 안에 없으면 None."""
+        """앱이 보낸 다음 말. [timeout] 초 안에 없으면 None. 가설 시간 상한이 먼저 닿으면 None 이 아니라 [CaseTimeout]."""
+        left = _time_left()
+        capped = left is not None and left < timeout
         try:
-            return self._said.get(timeout=timeout)
+            return self._said.get(timeout=max(0, left) if capped else timeout)
         except queue.Empty:
+            if capped:
+                _expire('앱의 답을 기다리다 가설 시간 상한을 넘김')
             return None
 
     def result(self, timeout):
@@ -123,17 +128,91 @@ def serial(name, cfg):
     return cfg.get(f'E2E_DEVICE_{name}') or DEFAULT_SERIALS.get(name)
 
 
+# ── 시간 상한 ──────────────────────────────────────────────────────────────────────────────────
+# 에뮬 연락처 201명 넣기가 17분 넘게 걸려 SAFE-43 이 결과 없이 멈춘 일(10-05)에서 — 끝없이 기다리는 자리를 없앤다.
+# adb 명령 하나는 ADB_TIMEOUT 초, 가설 하나는 CASE_LIMIT 초(가설마다 CASE_LIMITS 로 늘림). 넘으면 [CaseTimeout] → 그 가설만 blocked.
+
+ADB_TIMEOUT = 120
+CASE_LIMIT = 420
+CASE_LIMITS = {}  # 가설 번호 → 초. 오래 걸리는 것이 스스로 적는다(연락처 201명 등)
+_deadline = None  # 가설 하나의 끝 시각(monotonic) — run_case 가 건다
+_patience = None  # 이 안에서 부르는 adb 명령 하나의 상한을 늘린다
+
+
+class CaseTimeout(Exception):
+    """가설 하나가 시간 상한을 넘김 — 결과는 fail 이 아니라 blocked(시간 초과)."""
+
+
+@contextlib.contextmanager
+def case_deadline(seconds):
+    global _deadline
+    _deadline = None if seconds is None else time.monotonic() + seconds
+    try:
+        yield
+    finally:
+        _deadline = None
+
+
+@contextlib.contextmanager
+def adb_patience(seconds):
+    """오래 걸리는 것이 알려진 adb 명령(연락처 스크립트 · 앱 설치)만 상한을 늘린다. 가설 상한은 그대로 걸려 있다."""
+    global _patience
+    before, _patience = _patience, seconds
+    try:
+        yield
+    finally:
+        _patience = before
+
+
+def _time_left():
+    return None if _deadline is None else _deadline - time.monotonic()
+
+
+def _expire(what):
+    """상한을 넘겼다 — 한 번만 던지고 상한을 푼다(터진 뒤 연락처 지우기 · 권한 되돌리기 같은 뒤처리가 같은 상한에 또 막히지 않게)."""
+    global _deadline
+    _deadline = None
+    raise CaseTimeout(what)
+
+
+def lift_deadline():
+    """뒤처리(연락처 지우기 · 권한 되돌리기)를 시작할 때 부른다 — 본문이 상한 바로 뒤에 끝나도 뒤처리의 첫 adb 가 호출 전에 막히지 않게.
+    이미 지난 상한만 푼다(한 가설에서 on_device 를 두 번 쓰는 SAFE-36 의 둘째 판은 아직 상한 안이다). 뒤처리 adb 도 명령마다 ADB_TIMEOUT 상한은 있다."""
+    global _deadline
+    if _deadline is not None and _deadline <= time.monotonic():
+        _deadline = None
+
+
+def _limited(cmd, what, **options):
+    allowed, left = _patience or ADB_TIMEOUT, _time_left()
+    if left is not None:
+        if left <= 0:
+            _expire(f'가설 시간 상한을 넘김({what} 를 부르기 전)')
+        allowed = min(allowed, left)
+    try:
+        return subprocess.run(cmd, timeout=allowed, **options).stdout
+    except subprocess.TimeoutExpired:
+        if left is not None and allowed >= left:
+            _expire(f'가설 시간 상한을 넘김({what} 가 끝나기 전)')
+        _expire(f'{what} 가 {allowed:.0f}초 안에 안 끝남')
+
+
 def adb(serial, *args, check=True):
-    return subprocess.run(['adb', '-s', serial, *args], **TEXT, check=check).stdout
+    return _limited(['adb', '-s', serial, *args], f'adb {" ".join(args)[:60]}', **TEXT, check=check)
+
+
+def adb_bytes(serial, *args, check=False):
+    """adb 출력을 바이트로 — 화면 사진 · uiautomator dump. [adb] 와 같은 상한을 쓴다."""
+    return _limited(['adb', '-s', serial, *args], f'adb {" ".join(args)[:60]}', capture_output=True, check=check)
 
 
 def devices():
-    return subprocess.run(['adb', 'devices'], **TEXT).stdout
+    return _limited(['adb', 'devices'], 'adb devices', **TEXT)
 
 
 def screencap(serial):
     """기기 화면 한 장(PNG 바이트)."""
-    return subprocess.run(['adb', '-s', serial, 'exec-out', 'screencap', '-p'], capture_output=True, check=True).stdout
+    return adb_bytes(serial, 'exec-out', 'screencap', '-p', check=True)
 
 
 def service_key():
@@ -350,14 +429,16 @@ def cleanup(cfg, key, root):
             print('재가입 제한 1행 지움')
 
 
-def form(url, token, fields, file, **options):
-    """multipart 한 번 — [file] = (칸 이름, 파일 이름, 바이트, Content-Type)."""
+def form(url, token, fields, file=None, method='POST', **options):
+    """multipart 한 번 — [file] = (칸 이름, 파일 이름, 바이트, Content-Type), 없으면 칸만 보낸다. [method] 는 PUT /me/photos 처럼 POST 가 아닌 것."""
     boundary = uuid.uuid4().hex
     parts = [f'--{boundary}\r\nContent-Disposition: form-data; name="{k}"\r\n\r\n{v}\r\n'.encode() for k, v in fields.items()]
-    name, filename, data, kind = file
-    parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"; filename="{filename}"\r\n'
-                 f'Content-Type: {kind}\r\n\r\n'.encode() + data + f'\r\n--{boundary}--\r\n'.encode())
-    return call('POST', url, {'Authorization': f'Bearer {token}'}, raw=(b''.join(parts), f'multipart/form-data; boundary={boundary}'), **options)
+    if file:
+        name, filename, data, kind = file
+        parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"; filename="{filename}"\r\n'
+                     f'Content-Type: {kind}\r\n\r\n'.encode() + data + b'\r\n')
+    parts.append(f'--{boundary}--\r\n'.encode())
+    return call(method, url, {'Authorization': f'Bearer {token}'}, raw=(b''.join(parts), f'multipart/form-data; boundary={boundary}'), **options)
 
 
 def batch(name):

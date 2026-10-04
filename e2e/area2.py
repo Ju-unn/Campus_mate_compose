@@ -15,7 +15,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
-from e2e import tools
+from e2e import batch_gate, tools
 from e2e.area1 import SEOUL, SV_REQUIRED, TINY_JPEG, Check, _api, _detail, _form, _patch, _rows, _test_university
 from e2e.tools import Blocked
 
@@ -139,7 +139,9 @@ def _new_id():
 
 def _batch(name):
     """Cloud Scheduler job 을 지금 한 번 돌린다(tools.batch = gcloud). 응답 본문은 못 읽고 끝도 기다려 주지 않는다 —
-    그래서 가설은 DB · 저장소를 다시 읽어 결과를 본다. 실제 호출이라 대장이 시각을 정해 돌린다."""
+    그래서 가설은 DB · 저장소를 다시 읽어 결과를 본다. 실제 호출이라 대장이 시각을 정해 돌린다 —
+    실행 금지 시간(batch_gate)이면 gcloud 를 부르지 않고 blocked."""
+    batch_gate.check(name)
     try:
         tools.batch(name)
     except (subprocess.CalledProcessError, OSError) as e:

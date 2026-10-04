@@ -123,7 +123,8 @@ Future<bool> _menuOnLongPress(WidgetTester tester, Finder target) async {
   await pumpUntil(tester, target);
   await tester.ensureVisible(target.first);
   await tester.pump();
-  await tester.longPress(target.first);
+  // 위젯 가운데가 아니라 안의 글자를 누른다 — MessageBubble 은 줄 폭 전체를 차지하는 Align 이라 가운데는 말풍선 옆 빈 자리다(상대 말풍선은 왼쪽에 붙는다).
+  await tester.longPress(find.descendant(of: target.first, matching: find.byType(Text)).first);
   final shown = await appears(tester, find.text(_bubbleMenuLabel), const Duration(seconds: 2)) != null;
   if (shown) {
     Navigator.of(tester.element(find.text(_bubbleMenuLabel))).pop();
