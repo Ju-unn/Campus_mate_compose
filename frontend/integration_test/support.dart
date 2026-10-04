@@ -31,9 +31,10 @@ class E2eBlocked implements Exception {
 }
 
 /// 앱이 [name] 에서 멈추고 PC 가 무언가 하기를 기다린다(e2e/tools.py Run.phone 의 midway) — PC 가 go 를 넣으면 이어 간다.
-Future<void> step(String name) async {
+/// PC 가 go 에 실어 준 값(midway 가 돌려준 dict)을 돌려준다 — 안 실었으면 `{'go': true}` 뿐이다.
+Future<Map<String, dynamic>> step(String name) async {
   await say({'step': name});
-  await hear();
+  return hear();
 }
 
 /// 진행 프로그램에 말한다(결과 · 중간 값).

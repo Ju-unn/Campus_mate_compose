@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:campus_mate/chat/view/chat_input_bar.dart';
 import 'package:campus_mate/chat/view/chat_list_row.dart';
 import 'package:campus_mate/chat/view/chat_room_screen.dart';
@@ -9,16 +10,24 @@ import 'package:campus_mate/chat/view/system_message.dart';
 import 'package:campus_mate/chat/view/trust_banner.dart';
 import 'package:campus_mate/chat/viewmodel/chat_room_view_model.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
+import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/community/view/poll_card.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
+import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/friend_review/view/friend_review_card.dart';
 import 'package:campus_mate/friend_review/view/friend_review_compose_sheet.dart';
 import 'package:campus_mate/friend_review/view/partner_reviews_section.dart';
 import 'package:campus_mate/friend_review/view/received_reviews_screen.dart';
 import 'package:campus_mate/friend_review/view/written_reviews_screen.dart';
 import 'package:campus_mate/friend_review/viewmodel/friend_review_compose_view_model.dart';
+import 'package:campus_mate/matching/view/conversations_screen.dart';
 import 'package:campus_mate/me/view/me_load_error.dart';
 import 'package:campus_mate/me/view/my_profile_screen.dart';
+import 'package:campus_mate/safety/model/report_reason.dart';
+import 'package:campus_mate/safety/view/block_list_screen.dart';
+import 'package:campus_mate/safety/view/partner_profile_screen.dart';
+import 'package:campus_mate/safety/view/report_sheet.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -30,6 +39,7 @@ import 'area1.dart';
 import 'support.dart';
 
 part 'area3_b2.dart';
+part 'area3_safe.dart';
 
 /// 영역 3 폰 A 한 대 1차 — 채팅 · 지인 리뷰 화면 읽기 19개. PC 쪽은 e2e/area3_phone.py 의 같은 번호(계정 · 매칭 · 메시지 ·
 /// 리뷰를 준비하고 앱이 말한 값을 판정한다). 앱은 화면을 읽기만 하고 본 것을 Map 으로 돌려준다.
@@ -323,4 +333,5 @@ final Map<String, Area1Case> area3Cases = {
   'E-REV-32': _session(_reviewList),
   'E-REV-33': _session(_reviewList),
   ...area3Cases2,
+  ...area3CasesSafe,
 };

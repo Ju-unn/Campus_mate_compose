@@ -1,0 +1,414 @@
+part of 'area3.dart';
+
+// 영역 3 안전 폰 A 한 대 — 신고 · 차단 · 정지에서 앱이 누르고 화면을 읽는 18개. PC 쪽은 e2e/area3_safe_phone.py 의 같은 번호(계정 · 매칭 ·
+// 메시지 · 차단 · 정지를 준비하고, 신고 · 차단 · 나감 행은 DB 에서 센다). 앱은 누른 뒤 화면에서 본 것을 Map 으로 돌려준다.
+// 화면 글자 · 위젯은 시나리오가 아니라 지금 화면 코드(chat_room_screen · chat_room_menu_sheet · bubble_report_menu · report_sheet ·
+// block_confirm_sheet · partner_profile_screen · block_list_screen · poll_card · account_suspended_screen)에서 옮겼다.
+// 망 끊기는 PC 가 한다 — 앱은 step 에서 멈춰 PC 가 끝내고 go 를 넣기를 기다린다.
+
+const _reportAction = '신고하기'; // 방 ⋯ 줄 · 14c 링크 · 투표 카드 버튼 · 신고 시트 버튼이 같은 글자다
+const _blockAction = '차단하기'; // chat_room_menu_sheet.dart · partner_profile_screen.dart
+const _blockConfirm = '차단'; // block_confirm_sheet.dart confirmLabel
+const _moreTooltip = '더보기'; // 방 앱바 ⋯ · 내 투표 글 …
+const _bubbleMenuLabel = '이 메시지 신고'; // bubble_report_menu.dart
+const _offlineLine = '네트워크 연결을 확인해 주세요'; // common/failure.dart:16
+const _suspendedTitle = '이용이 제한된 계정이에요'; // account_suspended_screen.dart
+const _supportEmail = 'appmailerl4538@gmail.com'; // account_suspended_screen.dart supportEmail
+const _withdrawLink = '탈퇴하기'; // account_suspended_screen.dart 글자 버튼(A5)
+const _logoutButton = '로그아웃'; // account_suspended_screen.dart AppButton
+const _blocksTitle = '차단 목록'; // settings_screen.dart 줄 · block_list_screen.dart 앱바
+const _blocksEmpty = '아직 차단한 상대가 없어요'; // block_list_screen.dart:304
+const _blocksEmptySub = '신고하거나 차단한 상대가 있으면\n여기에 모여요.'; // block_list_screen.dart
+const _contactNotice = '연락처로 차단한 지인은 여기가 아니라 설정 > 연락처 차단에서 관리해요.'; // block_list_screen.dart
+const _communityTab = '커뮤니티'; // app_bottom_nav.dart
+
+bool _has(Finder finder) => finder.evaluate().isNotEmpty;
+
+// ── 신고 시트 · 방 메뉴 ──────────────────────────────────────────────────────────────────────────────
+
+/// 신고 시트의 주색 "신고하기" 버튼(SafetySheetButton). 같은 글자의 메뉴 줄 · 링크와 겹치지 않게 종류까지 짚는다.
+Finder get _sheetSubmit => find.widgetWithText(SafetySheetButton, _reportAction);
+
+bool _submitOn(WidgetTester tester) => tester.widget<SafetySheetButton>(_sheetSubmit).onPressed != null;
+
+Finder get _noteField => find.descendant(of: find.byKey(reportNoteBoxKey), matching: find.byType(TextField));
+
+/// 방 앱바 ⋯ 를 눌러 [row]("신고하기" · "차단하기") 줄을 고른다.
+Future<void> _roomMenu(WidgetTester tester, String row) async {
+  await tap(tester, find.byTooltip(_moreTooltip));
+  await pumpUntil(tester, find.text(row));
+  await tap(tester, find.text(row));
+}
+
+/// 방을 열고 ⋯ → "신고하기" 로 신고 시트까지.
+Future<void> _openReportSheet(WidgetTester tester, Map<String, dynamic> job) async {
+  await _openRoom(tester, job['nickname'] as String);
+  await pumpUntil(tester, find.byType(ChatInputBar));
+  await _roomMenu(tester, _reportAction);
+  await pumpUntil(tester, find.text(_reportTitle));
+}
+
+/// 14c 상대 프로필을 라우터로 바로 연다(방 머리말은 눌리지 않는다 — _partnerReviews 와 같은 길). 제목은 프로필을 읽은 뒤에 뜬다.
+Future<void> _openPartnerProfile(WidgetTester tester, Map<String, dynamic> job) async {
+  await arrive(tester, 'home');
+  unawaited(GoRouter.of(tester.element(screen('home'))).push('${AppRoutes.partnerProfile}/${job['profile_id']}'));
+  await pumpUntil(tester, find.text('${job['nickname']} 님 프로필'));
+}
+
+/// 14c 맨 아래 링크 줄("신고하기" · "차단하기")의 [label] 을 누른다.
+Future<void> _profileLink(WidgetTester tester, String label) async {
+  final link = find.text(label);
+  await tester.scrollUntilVisible(link, 300,
+      scrollable: find.descendant(of: find.byType(PartnerProfileScreen), matching: find.byType(Scrollable)).first);
+  await tap(tester, link);
+}
+
+/// 시트의 "신고하기" 를 누르고 토스트 글자를 읽는다.
+Future<String?> _submitReport(WidgetTester tester) async {
+  await tap(tester, _sheetSubmit);
+  return _toast(tester);
+}
+
+/// 신고 · 차단이 끝나 대화 목록에 닿았는지와 그 방이 목록에서 사라졌는지(목록을 다시 읽을 시간을 준다).
+Future<Map<String, Object?>> _afterSafety(WidgetTester tester, String nickname, {String? toast}) async {
+  await pumpUntil(tester, find.byType(ConversationsScreen), timeout: const Duration(seconds: 15));
+  await wait(tester, const Duration(seconds: 3));
+  return {
+    'toast': toast,
+    'on_list': _has(find.byType(ConversationsScreen)),
+    'room_listed': _has(_row(nickname)),
+  };
+}
+
+/// 사유 [reason] 으로 신고한다 — 입구는 방 ⋯ 또는 14c([fromProfile]).
+Future<Map<String, Object?>> _reportThrough(WidgetTester tester, Map<String, dynamic> job, ReportReason reason,
+    {required bool fromProfile}) async {
+  if (fromProfile) {
+    await _openPartnerProfile(tester, job);
+    await _profileLink(tester, _reportAction);
+    await pumpUntil(tester, find.text(_reportTitle));
+  } else {
+    await _openReportSheet(tester, job);
+  }
+  await tap(tester, find.text(reason.label));
+  final toast = await _submitReport(tester);
+  return _afterSafety(tester, job['nickname'] as String, toast: toast);
+}
+
+/// E-SAFE-08 · 09 — "기타" 를 골라 메모 칸을 연다.
+Future<void> _pickOther(WidgetTester tester, Map<String, dynamic> job) async {
+  await _openReportSheet(tester, job);
+  await tap(tester, find.text(ReportReason.other.label));
+}
+
+/// 방 메뉴 "차단하기" → 확인 시트("$nickname 님을 차단할까요?")까지.
+Future<String> _openBlockConfirm(WidgetTester tester, Map<String, dynamic> job) async {
+  final nickname = job['nickname'] as String;
+  final title = '$nickname 님을 차단할까요?'; // block_confirm_sheet.dart
+  await _openRoom(tester, nickname);
+  await pumpUntil(tester, find.byType(ChatInputBar));
+  await _roomMenu(tester, _blockAction);
+  await pumpUntil(tester, find.text(title));
+  return title;
+}
+
+// ── E-SAFE-05 말풍선 길게 누르기 ─────────────────────────────────────────────────────────────────────
+
+Finder _bubbleOf(String body) => find.byWidgetPredicate((w) => w is MessageBubble && w.message.body == body);
+
+Finder _systemOf(String body) => find.byWidgetPredicate((w) => w is SystemMessage && w.body == body);
+
+/// [target] 을 길게 눌러 "이 메시지 신고" 팝업이 뜨는지 — 떴으면 신고하지 않고 닫는다.
+Future<bool> _menuOnLongPress(WidgetTester tester, Finder target) async {
+  await pumpUntil(tester, target);
+  await tester.ensureVisible(target.first);
+  await tester.pump();
+  await tester.longPress(target.first);
+  final shown = await appears(tester, find.text(_bubbleMenuLabel), const Duration(seconds: 2)) != null;
+  if (shown) {
+    Navigator.of(tester.element(find.text(_bubbleMenuLabel))).pop();
+    await wait(tester, const Duration(milliseconds: 500));
+  }
+  return shown;
+}
+
+// ── 차단 목록 16f ────────────────────────────────────────────────────────────────────────────────────
+
+/// 홈 → 나 탭 → 톱니바퀴 → 설정 → "차단 목록".
+Future<void> _openBlockList(WidgetTester tester) async {
+  await arrive(tester, 'home');
+  await tap(tester, _tab('나'));
+  await pumpUntil(tester, find.byIcon(AppIcons.settings));
+  await tap(tester, find.byIcon(AppIcons.settings));
+  await arrive(tester, 'settings');
+  final row = find.text(_blocksTitle);
+  if (!_has(row)) {
+    await tester.scrollUntilVisible(row, 300, scrollable: find.byType(Scrollable).first);
+  }
+  await tap(tester, row);
+  await pumpUntil(tester, find.descendant(of: find.byType(AppBar), matching: find.text(_blocksTitle)));
+}
+
+// ── 투표 글 E-SAFE-11 ────────────────────────────────────────────────────────────────────────────────
+
+Finder _pollCard(String question) => find.byWidgetPredicate((w) => w is PollCard && w.poll.question == question);
+
+final Map<String, Area1Case> area3CasesSafe = {
+  'E-SAFE-01': _session((tester, job) async {
+    await _openReportSheet(tester, job);
+    // 사유 순서는 화면 위치(위 → 아래)로 읽는다 — enum 순서가 아니라 보이는 순서다.
+    final labels = [for (final reason in ReportReason.values) reason.label];
+    final tops = {for (final label in labels) label: tester.getTopLeft(find.text(label)).dy};
+    final shown = (labels.toList()..sort((a, b) => tops[a]!.compareTo(tops[b]!)));
+    final rows = find.byWidgetPredicate((w) => w is Semantics && w.properties.inMutuallyExclusiveGroup == true).evaluate().length;
+    final before = _submitOn(tester);
+    await tap(tester, find.text(ReportReason.spam.label)); // 대조군: 하나 고르면 켜진다
+    return {
+      'title': _has(find.text(_reportTitle)) ? _reportTitle : null,
+      'reasons': shown,
+      'rows': rows,
+      'submit_before': before,
+      'submit_after': _submitOn(tester),
+    };
+  }),
+  'E-SAFE-05': _session((tester, job) async {
+    await _openRoom(tester, job['nickname'] as String);
+    await pumpUntil(tester, find.byType(ChatInputBar));
+    // 상대 말풍선이 대조군이다 — 거기서 메뉴가 안 뜨면 아래 둘의 "없음" 은 길게 누르기가 안 된 것일 수도 있다.
+    final onTheirs = await _menuOnLongPress(tester, _bubbleOf(job['theirs'] as String));
+    final onMine = await _menuOnLongPress(tester, _bubbleOf(job['mine'] as String));
+    final onSystem = await _menuOnLongPress(tester, _systemOf(job['system'] as String));
+    return {'menu_on_mine': onMine, 'menu_on_system': onSystem, 'menu_on_theirs': onTheirs};
+  }),
+  'E-SAFE-07': _session((tester, job) => _reportThrough(tester, job, ReportReason.spam, fromProfile: true)),
+  'E-SAFE-08': _session((tester, job) async {
+    await _openReportSheet(tester, job);
+    final boxBefore = _has(find.byKey(reportNoteBoxKey)); // 사유를 고르기 전에는 메모 칸이 없다
+    await tap(tester, find.text(ReportReason.other.label));
+    final box = _has(find.byKey(reportNoteBoxKey));
+    final empty = _submitOn(tester);
+    await type(tester, _noteField, '   ');
+    final blank = _submitOn(tester);
+    await type(tester, _noteField, job['note'] as String);
+    final filled = _submitOn(tester);
+    final toast = await _submitReport(tester);
+    return {
+      'note_box_before': boxBefore,
+      'note_box': box,
+      'submit_empty': empty,
+      'submit_blank': blank,
+      'submit_filled': filled,
+      ...await _afterSafety(tester, job['nickname'] as String, toast: toast),
+    };
+  }),
+  'E-SAFE-09': _session((tester, job) async {
+    await _pickOther(tester, job);
+    await type(tester, _noteField, _pasted(job));
+    final counter = find.descendant(
+      of: find.byKey(reportNoteBoxKey),
+      matching: find.byWidgetPredicate((w) => w is Text && RegExp(r'^\d+ / \d+$').hasMatch(w.data ?? '')),
+    );
+    final length = fieldText(tester, _noteField).runes.length;
+    final shown = _has(counter) ? tester.widget<Text>(counter.first).data : null;
+    final toast = await _submitReport(tester);
+    return {
+      'input_len': length,
+      'counter': shown,
+      ...await _afterSafety(tester, job['nickname'] as String, toast: toast),
+    };
+  }),
+  'E-SAFE-11': _session((tester, job) async {
+    await arrive(tester, 'home');
+    await tap(tester, _tab(_communityTab));
+    await pumpUntil(tester, find.byType(PollCard));
+    final mine = _pollCard(job['own'] as String);
+    final theirs = _pollCard(job['question'] as String);
+    final feed = find.byType(Scrollable).first;
+    // 새 글이 위다 — 내 글(나중에 올림) → 남의 글 순으로 내려가며, 화면에 있을 때 바로 읽는다(목록은 보이는 카드만 만든다).
+    await tester.scrollUntilVisible(mine, 300, scrollable: feed);
+    final ownEntry = _has(find.descendant(of: mine, matching: find.text(_reportAction)));
+    final ownMore = _has(find.descendant(of: mine, matching: find.byTooltip(_moreTooltip)));
+    await tester.scrollUntilVisible(theirs, 300, scrollable: feed);
+    final reportButton = find.descendant(of: theirs, matching: find.text(_reportAction));
+    final entry = _has(reportButton);
+    await tap(tester, reportButton);
+    await pumpUntil(tester, find.text(_reportTitle));
+    await tap(tester, find.text(_abuse));
+    final toast = await _submitReport(tester);
+    await wait(tester, const Duration(seconds: 1)); // 시트가 닫히는 애니메이션
+    return {
+      'entry': entry,
+      'own_entry': ownEntry,
+      'own_more': ownMore,
+      'toast': toast,
+      'card': _has(theirs),
+    };
+  }),
+  'E-SAFE-13': _session((tester, job) async {
+    final nickname = job['nickname'] as String;
+    await _openRoom(tester, nickname);
+    await pumpUntil(tester, find.byType(ChatInputBar));
+    await step('api'); // PC 가 같은 상대를 API 로 먼저 신고한다 — 신고 + 차단 + 나감이 이미 일어났다
+    await _roomMenu(tester, _reportAction);
+    await pumpUntil(tester, find.text(_reportTitle));
+    await tap(tester, find.text(_abuse));
+    final toast = await _submitReport(tester);
+    return _afterSafety(tester, nickname, toast: toast);
+  }),
+  'E-SAFE-15': _session((tester, job) async {
+    await _openReportSheet(tester, job);
+    await tap(tester, find.text(_abuse));
+    final toast = await _submitReport(tester);
+    await wait(tester, const Duration(seconds: 2));
+    return {
+      'toast': toast,
+      'in_room': _has(find.byType(ChatRoomScreen)),
+      'on_list': _has(find.byType(ConversationsScreen)),
+    };
+  }),
+  'E-SAFE-18': _session((tester, job) => _reportThrough(tester, job, ReportReason.spam, fromProfile: false)),
+  'E-SAFE-26': _session((tester, job) async {
+    final title = await _openBlockConfirm(tester, job);
+    await tap(tester, find.widgetWithText(SafetySheetButton, _cancel));
+    await wait(tester, const Duration(seconds: 1));
+    return {
+      'sheet_seen': true, // _openBlockConfirm 이 시트 제목을 기다려 봤다(못 보면 거기서 실패한다)
+      'sheet_closed': !_has(find.text(title)),
+      'in_room': _has(find.byType(ChatRoomScreen)),
+      'on_list': _has(find.byType(ConversationsScreen)),
+    };
+  }),
+  'E-SAFE-27': _session((tester, job) async {
+    final nickname = job['nickname'] as String;
+    await _openPartnerProfile(tester, job);
+    await _profileLink(tester, _blockAction);
+    await pumpUntil(tester, find.text('$nickname 님을 차단할까요?'));
+    await tap(tester, find.widgetWithText(SafetySheetButton, _blockConfirm));
+    return _afterSafety(tester, nickname);
+  }),
+  'E-SAFE-28': _session((tester, job) async {
+    await arrive(tester, 'home');
+    unawaited(GoRouter.of(tester.element(screen('home'))).push('${AppRoutes.partnerProfile}/${job['profile_id']}'));
+    final toast = await _toast(tester); // 상대가 나를 막았다 — 14c 는 "프로필을 찾을 수 없어요" 토스트와 함께 닫힌다
+    await wait(tester, const Duration(seconds: 2));
+    return {
+      'toast': toast,
+      'profile_open': _has(find.byType(PartnerProfileScreen)),
+      'on_home': _has(screen('home')),
+    };
+  }),
+  'E-SAFE-30': _session((tester, job) async {
+    await _openBlockList(tester);
+    await pumpUntil(tester, find.byKey(blockedRowKey));
+    await wait(tester, const Duration(seconds: 1));
+    final rows = find.byKey(blockedRowKey);
+    final lines = <Map<String, Object?>>[];
+    for (var i = 0; i < rows.evaluate().length; i++) {
+      final texts = tester.widgetList<Text>(find.descendant(of: rows.at(i), matching: find.byType(Text))).map((t) => t.data ?? '').toList();
+      lines.add({'nickname': texts.first, 'date': texts.length > 1 ? texts[1] : null, 'button': texts.last});
+    }
+    final avatars = find.byKey(blockedAvatarKey);
+    final drawn = [
+      for (var i = 0; i < avatars.evaluate().length; i++)
+        if (_has(find.descendant(of: avatars.at(i), matching: find.byType(CachedNetworkImage)))) i,
+    ];
+    return {
+      'rows': lines,
+      'avatars': drawn.length,
+      'notice': _has(find.text(_contactNotice)),
+      'reason_words': _has(find.textContaining('신고')) || _has(find.textContaining('사유')),
+    };
+  }),
+  'E-SAFE-31': _session((tester, job) async {
+    await _openBlockList(tester);
+    final empty = await appears(tester, find.text(_blocksEmpty), const Duration(seconds: 15)) != null;
+    return {
+      'empty': empty,
+      'sub': _has(find.text(_blocksEmptySub)),
+      'rows': find.byKey(blockedRowKey).evaluate().length,
+    };
+  }),
+  'E-SAFE-50': _session((tester, job) async {
+    await _toConversations(tester);
+    await pumpUntil(tester, _row(job['nickname'] as String));
+    await step('suspend'); // PC 가 status=suspended 로 바꾼다
+    // 당겨서 새로고침 — 손가락 끌기가 안 먹으면 같은 새로고침 표시기를 직접 띄운다(어느 쪽인지 pulled 로 말한다).
+    var pulled = 'drag';
+    final list = find.descendant(of: find.byType(RefreshIndicator), matching: find.byType(CustomScrollView)).first;
+    await tester.fling(list, const Offset(0, 400), 1000);
+    var at = await appears(tester, screen('suspended'), const Duration(seconds: 6));
+    if (at == null) {
+      pulled = 'show';
+      unawaited(tester.state<RefreshIndicatorState>(find.byType(RefreshIndicator)).show());
+      at = await appears(tester, screen('suspended'), const Duration(seconds: 10));
+    }
+    must(at != null, '정지 안내 화면이 안 나옴(새로고침 $pulled)');
+    final buttons = tester.widgetList<AppButton>(find.byType(AppButton)).map((b) => b.label).toList();
+    final result = <String, Object?>{
+      'title': _has(find.text(_suspendedTitle)),
+      'support': _has(find.textContaining(_supportEmail)),
+      'buttons': buttons,
+      'withdraw_link': _has(find.widgetWithText(TextButton, _withdrawLink)),
+      'pulled': pulled,
+    };
+    final router = GoRouter.of(tester.element(screen('suspended')));
+    final stays = <String, bool>{};
+    for (final path in [AppRoutes.home, AppRoutes.conversations]) {
+      router.go(path);
+      await wait(tester, const Duration(seconds: 2));
+      stays[path] = _has(screen('suspended')) && !_has(screen('home')) && !_has(find.byType(ConversationsScreen));
+    }
+    return {...result, 'stays': stays};
+  }),
+  'E-SAFE-57': _session((tester, job) async {
+    await arrive(tester, 'suspended'); // 정지된 채 로그인 — 첫 요청이 403
+    final again = await step('relogin'); // PC 가 정지를 풀고 새 로그인 토큰을 go 에 실어 준다
+    await tap(tester, button(_logoutButton));
+    await arrive(tester, 'login', timeout: const Duration(seconds: 15));
+    await signIn(again['token_hash'] as String); // 같은 프로세스 — 로그아웃마다 계정 상태가 새로 시작하는지(Ruling 36)
+    await arrive(tester, 'home', timeout: const Duration(seconds: 40));
+    final text = job['text'] as String;
+    await _openRoom(tester, job['nickname'] as String);
+    await pumpUntil(tester, find.byType(ChatInputBar));
+    await type(tester, _chatField, text);
+    await tap(tester, _sendButton);
+    await wait(tester, const Duration(seconds: 3)); // 서버 응답과 실시간 줄이 둘 다 올 시간
+    return {
+      'suspended_first': true, // arrive 가 못 닿았으면 위에서 실패했다
+      'home_after': true,
+      'bubble': _bubbles(tester).contains(text),
+    };
+  }),
+  'E-SAFE-60': _session((tester, job) async {
+    await _openReportSheet(tester, job);
+    await tap(tester, find.text(ReportReason.spam.label));
+    await step('cut'); // PC 가 망을 끊는다
+    await tap(tester, _sheetSubmit);
+    final error = await appears(tester, find.text(_offlineLine), const Duration(seconds: 25));
+    final first = {
+      'error': error != null,
+      'sheet_open': _has(find.text(_reportTitle)),
+      'toast': _toastNow(tester),
+      'in_room': _has(find.byType(ChatRoomScreen)),
+    };
+    await step('restore'); // PC 가 reports 0 을 확인하고 망을 켠다
+    final toast = await _submitReport(tester);
+    return {'first': first, 'second': await _afterSafety(tester, job['nickname'] as String, toast: toast)};
+  }),
+  'E-SAFE-61': _session((tester, job) async {
+    final title = await _openBlockConfirm(tester, job);
+    await step('cut'); // PC 가 망을 끊는다
+    await tap(tester, find.widgetWithText(SafetySheetButton, _blockConfirm));
+    final error = await appears(tester, find.text(_offlineLine), const Duration(seconds: 25));
+    await wait(tester, const Duration(seconds: 1));
+    final line = find.text(_offlineLine);
+    return {
+      'error': error != null,
+      'in_room': _has(find.byType(ChatRoomScreen)),
+      'confirm_closed': !_has(find.text(title)),
+      // 입력창 위 한 줄 — 문구가 입력 바보다 위쪽에 그려진다(chat_room_screen.dart `_ErrorLine`).
+      'above_input': _has(line) && _has(find.byType(ChatInputBar)) &&
+          tester.getTopLeft(line.first).dy < tester.getTopLeft(find.byType(ChatInputBar)).dy,
+    };
+  }),
+};

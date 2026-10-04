@@ -106,6 +106,37 @@ class MidwayTest(Base):
         self.assertEqual(said['acted_before_go'], ['home'])  # PC 가 하기 전에 앱이 이어 가면 안 된다
 
 
+class MidwayExtraTest(Base):
+    """midway 가 돌려준 dict 는 앱을 다시 보내는 go 에 실린다(E-SAFE-57 — 두 번째 로그인 토큰). 그 밖의 값은 지금과 똑같이 {'go': True}."""
+
+    def go_the_app_heard(self, midway):
+        hub = tools.Hub(0)
+        self.addCleanup(hub.close)
+        got = {}
+
+        def app():
+            import urllib.request
+            base = f'http://127.0.0.1:{hub.port}'
+            urllib.request.urlopen(f'{base}/hear', timeout=5).read()
+            post = lambda m: urllib.request.urlopen(urllib.request.Request(f'{base}/say', data=json.dumps(m).encode(), method='POST'), timeout=5)
+            post({'case': 'X', 'step': 'home'})
+            got['go'] = json.load(urllib.request.urlopen(f'{base}/hear', timeout=5))
+            post({'case': 'X', 'result': 'pass'})
+
+        with mock.patch.object(tools, 'adb', return_value=''):
+            import threading
+            threading.Thread(target=app, daemon=True).start()
+            self.assertEqual(self.run.phone(hub, 'S', {'case': 'X'}, timeout=5, midway=midway)['result'], 'pass')
+        return got['go']
+
+    def test_a_dict_from_midway_rides_on_the_go(self):
+        self.assertEqual(self.go_the_app_heard(lambda step: {'token_hash': 'second'}), {'go': True, 'token_hash': 'second'})
+
+    def test_none_or_a_non_dict_is_the_plain_go(self):
+        for value in (None, ('a', 'b'), 'x', 0):
+            self.assertEqual(self.go_the_app_heard(lambda step, value=value: value), {'go': True}, value)
+
+
 class WithdrawTest(Base):
     def blocks(self, before, after):
         return {('GET', '/rest/v1/signup_blocks'): [Reply(200, before), Reply(200, after)]}

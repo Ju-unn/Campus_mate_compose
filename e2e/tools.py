@@ -81,9 +81,9 @@ class Hub:
                 q.get_nowait()
         self._jobs.put(job)
 
-    def go(self):
-        """중간에 멈춘 앱을 다시 보낸다 — [tell] 과 달리 남은 말을 지우지 않는다."""
-        self._jobs.put({'go': True})
+    def go(self, extra=None):
+        """중간에 멈춘 앱을 다시 보낸다 — [tell] 과 달리 남은 말을 지우지 않는다. [extra](dict)는 앱이 `step` 의 답으로 듣는다."""
+        self._jobs.put({**(extra or {}), 'go': True})
 
     def wait(self, timeout):
         """앱이 보낸 다음 말. [timeout] 초 안에 없으면 None."""
@@ -562,7 +562,8 @@ class Run:
         """앱을 새로 켜서 가설 하나. 앱이 말한 결과(dict)를, 시간 안에 말이 없으면 None.
 
         [midway] 가 있으면 앱이 `step` 을 말하고 멈춘 사이에 PC 가 그것을 부르고({'go': True} 로 앱을 다시 보낸다)
-        — 홈에 있는 동안 정지를 거는 가설(E-GATE-04)처럼 앱 실행 중간에 서버 상태를 바꿀 때.
+        — 홈에 있는 동안 정지를 거는 가설(E-GATE-04)처럼 앱 실행 중간에 서버 상태를 바꿀 때. [midway] 가 dict 를 돌려주면
+        그 값이 go 에 실려 앱의 `step` 이 돌려받는다(E-SAFE-57 의 두 번째 로그인 토큰).
 
         앞 프로세스를 `run-as … kill -9` 로 끝낸다(debug 빌드라 된다). `am kill` 은 방금 HOME 으로 내린 "직전 앱"
         (oom adj 700)을 죽이지 않아 monkey 가 옛 프로세스를 꺼내기만 하고 main 이 다시 안 돈다(10-04 실폰 확인).
@@ -583,6 +584,6 @@ class Run:
             said = hub.wait(timeout)
             if said is None or 'result' in said:  # 멈추기 전에 끝났으면(실패 등) 그대로 돌려준다
                 return said
-            midway(said)
-            hub.go()
+            extra = midway(said)  # dict 를 돌려주면 앱이 go 와 함께 듣는다(새 로그인 토큰처럼 멈춘 사이 PC 가 만든 값)
+            hub.go(extra if isinstance(extra, dict) else None)
         return hub.result(timeout)
