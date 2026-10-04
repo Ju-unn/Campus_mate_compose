@@ -7,6 +7,7 @@ import 'area1.dart';
 import 'area3.dart';
 import 'area4.dart';
 import 'area2.dart';
+import 'area2_c.dart';
 import 'area2_b.dart';
 import 'support.dart';
 
@@ -18,6 +19,7 @@ final Map<String, Future<Object?> Function(WidgetTester tester, Map<String, dyna
   ...area3Cases,
   ...area4Cases,
   ...area2Cases,
+  ...area2cCases,
   ...area2bCases,
   // 앱이 켜져 첫 화면이 그려지고 우편함 왕복이 된다.
   'SMOKE': (tester, job) async {
