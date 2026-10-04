@@ -100,11 +100,15 @@ void main() {
   });
 
   // A7 — 앱이 켜져 있으면 검토 결과 알림은 배너 대신 화면을 갱신한다. 없으면 30초 폴링까지 검토 중 화면에 남는다.
-  testWidgets('검토 중 화면에서 검토 결과 알림이 오면 바로 다음 화면으로 넘어간다', (tester) async {
-    final gate = FakeVerificationGateRepository()..nextResult = const Success(VerificationGate.needsStudentVerification);
-    final verification = FakeStudentVerificationRepository()
+  late FakeVerificationGateRepository gate;
+  late FakeStudentVerificationRepository verification;
+  late FakePushMessaging messaging;
+
+  Future<void> pumpPendingVerification(WidgetTester tester) async {
+    gate = FakeVerificationGateRepository()..nextResult = const Success(VerificationGate.needsStudentVerification);
+    verification = FakeStudentVerificationRepository()
       ..nextFetchStatusResult = const Success(VerificationOutcome(status: 'pending'));
-    final messaging = FakePushMessaging(token: 't', granted: false);
+    messaging = FakePushMessaging(token: 't', granted: false);
     final container = ProviderContainer(
       overrides: [
         verificationGateRepositoryProvider.overrideWithValue(gate),
@@ -122,6 +126,10 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
     expect(find.byType(StudentVerificationScreen), findsOneWidget);
+  }
+
+  testWidgets('검토 중 화면에서 검토 결과 알림이 오면 바로 다음 화면으로 넘어간다', (tester) async {
+    await pumpPendingVerification(tester);
 
     verification.nextFetchStatusResult = const Success(VerificationOutcome(status: 'verified'));
     gate.nextResult = const Success(VerificationGate.complete);
@@ -129,5 +137,17 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(StudentVerificationScreen), findsNothing);
+  });
+
+  // 관문만 다시 물으면 거절은 그대로 needsStudentVerification 이라 화면이 안 바뀐다 — 3b 상태까지 다시 읽어야 한다.
+  testWidgets('검토 중 화면에서 거절 알림이 오면 바로 거절 배너를 보여준다', (tester) async {
+    await pumpPendingVerification(tester);
+
+    verification.nextFetchStatusResult =
+        const Success(VerificationOutcome(status: 'rejected', rejectReason: '사진이 흐려요'));
+    messaging.emitMessage({'route': 'verification'});
+    await tester.pumpAndSettle();
+
+    expect(find.text('인증이 거절됐어요'), findsOneWidget);
   });
 }
