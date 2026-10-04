@@ -20,7 +20,7 @@ from datetime import datetime, timedelta, timezone
 from e2e import area1, area3, area4, tools
 from e2e.area1 import Check, _api, _app, _rows
 from e2e.area3 import _count, _link, _match, _patch, _review, _review_post, _send
-from e2e.area3_phone import ALREADY, MISSING, THREE_TAGS, _me, _ok, _person
+from e2e.area3_phone import ALREADY, MISSING, THREE_TAGS, _me, _ok, _permitted, _person
 
 LIMIT = 1000  # 채팅 글 상한(코드포인트) — chat_input_bar.dart messageMaxLength
 COMMENT_LIMIT = 100  # 리뷰 한마디 상한 — friend_review_tags.dart friendReviewCommentMaxLength
@@ -111,12 +111,15 @@ def p_chat_25(run, phone):
     check.that(said.get('input') == '테스트', f"입력칸 {said.get('input', MISSING)!r}(기대 되돌아온 '테스트')")
     got = _sent(run, me, match_id)
     check.that(got == [], f'messages {got}(기대 새 행 0)')
-    return check.result()
+    # 판정은 처음 잡힌 문구다 — Realtime 이 끊기면 copyWith 가 오류 줄을 지워 끝 값은 None 일 수 있다
+    return check.result(f"오류 줄은 Realtime 끊김이 지우는지: {said.get('error_cleared', MISSING)}, 끊김 배너 {said.get('disconnected', MISSING)}"
+                        ' — copyWith 규칙(chat_room_ui_state.dart:106) 때문에 몇 초 뒤 사라질 수 있음(결함 후보 낮음)')
 
 
 def p_chat_43(run, phone):
     """판 둘 — banner(방금 만든 방) · sheet(25시간 지난 방). 판마다 계정을 새로 만들어 앱을 한 번씩 켠다."""
     check = Check()
+    notes = []
     for variant in ('banner', 'sheet'):
         me, token, partner, match_id = _room(run)
         if variant == 'sheet':  # 24시간 뒤부터 시트, 48시간 안이라 아직 수락할 수 있다
@@ -128,8 +131,10 @@ def p_chat_43(run, phone):
         part.that(len(lines) == 1, f'수락 줄 {len(lines)}개(기대 1)')
         mine = _rows(run, f"match_participants?match_id=eq.{match_id}&profile_id=eq.{me['id']}&select=trust_response")
         part.that([r.get('trust_response') for r in mine] == ['accept'], f'trust_response {mine}(기대 accept 한 줄)')
+        if 'room_open' in said:  # 두 번 누르면 pop 이 두 번 불려 방이 닫힐 수 있다 — 판정엔 안 넣고 적기만
+            notes.append(f"{variant}: 방 열림 {said['room_open']}")
         check.problems += [f'{variant}: {p}' for p in part.problems]
-    return check.result()
+    return check.result('; '.join(notes))
 
 
 # ── 지인 리뷰 쓰기 ───────────────────────────────────────────────────────────────────────────────────
@@ -277,6 +282,7 @@ PHONE2 = {
     'E-REV-07': _compose(ONE_TAG, (SPACE, 5), ONE_TAG, None),
     'E-REV-11': p_rev_11, 'E-REV-25': p_rev_25, 'E-REV-36': _reported(False), 'E-REV-37': _reported(True),
 }
+PHONE2 = {name: _permitted(case) for name, case in PHONE2.items()}
 
 area1.PHONE.update(PHONE2)
 area3.BUNDLES['area3-phone-2'] = list(PHONE2)

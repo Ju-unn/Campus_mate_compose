@@ -13,9 +13,10 @@
                  (뷰모델 isLoadingMore)와 화면 줄 수로 본다.
 """
 
+import functools
 from datetime import datetime, timezone
 
-from e2e import area1, area3
+from e2e import area1, area3, notify
 from e2e.area1 import Check, _api, _app
 from e2e.area3 import _count, _link, _match, _messages, _patch, _review, _review_post, _send
 from e2e.tools import Blocked
@@ -293,6 +294,21 @@ def _partner_reviews(count):
     return case
 
 
+def _permitted(case):
+    """폰을 켜기 전에 알림 권한을 이 앱에 주고(안 주면 시스템 권한 창이 앱을 가려 앱이 답을 못 한다), 끝나면 — 실패해도 — 되돌린다."""
+    @functools.wraps(case)
+    def wrapped(run, phone):
+        try:
+            notify.grant_notifications(phone.serial)
+        except Blocked:
+            pass  # 안드로이드 12 이하는 이 권한이 없다 = 권한 창도 없다. 그대로 진행
+        try:
+            return case(run, phone)
+        finally:
+            notify.revoke_notifications(phone.serial)
+    return wrapped
+
+
 PHONE = {
     'E-CHAT-06': p_chat_06, 'E-CHAT-08': _badges(True, 3, None), 'E-CHAT-09': _badges(False, 100, '99+'),
     'E-CHAT-18': _paging(120, [50, 100, 120], 2), 'E-CHAT-19': _paging(50, [50], 1),
@@ -302,6 +318,7 @@ PHONE = {
     'E-REV-23': p_rev_23, 'E-REV-29': _partner_reviews(3), 'E-REV-30': _partner_reviews(2), 'E-REV-32': p_rev_32,
     'E-REV-33': p_rev_33,
 }
+PHONE = {name: _permitted(case) for name, case in PHONE.items()}
 
 area1.PHONE.update(PHONE)
 area3.BUNDLES['area3-phone-1'] = list(PHONE)
