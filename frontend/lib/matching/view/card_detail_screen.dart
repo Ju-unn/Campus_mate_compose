@@ -262,7 +262,8 @@ class _SchoolLine extends StatelessWidget {
     if (parts.isEmpty) {
       return const SizedBox.shrink();
     }
-    // 졸업모는 학교 줄 덩어리 가운데에 둔다(02_SCHOOL_ROW_HEIGHT_FIX `Mz21i` 등 flow-center).
+    // 졸업모 = 학교 줄 덩어리 가운데(flow-center, 02_SCHOOL_ROW_HEIGHT_FIX `Mz21i` 등), 로고 = 첫 줄 가운데
+    // (first-line-center, SchoolLabel 안). 글자가 한 줄이면 둘이 같은 높이다.
     return Row(
       children: [
         const Icon3d(AppIcon3d.graduationCap, size: 28),
