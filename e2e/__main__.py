@@ -18,6 +18,7 @@ from e2e import area1, area2, area3, area3_safe
 from e2e import area1_b2  # noqa: F401 — 묶음 2 가설을 area1.PHONE · CASES · BUNDLES 에 더한다
 from e2e import area1_b3  # 묶음 3(사진 세트) — 같은 방식
 from e2e import area4  # noqa: F401 — 영역 4 가설을 같은 곳에 더한다
+from e2e import area2_phone  # noqa: F401 — 영역 2 폰 A 가설을 area1.PHONE · BUNDLES 에 더한다
 from e2e import area4_set2  # noqa: F401 — 영역 4 설정 2차(FAQ · 초대 · 로그아웃 · 탈퇴)
 from e2e.tools import (DEVICE_PORT, DEVICES, ROOT, TEXT, Hub, Run, adb, cleanup, ensure_no_real_users, env, latest, scenario_rows,
                        serial, service_key, snapshot_blocks, verdict)
