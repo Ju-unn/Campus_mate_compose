@@ -14,6 +14,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -75,6 +76,10 @@ class Hub:
             while not q.empty():
                 q.get_nowait()
         self._jobs.put(job)
+
+    def go(self):
+        """중간에 멈춘 앱을 다시 보낸다 — [tell] 과 달리 남은 말을 지우지 않는다."""
+        self._jobs.put({'go': True})
 
     def wait(self, timeout):
         """앱이 보낸 다음 말. [timeout] 초 안에 없으면 None."""
@@ -180,7 +185,11 @@ class Blocked(Exception):
 BUCKETS = ('avatars', 'profile-photos', 'student-id-temp', 'heart-task-proofs')
 BLOCKS_SNAPSHOT = 'signup_blocks_시작.json'  # E2E_결과/ 안 — 이 밖의 재가입 제한만 시험이 만든 것이다
 KEEP_FILE = 'KEEP.txt'  # E2E_결과/ 안 — 적힌 id 는 무슨 일이 있어도 지우지 않는다
-STAGES = ('new', 'consented', 'pending', 'verified', 'gate_done', 'basic')
+# 계정 단계 = "여기까지 끝냈다". basic 뒤는 서버 온보딩 순서(onboarding_progress._STEPS) 그대로, home = bio 까지.
+STAGES = ('new', 'consented', 'pending', 'verified', 'gate_done', 'basic', 'kakao', 'photos', 'appearance', 'interests',
+          'my_traits', 'survey', 'avatar', 'ideal_conditions', 'ideal_traits', 'ideal_note', 'home')
+OLD_CONSENT_VERSION = '2026-09-01'  # 서버 상수(consents/policy.py)보다 옛 판 — 재동의 가설이 데이터로 흉내 낸다
+PHOTO = ROOT / 'frontend' / 'assets' / 'images' / 'mascot-male.png'  # 실제 사람 사진 대신 앱에 든 그림(SafeSearch 통과)
 
 
 def mail_base(cfg):
@@ -296,6 +305,25 @@ def cleanup(cfg, key, root):
             print('재가입 제한 1행 지움')
 
 
+def form(url, token, fields, file):
+    """multipart 한 번 — [file] = (칸 이름, 파일 이름, 바이트, Content-Type)."""
+    boundary = uuid.uuid4().hex
+    parts = [f'--{boundary}\r\nContent-Disposition: form-data; name="{k}"\r\n\r\n{v}\r\n'.encode() for k, v in fields.items()]
+    name, filename, data, kind = file
+    parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"; filename="{filename}"\r\n'
+                 f'Content-Type: {kind}\r\n\r\n'.encode() + data + f'\r\n--{boundary}--\r\n'.encode())
+    return call('POST', url, {'Authorization': f'Bearer {token}'}, raw=(b''.join(parts), f'multipart/form-data; boundary={boundary}'))
+
+
+def batch(name):
+    """Cloud Scheduler job `campus-mate-<name>` 을 지금 한 번 돌린다(정리 배치 = cleanup). 끝을 기다리지 않는다 —
+    가설이 DB 를 다시 읽어 결과가 보일 때까지 기다린다.
+    ponytail: gcloud 를 그대로 부른다(DEPLOY.md §정리 배치 "확인"). 스케줄러 SA ID 토큰으로 /batch/* 를 직접 부르는 길로
+    바꾸려면 이 함수만 바꾸면 된다(tokenCreator 부여 · 회수가 따라온다)."""
+    subprocess.run(['gcloud', 'scheduler', 'jobs', 'run', f'campus-mate-{name}', '--location=asia-northeast3'],
+                   capture_output=True, text=True, check=True, shell=True)  # 윈도는 gcloud 가 .cmd 라 shell 로 부른다
+
+
 def basic_info():
     """04-1 기본 정보 — 닉네임은 영문 5자 무작위(중복 금지), 번호도 무작위."""
     return {'nickname': ''.join(random.choices(string.ascii_letters, k=5)), 'birth_year': datetime.now().year - 22,
@@ -352,8 +380,10 @@ class Run:
         accounts = [a for a in accounts if a['n'] != account['n']] + [{k: account[k] for k in ('n', 'email', 'id', 'stage', 'at')}]
         path.write_text(json.dumps(accounts, ensure_ascii=False, indent=1), encoding='utf-8')
 
-    def account(self, stage):
-        """새 시험 계정을 [stage] 까지 올려 {n, email, id, stage, at, token} 으로. 어느 단계든 안 되면 [Blocked]."""
+    def account(self, stage, old_consent=False, **basic):
+        """새 시험 계정을 [stage] 까지 올려 {n, email, id, stage, at, token} 으로. 어느 단계든 안 되면 [Blocked].
+        [old_consent] 면 동의를 옛 판 행으로 넣는다(재동의 가설 — 온보딩 API 는 동의 판을 안 본다, next-step 만 본다).
+        [basic] 은 04-1 값을 정해 넣는다(같은 전화번호 가설)."""
         if stage not in STAGES:
             raise ValueError(f'{stage} — 계정 단계는 {STAGES}')
         n, email = self.alias()
@@ -364,9 +394,12 @@ class Run:
                    'at': datetime.now(timezone.utc).isoformat(timespec='seconds')}
         self.remember(account)
         token = self.sign_in(email)
-        steps = ['consented', 'pending'] if stage == 'pending' else ['consented', 'verified', 'gate_done', 'basic']
+        steps = ['consented', 'pending'] if stage == 'pending' else [s for s in STAGES[1:] if s != 'pending']
         for step in steps[:steps.index(stage) + 1] if stage != 'new' else []:
-            self._step(step, account, token)
+            if step == 'consented' and old_consent:
+                self._old_consent(account)
+            else:
+                self._step(step, account, token, basic)
             account['stage'] = step
             self.remember(account)
         return {**account, 'token': token}
@@ -387,15 +420,66 @@ class Run:
             raise Blocked(f'verify {status}')
         return body['access_token']
 
-    def _step(self, step, account, token):
+    def _old_consent(self, account):
+        """user_consents 는 고치지 않는 기록이라 서비스 키도 update 권한이 없다 — 옛 판 행을 처음부터 넣는다."""
+        reply = rest(self.cfg, self.key, 'POST', 'user_consents',
+                     [{'profile_id': account['id'], 'kind': k, 'version': OLD_CONSENT_VERSION} for k in ('privacy', 'terms')])
+        if reply[0] >= 300:
+            raise Blocked(f'옛 판 동의 {reply[0]} {reply[1]}')
+
+    def _photos(self, account, token):
+        url = f"{self.cfg['API_BASE_URL']}/profile-onboarding/photos"
+        data = PHOTO.read_bytes()
+        for position in (0, 1):
+            fields = {'position': position, 'is_avatar_source': 'true' if position == 0 else 'false'}
+            reply = form(url, token, fields, ('photo', f'e2e{position}.png', data, 'image/png'))
+            if reply[0] >= 300:
+                return reply
+        return reply
+
+    def _avatar(self, account, status='ready'):
+        """아바타는 AI 대신 DB 완성 행(계획 확인 9) — 그림은 avatars 버킷 `{id}/` 에 올려 뒷정리가 같이 지운다."""
+        path = f"{account['id']}/e2e-{uuid.uuid4().hex}.png"
+        uploaded = call('POST', f"{self.cfg['SUPABASE_URL']}/storage/v1/object/avatars/{path}",
+                        {'apikey': self.key, 'Authorization': f'Bearer {self.key}'}, raw=(PHOTO.read_bytes(), 'image/png'))
+        if uploaded[0] >= 300:
+            return uploaded
+        return rest(self.cfg, self.key, 'POST', 'profile_avatars',
+                    {'profile_id': account['id'], 'storage_path': path, 'status': status})
+
+    def _step(self, step, account, token, basic=None):
+        on = lambda path, body: api(self.cfg, 'POST', f'/profile-onboarding/{path}', token, body)
         if step == 'consented':
             reply = api(self.cfg, 'POST', '/me/consents', token, {'agreed': ['terms', 'privacy']})
         elif step in ('pending', 'verified'):  # 검토는 사람이 하는 일이라 DB 로 바로 둔다
             reply = rest(self.cfg, self.key, 'PATCH', f"profiles?id=eq.{account['id']}", {'student_verification': step})
         elif step == 'gate_done':
             reply = api(self.cfg, 'POST', '/school-info', token, {'department': '컴퓨터공학과', 'student_number': f"e2e{account['n']}"})
+        elif step == 'basic':
+            reply = on('basic-info', {**basic_info(), **(basic or {})})
+        elif step == 'kakao':
+            reply = on('kakao-id', {'kakao_id': f"e2e{account['n']}"})
+        elif step == 'photos':
+            reply = self._photos(account, token)
+        elif step == 'appearance':
+            reply = on('appearance-type', {'animal_type': 'dog', 'impression_type': 'kind'})
+        elif step == 'interests':
+            reply = on('interests', {'tags': ['카페가기', '자전거', '패션']})
+        elif step == 'my_traits':
+            reply = on('my-traits', {'tags': ['깨끗한 피부', '좋은 비율', '달달한 목소리']})
+        elif step == 'survey':
+            reply = on('survey', {'answers': {str(axis): 0.5 for axis in range(1, 10)}, 'religion': 'none', 'is_smoker': False})
+        elif step == 'avatar':
+            reply = self._avatar(account)
+        elif step == 'ideal_conditions':
+            reply = on('ideal-conditions', {'preferred_age_min': 20, 'preferred_age_max': 30,
+                                            'preferred_animal_types': ['dog'], 'preferred_impression_types': ['kind']})
+        elif step == 'ideal_traits':
+            reply = on('ideal-traits', {'tags': ['연상', '연하', '동갑']})
+        elif step == 'ideal_note':
+            reply = on('ideal-note', {'note': '대화가 잘 통하는 사람이면 좋겠어요'})
         else:
-            reply = api(self.cfg, 'POST', '/profile-onboarding/basic-info', token, basic_info())
+            reply = on('bio', {'bio': '주말엔 카페에서 책을 읽어요.'})
         if reply[0] >= 300:
             raise Blocked(f'{step} {reply[0]} {reply[1]}')
 
@@ -415,8 +499,11 @@ class Run:
             return []
         return [json.loads(l) for l in self.results.read_text(encoding='utf-8').splitlines() if l.strip()]
 
-    def phone(self, hub, serial, job, timeout=180):
+    def phone(self, hub, serial, job, timeout=180, midway=None):
         """앱을 새로 켜서 가설 하나. 앱이 말한 결과(dict)를, 시간 안에 말이 없으면 None.
+
+        [midway] 가 있으면 앱이 `step` 을 말하고 멈춘 사이에 PC 가 그것을 부르고({'go': True} 로 앱을 다시 보낸다)
+        — 홈에 있는 동안 정지를 거는 가설(E-GATE-04)처럼 앱 실행 중간에 서버 상태를 바꿀 때.
 
         앞 프로세스를 `run-as … kill -9` 로 끝낸다(debug 빌드라 된다). `am kill` 은 방금 HOME 으로 내린 "직전 앱"
         (oom adj 700)을 죽이지 않아 monkey 가 옛 프로세스를 꺼내기만 하고 main 이 다시 안 돈다(10-04 실폰 확인).
@@ -433,4 +520,10 @@ class Run:
             return {'case': job['case'], 'result': 'blocked', 'note': '앞 앱 프로세스가 꺼지지 않음(debug 빌드인가 — run-as 는 debug 만 된다)'}
         adb(serial, 'shell', 'monkey', '-p', PACKAGE, '-c', 'android.intent.category.LAUNCHER', '1')
         hub.tell(job)
+        if midway:
+            said = hub.wait(timeout)
+            if said is None or 'result' in said:  # 멈추기 전에 끝났으면(실패 등) 그대로 돌려준다
+                return said
+            midway(said)
+            hub.go()
         return hub.result(timeout)
