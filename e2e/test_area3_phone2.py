@@ -302,10 +302,21 @@ class AcceptTest(Phone2):
 
     def test_43_double_tap_leaves_one_accept_line_for_banner_and_sheet(self):
         (result, note), app = self.case('E-CHAT-43', self.good)
-        self.assertEqual((result, note), ('pass', ''))
+        self.assertEqual(result, 'pass')
         self.assertEqual(app.jobs, [{'token_hash': 'h', 'nickname': self.nick(2), 'variant': 'banner'},
                                     {'token_hash': 'h', 'nickname': self.nick(4), 'variant': 'sheet'}])
         self.assert_all_home()
+
+    def test_43_note_records_room_open_per_variant_and_a_silent_app_still_passes(self):
+        def open_by_variant(job):
+            return {**self.good(job), 'room_open': job['variant'] == 'banner'}
+        (result, note), _ = self.case('E-CHAT-43', open_by_variant)
+        self.assertEqual(result, 'pass')
+        self.assertIn('banner: 방 열림 True', note)
+        self.assertIn('sheet: 방 열림 False', note)
+        (result, note), _ = self.case('E-CHAT-43', self.good)  # room_open 을 안 말함
+        self.assertEqual(result, 'pass')
+        self.assertNotIn('True', note)
 
     def test_43_sheet_room_is_older_than_24_hours_and_banner_room_is_not(self):
         self.case('E-CHAT-43', self.good)

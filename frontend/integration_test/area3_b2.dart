@@ -61,6 +61,8 @@ Future<Map<String, Object?>> _acceptTwice(WidgetTester tester, Map<String, dynam
   final matchId = tester.widget<ChatRoomScreen>(room).matchId;
   if (job['variant'] == 'sheet') {
     await pumpUntil(tester, find.text(_sheetTitle));
+    await tester.pump(const Duration(milliseconds: 800)); // 시트가 올라오는 동안은 버튼이 제자리가 아니다
+    await tester.pump(const Duration(milliseconds: 800));
     final accept = button(_acceptSheet);
     await tester.tap(accept);
     await tester.tap(accept, warnIfMissed: false);
@@ -69,11 +71,16 @@ Future<Map<String, Object?>> _acceptTwice(WidgetTester tester, Map<String, dynam
     await tap(tester, button(_acceptBanner));
     final confirm = find.widgetWithText(TextButton, _acceptConfirm);
     await pumpUntil(tester, confirm);
+    await tester.pump(const Duration(milliseconds: 800)); // 창이 멈춘 뒤에 누른다
+    await tester.pump(const Duration(milliseconds: 800));
     await tester.tap(confirm);
     await tester.tap(confirm, warnIfMissed: false);
   }
   await wait(tester, const Duration(seconds: 4)); // 응답 · 방 다시 읽기
-  return {'error': container.read(chatRoomViewModelProvider(matchId)).errorMessage};
+  return {
+    'error': container.read(chatRoomViewModelProvider(matchId)).errorMessage,
+    'room_open': find.byType(ChatRoomScreen).evaluate().isNotEmpty, // 판정엔 안 쓴다 — 두 번 누른 pop 이 방을 닫았는지 기록
+  };
 }
 
 // ── 지인 리뷰 쓰기 ───────────────────────────────────────────────────────────────────────────────────

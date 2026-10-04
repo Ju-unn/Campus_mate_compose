@@ -119,6 +119,7 @@ def p_chat_25(run, phone):
 def p_chat_43(run, phone):
     """판 둘 — banner(방금 만든 방) · sheet(25시간 지난 방). 판마다 계정을 새로 만들어 앱을 한 번씩 켠다."""
     check = Check()
+    notes = []
     for variant in ('banner', 'sheet'):
         me, token, partner, match_id = _room(run)
         if variant == 'sheet':  # 24시간 뒤부터 시트, 48시간 안이라 아직 수락할 수 있다
@@ -130,8 +131,10 @@ def p_chat_43(run, phone):
         part.that(len(lines) == 1, f'수락 줄 {len(lines)}개(기대 1)')
         mine = _rows(run, f"match_participants?match_id=eq.{match_id}&profile_id=eq.{me['id']}&select=trust_response")
         part.that([r.get('trust_response') for r in mine] == ['accept'], f'trust_response {mine}(기대 accept 한 줄)')
+        if 'room_open' in said:  # 두 번 누르면 pop 이 두 번 불려 방이 닫힐 수 있다 — 판정엔 안 넣고 적기만
+            notes.append(f"{variant}: 방 열림 {said['room_open']}")
         check.problems += [f'{variant}: {p}' for p in part.problems]
-    return check.result()
+    return check.result('; '.join(notes))
 
 
 # ── 지인 리뷰 쓰기 ───────────────────────────────────────────────────────────────────────────────────
