@@ -61,6 +61,13 @@ def real_ai_gate(env=None):
         raise Blocked('실제 AI 호출(비용) — E2E_REAL_AI=1 일 때만 돈다')
 
 
+def notice_memo(new, limit=5, width=80):
+    """우리 앱의 새 알림 실제 "제목 / 본문" — 틀렸을 때 메모가 진단이 된다. 처음 [limit] 건만, 글은 repr(보이지 않는 글자까지)로 [width] 자까지.
+    [new] 는 parse_notifications 가 우리 앱 것만 거른 목록이라 다른 앱 알림은 들어오지 않는다."""
+    shown = ' · '.join(f'{n.title[:width]!r} / {n.text[:width]!r}' for n in new[:limit])
+    return (shown + (f' 외 {len(new) - limit}건' if len(new) > limit else '')) or '없음'
+
+
 def tap_point(xml, labels):
     """uiautomator 덤프에서 text 나 content-desc 가 [labels] 중 하나인 첫 노드의 가운데 (x, y). 없으면 None.
     덤프 원문은 저장하지 않는다 — 호출한 쪽이 좌표만 쓴다."""
@@ -234,9 +241,9 @@ def p_card_02(run, phone):
         check.that(got, '배치 뒤 90초 안에 A 의 daily_cards 가 안 생김')
         if not got:
             return
-        new = notify.wait_new(phone.serial, before, seconds=30)
+        new = notify.wait_new(phone.serial, before, seconds=30, match=lambda n: (n.title, n.text) == (CARD_TITLE, CARD_BODY))
         arrived = [n for n in new if (n.title, n.text) == (CARD_TITLE, CARD_BODY)]
-        check.that(arrived, f'30초 안에 알림 "{CARD_TITLE} / {CARD_BODY}" 없음(새 알림 {len(new)}건)')
+        check.that(arrived, f'30초 안에 알림 "{CARD_TITLE} / {CARD_BODY}" 없음(새 알림 {len(new)}건: {notice_memo(new)})')
         if arrived:
             notify.tap_notification(phone.serial, CARD_TITLE)
             time.sleep(1)
@@ -259,14 +266,17 @@ def p_ref_18(run, phone):
     referrer, token = _signed_in(run, 'home')
     _app(check, phone(token_hash=token))
     code = area4_set2._code(run, referrer['id'])
+    # 기기 토큰이 서버에 올라와야 가입 알림이 이 폰에 닿는다 — 없으면 알림 시험이 아니라 준비 실패(p_card_02 와 같은 기다림)
+    if not _wait_for(lambda: _rows(run, f"push_tokens?profile_id=eq.{referrer['id']}&select=token"), 30):
+        raise Blocked('30초 안에 기기 토큰이 서버에 안 올라옴 — 알림 권한 · FCM 확인')
     before = notify.read_notifications(phone.serial)
     notify.background(phone.serial)
     friend = run.account('ideal_note')
     nickname = _one(run, f"profiles?id=eq.{friend['id']}&select=nickname").get('nickname') or ''
     check.reply('코드 입력', _api(run, 'POST', '/referral/redeem', friend['token'], {'code': code}), 200)
     want = (FRIEND_TITLE, f'{nickname} 님이 가입했어요, 리뷰를 남겨 주세요')
-    new = notify.wait_new(phone.serial, before, seconds=30)
-    check.that(any((n.title, n.text) == want for n in new), f'30초 안에 알림 "{want[0]} / {want[1]}" 없음(새 알림 {len(new)}건)')
+    new = notify.wait_new(phone.serial, before, seconds=30, match=lambda n: (n.title, n.text) == want)
+    check.that(any((n.title, n.text) == want for n in new), f'30초 안에 알림 "{want[0]} / {want[1]}" 없음(새 알림 {len(new)}건: {notice_memo(new)})')
     return check.result()
 
 

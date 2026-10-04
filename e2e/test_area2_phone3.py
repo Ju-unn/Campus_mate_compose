@@ -219,7 +219,7 @@ class CardNotificationTest(CaseBase):
                    mock.patch.object(notify, 'revoke_notifications', lambda s: None),
                    mock.patch.object(notify, 'read_notifications', lambda s: calls.append('read') or before),
                    mock.patch.object(notify, 'background', lambda s: calls.append('background')),
-                   mock.patch.object(notify, 'wait_new', lambda s, b, count=1, seconds=0: calls.append(('wait_new', b == before, seconds)) or list(new)),
+                   mock.patch.object(notify, 'wait_new', lambda s, b, count=1, seconds=0, match=None: calls.append(('wait_new', b == before, seconds, match is not None)) or list(new)),
                    mock.patch.object(notify, 'tap_notification', lambda s, title: calls.append(('tap', title)))]
         for patcher in patches:
             patcher.start()
@@ -234,7 +234,7 @@ class CardNotificationTest(CaseBase):
         result, phone, calls = self.run_case()
         self.assertEqual(result[0], 'pass', result)
         # 알림 목록을 먼저 읽어 두고(앞 알림과 섞이지 않게) → HOME → 배치 → 새 알림 → 누르기
-        self.assertEqual([c for c in calls if c != 'read'], ['background', ('batch', 'daily-cards'), ('wait_new', True, 30), ('tap', '오늘의 카드가 도착했어요')])
+        self.assertEqual([c for c in calls if c != 'read'], ['background', ('batch', 'daily-cards'), ('wait_new', True, 30, True), ('tap', '오늘의 카드가 도착했어요')])
         self.assertLess(calls.index('read'), calls.index('background'))
         self.assertEqual(phone.jobs[0]['name_age'], f'Abcde, {area2_phone3.now_seoul().year - 2004 + 1}')
         self.assertEqual(phone.jobs[0]['school'], '테스트대학')
@@ -261,17 +261,19 @@ class CardNotificationTest(CaseBase):
 class ReferralNotificationTest(CaseBase):
     BODY = 'Abcde 님이 가입했어요, 리뷰를 남겨 주세요'
 
-    def run_case(self, new, daytime=True):
+    def run_case(self, new, daytime=True, tokens=1):
         calls = []
         before = [notify.Notice('old', '남은 알림', '', 'c')]
-        patches = [mock.patch.object(notify, 'require_daytime', (lambda now=None: None) if daytime else mock.Mock(side_effect=Blocked('밤'))),
+        patches = [mock.patch.object(area2_phone3.time, 'monotonic', side_effect=iter(range(0, 10000))),
+                   mock.patch.object(notify, 'require_daytime', (lambda now=None: None) if daytime else mock.Mock(side_effect=Blocked('밤'))),
                    mock.patch.object(notify, 'read_notifications', lambda s: calls.append('read') or before),
                    mock.patch.object(notify, 'background', lambda s: calls.append('background')),
-                   mock.patch.object(notify, 'wait_new', lambda s, b, count=1, seconds=0: calls.append(('wait_new', b == before, seconds)) or list(new))]
+                   mock.patch.object(notify, 'wait_new', lambda s, b, count=1, seconds=0, match=None: calls.append(('wait_new', b == before, seconds, match is not None)) or list(new))]
         for patcher in patches:
             patcher.start()
             self.addCleanup(patcher.stop)
-        rules = [('POST', '/referral/redeem', lambda b, u: calls.append('redeem') or Reply(200, {'referrer_id': 'x'})),
+        rules = [('GET', 'push_tokens', lambda b, u: Reply(200, [{'token': 't'}] * tokens)),
+                 ('POST', '/referral/redeem', lambda b, u: calls.append('redeem') or Reply(200, {'referrer_id': 'x'})),
                  ('GET', 'select=nickname', lambda b, u: Reply(200, [{'nickname': 'Abcde'}])),
                  ('GET', 'select=referral_code', lambda b, u: Reply(200, [{'referral_code': 'ABCDE2'}]))]
         phone = FakePhone()
@@ -283,13 +285,32 @@ class ReferralNotificationTest(CaseBase):
         result, phone, calls = self.run_case([got])
         self.assertEqual(result[0], 'pass', result)
         # 코드 입력 전에 앞 알림을 읽어 두고(새 알림만 보려고) → HOME → 코드 입력 → 그 목록을 기준으로 새 알림 대기
-        self.assertEqual(calls, ['read', 'background', 'redeem', ('wait_new', True, 30)])
+        self.assertEqual(calls, ['read', 'background', 'redeem', ('wait_new', True, 30, True)])  # 기다리던 알림이 올 때까지(match) 기다린다
         self.assertEqual(self.fake.bodies('POST', '/referral/redeem'), [{'code': 'ABCDE2'}])
         self.assertIn('token_hash', phone.jobs[0])
 
+    def test_no_device_token_blocks_before_the_friend_signs_up(self):
+        # 추천인 폰의 기기 토큰이 서버에 없으면 가입 알림은 아예 안 간다 — 알림 시험이 아니라 준비 실패다
+        result, _, calls = self.run_case([], tokens=0)
+        self.assertEqual(result[0], 'blocked', result)
+        self.assertNotIn('redeem', calls)
+        self.assertNotIn('background', calls)
+
+    def test_a_long_run_of_wrong_notifications_is_cut_to_five_in_the_memo(self):
+        many = [notify.Notice(f'k{i}', f'제목{i}', 'x' * 300, 'c') for i in range(7)]
+        result, _, _ = self.run_case(many)
+        self.assertEqual(result[0], 'fail')
+        self.assertIn('제목4', result[1])
+        self.assertNotIn('제목5', result[1])
+        self.assertIn('외 2건', result[1])
+        self.assertLess(len(result[1]), 1500)  # 알림 하나의 본문이 길어도(경계가 샌 경우) 메모가 끝없이 길어지지 않는다
+
     def test_a_wrong_nickname_or_no_notification_is_a_fail(self):
         wrong = notify.Notice('k', '친구가 가입했어요', '다른 님이 가입했어요, 리뷰를 남겨 주세요', 'c')
-        self.assertEqual(self.run_case([wrong])[0][0], 'fail')
+        result = self.run_case([wrong])[0]
+        self.assertEqual(result[0], 'fail')
+        self.assertIn('다른 님이 가입했어요, 리뷰를 남겨 주세요', result[1])  # 틀릴 때 우리 앱 알림의 실제 제목 · 본문을 메모에 남긴다
+        self.assertIn('친구가 가입했어요', result[1])
         self.assertEqual(self.run_case([])[0][0], 'fail')
 
     def test_at_night_it_is_blocked_before_the_phone_is_called(self):
