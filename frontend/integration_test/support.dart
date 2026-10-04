@@ -20,6 +20,22 @@ Future<Map<String, dynamic>> hear({Duration timeout = const Duration(minutes: 2)
   throw TimeoutException('우편함에 일감이 오지 않음', timeout);
 }
 
+/// 앱 쪽 준비가 안 됐다(가설을 판정할 수 없다) — e2e_test.dart 가 fail 이 아니라 blocked 로 보낸다.
+class E2eBlocked implements Exception {
+  E2eBlocked(this.reason);
+
+  final String reason;
+
+  @override
+  String toString() => reason;
+}
+
+/// 앱이 [name] 에서 멈추고 PC 가 무언가 하기를 기다린다(e2e/tools.py Run.phone 의 midway) — PC 가 go 를 넣으면 이어 간다.
+Future<void> step(String name) async {
+  await say({'step': name});
+  await hear();
+}
+
 /// 진행 프로그램에 말한다(결과 · 중간 값).
 Future<void> say(Map<String, Object?> message) async {
   await http.post(_hub.replace(path: '/say'), headers: {'Content-Type': 'application/json'}, body: jsonEncode(message));
