@@ -444,6 +444,23 @@ class CmdRunTest(unittest.TestCase):
         self.assertIn('E2E_DEVICE_A', str(stop.exception))
         self.assertEqual(self.hubs, [])
 
+    def seen_phone(self, *cases):
+        """cmd_run 이 시간 초과 진단([_where])에 넘기는 `phone` 을 가로챈다 — 케이스마다 돌린 직후의 sn 을 모은다."""
+        sns = []
+
+        def run_one(once, case, run, phone):
+            once(case)
+            sns.append(phone.get('sn'))
+            return 1, 'pass', ''
+
+        with mock.patch.object(cli, '_run_one', run_one), mock.patch.dict(area1.PHONE, {'E-PH-01': lambda run, phone: ('pass', '')}),                 contextlib.redirect_stdout(io.StringIO()):
+            cli.cmd_run(self.args(*cases))
+        return sns
+
+    def test_the_timeout_picture_comes_from_the_device_used_last(self):
+        self.assertEqual(self.seen_phone('E-API-01', 'E-PH-01', 'E-TWO-01', 'E-PH-01'),
+                         [None, 'PHONE-A', tools.DEFAULT_SERIALS['B'], 'PHONE-A'])  # API 는 기기를 안 만짐 · 두 기기 뒤 다시 폰 A
+
 
 if __name__ == '__main__':
     unittest.main()

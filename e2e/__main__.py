@@ -135,6 +135,7 @@ def cmd_run(args):
     cfg, run = env(), _run(args)
     run.cfg = cfg
     opened = {}  # 기기 이름 → (시리얼, 우편함). 폰 가설 · 두 기기 가설이 처음 필요할 때 연다 — API 묶음만 돌릴 땐 기기가 없어도 된다
+    phone = {}  # 시간 초과 때 화면을 찍을 기기(마지막으로 연 것) — [_where] 가 읽는다
 
     def device(name):
         # 같은 기기는 우편함을 한 번만 연다 — 같은 포트에 둘을 열면 윈도에서 말이 갈린다
@@ -144,6 +145,7 @@ def cmd_run(args):
                 sys.exit(f'e2e.env 에 E2E_DEVICE_{name} 가 없다')
             adb(sn, 'reverse', f'tcp:{DEVICE_PORT}', f'tcp:{DEVICES[name]}')
             opened[name] = (sn, Hub(DEVICES[name]))
+        phone.update(sn=opened[name][0])  # 이미 연 기기를 다시 써도 "방금 쓴 기기" 가 된다
         return opened[name]
 
     def once(case):
