@@ -451,6 +451,20 @@ class RegistryTest(PhoneBase):
         dart = (tools.ROOT / 'frontend' / 'integration_test' / 'area3.dart').read_text(encoding='utf-8')
         self.assertEqual(re.findall(r"^  '(E-[A-Z]+-\d+)'", dart, re.M), BUNDLE)  # 앱 쪽 area3Cases 도 같은 19개
 
+    def test_my_tab_is_awaited_until_loaded_before_scrolling(self):
+        # 나 탭은 GET /me/profile 이 끝나야 Scrollable 이 생긴다 — 화면 위젯만 기다리고 .first 를 부르면 "No element" 로 죽는다.
+        for name in ('area3.dart', 'area3_b2.dart'):
+            dart = (tools.ROOT / 'frontend' / 'integration_test' / name).read_text(encoding='utf-8')
+            self.assertNotIn('pumpUntil(tester, find.byType(MyProfileScreen))', dart, name)
+        main = (tools.ROOT / 'frontend' / 'integration_test' / 'area3.dart').read_text(encoding='utf-8')
+        body = main[main.index('Future<void> _openMyTab'):]
+        self.assertIn('find.byType(Scrollable)', body[:900])
+        self.assertIn('Duration(seconds: 60)', body[:900])
+        self.assertIn('MeLoadError', body[:1200])
+        self.assertEqual(main.count('await _openMyTab(tester)'), 1)
+        self.assertEqual((tools.ROOT / 'frontend' / 'integration_test' / 'area3_b2.dart').read_text(encoding='utf-8')
+                         .count('await _openMyTab(tester)'), 1)
+
 
 if __name__ == '__main__':
     unittest.main()

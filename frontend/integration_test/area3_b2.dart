@@ -150,9 +150,7 @@ Future<Map<String, Object?>> _composeAndSubmit(WidgetTester tester, Map<String, 
 
 /// 나 탭 → "친구들이 본 나"(received) 또는 "내가 쓴 리뷰" → 카드가 그려질 때까지. 그 화면을 돌려준다.
 Future<Finder> _openReviews(WidgetTester tester, {required bool received}) async {
-  await arrive(tester, 'home');
-  await tap(tester, _tab('나'));
-  await pumpUntil(tester, find.byType(MyProfileScreen));
+  await _openMyTab(tester);
   final entry = find.text(received ? _receivedEntry : _writtenEntry);
   await tester.scrollUntilVisible(entry, 300,
       scrollable: find.descendant(of: find.byType(MyProfileScreen), matching: find.byType(Scrollable)).first);
