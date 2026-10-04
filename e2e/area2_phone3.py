@@ -195,8 +195,7 @@ def p_card_35(run, phone):
 # ── 알림 2 ──────────────────────────────────────────────────────────────────────────────────────────
 
 def _dump(serial):
-    done = subprocess.run(['adb', '-s', serial, 'shell', 'uiautomator', 'dump', '/dev/tty'], capture_output=True)
-    return done.stdout.decode('utf-8', 'replace')
+    return tools.adb_bytes(serial, 'shell', 'uiautomator', 'dump', '/dev/tty').decode('utf-8', 'replace')
 
 
 def _tap_label(serial, labels):
@@ -371,5 +370,7 @@ AI = {'E-HEART-42': _regen('E-HEART-42', False, 0, 0), 'E-HEART-43': _regen('E-H
 
 area1.PHONE.update(PHONE)
 area1.PHONE.update(AI)
+for _case in AI:  # 유료 AI 호출 — 앱 대기 600초 + 완성 대기 AI_WAIT 가 기본 상한 안에 안 들어간다
+    tools.CASE_LIMITS[_case] = AI_WAIT + 600
 area1.BUNDLES['area2-phone3'] = list(PHONE)
 area1.BUNDLES['area2-phone3-ai'] = list(AI)

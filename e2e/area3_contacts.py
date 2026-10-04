@@ -35,7 +35,8 @@ def reinstall(serial):
     if not APK.is_file():
         raise Blocked(f'깔 APK 가 없음({APK}) — flutter build apk --debug -t integration_test/e2e_test.dart')
     tools.adb(serial, 'uninstall', PACKAGE, check=False)
-    out = tools.adb(serial, 'install', '-r', '-g', str(APK))
+    with tools.adb_patience(300):  # 설치는 에뮬에서 1~2분
+        out = tools.adb(serial, 'install', '-r', '-g', str(APK))
     if 'Success' not in out:
         raise Blocked(f'앱을 다시 깔지 못함: {out.strip()[:120]}')
     time.sleep(2)
@@ -218,4 +219,5 @@ PHONE = {'E-SAFE-35': p_safe_35, 'E-SAFE-36': p_safe_36, 'E-SAFE-37': p_safe_37,
          'E-SAFE-46': p_safe_46}
 
 area1.PHONE.update(PHONE)
+tools.CASE_LIMITS['E-SAFE-43'] = contacts.BIG_LIMIT  # 201명
 area1.BUNDLES['area3-contacts'] = list(PHONE)

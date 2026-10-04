@@ -72,7 +72,7 @@ def cmd_preflight(args):
     if missing:
         ok = False
         print(f'e2e.env 에 없음: {", ".join(missing)}')
-    attached = subprocess.run(['adb', 'devices'], **TEXT).stdout
+    attached = tools.devices()
     for name in args.device:
         sn, pc_port = serial(name, cfg), DEVICES[name]
         if not sn:
@@ -93,14 +93,34 @@ def cmd_preflight(args):
     sys.exit(0 if ok else 1)
 
 
-def run_case(once, case):
+def case_limit(case, phone_case):
+    """가설 하나에 줄 시간(초). 기기를 만지는 가설만 건다 — 서버 API 묶음은 그대로."""
+    return tools.CASE_LIMITS.get(case, tools.CASE_LIMIT) if phone_case else None
+
+
+def _seen(where):
+    """시간 초과 때 기기에 보이던 것 — 못 읽어도 시간 초과 메모는 그대로."""
+    if not where:
+        return ''
+    try:
+        return f' — 지금 보이는 것: {where()}'
+    except Exception:
+        return ''
+
+
+def run_case(once, case, limit=None, where=None):
     """가설 하나를 돈다(fail 이면 한 번 더) → (시도 횟수, 결과, 메모). 예상 밖 예외는 그 가설만 blocked 로 — 묶음이 죽지 않는다.
+    [limit] 초를 넘기면 그 가설만 blocked(시간 초과)로 끝내고 다시 하지 않는다 — [where] 가 있으면 그때 기기에 보이던 것을 메모에 적는다.
     Ctrl-C · sys.exit 는 Exception 이 아니라 그대로 멈춘다."""
     tools.take_retries()
     attempt, result, note = 0, 'blocked', ''
     for attempt in (1, 2):
         try:
-            result, note = once(case)
+            with tools.case_deadline(limit):
+                result, note = once(case)
+        except tools.CaseTimeout as e:
+            result, note = 'blocked', f'시간 초과 — {e}{_seen(where)}'
+            break
         except Exception as e:
             result, note = 'blocked', f'진행 프로그램 예외 {type(e).__name__}: {e}'
         if result != 'fail':
@@ -136,11 +156,26 @@ def cmd_run(args):
 
     try:
         for case in [c for name in args.case for c in BUNDLES.get(name, [name])]:
-            attempt, result, note = run_case(once, case)
+            attempt, result, note = _run_one(once, case, run, phone)
             print(run.record(case, result, f'{note} (시도 {attempt})'.lstrip()))
     finally:
         if phone:
             phone['hub'].close()
+
+
+def _run_one(once, case, run, phone):
+    phone_case = case in area1.PHONE or case not in API_CASES
+    return run_case(once, case, limit=case_limit(case, phone_case), where=lambda: _where(run, phone, case))
+
+
+def _where(run, phone, case):
+    """시간 초과 때 기기가 어떤 모습인지 — 화면 한 장을 shots/ 에 저장하고 맨 위 화면 이름을 돌려준다(PC 에만 둔다)."""
+    if not phone:
+        return '기기를 아직 안 만짐'
+    shot = run.shot(phone['sn'], f'{case}-시간초과')
+    top = next((line.strip() for line in tools.adb(phone['sn'], 'shell', 'dumpsys', 'activity', 'activities').splitlines()
+                if 'topResumedActivity' in line or 'mResumedActivity' in line), '알 수 없음')
+    return f'{top}' + (f' (화면 {shot.name})' if shot else '')
 
 
 def cmd_report(args):
