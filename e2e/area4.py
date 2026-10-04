@@ -171,9 +171,10 @@ def p_set_15(run, phone):
 def p_set_16(run, phone):
     check = Check()
     account, token = _signed_in(run, 'home')
-    # 활성 계정은 출생연도가 비면 DB 제약(profiles_active_requires_onboarding)이 막는다 — 실명 · 카톡을 비워 "—" 2개를 만든다.
-    _patch(run, f"profile_private?profile_id=eq.{account['id']}", {'real_name': None, 'kakao_id': None})
-    _app(check, phone(token_hash=token, dashes=2))
+    # 활성 계정은 출생연도가 비면 DB 제약(profiles_active_requires_onboarding)이 막고, 카톡 아이디가 비면 서버 온보딩 판정
+    # (onboarding_progress.py 의 kakao_id 단계)이 앱을 온보딩으로 보내 계정 화면에 못 간다(폰 10-04) — 실명만 비워 "—" 1개.
+    _patch(run, f"profile_private?profile_id=eq.{account['id']}", {'real_name': None})
+    _app(check, phone(token_hash=token, dashes=1))
     return check.result()
 
 

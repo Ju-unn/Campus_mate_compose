@@ -242,14 +242,15 @@ class PhoneCaseTest(Base):
         self.assertEqual((moment.hour, moment.minute), (0, 30))
         self.assertEqual(phone.jobs[0]['date'], moment.strftime('%Y.%m.%d'))
 
-    def test_set_16_empties_real_name_and_kakao_but_keeps_the_birth_year(self):
+    def test_set_16_empties_only_the_real_name_so_the_account_screen_still_opens(self):
         (result, _), phone, db, _ = self.attempt('E-SET-16')
         self.assertEqual(result, 'pass')
-        self.assertEqual(phone.jobs[0]['dashes'], 2)
-        # 활성 계정은 출생연도가 비면 DB 제약(profiles_active_requires_onboarding)이 막는다 — 실명 · 카톡만 비운다.
+        self.assertEqual(phone.jobs[0]['dashes'], 1)
+        # 활성 계정은 출생연도가 비면 DB 제약(profiles_active_requires_onboarding)이 막고, 카톡 아이디가 비면 서버 온보딩 판정
+        # (onboarding_progress.py 의 kakao_id 단계)이 앱을 온보딩으로 보내 계정 화면에 못 간다(폰 10-04) — 실명만 비운다.
         self.assertNotIn(('PATCH', '/rest/v1/profiles', {'birth_year': None}), db.calls)
         kakao = [b for m, p, b in db.calls if p == '/rest/v1/profile_private' and m == 'PATCH']
-        self.assertEqual(kakao, [{'real_name': None, 'kakao_id': None}])
+        self.assertEqual(kakao, [{'real_name': None}])
 
     def test_set_19_new_kakao_id_must_land_in_the_db(self):
         db = serve_db(self)
@@ -384,8 +385,8 @@ class BundleTest(unittest.TestCase):
     def test_contact_cases_are_listed_for_the_emulator_bundle_only(self):
         self.assertEqual(area4.EMULATOR, [f'E-SET-{n}' for n in range(29, 43)])
         for case in area4.EMULATOR:
-            self.assertNotIn(case, area1.PHONE)
-            self.assertNotIn(case, area1.BUNDLES['area4-set1'])
+            self.assertNotIn(case, area1.BUNDLES['area4-set1'])  # 폰 A 묶음에는 안 섞인다
+            self.assertIn(case, area1.BUNDLES['area4-contacts'])  # 에뮬 묶음(area4_contacts.py)에만 있다
 
 
 if __name__ == '__main__':

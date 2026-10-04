@@ -58,8 +58,8 @@ class Check:
         return ('fail', '; '.join(self.problems)) if self.problems else ('pass', note)
 
 
-def _api(run, method, path, token, body=None):
-    return tools.api(run.cfg, method, path, token, body)
+def _api(run, method, path, token, body=None, **options):
+    return tools.api(run.cfg, method, path, token, body, **options)
 
 
 def _rows(run, path):
@@ -197,7 +197,7 @@ def gate_15(run):
     return check.result()
 
 
-def _form(run, path, token, fields, file):
+def _form(run, path, token, fields, file, **options):
     """multipart 한 번 — [file] = (칸 이름, 파일 이름, 바이트)."""
     boundary = uuid.uuid4().hex
     parts = [f'--{boundary}\r\nContent-Disposition: form-data; name="{k}"\r\n\r\n{v}\r\n'.encode() for k, v in fields.items()]
@@ -205,7 +205,7 @@ def _form(run, path, token, fields, file):
     parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"; filename="{filename}"\r\n'
                  f'Content-Type: image/jpeg\r\n\r\n'.encode() + data + f'\r\n--{boundary}--\r\n'.encode())
     return tools.call('POST', f"{run.cfg['API_BASE_URL']}{path}", {'Authorization': f'Bearer {token}'},
-                      raw=(b''.join(parts), f'multipart/form-data; boundary={boundary}'))
+                      raw=(b''.join(parts), f'multipart/form-data; boundary={boundary}'), **options)
 
 
 def gate_16(run):
