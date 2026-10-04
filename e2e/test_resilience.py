@@ -76,6 +76,8 @@ class CallRetryTest(unittest.TestCase):
             tools.call('GET', 'https://x.test/a')
         self.assertEqual(len(urlopen.calls), 4)  # 처음 + 재시도 3번
         self.assertIn('reset 3', str(ctx.exception))
+        self.assertEqual(tools.retry_paths(), ['GET /a'] * 3)  # 마지막(네 번째) 실패는 다시 보낸 게 아니라 올라간 예외다
+        self.assertEqual(tools.take_retries(), 3)
 
     def test_an_http_error_status_is_a_reply_not_a_retry(self):
         error = urllib.error.HTTPError('https://x.test/a', 503, 'down', {}, io.BytesIO(b'{"detail": "x"}'))
@@ -94,6 +96,42 @@ class CallRetryTest(unittest.TestCase):
         self.call(ConnectionResetError())
         self.assertEqual(tools.take_retries(), 1)
         self.assertEqual(tools.take_retries(), 0)
+
+    def test_a_retried_request_is_remembered_by_method_and_path_only(self):
+        urlopen = flaky(ConnectionResetError())
+        with mock.patch.object(tools.urllib.request, 'urlopen', urlopen):
+            tools.call('POST', 'https://sb.test/rest/v1/profiles?select=id&token=SECRET', {'Authorization': 'Bearer SECRET'}, body={'a': 1})
+        self.assertEqual(tools.retry_paths(), ['POST /rest/v1/profiles'])
+        self.assertNotIn('SECRET', ' '.join(tools.retry_paths()))
+        self.assertNotIn('sb.test', ' '.join(tools.retry_paths()))
+
+    def test_ids_in_the_path_are_masked(self):
+        urlopen = flaky(ConnectionResetError())
+        with mock.patch.object(tools.urllib.request, 'urlopen', urlopen):
+            tools.call('GET', 'https://api.test/chat/matches/6f1d2c3e-0a4b-4c5d-8e9f-1a2b3c4d5e6f/messages')
+        self.assertEqual(tools.retry_paths(), ['GET /chat/matches/:id/messages'])
+
+    def test_a_request_that_is_not_retried_leaves_no_path(self):
+        urlopen = flaky(ConnectionResetError(), then=Response())
+        with mock.patch.object(tools.urllib.request, 'urlopen', urlopen), self.assertRaises(ConnectionResetError):
+            tools.call('POST', 'https://x.test/send', body={'a': 1}, retry=False)
+        self.assertEqual(tools.retry_paths(), [])
+
+    def test_a_request_that_succeeds_first_leaves_no_path(self):
+        with mock.patch.object(tools.urllib.request, 'urlopen', flaky()):
+            tools.call('GET', 'https://x.test/a')
+        self.assertEqual(tools.retry_paths(), [])
+
+    def test_reading_the_paths_does_not_clear_them(self):
+        self.call(ConnectionResetError())
+        self.assertEqual(tools.retry_paths(), tools.retry_paths())
+        self.assertEqual(tools.retry_paths(), ['POST /a'])
+
+    def test_take_retries_also_clears_the_paths(self):
+        self.call(ConnectionResetError())
+        self.assertEqual(tools.retry_paths(), ['POST /a'])
+        tools.take_retries()
+        self.assertEqual(tools.retry_paths(), [])
 
 
 class RunCaseTest(unittest.TestCase):
@@ -135,6 +173,36 @@ class RunCaseTest(unittest.TestCase):
             tools.RETRIES[0] += 2
             return 'pass', ''
         self.assertEqual(cli.run_case(once, 'E-A-01')[2], '통신 재시도 2번')
+
+    def test_the_note_names_which_request_was_retried(self):
+        def once(case):
+            tools.RETRIES[0] += 1
+            tools.RETRIED.append('GET /rest/v1/profiles')
+            return 'pass', ''
+        self.assertEqual(cli.run_case(once, 'E-A-01')[2], '통신 재시도 1번: GET /rest/v1/profiles')
+
+    def test_the_same_request_retried_twice_is_counted_not_repeated(self):
+        def once(case):
+            tools.RETRIES[0] += 3
+            tools.RETRIED.extend(['GET /rest/v1/profiles', 'POST /auth/v1/verify', 'GET /rest/v1/profiles'])
+            return 'pass', ''
+        self.assertEqual(cli.run_case(once, 'E-A-01')[2], '통신 재시도 3번: GET /rest/v1/profiles ×2, POST /auth/v1/verify')
+
+    def test_the_paths_follow_the_existing_note_text(self):
+        def once(case):
+            tools.RETRIES[0] += 1
+            tools.RETRIED.append('GET /me/profile')
+            return 'pass', '메모'
+        self.assertEqual(cli.run_case(once, 'E-A-01')[2], '메모 (통신 재시도 1번: GET /me/profile)')
+
+    def test_paths_of_one_case_do_not_leak_into_the_next(self):
+        def once(case):
+            if case == 'E-A-01':
+                tools.RETRIES[0] += 1
+                tools.RETRIED.append('GET /me/profile')
+            return 'pass', ''
+        cli.run_case(once, 'E-A-01')
+        self.assertEqual(cli.run_case(once, 'E-A-02')[2], '')
 
     def test_retries_made_between_cases_do_not_leak_into_the_next_note(self):
         tools.RETRIES[0] = 5  # 가설 밖(가설 사이 정리 등)에서 쌓인 재시도

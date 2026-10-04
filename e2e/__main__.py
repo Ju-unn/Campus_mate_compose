@@ -130,9 +130,12 @@ def run_case(once, case, limit=None, where=None):
             result, note = 'blocked', f'진행 프로그램 예외 {type(e).__name__}: {e}'
         if result != 'fail':
             break
+    paths = tools.retry_paths()
     retried = tools.take_retries()
     if retried:
-        note = f'{note} (통신 재시도 {retried}번)' if note else f'통신 재시도 {retried}번'
+        seen = ', '.join(path if n == 1 else f'{path} ×{n}' for path, n in Counter(paths).items())
+        text = f'통신 재시도 {retried}번' + (f': {seen}' if seen else '')
+        note = f'{note} ({text})' if note else text
     return attempt, result, note
 
 
