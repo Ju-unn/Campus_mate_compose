@@ -84,13 +84,14 @@ def _count(run, path):
     return len(_rows(run, f"{path}&select={query.split('=')[0]}" if query else f'{table}?select=id'))
 
 
-def _as_user(run, account, method, path, body=None):
+def _as_user(run, account, method, path, body=None, **options):
     """앱과 같은 길 — 공개 키 + 사용자 토큰으로 Supabase 표를 직접 부른다(RLS · 권한을 거친다)."""
-    return tools.rest(run.cfg, run.cfg['SUPABASE_ANON_KEY'], method, path, body, token=account['token'])
+    return tools.rest(run.cfg, run.cfg['SUPABASE_ANON_KEY'], method, path, body, token=account['token'], **options)
 
 
-def _send(run, account, match_id, body):
-    return _api(run, 'POST', f'/chat/matches/{match_id}/messages', account['token'], {'body': body})
+def _send(run, account, match_id, body, **options):
+    """메시지 보내기(비멱등) — 두 번 가면 안 되는 가설은 `retry=False`."""
+    return _api(run, 'POST', f'/chat/matches/{match_id}/messages', account['token'], {'body': body}, **options)
 
 
 def _control(run, a, check):
@@ -100,11 +101,11 @@ def _control(run, a, check):
     check.reply('대조군(평범한 상대)', _review_post(run, a, d), 201)
 
 
-def _review_post(run, account, reviewee, tags=None, comment=None):
+def _review_post(run, account, reviewee, tags=None, comment=None, **options):
     body = {'reviewee_id': reviewee['id'], 'tags': tags if tags is not None else ['대화가 편해요']}
     if comment is not None:
         body['comment'] = comment
-    return _api(run, 'POST', '/friend-reviews', account['token'], body)
+    return _api(run, 'POST', '/friend-reviews', account['token'], body, **options)
 
 
 def _pair(run):

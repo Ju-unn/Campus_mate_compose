@@ -183,6 +183,30 @@ class NoRetryTest(unittest.TestCase):
                 call()
                 self.assertIsNot(sent.call_args.kwargs.get('retry'), False, name)  # 안 주면 켜진 채
 
+    def test_message_review_form_and_direct_table_helpers_hand_retry_through(self):
+        from e2e import area1, area3
+        run = mock.Mock(cfg={'API_BASE_URL': 'https://api.test', 'SUPABASE_URL': 'https://sb.test', 'SUPABASE_ANON_KEY': 'anon'})
+        account = {'token': 't', 'id': 'u'}
+        helpers = {
+            '_send': lambda **kw: area3._send(run, account, 'm1', 'hi', **kw),  # E-CHAT-08 의 메시지 보내기
+            '_review_post': lambda **kw: area3._review_post(run, account, {'id': 'r'}, **kw),
+            '_as_user': lambda **kw: area3._as_user(run, account, 'POST', 'x', {}, **kw),
+            '_form': lambda **kw: area1._form(run, '/x', 't', {'a': 'b'}, ('photo', 'p.jpg', b'x'), **kw),
+        }
+        for name, helper in helpers.items():
+            with mock.patch.object(tools, 'call', return_value=tools.Reply(200, None)) as sent:
+                helper(retry=False)
+                self.assertIs(sent.call_args.kwargs.get('retry'), False, name)
+                helper()
+                self.assertIsNot(sent.call_args.kwargs.get('retry'), False, name)
+
+    def test_phone_case_helper_hands_retry_through(self):
+        from e2e import area1
+        run = mock.Mock(cfg={'API_BASE_URL': 'https://api.test'})
+        with mock.patch.object(tools, 'call', return_value=tools.Reply(200, None)) as sent:
+            area1._api(run, 'POST', '/send', 't', {'a': 1}, retry=False)
+        self.assertIs(sent.call_args.kwargs.get('retry'), False)
+
 
 if __name__ == '__main__':
     unittest.main()
