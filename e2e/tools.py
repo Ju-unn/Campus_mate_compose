@@ -424,9 +424,13 @@ class Run:
         return hashed
 
     def sign_in(self, email):
-        """[link] 로 받은 1회용 토큰으로 PC 쪽 로그인."""
-        status, body = call('POST', f"{self.cfg['SUPABASE_URL']}/auth/v1/verify", {'apikey': self.cfg['SUPABASE_ANON_KEY']},
-                            {'type': 'magiclink', 'token_hash': self.link(email)})
+        """[link] 로 받은 1회용 토큰으로 PC 쪽 로그인. 429(짧은 시간에 너무 많이 부름)면 60초 쉬고 새 토큰으로 한 번 더."""
+        for wait in (60, None):
+            status, body = call('POST', f"{self.cfg['SUPABASE_URL']}/auth/v1/verify", {'apikey': self.cfg['SUPABASE_ANON_KEY']},
+                                {'type': 'magiclink', 'token_hash': self.link(email)})
+            if status != 429 or wait is None:
+                break
+            time.sleep(wait)
         if status != 200:
             raise Blocked(f'verify {status}')
         return body['access_token']
