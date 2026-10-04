@@ -386,6 +386,14 @@ class RealAiTest(CaseBase):
         self.assertEqual(second[0], 'blocked')
         self.assertIn('실패', second[1])  # 첫 시도가 왜 막혔는지가 두 번째 메모에도 남는다
 
+    def test_a_timeout_before_any_new_row_does_not_read_as_no_cost(self):
+        one = [{'id': 'a1', 'status': 'ready'}]
+        rules = [('GET', 'profile_avatars', lambda b, u: Reply(200, one))]
+        with mock.patch.dict(area2_phone3.os.environ, {'E2E_REAL_AI': '1'}), mock.patch.object(area2_phone3, 'AI_WAIT', 0):
+            result = self.go('E-HEART-42', FakePhone(midway_step={'step': 'started'}), rules)
+        self.assertEqual(result[0], 'blocked')
+        self.assertIn('서버에 닿았는지 확인 필요', result[1])  # 앱이 이미 눌렀다 — 새 행이 아직 0개여도 비용이 안 나갔다는 뜻이 아니다
+
     def test_a_failed_generation_is_blocked_so_the_runner_does_not_pay_twice(self):
         one = [{'id': 'a1', 'status': 'ready'}]
         states = iter([one, one + [{'id': 'a9', 'status': 'failed'}]])

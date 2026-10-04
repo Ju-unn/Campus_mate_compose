@@ -365,7 +365,7 @@ def _regen_once(run, phone, case_name, extra_avatar, balance, cost):
                 made['id'] = new[0]['id']
                 return
             if time.monotonic() >= deadline:
-                raise Blocked(f'{AI_WAIT}초 안에 새 아바타가 안 끝남 (유료 호출 {len(new)}번)')
+                raise Blocked(f'{AI_WAIT}초 안에 새 아바타가 안 끝남 (새 아바타 시도 행 {len(new)}개 — 앱이 이미 눌렀으니 0개여도 서버에 닿았는지 확인 필요)')
             time.sleep(POLL)
 
     _app(check, _slow(phone, 600)(midway=stepper(phone, finished), token_hash=token, balance=balance, free=cost == 0))
