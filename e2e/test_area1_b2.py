@@ -5,6 +5,7 @@ import json
 import time
 import unittest
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from unittest import mock
 
 from e2e import area1, area1_b2, tools
@@ -318,8 +319,36 @@ class OnboardingTest(Base):
                          ['04-1', '04-1b', '04-2', '04-4', '04-5', '04-6', '05-01', '05-12', '06-1', '06-2', '06-2a', '06-3', 'home'])
 
     def test_onb_55_no_photo_rows_after_restart(self):
+        self.put_faces()
         self.serve({('GET', '/rest/v1/profile_photos'): Reply(200, [{'id': 'p'}])})
         self.assertEqual(area1.attempt_phone(self.run, 'E-ONB-55', FakePhone())[0], 'fail')
+
+    def put_faces(self):
+        folder = self.root / '사진'
+        folder.mkdir(exist_ok=True)
+        for name in ('face1.jpg', 'face2.jpg', 'face3.jpg'):
+            (folder / name).write_bytes(bytes([255, 216, 255]) + name.encode())
+        patcher = mock.patch.object(area1_b2.area1_b3.tools, 'adb', return_value='')
+        self.adb = patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_onb_55_gives_the_app_three_real_faces_and_pushes_them_to_the_phone(self):
+        self.put_faces()
+        self.serve()
+        phone = FakePhone()
+        phone.serial = 'S1'
+        self.assertEqual(area1.attempt_phone(self.run, 'E-ONB-55', phone)[0], 'pass')
+        self.assertEqual(phone.jobs[0]['photos'], ['face1.jpg', 'face2.jpg', 'face3.jpg'])
+        self.assertNotIn('photos', phone.jobs[1])  # 다시 켠 뒤에는 사진이 필요 없다
+        pushed = [c.args[-2] for c in self.adb.call_args_list if c.args[1] == 'push']
+        self.assertEqual([Path(p).name for p in pushed], ['face1.jpg', 'face2.jpg', 'face3.jpg'])
+
+    def test_onb_55_stays_blocked_without_the_photo_set_and_makes_no_account(self):
+        fake = self.serve()
+        result, note = area1.attempt_phone(self.run, 'E-ONB-55', FakePhone())
+        self.assertEqual(result, 'blocked')
+        self.assertIn('face1.jpg', note)
+        self.assertNotIn('/auth/v1/admin/users', fake.paths('POST'))
 
 
 class ReferralTest(Base):
