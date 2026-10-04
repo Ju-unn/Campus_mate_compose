@@ -78,7 +78,10 @@ def _drop_reports(run, review, check):
 
 
 def _count(run, path):
-    return len(_rows(run, f'{path}&select=id' if '?' in path else f'{path}?select=id'))
+    """행 수. 거르는 칸을 골라 센다 — blocks · poll_votes 처럼 기본키가 여러 칸인 표엔 id 칸이 없다(select=id 는 400).
+    [path] 의 첫 조건은 그 표의 칸이어야 한다(`or=` · `order=` 로 시작하면 안 된다)."""
+    table, _, query = path.partition('?')
+    return len(_rows(run, f"{path}&select={query.split('=')[0]}" if query else f'{table}?select=id'))
 
 
 def _as_user(run, account, method, path, body=None):
