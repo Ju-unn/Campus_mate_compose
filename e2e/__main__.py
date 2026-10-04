@@ -14,7 +14,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from e2e import area1, area2, area3, area3_safe, tools
+from e2e import area1, area2, area3, area3_safe, tools, twodev
 from e2e import area1_b2  # noqa: F401 — 묶음 2 가설을 area1.PHONE · CASES · BUNDLES 에 더한다
 from e2e import area3_phone  # noqa: F401 — 영역 3 폰 1차 가설을 area1.PHONE · area3.BUNDLES 에 더한다
 from e2e import area3_phone2  # noqa: F401 — 영역 3 폰 2차(입력 · 보내기 · 신고 · 수락 · 시트) 가설을 같은 곳에 더한다
@@ -114,33 +114,44 @@ def run_case(once, case):
 def cmd_run(args):
     cfg, run = env(), _run(args)
     run.cfg = cfg
-    phone = {}  # 폰 가설이 처음 나올 때 기기 · 우편함을 연다 — API 묶음만 돌릴 땐 폰이 없어도 된다
+    opened = {}  # 기기 이름 → (시리얼, 우편함). 폰 가설 · 두 기기 가설이 처음 필요할 때 연다 — API 묶음만 돌릴 땐 기기가 없어도 된다
+
+    def device(name):
+        # 같은 기기는 우편함을 한 번만 연다 — 같은 포트에 둘을 열면 윈도에서 말이 갈린다
+        if name not in opened:
+            sn = serial(name, cfg)
+            if not sn:
+                sys.exit(f'e2e.env 에 E2E_DEVICE_{name} 가 없다')
+            adb(sn, 'reverse', f'tcp:{DEVICE_PORT}', f'tcp:{DEVICES[name]}')
+            opened[name] = (sn, Hub(DEVICES[name]))
+        return opened[name]
 
     def once(case):
-        if (case in API_CASES or case in area1.PHONE) and not run.key:
+        if (case in API_CASES or case in area1.PHONE or case in twodev.TWO) and not run.key:
             run.key = service_key()  # preflight 를 건너뛰어도 운영 쓰기 전에 한 번 더 본다
             ensure_no_real_users(cfg, run.key, RESULTS)
         if case in area2.SKIPPED:
             return 'skip', area2.SKIPPED[case]
         if case in API_CASES:
             return API_CASES[case].attempt(run, case)
-        if not phone:
-            sn, pc_port = serial(args.device, cfg), DEVICES[args.device]
-            if not sn:
-                sys.exit(f'e2e.env 에 E2E_DEVICE_{args.device} 가 없다')
-            adb(sn, 'reverse', f'tcp:{DEVICE_PORT}', f'tcp:{pc_port}')
-            phone.update(sn=sn, hub=Hub(pc_port))
+        if case in twodev.TWO:  # 두 기기 가설은 늘 A=폰 · B=에뮬 — --device 와 상관없다
+            for name in ('A', 'B'):  # 우편함을 열기 전에 시리얼부터 다 확인한다
+                if not serial(name, cfg):
+                    sys.exit(f'e2e.env 에 E2E_DEVICE_{name} 가 없다 (두 기기 가설은 A=폰 · B=에뮬)')
+            sides = [twodev.Side(device(name)[1], device(name)[0]) for name in ('A', 'B')]
+            return twodev.TWO[case](run, twodev.bound(run, case, *sides))
+        sn, hub = device(args.device)
         if case in area1.PHONE:
-            return area1.attempt_phone(run, case, area1.Phone(run, phone['hub'], phone['sn'], case))
-        return verdict(run.phone(phone['hub'], phone['sn'], {'case': case}))
+            return area1.attempt_phone(run, case, area1.Phone(run, hub, sn, case))
+        return verdict(run.phone(hub, sn, {'case': case}))
 
     try:
         for case in [c for name in args.case for c in BUNDLES.get(name, [name])]:
             attempt, result, note = run_case(once, case)
             print(run.record(case, result, f'{note} (시도 {attempt})'.lstrip()))
     finally:
-        if phone:
-            phone['hub'].close()
+        for _, hub in opened.values():
+            hub.close()
 
 
 def cmd_report(args):
