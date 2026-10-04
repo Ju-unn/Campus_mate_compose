@@ -11,13 +11,14 @@ import time
 from collections import Counter
 from contextlib import contextmanager
 from datetime import datetime, timedelta
+from urllib.parse import urlencode
 
 from e2e import area1, tools
 from e2e.area1 import SEOUL, Check, _api, _app, _detail, _one, _patch, _rows, _signed_in
 from e2e.area1_b2 import _ours
 from e2e.area2 import (_card, _drop_polls, _grant, _guard, _home, _insert, _ledger, _new_id, _poll, _review, _submission_rows,
                        _submit)
-from e2e.area2_phone import _count, _school
+from e2e.area2_phone import _school
 from e2e.tools import Blocked
 
 PREFIX = '[E2E] '  # area2._poll 이 붙이는 접두어와 같다 — 피드에서 시험 글을 알아보는 표시
@@ -152,23 +153,37 @@ def p_poll_18(run, phone):
     return check.result()
 
 
+def _visible_polls(run, token):
+    """지금 피드에 실제로 보이는 글 수 — GET /community/polls 를 커서(before · before_id)로 끝까지 읽어 센다.
+    DB polls 행 수는 가려진(blinded) 글 · 정지 · 탈퇴 작성자 글까지 세므로 쓰지 않는다. 읽기 GET 이라 끊김은 기본 재시도에 맡긴다."""
+    total, query = 0, ''
+    while True:
+        status, body = _api(run, 'GET', f'/community/polls{query}', token)
+        if status != 200:
+            raise Blocked(f'피드 읽기 {status} {_detail(body)}')
+        total += len(body['polls'])
+        if not body['has_more'] or not body['polls']:
+            return total
+        last = body['polls'][-1]
+        query = '?' + urlencode({'before': last['created_at'], 'before_id': last['id']})  # 시각의 `+` 를 %2B 로
+
+
 def p_poll_25(run, phone):
-    """피드에 시험 글 25개만 두고(다른 글이 있으면 20 → 25 가 아니라 blocked) 앱이 끝까지 내린다. 글은 계정 셋이 10 · 10 · 5 로 올린다."""
+    """기존 글(실사용자 · 본인 옛 글 — 지우지 않는다)이 [existing] 개 보이면 시험 글 25개를 얹어 앱이 끝까지 내려 25 + existing 를 본다.
+    글은 계정 셋이 10 · 10 · 5 로 올린다. 피드를 읽을 수 없거나 올린 뒤 보이는 수가 어긋나면 blocked."""
     check = Check()
-    existing = _count(run, 'polls?select=id')
-    if existing:
-        raise Blocked(f'피드에 이미 글 {existing}개가 있다 — 시험 글 25개만 있어야 20 → 25 를 볼 수 있다(실사용자 글이면 지우지 않는다)')
     first, token = _signed_in(run, 'home')
+    existing = _visible_polls(run, first['token'])  # 시험 글을 올리기 전에
     others = [run.account('home'), run.account('home')]
     authors = [first, *others]
     with _cleaned(run, *authors):
         for who, count in zip(authors, (10, 10, 5)):
             for i in range(count):
                 _poll(run, who, f'페이지 {authors.index(who) + 1}-{i + 1}')
-        total = _count(run, 'polls?select=id')
-        if total != 25:
-            raise Blocked(f'준비한 글이 {total}개(기대 25)')
-        _app(check, phone(token_hash=token))
+        total = _visible_polls(run, first['token'])
+        if total != 25 + existing:
+            raise Blocked(f'준비한 뒤 피드에 글 {total}개(기대 25 + 기존 {existing})')
+        _app(check, phone(token_hash=token, existing=existing))
     return check.result()
 
 

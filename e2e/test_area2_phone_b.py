@@ -52,6 +52,7 @@ class World(Fake):
             ('POST', r'/rest/v1/rpc/grant_hearts', self.grant),
             ('GET', r'/rest/v1/entitlements', self.balance),
             ('GET', r'/rest/v1/polls', self.read_polls),
+            ('GET', r'/community/polls', self.read_feed),
             ('POST', r'/storage/v1/object/list/heart-task-proofs', self.listing),
             ('POST', r'/profile-onboarding/[^/]+', self.onboarding),
             ('POST', r'/school-info', self.school_info),
@@ -78,8 +79,12 @@ class World(Fake):
             self.rows('profiles').append(found)
         return found
 
-    def add_poll(self, author, question, a='찬성', b='반대'):
-        poll = {'id': self.next_id('poll'), 'author_id': author, 'question': question, 'option_a_label': a, 'option_b_label': b}
+    def add_poll(self, author, question, a='찬성', b='반대', status='visible'):
+        pid = self.next_id('poll')
+        # 서버는 ISO 시각(+00:00)을 그대로 준다 — 커서로 되돌려 보낼 때 `+` 를 인코딩하지 않으면 공백이 돼 어긋난다.
+        stamp = f'2026-10-05T{self.counter // 3600:02d}:{self.counter // 60 % 60:02d}:{self.counter % 60:02d}+00:00'
+        poll = {'id': pid, 'author_id': author, 'question': question, 'option_a_label': a, 'option_b_label': b,
+                'status': status, 'created_at': stamp}
         self.rows('polls').append(poll)
         return poll
 
@@ -119,6 +124,17 @@ class World(Fake):
         if 'limit' in sent['query']:  # PC 가 건수를 셀 때(Prefer count=exact) — 본문은 안 보고 Content-Range 만 본다
             return Reply(200, [], {'Content-Range': f"0-0/{len(self.rows('polls'))}"})
         return self._table('GET', 'polls', sent)
+
+    def read_feed(self, sent):
+        """GET /community/polls — 보이는(status=visible) 글만 최신순 20개, `before` · `before_id` 커서, has_more = 20개를 꽉 채웠는가(서버와 같다)."""
+        query = sent['query']
+        if ('before' in query) != ('before_id' in query) or not re.fullmatch(r'[\d-]+T[\d:]+\+00:00', query.get('before', '2026-10-05T00:00:00+00:00')):
+            return Reply(422, {'detail': '입력한 값을 다시 확인해 주세요'})  # 시각이 깨지면(`+` 가 공백이 되면) 서버도 422 다
+        rows = sorted((p for p in self.rows('polls') if p['status'] == 'visible'), key=lambda p: (p['created_at'], p['id']), reverse=True)
+        if 'before' in query:
+            rows = [p for p in rows if (p['created_at'], p['id']) < (query['before'], query['before_id'])]
+        page = [{'id': p['id'], 'question': p['question'], 'created_at': p['created_at']} for p in rows[:20]]
+        return Reply(200, {'polls': page, 'has_more': len(page) == 20})
 
     # 하트 ------------------------------------------------------------------------------------
     def submit(self, sent):
@@ -437,6 +453,7 @@ class PollReadTest(PhoneBase):
             (a, len([p for p in w.rows('polls') if p['author_id'] == a])) for a in ('id-1', 'id-2', 'id-3'))))
         self.assertEqual(self.attempt('E-POLL-25', app)[0], 'pass')
         self.assertEqual(seen, [[('id-1', 10), ('id-2', 10), ('id-3', 5)]])
+        self.assertEqual(app.jobs[0]['existing'], 0)
 
     def test_poll_25_posts_carry_the_e2e_prefix(self):
         self.attempt('E-POLL-25')
@@ -445,14 +462,76 @@ class PollReadTest(PhoneBase):
         self.assertEqual(len(set(questions)), 25)
         self.assertTrue(all(q.startswith('[E2E] ') for q in questions))
 
-    def test_poll_25_a_feed_that_already_has_polls_is_blocked_before_any_account(self):
+    def test_poll_25_a_poll_already_in_the_feed_is_counted_not_blocked(self):
         self.world.add_poll('id-9', '남의 글')
+        seen = []
+        app = App(self.world, lambda w, job: seen.append(sorted(
+            (a, len([p for p in w.rows('polls') if p['author_id'] == a])) for a in ('id-1', 'id-2', 'id-3'))))
+        self.assertEqual(self.attempt('E-POLL-25', app)[0], 'pass')
+        self.assertEqual(seen, [[('id-1', 10), ('id-2', 10), ('id-3', 5)]])
+        self.assertEqual(app.jobs[0]['existing'], 1)
+
+    def test_poll_25_the_existing_poll_is_never_deleted(self):
+        keep = self.world.add_poll('id-9', '남의 글')
+        self.attempt('E-POLL-25')
+        deletes = [s['path'].rsplit('/', 1)[1] for s in self.world.sent if s['method'] == 'DELETE' and s['path'].startswith('/community/polls/')]
+        self.assertEqual(len(deletes), 25)
+        self.assertNotIn(keep['id'], deletes)
+        self.assertEqual([p['id'] for p in self.world.rows('polls')], [keep['id']])
+
+    def test_poll_25_a_hidden_poll_is_not_in_the_feed_so_it_is_not_counted(self):
+        # polls 표에는 2행(DB 행 수 2)이지만 피드에는 1개 — 가려진(blinded) 글은 서버가 안 준다.
+        self.world.add_poll('id-9', '보이는 글')
+        self.world.add_poll('id-9', '가려진 글', status='blinded')
+        app = App(self.world)
+        self.assertEqual(self.attempt('E-POLL-25', app)[0], 'pass')
+        self.assertEqual(app.jobs[0]['existing'], 1)
+
+    def test_poll_25_existing_polls_are_counted_across_cursor_pages(self):
+        for count in (45, 20, 21, 19):  # 20 개면 has_more 가 참인 채 빈 쪽이 하나 더 온다
+            with self.subTest(count):
+                self.setUp()
+                for i in range(count):
+                    self.world.add_poll('id-9', f'남의 글 {i}')
+                app = App(self.world)
+                self.assertEqual(self.attempt('E-POLL-25', app)[0], 'pass')
+                self.assertEqual(app.jobs[0]['existing'], count)
+                reads = [s for s in self.world.sent if s['method'] == 'GET' and s['path'] == '/community/polls']
+                # 준비 전에 센 것 · 25개를 올린 뒤에 센 것 — 한 번에 20개씩이라 n 개면 n // 20 + 1 번(꽉 찬 끝은 빈 쪽 하나 더)
+                self.assertEqual(len(reads), (count // 20 + 1) + ((count + 25) // 20 + 1))
+                self.assertEqual(len([r for r in reads if 'before' not in r['query']]), 2)
+
+    def test_poll_25_the_feed_is_read_with_the_first_account_before_any_poll_is_posted(self):
+        self.world.add_poll('id-9', '남의 글')
+        self.attempt('E-POLL-25')
+        first_post = next(i for i, s in enumerate(self.world.sent) if s['method'] == 'POST' and s['path'] == '/community/polls')
+        before = [s for s in self.world.sent[:first_post] if s['method'] == 'GET' and s['path'] == '/community/polls']
+        self.assertEqual([s['auth'] for s in before], ['tok-1'])
+
+    def test_poll_25_an_unreadable_feed_is_blocked(self):
+        self.world.handlers.insert(0, ('GET', re.compile(r'/community/polls'), Reply(500, {'detail': '서버 오류'})))
         app = App(self.world)
         result, note = self.attempt('E-POLL-25', app)
         self.assertEqual(result, 'blocked')
-        self.assertIn('1', note)
+        self.assertIn('500', note)
         self.assertEqual(app.jobs, [])
-        self.assertEqual(self.world.users, [])
+        self.assertEqual(self.world.rows('polls'), [])
+
+    def test_poll_25_a_feed_that_does_not_show_25_more_after_posting_is_blocked(self):
+        # 서버가 25번째 글을 가려 버렸다 — 피드에 24개만 늘어 25 + existing 이 아니다.
+        def hide_last(sent):
+            reply = self.world.create_poll(sent)
+            if len(self.world.rows('polls')) == 26:
+                self.world.rows('polls')[-1]['status'] = 'blinded'
+            return reply
+        self.world.add_poll('id-9', '남의 글')
+        self.world.handlers.insert(0, ('POST', re.compile(r'/community/polls'), hide_last))
+        app = App(self.world)
+        result, note = self.attempt('E-POLL-25', app)
+        self.assertEqual(result, 'blocked')
+        self.assertIn('25', note)
+        self.assertEqual(app.jobs, [])
+        self.assertEqual([p['author_id'] for p in self.world.rows('polls')], ['id-9'])  # 시험 글은 지웠고 기존 글은 남았다
 
     def test_poll_26_one_poll_is_prepared_for_the_detail_screen(self):
         seen = []
