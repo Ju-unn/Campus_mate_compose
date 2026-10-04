@@ -3,7 +3,9 @@
 가설마다 시험을 두지는 않는다 — 가족마다 대표 가설(통과 · 어긋남 메모)과, 모든 가설이 서버가 다 500 이어도 예외 없이
 fail · blocked 로 끝나는지(전수)를 본다. 실제 운영 값은 대장이 돌려 본다."""
 
+import http.client
 import json
+import ssl
 import unittest
 from unittest import mock
 from urllib.parse import parse_qs, urlsplit
@@ -26,8 +28,10 @@ class Fake(t1.FakeServer):
     def __init__(self, rules=None, routes=None):
         super().__init__(routes)
         self.rules = rules or []
+        self.options = []  # (메서드, 경로, call 에 더 넘긴 키워드 — retry=False 등)
 
-    def __call__(self, method, url, headers=None, body=None, raw=None):
+    def __call__(self, method, url, headers=None, body=None, raw=None, **options):
+        self.options.append((method, urlsplit(url).path, options))
         for want_method, piece, answer in self.rules:
             if method == want_method and piece in url:
                 self.calls.append((method, urlsplit(url).path, body))
@@ -361,6 +365,33 @@ class RetryTest(Base):
         self.assertEqual((result, len(tries)), ('blocked', 2))
         self.assertIn('연결', memo)
 
+    def test_ssl_and_http_client_errors_are_retried_once_like_the_other_drops(self):
+        for error in (ssl.SSLError('bad record mac'), http.client.RemoteDisconnected('끊김'), http.client.IncompleteRead(b'')):
+            tries = []
+
+            def flaky(run, error=error, tries=tries):
+                tries.append(1)
+                if len(tries) == 1:
+                    raise error
+                return 'pass', ''
+
+            with mock.patch.dict(area2.CASES, {'E-HEART-48': flaky}):
+                self.assertEqual(area2.attempt(self.run, 'E-HEART-48'), ('pass', ''), repr(error))
+            self.assertEqual(len(tries), 2, repr(error))
+
+    def test_two_ssl_or_http_client_drops_are_blocked_after_exactly_two_tries(self):
+        for error in (ssl.SSLError('bad record mac'), http.client.RemoteDisconnected('끊김')):
+            tries = []
+
+            def down(run, error=error, tries=tries):
+                tries.append(1)
+                raise error
+
+            with mock.patch.dict(area2.CASES, {'E-HEART-48': down}):
+                result, memo = area2.attempt(self.run, 'E-HEART-48')
+            self.assertEqual((result, len(tries)), ('blocked', 2), repr(error))
+            self.assertIn('연결', memo)
+
     def test_a_real_assertion_failure_is_not_retried(self):
         tries = []
 
@@ -479,6 +510,96 @@ class FilterTest(Base):
         result, memo = area2.attempt(self.run, 'E-CARD-30')
         self.assertEqual(result, 'fail')
         self.assertIn('같은 성별', memo)
+
+
+class NoRetryTest(Base):
+    """두 번 적용되면 결과가 달라지는 요청은 `retry=False` 로 한 번만 보낸다 — 읽기 · 멱등 요청은 기본(키워드 없음)."""
+
+    def run_case(self, case, rules=()):
+        fake = Fake(list(rules))
+        patcher = mock.patch.object(tools, 'call', fake)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        area2.attempt(self.run, case)
+        return fake
+
+    def assertOnce(self, fake, method, piece):
+        got = [o for m, p, o in fake.options if m == method and piece in p]
+        self.assertTrue(got, f'{method} {piece} 호출이 없다')
+        self.assertTrue(all(o == {'retry': False} for o in got), f'{method} {piece}: {got}')
+
+    def assertDefault(self, fake, method, piece):
+        got = [o for m, p, o in fake.options if m == method and piece in p]
+        self.assertTrue(got, f'{method} {piece} 호출이 없다')
+        self.assertTrue(all(o == {} for o in got), f'{method} {piece}: {got}')
+
+    POLL = ('POST', '/community/polls', lambda b, u: Reply(201, {'id': 'p1'}))
+    CODE = ('GET', 'select=referral_code', lambda b, u: Reply(200, [{'referral_code': 'ABCDE2'}]))
+
+    def test_card_decision_and_acceptance_answer_are_sent_once(self):
+        self.assertOnce(self.run_case('E-CARD-83'), 'POST', '/decision')
+        fake = self.run_case('E-CARD-82')
+        self.assertOnce(fake, 'POST', '/decision')
+        self.assertOnce(fake, 'POST', '/cards/acceptances/')
+
+    def test_a_strangers_card_decision_is_sent_once(self):
+        fake = self.run_case('E-CARD-89')
+        self.assertOnce(fake, 'POST', '/decision')
+
+    def test_the_contact_block_hypothesis_sends_its_decisions_and_answer_once_but_the_block_itself_by_default(self):
+        fake = self.run_case('E-CARD-37', [('GET', '/matching/candidates', lambda b, u: Reply(200, {'candidates': []}))])
+        self.assertOnce(fake, 'POST', '/decision')
+        self.assertOnce(fake, 'POST', '/cards/acceptances/')
+        self.assertDefault(fake, 'POST', '/contact-blocks')
+
+    def test_the_acceptance_that_opens_the_inbox_is_sent_once(self):
+        self.assertOnce(self.run_case('E-CARD-88'), 'POST', '/decision')
+
+    def test_posting_a_poll_and_voting_are_sent_once(self):
+        fake = self.run_case('E-POLL-24', [self.POLL])
+        self.assertOnce(fake, 'POST', '/community/polls')
+        self.assertOnce(fake, 'POST', '/votes')
+
+    def test_the_parallel_poll_hypotheses_send_every_request_once(self):
+        fake = self.run_case('E-POLL-17', [self.POLL])
+        self.assertEqual(len([1 for m, p, o in fake.options if m == 'POST' and p == '/community/polls']), 11)
+        self.assertOnce(fake, 'POST', '/community/polls')
+        self.assertOnce(self.run_case('E-POLL-10', [self.POLL]), 'POST', '/votes')
+
+    def test_heart_task_submissions_are_sent_once_also_in_the_parallel_hypothesis(self):
+        self.assertOnce(self.run_case('E-HEART-07'), 'POST', '/submissions')
+        self.assertOnce(self.run_case('E-HEART-08'), 'POST', '/submissions')
+
+    def test_redeem_is_sent_once_also_in_the_parallel_hypothesis(self):
+        self.assertOnce(self.run_case('E-REF-15', [self.CODE]), 'POST', '/referral/redeem')
+        self.assertOnce(self.run_case('E-REF-10', [self.CODE]), 'POST', '/referral/redeem')
+
+    def test_a_heart_grant_is_sent_once(self):
+        self.assertOnce(self.run_case('E-HEART-41'), 'POST', 'rpc/grant_hearts')
+
+    def test_the_operator_review_patch_is_sent_once_because_the_resent_reviewed_at_is_refused(self):
+        fake = self.run_case('E-HEART-10', [('GET', 'heart_task_submissions', lambda b, u: Reply(200, [{'id': 's1'}]))])
+        self.assertOnce(fake, 'PATCH', '/rest/v1/heart_task_submissions')
+
+    def test_the_candidate_read_and_the_school_time_patch_keep_the_default(self):
+        fake = self.run_case('E-CARD-30', [('GET', '/matching/candidates', lambda b, u: Reply(200, {'candidates': []}))])
+        self.assertDefault(fake, 'GET', '/matching/candidates')
+        fake = self.run_case('E-HOME-27', [('GET', 'universities?id=eq', lambda b, u: Reply(200, [{'card_opens_at': None}]))])
+        self.assertDefault(fake, 'PATCH', '/rest/v1/universities')
+
+    def test_reads_deletes_patches_and_idempotent_posts_keep_the_default(self):
+        fake = self.run_case('E-POLL-24', [self.POLL, ('GET', 'polls?author_id', lambda b, u: Reply(200, [{'id': 'p1'}]))])
+        self.assertDefault(fake, 'GET', '/community/polls/')
+        self.assertDefault(fake, 'DELETE', '/community/polls/')
+        account = self.run.account('home')
+        fake = Fake()
+        with mock.patch.object(tools, 'call', fake):
+            area2._contact_block(self.run, account, '010-0000-0000')
+            area2._patch(self.run, 'profiles?id=eq.x', {'a': 1})
+            area2._card(self.run, account, account)
+        self.assertDefault(fake, 'POST', '/contact-blocks')
+        self.assertDefault(fake, 'PATCH', '/rest/v1/profiles')
+        self.assertDefault(fake, 'POST', 'daily_cards')  # id 를 이쪽이 정해 두 번 가면 23505 — 한 번 더 가도 판정이 바뀌지 않아 기본(재시도)
 
 
 if __name__ == '__main__':
