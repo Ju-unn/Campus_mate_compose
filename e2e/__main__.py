@@ -78,10 +78,10 @@ def cmd_run(args):
     phone = {}  # 폰 가설이 처음 나올 때 기기 · 우편함을 연다 — API 묶음만 돌릴 땐 폰이 없어도 된다
 
     def once(case):
+        if (case in area1.CASES or case in area1.PHONE) and not run.key:
+            run.key = service_key()  # preflight 를 건너뛰어도 운영 쓰기 전에 한 번 더 본다
+            ensure_no_real_users(cfg, run.key, RESULTS)
         if case in area1.CASES:
-            if not run.key:  # preflight 를 건너뛰어도 운영 쓰기 전에 한 번 더 본다
-                run.key = service_key()
-                ensure_no_real_users(cfg, run.key, RESULTS)
             return area1.attempt(run, case)
         if not phone:
             sn, pc_port = serial(args.device, cfg), DEVICES[args.device]
@@ -89,6 +89,8 @@ def cmd_run(args):
                 sys.exit(f'e2e.env 에 E2E_DEVICE_{args.device} 가 없다')
             adb(sn, 'reverse', f'tcp:{DEVICE_PORT}', f'tcp:{pc_port}')
             phone.update(sn=sn, hub=Hub(pc_port))
+        if case in area1.PHONE:
+            return area1.attempt_phone(run, case, area1.Phone(run, phone['hub'], phone['sn'], case))
         return verdict(run.phone(phone['hub'], phone['sn'], {'case': case}))
 
     try:
