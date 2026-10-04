@@ -253,6 +253,12 @@ class BrowserTest(unittest.TestCase):
 
 
 class CaseTest(Base):
+    def setUp(self):
+        super().setUp()
+        patcher = mock.patch.object(area1_emu.notify, 'grant_notifications')  # 실제 adb 는 부르지 않는다
+        self.grant = patcher.start()
+        self.addCleanup(patcher.stop)
+
     def phone(self, **kw):
         phone = FakePhone(**kw)
         phone.serial = S
@@ -292,6 +298,29 @@ class CaseTest(Base):
             phone = FakePhone()
             phone.serial = 'R5CR12345'
             self.assertEqual(area1.attempt_phone(self.run, case, phone)[0], 'blocked', case)
+
+    def test_every_emulator_case_pre_grants_the_notification_permission(self):
+        # 첫 로그인의 알림 권한 창이 가설 도중 앱 앞을 가리지 않게(영역 4 SET 도 같은 이유로 미리 준다) — 에뮬 시리얼에만
+        self.serve({('GET', '/rest/v1/student_verification_attempts'): Reply(200, [])})
+        with mock.patch.object(emu, 'go_offline'), mock.patch.object(emu, 'go_online', return_value=True),                 mock.patch.object(emu, 'root'), mock.patch.object(emu, 'browsers_disabled', side_effect=tools.Blocked('x')),                 mock.patch.object(emu, 'clock_shifted', side_effect=tools.Blocked('x')),                 mock.patch.object(area1_emu.area1_b3, '_push'), mock.patch.object(area1_emu.area1_b3, '_photos'):
+            for case in area1_emu.PHONE:
+                self.grant.reset_mock()
+                area1.attempt_phone(self.run, case, self.phone())
+                self.grant.assert_called_once_with(S, )
+
+    def test_a_real_phone_never_gets_the_permission_call(self):
+        self.serve()
+        phone = FakePhone()
+        phone.serial = 'R5CR12345'
+        for case in area1_emu.PHONE:
+            area1.attempt_phone(self.run, case, phone)
+        self.grant.assert_not_called()
+
+    def test_a_device_without_the_notification_permission_still_runs(self):
+        self.serve()
+        self.grant.side_effect = tools.Blocked('안드로이드 12 이하')
+        with mock.patch.object(emu, 'go_online', return_value=True), mock.patch.object(emu, 'go_offline'):
+            self.assertEqual(area1.attempt_phone(self.run, 'E-AUTH-22', self.phone(midway_step={'step': 'online'}))[0], 'pass')
 
     def test_bundle_is_the_four_emulator_hypotheses(self):
         self.assertEqual(sorted(area1.BUNDLES['area1-emu']), ['E-AUTH-19', 'E-AUTH-22', 'E-GATE-12', 'E-GATE-47'])

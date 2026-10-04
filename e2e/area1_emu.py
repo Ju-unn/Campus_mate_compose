@@ -7,7 +7,9 @@
 도우미가 먼저 필요하다(이번에는 목록만).
 """
 
-from e2e import area1, area1_b3, emu
+import contextlib
+
+from e2e import area1, area1_b3, emu, notify
 from e2e.area1 import Check, _app, _signed_in
 
 # 시나리오와 다른 점: E-GATE-47 은 "제출 누르자마자" 끊는 대신 제출 직전(사진 · 실명을 다 넣은 뒤)에 끊는다 — 누른 뒤에 끊으면
@@ -15,7 +17,11 @@ from e2e.area1 import Check, _app, _signed_in
 
 
 def _emulator(phone):
+    """에뮬이어야 하고, 첫 로그인의 알림 권한 창이 가설 도중 앱 앞을 가리지 않게 미리 준다(영역 4 SET 도 같은 이유로 준다).
+    이 권한이 없는 기기(안드로이드 12 이하)는 창도 없으니 못 줘도 그대로 간다."""
     emu.require_emulator(getattr(phone, 'serial', None))
+    with contextlib.suppress(emu.Blocked):
+        notify.grant_notifications(phone.serial)
     return phone.serial
 
 
