@@ -162,9 +162,10 @@ Area1Case _session(Area1Case body) => (tester, job) async {
 bool _fresh(Map<String, dynamic> job) => job['fresh'] != false;
 
 /// [expect] 화면에 닿는다. 다시 켠 경우(fresh=false)엔 5초(스플래시 2 + 3) 안, 로그인 화면이 한 번도 안 나와야 한다.
+/// 일감에 [limit](초)이 있으면 그 시간까지 기다린다 — 에뮬은 실폰보다 느려 5초가 모자란다. 5초를 넘기면 알림에 그 사실을 남기고, 못 닿으면 지금 보이는 화면을 알린다.
 Future<Map<String, Object?>?> _arriveAt(WidgetTester tester, Map<String, dynamic> job) async {
   final name = job['expect'] as String;
-  final limit = _fresh(job) ? const Duration(seconds: 30) : const Duration(seconds: 5);
+  final limit = Duration(seconds: job['limit'] as int? ?? (_fresh(job) ? 30 : 5));
   final watch = Stopwatch()..start();
   var sawLogin = false;
   var found = false;
@@ -173,9 +174,27 @@ Future<Map<String, Object?>?> _arriveAt(WidgetTester tester, Map<String, dynamic
     sawLogin |= name != 'login' && screen('login').evaluate().isNotEmpty;
     found = screen(name).evaluate().isNotEmpty;
   }
-  must(found, '${limit.inSeconds}초 안에 $name 화면이 안 나옴');
+  must(found, '${limit.inSeconds}초 안에 $name 화면이 안 나옴 — 지금 보이는 것: ${_whereNow()} (그동안 로그인 화면은 ${sawLogin ? '보였음' : '안 보였음'})');
   must(_fresh(job) || !sawLogin, '다시 켰는데 로그인 화면이 나옴');
-  return {'note': '${watch.elapsedMilliseconds}ms'};
+  final slow = limit > const Duration(seconds: 5) && !_fresh(job) && watch.elapsed > const Duration(seconds: 5);
+  return {'note': '${watch.elapsedMilliseconds}ms${slow ? ' (시나리오 5초 초과 — 에뮬 기준 ${limit.inSeconds}초까지 허용)' : ''}'};
+}
+
+/// 지금 어느 화면인지 — 못 닿았을 때 "느린 건지, 막힌 건지" 를 가리는 단서.
+String _whereNow() {
+  final seen = <String, Finder>{
+    '로그인': screen('login'),
+    '동의': screen('consent'),
+    '3b 폼': screen('3b'),
+    '3c': screen('3c'),
+    '홈': screen('home'),
+    '인터넷 없음 01-1': screen('01-1'),
+    '대기("$_held")': find.text(_held),
+    '확인 중("확인하고 있어요")': find.text('확인하고 있어요'),
+    '상태 조회 스피너': find.byType(CircularProgressIndicator),
+  };
+  final here = [for (final entry in seen.entries) if (entry.value.evaluate().isNotEmpty) entry.key];
+  return here.isEmpty ? '알 수 없음' : here.join(', ');
 }
 
 Future<void> _consentRow(WidgetTester tester, String label) => tap(tester, find.widgetWithText(ConsentRow, label));
