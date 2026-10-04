@@ -121,7 +121,7 @@ class _WaitingPanel extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Text(
-          _waitingSubtitle(nextIssueAt),
+          waitingSubtitle(nextIssueAt, DateTime.now()),
           textAlign: TextAlign.center,
           style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
         ),
@@ -187,19 +187,26 @@ class _TomorrowBand extends StatelessWidget {
   }
 }
 
-/// 화면 11 의 부제. 내일이면 시안 `k1jPSY`, 그 뒤면 `exnx7` 문구다.
-String _waitingSubtitle(DateTime? nextIssueAt) {
+/// 화면 11 의 부제. 내일이면 시안 `k1jPSY`, 그 뒤면 `exnx7` 문구다. 다음 주(월요일 시작)면 요일 앞에
+/// "다음 주" 를 붙인다 — 주 1회는 월요일에 "월요일" 이 오늘처럼 읽혔다(사용자 결정 10-04 (나)).
+/// 날짜 · 요일 · 시각은 서울 기준이다(한국은 서머타임이 없어 +9 고정).
+@visibleForTesting
+String waitingSubtitle(DateTime? nextIssueAt, DateTime now) {
   if (nextIssueAt == null) {
     return '새로운 사람이 준비되면 알려드릴게요';
   }
-  final now = DateTime.now();
-  final today = DateTime(now.year, now.month, now.day);
-  final issueDay = DateTime(nextIssueAt.year, nextIssueAt.month, nextIssueAt.day);
-  final time = hourLabel(nextIssueAt);
-  if (issueDay.difference(today).inDays <= 1) {
+  final issue = nextIssueAt.toUtc().add(const Duration(hours: 9));
+  final seoulNow = now.toUtc().add(const Duration(hours: 9));
+  final days = DateTime.utc(issue.year, issue.month, issue.day)
+      .difference(DateTime.utc(seoulNow.year, seoulNow.month, seoulNow.day))
+      .inDays;
+  final time = hourLabel(issue);
+  if (days <= 1) {
     return '내일 $time에 새로운 한 명이 도착해요';
   }
-  return '${weekdayNames[nextIssueAt.weekday - 1]}요일 $time에 새로운 사람을 찾아볼게요';
+  // 오늘이 weekday 면 이번 주 일요일까지 7 - weekday 일 남았다.
+  final nextWeek = days > 7 - seoulNow.weekday ? '다음 주 ' : '';
+  return '$nextWeek${weekdayNames[issue.weekday - 1]}요일 $time에 새로운 사람을 찾아볼게요';
 }
 
 /// 남은 시간 `hh:mm:ss`. 1초마다 갱신하고 [dispose] 에서 타이머를 반드시 끈다.
