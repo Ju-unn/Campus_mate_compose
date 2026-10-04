@@ -347,6 +347,9 @@ async def submit_survey(
     openai_client: AsyncOpenAI = Depends(get_openai),
 ) -> dict[str, bool]:
     settings, client, profile_id = caller
+    # 쓰기 전에 막는다 — 문구는 DB 제약이 막을 때(core/http.py)와 같다.
+    if not body.is_storable():
+        raise HTTPException(status_code=422, detail=errors.INVALID_INPUT)
     await _repo(settings, client).insert_survey_answers(profile_id, body.answers, body.religion, body.is_smoker)
     await _refresh_vectors(settings, client, openai_client, profile_id)
     return {"ok": True}

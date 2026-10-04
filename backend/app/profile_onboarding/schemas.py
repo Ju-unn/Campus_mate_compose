@@ -45,10 +45,22 @@ class TagsRequest(BaseModel):
     tags: list[str]
 
 
+# DB 가 막는 값과 같다(enum religion · survey_answers_axis_range · survey_answers_value_scale).
+# 저장이 두 번(답 insert → 프로필 PATCH)이라, DB 에만 맡기면 뒤쪽이 실패할 때 앞쪽 답만 남는다(E2E D-01).
+RELIGIONS = frozenset({"none", "protestant", "catholic", "buddhist"})
+SURVEY_AXES = range(1, 10)
+SURVEY_VALUES = frozenset({-1, -0.5, 0, 0.5, 1})
+
+
 class SurveyRequest(BaseModel):
     answers: dict[int, float]  # axis -> value
     religion: str
     is_smoker: bool
+
+    def is_storable(self) -> bool:
+        return self.religion in RELIGIONS and all(
+            axis in SURVEY_AXES and value in SURVEY_VALUES for axis, value in self.answers.items()
+        )
 
 
 class IdealConditionsRequest(BaseModel):
