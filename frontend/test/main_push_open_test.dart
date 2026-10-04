@@ -1,7 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:campus_mate/auth/model/student_verification_repository.dart';
+import 'package:campus_mate/auth/model/student_verification_repository_provider.dart';
 import 'package:campus_mate/auth/model/verification_gate.dart';
+import 'package:campus_mate/auth/view/student_verification_screen.dart';
 import 'package:campus_mate/auth/model/verification_gate_repository.dart';
 import 'package:campus_mate/auth/model/verification_gate_repository_provider.dart';
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
@@ -19,6 +22,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'auth/model/fake_student_verification_repository.dart';
+import 'auth/model/fake_verification_gate_repository.dart';
 import 'chat/model/fake_chat_repository.dart';
 import 'core/push/fake_push_messaging.dart';
 import 'home/model/fake_home_repository.dart';
@@ -92,5 +97,37 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(ConversationsScreen), findsOneWidget);
+  });
+
+  // A7 — 앱이 켜져 있으면 검토 결과 알림은 배너 대신 화면을 갱신한다. 없으면 30초 폴링까지 검토 중 화면에 남는다.
+  testWidgets('검토 중 화면에서 검토 결과 알림이 오면 바로 다음 화면으로 넘어간다', (tester) async {
+    final gate = FakeVerificationGateRepository()..nextResult = const Success(VerificationGate.needsStudentVerification);
+    final verification = FakeStudentVerificationRepository()
+      ..nextFetchStatusResult = const Success(VerificationOutcome(status: 'pending'));
+    final messaging = FakePushMessaging(token: 't', granted: false);
+    final container = ProviderContainer(
+      overrides: [
+        verificationGateRepositoryProvider.overrideWithValue(gate),
+        studentVerificationRepositoryProvider.overrideWithValue(verification),
+        onboardingRepositoryProvider.overrideWithValue(FakeOnboardingRepository()),
+        pushMessagingProvider.overrideWithValue(messaging),
+        cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
+        chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
+        homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
+        signOutProvider.overrideWithValue(() async {}),
+      ],
+    );
+    addTearDown(container.dispose);
+    await tester.pumpWidget(UncontrolledProviderScope(container: container, child: const CampusMateApp()));
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    expect(find.byType(StudentVerificationScreen), findsOneWidget);
+
+    verification.nextFetchStatusResult = const Success(VerificationOutcome(status: 'verified'));
+    gate.nextResult = const Success(VerificationGate.complete);
+    messaging.emitMessage({'route': 'verification'});
+    await tester.pumpAndSettle();
+
+    expect(find.byType(StudentVerificationScreen), findsNothing);
   });
 }
