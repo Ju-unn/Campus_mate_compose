@@ -9,6 +9,7 @@ import 'package:campus_mate/common/widgets/labeled_field.dart';
 import 'package:campus_mate/common/widgets/select_chip.dart';
 import 'package:campus_mate/consent/view/consent_row.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -90,6 +91,7 @@ Future<void> arrive(WidgetTester tester, String name, {Duration timeout = const 
     pumpUntil(tester, screen(name), timeout: timeout);
 
 Future<void> tap(WidgetTester tester, Finder finder) async {
+  must(finder.evaluate().isNotEmpty, '못 찾음: $finder'); // 없으면 "Bad state: No element" 만 남는다
   await tester.ensureVisible(finder.last);
   await tester.pump();
   await tester.tap(finder.last);
@@ -97,6 +99,7 @@ Future<void> tap(WidgetTester tester, Finder finder) async {
 }
 
 Future<void> type(WidgetTester tester, Finder field, String text) async {
+  must(field.evaluate().isNotEmpty, '못 찾음: $field');
   await tester.ensureVisible(field.first);
   await tester.enterText(field.first, text);
   await tester.pump(const Duration(milliseconds: 300));
@@ -300,7 +303,9 @@ final Map<String, Area1Case> area1Cases = {
     await arrive(tester, 'consent');
     await tap(tester, find.text('로그아웃'));
     await pumpUntil(tester, find.text('로그아웃할까요?'), timeout: const Duration(seconds: 5));
-    await tap(tester, button('로그아웃')); // 시트의 확인 버튼 — 02-c 의 로그아웃은 AppButton 이 아니다
+    // 시트의 확인 버튼은 AppButton 이 아니라 SafetySheetButton 이다(confirm_sign_out → showSafetyConfirmSheet).
+    // 02-c 아래의 로그아웃은 글자 버튼이라 이 찾기에 안 걸린다 — 10-04 실폰 GATE-14 "No element" 원인.
+    await tap(tester, find.widgetWithText(SafetySheetButton, '로그아웃'));
     await arrive(tester, 'login', timeout: const Duration(seconds: 10));
     must(Supabase.instance.client.auth.currentSession == null, '세션이 남아 있음');
     return null;
