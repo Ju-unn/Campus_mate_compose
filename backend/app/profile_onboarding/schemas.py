@@ -58,8 +58,11 @@ class SurveyRequest(BaseModel):
     is_smoker: bool
 
     def is_storable(self) -> bool:
-        return self.religion in RELIGIONS and all(
-            axis in SURVEY_AXES and value in SURVEY_VALUES for axis, value in self.answers.items()
+        # 9축 전부 필수다 — 앱은 처음부터 9축을 다 채워 한 번에 보낸다("온보딩 입력은 전부 필수").
+        return (
+            self.religion in RELIGIONS
+            and set(self.answers) == set(SURVEY_AXES)
+            and all(value in SURVEY_VALUES for value in self.answers.values())
         )
 
 

@@ -459,6 +459,9 @@ _NINE_ANSWERS = {str(axis): 0.5 for axis in range(1, 10)}
     {"answers": _NINE_ANSWERS, "religion": "jedi", "is_smoker": False},
     {"answers": {**_NINE_ANSWERS, "1": 0.3}, "religion": "none", "is_smoker": False},
     {"answers": {**_NINE_ANSWERS, "10": 0.5}, "religion": "none", "is_smoker": False},
+    {"answers": {k: v for k, v in _NINE_ANSWERS.items() if k != "9"}, "religion": "none", "is_smoker": False},
+    {"answers": {}, "religion": "none", "is_smoker": False},
+    {"answers": {**{k: v for k, v in _NINE_ANSWERS.items() if k != "9"}, "10": 0.5}, "religion": "none", "is_smoker": False},
 ])
 def test_survey_rejects_bad_values_before_writing_anything(body):
     """E2E D-01: 없는 종교면 답 9행을 먼저 넣은 뒤 프로필 PATCH 가 22P02 로 실패해 답만 남았다.
