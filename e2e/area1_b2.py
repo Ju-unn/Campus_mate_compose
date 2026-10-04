@@ -10,7 +10,7 @@ import time
 import urllib.parse
 from datetime import datetime, timedelta, timezone
 
-from e2e import area1, tools
+from e2e import area1, area1_b3, tools
 from e2e.area1 import (CONSENT_VERSION, Check, _api, _app, _at, _detail, _find_user, _one, _otp, _patch, _rows,
                        _signed_in, _signed_up)
 from e2e.tools import Blocked
@@ -352,9 +352,13 @@ def p_onb_54(run, phone):
 
 
 def p_onb_55(run, phone):
+    """얼굴 검사를 거치는 04-2 라 진짜 얼굴 사진(묶음 3 의 사진 세트 face1~3)을 폰에 넣어 고르게 한다. 세트가 없으면 계정 전에 blocked."""
     check = Check()
+    names = ['face1.jpg', 'face2.jpg', 'face3.jpg']
+    area1_b3._photos(run, *names)
     account, token = _signed_in(run, 'kakao')
-    _app(check, phone(token_hash=token), '사진 3장 고름')
+    area1_b3._push(phone, run, *names)
+    _app(check, phone(token_hash=token, photos=names), '사진 3장 고름')
     _app(check, phone(fresh=False, expect='04-2'), '다시 켬')
     rows = _rows(run, f"profile_photos?profile_id=eq.{account['id']}&select=id")
     check.that(not rows, f'profile_photos {len(rows)}행')
