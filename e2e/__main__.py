@@ -13,11 +13,12 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from e2e import area1
+from e2e import area1, area3
 from e2e.tools import (DEVICE_PORT, DEVICES, ROOT, Hub, Run, adb, cleanup, ensure_no_real_users, env, latest, scenario_rows,
                        serial, service_key, snapshot_blocks, verdict)
 
 ENV_KEYS = ('SUPABASE_URL', 'SUPABASE_ANON_KEY', 'API_BASE_URL', 'E2E_MAIL_BASE')
+BUNDLES = {**area1.BUNDLES, **area3.BUNDLES}
 DESKTOP = next(p for p in (Path.home() / 'OneDrive' / 'Desktop', Path.home() / 'Desktop') if p.exists())
 SCENARIO = DESKTOP / 'E2E_최종테스트_시나리오.md'
 RESULTS = DESKTOP / 'E2E_결과'
@@ -30,7 +31,7 @@ def _run(args):
 
 def cmd_list(args):
     rows = scenario_rows(SCENARIO.read_text(encoding='utf-8'))
-    bundles = [b for b in area1.BUNDLES if args.prefix and b.startswith(args.prefix)]
+    bundles = [b for b in BUNDLES if args.prefix and b.startswith(args.prefix)]
     if not bundles:
         for row in rows:
             if row['case'].startswith(args.prefix):
@@ -39,7 +40,7 @@ def cmd_list(args):
     by_case = {r['case']: r for r in rows}
     for bundle in bundles:
         print(f'# {bundle}')
-        for case in area1.BUNDLES[bundle]:
+        for case in BUNDLES[bundle]:
             row = by_case.get(case, {})
             print(f"{case}\t{row.get('device', '시나리오에 없음')}\t{row.get('method', '')}")
 
@@ -78,11 +79,13 @@ def cmd_run(args):
     phone = {}  # 폰 가설이 처음 나올 때 기기 · 우편함을 연다 — API 묶음만 돌릴 땐 폰이 없어도 된다
 
     def once(case):
-        if (case in area1.CASES or case in area1.PHONE) and not run.key:
+        if (case in area1.CASES or case in area1.PHONE or case in area3.CASES) and not run.key:
             run.key = service_key()  # preflight 를 건너뛰어도 운영 쓰기 전에 한 번 더 본다
             ensure_no_real_users(cfg, run.key, RESULTS)
         if case in area1.CASES:
             return area1.attempt(run, case)
+        if case in area3.CASES:
+            return area3.attempt(run, case)
         if not phone:
             sn, pc_port = serial(args.device, cfg), DEVICES[args.device]
             if not sn:
@@ -94,7 +97,7 @@ def cmd_run(args):
         return verdict(run.phone(phone['hub'], phone['sn'], {'case': case}))
 
     try:
-        for case in [c for name in args.case for c in area1.BUNDLES.get(name, [name])]:
+        for case in [c for name in args.case for c in BUNDLES.get(name, [name])]:
             for attempt in (1, 2):
                 result, note = once(case)
                 if result != 'fail':
