@@ -42,7 +42,7 @@ const _commentsSoon = '댓글 기능은 아직 준비 중이에요'; // poll_det
 const _post = '익명으로 올리기'; // poll_composer_screen.dart:128
 const _dailyLimit = '오늘은 질문을 더 올릴 수 없어요'; // poll_composer_screen.dart:18
 const _pageSize = 20; // backend POLL_PAGE_SIZE(community/repository.py:11) — 처음 읽는 개수
-const _total = 25; // PC 가 올려 두는 시험 글 수
+const _total = 25; // PC 가 올려 두는 시험 글 수(피드에 원래 보이던 글은 job 의 existing 으로 따로 온다)
 // 👍🏻 = 코드 포인트 2개(U+1F44D U+1F3FB). 79자 뒤에 붙이면 80 에서 잘려 👍 만 남는다.
 const _thumbs = '\u{1F44D}\u{1F3FB}';
 const _thumb = '\u{1F44D}';
@@ -239,8 +239,10 @@ final Map<String, Area1Case> _pollCases = {
     must(!enabled(tester, _post), '두 선택지가 같은데 "$_post" 이 켜짐');
     return null;
   }),
-  // PC 가 시험 글 25개만 두었다 — 처음 20 → 끝까지 내리면 25, 같은 id 중복 0, 끝(더 없음 · 아래 로딩 표시 없음). 글에 끝 글자는 없다.
+  // PC 가 시험 글 25개를 얹었다(원래 보이던 글 existing 개는 그대로) — 처음 20(새 글이 최신순 맨 앞이라 모두 시험 글) → 끝까지 내리면 25 + existing,
+  // 같은 id 중복 0, 끝(더 없음 · 아래 로딩 표시 없음). 글에 끝 글자는 없다.
   'E-POLL-25': _session((tester, job) async {
+    final expected = _total + (job['existing'] as int);
     await _openCommunity(tester);
     final first = _feedState(tester).polls.length;
     must(first == _pageSize, '처음 읽은 글 $first개(기대 $_pageSize)');
@@ -255,7 +257,7 @@ final Map<String, Area1Case> _pollCases = {
       await tester.pump(const Duration(milliseconds: 500));
     }
     final ids = _feedState(tester).polls.map((poll) => poll.id).toList();
-    must(ids.length == _total, '끝까지 내린 글 ${ids.length}개(기대 $_total)');
+    must(ids.length == expected, '끝까지 내린 글 ${ids.length}개(기대 $expected = 시험 $_total + 기존 ${expected - _total})');
     must(ids.toSet().length == ids.length, '같은 id 가 ${ids.length - ids.toSet().length}번 겹침');
     final spinner = find.descendant(of: _feed, matching: find.byType(CircularProgressIndicator));
     must(_count(spinner) == 0, '끝인데 아래에 로딩 표시가 남음');
