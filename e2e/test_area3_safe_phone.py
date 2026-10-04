@@ -43,6 +43,9 @@ def tok(account):
 class PhoneFake(SafeFake):
     """SafeFake + 폰 가설이 읽는 것: 닉네임 · 나감 시각(left_at) · 신고 스냅샷 · 투표 글 신고(서버 `_poll_target` 규칙)."""
 
+    def __call__(self, method, url, headers=None, body=None, raw=None, **options):
+        return super().__call__(method, url, headers, body, raw)  # area2._poll 이 retry=False 를 넘긴다(test_area2.Fake 와 같은 모양)
+
     def _basic(self, sent):
         self.profile(_who(sent))['nickname'] = sent['body']['nickname']
         return super()._basic(sent)
