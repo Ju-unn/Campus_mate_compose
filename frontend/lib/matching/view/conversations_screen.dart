@@ -84,9 +84,8 @@ class _Body extends ConsumerWidget {
     final viewModel = ref.read(acceptancesViewModelProvider.notifier);
     final isBusy = state.respondingCardId != null;
     return [
-      SliverPersistentHeader(
-        pinned: true,
-        delegate: _SectionHeader(title: '수락 대기', count: state.acceptances.length),
+      PinnedHeaderSliver(
+        child: _SectionHeader(title: '수락 대기', count: state.acceptances.length),
       ),
       SliverList.separated(
         itemCount: state.acceptances.length,
@@ -115,8 +114,8 @@ class _Body extends ConsumerWidget {
       return const [];
     }
     return [
-      SliverPersistentHeader(
-        delegate: _SectionHeader(title: '대화 중', count: state.conversations.length),
+      SliverToBoxAdapter(
+        child: _SectionHeader(title: '대화 중', count: state.conversations.length),
       ),
       SliverList.separated(
         itemCount: state.conversations.length,
@@ -144,22 +143,18 @@ class _Body extends ConsumerWidget {
 }
 
 /// 섹션 헤더(pen `Ymhdq`·`Yjs6e`). 우측은 "N명" — §8.6 은 "3 / 5" 같은 분수 표기를 금지한다.
-class _SectionHeader extends SliverPersistentHeaderDelegate {
+/// pen 높이 44 는 최소값이다 — 44 로 고정하면 글자 1.75 배부터 제목이 조용히 잘린다.
+class _SectionHeader extends StatelessWidget {
   const _SectionHeader({required this.title, required this.count});
 
   final String title;
   final int count;
 
   @override
-  double get minExtent => 44;
-
-  @override
-  double get maxExtent => 44;
-
-  @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(BuildContext context) {
     return Container(
       color: AppColors.canvas,
+      constraints: const BoxConstraints(minHeight: 44),
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
       alignment: Alignment.centerLeft,
       child: Row(
@@ -170,10 +165,6 @@ class _SectionHeader extends SliverPersistentHeaderDelegate {
       ),
     );
   }
-
-  @override
-  bool shouldRebuild(_SectionHeader oldDelegate) =>
-      oldDelegate.count != count || oldDelegate.title != title;
 }
 
 class _EmptyState extends StatelessWidget {

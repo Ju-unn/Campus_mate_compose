@@ -8,6 +8,7 @@ import 'package:campus_mate/matching/model/card_repository.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:campus_mate/matching/view/conversations_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -45,6 +46,10 @@ void main() {
     await tester.pump();
   }
 
+  /// 섹션 헤더 칸(제목을 감싼 가장 가까운 Container)의 높이.
+  double headerHeight(WidgetTester tester, String title) =>
+      tester.getSize(find.ancestor(of: find.text(title), matching: find.byType(Container)).first).height;
+
   testWidgets('수락 대기 섹션에 사람 수와 행을 보여준다', (tester) async {
     final repository = FakeCardRepository()..acceptances = const Success([_acceptance]);
 
@@ -54,6 +59,56 @@ void main() {
     expect(find.text('1명'), findsOneWidget);
     expect(find.text('초코라떼, 25'), findsOneWidget);
     expect(find.text('수락하고 대화 시작'), findsOneWidget);
+  });
+
+  for (final scale in [1.0, 1.75, 2.0]) {
+    testWidgets('글자 배율 $scale 에서 섹션 헤더가 넘치거나 잘리지 않는다', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = scale;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final chat = FakeChatRepository()..conversations = Success([conversationFixture()]);
+      final repository = FakeCardRepository()..acceptances = const Success([_acceptance]);
+
+      await pump(tester, repository, chat);
+
+      // 높이 44 고정이면 제목(20 × 1.4 = 28)이 1.75 에서 49 가 되어 넘친다.
+      expect(tester.takeException(), isNull);
+      for (final title in ['수락 대기', '대화 중']) {
+        final p = tester.renderObject<RenderParagraph>(find.text(title));
+        expect(p.size.height, greaterThanOrEqualTo(p.getMaxIntrinsicHeight(p.size.width) - 0.5), reason: title);
+        // 배율 1.0 에서는 pen 높이 44 그대로다.
+        if (scale == 1.0) expect(headerHeight(tester, title), 44, reason: title);
+      }
+    });
+  }
+
+  testWidgets('목록을 내려도 수락 대기 헤더는 위에 붙어 있고 대화 중 헤더는 같이 올라간다', (tester) async {
+    final chat = FakeChatRepository()
+      ..conversations = Success([
+        for (var i = 0; i < 15; i++) conversationFixture(matchId: 'm$i', nickname: '사람$i'),
+      ]);
+    final repository = FakeCardRepository()..acceptances = const Success([_acceptance]);
+    await pump(tester, repository, chat);
+    final top = tester.getTopLeft(find.byType(CustomScrollView)).dy;
+
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -600));
+    await tester.pumpAndSettle();
+
+    expect(tester.getTopLeft(find.text('수락 대기')).dy, greaterThanOrEqualTo(top));
+    expect(tester.getRect(find.text('수락 대기')).top - top, lessThan(44));
+    expect(find.text('대화 중').hitTestable(), findsNothing);
+  });
+
+  testWidgets('수락 대기가 0건이면 대화 중 헤더만 높이 44 로 맨 위에 온다', (tester) async {
+    final chat = FakeChatRepository()..conversations = Success([conversationFixture()]);
+    await pump(tester, FakeCardRepository(), chat);
+
+    expect(find.text('수락 대기'), findsNothing);
+    expect(find.text('1명'), findsOneWidget);
+    expect(headerHeight(tester, '대화 중'), 44);
+    expect(
+      tester.getRect(find.text('대화 중')).top - tester.getTopLeft(find.byType(CustomScrollView)).dy,
+      lessThan(44),
+    );
   });
 
   testWidgets('받은 수락이 없으면 빈 상태 문구만 보여준다', (tester) async {
