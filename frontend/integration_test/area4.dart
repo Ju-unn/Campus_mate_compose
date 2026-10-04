@@ -1,15 +1,24 @@
+import 'dart:io';
+
 import 'package:campus_mate/account/view/account_screen.dart';
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/faq/view/faq_screen.dart';
+import 'package:campus_mate/referral/view/invite_friends_sheet.dart';
 import 'package:campus_mate/safety/view/block_list_screen.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/foundation.dart' show mapEquals;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'area1.dart';
 import 'support.dart';
+
+part 'area4_set2.dart';
 
 /// 영역 4 SET 1차 — 설정 16 · 알림 설정 16d · 계정 16e · 카톡 16e-1 · 차단 목록 16f. PC 쪽은 e2e/area4.py 의 같은 번호.
 /// 화면 글자는 시나리오가 아니라 지금 화면 코드(frontend/lib/matching · account · safety)에서 옮겼다.
@@ -168,6 +177,7 @@ Future<void> _openBlockList(WidgetTester tester) => _openFromSettings(tester, '�
 int _blockedRows() => find.byKey(blockedRowKey).evaluate().length;
 
 final Map<String, Area1Case> area4Cases = {
+  ..._set2Cases,
   'E-SET-01': _session((tester, job) async {
     await _openSettings(tester);
     await pumpUntil(tester, find.text('자주 묻는 질문'));
