@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 
 from e2e import area1, area2, area4_set2, notify, tools
 from e2e.area1 import SEOUL, Check, _api, _app, _one, _patch, _rows, _signed_in
-from e2e.area2 import _card, _grant, _guard, _insert, _person
+from e2e.area2 import _ONCE, _card, _grant, _guard, _insert, _person
 from e2e.area4 import _cut, _offline, _restore, stepper
 from e2e.tools import Blocked
 
@@ -27,7 +27,7 @@ LOW_HEARTS = '하트가 모자라요'  # errors.HEARTS_NOT_ENOUGH
 AI_WAIT = 480  # 아바타 한 장이 완성되기를 기다리는 시간(초) — 시나리오 "수 분 안"
 POLL = 5
 TEST_REGION = 'e2e'  # region_group_settings 에서 쓰기를 허락하는 유일한 지역(시나리오 G1)
-_PAID = set()  # 유료(AI) 호출이 이미 시작된 가설 — run_case 의 fail 재시도로 같은 비용을 두 번 내지 않는다
+_PAID = {}  # 유료(AI) 호출이 이미 시작된 가설 → 그때까지 나온 (결과, 메모). run_case 의 fail 재시도로 같은 비용을 두 번 내지 않고, 다시 불리면 이 결과를 돌려준다
 SHARE_LABELS = ['복사', 'Copy']
 LADDER_ZERO = {'ladder_twice_per_week_min': 0, 'ladder_three_per_week_min': 0, 'ladder_four_per_week_min': 0,
                'ladder_daily_min': 0}  # 시나리오 G6 — 임계값 전부 0 이면 배치가 매일 지급으로 저장한다
@@ -306,7 +306,8 @@ def p_heart_44(run, phone):
     _add_avatar(run, account)
     _give(run, account, 9)
     _app(check, phone(token_hash=token))
-    check.reply('API 다시 만들기', _api(run, 'POST', '/me/avatar/regenerate', account['token']), 402, LOW_HEARTS)
+    # 서버에 닿았는지 모호해도 다시 보내지 않는다 — 402 가 아니게 받아들여졌다면 그 요청이 곧 유료 AI 호출이다
+    check.reply('API 다시 만들기', _api(run, 'POST', '/me/avatar/regenerate', account['token'], **_ONCE), 402, LOW_HEARTS)
     check.that(len(_avatars(run, account)) == 2, '생성 시도가 새로 생김(기대 0)')
     check.that(_balance(run, account) == 9, '잔액이 9 가 아님')
     return check.result()
@@ -314,47 +315,70 @@ def p_heart_44(run, phone):
 
 # ── 실제 AI 3 (별도 묶음) ───────────────────────────────────────────────────────────────────────────
 
+def _paid_calls(run, account, known):
+    """이 가설에서 나간 유료 호출 수 — 앱의 "다시 만들기" 한 번이 새 아바타 시도 행(ready · pending · failed 무엇이든) 하나다."""
+    return len([r for r in _avatars(run, account) if r['id'] not in known])
+
+
 def _regen(case_name, extra_avatar, balance, cost):
-    """완성 [1 + extra_avatar]장, 잔액 [balance] 에서 "다시 만들기" 한 번 — [cost] 는 이번 한 장의 값(0 이면 무료)."""
+    """완성 [1 + extra_avatar]장, 잔액 [balance] 에서 "다시 만들기" 한 번 — [cost] 는 이번 한 장의 값(0 이면 무료).
+    메모에 유료 호출 횟수를 남기고, 비용이 나간 뒤에는 어떤 결과든 [_PAID] 에 적어 두 번째 부름이 같은 이유를 돌려주게 한다."""
     def case(run, phone):
         real_ai_gate()
         if case_name in _PAID:
-            raise Blocked('이미 한 번 유료 호출 — 재시도 안 함')
-        check = Check()
-        account, token = _signed_in(run, 'home')
-        if extra_avatar:
-            _add_avatar(run, account)
-        if balance:
-            _give(run, account, balance)
-        known = {r['id'] for r in _avatars(run, account)}
-        made = {}
-
-        def finished(said):
-            _PAID.add(case_name)  # 앱이 만들기를 눌렀다 — 여기부터는 비용이 나간다
-            deadline = time.monotonic() + AI_WAIT
-            while True:
-                new = [r for r in _avatars(run, account) if r['id'] not in known]
-                if new and new[0]['status'] == 'failed':
-                    raise Blocked('아바타 생성이 실패(AI 쪽) — 앱 결함으로 세지 않는다')
-                during = _balance(run, account)
-                check.that(during == balance, f'만드는 중 잔액 {during}(기대 {balance} — 하트는 완성 뒤에 빠진다)')
-                if new and new[0]['status'] == 'ready':
-                    made['id'] = new[0]['id']
-                    return
-                if time.monotonic() >= deadline:
-                    raise Blocked(f'{AI_WAIT}초 안에 새 아바타가 안 끝남')
-                time.sleep(POLL)
-
-        _app(check, _slow(phone, 600)(midway=stepper(phone, finished), token_hash=token, balance=balance, free=cost == 0))
-        want = balance - cost
-        _wait_for(lambda: _balance(run, account) == want, 60)  # 차감은 완성을 적은 뒤에 나간다
-        check.that(_balance(run, account) == want, f'완성 뒤 잔액 {_balance(run, account)}(기대 {want})')
-        ledger = _rows(run, f"heart_transactions?profile_id=eq.{account['id']}&reason=eq.avatar_regen&select=amount,ref_id")
-        check.that([r['amount'] for r in ledger] == ([-cost] if cost else []), f'avatar_regen 원장 {ledger}(기대 {[-cost] if cost else []})')
-        if cost and ledger:
-            check.that(ledger[0].get('ref_id') == made.get('id'), '원장 ref_id 가 새 아바타 시도 id 와 다름')
-        return check.result()
+            result, note = _PAID[case_name]
+            if result == 'fail':  # 러너가 fail 을 한 번 더 돌려도 첫 시도의 이유가 사라지지 않게 그대로 돌려준다
+                return result, f'{note} — 유료 호출 뒤라 다시 하지 않음'
+            raise Blocked(f'이미 한 번 유료 호출 — 재시도 안 함(앞 결과 {result}: {note})')
+        try:
+            result = _regen_once(run, phone, case_name, extra_avatar, balance, cost)
+        except Blocked as e:
+            if case_name in _PAID:
+                _PAID[case_name] = ('blocked', str(e))
+            raise
+        if case_name in _PAID:
+            _PAID[case_name] = result
+        return result
     return case
+
+
+def _regen_once(run, phone, case_name, extra_avatar, balance, cost):
+    check = Check()
+    account, token = _signed_in(run, 'home')
+    if extra_avatar:
+        _add_avatar(run, account)
+    if balance:
+        _give(run, account, balance)
+    known = {r['id'] for r in _avatars(run, account)}
+    made = {}
+
+    def finished(said):
+        _PAID[case_name] = ('blocked', '앱이 만들기를 누른 뒤 결과가 나오기 전에 멈춤')  # 여기부터는 비용이 나간다
+        deadline = time.monotonic() + AI_WAIT
+        while True:
+            new = [r for r in _avatars(run, account) if r['id'] not in known]
+            if new and new[0]['status'] == 'failed':
+                raise Blocked(f'아바타 생성이 실패(AI 쪽) — 앱 결함으로 세지 않는다 (유료 호출 {len(new)}번)')
+            during = _balance(run, account)
+            check.that(during == balance, f'만드는 중 잔액 {during}(기대 {balance} — 하트는 완성 뒤에 빠진다)')
+            if new and new[0]['status'] == 'ready':
+                made['id'] = new[0]['id']
+                return
+            if time.monotonic() >= deadline:
+                raise Blocked(f'{AI_WAIT}초 안에 새 아바타가 안 끝남 (새 아바타 시도 행 {len(new)}개 — 앱이 이미 눌렀으니 0개여도 서버에 닿았는지 확인 필요)')
+            time.sleep(POLL)
+
+    _app(check, _slow(phone, 600)(midway=stepper(phone, finished), token_hash=token, balance=balance, free=cost == 0))
+    want = balance - cost
+    _wait_for(lambda: _balance(run, account) == want, 60)  # 차감은 완성을 적은 뒤에 나간다
+    check.that(_balance(run, account) == want, f'완성 뒤 잔액 {_balance(run, account)}(기대 {want})')
+    ledger = _rows(run, f"heart_transactions?profile_id=eq.{account['id']}&reason=eq.avatar_regen&select=amount,ref_id")
+    check.that([r['amount'] for r in ledger] == ([-cost] if cost else []), f'avatar_regen 원장 {ledger}(기대 {[-cost] if cost else []})')
+    if cost and ledger:
+        check.that(ledger[0].get('ref_id') == made.get('id'), '원장 ref_id 가 새 아바타 시도 id 와 다름')
+    paid = f'유료 호출 {_paid_calls(run, account, known)}번(새 아바타 시도 행 수)'
+    result, note = check.result()
+    return result, f'{note} ({paid})' if note else paid
 
 
 PHONE = {

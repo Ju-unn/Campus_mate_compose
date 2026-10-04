@@ -133,6 +133,12 @@ class LowHeartsTest(CaseBase):
         self.assertEqual(len(self.fake.bodies('POST', '/me/avatar/regenerate')), 1)
         self.assertIn('token_hash', phone.jobs[0])
 
+    def test_the_regeneration_request_is_sent_only_once_even_when_the_link_drops(self):
+        rules = [('POST', '/me/avatar/regenerate', lambda b, u: Reply(402, {'detail': '하트가 모자라요'})), *self.RULES]
+        self.go('E-HEART-44', FakePhone(), rules)
+        sent = [o for m, path, o in self.fake.options if (m, path) == ('POST', '/me/avatar/regenerate')]
+        self.assertEqual(sent, [{'retry': False}])  # 서버에 닿았는지 모호해도 다시 보내지 않는다 — 열려 있으면 유료 호출이다
+
     def test_a_balance_other_than_nine_is_a_fail(self):
         rules = [('POST', '/me/avatar/regenerate', lambda b, u: Reply(402, {'detail': '하트가 모자라요'})),
                  self.RULES[0], ('GET', 'entitlements', lambda b, u: Reply(200, [{'heart_balance': 8}]))]
@@ -349,6 +355,44 @@ class RealAiTest(CaseBase):
         self.assertEqual(second[0], 'blocked')
         self.assertIn('재시도', second[1])
         self.assertEqual(phone.jobs, [])
+
+    def test_a_paid_fail_comes_back_as_that_same_fail_on_the_second_call_without_the_phone(self):
+        wrong = [{'amount': -10, 'reason': 'avatar_regen', 'ref_id': 'other'}]
+        (first, _) = self.charged([10, 10, 0], wrong)
+        self.assertEqual(first[0], 'fail', first)
+        (second, phone) = self.charged([10, 10, 0], wrong)
+        self.assertEqual(second[0], 'fail', second)  # 러너가 fail 을 한 번 더 돌려도 첫 시도의 이유가 사라지지 않는다
+        self.assertIn('ref_id', second[1])
+        self.assertIn('다시 하지 않음', second[1])
+        self.assertEqual(phone.jobs, [])
+
+    def test_the_note_counts_the_paid_calls_as_new_attempt_rows(self):
+        (passed, _) = self.charged([10, 10, 0], [{'amount': -10, 'reason': 'avatar_regen', 'ref_id': 'a3'}])
+        self.assertIn('유료 호출 1번', passed[1])
+        area2_phone3._PAID.clear()
+        (failed, _) = self.charged([7, 7, 0], [{'amount': -10, 'reason': 'avatar_regen', 'ref_id': 'a3'}])
+        self.assertEqual(failed[0], 'fail')
+        self.assertIn('유료 호출 1번', failed[1])
+
+    def test_a_paid_blocked_keeps_its_reason_and_count_on_the_second_call(self):
+        one = [{'id': 'a1', 'status': 'ready'}]
+        states = iter([one, one + [{'id': 'a9', 'status': 'failed'}]])
+        rules = [('GET', 'profile_avatars', lambda b, u: Reply(200, next(states, one)))]
+        with mock.patch.dict(area2_phone3.os.environ, {'E2E_REAL_AI': '1'}):
+            first = self.go('E-HEART-42', FakePhone(midway_step={'step': 'started'}), rules)
+            second = self.go('E-HEART-42', FakePhone(), rules)
+        self.assertEqual(first[0], 'blocked')
+        self.assertIn('유료 호출 1번', first[1])
+        self.assertEqual(second[0], 'blocked')
+        self.assertIn('실패', second[1])  # 첫 시도가 왜 막혔는지가 두 번째 메모에도 남는다
+
+    def test_a_timeout_before_any_new_row_does_not_read_as_no_cost(self):
+        one = [{'id': 'a1', 'status': 'ready'}]
+        rules = [('GET', 'profile_avatars', lambda b, u: Reply(200, one))]
+        with mock.patch.dict(area2_phone3.os.environ, {'E2E_REAL_AI': '1'}), mock.patch.object(area2_phone3, 'AI_WAIT', 0):
+            result = self.go('E-HEART-42', FakePhone(midway_step={'step': 'started'}), rules)
+        self.assertEqual(result[0], 'blocked')
+        self.assertIn('서버에 닿았는지 확인 필요', result[1])  # 앱이 이미 눌렀다 — 새 행이 아직 0개여도 비용이 안 나갔다는 뜻이 아니다
 
     def test_a_failed_generation_is_blocked_so_the_runner_does_not_pay_twice(self):
         one = [{'id': 'a1', 'status': 'ready'}]

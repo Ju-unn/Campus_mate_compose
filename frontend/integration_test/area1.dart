@@ -34,6 +34,7 @@ import 'support.dart';
 part 'area1_b2.dart';
 part 'area1_b3.dart';
 part 'area1_b4.dart';
+part 'area1_b5.dart';
 part 'area1_b6.dart';
 part 'area1_emu.dart';
 
@@ -572,6 +573,7 @@ final Map<String, Area1Case> area1Cases = {
   ..._b2Cases,
   ..._b3Cases,
   ..._b4Cases,
+  ..._b5Cases,
   ..._b6Cases,
   ..._emuCases,
 };
