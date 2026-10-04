@@ -196,7 +196,7 @@ def edge_22(run):
     balance = _balance(run, account)
     if len(known) != 2 or len(_ready(_avatars(run, account))) != 2 or balance != START_HEARTS:
         raise Blocked(f'준비: 아바타 행 {len(known)}개 · 하트 {balance}(기대 ready 2장 · {START_HEARTS})')
-    _PAID.add(EDGE_22)  # 여기부터는 비용이 나간다
+    _PAID[EDGE_22] = ('blocked', '요청 두 개를 보낸 뒤 결과가 나오기 전에 멈춤')  # 여기부터는 비용이 나간다
     _twice_and_wait(run, account, known, check)
     result = check.result(f'AI 1장 완성 · 하트 −{REGEN_COST} 한 번({START_HEARTS}→{START_HEARTS - REGEN_COST})')
     if result[0] == 'fail':
