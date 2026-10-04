@@ -1,3 +1,4 @@
+import logging
 from uuid import UUID
 
 import httpx
@@ -84,6 +85,46 @@ async def test_supabase_auth_unreachable_is_503():
         await get_current_user_id(_settings(), client, authorization="Bearer valid-token")
 
     assert exc_info.value.status_code == 503
+
+
+@pytest.mark.parametrize("status", [429, 503])
+async def test_auth_trouble_leaves_a_warning_with_the_status_but_not_the_token(status, caplog):
+    # 503 은 앱이 조용히 다시 시도해서 사용자 신고로는 안 보인다 — 장애가 얼마나 잦았는지 로그로만 안다.
+    client = httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(status)))
+
+    with caplog.at_level(logging.WARNING, logger="app.student_verification.current_user"):
+        with pytest.raises(HTTPException):
+            await get_current_user_id(_settings(), client, authorization="Bearer secret-token")
+
+    assert [r.levelno for r in caplog.records] == [logging.WARNING]
+    assert str(status) in caplog.text
+    assert "secret-token" not in caplog.text
+
+
+async def test_auth_unreachable_leaves_a_warning_with_the_error_kind(caplog):
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("연결 실패")
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+    with caplog.at_level(logging.WARNING, logger="app.student_verification.current_user"):
+        with pytest.raises(HTTPException):
+            await get_current_user_id(_settings(), client, authorization="Bearer secret-token")
+
+    assert [r.levelno for r in caplog.records] == [logging.WARNING]
+    assert "ConnectError" in caplog.text
+    assert "secret-token" not in caplog.text
+
+
+async def test_a_refused_token_is_not_logged_as_trouble(caplog):
+    # 4xx 는 장애가 아니라 만료 — 매일 수없이 생긴다. 로그를 남기면 진짜 장애가 묻힌다.
+    client = httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(401)))
+
+    with caplog.at_level(logging.WARNING, logger="app.student_verification.current_user"):
+        with pytest.raises(HTTPException):
+            await get_current_user_id(_settings(), client, authorization="Bearer expired-token")
+
+    assert caplog.records == []
 
 
 # 조각 6: 정지 관문 ----------------------------------------------------------------

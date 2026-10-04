@@ -1,3 +1,4 @@
+import logging
 from uuid import UUID
 
 import httpx
@@ -6,6 +7,8 @@ from fastapi import HTTPException
 from app.core import errors
 from app.settings import Settings
 from app.student_verification.repository import StudentVerificationRepository
+
+logger = logging.getLogger(__name__)
 
 
 async def get_current_user_id(
@@ -22,9 +25,12 @@ async def get_current_user_id(
             f"{settings.auth_url}/user",
             headers={"Authorization": authorization, "apikey": settings.supabase_service_role_key},
         )
-    except httpx.HTTPError:
+    except httpx.HTTPError as exc:
+        # 앱이 조용히 다시 시도하니 장애 빈도는 이 로그로만 안다. 토큰은 남기지 않는다.
+        logger.warning("Supabase 인증 연결 실패 → 503 %s", type(exc).__name__)
         raise HTTPException(status_code=503, detail=errors.AUTH_UNAVAILABLE)
     if response.status_code >= 500 or response.status_code == 429:
+        logger.warning("Supabase 인증 장애 → 503 status=%d", response.status_code)
         raise HTTPException(status_code=503, detail=errors.AUTH_UNAVAILABLE)
     if response.status_code != 200:
         raise HTTPException(status_code=401, detail=errors.SESSION_EXPIRED)
