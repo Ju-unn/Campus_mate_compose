@@ -57,50 +57,58 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
 
     return Scaffold(
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(
-                width: double.infinity,
-                height: 124,
-                child: Image(
-                  image: AssetImage('assets/images/campus-heart-orbit-v1.png'),
-                  fit: BoxFit.contain,
+        child: CustomScrollView(
+          slivers: [
+            // 보통 글자에선 버튼이 아래에 붙고, 글자를 키워 넘치면 같이 스크롤된다(DESIGN §11.2).
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 28),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(
+                      width: double.infinity,
+                      height: 124,
+                      child: Image(
+                        image: AssetImage('assets/images/campus-heart-orbit-v1.png'),
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                    Text('대학 이메일로 시작해요', style: AppTypography.headline.copyWith(color: AppColors.ink)),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text('학교 이메일 주소만 가입할 수 있어요.', style: AppTypography.body.copyWith(color: AppColors.body)),
+                    Text(
+                      '인증이 끝나면 이메일은 어디에도 공개되지 않아요.',
+                      style: AppTypography.body.copyWith(color: AppColors.body),
+                    ),
+                    const SizedBox(height: AppSpacing.xl),
+                    Text('대학 이메일', style: AppTypography.labelSmall.copyWith(color: AppColors.body)),
+                    const SizedBox(height: AppSpacing.xs),
+                    _EmailField(controller: _emailController, onChanged: viewModel.changeEmail),
+                    const SizedBox(height: AppSpacing.xs),
+                    const _DomainHint(),
+                    if (state.errorMessage != null) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(state.errorMessage!, style: AppTypography.caption.copyWith(color: AppColors.error)),
+                    ],
+                    const Spacer(),
+                    if (_notice != null) ...[
+                      Center(
+                        child: AppToast(
+                          leading: const Icon(AppIcons.alertTriangle, size: 16, color: AppColors.onInk),
+                          label: _notice!,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.sm), // CTA 바로 위 12(pen KJnpw)
+                    ],
+                    // 동의는 로그인 뒤 02-c 에서 항목별로 받는다 — 여기 있던 묵시 동의 줄은 지웠다(사용자 결정 2026-09-29).
+                    AppButton(label: '인증 메일 받기', onPressed: state.canSubmit ? viewModel.submit : null),
+                  ],
                 ),
               ),
-              Text('대학 이메일로 시작해요', style: AppTypography.headline.copyWith(color: AppColors.ink)),
-              const SizedBox(height: AppSpacing.xs),
-              Text('학교 이메일 주소만 가입할 수 있어요.', style: AppTypography.body.copyWith(color: AppColors.body)),
-              Text(
-                '인증이 끝나면 이메일은 어디에도 공개되지 않아요.',
-                style: AppTypography.body.copyWith(color: AppColors.body),
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              Text('대학 이메일', style: AppTypography.labelSmall.copyWith(color: AppColors.body)),
-              const SizedBox(height: AppSpacing.xs),
-              _EmailField(controller: _emailController, onChanged: viewModel.changeEmail),
-              const SizedBox(height: AppSpacing.xs),
-              const _DomainHint(),
-              if (state.errorMessage != null) ...[
-                const SizedBox(height: AppSpacing.sm),
-                Text(state.errorMessage!, style: AppTypography.caption.copyWith(color: AppColors.error)),
-              ],
-              const Spacer(),
-              if (_notice != null) ...[
-                Center(
-                  child: AppToast(
-                    leading: const Icon(AppIcons.alertTriangle, size: 16, color: AppColors.onInk),
-                    label: _notice!,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.sm), // CTA 바로 위 12(pen KJnpw)
-              ],
-              // 동의는 로그인 뒤 02-c 에서 항목별로 받는다 — 여기 있던 묵시 동의 줄은 지웠다(사용자 결정 2026-09-29).
-              AppButton(label: '인증 메일 받기', onPressed: state.canSubmit ? viewModel.submit : null),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
