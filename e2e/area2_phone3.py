@@ -234,9 +234,10 @@ def p_card_02(run, phone):
         check.that(got, '배치 뒤 90초 안에 A 의 daily_cards 가 안 생김')
         if not got:
             return
-        new = notify.wait_new(phone.serial, before, seconds=30)
+        new = notify.wait_new(phone.serial, before, seconds=30, match=lambda n: (n.title, n.text) == (CARD_TITLE, CARD_BODY))
         arrived = [n for n in new if (n.title, n.text) == (CARD_TITLE, CARD_BODY)]
-        check.that(arrived, f'30초 안에 알림 "{CARD_TITLE} / {CARD_BODY}" 없음(새 알림 {len(new)}건)')
+        shown = ' · '.join(f'"{n.title} / {n.text}"' for n in new)
+        check.that(arrived, f'30초 안에 알림 "{CARD_TITLE} / {CARD_BODY}" 없음(새 알림 {len(new)}건: {shown or "없음"})')
         if arrived:
             notify.tap_notification(phone.serial, CARD_TITLE)
             time.sleep(1)
@@ -265,8 +266,9 @@ def p_ref_18(run, phone):
     nickname = _one(run, f"profiles?id=eq.{friend['id']}&select=nickname").get('nickname') or ''
     check.reply('코드 입력', _api(run, 'POST', '/referral/redeem', friend['token'], {'code': code}), 200)
     want = (FRIEND_TITLE, f'{nickname} 님이 가입했어요, 리뷰를 남겨 주세요')
-    new = notify.wait_new(phone.serial, before, seconds=30)
-    check.that(any((n.title, n.text) == want for n in new), f'30초 안에 알림 "{want[0]} / {want[1]}" 없음(새 알림 {len(new)}건)')
+    new = notify.wait_new(phone.serial, before, seconds=30, match=lambda n: (n.title, n.text) == want)
+    shown = ' · '.join(f'"{n.title} / {n.text}"' for n in new)  # 우리 앱 알림만 — 틀렸을 때 실제로 온 글이 메모에 남는다
+    check.that(any((n.title, n.text) == want for n in new), f'30초 안에 알림 "{want[0]} / {want[1]}" 없음(새 알림 {len(new)}건: {shown or "없음"})')
     return check.result()
 
 
