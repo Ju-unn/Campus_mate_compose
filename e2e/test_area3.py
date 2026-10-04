@@ -7,6 +7,7 @@ API(FastAPI) 쪽 답은 시험마다 [Fake.on] 으로 정한다 — 올바른 �
 import re
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest import mock
 from urllib.parse import parse_qsl, urlsplit
@@ -390,6 +391,17 @@ class RegistryTest(Base):
         row = self.fake.tables['matches'][0]
         self.assertEqual((row['profile_a'], row['profile_b']), ('id-1', 'id-9'))
         self.assertEqual({r['profile_id'] for r in self.fake.tables['match_participants']}, {'id-1', 'id-9'})
+
+    def test_messages_are_a_second_apart_unless_one_time_is_given(self):
+        area3._messages(self.run_, 'm', {'id': 'id-1'}, 3)
+        apart = [r['created_at'] for r in self.fake.tables['messages']]
+        self.assertEqual(len(set(apart)), 3)
+        self.assertEqual(apart, sorted(apart))
+        self.fake.tables.clear()
+        area3._messages(self.run_, 'm', {'id': 'id-1'}, 3, at=datetime(2026, 10, 4, tzinfo=timezone.utc))
+        rows = self.fake.tables['messages']
+        self.assertEqual({r['created_at'] for r in rows}, {'2026-10-04T00:00:00+00:00'})  # 같은 시각 경계(E-CHAT-20)
+        self.assertEqual([r['body'] for r in rows], ['E2E-0', 'E2E-1', 'E2E-2'])  # 본문은 그래도 서로 달라야 겹침을 센다
 
     def test_main_runs_area3_cases_next_to_area1_and_area2(self):
         from e2e import __main__ as main

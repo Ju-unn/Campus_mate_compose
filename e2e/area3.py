@@ -54,11 +54,11 @@ def _link(run, referrer, referee):
     _patch(run, f"profiles?id=eq.{referee['id']}", {'status': 'active'})
 
 
-def _messages(run, match_id, sender, count):
-    """[sender] 가 보낸 글 [count] 건 — 시각이 1초씩 달라 순서가 정해진다."""
+def _messages(run, match_id, sender, count, at=None):
+    """[sender] 가 보낸 글 [count] 건 — 시각이 1초씩 달라 순서가 정해진다. [at] 을 주면 모두 그 한 시각(같은 시각 경계)."""
     now = datetime.now(timezone.utc)
     _insert(run, 'messages', [{'match_id': match_id, 'sender_id': sender['id'], 'body': f'E2E-{i}',
-                               'created_at': (now - timedelta(seconds=count - i)).isoformat()} for i in range(count)])
+                               'created_at': (at or (now - timedelta(seconds=count - i))).isoformat()} for i in range(count)])
 
 
 def _review(run, reviewer, reviewee, **extra):
