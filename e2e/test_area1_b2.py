@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest import mock
 
-from e2e import area1, area1_b2, tools
+from e2e import area1, area1_b2, batch_gate, tools
 from e2e.test_area1 import Base
 from e2e.test_area1_phone import APP_PASS, FakePhone
 from e2e.tools import Reply
@@ -189,6 +189,10 @@ class CleanupBatchTest(Base):
         patcher = mock.patch.object(tools, 'batch')
         self.batch = patcher.start()
         self.addCleanup(patcher.stop)
+        # 정리 배치 관문이 실제 시각(04:00 근처)에 걸리지 않게 — 관문 자체는 test_batch_gate 가 본다
+        clock = mock.patch.object(batch_gate, 'now_seoul', return_value=datetime(2026, 10, 6, 12, 0, tzinfo=area1.SEOUL))
+        clock.start()
+        self.addCleanup(clock.stop)
         sleeper = mock.patch.object(area1_b2.time, 'sleep')
         sleeper.start()
         self.addCleanup(sleeper.stop)
@@ -209,6 +213,14 @@ class CleanupBatchTest(Base):
         self.batch.assert_called_once_with('cleanup')
         withdrawn_at = [b['withdrawn_at'] for m, p, b in fake.calls if m == 'PATCH' and b and 'withdrawn_at' in b][0]
         self.assertLess(datetime.fromisoformat(withdrawn_at), datetime.now(timezone.utc) - timedelta(days=30))
+
+    def test_auth_10_at_four_oclock_never_reaches_gcloud(self):
+        self.gone_after_batch()
+        with mock.patch.object(batch_gate, 'now_seoul', return_value=datetime(2026, 10, 6, 4, 0, tzinfo=area1.SEOUL)):
+            result, memo = area1.attempt(self.run, 'E-AUTH-10')
+        self.assertEqual(result, 'blocked')
+        self.assertIn('04:06', memo)
+        self.batch.assert_not_called()
 
     def test_auth_10_user_still_there_after_batch_is_blocked(self):
         self.serve()
