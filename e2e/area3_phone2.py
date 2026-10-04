@@ -20,7 +20,7 @@ from datetime import datetime, timedelta, timezone
 from e2e import area1, area3, area4, tools
 from e2e.area1 import Check, _api, _app, _rows
 from e2e.area3 import _count, _link, _match, _patch, _review, _review_post, _send
-from e2e.area3_phone import ALREADY, MISSING, THREE_TAGS, _me, _ok, _person
+from e2e.area3_phone import ALREADY, MISSING, THREE_TAGS, _me, _ok, _permitted, _person
 
 LIMIT = 1000  # 채팅 글 상한(코드포인트) — chat_input_bar.dart messageMaxLength
 COMMENT_LIMIT = 100  # 리뷰 한마디 상한 — friend_review_tags.dart friendReviewCommentMaxLength
@@ -277,6 +277,7 @@ PHONE2 = {
     'E-REV-07': _compose(ONE_TAG, (SPACE, 5), ONE_TAG, None),
     'E-REV-11': p_rev_11, 'E-REV-25': p_rev_25, 'E-REV-36': _reported(False), 'E-REV-37': _reported(True),
 }
+PHONE2 = {name: _permitted(case) for name, case in PHONE2.items()}
 
 area1.PHONE.update(PHONE2)
 area3.BUNDLES['area3-phone-2'] = list(PHONE2)

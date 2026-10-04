@@ -653,6 +653,16 @@ class ReportTest(Phone2):
 APP_KEYS = {'nickname', 'text', 'paste', 'variant', 'profile_id', 'tags'}
 
 
+class PermissionTest(Phone2):
+    def test_every_phone_2_case_grants_before_and_revokes_after(self):
+        self.assertEqual(list(area3_phone2.PHONE2), BUNDLE)
+        for name in BUNDLE:  # 가설마다 돌리면 오프라인 가설이 실폰 adb 를 부른다 — 꾸밈을 거쳤는지만 보고, 한 건은 실제로 돌린다
+            self.assertTrue(hasattr(area3_phone2.PHONE2[name], '__wrapped__'), name)
+            self.assertIs(area1.PHONE[name], area3_phone2.PHONE2[name], name)
+        self.case('E-REV-07', said())
+        self.assertEqual([p[0] for p in self.perm], ['grant', 'revoke'])
+
+
 class RegistryTest(Phone2):
     def dart(self, name):
         return (tools.ROOT / 'frontend' / 'integration_test' / name).read_text(encoding='utf-8')

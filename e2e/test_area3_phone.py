@@ -7,11 +7,12 @@
 
 import re
 import unittest
+from unittest import mock
 
-from e2e import area1, area3, area3_phone  # noqa: F401 — area3_phone 이 가설을 area1.PHONE 에 더한다
+from e2e import area1, area3, area3_phone, notify  # noqa: F401 — area3_phone 이 가설을 area1.PHONE 에 더한다
 from e2e.test_area3 import Base, PROFILE_GONE
 from e2e import tools
-from e2e.tools import Reply
+from e2e.tools import Blocked, Reply
 
 ALREADY = '이미 리뷰를 남겼어요'
 EARLY = '카카오톡 아이디를 먼저 공유해도 돼요'
@@ -25,7 +26,7 @@ class App:
     """앱 대신 — 받은 일감을 [jobs] 에 남기고 [answer](일감) 을 돌려준다."""
 
     def __init__(self, answer):
-        self.answer, self.jobs = answer, []
+        self.answer, self.jobs, self.serial = answer, [], 'S'
 
     def __call__(self, midway=None, **job):
         self.jobs.append(job)
@@ -41,6 +42,14 @@ def bodies(count):
 
 
 class PhoneBase(Base):
+    def setUp(self):
+        super().setUp()
+        self.perm = []  # 알림 권한 준 · 뺀 기록 — 실폰 adb 를 부르지 않는다
+        for name in ('grant', 'revoke'):
+            patcher = mock.patch.object(notify, f'{name}_notifications', side_effect=lambda serial, n=name: self.perm.append((n, serial)))
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
     def case(self, name, answer):
         """가설 하나를 깨끗한 가짜 서버에서(시험이 정한 API 답은 둔다) — 계정은 늘 id-1 부터."""
         self.fake.tables.clear()
@@ -420,6 +429,36 @@ class PartnerReviewsTest(PhoneBase):
         self.assertEqual(len(self.fake.by('POST', '/friend-reviews')), 2)
         (result, _), _ = self.case('E-REV-30', said(cards=2, link='2개 모두 보기', flags=0))
         self.assertEqual(result, 'fail')
+
+
+class PermissionTest(PhoneBase):
+    """폰을 켜는 가설은 시작 전에 알림 권한을 주고(권한 창이 앱을 가리지 않게), 끝나면 — 실패해도 — 되돌린다."""
+
+    def test_grant_before_the_app_and_revoke_after(self):
+        def answer(job):
+            self.perm.append(('app', None))
+            return said()
+        self.case('E-CHAT-08', answer)
+        self.assertEqual(self.perm, [('grant', 'S'), ('app', None), ('revoke', 'S')])
+
+    def test_revoke_even_when_the_case_raises(self):
+        def boom(job):
+            raise RuntimeError('앱 끊김')
+        with self.assertRaises(RuntimeError):
+            area1.PHONE['E-CHAT-08'](self.run_, App(boom))
+        self.assertEqual(self.perm, [('grant', 'S'), ('revoke', 'S')])
+
+    def test_blocked_grant_is_swallowed_and_the_case_still_runs(self):
+        notify.grant_notifications.side_effect = Blocked('pm grant 실패')  # 안드로이드 12 이하 — 권한 창이 없다
+        _, app = self.case('E-CHAT-08', said())
+        self.assertEqual(len(app.jobs), 1)  # 앱까지 갔다
+        self.assertEqual(self.perm, [('revoke', 'S')])
+
+    def test_every_phone_1_case_is_wrapped_and_the_ids_are_unchanged(self):
+        self.assertEqual(list(area3_phone.PHONE), BUNDLE)
+        for name in BUNDLE:
+            self.assertTrue(hasattr(area3_phone.PHONE[name], '__wrapped__'), name)  # 꾸밈을 거쳤다
+            self.assertIs(area1.PHONE[name], area3_phone.PHONE[name], name)
 
 
 class RegistryTest(PhoneBase):
