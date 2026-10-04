@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/auth/sign_out.dart';
 import 'package:campus_mate/core/push/push_registrar.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -52,4 +55,25 @@ void main() {
 
     verify(() => auth.signOut()).called(1);
   });
+
+  test('푸시 토큰 삭제가 끝나지 않으면 기다리다 조용히 넘어가 로그아웃한다', () async {
+    // 앱 http 에는 타임아웃이 없다 — 반쯤 죽은 망에서 DELETE 가 매달리면 finally 에도 못 가 같은 식으로 갇힌다.
+    final registrar = PushRegistrar(
+      FakePushMessaging(token: 'tok-1'),
+      _HangingDeleteRepository(),
+      deleteTimeout: Duration.zero,
+    );
+    await registrar.start();
+    final auth = MockGoTrueClient();
+    when(() => auth.signOut()).thenAnswer((_) async {});
+
+    await expectLater(signOut(registrar, auth), completes);
+
+    verify(() => auth.signOut()).called(1);
+  }, timeout: const Timeout(Duration(seconds: 2))); // 기본 5초가 아니라 넣어 준 시간을 쓰는지까지 본다.
+}
+
+class _HangingDeleteRepository extends FakeCardRepository {
+  @override
+  Future<Result<void>> deletePushToken(String token) => Completer<Result<void>>().future;
 }
