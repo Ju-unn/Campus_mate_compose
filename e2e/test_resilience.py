@@ -149,5 +149,64 @@ class RunCaseTest(unittest.TestCase):
         self.assertEqual(cli.run_case(once, 'E-A-02')[2], '')
 
 
+class NoRetryTest(unittest.TestCase):
+    """비멱등 요청(메시지 보내기 · 하트 차감 · 신고 · 투표)은 두 번 적용되면 안 되므로 가설이 재시도를 끈다 — retry=False."""
+
+    def setUp(self):
+        tools.take_retries()
+        sleeps = mock.patch.object(tools.time, 'sleep')
+        sleeps.start()
+        self.addCleanup(sleeps.stop)
+
+    def test_call_without_retry_sends_once_and_raises_the_first_error(self):
+        urlopen = flaky(ConnectionResetError(10054, 'reset'), then=Response())
+        with mock.patch.object(tools.urllib.request, 'urlopen', urlopen), self.assertRaises(ConnectionResetError):
+            tools.call('POST', 'https://x.test/send', body={'a': 1}, retry=False)
+        self.assertEqual(len(urlopen.calls), 1)
+        self.assertEqual(tools.take_retries(), 0)
+
+    def test_retry_stays_on_by_default(self):
+        urlopen = flaky(ConnectionResetError())
+        with mock.patch.object(tools.urllib.request, 'urlopen', urlopen):
+            self.assertEqual(tools.call('POST', 'https://x.test/a').status, 200)
+        self.assertEqual(len(urlopen.calls), 2)
+
+    def test_every_wrapper_hands_retry_through_to_call(self):
+        cfg = {'SUPABASE_URL': 'https://sb.test', 'API_BASE_URL': 'https://api.test'}
+        for name, call in (('rest', lambda **kw: tools.rest(cfg, 'k', 'POST', 'x', {}, **kw)),
+                           ('admin', lambda **kw: tools.admin(cfg, 'k', 'POST', 'x', {}, **kw)),
+                           ('api', lambda **kw: tools.api(cfg, 'POST', '/x', 't', {}, **kw)),
+                           ('form', lambda **kw: tools.form('https://api.test/x', 't', {'a': 'b'}, ('f', 'f.png', b'x', 'image/png'), **kw))):
+            with mock.patch.object(tools, 'call', return_value=tools.Reply(200, None)) as sent:
+                call(retry=False)
+                self.assertIs(sent.call_args.kwargs.get('retry'), False, name)
+                call()
+                self.assertIsNot(sent.call_args.kwargs.get('retry'), False, name)  # 안 주면 켜진 채
+
+    def test_message_review_form_and_direct_table_helpers_hand_retry_through(self):
+        from e2e import area1, area3
+        run = mock.Mock(cfg={'API_BASE_URL': 'https://api.test', 'SUPABASE_URL': 'https://sb.test', 'SUPABASE_ANON_KEY': 'anon'})
+        account = {'token': 't', 'id': 'u'}
+        helpers = {
+            '_send': lambda **kw: area3._send(run, account, 'm1', 'hi', **kw),  # E-CHAT-08 의 메시지 보내기
+            '_review_post': lambda **kw: area3._review_post(run, account, {'id': 'r'}, **kw),
+            '_as_user': lambda **kw: area3._as_user(run, account, 'POST', 'x', {}, **kw),
+            '_form': lambda **kw: area1._form(run, '/x', 't', {'a': 'b'}, ('photo', 'p.jpg', b'x'), **kw),
+        }
+        for name, helper in helpers.items():
+            with mock.patch.object(tools, 'call', return_value=tools.Reply(200, None)) as sent:
+                helper(retry=False)
+                self.assertIs(sent.call_args.kwargs.get('retry'), False, name)
+                helper()
+                self.assertIsNot(sent.call_args.kwargs.get('retry'), False, name)
+
+    def test_phone_case_helper_hands_retry_through(self):
+        from e2e import area1
+        run = mock.Mock(cfg={'API_BASE_URL': 'https://api.test'})
+        with mock.patch.object(tools, 'call', return_value=tools.Reply(200, None)) as sent:
+            area1._api(run, 'POST', '/send', 't', {'a': 1}, retry=False)
+        self.assertIs(sent.call_args.kwargs.get('retry'), False)
+
+
 if __name__ == '__main__':
     unittest.main()

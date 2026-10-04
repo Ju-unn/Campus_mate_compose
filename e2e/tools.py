@@ -168,9 +168,12 @@ def take_retries():
     return count
 
 
-def call(method, url, headers=None, body=None, raw=None, tries=4):
+def call(method, url, headers=None, body=None, raw=None, tries=4, retry=True):
     """요청 하나 → [Reply]. 일시적인 끊김은 1 · 2 · 4초 간격으로 [tries]-1 번까지 다시 보낸다(안 되면 마지막 예외가 그대로 올라간다).
-    서버에 닿았는지 모호한 POST 도 다시 보낸다 — 시험 데이터라 중복돼도 뒷정리가 지운다."""
+    서버에 닿았는지 모호한 POST 도 다시 보낸다 — 시험 데이터라 중복돼도 뒷정리가 지운다.
+    두 번 적용되면 결과가 달라지는 요청(메시지 보내기 · 하트 차감 · 신고 · 투표)은 `retry=False` 로 한 번만 보낸다 —
+    rest · admin · api · form 과 area1._api 가 그대로 넘긴다."""
+    tries = tries if retry else 1
     for attempt in range(tries):
         try:
             return _send(method, url, headers, body, raw)
@@ -200,19 +203,19 @@ def _send(method, url, headers, body, raw):
         return Reply(status, got.decode(errors='replace'), head)
 
 
-def rest(cfg, key, method, path, body=None, token=None):
+def rest(cfg, key, method, path, body=None, token=None, **options):
     """Supabase REST(`/rest/v1/...`). 서비스 키로 읽고 쓰거나, [key]=anon 키 + [token]=사용자 access_token 으로 RLS 를 거친다."""
-    return call(method, f"{cfg['SUPABASE_URL']}/rest/v1/{path}", {'apikey': key, 'Authorization': f'Bearer {token or key}'}, body)
+    return call(method, f"{cfg['SUPABASE_URL']}/rest/v1/{path}", {'apikey': key, 'Authorization': f'Bearer {token or key}'}, body, **options)
 
 
-def admin(cfg, key, method, path, body=None):
+def admin(cfg, key, method, path, body=None, **options):
     """Supabase Auth 관리자(`/auth/v1/admin/...`) — generate_link · 사용자 삭제. 서비스 키로만."""
-    return call(method, f"{cfg['SUPABASE_URL']}/auth/v1/admin/{path}", {'apikey': key, 'Authorization': f'Bearer {key}'}, body)
+    return call(method, f"{cfg['SUPABASE_URL']}/auth/v1/admin/{path}", {'apikey': key, 'Authorization': f'Bearer {key}'}, body, **options)
 
 
-def api(cfg, method, path, token, body=None):
+def api(cfg, method, path, token, body=None, **options):
     """FastAPI(API_BASE_URL) — 사용자 access_token 으로."""
-    return call(method, f"{cfg['API_BASE_URL']}{path}", {'Authorization': f'Bearer {token}'}, body)
+    return call(method, f"{cfg['API_BASE_URL']}{path}", {'Authorization': f'Bearer {token}'}, body, **options)
 
 
 class Blocked(Exception):
@@ -347,14 +350,14 @@ def cleanup(cfg, key, root):
             print('재가입 제한 1행 지움')
 
 
-def form(url, token, fields, file):
+def form(url, token, fields, file, **options):
     """multipart 한 번 — [file] = (칸 이름, 파일 이름, 바이트, Content-Type)."""
     boundary = uuid.uuid4().hex
     parts = [f'--{boundary}\r\nContent-Disposition: form-data; name="{k}"\r\n\r\n{v}\r\n'.encode() for k, v in fields.items()]
     name, filename, data, kind = file
     parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"; filename="{filename}"\r\n'
                  f'Content-Type: {kind}\r\n\r\n'.encode() + data + f'\r\n--{boundary}--\r\n'.encode())
-    return call('POST', url, {'Authorization': f'Bearer {token}'}, raw=(b''.join(parts), f'multipart/form-data; boundary={boundary}'))
+    return call('POST', url, {'Authorization': f'Bearer {token}'}, raw=(b''.join(parts), f'multipart/form-data; boundary={boundary}'), **options)
 
 
 def batch(name):

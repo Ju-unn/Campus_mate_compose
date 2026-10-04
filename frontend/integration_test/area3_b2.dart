@@ -61,6 +61,8 @@ Future<Map<String, Object?>> _acceptTwice(WidgetTester tester, Map<String, dynam
   final matchId = tester.widget<ChatRoomScreen>(room).matchId;
   if (job['variant'] == 'sheet') {
     await pumpUntil(tester, find.text(_sheetTitle));
+    await tester.pump(const Duration(milliseconds: 800)); // 시트가 올라오는 동안은 버튼이 제자리가 아니다
+    await tester.pump(const Duration(milliseconds: 800));
     final accept = button(_acceptSheet);
     await tester.tap(accept);
     await tester.tap(accept, warnIfMissed: false);
@@ -69,11 +71,16 @@ Future<Map<String, Object?>> _acceptTwice(WidgetTester tester, Map<String, dynam
     await tap(tester, button(_acceptBanner));
     final confirm = find.widgetWithText(TextButton, _acceptConfirm);
     await pumpUntil(tester, confirm);
+    await tester.pump(const Duration(milliseconds: 800)); // 창이 멈춘 뒤에 누른다
+    await tester.pump(const Duration(milliseconds: 800));
     await tester.tap(confirm);
     await tester.tap(confirm, warnIfMissed: false);
   }
   await wait(tester, const Duration(seconds: 4)); // 응답 · 방 다시 읽기
-  return {'error': container.read(chatRoomViewModelProvider(matchId)).errorMessage};
+  return {
+    'error': container.read(chatRoomViewModelProvider(matchId)).errorMessage,
+    'room_open': find.byType(ChatRoomScreen).evaluate().isNotEmpty, // 판정엔 안 쓴다 — 두 번 누른 pop 이 방을 닫았는지 기록
+  };
 }
 
 // ── 지인 리뷰 쓰기 ───────────────────────────────────────────────────────────────────────────────────
@@ -150,9 +157,7 @@ Future<Map<String, Object?>> _composeAndSubmit(WidgetTester tester, Map<String, 
 
 /// 나 탭 → "친구들이 본 나"(received) 또는 "내가 쓴 리뷰" → 카드가 그려질 때까지. 그 화면을 돌려준다.
 Future<Finder> _openReviews(WidgetTester tester, {required bool received}) async {
-  await arrive(tester, 'home');
-  await tap(tester, _tab('나'));
-  await pumpUntil(tester, find.byType(MyProfileScreen));
+  await _openMyTab(tester);
   final entry = find.text(received ? _receivedEntry : _writtenEntry);
   await tester.scrollUntilVisible(entry, 300,
       scrollable: find.descendant(of: find.byType(MyProfileScreen), matching: find.byType(Scrollable)).first);
@@ -210,14 +215,30 @@ final Map<String, Area1Case> area3Cases2 = {
   }),
   'E-CHAT-25': _session((tester, job) async {
     await _openAndType(tester, job, job['text'] as String);
-    await step('cut'); // PC 가 망을 끊는다
-    await tap(tester, _sendButton);
-    final watch = Stopwatch()..start();
-    while (_roomError(tester) == null && watch.elapsed < const Duration(seconds: 20)) {
-      await tester.pump(const Duration(milliseconds: 200));
+    final room = find.byType(ChatRoomScreen);
+    final container = ProviderScope.containerOf(tester.element(room));
+    final matchId = tester.widget<ChatRoomScreen>(room).matchId;
+    // 끊김(_onDisconnected)의 copyWith 가 방금 뜬 오류 줄을 지우므로, 처음 뜬 문구를 구독으로 잡아 둔다.
+    String? first;
+    final sub = container.listen(chatRoomViewModelProvider(matchId), (_, next) => first ??= next.errorMessage);
+    try {
+      await step('cut'); // PC 가 망을 끊는다
+      await tap(tester, _sendButton);
+      final watch = Stopwatch()..start();
+      while (first == null && watch.elapsed < const Duration(seconds: 20)) {
+        await tester.pump(const Duration(milliseconds: 200));
+      }
+      await wait(tester, const Duration(seconds: 1)); // 실패하면 쓴 글을 입력칸에 되돌린다
+      final state = container.read(chatRoomViewModelProvider(matchId));
+      return {
+        'error': first,
+        'error_cleared': state.errorMessage == null,
+        'input': _chatText(tester),
+        'disconnected': state.isDisconnected,
+      };
+    } finally {
+      sub.close();
     }
-    await wait(tester, const Duration(seconds: 1)); // 실패하면 쓴 글을 입력칸에 되돌린다
-    return {'error': _roomError(tester), 'input': _chatText(tester)};
   }),
   'E-CHAT-43': _session(_acceptTwice),
   'E-REV-01': _session(_composeAndSubmit),

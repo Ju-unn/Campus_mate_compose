@@ -223,14 +223,14 @@ class OfflineSendTest(Phone2):
         return self.case('E-CHAT-25', answer, app)
 
     def good(self, job):
-        return said(error=NETWORK, input='테스트')
+        return said(error=NETWORK, error_cleared=True, input='테스트', disconnected=True)
 
     def airplane_calls(self):
         return [(i, e[2][-1]) for i, e in enumerate(self.events) if e[0] == 'adb' and e[2][-2:-1] == ('airplane-mode',)]
 
     def test_cut_then_go_then_restore_and_the_message_stays_in_the_input(self):
         (result, note), app = self.offline(self.good)
-        self.assertEqual((result, note), ('pass', ''))
+        self.assertEqual(result, 'pass')
         self.assertEqual(app.jobs, [{'token_hash': 'h', 'nickname': self.nick(2), 'text': '테스트'}])
         self.assertTrue(app.midway_given)
         names = [e if isinstance(e, str) else e[2][-1] for e in self.events]
@@ -243,6 +243,17 @@ class OfflineSendTest(Phone2):
         self.assertEqual(self.state['airplane'], 'disabled')
         self.assertEqual(self.rows('messages'), [])
         self.assert_all_home()
+
+    def test_note_tells_whether_realtime_cut_cleared_the_error_line(self):
+        for cleared, banner in ((True, True), (False, False)):
+            (result, note), _ = self.offline(lambda job: said(error=NETWORK, error_cleared=cleared, input='테스트', disconnected=banner))
+            self.assertEqual(result, 'pass')
+            self.assertIn(f'지우는지: {cleared}, 끊김 배너 {banner}', note)
+            self.assertIn('chat_room_ui_state.dart:106', note)
+
+    def test_fails_when_the_first_error_is_missing_even_if_cleared_later(self):
+        (result, _), _ = self.offline(said(error=None, error_cleared=True, input='테스트', disconnected=True))
+        self.assertEqual(result, 'fail')
 
     def test_fails_when_the_text_is_gone_the_message_differs_or_a_row_was_saved(self):
         for answer in (said(error=NETWORK, input=''), said(error=NETWORK), said(error='잠시 뒤 다시', input='테스트'),
@@ -291,10 +302,21 @@ class AcceptTest(Phone2):
 
     def test_43_double_tap_leaves_one_accept_line_for_banner_and_sheet(self):
         (result, note), app = self.case('E-CHAT-43', self.good)
-        self.assertEqual((result, note), ('pass', ''))
+        self.assertEqual(result, 'pass')
         self.assertEqual(app.jobs, [{'token_hash': 'h', 'nickname': self.nick(2), 'variant': 'banner'},
                                     {'token_hash': 'h', 'nickname': self.nick(4), 'variant': 'sheet'}])
         self.assert_all_home()
+
+    def test_43_note_records_room_open_per_variant_and_a_silent_app_still_passes(self):
+        def open_by_variant(job):
+            return {**self.good(job), 'room_open': job['variant'] == 'banner'}
+        (result, note), _ = self.case('E-CHAT-43', open_by_variant)
+        self.assertEqual(result, 'pass')
+        self.assertIn('banner: 방 열림 True', note)
+        self.assertIn('sheet: 방 열림 False', note)
+        (result, note), _ = self.case('E-CHAT-43', self.good)  # room_open 을 안 말함
+        self.assertEqual(result, 'pass')
+        self.assertNotIn('True', note)
 
     def test_43_sheet_room_is_older_than_24_hours_and_banner_room_is_not(self):
         self.case('E-CHAT-43', self.good)
@@ -651,6 +673,16 @@ class ReportTest(Phone2):
 # ── 등록부 ───────────────────────────────────────────────────────────────────────────────────────────
 
 APP_KEYS = {'nickname', 'text', 'paste', 'variant', 'profile_id', 'tags'}
+
+
+class PermissionTest(Phone2):
+    def test_every_phone_2_case_grants_before_and_revokes_after(self):
+        self.assertEqual(list(area3_phone2.PHONE2), BUNDLE)
+        for name in BUNDLE:  # 가설마다 돌리면 오프라인 가설이 실폰 adb 를 부른다 — 꾸밈을 거쳤는지만 보고, 한 건은 실제로 돌린다
+            self.assertTrue(hasattr(area3_phone2.PHONE2[name], '__wrapped__'), name)
+            self.assertIs(area1.PHONE[name], area3_phone2.PHONE2[name], name)
+        self.case('E-REV-07', said())
+        self.assertEqual([p[0] for p in self.perm], ['grant', 'revoke'])
 
 
 class RegistryTest(Phone2):

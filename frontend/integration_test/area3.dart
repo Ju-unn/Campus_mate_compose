@@ -22,6 +22,7 @@ import 'package:campus_mate/friend_review/view/received_reviews_screen.dart';
 import 'package:campus_mate/friend_review/view/written_reviews_screen.dart';
 import 'package:campus_mate/friend_review/viewmodel/friend_review_compose_view_model.dart';
 import 'package:campus_mate/matching/view/conversations_screen.dart';
+import 'package:campus_mate/me/view/me_load_error.dart';
 import 'package:campus_mate/me/view/my_profile_screen.dart';
 import 'package:campus_mate/safety/model/report_reason.dart';
 import 'package:campus_mate/safety/view/block_list_screen.dart';
@@ -213,12 +214,25 @@ Future<Map<String, Object?>> _openCompose(WidgetTester tester, Map<String, dynam
   return {'toast': toast, 'form': form};
 }
 
+/// 나 탭을 열고 GET /me/profile 이 끝날 때까지 기다린다. 화면 위젯은 로딩 스피너일 때도 있어 그것만으론 부족하다 —
+/// 안에 Scrollable 이 생겨야 읽기가 끝난 것이다.
+Future<void> _openMyTab(WidgetTester tester) async {
+  await arrive(tester, 'home');
+  await tap(tester, _tab('나'));
+  final loaded = find.descendant(of: find.byType(MyProfileScreen), matching: find.byType(Scrollable));
+  try {
+    await pumpUntil(tester, loaded, timeout: const Duration(seconds: 60));
+  } on TestFailure {
+    throw TestFailure(find.byType(MeLoadError).evaluate().isNotEmpty
+        ? '나 탭(GET /me/profile)이 오류 화면(MeLoadError)으로 끝남'
+        : '나 탭(GET /me/profile)이 60초 안에 로딩을 못 끝냄');
+  }
+}
+
 /// E-REV-19 · 21 · 22 · 23 · 32 · 33 — 나 탭 → "친구들이 본 나"(20c, list=received) 또는 "내가 쓴 리뷰"(20e, list=written).
 Future<Map<String, Object?>> _reviewList(WidgetTester tester, Map<String, dynamic> job) async {
   final received = job['list'] == 'received';
-  await arrive(tester, 'home');
-  await tap(tester, _tab('나'));
-  await pumpUntil(tester, find.byType(MyProfileScreen));
+  await _openMyTab(tester);
   final entry = find.text(received ? _receivedEntry : _writtenEntry);
   await tester.scrollUntilVisible(entry, 300,
       scrollable: find.descendant(of: find.byType(MyProfileScreen), matching: find.byType(Scrollable)).first);
