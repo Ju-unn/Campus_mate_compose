@@ -151,6 +151,33 @@ void main() {
       expect(tester.getCenter(_logo).dy, closeTo(tester.getCenter(find.text('학교')).dy, 1));
     });
 
+    testWidgets('두 줄로 접혀도 두 줄 다 오른쪽 끝, 로고는 첫 줄 바로 앞 4', (tester) async {
+      usePenFrame(tester);
+      // 지어낸 긴 학교 이름 — 값 칸에서 두 줄로 접힌다.
+      const school = '가나다라마바사대학교 아자차카타파하캠퍼스';
+      final account = AccountInfo(
+        email: 'hong@snu.ac.kr', realName: null, birthYear: null, university: school,
+        joinedAt: DateTime.utc(2026, 9, 1, 10), kakaoId: null,
+      );
+      await pump(
+        tester,
+        repository: FakeAccountRepository()..accountResult = Success(account),
+        logos: const {school: _logoUrl},
+      );
+
+      final p = tester.renderObject<RenderParagraph>(find.text(school));
+      final lines = <double, List<TextBox>>{};
+      for (final box in p.getBoxesForSelection(const TextSelection(baseOffset: 0, extentOffset: school.length))) {
+        lines.putIfAbsent(box.top, () => []).add(box);
+      }
+      expect(lines, hasLength(2), reason: '두 줄이어야 이 테스트가 뜻이 있다');
+      for (final line in lines.values) {
+        expect(p.localToGlobal(Offset(line.last.right, 0)).dx, closeTo(330, 0.5));
+      }
+      final firstLineLeft = p.localToGlobal(Offset(lines.values.first.first.left, 0)).dx;
+      expect(firstLineLeft - tester.getTopRight(_logo).dx, closeTo(4, 0.5));
+    });
+
     testWidgets('로고가 없는 학교는 글자만, 그대로 오른쪽 끝', (tester) async {
       usePenFrame(tester);
       await pump(tester, logos: const {});

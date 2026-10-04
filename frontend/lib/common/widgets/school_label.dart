@@ -13,7 +13,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// 글자 칸이 [Flexible] 이라 폭이 정해진 자리에 둔다 — 가로로 끝없는 자리(Row 자식 · 가로 ListView)면 Expanded 등으로
 /// 감싼다. [style] 은 글자 크기와 줄높이(height)가 있어야 한다(AppTypography 토큰은 다 있다).
 class SchoolLabel extends ConsumerWidget {
-  const SchoolLabel(this.university, {this.text, required this.style, this.maxLines, this.overflow, super.key});
+  const SchoolLabel(
+    this.university, {
+    this.text,
+    required this.style,
+    this.maxLines,
+    this.overflow,
+    this.textAlign,
+    super.key,
+  });
 
   /// 로고를 찾는 학교 이름(`universities.name`).
   final String university;
@@ -24,13 +32,25 @@ class SchoolLabel extends ConsumerWidget {
   final int? maxLines;
   final TextOverflow? overflow;
 
+  /// 두 줄로 접힐 때 줄 정렬 — 오른쪽(end)이면 로고 + 글자 묶음도 칸 오른쪽에 붙고, 글자 상자를 가장 긴 줄 폭으로
+  /// 줄여 로고가 첫 줄 바로 앞 4 에 온다. 없으면 왼쪽 정렬(지금 그대로).
+  final TextAlign? textAlign;
+
   static const double _gap = 4;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // const 생성자에서는 style 의 필드를 볼 수 없어 여기서 — 로고가 없는 학교에서도 바로 걸리게 맨 앞에 둔다.
     assert(style.fontSize != null && style.height != null, 'SchoolLabel 은 style 의 fontSize · height 로 로고 자리를 잰다');
-    final label = Text(text ?? university, style: style, maxLines: maxLines, overflow: overflow);
+    final alignEnd = textAlign == TextAlign.end || textAlign == TextAlign.right;
+    final label = Text(
+      text ?? university,
+      style: style,
+      maxLines: maxLines,
+      overflow: overflow,
+      textAlign: textAlign,
+      textWidthBasis: alignEnd ? TextWidthBasis.longestLine : TextWidthBasis.parent,
+    );
     final url = ref.watch(universityLogosProvider).value?[university];
     if (url == null) return label;
 
@@ -38,6 +58,7 @@ class SchoolLabel extends ConsumerWidget {
     final firstLine = MediaQuery.textScalerOf(context).scale(style.fontSize!) * style.height!;
     return Row(
       mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: alignEnd ? MainAxisAlignment.end : MainAxisAlignment.start,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Image.network(
