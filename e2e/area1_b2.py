@@ -10,7 +10,7 @@ import time
 import urllib.parse
 from datetime import datetime, timedelta, timezone
 
-from e2e import area1, area1_b3, tools
+from e2e import area1, area1_b3, batch_gate, tools
 from e2e.area1 import (CONSENT_VERSION, Check, _api, _app, _at, _detail, _find_user, _one, _otp, _patch, _rows,
                        _signed_in, _signed_up)
 from e2e.tools import Blocked
@@ -120,6 +120,7 @@ def _withdrawn_and_cleaned(run):
     block, added = _new_block(run, before)
     long_ago = (datetime.now(timezone.utc) - timedelta(days=31)).isoformat()
     _patch(run, f"profiles?id=eq.{account['id']}", {'withdrawn_at': long_ago})
+    batch_gate.check('cleanup')
     tools.batch('cleanup')
     for _ in range(24):  # 2분
         if _find_user(run, account['email']) is None:
@@ -161,6 +162,7 @@ def auth_12(run):
     if status >= 300:
         raise Blocked(f'제한 행 넣기 {status} {body}')
     try:
+        batch_gate.check('cleanup')
         tools.batch('cleanup')
         rows = []
         for _ in range(24):
