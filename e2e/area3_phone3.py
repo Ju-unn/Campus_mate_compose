@@ -38,6 +38,7 @@ def _screens(said):
 
 
 def p_chat_32(run, phone):
+    notify.ensure_delivery(phone.serial)  # 푸시 연결이 죽은 폰이면 "알림이 안 왔다" 를 앱 탓으로 읽게 된다 — 시작 때 한 번 점검
     check = Check()
     me, token = _me(run)
     partner = _person(run)

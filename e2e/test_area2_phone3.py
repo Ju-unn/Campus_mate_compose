@@ -217,6 +217,7 @@ class CardNotificationTest(CaseBase):
         patches = [mock.patch.object(area2_phone3.area2, '_batch', lambda name: calls.append(('batch', name))),
                    mock.patch.object(notify, 'grant_notifications', lambda s: None),
                    mock.patch.object(notify, 'revoke_notifications', lambda s: None),
+                   mock.patch.object(notify, 'ensure_delivery', lambda s: None),
                    mock.patch.object(notify, 'read_notifications', lambda s: calls.append('read') or before),
                    mock.patch.object(notify, 'background', lambda s: calls.append('background')),
                    mock.patch.object(notify, 'wait_new', lambda s, b, count=1, seconds=0, match=None: calls.append(('wait_new', b == before, seconds, match is not None)) or list(new)),
@@ -266,6 +267,7 @@ class ReferralNotificationTest(CaseBase):
         before = [notify.Notice('old', '남은 알림', '', 'c')]
         patches = [mock.patch.object(area2_phone3.time, 'monotonic', side_effect=iter(range(0, 10000))),
                    mock.patch.object(notify, 'require_daytime', (lambda now=None: None) if daytime else mock.Mock(side_effect=Blocked('밤'))),
+                   mock.patch.object(notify, 'ensure_delivery', lambda s: calls.append('delivery')),
                    mock.patch.object(notify, 'read_notifications', lambda s: calls.append('read') or before),
                    mock.patch.object(notify, 'background', lambda s: calls.append('background')),
                    mock.patch.object(notify, 'wait_new', lambda s, b, count=1, seconds=0, match=None: calls.append(('wait_new', b == before, seconds, match is not None)) or list(new))]
@@ -285,7 +287,7 @@ class ReferralNotificationTest(CaseBase):
         result, phone, calls = self.run_case([got])
         self.assertEqual(result[0], 'pass', result)
         # 코드 입력 전에 앞 알림을 읽어 두고(새 알림만 보려고) → HOME → 코드 입력 → 그 목록을 기준으로 새 알림 대기
-        self.assertEqual(calls, ['read', 'background', 'redeem', ('wait_new', True, 30, True)])  # 기다리던 알림이 올 때까지(match) 기다린다
+        self.assertEqual(calls, ['delivery', 'read', 'background', 'redeem', ('wait_new', True, 30, True)])  # 기다리던 알림이 올 때까지(match) 기다린다
         self.assertEqual(self.fake.bodies('POST', '/referral/redeem'), [{'code': 'ABCDE2'}])
         self.assertIn('token_hash', phone.jobs[0])
 

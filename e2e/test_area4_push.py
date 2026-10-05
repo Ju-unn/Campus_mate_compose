@@ -79,6 +79,7 @@ class PushBase(CaseBase):
         patches = [
             mock.patch.object(area1, '_nickname', lambda: next(self.names)),
             mock.patch.object(notify, 'require_daytime', lambda now=None: None),
+            mock.patch.object(notify, 'ensure_delivery', lambda s: self.delivery.append((s, len(self.phone.jobs)))),  # 푸시 연결 점검 — 실제 adb 는 불리지 않는다
             mock.patch.object(notify, 'grant_notifications', lambda s: world.log.append('grant')),
             mock.patch.object(notify, 'revoke_notifications', lambda s: world.log.append('revoke')),
             mock.patch.object(notify, 'background', lambda s: world.log.append('background')),
@@ -92,6 +93,7 @@ class PushBase(CaseBase):
             self.addCleanup(patcher.stop)
 
     def reset_names(self):
+        self.delivery = []  # (시리얼, 그때까지 앱이 받은 일감 수)
         self.names = itertools.chain([ME, PARTNER, CTL], (f'Ex{i}' for i in itertools.count()))  # 계정을 만드는 차례 — 받는 사람 · 상대 · 대조 상대
 
     def go_push(self, case, rules=(), phone=None):
@@ -429,6 +431,10 @@ class RoleTest(PushBase):
 
 
 class WiringTest(PushBase):
+    def test_the_push_connection_is_checked_once_per_case_before_the_app_is_started(self):
+        self.go_push('E-PUSH-10')
+        self.assertEqual(self.delivery, [('S', 0)])  # 앱 일감이 0개일 때 — 앱을 켜기 전
+
     def test_at_night_it_is_blocked_before_the_phone_is_called(self):
         with mock.patch.object(notify, 'require_daytime', mock.Mock(side_effect=Blocked('밤'))):
             result = self.go_push('E-PUSH-10')

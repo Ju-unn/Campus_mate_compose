@@ -223,6 +223,7 @@ def _wait_for(until, seconds):
 
 def p_card_02(run, phone):
     """앱을 홈에서 멈추고 HOME → 카드 배치 → 알림 30초 → 알림을 눌러 오늘 탭으로. 앱이 그 카드를 판정한다."""
+    notify.ensure_delivery(phone.serial)  # 푸시 연결이 죽은 폰이면 "알림이 안 왔다" 를 앱 탓으로 읽게 된다 — 시작 때 한 번 점검
     check = Check()
     a, b, token = _seed_pair(run)
     region = _region_of(run, a)
@@ -262,6 +263,7 @@ def p_card_02(run, phone):
 def p_ref_18(run, phone):
     """추천인 = 폰 A(홈까지 켠 뒤 HOME), 코드 입력 = API(새 계정). 낮 08~22시에만."""
     notify.require_daytime()
+    notify.ensure_delivery(phone.serial)  # 푸시 연결이 죽은 폰이면 "알림이 안 왔다" 를 앱 탓으로 읽게 된다 — 시작 때 한 번 점검
     check = Check()
     referrer, token = _signed_in(run, 'home')
     _app(check, phone(token_hash=token))
