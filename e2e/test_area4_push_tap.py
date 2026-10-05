@@ -41,10 +41,11 @@ class TapBase(PushBase):
     def setUp(self):
         super().setUp()
         world = self.world
+        self.tap_bodies = []  # 알림을 누를 때 넘긴 본문(같은 제목의 옛 알림을 피하려고)
         self.delivery = []  # (시리얼, 그때까지 앱이 받은 일감 수) — 푸시 연결 점검(실제 adb 는 불리지 않는다)
         for patcher in (mock.patch.object(notify, 'ensure_delivery', lambda s: self.delivery.append((s, len(self.phone.jobs)))),
                         mock.patch.object(notify, 'kill_app', lambda s: world.log.append('kill')),
-                        mock.patch.object(notify, 'tap_notification', lambda s, title: world.log.append(f'tap:{title}'))):
+                        mock.patch.object(notify, 'tap_notification', lambda s, title, body=None: (world.log.append(f'tap:{title}'), self.tap_bodies.append(body)))):
             patcher.start()
             self.addCleanup(patcher.stop)
 
@@ -118,6 +119,15 @@ class EachCaseTest(TapBase):
 
 
 class BackCaseTest(TapBase):
+    def test_the_tap_is_given_the_notice_body_so_an_older_notice_with_the_same_title_is_not_tapped(self):
+        for number in NUMBERS:
+            with self.subTest(number=number):
+                self.world.reset()
+                self.tap_bodies.clear()
+                self.go_tap(number)
+                self.assertEqual(len(self.tap_bodies), 1)
+                self.assertTrue(self.tap_bodies[0], number)  # 비어 있지 않은 본문 — 제목만으로 고르지 않는다
+
     def test_the_app_is_sent_home_before_the_partner_acts_and_the_tap_comes_after_the_notice(self):
         self.go_tap('11')
         log = self.world.log
