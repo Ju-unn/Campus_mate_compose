@@ -149,6 +149,43 @@ def clock_shifted(serial, hours, now=lambda: datetime.now(timezone.utc)):
             tools.adb(serial, 'shell', 'settings', 'put', 'global', 'auto_time', '1')
 
 
+# ── 시간대 ───────────────────────────────────────────────────────────────────────────────────────
+
+
+SEOUL = 'Asia/Seoul'
+
+
+def _zone(serial):
+    return tools.adb(serial, 'shell', 'getprop', 'persist.sys.timezone', check=False).strip()
+
+
+def _set_zone(serial, zone):
+    tools.adb(serial, 'shell', 'service', 'call', 'alarm', '3', 's16', zone, check=False)  # root 없이 된다
+
+
+@contextlib.contextmanager
+def seoul_timezone(serial, sleep=time.sleep):
+    """에뮬 시간대를 서울로 — 앱이 달력 날짜(D-숫자 · "M월 D일")를 PC 와 같게 세려면 필요하다(에뮬 기본은 GMT).
+    이미 서울이면 아무것도 안 하고, 아니면 바꿔 둔 동안만 서울이다 — 끝나면(실패해도) 원래 값으로 되돌린다."""
+    require_emulator(serial)
+    before = _zone(serial)
+    if before == SEOUL:
+        yield
+        return
+    _set_zone(serial, SEOUL)
+    try:
+        for _ in range(5):  # 속성에 퍼지기까지 잠깐 걸린다
+            if _zone(serial) == SEOUL:
+                break
+            sleep(1)
+        else:
+            raise Blocked(f'에뮬 시간대를 서울로 못 바꿈(지금 {_zone(serial) or "읽지 못함"}) — service call alarm 3 이 안 먹음')
+        yield
+    finally:
+        if before:
+            _set_zone(serial, before)
+
+
 # ── 브라우저 ─────────────────────────────────────────────────────────────────────────────────────
 
 

@@ -333,14 +333,33 @@ class UiDumpTest(unittest.TestCase):
 
     def test_a_dump_that_is_only_the_notice_line_is_blocked_not_read_as_nothing_on_screen(self):
         # 빈 화면을 읽고 "없음" 으로 판정하면 안 온다 · 안 보인다 가설이 헛통과한다
-        with mock.patch.object(tools, 'adb_bytes', return_value=self.NOTICE):
+        with mock.patch.object(tools, 'adb_bytes', return_value=self.NOTICE), mock.patch.object(notify, 'DUMP_PAUSE', 0):
             with self.assertRaises(Blocked):
                 notify.screen_has('S', '아무 글')
 
     def test_an_empty_dump_is_blocked_too(self):
-        with mock.patch.object(tools, 'adb_bytes', return_value=b''):
+        with mock.patch.object(tools, 'adb_bytes', return_value=b''), mock.patch.object(notify, 'DUMP_PAUSE', 0):
             with self.assertRaises(Blocked):
                 notify.screen_has('S', '아무 글')
+
+    def test_a_dump_that_fails_while_the_app_animates_is_read_again_up_to_three_times(self):
+        # 앱이 애니메이션 중이면 uiautomator 가 한순간 XML 을 못 준다(E-HOME-30 첫 실행) — 곧 다시 읽으면 된다
+        replies = [self.NOTICE, b'', self.XML]
+        with mock.patch.object(tools, 'adb_bytes', side_effect=replies) as read, mock.patch.object(notify, 'DUMP_PAUSE', 0):
+            self.assertIs(notify.screen_has('S', '오늘의 카드'), True)
+        self.assertEqual(read.call_count, 3)
+
+    def test_a_dump_that_never_comes_is_blocked_after_exactly_three_tries_one_second_apart(self):
+        with mock.patch.object(tools, 'adb_bytes', return_value=self.NOTICE) as read, mock.patch.object(notify.time, 'sleep') as sleep:
+            with self.assertRaises(Blocked):
+                notify.screen_has('S', '아무 글')
+        self.assertEqual(read.call_count, 3)
+        self.assertEqual([c.args for c in sleep.call_args_list], [(1,), (1,)])  # 마지막 실패 뒤에는 쉬지 않는다
+
+    def test_a_dump_that_comes_at_once_is_read_once_without_waiting(self):
+        with mock.patch.object(tools, 'adb_bytes', return_value=self.XML) as read, mock.patch.object(notify.time, 'sleep') as sleep:
+            notify.screen_has('S', '오늘의 카드')
+        self.assertEqual((read.call_count, sleep.call_count), (1, 0))
 
     def test_the_second_copy_in_area2_phone3_reads_the_same_way(self):
         from e2e import area2_phone3
