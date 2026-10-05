@@ -2,12 +2,11 @@ import 'dart:async';
 
 import 'package:campus_mate/account/model/login_notice.dart';
 import 'package:campus_mate/auth/model/verification_gate.dart';
-import 'package:campus_mate/auth/viewmodel/student_verification_view_model.dart';
-import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
 import 'package:campus_mate/core/auth/account_status_listenable.dart';
 import 'package:campus_mate/core/auth/session_scope.dart';
 import 'package:campus_mate/core/auth/sign_out.dart';
 import 'package:campus_mate/core/push/push_provider.dart';
+import 'package:campus_mate/core/push/push_refresh.dart';
 import 'package:campus_mate/core/push/push_route.dart';
 import 'package:campus_mate/core/router/app_router.dart';
 import 'package:campus_mate/core/router/auth_redirect.dart';
@@ -20,8 +19,6 @@ import 'package:campus_mate/core/supabase/auth_session_listenable.dart';
 import 'package:campus_mate/core/supabase/supabase_config.dart';
 import 'package:campus_mate/core/supabase/supabase_initializer.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
-import 'package:campus_mate/matching/viewmodel/acceptances_view_model.dart';
-import 'package:campus_mate/matching/viewmodel/today_cards_view_model.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -147,22 +144,12 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
   /// 앱이 켜져 있는 동안에는 **어떤 알림도 배너로 띄우지 않고** 해당 화면만 갱신한다.
   /// 서버는 "상대가 방을 보고 있으면 새 메시지 푸시를 보내지 않는다" 를 `last_read_at` 30초로
   /// 눈대중하는데, 그 눈대중이 빗나가도 여기서 배너가 되지 않는다는 것이 앱 쪽 계약이다.
-  void _refreshForRoute(Map<String, dynamic> data) {
-    switch (data['route']) {
-      case 'daily_card':
-        unawaited(ref.read(todayCardsViewModelProvider.notifier).refresh());
-      case 'acceptances' || 'match':
-        unawaited(ref.read(acceptancesViewModelProvider.notifier).refresh());
-      // 방을 열어 두고 있으면 Realtime 이 이미 줄을 붙였다 — 여기서는 목록만 맞춘다.
-      case 'chat':
-        unawaited(ref.read(conversationsViewModelProvider.notifier).refresh());
-      // 통과면 관문까지 다시 물어 다음 화면으로, 거절이면 3b 에 사유 배너를 띄운다.
-      case 'verification':
-        unawaited(ref.read(studentVerificationViewModelProvider.notifier).refreshStatus());
-    }
-  }
+  void _refreshForRoute(Map<String, dynamic> data) => refreshForPush(ref.read, data);
 
+  /// 알림을 눌러 연 경우에도 목록을 다시 읽는다 — 백그라운드에 있던 앱은 [_refreshForRoute] 를 못 받았고,
+  /// 대화 탭 같은 목록은 들어갈 때 다시 읽지 않아 옮기기만 하면 낡은 목록(빈 상태)이 그대로 보인다.
   void _openRoute(Map<String, dynamic> data) {
+    _refreshForRoute(data);
     _pendingPushPath = PushRoute.resolve(data);
     _openPendingPushRoute();
   }

@@ -8,6 +8,7 @@ import 'package:campus_mate/auth/view/student_verification_screen.dart';
 import 'package:campus_mate/auth/model/verification_gate_repository.dart';
 import 'package:campus_mate/auth/model/verification_gate_repository_provider.dart';
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
+import 'package:campus_mate/chat/model/conversation.dart';
 import 'package:campus_mate/matching/view/conversations_screen.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
@@ -149,5 +150,49 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('인증이 거절됐어요'), findsOneWidget);
+  });
+
+  // 알림을 눌러 열면 화면만 옮기고 목록은 낡은 채로 남았다 — 대화 탭은 들어갈 때 다시 읽지 않는다.
+  Future<(FakeChatRepository, FakePushMessaging)> pumpHome(WidgetTester tester) async {
+    final chat = FakeChatRepository();
+    final push = FakePushMessaging(token: 't', granted: false);
+    final container = ProviderContainer(
+      overrides: [
+        verificationGateRepositoryProvider.overrideWithValue(FakeVerificationGateRepository()),
+        onboardingRepositoryProvider.overrideWithValue(FakeOnboardingRepository()),
+        pushMessagingProvider.overrideWithValue(push),
+        cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
+        chatRepositoryProvider.overrideWithValue(chat),
+        homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
+        signOutProvider.overrideWithValue(() async {}),
+      ],
+    );
+    addTearDown(container.dispose);
+    await tester.pumpWidget(UncontrolledProviderScope(container: container, child: const CampusMateApp()));
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    return (chat, push);
+  }
+
+  Conversation conversationWith(String nickname) => Conversation(
+        matchId: 'm1',
+        partner: ChatPartner(profileId: 'p1', nickname: nickname),
+        lastMessageAt: DateTime(2026, 10, 5),
+        unreadCount: 0,
+        trustPassed: false,
+        remainingSeconds: 3600,
+      );
+
+  testWidgets('매칭 알림을 눌러 열면 대화 목록을 다시 읽어 새 방이 보인다', (tester) async {
+    final (chat, push) = await pumpHome(tester);
+    final before = chat.conversationsFetchCount;
+    chat.conversations = Success([conversationWith('새연결')]);
+
+    push.emitOpened({'route': 'match', 'match_id': 'm1'});
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ConversationsScreen), findsOneWidget);
+    expect(chat.conversationsFetchCount, before + 1);
+    expect(find.text('새연결'), findsOneWidget);
   });
 }
