@@ -6,7 +6,7 @@
 계정 · 앱 · 권한을 만들기 전에 막는다(E-PUSH-06 은 밤 22:00~23:59, 월요일 제외). 서버 전체에 도는 호출이라 가설당 횟수를 최소로 한다(01 · 04 · 05 · 06 · 02 · 03 · 09 는
 1번, 07 · 08 은 2번). 카드 도착 알림은 방해 금지 예외(push.py `_QUIET_HOURS_EXEMPT`)라 밤에도 온다.
 
-  기존 가설에 맡김   01 = area2_time_device.p_card_01 · 04 = p_card_03 · 05 = p_card_18 · 06 = p_card_17 (일감 번호는 phone() 이 E-PUSH-xx 로 싣는다)
+  기존 가설에 맡김   01 = area2_time_device.p_card_01 · 04 = p_card_03 · 05 = p_card_18 · 06 = p_card_17(fail 이면 다시 안 돎 — 밤 창이라 둘째 시도가 자정을 넘긴다) (일감 번호는 phone() 이 E-PUSH-xx 로 싣는다)
   새로 쓴 것         02(p_card_02 에 훅) · 03(꺼진 앱) · 07(일시중지) · 08(두 번) · 09(후보 0명)
 
 시나리오와 다르게 도는 것(보고의 "확인 필요"):
@@ -32,6 +32,7 @@ import time
 from e2e import area1, area2, area2_phone3, area2_time_batch as tb, area2_time_device as td, notify, tools
 from e2e.area1 import Check, _api, _app, _at, _patch
 from e2e.area2_phone3 import CARD_TITLE, _wait_for, region_set
+from e2e.area3_phone5 import _single_shot
 from e2e.tools import Blocked
 
 APP_WAIT = 90  # 눌린 앱이 오늘 탭을 찾고 말하기를 기다리는 초(앱 안의 30초 기다림이 끝나도 남는 여유)
@@ -204,7 +205,7 @@ def push_09(run, phone):
 
 PHONE = {
     'E-PUSH-01': td.p_card_01, 'E-PUSH-02': push_02, 'E-PUSH-03': push_03, 'E-PUSH-04': td.p_card_03, 'E-PUSH-05': td.p_card_18,
-    'E-PUSH-06': td.p_card_17, 'E-PUSH-07': push_07, 'E-PUSH-08': push_08, 'E-PUSH-09': push_09,
+    'E-PUSH-06': _single_shot(td.p_card_17, always=True), 'E-PUSH-07': push_07, 'E-PUSH-08': push_08, 'E-PUSH-09': push_09,
 }
 
 tools.CASE_LIMITS.update({case: CASE_LIMIT_SLOW for case in ('E-PUSH-02', 'E-PUSH-03', 'E-PUSH-04', 'E-PUSH-07', 'E-PUSH-08', 'E-PUSH-09')})

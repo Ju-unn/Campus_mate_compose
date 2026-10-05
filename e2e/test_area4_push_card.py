@@ -9,13 +9,13 @@ import re
 import unittest
 from unittest import mock
 
-from e2e import area1, area2, area2_phone3, area2_time_batch as tb, area2_time_device as td, area4_push_card as pc, notify, tools
+from e2e import __main__ as cli, area1, area2, area2_phone3, area2_time_batch as tb, area2_time_device as td, area3_phone5, area4_push_card as pc, notify, tools
 from e2e.test_area1_phone import OURS
-from e2e.test_area2_time_device import CARD, MON, ROW, TUE, AppPhone, DeviceBase, World
+from e2e.test_area2_time_device import CARD, MON, ROW, TUE, WED, AppPhone, DeviceBase, World
 from e2e.tools import Blocked, Reply
 
 CASES = [f'E-PUSH-0{n}' for n in range(1, 10)]
-DELEGATES = {'E-PUSH-01': td.p_card_01, 'E-PUSH-04': td.p_card_03, 'E-PUSH-05': td.p_card_18, 'E-PUSH-06': td.p_card_17}
+DELEGATES = {'E-PUSH-01': td.p_card_01, 'E-PUSH-04': td.p_card_03, 'E-PUSH-05': td.p_card_18}  # 06 은 같은 가설을 단일 시도 껍질로 감싼다 — NightSingleShotTest
 OPENED = {'result': 'pass', 'today': True, 'cards': 1, 'today_ms': 4200, 'screen': ['home', 'today'], 'opened_at': '2026-10-06T03:00:07Z'}
 LIVE = {'step': 'live'}
 INSIDE = {'E-PUSH-06': TUE(22, 30)}  # 시각 창이 있는 가설 — 나머지는 화요일 낮이면 열려 있다
@@ -121,6 +121,12 @@ class DelegateTest(CardBase):
     def test_each_delegate_is_the_existing_case_function_itself(self):
         for number, function in DELEGATES.items():
             self.assertIs(pc.PHONE[number], function, number)
+
+    def test_the_night_case_is_the_single_shot_wrapper_of_the_existing_function(self):
+        wrapper = pc.PHONE['E-PUSH-06']
+        self.assertIsNot(wrapper, td.p_card_17)
+        self.assertIs(wrapper.__wrapped__, td.p_card_17)
+        self.assertIs(area1.PHONE['E-PUSH-06'], wrapper)
 
     def test_the_jobs_the_phone_gets_carry_the_push_number_not_the_card_number(self):
         for number, scripts, kw in (
@@ -653,6 +659,92 @@ class SafetyNetTest(CardBase):
                     owners = {r['owner_id'] for r in rows if isinstance(r, dict) and 'owner_id' in r}
                     owners |= {sent['query'][k][3:] for k in ('owner_id', 'id', 'profile_id') if k in sent['query']}
                     self.assertTrue(owners and owners <= made, (case, sent))
+
+
+# ── 밤 가설(06)은 fail 이어도 다시 안 돈다 ────────────────────────────────────────────────────────────
+
+class NightSingleShotTest(CardBase):
+    """E-PUSH-06 도 E-CARD-17 처럼 밤 창(22:00~23:59)이라 23:50 이후 시작해 fail 이면 run_case 의 둘째 시도가 자정을 넘겨 맨 앞 창 관문에서 `Blocked` 가 되고,
+    진짜 fail 이 "지금은 실행 금지 시간" blocked 로 덮인다 — 그래서 fail 은 기억했다가 다시 불리면 그대로 돌려준다(앱 · 계정을 다시 안 만든다).
+    E-CARD-17 과 같은 함수를 감싸 `_FAILED` 열쇠(함수 이름 p_card_17)를 나눠 쓴다 — 둘이 한 프로세스에서 차례로 돌아도 서로의 기억을 가져가지 않는다."""
+
+    START, LATER = TUE(23, 50), WED(0, 15)
+
+    def failing(self):
+        """카드는 오는데 알림이 안 온다 — E-PUSH-06 이 fail."""
+        self.scripts['daily-cards'] = lambda: self.world.give_card('id-1')
+        self.clock.now = self.START
+        return self.card_phone('E-PUSH-06')
+
+    def test_a_fail_is_returned_again_without_touching_the_app_accounts_batches_or_permission_even_after_midnight(self):
+        phone = self.failing()
+        first = self.go('E-PUSH-06', phone)
+        self.assertEqual(first[0], 'fail', first)
+        after = (len(phone.jobs), len(self.world.users), list(self.log), self.batches[:])
+        self.clock.now = self.LATER
+        self.assertEqual(self.go('E-PUSH-06', phone), first)  # 창 밖인데도 blocked 가 아니라 첫 fail 그대로
+        self.assertEqual((len(phone.jobs), len(self.world.users), list(self.log), self.batches[:]), after)
+        self.assertEqual(area3_phone5._FAILED, {})  # 돌려준 기억은 지운다
+
+    def test_the_run_case_retry_keeps_the_first_fail_as_the_final_result(self):
+        phone = self.failing()
+
+        def once(name):
+            result = area1.attempt_phone(self.run, name, phone)
+            self.clock.now = self.LATER  # 첫 시도가 25분쯤 걸려 자정을 넘겼다
+            return result
+        attempt, result, note = cli.run_case(once, 'E-PUSH-06')
+        self.assertEqual((attempt, result), (2, 'fail'), note)
+        self.assertNotIn('실행 금지', note)
+        self.assertEqual(len(phone.jobs), 1)
+
+    def test_a_pass_is_not_remembered(self):
+        self.scripts['daily-cards'] = self.issue_to('id-1')
+        self.clock.now = self.START
+        phone = self.card_phone('E-PUSH-06')
+        self.assertEqual(self.go('E-PUSH-06', phone)[0], 'pass')
+        self.assertEqual(area3_phone5._FAILED, {})
+        self.scripts['daily-cards'] = self.issue_to('id-4')  # 다시 부르면 새 계정(A 는 id-4)으로 새로 돈다
+        self.assertEqual(self.go('E-PUSH-06', phone)[0], 'pass')
+        self.assertEqual(len(phone.jobs), 2)
+
+    def test_a_blocked_is_not_remembered_so_the_window_can_be_tried_again(self):
+        self.scripts['daily-cards'] = self.issue_to('id-1')
+        phone = self.card_phone('E-PUSH-06')
+        self.clock.now = self.LATER  # 창 밖 — 앱도 계정도 없이 blocked
+        self.assertEqual(self.go('E-PUSH-06', phone)[0], 'blocked')
+        self.assertEqual((phone.jobs, self.world.users), ([], []))
+        self.clock.now = self.START  # 창 안 — 같은 가설이 다시 돈다
+        self.assertEqual(self.go('E-PUSH-06', phone)[0], 'pass')
+        self.assertEqual(area3_phone5._FAILED, {})
+
+    def test_it_shares_the_memory_key_with_card_17_but_a_run_case_pair_in_one_process_never_borrows_the_others_fail(self):
+        for first, second in (('E-CARD-17', 'E-PUSH-06'), ('E-PUSH-06', 'E-CARD-17')):
+            with self.subTest(first=first, second=second):
+                self.reset()
+                self.world = World()
+                self.world.permitted = lambda: self.granted
+                area3_phone5._FAILED.clear()
+                self.scripts['daily-cards'] = lambda: self.world.give_card('id-1')
+                self.clock.now = self.START
+                broken = self.card_phone(first)
+
+                def once(name):
+                    result = area1.attempt_phone(self.run, name, broken)
+                    self.clock.now = self.LATER
+                    return result
+                with mock.patch.object(tools, 'call', self.world):
+                    self.assertEqual(cli.run_case(once, first)[:2], (2, 'fail'))  # 첫 번호는 fail 을 기억했다 한 번 돌려주고
+                    self.assertEqual(area3_phone5._FAILED, {})  # 기억이 남지 않아
+                    self.reset()
+                    self.world = World()
+                    self.world.permitted = lambda: self.granted
+                    self.scripts['daily-cards'] = self.issue_to('id-1')
+                    self.clock.now = self.START
+                    fine = self.card_phone(second)
+                with mock.patch.object(tools, 'call', self.world):
+                    self.assertEqual(cli.run_case(lambda name: area1.attempt_phone(self.run, name, fine), second)[:2], (1, 'pass'))
+                self.assertEqual(len(fine.jobs), 1)  # 다음 번호는 남의 fail 이 아니라 자기 앱으로 판정했다
 
 
 # ── 등록부 ──────────────────────────────────────────────────────────────────────────────────────────
