@@ -223,6 +223,7 @@ class NightBase(DeviceBase):
         self.addCleanup(night._FAILED.clear)
         for patcher in (
             mock.patch.object(tools, 'call', self.world), mock.patch.object(area1, '_nickname', lambda: next(self.names)),
+            mock.patch.object(batch_gate, 'now_seoul', lambda: self.clock.now),  # 심기 전 관문 확인(batch_gate.peek)이 이 시계를 읽는다
             mock.patch.object(time, 'sleep', self.tick), mock.patch.dict(base.COLUMNS, EXTRA_COLUMNS),
             mock.patch.object(base, 'BODY_CHECKED', base.BODY_CHECKED | BODY_CHECKED),
         ):
@@ -808,6 +809,59 @@ class EdgeNoRerunTest(NightBase):
         self.world.decide_takes = 45
         self.assertEqual(self.twice('72', self.phone())[1], 'blocked')
         self.assertEqual(night._FAILED, {})
+
+
+class PlantGateTest(TwoStageBase):
+    """행을 심기 전에 관문(batch_gate.peek)을 한 번 더 — 로그인 · 점검이 길어져 정각 전 5분에 들어서면 쓰기 0 으로 멈춘다."""
+
+    def late(self, number, at):
+        self.after_night(number)
+        self.world.on_link = lambda: setattr(self.clock, 'now', at)  # 다시 로그인하는 사이 시각이 흘렀다
+        phone = self.phone()
+        result, note = self.go(f'E-PUSH-{number}', phone)
+        planted = [s for s in self.world.sent if s['method'] == 'POST' and s['path'] == '/rest/v1/pending_pushes']
+        flipped = self.world.by('PATCH', '/cards/notification-settings')
+        self.assertEqual((result, planted, flipped, self.batches), ('blocked', [], [], []))
+        self.assertIn('지금은 실행 금지 시간', note)
+        self.assertFalse(self.state(number).get('done'))
+
+    def test_15_a_login_that_runs_past_hh55_plants_nothing(self):
+        self.late('15', WED(9, 56))
+
+    def test_84_a_login_that_runs_past_hh55_does_not_even_turn_the_switch_off(self):
+        self.late('84', WED(9, 55))
+
+    def test_85_a_login_that_runs_past_0755_plants_nothing(self):
+        self.late('85', WED(7, 56))
+
+    def test_the_morning_stage_still_goes_on_just_before_hh55(self):
+        self.after_night('15')
+        self.world.on_link = lambda: setattr(self.clock, 'now', WED(9, 54, 30))
+        self.assertEqual(self.go('E-PUSH-15', self.phone())[0], 'pass')
+
+
+class EarlyDeadlineTest(TwoStageBase):
+    """85 — chat-gate 는 07:55 부터 못 부르므로 준비가 07:54 를 넘으면 심기 전에 blocked(옛 값 07:57 은 관문 뒤라 의미가 없었다)."""
+
+    def test_the_deadline_is_before_the_minute_the_batch_gate_closes(self):
+        self.assertLess(night.EARLY_DEADLINE, (7, 55))
+
+    def test_85_a_prep_that_runs_past_0754_is_blocked_with_the_deadline_before_anything_is_planted(self):
+        self.after_night('85')
+        self.world.on_link = lambda: setattr(self.clock, 'now', WED(7, 54, 30))  # 관문(07:55)은 아직 열려 있다
+        result, note = self.go('E-PUSH-85', self.phone())
+        self.assertEqual(result, 'blocked')
+        self.assertIn('준비가 길어', note)
+        self.assertIn('07:54', note)
+        self.assertEqual([s for s in self.world.sent if s['path'] == '/rest/v1/pending_pushes' and s['method'] == 'POST'], [])
+        self.assertEqual(self.batches, [])
+
+    def test_85_a_prep_that_runs_to_0756_is_blocked_before_anything_is_planted(self):
+        self.after_night('85')
+        self.world.on_link = lambda: setattr(self.clock, 'now', WED(7, 56))
+        result, _ = self.go('E-PUSH-85', self.phone())
+        self.assertEqual(result, 'blocked')
+        self.assertEqual((self.batches, self.pending()), ([], []))
 
 
 # ── 밤 단일 단계 16 · 33 ────────────────────────────────────────────────────────────────────────────

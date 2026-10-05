@@ -50,7 +50,7 @@ HOURLY_LO, HOURLY_HI = 6, 48  # chat-gate 손 호출 분 — batch_gate 가 막�
 EDGE_LO, EDGE_HI = 50 * 60, 58 * 60 + 30  # 72 · 73 의 시작 허용 구간(경계 직전 시(時)의 xx:50:00~xx:58:30, 초)
 BEFORE_BOUNDARY, AFTER_BOUNDARY = 40, 20  # 첫 수락은 경계 40초 전, 둘째는 20초 뒤에 보낸다
 WATCH_STOP = 3  # 73 에서 첫 보관 수락 뒤 "안 온다" 를 지켜보다 경계 몇 초 전에 멈추는지 — 08:00 예약 실행이 끼지 않게
-EARLY_DEADLINE = (7, 57)  # 85: 이 시각이 지나면 07시대 관찰을 못 한다(08:00 예약 실행이 끼는 시각)
+EARLY_DEADLINE = (7, 54)  # 85: 이 시각이 지나면 손 호출을 못 한다 — batch_gate 가 chat-gate 를 07:55 부터 막고, 심고 부르는 데 걸리는 시간을 남긴다
 SCHEDULED_BY = (8, 3)  # 85: 08:00 예약 실행이 보내기를 기다리는 한계
 CASE_LIMIT_NIGHT = 900  # 한 단계(60초 지켜보기 + 대조 + 앱 켜기) — 기본 420초를 넘는다
 CASE_LIMIT_85 = 4500  # 07:06 부터 08:03 까지 기다리고 08:06 뒤 손 호출까지(최대 약 75분)
@@ -455,6 +455,7 @@ def _exactly(m, before, want):
 
 
 def _judge(m, state, number):
+    batch_gate.peek('chat-gate')  # 로그인 · 점검이 길어져 정각 전 5분에 들어섰으면 아무것도 쓰기 전에 멈춘다(스위치 · 앵커 · 행 모두 그 뒤)
     rows, want = state['rows'], [tuple(w) for w in state['want']]
     titles = {row['title'] for row in rows}
     before = m.before()
@@ -493,7 +494,7 @@ def _early(m, rows, want, titles, before):
     """85 — 07시대 손 호출은 보관 알림을 그대로 둔다 → 08:00 예약 실행이 보낸다."""
     now = td.now_seoul()
     if now >= _at(now, EARLY_DEADLINE):
-        raise Blocked(f'준비가 길어 {EARLY_DEADLINE[0]:02d}:{EARLY_DEADLINE[1]:02d} 을 넘음 — 08:00 예약 실행이 끼어 07시대를 못 봄. 07:06~07:48 에 다시')
+        raise Blocked(f'준비가 길어 {EARLY_DEADLINE[0]:02d}:{EARLY_DEADLINE[1]:02d} 을 넘음 — chat-gate 는 07:55 부터 못 부르고 08:00 예약 실행이 끼어 07시대를 못 봄. 07:06~07:48 에 다시')
     anchor = _anchor(m)
     _plant(m, rows)
     _batch('chat-gate')
