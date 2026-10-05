@@ -177,6 +177,32 @@ class WiredIntoTheBatchCallTest(unittest.TestCase):
             area2._batch('daily-cards')
         gcloud.assert_called_once_with('daily-cards')
 
+    def test_the_before_hook_runs_after_the_gate_and_before_gcloud(self):
+        order = []
+        with mock.patch.object(batch_gate, 'now_seoul', return_value=at(6, '12:00')), \
+                mock.patch.object(batch_gate, 'check', side_effect=lambda name: order.append('gate')), \
+                mock.patch.object(area2.tools, 'batch', side_effect=lambda name: order.append('gcloud')):
+            area2._batch('chat-gate', before=lambda: order.append('before'))
+        self.assertEqual(order, ['gate', 'before', 'gcloud'])
+
+    def test_a_closed_time_never_runs_the_before_hook(self):
+        ran = []
+        with mock.patch.object(batch_gate, 'now_seoul', return_value=at(5, '12:00')), \
+                mock.patch.object(area2.tools, 'batch') as gcloud:
+            with self.assertRaises(Blocked):
+                area2._batch('daily-cards', before=lambda: ran.append(True))
+        self.assertEqual(ran, [])
+        gcloud.assert_not_called()
+
+    def test_a_before_hook_that_blocks_propagates_and_never_reaches_gcloud(self):
+        def stuck():
+            raise Blocked('시각을 못 옮김')
+        with mock.patch.object(batch_gate, 'now_seoul', return_value=at(6, '12:00')), \
+                mock.patch.object(area2.tools, 'batch') as gcloud:
+            with self.assertRaisesRegex(Blocked, '시각을 못 옮김'):
+                area2._batch('daily-cards', before=stuck)
+        gcloud.assert_not_called()
+
 
 if __name__ == '__main__':
     unittest.main()
