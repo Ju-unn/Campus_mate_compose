@@ -667,3 +667,10 @@ area1.PHONE.update(PHONE)
 area1.BUNDLES['area2-time-device'] = list(PHONE)
 area1.BUNDLES['area2-time-device-a'] = A_PHONE
 area1.BUNDLES['area2-time-device-b'] = B_EMULATOR
+
+# 시계 가설 24 · 25 는 기준 시각(07:04 · 00:02:30)까지 앱 답을 기다린다(app_timeout) — 기본 420초로는 "시간 초과" blocked 가 난다.
+# 시작 허용 창의 가장 이른 분(06:40 · 23:40)에서 시작하면 24 는 1440 + 120 = 1560초, 25 는 1350 + 120 = 1470초(앱 마감 + 120초에서 끝난다 —
+# 준비에 쓴 시간만큼 app_timeout 이 줄어 더해지지 않는다). 거기에 앞(서비스 키 · 기기 열기 · 계정)과 뒤(판정 · 시험대학 값 · 시간대 되돌리기) 여유를
+# 넉넉히 더해 둘 다 2100초(35분)로 — 시계 가설이 끝없이 매달리진 않는다. 시험(ClockCaseLimitTest)이 가장 이른 시작으로 이 여유를 지킨다.
+CASE_LIMIT_CLOCK = 2100
+tools.CASE_LIMITS.update({'E-HOME-24': CASE_LIMIT_CLOCK, 'E-HOME-25': CASE_LIMIT_CLOCK})
