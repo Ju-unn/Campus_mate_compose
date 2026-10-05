@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:campus_mate/account/view/withdraw_sheets.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
@@ -16,18 +18,24 @@ import 'package:campus_mate/me/view/profile_edit_screen.dart';
 import 'package:campus_mate/me/view/profile_entry_row.dart';
 import 'package:campus_mate/me/view/profile_hero.dart';
 import 'package:campus_mate/me/view/profile_manage_screen.dart';
+import 'package:campus_mate/me/viewmodel/my_photos_view_model.dart';
 import 'package:campus_mate/profile/view/appearance_pickers.dart';
 import 'package:campus_mate/profile/view/ideal_conditions_screen.dart';
+import 'package:campus_mate/profile/view/photo_tiles.dart';
 import 'package:campus_mate/profile/view/tag_picker_screen.dart';
+import 'package:campus_mate/profile/viewmodel/avatar_generation_view_model.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'area1.dart';
 import 'support.dart';
 
 part 'area5_act.dart';
+part 'area5_photo.dart';
 part 'area5_read.dart';
 part 'area5_wd.dart';
 
@@ -35,7 +43,7 @@ part 'area5_wd.dart';
 /// 앱은 화면을 열어 읽거나 누르고 본 것을 Map 으로 돌려준다. 화면 글자 · 위젯은 시나리오가 아니라 지금 화면 코드
 /// (frontend/lib/me · account · matching/view/settings_screen · profile/view)에서 옮겼다.
 /// 탈퇴를 실제로 누르는 가설은 area5_wd.dart 의 넷(E-WD-04 · 16 · 18 · E-EDGE-20)뿐이다 — 이 파일 · area5_read · area5_act 는 "정말 영구 삭제" 를 누르지 않는다.
-final Map<String, Area1Case> area5Cases = {...area5CasesRead, ...area5CasesAct, ...area5CasesWd};
+final Map<String, Area1Case> area5Cases = {...area5CasesRead, ...area5CasesAct, ...area5CasesPhoto, ...area5CasesWd};
 
 const _manageEntry = '프로필 편집'; // my_profile_screen.dart 입구 줄(profile_entry_row.dart — InkWell 이 행 전체를 감싼다)
 const _previewEntry = '남이 보는 내 프로필 카드';
