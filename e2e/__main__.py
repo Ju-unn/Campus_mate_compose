@@ -49,6 +49,7 @@ from e2e import area4_push_front  # noqa: F401 — 영역 4 알림 A3(앱이 앞
 from e2e import area4_push_tap  # noqa: F401 — 영역 4 알림 A2(알림을 눌러 화면 열기)
 from e2e import area4_push  # noqa: F401 — 영역 4 알림 A1(받는 사람 폰 + 상대 API, 알림 읽기)
 from e2e import area4_push_night  # noqa: F401 — 영역 4 알림 밤·아침·시각 경계(밤 1단계 + 아침 2단계)
+from e2e import area4_push_card  # noqa: F401 — 영역 4 알림 카드 배치 9(E-PUSH-01~09, daily-cards 를 불러 알림이 오는지 · 안 오는지)
 from e2e.tools import (DEVICE_PORT, DEVICES, ROOT, TEXT, Hub, Run, adb, cleanup, ensure_no_real_users, env, latest, scenario_rows,
                        serial, service_key, snapshot_blocks, verdict)
 

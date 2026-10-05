@@ -33,6 +33,9 @@ final Map<String, Future<Object?> Function(WidgetTester tester, Map<String, dyna
   ...area2TwoPollCases,
   ...area2TwoAcceptCases,
   ...area2EmuBCases,
+  // 영역 4 PUSH 카드 배치의 02 · 04 는 영역 2 의 앱 가설을 그대로 쓴다 — area2c · area2d 의 가설은 이 파일에서만 같이 보인다.
+  'E-PUSH-02': area2cCases['E-CARD-02']!,
+  'E-PUSH-04': area2dCases['E-CARD-03']!,
   // 앱이 켜져 첫 화면이 그려지고 우편함 왕복이 된다.
   'SMOKE': (tester, job) async {
     await pumpUntil(tester, find.byType(Scaffold));

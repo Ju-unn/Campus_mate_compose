@@ -221,8 +221,9 @@ def _wait_for(until, seconds):
     return True
 
 
-def p_card_02(run, phone):
-    """앱을 홈에서 멈추고 HOME → 카드 배치 → 알림 30초 → 알림을 눌러 오늘 탭으로. 앱이 그 카드를 판정한다."""
+def p_card_02(run, phone, after=None):
+    """앱을 홈에서 멈추고 HOME → 카드 배치 → 알림 30초 → 알림을 눌러 오늘 탭으로. 앱이 그 카드를 판정한다.
+    [after](check, 도착한 알림들)는 알림을 누르고 1초 쉰 직후 — 권한을 빼기 전에 — 불린다(E-PUSH-02 가 "눌렀더니 알림이 사라졌다" 를 거기서 본다)."""
     notify.ensure_delivery(phone.serial)  # 푸시 연결이 죽은 폰이면 "알림이 안 왔다" 를 앱 탓으로 읽게 된다 — 시작 때 한 번 점검
     check = Check()
     a, b, token = _seed_pair(run)
@@ -248,6 +249,8 @@ def p_card_02(run, phone):
         if arrived:
             notify.tap_notification(phone.serial, CARD_TITLE)
             time.sleep(1)
+            if after:
+                after(check, arrived)
 
     notify.grant_notifications(phone.serial)
     try:
