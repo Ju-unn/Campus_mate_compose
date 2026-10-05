@@ -21,6 +21,7 @@ from e2e import area3_phone2  # noqa: F401 — 영역 3 폰 2차(입력 · 보�
 from e2e import area3_phone3  # noqa: F401 — 영역 3 폰 3차(꺼진 앱에서 알림 눌러 방 열기) 가설을 같은 곳에 더한다
 from e2e import area3_phone4  # noqa: F401 — 영역 3 폰 4차(매칭 시각을 옮긴 방의 14f 시트) 가설을 같은 곳에 더한다
 from e2e import area3_phone5  # noqa: F401 — 영역 3 배치(chat-gate · cleanup 을 실제로 부르는) 가설 — 폰 8개는 area1.PHONE 에, API 1개는 아래 API_CASES 에 더한다
+from e2e import area3_phone6  # noqa: F401 — 영역 3 E-CHAT-53(07시대 · 08시대 chat-gate 를 한 실행에서 두 번) 폰 가설을 area1.PHONE · area3.BUNDLES 에 더한다
 from e2e import area3_safe_phone  # noqa: F401 — 영역 3 안전 폰(신고 · 차단 · 정지) 가설을 같은 곳에 더한다
 from e2e import area1_b3  # 묶음 3(사진 세트) — 같은 방식
 from e2e import area1_b4  # noqa: F401 — 묶음 4(아바타) — 같은 방식
