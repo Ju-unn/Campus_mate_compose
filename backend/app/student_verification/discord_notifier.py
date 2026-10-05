@@ -29,3 +29,11 @@ class DiscordNotifier:
             json={"content": f"학생증 사진 삭제가 실패했어요, 고아 파일이 남았어요: `{file_path}`. Storage 에서 손으로 지워 주세요."},
         )
         raise_for_status(response)
+
+    async def notify_missing_fallback_avatar(self, source_path: str) -> None:
+        # 서버 시작 때 한 번 — 인스턴스가 여러 개 뜨면 같은 알림이 여러 번 갈 수 있다(막지 않는다).
+        response = await self._client.post(
+            self._webhook_url,
+            json={"content": f"기본 아바타 원본이 없어요: `avatars/{source_path}`. 5번째 아바타 실패 보상이 멈춰요. DEPLOY.md §4-2 대로 업로드해 주세요."},
+        )
+        raise_for_status(response)
