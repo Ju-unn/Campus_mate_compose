@@ -20,6 +20,7 @@ from e2e import area3_phone  # noqa: F401 — 영역 3 폰 1차 가설을 area1.
 from e2e import area3_phone2  # noqa: F401 — 영역 3 폰 2차(입력 · 보내기 · 신고 · 수락 · 시트) 가설을 같은 곳에 더한다
 from e2e import area3_phone3  # noqa: F401 — 영역 3 폰 3차(꺼진 앱에서 알림 눌러 방 열기) 가설을 같은 곳에 더한다
 from e2e import area3_phone4  # noqa: F401 — 영역 3 폰 4차(매칭 시각을 옮긴 방의 14f 시트) 가설을 같은 곳에 더한다
+from e2e import area3_phone5  # noqa: F401 — 영역 3 배치(chat-gate · cleanup 을 실제로 부르는) 가설 — 폰 8개는 area1.PHONE 에, API 1개는 아래 API_CASES 에 더한다
 from e2e import area3_safe_phone  # noqa: F401 — 영역 3 안전 폰(신고 · 차단 · 정지) 가설을 같은 곳에 더한다
 from e2e import area1_b3  # 묶음 3(사진 세트) — 같은 방식
 from e2e import area1_b4  # noqa: F401 — 묶음 4(아바타) — 같은 방식
@@ -53,6 +54,7 @@ API_CASES = {**{c: area1 for c in area1.CASES}, **{c: area2 for c in area2.CASES
              **{c: area3_safe for c in area3_safe.CASES}, **{c: area5_api for c in area5_api.CASES},
              **{c: area2_time_api for c in area2_time_api.CASES},
              **{c: area2_time_batch for c in area2_time_batch.CASES}}  # API 가설 → 그것을 가진 모듈
+API_CASES.update({c: area3_phone5 for c in area3_phone5.CASES})  # E-CHAT-69(정리 배치 · 폰 없음) — area3.CASES 에 안 넣어 area3-api 묶음이 그대로다
 
 
 def _run(args):
