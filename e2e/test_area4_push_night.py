@@ -864,6 +864,22 @@ class EarlyDeadlineTest(TwoStageBase):
         self.assertEqual((self.batches, self.pending()), ([], []))
 
 
+class SafetyMutationTest(TwoStageBase):
+    """지워도 다른 시험이 못 보던 두 줄 — _drop 의 계정 확인, 85 의 "07시대 배치가 행을 건드림" 확인."""
+
+    def test_drop_refuses_an_account_this_run_did_not_make_and_deletes_nothing(self):
+        with self.assertRaises(Blocked):
+            night._drop(self.run, 'someone-elses-id')
+        self.assertEqual(self.world.by('DELETE', '/rest/v1/pending_pushes'), [])
+
+    def test_85_a_seven_oclock_batch_that_removes_the_row_without_sending_is_a_fail_naming_the_row(self):
+        self.after_night('85')
+        self.scripts['chat-gate'] = lambda: (self.world.chat_gate(), self.world.tables.__setitem__('pending_pushes', []))  # 앵커는 찍히고 행만 사라진다
+        result, note = self.morning('85')[0]
+        self.assertEqual(result, 'fail', (result, note))
+        self.assertIn('보관 행을 건드림', note)
+
+
 # ── 밤 단일 단계 16 · 33 ────────────────────────────────────────────────────────────────────────────
 
 class SingleNightTest(NightBase):
