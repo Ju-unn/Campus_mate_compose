@@ -38,6 +38,7 @@ from e2e import area4_push_a4  # noqa: F401 — 영역 4 알림 A4(토큰 · 권
 from e2e import area4_push_gate  # noqa: F401 — 영역 4 알림 채팅 게이트 배치(리마인드 · 닫기, chat-gate)
 from e2e import area2_phone3  # noqa: F401 — 영역 2 폰 A 3차(망 끊기 · 카드 · 알림 · 공유 창 · 하트 다시 만들기) 가설
 from e2e import area5_read  # noqa: F401 — 영역 5 폰 A 화면 읽기(나 탭 · 탈퇴 · 시스템 뒤로) 가설을 같은 곳에 더한다
+from e2e import area5_act  # noqa: F401 — 영역 5 폰 A 고쳐 저장하기(글 · 태그 · 조건 · 기본 정보) 가설을 같은 곳에 더한다
 from e2e import area2_time_device  # noqa: F401 — 영역 2 기기 · 시각 가설 13(배치 + 알림 · 시계)
 from e2e import area4_contacts  # noqa: F401 — 영역 4 연락처(B에뮬)
 from e2e import area3_contacts  # noqa: F401 — 영역 3 연락처 차단(B에뮬)
@@ -49,6 +50,8 @@ from e2e import area2_emu_b  # noqa: F401 — 영역 2 B에뮬 가설 11(수락�
 from e2e import area4_push_front  # noqa: F401 — 영역 4 알림 A3(앱이 앞에 있을 때)
 from e2e import area4_push_tap  # noqa: F401 — 영역 4 알림 A2(알림을 눌러 화면 열기)
 from e2e import area4_push  # noqa: F401 — 영역 4 알림 A1(받는 사람 폰 + 상대 API, 알림 읽기)
+from e2e import area4_push_night  # noqa: F401 — 영역 4 알림 밤·아침·시각 경계(밤 1단계 + 아침 2단계)
+from e2e import area3_phone7  # noqa: F401 — 영역 3 밤 가설 E-CHAT-34 · 42 · E-REV-18 을 영역 4 밤 판(E-PUSH-33 · 86 · 52)의 별칭으로 area1.PHONE · area3.BUNDLES 에 더한다(area4_push_night 뒤에)
 from e2e import area4_push_card  # noqa: F401 — 영역 4 알림 카드 배치 9(E-PUSH-01~09, daily-cards 를 불러 알림이 오는지 · 안 오는지)
 from e2e.tools import (DEVICE_PORT, DEVICES, ROOT, TEXT, Hub, Run, adb, cleanup, ensure_no_real_users, env, latest, scenario_rows,
                        serial, service_key, snapshot_blocks, verdict)

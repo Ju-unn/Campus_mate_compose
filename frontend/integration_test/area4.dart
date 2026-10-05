@@ -42,6 +42,7 @@ part 'area4_set2.dart';
 part 'area4_push.dart';
 part 'area4_push_tap.dart';
 part 'area4_push_front.dart';
+part 'area4_push_night.dart';
 part 'area4_push_card.dart';
 part 'area4_push_gate.dart';
 
@@ -206,6 +207,7 @@ final Map<String, Area1Case> area4Cases = {
   ..._pushCases,
   ..._pushTapMap,
   ..._pushFrontMap,
+  ..._pushNightCases,
   ..._pushCardCases,
   ..._pushGateCases,
   ..._contactsCases,
