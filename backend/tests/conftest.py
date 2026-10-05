@@ -26,3 +26,13 @@ def required_env():
         patch.setenv(key, value)
     yield
     patch.undo()
+
+
+@pytest.fixture(autouse=True)
+def no_fallback_avatar_check(monkeypatch):
+    """부팅 때 기본 아바타 원본을 보러 나가는 호출(main.py)을 꺼 둔다 — `with TestClient(app)` 테스트가
+    example.supabase.co 로 진짜 요청을 보내지 않게. 그 확인 자체를 시험하는 쪽은 되살려 쓴다."""
+    async def skip(settings, client):
+        return None
+
+    monkeypatch.setattr("app.main.warn_if_fallback_avatar_missing", skip)

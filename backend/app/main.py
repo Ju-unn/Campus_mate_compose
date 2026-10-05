@@ -19,6 +19,7 @@ from app.home.router import router as home_router
 from app.matching.router import router as matching_router
 from app.me.router import router as me_router
 from app.profile_onboarding.router import router as profile_onboarding_router
+from app.profile_onboarding.startup_check import warn_if_fallback_avatar_missing
 from app.profile_onboarding.tasks_router import router as profile_onboarding_tasks_router
 from app.referral.router import router as referral_router
 from app.safety.router import router as safety_router
@@ -36,9 +37,11 @@ async def lifespan(app: FastAPI):
     `async with` 라 프로세스가 내려갈 때 커넥션도 같이 닫힌다 — 꺼내 쓰는 곳은
     `core/deps.py` 의 `get_client` 한 곳뿐이다.
     """
-    get_settings()
+    settings = get_settings()
     async with httpx.AsyncClient() as client:
         app.state.http_client = client
+        # 기본 아바타 원본 확인(결함 D-02) — 알리기만 하고 부팅을 막지 않는다(예외도 삼킨다).
+        await warn_if_fallback_avatar_missing(settings, client)
         yield
 
 

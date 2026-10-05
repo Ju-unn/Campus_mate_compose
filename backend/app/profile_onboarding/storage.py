@@ -27,6 +27,18 @@ class AvatarStorage:
         response.raise_for_status()
         return path
 
+    async def fallback_exists(self) -> bool:
+        """복사 원본이 버킷에 있는지 읽기만으로 본다. 목록을 못 읽으면 예외다(없다는 뜻이 아니다).
+        ponytail: 폴더 항목이 100개를 넘으면 놓친다 — 기본 아바타 폴더엔 이 파일 하나뿐이다."""
+        folder, name = _FALLBACK_AVATAR_SOURCE_PATH.rsplit("/", 1)
+        response = await self._client.post(
+            f"{self._storage_url}/object/list/avatars",
+            json={"prefix": folder, "limit": 100, "offset": 0},
+            headers={**self._headers, "Content-Type": "application/json"},
+        )
+        response.raise_for_status()
+        return any(entry.get("name") == name for entry in response.json())
+
     async def copy_fallback_avatar(self, profile_id: UUID) -> str:
         """5회 연속 실패 시 기본 아바타로 대체한다(project_slice2_decisions_2026-09-19). 매번 새로
         업로드하지 않고 버킷 안에 미리 둔 공용 원본을 Storage API 로 복사한다."""
