@@ -8,9 +8,11 @@
 """
 
 import itertools
+import sys
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 from e2e import __main__ as cli
@@ -20,6 +22,8 @@ from e2e.test_area2 import Base
 from e2e.test_area2_time_device import RESERVED, SETTINGS, AppPhone, World as DeviceWorld, select_names
 from e2e.test_area3 import Fake
 from e2e.tools import Blocked, Reply
+
+ROOT = Path(__file__).resolve().parents[1]
 
 ME, PARTNER, CTL = 'Mina', 'Jiho', 'Ctlx'  # 계정을 만드는 차례 — 폰 계정 · 상대 · 대조 상대
 PHONE_ID, PARTNER_ID = 'id-1', 'id-2'
@@ -54,7 +58,7 @@ class Clock:
     """가짜 시계 — [advance] 로만 간다. 정각을 지날 때마다 [on_hour] 를 부른다(Cloud Scheduler 의 매시 예약 실행)."""
 
     def __init__(self, now):
-        self.now, self.start, self.on_hour = now, now, []
+        self.now, self.start, self.on_hour, self.timers = now, now, [], []
 
     def advance(self, seconds):
         end = self.now + timedelta(seconds=seconds)
@@ -65,6 +69,9 @@ class Clock:
                 callback(tick)
             tick += timedelta(hours=1)
         self.now = max(end, self.now)  # 콜백이 시계를 앞으로 보냈을 수 있다
+        for timer in [t for t in self.timers if t[0] <= self.now]:  # 몇 초 뒤에 일어날 일(늦게 찍히는 도장)
+            self.timers.remove(timer)
+            timer[1]()
 
     def mono(self):
         return (self.now - self.start).total_seconds()
@@ -177,6 +184,7 @@ class GateBase(Base):
 
     def setUp(self):
         super().setUp()
+        gate._FAILED.clear()  # 배치 뒤 fail 의 기억은 시험끼리 새지 않게
         self.clock = Clock(self.START)
         self.world = GateWorld(self.clock)
         self.log, self.batches, self.windows, self.granted, self.on_background = [], [], [], True, None
@@ -316,6 +324,15 @@ class WindowTest(unittest.TestCase):
         self.assertIsNone(gate.gate_window_refusal(TUE(20, 48), last_hour=20))
         self.assertEqual(gate.gate_window_refusal(TUE(21, 6), last_hour=20), '지금은 실행 금지 시간 — 수요일 08:06 에 다시')
 
+    def test_the_expired_case_starts_from_0906_because_at_8_the_window_pushed_to_8_oclock_is_still_open(self):
+        """45 는 created_at 이 now−25h1m — 08시대면 created_at+24h 가 07시대라 reminder_at 이 08:00 으로 밀어 창이 [08:00, 09:00) 이 되고 서버는 정상으로 리마인드를 보낸다."""
+        for now in (TUE(8, 6), TUE(8, 20), TUE(8, 48, 59)):
+            self.assertEqual(gate.expired_refusal(now), '지금은 실행 금지 시간 — 09:06 에 다시', now)
+        for now in (TUE(9, 6), TUE(9, 6, 59), TUE(15, 30), TUE(21, 48)):
+            self.assertIsNone(gate.expired_refusal(now), now)
+        self.assertEqual(gate.expired_refusal(TUE(9, 5)), '지금은 실행 금지 시간 — 09:06 에 다시')
+        self.assertEqual(gate.expired_refusal(TUE(21, 49)), '지금은 실행 금지 시간 — 수요일 09:06 에 다시')
+
     def test_the_morning_window_is_0706_to_0748(self):
         for now in (TUE(7, 6), TUE(7, 48), TUE(7, 48, 59)):
             self.assertIsNone(gate.morning_refusal(now), now)
@@ -323,6 +340,70 @@ class WindowTest(unittest.TestCase):
         self.assertEqual(gate.morning_refusal(TUE(7, 49)), '지금은 실행 금지 시간 — 수요일 07:06 에 다시')
         self.assertEqual(gate.morning_refusal(TUE(12, 20)), '지금은 실행 금지 시간 — 수요일 07:06 에 다시')
         self.assertEqual(gate.morning_refusal(TUE(6, 0)), '지금은 실행 금지 시간 — 07:06 에 다시')
+
+
+class ServerGridTest(unittest.TestCase):
+    """각 가설이 **시작할 수 있는 모든 분**(초 0 · 59)에서 진짜 서버 backend/app/chat/gate.py 의 판정을 직접 계산해 가설의 기대와 맞는지 본다.
+    시각 창 함수가 틀리면(45 가 08시대에 서버 정상인데 FAIL 이던 것처럼) 여기서 죽고, 가짜 서버의 reminder_at 사본이 진짜와 어긋나도 죽는다."""
+
+    @classmethod
+    def setUpClass(cls):
+        if not (ROOT / 'backend' / 'app' / 'chat' / 'gate.py').exists():
+            raise unittest.SkipTest('백엔드 코드가 없다')
+        sys.path.insert(0, str(ROOT / 'backend'))
+        try:
+            from app.chat import gate as server
+        except ImportError as e:
+            raise unittest.SkipTest(f'백엔드 코드를 못 읽는다: {e}')
+        finally:
+            sys.path.remove(str(ROOT / 'backend'))
+        cls.server = server
+
+    @staticmethod
+    def starts(refusal):
+        """[refusal] 이 None 인(= 시작해도 되는) 화요일의 모든 (분, 초 0 · 59)."""
+        found = [TUE(h, m, s) for h in range(24) for m in range(60) for s in (0, 59) if refusal(TUE(h, m, s)) is None]
+        assert found
+        return found
+
+    def test_the_test_servers_reminder_at_is_the_real_servers_for_every_minute_of_two_days(self):
+        for minutes in range(0, 2 * 24 * 60):
+            created = TUE(0) + timedelta(minutes=minutes)
+            self.assertEqual(reminder_at(created), self.server.reminder_at(created), created)
+
+    def test_every_start_of_the_due_cases_gets_a_reminder_from_the_real_server(self):
+        """40 · 41 · 42 · 43 · 47 · 79 · 80 (창 안 24h5m)."""
+        for now in self.starts(gate.gate_window_refusal):
+            self.assertTrue(self.server.needs_reminder(now - gate.DUE, now, False), now)
+            self.assertFalse(self.server.needs_reminder(now - gate.DUE, now, True), now)  # 41 — 수락한 사람
+
+    def test_every_start_of_the_expired_case_gets_no_reminder_from_the_real_server(self):
+        """45 (창이 1분 전에 끝남) — 08시대는 reminder_at 이 08:00 으로 밀어 서버가 정상으로 보낸다. 그래서 시작이 09:06 부터."""
+        for now in self.starts(gate.expired_refusal):
+            self.assertFalse(self.server.needs_reminder(now - gate.EXPIRED, now, False), now)
+        eight = TUE(8, 20)
+        self.assertTrue(self.server.needs_reminder(eight - gate.EXPIRED, eight, False))  # 창을 좁힌 까닭 — 08시대는 서버가 보낸다
+
+    def test_every_start_of_the_twice_case_has_the_next_scheduled_run_inside_the_window(self):
+        """46 (24h2m) — 손 호출 지금 1번 + 다음 정각 예약 실행 1번이 모두 창 안."""
+        for now in self.starts(gate.twice_refusal):
+            created = now - gate.DUE_FOR_TWICE
+            self.assertTrue(self.server.needs_reminder(created, now, False), now)
+            top = now.replace(minute=0, second=0) + timedelta(hours=1)
+            self.assertTrue(self.server.needs_reminder(created, top, False), now)
+            self.assertLess(top.hour, 22)  # 정각 예약 실행이 조용한 시간이 아니다
+
+    def test_every_start_of_the_closing_case_is_past_the_48_hour_deadline(self):
+        """48 (49시간) — 어느 시각이든 기한을 넘겼다."""
+        for now in self.starts(gate.gate_window_refusal):
+            self.assertLessEqual(self.server.remaining(now - gate.CLOSED, now), timedelta(0), now)
+
+    def test_44_the_7_oclock_hour_has_no_reminder_and_the_8_oclock_hour_has_one(self):
+        for now in self.starts(gate.morning_refusal):
+            created = (now - timedelta(days=1)).replace(hour=2, minute=0, second=0)  # push_44 가 옮기는 어제 02:00
+            self.assertFalse(self.server.needs_reminder(created, now, False), now)
+            for later in (TUE(8, 0), TUE(8, 3), TUE(8, 6), TUE(8, 48)):  # 08:00 예약 실행 · 08:03 까지 · 손 호출
+                self.assertTrue(self.server.needs_reminder(created, later, False), (now, later))
 
 
 # ── 모든 가설 공통 ──────────────────────────────────────────────────────────────────────────────────
@@ -357,6 +438,13 @@ class CommonTest(GateBase):
         result = self.go('E-PUSH-40')
         self.assertEqual(result, ('blocked', '지금은 실행 금지 시간 — 13:06 에 다시'))
         self.assertEqual((self.batches, self.created_patches()), ([], []))
+
+    def test_aging_a_match_of_an_account_this_run_did_not_make_is_refused_and_writes_nothing(self):
+        stranger = SimpleNamespace(run=self.run, me={'id': 'someone-else'}, partner={'id': 'also-else'})
+        with self.assertRaises(Blocked) as raised:
+            gate._set_created(stranger, 'm-1', TUE(12, 20))
+        self.assertIn('이번 실행이 만든 계정이 아니라', str(raised.exception))
+        self.assertEqual(self.world.sent, [])
 
     def test_the_notification_permission_is_given_first_and_taken_back_even_when_blocked(self):
         self.clock.now = TUE(12, 47)
@@ -562,6 +650,17 @@ class Expired45Test(GateBase):
         self.world.gate_on = False
         self.assertEqual(self.go('E-PUSH-45')[0], 'blocked')
 
+    def test_45_started_in_the_8_oclock_hour_is_blocked_before_any_account_because_the_server_rightly_sends_then(self):
+        self.clock.now = TUE(8, 20)
+        phone = self.phone()
+        self.assertEqual(self.go('E-PUSH-45', phone), ('blocked', '지금은 실행 금지 시간 — 09:06 에 다시'))
+        self.assertEqual((self.world.users, phone.jobs, self.batches, self.log), ([], [], [], []))
+
+    def test_45_from_0906_the_server_sends_nothing_so_it_passes(self):
+        self.clock.now = TUE(9, 6)
+        self.assertEqual(self.go('E-PUSH-45')[0], 'pass')
+        self.assertEqual(self.reminders(), [])
+
 
 class Left47Test(GateBase):
     def test_47_when_the_partner_left_the_phone_gets_nothing(self):
@@ -616,6 +715,28 @@ class Closed48Test(GateBase):
         result = self.go('E-PUSH-48')
         self.assertEqual(result[0], 'blocked')
         self.assertIn('배치가 돈 것 같지 않아', result[1])
+
+    def test_48_a_closing_stamped_a_few_seconds_after_the_anchor_is_waited_for_not_failed(self):
+        """배치는 매칭을 하나씩 훑는다 — 앵커 도장이 먼저 찍히고 chat_closed_at 이 몇 초 뒤 찍힐 수 있다(경합)."""
+        original = self.world.run_gate
+
+        def slow_close(at, how):
+            self.world.bug.add('no_close')
+            original(at, how)
+            self.world.bug.discard('no_close')
+            mine = self.mine()
+            self.clock.timers.append((at + timedelta(seconds=8), lambda: mine.update(chat_closed_at=at.isoformat())))
+
+        self.world.run_gate = slow_close
+        result = self.go('E-PUSH-48')
+        self.assertEqual(result[0], 'pass', result)
+        self.assertTrue(self.mine()['chat_closed_at'])
+
+    def test_48_a_closing_that_never_comes_is_still_a_fail_after_the_wait(self):
+        self.world.bug.add('no_close')
+        started = self.clock.now
+        self.assertEqual(self.go('E-PUSH-48')[0], 'fail')
+        self.assertGreaterEqual(self.clock.now - started, timedelta(seconds=gate.SETTLE))
 
     def test_48_the_closing_alone_proves_the_batch_ran_even_if_the_anchor_is_missing(self):
         original = self.world.run_gate
@@ -696,6 +817,12 @@ class Morning44Test(GateBase):
         result = self.go('E-PUSH-44')
         self.assertEqual(result, ('blocked', '지금은 실행 금지 시간 — 09:06 에 다시'))
         self.assertEqual(len(self.batches), 1)
+
+    def test_44_getting_ready_took_long_so_the_7_oclock_hand_call_time_passed_is_blocked_and_calls_nothing(self):
+        self.clock.now = TUE(7, 47)
+        self.on_background = lambda: self.clock.advance(150)  # 폰 준비가 길어져 07:49 가 됐다
+        self.assertEqual(self.go('E-PUSH-44'), ('blocked', '지금은 실행 금지 시간 — 수요일 07:06 에 다시'))
+        self.assertEqual(self.batches, [])
 
     def test_44_between_0803_and_0806_it_waits_for_0806_before_the_hand_call(self):
         self.world.scheduler = False
@@ -908,6 +1035,78 @@ class Front80Test(GateBase):
         result = self.go('E-PUSH-80')
         self.assertEqual(result[0], 'blocked')
         self.assertIn('대조 알림', result[1])
+
+
+# ── 배치를 부른 뒤의 fail 은 다시 안 돈다 ───────────────────────────────────────────────────────────
+
+FRONT_80 = {'result': 'pass', 'list': True, 'row': True, 'screen': ['conversations']}
+SKIPPED_42 = {'result': 'pass', 'skipped': True}
+# 가설 → 서버를 어긋나게 해서 **배치를 부른 뒤** 판정이 fail 이 되게 하는 방법(시작 시각 · 서버 어긋남 · 앱이 할 말)
+FAIL_AFTER_BATCH = {
+    'E-PUSH-40': {'hide': True}, 'E-PUSH-41': {'bug': 'remind_all'}, 'E-PUSH-42': {'hide': True, 'says': SKIPPED_42},
+    'E-PUSH-43': {'bug': 'ignore_switch'}, 'E-PUSH-44': {'bug': 'remind_all', 'now': TUE(7, 20)}, 'E-PUSH-45': {'bug': 'remind_all'},
+    'E-PUSH-46': {'hide': True}, 'E-PUSH-47': {'bug': 'ignore_left'}, 'E-PUSH-48': {'bug': 'no_close'},
+    'E-PUSH-79': {'hide': True}, 'E-PUSH-80': {'hide': False, 'says': FRONT_80},  # 앞에 있는 앱에 배너가 뜬 서버
+}
+
+
+class NoRerunTest(GateBase):
+    """진행 프로그램(`__main__.run_case`)은 fail 이면 같은 가설을 한 번 더 돈다 — 그런데 chat-gate 는 같은 시에 한 번뿐이라(46 · 44 는 한 시간짜리) 다시 돌린 쪽이
+    관문에 막혀 blocked 가 되고 첫 fail 이 덮인다. 배치를 부른 뒤의 fail 은 기억해 두고 다시는 안 돈다(앱도 계정도 배치도 안 만든다)."""
+
+    def run_through_the_cli(self, case, **how):
+        self.clock.now = how.get('now', self.START)
+        self.world.hide = how.get('hide', False)
+        self.world.bug.update([how['bug']] if how.get('bug') else [])
+        phone = self.phone(how['says']) if how.get('says') else self.phone()
+        phone.serial, phone.case = 'S', case
+        seen = []
+
+        def once(name):
+            out = area1.attempt_phone(self.run, name, phone)
+            seen.append((out, len(self.world.users), len(phone.jobs), len(self.batches)))
+            return out
+
+        return cli.run_case(once, case), seen, phone
+
+    def test_a_fail_after_the_batch_is_given_back_as_it_was_and_nothing_is_started_again(self):
+        for case, how in FAIL_AFTER_BATCH.items():
+            with self.subTest(case=case):
+                self.setUp()
+                (attempt, result, note), seen, _ = self.run_through_the_cli(case, **how)
+                self.assertEqual((attempt, result), (2, 'fail'), (case, note))
+                self.assertEqual(len(seen), 2, case)
+                self.assertEqual(seen[1], seen[0], case)  # 같은 결과 · 계정 수 · 앱 일감 수 · 배치 수 — 둘째는 아무것도 안 했다
+                self.assertEqual(len(self.batches), 1, case)
+                self.assertNotIn('지금은 실행 금지 시간', note, case)
+                self.assertEqual(gate._FAILED, {}, case)  # 돌려준 기억은 지운다
+
+    def test_without_the_memory_the_second_try_is_blocked_by_the_gate_and_hides_the_fail(self):
+        """이 안전망이 없을 때의 모습 — 같은 시 두 번째 chat-gate 는 관문이 막는다(기록이 남아 있으므로)."""
+        self.world.hide = True
+        self.assertEqual(self.go('E-PUSH-40')[0], 'fail')
+        gate._FAILED.clear()
+        again = self.go('E-PUSH-40')
+        self.assertEqual(again[0], 'blocked')
+        self.assertIn('13:06', again[1])
+
+    def test_a_fail_before_the_batch_is_run_again(self):
+        phone = self.phone({'result': 'fail', 'note': '홈 못 감'}, {'result': 'pass'})
+        phone.serial, phone.case = 'S', 'E-PUSH-40'
+        (attempt, result, note) = cli.run_case(lambda name: area1.attempt_phone(self.run, name, phone), 'E-PUSH-40')
+        self.assertEqual((attempt, result), (2, 'pass'), note)
+        self.assertEqual(len(self.batches), 1)
+
+    def test_a_blocked_before_the_batch_is_run_again_later(self):
+        self.clock.now = TUE(12, 3)
+        self.assertEqual(self.go('E-PUSH-40')[0], 'blocked')
+        self.clock.now = TUE(12, 20)
+        self.assertEqual(self.go('E-PUSH-40')[0], 'pass')
+
+    def test_a_blocked_after_the_batch_is_not_remembered(self):
+        self.world.gate_on = False  # 배치는 불렀지만 돌았는지 모른다 = blocked
+        self.assertEqual(self.go('E-PUSH-40')[0], 'blocked')
+        self.assertEqual(gate._FAILED, {})
 
 
 # ── 등록 ────────────────────────────────────────────────────────────────────────────────────────────

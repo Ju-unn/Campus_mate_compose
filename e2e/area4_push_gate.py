@@ -7,12 +7,20 @@ created_at 을 지금 기준으로 옮기고 `area2._batch('chat-gate')` 를 한
 판정은 폰 알림창과 DB 로 한다. **배치가 돌았다는 증거(앵커)**: 새 계정 둘의 매칭에 양쪽 trust_response=accept 를 넣어 두면 배치가 trust_passed_at 도장을
 찍는다 — 안 오는 것이 "배치가 안 돌아서" 인지 "서버가 안 보내서" 인지는 이 도장으로 가른다. 도장이 안 찍히면 fail 이 아니라 blocked.
 
+안전(정직하게): 손으로 부르는 chat-gate 는 **열린 매칭 전부**를 처리한다 — 실사용자의 리마인드(정각 예약 실행이 이미 보낸 사람에게는 중복)·48시간 마감·통과 도장도
+같이 처리한다. 하네스가 `ensure_no_real_users` 로 실사용자 0 일 때만 돌려 실제 위험은 막혀 있다. 같은 시(時)에 두 번 부르면 리마인드가 두 번 가므로(gate.py
+needs_reminder ponytail 주석) 같은 시 두 번째 호출은 batch_gate 가 막는다(예약 실행과 겹친다 — batch_gate.py 맨 위 설명).
+
 시각 규칙(가장 중요): chat-gate 는 정각 ±5분 금지 · 같은 시(時) 두 번 금지(`area2._batch` 가 관문)이고, 게다가 예약 실행이 매시 정각에 돈다.
 리마인드 창이 한 시간이라 항상 정각 하나를 품는다. 그래서 시작은 서울 **08:06~21:48 의 hh:06~hh:48 분**에만(관측 60+30초가 다음 정각 전에 끝나고, 창이 조용한
-시간에 안 걸리게 낮) — 밖이면 계정·앱 만들기 전에 blocked("HH:MM 에 다시"), 폰 준비 뒤 배치 직전에 한 번 더 본다. 가설마다 배치를 한 번 부르니 **가설 하나 =
-시계의 시 하나**다(11개 = 11개 시). 같은 시의 두 번째 가설은 관문이 막아 blocked("13:06 에 다시") — 정상이다.
+시간에 안 걸리게 낮) — 밖이면 계정·앱 만들기 전에 blocked("HH:MM 에 다시"), 폰 준비 뒤 배치 직전에 한 번 더 본다.
+**45 만 09:06 부터**: created_at 이 now−25h1m 이라 08시대에 시작하면 created_at+24h 가 07시대 → reminder_at 이 08:00 으로 밀어 창이 [08:00, 09:00) 이 되고,
+now 가 그 안이라 서버는 정상으로 리마인드를 보낸다(가설은 "안 온다" 라 서버가 멀쩡한데 FAIL). 09시 이후엔 창이 now−1분에 끝난다(시험이 격자로 backend gate.py 와 대조).
+가설마다 배치를 한 번 부르니 **가설 하나 = 시계의 시 하나**다(11개 = 11개 시). 같은 시의 두 번째 가설은 관문이 막아 blocked("13:06 에 다시") — 정상이다.
 
 시나리오와 다르게 도는 것(보고의 "확인 필요"):
+  재시도        진행 프로그램은 fail 이면 같은 가설을 한 번 더 돈다. 배치를 부른 뒤의 fail 은 기억해 두고 다시 불리면 그대로 돌려준다(`_FAILED`, 앱 · 계정 · 배치를 또
+                안 만든다) — 안 그러면 같은 시 관문(46 · 44 는 한 시간짜리)에 막혀 진짜 fail 이 blocked 로 덮인다. 배치 전의 fail · blocked 는 그대로 다시 돈다.
   A·B 두 사람   폰이 하나라 폰 계정(me) 쪽 알림만 본다. 상대(B) 쪽 알림 1개 · 배치 응답 `reminded 2` 는 못 봄 — 메모에 적는다.
   "안 온다"     같은 실행 안에서 대조 message 하나가 실제로 오는 것까지 보고서야 pass(A1 의 silent/control). 앵커 도장 확인이 먼저다.
   46            시나리오는 "배치 2번"인데 같은 시 손 호출은 관문이 막는다 → **손 호출 1번 + 다음 정각 예약 실행 1번**으로 같은 시간 안 두 번을 만든다.
@@ -27,7 +35,8 @@ created_at 을 지금 기준으로 옮기고 `area2._batch('chat-gate')` 를 한
   80            "대화 목록만 다시 읽는다" 는 앱 안 일이라 목록과 상대 줄이 그대로인지만 본다. 서버가 정말 보냈는지(reminded 에 폰 계정 포함)는 응답을 못 읽는다 —
                 앵커로 배치가 돈 것까지만 확인.
   79            앱이 방을 연 시각은 앱이 말한 ms(일감을 받은 뒤, 앱 부팅 포함)를 메모하고 30초 안이면 pass(시나리오 10초는 메모로만).
-  48            "알림 없이" — 리마인드뿐 아니라 새 알림 전부 0개를 본다.
+  48            "알림 없이" — 리마인드뿐 아니라 새 알림 전부 0개를 본다. 배치는 매칭을 하나씩 훑어 앵커 도장이 chat_closed_at 보다 먼저 찍힐 수 있어, 앵커를 본 뒤에도
+                SETTLE 초까지 chat_closed_at 을 기다린 다음에야 안 닫혔다고(FAIL) 본다.
 """
 
 import functools
@@ -40,7 +49,7 @@ from e2e.area1 import Check, _app, _patch, _rows
 from e2e.area2_phone3 import _wait_for
 from e2e.area3_phone import _permitted
 from e2e.area3_phone3 import _screens
-from e2e.area4_push import CASE_LIMIT_SLOW, TOKEN_WAIT, _Scene
+from e2e.area4_push import CASE_LIMIT_SLOW, SETTLE, TOKEN_WAIT, _Scene
 from e2e.area4_push_a4 import _front
 from e2e.tools import Blocked
 
@@ -50,6 +59,8 @@ ANCHOR_WAIT = 90  # 배치 뒤 앵커 도장이 찍히기를 기다리는 초(�
 POLL = 10  # 44 · 46 이 한 시간 가까이 알림창을 읽는 간격(초)
 APP_WAIT = 90  # 눌린 앱이 방을 열고 말하기를 기다리는 초(area3_phone3 와 같다)
 CASE_LIMIT_HOUR = 4500  # 다음 정각 · 아침 8시까지 기다리는 가설(44 · 46)의 상한
+FIRST_START_HOUR = 8  # 시작해도 되는 첫 시(08:06)
+EXPIRED_FIRST_HOUR = 9  # 45 는 09:06 부터 — 08시대는 reminder_at 이 08:00 으로 밀어 창이 [08:00, 09:00) 이라 서버가 정상으로 보낸다
 LAST_START_HOUR = 21  # 시작해도 되는 마지막 시(21:48)
 DUE = timedelta(hours=24, minutes=5)  # 리마인드 창이 지금−5분에 시작
 DUE_FOR_TWICE = timedelta(hours=24, minutes=2)  # 46 — 다음 정각 예약 실행이 창 안에 여유 있게 들어가게
@@ -58,14 +69,26 @@ CLOSED = timedelta(hours=49)  # 48시간 기한을 넘김
 SEEN = (('room', '방 화면'), ('nickname', '앱바 닉네임'))
 
 
+# ── 배치를 부른 뒤의 fail 은 다시 안 돈다 ───────────────────────────────────────────────────────────
+
+_FAILED = {}  # (묶음 폴더, 가설 함수 이름) → 배치를 부른 뒤 fail 이었던 결과
+_CALLS = [0]  # 지금까지 배치(gcloud)를 부른 횟수
+
+
+def _batch(name):
+    """area2._batch(관문 → gcloud) 를 부르고 센다 — 관문에서 막히거나 gcloud 가 안 불렸으면 세지 않는다."""
+    area2._batch(name)
+    _CALLS[0] += 1
+
+
 # ── 시각 창(순수 함수) ──────────────────────────────────────────────────────────────────────────────
 
 def now_seoul():
     return batch_gate.now_seoul()
 
 
-def _open(t, last_hour):
-    return 8 <= t.hour <= last_hour and 6 <= t.minute <= 48
+def _open(t, last_hour, first_hour=FIRST_START_HOUR):
+    return first_hour <= t.hour <= last_hour and 6 <= t.minute <= 48
 
 
 def _refusal(open_at, now, ran):
@@ -85,9 +108,14 @@ def _refusal(open_at, now, ran):
     return f'지금은 실행 금지 시간 — {when} 에 다시'
 
 
-def gate_window_refusal(now, last_hour=LAST_START_HOUR, ran=()):
-    """[now] 가 서울 08:06~[last_hour]:48 의 hh:06~hh:48 분(이고 [ran] 에 없는 시)이면 None, 아니면 "지금은 실행 금지 시간 — HH:MM 에 다시"."""
-    return _refusal(lambda t: _open(t, last_hour), now, ran)
+def gate_window_refusal(now, last_hour=LAST_START_HOUR, ran=(), first_hour=FIRST_START_HOUR):
+    """[now] 가 서울 [first_hour]:06~[last_hour]:48 의 hh:06~hh:48 분(이고 [ran] 에 없는 시)이면 None, 아니면 "지금은 실행 금지 시간 — HH:MM 에 다시"."""
+    return _refusal(lambda t: _open(t, last_hour, first_hour), now, ran)
+
+
+def expired_refusal(now, ran=()):
+    """45 — 서울 09:06~21:48. 08시대에 시작하면 서버가 정상으로 리마인드를 보낸다(EXPIRED_FIRST_HOUR 설명)."""
+    return gate_window_refusal(now, ran=ran, first_hour=EXPIRED_FIRST_HOUR)
 
 
 def morning_refusal(now, ran=()):
@@ -130,10 +158,19 @@ def _gate_case(window=gate_window_refusal, daytime=True, live=False):
 
         @functools.wraps(fn)
         def wrapped(run, phone):
+            """진행 프로그램(run_case)은 fail 이면 같은 가설을 한 번 더 돈다. 배치를 이미 부른 뒤의 fail 은 다시 돌면 관문이 막아(같은 시 두 번째 chat-gate) 진짜 결과가
+            blocked 로 덮이므로 기억했다가 다시 불리면 그대로 돌려준다(앱도 계정도 안 만든다). 배치 전의 fail · blocked 는 그대로 다시 돈다."""
+            key = (str(run.out), fn.__name__)
+            if key in _FAILED:
+                return _FAILED.pop(key)
             said = window(now_seoul(), ran=batch_gate._ran())  # 같은 시 두 번째 가설은 계정을 만들기 전에 여기서 막힌다
             if said:
                 raise Blocked(said)
-            return play(run, phone)
+            before = _CALLS[0]
+            result = play(run, phone)
+            if result[0] == 'fail' and _CALLS[0] > before:
+                _FAILED[key] = result
+            return result
         return wrapped
     return decorate
 
@@ -183,7 +220,7 @@ def _fire(s, ages=(), refusal=gate_window_refusal):
         raise Blocked(said)
     for match_id, delta in ages:
         _set_created(s, match_id, now_seoul() - delta)
-    area2._batch('chat-gate')
+    _batch('chat-gate')
 
 
 def _is_reminder(notice):
@@ -221,11 +258,11 @@ def _judge_room(s, said):
         s.check.problems.append(f'그때 보인 화면 {_screens(said)}')
 
 
-def _silent(s, delta, state=None, only=_is_reminder):
+def _silent(s, delta, state=None, only=_is_reminder, refusal=gate_window_refusal):
     """"안 온다" 한 판 — 매칭을 만들어 [delta] 만큼 늙히고 배치 한 번 → 앵커 도장 → [only] 알림 0개 → 대조 message."""
     anchor, match_id = _setup(s, state)
     before = s.before()
-    _fire(s, [(match_id, delta)])
+    _fire(s, [(match_id, delta)], refusal=refusal)
     _confirm_ran(s, anchor)
     s.silent(before, only=only)
 
@@ -300,9 +337,9 @@ def push_44(s):
     s.notes.append(f'08시대 알림 {len(got)}개(예약 실행과 손 호출이 겹치면 2개일 수 있음 — 개수는 판정 사유가 아님) · 상대(B) 쪽은 못 봄')
 
 
-@_gate_case()
+@_gate_case(window=expired_refusal)
 def push_45(s):
-    _silent(s, EXPIRED)
+    _silent(s, EXPIRED, refusal=expired_refusal)
     s.notes.append('상대(B) 쪽 0개 · reminded 0 은 폰이 하나라 못 봄')
 
 
@@ -339,6 +376,7 @@ def push_48(s):
     before = s.before()
     _fire(s, [(match_id, CLOSED)])
     _confirm_ran(s, anchor, also=lambda: _stamps(s, match_id).get('chat_closed_at'))
+    _wait_for(lambda: _stamps(s, match_id).get('chat_closed_at'), SETTLE)  # 배치가 앵커를 먼저 찍고 이 매칭을 몇 초 뒤 닫을 수 있다 — 기다린 뒤에야 안 닫혔다고 본다
     s.check.that(_stamps(s, match_id).get('chat_closed_at'), '49시간 지난 매칭에 chat_closed_at 이 안 찍힘(앵커 도장은 찍혀 배치는 돌았음)')
     s.silent(before)  # 새 알림 전부 0개 + 대조
 
