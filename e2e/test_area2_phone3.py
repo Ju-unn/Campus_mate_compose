@@ -217,6 +217,7 @@ class CardNotificationTest(CaseBase):
         patches = [mock.patch.object(area2_phone3.area2, '_batch', lambda name: calls.append(('batch', name))),
                    mock.patch.object(notify, 'grant_notifications', lambda s: None),
                    mock.patch.object(notify, 'revoke_notifications', lambda s: None),
+                   mock.patch.object(notify, 'ensure_delivery', lambda s: None),
                    mock.patch.object(notify, 'read_notifications', lambda s: calls.append('read') or before),
                    mock.patch.object(notify, 'background', lambda s: calls.append('background')),
                    mock.patch.object(notify, 'wait_new', lambda s, b, count=1, seconds=0, match=None: calls.append(('wait_new', b == before, seconds, match is not None)) or list(new)),
@@ -266,6 +267,7 @@ class ReferralNotificationTest(CaseBase):
         before = [notify.Notice('old', '남은 알림', '', 'c')]
         patches = [mock.patch.object(area2_phone3.time, 'monotonic', side_effect=iter(range(0, 10000))),
                    mock.patch.object(notify, 'require_daytime', (lambda now=None: None) if daytime else mock.Mock(side_effect=Blocked('밤'))),
+                   mock.patch.object(notify, 'ensure_delivery', lambda s: calls.append('delivery')),
                    mock.patch.object(notify, 'read_notifications', lambda s: calls.append('read') or before),
                    mock.patch.object(notify, 'background', lambda s: calls.append('background')),
                    mock.patch.object(notify, 'wait_new', lambda s, b, count=1, seconds=0, match=None: calls.append(('wait_new', b == before, seconds, match is not None)) or list(new))]
@@ -285,7 +287,7 @@ class ReferralNotificationTest(CaseBase):
         result, phone, calls = self.run_case([got])
         self.assertEqual(result[0], 'pass', result)
         # 코드 입력 전에 앞 알림을 읽어 두고(새 알림만 보려고) → HOME → 코드 입력 → 그 목록을 기준으로 새 알림 대기
-        self.assertEqual(calls, ['read', 'background', 'redeem', ('wait_new', True, 30, True)])  # 기다리던 알림이 올 때까지(match) 기다린다
+        self.assertEqual(calls, ['delivery', 'read', 'background', 'redeem', ('wait_new', True, 30, True)])  # 기다리던 알림이 올 때까지(match) 기다린다
         self.assertEqual(self.fake.bodies('POST', '/referral/redeem'), [{'code': 'ABCDE2'}])
         self.assertIn('token_hash', phone.jobs[0])
 
@@ -332,7 +334,7 @@ class RealAiTest(CaseBase):
     def test_charged_run_checks_balance_during_and_ledger_after(self):
         two = [{'id': 'a1', 'status': 'ready'}, {'id': 'a2', 'status': 'ready'}]
         three = two + [{'id': 'a3', 'status': 'ready'}]
-        states = iter([two, three])
+        states = iter([two, two + [{'id': 'a3', 'status': 'pending'}], three])
         balances = iter([[{'heart_balance': 10}], [{'heart_balance': 10}], [{'heart_balance': 0}]])
         rules = [('GET', 'profile_avatars', lambda b, u: Reply(200, next(states, three))),
                  ('GET', 'entitlements', lambda b, u: Reply(200, next(balances, [{'heart_balance': 0}]))),
@@ -348,10 +350,10 @@ class RealAiTest(CaseBase):
         area2_phone3._PAID.clear()
         self.addCleanup(area2_phone3._PAID.clear)
 
-    def charged(self, balances, ledger, case='E-HEART-45'):
+    def charged(self, balances, ledger, case='E-HEART-45', states=None):
         two = [{'id': 'a1', 'status': 'ready'}, {'id': 'a2', 'status': 'ready'}]
         three = two + [{'id': 'a3', 'status': 'ready'}]
-        states = iter([two, three])
+        states = iter(states or [two, two + [{'id': 'a3', 'status': 'pending'}], three])  # 만드는 중(pending)을 한 번 보고 → 완성
         values = iter(balances)
         rules = [('GET', 'profile_avatars', lambda b, u: Reply(200, next(states, three))),
                  ('GET', 'entitlements', lambda b, u: Reply(200, [{'heart_balance': next(values, balances[-1])}])),
@@ -376,6 +378,73 @@ class RealAiTest(CaseBase):
         self.assertEqual(second[0], 'blocked')
         self.assertIn('재시도', second[1])
         self.assertEqual(phone.jobs, [])
+
+    PENDING_ROW = {'id': 'a3', 'status': 'pending', 'created_at': '2026-10-05T01:00:00+00:00'}
+    LEDGER = [{'amount': -10, 'reason': 'avatar_regen', 'ref_id': 'a3', 'created_at': '2026-10-05T01:00:20+00:00'}]
+    TWO = [{'id': 'a1', 'status': 'ready'}, {'id': 'a2', 'status': 'ready'}]
+
+    def test_the_balance_is_read_before_the_attempt_row(self):
+        # 행을 먼저 읽으면 방금 완성된 시도를 본 순간의 잔액이 이미 차감 뒤라 "만드는 중에 빠졌다" 고 틀리게 본다 — 잔액이 먼저다
+        self.charged([10, 10, 0], self.LEDGER)
+        names = [p.rsplit('/', 1)[1] for m, p, b in self.fake.calls if m == 'GET' and p.rsplit('/', 1)[1] in ('profile_avatars', 'entitlements')]
+        self.assertEqual(names[:3], ['profile_avatars', 'entitlements', 'profile_avatars'])  # 처음 한 번은 known 읽기
+
+    def test_charged_before_it_was_ready_is_a_fail_with_the_evidence_in_the_memo(self):
+        three = self.TWO + [{'id': 'a3', 'status': 'ready'}]
+        (result, _) = self.charged([0, 0], self.LEDGER, states=[self.TWO, self.TWO + [self.PENDING_ROW], self.TWO + [self.PENDING_ROW], three])
+        self.assertEqual(result[0], 'fail', result)
+        self.assertIn('만드는 중 잔액 0(기대 10', result[1])
+        self.assertIn('결함 후보', result[1])
+        self.assertIn('pending', result[1])  # 그때 시도 행의 상태
+        self.assertIn('2026-10-05T01:00:00+00:00', result[1])  # 시도 행 생성 시각
+        self.assertIn('2026-10-05T01:00:20+00:00', result[1])  # 원장 −10 의 시각
+
+    def test_the_real_bug_scenario_pending_then_ready_with_the_charge_already_in_passes(self):
+        # 거짓 fail 의 실제 모양: pending 을 보고(잔액 그대로) → 다음 읽기에서 행은 ready, 잔액은 이미 차감 — 이제 정상으로 본다
+        three = self.TWO + [{'id': 'a3', 'status': 'ready'}]
+        (result, _) = self.charged([10, 0, 0], self.LEDGER, states=[self.TWO, self.TWO + [self.PENDING_ROW], three])
+        self.assertEqual(result[0], 'pass', result)
+
+    def test_an_unreadable_evidence_does_not_hide_the_defect_fail(self):
+        ledger_reads = []
+        states = iter([self.TWO, self.TWO + [self.PENDING_ROW]])  # known → pending 한 번 → 그 뒤로는 완성
+        rules = [('GET', 'profile_avatars', lambda b, u: Reply(200, next(states, self.TWO + [{'id': 'a3', 'status': 'ready'}]))),
+                 ('GET', 'entitlements', lambda b, u: Reply(200, [{'heart_balance': 0}])),  # 기대 10 인데 이미 0 — 결함 후보
+                 ('GET', 'heart_transactions', lambda b, u: Reply(500, {'message': 'boom'}) if not ledger_reads.append(1) and len(ledger_reads) == 1 else Reply(200, self.LEDGER))]  # 증거용 첫 읽기만 실패
+        with mock.patch.dict(area2_phone3.os.environ, {'E2E_REAL_AI': '1'}):
+            result = self.go('E-HEART-45', FakePhone(midway_step={'step': 'started'}), rules)
+        self.assertEqual(result[0], 'fail', result)  # 증거를 못 읽어도 결함 후보 fail 은 남는다
+        self.assertIn('결함 후보', result[1])
+        self.assertIn('증거 읽기 실패', result[1])
+
+    def test_a_first_read_that_is_already_ready_is_blocked_as_not_measurable(self):
+        three = self.TWO + [{'id': 'a3', 'status': 'ready'}]
+        (result, _) = self.charged([0, 0], self.LEDGER, states=[self.TWO, three])  # 처음 본 시도가 이미 ready — 잔액은 차감 뒤
+        self.assertEqual(result[0], 'blocked', result)
+        self.assertIn('읽기 전에 끝남', result[1])
+        self.assertIn('측정 불가', result[1])
+
+    def test_not_measurable_does_not_hide_a_wrong_ledger(self):
+        three = self.TWO + [{'id': 'a3', 'status': 'ready'}]
+        wrong = [{'amount': -10, 'reason': 'avatar_regen', 'ref_id': 'other', 'created_at': 'x'}]
+        (result, _) = self.charged([0, 0], wrong, states=[self.TWO, three])
+        self.assertEqual(result[0], 'fail', result)  # 완성 뒤 검사에서 어긋난 것은 측정 불가에 묻히지 않는다
+        self.assertIn('ref_id', result[1])
+
+    def test_a_free_regeneration_that_is_already_ready_still_passes(self):
+        # 무료(차감 0)는 "만드는 중 잔액" 이 늘 그대로라 읽기 시점이 판정을 못 흔든다 — E-HEART-42 가 통과한 이유
+        one = [{'id': 'a1', 'status': 'ready'}]
+        two = one + [{'id': 'a2', 'status': 'ready'}]
+        rules = [('GET', 'profile_avatars', lambda b, u: Reply(200, two) if self.fake_seen() else Reply(200, one)),
+                 ('GET', 'entitlements', lambda b, u: Reply(200, [{'heart_balance': 0}])),
+                 ('GET', 'heart_transactions', lambda b, u: Reply(200, []))]
+        with mock.patch.dict(area2_phone3.os.environ, {'E2E_REAL_AI': '1'}):
+            result = self.go('E-HEART-42', FakePhone(midway_step={'step': 'started'}), rules)
+        self.assertEqual(result[0], 'pass', result)
+
+    def fake_seen(self, _state={}):
+        _state['n'] = _state.get('n', 0) + 1
+        return _state['n'] > 1
 
     def test_a_paid_fail_comes_back_as_that_same_fail_on_the_second_call_without_the_phone(self):
         wrong = [{'amount': -10, 'reason': 'avatar_regen', 'ref_id': 'other'}]

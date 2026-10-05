@@ -202,7 +202,7 @@ def p_card_35(run, phone):
 # ── 알림 2 ──────────────────────────────────────────────────────────────────────────────────────────
 
 def _dump(serial):
-    return tools.adb_bytes(serial, 'shell', 'uiautomator', 'dump', '/dev/tty').decode('utf-8', 'replace')
+    return notify._ui_dump(serial)  # exec-out 으로 읽고 XML 이 아니면 Blocked — 읽는 길을 한 곳에 둔다
 
 
 def _tap_label(serial, labels):
@@ -223,6 +223,7 @@ def _wait_for(until, seconds):
 
 def p_card_02(run, phone):
     """앱을 홈에서 멈추고 HOME → 카드 배치 → 알림 30초 → 알림을 눌러 오늘 탭으로. 앱이 그 카드를 판정한다."""
+    notify.ensure_delivery(phone.serial)  # 푸시 연결이 죽은 폰이면 "알림이 안 왔다" 를 앱 탓으로 읽게 된다 — 시작 때 한 번 점검
     check = Check()
     a, b, token = _seed_pair(run)
     region = _region_of(run, a)
@@ -262,6 +263,7 @@ def p_card_02(run, phone):
 def p_ref_18(run, phone):
     """추천인 = 폰 A(홈까지 켠 뒤 HOME), 코드 입력 = API(새 계정). 낮 08~22시에만."""
     notify.require_daytime()
+    notify.ensure_delivery(phone.serial)  # 푸시 연결이 죽은 폰이면 "알림이 안 왔다" 를 앱 탓으로 읽게 된다 — 시작 때 한 번 점검
     check = Check()
     referrer, token = _signed_in(run, 'home')
     _app(check, phone(token_hash=token))
@@ -352,6 +354,22 @@ def _regen(case_name, extra_avatar, balance, cost):
     return case
 
 
+def _charge_evidence(run, account, known):
+    """"만드는 중" 인데 잔액이 이미 달랐을 때의 증거 — 그 순간 새 시도 행의 상태 · 생성 시각과 avatar_regen 원장의 금액 · 시각.
+    차감이 완성 전에 나간 결함인지, 읽기가 완성 뒤였는지를 사람이 가려 볼 수 있게."""
+    try:
+        rows = [r for r in _avatars_at(run, account) if r['id'] not in known]
+        ledger = _rows(run, f"heart_transactions?profile_id=eq.{account['id']}&reason=eq.avatar_regen&select=amount,created_at")
+    except Blocked as e:  # 증거를 못 읽어도 결함 후보 fail 은 그대로 남긴다 — 읽기 실패가 판정을 blocked 로 덮으면 안 된다
+        return f'증거 읽기 실패: {e}'
+    return (f"시도 행 {[(r.get('status'), r.get('created_at')) for r in rows] or '아직 없음'}, "
+            f"원장 {[(r.get('amount'), r.get('created_at')) for r in ledger] or '없음'}")
+
+
+def _avatars_at(run, account):
+    return _rows(run, f"profile_avatars?profile_id=eq.{account['id']}&select=id,status,created_at")
+
+
 def _regen_once(run, phone, case_name, extra_avatar, balance, cost):
     check = Check()
     account, token = _signed_in(run, 'home')
@@ -361,19 +379,26 @@ def _regen_once(run, phone, case_name, extra_avatar, balance, cost):
         _give(run, account, balance)
     known = {r['id'] for r in _avatars(run, account)}
     made = {}
+    seen = {'pending': False, 'flagged': False}  # 만드는 중(pending)인 시도를 읽은 적이 있나 · 잔액이 달라 이미 적었나
 
     def finished(said):
         _PAID[case_name] = ('blocked', '앱이 만들기를 누른 뒤 결과가 나오기 전에 멈춤')  # 여기부터는 비용이 나간다
         deadline = time.monotonic() + AI_WAIT
         while True:
+            # 잔액을 먼저 읽는다 — 그다음 읽은 시도가 아직 pending 이면 이 값은 완성 전이다(area5_api 와 같은 순서).
+            # 시도를 먼저 읽으면 방금 완성된 시도를 본 그 순간의 잔액이 이미 차감 뒤라 "만드는 중에 빠졌다" 고 틀리게 본다.
+            during = _balance(run, account)
             new = [r for r in _avatars(run, account) if r['id'] not in known]
             if new and new[0]['status'] == 'failed':
                 raise Blocked(f'아바타 생성이 실패(AI 쪽) — 앱 결함으로 세지 않는다 (유료 호출 {len(new)}번)')
-            during = _balance(run, account)
-            check.that(during == balance, f'만드는 중 잔액 {during}(기대 {balance} — 하트는 완성 뒤에 빠진다)')
             if new and new[0]['status'] == 'ready':
-                made['id'] = new[0]['id']
+                made['id'] = new[0]['id']  # 이 반복의 잔액은 완성 직전 · 직후 어느 쪽인지 모른다 — 검사하지 않는다
                 return
+            seen['pending'] = seen['pending'] or bool(new)
+            if during != balance and not seen['flagged']:
+                seen['flagged'] = True  # 이유는 한 번만 — 증거는 이 순간 것이 필요하다
+                check.that(False, f'만드는 중 잔액 {during}(기대 {balance} — 하트는 완성 뒤에 빠진다) — 완성 전인데 이미 차감됨(결함 후보); '
+                                  f'{_charge_evidence(run, account, known)}')
             if time.monotonic() >= deadline:
                 raise Blocked(f'{AI_WAIT}초 안에 새 아바타가 안 끝남 (새 아바타 시도 행 {len(new)}개 — 앱이 이미 눌렀으니 0개여도 서버에 닿았는지 확인 필요)')
             time.sleep(POLL)
@@ -388,6 +413,9 @@ def _regen_once(run, phone, case_name, extra_avatar, balance, cost):
         check.that(ledger[0].get('ref_id') == made.get('id'), '원장 ref_id 가 새 아바타 시도 id 와 다름')
     paid = f'유료 호출 {_paid_calls(run, account, known)}번(새 아바타 시도 행 수)'
     result, note = check.result()
+    if result == 'pass' and cost and not seen['pending']:
+        # 첫 읽기부터 이미 완성이었다 — 하트가 완성 뒤에 빠지는지는 "만드는 중" 값을 못 봐서 가릴 수 없다(완성 뒤 잔액 · 원장은 맞음)
+        return 'blocked', f'읽기 전에 끝남 — 만드는 중 잔액을 측정 불가(완성 뒤 잔액 · 원장은 맞음) ({paid})'
     return result, f'{note} ({paid})' if note else paid
 
 

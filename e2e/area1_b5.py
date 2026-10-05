@@ -211,6 +211,7 @@ def _notified(run, phone, check, verdict):
 
 def p_gate_43(run, phone):
     notify.require_daytime()  # 밤에는 방해 금지 시간이라 pending_pushes 로 보류된다
+    notify.ensure_delivery(phone.serial)  # 푸시 연결이 죽은 폰이면 "알림이 안 왔다" 를 앱 탓으로 읽게 된다 — 시작 때 한 번 점검
     check = Check()
     _allow_notifications(phone)
     for verdict in ('approved', 'rejected'):

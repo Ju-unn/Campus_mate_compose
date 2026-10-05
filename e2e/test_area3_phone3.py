@@ -50,7 +50,8 @@ class Chat32Base(Phone2):
         self.events = []
         self.old = [notify.Notice('old', '남은 알림', '', 'c')]
         self.notices = None  # None 이면 보낸 글 그대로의 알림이 온다
-        fakes = {'read_notifications': lambda s: self.events.append(('read', s)) or self.old,
+        fakes = {'ensure_delivery': lambda s: self.events.append(('delivery', s)),  # 푸시 연결 점검(실제 adb 는 test_ensure_delivery_wiring 이 막는다)
+                 'read_notifications': lambda s: self.events.append(('read', s)) or self.old,
                  'kill_app': lambda s: self.events.append(('kill', len(self.sends()))),
                  'wait_new': self.wait_new,
                  'tap_notification': lambda s, title: self.events.append(('tap', title))}
@@ -87,8 +88,9 @@ class Chat32Test(Chat32Base):
     def test_pass_path_logs_in_kills_sends_waits_tells_taps_and_listens(self):
         (result, note), phone = self.go()
         self.assertEqual(result, 'pass', note)
-        self.assertEqual(self.names(), ['app', 'read', 'kill', 'wait_new', 'tell', 'tap', 'result'])
-        self.assertEqual(self.events[0], ('app', {'token_hash': 'h', 'phase': 'login'}))
+        self.assertEqual(self.names(), ['delivery', 'app', 'read', 'kill', 'wait_new', 'tell', 'tap', 'result'])  # 푸시 연결 점검이 맨 앞
+        self.assertEqual(self.events[0], ('delivery', 'S'))
+        self.assertEqual(self.events[1], ('app', {'token_hash': 'h', 'phase': 'login'}))
         body = self.sent_body()
         self.assertRegex(body, r'^E2E-32-\w+$')
         self.assertEqual([s['auth'] for s in self.sends()], ['tok-2'])  # 상대(id-2)가 보낸다
@@ -220,7 +222,7 @@ class Chat32Test(Chat32Base):
     def test_permission_is_granted_before_the_app_and_revoked_after(self):
         self.go()
         self.assertEqual(self.perm, [('grant', 'S'), ('revoke', 'S')])
-        self.assertEqual(self.names()[0], 'app')
+        self.assertEqual(self.names()[:2], ['delivery', 'app'])  # 권한을 준 뒤 푸시 연결을 점검하고 그다음 앱
 
     def test_permission_is_revoked_even_when_blocked(self):
         with mock.patch.object(notify, 'tap_notification', mock.Mock(side_effect=Blocked('알림창에서 줄을 못 찾음'))):

@@ -4,11 +4,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
 import 'area1.dart';
+import 'area2_emu_home.dart';
 import 'area3.dart';
 import 'area4.dart';
 import 'area2.dart';
 import 'area2_c.dart';
 import 'area2_b.dart';
+import 'area5.dart';
 import 'area2_d.dart';
 import 'area2_two_poll.dart';
 import 'support.dart';
@@ -18,11 +20,13 @@ import 'support.dart';
 /// 가설이 Map 을 돌려주면 pass 말에 같이 실어 보낸다(누른 시각 · 걸린 시간 같은 PC 판정 재료).
 final Map<String, Future<Object?> Function(WidgetTester tester, Map<String, dynamic> job)> cases = {
   ...area1Cases,
+  ...area2EmuHomeCases,
   ...area3Cases,
   ...area4Cases,
   ...area2Cases,
   ...area2cCases,
   ...area2bCases,
+  ...area5Cases,
   ...area2dCases,
   ...area2TwoPollCases,
   // 앱이 켜져 첫 화면이 그려지고 우편함 왕복이 된다.
