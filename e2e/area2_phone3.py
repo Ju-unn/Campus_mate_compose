@@ -355,8 +355,11 @@ def _regen(case_name, extra_avatar, balance, cost):
 def _charge_evidence(run, account, known):
     """"만드는 중" 인데 잔액이 이미 달랐을 때의 증거 — 그 순간 새 시도 행의 상태 · 생성 시각과 avatar_regen 원장의 금액 · 시각.
     차감이 완성 전에 나간 결함인지, 읽기가 완성 뒤였는지를 사람이 가려 볼 수 있게."""
-    rows = [r for r in _avatars_at(run, account) if r['id'] not in known]
-    ledger = _rows(run, f"heart_transactions?profile_id=eq.{account['id']}&reason=eq.avatar_regen&select=amount,created_at")
+    try:
+        rows = [r for r in _avatars_at(run, account) if r['id'] not in known]
+        ledger = _rows(run, f"heart_transactions?profile_id=eq.{account['id']}&reason=eq.avatar_regen&select=amount,created_at")
+    except Blocked as e:  # 증거를 못 읽어도 결함 후보 fail 은 그대로 남긴다 — 읽기 실패가 판정을 blocked 로 덮으면 안 된다
+        return f'증거 읽기 실패: {e}'
     return (f"시도 행 {[(r.get('status'), r.get('created_at')) for r in rows] or '아직 없음'}, "
             f"원장 {[(r.get('amount'), r.get('created_at')) for r in ledger] or '없음'}")
 

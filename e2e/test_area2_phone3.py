@@ -397,6 +397,24 @@ class RealAiTest(CaseBase):
         self.assertIn('2026-10-05T01:00:00+00:00', result[1])  # 시도 행 생성 시각
         self.assertIn('2026-10-05T01:00:20+00:00', result[1])  # 원장 −10 의 시각
 
+    def test_the_real_bug_scenario_pending_then_ready_with_the_charge_already_in_passes(self):
+        # 거짓 fail 의 실제 모양: pending 을 보고(잔액 그대로) → 다음 읽기에서 행은 ready, 잔액은 이미 차감 — 이제 정상으로 본다
+        three = self.TWO + [{'id': 'a3', 'status': 'ready'}]
+        (result, _) = self.charged([10, 0, 0], self.LEDGER, states=[self.TWO, self.TWO + [self.PENDING_ROW], three])
+        self.assertEqual(result[0], 'pass', result)
+
+    def test_an_unreadable_evidence_does_not_hide_the_defect_fail(self):
+        ledger_reads = []
+        states = iter([self.TWO, self.TWO + [self.PENDING_ROW]])  # known → pending 한 번 → 그 뒤로는 완성
+        rules = [('GET', 'profile_avatars', lambda b, u: Reply(200, next(states, self.TWO + [{'id': 'a3', 'status': 'ready'}]))),
+                 ('GET', 'entitlements', lambda b, u: Reply(200, [{'heart_balance': 0}])),  # 기대 10 인데 이미 0 — 결함 후보
+                 ('GET', 'heart_transactions', lambda b, u: Reply(500, {'message': 'boom'}) if not ledger_reads.append(1) and len(ledger_reads) == 1 else Reply(200, self.LEDGER))]  # 증거용 첫 읽기만 실패
+        with mock.patch.dict(area2_phone3.os.environ, {'E2E_REAL_AI': '1'}):
+            result = self.go('E-HEART-45', FakePhone(midway_step={'step': 'started'}), rules)
+        self.assertEqual(result[0], 'fail', result)  # 증거를 못 읽어도 결함 후보 fail 은 남는다
+        self.assertIn('결함 후보', result[1])
+        self.assertIn('증거 읽기 실패', result[1])
+
     def test_a_first_read_that_is_already_ready_is_blocked_as_not_measurable(self):
         three = self.TWO + [{'id': 'a3', 'status': 'ready'}]
         (result, _) = self.charged([0, 0], self.LEDGER, states=[self.TWO, three])  # 처음 본 시도가 이미 ready — 잔액은 차감 뒤
