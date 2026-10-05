@@ -39,6 +39,7 @@ from e2e import area4_contacts  # noqa: F401 — 영역 4 연락처(B에뮬)
 from e2e import area3_contacts  # noqa: F401 — 영역 3 연락처 차단(B에뮬)
 from e2e import area2_time_batch  # 영역 2 배치 가설(daily-cards · cleanup 을 불러 PC 에서 DB · API 로 읽음)
 from e2e import area2_time_api  # 영역 2 시간 API(배치 없이 DB 시각만 옮겨 API · RPC 로 확인)
+from e2e import area4_push  # noqa: F401 — 영역 4 알림 A1(받는 사람 폰 + 상대 API, 알림 읽기)
 from e2e.tools import (DEVICE_PORT, DEVICES, ROOT, TEXT, Hub, Run, adb, cleanup, ensure_no_real_users, env, latest, scenario_rows,
                        serial, service_key, snapshot_blocks, verdict)
 

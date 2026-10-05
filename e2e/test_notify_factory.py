@@ -81,6 +81,10 @@ class FactoryTest(Base):
         self.assertEqual(fake.calls, [('POST', '/cards/acceptances/card-1', {'decision': 'accept'})])
         self.assertIn('tok-b', fake.bearers[0])
 
+    def test_accept_back_returns_the_server_answer_so_a_case_can_check_matched(self):
+        self.serve({('POST', '/cards/acceptances/card-1'): Reply(200, {'matched': True, 'match_id': 'm1'})})
+        self.assertEqual(factory.accept_back(self.run, B, 'card-1'), {'matched': True, 'match_id': 'm1'})
+
     def test_a_server_refusal_is_blocked_with_the_status_not_a_silent_pass(self):
         self.serve({('POST', '/cards/card-1/decision'): Reply(409, {'detail': '이미 결정'})})
         with self.assertRaises(Blocked) as why:
