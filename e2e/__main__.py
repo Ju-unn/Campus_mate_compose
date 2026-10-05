@@ -23,6 +23,7 @@ from e2e import area3_safe_phone  # noqa: F401 — 영역 3 안전 폰(신고 ·
 from e2e import area1_b3  # 묶음 3(사진 세트) — 같은 방식
 from e2e import area1_b4  # noqa: F401 — 묶음 4(아바타) — 같은 방식
 from e2e import area1_b5  # noqa: F401 — 묶음 5(검토 이후 · 재부팅 · 식은 서버) — 같은 방식
+from e2e import area1_b6  # noqa: F401 — 묶음 6(두 기기 · 에뮬 네트워크) — 같은 방식
 from e2e import area1_emu  # noqa: F401 — B에뮬 가설(네트워크 · 시계 · 브라우저)
 from e2e import emu
 from e2e import area4  # noqa: F401 — 영역 4 가설을 같은 곳에 더한다
