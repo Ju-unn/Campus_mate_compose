@@ -75,17 +75,18 @@ def _batch(name, before=None):
     _CALLS[0] += 1
 
 
-def _single_shot(case):
+def _single_shot(case, always=False):
     """진행 프로그램(run_case)은 fail 이면 같은 가설을 한 번 더 돈다. 배치를 이미 부른 뒤의 fail 은 다시 돌면 관문이 막아(같은 시 두 번째 chat-gate) 진짜 결과가
     blocked 로 덮이거나, cleanup 이면 운영 배치를 또 부른다 — 그래서 그 결과를 기억했다가 다시 불리면 그대로 돌려준다(앱도 계정도 안 만든다).
-    배치를 부르기 전의 fail · blocked 는 그대로 다시 돈다."""
+    배치를 부르기 전의 fail · blocked 는 그대로 다시 돈다. [always] 이면 배치와 상관없이 **모든** fail 을 기억한다 — 시작 시각 창이 있는 시계 가설(E-HOME-24 · 25)은
+    첫 시도가 25분쯤 걸려 둘째 시도가 창 밖에서 "지금은 실행 금지 시간" blocked 로 진짜 fail 을 덮기 때문이다(blocked · pass 는 기억하지 않는다)."""
     @functools.wraps(case)
     def wrapped(run, *args):
         if case.__name__ in _FAILED:
             return _FAILED.pop(case.__name__)
         before = _CALLS[0]
         result = case(run, *args)
-        if result[0] == 'fail' and _CALLS[0] > before:
+        if result[0] == 'fail' and (always or _CALLS[0] > before):
             _FAILED[case.__name__] = result
         return result
     return wrapped

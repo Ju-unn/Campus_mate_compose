@@ -23,6 +23,7 @@ from e2e import area1, area2, batch_gate, emu, notify, tools
 from e2e.area1 import SEOUL, Check, _api, _app, _one, _patch, _rows, _signed_in, _test_university
 from e2e.area2 import _ONCE, _candidates, _card, _guard, _insert, _new_id, _person, _set_status
 from e2e.area2_phone3 import CARD_BODY, CARD_TITLE, EVERY_DAY, LADDER_ZERO, _region_of, _slow, _wait_for, region_set
+from e2e.area3_phone5 import _single_shot
 from e2e.tools import Blocked
 
 WEEKDAY_NAMES = '월화수목금토일'
@@ -32,6 +33,10 @@ ABSENCE_WAIT = 45  # "안 온다" 를 지켜보는 시간
 QUIET_WAIT = 60  # 알림을 껐거나 밤이라 "안 온다" 를 지켜보는 시간(시나리오 E-CARD-18 "60초 알림 0")
 LEAD_MIN = 60  # 시계 가설이 앱을 켠 뒤 기준 시각까지 남아 있어야 하는 시간(초) — 모자라면 앱이 대기 화면을 못 본다
 APP_WAIT = 900  # 앱이 PC 일(배치)을 기다린 뒤 마저 도는 시간(초) — Run.phone 기본 180초보다 길게(E-CARD-13)
+LIVE_APP_WAIT = 600  # 앱이 화면 앞에 선 채 PC 일(배치 · 알림 지켜보기)을 기다리는 시간(초, E-CARD-03)
+APP_BASE = 180  # tools.Run.phone 의 기본 앱 기다림(초) — 시험(WorstWaitTest)이 그 기본값과 맞는지 본다
+TOKEN_WAIT = 30  # 로그인한 기기 토큰이 서버에 올라올 때까지(초)
+DELIVERY_PREP = notify.DELIVERY_WAIT + 10  # 푸시 연결 점검(notify.prepare_delivery): Wi-Fi 끄기 3 + 폴링 2 + GCM 연결 대기(최악) + adb 여유
 SETTLE = 10  # 알림이 온 뒤 같은 알림이 한 번 더 오는지 보는 시간
 INTERVAL_MIN = 55  # 서버 요청 간격 "1분 미만" 의 기계 오차(초)
 OPEN_LATE = 125  # 여는 시각(07:00:00) 뒤 09b 가 보이기까지 허용 — 시나리오 "07:02:00 사이" + 시계 오차
@@ -173,8 +178,8 @@ def _every_day(run, owner):
 
 def _token_up(run, account):
     """기기 토큰이 서버에 올라와야 배치가 보낸 알림이 이 기기에 닿는다."""
-    if not _wait_for(lambda: _rows(run, f"push_tokens?profile_id=eq.{account['id']}&select=token"), 30):
-        raise Blocked('30초 안에 기기 토큰이 서버에 안 올라옴 — 알림 권한 · FCM 확인')
+    if not _wait_for(lambda: _rows(run, f"push_tokens?profile_id=eq.{account['id']}&select=token"), TOKEN_WAIT):
+        raise Blocked(f'{TOKEN_WAIT}초 안에 기기 토큰이 서버에 안 올라옴 — 알림 권한 · FCM 확인')
 
 
 def _ready(run, phone, account):
@@ -421,7 +426,7 @@ def p_card_03(run, phone):
             check.that(not seen, f'앱이 앞에 있는데 새 알림 {len(seen)}건(배너): {[n.title for n in seen]}')
 
     with _permitted(phone.serial), _every_day(run, a):
-        _app(check, _slow(phone, 600)(midway=live, token_hash=run.link(a['email'])))
+        _app(check, _slow(phone, LIVE_APP_WAIT)(midway=live, token_hash=run.link(a['email'])))
     check.that(len(_daily_rows(run, a)) == 1, f'A 카드가 {len(_daily_rows(run, a))}장(기대 1)')
     return check.result()
 
@@ -658,7 +663,8 @@ def _card44_morning(run, phone, state):
 PHONE = {
     'E-CARD-01': p_card_01, 'E-CARD-03': p_card_03, 'E-CARD-13': p_card_13, 'E-CARD-17': p_card_17, 'E-CARD-18': p_card_18,
     'E-CARD-19': p_card_19, 'E-CARD-20': p_card_20, 'E-HOME-29': p_home_29,
-    'E-HOME-23': p_home_23, 'E-HOME-24': p_home_24, 'E-HOME-25': p_home_25, 'E-HOME-26': p_home_26, 'E-CARD-44': p_card_44,
+    'E-HOME-23': p_home_23, 'E-HOME-24': _single_shot(p_home_24, always=True), 'E-HOME-25': _single_shot(p_home_25, always=True),
+    'E-HOME-26': p_home_26, 'E-CARD-44': p_card_44,  # 24 · 25 는 fail 이어도 다시 안 돈다(재시도가 창 밖이라 blocked 로 덮인다)
 }
 A_PHONE = ['E-CARD-01', 'E-CARD-03', 'E-CARD-13', 'E-CARD-17', 'E-CARD-18', 'E-CARD-19', 'E-CARD-44']
 B_EMULATOR = ['E-CARD-20', 'E-HOME-23', 'E-HOME-24', 'E-HOME-25', 'E-HOME-26', 'E-HOME-29']
@@ -670,7 +676,27 @@ area1.BUNDLES['area2-time-device-b'] = B_EMULATOR
 
 # 시계 가설 24 · 25 는 기준 시각(07:04 · 00:02:30)까지 앱 답을 기다린다(app_timeout) — 기본 420초로는 "시간 초과" blocked 가 난다.
 # 시작 허용 창의 가장 이른 분(06:40 · 23:40)에서 시작하면 24 는 1440 + 120 = 1560초, 25 는 1350 + 120 = 1470초(앱 마감 + 120초에서 끝난다 —
-# 준비에 쓴 시간만큼 app_timeout 이 줄어 더해지지 않는다). 거기에 앞(서비스 키 · 기기 열기 · 계정)과 뒤(판정 · 시험대학 값 · 시간대 되돌리기) 여유를
-# 넉넉히 더해 둘 다 2100초(35분)로 — 시계 가설이 끝없이 매달리진 않는다. 시험(ClockCaseLimitTest)이 가장 이른 시작으로 이 여유를 지킨다.
+# 준비에 쓴 시간만큼 app_timeout 이 줄어 더해지지 않는다 — 서비스 키 · 기기 열기 · 계정 만들기는 app_timeout 을 재기 전에 하므로 이 기다림 안에 흡수된다).
+# 더 필요한 것은 앱 켜기 앞 단계(Run.phone 의 HOME 키 · pidof/kill · monkey)와 뒤처리(시험대학 값 되돌리기, 25 는 시간대 원복)의 여유뿐이라
+# 둘 다 2100초(35분)로 — 시계 가설이 끝없이 매달리진 않는다. 시험(ClockCaseLimitTest)이 가장 이른 시작으로 이 여유를 지킨다.
 CASE_LIMIT_CLOCK = 2100
 tools.CASE_LIMITS.update({'E-HOME-24': CASE_LIMIT_CLOCK, 'E-HOME-25': CASE_LIMIT_CLOCK})
+
+# 나머지 가설의 상한 = 최악 대기 + 준비 몫. 24 · 25 와 달리 여기는 app_timeout 처럼 준비 뒤 지금으로 줄어드는 기다림이 없다 — 앱 기다림은 가설이 앱을 켠 순간부터
+# 고정 초라, 계정 만들기 · 기기 열기 · 되돌리기가 대기에 흡수되지 않고 그대로 더해진다. 기본 420초는 배치 기다림(CARD_WAIT 90)에 알림(30 + 10) · 토큰(30) · 푸시 점검(40)
+# · 앱(180)을 더하면 모자란다. 최악 대기는 가설이 부르는 기다림의 상한을 코드 상수로 합한 값(앱이 멈추는 가설 03 · 13 은 `_slow` 한 번) — 시험(WorstWaitTest)이 가설을
+# 끝까지 돌려 실제로 부른 기다림과 맞춰 본다.
+ROOM = 300  # 준비 몫(초) — 계정 3~4개(각 REST 여러 번) + 로그인 링크 + 앱 켜기 앞 단계(HOME · pidof/kill · monkey) + 뒤처리(지역 · 시험대학 값 되돌리기). 4개 계정 가설(19)도 넉넉히
+_NOTICE_RUN = DELIVERY_PREP + APP_BASE + TOKEN_WAIT + CARD_WAIT + NOTICE_WAIT + SETTLE  # 01 · 17 · 29 — 배치 → 카드 → 알림 한 건 확인
+WORST_WAIT = {
+    'E-CARD-01': _NOTICE_RUN, 'E-CARD-17': _NOTICE_RUN, 'E-HOME-29': _NOTICE_RUN,
+    'E-CARD-03': DELIVERY_PREP + LIVE_APP_WAIT + TOKEN_WAIT + CARD_WAIT + NOTICE_WAIT,  # 앱이 앞에 선 채(멈춤 600) 중간에 토큰 · 배치 · 알림 없음 지켜보기
+    'E-CARD-13': APP_WAIT + CARD_WAIT,  # 앱(멈춤 900) 중간에 배치 → 대조군 카드. 알림 점검 · 토큰 없음
+    'E-CARD-18': DELIVERY_PREP + APP_BASE + TOKEN_WAIT + CARD_WAIT + QUIET_WAIT,
+    'E-CARD-19': DELIVERY_PREP + APP_BASE + TOKEN_WAIT + CARD_WAIT + NOTICE_WAIT + CARD_WAIT + NOTICE_WAIT + SETTLE,  # 배치 두 번 · 권한 뺀 알림 0 → 준 뒤 알림 1
+    'E-CARD-20': DELIVERY_PREP + APP_BASE + TOKEN_WAIT + CARD_WAIT + ABSENCE_WAIT + CARD_WAIT + NOTICE_WAIT + SETTLE,  # 정지 상태 배치(대조군) · 안 옴 → 푼 뒤 배치 · 알림 1
+    'E-HOME-23': 2 * APP_BASE,  # 앱 두 번(대기 화면 → 강제 종료 후 히어로)
+    'E-CARD-44': max(DELIVERY_PREP + APP_BASE + TOKEN_WAIT + QUIET_WAIT + NOTICE_WAIT,  # 밤 단계
+                     DELIVERY_PREP + CARD_WAIT + NOTICE_WAIT),  # 아침 단계(앱 없음)
+}
+tools.CASE_LIMITS.update({case: wait + ROOM for case, wait in WORST_WAIT.items()})
