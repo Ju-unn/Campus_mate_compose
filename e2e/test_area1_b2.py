@@ -469,7 +469,8 @@ class NotificationTest(Base):
     def test_onb_61_referrer_gets_the_join_notification(self):
         dump = 'NotificationRecord(pkg=io.github.juunn.campusmate ...)\n  android.title=String (친구가 가입했어요)\n  android.text=String (Abcde 님이 가입했어요, 리뷰를 남겨 주세요)'
         fake = self.serve({('GET', '/rest/v1/profiles'): Reply(200, [{'referral_code': 'K7M2QX', 'nickname': 'Abcde'}])})
-        with mock.patch.object(tools, 'adb', return_value=dump), mock.patch.object(area1_b2.time, 'sleep'):
+        with mock.patch.object(tools, 'adb', return_value=dump), mock.patch.object(area1_b2.time, 'sleep'), \
+                mock.patch.object(area1_b2.notify, 'ensure_delivery'):
             phone = FakePhone()
             phone.serial = 'S'
             self.assertEqual(area1.attempt_phone(self.run, 'E-ONB-61', phone)[0], 'pass')
@@ -477,7 +478,8 @@ class NotificationTest(Base):
 
     def test_onb_61_no_notification_fails(self):
         self.serve({('GET', '/rest/v1/profiles'): Reply(200, [{'referral_code': 'K7M2QX', 'nickname': 'Abcde'}])})
-        with mock.patch.object(tools, 'adb', return_value=''), mock.patch.object(area1_b2.time, 'sleep'):
+        with mock.patch.object(tools, 'adb', return_value=''), mock.patch.object(area1_b2.time, 'sleep'), \
+                mock.patch.object(area1_b2.notify, 'ensure_delivery'):
             phone = FakePhone()
             phone.serial = 'S'
             self.assertEqual(area1.attempt_phone(self.run, 'E-ONB-61', phone)[0], 'fail')

@@ -10,7 +10,7 @@ import time
 import urllib.parse
 from datetime import datetime, timedelta, timezone
 
-from e2e import area1, area1_b3, batch_gate, tools
+from e2e import area1, area1_b3, batch_gate, notify, tools
 from e2e.area1 import (CONSENT_VERSION, Check, _api, _app, _at, _detail, _find_user, _one, _otp, _patch, _rows,
                        _signed_in, _signed_up)
 from e2e.tools import Blocked
@@ -413,6 +413,7 @@ def _ours(dump):
 
 def p_onb_61(run, phone):
     """추천인 = 폰 A(앱을 홈까지 켠 뒤 HOME 으로 내림), 코드 입력 = API(새 계정). 낮 08~22시에 돌린다."""
+    notify.ensure_delivery(phone.serial)  # 푸시 연결이 죽은 폰이면 "알림이 안 왔다" 를 앱 탓으로 읽게 된다 — 시작 때 한 번 점검
     check = Check()
     b, token = _signed_in(run, 'home')
     _app(check, phone(token_hash=token))
