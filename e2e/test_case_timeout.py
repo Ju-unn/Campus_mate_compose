@@ -158,8 +158,8 @@ class BytesAndGuardsTest(unittest.TestCase):
     def test_the_ui_dumps_go_through_the_limited_call(self):
         from e2e import area2_phone3, notify
         for dump in (contacts._dump, area2_phone3._dump, notify._ui_dump):
-            with mock.patch.object(tools.subprocess, 'run', return_value=mock.Mock(stdout='<xml/>'.encode())) as run:
-                self.assertEqual(dump(S), '<xml/>')
+            with mock.patch.object(tools.subprocess, 'run', return_value=mock.Mock(stdout='<hierarchy/>'.encode())) as run:
+                self.assertEqual(dump(S), '<hierarchy/>')  # 진짜 덤프에는 <hierarchy 가 있다 — 없으면 notify 쪽이 Blocked
             self.assertEqual(run.call_args.kwargs['timeout'], tools.ADB_TIMEOUT, dump)
 
     def test_devices_has_the_time_limit(self):

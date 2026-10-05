@@ -52,8 +52,13 @@ def screen_has(serial, text):
 
 
 def _ui_dump(serial):
-    """uiautomator dump 를 바이트로 받아 utf-8 로 읽은 글. 윈도 로케일(cp949)에 맡기면 한글에서 죽는다."""
-    return tools.adb_bytes(serial, 'shell', 'uiautomator', 'dump', '/dev/tty').decode('utf-8', 'replace')
+    """uiautomator dump 를 바이트로 받아 utf-8 로 읽은 글. 윈도 로케일(cp949)에 맡기면 한글에서 죽는다.
+    `exec-out` 이어야 한다 — `shell` 은 파이프로 받으면 XML 없이 "UI hierchary dumped" 한 줄만 준다(실기기 확인).
+    XML 이 아니면 [Blocked]: 빈 화면을 읽고 "없음" 으로 판정하면 안 온다 · 안 보인다 가설이 헛통과한다."""
+    dump = tools.adb_bytes(serial, 'exec-out', 'uiautomator', 'dump', '/dev/tty').decode('utf-8', 'replace')
+    if '<hierarchy' not in dump:
+        raise Blocked('화면 덤프를 못 읽음(uiautomator) — XML 이 안 옴')
+    return dump
 
 
 # ── 알림 읽기 · 누르기 ──────────────────────────────────────────────────────────────────────────

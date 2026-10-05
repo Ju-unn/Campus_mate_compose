@@ -230,6 +230,45 @@ class AppStateTest(unittest.TestCase):
             self.assertFalse(notify.alive('S'))
 
 
+class UiDumpTest(unittest.TestCase):
+    """실기기 확인(통합대장2): `adb shell uiautomator dump /dev/tty` 는 파이프로 받으면 XML 없이 안내 한 줄만 준다 — `exec-out` 만 XML 을 준다."""
+
+    NOTICE = b'UI hierchary dumped to: /dev/tty'
+    XML = '<?xml version=\'1.0\' encoding=\'UTF-8\' standalone=\'yes\' ?><hierarchy rotation="0"><node text="오늘의 카드" bounds="[0,0][10,10]" /></hierarchy>'.encode('utf-8')
+
+    def phone(self, via_shell=None):
+        sent = []
+
+        def fake(serial, *args, check=False):
+            sent.append(args)
+            return self.XML if args[0] == 'exec-out' else (self.NOTICE if via_shell is None else via_shell)
+        return sent, mock.patch.object(tools, 'adb_bytes', fake)
+
+    def test_the_dump_is_read_through_exec_out_not_shell(self):
+        sent, patch = self.phone()
+        with patch:
+            self.assertIs(notify.screen_has('S', '오늘의 카드'), True)
+        self.assertEqual(sent, [('exec-out', 'uiautomator', 'dump', '/dev/tty')])
+
+    def test_a_dump_that_is_only_the_notice_line_is_blocked_not_read_as_nothing_on_screen(self):
+        # 빈 화면을 읽고 "없음" 으로 판정하면 안 온다 · 안 보인다 가설이 헛통과한다
+        with mock.patch.object(tools, 'adb_bytes', return_value=self.NOTICE):
+            with self.assertRaises(Blocked):
+                notify.screen_has('S', '아무 글')
+
+    def test_an_empty_dump_is_blocked_too(self):
+        with mock.patch.object(tools, 'adb_bytes', return_value=b''):
+            with self.assertRaises(Blocked):
+                notify.screen_has('S', '아무 글')
+
+    def test_the_second_copy_in_area2_phone3_reads_the_same_way(self):
+        from e2e import area2_phone3
+        sent, patch = self.phone()
+        with patch:
+            self.assertIn('오늘의 카드', area2_phone3._dump('S'))
+        self.assertEqual(sent, [('exec-out', 'uiautomator', 'dump', '/dev/tty')])
+
+
 class DaytimeTest(unittest.TestCase):
     def at(self, hour, minute=0):
         return datetime(2026, 10, 5, hour, minute, tzinfo=SEOUL)

@@ -202,7 +202,7 @@ def p_card_35(run, phone):
 # ── 알림 2 ──────────────────────────────────────────────────────────────────────────────────────────
 
 def _dump(serial):
-    return tools.adb_bytes(serial, 'shell', 'uiautomator', 'dump', '/dev/tty').decode('utf-8', 'replace')
+    return notify._ui_dump(serial)  # exec-out 으로 읽고 XML 이 아니면 Blocked — 읽는 길을 한 곳에 둔다
 
 
 def _tap_label(serial, labels):
