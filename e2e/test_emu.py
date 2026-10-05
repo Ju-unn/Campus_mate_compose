@@ -229,6 +229,79 @@ class ClockTest(unittest.TestCase):
         self.assertEqual(adb.calls, [])
 
 
+class TimezoneAdb(FakeAdb):
+    """기기 시간대를 기억한다 — `service call alarm 3 s16 <값>` 이 바꾸고 `getprop persist.sys.timezone` 이 읽는다. [stuck] 이면 바꿔도 안 먹는다."""
+
+    def __init__(self, zone='GMT', stuck=False):
+        super().__init__()
+        self.zone, self.stuck = zone, stuck
+
+    def __call__(self, serial, *args, check=True):
+        line = ' '.join(args)
+        self.calls.append(line)
+        if line == 'shell getprop persist.sys.timezone':
+            return f'{self.zone}\n'
+        if line.startswith('shell service call alarm 3 s16 ') and not self.stuck:
+            self.zone = args[-1]
+        return ''
+
+
+class TimezoneTest(unittest.TestCase):
+    def sets(self, adb):
+        return [c.rsplit(' ', 1)[1] for c in adb.ran('service call alarm 3')]
+
+    def test_a_device_in_another_zone_is_set_to_seoul_for_the_body_and_put_back_after(self):
+        adb = TimezoneAdb('GMT')
+        with patched(adb):
+            with emu.seoul_timezone(S, sleep=lambda s: None):
+                self.assertEqual(adb.zone, 'Asia/Seoul')
+        self.assertEqual((self.sets(adb), adb.zone), (['Asia/Seoul', 'GMT'], 'GMT'))
+
+    def test_a_device_already_in_seoul_is_left_alone(self):
+        adb = TimezoneAdb('Asia/Seoul')
+        with patched(adb), emu.seoul_timezone(S, sleep=lambda s: None):
+            pass
+        self.assertEqual(adb.ran('service call'), [])
+
+    def test_the_zone_is_put_back_even_when_the_body_fails(self):
+        adb = TimezoneAdb('GMT')
+        with patched(adb), self.assertRaises(RuntimeError):
+            with emu.seoul_timezone(S, sleep=lambda s: None):
+                raise RuntimeError('app failed')
+        self.assertEqual(adb.zone, 'GMT')
+
+    def test_a_zone_that_did_not_change_is_blocked_and_the_body_never_runs(self):
+        adb, ran = TimezoneAdb('GMT', stuck=True), []
+        with patched(adb), self.assertRaises(tools.Blocked) as ctx:
+            with emu.seoul_timezone(S, sleep=lambda s: None):
+                ran.append(1)
+        self.assertIn('시간대', str(ctx.exception))
+        self.assertEqual(ran, [])
+
+    def test_a_real_phone_is_refused_without_touching_it(self):
+        adb = TimezoneAdb('GMT')
+        with patched(adb), self.assertRaises(tools.Blocked):
+            with emu.seoul_timezone('R5CR12345', sleep=lambda s: None):
+                pass
+        self.assertEqual(adb.calls, [])
+
+    def test_the_zone_takes_a_moment_to_show_so_it_is_read_again(self):
+        adb = TimezoneAdb('GMT')
+        reads = []
+
+        def slow(serial, *args, check=True):
+            line = ' '.join(args)
+            if line == 'shell getprop persist.sys.timezone':
+                reads.append(1)
+                if adb.zone == 'Asia/Seoul' and len(reads) < 3:
+                    return 'GMT\n'
+            return adb(serial, *args, check=check)
+        with patched(slow):
+            with emu.seoul_timezone(S, sleep=lambda s: None):
+                self.assertEqual(adb.zone, 'Asia/Seoul')
+        self.assertEqual(adb.zone, 'GMT')
+
+
 class BrowserTest(unittest.TestCase):
     def test_disables_every_browser_then_enables_them_again(self):
         adb = FakeAdb({'query-activities': [CHROME, NONE], 'pm disable-user': 'Package com.android.chrome new state: disabled-user'})

@@ -129,6 +129,7 @@ class EmuHomeBase(tt.DeviceBase):
         super().reset()
         self.adb_log, self.ui, self.net, self.online = [], COPY_UI, [], True
         self.sheets, self.density, self.font, self.display_ignored = (), None, None, False
+        self.zone, self.zone_stuck = 'GMT', False  # 에뮬 기본 시간대는 GMT 다(첫 실행에서 E-HOME-20 이 blocked)
 
     def adb(self, serial, *args, check=True):
         line = ' '.join(args)
@@ -149,6 +150,10 @@ class EmuHomeBase(tt.DeviceBase):
             self.font = None
         if line == 'shell dumpsys activity activities':
             return dump(*self.sheets)
+        if line == 'shell getprop persist.sys.timezone':
+            return f'{self.zone}\n'
+        if line.startswith('shell service call alarm 3 s16 ') and not self.zone_stuck:
+            self.zone = args[-1]
         return super().adb(serial, *args, check=check)
 
     def emu_phone(self, *answers, **kw):
@@ -171,6 +176,24 @@ class RealPhoneTest(EmuHomeBase):
 
 
 class Home20Test(EmuHomeBase):
+    def test_the_device_is_in_seoul_when_the_app_starts_and_the_zone_it_had_is_put_back(self):
+        phone = self.emu_phone()
+        self.assertEqual(self.go('E-HOME-20', phone)[0], 'pass')
+        self.assertIn('shell service call alarm 3 s16 Asia/Seoul', phone.adb_at_launch)
+        self.assertEqual(self.zone, 'GMT')
+
+    def test_the_zone_is_put_back_when_the_app_blocks(self):
+        self.assertEqual(self.go('E-HOME-20', self.emu_phone({'result': 'blocked', 'note': 'x'}))[0], 'blocked')
+        self.assertEqual(self.zone, 'GMT')
+
+    def test_a_zone_that_will_not_change_is_blocked_and_the_app_is_never_started(self):
+        self.zone_stuck = True
+        phone = self.emu_phone()
+        result = self.go('E-HOME-20', phone)
+        self.assertEqual(result[0], 'blocked')
+        self.assertIn('시간대', result[1])
+        self.assertEqual(phone.jobs, [])
+
     def test_the_job_carries_the_days_the_date_and_the_headcount_the_screen_must_show_and_the_school_is_put_back(self):
         phone = self.emu_phone()
         result = self.go('E-HOME-20', phone)
@@ -354,6 +377,12 @@ class Home32Test(EmuHomeBase):
 
 
 class Home33Test(EmuHomeBase):
+    def test_the_device_is_in_seoul_when_the_app_starts_and_the_zone_it_had_is_put_back(self):
+        phone = self.emu_phone()
+        self.assertEqual(self.go('E-HOME-33', phone)[0], 'pass')
+        self.assertIn('shell service call alarm 3 s16 Asia/Seoul', phone.adb_at_launch)
+        self.assertEqual(self.zone, 'GMT')
+
     def test_the_screen_is_made_360dp_and_1_3x_before_the_app_starts_and_put_back_after(self):
         phone = self.emu_phone()
         result = self.go('E-HOME-33', phone)
