@@ -315,6 +315,7 @@ class DeviceBase(Base):
             mock.patch.object(notify, 'grant_notifications', self.grant), mock.patch.object(notify, 'revoke_notifications', self.revoke),
             mock.patch.object(notify, 'read_notifications', self.read), mock.patch.object(notify, 'background', self.home),
             mock.patch.object(notify, 'wait_new', self.wait_new), mock.patch.object(notify, 'expect_none', self.expect_none),
+            mock.patch.object(notify, 'ensure_delivery', self.prepare),
             mock.patch.object(tools, 'adb', self.adb), mock.patch.object(tools.Run, 'shot', lambda run, serial, case: None),  # 실패 때 화면 캡처(adb)를 안 부른다
             mock.patch.object(td, 'now_seoul', lambda: self.clock.now),
             mock.patch.object(time, 'sleep', lambda s: None), mock.patch.object(time, 'monotonic', side_effect=iter(range(0, 10 ** 6))),
@@ -324,8 +325,14 @@ class DeviceBase(Base):
 
     def reset(self):
         self.log, self.batches, self.windows, self.scripts, self.granted, self.skew = [], [], [], {}, True, 0
+        self.prepared, self.prepare_error = [], None  # 푸시 연결 점검(notify.ensure_delivery) 호출: (기기, 그때까지 만든 계정 수)
 
     # 가짜 기기 · 알림창
+    def prepare(self, serial):
+        self.prepared.append((serial, len(self.world.users)))
+        if self.prepare_error:
+            raise self.prepare_error
+
     def batch(self, name):
         self.log.append(f'batch:{name}')
         self.batches.append(name)
@@ -391,6 +398,91 @@ class DeviceBase(Base):
 
 
 DAILY_CARDS_CASES = ['E-CARD-01', 'E-CARD-03', 'E-CARD-13', 'E-CARD-18', 'E-CARD-19', 'E-CARD-20', 'E-HOME-29']
+
+
+# 알림이 오는지 · 안 오는지를 판정하는 가설 → (시계, 폰 인자). 푸시 연결이 죽은 폰에서는 FCM 200 인데도 안 떠서 "안 온다" 가설이 헛통과한다.
+PUSH_CASES = {
+    'E-CARD-01': (TUE(12), {}), 'E-CARD-03': (TUE(12), {'top': OURS, 'midway_step': {'step': 'live'}}),
+    'E-CARD-17': (TUE(22, 30), {}), 'E-CARD-18': (TUE(12), {}), 'E-CARD-19': (TUE(12), {}),
+    'E-CARD-20': (TUE(12), {'serial': 'emulator-5554'}), 'E-HOME-29': (WED(12), {'serial': 'emulator-5554'}),
+}
+# 알림을 안 보는 가설(코호트 시계 · 후보 0 화면) — 기기를 건드리는 점검(Wi-Fi 껐다 켜기)을 하지 않는다
+NO_PUSH_CASES = {'E-CARD-13': TUE(12), 'E-HOME-23': TUE(12), 'E-HOME-24': MON(6, 50), 'E-HOME-25': TUE(23, 50), 'E-HOME-26': TUE(12)}
+
+
+class DeliveryTest(DeviceBase):
+    def start(self, case, now, kw, error=None):
+        self.reset()
+        self.prepare_error = error  # reset 이 비운 뒤에 건다
+        self.world = World()
+        self.world.permitted = lambda: self.granted
+        self.clock.now = now
+        self.scripts['daily-cards'] = lambda: None
+        phone = self.phone(**kw)
+        with mock.patch.object(tools, 'call', self.world):
+            return self.go(case, phone), phone
+
+    def test_each_case_that_judges_a_push_checks_the_push_connection_once_before_any_account(self):
+        for case, (now, kw) in PUSH_CASES.items():
+            with self.subTest(case=case):
+                _, phone = self.start(case, now, kw)
+                self.assertEqual(self.prepared, [(phone.serial, 0)])  # 계정 0개일 때 — 점검이 실패하면 계정을 만들지 않는다
+
+    def test_a_dead_push_connection_ends_blocked_before_any_account_app_permission_or_batch(self):
+        for case, (now, kw) in PUSH_CASES.items():
+            with self.subTest(case=case):
+                (result, note), phone = self.start(case, now, kw, error=Blocked('GCM 연결 횟수를 못 읽음 — 푸시 연결을 점검할 수 없음'))
+                self.assertEqual((result, note), ('blocked', 'GCM 연결 횟수를 못 읽음 — 푸시 연결을 점검할 수 없음'))
+                self.assertEqual((self.world.users, phone.jobs, self.batches, self.log), ([], [], [], []))
+
+    def test_card_20_on_a_real_phone_is_blocked_before_the_wifi_is_touched(self):
+        (result, _), phone = self.start('E-CARD-20', TUE(12), {'serial': 'R58N1234'})
+        self.assertEqual(result, 'blocked')
+        self.assertEqual((self.prepared, self.world.users), ([], []))  # 에뮬레이터 요건이 먼저 — 실기기의 Wi-Fi 를 껐다 켜지 않는다
+
+    def test_a_case_refused_by_the_clock_does_not_touch_the_phone_connection(self):
+        for case, now in (('E-CARD-01', MON(12)), ('E-CARD-17', TUE(12)), ('E-CARD-18', TUE(3, 0)), ('E-HOME-29', MON(9))):
+            with self.subTest(case=case):
+                _, phone = self.start(case, now, PUSH_CASES[case][1])
+                self.assertEqual(self.prepared, [])  # 시각 규칙에 막히면 Wi-Fi 도 안 껐다 켠다
+
+    def test_cases_that_do_not_look_at_notifications_never_prepare_the_push_connection(self):
+        for case, now in NO_PUSH_CASES.items():
+            with self.subTest(case=case):
+                self.start(case, now, {'serial': 'emulator-5554'} if case.startswith('E-HOME') else {})
+                self.assertEqual(self.prepared, [])
+                self.assertTrue(self.world.users, '가설이 시작 단계에서 막혀 점검 여부를 못 봤다')
+
+    def test_card_44_checks_it_in_both_steps_and_a_dead_connection_blocks_each(self):
+        self.reset()
+        self.world = World()
+        self.world.permitted = lambda: self.granted
+        self.world.night = True
+        self.scripts['chat-gate'] = self.world.send_pending
+        self.clock.now = TUE(22, 30)
+        with mock.patch.object(tools, 'call', self.world):
+            night = self.phone()
+            self.go('E-CARD-44', night)
+            self.assertEqual(self.prepared, [(night.serial, 0)])
+            self.world.night, self.clock.now = False, WED(9, 20)
+            morning = self.phone()
+            self.go('E-CARD-44', morning)
+        self.assertEqual([s for s, _ in self.prepared], [night.serial, morning.serial])
+
+    def test_a_dead_connection_in_the_morning_leaves_the_state_file_and_the_permission_untouched(self):
+        self.world.night = True
+        self.scripts['chat-gate'] = self.world.send_pending
+        self.clock.now = TUE(22, 30)
+        night_phone = self.phone()
+        self.go('E-CARD-44', night_phone)
+        state = (self.run.out / 'card44_state.json').read_text(encoding='utf-8')
+        self.world.night, self.clock.now = False, WED(9, 20)
+        self.prepare_error = Blocked('GCM 연결 횟수를 못 읽음 — 푸시 연결을 점검할 수 없음')
+        log_before = list(self.log)
+        result = self.go('E-CARD-44', self.phone())
+        self.assertEqual(result[0], 'blocked')
+        self.assertEqual((self.run.out / 'card44_state.json').read_text(encoding='utf-8'), state)  # 같은 번호로 다시 돌릴 수 있게
+        self.assertEqual(self.log, log_before)  # 점검이 실패하면 권한을 건드리지도 배치를 부르지도 않는다
 
 
 class DailyCardsGateTest(DeviceBase):
