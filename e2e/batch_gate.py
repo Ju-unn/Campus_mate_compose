@@ -53,7 +53,13 @@ def refusal(job, now, ran=()):
 def _ran():
     if not HISTORY.exists():
         return []
-    return [datetime.fromisoformat(line) for line in HISTORY.read_text(encoding='utf-8').splitlines() if line.strip()]
+    ran = []
+    for line in HISTORY.read_text(encoding='utf-8', errors='replace').splitlines():
+        try:
+            ran.append(datetime.fromisoformat(line))
+        except ValueError:  # 깨진 줄 하나가 chat-gate 가설 전부를 막지 않게 건너뛴다
+            pass
+    return ran
 
 
 def check(job):
