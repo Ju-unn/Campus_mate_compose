@@ -9,6 +9,7 @@ import 'area4.dart';
 import 'area2.dart';
 import 'area2_c.dart';
 import 'area2_b.dart';
+import 'area2_d.dart';
 import 'support.dart';
 
 /// 가설 하나 = 앱을 한 번 켜서 도는 것. 진행 프로그램(`python -m e2e run`)이 앱을 켜고 우편함에 `{"case": 번호}` 를 넣는다.
@@ -21,6 +22,7 @@ final Map<String, Future<Object?> Function(WidgetTester tester, Map<String, dyna
   ...area2Cases,
   ...area2cCases,
   ...area2bCases,
+  ...area2dCases,
   // 앱이 켜져 첫 화면이 그려지고 우편함 왕복이 된다.
   'SMOKE': (tester, job) async {
     await pumpUntil(tester, find.byType(Scaffold));
