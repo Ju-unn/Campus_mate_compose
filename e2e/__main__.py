@@ -27,6 +27,7 @@ from e2e import area1_b4  # noqa: F401 — 묶음 4(아바타) — 같은 방식
 from e2e import area1_b5  # noqa: F401 — 묶음 5(검토 이후 · 재부팅 · 식은 서버) — 같은 방식
 from e2e import area1_b6  # noqa: F401 — 묶음 6(두 기기 · 에뮬 네트워크) — 같은 방식
 from e2e import area1_emu  # noqa: F401 — B에뮬 가설(네트워크 · 시계 · 브라우저)
+from e2e import area2_emu_home  # noqa: F401 — 영역 2 에뮬 홈 가설 7(대기 화면 · 초대 공유 창 · 글자 확대)
 from e2e import emu
 from e2e import area4  # noqa: F401 — 영역 4 가설을 같은 곳에 더한다
 from e2e import area2_phone  # noqa: F401 — 영역 2 폰 A 가설을 area1.PHONE · BUNDLES 에 더한다
