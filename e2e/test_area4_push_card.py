@@ -391,7 +391,7 @@ class Push07Test(CardBase):
         self.scripts['daily-cards'] = lambda: [self.world.give_card(o) for o in ('id-1', 'id-3')]
         result = self.go(self.CASE, self.phone())
         self.assertEqual(result[0], 'fail')
-        self.assertIn('일시중지', result[1])
+        self.assertIn('일시중지한 A 가 카드를 받음', result[1])
 
     def test_a_paused_account_that_gets_a_notice_is_a_fail(self):
         self.scripts['daily-cards'] = lambda: (self.world.give_card('id-3'), self.world.post(*CARD))
@@ -588,6 +588,33 @@ class Push09Test(CardBase):
 
 
 # ── 안전망 ──────────────────────────────────────────────────────────────────────────────────────────
+
+class DeliveryTest(CardBase):
+    """푸시 연결 점검(notify.ensure_delivery)은 새로 만든 가설 02 · 03 · 07 · 08 · 09 도 시작에서 — 계정을 만들기 전에, 죽은 연결이면 blocked.
+    (01 · 04 · 05 · 06 은 기존 가설에 맡기며 그쪽이 이미 점검한다.)"""
+    OWN = ['E-PUSH-02', 'E-PUSH-03', 'E-PUSH-07', 'E-PUSH-08', 'E-PUSH-09']
+
+    def test_a_dead_push_link_blocks_before_any_account_app_or_batch(self):
+        for case in self.OWN:
+            with self.subTest(case=case):
+                self.reset()
+                self.world.users.clear()
+                self.prepare_error = Blocked('GCM 연결 횟수를 못 읽음 — 푸시 연결을 점검할 수 없음')
+                phone = self.card_phone(case)
+                result = self.go(case, phone)
+                self.assertEqual(result[0], 'blocked', (case, result))
+                self.assertIn('푸시 연결', result[1])
+                self.assertEqual((self.world.users, phone.jobs, self.batches), ([], [], []))
+
+    def test_the_check_runs_once_per_case_on_the_phone_with_no_account_yet(self):
+        for case in self.OWN:
+            with self.subTest(case=case):
+                self.reset()
+                self.world.users.clear()
+                self.scripts['daily-cards'] = lambda: None
+                self.go(case, self.card_phone(case))
+                self.assertEqual(self.prepared, [('S', 0)], case)
+
 
 class SafetyNetTest(CardBase):
     def test_every_case_ends_blocked_or_fail_when_the_server_is_down(self):

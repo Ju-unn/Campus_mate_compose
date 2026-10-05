@@ -87,6 +87,7 @@ def push_02(run, phone):
 def push_03(run, phone):
     """앱이 꺼진 채 배치 → 알림 1개 → 누르면 앱이 켜지며 오늘 탭(/today)에 카드 1장. 꺼진 앱 콜드 스타트 패턴은 E-CHAT-32(area3_phone3)와 같다."""
     td.require_daily_cards_open()
+    notify.ensure_delivery(phone.serial)  # 푸시 연결이 죽은 폰이면 "온다" 는 헛fail, "안 온다" 는 헛통과 — 계정을 만들기 전에 되살린다(또는 blocked)
     check = Check()
     a, b = td._pair(run)
     control = td._control(run, 'male')
@@ -122,6 +123,7 @@ def push_03(run, phone):
 def push_07(run, phone):
     """일시중지한 A: 배치 → 카드 0 · 알림 0 / 풀고 배치 → 카드 1 · 알림 1. 같은 배치를 받은 대조군이 카드를 받아야 "배치가 돌았다" 를 말할 수 있다."""
     td.require_daily_cards_open()
+    notify.ensure_delivery(phone.serial)  # 푸시 연결이 죽은 폰이면 "온다" 는 헛fail, "안 온다" 는 헛통과 — 계정을 만들기 전에 되살린다(또는 blocked)
     check = Check()
     a, b = td._pair(run)
     control = td._control(run, 'male')
@@ -148,6 +150,7 @@ def push_07(run, phone):
 def push_08(run, phone):
     """같은 날 배치를 두 번 → A 카드 1장 · 알림 1건. 둘째 배치가 돌았다는 증거(설정 행 요일이 새로 적힘)가 없으면 blocked."""
     td.require_daily_cards_open()
+    notify.ensure_delivery(phone.serial)  # 푸시 연결이 죽은 폰이면 "온다" 는 헛fail, "안 온다" 는 헛통과 — 계정을 만들기 전에 되살린다(또는 blocked)
     check = Check()
     a, b = td._pair(run)
     control = td._control(run, 'male')
@@ -177,6 +180,7 @@ def push_08(run, phone):
 def push_09(run, phone):
     """A 의 후보를 전부 쉬게 한 뒤 배치 → 카드 0 · 알림 0 · /cards/today 가 빈 카드 + 후보 없음. 대조군이 카드를 받아야 배치가 돈 것이다."""
     td.require_daily_cards_open()
+    notify.ensure_delivery(phone.serial)  # 푸시 연결이 죽은 폰이면 "온다" 는 헛fail, "안 온다" 는 헛통과 — 계정을 만들기 전에 되살린다(또는 blocked)
     check = Check()
     a, b = td._pair(run)
     control = td._control(run, 'male')
@@ -194,7 +198,8 @@ def push_09(run, phone):
         check.that(ok, f'A 의 /cards/today 가 빈 카드 + 후보 없음이 아님: {today[0]} {today[1]}')
         seen = notify.expect_none(phone.serial, before, seconds=td.ABSENCE_WAIT)
         check.that(not seen, f'후보가 없는데 새 알림 {len(seen)}건: {[n.title for n in seen]}')
-    return check.result('응답의 no_candidate 수치는 스케줄러 호출이라 못 읽음 — 대조군 카드 · /cards/today · 알림창으로 확인')
+    return check.result('응답의 no_candidate 수치는 스케줄러 호출이라 못 읽음 — 대조군 카드 · /cards/today · 알림창으로 확인. '
+                        '카드가 없으면 알림도 없어서 "알림 0" 은 알림 길 생존 증거가 아니다 — 판정의 근거는 카드 0')
 
 
 PHONE = {
