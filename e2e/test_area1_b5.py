@@ -389,7 +389,7 @@ class Gate43Test(Base5):
     def setUp(self):
         super().setUp()
         self.put('id_name.jpg')
-        names = {'require_daytime': mock.DEFAULT, 'read_notifications': mock.DEFAULT, 'background': mock.DEFAULT,
+        names = {'require_daytime': mock.DEFAULT, 'ensure_delivery': mock.DEFAULT, 'read_notifications': mock.DEFAULT, 'background': mock.DEFAULT,
                  'wait_new': mock.DEFAULT, 'tap_notification': mock.DEFAULT}
         patcher = mock.patch.multiple(area1_b5.notify, **names)
         self.m = patcher.start()

@@ -41,7 +41,8 @@ DUMP = '''  NotificationRecord(0x1 pkg=com.other.app user=UserHandle{0} id=1)
 class Onb61Test(Base):
     def run61(self, *dumps):
         self.serve({('GET', '/rest/v1/profiles'): Reply(200, [{'referral_code': 'K7M2QX', 'nickname': 'Abcde'}])})
-        with mock.patch.object(tools, 'adb', side_effect=list(dumps) + [dumps[-1]] * 20),                 mock.patch.object(tools, 'screencap', return_value=b'x'), mock.patch.object(area1_b2.time, 'sleep'):
+        with mock.patch.object(tools, 'adb', side_effect=list(dumps) + [dumps[-1]] * 20),                 mock.patch.object(tools, 'screencap', return_value=b'x'), mock.patch.object(area1_b2.time, 'sleep'), \
+                mock.patch.object(area1_b2.notify, 'ensure_delivery'):
             phone = FakePhone()
             phone.serial = 'S'
             return area1.attempt_phone(self.run, 'E-ONB-61', phone)
