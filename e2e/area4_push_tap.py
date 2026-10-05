@@ -13,9 +13,8 @@
   화면 읽는 법      시나리오는 uiautomator 화면 글자인데 구현은 integration_test 앱 안의 위젯 트리(받은 수락 줄 · 대화방 줄 · 앱바 닉네임 · 말풍선 · 받은 리뷰 카드)로 본다.
   78               시나리오의 "신뢰 수락 · 공개 알림" 중 상대가 먼저 수락했을 때 오는 알림(제목 = 상대 닉네임, 내용 = 공개 수락 문구)을 누른다.
   낮에만            서울 08~22시(notify.require_daytime).
-  오래된 알림       알림창에 앞 가설의 같은 제목 알림(받은 수락 · 매칭 · 새 지인 리뷰는 제목이 고정)이 남아 있으면 그것이 눌릴 수 있다 — 경로가 같아 11 · 19 · 50 · 76 · 77 · 81 은
-                   화면이 열려 "그 종류 알림으로 그 화면이 열렸다" 까지만 증명하고, 38 은 옛 방이 열려 거짓 fail 이 날 수 있다(제목이 닉네임인 27 · 28 · 78 은 안전). 알림을 비우는 방법은
-                   기기마다 달라 못 넣었다 — 기기에서 알림을 지운 뒤 돌리면 가장 좋다.
+  오래된 알림       알림창에 앞 가설의 같은 제목 알림(받은 수락 · 매칭 · 새 지인 리뷰는 제목이 고정)이 남아 있어도, 알림을 누를 때 본문(want[1])을 같이 넘겨 그 글이 든 줄만 누른다
+                   (notify.tap_notification 의 body). 눌러도 앱이 안 앞으로 오면 자리를 바꿔 다시 누르고 세 번 실패하면 blocked 다.
   개수             "알림 1개 · 줄 1개" 는 세지 않고 닉네임이 보이는지만 본다(알림 개수는 A1 이 본다).
 """
 
@@ -106,7 +105,7 @@ def _run(run, phone, kind, state):
             before = notify.read_notifications(phone.serial)  # 앞에 남은 알림과 섞이지 않게 — 새로 생긴 것만 본다
             notify.background(phone.serial)  # 앱이 앞에 있으면 배너가 안 뜬다
             if make_and_tap(before):
-                notify.tap_notification(phone.serial, want[0])
+                notify.tap_notification(phone.serial, want[0], want[1])
                 time.sleep(1)
 
         said = _app(check, phone(midway=hold, token_hash=token, phase='hold', **job))
@@ -122,7 +121,7 @@ def _run(run, phone, kind, state):
         if make_and_tap(before):
             # 누르기 전에 일감을 넣는다 — 알림으로 콜드 스타트한 앱이 e2e_test.dart 의 hear() 로 이것을 가져간다(새 로그인을 하지 않는다)
             phone.hub.tell({'case': phone.case, 'phase': 'tap', **job})
-            notify.tap_notification(phone.serial, want[0])
+            notify.tap_notification(phone.serial, want[0], want[1])
             said = _app(check, phone.hub.result(APP_WAIT))
             _judge(check, said, job)
     note = f"알림 도착까지 {seen['seconds']:.0f}초(2초마다 확인)" if seen.get('arrived') else ''
