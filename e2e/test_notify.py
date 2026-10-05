@@ -269,6 +269,100 @@ class UiDumpTest(unittest.TestCase):
         self.assertEqual(sent, [('exec-out', 'uiautomator', 'dump', '/dev/tty')])
 
 
+class DeliveryTest(unittest.TestCase):
+    """재부팅 뒤 푸시 연결이 죽어 FCM 이 폰에 안 뜬다 — Wi-Fi 를 껐다 켜면 GCM 이 다시 연결한다(실기기 확인)."""
+
+    def phone(self, connects, wifi_on='1'):
+        """connects: 읽을 때마다 다음 값(마지막은 계속). None 은 못 읽는 모양."""
+        sent, reads = [], list(connects)
+
+        def fake(serial, *args, check=True):
+            sent.append(args)
+            if args[:3] == ('shell', 'settings', 'get'):
+                return wifi_on + chr(10)
+            if args[:2] == ('shell', 'dumpsys'):
+                value = reads.pop(0) if len(reads) > 1 else reads[0]
+                return 'x' if value is None else f'GcmService state connects={value} lastConnect=0'
+            return ''
+        return sent, mock.patch.object(tools, 'adb', fake)
+
+    def setUp(self):
+        for target in (notify.time, ):
+            for name in ('sleep',):
+                patch = mock.patch.object(target, name)
+                patch.start()
+                self.addCleanup(patch.stop)
+        notify._DELIVERY_READY.clear()
+
+    def test_wifi_is_turned_off_then_on_and_the_gcm_connect_count_must_grow(self):
+        sent, patch = self.phone([1, 1, 2])
+        with patch:
+            notify.prepare_delivery('S')
+        toggles = [a[-1] for a in sent if a[:3] == ('shell', 'svc', 'wifi')]
+        self.assertEqual(toggles, ['disable', 'enable'])
+
+    def test_a_connect_count_that_never_grows_is_blocked(self):
+        sent, patch = self.phone([3])
+        with patch, mock.patch.object(notify, 'DELIVERY_WAIT', 6), mock.patch.object(notify.time, 'monotonic', side_effect=iter(range(0, 1000, 2))):
+            with self.assertRaises(Blocked):
+                notify.prepare_delivery('S')
+        self.assertEqual([a[-1] for a in sent if a[:3] == ('shell', 'svc', 'wifi')][-1], 'enable')  # 실패해도 Wi-Fi 는 켜 둔다
+
+    def test_a_connect_count_that_cannot_be_read_after_the_toggle_is_blocked_not_a_pass(self):
+        sent, patch = self.phone([3, None])
+        with patch, mock.patch.object(notify, 'DELIVERY_WAIT', 6), mock.patch.object(notify.time, 'monotonic', side_effect=iter(range(0, 1000, 2))):
+            with self.assertRaises(Blocked):
+                notify.prepare_delivery('S')
+
+    def test_wifi_is_switched_back_on_even_when_enable_itself_fails_the_first_time(self):
+        sent = []
+
+        def fake(serial, *args, check=True):
+            sent.append((args, check))
+            if args[:3] == ('shell', 'settings', 'get'):
+                return '1'
+            if args[:2] == ('shell', 'dumpsys'):
+                return 'connects=1'
+            if args[:3] == ('shell', 'svc', 'wifi') and args[-1] == 'enable' and check:
+                raise subprocess.CalledProcessError(1, 'adb')  # 엄격한 enable 이 터진다 — 그래도 느슨한(check=False) 복구 enable 이 뒤따라야 한다
+            return ''
+        with mock.patch.object(tools, 'adb', fake):
+            with self.assertRaises(subprocess.CalledProcessError):
+                notify.prepare_delivery('S')
+        wifi = [(a[-1], check) for a, check in sent if a[:3] == ('shell', 'svc', 'wifi')]
+        self.assertEqual(wifi[0][0], 'disable')
+        self.assertEqual(wifi[-1], ('enable', False))  # 마지막 손길은 실패해도 안 던지는 켜기
+
+    def test_an_unreadable_connect_count_is_blocked_before_touching_wifi(self):
+        sent, patch = self.phone([None])
+        with patch:
+            with self.assertRaises(Blocked):
+                notify.prepare_delivery('S')
+        self.assertEqual([a for a in sent if a[:3] == ('shell', 'svc', 'wifi')], [])
+
+    def test_a_phone_with_wifi_off_is_blocked_and_left_alone(self):
+        sent, patch = self.phone([1, 2], wifi_on='0')
+        with patch:
+            with self.assertRaises(Blocked):
+                notify.prepare_delivery('S')
+        self.assertEqual([a for a in sent if a[:3] == ('shell', 'svc', 'wifi')], [])
+
+    def test_ensure_delivery_prepares_once_per_phone(self):
+        sent, patch = self.phone([1, 2])
+        with patch:
+            notify.ensure_delivery('S')
+            notify.ensure_delivery('S')
+        self.assertEqual([a[-1] for a in sent if a[:3] == ('shell', 'svc', 'wifi')], ['disable', 'enable'])
+
+    def test_a_failed_preparation_is_not_remembered_as_done(self):
+        sent, patch = self.phone([None])
+        with patch:
+            with self.assertRaises(Blocked):
+                notify.ensure_delivery('S')
+            with self.assertRaises(Blocked):
+                notify.ensure_delivery('S')
+
+
 class DaytimeTest(unittest.TestCase):
     def at(self, hour, minute=0):
         return datetime(2026, 10, 5, hour, minute, tzinfo=SEOUL)

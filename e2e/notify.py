@@ -193,6 +193,51 @@ def kill_app(serial):
         raise Blocked('앱 프로세스가 안 죽음(am kill · run-as kill)')
 
 
+# ── 푸시 연결 ──────────────────────────────────────────────────────────────────────────────────
+
+DELIVERY_WAIT = 30  # Wi-Fi 를 켠 뒤 GCM 이 다시 연결하기를 기다리는 초
+_GCM = 'com.google.android.gms/.gcm.GcmService'
+_DELIVERY_READY = set()  # 이 프로세스에서 이미 점검한 기기
+
+
+def gcm_connects(serial):
+    """GCM 서비스가 지금까지 연결한 횟수. 못 읽으면 None(기기마다 dumpsys 모양이 다르다)."""
+    found = re.search(r'connects\W+(\d+)', tools.adb(serial, 'shell', 'dumpsys', 'activity', 'service', _GCM, check=False) or '')
+    return int(found.group(1)) if found else None
+
+
+def prepare_delivery(serial):
+    """재부팅 뒤에는 푸시 연결이 죽어 FCM 이 200 인데도 폰에 안 뜬다 — Wi-Fi 를 껐다 켜 GCM 이 다시 연결하게 하고 연결 횟수가 늘었는지 읽는다.
+    연결 횟수를 못 읽거나 Wi-Fi 가 꺼진 기기(껐다 켜면 새로 켜 버린다)는 건드리지 않고 [Blocked]. 안 늘어도 Wi-Fi 는 켜 둔다."""
+    before = gcm_connects(serial)
+    if before is None:
+        raise Blocked('GCM 연결 횟수를 못 읽음(dumpsys activity service GcmService) — 푸시 연결을 점검할 수 없음')
+    if tools.adb(serial, 'shell', 'settings', 'get', 'global', 'wifi_on', check=False).strip() != '1':
+        raise Blocked('Wi-Fi 가 꺼져 있음 — 껐다 켜는 방법으로는 푸시 연결을 되살릴 수 없음')
+    tools.adb(serial, 'shell', 'svc', 'wifi', 'disable')
+    try:
+        time.sleep(3)
+        tools.adb(serial, 'shell', 'svc', 'wifi', 'enable')
+        deadline = time.monotonic() + DELIVERY_WAIT
+        while True:
+            time.sleep(POLL_SECONDS)
+            now = gcm_connects(serial)
+            if now is not None and now > before:
+                return
+            if time.monotonic() >= deadline:
+                raise Blocked(f'Wi-Fi 를 껐다 켠 뒤 {DELIVERY_WAIT}초 안에 GCM 연결 횟수가 안 늘었음({before} → {now}) — 푸시 연결 확인')
+    except BaseException:
+        tools.adb(serial, 'shell', 'svc', 'wifi', 'enable', check=False)  # 실패 · 시간 상한으로 끝나도 Wi-Fi 는 켜 둔다 — 이미 켜져 있으면 무해
+        raise
+
+
+def ensure_delivery(serial):
+    """[prepare_delivery] 를 이 프로세스에서 기기당 한 번만 — 알림 가설이 시작할 때 부른다. 실패는 기억하지 않는다."""
+    if serial not in _DELIVERY_READY:
+        prepare_delivery(serial)
+        _DELIVERY_READY.add(serial)
+
+
 # ── 낮에만 ─────────────────────────────────────────────────────────────────────────────────────
 
 SEOUL = timezone(timedelta(hours=9))
