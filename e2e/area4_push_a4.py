@@ -205,6 +205,7 @@ def _first_run_denied(run, phone, check, token):
 
 def p_push_59(run, phone):
     notify.require_daytime()
+    notify.ensure_delivery(phone.serial)  # 연결이 죽은 폰의 "안 옴" 이 결함처럼 보이지 않게 — 기기당 한 번
     check = Check()
     account, token = _signed_in(run, 'home')
     try:
@@ -223,6 +224,7 @@ def p_push_59(run, phone):
 
 def p_push_60(run, phone):
     notify.require_daytime()
+    notify.ensure_delivery(phone.serial)  # 연결이 죽은 폰의 "안 옴" 이 결함처럼 보이지 않게 — 기기당 한 번
     check = Check()
     account, token = _signed_in(run, 'home')
     try:
@@ -271,6 +273,7 @@ def p_push_62(run, phone):
 
 def p_push_61(run, phone):
     notify.require_daytime()
+    notify.ensure_delivery(phone.serial)  # 연결이 죽은 폰의 "안 옴" 이 결함처럼 보이지 않게 — 기기당 한 번
     check = Check()
     account, token = _signed_in(run, 'home')
     serial = phone.serial
@@ -322,6 +325,7 @@ def p_push_63(run, phone):
 
 def p_push_66(run, phone):
     notify.require_daytime()
+    notify.ensure_delivery(phone.serial)  # 연결이 죽은 폰의 "안 옴" 이 결함처럼 보이지 않게 — 기기당 한 번
     check = Check()
     account, token = _signed_in(run, 'home')
     serial = phone.serial
@@ -352,6 +356,7 @@ def p_push_66(run, phone):
 
 def p_push_67(run, phone):
     notify.require_daytime()
+    notify.ensure_delivery(phone.serial)  # 연결이 죽은 폰의 "안 옴" 이 결함처럼 보이지 않게 — 기기당 한 번
     check = Check()
     first, token = _signed_in(run, 'home')
     second = run.account('home')
@@ -389,6 +394,7 @@ def _quiet_for(serial, before, seconds):
 
 def p_push_68(run, phone):
     notify.require_daytime()
+    notify.ensure_delivery(phone.serial)  # 연결이 죽은 폰의 "안 옴" 이 결함처럼 보이지 않게 — 기기당 한 번
     check = Check()
     account, token = _signed_in(run, 'home')
     serial = phone.serial
@@ -425,6 +431,7 @@ def p_push_68(run, phone):
 
 def p_push_69(run, phone):
     notify.require_daytime()
+    notify.ensure_delivery(phone.serial)  # 연결이 죽은 폰의 "안 옴" 이 결함처럼 보이지 않게 — 기기당 한 번
     check = Check()
     account, token = _signed_in(run, 'home')
     serial = phone.serial

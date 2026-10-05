@@ -280,6 +280,7 @@ def opens_at_set(run, value):
 def p_card_01(run, phone):
     """홈에서 앱을 뒤로 → 배치 → A 카드 딱 1장(source=daily) + 30초 안에 알림 1건(제목 · 본문 일치)."""
     require_daily_cards_open()
+    notify.ensure_delivery(phone.serial)  # 푸시 연결이 죽은 폰은 FCM 200 인데도 안 떠서 "온다" 는 헛fail, "안 온다" 는 헛통과 — 계정을 만들기 전에 되살린다(또는 blocked)
     check = Check()
     a, b = _pair(run)
     control = _control(run, 'male')
@@ -298,6 +299,7 @@ def p_card_17(run, phone):
     said = night_refusal(now_seoul(), skip_monday=True)
     if said:
         raise Blocked(said)
+    notify.ensure_delivery(phone.serial)  # 푸시 연결이 죽은 폰은 FCM 200 인데도 안 떠서 "온다" 는 헛fail, "안 온다" 는 헛통과 — 계정을 만들기 전에 되살린다(또는 blocked)
     check = Check()
     a, b = _pair(run)
     control = _control(run, 'male')
@@ -320,6 +322,7 @@ def p_card_17(run, phone):
 def p_card_18(run, phone):
     """"오늘의 카드 도착" 을 끄면 카드는 생기지만 60초 내내 알림 0. 끄기는 API(16d 화면 토글은 E-SET-09 가 본다)."""
     require_daily_cards_open()
+    notify.ensure_delivery(phone.serial)  # 푸시 연결이 죽은 폰은 FCM 200 인데도 안 떠서 "온다" 는 헛fail, "안 온다" 는 헛통과 — 계정을 만들기 전에 되살린다(또는 blocked)
     check = Check()
     a, b = _pair(run)
     control = _control(run, 'male')
@@ -342,6 +345,7 @@ def p_card_18(run, phone):
 def p_card_19(run, phone):
     """권한을 뺏고 배치 → 알림 0 → 다시 주고 카드를 만료시켜 배치 → 알림 1. 첫 카드의 상대는 14일 쉬므로 후보 C 를 하나 더 둔다."""
     require_daily_cards_open()
+    notify.ensure_delivery(phone.serial)  # 푸시 연결이 죽은 폰은 FCM 200 인데도 안 떠서 "온다" 는 헛fail, "안 온다" 는 헛통과 — 계정을 만들기 전에 되살린다(또는 blocked)
     check = Check()
     a, b = _pair(run)
     c = _person(run, 'female')
@@ -375,6 +379,7 @@ def p_card_20(run, phone):
     """정지된 B(에뮬): 배치 → 카드 0 · 알림 0 / 정지를 풀고 배치 → 카드 1 · 알림 1. 같은 배치를 받은 대조군 C 가 카드를 받아야 "배치가 돌았다" 를 말할 수 있다."""
     require_daily_cards_open()
     emu.require_emulator(phone.serial)
+    notify.ensure_delivery(phone.serial)  # 푸시 연결이 죽은 폰은 FCM 200 인데도 안 떠서 "온다" 는 헛fail, "안 온다" 는 헛통과 — 계정을 만들기 전에 되살린다(또는 blocked)
     check = Check()
     a, b = _pair(run)
     control = _person(run, 'female')
@@ -401,6 +406,7 @@ def p_card_20(run, phone):
 def p_card_03(run, phone):
     """앱이 화면 앞에 있는 채로 배치 → 30초 안에 카드가 목록에 저절로 나타나고(앱이 판정) 알림창에는 새 알림 0."""
     require_daily_cards_open()
+    notify.ensure_delivery(phone.serial)  # 푸시 연결이 죽은 폰은 FCM 200 인데도 안 떠서 "온다" 는 헛fail, "안 온다" 는 헛통과 — 계정을 만들기 전에 되살린다(또는 blocked)
     check = Check()
     a, b = _pair(run)
     control = _control(run, 'male')
@@ -452,6 +458,7 @@ def p_card_13(run, phone):
 def p_home_29(run, phone):
     """닫힌 학교에서 켜 둔 B → 학교를 연 뒤 배치 → B 카드 1장 + 알림이 정확히 1건(제목 "오늘의 카드가 도착했어요") — 따로 "오픈" 알림 0."""
     require_daily_cards_open()
+    notify.ensure_delivery(phone.serial)  # 푸시 연결이 죽은 폰은 FCM 200 인데도 안 떠서 "온다" 는 헛fail, "안 온다" 는 헛통과 — 계정을 만들기 전에 되살린다(또는 blocked)
     check = Check()
     a, b = _pair(run)
     control = _control(run, 'female')
@@ -579,6 +586,7 @@ def p_card_44(run, phone):
 
 def _card44_night(run, phone):
     """B(폰)가 받는 사람. 방해 금지 켠 채 A1 이 수락 → 밤 알림 0 · 보관함 1행. 끄고 A2 가 수락 → 바로 알림. 보관 한 건을 파일에 남기고 blocked."""
+    notify.ensure_delivery(phone.serial)  # 푸시 연결이 죽은 폰은 FCM 200 인데도 안 떠서 "온다" 는 헛fail, "안 온다" 는 헛통과 — 계정을 만들기 전에 되살린다(또는 blocked)
     check = Check()
     start = now_seoul()
     a1, a2, b = _person(run, 'male'), _person(run, 'male'), _person(run, 'female')
@@ -618,6 +626,7 @@ def _card44_night(run, phone):
 
 def _card44_morning(run, phone, state):
     """아침: 보관함 행이 사라지고 원문 알림이 알림창에 있다. 08시 예약 chat-gate 가 이미 보냈으면 손으로 안 부르고, 아직이면 관문을 지나 부른다."""
+    notify.ensure_delivery(phone.serial)  # 푸시 연결이 죽은 폰은 FCM 200 인데도 안 떠서 "온다" 는 헛fail, "안 온다" 는 헛통과 — 계정을 만들기 전에 되살린다(또는 blocked)
     check = Check()
     _guard(run, state['receiver_id'])
     want = (state['title'], state['text'])
