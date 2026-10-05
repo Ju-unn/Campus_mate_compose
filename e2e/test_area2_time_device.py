@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from unittest import mock
 
-from e2e import area1, area2, area2_time_device as td, batch_gate, notify, tools
+from e2e import area1, area2, area2_time_device as td, area3_phone5, batch_gate, notify, tools
 from e2e.area1 import SEOUL
 from e2e.test_area1_phone import CHROME, OURS, FakePhone
 from e2e.test_area2 import Base
@@ -316,6 +316,8 @@ class DeviceBase(Base):
     def setUp(self):
         super().setUp()
         self.world, self.clock = World(), Clock(self.START)
+        area3_phone5._FAILED.clear()  # 24 · 25 의 fail 은 다시 불릴 때까지 기억된다 — 시험끼리 새지 않게
+        self.addCleanup(area3_phone5._FAILED.clear)
         self.reset()
         self.world.permitted = lambda: self.granted
         for patcher in (
@@ -1415,6 +1417,91 @@ class Card44Test(DeviceBase):
         (result, note), _ = self.morning()
         self.assertEqual(result, 'blocked')
         self.assertEqual(self.batches, [])
+
+
+class ClockSingleShotTest(DeviceBase):
+    """시계 가설 24 · 25 는 fail 이어도 다시 안 돈다 — 진행 프로그램(run_case)의 재시도는 25분쯤 뒤라 시작 창(06:40~06:58 · 23:40~23:58)을 벗어나
+    맨 앞 창 관문이 `Blocked` 를 던지고, 최종 기록이 진짜 fail 이 아니라 "지금은 실행 금지 시간" blocked 로 덮인다."""
+
+    # 가설 → (창 안의 시작, 25분쯤 뒤, 판정이 fail 인 앱 답, 앱을 만드는 도우미 이름)
+    FAIL_CASES = {
+        'E-HOME-24': (MON(6, 52), MON(7, 17), {'result': 'pass', 'opened_ms': td.epoch_ms(MON(6, 59, 40)), 'loads_ms': []}, 'phone'),
+        'E-HOME-25': (WED(23, 50), seoul(10, 8, 0, 15), {'result': 'pass', 'flipped_ms': td.epoch_ms(seoul(10, 7, 23, 59, 30))}, 'launching_phone'),
+    }
+
+    def setUp(self):
+        super().setUp()
+        area3_phone5._FAILED.clear()
+        self.addCleanup(area3_phone5._FAILED.clear)
+
+    def new_phone(self, case, *answers):
+        return getattr(self, self.FAIL_CASES[case][3])(*answers)
+
+    def test_a_fail_is_returned_again_without_opening_the_app_or_making_accounts_even_outside_the_window(self):
+        for case, (start, later, fail, _) in self.FAIL_CASES.items():
+            with self.subTest(case=case):
+                phone = self.new_phone(case, fail)
+                self.clock.now = start
+                first = self.go(case, phone)
+                made = len(self.world.users)
+                self.assertEqual(first[0], 'fail', first)
+                self.clock.now = later
+                self.assertEqual(self.go(case, phone), first)  # 창 밖인데도 blocked 가 아니라 첫 fail 그대로
+                self.assertEqual((len(phone.jobs), len(self.world.users)), (1, made))  # 앱도 계정도 다시 안 만든다
+
+    def test_a_fail_is_remembered_once_so_the_next_run_of_the_case_starts_fresh(self):
+        for case, (start, later, fail, _) in self.FAIL_CASES.items():
+            with self.subTest(case=case):
+                phone = self.new_phone(case, fail)
+                self.clock.now = start
+                self.go(case, phone)
+                self.clock.now = later
+                self.go(case, phone)
+                self.assertEqual(area3_phone5._FAILED, {})  # 돌려준 기억은 지운다
+                self.clock.now = start
+                self.go(case, phone)
+                self.assertEqual(len(phone.jobs), 2)  # 셋째 호출은 새 실행 — 앱을 다시 켠다
+                area3_phone5._FAILED.clear()  # 셋째 호출의 fail 은 다음 소검사로 새지 않게
+
+    def test_a_pass_is_not_remembered(self):
+        for case, (start, _, fail, _) in self.FAIL_CASES.items():
+            with self.subTest(case=case):
+                passing = {'result': 'pass', 'opened_ms': td.epoch_ms(MON(7, 0, 20)), 'loads_ms': []} if case == 'E-HOME-24' else \
+                    {'result': 'pass', 'flipped_ms': td.epoch_ms(seoul(10, 8, 0, 0, 20))}
+                phone = self.new_phone(case, passing)
+                self.clock.now = start
+                self.assertEqual(self.go(case, phone)[0], 'pass')
+                self.assertEqual(self.go(case, phone)[0], 'pass')
+                self.assertEqual(len(phone.jobs), 2)
+
+    def test_a_blocked_is_not_remembered_so_the_window_can_be_tried_again(self):
+        for case, (start, later, _, _) in self.FAIL_CASES.items():
+            with self.subTest(case=case):
+                phone = self.new_phone(case, {'result': 'blocked', 'note': '앱이 막힘'})
+                self.clock.now = later  # 창 밖 — 앱도 계정도 없이 blocked
+                outside = self.go(case, phone)
+                self.assertEqual(outside[0], 'blocked')
+                self.assertEqual(phone.jobs, [])
+                self.clock.now = start  # 창 안 — 같은 가설이 다시 돈다(앱이 막혔다고 말해 blocked)
+                self.assertEqual(self.go(case, phone)[0], 'blocked')
+                self.assertEqual(len(phone.jobs), 1)
+                self.assertEqual(area3_phone5._FAILED, {})
+
+    def test_the_run_case_retry_keeps_the_first_fail_as_the_final_result(self):
+        from e2e import __main__ as cli
+        for case, (start, later, fail, _) in self.FAIL_CASES.items():
+            with self.subTest(case=case):
+                phone = self.new_phone(case, fail)
+                self.clock.now = start
+
+                def once(name):
+                    result = area1.attempt_phone(self.run, name, phone)
+                    self.clock.now = later  # 첫 시도가 25분쯤 걸려 창을 벗어났다
+                    return result
+                attempt, result, note = cli.run_case(once, case)
+                self.assertEqual((attempt, result), (2, 'fail'), note)
+                self.assertNotIn('실행 금지', note)
+                self.assertEqual(len(phone.jobs), 1)
 
 
 class ClockCaseLimitTest(DeviceBase):
