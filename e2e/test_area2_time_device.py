@@ -1417,6 +1417,45 @@ class Card44Test(DeviceBase):
         self.assertEqual(self.batches, [])
 
 
+class ClockCaseLimitTest(DeviceBase):
+    """시계 가설 24 · 25 는 기준 시각(07:04 · 00:02:30)까지 앱 답을 기다린다 — 시작 허용 창의 **가장 이른 분**에 시작해도 가설 시간 상한이 그보다 길어야 한다.
+    앱 답을 기다리는 시간은 가설이 실제로 `_slow` 에 넘긴 값(= app_timeout(시작, 마감))을 그대로 가로채 쓴다 — 마감 계산을 시험에 또 두지 않는다.
+    준비 계정 · 토큰 · 뒤처리는 기다림 안에 이미 들어 있다: app_timeout 은 준비에 쓴 시간만큼 줄어 앱 마감 + 120초 에서 끝난다(상한은 가설 시작부터 센다).
+    그래서 더 필요한 것은 앞(서비스 키 · 기기 열기 · 계정 만들기가 기다림보다 먼저 한 일)과 뒤(판정 · 시험대학 값 되돌리기 · 시간대 되돌리기)의 여유뿐 — [ROOM] 초."""
+
+    ROOM = 300
+
+    def earliest_minute(self, refusal, day):
+        """[refusal] 이 None(= 시작해도 됨)을 주는 가장 이른 분 — 창을 시험에서 다시 쓰지 않고 실제 함수에서 구한다."""
+        return next(moment for moment in (day(minute // 60, minute % 60) for minute in range(24 * 60)) if refusal(moment) is None)
+
+    def timeout_asked(self, case, start, phone):
+        asked = []
+        self.clock.now = start
+        with mock.patch.object(td, '_slow', side_effect=lambda ph, timeout: (asked.append(timeout), ph)[1]):
+            self.go(case, phone)
+        self.assertEqual(len(asked), 1, (case, asked))
+        return asked[0]
+
+    def assert_limit(self, case, start, phone, expected_wait):
+        from e2e import __main__ as cli
+        asked = self.timeout_asked(case, start, phone)
+        self.assertEqual(asked, expected_wait, '시험이 고른 시작 시각이 창의 가장 이른 분이 아님 — 시험 자체를 다시 본다')
+        self.assertGreaterEqual(cli.case_limit(case, True), asked + self.ROOM, f'{case}: 상한이 앱 답 기다림 {asked}초 + 여유 {self.ROOM}초보다 짧다')
+
+    def test_the_monday_morning_case_limit_outlasts_the_wait_from_the_earliest_start(self):
+        start = self.earliest_minute(td.monday_morning_refusal, MON)
+        self.assertEqual((start.hour, start.minute), (6, 40))
+        phone = self.phone({'result': 'pass', 'opened_ms': td.epoch_ms(MON(7, 0, 20)), 'loads_ms': []})
+        self.assert_limit('E-HOME-24', start, phone, 24 * 60 + 120)  # 06:40 → 07:04 = 24분 + 앱 답 여유 120초
+
+    def test_the_midnight_case_limit_outlasts_the_wait_from_the_earliest_start(self):
+        start = self.earliest_minute(td.midnight_refusal, WED)
+        self.assertEqual((start.hour, start.minute), (23, 40))
+        phone = self.launching_phone({'result': 'pass', 'flipped_ms': td.epoch_ms(seoul(10, 8, 0, 0, 20))})
+        self.assert_limit('E-HOME-25', start, phone, 22 * 60 + 30 + 120)  # 23:40 → 00:02:30 = 22분 30초 + 120초
+
+
 # ── 등록 · 안전망 ───────────────────────────────────────────────────────────────────────────────────
 
 CASES = ['E-CARD-01', 'E-CARD-03', 'E-CARD-13', 'E-CARD-17', 'E-CARD-18', 'E-CARD-19', 'E-CARD-20', 'E-HOME-29',
