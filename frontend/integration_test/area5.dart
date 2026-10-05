@@ -1,9 +1,11 @@
 import 'package:campus_mate/account/view/withdraw_sheets.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/photo_slider.dart';
 import 'package:campus_mate/common/widgets/school_label.dart';
 import 'package:campus_mate/common/widgets/select_chip.dart';
+import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/matching/view/card_detail_screen.dart';
@@ -27,12 +29,13 @@ import 'support.dart';
 
 part 'area5_act.dart';
 part 'area5_read.dart';
+part 'area5_wd.dart';
 
 /// 영역 5 폰 A 한 대 — 나 탭 · 탈퇴 · 경계. PC 쪽은 e2e/area5_*.py 의 같은 번호(계정 · DB 를 준비하고 앱이 말한 값을 판정한다).
 /// 앱은 화면을 열어 읽거나 누르고 본 것을 Map 으로 돌려준다. 화면 글자 · 위젯은 시나리오가 아니라 지금 화면 코드
 /// (frontend/lib/me · account · matching/view/settings_screen · profile/view)에서 옮겼다.
-/// 탈퇴를 실제로 누르는 가설은 이 파일에 없다 — "정말 영구 삭제" 는 어디서도 누르지 않는다.
-final Map<String, Area1Case> area5Cases = {...area5CasesRead, ...area5CasesAct};
+/// 탈퇴를 실제로 누르는 가설은 area5_wd.dart 의 넷(E-WD-04 · 16 · 18 · E-EDGE-20)뿐이다 — 이 파일 · area5_read · area5_act 는 "정말 영구 삭제" 를 누르지 않는다.
+final Map<String, Area1Case> area5Cases = {...area5CasesRead, ...area5CasesAct, ...area5CasesWd};
 
 const _manageEntry = '프로필 편집'; // my_profile_screen.dart 입구 줄(profile_entry_row.dart — InkWell 이 행 전체를 감싼다)
 const _previewEntry = '남이 보는 내 프로필 카드';
