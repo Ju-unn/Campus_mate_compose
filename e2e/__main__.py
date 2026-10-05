@@ -21,6 +21,7 @@ from e2e import area3_phone2  # noqa: F401 — 영역 3 폰 2차(입력 · 보�
 from e2e import area3_phone3  # noqa: F401 — 영역 3 폰 3차(꺼진 앱에서 알림 눌러 방 열기) 가설을 같은 곳에 더한다
 from e2e import area3_phone4  # noqa: F401 — 영역 3 폰 4차(매칭 시각을 옮긴 방의 14f 시트) 가설을 같은 곳에 더한다
 from e2e import area3_phone5  # noqa: F401 — 영역 3 배치(chat-gate · cleanup 을 실제로 부르는) 가설 — 폰 8개는 area1.PHONE 에, API 1개는 아래 API_CASES 에 더한다
+from e2e import area3_phone6  # noqa: F401 — 영역 3 E-CHAT-53(07시대 · 08시대 chat-gate 를 한 실행에서 두 번) 폰 가설을 area1.PHONE · area3.BUNDLES 에 더한다
 from e2e import area3_safe_phone  # noqa: F401 — 영역 3 안전 폰(신고 · 차단 · 정지) 가설을 같은 곳에 더한다
 from e2e import area1_b3  # 묶음 3(사진 세트) — 같은 방식
 from e2e import area1_b4  # noqa: F401 — 묶음 4(아바타) — 같은 방식
@@ -34,6 +35,7 @@ from e2e import area2_phone  # noqa: F401 — 영역 2 폰 A 가설을 area1.PHO
 from e2e import area2_phone_b  # noqa: F401 — 영역 2 폰 A 2차 가설을 더한다
 from e2e import area4_set2  # noqa: F401 — 영역 4 설정 2차(FAQ · 초대 · 로그아웃 · 탈퇴)
 from e2e import area4_push_a4  # noqa: F401 — 영역 4 알림 A4(토큰 · 권한 · 로그인/로그아웃)
+from e2e import area4_push_gate  # noqa: F401 — 영역 4 알림 채팅 게이트 배치(리마인드 · 닫기, chat-gate)
 from e2e import area2_phone3  # noqa: F401 — 영역 2 폰 A 3차(망 끊기 · 카드 · 알림 · 공유 창 · 하트 다시 만들기) 가설
 from e2e import area5_read  # noqa: F401 — 영역 5 폰 A 화면 읽기(나 탭 · 탈퇴 · 시스템 뒤로) 가설을 같은 곳에 더한다
 from e2e import area5_act  # noqa: F401 — 영역 5 폰 A 고쳐 저장하기(글 · 태그 · 조건 · 기본 정보) 가설을 같은 곳에 더한다
@@ -48,6 +50,8 @@ from e2e import area2_emu_b  # noqa: F401 — 영역 2 B에뮬 가설 11(수락�
 from e2e import area4_push_front  # noqa: F401 — 영역 4 알림 A3(앱이 앞에 있을 때)
 from e2e import area4_push_tap  # noqa: F401 — 영역 4 알림 A2(알림을 눌러 화면 열기)
 from e2e import area4_push  # noqa: F401 — 영역 4 알림 A1(받는 사람 폰 + 상대 API, 알림 읽기)
+from e2e import area4_push_night  # noqa: F401 — 영역 4 알림 밤·아침·시각 경계(밤 1단계 + 아침 2단계)
+from e2e import area4_push_card  # noqa: F401 — 영역 4 알림 카드 배치 9(E-PUSH-01~09, daily-cards 를 불러 알림이 오는지 · 안 오는지)
 from e2e.tools import (DEVICE_PORT, DEVICES, ROOT, TEXT, Hub, Run, adb, cleanup, ensure_no_real_users, env, latest, scenario_rows,
                        serial, service_key, snapshot_blocks, verdict)
 

@@ -14,6 +14,7 @@ import 'package:campus_mate/friend_review/view/friend_review_card.dart';
 import 'package:campus_mate/friend_review/view/received_reviews_screen.dart';
 import 'package:campus_mate/matching/view/acceptance_row.dart';
 import 'package:campus_mate/matching/view/conversations_screen.dart';
+import 'package:campus_mate/matching/view/daily_card_summary.dart';
 import 'package:campus_mate/matching/view/today_cards_screen.dart';
 import 'package:campus_mate/referral/view/invite_friends_sheet.dart';
 import 'package:campus_mate/safety/view/block_list_screen.dart';
@@ -41,6 +42,9 @@ part 'area4_set2.dart';
 part 'area4_push.dart';
 part 'area4_push_tap.dart';
 part 'area4_push_front.dart';
+part 'area4_push_night.dart';
+part 'area4_push_card.dart';
+part 'area4_push_gate.dart';
 
 /// 영역 4 SET 1차 — 설정 16 · 알림 설정 16d · 계정 16e · 카톡 16e-1 · 차단 목록 16f. PC 쪽은 e2e/area4.py 의 같은 번호.
 /// 화면 글자는 시나리오가 아니라 지금 화면 코드(frontend/lib/matching · account · safety)에서 옮겼다.
@@ -203,6 +207,9 @@ final Map<String, Area1Case> area4Cases = {
   ..._pushCases,
   ..._pushTapMap,
   ..._pushFrontMap,
+  ..._pushNightCases,
+  ..._pushCardCases,
+  ..._pushGateCases,
   ..._contactsCases,
   ..._safeContactsCases,
   ..._pushA4Cases,
