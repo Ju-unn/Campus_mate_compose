@@ -18,6 +18,7 @@ from pathlib import Path
 from unittest import mock
 from urllib.parse import urlsplit
 
+from e2e import __main__ as cli
 from e2e import area1, area2, area3_phone, area4_push, area4_push_night as night, batch_gate, notify, tools
 from e2e import test_area2_time_device as base
 from e2e.test_area2_time_device import MON, TUE, WED, DeviceBase, seoul
@@ -218,6 +219,8 @@ class NightBase(DeviceBase):
         self.world = NightWorld(self.clock, self.tick)
         self.world.permitted = lambda: self.granted
         self.batch_times = []
+        night._FAILED.clear()  # 배치 뒤 fail 의 기억은 시험끼리 새지 않게
+        self.addCleanup(night._FAILED.clear)
         for patcher in (
             mock.patch.object(tools, 'call', self.world), mock.patch.object(area1, '_nickname', lambda: next(self.names)),
             mock.patch.object(time, 'sleep', self.tick), mock.patch.dict(base.COLUMNS, EXTRA_COLUMNS),
@@ -639,6 +642,172 @@ class MorningBehaviourTest(TwoStageBase):
         for number in ('15', '85'):
             self.assertIn('같은 번호', night.night_note(number))
             self.assertIn('같은 --bundle', night.night_note(number))
+
+
+# ── 진행 프로그램의 자동 재시도 ─────────────────────────────────────────────────────────────────────
+
+MORNING_NUMBERS = '15 23 52 83 84 85 86 87 88'.split()  # 아침에 손으로 chat-gate 를 부르는 아홉 가설
+
+
+class NoRerunBase(TwoStageBase):
+    """진행 프로그램(run_case)은 fail 이면 같은 가설을 한 번 더 돈다. 가짜 배치가 실제 관문(batch_gate.check)처럼 부른 시각을 기록해
+    같은 시(時) 둘째 호출이 막히는 것까지 재현한다."""
+
+    def batch(self, name):
+        with self.history.open('a', encoding='utf-8') as f:
+            f.write(self.clock.now.isoformat() + '\n')
+        super().batch(name)
+
+    def twice(self, number, phone):
+        """진행 프로그램이 부르는 그대로 — (시도 횟수, 결과, 메모). 시도마다 만든 계정 수의 늘어난 몫을 [self.made] 에 남긴다."""
+        self.made = []
+
+        def once(case):
+            before = len(self.world.users)
+            try:
+                return area1.attempt_phone(self.run, case, phone)
+            finally:
+                self.made.append(len(self.world.users) - before)
+        return cli.run_case(once, f'E-PUSH-{number}')
+
+    def break_morning(self, number):
+        """손 호출 뒤 첫 시도가 fail 이 되게 — 서버가 엉뚱한 문구를 보낸다(85 는 07시대에 이미 보낸다)."""
+        if number == '85':
+            self.world.ignore_quiet = True
+            return
+
+        def wrong():
+            title = self.pending()[0]['title']
+            self.world.tables['pending_pushes'] = []
+            self.world.post(title, '다른 문구')
+        self.scripts['chat-gate'] = wrong
+
+
+class MorningNoRerunTest(NoRerunBase):
+    def fail_after_batch(self, number):
+        self.after_night(number)
+        self.break_morning(number)
+        phone = self.phone()
+        attempt, result, note = self.twice(number, phone)
+        self.assertEqual(result, 'fail', (result, note))
+        self.assertNotIn('실행 금지', note, '둘째 시도가 같은 시 관문에 막혀 첫 fail 을 덮었다')
+        self.assertEqual(attempt, 2)  # 진행 프로그램은 두 번 불렀지만
+        self.assertEqual(self.batches, ['chat-gate'], '손 호출은 한 번뿐')
+        self.assertEqual(len(phone.jobs), 1, '둘째 시도는 앱도 안 켠다')
+        self.assertEqual(self.made[1], 0, '둘째 시도는 계정도 안 만든다')
+        self.assertEqual(night._FAILED, {}, '돌려준 항목은 지운다')
+
+    def fail_before_batch_is_rerun(self, number):
+        self.after_night(number)
+        phone = self.phone({'result': 'fail', 'note': '홈 못 감'}, {'result': 'pass'})  # 첫 시도는 앱이 홈에 못 닿는다 — 배치 전
+        attempt, result, note = self.twice(number, phone)
+        self.assertEqual((attempt, result), (2, 'pass'), note)
+        self.assertEqual(len(phone.jobs), 2)
+
+    def blocked_before_batch_is_not_remembered(self, number):
+        self.after_night(number)
+        self.prepare_error = Blocked('GCM 연결 횟수를 못 읽음 — 푸시 연결을 점검할 수 없음')
+        phone = self.phone()
+        self.assertEqual(self.twice(number, phone)[1], 'blocked')
+        self.assertEqual(night._FAILED, {})
+        self.prepare_error = None
+        attempt, result, note = self.twice(number, phone)
+        self.assertEqual((attempt, result), (1, 'pass'), note)
+
+
+for _number in MORNING_NUMBERS:
+    setattr(MorningNoRerunTest, f'test_{_number}_a_fail_after_the_hand_called_chat_gate_is_returned_again_not_run_again',
+            lambda self, n=_number: self.fail_after_batch(n))
+    setattr(MorningNoRerunTest, f'test_{_number}_a_fail_before_the_chat_gate_call_is_run_again',
+            lambda self, n=_number: self.fail_before_batch_is_rerun(n))
+    setattr(MorningNoRerunTest, f'test_{_number}_a_blocked_before_the_chat_gate_call_leaves_nothing_behind',
+            lambda self, n=_number: self.blocked_before_batch_is_not_remembered(n))
+
+
+class MorningNoRerunExtraTest(NoRerunBase):
+    def test_85_a_fail_after_the_second_hand_call_after_0806_is_not_run_again_either(self):
+        self.after_night('85')
+        self.world.scheduled_runs = False  # 08:00 예약 실행이 안 보낸 세계 — 08:06 뒤 손으로 한 번 더 부른다
+        calls = []
+
+        def script():
+            calls.append(1)
+            if len(calls) == 1:
+                self.world.chat_gate()  # 07시대: 앵커만 찍고 행은 그대로
+            else:
+                self.world.tables['pending_pushes'] = []
+                self.world.post(ACCEPT, '다른 문구')
+        self.scripts['chat-gate'] = script
+        phone = self.phone()
+        attempt, result, note = self.twice('85', phone)
+        self.assertEqual(result, 'fail', (result, note))
+        self.assertIn('다른 문구', note)
+        self.assertEqual(self.batches, ['chat-gate', 'chat-gate'])
+        self.assertEqual(len(phone.jobs), 1)
+
+    def test_a_night_stage_fail_is_run_again_because_the_held_rows_were_deleted_and_the_batch_was_not_called(self):
+        for number in MORNING_NUMBERS:
+            with self.subTest(case=number):
+                self.world.ignore_quiet = True  # 첫 시도: 서버가 밤에 바로 보내 버린다
+                attempts = []
+
+                def once(case):
+                    if attempts:
+                        self.world.ignore_quiet = False
+                    attempts.append(1)
+                    return area1.attempt_phone(self.run, case, self.phone())
+                attempt, result, note = cli.run_case(once, f'E-PUSH-{number}')
+                self.assertEqual((attempt, result, note), (2, 'blocked', night.night_note(number)))
+                self.assertEqual(night._FAILED, {})
+                self.assertEqual(self.pending(), [])
+                self.assertEqual(self.batches, [])
+                self.clock.now = TUE(22, 30)
+                (self.run.out / f'night_{number}.json').unlink()
+
+
+class EdgeNoRerunTest(NightBase):
+    """72 · 73 — 첫 수락을 보낸 뒤 fail 이면 다시 안 돈다(둘째 시도는 시작 창 밖이라 blocked 로 덮인다)."""
+
+    def twice(self, number, phone):
+        return cli.run_case(lambda case: area1.attempt_phone(self.run, case, phone), f'E-PUSH-{number}')
+
+    def test_72_a_fail_after_the_first_accept_is_returned_again_not_run_again(self):
+        self.clock.now = TUE(21, 52)
+        self.world.ignore_quiet = True  # 22:00 의 수락이 보관되지 않고 와 버린다 — 둘째 수락 뒤 fail
+        phone = self.phone()
+        attempt, result, note = self.twice('72', phone)
+        self.assertEqual(result, 'fail', (result, note))
+        self.assertNotIn('실행 금지', note)
+        self.assertEqual(attempt, 2)
+        self.assertEqual(len(self.world.decided_at), 2, '수락은 첫 시도의 두 번뿐')
+        self.assertEqual(len(phone.jobs), 1)
+        self.assertEqual(night._FAILED, {})
+
+    def test_73_a_fail_after_the_first_accept_is_returned_again_not_run_again(self):
+        self.clock.now = TUE(7, 52)
+        self.world.quiet = lambda: True  # 08:00 의 수락도 보관해 버린다
+        phone = self.phone()
+        attempt, result, note = self.twice('73', phone)
+        self.assertEqual(result, 'fail', (result, note))
+        self.assertNotIn('실행 금지', note)
+        self.assertEqual(attempt, 2)
+        self.assertEqual(len(self.world.decided_at), 2)
+        self.assertEqual(len(phone.jobs), 1)
+
+    def test_72_73_a_fail_before_the_first_accept_is_run_again(self):
+        for number, start in (('72', TUE(21, 52)), ('73', TUE(7, 52))):
+            with self.subTest(case=number):
+                self.clock.now = start
+                phone = self.phone({'result': 'fail', 'note': '홈 못 감'}, {'result': 'pass'})
+                attempt, result, note = self.twice(number, phone)
+                self.assertEqual((attempt, result), (2, 'pass'), note)
+                self.assertEqual(len(phone.jobs), 2)
+
+    def test_72_a_blocked_because_the_first_accept_crossed_the_boundary_is_not_remembered(self):
+        self.clock.now = TUE(21, 52)
+        self.world.decide_takes = 45
+        self.assertEqual(self.twice('72', self.phone())[1], 'blocked')
+        self.assertEqual(night._FAILED, {})
 
 
 # ── 밤 단일 단계 16 · 33 ────────────────────────────────────────────────────────────────────────────

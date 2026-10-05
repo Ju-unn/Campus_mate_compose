@@ -56,6 +56,8 @@ CASE_LIMIT_NIGHT = 900  # 한 단계(60초 지켜보기 + 대조 + 앱 켜기) �
 CASE_LIMIT_85 = 4500  # 07:06 부터 08:03 까지 기다리고 08:06 뒤 손 호출까지(최대 약 75분)
 WINDOW = '밤 22:00~23:59'
 NOTICE_ROW = ('kind', 'title', 'body', 'data')  # 보관 행에서 기록하는 칸(나머지는 심을 때 새로)
+_FAILED = {}  # (묶음 폴더, 번호) → 배치를 부른 뒤 · 첫 수락을 보낸 뒤 fail 이던 결과. run_case 의 재시도가 같은 번호로 다시 부르면 이 결과를 돌려준다
+_SENT = [0]  # 지금까지 손으로 chat-gate 를 부르거나 첫 수락을 보낸 횟수 — 가설 하나가 그 사이에 늘렸는지로 "되돌릴 수 없는 일을 했나" 를 안다
 
 
 # ── 시각 창(순수 함수 — 가짜 시계로 시험) ────────────────────────────────────────────────────────
@@ -123,6 +125,27 @@ def night_note(number):
     when = '07:06~07:48 사이' if number == '85' else '08:06 이후'
     return (f'1단계 끝 — 내일 {when} 같은 번호를 같은 --bundle 로 다시(상태 파일이 묶음 폴더 안). '
             '밤에 만든 보관 행은 08시 예약이 먹지 않게 지웠고, 아침 단계가 기록한 행을 다시 심는다')
+
+
+def _no_rerun(number, case):
+    """배치(손 호출 chat-gate)를 부른 뒤 또는 첫 수락을 보낸 뒤의 fail 은 기억해 두었다가, 같은 가설이 다시 불리면 앱도 계정도 안 만들고 그대로 돌려준다.
+    다시 돌면 같은 시(時) 관문 · 시작 창이 막아 진짜 결과가 blocked 로 덮인다. 그 전의 fail · blocked 와 밤 단계의 fail 은 그대로 다시 돈다."""
+    def wrapped(run, phone):
+        key = (run.out, number)
+        if key in _FAILED:
+            return _FAILED.pop(key)
+        before = _SENT[0]
+        result = case(run, phone)
+        if result[0] == 'fail' and _SENT[0] > before:
+            _FAILED[key] = result
+        return result
+    return wrapped
+
+
+def _batch(name):
+    """area2._batch(관문 → gcloud)를 부르고 센다 — 관문에서 막히면(예외) 세지 않는다."""
+    area2._batch(name)
+    _SENT[0] += 1
 
 
 def _sleep_until(target):
@@ -391,7 +414,7 @@ def _two_stage(number, act, hours=DAY_HOURS):
             _write_state(run, number, {'night_date': start.date().isoformat(), 'receiver': {'id': s.me['id'], 'email': s.me['email']},
                                        'rows': s.rows, 'want': [list(w) for w in want]})
         return _permitted(lambda run, phone: _run_night(run, phone, act, regate=td.night_refusal, save=save, number=number))(run, phone)
-    return case
+    return _no_rerun(number, case)
 
 
 # ── 아침 단계 ───────────────────────────────────────────────────────────────────────────────────
@@ -441,7 +464,7 @@ def _judge(m, state, number):
         _early(m, rows, want, titles, before)
         return
     _plant(m, rows)
-    area2._batch('chat-gate')
+    _batch('chat-gate')
     _gone(m)
     if number == '84':
         m.silent(before, only=lambda n: n.title in titles)
@@ -473,7 +496,7 @@ def _early(m, rows, want, titles, before):
         raise Blocked(f'준비가 길어 {EARLY_DEADLINE[0]:02d}:{EARLY_DEADLINE[1]:02d} 을 넘음 — 08:00 예약 실행이 끼어 07시대를 못 봄. 07:06~07:48 에 다시')
     anchor = _anchor(m)
     _plant(m, rows)
-    area2._batch('chat-gate')
+    _batch('chat-gate')
     if not _wait_for(lambda: _stamped(m.run, anchor), CARD_WAIT):
         raise Blocked(f'chat-gate 를 불렀으나 {CARD_WAIT}초 안에 앵커(새 매칭의 trust_passed_at)가 안 찍힘 — 배치가 안 돈 것 같아 "그대로 둔다" 를 판정 못 함')
     held = _held(m.run, m.me['id'])
@@ -490,7 +513,7 @@ def _early(m, rows, want, titles, before):
     if _held(m.run, m.me['id']):
         while morning_refusal(td.now_seoul()):  # 정각 ±5분을 피해 08:06 까지
             time.sleep(15)
-        area2._batch('chat-gate')
+        _batch('chat-gate')
         _gone(m)
         how = '08:00 예약 실행이 08:03 까지 안 보내 08:06 뒤 손으로 chat-gate 를 불렀다(손으로 불러 보내졌다 — 예약 실행이 안 보냄, 확인 필요)'
     _exactly(m, before, want)
@@ -499,7 +522,7 @@ def _early(m, rows, want, titles, before):
 
 # ── 경계 시각: 72 · 73 ──────────────────────────────────────────────────────────────────────────
 
-def _edge(hour, first_arrives):
+def _edge(number, hour, first_arrives):
     """[hour] 시(時) 59분 → 다음 정각이 방해 금지 경계. 72(21→22): 첫 수락은 오고 둘째는 보관. 73(7→8): 첫 수락은 보관, 둘째는 바로 옴."""
     def act(s):
         day = td.now_seoul()
@@ -512,6 +535,7 @@ def _edge(hour, first_arrives):
         before = s.before()
         _sleep_until(first_at)
         sent_1 = td.now_seoul()
+        _SENT[0] += 1  # 첫 수락을 보낸다 — 이 뒤의 fail 은 다시 돌면 시작 창 밖이라 blocked 로 덮인다
         factory.accept_card(s.run, s.partner, card_1)
         done_1 = td.now_seoul()
         s.notes.append(f'첫 수락 {sent_1:%H:%M:%S}~{done_1:%H:%M:%S}')
@@ -542,14 +566,14 @@ def _edge(hour, first_arrives):
                     if n.key not in known and (n.title, n.text) == (ACCEPT_TITLE, accept_body(s.nick))]
             if late:
                 s.notes.append('08:00 예약 실행이 첫 번째 보관분도 따로 보냄 — 문구가 달라 판정에서 뺌')
-    return _gated(lambda now: edge_refusal(now, hour), lambda run, phone: _run_night(run, phone, act))
+    return _no_rerun(number, _gated(lambda now: edge_refusal(now, hour), lambda run, phone: _run_night(run, phone, act)))
 
 
 # ── 등록 ────────────────────────────────────────────────────────────────────────────────────────
 
 _CASES = {
     '15': _two_stage('15', _n_accept), '16': _single(_n_quiet_off, quiet=False), '23': _two_stage('23', _n_match),
-    '33': _single(_n_message), '52': _two_stage('52', _n_review), '72': _edge(21, True), '73': _edge(7, False),
+    '33': _single(_n_message), '52': _two_stage('52', _n_review), '72': _edge('72', 21, True), '73': _edge('73', 7, False),
     '83': _two_stage('83', _n_two_accepts), '84': _two_stage('84', _n_84), '85': _two_stage('85', _n_accept, EARLY_HOURS),
     '86': _two_stage('86', _n_public), '87': _two_stage('87', _n_two_reviews), '88': _two_stage('88', _n_signups),
 }
