@@ -166,6 +166,32 @@ class DelegateTest(CardBase):
         self.assertGreater(tools.CASE_LIMITS['E-PUSH-04'], 600)  # td.p_card_03 이 앱을 최대 600초 기다린다
 
 
+class DelegateLimitTest(unittest.TestCase):
+    """위임한 PUSH 가설은 PUSH 쪽 일 · 대기가 위임 대상과 같다(`phone()` 은 번호만 싣고 기다림을 안 더한다) — 시간 상한도 위임 대상의 것(최악 대기 + 여유)을 따라간다."""
+    LIMIT_SOURCE = {'E-PUSH-01': 'E-CARD-01', 'E-PUSH-04': 'E-CARD-03', 'E-PUSH-05': 'E-CARD-18', 'E-PUSH-06': 'E-CARD-17'}
+
+    def test_a_delegating_push_case_gets_at_least_the_limit_of_the_case_it_runs(self):
+        for push, card in self.LIMIT_SOURCE.items():
+            self.assertGreaterEqual(cli.case_limit(push, True), tools.CASE_LIMITS[card], (push, card))
+
+    def test_and_at_least_the_worst_wait_of_that_case_plus_the_room(self):
+        for push, card in self.LIMIT_SOURCE.items():
+            self.assertGreaterEqual(cli.case_limit(push, True), td.WORST_WAIT[card] + td.ROOM, (push, card))
+
+    def test_the_delegated_limit_replaces_the_flat_slow_limit_instead_of_being_overwritten_by_it(self):
+        self.assertEqual(cli.case_limit('E-PUSH-04', True), tools.CASE_LIMITS['E-CARD-03'])  # 03 은 앱 멈춤 600 이라 900 으로는 모자란다
+        self.assertGreater(cli.case_limit('E-PUSH-04', True), pc.CASE_LIMIT_SLOW)
+
+    def test_the_cases_that_are_written_here_keep_the_flat_slow_limit(self):
+        for case in ('E-PUSH-02', 'E-PUSH-03', 'E-PUSH-07', 'E-PUSH-08', 'E-PUSH-09'):
+            self.assertEqual(cli.case_limit(case, True), pc.CASE_LIMIT_SLOW, case)
+
+    def test_every_push_case_has_its_own_limit_above_the_default(self):
+        for case in CASES:
+            self.assertIn(case, tools.CASE_LIMITS, case)
+            self.assertGreater(cli.case_limit(case, True), tools.CASE_LIMIT, case)
+
+
 # ── E-PUSH-02 눌러서 열기 + 알림이 사라짐 ───────────────────────────────────────────────────────────
 
 class Push02Test(CardBase):

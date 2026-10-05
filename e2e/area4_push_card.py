@@ -208,7 +208,9 @@ PHONE = {
     'E-PUSH-06': _single_shot(td.p_card_17, always=True), 'E-PUSH-07': push_07, 'E-PUSH-08': push_08, 'E-PUSH-09': push_09,
 }
 
-tools.CASE_LIMITS.update({case: CASE_LIMIT_SLOW for case in ('E-PUSH-02', 'E-PUSH-03', 'E-PUSH-04', 'E-PUSH-07', 'E-PUSH-08', 'E-PUSH-09')})
+tools.CASE_LIMITS.update({case: CASE_LIMIT_SLOW for case in ('E-PUSH-02', 'E-PUSH-03', 'E-PUSH-07', 'E-PUSH-08', 'E-PUSH-09')})
+# 기존 가설에 맡긴 것은 그 가설의 상한(최악 대기 + 여유, area2_time_device 가 이미 적음)을 그대로 — phone() 은 번호만 싣고 기다림을 안 더한다. 값을 베끼지 않아 그쪽이 바뀌면 같이 움직인다.
+tools.CASE_LIMITS.update({push: tools.CASE_LIMITS[card] for push, card in (('E-PUSH-01', 'E-CARD-01'), ('E-PUSH-04', 'E-CARD-03'), ('E-PUSH-05', 'E-CARD-18'), ('E-PUSH-06', 'E-CARD-17'))})
 
 area1.PHONE.update(PHONE)
 area1.BUNDLES['area4-push-card'] = list(PHONE)
