@@ -76,8 +76,9 @@ def _one_match(s):
 class _Scene:
     """폰 계정 [me] · 상대 [partner] 와 지켜보기 도구 — 만들면 앱이 홈에 닿고 토큰이 올라온 뒤 HOME 에 내려가 있다."""
 
-    def __init__(self, run, phone):
-        notify.require_daytime()
+    def __init__(self, run, phone, daytime=True):
+        if daytime:
+            notify.require_daytime()
         notify.ensure_delivery(phone.serial)  # 푸시 연결이 죽은 폰이면 "알림이 안 왔다" 를 앱 탓으로 읽게 된다 — 시작 때 한 번 점검
         self.run, self.phone, self.check, self.notes = run, phone, Check(), []
         self.me = area3_phone._person(run)
