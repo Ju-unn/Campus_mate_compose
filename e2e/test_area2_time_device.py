@@ -5,6 +5,7 @@
 (E-CARD-35 는 없는 `id` 열을 골라 운영에서만 400 이 났다). 열 목록은 supabase/migrations 에서 옮겼다.
 배치는 `area2._batch` 를, 알림은 `notify` 모듈을, 시계는 `td.now_seoul` 을 갈아 끼운다."""
 
+import inspect
 import json
 import re
 import tempfile
@@ -1504,11 +1505,108 @@ class ClockSingleShotTest(DeviceBase):
                 self.assertEqual(len(phone.jobs), 1)
 
 
+class WorstWaitTest(DeviceBase):
+    """배치 · 알림 · 시계 가설 10개(24 · 25 와 26 은 빼고)의 시간 상한은 기본 420초(tools.CASE_LIMIT)로 모자란다 — 배치 기다림 · 알림 · 토큰을 다 더한 **최악 대기**
+    에 준비 몫([ROOM])을 더한 값이어야 한다. 최악 대기는 가설을 가짜 세계에서 끝까지 돌려 **실제로 부른 기다림**(`_wait_for` · 알림 지켜보기 · 앱 기다림 ·
+    푸시 연결 점검)을 모아 구한다 — 코드가 새 기다림을 더하면 표와 어긋나 이 시험이 먼저 안다.
+    앱 기다림은 `Run.phone` 기본(180초)을 부른 횟수만큼, 중간에 멈추는 가설(03 · 13)은 `_slow` 가 받은 시간을 한 번(앱이 멈출 때까지 · 이어 갈 때까지가 그 안)."""
+
+    ROOM = 300
+    APP_DEFAULT = inspect.signature(tools.Run.phone).parameters['timeout'].default
+    DELIVERY = notify.DELIVERY_WAIT + 10  # prepare_delivery: Wi-Fi 끄기 3 + 폴링 2 + GCM 연결 대기 DELIVERY_WAIT(최악) + adb 여유
+    EMU = 'emulator-5554'
+
+    def arrange(self, case):
+        """가설을 끝까지(알림 · 카드가 다 오게) 돌릴 가짜 세계와 폰 — 기존 Card··Test 의 준비를 그대로 줄였다."""
+        if case in ('E-CARD-01', 'E-CARD-17', 'E-CARD-19'):
+            self.scripts['daily-cards'] = self.issue_to('id-1')
+        elif case in ('E-CARD-18', 'E-CARD-03'):
+            self.scripts['daily-cards'] = self.issue_to('id-1', notice=False)
+        elif case == 'E-CARD-20':
+            carded = set()
+
+            def issue():
+                for owner in ('id-2', 'id-3'):
+                    if self.world.statuses.get(owner, 'active') == 'active' and owner not in carded:
+                        carded.add(owner)
+                        self.world.give_card(owner)
+                        if owner == 'id-2' and self.granted:
+                            self.world.post(*CARD)
+            self.scripts['daily-cards'] = issue
+        elif case == 'E-CARD-13':
+            self.scripts['daily-cards'] = lambda: [self.world.give_card(o) for o in ('id-1', 'id-3') if self.world.candidates_of(o)]
+        elif case == 'E-HOME-29':
+            def opened():
+                if self.world.tables['universities'][0]['card_opens_at'] is None or \
+                        datetime.fromisoformat(self.world.tables['universities'][0]['card_opens_at']) <= self.clock.now:
+                    self.world.give_card('id-2')
+                    self.world.post(*CARD)
+            self.scripts['daily-cards'] = opened
+        self.clock.now = {'E-CARD-17': TUE(22, 30), 'E-CARD-44': TUE(22, 30), 'E-HOME-29': WED(12)}.get(case, TUE(12))
+        if case == 'E-CARD-44':
+            self.world.night = True
+            self.scripts['chat-gate'] = self.world.send_pending
+        if case == 'E-CARD-03':
+            return self.phone(top=OURS, midway_step={'step': 'live'})
+        if case == 'E-CARD-13':
+            return self.phone(midway_step={'step': 'batch'})
+        if case == 'E-HOME-23':
+            return self.phone({'result': 'pass'}, {'result': 'pass'})
+        return self.phone(serial=self.EMU) if case in ('E-CARD-20', 'E-HOME-29') else self.phone()
+
+    def observed(self, case, phone=None):
+        """[case] 를 한 번 돌려 실제로 부른 기다림의 합(초) — 그리고 돌린 결과."""
+        phone = phone or self.arrange(case)
+        waited, slow, original = [], [], td._wait_for
+        self.windows.clear()
+        self.prepared.clear()
+        with mock.patch.object(td, '_wait_for', side_effect=lambda until, seconds: (waited.append(seconds), original(until, seconds))[1]), \
+                mock.patch.object(td, '_slow', side_effect=lambda ph, timeout: (slow.append(timeout), ph)[1]):
+            result = self.go(case, phone)
+        total = (self.DELIVERY if self.prepared else 0) + sum(waited) + sum(seconds for _, seconds in self.windows) \
+            + (len(phone.jobs) - len(slow)) * self.APP_DEFAULT + sum(slow)
+        return total, result
+
+    def assert_fits(self, case):
+        from e2e import __main__ as cli
+        total, result = self.observed(case)
+        self.assertEqual(result[0], 'pass', result)
+        self.assertGreaterEqual(cli.case_limit(case, True), total + self.ROOM, f'{case}: 최악 대기 {total}초 + 준비 {self.ROOM}초')
+
+    def test_the_modules_wait_constants_match_the_code_they_stand_for(self):
+        self.assertEqual(td.APP_BASE, self.APP_DEFAULT)  # tools.Run.phone 의 기본 앱 기다림
+        self.assertEqual(td.DELIVERY_PREP, self.DELIVERY)
+
+    WATCHED = ['E-CARD-01', 'E-CARD-03', 'E-CARD-13', 'E-CARD-17', 'E-CARD-18', 'E-CARD-19', 'E-CARD-20', 'E-CARD-44', 'E-HOME-23', 'E-HOME-29']
+
+    def test_the_limits_come_from_the_worst_wait_table_and_stay_within_reason(self):
+        self.assertEqual(sorted(td.WORST_WAIT), self.WATCHED, '표에 없는 가설은 기본 420초로 남는다')
+        for case, wait in td.WORST_WAIT.items():
+            with self.subTest(case=case):
+                self.assertEqual(tools.CASE_LIMITS[case], wait + td.ROOM)
+                self.assertLessEqual(tools.CASE_LIMITS[case], 1800, f'{case}: 시계 · 알림 가설이 영원히 매달리지 않게')
+
+    def test_card_44_both_steps_fit_the_limit(self):
+        from e2e import __main__ as cli
+        night, (result, note) = self.observed('E-CARD-44')
+        self.assertEqual((result, note), ('blocked', td.NIGHT_NOTE))
+        self.world.night, self.clock.now = False, WED(9, 20)
+        morning, (result, _) = self.observed('E-CARD-44', self.phone())
+        self.assertEqual(result, 'pass')
+        self.assertGreaterEqual(cli.case_limit('E-CARD-44', True), max(night, morning) + self.ROOM, f'밤 {night}초 · 아침 {morning}초')
+
+
+for _case in ('E-CARD-01', 'E-CARD-03', 'E-CARD-13', 'E-CARD-17', 'E-CARD-18', 'E-CARD-19', 'E-CARD-20', 'E-HOME-23', 'E-HOME-29'):
+    # 가설마다 새 가짜 세계에서(앞 가설이 남긴 계정 · 카드가 다음 가설의 판정에 섞이지 않게) — 시험 하나씩
+    setattr(WorstWaitTest, f'test_{_case.replace("-", "_").lower()}_limit_is_its_worst_wait_plus_the_preparation_room',
+            lambda self, case=_case: self.assert_fits(case))
+
+
 class ClockCaseLimitTest(DeviceBase):
     """시계 가설 24 · 25 는 기준 시각(07:04 · 00:02:30)까지 앱 답을 기다린다 — 시작 허용 창의 **가장 이른 분**에 시작해도 가설 시간 상한이 그보다 길어야 한다.
     앱 답을 기다리는 시간은 가설이 실제로 `_slow` 에 넘긴 값(= app_timeout(시작, 마감))을 그대로 가로채 쓴다 — 마감 계산을 시험에 또 두지 않는다.
-    준비 계정 · 토큰 · 뒤처리는 기다림 안에 이미 들어 있다: app_timeout 은 준비에 쓴 시간만큼 줄어 앱 마감 + 120초 에서 끝난다(상한은 가설 시작부터 센다).
-    그래서 더 필요한 것은 앞(서비스 키 · 기기 열기 · 계정 만들기가 기다림보다 먼저 한 일)과 뒤(판정 · 시험대학 값 되돌리기 · 시간대 되돌리기)의 여유뿐 — [ROOM] 초."""
+    서비스 키 · 기기 열기 · 계정 · 토큰 만들기는 `app_timeout` 을 재기 **전에** 하므로 기다림 안에 흡수된다: app_timeout 은 준비에 쓴 시간만큼 줄어 앱 마감 + 120초 에서 끝난다
+    (상한은 가설 시작부터 센다). 그래서 더 필요한 것은 앱 켜기 앞 단계(Run.phone 의 HOME 키 · pidof/kill · monkey)와 뒤처리(시험대학 값 되돌리기, 25 는 시간대 원복)의 여유뿐 — [ROOM] 초."""
 
     ROOM = 300
 
@@ -1527,7 +1625,7 @@ class ClockCaseLimitTest(DeviceBase):
     def assert_limit(self, case, start, phone, expected_wait):
         from e2e import __main__ as cli
         asked = self.timeout_asked(case, start, phone)
-        self.assertEqual(asked, expected_wait, '시험이 고른 시작 시각이 창의 가장 이른 분이 아님 — 시험 자체를 다시 본다')
+        self.assertEqual(asked, expected_wait, '가설의 마감 계산이 바뀜 — 기대값과 상한을 함께 본다')
         self.assertGreaterEqual(cli.case_limit(case, True), asked + self.ROOM, f'{case}: 상한이 앱 답 기다림 {asked}초 + 여유 {self.ROOM}초보다 짧다')
 
     def test_the_monday_morning_case_limit_outlasts_the_wait_from_the_earliest_start(self):
