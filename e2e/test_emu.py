@@ -278,6 +278,21 @@ class TimezoneTest(unittest.TestCase):
         self.assertIn('시간대', str(ctx.exception))
         self.assertEqual(ran, [])
 
+    def test_the_zone_is_put_back_when_the_set_call_itself_runs_out_of_time(self):
+        adb = TimezoneAdb('GMT')
+        once = []
+
+        def late(serial, *args, check=True):
+            out = adb(serial, *args, check=check)
+            if ' '.join(args).endswith('s16 Asia/Seoul') and not once:  # 바꾼 직후 상한을 넘겨 CaseTimeout 이 난다
+                once.append(1)
+                raise tools.CaseTimeout('가설 시간 상한')
+            return out
+        with patched(late), self.assertRaises(tools.CaseTimeout):
+            with emu.seoul_timezone(S, sleep=lambda s: None):
+                self.fail('본문까지 오면 안 된다')
+        self.assertEqual((self.sets(adb), adb.zone), (['Asia/Seoul', 'GMT'], 'GMT'))
+
     def test_a_real_phone_is_refused_without_touching_it(self):
         adb = TimezoneAdb('GMT')
         with patched(adb), self.assertRaises(tools.Blocked):

@@ -540,7 +540,7 @@ def p_home_25(run, phone):
     days = (opens.date() - now.date()).days
     skew = clock_skew(phone.serial)
     end = midnight + timedelta(seconds=150)  # 00:02:30 — 00:01 허용 + 여유
-    with opens_at_set(run, opens):
+    with emu.seoul_timezone(phone.serial), opens_at_set(run, opens):  # 앱이 `_requireSeoul()` 로 시간대를 본다 — 에뮬 기본은 GMT
         said = _slow(phone, app_timeout(now_seoul(), end))(token_hash=token, days=days, deadline_ms=device_ms(end, skew))
         app = _app(check, said)
     at = _judged_at(app, 'flipped_ms', skew)
@@ -556,7 +556,7 @@ def p_home_26(run, phone):
     check = Check()
     account, token = _signed_in(run, 'home')
     opens = future_monday(now_seoul())
-    with opens_at_set(run, opens):
+    with emu.seoul_timezone(phone.serial), opens_at_set(run, opens):  # 앱이 `_requireSeoul()` 로 시간대를 본다 — 에뮬 기본은 GMT
         _app(check, phone(token_hash=token, opens_at=opens.isoformat()))
     return check.result('앱 시계 자리를 바꿔 끼움(lib/ 변경 0) — 실기기에서 아직 안 돌려 봄')
 

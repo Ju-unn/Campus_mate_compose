@@ -172,8 +172,8 @@ def seoul_timezone(serial, sleep=time.sleep):
     if before == SEOUL:
         yield
         return
-    _set_zone(serial, SEOUL)
-    try:
+    try:  # 바꾸는 호출이 상한(CaseTimeout)으로 끊겨도 원래 값으로 되돌린다
+        _set_zone(serial, SEOUL)
         for _ in range(5):  # 속성에 퍼지기까지 잠깐 걸린다
             if _zone(serial) == SEOUL:
                 break
