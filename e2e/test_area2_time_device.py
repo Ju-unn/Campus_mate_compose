@@ -292,6 +292,14 @@ class AppPhone(FakePhone):
         return super().__call__(midway, **job)
 
 
+class LaunchPhone(AppPhone):
+    test = None
+
+    def __call__(self, midway=None, **job):
+        self.adb_at_launch = list(self.test.adb_calls)
+        return super().__call__(midway, **job)
+
+
 class Clock:
     def __init__(self, now):
         self.now = now
@@ -326,6 +334,7 @@ class DeviceBase(Base):
     def reset(self):
         self.log, self.batches, self.windows, self.scripts, self.granted, self.skew = [], [], [], {}, True, 0
         self.prepared, self.prepare_error = [], None  # 푸시 연결 점검(notify.ensure_delivery) 호출: (기기, 그때까지 만든 계정 수)
+        self.zone, self.zone_stuck, self.adb_calls = 'GMT', False, []  # 에뮬 기본 시간대는 GMT 다 — [zone_stuck] 이면 바꿔도 안 먹는다
 
     # 가짜 기기 · 알림창
     def prepare(self, serial):
@@ -367,6 +376,11 @@ class DeviceBase(Base):
         return self.fresh(before)
 
     def adb(self, serial, *args, check=True):
+        self.adb_calls.append(' '.join(args))
+        if args == ('shell', 'getprop', 'persist.sys.timezone'):
+            return f'{self.zone}\n'
+        if args[:6] == ('shell', 'service', 'call', 'alarm', '3', 's16') and not self.zone_stuck:
+            self.zone = args[-1]
         if args[:3] == ('shell', 'dumpsys', 'package'):
             return f'    android.permission.POST_NOTIFICATIONS: granted={str(self.granted).lower()}, flags=[ USER_SET]\n'
         if args[:3] == ('shell', 'date', '+%s'):
@@ -375,6 +389,12 @@ class DeviceBase(Base):
 
     def phone(self, *answers, **kw):
         return AppPhone(self.world, *answers, **kw)
+
+    def launching_phone(self, *answers, serial='emulator-5554', **kw):
+        """앱을 켜는 순간까지 adb 로 무엇을 했는지 [adb_at_launch] 에 남긴다 — 시간대를 앱이 켜지기 전에 맞췄는지 본다."""
+        phone = LaunchPhone(self.world, *answers, serial=serial, **kw)
+        phone.test = self
+        return phone
 
     def go(self, case, phone):
         result = area1.attempt_phone(self.run, case, phone)
@@ -1034,7 +1054,7 @@ class Home26Test(DeviceBase):
                 self.world.sent.clear()
                 self.world.tables['universities'][0]['card_opens_at'] = None
                 self.clock.now = now
-                phone = self.phone()
+                phone = self.launching_phone()
                 result = self.go('E-HOME-26', phone)
                 self.assertEqual(result[0], 'pass', result)
                 value = self.opens_patches()[0]
@@ -1045,7 +1065,7 @@ class Home26Test(DeviceBase):
                 self.assertIsNone(self.opens_patches()[-1])
 
     def test_an_app_that_shows_the_wrong_lines_is_a_fail(self):
-        self.assertEqual(self.go('E-HOME-26', self.phone({'result': 'fail', 'note': '"D-day" 0개'}))[0], 'fail')
+        self.assertEqual(self.go('E-HOME-26', self.launching_phone({'result': 'fail', 'note': '"D-day" 0개'}))[0], 'fail')
 
 
 class Home24Test(DeviceBase):
@@ -1108,7 +1128,7 @@ class Home25Test(DeviceBase):
 
     def test_d_minus_5_on_a_wednesday_and_the_label_changes_within_a_minute_after_midnight(self):
         flipped = seoul(10, 8, 0, 0, 20)
-        phone = self.phone({'result': 'pass', 'flipped_ms': td.epoch_ms(flipped)})
+        phone = self.launching_phone({'result': 'pass', 'flipped_ms': td.epoch_ms(flipped)})
         result = self.go('E-HOME-25', phone)
         self.assertEqual(result[0], 'pass', result)
         job = phone.jobs[0]
@@ -1122,12 +1142,12 @@ class Home25Test(DeviceBase):
     def test_a_flip_before_midnight_or_after_a_minute_is_a_fail(self):
         for flipped in (seoul(10, 7, 23, 59, 30), seoul(10, 8, 0, 1, 20)):
             with self.subTest(flipped=flipped):
-                phone = self.phone({'result': 'pass', 'flipped_ms': td.epoch_ms(flipped)})
+                phone = self.launching_phone({'result': 'pass', 'flipped_ms': td.epoch_ms(flipped)})
                 self.assertEqual(self.go('E-HOME-25', phone)[0], 'fail')
 
     def test_on_a_sunday_it_still_leaves_at_least_one_day_after_midnight(self):
         self.clock.now = seoul(10, 11, 23, 50)
-        phone = self.phone({'result': 'pass', 'flipped_ms': td.epoch_ms(seoul(10, 12, 0, 0, 10))})
+        phone = self.launching_phone({'result': 'pass', 'flipped_ms': td.epoch_ms(seoul(10, 12, 0, 0, 10))})
         self.go('E-HOME-25', phone)
         self.assertGreaterEqual(phone.jobs[0]['days'], 2)  # 자정 뒤에도 D-day 가 아니라 D-숫자여야 한다
 
@@ -1136,6 +1156,67 @@ class Home25Test(DeviceBase):
         phone = self.phone()
         self.assertEqual(self.go('E-HOME-25', phone), ('blocked', '지금은 실행 금지 시간 — 23:50 에 다시'))
         self.assertEqual((phone.jobs, self.world.users), ([], []))
+
+
+class SeoulZoneCases:
+    """앱이 `_requireSeoul()` 로 기기 시간대를 보는 시계 가설(25 · 26) — 에뮬 기본 시간대(GMT)에서도 blocked 가 아니게 서울로 맞춰 켠다.
+    CASE · START · answer() 를 정하는 쪽이 이 시험을 물려받는다."""
+
+    CASE = ANSWER = None
+
+    def answer(self):
+        return dict(self.ANSWER)
+
+    def test_the_device_is_in_seoul_when_the_app_starts_and_the_zone_it_had_is_put_back(self):
+        phone = self.launching_phone(self.answer())
+        self.assertEqual(self.go(self.CASE, phone)[0], 'pass')
+        self.assertIn('shell service call alarm 3 s16 Asia/Seoul', phone.adb_at_launch)
+        self.assertEqual(self.zone, 'GMT')
+
+    def zone_sets(self):
+        return [c.rsplit(' ', 1)[1] for c in self.adb_calls if 'service call alarm 3' in c]
+
+    def test_the_zone_is_put_back_when_the_app_blocks_or_the_phone_blows_up(self):
+        self.assertEqual(self.go(self.CASE, self.launching_phone({'result': 'blocked', 'note': 'x'}))[0], 'blocked')
+        self.assertEqual((self.zone_sets(), self.zone), (['Asia/Seoul', 'GMT'], 'GMT'))  # 서울로 바꿨다가 되돌렸다
+        self.adb_calls.clear()
+        phone = self.launching_phone()
+        with mock.patch.object(type(phone), '__call__', side_effect=ZeroDivisionError):
+            with self.assertRaises(ZeroDivisionError):
+                self.go(self.CASE, phone)
+        self.assertEqual((self.zone_sets(), self.zone), (['Asia/Seoul', 'GMT'], 'GMT'))
+
+    def test_a_zone_that_will_not_change_is_blocked_and_the_app_is_never_started(self):
+        self.zone_stuck = True
+        phone = self.launching_phone(self.answer())
+        result = self.go(self.CASE, phone)
+        self.assertEqual(result[0], 'blocked')
+        self.assertIn('시간대', result[1])
+        self.assertEqual(phone.jobs, [])
+
+    def test_a_device_already_in_seoul_is_not_touched(self):
+        self.zone = 'Asia/Seoul'
+        phone = self.launching_phone(self.answer())
+        self.assertEqual(self.go(self.CASE, phone)[0], 'pass')
+        self.assertIn('shell getprop persist.sys.timezone', self.adb_calls)  # 시간대를 읽어 보고
+        self.assertEqual(self.zone_sets(), [])  # 이미 서울이라 바꾸지도 되돌리지도 않는다
+
+    def test_a_real_phone_is_refused_and_its_zone_is_never_touched(self):
+        phone = self.launching_phone(self.answer(), serial='R5CR12345')
+        result = self.go(self.CASE, phone)
+        self.assertEqual(result[0], 'blocked')
+        self.assertEqual(phone.jobs, [])
+        self.assertEqual(self.zone_sets(), [])
+
+
+class Home25ZoneTest(SeoulZoneCases, DeviceBase):
+    CASE, START = 'E-HOME-25', WED(23, 50)
+    ANSWER = {'result': 'pass', 'flipped_ms': td.epoch_ms(seoul(10, 8, 0, 0, 20))}
+
+
+class Home26ZoneTest(SeoulZoneCases, DeviceBase):
+    CASE, START = 'E-HOME-26', TUE(12)
+    ANSWER = {'result': 'pass'}
 
 
 # ── 방해 금지 시간 2단계 ────────────────────────────────────────────────────────────────────────────
@@ -1334,6 +1415,45 @@ class Card44Test(DeviceBase):
         (result, note), _ = self.morning()
         self.assertEqual(result, 'blocked')
         self.assertEqual(self.batches, [])
+
+
+class ClockCaseLimitTest(DeviceBase):
+    """시계 가설 24 · 25 는 기준 시각(07:04 · 00:02:30)까지 앱 답을 기다린다 — 시작 허용 창의 **가장 이른 분**에 시작해도 가설 시간 상한이 그보다 길어야 한다.
+    앱 답을 기다리는 시간은 가설이 실제로 `_slow` 에 넘긴 값(= app_timeout(시작, 마감))을 그대로 가로채 쓴다 — 마감 계산을 시험에 또 두지 않는다.
+    준비 계정 · 토큰 · 뒤처리는 기다림 안에 이미 들어 있다: app_timeout 은 준비에 쓴 시간만큼 줄어 앱 마감 + 120초 에서 끝난다(상한은 가설 시작부터 센다).
+    그래서 더 필요한 것은 앞(서비스 키 · 기기 열기 · 계정 만들기가 기다림보다 먼저 한 일)과 뒤(판정 · 시험대학 값 되돌리기 · 시간대 되돌리기)의 여유뿐 — [ROOM] 초."""
+
+    ROOM = 300
+
+    def earliest_minute(self, refusal, day):
+        """[refusal] 이 None(= 시작해도 됨)을 주는 가장 이른 분 — 창을 시험에서 다시 쓰지 않고 실제 함수에서 구한다."""
+        return next(moment for moment in (day(minute // 60, minute % 60) for minute in range(24 * 60)) if refusal(moment) is None)
+
+    def timeout_asked(self, case, start, phone):
+        asked = []
+        self.clock.now = start
+        with mock.patch.object(td, '_slow', side_effect=lambda ph, timeout: (asked.append(timeout), ph)[1]):
+            self.go(case, phone)
+        self.assertEqual(len(asked), 1, (case, asked))
+        return asked[0]
+
+    def assert_limit(self, case, start, phone, expected_wait):
+        from e2e import __main__ as cli
+        asked = self.timeout_asked(case, start, phone)
+        self.assertEqual(asked, expected_wait, '시험이 고른 시작 시각이 창의 가장 이른 분이 아님 — 시험 자체를 다시 본다')
+        self.assertGreaterEqual(cli.case_limit(case, True), asked + self.ROOM, f'{case}: 상한이 앱 답 기다림 {asked}초 + 여유 {self.ROOM}초보다 짧다')
+
+    def test_the_monday_morning_case_limit_outlasts_the_wait_from_the_earliest_start(self):
+        start = self.earliest_minute(td.monday_morning_refusal, MON)
+        self.assertEqual((start.hour, start.minute), (6, 40))
+        phone = self.phone({'result': 'pass', 'opened_ms': td.epoch_ms(MON(7, 0, 20)), 'loads_ms': []})
+        self.assert_limit('E-HOME-24', start, phone, 24 * 60 + 120)  # 06:40 → 07:04 = 24분 + 앱 답 여유 120초
+
+    def test_the_midnight_case_limit_outlasts_the_wait_from_the_earliest_start(self):
+        start = self.earliest_minute(td.midnight_refusal, WED)
+        self.assertEqual((start.hour, start.minute), (23, 40))
+        phone = self.launching_phone({'result': 'pass', 'flipped_ms': td.epoch_ms(seoul(10, 8, 0, 0, 20))})
+        self.assert_limit('E-HOME-25', start, phone, 22 * 60 + 30 + 120)  # 23:40 → 00:02:30 = 22분 30초 + 120초
 
 
 # ── 등록 · 안전망 ───────────────────────────────────────────────────────────────────────────────────

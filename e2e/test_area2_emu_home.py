@@ -129,7 +129,6 @@ class EmuHomeBase(tt.DeviceBase):
         super().reset()
         self.adb_log, self.ui, self.net, self.online = [], COPY_UI, [], True
         self.sheets, self.density, self.font, self.display_ignored = (), None, None, False
-        self.zone, self.zone_stuck = 'GMT', False  # 에뮬 기본 시간대는 GMT 다(첫 실행에서 E-HOME-20 이 blocked)
 
     def adb(self, serial, *args, check=True):
         line = ' '.join(args)
@@ -150,10 +149,6 @@ class EmuHomeBase(tt.DeviceBase):
             self.font = None
         if line == 'shell dumpsys activity activities':
             return dump(*self.sheets)
-        if line == 'shell getprop persist.sys.timezone':
-            return f'{self.zone}\n'
-        if line.startswith('shell service call alarm 3 s16 ') and not self.zone_stuck:
-            self.zone = args[-1]
         return super().adb(serial, *args, check=check)
 
     def emu_phone(self, *answers, **kw):
