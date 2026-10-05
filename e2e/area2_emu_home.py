@@ -115,12 +115,12 @@ def _opens(now):
 
 def p_home_20(run, phone):
     """닫힌 학교(다음 월요일 07:00)의 메인 탭 = 대기 화면 — "우리 학교 첫 카드까지 · D-N" · 큰 날짜 "M월 D일" · 모집 인원 · 초대 버튼."""
-    _emulator(phone)
+    serial = _emulator(phone)
     check = Check()
     account, token = _signed_in(run, 'home')
     now = td.now_seoul()
     opens = _opens(now)
-    with td.opens_at_set(run, opens) as school:
+    with emu.seoul_timezone(serial), td.opens_at_set(run, opens) as school:
         recruit = _recruits(run, check, school, account)
         _app(check, phone(token_hash=token, days=days_until(now, opens), date=date_label(opens), recruit=recruit,
                           today=now.date().isoformat()))
@@ -238,7 +238,7 @@ def p_home_33(run, phone):
     check = Check()
     _, token = _signed_in(run, 'home')
     opens = _opens(td.now_seoul())
-    with td.opens_at_set(run, opens), display_big(serial, FONT_SCALE, WIDTH_DP):
+    with emu.seoul_timezone(serial), td.opens_at_set(run, opens), display_big(serial, FONT_SCALE, WIDTH_DP):
         _app(check, phone(token_hash=token, font_scale=FONT_SCALE, width_dp=WIDTH_DP, date=date_label(opens)))
     return check.result()
 
