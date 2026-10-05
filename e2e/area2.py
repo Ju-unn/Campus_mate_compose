@@ -137,11 +137,15 @@ def _new_id():
     return str(uuid.uuid4())
 
 
-def _batch(name):
+def _batch(name, before=None):
     """Cloud Scheduler job 을 지금 한 번 돌린다(tools.batch = gcloud). 응답 본문은 못 읽고 끝도 기다려 주지 않는다 —
     그래서 가설은 DB · 저장소를 다시 읽어 결과를 본다. 실제 호출이라 대장이 시각을 정해 돌린다 —
-    실행 금지 시간(batch_gate)이면 gcloud 를 부르지 않고 blocked."""
+    실행 금지 시간(batch_gate)이면 gcloud 를 부르지 않고 blocked.
+    [before] 는 관문을 지난 **뒤** gcloud 를 부르기 **바로 앞**에서 한 번 부른다 — 배치가 읽는 시각(matches.created_at)을 마지막에 확정하는
+    자리(관문에서 막히면 아무것도 안 옮겨진다)."""
     batch_gate.check(name)
+    if before:
+        before()
     try:
         tools.batch(name)
     except (subprocess.CalledProcessError, OSError) as e:

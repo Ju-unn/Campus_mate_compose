@@ -20,6 +20,7 @@ from e2e import area3_phone  # noqa: F401 — 영역 3 폰 1차 가설을 area1.
 from e2e import area3_phone2  # noqa: F401 — 영역 3 폰 2차(입력 · 보내기 · 신고 · 수락 · 시트) 가설을 같은 곳에 더한다
 from e2e import area3_phone3  # noqa: F401 — 영역 3 폰 3차(꺼진 앱에서 알림 눌러 방 열기) 가설을 같은 곳에 더한다
 from e2e import area3_phone4  # noqa: F401 — 영역 3 폰 4차(매칭 시각을 옮긴 방의 14f 시트) 가설을 같은 곳에 더한다
+from e2e import area3_phone5  # noqa: F401 — 영역 3 배치(chat-gate · cleanup 을 실제로 부르는) 가설 — 폰 8개는 area1.PHONE 에, API 1개는 아래 API_CASES 에 더한다
 from e2e import area3_safe_phone  # noqa: F401 — 영역 3 안전 폰(신고 · 차단 · 정지) 가설을 같은 곳에 더한다
 from e2e import area1_b3  # 묶음 3(사진 세트) — 같은 방식
 from e2e import area1_b4  # noqa: F401 — 묶음 4(아바타) — 같은 방식
@@ -31,6 +32,7 @@ from e2e import area4  # noqa: F401 — 영역 4 가설을 같은 곳에 더한�
 from e2e import area2_phone  # noqa: F401 — 영역 2 폰 A 가설을 area1.PHONE · BUNDLES 에 더한다
 from e2e import area2_phone_b  # noqa: F401 — 영역 2 폰 A 2차 가설을 더한다
 from e2e import area4_set2  # noqa: F401 — 영역 4 설정 2차(FAQ · 초대 · 로그아웃 · 탈퇴)
+from e2e import area4_push_a4  # noqa: F401 — 영역 4 알림 A4(토큰 · 권한 · 로그인/로그아웃)
 from e2e import area2_phone3  # noqa: F401 — 영역 2 폰 A 3차(망 끊기 · 카드 · 알림 · 공유 창 · 하트 다시 만들기) 가설
 from e2e import area2_time_device  # noqa: F401 — 영역 2 기기 · 시각 가설 13(배치 + 알림 · 시계)
 from e2e import area4_contacts  # noqa: F401 — 영역 4 연락처(B에뮬)
@@ -38,6 +40,7 @@ from e2e import area3_contacts  # noqa: F401 — 영역 3 연락처 차단(B에�
 from e2e import area2_time_batch  # 영역 2 배치 가설(daily-cards · cleanup 을 불러 PC 에서 DB · API 로 읽음)
 from e2e import area2_time_api  # 영역 2 시간 API(배치 없이 DB 시각만 옮겨 API · RPC 로 확인)
 from e2e import area2_two_accept  # noqa: F401 — 영역 2 두 기기 카드 수락(일시중지 · 거절 · 매칭 · 연타 · 이미 매칭된 사람) 가설을 twodev.TWO · area1.BUNDLES 에 더한다
+from e2e import area4_push  # noqa: F401 — 영역 4 알림 A1(받는 사람 폰 + 상대 API, 알림 읽기)
 from e2e.tools import (DEVICE_PORT, DEVICES, ROOT, TEXT, Hub, Run, adb, cleanup, ensure_no_real_users, env, latest, scenario_rows,
                        serial, service_key, snapshot_blocks, verdict)
 
@@ -52,6 +55,7 @@ API_CASES = {**{c: area1 for c in area1.CASES}, **{c: area2 for c in area2.CASES
              **{c: area3_safe for c in area3_safe.CASES}, **{c: area5_api for c in area5_api.CASES},
              **{c: area2_time_api for c in area2_time_api.CASES},
              **{c: area2_time_batch for c in area2_time_batch.CASES}}  # API 가설 → 그것을 가진 모듈
+API_CASES.update({c: area3_phone5 for c in area3_phone5.CASES})  # E-CHAT-69(정리 배치 · 폰 없음) — area3.CASES 에 안 넣어 area3-api 묶음이 그대로다
 
 
 def _run(args):
