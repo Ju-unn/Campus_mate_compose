@@ -34,6 +34,7 @@ from e2e import area2_phone  # noqa: F401 — 영역 2 폰 A 가설을 area1.PHO
 from e2e import area2_phone_b  # noqa: F401 — 영역 2 폰 A 2차 가설을 더한다
 from e2e import area4_set2  # noqa: F401 — 영역 4 설정 2차(FAQ · 초대 · 로그아웃 · 탈퇴)
 from e2e import area4_push_a4  # noqa: F401 — 영역 4 알림 A4(토큰 · 권한 · 로그인/로그아웃)
+from e2e import area4_push_gate  # noqa: F401 — 영역 4 알림 채팅 게이트 배치(리마인드 · 닫기, chat-gate)
 from e2e import area2_phone3  # noqa: F401 — 영역 2 폰 A 3차(망 끊기 · 카드 · 알림 · 공유 창 · 하트 다시 만들기) 가설
 from e2e import area5_read  # noqa: F401 — 영역 5 폰 A 화면 읽기(나 탭 · 탈퇴 · 시스템 뒤로) 가설을 같은 곳에 더한다
 from e2e import area2_time_device  # noqa: F401 — 영역 2 기기 · 시각 가설 13(배치 + 알림 · 시계)
