@@ -225,6 +225,21 @@ gcloud iam service-accounts add-iam-policy-binding <계정 이메일> \
 받는다 — 겉보기엔 정상 동작이다. 확인할 곳은 Cloud Run 로그의 `아바타 생성 실패`
 (`app/profile_onboarding/avatars.py`) 한 줄뿐이다.
 
+**필수 업로드 — 기본 아바타 원본 `avatars/defaults/fallback-avatar.png`** (결함 D-02, 2026-10-05).
+아바타를 5번 연속 못 만든 사람에게 기본 아바타를 주는 보상(`copy_fallback_avatar`)은 이 파일을 **복사**하는
+것으로 시작한다. 버킷에 없으면 복사가 멈춰서 행도 하트도 안 생기는데, 겉으로는 조용하다. 큐를 만들 때 같이 올린다.
+
+```bash
+# 그림은 사용자가 정한 PNG 한 장(성별 무관 공용). 운영 쓰기라 사용자 허락 뒤에만 올린다.
+supabase storage cp <로컬 PNG> ss:///avatars/defaults/fallback-avatar.png   --project-ref <project-ref> --experimental --content-type image/png
+```
+
+- **빠뜨려도 서버는 뜬다.** 시작할 때 서버가 이 파일을 한 번 읽어 보고(`app/profile_onboarding/startup_check.py`),
+  없으면 Cloud Run 로그에 **ERROR**(`기본 아바타 원본이 없다`)를 남기고 Discord 알림방에도 한 줄 보낸다.
+  부팅은 막지 않는다 — 이 파일이 없어도 가입 말고는 멀쩡하다.
+- 배포 직후 §3 확인과 함께 로그에서 그 ERROR 가 **없는지** 본다. 인스턴스가 여러 개 뜨거나 0 에서 다시 뜰 때(콜드스타트)마다 파일이 올라올 때까지 알림이 간다.
+- 목록을 못 읽은 경우(Storage 장애 · 네트워크)는 "없다" 가 아니라서 WARNING 만 남기고 Discord 는 보내지 않는다.
+
 ## 4-3. 배치 인증 OIDC 전환 (조각 6, 2026-09-27)
 
 §4 · §4-1 의 job 2개는 `X-Batch-Secret` 헤더에 공유 열쇠를 실어 온다. 열쇠가 job 설정과 서버 양쪽에
