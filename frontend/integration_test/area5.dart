@@ -26,6 +26,7 @@ import 'package:campus_mate/profile/view/tag_picker_screen.dart';
 import 'package:campus_mate/profile/viewmodel/avatar_generation_view_model.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderAbstractViewport;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path_provider/path_provider.dart';

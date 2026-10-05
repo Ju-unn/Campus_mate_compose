@@ -20,7 +20,8 @@
                 "카톡 아이디가 샜다" 는 거짓 FAIL 이 난다. 응답은 칸 이름(kakao · phone · real_name · photo)과 값(카톡 아이디 · 실명 · 전화 두 모양)과
                 실사진 주소(profile-photos 버킷)를 모두 본다.
   E-ME-08       "사진 3장" 은 계정 공장의 2장에 DB 로 한 장을 더한다(Vision · AI 안 부름, 파일은 profile-photos 버킷 `{id}/` 아래라 뒷정리가 지운다).
-                섹션 순서는 화면 위치(스크롤을 감안한 y)로 읽는다.
+                섹션 순서는 목록 안 위치(뷰포트가 그 제목을 맨 위에 두려면 필요한 스크롤 값 — 지금 스크롤과 무관)로 읽는다.
+                화면 y + 스크롤 값으로 읽던 때 폰이 ['실제 사진','기본 정보','자기소개','선호 조건'] 을 말했다(10-05, 화면은 기대 순서).
   E-ME-09       판이 둘(끝값 · 전 구간)이라 계정 둘 · 앱 두 번. 나이 문구의 줄표는 en dash(–, profile_manage_screen.dart `_ageRangeNote`).
   E-ME-28 · 29 · 30  PC 가 nickname_changed_at 을 지금 기준 상대값으로 넣고(시나리오의 2026-09-15 는 안 쓴다), 먼저 서버 GET /me/profile 의 풀리는 때가 그 값 + 30일인지 본다
                 (서버 시계와 어긋나면 앱 탓으로 세지 않고 blocked). 29 의 두 경계는 판이 둘(계정 둘 · 앱 두 번)이고, 잠긴 쪽은 2분 여유라 앱이 읽는 사이 잠금이
@@ -29,7 +30,10 @@
                 14f-1 시트 "정지 중에 탈퇴할까요?" 가 뜬다. 서버 주석(account/router.py:19 "정지 · 미인증인 사람도 나갈 수 있어야 한다")과 앱이 이제 맞는다.
                 "정지 계정이 다른 화면으로 못 가는 것"(auth_redirect.dart:40-41 — 지시서의 35-37 은 옛 줄)은 E-SAFE-50 의 stays 가 이미 보니 새로 판정하지 않는다. "정말 영구 삭제" 는 누르지 않는다.
   E-EDGE-13     15-5 · 15-4 는 고칠 값이 없어 열기만 한다(시나리오는 "각각 값을 고친 상태"). 나머지 다섯은 앱이 값을 하나 고친 채(저장 안 함) 멈추고, PC 가 시스템 뒤로를
-                보낸 뒤 앱이 도착 화면의 앱바 제목을 말한다.
+                보낸 뒤 앱이 도착 화면의 앱바 제목을 말한다. 글자를 넣은 15c · 15-6 은 멈추기 전에 앱이 포커스를 풀어 키보드를 닫는다(unfocused) —
+                키보드가 떠 있으면 첫 뒤로는 키보드만 닫는다(10-05 폰: 그 둘만 뒤로 뒤에도 제자리). 첫 뒤로 뒤에도 연 화면 그대로면 앱이
+                `{이름}-again` 에서 한 번 더 멈추고 PC 가 뒤로를 한 번 더 보낸다(second_title, 진단). 판정은 첫 뒤로 뒤 화면 — 두 번째에 나갔어도 fail 이고
+                메모로 까닭을 가른다. 몇 번 멈출지 미리 모르니 앱은 끝에 `end` 에서 멈추고 PC 는 거기까지 뒤로를 보낸다.
   E-EDGE-14     15b · 16c 1차 · 16c 최종, 세 번 멈춘다. "아무 요청도 안 간다" 는 DB(아바타 행 · status · 재가입 제한)가 그대로인 것으로 본다.
   E-EDGE-16     동의 전 계정(`new`)으로 02-c 에 닿은 앱에 뒤로를 보낸 뒤 맨 앞 화면이 우리 앱인지(dumpsys) 본다.
   E-EDGE-23     결과 기록 — 뒤로 한 번 뒤 15 면 1겹, 15-5 가 또 나오면 2겹. 두 번째 누름이 15-5 가 아닌 화면에 떨어졌으면 판정 못 함(blocked).
@@ -72,6 +76,8 @@ EDGE_13 = (('15-5', '15-5', '15', '15-5'), ('15-4', '15-4', '15', '15-4'), ('15c
            ('06-1', '06-1', '15-5', '06-1 편집'), ('tag', 'tag', '15c', '태그 편집(관심사)'), ('15-6', '15-6', '15-5', '15-6'),
            ('15-7', '15-7', '15-5', '15-7'))
 NO_VALUE_TO_EDIT = {'15-5', '15-4'}
+AGAIN = '-again'  # EDGE-13 — 첫 뒤로 뒤에도 연 화면 그대로면 앱이 `{이름}-again` 에서 한 번 더 멈춘다(PC 는 뒤로를 한 번 더)
+END = 'end'  # EDGE-13 앱의 마지막 멈춤 — 뒤로 없이 Run.phone 의 마지막 go 로 끝난다
 # EDGE-14 — (멈추는 이름, 뒤로 뒤 도착 화면, 라벨, 다른 시트가 열렸는지 보는 칸)
 EDGE_14 = (('regen', '15', '15b', None), ('withdraw-first', '16', '16c 1차', 'final_open'), ('withdraw-final', '16', '16c 최종', 'first_open'))
 SAVED = ('nickname,nickname_changed_at,bio,height_cm,mbti,major,interest_tags,my_traits,ideal_traits,preferred_age_min,preferred_age_max,'
@@ -158,6 +164,21 @@ def _press_back(phone, pressed):
         pressed.append(said.get('step'))
         tools.adb(phone.serial, *BACK)
     return press
+
+
+def _backs_until_end(phone, pressed):
+    """EDGE-13 midway — 앱이 멈출 때마다 시스템 뒤로를 보내고, [END] 멈춤에서 돌아간다(마지막 go 는 Run.phone 이 넣는다).
+    `{이름}-again` 멈춤은 첫 뒤로가 안 먹은 화면에만 생겨 몇 번 멈출지 미리 모른다 — 그래서 stepper(정해진 횟수) 대신 끝 멈춤까지 돈다."""
+    press = _press_back(phone, pressed)
+
+    def midway(said):
+        while said.get('step') != END:
+            press(said)
+            phone.hub.go()
+            said = phone.hub.wait(120)
+            if said is None or 'result' in said:
+                raise Blocked(f'앱이 끝 멈춤({END}) 전에 {"끝남" if said else "답하지 않음"} — 뒤로 {len(pressed)}번 뒤')
+    return midway
 
 
 # ── E-ME-01 · 02 ────────────────────────────────────────────────────────────────────────────────────
@@ -429,13 +450,26 @@ def p_wd_17(run, phone):
 
 # ── E-EDGE-13 · 14 · 16 · 23 ────────────────────────────────────────────────────────────────────────
 
+def _second_back(walk, opened, arrival):
+    """첫 뒤로 뒤에도 연 화면에 남아 뒤로를 한 번 더 보낸 화면 — 두 번째 뒤로 뒤 앱바로 무엇이 첫 뒤로를 받았는지 가린다(판정은 fail 그대로,
+    앱 결함인지 안드로이드 표준 동작(키보드가 뒤로를 먼저 받음)인지는 사람이 가린다)."""
+    second = walk.get('second_title', MISSING)
+    if second == arrival:
+        cause = '포커스를 정리한 뒤라 키보드 탓으로 설명되지 않는다' if walk.get('unfocused') is True else '입력칸/키보드가 첫 뒤로를 받았을 가능성'
+        return f'첫 뒤로가 먹지 않고 두 번째에 나갔다 — {cause}'
+    if second == opened:
+        return '뒤로가 두 번 다 먹지 않았다'
+    return f'두 번째 뒤로 뒤 앱바 {second!r}'
+
+
 def p_edge_13(run, phone):
     check = Check()
     account, token = _home(run)
     before = _saved(run, account)
     pressed = []
-    said = _app(check, phone(midway=stepper(phone, *[_press_back(phone, pressed)] * len(EDGE_13)), token_hash=token))
-    want = [step for step, *_ in EDGE_13]
+    said = _app(check, phone(midway=_backs_until_end(phone, pressed), token_hash=token))
+    again = {name.removesuffix(AGAIN) for name in pressed if name.endswith(AGAIN)}
+    want = [name for step, *_ in EDGE_13 for name in (step, step + AGAIN) if name == step or step in again]
     check.that(pressed == want, f'앱이 멈춘 화면 {pressed}(기대 {want})')
     walks = {w.get('step'): w for w in said.get('walks') or []}
     for step, opened, arrival, label in EDGE_13:
@@ -443,7 +477,12 @@ def p_edge_13(run, phone):
         check.that(walk.get('opened', MISSING) == TITLES[opened], f"{label}: 연 화면 앱바 {walk.get('opened', MISSING)!r}(기대 {TITLES[opened]!r})")
         if step not in NO_VALUE_TO_EDIT:
             check.that(walk.get('edited') is True, f"{label}: 값을 고친 상태 {walk.get('edited', MISSING)}(기대 True)")
-        check.that(walk.get('title', MISSING) == TITLES[arrival], f"{label}: 뒤로 뒤 앱바 {walk.get('title', MISSING)!r}(기대 {TITLES[arrival]!r})")
+        # 판정은 첫 뒤로 뒤 화면 — 두 번째 뒤로에 나갔어도 pass 가 아니다(메모로 까닭만 가린다)
+        why = f' — {_second_back(walk, TITLES[opened], TITLES[arrival])}' if step in again else ''
+        check.that(walk.get('title', MISSING) == TITLES[arrival], f"{label}: 뒤로 뒤 앱바 {walk.get('title', MISSING)!r}(기대 {TITLES[arrival]!r}){why}")
+        if step not in again:
+            check.that(walk.get('second_title', MISSING) is None,
+                       f"{label}: 두 번째 뒤로를 안 보냈는데 두 번째 뒤로 뒤 앱바 {walk.get('second_title', MISSING)!r}(기대 None)")
         check.that(walk.get('asked') is False, f"{label}: 뒤로 뒤 묻는 창 {walk.get('asked', MISSING)}(기대 0번)")
     check.that(_saved(run, account) == before, '뒤로 나간 뒤 DB 가 바뀜(저장 안 한 값이 저장됨)')
     return check.result('15-5 · 15-4 는 고칠 값이 없어 열기만 했다(시나리오는 "각각 값을 고친 상태")')

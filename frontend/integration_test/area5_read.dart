@@ -35,12 +35,15 @@ Future<Map<String, Object?>> _readHeartSheet(WidgetTester tester) async {
 
 // ── 15-5 읽기 ───────────────────────────────────────────────────────────────────────────────────────
 
-/// 섹션 제목을 화면 위치(스크롤을 감안한 y)로 줄 세운다 — 목록은 보이는 줄만 만들어 제목마다 맨 위에서 내려가며 읽는다.
+/// 섹션 제목을 목록 안 위치로 줄 세운다 — 목록은 보이는 줄만 만들어 제목마다 맨 위에서 내려가며 끌어온 뒤, 뷰포트가 그 제목을
+/// 맨 위에 두려면 필요한 스크롤 값(= 목록 안 y)을 읽는다. 줄의 배치 위치로 정해져 지금 스크롤 · 마지막 그리기와 무관하다.
+/// 화면 y + 스크롤 값은 scrollUntilVisible 이 끝에 그리기 없이 스크롤만 옮겨(ensureVisible) 서로 다른 때를 가리킬 수 있다(E-ME-08 폰 10-05).
 Future<List<String>> _sectionOrder(WidgetTester tester) async {
   final ys = <String, double>{};
   for (final title in _sectionTitles) {
     await _reveal(tester, find.text(title));
-    ys[title] = tester.getTopLeft(find.text(title).first).dy + tester.state<ScrollableState>(_manageScrollable).position.pixels;
+    final header = tester.renderObject(find.text(title).first);
+    ys[title] = RenderAbstractViewport.of(header).getOffsetToReveal(header, 0).offset;
   }
   return [..._sectionTitles]..sort((a, b) => ys[a]!.compareTo(ys[b]!));
 }
@@ -78,12 +81,40 @@ Future<Map<String, Object?>> _readBasicInfo(WidgetTester tester) async {
 
 // ── 시스템 뒤로 ─────────────────────────────────────────────────────────────────────────────────────
 
+/// 입력칸이 아직 포커스를 쥐고 있는지 — 쥐고 있으면 키보드가 떠 있어 첫 시스템 뒤로는 키보드만 닫는다(안드로이드 표준).
+bool _typing(WidgetTester tester) =>
+    tester.widgetList<EditableText>(find.byType(EditableText)).any((field) => field.focusNode.hasFocus);
+
 /// 지금 화면(앱바 글자)을 말하고 `step` 에서 멈춘다 — PC 가 시스템 뒤로를 보내고 go 를 넣으면 도착 화면을 말한다.
-Future<Map<String, Object?>> _backFrom(WidgetTester tester, String name, {bool? edited}) async {
+/// [typed](글자를 넣은 화면)면 멈추기 전에 포커스를 풀어 기기 키보드를 닫는다 — 이 바인딩은 시험용 키보드가 아니라 기기 키보드를 쓴다
+/// (integration_test 의 registerTestTextInput 이 false — testTextInput.hide() 는 assert 로 죽는다). 포커스가 풀리면 입력 연결이 닫히며 TextInput.hide 가 간다.
+/// 첫 뒤로 뒤에도 연 화면 그대로면 `$name-again` 에서 한 번 더 멈춰 두 번째 뒤로 뒤 화면도 말한다(진단 — 판정은 PC 가 첫 뒤로로 한다).
+Future<Map<String, Object?>> _backFrom(WidgetTester tester, String name, {bool? edited, bool typed = false}) async {
   final opened = _title(tester);
+  if (typed) {
+    FocusManager.instance.primaryFocus?.unfocus();
+    await wait(tester, const Duration(seconds: 1)); // 키보드가 내려가는 움직임
+  }
+  final unfocused = typed && !_typing(tester);
   await step(name);
   await wait(tester, const Duration(milliseconds: 1500)); // 닫히는 움직임
-  return {'step': name, 'opened': opened, 'edited': edited, 'title': _title(tester), 'asked': _asking()};
+  final title = _title(tester);
+  final asked = _asking(); // 두 번째 뒤로가 묻는 창을 닫기 전에 본다
+  String? second;
+  if (title == opened) {
+    await step('$name-again');
+    await wait(tester, const Duration(milliseconds: 1500));
+    second = _title(tester);
+  }
+  return {
+    'step': name,
+    'opened': opened,
+    'edited': edited,
+    'unfocused': unfocused,
+    'title': title,
+    'second_title': second,
+    'asked': asked,
+  };
 }
 
 /// 시트가 떠 있는 채 `step` 에서 멈춘다 — 뒤로 뒤에 [sheet] 가 닫혔는지, 어느 화면인지, [other] 시트가 대신 열리지 않았는지 말한다.
@@ -259,7 +290,7 @@ final Map<String, Area1Case> area5CasesRead = {
     await wait(tester, const Duration(milliseconds: 500));
     const bio = '고치다 만 글';
     await type(tester, find.byType(TextField).first, bio);
-    walks.add(await _backFrom(tester, '15c', edited: fieldText(tester, find.byType(TextField)) == bio));
+    walks.add(await _backFrom(tester, '15c', edited: fieldText(tester, find.byType(TextField)) == bio, typed: true));
     await _returnTo(tester, '프로필 편집');
     // 06-1(나이 "상관없어요" 를 바꾼 채) → 15-5
     await _reveal(tester, _entry(_agePref));
@@ -291,7 +322,7 @@ final Map<String, Area1Case> area5CasesRead = {
     final height = find.byType(TextField).at(1);
     final next = '${(int.tryParse(fieldText(tester, height)) ?? 170) + 1}';
     await type(tester, height, next);
-    walks.add(await _backFrom(tester, '15-6', edited: fieldText(tester, height) == next));
+    walks.add(await _backFrom(tester, '15-6', edited: fieldText(tester, height) == next, typed: true));
     await _returnTo(tester, '프로필 편집');
     // 15-7(사진 한 장을 뺀 채) → 15-5
     await _reveal(tester, find.text(_replacePhotos));
@@ -302,6 +333,7 @@ final Map<String, Area1Case> area5CasesRead = {
     await tap(tester, find.byIcon(AppIcons.x).first);
     await wait(tester, const Duration(milliseconds: 500));
     walks.add(await _backFrom(tester, '15-7', edited: find.byIcon(AppIcons.x).evaluate().length == removable - 1));
+    await step('end'); // 끝 멈춤 — `-again` 멈춤이 몇 번 생길지 PC 가 미리 모르니 끝을 알린다(여기서는 뒤로가 안 온다)
     return {'walks': walks};
   }),
   'E-EDGE-14': _session((tester, job) async {

@@ -42,6 +42,8 @@ EN_DASH = '–'
 EDGE_13 = [('15-5', '15-5', '15'), ('15-4', '15-4', '15'), ('15c', '15c', '15-5'), ('06-1', '06-1', '15-5'),
            ('tag', 'tag', '15c'), ('15-6', '15-6', '15-5'), ('15-7', '15-7', '15-5')]
 EDITED = {'15c', '06-1', 'tag', '15-6', '15-7'}  # 15-5 · 15-4 는 고칠 값이 없다 — 열기만
+TYPED = {'15c', '15-6'}  # 글자를 넣은 화면 — 앱이 뒤로 전에 포커스를 풀어 키보드를 닫는다
+STOPS = [s for s, _, _ in EDGE_13] + ['end']  # EDGE-13 앱이 멈추는 차례 — 끝 멈춤 'end' 에서는 뒤로를 안 보낸다
 # 뒤로 나간 뒤에도 같아야 하는 프로필 칸 — 모듈의 SAVED 와 같은 열일곱 칸(시험이 따로 적는다: 모듈에서 칸이 빠지면 여기서 잡힌다)
 SAVED_COLUMNS = ['nickname', 'nickname_changed_at', 'bio', 'height_cm', 'mbti', 'major', 'interest_tags', 'my_traits', 'ideal_traits',
                  'preferred_age_min', 'preferred_age_max', 'preferred_height_min', 'preferred_height_max', 'preferred_mbti_flags',
@@ -845,27 +847,74 @@ class SuspendedEntranceTest(ReadBase):
 # ── 시스템 뒤로 · 경계 ────────────────────────────────────────────────────────────────────────────────
 
 def walks(**over):
-    """EDGE-13 앱의 말 — 화면마다 열린 화면 · 고친 값 · 뒤로 뒤 도착 화면 · 묻는 창. [over] 는 {화면 이름: 바꿀 칸}."""
+    """EDGE-13 앱의 말 — 화면마다 열린 화면 · 고친 값 · 포커스 정리 · 뒤로 뒤 도착 화면 · 두 번째 뒤로 뒤 화면(안 보냈으면 None) · 묻는 창.
+    [over] 는 {화면 이름: 바꿀 칸}."""
     out = []
     for step, opened, arrival in EDGE_13:
-        walk = {'step': step, 'opened': TITLES[opened], 'edited': step in EDITED or None, 'title': TITLES[arrival], 'asked': False}
+        walk = {'step': step, 'opened': TITLES[opened], 'edited': step in EDITED or None, 'unfocused': step in TYPED,
+                'title': TITLES[arrival], 'second_title': None, 'asked': False}
         walk.update(over.get(step, {}))
         out.append(walk)
     return said(walks=out)
 
 
 class SystemBackTest(ReadBase):
-    def edge13(self, answer):
-        return StepApp(as_fn(answer), [s for s, _, _ in EDGE_13], self.events)
+    def edge13(self, answer, steps=STOPS):
+        return StepApp(as_fn(answer), steps, self.events)
+
+    def stays(self, step, second, **extra):
+        """[step] 에서 첫 뒤로 뒤에도 연 화면 그대로 — 앱이 `{step}-again` 에서 한 번 더 멈추고 두 번째 뒤로 뒤 [second] 를 말한다."""
+        steps = list(STOPS)
+        steps.insert(steps.index(step) + 1, f'{step}-again')
+        opened = {s: o for s, o, _ in EDGE_13}[step]
+        return self.edge13(walks(**{step: {'title': TITLES[opened], 'second_title': second, **extra}}), steps)
 
     def test_edge_13_back_goes_one_screen_up_on_seven_screens_without_a_dialog_and_changes_nothing(self):
         _, app = self.passes('E-EDGE-13', None, self.edge13(walks()))
         self.assertEqual(app.jobs, [{'token_hash': 'h'}])
-        self.assertEqual(self.adb_calls, [BACK] * 7)
+        self.assertEqual(self.adb_calls, [BACK] * 7)  # 끝 멈춤에서는 뒤로를 안 보낸다
         want = []
         for step, _, _ in EDGE_13:
             want += [f'step:{step}', 'back', 'go']
-        self.assertEqual(self.events, want)  # 앱이 멈춘 다음에 뒤로, 그다음에 go
+        self.assertEqual(self.events, want + ['step:end', 'go'])  # 앱이 멈춘 다음에 뒤로, 그다음에 go — 끝 멈춤은 go 만
+
+    def test_edge_13_a_screen_left_only_by_a_second_back_is_a_fail_that_says_the_field_may_have_taken_the_first(self):
+        note = self.fails('E-EDGE-13', None, "15c: 뒤로 뒤 앱바 '자기소개·태그 수정'(기대 '프로필 편집')", '첫 뒤로가 먹지 않고 두 번째에 나갔다',
+                          '입력칸/키보드가 첫 뒤로를 받았을 가능성', app=self.stays('15c', TITLES['15-5'], unfocused=False))
+        self.assertNotIn('멈춘 화면', note)
+        self.assertEqual(self.adb_calls, [BACK] * 8)  # 15c 에서만 두 번
+        self.assertEqual(self.events[6:12], ['step:15c', 'back', 'go', 'step:15c-again', 'back', 'go'])
+
+    def test_edge_13_after_the_focus_was_cleared_a_second_back_exit_is_not_put_down_to_the_keyboard(self):
+        note = self.fails('E-EDGE-13', None, '15-6: 뒤로 뒤 앱바', '첫 뒤로가 먹지 않고 두 번째에 나갔다', '포커스를 정리한 뒤',
+                          app=self.stays('15-6', TITLES['15-5']))  # 15-6 은 글자를 넣은 화면 — 앱이 포커스를 풀었다고 말한다
+        self.assertNotIn('입력칸/키보드가 첫 뒤로를 받았을 가능성', note)
+
+    def test_edge_13_a_screen_that_stays_after_both_backs_says_so(self):
+        note = self.fails('E-EDGE-13', None, '06-1 편집', '뒤로가 두 번 다 먹지 않았다', app=self.stays('06-1', TITLES['06-1']))
+        self.assertNotIn('두 번째에 나갔다', note)
+
+    def test_edge_13_a_second_back_that_lands_elsewhere_names_that_screen(self):
+        note = self.fails('E-EDGE-13', None, '태그 편집(관심사)', "두 번째 뒤로 뒤 앱바 '내 프로필'", app=self.stays('tag', TITLES['15']))
+        self.assertNotIn('두 번 다', note)
+
+    def test_edge_13_the_second_title_is_none_when_no_second_back_was_sent(self):
+        self.fails('E-EDGE-13', None, '15-4', '두 번째', app=self.edge13(walks(**{'15-4': {'second_title': TITLES['15']}})))
+        silent = walks()
+        del silent['walks'][1]['second_title']  # 앱이 키를 말하지 않음 — None(안 보냄)과 가른다
+        self.fails('E-EDGE-13', None, '15-4', "'?'", app=self.edge13(silent))
+
+    def test_edge_13_a_second_stop_out_of_place_or_for_an_unknown_screen_is_a_wrong_stop_order(self):
+        for steps in (['15-5', '15-4', '15c', '06-1', '15c-again', 'tag', '15-6', '15-7', 'end'],
+                      ['15-5', '15-4', 'zz-again', '15c', '06-1', 'tag', '15-6', '15-7', 'end'],
+                      ['15-5', '15-4', '15c', '15c-again', '15c-again', '06-1', 'tag', '15-6', '15-7', 'end']):
+            with self.subTest(steps):
+                self.fails('E-EDGE-13', None, '멈춘 화면', app=self.edge13(walks(), steps))
+
+    def test_edge_13_is_blocked_when_the_app_ends_without_the_end_stop(self):
+        # 끝 멈춤이 없는 앱(옛 빌드) — PC 는 다음 멈춤을 기다리다 결과를 받는다
+        self.blocked('E-EDGE-13', None, '멈춤', 'end', app=self.edge13(walks(), STOPS[:-1]))
+        self.assertEqual(self.adb_calls, [BACK] * 7)
 
     def test_edge_13_fails_on_a_wrong_arrival_a_wrong_opened_screen_a_dialog_or_a_value_that_was_not_edited(self):
         for over, word in (({'15-6': {'title': TITLES['15']}}, '15-6'), ({'tag': {'title': TITLES['15-5']}}, '관심사'),
@@ -902,7 +951,7 @@ class SystemBackTest(ReadBase):
         self.assertIn('15-5', note)
 
     def test_edge_13_fails_when_the_app_stopped_on_other_screens_or_the_db_changed(self):
-        steps = [s for s, _, _ in EDGE_13]
+        steps = list(STOPS)
         steps[0], steps[1] = steps[1], steps[0]  # 앱이 15-4 를 먼저 열었다 — 시험이 정한 차례가 아니다
         self.fails('E-EDGE-13', None, '멈춘 화면', app=StepApp(as_fn(walks()), steps, self.events))
 
@@ -1058,10 +1107,60 @@ class AppAnswerTest(ReadBase):
                 self.fails(case, {'result': 'fail', 'note': '앱이 본 것과 다름'}, '앱이 본 것과 다름')
 
     def test_a_stepping_app_that_is_blocked_is_blocked(self):
-        for case, steps in (('E-EDGE-13', [s for s, _, _ in EDGE_13]), ('E-EDGE-14', ['regen', 'withdraw-first', 'withdraw-final']),
+        for case, steps in (('E-EDGE-13', STOPS), ('E-EDGE-14', ['regen', 'withdraw-first', 'withdraw-final']),
                             ('E-EDGE-16', ['back'])):
             with self.subTest(case):
                 self.blocked(case, {'result': 'blocked', 'note': '못 찾음'}, '못 찾음', app=StepApp(as_fn({'result': 'blocked', 'note': '못 찾음'}), steps, self.events))
+
+
+def dart_block(text, start, end):
+    """[start] 부터 그 뒤 첫 [end] 앞까지 — 함수 하나 · 가설 하나의 몸통."""
+    begin = text.index(start)
+    return text[begin:text.index(end, begin)]
+
+
+class AppContractTest(unittest.TestCase):
+    """EDGE-13 · ME-08 의 앱 쪽(area5_read.dart)이 PC 쪽과 맞물리는지 — dart 는 여기서 돌릴 수 없어 글자로 맞댄다."""
+
+    def setUp(self):
+        self.app = (tools.ROOT / 'frontend' / 'integration_test' / 'area5_read.dart').read_text(encoding='utf-8')
+        self.back_from = dart_block(self.app, '_backFrom(WidgetTester', '\n}\n')
+
+    def test_the_walk_keys_the_pc_reads_are_exactly_the_keys_the_app_says(self):
+        said_keys = set(re.findall(r"'(\w+)':", self.back_from))
+        tree = ast.parse(Path(area5_read.__file__).read_text(encoding='utf-8'))
+        read = {node.args[0].value for node in ast.walk(tree)
+                if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == 'get'
+                and isinstance(node.func.value, ast.Name) and node.func.value.id in ('walk', 'w')
+                and node.args and isinstance(node.args[0], ast.Constant)}
+        self.assertLessEqual({'second_title', 'unfocused'}, said_keys)
+        self.assertEqual(sorted(read), sorted(said_keys))
+
+    def test_a_screen_that_stays_stops_again_and_the_walk_ends_on_the_stop_the_pc_waits_for(self):
+        # 두 번째 멈춤은 첫 뒤로 뒤에도 연 화면 그대로일 때만 — 늘 멈추면 PC 가 화면마다 두 번 뒤로를 보내 한 칸 더 올라간다
+        self.assertRegex(self.back_from, r"if \(\w+ == opened\) \{\s*await step\('\$name-again'\);")
+        self.assertEqual(re.findall(r"\bstep\('\$name(-\w+)'\)", self.back_from), ['-again'])
+        self.assertEqual(area5_read.AGAIN, '-again')
+        self.assertEqual(re.findall(r"\bstep\('(\w+)'\)", dart_block(self.app, "'E-EDGE-13':", "'E-EDGE-14':")), ['end'])
+        self.assertEqual(area5_read.END, 'end')
+        # 묻는 창은 두 번째 뒤로가 닫기 전에 본다
+        self.assertLess(self.back_from.index('_asking()'), self.back_from.index("step('$name-again')"))
+
+    def test_only_the_two_screens_with_typed_text_clear_the_focus_before_back(self):
+        typed = re.findall(r"_backFrom\(tester, '([\w-]+)'[^;]*\btyped: true", self.app)
+        self.assertEqual(sorted(typed), ['15-6', '15c'])
+        unfocus = self.back_from.index('FocusManager.instance.primaryFocus?.unfocus()')
+        self.assertLess(unfocus, self.back_from.index('await step(name)'))
+        # 이 바인딩은 진짜 키보드를 쓴다(integration_test registerTestTextInput false) — testTextInput.hide() 는 assert 로 죽는다
+        self.assertNotIn('testTextInput', '\n'.join(re.sub(r'//.*$', '', line) for line in self.app.split('\n')))
+
+    def test_08_reads_each_header_where_it_sits_in_the_list_not_where_it_is_on_screen(self):
+        # 화면 y + 스크롤 값은 scrollUntilVisible 이 끝에 그리기 없이 스크롤을 옮겨(ensureVisible) 서로 다른 때를 가리킬 수 있다
+        order = dart_block(self.app, '_sectionOrder(WidgetTester', '\n}\n')
+        self.assertIn('getOffsetToReveal', order)
+        for stale in ('pixels', 'getTopLeft'):
+            self.assertNotIn(stale, order)
+        self.assertIn('await _reveal(tester, find.text(title));', order)  # 제목 줄은 보이는 줄만 만들어지니 끌어온 뒤 읽는다
 
 
 if __name__ == '__main__':
