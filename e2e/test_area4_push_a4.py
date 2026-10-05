@@ -110,7 +110,7 @@ class PushBase(Base):
         record = lambda name, result=None: mock.Mock(side_effect=lambda *a, **k: self.log.append(name) or result)
         names = dict(require_daytime=record('daytime'), grant_notifications=record('grant'), revoke_notifications=record('revoke'),
                      background=record('background'), read_notifications=record('read', []), airplane=mock.Mock(side_effect=lambda s, on, *a, **k: self.log.append('airplane_on' if on else 'airplane_off')),
-                     ensure_online=record('online'),
+                     ensure_online=record('online'), ensure_delivery=record('delivery'),
                      wait_new=mock.Mock(side_effect=lambda *a, **k: self.log.append('wait_new') or (self.arrivals.pop(0) if self.arrivals else [])),
                      expect_none=mock.Mock(side_effect=lambda *a, **k: self.log.append('expect_none') or (self.silence.pop(0) if self.silence else [])))
         self.m = names  # patch.multiple 은 명시한 가짜를 돌려주지 않으니 직접 쥔다
@@ -236,6 +236,35 @@ class DeviceHelperTest(unittest.TestCase):
         calls = self.adb()
         push._front('S1')
         self.assertTrue(any(c[:3] == ('shell', 'monkey', '-p') and push.tools.PACKAGE in c for c in calls))
+
+
+WAITS_FOR_NOTICES = ['E-PUSH-59', 'E-PUSH-60', 'E-PUSH-61', 'E-PUSH-66', 'E-PUSH-67', 'E-PUSH-68', 'E-PUSH-69']
+
+
+class DeliveryTest(PushBase):
+    """알림을 기다리는 가설은 시작 때 푸시 연결을 한 번 점검한다 — 연결이 죽은 폰의 "안 옴" 이 결함처럼 보이지 않게."""
+
+    def test_every_case_that_waits_for_a_notice_checks_delivery_once_right_after_the_daytime_gate(self):
+        for case in WAITS_FOR_NOTICES:
+            self.log.clear()
+            self.go(case, App())
+            self.assertEqual(self.log.count('delivery'), 1, case)
+            self.assertEqual(self.log[:2], ['daytime', 'delivery'], case)
+
+    def test_a_broken_delivery_blocks_before_touching_the_phone_or_the_account(self):
+        self.m['ensure_delivery'].side_effect = Blocked('GCM 연결 횟수를 못 읽음')
+        for case in WAITS_FOR_NOTICES:
+            self.log.clear()
+            self.db.urls.clear()
+            self.assertEqual(self.go(case, App())[0], 'blocked', case)
+            self.assertFalse({'forget', 'grant', 'launch'} & set(self.log), case)
+            self.assertFalse([u for m, u in self.db.urls if m == 'POST' and 'admin/users' in u], case)  # 계정도 안 만든다
+
+    def test_cases_that_never_wait_for_a_notice_do_not_touch_delivery(self):
+        for case in ('E-PUSH-55', 'E-PUSH-58', 'E-PUSH-62', 'E-PUSH-63'):
+            self.log.clear()
+            self.go(case, App())
+            self.assertNotIn('delivery', self.log, case)
 
 
 class Push55Test(PushBase):
