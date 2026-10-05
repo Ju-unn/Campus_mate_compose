@@ -71,13 +71,18 @@ def _value(text):
     return wrapped.group(1) if wrapped else value
 
 
+# 다음 칸의 시작 — `android.reduced.images=` 처럼 점이 든 키, 그리고 `androidx.…=` · `google.sent_time=` 처럼 android. 로 안 시작해도
+# 점이 든 키 + `종류 (값)` 이거나 null 인 줄. 본문 줄의 `a=b` 는 종류 모양이 아니라 본문으로 남는다.
+_NEXT_FIELD = re.compile(r'\s*(android\.[\w.]+=|[a-z][\w$]*(\.[\w$]+)+=(\w+ \(|null\s*$)|\}\s*$)')
+
+
 def _field(lines, name):
     """`android.<name>=` 줄부터 다음 `android.xxx=` 줄(또는 닫는 `}`) 직전까지 — 본문에 줄바꿈이 있으면 여러 줄이다."""
     for i, line in enumerate(lines):
         if line.strip().startswith(f'android.{name}='):
             rest = []
             for follow in lines[i + 1:]:
-                if re.match(r'\s*(android\.\w+=|\}\s*$)', follow):
+                if re.match(_NEXT_FIELD, follow):
                     break
                 rest.append(follow)
             return _value('\n'.join([line.strip(), *rest]).rstrip())
@@ -111,12 +116,13 @@ def _fresh(now, before):
     return [n for n in now if n.key not in seen]
 
 
-def wait_new(serial, before, count=1, seconds=NOTICE_WAIT):
-    """[before] 에 없던 새 알림이 [count] 개 될 때까지(최대 [seconds] 초). 모자라도 그때까지 온 것을 돌려준다."""
+def wait_new(serial, before, count=1, seconds=NOTICE_WAIT, match=None):
+    """[before] 에 없던 새 알림이 [count] 개 될 때까지(최대 [seconds] 초). 모자라도 그때까지 온 것을 돌려준다.
+    [match] 가 있으면 개수 대신 "그 알림이 올 때까지" — 우리 앱 알림이 다른 것 하나 먼저 와도 기다리던 알림을 놓치지 않는다."""
     deadline = time.monotonic() + seconds
     while True:
         new = _fresh(read_notifications(serial), before)
-        if len(new) >= count or time.monotonic() >= deadline:
+        if (any(match(n) for n in new) if match else len(new) >= count) or time.monotonic() >= deadline:
             return new
         time.sleep(POLL_SECONDS)
 

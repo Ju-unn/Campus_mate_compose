@@ -35,9 +35,10 @@ part 'area1_b2.dart';
 part 'area1_b3.dart';
 part 'area1_b4.dart';
 part 'area1_b5.dart';
+part 'area1_b6.dart';
 part 'area1_emu.dart';
 
-/// 영역 1 묶음 1 폰 가설 36(37 중 E-ONB-05 는 두 기기라 묶음 4). PC 쪽은 e2e/area1.py 의 같은 번호 — 계정을 만들어
+/// 영역 1 묶음 1 폰 가설 36(37 중 E-ONB-05 는 두 기기라 묶음 6). PC 쪽은 e2e/area1.py 의 같은 번호 — 계정을 만들어
 /// 1회용 토큰(`token_hash`)을 넘기고, 앱이 pass 를 말하면 DB 를 본다. 화면 글자는 시나리오가 아니라 지금 화면 코드에서 옮겼다.
 /// 찾기는 Key 없이 화면 글자 · 입력칸 힌트 · 라벨 · 공용 위젯 종류로 한다.
 typedef Area1Case = Future<Map<String, Object?>?> Function(WidgetTester tester, Map<String, dynamic> job);
@@ -238,15 +239,16 @@ Future<void> _nickname(WidgetTester tester, String nickname, String message) asy
   await pumpUntil(tester, find.text(message), timeout: const Duration(seconds: 5));
 }
 
-/// 04-1 을 다음이 켜지게 채운다 — [skip] 에 든 칸은 비워 둔다.
+/// 04-1 을 다음이 켜지게 채운다 — [skip] 에 든 칸은 비워 둔다. [nickname] 을 주면 그 닉네임(두 기기가 같은 것을 낼 때).
 Future<void> _fillBasics(
   WidgetTester tester, {
+  String? nickname,
   String year = '2000',
   String height = '170',
   String? phone,
   Set<String> skip = const {},
 }) async {
-  await _nickname(tester, _englishNickname(), _nicknameOk);
+  await _nickname(tester, nickname ?? _englishNickname(), _nicknameOk);
   await type(tester, input('예: 2003'), year);
   await type(tester, input('예: 170'), height);
   final digits = phone ?? '010${1000 + _random.nextInt(9000)}${1000 + _random.nextInt(9000)}';
@@ -572,5 +574,6 @@ final Map<String, Area1Case> area1Cases = {
   ..._b3Cases,
   ..._b4Cases,
   ..._b5Cases,
+  ..._b6Cases,
   ..._emuCases,
 };

@@ -31,10 +31,11 @@ class E2eBlocked implements Exception {
 }
 
 /// 앱이 [name] 에서 멈추고 PC 가 무언가 하기를 기다린다(e2e/tools.py Run.phone 의 midway) — PC 가 go 를 넣으면 이어 간다.
+/// 상대 기기를 오래 기다리는 두 기기 가설(e2e/twodev.py)은 [timeout] 을 늘린다.
 /// PC 가 go 에 실어 준 값(midway 가 돌려준 dict)을 돌려준다 — 안 실었으면 `{'go': true}` 뿐이다.
-Future<Map<String, dynamic>> step(String name) async {
+Future<Map<String, dynamic>> step(String name, {Duration timeout = const Duration(minutes: 2)}) async {
   await say({'step': name});
-  return hear();
+  return hear(timeout: timeout);
 }
 
 /// 진행 프로그램에 말한다(결과 · 중간 값).

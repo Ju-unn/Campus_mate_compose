@@ -40,6 +40,7 @@ import 'area1.dart';
 import 'support.dart';
 
 part 'area3_b2.dart';
+part 'area3_b3.dart';
 part 'area3_safe.dart';
 part 'area3_b4.dart';
 
@@ -336,5 +337,6 @@ final Map<String, Area1Case> area3Cases = {
   'E-REV-33': _session(_reviewList),
   ...area3Cases2,
   ...area3CasesSafe,
+  ...area3Cases3,
   ...area3Cases4,
 };
