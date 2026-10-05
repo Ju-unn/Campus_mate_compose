@@ -435,6 +435,11 @@ class DeliveryTest(DeviceBase):
                 self.assertEqual((result, note), ('blocked', 'GCM 연결 횟수를 못 읽음 — 푸시 연결을 점검할 수 없음'))
                 self.assertEqual((self.world.users, phone.jobs, self.batches, self.log), ([], [], [], []))
 
+    def test_card_20_on_a_real_phone_is_blocked_before_the_wifi_is_touched(self):
+        (result, _), phone = self.start('E-CARD-20', TUE(12), {'serial': 'R58N1234'})
+        self.assertEqual(result, 'blocked')
+        self.assertEqual((self.prepared, self.world.users), ([], []))  # 에뮬레이터 요건이 먼저 — 실기기의 Wi-Fi 를 껐다 켜지 않는다
+
     def test_a_case_refused_by_the_clock_does_not_touch_the_phone_connection(self):
         for case, now in (('E-CARD-01', MON(12)), ('E-CARD-17', TUE(12)), ('E-CARD-18', TUE(3, 0)), ('E-HOME-29', MON(9))):
             with self.subTest(case=case):
