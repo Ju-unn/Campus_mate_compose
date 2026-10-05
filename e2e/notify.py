@@ -151,22 +151,76 @@ def expect_none(serial, before, seconds=NOTICE_WAIT):
         time.sleep(POLL_SECONDS)
 
 
-def tap_notification(serial, title):
-    """알림창을 내려 [title] 글자의 알림을 누른다. 못 찾으면 [Blocked](알림이 안 온 것은 읽기 쪽 판정이다)."""
+TAP_TRIES = 3  # 눌러도 앱이 안 열리면 다시 누르는 횟수
+FRONT_WAIT = 12  # 누른 뒤 우리 앱이 맨 앞에 오기를 기다리는 초(꺼진 앱은 부팅 포함)
+_ROW_SPAN = 300  # 제목 아래 이 픽셀 안의 줄을 같은 알림의 본문으로 본다
+
+
+def _center(box):
+    left, top, right, bottom = box
+    return (left + right) // 2, (top + bottom) // 2
+
+
+def _points(dump, title, body):
+    """알림창에서 누를 자리들 — [제목 글자 한가운데, (본문이 있으면) 본문 줄 한가운데]. 못 찾으면 [].
+    [body] 가 있으면 그 글이 바로 아래에 든 제목만 고른다 — 앞 시도가 남긴 같은 제목의 옛 알림(받은 수락 · 매칭 · 새 리뷰는 제목이 고정)을 누르지 않게."""
+    start, end = dump.find('<?xml'), dump.find('</hierarchy>')
+    if start < 0 or end < 0:
+        raise Blocked('화면 덤프를 못 읽음(uiautomator)')
+    root = ET.fromstring(dump[start:end + len('</hierarchy>')])
+    nodes = [(node.get('text') or '', tuple(map(int, re.findall(r'\d+', node.get('bounds') or '')))) for node in root.iter('node')]
+    nodes = [(text, box) for text, box in nodes if len(box) == 4]
+    for text, box in nodes:
+        if title not in text:
+            continue
+        near = [b for t, b in nodes if body is not None and body in t and 0 <= b[1] - box[1] < _ROW_SPAN]
+        if body is not None and not near:
+            continue
+        return [_center(box), *([_center(near[0])] if near else [])]
+    return []
+
+
+def _stable_points(serial, title, body):
+    """알림창이 펴지는 동안 읽은 좌표는 어긋난다 — 두 번 읽어 같을 때까지(최대 4번) 기다린다."""
+    last = None
+    for _ in range(4):
+        points = _points(_ui_dump(serial), title, body)
+        if points and points == last:
+            return points
+        last = points
+        time.sleep(0.7)
+    return last or []
+
+
+def _front(serial):
+    """우리 앱이 맨 앞인지."""
+    lines = (tools.adb(serial, 'shell', 'dumpsys', 'activity', 'activities', check=False) or '').splitlines()
+    return any(tools.PACKAGE in line for line in lines if 'topResumedActivity' in line or 'mResumedActivity' in line)
+
+
+def tap_notification(serial, title, body=None):
+    """알림창을 내려 [title] 글자의 알림을 누르고 우리 앱이 맨 앞에 오는지 본다. 안 오면 다시 누른다(자리를 바꿔 — 제목 → 본문 줄).
+    알림이 안 보이면 [Blocked](알림이 안 온 것은 읽기 쪽 판정이다). 세 번 눌러도 앱이 안 오면 [Blocked].
+    [body] 를 주면 그 글이 든 줄만 누른다(같은 제목의 옛 알림을 피함).
+    실기기에서 짧은 닉네임 제목 알림을 눌러도 알림창이 그대로 열려 있던 일이 있어, 누르고 끝내지 않고 결과를 본다."""
     tools.adb(serial, 'shell', 'cmd', 'statusbar', 'expand-notifications')
     try:
         time.sleep(1.5)
-        dump = _ui_dump(serial)
-        start, end = dump.find('<?xml'), dump.find('</hierarchy>')
-        if start < 0 or end < 0:
-            raise Blocked('화면 덤프를 못 읽음(uiautomator)')
-        root = ET.fromstring(dump[start:end + len('</hierarchy>')])
-        for node in root.iter('node'):
-            if title in (node.get('text') or ''):
-                left, top, right, bottom = map(int, re.findall(r'\d+', node.get('bounds')))
-                tools.adb(serial, 'shell', 'input', 'tap', str((left + right) // 2), str((top + bottom) // 2))
-                return
-        raise Blocked(f'알림창에서 "{title}" 줄을 못 찾음')
+        for attempt in range(TAP_TRIES):
+            points = _stable_points(serial, title, body)
+            if not points:
+                if attempt and _front(serial):  # 앞선 누름이 먹혀 알림이 사라졌고 앱이 느리게 막 떴다 — 열렸으니 성공
+                    return
+                raise Blocked(f'알림창에서 "{title}" 줄을 못 찾음')
+            x, y = points[attempt % len(points)]
+            tools.adb(serial, 'shell', 'input', 'tap', str(x), str(y))
+            for _ in range(FRONT_WAIT):
+                time.sleep(1)
+                if _front(serial):
+                    return
+            tools.adb(serial, 'shell', 'cmd', 'statusbar', 'expand-notifications', check=False)  # 눌러도 알림창이 안 닫혔을 수 있다 — 다시 편다(이미 펴졌으면 그대로)
+            time.sleep(1.5)
+        raise Blocked(f'알림 "{title}" 을 {TAP_TRIES}번 눌렀지만 앱이 앞으로 안 옴 — 누른 자리가 알림 줄이 아니거나 알림창이 움직이는 중')
     except Exception:
         tools.adb(serial, 'shell', 'cmd', 'statusbar', 'collapse', check=False)
         raise

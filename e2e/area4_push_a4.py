@@ -5,7 +5,7 @@
 `python -m e2e run area4-push-a4` 한 번으로 돈다. 서울 08~22시에만 돈다(알림이 가는 가설은 밤에 방해 금지 시간이라 결과가 달라진다).
 "알림 하나 보내기" 는 시나리오 4-2 가 정한 대로 "받은 수락" 알림이다 — 새 계정이 받는 사람에게 카드를 만들어 수락한다(e2e/notify_factory.py).
 
-권한 가설(59 · 60 · 62)은 앱 데이터를 지워(`pm clear`) 새로 설치한 상태를 만들고, 첫 권한 창을 uiautomator 로 "허용 안 함" 누른다.
+권한 가설(59 · 60 · 62)은 앱을 지웠다 다시 깔아(`adb uninstall` → `install -r`, 삼성 · 안드로이드 14 는 `pm clear` 로는 권한이 안 돌아온다) 새로 설치한 상태를 만들고, 첫 권한 창을 uiautomator 로 "허용 안 함" 누른다.
 이미 권한을 정한 폰이라 창이 안 뜨면 blocked 로 알린다 — 앱을 지웠다 다시 설치해야 한다. 첫 실행에서 되는지 먼저 보라고 분류표가 적어 둔 자리다.
 
 알려진 한계: E-PUSH-59 는 알림이 한 번도 안 오는 가설이라 "읽기가 깨져서 0개" 와 구별이 안 된다 — 같은 묶음의 E-PUSH-60 · 61 이 오는 알림을 읽어 파서가 살아 있음을 보인다.
@@ -13,11 +13,13 @@
 
 import contextlib
 import re
+import subprocess
 import time
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 
 from e2e import area1, area4, notify, notify_factory, tools
+from e2e.area3_contacts import APK
 from e2e.area1 import Check, _api, _app, _one, _patch, _rows, _signed_in
 from e2e.area4 import stepper
 from e2e.tools import Blocked
@@ -109,13 +111,29 @@ def _granted(serial):
 
 
 def _forget_permission(serial):
-    """새로 설치한 것과 같게 — 앱 데이터를 지우면 알림 권한도 "아직 안 물어봄" 으로 돌아간다. 안 돌아가면 blocked."""
-    tools.adb(serial, 'shell', 'pm', 'clear', tools.PACKAGE)
+    """새로 설치한 것과 같게 — 앱을 지웠다 다시 깔면 알림 권한이 "아직 안 물어봄" 으로 돌아온다(`pm clear` 는 삼성 · 안드로이드 14 에서 안 돌아옴).
+    깔 APK 가 있는지부터 본다(지운 뒤에 없으면 폰이 앱 없이 남는다). `-g` 는 안 준다 — 주면 권한이 켜진다. 안 돌아가면 blocked."""
+    if not APK.is_file():
+        raise Blocked(f'깔 APK 가 없음({APK}) — flutter build apk --debug -t integration_test/e2e_test.dart')
+    tools.adb(serial, 'uninstall', tools.PACKAGE, check=False)
+    try:
+        with tools.adb_patience(300):
+            out = tools.adb(serial, 'install', '-r', str(APK))
+    except subprocess.CalledProcessError as error:  # adb install 은 실패하면 종료 코드 1 이고 사유는 stderr 에 있다
+        out = f'{error.stderr or ""}{error.output or ""}'
+    if 'Success' not in out:
+        raise Blocked(f'앱을 다시 깔지 못함 — 앱이 지워진 채 남았을 수 있으니 APK 를 손으로 깔아야 함(폰 화면에서 설치를 허용해야 할 수도): {out.strip()[:120]}')
     state = _granted(serial)
     if state is None:
         raise Blocked('알림 권한 상태를 못 읽음 — 안드로이드 13 이상에서만 도는 가설')
     if state:
-        raise Blocked('앱 데이터를 지웠는데도 알림 권한이 허용으로 남음 — 새로 설치한 상태를 못 만듦(앱을 지웠다 다시 설치해야 함)')
+        raise Blocked('앱을 지웠다 다시 깔았는데도 알림 권한이 허용으로 남음 — 새로 설치한 상태를 못 만듦')
+
+
+def _restore_permission(serial):
+    """앱을 새로 깐 폰은 알림 권한을 허용으로 돌려 둔다 — 다음 가설이 권한 창에 막히지 않게. 못 줘도 시험 결과를 덮지 않는다."""
+    with contextlib.suppress(Blocked):
+        notify.grant_notifications(serial)
 
 
 def _tap_node(serial, matches):
@@ -218,7 +236,7 @@ def p_push_59(run, phone):
         got = _quiet(phone.serial, before)
         check.that(not got, f'권한을 거부했는데 알림 {len(got)}개가 옴')
     finally:
-        notify.revoke_notifications(phone.serial)
+        _restore_permission(phone.serial)
     return check.result()
 
 
@@ -240,7 +258,7 @@ def p_push_60(run, phone):
         nickname = _send_one(run, account)
         check.that(_arrived(phone.serial, before, nickname), f'권한을 켠 뒤 {notify.NOTICE_WAIT}초 안에 알림이 안 옴')
     finally:
-        notify.revoke_notifications(phone.serial)
+        _restore_permission(phone.serial)
     return check.result()
 
 
@@ -264,7 +282,7 @@ def p_push_62(run, phone):
     try:
         _app(check, phone(midway=stepper(phone, lambda said: _deny_dialog(phone.serial), settings_opened), token_hash=token, phase='deny'))
     finally:
-        notify.revoke_notifications(phone.serial)
+        _restore_permission(phone.serial)
     return check.result('설정 앱의 어느 화면이 열리는지(앱 정보 화면이어야 함)는 사람이 본다')
 
 

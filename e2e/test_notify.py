@@ -147,20 +147,39 @@ def ui(*nodes):
 
 
 class TapTest(unittest.TestCase):
+    FRONT = "  topResumedActivity=ActivityRecord{1 u0 " + OURS + "/.MainActivity t5}"
+    OTHER = "  topResumedActivity=ActivityRecord{2 u0 com.android.systemui/.Shade t1}"
+
     def setUp(self):
         patch = mock.patch.object(notify.time, 'sleep')
         patch.start()
         self.addCleanup(patch.stop)
 
-    def run_tap(self, dump, title='오늘의 카드가 도착했어요'):
-        sent = []
-        done = subprocess.CompletedProcess([], 0, stdout=dump.encode('utf-8'), stderr=b'')
-        with mock.patch.object(notify.subprocess, 'run', return_value=done), \
-                mock.patch.object(tools, 'adb', lambda s, *a, check=True: sent.append(a) or ''):
+    def run_tap(self, dump, title='오늘의 카드가 도착했어요', body=None, tops=None, dumps=None):
+        """[tops]: 앞 앱을 읽을 때마다 다음 값(마지막은 계속), 기본은 바로 우리 앱. [dumps]: 화면 덤프를 읽을 때마다 다음 값."""
+        sent, reads = [], []
+        tops = list(tops or [self.FRONT])
+        dumps = list(dumps or [dump])
+
+        def read(*a, **k):
+            reads.append(1)
+            text = dumps.pop(0) if len(dumps) > 1 else dumps[0]
+            return subprocess.CompletedProcess([], 0, stdout=text.encode('utf-8'), stderr=b'')
+
+        def adb(s, *a, check=True):
+            sent.append(a)
+            if a[:3] == ('shell', 'dumpsys', 'activity'):
+                return tops.pop(0) if len(tops) > 1 else tops[0]
+            return ''
+        self.reads = reads
+        with mock.patch.object(notify.subprocess, 'run', read), mock.patch.object(tools, 'adb', adb):
             try:
-                notify.tap_notification('S', title)
+                notify.tap_notification('S', title, body)
             finally:
                 self.sent = sent
+
+    def taps(self):
+        return [a[-2:] for a in self.sent if a[:3] == ('shell', 'input', 'tap')]
 
     def test_opens_the_shade_taps_the_middle_of_the_title_and_closes_it_when_done(self):
         self.run_tap(ui(('CampusMate', '[10,200][400,260]'), ('오늘의 카드가 도착했어요', '[100,300][500,360]')))
@@ -179,6 +198,68 @@ class TapTest(unittest.TestCase):
     def test_unicode_in_the_dump_is_read_as_utf8(self):
         self.run_tap(ui(('나를 수락한 사람이 있어요', '[0,0][100,100]')), title='나를 수락한 사람이 있어요')
         self.assertIn(('shell', 'input', 'tap', '50', '50'), self.sent)
+
+    # ── 눌렀는데 앱이 안 열린 경우(실기기: 짧은 닉네임 제목 알림을 눌러도 알림창이 그대로 열려 있었다) ──
+    ROW = ui(('Rbxpr', '[170,600][260,660]'), ('E2E-tap-79bda2', '[170,670][420,720]'))
+
+    def test_after_the_tap_the_app_must_come_to_the_front_or_it_taps_again(self):
+        self.run_tap(self.ROW, title='Rbxpr', body='E2E-tap-79bda2', tops=[self.OTHER] * notify.FRONT_WAIT + [self.FRONT])
+        self.assertEqual(len(self.taps()), 2)  # 첫 눌림에 안 열려 한 번 더
+
+    def test_the_second_tap_lands_on_a_different_spot_the_body_line(self):
+        self.run_tap(self.ROW, title='Rbxpr', body='E2E-tap-79bda2', tops=[self.OTHER] * notify.FRONT_WAIT + [self.FRONT])
+        self.assertEqual(self.taps(), [('215', '630'), ('295', '695')])  # 제목 글자 한가운데 → 본문 줄 한가운데
+
+    def test_a_tap_that_never_opens_the_app_is_blocked_after_three_tries_and_the_shade_is_closed(self):
+        with self.assertRaises(Blocked) as why:
+            self.run_tap(self.ROW, title='Rbxpr', body='E2E-tap-79bda2', tops=[self.OTHER])
+        self.assertEqual(len(self.taps()), 3)
+        self.assertIn('앱이 앞으로 안 옴', str(why.exception))
+        self.assertIn(('shell', 'cmd', 'statusbar', 'collapse'), self.sent)
+
+    def test_the_shade_is_opened_again_before_a_retry_in_case_the_tap_did_not_close_it(self):
+        self.run_tap(self.ROW, title='Rbxpr', body='E2E-tap-79bda2', tops=[self.OTHER] * notify.FRONT_WAIT + [self.FRONT])
+        expands = [a for a in self.sent if a == ('shell', 'cmd', 'statusbar', 'expand-notifications')]
+        self.assertEqual(len(expands), 2)
+
+    def test_a_slow_start_whose_notice_vanished_after_the_first_tap_is_a_pass_not_a_false_blocked(self):
+        # 첫 누름이 먹혀 알림이 사라졌는데 앱이 8초를 넘겨 뜬다 — 재시도 때 알림이 없다고 blocked 하면 앱이 실제로 열렸는데도 실패로 읽힌다
+        gone = ui(('다른 알림', '[100,300][500,360]'))
+        self.run_tap(self.ROW, title='Rbxpr', body='E2E-tap-79bda2', dumps=[self.ROW, self.ROW, gone], tops=[self.OTHER] * notify.FRONT_WAIT + [self.FRONT])
+        self.assertEqual(len(self.taps()), 1)
+
+    def test_a_missing_notice_on_a_retry_is_still_blocked_when_the_app_never_came(self):
+        gone = ui(('다른 알림', '[100,300][500,360]'))
+        with self.assertRaises(Blocked):
+            self.run_tap(self.ROW, title='Rbxpr', body='E2E-tap-79bda2', dumps=[self.ROW, self.ROW, gone], tops=[self.OTHER])
+
+    def test_a_body_above_the_title_does_not_make_the_title_the_row(self):
+        above = ui(('E2E-tap-79bda2', '[170,500][420,550]'), ('Rbxpr', '[170,600][260,660]'))
+        with self.assertRaises(Blocked):
+            self.run_tap(above, title='Rbxpr', body='E2E-tap-79bda2')
+        self.assertEqual(self.taps(), [])
+
+    def test_the_app_already_in_front_after_the_first_tap_means_one_tap_only(self):
+        self.run_tap(self.ROW, title='Rbxpr', body='E2E-tap-79bda2')
+        self.assertEqual(len(self.taps()), 1)
+
+    def test_with_a_body_it_picks_the_row_whose_body_matches_not_an_older_row_with_the_same_title(self):
+        old_and_new = ui(('매칭됐어요!', '[100,300][500,360]'), ('옛 닉네임 님도 수락했어요', '[100,370][500,420]'),
+                         ('매칭됐어요!', '[100,700][500,760]'), ('Mina 님도 수락했어요', '[100,770][500,820]'))
+        self.run_tap(old_and_new, title='매칭됐어요!', body='Mina 님도 수락했어요')
+        self.assertEqual(self.taps()[0], ('300', '730'))  # 아래쪽(새) 줄의 제목
+
+    def test_a_body_that_no_row_has_is_blocked_not_a_tap_on_the_wrong_row(self):
+        with self.assertRaises(Blocked):
+            self.run_tap(ui(('Rbxpr', '[170,600][260,660]'), ('다른 글', '[170,670][420,720]')), title='Rbxpr', body='E2E-tap-79bda2')
+        self.assertEqual(self.taps(), [])
+
+    def test_a_shade_that_is_still_moving_is_read_again_until_the_spot_stops_changing(self):
+        moving = ui(('Rbxpr', '[170,900][260,960]'))
+        still = ui(('Rbxpr', '[170,600][260,660]'))
+        self.run_tap(still, title='Rbxpr', dumps=[moving, still, still])
+        self.assertEqual(self.taps(), [('215', '630')])  # 움직이던 때의 좌표(930)가 아니라 멈춘 뒤의 좌표
+        self.assertEqual(len(self.reads), 3)
 
 
 class AppStateTest(unittest.TestCase):

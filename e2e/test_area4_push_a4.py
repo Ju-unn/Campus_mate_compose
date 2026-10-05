@@ -1,7 +1,10 @@
 """영역 4 알림(PUSH) A4 — 토큰 · 권한 · 로그인/로그아웃 PC 쪽 시험. 폰 · 운영 없이 가짜 앱 · 가짜 DB · 가짜 알림 헬퍼로 돈다.
 저장소 루트에서 `python -m unittest e2e.test_area4_push_a4`."""
 
+import subprocess
+import tempfile
 import unittest
+from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest import mock
@@ -170,12 +173,24 @@ class DeviceHelperTest(unittest.TestCase):
     DUMP = ('Package [x] (1):\n    runtime permissions:\n      android.permission.CAMERA: granted=true\n'
             '      android.permission.POST_NOTIFICATIONS: granted={}, flags=[ USER_SET]\n')
 
+    install_reply = 'Performing Streamed Install' + chr(10) + 'Success' + chr(10)
+
     def adb(self, *texts):
         replies = list(texts)
         calls = []
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        apk = Path(folder.name) / 'app-debug.apk'
+        apk.write_bytes(b'apk')
+        self.apk = apk
+        patcher = mock.patch.object(push, 'APK', apk)
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
         def run(serial, *args, check=True):
             calls.append(args)
+            if args[0] == 'install':
+                return self.install_reply
             return replies.pop(0) if replies and args[:3] == ('shell', 'dumpsys', 'package') else ''
 
         patcher = mock.patch.object(push.tools, 'adb', side_effect=run)
@@ -187,10 +202,40 @@ class DeviceHelperTest(unittest.TestCase):
         self.adb(self.DUMP.format('true'), self.DUMP.format('false'), 'no runtime permissions here')
         self.assertEqual([push._granted('S1') for _ in range(3)], [True, False, None])
 
-    def test_forget_permission_clears_the_apps_data_then_checks_it_is_not_granted(self):
+    def test_forget_permission_uninstalls_then_installs_without_granting_and_checks_it_is_not_granted(self):
         calls = self.adb(self.DUMP.format('false'))
         push._forget_permission('S1')
-        self.assertIn(('shell', 'pm', 'clear', push.tools.PACKAGE), calls)
+        # 삼성 · 안드로이드 14 는 `pm clear` 로는 알림 권한이 "안 물어봄" 으로 안 돌아온다 — 앱을 지웠다 다시 깐다. `-g` 를 주면 권한이 켜진다
+        self.assertEqual([c for c in calls if c[0] in ('uninstall', 'install')],
+                         [('uninstall', push.tools.PACKAGE), ('install', '-r', str(self.apk))])
+        self.assertNotIn(('shell', 'pm', 'clear', push.tools.PACKAGE), calls)
+
+    def test_forget_permission_without_a_built_apk_blocks_before_uninstalling(self):
+        calls = self.adb(self.DUMP.format('false'))
+        self.apk.unlink()
+        with self.assertRaises(Blocked) as caught:
+            push._forget_permission('S1')
+        self.assertIn('APK', str(caught.exception))
+        self.assertEqual([c for c in calls if c[0] in ('uninstall', 'install')], [])
+
+    def test_forget_permission_blocks_with_the_reason_when_adb_install_exits_nonzero(self):
+        # 실제 adb install 은 실패하면 종료 코드 1 + 사유는 stderr — tools.adb 는 stdout 만 돌려주므로 예외로 온다
+        calls = self.adb(self.DUMP.format('false'))
+        error = subprocess.CalledProcessError(1, ['adb', 'install'], output='', stderr='adb: failed to install: Failure [INSTALL_FAILED_USER_RESTRICTED]')
+        real = push.tools.adb.side_effect
+        push.tools.adb.side_effect = lambda serial, *a, **k: (_ for _ in ()).throw(error) if a[0] == 'install' else real(serial, *a, **k)
+        with self.assertRaises(Blocked) as caught:
+            push._forget_permission('S1')
+        self.assertIn('INSTALL_FAILED_USER_RESTRICTED', str(caught.exception))
+        self.assertIn('앱이 지워진 채', str(caught.exception))  # 폰에 앱이 없을 수 있다 — 다음 가설이 엉뚱한 사유로 막히지 않게 알린다
+        self.assertIn(('uninstall', push.tools.PACKAGE), calls)
+
+    def test_forget_permission_blocks_when_the_install_does_not_succeed(self):
+        self.adb(self.DUMP.format('false'))
+        self.install_reply = 'Failure [INSTALL_FAILED_USER_RESTRICTED: Install canceled by user]'
+        with self.assertRaises(Blocked) as caught:
+            push._forget_permission('S1')
+        self.assertIn('INSTALL_FAILED_USER_RESTRICTED', str(caught.exception))
 
     def test_forget_permission_blocks_when_it_is_still_granted_or_unreadable(self):
         for dump, word in ((self.DUMP.format('true'), '허용'), ('nothing', '13')):
@@ -341,7 +386,7 @@ class Push59Test(PushBase):
     def test_the_permission_is_given_back_when_the_dialog_never_shows(self):
         self.p['_deny_dialog'].side_effect = Blocked('권한 창이 안 뜸')
         self.assertEqual(self.go('E-PUSH-59', App([lambda: None]))[0], 'blocked')
-        self.assertEqual(self.log[-1], 'revoke')
+        self.assertEqual(self.log[-1], 'grant')  # 앱을 새로 깐 폰은 허용 상태로 돌려 둔다
 
 
 class Push60Test(PushBase):
@@ -352,7 +397,7 @@ class Push60Test(PushBase):
         self.assertEqual([j.get('phase') for j in app.jobs], ['deny', 'again'])
         self.assertIs(app.jobs[1]['fresh'], False)
         order = [e for e in self.log if e in ('forget', 'launch', 'deny', 'grant', 'background', 'send:id-1', 'wait_new')]
-        self.assertEqual(order, ['forget', 'launch', 'deny', 'grant', 'launch', 'background', 'send:id-1', 'wait_new'])  # 권한은 다시 켜기 전에
+        self.assertEqual(order, ['forget', 'launch', 'deny', 'grant', 'launch', 'background', 'send:id-1', 'wait_new', 'grant'])  # 권한은 다시 켜기 전에, 끝에서 한 번 더(허용으로 돌려 둠)
 
     def test_fails_when_no_row_after_the_relaunch_or_the_notice_does_not_come(self):
         self.arrivals = [[notice('Nick1')]]
@@ -363,6 +408,26 @@ class Push60Test(PushBase):
     def test_a_notice_with_another_senders_name_is_not_the_one(self):
         self.arrivals = [[notice('Someone')]]
         self.assertEqual(self.go('E-PUSH-60', App([lambda: None], [lambda: self.has_token()]))[0], 'fail')
+
+
+class Push60EndTest(PushBase):
+    def test_the_phone_is_left_with_the_permission_granted_whether_the_case_passes_or_fails(self):
+        self.arrivals = [[notice('Nick1')]]
+        self.go('E-PUSH-60', App([lambda: None], [lambda: self.has_token()]))
+        self.assertEqual(self.log[-1], 'grant')
+        self.go('E-PUSH-60', App([lambda: None], []))
+        self.assertEqual(self.log[-1], 'grant')
+
+    def test_a_restore_that_cannot_grant_does_not_change_the_result(self):
+        self.arrivals = [[notice('Nick1')]]
+
+        def grant(*args, **kwargs):
+            self.log.append('grant')
+            if self.log.count('grant') > 1:  # 권한을 다시 켜는 첫 번째는 되고, 끝에서 허용으로 돌려 두는 두 번째가 실패
+                raise Blocked('pm grant 실패')
+
+        self.m['grant_notifications'].side_effect = grant
+        self.assertEqual(self.go('E-PUSH-60', App([lambda: None], [lambda: self.has_token()]))[0], 'pass')
 
 
 class Push61Test(PushBase):
@@ -398,7 +463,7 @@ class Push62Test(PushBase):
         self.assertEqual(result, 'pass')
         self.assertIn('사람', note)  # 설정 앱의 어느 화면인지는 사람이 본다
         order = [e for e in self.log if e in ('daytime', 'forget', 'deny', 'grant', 'front')]
-        self.assertEqual(order, ['forget', 'deny', 'grant', 'front'])  # 보내는 알림이 없어 낮시간 확인도 없다
+        self.assertEqual(order, ['forget', 'deny', 'grant', 'front', 'grant'])  # 끝에서 허용으로 돌려 둔다. 보내는 알림이 없어 낮시간 확인도 없다
         self.assertEqual(app.jobs[0]['phase'], 'deny')
 
     def test_fails_when_the_settings_app_never_comes_to_the_front(self):
@@ -408,7 +473,7 @@ class Push62Test(PushBase):
 
     def test_the_permission_is_given_back_at_the_end(self):
         self.go('E-PUSH-62', App([lambda: None, lambda: None], top=self.SETTINGS))
-        self.assertEqual(self.log[-1], 'revoke')
+        self.assertEqual(self.log[-1], 'grant')
 
 
 class Push63Test(PushBase):

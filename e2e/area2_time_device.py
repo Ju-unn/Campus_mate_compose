@@ -426,23 +426,28 @@ def p_card_03(run, phone):
     return check.result()
 
 
+def _rest_pool(run, owner):
+    """[owner] 의 후보를 전부 "쉬는 중" 으로 — 후보 일시중지는 이번 실행 계정이 아니면 못 쓰므로, [owner] 가 받았다가 방금 만료된 카드
+    (14일 쉼, match_candidates ③)를 후보마다 넣는다. 그래도 후보가 남으면 Blocked(후보 0 상태를 못 만들었다)."""
+    pool = _candidates(run, owner)
+    if pool:
+        now = area2._now()
+        _insert(run, 'daily_cards', [{'id': _new_id(), 'owner_id': owner['id'], 'target_id': t, 'source': 'daily',
+                                     'issued_at': (now - timedelta(days=2)).isoformat(),
+                                     'expires_at': (now - timedelta(hours=1)).isoformat()} for t in pool], owner['id'])
+    if _candidates(run, owner):
+        raise Blocked('준비: 후보를 다 쉬게 했는데도 A 의 후보가 남음 — 후보 0 상태를 못 만들었다')
+
+
 def p_card_13(run, phone):
-    """A 의 후보를 전부 "쉬는 중" 으로 만든 뒤 배치 → 카드가 안 나가고 오늘 탭은 11b "지금은 소개할 사람이 없어요".
-    후보 일시중지는 이번 실행 계정이 아니면 못 쓰므로, A 가 받았다가 방금 만료된 카드(14일 쉼, match_candidates ③)를 후보마다 넣는다."""
+    """A 의 후보를 전부 "쉬는 중" 으로 만든 뒤 배치 → 카드가 안 나가고 오늘 탭은 11b "지금은 소개할 사람이 없어요"."""
     require_daily_cards_open()
     check = Check()
     a, b = _pair(run)
     control = _person(run, 'male')
 
     def empty(said):
-        pool = _candidates(run, a)
-        if pool:
-            now = area2._now()
-            _insert(run, 'daily_cards', [{'id': _new_id(), 'owner_id': a['id'], 'target_id': t, 'source': 'daily',
-                                         'issued_at': (now - timedelta(days=2)).isoformat(),
-                                         'expires_at': (now - timedelta(hours=1)).isoformat()} for t in pool], a['id'])
-        if _candidates(run, a):
-            raise Blocked('준비: 후보를 다 쉬게 했는데도 A 의 후보가 남음 — 후보 0 상태를 못 만들었다')
+        _rest_pool(run, a)
         area2._batch('daily-cards')
         if not _wait_for(lambda: _daily_rows(run, control), CARD_WAIT):
             raise Blocked(f'대조군이 {CARD_WAIT}초 안에 카드를 못 받음 — 배치가 안 돈 것 같아 "카드가 안 나갔다" 를 말할 수 없다')
