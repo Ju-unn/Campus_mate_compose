@@ -1505,6 +1505,138 @@ class ClockSingleShotTest(DeviceBase):
                 self.assertEqual(len(phone.jobs), 1)
 
 
+class NightCardSingleShotTest(DeviceBase):
+    """밤 창(22:00~23:59)으로 막는 E-CARD-17 · 44 도 fail 이면 다시 안 돈다 — 23:50 이후에 시작해 fail 이면 진행 프로그램(run_case)의 둘째 시도가 자정을 넘겨
+    맨 앞 창 관문에서 `Blocked`(→ attempt_phone 이 'blocked' 로 바꿈)가 되어 진짜 fail 이 "지금은 실행 금지 시간" blocked 로 덮인다.
+    44 는 아침 단계(다음 날 08:10~21:49)도 같다 — 둘째 시도가 21:50 을 넘기면 창 밖. 상태 파일(card44_state.json)은 첫 시도만 만들고 · 바꾸고, 기억해 둔 둘째 시도는 건드리지 않는다."""
+
+    NIGHT_START, NIGHT_LATER = TUE(23, 50), WED(0, 15)
+    CASES = ('E-CARD-17', 'E-CARD-44 밤', 'E-CARD-44 아침')
+
+    def setUp(self):
+        super().setUp()
+        self.world.night = True
+        self.scripts['chat-gate'] = self.world.send_pending
+        self.state = self.run.out / 'card44_state.json'
+
+    def stage(self, name):
+        """[name] 의 fail 을 만들 준비를 하고 → (가설, 시작, 25분쯤 뒤, 폰). 시계는 시작에 맞춘다."""
+        if name == 'E-CARD-17':
+            self.scripts['daily-cards'] = lambda: self.world.give_card('id-1')  # 카드는 오는데 알림이 안 온다
+            self.clock.now = self.NIGHT_START
+            return 'E-CARD-17', self.NIGHT_START, self.NIGHT_LATER, self.phone()
+        if name == 'E-CARD-44 밤':
+            self.world.defer = False  # 밤에 보관하지 않는 서버
+            self.clock.now = self.NIGHT_START
+            return 'E-CARD-44', self.NIGHT_START, self.NIGHT_LATER, self.phone()
+        self.clock.now = TUE(22, 30)
+        self.assertEqual(self.go('E-CARD-44', self.phone())[0], 'blocked')  # 1단계 통과 → 상태 파일
+        self.world.night, self.clock.now = False, WED(21, 45)
+        self.world.tables['pending_pushes'] = []  # 행은 지워졌는데 알림이 안 보인다
+        self.world.shade.clear()
+        return 'E-CARD-44', WED(21, 45), WED(21, 55), self.phone()
+
+    def snapshot(self, phone):
+        return (len(phone.jobs), len(self.world.users), list(self.log), self.batches[:],
+                self.state.read_bytes() if self.state.exists() else None)
+
+    def restart(self):
+        """소검사끼리 가짜 세계 · 상태 파일 · 기억이 새지 않게 처음으로."""
+        self.world.__init__()
+        self.world.permitted = lambda: self.granted
+        self.world.night = True
+        area3_phone5._FAILED.clear()
+        self.log.clear()
+        self.batches.clear()
+        self.granted = True
+        self.scripts['chat-gate'] = self.world.send_pending
+        if self.state.exists():
+            self.state.unlink()
+
+    def test_a_fail_is_returned_again_without_touching_the_app_accounts_batches_permission_or_state_file(self):
+        for name in self.CASES:
+            with self.subTest(case=name):
+                self.restart()
+                case, start, later, phone = self.stage(name)
+                first = self.go(case, phone)
+                self.assertEqual(first[0], 'fail', first)
+                after_first = self.snapshot(phone)
+                self.clock.now = later
+                self.assertEqual(self.go(case, phone), first)  # 창 밖인데도 blocked 가 아니라 첫 fail 그대로
+                self.assertEqual(self.snapshot(phone), after_first)
+
+    def test_the_night_fail_leaves_no_state_file_and_the_remembered_second_try_does_not_make_one(self):
+        case, _, later, phone = self.stage('E-CARD-44 밤')
+        self.go(case, phone)
+        self.assertFalse(self.state.exists())
+        self.clock.now = later
+        self.go(case, phone)
+        self.assertFalse(self.state.exists())
+
+    def test_the_morning_fail_keeps_the_waiting_state_so_the_next_run_judges_the_morning_again(self):
+        case, _, later, phone = self.stage('E-CARD-44 아침')
+        self.go(case, phone)
+        kept = self.state.read_bytes()
+        self.assertNotIn('done', json.loads(kept))
+        self.clock.now = later
+        self.go(case, phone)  # 기억해 둔 fail — 파일을 읽지도 쓰지도 않는다
+        self.assertEqual(self.state.read_bytes(), kept)
+        self.assertEqual(area3_phone5._FAILED, {})
+        self.clock.now = WED(9, 20)  # 새 실행(다음 호출)은 기억 없이 아침 단계를 처음부터 — 상태 파일이 아직 대기 중이다
+        self.log.clear()
+        self.assertEqual(self.go(case, phone)[0], 'fail')
+        self.assertEqual((self.log[0], self.log[-1]), ('grant', 'revoke'))  # 실제로 아침 단계가 돌았다
+
+    def test_a_remembered_fail_is_given_back_once_so_the_next_call_runs_fresh(self):
+        for name in self.CASES:
+            with self.subTest(case=name):
+                self.restart()
+                case, start, later, phone = self.stage(name)
+                self.go(case, phone)
+                self.clock.now = later
+                self.go(case, phone)
+                self.assertEqual(area3_phone5._FAILED, {})
+
+    def test_a_pass_is_not_remembered(self):
+        self.scripts['daily-cards'] = self.issue_to('id-1')
+        self.clock.now = self.NIGHT_START
+        self.assertEqual(self.go('E-CARD-17', self.phone())[0], 'pass')
+        self.assertEqual(area3_phone5._FAILED, {})
+        phone = self.phone()
+        self.assertEqual(self.go('E-CARD-44', phone), ('blocked', td.NIGHT_NOTE))  # 밤 단계가 통과하면 blocked 로 끝난다 — fail 이 아니니 기억 안 함
+        self.assertEqual(area3_phone5._FAILED, {})
+        self.assertEqual(self.go('E-CARD-44', phone), ('blocked', td.NIGHT_NOTE))  # 다시 불러도 새로 돈다
+        self.assertEqual(len(phone.jobs), 2)
+
+    def test_a_blocked_is_not_remembered_so_the_window_can_be_tried_again(self):
+        self.scripts['daily-cards'] = self.issue_to('id-1')
+        for case, passed in (('E-CARD-17', 'pass'), ('E-CARD-44', 'blocked')):
+            with self.subTest(case=case):
+                phone = self.phone()
+                self.clock.now = self.NIGHT_LATER  # 창 밖 — 앱도 계정도 없이 blocked
+                self.assertEqual(self.go(case, phone)[0], 'blocked')
+                self.assertEqual(phone.jobs, [])
+                self.clock.now = self.NIGHT_START  # 창 안 — 같은 가설이 다시 돈다
+                self.assertEqual(self.go(case, phone)[0], passed)
+                self.assertEqual(len(phone.jobs), 1)
+                self.assertEqual(area3_phone5._FAILED, {})
+
+    def test_the_run_case_retry_keeps_the_first_fail_as_the_final_result(self):
+        from e2e import __main__ as cli
+        for name in self.CASES:
+            with self.subTest(case=name):
+                self.restart()
+                case, start, later, phone = self.stage(name)
+
+                def once(case_name):
+                    result = area1.attempt_phone(self.run, case_name, phone)
+                    self.clock.now = later  # 첫 시도가 25분쯤 걸려 창을 벗어났다(밤 창은 자정 · 아침 창은 21:50)
+                    return result
+                attempt, result, note = cli.run_case(once, case)
+                self.assertEqual((attempt, result), (2, 'fail'), note)
+                self.assertNotIn('실행 금지', note)
+
+
 class WorstWaitTest(DeviceBase):
     """배치 · 알림 · 시계 가설 10개(24 · 25 와 26 은 빼고)의 시간 상한은 기본 420초(tools.CASE_LIMIT)로 모자란다 — 배치 기다림 · 알림 · 토큰을 다 더한 **최악 대기**
     에 준비 몫([ROOM])을 더한 값이어야 한다. 최악 대기는 가설을 가짜 세계에서 끝까지 돌려 **실제로 부른 기다림**(`_wait_for` · 알림 지켜보기 · 앱 기다림 ·

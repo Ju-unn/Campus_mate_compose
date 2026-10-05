@@ -661,10 +661,10 @@ def _card44_morning(run, phone, state):
 
 
 PHONE = {
-    'E-CARD-01': p_card_01, 'E-CARD-03': p_card_03, 'E-CARD-13': p_card_13, 'E-CARD-17': p_card_17, 'E-CARD-18': p_card_18,
+    'E-CARD-01': p_card_01, 'E-CARD-03': p_card_03, 'E-CARD-13': p_card_13, 'E-CARD-17': _single_shot(p_card_17, always=True), 'E-CARD-18': p_card_18,
     'E-CARD-19': p_card_19, 'E-CARD-20': p_card_20, 'E-HOME-29': p_home_29,
     'E-HOME-23': p_home_23, 'E-HOME-24': _single_shot(p_home_24, always=True), 'E-HOME-25': _single_shot(p_home_25, always=True),
-    'E-HOME-26': p_home_26, 'E-CARD-44': p_card_44,  # 24 · 25 는 fail 이어도 다시 안 돈다(재시도가 창 밖이라 blocked 로 덮인다)
+    'E-HOME-26': p_home_26, 'E-CARD-44': _single_shot(p_card_44, always=True),  # 17 · 24 · 25 · 44 는 fail 이어도 다시 안 돈다(재시도가 창 밖이라 blocked 로 덮인다)
 }
 A_PHONE = ['E-CARD-01', 'E-CARD-03', 'E-CARD-13', 'E-CARD-17', 'E-CARD-18', 'E-CARD-19', 'E-CARD-44']
 B_EMULATOR = ['E-CARD-20', 'E-HOME-23', 'E-HOME-24', 'E-HOME-25', 'E-HOME-26', 'E-HOME-29']
