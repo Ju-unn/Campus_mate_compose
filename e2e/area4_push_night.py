@@ -199,6 +199,7 @@ class _Morning(_Scene):
     """아침 장면 — 밤에 만든 받는 사람 계정으로 다시 로그인해 토큰을 되찾는다. 계정을 새로 만들지 않는다."""
 
     def __init__(self, run, phone, receiver):
+        notify.ensure_delivery(phone.serial)  # 푸시 연결이 죽은 폰이면 아침 알림이 안 떠 "안 온다" 를 믿을 수 없다 — 다시 로그인하기 전에 점검
         self.run, self.phone, self.check, self.notes = run, phone, Check(), []
         self.me, self.partner, self.ready = receiver, None, False
         _app(self.check, phone(token_hash=run.link(receiver['email'])))

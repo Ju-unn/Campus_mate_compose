@@ -21,7 +21,7 @@ from urllib.parse import urlsplit
 from e2e import area1, area2, area3_phone, area4_push, area4_push_night as night, batch_gate, notify, tools
 from e2e import test_area2_time_device as base
 from e2e.test_area2_time_device import MON, TUE, WED, DeviceBase, seoul
-from e2e.tools import Reply
+from e2e.tools import Blocked, Reply
 
 ACCEPT = '나를 수락한 사람이 있어요'
 MATCH = '매칭됐어요!'
@@ -438,6 +438,27 @@ class MorningStageTest(TwoStageBase):
 for _number in TWO_STAGE:
     setattr(MorningStageTest, f'test_{_number}_morning_stage_plants_the_rows_calls_chat_gate_once_and_judges_the_notification',
             lambda self, n=_number: self.contract(n))
+
+
+class MorningDeliveryTest(TwoStageBase):
+    """아침 단계도 푸시 연결 점검(notify.ensure_delivery)을 — 다시 로그인하기 전에, 죽은 연결이면 심은 행도 없이 blocked."""
+
+    def test_a_dead_push_link_blocks_the_morning_stage_before_login_and_before_any_row_is_planted(self):
+        self.after_night('15')
+        self.prepared.clear()
+        self.prepare_error = Blocked('GCM 연결 횟수를 못 읽음 — 푸시 연결을 점검할 수 없음')
+        (result, note), phone = self.morning('15')
+        self.assertEqual(result, 'blocked', (result, note))
+        self.assertIn('푸시 연결', note)
+        self.assertEqual((phone.jobs, self.batches), ([], []))
+        planted = [s for s in self.world.sent if s['method'] == 'POST' and s['path'] == '/rest/v1/pending_pushes']
+        self.assertEqual(planted, [])
+
+    def test_the_morning_stage_checks_the_link_once_on_the_phone(self):
+        self.after_night('15')
+        self.prepared.clear()
+        self.morning('15')
+        self.assertEqual([serial for serial, _ in self.prepared], ['S'])
 
 
 class MorningBehaviourTest(TwoStageBase):
@@ -918,8 +939,8 @@ class RegistryTest(unittest.TestCase):
         run, phone = mock.Mock(), mock.Mock()
         patches = (mock.patch.object(notify, 'require_daytime'), mock.patch.object(area3_phone, '_person', return_value={'id': 'x', 'email': 'e'}),
                    mock.patch.object(area4_push, '_app'), mock.patch.object(area4_push, '_wait_for', return_value=True),
-                   mock.patch.object(notify, 'background'))
-        with patches[0] as daytime, patches[1], patches[2], patches[3], patches[4]:
+                   mock.patch.object(notify, 'background'), mock.patch.object(notify, 'ensure_delivery'))  # 푸시 연결 점검은 실제 adb 를 부른다
+        with patches[0] as daytime, patches[1], patches[2], patches[3], patches[4], patches[5]:
             area4_push._Scene(run, phone, daytime=False)
             daytime.assert_not_called()
             area4_push._Scene(run, phone)
