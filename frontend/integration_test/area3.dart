@@ -40,6 +40,7 @@ import 'support.dart';
 
 part 'area3_b2.dart';
 part 'area3_b3.dart';
+part 'area3_b5.dart';
 part 'area3_safe.dart';
 
 /// 영역 3 폰 A 한 대 1차 — 채팅 · 지인 리뷰 화면 읽기 19개. PC 쪽은 e2e/area3_phone.py 의 같은 번호(계정 · 매칭 · 메시지 ·
@@ -336,4 +337,5 @@ final Map<String, Area1Case> area3Cases = {
   ...area3Cases2,
   ...area3CasesSafe,
   ...area3Cases3,
+  ...area3Cases5,
 };
