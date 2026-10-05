@@ -71,3 +71,15 @@ def check(job):
     if job == 'chat-gate':
         with HISTORY.open('a', encoding='utf-8') as f:
             f.write(now.isoformat() + '\n')
+
+
+def peek(job, ahead=0):
+    """[check] 와 같은 판정을 기록 없이 — 준비에 시간이 드는 가설이 준비 전에 "지금 시작해도 되나" 만 묻는다.
+    [ahead] 분 뒤 시각도 같이 본다(준비가 끝날 즈음에 금지 시간이 시작되면 준비가 헛수고가 된다). 통과해도 기록은 안 남는다 —
+    chat-gate 는 [check] 만 "이 시 한 번" 으로 센다."""
+    now = now_seoul()
+    ran = _ran() if job == 'chat-gate' else ()
+    for later in (0, ahead):
+        said = refusal(job, now + timedelta(minutes=later), ran)
+        if said:
+            raise Blocked(said if not later else f'{later}분 뒤(준비가 끝날 즈음)는 ' + said.removeprefix('지금은 '))
