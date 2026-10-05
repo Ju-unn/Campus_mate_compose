@@ -39,6 +39,7 @@ from e2e import area4_push_gate  # noqa: F401 — 영역 4 알림 채팅 게이�
 from e2e import area2_phone3  # noqa: F401 — 영역 2 폰 A 3차(망 끊기 · 카드 · 알림 · 공유 창 · 하트 다시 만들기) 가설
 from e2e import area5_read  # noqa: F401 — 영역 5 폰 A 화면 읽기(나 탭 · 탈퇴 · 시스템 뒤로) 가설을 같은 곳에 더한다
 from e2e import area5_act  # noqa: F401 — 영역 5 폰 A 고쳐 저장하기(글 · 태그 · 조건 · 기본 정보) 가설을 같은 곳에 더한다
+from e2e import area5_wd  # noqa: F401 — 영역 5 폰 A 탈퇴 흐름 9개(일시중지 · 영구 삭제 · 재가입 제한 · 정리 배치 · 강제 종료)를 같은 곳에 더한다(E-WD-12 는 API)
 from e2e import area2_time_device  # noqa: F401 — 영역 2 기기 · 시각 가설 13(배치 + 알림 · 시계)
 from e2e import area4_contacts  # noqa: F401 — 영역 4 연락처(B에뮬)
 from e2e import area3_contacts  # noqa: F401 — 영역 3 연락처 차단(B에뮬)
