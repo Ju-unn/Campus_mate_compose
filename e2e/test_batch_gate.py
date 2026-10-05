@@ -121,6 +121,46 @@ class CheckTest(unittest.TestCase):
         self.assertFalse(batch_gate.HISTORY.exists())
 
 
+class PeekTest(unittest.TestCase):
+    """peek = check 와 같은 판정을 기록 없이, 그리고 [ahead] 분 뒤까지 — 준비에 시간이 드는 가설이 준비 전에 묻는다."""
+
+    def setUp(self):
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        patcher = mock.patch.object(batch_gate, 'HISTORY', Path(folder.name) / 'runs.jsonl')
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_an_open_time_passes_and_leaves_no_record(self):
+        with mock.patch.object(batch_gate, 'now_seoul', return_value=at(6, '14:20')):
+            batch_gate.peek('chat-gate')
+            batch_gate.peek('chat-gate')  # 기록이 남았다면 두 번째가 "같은 시 두 번" 으로 막힌다
+        self.assertFalse(batch_gate.HISTORY.exists())
+
+    def test_a_closed_time_is_blocked_with_the_same_message_as_check(self):
+        with mock.patch.object(batch_gate, 'now_seoul', return_value=at(6, '14:02')):
+            with self.assertRaisesRegex(Blocked, '지금은 실행 금지 시간 — 14:06 에 다시'):
+                batch_gate.peek('chat-gate')
+
+    def test_a_closed_minute_inside_the_preparation_window_is_blocked_now(self):
+        with mock.patch.object(batch_gate, 'now_seoul', return_value=at(6, '14:50')):
+            batch_gate.peek('chat-gate')  # 지금만 보면 열려 있다
+            with self.assertRaisesRegex(Blocked, r'8분 뒤.*실행 금지 시간 — 15:06 에 다시'):
+                batch_gate.peek('chat-gate', ahead=8)  # 14:58 은 정각 −5분 안
+
+    def test_it_sees_a_chat_gate_already_run_this_hour(self):
+        batch_gate.HISTORY.write_text(at(6, '14:10').isoformat() + chr(10), encoding='utf-8')
+        with mock.patch.object(batch_gate, 'now_seoul', return_value=at(6, '14:30')):
+            with self.assertRaisesRegex(Blocked, '15:06'):
+                batch_gate.peek('chat-gate')
+
+    def test_other_jobs_use_their_own_rule(self):
+        with mock.patch.object(batch_gate, 'now_seoul', return_value=at(6, '03:50')):
+            batch_gate.peek('cleanup')
+            with self.assertRaisesRegex(Blocked, '04:06'):
+                batch_gate.peek('cleanup', ahead=8)
+
+
 class WiredIntoTheBatchCallTest(unittest.TestCase):
     """area2._batch 가 관문을 지난 뒤에만 gcloud(tools.batch)를 부른다 — 모든 영역 2 배치 호출이 지나는 한 자리."""
 
@@ -136,6 +176,32 @@ class WiredIntoTheBatchCallTest(unittest.TestCase):
                 mock.patch.object(area2.tools, 'batch') as gcloud:
             area2._batch('daily-cards')
         gcloud.assert_called_once_with('daily-cards')
+
+    def test_the_before_hook_runs_after_the_gate_and_before_gcloud(self):
+        order = []
+        with mock.patch.object(batch_gate, 'now_seoul', return_value=at(6, '12:00')), \
+                mock.patch.object(batch_gate, 'check', side_effect=lambda name: order.append('gate')), \
+                mock.patch.object(area2.tools, 'batch', side_effect=lambda name: order.append('gcloud')):
+            area2._batch('chat-gate', before=lambda: order.append('before'))
+        self.assertEqual(order, ['gate', 'before', 'gcloud'])
+
+    def test_a_closed_time_never_runs_the_before_hook(self):
+        ran = []
+        with mock.patch.object(batch_gate, 'now_seoul', return_value=at(5, '12:00')), \
+                mock.patch.object(area2.tools, 'batch') as gcloud:
+            with self.assertRaises(Blocked):
+                area2._batch('daily-cards', before=lambda: ran.append(True))
+        self.assertEqual(ran, [])
+        gcloud.assert_not_called()
+
+    def test_a_before_hook_that_blocks_propagates_and_never_reaches_gcloud(self):
+        def stuck():
+            raise Blocked('시각을 못 옮김')
+        with mock.patch.object(batch_gate, 'now_seoul', return_value=at(6, '12:00')), \
+                mock.patch.object(area2.tools, 'batch') as gcloud:
+            with self.assertRaisesRegex(Blocked, '시각을 못 옮김'):
+                area2._batch('daily-cards', before=stuck)
+        gcloud.assert_not_called()
 
 
 if __name__ == '__main__':
