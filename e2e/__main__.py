@@ -44,6 +44,7 @@ from e2e import area2_time_api  # 영역 2 시간 API(배치 없이 DB 시각만
 from e2e import area2_two_poll  # noqa: F401 — 영역 2 두 기기 투표 글 가설 8(twodev.TWO · area1.BUNDLES 에 더한다)
 from e2e import area2_two_accept  # noqa: F401 — 영역 2 두 기기 카드 수락(일시중지 · 거절 · 매칭 · 연타 · 이미 매칭된 사람) 가설을 twodev.TWO · area1.BUNDLES 에 더한다
 from e2e import area2_emu_b  # noqa: F401 — 영역 2 B에뮬 가설 11(수락함 · 투표 · 추천 코드)
+from e2e import area4_push_front  # noqa: F401 — 영역 4 알림 A3(앱이 앞에 있을 때)
 from e2e import area4_push_tap  # noqa: F401 — 영역 4 알림 A2(알림을 눌러 화면 열기)
 from e2e import area4_push  # noqa: F401 — 영역 4 알림 A1(받는 사람 폰 + 상대 API, 알림 읽기)
 from e2e.tools import (DEVICE_PORT, DEVICES, ROOT, TEXT, Hub, Run, adb, cleanup, ensure_no_real_users, env, latest, scenario_rows,
