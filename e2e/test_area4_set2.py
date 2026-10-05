@@ -112,11 +112,11 @@ class NotifyHelpersTest(unittest.TestCase):
         with mock.patch.object(notify.subprocess, 'run', return_value=done) as run:
             self.assertIs(notify.screen_has('S', '추천 코드 K7M2QX'), True)
             self.assertIs(notify.screen_has('S', '없는 글'), False)
-        self.assertEqual(run.call_args.args[0], ['adb', '-s', 'S', 'shell', 'uiautomator', 'dump', '/dev/tty'])
+        self.assertEqual(run.call_args.args[0], ['adb', '-s', 'S', 'exec-out', 'uiautomator', 'dump', '/dev/tty'])  # shell 은 파이프로 받으면 XML 을 안 준다
         self.assertNotIn('text', run.call_args.kwargs)  # 글자 해석은 우리가 한다 — 로케일에 맡기지 않는다
 
     def test_screen_has_survives_bytes_that_are_not_utf8(self):
-        done = subprocess.CompletedProcess([], 0, stdout=b'\xff\xfe \xea\xb0\x80', stderr=b'')
+        done = subprocess.CompletedProcess([], 0, stdout=b'<hierarchy>\xff\xfe \xea\xb0\x80</hierarchy>', stderr=b'')
         with mock.patch.object(notify.subprocess, 'run', return_value=done):
             self.assertIs(notify.screen_has('S', '가'), True)
 
