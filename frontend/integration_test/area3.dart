@@ -8,6 +8,7 @@ import 'package:campus_mate/chat/view/chat_room_screen.dart';
 import 'package:campus_mate/chat/view/message_bubble.dart';
 import 'package:campus_mate/chat/view/system_message.dart';
 import 'package:campus_mate/chat/view/trust_banner.dart';
+import 'package:campus_mate/chat/view/trust_gate_sheet.dart';
 import 'package:campus_mate/chat/viewmodel/chat_room_view_model.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
@@ -40,8 +41,9 @@ import 'support.dart';
 
 part 'area3_b2.dart';
 part 'area3_b3.dart';
-part 'area3_b5.dart';
 part 'area3_safe.dart';
+part 'area3_b4.dart';
+part 'area3_b5.dart';
 
 /// 영역 3 폰 A 한 대 1차 — 채팅 · 지인 리뷰 화면 읽기 19개. PC 쪽은 e2e/area3_phone.py 의 같은 번호(계정 · 매칭 · 메시지 ·
 /// 리뷰를 준비하고 앱이 말한 값을 판정한다). 앱은 화면을 읽기만 하고 본 것을 Map 으로 돌려준다.
@@ -337,5 +339,6 @@ final Map<String, Area1Case> area3Cases = {
   ...area3Cases2,
   ...area3CasesSafe,
   ...area3Cases3,
+  ...area3Cases4,
   ...area3Cases5,
 };

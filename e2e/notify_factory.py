@@ -45,7 +45,7 @@ def reject_card(run, owner, card_id):
 
 def accept_back(run, target, card_id):
     """받은 수락을 target 이 수락 → 매칭이 만들어지고 양쪽에 알림."""
-    _ok(_api(run, 'POST', f'/cards/acceptances/{card_id}', target['token'], {'decision': 'accept'}), '받은 수락 수락')
+    return _ok(_api(run, 'POST', f'/cards/acceptances/{card_id}', target['token'], {'decision': 'accept'}), '받은 수락 수락')
 
 
 def match(run, x, y):
