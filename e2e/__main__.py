@@ -14,23 +14,31 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from e2e import area1, area2, area3, area3_safe, area5_api, tools
+from e2e import area1, area2, area3, area3_safe, area5_api, tools, twodev
 from e2e import area1_b2  # noqa: F401 — 묶음 2 가설을 area1.PHONE · CASES · BUNDLES 에 더한다
 from e2e import area3_phone  # noqa: F401 — 영역 3 폰 1차 가설을 area1.PHONE · area3.BUNDLES 에 더한다
 from e2e import area3_phone2  # noqa: F401 — 영역 3 폰 2차(입력 · 보내기 · 신고 · 수락 · 시트) 가설을 같은 곳에 더한다
+from e2e import area3_phone3  # noqa: F401 — 영역 3 폰 3차(꺼진 앱에서 알림 눌러 방 열기) 가설을 같은 곳에 더한다
+from e2e import area3_phone4  # noqa: F401 — 영역 3 폰 4차(매칭 시각을 옮긴 방의 14f 시트) 가설을 같은 곳에 더한다
 from e2e import area3_safe_phone  # noqa: F401 — 영역 3 안전 폰(신고 · 차단 · 정지) 가설을 같은 곳에 더한다
 from e2e import area1_b3  # 묶음 3(사진 세트) — 같은 방식
 from e2e import area1_b4  # noqa: F401 — 묶음 4(아바타) — 같은 방식
+from e2e import area1_b5  # noqa: F401 — 묶음 5(검토 이후 · 재부팅 · 식은 서버) — 같은 방식
+from e2e import area1_b6  # noqa: F401 — 묶음 6(두 기기 · 에뮬 네트워크) — 같은 방식
 from e2e import area1_emu  # noqa: F401 — B에뮬 가설(네트워크 · 시계 · 브라우저)
 from e2e import emu
 from e2e import area4  # noqa: F401 — 영역 4 가설을 같은 곳에 더한다
 from e2e import area2_phone  # noqa: F401 — 영역 2 폰 A 가설을 area1.PHONE · BUNDLES 에 더한다
 from e2e import area2_phone_b  # noqa: F401 — 영역 2 폰 A 2차 가설을 더한다
 from e2e import area4_set2  # noqa: F401 — 영역 4 설정 2차(FAQ · 초대 · 로그아웃 · 탈퇴)
+from e2e import area4_push_a4  # noqa: F401 — 영역 4 알림 A4(토큰 · 권한 · 로그인/로그아웃)
 from e2e import area2_phone3  # noqa: F401 — 영역 2 폰 A 3차(망 끊기 · 카드 · 알림 · 공유 창 · 하트 다시 만들기) 가설
 from e2e import area5_read  # noqa: F401 — 영역 5 폰 A 화면 읽기(나 탭 · 탈퇴 · 시스템 뒤로) 가설을 같은 곳에 더한다
+from e2e import area2_time_device  # noqa: F401 — 영역 2 기기 · 시각 가설 13(배치 + 알림 · 시계)
 from e2e import area4_contacts  # noqa: F401 — 영역 4 연락처(B에뮬)
 from e2e import area3_contacts  # noqa: F401 — 영역 3 연락처 차단(B에뮬)
+from e2e import area2_time_batch  # 영역 2 배치 가설(daily-cards · cleanup 을 불러 PC 에서 DB · API 로 읽음)
+from e2e import area2_time_api  # 영역 2 시간 API(배치 없이 DB 시각만 옮겨 API · RPC 로 확인)
 from e2e.tools import (DEVICE_PORT, DEVICES, ROOT, TEXT, Hub, Run, adb, cleanup, ensure_no_real_users, env, latest, scenario_rows,
                        serial, service_key, snapshot_blocks, verdict)
 
@@ -38,9 +46,13 @@ ENV_KEYS = ('SUPABASE_URL', 'SUPABASE_ANON_KEY', 'API_BASE_URL', 'E2E_MAIL_BASE'
 DESKTOP = next(p for p in (Path.home() / 'OneDrive' / 'Desktop', Path.home() / 'Desktop') if p.exists())
 SCENARIO = DESKTOP / 'E2E_최종테스트_시나리오.md'
 RESULTS = DESKTOP / 'E2E_결과'
-BUNDLES = {**area1.BUNDLES, **area2.BUNDLES, **area3.BUNDLES, **area3_safe.BUNDLES, **area5_api.BUNDLES}  # 묶음 이름 → 가설 번호들
+BUNDLES = {**area1.BUNDLES, **area2.BUNDLES, **area3.BUNDLES, **area3_safe.BUNDLES, **area5_api.BUNDLES,
+           **area2_time_api.BUNDLES,
+           **area2_time_batch.BUNDLES}  # 묶음 이름 → 가설 번호들
 API_CASES = {**{c: area1 for c in area1.CASES}, **{c: area2 for c in area2.CASES}, **{c: area3 for c in area3.CASES},
-             **{c: area3_safe for c in area3_safe.CASES}, **{c: area5_api for c in area5_api.CASES}}  # API 가설 → 그것을 가진 모듈
+             **{c: area3_safe for c in area3_safe.CASES}, **{c: area5_api for c in area5_api.CASES},
+             **{c: area2_time_api for c in area2_time_api.CASES},
+             **{c: area2_time_batch for c in area2_time_batch.CASES}}  # API 가설 → 그것을 가진 모듈
 
 
 def _run(args):
@@ -126,42 +138,58 @@ def run_case(once, case, limit=None, where=None):
             result, note = 'blocked', f'진행 프로그램 예외 {type(e).__name__}: {e}'
         if result != 'fail':
             break
+    paths = tools.retry_paths()
     retried = tools.take_retries()
     if retried:
-        note = f'{note} (통신 재시도 {retried}번)' if note else f'통신 재시도 {retried}번'
+        seen = ', '.join(path if n == 1 else f'{path} ×{n}' for path, n in Counter(paths).items())
+        text = f'통신 재시도 {retried}번' + (f': {seen}' if seen else '')
+        note = f'{note} ({text})' if note else text
     return attempt, result, note
 
 
 def cmd_run(args):
     cfg, run = env(), _run(args)
     run.cfg = cfg
-    phone = {}  # 폰 가설이 처음 나올 때 기기 · 우편함을 연다 — API 묶음만 돌릴 땐 폰이 없어도 된다
+    opened = {}  # 기기 이름 → (시리얼, 우편함). 폰 가설 · 두 기기 가설이 처음 필요할 때 연다 — API 묶음만 돌릴 땐 기기가 없어도 된다
+    phone = {}  # 시간 초과 때 화면을 찍을 기기(마지막으로 연 것) — [_where] 가 읽는다
+
+    def device(name):
+        # 같은 기기는 우편함을 한 번만 연다 — 같은 포트에 둘을 열면 윈도에서 말이 갈린다
+        if name not in opened:
+            sn = serial(name, cfg)
+            if not sn:
+                sys.exit(f'e2e.env 에 E2E_DEVICE_{name} 가 없다')
+            adb(sn, 'reverse', f'tcp:{DEVICE_PORT}', f'tcp:{DEVICES[name]}')
+            opened[name] = (sn, Hub(DEVICES[name]))
+        phone.update(sn=opened[name][0])  # 이미 연 기기를 다시 써도 "방금 쓴 기기" 가 된다
+        return opened[name]
 
     def once(case):
-        if (case in API_CASES or case in area1.PHONE) and not run.key:
+        if (case in API_CASES or case in area1.PHONE or case in twodev.TWO) and not run.key:
             run.key = service_key()  # preflight 를 건너뛰어도 운영 쓰기 전에 한 번 더 본다
             ensure_no_real_users(cfg, run.key, RESULTS)
         if case in area2.SKIPPED:
             return 'skip', area2.SKIPPED[case]
         if case in API_CASES:
             return API_CASES[case].attempt(run, case)
-        if not phone:
-            sn, pc_port = serial(args.device, cfg), DEVICES[args.device]
-            if not sn:
-                sys.exit(f'e2e.env 에 E2E_DEVICE_{args.device} 가 없다')
-            adb(sn, 'reverse', f'tcp:{DEVICE_PORT}', f'tcp:{pc_port}')
-            phone.update(sn=sn, hub=Hub(pc_port))
+        if case in twodev.TWO:  # 두 기기 가설은 늘 A=폰 · B=에뮬 — --device 와 상관없다
+            for name in ('A', 'B'):  # 우편함을 열기 전에 시리얼부터 다 확인한다
+                if not serial(name, cfg):
+                    sys.exit(f'e2e.env 에 E2E_DEVICE_{name} 가 없다 (두 기기 가설은 A=폰 · B=에뮬)')
+            sides = [twodev.Side(device(name)[1], device(name)[0]) for name in ('A', 'B')]
+            return twodev.TWO[case](run, twodev.bound(run, case, *sides))
+        sn, hub = device(args.device)
         if case in area1.PHONE:
-            return area1.attempt_phone(run, case, area1.Phone(run, phone['hub'], phone['sn'], case))
-        return verdict(run.phone(phone['hub'], phone['sn'], {'case': case}))
+            return area1.attempt_phone(run, case, area1.Phone(run, hub, sn, case))
+        return verdict(run.phone(hub, sn, {'case': case}))
 
     try:
         for case in [c for name in args.case for c in BUNDLES.get(name, [name])]:
             attempt, result, note = _run_one(once, case, run, phone)
             print(run.record(case, result, f'{note} (시도 {attempt})'.lstrip()))
     finally:
-        if phone:
-            phone['hub'].close()
+        for _, hub in opened.values():
+            hub.close()
 
 
 def _run_one(once, case, run, phone):

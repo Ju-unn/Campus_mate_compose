@@ -239,12 +239,20 @@ class Reply(tuple):
 # 아래 _send 가 먼저 Reply 로 바꾸므로 여기 오지 않는다.
 TRANSIENT = (ConnectionError, ssl.SSLError, TimeoutError, urllib.error.URLError, http.client.HTTPException)
 RETRIES = [0]  # 지난 take_retries 뒤로 다시 보낸 횟수 — 진행 프로그램이 가설 메모에 적는다
+RETRIED = []  # 다시 보낸 요청의 "메서드 경로"(쿼리 · 주소 앞부분 · 토큰 없이, id 는 :id) — 어느 호출이었는지 메모에 적는다
+_ID = re.compile(r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}')
 
 
 def take_retries():
-    """가설 하나 동안 다시 보낸 횟수를 읽고 0 으로 돌린다."""
+    """가설 하나 동안 다시 보낸 횟수를 읽고 0 으로 돌린다(다시 보낸 요청 목록도 함께 비운다)."""
     count, RETRIES[0] = RETRIES[0], 0
+    RETRIED.clear()
     return count
+
+
+def retry_paths():
+    """지난 take_retries 뒤로 다시 보낸 요청들의 "메서드 경로" — 비우지 않는다(비우는 건 take_retries)."""
+    return list(RETRIED)
 
 
 def call(method, url, headers=None, body=None, raw=None, tries=4, retry=True):
@@ -260,6 +268,7 @@ def call(method, url, headers=None, body=None, raw=None, tries=4, retry=True):
             if attempt == tries - 1:
                 raise
             RETRIES[0] += 1
+            RETRIED.append(f"{method} {_ID.sub(':id', urllib.parse.urlsplit(url).path)}")
             time.sleep(2 ** attempt)
 
 

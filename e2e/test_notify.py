@@ -37,6 +37,29 @@ class ParseTest(unittest.TestCase):
         found = notify.parse_notifications(record(OURS, 'k1', '제목', '안녕(웃음)'))
         self.assertEqual(found[0].text, '안녕(웃음)')
 
+    def test_dotted_extras_between_title_and_text_do_not_leak_into_the_value(self):
+        # 실제 dump 는 title · text 사이에 `android.reduced.images=true` 같은 점 있는 키가 낀다 — 값이 거기서 끝나야 한다
+        dump = record(OURS, 'k1', '친구가 가입했어요', '본문')
+        text_line = 'android.text=String (본문)'
+        self.assertEqual(dump.count(text_line), 1)
+        dotted = dump.replace(text_line, 'android.reduced.images=true\n      android.subText=null\n'
+                              '      android.template=android.app.Notification$BigTextStyle\n      ' + text_line + '\n      android.progress=0')
+        [got] = notify.parse_notifications(dotted)
+        self.assertEqual((got.title, got.text), ('친구가 가입했어요', '본문'))
+
+    def test_keys_that_are_not_android_dot_also_end_the_value(self):
+        # text 바로 뒤에 androidx · google 접두어 키가 와도 본문에 새지 않는다
+        dump = record(OURS, 'k1', '제목', '본문')
+        text_line = 'android.text=String (본문)'
+        tail = (text_line + '\n      androidx.core.app.extra.COMPAT_TEMPLATE=String (x)\n      google.sent_time=Long (1700000000000)')
+        [got] = notify.parse_notifications(dump.replace(text_line, tail))
+        self.assertEqual((got.title, got.text), ('제목', '본문'))
+
+    def test_a_body_line_with_an_equals_sign_is_still_part_of_the_body(self):
+        dump = record(OURS, 'k1', '제목', 'x').replace('android.text=String (x)', 'android.text=String (a\nb=c\nd.e=f)')
+        [got] = notify.parse_notifications(dump)
+        self.assertEqual(got.text, 'a\nb=c\nd.e=f')
+
     def test_a_multiline_body_is_read_whole_and_unwrapped(self):
         dump = record(OURS, 'k1', '제목', 'x').replace('android.text=String (x)', 'android.text=SpannableString (줄1\n줄2)')
         self.assertEqual(notify.parse_notifications(dump)[0].text, '줄1\n줄2')
@@ -83,6 +106,19 @@ class WaitTest(unittest.TestCase):
         with mock.patch.object(notify.time, 'monotonic', side_effect=lambda: next(ticks)), \
                 mock.patch.object(tools, 'adb', return_value=USB):
             self.assertEqual(notify.wait_new('S', [], count=1, seconds=60), [])
+
+    def test_wait_new_with_a_match_keeps_waiting_past_an_unrelated_new_one(self):
+        ticks = iter(range(0, 1000, 10))
+        dumps = [USB + ACCEPT, USB + ACCEPT, USB + ACCEPT + CARD]  # 다른 새 알림이 먼저 오고 기다리던 것이 뒤따른다
+        with mock.patch.object(notify.time, 'monotonic', side_effect=lambda: next(ticks)),                 mock.patch.object(notify.time, 'sleep', lambda s: None), mock.patch.object(tools, 'adb', side_effect=dumps):
+            got = notify.wait_new('S', [], seconds=60, match=lambda n: n.title == '오늘의 카드가 도착했어요')
+        self.assertEqual({n.title for n in got} >= {'오늘의 카드가 도착했어요'}, True)
+
+    def test_wait_new_with_a_match_gives_up_and_returns_what_arrived_instead(self):
+        ticks = iter(range(0, 1000, 10))
+        with mock.patch.object(notify.time, 'monotonic', side_effect=lambda: next(ticks)),                 mock.patch.object(notify.time, 'sleep', lambda s: None), mock.patch.object(tools, 'adb', return_value=USB + ACCEPT):
+            got = notify.wait_new('S', [], seconds=60, match=lambda n: False)
+        self.assertEqual(len(got), 1)  # 안 맞아도 온 것은 돌려준다 — 가설이 메모에 실제 글을 남긴다
 
     def test_expect_none_returns_what_showed_up_during_the_whole_time(self):
         ticks = iter(range(0, 1000, 10))

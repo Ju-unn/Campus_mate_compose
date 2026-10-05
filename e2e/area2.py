@@ -887,12 +887,16 @@ BUNDLES = {'area2-api': list(CASES)}
 
 
 def attempt(run, case):
-    """가설 하나. 준비가 안 되면 blocked, 시험 쪽 예외도 blocked(앱 결함으로 세지 않는다).
+    return attempt_with(run, CASES[case])
+
+
+def attempt_with(run, hypothesis):
+    """가설 함수 하나. 준비가 안 되면 blocked, 시험 쪽 예외도 blocked(앱 결함으로 세지 않는다).
     연결이 끊긴 것(운영 실행에서 가끔 — ConnectionResetError · SSL · http.client 끊김, tools.TRANSIENT)은 가설을 처음부터 한 번 더 한다 — 계정은 매번 새로 만들고
     쓰기는 이번 실행의 계정에만 하므로 다시 해도 안전하다. 두 번째에도 끊기면 blocked."""
     for tries in (1, 2):
         try:
-            return CASES[case](run)
+            return hypothesis(run)
         except Blocked as e:
             return 'blocked', str(e)
         except tools.TRANSIENT as e:  # tools.call 이 한 번만 보내는 요청(_ONCE)의 끊김까지 여기서 받는다
