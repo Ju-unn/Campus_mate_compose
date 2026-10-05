@@ -108,6 +108,7 @@ class _LiveScene(_Scene):
     def __init__(self, run, phone, daytime=True):
         if daytime:
             notify.require_daytime()
+        notify.ensure_delivery(phone.serial)  # 푸시 연결이 죽은 폰이면 "알림이 안 왔다" 를 앱 탓으로 읽게 된다 — 부모 장면과 같이 시작 때 한 번 점검
         self.run, self.phone, self.check, self.notes = run, phone, Check(), []
         self.me = area3_phone._person(run)
         self.partner = area3_phone._person(run)

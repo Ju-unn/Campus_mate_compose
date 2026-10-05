@@ -180,6 +180,7 @@ class GateBase(Base):
         self.clock = Clock(self.START)
         self.world = GateWorld(self.clock)
         self.log, self.batches, self.windows, self.granted, self.on_background = [], [], [], True, None
+        self.prepared, self.prepare_error = [], None  # 푸시 연결 점검(notify.ensure_delivery) 호출: (기기, 그때까지 만든 계정 수)
         self.world.permitted = lambda: self.granted
         self.names = itertools.chain([ME, PARTNER, CTL], (f'Ex{i}' for i in itertools.count()))
         self.daytime = mock.Mock()
@@ -189,6 +190,7 @@ class GateBase(Base):
             mock.patch.object(batch_gate, 'HISTORY', Path(self.root) / 'runs.jsonl'),
             mock.patch.object(area1, '_nickname', lambda: next(self.names)),
             mock.patch.object(notify, 'require_daytime', self.daytime),
+            mock.patch.object(notify, 'ensure_delivery', self.prepare),
             mock.patch.object(notify, 'grant_notifications', lambda s: self.log.append('grant')),
             mock.patch.object(notify, 'revoke_notifications', lambda s: self.log.append('revoke')),
             mock.patch.object(notify, 'read_notifications', lambda s: list(self.world.shade)),
@@ -202,6 +204,11 @@ class GateBase(Base):
         ):
             patcher.start()
             self.addCleanup(patcher.stop)
+
+    def prepare(self, serial):
+        self.prepared.append((serial, len(self.world.users)))
+        if self.prepare_error:
+            raise self.prepare_error
 
     # 가짜 기기 · 배치
     def gcloud(self, name):
@@ -383,6 +390,36 @@ for _case in CASES:  # 가설마다 새 세계에서 — 계정 번호(id-1 = �
 
 
 # ── 40 · 41 · 43 · 45 · 47 · 48 : 한 번 부르고 폰 계정 알림만 본다 ─────────────────────────────────────────
+
+class DeliveryTest(GateBase):
+    """푸시 연결 점검(notify.ensure_delivery)은 11개 모두 시작에서 — 계정 · 앱을 만들기 전에, 죽은 연결이면 blocked."""
+    CASES = [f'E-PUSH-{n}' for n in (40, 41, 42, 43, 44, 45, 46, 47, 48, 79, 80)]
+    NOW = {'E-PUSH-44': TUE(7, 20), 'E-PUSH-46': TUE(12, 20)}
+
+    def test_a_dead_push_link_blocks_before_any_account_app_or_batch(self):
+        for case in self.CASES:
+            with self.subTest(case=case):
+                self.world.users.clear()
+                self.prepared.clear()
+                self.batches.clear()
+                self.clock.now = self.NOW.get(case, TUE(12, 20))
+                self.prepare_error = Blocked('GCM 연결 횟수를 못 읽음 — 푸시 연결을 점검할 수 없음')
+                result = self.go(case)
+                self.assertEqual(result[0], 'blocked', (case, result))
+                self.assertIn('푸시 연결', result[1])
+                self.assertEqual((len(self.world.users), self.app.jobs, self.batches), (0, [], []), case)
+
+    def test_the_check_runs_once_on_the_phone_with_no_account_yet(self):
+        for case in self.CASES:
+            with self.subTest(case=case):
+                self.world.users.clear()
+                self.prepared.clear()
+                self.prepare_error = None
+                batch_gate.HISTORY.unlink(missing_ok=True)  # 앞 가설이 이 시에 chat-gate 를 불렀다는 기록 — 가설마다 따로 본다
+                self.clock.now = self.NOW.get(case, TUE(12, 20))
+                self.go(case)
+                self.assertEqual(self.prepared, [('S', 0)], case)
+
 
 class Remind40Test(GateBase):
     def test_a_match_24h_old_and_unanswered_sends_one_reminder_to_the_phone(self):
