@@ -44,6 +44,7 @@ MESSAGES = 5  # 시나리오 E-WD-06 "채팅 5건"
 CASE_LIMIT = 1500  # 계정 둘 · 두 기기 · A 의 탈퇴 흐름(+ 08 의 배치)
 LIMITS = {'side_timeout': {'A': 300, 'B': 600}, 'deadline': 1200}
 BATCH_LIMITS = {'side_timeout': {'A': 600, 'B': 900}, 'deadline': 1400}  # 08 — A 가 멈춘 사이 배치 + 카드 기다림
+BATCH_PEER = 900  # 08 — B 가 A 의 탈퇴 + 배치를 기다리는 상한(초). A 흐름 1~2분 + 확인 30초 + 배치(120 + 90 + 30초)가 기본 420초를 넘을 수 있다
 
 
 # ── 공통 ────────────────────────────────────────────────────────────────────────────────────────────
@@ -65,10 +66,10 @@ def _out(run, check, a, then=None):
     return handler
 
 
-def _login_after_out(run, b):
-    """B 가 로그아웃한 채 `wait` 에서 멈춘 사이 — A 가 나간 뒤 B 의 새 토큰을 준다."""
+def _login_after_out(run, b, peer=None):
+    """B 가 로그아웃한 채 `wait` 에서 멈춘 사이 — A 가 나간 뒤 B 의 새 토큰을 준다. [peer] 는 A 쪽이 오래 걸릴 때(배치)의 상한(초)."""
     def handler(said, sync):
-        _after(sync, 'a-out', 'A')
+        _after(sync, 'a-out', 'A', peer)
         return {'token_hash': run.link(b['email'])}
     return handler
 
@@ -188,9 +189,9 @@ def _region(run):
     return area2_time_batch._prepare(run)
 
 
-def _issue_cards(run, region, control):
-    """daily-cards 한 번 — 시험 지역 설정을 매일 칸으로 맞추고, 대조군이 카드를 받을 때까지(설정은 끝나면 원복)."""
-    area2_time_batch._issue(run, region, list(EVERY_DAY), control=control)
+def _issue_cards(run, region, control, subjects=()):
+    """daily-cards 한 번 — 시험 지역 설정을 매일 칸으로 맞추고, 대조군 · 대상이 카드를 받을 때까지(설정은 끝나면 원복)."""
+    area2_time_batch._issue(run, region, list(EVERY_DAY), control=control, subjects=subjects)
 
 
 def two_08(run, two):
@@ -205,11 +206,13 @@ def two_08(run, two):
 
     def batch():
         check.that(a['id'] not in _candidates(run, b), 'A 탈퇴 뒤에도 B 의 후보에 A 가 있음')
-        _issue_cards(run, region, [control])
-        mine = [row for row in area2_time_batch._cards(run, b) if row['target_id'] == a['id']]
+        _issue_cards(run, region, [control], [b])
+        cards = area2_time_batch._cards(run, b)
+        mine = [row for row in cards if row['target_id'] == a['id']]
+        check.that(cards, 'B 는 배치에서 카드를 한 장도 못 받음(대조군은 받음) — "A 대상 0장" 이 배치가 B 를 돌았다는 증거가 못 된다')
         check.that(not mine, f'배치 뒤 B 의 무료 카드 중 A 대상 {len(mine)}장(기대 0)')
 
-    result, memo = two({('A', 'withdrawn'): _out(run, check, a, batch), ('B', 'wait'): _login_after_out(run, b)},
+    result, memo = two({('A', 'withdrawn'): _out(run, check, a, batch), ('B', 'wait'): _login_after_out(run, b, BATCH_PEER)},
                        a_job=_a_job(run, a), b_job={'nickname': _nickname(run, a)}, **BATCH_LIMITS)
     return _verdict(check, result, memo, '응답 no_candidate 는 gcloud 라 못 읽음 — B 후보 · 카드 행으로 봄(대조군이 카드를 받아 배치가 돈 것을 확인)')
 
@@ -251,7 +254,28 @@ def _guarded(hypothesis):
     return lambda run, two: area2.attempt_with(run, lambda run: hypothesis(run, two))
 
 
-TWO = {case: _guarded(hypothesis) for case, hypothesis in CASES.items()}
+def _guarded_batch(hypothesis):
+    """배치(daily-cards)를 부르는 가설 — [_guarded] 와 같되, 배치를 이미 부른 뒤의 끊김은 처음부터 다시 하지 않고 blocked 로 끝낸다.
+    다시 하면 배치가 또 나가 daily-cards 하루 1장 규칙과 부딪친다(area2_time_batch.attempt 와 같은 방어). 배치 전의 끊김은 한 번 더.
+    A 쪽 핸들러(batch)의 예외는 twodev 가 그 쪽 결과(blocked)로 삼켜 여기까지 안 올라오므로 배치 뒤 끊김 갈래는 거의 안 탄다 — 그래도 같은 규칙을 둔다."""
+    def attempt(run, two):
+        for tries in (1, 2):
+            area2_time_batch._FIRED.clear()
+            try:
+                return hypothesis(run, two)
+            except Blocked as e:
+                return 'blocked', str(e)
+            except tools.TRANSIENT as e:
+                if area2_time_batch._FIRED:
+                    return 'blocked', f'연결이 끊김({type(e).__name__}) — {area2_time_batch.ALREADY}'
+                if tries == 2:
+                    return 'blocked', f'연결이 두 번 끊김: {type(e).__name__} {e}'
+            except Exception as e:  # 시험 쪽 버그 · 예상 밖 응답 모양 — 긴 실행이 한 가설 때문에 멈추지 않게
+                return 'blocked', f'진행 프로그램 예외 {type(e).__name__}: {e}'
+    return attempt
+
+
+TWO = {case: (_guarded_batch if case == 'E-WD-08' else _guarded)(hypothesis) for case, hypothesis in CASES.items()}
 
 twodev.TWO.update(TWO)
 area1.BUNDLES['area5-two'] = list(CASES)
