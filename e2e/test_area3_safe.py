@@ -698,6 +698,16 @@ class SuspendedRoomGateTest(BatchBase):
         self.fake.rules['gate_skips_gone'] = False
         self.fails('E-SAFE-56', '닫힘')
 
+    def test_56_fails_when_the_room_row_is_gone_instead_of_passing_as_not_closed(self):
+        real = self.sim_gate
+
+        def eat():
+            real()
+            self.fake.tables['matches'] = [m for m in self.fake.rows('matches') if m.get('chat_closed_at')]  # 확인용 방만 남긴다
+
+        with mock.patch.object(self, 'sim_gate', eat):
+            self.fails('E-SAFE-56', 'matches 행')
+
     def test_56_is_blocked_by_the_clock_and_never_calls_gcloud(self):
         self.at(14, 57)
         self.assertBlocked('E-SAFE-56', '15:06')
