@@ -99,6 +99,9 @@ class EdgeBase(ReadBase):
         self.offline = False
         self.pids = ['4242']
         self.fake.on('DELETE', r'/auth/v1/admin/users/[^/]+', self._delete_user)
+        self.gone = set()
+        self.fake.on('GET', r'/rest/v1/profiles', lambda sent: Reply(200, []) if sent['query'].get('id', '')[3:] in self.gone
+                     else self.fake._table('GET', 'profiles', sent))
 
         def fake_adb(serial, *args, check=True):
             self.adb_calls.append((serial, *args))
@@ -138,6 +141,7 @@ class EdgeBase(ReadBase):
         uid = sent['path'].rsplit('/', 1)[1]
         self.fake.users[:] = [u for u in self.fake.users if u['id'] != uid]
         self.fake.profiles.pop(uid, None)
+        self.gone.add(uid)  # 프로필 이하는 cascade 로 사라진다
         return Reply(200, {})
 
     def airplane(self, on):
@@ -161,6 +165,18 @@ class EdgeBase(ReadBase):
         self.fake.on('DELETE', r'/auth/v1/admin/users/[^/]+', self._delete_user)
         app = ScriptApp(plan, self.events, on_step, serial=serial)
         return self.case(name, None, app)
+
+    def case(self, name, answer, app=None):
+        self.gone.clear()  # 지운 계정은 가설마다 새로 — 계정 id 는 늘 id-1 부터다
+        return super().case(name, answer, app)
+
+    def save_all(self, job):
+        """앱이 다섯 화면을 다 저장했다 — 서버에 남는 것."""
+        me = self.profile()
+        me.update(height_cm=int(job['height']), bio=job['bio'], preferred_age_min=19, preferred_age_max=35,
+                  interest_tags=[*me['interest_tags'], job['extra']])
+        photos = self.photo_rows()
+        photos[0]['position'], photos[1]['position'] = photos[1]['position'], photos[0]['position']
 
     def photo_rows(self, n=1):
         return sorted((p for p in self.fake.rows('profile_photos') if p['profile_id'] == f'id-{n}'), key=lambda p: p['position'])
@@ -241,14 +257,6 @@ class Edge01Test(EdgeBase):
         for row in rows:
             row.update(over.get(row['screen'], {}))
         return {'walks': rows}
-
-    def save_all(self, job):
-        """앱이 망이 돌아온 뒤 다섯 화면을 다 저장했다 — 서버에 남는 것."""
-        me = self.profile()
-        me.update(height_cm=int(job['height']), bio=job['bio'], preferred_age_min=19, preferred_age_max=35,
-                  interest_tags=[*me['interest_tags'], job['extra']])
-        photos = self.photo_rows()
-        photos[0]['position'], photos[1]['position'] = photos[1]['position'], photos[0]['position']
 
     def on_step(self, early=None):
         def step(name, job):
@@ -418,6 +426,8 @@ class Edge21Test(EdgeBase):
                 self.log(screen, 2 if screen in twice else 1)
                 if screen == '15-6':
                     self.profile().update(nickname=job['nickname'], nickname_changed_at=now().isoformat())
+            if name == 'end':
+                self.save_all(job)
         return self.go(self.CASE, {None: (edge21_steps(), answer or self.answer())}, step, serial='emulator-5554')[0]
 
     def test_pass_each_screen_sends_one_request_on_a_slow_network(self):
