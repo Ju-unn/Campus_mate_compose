@@ -42,6 +42,9 @@ from e2e import area5_read  # noqa: F401 — 영역 5 폰 A 화면 읽기(나 �
 from e2e import area5_act  # noqa: F401 — 영역 5 폰 A 고쳐 저장하기(글 · 태그 · 조건 · 기본 정보) 가설을 같은 곳에 더한다
 from e2e import area5_photo  # noqa: F401 — 영역 5 폰 A 아바타 다시 만들기 · 15-7 사진 수정 8개를 같은 곳에 더한다
 from e2e import area5_wd  # noqa: F401 — 영역 5 폰 A 탈퇴 흐름 9개(일시중지 · 영구 삭제 · 재가입 제한 · 정리 배치 · 강제 종료)를 같은 곳에 더한다(E-WD-12 는 API)
+from e2e import area5_edge  # noqa: F401 — 영역 5 경계 7개(폰 A: E-EDGE-01 · 11 · 15 · 19, B에뮬: 21 · 24 · 25)를 area1.PHONE · BUNDLES 에 더한다
+from e2e import area5_two  # noqa: F401 — 영역 5 두 기기 탈퇴 5개(E-WD-05 ~ 09)를 twodev.TWO · area1.BUNDLES 에 더한다
+from e2e import area5_time  # noqa: F401 — 영역 5 시간조작 2개(E-WD-10 게이트 미통과 방 · E-WD-11 30일 정리 배치)를 area1.PHONE · BUNDLES 에 더한다
 from e2e import area2_time_device  # noqa: F401 — 영역 2 기기 · 시각 가설 13(배치 + 알림 · 시계)
 from e2e import area4_contacts  # noqa: F401 — 영역 4 연락처(B에뮬)
 from e2e import area3_contacts  # noqa: F401 — 영역 3 연락처 차단(B에뮬)
