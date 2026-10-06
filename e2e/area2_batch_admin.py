@@ -8,9 +8,10 @@ E-BATCH-01 은 gcloud 로 설정만 읽고, E-BATCH-02 는 틀린 신원으로 �
 import datetime as dt
 import json
 import subprocess
+from datetime import timedelta, timezone
 
-from e2e import area2, tools
-from e2e.area1 import Check, _rows
+from e2e import area2, area3, area3_phone5, tools
+from e2e.area1 import Check, _patch, _rows
 from e2e.tools import Blocked
 
 LOCATION = 'asia-northeast3'  # 세 job 다 같은 지역(DEPLOY.md §4-3)
@@ -109,7 +110,45 @@ def batch_03(run):
     return check.result('daily-cards 만 셈 — 셋 중 새 행을 만드는 배치가 그것뿐이고 chat-gate · cleanup 의 쓰기 대상은 이 판이 안 본다')
 
 
-CASES ={'E-BATCH-01': batch_01, 'E-BATCH-02': batch_02, 'E-BATCH-03': batch_03}
+def batch_11(run):
+    """E-BATCH-11 — trust_passed_at 이 이미 찍힌 방은 다음 chat-gate 에서 다시 세지 않는다.
+
+    이 대체 검사는 시나리오의 "PC POST 2번" 을 글자 그대로 하지 않는다 — 관문이 같은 시 두 번을 막는다.
+    대신 첫 실행 뒤의 DB 상태(trust_passed_at 가 채워진 방)를 미리 만들고, chat-gate 한 번 뒤 값이 그대로인지 본다.
+    동일한 `trust_passed_at is null` 조건이 다음 실행에서 이 방을 건너뛰게 하는 핵심인 `pass_trust_gate`(:196-201) 를 본다.
+    """
+    check = Check()
+    batch_gate = area3_phone5.batch_gate
+    batch_gate.peek('chat-gate', ahead=area3_phone5.PREP_MINUTES)
+    account_a, account_b, match_id = area3._pair(run)
+    area2._guard(run, account_a['id'], account_b['id'])
+    sentinel_a, sentinel_b, sentinel_id = area3_phone5._sentinel(run)
+    area2._guard(run, sentinel_a['id'], sentinel_b['id'])
+
+    now = dt.datetime.now(timezone.utc)
+    stamp = now.isoformat().replace('+00:00', 'Z')
+    _patch(run, f'match_participants?match_id=eq.{match_id}',
+           {'trust_response': 'accept', 'responded_at': stamp})
+    # 두 사람의 accept 는 준비하되, 매칭은 이미 통과한 상태로 둬서 다음 chat-gate 에서 건너뛰는지 본다.
+    _patch(run, f'matches?id=eq.{match_id}', {'trust_passed_at': stamp})
+    before = _rows(run, f'matches?id=eq.{match_id}&select=trust_passed_at,chat_closed_at')
+    if len(before) != 1 or not before[0].get('trust_passed_at') or before[0].get('chat_closed_at'):
+        raise Blocked(f'기준 방 준비 실패: {before!r}')
+
+    # area3_phone5._gated_batch 는 관문을 지난 다음 기준 방과 sentinel 시각을 확정하고, gcloud 를 한 번만 부른다.
+    area3_phone5._gated_batch(run, [account_a, account_b], [(match_id, timedelta(hours=50))],
+                              (sentinel_a, sentinel_b, sentinel_id))
+    after = _rows(run, f'matches?id=eq.{match_id}&select=trust_passed_at,chat_closed_at')
+    check.that(len(after) == 1 and after[0].get('trust_passed_at') == before[0]['trust_passed_at'],
+               f"이미 찍힌 방의 trust_passed_at 이 바뀜: 전 {before[0].get('trust_passed_at')!r} 후 {after!r}")
+    check.that(len(after) == 1 and after[0].get('chat_closed_at') is None,
+               f'이미 통과한 방이 닫힘: {after!r}')
+    return check.result('DB 기준점 대체 — trust_passed_at 이 이미 있는 방을 한 번의 chat-gate 가 건너뜀. '
+                        '시나리오의 "두 번째 POST" 자체는 아님; 두 번째 호출은 같은 시 관문이 막는다.')
+
+
+CASES = {'E-BATCH-01': batch_01, 'E-BATCH-02': batch_02, 'E-BATCH-03': batch_03,
+         'E-BATCH-11': batch_11}
 BUNDLES = {'area2-batch-admin': list(CASES)}
 
 
