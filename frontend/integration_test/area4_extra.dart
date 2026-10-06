@@ -68,9 +68,21 @@ Future<void> _faqNoResult(WidgetTester tester) async {
   await pumpUntil(tester, find.text('찾는 질문이 없어요'), timeout: const Duration(seconds: 5));
 }
 
-/// E-SET-67 의 B 쪽 확인 — 로그인 화면으로 쫓겨나지 않았고 대화 탭을 새로 열어도 상대 방이 그대로다.
+/// 이 기기(B)의 세션이 서버에서도 살아 있다 — 세션이 있고, 서버가 그 세션의 사용자를 알려 주고(getUser 는 서버에 묻는다),
+/// 새 열쇠를 받을 수 있다(A 가 모든 기기를 로그아웃시켰다면 서버가 세션을 지워 여기서 막힌다).
+Future<void> _sessionAlive(String when) async {
+  final auth = Supabase.instance.client.auth;
+  must(auth.currentSession != null, '$when: 이 기기의 세션이 사라짐');
+  final user = await auth.getUser();
+  must(user.user != null, '$when: 서버가 이 기기의 세션을 모름');
+  final refreshed = await auth.refreshSession();
+  must(refreshed.session != null, '$when: 서버가 새 열쇠를 안 줌(세션이 끊김)');
+}
+
+/// E-SET-67 의 B 쪽 확인 — 로그인 화면으로 쫓겨나지 않았고, 서버가 이 기기의 세션을 그대로 알고, 대화 탭을 새로 열어도 상대 방이 그대로다.
 Future<void> _chatStillWorks(WidgetTester tester, String nickname, String when) async {
   must(screen('login').evaluate().isEmpty, '$when: 로그인 화면으로 쫓겨남');
+  await _sessionAlive(when);
   await tap(tester, _tab('나'));
   await wait(tester, const Duration(seconds: 1));
   await _openChatTab(tester);

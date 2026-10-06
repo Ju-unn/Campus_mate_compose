@@ -136,6 +136,19 @@ class DartContractTest(unittest.TestCase):
         self.assertIn(text, shown)
         self.assertIn(f"_unblockDescription = '{text}'", said)
 
+    def test_set_67_b_asks_the_server_about_its_own_session_right_after_a_logs_out_and_after_the_hold(self):
+        helper = self.case_body('Future<void> _chatStillWorks', "final Map<String, Area1Case> _extraCases")
+        self.assertIn('_sessionAlive(', helper, 'B 의 세션이 서버에서도 살아 있는지 직접 묻지 않음')
+        b_side = self.case_body("'E-SET-67/B'", '\n};')
+        self.assertEqual(b_side.count('_chatStillWorks('), 2)  # A 로그아웃 직후 · HOLD 뒤 — 둘 다 같은 도우미를 지난다
+
+    def test_the_session_check_asks_the_server_and_the_refresh_token(self):
+        text = (tools.ROOT / 'frontend' / 'integration_test' / 'area4_extra.dart').read_text(encoding='utf-8')
+        body = text[text.index('Future<void> _sessionAlive'):]
+        body = body[:body.index('\n}\n')]
+        self.assertIn('auth.getUser()', body)  # 서버가 이 세션의 사용자를 아는지(세션이 지워졌으면 막힌다)
+        self.assertIn('refreshSession()', body)  # 새로 받기 — A 가 모든 기기를 끊었다면 열쇠가 죽어 있다
+
 
 class RealContractTest(unittest.TestCase):
     def test_account_withdrawal_is_not_a_heart_withdrawal(self):
