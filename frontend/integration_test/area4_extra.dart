@@ -125,6 +125,7 @@ final Map<String, Area1Case> _extraCases = {
     await _seeAll(tester, [nickname]);
     await tap(tester, find.widgetWithText(TextButton, '해제').first);
     await pumpUntil(tester, find.text('차단을 해제할까요?'));
+    await _seeAll(tester, [_unblockDescription]); // 시나리오 시트 문구 — E-SET-27 과 같은 글
     await tap(tester, find.widgetWithText(SafetySheetButton, '해제'));
     await pumpUntil(tester, find.text('아직 차단한 상대가 없어요'), timeout: const Duration(seconds: 15));
     await _backToTabs(tester);
