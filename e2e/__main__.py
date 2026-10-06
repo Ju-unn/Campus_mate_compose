@@ -46,6 +46,7 @@ from e2e import area4_contacts  # noqa: F401 — 영역 4 연락처(B에뮬)
 from e2e import area3_contacts  # noqa: F401 — 영역 3 연락처 차단(B에뮬)
 from e2e import area2_time_batch  # 영역 2 배치 가설(daily-cards · cleanup 을 불러 PC 에서 DB · API 로 읽음)
 from e2e import area2_time_api  # 영역 2 시간 API(배치 없이 DB 시각만 옮겨 API · RPC 로 확인)
+from e2e import area2_batch_admin  # 영역 2 배치 운영(E-BATCH-01~03) — 스케줄러 설정 · /batch/* 신원 · 401 뒤 DB 무변화
 from e2e import area2_two_poll  # noqa: F401 — 영역 2 두 기기 투표 글 가설 8(twodev.TWO · area1.BUNDLES 에 더한다)
 from e2e import area2_two_accept  # noqa: F401 — 영역 2 두 기기 카드 수락(일시중지 · 거절 · 매칭 · 연타 · 이미 매칭된 사람) 가설을 twodev.TWO · area1.BUNDLES 에 더한다
 from e2e import area2_emu_b  # noqa: F401 — 영역 2 B에뮬 가설 11(수락함 · 투표 · 추천 코드)
@@ -56,6 +57,7 @@ from e2e import area4_push_night  # noqa: F401 — 영역 4 알림 밤·아침·
 from e2e import area3_phone7  # noqa: F401 — 영역 3 밤 가설 E-CHAT-34 · 42 · E-REV-18 을 영역 4 밤 판(E-PUSH-33 · 86 · 52)의 별칭으로 area1.PHONE · area3.BUNDLES 에 더한다(area4_push_night 뒤에)
 from e2e import area4_push_card  # noqa: F401 — 영역 4 알림 카드 배치 9(E-PUSH-01~09, daily-cards 를 불러 알림이 오는지 · 안 오는지)
 from e2e import area3_batch  # noqa: F401 — 영역 3 배치 E-BATCH-14~17 · 22 · 23 을 기존 판(E-PUSH-40 · 46 · 44 · 47 · E-AUTH-12 · E-HEART-22)의 별칭으로 area1.PHONE · area3.BUNDLES 에 더한다(API 둘은 아래 API_CASES)
+from e2e import area2_aliases  # 영역 2 별칭 9개(E-CARD-40 · 43 · 46 · 48, E-BATCH-05~09) — 원본(area2_time_device · area4_push · area2_time_batch) 뒤에
 from e2e.tools import (DEVICE_PORT, DEVICES, ROOT, TEXT, Hub, Run, adb, cleanup, ensure_no_real_users, env, latest, scenario_rows,
                        serial, service_key, snapshot_blocks, verdict)
 
@@ -65,11 +67,15 @@ SCENARIO = DESKTOP / 'E2E_최종테스트_시나리오.md'
 RESULTS = DESKTOP / 'E2E_결과'
 BUNDLES = {**area1.BUNDLES, **area2.BUNDLES, **area3.BUNDLES, **area3_safe.BUNDLES, **area5_api.BUNDLES,
            **area2_time_api.BUNDLES,
-           **area2_time_batch.BUNDLES}  # 묶음 이름 → 가설 번호들
+           **area2_time_batch.BUNDLES,
+           **area2_batch_admin.BUNDLES,
+           **area2_aliases.BUNDLES}  # 묶음 이름 → 가설 번호들
 API_CASES = {**{c: area1 for c in area1.CASES}, **{c: area2 for c in area2.CASES}, **{c: area3 for c in area3.CASES},
              **{c: area3_safe for c in area3_safe.CASES}, **{c: area5_api for c in area5_api.CASES},
              **{c: area2_time_api for c in area2_time_api.CASES},
-             **{c: area2_time_batch for c in area2_time_batch.CASES}}  # API 가설 → 그것을 가진 모듈
+             **{c: area2_time_batch for c in area2_time_batch.CASES},
+             **{c: area2_batch_admin for c in area2_batch_admin.CASES},
+             **{c: area2_aliases for c in area2_aliases.CASES}}  # API 가설 → 그것을 가진 모듈
 API_CASES.update({c: area3_phone5 for c in area3_phone5.CASES})  # E-CHAT-69(정리 배치 · 폰 없음) — area3.CASES 에 안 넣어 area3-api 묶음이 그대로다
 API_CASES.update({c: area3_batch for c in area3_batch.CASES})  # E-BATCH-22 · 23(기존 API 판의 별칭)
 

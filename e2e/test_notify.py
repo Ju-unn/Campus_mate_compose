@@ -254,6 +254,18 @@ class TapTest(unittest.TestCase):
             self.run_tap(ui(('Rbxpr', '[170,600][260,660]'), ('다른 글', '[170,670][420,720]')), title='Rbxpr', body='E2E-tap-79bda2')
         self.assertEqual(self.taps(), [])
 
+    SAMSUNG = ui(('Eoswc', '[204,748][322,803]'), ('오전 6:42', '[345,754][472,800]'), ('E2E-32-fe6a3b1c', '[204,806][960,862]'),
+                 ('다른 알림', '[204,951][272,1009]'))
+
+    def test_without_a_body_the_second_tap_is_the_first_text_line_under_the_title_not_the_time_beside_it(self):
+        # 실기기(삼성): 짧은 제목 글자를 눌러도 안 열리고 아래 본문 줄을 누르면 열린다 — 본문을 안 줘도 제목만 세 번 누르지 않는다
+        self.run_tap(self.SAMSUNG, title='Eoswc', tops=[self.OTHER] * notify.FRONT_WAIT + [self.FRONT])
+        self.assertEqual(self.taps(), [('263', '775'), ('582', '834')])
+
+    def test_without_a_body_and_with_nothing_under_the_title_it_taps_the_title_again(self):
+        self.run_tap(ui(('Rbxpr', '[170,600][260,660]')), title='Rbxpr', tops=[self.OTHER] * notify.FRONT_WAIT + [self.FRONT])
+        self.assertEqual(self.taps(), [('215', '630'), ('215', '630')])
+
     def test_a_shade_that_is_still_moving_is_read_again_until_the_spot_stops_changing(self):
         moving = ui(('Rbxpr', '[170,900][260,960]'))
         still = ui(('Rbxpr', '[170,600][260,660]'))
