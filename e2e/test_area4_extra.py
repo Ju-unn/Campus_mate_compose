@@ -42,6 +42,11 @@ class RegistryTest(unittest.TestCase):
     def test_the_two_device_case_has_a_long_enough_case_limit(self):
         self.assertGreater(tools.CASE_LIMITS['E-SET-67'], area4_extra.HOLD + 600)
 
+    def test_the_two_batch_phone_cases_get_room_for_accounts_app_and_the_batch_wait(self):
+        # 04 는 계정 4 + 앱 + 첫 배치 120초 + 카드 90초, 43 은 거기에 연락처 세션까지 — 기본 420초는 모자라고 배치는 이미 나간 뒤라 다시 못 돈다.
+        for case in ('E-SET-04', 'E-SET-43'):
+            self.assertGreaterEqual(tools.CASE_LIMITS.get(case, tools.CASE_LIMIT), 900, case)
+
 
 class Heart46Test(Base):
     def setUp(self):
