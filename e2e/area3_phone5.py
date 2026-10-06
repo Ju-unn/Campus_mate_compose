@@ -339,7 +339,7 @@ def p_chat_67(run, phone):
     check.reply('A 보내기', sent[0] if sent else (0, '앱이 멈추기 전에 끝남'), 201)
     note = ''
     if said:
-        check.that(said.get('bubble') is True, f"B 말풍선 {said.get('bubble', MISSING)}(기대 True)")
+        check.that(said.get('bubble') is True, f"B 말풍선 {said.get('bubble', MISSING)}(기대 True) · 앱이 글을 본 시각 seen_at {said.get('seen_at', MISSING)}")
         created = _at((_rows(run, f'messages?match_id=eq.{match_id}&body=eq.{body}&select=created_at') or [{}])[0].get('created_at'))
         seen = _at(said.get('seen_at'))
         if created and seen:

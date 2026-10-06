@@ -52,8 +52,9 @@ import uuid
 from e2e import area1, area2, tools
 from e2e.area1 import Check, _app, _one, _patch, _rows
 from e2e.area1_b3 import _files, _photos, _push
-from e2e.area2_phone3 import _add_avatar, _balance
+from e2e.area2_phone3 import _add_avatar, _balance, _slow, offline
 from e2e.area3_phone import MISSING
+from e2e.area4 import _cut, _restore
 from e2e.area5_act import TOAST_MS, _paid_case
 from e2e.area5_read import TITLES, _avatar_rows, _home, _photos_to, _ready_avatars
 from e2e.tools import Blocked
@@ -68,8 +69,14 @@ INVALID = '입력한 값을 다시 확인해 주세요'  # 서버 INVALID_INPUT
 MAX_NOTICE = '사진은 최대 4장까지 올릴 수 있어요'
 NONE_KEPT = '얼굴이 보이는 사진을 골라 주세요'
 ONE_DROPPED = '1장은 얼굴이 보이지 않아 빠졌어요'
-FACE, SCENERY = 'face1.jpg', 'scenery.jpg'  # 사진 세트(area1_b3.PHOTO_SET)
+FACE, SCENERY, UNSAFE = 'face1.jpg', 'scenery.jpg', 'unsafe.jpg'  # 사진 세트(area1_b3.PHOTO_SET) — unsafe 는 얼굴이 있되 SafeSearch 에 걸린다(E-ONB-23 과 같다)
+NOT_SAFE = '부적절한 사진은 올릴 수 없어요'  # 서버 PHOTO_NOT_SAFE(422)
 TITLE_15_7 = TITLES['15-7']
+FREE_BODY = '첫 번째 다시 만들기는 무료예요. 새 아바타는 바로 프로필에 반영돼요.'
+FREE_CTA = '무료로 만들기'
+HEART_LINE = '지금 보유한 하트는'  # 보유 하트 줄 — 무료 시트에는 없다
+WORKER_WAIT = 900  # 앱이 워커를 기다리는 시간(초) — 앱은 11분까지 본다
+WORKER_MS = 600_000  # 서버 · 앱 폴링 상한 10분(시나리오 "10분 안에")
 
 
 def _paid_body(balance):
@@ -304,6 +311,95 @@ def p_me_14(run, phone, paid):
     return check.result('유료 호출: 큐 등록 1번, OpenAI 이미지 생성은 워커가 행을 읽기 전에 바꿨으면 0번(건너뜀), 먼저 읽었으면 1번(끝에 0행이라 skipped)')
 
 
+# ── E-ME-10 · 11 · 16 워커가 새 아바타를 만든다(유료 AI) ──────────────────────────────────────────
+
+def _regen_ui(check, said):
+    """다시 만들기가 변환 중 안내를 거쳐 새 그림으로 끝났나 — 10 · 11 · 16 이 같이 본다."""
+    for label, got in (('"아바타로 변환 중이에요" 안내', said.get('generating_seen', MISSING)),
+                       ('히어로 그림이 새 그림으로 바뀜', said.get('avatar_changed', MISSING)),
+                       ('변환 중 안내가 사라짐', said.get('generating_gone', MISSING))):
+        check.that(got is True, f'{label} {got}(기대 True)')
+    check.that(said.get('regen_state', MISSING) == 'ready', f"다시 만들기 상태 {said.get('regen_state', MISSING)!r}(기대 ready)")
+    ms = said.get('waited_ms')
+    check.that(isinstance(ms, int) and ms <= WORKER_MS, f'새 아바타까지 {ms}ms(기대 10분 {WORKER_MS}ms 이내)')
+
+
+def _one_new_ready(check, run, account, ready_before):
+    """워커가 새 한 장을 완성했고 pending · failed 가 남지 않았나. 아바타 행들을 돌려준다."""
+    rows = _avatar_rows(run, account)
+    ready = [r for r in rows if r[1] == 'ready']
+    check.that(len(ready) == ready_before + 1, f'완성 아바타 {len(ready)}장(기대 {ready_before + 1}장 — 워커가 새 한 장을 완성)')
+    other = [r[1] for r in rows if r[1] != 'ready']
+    check.that(not other, f'완성이 아닌 아바타 행 {other}(기대 없음)')
+    return rows
+
+
+def _new_ready_id(rows, known):
+    new = [r[0] for r in rows if r[1] == 'ready' and r[0] not in known]
+    return new[0] if len(new) == 1 else None
+
+
+def p_me_10(run, phone, paid):
+    check = Check()
+    account, token = _home(run)
+    ready = len(_ready_avatars(run, account))
+    if ready != 1:
+        raise Blocked(f'준비: ready 아바타 {ready}장 — 기대 1장(첫 다시 만들기가 무료인 조건)')
+    before = _snapshot(run, account)
+    paid()  # 여기부터는 큐 등록 · OpenAI 이미지 생성(유료)이 나갈 수 있다
+    said = _app(check, _slow(phone, WORKER_WAIT)(token_hash=token))
+    check.that(said.get('sheet_title', MISSING) == PAID_TITLE, f"시트 제목 {said.get('sheet_title', MISSING)!r}(기대 {PAID_TITLE!r})")
+    texts = said.get('sheet_texts') or []
+    check.that(FREE_BODY in texts and FREE_CTA in texts, f'시트 글 {texts}(기대 무료 안내 {FREE_BODY!r} 와 {FREE_CTA!r} 버튼)')
+    check.that(not any(HEART_LINE in t for t in texts), f'시트에 보유 하트 줄이 있다 {texts}(기대 없음 — 무료 시트)')
+    _regen_ui(check, said)
+    _one_new_ready(check, run, account, ready)
+    now = _snapshot(run, account)
+    check.that(now['balance'] == before['balance'], f"하트 {now['balance']}(기대 {before['balance']} 그대로 — 첫 다시 만들기는 무료)")
+    ledger = area2._ledger(run, account, 'avatar_regen')
+    check.that(not ledger, f'avatar_regen 원장 {ledger}(기대 0행)')
+    return check.result('유료 호출: 큐 등록 1번 · 워커의 OpenAI 이미지 생성 1번(하트는 안 빠진다)')
+
+
+def p_me_11(run, phone, paid):
+    check = Check()
+    account, token = _home(run)
+    _two_ready(run, account)
+    _hearts_to(run, account, HEARTS)
+    known = {r[0] for r in _avatar_rows(run, account)}
+    paid()
+    said = _app(check, _slow(phone, WORKER_WAIT)(token_hash=token))
+    check.that(said.get('sheet_title', MISSING) == PAID_TITLE, f"시트 제목 {said.get('sheet_title', MISSING)!r}(기대 {PAID_TITLE!r})")
+    check.that(said.get('sheet_body', MISSING) == _paid_body(HEARTS),
+               f"시트 글 {said.get('sheet_body', MISSING)!r}(기대 {_paid_body(HEARTS)!r})")
+    _regen_ui(check, said)
+    rows = _one_new_ready(check, run, account, 2)
+    have = _balance(run, account)
+    check.that(have == HEARTS - COST, f'하트 {have}(기대 {HEARTS} → {HEARTS - COST} — 완성된 뒤에 {COST}개)')
+    ledger = _rows(run, f"heart_transactions?profile_id=eq.{account['id']}&reason=eq.avatar_regen&select=amount,ref_id")
+    check.that([r['amount'] for r in ledger] == [-COST], f"avatar_regen 원장 {[r['amount'] for r in ledger]}(기대 [{-COST}] 한 줄)")
+    new_id = _new_ready_id(rows, known)
+    refs = [r.get('ref_id') for r in ledger]
+    check.that(bool(refs) and all(refs), f'원장의 ref_id {refs}(기대 비어 있지 않음)')
+    check.that(new_id is not None and refs == [new_id], f'원장의 ref_id {refs}(기대 새 아바타 행 {new_id})')
+    return check.result(f'유료 호출: 큐 등록 1번 · 워커의 OpenAI 이미지 생성 1번(하트 {COST}개)')
+
+
+def p_me_16(run, phone, paid):
+    check = Check()
+    account, token = _home(run)
+    ready = len(_ready_avatars(run, account))
+    if ready != 1:
+        raise Blocked(f'준비: ready 아바타 {ready}장 — 기대 1장(무료로 만들어 하트를 안 쓴다)')
+    paid()
+    said = _app(check, _slow(phone, WORKER_WAIT)(token_hash=token))
+    check.that(said.get('generating_after_return', MISSING) is True,
+               f"오늘 탭에서 나 탭으로 돌아온 뒤 변환 중 안내 {said.get('generating_after_return', MISSING)}(기대 True — 폴링을 다시 잇는다)")
+    _regen_ui(check, said)
+    _one_new_ready(check, run, account, ready)
+    return check.result('유료 호출: 큐 등록 1번 · 워커의 OpenAI 이미지 생성 1번(무료 차례라 하트는 안 빠진다)')
+
+
 # ── E-ME-38 · 39 15-7 저장 ──────────────────────────────────────────────────────────────────────────
 
 def p_me_38(run, phone):
@@ -417,6 +513,54 @@ def p_me_42(run, phone):
     return check.result('Vision 0번 — 얼굴 판정은 기기 안(ML Kit)이고 저장 버튼을 안 누른다')
 
 
+def p_me_40(run, phone, paid):
+    check = Check()
+    account, token = _home(run)
+    _ready_photos(run, account, 3)
+    rows = _photos_now(run, account)
+    ids = [r['id'] for r in rows]
+    ready = len(_ready_avatars(run, account))
+    if ready != 1 or not rows[0]['is_avatar_source']:
+        raise Blocked(f"준비: ready 아바타 {ready}장(기대 1장) · 첫 칸이 원본 {rows[0]['is_avatar_source']}(기대 True) — 원본을 빼는 조건이 아니다")
+    avatars = _avatar_rows(run, account)
+    paid()  # 여기부터는 큐 등록 · OpenAI 이미지 생성(유료)이 나갈 수 있다
+    said = _app(check, _slow(phone, WORKER_WAIT)(token_hash=token))
+    check.that(said.get('ids_open', MISSING) == ids, f"15-7 을 열었을 때 칸 {said.get('ids_open', MISSING)}(기대 DB 사진 순서 {ids})")
+    check.that(said.get('ids_removed', MISSING) == ids[1:], f"첫 칸(원본)을 뺀 뒤 {said.get('ids_removed', MISSING)}(기대 {ids[1:]})")
+    check.that(said.get('title', MISSING) == TITLES['15-5'], f"저장 뒤 화면 {said.get('title', MISSING)!r}(기대 15-5 {TITLES['15-5']!r})")
+    now = _photos_now(run, account)
+    check.that([r['id'] for r in now] == ids[1:], f"DB 순서 {[r['id'] for r in now]}(기대 원본을 뺀 {ids[1:]})")
+    check.that([r['position'] for r in now] == [0, 1], f"DB 위치 {[r['position'] for r in now]}(기대 [0, 1])")
+    sources = [r['id'] for r in now if r['is_avatar_source']]
+    check.that(sources == ids[1:2], f'아바타 원본 표시 {sources}(기대 새 첫 칸 {ids[1:2]} 한 개)')
+    _storage_matches(check, now, _files(run, 'profile-photos', account['id']))
+    before_url = said.get('avatar_before', MISSING)
+    check.that(before_url is not None and before_url == said.get('avatar_after', MISSING),
+               f"사진 저장 전 아바타 그림 {before_url!r} · 뒤 {said.get('avatar_after', MISSING)!r}(기대 같은 그림 — 지금 아바타는 그대로)")
+    _regen_ui(check, said)
+    after = _one_new_ready(check, run, account, ready)
+    check.that(set(avatars) <= set(after), f'기존 아바타 행이 바뀜 {sorted(set(avatars) - set(after))}(기대 그대로 — 사진 저장은 아바타를 안 건드린다)')
+    return check.result('다음 다시 만들기가 새 원본으로 돈다는 것은 서버가 원본 행(is_avatar_source)을 읽어 만든다는 코드 사실과 완성(409 없이)으로 본다 — '
+                        '워커가 어느 사진을 썼는지는 PC 가 못 본다. 유료 호출: 큐 등록 1번 · 워커의 OpenAI 이미지 생성 1번')
+
+
+def p_me_43(run, phone):
+    check = Check()
+    _photos(run, FACE, UNSAFE)  # 계정을 만들기 전에 파일부터
+    account, token = _home(run)
+    _ready_photos(run, account, 2)
+    before = _state(run, account)
+    _push(phone, run, FACE, UNSAFE)
+    said = _app(check, phone(token_hash=token, photo=FACE, unsafe=UNSAFE))
+    check.that(said.get('tiles_before', MISSING) == 2, f"넣기 전 칸 {said.get('tiles_before', MISSING)}개(기대 2개)")
+    check.that(said.get('tiles_after', MISSING) == 4, f"넣은 뒤 칸 {said.get('tiles_after', MISSING)}개(기대 4개 — 기기 얼굴 검사를 둘 다 통과)")
+    check.that(said.get('error') is True, f"오류 줄 {said.get('error', MISSING)}(기대 보임)")
+    check.that(said.get('error_text', MISSING) == NOT_SAFE, f"오류 글 {said.get('error_text', MISSING)!r}(기대 {NOT_SAFE!r})")
+    check.that(said.get('title_after_error', MISSING) == TITLE_15_7, f"422 뒤 화면 {said.get('title_after_error', MISSING)!r}(15-7 {TITLE_15_7!r} 에 머물러야 한다)")
+    _unchanged(check, run, account, before)
+    return check.result('Vision SafeSearch 1~2번(새 사진마다, 부적절한 쪽에서 멈춘다) — 사진 세트의 unsafe.jpg 가 실제로 걸리는 사진이어야 한다')
+
+
 # ── E-ME-44 열어 둔 사이 서버 사진이 바뀜 ───────────────────────────────────────────────────────────
 
 def p_me_44(run, phone):
@@ -446,11 +590,44 @@ def p_me_44(run, phone):
     return _result(check, note)
 
 
+def p_edge_03(run, phone):
+    """E-EDGE-03 — 끊긴 저장은 칸을 남기고, 복구 뒤 저장만 서버에 반영."""
+    check = Check()
+    _photos(run, FACE)
+    account, token = _home(run)
+    _ready_photos(run, account, 2)
+    before = _photos_now(run, account)
+    files = _files(run, 'profile-photos', account['id'])
+    _push(phone, run, FACE)
+
+    def restore(said):
+        # 두 번째 멈춤 = 끊긴 채 저장을 누른 뒤(망 복구 · 두 번째 저장 전) — 이때 서버가 그대로여야 한다
+        check.that(_photos_now(run, account) == before and _files(run, 'profile-photos', account['id']) == files,
+                   '끊긴 저장 뒤 DB 사진 · 저장소 파일이 바뀜')
+        _restore(phone)(said)
+
+    said = offline(phone, check, _cut(phone), restore, token_hash=token, photo=FACE)
+    check.that(said.get('off_error', MISSING) == '네트워크 연결을 확인해 주세요',
+               f"끊긴 저장 네트워크 안내 {said.get('off_error', MISSING)!r}(기대 네트워크 연결을 확인해 주세요)")
+    check.that(said.get('off_title', MISSING) == TITLE_15_7, f"끊긴 저장 뒤 화면 {said.get('off_title', MISSING)!r}(기대 15-7)")
+    check.that(said.get('off_tiles', MISSING) == 3, f"끊긴 저장 뒤 칸 {said.get('off_tiles', MISSING)}(기대 3개 유지)")
+    check.that(said.get('title', MISSING) == TITLES['15-5'], f"복구 뒤 화면 {said.get('title', MISSING)!r}(기대 15-5)")
+    now = _photos_now(run, account)
+    check.that(len(now) == 3 and [r['position'] for r in now] == [0, 1, 2], f'DB 사진 {len(now)}장 · 위치(기대 3장 연속)')
+    check.that([r['id'] for r in now[:2]] == [r['id'] for r in before] and len({r['id'] for r in now} - {r['id'] for r in before}) == 1,
+               'DB 새 사진 행(기대 원래 2장 + 새 1장)')
+    _storage_matches(check, now, _files(run, 'profile-photos', account['id']))
+    check.that(said.get('names_after', MISSING) == [_name(r) for r in now], f"15-5 사진 {said.get('names_after', MISSING)}(기대 DB 사진)")
+    return check.result('Vision SafeSearch 1번(복구 뒤 새 사진 저장)')
+
+
 PHONE = {
-    'E-ME-12': p_me_12, 'E-ME-13': p_me_13, 'E-ME-14': _paid_case('E-ME-14', p_me_14),
-    'E-ME-38': p_me_38, 'E-ME-39': p_me_39, 'E-ME-41': p_me_41, 'E-ME-42': p_me_42, 'E-ME-44': p_me_44,
+    'E-ME-10': _paid_case('E-ME-10', p_me_10), 'E-ME-11': _paid_case('E-ME-11', p_me_11),
+    'E-ME-12': p_me_12, 'E-ME-13': p_me_13, 'E-ME-14': _paid_case('E-ME-14', p_me_14), 'E-ME-16': _paid_case('E-ME-16', p_me_16),
+    'E-ME-38': p_me_38, 'E-ME-39': p_me_39, 'E-ME-40': _paid_case('E-ME-40', p_me_40), 'E-ME-41': p_me_41, 'E-ME-42': p_me_42,
+    'E-ME-43': p_me_43, 'E-ME-44': p_me_44, 'E-EDGE-03': p_edge_03,
 }
 
 area1.PHONE.update(PHONE)
 area1.BUNDLES['area5-photo'] = list(PHONE)
-tools.CASE_LIMITS.update({'E-ME-14': 600, 'E-ME-38': 600, 'E-ME-39': 600, 'E-ME-42': 600, 'E-ME-44': 600})  # 유료 대기 · 사진 옮기기 · 끌기
+tools.CASE_LIMITS.update({'E-ME-40': 1200, 'E-ME-10': 1200, 'E-ME-11': 1200, 'E-ME-16': 1200, 'E-ME-14': 600, 'E-ME-38': 600, 'E-ME-39': 600, 'E-ME-42': 600, 'E-ME-44': 600, 'E-EDGE-03': 600})  # 유료 대기 · 사진 옮기기 · 끌기

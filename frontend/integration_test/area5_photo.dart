@@ -19,6 +19,8 @@ const _photoGenerating = '아바타로 변환 중이에요'; // my_profile_scree
 const _photoFailedToast = '아바타를 만들지 못했어요.\n하트는 차감되지 않았어요.'; // my_profile_screen.dart 15-3 안내
 const _photoMaxNotice = '사진은 최대 4장까지 올릴 수 있어요'; // photos_view_model.dart addPhoto
 const _photoChangedNotice = '사진이 바뀌었어요, 다시 열어 주세요'; // 서버 PHOTOS_CHANGED(409)
+const _photoNetworkNotice = '네트워크 연결을 확인해 주세요'; // NetworkFailure
+const _photoNotSafe = '부적절한 사진은 올릴 수 없어요'; // 서버 PHOTO_NOT_SAFE(422)
 
 // ── 읽기 ────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -179,8 +181,50 @@ Future<Map<String, Object?>> _photoPick(WidgetTester tester, ProviderContainer c
   return {'before': before, 'after': _photoTiles(tester), 'message': message, 'toast': toast};
 }
 
+const _photoFreeCta = '무료로 만들기'; // avatar_regen_sheet.dart 비용 0 시트
+const _photoWait = Duration(minutes: 11); // 워커가 새 아바타를 만들기까지 — 서버 · 앱 폴링 상한 10분 + 여유
+
+/// 15b 시트의 [cta] 를 눌러 만들기를 시작하고(변환 중 안내), [midway] 를 한 뒤 히어로 그림이 바뀌고 안내가 사라질 때까지(최대 [_photoWait]) 기다린다.
+/// 끝나면 시트 앞 모습 · 새 그림 여부 · 뷰모델 상태를 말한다 — 하트 · 원장 · 아바타 행은 PC 가 DB 로 본다. [midway] 가 돌려준 칸은 그대로 더한다.
+Future<Map<String, Object?>> _photoRegenWait(WidgetTester tester, String cta, {Future<Map<String, Object?>> Function()? midway}) async {
+  final before = _avatarFile(tester);
+  await _photoPress(tester, find.descendant(of: find.byType(SafetySheet), matching: find.text(cta)));
+  final generating = await appears(tester, find.text(_photoGenerating), const Duration(seconds: 15));
+  final extra = midway == null ? const <String, Object?>{} : await midway();
+  final watch = Stopwatch()..start();
+  while (watch.elapsed < _photoWait && (_avatarFile(tester) == before || _has(find.text(_photoGenerating)))) {
+    await tester.pump(const Duration(milliseconds: 500));
+    if (_photoRegenState(tester) == 'failed') break; // 실패로 끝났다 — 11분을 더 기다리지 않는다
+  }
+  final state = _photoMeContainer(tester).read(avatarGenerationViewModelProvider);
+  return {
+    'generating_seen': generating != null,
+    'avatar_changed': _avatarFile(tester) != before,
+    'generating_gone': !_has(find.text(_photoGenerating)),
+    'regen_state': state.status.name,
+    'waited_ms': watch.elapsedMilliseconds,
+    ...extra,
+  };
+}
+
 final Map<String, Area1Case> area5CasesPhoto = {
   // ── 아바타 다시 만들기 ──
+  'E-ME-10': _session((tester, job) async {
+    await _openMe(tester);
+    await _photoOpenSheet(tester);
+    final texts = _photoSheetTexts(tester);
+    return {'sheet_title': texts.isEmpty ? null : texts.first, 'sheet_texts': texts, ...await _photoRegenWait(tester, _photoFreeCta)};
+  }),
+  'E-ME-11': _session((tester, job) async {
+    await _openMe(tester);
+    await _photoOpenSheet(tester);
+    final texts = _photoSheetTexts(tester);
+    return {
+      'sheet_title': texts.isEmpty ? null : texts.first,
+      'sheet_body': _photoLine(texts, _heartLine),
+      ...await _photoRegenWait(tester, _photoPaidCta),
+    };
+  }),
   'E-ME-12': _session((tester, job) async {
     await _openMe(tester);
     await _photoOpenSheet(tester);
@@ -228,6 +272,17 @@ final Map<String, Area1Case> area5CasesPhoto = {
       'regen_state': state.status.name,
       'regen_error': state.errorMessage,
     };
+  }),
+  'E-ME-16': _session((tester, job) async {
+    await _openMe(tester);
+    await _photoOpenSheet(tester);
+    return _photoRegenWait(tester, _photoFreeCta, midway: () async {
+      await tap(tester, _tab('오늘')); // 만드는 중에 나 탭을 떠난다 — 화면 15 가 닫히며 폴링을 끊는다
+      await wait(tester, const Duration(seconds: 5));
+      await tap(tester, _tab('나')); // 돌아오면 만드는 중이면 폴링을 다시 잇는다
+      await pumpUntil(tester, find.byType(ProfileHero));
+      return {'generating_after_return': _has(find.text(_photoGenerating))};
+    });
   }),
 
   // ── 15-7 사진 수정 ──
@@ -285,6 +340,34 @@ final Map<String, Area1Case> area5CasesPhoto = {
       'names_after': saved.$2,
     };
   }),
+  'E-ME-40': _session((tester, job) async {
+    await _openMe(tester);
+    final avatarBefore = _avatarFile(tester);
+    await tap(tester, _entry(_manageEntry));
+    await pumpUntil(tester, find.text(_sectionTitles.first));
+    await wait(tester, const Duration(milliseconds: 500)); // 사진 · 줄이 자리를 잡게
+    final namesBefore = _photoManageNames(tester);
+    await _photoOpenEditor(tester);
+    final container = _photoEditorContainer(tester);
+    final idsOpen = _photoIds(container);
+    await tap(tester, find.byIcon(AppIcons.x).first); // 첫 칸(아바타 원본) 빼기
+    await wait(tester, const Duration(milliseconds: 300));
+    final idsRemoved = _photoIds(container);
+    final saved = await _photoSaveAndWait(tester, namesBefore);
+    await _back(tester); // 15-5 → 15
+    await pumpUntil(tester, find.byType(ProfileHero));
+    await wait(tester, const Duration(seconds: 1)); // 내 프로필을 다시 읽어 그림이 자리를 잡게
+    final avatarAfter = _avatarFile(tester);
+    await _photoOpenSheet(tester);
+    return {
+      'ids_open': idsOpen,
+      'ids_removed': idsRemoved,
+      'title': saved.$1,
+      'avatar_before': avatarBefore,
+      'avatar_after': avatarAfter,
+      ...await _photoRegenWait(tester, _photoFreeCta),
+    };
+  }),
   'E-ME-41': _session((tester, job) async {
     await _openManage(tester);
     await _photoOpenEditor(tester);
@@ -325,6 +408,32 @@ final Map<String, Area1Case> area5CasesPhoto = {
     }
     return {'alone': first, 'mixed': second};
   }),
+  'E-ME-43': _session((tester, job) async {
+    final face = await _photoFile(job['photo'] as String);
+    final unsafe = await _photoFile(job['unsafe'] as String);
+    await _openManage(tester);
+    await _photoOpenEditor(tester);
+    final container = _photoEditorContainer(tester);
+    final asked = <int>[];
+    _photoGallery(container, [face, unsafe], asked);
+    final tilesBefore = _photoTiles(tester);
+    await _photoAdd(tester, container, asked);
+    final tilesAfter = _photoTiles(tester);
+    if (tilesAfter < tilesBefore + 2) {
+      throw E2eBlocked('두 사진이 기기 얼굴 검사에서 빠짐(칸 $tilesBefore → $tilesAfter) — 사진 세트의 unsafe.jpg 에 얼굴이 있어야 서버까지 간다');
+    }
+    await _photoTapSave(tester);
+    final error = find.text(_photoNotSafe);
+    await appears(tester, error, const Duration(seconds: 30));
+    final shown = _has(error);
+    return {
+      'tiles_before': tilesBefore,
+      'tiles_after': tilesAfter,
+      'error': shown,
+      'error_text': shown ? tester.widget<Text>(error.first).data : null,
+      'title_after_error': _title(tester),
+    };
+  }),
   'E-ME-44': _session((tester, job) async {
     final swap = (job['swap'] as List<dynamic>).cast<int>();
     final left = job['left'] as int;
@@ -361,5 +470,30 @@ final Map<String, Area1Case> area5CasesPhoto = {
       'reopened_tiles': reopenedTiles,
       'reopened_ids': reopenedIds,
     };
+  }),
+  'E-EDGE-03': _session((tester, job) async {
+    final face = await _photoFile(job['photo'] as String);
+    await _openManage(tester);
+    final namesBefore = _photoManageNames(tester);
+    await _photoOpenEditor(tester);
+    final container = _photoEditorContainer(tester);
+    final asked = <int>[];
+    _photoGallery(container, [face], asked);
+    final tilesBefore = _photoTiles(tester);
+    await _photoAdd(tester, container, asked);
+    if (_photoTiles(tester) != tilesBefore + 1) {
+      throw E2eBlocked('얼굴 사진이 기기 얼굴 검사에서 빠짐 — 사진 세트 확인');
+    }
+    await step('cut');
+    await _photoTapSave(tester);
+    await appears(tester, find.text(_photoNetworkNotice), const Duration(seconds: 30));
+    final offline = {
+      'off_error': container.read(myPhotosViewModelProvider).errorMessage,
+      'off_title': _title(tester),
+      'off_tiles': _photoTiles(tester),
+    };
+    await step('restore');
+    final saved = await _photoSaveAndWait(tester, namesBefore);
+    return {...offline, 'title': saved.$1, 'names_after': saved.$2};
   }),
 };

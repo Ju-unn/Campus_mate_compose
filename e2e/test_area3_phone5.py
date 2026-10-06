@@ -784,6 +784,14 @@ class Chat67Test(Base5):
         self.assertEqual(result, 'fail')
         self.assertIn('말풍선', note)
 
+    def test_the_fail_note_says_when_the_app_saw_the_message_so_a_late_frame_is_told_from_a_missing_message(self):
+        (result, note), _ = self.run67({None: {'seen_at': '2026-10-06T17:07:20+00:00', 'bubble': False}})
+        self.assertEqual(result, 'fail')
+        self.assertIn('seen_at 2026-10-06T17:07:20+00:00', note)
+        self.setUp()  # 두 번째 실행은 깨끗한 가짜 서버에서
+        (_, note), _ = self.run67({None: {'seen_at': None, 'bubble': False}})
+        self.assertIn('seen_at None', note)
+
     def test_a_send_that_fails_is_a_fail_with_the_status(self):
         self.fake.handlers.insert(0, ('POST', re.compile(r'/chat/matches/[^/]+/messages'), Reply(409, {'detail': '종료된 대화예요'})))
         (result, note), _ = self.run67({None: {'seen_at': None, 'bubble': False}})
