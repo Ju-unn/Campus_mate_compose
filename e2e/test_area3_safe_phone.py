@@ -346,6 +346,9 @@ class RoomFlowTest(SafePhone):
 
     def test_15_fails_on_a_new_report_a_block_a_left_room_or_another_toast(self):
         def goes_through(job):
+            # "11번째 신고가 통과해 버리는 서버" 를 흉내 낸다 — 공용 가짜가 E-SAFE-16(#345)부터 하루 10건 한도(429)를 기본으로 걸므로, 이 가설이 시드한 10건 위에서는
+            # 그대로 두면 report_by 가 429 로 먼저 멈춘다. 한도를 끈 서버만 이 줄에서 신고를 받아 준다(가설이 잡아야 할 어긋남).
+            self.fake.rules['report_limit'] = 10 ** 6
             self.report_by('id-1', 'id-2')
             return self.room_kept()
         self.fails('E-SAFE-15', goes_through, 'reports', 'blocks')
