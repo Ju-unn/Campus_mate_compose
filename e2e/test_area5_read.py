@@ -444,6 +444,23 @@ class OfflineMeTest(ReadBase):
             self.blocked('E-ME-04', {}, '못 찾음', app=app)
         self.assertEqual(events[-1], 'restore')
 
+    def test_04_re_maps_the_mailbox_after_airplane_mode_like_every_other_offline_case(self):
+        # 비행기 모드 뒤 adb reverse 가 풀린 기기 대비(area2_phone3.offline) — 통과 · 실패 · blocked 어느 끝에서도 망 다음에 다시 건다.
+        reverse = ('S', 'reverse', f'tcp:{tools.DEVICE_PORT}', 'tcp:8765')
+        endings = ((self.passes, (said(error_text='잠시 뒤 다시 시도해 주세요', retry_text='다시 시도', hero=True, retry_ms=2500),)),
+                   (self.fails, (said(error_text='잠시 뒤 다시 시도해 주세요', retry_text='다시 시도', hero=False, retry_ms=3500), '히어로')),
+                   (self.blocked, ({'result': 'blocked', 'note': '못 찾음'}, '못 찾음')))
+        for ending, (answer, *words) in endings:
+            with self.subTest(ending=ending.__name__):
+                events = []
+                app = StepApp(lambda job, answer=answer: dict(answer), ['cut', 'restore'], events)
+                app.port = 8765
+                with mock.patch.object(area5_read.notify, 'airplane', lambda s, on, settle=None: events.append('offline' if on else 'online')), \
+                        mock.patch.object(area5_read.notify, 'ensure_online', lambda s: events.append('restore')):
+                    ending('E-ME-04', {}, *words, app=app)
+                self.assertEqual(events[-1], 'restore')
+                self.assertEqual(self.adb_calls[-1:], [reverse], self.adb_calls)
+
 
 class HeroTest(ReadBase):
     def good(self, **over):
