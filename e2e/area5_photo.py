@@ -457,12 +457,13 @@ def p_edge_03(run, phone):
     files = _files(run, 'profile-photos', account['id'])
     _push(phone, run, FACE)
 
-    def cut(said):
-        _cut(phone)(said)
+    def restore(said):
+        # 두 번째 멈춤 = 끊긴 채 저장을 누른 뒤(망 복구 · 두 번째 저장 전) — 이때 서버가 그대로여야 한다
         check.that(_photos_now(run, account) == before and _files(run, 'profile-photos', account['id']) == files,
                    '끊긴 저장 뒤 DB 사진 · 저장소 파일이 바뀜')
+        _restore(phone)(said)
 
-    said = offline(phone, check, cut, _restore(phone), token_hash=token, photo=FACE)
+    said = offline(phone, check, _cut(phone), restore, token_hash=token, photo=FACE)
     check.that(said.get('off_error', MISSING) == '네트워크 연결을 확인해 주세요',
                f"끊긴 저장 네트워크 안내 {said.get('off_error', MISSING)!r}(기대 네트워크 연결을 확인해 주세요)")
     check.that(said.get('off_title', MISSING) == TITLE_15_7, f"끊긴 저장 뒤 화면 {said.get('off_title', MISSING)!r}(기대 15-7)")

@@ -1292,7 +1292,8 @@ class ConflictTest(PhotoBase):
 class EdgeOfflineTest(PhotoBase):
     """E-EDGE-03 — 오프라인 저장 실패 뒤 선택한 칸을 유지하고 복구 뒤 한 번만 저장."""
 
-    def attempt(self, answer):
+    def attempt(self, answer, between=lambda: None):
+        """[between] 은 첫 멈춤(끊김)과 두 번째 멈춤(복구) 사이 — 앱이 끊긴 채 저장을 누르는 때 서버에 생기는 일."""
         sent = []
 
         def app(midway=None, **job):
@@ -1302,7 +1303,7 @@ class EdgeOfflineTest(PhotoBase):
                 self.offline_state = (len(self.photos()), self.files(), len(self.fake.by('PUT', '/me/photos')))
             return answer(job)
 
-        app.serial, app.hub = 'S', mock.Mock(wait=mock.Mock(return_value={'step': 'restore'}))
+        app.serial, app.hub = 'S', mock.Mock(wait=mock.Mock(side_effect=lambda timeout: (between(), {'step': 'restore'})[1]))
         with mock.patch.object(area4.notify, 'airplane') as plane, mock.patch.object(area4.notify, 'ensure_online') as online:
             (result, note), _ = self.case('E-EDGE-03', None, app)
         return (result, note), sent, plane, online
@@ -1336,6 +1337,14 @@ class EdgeOfflineTest(PhotoBase):
                 self.assertEqual(result, 'fail', note)
                 self.assertIn(word, note)
                 online.assert_called_once_with('S')
+
+    def test_03_fails_when_the_offline_save_reached_the_server(self):
+        # 끊긴 채 저장을 누른 사이(첫 멈춤 뒤 · 복구 앞) 서버에 사진이 들어가 버린 경우 — 검사가 첫 멈춤 때만 돌면 못 잡는다
+        (result, note), _, _, online = self.attempt(
+            self.good(), between=lambda: self.app_save(keep(*self.photos()) + [{'new': 0}], files=1))
+        self.assertEqual(result, 'fail', note)
+        self.assertIn('끊긴 저장', note)
+        online.assert_called_once_with('S')
 
     def test_03_rejects_false_success_without_server_save(self):
         def no_save(job):
