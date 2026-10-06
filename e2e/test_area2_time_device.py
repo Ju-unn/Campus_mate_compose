@@ -345,7 +345,7 @@ class DeviceBase(Base):
         if self.prepare_error:
             raise self.prepare_error
 
-    def batch(self, name):
+    def batch(self, name, before=None):  # 진짜 area2._batch(name, before=None) 와 같은 모양 — area3_phone5._batch 가 before 를 넘긴다
         self.log.append(f'batch:{name}')
         self.batches.append(name)
         if name in self.scripts:
@@ -901,6 +901,15 @@ class Card13Test(DeviceBase):
     def test_an_owner_that_still_gets_a_live_card_is_a_fail(self):
         self.scripts['daily-cards'] = lambda: (self.world.give_card('id-1'), self.world.give_card('id-3'))
         self.assertEqual(self.go('E-CARD-13', self.phone_13())[0], 'fail')
+
+    def test_a_fail_after_the_batch_is_not_rerun_so_the_production_batch_goes_out_once(self):
+        # 진행 프로그램(run_case)은 fail 이면 같은 가설을 한 번 더 부른다 — 배치를 이미 부른 뒤라면 다시 돌지 말고 첫 결과를 돌려줘야 한다(운영 배치가 두 번 나간다)
+        self.scripts['daily-cards'] = lambda: (self.world.give_card('id-1'), self.world.give_card('id-3'))
+        first = self.go('E-CARD-13', self.phone_13())
+        second = self.go('E-CARD-13', self.phone_13())
+        self.assertEqual(first[0], 'fail', first)
+        self.assertEqual(second, first)
+        self.assertEqual(self.batches, ['daily-cards'])
 
     def test_a_control_without_a_card_means_the_batch_did_not_run_so_blocked(self):
         self.scripts['daily-cards'] = lambda: None

@@ -14,6 +14,7 @@
 """
 
 from e2e import area1, area1_b2, area2_time_batch, area3, tools  # noqa: F401 — area1_b2 는 E-AUTH-12 를 area1.CASES 에 더한다
+from e2e.alias_guard import already_ran
 from e2e.area4_push_gate import PHONE as GATE_PHONE
 from e2e.tools import Blocked
 
@@ -31,16 +32,7 @@ def _noted(mine, note):
     return f'{mine} 로 돌린 같은 판' + (f' — {note}' if note else '') + (f' ⚠ {NOTES[mine]}' if mine in NOTES else '')
 
 
-def _already_ran(run, mine, theirs):
-    """원본이 이 결과 폴더에 이미 기록돼 있으면 [Blocked] — 같은 배치를 두 번 부르지 않는다.
-    단 그 줄을 **이 별칭이 직접 적었고 fail** 이면 (결과, 메모)를 돌려준다: 진행 프로그램(run_case)이 fail 을 한 번 더 부르는데, 그때 fail 을 blocked 로 덮지 않고
-    첫 결과를 그대로 돌려줘 원본을 다시 부르지 않는다(원본의 `_FAILED` · `_PAID` 기억과 같은 일). 통과 · blocked 줄은 돌려주지 않는다 — 같은 폴더 재실행은 막힌다."""
-    last = next((r for r in reversed(run.records()) if r['case'] == theirs), None)
-    if last is None:
-        return None
-    if last['result'] == 'fail' and last['note'].startswith(f'{mine} 로 돌린'):
-        return last['result'], last['note']
-    raise Blocked(f'{mine}: 원본 {theirs} 를 이 실행(같은 --bundle 폴더)에서 이미 돌렸다 — 같은 배치가 두 번 나가므로 안 돈다')
+_already_ran = already_ran  # 공용 방어(e2e/alias_guard.py) — area2_aliases 도 같은 것을 쓴다
 
 
 def _twin(mine, theirs):

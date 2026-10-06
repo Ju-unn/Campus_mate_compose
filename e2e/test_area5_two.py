@@ -204,6 +204,17 @@ class RegistryTest(unittest.TestCase):
             with self.subTest(case):
                 self.assertGreaterEqual(tools.CASE_LIMITS[case] - deadline[case], count * area5_two.PREP_ACCOUNT)
 
+    def test_the_app_waits_for_the_pc_longer_than_the_pc_waits_for_the_app(self):
+        """PC 가 B 를 기다리는 상한(BATCH_PEER · PEER)보다 B 앱의 `wait` 멈춤이 길어야 앱이 먼저 포기하지 않는다 — 08 은 배치라 900초."""
+        text = dart('area5_two.dart')
+        minutes = lambda name: int(re.search(rf'const {name} = Duration\(minutes: (\d+)\)', text).group(1)) * 60  # noqa: E731
+        self.assertGreater(minutes('_twoBatchWait'), area5_two.BATCH_PEER)
+        self.assertGreater(minutes('_twoLongWait'), area2_two_accept.PEER)
+        body = text.split("'E-WD-08/B'", 1)[1].split("'E-WD-09/A'", 1)[0]
+        self.assertIn('wait: _twoBatchWait', body)
+        for case in ('E-WD-06/B', 'E-WD-07/B', 'E-WD-09/B'):  # 배치가 없는 가설은 기본 대기 그대로
+            self.assertNotIn('wait: _twoBatchWait', text.split(f"'{case}'", 1)[1].split("'E-WD-", 1)[0], case)
+
     def test_the_literals_the_app_looks_for_are_in_the_real_screens(self):
         screens = '\n'.join(p.read_text(encoding='utf-8') for p in (tools.ROOT / 'frontend' / 'lib').rglob('*.dart'))
         for literal in ('상대가 채팅방을 나가 더 이상 메시지를 보낼 수 없어요.', '채팅방 나가기', '내가 쓴 리뷰', '아직 쓴 리뷰가 없어요'):
