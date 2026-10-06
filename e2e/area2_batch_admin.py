@@ -25,11 +25,10 @@ UNAUTHORIZED = 'unauthorized'  # errors.UNAUTHORIZED — batch_auth 가 401 에 
 
 def _describe(name):
     """job 하나의 설정(gcloud describe --format=json). 못 부르면 blocked — 이 판은 gcloud 없이는 아무것도 못 가린다."""
+    # 문자열로 넘긴다 — shell=True 에 리스트를 주면 윈도만 되고 POSIX 에서는 첫 낱말만 실행된다(tools.batch 와 다른 점).
+    command = f'gcloud scheduler jobs describe campus-mate-{name} --location={LOCATION} --format=json'
     try:
-        out = subprocess.run(
-            ['gcloud', 'scheduler', 'jobs', 'describe', f'campus-mate-{name}',
-             f'--location={LOCATION}', '--format=json'],
-            **tools.TEXT, check=True, shell=True).stdout  # 윈도는 gcloud 가 .cmd 라 shell 로 부른다(tools.batch 와 같다)
+        out = subprocess.run(command, **tools.TEXT, check=True, shell=True).stdout  # 윈도는 gcloud 가 .cmd 라 shell 로 부른다
     except (subprocess.CalledProcessError, OSError) as e:
         raise Blocked(f'gcloud 를 못 부름({type(e).__name__}: {getattr(e, "stderr", "") or e}) — '
                       '설치 · 로그인 · 권한이 있어야 E-BATCH-01 을 볼 수 있다') from e

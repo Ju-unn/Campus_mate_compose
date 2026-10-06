@@ -23,8 +23,11 @@ def job(name, path, **over):
 
 class DescribeTest(unittest.TestCase):
     def test_it_reads_json_from_gcloud(self):
-        with mock.patch.object(mod.subprocess, 'run', return_value=SimpleNamespace(stdout='{"schedule":"0 7 * * *"}')):
+        with mock.patch.object(mod.subprocess, 'run', return_value=SimpleNamespace(stdout='{"schedule":"0 7 * * *"}')) as run:
             self.assertEqual(mod._describe('daily-cards'), {'schedule': '0 7 * * *'})
+        # 문자열 하나로 부른다 — shell=True 에 리스트를 주면 POSIX 에서 첫 낱말만 실행된다.
+        self.assertEqual(run.call_args[0], ('gcloud scheduler jobs describe campus-mate-daily-cards '
+                                            '--location=asia-northeast3 --format=json',))
 
     def test_no_gcloud_is_blocked_not_failed(self):
         with mock.patch.object(mod.subprocess, 'run', side_effect=OSError('gcloud 없음')):
