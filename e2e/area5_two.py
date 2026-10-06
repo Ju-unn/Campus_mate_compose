@@ -44,6 +44,7 @@ MESSAGES = 5  # 시나리오 E-WD-06 "채팅 5건"
 CASE_LIMIT = 1500  # 계정 둘 · 두 기기 · A 의 탈퇴 흐름(+ 08 의 배치)
 LIMITS = {'side_timeout': {'A': 300, 'B': 600}, 'deadline': 1200}
 BATCH_LIMITS = {'side_timeout': {'A': 600, 'B': 900}, 'deadline': 1400}  # 08 — A 가 멈춘 사이 배치 + 카드 기다림
+BATCH_PEER = 900  # 08 — B 가 A 의 탈퇴 + 배치를 기다리는 상한(초). A 흐름 1~2분 + 확인 30초 + 배치(120 + 90 + 30초)가 기본 420초를 넘을 수 있다
 
 
 # ── 공통 ────────────────────────────────────────────────────────────────────────────────────────────
@@ -65,10 +66,10 @@ def _out(run, check, a, then=None):
     return handler
 
 
-def _login_after_out(run, b):
-    """B 가 로그아웃한 채 `wait` 에서 멈춘 사이 — A 가 나간 뒤 B 의 새 토큰을 준다."""
+def _login_after_out(run, b, peer=None):
+    """B 가 로그아웃한 채 `wait` 에서 멈춘 사이 — A 가 나간 뒤 B 의 새 토큰을 준다. [peer] 는 A 쪽이 오래 걸릴 때(배치)의 상한(초)."""
     def handler(said, sync):
-        _after(sync, 'a-out', 'A')
+        _after(sync, 'a-out', 'A', peer)
         return {'token_hash': run.link(b['email'])}
     return handler
 
@@ -209,7 +210,7 @@ def two_08(run, two):
         mine = [row for row in area2_time_batch._cards(run, b) if row['target_id'] == a['id']]
         check.that(not mine, f'배치 뒤 B 의 무료 카드 중 A 대상 {len(mine)}장(기대 0)')
 
-    result, memo = two({('A', 'withdrawn'): _out(run, check, a, batch), ('B', 'wait'): _login_after_out(run, b)},
+    result, memo = two({('A', 'withdrawn'): _out(run, check, a, batch), ('B', 'wait'): _login_after_out(run, b, BATCH_PEER)},
                        a_job=_a_job(run, a), b_job={'nickname': _nickname(run, a)}, **BATCH_LIMITS)
     return _verdict(check, result, memo, '응답 no_candidate 는 gcloud 라 못 읽음 — B 후보 · 카드 행으로 봄(대조군이 카드를 받아 배치가 돈 것을 확인)')
 

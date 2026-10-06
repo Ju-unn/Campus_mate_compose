@@ -42,10 +42,12 @@ def _until(read, seconds=None):
         time.sleep(POLL)
 
 
-def _after(sync, name, who):
-    """상대 기기가 [name] 을 세울 때까지 — 안 서면 이 가설은 막힌 것(상대가 먼저 실패하면 twodev.Aborted 로 풀린다)."""
-    if not sync.wait(name, PEER):
-        raise Blocked(f'{who} 가 {PEER}초 안에 끝내지 않음')
+def _after(sync, name, who, peer=None):
+    """상대 기기가 [name] 을 세울 때까지 — 안 서면 이 가설은 막힌 것(상대가 먼저 실패하면 twodev.Aborted 로 풀린다).
+    [peer] 는 기본 [PEER] 보다 오래 걸리는 일(배치)에 주는 상한(초)."""
+    seconds = PEER if peer is None else peer
+    if not sync.wait(name, seconds):
+        raise Blocked(f'{who} 가 {seconds}초 안에 끝내지 않음')
 
 
 def _decisions(run, card):
