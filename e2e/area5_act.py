@@ -39,6 +39,7 @@ refresh_vectors 를 불러 임베딩을 만든다. 그래서 앱이 자기소개
 
 import random
 import re
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
@@ -51,6 +52,7 @@ from e2e.area4 import _cut, _restore
 from e2e.area5_read import TITLES, _home, _server_unlock
 from e2e.tools import Blocked
 
+CUT_SETTLE = 2  # 비행기 모드를 켠 뒤 망이 정말 끊기기를 기다리는 초 — 켜자마자 앱이 치면 망이 아직 살아 있다(area5_edge.CUT_SETTLE 과 같은 이유 · 같은 값)
 PLANT_AGO = timedelta(days=1)  # 벡터 행의 시각을 이만큼 옛날로 심는다 — PC · DB 시계 차이와 상관없이 "다시 만들었나" 가 갈린다
 SKEW = timedelta(seconds=120)  # PC 시계와 DB 시계 차이 여유
 TOAST_MS = (1500, 3500)  # "저장했어요" 토스트가 떠 있는 시간(약 2초, me_toast.dart MeToastHost.duration)
@@ -517,6 +519,16 @@ def p_me_36(run, phone):
     return check.result()
 
 
+def _cut_settled(phone):
+    """비행기 모드를 켜고 CUT_SETTLE 초 쉰다 — 앱이 다음 멈춤 뒤 곧바로 치기 때문에, 쉬지 않으면 망이 살아 있는 채 확인 요청이 나간다."""
+    cut = _cut(phone)
+
+    def settled(said):
+        cut(said)
+        time.sleep(CUT_SETTLE)
+    return settled
+
+
 def p_edge_02(run, phone):
     """E-EDGE-02 — 닉네임 중복 확인 중 망이 끊겨도 문구 0개 · 저장 버튼 켜짐 · 저장은 서버 판정."""
     check = Check()
@@ -524,9 +536,11 @@ def p_edge_02(run, phone):
     _unlock(run, account)
     nickname = _free_nickname(run)
     launched = _now()
-    said = offline(phone, check, _cut(phone), _restore(phone), token_hash=token, nickname=nickname)
+    said = offline(phone, check, _cut_settled(phone), _restore(phone), token_hash=token, nickname=nickname)
     shown = [label for key, label in (('off_ok', '사용할 수 있는'), ('off_bad', '형식 오류'), ('off_taken', '이미 있는')) if said.get(key) is True]
     check.that(not shown, f"끊긴 중복 확인 문구 {shown}(기대 0개)")
+    # 대조군 — 문구 0개 · 버튼 켜짐은 앱이 '확인 중…' 인 채여도(망이 살아 있고 응답만 느릴 때) 참이다. 끊겼다면 확인이 실패해 '확인 중…' 이 사라진다.
+    check.that(said.get('off_checking') is False, f"끊긴 뒤 '확인 중…' 이 {said.get('off_checking', MISSING)}(기대 사라짐 False — 남아 있으면 망이 끊겼다는 증거가 아니다)")
     check.that(said.get('off_field', MISSING) == nickname, f"끊긴 뒤 닉네임 칸 {said.get('off_field', MISSING)!r}(기대 {nickname!r})")
     check.that(said.get('off_save_enabled') is True, f"끊긴 뒤 저장 버튼 {said.get('off_save_enabled', MISSING)}(기대 켜짐)")
     check.that(said.get('save_enabled') is True, f"복구 뒤 저장 버튼 {said.get('save_enabled', MISSING)}(기대 켜짐)")

@@ -54,8 +54,8 @@ from e2e.area1 import Check, _app, _one, _patch, _rows
 from e2e.area1_b3 import _files, _photos, _push
 from e2e.area2_phone3 import _add_avatar, _balance, _slow, offline
 from e2e.area3_phone import MISSING
-from e2e.area4 import _cut, _restore
-from e2e.area5_act import TOAST_MS, _paid_case
+from e2e.area4 import _restore
+from e2e.area5_act import TOAST_MS, _cut_settled, _paid_case
 from e2e.area5_read import TITLES, _avatar_rows, _home, _photos_to, _ready_avatars
 from e2e.tools import Blocked
 
@@ -606,7 +606,7 @@ def p_edge_03(run, phone):
                    '끊긴 저장 뒤 DB 사진 · 저장소 파일이 바뀜')
         _restore(phone)(said)
 
-    said = offline(phone, check, _cut(phone), restore, token_hash=token, photo=FACE)
+    said = offline(phone, check, _cut_settled(phone), restore, token_hash=token, photo=FACE)
     check.that(said.get('off_error', MISSING) == '네트워크 연결을 확인해 주세요',
                f"끊긴 저장 네트워크 안내 {said.get('off_error', MISSING)!r}(기대 네트워크 연결을 확인해 주세요)")
     check.that(said.get('off_title', MISSING) == TITLE_15_7, f"끊긴 저장 뒤 화면 {said.get('off_title', MISSING)!r}(기대 15-7)")

@@ -1445,8 +1445,7 @@ class ConflictTest(PhotoBase):
 class EdgeOfflineTest(PhotoBase):
     """E-EDGE-03 — 오프라인 저장 실패 뒤 선택한 칸을 유지하고 복구 뒤 한 번만 저장."""
 
-    def attempt(self, answer, between=lambda: None):
-        """[between] 은 첫 멈춤(끊김)과 두 번째 멈춤(복구) 사이 — 앱이 끊긴 채 저장을 누르는 때 서버에 생기는 일."""
+    def app_for(self, answer, between=lambda: None):
         sent = []
 
         def app(midway=None, **job):
@@ -1457,6 +1456,11 @@ class EdgeOfflineTest(PhotoBase):
             return answer(job)
 
         app.serial, app.hub = 'S', mock.Mock(wait=mock.Mock(side_effect=lambda timeout: (between(), {'step': 'restore'})[1]))
+        return app, sent
+
+    def attempt(self, answer, between=lambda: None):
+        """[between] 은 첫 멈춤(끊김)과 두 번째 멈춤(복구) 사이 — 앱이 끊긴 채 저장을 누르는 때 서버에 생기는 일."""
+        app, sent = self.app_for(answer, between)
         with mock.patch.object(area4.notify, 'airplane') as plane, mock.patch.object(area4.notify, 'ensure_online') as online:
             (result, note), _ = self.case('E-EDGE-03', None, app)
         return (result, note), sent, plane, online
@@ -1498,6 +1502,16 @@ class EdgeOfflineTest(PhotoBase):
         self.assertEqual(result, 'fail', note)
         self.assertIn('끊긴 저장', note)
         online.assert_called_once_with('S')
+
+    def test_03_waits_for_the_network_to_really_drop_before_the_app_saves(self):
+        # 비행기 모드를 켠 직후 앱이 저장을 누르면 멀티파트 PUT 이 살아 있는 망으로 나간다 — 켠 다음에 CUT_SETTLE 만큼 쉰다(E-EDGE-01 · 02 와 같은 이유)
+        order = mock.Mock()
+        app, _ = self.app_for(self.good())
+        with mock.patch('time.sleep', order.sleep), mock.patch.object(area4.notify, 'airplane', order.airplane),                 mock.patch.object(area4.notify, 'ensure_online'):
+            self.case('E-EDGE-03', None, app)
+        calls = [(c[0], c[1][:2]) for c in order.mock_calls if c[0] in ('airplane', 'sleep')]
+        first_cut = calls.index(('airplane', ('S', True)))
+        self.assertEqual(calls[first_cut + 1], ('sleep', (area5_act.CUT_SETTLE,)))
 
     def test_03_rejects_false_success_without_server_save(self):
         def no_save(job):
