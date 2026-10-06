@@ -34,6 +34,7 @@ from e2e import area4  # noqa: F401 — 영역 4 가설을 같은 곳에 더한�
 from e2e import area2_phone  # noqa: F401 — 영역 2 폰 A 가설을 area1.PHONE · BUNDLES 에 더한다
 from e2e import area2_phone_b  # noqa: F401 — 영역 2 폰 A 2차 가설을 더한다
 from e2e import area4_set2  # noqa: F401 — 영역 4 설정 2차(FAQ · 초대 · 로그아웃 · 탈퇴)
+from e2e import area4_extra  # noqa: F401 — 영역 4 미등록 가설 10개 (E-HEART 46·49·51, E-SET 04·12·26·43·52·53·67)
 from e2e import area4_push_a4  # noqa: F401 — 영역 4 알림 A4(토큰 · 권한 · 로그인/로그아웃)
 from e2e import area4_push_gate  # noqa: F401 — 영역 4 알림 채팅 게이트 배치(리마인드 · 닫기, chat-gate)
 from e2e import area2_phone3  # noqa: F401 — 영역 2 폰 A 3차(망 끊기 · 카드 · 알림 · 공유 창 · 하트 다시 만들기) 가설
