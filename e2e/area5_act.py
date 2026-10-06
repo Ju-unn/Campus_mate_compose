@@ -1,4 +1,4 @@
-"""영역 5 폰 A 한 대 — 나 탭에서 글 · 태그 · 조건 · 기본 정보를 고쳐 저장하는 15개(묶음 area5-act).
+"""영역 5 폰 A 한 대 — 나 탭에서 글 · 태그 · 조건 · 기본 정보를 고쳐 저장하는 16개(묶음 area5-act).
 기대값은 바탕화면 E2E_시나리오_조각/5_나탭_탈퇴_경계.md 5-1 표의 그 줄을 지금 코드와 대조한 것이다.
 앱 쪽은 frontend/integration_test/area5_act.dart 의 같은 번호(area5.dart 가 묶는다). 사진 · 아바타 8개는 이 묶음이 아니다(다음 PR).
 
@@ -43,10 +43,11 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
 
-from e2e import area1, area2, tools
+from e2e import area1, area2, area4, tools
 from e2e.area1 import Check, _api, _app, _at, _one, _patch, _rows
-from e2e.area2_phone3 import _PAID, real_ai_gate
+from e2e.area2_phone3 import _PAID, real_ai_gate, offline
 from e2e.area3_phone import MISSING
+from e2e.area4 import _cut, _restore
 from e2e.area5_read import TITLES, _home, _server_unlock
 from e2e.tools import Blocked
 
@@ -516,6 +517,27 @@ def p_me_36(run, phone):
     return check.result()
 
 
+def p_edge_02(run, phone):
+    """E-EDGE-02 — 닉네임 중복 확인 중 망이 끊겨도 문구 0개 · 저장 버튼 켜짐 · 저장은 서버 판정."""
+    check = Check()
+    account, token = _home(run)
+    _unlock(run, account)
+    nickname = _free_nickname(run)
+    launched = _now()
+    said = offline(phone, check, _cut(phone), _restore(phone), token_hash=token, nickname=nickname)
+    shown = [label for key, label in (('off_ok', '사용할 수 있는'), ('off_bad', '형식 오류'), ('off_taken', '이미 있는')) if said.get(key) is True]
+    check.that(not shown, f"끊긴 중복 확인 문구 {shown}(기대 0개)")
+    check.that(said.get('off_field', MISSING) == nickname, f"끊긴 뒤 닉네임 칸 {said.get('off_field', MISSING)!r}(기대 {nickname!r})")
+    check.that(said.get('off_save_enabled') is True, f"끊긴 뒤 저장 버튼 {said.get('off_save_enabled', MISSING)}(기대 켜짐)")
+    check.that(said.get('save_enabled') is True, f"복구 뒤 저장 버튼 {said.get('save_enabled', MISSING)}(기대 켜짐)")
+    check.that(said.get('title', MISSING) == TITLES['15-5'], f"저장 뒤 화면 {said.get('title', MISSING)!r}(기대 15-5 {TITLES['15-5']!r})")
+    db = _profile(run, account, 'nickname,nickname_changed_at')
+    check.that(db.get('nickname') == nickname, f"DB 닉네임 {db.get('nickname')!r}(기대 {nickname!r})")
+    at = db.get('nickname_changed_at')
+    check.that(at and launched - SKEW <= _at(at) <= _now() + SKEW, f'DB nickname_changed_at {at}(기대 저장 시각 — {SKEW.seconds}초 여유 안)')
+    return check.result()
+
+
 # ── E-ME-35 키 범위 ──────────────────────────────────────────────────────────────────────────────────
 
 def p_me_35(run, phone):
@@ -546,6 +568,7 @@ PHONE = {
     'E-ME-21': p_me_21, 'E-ME-23': p_me_23, 'E-ME-24': _paid_case('E-ME-24', p_me_24), 'E-ME-25': _paid_case('E-ME-25', p_me_25),
     'E-ME-26': p_me_26, 'E-ME-27': p_me_27, 'E-ME-31': p_me_31, 'E-ME-33': p_me_33, 'E-ME-34': p_me_34, 'E-ME-35': p_me_35,
     'E-ME-36': p_me_36,
+    'E-EDGE-02': p_edge_02,
 }
 
 area1.PHONE.update(PHONE)

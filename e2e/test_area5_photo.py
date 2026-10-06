@@ -1,4 +1,4 @@
-"""영역 5 폰 A · 아바타 다시 만들기 3개 + 15-7 사진 수정 5개(E-ME 12 · 13 · 14 · 38 · 39 · 41 · 42 · 44)의 PC 쪽 시험 —
+"""영역 5 폰 A · 아바타 다시 만들기 3개 + 15-7 사진 수정 6개(E-ME 12 · 13 · 14 · 38 · 39 · 41 · 42 · 44 + E-EDGE-03)의 PC 쪽 시험 —
 폰 · 운영 없이 가짜 앱 · 가짜 서버로 돈다. 저장소 루트에서 `python -m unittest e2e.test_area5_photo`.
 
 가짜 서버([PhotoFake])는 area5_act 시험의 [ActFake] 에 이 묶음이 쓰는 서버 규칙 — `POST /me/avatar/regenerate`(me/router.py) · `PUT /me/photos`(me/router.py ·
@@ -22,7 +22,7 @@ from pathlib import Path
 from unittest import mock
 from urllib.parse import urlsplit
 
-from e2e import area1, area2, area5_act, area5_photo, tools
+from e2e import area1, area2, area4, area5_act, area5_photo, tools
 from e2e.area2_phone3 import _PAID
 from e2e.test_area1 import CFG
 from e2e.test_area3_phone import App, said
@@ -32,7 +32,7 @@ from e2e.test_area5_act import ActBase, ActFake, REAL_GUARD, dart, lib, now
 from e2e.test_area5_read import delete_button_violations, server_keys
 from e2e.tools import Reply
 
-BUNDLE = ['E-ME-12', 'E-ME-13', 'E-ME-14', 'E-ME-38', 'E-ME-39', 'E-ME-41', 'E-ME-42', 'E-ME-44']
+BUNDLE = ['E-ME-12', 'E-ME-13', 'E-ME-14', 'E-ME-38', 'E-ME-39', 'E-ME-41', 'E-ME-42', 'E-ME-44', 'E-EDGE-03']
 PAID = ['E-ME-14']  # 앱이 "10 쓰고 만들기" 를 눌러 서버가 큐에 넣고 워커가 OpenAI 이미지를 부를 수 있는 하나
 TITLES = {'15-5': '프로필 편집', '15-7': '사진 수정'}
 LOW_TITLE = '하트가 모자라요'
@@ -40,6 +40,7 @@ LOW_BODY = '하트 10개가 필요해요. 지금 보유한 하트는 5개예요.
 PAID_TITLE = '아바타를 다시 만들까요?'
 FAILED_TOAST = '아바타를 만들지 못했어요.\n하트는 차감되지 않았어요.'
 CHANGED = '사진이 바뀌었어요, 다시 열어 주세요'
+NETWORK = '네트워크 연결을 확인해 주세요'
 MAX_NOTICE = '사진은 최대 4장까지 올릴 수 있어요'
 NONE_KEPT = '얼굴이 보이는 사진을 골라 주세요'
 ONE_DROPPED = '1장은 얼굴이 보이지 않아 빠졌어요'
@@ -303,7 +304,7 @@ def keep(*rows):
 # ── 묶음 등록 · 앱 쪽 약속 ───────────────────────────────────────────────────────────────────────────
 
 class RegistryTest(unittest.TestCase):
-    def test_bundle_is_the_eight_in_the_order_of_the_scenario(self):
+    def test_bundle_is_the_nine_in_the_order_of_the_scenario(self):
         self.assertEqual(area1.BUNDLES['area5-photo'], BUNDLE)
         self.assertEqual(list(area5_photo.PHONE), BUNDLE)
         self.assertLessEqual(set(BUNDLE), set(area1.PHONE))
@@ -313,8 +314,8 @@ class RegistryTest(unittest.TestCase):
         out = subprocess.run([sys.executable, '-c', probe], cwd=tools.ROOT, capture_output=True, text=True, check=True).stdout
         self.assertEqual(out.strip(), f'{BUNDLE} True')
 
-    def test_the_fifteen_of_the_first_c_bundle_are_not_repeated_or_changed(self):
-        self.assertEqual(len(area1.BUNDLES['area5-act']), 15)
+    def test_the_sixteen_of_the_first_c_bundle_are_not_repeated_or_changed(self):
+        self.assertEqual(len(area1.BUNDLES['area5-act']), 16)
         self.assertEqual(set(BUNDLE) & set(area1.BUNDLES['area5-act']), set())
         self.assertEqual(set(BUNDLE) & set(area5_act.PHONE), set())
 
@@ -348,7 +349,7 @@ class AppContractTest(unittest.TestCase):
                 read.add(node.args[0].value)
         return read
 
-    def test_the_app_registers_the_same_eight_cases(self):
+    def test_the_app_registers_the_same_nine_cases(self):
         keys = re.findall(r"^\s*'(E-[A-Z]+-\d+)':", app_dart(), re.M)
         self.assertEqual(keys, BUNDLE)
 
@@ -535,7 +536,7 @@ class PaidGateTest(PhotoBase):
         self.assertEqual(self.options, [])
         self.assertEqual(app.jobs, [])
 
-    def test_the_other_seven_do_not_need_the_env_var(self):
+    def test_the_other_eight_do_not_need_the_env_var(self):
         for name in [c for c in BUNDLE if c not in PAID]:
             with self.subTest(name), mock.patch.dict(os.environ, {}, clear=True):
                 (result, note), _ = self.case(name, said())
@@ -1286,6 +1287,64 @@ class ConflictTest(PhotoBase):
     def test_44_writes_only_to_the_account_it_made(self):
         self.run44()
         self.writes_only_mine()
+
+
+class EdgeOfflineTest(PhotoBase):
+    """E-EDGE-03 — 오프라인 저장 실패 뒤 선택한 칸을 유지하고 복구 뒤 한 번만 저장."""
+
+    def attempt(self, answer):
+        sent = []
+
+        def app(midway=None, **job):
+            sent.append(job)
+            if midway:
+                midway({'step': 'cut'})
+                self.offline_state = (len(self.photos()), self.files(), len(self.fake.by('PUT', '/me/photos')))
+            return answer(job)
+
+        app.serial, app.hub = 'S', mock.Mock(wait=mock.Mock(return_value={'step': 'restore'}))
+        with mock.patch.object(area4.notify, 'airplane') as plane, mock.patch.object(area4.notify, 'ensure_online') as online:
+            (result, note), _ = self.case('E-EDGE-03', None, app)
+        return (result, note), sent, plane, online
+
+    def good(self, **over):
+        def answer(job):
+            rows = self.photos()
+            self.app_save(keep(*rows) + [{'new': 0}], files=1)
+            return said(**{'off_error': NETWORK, 'off_title': TITLES['15-7'], 'off_tiles': 3,
+                           'title': TITLES['15-5'], 'names_after': [name_of(r) for r in self.photos()], **over})
+        return answer
+
+    def test_03_offline_failure_preserves_selection_and_restored_save_adds_one_photo(self):
+        (result, note), sent, plane, online = self.attempt(self.good())
+        self.assertEqual(result, 'pass', note)
+        self.assertEqual([c.args for c in plane.call_args_list], [('S', True), ('S', False)])
+        online.assert_called_once_with('S')
+        self.assertEqual(sent, [{'token_hash': 'h', 'photo': 'face1.jpg'}])
+        self.assertEqual(self.offline_state[0], 2)
+        self.assertEqual(self.offline_state[2], 0)
+        self.assertEqual(len(self.photos()), 3)
+        self.assertEqual(len(self.files()), 3)
+        self.assertEqual(len(self.fake.by('PUT', '/me/photos')), 1)
+        self.assertEqual(self.fake.vision_calls, 1)
+
+    def test_03_rejects_missing_network_error_lost_tiles_or_wrong_screen(self):
+        for over, word in (({'off_error': None}, '네트워크'), ({'off_title': TITLES['15-5']}, '15-7'),
+                           ({'off_tiles': 2}, '칸'), ({'title': TITLES['15-7']}, '15-5')):
+            with self.subTest(over):
+                (result, note), _, _, online = self.attempt(self.good(**over))
+                self.assertEqual(result, 'fail', note)
+                self.assertIn(word, note)
+                online.assert_called_once_with('S')
+
+    def test_03_rejects_false_success_without_server_save(self):
+        def no_save(job):
+            return said(off_error=NETWORK, off_title=TITLES['15-7'], off_tiles=3,
+                        title=TITLES['15-5'], names_after=[name_of(r) for r in self.photos()])
+        (result, note), _, _, online = self.attempt(no_save)
+        self.assertEqual(result, 'fail', note)
+        self.assertIn('DB', note)
+        online.assert_called_once_with('S')
 
 
 # ── 쓰기 가드 ───────────────────────────────────────────────────────────────────────────────────────

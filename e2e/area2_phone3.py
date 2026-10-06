@@ -87,7 +87,9 @@ def offline(phone, check, *stages, **job):
     try:
         return _offline(phone, check, *stages, **job)
     finally:
-        tools.adb(phone.serial, 'reverse', f'tcp:{tools.DEVICE_PORT}', f'tcp:{phone.hub.port}', check=False)
+        hub = getattr(phone, 'hub', None)
+        if hub is not None:
+            tools.adb(phone.serial, 'reverse', f'tcp:{tools.DEVICE_PORT}', f'tcp:{hub.port}', check=False)
 
 
 @contextmanager

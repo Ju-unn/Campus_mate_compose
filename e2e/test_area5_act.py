@@ -1,4 +1,4 @@
-"""영역 5 폰 A · 고쳐 저장하는 15개(E-ME 07 · 18 · 19 · 20 · 21 · 23 · 24 · 25 · 26 · 27 · 31 · 33 · 34 · 35 · 36)의 PC 쪽 시험 —
+"""영역 5 폰 A · 고쳐 저장하는 16개(E-ME 07 · 18 · 19 · 20 · 21 · 23 · 24 · 25 · 26 · 27 · 31 · 33 · 34 · 35 · 36 + E-EDGE-02)의 PC 쪽 시험 —
 폰 · 운영 없이 가짜 앱 · 가짜 서버로 돈다. 저장소 루트에서 `python -m unittest e2e.test_area5_act`.
 
 가짜 서버([ActFake])는 area5_read 시험의 [ReadFake] 에 이 묶음이 쓰는 서버 규칙 — `PATCH /me/profile`(me/router.py · me/schemas.py) ·
@@ -20,7 +20,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest import mock
 
-from e2e import area1, area2, area2_phone3, area5_act, area5_read, tools
+from e2e import area1, area2, area2_phone3, area4, area5_act, area5_read, tools
 from e2e.area2_phone3 import _PAID
 from e2e.test_area1 import CFG
 from e2e.test_area3_phone import App, said
@@ -32,7 +32,7 @@ from e2e.tools import Reply, Run
 REAL_GUARD = area2._guard  # ActBase 가 가드를 끄기 전의 진짜 가드
 
 BUNDLE = ['E-ME-07', 'E-ME-18', 'E-ME-19', 'E-ME-20', 'E-ME-21', 'E-ME-23', 'E-ME-24', 'E-ME-25', 'E-ME-26', 'E-ME-27',
-          'E-ME-31', 'E-ME-33', 'E-ME-34', 'E-ME-35', 'E-ME-36']
+          'E-ME-31', 'E-ME-33', 'E-ME-34', 'E-ME-35', 'E-ME-36', 'E-EDGE-02']
 PAID = ['E-ME-07', 'E-ME-18', 'E-ME-24', 'E-ME-25']  # 앱이 bio · 이상형 조건을 저장해 서버가 임베딩(OpenAI)을 부르는 넷
 OLD_BIO = '주말엔 카페에서 책을 읽어요.'  # 계정 공장의 자기소개(tools.py _step 'bio')
 TITLES = {'15': '내 프로필', '15-5': '프로필 편집', '15c': '자기소개·태그 수정', '06-1': '이상형 조건 수정', '15-6': '기본 정보 수정',
@@ -242,7 +242,7 @@ def unlocked(fake, n=1):
 # ── 묶음 등록 · 앱 쪽 약속 ───────────────────────────────────────────────────────────────────────────
 
 class RegistryTest(unittest.TestCase):
-    def test_bundle_is_the_fifteen_in_the_order_of_the_scenario(self):
+    def test_bundle_is_the_sixteen_in_the_order_of_the_scenario(self):
         self.assertEqual(area1.BUNDLES['area5-act'], BUNDLE)
         self.assertEqual(list(area5_act.PHONE), BUNDLE)
         self.assertLessEqual(set(BUNDLE), set(area1.PHONE))
@@ -270,7 +270,7 @@ def lib(*parts):
 class AppContractTest(unittest.TestCase):
     """PC 가 읽는 앱 Map 키와 앱이 만드는 키가 한 글자도 다르지 않은지 — 오타 한 글자는 늘 FAIL 이라 기계로 맞댄다."""
 
-    def test_the_app_registers_the_same_fifteen_cases(self):
+    def test_the_app_registers_the_same_sixteen_cases(self):
         keys = re.findall(r"^\s*'(E-[A-Z]+-\d+)':", dart('area5_act.dart'), re.M)
         self.assertEqual(keys, BUNDLE)
 
@@ -543,6 +543,60 @@ class PaidGateTest(ActBase):
 
 
 # ── E-ME-07 · 18 자기소개 저장 ──────────────────────────────────────────────────────────────────────
+
+class EdgeOfflineTest(ActBase):
+    """E-EDGE-02 — 닉네임 확인 중 망이 끊겨도 문구 0개 · 저장 버튼 켜짐 · 저장은 서버 판정."""
+
+    def attempt(self, answer):
+        sent = []
+
+        def app(midway=None, **job):
+            sent.append(job)
+            if midway:
+                midway({'step': 'cut'})
+            return answer(job)
+
+        app.serial, app.hub = 'S', mock.Mock(wait=mock.Mock(return_value={'step': 'restore'}))
+        with mock.patch.object(area4.notify, 'airplane') as plane, mock.patch.object(area4.notify, 'ensure_online') as online:
+            (result, note), _ = self.case('E-EDGE-02', None, app)
+        return (result, note), sent, plane, online
+
+    def good(self, **over):
+        def answer(job):
+            self.api('PATCH', '/me/profile', {'nickname': job['nickname']})
+            return said(**{'off_ok': False, 'off_bad': False, 'off_taken': False, 'off_field': job['nickname'],
+                           'off_save_enabled': True, 'save_enabled': True, 'toast_seen': True, 'toast_ms': 2000,
+                           'title': '프로필 편집', **over})
+        return answer
+
+    def test_02_offline_check_shows_no_verdict_then_server_saves_after_restoring_network(self):
+        (result, note), sent, plane, online = self.attempt(self.good())
+        self.assertEqual(result, 'pass', note)
+        self.assertEqual([c.args for c in plane.call_args_list], [('S', True), ('S', False)])
+        online.assert_called_once_with('S')
+        self.assertEqual(self.profile()['nickname'], sent[0]['nickname'])
+        self.assertIsNotNone(self.profile()['nickname_changed_at'])
+
+    def test_02_rejects_a_verdict_or_disabled_save_while_offline(self):
+        for over, word in (({'off_ok': True}, '끊긴'), ({'off_bad': True}, '끊긴'), ({'off_taken': True}, '끊긴'),
+                           ({'off_save_enabled': False}, '저장 버튼'), ({'off_field': None}, '닉네임')):
+            with self.subTest(over):
+                (result, note), _, _, online = self.attempt(self.good(**over))
+                self.assertEqual(result, 'fail', note)
+                self.assertIn(word, note)
+                online.assert_called_once_with('S')
+
+    def test_02_refuses_a_false_success_when_server_did_not_save_or_screen_is_wrong(self):
+        for answer, word in ((lambda job: said(off_ok=False, off_bad=False, off_taken=False, off_field=job['nickname'],
+                                               off_save_enabled=True, save_enabled=True, toast_seen=True, toast_ms=2000,
+                                               title='프로필 편집'), 'DB 닉네임'),
+                             (self.good(title='기본 정보 수정'), '15-5')):
+            with self.subTest(word):
+                (result, note), _, _, online = self.attempt(answer)
+                self.assertEqual(result, 'fail', note)
+                self.assertIn(word, note)
+                online.assert_called_once_with('S')
+
 
 class BioSaveTest(ActBase):
     def good_07(self, **over):
