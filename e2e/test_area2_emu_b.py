@@ -584,7 +584,7 @@ class ReferralTest(FakeBase):
         phone = self.phone()
         result, note = self.attempt('E-REF-17', phone)
         self.assertEqual(result, 'pass', note)
-        self.assertEqual(phone.jobs, [{'token_hash': 'h', 'phase': 'skip'}, {'token_hash': 'h'}, {'fresh': False, 'expect': 'home'}])
+        self.assertEqual(phone.jobs, [{'token_hash': 'h', 'phase': 'skip'}, {'token_hash': 'h'}, {'fresh': False, 'expect': 'home', 'limit': 30}])
         self.assertEqual(len([u for m, u in fake.urls if m == 'POST' and u.endswith('/auth/v1/admin/users')]), 2)  # 계정 둘 — 건너뛰기용 · 강제 종료용
 
     def test_ref_17_a_skip_that_leaves_hearts_or_a_referral_fails(self):
