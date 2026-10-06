@@ -18,7 +18,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest import mock
 
-from e2e import area1, area2, area2_phone3, area5_read, tools
+from e2e import area1, area2, area2_phone3, area5_read, notify, tools
 from e2e.area1 import SEOUL
 from e2e.test_area1 import CFG
 from e2e.test_area3_phone import App, said
@@ -239,7 +239,10 @@ class ReadFake(PhoneFake):
 
 class StepApp(App):
     """stepper 가 부르는 phone.hub(go · wait) · serial · top 을 가진 가짜 앱 — [steps] 를 차례로 말하고(첫 말은 midway 로) 끝에 answer 를 돌려준다.
-    [events] 에 'step:<이름>' · 'go' 를 남긴다(PC 가 adb 로 뒤로를 보낸 것은 시험이 'back' 으로 같은 목록에 적는다)."""
+    [events] 에 'step:<이름>' · 'go' 를 남긴다(PC 가 adb 로 뒤로를 보낸 것은 시험이 'back' 으로 같은 목록에 적는다).
+    [port] 는 Hub 의 PC 쪽 포트 — 오프라인 가설이 끝에 adb reverse 를 다시 걸 때 읽는다(area2_phone3.offline)."""
+
+    port = 8765
 
     def __init__(self, answer, steps, events, top=OURS):
         super().__init__(answer)
@@ -422,14 +425,14 @@ class OfflineMeTest(ReadBase):
             events.append('restore')
         app = StepApp(lambda job: said(error_text='잠시 뒤 다시 시도해 주세요', retry_text='다시 시도', hero=True, retry_ms=2500),
                       ['cut', 'restore'], events)
-        with mock.patch.object(area5_read.notify, 'airplane', airplane), mock.patch.object(area5_read.notify, 'ensure_online', online):
+        with mock.patch.object(notify, 'airplane', airplane), mock.patch.object(notify, 'ensure_online', online):
             self.passes('E-ME-04', {}, app)
         self.assertEqual(events, ['step:cut', 'offline', 'go', 'step:restore', 'online', 'go', 'restore'])
 
     def test_04_fails_on_a_slow_retry_or_a_missing_hero_and_still_restores_the_network(self):
         events = []
-        with mock.patch.object(area5_read.notify, 'airplane', lambda s, on, settle=None: events.append('offline' if on else 'online')), \
-                mock.patch.object(area5_read.notify, 'ensure_online', lambda s: events.append('restore')):
+        with mock.patch.object(notify, 'airplane', lambda s, on, settle=None: events.append('offline' if on else 'online')), \
+                mock.patch.object(notify, 'ensure_online', lambda s: events.append('restore')):
             app = StepApp(lambda job: said(error_text='잠시 뒤 다시 시도해 주세요', retry_text='다시 시도', hero=False, retry_ms=3500),
                           ['cut', 'restore'], events)
             self.fails('E-ME-04', {}, '히어로', '3500ms', app=app)
@@ -438,11 +441,27 @@ class OfflineMeTest(ReadBase):
 
     def test_04_restores_the_network_when_the_app_says_blocked(self):
         events = []
-        with mock.patch.object(area5_read.notify, 'airplane', lambda s, on, settle=None: events.append('offline' if on else 'online')), \
-                mock.patch.object(area5_read.notify, 'ensure_online', lambda s: events.append('restore')):
+        with mock.patch.object(notify, 'airplane', lambda s, on, settle=None: events.append('offline' if on else 'online')), \
+                mock.patch.object(notify, 'ensure_online', lambda s: events.append('restore')):
             app = StepApp(lambda job: {'result': 'blocked', 'note': '못 찾음'}, ['cut', 'restore'], events)
             self.blocked('E-ME-04', {}, '못 찾음', app=app)
         self.assertEqual(events[-1], 'restore')
+
+    def test_04_re_maps_the_mailbox_after_airplane_mode_like_every_other_offline_case(self):
+        # 비행기 모드 뒤 adb reverse 가 풀린 기기 대비(area2_phone3.offline) — 통과 · 실패 · blocked 어느 끝에서도 망 다음에 다시 건다.
+        reverse = ('S', 'reverse', f'tcp:{tools.DEVICE_PORT}', 'tcp:8765')
+        endings = ((self.passes, (said(error_text='잠시 뒤 다시 시도해 주세요', retry_text='다시 시도', hero=True, retry_ms=2500),)),
+                   (self.fails, (said(error_text='잠시 뒤 다시 시도해 주세요', retry_text='다시 시도', hero=False, retry_ms=3500), '히어로')),
+                   (self.blocked, ({'result': 'blocked', 'note': '못 찾음'}, '못 찾음')))
+        for ending, (answer, *words) in endings:
+            with self.subTest(ending=ending.__name__):
+                events = []
+                app = StepApp(lambda job, answer=answer: dict(answer), ['cut', 'restore'], events)
+                with mock.patch.object(notify, 'airplane', lambda s, on, settle=None: events.append('offline' if on else 'online')), \
+                        mock.patch.object(notify, 'ensure_online', lambda s: events.append('restore')):
+                    ending('E-ME-04', {}, *words, app=app)
+                self.assertEqual(events[-1], 'restore')
+                self.assertEqual(self.adb_calls[-1:], [reverse], self.adb_calls)
 
 
 class HeroTest(ReadBase):

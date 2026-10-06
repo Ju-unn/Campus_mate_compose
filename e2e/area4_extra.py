@@ -19,7 +19,7 @@ import re
 import time
 
 from e2e import area1, area2, area2_phone3, area2_time_batch, area3, area4, batch_gate, emu, notify, tools, twodev
-from e2e.area1 import Check, _api, _app, _one, _patch, _rows
+from e2e.area1 import Check, _api, _app, _one, _rows
 from e2e.area1_emu import _emulator
 from e2e.area2 import _ONCE, _guard
 from e2e.area2_two_accept import _after, _nickname, _verdict
@@ -156,7 +156,8 @@ def p_set_12(run, phone):
 
     def other_device(said):
         _guard(run, mine)
-        _patch(run, f'notification_settings?profile_id=eq.{mine}', {'new_message': False})
+        # 새 계정은 notification_settings 행이 없다(16d 를 열어도 읽기만 한다) — DB PATCH 는 없는 행에 아무 일도 안 하므로 다른 기기가 쓰는 길(앱 경로, upsert)로 쓴다
+        check.reply('다른 기기의 스위치 끄기', _api(run, 'PATCH', '/cards/notification-settings', account['token'], {'new_message': False}, **_ONCE), 200)
         if area4._settings(run, mine).get('new_message') is not False:
             raise Blocked('준비: 다른 기기 역할의 스위치 끄기가 서버에 안 들어감')
 
@@ -341,3 +342,5 @@ area1.BUNDLES['area4-extra-emu'] = BUNDLE_EMU
 area1.BUNDLES['area4-extra-two'] = list(TWO)
 area1.BUNDLES['area4-extra-ai'] = list(CASES)
 tools.CASE_LIMITS['E-SET-67'] = CASE_LIMIT
+# 배치를 부르는 둘 — 기본 420초는 계정 준비 + 앱 + 첫 배치 120초 + 카드 90초(43 은 연락처 세션까지)에 모자라고, 한도에 걸리면 배치는 이미 나간 뒤라 다시 못 돈다
+tools.CASE_LIMITS.update({'E-SET-04': 900, 'E-SET-43': 900})

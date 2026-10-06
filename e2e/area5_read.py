@@ -45,12 +45,12 @@ import time
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from e2e import area1, area2, notify, tools
+from e2e import area1, area2, tools
 from e2e.area1 import SEOUL, Check, _api, _app, _at, _one, _patch, _rows, _signed_in
-from e2e.area2_phone3 import _add_avatar, _balance, _give
+from e2e.area2_phone3 import _add_avatar, _balance, _give, offline
 from e2e.area3_phone import MISSING
 from e2e.area3_safe import _suspend
-from e2e.area4 import stepper
+from e2e.area4 import _cut, _restore, stepper
 from e2e.tools import Blocked
 
 HEARTS = 37  # 시나리오 ME-01 — 처음 있던 잔액에 더한다
@@ -232,21 +232,16 @@ def p_me_02(run, phone):
 def p_me_04(run, phone):
     check = Check()
     _, token = _home(run)
-    serial = phone.serial
-    try:
-        # 로그인은 망이 있어야 한다 — 앱이 홈에서 `cut` 으로 멈추면 PC 가 망을 끊고, 나 탭 오류를 읽고 `restore` 에서 멈추면 되살린다.
-        # 그 뒤 앱이 "다시 시도" 를 눌러 히어로를 본다.
-        cut, restore = (lambda step: notify.airplane(serial, True)), (lambda step: notify.airplane(serial, False))
-        said = _app(check, phone(midway=stepper(phone, cut, restore), token_hash=token))
-        check.that(said.get('error_text', MISSING) == '잠시 뒤 다시 시도해 주세요',
-                   f"망 오류 글 {said.get('error_text', MISSING)!r}(기대 '잠시 뒤 다시 시도해 주세요')")
-        check.that(said.get('retry_text', MISSING) == '다시 시도',
-                   f"다시 시도 버튼 {said.get('retry_text', MISSING)!r}(기대 '다시 시도')")
-        check.that(said.get('hero') is True, f"다시 시도 뒤 히어로 {said.get('hero', MISSING)}(기대 보임)")
-        ms = said.get('retry_ms')
-        check.that(isinstance(ms, int) and ms <= 3000, f'다시 시도부터 히어로까지 {ms}ms(기대 3000ms 이하)')
-    finally:
-        notify.ensure_online(serial)
+    # 로그인은 망이 있어야 한다 — 앱이 홈에서 `cut` 으로 멈추면 PC 가 망을 끊고, 나 탭 오류를 읽고 `restore` 에서 멈추면 되살린다.
+    # 그 뒤 앱이 "다시 시도" 를 눌러 히어로를 본다. 망과 우편함(adb reverse)은 어떻게 끝나든 되돌린다(area2_phone3.offline).
+    said = offline(phone, check, _cut(phone), _restore(phone), token_hash=token)
+    check.that(said.get('error_text', MISSING) == '잠시 뒤 다시 시도해 주세요',
+               f"망 오류 글 {said.get('error_text', MISSING)!r}(기대 '잠시 뒤 다시 시도해 주세요')")
+    check.that(said.get('retry_text', MISSING) == '다시 시도',
+               f"다시 시도 버튼 {said.get('retry_text', MISSING)!r}(기대 '다시 시도')")
+    check.that(said.get('hero') is True, f"다시 시도 뒤 히어로 {said.get('hero', MISSING)}(기대 보임)")
+    ms = said.get('retry_ms')
+    check.that(isinstance(ms, int) and ms <= 3000, f'다시 시도부터 히어로까지 {ms}ms(기대 3000ms 이하)')
     return check.result()
 
 
