@@ -89,6 +89,8 @@ class _CommunityFeedScreenState extends ConsumerState<CommunityFeedScreen> {
       onRefresh: viewModel.refresh,
       child: ListView.separated(
         controller: _scroll,
+        // 글이 한두 개라 화면을 못 채워도 아래로 당겨 새로 고칠 수 있게 — 기본 물리는 짧은 목록의 당김을 막는다.
+        physics: const AlwaysScrollableScrollPhysics(),
         // pen `FXyNI`: 위아래 8 · 좌우 16, 카드 사이 12.
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
         itemCount: state.polls.length + (state.isLoadingMore ? 1 : 0),
