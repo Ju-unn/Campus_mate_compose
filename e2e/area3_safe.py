@@ -24,7 +24,7 @@ from e2e.area1 import TINY_JPEG, Check, _api, _find_user, _form, _patch, _rows
 from e2e.area2 import _candidates, _card, _contact_block, _now, _person, _phone
 from e2e.area2_phone3 import _wait_for
 from e2e.area3 import PROFILE_GONE, _as_user, _count, _insert, _link, _match, _messages, _pair, _review
-from e2e.area3_phone5 import BATCH_WAIT, _batch, _closed, _gated_batch, _own, _sentinel, _single_shot, _start, _withdraw
+from e2e.area3_phone5 import BATCH_WAIT, _batch, _gated_batch, _open, _own, _sentinel, _single_shot, _start, _withdraw
 from e2e.tools import Blocked
 
 SUSPENDED = '이용이 제한된 계정이에요'
@@ -502,7 +502,7 @@ def safe_56(run):
     _own(run, a, b)
     _suspend(run, b)
     _gated_batch(run, [a, b], [(match_id, GATE_AGE)], sentinel)
-    check.that(not _closed(run, match_id), '한쪽이 정지된 방이 게이트 배치에 닫힘')
+    check.that(_open(run, match_id), 'matches 행이 없거나 chat_closed_at 이 채워짐 — 한쪽이 정지된 방이 게이트 배치에 닫힘(기대: 행이 있고 null — 행이 없으면 "안 닫힘" 을 읽을 수 없다)')
     return check.result('알림 0건은 폰이 없어 못 봄 — 49시간은 리마인드 창(24~25시간) 밖이라 닫힘 여부만. 같은 나이의 확인용 방이 닫혀 배치가 돈 것을 본다')
 
 
