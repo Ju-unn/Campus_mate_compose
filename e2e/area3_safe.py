@@ -1,4 +1,4 @@
-"""영역 3 안전 API 가설 — E-SAFE 중 기기 없이 토큰 · 서비스 키로만 도는 18개(묶음 area3-safe-api).
+"""영역 3 안전 API 가설 — E-SAFE 중 기기 없이 토큰 · 서비스 키로만 도는 22개(묶음 area3-safe-api).
 기대값은 바탕화면 E2E_최종테스트_시나리오.md 영역 3 의 그 줄이다(10-04 갱신본).
 
 가설 하나 = 함수 하나 `(run) -> (결과, 메모)`. 준비 도구는 영역 2(후보 · 카드 · 홈 계정)와 영역 3(매칭 · 메시지 · 리뷰)의 것을 쓴다.
@@ -8,15 +8,23 @@
 
 디스코드 신고 줄의 "누적 신고자 수" 는 읽을 길이 없어(채널은 쓰기만) 서버와 같은 셈(열린 신고의 서로 다른 신고자)을
 서비스 키로 DB 에서 센다. 투표 글 신고(E-SAFE-21 끝 문장)는 시험 글이 실사용자 피드에 보여 이번에 안 한다.
+
+E-SAFE-56 · 58 · 59 · 62 는 운영 배치(chat-gate · cleanup)를 실제로 부른다 — 영역 3 폰 묶음(area3_phone5)과 같은 규칙: 배치는 `_batch`(시각 관문)로만,
+준비 전에 `_start` 로 금지 시간 확인, 쓰기는 이번 실행이 만든 계정만, 배치를 부른 뒤의 fail 은 `_single_shot` 이 다시 안 돈다.
+신고 행은 서비스 키로 직접 넣는다(시각 조작) — 끝나면 이 가설이 넣은 행만 지운다. 알림 0건은 폰이 없어 못 보고 DB 로만 본다.
 """
 
+import contextlib
 import re
 import uuid
+from datetime import datetime, timedelta, timezone
 
 from e2e import tools
-from e2e.area1 import TINY_JPEG, Check, _api, _form, _patch, _rows
+from e2e.area1 import TINY_JPEG, Check, _api, _find_user, _form, _patch, _rows
 from e2e.area2 import _candidates, _card, _contact_block, _now, _person, _phone
-from e2e.area3 import PROFILE_GONE, _as_user, _count, _link, _match, _messages, _pair, _review
+from e2e.area2_phone3 import _wait_for
+from e2e.area3 import PROFILE_GONE, _as_user, _count, _insert, _link, _match, _messages, _pair, _review
+from e2e.area3_phone5 import BATCH_WAIT, _batch, _closed, _gated_batch, _own, _sentinel, _single_shot, _start, _withdraw
 from e2e.tools import Blocked
 
 SUSPENDED = '이용이 제한된 계정이에요'
@@ -435,11 +443,109 @@ def safe_54(run):
     return check.result()
 
 
+# ── 배치(chat-gate · cleanup) ────────────────────────────────────────────────────────────────────────
+
+GATE_AGE = timedelta(hours=49)  # 48시간을 넘긴 방 — 정지만 아니었다면 닫혔을 나이
+
+
+@contextlib.contextmanager
+def _seeded_reports(run, target, reporter, specs):
+    """[specs] = [(상태, 처리 끝난 지 며칠, 신고한 지 며칠)] 의 신고 행을 서비스 키로 한 번에 넣고 id 목록을 준다(열린 신고는 처리 일수 None).
+    행마다 키가 같아야 한다(PGRST102). 끝나면 어떻게 끝나든 이 가설이 넣은 행만 지운다 — id 를 먼저 정해 넣기도 try 안이라
+    행은 들어갔는데 답이 끊겨 Blocked 가 나도 지운다."""
+    now = datetime.now(timezone.utc)
+
+    def ago(days):
+        return None if days is None else (now - timedelta(days=days)).isoformat()
+    rows = [{'id': str(uuid.uuid4()), 'reporter_id': reporter['id'], 'target_type': 'profile', 'target_id': str(uuid.uuid4()),
+             'target_profile_id': target['id'], 'target_snapshot': {'e2e': True, 'n': i}, 'reason': 'spam', 'status': status,
+             'resolved_at': ago(resolved), 'created_at': ago(created)} for i, (status, resolved, created) in enumerate(specs)]
+    ids = [r['id'] for r in rows]
+    try:
+        _insert(run, 'reports', rows)
+        yield ids
+    finally:
+        for report_id in ids:
+            tools.rest(run.cfg, run.key, 'DELETE', f'reports?id=eq.{report_id}')
+
+
+def _report_rows(run, ids):
+    return [row for report_id in ids for row in _rows(run, f'reports?id=eq.{report_id}&select=*')]
+
+
+def _cleanup_cutoff(run, old_id):
+    """정리 배치를 부르고 366일 지난 처리 신고가 지워지길 기다린다 — 안 지워지면 배치가 안 돈 것이라 blocked."""
+    _batch('cleanup')
+    if not _wait_for(lambda: not _report_rows(run, [old_id]), BATCH_WAIT):
+        raise Blocked(f'정리 배치 뒤 {BATCH_WAIT}초가 지나도 366일 지난 처리 신고가 남음 — 배치가 안 돌았거나 늦음')
+
+
+def safe_56(run):
+    _start()
+    check = Check()
+    a, b, match_id = _pair(run)
+    sentinel = _sentinel(run)
+    _own(run, a, b)
+    _suspend(run, b)
+    _gated_batch(run, [a, b], [(match_id, GATE_AGE)], sentinel)
+    check.that(not _closed(run, match_id), '한쪽이 정지된 방이 게이트 배치에 닫힘')
+    return check.result('알림 0건은 폰이 없어 못 봄 — 49시간은 리마인드 창(24~25시간) 밖이라 닫힘 여부만. 같은 나이의 확인용 방이 닫혀 배치가 돈 것을 본다')
+
+
+def safe_58(run):
+    _start(job='cleanup')
+    check = Check()
+    t, c = run.account('basic'), run.account('basic')
+    _own(run, t, c)
+    with _seeded_reports(run, t, c, [('actioned', 366, 380), ('dismissed', 364, 380), ('open', None, 400)]) as (old, kept, open_):
+        _cleanup_cutoff(run, old)
+        check.that(bool(_report_rows(run, [kept])), '처리 364일 신고가 지워짐(기대: 남음)')
+        check.that(bool(_report_rows(run, [open_])), '열린 신고가 지워짐(기대: 남음)')
+    return check.result('처리 366일 신고는 지워짐을 배치가 돈 증거로 쓴다')
+
+
+def safe_59(run):
+    from e2e.area5_wd import _cleanup_ran  # 늦게 가져온다 — area5_wd → area5_read → area3_safe 순환
+    _start(job='cleanup')
+    check = Check()
+    t, c = run.account('basic'), run.account('basic')
+    _own(run, t, c)
+    with _seeded_reports(run, t, c, [('actioned', 366, 380), ('dismissed', 364, 380), ('open', None, 400)]) as (old, kept, open_):
+        _cleanup_cutoff(run, old)
+        first = _report_rows(run, [kept, open_])
+        _cleanup_ran(run)  # 두 번째 배치 — 지울 신고가 없으니 확인용 재가입 제한 행이 지워져야 돈 것을 안다
+        check.that(_report_rows(run, [kept, open_]) == first, '두 번째 정리 뒤 남은 신고가 달라짐')
+    return check.result()
+
+
+def safe_62(run):
+    _start(job='cleanup')
+    check = Check()
+    t, c = run.account('basic'), run.account('basic')
+    _own(run, t, c)
+    with _seeded_reports(run, t, c, [('open', None, 3)]) as (report,):
+        if _open_reporters(run, t) != 1:
+            raise Blocked('준비: C 의 열린 신고가 T 의 신고자 수에 안 셈')
+        snapshot = _report_rows(run, [report])[0]['target_snapshot']
+        _withdraw(run, c)
+        _batch('cleanup')
+        if not _wait_for(lambda: _find_user(run, c['email']) is None, BATCH_WAIT):
+            raise Blocked(f'정리 배치 뒤 {BATCH_WAIT}초가 지나도 탈퇴 계정의 auth 사용자가 남아 있음 — 배치가 안 돌았거나 늦음')
+        rows = _report_rows(run, [report])
+        check.that(bool(rows), '신고가 지워짐(기대: 남음 — 신고자가 탈퇴해도 근거는 남는다)')
+        if rows:
+            check.that(rows[0]['reporter_id'] is None, 'reporter_id 가 null 이 아님')
+            check.that(rows[0]['target_snapshot'] == snapshot, 'target_snapshot 이 바뀜')
+        check.that(_open_reporters(run, t) == 0, '탈퇴한 C 가 아직 신고자 수에 셈')
+    return check.result('신고자 수는 디스코드 대신 DB 로 셈(열린 신고의 서로 다른 신고자)')
+
+
 CASES = {
     'E-SAFE-10': safe_10, 'E-SAFE-12': safe_12, 'E-SAFE-14': safe_14, 'E-SAFE-19': safe_19, 'E-SAFE-20': safe_20,
     'E-SAFE-21': safe_21, 'E-SAFE-23': safe_23, 'E-SAFE-24': safe_24, 'E-SAFE-29': safe_29, 'E-SAFE-33': safe_33,
     'E-SAFE-34': safe_34, 'E-SAFE-44': safe_44, 'E-SAFE-47': safe_47, 'E-SAFE-48': safe_48, 'E-SAFE-49': safe_49,
-    'E-SAFE-51': safe_51, 'E-SAFE-52': safe_52, 'E-SAFE-54': safe_54,
+    'E-SAFE-51': safe_51, 'E-SAFE-52': safe_52, 'E-SAFE-54': safe_54, 'E-SAFE-56': _single_shot(safe_56),
+    'E-SAFE-58': _single_shot(safe_58), 'E-SAFE-59': _single_shot(safe_59), 'E-SAFE-62': _single_shot(safe_62),
 }
 BUNDLES = {'area3-safe-api': list(CASES)}
 

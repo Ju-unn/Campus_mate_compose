@@ -9,13 +9,20 @@ const _deviceOffNotice = '기기 알림이 꺼져 있어요. 알림을 받으려
 const _deviceOffButton = '기기 알림 설정 열기';
 const _reviewHeld = '조금 더 확인이 필요해요'; // 3b 대기 화면(status=pending) 제목 — area1_b3.dart 의 _held 와 같다
 
-/// 알림 권한을 거부해도 앱은 그대로 쓴다 — 홈(오늘 탭)에 닿고 하단 탭이 보이고 오늘 탭을 눌러도 머문다.
+/// 알림 권한을 거부해도 앱은 그대로 쓴다 — 홈에 닿고 하단 탭이 보이고 "오늘" 탭을 누르면 오늘 화면이 열린다.
 Future<void> _homeUsable(WidgetTester tester) async {
   await arrive(tester, 'home');
   must(find.byType(AppBottomNav).evaluate().isNotEmpty, '하단 내비가 안 보임');
   await tap(tester, _tab('오늘'));
   await wait(tester, const Duration(seconds: 2));
-  must(screen('home').evaluate().isNotEmpty, '오늘 탭을 눌렀는데 홈을 벗어남');
+  must(find.byType(TodayCardsScreen).evaluate().isNotEmpty, '오늘 탭을 눌렀는데 오늘 화면이 안 열림');
+}
+
+/// 로그인한 뒤 PC 에게 넘기기 전에 프레임을 몇 초 돌린다 — 로그인만 하고 바로 멈추면 앱 위젯이 아직 한 프레임도 안 그려져
+/// (스플래시 그대로) 알림 권한을 묻기 전이다. PC 가 "허용 안 함" 을 누르려 해도 누를 창이 없어 E-PUSH-59 · 60 · 62 가 blocked 가 됐다(10-06 실폰).
+Future<void> _signedIn(WidgetTester tester) async {
+  await wait(tester, const Duration(seconds: 5));
+  await step('signed_in');
 }
 
 final Map<String, Area1Case> _pushA4Cases = {
@@ -43,7 +50,7 @@ final Map<String, Area1Case> _pushA4Cases = {
   }),
   // 첫 실행(앱 데이터를 지운 상태)에서 로그인 → 권한 창이 뜬다 → 멈춘 사이 PC 가 "허용 안 함" → 앱은 그대로 홈.
   'E-PUSH-59': _session((tester, job) async {
-    await step('signed_in');
+    await _signedIn(tester);
     await _homeUsable(tester);
     return null;
   }),
@@ -54,7 +61,7 @@ final Map<String, Area1Case> _pushA4Cases = {
       must(screen('login').evaluate().isEmpty, '다시 켰는데 로그인 화면이 보임');
       return null;
     }
-    await step('signed_in');
+    await _signedIn(tester);
     await _homeUsable(tester);
     return null;
   }),
@@ -65,7 +72,7 @@ final Map<String, Area1Case> _pushA4Cases = {
   }),
   // 거부한 사람이 16d 에 가면 맨 위 안내 상자 1개 + 버튼 1개 → 누르면 설정 앱 → (PC 가 켜고 앱을 앞으로) → 안내 상자가 사라진다.
   'E-PUSH-62': _session((tester, job) async {
-    await step('signed_in');
+    await _signedIn(tester);
     await _open16d(tester);
     await _toTop(tester);
     await pumpUntil(tester, find.text(_deviceOffNotice), timeout: const Duration(seconds: 10));

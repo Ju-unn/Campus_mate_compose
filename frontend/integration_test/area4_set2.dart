@@ -374,6 +374,7 @@ final Map<String, Area1Case> _set2Cases = {
     await tap(tester, find.text('일시중지'));
     await wait(tester, const Duration(seconds: 1));
     must(find.text('정말 떠나시나요?').evaluate().isEmpty, '일시중지를 눌렀는데 시트가 남음');
+    await _toTop(tester); // 탈퇴하기 를 누르려고 맨 아래까지 내려 와 있다 — 위쪽 "매칭 활성화" 줄은 아직 안 그려진 상태
     await _expectValue(tester, '매칭 활성화', false, timeout: const Duration(seconds: 10));
     return null;
   }),

@@ -52,8 +52,9 @@ import uuid
 from e2e import area1, area2, tools
 from e2e.area1 import Check, _app, _one, _patch, _rows
 from e2e.area1_b3 import _files, _photos, _push
-from e2e.area2_phone3 import _add_avatar, _balance
+from e2e.area2_phone3 import _add_avatar, _balance, offline
 from e2e.area3_phone import MISSING
+from e2e.area4 import _cut, _restore
 from e2e.area5_act import TOAST_MS, _paid_case
 from e2e.area5_read import TITLES, _avatar_rows, _home, _photos_to, _ready_avatars
 from e2e.tools import Blocked
@@ -446,11 +447,42 @@ def p_me_44(run, phone):
     return _result(check, note)
 
 
+def p_edge_03(run, phone):
+    """E-EDGE-03 — 끊긴 저장은 칸을 남기고, 복구 뒤 저장만 서버에 반영."""
+    check = Check()
+    _photos(run, FACE)
+    account, token = _home(run)
+    _ready_photos(run, account, 2)
+    before = _photos_now(run, account)
+    files = _files(run, 'profile-photos', account['id'])
+    _push(phone, run, FACE)
+
+    def restore(said):
+        # 두 번째 멈춤 = 끊긴 채 저장을 누른 뒤(망 복구 · 두 번째 저장 전) — 이때 서버가 그대로여야 한다
+        check.that(_photos_now(run, account) == before and _files(run, 'profile-photos', account['id']) == files,
+                   '끊긴 저장 뒤 DB 사진 · 저장소 파일이 바뀜')
+        _restore(phone)(said)
+
+    said = offline(phone, check, _cut(phone), restore, token_hash=token, photo=FACE)
+    check.that(said.get('off_error', MISSING) == '네트워크 연결을 확인해 주세요',
+               f"끊긴 저장 네트워크 안내 {said.get('off_error', MISSING)!r}(기대 네트워크 연결을 확인해 주세요)")
+    check.that(said.get('off_title', MISSING) == TITLE_15_7, f"끊긴 저장 뒤 화면 {said.get('off_title', MISSING)!r}(기대 15-7)")
+    check.that(said.get('off_tiles', MISSING) == 3, f"끊긴 저장 뒤 칸 {said.get('off_tiles', MISSING)}(기대 3개 유지)")
+    check.that(said.get('title', MISSING) == TITLES['15-5'], f"복구 뒤 화면 {said.get('title', MISSING)!r}(기대 15-5)")
+    now = _photos_now(run, account)
+    check.that(len(now) == 3 and [r['position'] for r in now] == [0, 1, 2], f'DB 사진 {len(now)}장 · 위치(기대 3장 연속)')
+    check.that([r['id'] for r in now[:2]] == [r['id'] for r in before] and len({r['id'] for r in now} - {r['id'] for r in before}) == 1,
+               'DB 새 사진 행(기대 원래 2장 + 새 1장)')
+    _storage_matches(check, now, _files(run, 'profile-photos', account['id']))
+    check.that(said.get('names_after', MISSING) == [_name(r) for r in now], f"15-5 사진 {said.get('names_after', MISSING)}(기대 DB 사진)")
+    return check.result('Vision SafeSearch 1번(복구 뒤 새 사진 저장)')
+
+
 PHONE = {
     'E-ME-12': p_me_12, 'E-ME-13': p_me_13, 'E-ME-14': _paid_case('E-ME-14', p_me_14),
-    'E-ME-38': p_me_38, 'E-ME-39': p_me_39, 'E-ME-41': p_me_41, 'E-ME-42': p_me_42, 'E-ME-44': p_me_44,
+    'E-ME-38': p_me_38, 'E-ME-39': p_me_39, 'E-ME-41': p_me_41, 'E-ME-42': p_me_42, 'E-ME-44': p_me_44, 'E-EDGE-03': p_edge_03,
 }
 
 area1.PHONE.update(PHONE)
 area1.BUNDLES['area5-photo'] = list(PHONE)
-tools.CASE_LIMITS.update({'E-ME-14': 600, 'E-ME-38': 600, 'E-ME-39': 600, 'E-ME-42': 600, 'E-ME-44': 600})  # 유료 대기 · 사진 옮기기 · 끌기
+tools.CASE_LIMITS.update({'E-ME-14': 600, 'E-ME-38': 600, 'E-ME-39': 600, 'E-ME-42': 600, 'E-ME-44': 600, 'E-EDGE-03': 600})  # 유료 대기 · 사진 옮기기 · 끌기

@@ -234,7 +234,7 @@ def p_ref_17(run, phone):
     check.that(not _rows(run, f"referrals?referee_id=eq.{skipper['id']}&select=referrer_id"), '건너뛰었는데 referrals 가 생김')
     _, token = _signed_in(run, 'ideal_note')
     _app(check, phone(token_hash=token), '20 도착')
-    _app(check, phone(fresh=False, expect='home'), '다시 켬')
+    _app(check, phone(fresh=False, expect='home', limit=30), '다시 켬')  # 에뮬은 실폰보다 느려 5초가 모자란다 — 넘기면 메모에 남는다
     return check.result()
 
 

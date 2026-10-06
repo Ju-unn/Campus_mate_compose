@@ -1,6 +1,6 @@
 part of 'area5.dart';
 
-// 영역 5 폰 A 한 대 · 글 · 태그 · 조건 · 기본 정보를 고쳐 저장하는 15개(묶음 area5-act). PC 쪽은 e2e/area5_act.py 의 같은 번호 —
+// 영역 5 폰 A 한 대 · 글 · 태그 · 조건 · 기본 정보를 고쳐 저장하는 16개(묶음 area5-act). PC 쪽은 e2e/area5_act.py 의 같은 번호 —
 // 계정 · DB 를 준비하고 판정한다. 앱은 화면을 열어 고치고(저장하는 가설은 저장하고) 본 것을 Map 으로 말한다(문구는 사람이 읽는 글자 그대로, 못 본 것은 null).
 // 누르기는 줄 전체 폭 위젯의 가운데가 아니라 안의 글자 · 아이콘 · 버튼을 누른다(#282). 이 파일의 이름은 모두 `_act` 로 시작한다 — 같은 라이브러리의
 // 다른 area5 파일(사진 · 아바타)과 이름이 겹치지 않게.
@@ -459,5 +459,22 @@ final Map<String, Area1Case> area5CasesAct = {
       'height': height,
       'nickname': nickname,
     };
+  }),
+  'E-EDGE-02': _session((tester, job) async {
+    await _openManage(tester);
+    await _actEnterBasic(tester);
+    await step('cut');
+    await type(tester, _actNicknameField, job['nickname'] as String);
+    await wait(tester, const Duration(milliseconds: 600));
+    final offline = {
+      'off_ok': _has(find.text(_actNicknameOk)),
+      'off_bad': _has(find.text(_actNicknameBad)),
+      'off_taken': _has(find.text(_actNicknameTaken)),
+      'off_field': fieldText(tester, _actNicknameField),
+      'off_save_enabled': _actSaveEnabled(tester),
+    };
+    await step('restore');
+    final saved = await _actSaveBasic(tester);
+    return {...offline, ...saved};
   }),
 };
