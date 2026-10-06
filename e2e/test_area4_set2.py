@@ -78,11 +78,12 @@ class ExpectedTest(unittest.TestCase):
 class RegistryTest(unittest.TestCase):
     def test_every_set_number_has_exactly_one_home(self):
         set1, set2 = set(area1.BUNDLES['area4-set1']), set(area1.BUNDLES['area4-set2'])
+        extra = {c for name in ('area4-extra', 'area4-extra-emu', 'area4-extra-two') for c in area1.BUNDLES[name]}
         homes = {}
         for number in range(1, 71):
             case = f'E-SET-{number:02d}'
             where = [name for name, group in (('set1', set1), ('set2', set2), ('left', set(area4.LEFT_OUT)),
-                                              ('emulator', set(area4.EMULATOR))) if case in group]
+                                              ('emulator', set(area4.EMULATOR)), ('extra', extra)) if case in group]
             homes[case] = where
         bad = {case: where for case, where in homes.items() if len(where) != 1}
         self.assertEqual(bad, {})
@@ -95,8 +96,9 @@ class RegistryTest(unittest.TestCase):
         for case in area1.BUNDLES['area4-set2']:
             self.assertIn(case, area1.PHONE)
 
-    def test_mail_app_case_is_left_out_because_it_would_leave_a_draft_in_a_real_mailbox(self):
-        self.assertIn('임시', area4.LEFT_OUT['E-SET-52'])
+    def test_mail_app_case_runs_only_in_the_emulator_bundle_because_a_real_phone_would_leave_a_draft_in_a_real_mailbox(self):
+        self.assertIn('E-SET-52', area1.BUNDLES['area4-extra-emu'])
+        self.assertNotIn('E-SET-52', area1.BUNDLES['area4-extra'])
 
 
 class NotifyHelpersTest(unittest.TestCase):

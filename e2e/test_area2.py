@@ -63,11 +63,13 @@ class Base(t1.Base):
 
 class RegistryTest(unittest.TestCase):
     def test_cases_plus_skipped_are_exactly_the_50_api_only_hypotheses(self):
-        self.assertEqual(sorted([*area2.CASES, *area2.SKIPPED]), sorted(API_ONLY))
+        from e2e import area4_extra  # E-HEART-46 은 실제 AI 라 이 묶음 밖(area4-extra-ai)에서 돈다
+        self.assertEqual(sorted([*area2.CASES, *area2.SKIPPED, *[c for c in area4_extra.CASES if c == 'E-HEART-46']]), sorted(API_ONLY))
         self.assertEqual(len(API_ONLY), 50)
+        self.assertNotIn('E-HEART-46', area2.SKIPPED)
 
     def test_skipped_carry_a_reason(self):
-        self.assertEqual(sorted(area2.SKIPPED), ['E-CARD-73', 'E-HEART-46'])
+        self.assertEqual(sorted(area2.SKIPPED), ['E-CARD-73'])
         self.assertTrue(all(len(reason) > 10 for reason in area2.SKIPPED.values()))
 
     def test_bundle_lists_every_case_but_not_the_skipped(self):
