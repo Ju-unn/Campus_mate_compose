@@ -146,6 +146,13 @@ class Batch03Test(unittest.TestCase):
         self.assertEqual(result, 'fail')
         self.assertIn('3장', note)
 
+    def test_the_since_time_has_no_plus_that_the_url_would_turn_into_a_space(self):
+        paths = []
+        with mock.patch.object(mod, '_rows', lambda run, path: paths.append(path) or []), \
+             mock.patch.object(mod.tools, 'call', lambda *a, **k: Reply(401, {'detail': mod.UNAUTHORIZED})):
+            mod.batch_03(RUN)
+        self.assertTrue(paths and all('+' not in path for path in paths), paths)
+
     def test_cards_already_growing_before_the_probes_is_blocked(self):
         with self.assertRaises(Blocked):
             self.run_it([1, 1])
