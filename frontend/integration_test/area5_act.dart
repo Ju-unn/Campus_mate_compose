@@ -15,6 +15,7 @@ const _actSavedToast = '저장했어요'; // me_toast.dart savedToast
 const _actNicknameOk = '사용할 수 있는 닉네임이에요';
 const _actNicknameBad = '한글 또는 영문 2~5자로 입력해 주세요';
 const _actNicknameTaken = '이미 있는 닉네임이에요';
+const _actNicknameChecking = '확인 중…'; // basic_info_edit_view_model.dart nicknameChecking
 const _actNicknameSoon = '닉네임은 30일에 한 번 바꿀 수 있어요'; // 서버 409 문구(core/errors.py NICKNAME_CHANGE_TOO_SOON)
 const _actHeightBad = '숫자 3자리를 확인해 주세요';
 const _actHeightIgnore = '키는 상관없어요'; // ideal_conditions_screen.dart 체크 줄(나이는 area5.dart `_ageIgnore`)
@@ -466,10 +467,16 @@ final Map<String, Area1Case> area5CasesAct = {
     await step('cut');
     await type(tester, _actNicknameField, job['nickname'] as String);
     await wait(tester, const Duration(milliseconds: 600));
+    // 망이 끊겼으면 확인 요청이 실패해 '확인 중…' 이 사라진다. 10초를 기다려도 남아 있으면 PC 가 "끊긴 증거 없음" 으로 본다(문구 0개 · 버튼 켜짐은 느린 응답에서도 참).
+    final checkingWatch = Stopwatch()..start();
+    while (_has(find.text(_actNicknameChecking)) && checkingWatch.elapsed < const Duration(seconds: 10)) {
+      await tester.pump(const Duration(milliseconds: 200));
+    }
     final offline = {
       'off_ok': _has(find.text(_actNicknameOk)),
       'off_bad': _has(find.text(_actNicknameBad)),
       'off_taken': _has(find.text(_actNicknameTaken)),
+      'off_checking': _has(find.text(_actNicknameChecking)),
       'off_field': fieldText(tester, _actNicknameField),
       'off_save_enabled': _actSaveEnabled(tester),
     };
