@@ -98,7 +98,7 @@ def batch_02(run):
 def batch_03(run):
     """E-BATCH-03 — 401 로 막힌 문은 일을 안 한다: 두드린 뒤에도 새 daily_cards 가 0장이다."""
     check = Check()
-    start = dt.datetime.now(dt.timezone.utc).isoformat()
+    start = dt.datetime.now(dt.timezone.utc).isoformat().replace('+00:00', 'Z')  # `+` 는 주소줄에서 빈칸이 되어 PostgREST 가 400 을 준다
     if _issued_since(run, start):
         raise Blocked('두드리기 전인데 이미 새 daily_cards 가 있다 — 다른 창이 배치를 돌리는 중이라 이 판은 아무것도 못 가린다')
     for _, path in JOBS.values():
