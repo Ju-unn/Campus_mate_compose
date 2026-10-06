@@ -114,6 +114,42 @@ class OpenapiTest(Base):
         self.assertIn('/heart_store/items', memo)
 
 
+class DartContractTest(unittest.TestCase):
+    """앱 쪽 판정이 약하지 않다는 것을 Dart 원문으로 고정한다(기기 없이 — 형제 시험의 RegistryTest 와 같은 방법)."""
+
+    @staticmethod
+    def case_body(start, end):
+        text = (tools.ROOT / 'frontend' / 'integration_test' / 'area4_extra.dart').read_text(encoding='utf-8')
+        return text[text.index(start):text.index(end)]
+
+    def test_set_26_reads_the_unblock_sheet_text_before_it_confirms(self):
+        body = self.case_body("'E-SET-26'", "'E-SET-43'")
+        sheet = body.index("find.text('차단을 해제할까요?')")
+        confirm = body.index("find.widgetWithText(SafetySheetButton, '해제')")
+        self.assertIn('_unblockDescription', body[sheet:confirm], '해제 시트 본문 문구를 확인하지 않고 누름(E-SET-27 은 확인한다)')
+
+    def test_the_unblock_text_is_the_one_the_app_shows(self):
+        # 시나리오 · 앱 코드(block_list_screen.dart)와 같은 글이어야 판정이 의미가 있다.
+        shown = (tools.ROOT / 'frontend' / 'lib' / 'safety' / 'view' / 'block_list_screen.dart').read_text(encoding='utf-8')
+        said = (tools.ROOT / 'frontend' / 'integration_test' / 'area4.dart').read_text(encoding='utf-8')
+        text = '이 상대가 다시 카드에 나타날 수 있어요. 사라진 대화는 돌아오지 않아요.'
+        self.assertIn(text, shown)
+        self.assertIn(f"_unblockDescription = '{text}'", said)
+
+    def test_set_67_b_asks_the_server_about_its_own_session_right_after_a_logs_out_and_after_the_hold(self):
+        helper = self.case_body('Future<void> _chatStillWorks', "final Map<String, Area1Case> _extraCases")
+        self.assertIn('_sessionAlive(', helper, 'B 의 세션이 서버에서도 살아 있는지 직접 묻지 않음')
+        b_side = self.case_body("'E-SET-67/B'", '\n};')
+        self.assertEqual(b_side.count('_chatStillWorks('), 2)  # A 로그아웃 직후 · HOLD 뒤 — 둘 다 같은 도우미를 지난다
+
+    def test_the_session_check_asks_the_server_and_the_refresh_token(self):
+        text = (tools.ROOT / 'frontend' / 'integration_test' / 'area4_extra.dart').read_text(encoding='utf-8')
+        body = text[text.index('Future<void> _sessionAlive'):]
+        body = body[:body.index('\n}\n')]
+        self.assertIn('auth.getUser()', body)  # 서버가 이 세션의 사용자를 아는지(세션이 지워졌으면 막힌다)
+        self.assertIn('refreshSession()', body)  # 새로 받기 — A 가 모든 기기를 끊었다면 열쇠가 죽어 있다
+
+
 class RealContractTest(unittest.TestCase):
     def test_account_withdrawal_is_not_a_heart_withdrawal(self):
         self.assertEqual(area4_extra._named(['/account/withdraw', '/me/hearts'], area4_extra.FORBIDDEN_HEART), [])
