@@ -254,7 +254,28 @@ def _guarded(hypothesis):
     return lambda run, two: area2.attempt_with(run, lambda run: hypothesis(run, two))
 
 
-TWO = {case: _guarded(hypothesis) for case, hypothesis in CASES.items()}
+def _guarded_batch(hypothesis):
+    """배치(daily-cards)를 부르는 가설 — [_guarded] 와 같되, 배치를 이미 부른 뒤의 끊김은 처음부터 다시 하지 않고 blocked 로 끝낸다.
+    다시 하면 배치가 또 나가 daily-cards 하루 1장 규칙과 부딪친다(area2_time_batch.attempt 와 같은 방어). 배치 전의 끊김은 한 번 더.
+    A 쪽 핸들러(batch)의 예외는 twodev 가 그 쪽 결과(blocked)로 삼켜 여기까지 안 올라오므로 배치 뒤 끊김 갈래는 거의 안 탄다 — 그래도 같은 규칙을 둔다."""
+    def attempt(run, two):
+        for tries in (1, 2):
+            area2_time_batch._FIRED.clear()
+            try:
+                return hypothesis(run, two)
+            except Blocked as e:
+                return 'blocked', str(e)
+            except tools.TRANSIENT as e:
+                if area2_time_batch._FIRED:
+                    return 'blocked', f'연결이 끊김({type(e).__name__}) — {area2_time_batch.ALREADY}'
+                if tries == 2:
+                    return 'blocked', f'연결이 두 번 끊김: {type(e).__name__} {e}'
+            except Exception as e:  # 시험 쪽 버그 · 예상 밖 응답 모양 — 긴 실행이 한 가설 때문에 멈추지 않게
+                return 'blocked', f'진행 프로그램 예외 {type(e).__name__}: {e}'
+    return attempt
+
+
+TWO = {case: (_guarded_batch if case == 'E-WD-08' else _guarded)(hypothesis) for case, hypothesis in CASES.items()}
 
 twodev.TWO.update(TWO)
 area1.BUNDLES['area5-two'] = list(CASES)
