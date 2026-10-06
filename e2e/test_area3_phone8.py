@@ -109,7 +109,8 @@ class Phone8(Phone2):
     def delay(self, seconds, **extra):
         """앱이 방 뷰모델에서 그 글을 본 시각 = 서버가 찍은 보낸 시각 + [seconds]."""
         sent = self.rows('messages')[0]
-        return said(seen_at=(datetime.fromisoformat(sent['created_at']) + timedelta(seconds=seconds)).isoformat(), **extra)
+        return said(seen_at=(datetime.fromisoformat(sent['created_at']) + timedelta(seconds=seconds)).isoformat(),
+                    **{'loaded': True, **extra})
 
 
 # ── E-CHAT-10 · 16 ───────────────────────────────────────────────────────────────────────────────────
@@ -136,6 +137,33 @@ class LongTest(Phone8):
                        lambda job: said(bubble=True), lambda job: said(seen_at='not a time', bubble=True)):
             (result, _), _ = self.run10(answer)[0]
             self.assertEqual(result, 'fail')
+
+    def test_10_a_room_that_never_finished_loading_is_blocked_and_nothing_is_sent(self):
+        """앱이 방 읽기를 못 끝냈다고 하면(구독 전에 보내면 가짜 실패) 글을 보내기 전에 멈춘다 — 실제 앱은 이때 step 을 부르지 않는다."""
+        self.serve_chat()
+        (result, note), _ = self.case('E-CHAT-10', lambda job: said(loaded=False, error=None, seen_at=None, bubble=False))
+        self.assertEqual(result, 'blocked', note)
+        self.assertIn('안 읽힘', note)
+        self.assertEqual(self.fake.by('POST', '/chat/matches/'), [])
+
+    def test_10_an_app_that_does_not_say_loaded_fails(self):
+        self.serve_chat()
+        (result, note), _ = self.run10(lambda job: self.delay(1.0, bubble=True, loaded=None))[0]
+        self.assertEqual(result, 'fail', note)
+        self.assertIn('방 읽기', note)
+
+    def test_10_a_negative_delay_is_set_aside_as_a_clock_difference_not_judged(self):
+        self.serve_chat()
+        (result, note), _ = self.run10(lambda job: self.delay(-3.0, bubble=True))[0]
+        self.assertEqual(result, 'pass', note)
+        self.assertIn('판정 불가', note)
+        self.assertIn('시계 차', note)
+
+    def test_10_a_slow_display_is_still_a_fail_next_to_the_clock_rule(self):
+        self.serve_chat()
+        (result, note), _ = self.run10(lambda job: self.delay(2.5, bubble=True))[0]
+        self.assertEqual(result, 'fail', note)
+        self.assertIn('2.0', note)
 
     def test_10_fails_when_the_server_stores_a_shorter_body(self):
         self.fake.on('POST', r'/chat/matches/[^/]+/messages', lambda sent: (self.put(
@@ -346,8 +374,19 @@ class HiddenTest(Phone8):
         self.assertEqual((result, note), ('pass', ''))
         self.assertEqual([j.get('list') or 'about' for j in app.jobs], ['written', 'received', 'about'])
         self.assertEqual(self.rows('friend_reviews')[0]['status'], 'blinded')
-        self.assertEqual([(s['method'], s['auth']) for s in self.fake.sent if s['path'].startswith('/friend-reviews/')], [('DELETE', 'tok-1')])
+        self.assertEqual([(s['method'], s['auth']) for s in self.fake.sent if s['path'].startswith('/friend-reviews/')],
+                         [('GET', 'tok-2'), ('DELETE', 'tok-1')])  # 가리기 전 대조군(B 가 받은 목록) → 작성자 지우기
         self.assert_all_home()
+
+    def test_34_is_blocked_when_the_review_is_not_visible_to_b_before_it_is_blinded(self):
+        """가리기 전에 B 의 받은 목록에 그 리뷰가 1장 있어야 "0장" 이 가림 때문이라는 증거가 된다."""
+        self.serve_reviews()
+        self.fake.handlers.insert(0, ('GET', re.compile(r'/friend-reviews/received'), Reply(200, {'reviews': []})))
+        (result, note), app = self.case('E-REV-34', self.card_count(0))
+        self.assertEqual(result, 'blocked', note)
+        self.assertIn('가리기 전', note)
+        self.assertEqual(app.jobs, [])  # 앱을 켜지 않는다
+        self.assertEqual(self.rows('friend_reviews')[0].get('status'), None)  # 가리지도 않았다
 
     def test_34_fails_when_a_card_shows_the_delete_goes_through_or_the_empty_text_is_missing(self):
         self.serve_reviews()
