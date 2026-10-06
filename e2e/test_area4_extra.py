@@ -241,6 +241,66 @@ class MailDisabledTest(unittest.TestCase):
             self.assertEqual(area4_extra.mail_apps('emulator-5554'), ['com.android.email', 'com.google.android.gm'])
 
 
+MAIL = area4_extra.SUPPORT_MAIL
+GM = 'com.google.android.gm'
+# 실제 에뮬 dumpsys 의 한 줄(구글 계정이 없어 Gmail 이 작성 화면 대신 첫 실행 화면을 띄워도 Intent 줄은 그대로 남는다)
+INTENT = f'  Intent {{ act=android.intent.action.SENDTO dat=mailto:{MAIL} flg=0x14000000 cmp={GM}/.ComposeActivityGmailExternal }}'
+
+
+class Set52Test(Base):
+    """E-SET-52 — 받는 사람을 화면 글자 대신 dumpsys 의 SENDTO Intent 줄에서 읽는다(에뮬에는 구글 계정이 없어 Gmail 이 첫 실행 화면만 띄운다)."""
+
+    def world(self, dump, screen=False, top=f'{GM}/.welcome.WelcomeTourActivity'):
+        events = []
+
+        def adb(serial, *args, check=True):
+            events.append(args)
+            if args[:3] == ('shell', 'pm', 'query-activities'):
+                return f'priority=0 preferredOrder=0\n  {GM}/.ComposeActivityGmail\n'
+            if args[:4] == ('shell', 'dumpsys', 'activity', 'activities'):
+                return dump
+            return ''
+
+        class Phone(FakePhone):
+            def __call__(self, midway=None, **job):
+                events.append(('app', job.get('token_hash') is not None))
+                return super().__call__(midway=midway, **job)
+
+        phone = Phone(top=top)
+        phone.serial = 'emulator-5554'
+        return events, phone, adb, mock.patch.object(area4_extra.notify, 'screen_has', lambda serial, text: screen)
+
+    def run52(self, dump, screen=False):
+        events, phone, adb, screen_patch = self.world(dump, screen)
+        with mock.patch.object(tools, 'call', Fake([])), mock.patch.object(tools, 'adb', adb), screen_patch:
+            return area1.attempt_phone(self.run, 'E-SET-52', phone), events
+
+    def test_the_recipient_is_read_from_the_sendto_intent_line(self):
+        for dump, want in ((INTENT, True), (INTENT.replace(MAIL, 'someone@else.com'), False),
+                           (f'act=android.intent.action.SENDTO\n dat=mailto:{MAIL}', False), ('', False)):
+            with self.subTest(dump=dump[:60]):
+                with mock.patch.object(tools, 'adb', lambda serial, *args, check=True, d=dump: d):
+                    self.assertEqual(area4_extra.mail_intent_to('emulator-5554', MAIL), want)
+
+    def test_an_emulator_with_no_account_passes_on_the_intent_alone(self):
+        (result, note), _ = self.run52(INTENT, screen=False)
+        self.assertEqual(result, 'pass', note)
+
+    def test_a_device_with_an_account_that_shows_the_address_on_screen_also_passes(self):
+        (result, note), _ = self.run52('', screen=True)
+        self.assertEqual(result, 'pass', note)
+
+    def test_neither_the_intent_nor_the_screen_is_a_fail(self):
+        (result, note), _ = self.run52(INTENT.replace(MAIL, 'someone@else.com'), screen=False)
+        self.assertEqual(result, 'fail', note)
+        self.assertIn(MAIL, note)
+
+    def test_the_mail_apps_are_force_stopped_before_the_press_so_an_old_task_cannot_pass_for_this_one(self):
+        _, events = self.run52(INTENT)
+        stop = events.index(('shell', 'am', 'force-stop', GM))
+        self.assertLess(stop, events.index(('app', True)))
+
+
 class Set12Test(Base):
     def world(self, new_message=None):
         """실제 서버처럼 — 새 계정은 notification_settings 행이 없고(16d 를 열어도 읽기만 한다), PostgREST PATCH 는 없는 행에는 아무 일도 안 하고,
