@@ -32,8 +32,9 @@ from e2e.test_area5_act import ActBase, ActFake, REAL_GUARD, dart, lib, now
 from e2e.test_area5_read import delete_button_violations, server_keys
 from e2e.tools import Reply
 
-BUNDLE = ['E-ME-12', 'E-ME-13', 'E-ME-14', 'E-ME-38', 'E-ME-39', 'E-ME-41', 'E-ME-42', 'E-ME-44', 'E-EDGE-03']
-PAID = ['E-ME-14']  # 앱이 "10 쓰고 만들기" 를 눌러 서버가 큐에 넣고 워커가 OpenAI 이미지를 부를 수 있는 하나
+BUNDLE = ['E-ME-10', 'E-ME-11', 'E-ME-12', 'E-ME-13', 'E-ME-14', 'E-ME-16', 'E-ME-38', 'E-ME-39', 'E-ME-40', 'E-ME-41', 'E-ME-42', 'E-ME-43', 'E-ME-44', 'E-EDGE-03']
+PAID = ['E-ME-10', 'E-ME-11', 'E-ME-14', 'E-ME-16', 'E-ME-40']  # 앱이 다시 만들기를 눌러 서버가 큐에 넣고 워커가 OpenAI 이미지를 부를 수 있는 것들
+FREE_BODY = '첫 번째 다시 만들기는 무료예요. 새 아바타는 바로 프로필에 반영돼요.'
 TITLES = {'15-5': '프로필 편집', '15-7': '사진 수정'}
 LOW_TITLE = '하트가 모자라요'
 LOW_BODY = '하트 10개가 필요해요. 지금 보유한 하트는 5개예요.'
@@ -246,7 +247,7 @@ class PhotoBase(ActBase):
         self.fake = PhotoFake()
         folder = self.root / '사진'  # 사진 세트 폴더(area1_b3.photo_dir)
         folder.mkdir()
-        for name in ('face1.jpg', 'scenery.jpg'):
+        for name in ('face1.jpg', 'scenery.jpg', 'unsafe.jpg'):
             (folder / name).write_bytes(b'\xff\xd8\xff' + name.encode())
         self.folder = folder
         for patcher in (mock.patch.object(area5_photo, 'FLIP_POLL', 0.01),):
@@ -858,6 +859,158 @@ class FailedRegenerateTest(PhotoBase):
         self.writes_only_mine()
 
 
+# ── E-ME-10 · 11 · 16 워커가 새 아바타를 만든다(유료 AI) ────────────────────────────────────────────
+
+class WorkerRegenTest(PhotoBase):
+    """앱이 누르면 서버가 큐에 넣고 워커가 새 아바타를 만든다 — 시험이 워커를 흉내 낸다(pending → ready, 값이 있으면 하트 원장 -10 도)."""
+
+    def worker(self, charge=0):
+        row = self.avatars(status='pending')[0]
+        row.update(status='ready', storage_path='id-1/new.png')
+        if charge:
+            self.fake.rows('entitlements')[0]['heart_balance'] -= charge
+            self.fake.rows('heart_transactions').append({'profile_id': 'id-1', 'amount': -charge, 'reason': 'avatar_regen', 'ref_id': row['id']})
+        return row
+
+    def good(self, name, **over):
+        def answer(job):
+            self.assertEqual(self.call_regenerate()[0], 202)
+            self.charged_row = self.worker(10 if name == 'E-ME-11' else 0)
+            said_ = {'generating_seen': True, 'avatar_changed': True, 'generating_gone': True, 'regen_state': 'ready', 'waited_ms': 20000}
+            if name == 'E-ME-10':
+                said_.update(sheet_title=PAID_TITLE, sheet_texts=[PAID_TITLE, FREE_BODY, '무료로 만들기', '취소'])
+            if name == 'E-ME-11':
+                said_.update(sheet_title=PAID_TITLE, sheet_body=paid_body(37))
+            if name == 'E-ME-16':
+                said_.update(generating_after_return=True)
+            return said(**{**said_, **over})
+        return answer
+
+    def run_case(self, name, answer=None):
+        return self.case(name, answer or self.good(name))
+
+    # ── 10 첫 다시 만들기는 무료 ──
+    def test_10_the_first_regenerate_is_free_and_a_new_avatar_appears(self):
+        (result, note), app = self.run_case('E-ME-10')
+        self.assertEqual(result, 'pass', note)
+        self.assertEqual(app.jobs, [{'token_hash': 'h'}])
+        self.assertEqual(sorted(a['status'] for a in self.avatars()), ['ready', 'ready'])
+        self.assertEqual(self.ledger('avatar_regen'), [])
+        self.assertEqual(self.fake.queued, 1)
+
+    def test_10_fails_on_a_charge_a_missing_free_text_a_heart_line_or_an_unchanged_picture(self):
+        def charged(job):
+            answer = self.good('E-ME-10')(job)
+            self.fake.rows('entitlements')[0]['heart_balance'] -= 10
+            return answer
+        for answer, word in ((charged, '하트'),
+                             (self.good('E-ME-10', sheet_texts=[PAID_TITLE, '하트 10개가 차감돼요. 지금 보유한 하트는 5개예요.', '10 쓰고 만들기', '취소']), '무료'),
+                             (self.good('E-ME-10', avatar_changed=False), '그림'),
+                             (self.good('E-ME-10', generating_seen=False), '변환 중'),
+                             (self.good('E-ME-10', regen_state='failed'), '상태'),
+                             (self.good('E-ME-10', waited_ms=700000), '10분')):
+            with self.subTest(word):
+                self.reset_paid()
+                (result, note), _ = self.run_case('E-ME-10', answer)
+                self.assertEqual(result, 'fail', note)
+                self.assertIn(word, note)
+
+    def test_10_fails_when_the_worker_never_made_a_ready_avatar(self):
+        def stuck(job):
+            self.assertEqual(self.call_regenerate()[0], 202)
+            return said(generating_seen=True, avatar_changed=True, generating_gone=True, regen_state='ready', waited_ms=1000,
+                        sheet_title=PAID_TITLE, sheet_texts=[PAID_TITLE, FREE_BODY, '무료로 만들기', '취소'])
+        (result, note), _ = self.run_case('E-ME-10', stuck)
+        self.assertEqual(result, 'fail', note)
+        self.assertIn('완성', note)
+
+    def test_10_is_blocked_when_the_account_does_not_start_with_one_ready_avatar(self):
+        # 2장이면 첫 다시 만들기가 무료가 아니다 — 준비가 조건을 못 맞추면 blocked 로 멈춘다(앱을 켜기 전에)
+        with mock.patch.object(area5_photo, '_ready_avatars', return_value=[{}, {}]):
+            (result, note), app = self.run_case('E-ME-10', said())
+        self.assertEqual(result, 'blocked', note)
+        self.assertEqual(app.jobs, [])
+
+    # ── 11 두 번째부터 10개 ──
+    def test_11_the_second_regenerate_costs_ten_after_completion_with_a_ledger_row_that_points_at_the_new_avatar(self):
+        (result, note), app = self.run_case('E-ME-11')
+        self.assertEqual(result, 'pass', note)
+        self.assertEqual(self.fake.balance(), 27)
+        self.assertEqual(self.ledger('avatar_regen'), [-10])
+        ref = self.rows('heart_transactions', reason='avatar_regen')[0]['ref_id']
+        self.assertEqual(ref, self.charged_row['id'])
+        self.assertEqual(sorted(a['status'] for a in self.avatars()), ['ready', 'ready', 'ready'])
+
+    def test_11_fails_on_a_wrong_balance_a_missing_or_double_ledger_or_a_ledger_without_ref(self):
+        def uncharged(job):
+            self.good('E-ME-11')(job)
+            self.fake.rows('entitlements')[0]['heart_balance'] = 37
+            self.fake.rows('heart_transactions').clear()
+            return said(**{'generating_seen': True, 'avatar_changed': True, 'generating_gone': True, 'regen_state': 'ready', 'waited_ms': 1,
+                           'sheet_title': PAID_TITLE, 'sheet_body': paid_body(37)})
+
+        def doubled(job):
+            answer = self.good('E-ME-11')(job)
+            self.fake.rows('entitlements')[0]['heart_balance'] -= 10
+            self.fake.rows('heart_transactions').append({'profile_id': 'id-1', 'amount': -10, 'reason': 'avatar_regen', 'ref_id': 'other'})
+            return answer
+
+        def no_ref(job):
+            answer = self.good('E-ME-11')(job)
+            self.fake.rows('heart_transactions')[-1]['ref_id'] = None
+            return answer
+        def wrong_ref(job):
+            answer = self.good('E-ME-11')(job)
+            self.fake.rows('heart_transactions')[-1]['ref_id'] = 'other'
+            return answer
+        for answer, word in ((uncharged, '하트'), (doubled, '원장'), (no_ref, 'ref_id'), (wrong_ref, '새 아바타 행')):
+            with self.subTest(word):
+                self.reset_paid()
+                (result, note), _ = self.run_case('E-ME-11', answer)
+                self.assertEqual(result, 'fail', note)
+                self.assertIn(word, note)
+
+    def test_11_fails_on_a_wrong_sheet_text(self):
+        (result, note), _ = self.run_case('E-ME-11', self.good('E-ME-11', sheet_body=paid_body(5)))
+        self.assertEqual(result, 'fail', note)
+        self.assertIn('시트 글', note)
+
+    # ── 16 만드는 중에 오늘 탭을 다녀옴 ──
+    def test_16_leaving_to_the_today_tab_and_coming_back_keeps_waiting_and_the_new_avatar_appears(self):
+        (result, note), _ = self.run_case('E-ME-16')
+        self.assertEqual(result, 'pass', note)
+        self.assertEqual(sorted(a['status'] for a in self.avatars()), ['ready', 'ready'])
+        self.assertEqual(self.fake.queued, 1)
+
+    def test_16_fails_when_the_wait_stopped_after_coming_back_or_no_new_avatar(self):
+        for over, word in (({'generating_after_return': False}, '돌아'), ({'avatar_changed': False}, '그림'), ({'regen_state': 'idle'}, '상태')):
+            with self.subTest(over):
+                self.reset_paid()
+                (result, note), _ = self.run_case('E-ME-16', self.good('E-ME-16', **over))
+                self.assertEqual(result, 'fail', note)
+                self.assertIn(word, note)
+
+    # ── 셋 다 ──
+    def test_the_three_are_behind_the_real_ai_gate_and_make_no_request_without_it(self):
+        for name in ('E-ME-10', 'E-ME-11', 'E-ME-16'):
+            with self.subTest(name), mock.patch.dict(os.environ, {}, clear=True):
+                (result, note), app = self.run_case(name, said())
+                self.assertEqual(result, 'blocked')
+                self.assertIn('E2E_REAL_AI', note)
+                self.assertEqual(self.fake.sent, [])
+                self.assertEqual(app.jobs, [])
+
+    def test_the_three_wait_for_the_worker_longer_than_the_default(self):
+        for name in ('E-ME-10', 'E-ME-11', 'E-ME-16'):
+            self.assertGreaterEqual(tools.CASE_LIMITS[name], 900)
+
+    def test_the_three_write_only_to_the_account_they_made(self):
+        for name in ('E-ME-10', 'E-ME-11', 'E-ME-16'):
+            self.reset_paid()
+            self.run_case(name)
+            self.writes_only_mine()
+
+
 # ── 15-7 사진 수정 ──────────────────────────────────────────────────────────────────────────────────
 
 class SaveTest(PhotoBase):
@@ -1354,6 +1507,135 @@ class EdgeOfflineTest(PhotoBase):
         self.assertEqual(result, 'fail', note)
         self.assertIn('DB', note)
         online.assert_called_once_with('S')
+
+
+# ── E-ME-40 아바타 원본 사진을 뺌 ──────────────────────────────────────────────────────────────────
+
+class RemoveSourceTest(PhotoBase):
+    """15-7 에서 아바타 원본(첫 칸)을 빼고 저장하면 새 첫 칸이 원본이 되고 지금 아바타는 그대로이며, 다음 다시 만들기가 새 원본으로 돈다(유료 AI)."""
+
+    worker = WorkerRegenTest.worker
+
+    def good(self, source=0, **over):
+        def answer(job):
+            rows = self.photos()
+            self.assertEqual(len(rows), 3)
+            self.ids = [r['id'] for r in rows]
+            self.app_save(keep(rows[1], rows[2]), source)
+            self.assertEqual(self.call_regenerate()[0], 202)
+            self.worker()
+            return said(**{'ids_open': self.ids, 'ids_removed': self.ids[1:], 'title': '프로필 편집', 'avatar_before': 'a.png', 'avatar_after': 'a.png',
+                           'generating_seen': True, 'avatar_changed': True, 'generating_gone': True, 'regen_state': 'ready', 'waited_ms': 20000, **over})
+        return answer
+
+    def test_40_the_new_first_photo_becomes_the_source_the_avatar_stays_and_the_next_regenerate_makes_a_new_one(self):
+        (result, note), app = self.case('E-ME-40', self.good())
+        self.assertEqual(result, 'pass', note)
+        self.assertEqual(app.jobs, [{'token_hash': 'h'}])
+        rows = self.photos()
+        self.assertEqual([r['id'] for r in rows], self.ids[1:])
+        self.assertEqual([r['position'] for r in rows], [0, 1])
+        self.assertEqual([r['is_avatar_source'] for r in rows], [True, False])
+        self.assertEqual(sorted(a['status'] for a in self.avatars()), ['ready', 'ready'])
+        self.assertEqual(self.fake.vision_calls, 0)  # 새 파일이 없다
+
+    def test_40_is_behind_the_real_ai_gate_and_makes_no_request_without_it(self):
+        with mock.patch.dict(os.environ, {}, clear=True):
+            (result, note), app = self.case('E-ME-40', said())
+        self.assertEqual(result, 'blocked')
+        self.assertIn('E2E_REAL_AI', note)
+        self.assertEqual(self.fake.sent, [])
+        self.assertEqual(app.jobs, [])
+
+    def test_40_the_time_limit_covers_the_worker_wait(self):
+        self.assertGreaterEqual(tools.CASE_LIMITS['E-ME-40'], 900)
+
+    def test_40_fails_when_the_source_flag_is_not_on_the_new_first_photo(self):
+        (result, note), _ = self.case('E-ME-40', self.good(source=1))
+        self.assertEqual(result, 'fail', note)
+        self.assertIn('원본', note)
+
+    def test_40_fails_on_each_wrong_app_report(self):
+        for over, word in (({'ids_open': ['x', 'y', 'z']}, '열었을 때'), ({'ids_removed': ['x', 'y']}, '뺀'), ({'title': '사진 수정'}, '저장 뒤 화면'),
+                           ({'avatar_after': 'b.png'}, '아바타'), ({'avatar_changed': False}, '그림'), ({'regen_state': 'failed'}, '상태')):
+            with self.subTest(over):
+                self.reset_paid()
+                (result, note), _ = self.case('E-ME-40', self.good(**over))
+                self.assertEqual(result, 'fail', note)
+                self.assertIn(word, note)
+
+    def test_40_fails_when_a_ready_avatar_was_changed_by_the_photo_save(self):
+        def eats(job):
+            answer = self.good()(job)
+            self.avatars(status='ready')[0]['storage_path'] = 'id-1/other.png'
+            return answer
+        (result, note), _ = self.case('E-ME-40', eats)
+        self.assertEqual(result, 'fail', note)
+        self.assertIn('아바타 행', note)
+
+    def test_40_fails_when_the_worker_never_made_a_new_avatar(self):
+        def stuck(job):
+            rows = self.photos()
+            self.app_save(keep(rows[1], rows[2]), 0)
+            return said(ids_open=[r['id'] for r in rows], ids_removed=[r['id'] for r in rows[1:]], title='프로필 편집', avatar_before='a.png',
+                        avatar_after='a.png', generating_seen=True, avatar_changed=True, generating_gone=True, regen_state='ready', waited_ms=1)
+        (result, note), _ = self.case('E-ME-40', stuck)
+        self.assertEqual(result, 'fail', note)
+        self.assertIn('완성', note)
+
+    def test_40_writes_only_to_the_account_it_made(self):
+        self.case('E-ME-40', self.good())
+        self.writes_only_mine()
+
+
+# ── E-ME-43 부적절한 사진을 섞어 저장 ───────────────────────────────────────────────────────────────
+
+class UnsafeMixedTest(PhotoBase):
+    """얼굴 사진 + 부적절 사진을 함께 저장하면 서버가 422 로 막고, 둘 다 안 올라가며 DB · 저장소가 그대로다."""
+
+    def good(self, **over):
+        def answer(job):
+            self.fake.unsafe = True
+            self.reply_seen = self.app_save(keep(*self.photos()) + [{'new': 0}, {'new': 1}], 0, files=2, expect=422)
+            return said(**{'tiles_before': 2, 'tiles_after': 4, 'error': True, 'error_text': NOT_SAFE, 'title_after_error': '사진 수정', **over})
+        return answer
+
+    def test_43_the_unsafe_photo_makes_the_whole_save_fail_with_the_message_and_nothing_changes(self):
+        note, app = self.passes('E-ME-43', self.good())
+        self.assertEqual(app.jobs, [{'token_hash': 'h', 'photo': 'face1.jpg', 'unsafe': 'unsafe.jpg'}])
+        self.assertEqual(self.reply_seen[1], {'detail': NOT_SAFE})
+        self.assertEqual(len(self.photos()), 2)
+        self.assertEqual(self.files(), sorted(r['storage_path'] for r in self.photos()))
+        self.assertEqual(self.avatars(status='ready')[0]['status'], 'ready')
+
+    def test_43_both_photos_are_pushed_to_the_phone_once_before_the_app_starts(self):
+        self.passes('E-ME-43', self.good())
+        pushed = [c for c in self.adb_calls if 'push' in c]
+        self.assertEqual(sorted(Path(c[2]).name for c in pushed), ['face1.jpg', 'unsafe.jpg'])
+
+    def test_43_is_not_behind_the_real_ai_gate(self):
+        self.assertNotEqual(area5_photo.PHONE['E-ME-43'].__name__, 'case')
+
+    def test_43_is_blocked_before_any_account_when_the_photo_set_lacks_the_unsafe_file(self):
+        (self.folder / 'unsafe.jpg').unlink()
+        self.blocked('E-ME-43', self.good(), '사진 세트 없음', 'unsafe.jpg')
+        self.assertEqual(self.fake.users, [])
+
+    def test_43_fails_on_each_wrong_app_report(self):
+        for over, word in (({'error': False}, '오류'), ({'error_text': '다른 문구'}, '오류'), ({'title_after_error': '프로필 편집'}, '머물'),
+                           ({'tiles_after': 3}, '칸'), ({'tiles_before': 3}, '칸')):
+            with self.subTest(over):
+                self.fails('E-ME-43', self.good(**over), word)
+
+    def test_43_fails_when_the_server_let_the_unsafe_photo_in(self):
+        def accepts(job):
+            self.app_save(keep(*self.photos()) + [{'new': 0}, {'new': 1}], 0, files=2, expect=200)
+            return said(tiles_before=2, tiles_after=4, error=True, error_text=NOT_SAFE, title_after_error='사진 수정')
+        self.fails('E-ME-43', accepts, 'DB')
+
+    def test_43_writes_only_to_the_account_it_made(self):
+        self.case('E-ME-43', self.good())
+        self.writes_only_mine()
 
 
 # ── 쓰기 가드 ───────────────────────────────────────────────────────────────────────────────────────

@@ -45,7 +45,7 @@ import time
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from e2e import area1, area2, tools
+from e2e import area1, area2, notify, tools
 from e2e.area1 import SEOUL, Check, _api, _app, _at, _one, _patch, _rows, _signed_in
 from e2e.area2_phone3 import _add_avatar, _balance, _give
 from e2e.area3_phone import MISSING
@@ -228,6 +228,27 @@ def p_me_02(run, phone):
 
 
 # ── E-ME-03 · 06 ────────────────────────────────────────────────────────────────────────────────────
+
+def p_me_04(run, phone):
+    check = Check()
+    _, token = _home(run)
+    serial = phone.serial
+    try:
+        # 로그인은 망이 있어야 한다 — 앱이 홈에서 `cut` 으로 멈추면 PC 가 망을 끊고, 나 탭 오류를 읽고 `restore` 에서 멈추면 되살린다.
+        # 그 뒤 앱이 "다시 시도" 를 눌러 히어로를 본다.
+        cut, restore = (lambda step: notify.airplane(serial, True)), (lambda step: notify.airplane(serial, False))
+        said = _app(check, phone(midway=stepper(phone, cut, restore), token_hash=token))
+        check.that(said.get('error_text', MISSING) == '잠시 뒤 다시 시도해 주세요',
+                   f"망 오류 글 {said.get('error_text', MISSING)!r}(기대 '잠시 뒤 다시 시도해 주세요')")
+        check.that(said.get('retry_text', MISSING) == '다시 시도',
+                   f"다시 시도 버튼 {said.get('retry_text', MISSING)!r}(기대 '다시 시도')")
+        check.that(said.get('hero') is True, f"다시 시도 뒤 히어로 {said.get('hero', MISSING)}(기대 보임)")
+        ms = said.get('retry_ms')
+        check.that(isinstance(ms, int) and ms <= 3000, f'다시 시도부터 히어로까지 {ms}ms(기대 3000ms 이하)')
+    finally:
+        notify.ensure_online(serial)
+    return check.result()
+
 
 def p_me_03(run, phone):
     check = Check()
@@ -549,7 +570,7 @@ def p_edge_23(run, phone):
 
 
 PHONE = {
-    'E-ME-01': p_me_01, 'E-ME-02': p_me_02, 'E-ME-03': p_me_03, 'E-ME-06': p_me_06, 'E-ME-08': p_me_08, 'E-ME-09': p_me_09,
+    'E-ME-01': p_me_01, 'E-ME-02': p_me_02, 'E-ME-03': p_me_03, 'E-ME-04': p_me_04, 'E-ME-06': p_me_06, 'E-ME-08': p_me_08, 'E-ME-09': p_me_09,
     'E-ME-28': p_me_28, 'E-ME-29': p_me_29, 'E-ME-30': p_me_30,
     'E-WD-01': p_wd_01, 'E-WD-03': p_wd_03, 'E-WD-17': p_wd_17,
     'E-EDGE-13': p_edge_13, 'E-EDGE-14': p_edge_14, 'E-EDGE-16': p_edge_16, 'E-EDGE-23': p_edge_23,

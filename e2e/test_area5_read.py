@@ -27,7 +27,7 @@ from e2e.test_area3_safe import _who
 from e2e.test_area3_safe_phone import PhoneFake
 from e2e.tools import Reply, Run
 
-BUNDLE = ['E-ME-01', 'E-ME-02', 'E-ME-03', 'E-ME-06', 'E-ME-08', 'E-ME-09', 'E-ME-28', 'E-ME-29', 'E-ME-30',
+BUNDLE = ['E-ME-01', 'E-ME-02', 'E-ME-03', 'E-ME-04', 'E-ME-06', 'E-ME-08', 'E-ME-09', 'E-ME-28', 'E-ME-29', 'E-ME-30',
           'E-WD-01', 'E-WD-03', 'E-WD-17', 'E-EDGE-13', 'E-EDGE-14', 'E-EDGE-16', 'E-EDGE-23']
 UNIVERSITY = '테스트대학'
 STARTER = 5  # 가짜 서버가 홈 계정에 처음부터 넣어 두는 하트 — "행을 지웠다 · 잔액을 DB 값으로 읽었다" 가 의미 있게
@@ -412,6 +412,38 @@ class RegistryTest(unittest.TestCase):
 
 
 # ── 나 탭 읽기 ───────────────────────────────────────────────────────────────────────────────────────
+
+class OfflineMeTest(ReadBase):
+    def test_04_restores_network_before_retry_and_observes_hero_within_three_seconds(self):
+        events = []
+        def airplane(serial, on, settle=None):
+            events.append('offline' if on else 'online')
+        def online(serial):
+            events.append('restore')
+        app = StepApp(lambda job: said(error_text='잠시 뒤 다시 시도해 주세요', retry_text='다시 시도', hero=True, retry_ms=2500),
+                      ['cut', 'restore'], events)
+        with mock.patch.object(area5_read.notify, 'airplane', airplane), mock.patch.object(area5_read.notify, 'ensure_online', online):
+            self.passes('E-ME-04', {}, app)
+        self.assertEqual(events, ['step:cut', 'offline', 'go', 'step:restore', 'online', 'go', 'restore'])
+
+    def test_04_fails_on_a_slow_retry_or_a_missing_hero_and_still_restores_the_network(self):
+        events = []
+        with mock.patch.object(area5_read.notify, 'airplane', lambda s, on, settle=None: events.append('offline' if on else 'online')), \
+                mock.patch.object(area5_read.notify, 'ensure_online', lambda s: events.append('restore')):
+            app = StepApp(lambda job: said(error_text='잠시 뒤 다시 시도해 주세요', retry_text='다시 시도', hero=False, retry_ms=3500),
+                          ['cut', 'restore'], events)
+            self.fails('E-ME-04', {}, '히어로', '3500ms', app=app)
+        self.assertEqual(events[-1], 'restore')
+
+
+    def test_04_restores_the_network_when_the_app_says_blocked(self):
+        events = []
+        with mock.patch.object(area5_read.notify, 'airplane', lambda s, on, settle=None: events.append('offline' if on else 'online')), \
+                mock.patch.object(area5_read.notify, 'ensure_online', lambda s: events.append('restore')):
+            app = StepApp(lambda job: {'result': 'blocked', 'note': '못 찾음'}, ['cut', 'restore'], events)
+            self.blocked('E-ME-04', {}, '못 찾음', app=app)
+        self.assertEqual(events[-1], 'restore')
+
 
 class HeroTest(ReadBase):
     def good(self, **over):
