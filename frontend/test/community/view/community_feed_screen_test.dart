@@ -201,6 +201,15 @@ void main() {
     expect((icon.size, icon.color), (18.0, AppColors.onPrimary));
   });
 
+  testWidgets('글이 한두 개라 화면을 못 채워도 아래로 당기면 새로 불러온다', (tester) async {
+    repository.page = Success(PollPage(polls: [pollFixture()], hasMore: false));
+    await pump(tester);
+    expect(repository.pageRequests.length, 1);
+    await tester.fling(find.byType(ListView), const Offset(0, 500), 1500);
+    await tester.pumpAndSettle();
+    expect(repository.pageRequests.length, 2);
+  });
+
   testWidgets('불러오기 실패와 빈 목록을 가른다 — 두 번째 쪽 실패는 목록을 지우지 않는다', (tester) async {
     repository
       ..page = Success(PollPage(polls: [for (var i = 0; i < 20; i++) pollFixture(id: 'p$i')], hasMore: true))
