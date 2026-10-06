@@ -19,7 +19,7 @@ from unittest import mock
 
 from e2e import area1, area2_phone3, area5_edge, emu, notify, tools
 from e2e.test_area5_read import OURS, LAUNCHER, ReadBase
-from e2e.tools import Reply
+from e2e.tools import Blocked, Reply
 
 CASES = ['E-EDGE-01', 'E-EDGE-11', 'E-EDGE-15', 'E-EDGE-19', 'E-EDGE-21', 'E-EDGE-24', 'E-EDGE-25']
 SCREENS = ['15-6', '15c', '06-1', 'tag', '15-7']
@@ -122,6 +122,7 @@ class EdgeBase(ReadBase):
         for patcher in (mock.patch.object(tools, 'adb', fake_adb), mock.patch('time.sleep'),
                         mock.patch.object(notify, 'airplane', lambda serial, on, settle=None: self.airplane(on)),
                         mock.patch.object(notify, 'ensure_online', lambda serial: self.events.append('ensure_online')),
+                        mock.patch.object(notify, 'require_daytime', lambda now=None: None),  # 실제 시각에 안 흔들리게 — 밤인 경우는 Edge15Test 가 따로 본다
                         mock.patch.object(notify, 'ensure_delivery', lambda serial: None),
                         mock.patch.object(notify, 'grant_notifications', lambda serial: None),
                         mock.patch.object(notify, 'revoke_notifications', lambda serial: None),
@@ -370,6 +371,20 @@ class Edge15Test(EdgeBase):
         self.assertEqual([e[1] for e in self.events if isinstance(e, tuple) and e[0] == 'tell'], ['chat', 'review'])
         self.assertEqual([e[1] for e in self.events if isinstance(e, tuple) and e[0] == 'tap'], [self.nick_of(2), REVIEW_TITLE])
         self.assertEqual(self.events.count('kill'), 2)
+
+    def test_at_night_it_is_blocked_before_any_account_or_phone_work(self):
+        # 방해 금지(22~08시)에는 "새 지인 리뷰가 도착했어요" 가 안 와 "알림이 안 옴" 으로 헛 blocked — 알림 시험은 서울 08~22시에만(notify.require_daytime).
+        # 계정을 만들기 전에 막혀야 밤에 운영 계정 · 앱 준비를 낭비하지 않는다.
+        order = []
+        with mock.patch.object(notify, 'require_daytime', mock.Mock(side_effect=lambda now=None: (_ for _ in ()).throw(Blocked('서울 시각 07:00 알림 시험은 08:00~21:59 에만')))):
+            with mock.patch.object(notify, 'ensure_delivery', lambda serial: order.append('delivery')):
+                app = ScriptApp(self.plan(), self.events, top=OURS)
+                result, note = self.case(self.CASE, None, app)[0]
+        self.assertEqual(result, 'blocked', note)
+        self.assertIn('08:00', note)
+        self.assertEqual(order, [])  # 푸시 연결 점검보다 앞
+        self.assertEqual(self.fake.sent, [])  # 계정 · 매칭 · 앱 어느 것도 안 만들었다
+        self.assertEqual(self.events, [])
 
     def test_landing_elsewhere_or_a_closed_app_is_a_fail(self):
         result, note = self.run15(self.plan(chat='home'))

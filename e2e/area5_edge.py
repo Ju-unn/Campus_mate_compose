@@ -203,6 +203,7 @@ def _back_from_tap(check, phone, kind):
 
 
 def p_edge_15(run, phone):
+    notify.require_daytime()  # 방해 금지(22~08시)에는 지인 리뷰 알림이 안 와 헛 blocked 가 난다 — 계정을 만들기 전에 막는다(다른 알림 가설과 같다)
     notify.ensure_delivery(phone.serial)
     check = Check()
     me = _person(run)
