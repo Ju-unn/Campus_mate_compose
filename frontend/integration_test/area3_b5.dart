@@ -71,6 +71,7 @@ Future<Map<String, Object?>> _batchLiveBubble(WidgetTester tester, Map<String, d
     while (seenAt == null && watch.elapsed < const Duration(seconds: 10)) {
       await tester.pump(const Duration(milliseconds: 100));
     }
+    await tester.pump(const Duration(milliseconds: 500)); // 뷰모델이 글을 가진 프레임엔 말풍선이 아직 안 그려졌을 수 있다(10-06 02:06 bubble False)
     final bubble = _has(find.byWidgetPredicate((w) => w is MessageBubble && w.message.body == body, skipOffstage: false));
     return {'seen_at': seenAt, 'bubble': bubble};
   } finally {
