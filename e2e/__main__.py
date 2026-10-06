@@ -55,6 +55,7 @@ from e2e import area4_push  # noqa: F401 — 영역 4 알림 A1(받는 사람 �
 from e2e import area4_push_night  # noqa: F401 — 영역 4 알림 밤·아침·시각 경계(밤 1단계 + 아침 2단계)
 from e2e import area3_phone7  # noqa: F401 — 영역 3 밤 가설 E-CHAT-34 · 42 · E-REV-18 을 영역 4 밤 판(E-PUSH-33 · 86 · 52)의 별칭으로 area1.PHONE · area3.BUNDLES 에 더한다(area4_push_night 뒤에)
 from e2e import area4_push_card  # noqa: F401 — 영역 4 알림 카드 배치 9(E-PUSH-01~09, daily-cards 를 불러 알림이 오는지 · 안 오는지)
+from e2e import area3_batch  # noqa: F401 — 영역 3 배치 E-BATCH-14~17 · 22 · 23 을 기존 판(E-PUSH-40 · 46 · 44 · 47 · E-AUTH-12 · E-HEART-22)의 별칭으로 area1.PHONE · area3.BUNDLES 에 더한다(API 둘은 아래 API_CASES)
 from e2e.tools import (DEVICE_PORT, DEVICES, ROOT, TEXT, Hub, Run, adb, cleanup, ensure_no_real_users, env, latest, scenario_rows,
                        serial, service_key, snapshot_blocks, verdict)
 
@@ -70,6 +71,7 @@ API_CASES = {**{c: area1 for c in area1.CASES}, **{c: area2 for c in area2.CASES
              **{c: area2_time_api for c in area2_time_api.CASES},
              **{c: area2_time_batch for c in area2_time_batch.CASES}}  # API 가설 → 그것을 가진 모듈
 API_CASES.update({c: area3_phone5 for c in area3_phone5.CASES})  # E-CHAT-69(정리 배치 · 폰 없음) — area3.CASES 에 안 넣어 area3-api 묶음이 그대로다
+API_CASES.update({c: area3_batch for c in area3_batch.CASES})  # E-BATCH-22 · 23(기존 API 판의 별칭)
 
 
 def _run(args):
