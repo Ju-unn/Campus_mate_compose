@@ -7,7 +7,8 @@ part of 'area3.dart';
 const _deleteSheetTitle = '리뷰를 지울까요?'; // written_reviews_screen.dart:25 — 20e-2 확인 시트
 const _deleteConfirm = '지우기'; // written_reviews_screen.dart:182
 
-/// E-CHAT-10 — 방을 열고 `step` 에서 멈춘다. PC 가 그사이 A 로 [body] 를 보내면 방 뷰모델이 그 글을 처음 가진 앱 시계(UTC)와 말풍선이 그려졌는지를 말한다.
+/// E-CHAT-10 — 방을 열고 뷰모델이 방 읽기를 끝낸 뒤(구독 전에 보내면 글이 안 온다) `step` 에서 멈춘다. PC 가 그사이 A 로 [body] 를 보내면
+/// 방 뷰모델이 그 글을 처음 가진 앱 시계(UTC)와 말풍선이 그려졌는지를 말한다. 읽기를 못 끝내면 `step` 을 부르지 않고 `loaded: false` 로 끝낸다.
 /// 보낸 시각은 PC 가 서버가 찍은 messages.created_at 으로 읽는다 — 폰 시계와 서버 시계의 차가 섞인다(PC 메모에 남는다).
 Future<Map<String, Object?>> _liveBody(WidgetTester tester, Map<String, dynamic> job) async {
   await _openRoom(tester, job['nickname'] as String);
@@ -15,6 +16,14 @@ Future<Map<String, Object?>> _liveBody(WidgetTester tester, Map<String, dynamic>
   final room = find.byType(ChatRoomScreen);
   final container = ProviderScope.containerOf(tester.element(room));
   final matchId = tester.widget<ChatRoomScreen>(room).matchId;
+  final loading = Stopwatch()..start();
+  while (container.read(chatRoomViewModelProvider(matchId)).isLoading && loading.elapsed < const Duration(seconds: 15)) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+  final loaded = container.read(chatRoomViewModelProvider(matchId));
+  if (loaded.isLoading || loaded.errorMessage != null) {
+    return {'loaded': false, 'error': loaded.errorMessage, 'seen_at': null, 'bubble': false};
+  }
   String? seenAt;
   final sub = container.listen(chatRoomViewModelProvider(matchId), (_, next) {
     if (seenAt == null && next.messages.any((message) => message.body == body)) seenAt = DateTime.now().toUtc().toIso8601String();
@@ -27,7 +36,7 @@ Future<Map<String, Object?>> _liveBody(WidgetTester tester, Map<String, dynamic>
     }
     await tester.pump(const Duration(milliseconds: 500)); // 뷰모델이 글을 가진 프레임엔 말풍선이 아직 안 그려졌을 수 있다
     final bubble = find.byWidgetPredicate((w) => w is MessageBubble && w.message.body == body, skipOffstage: false).evaluate().isNotEmpty;
-    return {'seen_at': seenAt, 'bubble': bubble};
+    return {'loaded': true, 'seen_at': seenAt, 'bubble': bubble};
   } finally {
     sub.close();
   }
