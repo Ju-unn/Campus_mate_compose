@@ -282,8 +282,29 @@ class Set52Test(Base):
                 with mock.patch.object(tools, 'adb', lambda serial, *args, check=True, d=dump: d):
                     self.assertEqual(area4_extra.mail_intent_to('emulator-5554', MAIL), want)
 
+    def test_the_view_intent_url_launcher_really_sends_counts_too(self):
+        # 실기기(에뮬) dumpsys 의 진짜 줄 — url_launcher 의 openUrl 은 SENDTO 가 아니라 VIEW 로 보낸다.
+        view = INTENT.replace('SENDTO', 'VIEW').replace('flg=0x14000000', 'flg=0x10080000 xflg=0x4') + ' (has extras)'
+        for dump, want in ((view, True), (view.replace('VIEW', 'VIEWER'), False), (view.replace(MAIL, MAIL + '.evil'), False),
+                           (view.replace(f'dat=mailto:{MAIL}', f'dat=mailto:{MAIL}?subject=x'), True),
+                           (view.replace('action.VIEW', 'action.MAIN'), False)):
+            with self.subTest(dump=dump[:80]):
+                with mock.patch.object(tools, 'adb', lambda serial, *args, check=True, d=dump: d):
+                    self.assertEqual(area4_extra.mail_intent_to('emulator-5554', MAIL), want)
+
     def test_an_emulator_with_no_account_passes_on_the_intent_alone(self):
         (result, note), _ = self.run52(INTENT, screen=False)
+        self.assertEqual(result, 'pass', note)
+
+    def test_the_screen_is_not_read_when_the_intent_line_already_matched(self):
+        # uiautomator 덤프가 실패하면 screen_has 가 Blocked 를 던져 가설 전체를 막는다 — Intent 줄이 맞으면 화면을 보지 않는다.
+        events, phone, adb, _ = self.world(INTENT)
+
+        def broken(serial, text):
+            raise Blocked('화면 덤프를 못 읽음(uiautomator)')
+        with mock.patch.object(tools, 'call', Fake([])), mock.patch.object(tools, 'adb', adb), \
+                mock.patch.object(area4_extra.notify, 'screen_has', broken):
+            (result, note) = area1.attempt_phone(self.run, 'E-SET-52', phone)
         self.assertEqual(result, 'pass', note)
 
     def test_a_device_with_an_account_that_shows_the_address_on_screen_also_passes(self):

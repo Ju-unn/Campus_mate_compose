@@ -248,10 +248,12 @@ def mail_disabled(serial):
 
 
 def mail_intent_to(serial, address):
-    """`dumpsys activity activities` 에 이 주소로 간 SENDTO Intent 줄이 있는지 — 구글 계정이 없는 에뮬은 Gmail 이 작성 화면 대신 첫 실행 화면만 띄워
-    화면 글자로는 받는 사람을 못 읽지만, Intent 줄(act=…SENDTO dat=mailto:주소 …)은 가려지지 않고 남는다. act 와 dat 가 **같은 줄**에 있어야 한다."""
+    """`dumpsys activity activities` 에 이 주소로 간 메일 Intent 줄이 있는지 — 구글 계정이 없는 에뮬은 Gmail 이 작성 화면 대신 첫 실행 화면만 띄워
+    화면 글자로는 받는 사람을 못 읽지만, Intent 줄(act=…SENDTO|VIEW dat=mailto:주소 …)은 가려지지 않고 남는다. act 와 dat 가 **같은 줄**에 있어야 한다.
+    앱이 쓰는 url_launcher 의 openUrl 은 SENDTO 가 아니라 **VIEW** 로 보낸다(에뮬 dumpsys 실측) — 둘 다 인정한다. 주소는 뒤에 글자가 더 붙으면(…evil) 다른 주소다."""
     out = tools.adb(serial, 'shell', 'dumpsys', 'activity', 'activities', check=False)
-    return any('act=android.intent.action.SENDTO' in line and f'dat=mailto:{address}' in line for line in out.splitlines())
+    mail = re.compile(r'act=android\.intent\.action\.(SENDTO|VIEW)\b.*\bdat=mailto:' + re.escape(address) + r'(?=[\s?,]|$)')
+    return any(mail.search(line) for line in out.splitlines())
 
 
 def p_set_52(run, phone):
@@ -274,10 +276,10 @@ def p_set_52(run, phone):
         time.sleep(1)
     check.that(any(app in top for app in apps), f'맨 위 화면이 메일 앱이 아님({", ".join(apps)}): {top or "못 읽음"}')
     if any(app in top for app in apps):
-        # 받는 사람 = dumpsys 의 SENDTO Intent 줄(구글 계정이 없는 에뮬은 화면 글자로 못 읽는다) 또는 화면 글자(계정 있는 기기)
+        # 받는 사람 = dumpsys 의 메일 Intent 줄(구글 계정이 없는 에뮬은 화면 글자로 못 읽는다) 또는 화면 글자(계정 있는 기기)
         check.that(mail_intent_to(serial, SUPPORT_MAIL) or notify.screen_has(serial, SUPPORT_MAIL),
-                   f'받는 사람 {SUPPORT_MAIL} 을 SENDTO Intent 줄에서도 메일 앱 화면에서도 못 찾음')
-    return check.result('받는 사람은 dumpsys 의 SENDTO Intent 줄로 읽음(에뮬에 구글 계정이 없어 Gmail 은 첫 실행 화면만 띄운다)')
+                   f'받는 사람 {SUPPORT_MAIL} 을 메일 Intent 줄(SENDTO · VIEW)에서도 메일 앱 화면에서도 못 찾음')
+    return check.result('받는 사람은 dumpsys 의 메일 Intent 줄(SENDTO · VIEW)로 읽음(에뮬에 구글 계정이 없어 Gmail 은 첫 실행 화면만 띄운다)')
 
 
 def p_set_53(run, phone):
