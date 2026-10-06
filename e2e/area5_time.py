@@ -26,7 +26,7 @@ from e2e.area1 import Check, _app, _find_user, _rows
 from e2e.area2_phone3 import _wait_for
 from e2e.area3 import _count, _match, _messages
 from e2e.area3_phone import MISSING, _permitted, _person
-from e2e.area3_phone5 import BATCH_WAIT, CASE_LIMIT, _batch, _closed, _gated_batch, _list_said, _own, _sentinel, _single_shot, _start
+from e2e.area3_phone5 import BATCH_WAIT, CASE_LIMIT, _batch, _gated_batch, _list_said, _own, _sentinel, _single_shot, _start
 from e2e.area5_act import _write
 from e2e.area5_wd import _files, _plant_file, _state, _withdraw_once
 from e2e.tools import Blocked
@@ -59,7 +59,10 @@ def p_wd_10(run, phone):
     _messages(run, match_id, partner, 2)
     _withdrawn(run, partner)
     _gated_batch(run, [me, partner], [(match_id, GATE_AGE)], sentinel)
-    check.that(not _closed(run, match_id), 'matches.chat_closed_at 이 채워짐 — 탈퇴한 사람이 있는 방을 48시간 기한에 닫음(기대 null, batch_router.py 건너뜀)')
+    room = _rows(run, f'matches?id=eq.{match_id}&select=chat_closed_at')
+    check.that(bool(room), 'matches 행이 없음(기대: 방이 그대로 있고 chat_closed_at 이 null — 행이 없으면 "안 닫힘" 을 읽을 수 없다)')
+    check.that(not room or room[0].get('chat_closed_at') is None,
+               'matches.chat_closed_at 이 채워짐 — 탈퇴한 사람이 있는 방을 48시간 기한에 닫음(기대 null, batch_router.py 건너뜀)')
     left = [p for p in _rows(run, f'match_participants?match_id=eq.{match_id}&select=profile_id,left_at') if p.get('left_at')]
     check.that(not left, f'match_participants.left_at 이 찍힘 {len(left)}행(기대 0 — 탈퇴는 나가기가 아니다)')
     said = _app(check, phone(token_hash=run.link(me['email']), nickname=partner['nickname']))

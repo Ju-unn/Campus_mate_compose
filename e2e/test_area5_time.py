@@ -201,6 +201,19 @@ class Wd10Test(TimeBase):
         self.assertEqual(result, 'fail', note)
         self.assertIn('chat_closed_at', note)
 
+    def test_a_room_the_batch_left_gone_is_a_fail_not_a_pass_of_not_closed(self):
+        """방 행이 없으면 chat_closed_at 이 null 인지 읽을 수가 없다 — "안 닫혔다" 로 헛통과하면 안 된다."""
+        real = self.sim_gate
+
+        def eat():
+            real()
+            self.fake.tables['matches'] = self.matches()[:1]  # 확인용 방(닫힘)만 남기고 시험 방을 지운다
+
+        with mock.patch.object(self, 'sim_gate', eat):
+            (result, note), _ = self.run10()
+        self.assertEqual(result, 'fail', note)
+        self.assertIn('matches 행', note)
+
     def test_an_app_that_shows_an_input_or_no_notice_is_a_fail(self):
         for key, bad in (('gone_notice', False), ('leave_button', False), ('input', True)):
             with self.subTest(key):
