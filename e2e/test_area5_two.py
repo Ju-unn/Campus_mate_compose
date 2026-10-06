@@ -196,6 +196,14 @@ class RegistryTest(unittest.TestCase):
         self.assertLess(body.index('find.byType(TrustRevealBubble)'), body.index("step('room')"))
         self.assertLess(wait, body.index('find.byType(TrustRevealBubble)'))  # 카드 없음도 로딩이 끝난 뒤에 본다
 
+    def test_each_case_limit_covers_the_deadline_plus_the_accounts_it_prepares(self):
+        """가설 하나의 상한(CASE_LIMITS)은 두 기기 deadline 앞에 계정 준비가 더해진 시간을 담아야 한다 — 아니면 탈퇴(되돌릴 수 없음) 뒤에 시간 초과로 끊긴다."""
+        accounts = {'E-WD-05': 1, 'E-WD-06': 2, 'E-WD-07': 2, 'E-WD-08': 3, 'E-WD-09': 2}
+        deadline = {**{case: area5_two.LIMITS['deadline'] for case in accounts}, 'E-WD-08': area5_two.BATCH_LIMITS['deadline']}
+        for case, count in accounts.items():
+            with self.subTest(case):
+                self.assertGreaterEqual(tools.CASE_LIMITS[case] - deadline[case], count * area5_two.PREP_ACCOUNT)
+
     def test_the_literals_the_app_looks_for_are_in_the_real_screens(self):
         screens = '\n'.join(p.read_text(encoding='utf-8') for p in (tools.ROOT / 'frontend' / 'lib').rglob('*.dart'))
         for literal in ('상대가 채팅방을 나가 더 이상 메시지를 보낼 수 없어요.', '채팅방 나가기', '내가 쓴 리뷰', '아직 쓴 리뷰가 없어요'):
