@@ -230,7 +230,7 @@ class RegistryTest(unittest.TestCase):
                 and node.args and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str)}
         said = set(re.findall(r"'(\w+)':", text))
         self.assertGreaterEqual(len(read), 15)
-        self.assertEqual(sorted(read - said), [])
+        self.assertEqual(sorted(read - said - {'note'}), [])  # note 는 e2e_test.dart 가 결과에 붙이는 메모(앱 Map 키가 아니다)
         wanted = set(re.findall(r"job\['(\w+)'\]", text))
         sent = {kw.arg for node in ast.walk(tree) if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
                 and node.func.id == 'phone' for kw in node.keywords if kw.arg} | {'phase', 'nickname'}
