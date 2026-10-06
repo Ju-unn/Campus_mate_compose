@@ -31,12 +31,8 @@ const _actKind = '선한상';
 const _actChic = '시크상';
 const _actInnocent = '청순상';
 
-final _actAgeSummary = RegExp(
-  r'^\d+세 ~ \d+세( 이상)?$',
-); // ideal_conditions_screen.dart _ageSummary
-final _actHeightSummary = RegExp(
-  r'^\d+cm( 이하)? ~ \d+cm( 이상)?$',
-); // _heightSummary
+final _actAgeSummary = RegExp(r'^\d+세 ~ \d+세( 이상)?$'); // ideal_conditions_screen.dart _ageSummary
+final _actHeightSummary = RegExp(r'^\d+cm( 이하)? ~ \d+cm( 이상)?$'); // _heightSummary
 
 Finder get _actNicknameField => find.byType(TextField).at(0);
 Finder get _actHeightField => find.byType(TextField).at(1);
@@ -74,11 +70,7 @@ Future<void> _actEnterIdeal(WidgetTester tester) async {
 // ── 기다리기 · 읽기 ─────────────────────────────────────────────────────────────────────────────────
 
 /// [done] 이 참이 될 때까지 프레임을 흘린다 — 시간이 다 되면 지금 값을 돌려준다(못 닿은 사실은 호출한 쪽이 말한다).
-Future<bool> _actUntil(
-  WidgetTester tester,
-  bool Function() done, {
-  Duration timeout = const Duration(seconds: 15),
-}) async {
+Future<bool> _actUntil(WidgetTester tester, bool Function() done, {Duration timeout = const Duration(seconds: 15)}) async {
   final watch = Stopwatch()..start();
   while (watch.elapsed < timeout && !done()) {
     await tester.pump(const Duration(milliseconds: 100));
@@ -87,33 +79,24 @@ Future<bool> _actUntil(
 }
 
 /// 앱바 글자가 [title] 이 될 때까지(저장하고 닫히는 화면을 기다린다). 닫히는 움직임까지 쉬고 지금 앱바 글자를 돌려준다.
-Future<String?> _actUntilTitle(
-  WidgetTester tester,
-  String title, {
-  Duration timeout = const Duration(seconds: 30),
-}) async {
+Future<String?> _actUntilTitle(WidgetTester tester, String title, {Duration timeout = const Duration(seconds: 30)}) async {
   await _actUntil(tester, () => _title(tester) == title, timeout: timeout);
   await wait(tester, const Duration(milliseconds: 600));
   return _title(tester);
 }
 
 /// 저장 뒤 15-5 가 내 프로필을 새로 읽어 첫 섹션이 그려질 때까지.
-Future<void> _actManageLoaded(WidgetTester tester) =>
-    _actUntil(tester, () => _has(find.text(_sectionTitles.first)));
+Future<void> _actManageLoaded(WidgetTester tester) => _actUntil(tester, () => _has(find.text(_sectionTitles.first)));
 
 /// [within] 아래 글자 중 [tag] 가 든 것의 전체 글자.
 List<String> _actTextsWith(WidgetTester tester, Finder within, String tag) => [
-  for (final text in tester.widgetList<Text>(
-    find.descendant(of: within, matching: find.byType(Text)),
-  ))
-    if ((text.data ?? '').contains(tag)) text.data!,
-];
+      for (final text in tester.widgetList<Text>(find.descendant(of: within, matching: find.byType(Text))))
+        if ((text.data ?? '').contains(tag)) text.data!,
+    ];
 
 /// 화면에서 [pattern] 에 맞는 첫 글자.
-String? _actSummary(WidgetTester tester, RegExp pattern) => _textOf(
-  tester,
-  find.byWidgetPredicate((w) => w is Text && pattern.hasMatch(w.data ?? '')),
-);
+String? _actSummary(WidgetTester tester, RegExp pattern) =>
+    _textOf(tester, find.byWidgetPredicate((w) => w is Text && pattern.hasMatch(w.data ?? '')));
 
 /// 토스트 "저장했어요" 가 나타난 때부터 사라진 때까지(ms). 안 나타나면 seen=false.
 Future<Map<String, Object?>> _actToast(WidgetTester tester) async {
@@ -143,18 +126,10 @@ Future<Map<String, Object?>> _actSaveBasic(WidgetTester tester) async {
 
 /// 닉네임 칸에 [text] 를 치고 형식 · 중복 확인 결과가 뜰 때까지(디바운스 0.3초 + 서버) 기다려 본 것을 말한다.
 /// 입력칸은 한글 · 영문 말고는 걸러 내므로 칸에 남은 글자를 따로 말한다.
-Future<Map<String, Object?>> _actProbeNickname(
-  WidgetTester tester,
-  String text, {
-  Duration within = const Duration(seconds: 6),
-}) async {
+Future<Map<String, Object?>> _actProbeNickname(WidgetTester tester, String text, {Duration within = const Duration(seconds: 6)}) async {
   await type(tester, _actNicknameField, text);
   final verdict = find.byWidgetPredicate(
-    (w) =>
-        w is Text &&
-        (w.data == _actNicknameOk ||
-            w.data == _actNicknameBad ||
-            w.data == _actNicknameTaken),
+    (w) => w is Text && (w.data == _actNicknameOk || w.data == _actNicknameBad || w.data == _actNicknameTaken),
   );
   await appears(tester, verdict, within);
   return {
@@ -170,10 +145,7 @@ Future<Map<String, Object?>> _actProbeNickname(
 // ── 자기소개 저장(07 · 18) ──────────────────────────────────────────────────────────────────────────
 
 /// 15-5 → 15c 에서 자기소개를 [job]['bio'] 로 바꿔 "저장" → 15-5 로 돌아와 새 글이 보일 때까지. 저장은 서버가 임베딩(유료)을 부른다.
-Future<Map<String, Object?>> _actSaveBio(
-  WidgetTester tester,
-  Map<String, dynamic> job,
-) async {
+Future<Map<String, Object?>> _actSaveBio(WidgetTester tester, Map<String, dynamic> job) async {
   final tag = job['tag'] as String;
   await _openManage(tester);
   await _actEnterBio(tester);
@@ -181,88 +153,51 @@ Future<Map<String, Object?>> _actSaveBio(
   await tap(tester, button(_actSave));
   final title = await _actUntilTitle(tester, _actManageTitle);
   await _actUntil(tester, () => _has(find.textContaining(tag)));
-  return {
-    'title': title,
-    'manage_bios': _actTextsWith(tester, find.byType(ProfileManageScreen), tag),
-  };
+  return {'title': title, 'manage_bios': _actTextsWith(tester, find.byType(ProfileManageScreen), tag)};
 }
 
 // ── 키만 고치기(19 · 34) ────────────────────────────────────────────────────────────────────────────
 
 Area1Case _actHeightOnly() => _session((tester, job) async {
-  await _openManage(tester);
-  await _actEnterBasic(tester);
-  final before = fieldText(tester, _actHeightField);
-  await type(tester, _actHeightField, job['height'] as String);
-  return {'before': before, ...await _actSaveBasic(tester)};
-});
+      await _openManage(tester);
+      await _actEnterBasic(tester);
+      final before = fieldText(tester, _actHeightField);
+      await type(tester, _actHeightField, job['height'] as String);
+      return {'before': before, ...await _actSaveBasic(tester)};
+    });
 
 // ── 06-1 읽기 ───────────────────────────────────────────────────────────────────────────────────────
 
-List<String> _actAnimals(WidgetTester tester) => [
-  for (final type
-      in tester
-          .widget<AnimalTypePicker>(find.byType(AnimalTypePicker))
-          .selected)
-    type.name,
-];
+List<String> _actAnimals(WidgetTester tester) =>
+    [for (final type in tester.widget<AnimalTypePicker>(find.byType(AnimalTypePicker)).selected) type.name];
 
-List<String> _actImpressions(WidgetTester tester) => [
-  for (final type
-      in tester
-          .widget<ImpressionTypePicker>(find.byType(ImpressionTypePicker))
-          .selected)
-    type.name,
-];
+List<String> _actImpressions(WidgetTester tester) =>
+    [for (final type in tester.widget<ImpressionTypePicker>(find.byType(ImpressionTypePicker)).selected) type.name];
 
-Future<void> _actPickAnimal(WidgetTester tester, String label) => tap(
-  tester,
-  find.descendant(
-    of: find.byType(AnimalTypePicker),
-    matching: find.text(label),
-  ),
-);
+Future<void> _actPickAnimal(WidgetTester tester, String label) =>
+    tap(tester, find.descendant(of: find.byType(AnimalTypePicker), matching: find.text(label)));
 
-Future<void> _actPickImpression(WidgetTester tester, String label) => tap(
-  tester,
-  find.descendant(
-    of: find.byType(ImpressionTypePicker),
-    matching: find.text(label),
-  ),
-);
+Future<void> _actPickImpression(WidgetTester tester, String label) =>
+    tap(tester, find.descendant(of: find.byType(ImpressionTypePicker), matching: find.text(label)));
 
 /// 06-1 "저장" 을 눌러 15-5 로 돌아와 선호 조건 두 줄을 읽는다 — 새로 읽는 동안 낡은 글자를 읽지 않게 [wantAge] 가 될 때까지 기다린다.
-Future<Map<String, Object?>> _actSaveIdeal(
-  WidgetTester tester,
-  String wantAge,
-) async {
+Future<Map<String, Object?>> _actSaveIdeal(WidgetTester tester, String wantAge) async {
   await tap(tester, button(_actSave));
   final back = await _actUntilTitle(tester, _actManageTitle);
   await _actManageLoaded(tester);
   await wait(tester, const Duration(milliseconds: 500));
   await _reveal(tester, _entry(_agePref));
   await _actUntil(tester, () => _entryNote(tester, _agePref) == wantAge);
-  await tester.scrollUntilVisible(
-    find.text(_heightPref),
-    300,
-    scrollable: _manageScrollable,
-  );
-  return {
-    'back_title': back,
-    'age_note': _entryNote(tester, _agePref),
-    'height_note': _entryNote(tester, _heightPref),
-  };
+  await tester.scrollUntilVisible(find.text(_heightPref), 300, scrollable: _manageScrollable);
+  return {'back_title': back, 'age_note': _entryNote(tester, _agePref), 'height_note': _entryNote(tester, _heightPref)};
 }
 
 // ── 태그 편집(21) ───────────────────────────────────────────────────────────────────────────────────
 
-Finder _actChip(String label) =>
-    find.byWidgetPredicate((w) => w is SelectChip && w.label == label);
+Finder _actChip(String label) => find.byWidgetPredicate((w) => w is SelectChip && w.label == label);
 
-List<String> _actSelectedChips(WidgetTester tester) => [
-  for (final chip in tester.widgetList<SelectChip>(find.byType(SelectChip)))
-    if (chip.isSelected) chip.label,
-];
+List<String> _actSelectedChips(WidgetTester tester) =>
+    [for (final chip in tester.widgetList<SelectChip>(find.byType(SelectChip))) if (chip.isSelected) chip.label];
 
 final Map<String, Area1Case> area5CasesAct = {
   // ── 자기소개 ──
@@ -277,9 +212,7 @@ final Map<String, Area1Case> area5CasesAct = {
     return {
       'save_title': saved['title'],
       'card_bios': _actTextsWith(tester, card, job['tag'] as String),
-      'old_in_card': _has(
-        find.descendant(of: card, matching: find.text(job['old'] as String)),
-      ),
+      'old_in_card': _has(find.descendant(of: card, matching: find.text(job['old'] as String))),
     };
   }),
   'E-ME-18': _session((tester, job) => _actSaveBio(tester, job)),
@@ -293,11 +226,7 @@ final Map<String, Area1Case> area5CasesAct = {
     await type(tester, field, '   ');
     final spaces = _actSaveEnabled(tester);
     await type(tester, field, '다시 쓴 글'); // 꺼진 채로만 있으면 위 둘이 증거가 못 된다
-    return {
-      'clear_enabled': cleared,
-      'spaces_enabled': spaces,
-      'typed_enabled': _actSaveEnabled(tester),
-    };
+    return {'clear_enabled': cleared, 'spaces_enabled': spaces, 'typed_enabled': _actSaveEnabled(tester)};
   }),
 
   // ── 태그 ──
@@ -328,10 +257,7 @@ final Map<String, Area1Case> area5CasesAct = {
     await _actUntil(tester, () => _has(find.text(extra))); // 15c 가 새 칩을 그릴 때까지
     final chips = [
       for (final text in tester.widgetList<Text>(
-        find.descendant(
-          of: find.byKey(const ValueKey('tag-chip')),
-          matching: find.byType(Text),
-        ),
+        find.descendant(of: find.byKey(const ValueKey('tag-chip')), matching: find.byType(Text)),
       ))
         text.data ?? '',
     ];
@@ -356,11 +282,7 @@ final Map<String, Area1Case> area5CasesAct = {
     await _back(tester); // 저장하지 않고 닫는다
     await _actUntilTitle(tester, _actManageTitle);
     await _actEnterBio(tester);
-    return {
-      'first_field': first,
-      'typed_field': typed,
-      'reopened_field': fieldText(tester, find.byType(TextField).first),
-    };
+    return {'first_field': first, 'typed_field': typed, 'reopened_field': fieldText(tester, find.byType(TextField).first)};
   }),
 
   // ── 선호 조건 ──
@@ -371,9 +293,7 @@ final Map<String, Area1Case> area5CasesAct = {
     final firstAge = _actSummary(tester, _actAgeSummary);
     final firstHeight = _actSummary(tester, _actHeightSummary);
     // 손가락으로 끌지 않고 슬라이더의 onChanged 를 부른다(24~30) — 끌기 자체는 사람이 실기기에서 본다.
-    tester.widget<RangeSlider>(find.byType(RangeSlider).first).onChanged!(
-      const RangeValues(24, 30),
-    );
+    tester.widget<RangeSlider>(find.byType(RangeSlider).first).onChanged!(const RangeValues(24, 30));
     await tester.pump(const Duration(milliseconds: 300));
     final changedAge = _actSummary(tester, _actAgeSummary);
     final saved = await _actSaveIdeal(tester, '24세–30세');
@@ -392,10 +312,7 @@ final Map<String, Area1Case> area5CasesAct = {
     await _actEnterIdeal(tester);
     await tap(tester, find.text(_ageIgnore));
     await tap(tester, find.text(_actHeightIgnore));
-    final boxes = [
-      for (final box in tester.widgetList<Checkbox>(find.byType(Checkbox)))
-        box.value,
-    ];
+    final boxes = [for (final box in tester.widgetList<Checkbox>(find.byType(Checkbox))) box.value];
     final saved = await _actSaveIdeal(tester, '상관없어요');
     return {
       'age_ignored': boxes.isNotEmpty && boxes[0] == true,
@@ -474,17 +391,8 @@ final Map<String, Area1Case> area5CasesAct = {
       'enabled_at_open': enabledAtOpen,
       'ok_before': probe['ok'],
       'error': seen,
-      'error_icon':
-          seen &&
-          _has(
-            find.descendant(
-              of: line,
-              matching: find.byIcon(AppIcons.circleAlert),
-            ),
-          ),
-      'error_color': seen
-          ? tester.widget<Text>(error.first).style?.color?.toARGB32()
-          : null,
+      'error_icon': seen && _has(find.descendant(of: line, matching: find.byIcon(AppIcons.circleAlert))),
+      'error_color': seen ? tester.widget<Text>(error.first).style?.color?.toARGB32() : null,
       'on_edit': _has(find.byType(BasicInfoEditScreen)),
       'title': _title(tester),
     };
@@ -508,11 +416,7 @@ final Map<String, Area1Case> area5CasesAct = {
     for (final typed in (job['bad'] as List<dynamic>).cast<String>()) {
       await type(tester, _actHeightField, typed);
       await wait(tester, const Duration(milliseconds: 400));
-      rows.add({
-        'typed': typed,
-        'error': _has(find.text(_actHeightBad)),
-        'save_enabled': _actSaveEnabled(tester),
-      });
+      rows.add({'typed': typed, 'error': _has(find.text(_actHeightBad)), 'save_enabled': _actSaveEnabled(tester)});
     }
     for (final typed in (job['good'] as List<dynamic>).cast<String>()) {
       await type(tester, _actHeightField, typed);
@@ -541,17 +445,10 @@ final Map<String, Area1Case> area5CasesAct = {
     await type(tester, _actHeightField, height);
     final heightBack = _actSaveEnabled(tester);
     await type(tester, _actNicknameField, job['other'] as String);
-    await appears(
-      tester,
-      find.text(_actNicknameOk),
-      const Duration(seconds: 6),
-    );
+    await appears(tester, find.text(_actNicknameOk), const Duration(seconds: 6));
     final nickChanged = _actSaveEnabled(tester);
     await type(tester, _actNicknameField, nickname);
-    await wait(
-      tester,
-      const Duration(milliseconds: 800),
-    ); // 되돌리면 묻지 않는다 — 지난 판정이 지워질 시간
+    await wait(tester, const Duration(milliseconds: 800)); // 되돌리면 묻지 않는다 — 지난 판정이 지워질 시간
     final nickBack = _actSaveEnabled(tester);
     return {
       'untouched_enabled': untouched,
