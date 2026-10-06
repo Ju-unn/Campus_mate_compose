@@ -23,7 +23,7 @@ from e2e import area1, area2, batch_gate, emu, notify, tools
 from e2e.area1 import SEOUL, Check, _api, _app, _one, _patch, _rows, _signed_in, _test_university
 from e2e.area2 import _ONCE, _candidates, _card, _guard, _insert, _new_id, _person, _set_status
 from e2e.area2_phone3 import CARD_BODY, CARD_TITLE, EVERY_DAY, LADDER_ZERO, _region_of, _slow, _wait_for, region_set
-from e2e.area3_phone5 import _single_shot
+from e2e.area3_phone5 import _batch, _single_shot
 from e2e.tools import Blocked
 
 WEEKDAY_NAMES = '월화수목금토일'
@@ -453,7 +453,7 @@ def p_card_13(run, phone):
 
     def empty(said):
         _rest_pool(run, a)
-        area2._batch('daily-cards')
+        _batch('daily-cards')  # area3_phone5._batch — 부른 횟수를 세어, 부른 뒤의 fail 을 다시 안 돌게(_single_shot)
         if not _wait_for(lambda: _daily_rows(run, control), CARD_WAIT):
             raise Blocked(f'대조군이 {CARD_WAIT}초 안에 카드를 못 받음 — 배치가 안 돈 것 같아 "카드가 안 나갔다" 를 말할 수 없다')
         today = _api(run, 'GET', '/cards/today', a['token'])
@@ -661,7 +661,7 @@ def _card44_morning(run, phone, state):
 
 
 PHONE = {
-    'E-CARD-01': p_card_01, 'E-CARD-03': p_card_03, 'E-CARD-13': p_card_13, 'E-CARD-17': _single_shot(p_card_17, always=True), 'E-CARD-18': p_card_18,
+    'E-CARD-01': p_card_01, 'E-CARD-03': p_card_03, 'E-CARD-13': _single_shot(p_card_13), 'E-CARD-17': _single_shot(p_card_17, always=True), 'E-CARD-18': p_card_18,
     'E-CARD-19': p_card_19, 'E-CARD-20': p_card_20, 'E-HOME-29': p_home_29,
     'E-HOME-23': p_home_23, 'E-HOME-24': _single_shot(p_home_24, always=True), 'E-HOME-25': _single_shot(p_home_25, always=True),
     'E-HOME-26': p_home_26, 'E-CARD-44': _single_shot(p_card_44, always=True),  # 17 · 24 · 25 · 44 는 fail 이어도 다시 안 돈다(재시도가 창 밖이라 blocked 로 덮인다)
