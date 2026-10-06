@@ -56,6 +56,7 @@ from e2e import area4_push  # noqa: F401 — 영역 4 알림 A1(받는 사람 �
 from e2e import area4_push_night  # noqa: F401 — 영역 4 알림 밤·아침·시각 경계(밤 1단계 + 아침 2단계)
 from e2e import area3_phone7  # noqa: F401 — 영역 3 밤 가설 E-CHAT-34 · 42 · E-REV-18 을 영역 4 밤 판(E-PUSH-33 · 86 · 52)의 별칭으로 area1.PHONE · area3.BUNDLES 에 더한다(area4_push_night 뒤에)
 from e2e import area4_push_card  # noqa: F401 — 영역 4 알림 카드 배치 9(E-PUSH-01~09, daily-cards 를 불러 알림이 오는지 · 안 오는지)
+from e2e import area2_aliases  # 영역 2 별칭 9개(E-CARD-40 · 43 · 46 · 48, E-BATCH-05~09) — 원본(area2_time_device · area4_push · area2_time_batch) 뒤에
 from e2e.tools import (DEVICE_PORT, DEVICES, ROOT, TEXT, Hub, Run, adb, cleanup, ensure_no_real_users, env, latest, scenario_rows,
                        serial, service_key, snapshot_blocks, verdict)
 
@@ -66,12 +67,14 @@ RESULTS = DESKTOP / 'E2E_결과'
 BUNDLES = {**area1.BUNDLES, **area2.BUNDLES, **area3.BUNDLES, **area3_safe.BUNDLES, **area5_api.BUNDLES,
            **area2_time_api.BUNDLES,
            **area2_time_batch.BUNDLES,
-           **area2_batch_admin.BUNDLES}  # 묶음 이름 → 가설 번호들
+           **area2_batch_admin.BUNDLES,
+           **area2_aliases.BUNDLES}  # 묶음 이름 → 가설 번호들
 API_CASES = {**{c: area1 for c in area1.CASES}, **{c: area2 for c in area2.CASES}, **{c: area3 for c in area3.CASES},
              **{c: area3_safe for c in area3_safe.CASES}, **{c: area5_api for c in area5_api.CASES},
              **{c: area2_time_api for c in area2_time_api.CASES},
              **{c: area2_time_batch for c in area2_time_batch.CASES},
-             **{c: area2_batch_admin for c in area2_batch_admin.CASES}}  # API 가설 → 그것을 가진 모듈
+             **{c: area2_batch_admin for c in area2_batch_admin.CASES},
+             **{c: area2_aliases for c in area2_aliases.CASES}}  # API 가설 → 그것을 가진 모듈
 API_CASES.update({c: area3_phone5 for c in area3_phone5.CASES})  # E-CHAT-69(정리 배치 · 폰 없음) — area3.CASES 에 안 넣어 area3-api 묶음이 그대로다
 
 
