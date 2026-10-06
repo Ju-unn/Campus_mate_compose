@@ -564,10 +564,45 @@ class EdgeOfflineTest(ActBase):
     def good(self, **over):
         def answer(job):
             self.api('PATCH', '/me/profile', {'nickname': job['nickname']})
-            return said(**{'off_ok': False, 'off_bad': False, 'off_taken': False, 'off_field': job['nickname'],
+            return said(**{'off_ok': False, 'off_bad': False, 'off_taken': False, 'off_checking': False, 'off_field': job['nickname'],
                            'off_save_enabled': True, 'save_enabled': True, 'toast_seen': True, 'toast_ms': 2000,
                            'title': '프로필 편집', **over})
         return answer
+
+    def test_02_still_checking_means_the_network_may_be_alive_so_it_is_not_a_pass(self):
+        # 대조군: 망이 정말 끊겼다면 서버 확인이 실패해 "확인 중…" 이 사라진다. 아직 떠 있으면(느린 응답) 문구 0개 · 버튼 켜짐이어도 끊김의 증거가 아니다
+        (result, note), _, _, online = self.attempt(self.good(off_checking=True))
+        self.assertEqual(result, 'fail', note)
+        self.assertIn('확인 중', note)
+        online.assert_called_once_with('S')
+
+    def test_02_a_missing_off_checking_is_not_a_pass_either(self):
+        def without(job):
+            answer = self.good()(job)  # 서버 저장까지 한 정상 답에서 off_checking 만 뺀다(옛 앱 · 못 읽음)
+            answer.pop('off_checking')
+            return answer
+        (result, note), _, _, _ = self.attempt(without)
+        self.assertEqual(result, 'fail', note)
+        self.assertIn('확인 중', note)
+
+    def test_02_waits_for_the_network_to_really_drop_before_the_app_types(self):
+        # 비행기 모드를 켠 직후 앱이 치면 망이 아직 살아 있다(E-EDGE-01 CUT_SETTLE 과 같은 이유) — 켠 다음에 CUT_SETTLE 만큼 쉰다
+        order = mock.Mock()
+        with mock.patch('time.sleep', order.sleep):
+            with mock.patch.object(area4.notify, 'airplane', order.airplane), mock.patch.object(area4.notify, 'ensure_online'):
+                app = self.attempt_app(self.good())
+                self.case('E-EDGE-02', None, app)
+        calls = [(c[0], c[1][:2]) for c in order.mock_calls if c[0] in ('airplane', 'sleep')]
+        first_cut = calls.index(('airplane', ('S', True)))
+        self.assertEqual(calls[first_cut + 1], ('sleep', (area5_act.CUT_SETTLE,)))
+
+    def attempt_app(self, answer):
+        def app(midway=None, **job):
+            if midway:
+                midway({'step': 'cut'})
+            return answer(job)
+        app.serial, app.hub = 'S', mock.Mock(wait=mock.Mock(return_value={'step': 'restore'}))
+        return app
 
     def test_02_offline_check_shows_no_verdict_then_server_saves_after_restoring_network(self):
         (result, note), sent, plane, online = self.attempt(self.good())
