@@ -129,6 +129,12 @@ def _closed(run, match_id):
     return bool(rows) and rows[0].get('chat_closed_at') is not None
 
 
+def _open(run, match_id):
+    """방 행이 **있고** chat_closed_at 이 null 인가 — "안 닫혔다" 를 `not _closed` 로 읽으면 방 행이 사라져도 통과한다."""
+    rows = _rows(run, f'matches?id=eq.{match_id}&select=chat_closed_at')
+    return bool(rows) and rows[0].get('chat_closed_at') is None
+
+
 def _gated_batch(run, accounts, aged, sentinel):
     """관문 → (통과하면) 방 시각 확정 → chat-gate 한 번 → 확인용 방이 닫히길 기다림 → 나머지 방을 훑을 시간."""
     a, b, sentinel_id = sentinel
@@ -286,7 +292,7 @@ def p_chat_65(run, phone):
         return check.result()
     _gated_batch(run, [me, partner, other], [(match_id, CLOSE_AGE)], sentinel)
     _none_came(check, phone, before)
-    check.that(not _closed(run, match_id), 'matches.chat_closed_at 이 채워짐 — 한쪽이 나간 방을 배치가 닫음(기대 null)')
+    check.that(_open(run, match_id), 'matches 행이 없거나 chat_closed_at 이 채워짐 — 한쪽이 나간 방을 배치가 닫음(기대: 행이 있고 null — 행이 없으면 "안 닫힘" 을 읽을 수 없다)')
     said = _app(check, phone(token_hash=run.link(me['email']), phase='list', control=other['nickname']))
     _list_said(check, said, partner['nickname'], present=True)
     return check.result()
@@ -331,7 +337,7 @@ def p_chat_67(run, phone):
     match_id = _match(run, me, partner)
     _patch(run, f'matches?id=eq.{match_id}', {'trust_passed_at': datetime.now(timezone.utc).isoformat()})
     _gated_batch(run, [me, partner], [(match_id, OLD_AGE)], sentinel)
-    check.that(not _closed(run, match_id), 'matches.chat_closed_at 이 채워짐 — 통과한 방을 배치가 닫음(기대 null)')
+    check.that(_open(run, match_id), 'matches 행이 없거나 chat_closed_at 이 채워짐 — 통과한 방을 배치가 닫음(기대: 행이 있고 null — 행이 없으면 "안 닫힘" 을 읽을 수 없다)')
     body = f'E2E-67-{secrets.token_hex(4)}'
     sent = []
     said = _app(check, phone(midway=lambda said: sent.append(_send(run, partner, match_id, body)), token_hash=run.link(me['email']),

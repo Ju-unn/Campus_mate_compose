@@ -675,6 +675,15 @@ class Chat65Test(Base5):
         self.assertEqual(result, 'fail')
         self.assertIn('chat_closed_at', note)
 
+    def test_a_room_row_that_is_gone_is_a_fail_not_a_pass_of_not_closed(self):
+        """방 행이 없으면 chat_closed_at 이 null 인지 읽을 수가 없다 — "안 닫혔다" 로 헛통과하면 안 된다."""
+        real = Base5.sim_gate
+        with mock.patch.object(Base5, 'sim_gate', lambda s: (real(s), s.fake.tables.__setitem__(
+                'matches', [m for m in s.matches() if m is not s.target()]))):
+            (result, note), _ = self.run65()
+        self.assertEqual(result, 'fail', note)
+        self.assertIn('matches 행', note)
+
     def test_a_reminder_is_a_fail(self):
         self.pushed = ['id-1']
         (result, note), _ = self.run65()
@@ -797,6 +806,15 @@ class Chat67Test(Base5):
         (result, note), _ = self.run67({None: {'seen_at': None, 'bubble': False}})
         self.assertEqual(result, 'fail')
         self.assertIn('409', note)
+
+    def test_a_room_row_that_is_gone_is_a_fail_not_a_pass_of_not_closed(self):
+        self.fake.handlers.insert(0, ('POST', re.compile(r'/chat/matches/[^/]+/messages'), Reply(404, {'detail': '방이 없어요'})))  # 방이 없으면 서버는 404
+        real = Base5.sim_gate
+        with mock.patch.object(Base5, 'sim_gate', lambda s: (real(s), s.fake.tables.__setitem__(
+                'matches', [m for m in s.matches() if m is not s.target()]))):
+            (result, note), _ = self.run67({None: {'seen_at': None, 'bubble': False}})
+        self.assertEqual(result, 'fail', note)
+        self.assertIn('matches 행', note)
 
     def test_a_room_the_batch_closed_is_a_fail(self):
         real = Base5.sim_gate
