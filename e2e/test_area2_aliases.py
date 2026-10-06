@@ -88,10 +88,21 @@ class RegistryTest(unittest.TestCase):
         self.assertIn("'E-PUSH-$number': area1Cases['E-ONB-61']!", push)
 
 
+class FakeRun:
+    """tools.Run 의 record · records 만 — 결과 폴더의 줄을 리스트로 쓴다. [earlier] 는 같은 폴더에 앞 실행이 남긴 줄."""
+
+    def __init__(self, earlier=()):
+        self.lines = [{'case': c, 'result': r, 'note': n} for c, r, n in earlier]
+        self.record = mock.Mock(side_effect=lambda case, result, note='': self.lines.append({'case': case, 'result': result, 'note': note}))
+
+    def records(self):
+        return list(self.lines)
+
+
 class TwinTest(unittest.TestCase):
-    def twin(self, source):
+    def twin(self, source, earlier=()):
         with mock.patch.dict(area1.PHONE, {'E-THEIRS': source}):
-            run = SimpleNamespace(record=mock.Mock())
+            run = FakeRun(earlier)
             return mod._twin('E-MINE', 'E-THEIRS'), run
 
     def test_it_runs_the_original_once_and_writes_both_numbers(self):
@@ -124,18 +135,66 @@ class TwinTest(unittest.TestCase):
 
 class BatchAliasTest(unittest.TestCase):
     def test_it_hands_the_original_to_the_batch_module_once_and_writes_both_numbers(self):
-        run = SimpleNamespace(record=mock.Mock())
+        run = FakeRun()
         with mock.patch.object(mod.area2_time_batch, 'attempt', return_value=('fail', '카드 2장')) as attempt:
             self.assertEqual(mod.attempt(run, 'E-BATCH-07'), ('fail', '카드 2장'))
         attempt.assert_called_once_with(run, 'E-CARD-08')
         run.record.assert_called_once_with('E-CARD-08', 'fail', 'E-BATCH-07 로 돌린 같은 판 — 카드 2장')
 
     def test_every_batch_alias_reaches_its_own_original(self):
-        run = SimpleNamespace(record=mock.Mock())
         with mock.patch.object(mod.area2_time_batch, 'attempt', return_value=('pass', '')) as attempt:
             for case in BATCH:
-                mod.attempt(run, case)
+                mod.attempt(FakeRun(), case)  # 폴더마다 새로 — 앞 별칭이 쓴 줄이 다음 별칭을 막지 않게
         self.assertEqual([c.args[1] for c in attempt.call_args_list], list(BATCH.values()))
+
+
+class SameFolderGuardTest(unittest.TestCase):
+    """별칭과 원본을 다른 실행에서 같은 --bundle 폴더로 돌리면 운영 배치가 또 나간다 — 폴더에 원본 줄이 이미 있으면 별칭은 돌지 않고 blocked(area3_batch 와 같은 방어)."""
+    OTHER_RUN = [('E-CARD-04', 'pass', '다른 실행이 원본으로 돌림')]
+
+    def test_a_batch_alias_does_not_call_the_batch_when_the_original_already_ran_in_this_folder(self):
+        run = FakeRun(self.OTHER_RUN)
+        with mock.patch.object(mod.area2_time_batch, 'attempt') as attempt:
+            result, note = mod.attempt(run, 'E-BATCH-05')
+        attempt.assert_not_called()
+        self.assertEqual(result, 'blocked')
+        self.assertIn('두 번', note)
+        run.record.assert_not_called()
+
+    def test_a_phone_alias_does_not_run_the_original_when_it_already_ran_in_this_folder(self):
+        source = mock.Mock(return_value=('pass', ''))
+        twin, run = TwinTest().twin(source, earlier=[('E-THEIRS', 'pass', '다른 실행')])
+        result, note = twin(run, 'phone')
+        source.assert_not_called()
+        self.assertEqual(result, 'blocked')
+        run.record.assert_not_called()
+
+    def test_a_failed_batch_alias_retried_by_run_case_returns_its_own_fail_and_does_not_call_again(self):
+        run = FakeRun()
+        with mock.patch.object(mod.area2_time_batch, 'attempt', return_value=('fail', '카드 2장')) as attempt:
+            first = mod.attempt(run, 'E-BATCH-07')
+            second = mod.attempt(run, 'E-BATCH-07')
+        self.assertEqual(first[0], 'fail')
+        self.assertEqual(second[0], 'fail')
+        attempt.assert_called_once()  # 두 번째는 원본(배치)을 다시 부르지 않는다
+        self.assertEqual(len(run.lines), 1)
+
+    def test_a_failed_phone_alias_retried_returns_its_own_fail_and_does_not_run_the_original_again(self):
+        source = mock.Mock(return_value=('fail', '알림 0건'))
+        twin, run = TwinTest().twin(source)
+        first, second = twin(run, 'phone'), twin(run, 'phone')
+        self.assertEqual(first[0], 'fail')
+        self.assertEqual(second[0], 'fail')
+        source.assert_called_once()
+
+    def test_a_pass_the_alias_wrote_is_not_returned_again_on_a_rerun(self):
+        # 같은 폴더에서 별칭을 통과 뒤 다시 돌리면 배치가 또 나간다 — 막는다
+        run = FakeRun()
+        with mock.patch.object(mod.area2_time_batch, 'attempt', return_value=('pass', '')) as attempt:
+            mod.attempt(run, 'E-BATCH-06')
+            result, _ = mod.attempt(run, 'E-BATCH-06')
+        self.assertEqual(result, 'blocked')
+        attempt.assert_called_once()
 
 
 if __name__ == '__main__':
