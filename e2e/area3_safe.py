@@ -1,4 +1,4 @@
-"""영역 3 안전 API 가설 — E-SAFE 중 기기 없이 토큰 · 서비스 키로만 도는 22개(묶음 area3-safe-api).
+"""영역 3 안전 API 가설 — E-SAFE 중 기기 없이 토큰 · 서비스 키로만 도는 23개(묶음 area3-safe-api).
 기대값은 바탕화면 E2E_최종테스트_시나리오.md 영역 3 의 그 줄이다(10-04 갱신본).
 
 가설 하나 = 함수 하나 `(run) -> (결과, 메모)`. 준비 도구는 영역 2(후보 · 카드 · 홈 계정)와 영역 3(매칭 · 메시지 · 리뷰)의 것을 쓴다.
@@ -202,6 +202,20 @@ def safe_14(run):
 
 
 # ── 자동 가림 ────────────────────────────────────────────────────────────────────────────────────────
+
+def safe_16(run):
+    """하루 한도 경계 — 신고 10건이 24시간 안이면 11번째는 429, 그중 하나가 24시간을 막 넘기면 같은 계정이 다시 신고할 수 있다.
+    429 를 먼저 보는 것이 대조군이다: 한도가 처음부터 안 걸리는 서버면 "다시 신고할 수 있다" 는 아무것도 증명하지 못한다."""
+    check = Check()
+    a, b, _ = _pair(run)
+    with _seeded_reports(run, b, a, [('open', None, 1 / 24)] * 10) as ids:  # 1시간 전 열 건 — 대상은 전부 다른 id
+        check.reply('한도 안(열 건 모두 1시간 전) 11번째', _report(run, a, 'profile', b['id']), 429, '오늘은 더 신고할 수 없어요')
+        check.that(_count(run, f"reports?reporter_id=eq.{a['id']}") == 10, '429 뒤 reports 새 행이 생김')
+        check.that(_count(run, f"blocks?blocker_id=eq.{a['id']}") == 0, '429 뒤 blocks 새 행이 생김')
+        _patch(run, f'reports?id=eq.{ids[0]}', {'created_at': (datetime.now(timezone.utc) - timedelta(hours=24, minutes=1)).isoformat()})
+        check.reply('한 건이 24시간 1분 전', _report(run, a, 'profile', b['id']), 201)
+    return check.result()
+
 
 def safe_19(run):
     check = Check()
@@ -541,7 +555,7 @@ def safe_62(run):
 
 
 CASES = {
-    'E-SAFE-10': safe_10, 'E-SAFE-12': safe_12, 'E-SAFE-14': safe_14, 'E-SAFE-19': safe_19, 'E-SAFE-20': safe_20,
+    'E-SAFE-10': safe_10, 'E-SAFE-12': safe_12, 'E-SAFE-14': safe_14, 'E-SAFE-16': safe_16, 'E-SAFE-19': safe_19, 'E-SAFE-20': safe_20,
     'E-SAFE-21': safe_21, 'E-SAFE-23': safe_23, 'E-SAFE-24': safe_24, 'E-SAFE-29': safe_29, 'E-SAFE-33': safe_33,
     'E-SAFE-34': safe_34, 'E-SAFE-44': safe_44, 'E-SAFE-47': safe_47, 'E-SAFE-48': safe_48, 'E-SAFE-49': safe_49,
     'E-SAFE-51': safe_51, 'E-SAFE-52': safe_52, 'E-SAFE-54': safe_54, 'E-SAFE-56': _single_shot(safe_56),
