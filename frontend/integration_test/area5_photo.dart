@@ -19,6 +19,7 @@ const _photoGenerating = '아바타로 변환 중이에요'; // my_profile_scree
 const _photoFailedToast = '아바타를 만들지 못했어요.\n하트는 차감되지 않았어요.'; // my_profile_screen.dart 15-3 안내
 const _photoMaxNotice = '사진은 최대 4장까지 올릴 수 있어요'; // photos_view_model.dart addPhoto
 const _photoChangedNotice = '사진이 바뀌었어요, 다시 열어 주세요'; // 서버 PHOTOS_CHANGED(409)
+const _photoNetworkNotice = '네트워크 연결을 확인해 주세요'; // NetworkFailure
 
 // ── 읽기 ────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -361,5 +362,30 @@ final Map<String, Area1Case> area5CasesPhoto = {
       'reopened_tiles': reopenedTiles,
       'reopened_ids': reopenedIds,
     };
+  }),
+  'E-EDGE-03': _session((tester, job) async {
+    final face = await _photoFile(job['photo'] as String);
+    await _openManage(tester);
+    final namesBefore = _photoManageNames(tester);
+    await _photoOpenEditor(tester);
+    final container = _photoEditorContainer(tester);
+    final asked = <int>[];
+    _photoGallery(container, [face], asked);
+    final tilesBefore = _photoTiles(tester);
+    await _photoAdd(tester, container, asked);
+    if (_photoTiles(tester) != tilesBefore + 1) {
+      throw E2eBlocked('얼굴 사진이 기기 얼굴 검사에서 빠짐 — 사진 세트 확인');
+    }
+    await step('cut');
+    await _photoTapSave(tester);
+    await appears(tester, find.text(_photoNetworkNotice), const Duration(seconds: 30));
+    final offline = {
+      'off_error': container.read(myPhotosViewModelProvider).errorMessage,
+      'off_title': _title(tester),
+      'off_tiles': _photoTiles(tester),
+    };
+    await step('restore');
+    final saved = await _photoSaveAndWait(tester, namesBefore);
+    return {...offline, 'title': saved.$1, 'names_after': saved.$2};
   }),
 };
