@@ -13,7 +13,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from e2e import area1, area2, area2_two_accept, area5_two, tools, twodev
+from e2e import area1, area2_two_accept, area5_two, tools, twodev
 from e2e.test_area1 import CFG
 from e2e.test_area2_two_accept import FakeTwo, World
 from e2e.test_area3_safe import _who

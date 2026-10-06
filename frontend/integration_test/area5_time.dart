@@ -4,7 +4,7 @@ part of 'area5.dart';
 // 관문을 지나 배치(chat-gate · cleanup)를 부른 뒤 DB 를 본다. 폰은 남는 쪽 B 이고 배치가 끝난 뒤 로그인해 본 것만 Map 으로 말한다(판정은 PC).
 // 화면 글자 · 위젯은 지금 화면 코드(chat_room_screen.dart _PartnerGoneNotice · conversations_screen.dart · chat_list_row.dart)에서 옮겼다.
 // 이 파일의 이름은 모두 `_tm` 으로 시작한다. 탈퇴 · 나가기 버튼은 누르지 않는다("채팅방 나가기" 는 있는지만 본다).
-// 이 파일은 클라우드 세션에서 Flutter 없이 썼다 — `flutter analyze` · 기기 실행은 아직이다.
+// 이 파일은 `flutter analyze` 만 통과했고 기기에서는 아직 안 돌려 봤다.
 
 const _tmGoneNotice = '상대가 채팅방을 나가 더 이상 메시지를 보낼 수 없어요.'; // chat_room_screen.dart _PartnerGoneNotice
 const _tmLeave = '채팅방 나가기'; // 같은 곳 AppButton

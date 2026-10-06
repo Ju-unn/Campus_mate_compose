@@ -6,7 +6,7 @@ part of 'area5.dart';
 // 거기 닿는 것은 `/A` 다섯뿐이다(e2e/test_area5_two.py 가 고정). B 쪽은 탈퇴 · 나가기 버튼을 누르지 않는다(있는지만 본다).
 // B 는 목록이 처음 읽을 때 굳으므로(area2_two_accept.dart 머리말) 로그아웃한 채 멈췄다가 PC 가 go 에 실어 준 새 토큰으로 로그인한다.
 // 화면 판정은 앱이 must 로(어긋나면 fail), DB 판정은 PC 가 한다. 이 파일의 이름은 모두 `_two` 로 시작한다.
-// 이 파일은 클라우드 세션에서 Flutter 없이 썼다 — `flutter analyze` · 기기 실행은 아직이다.
+// 이 파일은 `flutter analyze` 만 통과했고 기기에서는 아직 안 돌려 봤다.
 
 const _twoWithdrawn = '탈퇴한 계정이에요'; // common/failure.dart WithdrawnFailure
 const _twoWrittenEntry = '내가 쓴 리뷰'; // my_friend_reviews_section.dart

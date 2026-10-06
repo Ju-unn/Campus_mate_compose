@@ -6,7 +6,7 @@ part of 'area5.dart';
 // 멈춤이 여럿인 가설은 `화면:일` 이름으로 멈추고 마지막에 `end` 에서 멈춘다(PC 의 _walk). 누르기는 버튼 가운데가 아니라 안의 글자를 누른다(#282) —
 // 로딩 중 두 번째 누름만 글자가 스피너로 바뀌어 버튼 위젯을 누른다. 이 파일에 탈퇴 · 삭제 · 나가기 버튼을 누르는 줄은 없다.
 // 이 파일의 이름은 모두 `_ed` 로 시작한다. 편집 화면 도우미는 area5_act.dart(`_act…`) · area5_photo.dart(`_photo…`)의 것을 그대로 쓴다.
-// 이 파일은 클라우드 세션에서 Flutter 없이 썼다 — `flutter analyze` · 기기 실행은 아직이다.
+// 이 파일은 `flutter analyze` 만 통과했고 기기에서는 아직 안 돌려 봤다.
 
 const _edNetwork = '네트워크 연결을 확인해 주세요'; // common/failure.dart NetworkFailure
 const _edScreens = ['15-6', '15c', '06-1', 'tag', '15-7']; // e2e/area5_edge.py SCREENS 와 같은 차례
@@ -16,13 +16,6 @@ const _edArrival = {
   '06-1': _actManageTitle,
   'tag': _actBioTitle,
   '15-7': _actManageTitle,
-};
-const _edTitles = {
-  '15-6': _actBasicTitle,
-  '15c': _actBioTitle,
-  '06-1': _actIdealTitle,
-  'tag': '관심사 수정',
-  '15-7': _photoEditTitle,
 };
 const _edSaveWait = Duration(seconds: 40); // 2초 지연 망에서도 저장 · 다시 읽기가 끝나는 한도
 

@@ -18,9 +18,7 @@ from pathlib import Path
 from unittest import mock
 
 from e2e import area1, area2_phone3, area5_edge, emu, notify, tools
-from e2e.test_area1 import CFG
 from e2e.test_area5_read import OURS, LAUNCHER, ReadBase
-from e2e.test_area3_safe import _who
 from e2e.tools import Reply
 
 CASES = ['E-EDGE-01', 'E-EDGE-11', 'E-EDGE-15', 'E-EDGE-19', 'E-EDGE-21', 'E-EDGE-24', 'E-EDGE-25']

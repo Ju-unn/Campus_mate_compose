@@ -40,7 +40,7 @@ import json
 import os
 import subprocess
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from urllib.parse import urlsplit
 
 from e2e import area1, area2, emu, notify, tools
