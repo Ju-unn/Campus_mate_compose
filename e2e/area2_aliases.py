@@ -6,8 +6,9 @@
 
 불러 준 번호와 원본 번호 둘 다 results 에 적는다(area3_phone7 과 같다). 그래서:
 - 별칭 묶음 `area2-alias` 와 원본(E-CARD-13 · 04 · 08 · 09 · 11 · E-PUSH-10 · 13 · 18 · 22)을 **같은 실행에서 함께 돌리지 않는다** —
-  배치를 부르는 판이라 별칭이 이미 돌려 놓은 걸 원본이 또 부른다. 배치 4개는 area2_time_batch 가 같은 실행 안에서는 한 번만 부르게 막지만,
-  폰 별칭(E-BATCH-09 ↔ E-CARD-13)은 막지 못한다.
+  배치를 부르는 판이라 별칭이 이미 돌려 놓은 걸 원본이 또 부른다. 코드가 막는 것(e2e/alias_guard.py — area3_batch 와 같은 방어): 별칭은 같은 결과 폴더(--bundle)에
+  원본 번호 줄이 이미 있으면 돌지 않고 blocked 로 끝난다(원본을 먼저 돌린 경우, 폰 · 배치 별칭 모두). 별칭이 직접 적은 fail 줄은 예외 — 진행 프로그램의 재시도가
+  그 결과를 그대로 받는다(원본을 다시 부르지 않는다). 못 막는 것: 별칭을 먼저 돌린 뒤 원본을 돌리는 것(원본 파일을 안 고친다) — **별칭 뒤 원본 금지**.
 - E-BATCH-08 은 E-CARD-11 과 **같지 않다** — 시나리오는 "멈춘 사람 · 14일 · 결정 안 한 카드가 남은 사람 · 자동 가림 · 아직 안 열린 학교" 다섯인데
   card_11 은 정지 · 일시중지 · 14일 · 벡터 없음 · 자동 가림 · 학교 미개방을 보고, "결정 안 한 카드" 는 E-CARD-05 가 본다. 가장 가까운 판일 뿐이다.
 - E-BATCH-05~09 의 응답 본문(`issued` · `skipped_regions` · `no_candidate`)은 못 읽는다 — 배치를 `gcloud scheduler jobs run` 으로 불러 stdout 이 없다.
@@ -17,6 +18,7 @@
 
 from e2e import area1, area2_time_batch, tools
 from e2e import area2_time_device, area4_push  # noqa: F401 — 원본 폰 판(E-CARD-13 · E-PUSH-10 · 13 · 18 · 22)이 area1.PHONE 에 먼저 올라 있어야 한다
+from e2e.alias_guard import already_ran
 from e2e.tools import Blocked
 
 PHONE_ALIAS = {'E-CARD-40': 'E-PUSH-10', 'E-CARD-43': 'E-PUSH-13', 'E-CARD-46': 'E-PUSH-18', 'E-CARD-48': 'E-PUSH-22',
@@ -32,6 +34,12 @@ def _twin(mine, theirs):
     source = area1.PHONE[theirs]  # 원본이 먼저 등록돼 있어야 한다 — 없으면 import 때 바로 KeyError
 
     def run_as_twin(run, phone):
+        try:
+            again = already_ran(run, mine, theirs)  # 같은 폴더에 원본 줄이 있으면 blocked — 운영 배치가 또 나가지 않게
+        except Blocked as e:
+            return 'blocked', str(e)  # 원본 줄은 건드리지 않는다
+        if again:
+            return again  # 이 별칭이 적은 fail — 진행 프로그램의 재시도가 첫 결과를 그대로 받는다
         try:
             result, note = source(run, phone)
         except Blocked as e:
@@ -53,6 +61,12 @@ tools.CASE_LIMITS.update({mine: tools.CASE_LIMITS[theirs]
 
 def attempt(run, case):
     """배치 별칭 하나 — 원본을 area2_time_batch.attempt 로 돌리고(배치는 거기서 한 번만 나간다) 원본 번호로도 적는다."""
+    try:
+        again = already_ran(run, case, BATCH_ALIAS[case])
+    except Blocked as e:
+        return 'blocked', str(e)
+    if again:
+        return again
     result, note = area2_time_batch.attempt(run, BATCH_ALIAS[case])
     run.record(BATCH_ALIAS[case], result, _note(case, note))
     return result, note
