@@ -217,7 +217,7 @@ class Wd06Test(Base):
         self.assertEqual(len([m for m in self.world.rows('messages') if m['match_id'] == match['id']]), 5)
         self.assertEqual(self.two.b_job, {'nickname': self.world.nickname(A), 'count': 5})
         self.assertIn('token_hash', self.went('B', 'wait'))
-        sends = [s for s in self.world.sent if s['path'].endswith('/messages') and s['method'] == 'POST']
+        sends = [s for s in self.world.sent if s['path'].startswith('/chat/') and s['method'] == 'POST']
         self.assertEqual([s['auth'] for s in sends], ['tok-2'])
 
     def test_a_server_that_lets_b_send_is_a_fail(self):
