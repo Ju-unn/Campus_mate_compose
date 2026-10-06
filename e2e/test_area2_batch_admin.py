@@ -158,5 +158,27 @@ class Batch03Test(unittest.TestCase):
             self.run_it([1, 1])
 
 
+class Batch11Test(unittest.TestCase):
+    def test_existing_pass_stamp_is_preserved_after_one_gated_batch(self):
+        before = [{'trust_passed_at': '2026-10-06T01:00:00Z', 'chat_closed_at': None}]
+        reads = iter((before, before))
+        with mock.patch.object(mod.area3, '_pair', return_value=({'id': 'a'}, {'id': 'b'}, 'match')), \
+             mock.patch.object(mod.area3_phone5, '_sentinel', return_value=({'id': 'sa'}, {'id': 'sb'}, 'sentinel')), \
+             mock.patch.object(mod.area3_phone5.batch_gate, 'peek'), \
+             mock.patch.object(mod.area2, '_guard'), \
+             mock.patch.object(mod, '_patch'), \
+             mock.patch.object(mod, '_rows', side_effect=lambda *a: next(reads)), \
+             mock.patch.object(mod.area3_phone5, '_gated_batch') as gated:
+            result, note = mod.batch_11(RUN)
+        self.assertEqual(result, 'pass')
+        self.assertIn('두 번째 POST', note)
+        gated.assert_called_once()
+
+    def test_batch11_refuses_if_gate_window_is_closed_before_preparation(self):
+        with mock.patch.object(mod.area3_phone5.batch_gate, 'peek', side_effect=Blocked('닫힘')):
+            with self.assertRaises(Blocked):
+                mod.batch_11(RUN)
+
+
 if __name__ == '__main__':
     unittest.main()
