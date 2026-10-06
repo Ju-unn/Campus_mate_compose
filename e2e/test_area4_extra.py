@@ -201,23 +201,31 @@ class MailDisabledTest(unittest.TestCase):
 
 
 class Set12Test(Base):
-    def world(self, new_message):
-        state = {'new_message': new_message}
+    def world(self, new_message=None):
+        """실제 서버처럼 — 새 계정은 notification_settings 행이 없고(16d 를 열어도 읽기만 한다), PostgREST PATCH 는 없는 행에는 아무 일도 안 하고,
+        행은 앱 경로(PATCH /cards/notification-settings)가 처음 쓸 때 만든다(upsert). [new_message] 가 None 이면 행 없음."""
+        state = {} if new_message is None else {'new_message': new_message}
 
         def read(body, url):
-            return Reply(200, [dict(state)])
+            return Reply(200, [dict(state)] if state else [])
 
-        def write(body, url):
-            state.update(body)
+        def rest_write(body, url):
+            if state:
+                state.update(body)
             return Reply(204, None)
-        return state, Fake([('GET', 'notification_settings', read), ('PATCH', 'notification_settings', write)])
+
+        def api_write(body, url):
+            state.update({'new_message': True, **state, **body})
+            return Reply(200, {})
+        return state, Fake([('GET', 'notification_settings', read), ('PATCH', 'notification_settings', rest_write),
+                            ('PATCH', '/cards/notification-settings', api_write)])
 
     def test_another_device_turns_it_off_in_the_middle_and_the_app_is_asked_twice(self):
-        state, fake = self.world(True)
+        state, fake = self.world()  # 새 홈 계정 — 행이 아직 없다
         phone = FakePhone()
         with mock.patch.object(tools, 'call', fake):
             result, memo = area1.attempt_phone(self.run, 'E-SET-12', phone)
-        self.assertEqual((result, state['new_message']), ('pass', False))
+        self.assertEqual((result, state.get('new_message')), ('pass', False), memo)
         self.assertEqual([j.get('phase') for j in phone.jobs], ['opened', 'relaunched'])
         self.assertTrue(phone.jobs[1]['fresh'] is False)
 
