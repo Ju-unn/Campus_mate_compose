@@ -374,8 +374,19 @@ class HiddenTest(Phone8):
         self.assertEqual((result, note), ('pass', ''))
         self.assertEqual([j.get('list') or 'about' for j in app.jobs], ['written', 'received', 'about'])
         self.assertEqual(self.rows('friend_reviews')[0]['status'], 'blinded')
-        self.assertEqual([(s['method'], s['auth']) for s in self.fake.sent if s['path'].startswith('/friend-reviews/')], [('DELETE', 'tok-1')])
+        self.assertEqual([(s['method'], s['auth']) for s in self.fake.sent if s['path'].startswith('/friend-reviews/')],
+                         [('GET', 'tok-2'), ('DELETE', 'tok-1')])  # 가리기 전 대조군(B 가 받은 목록) → 작성자 지우기
         self.assert_all_home()
+
+    def test_34_is_blocked_when_the_review_is_not_visible_to_b_before_it_is_blinded(self):
+        """가리기 전에 B 의 받은 목록에 그 리뷰가 1장 있어야 "0장" 이 가림 때문이라는 증거가 된다."""
+        self.serve_reviews()
+        self.fake.handlers.insert(0, ('GET', re.compile(r'/friend-reviews/received'), Reply(200, {'reviews': []})))
+        (result, note), app = self.case('E-REV-34', self.card_count(0))
+        self.assertEqual(result, 'blocked', note)
+        self.assertIn('가리기 전', note)
+        self.assertEqual(app.jobs, [])  # 앱을 켜지 않는다
+        self.assertEqual(self.rows('friend_reviews')[0].get('status'), None)  # 가리지도 않았다
 
     def test_34_fails_when_a_card_shows_the_delete_goes_through_or_the_empty_text_is_missing(self):
         self.serve_reviews()

@@ -218,6 +218,9 @@ def p_rev_34(run, phone):
     _link(run, a, b)
     _match(run, a, b)
     review = _review(run, a, b)
+    status, body = _api(run, 'GET', '/friend-reviews/received', b['token'])  # 대조군 — 가리기 전에는 B 의 받은 목록에 1장 있다
+    if status != 200 or len((body or {}).get('reviews') or []) != 1:
+        raise Blocked(f'준비: 가리기 전 B 의 받은 목록이 1장이 아님({status} {body}) — "0장" 이 가림 때문이라는 증거가 못 된다')
     _patch(run, f'friend_reviews?id=eq.{review}', {'status': 'blinded'})
     _hidden_list(check, '쓴 목록(A)', _ask(run, check, phone, a, 'A 쓴 목록', list='written'))
     _hidden_list(check, '받은 목록(B)', _ask(run, check, phone, b, 'B 받은 목록', list='received'))
