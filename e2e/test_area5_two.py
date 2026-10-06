@@ -17,6 +17,7 @@ from e2e import area1, area2, area2_two_accept, area5_two, tools, twodev
 from e2e.test_area1 import CFG
 from e2e.test_area2_two_accept import FakeTwo, World
 from e2e.test_area3_safe import _who
+from e2e.test_area5_wd import code_of
 from e2e.tools import Reply, Run
 
 CASES = ['E-WD-05', 'E-WD-06', 'E-WD-07', 'E-WD-08', 'E-WD-09']
@@ -157,7 +158,7 @@ class RegistryTest(unittest.TestCase):
         self.assertEqual(keys, [f'{c}/{s}' for c in CASES for s in 'AB'])
         self.assertIn("part 'area5_two.dart';", dart('area5.dart'))
         self.assertIn('...area5CasesTwo', dart('area5.dart'))
-        steps = set(re.findall(r"step\('([\w-]+)'", text))
+        steps = set(re.findall(r"(?:step|_twoLoginAfter)\('([\w-]+)'", text))
         for name in ('home', 'ready', 'login', 'withdrawn', 'tap', 'wait', 'room'):
             self.assertIn(name, steps)
 
@@ -166,9 +167,13 @@ class RegistryTest(unittest.TestCase):
         bodies = dict(zip(*[iter(re.split(r"(?m)^  '(E-WD-\d+/[AB])':", text.split('area5CasesTwo = {', 1)[1])[1:])] * 2))
         for key, body in bodies.items():
             with self.subTest(key):
-                presses = '_twoWithdrawA' in body
+                presses = '_twoWithdrawA' in body or '_twoA()' in body  # _twoA 는 _twoWithdrawA 를 부른다
                 self.assertEqual(presses, key.endswith('/A'))
-        self.assertNotIn('정말 영구 삭제', text)  # 글자는 area5_wd.dart 의 _wdForever 한 곳뿐
+        self.assertNotIn('정말 영구 삭제', code_of(text))  # 글자는 area5_wd.dart 의 _wdForever 한 곳뿐
+        helpers = re.split(r'(?m)^final Map', text)[0]
+        self.assertIn('_wdWithdraw(tester)', helpers.split('Future<void> _twoWithdrawA', 1)[1].split('\n}\n', 1)[0])
+        self.assertEqual(text.count('_wdWithdraw('), 1)  # 탈퇴 버튼은 _twoWithdrawA 안 한 곳에서만
+        self.assertIn('await _twoWithdrawA(tester);', text.split('Area1Case _twoA()', 1)[1].split('});', 1)[0])
 
     def test_the_literals_the_app_looks_for_are_in_the_real_screens(self):
         screens = '\n'.join(p.read_text(encoding='utf-8') for p in (tools.ROOT / 'frontend' / 'lib').rglob('*.dart'))

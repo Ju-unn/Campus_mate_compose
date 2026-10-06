@@ -4,6 +4,8 @@ import 'package:campus_mate/account/view/withdraw_sheets.dart';
 import 'package:campus_mate/chat/view/chat_input_bar.dart';
 import 'package:campus_mate/chat/view/chat_list_row.dart';
 import 'package:campus_mate/chat/view/chat_room_screen.dart';
+import 'package:campus_mate/chat/view/message_bubble.dart';
+import 'package:campus_mate/chat/view/trust_reveal_bubble.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
@@ -13,11 +15,16 @@ import 'package:campus_mate/common/widgets/select_chip.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/friend_review/view/friend_review_card.dart';
+import 'package:campus_mate/friend_review/view/written_reviews_screen.dart';
+import 'package:campus_mate/matching/view/acceptance_row.dart';
 import 'package:campus_mate/matching/view/card_detail_screen.dart';
 import 'package:campus_mate/matching/view/conversations_screen.dart';
+import 'package:campus_mate/matching/view/daily_card_summary.dart';
 import 'package:campus_mate/me/view/basic_info_edit_screen.dart';
 import 'package:campus_mate/me/view/me_load_error.dart';
 import 'package:campus_mate/me/view/my_photos_screen.dart';
+import 'package:campus_mate/me/view/my_profile_screen.dart';
 import 'package:campus_mate/me/view/profile_edit_screen.dart';
 import 'package:campus_mate/me/view/profile_entry_row.dart';
 import 'package:campus_mate/me/view/profile_hero.dart';
@@ -43,13 +50,14 @@ part 'area5_act.dart';
 part 'area5_photo.dart';
 part 'area5_read.dart';
 part 'area5_time.dart';
+part 'area5_two.dart';
 part 'area5_wd.dart';
 
 /// 영역 5 폰 A 한 대 — 나 탭 · 탈퇴 · 경계. PC 쪽은 e2e/area5_*.py 의 같은 번호(계정 · DB 를 준비하고 앱이 말한 값을 판정한다).
 /// 앱은 화면을 열어 읽거나 누르고 본 것을 Map 으로 돌려준다. 화면 글자 · 위젯은 시나리오가 아니라 지금 화면 코드
 /// (frontend/lib/me · account · matching/view/settings_screen · profile/view)에서 옮겼다.
 /// 탈퇴를 실제로 누르는 가설은 area5_wd.dart 의 넷(E-WD-04 · 16 · 18 · E-EDGE-20)뿐이다 — 이 파일 · area5_read · area5_act 는 "정말 영구 삭제" 를 누르지 않는다.
-final Map<String, Area1Case> area5Cases = {...area5CasesRead, ...area5CasesAct, ...area5CasesPhoto, ...area5CasesWd, ...area5CasesTime};
+final Map<String, Area1Case> area5Cases = {...area5CasesRead, ...area5CasesAct, ...area5CasesPhoto, ...area5CasesWd, ...area5CasesTime, ...area5CasesTwo};
 
 const _manageEntry = '프로필 편집'; // my_profile_screen.dart 입구 줄(profile_entry_row.dart — InkWell 이 행 전체를 감싼다)
 const _previewEntry = '남이 보는 내 프로필 카드';
