@@ -13,13 +13,14 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from e2e import area1, area2_two_accept, area5_two, tools, twodev
+from e2e import area1, area2_time_batch, area2_two_accept, area5_two, tools, twodev
 from e2e.test_area1 import CFG
 from e2e.test_area2_two_accept import FakeTwo, World
 from e2e.test_area3_safe import _who
 from e2e.test_area5_wd import code_of
 from e2e.tools import Reply, Run
 
+REAL_ISSUE_CARDS = area5_two._issue_cards  # setUp 이 모듈의 것을 가짜로 바꾸기 전에 쥔다
 CASES = ['E-WD-05', 'E-WD-06', 'E-WD-07', 'E-WD-08', 'E-WD-09']
 A, B, C = 'id-1', 'id-2', 'id-3'
 WITHDRAWN = '탈퇴한 계정이에요'
@@ -94,19 +95,30 @@ class Base(unittest.TestCase):
         (self.root / 'KEEP.txt').write_text('MANUAL 00000000-0000-4000-8000-00000000000a\n', encoding='utf-8')
         self.run_ = Run(self.root / 'area5-two', 'b', cfg={**CFG}, key='svc')
         self.world = TwoWorld()
-        self.issued = []
+        self.issued, self.subjects = [], []
+        self.cut_after_fire, self.give_subjects = False, True
+        area2_time_batch._FIRED.clear()
+        self.addCleanup(area2_time_batch._FIRED.clear)
         patchers = [mock.patch.object(tools, 'call', self.world),
                     mock.patch.object(area2_two_accept, 'POLL', 0), mock.patch.object(area2_two_accept, 'SAVED', 0.05),
                     mock.patch.object(area2_two_accept, 'PEER', 0.05),
                     mock.patch.object(area5_two, '_region', lambda run: 'e2e'),
-                    mock.patch.object(area5_two, '_issue_cards', lambda run, region, control: self.issued.append(control) or
-                                      self.world.issue([*control, {'id': B}]))]
+                    mock.patch.object(area5_two, '_issue_cards', self.fire)]
         for patcher in patchers:
             patcher.start()
             self.addCleanup(patcher.stop)
         from e2e import area3_phone5
         area3_phone5._FAILED.clear()
         self.addCleanup(area3_phone5._FAILED.clear)
+
+    def fire(self, run, region, control, subjects=()):
+        """가짜 daily-cards — 부른 것(대조군 · 대상)을 적고 배치가 나갔다고 [_FIRED] 에도 적는다(진짜 `_batch` 가 하는 일). 카드는 대조군 · 대상 모두에게."""
+        self.issued.append(control)
+        self.subjects.append(subjects)
+        area2_time_batch._FIRED.append('daily-cards')
+        if self.cut_after_fire:
+            raise ConnectionResetError('끊김')
+        self.world.issue([*control, *subjects] if self.give_subjects else list(control))
 
     def go(self, case, *script):
         self.two = FakeTwo(self, script)
@@ -277,6 +289,66 @@ class Wd08Test(Base):
     def test_a_candidate_query_that_keeps_the_withdrawn_is_a_fail(self):
         self.world.rules['active_candidates'] = False
         self.fails('E-WD-08', *self.script(), words=('후보',))
+
+    def test_b_is_asked_to_get_a_card_too_so_a_zero_for_a_means_the_batch_served_b(self):
+        self.passes('E-WD-08', *self.script())
+        self.assertEqual([[s['id'] for s in subjects] for subjects in self.subjects], [[B]])  # 대상 B 를 _issue 에 넘긴다
+        self.assertTrue([c for c in self.world.rows('daily_cards') if c['owner_id'] == B])  # B 는 카드를 받았다
+
+    def test_a_batch_that_gave_b_nothing_is_a_fail_even_though_a_has_no_card(self):
+        """대조군은 받았는데 B 는 한 장도 못 받았다 — "A 대상 0장" 은 참이어도 배치가 B 를 안 돌았다는 뜻이라 통과 아님."""
+        self.give_subjects = False
+        self.fails('E-WD-08', *self.script(), words=('B',))
+
+    def test_b_waits_for_a_longer_for_the_batch_case_than_for_the_others(self):
+        seen = []
+        with mock.patch.object(twodev.Sync, 'wait', autospec=True, side_effect=lambda sync, name, seconds: seen.append((name, seconds)) or True):
+            self.passes('E-WD-08', *self.script())
+            self.setUp()  # 두 번째 가설은 깨끗한 가짜 서버에서
+            self.passes('E-WD-09', *self.script())
+        self.assertEqual(seen, [('a-out', 900), ('a-out', area2_two_accept.PEER)])  # 배치(A 흐름 + 최대 120 + 90 + 30초)는 420초에 빠듯하다
+        self.assertEqual(area5_two.BATCH_PEER, 900)
+
+    def test_a_cut_after_the_batch_went_out_is_blocked_and_never_calls_the_batch_again(self):
+        self.cut_after_fire = True
+        result, memo = self.go('E-WD-08', *self.retry_script())
+        self.assertEqual(result, 'blocked', memo)
+        self.assertIn(area2_time_batch.ALREADY, memo)
+        self.assertEqual(len(self.issued), 1)  # daily-cards 는 하루 1장 — 두 번째 배치는 나가지 않는다
+
+    def test_the_real_issue_cards_passes_the_subjects_on_to_the_batch_helper(self):
+        """setUp 이 `_issue_cards` 를 가짜로 바꾸므로 진짜가 대상(subjects)을 `_issue` 로 넘기는지는 따로 본다."""
+        calls = []
+        with mock.patch.object(area2_time_batch, '_issue', lambda run, region, weekdays, **kw: calls.append(kw)):
+            REAL_ISSUE_CARDS(self.run_, 'e2e', ['c'], ['b'])
+        self.assertEqual(calls, [{'control': ['c'], 'subjects': ['b']}])
+
+    def retry_script(self):
+        """다시 하면 계정을 새로 만든다(A · B · 대조군 셋씩) — 앱이 탈퇴시키는 것은 그 시도의 A 다."""
+        def withdraw_this_attempts_a():
+            made = len([s for s in self.world.sent if s['path'] == '/auth/v1/admin/users' and s['method'] == 'POST'])
+            self.world.app_withdraws(f'id-{made - 2}')
+        return [('A', 'withdrawn', withdraw_this_attempts_a), ('B', 'wait', None)]
+
+    def test_a_cut_before_the_batch_is_tried_once_more(self):
+        calls = []
+        real = self.fire
+
+        def cut_first(run, region, control, subjects=()):
+            calls.append(1)
+            if len(calls) == 1:
+                raise ConnectionResetError('끊김')  # 배치를 부르기 전(_FIRED 에 안 적힘)
+            return real(run, region, control, subjects)
+        with mock.patch.object(area5_two, '_issue_cards', cut_first):
+            self.passes('E-WD-08', *self.retry_script())
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(len(self.issued), 1)
+
+    def test_two_cuts_before_the_batch_are_blocked(self):
+        def always_cut(run, region, control, subjects=()):
+            raise ConnectionResetError('끊김')
+        with mock.patch.object(area5_two, '_issue_cards', always_cut):
+            self.blocked('E-WD-08', *self.retry_script(), words=('두 번',))
 
     def test_a_first_fail_is_not_run_again_after_the_batch(self):
         self.world.rules['active_candidates'] = False
