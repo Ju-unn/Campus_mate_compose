@@ -10,10 +10,10 @@ from e2e.tools import Blocked
 class FakeRun:
     def __init__(self, earlier=()):
         self.recorded = []
-        self.earlier = [{'case': c} for c in earlier]
+        self.earlier = [{'case': c, 'result': 'pass', 'note': '다른 실행'} for c in earlier]
 
     def records(self):
-        return self.earlier + [{'case': c} for c, _, _ in self.recorded]
+        return self.earlier + [{'case': c, 'result': r, 'note': n} for c, r, n in self.recorded]
 
     def record(self, case, result, note=''):
         self.recorded.append((case, result, note))
@@ -82,6 +82,39 @@ class AliasTest(unittest.TestCase):
             result, note = area3_batch.attempt(run, 'E-BATCH-22')
         attempt.assert_not_called()
         self.assertEqual(result, 'blocked')
+
+    def test_a_failed_alias_retried_by_run_case_returns_its_own_fail_not_blocked(self):
+        # 진행 프로그램은 fail 이면 같은 가설을 한 번 더 부른다 — 첫 시도가 적은 원본 번호 줄을 "이미 돌렸다" 로 읽어 fail 을 blocked 로 덮으면 안 된다
+        run, original = FakeRun(), mock.Mock(return_value=('fail', '알림 0건'))
+        with mock.patch.dict(area3_batch.GATE_PHONE, {'E-PUSH-40': original}):
+            first = area3_batch.PHONE['E-BATCH-14'](run, 'phone')
+            second = area3_batch.PHONE['E-BATCH-14'](run, 'phone')
+        self.assertEqual(first[0], 'fail')
+        self.assertEqual(second, first)
+        original.assert_called_once()  # 두 번째는 원본을 다시 부르지 않는다(배치가 또 나가지 않는다)
+        self.assertEqual(len(run.recorded), 1)
+
+    def test_a_failed_api_alias_retried_returns_its_own_fail_and_does_not_call_again(self):
+        run = FakeRun()
+        with mock.patch.object(area1, 'attempt', return_value=('fail', '행이 남음')) as attempt:
+            first = area3_batch.attempt(run, 'E-BATCH-22')
+            second = area3_batch.attempt(run, 'E-BATCH-22')
+        self.assertEqual(second, first)
+        attempt.assert_called_once()
+
+    def test_a_pass_recorded_by_the_alias_is_not_returned_again_on_a_rerun(self):
+        # 같은 폴더에서 별칭을 또 돌리면(통과 뒤) 배치가 또 나간다 — 막는다
+        run, original = FakeRun(), mock.Mock(return_value=('pass', ''))
+        with mock.patch.dict(area3_batch.GATE_PHONE, {'E-PUSH-40': original}):
+            area3_batch.PHONE['E-BATCH-14'](run, 'phone')
+            result, _ = area3_batch.PHONE['E-BATCH-14'](run, 'phone')
+        self.assertEqual(result, 'blocked')
+        original.assert_called_once()
+
+    def test_notes_name_what_the_original_does_not_check(self):
+        for mine, words in {'E-BATCH-14': ('E-PUSH-41',), 'E-BATCH-15': ('예약',), 'E-BATCH-17': ('닫기', 'chat_closed_at', '정지')}.items():
+            for word in words:
+                self.assertIn(word, area3_batch.NOTES[mine], mine)
 
     def test_case_limit_follows_the_original(self):
         self.assertEqual(tools.CASE_LIMITS['E-BATCH-16'], tools.CASE_LIMITS.get('E-PUSH-44', tools.CASE_LIMIT))
