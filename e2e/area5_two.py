@@ -41,9 +41,11 @@ from e2e.tools import Blocked
 PARTNER_LEFT = '상대가 대화를 나갔어요'  # core/errors.py CHAT_PARTNER_LEFT
 CARD_GONE = '카드를 찾을 수 없어요'  # core/errors.py CARD_NOT_FOUND
 MESSAGES = 5  # 시나리오 E-WD-06 "채팅 5건"
-CASE_LIMIT = 1500  # 계정 둘 · 두 기기 · A 의 탈퇴 흐름(+ 08 의 배치)
+PREP_ACCOUNT = 150  # 계정 하나 준비의 넉넉한 최악(초) — 가입 · 온보딩 · 로그인 429 대기 재시도까지(추정)
+CASE_LIMIT = 1500  # 계정 둘 · 두 기기 · A 의 탈퇴 흐름 — LIMITS deadline 1200 + 둘 × PREP_ACCOUNT
 LIMITS = {'side_timeout': {'A': 300, 'B': 600}, 'deadline': 1200}
 BATCH_LIMITS = {'side_timeout': {'A': 600, 'B': 900}, 'deadline': 1400}  # 08 — A 가 멈춘 사이 배치 + 카드 기다림
+BATCH_CASE_LIMIT = BATCH_LIMITS['deadline'] + 3 * PREP_ACCOUNT  # 08 — 계정 셋(A · B · 대조군) 준비가 deadline 앞에 더해진다
 BATCH_PEER = 900  # 08 — B 가 A 의 탈퇴 + 배치를 기다리는 상한(초). A 흐름 1~2분 + 확인 30초 + 배치(120 + 90 + 30초)가 기본 420초를 넘을 수 있다
 
 
@@ -280,4 +282,4 @@ TWO = {case: (_guarded_batch if case == 'E-WD-08' else _guarded)(hypothesis) for
 twodev.TWO.update(TWO)
 area1.BUNDLES['area5-two'] = list(CASES)
 for _case in CASES:
-    tools.CASE_LIMITS[_case] = CASE_LIMIT
+    tools.CASE_LIMITS[_case] = BATCH_CASE_LIMIT if _case == 'E-WD-08' else CASE_LIMIT

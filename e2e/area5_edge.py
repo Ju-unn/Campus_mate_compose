@@ -69,6 +69,7 @@ APP_WAIT = 180  # 앱의 다음 말을 기다리는 초(Run.phone 기본값)
 CUT_SETTLE = 2  # 비행기 모드를 켠 뒤 망이 정말 끊기기를 기다리는 초(E-EDGE-01)
 DELAY_MS = 2000  # 시나리오 E-EDGE-21 "망 지연 2초"
 LOG_SETTLE = 60  # Cloud Run 요청 로그가 logging 에 들어오기를 기다리는 초
+LOG_READS = 4  # 로그가 늦을 때 쉬었다 다시 읽는 최대 횟수(읽을 때마다 LOG_SETTLE 초 쉰다) — 한 건도 안 들어오면 fail 이 아니라 blocked
 LOG_LIMIT = 1000
 WATCH = 120  # 시나리오 E-EDGE-25 "2분 기다림"
 PHOTOS = 4
@@ -319,17 +320,25 @@ def _windows(phone):
 
 
 def _count_in(check, windows, screens):
-    """창마다 그 화면 저장 경로의 요청 수 — 1건이어야 한다. 로그가 들어올 때까지 LOG_SETTLE 초 쉰 뒤 한 번 읽는다."""
+    """창마다 그 화면 저장 경로의 요청 수 — 1건이어야 한다. Cloud Run 로그는 늦게 들어오므로 LOG_SETTLE 초 쉰 뒤 읽고,
+    창 하나라도 0건이면 로그가 아직 안 온 것일 수 있어 LOG_READS 번까지 쉬었다 다시 읽는다(2건 이상은 더 읽어도 늘기만 해 바로 판정).
+    끝까지 한 건도 안 들어오면 요청이 없었다는 증거가 못 되어 blocked, 일부 창만 0건이면 그 화면의 fail 이다."""
     bounds = [w for w in windows.values() if len(w) == 2]
     if len(bounds) != len(screens):
         raise Blocked(f'창을 다 못 찍음({len(bounds)}/{len(screens)}) — 앱이 멈춤을 건너뛰었다')
-    time.sleep(LOG_SETTLE)
-    logs = _requests(min(w[0] for w in bounds), max(w[1] for w in bounds))
     counts = {}
+    for _ in range(LOG_READS):
+        time.sleep(LOG_SETTLE)
+        logs = _requests(min(w[0] for w in bounds), max(w[1] for w in bounds))
+        for screen in screens:
+            start, end = windows[screen]
+            counts[screen] = len([1 for at, m, p in logs if start <= at <= end and (m, p) == PATHS[screen]])
+        if all(counts.values()):
+            break
+    if not any(counts.values()):
+        raise Blocked(f'Cloud Run 요청 로그가 {LOG_READS}번({LOG_READS * LOG_SETTLE}초) 읽어도 한 건도 안 들어옴 — 로그가 늦은 것이면 다시, 아니면 gcloud 권한 · 프로젝트 확인')
     for screen in screens:
-        start, end = windows[screen]
         method, path = PATHS[screen]
-        counts[screen] = len([1 for at, m, p in logs if start <= at <= end and (m, p) == (method, path)])
         check.that(counts[screen] == 1, f'{screen}: {method} {path} 요청 {counts[screen]}건(기대 1건)')
     return counts
 
@@ -447,7 +456,7 @@ tools.CASE_LIMITS.update({
     'E-EDGE-11': 600,
     'E-EDGE-15': 900,  # 로그인 · 토큰 + 알림 둘(60초씩) · 눌러 열기
     'E-EDGE-19': 900,  # 계정 둘 · 앱 네 번
-    'E-EDGE-21': 900 + LOG_SETTLE,  # 다섯 화면 × 2초 지연 + 로그 기다림
-    'E-EDGE-24': 900 + LOG_SETTLE,  # 느린 망 사진 4장 + 로그 기다림
+    'E-EDGE-21': 900 + LOG_READS * LOG_SETTLE,  # 다섯 화면 × 2초 지연 + 로그 기다림(늦으면 LOG_READS 번까지)
+    'E-EDGE-24': 900 + LOG_READS * LOG_SETTLE,  # 느린 망 사진 4장 + 로그 기다림
     'E-EDGE-25': WATCH + 2 * APP_WAIT + 300,
 })
