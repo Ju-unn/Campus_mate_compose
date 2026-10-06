@@ -88,6 +88,7 @@ class WdFake(ReadFake):
         self.clears_tokens = True
         self.clears_id_files = True
         self.forever_when_suspended = True
+        self.last_stamp = datetime.min.replace(tzinfo=timezone.utc)  # 가짜 서버가 마지막으로 준 탈퇴 시각 — withdraw 가 늘 앞서가게
         self.idempotent = True  # False: 이미 탈퇴한 계정도 다시 탈퇴시키는 서버(제한 기간이 바뀐다)
         self.block_months = 2
         self.retention = timedelta(days=30)
@@ -137,7 +138,8 @@ class WdFake(ReadFake):
         row = self.profile(who)
         if row['status'] == 'withdrawn' and self.idempotent:
             return
-        stamp = now()
+        stamp = max(now(), self.last_stamp + timedelta(microseconds=1))  # 시계가 안 움직여도(윈도 15.6ms) 두 번째 탈퇴는 더 늦은 시각 — 진짜 서버의 now() 는 문마다 다르다
+        self.last_stamp = stamp
         until = 'infinity' if row['status'] == 'suspended' and self.forever_when_suspended else add_months(stamp, self.block_months).isoformat()
         row.update(status='withdrawn', withdrawn_at=stamp.isoformat())
         old = self.block(self.email(who))
@@ -1093,6 +1095,14 @@ class TwiceTest(WdBase):
     def test_18_fails_when_the_second_press_changes_the_block(self):
         self.fake.logout, self.fake.idempotent = False, False
         self.fails('E-WD-18', None, 'signup_blocks', app=self.stop_app(self.again(notice=WITHDRAWN)))
+
+    def test_18_fails_when_the_second_press_changes_the_block_even_when_the_clock_does_not_tick(self):
+        # 윈도 + 파이썬 3.12 의 시계 해상도는 15.6ms — 가짜 서버의 두 탈퇴(PC 첫 탈퇴 · 앱 두 번째 누름)가 같은 tick 이면 제한 기간이 같은 값이 돼
+        # "두 번째 누름이 제한을 바꿨다" 가 안 보였다(간헐 실패의 뿌리). 가짜 서버는 시계가 멈춰 있어도 두 번째 탈퇴를 늦은 시각으로 쳐야 한다.
+        frozen = now()
+        with mock.patch(f'{__name__}.now', return_value=frozen):
+            self.fake.logout, self.fake.idempotent = False, False
+            self.fails('E-WD-18', None, 'signup_blocks', app=self.stop_app(self.again(notice=WITHDRAWN)))
 
     def test_18_fails_when_the_withdrawn_at_moves(self):
         def answer(job):
