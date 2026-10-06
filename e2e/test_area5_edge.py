@@ -13,7 +13,7 @@ import re
 import subprocess
 import sys
 import unittest
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest import mock
 
@@ -441,11 +441,11 @@ class Edge21Test(EdgeBase):
             row.update(over.get(row['screen'], {}))
         return {'walks': rows}
 
-    def run21(self, twice=(), answer=None):
+    def run21(self, twice=(), answer=None, silent=()):
         def step(name, job):
             screen, _, kind = name.rpartition(':')
             if kind == 'done':
-                self.log(screen, 2 if screen in twice else 1)
+                self.log(screen, 0 if screen in silent else 2 if screen in twice else 1)
                 if screen == '15-6':
                     self.profile().update(nickname=job['nickname'], nickname_changed_at=now().isoformat())
             if name == 'end':
@@ -469,6 +469,70 @@ class Edge21Test(EdgeBase):
         result, note = self.go(self.CASE, {None: (edge21_steps(), self.answer())})[0]
         self.assertEqual(result, 'blocked', note)
         self.assertIn('에뮬', note)
+
+
+class LogDelayTest(EdgeBase):
+    """Cloud Run 요청 로그는 늦게 들어온다 — 늦은 것(다시 읽기 · 끝내 없으면 blocked)과 진짜 0건(그 화면의 fail)을 가른다.
+    창 시각이 서로 다르게 가짜 시계를 늘어나게 한다(윈도 시계 해상도로 창이 겹치는 것과 상관없이 돌게)."""
+    CASE = 'E-EDGE-21'
+    answer, run21 = Edge21Test.answer, Edge21Test.run21
+
+    def setUp(self):
+        super().setUp()
+        self.reads, self.settles, self.late = [], [], 0  # 처음 [late] 번의 읽기는 아직 로그가 안 들어온 빈 답
+        tick = [now()]
+
+        def clock():
+            tick[0] += timedelta(milliseconds=1)
+            return tick[0]
+
+        for patcher in (mock.patch.object(area5_edge, '_now', clock), mock.patch.object(sys.modules[__name__], 'now', clock),
+                        mock.patch.object(area5_edge, '_requests', self.read),
+                        mock.patch('time.sleep', lambda seconds: self.settles.append(seconds) if seconds == area5_edge.LOG_SETTLE else None)):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def read(self, since, until):
+        self.reads.append((since, until))
+        return [] if len(self.reads) <= self.late else [r for r in self.logs if since <= r[0] <= until]
+
+    def test_logs_that_come_late_are_read_again_and_then_judged(self):
+        self.late = 2
+        result, note = self.run21()
+        self.assertEqual(result, 'pass', note)
+        self.assertEqual((len(self.reads), len(self.settles)), (3, 3))  # 읽을 때마다 LOG_SETTLE 초 쉰다
+
+    def test_logs_that_never_come_are_blocked_not_a_fail(self):
+        self.late = 99
+        result, note = self.run21()
+        self.assertEqual(result, 'blocked', note)
+        self.assertIn('로그', note)
+        self.assertEqual(len(self.reads), area5_edge.LOG_READS)
+
+    def test_a_screen_with_no_request_after_every_read_is_still_a_fail(self):
+        result, note = self.run21(silent=('tag',))
+        self.assertEqual(result, 'fail', note)
+        self.assertIn('tag', note)
+        self.assertIn('0건', note)
+        self.assertEqual(len(self.reads), area5_edge.LOG_READS)  # 늦은 것일 수 있어 끝까지 읽어 본 뒤의 fail
+
+    def test_a_double_request_is_judged_at_the_first_read(self):
+        result, note = self.run21(twice=('tag',))
+        self.assertEqual(result, 'fail', note)
+        self.assertIn('2건', note)
+        self.assertEqual(len(self.reads), 1)  # 더 읽어도 늘기만 한다
+
+    def test_one_screen_with_two_requests_and_another_with_none_is_a_fail_for_both_not_a_blocked(self):
+        result, note = self.run21(twice=('tag',), silent=('15-6',))
+        self.assertEqual(result, 'fail', note)
+        self.assertIn('tag', note)
+        self.assertIn('2건', note)
+        self.assertIn('15-6', note)
+        self.assertEqual(len(self.reads), area5_edge.LOG_READS)  # 0건인 창 때문에 끝까지 읽어 본 뒤의 판정
+
+    def test_the_case_limits_hold_every_log_wait(self):
+        for case in ('E-EDGE-21', 'E-EDGE-24'):
+            self.assertGreaterEqual(tools.CASE_LIMITS[case], 900 + area5_edge.LOG_READS * area5_edge.LOG_SETTLE, case)
 
 
 # ── E-EDGE-24 느린 망에서 사진 4장 ────────────────────────────────────────────────────────────────────
