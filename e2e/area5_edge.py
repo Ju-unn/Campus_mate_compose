@@ -66,6 +66,7 @@ OLD_HEIGHT, NEW_HEIGHT = 178, '181'
 WHERE = {'chat': 'conversations', 'review': 'me'}  # 알림으로 연 화면의 시스템 뒤로 = 화살표(_exit) — 대화 목록(13) · 나 탭(15)
 END = 'end'
 APP_WAIT = 180  # 앱의 다음 말을 기다리는 초(Run.phone 기본값)
+CUT_SETTLE = 2  # 비행기 모드를 켠 뒤 망이 정말 끊기기를 기다리는 초(E-EDGE-01)
 DELAY_MS = 2000  # 시나리오 E-EDGE-21 "망 지연 2초"
 LOG_SETTLE = 60  # Cloud Run 요청 로그가 logging 에 들어오기를 기다리는 초
 LOG_LIMIT = 1000
@@ -129,6 +130,7 @@ def p_edge_01(run, phone, paid):
     def edited(screen):  # 앱이 값을 고친 채 멈춤 — 그때 DB 를 찍고 망을 끊는다
         seen[screen] = _saved(run, account)
         notify.airplane(phone.serial, True)
+        time.sleep(CUT_SETTLE)  # 켜자마자 앱이 저장을 누르면 망이 아직 살아 있어 첫 저장이 성공해 버린다(켤 때만 안 기다린다 — 끌 때는 notify 가 기다린다)
 
     def failed(screen):  # 끊긴 망에서 저장이 막힌 뒤 — DB 가 그대로인지 보고 망을 되돌린다
         check.that(_saved(run, account) == seen.get(screen), f'{screen}: 망이 끊긴 채 "저장" 했는데 DB 가 바뀜(기대 변화 0)')
@@ -252,7 +254,9 @@ def p_edge_19(run, phone):
         said = _app(check, phone(phase='after', part='nickname'), '닉네임 다시 켬')
         check.that(db in (old, new), f'닉네임: DB {db!r}(기대 옛 {old!r} 또는 새 {new!r})')
         line = said.get('name_line', MISSING)
-        check.that(isinstance(line, str) and line.startswith(f'{db}, '), f'닉네임: 다시 켠 15 이름 줄 {line!r}(기대 DB 값 {db!r} 로 시작)')
+        # 15 히어로는 나이가 있으면 "닉네임, 나이", 없으면 닉네임만 그린다(profile_hero.dart) — 시작만 같은 더 긴 이름은 다른 이름이다
+        check.that(isinstance(line, str) and (line == db or line.startswith(f'{db}, ')),
+                   f'닉네임: 다시 켠 15 이름 줄 {line!r}(기대 DB 값 {db!r} 또는 "{db}, 나이")')
         notes.append(f"닉네임 {'저장됨' if db == new else '옛 값'}({ms}ms 에 kill)")
     # 사진 맞바꾸기
     account, token = _home(run)
