@@ -254,7 +254,9 @@ def p_edge_19(run, phone):
         said = _app(check, phone(phase='after', part='nickname'), '닉네임 다시 켬')
         check.that(db in (old, new), f'닉네임: DB {db!r}(기대 옛 {old!r} 또는 새 {new!r})')
         line = said.get('name_line', MISSING)
-        check.that(isinstance(line, str) and line.startswith(f'{db}, '), f'닉네임: 다시 켠 15 이름 줄 {line!r}(기대 DB 값 {db!r} 로 시작)')
+        # 15 히어로는 나이가 있으면 "닉네임, 나이", 없으면 닉네임만 그린다(profile_hero.dart) — 시작만 같은 더 긴 이름은 다른 이름이다
+        check.that(isinstance(line, str) and (line == db or line.startswith(f'{db}, ')),
+                   f'닉네임: 다시 켠 15 이름 줄 {line!r}(기대 DB 값 {db!r} 또는 "{db}, 나이")')
         notes.append(f"닉네임 {'저장됨' if db == new else '옛 값'}({ms}ms 에 kill)")
     # 사진 맞바꾸기
     account, token = _home(run)

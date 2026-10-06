@@ -378,7 +378,7 @@ class Edge15Test(EdgeBase):
 class Edge19Test(EdgeBase):
     CASE = 'E-EDGE-19'
 
-    def run19(self, saved=True, shows=None):
+    def run19(self, saved=True, shows=None, age=23, tail=''):
         def press(name, job):
             self.pids[:] = ['4242']  # 켤 때마다 새 프로세스
             if not saved:
@@ -393,7 +393,8 @@ class Edge19Test(EdgeBase):
         def after(job):
             n = self.fake.verifies
             if job['part'] == 'nickname':
-                return {'name_line': f"{shows or self.profile(n)['nickname']}, 23"}
+                name = shows or self.profile(n)['nickname']
+                return {'name_line': (name if age is None else f'{name}, {age}') + tail}  # 앱은 나이가 없으면 닉네임만 그린다(profile_hero.dart)
             return {'photos': [p['storage_path'].rsplit('/', 1)[1] for p in self.photo_rows(n)]}
         app = ScriptApp({'press': (['pressed'], {}), 'after': ([], after)}, self.events, press)
         return self.case(self.CASE, None, app)[0]
@@ -407,10 +408,22 @@ class Edge19Test(EdgeBase):
                 self.assertEqual(len([c for c in self.adb_calls if 'kill' in c]), 2)
                 self.assertIn('저장됨' if saved else '옛 값', note)
 
+    def test_pass_an_account_without_an_age_shows_the_bare_nickname(self):
+        result, note = self.run19(True, age=None)
+        self.assertEqual(result, 'pass', note)
+
     def test_a_screen_that_disagrees_with_the_db_is_a_fail(self):
-        result, note = self.run19(True, shows='반쯤')
+        for age in (23, None):
+            with self.subTest(age=age):
+                self.setUp()
+                result, note = self.run19(True, shows='반쯤', age=age)
+                self.assertEqual(result, 'fail', note)
+                self.assertIn('닉네임', note)
+
+    def test_a_nickname_that_only_starts_with_the_db_value_is_a_fail(self):
+        # 나이가 없는 줄은 DB 닉네임과 **같아야** 한다 — 닉네임으로 "시작" 만 하는 더 긴 이름은 다른 이름이다.
+        result, note = self.run19(True, age=None, tail='다')
         self.assertEqual(result, 'fail', note)
-        self.assertIn('닉네임', note)
 
 
 # ── E-EDGE-21 두 번 누르기 ────────────────────────────────────────────────────────────────────────────
