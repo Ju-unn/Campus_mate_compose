@@ -119,6 +119,9 @@ final Map<String, Area1Case> area5CasesTwo = {
     final room = find.byType(ChatRoomScreen);
     must(_has(find.descendant(of: room, matching: find.widgetWithText(AppButton, _tmLeave))), 'B: "$_tmLeave" 버튼이 없음');
     must(!_has(find.descendant(of: room, matching: find.byType(ChatInputBar))), 'B: 나간 방에 입력칸이 남음');
+    // 방 머리말(닉네임 · 안내)이 먼저 그려지고 메시지 첫 쪽은 따로 와서, 그 전에 세면 0건이다 — 첫 말풍선이 보이면 5건은 한 응답이라 다 찬 것이다.
+    await pumpUntil(tester, find.descendant(of: room, matching: find.byType(MessageBubble)));
+    await wait(tester, const Duration(seconds: 1));
     final bubbles = find.descendant(of: room, matching: find.byType(MessageBubble)).evaluate().length;
     must(bubbles == job['count'], 'B: 예전 메시지 $bubbles건(기대 ${job['count']}건 그대로)');
     must(!_has(find.byType(TrustRevealBubble)), 'B: 카톡 아이디 · 실사진 카드가 남음(기대 사라짐)');

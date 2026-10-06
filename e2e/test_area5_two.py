@@ -175,6 +175,15 @@ class RegistryTest(unittest.TestCase):
         self.assertEqual(text.count('_wdWithdraw('), 1)  # 탈퇴 버튼은 _twoWithdrawA 안 한 곳에서만
         self.assertIn('await _twoWithdrawA(tester);', text.split('Area1Case _twoA()', 1)[1].split('});', 1)[0])
 
+    def test_the_room_bubbles_are_counted_only_after_the_first_message_page_has_drawn(self):
+        """방 머리말(닉네임 · 안내)은 메시지 첫 쪽보다 먼저 그려져 그 전에 세면 0건이다 — 세기 앞에 첫 말풍선을 기다린다."""
+        body = dart('area5_two.dart').split("'E-WD-06/B'", 1)[1].split("'E-WD-07/A'", 1)[0]
+        count = body.index('.evaluate().length')
+        wait = body.index('await pumpUntil(tester, find.descendant(of: room, matching: find.byType(MessageBubble)));')
+        self.assertLess(wait, count)
+        self.assertLess(body.index('find.byType(TrustRevealBubble)'), body.index("step('room')"))
+        self.assertLess(wait, body.index('find.byType(TrustRevealBubble)'))  # 카드 없음도 로딩이 끝난 뒤에 본다
+
     def test_the_literals_the_app_looks_for_are_in_the_real_screens(self):
         screens = '\n'.join(p.read_text(encoding='utf-8') for p in (tools.ROOT / 'frontend' / 'lib').rglob('*.dart'))
         for literal in ('상대가 채팅방을 나가 더 이상 메시지를 보낼 수 없어요.', '채팅방 나가기', '내가 쓴 리뷰', '아직 쓴 리뷰가 없어요'):
