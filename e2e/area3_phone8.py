@@ -67,6 +67,10 @@ def p_chat_10(run, phone):
     body, sent = _text(HANGUL, LIMIT), []
     said = _app(check, phone(midway=lambda said: sent.append(_send(run, partner, match_id, body, retry=False)), token_hash=token,
                              nickname=partner['nickname'], body=body))
+    if said and said.get('loaded') is False:  # 앱이 방 읽기 · 실시간 구독을 못 끝내 글을 보내기 전에 멈췄다 — 구독 전에 보내면 가짜 실패
+        raise Blocked(f"B 방이 안 읽힘(loaded False · 오류 {said.get('error')!r}) — 글을 보내지 않았다. 로그인 · 방 확인")
+    if said:
+        check.that(said.get('loaded') is True, f"앱이 방 읽기를 끝냈다고 안 말함 {said.get('loaded', MISSING)}(기대 True)")
     check.reply('A 보내기', sent[0] if sent else (0, '앱이 멈추기 전에 끝남'), 201)
     got = _sent(run, partner, match_id)
     check.that(got == [body], f'DB body {[len(b) for b in got]}자 {len(got)}행(기대 [{LIMIT}]자 1행)')
@@ -77,8 +81,11 @@ def p_chat_10(run, phone):
         created, seen = _at((rows or [{}])[0].get('created_at')), _at(said.get('seen_at'))
         if created and seen:
             delay = (seen - created).total_seconds()
-            check.that(delay <= LIVE_LIMIT, f'B 화면에 {delay:.1f}초 뒤 표시(기대 ≤ {LIVE_LIMIT})')
-            note = f'지연 {delay:.2f}초(앱 시계 − 서버가 찍은 보낸 시각)' + (' — 음수는 폰 시계가 서버보다 앞선 시계 차' if delay < 0 else '')
+            if delay < 0:  # 앱이 본 시각이 서버가 찍은 시각보다 앞 — 폰 시계가 느려 N초 늦은 표시도 가려질 수 있어 판정하지 않는다
+                note = f'지연 판정 불가 — 앱이 본 시각이 서버가 찍은 보낸 시각보다 {-delay:.2f}초 앞섬(폰 시계 차). 말풍선 표시만 판정'
+            else:
+                check.that(delay <= LIVE_LIMIT, f'B 화면에 {delay:.1f}초 뒤 표시(기대 ≤ {LIVE_LIMIT})')
+                note = f'지연 {delay:.2f}초(앱 시계 − 서버가 찍은 보낸 시각)'
         else:
             check.problems.append('보낸 시각 또는 앱이 본 시각(seen_at)을 못 읽음')
     return check.result(note)
@@ -211,6 +218,9 @@ def p_rev_34(run, phone):
     _link(run, a, b)
     _match(run, a, b)
     review = _review(run, a, b)
+    status, body = _api(run, 'GET', '/friend-reviews/received', b['token'])  # 대조군 — 가리기 전에는 B 의 받은 목록에 1장 있다
+    if status != 200 or len((body or {}).get('reviews') or []) != 1:
+        raise Blocked(f'준비: 가리기 전 B 의 받은 목록이 1장이 아님({status} {body}) — "0장" 이 가림 때문이라는 증거가 못 된다')
     _patch(run, f'friend_reviews?id=eq.{review}', {'status': 'blinded'})
     _hidden_list(check, '쓴 목록(A)', _ask(run, check, phone, a, 'A 쓴 목록', list='written'))
     _hidden_list(check, '받은 목록(B)', _ask(run, check, phone, b, 'B 받은 목록', list='received'))
