@@ -4,14 +4,18 @@
 올바른 서버면 pass, 규칙 하나를 어긴 서버(시험마다 [SafeFake] 를 한 군데 바꿈)면 fail 이어야 한다.
 """
 
+import itertools
 import re
 import sys
+import tempfile
 import unittest
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from unittest import mock
 
-from e2e import area3_safe, tools
+from e2e import area2, area3_phone5, area3_safe, batch_gate, tools
+from e2e.area1 import SEOUL
 from e2e.test_area3 import PERMISSION, Base, Fake, mismatched_keys
 from e2e.tools import ROOT, Reply
 
@@ -25,7 +29,8 @@ REASONS = {'abuse', 'sexual', 'spam', 'fake', 'other'}
 OPEN_FOR_SUSPENDED = ('/me/verification-status', '/me/consents', '/account/withdraw', '/cards/push-tokens')
 
 API_ONLY = ('E-SAFE-10 E-SAFE-12 E-SAFE-14 E-SAFE-19 E-SAFE-20 E-SAFE-21 E-SAFE-23 E-SAFE-24 E-SAFE-29 E-SAFE-33 '
-            'E-SAFE-34 E-SAFE-44 E-SAFE-47 E-SAFE-48 E-SAFE-49 E-SAFE-51 E-SAFE-52 E-SAFE-54').split()
+            'E-SAFE-34 E-SAFE-44 E-SAFE-47 E-SAFE-48 E-SAFE-49 E-SAFE-51 E-SAFE-52 E-SAFE-54 E-SAFE-56 E-SAFE-58 '
+            'E-SAFE-59 E-SAFE-62').split()
 
 
 def _who(sent):
@@ -284,7 +289,7 @@ class SafeBase(Base):
 
 
 class RegistryTest(unittest.TestCase):
-    def test_bundle_is_exactly_the_18_api_only_safety_hypotheses(self):
+    def test_bundle_is_exactly_the_22_api_only_safety_hypotheses(self):
         self.assertEqual(area3_safe.BUNDLES, {'area3-safe-api': API_ONLY})
         self.assertEqual(sorted(area3_safe.CASES), sorted(API_ONLY))
 
@@ -590,6 +595,165 @@ class SuspendedTest(SafeBase):
     def test_54_fails_when_cards_still_show_the_suspended_person(self):
         self.fake.rules['suspended_cards'] = False
         self.fails('E-SAFE-54', '오늘 카드')
+
+
+class BatchBase(SafeBase):
+    """운영 배치(chat-gate · cleanup)를 흉내 내는 가짜 gcloud · 시계(화요일 14:20) · 통과 기록 파일. 실제 호출은 0건이다.
+    서버 규칙은 chat/batch_router.py run_chat_gate(한쪽이라도 정지 · 탈퇴면 건너뜀)와 account/batch_router.py run_cleanup(탈퇴 30일 · 처리 끝난 지 1년 신고 · 만료된 재가입 제한)."""
+
+    def setUp(self):
+        super().setUp()
+        area3_phone5._FAILED.clear()  # 배치 뒤 fail 의 기억은 시험끼리 새지 않게
+        self.clock, self.calls, self.batch_works, self.cleanups = [datetime(2026, 10, 6, 14, 20, tzinfo=SEOUL)], [], True, 0
+        self.fake.rules.update({'gate_skips_gone': True, 'report_by_created': False, 'report_days': 365, 'rerun_eats': False,
+                                'sweeps_blocks': True, 'report_cascade': False, 'keep_reporter': False, 'snapshot_wiped': False})
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        for patcher in (mock.patch.object(batch_gate, 'now_seoul', lambda: self.clock[0]),
+                        mock.patch.object(batch_gate, 'HISTORY', Path(folder.name) / 'runs.jsonl'),
+                        mock.patch.object(tools, 'batch', self.gcloud),
+                        mock.patch.object(area2, '_mine', lambda run: {u['id'] for u in self.fake.users}),
+                        mock.patch('time.monotonic', side_effect=itertools.count()),  # 기다림이 진짜 시간을 안 쓴다
+                        mock.patch('time.sleep')):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def gcloud(self, name):
+        self.calls.append(name)
+        if self.batch_works:
+            {'chat-gate': self.sim_gate, 'cleanup': self.sim_cleanup}[name]()
+
+    def sim_gate(self):
+        now = datetime.now(timezone.utc)
+        for match in self.fake.rows('matches'):
+            ids = [p['profile_id'] for p in self.fake.rows('match_participants') if p['match_id'] == match['id']]
+            gone = any(self.fake.profile(i)['status'] in ('suspended', 'withdrawn') for i in ids)
+            if match.get('chat_closed_at') or (gone and self.fake.rules['gate_skips_gone']) or not match.get('created_at'):
+                continue
+            if now - datetime.fromisoformat(match['created_at']) >= timedelta(hours=48):
+                match['chat_closed_at'] = now.isoformat()
+
+    def sim_cleanup(self):
+        rules, now = self.fake.rules, datetime.now(timezone.utc)
+        for pid, row in list(self.fake.profiles.items()):
+            if row['status'] == 'withdrawn' and now - datetime.fromisoformat(row['withdrawn_at']) >= timedelta(days=30):
+                del self.fake.profiles[pid]
+                self.fake.users[:] = [u for u in self.fake.users if u['id'] != pid]
+                if rules['report_cascade']:
+                    self.fake.tables['reports'] = [r for r in self.fake.rows('reports') if r['reporter_id'] != pid]
+                for r in self.fake.rows('reports'):
+                    if r['reporter_id'] == pid and not rules['keep_reporter']:
+                        r['reporter_id'] = None
+                        if rules['snapshot_wiped']:
+                            r['target_snapshot'] = {}
+        column = 'created_at' if rules['report_by_created'] else 'resolved_at'
+        cutoff = now - timedelta(days=rules['report_days'])
+        eat = rules['rerun_eats'] and self.cleanups > 0
+        self.fake.tables['reports'] = [r for r in self.fake.rows('reports')
+                                       if not ((r.get(column) and datetime.fromisoformat(r[column]) < cutoff) or (eat and r['status'] != 'open'))]
+        if rules['sweeps_blocks']:
+            self.fake.tables['signup_blocks'] = [b for b in self.fake.rows('signup_blocks')
+                                                 if datetime.fromisoformat(b['blocked_until']) >= now]
+        self.cleanups += 1
+
+    def at(self, hour, minute):
+        self.clock[0] = self.clock[0].replace(hour=hour, minute=minute)
+
+    def assertBlocked(self, name, *words):
+        result, note = self.case(name)
+        self.assertEqual(result, 'blocked', note)
+        for word in words:
+            self.assertIn(word, note)
+
+
+class SuspendedRoomGateTest(BatchBase):
+    def test_56_passes_and_calls_the_gate_once(self):
+        self.passes('E-SAFE-56')
+        self.assertEqual(self.calls, ['chat-gate'])
+
+    def test_56_fails_when_the_gate_closes_a_room_with_a_suspended_person(self):
+        self.fake.rules['gate_skips_gone'] = False
+        self.fails('E-SAFE-56', '닫힘')
+
+    def test_56_is_blocked_by_the_clock_and_never_calls_gcloud(self):
+        self.at(14, 57)
+        self.assertBlocked('E-SAFE-56', '15:06')
+        self.assertEqual(self.calls, [])
+
+    def test_56_is_blocked_when_the_batch_did_not_run(self):
+        self.batch_works = False
+        self.assertBlocked('E-SAFE-56', '확인용 방')
+
+
+class ReportCleanupTest(BatchBase):
+    def test_58_passes_and_leaves_no_test_reports(self):
+        self.passes('E-SAFE-58')
+        self.assertEqual(self.calls, ['cleanup'])
+        self.assertEqual(self.fake.rows('reports'), [])
+
+    def test_58_fails_when_the_cutoff_is_created_at(self):
+        self.fake.rules['report_by_created'] = True
+        self.fails('E-SAFE-58', '364일')
+
+    def test_58_fails_when_processed_reports_go_before_a_year(self):
+        self.fake.rules['report_days'] = 300
+        self.fails('E-SAFE-58', '364일')
+
+    def test_58_is_blocked_when_the_batch_did_not_run(self):
+        self.batch_works = False
+        self.assertBlocked('E-SAFE-58', '배치')
+        self.assertEqual(self.fake.rows('reports'), [])
+
+    def test_58_is_blocked_at_the_cleanup_window(self):
+        self.at(4, 0)
+        self.assertBlocked('E-SAFE-58', '04:')
+        self.assertEqual(self.calls, [])
+
+    def test_59_passes_and_runs_the_batch_twice(self):
+        self.passes('E-SAFE-59')
+        self.assertEqual(self.calls, ['cleanup', 'cleanup'])
+        self.assertEqual(self.fake.rows('reports'), [])
+
+    def test_59_fails_when_the_second_run_deletes_more(self):
+        self.fake.rules['rerun_eats'] = True
+        self.fails('E-SAFE-59', '두 번째')
+
+    def test_59_is_blocked_when_the_second_run_leaves_no_trace(self):
+        self.fake.rules['sweeps_blocks'] = False
+        self.assertBlocked('E-SAFE-59', '배치')
+
+
+class SeedCutOffTest(BatchBase):
+    def test_a_cut_off_answer_after_the_rows_went_in_still_removes_them(self):
+        """넣기는 서버에 됐는데 답이 끊겨 Blocked — 신고 행이 운영에 고아로 남으면 안 된다."""
+        real = area3_safe._insert
+
+        def cut(run, table, rows):
+            real(run, table, rows)
+            raise tools.Blocked('답이 끊김')
+        for name in ('E-SAFE-58', 'E-SAFE-59', 'E-SAFE-62'):
+            with self.subTest(name), mock.patch.object(area3_safe, '_insert', cut):
+                self.assertBlocked(name, '끊김')
+                self.assertEqual(self.fake.rows('reports'), [], name)
+                self.assertEqual(self.calls, [], name)
+
+
+class WithdrawnReporterTest(BatchBase):
+    def test_62_passes_and_calls_cleanup_once(self):
+        self.passes('E-SAFE-62')
+        self.assertEqual(self.calls, ['cleanup'])
+
+    def test_62_fails_when_the_report_goes_with_the_reporter(self):
+        self.fake.rules['report_cascade'] = True
+        self.fails('E-SAFE-62', '신고가 지워짐')
+
+    def test_62_fails_when_reporter_id_stays(self):
+        self.fake.rules['keep_reporter'] = True
+        self.fails('E-SAFE-62', 'reporter_id')
+
+    def test_62_fails_when_the_snapshot_is_wiped(self):
+        self.fake.rules['snapshot_wiped'] = True
+        self.fails('E-SAFE-62', 'target_snapshot')
 
 
 if __name__ == '__main__':
