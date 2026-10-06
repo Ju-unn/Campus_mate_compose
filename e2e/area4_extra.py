@@ -341,3 +341,5 @@ area1.BUNDLES['area4-extra-emu'] = BUNDLE_EMU
 area1.BUNDLES['area4-extra-two'] = list(TWO)
 area1.BUNDLES['area4-extra-ai'] = list(CASES)
 tools.CASE_LIMITS['E-SET-67'] = CASE_LIMIT
+# 배치를 부르는 둘 — 기본 420초는 계정 준비 + 앱 + 첫 배치 120초 + 카드 90초(43 은 연락처 세션까지)에 모자라고, 한도에 걸리면 배치는 이미 나간 뒤라 다시 못 돈다
+tools.CASE_LIMITS.update({'E-SET-04': 900, 'E-SET-43': 900})
