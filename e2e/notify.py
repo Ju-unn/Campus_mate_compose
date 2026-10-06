@@ -173,9 +173,12 @@ def _points(dump, title, body):
     for text, box in nodes:
         if title not in text:
             continue
-        near = [b for t, b in nodes if body is not None and body in t and 0 <= b[1] - box[1] < _ROW_SPAN]
-        if body is not None and not near:
-            continue
+        if body is None:  # 본문을 모르면 제목 바로 아래 첫 글줄(같은 줄의 시간 글자는 제외)을 본문 줄로 본다 — 짧은 제목은 눌러도 안 열리는 기기가 있다
+            near = sorted((b for t, b in nodes if t and 0 <= b[1] - box[3] < _ROW_SPAN), key=lambda b: b[1])
+        else:
+            near = [b for t, b in nodes if body in t and 0 <= b[1] - box[1] < _ROW_SPAN]
+            if not near:
+                continue
         return [_center(box), *([_center(near[0])] if near else [])]
     return []
 
