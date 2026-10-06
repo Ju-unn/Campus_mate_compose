@@ -13,7 +13,7 @@ import re
 import subprocess
 import sys
 import unittest
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest import mock
 
@@ -33,8 +33,14 @@ EXPIRED = '세션이 만료됐어요, 다시 로그인해 주세요'
 REVIEW_TITLE = '새 지인 리뷰가 도착했어요'
 
 
+_LAST = [datetime.now(timezone.utc)]
+
+
 def now():
-    return datetime.now(timezone.utc)
+    """늘어나는 시계 — 윈도 시계는 해상도가 15.6ms 라 빠른 가짜 앱에서 서로 다른 순간이 같은 값이 되어, 창(window)과 로그가 서로의 것을 센다.
+    가설 쪽 `area5_edge._now` 도 같은 시계로 바꿔(EdgeBase.setUp) 읽는다."""
+    _LAST[0] = max(datetime.now(timezone.utc), _LAST[0] + timedelta(microseconds=1))
+    return _LAST[0]
 
 
 def dart(name):
@@ -125,6 +131,7 @@ class EdgeBase(ReadBase):
                         mock.patch.object(notify, 'tap_notification', lambda serial, title: self.events.append(('tap', title))),
                         mock.patch.object(emu, 'root', lambda serial, hub=None: self.events.append('root')),
                         mock.patch.object(emu, 'online', lambda serial: not self.dropped()),
+                        mock.patch.object(area5_edge, '_now', now),
                         mock.patch.object(area5_edge, '_photos', lambda run, *names: None),
                         mock.patch.object(area5_edge, '_push', lambda phone, run, *names: None),
                         mock.patch.object(area5_edge, '_requests', lambda since, until: [r for r in self.logs if since <= r[0] <= until]),

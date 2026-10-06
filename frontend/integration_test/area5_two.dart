@@ -13,6 +13,7 @@ const _twoWrittenEntry = '내가 쓴 리뷰'; // my_friend_reviews_section.dart
 const _twoWrittenEmpty = '아직 쓴 리뷰가 없어요'; // written_reviews_screen.dart
 const _twoChatEmpty = '아직 시작된 대화가 없어요'; // conversations_screen.dart
 const _twoLongWait = Duration(minutes: 10); // 상대 기기 · 배치를 기다리는 멈춤(support.step 기본은 2분)
+const _twoBatchWait = Duration(minutes: 16); // E-WD-08 — PC 가 B 를 기다리게 하는 상한(e2e/area5_two.py BATCH_PEER 900초 = 15분)보다 길어야 앱이 먼저 포기하지 않는다
 const _twoLoadWait = Duration(seconds: 20);
 // 오늘 탭(today_cards_screen.dart)이 다 그려졌다는 표시 — 카드가 없을 때의 안내 글 중 하나, 또는 카드 한 장
 const _twoTodayEmpty = ['지금은 소개할 사람이 없어요', '오늘 카드는 확인했어요', '새로운 사람이 준비되면 알려드릴게요'];
@@ -20,9 +21,9 @@ const _twoTodayEmpty = ['지금은 소개할 사람이 없어요', '오늘 카�
 Future<void> _twoSignOut() => Supabase.instance.client.auth.signOut(scope: SignOutScope.local);
 
 /// 로그아웃한 채 [name] 에서 멈췄다가 PC 가 준 새 토큰으로 로그인해 [body] 를 돈다.
-Area1Case _twoLoginAfter(String name, Area1Case body) => (tester, job) async {
+Area1Case _twoLoginAfter(String name, Area1Case body, {Duration wait = _twoLongWait}) => (tester, job) async {
       await _twoSignOut();
-      final go = await step(name, timeout: _twoLongWait);
+      final go = await step(name, timeout: wait);
       await signIn(go['token_hash'] as String);
       return body(tester, job);
     };
@@ -150,7 +151,7 @@ final Map<String, Area1Case> area5CasesTwo = {
     await _twoOpenToday(tester);
     _twoNoTodayCard(tester, job['nickname'] as String);
     return null;
-  }),
+  }, wait: _twoBatchWait),
 
   // ── E-WD-09 내가 쓴 리뷰 ──
   'E-WD-09/A': _twoA(),
