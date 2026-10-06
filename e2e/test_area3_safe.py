@@ -28,7 +28,7 @@ REASONS = {'abuse', 'sexual', 'spam', 'fake', 'other'}
 # 정지를 보지 않는 문(로그인만 보는 get_caller). 나머지 API 는 전부 정지 403.
 OPEN_FOR_SUSPENDED = ('/me/verification-status', '/me/consents', '/account/withdraw', '/cards/push-tokens')
 
-API_ONLY = ('E-SAFE-10 E-SAFE-12 E-SAFE-14 E-SAFE-19 E-SAFE-20 E-SAFE-21 E-SAFE-23 E-SAFE-24 E-SAFE-29 E-SAFE-33 '
+API_ONLY = ('E-SAFE-10 E-SAFE-12 E-SAFE-14 E-SAFE-16 E-SAFE-19 E-SAFE-20 E-SAFE-21 E-SAFE-23 E-SAFE-24 E-SAFE-29 E-SAFE-33 '
             'E-SAFE-34 E-SAFE-44 E-SAFE-47 E-SAFE-48 E-SAFE-49 E-SAFE-51 E-SAFE-52 E-SAFE-54 E-SAFE-56 E-SAFE-58 '
             'E-SAFE-59 E-SAFE-62').split()
 
@@ -49,7 +49,8 @@ class SafeFake(Fake):
                       'blocks_rematch': False, 'suspended_cards': True, 'active_candidates': True, 'contact_both_ways': True,
                       'note_kept': False, 'foreign_contact_delete': False,
                       'owner_contact_delete': True, 'reported_leave_candidates': False, 'owners_see_hidden': False,
-                      'gate_writes': False, 'block_every_report': False}
+                      'gate_writes': False, 'block_every_report': False,
+                      'report_limit': 10, 'report_window_hours': 24}
         for method, pattern, handler in (
                 ('POST', r'/profile-onboarding/basic-info', self._basic), ('POST', r'/profile-onboarding/bio', self._bio),
                 ('POST', r'/reports', self._report), ('POST', r'/blocks/[^/]+', self._block),
@@ -168,6 +169,10 @@ class SafeFake(Fake):
             target, match = review['reviewer_id'], None
         if any((r['reporter_id'], r['target_type'], r['target_id']) == (me, kind, target_id) for r in self.rows('reports')):
             return Reply(409, {'detail': ALREADY})
+        since = datetime.now(timezone.utc) - timedelta(hours=self.rules['report_window_hours'])
+        if sum(r['reporter_id'] == me and datetime.fromisoformat(r['created_at']) >= since
+               for r in self.rows('reports') if r.get('created_at')) >= self.rules['report_limit']:
+            return Reply(429, {'detail': '오늘은 더 신고할 수 없어요'})
         if match:
             if self.rules['block_every_report'] or not any((b['blocker_id'], b['blocked_id']) == (me, target)
                                                            for b in self.rows('blocks')):
@@ -175,7 +180,7 @@ class SafeFake(Fake):
             self._leave(me, match)
         self.rows('reports').append({'id': str(uuid.uuid4()), 'reporter_id': me, 'target_type': kind, 'target_id': target_id,
                                      'target_profile_id': target, 'reason': body['reason'], 'reason_note': note,
-                                     'status': 'open', 'resolved_at': None})
+                                     'status': 'open', 'resolved_at': None, 'created_at': datetime.now(timezone.utc).isoformat()})
         if (match or not self.rules['auto_hide']) and self.reporters(target) >= self.rules['hide_at'] \
                 and self.profile(target)['auto_hidden_at'] is None:
             self.profile(target)['auto_hidden_at'] = datetime.now(timezone.utc).isoformat()
@@ -289,7 +294,7 @@ class SafeBase(Base):
 
 
 class RegistryTest(unittest.TestCase):
-    def test_bundle_is_exactly_the_22_api_only_safety_hypotheses(self):
+    def test_bundle_is_exactly_the_23_api_only_safety_hypotheses(self):
         self.assertEqual(area3_safe.BUNDLES, {'area3-safe-api': API_ONLY})
         self.assertEqual(sorted(area3_safe.CASES), sorted(API_ONLY))
 
@@ -384,6 +389,24 @@ class ReportRulesTest(SafeBase):
             {'id': str(uuid.uuid4()), 'match_id': match['id'], 'sender_id': me, 'kind': 'left'}))
         self.addCleanup(setattr, self.fake, '_leave', original)
         self.fails('E-SAFE-14', '나감 줄')
+
+
+class DailyReportLimitTest(SafeBase):
+    def test_16_the_eleventh_is_429_until_one_of_the_ten_passes_24_hours_then_201(self):
+        self.passes('E-SAFE-16')
+        self.assertEqual(self.fake.count('reports', reporter_id='id-1'), 1)  # 넣은 열 건은 지워지고 API 로 낸 한 건만 남는다
+
+    def test_16_fails_when_the_limit_never_applies(self):
+        self.fake.rules['report_limit'] = 10 ** 6
+        self.fails('E-SAFE-16', '429')
+
+    def test_16_fails_when_a_report_past_24_hours_still_counts(self):
+        self.fake.rules['report_window_hours'] = 10 ** 6
+        self.fails('E-SAFE-16', '201')
+
+    def test_16_fails_when_the_window_is_shorter_than_a_day(self):
+        self.fake.rules['report_window_hours'] = 0.5
+        self.fails('E-SAFE-16', '429')
 
 
 class AutoHideTest(SafeBase):
