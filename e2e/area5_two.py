@@ -189,9 +189,9 @@ def _region(run):
     return area2_time_batch._prepare(run)
 
 
-def _issue_cards(run, region, control):
-    """daily-cards 한 번 — 시험 지역 설정을 매일 칸으로 맞추고, 대조군이 카드를 받을 때까지(설정은 끝나면 원복)."""
-    area2_time_batch._issue(run, region, list(EVERY_DAY), control=control)
+def _issue_cards(run, region, control, subjects=()):
+    """daily-cards 한 번 — 시험 지역 설정을 매일 칸으로 맞추고, 대조군 · 대상이 카드를 받을 때까지(설정은 끝나면 원복)."""
+    area2_time_batch._issue(run, region, list(EVERY_DAY), control=control, subjects=subjects)
 
 
 def two_08(run, two):
@@ -206,8 +206,10 @@ def two_08(run, two):
 
     def batch():
         check.that(a['id'] not in _candidates(run, b), 'A 탈퇴 뒤에도 B 의 후보에 A 가 있음')
-        _issue_cards(run, region, [control])
-        mine = [row for row in area2_time_batch._cards(run, b) if row['target_id'] == a['id']]
+        _issue_cards(run, region, [control], [b])
+        cards = area2_time_batch._cards(run, b)
+        mine = [row for row in cards if row['target_id'] == a['id']]
+        check.that(cards, 'B 는 배치에서 카드를 한 장도 못 받음(대조군은 받음) — "A 대상 0장" 이 배치가 B 를 돌았다는 증거가 못 된다')
         check.that(not mine, f'배치 뒤 B 의 무료 카드 중 A 대상 {len(mine)}장(기대 0)')
 
     result, memo = two({('A', 'withdrawn'): _out(run, check, a, batch), ('B', 'wait'): _login_after_out(run, b, BATCH_PEER)},
