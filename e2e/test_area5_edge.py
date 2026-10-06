@@ -276,6 +276,17 @@ class Edge01Test(EdgeBase):
         self.assertIn('ensure_online', self.events)
         self.assertEqual(self.profile()['height_cm'], 181)
 
+    def test_it_waits_for_the_network_to_really_drop_before_the_app_saves(self):
+        # 비행기 모드를 켠 직후 바로 앱이 저장을 누르면 망이 아직 살아 있어 첫 저장이 성공해 버린다 — 켠 바로 다음에 1~2초 쉰다.
+        with mock.patch('time.sleep', lambda seconds: self.events.append(('sleep', seconds))):
+            self.assertEqual(self.run01()[0], 'pass')
+        cuts = [i for i, e in enumerate(self.events) if e == ('airplane', True)]
+        self.assertEqual(len(cuts), 5)
+        for i in cuts:
+            nxt = self.events[i + 1]
+            self.assertEqual(nxt[0], 'sleep', f'비행기 모드를 켠 뒤 바로 {nxt!r}')
+            self.assertTrue(1 <= nxt[1] <= 2, nxt)
+
     def test_a_save_that_lands_while_offline_is_a_fail(self):
         result, note = self.run01(early='15-6')
         self.assertEqual(result, 'fail', note)
