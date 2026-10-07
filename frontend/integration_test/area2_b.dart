@@ -33,14 +33,14 @@ import 'support.dart';
 
 // 15d 피드 · 17b 쓰기 · 17c 상세 — frontend/lib/community/view/
 const _newPollTooltip = '질문 올리기'; // community_feed_screen.dart:62
-const _anonymous = '익명'; // poll_card.dart:101
+const _anonymous = '익명'; // poll_card.dart:102
 const _justNow = '방금 전'; // poll_time.dart:10 — 기기 시계가 서버보다 1분 넘게 앞서면 "1분 전" 이 되어 틀어진다
-const _noVotes = '0명 참여'; // poll_card.dart:203
-const _openDetail = '자세히 보기'; // poll_card.dart:317
+const _noVotes = '0명 참여'; // poll_card.dart:205
+const _openDetail = '자세히 보기'; // poll_card.dart:266
 const _detailTitle = '투표 상세'; // poll_detail_screen.dart:42
 const _commentsSoon = '댓글 기능은 아직 준비 중이에요'; // poll_detail_screen.dart:60
-const _post = '익명으로 올리기'; // poll_composer_screen.dart:128
-const _dailyLimit = '오늘은 질문을 더 올릴 수 없어요'; // poll_composer_screen.dart:18
+const _post = '익명으로 올리기'; // poll_composer_screen.dart:135
+const _dailyLimit = '오늘은 질문을 더 올릴 수 없어요'; // poll_composer_screen.dart:19
 const _pageSize = 20; // backend POLL_PAGE_SIZE(community/repository.py:11) — 처음 읽는 개수
 const _total = 25; // PC 가 올려 두는 시험 글 수(피드에 원래 보이던 글은 job 의 existing 으로 따로 온다)
 // 👍🏻 = 코드 포인트 2개(U+1F44D U+1F3FB). 79자 뒤에 붙이면 80 에서 잘려 👍 만 남는다.
@@ -231,6 +231,9 @@ final Map<String, Area1Case> _pollCases = {
     await type(tester, _questionField, '가' * 81);
     final question = fieldText(tester, _questionField).runes.length;
     must(question == 80, '질문 81자를 넣었더니 입력칸이 $question자(기대 80 에서 막힘)');
+    // 보기 입력칸은 "직접 적기" 탭에만 있다(기본은 O/X 탭, 10-08 개편).
+    await tap(tester, find.text('직접 적기'));
+    must(optionA.evaluate().isNotEmpty, '"직접 적기" 탭을 눌렀는데 보기 입력칸이 안 나옴');
     await type(tester, optionA, 'abcdefg');
     final option = fieldText(tester, optionA).runes.length;
     must(option == 6, '선택지 7자를 넣었더니 입력칸이 $option자(기대 6 에서 막힘)');

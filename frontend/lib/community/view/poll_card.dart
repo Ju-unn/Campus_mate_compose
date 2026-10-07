@@ -2,6 +2,7 @@ import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/community/model/poll.dart';
 import 'package:campus_mate/community/view/poll_donut.dart';
 import 'package:campus_mate/community/view/poll_time.dart';
+import 'package:campus_mate/community/view/vote_option.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -176,14 +177,15 @@ class _BeforeVote extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     VoidCallback? tap(PollChoice choice) => enabled ? () => onVote(choice) : null;
+    // O/X 줄(pen `zH8G0`)과 직접 적기 줄(`ojrC5`)은 같은 파랑 · 빨강 칸이다(공용 [VoteOption], 칸 높이 72).
     final buttons = poll.usesDefaultLabels
         ? [
-            _IconVote(icon: AppIcons.circle, label: poll.optionA, color: pollAgreeBlue, onPressed: tap(PollChoice.a)),
-            _IconVote(icon: AppIcons.x, label: poll.optionB, color: AppColors.primary, onPressed: tap(PollChoice.b)),
+            VoteOption.mark(side: VoteSide.agree, semanticLabel: poll.optionA, onPressed: tap(PollChoice.a)),
+            VoteOption.mark(side: VoteSide.disagree, semanticLabel: poll.optionB, onPressed: tap(PollChoice.b)),
           ]
         : [
-            _TextVote(label: poll.optionA, onPressed: tap(PollChoice.a)),
-            _TextVote(label: poll.optionB, onPressed: tap(PollChoice.b)),
+            VoteOption.text(side: VoteSide.agree, label: poll.optionA, onPressed: tap(PollChoice.a)),
+            VoteOption.text(side: VoteSide.disagree, label: poll.optionB, onPressed: tap(PollChoice.b)),
           ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -206,59 +208,6 @@ class _BeforeVote extends StatelessWidget {
           style: AppTypography.caption.copyWith(color: AppColors.muted),
         ),
       ],
-    );
-  }
-}
-
-/// 글자 없는 O · X 버튼(pen `VhiAe` · `mUsfX` 72 높이, radius 8, 아이콘 34 흰색).
-/// 화면 읽기는 아이콘의 semanticLabel("찬성" · "반대")로 읽는다.
-class _IconVote extends StatelessWidget {
-  const _IconVote({required this.icon, required this.label, required this.color, required this.onPressed});
-
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return FilledButton(
-      onPressed: onPressed,
-      style: FilledButton.styleFrom(
-        backgroundColor: color,
-        foregroundColor: AppColors.onPrimary,
-        minimumSize: const Size.fromHeight(72),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
-      ),
-      child: Icon(icon, size: 34, semanticLabel: label),
-    );
-  }
-}
-
-/// 직접 적은 선택지 버튼(pen `ojrC5` · `ALBe4` · `OJ4rJ`, 15d-4): button-secondary 값(#E5E5E5 · #222 18/700 · 56 · radius 16).
-/// AppButton 을 쓰지 않는 이유 — 높이가 56 으로 고정이라 글자를 키우면 라벨이 두 줄로 꺾여 조용히 잘린다.
-/// 여기서는 한 줄로 두고 칸보다 길면 줄여서 맞춘다(한 칸 폭 144, 라벨 6자).
-class _TextVote extends StatelessWidget {
-  const _TextVote({required this.label, required this.onPressed});
-
-  final String label;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return FilledButton(
-      onPressed: onPressed,
-      style: FilledButton.styleFrom(
-        backgroundColor: AppColors.primaryDisabled,
-        foregroundColor: AppColors.ink,
-        disabledBackgroundColor: AppColors.primaryDisabled,
-        disabledForegroundColor: AppColors.disabled,
-        minimumSize: const Size.fromHeight(56),
-        // pen `ALBe4` = Button `HE8FZ` padding [0,20]. 20 은 간격 토큰(16 · 24) 사이 값이라 리터럴로 둔다.
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.button)),
-      ),
-      child: FittedBox(fit: BoxFit.scaleDown, child: Text(label, maxLines: 1, style: AppTypography.label)),
     );
   }
 }

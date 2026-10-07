@@ -2,6 +2,7 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/community/model/community_repository_provider.dart';
 import 'package:campus_mate/community/model/poll.dart';
+import 'package:campus_mate/community/view/vote_option.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -25,13 +26,21 @@ TextInputFormatter _maxCodePoints(int max) => TextInputFormatter.withFunction((o
       return TextEditingValue(text: text, selection: TextSelection.collapsed(offset: text.length));
     });
 
-/// 17b `poll-composer`(pen `p4wnJ`). 입력 상태가 이 화면 안에서 끝나 ViewModel 을 두지 않는다.
+/// 투표 방식 탭(pen `O0ZJi` 의 두 칸). O/X 는 "찬성"/"반대" 를 보내 카드가 O·X 아이콘을 그린다.
+enum _VoteMode { ox, custom }
+
+/// 17b `poll-composer`(pen `tKjGJ` O/X · `Xe28J` 직접 적기). 입력 상태가 이 화면 안에서 끝나 ViewModel 을 두지 않는다.
 class PollComposerScreen extends ConsumerStatefulWidget {
   const PollComposerScreen({super.key});
 
   static const questionKey = Key('poll-question');
   static const optionAKey = Key('poll-option-a');
   static const optionBKey = Key('poll-option-b');
+  static const modeTabsKey = Key('poll-mode-tabs');
+  static const oxTabKey = Key('poll-mode-tab-ox');
+  static const customTabKey = Key('poll-mode-tab-custom');
+  static const oxUnderlineKey = Key('poll-mode-underline-ox');
+  static const customUnderlineKey = Key('poll-mode-underline-custom');
 
   @override
   ConsumerState<PollComposerScreen> createState() => _PollComposerScreenState();
@@ -39,8 +48,9 @@ class PollComposerScreen extends ConsumerStatefulWidget {
 
 class _PollComposerScreenState extends ConsumerState<PollComposerScreen> {
   final _question = TextEditingController();
-  final _optionA = TextEditingController(text: defaultOptionA);
-  final _optionB = TextEditingController(text: defaultOptionB);
+  final _optionA = TextEditingController();
+  final _optionB = TextEditingController();
+  _VoteMode _mode = _VoteMode.ox;
   bool _isSubmitting = false;
   String? _error;
 
@@ -52,9 +62,13 @@ class _PollComposerScreenState extends ConsumerState<PollComposerScreen> {
     super.dispose();
   }
 
+  /// O/X 탭은 보기가 정해져 있어 늘 맞다. 직접 적기 탭은 둘 다 적고 서로 달라야 한다(서버 규칙과 같다).
+  String get _optionTextA => _mode == _VoteMode.ox ? defaultOptionA : _optionA.text.trim();
+  String get _optionTextB => _mode == _VoteMode.ox ? defaultOptionB : _optionB.text.trim();
+
   bool get _canSubmit {
-    final a = _optionA.text.trim();
-    final b = _optionB.text.trim();
+    final a = _optionTextA;
+    final b = _optionTextB;
     return !_isSubmitting && _question.text.trim().isNotEmpty && a.isNotEmpty && b.isNotEmpty && a != b;
   }
 
@@ -65,8 +79,8 @@ class _PollComposerScreenState extends ConsumerState<PollComposerScreen> {
     });
     final result = await ref.read(communityRepositoryProvider).createPoll(
           question: _question.text.trim(),
-          optionA: _optionA.text.trim(),
-          optionB: _optionB.text.trim(),
+          optionA: _optionTextA,
+          optionB: _optionTextB,
         );
     if (!mounted) return;
     result.when(
@@ -112,14 +126,7 @@ class _PollComposerScreenState extends ConsumerState<PollComposerScreen> {
             const SizedBox(height: AppSpacing.xs),
             _QuestionBox(controller: _question, onChanged: () => setState(() {})),
             const SizedBox(height: 20),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: _optionField('선택지 A', PollComposerScreen.optionAKey, _optionA)),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(child: _optionField('선택지 B', PollComposerScreen.optionBKey, _optionB)),
-              ],
-            ),
+            _voteSection(),
             const SizedBox(height: 20),
             if (_error != null) ...[
               Text(_error!, style: AppTypography.bodySmall.copyWith(color: AppColors.error)),
@@ -132,28 +139,44 @@ class _PollComposerScreenState extends ConsumerState<PollComposerScreen> {
     );
   }
 
-  /// pen `mYKYP`: 라벨 12/600 · 간격 6 · 상자 44 #F7F7F7 radius 8 [0,14] 테두리 없음 · 값 14/600.
-  Widget _optionField(String label, Key key, TextEditingController controller) {
+  /// pen `VoteSection`: 세로 간격 12 — 라벨 14/600 #3F3F3F → 2칸 탭 → 보기 줄(칸 사이 12) → 안내 글 12 muted lh1.5.
+  Widget _voteSection() {
+    final custom = _mode == _VoteMode.custom;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(label, style: AppTypography.caption.copyWith(fontWeight: FontWeight.w600, color: AppColors.body)),
-        const SizedBox(height: 6),
-        Container(
-          constraints: const BoxConstraints(minHeight: 44),
-          alignment: Alignment.centerLeft,
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          decoration: BoxDecoration(color: AppColors.surfaceSoft, borderRadius: BorderRadius.circular(AppRadius.sm)),
-          child: TextField(
-            key: key,
-            controller: controller,
-            inputFormatters: [_maxCodePoints(pollOptionMaxLength)],
-            style: AppTypography.labelSmall.copyWith(color: AppColors.ink),
-            decoration: const InputDecoration.collapsed(hintText: ''),
-            onChanged: (_) => setState(() {}),
-          ),
+        Text('투표 방식', style: AppTypography.labelSmall.copyWith(color: AppColors.body, height: 20 / 14)),
+        const SizedBox(height: AppSpacing.sm),
+        _ModeTabs(mode: _mode, onSelected: (mode) => setState(() => _mode = mode)),
+        const SizedBox(height: AppSpacing.sm),
+        Row(
+          children: [
+            Expanded(child: custom ? _input(VoteSide.agree) : const VoteOption.mark(side: VoteSide.agree, interactive: false)),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: custom ? _input(VoteSide.disagree) : const VoteOption.mark(side: VoteSide.disagree, interactive: false),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          custom ? '보기 글자는 1~6자, 서로 달라야 해요' : 'O = 찬성, X = 반대로 투표를 받아요',
+          style: AppTypography.caption.copyWith(height: 1.5, color: AppColors.muted),
         ),
       ],
+    );
+  }
+
+  /// pen `xlCc2`(파랑 · "보기 1") · `k9Bdo8`(빨강 · "보기 2").
+  Widget _input(VoteSide side) {
+    final isAgree = side == VoteSide.agree;
+    return VoteOption.input(
+      side: side,
+      controller: isAgree ? _optionA : _optionB,
+      hint: isAgree ? '보기 1' : '보기 2',
+      fieldKey: isAgree ? PollComposerScreen.optionAKey : PollComposerScreen.optionBKey,
+      inputFormatters: [_maxCodePoints(pollOptionMaxLength)],
+      onChanged: () => setState(() {}),
     );
   }
 }
@@ -195,7 +218,7 @@ class _QuestionBox extends StatelessWidget {
   Widget build(BuildContext context) {
     final counterStyle = AppTypography.caption.copyWith(height: 1.5, color: AppColors.muted);
     return Container(
-      constraints: const BoxConstraints(minHeight: 104),
+      constraints: const BoxConstraints(minHeight: 100), // 17b 질문 상자 100(대장 10-08, 옛 104)
       padding: const EdgeInsets.all(AppSpacing.sm),
       decoration: BoxDecoration(
         color: AppColors.surfaceSoft,
@@ -225,6 +248,104 @@ class _QuestionBox extends StatelessWidget {
             child: Text('${controller.text.runes.length} / $pollQuestionMaxLength', style: counterStyle),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// pen Tab Bar `O0ZJi` 의 두 칸: 높이 44(글자를 키우면 따라 자란다), 아래 선 #EBEBEB 1.
+class _ModeTabs extends StatelessWidget {
+  const _ModeTabs({required this.mode, required this.onSelected});
+
+  final _VoteMode mode;
+  final ValueChanged<_VoteMode> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      key: PollComposerScreen.modeTabsKey,
+      decoration: const BoxDecoration(
+        color: AppColors.canvas,
+        border: Border(bottom: BorderSide(color: AppColors.hairlineSoft)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _ModeTab(
+              tabKey: PollComposerScreen.oxTabKey,
+              underlineKey: PollComposerScreen.oxUnderlineKey,
+              label: 'O/X',
+              selected: mode == _VoteMode.ox,
+              onTap: () => onSelected(_VoteMode.ox),
+            ),
+          ),
+          Expanded(
+            child: _ModeTab(
+              tabKey: PollComposerScreen.customTabKey,
+              underlineKey: PollComposerScreen.customUnderlineKey,
+              label: '직접 적기',
+              selected: mode == _VoteMode.custom,
+              onTap: () => onSelected(_VoteMode.custom),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 탭 칸(pen `Tab` `H2Qyx`): 위 안쪽 12, 선택 = #C4224B 700 + 밑줄 2 / 비선택 = #6A6A6A 500 + 밑줄 투명.
+class _ModeTab extends StatelessWidget {
+  const _ModeTab({
+    required this.tabKey,
+    required this.underlineKey,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final Key tabKey;
+  final Key underlineKey;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  static const double _barHeight = 44;
+  static const double _underline = 2;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = AppTypography.labelSmall.copyWith(
+      color: selected ? AppColors.primaryText : AppColors.muted,
+      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+      height: 20 / 14,
+    );
+    // 투명 Material 이 눌림 효과를 받는다 — 없으면 가장 가까운 Material 이 화면 전체 Scaffold 라 효과가 화면에 번진다(COMMON §4-2).
+    return Material(
+      type: MaterialType.transparency,
+      child: Semantics(
+        button: true,
+        selected: selected,
+        child: InkWell(
+          key: tabKey,
+          onTap: onTap,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: _barHeight - _underline),
+                child: Padding(
+                  padding: const EdgeInsets.only(top: AppSpacing.sm),
+                  child: Align(alignment: Alignment.topCenter, heightFactor: 1, child: Text(label, style: style)),
+                ),
+              ),
+              SizedBox(
+                height: _underline,
+                child: ColoredBox(key: underlineKey, color: selected ? AppColors.primaryText : Colors.transparent),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
