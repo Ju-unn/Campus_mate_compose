@@ -688,16 +688,21 @@ class Card11Test(Base):
         patches = [s['body'] for s in self.world.sent if s['method'] == 'PATCH' and 'profile_vectors' in s['path']]
         self.assertEqual(patches, [{'want_embedding': None}])
 
-    def test_without_a_closed_second_school_five_conditions_are_checked_and_the_sixth_is_blocked(self):
-        self.world.rows('universities').pop()  # 코호트용 둘째 학교 없음
-        note = self.blocked('E-CARD-11', '둘째', '5')
-        self.assertIn('학교', note)
-        self.assertEqual([len(self.cards_of(f'id-{i}')) for i in range(1, 7)], [0, 0, 0, 0, 0, 1])  # 5명 + 대조군
+    def test_without_a_closed_school_the_case_makes_its_own_and_removes_it_at_the_end(self):
+        self.world.rows('universities').pop()  # 둘째 학교 없음 — 시험이 e2e-cohort 행을 만든다
+        self.passes('E-CARD-11')
+        self.assertEqual([u['id'] for u in self.world.rows('universities')], ['U'])  # 행도 지워지고
+        self.assertEqual({p['university_id'] for p in self.world.rows('profiles')}, {'U'})  # 계정도 시험대학으로 돌아옴
+        made = [s['body'][0] for s in self.world.sent if s['method'] == 'POST' and s['path'].endswith('/universities')]
+        self.assertEqual(len(made), 1)
+        self.assertTrue(made[0]['name'].startswith('e2e-cohort-'))
+        self.assertEqual(made[0]['region_group'], 'e2e')
 
-    def test_without_the_closed_school_a_real_violation_is_still_a_fail_not_a_block(self):
+    def test_without_the_closed_school_a_real_violation_is_still_a_fail(self):
         self.world.rows('universities').pop()
         self.world.rules['paused_gets_card'] = True
         self.fails('E-CARD-11', '일시중지')
+        self.assertEqual([u['id'] for u in self.world.rows('universities')], ['U'])  # 실패여도 행은 남지 않는다
 
 
 # ── E-CARD-12 ──────────────────────────────────────────────────────────────────────────────────────
@@ -817,18 +822,71 @@ class Home28Test(Base):
                 self.assertEqual(result, 'fail', note)
                 self.assertIn(word, note)
 
-    def test_without_a_second_closed_school_it_is_blocked_before_any_account_and_says_what_to_prepare(self):
+    def test_without_a_second_school_it_makes_its_own_and_removes_it_at_the_end(self):
         self.world.rows('universities').pop()
-        self.blocked('E-HOME-28', '테스트대학2', 'card_opens_at')
-        self.assertEqual(self.world.users, [])
+        self.passes('E-HOME-28')
+        self.assertEqual([u['id'] for u in self.world.rows('universities')], ['U'])
+        self.assertEqual({p['university_id'] for p in self.world.rows('profiles')}, {'U'})
 
-    def test_a_school_whose_opening_has_passed_is_not_a_closed_school(self):
+    def test_a_school_whose_opening_has_passed_is_not_a_closed_school_so_its_own_is_made(self):
         self.world.rows('universities')[-1]['card_opens_at'] = datetime(2026, 10, 5, 7, 0, tzinfo=SEOUL).isoformat()
-        self.blocked('E-HOME-28', 'card_opens_at')
+        self.passes('E-HOME-28')
+        self.assertEqual([u['id'] for u in self.world.rows('universities')], ['U', 'U2'])  # 남의 행은 건드리지 않는다
 
     def test_a_closed_school_of_another_region_is_not_used(self):
         self.world.rows('universities')[-1]['region_group'] = 'seoul'
-        self.blocked('E-HOME-28', 'card_opens_at')
+        self.passes('E-HOME-28')
+        self.assertEqual({p['university_id'] for p in self.world.rows('profiles')}, {'U'})
+        self.assertEqual(self.world.rows('universities')[-1]['id'], 'U2')
+
+
+class CohortSchoolTest(Base):
+    """둘째 시험학교 행 — 시작에서 앞 실행이 남긴 e2e-cohort 행부터 지우고, 끝(예외여도)에는 계정을 돌려놓고 지운다."""
+
+    def left_over(self, who=()):
+        self.world.rows('universities').append({'id': 'OLD', 'name': 'e2e-cohort-deadbeef', 'region_group': 'e2e',
+                                                'card_opens_at': datetime(2026, 10, 12, 7, 0, tzinfo=SEOUL).isoformat()})
+        for pid in who:
+            self.world.profile(pid)['university_id'] = 'OLD'
+
+    def test_a_row_left_by_a_dead_run_is_removed_first_and_its_people_go_home(self):
+        self.left_over(['id-9'])
+        self.passes('E-HOME-28')
+        self.assertEqual([u['id'] for u in self.world.rows('universities')], ['U'])
+        self.assertEqual(self.world.profile('id-9')['university_id'], 'U')
+        first = next(s for s in self.world.sent if s['method'] == 'DELETE' and s['path'].endswith('/universities'))
+        self.assertEqual(first['query'], {'id': 'eq.OLD'})  # 이름 틀이 아니라 id 하나씩
+
+    def test_a_hand_made_school_without_the_prefix_is_never_deleted(self):
+        self.closed_school()
+        self.passes('E-HOME-28')
+        self.assertEqual([u['id'] for u in self.world.rows('universities')], ['U', 'U2'])
+        self.assertEqual([s for s in self.world.sent if s['method'] == 'DELETE' and s['path'].endswith('/universities')], [])
+
+    def test_the_row_is_removed_even_when_the_case_dies_in_the_middle(self):
+        with mock.patch.object(tb, '_issue', side_effect=RuntimeError('중간에 죽음')):
+            result, note = self.go('E-HOME-28')
+        self.assertEqual(result, 'blocked', note)
+        self.assertEqual([u['id'] for u in self.world.rows('universities')], ['U'])
+        self.assertEqual({p['university_id'] for p in self.world.rows('profiles')}, {'U'})
+
+    def test_accounts_are_moved_home_before_the_row_is_deleted(self):
+        self.passes('E-HOME-28')
+        writes = [(s['method'], s['path'].rsplit('/', 1)[1]) for s in self.world.writes()
+                  if s['path'].endswith(('/universities', '/profiles')) and s['method'] != 'POST']
+        self.assertEqual(writes[-2:], [('PATCH', 'profiles'), ('DELETE', 'universities')])
+
+    def test_a_row_that_cannot_be_created_is_blocked_before_any_account(self):
+        self.world.on('POST', r'/rest/v1/universities', Reply(403, {'message': 'denied'}))
+        self.blocked('E-HOME-28', '둘째 시험학교', '403')
+        self.assertEqual(self.world.users, [])
+
+    def test_the_row_has_a_monday_0700_seoul_opening_in_the_future(self):
+        self.passes('E-HOME-28')
+        row = next(s['body'][0] for s in self.world.sent if s['method'] == 'POST' and s['path'].endswith('/universities'))
+        opens = datetime.fromisoformat(row['card_opens_at']).astimezone(SEOUL)
+        self.assertEqual((opens.isoweekday(), opens.hour, opens.minute, opens.second), (1, 7, 0, 0))
+        self.assertGreater(opens, area2._now())
 
 
 # ── E-HEART-22 · 23 ────────────────────────────────────────────────────────────────────────────────
@@ -950,6 +1008,15 @@ class WritesStayInsideThisRunTest(Base):
             table = s['path'].rsplit('/', 1)[1]
             if table == 'region_group_settings':
                 self.assertEqual(s['query'], {'region_group': 'eq.e2e'}, s)
+                continue
+            if table == 'universities':  # 둘째 시험학교 — 이 시험이 만든 e2e-cohort 행만 넣고 id 로 지운다
+                if s['method'] == 'POST':
+                    self.assertTrue(all(r['name'].startswith('e2e-cohort-') and r['region_group'] == 'e2e' for r in s['body']), s)
+                else:
+                    self.assertEqual((s['method'], list(s['query'])), ('DELETE', ['id']), s)
+                continue
+            if table == 'profiles' and list(s['query']) == ['university_id']:  # 둘째 학교에 든 계정을 시험대학으로 돌려놓는 쓰기
+                self.assertEqual(s['body'], {'university_id': 'U'}, s)
                 continue
             owners = {v[3:] for k, v in s['query'].items() if k in ('id', 'profile_id', 'owner_id') and v.startswith('eq.')}
             for row in s['body'] if isinstance(s['body'], list) else [s['body']]:
