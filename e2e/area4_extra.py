@@ -322,7 +322,7 @@ def two_set_67(run, two):
     def b_in(said, sync):
         sync.set('b-in')
         _after(sync, 'a-out', 'A')
-        check.reply('A 로그아웃 뒤 서버 쪽 계정', _api(run, 'GET', '/profiles/me', me['token']), 200)
+        check.reply('A 로그아웃 뒤 서버 쪽 계정', _api(run, 'GET', '/me/profile', me['token']), 200)
 
     def b_now(said, sync):
         time.sleep(HOLD)  # 시나리오 "5분 뒤" — A 가 먼저 끝나 Sync 가 abort 돼도 B 는 끝까지 기다린다(Sync.wait 는 abort 면 Aborted 를 던진다)

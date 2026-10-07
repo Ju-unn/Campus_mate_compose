@@ -3,6 +3,7 @@
 import os
 import unittest
 from unittest import mock
+from urllib.parse import urlsplit
 
 from e2e import area1, area2, area2_phone3, area4, area4_extra, tools, twodev
 from e2e.test_area1_phone import APP_PASS, FakePhone
@@ -36,8 +37,9 @@ class RegistryTest(unittest.TestCase):
     def test_the_six_that_code_cannot_do_are_not_registered(self):
         every = {*area1.CASES, *area1.PHONE, *twodev.TWO}
         for case in SIX_NOT_CODED:
-            self.assertNotIn(case, every)
-        self.assertEqual(sorted(c for c in area4.LEFT_OUT if c in SIX_NOT_CODED), ['E-SET-55', 'E-SET-56', 'E-SET-57'])
+            if case != 'E-SET-56':  # 56 은 줄 순서 · 맨 앞 앱만 자동으로 보는 가설로 area4_set56 이 등록했다(브라우저 화면은 사람)
+                self.assertNotIn(case, every)
+        self.assertEqual(sorted(c for c in area4.LEFT_OUT if c in SIX_NOT_CODED), ['E-SET-55', 'E-SET-57'])
 
     def test_the_two_device_case_has_a_long_enough_case_limit(self):
         self.assertGreater(tools.CASE_LIMITS['E-SET-67'], area4_extra.HOLD + 600)
@@ -438,7 +440,7 @@ class Set67Test(Base):
         with mock.patch.object(area4_extra, 'HOLD', 7):
             result, seen = self.run_two()
             sync = FakeSync({'a-out'})
-            with mock.patch.object(tools, 'call', self.server(('GET', '/profiles/me', lambda b, u: Reply(200, {'ok': 1})))):
+            with mock.patch.object(tools, 'call', self.server(('GET', '/me/profile', lambda b, u: Reply(200, {'ok': 1})))):
                 seen['plan'][('B', 'b-in')]({}, sync)
             slept = []
             with mock.patch.object(area4_extra.time, 'sleep', slept.append):
@@ -447,9 +449,23 @@ class Set67Test(Base):
             self.assertEqual(slept, [7])
         self.assertIn('b-in', sync.names)
 
+    def test_the_server_route_it_asks_is_a_real_one_not_the_uuid_route(self):
+        # 서버에 GET /profiles/me 는 없고 /profiles/{id} 로 읽혀 422 "valid UUID" 가 났다(E-SET-67 첫 실행). 내 프로필은 GET /me/profile.
+        router = (tools.ROOT / 'backend' / 'app' / 'me' / 'router.py').read_text(encoding='utf-8')
+        self.assertIn('@router.get("/me/profile")', router)
+        asked = []
+        result, seen = self.run_two()
+
+        def spy(method, url, headers=None, body=None, raw=None, **options):
+            asked.append((method, urlsplit(url).path))
+            return Reply(200, {'ok': 1})
+        with mock.patch.object(tools, 'call', spy):
+            seen['plan'][('B', 'b-in')]({}, FakeSync({'a-out'}))
+        self.assertEqual(asked, [('GET', '/me/profile')])
+
     def test_a_server_that_no_longer_knows_the_account_after_the_logout_is_a_fail(self):
         def two(plan, a_job=None, b_job=None, **limit):
-            with mock.patch.object(tools, 'call', self.server(('GET', '/profiles/me', lambda b, u: Reply(401, {'detail': 'x'})))):
+            with mock.patch.object(tools, 'call', self.server(('GET', '/me/profile', lambda b, u: Reply(401, {'detail': 'x'})))):
                 plan[('B', 'b-in')]({}, FakeSync({'a-out'}))
             return 'pass', 'ok'
         with mock.patch.object(tools, 'call', self.server()):

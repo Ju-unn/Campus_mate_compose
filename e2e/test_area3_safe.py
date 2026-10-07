@@ -138,8 +138,12 @@ class SafeFake(Fake):
 
     # ── 신고 · 차단 ──
     def _leave(self, me, match):
+        if match.get('chat_closed_at'):  # 닫힌 방은 차단 · 신고가 나가지 않는다(safety/router.py block_profile)
+            return
         if not any(m.get('kind') == 'left' and m['sender_id'] == me and m['match_id'] == match['id'] for m in self.rows('messages')):
-            self.rows('messages').append({'id': str(uuid.uuid4()), 'match_id': match['id'], 'sender_id': me, 'kind': 'left'})
+            self.rows('messages').append({'id': str(uuid.uuid4()), 'match_id': match['id'], 'sender_id': me, 'kind': 'left',
+                                          'body': f"{self.profile(me).get('nickname')}님이 채팅방을 나갔어요",
+                                          'created_at': datetime.now(timezone.utc).isoformat()})
 
     def _match_of(self, x, y):
         return next((m for m in self.rows('matches') if {m['profile_a'], m['profile_b']} == {x, y}), None)
