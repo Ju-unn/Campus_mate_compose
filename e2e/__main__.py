@@ -58,6 +58,7 @@ from e2e import area4_push_two  # noqa: F401 — 영역 4 알림 두 기기(E-PU
 from e2e import area4_set56  # noqa: F401 — 영역 4 E-SET-56(약관 줄) 가설을 area1.PHONE · BUNDLES 에 더한다
 from e2e import area5_more  # noqa: F401 — 영역 5 E-ME-05 · 22 · 32 가설을 area1.PHONE · twodev.TWO · area1.BUNDLES 에 더한다
 from e2e import area5_fake  # noqa: F401 — 영역 5 가짜 서버 응답 E-EDGE-05 · 06 · 07 · 08 을 area1.PHONE · BUNDLES 에 더한다
+from e2e import area5_kill  # noqa: F401 — 영역 5 아바타 만드는 중 앱 죽이기 E-EDGE-17 · 18 을 area1.PHONE · BUNDLES 에 더한다
 from e2e import area2_emu_b  # noqa: F401 — 영역 2 B에뮬 가설 11(수락함 · 투표 · 추천 코드)
 from e2e import area4_push_front  # noqa: F401 — 영역 4 알림 A3(앱이 앞에 있을 때)
 from e2e import area4_push_tap  # noqa: F401 — 영역 4 알림 A2(알림을 눌러 화면 열기)
