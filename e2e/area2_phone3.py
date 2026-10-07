@@ -207,11 +207,52 @@ def _dump(serial):
     return notify._ui_dump(serial)  # exec-out 으로 읽고 XML 이 아니면 Blocked — 읽는 길을 한 곳에 둔다
 
 
-def _tap_label(serial, labels):
-    point = tap_point(_dump(serial), labels)
+def _nodes(xml):
+    """덤프의 노드마다 (package, [text · content-desc 글자들], bounds). 우리 앱 자신의 노드는 뺀다 — 공유 창은 다른 앱(android · intentresolver)이 그린다."""
+    for node in re.findall(r'<node\b[^>]*>', xml or ''):
+        package = re.search(r'(?<![\w-])package="([^"]*)"', node)
+        box = re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', node)
+        if not box or (package and package.group(1) == tools.PACKAGE):
+            continue
+        words = [m.group(1) for m in re.finditer(r'(?<![\w-])(?:text|content-desc)="([^"]*)"', node) if m.group(1)]
+        yield words, tuple(map(int, box.groups()))
+
+
+def copy_point(xml):
+    """공유 창에서 "복사" 를 누를 자리. 완전히 같은 글자(SHARE_LABELS)를 먼저 찾고(다른 화면 오탭 방지), 없으면 'Copy' · '복사' 로 **시작하는** 글자, 그다음 **포함하는** 글자 —
+    글자 없는 복사 아이콘의 설명(content-desc)이나 잘려 보이는 "Copy to clip…" 같은 칸을 놓치지 않게. 우리 앱 노드는 뺀다. 없으면 None."""
+    nodes = list(_nodes(xml))
+    exact = {label.casefold() for label in SHARE_LABELS}
+    for match in (lambda w: w.casefold() in exact,
+                  lambda w: w.casefold().startswith(('copy', '복사')),
+                  lambda w: 'copy' in w.casefold() or '복사' in w):
+        for words, (x1, y1, x2, y2) in nodes:
+            if any(match(word) for word in words):
+                return (x1 + x2) // 2, (y1 + y2) // 2
+    return None
+
+
+def sheet_labels(xml, limit=15, width=24):
+    """공유 창(우리 앱 밖) 노드의 text · content-desc 라벨 — 정확한 이름을 알아내는 진단용. 최대 [limit] 개, 한 개 [width] 자까지. 에뮬에서만 남긴다(실폰 화면 글자는 저장 금지)."""
+    seen = []
+    for words, _ in _nodes(xml):
+        for word in words:
+            label = word.replace('\n', ' ')[:width]
+            if label not in seen:
+                seen.append(label)
+    return seen[:limit]
+
+
+def tap_copy(serial):
+    """공유 창의 복사 칸을 누른다 → (눌렀나, 못 눌렀을 때 붙일 메모). 메모는 에뮬일 때만 창 라벨을 싣는다."""
+    xml = _dump(serial)
+    point = copy_point(xml)
     if point:
         tools.adb(serial, 'shell', 'input', 'tap', str(point[0]), str(point[1]))
-    return point is not None
+        return True, ''
+    if not str(serial).startswith('emulator-'):
+        return False, ''
+    return False, f' · 창 라벨 {sheet_labels(xml)}'
 
 
 def _wait_for(until, seconds):
@@ -304,9 +345,10 @@ def p_ref_04(run, phone):
             return
         if notify.screen_has(phone.serial, text):
             note.append('공유 창에서 초대 글 확인')
-        if not _tap_label(phone.serial, SHARE_LABELS):
+        tapped, memo = tap_copy(phone.serial)
+        if not tapped:
             tools.adb(phone.serial, 'shell', 'input', 'keyevent', 'KEYCODE_BACK')
-            raise Blocked('공유 창에 "복사" 칸이 없음(이 기기 공유 창) — 사람 필요')
+            raise Blocked('공유 창에 "복사" 칸이 없음(이 기기 공유 창) — 사람 필요' + memo)
         time.sleep(1)
 
     said = _app(check, phone(midway=stepper(phone, sheet), token_hash=token, code=code))

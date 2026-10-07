@@ -24,7 +24,7 @@ from e2e import area2_time_device as td
 from e2e.area1 import Check, _api, _app, _rows, _signed_in
 from e2e.area1_emu import _emulator, _must_be_online
 from e2e.area2 import _set_status
-from e2e.area2_phone3 import SHARE_LABELS, _tap_label
+from e2e.area2_phone3 import tap_copy
 from e2e.tools import Blocked
 
 SHEET_WAIT = 3  # 버튼을 누른 뒤 공유 창이 뜨기를 기다리는 시간(초) — 먼저 코드를 서버에서 받아 온다
@@ -167,9 +167,10 @@ def _copy_from_sheet(phone, check, text, notes):
     notes.append('공유 창 확인' if is_chooser(top) else f'맨 앞이 공유 창 이름은 아님: {top[:80]}')
     if notify.screen_has(phone.serial, text):
         notes.append('창에서 초대 글 확인')
-    if not _tap_label(phone.serial, SHARE_LABELS):
+    tapped, memo = tap_copy(phone.serial)
+    if not tapped:
         tools.adb(phone.serial, 'shell', 'input', 'keyevent', 'KEYCODE_BACK')
-        raise Blocked('공유 창에 "복사" 칸이 없음(이 기기 공유 창) — 사람 필요')
+        raise Blocked('공유 창에 "복사" 칸이 없음(이 기기 공유 창) — 사람 필요' + memo)
     time.sleep(1)
 
 
