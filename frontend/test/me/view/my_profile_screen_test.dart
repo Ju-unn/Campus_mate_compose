@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
+import 'package:campus_mate/billing/view/heart_balance_chip.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/university_logos.dart';
@@ -212,6 +213,25 @@ void main() {
       expect(tester.getTopLeft(gear), const Offset(304, 4));
       final icon = tester.widget<Icon>(find.byIcon(AppIcons.settings));
       expect((icon.size, icon.color), (22, AppColors.ink));
+    });
+
+    testWidgets('하트 잔액 칩(`MjtQA`, "+" 없음)이 톱니 바로 왼쪽 — 오른쪽 끝 x300, 위 6, 높이 44, 톱니와 사이 4', (tester) async {
+      usePenFrame(tester);
+      await pump(tester, result: Success(_profile(heartBalance: 320)));
+
+      final chip = find.byType(HeartBalanceChipView);
+      expect(find.text('320'), findsOneWidget);
+      expect(find.byIcon(AppIcons.plus), findsNothing);
+      expect(tester.getTopRight(chip), const Offset(300, 6));
+      expect(tester.getSize(chip).height, 44);
+      expect(tester.getTopLeft(find.byTooltip('설정')).dx - tester.getTopRight(chip).dx, 4);
+    });
+
+    testWidgets('잔액을 못 읽으면 칩이 없다', (tester) async {
+      usePenFrame(tester);
+      await pump(tester, result: const FailureResult(NetworkFailure()));
+
+      expect(find.byType(HeartBalanceChipView), findsNothing);
     });
 
     testWidgets('톱니를 누르면 설정으로 간다', (tester) async {

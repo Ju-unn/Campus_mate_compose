@@ -1,3 +1,4 @@
+import 'package:campus_mate/billing/view/heart_balance_chip.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
@@ -81,6 +82,9 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> with MeToastH
         titleSpacing: 20,
         title: Text('내 프로필', style: AppTypography.navTitle.copyWith(color: AppColors.ink)),
         actions: [
+          // 하트 잔액 칩 `MjtQA` 81×44 — 톱니 바로 왼쪽, 사이 4(`hwVQB` 칩 x219~300 · 톱니 x304). "+" 는 없다.
+          const HeartBalanceChip(),
+          const SizedBox(width: AppSpacing.xxs),
           IconButton(
             tooltip: '설정',
             constraints: const BoxConstraints.tightFor(width: 48, height: 48),
