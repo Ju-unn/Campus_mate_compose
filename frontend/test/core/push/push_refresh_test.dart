@@ -26,7 +26,7 @@ class _Acceptances extends AcceptancesViewModel {
   AcceptancesUiState build() => const AcceptancesUiState();
 
   @override
-  Future<void> refresh() async => _refreshed.add('acceptances');
+  Future<void> refresh({bool quiet = false}) async => _refreshed.add('acceptances');
 }
 
 class _Conversations extends ConversationsViewModel {
@@ -34,7 +34,7 @@ class _Conversations extends ConversationsViewModel {
   ConversationsUiState build() => const ConversationsUiState();
 
   @override
-  Future<void> refresh() async => _refreshed.add('conversations');
+  Future<void> refresh({bool quiet = false}) async => _refreshed.add('conversations');
 }
 
 class _Verification extends StudentVerificationViewModel {

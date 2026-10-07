@@ -37,8 +37,14 @@ class FakeChatRepository implements ChatRepository {
   @override
   Future<Result<List<Conversation>>> fetchConversations() async {
     conversationsFetchCount += 1;
+    if (holdConversations case final hold?) {
+      await hold.future;
+    }
     return conversations;
   }
+
+  /// 채워 두면 대화 목록 조회가 이것이 끝날 때까지 멈춘다 — 읽는 도중에 또 읽으려는 상황용.
+  Completer<void>? holdConversations;
 
   @override
   Future<Result<ChatRoom>> fetchRoom(String matchId) async {
