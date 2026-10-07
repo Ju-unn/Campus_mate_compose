@@ -92,7 +92,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
         child: cohort != null
             ? CohortWaitView(cohort: cohort)
             : ListView(
-                padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, 20),
+                // pen `aEtSx` padding [8,16,0,16] — 앱바 바로 아래 첫 카드가 y8 에서 시작한다. 아래 20 은 스크롤 끝 여백(pen 은 내비가 덮는다).
+              padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.xs, AppSpacing.md, 20),
                 children: [
                   const _HeroToday(),
                   if (summary != null) ..._summarySections(summary),
@@ -150,7 +151,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
           ],
         ),
       ),
-      const SizedBox(height: AppSpacing.lg),
+      // pen 숫자 칸 ↔ 리뷰 띠 16(`gdS3k` 외 6곳, 종전 24 — 4px 넘쳐 내비를 덮어 줄였다).
+      const SizedBox(height: AppSpacing.md),
       _ReviewStrip(rating: summary.reviewRating, count: summary.reviewCount, onReview: _openStoreReview),
       // pen 은 여백 16 · 8(`sDLEb` · `o6qaj`)을 겹쳐 둔다.
       const SizedBox(height: AppSpacing.lg),
