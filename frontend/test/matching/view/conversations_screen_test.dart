@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/chat/model/message.dart';
 import 'package:campus_mate/common/failure.dart';
@@ -252,15 +250,17 @@ void main() {
     });
   });
 
-  group('돌아오면 대화 목록을 다시 읽는다', () {
+  group('화면에 들어올 때마다 수락 대기와 대화 목록을 다시 읽는다', () {
     late FakeChatRepository chat;
+    late FakeCardRepository cards;
     late ProviderContainer container;
 
     setUp(() {
       chat = FakeChatRepository()..conversations = Success([conversationFixture(unreadCount: 2)]);
+      cards = FakeCardRepository();
       container = ProviderContainer(
         overrides: [
-          cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
+          cardRepositoryProvider.overrideWithValue(cards),
           chatRepositoryProvider.overrideWithValue(chat),
         ],
       );
@@ -277,73 +277,64 @@ void main() {
       await tester.pump();
     }
 
-    // AppLifecycleListener 는 한 칸씩 넘어가는 순서만 받는다 — 기기와 같은 순서로 보낸다.
-    Future<void> sleepAndResume(WidgetTester tester) async {
-      for (final state in [
-        AppLifecycleState.inactive,
-        AppLifecycleState.hidden,
-        AppLifecycleState.paused,
-        AppLifecycleState.hidden,
-        AppLifecycleState.inactive,
-        AppLifecycleState.resumed,
-      ]) {
-        tester.binding.handleAppLifecycleStateChanged(state);
-      }
-      await tester.pump();
+    // 다른 탭으로 갔다가 이 화면으로 돌아오는 것과 같다 — 화면이 새로 만들어진다.
+    Future<void> leaveAndReturn(WidgetTester tester) async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await openScreen(tester);
     }
 
-    testWidgets('화면을 처음 열 때는 한 번만 읽는다', (tester) async {
+    testWidgets('화면을 처음 열 때는 두 목록을 한 번씩만 읽는다', (tester) async {
       await openScreen(tester);
 
       expect(chat.conversationsFetchCount, 1);
+      expect(cards.fetchAcceptancesCount, 1);
     });
 
-    testWidgets('앱이 백그라운드에서 돌아오면 다시 읽고 새 안 읽은 수를 보여준다', (tester) async {
+    testWidgets('다른 탭에 갔다가 이 화면으로 돌아오면 대화 목록을 다시 읽는다', (tester) async {
       await openScreen(tester);
-      expect(find.text('2'), findsWidgets);
       chat.conversations = Success([conversationFixture(unreadCount: 7)]);
 
-      await sleepAndResume(tester);
+      await leaveAndReturn(tester);
 
       expect(chat.conversationsFetchCount, 2);
       expect(find.text('7'), findsWidgets);
-      expect(find.text('2'), findsNothing);
     });
 
-    testWidgets('이미 읽는 중이면 돌아와도 또 읽지 않는다', (tester) async {
-      chat.holdConversations = Completer<void>();
+    testWidgets('다른 탭에 갔다가 이 화면으로 돌아오면 수락 대기도 다시 읽는다', (tester) async {
       await openScreen(tester);
-      expect(chat.conversationsFetchCount, 1);
+      expect(find.text('수락 대기'), findsNothing);
+      cards.acceptances = const Success([_acceptance]);
 
-      await sleepAndResume(tester);
+      await leaveAndReturn(tester);
 
-      expect(chat.conversationsFetchCount, 1);
-      chat.holdConversations!.complete();
-      await tester.pump();
-      await tester.pump();
-      expect(find.text('여우비'), findsOneWidget);
+      expect(cards.fetchAcceptancesCount, 2);
+      expect(find.text('초코라떼, 25'), findsOneWidget);
     });
 
-    testWidgets('다시 읽기가 실패해도 있던 대화 줄은 그대로 남는다', (tester) async {
+    testWidgets('돌아와 다시 읽다 실패해도 있던 줄은 남고 오류 문구는 새로 뜨지 않는다', (tester) async {
+      cards.acceptances = const Success([_acceptance]);
       await openScreen(tester);
       expect(find.text('여우비'), findsOneWidget);
       chat.conversations = const FailureResult(NetworkFailure());
+      cards.acceptances = const FailureResult(NetworkFailure());
 
-      await sleepAndResume(tester);
+      await leaveAndReturn(tester);
 
       expect(chat.conversationsFetchCount, 2);
       expect(find.text('여우비'), findsOneWidget);
+      expect(find.text('초코라떼, 25'), findsOneWidget);
+      expect(find.text(const NetworkFailure().toDisplayMessage()), findsNothing);
     });
 
-    testWidgets('다른 탭에 갔다가 이 화면으로 돌아오면 다시 읽는다', (tester) async {
+    testWidgets('당겨서 새로고침이 실패하면 오류 문구를 보여준다', (tester) async {
       await openScreen(tester);
-      chat.conversations = Success([conversationFixture(unreadCount: 7)]);
+      chat.conversations = const FailureResult(NetworkFailure());
 
-      await tester.pumpWidget(const SizedBox.shrink());
-      await openScreen(tester);
+      await tester.fling(find.byType(CustomScrollView), const Offset(0, 300), 1000);
+      await tester.pumpAndSettle();
 
-      expect(chat.conversationsFetchCount, 2);
-      expect(find.text('7'), findsWidgets);
+      expect(find.text(const NetworkFailure().toDisplayMessage()), findsOneWidget);
+      expect(find.text('여우비'), findsOneWidget);
     });
   });
 }
