@@ -346,7 +346,7 @@ void main() {
     expect(find.byType(WithdrawFirstSheet), findsOneWidget);
   });
 
-  // 하트 충전 줄 · 보유 하트 블록(X4olk · zlpeY)은 스토어 화면이 없어 뺀다(대장 10-03, 결제 개편 때).
+  // 하트 충전 줄 · 보유 하트 블록(X4olk · zlpeY)은 설정에 아직 없다(대장 10-03, 결제 개편 때 뺐고, 하트 스토어 18 은 생겼지만 설정 연결은 프로필탭 몫으로 남음).
   testWidgets('"무료로 하트 모으기" 줄은 하트 카드 첫 줄 · 친구 초대 바로 위, 3D 선물 24 와 셰브런이다(pen lMDpY oNgRd · oBpe4)', (tester) async {
     await pump(tester);
 

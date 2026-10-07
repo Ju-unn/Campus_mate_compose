@@ -7,8 +7,8 @@
 쓰기는 이번 실행이 만든 계정에만 한다(`area2._guard`). 탈퇴 · 영구 삭제 버튼은 어디서도 누르지 않는다.
 
 유료 호출 표(서버 코드 근거 — 이 모양이 바뀌면 test_area5_photo.PaidFactsTest 가 걸린다)
-  ME-12  OpenAI 0 · Vision 0 · 게이트 없음. 시트의 "하트 충전하기" 는 토스트만 띄운다(my_profile_screen.dart `_openRegenSheet` 의 chargeHearts) —
-         서버 요청이 없다. 앱이 뷰모델 상태(idle)를, PC 가 DB(아바타 행 · 하트 · 원장 그대로)를 본다.
+  ME-12  OpenAI 0 · Vision 0 · 게이트 없음. 시트의 "하트 충전하기" 는 시트를 닫고 하트 스토어(18, `/hearts/store`)로 간다(my_profile_screen.dart
+         `_openRegenSheet` 의 chargeHearts — 예전엔 "곧 열려요" 토스트) — 서버 요청이 없다(스토어가 읽는 하트 과제 목록 GET 은 쓰기가 아니다). 앱이 뷰모델 상태(idle)를, PC 가 DB(아바타 행 · 하트 · 원장 그대로)를 본다.
   ME-13  OpenAI 0 · Vision 0 · 게이트 없음(E-HEART-44 와 같은 402 가설). POST /me/avatar/regenerate 가 402 로 끝나 큐에 안 넣는다(me/router.py:133-137,
          큐 등록은 139). 하트 계산이 어긋나 202 가 되면 그 요청이 곧 유료 호출이라, 새 아바타 행이 생기면 fail 메모에 "유료" 를 적는다.
   ME-14  OpenAI 최대 1 · Vision 0 · 게이트 E2E_REAL_AI=1 + _PAID(없으면 계정도 요청도 없이 blocked, 한 번 나간 뒤에는 다시 안 돎).
@@ -55,7 +55,7 @@ from e2e.area1_b3 import _files, _photos, _push
 from e2e.area2_phone3 import _add_avatar, _balance, _slow, offline
 from e2e.area3_phone import MISSING
 from e2e.area4 import _restore
-from e2e.area5_act import TOAST_MS, _cut_settled, _paid_case
+from e2e.area5_act import _cut_settled, _paid_case
 from e2e.area5_read import TITLES, _avatar_rows, _home, _photos_to, _ready_avatars
 from e2e.tools import Blocked
 
@@ -243,9 +243,8 @@ def p_me_12(run, phone):
     check.that(said.get('sheet_title', MISSING) == LOW_TITLE, f"시트 제목 {said.get('sheet_title', MISSING)!r}(기대 {LOW_TITLE!r})")
     check.that(said.get('sheet_body', MISSING) == LOW_BODY, f"시트 글 {said.get('sheet_body', MISSING)!r}(기대 {LOW_BODY!r})")
     check.that(said.get('sheet_closed') is True, f"\"하트 충전하기\" 뒤 시트 닫힘 {said.get('sheet_closed', MISSING)}(기대 True)")
-    check.that(said.get('toast_seen') is True, f"토스트 \"곧 열려요\" {said.get('toast_seen', MISSING)}(기대 보임)")
-    ms = said.get('toast_ms')
-    check.that(isinstance(ms, int) and TOAST_MS[0] <= ms <= TOAST_MS[1], f'토스트가 떠 있던 시간 {ms}ms(기대 {TOAST_MS[0]}~{TOAST_MS[1]}ms — 약 2초)')
+    check.that(said.get('store_seen') is True, f"하트 스토어 섹션 \"구매하기\" {said.get('store_seen', MISSING)}(기대 보임)")
+    check.that(said.get('store_title') == 1, f"하트 스토어 앱바 제목 \"하트\" {said.get('store_title', MISSING)}개(기대 1)")
     check.that(said.get('regen_state', MISSING) == 'idle',
                f"다시 만들기를 불렀다 — 뷰모델 상태 {said.get('regen_state', MISSING)!r}(기대 idle — 시트의 충전 버튼은 서버를 부르지 않는다)")
     _not_spent(check, run, account, before)

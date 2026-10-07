@@ -135,7 +135,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> with MeToastH
   static AppToast _alertToast(String message) =>
       AppToast(leading: const Icon(AppIcons.alertTriangle, size: 16, color: AppColors.onInk), label: message);
 
-  /// 15b 시트(값은 서버 `avatar_regen_cost` · `heart_balance`). 하트 상점은 아직 없어 충전은 "곧 열려요"(C5).
+  /// 15b 시트(값은 서버 `avatar_regen_cost` · `heart_balance`). 충전은 하트 스토어(18, `/hearts/store`)로 간다.
   Future<void> _openRegenSheet(MyProfile profile) async {
     final choice = await showAvatarRegenSheet(
       context,
