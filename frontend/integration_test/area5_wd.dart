@@ -38,10 +38,10 @@ Future<String> _wdWithdraw(WidgetTester tester) async {
   return at;
 }
 
-/// 누른 뒤 02(로그인 화면)가 처음 그려질 때까지 걸린 ms 와 그때의 알림 글자. 못 닿으면 둘 다 null.
-Future<Map<String, Object?>> _wdToLogin(WidgetTester tester) async {
+/// 누른 뒤 02(로그인 화면)가 처음 그려질 때까지 걸린 ms 와 그때의 알림 글자. [within] 안에 못 닿으면 둘 다 null(느린 망은 늘린다 — E-WD-20).
+Future<Map<String, Object?>> _wdToLogin(WidgetTester tester, {Duration within = _wdLoginWait}) async {
   final watch = Stopwatch()..start();
-  while (watch.elapsed < _wdLoginWait) {
+  while (watch.elapsed < within) {
     await tester.pump(const Duration(milliseconds: 100));
     if (_has(screen('login'))) return {'login_ms': watch.elapsedMilliseconds, 'notice': _wdToast(tester)};
   }

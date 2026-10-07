@@ -43,6 +43,7 @@ from e2e import area5_act  # noqa: F401 — 영역 5 폰 A 고쳐 저장하기(�
 from e2e import area5_photo  # noqa: F401 — 영역 5 폰 A 아바타 다시 만들기 · 15-7 사진 수정 8개를 같은 곳에 더한다
 from e2e import area5_wd  # noqa: F401 — 영역 5 폰 A 탈퇴 흐름 9개(일시중지 · 영구 삭제 · 재가입 제한 · 정리 배치 · 강제 종료)를 같은 곳에 더한다(E-WD-12 는 API)
 from e2e import area5_edge  # noqa: F401 — 영역 5 경계 7개(폰 A: E-EDGE-01 · 11 · 15 · 19, B에뮬: 21 · 24 · 25)를 area1.PHONE · BUNDLES 에 더한다
+from e2e import area5_new  # noqa: F401 — 영역 5 새 5개(폰 A: E-EDGE-12 · E-WD-19, B에뮬: E-EDGE-04 · E-WD-20 · E-EDGE-10)를 area1.PHONE · BUNDLES 에 더한다
 from e2e import area5_two  # noqa: F401 — 영역 5 두 기기 탈퇴 5개(E-WD-05 ~ 09)를 twodev.TWO · area1.BUNDLES 에 더한다
 from e2e import area5_time  # noqa: F401 — 영역 5 시간조작 2개(E-WD-10 게이트 미통과 방 · E-WD-11 30일 정리 배치)를 area1.PHONE · BUNDLES 에 더한다
 from e2e import area2_time_device  # noqa: F401 — 영역 2 기기 · 시각 가설 13(배치 + 알림 · 시계)
@@ -64,6 +65,7 @@ from e2e import area4_push_night  # noqa: F401 — 영역 4 알림 밤·아침·
 from e2e import area3_phone7  # noqa: F401 — 영역 3 밤 가설 E-CHAT-34 · 42 · E-REV-18 을 영역 4 밤 판(E-PUSH-33 · 86 · 52)의 별칭으로 area1.PHONE · area3.BUNDLES 에 더한다(area4_push_night 뒤에)
 from e2e import area3_phone8  # noqa: F401 — 영역 3 폰 A 한 대 8차 — 채팅 · 지인 리뷰 E-CHAT-10 · 16 · E-REV-20 · 24 · 27 · 31 · 34 · 35 + E-CHAT-68 API
 from e2e import area3_chat_rt  # noqa: F401 — 영역 3 실시간 · 화면 — 폰 한 대 E-CHAT-01 · 02 · 07 · 22 · 23 · 24 · 61 · 72 + 두 기기 E-CHAT-03 · 58(twodev.TWO · area1.BUNDLES 에도 더한다)
+from e2e import area3_phone11  # noqa: F401 — 영역 3 신뢰 확인 E-CHAT-37 · 38 · 40 · 41(폰 한 대) + 39 · 44(폰 + 에뮬 두 기기, 묶음 area3-two-11)
 from e2e import area3_phone9  # noqa: F401 — 영역 3 지인 리뷰 알림 E-REV-16 · 17 · 26(단일 폰, area1.PHONE · area3.BUNDLES) · E-REV-41(두 기기, twodev.TWO)
 from e2e import area4_push_card  # noqa: F401 — 영역 4 알림 카드 배치 9(E-PUSH-01~09, daily-cards 를 불러 알림이 오는지 · 안 오는지)
 from e2e import area3_batch  # noqa: F401 — 영역 3 배치 E-BATCH-14~17 · 22 · 23 을 기존 판(E-PUSH-40 · 46 · 44 · 47 · E-AUTH-12 · E-HEART-22)의 별칭으로 area1.PHONE · area3.BUNDLES 에 더한다(API 둘은 아래 API_CASES)
