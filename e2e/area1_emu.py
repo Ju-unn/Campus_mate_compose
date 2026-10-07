@@ -55,14 +55,15 @@ def p_auth_22(run, phone):
 
 
 def p_auth_19(run, phone):
-    """홈까지 로그인 → 에뮬 시계 +2시간 → 앱을 다시 열면 로그인 화면 없이 홈, 홈 API 가 값을 받는다. root 가 안 되면 blocked."""
+    """홈까지 로그인 → 에뮬 시계 +2시간 → 앱을 다시 열면 로그인 화면 없이 홈, 홈 API 가 값을 받는다. root 가 안 되면 blocked.
+    다시 열기는 홈을 30초까지 기다린다(limit=30) — 에뮬은 실폰보다 느려 5초가 모자란다(E-AUTH-22 와 같은 이유)."""
     serial = _emulator(phone)
     check = Check()
     emu.root(serial, getattr(phone, 'hub', None))
     _, token = _signed_in(run, 'home')
     _app(check, phone(token_hash=token, phase='login'), '로그인')
     with emu.clock_shifted(serial, hours=2):
-        _app(check, phone(fresh=False, phase='later', expect='home'), '+2시간 뒤 다시 열기')
+        _app(check, phone(fresh=False, phase='later', expect='home', limit=30), '+2시간 뒤 다시 열기')
     return check.result()
 
 
