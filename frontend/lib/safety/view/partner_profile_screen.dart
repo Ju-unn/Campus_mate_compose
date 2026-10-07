@@ -149,7 +149,11 @@ class _PhotoHeader extends ConsumerWidget {
     return Padding(
       // 값표에 슬라이더 아래 간격이 없다 — 카드 안 섹션 간격 13(pen `TORAs`)을 따른다.
       padding: const EdgeInsets.only(bottom: 13),
-      child: PhotoSlider(photos: [for (final url in urls) image(url)], photoSize: const Size(288, 260)),
+      child: PhotoSlider(
+        photos: [for (final url in urls) image(url)],
+        photoSize: const Size(288, 260),
+        bordered: true, // pen `uMias` → 마스터 `YJdUT` 안 `oE1rh` PhotoSlide · Real — 안쪽 1px #DDDDDD
+      ),
     );
   }
 }

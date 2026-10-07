@@ -13,6 +13,7 @@ class PhotoSlider extends StatefulWidget {
     required this.photoSize,
     this.firstPhotoBadge,
     this.dotsGap = AppSpacing.xs,
+    this.bordered = false,
     super.key,
   });
 
@@ -26,6 +27,10 @@ class PhotoSlider extends StatefulWidget {
 
   /// 사진 ↔ 점 줄 간격. 기본 8 = 화면 15 · 14c, 15-5 = 12(pen `rrJ27` 섹션 gap 12, 대장 (가) 09-29).
   final double dotsGap;
+
+  /// 사진 칸 안쪽 1px #DDDDDD 테두리(15-5 PhotoSlide · Real `oE1rh` — inside stroke). 사진 크기 · 간격은 그대로다.
+  /// 15-5 · 14c 상대 프로필만 켠다. 화면 15 등 나머지는 pen 에 이 테두리가 없어 기본 꺼짐이다.
+  final bool bordered;
 
   @override
   State<PhotoSlider> createState() => _PhotoSliderState();
@@ -87,6 +92,13 @@ class _PhotoSliderState extends State<PhotoSlider> {
                         borderRadius: BorderRadius.circular(AppRadius.md),
                         image: DecorationImage(image: photos[index], fit: BoxFit.cover),
                       ),
+                      // 사진 위(배지 아래가 아니라 위)에 안쪽으로 그린다 — BoxDecoration 의 테두리는 칸 안에 그려져 크기가 안 변한다.
+                      foregroundDecoration: widget.bordered
+                          ? BoxDecoration(
+                              borderRadius: BorderRadius.circular(AppRadius.md),
+                              border: Border.all(color: AppColors.hairline),
+                            )
+                          : null,
                       child: index == 0 && widget.firstPhotoBadge != null
                           ? Stack(
                               children: [

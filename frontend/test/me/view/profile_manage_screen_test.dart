@@ -329,6 +329,7 @@ void main() {
       final slider = tester.widget<PhotoSlider>(find.byType(PhotoSlider));
       expect(slider.photos, const [NetworkImage('https://img.test/1.png'), NetworkImage('https://img.test/2.png')]);
       expect(slider.photoSize, const Size(252, 184));
+      expect(slider.bordered, isTrue); // pen `oE1rh` — 15-5 사진 칸 안쪽 1px #DDDDDD
     });
 
     testWidgets('첫 장 배지 `r6b8Vu` "수락 후 공개" + lock 12 — ink 알약, 11/600 렌더 18, 높이 28', (tester) async {
