@@ -124,9 +124,13 @@ Future<Map<String, Object?>?> _rtAlternate(WidgetTester tester, Map<String, dyna
       sentAt.add(_utcNow());
       await tap(tester, _sendButton);
     }
+    // 끝 맞춤 — 자기 글을 다 보낸 뒤 PC 가 상대도 다 보낼 때까지 기다렸다가 함께 풀어 준다. 느린 에뮬(줄당 입력 · 보내기 · 앞 보내기 끝 기다림)이 일정에서 밀려 맨 끝 줄을 늦게 보내도,
+    // 아래 20초 기다림이 "상대가 다 보낸 뒤 20초" 가 되어 시험이 끝을 일찍 말하지 않는다(실기기: 앱 38줄 · DB 40줄, 맨 끝 두 줄만 못 받음).
+    await _rtStep('sent', {'sent_at': sentAt}, timeout: _rtLong);
     await _rtUntil(tester, () => watch.seen.length == all.length, const Duration(seconds: 20));
     await tester.pump(const Duration(milliseconds: 500));
-    await _rtStep('done', {'seen': watch.seen, 'order': _rtOrder(container, matchId, all), 'sent_at': sentAt});
+    final doneAt = _utcNow(); // 앱 시계(UTC) — PC 가 못 받은 글의 서버 저장 시각과 견줘 "구독이 안 줬나 · 시험이 일찍 끝났나" 를 가른다
+    await _rtStep('done', {'seen': watch.seen, 'order': _rtOrder(container, matchId, all), 'sent_at': sentAt, 'done_at': doneAt});
     return null;
   } finally {
     watch.close();
