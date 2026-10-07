@@ -156,6 +156,7 @@ void main() {
         GoRoute(path: AppRoutes.friendReviews, builder: (context, state) => const Scaffold(body: Text('20c 화면'))),
         GoRoute(path: AppRoutes.friendReviewsWritten, builder: (context, state) => const Scaffold(body: Text('20e 화면'))),
         GoRoute(path: AppRoutes.settings, builder: (context, state) => const Scaffold(body: Text('설정 화면'))),
+        GoRoute(path: AppRoutes.heartStore, builder: (context, state) => const Scaffold(body: Text('18 스토어 화면'))),
         GoRoute(path: AppRoutes.myCardPreview, builder: (context, state) => const CardPreviewScreen()),
         GoRoute(path: AppRoutes.myProfileManage, builder: (context, state) => const ProfileManageScreen()),
       ],
@@ -534,16 +535,15 @@ void main() {
       expect(_toast, findsNothing);
     });
 
-    testWidgets('15b-3 "하트 충전하기" → 시트가 닫히고 "곧 열려요"(C5), 다시 만들기는 부르지 않는다', (tester) async {
+    testWidgets('15b-3 "하트 충전하기" → 시트가 닫히고 하트 스토어(18)로 간다, 다시 만들기는 부르지 않는다', (tester) async {
       final harness = await pump(tester, result: Success(_profile(heartBalance: 3, avatarRegenCost: 10)));
 
       await chooseInSheet(tester, '하트 충전하기');
+      await tester.pumpAndSettle();
 
       expect(find.text('하트가 모자라요'), findsNothing);
-      expect(find.text('곧 열려요'), findsOneWidget);
+      expect(find.text('18 스토어 화면'), findsOneWidget);
       expect(harness.avatars.regenerateCount, 0);
-      await tester.pump(MeToastHost.duration);
-      expect(find.text('곧 열려요'), findsNothing);
     });
 
     testWidgets('만드는 중에 화면을 떠나면 그만 묻는다(폴링 멈춤)', (tester) async {

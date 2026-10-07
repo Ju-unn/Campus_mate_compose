@@ -1,17 +1,14 @@
-import 'package:campus_mate/billing/model/heart_task.dart';
+import 'package:campus_mate/billing/view/heart_task_actions.dart';
 import 'package:campus_mate/billing/view/heart_task_row.dart';
-import 'package:campus_mate/billing/view/heart_task_submit_screen.dart';
 import 'package:campus_mate/billing/viewmodel/heart_tasks_ui_state.dart';
 import 'package:campus_mate/billing/viewmodel/heart_tasks_view_model.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
-import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 /// pen `EJDsZ`. 초기값 기준 안내(DESIGN §8.10 표) — 줄의 하트 수는 서버 값이다.
 const String _rewardNotice = '초기 보상 기준 · 인증 후 지급\n100명 이후 홍보 30 / 단톡방 20 하트';
@@ -74,22 +71,10 @@ class HeartTasksScreen extends ConsumerWidget {
         const SizedBox(height: AppSpacing.lg),
         for (final (index, task) in state.tasks.indexed) ...[
           if (index > 0) const SizedBox(height: AppSpacing.xs),
-          HeartTaskRow(task: task, onTap: _onTap(context, task)),
+          HeartTaskRow(task: task, onTap: heartTaskOnTap(context, task)),
         ],
       ],
     );
-  }
-
-  /// 누르는 줄: 인증 항목의 미완료 · 반려(→ 18b, 반려면 사유를 실어 18b-2), 투표 미완료(→ 커뮤니티 탭).
-  VoidCallback? _onTap(BuildContext context, HeartTask task) {
-    if (!task.kind.needsProof) {
-      return task.state == HeartTaskState.open ? () => context.go(AppRoutes.community) : null;
-    }
-    return switch (task.state) {
-      HeartTaskState.open => () => context.push(heartTaskSubmitLocation(task.kind)),
-      HeartTaskState.rejected => () => context.push(heartTaskSubmitLocation(task.kind, task.rejectReason)),
-      HeartTaskState.reviewing || HeartTaskState.done => null,
-    };
   }
 }
 
