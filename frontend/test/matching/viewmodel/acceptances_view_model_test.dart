@@ -148,17 +148,151 @@ void main() {
       expect(stateNow().respondingCardId, isNull);
     });
 
-    test('조용한 재읽기가 성공해도 방금 성사된 매칭 정보는 지우지 않는다', () async {
+    /// 수락이 성사돼 12 화면으로 보낼 매칭 정보가 상태에 올라간 채로 시작한다.
+    Future<void> matchJustMade() async {
       repository.acceptances = const Success([_acceptance]);
       repository.acceptanceOutcome = const Success(AcceptanceOutcome(matched: true, matchId: 'm-1'));
       await viewModel().refresh();
       await viewModel().respond('card-1', CardDecision.accept);
+      expect(stateNow().matchedNickname, '초코라떼');
+    }
+
+    test('조용한 재읽기가 성공해도 방금 성사된 매칭 정보는 지우지 않는다', () async {
+      await matchJustMade();
+      repository.acceptances = const Success([]);
+
+      await viewModel().refresh(quiet: true);
+
+      expect(stateNow().matchedNickname, '초코라떼');
+      expect(stateNow().matchedMatchId, 'm-1');
+    });
+
+    test('조용한 재읽기가 실패해도 방금 성사된 매칭 정보는 지우지 않는다', () async {
+      await matchJustMade();
       repository.acceptances = const FailureResult(NetworkFailure());
 
       await viewModel().refresh(quiet: true);
 
       expect(stateNow().matchedNickname, '초코라떼');
       expect(stateNow().matchedMatchId, 'm-1');
+    });
+  });
+
+  group('읽는 중에 겹친 읽기', () {
+    AcceptancesViewModel viewModel() => container.read(acceptancesViewModelProvider.notifier);
+    AcceptancesUiState stateNow() => container.read(acceptancesViewModelProvider);
+
+    /// 이미 한 줄이 보이는 상태에서, 조용한 읽기가 서버 답을 기다리는 중이다. 이 읽기는 실패로 끝나게 해 둔다.
+    Future<void> startQuietReadThatWillFail() async {
+      repository.acceptances = const Success([_acceptance]);
+      await viewModel().refresh();
+      repository.holdAcceptances = Completer<void>();
+      repository.acceptances = const FailureResult(NetworkFailure());
+      unawaited(viewModel().refresh(quiet: true));
+      await pumpEventQueue();
+    }
+
+    test('읽는 중에 조용한 호출이 또 와도 서버는 한 번만 읽는다', () async {
+      await startQuietReadThatWillFail();
+      final before = repository.fetchAcceptancesCount;
+
+      final joined = viewModel().refresh(quiet: true);
+      repository.holdAcceptances!.complete();
+      await joined;
+      await pumpEventQueue();
+
+      expect(repository.fetchAcceptancesCount, before);
+    });
+
+    test('당겨서 새로고침이 진행 중인 조용한 읽기에 합쳐진 뒤 실패하면 오류 문구를 보인다', () async {
+      await startQuietReadThatWillFail();
+      final before = repository.fetchAcceptancesCount;
+
+      final pulled = viewModel().refresh();
+      repository.holdAcceptances!.complete();
+      await pulled;
+
+      expect(repository.fetchAcceptancesCount, before + 1);
+      expect(stateNow().acceptances, hasLength(1));
+      expect(stateNow().errorMessage, const NetworkFailure().toDisplayMessage());
+    });
+
+    test('조용하지 않은 호출이 여러 번 합쳐져도 끝난 뒤 다시 읽는 건 한 번이다', () async {
+      await startQuietReadThatWillFail();
+      final before = repository.fetchAcceptancesCount;
+
+      final first = viewModel().refresh();
+      final second = viewModel().refresh();
+      repository.holdAcceptances!.complete();
+      await Future.wait([first, second]);
+
+      expect(repository.fetchAcceptancesCount, before + 1);
+    });
+
+    test('처음 열 때 화면의 조용한 읽기와 뷰모델의 첫 읽기가 합쳐져도 한 번만 읽는다', () async {
+      unawaited(viewModel().refresh(quiet: true));
+      await pumpEventQueue();
+
+      expect(repository.fetchAcceptancesCount, 1);
+      expect(stateNow().isLoading, isFalse);
+    });
+
+    test('응답 처리 전에 시작된 읽기에 끝의 목록 갱신이 합쳐져도 응답 뒤의 목록을 읽어 온다', () async {
+      repository.acceptances = const Success([_acceptance]);
+      await viewModel().refresh();
+      // 서버가 응답을 처리하기 전의 목록(카드가 아직 있다)을 들고 읽는 중이다.
+      repository.holdAcceptances = Completer<void>();
+      unawaited(viewModel().refresh(quiet: true));
+      await pumpEventQueue();
+      repository.acceptances = const Success([]);
+
+      final responding = viewModel().respond('card-1', CardDecision.reject);
+      await pumpEventQueue();
+      repository.holdAcceptances!.complete();
+      await responding;
+
+      expect(stateNow().acceptances, isEmpty);
+    });
+  });
+
+  group('오류 문구', () {
+    AcceptancesViewModel viewModel() => container.read(acceptancesViewModelProvider.notifier);
+    AcceptancesUiState stateNow() => container.read(acceptancesViewModelProvider);
+
+    test('읽기가 한 번 실패한 뒤 다음 읽기가 성공하면 오류 문구를 지운다', () async {
+      repository.acceptances = const FailureResult(NetworkFailure());
+      await viewModel().refresh();
+      expect(stateNow().errorMessage, isNotNull);
+      repository.acceptances = const Success([_acceptance]);
+
+      await viewModel().refresh();
+
+      expect(stateNow().acceptances, hasLength(1));
+      expect(stateNow().errorMessage, isNull);
+    });
+
+    test('응답이 실패한 뒤 목록 갱신이 성공해도 응답 실패 문구는 남는다', () async {
+      repository.acceptances = const Success([_acceptance]);
+      await viewModel().refresh();
+      repository.acceptanceOutcome = const FailureResult(NetworkFailure());
+
+      await viewModel().respond('card-1', CardDecision.accept);
+
+      expect(stateNow().acceptances, hasLength(1));
+      expect(stateNow().errorMessage, const NetworkFailure().toDisplayMessage());
+      expect(stateNow().respondingCardId, isNull);
+    });
+
+    test('다음 응답을 보내면 앞의 실패 문구는 지워진다', () async {
+      repository.acceptances = const Success([_acceptance]);
+      await viewModel().refresh();
+      repository.acceptanceOutcome = const FailureResult(NetworkFailure());
+      await viewModel().respond('card-1', CardDecision.accept);
+      repository.acceptanceOutcome = const Success(AcceptanceOutcome(matched: false));
+
+      await viewModel().respond('card-1', CardDecision.accept);
+
+      expect(stateNow().errorMessage, isNull);
     });
   });
 }
