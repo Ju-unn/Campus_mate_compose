@@ -181,11 +181,13 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
   }
 
   /// 내가 보낸 줄도 구독으로 한 번 더 돌아온다 — id 로 걸러 두 번 그리지 않는다.
+  /// 새 줄은 맨 뒤에 붙이지 않고 `(created_at, id)` 자리에 끼운다 — 내 응답은 서버가 닉네임 조회 · 푸시를 한 뒤에 오므로
+  /// 그 사이 온 상대 줄보다 늦게 도착해도 DB 순서(서버 커서)와 같은 자리에 서야 두 화면의 순서가 같다.
   void _receive(Message message) {
     if (!_alive || state.messages.any((existing) => existing.id == message.id)) {
       return;
     }
-    state = state.copyWith(messages: [...state.messages, message]);
+    state = state.copyWith(messages: _merge(state.messages, [message]));
     // 상대가 두 번째로 수락해 통과되면 구독으로는 수락 줄만 온다 — 통과 카드·카카오톡 아이디·
     // 실사진은 머리말을 다시 읽어야 내려온다. 내 수락은 [acceptTrust] 가 응답 뒤에 이미 읽는다.
     // 상대가 나가도 구독으로는 나감 줄만 온다 — 머리말을 다시 읽어야 입력창이 안내로 바뀐다(결정 7 · 결함 A12).
