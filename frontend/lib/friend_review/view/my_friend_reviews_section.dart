@@ -35,14 +35,14 @@ class MyFriendReviewsSection extends ConsumerWidget {
         const SizedBox(height: AppSpacing.sm),
         ProfileEntryRow(
           emphasis: true,
-          icon: AppIcons.heartHandshake,
+          icon: AppIcon3d.heartHandshake,
           title: '친구들이 본 나',
           note: _count('받은 리뷰', received),
           onTap: () => context.push(AppRoutes.friendReviews),
         ),
         const SizedBox(height: AppSpacing.sm),
         ProfileEntryRow(
-          icon: AppIcons.messageSquareText,
+          icon: AppIcon3d.chat,
           title: '내가 쓴 리뷰',
           note: _count('쓴 리뷰', written),
           onTap: () => context.push(AppRoutes.friendReviewsWritten),
