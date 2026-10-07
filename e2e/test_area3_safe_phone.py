@@ -1,4 +1,4 @@
-"""영역 3 안전 폰 A 한 대(E-SAFE 18개)의 PC 쪽 시험 — 폰 · 운영 없이 가짜 앱 · 가짜 서버로 돈다.
+"""영역 3 안전 폰 A 한 대(E-SAFE 27개)의 PC 쪽 시험 — 폰 · 운영 없이 가짜 앱 · 가짜 서버로 돈다.
 저장소 루트에서 `python -m unittest e2e.test_area3_safe_phone`.
 
 가짜 서버는 test_area3_safe.py 의 SafeFake(신고 · 차단 · 후보 · 정지 규칙)에 폰 가설이 읽는 것(닉네임 · 나감 시각 · 스냅샷 ·
@@ -9,7 +9,7 @@
 import re
 import unittest
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest import mock
 
 from e2e import area1, area2, area3, area3_safe_phone, area4, notify, tools
@@ -18,9 +18,9 @@ from e2e.test_area3_phone2 import MidwayApp, as_fn
 from e2e.test_area3_safe import SafeBase, SafeFake, _who
 from e2e.tools import Reply, Run
 
-BUNDLE = ['E-SAFE-01', 'E-SAFE-05', 'E-SAFE-07', 'E-SAFE-08', 'E-SAFE-09', 'E-SAFE-11', 'E-SAFE-13', 'E-SAFE-15',
-          'E-SAFE-18', 'E-SAFE-26', 'E-SAFE-27', 'E-SAFE-28', 'E-SAFE-30', 'E-SAFE-31', 'E-SAFE-50', 'E-SAFE-57',
-          'E-SAFE-60', 'E-SAFE-61']
+BUNDLE = ['E-SAFE-01', 'E-SAFE-02', 'E-SAFE-03', 'E-SAFE-04', 'E-SAFE-05', 'E-SAFE-06', 'E-SAFE-07', 'E-SAFE-08', 'E-SAFE-09',
+          'E-SAFE-11', 'E-SAFE-13', 'E-SAFE-15', 'E-SAFE-18', 'E-SAFE-22', 'E-SAFE-25', 'E-SAFE-26', 'E-SAFE-27', 'E-SAFE-28',
+          'E-SAFE-30', 'E-SAFE-31', 'E-SAFE-32', 'E-SAFE-50', 'E-SAFE-53', 'E-SAFE-55', 'E-SAFE-57', 'E-SAFE-60', 'E-SAFE-61']
 REPORTED = '신고했어요. 이 사용자는 차단되어 서로에게 보이지 않아요.'
 POLL_REPORTED = '신고했어요. 운영팀이 확인할게요'
 ALREADY_REPORTED = '이미 신고를 완료했어요'
@@ -34,6 +34,9 @@ SUSPENDED_TITLE = '이용이 제한된 계정이에요'
 SUPPORT = 'appmailerl4538@gmail.com'
 NOTICE = '연락처로 차단한 지인은 여기가 아니라 설정 > 연락처 차단에서 관리해요.'
 ON_LIST = dict(toast=REPORTED, on_list=True, room_listed=False)
+CHAT_NOT_FOUND = '대화를 찾을 수 없어요'
+PARTNER_LEFT = '상대가 대화를 나갔어요'
+TARGET = 'E2E-신고대상'
 
 
 def tok(account):
@@ -43,8 +46,77 @@ def tok(account):
 class PhoneFake(SafeFake):
     """SafeFake + 폰 가설이 읽는 것: 닉네임 · 나감 시각(left_at) · 신고 스냅샷 · 투표 글 신고(서버 `_poll_target` 규칙)."""
 
+    def __init__(self):
+        super().__init__()
+        for method, pattern, handler in (
+                ('GET', r'/chat/conversations', self._conversations), ('GET', r'/chat/matches/[^/]+', self._room),
+                ('GET', r'/chat/matches/[^/]+/messages', self._read), ('POST', r'/chat/matches/[^/]+/messages', self._post),
+                ('POST', r'/chat/matches/[^/]+/leave', self._leave_api)):
+            self.on(method, pattern, handler)
+
     def __call__(self, method, url, headers=None, body=None, raw=None, **options):
         return super().__call__(method, url, headers, body, raw)  # area2._poll 이 retry=False 를 넘긴다(test_area2.Fake 와 같은 모양)
+
+    # ── 채팅 API — chat/router.py 규칙 그대로(나간 사람은 404 · 상대가 나갔거나 정지면 보내기 409) ──
+    def _sides(self, sent):
+        me, match_id = _who(sent), sent['path'].split('/')[3]
+        match = next((m for m in self.rows('matches') if m['id'] == match_id), None)
+        parts = [p for p in self.rows('match_participants') if p['match_id'] == match_id]
+        return (match, next((p for p in parts if p['profile_id'] == me), None),
+                next((p for p in parts if p['profile_id'] != me), None))
+
+    def gone(self, part):
+        return bool(part.get('left_at')) or self.profile(part['profile_id'])['status'] in ('suspended', 'withdrawn')
+
+    def _conversations(self, sent):
+        me = _who(sent)
+        mine = [p['match_id'] for p in self.rows('match_participants') if p['profile_id'] == me and not p.get('left_at')]
+        return Reply(200, {'conversations': [{'match_id': m['id']} for m in self.rows('matches')
+                                             if m['id'] in mine and not m.get('chat_closed_at')]})
+
+    def _room(self, sent):
+        match, mine, partner = self._sides(sent)
+        if not match or not mine or mine.get('left_at'):
+            return Reply(404, {'detail': CHAT_NOT_FOUND})
+        gone = self.gone(partner)
+        room = {'match_id': match['id'], 'created_at': match.get('created_at'), 'chat_closed_at': match.get('chat_closed_at'),
+                'my_last_read_at': None,
+                'partner': {'profile_id': partner['profile_id'], 'nickname': self.profile(partner['profile_id']).get('nickname'),
+                            'avatar_url': None},
+                'gate': {'my_response': mine.get('trust_response'), 'passed': bool(match.get('trust_passed_at')),
+                         'passed_at': match.get('trust_passed_at'), 'partner_left': gone, 'deadline_at': None, 'remaining_seconds': 0},
+                'my_kakao_id': 'mine'}
+        if match.get('trust_passed_at') and not gone:  # 게이트를 통과했고 상대가 그대로일 때만 — 정지도 나간 것과 같다
+            room.update(kakao_id=f"k-{partner['profile_id']}", photo_urls=[])
+        return Reply(200, room)
+
+    def _read(self, sent):
+        match, mine, _ = self._sides(sent)
+        if not match or not mine or mine.get('left_at'):
+            return Reply(404, {'detail': CHAT_NOT_FOUND})
+        return Reply(200, {'messages': [dict(m) for m in self.rows('messages') if m['match_id'] == match['id']], 'has_more': False})
+
+    def _post(self, sent):
+        match, mine, partner = self._sides(sent)
+        if not match or not mine:
+            return Reply(404, {'detail': CHAT_NOT_FOUND})
+        if match.get('chat_closed_at') or mine.get('left_at'):
+            return Reply(409, {'detail': '이미 나간 대화예요'})
+        if self.gone(partner):
+            return Reply(409, {'detail': PARTNER_LEFT})
+        row = {'id': str(uuid.uuid4()), 'match_id': match['id'], 'sender_id': _who(sent), 'kind': 'text',
+               'body': sent['body']['body'], 'created_at': datetime.now(timezone.utc).isoformat()}
+        self.rows('messages').append(row)
+        return Reply(201, {'message': row})
+
+    def _leave_api(self, sent):
+        match, mine, _ = self._sides(sent)
+        if not match or not mine:
+            return Reply(404, {'detail': CHAT_NOT_FOUND})
+        if mine.get('left_at'):
+            return Reply(409, {'detail': '이미 나간 대화예요'})
+        self._leave(_who(sent), match)
+        return Reply(200, {'ok': True})
 
     def _basic(self, sent):
         self.profile(_who(sent))['nickname'] = sent['body']['nickname']
@@ -52,6 +124,8 @@ class PhoneFake(SafeFake):
 
     def _leave(self, me, match):
         super()._leave(me, match)
+        if match.get('chat_closed_at'):
+            return
         for row in self.rows('match_participants'):
             if row['match_id'] == match['id'] and row['profile_id'] == me:
                 row['left_at'] = datetime.now(timezone.utc).isoformat()
@@ -75,6 +149,10 @@ class PhoneFake(SafeFake):
             row = self.rows('reports')[-1]
             row['target_snapshot'] = {'nickname': self.profile(row['target_profile_id']).get('nickname'), 'bio': 'b',
                                       'avatar_path': None, 'photo_paths': []}
+        if reply[0] == 201 and body['target_type'] == 'message':  # safety/router.py 스냅샷 — 말풍선 본문
+            msg = next(m for m in self.rows('messages') if m['id'] == body['target_id'])
+            self.rows('reports')[-1]['target_snapshot'] = {'message_id': msg['id'], 'match_id': msg['match_id'], 'body': msg['body'],
+                                                           'created_at': msg.get('created_at')}
         return reply
 
 
@@ -83,6 +161,9 @@ class SafePhone(SafeBase):
         super().setUp()
         self.fake = PhoneFake()
         for patcher in (mock.patch.object(tools, 'call', self.fake),
+                        mock.patch.object(notify, 'grant_notifications'),  # E-SAFE-53 이 알림 권한을 주고 · 뺀다 — 실폰 adb 를 부르지 않는다
+                        mock.patch.object(notify, 'revoke_notifications'),
+                        mock.patch.object(notify, 'ensure_delivery'),
                         mock.patch.object(Run, 'remember'),  # accounts.json 을 계정 단계마다 열고 쓰는 것이 느리다(가설은 읽지 않는다)
                         mock.patch.object(area2, '_guard')):  # 그 accounts.json 으로 "이번 실행이 만든 계정" 을 보는 쓰기 가드
             patcher.start()
@@ -759,13 +840,362 @@ class OfflineReportTest(OfflineBase):
         self.assertIn('blocks', note)
 
 
+# ── 방 안 신고 · 신고당한 쪽 · 차단 · 해제 · 정지(02 · 03 · 04 · 06 · 22 · 25 · 32 · 55) ───────────────────────────────────────
+
+def left_line(nickname):
+    return f'{nickname}님이 채팅방을 나갔어요'
+
+
+class RoomReportTest(SafePhone):
+    """폰 계정 = id-1(A) · 상대 = id-2(B). 방 ⋯ 신고 · 말풍선 신고 · 나간 방 신고."""
+
+    def test_02_report_from_the_room_menu_keeps_the_four_messages_and_leaves_one_left_line(self):
+        _, app = self.passes('E-SAFE-02', self.app_reports(**ON_LIST))
+        self.assertEqual(app.jobs, [{'token_hash': 'h', 'nickname': self.nick('id-2')}])
+        self.assertEqual(len(self.rows('messages', kind='text')), 4)  # A · B 둘이 두 건씩
+        self.assertEqual({m['sender_id'] for m in self.rows('messages', kind='text')}, {'id-1', 'id-2'})
+        self.assertEqual([m['sender_id'] for m in self.rows('messages', kind='left')], ['id-1'])
+        self.assert_no_reports_left()
+
+    def test_02_fails_on_a_wrong_toast_no_report_or_messages_that_vanish(self):
+        self.fails('E-SAFE-02', self.app_reports(**{**ON_LIST, 'toast': '신고했어요'}), '토스트')
+        self.fails('E-SAFE-02', said(**ON_LIST), 'reports')
+
+        def eats(job):
+            self.report_by('id-1', 'id-2')
+            self.fake.tables['messages'] = [m for m in self.rows('messages') if m['kind'] != 'text']
+            return said(**ON_LIST)
+        self.fails('E-SAFE-02', eats, '방의 글')
+
+    def test_04_a_long_pressed_bubble_is_reported_with_its_body_in_the_snapshot(self):
+        def answer(job):
+            message = self.rows('messages', sender_id='id-2')[0]
+            self.report_by('id-1', message['id'], 'abuse', kind='message')
+            return said(**ON_LIST)
+        _, app = self.passes('E-SAFE-04', answer)
+        self.assertEqual(app.jobs, [{'token_hash': 'h', 'nickname': self.nick('id-2'), 'theirs': TARGET}])
+        row = self.last_reports[0]
+        self.assertEqual((row['target_type'], row['target_profile_id'], row['reason']), ('message', 'id-2', 'abuse'))
+        self.assertEqual(row['target_snapshot']['body'], TARGET)
+        self.assertEqual([s['auth'] for s in self.fake.by('POST', '/chat/matches/')], ['tok-2'])  # 그 글은 B 가 API 로 보냈다
+
+    def test_04_fails_on_a_wrong_reason_a_profile_report_or_a_snapshot_without_the_body(self):
+        def report(kind, reason='abuse', thin=False):
+            def answer(job):
+                target = self.rows('messages', sender_id='id-2')[0]['id'] if kind == 'message' else 'id-2'
+                self.report_by('id-1', target, reason, kind=kind)
+                if thin:
+                    self.fake.rows('reports')[-1]['target_snapshot'] = {'message_id': target}
+                return said(**ON_LIST)
+            return answer
+        self.fails('E-SAFE-04', report('message', 'spam'), 'reason')
+        self.fails('E-SAFE-04', report('profile'), 'target_type')
+        self.fails('E-SAFE-04', report('message', thin=True), '스냅샷')
+
+    def seen_gone(self, **over):
+        return said(**{**ON_LIST, 'gone_notice': True, 'input_bar': False, **over})
+
+    def report_after_left(self, **over):
+        def answer(job):
+            self.report_by('id-1', 'id-2')
+            return self.seen_gone(**over)
+        return answer
+
+    def test_06_report_in_a_room_the_partner_left_and_in_a_closed_room(self):
+        _, app = self.passes('E-SAFE-06', self.report_after_left())
+        self.assertEqual(app.jobs, [{'token_hash': 'h', 'nickname': self.nick('id-2')}])
+        self.assertEqual([r['target_profile_id'] for r in self.last_reports], ['id-2'])
+        self.assertEqual([(s['auth'], s['path'].endswith('/leave')) for s in self.fake.by('POST', '/chat/matches/')], [('tok-2', True)])
+        self.assertEqual(self.rows('blocks'), [{'blocker_id': 'id-1', 'blocked_id': 'id-2'}, {'blocker_id': 'id-3', 'blocked_id': 'id-4'}])
+        closed = self.fake.by('POST', '/reports')[-1]
+        self.assertEqual((closed['auth'], closed['body']['target_id']), ('tok-3', 'id-4'))  # 닫힌 방은 PC 가 API 로
+        self.assertTrue(self.rows('matches')[1]['chat_closed_at'])
+        self.assert_no_reports_left()
+
+    def test_06_fails_without_the_gone_notice_or_with_an_input_bar(self):
+        self.fails('E-SAFE-06', self.report_after_left(gone_notice=False), '나감 안내')
+        self.fails('E-SAFE-06', self.report_after_left(input_bar=True), '입력')
+
+    def test_06_fails_when_the_server_refuses_a_report_in_a_closed_room(self):
+        self.fake.handlers.insert(0, ('POST', re.compile(r'/reports'), lambda sent: (
+            Reply(404, {'detail': PROFILE_GONE}) if sent['auth'] == 'tok-3' else self.fake._report(sent))))
+        self.fails('E-SAFE-06', self.report_after_left(), '닫힌 방')
+
+    def test_06_is_blocked_when_the_partner_cannot_leave(self):
+        self.fake.handlers.insert(0, ('POST', re.compile(r'/chat/matches/[^/]+/leave'), Reply(500, {'detail': 'down'})))
+        (result, note), app = self.case('E-SAFE-06', self.report_after_left())
+        self.assertEqual(result, 'blocked')
+        self.assertEqual(app.jobs, [])
+
+
+class ReportedSideTest(SafePhone):
+    """03 — 폰 계정 = id-1(B, 신고당함) · A = id-2(신고함) · C = id-3(보통 나가기)."""
+
+    def good(self, **over):
+        return lambda job: said(**{'lines': [left_line(self.nick('id-2'))], 'notice': True, 'words': 0,
+                                   'other_lines': [left_line(self.nick('id-3'))], 'other_notice': True, 'other_words': 0, **over})
+
+    def app(self, answer):
+        return MidwayApp(answer, 'reported', [])
+
+    def test_03_the_reported_side_sees_the_same_left_line_as_after_a_normal_leave(self):
+        _, app = self.passes('E-SAFE-03', None, self.app(self.good()))
+        self.assertEqual(app.jobs, [{'token_hash': 'h', 'nickname': self.nick('id-2'), 'other': self.nick('id-3')}])
+        self.assertEqual([(s['auth'], s['body']['target_id']) for s in self.fake.by('POST', '/reports')], [('tok-2', 'id-1')])  # A 가 B 를 신고
+        self.assertEqual([s['auth'] for s in self.fake.by('POST', '/chat/matches/') if s['path'].endswith('/leave')], ['tok-3'])
+        lines = self.rows('messages', kind='left')
+        self.assertEqual({m['sender_id'] for m in lines}, {'id-2', 'id-3'})
+        self.assertEqual([s['auth'] for s in self.fake.by('GET', '/chat/matches/')], ['tok-1', 'tok-1'])  # B 의 방 머리말 둘
+        self.assertEqual(self.rows('match_participants', profile_id='id-1', left_at=None).__len__(), 2)  # B 는 나가지 않았다
+        self.assert_no_reports_left()
+
+    def test_03_fails_on_a_different_line_a_block_word_on_screen_or_a_missing_notice(self):
+        for over in ({'lines': ['A님이 차단했어요']}, {'other_lines': []}, {'words': 1}, {'other_words': 2}, {'notice': False}, {'other_notice': False}):
+            self.fails('E-SAFE-03', None, app=self.app(self.good(**over)))
+
+    def test_03_fails_when_the_server_words_the_two_left_lines_differently(self):
+        original = self.fake._leave
+
+        def tell(me, match):
+            original(me, match)
+            if me == 'id-2':  # 신고로 나간 줄만 글자가 다른 서버
+                self.rows('messages')[-1]['body'] = '신고로 나갔어요'
+        self.fake._leave = tell
+        self.addCleanup(setattr, self.fake, '_leave', original)
+        self.fails('E-SAFE-03', None, '꼴', app=self.app(self.good()))
+
+    def test_03_fails_when_the_room_header_of_the_reported_side_has_an_extra_key(self):
+        original = self.fake._room
+
+        def leaky(sent):
+            reply = original(sent)
+            if any(r['target_profile_id'] == _who(sent) for r in self.rows('reports')):
+                reply[1]['reported'] = True
+            return reply
+        self.fake.handlers.insert(0, ('GET', re.compile(r'/chat/matches/[^/]+'), leaky))
+        self.fails('E-SAFE-03', None, '머리말', app=self.app(self.good()))
+
+    def test_03_fails_when_the_reported_side_was_made_to_leave(self):
+        def both(job):
+            self.fake._leave('id-1', self.rows('matches')[0])
+            return self.good()(job)
+        self.fails('E-SAFE-03', None, 'left_at', app=self.app(both))
+
+    def test_03_is_blocked_when_the_normal_leave_is_refused(self):
+        self.fake.handlers.insert(0, ('POST', re.compile(r'/chat/matches/[^/]+/leave'), Reply(500, {'detail': 'down'})))
+        (result, note), _ = self.case('E-SAFE-03', None, self.app(self.good()))
+        self.assertEqual(result, 'blocked')
+        self.assertIn('나가기', note)
+
+
+class HiddenTargetTest(SafePhone):
+    """22 — A = id-1(폰) · B = id-2(대상) · 신고자 id-3 · 4 · 5."""
+
+    def good(self, delay=0.5, **over):
+        def answer(job):
+            self.fake.rows('messages').append({'id': 'a-1', 'match_id': self.match(), 'sender_id': 'id-1', 'kind': 'text', 'body': job['text'],
+                                          'created_at': datetime.now(timezone.utc).isoformat()})
+            seen = datetime.now(timezone.utc) + timedelta(seconds=delay)
+            return said(**{'loaded': True, 'seen_at': seen.isoformat(), 'bubble': True, 'mine': True, 'profile': True, **over})
+        return answer
+
+    def app(self, answer):
+        return MidwayApp(answer, 'ready', [])
+
+    def test_22_chat_and_14c_survive_the_auto_hide(self):
+        _, app = self.passes('E-SAFE-22', None, self.app(self.good()))
+        job = app.jobs[0]
+        self.assertEqual({k: v for k, v in job.items() if k not in ('body', 'text')},
+                         {'token_hash': 'h', 'nickname': self.nick('id-2'), 'profile_id': 'id-2'})
+        self.assertEqual([s['auth'] for s in self.fake.by('POST', '/reports')], ['tok-3', 'tok-4', 'tok-5'])  # 가림은 PC 가 낸 신고 셋
+        self.assertIsNotNone(self.fake.profile('id-2')['auto_hidden_at'])
+        sends = [(s['auth'], s['body']['body']) for s in self.fake.by('POST', '/chat/matches/')]
+        self.assertEqual(sends, [('tok-2', job['body'])])  # B 의 글은 앱이 멈춘 사이 PC 가 API 로
+        self.assertEqual([m['body'] for m in self.rows('messages', sender_id='id-1')], [job['text']])
+        self.assertIn(('tok-2', '/chat/matches/' + self.match() + '/messages'), [(s['auth'], s['path']) for s in self.fake.by('GET', '/chat/matches/')])
+        self.assert_no_reports_left()
+
+    def test_22_is_blocked_when_three_reporters_do_not_hide_the_target(self):
+        self.fake.rules['hide_at'] = 4
+        (result, note), app = self.case('E-SAFE-22', None, self.app(self.good()))
+        self.assertEqual(result, 'blocked')
+        self.assertIn('준비', note)
+        self.assertEqual(app.jobs, [])
+        self.assert_no_reports_left()
+
+    def test_22_is_blocked_when_the_room_was_not_read(self):
+        (result, note), _ = self.case('E-SAFE-22', None, self.app(self.good(loaded=False, error='x')))
+        self.assertEqual(result, 'blocked')
+        self.assertIn('읽힘', note)
+
+    def test_22_fails_on_a_slow_display_a_missing_bubble_my_row_or_a_closed_14c(self):
+        self.fails('E-SAFE-22', None, '초 뒤', app=self.app(self.good(delay=3.5)))
+        for over in ({'bubble': False}, {'mine': False}, {'profile': False}):
+            self.fails('E-SAFE-22', None, app=self.app(self.good(**over)))
+        self.fails('E-SAFE-22', None, 'messages', app=self.app(lambda job: said(loaded=True, seen_at='2026-01-01T00:00:00Z', bubble=True, mine=True, profile=True)))
+
+    def test_22_a_clock_that_runs_behind_is_noted_not_judged(self):
+        (result, note), _ = self.case('E-SAFE-22', None, self.app(self.good(delay=-5)))
+        self.assertEqual(result, 'pass', note)
+        self.assertIn('판정 불가', note)
+
+    def test_22_fails_when_the_server_stops_chatting_with_a_hidden_person(self):
+        self.fake.handlers.insert(0, ('POST', re.compile(r'/chat/matches/[^/]+/messages'), Reply(409, {'detail': PARTNER_LEFT})))
+        (result, note), _ = self.case('E-SAFE-22', None, self.app(self.good()))
+        self.assertEqual(result, 'fail')
+        self.assertIn('B 보내기', note)
+
+
+class BlockFlowTest(SafePhone):
+    """25 · 32 — 폰 계정 = id-1(A) · 상대 = id-2(B)."""
+
+    def blocked_from_the_room(self, **over):
+        def answer(job):
+            self.fake._block({'auth': 'tok-1', 'path': '/blocks/id-2'})
+            return said(on_list=True, room_listed=False, **over)
+        return answer
+
+    def test_25_block_from_the_room_menu_is_a_block_row_a_left_room_and_one_left_line_for_the_partner(self):
+        _, app = self.passes('E-SAFE-25', self.blocked_from_the_room())
+        self.assertEqual(app.jobs, [{'token_hash': 'h', 'nickname': self.nick('id-2')}])
+        self.assertTrue(self.left_at('id-1'))
+        self.assertEqual(self.rows('reports'), [])
+        self.assertEqual([m['sender_id'] for m in self.rows('messages', kind='left')], ['id-1'])
+        self.assertEqual([(s['auth']) for s in self.fake.by('GET', '/chat/matches/')], ['tok-2'])  # B 의 방 머리말을 PC 가 읽는다
+
+    def test_25_fails_without_a_block_a_left_room_a_left_line_or_with_a_report(self):
+        self.fails('E-SAFE-25', said(on_list=True, room_listed=False), 'blocks')
+        self.fails('E-SAFE-25', lambda job: (self.blocked_from_the_room()(job), said(on_list=False, room_listed=False))[1], '목록')
+        self.fails('E-SAFE-25', lambda job: (self.blocked_from_the_room()(job), said(on_list=True, room_listed=True))[1], '방')
+
+        def with_report(job):
+            self.report_by('id-1', 'id-2')
+            return said(on_list=True, room_listed=False)
+        self.fails('E-SAFE-25', with_report, 'reports')
+        original = self.fake._leave
+        self.fake._leave = lambda me, match: None
+        self.addCleanup(setattr, self.fake, '_leave', original)
+        self.fails('E-SAFE-25', self.blocked_from_the_room(), 'left_at')
+
+    def unblocked(self, **over):
+        def answer(job):
+            self.fake._unblock({'auth': 'tok-1', 'path': '/blocks/id-2'})
+            return said(**{'sheet': True, 'row_before': True, 'row_after': False, 'empty': True, **over})
+        return answer
+
+    def test_32_unblock_removes_the_row_but_the_room_stays_gone_and_the_partner_still_cannot_send(self):
+        _, app = self.passes('E-SAFE-32', self.unblocked())
+        self.assertEqual(app.jobs, [{'token_hash': 'h', 'nickname': self.nick('id-2')}])
+        self.assertEqual(self.rows('blocks'), [])
+        self.assertTrue(self.left_at('id-1'))
+        by_b = [(s['auth'], s['path'].rsplit('/', 1)[1]) for s in self.fake.by('POST', '/chat/matches/')]
+        self.assertEqual(by_b, [('tok-2', 'messages'), ('tok-2', 'messages')])  # 대조(다른 방 201) → 막힌 방 409
+        self.assertEqual([s['auth'] for s in self.fake.by('POST', '/blocks/')], ['tok-1'])  # 차단은 PC 가 API 로 먼저
+
+    def test_32_fails_when_the_row_stays_the_sheet_is_missing_or_the_blocks_row_remains(self):
+        for over in ({'row_before': False}, {'row_after': True}, {'sheet': False}, {'empty': False}):
+            self.fails('E-SAFE-32', self.unblocked(**over))
+        self.fails('E-SAFE-32', said(sheet=True, row_before=True, row_after=False, empty=True), 'blocks')
+
+    def test_32_fails_when_unblocking_brings_the_conversation_back(self):
+        original = self.fake._unblock
+
+        def restore(sent):
+            for row in self.rows('match_participants'):
+                row['left_at'] = None
+            return original(sent)
+        self.fake._unblock = restore
+        self.addCleanup(setattr, self.fake, '_unblock', original)
+        self.fails('E-SAFE-32', self.unblocked(), 'left_at')
+
+    def test_32_fails_when_the_blocked_partner_can_send_again(self):
+        original = self.fake._post
+        self.fake._post = lambda sent: Reply(201, {'message': {}})
+        self.addCleanup(setattr, self.fake, '_post', original)
+        self.fake.handlers.insert(0, ('POST', re.compile(r'/chat/matches/[^/]+/messages'), self.fake._post))
+        self.fails('E-SAFE-32', self.unblocked(), '보내기')
+
+    def test_32_is_blocked_when_the_control_room_cannot_send(self):
+        self.fake.handlers.insert(0, ('POST', re.compile(r'/chat/matches/[^/]+/messages'), Reply(500, {'detail': 'down'})))
+        (result, note), app = self.case('E-SAFE-32', self.unblocked())
+        self.assertEqual(result, 'blocked')
+        self.assertIn('대조', note)
+        self.assertEqual(app.jobs, [])
+
+
+class SuspendedPartnerTest(SafePhone):
+    """55 — 폰 계정 = id-1(B) · 정지당하는 상대 = id-2(A)."""
+
+    def good(self, **over):
+        def answer(job):
+            self.seen_rows = len(self.rows('messages', sender_id='id-1', kind='text'))  # 정지 중 PC 의 보내기 시도가 행을 만들지 않았다
+            self.fake.rows('messages').append({'id': 'b-1', 'match_id': self.match(), 'sender_id': 'id-1', 'kind': 'text', 'body': job['text'],
+                                          'created_at': datetime.now(timezone.utc).isoformat()})
+            return said(**{'gone_notice': True, 'input_during': False, 'card_during': False, 'kakao_during': False, 'words_during': 0,
+                           'toast': PROFILE_GONE, 'profile_open': False, 'words_after_toast': 0,
+                           'input_after': True, 'card_after': True, 'kakao_after': True, 'bubble': True, **over})
+        return answer
+
+    def app(self, answer):
+        return MidwayApp(answer, 'release', [])
+
+    def test_55_looks_like_a_left_room_while_suspended_and_comes_back_when_released(self):
+        _, app = self.passes('E-SAFE-55', None, self.app(self.good()))
+        job = app.jobs[0]
+        self.assertEqual(job, {'token_hash': 'h', 'nickname': self.nick('id-2'), 'profile_id': 'id-2', 'text': job['text'], 'kakao': 'k-id-2'})
+        self.assertEqual(self.seen_rows, 0)
+        patches = [s['body']['status'] for s in self.fake.by('PATCH', '/rest/v1/profiles') if 'status' in (s['body'] or {})]
+        self.assertEqual(patches[-2:], ['suspended', 'active'])
+        self.assertEqual(self.fake.profile('id-2')['status'], 'active')
+        self.assertIsNone(self.left_at('id-1'))
+        self.assertIsNone(self.left_at('id-2'))
+        self.assertTrue(self.rows('matches')[0]['trust_passed_at'])
+        self.assertEqual([m['body'] for m in self.rows('messages', sender_id='id-1')], [job['text']])
+
+    def test_55_fails_on_each_thing_the_suspended_side_must_hide_or_the_release_must_bring_back(self):
+        for over in ({'gone_notice': False}, {'input_during': True}, {'card_during': True}, {'kakao_during': True}, {'words_during': 1},
+                     {'toast': None}, {'profile_open': True}, {'words_after_toast': 2}, {'input_after': False}, {'card_after': False},
+                     {'kakao_after': False}, {'bubble': False}):
+            self.fails('E-SAFE-55', None, app=self.app(self.good(**over)))
+
+    def test_55_fails_without_the_sent_row_after_the_release(self):
+        self.fails('E-SAFE-55', None, 'messages', app=self.app(lambda job: said(
+            gone_notice=True, input_during=False, card_during=False, kakao_during=False, words_during=0, toast=PROFILE_GONE,
+            profile_open=False, words_after_toast=0, input_after=True, card_after=True, kakao_after=True, bubble=True)))
+
+    def test_55_fails_when_the_server_treats_a_suspended_partner_as_present(self):
+        original = self.fake.gone
+        self.fake.gone = lambda part: bool(part.get('left_at'))  # 정지를 모르는 서버
+        self.addCleanup(setattr, self.fake, 'gone', original)
+        self.fails('E-SAFE-55', None, '정지 중', app=self.app(self.good()))
+
+    def test_55_fails_when_the_suspension_stamps_left_at(self):
+        def stamps(job):
+            self.fake.rows('match_participants')[1]['left_at'] = 'x'
+            return self.good()(job)
+        self.fails('E-SAFE-55', None, 'left_at', app=self.app(stamps))
+
+    def test_55_is_blocked_when_the_room_never_showed_the_contact_before_the_suspension(self):
+        original = self.fake._room
+
+        def never(sent):
+            reply = original(sent)
+            reply[1].pop('kakao_id', None)
+            return reply
+        self.fake.handlers.insert(0, ('GET', re.compile(r'/chat/matches/[^/]+'), never))
+        (result, note), app = self.case('E-SAFE-55', None, self.app(self.good()))
+        self.assertEqual(result, 'blocked')
+        self.assertIn('준비', note)
+        self.assertEqual(app.jobs, [])
+
+
 # ── 등록부 · 안전망 ──────────────────────────────────────────────────────────────────────────────────
 
 class RegistryTest(SafePhone):
     def dart(self, name):
         return (tools.ROOT / 'frontend' / 'integration_test' / name).read_text(encoding='utf-8')
 
-    def test_bundle_is_the_18_safety_phone_cases_and_none_of_the_api_ones(self):
+    def test_bundle_is_the_27_safety_phone_cases_and_none_of_the_api_ones(self):
         self.assertEqual(area3.BUNDLES['area3-safe-phone'], BUNDLE)
         self.assertEqual(list(area3_safe_phone.SAFE_PHONE), BUNDLE)
         self.assertLessEqual(set(BUNDLE), set(area1.PHONE))
@@ -790,10 +1220,21 @@ class RegistryTest(SafePhone):
 
     def test_every_job_key_the_pc_sends_is_read_by_the_app(self):
         dart = self.dart('area3_safe.dart')
-        for key in ('nickname', 'profile_id', 'note', 'mine', 'system', 'theirs', 'question', 'own', 'text'):
+        for key in ('nickname', 'profile_id', 'note', 'mine', 'system', 'theirs', 'question', 'own', 'text', 'other', 'body', 'kakao'):
             self.assertIn(f"job['{key}']", dart, key)
         self.assertIn('_pasted(job)', dart)  # 붙여 넣을 글(`paste`)은 area3_b2.dart 의 _pasted 가 읽는다
         self.assertIn("again['token_hash']", dart)  # 두 번째 로그인 토큰은 step 이 돌려준 값에서
+
+    def test_the_new_cases_stop_at_the_steps_the_pc_answers_to_and_53_only_logs_in(self):
+        dart = self.dart('area3_safe.dart')
+        for step in ('reported', 'ready', 'release'):  # 03 · 22 · 55 — PC 의 midway 가 이 이름의 멈춤에서 일한다
+            self.assertIn(f"step('{step}')", dart, step)
+        self.assertIn("'E-SAFE-53': _session(_homeAfterLogin)", dart)  # 알림 가설 — 앱은 홈까지만(area3_b3.dart 의 login 판)
+        self.assertIn("_reportBubble(tester, job['theirs']", dart)  # 04 는 메뉴를 닫지 않는 새 길
+
+    def test_the_new_cases_never_use_the_two_device_runner(self):
+        source = (tools.ROOT / 'e2e' / 'area3_safe_phone.py').read_text(encoding='utf-8')
+        self.assertNotIn('twodev', source)
 
     def test_the_app_never_builds_or_runs_anything_on_its_own_network(self):
         # 망 끊기는 PC 몫 — 앱 쪽은 step 으로 멈추기만 한다.

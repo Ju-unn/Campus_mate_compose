@@ -406,6 +406,33 @@ def card_71(run):
 
 # ── 카드: 결정 · 수락 · 응답 모양 ───────────────────────────────────────────────────────────────────
 
+def card_73(run):
+    """사진은 점수에 안 들어간다 — C0 의 사진 두 장 순서를 맞바꾼(PUT /me/photos, 새 파일 없음 → Vision · AI 0) 뒤에도 O 가 보는 C0 점수가 그대로다.
+    "사진 교체" 대신 순서 맞바꾸기로 본다 — 새 파일은 Vision 을 부르고, 점수 쪽에서는 사진이 바뀐 것은 같다(profile_photos 행이 달라진다)."""
+    from e2e import area5_photo  # area5_photo 가 area2 를 들여오므로 맨 위에서 못 부른다
+    check = Check()
+    world = _world(run)
+    owner, c0 = world['O'], world['C0']
+    area5_photo._ready_photos(run, c0, 2)
+    before_rows = area5_photo._photos_now(run, c0)
+    before = _candidates(run, owner).get(c0['id'])
+    if before is None:
+        raise Blocked('준비: 사진을 바꾸기 전에 C0 가 O 의 후보에 없다 — 점수를 비교할 수 없다')
+    ids = [row['id'] for row in before_rows]
+    order = [ids[1], ids[0], *ids[2:]]  # 첫 · 둘째 칸 맞바꿈
+    source = next((i for i, photo_id in enumerate(order) if {r['id']: r for r in before_rows}[photo_id]['is_avatar_source']), 0)
+    status = area5_photo._put_layout(run, c0['token'], [{'keep': photo_id} for photo_id in order], source)[0]
+    if status != 200:
+        raise Blocked(f'사진 순서 바꾸기 PUT /me/photos {status} — 사진을 못 바꿔 점수를 비교할 수 없다')
+    after_rows = area5_photo._photos_now(run, c0)
+    if [row['id'] for row in after_rows] == ids:
+        raise Blocked('사진 순서가 안 바뀜 — 사진이 안 바뀐 채의 "점수 그대로" 는 아무것도 증명하지 못한다')
+    after = _candidates(run, owner).get(c0['id'])
+    check.that(after is not None, '사진을 바꾼 뒤 C0 가 O 의 후보에서 사라짐')
+    check.that(after is None or abs(after - before) <= SCORE_TOLERANCE, f'C0 점수가 사진 순서와 함께 움직임: {before} → {after}(기대 차이 0)')
+    return check.result(f'C0 = {before} → {after}(사진 {len(ids)}장 첫 둘 맞바꿈, 새 파일 없음)')
+
+
 def card_82(run):
     check = Check()
     owner, target = _person(run, 'male'), _person(run, 'female')
@@ -873,7 +900,7 @@ CASES = {
     'E-CARD-39': card_39, 'E-CARD-55': card_55,
     'E-CARD-60': card_60, 'E-CARD-61': card_61, 'E-CARD-62': card_62, 'E-CARD-63': card_63, 'E-CARD-64': card_64,
     'E-CARD-65': card_65, 'E-CARD-66': card_66, 'E-CARD-67': card_67, 'E-CARD-69': card_69, 'E-CARD-70': card_70,
-    'E-CARD-71': card_71,
+    'E-CARD-71': card_71, 'E-CARD-73': card_73,
     'E-CARD-82': card_82, 'E-CARD-83': card_83, 'E-CARD-88': card_88, 'E-CARD-89': card_89,
     'E-POLL-03': poll_03, 'E-POLL-10': poll_10, 'E-POLL-17': poll_17, 'E-POLL-24': poll_24,
     'E-HEART-07': heart_07, 'E-HEART-08': heart_08, 'E-HEART-10': heart_10, 'E-HEART-11': heart_11, 'E-HEART-15': heart_15,
@@ -882,10 +909,8 @@ CASES = {
     'E-REF-09': ref_09, 'E-REF-10': ref_10, 'E-REF-11': ref_11, 'E-REF-12': ref_12, 'E-REF-13': ref_13, 'E-REF-14': ref_14,
     'E-REF-15': ref_15, 'E-REF-16': ref_16, 'E-REF-19': ref_19,
 }
-# 시나리오 API만 50 중 이 묶음에서 안 쓰는 둘 — 이유를 남긴다.
-SKIPPED = {
-    'E-CARD-73': '사진 교체는 profile_photos 행(최소 2장 · 저장소 파일)과 /me/photos 가 얽혀 API 만으로 깔끔히 못 한다 — 사진은 점수를 안 읽는다는 코드(scoring.py)로 대신하고 폰 · 사진 세트 묶음에서',
-}
+# 시나리오 API만 50 중 이 묶음에서 안 쓰는 것 — 이유를 남긴다(지금은 없다: E-CARD-73 은 card_73 으로 등록, E-HEART-46 은 area4_extra).
+SKIPPED = {}
 BUNDLES = {'area2-api': list(CASES)}
 
 

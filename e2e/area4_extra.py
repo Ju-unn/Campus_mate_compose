@@ -247,6 +247,15 @@ def mail_disabled(serial):
             tools.adb(serial, 'shell', 'pm', 'enable', package, check=False)
 
 
+def mail_intent_to(serial, address):
+    """`dumpsys activity activities` 에 이 주소로 간 메일 Intent 줄이 있는지 — 구글 계정이 없는 에뮬은 Gmail 이 작성 화면 대신 첫 실행 화면만 띄워
+    화면 글자로는 받는 사람을 못 읽지만, Intent 줄(act=…SENDTO|VIEW dat=mailto:주소 …)은 가려지지 않고 남는다. act 와 dat 가 **같은 줄**에 있어야 한다.
+    앱이 쓰는 url_launcher 의 openUrl 은 SENDTO 가 아니라 **VIEW** 로 보낸다(에뮬 dumpsys 실측) — 둘 다 인정한다. 주소는 뒤에 글자가 더 붙으면(…evil) 다른 주소다."""
+    out = tools.adb(serial, 'shell', 'dumpsys', 'activity', 'activities', check=False)
+    mail = re.compile(r'act=android\.intent\.action\.(SENDTO|VIEW)\b.*\bdat=mailto:' + re.escape(address) + r'(?=[\s?,]|$)')
+    return any(mail.search(line) for line in out.splitlines())
+
+
 def p_set_52(run, phone):
     """FAQ 의 문의 메일 줄을 누르면 메일 앱이 맨 위로 뜨고 받는 사람이 문의 주소다. 앱은 누르자마자 pass 를 말한다(밖으로 나가면 앱 프레임이 멎는다) —
     메일 앱이 떴는지는 여기서 본다. 에뮬은 실제 Gmail 이 없어 임시 보관 메일이 남지 않는다."""
@@ -256,6 +265,8 @@ def p_set_52(run, phone):
     if not apps:
         raise Blocked('준비: 에뮬에 mailto: 를 받는 메일 앱이 없음')
     account = area2._home(run)
+    for app in apps:  # 옛 작성 task 가 남아 있으면 이 누름이 아니라 옛 Intent 로 통과할 수 있다 — 누르기 전에 끝낸다
+        tools.adb(serial, 'shell', 'am', 'force-stop', app, check=False)
     _app(check, phone(token_hash=run.link(account['email'])))
     top = ''
     for _ in range(SEEN):
@@ -265,8 +276,10 @@ def p_set_52(run, phone):
         time.sleep(1)
     check.that(any(app in top for app in apps), f'맨 위 화면이 메일 앱이 아님({", ".join(apps)}): {top or "못 읽음"}')
     if any(app in top for app in apps):
-        check.that(notify.screen_has(serial, SUPPORT_MAIL), f'메일 앱 화면에 받는 사람 {SUPPORT_MAIL} 이 없음')
-    return check.result()
+        # 받는 사람 = dumpsys 의 메일 Intent 줄(구글 계정이 없는 에뮬은 화면 글자로 못 읽는다) 또는 화면 글자(계정 있는 기기)
+        check.that(mail_intent_to(serial, SUPPORT_MAIL) or notify.screen_has(serial, SUPPORT_MAIL),
+                   f'받는 사람 {SUPPORT_MAIL} 을 메일 Intent 줄(SENDTO · VIEW)에서도 메일 앱 화면에서도 못 찾음')
+    return check.result('받는 사람은 dumpsys 의 메일 Intent 줄(SENDTO · VIEW)로 읽음(에뮬에 구글 계정이 없어 Gmail 은 첫 실행 화면만 띄운다)')
 
 
 def p_set_53(run, phone):

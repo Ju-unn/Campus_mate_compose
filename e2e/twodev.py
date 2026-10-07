@@ -209,4 +209,5 @@ def bound(run, case, a, b):
     """가설 함수가 받는 `two` — 가설 번호 · 기기는 묶어 두고 계획 · 기기별 일감 · 상한만 받는다."""
     def call(plan, a_job=None, b_job=None, **limit):
         return two(run, case, a._replace(job=a_job or {}), b._replace(job=b_job or {}), plan, **limit)
+    call.serials = {'A': a.serial, 'B': b.serial}  # 시리얼이 필요한 가설(알림 읽기)용
     return call

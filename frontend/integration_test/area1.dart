@@ -9,6 +9,8 @@ import 'package:campus_mate/common/widgets/app_checkbox.dart';
 import 'package:campus_mate/common/widgets/labeled_field.dart';
 import 'package:campus_mate/common/widgets/select_chip.dart';
 import 'package:campus_mate/consent/view/consent_row.dart';
+import 'package:campus_mate/core/router/app_routes.dart';
+import 'package:campus_mate/friend_review/view/friend_review_compose_sheet.dart';
 import 'package:campus_mate/home/view/home_screen.dart';
 import 'package:campus_mate/common/widgets/trait_slider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -37,6 +39,7 @@ part 'area1_b4.dart';
 part 'area1_b5.dart';
 part 'area1_b6.dart';
 part 'area1_emu.dart';
+part 'area3_b9.dart';
 
 /// 영역 1 묶음 1 폰 가설 36(37 중 E-ONB-05 는 두 기기라 묶음 6). PC 쪽은 e2e/area1.py 의 같은 번호 — 계정을 만들어
 /// 1회용 토큰(`token_hash`)을 넘기고, 앱이 pass 를 말하면 DB 를 본다. 화면 글자는 시나리오가 아니라 지금 화면 코드에서 옮겼다.
