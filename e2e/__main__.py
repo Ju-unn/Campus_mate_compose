@@ -54,6 +54,7 @@ from e2e import area2_batch_admin  # 영역 2 배치 운영(E-BATCH-01~03) — �
 from e2e import area2_two_poll  # noqa: F401 — 영역 2 두 기기 투표 글 가설 8(twodev.TWO · area1.BUNDLES 에 더한다)
 from e2e import area2_two_accept  # noqa: F401 — 영역 2 두 기기 카드 수락(일시중지 · 거절 · 매칭 · 연타 · 이미 매칭된 사람) 가설을 twodev.TWO · area1.BUNDLES 에 더한다
 from e2e import area4_push_two  # noqa: F401 — 영역 4 알림 두 기기(E-PUSH-64 · 65 · 71) 가설을 twodev.TWO · area1.BUNDLES 에 더한다
+from e2e import area5_more  # noqa: F401 — 영역 5 E-ME-05 · 22 · 32 가설을 area1.PHONE · twodev.TWO · area1.BUNDLES 에 더한다
 from e2e import area2_emu_b  # noqa: F401 — 영역 2 B에뮬 가설 11(수락함 · 투표 · 추천 코드)
 from e2e import area4_push_front  # noqa: F401 — 영역 4 알림 A3(앱이 앞에 있을 때)
 from e2e import area4_push_tap  # noqa: F401 — 영역 4 알림 A2(알림을 눌러 화면 열기)
