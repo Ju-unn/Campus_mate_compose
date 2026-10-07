@@ -9,9 +9,10 @@ import datetime as dt
 import json
 import subprocess
 from datetime import timedelta, timezone
+from urllib.parse import urlsplit
 
 from e2e import area2, area3, area3_phone5, tools
-from e2e.area1 import Check, _patch, _rows
+from e2e.area1 import SEOUL, Check, _patch, _rows
 from e2e.tools import Blocked
 
 LOCATION = 'asia-northeast3'  # 세 job 다 같은 지역(DEPLOY.md §4-3)
@@ -147,8 +148,104 @@ def batch_11(run):
                         '시나리오의 "두 번째 POST" 자체는 아님; 두 번째 호출은 같은 시 관문이 막는다.')
 
 
+# ── E-BATCH-26 — 지난 하루 예약 실행이 전부 200 ─────────────────────────────────────────────────────────
+
+SCHEDULER_AGENT = 'Google-Cloud-Scheduler'  # 예약 실행의 User-Agent — E-BATCH-02 가 틀린 신원으로 두드린 401 은 이 이름이 아니라 세지 않는다
+LOG_WINDOW = timedelta(hours=24)
+LOG_GRACE = timedelta(minutes=10)  # 방금 지난 예약 시각은 아직 로그가 안 올라왔을 수 있어 이만큼 지난 것부터 센다
+LOG_SLOT = timedelta(minutes=10)   # 예약 시각 뒤 이 안에 찍힌 줄을 그 칸의 실행으로 본다
+LOG_FILTER = f"resource.type='cloud_run_revision' AND httpRequest.requestUrl:'/batch/' AND httpRequest.userAgent:'{SCHEDULER_AGENT}'"
+# 따옴표는 홑따옴표만 — 윈도 gcloud 는 .cmd 라 shell 로 부르는데 큰따옴표 · % 가 섞이면 깨진다.
+
+
+def _now():
+    return dt.datetime.now(SEOUL)
+
+
+def _gcloud(args, what, hide=''):
+    """읽기 전용 gcloud 한 번. 못 부르거나 권한이 없으면 blocked — 이 판은 로그를 못 읽으면 아무것도 못 가린다."""
+    command = subprocess.list2cmdline(['gcloud', *args])  # 문자열로 넘긴다(_describe 와 같은 이유)
+    try:
+        return subprocess.run(command, **tools.TEXT, check=True, shell=True).stdout
+    except (subprocess.CalledProcessError, OSError) as e:
+        why = (getattr(e, 'stderr', '') or str(e)).strip()[:300]
+        raise Blocked(f'{what} 을(를) gcloud 로 못 읽음({type(e).__name__}: {why.replace(hide, "<프로젝트>") if hide else why}) — '
+                      '설치 · 로그인 · 로그 읽기 권한(logging.logEntries.list)이 있어야 E-BATCH-26 을 볼 수 있다') from e
+
+
+def _project():
+    """gcloud 설정의 프로젝트 — 코드 · 메모에 식별자를 적지 않는다."""
+    project = _gcloud(['config', 'get-value', 'project'], 'gcloud 프로젝트 설정').strip()
+    if not project or project == '(unset)':
+        raise Blocked('gcloud 설정에 프로젝트가 없다(gcloud config set project …)')
+    return project
+
+
+def _scheduler_requests(now):
+    """지난 하루 `/batch/*` 예약 실행 줄 → [(시각(서울), 경로, 상태)]. 읽기만 한다."""
+    project = _project()
+    out = _gcloud(['logging', 'read', LOG_FILTER, f'--project={project}', '--freshness=2d', '--limit=1000', '--format=json'], '로그', hide=project)
+    try:
+        entries = json.loads(out or '[]')
+    except ValueError as e:
+        raise Blocked(f'gcloud logging read 출력이 JSON 이 아님: {out[:200]!r}') from e
+    rows = []
+    for entry in entries:
+        http = entry.get('httpRequest') or {}
+        stamp = entry.get('timestamp') or entry.get('receiveTimestamp')
+        if not stamp or not http.get('requestUrl'):
+            continue
+        rows.append((dt.datetime.fromisoformat(stamp.replace('Z', '+00:00')).astimezone(SEOUL),
+                     urlsplit(http['requestUrl']).path, int(http.get('status') or 0)))
+    return rows
+
+
+def _slots(now):
+    """지난 하루(끝은 [LOG_GRACE] 전까지)에 있어야 하는 예약 시각 → {job: [서울 시각]}. 스케줄은 [JOBS] 와 같다."""
+    start, end = now - LOG_WINDOW, now - LOG_GRACE
+    slots = {name: [] for name in JOBS}
+    t = start.replace(minute=0, second=0, microsecond=0)
+    while t <= end:
+        if t >= start:
+            slots['chat-gate'].append(t)
+            if t.hour == 4:
+                slots['cleanup'].append(t)
+            if t.hour == 7:
+                slots['daily-cards'].append(t)
+        t += timedelta(hours=1)
+    return slots
+
+
+def judge_scheduled_runs(rows, now):
+    """예약 실행 줄들이 스케줄대로 있고 전부 200 인지 → (문제 목록, 한 줄 요약). 예약 칸마다 200 이 한 건 이상, 지난 하루 안의 비-200 은 0건.
+    손으로 부른 실행(gcloud scheduler jobs run)도 같은 User-Agent 라 칸 밖에 있는 줄은 200 이면 그냥 둔다."""
+    problems, summary = [], []
+    since = now - LOG_WINDOW
+    for name, slots in _slots(now).items():
+        path = JOBS[name][1]
+        mine = [(at, status) for at, p, status in rows if p == path and at >= since]
+        bad = sorted(f'{at:%m-%d %H:%M} {status}' for at, status in mine if status != 200)
+        if bad:
+            problems.append(f'{name}: 200 이 아닌 예약 실행 {len(bad)}건({", ".join(bad[:5])})')
+        missing = [slot for slot in slots if not any(slot <= at < slot + LOG_SLOT and status == 200 for at, status in mine)]
+        if missing:
+            problems.append(f'{name}: 200 이 없는 칸 {len(missing)}/{len(slots)}개({", ".join(f"{m:%m-%d %H:%M}" for m in missing[:5])})')
+        summary.append(f'{name} {len(slots) - len(missing)}/{len(slots)}')
+    return problems, ' · '.join(summary)
+
+
+def batch_26(run):
+    """E-BATCH-26 — 예약 실행이 200 으로 돌았다: 지난 하루 cleanup(04시) 1 · daily-cards(07시) 1 · chat-gate(매시) 24 가 전부 200. 로그 읽기만 한다."""
+    check = Check()
+    now = _now()
+    problems, summary = judge_scheduled_runs(_scheduler_requests(now), now)
+    for problem in problems:
+        check.that(False, problem)
+    return check.result(f'Cloud Run 요청 로그를 gcloud 로 읽기만 함(예약 실행 줄만) — 200 이 있는 칸: {summary}')
+
+
 CASES = {'E-BATCH-01': batch_01, 'E-BATCH-02': batch_02, 'E-BATCH-03': batch_03,
-         'E-BATCH-11': batch_11}
+         'E-BATCH-11': batch_11, 'E-BATCH-26': batch_26}
 BUNDLES = {'area2-batch-admin': list(CASES)}
 
 
