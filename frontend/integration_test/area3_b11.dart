@@ -118,6 +118,7 @@ Future<Map<String, Object?>> _trWatchPartner(WidgetTester tester, Map<String, dy
     await wait(tester, const Duration(seconds: 2)); // 구독이 붙고 배너가 그려지는 시간
     await _trStep('ready', {'loaded': loaded, 'error': container.read(provider).errorMessage, 'banners': _banners(tester)});
     if (!loaded) return {'loaded': false, 'card': false};
+    await _trStep('watch', {}); // PC 가 B 를 눌러도 되게 푼 뒤에야 풀린다 — 카드 기다림(20초)을 B 가 누르기 직전부터 센다
     final cardAt = await _trCardAt(tester);
     final line = lineAt;
     final passed = passedAt;
