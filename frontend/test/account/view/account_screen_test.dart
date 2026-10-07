@@ -131,6 +131,39 @@ void main() {
     expect(find.text('—'), findsNWidgets(3));
   });
 
+  testWidgets('구역 틀이 pen 값표 그대로 — 카드 328 · 높이 · 머리 20 + 8 · 구역 사이 20 · 안내 상자 72(pen `n8lZI` 목록)', (tester) async {
+    usePenFrame(tester); // 360 폭
+    await pump(tester);
+
+    Rect card(String header) {
+      // 머리 글자 바로 아래의 카드 — 머리 아래 8 에서 시작한다.
+      final top = tester.getBottomLeft(find.text(header)).dy + 8;
+      final cards = find.byWidgetPredicate((w) => w is Material && w.color == AppColors.surfaceSoft && w.shape is RoundedRectangleBorder);
+      return [for (final e in cards.evaluate()) tester.getRect(find.byWidget(e.widget))].firstWhere((r) => (r.top - top).abs() < 0.5);
+    }
+
+    // 로그인 정보 `w8eLx5` 132 = 머리 28 + 줄 52×2 · 본인 확인 `P59fF` 184 = 28 + 52×3 · 연락처 `irepB` 80 · 가입 `tZMom` 80 = 28 + 52.
+    final login = card('로그인 정보');
+    final identity = card('본인 확인 정보');
+    final contact = card('연락처 공개 정보');
+    final joined = card('가입 정보');
+    for (final (rect, height) in [(login, 104.0), (identity, 156.0), (contact, 52.0), (joined, 52.0)]) {
+      expect(rect.width, 328);
+      expect(rect.height, height);
+      expect(rect.left, 16);
+    }
+    expect(tester.getTopLeft(find.text('로그인 정보')).dy, 56 + 12); // 앱바 56 + 목록 위 12
+    expect(tester.getTopLeft(find.text('본인 확인 정보')).dy - login.bottom, 20); // 구역 사이 20
+    final notice = tester.getRect(find.ancestor(of: find.text(AccountScreen.privacyNote), matching: find.byType(Container)).first);
+    expect(notice.top - identity.bottom, 20); // 안내 `o1G2A` 가 본인 확인 카드 아래 20
+    expect(notice.width, 328);
+    // pen o1G2A 328×72 = 14 + 글 2줄 44 + 14. 시험 글꼴(Ahem)은 한글이 넓어 3줄로 꺾이므로 높이는 "이상" 으로 본다 — 안쪽 여백 14 는 아래서 고정.
+    expect(notice.height, greaterThanOrEqualTo(72));
+    expect(tester.getTopLeft(find.text(AccountScreen.privacyNote)).dy - notice.top, 14);
+    expect(tester.getTopLeft(find.text('연락처 공개 정보')).dy - notice.bottom, 20);
+    expect(tester.getTopLeft(find.text('가입 정보')).dy - contact.bottom, 20);
+  });
+
   testWidgets('값은 카드 안쪽 오른쪽 끝에 붙는다 — pen 라벨 fill · 값 hug', (tester) async {
     usePenFrame(tester);
     await pump(tester);

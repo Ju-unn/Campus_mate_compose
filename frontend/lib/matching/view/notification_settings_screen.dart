@@ -106,53 +106,65 @@ class _NotificationSettingsScreenState extends ConsumerState<NotificationSetting
     final state = ref.watch(notificationSettingsViewModelProvider);
     final viewModel = ref.read(notificationSettingsViewModelProvider.notifier);
     return Scaffold(
+      // pen `ceDU6`.
       appBar: AppBar(title: Text('알림', style: AppTypography.navTitle)),
       body: SafeArea(
         child: ListView(
+          // 목록 틀 `Znioc` — 위 12 · 좌우 16 · 아래 24, 덩어리 사이 20(계정 16e `n8lZI` 와 같다).
+          padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.lg),
           children: [
-            if (deviceOff)
-              _DeviceNotificationsOff(
-                onOpen: () => ref.read(pushMessagingProvider).openNotificationSettings(),
-              ),
+            if (deviceOff) ...[
+              _DeviceNotificationsOff(onOpen: () => ref.read(pushMessagingProvider).openNotificationSettings()),
+              const SizedBox(height: _gap),
+            ],
             for (final section in _sections) ...[
               _SectionHeader(section.title),
-              for (final row in section.rows)
-                // 잉크는 가장 가까운 Material 에 그린다 — Scaffold 에 그리면 목록을 밀어도 눌림 테두리가 제자리에 뜬다(COMMON §4-2).
-                Material(
-                  type: MaterialType.transparency,
-                  child: SwitchListTile.adaptive(
-                    value: state.preferences.valueOf(row.key),
-                    onChanged: (value) => viewModel.toggle(row.key, value),
-                    secondary: Icon3d(row.icon, size: 24),
-                    activeThumbColor: AppColors.primary,
-                    title: Text(
-                      row.title,
-                      style: AppTypography.subtitle.copyWith(color: AppColors.ink),
-                    ),
-                    subtitle: row.note == null
-                        ? null
-                        : Text(
-                            row.note!,
-                            style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+              const SizedBox(height: AppSpacing.xs),
+              // 카드 `kX4oK` · `LvHyT` · `URYwe` · `YAt0F` — #F7F7F7, 테두리 #DDDDDD, 모서리 12.
+              _SectionCard(
+                children: [
+                  for (final row in section.rows)
+                    // 잉크는 가장 가까운 Material 에 그린다 — Scaffold 에 그리면 목록을 밀어도 눌림 테두리가 제자리에 뜬다(COMMON §4-2).
+                    _RowBox(
+                      minHeight: row.note == null ? _rowHeight : _noteRowHeight,
+                      child: Material(
+                        type: MaterialType.transparency,
+                        child: SwitchListTile.adaptive(
+                          value: state.preferences.valueOf(row.key),
+                          onChanged: (value) => viewModel.toggle(row.key, value),
+                          dense: true,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: _rowPadding),
+                          secondary: Icon3d(row.icon, size: _iconSize),
+                          activeThumbColor: AppColors.primary,
+                          title: Text(
+                            row.title,
+                            style: AppTypography.subtitle.copyWith(color: AppColors.ink),
                           ),
-                  ),
-                ),
+                          subtitle: row.note == null
+                              ? null
+                              : Text(
+                                  row.note!,
+                                  style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+                                ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: _gap),
             ],
             if (state.errorMessage != null)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                padding: const EdgeInsets.only(bottom: AppSpacing.xs),
                 child: Text(
                   state.errorMessage!,
                   style: AppTypography.bodySmall.copyWith(color: AppColors.error),
                 ),
               ),
-            Padding(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              // 없으면 설정이 거짓말이 된다 — 카드 도착 알림만 조용한 시간 예외다(서버 `push.py`).
-              child: Text(
-                '오늘의 카드 도착 알림은 방해 금지 시간에도 보내드려요. 카드가 도착하는 시각이 아침 7시예요.',
-                style: AppTypography.caption.copyWith(color: AppColors.muted),
-              ),
+            // 없으면 설정이 거짓말이 된다 — 카드 도착 알림만 조용한 시간 예외다(서버 `push.py`).
+            Text(
+              '오늘의 카드 도착 알림은 방해 금지 시간에도 보내드려요. 카드가 도착하는 시각이 아침 7시예요.',
+              style: AppTypography.caption.copyWith(color: AppColors.muted),
             ),
           ],
         ),
@@ -161,6 +173,20 @@ class _NotificationSettingsScreenState extends ConsumerState<NotificationSetting
   }
 }
 
+/// pen 덩어리 사이 간격 20(`Znioc` gap).
+const double _gap = 20;
+
+/// 카드 줄 높이 — 부연 글이 있으면 64(`kX4oK` 줄), 없으면 52(`LvHyT` 144 − 머리 28 = 줄 64 + 52). pen 은 최소값이라 글자를 키우면 늘어난다.
+const double _noteRowHeight = 64;
+const double _rowHeight = 52;
+
+/// 줄 좌우 여백 — 계정 16e 줄(`_InfoRow`)과 같은 14(pen 은 이 화면 줄의 여백을 안 줬다: 값 필요).
+const double _rowPadding = 14;
+
+/// 3D 아이콘 크기 — pen 값 필요(노드 `wAQtn` 등). 그때까지 Material 기본 24.
+const double _iconSize = 24;
+
+/// 섹션 머리 — 14/700 muted, 줄 높이 20(계정 16e 의 머리와 같다). 아래 간격 8 은 쓰는 쪽이 둔다(머리 20 + 8 = pen 28).
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader(this.title);
 
@@ -168,15 +194,53 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.xs),
-      child: Text(title, style: AppTypography.bodySmall.copyWith(color: AppColors.muted)),
+    return Text(
+      title,
+      style: AppTypography.bodySmall.copyWith(fontWeight: FontWeight.w700, color: AppColors.muted, height: 20 / 14),
+    );
+  }
+}
+
+/// 카드 틀 — 계정 16e `_InfoCard` 와 같은 모양(#F7F7F7 · 테두리 #DDDDDD · 모서리 12).
+class _SectionCard extends StatelessWidget {
+  const _SectionCard({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.surfaceSoft,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.input),
+        side: const BorderSide(color: AppColors.hairline),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(children: children),
+    );
+  }
+}
+
+/// 줄 하나 — 최소 높이와 아래 가는 선(계정 16e 줄과 같이 마지막 줄에도 있다).
+class _RowBox extends StatelessWidget {
+  const _RowBox({required this.minHeight, required this.child});
+
+  final double minHeight;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: BoxConstraints(minHeight: minHeight),
+      alignment: Alignment.centerLeft,
+      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.hairlineSoft))),
+      child: child,
     );
   }
 }
 
 /// 16d-1(pen `fnGUA`). 앱 스위치가 다 켜져 있어도 기기에서 막으면 알림이 하나도 안 온다(A9).
-/// 목록 틀 `Znioc` 위 12 · 좌우 16 · 간격 20, 안내 상자 `gvjXK`, 버튼 `WTUbC`(기본 버튼 52/14).
+/// 안내 상자 `gvjXK`(328×72) · 버튼 `WTUbC`(328×52) 사이 간격 20 — 바깥 여백은 목록 틀 `Znioc` 가 준다.
 class _DeviceNotificationsOff extends StatelessWidget {
   const _DeviceNotificationsOff({required this.onOpen});
 
@@ -184,12 +248,10 @@ class _DeviceNotificationsOff extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        spacing: 20,
-        children: [
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: _gap,
+      children: [
           DecoratedBox(
             decoration: BoxDecoration(
               color: AppColors.primaryWash,
@@ -206,8 +268,7 @@ class _DeviceNotificationsOff extends StatelessWidget {
             ),
           ),
           AppButton(label: '기기 알림 설정 열기', onPressed: onOpen),
-        ],
-      ),
+      ],
     );
   }
 }

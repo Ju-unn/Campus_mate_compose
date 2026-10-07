@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/push/push_provider.dart';
+import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:campus_mate/matching/model/notification_preferences.dart';
@@ -88,6 +90,80 @@ void main() {
       final material = find.ancestor(of: tiles.at(i), matching: find.byType(Material)).first;
       expect(tester.getSize(material), tester.getSize(tiles.at(i)));
     }
+  });
+
+  group('카드 묶음 틀(pen `Znioc` · `kX4oK` · `LvHyT` · `URYwe` · `YAt0F`)', () {
+    // pen 폭 360 화면 — 카드 328(좌우 16). 높이는 pen 의 머리 28 + 줄(부연 있음 64 · 없음 52).
+    void phone(WidgetTester tester) {
+      tester.view.physicalSize = const Size(360, 1400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+    }
+
+    Finder card(String firstRow) => find.ancestor(
+          of: find.text(firstRow),
+          matching: find.byWidgetPredicate((w) => w is Material && w.shape is RoundedRectangleBorder && w.color == AppColors.surfaceSoft),
+        );
+
+    testWidgets('섹션 카드 넷: 폭 328 · 높이 = 줄 합(+테두리), #F7F7F7 · 테두리 #DDDDDD · 모서리 12', (tester) async {
+      phone(tester);
+      await pump(tester);
+
+      // 매칭 3줄 64×3 · 대화 52 + 64 · 지인 리뷰 52(앱에는 한 줄 — "내 글의 새 댓글" 보류) · 기타 64 + 52.
+      // pen 높이는 최소값이다 — 시험 글꼴(Ahem)은 한글이 넓어 부연 글이 두 줄로 꺾이면 줄이 더 커진다. 부연 글 없는 지인 리뷰 줄만 딱 맞는다.
+      final heights = {'오늘의 카드 도착': 192.0, '새 메시지': 116.0, '새 지인 리뷰': 52.0, '혜택·이벤트 소식': 116.0};
+      for (final MapEntry(key: first, value: height) in heights.entries) {
+        final found = card(first);
+        expect(found, findsOneWidget, reason: first);
+        expect(tester.getSize(found).width, 328, reason: first);
+        expect(tester.getSize(found).height, greaterThanOrEqualTo(height), reason: first);
+        if (first == '새 지인 리뷰') expect(tester.getSize(found).height, height, reason: first); // 줄 아래 선은 줄 높이 안에 든다
+        final material = tester.widget<Material>(found);
+        final shape = material.shape! as RoundedRectangleBorder;
+        expect(shape.borderRadius, BorderRadius.circular(12));
+        expect(shape.side.color, AppColors.hairline);
+      }
+    });
+
+    testWidgets('머리 14/700 #6A6A6A 줄 높이 20 · 머리와 카드 사이 8 · 카드 사이 20 · 목록 위 12', (tester) async {
+      phone(tester);
+      await pump(tester);
+
+      final header = tester.widget<Text>(find.text('매칭'));
+      expect(header.style!.fontSize, 14);
+      expect(header.style!.fontWeight, FontWeight.w700);
+      expect(header.style!.color, AppColors.muted);
+      expect(tester.getTopLeft(find.text('매칭')).dy, 56 + 12); // 앱바 56 아래 목록 위 여백 12
+      expect(tester.getSize(find.text('매칭')).height, 20);
+      final first = tester.getRect(card('오늘의 카드 도착'));
+      expect(first.top, 56 + 12 + 20 + 8);
+      final second = tester.getRect(card('새 메시지'));
+      expect(second.top - first.bottom, 20 + 20 + 8); // 카드 → 20 → 다음 머리(20) → 8 → 카드
+      expect(first.left, 16);
+    });
+
+    testWidgets('기기 알림이 꺼진 상태(16d-1): 안내 상자 → 20 → 버튼 → 20 → 첫 머리, 목록 위 12', (tester) async {
+      phone(tester);
+      await pump(tester, permitted: false);
+
+      final notice = find.ancestor(
+        of: find.textContaining('기기 알림이 꺼져 있어요'),
+        matching: find.byWidgetPredicate((w) => w is DecoratedBox && w.decoration is BoxDecoration && (w.decoration as BoxDecoration).color == AppColors.primaryWash),
+      );
+      final box = tester.getRect(notice);
+      expect(box.top, 56 + 12);
+      expect(box.width, 328);
+      final button = tester.getRect(find.widgetWithText(AppButton, '기기 알림 설정 열기'));
+      expect(button.top - box.bottom, 20);
+      expect(button.width, 328);
+      expect(tester.getTopLeft(find.text('매칭')).dy - button.bottom, 20);
+    });
+
+    testWidgets('"내 글의 새 댓글" 은 대응 컬럼이 없어 그리지 않는다(보류 — 사용자 결정 필요)', (tester) async {
+      await pump(tester);
+
+      expect(find.text('내 글의 새 댓글'), findsNothing);
+    });
   });
 
   testWidgets('스위치를 끄면 그 키만 서버로 간다', (tester) async {
