@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/account/model/account_info.dart';
+import 'package:campus_mate/account/model/account_repository.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/photo_slider.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
@@ -12,8 +15,11 @@ import 'package:campus_mate/matching/model/card_profile.dart';
 import 'package:campus_mate/matching/view/card_detail_screen.dart';
 import 'package:campus_mate/me/model/me_repository_provider.dart';
 import 'package:campus_mate/me/view/card_preview_screen.dart';
+import 'package:campus_mate/me/model/my_profile.dart';
 import 'package:campus_mate/me/view/edit_app_bar.dart';
 import 'package:campus_mate/me/view/me_load_error.dart';
+import 'package:campus_mate/me/view/me_tab_bar.dart';
+import 'package:campus_mate/safety/view/revealed_profile_parts.dart';
 import 'package:campus_mate/profile/model/profile_enums.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -21,6 +27,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../account/model/fake_account_repository.dart';
 import '../model/fake_me_repository.dart';
 
 const _notice = '대화 상대가 보는 내 프로필이에요. 실제 사진과 카카오톡 아이디는 둘 다 수락한 뒤에 공개돼요.';
@@ -53,17 +60,53 @@ CardDetail _detail({String? avatarUrl = 'https://img.test/avatar.png'}) => CardD
 
 final _list = find.byType(Scrollable).first;
 
+/// 1×1 투명 PNG.
+const _png = <int>[
+  0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, //
+  0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4, 0x89, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00, //
+  0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
+];
+
+const _noticeAfter = '수락하면 상대에게 이렇게 보여요';
+
+/// 내 프로필(실사진 두 장). 이름·학교는 지어낸 값이다.
+MyProfile _profile({int photos = 2}) => MyProfile(
+      nickname: '하늘',
+      age: 24,
+      university: '가나대학교',
+      major: '경영학과',
+      heightCm: 178,
+      mbti: 'ENFP',
+      avatarUrl: 'https://img.test/avatar.png',
+      photos: [
+        for (var i = 0; i < photos; i++) MyPhoto(id: 'p-$i', url: 'https://img.test/$i.png', isAvatarSource: i == 0),
+      ],
+      preferredAgeMin: 22,
+      preferredAgeMax: 27,
+      preferredHeightMin: 165,
+      preferredHeightMax: 180,
+      bio: '주말엔 산책해요.',
+    );
+
 /// 15-4 남이 보는 내 프로필(pen `gnEwq` 360×1714, 계획서 4절 15-4 표 · A13).
 void main() {
   /// 화면 15 자리 위에 15-4 를 올린다. [settle] 이 false 면 첫 프레임(불러오는 중)에서 멈춘다.
   Future<FakeMeRepository> pump(
     WidgetTester tester, {
     Result<CardDetail>? result,
+    Result<MyProfile>? profile,
+    FakeAccountRepository? account,
     bool settle = true,
   }) async {
-    final repository = FakeMeRepository(const FailureResult(UnknownFailure()))
-      ..cardPreview = result ?? Success(_detail());
-    final container = ProviderContainer(overrides: [meRepositoryProvider.overrideWithValue(repository)]);
+    final repository = FakeMeRepository(profile ?? Success(_profile()))..cardPreview = result ?? Success(_detail());
+    final container = ProviderContainer(
+      overrides: [
+        meRepositoryProvider.overrideWithValue(repository),
+        accountRepositoryProvider.overrideWithValue(account ?? FakeAccountRepository()),
+        // 실사진 서명 URL 은 네트워크 없이 작은 그림으로 대신한다.
+        partnerPhotoImageProvider.overrideWithValue((url) => MemoryImage(Uint8List.fromList(_png))),
+      ],
+    );
     addTearDown(container.dispose);
     final router = GoRouter(
       initialLocation: AppRoutes.myProfile,
@@ -127,7 +170,7 @@ void main() {
   });
 
   group('pen 값(배율 1.0, 본문 `iFAyO` 위 24 · 좌우 16 · 사이 32 · 아래 40)', () {
-    testWidgets('안내 `Ocmk4` — #FFF0F2 모서리 12 안쪽 14, 아이콘 없음, 328 폭 · 앱바 아래 24', (tester) async {
+    testWidgets('안내 `Ocmk4` — #FFF0F2 모서리 12 안쪽 14, 아이콘 없음, 328 폭 · 탭 바 아래 24', (tester) async {
       usePenFrame(tester);
       await pump(tester);
 
@@ -135,7 +178,7 @@ void main() {
       final decoration = tester.widget<DecoratedBox>(noticeBox).decoration as BoxDecoration;
       expect(decoration.borderRadius, BorderRadius.circular(12));
       final box = tester.getRect(noticeBox);
-      expect(box.topLeft, const Offset(16, 56 + 24));
+      expect(box.topLeft, const Offset(16, 56 + 44 + 24)); // 앱바 56 + 탭 바 44 + 본문 위 24
       expect(box.width, 328);
       expect(tester.getTopLeft(find.text(_notice)) - box.topLeft, const Offset(14, 14));
       expect(box.bottom - tester.getBottomLeft(find.text(_notice)).dy, 14);
@@ -206,6 +249,262 @@ void main() {
     });
   });
 
+  /// 탭 하나(`bUSON` 수락 전 · `Qt845` 수락 후)의 글자 · 밑줄을 읽는다.
+  ({TextStyle style, Color underline}) tabLook(WidgetTester tester, String label) {
+    final tab = find.ancestor(of: find.text(label), matching: find.byType(InkWell)).first;
+    final underline = find.descendant(
+      of: tab,
+      matching: find.byWidgetPredicate((w) => w is Container && w.constraints?.maxHeight == 2),
+    );
+    return (style: tester.widget<Text>(find.text(label)).style!, underline: tester.widget<Container>(underline).color!);
+  }
+
+  group('밑줄 탭 바(pen `p9s0G` Tab Bar — 알약 세그먼트가 아니다)', () {
+    testWidgets('앱바 바로 아래 360×44, 두 탭은 같은 폭 180, 아래 선 1px #EBEBEB', (tester) async {
+      usePenFrame(tester);
+      await pump(tester);
+
+      final bar = find.byType(MeTabBar);
+      expect(tester.getTopLeft(bar), const Offset(0, 56));
+      expect(tester.getSize(bar), const Size(360, 44)); // 아래 선 1px 은 이 44 안에 든다(pen 은 clip)
+      for (final label in ['수락 전', '수락 후']) {
+        expect(tester.getSize(find.ancestor(of: find.text(label), matching: find.byType(InkWell)).first).width, 180, reason: label);
+      }
+      final decoration =
+          tester.widget<DecoratedBox>(find.descendant(of: bar, matching: find.byType(DecoratedBox)).first).decoration as BoxDecoration;
+      expect(decoration.border, const Border(bottom: BorderSide(color: AppColors.hairlineSoft)));
+      expect(decoration.color, AppColors.canvas);
+      // 알약 세그먼트(SegmentedButton)가 아니다.
+      expect(find.byType(SegmentedButton<int>), findsNothing);
+    });
+
+    testWidgets('처음엔 "수락 전" — 글자 #C4224B 14/700 + 밑줄 2px #C4224B, "수락 후" 는 #6A6A6A 14/500 + 밑줄 투명 (15-4 `O9ZIzO`)',
+        (tester) async {
+      await pump(tester);
+
+      final before = tabLook(tester, '수락 전');
+      expect((before.style.fontSize, before.style.fontWeight, before.style.color), (14, FontWeight.w700, AppColors.primaryText));
+      expect(before.underline, AppColors.primaryText);
+      final after = tabLook(tester, '수락 후');
+      expect((after.style.fontSize, after.style.fontWeight, after.style.color), (14, FontWeight.w500, AppColors.muted));
+      expect(after.underline, Colors.transparent);
+      expect(find.text(_notice), findsOneWidget);
+      expect(find.text(_noticeAfter), findsNothing);
+    });
+
+    testWidgets('글자는 탭 위에서 12, 밑줄은 바 맨 아래', (tester) async {
+      usePenFrame(tester);
+      await pump(tester);
+
+      final tabFinder = find.ancestor(of: find.text('수락 전'), matching: find.byType(InkWell)).first;
+      final tab = tester.getRect(tabFinder);
+      expect(tester.getTopLeft(find.text('수락 전')).dy - tab.top, 12);
+      final underline = find.descendant(of: tabFinder, matching: find.byWidgetPredicate((w) => w is Container && w.constraints?.maxHeight == 2));
+      expect(tester.getRect(underline).bottom, tab.bottom);
+    });
+
+    testWidgets('"수락 후" 를 누르면 15-4b 로 — 탭 색이 바뀌고(`g1rDs`) 안내 글이 바뀐다', (tester) async {
+      await pump(tester);
+
+      await tester.tap(find.text('수락 후'));
+      await tester.pumpAndSettle();
+
+      final after = tabLook(tester, '수락 후');
+      expect((after.style.fontWeight, after.style.color, after.underline), (FontWeight.w700, AppColors.primaryText, AppColors.primaryText));
+      final before = tabLook(tester, '수락 전');
+      expect((before.style.fontWeight, before.style.color, before.underline), (FontWeight.w500, AppColors.muted, Colors.transparent));
+      expect(find.text(_noticeAfter), findsOneWidget);
+      expect(find.text(_notice), findsNothing);
+    });
+
+    testWidgets('다시 "수락 전" 을 누르면 되돌아온다 — 같은 카드다', (tester) async {
+      await pump(tester);
+      await tester.tap(find.text('수락 후'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('수락 전'));
+      await tester.pumpAndSettle();
+
+      expect(find.text(_notice), findsOneWidget);
+      expect(find.text('하늘, 24'), findsOneWidget);
+      expect(find.byType(PhotoSlider), findsNothing);
+    });
+
+    testWidgets('낭독: 탭은 버튼이고 고른 탭이 selected', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pump(tester);
+
+      final selected = tester.getSemantics(find.bySemanticsLabel('수락 전'));
+      final other = tester.getSemantics(find.bySemanticsLabel('수락 후'));
+      expect(selected.flagsCollection.isSelected.name, isNot(other.flagsCollection.isSelected.name));
+      expect(selected.flagsCollection.isButton, isTrue);
+      expect(other.flagsCollection.isButton, isTrue);
+      handle.dispose();
+    });
+  });
+
+  group('15-4b 수락 후(pen `vn8R2`)', () {
+    Future<FakeMeRepository> openAfter(WidgetTester tester, {Result<MyProfile>? profile, FakeAccountRepository? account}) async {
+      usePenFrame(tester, height: 1000);
+      final repository = await pump(tester, profile: profile, account: account);
+      await tester.tap(find.text('수락 후'));
+      await tester.pumpAndSettle();
+      return repository;
+    }
+
+    testWidgets('안내 `J7rLm` "수락하면 상대에게 이렇게 보여요" — 같은 분홍 상자, 아이콘 없음, 탭 바 아래 24', (tester) async {
+      await openAfter(tester);
+
+      final box = find.ancestor(of: find.text(_noticeAfter), matching: find.byType(DecoratedBox)).first;
+      expect(tester.getTopLeft(box), const Offset(16, 56 + 44 + 24));
+      expect(tester.getSize(box).width, 328);
+      expect(find.descendant(of: box, matching: find.byType(Icon)), findsNothing);
+    });
+
+    testWidgets('실제 사진 슬라이더 288×260 — 내 프로필의 사진들, 안쪽 1px 테두리(bordered)', (tester) async {
+      await openAfter(tester);
+
+      final slider = tester.widget<PhotoSlider>(find.byType(PhotoSlider));
+      expect(slider.photos.length, 2);
+      expect(slider.photoSize, const Size(288, 260));
+      expect(slider.bordered, isTrue);
+    });
+
+    testWidgets('카카오톡 아이디 카드 — 내 계정의 아이디, 복사 버튼', (tester) async {
+      await openAfter(tester);
+      await scrollToEnd(tester);
+
+      expect(find.byType(KakaoIdCard), findsOneWidget);
+      expect(find.text('카카오톡 아이디'), findsOneWidget);
+      expect(find.text('fox_rain'), findsOneWidget);
+      expect(find.byTooltip('복사'), findsOneWidget);
+    });
+
+    testWidgets('신고하기 · 차단하기 줄은 보이지만 내 카드라 누를 곳이 없다', (tester) async {
+      await openAfter(tester);
+      await scrollToEnd(tester);
+
+      expect(find.byType(ReportBlockLinks), findsOneWidget);
+      expect(find.text('신고하기'), findsOneWidget);
+      expect(find.text('차단하기'), findsOneWidget);
+      expect(find.ancestor(of: find.text('신고하기'), matching: find.byType(InkWell)), findsNothing);
+      expect(find.ancestor(of: find.text('차단하기'), matching: find.byType(InkWell)), findsNothing);
+    });
+
+    testWidgets('"신뢰 확인 완료" 는 이 화면에 없다(수락 후에도 pen 에 없음)', (tester) async {
+      await openAfter(tester);
+
+      expect(find.text('신뢰 확인 완료'), findsNothing);
+    });
+
+    testWidgets('읽는 동안은 도는 표시만 보이고, 다 읽으면 카드가 한 번에 뜬다', (tester) async {
+      usePenFrame(tester, height: 1000);
+      final slow = _SlowAccount();
+      await pump(tester, account: slow);
+      await tester.tap(find.text('수락 후'));
+      await tester.pump();
+
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.byType(ProfileCard), findsNothing);
+      slow.release.complete();
+      await tester.pumpAndSettle();
+      expect(find.byType(ProfileCard), findsOneWidget);
+    });
+
+    // pen 에 없는 상태 — PR 본문 "pen 에 없는 상태" 에 적는다.
+    testWidgets('실사진이 0장이면 슬라이더 칸이 빠지고 나머지는 그대로다', (tester) async {
+      await openAfter(tester, profile: Success(_profile(photos: 0)));
+
+      expect(find.byType(PhotoSlider), findsNothing);
+      expect(find.byType(ProfileCard), findsOneWidget);
+      expect(find.text(_noticeAfter), findsOneWidget);
+    });
+
+    testWidgets('내 프로필을 못 읽어도 카드와 나머지 칸은 그려진다(사진 칸만 빠짐)', (tester) async {
+      await openAfter(tester, profile: const FailureResult(NetworkFailure()));
+
+      expect(find.byType(PhotoSlider), findsNothing);
+      expect(find.byType(ProfileCard), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('카카오톡 아이디가 비었으면 카카오 카드 칸이 빠진다', (tester) async {
+      final empty = FakeAccountRepository()
+        ..accountResult = Success(
+          AccountInfo(
+            email: 'a@b.c',
+            realName: null,
+            birthYear: null,
+            university: '가나대학교',
+            joinedAt: DateTime.utc(2026),
+            kakaoId: null,
+          ),
+        );
+      await openAfter(tester, account: empty);
+      await scrollToEnd(tester);
+
+      expect(find.byType(KakaoIdCard), findsNothing);
+      expect(find.byType(ReportBlockLinks), findsOneWidget);
+    });
+
+    testWidgets('계정을 못 읽어도 같다', (tester) async {
+      final failing = FakeAccountRepository()..accountResult = const FailureResult(NetworkFailure());
+      await openAfter(tester, account: failing);
+      await scrollToEnd(tester);
+
+      expect(find.byType(KakaoIdCard), findsNothing);
+      expect(find.byType(ProfileCard), findsOneWidget);
+    });
+
+    testWidgets('탭을 오가도 계정을 다시 읽지 않고 도는 표시도 다시 뜨지 않는다', (tester) async {
+      usePenFrame(tester, height: 1000);
+      final account = FakeAccountRepository();
+      await pump(tester, account: account);
+      await tester.tap(find.text('수락 후'));
+      await tester.pumpAndSettle();
+      final reads = account.accountFetches;
+
+      await tester.tap(find.text('수락 전'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('수락 후'));
+      await tester.pump();
+
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.byType(ProfileCard), findsOneWidget);
+      await tester.pumpAndSettle();
+      expect(account.accountFetches, reads);
+    });
+
+    for (final scale in [1.3, 1.5, 2.0]) {
+      testWidgets('글자 배율 $scale 에서도 수락 후 탭이 넘치거나 잘리지 않는다(스크롤 전 · 끝)', (tester) async {
+        usePenFrame(tester, height: 1000);
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await pump(tester);
+        await tester.tap(find.text('수락 후'));
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        final clipped = _clippedTexts(exceptWidth: 'fox_rain');
+        await scrollToEnd(tester);
+        clipped.addAll(_clippedTexts(exceptWidth: 'fox_rain'));
+
+        expect(tester.takeException(), isNull);
+        expect(clipped, isEmpty);
+      });
+    }
+
+    testWidgets('카드 읽기에 실패하면 두 탭 모두 같은 실패 화면이고 탭 바는 남는다', (tester) async {
+      usePenFrame(tester);
+      await pump(tester, result: const FailureResult(NetworkFailure()));
+      await tester.tap(find.text('수락 후'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(MeLoadError), findsOneWidget);
+      expect(find.byType(MeTabBar), findsOneWidget);
+    });
+  });
+
   group('불러오는 중 · 실패(N9 — pen 에 없는 상태, 화면 15 와 같은 모양)', () {
     testWidgets('불러오는 중이면 가운데 로딩 표시, 앱바는 그대로', (tester) async {
       await pump(tester, settle: false);
@@ -258,10 +557,24 @@ void main() {
 }
 
 /// 고정 상자에 갇혀 오류 없이 잘린 글자. 폭은 배치 때 받은 최대 폭으로 잰다(화면 15 테스트와 같은 방식).
-List<String> _clippedTexts() => [
+///
+/// [exceptWidth] 글자는 폭 검사에서 뺀다(높이는 본다) — 카톡 아이디는 끊을 곳이 없는 한 덩어리라 좁으면 글자 단위로 줄을 바꾼다
+/// (14c 배율 시험과 같은 규칙).
+List<String> _clippedTexts({String? exceptWidth}) => [
       for (final element in find.byType(RichText).evaluate())
         if (element.renderObject case final RenderParagraph p
             when p.getMaxIntrinsicHeight(p.constraints.maxWidth) > p.size.height + 0.5 ||
-                p.getMinIntrinsicWidth(double.infinity) > p.size.width + 0.5)
+                (p.text.toPlainText() != exceptWidth && p.getMinIntrinsicWidth(double.infinity) > p.size.width + 0.5))
           p.text.toPlainText(),
     ];
+
+/// 읽기가 [release] 될 때까지 멈춰 있는 계정 저장소 — "읽는 중" 모양을 본다.
+class _SlowAccount extends FakeAccountRepository {
+  final Completer<void> release = Completer<void>();
+
+  @override
+  Future<Result<AccountInfo>> fetchAccount() async {
+    await release.future;
+    return super.fetchAccount();
+  }
+}
