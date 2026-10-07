@@ -5,6 +5,7 @@ import 'package:campus_mate/account/view/withdraw_sheets.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/auth/account_status_listenable.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -84,8 +85,11 @@ void main() {
       ]) {
         expect(inFirst(find.text(text)), findsOneWidget, reason: text);
       }
-      for (final icon in [AppIcons.userRound, AppIcons.heart, AppIcons.messageCircle]) {
-        expect(inFirst(find.byIcon(icon)), findsOneWidget);
+      // pen 삭제 항목 3줄 — 3D 그림 `PkqpC` · `zxXQG` · `Lua1H`, 크기 22(pen 20~24).
+      for (final icon in [AppIcon3d.userRound, AppIcon3d.heart, AppIcon3d.chat]) {
+        final found = inFirst(find.byWidgetPredicate((w) => w is Icon3d && w.icon == icon));
+        expect(found, findsOneWidget, reason: '$icon');
+        expect(tester.getSize(found), const Size(22, 22));
       }
     });
 
@@ -105,8 +109,9 @@ void main() {
     testWidgets('슬픈 마스코트 88(pen ycFq3)', (tester) async {
       await openSheets(tester);
 
-      final mascot = inFirst(find.byType(Image));
+      final mascot = inFirst(find.byWidgetPredicate((w) => w is Image && w.image is AssetImage && (w.image as AssetImage).assetName.contains('mascot')));
       expect((tester.widget<Image>(mascot).image as AssetImage).assetName, 'assets/images/mascot-female-sad.png');
+      expect(tester.widget<Image>(mascot).fit, BoxFit.contain); // pen x3aGgV
       expect(tester.getSize(mascot), const Size(88, 88));
     });
 

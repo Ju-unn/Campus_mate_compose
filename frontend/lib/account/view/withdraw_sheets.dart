@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:campus_mate/account/viewmodel/withdraw_view_model.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -151,6 +152,7 @@ class _FirstSheetHeader extends StatelessWidget {
             image: AssetImage('assets/images/mascot-female-sad.png'),
             width: 88,
             height: 88,
+            fit: BoxFit.contain, // pen `x3aGgV` 88×88 contain
             excludeFromSemantics: true,
           ),
           const SizedBox(width: AppSpacing.sm),
@@ -222,12 +224,15 @@ class _PauseOffer extends StatelessWidget {
 class _DeletedItems extends StatelessWidget {
   const _DeletedItems();
 
-  static const _items = <(IconData, String)>[
-    (AppIcons.userRound, '프로필과 인증 정보'),
-    // 비재화 하트라 Lucide heart 다(DESIGN §5.4 예외 목록 "16c 수락·매칭 기록").
-    (AppIcons.heart, '수락 매칭 기록'),
-    (AppIcons.messageCircle, '모든 대화 내용'),
+  /// pen 줄의 3D 아이콘 인스턴스 `PkqpC`(프로필) · `zxXQG`(하트) · `Lua1H`(대화).
+  static const _items = <(AppIcon3d, String)>[
+    (AppIcon3d.userRound, '프로필과 인증 정보'),
+    (AppIcon3d.heart, '수락 매칭 기록'),
+    (AppIcon3d.chat, '모든 대화 내용'),
   ];
+
+  /// pen 은 인스턴스 크기를 20~24 로 두었다 — 줄 높이 44 안에서 가운데 값.
+  static const double _iconSize = 22;
 
   @override
   Widget build(BuildContext context) {
@@ -244,7 +249,7 @@ class _DeletedItems extends StatelessWidget {
               constraints: const BoxConstraints(minHeight: 44),
               child: Row(
                 children: [
-                  Icon(icon, size: 18, color: AppColors.muted),
+                  Icon3d(icon, size: _iconSize),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: Text(label, style: AppTypography.bodySmall.copyWith(color: AppColors.body, height: 1.5)),

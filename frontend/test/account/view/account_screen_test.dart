@@ -7,6 +7,7 @@ import 'package:campus_mate/account/view/account_screen.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/university_logos.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/school_label.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -85,7 +86,24 @@ void main() {
     expect(find.text('2026.09.01'), findsOneWidget); // pen nntyt
     expect(find.text('fox_rain'), findsOneWidget);
     expect(find.text(AccountScreen.privacyNote), findsOneWidget);
-    expect(find.byIcon(AppIcons.calendarCheck), findsOneWidget);
+  });
+
+  testWidgets('줄마다 pen 의 3D 그림이 그 순서로, 크기 22 로 그려진다(pen `huZA9` · `shH3F` · `PkqpC` · `H62oC` · `E5TUHj` · `Lua1H` · `UCEwf`)', (tester) async {
+    await pump(tester);
+
+    final icons = tester.widgetList<Icon3d>(find.byType(Icon3d)).toList();
+    expect([for (final icon in icons) icon.icon], [
+      AppIcon3d.mail,
+      AppIcon3d.badgeCheck,
+      AppIcon3d.userRound,
+      AppIcon3d.calendar,
+      AppIcon3d.graduationCap,
+      AppIcon3d.chat,
+      AppIcon3d.calendarCheck,
+    ]);
+    for (final icon in icons) {
+      expect(icon.size, 22);
+    }
   });
 
   testWidgets('구역 순서는 pen n8lZI 대로 — 안내문은 본인 확인 정보 바로 아래', (tester) async {

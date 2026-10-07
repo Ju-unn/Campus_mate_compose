@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/push/push_provider.dart';
+import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:campus_mate/matching/model/notification_preferences.dart';
 import 'package:campus_mate/matching/view/notification_settings_screen.dart';
@@ -45,6 +47,22 @@ void main() {
     expect(find.text('받은 수락'), findsOneWidget);
     // 댓글 스위치는 대응 컬럼이 없어 이번 조각에서 그리지 않는다(커뮤니티는 조각 6).
     expect(find.text('내 글의 새 댓글'), findsNothing);
+  });
+
+  testWidgets('줄마다 pen 의 3D 그림이 그 순서로 그려진다(pen `wAQtn` · `zxXQG` · `U17hk` · `oq6tX` · `d7e1q` · `I58co`)', (tester) async {
+    await pump(tester);
+
+    final icons = [for (final icon in tester.widgetList<Icon3d>(find.byType(Icon3d, skipOffstage: false))) icon.icon];
+    expect(icons, [
+      AppIcon3d.layers, // 오늘의 카드 도착
+      AppIcon3d.heart, // 받은 수락
+      AppIcon3d.users, // 매칭 성립
+      AppIcon3d.chat, // 새 메시지(pen 인스턴스 `K4uiNp` — 그림 확인 전)
+      AppIcon3d.clock, // 신뢰 확인 리마인드
+      AppIcon3d.heartHandshake, // 새 지인 리뷰(pen 인스턴스 `K4uiNp` — 그림 확인 전)
+      AppIcon3d.megaphone, // 혜택·이벤트 소식
+      AppIcon3d.moon, // 방해 금지 시간
+    ]);
   });
 
   testWidgets('맨 아래에 조용한 시간 예외 안내가 있다', (tester) async {

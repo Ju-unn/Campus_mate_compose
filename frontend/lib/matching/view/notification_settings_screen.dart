@@ -1,4 +1,5 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/push/push_provider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -11,7 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 한 줄 = 서버 스위치 하나. "내 글의 새 댓글"(pen `KjGQd`)은 대응 컬럼이 없어 이번 조각에서 빠진다
 /// (커뮤니티가 조각 6 에서 컬럼과 함께 만든다).
-typedef _Row = ({String key, String title, String? note, IconData icon});
+typedef _Row = ({String key, String title, String? note, AppIcon3d icon});
 
 const _sections = <({String title, List<_Row> rows})>[
   (
@@ -21,38 +22,38 @@ const _sections = <({String title, List<_Row> rows})>[
         key: 'card_arrived',
         title: '오늘의 카드 도착',
         note: '매일 아침 7시 지급 알림',
-        icon: AppIcons.heart
+        icon: AppIcon3d.layers
       ),
       (
         key: 'acceptance_received',
         title: '받은 수락',
         note: '상대가 나를 수락했을 때',
-        icon: AppIcons.userPlus
+        icon: AppIcon3d.heart
       ),
       (
         key: 'match_made',
         title: '매칭 성립',
         note: '서로 수락해 대화가 열렸을 때',
-        icon: AppIcons.badgeCheck
+        icon: AppIcon3d.users
       ),
     ],
   ),
   (
     title: '대화',
     rows: [
-      (key: 'new_message', title: '새 메시지', note: null, icon: AppIcons.messageCircle),
+      (key: 'new_message', title: '새 메시지', note: null, icon: AppIcon3d.chat),
       (
         key: 'trust_reminder',
         title: '신뢰 확인 리마인드',
         note: '매칭 24시간 뒤 확인 안내',
-        icon: AppIcons.timer
+        icon: AppIcon3d.clock
       ),
     ],
   ),
   (
     title: '지인 리뷰·커뮤니티',
     rows: [
-      (key: 'new_friend_review', title: '새 지인 리뷰', note: null, icon: AppIcons.users),
+      (key: 'new_friend_review', title: '새 지인 리뷰', note: null, icon: AppIcon3d.heartHandshake),
     ],
   ),
   (
@@ -62,13 +63,13 @@ const _sections = <({String title, List<_Row> rows})>[
         key: 'marketing',
         title: '혜택·이벤트 소식',
         note: '마케팅 정보 수신 동의',
-        icon: AppIcons.bell
+        icon: AppIcon3d.megaphone
       ),
       (
         key: 'quiet_hours',
         title: '방해 금지 시간 (22:00 ~ 08:00)',
         note: null,
-        icon: AppIcons.pause
+        icon: AppIcon3d.moon
       ),
     ],
   ),
@@ -122,7 +123,7 @@ class _NotificationSettingsScreenState extends ConsumerState<NotificationSetting
                   child: SwitchListTile.adaptive(
                     value: state.preferences.valueOf(row.key),
                     onChanged: (value) => viewModel.toggle(row.key, value),
-                    secondary: Icon(row.icon, color: AppColors.muted),
+                    secondary: Icon3d(row.icon, size: 24),
                     activeThumbColor: AppColors.primary,
                     title: Text(
                       row.title,
