@@ -23,8 +23,8 @@ from e2e.test_area5_edge import ScriptApp
 from e2e.test_area5_wd import WdBase, code_of, dart, top_functions
 from e2e.tools import Reply
 
-CASES = ['E-EDGE-04', 'E-EDGE-12', 'E-WD-19', 'E-WD-20', 'E-EDGE-10']
-EMULATOR = ['E-EDGE-04', 'E-WD-20', 'E-EDGE-10']
+CASES = ['E-EDGE-04', 'E-EDGE-12', 'E-WD-19', 'E-WD-20', 'E-EDGE-10', 'E-EDGE-09']
+EMULATOR = ['E-EDGE-04', 'E-WD-20', 'E-EDGE-10', 'E-EDGE-09']
 NETWORK = '네트워크 연결을 확인해 주세요'
 WITHDRAWN = '탈퇴한 계정이에요'
 EXPIRED = '세션이 만료됐어요, 다시 로그인해 주세요'
@@ -335,6 +335,72 @@ class Edge10Test(NewBase):
         result, note, _ = self.run10(['15-6:opened', 'end'], {}, serial='R5CT')
         self.assertEqual(result, 'blocked', note)
         self.assertIn('에뮬', note)
+
+
+class Edge09Test(NewBase):
+    CASE = 'E-EDGE-09'
+
+    GOOD = {'login_seen': False, 'expired_seen': False, 'saved_title': '프로필 편집'}
+
+    def run09(self, answer=None, serial=EMU, steps=('15-6:opened', 'end')):
+        def finish(job):
+            if answer is None or answer.get('result') != 'blocked':
+                self.profile(self.fake.verifies).update(height_cm=int(job['height']))  # 앱이 저장을 눌렀다
+            return answer if answer is not None else dict(self.GOOD)
+        return self.go(self.CASE, {None: (list(steps), finish)}, serial=serial)
+
+    def clock_moves(self):
+        return [e[1] for e in self.events if isinstance(e, tuple) and e[0] == 'clock']
+
+    def test_pass_the_first_save_lands_on_15_5_with_no_02_and_no_expired_notice(self):
+        result, note, _ = self.run09()
+        self.assertEqual(result, 'pass', note)
+        self.assertEqual(self.profile()['height_cm'], 181)
+        moves = self.clock_moves()
+        self.assertEqual(len(moves), 2)
+        self.assertAlmostEqual((moves[0] - now()).total_seconds(), 65 * 60, delta=60)
+        self.assertAlmostEqual((moves[1] - now()).total_seconds(), 0, delta=60)
+        self.assertEqual([e for e in self.events if isinstance(e, str) and e.startswith('auto_time')], ['auto_time 0', 'auto_time 1'])
+
+    def test_a_trip_to_02_or_an_expired_notice_or_a_wrong_screen_is_a_fail(self):
+        for over, word in (({'login_seen': True}, '02'), ({'expired_seen': True}, '알림'), ({'saved_title': '기본 정보 수정'}, '저장 뒤 화면')):
+            with self.subTest(over):
+                result, note, _ = self.run09({**self.GOOD, **over})
+                self.assertEqual(result, 'fail', note)
+                self.assertIn(word, note)
+
+    def test_a_save_that_did_not_reach_the_db_is_a_fail(self):
+        def finish(job):
+            return dict(self.GOOD)  # 앱은 15-5 라는데 DB 는 그대로
+        result, note, _ = self.go(self.CASE, {None: (['15-6:opened', 'end'], finish)}, serial=EMU)
+        self.assertEqual(result, 'fail', note)
+        self.assertIn('DB 키', note)
+
+    def test_the_clock_comes_back_when_the_app_blocks_after_the_jump(self):
+        result, note, _ = self.run09({'result': 'blocked', 'note': '앱 막힘'})
+        self.assertEqual(result, 'blocked', note)
+        self.assertAlmostEqual((self.clock_moves()[-1] - now()).total_seconds(), 0, delta=60)
+        self.assertEqual([e for e in self.events if isinstance(e, str) and e.startswith('auto_time')][-1], 'auto_time 1')
+
+    def test_an_app_that_never_stops_at_15_6_is_a_fail_without_a_clock_jump(self):
+        result, note, _ = self.run09(steps=())
+        self.assertEqual(result, 'fail', note)
+        self.assertEqual(self.clock_moves(), [])
+
+    def test_no_root_is_blocked_before_any_account(self):
+        self.rooted = False
+        result, note, _ = self.run09()
+        self.assertEqual(result, 'blocked', note)
+        self.assertIn('root', note)
+        self.assertFalse(self.fake.users)
+
+    def test_it_runs_only_on_the_emulator(self):
+        result, note, _ = self.run09(serial='R5CT')
+        self.assertEqual(result, 'blocked', note)
+        self.assertIn('에뮬', note)
+
+    def test_it_goes_after_the_other_rooted_case_so_root_never_leaks_into_a_phone_case(self):
+        self.assertEqual(CASES[-2:], ['E-EDGE-10', 'E-EDGE-09'])
 
 
 # ── E-EDGE-12 큰 글자에서 넘침 ───────────────────────────────────────────────────────────────────────

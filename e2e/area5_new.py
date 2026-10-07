@@ -166,6 +166,34 @@ def p_edge_10(run, phone):
     return check.result(f"세션이 끊기지 않은 서버 — 저장 성공 → 시계 +65분 → 02 {ms}ms · 02 알림 {said.get('late_notice', MISSING)!r}(10-04 확인 필요 — 판정 안 함)")
 
 
+# ── E-EDGE-09 시계를 넘긴 뒤 저장 ────────────────────────────────────────────────────────────────────
+
+def p_edge_09(run, phone):
+    """15-6 을 연 채 에뮬 시계 +65분 → 30초 뒤 "저장" → 첫 누름에 저장되어 15-5 로, "세션이 만료됐어요" 0번 · 02 0번. 서버 기준 토큰이 안 끝났으면 첫 요청이 그대로 200 이어도
+    통과 조건은 같다(시나리오 10-04 갱신 — A11: 401 이면 토큰을 새로 받아 한 번 더 보낸다). 에뮬 root 가 필요하니 E-EDGE-10 과 같이 묶음 끝이다."""
+    serial = phone.serial
+    emu.require_emulator(serial)
+    emu.root(serial, getattr(phone, 'hub', None))  # 시계를 옮길 수 있어야 한다 — 안 되면 계정을 만들기 전에 blocked
+    check = Check()
+    account, token = _home(run)
+    _set(run, account, f'키 {OLD_HEIGHT}', height_cm=OLD_HEIGHT)
+    seen = {}
+    with contextlib.ExitStack() as clock:  # 앱이 끝나면(어떻게든) 시계를 되돌린다
+        def opened(screen):  # 앱이 15-6 을 연 채 멈춤 — 시계를 넘긴다
+            clock.enter_context(emu.clock_shifted(serial, SHIFT.total_seconds() / 3600))
+            seen['shifted'] = True
+        said = _app(check, phone(midway=_walk(phone, {'opened': opened}), token_hash=token, height=NEW_HEIGHT))
+    if not seen.get('shifted'):
+        check.that(False, '앱이 15-6 에서 멈추지 않고 끝남 — 시계를 못 넘김')
+        return check.result()
+    height = _profile(run, account, 'height_cm').get('height_cm')
+    check.that(said.get('expired_seen') is False, f"'{EXPIRED}' 알림이 뜬 적 {said.get('expired_seen', MISSING)}(기대 0번)")
+    check.that(said.get('login_seen') is False, f"로그인 화면(02)에 간 적 {said.get('login_seen', MISSING)}(기대 0번)")
+    check.that(said.get('saved_title', MISSING) == TITLES['15-5'], f"저장 뒤 화면 {said.get('saved_title', MISSING)!r}(기대 {TITLES['15-5']!r})")
+    check.that(height == int(NEW_HEIGHT), f'DB 키 {height}(기대 {NEW_HEIGHT} — 첫 누름에 저장)')
+    return check.result('서버 기준 토큰이 안 끝났으면 첫 요청이 그대로 200 이었을 수 있다 — 어느 길이든 통과 조건은 같다. 에뮬 시계는 끝나면 PC 시계로 되돌린다')
+
+
 # ── E-EDGE-12 큰 글자에서 넘침 ───────────────────────────────────────────────────────────────────────
 
 def _font(serial):
@@ -259,8 +287,9 @@ def p_wd_20(run, phone):
 
 PHONE = {
     'E-EDGE-04': _paid_case('E-EDGE-04', p_edge_04), 'E-EDGE-12': p_edge_12, 'E-WD-19': p_wd_19, 'E-WD-20': p_wd_20, 'E-EDGE-10': p_edge_10,
+    'E-EDGE-09': p_edge_09,  # 10 · 09 는 adb root 를 남긴다 — 맨 끝
 }
-EMULATOR = ['E-EDGE-04', 'E-WD-20', 'E-EDGE-10']  # --device B — 10 이 adb root 를 남기므로 맨 끝
+EMULATOR = ['E-EDGE-04', 'E-WD-20', 'E-EDGE-10', 'E-EDGE-09']  # --device B — 10 · 09 가 adb root 를 남기므로 맨 끝
 
 area1.PHONE.update(PHONE)
 area1.BUNDLES['area5-new'] = list(PHONE)
@@ -270,4 +299,5 @@ tools.CASE_LIMITS.update({
     'E-WD-19': 3 * APP_WAIT + ROOM,  # 멈춤 둘 · 결과
     'E-WD-20': 2 * APP_WAIT + ROOM,  # 멈춤 · 5초 지연 결과
     'E-EDGE-10': 3 * APP_WAIT + ROOM,  # 멈춤 둘(끊기 · 시계) · 결과
+    'E-EDGE-09': 3 * APP_WAIT + ROOM,  # 멈춤 · 30초 기다림 · 저장 · 끝 멈춤
 })

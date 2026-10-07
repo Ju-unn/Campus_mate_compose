@@ -1,6 +1,6 @@
 part of 'area5.dart';
 
-// 영역 5 새 5개(묶음 area5-new — 폰 A: E-EDGE-12 · E-WD-19, B에뮬: E-EDGE-04 · E-WD-20 · E-EDGE-10). PC 쪽은 e2e/area5_new.py 의 같은 번호 —
+// 영역 5 새 5개(묶음 area5-new — 폰 A: E-EDGE-12 · E-WD-19, B에뮬: E-EDGE-04 · E-WD-20 · E-EDGE-10 · E-EDGE-09). PC 쪽은 e2e/area5_new.py 의 같은 번호 —
 // 계정 · DB 를 준비하고, 앱이 멈춘 사이 망(에뮬 지연 · 끊기 · 비행기 모드) · 세션(logout scope=global) · 시계 · 잠금을 바꾸고 판정한다.
 // 앱은 화면을 열어 누르고 본 것을 Map 으로 말한다(문구는 사람이 읽는 글자 그대로, 못 본 것은 null). 이 파일의 이름은 모두 `_nw` 로 시작한다.
 // 탈퇴 버튼은 area5_wd.dart 의 `_wdWithdraw` 로만 누르고, 거기 닿는 가설은 E-WD-19 · 20 둘이다(e2e/test_area5_new.py 가 고정).
@@ -96,6 +96,45 @@ Future<Map<String, Object?>> _nwSessionCut(WidgetTester tester, Map<String, dyna
   if (loginMs != null) notice = (await _twoLoginNotice(tester)).$2;
   await step('end');
   return {'login_after_save': false, 'notice': null, 'saved_title': savedTitle, 'login_ms': loginMs, 'late_notice': notice};
+}
+
+// ── E-EDGE-09 ───────────────────────────────────────────────────────────────────────────────────────
+
+const _nwExpiredPart = '세션이 만료됐어요'; // 알림 글자의 앞부분 — 한 번이라도 뜨면 안 된다
+
+/// 15-6 을 연 채 멈춤(PC 가 에뮬 시계 +65분) → 30초 기다리며(02 · 만료 알림이 뜨는지 본다) 키를 고쳐 "저장" → 15-5 로 돌아오는지 · 02 에 갔는지 · 만료 알림이 떴는지.
+/// 서버 기준 토큰이 안 끝났으면 첫 요청이 그대로 200 이어도 통과 조건은 같다(시나리오 10-04 갱신).
+Future<Map<String, Object?>> _nwClockSave(WidgetTester tester, Map<String, dynamic> job) async {
+  await _openManage(tester);
+  await _actEnterBasic(tester);
+  await step('15-6:opened');
+  var loginSeen = false;
+  var expiredSeen = false;
+  void look() {
+    loginSeen |= _has(screen('login'));
+    expiredSeen |= (_wdToast(tester) ?? '').contains(_nwExpiredPart);
+  }
+
+  final watch = Stopwatch()..start();
+  while (watch.elapsed < const Duration(seconds: 30)) {
+    await tester.pump(const Duration(milliseconds: 200));
+    look();
+  }
+  if (!loginSeen) {
+    await type(tester, _actHeightField, job['height'] as String);
+    await wait(tester, const Duration(milliseconds: 400));
+    FocusManager.instance.primaryFocus?.unfocus();
+    await _edTapSave(tester);
+    await _actUntil(tester, () {
+      look();
+      return loginSeen || _title(tester) == _actManageTitle;
+    }, timeout: const Duration(seconds: 30));
+    await wait(tester, const Duration(seconds: 2)); // 02 로 간 뒤 알림이 그려지는 시간
+    look();
+  }
+  final savedTitle = _title(tester);
+  await step('end');
+  return {'login_seen': loginSeen, 'expired_seen': expiredSeen, 'saved_title': savedTitle};
 }
 
 // ── E-EDGE-12 ───────────────────────────────────────────────────────────────────────────────────────
@@ -215,4 +254,5 @@ final Map<String, Area1Case> area5CasesNew = {
   'E-WD-19': _session((tester, job) => _nwWithdrawOffline(tester)),
   'E-WD-20': _session((tester, job) => _nwWithdrawTwice(tester)),
   'E-EDGE-10': _session(_nwSessionCut),
+  'E-EDGE-09': _session(_nwClockSave),
 };
