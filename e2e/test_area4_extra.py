@@ -3,6 +3,7 @@
 import os
 import unittest
 from unittest import mock
+from urllib.parse import urlsplit
 
 from e2e import area1, area2, area2_phone3, area4, area4_extra, tools, twodev
 from e2e.test_area1_phone import APP_PASS, FakePhone
@@ -36,8 +37,9 @@ class RegistryTest(unittest.TestCase):
     def test_the_six_that_code_cannot_do_are_not_registered(self):
         every = {*area1.CASES, *area1.PHONE, *twodev.TWO}
         for case in SIX_NOT_CODED:
-            self.assertNotIn(case, every)
-        self.assertEqual(sorted(c for c in area4.LEFT_OUT if c in SIX_NOT_CODED), ['E-SET-55', 'E-SET-56', 'E-SET-57'])
+            if case != 'E-SET-56':  # 56 은 줄 순서 · 맨 앞 앱만 자동으로 보는 가설로 area4_set56 이 등록했다(브라우저 화면은 사람)
+                self.assertNotIn(case, every)
+        self.assertEqual(sorted(c for c in area4.LEFT_OUT if c in SIX_NOT_CODED), ['E-SET-55', 'E-SET-57'])
 
     def test_the_two_device_case_has_a_long_enough_case_limit(self):
         self.assertGreater(tools.CASE_LIMITS['E-SET-67'], area4_extra.HOLD + 600)
@@ -241,6 +243,87 @@ class MailDisabledTest(unittest.TestCase):
             self.assertEqual(area4_extra.mail_apps('emulator-5554'), ['com.android.email', 'com.google.android.gm'])
 
 
+MAIL = area4_extra.SUPPORT_MAIL
+GM = 'com.google.android.gm'
+# 실제 에뮬 dumpsys 의 한 줄(구글 계정이 없어 Gmail 이 작성 화면 대신 첫 실행 화면을 띄워도 Intent 줄은 그대로 남는다)
+INTENT = f'  Intent {{ act=android.intent.action.SENDTO dat=mailto:{MAIL} flg=0x14000000 cmp={GM}/.ComposeActivityGmailExternal }}'
+
+
+class Set52Test(Base):
+    """E-SET-52 — 받는 사람을 화면 글자 대신 dumpsys 의 SENDTO Intent 줄에서 읽는다(에뮬에는 구글 계정이 없어 Gmail 이 첫 실행 화면만 띄운다)."""
+
+    def world(self, dump, screen=False, top=f'{GM}/.welcome.WelcomeTourActivity'):
+        events = []
+
+        def adb(serial, *args, check=True):
+            events.append(args)
+            if args[:3] == ('shell', 'pm', 'query-activities'):
+                return f'priority=0 preferredOrder=0\n  {GM}/.ComposeActivityGmail\n'
+            if args[:4] == ('shell', 'dumpsys', 'activity', 'activities'):
+                return dump
+            return ''
+
+        class Phone(FakePhone):
+            def __call__(self, midway=None, **job):
+                events.append(('app', job.get('token_hash') is not None))
+                return super().__call__(midway=midway, **job)
+
+        phone = Phone(top=top)
+        phone.serial = 'emulator-5554'
+        return events, phone, adb, mock.patch.object(area4_extra.notify, 'screen_has', lambda serial, text: screen)
+
+    def run52(self, dump, screen=False):
+        events, phone, adb, screen_patch = self.world(dump, screen)
+        with mock.patch.object(tools, 'call', Fake([])), mock.patch.object(tools, 'adb', adb), screen_patch:
+            return area1.attempt_phone(self.run, 'E-SET-52', phone), events
+
+    def test_the_recipient_is_read_from_the_sendto_intent_line(self):
+        for dump, want in ((INTENT, True), (INTENT.replace(MAIL, 'someone@else.com'), False),
+                           (f'act=android.intent.action.SENDTO\n dat=mailto:{MAIL}', False), ('', False)):
+            with self.subTest(dump=dump[:60]):
+                with mock.patch.object(tools, 'adb', lambda serial, *args, check=True, d=dump: d):
+                    self.assertEqual(area4_extra.mail_intent_to('emulator-5554', MAIL), want)
+
+    def test_the_view_intent_url_launcher_really_sends_counts_too(self):
+        # 실기기(에뮬) dumpsys 의 진짜 줄 — url_launcher 의 openUrl 은 SENDTO 가 아니라 VIEW 로 보낸다.
+        view = INTENT.replace('SENDTO', 'VIEW').replace('flg=0x14000000', 'flg=0x10080000 xflg=0x4') + ' (has extras)'
+        for dump, want in ((view, True), (view.replace('VIEW', 'VIEWER'), False), (view.replace(MAIL, MAIL + '.evil'), False),
+                           (view.replace(f'dat=mailto:{MAIL}', f'dat=mailto:{MAIL}?subject=x'), True),
+                           (view.replace('action.VIEW', 'action.MAIN'), False)):
+            with self.subTest(dump=dump[:80]):
+                with mock.patch.object(tools, 'adb', lambda serial, *args, check=True, d=dump: d):
+                    self.assertEqual(area4_extra.mail_intent_to('emulator-5554', MAIL), want)
+
+    def test_an_emulator_with_no_account_passes_on_the_intent_alone(self):
+        (result, note), _ = self.run52(INTENT, screen=False)
+        self.assertEqual(result, 'pass', note)
+
+    def test_the_screen_is_not_read_when_the_intent_line_already_matched(self):
+        # uiautomator 덤프가 실패하면 screen_has 가 Blocked 를 던져 가설 전체를 막는다 — Intent 줄이 맞으면 화면을 보지 않는다.
+        events, phone, adb, _ = self.world(INTENT)
+
+        def broken(serial, text):
+            raise Blocked('화면 덤프를 못 읽음(uiautomator)')
+        with mock.patch.object(tools, 'call', Fake([])), mock.patch.object(tools, 'adb', adb), \
+                mock.patch.object(area4_extra.notify, 'screen_has', broken):
+            (result, note) = area1.attempt_phone(self.run, 'E-SET-52', phone)
+        self.assertEqual(result, 'pass', note)
+
+    def test_a_device_with_an_account_that_shows_the_address_on_screen_also_passes(self):
+        (result, note), _ = self.run52('', screen=True)
+        self.assertEqual(result, 'pass', note)
+
+    def test_neither_the_intent_nor_the_screen_is_a_fail(self):
+        (result, note), _ = self.run52(INTENT.replace(MAIL, 'someone@else.com'), screen=False)
+        self.assertEqual(result, 'fail', note)
+        self.assertIn(MAIL, note)
+
+    def test_the_mail_apps_are_force_stopped_before_the_press_so_an_old_task_cannot_pass_for_this_one(self):
+        _, events = self.run52(INTENT)
+        stop = events.index(('shell', 'am', 'force-stop', GM))
+        self.assertLess(stop, events.index(('app', True)))
+
+
 class Set12Test(Base):
     def world(self, new_message=None):
         """실제 서버처럼 — 새 계정은 notification_settings 행이 없고(16d 를 열어도 읽기만 한다), PostgREST PATCH 는 없는 행에는 아무 일도 안 하고,
@@ -357,7 +440,7 @@ class Set67Test(Base):
         with mock.patch.object(area4_extra, 'HOLD', 7):
             result, seen = self.run_two()
             sync = FakeSync({'a-out'})
-            with mock.patch.object(tools, 'call', self.server(('GET', '/profiles/me', lambda b, u: Reply(200, {'ok': 1})))):
+            with mock.patch.object(tools, 'call', self.server(('GET', '/me/profile', lambda b, u: Reply(200, {'ok': 1})))):
                 seen['plan'][('B', 'b-in')]({}, sync)
             slept = []
             with mock.patch.object(area4_extra.time, 'sleep', slept.append):
@@ -366,9 +449,23 @@ class Set67Test(Base):
             self.assertEqual(slept, [7])
         self.assertIn('b-in', sync.names)
 
+    def test_the_server_route_it_asks_is_a_real_one_not_the_uuid_route(self):
+        # 서버에 GET /profiles/me 는 없고 /profiles/{id} 로 읽혀 422 "valid UUID" 가 났다(E-SET-67 첫 실행). 내 프로필은 GET /me/profile.
+        router = (tools.ROOT / 'backend' / 'app' / 'me' / 'router.py').read_text(encoding='utf-8')
+        self.assertIn('@router.get("/me/profile")', router)
+        asked = []
+        result, seen = self.run_two()
+
+        def spy(method, url, headers=None, body=None, raw=None, **options):
+            asked.append((method, urlsplit(url).path))
+            return Reply(200, {'ok': 1})
+        with mock.patch.object(tools, 'call', spy):
+            seen['plan'][('B', 'b-in')]({}, FakeSync({'a-out'}))
+        self.assertEqual(asked, [('GET', '/me/profile')])
+
     def test_a_server_that_no_longer_knows_the_account_after_the_logout_is_a_fail(self):
         def two(plan, a_job=None, b_job=None, **limit):
-            with mock.patch.object(tools, 'call', self.server(('GET', '/profiles/me', lambda b, u: Reply(401, {'detail': 'x'})))):
+            with mock.patch.object(tools, 'call', self.server(('GET', '/me/profile', lambda b, u: Reply(401, {'detail': 'x'})))):
                 plan[('B', 'b-in')]({}, FakeSync({'a-out'}))
             return 'pass', 'ok'
         with mock.patch.object(tools, 'call', self.server()):

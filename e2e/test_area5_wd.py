@@ -466,7 +466,8 @@ class AppContractTest(unittest.TestCase):
         folder = tools.ROOT / 'frontend' / 'integration_test'
         # area5_two.dart 의 A 쪽(두 기기 탈퇴 E-WD-05 ~ 09)은 _wdOpenFinal · _wdWithdraw · _wdToLogin 을 부른다 — 그 다섯 `/A` 만 닿는지는
         # e2e/test_area5_two.py 가 본다. 그래도 "정말 영구 삭제" 글자는 거기에도 없어야 한다(아래 area5 검사).
-        reaching = {'area5_wd.dart', 'area5_two.dart'}
+        # area5_new.dart 의 E-WD-19 · 20 도 _wdOpenFinal · _wdWithdraw 를 부른다 — 그 둘만 닿는지는 e2e/test_area5_new.py 가 본다.
+        reaching = {'area5_wd.dart', 'area5_two.dart', 'area5_new.dart'}
         others = [p for p in folder.glob('*.dart') if p.name != 'area5_wd.dart']
         self.assertGreater(len(others), 10)
         area5 = [p for p in others if p.name == 'area5.dart' or "part of 'area5.dart';" in p.read_text(encoding='utf-8')]
