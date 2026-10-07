@@ -1,5 +1,8 @@
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
+import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/consent/model/open_url.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_elevation.dart';
@@ -8,23 +11,54 @@ import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/home/model/home_summary.dart';
+import 'package:campus_mate/home/model/store_review_url.dart';
 import 'package:campus_mate/home/view/cohort_wait_view.dart';
 import 'package:campus_mate/home/view/mosaic_rail.dart';
 import 'package:campus_mate/home/view/notify_icon_button.dart';
 import 'package:campus_mate/home/view/stat_tile.dart';
 import 'package:campus_mate/home/view/tag.dart';
 import 'package:campus_mate/home/viewmodel/home_summary_provider.dart';
+import 'package:campus_mate/me/view/me_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 /// 09b 메인(pen `bpA8x`). hero-today · mosaic-rail · stat-panel · review-strip · campus-strip 순서.
 /// 요약을 못 받으면(조회 중·실패) hero-today 만 남긴다 — 카드로 가는 길은 요약과 상관없다.
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeScreen> {
+  /// "리뷰 남기기" — 스토어 주소([Env.storeReviewUrl])가 비어 있거나 http(s) 가 아니면 "곧 열려요" 만 띄운다.
+  /// 채워져 있으면 기기에서 연다(DESIGN §8.9 — 스토어 리뷰 페이지로 딥링크). 열지 못하면 조용히 끝내지 않고 실패 안내를 띄운다.
+  Future<void> _openStoreReview() async {
+    final uri = Uri.tryParse(ref.read(storeReviewUrlProvider).trim());
+    if (uri == null || !(uri.scheme == 'http' || uri.scheme == 'https') || uri.host.isEmpty) {
+      showTimedToast(comingSoonToast);
+      return;
+    }
+    var opened = false;
+    try {
+      opened = await ref.read(openUrlProvider)(uri);
+    } catch (_) {
+      // 기기 쪽 오류 — 아래에서 안내한다.
+    }
+    if (!opened) {
+      showTimedToast(
+        AppToast(
+          leading: const Icon(AppIcons.alertTriangle, size: 16, color: AppColors.onInk),
+          label: const UnknownFailure().toDisplayMessage(),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final summary = ref.watch(homeSummaryProvider).value;
     final cohort = summary?.cohort;
     return Scaffold(
@@ -40,15 +74,18 @@ class HomeScreen extends ConsumerWidget {
       ),
       bottomNavigationBar: const AppBottomNav(current: AppTab.main),
       // 우리 학교가 아직 첫 카드를 안 열었으면 본문만 19 대기 화면으로 바꿔 끼운다(코호트 계획서 결정 1).
-      body: cohort != null
-          ? CohortWaitView(cohort: cohort)
-          : ListView(
-              padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, 20),
-              children: [
-                const _HeroToday(),
-                if (summary != null) ..._summarySections(summary),
-              ],
-            ),
+      body: MeToastLayer(
+        toast: timedToast,
+        child: cohort != null
+            ? CohortWaitView(cohort: cohort)
+            : ListView(
+                padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, 20),
+                children: [
+                  const _HeroToday(),
+                  if (summary != null) ..._summarySections(summary),
+                ],
+              ),
+      ),
     );
   }
 
@@ -101,7 +138,7 @@ class HomeScreen extends ConsumerWidget {
         ),
       ),
       const SizedBox(height: AppSpacing.lg),
-      _ReviewStrip(rating: summary.reviewRating, count: summary.reviewCount),
+      _ReviewStrip(rating: summary.reviewRating, count: summary.reviewCount, onReview: _openStoreReview),
       // pen 은 여백 16 · 8(`sDLEb` · `o6qaj`)을 겹쳐 둔다.
       const SizedBox(height: AppSpacing.lg),
       // pen 글자 상자 높이 20(`YIoXQ` 렌더 결과, lineHeight 속성 없음) — bodySmall 토큰은 22 라 맞춘다.
@@ -114,7 +151,10 @@ class HomeScreen extends ConsumerWidget {
       // 다 채웠으면 권할 것이 없어 카드를 숨긴다(사용자 결정 2026-09-26).
       if (summary.profileCompletionPercent < 100) ...[
         const SizedBox(height: AppSpacing.md),
-        _ProfileNudge(percent: summary.profileCompletionPercent),
+        _ProfileNudge(
+          percent: summary.profileCompletionPercent,
+          onTap: () => context.push(AppRoutes.myProfileManage),
+        ),
       ],
     ];
   }
@@ -240,12 +280,13 @@ class _StatEmptyPanel extends StatelessWidget {
   }
 }
 
-/// review-strip(pen `L7wKi`). 리뷰 쓰는 화면이 아직 없어 "리뷰 남기기"는 누를 곳을 두지 않는다.
+/// review-strip(pen `L7wKi`). "리뷰 남기기" 는 스토어 리뷰 페이지로 간다 — 주소가 없는 동안은 "곧 열려요"(홈 화면이 정한다).
 class _ReviewStrip extends StatelessWidget {
-  const _ReviewStrip({required this.rating, required this.count});
+  const _ReviewStrip({required this.rating, required this.count, required this.onReview});
 
   final double rating;
   final int count;
+  final VoidCallback onReview;
 
   @override
   Widget build(BuildContext context) {
@@ -284,12 +325,20 @@ class _ReviewStrip extends StatelessWidget {
               ),
             ),
           ),
-          SizedBox(
-            height: 48,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-              child: Center(
-                child: Text('리뷰 남기기', style: AppTypography.button.copyWith(color: AppColors.primaryText)),
+          // 누름 칸은 pen 버튼 칸(높이 48) 그대로다 — 모양은 바꾸지 않았다.
+          Semantics(
+            button: true,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onReview,
+              child: SizedBox(
+                height: 48,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                  child: Center(
+                    child: Text('리뷰 남기기', style: AppTypography.button.copyWith(color: AppColors.primaryText)),
+                  ),
+                ),
               ),
             ),
           ),
@@ -299,11 +348,12 @@ class _ReviewStrip extends StatelessWidget {
   }
 }
 
-/// 프로필 완성도 카드(pen `usk5M`). 프로필 편집 화면이 아직 없어 누를 곳을 두지 않는다.
+/// 프로필 완성도 카드(pen `usk5M`). 카드 전체가 누름 칸이고 프로필 편집 허브(15-5)로 간다.
 class _ProfileNudge extends StatelessWidget {
-  const _ProfileNudge({required this.percent});
+  const _ProfileNudge({required this.percent, required this.onTap});
 
   final int percent;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -311,62 +361,69 @@ class _ProfileNudge extends StatelessWidget {
     final lineStyle =
         AppTypography.bodySmall.copyWith(fontWeight: FontWeight.w700, height: 20 / 14, color: AppColors.ink);
     // pen 높이 92 는 최소 높이다 — 글자를 키우면 늘어난다(DESIGN §11.2).
-    return Container(
-      constraints: const BoxConstraints(minHeight: 92),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: AppSpacing.xxs),
-      decoration: BoxDecoration(
-        color: AppColors.primaryWash,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-      ),
-      child: Row(
-        children: [
-          Image.asset('assets/images/mascot-male.png', width: 64, height: 64),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 문구는 사용자 결정 2026-09-26 — pen `tV9Oa` · `KjqWO`.
-                Text('프로필을 조금 더 채우면', style: lineStyle),
-                const SizedBox(height: 5),
-                Text('나를 더 잘 보여 줄 수 있어요', style: lineStyle),
-                const SizedBox(height: 5),
-                Container(
-                  width: 150,
-                  height: 6,
-                  alignment: Alignment.centerLeft,
-                  decoration: BoxDecoration(
-                    color: AppColors.canvas,
-                    borderRadius: BorderRadius.circular(AppRadius.pill),
-                    boxShadow: AppElevation.trait,
-                  ),
-                  // 테두리는 채움 위에 그린다 — decoration 테두리는 Container 가 안쪽 여백으로 더해 채움이 4 로 준다.
-                  foregroundDecoration: BoxDecoration(
-                    border: Border.all(color: const Color(0x40D8C8D9)), // pen v8D23 값, 토큰표 밖
-                    borderRadius: BorderRadius.circular(AppRadius.pill),
-                  ),
-                  child: FractionallySizedBox(
-                    widthFactor: percent.clamp(0, 100) / 100,
-                    child: Container(
+    return Semantics(
+      button: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 92),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: AppSpacing.xxs),
+          decoration: BoxDecoration(
+            color: AppColors.primaryWash,
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+          ),
+          child: Row(
+            children: [
+              Image.asset('assets/images/mascot-male.png', width: 64, height: 64),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 문구는 사용자 결정 2026-09-26 — pen `tV9Oa` · `KjqWO`.
+                    Text('프로필을 조금 더 채우면', style: lineStyle),
+                    const SizedBox(height: 5),
+                    Text('나를 더 잘 보여 줄 수 있어요', style: lineStyle),
+                    const SizedBox(height: 5),
+                    Container(
+                      width: 150,
+                      height: 6,
+                      alignment: Alignment.centerLeft,
                       decoration: BoxDecoration(
-                        color: AppColors.primary,
+                        color: AppColors.canvas,
+                        borderRadius: BorderRadius.circular(AppRadius.pill),
+                        boxShadow: AppElevation.trait,
+                      ),
+                      // 테두리는 채움 위에 그린다 — decoration 테두리는 Container 가 안쪽 여백으로 더해 채움이 4 로 준다.
+                      foregroundDecoration: BoxDecoration(
+                        border: Border.all(color: const Color(0x40D8C8D9)), // pen v8D23 값, 토큰표 밖
                         borderRadius: BorderRadius.circular(AppRadius.pill),
                       ),
+                      child: FractionallySizedBox(
+                        widthFactor: percent.clamp(0, 100) / 100,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: AppColors.primary,
+                            borderRadius: BorderRadius.circular(AppRadius.pill),
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 5),
+                    Text(
+                      '프로필 완성도 $percent%',
+                      style: AppTypography.caption.copyWith(fontSize: 11, height: 16 / 11, color: AppColors.muted),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 5),
-                Text(
-                  '프로필 완성도 $percent%',
-                  style: AppTypography.caption.copyWith(fontSize: 11, height: 16 / 11, color: AppColors.muted),
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              const Icon(AppIcons.chevronRight, size: 20, color: AppColors.primaryText),
+            ],
           ),
-          const SizedBox(width: AppSpacing.sm),
-          const Icon(AppIcons.chevronRight, size: 20, color: AppColors.primaryText),
-        ],
+        ),
       ),
     );
   }
