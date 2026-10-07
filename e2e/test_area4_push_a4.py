@@ -165,7 +165,7 @@ class BundleTest(unittest.TestCase):
         self.assertGreater(push.DISCARD_WAIT, 60)  # push_registrar.dart `_retryDelay` 1분 — 시나리오의 "최대 1분 기다린 뒤"
 
     def test_cases_left_out_of_the_bundle_say_why(self):
-        for case in ('E-PUSH-56', 'E-PUSH-57', 'E-PUSH-64', 'E-PUSH-65', 'E-PUSH-71'):
+        for case in ('E-PUSH-64', 'E-PUSH-65', 'E-PUSH-71'):  # 56 · 57 은 area4_push_fcm 이 직접 발송으로 등록
             self.assertTrue(push.LEFT_OUT[case], case)
 
 

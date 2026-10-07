@@ -40,6 +40,7 @@ part 'area4_contacts.dart';
 part 'area4_push_a4.dart';
 part 'area4_set56.dart';
 part 'area4_push_two.dart';
+part 'area4_push_fcm.dart';
 part 'area4_set2.dart';
 part 'area4_push.dart';
 part 'area4_push_tap.dart';
@@ -219,6 +220,7 @@ final Map<String, Area1Case> area4Cases = {
   ..._set56Cases,
   ..._extraCases,
   ..._pushTwoCases,
+  ..._pushFcmCases,
   'E-SET-01': _session((tester, job) async {
     await _openSettings(tester);
     await pumpUntil(tester, find.text('자주 묻는 질문'));
