@@ -143,6 +143,7 @@ class _RealPhotoSection extends StatelessWidget {
           photoSize: const Size(252, 184),
           firstPhotoBadge: const _LockBadge(),
           dotsGap: AppSpacing.sm,
+          bordered: true, // pen `oE1rh` PhotoSlide · Real — 안쪽 1px #DDDDDD(`GNuJT` · `wB0IH`)
         ),
         const SizedBox(height: AppSpacing.sm),
         _ReplacePhotoButton(onTap: onReplace),
