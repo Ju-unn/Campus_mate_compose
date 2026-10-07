@@ -48,6 +48,7 @@ part 'area3_b5.dart';
 part 'area3_b6.dart';
 part 'area3_b7.dart';
 part 'area3_b8.dart';
+part 'area3_chat_rt.dart';
 part 'area3_b11.dart';
 
 /// 영역 3 폰 A 한 대 1차 — 채팅 · 지인 리뷰 화면 읽기 19개. PC 쪽은 e2e/area3_phone.py 의 같은 번호(계정 · 매칭 · 메시지 ·
@@ -349,5 +350,6 @@ final Map<String, Area1Case> area3Cases = {
   ...area3Cases6,
   ...area3Cases7,
   ...area3Cases8,
+  ...area3CasesChatRt,
   ...area3Cases11,
 };
