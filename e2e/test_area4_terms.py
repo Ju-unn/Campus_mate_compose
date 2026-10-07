@@ -68,6 +68,14 @@ class HeartTest(unittest.TestCase):
         with mock.patch.object(area4_terms.urllib.request, 'urlopen', side_effect=OSError('offline')), self.assertRaises(Blocked):
             area4_terms.fetch_page(PAGE)
 
+    def test_block_in_the_order_but_not_received_is_blocked_not_fail(self):
+        blocks = good()
+        order = blocks[PAGE]['value']['value']['content']
+        order.insert(2, 'later-chunk')  # 순서엔 있고 블록 글은 첫 chunk 에 없음
+        with self.assertRaises(Blocked) as raised:
+            self.run50(blocks)
+        self.assertIn('모자람', str(raised.exception))
+
     def test_part_two_is_found_by_its_header_not_only_by_the_far_anchor(self):
         order = [TERMS, 'part2', 'a', 'z', PRIVACY]  # 문장이 2부 머리글 뒤 · 2부 항목 앵커 앞 — 앵커만 보면 헛통과한다
         blocks = page(order, {TERMS: '1부', 'part2': '2부. 개인정보', 'a': SENTENCE})
@@ -102,6 +110,14 @@ class TermsViewTest(ReadBase):
         (result, note), events = self.run57(OURS, [])
         self.assertEqual(result, 'fail', note)
         self.assertIn('front', events)  # 실패해도 앱은 앞으로 되돌린다
+
+    def test_a_word_that_only_contains_the_login_words_does_not_fail(self):
+        (result, note), _ = self.run57(BROWSER, ['약관동의', 'dialog in progress', 'design up'])
+        self.assertEqual(result, 'pass', note)
+
+    def test_the_words_that_tripped_are_named_in_the_note(self):
+        (result, note), _ = self.run57(BROWSER, ['약관동의', 'Log in'])
+        self.assertEqual((result, 'log in' in note), ('fail', True))
 
     def test_text_not_readable_is_blocked_not_fail(self):
         (result, note), _ = self.run57(BROWSER, ['', 'x'])

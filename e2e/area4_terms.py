@@ -27,7 +27,7 @@ SITE = 'https://golden-leech-197.notion.site'  # 같은 페이지의 공개 주�
 SENTENCE = '무료로 받은 하트는 현금으로 바꾸거나 다른 회원에게 줄 수 없고, 유효기간은 없습니다'
 TITLE = '약관동의'  # 노션 페이지 이름
 PART2 = '2부'
-LOGIN_WORDS = ('log in', 'sign up', 'continue with')  # 노션 로그인 벽 글자 — 한글 "로그인" 은 약관 본문에도 나와 안 쓴다
+LOGIN_WORDS = (r'\blog in\b', r'\bsign up\b', r'\bcontinue with\b')  # 노션 로그인 벽 글자(단어 경계 — "dialog in" 에 안 걸리게). 한글 "로그인" 은 약관 본문에도 나와 안 쓴다
 FIRST_RUN_WORDS = ('welcome to chrome', 'use without an account', 'accept & continue')  # 크롬 첫 실행 화면 — 페이지가 아니다
 FRONT_WAIT = 10  # 앱을 누른 뒤 맨 앞이 브라우저로 바뀌기를 기다리는 시간(초)
 PAGE_WAIT = 30  # 브라우저에 제목 글자가 나타나기를 기다리는 시간(초) — 노션은 스크립트로 그려 느리다
@@ -77,6 +77,9 @@ def heart_50(run):
         raise Blocked('받은 페이지에서 1부 앵커 · 블록 순서를 못 읽음 — 노션 쪽 모양이 바뀜')
     end = next((i for i, b in enumerate(order) if _flat(_title(blocks, b)).startswith(PART2)), order.index(privacy))
     first = order.index(terms)
+    missing = [b for b in order[first:end] if b not in blocks]
+    if missing:  # 첫 chunk(100블록)에 안 든 블록 — 문장이 거기 있어도 없다고 하면 헛 fail
+        raise Blocked(f'받은 블록이 모자람(1부 {end - first}개 중 {len(missing)}개 없음) — chunk 더 받아야')
     check = Check()
     found = [i for i, b in enumerate(order) if SENTENCE in _flat(_title(blocks, b))]
     check.that(bool(found), f'페이지에 문장이 없음: "{SENTENCE}"')
@@ -127,10 +130,11 @@ def p_set_57(run, phone):
     flat = ' | '.join(shown['texts']).lower()
     if any(w in flat for w in FIRST_RUN_WORDS) and TITLE not in flat:
         raise Blocked('브라우저가 첫 실행 화면 — 약관 페이지가 아님(브라우저를 한 번 열어 설정을 끝낸 뒤 다시)')
-    if TITLE not in flat and not any(w in flat for w in LOGIN_WORDS):
+    walls = [m.group(0) for w in LOGIN_WORDS if (m := re.search(w, flat))]
+    if TITLE not in flat and not walls:
         raise Blocked(f'브라우저 화면 글자에서 페이지 제목 "{TITLE}" 을 못 읽음({PAGE_WAIT}초) — 웹 글을 안 내주거나 아직 로딩 중. 눈으로 확인 필요')
     check.that(TITLE in flat, f'페이지 제목 "{TITLE}" 이 안 보임')
-    check.that(not any(w in flat for w in LOGIN_WORDS), '로그인 요구 글자가 보임')
+    check.that(not walls, f'로그인 요구 글자가 보임: {walls}')
     return check.result()
 
 

@@ -10,7 +10,7 @@ from e2e.test_area1_phone import APP_PASS, FakePhone
 from e2e.test_area2 import Base, Fake
 from e2e.tools import Blocked, Reply
 
-SIX_NOT_CODED = ['E-HEART-06', 'E-HEART-47', 'E-SET-55']  # 50 · 56 · 57 은 뒤에 area4_terms · area4_set56 이 등록했다
+THREE_NOT_CODED = ['E-HEART-06', 'E-HEART-47', 'E-SET-55']  # 50 · 56 · 57 은 뒤에 area4_terms · area4_set56 이 등록했다
 
 
 def paths_reply(*paths):
@@ -36,9 +36,9 @@ class RegistryTest(unittest.TestCase):
 
     def test_the_three_that_code_cannot_do_are_not_registered(self):
         every = {*area1.CASES, *area1.PHONE, *twodev.TWO}
-        for case in SIX_NOT_CODED:
+        for case in THREE_NOT_CODED:
             self.assertNotIn(case, every)
-        self.assertEqual(sorted(c for c in area4.LEFT_OUT if c in SIX_NOT_CODED), ['E-SET-55'])
+        self.assertEqual(sorted(c for c in area4.LEFT_OUT if c in THREE_NOT_CODED), ['E-SET-55'])
 
     def test_the_two_device_case_has_a_long_enough_case_limit(self):
         self.assertGreater(tools.CASE_LIMITS['E-SET-67'], area4_extra.HOLD + 600)
