@@ -217,6 +217,7 @@ void main() {
       final slider = tester.widget<PhotoSlider>(find.byType(PhotoSlider));
       expect(slider.photos, hasLength(2));
       expect(slider.photoSize, const Size(288, 260));
+      expect(slider.bordered, isTrue); // pen `uMias` → `YJdUT` → `oE1rh` — 안쪽 1px #DDDDDD
       // 값표 14c 에 배지가 없다. 화면 15 "수락 후 공개" 는 게이트 전 뜻이라 게이트 뒤 14c 에 맞지 않는다.
       expect(slider.firstPhotoBadge, isNull);
     });
