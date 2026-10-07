@@ -36,8 +36,9 @@ class ContactBlockListScreen extends StatelessWidget {
   }
 }
 
-/// 16b 의 본문 — 추가 버튼 · 목록 · 빈 상태 · 읽기 실패. 가입 마지막 지인 차단(06-4, 결정 8 ①)도 이것을 그대로 쓴다.
-/// 틀(앱바 · 제목 · 건너뛰기)은 쓰는 쪽 몫이다. 높이가 정해진 자리에 둔다 — 목록이 남은 높이를 채운다.
+/// 16b 의 본문 — 목록 · 빈 상태 · 읽기 실패와 바닥 바의 추가 버튼. 쓰는 곳은 16b 뿐이다(가입 마지막 06-4 는 이 본문을 쓰지 않는다 —
+/// `OnboardingContactBlockScreen` 이 소개만 하고 관리는 설정으로 보낸다).
+/// 틀(앱바 · 제목)은 쓰는 쪽 몫이다. 높이가 정해진 자리에 둔다 — 목록이 남은 높이를 채우고 바닥 바가 맨 아래에 붙는다.
 /// 들어올 때마다 새로 읽는다(뷰모델이 autoDispose).
 class ContactBlockListBody extends ConsumerWidget {
   const ContactBlockListBody({super.key});
@@ -48,12 +49,17 @@ class ContactBlockListBody extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // pen `OFWiR` 68: 버튼 위 8, 아래 16(목록 `ZwbzQ` 가 y124 에서 시작).
-        Padding(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.xs, AppSpacing.lg, AppSpacing.md),
-          child: _AddButton(onPressed: () => _add(context, ref)),
-        ),
+        // pen 목록 `UajtB` y56~700 — 앱바 바로 아래에서 바닥 바 위까지.
         Expanded(child: _body(context, ref, state)),
+        // pen 바닥 바 y700~780 h80 · 패딩 [8,16,16,16] — 안의 버튼 328×56(nHrnA `aogPm` · fkjEh `g1FD5` · Gp5my `w849oc`).
+        // 해제 확인 시트 · 스크림은 이 바 위에 덮이는 오버레이다.
+        ColoredBox(
+          color: AppColors.canvas,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.xs, AppSpacing.md, AppSpacing.md),
+            child: _AddButton(onPressed: () => _add(context, ref)),
+          ),
+        ),
       ],
     );
   }
@@ -116,7 +122,8 @@ class ContactBlockListBody extends ConsumerWidget {
   }
 }
 
-/// 추가(pen AddBtn `z9dxy`): 전체 폭 44, 모서리 8, surface-strong, 가운데 plus 16 → 6 → "추가" 14/600 ink.
+/// 추가(pen Button 마스터 `HE8FZ` 인스턴스 `aogPm` · `g1FD5` · `w849oc`): 가로 328 × 56, 모서리 14, #FF385C, 가운데 흰 plus → "추가" 흰색 18/700.
+/// plus 는 lucide 20×20 흰색(`z0zGy`), plus 와 글자 사이 8, 덩어리 가운데 정렬. 옛 작은 회색 버튼(312×44 · #F2F2F2 · 모서리 8 · 목록 위 `AddRowWrap`)은 없앴다.
 class _AddButton extends StatelessWidget {
   const _AddButton({required this.onPressed});
 
@@ -127,20 +134,20 @@ class _AddButton extends StatelessWidget {
     // 바탕은 버튼 자신의 Material 이 칠한다 — 눌림 효과가 버튼 안에서 그려진다(COMMON §4-2).
     return Material(
       key: contactBlockAddKey,
-      color: AppColors.surfaceStrong,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
+      color: AppColors.primary,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.button)),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onPressed,
         child: ConstrainedBox(
           // 높이는 최소값만 — 글자를 키우면 버튼이 따라 커진다.
-          constraints: const BoxConstraints(minHeight: 44),
+          constraints: const BoxConstraints(minHeight: 56),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(AppIcons.plus, size: 16, color: AppColors.ink),
-              const SizedBox(width: 6),
-              Flexible(child: Text('추가', style: AppTypography.labelSmall.copyWith(color: AppColors.ink))),
+              const Icon(AppIcons.plus, size: 20, color: AppColors.onPrimary),
+              const SizedBox(width: AppSpacing.xs),
+              Flexible(child: Text('추가', style: AppTypography.button.copyWith(fontSize: 18, color: AppColors.onPrimary))),
             ],
           ),
         ),
