@@ -10,12 +10,14 @@
 
 import random
 import time
+from contextlib import contextmanager
 from datetime import datetime, time as clock, timedelta
 
 from e2e import area2, area2_phone3, batch_gate, tools
 from e2e.area1 import TINY_JPEG, Check, _api, _at, _one, _patch, _rows, _test_university
 from e2e.area2 import _ONCE, _candidates, _guard, _insert, _person
 from e2e.area2_phone3 import EVERY_DAY, LADDER_ZERO, TEST_REGION, WEEKDAY_NAMES, region_set
+from e2e.area2_time_device import future_monday
 from e2e.tools import Blocked
 
 # 사다리 5칸(backend/app/cards/ladder.py) — 이름은 칸, 값은 ISO 요일(1=월). 시나리오 E-CARD-08 의 차례.
@@ -90,6 +92,48 @@ def _closed_school(run, region):
         if row['card_opens_at'] and _at(row['card_opens_at']) > now:
             return row['id']
     return None
+
+
+COHORT_PREFIX = 'e2e-cohort-'  # 이 시험이 만드는 둘째 학교 이름 머리 — 실제 학교 이름과 섞이지 않는다
+
+
+def _cohort_rows(run):
+    """남아 있는 `e2e-cohort-` 학교 id — 이름 틀로 지우면 틀을 못 읽는 서버가 전부 지우므로 읽어서 이름을 파이썬에서 거른다."""
+    return [r['id'] for r in _rows(run, 'universities?select=id,name') if r['name'].startswith(COHORT_PREFIX)]
+
+
+def _drop_cohort(run, schools, home):
+    """[schools] 에 든 계정을 시험대학([home])으로 돌려놓고 그 학교 행을 지운다 — profiles.university_id 가 on delete restrict 라 이 순서."""
+    for school in schools:
+        status, body = tools.rest(run.cfg, run.key, 'PATCH', f'profiles?university_id=eq.{school}', {'university_id': home})
+        if status >= 300:
+            raise Blocked(f'둘째 시험학교 {school} 의 계정을 못 돌려놓음 {status} {body} — 행이 남았다, 손으로 지울 것')
+        status, body = tools.rest(run.cfg, run.key, 'DELETE', f'universities?id=eq.{school}')
+        if status >= 300:
+            raise Blocked(f'둘째 시험학교 행 {school} 을 못 지움 {status} {body} — 손으로 지울 것')
+
+
+@contextmanager
+def _cohort_school(run, region):
+    """아직 안 열린 둘째 시험학교 id(시나리오 G2). 같은 지역에 이미 닫힌 학교가 있으면 그대로 쓰고(지우지 않는다),
+    없으면 `e2e-cohort-…` 행(card_opens_at = 다음 월요일 07:00 서울)을 이 시험이 만들어 끝에 지운다 — 스키마는 그대로, 데이터 행 하나.
+    시작에서 앞 실행이 죽어 남긴 `e2e-cohort-` 행부터 지운다."""
+    home = _test_university(run)
+    _drop_cohort(run, _cohort_rows(run), home)
+    found = _closed_school(run, region)
+    if found:
+        yield found
+        return
+    school = area2._new_id()
+    status, body = tools.rest(run.cfg, run.key, 'POST', 'universities',
+                              [{'id': school, 'name': f'{COHORT_PREFIX}{school[:8]}', 'region_group': region,
+                                'card_opens_at': future_monday(batch_gate.now_seoul()).isoformat()}])
+    if status >= 300:
+        raise Blocked(f'둘째 시험학교 행을 못 만듦 {status} {body}')
+    try:
+        yield school
+    finally:
+        _drop_cohort(run, [school], home)
 
 
 def _counts(run, region):
@@ -331,9 +375,8 @@ def _stale_at():
 
 
 def card_11(run):
-    """자격 6조건 하나씩 빠뜨린 6명은 카드 0, 대조군 1명은 1장. 6번째(학교 열림)는 코호트용 둘째 시험학교가 있어야 해서 없으면 5개만 보고 blocked."""
+    """자격 6조건 하나씩 빠뜨린 6명은 카드 0, 대조군 1명은 1장. 6번째(학교 열림)는 둘째 시험학교(_cohort_school)가 맡는다 — 끝나면 지운다."""
     region, today, check = _prepare(run), batch_gate.now_seoul(), Check()
-    closed = _closed_school(run, region)
     broken = []
 
     def man(label, fix):
@@ -345,25 +388,20 @@ def card_11(run):
         _guard(run, p['id'])
         _patch(run, f"profile_vectors?profile_id=eq.{p['id']}", {'want_embedding': None})
 
-    man('active 아님(정지)', lambda p: area2._set_status(run, p, 'suspended'))
-    man('일시중지', lambda p: _write(run, p, {'matching_paused': True}))
-    man('14일 지남(마지막 접속 14일 1분 전)', lambda p: _write(run, p, {'last_active_at': _stale_at()}))
-    man('벡터 없음(want_embedding null)', drop_vector)
-    man('자동 가림', lambda p: _write(run, p, {'auto_hidden_at': area2._now().isoformat()}))
-    if closed:
+    with _cohort_school(run, region) as closed:
+        man('active 아님(정지)', lambda p: area2._set_status(run, p, 'suspended'))
+        man('일시중지', lambda p: _write(run, p, {'matching_paused': True}))
+        man('14일 지남(마지막 접속 14일 1분 전)', lambda p: _write(run, p, {'last_active_at': _stale_at()}))
+        man('벡터 없음(want_embedding null)', drop_vector)
+        man('자동 가림', lambda p: _write(run, p, {'auto_hidden_at': area2._now().isoformat()}))
         man('학교 안 열림', lambda p: _write(run, p, {'university_id': closed}))
-    control, woman = _person(run, 'male'), _person(run, 'female')
-    _must_see(run, control, woman, '대조군에게 줄 후보가 없다')
-    _issue(run, region, list(EVERY_DAY), control=[control])
-    _still_today(today)
-    for label, account in broken:
-        got = len(_cards(run, account))
-        check.that(got == 0, f'{label}: 카드가 {got}장 나갔다(기대 0)')
-    if check.problems:
-        return check.result()
-    if closed is None:
-        raise Blocked('조건 6개 중 5개를 확인함(모두 카드 0 · 대조군 1장) — 6번째 "학교 열림" 은 코호트용 둘째 시험학교가 있어야 한다: '
-                      f'{TEST_REGION} 지역에 card_opens_at = 다음 월요일 07:00(서울) 인 "테스트대학2(코호트용)" 행(시나리오 G2) — 대장이 만든 뒤 다시')
+        control, woman = _person(run, 'male'), _person(run, 'female')
+        _must_see(run, control, woman, '대조군에게 줄 후보가 없다')
+        _issue(run, region, list(EVERY_DAY), control=[control])
+        _still_today(today)
+        for label, account in broken:
+            got = len(_cards(run, account))
+            check.that(got == 0, f'{label}: 카드가 {got}장 나갔다(기대 0)')
     return check.result('6조건 모두 카드 0 · 대조군 1장. ' + _zero_note())
 
 
@@ -440,25 +478,22 @@ def card_72(run):
 def home_28(run):
     """열리기 전 학교 사람은 후보 · 사다리 집계 · 카드 받을 사람 모두에서 빠진다. 구매 카드는 시험하지 않는다(구매 경로 없음)."""
     region, today, check = _prepare(run), batch_gate.now_seoul(), Check()
-    closed = _closed_school(run, region)
-    if closed is None:
-        raise Blocked(f'코호트용 둘째 시험학교가 없다 — {TEST_REGION} 지역에 card_opens_at = 다음 월요일 07:00(서울) 인 "테스트대학2(코호트용)" 행이 있어야 한다(시나리오 G2). '
-                      '대장이 만든 뒤 다시(시험대학에 값을 넣으면 카드 시험 전체가 멈춘다)')
-    v, f, g = _person(run, 'male'), _person(run, 'female'), _person(run, 'male')  # V(닫힐 사람) · F(열린 학교 여) · G(대조군)
-    _must_see(run, f, v, 'F 후보에 V 가 있어야 한다')
-    _must_see(run, v, f, 'V 후보에 F 가 있어야 한다')
-    before = _counts(run, region)
-    _write(run, v, {'university_id': closed})
-    after = _counts(run, region)
-    check.that(after.get('male', 0) == before.get('male', 0) - 1,
-               f'사다리 집계(region_active_counts) 남 {before.get("male", 0)} → {after.get("male", 0)}(기대 1 감소 — 닫힌 학교 사람은 안 센다)')
-    check.that(v['id'] not in _candidates(run, f), '열린 F 의 후보에 닫힌 학교 V 가 남음')
-    own = _candidates(run, v)
-    check.that(not own, f'닫힌 학교 V 의 후보가 {len(own)}명(기대 0)')
-    _issue(run, region, list(EVERY_DAY), control=[g])
-    _still_today(today)
-    got = len(_cards(run, v))
-    check.that(got == 0, f'닫힌 학교 V 가 카드를 {got}장 받음(기대 0)')
+    with _cohort_school(run, region) as closed:
+        v, f, g = _person(run, 'male'), _person(run, 'female'), _person(run, 'male')  # V(닫힐 사람) · F(열린 학교 여) · G(대조군)
+        _must_see(run, f, v, 'F 후보에 V 가 있어야 한다')
+        _must_see(run, v, f, 'V 후보에 F 가 있어야 한다')
+        before = _counts(run, region)
+        _write(run, v, {'university_id': closed})
+        after = _counts(run, region)
+        check.that(after.get('male', 0) == before.get('male', 0) - 1,
+                   f'사다리 집계(region_active_counts) 남 {before.get("male", 0)} → {after.get("male", 0)}(기대 1 감소 — 닫힌 학교 사람은 안 센다)')
+        check.that(v['id'] not in _candidates(run, f), '열린 F 의 후보에 닫힌 학교 V 가 남음')
+        own = _candidates(run, v)
+        check.that(not own, f'닫힌 학교 V 의 후보가 {len(own)}명(기대 0)')
+        _issue(run, region, list(EVERY_DAY), control=[g])
+        _still_today(today)
+        got = len(_cards(run, v))
+        check.that(got == 0, f'닫힌 학교 V 가 카드를 {got}장 받음(기대 0)')
     return check.result('구매 카드 후보는 시험 안 함. ' + _zero_note())
 
 
