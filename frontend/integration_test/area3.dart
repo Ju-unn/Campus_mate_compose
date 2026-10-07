@@ -24,6 +24,7 @@ import 'package:campus_mate/friend_review/view/written_reviews_screen.dart';
 import 'package:campus_mate/friend_review/viewmodel/friend_review_compose_view_model.dart';
 import 'package:campus_mate/friend_review/viewmodel/friend_review_list_view_model.dart';
 import 'package:campus_mate/matching/view/conversations_screen.dart';
+import 'package:campus_mate/matching/viewmodel/notification_settings_view_model.dart';
 import 'package:campus_mate/me/view/me_load_error.dart';
 import 'package:campus_mate/me/view/my_profile_screen.dart';
 import 'package:campus_mate/safety/model/report_reason.dart';
@@ -48,6 +49,7 @@ part 'area3_b5.dart';
 part 'area3_b6.dart';
 part 'area3_b7.dart';
 part 'area3_b8.dart';
+part 'area3_chat_nt.dart';
 part 'area3_chat_rt.dart';
 part 'area3_b11.dart';
 
@@ -350,6 +352,7 @@ final Map<String, Area1Case> area3Cases = {
   ...area3Cases6,
   ...area3Cases7,
   ...area3Cases8,
+  ...area3CasesChatNt,
   ...area3CasesChatRt,
   ...area3Cases11,
 };

@@ -64,6 +64,7 @@ from e2e import area4_push  # noqa: F401 — 영역 4 알림 A1(받는 사람 �
 from e2e import area4_push_night  # noqa: F401 — 영역 4 알림 밤·아침·시각 경계(밤 1단계 + 아침 2단계)
 from e2e import area3_phone7  # noqa: F401 — 영역 3 밤 가설 E-CHAT-34 · 42 · E-REV-18 을 영역 4 밤 판(E-PUSH-33 · 86 · 52)의 별칭으로 area1.PHONE · area3.BUNDLES 에 더한다(area4_push_night 뒤에)
 from e2e import area3_phone8  # noqa: F401 — 영역 3 폰 A 한 대 8차 — 채팅 · 지인 리뷰 E-CHAT-10 · 16 · E-REV-20 · 24 · 27 · 31 · 34 · 35 + E-CHAT-68 API
+from e2e import area3_chat_nt  # noqa: F401 — 영역 3 알림 10개 E-CHAT-17 · 26 · 27 · 28 · 29 · 30 · 31 · 33 · 35 · 59 (단일 폰 + 상대 API, 묶음 area3-chat-nt)
 from e2e import area3_chat_rt  # noqa: F401 — 영역 3 실시간 · 화면 — 폰 한 대 E-CHAT-01 · 02 · 07 · 22 · 23 · 24 · 61 · 72 + 두 기기 E-CHAT-03 · 58(twodev.TWO · area1.BUNDLES 에도 더한다)
 from e2e import area3_phone11  # noqa: F401 — 영역 3 신뢰 확인 E-CHAT-37 · 38 · 40 · 41(폰 한 대) + 39 · 44(폰 + 에뮬 두 기기, 묶음 area3-two-11)
 from e2e import area3_phone9  # noqa: F401 — 영역 3 지인 리뷰 알림 E-REV-16 · 17 · 26(단일 폰, area1.PHONE · area3.BUNDLES) · E-REV-41(두 기기, twodev.TWO)
