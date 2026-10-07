@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:campus_mate/chat/view/chat_dialogs.dart';
 import 'package:campus_mate/chat/view/chat_list_row.dart';
 import 'package:campus_mate/chat/view/swipe_to_leave.dart';
@@ -19,11 +21,37 @@ import 'package:go_router/go_router.dart';
 
 /// 대화(DESIGN.md 화면 13, pen `CeqVY`). **수락 대기**(위) + **대화 중**(아래) 두 섹션이고,
 /// 두 섹션은 각자 provider 를 보며 서로를 모른다. §8.6 의 "건수가 0이면 섹션을 그리지 않는다".
-class ConversationsScreen extends ConsumerWidget {
+///
+/// 이 화면에 **들어올 때마다**(탭을 옮겨 돌아올 때 포함) 그리고 **앱이 백그라운드에서 돌아올 때** 대화 목록과
+/// 안 읽은 수를 다시 읽는다. 실시간 구독은 쓰지 않는다 — 읽는 중이면 뷰모델 가드가 겹침을 막는다.
+class ConversationsScreen extends ConsumerStatefulWidget {
   const ConversationsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ConversationsScreen> createState() => _ConversationsScreenState();
+}
+
+class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
+  late final AppLifecycleListener _lifecycle;
+
+  @override
+  void initState() {
+    super.initState();
+    _lifecycle = AppLifecycleListener(onResume: _refreshChats);
+    _refreshChats();
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
+  }
+
+  // 수락 대기 섹션은 이번 범위 밖 — 푸시·당겨서 새로고침이 맡는다.
+  void _refreshChats() => unawaited(ref.read(conversationsViewModelProvider.notifier).refresh());
+
+  @override
+  Widget build(BuildContext context) {
     ref.listen(acceptancesViewModelProvider, (previous, next) {
       final nickname = next.matchedNickname;
       if (nickname != null && previous?.matchedNickname != nickname) {
