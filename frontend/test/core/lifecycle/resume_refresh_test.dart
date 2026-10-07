@@ -6,6 +6,7 @@ import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/lifecycle/resume_refresh.dart';
+import 'package:campus_mate/core/push/push_refresh.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:campus_mate/matching/viewmodel/acceptances_view_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -84,6 +85,24 @@ void main() {
     chat.holdConversations!.complete();
     await pumpEventQueue();
     expect(container.read(conversationsViewModelProvider).conversations, hasLength(1));
+  });
+
+  test('돌아와 읽는 중에 푸시 갱신이 오면 그 읽기가 끝난 뒤 한 번 더 읽는다', () async {
+    await warmUp();
+    chat.holdConversations = Completer<void>();
+    resume();
+    await pumpEventQueue();
+    final before = chat.conversationsFetchCount;
+
+    // 읽는 중에 도착한 푸시는 이미 시작된 읽기가 못 본 변화를 알리는 것일 수 있다.
+    refreshForPush(container.read, {'route': 'chat'});
+    refreshForPush(container.read, {'route': 'chat'});
+    await pumpEventQueue();
+    expect(chat.conversationsFetchCount, before);
+    chat.holdConversations!.complete();
+    await pumpEventQueue();
+
+    expect(chat.conversationsFetchCount, before + 1);
   });
 
   test('돌아와 다시 읽다 실패해도 있던 줄은 남고 오류 문구는 새로 생기지 않는다', () async {

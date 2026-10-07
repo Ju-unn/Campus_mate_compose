@@ -12,16 +12,37 @@ final conversationsViewModelProvider =
 class ConversationsViewModel extends Notifier<ConversationsUiState> {
   Future<void>? _inFlight;
 
+  /// 진행 중인 읽기에 조용하지 않은 호출이 합쳐졌다. 그 읽기는 호출보다 먼저 시작됐으니(낡았을 수 있고,
+  /// 실패해도 오류를 안 보인다) 끝난 뒤 조용하지 않게 한 번 더 읽는다. 합쳐진 호출이 몇 번이든 한 번이다.
+  bool _readAgain = false;
+
   @override
   ConversationsUiState build() {
-    Future.microtask(refresh);
+    // 첫 읽기는 isLoading 이라 quiet 여도 실패를 보인다. quiet 로 불러야 화면 initState 의 조용한 읽기와
+    // 합쳐질 때 다시 읽기가 생기지 않는다.
+    Future.microtask(() => refresh(quiet: true));
     return const ConversationsUiState();
   }
 
   /// [quiet] 은 앱 복귀·화면 진입 때 자동으로 읽는 경우다 — 실패해도 이미 보이는 줄을 그대로 두고
-  /// 오류 줄을 새로 띄우지 않는다. 사용자가 당겨서 새로고침하거나 처음 읽을 때만 오류를 보인다.
-  Future<void> refresh({bool quiet = false}) =>
-      _inFlight ??= _load(quiet: quiet).whenComplete(() => _inFlight = null);
+  /// 오류 줄을 새로 띄우지 않는다. 사용자가 당겨서 새로고침하거나 푸시로 읽을 때는 오류를 보인다.
+  /// 읽는 중에 불리면 그 읽기에 합쳐지고, 조용하지 않은 호출이면 끝난 뒤 한 번 더 읽은 다음에 완료된다.
+  Future<void> refresh({bool quiet = false}) {
+    final running = _inFlight;
+    if (running == null) {
+      return _inFlight = _loadAndRepeat(quiet).whenComplete(() => _inFlight = null);
+    }
+    _readAgain = _readAgain || !quiet;
+    return running;
+  }
+
+  Future<void> _loadAndRepeat(bool quiet) async {
+    await _load(quiet: quiet);
+    while (_readAgain) {
+      _readAgain = false;
+      await _load(quiet: false);
+    }
+  }
 
   Future<void> _load({required bool quiet}) async {
     final result = await ref.read(chatRepositoryProvider).fetchConversations();

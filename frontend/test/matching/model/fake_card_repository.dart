@@ -29,6 +29,9 @@ class FakeCardRepository implements CardRepository {
 
   /// 채워 두면 수락 응답이 이것이 끝날 때까지 멈춘다 — 응답 도중에 목록을 다시 읽는 상황용.
   Completer<void>? holdRespond;
+
+  /// 채워 두면 수락함 조회가 이것이 끝날 때까지 멈춘다 — 읽는 도중에 또 읽으려는 상황용.
+  Completer<void>? holdAcceptances;
   final List<({String cardId, CardDecision decision})> decisions = [];
   final List<({String key, bool value})> preferenceUpdates = [];
   final List<String> registeredTokens = [];
@@ -53,7 +56,10 @@ class FakeCardRepository implements CardRepository {
   @override
   Future<Result<List<Acceptance>>> fetchAcceptances() async {
     fetchAcceptancesCount += 1;
-    return acceptances;
+    // 요청한 시점의 값을 들고 있다가 멈춘 뒤 돌려준다 — 서버가 요청 때 본 목록을 늦게 받는 모양.
+    final snapshot = acceptances;
+    await holdAcceptances?.future;
+    return snapshot;
   }
 
   @override
