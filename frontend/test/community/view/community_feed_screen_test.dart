@@ -114,7 +114,7 @@ void main() {
     expect(find.widgetWithText(FilledButton, '짬뽕'), findsOneWidget);
   });
 
-  testWidgets('직접 적은 선택지 버튼은 pen 규격 — 폭 144 · 높이 56 · 좌우 안쪽 20(ojrC5 · ALBe4 = Button HE8FZ [0,20])', (tester) async {
+  testWidgets('직접 적은 선택지 버튼은 pen 규격 — 폭 144 · 높이 72 · 좌우 안쪽 8 · 파랑/빨강 · 흰 20/700(ojrC5 · yigm0 · nxuT6)', (tester) async {
     tester.view.physicalSize = const Size(360, 780);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -122,12 +122,30 @@ void main() {
       PollPage(polls: [pollFixture(optionA: '가나다라마바', optionB: '짬뽕')], hasMore: false),
     );
     await pump(tester);
-    final button = tester.getRect(find.widgetWithText(FilledButton, '가나다라마바'));
-    expect(button.size, const Size(144, 56));
-    // 6자 라벨이 칸보다 길면 줄여서 맞추되 안쪽 20 은 남는다.
+    final buttonFinder = find.widgetWithText(FilledButton, '가나다라마바');
+    final button = tester.getRect(buttonFinder);
+    expect(button.size, const Size(144, 72));
+    // 6자 20px(≈120)가 칸 안쪽(144 − 16 = 128)에 줄여지지 않고 한 줄로 들어간다. 안쪽 여백은 정확히 좌우 8.
     final label = tester.getRect(find.text('가나다라마바'));
-    expect(label.left - button.left, greaterThanOrEqualTo(20));
-    expect(button.right - label.right, greaterThanOrEqualTo(20));
+    expect(label.width, lessThanOrEqualTo(144 - 16));
+    expect(label.height, lessThan(30));
+    expect(tester.widget<FilledButton>(buttonFinder).style!.padding!.resolve({}), const EdgeInsets.symmetric(horizontal: 8));
+    // 회색(#E5E5E5) 이 아니라 O/X 와 같은 파랑 · 빨강, 글자는 흰 20/700.
+    Color? fill(Finder finder) => tester.widget<FilledButton>(finder).style!.backgroundColor!.resolve({});
+    expect(fill(buttonFinder), pollAgreeBlue);
+    expect(fill(find.widgetWithText(FilledButton, '짬뽕')), AppColors.primary);
+    final style = tester.widget<Text>(find.text('가나다라마바')).style!;
+    expect((style.fontSize, style.fontWeight, style.color), (20.0, FontWeight.w700, AppColors.onPrimary));
+  });
+
+  testWidgets('O·X 칸은 직접 적은 칸과 같은 높이 72 · 같은 파랑/빨강(wHrXJ · tjZrc)', (tester) async {
+    repository.page = Success(PollPage(polls: [pollFixture()], hasMore: false));
+    await pump(tester);
+    final blue = find.widgetWithIcon(FilledButton, AppIcons.circle);
+    final red = find.widgetWithIcon(FilledButton, AppIcons.x);
+    expect(tester.getSize(blue).height, 72);
+    expect(tester.widget<FilledButton>(blue).style!.backgroundColor!.resolve({}), pollAgreeBlue);
+    expect(tester.widget<FilledButton>(red).style!.backgroundColor!.resolve({}), AppColors.primary);
   });
 
   testWidgets('투표 후: 도넛 · 비율 줄 · 참여자 수, 버튼은 없다. 가운데 % 는 우세한 쪽', (tester) async {
