@@ -37,9 +37,18 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeScreen> {
   bool _opening = false;
 
+  /// 상점이 열려 있는 동안 "+" 를 또 눌러도(같은 프레임의 연타 포함) 상점을 한 겹만 쌓는다.
+  bool _openingStore = false;
+
   /// 하트 칩의 "+" → 하트 상점. 상점에서 돌아오면 잔액을 다시 읽는다(상점에서 하트가 바뀔 수 있고, 칩은 내 프로필의 잔액을 그대로 보인다).
   Future<void> _openHeartStore() async {
-    await context.push(AppRoutes.heartStore);
+    if (_openingStore) return;
+    _openingStore = true;
+    try {
+      await context.push(AppRoutes.heartStore);
+    } finally {
+      _openingStore = false;
+    }
     if (mounted) ref.invalidate(myProfileProvider);
   }
 

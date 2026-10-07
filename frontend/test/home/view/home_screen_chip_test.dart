@@ -205,6 +205,35 @@ void main() {
       expect(find.text('곧 열려요'), findsNothing);
     });
 
+    testWidgets('"+" 를 프레임 없이 두 번 눌러도 상점은 한 겹만 쌓인다', (tester) async {
+      await pump(tester);
+
+      await tester.tap(chip);
+      await tester.tap(chip); // 첫 누름이 만든 길이 아직 그려지기 전 — 두 번째 누름도 칩에 닿는다
+      await tester.pumpAndSettle();
+
+      expect(find.text('하트 상점', skipOffstage: false), findsOneWidget);
+      tester.state<NavigatorState>(find.byType(Navigator).first).pop();
+      await tester.pump(); // 돌아오면 잔액을 다시 읽어 pumpAndSettle 은 끝나지 않는다 — 몇 프레임만
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byType(HomeScreen), findsOneWidget); // 한 번 닫으면 홈이다(두 겹이면 상점이 남는다)
+      expect(find.text('하트 상점'), findsNothing);
+    });
+
+    testWidgets('상점을 닫은 뒤에는 "+" 를 다시 눌러 열 수 있다', (tester) async {
+      await pump(tester);
+
+      await tester.tap(chip);
+      await tester.pumpAndSettle();
+      tester.state<NavigatorState>(find.byType(Navigator).first).pop();
+      await tester.pump(); // 돌아오면 잔액을 다시 읽어 pumpAndSettle 은 끝나지 않는다 — 몇 프레임만
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.tap(chip);
+      await tester.pumpAndSettle();
+
+      expect(find.text('하트 상점'), findsOneWidget);
+    });
+
     testWidgets('띠 위 투명한 눌림 칸(띠에서 1px 위)을 눌러도 상점으로 간다', (tester) async {
       await pump(tester);
 

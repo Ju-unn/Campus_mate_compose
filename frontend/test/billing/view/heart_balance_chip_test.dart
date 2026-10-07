@@ -299,12 +299,38 @@ void main() {
       expect(taps, 1);
     });
 
-    testWidgets('안드로이드 터치 영역(48×48) 기준을 지킨다', (tester) async {
+    testWidgets('안드로이드 터치 영역(48×48) 기준을 지킨다 — 칩을 화면 모서리에서 띄워 둔다', (tester) async {
       final handle = tester.ensureSemantics();
-      await pumpView(tester, 320, showPlus: true, onPlus: () {});
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Padding(
+              // 모서리(0,0)에 붙은 칩은 기준이 눌림 칸 크기를 잘 못 잰다 — 띄워 두면 44 칸에서는 실패한다.
+              padding: const EdgeInsets.fromLTRB(20, 100, 0, 0),
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: HeartBalanceChipView(balance: 320, showPlus: true, onPlus: () {}),
+              ),
+            ),
+          ),
+        ),
+      );
 
       await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
       handle.dispose();
+    });
+
+    testWidgets('누르는 동안 눌림 효과가 띠 모양(둥근 사각형)으로 그려진다', (tester) async {
+      await pumpView(tester, 320, showPlus: true, onPlus: () {});
+      final controller = Material.of(tester.element(find.descendant(of: chip, matching: find.byType(InkWell))));
+      expect(controller, isNot(paints..rrect())); // 누르기 전에는 그려진 효과가 없다
+
+      final gesture = await tester.startGesture(tester.getCenter(band));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(controller, paints..rrect());
+      await gesture.up();
+      await tester.pumpAndSettle();
     });
 
     testWidgets('스크린리더 힌트에 "하트 충전" 이 붙고 읽는 라벨은 그대로다', (tester) async {

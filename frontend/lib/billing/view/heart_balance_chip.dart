@@ -12,8 +12,8 @@ const String _heartAsset = 'assets/images/heart-flat-vector-v3.png';
 /// 내 하트 잔액 칩(pen 마스터 `sysyz` HeartBalanceChip). 잔액은 서버 값(`MyProfile.heartBalance`)을 읽는다 —
 /// 앱에 숫자를 두지 않는다. 읽는 중 · 실패에는 칩을 숨긴다(pen 에 없는 상태 — 대장 추천, 값이 오면 보인다).
 ///
-/// 나 탭 앱바(`hwVQB/MjtQA`)는 "+" 없이, 홈(`ihX4y`)은 [showPlus] 를 켜서 쓴다. "+" 가 열 하트 상점은 아직 없어
-/// [onPlus] 를 받기만 한다 — null 이면 눌러도 아무 일도 없다(상점 PR 에서 연결).
+/// 나 탭 앱바(`hwVQB/MjtQA`)는 "+" 없이, 홈(`ihX4y`)은 [showPlus] 를 켜서 쓴다. "+" 를 누르면 할 일은 [onPlus] 가 정한다 —
+/// 홈은 `_openHeartStore` 로 하트 상점을 연다. null 이면 눌러도 아무 일도 없다.
 class HeartBalanceChip extends ConsumerWidget {
   const HeartBalanceChip({this.showPlus = false, this.onPlus, super.key});
 
