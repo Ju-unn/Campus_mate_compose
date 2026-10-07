@@ -536,6 +536,7 @@ class CaseTest(Base):
         self.assertEqual(shifted, [2])
         self.assertEqual([j['phase'] for j in phone.jobs], ['login', 'later'])
         self.assertEqual(phone.jobs[1]['expect'], 'home')
+        self.assertEqual(phone.jobs[1]['limit'], 30)  # 느린 에뮬에서 5초가 모자라 스플래시에서 FAIL 이었다(E-AUTH-22 와 같다)
 
     def test_gate_12_opens_the_app_with_browsers_disabled(self):
         self.serve()
