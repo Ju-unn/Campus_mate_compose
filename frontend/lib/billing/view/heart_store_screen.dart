@@ -32,7 +32,7 @@ const String _heroAsset = 'assets/images/heart-value-scene.png';
 /// pen `cVVgB` 12/normal #6A6A6A 줄높이 1.4.
 const String _rewardNotice = '초기 보상 기준 · 인증 후 지급\n100명 이후 홍보 30 / 단톡방 20 하트';
 
-/// 18 하트 스토어(pen `IAy1j`). 보유 하트 · 하트 번들 구매 · 무료로 모으기. 설정의 보유 하트와 15b 시트의 "충전하기"가 연다.
+/// 18 하트 스토어(pen `IAy1j`). 보유 하트 · 하트 번들 구매 · 무료로 모으기. 15b 시트의 "충전하기"가 연다(설정의 보유 하트 블록은 아직 연결 전).
 ///
 /// 구매는 아직 열리지 않았다 — 번들 카드는 고르기만 하고, 하단 바의 회색 "곧 열려요" 가 구매 확인 시트를 연다(pen 시안).
 class HeartStoreScreen extends ConsumerStatefulWidget {
