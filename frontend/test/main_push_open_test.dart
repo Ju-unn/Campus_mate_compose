@@ -105,20 +105,25 @@ void main() {
   late FakeVerificationGateRepository gate;
   late FakeStudentVerificationRepository verification;
   late FakePushMessaging messaging;
+  // 앱 복귀 때 읽는 두 목록의 가짜 저장소 — 읽은 횟수를 본다. 두 pump 도우미가 채운다.
+  late FakeChatRepository appChat;
+  late FakeCardRepository appCards;
 
   Future<void> pumpPendingVerification(WidgetTester tester) async {
     gate = FakeVerificationGateRepository()..nextResult = const Success(VerificationGate.needsStudentVerification);
     verification = FakeStudentVerificationRepository()
       ..nextFetchStatusResult = const Success(VerificationOutcome(status: 'pending'));
     messaging = FakePushMessaging(token: 't', granted: false);
+    appChat = FakeChatRepository();
+    appCards = FakeCardRepository();
     final container = ProviderContainer(
       overrides: [
         verificationGateRepositoryProvider.overrideWithValue(gate),
         studentVerificationRepositoryProvider.overrideWithValue(verification),
         onboardingRepositoryProvider.overrideWithValue(FakeOnboardingRepository()),
         pushMessagingProvider.overrideWithValue(messaging),
-        cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
-        chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
+        cardRepositoryProvider.overrideWithValue(appCards),
+        chatRepositoryProvider.overrideWithValue(appChat),
         homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
         signOutProvider.overrideWithValue(() async {}),
       ],
@@ -155,14 +160,15 @@ void main() {
 
   // 알림을 눌러 열면 화면만 옮기고 목록은 낡은 채로 남았다 — 대화 탭은 들어갈 때 다시 읽지 않는다.
   Future<(FakeChatRepository, FakePushMessaging)> pumpHome(WidgetTester tester) async {
-    final chat = FakeChatRepository();
+    final chat = appChat = FakeChatRepository();
+    appCards = FakeCardRepository();
     final push = FakePushMessaging(token: 't', granted: false);
     final container = ProviderContainer(
       overrides: [
         verificationGateRepositoryProvider.overrideWithValue(FakeVerificationGateRepository()),
         onboardingRepositoryProvider.overrideWithValue(FakeOnboardingRepository()),
         pushMessagingProvider.overrideWithValue(push),
-        cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
+        cardRepositoryProvider.overrideWithValue(appCards),
         chatRepositoryProvider.overrideWithValue(chat),
         homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
         signOutProvider.overrideWithValue(() async {}),
@@ -199,11 +205,7 @@ void main() {
   });
 
   // 홈 같은 다른 탭에 있어도 앱이 백그라운드에서 돌아오면 하단 내비 "대화" 숫자가 낡지 않게 다시 읽는다.
-  testWidgets('다른 탭에서 앱이 백그라운드에서 돌아와도 대화 목록과 수락 대기를 다시 읽는다', (tester) async {
-    final (chat, _) = await pumpHome(tester);
-    expect(find.byType(ConversationsScreen), findsNothing);
-    final before = chat.conversationsFetchCount;
-
+  void sendReturnFromBackground(WidgetTester tester) {
     // AppLifecycleListener 는 한 칸씩 넘어가는 순서만 받는다 — 기기와 같은 순서로 보낸다.
     for (final state in [
       AppLifecycleState.inactive,
@@ -215,10 +217,60 @@ void main() {
     ]) {
       tester.binding.handleAppLifecycleStateChanged(state);
     }
+  }
+
+  Future<void> returnFromBackground(WidgetTester tester) async {
+    sendReturnFromBackground(tester);
     await tester.pumpAndSettle();
     // 돌아오면 Supabase 도 토큰 자동 갱신 타이머를 켠다 — 테스트가 끝나기 전에 끈다.
     auth().stopAutoRefresh();
+  }
+
+  testWidgets('다른 탭에서 앱이 백그라운드에서 돌아와도 대화 목록과 수락 대기를 다시 읽는다', (tester) async {
+    final (chat, _) = await pumpHome(tester);
+    expect(find.byType(ConversationsScreen), findsNothing);
+    final before = chat.conversationsFetchCount;
+    final cardsBefore = appCards.fetchAcceptancesCount;
+
+    await returnFromBackground(tester);
 
     expect(chat.conversationsFetchCount, before + 1);
+    expect(appCards.fetchAcceptancesCount, cardsBefore + 1);
+  });
+
+  // 관문이 끝나지 않은 계정은 대화 조회가 403 일 수 있다 — 앱 루트가 현재 관문 값을 넘기는지 본다.
+  testWidgets('관문이 끝나지 않은 화면에서 앱이 돌아오면 대화 목록과 수락 대기를 읽지 않는다', (tester) async {
+    await pumpPendingVerification(tester);
+    expect(appChat.conversationsFetchCount, 0);
+    expect(appCards.fetchAcceptancesCount, 0);
+
+    await returnFromBackground(tester);
+
+    expect(appChat.conversationsFetchCount, 0);
+    expect(appCards.fetchAcceptancesCount, 0);
+  });
+
+  // 로그아웃하면 세션 변화가 관문도 되돌린다 — 그래서 이 시험은 `isAuthenticated` 와 `gate` 중 어느 한쪽 가드가 빠져도
+  // 통과한다(둘이 같이 닫힌다). 로그아웃 뒤 "읽지 않는다"는 앱 전체 결과만 고정한다.
+  testWidgets('로그아웃한 직후 앱이 돌아오면 대화 목록과 수락 대기를 읽지 않는다', (tester) async {
+    final (chat, _) = await pumpHome(tester);
+    final before = chat.conversationsFetchCount;
+    final cardsBefore = appCards.fetchAcceptancesCount;
+
+    // 테스트 시계 안에서는 실제 입출력 future 가 끝나지 않는다 — runAsync 로 돌린다.
+    await tester.runAsync(() async {
+      try {
+        await auth().signOut();
+      } on AuthException {
+        // 서버 알림은 테스트 바인딩의 가짜 HTTP 가 막는다 — 이 기기 세션은 이미 지워졌다.
+      }
+    });
+    expect(auth().currentSession, isNull);
+    sendReturnFromBackground(tester);
+    await tester.pump(const Duration(milliseconds: 100));
+    auth().stopAutoRefresh();
+
+    expect(chat.conversationsFetchCount, before);
+    expect(appCards.fetchAcceptancesCount, cardsBefore);
   });
 }
