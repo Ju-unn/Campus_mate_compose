@@ -17,6 +17,7 @@ from e2e.test_area3_phone2 import MidwayApp, as_fn
 from e2e.test_area3_phone8 import Phone8
 from e2e.tools import Reply, Run
 
+PEER_SECONDS = area3_chat_rt.PEER  # TwoBase 가 시험 동안 0.05 로 낮추기 전의 진짜 값
 PHONE = ['E-CHAT-01', 'E-CHAT-02', 'E-CHAT-07', 'E-CHAT-22', 'E-CHAT-23', 'E-CHAT-24', 'E-CHAT-61', 'E-CHAT-72']
 TWO = ['E-CHAT-03', 'E-CHAT-58']
 NETWORK_AIRPLANE = ('shell', 'cmd', 'connectivity', 'airplane-mode')
@@ -646,7 +647,7 @@ class TwoBase(Phone9):
         self.fake.statuses.clear()
         self.fake.users.clear()
         self.fake.verifies = self.fake._ids = 0
-        self.two = Script(self, script, result, preset=('a-ready', 'b-ready'), partial=partial)
+        self.two = Script(self, script, result, preset=('a-ready', 'b-ready', 'a-sent', 'b-sent'), partial=partial)
         return twodev.TWO[case](self.run_, self.two)
 
     def line(self, who, body, at, kind='text', ident=None):
@@ -660,7 +661,7 @@ class AlternateTest(TwoBase):
         job = self.two.a_job
         return job['mine'], job['theirs']
 
-    def alternate(self, swap=None, drop=None, twice=None, a_delay=0.6, b_delay=0.6, slow=None, ignore_id=False, negative=0, busy=None):
+    def alternate(self, swap=None, drop=None, twice=None, a_delay=0.6, b_delay=0.6, slow=None, ignore_id=False, negative=0, busy=None, miss=None, done=None):
         """앱 둘이 서로 번갈아 20건씩 보낸 일 — [effect] 가 DB 에 40줄을 0.5초 칸으로 넣고, 두 앱이 화면 순서 · 처음 본 시각을 말한다."""
         def effect():
             mine, theirs = self.bodies()
@@ -686,13 +687,20 @@ class AlternateTest(TwoBase):
                         seen[body] = stamp(made[body] - timedelta(seconds=1.5))
                 if slow and who == slow[0]:
                     seen[others[slow[1]]] = stamp(made[others[slow[1]]] + timedelta(seconds=slow[2]))
+                if miss and who == miss[0]:  # 상대의 맨 끝 줄을 못 받았다(구독이 안 줬거나 시험이 일찍 끝났다)
+                    for index in miss[1]:
+                        seen.pop(others[index], None)
+                        order.remove(others[index])
                 said = {'order': order, 'seen': seen}
+                if done:  # 앱 시계로 "다 기다렸다" 고 말한 때
+                    said['done_at'] = stamp(done(who, made))
                 if busy:  # 받는 기기가 자기 글을 보내던 때(앱 시계) — 옛 앱은 이 키를 안 말한다
                     said['sent_at'] = busy(who, made)
                 return said
             return payload
 
-        return [('A', 'ready', {}, None), ('B', 'ready', {}, None), ('A', 'done', says('A', a_delay), effect), ('B', 'done', says('B', b_delay), None)]
+        return [('A', 'ready', {}, None), ('B', 'ready', {}, None), ('A', 'sent', {}, effect), ('B', 'sent', {}, None),
+                ('A', 'done', says('A', a_delay), None), ('B', 'done', says('B', b_delay), None)]
 
     def test_03_both_screens_show_the_db_order_with_all_forty_lines_and_each_line_in_time(self):
         result, note = self.go('E-CHAT-03', self.alternate())
@@ -785,7 +793,8 @@ class AlternateTest(TwoBase):
         self.assertEqual(self.rows('messages'), [])
 
     def test_03_a_blocked_app_with_lines_already_in_the_db_still_gets_the_db_checks(self):
-        result, note = self.go('E-CHAT-03', [('A', 'ready', {}, None), ('B', 'ready', {}, None), self.alternate(swap=(1, 2))[2]],
+        alt = self.alternate(swap=(1, 2))
+        result, note = self.go('E-CHAT-03', [('A', 'ready', {}, None), ('B', 'ready', {}, None), alt[2], alt[4]],
                                result=('blocked', 'A: pass  B: blocked'), partial=True)
         self.assertEqual(result, 'fail', note)
 
@@ -842,6 +851,139 @@ class AlternateTest(TwoBase):
         with mock.patch.object(module, '_delays', spy):
             self.go('E-CHAT-03', self.alternate(busy=own))
         self.assertEqual(seen_by, {'A 화면': ['A-marker'], 'B 화면': ['B-marker']})
+
+    def test_03_each_side_waits_for_the_other_to_have_sent_everything_before_it_is_let_go(self):
+        """끝 맞춤 — 한쪽이 느리게 보내도 이쪽의 "40줄 기다림 20초" 는 상대가 다 보낸 뒤부터 센다. 한쪽이 안 오면 blocked."""
+        import threading
+        captured = {}
+
+        class Grab:
+            def __call__(inner, handlers, a_job=None, b_job=None, **limit):
+                captured.update(handlers)
+                return ('pass', '')
+        self.fake.tables.clear()
+        self.fake.users.clear()
+        self.fake.verifies = self.fake._ids = 0
+        twodev.TWO['E-CHAT-03'](self.run_, Grab())
+        self.assertIn(('A', 'sent'), captured)
+        self.assertIn(('B', 'sent'), captured)
+        sync, order = twodev.Sync(), []
+
+        def run(side):
+            captured[(side, 'sent')]({'step': 'sent'}, sync)
+            order.append(side)
+
+        first = threading.Thread(target=run, args=('B',))
+        with mock.patch.object(area3_chat_rt, 'PEER', 5):
+            first.start()
+            first.join(0.3)
+            self.assertTrue(first.is_alive())  # A 가 아직 다 안 보냈으니 B 는 풀리지 않는다
+            run('A')
+            first.join(2)
+        self.assertEqual(sorted(order), ['A', 'B'])
+        self.assertFalse(first.is_alive())
+
+    def test_03_a_side_whose_partner_never_finishes_sending_is_blocked(self):
+        captured = {}
+
+        class Grab:
+            def __call__(inner, handlers, a_job=None, b_job=None, **limit):
+                captured.update(handlers)
+                return ('pass', '')
+        self.fake.tables.clear()
+        self.fake.users.clear()
+        self.fake.verifies = self.fake._ids = 0
+        twodev.TWO['E-CHAT-03'](self.run_, Grab())
+        with self.assertRaises(tools.Blocked) as caught:
+            captured[('A', 'sent')]({'step': 'sent'}, twodev.Sync())
+        self.assertIn('B', str(caught.exception))
+
+    def test_03_the_timeouts_hold_a_slow_emulator_and_the_wait_for_the_other_to_finish(self):
+        slow_send = area3_chat_rt.SLOW_LINE * area3_chat_rt.ALT  # B 가 줄당 최대 3초 → 20줄 60초
+        self.assertEqual(slow_send, 60)
+        self.assertGreaterEqual(PEER_SECONDS, slow_send)  # "상대가 다 보낼 때까지" 의 상한이 느린 보내기를 담는다
+        worst = area3_chat_rt.APP_OPEN + 5 + 2 + 60 + slow_send + slow_send + area3_chat_rt.CATCH_UP + 30  # 열기 · 데우기 · ready 어긋남 60 · 보내기 · sent 어긋남 · 기다림 · 여유
+        self.assertGreaterEqual(area3_chat_rt.LIMITS['deadline'], worst)
+        self.assertGreaterEqual(area3_chat_rt.LIMITS['side_timeout']['A'], slow_send + area3_chat_rt.CATCH_UP)
+        self.assertEqual(tools.CASE_LIMITS['E-CHAT-03'], area3_chat_rt.LIMITS['deadline'] + 2 * 150)
+
+    def test_03_a_line_the_screen_never_got_that_the_server_stored_before_the_end_blames_the_subscription(self):
+        """"앱 38줄 · DB 40줄" — 맨 끝 두 줄이 서버에 먼저 저장됐는데 안 왔으면 구독이 안 준 것(앱/구독 의심)."""
+        def sent_at(who, made):
+            lines = self.two.b_job['mine'] if who == 'B' else self.two.a_job['mine']
+            return [stamp(made[b] - timedelta(seconds=0.1)) for b in lines]
+        result, note = self.go('E-CHAT-03', self.alternate(miss=('A', [18, 19]), busy=sent_at, done=lambda who, made: max(made.values()) + timedelta(seconds=21)))
+        self.assertEqual(result, 'fail', note)
+        self.assertIn('A 화면: 19번 20번 글이 화면(뷰모델)에 안 뜸', note)
+        self.assertIn('A 화면 19번 글(못 받음): 서버 저장 시각이 A 가 끝을 말하기', note)
+        self.assertIn('전', note)
+        self.assertIn('시계 차가 섞임', note)
+        self.assertIn('구독이 안 줌(앱/구독 의심)', note)
+        self.assertNotIn('시험이 끝을 일찍 말함', note)
+        self.assertIn('상대 기기 보내기 누름', note)  # B 의 sent_at 중 그 글(19번째)의 것
+        self.assertIn('20번 글(못 받음)', note)
+
+    def test_03_a_line_stored_after_the_app_said_it_was_done_blames_the_test(self):
+        def sent_at(who, made):
+            lines = self.two.b_job['mine'] if who == 'B' else self.two.a_job['mine']
+            return [stamp(made[b] - timedelta(seconds=0.1)) for b in lines]
+        late = lambda who, made: min(made.values()) + timedelta(seconds=5)  # noqa: E731 — 마지막 줄들이 저장되기 한참 전에 A 가 끝을 말했다
+        result, note = self.go('E-CHAT-03', self.alternate(miss=('A', [18, 19]), busy=sent_at, done=late))
+        self.assertEqual(result, 'fail', note)
+        self.assertIn('시험이 끝을 일찍 말함', note)
+        self.assertIn('후', note)
+        self.assertNotIn('구독이 안 줌', note)
+
+    def test_03_without_done_at_or_sent_at_the_old_text_stays_and_says_why_no_story(self):
+        result, note = self.go('E-CHAT-03', self.alternate(miss=('A', [19])))
+        self.assertEqual(result, 'fail', note)
+        self.assertIn('20번 글이 화면(뷰모델)에 안 뜸', note)
+        self.assertIn('done_at 을 안 말함', note)
+        self.assertNotIn('구독이 안 줌', note)
+
+    def test_03_the_order_text_tells_missing_lines_from_a_reversed_order(self):
+        result, note = self.go('E-CHAT-03', self.alternate(miss=('A', [18, 19])))
+        self.assertIn('빠진 줄 2건 때문, 나머지 순서는 DB 와 같음', note)
+        self.assertNotIn('순서가 뒤바뀜', note)
+        result, note = self.go('E-CHAT-03', self.alternate(swap=(3, 4)))
+        self.assertIn('순서가 뒤바뀜', note)
+        self.assertNotIn('빠진 줄', note)
+        result, note = self.go('E-CHAT-03', self.alternate(miss=('A', [19]), swap=(3, 4)))
+        self.assertIn('순서가 뒤바뀜', note)  # 빠진 줄이 있어도 나머지 순서가 틀리면 뒤바뀐 것
+
+    def test_03_a_failed_run_leaves_both_apps_end_values_in_the_bundle_folder(self):
+        import json
+        path = self.run_.out / 'E-CHAT-03-done.json'
+        path.unlink(missing_ok=True)
+        result, note = self.go('E-CHAT-03', self.alternate(miss=('A', [19])))
+        self.assertEqual(result, 'fail')
+        self.assertTrue(path.exists())
+        kept = json.loads(path.read_text(encoding='utf-8'))
+        self.assertEqual(sorted(kept), ['A', 'B'])
+        self.assertEqual(len(kept['A']['order']), 39)
+        self.assertEqual(len(kept['B']['order']), 40)
+        self.assertIn('seen', kept['A'])
+        self.assertIn('E-CHAT-03-done.json', note)
+
+    def test_03_a_passing_run_leaves_no_file(self):
+        path = self.run_.out / 'E-CHAT-03-done.json'
+        path.unlink(missing_ok=True)
+        result, note = self.go('E-CHAT-03', self.alternate())
+        self.assertEqual(result, 'pass', note)
+        self.assertFalse(path.exists())
+
+    def test_03_an_unwritable_folder_does_not_hide_the_verdict(self):
+        from pathlib import Path
+        real = Path.write_text
+
+        def guarded(path, *args, **kwargs):  # 번들 폴더의 진단 파일만 못 쓴다
+            if path.name.endswith('-done.json'):
+                raise OSError('read-only')
+            return real(path, *args, **kwargs)
+        with mock.patch.object(Path, 'write_text', guarded):
+            result, note = self.go('E-CHAT-03', self.alternate(miss=('A', [19])))
+        self.assertEqual(result, 'fail', note)
+        self.assertIn('진단 파일 못 씀', note)
 
     def test_03_each_side_waits_for_the_other_to_be_ready_before_it_is_let_go(self):
         """진짜 스레드 둘 — 한쪽 핸들러는 상대가 ready 를 세울 때까지 돌아오지 않는다(둘이 같이 풀려야 엇갈림이 맞는다)."""
@@ -1054,6 +1196,24 @@ class RegistryTest(Phone9):
         self.assertLess(body.index('sentAt.add(_utcNow());'), body.index('await tap(tester, _sendButton);'))  # 누르기 직전
         self.assertIn("'sent_at': sentAt", body)
         self.assertLess(body.index("_rtStep('ready'"), body.index('sentAt.add(_utcNow());'))
+
+    def test_the_alternating_app_stands_at_sent_after_its_own_sends_and_only_then_waits_for_all_forty(self):
+        body = self.alternate_body()
+        loop_end = body.index('await tap(tester, _sendButton);')
+        sent = body.index("_rtStep('sent'")
+        waiting = body.index('watch.seen.length == all.length')
+        done_at = body.index('final doneAt = _utcNow();')
+        done = body.index("_rtStep('done'")
+        self.assertLess(loop_end, sent)
+        self.assertLess(sent, waiting)  # 상대가 다 보낸 뒤부터 20초를 센다
+        self.assertLess(waiting, done_at)
+        self.assertLess(done_at, done)
+        self.assertIn("timeout: _rtLong", body[sent:sent + 120])
+        self.assertIn("'done_at': doneAt", body[done:])
+        self.assertIn("'sent_at': sentAt", body[done:])
+        self.assertIn("'seen': watch.seen", body[done:])
+        self.assertIn("'order':", body[done:])
+        self.assertIn('const Duration(seconds: 20)', body[waiting:done_at])  # 기다림 상한은 그대로 20초
 
     def test_every_job_key_is_read_by_the_app(self):
         dart = ''.join(self.dart(n) for n in ('area3.dart', 'area3_b2.dart', 'area3_chat_rt.dart'))

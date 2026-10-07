@@ -30,6 +30,7 @@
               1건 보내 보고 화면 오류 문구를 메모에 남긴다.
 """
 
+import json
 import math
 import secrets
 import time
@@ -56,6 +57,8 @@ BANNER_WAIT, RETRY_WAIT = 60, 20  # 앱이 끊김 배너를 기다리는 · "다
 VARIANTS = ('left', 'passed')  # E-CHAT-24 — 두 판
 ALT = 20  # E-CHAT-03 — 한쪽이 보내는 글(두 기기 모두 40건)
 ALT_GAP = 1.0  # 한 기기가 보내는 칸(초) — B 는 그 절반(0.5초) 늦게 시작해 두 기기가 0.5초 간격으로 엇갈린다
+SLOW_LINE = 3.0  # 느린 에뮬이 줄 하나를 쓰고 보내는 데 드는 최대 초(입력 300ms + 누르기 300ms + 앞 보내기 끝 기다림 + 서버 응답) — 20줄이면 60초
+CATCH_UP = 20  # 두 기기가 다 보낸 뒤 40줄이 다 들어오기를 기다리는 상한(초) — 이제 "상대가 다 보낸 뒤 20초"
 PEER = 240  # 두 기기가 서로 ready 를 기다리는 상한(초) — 에뮬이 늦게 떠도 넉넉히
 LIMITS = {'side_timeout': {'A': 300, 'B': 300}, 'deadline': 600}  # twodev.two — 다음 말까지 기다리는 시간 · 전체 상한
 PREP = 300  # 계정 둘 준비의 넉넉한 최악(초) — 계정 하나 150(가입 · 온보딩 · 로그인 429 대기 재시도까지, area5_two.PREP_ACCOUNT)
@@ -442,6 +445,66 @@ def _ready(me, other):
     return handler
 
 
+def _sent_wait(me, other):
+    """이 쪽 앱이 자기 글을 다 보냈다고 말한 뒤 — 상대도 다 보낼 때까지 기다렸다가 둘이 함께 풀린다. 상대가 느리게 보내도 이쪽의 \"40줄 기다림\" 이 상대 보내기가 끝난 뒤부터 세어지게 한다.
+    상대가 안 오면 blocked(_after)."""
+    def handler(said, sync):
+        sync.set(f'{me}-sent')
+        _after(sync, f'{other}-sent', other.upper(), PEER)
+    return handler
+
+
+def _order_cause(shown, order):
+    """화면 순서가 DB 순서와 다를 때 — 빠진 줄 때문인지(나머지 순서는 같다) 순서가 뒤바뀐 것인지. 같은 줄이 겹쳤으면 따로 말하므로 빈 문자열."""
+    if not isinstance(shown, list) or len(set(shown)) != len(shown):
+        return ''
+    gone = [x for x in order if x not in set(shown)]
+    if gone and shown == [x for x in order if x in set(shown)]:
+        return f' — 빠진 줄 {len(gone)}건 때문, 나머지 순서는 DB 와 같음'
+    return ' — 순서가 뒤바뀜'
+
+
+def _missing_story(run, match_id, who, others, said, other_said):
+    """못 받은 글마다 한 줄 — 그 글의 서버 저장 시각이 [who] 앱이 끝(done_at)을 말하기 전이었나 뒤였나, 상대 기기가 보내기를 누른 시각. 전이면 구독이 안 준 것(앱/구독 의심),
+    후면 시험이 끝을 일찍 말한 것. 앱 시계와 서버 시계의 차는 모르므로 \"시계 차가 섞임\" 단서를 붙인다. 판정은 건드리지 않고 문구만."""
+    seen = said.get('seen') or {}
+    gone = [(n, body) for n, body in enumerate(others, start=1) if body not in seen]
+    if not gone:
+        return []
+    made = {r['body']: _at(r.get('created_at')) for r in _rows(run, f'messages?match_id=eq.{match_id}&kind=eq.text&select=body,created_at')}
+    done, sent = _at(said.get('done_at')), (other_said or {}).get('sent_at') or []
+    lines = []
+    for number, body in gone:
+        line = f'{who} 화면 {number}번 글(못 받음):'
+        created = made.get(body)
+        if created is None:
+            line += ' DB 에 그 글이 없음'
+        elif done is None:
+            line += f' {who} 앱이 done_at 을 안 말함 — 저장 시각과 끝 시각을 못 견줌'
+        else:
+            gap = (done - created).total_seconds()
+            if gap >= 0:
+                line += (f' 서버 저장 시각이 {who} 가 끝을 말하기(done_at) {gap:.1f}초 전(앱 시계 기준 done_at 과의 차는 시계 차가 섞임) — '
+                         '저장된 뒤에도 안 왔으니 구독이 안 줌(앱/구독 의심)')
+            else:
+                line += (f' 서버 저장 시각이 {who} 가 끝을 말하기(done_at) {-gap:.1f}초 후(앱 시계 기준 done_at 과의 차는 시계 차가 섞임) — '
+                         '시험이 끝을 일찍 말함')
+        if number - 1 < len(sent):
+            line += f' · 상대 기기 보내기 누름 {sent[number - 1]}'
+        lines.append(line)
+    return lines
+
+
+def _dump_done(run, case, got):
+    """두 앱의 끝 값(seen · order · sent_at · done_at)을 번들 폴더에 남긴다 — 원인(구독 · 시험 구조)을 한 번의 실행으로 가를 증거. 못 써도 판정은 그대로(메모에만)."""
+    name = f'{case}-done.json'
+    try:
+        (run.out / name).write_text(json.dumps({who: got.get(who) for who in ('A', 'B')}, ensure_ascii=False, indent=1), encoding='utf-8')
+    except OSError as e:
+        return f'진단 파일 못 씀({type(e).__name__}: {e})'
+    return f'진단: {name} — 두 앱의 끝 값(seen · order · sent_at · done_at)'
+
+
 def _keep(got, who):
     """앱이 step 에 실어 보낸 값을 판정 때까지 둔다."""
     def handler(said, sync):
@@ -458,7 +521,8 @@ def two_03(run, two):
     a_lines = [f'E2E-03-A{i:02d}-{mark}' for i in range(1, ALT + 1)]
     b_lines = [f'E2E-03-B{i:02d}-{mark}' for i in range(1, ALT + 1)]
     got = {}
-    plan = {('A', 'ready'): _ready('a', 'b'), ('B', 'ready'): _ready('b', 'a'), ('A', 'done'): _keep(got, 'A'), ('B', 'done'): _keep(got, 'B')}
+    plan = {('A', 'ready'): _ready('a', 'b'), ('B', 'ready'): _ready('b', 'a'), ('A', 'sent'): _sent_wait('a', 'b'), ('B', 'sent'): _sent_wait('b', 'a'),
+            ('A', 'done'): _keep(got, 'A'), ('B', 'done'): _keep(got, 'B')}
     result, memo = two(plan, a_job={'token_hash': run.link(a['email']), 'nickname': b['nickname'], 'mine': a_lines, 'theirs': b_lines, 'offset': 0.0, 'gap': ALT_GAP},
                        b_job={'token_hash': run.link(b['email']), 'nickname': a['nickname'], 'mine': b_lines, 'theirs': a_lines, 'offset': ALT_GAP / 2, 'gap': ALT_GAP}, **LIMITS)
     order = _db_order(run, match_id, a_lines + b_lines)
@@ -471,11 +535,16 @@ def two_03(run, two):
         if not said:
             continue  # 그 앱이 끝 값을 못 말했다 — 두 기기 결과(memo)가 blocked 로 말한다
         shown = said.get('order')
-        check.that(shown == order, f"{who} 화면: 순서가 DB 순서와 다름({_diff(shown if shown is not None else MISSING, order)})")
+        check.that(shown == order, f"{who} 화면: 순서가 DB 순서와 다름({_diff(shown if shown is not None else MISSING, order)})" + _order_cause(shown, order))
         if isinstance(shown, list):
             doubled = sorted({x for x in shown if shown.count(x) > 1})
             check.that(not doubled, f'{who} 화면: 같은 줄이 겹침 {len(doubled)}건')
         notes.append(f'{who} 화면(상대 줄) ' + _delays(check, run, match_id, others, said.get('seen'), f'{who} 화면', busy=said.get('sent_at')))
+        check.problems += _missing_story(run, match_id, who, others, said, got.get('B' if who == 'A' else 'A'))
+    if (check.problems or result != 'pass') and got:
+        saved = _dump_done(run, 'E-CHAT-03', got)
+        if check.problems:
+            check.problems.append(f'[{saved}]')
     return _verdict(check, result, memo, ' / '.join(notes))
 
 
