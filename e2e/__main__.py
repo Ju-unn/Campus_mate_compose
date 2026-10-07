@@ -55,6 +55,7 @@ from e2e import area2_batch_admin  # 영역 2 배치 운영(E-BATCH-01~03) — �
 from e2e import area2_two_poll  # noqa: F401 — 영역 2 두 기기 투표 글 가설 8(twodev.TWO · area1.BUNDLES 에 더한다)
 from e2e import area2_two_accept  # noqa: F401 — 영역 2 두 기기 카드 수락(일시중지 · 거절 · 매칭 · 연타 · 이미 매칭된 사람) 가설을 twodev.TWO · area1.BUNDLES 에 더한다
 from e2e import area4_push_two  # noqa: F401 — 영역 4 알림 두 기기(E-PUSH-64 · 65 · 71) 가설을 twodev.TWO · area1.BUNDLES 에 더한다
+from e2e import area4_push_fcm  # noqa: F401 — 영역 4 FCM 직접 발송 E-PUSH-56 · 57 을 area1.PHONE · BUNDLES 에 더한다
 from e2e import area4_set56  # noqa: F401 — 영역 4 E-SET-56(약관 줄) 가설을 area1.PHONE · BUNDLES 에 더한다
 from e2e import area5_more  # noqa: F401 — 영역 5 E-ME-05 · 22 · 32 가설을 area1.PHONE · twodev.TWO · area1.BUNDLES 에 더한다
 from e2e import area5_fake  # noqa: F401 — 영역 5 가짜 서버 응답 E-EDGE-05 · 06 · 07 · 08 을 area1.PHONE · BUNDLES 에 더한다
