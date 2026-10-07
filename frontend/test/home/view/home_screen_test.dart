@@ -15,6 +15,7 @@ import 'package:campus_mate/home/view/mosaic_tile.dart';
 import 'package:campus_mate/home/view/notify_icon_button.dart';
 import 'package:campus_mate/home/view/tag.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
+import 'package:campus_mate/me/model/me_repository_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -23,6 +24,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../chat/model/fake_chat_repository.dart';
 import '../../matching/model/fake_card_repository.dart';
+import '../../me/model/fake_me_repository.dart';
 import '../model/fake_home_repository.dart';
 
 /// mosaic-rail 도 가로 Scrollable 이라 세로 목록을 짚어 준다.
@@ -55,6 +57,7 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         homeRepositoryProvider.overrideWithValue(FakeHomeRepository(result)),
+        meRepositoryProvider.overrideWithValue(FakeMeRepository(const FailureResult(NetworkFailure()))),
         // 하단 내비 뱃지가 수락 대기·안 읽은 메시지를 읽는다(§8.8).
         cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
         chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
