@@ -343,6 +343,14 @@ class ReconnectTest(DeviceBase):
         self.assertIn('다시 시도', note)
         self.assert_all_home()
 
+    def test_22_a_banner_that_vanished_before_the_press_says_so_in_the_memo(self):
+        (result, note), _ = self.stepping('E-CHAT-22', ['cut', 'offline'], self.good(retried=False))
+        self.assertEqual(result, 'pass', note)
+        self.assertIn('눌러 보기 전에 자동으로 사라져', note)
+        (result, note), _ = self.stepping('E-CHAT-22', ['cut', 'offline'], self.good(retried=True))
+        self.assertEqual(result, 'pass', note)
+        self.assertNotIn('눌러 보기 전에', note)
+
     def test_22_fails_without_the_banner_with_missing_or_misordered_or_doubled_lines(self):
         for override in ({'banner': False}, {'order': []}, {'seen': {}}, {'bubble_last': False}):
             (result, note), _ = self.stepping('E-CHAT-22', ['cut', 'offline'], self.good(**override))
@@ -505,6 +513,24 @@ class MissedTest(DeviceBase):
         (result, note), _ = self.stepping('E-CHAT-24', ['cut', 'changed'], self.good(banner=False, retried=False))
         self.assertEqual(result, 'pass', note)
         self.assertIn('배너', note)
+
+    def test_24_a_banner_that_vanished_before_the_press_is_told_apart_from_no_banner(self):
+        """실기기: 배너를 확인하고 누르는 사이 통로가 스스로 다시 붙어 배너가 내려간다 — "배너가 안 떴다" 로만 읽히면 안 된다."""
+        (result, note), _ = self.stepping('E-CHAT-24', ['cut', 'changed'], self.good(banner=True, retried=False))
+        self.assertEqual(result, 'pass', note)
+        self.assertIn('눌러 보기 전에 자동으로 사라져', note)
+        self.assertNotIn('끊긴 동안 배너가 안 떠', note)
+        (result, note), _ = self.stepping('E-CHAT-24', ['cut', 'changed'], self.good(banner=False, retried=False))
+        self.assertIn('끊긴 동안 배너가 안 떠', note)
+        self.assertNotIn('눌러 보기 전에', note)
+
+    def test_24_a_pressed_retry_leaves_no_note(self):
+        (result, note), _ = self.stepping('E-CHAT-24', ['cut', 'changed'], self.good(banner=True, retried=True))
+        self.assertEqual((result, note), ('pass', ''))
+
+    def test_24_the_screen_still_decides_when_the_banner_vanished(self):
+        (result, note), _ = self.stepping('E-CHAT-24', ['cut', 'changed'], self.good(banner=True, retried=False, input=True))
+        self.assertEqual(result, 'fail', note)
 
     def test_24_a_partner_without_a_kakao_id_is_blocked(self):
         self.fake.handlers[:] = [h for h in self.fake.handlers if 'profile_private' not in h[1].pattern]
@@ -975,6 +1001,33 @@ class RegistryTest(Phone9):
                 self.assertTrue(before[-1].startswith(wait), line)
                 checked.append(line)
         self.assertEqual(len(checked), 10)  # stream · sent · cut ×3 · home · ready(61) · _rtStep ready ×3
+
+    def function_body(self, name):
+        text = self.dart('area3_chat_rt.dart')
+        start = text.index(f' {name}(')
+        return text[start:text.index('\n}\n', start)]
+
+    def test_no_case_presses_the_retry_button_with_the_plain_tap(self):
+        """`tap` 은 확인 → ensureVisible → pump → 다시 찾아 누르는 순서라, 그 pump 사이 배너가 내려가면 "Bad state: No element" 로 앱이 값을 못 말한다(실기기 E-CHAT-24)."""
+        text = self.dart('area3_chat_rt.dart')
+        self.assertNotIn('tap(tester, find.text(_rtRetry))', text)
+        for name in ('_rtMissed', '_rtReconnect'):
+            body = self.function_body(name)
+            self.assertIn('retried = await _rtTryRetry(tester);', body, name)
+            self.assertNotIn('_rtRetry', body, name)  # 버튼 글자는 도우미만 안다
+
+    def test_the_retry_helper_looks_again_after_the_pump_and_does_not_hide_errors(self):
+        body = self.function_body('_rtTryRetry')
+        first, pump, second, press = (body.index('if (!_has(retry)) return false;'), body.index('await tester.pump();'),
+                                      body.rindex('if (!_has(retry)) return false;'), body.index('tester.tap('))
+        self.assertLess(first, body.index('ensureVisible'))
+        self.assertLess(body.index('ensureVisible'), pump)
+        self.assertLess(pump, second)  # pump 뒤에 다시 있는지 본다
+        self.assertLess(second, press)
+        self.assertIn('warnIfMissed: false', body)
+        self.assertIn('return true;', body)
+        self.assertNotIn('catch', body)  # 예외를 삼켜 결과를 숨기지 않는다 — 존재 확인으로
+        self.assertNotIn('try {', body)
 
     def alternate_body(self):
         text = self.dart('area3_chat_rt.dart')

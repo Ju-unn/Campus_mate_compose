@@ -172,6 +172,20 @@ Future<Map<String, Object?>> _rtUnread(WidgetTester tester, Map<String, dynamic>
   return {'before': before, 'after': _rtBadges(tester, nickname), 'pulled': pulled};
 }
 
+/// 끊김 배너의 "다시 시도" 를 누른다 — 눌렀으면 true, 못 눌렀으면 false(배너가 없거나, 누르기 전에 통로가 스스로 다시 붙어 배너가 내려갔다).
+/// `tap` 은 ensureVisible 뒤 pump 를 하고 그 뒤에 다시 찾아 누르는데, 그 pump 사이에 배너가 내려가면 "Bad state: No element" 로 앱이 값을 못 말한다(실기기 E-CHAT-24).
+/// 그래서 pump 뒤에 한 번 더 있는지 본다. 예외를 삼키지 않는다 — 존재 확인으로 가른다.
+Future<bool> _rtTryRetry(WidgetTester tester) async {
+  final retry = find.text(_rtRetry);
+  if (!_has(retry)) return false;
+  await tester.ensureVisible(retry.last);
+  await tester.pump();
+  if (!_has(retry)) return false;
+  await tester.tap(retry.last, warnIfMissed: false);
+  await tester.pump(const Duration(milliseconds: 300));
+  return true;
+}
+
 /// E-CHAT-22 — 방을 열고 `cut` 에서 멈춘다(PC 가 망을 끊는다). 끊김 배너가 뜨기를 기다린 뒤 `offline` 에서 멈춘다(PC 가 A 로 5건을 보내고 망을 되살린다).
 /// 배너가 있으면 "다시 시도" 를 눌러 놓친 5건이 모두 · 순서대로 들어오기를 기다린다. 배너가 안 뜨면 누르지 않고 자동으로 채워지는지만 본다.
 Future<Map<String, Object?>> _rtReconnect(WidgetTester tester, Map<String, dynamic> job) async {
@@ -185,11 +199,7 @@ Future<Map<String, Object?>> _rtReconnect(WidgetTester tester, Map<String, dynam
     final banner = find.text(_rtDisconnected);
     final shown = await appears(tester, banner, _rtBannerWait);
     await step('offline', timeout: const Duration(minutes: 3)); // PC 가 A 로 보내고 망을 되살린다
-    var retried = false;
-    if (_has(banner)) {
-      await tap(tester, find.text(_rtRetry));
-      retried = true;
-    }
+    final retried = await _rtTryRetry(tester); // 눌렀으면 true — 누르기 전에 배너가 내려갔으면 false
     await _rtUntil(tester, () => watch.seen.length == bodies.length, _rtCatchUp);
     await tester.pump(const Duration(milliseconds: 500));
     return {
@@ -282,11 +292,7 @@ Future<Map<String, Object?>> _rtMissed(WidgetTester tester, Map<String, dynamic>
     final banner = find.text(_rtDisconnected);
     final shown = await appears(tester, banner, _rtBannerWait);
     await step('changed', timeout: const Duration(minutes: 3)); // PC: 나가기 / 두 수락 → 망을 되살린다
-    var retried = false;
-    if (_has(banner)) {
-      await tap(tester, find.text(_rtRetry));
-      retried = true;
-    }
+    final retried = await _rtTryRetry(tester); // 눌렀으면 true — 누르기 전에 배너가 내려갔으면 false
     final back = Stopwatch()..start();
     await _rtUntil(
       tester,
