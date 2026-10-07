@@ -61,6 +61,58 @@ class DeviceTextTest(unittest.TestCase):
         self.assertIsNone(area2_phone3.tap_point('<hierarchy>', ['복사']))
 
 
+SHEET = (  # Android 16 공유 창(영어) — 미리보기 옆 글자 없는 복사 아이콘 · 아래 줄 "Copy to clip…"
+    '<hierarchy>'
+    '<node text="Hello from CampusMate" content-desc="" package="android" bounds="[0,300][500,360]" />'
+    '<node text="" content-desc="Copy" package="com.android.intentresolver" bounds="[400,300][500,360]" />'
+    '<node text="Drive" content-desc="" package="android" bounds="[0,600][100,700]" />'
+    '<node text="Copy to clip…" content-desc="" package="android" bounds="[200,600][300,700]" />'
+    '<node text="Copy (my app)" content-desc="" package="io.github.juunn.campusmate" bounds="[0,0][50,50]" />'
+    '</hierarchy>'
+)
+
+
+class CopyPointTest(unittest.TestCase):
+    def test_an_exact_label_wins_over_looser_ones(self):
+        loose_first = ('<hierarchy><node text="Copy to clip…" package="android" bounds="[200,600][300,700]" />'
+                       '<node text="복사" package="android" bounds="[0,0][20,20]" /></hierarchy>')
+        self.assertEqual(area2_phone3.copy_point(loose_first), (10, 10))
+
+    def test_the_description_only_icon_is_found_before_the_cut_off_label(self):
+        self.assertEqual(area2_phone3.copy_point(SHEET), (450, 330))
+
+    def test_a_label_that_only_starts_or_contains_copy_is_found_when_nothing_is_exact(self):
+        only = '<hierarchy><node text="Copy to clip…" package="android" bounds="[200,600][300,700]" /></hierarchy>'
+        self.assertEqual(area2_phone3.copy_point(only), (250, 650))
+        inside = '<hierarchy><node text="클립보드로 복사하기" package="android" bounds="[0,0][100,100]" /></hierarchy>'
+        self.assertEqual(area2_phone3.copy_point(inside), (50, 50))
+
+    def test_our_own_app_nodes_are_never_tapped(self):
+        ours = '<hierarchy><node text="Copy (my app)" package="io.github.juunn.campusmate" bounds="[0,0][50,50]" /></hierarchy>'
+        self.assertIsNone(area2_phone3.copy_point(ours))
+
+    def test_nothing_like_copy_is_none(self):
+        self.assertIsNone(area2_phone3.copy_point('<hierarchy><node text="Drive" package="android" bounds="[0,0][9,9]" /></hierarchy>'))
+        self.assertIsNone(area2_phone3.copy_point('<hierarchy>'))
+
+    def test_sheet_labels_are_short_deduplicated_limited_and_leave_our_app_out(self):
+        many = '<hierarchy>' + ''.join(f'<node text="label-{i}-' + 'x' * 40 + f'" package="android" bounds="[0,0][{i + 1},1]" />' for i in range(30)) + '</hierarchy>'
+        labels = area2_phone3.sheet_labels(many)
+        self.assertEqual(len(labels), 15)
+        self.assertTrue(all(len(label) <= 24 for label in labels))
+        shown = area2_phone3.sheet_labels(SHEET)
+        self.assertNotIn('Copy (my app)', shown)
+        self.assertEqual(len(shown), len(set(shown)))
+        self.assertIn('Copy to clip…', shown)
+
+    def test_the_labels_go_into_the_memo_only_on_an_emulator(self):
+        with mock.patch.object(area2_phone3, '_dump', lambda serial: '<hierarchy><node text="카카오톡" package="android" bounds="[0,0][9,9]" /></hierarchy>'):
+            self.assertEqual(area2_phone3.tap_copy('R5CT'), (False, ''))  # 실폰 화면 글자는 남기지 않는다
+            ok, memo = area2_phone3.tap_copy('emulator-5554')
+        self.assertFalse(ok)
+        self.assertIn('카카오톡', memo)
+
+
 class OfflineTest(unittest.TestCase):
     def test_network_and_mailbox_are_restored_even_when_the_app_blows_up(self):
         calls = []
