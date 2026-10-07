@@ -11,6 +11,7 @@ import 'package:campus_mate/billing/model/heart_task.dart';
 import 'package:campus_mate/consent/view/consent_screen.dart';
 import 'package:campus_mate/billing/view/heart_task_pending_screen.dart';
 import 'package:campus_mate/billing/view/heart_task_submit_screen.dart';
+import 'package:campus_mate/billing/view/heart_store_screen.dart';
 import 'package:campus_mate/billing/view/heart_tasks_screen.dart';
 import 'package:campus_mate/chat/view/chat_room_screen.dart';
 import 'package:campus_mate/community/view/community_feed_screen.dart';
@@ -152,6 +153,7 @@ abstract final class AppRouter {
         path: '${AppRoutes.partnerProfile}/:profileId',
         builder: (context, state) => PartnerProfileScreen(profileId: state.pathParameters['profileId']!),
       ),
+      GoRoute(path: AppRoutes.heartStore, builder: (context, state) => const HeartStoreScreen()),
       GoRoute(path: AppRoutes.heartTasks, builder: (context, state) => const HeartTasksScreen()),
       GoRoute(
         path: '${AppRoutes.heartTaskSubmit}/:task',

@@ -142,11 +142,12 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> with MeToastH
       cost: profile.avatarRegenCost,
       heartBalance: profile.heartBalance,
     );
+    if (!mounted) return;
     switch (choice) {
       case AvatarRegenChoice.regenerate:
         await _regenerate();
       case AvatarRegenChoice.chargeHearts:
-        showTimedToast(comingSoonToast);
+        await context.push(AppRoutes.heartStore);
       case null:
         break;
     }
