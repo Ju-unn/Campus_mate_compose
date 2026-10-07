@@ -332,7 +332,7 @@ class BothScreensTest(TwoTrust):
 
     def ok(self, **a_over):
         return [('A', 'ready', self.banners(WAITING), None), ('B', 'armed', self.banners(PRE_ACCEPT), self.press(2)),
-                ('A', 'report', self.card(2, **a_over), None), ('B', 'report', self.card(1), None)]
+                ('A', 'watch', {}, None), ('A', 'report', self.card(2, **a_over), None), ('B', 'report', self.card(1), None)]
 
     def test_39_both_screens_get_the_card_the_kakao_id_and_the_real_photo(self):
         result, memo = self.go('E-CHAT-39', *self.ok())
@@ -343,12 +343,26 @@ class BothScreensTest(TwoTrust):
         self.assertEqual(self.two.a_job, {'token_hash': 'h', 'nickname': self.nick(2)})
         self.assertEqual(self.two.b_job, {'token_hash': 'h', 'nickname': self.nick(1)})
         self.assertEqual(self.two.limit, area3_phone11.LIMITS)
-        self.assertEqual(self.two.plan_keys, [('A', 'ready'), ('A', 'report'), ('B', 'armed'), ('B', 'report')])
+        self.assertEqual(self.two.plan_keys, [('A', 'ready'), ('A', 'report'), ('A', 'watch'), ('B', 'armed'), ('B', 'report')])
 
     def test_39_b_waits_for_a_to_be_ready_so_the_listener_is_set_before_the_accept(self):
         self.go('E-CHAT-39', *self.ok())
         self.assertEqual(self.two.went[('A', 'ready')], None)
         self.assertEqual(self.two.went[('B', 'armed')], None)
+
+    def test_39_a_starts_its_card_wait_only_after_b_is_released_to_press(self):
+        """A 의 카드 기다림(20초)이 B 가 에뮬에서 확인 창을 열기도 전에 시작해 먼저 끝나면(10-07 실기기: A 가 기다림 배너에 머문 채 끝남) 허위 fail 이다 —
+        A 는 `ready` 뒤 `watch` 에서 B 가 풀릴 때까지 서 있다가 풀려야 카드 기다림을 시작한다."""
+        result, memo = self.go('E-CHAT-39', ('A', 'ready', self.banners(WAITING), None),
+                               [('A', 'watch', {}, None), ('B', 'armed', self.banners(PRE_ACCEPT), self.press(2))],
+                               ('A', 'report', self.card(2), None), ('B', 'report', self.card(1), None))
+        self.assertEqual(result, 'pass', memo)
+        self.assertEqual(self.two.went[('A', 'watch')], None)
+
+    def test_39_a_that_waits_for_a_b_that_never_arms_is_blocked_not_a_fail(self):
+        result, memo = self.go('E-CHAT-39', ('A', 'ready', self.banners(WAITING), None), ('A', 'watch', {}, None))
+        self.assertEqual(result, 'blocked', memo)
+        self.assertIn('B', memo)
 
     def test_39_fails_when_a_sees_the_card_late_or_never_saw_the_line(self):
         for label, over in (('2.5초', {'ms': 2500}), ('줄을 못 봄', {'card_ms': None})):
@@ -376,7 +390,7 @@ class BothScreensTest(TwoTrust):
 
     def test_39_a_second_screen_without_the_card_or_a_missing_waiting_banner_is_a_fail(self):
         script = self.ok()
-        script[3] = ('B', 'report', self.card(1, card=False, card_ms=None), None)
+        script[4] = ('B', 'report', self.card(1, card=False, card_ms=None), None)
         result, memo = self.go('E-CHAT-39', *script)
         self.assertEqual(result, 'fail', memo)
         self.assertIn('B 화면', memo)
@@ -534,8 +548,11 @@ class RegistryTest(unittest.TestCase):
         dart = self.dart('area3_b11.dart')
         for key in ('E-CHAT-37', 'E-CHAT-38', 'E-CHAT-39/A', 'E-CHAT-39/B', 'E-CHAT-40', 'E-CHAT-41', 'E-CHAT-44/A', 'E-CHAT-44/B'):
             self.assertRegex(dart, rf"(?m)^  '{re.escape(key)}':", key)
-        for name in ('ready', 'armed', 'report'):
+        for name in ('ready', 'watch', 'armed', 'report'):
             self.assertRegex(dart, rf"_trStep\('{name}'", name)
+        watcher = dart.split('Future<Map<String, Object?>> _trWatchPartner', 1)[1].split('\n}\n', 1)[0]
+        self.assertLess(watcher.index("_trStep('ready'"), watcher.index("_trStep('watch'"))
+        self.assertLess(watcher.index("_trStep('watch'"), watcher.index('_trCardAt(tester)'))  # 카드 기다림은 watch 가 풀린 뒤에 시작
         self.assertRegex(dart, r"step\('ready'\)")  # E-CHAT-37 은 support.step
 
     def test_every_top_level_name_in_the_app_part_is_ours(self):
