@@ -40,6 +40,8 @@ final Map<String, Future<Object?> Function(WidgetTester tester, Map<String, dyna
   // E-CARD-40 · 43 · 46 · 48 = E-PUSH-10 · 13 · 18 · 22(앱은 홈만 켜 둔다), E-BATCH-09 = E-CARD-13.
   for (final number in ['40', '43', '46', '48']) 'E-CARD-$number': area1Cases['E-ONB-61']!,
   'E-BATCH-09': area2dCases['E-CARD-13']!,
+  // E-REF-06(e2e/area2_ref06.py)은 영역 1 E-ONB-60 과 같은 화면 흐름 — 20 에서 코드 → 20b 시트 → 20d. 판정(원장 ref)만 PC 가 더 본다.
+  'E-REF-06': area1Cases['E-ONB-60']!,
   // 앱이 켜져 첫 화면이 그려지고 우편함 왕복이 된다.
   'SMOKE': (tester, job) async {
     await pumpUntil(tester, find.byType(Scaffold));

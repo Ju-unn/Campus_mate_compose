@@ -37,7 +37,7 @@ class RegistryTest(unittest.TestCase):
             self.assertNotIn(case, area1.PHONE)
 
     def test_the_skipped_table_and_the_originals_stay_as_they_were(self):
-        self.assertEqual(sorted(area2.SKIPPED), ['E-CARD-73'])  # E-HEART-46 은 area4_extra(area4-extra-ai)에서 돈다
+        self.assertEqual(sorted(area2.SKIPPED), [])  # E-CARD-73 은 card_73 으로 등록, E-HEART-46 은 area4_extra(area4-extra-ai)에서 돈다
         for case in [*PHONE, *BATCH]:
             self.assertNotIn(case, area2.SKIPPED)
             self.assertNotIn(case, area2.CASES)
