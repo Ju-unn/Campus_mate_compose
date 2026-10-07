@@ -118,14 +118,17 @@ void main() {
   group('사진 칸 테두리(pen `oE1rh` PhotoSlide · Real — inside stroke 1px #DDDDDD)', () {
     final shown = _photos(2);
 
-    Future<void> pumpBordered(WidgetTester tester, {required bool bordered, Widget? badge}) => tester.pumpWidget(
+    // [bordered] 가 null 이면 인자를 아예 안 넘긴다 — 기본값을 시험한다.
+    Future<void> pumpBordered(WidgetTester tester, {bool? bordered, Widget? badge}) => tester.pumpWidget(
           MaterialApp(
             home: Scaffold(
               body: Align(
                 alignment: Alignment.topLeft,
                 child: SizedBox(
                   width: 328,
-                  child: PhotoSlider(photos: shown, photoSize: const Size(252, 184), bordered: bordered, firstPhotoBadge: badge),
+                  child: bordered == null
+                      ? PhotoSlider(photos: shown, photoSize: const Size(252, 184), firstPhotoBadge: badge)
+                      : PhotoSlider(photos: shown, photoSize: const Size(252, 184), bordered: bordered, firstPhotoBadge: badge),
                 ),
               ),
             ),
@@ -136,10 +139,11 @@ void main() {
           (w) => w is Container && w.foregroundDecoration is BoxDecoration && (w.foregroundDecoration as BoxDecoration).border != null,
         );
 
-    testWidgets('기본은 테두리가 없다 — 화면 15 · 14c 사진은 pen 에 테두리가 없다', (tester) async {
-      await pumpBordered(tester, bordered: false);
+    testWidgets('기본(bordered 를 안 넘김)은 테두리가 없다 — 화면 15 등 나머지 사진은 pen 에 테두리가 없다', (tester) async {
+      await pumpBordered(tester);
 
       expect(frame(), findsNothing);
+      expect(const PhotoSlider(photos: [], photoSize: Size.zero).bordered, isFalse);
     });
 
     testWidgets('bordered 면 사진 칸마다 안쪽 1px #DDDDDD · 모서리 14 이고 사진 크기 · 간격은 그대로다', (tester) async {
@@ -160,6 +164,7 @@ void main() {
         final decoration = box.foregroundDecoration! as BoxDecoration;
         final side = (decoration.border! as Border).top;
         expect((side.width, side.color), (1.0, const Color(0xFFDDDDDD)));
+        expect(side.strokeAlign, BorderSide.strokeAlignInside); // 안쪽 — 바깥 크기를 안 바꾼다
         expect(decoration.borderRadius, BorderRadius.circular(14));
       }
       // 크기 · 간격은 테두리가 없을 때와 같다 — 첫 장 252×184, 둘째 장 x260.
@@ -167,12 +172,15 @@ void main() {
       expect(tester.getRect(_photo(photos[1])).left, moreOrLessEquals(260));
     });
 
-    testWidgets('테두리는 사진 · 배지 위에 안쪽으로 그려진다 — 배지 자리도 그대로', (tester) async {
+    testWidgets('테두리를 켜도 배지 자리는 그대로다 — 첫 장 안 위 12 · 오른쪽 13(pen `E2kWIB`)', (tester) async {
       await pumpBordered(tester, bordered: true, badge: _textBadge);
 
+      expect(frame(), findsNWidgets(2)); // 테두리가 실제로 켜진 채로 본다
       final first = tester.getRect(_photo(shown[0]));
+      final badge = tester.getRect(find.byKey(_badgeKey));
       expect(first.size, const Size(252, 184));
-      expect(find.text('수락 후 공개'), findsOneWidget);
+      expect(badge.top, first.top + 12);
+      expect(badge.right, first.right - 13);
     });
   });
 

@@ -29,7 +29,7 @@ class PhotoSlider extends StatefulWidget {
   final double dotsGap;
 
   /// 사진 칸 안쪽 1px #DDDDDD 테두리(15-5 PhotoSlide · Real `oE1rh` — inside stroke). 사진 크기 · 간격은 그대로다.
-  /// 화면 15 · 14c 의 사진은 pen 에 이 테두리가 없어 기본 꺼짐이다.
+  /// 15-5 · 14c 상대 프로필만 켠다. 화면 15 등 나머지는 pen 에 이 테두리가 없어 기본 꺼짐이다.
   final bool bordered;
 
   @override
