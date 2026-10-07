@@ -1,6 +1,7 @@
 import 'package:campus_mate/account/model/account_info.dart';
 import 'package:campus_mate/account/viewmodel/account_info_provider.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/school_label.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -96,20 +97,20 @@ class _AccountContent extends StatelessWidget {
           const _SectionHeader('로그인 정보'),
           const SizedBox(height: AppSpacing.xs),
           _InfoCard(rows: [
-            _InfoRow(icon: AppIcons.mail, label: '학교 이메일', value: info.email),
-            _InfoRow(icon: AppIcons.badgeCheck, label: '학생 인증', value: '인증 완료', valueStyle: _verifiedStyle),
+            _InfoRow(icon: AppIcon3d.mail, label: '학교 이메일', value: info.email),
+            _InfoRow(icon: AppIcon3d.badgeCheck, label: '학생 인증', value: '인증 완료', valueStyle: _verifiedStyle),
           ]),
           const SizedBox(height: _sectionGap),
           const _SectionHeader('본인 확인 정보'),
           const SizedBox(height: AppSpacing.xs),
           _InfoCard(rows: [
-            _InfoRow(icon: AppIcons.userRound, label: '실명', value: info.realName ?? AccountScreen.emptyValue),
+            _InfoRow(icon: AppIcon3d.userRound, label: '실명', value: info.realName ?? AccountScreen.emptyValue),
             _InfoRow(
-              icon: AppIcons.calendar,
+              icon: AppIcon3d.calendar,
               label: '출생연도',
               value: info.birthYear?.toString() ?? AccountScreen.emptyValue,
             ),
-            _InfoRow(icon: AppIcons.graduationCap, label: '학교', value: info.university, schoolLogo: true),
+            _InfoRow(icon: AppIcon3d.graduationCap, label: '학교', value: info.university, schoolLogo: true),
           ]),
           const SizedBox(height: _sectionGap),
           const _PrivacyNote(),
@@ -118,7 +119,7 @@ class _AccountContent extends StatelessWidget {
           const SizedBox(height: AppSpacing.xs),
           _InfoCard(rows: [
             _InfoRow(
-              icon: AppIcons.messageCircle,
+              icon: AppIcon3d.chat,
               label: '카카오톡 아이디',
               value: info.kakaoId ?? AccountScreen.emptyValue,
               onTap: onKakaoIdTap,
@@ -128,7 +129,7 @@ class _AccountContent extends StatelessWidget {
           const _SectionHeader('가입 정보'),
           const SizedBox(height: AppSpacing.xs),
           _InfoCard(rows: [
-            _InfoRow(icon: AppIcons.calendarCheck, label: '가입일', value: _joinedAtLabel(info.joinedAt)),
+            _InfoRow(icon: AppIcon3d.calendarCheck, label: '가입일', value: _joinedAtLabel(info.joinedAt)),
           ]),
         ],
       ),
@@ -190,7 +191,7 @@ class _InfoRow extends StatelessWidget {
     this.onTap,
   });
 
-  final IconData icon;
+  final AppIcon3d icon;
   final String label;
   final String value;
 
@@ -201,6 +202,9 @@ class _InfoRow extends StatelessWidget {
   final bool schoolLogo;
 
   final VoidCallback? onTap;
+
+  /// pen 학교 이메일 줄의 3D 아이콘 `huZA9` 22×22 — 다른 줄도 같은 줄 틀(pen 인스턴스)이라 같은 크기로 둔다.
+  static const double _iconSize = 22;
 
   /// pen 높이 52 는 최소값이다 — 글자를 키우면 줄이 늘어난다(고정 높이면 조용히 잘린다).
   static const double _minHeight = 52;
@@ -226,7 +230,7 @@ class _InfoRow extends StatelessWidget {
         child: LayoutBuilder(
           builder: (context, constraints) => Row(
             children: [
-              Icon(icon, size: 20, color: AppColors.body),
+              Icon3d(icon, size: _iconSize),
               const SizedBox(width: AppSpacing.sm),
               // 라벨은 줄 폭의 절반까지만 — 글자를 키우면 라벨이 값 칸을 다 먹어 값이 조용히 잘린다
               // (2.0배 "카카오톡 아이디" 가 값 칸을 1.3px 로 만들었다). 1.0배 라벨은 절반보다 짧다.

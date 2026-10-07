@@ -5,6 +5,7 @@ import 'package:campus_mate/account/view/withdraw_sheets.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/auth/account_status_listenable.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -52,6 +53,35 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  /// pen 회색 삭제 버튼 `l1XDPi` · `FbrhB`(= 노드 `l44zcf`) — #F2F2F2 · 모서리 8 · 높이 52 가로 꽉 · 글자 #222222 18/700.
+  void expectGrayDelete(WidgetTester tester, Finder Function(Finder) within, String label) {
+    final button = within(find.widgetWithText(ElevatedButton, label));
+    expect(button, findsOneWidget);
+    final style = tester.widget<ElevatedButton>(button).style!;
+    expect(style.backgroundColor!.resolve({}), const Color(0xFFF2F2F2));
+    expect((style.shape!.resolve({}) as RoundedRectangleBorder).borderRadius, BorderRadius.circular(8));
+    expect(tester.getSize(button), const Size(328, 52));
+    final text = tester.widget<Text>(within(find.text(label)));
+    expect(style.foregroundColor!.resolve({}), const Color(0xFF222222)); // 글자색은 버튼의 foregroundColor 가 준다
+    expect(text.style!.fontSize, 18);
+    expect(text.style!.fontWeight, FontWeight.w700);
+  }
+
+  /// pen 취소 `PHIZw` · `fEu75` — 328×48 · 모서리 14 · #FF385C · 흰 글자 16/700.
+  Finder cancelBox(Finder Function(Finder) within) => within(find.ancestor(of: find.text('취소'), matching: find.byType(Material)).first);
+
+  void expectBrandCancel(WidgetTester tester, Finder Function(Finder) within) {
+    final cancel = cancelBox(within);
+    final material = tester.widget<Material>(cancel);
+    expect(material.color, const Color(0xFFFF385C));
+    expect((material.shape! as RoundedRectangleBorder).borderRadius, BorderRadius.circular(14));
+    expect(tester.getSize(cancel), const Size(328, 48));
+    final text = tester.widget<Text>(within(find.text('취소')));
+    expect(text.style!.color, const Color(0xFFFFFFFF));
+    expect(text.style!.fontSize, 16);
+    expect(text.style!.fontWeight, FontWeight.w700);
+  }
+
   Future<void> openFinalSheet(WidgetTester tester) async {
     await openSheets(tester);
     await tester.tap(find.text('영구 삭제'));
@@ -84,8 +114,11 @@ void main() {
       ]) {
         expect(inFirst(find.text(text)), findsOneWidget, reason: text);
       }
-      for (final icon in [AppIcons.userRound, AppIcons.heart, AppIcons.messageCircle]) {
-        expect(inFirst(find.byIcon(icon)), findsOneWidget);
+      // pen 삭제 항목 3줄 — 3D 그림 `PkqpC` · `zxXQG` · `Lua1H`, 인스턴스 `UJN6X` · `u0hZwa` · `uZeTa` 20×20.
+      for (final icon in [AppIcon3d.userRound, AppIcon3d.heart, AppIcon3d.chat]) {
+        final found = inFirst(find.byWidgetPredicate((w) => w is Icon3d && w.icon == icon));
+        expect(found, findsOneWidget, reason: '$icon');
+        expect(tester.getSize(found), const Size(20, 20));
       }
     });
 
@@ -105,8 +138,9 @@ void main() {
     testWidgets('슬픈 마스코트 88(pen ycFq3)', (tester) async {
       await openSheets(tester);
 
-      final mascot = inFirst(find.byType(Image));
+      final mascot = inFirst(find.byWidgetPredicate((w) => w is Image && w.image is AssetImage && (w.image as AssetImage).assetName.contains('mascot')));
       expect((tester.widget<Image>(mascot).image as AssetImage).assetName, 'assets/images/mascot-female-sad.png');
+      expect(tester.widget<Image>(mascot).fit, BoxFit.contain); // pen x3aGgV
       expect(tester.getSize(mascot), const Size(88, 88));
     });
 
@@ -138,12 +172,14 @@ void main() {
       expect(account.withdrawCalls, 0);
     });
 
-    testWidgets('영구 삭제는 error 채움 AppButton(dangerStrong) 이다', (tester) async {
+    testWidgets('영구 삭제는 회색 AppButton(neutral) · 취소는 #FF385C 이다(pen `l1XDPi` · `PHIZw`)', (tester) async {
       await openSheets(tester);
 
       final button = tester.widget<AppButton>(inFirst(find.byType(AppButton)));
       expect(button.label, '영구 삭제');
-      expect(button.variant, AppButtonVariant.dangerStrong);
+      expect(button.variant, AppButtonVariant.neutral);
+      expectGrayDelete(tester, inFirst, '영구 삭제');
+      expectBrandCancel(tester, inFirst);
     });
 
     testWidgets('취소는 아무것도 하지 않고 닫는다', (tester) async {
@@ -211,6 +247,16 @@ void main() {
       expect(container.read(accountStatusListenableProvider).value, AccountStatus.active);
     });
 
+    testWidgets('정말 영구 삭제는 회색 · 취소는 #FF385C 이고 간격이 pen 그대로(회색 y290 → 취소 y358, pen `FbrhB`)', (tester) async {
+      await openFinalSheet(tester);
+
+      expectGrayDelete(tester, inFinal, '정말 영구 삭제');
+      expectBrandCancel(tester, inFinal);
+      final gray = tester.getRect(inFinal(find.widgetWithText(ElevatedButton, '정말 영구 삭제')));
+      final cancel = tester.getRect(cancelBox(inFinal));
+      expect(cancel.top - gray.bottom, 16); // 회색 끝(y342) → 취소(y358)
+    });
+
     testWidgets('취소는 탈퇴를 부르지 않고 닫는다', (tester) async {
       await openFinalSheet(tester);
 
@@ -247,12 +293,14 @@ void main() {
       expect(find.descendant(of: badge, matching: find.byIcon(AppIcons.alertTriangle)), findsOneWidget);
     });
 
-    testWidgets('정말 영구 삭제는 일반 탈퇴와 같은 error 채움(dangerStrong) — 위험 무게를 같게(대장 10-03)', (tester) async {
+    testWidgets('정말 영구 삭제는 일반 탈퇴와 같은 회색(neutral) · 취소 #FF385C — 버튼은 같게(대장 10-03 · pen `XHGTs`)', (tester) async {
       await openSuspended(tester);
 
       final button = tester.widget<AppButton>(inFinal(find.byType(AppButton)));
       expect(button.label, '정말 영구 삭제');
-      expect(button.variant, AppButtonVariant.dangerStrong);
+      expect(button.variant, AppButtonVariant.neutral);
+      expectGrayDelete(tester, inFinal, '정말 영구 삭제');
+      expectBrandCancel(tester, inFinal);
     });
 
     testWidgets('정말 영구 삭제 한 번이 곧 탈퇴다', (tester) async {
