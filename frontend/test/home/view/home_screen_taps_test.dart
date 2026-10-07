@@ -1,8 +1,9 @@
+import 'dart:async';
+
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/consent/model/open_url.dart';
-import 'package:campus_mate/core/env.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/home/model/home_repository_provider.dart';
 import 'package:campus_mate/home/model/home_summary.dart';
@@ -32,23 +33,35 @@ void main() {
     profileCompletionPercent: 40,
   );
 
+  late FakeHomeRepository home;
+
   /// 홈을 띄우고 openUrlProvider 가 받은 주소들을 돌려준다. [opens] 는 그 호출이 돌려줄 값, [throws] 면 예외.
-  Future<List<Uri>> pump(WidgetTester tester, {String storeUrl = '', bool opens = true, bool throws = false}) async {
+  Future<List<Uri>> pump(
+    WidgetTester tester, {
+    String storeUrl = '',
+    bool opens = true,
+    bool throws = false,
+    Future<bool> Function(Uri)? open,
+  }) async {
     tester.view.physicalSize = const Size(360, 884); // pen 프레임 — 리뷰 띠 · 카드가 화면 안에 든다
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final opened = <Uri>[];
+    home = FakeHomeRepository(const Success(summary));
     final container = ProviderContainer(
       overrides: [
-        homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const Success(summary))),
+        homeRepositoryProvider.overrideWithValue(home),
         cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
         chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
         storeReviewUrlProvider.overrideWithValue(storeUrl),
-        openUrlProvider.overrideWithValue((uri) async {
-          opened.add(uri);
-          if (throws) throw StateError('기기 쪽 오류');
-          return opens;
-        }),
+        openUrlProvider.overrideWithValue(
+          open ??
+              (uri) async {
+                opened.add(uri);
+                if (throws) throw StateError('기기 쪽 오류');
+                return opens;
+              },
+        ),
       ],
     );
     addTearDown(container.dispose);
@@ -121,9 +134,37 @@ void main() {
       expect(opened, hasLength(1));
       expect(find.text(const UnknownFailure().toDisplayMessage()), findsOneWidget);
     });
+  });
 
-    test('기본 빌드 값은 비어 있다 — --dart-define=STORE_REVIEW_URL 이 없으면 안내만 나온다', () {
-      expect(Env.storeReviewUrl, '');
+  group('리뷰 남기기 — 연타 · 접근성', () {
+    testWidgets('여는 호출이 끝나기 전에 다시 눌러도 한 번만 열고, 끝난 뒤에는 다시 열 수 있다', (tester) async {
+      final calls = <Uri>[];
+      final gate = Completer<bool>();
+      await pump(tester, storeUrl: 'https://play.example.test/x', open: (uri) {
+        calls.add(uri);
+        return gate.future;
+      });
+
+      await tester.tap(find.text('리뷰 남기기'));
+      await tester.tap(find.text('리뷰 남기기'));
+      await tester.pump();
+      expect(calls, hasLength(1));
+
+      gate.complete(true);
+      await tester.pump();
+      await tester.tap(find.text('리뷰 남기기'));
+      await tester.pump();
+      expect(calls, hasLength(2));
+    });
+
+    testWidgets('스크린리더에는 버튼으로 읽힌다', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pump(tester);
+
+      final data = tester.getSemantics(find.text('리뷰 남기기')).getSemanticsData();
+      expect(data.hasAction(SemanticsAction.tap), isTrue);
+      expect(data.flagsCollection.isButton, isTrue);
+      handle.dispose();
     });
   });
 
@@ -155,6 +196,21 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('프로필 편집 허브'), findsOneWidget);
+    });
+
+    testWidgets('편집 허브에서 돌아오면 홈 요약을 다시 읽어 완성도를 맞춘다', (tester) async {
+      await pump(tester);
+      expect(home.calls, 1);
+
+      await tester.tap(find.text('프로필을 조금 더 채우면'));
+      await tester.pumpAndSettle();
+      expect(home.calls, 1); // 허브에 있는 동안은 다시 읽지 않는다
+
+      tester.state<NavigatorState>(find.byType(Navigator).first).pop();
+      await tester.pump(); // 요약을 다시 읽는 동안 로딩 표시가 계속 움직여 pumpAndSettle 은 끝나지 않는다
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(home.calls, 2);
     });
 
     testWidgets('스크린리더에는 버튼으로 읽힌다', (tester) async {

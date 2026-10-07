@@ -33,6 +33,15 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeScreen> {
+  bool _opening = false;
+
+  /// 프로필 완성도 카드 → 프로필 편집 허브. 홈 요약은 autoDispose 가 아니고 프로필 저장은 내 프로필만 새로 읽게 하므로,
+  /// 편집하고 돌아오면 요약을 다시 읽어 완성도(100% 면 카드가 사라진다)를 맞춘다.
+  Future<void> _editProfile() async {
+    await context.push(AppRoutes.myProfileManage);
+    if (mounted) ref.invalidate(homeSummaryProvider);
+  }
+
   /// "리뷰 남기기" — 스토어 주소([Env.storeReviewUrl])가 비어 있거나 http(s) 가 아니면 "곧 열려요" 만 띄운다.
   /// 채워져 있으면 기기에서 연다(DESIGN §8.9 — 스토어 리뷰 페이지로 딥링크). 열지 못하면 조용히 끝내지 않고 실패 안내를 띄운다.
   Future<void> _openStoreReview() async {
@@ -41,11 +50,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
       showTimedToast(comingSoonToast);
       return;
     }
+    if (_opening) return; // 여는 호출이 끝나기 전에 다시 눌러도 스토어를 두 번 열지 않는다
+    _opening = true;
     var opened = false;
     try {
       opened = await ref.read(openUrlProvider)(uri);
     } catch (_) {
       // 기기 쪽 오류 — 아래에서 안내한다.
+    } finally {
+      _opening = false;
     }
     if (!opened) {
       showTimedToast(
@@ -153,7 +166,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
         const SizedBox(height: AppSpacing.md),
         _ProfileNudge(
           percent: summary.profileCompletionPercent,
-          onTap: () => context.push(AppRoutes.myProfileManage),
+          onTap: _editProfile,
         ),
       ],
     ];
