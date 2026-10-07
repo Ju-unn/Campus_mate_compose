@@ -127,6 +127,15 @@ class RegistryTest(unittest.TestCase):
             self.assertGreaterEqual(tools.CASE_LIMITS[case], 600, case)
         self.assertGreaterEqual(tools.CASE_LIMITS['E-EDGE-04'], area2_phone3.AI_WAIT + 600)
 
+    def test_edge_04_lets_the_image_read_errors_of_the_cut_network_pass_and_always_restores_the_handler(self):
+        # 망을 끊은 사이 히어로(DecorationImage · 오류 처리 없음)가 던지는 이미지 읽기 오류가 시험 실패가 되어 가설이 끝났다(2026-10-07 실행).
+        body = dart('area5_new.dart').split('Future<Map<String, Object?>> _nwRegenOffline(')[1].split('Future<Map<String, Object?>> _nwRegenOfflineBody(')[0]
+        self.assertIn("details.library == 'image resource service'", body)
+        self.assertIn('previous?.call(details)', body)  # 그 밖의 오류는 그대로 시험 바탕으로
+        self.assertIn("'image_errors'", body)
+        self.assertIn('finally {', body)
+        self.assertIn('FlutterError.onError = previous;', body.split('finally {')[1])
+
     def test_the_app_registers_the_five_and_the_keys_match(self):
         text = dart('area5_new.dart')
         self.assertEqual(re.findall(r"^\s*'(E-[A-Z]+-\d+)':", text, re.M), CASES)
