@@ -110,10 +110,26 @@ def _missing(check, bodies, seen, label):
     check.that(not gone, f'{label}: {" ".join(f"{n}번" for n in gone)} 글이 화면(뷰모델)에 안 뜸')
 
 
-def _delays(check, run, match_id, bodies, seen, label, kind='text'):
+BUSY_WINDOW = 3.0  # 느린 글이 보이기 직전 이만큼(초) 안에 받는 기기도 자기 글을 보냈는지
+
+
+def _busy_note(shown, busy):
+    """느린 글이 [shown] 에 보이기 직전 [BUSY_WINDOW]초 안에 받는 기기가 자기 글을 보냈는지(앱 시계 [busy] 목록) — 원인 가설(받는 기기의 자기 보내기 부하)을 가르는 증거 문구.
+    목록이 없거나 비었으면(옛 앱) 빈 문자열 — 판정은 건드리지 않는다."""
+    times = [t for t in map(_at, busy or []) if t]
+    if not times:
+        return ''
+    gaps = [(shown - t).total_seconds() for t in times if 0 <= (shown - t).total_seconds() <= BUSY_WINDOW]
+    if gaps:
+        return f' (그 글이 보이기 직전 {min(gaps):.1f}초 안에 받는 기기도 자기 글을 보냄)'
+    return f' (그 글이 보이기 직전 {BUSY_WINDOW:.0f}초 안에 받는 기기의 보내기는 없었음)'
+
+
+def _delays(check, run, match_id, bodies, seen, label, kind='text', busy=None):
     """글마다 (앱이 처음 본 시각 − 서버가 찍은 시각)을 재 판정하고 메모(표)를 돌려준다. 못 읽는 시각 · 2.0초 넘는 글은 problems.
     음수(앱 시계가 서버보다 느림)는 판정에서 빼고 메모에 센다 — 폰 시계가 느려 N초 늦은 표시도 가려질 수 있어서다.
-    판정 가능한 글이 절반 미만이면 Blocked(다른 problems 가 이미 있으면 그 fail 이 먼저다)."""
+    판정 가능한 글이 절반 미만이면 Blocked(다른 problems 가 이미 있으면 그 fail 이 먼저다).
+    [busy] 는 받는 기기가 자기 글을 보내던 때(앱이 말한 `sent_at`) — 2.0초를 넘은 글의 fail 문구에 "그때 받는 기기도 보내는 중이었나" 만 덧붙인다(판정은 그대로)."""
     _missing(check, bodies, seen, label)
     rows = _rows(run, f'messages?match_id=eq.{match_id}&kind=eq.{kind}&select=body,created_at')
     made = {r['body']: _at(r.get('created_at')) for r in rows}
@@ -132,7 +148,7 @@ def _delays(check, run, match_id, bodies, seen, label, kind='text'):
         values.append(delay)
         table.append(f'{number}:{delay:.2f}')
         if delay > LIVE_LIMIT:
-            check.problems.append(f'{label}: {number}번 글이 {delay:.1f}초 뒤 표시(기대 ≤ {LIVE_LIMIT})')
+            check.problems.append(f'{label}: {number}번 글이 {delay:.1f}초 뒤 표시(기대 ≤ {LIVE_LIMIT})' + _busy_note(shown, busy))
     if len(values) * 2 < len(bodies) and not check.problems:  # 판정할 수 있는 글이 절반 미만이면 "2초 안" 도 "2초 넘음" 도 말할 수 없다
         raise Blocked(f'{label}: 시계 차로 판정 불가 — 판정 가능 {len(values)}건 / {len(bodies)}건(음수 {len(negative)}건: 앱이 본 시각이 서버가 찍은 시각보다 앞섬 — 폰 시계 확인)')
     note = []
@@ -449,7 +465,7 @@ def two_03(run, two):
         if isinstance(shown, list):
             doubled = sorted({x for x in shown if shown.count(x) > 1})
             check.that(not doubled, f'{who} 화면: 같은 줄이 겹침 {len(doubled)}건')
-        notes.append(f'{who} 화면(상대 줄) ' + _delays(check, run, match_id, others, said.get('seen'), f'{who} 화면'))
+        notes.append(f'{who} 화면(상대 줄) ' + _delays(check, run, match_id, others, said.get('seen'), f'{who} 화면', busy=said.get('sent_at')))
     return _verdict(check, result, memo, ' / '.join(notes))
 
 
