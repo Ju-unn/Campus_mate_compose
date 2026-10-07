@@ -382,7 +382,7 @@ void main() {
   });
   }
 
-  testWidgets('pen 좌표와 같다 — hero 버튼 y146 · 숫자 칸 y423 높이 96 · 리뷰 y543 · 태그 y659 · 카드 y703 · 빈 칸 글자 x14', (tester) async {
+  testWidgets('pen 좌표와 같다 — hero 버튼 y154 · 숫자 칸 y431 높이 96 · 리뷰 y543 · 태그 y659 · 카드 y703 · 빈 칸 글자 x14', (tester) async {
     // pen `bpA8x` 값(앱바 56 포함). 글자 상자 높이 hero 29(`dIoz0`)·대학 제목 20(`YIoXQ`)은 렌더 결과(lineHeight 속성 없음), 빈 칸 글자 x14(`FqMYC`).
     tester.view.physicalSize = const Size(360, 884);
     tester.view.devicePixelRatio = 1;
@@ -391,12 +391,13 @@ void main() {
     await pump(tester);
 
     final heroButton = find.ancestor(of: find.text('지금 확인하기'), matching: find.byType(InkWell));
-    expect(tester.getTopLeft(heroButton).dy, 146);
+    expect(tester.getTopLeft(heroButton).dy, 154); // 앱바 56 + 위 여백 8(`aEtSx` [8,16,0,16]) 뒤 첫 카드, 버튼은 카드 안 y90
     final tile = find.ancestor(of: find.text('전달된 카드'), matching: find.byType(Container)).first;
-    expect(tester.getTopLeft(tile).dy, 423);
+    expect(tester.getTopLeft(tile).dy, 431);
     expect(tester.getSize(tile).height, 96);
     final review = find.ancestor(of: find.text('리뷰 남기기'), matching: find.byType(Container)).last;
     expect(tester.getTopLeft(review).dy, 543);
+    expect(tester.getTopLeft(review).dy - (tester.getTopLeft(tile).dy + 96), 16); // 숫자 칸 ↔ 리뷰 띠 16(`gdS3k` 외)
     expect(tester.getTopLeft(find.byType(Tag).first).dy, 659);
     final nudge = find.ancestor(of: find.text('프로필을 조금 더 채우면'), matching: find.byType(Container)).last;
     expect(tester.getTopLeft(nudge).dy, 703);
