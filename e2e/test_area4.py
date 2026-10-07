@@ -379,7 +379,7 @@ class BundleTest(unittest.TestCase):
         for case, reason in area4.LEFT_OUT.items():
             self.assertTrue(reason)
             self.assertNotIn(case, area1.BUNDLES['area4-set1'])
-        self.assertEqual(sorted(area4.LEFT_OUT), ['E-SET-55', 'E-SET-57'])  # 56 은 area4_set56 이 등록, 나머지는 area4_extra 묶음
+        self.assertEqual(sorted(area4.LEFT_OUT), ['E-SET-55'])  # 56 은 area4_set56 · 57 은 area4_terms 가 등록, 나머지는 area4_extra 묶음
 
     def test_contact_cases_are_listed_for_the_emulator_bundle_only(self):
         self.assertEqual(area4.EMULATOR, [f'E-SET-{n}' for n in range(29, 43)])

@@ -78,7 +78,7 @@ class ExpectedTest(unittest.TestCase):
 class RegistryTest(unittest.TestCase):
     def test_every_set_number_has_exactly_one_home(self):
         set1, set2 = set(area1.BUNDLES['area4-set1']), set(area1.BUNDLES['area4-set2'])
-        extra = {c for name in ('area4-extra', 'area4-extra-emu', 'area4-extra-two', 'area4-set56') for c in area1.BUNDLES[name]}
+        extra = {c for name in ('area4-extra', 'area4-extra-emu', 'area4-extra-two', 'area4-set56', 'area4-terms') for c in area1.BUNDLES[name]}
         homes = {}
         for number in range(1, 71):
             case = f'E-SET-{number:02d}'

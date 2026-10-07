@@ -57,6 +57,7 @@ from e2e import area2_two_accept  # noqa: F401 — 영역 2 두 기기 카드 �
 from e2e import area4_push_two  # noqa: F401 — 영역 4 알림 두 기기(E-PUSH-64 · 65 · 71) 가설을 twodev.TWO · area1.BUNDLES 에 더한다
 from e2e import area4_push_fcm  # noqa: F401 — 영역 4 FCM 직접 발송 E-PUSH-56 · 57 을 area1.PHONE · BUNDLES 에 더한다
 from e2e import area4_set56  # noqa: F401 — 영역 4 E-SET-56(약관 줄) 가설을 area1.PHONE · BUNDLES 에 더한다
+from e2e import area4_terms  # noqa: F401 — 영역 4 약관 두 가설(E-HEART-50 노션 문장 · E-SET-57 02-c "보기")을 area1.CASES · PHONE · BUNDLES 에 더한다
 from e2e import area5_more  # noqa: F401 — 영역 5 E-ME-05 · 22 · 32 가설을 area1.PHONE · twodev.TWO · area1.BUNDLES 에 더한다
 from e2e import area5_fake  # noqa: F401 — 영역 5 가짜 서버 응답 E-EDGE-05 · 06 · 07 · 08 을 area1.PHONE · BUNDLES 에 더한다
 from e2e import area5_kill  # noqa: F401 — 영역 5 아바타 만드는 중 앱 죽이기 E-EDGE-17 · 18 을 area1.PHONE · BUNDLES 에 더한다
