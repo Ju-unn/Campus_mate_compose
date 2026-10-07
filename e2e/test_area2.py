@@ -68,8 +68,9 @@ class RegistryTest(unittest.TestCase):
         self.assertEqual(len(API_ONLY), 50)
         self.assertNotIn('E-HEART-46', area2.SKIPPED)
 
-    def test_skipped_carry_a_reason(self):
-        self.assertEqual(sorted(area2.SKIPPED), ['E-CARD-73'])
+    def test_nothing_is_skipped_any_more_and_a_skipped_one_would_carry_a_reason(self):
+        self.assertEqual(sorted(area2.SKIPPED), [])  # E-CARD-73 은 card_73 으로 등록됐다(사진 순서 맞바꾸기 — Vision · AI 0)
+        self.assertIn('E-CARD-73', area2.CASES)
         self.assertTrue(all(len(reason) > 10 for reason in area2.SKIPPED.values()))
 
     def test_bundle_lists_every_case_but_not_the_skipped(self):
@@ -190,6 +191,87 @@ class ScoringTest(Base):
         self.assertEqual(json.loads(vectors['id-1']['self_embedding'])[:2], [1, 0])
         self.assertEqual(json.loads(vectors['id-5']['self_embedding'])[:2], [0, 1])  # C3 = 직교
 
+
+class PhotoFake(Fake):
+    """사진을 서버처럼 다룬다 — PUT /me/photos 의 multipart `layout` · `avatar_source` 를 읽어 행 순서 · 아바타 원본 표시를 바꾼다. 후보 조회는 [scores] 를 차례로(마지막은 계속)."""
+
+    def __init__(self, scores, swaps=True, put_status=200, candidate=True):
+        self.state = {'photos': [{'id': 'p1', 'profile_id': 'id-2', 'position': 0, 'is_avatar_source': True, 'storage_path': 'id-2/a.png'}],
+                      'puts': [], 'scores': list(scores), 'swaps': swaps, 'put_status': put_status}
+        state = self.state
+
+        def candidates(body, url):
+            score = state['scores'].pop(0) if len(state['scores']) > 1 else state['scores'][0]
+            return Reply(200, {'candidates': [{'profile_id': 'id-2', 'score': score}] if candidate else []})
+
+        def photo_rows(body, url):
+            return Reply(200, [dict(r) for r in sorted(state['photos'], key=lambda r: r['position'])])
+
+        def add_photo(body, url):
+            for row in body:
+                state['photos'].append({'id': f"p{len(state['photos']) + 1}", **row})
+            return Reply(201, None)
+
+        super().__init__([('GET', '/matching/candidates', candidates), ('GET', '/rest/v1/profile_photos', photo_rows),
+                          ('POST', '/rest/v1/profile_photos', add_photo)])
+
+    @staticmethod
+    def field(text, name):
+        """multipart 본문에서 칸 하나의 값 — 머리와 값 사이는 빈 줄(CRLF CRLF), 값 끝은 CRLF."""
+        crlf = chr(13) + chr(10)
+        head = 'name="' + name + '"' + crlf + crlf
+        start = text.index(head) + len(head)
+        return text[start:text.index(crlf, start)]
+
+    def __call__(self, method, url, headers=None, body=None, raw=None, **options):
+        if method == 'PUT' and urlsplit(url).path == '/me/photos':
+            text = raw[0].decode('utf-8', 'replace')
+            layout = json.loads(self.field(text, 'layout'))
+            source = int(self.field(text, 'avatar_source'))
+            self.state['puts'].append({'layout': layout, 'avatar_source': source, 'files': text.count('name="photos"')})
+            if self.state['swaps'] and self.state['put_status'] < 300:
+                by_id = {r['id']: r for r in self.state['photos']}
+                for position, slot in enumerate(layout):
+                    by_id[slot['keep']].update(position=position, is_avatar_source=position == source)
+            return Reply(self.state['put_status'], {})
+        return super().__call__(method, url, headers, body, raw, **options)
+
+
+class Card73Test(Base):
+    """E-CARD-73 — C0 의 사진 두 장을 맞바꿔도(PUT /me/photos, 새 파일 없음) O 가 보는 C0 점수가 그대로다. 계정은 만든 순서 O=id-1, C0=id-2 …"""
+
+    def run73(self, **kw):
+        fake = PhotoFake(**kw)
+        with mock.patch.object(tools, 'call', fake):
+            return area2.attempt(self.run, 'E-CARD-73'), fake.state
+
+    def test_pass_when_the_score_is_the_same_before_and_after_the_photos_are_swapped(self):
+        (result, memo), state = self.run73(scores=[1.0, 1.0])
+        self.assertEqual(result, 'pass', memo)
+        self.assertEqual(len(state['puts']), 1)
+        put = state['puts'][0]
+        self.assertEqual([slot['keep'] for slot in put['layout']], ['p2', 'p1'])  # 첫 · 둘째 칸 맞바꿈
+        self.assertEqual(put['files'], 0)  # 새 파일 없음 — Vision · AI 를 안 부른다
+        self.assertEqual(put['avatar_source'], 1)  # 아바타 원본 사진(p1)은 그대로 그 사진을 가리킨다
+
+    def test_a_score_that_moves_with_the_photos_is_a_fail_naming_both_numbers(self):
+        (result, memo), _ = self.run73(scores=[1.0, 0.9])
+        self.assertEqual(result, 'fail')
+        self.assertIn('1.0', memo)
+        self.assertIn('0.9', memo)
+
+    def test_a_swap_that_did_not_change_the_order_proves_nothing_and_is_blocked(self):
+        (result, memo), _ = self.run73(scores=[1.0, 1.0], swaps=False)
+        self.assertEqual(result, 'blocked', memo)
+
+    def test_a_refused_swap_is_blocked_not_a_pass(self):
+        (result, memo), _ = self.run73(scores=[1.0, 1.0], put_status=422)
+        self.assertEqual(result, 'blocked', memo)
+
+    def test_a_candidate_that_is_not_visible_before_the_swap_is_blocked(self):
+        (result, memo), state = self.run73(scores=[1.0], candidate=False)
+        self.assertEqual(result, 'blocked', memo)
+        self.assertEqual(state['puts'], [])  # 준비가 틀렸으면 사진을 건드리지 않는다
 
 class ReferralTest(Base):
     def test_own_code_is_422_and_leaves_no_ledger_rows(self):
