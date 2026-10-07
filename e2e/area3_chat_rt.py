@@ -22,7 +22,8 @@
   E-CHAT-23  HOME 은 notify.background, 돌아오기는 monkey LAUNCHER(area4_push_a4._front — 떠 있는 앱은 그대로 앞으로 온다). 시나리오는 걸린 시간만 "기록" 이라 하므로 숫자 판정은 없고,
                   돌아온 뒤 10초(RESUME_LIMIT)는 하네스 상한이다. 배경에 있는 동안 실시간으로 이미 온 글은 "돌아오기 전 도착" 으로 메모에 적는다.
   E-CHAT-24  두 판(left = A 나가기, passed = 둘 다 수락)을 앱을 두 번 켜서 돈다. 둘 다 수락의 B 수락도 PC 가 B 토큰으로 한다(B 폰은 그때 망이 없다 — PC 망은 산다).
-                  배너가 안 떠 "다시 시도" 를 못 누르면 눌렀다고 치지 않고 자동 재연결 뒤의 화면으로 판정하며 메모에 남긴다.
+                  배너가 안 떠 "다시 시도" 를 못 누르면 눌렀다고 치지 않고 자동 재연결 뒤의 화면으로 판정하며 메모에 남긴다. 배너가 떴지만 누르기 전에 통로가 스스로 다시 붙어 내려간 경우는
+                  따로 적는다(앱이 "다시 시도" 를 누를 때 배너를 다시 확인한다 — area3_chat_rt.dart _rtTryRetry).
   E-CHAT-58  "A: 대화 목록으로 이동 · 방 없음" 은 폰(A) 화면 + A 토큰으로 읽은 GET /chat/conversations 둘 다 본다.
   E-CHAT-61  시나리오는 "코드상 예상 실패(머리말을 다시 읽지 않아 입력창이 남음)" 라 했지만 지금 코드(chat_room_view_model.dart `_receive` — 나감 줄이 오면 머리말을 다시 읽는다, 결함 A12)는
               그 결함을 고쳐 둔 것으로 보인다. 기대값(나감 줄 뜬 뒤 2초 안에 입력창 → 안내 한 줄)을 그대로 판정하고, 어기면 fail 이다(하네스가 결함을 잡는 것). 입력창이 남으면 시나리오대로
@@ -235,6 +236,13 @@ def p_chat_07(run, phone):
 
 # ── 망을 끊는 가설 · 앱을 HOME 으로 ──────────────────────────────────────────────────────────────────
 
+def _vanished(said):
+    """배너가 떴는데 "다시 시도" 를 못 눌렀다 — 누르기 전에 통로가 스스로 다시 붙어 배너가 내려간 것(실기기에서 확인 · 누름 사이의 경주). 눌렀으면 빈 문자열."""
+    if said.get('banner') is True and said.get('retried') is False:
+        return '배너가 떴지만 눌러 보기 전에 자동으로 사라져 "다시 시도" 를 못 눌렀다 — 자동 재연결 뒤의 화면으로 판정'
+    return ''
+
+
 def p_chat_22(run, phone):
     """B 방을 열어 둔 채 망 끔 → A 5건 → 망 켬 → 배너 "연결이 끊겼어요" 가 있고 "다시 시도" 뒤 5건이 모두 · DB 순서로 · 겹침 없이."""
     check = Check()
@@ -253,7 +261,7 @@ def p_chat_22(run, phone):
         check.that(said.get('banner') is True, f"배너 \"연결이 끊겼어요\" {said.get('banner', MISSING)}(기대 True)")
         _missing(check, bodies, said.get('seen'), 'B 화면')
         _lines(check, run, match_id, bodies, said, 'B 화면')
-        note = f"끊김 배너까지 {said.get('banner_seconds', MISSING)}초 · \"다시 시도\" 눌림 {said.get('retried', MISSING)}"
+        note = f"끊김 배너까지 {said.get('banner_seconds', MISSING)}초 · \"다시 시도\" 눌림 {said.get('retried', MISSING)}" + (' · ' + _vanished(said) if _vanished(said) else '')
     return check.result(note)
 
 
@@ -360,6 +368,8 @@ def p_chat_24(run, phone):
                 part.that(said.get(key) is value, f'{key} {said.get(key, MISSING)}(기대 {value})')
             if said.get('banner') is not True:
                 notes.append(f'{variant}: 끊긴 동안 배너가 안 떠 "다시 시도" 를 못 눌렀다 — 자동 재연결 뒤의 화면으로 판정')
+            elif _vanished(said):
+                notes.append(f'{variant}: {_vanished(said)}')
         if variant == 'left':
             gone = _rows(run, f"match_participants?match_id=eq.{match_id}&profile_id=eq.{partner['id']}&select=left_at")
             part.that(bool(gone) and gone[0].get('left_at') is not None, f'A 의 left_at {gone}(기대 찍힘)')
