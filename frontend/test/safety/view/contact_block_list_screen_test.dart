@@ -90,8 +90,10 @@ void main() {
     final plus = find.descendant(of: find.byKey(contactBlockAddKey), matching: find.byIcon(AppIcons.plus));
     expect(tester.widget<Icon>(plus).color, const Color(0xFFFFFFFF));
     final icon = tester.getRect(plus);
-    expect(icon.size, const Size(16, 16));
-    expect(tester.getRect(find.text('추가')).left - icon.right, 6);
+    expect(icon.size, const Size(20, 20)); // pen `z0zGy`
+    expect(tester.getRect(find.text('추가')).left - icon.right, 8);
+    // plus + 글자 덩어리가 버튼 가운데(pen: plus x133~153, 글자 x161~195 → 버튼 안 x16~344 의 한가운데 180)
+    expect(((icon.left + tester.getRect(find.text('추가')).right) / 2 - 180).abs(), lessThan(1.5));
     final label = tester.widget<Text>(find.text('추가')).style!;
     expect(label.color, const Color(0xFFFFFFFF));
     expect(label.fontSize, 18);

@@ -123,7 +123,7 @@ class ContactBlockListBody extends ConsumerWidget {
 }
 
 /// 추가(pen Button 마스터 `HE8FZ` 인스턴스 `aogPm` · `g1FD5` · `w849oc`): 가로 328 × 56, 모서리 14, #FF385C, 가운데 흰 plus → "추가" 흰색 18/700.
-/// 옛 작은 회색 버튼(312×44 · #F2F2F2 · 모서리 8 · 목록 위 `AddRowWrap`)은 없앴다. plus 크기 16 · 간격 6 은 pen 값이 없어 옛 값 그대로다.
+/// plus 는 lucide 20×20 흰색(`z0zGy`), plus 와 글자 사이 8, 덩어리 가운데 정렬. 옛 작은 회색 버튼(312×44 · #F2F2F2 · 모서리 8 · 목록 위 `AddRowWrap`)은 없앴다.
 class _AddButton extends StatelessWidget {
   const _AddButton({required this.onPressed});
 
@@ -145,8 +145,8 @@ class _AddButton extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(AppIcons.plus, size: 16, color: AppColors.onPrimary),
-              const SizedBox(width: 6),
+              const Icon(AppIcons.plus, size: 20, color: AppColors.onPrimary),
+              const SizedBox(width: AppSpacing.xs),
               Flexible(child: Text('추가', style: AppTypography.button.copyWith(fontSize: 18, color: AppColors.onPrimary))),
             ],
           ),
