@@ -1,3 +1,4 @@
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -15,7 +16,7 @@ void main() {
             alignment: Alignment.topLeft,
             child: SizedBox(
               width: 328,
-              child: ProfileEntryRow(icon: AppIcons.calendar, title: '선호 나이 범위', note: '22세–27세', onTap: onTap),
+              child: ProfileEntryRow(icon: AppIcon3d.calendar, title: '선호 나이 범위', note: '22세–27세', onTap: onTap),
             ),
           ),
         ),
@@ -32,7 +33,7 @@ void main() {
     await pump(tester);
 
     expect(tester.getSize(find.byType(ProfileEntryRow)), const Size(328, 84));
-    final surface = find.ancestor(of: find.byIcon(AppIcons.calendar), matching: find.byType(Container)).first;
+    final surface = find.ancestor(of: find.byType(Icon3d), matching: find.byType(Container)).first;
     expect(rectOf(tester, surface), const Rect.fromLTWH(16, 20, 44, 44));
     expect(rectOf(tester, find.byIcon(AppIcons.chevronRight)), const Rect.fromLTWH(292, 32, 20, 20));
     // Copy(`iksDh`)는 받침 원 뒤 gap 12 = x72.
@@ -63,16 +64,17 @@ void main() {
     });
   }
 
-  testWidgets('아이콘 원 `zdZqS` #F7F7F7(흰 바탕 위라 원이 보인다), 아이콘 · 셰브런 색은 pen 값과 같다', (tester) async {
+  testWidgets('아이콘 원 `zdZqS` #F7F3FF(흰 바탕 위라 원이 보인다), 안의 3D 아이콘 26 은 가운데(9,9), 셰브런 색은 pen 값과 같다', (tester) async {
     await pump(tester);
 
     final surface = tester.widget<Container>(
-      find.ancestor(of: find.byIcon(AppIcons.calendar), matching: find.byType(Container)).first,
+      find.ancestor(of: find.byType(Icon3d), matching: find.byType(Container)).first,
     );
-    expect((surface.decoration! as BoxDecoration).color, AppColors.surfaceSoft);
+    expect((surface.decoration! as BoxDecoration).color, const Color(0xFFF7F3FF));
     expect((surface.decoration! as BoxDecoration).shape, BoxShape.circle);
-    final icon = tester.widget<Icon>(find.byIcon(AppIcons.calendar));
-    expect((icon.size, icon.color), (22, AppColors.muted));
+    final icon = tester.widget<Icon3d>(find.byType(Icon3d));
+    expect((icon.icon, icon.size), (AppIcon3d.calendar, 26));
+    expect(rectOf(tester, find.byType(Icon3d)), const Rect.fromLTWH(16 + 9, 20 + 9, 26, 26));
     final chevron = tester.widget<Icon>(find.byIcon(AppIcons.chevronRight));
     expect((chevron.size, chevron.color), (20, AppColors.muted));
   });
@@ -83,7 +85,7 @@ void main() {
         alignment: Alignment.topLeft,
         child: SizedBox(
           width: 328,
-          child: ProfileEntryRow(emphasis: true, icon: AppIcons.calendar, title: '친구들이 본 나', note: '받은 리뷰 3개', onTap: () {}),
+          child: ProfileEntryRow(emphasis: true, icon: AppIcon3d.calendar, title: '친구들이 본 나', note: '받은 리뷰 3개', onTap: () {}),
         ),
       ),
     ));
@@ -91,12 +93,25 @@ void main() {
     final painter = find.ancestor(of: find.byType(InkWell), matching: find.byType(Material)).first;
     expect(tester.widget<Material>(painter).color, AppColors.primaryWash);
     expect(tester.getSize(painter), const Size(328, 84));
-    final surface = find.ancestor(of: find.byIcon(AppIcons.calendar), matching: find.byType(Container)).first;
+    final surface = find.ancestor(of: find.byType(Icon3d), matching: find.byType(Container)).first;
     expect((tester.widget<Container>(surface).decoration! as BoxDecoration).color, AppColors.canvas);
-    expect(tester.widget<Icon>(find.byIcon(AppIcons.calendar)).color, AppColors.primaryText);
     expect(tester.widget<Icon>(find.byIcon(AppIcons.chevronRight)).color, AppColors.primaryText);
     expect(find.byWidgetPredicate((w) => w is DecoratedBox && (w.decoration as BoxDecoration).boxShadow == AppElevation.row),
         findsOneWidget);
+  });
+
+  testWidgets('마스코트 미리 보기 `I5Dw4` 는 32 — 원 안 가운데(6,6)', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: Align(
+        alignment: Alignment.topLeft,
+        child: SizedBox(
+          width: 328,
+          child: ProfileEntryRow(icon: AppIcon3d.mascotPeek, iconSize: 32, title: '미리보기', note: '미리 봐요'),
+        ),
+      ),
+    ));
+
+    expect(rectOf(tester, find.byType(Icon3d)), const Rect.fromLTWH(16 + 6, 20 + 6, 32, 32));
   });
 
   testWidgets('Title 16/600 ink 렌더 25(`ZMu82`), Note 14/400 muted 1.5(`B4ppA`), 둘 사이 3', (tester) async {
@@ -148,7 +163,7 @@ void main() {
       await pump(tester, onTap: () {});
 
       expect(tester.getSize(find.byType(ProfileEntryRow)), const Size(328, 84));
-      final surface = find.ancestor(of: find.byIcon(AppIcons.calendar), matching: find.byType(Container)).first;
+      final surface = find.ancestor(of: find.byType(Icon3d), matching: find.byType(Container)).first;
       expect(rectOf(tester, surface), const Rect.fromLTWH(16, 20, 44, 44));
       expect(rectOf(tester, find.byIcon(AppIcons.chevronRight)), const Rect.fromLTWH(292, 32, 20, 20));
     });

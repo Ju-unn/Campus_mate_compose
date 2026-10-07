@@ -13,6 +13,7 @@ import 'package:campus_mate/core/router/app_router.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_elevation.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
 import 'package:campus_mate/home/model/home_repository_provider.dart';
@@ -383,7 +384,7 @@ void main() {
       expect(find.descendant(of: card, matching: find.byType(Divider)), findsNothing);
     });
 
-    testWidgets('내 키 · MBTI · 학과 3행 — 아이콘 19 muted, 라벨 14/400 muted, 값 14/600 ink', (tester) async {
+    testWidgets('내 키 · MBTI · 학과 3행 — 3D 아이콘 20, 라벨 14/400 muted, 값 14/600 ink', (tester) async {
       await pump(tester);
       await showFacts(tester);
 
@@ -393,11 +394,14 @@ void main() {
         final valueStyle = tester.widget<Text>(find.text(value)).style!;
         expect((valueStyle.fontSize, valueStyle.fontWeight, valueStyle.color), (14, FontWeight.w600, AppColors.ink));
       }
-      for (final icon in [AppIcons.ruler, AppIcons.badge, AppIcons.graduationCap]) {
-        final widget = tester.widget<Icon>(
-          find.descendant(of: _shadowCard(of: find.text('내 키')), matching: find.byIcon(icon)),
+      for (final icon in [AppIcon3d.ruler, AppIcon3d.mbti, AppIcon3d.graduationCap]) {
+        final widget = tester.widget<Icon3d>(
+          find.descendant(
+            of: _shadowCard(of: find.text('내 키')),
+            matching: find.byWidgetPredicate((w) => w is Icon3d && w.icon == icon),
+          ),
         );
-        expect((widget.size, widget.color), (19, AppColors.muted), reason: '$icon');
+        expect(widget.size, 20, reason: '$icon');
       }
     });
 
@@ -536,8 +540,8 @@ void main() {
 
       final age = rowOf(tester, '선호 나이 범위');
       final height = rowOf(tester, '선호 키 범위');
-      expect((age.icon, age.note), (AppIcons.calendar, '22세–27세'));
-      expect((height.icon, height.note), (AppIcons.ruler, '165cm ~ 180cm'));
+      expect((age.icon, age.note), (AppIcon3d.calendar, '22세–27세'));
+      expect((height.icon, height.note), (AppIcon3d.ruler, '165cm ~ 180cm'));
       for (final title in ['선호 나이 범위', '선호 키 범위']) {
         final row = find.widgetWithText(ProfileEntryRow, title);
         expect(find.descendant(of: row, matching: find.byIcon(AppIcons.chevronRight)), findsOneWidget);
@@ -617,13 +621,12 @@ void main() {
       });
     }
 
-    testWidgets('15c 입구 행 `bTDTS` — tags(pen Lucide 이름 그대로), "자기소개 · 태그" / "관심사 · 나의 특징 · 이상형", 셰브런', (tester) async {
+    testWidgets('15c 입구 행 `bTDTS` — 3D tags(`w7xzL3`), "자기소개 · 태그" / "관심사 · 나의 특징 · 이상형", 셰브런', (tester) async {
       await pump(tester);
       await scrollToEnd(tester);
 
       final row = tester.widget<ProfileEntryRow>(entry);
-      expect((row.icon, row.title, row.note), (AppIcons.tags, '자기소개 · 태그', '관심사 · 나의 특징 · 이상형'));
-      expect(AppIcons.tags, LucideIcons.tags);
+      expect((row.icon, row.title, row.note), (AppIcon3d.tags, '자기소개 · 태그', '관심사 · 나의 특징 · 이상형'));
       expect(find.descendant(of: entry, matching: find.byIcon(AppIcons.chevronRight)), findsOneWidget);
     });
 
@@ -649,10 +652,7 @@ void main() {
     });
   });
 
-  testWidgets('15-5 아이콘은 pen 의 Lucide 이름과 같다(`sR3If` calendar · `t1Eok` ruler · `N1dIuc` badge · lock)', (tester) async {
-    expect(AppIcons.calendar, LucideIcons.calendar);
-    expect(AppIcons.ruler, LucideIcons.ruler);
-    expect(AppIcons.badge, LucideIcons.badge);
+  testWidgets('15-5 자물쇠는 pen 의 Lucide 이름과 같다(lock) — 나머지 아이콘은 3D 이미지다', (tester) async {
     expect(AppIcons.lock, LucideIcons.lock);
   });
 

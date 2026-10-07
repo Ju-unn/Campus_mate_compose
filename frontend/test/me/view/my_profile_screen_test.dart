@@ -10,6 +10,7 @@ import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/photo_slider.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
 import 'package:campus_mate/friend_review/model/friend_review_repository_provider.dart';
@@ -30,7 +31,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:mocktail/mocktail.dart';
 
 import '../../chat/model/fake_chat_repository.dart';
@@ -297,7 +297,7 @@ void main() {
       await pump(tester);
 
       final row = tester.widget<ProfileEntryRow>(_preview);
-      expect((row.icon, row.note), (AppIcons.eye, '상대에게 보이는 모습을 미리 봐요'));
+      expect((row.icon, row.note), (AppIcon3d.mascotPeek, '상대에게 보이는 모습을 미리 봐요'));
       await tester.ensureVisible(_preview);
       await tester.pumpAndSettle();
       await tester.tap(_preview);
@@ -311,7 +311,7 @@ void main() {
       await pump(tester);
 
       final row = tester.widget<ProfileEntryRow>(_manage);
-      expect((row.icon, row.note), (AppIcons.pencil, '사진·기본 정보·선호 조건·자기소개'));
+      expect((row.icon, row.note), (AppIcon3d.pencil, '사진·기본 정보·선호 조건·자기소개'));
       await tester.ensureVisible(_manage);
       await tester.pumpAndSettle();
       await tester.tap(_manage);
@@ -333,9 +333,16 @@ void main() {
       }
     });
 
-    testWidgets('입구 아이콘은 pen 의 Lucide 이름과 같다(`k3r5C` eye · `sC8BR` pencil)', (tester) async {
-      expect(AppIcons.eye, LucideIcons.eye);
-      expect(AppIcons.pencil, LucideIcons.pencil);
+    testWidgets('입구 아이콘은 pen 의 3D 아이콘이다(`I5Dw4` 마스코트 미리 보기 32 · `U5kP5` 편집 26)', (tester) async {
+      usePenFrame(tester);
+      await pump(tester);
+      for (final (title, icon, size) in [('남이 보는 내 프로필 카드', AppIcon3d.mascotPeek, 32.0), ('프로필 편집', AppIcon3d.pencil, 26.0)]) {
+        await tester.ensureVisible(find.widgetWithText(ProfileEntryRow, title));
+        final image = tester.widget<Icon3d>(
+          find.descendant(of: find.widgetWithText(ProfileEntryRow, title), matching: find.byType(Icon3d)),
+        );
+        expect((image.icon, image.size), (icon, size), reason: title);
+      }
     });
   });
 
