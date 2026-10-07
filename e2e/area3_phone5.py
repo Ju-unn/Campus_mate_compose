@@ -328,6 +328,12 @@ def _at(text):
     return at if at.tzinfo else at.replace(tzinfo=timezone.utc)
 
 
+def _live_diagnosis(said):
+    """말풍선이 안 떴을 때 앱이 본 것 — 방 읽기 · 통과 도장 · 뷰모델 글 · 화면 글 · 오류(구독 전에 글이 들어갔는지, 구독은 됐는데 못 그렸는지 가른다)."""
+    return (f"앱 진단 loaded {said.get('loaded', MISSING)} · gate passed {said.get('passed', MISSING)} · 뷰모델 글 {said.get('vm_count', MISSING)}건 "
+            f"{said.get('vm_bodies', MISSING)} · 화면 말풍선 {said.get('screen_bodies', MISSING)} · 오류 {said.get('error', MISSING)!r}")
+
+
 def p_chat_67(run, phone):
     _start()
     check = Check()
@@ -342,10 +348,12 @@ def p_chat_67(run, phone):
     sent = []
     said = _app(check, phone(midway=lambda said: sent.append(_send(run, partner, match_id, body)), token_hash=run.link(me['email']),
                              nickname=partner['nickname'], body=body))  # B 가 방을 연 채 멈춘 사이 A 가 보낸다
+    if said and said.get('loaded') is False:  # 앱이 방 읽기를 못 끝내 글을 보내기 전에 멈췄다 — 구독 전에 보내면 가짜 실패(E-CHAT-10 과 같다)
+        raise Blocked(f"B 방이 안 읽힘(loaded False · 오류 {said.get('error')!r}) — 글을 보내지 않았다. 로그인 · 방 확인")
     check.reply('A 보내기', sent[0] if sent else (0, '앱이 멈추기 전에 끝남'), 201)
     note = ''
     if said:
-        check.that(said.get('bubble') is True, f"B 말풍선 {said.get('bubble', MISSING)}(기대 True) · 앱이 글을 본 시각 seen_at {said.get('seen_at', MISSING)}")
+        check.that(said.get('bubble') is True, f"B 말풍선 {said.get('bubble', MISSING)}(기대 True) · 앱이 글을 본 시각 seen_at {said.get('seen_at', MISSING)} · {_live_diagnosis(said)}")
         created = _at((_rows(run, f'messages?match_id=eq.{match_id}&body=eq.{body}&select=created_at') or [{}])[0].get('created_at'))
         seen = _at(said.get('seen_at'))
         if created and seen:
