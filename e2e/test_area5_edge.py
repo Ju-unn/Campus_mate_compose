@@ -8,6 +8,8 @@
 """
 
 import ast
+import contextlib
+import io
 import os
 import re
 import subprocess
@@ -102,6 +104,8 @@ class EdgeBase(ReadBase):
         self.logs = []  # 가짜 Cloud Run 요청 로그 — (시각, 메서드, 경로)
         self.offline = False
         self.pids = ['4242']
+        self.rules = {'iptables': 0, 'ip6tables': 0}  # 가짜 에뮬에 걸린 "나가는 패킷 버림" 규칙 개수 — 표마다
+        self.stubborn = set()  # -D 를 해도 규칙이 안 지워지는 표
         self.fake.on('DELETE', r'/auth/v1/admin/users/[^/]+', self._delete_user)
         self.gone = set()
         self.fake.on('GET', r'/rest/v1/profiles', lambda sent: Reply(200, []) if sent['query'].get('id', '')[3:] in self.gone
@@ -115,8 +119,11 @@ class EdgeBase(ReadBase):
                 return ' '.join(self.pids)
             if 'kill' in args:
                 self.pids.clear()
-            if args[:1] == ('emu',) or 'iptables' in args or 'ip6tables' in args:
+            table = next((t for t in self.rules if t in args), None)
+            if args[:1] == ('emu',) or table:
                 self.events.append(' '.join(args))
+            if table:
+                return self.iptables(table, [a for a in args[args.index(table) + 1:] if a != '-w'])
             return ''
 
         for patcher in (mock.patch.object(tools, 'adb', fake_adb), mock.patch('time.sleep'),
@@ -154,10 +161,18 @@ class EdgeBase(ReadBase):
         self.offline = on
         self.events.append(('airplane', on))
 
+    def iptables(self, table, rest):
+        """-I 는 규칙을 하나 더 걸고, -D 는 하나 지우며(막힌 표는 그대로), -S 는 규칙을 줄마다 읽어 준다."""
+        if rest[0] == '-I':
+            self.rules[table] += 1
+        elif rest[0] == '-D' and table not in self.stubborn:
+            self.rules[table] = max(0, self.rules[table] - 1)
+        elif rest[0] == '-S':
+            return '\n'.join(['-P OUTPUT ACCEPT'] + ['-A OUTPUT ! -o lo -j DROP'] * self.rules[table])
+        return ''
+
     def dropped(self):
-        drops = sum(1 for e in self.events if isinstance(e, str) and 'iptables -I' in e)
-        undrops = sum(1 for e in self.events if isinstance(e, str) and 'iptables -D' in e)
-        return drops > undrops
+        return any(self.rules.values())
 
     def wait_new(self, serial, before, count=1, seconds=0, match=None):
         return [notify.Notice(f'n{i}', title, '', 'c') for i, title in enumerate(self.notices)]
@@ -620,6 +635,48 @@ class Edge25Test(EdgeBase):
             result, note = self.run25()
         self.assertEqual(result, 'blocked', note)
         self.assertFalse(self.dropped())
+
+    def iptables_calls(self):
+        return [e for e in self.events if isinstance(e, str) and 'tables ' in e]
+
+    def test_every_iptables_call_waits_for_the_xtables_lock(self):
+        self.run25()
+        calls = self.iptables_calls()
+        for verb in ('-I', '-D', '-S'):
+            self.assertTrue([c for c in calls if f' {verb} ' in c], f'{verb} 호출이 없음 — {calls}')
+        self.assertEqual([c for c in calls if ' -w ' not in c], [])
+
+    def test_a_rule_hung_twice_is_removed_until_none_is_left(self):
+        self.rules = {'iptables': 2, 'ip6tables': 2}  # 앞선 판들이 남긴 규칙 — 이번 판이 하나씩 더 건다(-D 한 번씩으로는 다 못 지운다)
+        result, note = self.run25()
+        self.assertEqual(result, 'pass', note)
+        self.assertEqual(self.rules, {'iptables': 0, 'ip6tables': 0})
+
+    def test_a_rule_that_cannot_be_removed_is_recorded_loudly_with_the_cold_boot_hint(self):
+        self.stubborn = {'ip6tables'}
+        with contextlib.redirect_stderr(io.StringIO()) as shown:
+            result, note = self.run25()
+        self.assertEqual(result, 'fail', note)
+        self.assertIn('cold boot', note)
+        self.assertIn('ip6tables', note)
+        self.assertIn('cold boot', shown.getvalue())
+
+    def run25_that_throws(self):
+        def boom(name, job):
+            if name == '15-6:watched':
+                raise RuntimeError('boom')
+        with contextlib.redirect_stderr(io.StringIO()):
+            self.go(self.CASE, {None: (['15-6:ready', '15-6:watched', 'end'], {})}, on_step=boom, serial='emulator-5554')
+
+    def test_a_body_that_throws_still_removes_the_rules_and_its_own_error_survives(self):
+        with self.assertRaisesRegex(RuntimeError, 'boom'):
+            self.run25_that_throws()
+        self.assertFalse(self.dropped())
+
+    def test_the_original_error_survives_even_when_a_rule_cannot_be_removed(self):
+        self.stubborn = {'iptables'}
+        with self.assertRaisesRegex(RuntimeError, 'boom'):
+            self.run25_that_throws()
 
 
 if __name__ == '__main__':

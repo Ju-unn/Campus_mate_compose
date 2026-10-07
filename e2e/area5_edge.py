@@ -39,6 +39,7 @@
 import json
 import os
 import subprocess
+import sys
 import time
 from datetime import datetime, timezone
 from urllib.parse import urlsplit
@@ -404,16 +405,35 @@ def p_edge_24(run, phone):
 # ── E-EDGE-25 응답 없는 망 ────────────────────────────────────────────────────────────────────────────
 
 _DROP = ('OUTPUT', '!', '-o', 'lo', '-j', 'DROP')
+_TABLES = ('iptables', 'ip6tables')
+_UNDROP_TRIES = 5  # 규칙이 겹겹이 남았어도 이 정도면 다 지운다 — 넘기면 못 지우는 것으로 본다
+_STUCK = '에뮬 망이 막힌 채로 남았을 수 있다 — cold boot 필요'
+
+
+def _held(serial, table):
+    """[table] 의 OUTPUT 에 우리 규칙이 몇 줄 남았나 — -S 를 읽는다(-D 의 실패는 adb 가 알려 주지 않는다)."""
+    rules = tools.adb(serial, 'shell', table, '-w', '-S', _DROP[0], check=False) or ''
+    return sum(1 for line in rules.splitlines() if line.strip() == '-A ' + ' '.join(_DROP))
 
 
 def _drop(serial):
-    for table in ('iptables', 'ip6tables'):
-        tools.adb(serial, 'shell', table, '-I', *_DROP[:1], '1', *_DROP[1:], check=False)
+    for table in _TABLES:
+        tools.adb(serial, 'shell', table, '-w', '-I', *_DROP[:1], '1', *_DROP[1:], check=False)
 
 
 def _undrop(serial):
-    for table in ('iptables', 'ip6tables'):
-        tools.adb(serial, 'shell', table, '-D', *_DROP, check=False)
+    """규칙이 없어질 때까지 지운다. 끝내 남은 표들을 돌려주고 stderr 에도 남긴다 — finally 안에서 불려도 본문의 예외를 덮지 않게 던지지는 않는다."""
+    stuck = []
+    for table in _TABLES:
+        for _ in range(_UNDROP_TRIES):  # -S 줄 모양을 못 읽어도 지우기는 한 번 한다(옛 동작) — 읽은 뒤에야 반복을 멈춘다
+            tools.adb(serial, 'shell', table, '-w', '-D', *_DROP, check=False)
+            if not _held(serial, table):
+                break
+        if _held(serial, table):
+            stuck.append(table)
+    if stuck:
+        print(f'[E-EDGE-25] {", ".join(stuck)} 에 DROP 규칙이 남음 — {_STUCK}', file=sys.stderr)
+    return stuck
 
 
 def p_edge_25(run, phone):
@@ -429,11 +449,13 @@ def p_edge_25(run, phone):
         if emu.online(serial):
             raise Blocked('패킷을 버렸는데 핑이 닿음 — iptables 가 안 먹었다(root 인가)')
 
+    stuck = []
     try:
         said = _app(check, phone(midway=_walk(phone, {'ready': ready, 'watched': lambda screen: _undrop(serial)}), token_hash=token,
                                  height=NEW_HEIGHT, watch=WATCH))
     finally:
-        _undrop(serial)
+        stuck = _undrop(serial)  # 본문이 던졌으면 그 예외가 그대로 올라간다 — 남은 규칙은 stderr 에만 남는다
+    check.that(not stuck, f'{", ".join(stuck)} 에 DROP 규칙이 남음 — {_STUCK}')
     waited = said.get('waited_ms')
     check.that(isinstance(waited, int) and waited >= (WATCH - 1) * 1000, f'앱이 저장 뒤 기다린 시간 {waited}ms(기대 {WATCH}초)')
     if check.problems:
