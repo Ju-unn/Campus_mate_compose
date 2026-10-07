@@ -5,6 +5,7 @@
 
 import contextlib
 import re
+import subprocess
 import time
 from collections import namedtuple
 from datetime import datetime, timedelta, timezone
@@ -120,7 +121,13 @@ def root(serial, hub=None, sleep=time.sleep):
     else:
         raise Blocked('에뮬이 root 를 안 줌(google_apis_playstore 이미지는 user 빌드라 adb root 가 막힌다) — 시계를 못 바꾼다')
     port = hub.port if hub else DEVICES['B']
-    tools.adb(serial, 'reverse', f'tcp:{DEVICE_PORT}', f'tcp:{port}')
+    for _ in range(5):  # adbd 가 막 다시 떠서 첫 reverse 는 거절될 수 있다
+        try:
+            tools.adb(serial, 'reverse', f'tcp:{DEVICE_PORT}', f'tcp:{port}')
+            return
+        except subprocess.CalledProcessError:
+            sleep(1)
+    raise Blocked('adb reverse 를 못 검(root 뒤 adbd 가 안 받음) — 폰 앱이 PC 우편함에 못 닿는다')
 
 
 def epoch(serial):
@@ -128,7 +135,8 @@ def epoch(serial):
 
 
 def _set_date(serial, moment):
-    tools.adb(serial, 'shell', 'date', '-u', moment.astimezone(timezone.utc).strftime('%m%d%H%M%Y.%S'))
+    # check=False — root 가 아니면 date 가 종료 코드 1 이라, 막히면 호출한 쪽이 epoch 로 읽어 Blocked 로 낸다
+    tools.adb(serial, 'shell', 'date', '-u', moment.astimezone(timezone.utc).strftime('%m%d%H%M%Y.%S'), check=False)
 
 
 @contextlib.contextmanager
@@ -146,7 +154,7 @@ def clock_shifted(serial, hours, now=lambda: datetime.now(timezone.utc)):
         try:
             _set_date(serial, now())
         finally:  # date 가 거부돼도(root 아님) 자동 시각은 꼭 되돌린다
-            tools.adb(serial, 'shell', 'settings', 'put', 'global', 'auto_time', '1')
+            tools.adb(serial, 'shell', 'settings', 'put', 'global', 'auto_time', '1', check=False)
 
 
 # ── 시간대 ───────────────────────────────────────────────────────────────────────────────────────

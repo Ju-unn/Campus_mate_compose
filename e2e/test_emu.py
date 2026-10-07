@@ -205,19 +205,63 @@ class ClockTest(unittest.TestCase):
         self.assertTrue(adb.ran('settings put global auto_time 1'))  # 못 바꿨어도 자동 시각은 되돌린다
 
 
-    def test_date_refused_still_turns_auto_time_back_on(self):
+    def test_date_refused_is_blocked_and_still_turns_auto_time_back_on(self):
         calls = []
 
         def adb(serial, *args, check=True):
             line = ' '.join(args)
             calls.append(line)
-            if line.startswith('shell date -u'):
-                raise tools.subprocess.CalledProcessError(1, 'adb')  # root 가 아니면 date 가 종료 코드 1
+            if check and line.startswith('shell date -u'):
+                raise tools.subprocess.CalledProcessError(1, 'adb')  # root 가 아니면 date 가 종료 코드 1 — check=True 로 부르면 이 예외가 난다
             return ''
-        with patched(adb), self.assertRaises(tools.subprocess.CalledProcessError):
+        with patched(adb), self.assertRaises(tools.Blocked) as ctx:
             with emu.clock_shifted(S, hours=2, now=NOON):
                 pass
+        self.assertIn('date', str(ctx.exception))
         self.assertIn('shell settings put global auto_time 1', calls)
+
+    def test_restoring_the_clock_refused_does_not_hide_the_body_failure_and_still_turns_auto_time_on(self):
+        calls = []
+        target = int(datetime(2026, 10, 4, 14, 0, tzinfo=timezone.utc).timestamp())
+
+        def adb(serial, *args, check=True):
+            line = ' '.join(args)
+            calls.append(line)
+            if check and line.startswith('shell date -u') and len([c for c in calls if c.startswith('shell date -u')]) > 1:
+                raise tools.subprocess.CalledProcessError(1, 'adb')  # 되돌림(둘째 date)만 거부
+            return ''
+        with patched(adb), mock.patch.object(emu, 'epoch', return_value=target):
+            with self.assertRaises(RuntimeError), emu.clock_shifted(S, hours=2, now=NOON):
+                raise RuntimeError('app failed')
+        self.assertEqual(calls[-1], 'shell settings put global auto_time 1')
+
+    def test_root_retries_the_mailbox_forward_while_adbd_is_still_coming_up(self):
+        tries = []
+
+        def adb(serial, *args, check=True):
+            line = ' '.join(args)
+            if line == 'shell id':
+                return 'uid=0(root)'
+            if line.startswith('reverse tcp:'):
+                tries.append(line)
+                if len(tries) < 3:
+                    raise tools.subprocess.CalledProcessError(1, 'adb')  # adbd 가 막 떠서 아직 못 받음
+            return ''
+        with patched(adb):
+            emu.root(S, mock.Mock(port=8766), sleep=lambda s: None)
+        self.assertEqual(len(tries), 3)
+
+    def test_root_that_never_gets_the_mailbox_forward_back_is_blocked_not_an_error(self):
+        def adb(serial, *args, check=True):
+            line = ' '.join(args)
+            if line == 'shell id':
+                return 'uid=0(root)'
+            if line.startswith('reverse tcp:'):
+                raise tools.subprocess.CalledProcessError(1, 'adb')
+            return ''
+        with patched(adb), self.assertRaises(tools.Blocked) as ctx:
+            emu.root(S, mock.Mock(port=8766), sleep=lambda s: None)
+        self.assertIn('reverse', str(ctx.exception))
 
     def test_clock_functions_refuse_a_real_phone(self):
         adb = FakeAdb()
