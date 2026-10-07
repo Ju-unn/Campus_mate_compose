@@ -135,6 +135,34 @@ void main() {
     expect(messages.where((message) => message.id == 'msg-9').length, 1);
   });
 
+  test('상대 줄이 구독으로 먼저 오고 내 응답이 늦게 와도 시간 · id 순으로 선다', () async {
+    final base = DateTime(2026, 9, 22, 14, 10);
+    // 서버는 내 INSERT(t1) 뒤에 닉네임 조회 · 푸시를 하고 응답한다 — 그 사이 상대 줄(t2)의 구독 줄이 응답보다 먼저 올 수 있다.
+    repository.sendResult = Success(messageFixture(id: 'mine', senderId: myId, body: '내 글', createdAt: base));
+    final container = containerFor();
+    await opened(container);
+
+    stream.push(messageFixture(id: 'theirs', body: '상대 글', createdAt: base.add(const Duration(milliseconds: 500))));
+    await Future<void>.delayed(Duration.zero);
+    await container.read(chatRoomViewModelProvider('m1').notifier).send('내 글');
+
+    final bodies = container.read(chatRoomViewModelProvider('m1')).messages.map((message) => message.body).toList();
+    expect(bodies, ['내 글', '상대 글']);
+  });
+
+  test('같은 시각이면 id 순으로 선다 — 서버 커서와 같다', () async {
+    final base = DateTime(2026, 9, 22, 14, 10);
+    final container = containerFor();
+    await opened(container);
+
+    stream.push(messageFixture(id: 'b', body: '둘째', createdAt: base));
+    stream.push(messageFixture(id: 'a', body: '첫째', createdAt: base));
+    await Future<void>.delayed(Duration.zero);
+
+    final bodies = container.read(chatRoomViewModelProvider('m1')).messages.map((message) => message.body).toList();
+    expect(bodies, ['첫째', '둘째']);
+  });
+
   test('나가기가 끝나면 화면이 목록으로 돌아갈 준비를 한다', () async {
     final container = containerFor();
     await opened(container);
