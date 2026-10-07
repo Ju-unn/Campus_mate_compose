@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/matching/model/acceptance.dart';
 import 'package:campus_mate/matching/model/card_profile.dart';
 import 'package:campus_mate/matching/model/card_repository.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
+import 'package:campus_mate/matching/viewmodel/acceptances_ui_state.dart';
 import 'package:campus_mate/matching/viewmodel/acceptances_view_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -92,5 +95,70 @@ void main() {
     viewModel.consumeMatched();
 
     expect(container.read(acceptancesViewModelProvider).matchedNickname, isNull);
+  });
+
+  group('조용한 재읽기(앱 복귀·화면 진입)', () {
+    AcceptancesViewModel viewModel() => container.read(acceptancesViewModelProvider.notifier);
+    AcceptancesUiState stateNow() => container.read(acceptancesViewModelProvider);
+
+    test('실패해도 있던 수락 대기 줄은 남고 오류 문구는 새로 생기지 않는다', () async {
+      repository.acceptances = const Success([_acceptance]);
+      await viewModel().refresh();
+      repository.acceptances = const FailureResult(NetworkFailure());
+
+      await viewModel().refresh(quiet: true);
+
+      expect(stateNow().acceptances, hasLength(1));
+      expect(stateNow().errorMessage, isNull);
+    });
+
+    test('아직 한 번도 못 읽은 상태의 조용한 읽기 실패는 로딩을 끝내고 오류를 보인다', () async {
+      repository.acceptances = const FailureResult(NetworkFailure());
+
+      await viewModel().refresh(quiet: true);
+
+      expect(stateNow().isLoading, isFalse);
+      expect(stateNow().errorMessage, const NetworkFailure().toDisplayMessage());
+    });
+
+    test('당겨서 새로고침(조용하지 않은 읽기)이 실패하면 오류를 보이고 줄은 남는다', () async {
+      repository.acceptances = const Success([_acceptance]);
+      await viewModel().refresh();
+      repository.acceptances = const FailureResult(NetworkFailure());
+
+      await viewModel().refresh();
+
+      expect(stateNow().acceptances, hasLength(1));
+      expect(stateNow().errorMessage, const NetworkFailure().toDisplayMessage());
+    });
+
+    test('답을 보내는 중에 조용한 재읽기가 끝나도 보내는 중 표시는 그대로다 — 연타 방지', () async {
+      repository.acceptances = const Success([_acceptance]);
+      await viewModel().refresh();
+      repository.holdRespond = Completer<void>();
+      final responding = viewModel().respond('card-1', CardDecision.accept);
+      await Future<void>.delayed(Duration.zero);
+      expect(stateNow().respondingCardId, 'card-1');
+
+      await viewModel().refresh(quiet: true);
+
+      expect(stateNow().respondingCardId, 'card-1');
+      repository.holdRespond!.complete();
+      await responding;
+      expect(stateNow().respondingCardId, isNull);
+    });
+
+    test('조용한 재읽기가 성공해도 방금 성사된 매칭 정보는 지우지 않는다', () async {
+      repository.acceptances = const Success([_acceptance]);
+      repository.acceptanceOutcome = const Success(AcceptanceOutcome(matched: true, matchId: 'm-1'));
+      await viewModel().refresh();
+      await viewModel().respond('card-1', CardDecision.accept);
+      repository.acceptances = const FailureResult(NetworkFailure());
+
+      await viewModel().refresh(quiet: true);
+
+      expect(stateNow().matchedNickname, '초코라떼');
+      expect(stateNow().matchedMatchId, 'm-1');
+    });
   });
 }
