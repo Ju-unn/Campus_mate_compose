@@ -38,6 +38,7 @@ import 'support.dart';
 part 'area3_contacts.dart';
 part 'area4_contacts.dart';
 part 'area4_push_a4.dart';
+part 'area4_set56.dart';
 part 'area4_push_two.dart';
 part 'area4_set2.dart';
 part 'area4_push.dart';
@@ -215,6 +216,7 @@ final Map<String, Area1Case> area4Cases = {
   ..._contactsCases,
   ..._safeContactsCases,
   ..._pushA4Cases,
+  ..._set56Cases,
   ..._extraCases,
   ..._pushTwoCases,
   'E-SET-01': _session((tester, job) async {

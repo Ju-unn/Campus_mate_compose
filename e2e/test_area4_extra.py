@@ -36,8 +36,9 @@ class RegistryTest(unittest.TestCase):
     def test_the_six_that_code_cannot_do_are_not_registered(self):
         every = {*area1.CASES, *area1.PHONE, *twodev.TWO}
         for case in SIX_NOT_CODED:
-            self.assertNotIn(case, every)
-        self.assertEqual(sorted(c for c in area4.LEFT_OUT if c in SIX_NOT_CODED), ['E-SET-55', 'E-SET-56', 'E-SET-57'])
+            if case != 'E-SET-56':  # 56 은 줄 순서 · 맨 앞 앱만 자동으로 보는 가설로 area4_set56 이 등록했다(브라우저 화면은 사람)
+                self.assertNotIn(case, every)
+        self.assertEqual(sorted(c for c in area4.LEFT_OUT if c in SIX_NOT_CODED), ['E-SET-55', 'E-SET-57'])
 
     def test_the_two_device_case_has_a_long_enough_case_limit(self):
         self.assertGreater(tools.CASE_LIMITS['E-SET-67'], area4_extra.HOLD + 600)
