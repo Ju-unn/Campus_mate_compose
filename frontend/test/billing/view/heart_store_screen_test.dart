@@ -342,10 +342,15 @@ void main() {
       await pump(tester);
 
       final card = cardOf(100);
+      final quantity = tester.getRect(find.descendant(of: card, matching: find.text('100하트')));
       final discount = tester.getRect(find.descendant(of: card, matching: find.text('5%')));
       final price = tester.getRect(find.descendant(of: card, matching: find.text('5,700원')));
       final original = tester.getRect(find.descendant(of: card, matching: find.text('6,000원')));
-      expect(price.left - discount.right, greaterThanOrEqualTo(12));
+      final priceColumnLeft = tester.getRect(find.descendant(of: card, matching: find.text('원가'))).left;
+      // 할인 ↔ 가격 칸 사이는 정확히 12(가격 칸의 왼쪽 끝은 폭이 가장 넓은 "원가 …" 줄이다. 수량 칸은 남는 폭이라 수량 ↔ 할인은 12 이상).
+      expect(priceColumnLeft - discount.right, closeTo(12, 0.5));
+      expect(priceColumnLeft, lessThanOrEqualTo(price.left));
+      expect(discount.left - quantity.right, greaterThanOrEqualTo(12));
       expect(
         tester.getRect(card).right - 16,
         closeTo(price.right > original.right ? price.right : original.right, 0.5),

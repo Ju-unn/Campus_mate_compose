@@ -3,6 +3,7 @@ import 'package:campus_mate/account/view/account_screen.dart';
 import 'package:campus_mate/account/view/account_suspended_screen.dart';
 import 'package:campus_mate/account/view/kakao_id_settings_screen.dart';
 import 'package:campus_mate/auth/model/verification_gate.dart';
+import 'package:campus_mate/billing/view/heart_store_screen.dart';
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/chat/view/chat_room_screen.dart';
 import 'package:campus_mate/common/failure.dart';
@@ -323,6 +324,15 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(FaqScreen), findsOneWidget);
+    });
+
+    testWidgets('/hearts/store 는 18 하트 스토어다', (tester) async {
+      final router = await pumpRouter(tester);
+
+      router.go(AppRoutes.heartStore);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(HeartStoreScreen), findsOneWidget);
     });
 
     testWidgets('/friend-reviews 는 20c 받은 리뷰다', (tester) async {
