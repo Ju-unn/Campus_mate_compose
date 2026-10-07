@@ -148,6 +148,22 @@ void main() {
       expect(stateNow().respondingCardId, isNull);
     });
 
+    test('답을 보내는 중에 조용하지 않은 읽기가 실패해도 보내는 중 표시는 그대로고 오류를 보인다', () async {
+      repository.acceptances = const Success([_acceptance]);
+      await viewModel().refresh();
+      repository.holdRespond = Completer<void>();
+      final responding = viewModel().respond('card-1', CardDecision.accept);
+      await Future<void>.delayed(Duration.zero);
+      repository.acceptances = const FailureResult(NetworkFailure());
+
+      await viewModel().refresh();
+
+      expect(stateNow().respondingCardId, 'card-1');
+      expect(stateNow().errorMessage, const NetworkFailure().toDisplayMessage());
+      repository.holdRespond!.complete();
+      await responding;
+    });
+
     /// 수락이 성사돼 12 화면으로 보낼 매칭 정보가 상태에 올라간 채로 시작한다.
     Future<void> matchJustMade() async {
       repository.acceptances = const Success([_acceptance]);
@@ -165,6 +181,18 @@ void main() {
 
       expect(stateNow().matchedNickname, '초코라떼');
       expect(stateNow().matchedMatchId, 'm-1');
+    });
+
+    test('조용하지 않은 읽기가 실패해도 방금 성사된 매칭 정보는 남고 새 오류 문구가 뜬다', () async {
+      await matchJustMade();
+      repository.acceptances = const FailureResult(NetworkFailure());
+
+      await viewModel().refresh();
+
+      expect(stateNow().matchedNickname, '초코라떼');
+      expect(stateNow().matchedMatchId, 'm-1');
+      expect(stateNow().respondingCardId, isNull);
+      expect(stateNow().errorMessage, const NetworkFailure().toDisplayMessage());
     });
 
     test('조용한 재읽기가 실패해도 방금 성사된 매칭 정보는 지우지 않는다', () async {
@@ -280,6 +308,19 @@ void main() {
 
       expect(stateNow().acceptances, hasLength(1));
       expect(stateNow().errorMessage, const NetworkFailure().toDisplayMessage());
+      expect(stateNow().respondingCardId, isNull);
+    });
+
+    test('응답도 실패하고 목록 갱신(fetchAcceptances)도 실패하면 갱신 실패 문구가 남는다', () async {
+      repository.acceptances = const Success([_acceptance]);
+      await viewModel().refresh();
+      // 두 실패의 문구가 달라야 어느 쪽이 남았는지 가려진다(네트워크 vs 서버 일시 불가).
+      repository.acceptanceOutcome = const FailureResult(NetworkFailure());
+      repository.acceptances = const FailureResult(ServerUnavailableFailure());
+
+      await viewModel().respond('card-1', CardDecision.accept);
+
+      expect(stateNow().errorMessage, const ServerUnavailableFailure().toDisplayMessage());
       expect(stateNow().respondingCardId, isNull);
     });
 
