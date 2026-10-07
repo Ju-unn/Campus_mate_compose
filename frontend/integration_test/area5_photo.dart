@@ -25,8 +25,7 @@ const _photoNotSafe = '부적절한 사진은 올릴 수 없어요'; // 서버 P
 
 // ── 읽기 ────────────────────────────────────────────────────────────────────────────────────────────
 
-/// 15 (나 탭) 에서 쓰는 공급자 모음. 15 위에 다른 화면(하트 스토어 18)이 올라와도 15 는 트리에 남아 있어 `skipOffstage: false` 로 찾는다.
-/// 15-7 이 15 를 대신해 올라와 있을 때(15 가 트리에서 빠진 경우)는 못 찾는다.
+/// 15 (나 탭) 에서 쓰는 공급자 모음. 15 위에 다른 화면(하트 스토어 18 · 15-7)이 올라와도 15 는 트리에 남아 있어 `skipOffstage: false` 로 찾는다.
 ProviderContainer _photoMeContainer(WidgetTester tester) =>
     ProviderScope.containerOf(tester.element(find.byType(ProfileHero, skipOffstage: false)));
 
