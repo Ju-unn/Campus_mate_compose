@@ -55,11 +55,11 @@ class Phone5(App):
         self.events.append(('app', job))
         self.jobs.append(job)
         self.on_app(job)
-        if midway:
+        say = self.says.get(job.get('phase'), {})
+        if midway and not (isinstance(say, dict) and say.get('loaded') is False):  # 방 읽기를 못 끝낸 앱은 step 을 부르지 않는다(area3_b8.dart _liveBody)
             self.events.append('step')
             midway({'step': 'x'})
             self.events.append('go')
-        say = self.says.get(job.get('phase'), {})
         return {'result': 'pass', **(say(job) if callable(say) else say)}
 
 
@@ -800,6 +800,30 @@ class Chat67Test(Base5):
         self.setUp()  # 두 번째 실행은 깨끗한 가짜 서버에서
         (_, note), _ = self.run67({None: {'seen_at': None, 'bubble': False}})
         self.assertIn('seen_at None', note)
+
+    def test_a_room_the_app_could_not_load_is_blocked_and_nothing_is_sent(self):
+        """방 읽기를 못 끝낸 앱은 step 을 부르지 않는다 — 구독 전에 보내면 가짜 실패라 글을 보내지 않고 blocked."""
+        (result, note), _ = self.run67({None: {'loaded': False, 'error': '네트워크 오류', 'seen_at': None, 'bubble': False}})
+        self.assertEqual(result, 'blocked', note)
+        self.assertIn('안 읽힘', note)
+        self.assertIn('네트워크 오류', note)
+        self.assertNotIn('send', self.names())
+        self.assertEqual([m for m in self.fake.tables.get('messages', []) if m.get('sender_id') == 'id-2'], [])
+
+    def test_the_bubble_fail_note_carries_the_apps_diagnosis(self):
+        (result, note), _ = self.run67({None: {'loaded': True, 'passed': True, 'vm_count': 3, 'vm_bodies': ['뷰모델글'], 'screen_bodies': ['화면글'],
+                                               'error': '오류문구', 'seen_at': None, 'bubble': False}})
+        self.assertEqual(result, 'fail')
+        self.assertIn('seen_at None', note)  # 기존 문구는 그대로
+        for part in ('loaded True', 'passed True', '글 3건', '뷰모델글', '화면글', '오류문구'):
+            self.assertIn(part, note)
+
+    def test_a_passing_bubble_note_has_no_diagnosis(self):
+        live = self.says()[None]
+        (result, note), _ = self.run67({None: lambda job: {**live(job), 'loaded': True, 'passed': True, 'vm_count': 1, 'vm_bodies': ['x'],
+                                                          'screen_bodies': ['x'], 'error': None}})
+        self.assertEqual(result, 'pass', note)
+        self.assertNotIn('뷰모델', note)
 
     def test_a_send_that_fails_is_a_fail_with_the_status(self):
         self.fake.handlers.insert(0, ('POST', re.compile(r'/chat/matches/[^/]+/messages'), Reply(409, {'detail': '종료된 대화예요'})))
