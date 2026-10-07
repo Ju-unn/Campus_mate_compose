@@ -54,7 +54,7 @@ class WithdrawFirstSheet extends ConsumerWidget {
         const SizedBox(height: 34),
         AppButton(
           label: '영구 삭제',
-          variant: AppButtonVariant.dangerStrong,
+          variant: AppButtonVariant.neutral, // pen 회색 `l1XDPi`(사용자 요청 2026-10-08 — 노드 `l44zcf` 와 같게)
           onPressed: () => Navigator.of(context).pop(true),
         ),
         _CancelButton(onPressed: () => Navigator.of(context).pop(false)),
@@ -97,7 +97,7 @@ class WithdrawFinalSheet extends ConsumerWidget {
         const SizedBox(height: 53),
         AppButton(
           label: '정말 영구 삭제',
-          variant: AppButtonVariant.dangerStrong,
+          variant: AppButtonVariant.neutral, // pen 회색 `FbrhB`
           onPressed: state.isSubmitting ? null : ref.read(withdrawViewModelProvider.notifier).withdraw,
         ),
         _CancelButton(onPressed: () => Navigator.of(context).pop()),
@@ -294,7 +294,7 @@ class _RejoinWarning extends StatelessWidget {
   }
 }
 
-/// 16c 취소 버튼(pen `fEu75` · `dNi02`). 328×48, 모서리 14, #E5E5E5, 16/600 — AppButton(56 · 16 · 18/700)과 달라 여기 둔다.
+/// 16c 취소 버튼(pen `fEu75` · `dNi02`). 328×48, 모서리 14, #FF385C, 글자 흰색 16/700 — AppButton(52)과 높이가 달라 여기 둔다.
 class _CancelButton extends StatelessWidget {
   const _CancelButton({required this.onPressed});
 
@@ -306,7 +306,7 @@ class _CancelButton extends StatelessWidget {
       button: true,
       // 눌림 효과가 시트와 같이 움직이게 버튼 안에 Material 을 둔다(COMMON §4-2).
       child: Material(
-        color: AppColors.primaryDisabled,
+        color: AppColors.primary,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -314,7 +314,7 @@ class _CancelButton extends StatelessWidget {
           // 높이는 최소값만 건다 — 글자를 키우면 버튼이 따라 커진다.
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 48),
-            child: Center(child: Text('취소', style: AppTypography.bodyStrong.copyWith(color: AppColors.ink))),
+            child: Center(child: Text('취소', style: AppTypography.bodyStrong.copyWith(color: AppColors.onPrimary, fontWeight: FontWeight.w700))),
           ),
         ),
       ),

@@ -53,6 +53,35 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  /// pen 회색 삭제 버튼 `l1XDPi` · `FbrhB`(= 노드 `l44zcf`) — #F2F2F2 · 모서리 8 · 높이 52 가로 꽉 · 글자 #222222 18/700.
+  void expectGrayDelete(WidgetTester tester, Finder Function(Finder) within, String label) {
+    final button = within(find.widgetWithText(ElevatedButton, label));
+    expect(button, findsOneWidget);
+    final style = tester.widget<ElevatedButton>(button).style!;
+    expect(style.backgroundColor!.resolve({}), const Color(0xFFF2F2F2));
+    expect((style.shape!.resolve({}) as RoundedRectangleBorder).borderRadius, BorderRadius.circular(8));
+    expect(tester.getSize(button), const Size(328, 52));
+    final text = tester.widget<Text>(within(find.text(label)));
+    expect(style.foregroundColor!.resolve({}), const Color(0xFF222222)); // 글자색은 버튼의 foregroundColor 가 준다
+    expect(text.style!.fontSize, 18);
+    expect(text.style!.fontWeight, FontWeight.w700);
+  }
+
+  /// pen 취소 `PHIZw` · `fEu75` — 328×48 · 모서리 14 · #FF385C · 흰 글자 16/700.
+  Finder cancelBox(Finder Function(Finder) within) => within(find.ancestor(of: find.text('취소'), matching: find.byType(Material)).first);
+
+  void expectBrandCancel(WidgetTester tester, Finder Function(Finder) within) {
+    final cancel = cancelBox(within);
+    final material = tester.widget<Material>(cancel);
+    expect(material.color, const Color(0xFFFF385C));
+    expect((material.shape! as RoundedRectangleBorder).borderRadius, BorderRadius.circular(14));
+    expect(tester.getSize(cancel), const Size(328, 48));
+    final text = tester.widget<Text>(within(find.text('취소')));
+    expect(text.style!.color, const Color(0xFFFFFFFF));
+    expect(text.style!.fontSize, 16);
+    expect(text.style!.fontWeight, FontWeight.w700);
+  }
+
   Future<void> openFinalSheet(WidgetTester tester) async {
     await openSheets(tester);
     await tester.tap(find.text('영구 삭제'));
@@ -143,12 +172,14 @@ void main() {
       expect(account.withdrawCalls, 0);
     });
 
-    testWidgets('영구 삭제는 error 채움 AppButton(dangerStrong) 이다', (tester) async {
+    testWidgets('영구 삭제는 회색 AppButton(neutral) · 취소는 #FF385C 이다(pen `l1XDPi` · `PHIZw`)', (tester) async {
       await openSheets(tester);
 
       final button = tester.widget<AppButton>(inFirst(find.byType(AppButton)));
       expect(button.label, '영구 삭제');
-      expect(button.variant, AppButtonVariant.dangerStrong);
+      expect(button.variant, AppButtonVariant.neutral);
+      expectGrayDelete(tester, inFirst, '영구 삭제');
+      expectBrandCancel(tester, inFirst);
     });
 
     testWidgets('취소는 아무것도 하지 않고 닫는다', (tester) async {
@@ -216,6 +247,16 @@ void main() {
       expect(container.read(accountStatusListenableProvider).value, AccountStatus.active);
     });
 
+    testWidgets('정말 영구 삭제는 회색 · 취소는 #FF385C 이고 간격이 pen 그대로(회색 y290 → 취소 y358, pen `FbrhB`)', (tester) async {
+      await openFinalSheet(tester);
+
+      expectGrayDelete(tester, inFinal, '정말 영구 삭제');
+      expectBrandCancel(tester, inFinal);
+      final gray = tester.getRect(inFinal(find.widgetWithText(ElevatedButton, '정말 영구 삭제')));
+      final cancel = tester.getRect(cancelBox(inFinal));
+      expect(cancel.top - gray.bottom, 16); // 회색 끝(y342) → 취소(y358)
+    });
+
     testWidgets('취소는 탈퇴를 부르지 않고 닫는다', (tester) async {
       await openFinalSheet(tester);
 
@@ -252,12 +293,14 @@ void main() {
       expect(find.descendant(of: badge, matching: find.byIcon(AppIcons.alertTriangle)), findsOneWidget);
     });
 
-    testWidgets('정말 영구 삭제는 일반 탈퇴와 같은 error 채움(dangerStrong) — 위험 무게를 같게(대장 10-03)', (tester) async {
+    testWidgets('정말 영구 삭제는 일반 탈퇴와 같은 회색(neutral) · 취소 #FF385C — 버튼은 같게(대장 10-03 · pen `XHGTs`)', (tester) async {
       await openSuspended(tester);
 
       final button = tester.widget<AppButton>(inFinal(find.byType(AppButton)));
       expect(button.label, '정말 영구 삭제');
-      expect(button.variant, AppButtonVariant.dangerStrong);
+      expect(button.variant, AppButtonVariant.neutral);
+      expectGrayDelete(tester, inFinal, '정말 영구 삭제');
+      expectBrandCancel(tester, inFinal);
     });
 
     testWidgets('정말 영구 삭제 한 번이 곧 탈퇴다', (tester) async {

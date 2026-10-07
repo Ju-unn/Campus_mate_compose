@@ -3,9 +3,10 @@ import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 
-/// DESIGN.md §8.3 버튼 5종. 화면은 [variant] 와 [onPressed](null = 비활성)만
+/// DESIGN.md §8.3 버튼 종류. 화면은 [variant] 와 [onPressed](null = 비활성)만
 /// 고르고, 색·라운드·라벨 크기는 여기서만 정한다.
-enum AppButtonVariant { primary, secondary, text, danger, dangerStrong }
+/// [neutral] 은 탈퇴 시트의 회색 "영구 삭제"(pen `l44zcf` · `l1XDPi` · `FbrhB`) — #F2F2F2 · 글자 #222222 18/700 · 모서리 8.
+enum AppButtonVariant { primary, secondary, text, danger, dangerStrong, neutral }
 
 class AppButton extends StatelessWidget {
   const AppButton({
@@ -31,8 +32,13 @@ class AppButton extends StatelessWidget {
 
   bool get _isTextVariant => variant == AppButtonVariant.text;
 
+  bool get _isNeutral => variant == AppButtonVariant.neutral;
+
   /// text variant 라벨(pen `rK7sg` 라벨 16/600).
   static final TextStyle _textLabel = AppTypography.button.copyWith(fontWeight: FontWeight.w600);
+
+  /// neutral 라벨(pen `l44zcf` 18/700).
+  static final TextStyle _neutralLabel = AppTypography.button.copyWith(fontSize: 18);
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +47,7 @@ class AppButton extends StatelessWidget {
       style: _styleFor(height ?? (_isTextVariant ? 48 : 52)),
       child: isLoading
           ? _spinner()
-          : Text(label, style: _isTextVariant ? _textLabel : AppTypography.button),
+          : Text(label, style: _isTextVariant ? _textLabel : (_isNeutral ? _neutralLabel : AppTypography.button)),
     );
   }
 
@@ -60,7 +66,7 @@ class AppButton extends StatelessWidget {
       maximumSize: Size(double.infinity, height),
       padding: EdgeInsets.zero,
       elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.button)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_isNeutral ? AppRadius.sm : AppRadius.button)),
     );
     return base.copyWith(
       backgroundColor: _backgroundColor(),
@@ -93,6 +99,7 @@ class AppButton extends StatelessWidget {
       AppButtonVariant.text => Colors.transparent,
       AppButtonVariant.danger => AppColors.primaryDisabled,
       AppButtonVariant.dangerStrong => AppColors.error,
+      AppButtonVariant.neutral => AppColors.surfaceStrong,
     };
   }
 
@@ -112,6 +119,7 @@ class AppButton extends StatelessWidget {
       AppButtonVariant.text => AppColors.primaryText,
       AppButtonVariant.danger => AppColors.error,
       AppButtonVariant.dangerStrong => AppColors.onPrimary,
+      AppButtonVariant.neutral => AppColors.ink,
     };
   }
 }
