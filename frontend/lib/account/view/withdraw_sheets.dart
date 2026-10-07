@@ -231,8 +231,8 @@ class _DeletedItems extends StatelessWidget {
     (AppIcon3d.chat, '모든 대화 내용'),
   ];
 
-  /// pen 은 인스턴스 크기를 20~24 로 두었다 — 줄 높이 44 안에서 가운데 값.
-  static const double _iconSize = 22;
+  /// pen 아이콘 인스턴스 `UJN6X` · `u0hZwa` · `uZeTa` 20×20 · 아이콘과 글 사이 10.
+  static const double _iconSize = 20;
 
   @override
   Widget build(BuildContext context) {
@@ -250,7 +250,7 @@ class _DeletedItems extends StatelessWidget {
               child: Row(
                 children: [
                   Icon3d(icon, size: _iconSize),
-                  const SizedBox(width: AppSpacing.sm),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(label, style: AppTypography.bodySmall.copyWith(color: AppColors.body, height: 1.5)),
                   ),

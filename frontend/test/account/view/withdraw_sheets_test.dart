@@ -114,11 +114,11 @@ void main() {
       ]) {
         expect(inFirst(find.text(text)), findsOneWidget, reason: text);
       }
-      // pen 삭제 항목 3줄 — 3D 그림 `PkqpC` · `zxXQG` · `Lua1H`, 크기 22(pen 20~24).
+      // pen 삭제 항목 3줄 — 3D 그림 `PkqpC` · `zxXQG` · `Lua1H`, 인스턴스 `UJN6X` · `u0hZwa` · `uZeTa` 20×20.
       for (final icon in [AppIcon3d.userRound, AppIcon3d.heart, AppIcon3d.chat]) {
         final found = inFirst(find.byWidgetPredicate((w) => w is Icon3d && w.icon == icon));
         expect(found, findsOneWidget, reason: '$icon');
-        expect(tester.getSize(found), const Size(22, 22));
+        expect(tester.getSize(found), const Size(20, 20));
       }
     });
 

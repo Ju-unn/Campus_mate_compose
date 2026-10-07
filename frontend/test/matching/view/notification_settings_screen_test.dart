@@ -92,6 +92,46 @@ void main() {
     }
   });
 
+  testWidgets('줄 안쪽: 아이콘 22 · 글 사이 12 · 라벨 16/normal #222222 · 설명 12/normal #6A6A6A · 스위치 색(pen `jtLpv` · `b6Be6` · `cjlyY`)', (tester) async {
+    tester.view.physicalSize = const Size(360, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await pump(tester);
+
+    for (final icon in tester.widgetList<Icon3d>(find.byType(Icon3d))) {
+      expect(icon.size, 22);
+    }
+    final title = tester.widget<Text>(find.text('오늘의 카드 도착')).style!;
+    expect((title.fontSize, title.fontWeight, title.color), (16.0, FontWeight.w400, const Color(0xFF222222)));
+    final note = tester.widget<Text>(find.text('매일 아침 7시 지급 알림')).style!;
+    expect((note.fontSize, note.fontWeight, note.color, note.height), (12.0, FontWeight.w400, const Color(0xFF6A6A6A), 1.4));
+    // 아이콘 오른쪽 끝 → 글 왼쪽 = 12
+    final icon = tester.getRect(find.byType(Icon3d).first);
+    expect(tester.getRect(find.text('오늘의 카드 도착')).left - icon.right, 12);
+    final tile = tester.widget<SwitchListTile>(find.byType(SwitchListTile).first);
+    expect(tile.activeTrackColor, const Color(0xFFFF385C));
+    expect(tile.inactiveTrackColor, const Color(0xFFDDDDDD));
+    expect(tile.activeThumbColor, const Color(0xFFFFFFFF));
+  });
+
+  testWidgets('줄 높이 · 아래 선: 부연 있는 64 줄은 모두 선이 있고, 52 줄은 카드의 마지막 줄만 선이 없다', (tester) async {
+    tester.view.physicalSize = const Size(360, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await pump(tester);
+
+    bool hasLine(String title) {
+      final box = find.ancestor(of: find.text(title), matching: find.byType(Container)).evaluate().map((e) => e.widget as Container).firstWhere((c) => c.decoration is BoxDecoration && (c.decoration as BoxDecoration).border != null || c.constraints != null && c.constraints!.minHeight > 0);
+      return (box.decoration as BoxDecoration?)?.border != null;
+    }
+
+    expect(hasLine('오늘의 카드 도착'), isTrue); // 64
+    expect(hasLine('매칭 성립'), isTrue); // 64 · 카드의 마지막 줄이어도 선 있음
+    expect(hasLine('새 메시지'), isTrue); // 52 · 카드 첫 줄
+    expect(hasLine('새 지인 리뷰'), isFalse); // 52 · 카드의 마지막(유일한) 줄
+    expect(hasLine('방해 금지 시간 (22:00 ~ 08:00)'), isFalse); // 52 · 카드의 마지막 줄
+  });
+
   group('카드 묶음 틀(pen `Znioc` · `kX4oK` · `LvHyT` · `URYwe` · `YAt0F`)', () {
     // pen 폭 360 화면 — 카드 328(좌우 16). 높이는 pen 의 머리 28 + 줄(부연 있음 64 · 없음 52).
     void phone(WidgetTester tester) {
