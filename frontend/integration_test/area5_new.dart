@@ -15,6 +15,25 @@ const _nwSlowLoginWait = Duration(seconds: 60); // E-WD-20 5초 지연 망에서
 /// 15b "무료로 만들기" 를 누르자마자 답을 안 기다리는 말을 보내고(PC 가 1초 뒤 끊고 10초 뒤 켠다) 프레임마다 지켜본다 —
 /// 변환 중 안내가 처음 보인 때 · 사라진 때(누른 뒤 ms), 15-3 실패 안내가 한 번이라도 떴는지, 끝에 새 그림이 됐는지.
 Future<Map<String, Object?>> _nwRegenOffline(WidgetTester tester) async {
+  // 망이 끊긴 사이 히어로가 새 그림을 받다 던지는 이미지 읽기 오류("Connection closed while receiving data")는 앱이 일부러 지켜보는 일이 아니다 —
+  // 히어로(DecorationImage)는 오류 처리가 없어 실제 앱에서는 로그만 남고, 시험 바탕은 이것을 시험 실패로 바꿔 가설이 끝나 버린다. 세어 두고 흘려보낸다.
+  var imageErrors = 0;
+  final previous = FlutterError.onError;
+  FlutterError.onError = (details) {
+    if (details.library == 'image resource service') {
+      imageErrors++;
+      return;
+    }
+    previous?.call(details);
+  };
+  try {
+    return {...await _nwRegenOfflineBody(tester), 'image_errors': imageErrors};
+  } finally {
+    FlutterError.onError = previous;
+  }
+}
+
+Future<Map<String, Object?>> _nwRegenOfflineBody(WidgetTester tester) async {
   await _openMe(tester);
   final before = _avatarFile(tester);
   await _photoOpenSheet(tester);
