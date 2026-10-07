@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/chat/model/message.dart';
 import 'package:campus_mate/common/failure.dart';
@@ -247,6 +249,101 @@ void main() {
 
       expect(find.text('여우비'), findsNothing);
       expect(find.text('이미 나간 대화예요'), findsNothing);
+    });
+  });
+
+  group('돌아오면 대화 목록을 다시 읽는다', () {
+    late FakeChatRepository chat;
+    late ProviderContainer container;
+
+    setUp(() {
+      chat = FakeChatRepository()..conversations = Success([conversationFixture(unreadCount: 2)]);
+      container = ProviderContainer(
+        overrides: [
+          cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
+          chatRepositoryProvider.overrideWithValue(chat),
+        ],
+      );
+      addTearDown(container.dispose);
+    });
+
+    Future<void> openScreen(WidgetTester tester) async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: ConversationsScreen()),
+        ),
+      );
+      await tester.pump();
+    }
+
+    // AppLifecycleListener 는 한 칸씩 넘어가는 순서만 받는다 — 기기와 같은 순서로 보낸다.
+    Future<void> sleepAndResume(WidgetTester tester) async {
+      for (final state in [
+        AppLifecycleState.inactive,
+        AppLifecycleState.hidden,
+        AppLifecycleState.paused,
+        AppLifecycleState.hidden,
+        AppLifecycleState.inactive,
+        AppLifecycleState.resumed,
+      ]) {
+        tester.binding.handleAppLifecycleStateChanged(state);
+      }
+      await tester.pump();
+    }
+
+    testWidgets('화면을 처음 열 때는 한 번만 읽는다', (tester) async {
+      await openScreen(tester);
+
+      expect(chat.conversationsFetchCount, 1);
+    });
+
+    testWidgets('앱이 백그라운드에서 돌아오면 다시 읽고 새 안 읽은 수를 보여준다', (tester) async {
+      await openScreen(tester);
+      expect(find.text('2'), findsWidgets);
+      chat.conversations = Success([conversationFixture(unreadCount: 7)]);
+
+      await sleepAndResume(tester);
+
+      expect(chat.conversationsFetchCount, 2);
+      expect(find.text('7'), findsWidgets);
+      expect(find.text('2'), findsNothing);
+    });
+
+    testWidgets('이미 읽는 중이면 돌아와도 또 읽지 않는다', (tester) async {
+      chat.holdConversations = Completer<void>();
+      await openScreen(tester);
+      expect(chat.conversationsFetchCount, 1);
+
+      await sleepAndResume(tester);
+
+      expect(chat.conversationsFetchCount, 1);
+      chat.holdConversations!.complete();
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('여우비'), findsOneWidget);
+    });
+
+    testWidgets('다시 읽기가 실패해도 있던 대화 줄은 그대로 남는다', (tester) async {
+      await openScreen(tester);
+      expect(find.text('여우비'), findsOneWidget);
+      chat.conversations = const FailureResult(NetworkFailure());
+
+      await sleepAndResume(tester);
+
+      expect(chat.conversationsFetchCount, 2);
+      expect(find.text('여우비'), findsOneWidget);
+    });
+
+    testWidgets('다른 탭에 갔다가 이 화면으로 돌아오면 다시 읽는다', (tester) async {
+      await openScreen(tester);
+      chat.conversations = Success([conversationFixture(unreadCount: 7)]);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await openScreen(tester);
+
+      expect(chat.conversationsFetchCount, 2);
+      expect(find.text('7'), findsWidgets);
     });
   });
 }
