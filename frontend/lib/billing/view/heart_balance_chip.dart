@@ -52,8 +52,11 @@ class HeartBalanceChipView extends StatelessWidget {
   final bool showPlus;
   final VoidCallback? onPlus;
 
-  /// pen 인스턴스 높이(터치 영역 44 이상).
+  /// pen 인스턴스 높이 — 눈에 보이는 분홍 띠와 눌림 효과가 그려지는 칸.
   static const double _height = 44;
+
+  /// 누를 수 있을 때의 눌림 칸 높이(안드로이드 터치 영역 48). 띠(44)는 이 안 가운데에 그대로 두고 위아래 2 는 투명하다.
+  static const double _tapHeight = 48;
 
   /// 숫자 줄 높이 25 × 배율이 칸 32 안에 드는 가장 큰 배율(25 × 1.2 = 30).
   static const double _maxTextScale = 1.2;
@@ -112,10 +115,18 @@ class HeartBalanceChipView extends StatelessWidget {
     );
     return Semantics(
       label: '보유 하트 $balance개',
+      hint: tappable ? '하트 충전' : null,
       button: tappable,
       excludeSemantics: true,
       onTap: showPlus ? onPlus : null,
-      child: shape,
+      // 눌림 칸만 48 로 넓힌다 — 띠의 눌림 효과(InkWell)는 띠 안(44)에서 그려지고, 위아래 2 는 투명한 opaque 칸이 받는다.
+      child: tappable
+          ? GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onPlus,
+              child: SizedBox(height: _tapHeight, child: Center(widthFactor: 1, child: shape)),
+            )
+          : shape,
     );
   }
 

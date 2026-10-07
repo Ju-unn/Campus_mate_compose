@@ -54,6 +54,8 @@ void main() {
     profileCompletionPercent: 40,
   );
 
+  late FakeMeRepository me;
+
   /// [settle] 이 false 면 첫 프레임만 그린다(요약 · 잔액을 읽는 중).
   Future<void> pump(
     WidgetTester tester, {
@@ -69,10 +71,11 @@ void main() {
       tester.platformDispatcher.textScaleFactorTestValue = textScale;
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     }
+    me = FakeMeRepository(profile ?? Success(_profile(320)));
     final container = ProviderContainer(
       overrides: [
         homeRepositoryProvider.overrideWithValue(FakeHomeRepository(Success(data))),
-        meRepositoryProvider.overrideWithValue(FakeMeRepository(profile ?? Success(_profile(320)))),
+        meRepositoryProvider.overrideWithValue(me),
         cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
         chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
       ],
@@ -80,7 +83,10 @@ void main() {
     addTearDown(container.dispose);
     final router = GoRouter(
       initialLocation: AppRoutes.home,
-      routes: [GoRoute(path: AppRoutes.home, builder: (context, state) => const HomeScreen())],
+      routes: [
+        GoRoute(path: AppRoutes.home, builder: (context, state) => const HomeScreen()),
+        GoRoute(path: AppRoutes.heartStore, builder: (context, state) => const Text('하트 상점')),
+      ],
     );
     addTearDown(router.dispose);
     await tester.pumpWidget(
@@ -90,6 +96,8 @@ void main() {
   }
 
   final chip = find.byType(HeartBalanceChipView);
+  // 눈에 보이는 띠(44) — 칩 상자는 투명한 눌림 칸까지 48 이다(위 4 · 띠는 y6).
+  final band = find.descendant(of: chip, matching: find.byType(Material)).first;
   final bell = find.byType(NotifyIconButton);
 
   HomeSummary withSummary({int? percent, int? delivered, int? signups, int? conversations, CohortWait? cohort}) =>
@@ -108,11 +116,13 @@ void main() {
   /// 칩 오른쪽 끝 x300(종 칸 304 − 4) · 위 6 · 높이 44, 종 칸은 x304 · 48×48 · 위 4.
   void expectTrailing(WidgetTester tester) {
     expect(find.text('320'), findsOneWidget);
-    expect(tester.getTopRight(chip), const Offset(300, 6));
-    expect(tester.getSize(chip).height, 44);
+    expect(tester.getTopRight(band), const Offset(300, 6));
+    expect(tester.getSize(band).height, 44);
+    expect(tester.getTopRight(chip), const Offset(300, 4)); // 눌림 칸 48 — 띠 위 2 가 투명하다
+    expect(tester.getSize(chip).height, 48);
     expect(tester.getTopLeft(bell), const Offset(304, 4));
     expect(tester.getSize(bell), const Size(48, 48));
-    expect(tester.getTopLeft(bell).dx - tester.getTopRight(chip).dx, 4);
+    expect(tester.getTopLeft(bell).dx - tester.getTopRight(band).dx, 4);
   }
 
   group('칩 자리 — pen `Trailing`', () {
@@ -126,7 +136,7 @@ void main() {
       final view = tester.widget<HeartBalanceChipView>(chip);
       expect((view.showPlus, view.balance), (true, 320));
       final digits = tester.getSize(find.text('320')).width;
-      expect(tester.getSize(chip).width, 8 + 24 + 6 + digits + 6 + 16 + 12);
+      expect(tester.getSize(band).width, 8 + 24 + 6 + digits + 6 + 16 + 12);
     });
 
     testWidgets('제목은 칩 · 종이 쓰고 남은 왼쪽에서 x20 부터 시작하고 칩과 겹치지 않는다', (tester) async {
@@ -185,22 +195,52 @@ void main() {
   });
 
   group('"+"', () {
-    testWidgets('상점이 열리기 전에는 누르면 "곧 열려요" 만 나온다(상점 경로는 홈이 만들지 않는다)', (tester) async {
+    testWidgets('누르면 하트 상점(`/hearts/store`)으로 간다 — "곧 열려요" 는 더 이상 나오지 않는다', (tester) async {
       await pump(tester);
-      expect(find.text('곧 열려요'), findsNothing);
 
       await tester.tap(chip);
-      await tester.pump();
+      await tester.pumpAndSettle();
 
-      expect(find.text('곧 열려요'), findsOneWidget);
-      expect(find.byType(HomeScreen), findsOneWidget);
-      await tester.pump(const Duration(seconds: 2));
+      expect(find.text('하트 상점'), findsOneWidget);
       expect(find.text('곧 열려요'), findsNothing);
+    });
+
+    testWidgets('띠 위 투명한 눌림 칸(띠에서 1px 위)을 눌러도 상점으로 간다', (tester) async {
+      await pump(tester);
+
+      await tester.tapAt(Offset(tester.getRect(band).center.dx, tester.getTopLeft(band).dy - 1));
+      await tester.pumpAndSettle();
+
+      expect(find.text('하트 상점'), findsOneWidget);
+    });
+
+    testWidgets('상점에서 돌아오면 잔액을 다시 읽는다', (tester) async {
+      await pump(tester);
+      expect(me.calls, 1);
+
+      await tester.tap(chip);
+      await tester.pumpAndSettle();
+      expect(me.calls, 1); // 상점에 있는 동안은 다시 읽지 않는다
+
+      tester.state<NavigatorState>(find.byType(Navigator).first).pop();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(me.calls, 2);
+      expect(find.byType(HomeScreen), findsOneWidget);
     });
 
     testWidgets('칩은 홈 위젯이 새로 그린 것이 아니라 공용 HeartBalanceChip 이다', (tester) async {
       await pump(tester);
       expect(find.byType(HeartBalanceChip), findsOneWidget);
+    });
+
+    testWidgets('스크린리더 힌트에 "하트 충전" 이 붙는다', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pump(tester);
+
+      expect(tester.getSemantics(chip).getSemanticsData().hint, '하트 충전');
+      handle.dispose();
     });
   });
 
@@ -210,8 +250,8 @@ void main() {
         await pump(tester, textScale: scale);
 
         expect(tester.takeException(), isNull);
-        expect(tester.getSize(chip).height, 44);
-        expect(tester.getTopRight(chip), const Offset(300, 6));
+        expect(tester.getSize(band).height, 44);
+        expect(tester.getTopRight(band), const Offset(300, 6));
         expect(tester.getTopLeft(bell), const Offset(304, 4));
         final title = find.text('CampusMate');
         expect(tester.getTopRight(title).dx, lessThanOrEqualTo(tester.getTopLeft(chip).dx));
