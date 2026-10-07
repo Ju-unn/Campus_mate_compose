@@ -13,6 +13,7 @@ import 'package:campus_mate/home/view/cohort_wait_view.dart';
 import 'package:campus_mate/home/view/home_screen.dart';
 import 'package:campus_mate/home/viewmodel/home_summary_provider.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
+import 'package:campus_mate/me/model/me_repository_provider.dart';
 import 'package:campus_mate/referral/model/invite_share.dart';
 import 'package:campus_mate/referral/model/referral_repository.dart';
 import 'package:campus_mate/referral/model/referral_repository_provider.dart';
@@ -23,6 +24,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../chat/model/fake_chat_repository.dart';
 import '../../matching/model/fake_card_repository.dart';
+import '../../me/model/fake_me_repository.dart';
 import '../../referral/model/fake_referral_repository.dart';
 import '../model/fake_home_repository.dart';
 
@@ -108,6 +110,8 @@ void main() {
         // 하단 내비 뱃지가 수락 대기·안 읽은 메시지를 읽는다(§8.8).
         cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
         chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
+        // 앱바 하트 칩이 내 프로필(잔액)을 읽는다 — 실제 서버로 나가지 않게 막아 둔다.
+        meRepositoryProvider.overrideWithValue(FakeMeRepository(const FailureResult(NetworkFailure()))),
       ],
     );
     addTearDown(container.dispose);

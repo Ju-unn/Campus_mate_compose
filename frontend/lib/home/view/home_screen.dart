@@ -1,3 +1,4 @@
+import 'package:campus_mate/billing/view/heart_balance_chip.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
@@ -78,9 +79,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
       // pen `o57Mt` — 제목은 x20, 오른쪽 여백 8.
       appBar: AppBar(
         titleSpacing: 20,
-        title: Text('CampusMate', style: AppTypography.navTitle.copyWith(color: AppColors.primary)),
+        // 제목은 칩 · 종이 쓰고 남는 폭을 차지한다(pen `Trailing` 옆 fill_container). 글자를 키워 모자라면 줄이지 자르지 않는다.
+        title: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text('CampusMate', style: AppTypography.navTitle.copyWith(color: AppColors.primary)),
+        ),
         actions: [
           // 숫자 배지는 알림함이 생길 때까지 숨긴다(사용자 결정 2026-09-26) — 안 읽은 알림 수의 출처가 아직 없다.
+          // pen `Trailing`(`ihX4y` 안) — 하트 칩(`sysyz` 인스턴스 "+" 켬, 높이 44) · gap 4 · 종. 칩은 잔액을 읽는 동안 · 못 읽으면 자리째 숨는다.
+          // "+" 가 열 하트 상점은 나 탭 PR-B 에서 온다 — 그때까지는 "곧 열려요"(상점 경로를 홈이 따로 만들지 않는다).
+          HeartBalanceChip(showPlus: true, onPlus: () => showTimedToast(comingSoonToast)),
+          const SizedBox(width: AppSpacing.xxs),
           const NotifyIconButton(count: 0),
           const SizedBox(width: AppSpacing.xs),
         ],
@@ -93,7 +103,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
             ? CohortWaitView(cohort: cohort)
             : ListView(
                 // pen `aEtSx` padding [8,16,0,16] — 앱바 바로 아래 첫 카드가 y8 에서 시작한다. 아래 20 은 스크롤 끝 여백(pen 은 내비가 덮는다).
-              padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.xs, AppSpacing.md, 20),
+                padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.xs, AppSpacing.md, 20),
                 children: [
                   const _HeroToday(),
                   if (summary != null) ..._summarySections(summary),
