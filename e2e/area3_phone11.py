@@ -234,13 +234,18 @@ def two_39(run, two):
     def b_armed(said, sync):
         _loaded('B', said)
         _after(sync, 'a-ready', 'A')
+        sync.set('b-armed')  # 이 핸들러가 끝나면 B 가 곧바로 "수락" 을 누른다 — A 의 카드 기다림은 이때부터 센다
+
+    def a_watch(said, sync):
+        _after(sync, 'b-armed', 'B')  # A 가 먼저 20초를 세기 시작하면 에뮬이 느릴 때 B 가 누르기도 전에 끝나 허위 fail(10-07 실기기)
 
     def report(side):
         def handler(said, sync):
             got[side] = said
         return handler
 
-    result, memo = two({('A', 'ready'): a_ready, ('B', 'armed'): b_armed, ('A', 'report'): report('A'), ('B', 'report'): report('B')},
+    result, memo = two({('A', 'ready'): a_ready, ('A', 'watch'): a_watch, ('B', 'armed'): b_armed, ('A', 'report'): report('A'),
+                        ('B', 'report'): report('B')},
                        a_job={'token_hash': run.link(a['email']), 'nickname': b['nickname']},
                        b_job={'token_hash': run.link(b['email']), 'nickname': a['nickname']}, **LIMITS)
     if not (_both_reported(got) and 'ready' in got):
