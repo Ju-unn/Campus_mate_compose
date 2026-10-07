@@ -249,4 +249,92 @@ void main() {
       expect(find.text('이미 나간 대화예요'), findsNothing);
     });
   });
+
+  group('화면에 들어올 때마다 수락 대기와 대화 목록을 다시 읽는다', () {
+    late FakeChatRepository chat;
+    late FakeCardRepository cards;
+    late ProviderContainer container;
+
+    setUp(() {
+      chat = FakeChatRepository()..conversations = Success([conversationFixture(unreadCount: 2)]);
+      cards = FakeCardRepository();
+      container = ProviderContainer(
+        overrides: [
+          cardRepositoryProvider.overrideWithValue(cards),
+          chatRepositoryProvider.overrideWithValue(chat),
+        ],
+      );
+      addTearDown(container.dispose);
+    });
+
+    Future<void> openScreen(WidgetTester tester) async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: ConversationsScreen()),
+        ),
+      );
+      await tester.pump();
+    }
+
+    // 다른 탭으로 갔다가 이 화면으로 돌아오는 것과 같다 — 화면이 새로 만들어진다.
+    Future<void> leaveAndReturn(WidgetTester tester) async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await openScreen(tester);
+    }
+
+    testWidgets('화면을 처음 열 때는 두 목록을 한 번씩만 읽는다', (tester) async {
+      await openScreen(tester);
+
+      expect(chat.conversationsFetchCount, 1);
+      expect(cards.fetchAcceptancesCount, 1);
+    });
+
+    testWidgets('다른 탭에 갔다가 이 화면으로 돌아오면 대화 목록을 다시 읽는다', (tester) async {
+      await openScreen(tester);
+      chat.conversations = Success([conversationFixture(unreadCount: 7)]);
+
+      await leaveAndReturn(tester);
+
+      expect(chat.conversationsFetchCount, 2);
+      expect(find.text('7'), findsWidgets);
+    });
+
+    testWidgets('다른 탭에 갔다가 이 화면으로 돌아오면 수락 대기도 다시 읽는다', (tester) async {
+      await openScreen(tester);
+      expect(find.text('수락 대기'), findsNothing);
+      cards.acceptances = const Success([_acceptance]);
+
+      await leaveAndReturn(tester);
+
+      expect(cards.fetchAcceptancesCount, 2);
+      expect(find.text('초코라떼, 25'), findsOneWidget);
+    });
+
+    testWidgets('돌아와 다시 읽다 실패해도 있던 줄은 남고 오류 문구는 새로 뜨지 않는다', (tester) async {
+      cards.acceptances = const Success([_acceptance]);
+      await openScreen(tester);
+      expect(find.text('여우비'), findsOneWidget);
+      chat.conversations = const FailureResult(NetworkFailure());
+      cards.acceptances = const FailureResult(NetworkFailure());
+
+      await leaveAndReturn(tester);
+
+      expect(chat.conversationsFetchCount, 2);
+      expect(find.text('여우비'), findsOneWidget);
+      expect(find.text('초코라떼, 25'), findsOneWidget);
+      expect(find.text(const NetworkFailure().toDisplayMessage()), findsNothing);
+    });
+
+    testWidgets('당겨서 새로고침이 실패하면 오류 문구를 보여준다', (tester) async {
+      await openScreen(tester);
+      chat.conversations = const FailureResult(NetworkFailure());
+
+      await tester.fling(find.byType(CustomScrollView), const Offset(0, 300), 1000);
+      await tester.pumpAndSettle();
+
+      expect(find.text(const NetworkFailure().toDisplayMessage()), findsOneWidget);
+      expect(find.text('여우비'), findsOneWidget);
+    });
+  });
 }

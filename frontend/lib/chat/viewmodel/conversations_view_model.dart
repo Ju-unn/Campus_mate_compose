@@ -18,15 +18,20 @@ class ConversationsViewModel extends Notifier<ConversationsUiState> {
     return const ConversationsUiState();
   }
 
-  Future<void> refresh() => _inFlight ??= _load().whenComplete(() => _inFlight = null);
+  /// [quiet] 은 앱 복귀·화면 진입 때 자동으로 읽는 경우다 — 실패해도 이미 보이는 줄을 그대로 두고
+  /// 오류 줄을 새로 띄우지 않는다. 사용자가 당겨서 새로고침하거나 처음 읽을 때만 오류를 보인다.
+  Future<void> refresh({bool quiet = false}) =>
+      _inFlight ??= _load(quiet: quiet).whenComplete(() => _inFlight = null);
 
-  Future<void> _load() async {
+  Future<void> _load({required bool quiet}) async {
     final result = await ref.read(chatRepositoryProvider).fetchConversations();
     state = result.when(
       onSuccess: (conversations) =>
           state.copyWith(isLoading: false, conversations: conversations),
-      onFailure: (failure) =>
-          state.copyWith(isLoading: false, errorMessage: failure.toDisplayMessage()),
+      // 첫 읽기(isLoading)는 quiet 여도 스켈레톤을 끝내야 한다 — build() 의 첫 읽기와 합쳐지는 경우도 같다.
+      onFailure: (failure) => quiet && !state.isLoading
+          ? state
+          : state.copyWith(isLoading: false, errorMessage: failure.toDisplayMessage()),
     );
   }
 

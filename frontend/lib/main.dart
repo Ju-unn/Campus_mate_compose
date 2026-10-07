@@ -5,6 +5,7 @@ import 'package:campus_mate/auth/model/verification_gate.dart';
 import 'package:campus_mate/core/auth/account_status_listenable.dart';
 import 'package:campus_mate/core/auth/session_scope.dart';
 import 'package:campus_mate/core/auth/sign_out.dart';
+import 'package:campus_mate/core/lifecycle/resume_refresh.dart';
 import 'package:campus_mate/core/push/push_provider.dart';
 import 'package:campus_mate/core/push/push_refresh.dart';
 import 'package:campus_mate/core/push/push_route.dart';
@@ -52,6 +53,8 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
   late final OnboardingStepListenable _onboardingStep;
   late final AccountStatusListenable _accountStatus;
   late final GoRouter _router;
+  /// 앱이 백그라운드에서 돌아올 때 하단 내비 "대화" 숫자를 갱신한다([_refreshChatsOnResume]).
+  late final AppLifecycleListener _lifecycle;
   /// 스플래시를 잠깐 붙잡아 두는 임시 장치 (로고 작업 때 다시 본다).
   final SplashHold _splashHold = SplashHold();
   final List<StreamSubscription<Map<String, dynamic>>> _pushSubscriptions = [];
@@ -73,8 +76,13 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
     _onboardingStep.addListener(_openPendingPushRoute);
     _accountStatus.addListener(_signOutWhenWithdrawn);
     _router = _createRouter();
+    _lifecycle = AppLifecycleListener(onResume: _refreshChatsOnResume);
     _refreshVerificationGate();
   }
+
+  /// 어느 탭에 있든 돌아오면 대화 목록·수락 대기를 다시 읽는다. 로그아웃·관문 미완료 가드는 함수 안에 있다.
+  void _refreshChatsOnResume() =>
+      refreshOnResume(ref.read, isAuthenticated: _authSession.isAuthenticated, gate: _verificationGate.value);
 
   /// 탈퇴(직접 16c 든 다른 기기에서든)면 로그인 화면용 알림을 남기고 로그아웃한다 — 로그아웃은 여기 한 곳뿐이다.
   void _signOutWhenWithdrawn() => signOutWhenWithdrawn(_accountStatus.value, ref.read(signOutProvider));
@@ -189,6 +197,7 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
   /// 게이트는 provider 가 소유해 [ProviderScope] 와 함께 정리된다 — 여기서 dispose 하지 않는다.
   @override
   void dispose() {
+    _lifecycle.dispose();
     for (final subscription in _pushSubscriptions) {
       unawaited(subscription.cancel());
     }

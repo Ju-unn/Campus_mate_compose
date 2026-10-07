@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/matching/model/acceptance.dart';
 import 'package:campus_mate/matching/model/card_detail.dart';
@@ -21,6 +23,12 @@ class FakeCardRepository implements CardRepository {
   Result<bool> paused = const Success(false);
 
   int fetchTodayCount = 0;
+
+  /// 수락함을 읽은 횟수. 앱 복귀·화면 진입 때 다시 읽는지 볼 때 쓴다.
+  int fetchAcceptancesCount = 0;
+
+  /// 채워 두면 수락 응답이 이것이 끝날 때까지 멈춘다 — 응답 도중에 목록을 다시 읽는 상황용.
+  Completer<void>? holdRespond;
   final List<({String cardId, CardDecision decision})> decisions = [];
   final List<({String key, bool value})> preferenceUpdates = [];
   final List<String> registeredTokens = [];
@@ -43,11 +51,15 @@ class FakeCardRepository implements CardRepository {
   }
 
   @override
-  Future<Result<List<Acceptance>>> fetchAcceptances() async => acceptances;
+  Future<Result<List<Acceptance>>> fetchAcceptances() async {
+    fetchAcceptancesCount += 1;
+    return acceptances;
+  }
 
   @override
   Future<Result<AcceptanceOutcome>> respondToAcceptance(String cardId, CardDecision decision) async {
     decisions.add((cardId: cardId, decision: decision));
+    await holdRespond?.future;
     return acceptanceOutcome;
   }
 

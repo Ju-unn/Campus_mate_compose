@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:campus_mate/account/viewmodel/withdraw_view_model.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -53,7 +54,7 @@ class WithdrawFirstSheet extends ConsumerWidget {
         const SizedBox(height: 34),
         AppButton(
           label: '영구 삭제',
-          variant: AppButtonVariant.dangerStrong,
+          variant: AppButtonVariant.neutral, // pen 회색 `l1XDPi`(사용자 요청 2026-10-08 — 노드 `l44zcf` 와 같게)
           onPressed: () => Navigator.of(context).pop(true),
         ),
         _CancelButton(onPressed: () => Navigator.of(context).pop(false)),
@@ -96,7 +97,7 @@ class WithdrawFinalSheet extends ConsumerWidget {
         const SizedBox(height: 53),
         AppButton(
           label: '정말 영구 삭제',
-          variant: AppButtonVariant.dangerStrong,
+          variant: AppButtonVariant.neutral, // pen 회색 `FbrhB`
           onPressed: state.isSubmitting ? null : ref.read(withdrawViewModelProvider.notifier).withdraw,
         ),
         _CancelButton(onPressed: () => Navigator.of(context).pop()),
@@ -151,6 +152,7 @@ class _FirstSheetHeader extends StatelessWidget {
             image: AssetImage('assets/images/mascot-female-sad.png'),
             width: 88,
             height: 88,
+            fit: BoxFit.contain, // pen `x3aGgV` 88×88 contain
             excludeFromSemantics: true,
           ),
           const SizedBox(width: AppSpacing.sm),
@@ -222,12 +224,15 @@ class _PauseOffer extends StatelessWidget {
 class _DeletedItems extends StatelessWidget {
   const _DeletedItems();
 
-  static const _items = <(IconData, String)>[
-    (AppIcons.userRound, '프로필과 인증 정보'),
-    // 비재화 하트라 Lucide heart 다(DESIGN §5.4 예외 목록 "16c 수락·매칭 기록").
-    (AppIcons.heart, '수락 매칭 기록'),
-    (AppIcons.messageCircle, '모든 대화 내용'),
+  /// pen 줄의 3D 아이콘 인스턴스 `PkqpC`(프로필) · `zxXQG`(하트) · `Lua1H`(대화).
+  static const _items = <(AppIcon3d, String)>[
+    (AppIcon3d.userRound, '프로필과 인증 정보'),
+    (AppIcon3d.heart, '수락 매칭 기록'),
+    (AppIcon3d.chat, '모든 대화 내용'),
   ];
+
+  /// pen 아이콘 인스턴스 `UJN6X` · `u0hZwa` · `uZeTa` 20×20 · 아이콘과 글 사이 10.
+  static const double _iconSize = 20;
 
   @override
   Widget build(BuildContext context) {
@@ -244,8 +249,8 @@ class _DeletedItems extends StatelessWidget {
               constraints: const BoxConstraints(minHeight: 44),
               child: Row(
                 children: [
-                  Icon(icon, size: 18, color: AppColors.muted),
-                  const SizedBox(width: AppSpacing.sm),
+                  Icon3d(icon, size: _iconSize),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(label, style: AppTypography.bodySmall.copyWith(color: AppColors.body, height: 1.5)),
                   ),
@@ -289,7 +294,7 @@ class _RejoinWarning extends StatelessWidget {
   }
 }
 
-/// 16c 취소 버튼(pen `fEu75` · `dNi02`). 328×48, 모서리 14, #E5E5E5, 16/600 — AppButton(56 · 16 · 18/700)과 달라 여기 둔다.
+/// 16c 취소 버튼(pen `fEu75` · `dNi02`). 328×48, 모서리 14, #FF385C, 글자 흰색 16/700 — AppButton(52)과 높이가 달라 여기 둔다.
 class _CancelButton extends StatelessWidget {
   const _CancelButton({required this.onPressed});
 
@@ -301,7 +306,7 @@ class _CancelButton extends StatelessWidget {
       button: true,
       // 눌림 효과가 시트와 같이 움직이게 버튼 안에 Material 을 둔다(COMMON §4-2).
       child: Material(
-        color: AppColors.primaryDisabled,
+        color: AppColors.primary,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -309,7 +314,7 @@ class _CancelButton extends StatelessWidget {
           // 높이는 최소값만 건다 — 글자를 키우면 버튼이 따라 커진다.
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 48),
-            child: Center(child: Text('취소', style: AppTypography.bodyStrong.copyWith(color: AppColors.ink))),
+            child: Center(child: Text('취소', style: AppTypography.bodyStrong.copyWith(color: AppColors.onPrimary, fontWeight: FontWeight.w700))),
           ),
         ),
       ),

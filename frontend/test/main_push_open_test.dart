@@ -18,6 +18,7 @@ import 'package:campus_mate/home/model/home_repository_provider.dart';
 import 'package:campus_mate/main.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
+import 'package:flutter/material.dart' show AppLifecycleState;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -192,7 +193,32 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(ConversationsScreen), findsOneWidget);
-    expect(chat.conversationsFetchCount, before + 1);
+    // 알림이 한 번, 화면에 들어서며 한 번 — 몇 번이든 새 목록을 읽어 와야 한다.
+    expect(chat.conversationsFetchCount, greaterThan(before));
     expect(find.text('새연결'), findsOneWidget);
+  });
+
+  // 홈 같은 다른 탭에 있어도 앱이 백그라운드에서 돌아오면 하단 내비 "대화" 숫자가 낡지 않게 다시 읽는다.
+  testWidgets('다른 탭에서 앱이 백그라운드에서 돌아와도 대화 목록과 수락 대기를 다시 읽는다', (tester) async {
+    final (chat, _) = await pumpHome(tester);
+    expect(find.byType(ConversationsScreen), findsNothing);
+    final before = chat.conversationsFetchCount;
+
+    // AppLifecycleListener 는 한 칸씩 넘어가는 순서만 받는다 — 기기와 같은 순서로 보낸다.
+    for (final state in [
+      AppLifecycleState.inactive,
+      AppLifecycleState.hidden,
+      AppLifecycleState.paused,
+      AppLifecycleState.hidden,
+      AppLifecycleState.inactive,
+      AppLifecycleState.resumed,
+    ]) {
+      tester.binding.handleAppLifecycleStateChanged(state);
+    }
+    await tester.pumpAndSettle();
+    // 돌아오면 Supabase 도 토큰 자동 갱신 타이머를 켠다 — 테스트가 끝나기 전에 끈다.
+    auth().stopAutoRefresh();
+
+    expect(chat.conversationsFetchCount, before + 1);
   });
 }

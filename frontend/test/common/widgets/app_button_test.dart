@@ -142,6 +142,21 @@ void main() {
       expect(style.foregroundColor?.resolve({}), AppColors.onPrimary);
     });
 
+    testWidgets('neutral 은 #F2F2F2 채움 + #222222 글자 · 모서리 8 · 18/700 · 높이 52 다(탈퇴 회색 버튼 pen `l44zcf`)', (tester) async {
+      final enabled = await styleOf(
+        tester,
+        AppButton(label: '영구 삭제', onPressed: () {}, variant: AppButtonVariant.neutral),
+      );
+
+      expect(enabled.backgroundColor?.resolve({}), const Color(0xFFF2F2F2));
+      expect(enabled.foregroundColor?.resolve({}), const Color(0xFF222222));
+      expect((enabled.shape?.resolve({}) as RoundedRectangleBorder).borderRadius, BorderRadius.circular(8));
+      expect(enabled.minimumSize?.resolve({}), const Size(double.infinity, 52));
+      final label = tester.widget<Text>(find.text('영구 삭제'));
+      expect(label.style!.fontSize, 18);
+      expect(label.style!.fontWeight, FontWeight.w700);
+    });
+
     testWidgets('text variant 는 평상시 배경이 없고 primary-text 텍스트다', (tester) async {
       final style = await styleOf(
         tester,
