@@ -97,7 +97,7 @@ abstract final class AppRoutes {
   static const String myIdealConditions = '/me/ideal-conditions';
   static const String myTags = '/me/edit/tags'; // `/me/edit/tags/:kind` — TagPickerKind.endpoint
 
-  /// 18 하트 스토어 — 보유 하트 · 번들 구매 · 무료로 모으기. 15b 시트의 "하트 충전하기"가 연다.
+  /// 18 하트 스토어 — 보유 하트 · 번들 구매 · 무료로 모으기. 15b 시트의 "하트 충전하기"와 홈 하트 칩의 "+"가 연다.
   static const String heartStore = '/hearts/store';
 
   /// 무료로 하트 모으기 — 18a 목록, 18b 인증샷 제출(`/heart-tasks/submit/:task`, 반려 뒤면 `?reason=`), 18c 검수 대기

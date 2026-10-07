@@ -65,6 +65,8 @@ void main() {
   );
 
   final chip = find.byType(HeartBalanceChipView);
+  // 눈에 보이는 분홍 띠(44) — 누를 수 있는 칩은 이 바깥에 투명한 눌림 칸(48)이 한 겹 더 있다.
+  final band = find.descendant(of: chip, matching: find.byType(Material)).first;
 
   group('모양(pen 마스터 `sysyz`, 인스턴스 높이 44)', () {
     testWidgets(
@@ -124,10 +126,10 @@ void main() {
       await pumpView(tester, 320, showPlus: true, onPlus: () {});
 
       expect(
-        tester.getSize(chip),
+        tester.getSize(band),
         Size(_chipWidth(tester, '320', plus: true), 44),
       );
-      final origin = tester.getTopLeft(chip);
+      final origin = tester.getTopLeft(band);
       final plus = tester.widget<Icon>(find.byIcon(AppIcons.plus));
       expect((plus.size, plus.color), (16, AppColors.primaryText));
       expect(
@@ -237,6 +239,119 @@ void main() {
     });
   });
 
+  group('눌림 칸 48 — 눈에 보이는 띠 44 · 효과는 띠 위(COMMON §4-2)', () {
+    testWidgets('누를 수 있는 칩은 눌림 칸이 높이 48 이고 띠(44)는 그 안 가운데(위 2)에 그대로다', (tester) async {
+      await pumpView(tester, 320, showPlus: true, onPlus: () {});
+
+      expect(tester.getSize(chip).height, 48);
+      expect(tester.getSize(band).height, 44);
+      expect(tester.getTopLeft(band).dy - tester.getTopLeft(chip).dy, 2);
+      expect(tester.getSize(band).width, tester.getSize(chip).width); // 폭은 늘리지 않는다
+    });
+
+    testWidgets('누를 수 없는 칩(나 탭)은 높이 44 그대로다 — 영향 없음', (tester) async {
+      await pumpView(tester, 320);
+
+      expect(tester.getSize(chip).height, 44);
+      expect(tester.getSize(band).height, 44);
+    });
+
+    testWidgets('눌림 효과를 그리는 InkWell 은 띠 크기(44)다 — 48 칸은 투명하게만 받는다', (tester) async {
+      await pumpView(tester, 320, showPlus: true, onPlus: () {});
+
+      final ink = find.descendant(of: chip, matching: find.byType(InkWell));
+      expect(tester.getSize(ink).height, 44);
+      expect(tester.getRect(ink), tester.getRect(band));
+      final box = tester.widget<Material>(band);
+      expect(box.color, AppColors.primaryWash); // 눈에 보이는 색은 띠에만 있다
+    });
+
+    testWidgets('띠 바로 위 · 아래 1px(눌림 칸 안, 투명한 곳)을 눌러도 한 번 불린다', (tester) async {
+      var taps = 0;
+      await pumpView(tester, 320, showPlus: true, onPlus: () => taps++);
+      final rect = tester.getRect(chip);
+
+      await tester.tapAt(Offset(rect.center.dx, rect.top + 1));
+      await tester.tapAt(Offset(rect.center.dx, rect.bottom - 1));
+
+      expect(taps, 2);
+    });
+
+    testWidgets('눌림 칸 바깥 2px 은 눌리지 않는다', (tester) async {
+      var taps = 0;
+      await pumpView(tester, 320, showPlus: true, onPlus: () => taps++);
+      final rect = tester.getRect(chip);
+
+      await tester.tapAt(Offset(rect.center.dx, rect.top - 2));
+      await tester.tapAt(Offset(rect.center.dx, rect.bottom + 2));
+      await tester.tapAt(Offset(rect.left - 2, rect.center.dy));
+      await tester.tapAt(Offset(rect.right + 2, rect.center.dy));
+
+      expect(taps, 0);
+    });
+
+    testWidgets('띠 가운데를 눌러도 한 번만 불린다(안쪽 효과와 바깥 칸이 둘 다 부르지 않는다)', (tester) async {
+      var taps = 0;
+      await pumpView(tester, 320, showPlus: true, onPlus: () => taps++);
+
+      await tester.tap(band);
+
+      expect(taps, 1);
+    });
+
+    testWidgets('안드로이드 터치 영역(48×48) 기준을 지킨다 — 칩을 화면 모서리에서 띄워 둔다', (tester) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Padding(
+              // 모서리(0,0)에 붙은 칩은 기준이 눌림 칸 크기를 잘 못 잰다 — 띄워 두면 44 칸에서는 실패한다.
+              padding: const EdgeInsets.fromLTRB(20, 100, 0, 0),
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: HeartBalanceChipView(balance: 320, showPlus: true, onPlus: () {}),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
+      handle.dispose();
+    });
+
+    testWidgets('누르는 동안 눌림 효과가 띠 모양(둥근 사각형)으로 그려진다', (tester) async {
+      await pumpView(tester, 320, showPlus: true, onPlus: () {});
+      final controller = Material.of(tester.element(find.descendant(of: chip, matching: find.byType(InkWell))));
+      expect(controller, isNot(paints..rrect())); // 누르기 전에는 그려진 효과가 없다
+
+      final gesture = await tester.startGesture(tester.getCenter(band));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(controller, paints..rrect());
+      await gesture.up();
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('스크린리더 힌트에 "하트 충전" 이 붙고 읽는 라벨은 그대로다', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pumpView(tester, 320, showPlus: true, onPlus: () {});
+
+      final data = tester.getSemantics(chip).getSemanticsData();
+      expect(data.label, '보유 하트 320개');
+      expect(data.hint, '하트 충전');
+      handle.dispose();
+    });
+
+    testWidgets('누를 수 없는 칩에는 충전 힌트가 없다', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pumpView(tester, 320);
+
+      expect(tester.getSemantics(chip).getSemanticsData().hint, isEmpty);
+      handle.dispose();
+    });
+  });
+
   group('서버 값을 읽는 칩 `HeartBalanceChip`', () {
     Future<void> pumpReader(
       WidgetTester tester,
@@ -296,7 +411,7 @@ void main() {
       );
 
       expect(
-        tester.getSize(chip),
+        tester.getSize(band),
         Size(_chipWidth(tester, '320', plus: true), 44),
       );
       await tester.tap(chip);

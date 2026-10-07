@@ -12,8 +12,8 @@ const String _heartAsset = 'assets/images/heart-flat-vector-v3.png';
 /// 내 하트 잔액 칩(pen 마스터 `sysyz` HeartBalanceChip). 잔액은 서버 값(`MyProfile.heartBalance`)을 읽는다 —
 /// 앱에 숫자를 두지 않는다. 읽는 중 · 실패에는 칩을 숨긴다(pen 에 없는 상태 — 대장 추천, 값이 오면 보인다).
 ///
-/// 나 탭 앱바(`hwVQB/MjtQA`)는 "+" 없이, 홈(`ihX4y`)은 [showPlus] 를 켜서 쓴다. "+" 가 열 하트 상점은 아직 없어
-/// [onPlus] 를 받기만 한다 — null 이면 눌러도 아무 일도 없다(상점 PR 에서 연결).
+/// 나 탭 앱바(`hwVQB/MjtQA`)는 "+" 없이, 홈(`ihX4y`)은 [showPlus] 를 켜서 쓴다. "+" 를 누르면 할 일은 [onPlus] 가 정한다 —
+/// 홈은 `_openHeartStore` 로 하트 상점을 연다. null 이면 눌러도 아무 일도 없다.
 class HeartBalanceChip extends ConsumerWidget {
   const HeartBalanceChip({this.showPlus = false, this.onPlus, super.key});
 
@@ -52,8 +52,11 @@ class HeartBalanceChipView extends StatelessWidget {
   final bool showPlus;
   final VoidCallback? onPlus;
 
-  /// pen 인스턴스 높이(터치 영역 44 이상).
+  /// pen 인스턴스 높이 — 눈에 보이는 분홍 띠와 눌림 효과가 그려지는 칸.
   static const double _height = 44;
+
+  /// 누를 수 있을 때의 눌림 칸 높이(안드로이드 터치 영역 48). 띠(44)는 이 안 가운데에 그대로 두고 위아래 2 는 투명하다.
+  static const double _tapHeight = 48;
 
   /// 숫자 줄 높이 25 × 배율이 칸 32 안에 드는 가장 큰 배율(25 × 1.2 = 30).
   static const double _maxTextScale = 1.2;
@@ -112,10 +115,18 @@ class HeartBalanceChipView extends StatelessWidget {
     );
     return Semantics(
       label: '보유 하트 $balance개',
+      hint: tappable ? '하트 충전' : null,
       button: tappable,
       excludeSemantics: true,
       onTap: showPlus ? onPlus : null,
-      child: shape,
+      // 눌림 칸만 48 로 넓힌다 — 띠의 눌림 효과(InkWell)는 띠 안(44)에서 그려지고, 위아래 2 는 투명한 opaque 칸이 받는다.
+      child: tappable
+          ? GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onPlus,
+              child: SizedBox(height: _tapHeight, child: Center(widthFactor: 1, child: shape)),
+            )
+          : shape,
     );
   }
 

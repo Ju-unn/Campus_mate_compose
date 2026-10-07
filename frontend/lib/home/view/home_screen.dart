@@ -20,6 +20,7 @@ import 'package:campus_mate/home/view/stat_tile.dart';
 import 'package:campus_mate/home/view/tag.dart';
 import 'package:campus_mate/home/viewmodel/home_summary_provider.dart';
 import 'package:campus_mate/me/view/me_toast.dart';
+import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -35,6 +36,21 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeScreen> {
   bool _opening = false;
+
+  /// 상점이 열려 있는 동안 "+" 를 또 눌러도(같은 프레임의 연타 포함) 상점을 한 겹만 쌓는다.
+  bool _openingStore = false;
+
+  /// 하트 칩의 "+" → 하트 상점. 상점에서 돌아오면 잔액을 다시 읽는다(상점에서 하트가 바뀔 수 있고, 칩은 내 프로필의 잔액을 그대로 보인다).
+  Future<void> _openHeartStore() async {
+    if (_openingStore) return;
+    _openingStore = true;
+    try {
+      await context.push(AppRoutes.heartStore);
+    } finally {
+      _openingStore = false;
+    }
+    if (mounted) ref.invalidate(myProfileProvider);
+  }
 
   /// 프로필 완성도 카드 → 프로필 편집 허브. 홈 요약은 autoDispose 가 아니고 프로필 저장은 내 프로필만 새로 읽게 하므로,
   /// 편집하고 돌아오면 요약을 다시 읽어 완성도(100% 면 카드가 사라진다)를 맞춘다.
@@ -88,8 +104,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
         actions: [
           // 숫자 배지는 알림함이 생길 때까지 숨긴다(사용자 결정 2026-09-26) — 안 읽은 알림 수의 출처가 아직 없다.
           // pen `Trailing`(`ihX4y` 안) — 하트 칩(`sysyz` 인스턴스 "+" 켬, 높이 44) · gap 4 · 종. 칩은 잔액을 읽는 동안 · 못 읽으면 자리째 숨는다.
-          // "+" 가 열 하트 상점은 나 탭 PR-B 에서 온다 — 그때까지는 "곧 열려요"(상점 경로를 홈이 따로 만들지 않는다).
-          HeartBalanceChip(showPlus: true, onPlus: () => showTimedToast(comingSoonToast)),
+          // "+" 는 하트 상점(18, `/hearts/store`)으로 간다.
+          HeartBalanceChip(showPlus: true, onPlus: _openHeartStore),
           const SizedBox(width: AppSpacing.xxs),
           const NotifyIconButton(count: 0),
           const SizedBox(width: AppSpacing.xs),
