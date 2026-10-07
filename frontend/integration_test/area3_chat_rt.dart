@@ -9,6 +9,7 @@ part of 'area3.dart';
 
 const _rtDisconnected = '연결이 끊겼어요'; // chat_room_screen.dart:160 — 끊김 배너 제목(TrustBanner)
 const _rtRetry = '다시 시도'; // chat_room_screen.dart:163 — 배너 버튼
+const _rtWarmText = 'E2E-warm'; // E-CHAT-03 — 입력 경로를 데울 때 쓰고 곧 비우는 글(보내지 않는다)
 const _rtLoadWait = Duration(seconds: 15); // 방 머리말 · 첫 쪽을 읽는 시간
 const _rtLong = Duration(minutes: 5); // PC 가 한참 일하는 멈춤(support.step 기본은 2분)
 const _rtBannerWait = Duration(seconds: 60); // 망을 끊은 뒤 끊김 배너가 뜨기를 기다리는 상한 — Realtime 하트비트가 늦게 알아챌 수 있다
@@ -102,8 +103,14 @@ Future<Map<String, Object?>?> _rtAlternate(WidgetTester tester, Map<String, dyna
   if (!loaded) throw E2eBlocked('방이 안 읽힘(${container.read(chatRoomViewModelProvider(matchId)).errorMessage})');
   final watch = _rtWatch(container, matchId, all);
   try {
+    // 입력 경로 데우기 — 에뮬이 처음 입력(IME · 키보드 · 첫 프레임)을 하는 동안 이벤트 루프가 밀려 수신 처리가 늦으면, 받는 줄이 2초를 넘는다(실기기 E-CHAT-03 재실행:
+    // 처음 몇 건만 2.0~2.9초). 서기 전에 한 번 쓰고 비워 그 부하를 미리 치른다. 보내지 않는다 — DB 에 줄이 늘면 안 된다.
+    await type(tester, _chatField, _rtWarmText);
+    await type(tester, _chatField, '');
+    await wait(tester, const Duration(seconds: 3)); // 키보드 · 프레임이 가라앉을 시간
     await wait(tester, const Duration(seconds: 2)); // 구독이 붙기 전에 PC 가 첫 글을 보내면 1번 글을 놓친다
     await _rtStep('ready', {}, timeout: _rtLong); // 두 기기가 다 열린 뒤 함께
+    final sentAt = <String>[]; // 보내기를 누르기 직전의 앱 시계(UTC) — PC 가 "받는 기기도 그때 보내는 중이었나" 를 가린다
     final gap = Duration(milliseconds: ((job['gap'] as num) * 1000).round());
     final start = DateTime.now().add(Duration(milliseconds: ((job['offset'] as num) * 1000).round()));
     for (var i = 0; i < mine.length; i++) {
@@ -114,11 +121,12 @@ Future<Map<String, Object?>?> _rtAlternate(WidgetTester tester, Map<String, dyna
       // 앞 보내기가 끝나기 전에 또 누르면 뷰모델이 버린다(isSending) — 끝나기를 기다렸다 누른다.
       await _rtUntil(tester, () => !container.read(chatRoomViewModelProvider(matchId)).isSending, const Duration(seconds: 5));
       await type(tester, _chatField, mine[i]);
+      sentAt.add(_utcNow());
       await tap(tester, _sendButton);
     }
     await _rtUntil(tester, () => watch.seen.length == all.length, const Duration(seconds: 20));
     await tester.pump(const Duration(milliseconds: 500));
-    await _rtStep('done', {'seen': watch.seen, 'order': _rtOrder(container, matchId, all)});
+    await _rtStep('done', {'seen': watch.seen, 'order': _rtOrder(container, matchId, all), 'sent_at': sentAt});
     return null;
   } finally {
     watch.close();

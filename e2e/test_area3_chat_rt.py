@@ -660,7 +660,7 @@ class AlternateTest(TwoBase):
         job = self.two.a_job
         return job['mine'], job['theirs']
 
-    def alternate(self, swap=None, drop=None, twice=None, a_delay=0.6, b_delay=0.6, slow=None, ignore_id=False, negative=0):
+    def alternate(self, swap=None, drop=None, twice=None, a_delay=0.6, b_delay=0.6, slow=None, ignore_id=False, negative=0, busy=None):
         """앱 둘이 서로 번갈아 20건씩 보낸 일 — [effect] 가 DB 에 40줄을 0.5초 칸으로 넣고, 두 앱이 화면 순서 · 처음 본 시각을 말한다."""
         def effect():
             mine, theirs = self.bodies()
@@ -686,7 +686,10 @@ class AlternateTest(TwoBase):
                         seen[body] = stamp(made[body] - timedelta(seconds=1.5))
                 if slow and who == slow[0]:
                     seen[others[slow[1]]] = stamp(made[others[slow[1]]] + timedelta(seconds=slow[2]))
-                return {'order': order, 'seen': seen}
+                said = {'order': order, 'seen': seen}
+                if busy:  # 받는 기기가 자기 글을 보내던 때(앱 시계) — 옛 앱은 이 키를 안 말한다
+                    said['sent_at'] = busy(who, made)
+                return said
             return payload
 
         return [('A', 'ready', {}, None), ('B', 'ready', {}, None), ('A', 'done', says('A', a_delay), effect), ('B', 'done', says('B', b_delay), None)]
@@ -785,6 +788,60 @@ class AlternateTest(TwoBase):
         result, note = self.go('E-CHAT-03', [('A', 'ready', {}, None), ('B', 'ready', {}, None), self.alternate(swap=(1, 2))[2]],
                                result=('blocked', 'A: pass  B: blocked'), partial=True)
         self.assertEqual(result, 'fail', note)
+
+    def test_03_a_slow_line_says_whether_the_receiving_device_was_sending_just_before(self):
+        """원인 가설(받는 기기의 자기 보내기 부하)을 증거로 가른다 — 판정(2.0초)은 그대로, 문구만 덧붙는다."""
+        def near(who, made):  # B 가 6번 글을 본 시각(= 만든 시각 + 2.6초) 0.8초 앞에 자기 글을 보냈다
+            others = self.two.a_job['mine'] if who == 'B' else self.two.b_job['mine']
+            return [stamp(made[others[5]] + timedelta(seconds=2.6 - 0.8))]
+        result, note = self.go('E-CHAT-03', self.alternate(slow=('B', 5, 2.6), busy=near))
+        self.assertEqual(result, 'fail', note)
+        self.assertIn('6번 글이 2.6초', note)
+        self.assertIn('그 글이 보이기 직전 0.8초 안에 받는 기기도 자기 글을 보냄', note)
+
+    def test_03_a_slow_line_with_the_receiver_quiet_says_so(self):
+        def far(who, made):
+            others = self.two.a_job['mine'] if who == 'B' else self.two.b_job['mine']
+            return [stamp(made[others[5]] + timedelta(seconds=2.6 - 5.0))]  # 5초 전 — 3초 창 밖
+        result, note = self.go('E-CHAT-03', self.alternate(slow=('B', 5, 2.6), busy=far))
+        self.assertEqual(result, 'fail', note)
+        self.assertIn('6번 글이 2.6초', note)
+        self.assertIn('직전 3초 안에 받는 기기의 보내기는 없었음', note)
+        self.assertNotIn('도 자기 글을 보냄', note)
+
+    def test_03_without_sent_at_the_fail_text_is_the_old_one(self):
+        """옛 앱 · 옛 가짜 앱은 sent_at 을 안 말한다 — 문구는 덧붙지 않고 판정도 그대로."""
+        result, note = self.go('E-CHAT-03', self.alternate(slow=('B', 5, 2.6)))
+        self.assertEqual(result, 'fail', note)
+        self.assertNotIn('받는 기기', note)
+        result, note = self.go('E-CHAT-03', self.alternate(slow=('B', 5, 2.6), busy=lambda who, made: []))
+        self.assertEqual(result, 'fail', note)
+        self.assertNotIn('받는 기기', note)  # 빈 목록 = 말한 게 없다
+
+    def test_03_the_verdict_stays_at_two_seconds_with_or_without_sent_at(self):
+        def near(who, made):
+            others = self.two.a_job['mine'] if who == 'B' else self.two.b_job['mine']
+            return [stamp(made[others[i]]) for i in range(20)]
+        result, note = self.go('E-CHAT-03', self.alternate(a_delay=2.0, b_delay=2.0, busy=near))
+        self.assertEqual(result, 'pass', note)  # 정확히 2.0초는 안 — 문구는 fail 에만 붙는다
+        self.assertNotIn('받는 기기', note)
+        result, note = self.go('E-CHAT-03', self.alternate(b_delay=2.1, busy=near))
+        self.assertEqual(result, 'fail', note)
+
+    def test_03_each_screen_gets_its_own_sent_at(self):
+        """A 화면(상대 줄 = B 의 글)에는 A 가 말한 sent_at, B 화면에는 B 가 말한 것."""
+        def own(who, made):
+            return [f'{who}-marker']  # 읽을 수 없는 값 — 문구엔 안 쓰이고 앞 시험이 시각 쪽을 본다
+        seen_by = {}
+        import e2e.area3_chat_rt as module
+        real = module._delays
+
+        def spy(check, run, match_id, bodies, seen, label, kind='text', busy=None):
+            seen_by[label] = busy
+            return real(check, run, match_id, bodies, seen, label, kind, busy)
+        with mock.patch.object(module, '_delays', spy):
+            self.go('E-CHAT-03', self.alternate(busy=own))
+        self.assertEqual(seen_by, {'A 화면': ['A-marker'], 'B 화면': ['B-marker']})
 
     def test_03_each_side_waits_for_the_other_to_be_ready_before_it_is_let_go(self):
         """진짜 스레드 둘 — 한쪽 핸들러는 상대가 ready 를 세울 때까지 돌아오지 않는다(둘이 같이 풀려야 엇갈림이 맞는다)."""
@@ -971,6 +1028,32 @@ class RegistryTest(Phone9):
         self.assertIn('return true;', body)
         self.assertNotIn('catch', body)  # 예외를 삼켜 결과를 숨기지 않는다 — 존재 확인으로
         self.assertNotIn('try {', body)
+
+    def alternate_body(self):
+        text = self.dart('area3_chat_rt.dart')
+        start = text.index('Future<Map<String, Object?>?> _rtAlternate(')
+        return text[start:text.index('\n}\n', start)]
+
+    def test_the_alternating_app_warms_the_input_path_before_ready_without_sending(self):
+        """에뮬이 처음 입력(IME · 키보드 · 첫 프레임)을 하는 동안 수신 처리가 밀리지 않게 — ready 에서 서기 전에 쓰고 비우고 가라앉힌다. 보내지 않는다(DB 줄이 늘면 안 된다)."""
+        body = self.alternate_body()
+        ready = body.index("_rtStep('ready'")
+        write = body.index('await type(tester, _chatField, _rtWarmText);')
+        clear = body.index("await type(tester, _chatField, '');")
+        settle = body.index('await wait(tester, const Duration(seconds: 3));')
+        self.assertLess(write, clear)
+        self.assertLess(clear, settle)
+        self.assertLess(settle, ready)
+        self.assertNotIn('_sendButton', body[:ready])  # 데우기에서는 보내기를 안 누른다
+        self.assertNotIn('onSend', body)
+        self.assertRegex(self.dart('area3_chat_rt.dart'), r"const _rtWarmText = '[^']+';")
+
+    def test_the_alternating_app_tells_the_pc_when_it_pressed_send(self):
+        body = self.alternate_body()
+        self.assertIn('final sentAt = <String>[];', body)
+        self.assertLess(body.index('sentAt.add(_utcNow());'), body.index('await tap(tester, _sendButton);'))  # 누르기 직전
+        self.assertIn("'sent_at': sentAt", body)
+        self.assertLess(body.index("_rtStep('ready'"), body.index('sentAt.add(_utcNow());'))
 
     def test_every_job_key_is_read_by_the_app(self):
         dart = ''.join(self.dart(n) for n in ('area3.dart', 'area3_b2.dart', 'area3_chat_rt.dart'))
