@@ -162,7 +162,13 @@ Future<Map<String, Object?>> _fkRegenerate(WidgetTester tester, Map<String, dyna
 
 /// 설정 → 탈퇴하기 → 영구 삭제 → "정말 영구 삭제" — 가짜가 서버 대신 답하므로 계정은 그대로다. 최종 시트에 문구가 뜬다.
 Future<Map<String, Object?>> _fkWithdraw(WidgetTester tester, Map<String, dynamic> job) async {
-  await _wdOpenFinal(tester);
+  // `_wdOpenFinal` 은 `_openMe` 로 시작해 홈 화면(HomeScreen)을 다시 찾는다 — 앞 걸음으로 이미 나 탭 안에 있어 홈이 안 지어진 채라 30초 뒤 실패했다(2026-10-07 기기 실행).
+  // 그래서 나 탭(15)에 있는 채 설정부터 연다.
+  await _returnTo(tester, '내 프로필');
+  await pumpUntil(tester, find.byType(ProfileHero));
+  await _openSettings(tester);
+  await _openWithdrawSheet(tester);
+  await _openFinalSheet(tester);
   await _wdWithdraw(tester);
   final expect = job['expect'] as String;
   final sheet = find.descendant(of: find.byType(WithdrawFinalSheet), matching: find.text(expect));

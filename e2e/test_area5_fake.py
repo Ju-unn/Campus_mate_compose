@@ -219,3 +219,14 @@ class RegistryTest(FakeBase):
         self.assertIn('apiClientProvider.overrideWith', scope)
         self.assertIn('runApp(_FkScope(', code)
         self.assertNotIn('SessionScope(', code)  # lib 의 SessionScope 는 overrides 를 못 받는다
+
+    def test_withdraw_opens_the_sheet_from_the_me_tab_and_never_looks_for_the_home_screen_again(self):
+        # _wdOpenFinal 은 _openMe → arrive('home') 로 시작한다 — 이미 나 탭 안이면 HomeScreen 이 없어 30초 뒤 fail(2026-10-07 기기 실행).
+        code = re.sub(r'(?m)^\s*//.*$', '', self.dart())
+        withdraw = code.split('Future<Map<String, Object?>> _fkWithdraw(')[1].split('const _fkLoadFail')[0]
+        self.assertNotIn('_wdOpenFinal', withdraw)
+        self.assertNotIn('_openMe', withdraw)
+        for helper in ('_openSettings(tester)', '_openWithdrawSheet(tester)', '_openFinalSheet(tester)', '_wdWithdraw(tester)'):
+            self.assertIn(helper, withdraw)
+        walk = code.split('Future<Map<String, Object?>> _fkSaves(')[1].split('final Map<String, Area1Case>')[0]
+        self.assertLess(walk.index('_openManage(tester)'), walk.index('_fkWithdraw('))  # 홈을 찾는 건 맨 앞 한 번뿐
