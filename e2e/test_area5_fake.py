@@ -208,3 +208,14 @@ class RegistryTest(FakeBase):
         self.assertEqual(re.findall(r'_fkWithdraw\(', code), ['_fkWithdraw(', '_fkWithdraw('])  # 선언 + _fkSaves 안 한 번
         self.assertIn("POST /account/withdraw", code.split('Future<Map<String, Object?>> _fkSaves(')[1].split('final Map<String, Area1Case>')[0])
         self.assertIn("job['status']", code)  # 규칙은 늘 502 · 500 같은 실패 코드 — 200 을 줄 길이 없다
+
+    def test_the_swap_sits_on_the_top_provider_scope_not_on_a_nested_one(self):
+        # 겹친 ProviderScope 의 바꿔 끼움은 저장소 provider 에 안 먹어 가짜가 한 번도 안 지났다(2026-10-07 기기 실행 — 넷 다 blocked).
+        code = re.sub(r'(?m)^\s*//.*$', '', self.dart())
+        self.assertEqual(code.count('ProviderScope('), 1)
+        scope = code.split('class _FkScope extends State')[1].split('/// 앱을 apiClientProvider')[0]
+        self.assertIn('ProviderScope(', scope)
+        self.assertIn('overrides: [', scope)
+        self.assertIn('apiClientProvider.overrideWith', scope)
+        self.assertIn('runApp(_FkScope(', code)
+        self.assertNotIn('SessionScope(', code)  # lib 의 SessionScope 는 overrides 를 못 받는다

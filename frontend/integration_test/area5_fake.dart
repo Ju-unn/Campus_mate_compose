@@ -5,8 +5,8 @@ part of 'area5.dart';
 // 정한 `METHOD /경로` 만 서버에 보내지 않고 502 · 500 · 429 로 대신 답한다. 그 밖의 요청은 그대로 서버로 간다.
 // 대신 답한 요청은 서버에 닿지 않으므로 DB 는 안 바뀌고 임베딩 · 이미지 생성(유료)도 안 나간다. PC 는 [_FkClient.faked] 로 그것을 확인한다.
 // "정말 영구 삭제" 는 `_wdWithdraw` 로만 누른다 — 그리고 [_FkClient] 는 POST /account/withdraw 를 규칙이 없어도 서버에 보내지 않는다(안 보내는 쪽으로 닫힘).
-// 이 파일의 이름은 모두 `_fk` 로 시작한다. 이 파일은 기기에서 아직 안 돌려 봤다.
-// 위험(기기 미확인): SessionScope 안에 겹친 ProviderScope 가 apiClientProvider 를 덮는지 — 안 덮였으면 [_FkClient.built] 가 false 라 아무것도 누르기 전에 blocked.
+// 이 파일의 이름은 모두 `_fk` 로 시작한다.
+// 바꿔 끼움은 맨 위 ProviderScope 에 단다([_FkScope]) — 겹친 것은 저장소 provider 에 안 먹는다. 안 먹었으면 [_FkClient.built] 가 false 라 아무것도 누르기 전에 blocked.
 
 /// 지켜보는 여섯 길 — 규칙이 없어 서버로 그냥 간 것을 [_FkClient.passed] 에 적는다.
 const _fkWatched = ['PATCH /me/profile', 'PUT /me/photos', 'POST /account/withdraw', 'POST /me/avatar/regenerate', 'GET /me/profile', 'GET /me/card-preview'];
@@ -60,24 +60,59 @@ class _FkClient extends http.BaseClient {
   }
 }
 
+/// SessionScope(lib/core/auth/session_scope.dart)와 같은 일을 하되 **맨 위 ProviderScope** 에 apiClientProvider 의 바꿔 끼움을 단다.
+/// 겹친 ProviderScope 에 단 바꿔 끼움은 그 아래 위젯이 직접 읽는 provider 에만 먹는다(예: homeNowProvider) — 저장소 provider(meRepositoryProvider 등)는
+/// 맨 위 컨테이너가 만들어 맨 위의 apiClientProvider 를 읽으므로 가짜가 한 번도 안 지났다(2026-10-07 기기 실행: 넷 다 blocked).
+/// SessionScope 는 overrides 를 못 받아 lib 를 안 고치려고 같은 모양을 시험 쪽에 둔다 — 로그아웃(signedOut)마다 컨테이너를 새로 만드는 것까지 같다.
+class _FkScope extends StatefulWidget {
+  const _FkScope({required this.fake, super.key});
+
+  final _FkClient fake;
+
+  @override
+  State<_FkScope> createState() => _FkScopeState();
+}
+
+class _FkScopeState extends State<_FkScope> {
+  late final StreamSubscription<AuthState> _subscription;
+  int _generation = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _subscription = Supabase.instance.client.auth.onAuthStateChange.listen(
+      (state) {
+        if (state.event == AuthChangeEvent.signedOut) setState(() => _generation++);
+      },
+      onError: (Object _) {},
+    );
+  }
+
+  @override
+  void dispose() {
+    unawaited(_subscription.cancel());
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => ProviderScope(
+        key: ValueKey(_generation),
+        overrides: [
+          apiClientProvider.overrideWith((ref) => ApiClient(
+                Env.apiBaseUrl,
+                widget.fake,
+                Supabase.instance.client.auth,
+                onFailure: ref.read(accountStatusListenableProvider).observe,
+              )),
+        ],
+        child: const app.CampusMateApp(),
+      );
+}
+
 /// 앱을 apiClientProvider 만 바꿔 끼워 다시 띄운다 — 로그인은 이어서 [_session] 이 한다.
 _FkClient _fkInstall() {
   final fake = _FkClient(http.Client());
-  runApp(SessionScope(
-    key: UniqueKey(), // 같은 타입이라 키가 없으면 옛 SessionScope 상태(옛 provider 컨테이너)를 그대로 이어 쓴다
-    authChanges: Supabase.instance.client.auth.onAuthStateChange,
-    child: ProviderScope(
-      overrides: [
-        apiClientProvider.overrideWith((ref) => ApiClient(
-              Env.apiBaseUrl,
-              fake,
-              Supabase.instance.client.auth,
-              onFailure: ref.read(accountStatusListenableProvider).observe,
-            )),
-      ],
-      child: const app.CampusMateApp(),
-    ),
-  ));
+  runApp(_FkScope(key: UniqueKey(), fake: fake)); // 같은 타입이라 키가 없으면 옛 상태(옛 provider 컨테이너)를 그대로 이어 쓴다
   return fake;
 }
 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -14,7 +15,6 @@ import 'package:campus_mate/common/widgets/photo_slider.dart';
 import 'package:campus_mate/common/widgets/school_label.dart';
 import 'package:campus_mate/common/widgets/select_chip.dart';
 import 'package:campus_mate/core/auth/account_status_listenable.dart';
-import 'package:campus_mate/core/auth/session_scope.dart';
 import 'package:campus_mate/core/env.dart';
 import 'package:campus_mate/core/http/api_client.dart';
 import 'package:campus_mate/core/http/api_client_provider.dart';
