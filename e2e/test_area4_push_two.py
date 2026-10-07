@@ -56,6 +56,7 @@ class FakeRun:
     def account(self, kind):
         return dict(ACCOUNT)
 
+
     def link(self, email):
         return f'link-{email}'
 
@@ -86,7 +87,7 @@ class Base(unittest.TestCase):
         world = self.world
         patchers = [
             mock.patch.object(two_mod, '_tokens', lambda run, account_id: world.rows()),
-            mock.patch.object(two_mod, '_send_one', lambda run, account: world.send()),
+            mock.patch.object(two_mod, '_send_from', lambda run, sender, account: world.send()),
             mock.patch.object(two_mod, '_need_token', lambda run, account, why: None if world.rows() else self.fail('토큰 없음')),
             mock.patch.object(two_mod, '_wait', lambda until, seconds: until()),
             mock.patch.object(two_mod, '_arrived', lambda serial, before, nick: world.shown[serial][len(before):] == [nick]),

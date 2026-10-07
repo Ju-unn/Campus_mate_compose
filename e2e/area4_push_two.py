@@ -10,7 +10,10 @@
 from e2e import area1, notify, tools, twodev
 from e2e.area1 import Check
 from e2e.area2_two_accept import _after
-from e2e.area4_push_a4 import GONE_WAIT, TOKEN_WAIT, _arrived, _need_token, _quiet, _send_one, _tokens, _wait
+from e2e import notify_factory
+from e2e.area1 import _one
+from e2e.area4_push_a4 import GONE_WAIT, TOKEN_WAIT, _arrived, _need_token, _quiet, _tokens, _wait
+from e2e.area2_two_accept import _verdict
 from e2e.tools import Blocked
 
 CASE_LIMIT = 1800  # 가설 하나 상한(초) — 계정 · 두 기기 로그인 + 알림 기다림 두 번
@@ -26,7 +29,7 @@ def _setup(run, two, *, push):
         notify.require_daytime()
         for serial in serials.values():
             notify.ensure_delivery(serial)
-    return run.account('home'), serials
+    return run.account('home'), serials, run.account('home') if push else None  # 보내는 계정도 메인 스레드에서 — 핸들러는 Run 을 안 만진다
 
 
 def _joined(run, account, check, seen):
@@ -50,12 +53,21 @@ def _joined(run, account, check, seen):
     return a_in, b_wait, b_in
 
 
-def _notified(run, account, serials, check, who):
+def _send_from(run, sender, receiver):
+    """"알림 하나 보내기" — 미리 만든 [sender] 가 [receiver] 에게 카드를 만들어 수락한다 → 보낸 사람 닉네임(알림 본문에 든다)."""
+    nickname = _one(run, f"profiles?id=eq.{sender['id']}&select=nickname").get('nickname')
+    if not nickname:
+        raise Blocked('보낸 계정의 닉네임을 못 읽음')
+    notify_factory.accept_card(run, sender, notify_factory.card(run, sender, receiver))
+    return nickname
+
+
+def _notified(run, sender, account, serials, check, who):
     """알림 하나를 보내고 [who] = {기기: 와야 하면 True} 대로 오는지 — 어긋나면 check 에 적는다."""
     for serial in serials.values():
         notify.background(serial)
     before = {name: notify.read_notifications(serial) for name, serial in serials.items()}
-    nickname = _send_one(run, account)
+    nickname = _send_from(run, sender, account)
     for name, serial in serials.items():
         if who[name]:
             check.that(_arrived(serial, before[name], nickname), f'{name} 에 알림이 {notify.NOTICE_WAIT}초 안에 안 옴')
@@ -64,24 +76,17 @@ def _notified(run, account, serials, check, who):
             check.that(not got, f'{name} 에 알림 {len(got)}개가 옴 — 오면 안 되는 기기')
 
 
-def _verdict(check, result, memo, *notes):
-    """두 기기 결과에 PC 가 직접 본 어긋남을 합친다 — PC 가 찾은 것은 앱이 막혔어도 확정된 fail 이다(area2_two_accept._verdict 와 같다)."""
-    if check.problems:
-        return 'fail', '; '.join(check.problems) + f' [{memo}]'
-    return result, ' | '.join([memo, *notes]) if result == 'pass' else memo
-
-
 # ── 64 두 기기 모두에 알림 ─────────────────────────────────────────────────────────────────────────
 
 def push_64(run, two):
     """같은 계정으로 두 기기가 로그인하면 push_tokens 가 2행이고 알림 하나가 두 기기 모두에 온다. 근거: push.py:73,86-89(계정의 토큰 전부에 보낸다)."""
     check, seen = Check(), {}
-    account, serials = _setup(run, two, push=True)
+    account, serials, sender = _setup(run, two, push=True)
     a_in, b_wait, b_in = _joined(run, account, check, seen)
 
     def b_both(said, sync):
         b_in(said, sync)
-        _notified(run, account, serials, check, {'A': True, 'B': True})
+        _notified(run, sender, account, serials, check, {'A': True, 'B': True})
         sync.set('checked')
 
     def hold(said, sync):
@@ -98,7 +103,7 @@ def push_65(run, two):
     """A 폰이 로그아웃하면 push_tokens 는 B 에뮬 것 1행만 남고 알림은 A 0 · B 1 이며 B 는 로그인을 유지한다.
     근거: sign_out.dart(gotrue signOut 기본 local) · 로그아웃은 그 기기 토큰만 지운다. A 의 "0" 은 같은 읽기가 B 에서 알림을 읽는 것으로 살아 있음을 본다."""
     check, seen = Check(), {}
-    account, serials = _setup(run, two, push=True)
+    account, serials, sender = _setup(run, two, push=True)
     a_in, b_wait, b_in = _joined(run, account, check, seen)
 
     def both(said, sync):
@@ -108,7 +113,7 @@ def push_65(run, two):
         _wait(lambda: len(_tokens(run, account['id'])) <= 1, GONE_WAIT)
         left = {row['token'] for row in _tokens(run, account['id'])}
         check.that(left == seen.get('b'), f'A 가 로그아웃한 뒤 push_tokens {left} — B 에뮬의 것 {seen.get("b")} 1행만 남아야 함')
-        _notified(run, account, serials, check, {'A': False, 'B': True})
+        _notified(run, sender, account, serials, check, {'A': False, 'B': True})
         sync.set('done')
 
     def b_ready(said, sync):
@@ -130,7 +135,7 @@ def push_71(run, two):
     """A 폰이 탈퇴하면 그 계정의 push_tokens 가 모두 지워지고(A 행 0) B 에뮬도 로그인 화면으로 돌아간다(앱이 세션 새로고침을 앞당겨 부른다).
     근거: account/router.py:31-33 · account/repository.py:113-117."""
     check, seen = Check(), {}
-    account, _ = _setup(run, two, push=False)
+    account, _, _ = _setup(run, two, push=False)
     a_in, b_wait, b_in = _joined(run, account, check, seen)
 
     def both(said, sync):
