@@ -76,15 +76,36 @@ void main() {
     expect(trash('이전에 차단한 연락처'), findsOneWidget);
   });
 
-  testWidgets('add button 312x44 at (24, 64), list 16 below (pen z9dxy · ZwbzQ)', (tester) async {
+  testWidgets('add button 328x56 at (16, 708) in the bottom bar y700~780 · #FF385C r14 · white plus + "추가" 18/700 (pen aogPm · g1FD5 · w849oc)', (tester) async {
     await pump(tester);
 
     final add = tester.getRect(find.byKey(contactBlockAddKey));
-    expect(add, const Rect.fromLTWH(24, 64, 312, 44));
-    final icon = tester.getRect(find.descendant(of: find.byKey(contactBlockAddKey), matching: find.byIcon(AppIcons.plus)));
+    expect(add, const Rect.fromLTWH(16, 708, 328, 56));
+    // 바닥 바 y700~780(h80, 패딩 8 · 16 · 16 · 16) — 바 안의 버튼 위 8 · 아래 16.
+    final bar = tester.getRect(find.ancestor(of: find.byKey(contactBlockAddKey), matching: find.byType(ColoredBox)).first);
+    expect(bar, const Rect.fromLTWH(0, 700, 360, 80));
+    final material = tester.widget<Material>(find.byKey(contactBlockAddKey));
+    expect(material.color, const Color(0xFFFF385C));
+    expect((material.shape! as RoundedRectangleBorder).borderRadius, BorderRadius.circular(14));
+    final plus = find.descendant(of: find.byKey(contactBlockAddKey), matching: find.byIcon(AppIcons.plus));
+    expect(tester.widget<Icon>(plus).color, const Color(0xFFFFFFFF));
+    final icon = tester.getRect(plus);
     expect(icon.size, const Size(16, 16));
     expect(tester.getRect(find.text('추가')).left - icon.right, 6);
-    expect(tester.getRect(row('김지은')).top, 124);
+    final label = tester.widget<Text>(find.text('추가')).style!;
+    expect(label.color, const Color(0xFFFFFFFF));
+    expect(label.fontSize, 18);
+    expect(label.fontWeight, FontWeight.w700);
+    // 목록은 앱바 바로 아래(y56)에서 시작한다 — 옛 위쪽 추가 줄(y64~108)은 없다.
+    expect(tester.getRect(row('김지은')).top, 56);
+  });
+
+  testWidgets('빈 상태(pen Gp5my)에도 바닥 바 · 추가 버튼이 같은 자리에 있다(w849oc)', (tester) async {
+    repository.blocks = const Success([]);
+    await pump(tester);
+
+    expect(find.text('아직 차단한 연락처가 없어요'), findsOneWidget);
+    expect(tester.getRect(find.byKey(contactBlockAddKey)), const Rect.fromLTWH(16, 708, 328, 56));
   });
 
   testWidgets('trash 3D is 24 visible, 48 to press, at the row right edge (pen x1DV8l)', (tester) async {
@@ -198,7 +219,7 @@ void main() {
     final material = find.ancestor(of: ink, matching: find.byType(Material)).first;
     expect(tester.getSize(material), const Size(48, 48));
     final add = find.descendant(of: find.byKey(contactBlockAddKey), matching: find.byType(InkWell));
-    expect(tester.getSize(find.ancestor(of: add, matching: find.byType(Material)).first), const Size(312, 44));
+    expect(tester.getSize(find.ancestor(of: add, matching: find.byType(Material)).first), const Size(328, 56));
   });
 
   for (final scale in [1.0, 1.3, 1.5, 2.0]) {
