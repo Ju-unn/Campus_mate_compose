@@ -391,7 +391,7 @@ class AppContractTest(unittest.TestCase):
 
     def test_the_literals_the_app_looks_for_are_in_the_real_screens(self):
         screens = '\n'.join(path.read_text(encoding='utf-8') for path in (tools.ROOT / 'frontend' / 'lib').rglob('*.dart'))
-        for literal in ('저장', '사진 수정', '실제 사진 교체', '다시 만들기 · 10', '하트 충전하기', '곧 열려요', '하트가 모자라요', '지금 보유한 하트는',
+        for literal in ('저장', '사진 수정', '실제 사진 교체', '다시 만들기 · 10', '하트 충전하기', '구매하기', '하트가 모자라요', '지금 보유한 하트는',
                         '사진은 최대 $_maxPhotos장까지 올릴 수 있어요', '얼굴이 보이는 사진을 골라 주세요', '$rejected장은 얼굴이 보이지 않아 빠졌어요',
                         '아바타로 변환 중이에요', '아바타를 다시 만들까요?', '프로필 편집'):
             with self.subTest(literal):
@@ -400,7 +400,7 @@ class AppContractTest(unittest.TestCase):
         self.assertIn("'아바타를 만들지 못했어요.\\n하트는 차감되지 않았어요.'", screens)
         self.assertIn(f'PHOTOS_CHANGED = "{CHANGED}"', (ROOT / 'core' / 'errors.py').read_text(encoding='utf-8'))
         # 안내 두 개(NONE_KEPT · ONE_DROPPED)는 앱이 글자를 들고 찾지 않는다 — 뷰모델의 errorMessage 를 그대로 말하고 PC 가 견준다.
-        for literal in ('저장', '10 쓰고 만들기', '하트 충전하기', '곧 열려요', '하트가 모자라요', CHANGED, MAX_NOTICE, '아바타로 변환 중이에요', '사진 수정', '프로필 편집'):
+        for literal in ('저장', '10 쓰고 만들기', '하트 충전하기', '구매하기', '하트', '하트가 모자라요', CHANGED, MAX_NOTICE, '아바타로 변환 중이에요', '사진 수정', '프로필 편집'):
             with self.subTest('app ' + literal):
                 self.assertTrue(f"'{literal}'" in app_dart(), f'{literal!r} 가 area5_photo.dart 에 없다')
         self.assertTrue("'아바타를 만들지 못했어요.\\n하트는 차감되지 않았어요.'" in app_dart())
@@ -585,10 +585,10 @@ class PaidGateTest(PhotoBase):
 
 class LowHeartsSheetTest(PhotoBase):
     def good(self, **over):
-        return as_fn(said(**{'sheet_title': LOW_TITLE, 'sheet_body': LOW_BODY, 'sheet_closed': True, 'toast_seen': True, 'toast_ms': 1900,
+        return as_fn(said(**{'sheet_title': LOW_TITLE, 'sheet_body': LOW_BODY, 'sheet_closed': True, 'store_seen': True, 'store_title': 1,
                              'regen_state': 'idle', **over}))
 
-    def test_12_charge_closes_the_sheet_shows_the_soon_toast_and_sends_nothing(self):
+    def test_12_charge_closes_the_sheet_opens_the_heart_store_and_sends_nothing(self):
         note, app = self.passes('E-ME-12', self.good())
         self.assertEqual(app.jobs, [{'token_hash': 'h'}])
         self.assertEqual(self.fake.by('POST', '/me/avatar/regenerate'), [])  # 시트가 서버를 부르지 않는다
@@ -606,10 +606,11 @@ class LowHeartsSheetTest(PhotoBase):
                 self.assertEqual([r['amount'] for r in self.rows('heart_transactions')], ledger)
         self.assertEqual({r['reason'] for r in self.rows('heart_transactions')}, {'admin_adjust'})  # 12 → 5 는 원장 이유 avatar_regen 이 아니다
 
-    def test_12_fails_on_each_wrong_sheet_toast_or_state(self):
+    def test_12_fails_on_each_wrong_sheet_store_or_state(self):
         for over, word in (({'sheet_title': PAID_TITLE}, '시트 제목'), ({'sheet_title': None}, '시트 제목'), ({'sheet_body': paid_body(5)}, '시트 글'),
-                           ({'sheet_closed': False}, '시트 닫힘'), ({'toast_seen': False}, '곧 열려요'), ({'toast_ms': 400}, '토스트'),
-                           ({'toast_ms': 9000}, '토스트'), ({'toast_ms': None}, '토스트'), ({'regen_state': 'failed'}, '다시 만들기를 불렀다')):
+                           ({'sheet_closed': False}, '시트 닫힘'), ({'store_seen': False}, '구매하기'), ({'store_seen': None}, '구매하기'),
+                           ({'store_title': 0}, '앱바 제목'), ({'store_title': 2}, '앱바 제목'), ({'store_title': None}, '앱바 제목'),
+                           ({'regen_state': 'failed'}, '다시 만들기를 불렀다')):
             with self.subTest(over):
                 self.fails('E-ME-12', self.good(**over), word)
 
