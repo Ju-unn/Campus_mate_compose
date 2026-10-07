@@ -415,14 +415,14 @@ class _Killed(Exception):
     가설이 받는다(하네스를 고치지 않는다). args[0] = 누름 말을 받고 kill 을 보낼 때까지 걸린 ms."""
 
 
-def _kill_soon(phone):
-    """앱이 누른 직후 보낸 멈춤 말(답을 안 기다린다)에 — pidof 를 읽고 0.3초를 채운 뒤 run-as kill -9(debug 빌드). force-stop 은 쓰지 않는다."""
+def _kill_soon(phone, after=KILL_AFTER):
+    """앱이 누른 직후 보낸 멈춤 말(답을 안 기다린다)에 — pidof 를 읽고 [after]초(기본 0.3)를 채운 뒤 run-as kill -9(debug 빌드). force-stop 은 쓰지 않는다."""
     def kill(said):
         start = time.monotonic()
         pid = tools.adb(phone.serial, 'shell', 'pidof', tools.PACKAGE, check=False).strip()
         if not pid:
             raise Blocked('누른 뒤 앱 프로세스를 못 찾음(pidof) — 죽일 수 없다')
-        time.sleep(max(0.0, KILL_AFTER - (time.monotonic() - start)))
+        time.sleep(max(0.0, after - (time.monotonic() - start)))
         for _ in range(10):
             tools.adb(phone.serial, 'shell', 'run-as', tools.PACKAGE, 'kill', '-9', pid, check=False)
             killed = round((time.monotonic() - start) * 1000)
