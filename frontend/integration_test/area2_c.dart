@@ -1,6 +1,5 @@
 import 'package:campus_mate/billing/view/heart_task_row.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
-import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/home/view/home_screen.dart';
 import 'package:campus_mate/home/viewmodel/home_summary_provider.dart';
 import 'package:campus_mate/matching/view/daily_card_summary.dart';
@@ -37,7 +36,8 @@ const _generating = '아바타로 변환 중이에요'; // me/view/my_profile_sc
 const _lowTitle = '하트가 모자라요';
 const _lowBody = '하트 10개가 필요해요. 지금 보유한 하트는 9개예요.';
 const _lowCta = '하트 충전하기';
-const _soon = '곧 열려요'; // me/view/me_toast.dart
+const _storeTitle = '하트'; // billing/view/heart_store_screen.dart 앱바 제목 (18)
+const _storeSection = '구매하기'; // 18 하트 스토어의 섹션 제목
 const _regenTitle = '아바타를 다시 만들까요?';
 const _freeBody = '첫 번째 다시 만들기는 무료예요. 새 아바타는 바로 프로필에 반영돼요.';
 const _freeCta = '무료로 만들기';
@@ -245,9 +245,13 @@ final Map<String, Area1Case> area2cCases = {
     await _openRegen(tester, _lowTitle);
     must(_count(find.text(_lowBody)) == 1, '시트 글 "$_lowBody" ${_count(find.text(_lowBody))}개');
     await tap(tester, find.text(_lowCta));
-    final toast = find.widgetWithText(AppToast, _soon);
-    await pumpUntil(tester, toast, timeout: const Duration(seconds: 3));
-    must(_count(toast) == 1, '토스트 "$_soon" ${_count(toast)}개');
+    // "하트 충전하기" 는 시트를 닫고 하트 스토어(18)로 간다 — 앱바 "하트" + 섹션 "구매하기" (예전엔 "곧 열려요" 토스트).
+    final section = find.text(_storeSection);
+    await pumpUntil(tester, section, timeout: const Duration(seconds: 5));
+    must(_count(section) == 1, '스토어 섹션 "$_storeSection" ${_count(section)}개');
+    final title = find.descendant(of: find.byType(AppBar), matching: find.text(_storeTitle));
+    must(_count(title) == 1, '스토어 앱바 제목 "$_storeTitle" ${_count(title)}개');
+    must(_count(find.text(_lowTitle)) == 0, '"$_lowTitle" 시트가 닫히지 않음');
     return null;
   }),
   'E-HEART-42': _regen(),

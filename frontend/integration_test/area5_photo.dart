@@ -14,7 +14,8 @@ const _photoManageTitle = '프로필 편집'; // profile_manage_screen.dart 앱�
 const _photoLowTitle = '하트가 모자라요'; // 15b-3 시트 제목 · 서버 HEARTS_NOT_ENOUGH(402 문구)
 const _photoCharge = '하트 충전하기';
 const _photoPaidCta = '10 쓰고 만들기';
-const _photoSoon = '곧 열려요'; // me_toast.dart comingSoonToast
+const _photoStoreTitle = '하트'; // billing/view/heart_store_screen.dart 앱바 제목 (18)
+const _photoStoreSection = '구매하기'; // 18 하트 스토어의 섹션 제목
 const _photoGenerating = '아바타로 변환 중이에요'; // my_profile_screen.dart 변환 중 안내
 const _photoFailedToast = '아바타를 만들지 못했어요.\n하트는 차감되지 않았어요.'; // my_profile_screen.dart 15-3 안내
 const _photoMaxNotice = '사진은 최대 4장까지 올릴 수 있어요'; // photos_view_model.dart addPhoto
@@ -24,8 +25,10 @@ const _photoNotSafe = '부적절한 사진은 올릴 수 없어요'; // 서버 P
 
 // ── 읽기 ────────────────────────────────────────────────────────────────────────────────────────────
 
-/// 15 (나 탭) 에서 쓰는 공급자 모음 — 15-7 이 위에 올라와 있으면 못 찾는다.
-ProviderContainer _photoMeContainer(WidgetTester tester) => ProviderScope.containerOf(tester.element(find.byType(ProfileHero)));
+/// 15 (나 탭) 에서 쓰는 공급자 모음. 15 위에 다른 화면(하트 스토어 18)이 올라와도 15 는 트리에 남아 있어 `skipOffstage: false` 로 찾는다.
+/// 15-7 이 15 를 대신해 올라와 있을 때(15 가 트리에서 빠진 경우)는 못 찾는다.
+ProviderContainer _photoMeContainer(WidgetTester tester) =>
+    ProviderScope.containerOf(tester.element(find.byType(ProfileHero, skipOffstage: false)));
 
 /// 15-7 에서 쓰는 공급자 모음.
 ProviderContainer _photoEditorContainer(WidgetTester tester) =>
@@ -230,13 +233,14 @@ final Map<String, Area1Case> area5CasesPhoto = {
     await _photoOpenSheet(tester);
     final texts = _photoSheetTexts(tester);
     await _photoPress(tester, find.descendant(of: find.byType(SafetySheet), matching: find.text(_photoCharge)));
-    final toast = await _photoToast(tester, _photoSoon);
+    // "하트 충전하기" 는 시트를 닫고 하트 스토어(18)로 간다 — 앱바 "하트" + 섹션 "구매하기" (예전엔 "곧 열려요" 토스트).
+    final store = await appears(tester, find.text(_photoStoreSection), const Duration(seconds: 5));
     return {
       'sheet_title': texts.isEmpty ? null : texts.first,
       'sheet_body': _photoLine(texts, _heartLine),
       'sheet_closed': !_has(find.byType(SafetySheet)),
-      'toast_seen': toast.$1,
-      'toast_ms': toast.$2,
+      'store_seen': store != null,
+      'store_title': find.descendant(of: find.byType(AppBar), matching: find.text(_photoStoreTitle)).evaluate().length,
       'regen_state': _photoRegenState(tester),
     };
   }),
