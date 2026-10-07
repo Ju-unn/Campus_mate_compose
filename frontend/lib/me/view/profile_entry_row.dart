@@ -1,3 +1,4 @@
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -10,9 +11,21 @@ import 'package:flutter/material.dart';
 /// 받침 원 안 아이콘 → Title/Note → 셰브런. [onTap] 이 있으면 행 전체가 값 수정 화면으로 잇는다(U1 — 화면 15 결정 1
 /// "나중에" 의 그 "지금"). [emphasis] 는 15 "친구들이 본 나"(`o9BA0`) 분홍 줄이다.
 class ProfileEntryRow extends StatelessWidget {
-  const ProfileEntryRow({required this.icon, required this.title, required this.note, this.onTap, this.emphasis = false, super.key});
+  const ProfileEntryRow({
+    required this.icon,
+    required this.title,
+    required this.note,
+    this.iconSize = 26,
+    this.onTap,
+    this.emphasis = false,
+    super.key,
+  });
 
-  final IconData icon;
+  /// 3D 아이콘(pen 은 원 안 기본 슬롯 `GAMlp` 을 3D Icon 인스턴스로 바꿔 둔다).
+  final AppIcon3d icon;
+
+  /// pen 26(원 안 9,9). 마스코트 미리 보기(`I5Dw4`)만 32(6,6) — 원 44 안 가운데라 크기만 받는다.
+  final double iconSize;
   final String title;
   final String note;
 
@@ -46,15 +59,18 @@ class ProfileEntryRow extends StatelessWidget {
     );
   }
 
+  static const _surface = Color(0xFFF7F3FF);
+
   Widget _row() {
     return Row(
       children: [
-        // Icon Surface `zdZqS` 44 원 #F7F7F7(흰 바탕 위라 원이 보인다), 아이콘 `GAMlp` 22.
+        // Icon Surface `zdZqS` 44 원 #F7F3FF(토큰 밖 pen 값 — 흰 바탕 위라 원이 보인다), 안의 3D 아이콘 26(`GAMlp` 자리).
         Container(
           width: 44,
           height: 44,
-          decoration: BoxDecoration(color: emphasis ? AppColors.canvas : AppColors.surfaceSoft, shape: BoxShape.circle),
-          child: Icon(icon, size: 22, color: emphasis ? AppColors.primaryText : AppColors.muted),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(color: emphasis ? AppColors.canvas : _surface, shape: BoxShape.circle),
+          child: Icon3d(icon, size: iconSize),
         ),
         const SizedBox(width: AppSpacing.sm),
         Expanded(child: _Copy(title: title, note: note)),

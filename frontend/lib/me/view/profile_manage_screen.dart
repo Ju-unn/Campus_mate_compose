@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/photo_slider.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -299,20 +300,20 @@ class _ProfileFacts extends StatelessWidget {
       ),
       child: Column(
         children: [
-          _FactRow(icon: AppIcons.ruler, label: '내 키', value: height == null ? '-' : '${height}cm'),
-          _FactRow(icon: AppIcons.badge, label: 'MBTI', value: profile.mbti ?? '선택 안 함'),
-          _FactRow(icon: AppIcons.graduationCap, label: '학과', value: profile.major ?? '-'),
+          _FactRow(icon: AppIcon3d.ruler, label: '내 키', value: height == null ? '-' : '${height}cm'),
+          _FactRow(icon: AppIcon3d.mbti, label: 'MBTI', value: profile.mbti ?? '선택 안 함'),
+          _FactRow(icon: AppIcon3d.graduationCap, label: '학과', value: profile.major ?? '-'),
         ],
       ),
     );
   }
 }
 
-/// 기본 정보 행(`wBr7Y` · `qEL5S` · `G3QdoO`) — 아이콘 19 → 10 → 라벨 → Spacer → 값(오른쪽 끝).
+/// 기본 정보 행(`wBr7Y` · `qEL5S` · `G3QdoO`) — 아이콘 20 → 10 → 라벨 → Spacer → 값(오른쪽 끝).
 class _FactRow extends StatelessWidget {
   const _FactRow({required this.icon, required this.label, required this.value});
 
-  final IconData icon;
+  final AppIcon3d icon;
   final String label;
   final String value;
 
@@ -323,8 +324,8 @@ class _FactRow extends StatelessWidget {
       constraints: const BoxConstraints(minHeight: 48),
       child: Row(
         children: [
-          // 아이콘 19·gap 10 은 pen 값(토큰 밖 리터럴).
-          Icon(icon, size: 19, color: AppColors.muted),
+          // 3D 아이콘 20(`morjL` · `mwlRq` · `qKYxh`)·gap 10 은 pen 값(토큰 밖 리터럴).
+          Icon3d(icon, size: 20),
           const SizedBox(width: 10),
           Text(label, style: AppTypography.bodySmall.copyWith(height: 1.5, color: AppColors.muted)),
           // pen 은 라벨 · gap 10 · Spacer · gap 10 · 값 — 값을 Expanded 로 오른쪽에 붙여 길어지면 줄을 바꾼다.
@@ -357,14 +358,14 @@ class _PreferenceSection extends StatelessWidget {
         const _SectionHeader(title: '선호 조건'),
         const SizedBox(height: AppSpacing.sm),
         ProfileEntryRow(
-          icon: AppIcons.calendar,
+          icon: AppIcon3d.calendar,
           title: '선호 나이 범위',
           note: _ageRangeNote(),
           onTap: () => context.push(AppRoutes.myIdealConditions),
         ),
         const SizedBox(height: AppSpacing.sm),
         ProfileEntryRow(
-          icon: AppIcons.ruler,
+          icon: AppIcon3d.ruler,
           title: '선호 키 범위',
           note: _heightRangeNote(),
           onTap: () => context.push(AppRoutes.myIdealConditions),
@@ -417,7 +418,7 @@ class _BioSection extends StatelessWidget {
           const SizedBox(height: AppSpacing.sm),
         ],
         ProfileEntryRow(
-          icon: AppIcons.tags,
+          icon: AppIcon3d.tags,
           title: '자기소개 · 태그',
           note: '관심사 · 나의 특징 · 이상형',
           onTap: () => context.push(AppRoutes.myProfileEdit),

@@ -178,14 +178,15 @@ class _ProfileContent extends StatelessWidget {
         ProfileHero(profile: profile, onRegenerate: onRegenerate),
         const SizedBox(height: _heroToEntries),
         ProfileEntryRow(
-          icon: AppIcons.eye,
+          icon: AppIcon3d.mascotPeek,
+          iconSize: 32, // pen `I5Dw4` 32 · 원 안 6,6
           title: '남이 보는 내 프로필 카드',
           note: '상대에게 보이는 모습을 미리 봐요',
           onTap: () => context.push(AppRoutes.myCardPreview),
         ),
         const SizedBox(height: AppSpacing.sm),
         ProfileEntryRow(
-          icon: AppIcons.pencil,
+          icon: AppIcon3d.pencil,
           title: '프로필 편집',
           note: '사진·기본 정보·선호 조건·자기소개',
           onTap: () => context.push(AppRoutes.myProfileManage),

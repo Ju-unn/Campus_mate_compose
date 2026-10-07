@@ -15,7 +15,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../model/fake_friend_review_repository.dart';
 
@@ -91,15 +90,15 @@ void main() {
     expect(tester.getSize(find.byType(MyFriendReviewsSection)).height, 25 + 12 + 84 + 12 + 84);
   });
 
-  testWidgets('분홍 줄(o9BA0)은 강조 · heart-handshake "친구들이 본 나", 흰 줄(tStBN)은 message-square-text "내가 쓴 리뷰"', (tester) async {
+  testWidgets('분홍 줄(o9BA0)은 강조 · 3D heart-handshake "친구들이 본 나", 흰 줄(tStBN)은 3D 대화 "내가 쓴 리뷰"', (tester) async {
     await pump(tester);
 
     final received = tester.widget<ProfileEntryRow>(_received);
-    expect((received.emphasis, received.icon), (true, AppIcons.heartHandshake));
+    expect((received.emphasis, received.icon), (true, AppIcon3d.heartHandshake));
     final written = tester.widget<ProfileEntryRow>(_written);
-    expect((written.emphasis, written.icon), (false, AppIcons.messageSquareText));
-    // pen 의 Lucide 이름과 같다.
-    expect((AppIcons.heartHandshake, AppIcons.messageSquareText), (LucideIcons.heartHandshake, LucideIcons.messageSquareText));
+    expect((written.emphasis, written.icon), (false, AppIcon3d.chat));
+    // pen 의 3D 아이콘(`M4cgT` heart-handshake · `s2EdJh` 대화 feature-icon-chat-3d-tight)이다.
+    expect((AppIcon3d.heartHandshake.asset, AppIcon3d.chat.asset), ('assets/icons/ui-3d-heart-handshake.webp', 'assets/icons/feature-icon-chat-3d-tight.webp'));
   });
 
   testWidgets('노트는 개수 — "받은 리뷰 3개"(B4ppA) · "쓴 리뷰 2개"(tStBN/B4ppA)', (tester) async {
