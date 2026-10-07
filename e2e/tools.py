@@ -6,6 +6,7 @@
 import contextlib
 import http.client
 import json
+import os
 import queue
 import random
 import re
@@ -489,6 +490,27 @@ def scenario_rows(md):
     return rows
 
 
+# accounts.json · 별칭_번호표.txt 를 읽고 고쳐 쓰는 곳이 한 프로세스 안의 여러 스레드(두 기기 가설 · 병렬 호출)에서 동시에 불린다 — 모듈 잠금 하나로 막는다.
+# ponytail: 프로세스 안의 스레드만 막는다(별칭_번호표.txt 는 묶음이 달라도 하나라, 진행 프로그램을 둘 동시에 돌리면 번호가 겹칠 수 있다 — 한 번에 하나만 돌리는 규칙에 기댄다).
+_STATE_LOCK = threading.RLock()
+_REPLACE_TRIES = 5  # 윈도는 다른 쪽이 그 파일을 열어 읽는 중이면 os.replace 가 PermissionError — 곧 다시 한다
+
+
+def _write_atomic(path, text):
+    """임시 파일에 다 쓴 뒤 os.replace 로 한 번에 바꾼다 — 읽는 쪽이 반쯤 쓰인 파일을 보지 않고, 중간에 죽어도 옛 파일이 그대로다."""
+    tmp = path.with_name(f'{path.name}.{threading.get_ident()}.tmp')
+    tmp.write_text(text, encoding='utf-8')
+    for tries in range(_REPLACE_TRIES):
+        try:
+            os.replace(tmp, path)
+            return
+        except PermissionError:
+            if tries == _REPLACE_TRIES - 1:
+                tmp.unlink(missing_ok=True)
+                raise
+            time.sleep(0.05)
+
+
 class Run:
     """한 묶음 실행 — 결과는 `<out>/results.jsonl` 한 줄씩(pass · fail · blocked · known · skip)."""
 
@@ -503,17 +525,19 @@ class Run:
     def alias(self, domain=None):
         """처음 쓰는 별칭 `이름+e2e번호@도메인`. 번호표는 E2E_결과/ 에 하나 — 묶음이 달라도 번호를 다시 쓰지 않는다."""
         ticket = self.out.parent / '별칭_번호표.txt'
-        n = int(ticket.read_text(encoding='utf-8')) if ticket.exists() else 1001
-        ticket.write_text(str(n + 1), encoding='utf-8')  # 쓰기 전에 넘긴다 — 실패한 번호도 다시 안 쓴다
+        with _STATE_LOCK:  # 읽기-쓰기가 한 덩어리여야 두 스레드가 같은 번호를 받지 않는다
+            n = int(ticket.read_text(encoding='utf-8')) if ticket.exists() else 1001
+            _write_atomic(ticket, str(n + 1))  # 쓰기 전에 넘긴다 — 실패한 번호도 다시 안 쓴다
         local, base = mail_base(self.cfg)
         return n, f'{local}+e2e{n}@{domain or base}'
 
     def remember(self, account):
         """accounts.json — 만든 즉시 적고 단계가 오를 때마다 고친다. 토큰은 적지 않는다."""
         path = self.out / 'accounts.json'
-        accounts = json.loads(path.read_text(encoding='utf-8')) if path.exists() else []
-        accounts = [a for a in accounts if a['n'] != account['n']] + [{k: account[k] for k in ('n', 'email', 'id', 'stage', 'at')}]
-        path.write_text(json.dumps(accounts, ensure_ascii=False, indent=1), encoding='utf-8')
+        with _STATE_LOCK:  # 읽고-고치고-쓰기 전체를 한 덩어리로 — 동시에 부르면 짧은 쪽 위에 긴 쪽 꼬리가 남아 json 이 깨졌다(E-CHAT-38 첫 실행)
+            accounts = json.loads(path.read_text(encoding='utf-8')) if path.exists() else []
+            accounts = [a for a in accounts if a['n'] != account['n']] + [{k: account[k] for k in ('n', 'email', 'id', 'stage', 'at')}]
+            _write_atomic(path, json.dumps(accounts, ensure_ascii=False, indent=1))
 
     def account(self, stage, old_consent=False, **basic):
         """새 시험 계정을 [stage] 까지 올려 {n, email, id, stage, at, token} 으로. 어느 단계든 안 되면 [Blocked].
