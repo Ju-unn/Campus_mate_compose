@@ -52,6 +52,8 @@ dependencies:
   firebase_messaging: ^16.0.2
   share_plus: ^13.3.0
   url_launcher: ^6.3.2
+  # 온보딩 입력 임시 저장(2026-10-08 승인). 전화번호 · 카카오톡 아이디는 넣지 않는다(lib/core/draft/).
+  shared_preferences: ^2.5.6
 
 dev_dependencies:
   flutter_test:
