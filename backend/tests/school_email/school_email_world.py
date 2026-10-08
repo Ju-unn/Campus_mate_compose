@@ -75,7 +75,8 @@ class SchoolEmailWorld:
             self.provider_lookups.append(body)
             owner, provider = self.accounts.get(body["p_email"].lower(), (None, None))
             # RPC 가 text 하나를 돌려주면 PostgREST 본문은 JSON 스칼라다("kakao" 또는 null).
-            return httpx.Response(200, json=provider if owner and owner != body["p_caller"] else None)
+            found = provider if owner and owner != body["p_caller"] else None
+            return httpx.Response(200, content=json.dumps(found), headers={"Content-Type": "application/json"})
         raise AssertionError(f"예상하지 못한 요청 {request.method} {request.url}")
 
     def _profiles(self, method, params, body):

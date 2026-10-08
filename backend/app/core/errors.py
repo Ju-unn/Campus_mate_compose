@@ -17,6 +17,13 @@ DEPARTMENT_REQUIRED = "학과 정보를 먼저 입력해 주세요"
 CONSENT_REQUIRED = "약관 동의를 먼저 해 주세요"
 CONSENT_INCOMPLETE = "필수 항목에 모두 동의해 주세요"
 
+# 학교 메일 확인(school_email, 소셜 로그인 전환). 최종 문구는 디자인에서 정한다 — 지금은 임시 문구.
+SCHOOL_EMAIL_UNKNOWN_DOMAIN = "등록되지 않은 학교 메일이에요"
+SCHOOL_EMAIL_BLOCKED = "재가입이 제한된 메일이에요"
+# {provider} 에는 SCHOOL_EMAIL_PROVIDER_LABELS 의 이름이 들어간다. 앱은 문구가 아니라 응답의 provider 로 가른다.
+SCHOOL_EMAIL_TAKEN = "이 메일은 {provider}로 가입돼 있어요"
+SCHOOL_EMAIL_PROVIDER_LABELS = {"kakao": "카카오", "google": "구글", "apple": "애플", "email": "학교 메일"}
+
 # 기계가 보는 응답(훅·배치). 사람에게 보이지 않아 한국어가 아니다.
 INVALID_SIGNATURE = "invalid signature"
 UNAUTHORIZED = "unauthorized"

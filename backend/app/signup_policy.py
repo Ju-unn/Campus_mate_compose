@@ -57,3 +57,16 @@ class SignupPolicy:
         )
         response.raise_for_status()
         return len(response.json()) > 0
+
+    async def find_other_account_provider(self, email: str, caller: str) -> str | None:
+        """그 이메일을 **다른 계정**이 쓰면 그 계정의 주 로그인 수단(kakao · google · apple · email), 없으면 None.
+
+        SQL `find_other_account_provider(p_email, p_caller)`(service_role 전용)가 auth.users · auth.identities 를
+        대소문자 없이 본다. text 하나를 돌려주는 함수라 PostgREST 본문은 JSON 스칼라("kakao" 또는 null)다."""
+        response = await self._client.post(
+            f"{self._postgrest_url}/rpc/find_other_account_provider",
+            json={"p_email": email, "p_caller": caller},
+            headers=self._headers,
+        )
+        response.raise_for_status()
+        return response.json()
