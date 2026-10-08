@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show Tristate;
 import 'dart:typed_data';
 
 import 'package:campus_mate/common/failure.dart';
@@ -34,36 +35,82 @@ const _notice = '대화 상대가 보는 내 프로필이에요. 실제 사진�
 
 /// 서버 `GET /me/card-preview` 가 준 내 카드(이름·학교는 지어낸 값).
 CardDetail _detail({String? avatarUrl = 'https://img.test/avatar.png'}) => CardDetail(
-      cardId: 'me-1',
-      profile: CardProfile(
-        profileId: 'me-1',
-        nickname: '하늘',
-        age: 24,
-        university: '가나대학교',
-        major: '경영학과',
-        avatarUrl: avatarUrl,
-      ),
-      survey: List.filled(9, 0.5),
-      animalType: AnimalType.fox,
-      impressionType: ImpressionType.kind,
-      religion: Religion.none,
-      isSmoker: false,
-      interests: const ['등산', '재즈'],
-      myTraits: const ['유머러스'],
-      idealTraits: const ['다정한'],
-      heightCm: 178,
-      mbti: 'ENFP',
-      studentNumber: '22',
-      bio: '주말엔 산책해요.',
-      idealNote: '대화가 잘 통하는 사람이 좋아요.',
-    );
+  cardId: 'me-1',
+  profile: CardProfile(
+    profileId: 'me-1',
+    nickname: '하늘',
+    age: 24,
+    university: '가나대학교',
+    major: '경영학과',
+    avatarUrl: avatarUrl,
+  ),
+  survey: List.filled(9, 0.5),
+  animalType: AnimalType.fox,
+  impressionType: ImpressionType.kind,
+  religion: Religion.none,
+  isSmoker: false,
+  interests: const ['등산', '재즈'],
+  myTraits: const ['유머러스'],
+  idealTraits: const ['다정한'],
+  heightCm: 178,
+  mbti: 'ENFP',
+  studentNumber: '22',
+  bio: '주말엔 산책해요.',
+  idealNote: '대화가 잘 통하는 사람이 좋아요.',
+);
 
 final _list = find.byType(Scrollable).first;
 
 /// 1×1 투명 PNG.
 const _png = <int>[
-  0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, //
-  0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4, 0x89, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00, //
+  0x89,
+  0x50,
+  0x4E,
+  0x47,
+  0x0D,
+  0x0A,
+  0x1A,
+  0x0A,
+  0x00,
+  0x00,
+  0x00,
+  0x0D,
+  0x49,
+  0x48,
+  0x44,
+  0x52,
+  0x00,
+  0x00,
+  0x00,
+  0x01,
+  0x00,
+  0x00,
+  0x00,
+  0x01, //
+  0x08,
+  0x06,
+  0x00,
+  0x00,
+  0x00,
+  0x1F,
+  0x15,
+  0xC4,
+  0x89,
+  0x00,
+  0x00,
+  0x00,
+  0x0D,
+  0x49,
+  0x44,
+  0x41,
+  0x54,
+  0x78,
+  0x9C,
+  0x63,
+  0x00,
+  0x01,
+  0x00,
+  0x00, //
   0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
 ];
 
@@ -71,22 +118,22 @@ const _noticeAfter = '수락하면 상대에게 이렇게 보여요';
 
 /// 내 프로필(실사진 두 장). 이름·학교는 지어낸 값이다.
 MyProfile _profile({int photos = 2}) => MyProfile(
-      nickname: '하늘',
-      age: 24,
-      university: '가나대학교',
-      major: '경영학과',
-      heightCm: 178,
-      mbti: 'ENFP',
-      avatarUrl: 'https://img.test/avatar.png',
-      photos: [
-        for (var i = 0; i < photos; i++) MyPhoto(id: 'p-$i', url: 'https://img.test/$i.png', isAvatarSource: i == 0),
-      ],
-      preferredAgeMin: 22,
-      preferredAgeMax: 27,
-      preferredHeightMin: 165,
-      preferredHeightMax: 180,
-      bio: '주말엔 산책해요.',
-    );
+  nickname: '하늘',
+  age: 24,
+  university: '가나대학교',
+  major: '경영학과',
+  heightCm: 178,
+  mbti: 'ENFP',
+  avatarUrl: 'https://img.test/avatar.png',
+  photos: [
+    for (var i = 0; i < photos; i++) MyPhoto(id: 'p-$i', url: 'https://img.test/$i.png', isAvatarSource: i == 0),
+  ],
+  preferredAgeMin: 22,
+  preferredAgeMax: 27,
+  preferredHeightMin: 165,
+  preferredHeightMax: 180,
+  bio: '주말엔 산책해요.',
+);
 
 /// 15-4 남이 보는 내 프로필(pen `gnEwq` 360×1714, 계획서 4절 15-4 표 · A13).
 void main() {
@@ -111,7 +158,10 @@ void main() {
     final router = GoRouter(
       initialLocation: AppRoutes.myProfile,
       routes: [
-        GoRoute(path: AppRoutes.myProfile, builder: (context, state) => const Scaffold(body: Text('화면 15'))),
+        GoRoute(
+          path: AppRoutes.myProfile,
+          builder: (context, state) => const Scaffold(body: Text('화면 15')),
+        ),
         GoRoute(path: AppRoutes.myCardPreview, builder: (context, state) => const CardPreviewScreen()),
       ],
     );
@@ -266,24 +316,40 @@ void main() {
 
       final bar = find.byType(MeTabBar);
       expect(tester.getTopLeft(bar), const Offset(0, 56));
-      expect(tester.getSize(bar), const Size(360, 44)); // 아래 선 1px 은 이 44 안에 든다(pen 은 clip)
+      // 보이는 줄은 44(아래 선 1px 은 그 안에 든다)이고, 누르는 칸만 48 이다 — 모자란 4 는 아래 선 밑으로 투명하게 늘렸다.
+      expect(tester.getSize(bar), const Size(360, 48));
+      expect(
+        tester.getRect(find.byWidgetPredicate((w) => w is ColoredBox && w.color == AppColors.hairlineSoft)).bottom,
+        56 + 44,
+      );
       for (final label in ['수락 전', '수락 후']) {
-        expect(tester.getSize(find.ancestor(of: find.text(label), matching: find.byType(InkWell)).first).width, 180, reason: label);
+        expect(
+          tester.getSize(find.ancestor(of: find.text(label), matching: find.byType(InkWell)).first).width,
+          180,
+          reason: label,
+        );
       }
-      final decoration =
-          tester.widget<DecoratedBox>(find.descendant(of: bar, matching: find.byType(DecoratedBox)).first).decoration as BoxDecoration;
-      expect(decoration.border, const Border(bottom: BorderSide(color: AppColors.hairlineSoft)));
-      expect(decoration.color, AppColors.canvas);
+      // 아래 선 1px #EBEBEB, 바탕 #FFFFFF.
+      final line = find.byWidgetPredicate((w) => w is ColoredBox && w.color == AppColors.hairlineSoft);
+      expect(tester.getSize(line).height, 1);
+      expect(
+        tester.widget<ColoredBox>(find.descendant(of: bar, matching: find.byType(ColoredBox)).first).color,
+        AppColors.canvas,
+      );
       // 알약 세그먼트(SegmentedButton)가 아니다.
       expect(find.byType(SegmentedButton<int>), findsNothing);
     });
 
-    testWidgets('처음엔 "수락 전" — 글자 #C4224B 14/700 + 밑줄 2px #C4224B, "수락 후" 는 #6A6A6A 14/500 + 밑줄 투명 (15-4 `O9ZIzO`)',
-        (tester) async {
+    testWidgets('처음엔 "수락 전" — 글자 #C4224B 14/700 + 밑줄 2px #C4224B, "수락 후" 는 #6A6A6A 14/500 + 밑줄 투명 (15-4 `O9ZIzO`)', (
+      tester,
+    ) async {
       await pump(tester);
 
       final before = tabLook(tester, '수락 전');
-      expect((before.style.fontSize, before.style.fontWeight, before.style.color), (14, FontWeight.w700, AppColors.primaryText));
+      expect(
+        (before.style.fontSize, before.style.fontWeight, before.style.color),
+        (14, FontWeight.w700, AppColors.primaryText),
+      );
       expect(before.underline, AppColors.primaryText);
       final after = tabLook(tester, '수락 후');
       expect((after.style.fontSize, after.style.fontWeight, after.style.color), (14, FontWeight.w500, AppColors.muted));
@@ -299,8 +365,33 @@ void main() {
       final tabFinder = find.ancestor(of: find.text('수락 전'), matching: find.byType(InkWell)).first;
       final tab = tester.getRect(tabFinder);
       expect(tester.getTopLeft(find.text('수락 전')).dy - tab.top, 12);
-      final underline = find.descendant(of: tabFinder, matching: find.byWidgetPredicate((w) => w is Container && w.constraints?.maxHeight == 2));
-      expect(tester.getRect(underline).bottom, tab.bottom);
+      final underline = find.descendant(
+        of: tabFinder,
+        matching: find.byWidgetPredicate((w) => w is Container && w.constraints?.maxHeight == 2),
+      );
+      // 밑줄은 보이는 줄(44)의 맨 아래 — 누르는 칸의 아래 4 는 그 밑이다.
+      expect(tester.getRect(underline).bottom, tab.top + 44);
+      expect(tester.getRect(underline).height, 2);
+    });
+
+    testWidgets('R2 누르는 칸은 48 — 보이는 줄(44) 아래 4 를 눌러도 탭이 눌리고, 본문의 보이는 자리는 그대로(안내가 탭 바 아래 24)', (tester) async {
+      usePenFrame(tester);
+      await pump(tester);
+
+      for (final label in ['수락 전', '수락 후']) {
+        expect(
+          tester.getSize(find.ancestor(of: find.text(label), matching: find.byType(InkWell)).first),
+          const Size(180, 48),
+          reason: label,
+        );
+      }
+      // 보이는 줄 바로 밑(y 100 + 2)을 누른다 — 줄 밖이라 글자가 아니라 투명한 4 다.
+      await tester.tapAt(const Offset(270, 56 + 44 + 2));
+      await tester.pumpAndSettle();
+      expect(find.text(_noticeAfter), findsOneWidget);
+      // 안내의 보이는 자리: 앱바 56 + 보이는 탭 바 44 + 24 = 124 (누르는 칸을 넓혀도 그대로).
+      final box = tester.getRect(find.ancestor(of: find.text(_noticeAfter), matching: find.byType(DecoratedBox)).first);
+      expect(box.top, 56 + 44 + 24);
     });
 
     testWidgets('"수락 후" 를 누르면 15-4b 로 — 탭 색이 바뀌고(`g1rDs`) 안내 글이 바뀐다', (tester) async {
@@ -310,9 +401,15 @@ void main() {
       await tester.pumpAndSettle();
 
       final after = tabLook(tester, '수락 후');
-      expect((after.style.fontWeight, after.style.color, after.underline), (FontWeight.w700, AppColors.primaryText, AppColors.primaryText));
+      expect(
+        (after.style.fontWeight, after.style.color, after.underline),
+        (FontWeight.w700, AppColors.primaryText, AppColors.primaryText),
+      );
       final before = tabLook(tester, '수락 전');
-      expect((before.style.fontWeight, before.style.color, before.underline), (FontWeight.w500, AppColors.muted, Colors.transparent));
+      expect(
+        (before.style.fontWeight, before.style.color, before.underline),
+        (FontWeight.w500, AppColors.muted, Colors.transparent),
+      );
       expect(find.text(_noticeAfter), findsOneWidget);
       expect(find.text(_notice), findsNothing);
     });
@@ -330,21 +427,36 @@ void main() {
       expect(find.byType(PhotoSlider), findsNothing);
     });
 
-    testWidgets('낭독: 탭은 버튼이고 고른 탭이 selected', (tester) async {
+    testWidgets('낭독: 탭은 버튼이고 고른 탭만 selected, 낭독기로 "수락 후" 를 누르면 본문이 바뀐다', (tester) async {
       final handle = tester.ensureSemantics();
       await pump(tester);
 
       final selected = tester.getSemantics(find.bySemanticsLabel('수락 전'));
       final other = tester.getSemantics(find.bySemanticsLabel('수락 후'));
-      expect(selected.flagsCollection.isSelected.name, isNot(other.flagsCollection.isSelected.name));
+      expect(selected.flagsCollection.isSelected, Tristate.isTrue);
+      expect(other.flagsCollection.isSelected, Tristate.isFalse);
       expect(selected.flagsCollection.isButton, isTrue);
       expect(other.flagsCollection.isButton, isTrue);
+      expect(find.text(_noticeAfter), findsNothing);
+
+      // 화면 읽기 도구가 하듯 의미 트리의 "탭" 동작을 한 번 보낸다 — Semantics(onTap:) 가 없으면 여기서 실패한다.
+      tester.semantics.tap(find.semantics.byLabel('수락 후'));
+      await tester.pumpAndSettle();
+
+      expect(find.text(_noticeAfter), findsOneWidget);
+      expect(find.text(_notice), findsNothing);
+      expect(tester.getSemantics(find.bySemanticsLabel('수락 후')).flagsCollection.isSelected, Tristate.isTrue);
+      expect(tester.getSemantics(find.bySemanticsLabel('수락 전')).flagsCollection.isSelected, Tristate.isFalse);
       handle.dispose();
     });
   });
 
   group('15-4b 수락 후(pen `vn8R2`)', () {
-    Future<FakeMeRepository> openAfter(WidgetTester tester, {Result<MyProfile>? profile, FakeAccountRepository? account}) async {
+    Future<FakeMeRepository> openAfter(
+      WidgetTester tester, {
+      Result<MyProfile>? profile,
+      FakeAccountRepository? account,
+    }) async {
       usePenFrame(tester, height: 1000);
       final repository = await pump(tester, profile: profile, account: account);
       await tester.tap(find.text('수락 후'));
@@ -378,6 +490,79 @@ void main() {
       expect(find.text('카카오톡 아이디'), findsOneWidget);
       expect(find.text('fox_rain'), findsOneWidget);
       expect(find.byTooltip('복사'), findsOneWidget);
+    });
+
+    // 14c(partner_profile_screen_test "이런 사람이 좋아요 글 아래 간격")와 같은 잣대 — 카드의 footer 간격 13 / 1 / 3 이 15-4b 에서도 그대로다.
+    Rect kakaoRect(WidgetTester tester) =>
+        tester.getRect(find.ancestor(of: find.text('카카오톡 아이디'), matching: find.byType(Container)).first);
+
+    testWidgets('안내 → 카드 32, "이런 사람이 좋아요" 글 아래 끝 → 카카오 카드 위 끝 13, 카카오 카드 → 구분선 1', (tester) async {
+      await openAfter(tester);
+      await scrollToEnd(tester);
+
+      final notice = find.ancestor(of: find.text(_noticeAfter), matching: find.byType(DecoratedBox)).first;
+      // 안내 ↔ 카드 32 는 스크롤 위치에서 재야 하니 맨 위로 되돌려 잰다.
+      await tester.drag(_list, const Offset(0, 5000));
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(find.byType(ProfileCard)).dy - tester.getBottomLeft(notice).dy, 32);
+
+      await scrollToEnd(tester);
+      expect(find.text('이런 사람이 좋아요'), findsOneWidget);
+      expect(kakaoRect(tester).top - tester.getRect(find.text('대화가 잘 통하는 사람이 좋아요.')).bottom, 13);
+      expect(tester.getRect(find.byType(Divider).last).top - kakaoRect(tester).bottom, 1);
+    });
+
+    testWidgets('카카오 카드가 빠져도(아이디 없음) 글 아래 끝 → 구분선 위 끝은 13 이다', (tester) async {
+      final empty = FakeAccountRepository()
+        ..accountResult = Success(
+          AccountInfo(
+            email: 'a@b.c',
+            realName: null,
+            birthYear: null,
+            university: '가나대학교',
+            joinedAt: DateTime.utc(2026),
+            kakaoId: null,
+          ),
+        );
+      await openAfter(tester, account: empty);
+      await scrollToEnd(tester);
+
+      expect(
+        tester.getRect(find.byType(Divider).last).top - tester.getRect(find.text('대화가 잘 통하는 사람이 좋아요.')).bottom,
+        13,
+      );
+    });
+
+    testWidgets('카드 맨 아래: 구분선 → 신고하기 줄 11 · 줄 아래 → 카드 아래 끝 3 + 안쪽 여백(누르는 영역 안)', (tester) async {
+      await openAfter(tester);
+      await scrollToEnd(tester);
+
+      final divider = tester.getRect(find.byType(Divider).last);
+      final report = tester.getRect(find.text('신고하기'));
+      // 링크 글자 윗선까지 11 (누르는 영역 위 11 = pen 구분선 뒤 간격) — 글자 줄높이만큼 안쪽이라 11 이상 + 줄높이 여유 안.
+      expect(report.top - divider.bottom, greaterThanOrEqualTo(11));
+      final card = tester.getRect(find.byType(ProfileCard));
+      expect(card.bottom - report.bottom, greaterThanOrEqualTo(17 + 3));
+    });
+
+    testWidgets('카카오톡 아이디가 빈 문자열이어도 카카오 카드는 뜨지 않는다', (tester) async {
+      final blank = FakeAccountRepository()
+        ..accountResult = Success(
+          AccountInfo(
+            email: 'a@b.c',
+            realName: null,
+            birthYear: null,
+            university: '가나대학교',
+            joinedAt: DateTime.utc(2026),
+            kakaoId: '',
+          ),
+        );
+      await openAfter(tester, account: blank);
+      await scrollToEnd(tester);
+
+      expect(find.byType(KakaoIdCard), findsNothing);
+      expect(find.text('카카오톡 아이디'), findsNothing);
+      expect(find.byType(ReportBlockLinks), findsOneWidget);
     });
 
     testWidgets('신고하기 · 차단하기 줄은 보이지만 내 카드라 누를 곳이 없다', (tester) async {
@@ -561,12 +746,12 @@ void main() {
 /// [exceptWidth] 글자는 폭 검사에서 뺀다(높이는 본다) — 카톡 아이디는 끊을 곳이 없는 한 덩어리라 좁으면 글자 단위로 줄을 바꾼다
 /// (14c 배율 시험과 같은 규칙).
 List<String> _clippedTexts({String? exceptWidth}) => [
-      for (final element in find.byType(RichText).evaluate())
-        if (element.renderObject case final RenderParagraph p
-            when p.getMaxIntrinsicHeight(p.constraints.maxWidth) > p.size.height + 0.5 ||
-                (p.text.toPlainText() != exceptWidth && p.getMinIntrinsicWidth(double.infinity) > p.size.width + 0.5))
-          p.text.toPlainText(),
-    ];
+  for (final element in find.byType(RichText).evaluate())
+    if (element.renderObject case final RenderParagraph p
+        when p.getMaxIntrinsicHeight(p.constraints.maxWidth) > p.size.height + 0.5 ||
+            (p.text.toPlainText() != exceptWidth && p.getMinIntrinsicWidth(double.infinity) > p.size.width + 0.5))
+      p.text.toPlainText(),
+];
 
 /// 읽기가 [release] 될 때까지 멈춰 있는 계정 저장소 — "읽는 중" 모양을 본다.
 class _SlowAccount extends FakeAccountRepository {

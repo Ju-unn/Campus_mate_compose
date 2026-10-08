@@ -55,7 +55,9 @@ class _CardPreviewScreenState extends ConsumerState<CardPreviewScreen> {
   /// 불러오는 중 · 실패는 pen 에 없는 상태다 — 화면 15 와 같은 모양(가운데 로딩 / [MeLoadError], 계획서 N9).
   Widget _body() {
     void retry() => ref.invalidate(myCardPreviewProvider);
-    return ref.watch(myCardPreviewProvider).when(
+    return ref
+        .watch(myCardPreviewProvider)
+        .when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, stackTrace) => MeLoadError(onRetry: retry),
           data: (result) => result.when(
@@ -70,7 +72,13 @@ class _CardPreviewScreenState extends ConsumerState<CardPreviewScreen> {
 const double _bodyBottom = 40;
 
 /// 본문 `iFAyO` — 위 24 · 좌우 16 · 아래 40, 안내 ↔ 카드 32. 카드 높이는 내용 맞춤(N17).
-const EdgeInsets _bodyPadding = EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.lg, AppSpacing.md, _bodyBottom);
+/// 위 24 는 탭 바의 누르는 칸이 보이는 줄 아래로 더한 만큼([MeTabBar.extraHitHeight])을 뺀 값이다 — 안내의 보이는 자리는 pen 그대로(탭 바 아래 24).
+const EdgeInsets _bodyPadding = EdgeInsets.fromLTRB(
+  AppSpacing.md,
+  AppSpacing.lg - MeTabBar.extraHitHeight,
+  AppSpacing.md,
+  _bodyBottom,
+);
 
 /// 15-4 수락 전: 안내(`Ocmk4`) + 실사진 · 카카오 카드가 없는 카드.
 class _BeforeAccept extends StatelessWidget {
@@ -108,7 +116,8 @@ class _AfterAccept extends ConsumerWidget {
     if (profile.isLoading || account.isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
-    final urls = profile.value?.when(
+    final urls =
+        profile.value?.when(
           onSuccess: (value) => [for (final photo in value.photos) photo.url],
           onFailure: (_) => <String>[],
         ) ??
