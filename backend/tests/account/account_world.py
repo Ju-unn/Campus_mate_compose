@@ -4,7 +4,7 @@
 "탈퇴 → 다시 부르면 401", "정리 → 다시 돌리면 0건" 처럼 앞 요청이 뒤 요청의 답을 바꾸는 흐름을 그대로 흉내 낸다.
 """
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import httpx
 
@@ -56,6 +56,17 @@ class AccountWorld:
         self.fail: set[str] = set()            # "DELETE /storage/v1/object/avatars" 처럼 막을 요청
         self.withdraw_bodies: list[dict] = []
         self.unverified_lookups: list[dict] = []
+        # RPC 가 고른 뒤 그 사이 인증을 마친 사람처럼, 조건과 상관없이 RPC 결과에 끼워 넣을 id
+        self.stale_unverified: list[str] = []
+        # 프로필 재확인(id 하나 읽기)이 실패할 id
+        self.unreadable_profiles: set[str] = set()
+        # GET /auth/v1/admin/users 목록(관리자 API). 기본은 카카오 가입자 ME 하나.
+        self.auth_users: dict[str, dict] = {
+            ME: {"id": ME, "created_at": "2026-09-01T10:00:00Z",
+                 "identities": [{"provider": "kakao"}], "app_metadata": {"provider": "kakao"}},
+        }
+        self.admin_list_status = 200
+        self.admin_list_requests: list[httpx.Request] = []
         # GET /auth/v1/user 의 identities(탈퇴 때 카카오 연결 끊기가 본다). 기본은 카카오 가입자.
         self.identities: list[dict] = [{"provider": "kakao", "identity_data": {"sub": "4242"}}]
         self.kakao_unlinks: list[httpx.Request] = []
@@ -78,6 +89,19 @@ class AccountWorld:
         for bucket in BUCKETS:
             self.files[bucket][profile_id] = ["u.jpg"]
 
+    def temp_email_account(self, user_id: str, hours_ago: int, with_profile: bool = False) -> None:
+        """학교 메일 인증용 임시 계정(provider=email 하나뿐). 서버가 지우지 못하고 남은 잔여물."""
+        created = (NOW - timedelta(hours=hours_ago)).astimezone(timezone.utc)
+        self.auth_users[user_id] = {
+            "id": user_id, "created_at": created.isoformat().replace("+00:00", "Z"),
+            "identities": [{"provider": "email"}], "app_metadata": {"provider": "email"},
+        }
+        self.emails[user_id] = f"{user_id[:4]}@snu.ac.kr"
+        if with_profile:
+            # 소셜 전환 전 학교 메일 OTP 로 가입한 옛 계정 — 프로필이 있어 지우면 안 된다.
+            self.profiles[user_id] = {"status": "active", "withdrawn_at": None,
+                                      "school_email_verified_at": "2026-09-01T00:00:00+00:00"}
+
     # ------------------------------------------------------------------
     def handle(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
@@ -93,6 +117,8 @@ class AccountWorld:
         body = json.loads(request.content) if request.content else None
         if path == "/auth/v1/user":
             return httpx.Response(200, json={"id": self.caller, "identities": self.identities})
+        if path == "/auth/v1/admin/users":
+            return self._admin_list(request)
         if path.startswith("/auth/v1/admin/users/"):
             return self._admin_user(request.method, path.rsplit("/", 1)[1])
         if path == "/auth/v1/logout":
@@ -124,6 +150,17 @@ class AccountWorld:
             return httpx.Response(200, json={"id": user_id})
         return httpx.Response(200, json={"id": user_id, "email": self.emails[user_id]})
 
+    def _admin_list(self, request: httpx.Request) -> httpx.Response:
+        """GoTrue `GET /admin/users?page=&per_page=` — {"users": [...]} 를 한 쪽씩 돌려준다(1부터)."""
+        assert request.method == "GET"
+        assert request.headers["authorization"] == "Bearer service-key"
+        self.admin_list_requests.append(request)
+        if self.admin_list_status != 200:
+            return httpx.Response(self.admin_list_status, json={"msg": "boom"})
+        page, per_page = int(request.url.params["page"]), int(request.url.params["per_page"])
+        users = [u for uid, u in self.auth_users.items() if uid in self.emails]
+        return httpx.Response(200, json={"users": users[(page - 1) * per_page: page * per_page]})
+
     def _eq(self, params: httpx.QueryParams, key: str) -> str | None:
         value = params.get(key)
         return value.removeprefix("eq.") if value else None
@@ -136,9 +173,16 @@ class AccountWorld:
             rows = [{"id": pid} for pid, p in self.profiles.items()
                     if p["status"] == "withdrawn" and p["withdrawn_at"] < cutoff]
             return httpx.Response(200, json=rows[:int(params["limit"])])
-        row = self.profiles.get(self._eq(params, "id"))
+        profile_id = self._eq(params, "id")
+        if params.get("select") in ("id", "school_email_verified_at") and profile_id in self.unreadable_profiles:
+            return httpx.Response(500, json={"message": "boom"})
+        row = self.profiles.get(profile_id)
         if row is None:
             return httpx.Response(200, json=[])
+        if params["select"] == "id":
+            return httpx.Response(200, json=[{"id": profile_id}])
+        if params["select"] == "school_email_verified_at":
+            return httpx.Response(200, json=[{"school_email_verified_at": row.get("school_email_verified_at")}])
         if "created_at" in params["select"]:
             return httpx.Response(200, json=[{"birth_year": row["birth_year"], "created_at": row["created_at"],
                                               "universities": {"name": row["university"]}}])
@@ -153,9 +197,10 @@ class AccountWorld:
         assert method == "POST"
         self.unverified_lookups.append(body)
         cutoff = NOW - timedelta(days=body["p_older_than_days"])
-        return httpx.Response(200, json=[{"id": pid} for pid, p in self.profiles.items()
-                                         if "signed_up_at" in p and p["school_email_verified_at"] is None
-                                         and p["signed_up_at"] < cutoff])
+        ids = [pid for pid, p in self.profiles.items()
+               if "signed_up_at" in p and p["school_email_verified_at"] is None and p["signed_up_at"] < cutoff]
+        ids += [pid for pid in self.stale_unverified if pid not in ids]
+        return httpx.Response(200, json=[{"id": pid} for pid in ids[:body.get("p_limit", 100)]])
 
     def _heart_task_submissions(self, method, params, body):
         return httpx.Response(200, json=[])
