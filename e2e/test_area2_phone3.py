@@ -11,6 +11,7 @@ from e2e.area1 import SEOUL
 from e2e.test_area1_phone import FakePhone
 from e2e.test_area2 import Base, Fake
 from e2e.tools import Blocked, Reply
+from e2e.fake_regen_photo import patch_regen_photo
 
 # 2026-10-05(월) 부터 한 주 — 요일마다 정오(서울)
 WEEK = {name: datetime(2026, 10, 5 + i, 12, 0, tzinfo=SEOUL) for i, name in enumerate('월화수목금토일')}
@@ -163,6 +164,10 @@ class RegionTest(Base):
 
 
 class CaseBase(Base):
+    def setUp(self):
+        super().setUp()
+        self.regen_calls = patch_regen_photo(self, area2_phone3, when=lambda: len(self.fake.calls))  # 사진 옮기기 대신 부른 때만 적는다
+
     def go(self, case, phone, rules=()):
         fake = Fake(list(rules))
         for patcher in (mock.patch.object(tools, 'call', fake), mock.patch.object(area2_phone3.time, 'sleep', lambda s: None)):
@@ -184,6 +189,11 @@ class LowHeartsTest(CaseBase):
         self.assertEqual([b['p_amount'] for b in self.fake.bodies('POST', 'rpc/grant_hearts')], [9])
         self.assertEqual(len(self.fake.bodies('POST', '/me/avatar/regenerate')), 1)
         self.assertIn('token_hash', phone.jobs[0])
+
+    def test_the_regen_photo_is_pushed_once_before_any_request_so_the_app_can_pick_it_in_the_pick_screen(self):
+        rules = [('POST', '/me/avatar/regenerate', lambda b, u: Reply(402, {'detail': '하트가 모자라요'})), *self.RULES]
+        self.go('E-HEART-44', FakePhone(), rules)
+        self.assertEqual(self.regen_calls, [0])  # 서버 요청이 하나도 나가기 전 — 계정을 만들기 전
 
     def test_the_regeneration_request_is_sent_only_once_even_when_the_link_drops(self):
         rules = [('POST', '/me/avatar/regenerate', lambda b, u: Reply(402, {'detail': '하트가 모자라요'})), *self.RULES]

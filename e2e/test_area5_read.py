@@ -26,6 +26,7 @@ from e2e.test_area3_phone2 import as_fn
 from e2e.test_area3_safe import _who
 from e2e.test_area3_safe_phone import PhoneFake
 from e2e.tools import Reply, Run
+from e2e.fake_regen_photo import patch_regen_photo
 
 BUNDLE = ['E-ME-01', 'E-ME-02', 'E-ME-03', 'E-ME-04', 'E-ME-06', 'E-ME-08', 'E-ME-09', 'E-ME-28', 'E-ME-29', 'E-ME-30',
           'E-WD-01', 'E-WD-03', 'E-WD-17', 'E-EDGE-13', 'E-EDGE-14', 'E-EDGE-16', 'E-EDGE-23']
@@ -289,6 +290,7 @@ class ReadBase(unittest.TestCase):
         self.run_ = Run(self.root / 'area5-read', 'b', cfg={**CFG}, key='svc')
         self.fake = ReadFake()
         self.events, self.adb_calls = [], []
+        self.regen_calls = patch_regen_photo(self, area5_read, when=lambda: len(self.fake.sent))  # 사진 옮기기 대신 부른 때만 적는다
 
         def fake_adb(serial, *args, check=True):
             self.adb_calls.append((serial, *args))

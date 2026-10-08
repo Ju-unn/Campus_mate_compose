@@ -47,6 +47,7 @@ from datetime import datetime, timedelta, timezone
 
 from e2e import area1, area2, tools
 from e2e.area1 import SEOUL, Check, _api, _app, _at, _one, _patch, _rows, _signed_in
+from e2e.area1_b3 import regen_photo
 from e2e.area2_phone3 import _add_avatar, _balance, _give, offline
 from e2e.area3_phone import MISSING
 from e2e.area3_safe import _suspend
@@ -185,6 +186,7 @@ def _backs_until_end(phone, pressed):
 
 def p_me_01(run, phone):
     check = Check()
+    regen_photo(run, phone)  # 15b 시트를 읽으려면 알약 → 사진 고르기(15b-4 → 15b-5)를 거친다 — 앱이 갤러리에서 이 사진을 고르고 시트에서 "취소" 로 닫는다
     account, token = _home(run)
     me = account['id']
     _patch(run, f'profiles?id=eq.{me}', {'birth_year': datetime.now(SEOUL).year - 23, 'major': MAJOR})
@@ -210,6 +212,7 @@ def p_me_01(run, phone):
 
 def p_me_02(run, phone):
     check = Check()
+    regen_photo(run, phone)  # 앱이 15 를 읽은 뒤 15b 시트를 읽는다 — 알약 → 사진 고르기를 거친다(E-ME-01 과 같다)
     account, token = _home(run)
     me = account['id']
     _add_avatar(run, account)  # ready 2장이라야 15b 시트가 보유 하트 줄을 보인다(1장이면 무료 시트)
