@@ -12,9 +12,9 @@ from pydantic import BaseModel, Field
 from app.consents.repository import require_current_consent
 from app.core import errors
 from app.core.deps import Caller, get_caller, get_now
-from app.school_email.repository import SchoolEmailRepository, fetch_auth_user
+from app.school_email.repository import SchoolEmailRepository
 from app.signup_policy import SignupPolicy, hash_email
-from app.student_verification.current_user import reject_suspended
+from app.student_verification.current_user import fetch_auth_user, reject_suspended
 
 router = APIRouter()
 

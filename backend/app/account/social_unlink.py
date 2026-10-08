@@ -5,8 +5,8 @@
 """
 import httpx
 
-from app.school_email.repository import fetch_auth_user
 from app.settings import Settings
+from app.student_verification.current_user import fetch_auth_user
 
 KAKAO_UNLINK_URL = "https://kapi.kakao.com/v1/user/unlink"
 

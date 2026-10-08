@@ -20,6 +20,14 @@ async def get_current_user_id(
         raise HTTPException(status_code=401, detail=errors.LOGIN_REQUIRED)
     # 401 이면 앱이 토큰을 새로 받아 보고, 그래도 401 이면 로그인 화면으로 보낸다(A11). 그래서 이 로그인을
     # 거절한 것(4xx)만 401 이고, Supabase 인증이 잠깐 못 받는 것(5xx · 429 · 연결 실패)은 503 이다.
+    response = await _get_auth_user(settings, client, authorization)
+    if response.status_code != 200:
+        raise HTTPException(status_code=401, detail=errors.SESSION_EXPIRED)
+    return UUID(response.json()["id"])
+
+
+async def _get_auth_user(settings: Settings, client: httpx.AsyncClient, authorization: str) -> httpx.Response:
+    """`GET {auth_url}/user`. Supabase 인증이 잠깐 못 받는 것(5xx · 429 · 연결 실패)은 여기서 503 이다."""
     try:
         response = await client.get(
             f"{settings.auth_url}/user",
@@ -32,9 +40,17 @@ async def get_current_user_id(
     if response.status_code >= 500 or response.status_code == 429:
         logger.warning("Supabase 인증 장애 → 503 status=%d", response.status_code)
         raise HTTPException(status_code=503, detail=errors.AUTH_UNAVAILABLE)
-    if response.status_code != 200:
-        raise HTTPException(status_code=401, detail=errors.SESSION_EXPIRED)
-    return UUID(response.json()["id"])
+    return response
+
+
+async def fetch_auth_user(settings: Settings, client: httpx.AsyncClient, authorization: str) -> dict:
+    """그 토큰 주인의 Supabase 인증 정보(email · identities · app_metadata). 카카오 연결 끊기 · 학교 메일 verify 가 쓴다.
+
+    장애는 get_current_user_id 와 같이 503 이다. 그 밖의 4xx 는 httpx.HTTPStatusError 로 올린다 — 뜻은
+    부르는 쪽이 정한다(verify 의 임시 토큰은 403, 탈퇴의 카카오 단계는 경고만)."""
+    response = await _get_auth_user(settings, client, authorization)
+    response.raise_for_status()
+    return response.json()
 
 
 def _reject_withdrawn(status: str | None) -> None:
