@@ -348,6 +348,19 @@ async def test_the_delete_helper_never_deletes_the_caller():
     assert world.calls("DELETE", f"/auth/v1/admin/users/{ME}") == []
 
 
+async def test_the_caller_check_alone_stops_the_delete_even_for_a_temp_looking_caller():
+    """① 만 단독으로 잡는다(지시문 14-3): 호출자가 방금 만든 프로필 없는 email 계정처럼 보여서 ② · ③ 은 통과해도,
+    id 가 호출자와 같으면 지우지 않는다."""
+    world = VerifyWorld()
+    world.tokens["user-token"] = temp_email_user(user_id=ME)
+    world.profiles.pop(ME)
+
+    await _run_delete_helper(world, temp_id=ME, caller_id=ME)
+
+    assert world.deleted_users == []
+    assert world.calls("DELETE", f"/auth/v1/admin/users/{ME}") == []
+
+
 @pytest.mark.parametrize("identities", [[{"provider": "email"}, {"provider": "kakao"}], [{"provider": "kakao"}], []])
 async def test_the_delete_helper_rechecks_the_identities(identities):
     """② 삭제 직전에 관리자 API 로 다시 읽어 identities 가 정확히 email 하나인지 본다."""
