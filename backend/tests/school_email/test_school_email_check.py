@@ -109,6 +109,17 @@ def test_a_suspended_account_is_403_with_the_status_header_before_any_check(clie
     assert world.calls("GET", "/rest/v1/university_email_domains") == []
 
 
+def test_suspension_is_answered_before_consent(client, world):
+    """정지 → 동의 순서. 동의 403 은 헤더가 없어서 먼저 나가면 앱이 정지 안내 화면으로 못 간다."""
+    world.profile["status"] = "suspended"
+    world.consented = False
+
+    response = _check(client)
+
+    assert response.status_code == 403
+    assert response.headers["X-Account-Status"] == "suspended"
+
+
 def test_before_consent_is_403_without_the_status_header(client, world):
     world.consented = False
 
