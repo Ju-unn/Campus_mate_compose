@@ -40,12 +40,14 @@ async def submit_student_verification(
     make_vision_client: Callable[[], vision.ImageAnnotatorAsyncClient] = Depends(get_vision_client_factory),
 ) -> dict[str, str]:
     settings, client, profile_id = caller
-    await require_current_consent(settings, client, profile_id)
     repo = StudentVerificationRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
 
+    # 관문 순서: 정지 → 동의 → 학교 메일 → 학생증(fetch_verification_status docstring).
     gate = await repo.fetch_gate_status(profile_id)
     # 결정 9: 정지 계정은 학생증을 다시 내지 못한다 — 사진 업로드 · OCR 비용 · 디스코드 알림이 열릴 이유가 없다.
+    # 동의 403 은 헤더가 없어서 정지보다 먼저 나가면 앱이 정지 안내 화면으로 못 간다.
     reject_suspended(gate.get("status"))
+    await require_current_consent(settings, client, profile_id)
     status = gate["student_verification"]
     if status == "pending":
         raise HTTPException(status_code=409, detail=errors.VERIFICATION_IN_REVIEW)
@@ -134,6 +136,11 @@ async def submit_student_verification(
 
 @router.get("/me/verification-status")
 async def fetch_verification_status(caller: Caller = Depends(get_caller)) -> VerificationStatusResponse:
+    """앱이 다음 화면을 고르는 응답. 관문 순서는 정지 → 동의 → 학교 메일 → 학생증 → 학과와 학번 이다.
+
+    정지(X-Account-Status 헤더)는 다른 API 가 알려 주고, 나머지 넷은 이 응답의 consent ·
+    school_email_verified · status · has_school_info 가 그 순서로 맡는다. 로그인만 보는 문이라
+    정지 · 동의 전 · 학교 메일 전에도 닿는다(그래야 안내 화면으로 간다)."""
     settings, client, profile_id = caller
     repo = StudentVerificationRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
 
@@ -145,6 +152,7 @@ async def fetch_verification_status(caller: Caller = Depends(get_caller)) -> Ver
         has_school_info=gate["department"] is not None,
         reject_reason=await repo.fetch_reject_reason(profile_id) if status == "rejected" else None,
         consent=consent_state(await consents.fetch_rows(profile_id)),
+        school_email_verified=gate.get("school_email_verified_at") is not None,
     )
 
 
