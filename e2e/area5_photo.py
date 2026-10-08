@@ -6,16 +6,22 @@
 (문구는 사람이 읽는 글자 그대로, 못 본 것은 None — 이 쪽은 `MISSING` 과 가른다), 판정은 여기서 한다. 계정은 가설마다 새로 만든다.
 쓰기는 이번 실행이 만든 계정에만 한다(`area2._guard`). 탈퇴 · 영구 삭제 버튼은 어디서도 누르지 않는다.
 
+"다시 만들기" 는 사진부터 고른다(15b-4 → 15b-5 → 하트 확인 시트, 사용자 결정 2026-10-08): 알약을 누르면 사진 고르기가 먼저 뜨고, 앱이 갤러리 훅으로 폰 앱 캐시의
+face1.jpg 한 장을 고른 뒤 시트에서 "만들기" 를 누르면 `PUT /me/photos` 가 그 사진으로 지금 아바타 원본 칸만 바꾸고(장수 그대로) 이어 `POST /me/avatar/regenerate` 를 부른다.
+그래서 다시 만들기를 하는 가설(10 · 11 · 12 · 13 · 14 · 16)은 맨 앞에서 `regen_photo` 로 사진을 앱 캐시에 옮기고(없으면 계정을 만들기 전에 blocked), 만들기를 누르는 가설은
+끝에서 원본 칸이 새 사진으로 바뀌었는지(`_source_replaced`)도 본다. 하트가 모자라 시트에서 막히는 12 는 사진 교체도 안 불렀는지 본다.
+
 유료 호출 표(서버 코드 근거 — 이 모양이 바뀌면 test_area5_photo.PaidFactsTest 가 걸린다)
-  ME-12  OpenAI 0 · Vision 0 · 게이트 없음. 시트의 "하트 충전하기" 는 시트를 닫고 하트 스토어(18, `/hearts/store`)로 간다(my_profile_screen.dart
+  ME-12  OpenAI 0 · Vision 0 · 게이트 없음(시트에서 막혀 사진 교체도 안 부른다). 시트의 "하트 충전하기" 는 시트를 닫고 하트 스토어(18, `/hearts/store`)로 간다(my_profile_screen.dart
          `_openRegenSheet` 의 chargeHearts — 예전엔 "곧 열려요" 토스트) — 서버 요청이 없다(스토어가 읽는 하트 과제 목록 GET 은 쓰기가 아니다). 앱이 뷰모델 상태(idle)를, PC 가 DB(아바타 행 · 하트 · 원장 그대로)를 본다.
-  ME-13  OpenAI 0 · Vision 0 · 게이트 없음(E-HEART-44 와 같은 402 가설). POST /me/avatar/regenerate 가 402 로 끝나 큐에 안 넣는다(me/router.py:133-137,
-         큐 등록은 139). 하트 계산이 어긋나 202 가 되면 그 요청이 곧 유료 호출이라, 새 아바타 행이 생기면 fail 메모에 "유료" 를 적는다.
-  ME-14  OpenAI 최대 1 · Vision 0 · 게이트 E2E_REAL_AI=1 + _PAID(없으면 계정도 요청도 없이 blocked, 한 번 나간 뒤에는 다시 안 돎).
+  ME-13  OpenAI 0 · Vision 1(만들기가 사진 교체를 먼저 부른다, me/router.py:166-171) · 게이트 없음(E-HEART-44 와 같은 402 가설). 교체가 성공한 뒤
+         POST /me/avatar/regenerate 가 402 로 끝나 큐에 안 넣는다(me/router.py:133-137, 큐 등록은 139) — 새 사진은 이미 원본으로 남는다(서버가 둘로 나뉜 한계). 하트 계산이 어긋나 202 가 되면 그 요청이 곧 유료 호출이라, 새 아바타 행이 생기면 fail 메모에 "유료" 를 적는다.
+  ME-14  OpenAI 최대 1 · Vision 1(사진 교체) · 게이트 E2E_REAL_AI=1 + _PAID(없으면 계정도 요청도 없이 blocked, 한 번 나간 뒤에는 다시 안 돎).
          "10 쓰고 만들기" 는 큐에 등록하고(me/router.py:139 → profile_onboarding/router.py:243-249 Cloud Tasks) 워커(tasks_router.py:83 AvatarGenerator)가
          OpenAI 이미지를 부른다. 워커는 행이 pending 이 아니면 부르기 전에 건너뛴다(:61-63). PC 가 새 pending 행을 FLIP_POLL 초마다 보다가 바로 failed 로
          바꾼다 — 워커가 그 전에 행을 읽었다면 1번 나가고(끝에 :93 에서 0행이라 skipped, 하트도 안 빼고 그림도 안 적는다), 워커가 끝까지 먼저면 ready 라 blocked.
   ME-38  OpenAI 0 · Vision 1(새 사진 1장에 한 번, me/router.py:166-171) · 게이트 없음(area1_b3 의 사진 가설도 Vision 에 게이트가 없다).
+  ME-10 · 11 · 16  Vision 1 — 만들기 앞의 사진 교체(새 파일 1장에 한 번). OpenAI 는 각 1번(워커) — 아래 가설 설명.
   ME-39  OpenAI 0 · Vision 0 — 새 파일이 없는 저장은 반복문이 비어 있다.
   ME-41  OpenAI 0 · Vision 0 — 저장 버튼을 안 누른다. 서버 경계 확인 두 번(1칸 · 5칸)은 ①에서 422(:154)라 Vision 앞에서 끝나고 새 파일도 없다.
   ME-42  OpenAI 0 · Vision 0 — 얼굴 판정은 기기 안(ML Kit)이고 저장 버튼을 안 누른다.
@@ -28,7 +34,9 @@
   E-ME-12 · 13 · 14  시나리오의 "ready 2장" 은 계정 공장의 1장에 DB 로 1장을 더한다(area2_phone3._add_avatar — 1장이면 무료 시트, avatar_regen_cost).
                 하트는 처음 있던 잔액을 읽어 목표 값(5 · 37)이 되도록 더하거나(free_task) 뺀다(admin_adjust — avatar_regen 원장 0행을 지켜야 해서 이유를 다르게 쓴다).
   E-ME-13       "화면은 37" 은 앱이 나 탭을 연 뒤 `step` 에서 멈추면 PC 가 5로 낮춘다. 시트는 처음 읽은 37 을 들고 있어 "10 쓰고 만들기" 가 나온다.
-                앱이 누른 요청은 402 로 끝나고, 앱은 15 의 토스트 "하트가 모자라요"(서버 문구)와 뷰모델 상태(failed · 서버 문구)를 말한다.
+                앱이 누르면 사진 교체(성공)가 먼저고 이어 등록이 402 로 끝난다 — 앱은 사진 고르기(15b-5) 칸 아래의 서버 문구 "하트가 모자라요" 와 뷰모델 상태
+                (failed · 서버 문구)를 말한다(15 의 토스트는 아래 화면이라 안 보인다). 이때 새 사진은 이미 원본으로 남는다 — PC 가 그 사실을 판정에 넣는다
+                (원본 칸만 새 파일, 장수 그대로, 아바타 행 · 하트 · 원장은 그대로).
   E-ME-14       PC 가 "새 pending 행이 생기면 즉시 failed" 를 하는 방식은 워커와 경쟁이다 — 위 표. 앱은 누르기 직전에 `ready` 에서 멈추고 PC 가 지켜보기를 시작한다.
                 15-3 토스트는 서버 문구가 없는 실패(상태 조회가 failed)라 기본 안내 "아바타를 만들지 못했어요.\\n하트는 차감되지 않았어요." 이고, 서버 문구가
                 있으면(402 등) 그 문구가 대신 뜬다 — 앱은 뷰모델의 오류 글자도 말해 둘을 가른다. 결과 안내는 상태 조회(5초 주기)가 failed 를 읽은 뒤 뜬다.
@@ -51,7 +59,7 @@ import uuid
 
 from e2e import area1, area2, tools
 from e2e.area1 import Check, _app, _one, _patch, _rows
-from e2e.area1_b3 import _files, _photos, _push
+from e2e.area1_b3 import _files, _photos, _push, regen_photo
 from e2e.area2_phone3 import _add_avatar, _balance, _slow, offline
 from e2e.area3_phone import MISSING
 from e2e.area4 import _restore
@@ -136,6 +144,22 @@ def _storage_matches(check, rows, files):
     left, missing = sorted(set(files) - paths), sorted(paths - set(files))
     check.that(not left, f'저장소에 행 없는 파일이 남음 {left}')
     check.that(not missing, f'저장소에 파일이 없는 행 {missing}')
+
+
+def _source_replaced(check, run, account, before):
+    """다시 만들기가 새 사진으로 지금 아바타 원본 칸 하나만 바꿨다 — 장수 그대로, 원본은 한 장이고 그 칸의 파일이 새것, 나머지 칸은 그대로."""
+    now = _photos_now(run, account)
+    check.that(len(now) == len(before), f'사진 {len(now)}장(기대 {len(before)}장 그대로 — 원본 칸 하나만 새 사진으로 바뀐다)')
+    sources = [r for r in now if r['is_avatar_source']]
+    check.that(len(sources) == 1, f'아바타 원본 표시 {len(sources)}장(기대 1장)')
+    old_paths = {r['storage_path'] for r in before}
+    now_paths = {r['storage_path'] for r in now}
+    check.that(len(sources) == 1 and sources[0]['storage_path'] not in old_paths,
+               f"원본 칸의 파일이 새 사진으로 안 바뀜 {[s['storage_path'] for s in sources]}(기대 이전 사진 파일이 아닌 새 파일)")
+    check.that(sorted(r['storage_path'] for r in before if not r['is_avatar_source']) == sorted(r['storage_path'] for r in now if not r['is_avatar_source']),
+               '원본이 아닌 사진 칸이 바뀜(기대 그대로)')
+    gone = [r for r in before if r['storage_path'] not in now_paths]
+    check.that(len(gone) == 1 and gone[0]['is_avatar_source'], f'사라진 사진 {[r["storage_path"] for r in gone]}(기대 이전 원본 칸 한 장)')
 
 
 def _drop_photo(run, account, row):
@@ -235,10 +259,12 @@ class _Watcher:
 
 def p_me_12(run, phone):
     check = Check()
+    regen_photo(run, phone)  # 계정을 만들기 전에 — 알약은 사진 고르기를 먼저 연다
     account, token = _home(run)
     _two_ready(run, account)
     _hearts_to(run, account, LOW)
     before = _snapshot(run, account)
+    photos_before = _photos_now(run, account)
     said = _app(check, phone(token_hash=token))
     check.that(said.get('sheet_title', MISSING) == LOW_TITLE, f"시트 제목 {said.get('sheet_title', MISSING)!r}(기대 {LOW_TITLE!r})")
     check.that(said.get('sheet_body', MISSING) == LOW_BODY, f"시트 글 {said.get('sheet_body', MISSING)!r}(기대 {LOW_BODY!r})")
@@ -248,15 +274,18 @@ def p_me_12(run, phone):
     check.that(said.get('regen_state', MISSING) == 'idle',
                f"다시 만들기를 불렀다 — 뷰모델 상태 {said.get('regen_state', MISSING)!r}(기대 idle — 시트의 충전 버튼은 서버를 부르지 않는다)")
     _not_spent(check, run, account, before)
-    return check.result('서버 요청 0 은 앱의 뷰모델 상태(idle — 다시 만들기를 부르면 generating · failed 가 된다)와 DB(아바타 행 · 하트 · 원장 그대로)로 본다')
+    check.that(_photos_now(run, account) == photos_before, '사진 행이 바뀜(기대 그대로 — 하트가 모자라면 시트에서 막혀 사진 교체도 부르지 않는다)')
+    return check.result('서버 요청 0 은 앱의 뷰모델 상태(idle — 다시 만들기를 부르면 generating · failed 가 된다)와 DB(아바타 행 · 사진 · 하트 · 원장 그대로)로 본다')
 
 
 def p_me_13(run, phone):
     check = Check()
+    regen_photo(run, phone)
     account, token = _home(run)
     _two_ready(run, account)
     _hearts_to(run, account, HEARTS)
     before = _avatar_rows(run, account)
+    photos_before = _photos_now(run, account)
 
     def lower(said):
         """앱이 나 탭을 연 채 멈춘 사이 — 다른 곳에서 쓴 것처럼 하트를 낮춘다. 못 낮췄으면 앱이 누르기 전에 막는다."""
@@ -265,21 +294,25 @@ def p_me_13(run, phone):
     check.that(said.get('sheet_title', MISSING) == PAID_TITLE, f"시트 제목 {said.get('sheet_title', MISSING)!r}(기대 {PAID_TITLE!r})")
     check.that(said.get('sheet_body', MISSING) == _paid_body(HEARTS),
                f"시트 글 {said.get('sheet_body', MISSING)!r}(기대 낡은 잔액 {HEARTS} 을 그대로 든 {_paid_body(HEARTS)!r})")
-    check.that(said.get('toast_seen') is True, f"토스트 \"{LOW_TITLE}\" {said.get('toast_seen', MISSING)}(기대 보임)")
+    check.that(said.get('caption_seen') is True, f"사진 고르기 칸 아래 문구 \"{LOW_TITLE}\" {said.get('caption_seen', MISSING)}(기대 보임)")
+    check.that(said.get('on_pick_screen') is True, f"402 뒤에도 사진 고르기(15b-5)에 남음 {said.get('on_pick_screen', MISSING)}(기대 True — 15 로 돌아가지 않는다)")
     check.that(said.get('regen_state', MISSING) == 'failed', f"다시 만들기 상태 {said.get('regen_state', MISSING)!r}(기대 failed — 402 로 끝나야 한다)")
     check.that(said.get('regen_error', MISSING) == LOW_TITLE, f"서버 문구 {said.get('regen_error', MISSING)!r}(기대 {LOW_TITLE!r})")
     new = [r for r in _avatar_rows(run, account) if r not in before]
     check.that(not new, f'새 아바타 행 {[r[1] for r in new]} — 서버가 402 로 막지 않고 큐에 넣었다(202). 유료 AI 호출이 나갔을 수 있다')
     _no_charge(check, run, account, LOW)
-    return check.result()
+    _source_replaced(check, run, account, photos_before)  # 402 는 사진 교체 뒤다 — 새 사진은 이미 원본으로 남는다(서버 구조의 한계)
+    return check.result('사진 교체(Vision 1번)는 끝났고 등록이 402 로 막혔다 — 새 사진이 원본으로 남는 것은 서버가 두 요청으로 나뉜 한계다')
 
 
 def p_me_14(run, phone, paid):
     check = Check()
+    regen_photo(run, phone)
     account, token = _home(run)
     _two_ready(run, account)
     _hearts_to(run, account, HEARTS)
     known = {r[0] for r in _avatar_rows(run, account)}
+    photos_before = _photos_now(run, account)
     watcher = _Watcher(run, account, known)
     paid()  # 여기부터는 큐 등록 · OpenAI 이미지 생성(유료)이 나갈 수 있다
     try:
@@ -307,7 +340,8 @@ def p_me_14(run, phone, paid):
     ready = [r for r in now if r[1] == 'ready']
     check.that(len(ready) == 2, f'완성 아바타 {len(ready)}장(기대 2장 그대로)')
     _no_charge(check, run, account, HEARTS)
-    return check.result('유료 호출: 큐 등록 1번, OpenAI 이미지 생성은 워커가 행을 읽기 전에 바꿨으면 0번(건너뜀), 먼저 읽었으면 1번(끝에 0행이라 skipped)')
+    _source_replaced(check, run, account, photos_before)
+    return check.result('유료 호출: Vision 1번(사진 교체), 큐 등록 1번, OpenAI 이미지 생성은 워커가 행을 읽기 전에 바꿨으면 0번(건너뜀), 먼저 읽었으면 1번(끝에 0행이라 skipped)')
 
 
 # ── E-ME-10 · 11 · 16 워커가 새 아바타를 만든다(유료 AI) ──────────────────────────────────────────
@@ -340,11 +374,13 @@ def _new_ready_id(rows, known):
 
 def p_me_10(run, phone, paid):
     check = Check()
+    regen_photo(run, phone)
     account, token = _home(run)
     ready = len(_ready_avatars(run, account))
     if ready != 1:
         raise Blocked(f'준비: ready 아바타 {ready}장 — 기대 1장(첫 다시 만들기가 무료인 조건)')
     before = _snapshot(run, account)
+    photos_before = _photos_now(run, account)
     paid()  # 여기부터는 큐 등록 · OpenAI 이미지 생성(유료)이 나갈 수 있다
     said = _app(check, _slow(phone, WORKER_WAIT)(token_hash=token))
     check.that(said.get('sheet_title', MISSING) == PAID_TITLE, f"시트 제목 {said.get('sheet_title', MISSING)!r}(기대 {PAID_TITLE!r})")
@@ -357,15 +393,18 @@ def p_me_10(run, phone, paid):
     check.that(now['balance'] == before['balance'], f"하트 {now['balance']}(기대 {before['balance']} 그대로 — 첫 다시 만들기는 무료)")
     ledger = area2._ledger(run, account, 'avatar_regen')
     check.that(not ledger, f'avatar_regen 원장 {ledger}(기대 0행)')
-    return check.result('유료 호출: 큐 등록 1번 · 워커의 OpenAI 이미지 생성 1번(하트는 안 빠진다)')
+    _source_replaced(check, run, account, photos_before)
+    return check.result('유료 호출: Vision 1번(사진 교체) · 큐 등록 1번 · 워커의 OpenAI 이미지 생성 1번(하트는 안 빠진다)')
 
 
 def p_me_11(run, phone, paid):
     check = Check()
+    regen_photo(run, phone)
     account, token = _home(run)
     _two_ready(run, account)
     _hearts_to(run, account, HEARTS)
     known = {r[0] for r in _avatar_rows(run, account)}
+    photos_before = _photos_now(run, account)
     paid()
     said = _app(check, _slow(phone, WORKER_WAIT)(token_hash=token))
     check.that(said.get('sheet_title', MISSING) == PAID_TITLE, f"시트 제목 {said.get('sheet_title', MISSING)!r}(기대 {PAID_TITLE!r})")
@@ -381,22 +420,26 @@ def p_me_11(run, phone, paid):
     refs = [r.get('ref_id') for r in ledger]
     check.that(bool(refs) and all(refs), f'원장의 ref_id {refs}(기대 비어 있지 않음)')
     check.that(new_id is not None and refs == [new_id], f'원장의 ref_id {refs}(기대 새 아바타 행 {new_id})')
-    return check.result(f'유료 호출: 큐 등록 1번 · 워커의 OpenAI 이미지 생성 1번(하트 {COST}개)')
+    _source_replaced(check, run, account, photos_before)
+    return check.result(f'유료 호출: Vision 1번(사진 교체) · 큐 등록 1번 · 워커의 OpenAI 이미지 생성 1번(하트 {COST}개)')
 
 
 def p_me_16(run, phone, paid):
     check = Check()
+    regen_photo(run, phone)
     account, token = _home(run)
     ready = len(_ready_avatars(run, account))
     if ready != 1:
         raise Blocked(f'준비: ready 아바타 {ready}장 — 기대 1장(무료로 만들어 하트를 안 쓴다)')
+    photos_before = _photos_now(run, account)
     paid()
     said = _app(check, _slow(phone, WORKER_WAIT)(token_hash=token))
     check.that(said.get('generating_after_return', MISSING) is True,
                f"오늘 탭에서 나 탭으로 돌아온 뒤 변환 중 안내 {said.get('generating_after_return', MISSING)}(기대 True — 폴링을 다시 잇는다)")
     _regen_ui(check, said)
     _one_new_ready(check, run, account, ready)
-    return check.result('유료 호출: 큐 등록 1번 · 워커의 OpenAI 이미지 생성 1번(무료 차례라 하트는 안 빠진다)')
+    _source_replaced(check, run, account, photos_before)
+    return check.result('유료 호출: Vision 1번(사진 교체) · 큐 등록 1번 · 워커의 OpenAI 이미지 생성 1번(무료 차례라 하트는 안 빠진다)')
 
 
 # ── E-ME-38 · 39 15-7 저장 ──────────────────────────────────────────────────────────────────────────

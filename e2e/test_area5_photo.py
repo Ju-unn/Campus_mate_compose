@@ -287,9 +287,21 @@ class PhotoBase(ActBase):
     def call_regenerate(self, n=1):
         return self.api('POST', '/me/avatar/regenerate', {}, n)
 
+    def app_replace_source(self, n=1, expect=200):
+        """앱이 사진 고르기에서 사진 한 장을 골라 시트의 "만들기" 를 눌렀을 때 서버가 받는 첫 요청 — 지금 아바타 원본 칸만 새 파일로 바꾼다(PUT /me/photos, 장수 그대로)."""
+        rows = self.photos(n)
+        source = next(i for i, row in enumerate(rows) if row['is_avatar_source'])
+        layout = [{'new': 0} if i == source else {'keep': row['id']} for i, row in enumerate(rows)]
+        return self.app_save(layout, source=source, files=1, n=n, expect=expect)
+
+    def pushed_regen_photo(self):
+        """폰 앱 캐시로 옮긴 파일 이름들(adb push) — regen_photo 가 한 일."""
+        return [Path(call[-2]).name for call in self.adb_calls if len(call) > 2 and call[1] == 'push']
+
     def good_14(self, **over):
         """앱이 "10 쓰고 만들기" 를 눌러 202 를 받고, PC 가 새 pending 행을 failed 로 바꾸기를 기다린 뒤 15-3 토스트를 본 것처럼."""
         def answer(job):
+            self.app_replace_source()  # 사진 교체가 먼저
             self.regen_reply = self.call_regenerate()
             self.assertEqual(self.regen_reply[0], 202)
             self.assertTrue(wait_for(lambda: self.avatars(status='failed')), 'PC 가 새 행을 실패로 바꾸지 않았다')
@@ -404,6 +416,20 @@ class AppContractTest(unittest.TestCase):
             with self.subTest('app ' + literal):
                 self.assertTrue(f"'{literal}'" in app_dart(), f'{literal!r} 가 area5_photo.dart 에 없다')
         self.assertTrue("'아바타를 만들지 못했어요.\\n하트는 차감되지 않았어요.'" in app_dart())
+
+    def test_the_regen_pick_step_names_the_same_photo_and_button_as_the_pc_and_the_real_screen(self):
+        # 알약 → 사진 고르기 걸음(regen_pick.dart)은 PC 가 앱 캐시에 넣는 파일 · 실제 15b-5 의 버튼 글자 · 갤러리 훅 공급자를 그대로 쓴다.
+        step = dart('regen_pick.dart')
+        pc = (tools.ROOT / 'e2e' / 'area1_b3.py').read_text(encoding='utf-8')
+        self.assertIn("const regenPhotoName = 'face1.jpg';", step)
+        self.assertIn("REGEN_PHOTO = 'face1.jpg'", pc)
+        cta = re.search(r"const regenPickCta = '([^']+)';", step).group(1)
+        self.assertIn(f"label: '{cta}'", lib('me', 'view', 'avatar_regen_pick_screen.dart'))
+        self.assertIn('avatarRegenPickViewModelProvider.notifier).pickFromGallery', step)  # 다른 공급자의 훅이 아니다
+        self.assertIn('AddPhotoTile(onTap: viewModel.pick)', lib('me', 'view', 'avatar_regen_pick_screen.dart'))  # 빈 칸의 + 아이콘을 누른다
+        self.assertIn('AppIcons.plus', lib('profile', 'view', 'photo_tiles.dart'))
+        self.assertIn("import 'regen_pick.dart';", dart('area5.dart'))
+        self.assertIn("import 'regen_pick.dart';", dart('area2_c.dart'))
 
     def test_the_screens_say_the_same_numbers(self):
         # 15-7 의 2~4장 · 저장 규칙 / 끌기 / 갤러리 안내 — 시험이 기대하는 숫자가 지금 코드의 숫자다.
@@ -597,6 +623,26 @@ class LowHeartsSheetTest(PhotoBase):
         self.assertEqual(len(self.avatars()), 2)
         self.assertEqual(self.fake.queued, 0)
 
+    def test_12_the_photos_stay_as_they_were_and_the_regen_photo_was_pushed_first(self):
+        seen = {}
+        good = self.good()
+
+        def answer(job):
+            seen['before'] = [(r['id'], r['storage_path']) for r in self.photos()]  # 계정이 만들어진 뒤 · 앱이 아무것도 하기 전
+            return good(job)
+        self.adb_calls.clear()
+        self.passes('E-ME-12', answer)
+        self.assertEqual(len(seen['before']), 2)
+        self.assertEqual([(r['id'], r['storage_path']) for r in self.photos()], seen['before'])
+        self.assertEqual(self.fake.vision_calls, 0)
+        self.assertEqual(self.pushed_regen_photo(), ['face1.jpg'])
+
+    def test_12_fails_when_the_app_replaced_a_photo_though_the_sheet_should_have_stopped_it(self):
+        def replaced(job):
+            self.app_replace_source()
+            return self.good()(job)
+        self.fails('E-ME-12', replaced, '사진 행')
+
     def test_12_the_hearts_are_set_to_exactly_five_whatever_the_account_started_with(self):
         for starter, ledger in ((0, [5]), (5, []), (12, [-7])):
             with self.subTest(starter):
@@ -661,10 +707,11 @@ class LowHeartsSheetTest(PhotoBase):
 class StaleBalanceTest(PhotoBase):
     def good(self, **over):
         def answer(job):
+            self.app_replace_source()  # 사진 교체가 먼저 성공하고
             reply = self.call_regenerate()  # 앱의 "10 쓰고 만들기" — PC 가 하트를 낮춘 뒤에 눌렀다
             self.status_seen = reply[0]
-            return said(**{'sheet_title': PAID_TITLE, 'sheet_body': paid_body(37), 'toast_seen': True, 'regen_state': 'failed',
-                           'regen_error': LOW_TITLE, **over})
+            return said(**{'sheet_title': PAID_TITLE, 'sheet_body': paid_body(37), 'caption_seen': True, 'on_pick_screen': True,
+                           'regen_state': 'failed', 'regen_error': LOW_TITLE, **over})
         return answer
 
     def run13(self, answer=None):
@@ -672,7 +719,7 @@ class StaleBalanceTest(PhotoBase):
 
     def test_13_the_hearts_drop_to_five_while_the_screen_still_holds_37_and_the_server_says_402(self):
         (result, note), app = self.run13()
-        self.assertEqual((result, note), ('pass', ''))
+        self.assertEqual(result, 'pass', note)
         self.assertEqual(self.status_seen, 402)
         self.assertEqual(self.events, ['step', 'go'])  # 앱이 연 뒤 멈추고 PC 가 일한 뒤 이어 갔다
         self.assertEqual(app.jobs, [{'token_hash': 'h'}])
@@ -682,14 +729,40 @@ class StaleBalanceTest(PhotoBase):
         self.assertEqual(self.fake.queued, 0)  # 큐에 안 넣었다
         self.assertEqual([r['amount'] for r in self.rows('heart_transactions')], [32, -32])  # 처음 5 → 37 로 올리고 → 5 로 낮춘다
 
+    def test_13_the_new_photo_is_already_the_source_when_the_402_comes_and_that_is_part_of_the_verdict(self):
+        # 사진 교체(성공) 뒤 등록이 402 — 새 사진은 원본으로 남는다(서버가 두 요청이라는 한계). 사진 목록 장수는 그대로, 원본 칸만 새 파일.
+        seen = {}
+        good = self.good()
+
+        def answer(job):
+            seen['before'] = [(r['id'], r['storage_path']) for r in self.photos()]
+            return good(job)
+        (result, note), _ = self.run13(answer)
+        self.assertEqual(result, 'pass', note)
+        before, now = seen['before'], self.photos()
+        self.assertEqual(len(now), len(before))
+        self.assertEqual(sum(1 for r in now if r['is_avatar_source']), 1)
+        self.assertEqual(len({r['storage_path'] for r in now} - {path for _, path in before}), 1)
+        self.assertIn('원본', note)
+        self.assertEqual(self.fake.vision_calls, 1)  # 사진 교체가 Vision 을 한 번 불렀다
+
+    def test_13_fails_when_the_photo_was_not_replaced_before_the_402(self):
+        def skipped(job):
+            reply = self.call_regenerate()  # 사진 교체 없이 등록만 — 하트 부족 402 로 끝나는 옛 흐름
+            self.status_seen = reply[0]
+            return said(sheet_title=PAID_TITLE, sheet_body=paid_body(37), caption_seen=True, on_pick_screen=True, regen_state='failed', regen_error=LOW_TITLE)
+        (result, note), _ = self.run13(skipped)
+        self.assertEqual(result, 'fail', note)
+        self.assertIn('원본 칸', note)
+
     def test_13_the_lowering_is_a_write_in_the_ledger_with_an_admin_reason_not_an_avatar_regen(self):
         self.run13()
         self.assertEqual({r['reason'] for r in self.rows('heart_transactions')}, {'free_task', 'admin_adjust'})
 
     def test_13_fails_on_each_wrong_sheet_toast_or_state(self):
         for over, word in (({'sheet_title': LOW_TITLE}, '시트 제목'), ({'sheet_body': paid_body(5)}, '낡은'), ({'sheet_body': LOW_BODY}, '낡은'),
-                           ({'toast_seen': False}, '토스트'), ({'regen_state': 'idle'}, '다시 만들기'), ({'regen_error': None}, '서버 문구'),
-                           ({'regen_error': '다른 문구'}, '서버 문구')):
+                           ({'caption_seen': False}, '문구'), ({'on_pick_screen': False}, '사진 고르기'), ({'on_pick_screen': None}, '사진 고르기'),
+                           ({'regen_state': 'idle'}, '다시 만들기'), ({'regen_error': None}, '서버 문구'), ({'regen_error': '다른 문구'}, '서버 문구')):
             with self.subTest(over):
                 self.reset_paid()
                 (result, note), _ = self.run13(self.good(**over))
@@ -875,6 +948,7 @@ class WorkerRegenTest(PhotoBase):
 
     def good(self, name, **over):
         def answer(job):
+            self.app_replace_source()  # 사진 교체가 먼저(Vision 1번) — 지금 아바타 원본 칸만 새 사진으로
             self.assertEqual(self.call_regenerate()[0], 202)
             self.charged_row = self.worker(10 if name == 'E-ME-11' else 0)
             said_ = {'generating_seen': True, 'avatar_changed': True, 'generating_gone': True, 'regen_state': 'ready', 'waited_ms': 20000}
@@ -898,6 +972,8 @@ class WorkerRegenTest(PhotoBase):
         self.assertEqual(sorted(a['status'] for a in self.avatars()), ['ready', 'ready'])
         self.assertEqual(self.ledger('avatar_regen'), [])
         self.assertEqual(self.fake.queued, 1)
+        self.assertEqual(self.fake.vision_calls, 1)  # 사진 교체의 SafeSearch 한 번
+        self.assertEqual(self.pushed_regen_photo(), ['face1.jpg'])  # 앱이 갤러리에서 고를 사진을 계정을 만들기 전에 앱 캐시로 옮겼다
 
     def test_10_fails_on_a_charge_a_missing_free_text_a_heart_line_or_an_unchanged_picture(self):
         def charged(job):
@@ -918,6 +994,7 @@ class WorkerRegenTest(PhotoBase):
 
     def test_10_fails_when_the_worker_never_made_a_ready_avatar(self):
         def stuck(job):
+            self.app_replace_source()
             self.assertEqual(self.call_regenerate()[0], 202)
             return said(generating_seen=True, avatar_changed=True, generating_gone=True, regen_state='ready', waited_ms=1000,
                         sheet_title=PAID_TITLE, sheet_texts=[PAID_TITLE, FREE_BODY, '무료로 만들기', '취소'])
@@ -992,6 +1069,28 @@ class WorkerRegenTest(PhotoBase):
                 self.assertIn(word, note)
 
     # ── 셋 다 ──
+    def test_the_three_fail_when_the_app_registered_without_replacing_the_source_photo(self):
+        for name in ('E-ME-10', 'E-ME-11', 'E-ME-16'):
+            with self.subTest(name):
+                self.reset_paid()
+                good = self.good(name)
+
+                def no_replace(job, good=good):
+                    with mock.patch.object(type(self), 'app_replace_source', lambda self_, *a, **k: None):
+                        return good(job)
+                (result, note), _ = self.run_case(name, no_replace)
+                self.assertEqual(result, 'fail', note)
+                self.assertIn('원본 칸', note)
+
+    def test_the_three_push_the_regen_photo_before_the_account_is_made(self):
+        for name in ('E-ME-10', 'E-ME-11', 'E-ME-16'):
+            with self.subTest(name):
+                self.reset_paid()
+                self.adb_calls.clear()
+                (result, note), _ = self.run_case(name)
+                self.assertEqual(result, 'pass', note)
+                self.assertEqual(self.pushed_regen_photo(), ['face1.jpg'])
+
     def test_the_three_are_behind_the_real_ai_gate_and_make_no_request_without_it(self):
         for name in ('E-ME-10', 'E-ME-11', 'E-ME-16'):
             with self.subTest(name), mock.patch.dict(os.environ, {}, clear=True):
