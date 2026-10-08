@@ -3,7 +3,7 @@
 import json
 import tempfile
 import unittest
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest import mock
 from urllib.parse import urlsplit
@@ -26,6 +26,7 @@ class FakeServer:
         self.calls = []
         self.urls = []
         self.raws = []  # (메서드, 주소, 바이트) — multipart · 파일 올리기
+        self.headers = []  # (메서드, 경로, 헤더) — Prefer 같은 요청 머리를 본다
         self.users = []
         self._ids = 0  # 사용자를 지워도 id 가 다시 안 나오게
 
@@ -33,6 +34,7 @@ class FakeServer:
         path = urlsplit(url).path
         self.calls.append((method, path, body))
         self.urls.append((method, url))
+        self.headers.append((method, path, dict(headers or {})))
         if raw:
             self.raws.append((method, url, raw[0]))
         route = self.routes.get((method, path))
@@ -103,9 +105,9 @@ class AccountTest(Base):
         account = self.run.account('basic')
 
         self.assertEqual((account['email'], account['stage'], account['token']), ('base+e2e1001@gmail.com', 'basic', 'tok'))
-        self.assertEqual(fake.paths('POST'), ['/auth/v1/admin/users', '/auth/v1/admin/generate_link', '/auth/v1/verify',
-                                              '/me/consents', '/school-info', '/profile-onboarding/basic-info'])
-        self.assertEqual([b for m, p, b in fake.calls if p == '/rest/v1/profiles'], [{'student_verification': 'verified'}])
+        self.assertEqual(fake.paths('POST'), ['/auth/v1/admin/users', '/rest/v1/profiles', '/auth/v1/admin/generate_link',
+                                              '/auth/v1/verify', '/me/consents', '/school-info', '/profile-onboarding/basic-info'])
+        self.assertEqual([b for m, p, b in fake.calls if (m, p) == ('PATCH', '/rest/v1/profiles')], [{'student_verification': 'verified'}])
         nickname = [b for m, p, b in fake.calls if p == '/profile-onboarding/basic-info'][0]['nickname']
         self.assertRegex(nickname, r'^[A-Za-z]{5}$')
         written = json.loads((self.run.out / 'accounts.json').read_text(encoding='utf-8'))
@@ -116,8 +118,70 @@ class AccountTest(Base):
     def test_pending_account_stops_at_pending(self):
         fake = self.serve()
         self.assertEqual(self.run.account('pending')['stage'], 'pending')
-        self.assertEqual([b for m, p, b in fake.calls if p == '/rest/v1/profiles'], [{'student_verification': 'pending'}])
+        self.assertEqual([b for m, p, b in fake.calls if (m, p) == ('PATCH', '/rest/v1/profiles')], [{'student_verification': 'pending'}])
         self.assertNotIn('/school-info', fake.paths())
+
+    # 소셜 로그인 전환(20261008010000 ⑤): 가입 트리거는 email 방식 계정에 프로필을 만들지 않는다 — 공장이 서비스 키로 대신 만든다.
+    def _profile_rows(self, fake):
+        return [b for m, p, b in fake.calls if (m, p) == ('POST', '/rest/v1/profiles')]
+
+    def test_factory_makes_the_profile_itself_with_the_test_university_and_school_email_verified(self):
+        fake = self.serve()
+        before = datetime.now(timezone.utc)
+        self.run.account('new')
+        rows = self._profile_rows(fake)
+        self.assertEqual(len(rows), 1)
+        row = rows[0]
+        self.assertEqual(sorted(row), ['id', 'school_email_verified_at', 'university_id'])
+        self.assertEqual((row['id'], row['university_id']), ('id-1', 'U'))
+        at = datetime.fromisoformat(row['school_email_verified_at'])
+        self.assertIsNotNone(at.tzinfo)
+        self.assertLessEqual(abs((at - before).total_seconds()), 60)
+        # 학교는 시험 메일 도메인에 등록된 학교(area1._test_university 와 같은 질의)
+        self.assertIn(('GET', 'https://sb.test/rest/v1/university_email_domains?domain=eq.gmail.com&select=university_id'), fake.urls)
+        # 두 번 불러도(재시도) 한 행 — ignore-duplicates 로 멱등
+        prefer = [h.get('Prefer') for m, p, h in fake.headers if (m, p) == ('POST', '/rest/v1/profiles')]
+        self.assertEqual(prefer, ['resolution=ignore-duplicates'])
+
+    def test_profile_comes_right_after_the_account_and_before_any_sign_in(self):
+        fake = self.serve()
+        self.run.account('consented')
+        posts = fake.paths('POST')
+        self.assertEqual(posts[:3], ['/auth/v1/admin/users', '/rest/v1/profiles', '/auth/v1/admin/generate_link'])
+
+    def test_factory_does_not_write_school_email_claims(self):
+        # claims 는 FastAPI 만 HMAC 키로 쓴다 — 시험 계정은 claims 없이도 관문을 지난다.
+        fake = self.serve()
+        self.run.account('basic')
+        self.assertFalse([p for p in fake.paths() if 'school_email_claims' in p])
+
+    def test_no_test_university_is_blocked_but_the_created_account_is_already_written(self):
+        fake = self.serve({('GET', '/rest/v1/university_email_domains'): Reply(200, [])})
+        with self.assertRaisesRegex(Blocked, '시험 대학'):
+            self.run.account('new')
+        self.assertEqual(self._profile_rows(fake), [])
+        written = json.loads((self.run.out / 'accounts.json').read_text(encoding='utf-8'))
+        self.assertEqual([(a['id'], a['stage']) for a in written], [('id-1', 'new')])
+
+    def test_failed_profile_insert_is_blocked_before_signing_in(self):
+        fake = self.serve({('POST', '/rest/v1/profiles'): Reply(409, {'message': 'conflict'})})
+        with self.assertRaisesRegex(Blocked, '프로필 만들기 409'):
+            self.run.account('new')
+        self.assertNotIn('/auth/v1/verify', fake.paths())
+        written = json.loads((self.run.out / 'accounts.json').read_text(encoding='utf-8'))
+        self.assertEqual([a['id'] for a in written], ['id-1'])
+
+    def test_needs_school_email_account_has_a_profile_before_school_email_and_has_consented(self):
+        # 앱의 needsSchoolEmail 관문(02)에 걸리는 계정 — 소셜 pending 프로필처럼 학교 · 인증 시각이 비어 있다.
+        fake = self.serve()
+        account = self.run.account('needs_school_email')
+        self.assertEqual(account['stage'], 'needs_school_email')
+        self.assertEqual(self._profile_rows(fake), [{'id': 'id-1', 'university_id': None, 'school_email_verified_at': None}])
+        self.assertIn('/me/consents', fake.paths('POST'))
+        self.assertNotIn('/school-info', fake.paths())
+        self.assertEqual([b for m, p, b in fake.calls if (m, p) == ('PATCH', '/rest/v1/profiles')], [])
+        written = json.loads((self.run.out / 'accounts.json').read_text(encoding='utf-8'))
+        self.assertEqual([a['stage'] for a in written], ['needs_school_email'])
 
     def test_failed_step_is_blocked_but_the_created_account_is_already_written(self):
         self.serve({('POST', '/me/consents'): Reply(500, None)})

@@ -53,8 +53,10 @@ class TimeBase(Base5):
         rows = self.fake.tables.setdefault('profiles', [])
         row = next((r for r in rows if r['id'] == pid), None)
         if row is None:
-            row = {'id': pid, 'status': 'active', 'withdrawn_at': None}
+            row = {'id': pid}
             rows.append(row)
+        for key, value in (('status', 'active'), ('withdrawn_at', None)):  # 계정 공장이 넣은 행(id · 학교 · 인증 시각)에도
+            row.setdefault(key, value)
         return row
 
     def withdraw(self, sent):

@@ -452,6 +452,9 @@ class SafetyNetTest(EmuHomeBase):
                 table = sent['path'].split('/')[-1]
                 if table == 'universities':
                     self.assertEqual(sent['query'].get('id'), 'eq.U', (case, sent))
+                elif table == 'profiles' and sent['method'] == 'POST':  # 계정 공장이 넣는 프로필 행 — 본문의 id 가 주인
+                    rows = sent['body'] if isinstance(sent['body'], list) else [sent['body']]
+                    self.assertTrue({r['id'] for r in rows} <= made, (case, sent))
                 elif table == 'profiles':
                     self.assertIn(sent['query']['id'][3:], made, (case, sent))
                 else:

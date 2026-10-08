@@ -292,9 +292,11 @@ def _send(method, url, headers, body, raw):
         return Reply(status, got.decode(errors='replace'), head)
 
 
-def rest(cfg, key, method, path, body=None, token=None, **options):
-    """Supabase REST(`/rest/v1/...`). 서비스 키로 읽고 쓰거나, [key]=anon 키 + [token]=사용자 access_token 으로 RLS 를 거친다."""
-    return call(method, f"{cfg['SUPABASE_URL']}/rest/v1/{path}", {'apikey': key, 'Authorization': f'Bearer {token or key}'}, body, **options)
+def rest(cfg, key, method, path, body=None, token=None, prefer=None, **options):
+    """Supabase REST(`/rest/v1/...`). 서비스 키로 읽고 쓰거나, [key]=anon 키 + [token]=사용자 access_token 으로 RLS 를 거친다.
+    [prefer] 는 PostgREST `Prefer` 머리(예: `resolution=ignore-duplicates` — 같은 기본 키가 있으면 넣지 않는다)."""
+    headers = {'apikey': key, 'Authorization': f'Bearer {token or key}', **({'Prefer': prefer} if prefer else {})}
+    return call(method, f"{cfg['SUPABASE_URL']}/rest/v1/{path}", headers, body, **options)
 
 
 def admin(cfg, key, method, path, body=None, **options):
@@ -316,8 +318,10 @@ BUCKETS = ('avatars', 'profile-photos', 'student-id-temp', 'heart-task-proofs')
 BLOCKS_SNAPSHOT = 'signup_blocks_시작.json'  # E2E_결과/ 안 — 이 밖의 재가입 제한만 시험이 만든 것이다
 KEEP_FILE = 'KEEP.txt'  # E2E_결과/ 안 — 적힌 id 는 무슨 일이 있어도 지우지 않는다
 # 계정 단계 = "여기까지 끝냈다". basic 뒤는 서버 온보딩 순서(onboarding_progress._STEPS) 그대로, home = bio 까지.
-STAGES = ('new', 'consented', 'pending', 'verified', 'gate_done', 'basic', 'kakao', 'photos', 'appearance', 'interests',
-          'my_traits', 'survey', 'avatar', 'ideal_conditions', 'ideal_traits', 'ideal_note', 'home')
+# 곁가지 둘은 줄 밖이다: pending = 동의 → 학생증 검토 중, needs_school_email = 동의만 하고 학교 메일 인증 전(앱이 02 로 보낸다).
+STAGES = ('new', 'consented', 'needs_school_email', 'pending', 'verified', 'gate_done', 'basic', 'kakao', 'photos', 'appearance',
+          'interests', 'my_traits', 'survey', 'avatar', 'ideal_conditions', 'ideal_traits', 'ideal_note', 'home')
+SIDE_STAGES = {'pending': ('consented', 'pending'), 'needs_school_email': ('consented',)}
 OLD_CONSENT_VERSION = '2026-09-01'  # 서버 상수(consents/policy.py)보다 옛 판 — 재동의 가설이 데이터로 흉내 낸다
 PHOTO = ROOT / 'frontend' / 'assets' / 'images' / 'mascot-male.png'  # 실제 사람 사진 대신 앱에 든 그림(SafeSearch 통과)
 
@@ -332,6 +336,14 @@ def e2e_pattern(cfg):
     """뒷정리 대상 — 이 정규식에 맞는 주소만 지운다."""
     local, domain = mail_base(cfg)
     return re.compile(rf'^{re.escape(local)}\+e2e\d+@{re.escape(domain)}$')
+
+
+def e2e_university(cfg, key):
+    """시험 메일 도메인(E2E_MAIL_BASE 의 @ 뒤)에 등록된 학교 id. 없으면 None."""
+    status, rows = rest(cfg, key, 'GET', f'university_email_domains?domain=eq.{mail_base(cfg)[1]}&select=university_id')
+    if status != 200:
+        raise Blocked(f'university_email_domains 읽기 {status}')
+    return rows[0]['university_id'] if rows else None
 
 
 def keep_ids(text):
@@ -542,7 +554,10 @@ class Run:
     def account(self, stage, old_consent=False, **basic):
         """새 시험 계정을 [stage] 까지 올려 {n, email, id, stage, at, token} 으로. 어느 단계든 안 되면 [Blocked].
         [old_consent] 면 동의를 옛 판 행으로 넣는다(재동의 가설 — 온보딩 API 는 동의 판을 안 본다, next-step 만 본다).
-        [basic] 은 04-1 값을 정해 넣는다(같은 전화번호 가설)."""
+        [basic] 은 04-1 값을 정해 넣는다(같은 전화번호 가설).
+
+        계정은 관리자 API 로 만든 email 방식 계정이다. 소셜 로그인 전환 뒤 가입 트리거(handle_new_user_profile)는 email
+        방식에 프로필을 만들지 않으므로 [_profile] 이 서비스 키로 바로 만든다 — needs_school_email 만 학교 메일 인증 전으로."""
         if stage not in STAGES:
             raise ValueError(f'{stage} — 계정 단계는 {STAGES}')
         n, email = self.alias()
@@ -551,17 +566,43 @@ class Run:
             raise Blocked(f'계정 만들기 {status} {body}')
         account = {'n': n, 'email': email, 'id': body['id'], 'stage': 'new',
                    'at': datetime.now(timezone.utc).isoformat(timespec='seconds')}
-        self.remember(account)
+        self.remember(account)  # 프로필이 막혀도 뒷정리가 이 계정을 지운다
+        self._profile(account, school_email=stage != 'needs_school_email')
         token = self.sign_in(email)
-        steps = ['consented', 'pending'] if stage == 'pending' else [s for s in STAGES[1:] if s != 'pending']
-        for step in steps[:steps.index(stage) + 1] if stage != 'new' else []:
+        if stage in SIDE_STAGES:
+            steps = list(SIDE_STAGES[stage])
+        else:
+            steps = [s for s in STAGES[1:] if s not in SIDE_STAGES]
+            steps = steps[:steps.index(stage) + 1] if stage != 'new' else []
+        for step in steps:
             if step == 'consented' and old_consent:
                 self._old_consent(account)
             else:
                 self._step(step, account, token, basic)
             account['stage'] = step
             self.remember(account)
+        if account['stage'] != stage:  # needs_school_email — 동의까지 올린 뒤 이름을 단다
+            account['stage'] = stage
+            self.remember(account)
         return {**account, 'token': token}
+
+    def _profile(self, account, school_email=True):
+        """프로필 한 행을 서비스 키로 넣는다 — 학교 메일 인증 완료(⑩ complete_school_email_verification)가 남기는 두 칸만 채운다.
+        나머지 칸(status='pending' · referral_code · interest_tags 등)은 표 기본값이다 — 트리거도 `insert (id)` 만 한다.
+        [school_email]=False 면 학교 · 인증 시각을 비운다(소셜 가입 직후의 pending 프로필과 같은 모양 → 앱이 02 로 보낸다).
+        school_email_claims 는 넣지 않는다(HMAC 키가 FastAPI 에만 있다). 같은 id 가 이미 있으면 그대로 둔다(재시도 멱등)."""
+        if school_email:
+            university = e2e_university(self.cfg, self.key)
+            if not university:
+                raise Blocked(f'시험 대학 없음 — {mail_base(self.cfg)[1]} 이 university_email_domains 에 없다')
+            verified_at = datetime.now(timezone.utc).isoformat(timespec='seconds')
+        else:
+            university = verified_at = None
+        reply = rest(self.cfg, self.key, 'POST', 'profiles',
+                     {'id': account['id'], 'university_id': university, 'school_email_verified_at': verified_at},
+                     prefer='resolution=ignore-duplicates')
+        if reply[0] >= 300:
+            raise Blocked(f'프로필 만들기 {reply[0]} {reply[1]}')
 
     def link(self, email):
         """관리자 generate_link 의 1회용 토큰(token_hash) — 메일이 나가지 않는다. 폰 가설은 이것을 앱에 넘긴다."""

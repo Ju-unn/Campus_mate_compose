@@ -86,8 +86,8 @@ def _find_user(run, email):
 
 
 def _test_university(run):
-    rows = _rows(run, f'university_email_domains?domain=eq.{tools.mail_base(run.cfg)[1]}&select=university_id')
-    return rows[0]['university_id'] if rows else None
+    """시험 메일 도메인에 등록된 학교 — 계정 공장이 프로필에 넣는 학교와 같다(tools.e2e_university)."""
+    return tools.e2e_university(run.cfg, run.key)
 
 
 def _signed_up(run, n, email, check):
