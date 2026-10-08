@@ -29,7 +29,7 @@ SCREEN_AFTER = {
     'my_traits': '05-01', 'survey': '05-12', 'avatar': '06-1', 'ideal_conditions': '06-2', 'ideal_traits': '06-2a',
     'ideal_note': '06-3', 'home': 'home',
 }
-REJOIN_BLOCKED = '재가입이 제한된 이메일이에요'
+REJOIN_BLOCKED = '재가입이 제한된 메일이에요'  # 서버 errors.SCHOOL_EMAIL_BLOCKED(훅 · verify 가 같은 문구)
 NOT_FOUND = '없는 코드예요, 다시 확인해 주세요'
 NOT_ALLOWED = '이 코드는 쓸 수 없어요'
 ONCE = '추천 코드는 한 번만 입력할 수 있어요'
@@ -147,7 +147,9 @@ def auth_11(run):
     check.reply('같은 메일 재가입', _otp(run, account['email']), 200)
     if user := _signed_up(run, account['n'], account['email'], check):
         check.that(user['id'] != account['id'], '이전과 같은 id')
-        check.that(len(_rows(run, f"profiles?id=eq.{user['id']}&select=id")) == 1, '새 profiles 행 없음')
+        # 소셜 로그인 전환으로 기대 변경 — 다시 가입한 것은 email 방식이라 프로필이 생기지 않는다(예전 "새 profiles 1행")
+        rows = _rows(run, f"profiles?id=eq.{user['id']}&select=id")
+        check.that(not rows, f'새 profiles {len(rows)}행(기대 0 — email 방식은 프로필을 만들지 않는다)')
     return check.result()
 
 
