@@ -12,6 +12,7 @@ from unittest import mock
 from e2e import area1, area5_kill, tools
 from e2e.area5_photo import COST, HEARTS, _paid_body
 from e2e.test_area5_edge import EdgeBase, now
+from e2e.fake_regen_photo import patch_regen_photo
 
 CASES = ['E-EDGE-17', 'E-EDGE-18']
 
@@ -19,6 +20,10 @@ CASES = ['E-EDGE-17', 'E-EDGE-18']
 class KillBase(EdgeBase):
     def setUp(self):
         super().setUp()
+        self.regen_calls = patch_regen_photo(self, area5_kill, when=lambda: len(self.fake.sent))  # 사진 옮기기 대신 부른 때만 적는다
+        patcher = mock.patch.object(area5_kill, 'REGISTER_WAIT', 0.2)  # 새 시도 행을 기다리는 시간 — 닿지 않는 누름은 짧게 기다리고 막힌다
+        patcher.start()
+        self.addCleanup(patcher.stop)
         self.reached = True  # 누름이 서버에 닿는가
         self.worker_first = False  # 18: 다시 켠 앱이 15 를 열기 전에 워커가 끝났다
         self.second = 'same'  # 18: 두 번째 누름 — 'same' 같은 202(새 행 없음) · 'new' 새 시도 행을 또 만듦
@@ -76,12 +81,36 @@ class Edge17Test(KillBase):
         self.assertIn('kill', ' '.join(map(str, self.adb_calls)))
         self.assertEqual(self.pids, [])  # 죽었다
 
-    def test_the_kill_comes_two_seconds_after_the_press_and_not_by_force_stop(self):
+    def test_the_kill_comes_right_after_the_server_has_the_attempt_row_and_not_by_force_stop(self):
         with mock.patch('time.sleep', lambda seconds: self.events.append(('sleep', seconds))):
             self.run17()
         waits = [e[1] for e in self.events if isinstance(e, tuple) and e[0] == 'sleep']
         self.assertTrue(any(area5_kill.KILL_AFTER - 0.1 <= w <= area5_kill.KILL_AFTER for w in waits), waits)
         self.assertFalse([c for c in self.adb_calls if 'force-stop' in c])
+
+    def test_the_attempt_row_is_watched_with_the_short_poll_and_the_note_counts_from_the_row(self):
+        seen = []
+        real = area5_kill._wait_for
+
+        def spy(until, seconds, poll=None):
+            seen.append(poll)
+            return real(until, seconds, poll)
+        with mock.patch.object(area5_kill, '_wait_for', spy):
+            result, note = self.run17()
+        self.assertEqual(result, 'pass', note)
+        self.assertIn(area5_kill.FAST_POLL, seen)  # 5초 간격이면 "0.3초 뒤 kill" 이 5초 넘게 밀린다
+        self.assertTrue(0.1 <= area5_kill.FAST_POLL <= 0.5)
+        self.assertIn('새 시도 행이 보인 뒤', note)  # ms 는 시도 행을 본 뒤부터 잰 값이다
+        self.assertNotIn('누른 뒤', note)
+
+    def test_the_app_stays_alive_longer_than_the_pc_waits_for_the_attempt_row(self):
+        # 앱이 눌러 놓고 PC 보다 먼저 끝나면 행이 늦게 보일 때 죽일 앱이 없다 — 앱의 기다림이 PC 의 기다림보다 길어야 한다.
+        text = (tools.ROOT / 'frontend' / 'integration_test' / 'area5_kill.dart').read_text(encoding='utf-8')
+        press = text[text.index("say({'step': 'pressed'})"):]
+        seconds = int(re.search(r'wait\(tester, const Duration\(seconds: (\d+)\)\)', press).group(1))
+        source = (tools.ROOT / 'e2e' / 'area5_kill.py').read_text(encoding='utf-8')  # 시험에서는 REGISTER_WAIT 를 줄여 놓아 글자로 읽는다
+        register_wait = int(re.search(r'^REGISTER_WAIT = (\d+)', source, re.M).group(1))
+        self.assertGreater(seconds, register_wait + 10)  # PC 가 기다리는 시간 + 죽이는 시간보다 오래 산다
 
     def test_a_press_that_never_reached_the_server_is_blocked_not_failed(self):
         self.reached = False
@@ -143,6 +172,11 @@ class Edge18Test(KillBase):
 
         plan = {'press': (['pressed'], {}), 'after': (['opened', 'finished'], after)}
         return self.go('E-EDGE-18', plan, on_step)[0]
+
+    def test_the_pass_note_counts_the_kill_from_the_attempt_row(self):
+        result, note = self.run18()
+        self.assertEqual(result, 'pass', note)
+        self.assertIn('새 시도 행이 보인 뒤', note)
 
     def test_pass_the_second_press_joins_the_running_attempt_and_the_hearts_go_once(self):
         result, note = self.run18()

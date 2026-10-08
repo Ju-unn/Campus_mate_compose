@@ -11,6 +11,7 @@ from e2e import area1, area5_fake, tools
 from e2e.area5_fake import LOAD_FAIL, MESSAGE, PLACES, ROUTES
 from e2e.area5_read import TITLES
 from e2e.test_area5_edge import EdgeBase
+from e2e.fake_regen_photo import patch_regen_photo
 
 PREFIX = '/api'  # 서버 주소에 경로 접두가 붙어도 판정이 같아야 한다
 
@@ -42,6 +43,10 @@ def reads(status, **over):
 
 
 class FakeBase(EdgeBase):
+    def setUp(self):
+        super().setUp()
+        self.regen_calls = patch_regen_photo(self, area5_fake, when=lambda: len(self.fake.sent))  # 사진 옮기기 대신 부른 때만 적는다
+
     def run_case(self, case, answer):
         return self.go(case, {None: ([], answer)})[0]
 
@@ -56,6 +61,14 @@ class FakeBase(EdgeBase):
 class SavesTest(FakeBase):
     def test_05_a_502_that_never_reaches_the_server_passes_on_all_four_places(self):
         self.verdict('E-EDGE-05', lambda job: saves(502))
+
+    def test_the_regen_photo_is_pushed_before_the_account_exists_when_the_avatar_walk_is_included(self):
+        self.verdict('E-EDGE-05', lambda job: saves(502))
+        self.assertEqual(self.regen_calls, [0])  # 가짜 서버가 받은 요청 0 개일 때 — 계정을 만들기 전
+
+    def test_the_regen_photo_is_not_needed_when_the_avatar_is_not_walked(self):
+        self.verdict('E-EDGE-08', lambda job: saves(429, ['15-6']))
+        self.assertEqual(self.regen_calls, [])
 
     def test_06_a_500_shows_the_other_message(self):
         self.verdict('E-EDGE-06', lambda job: saves(500))
@@ -195,8 +208,18 @@ class RegistryTest(FakeBase):
     def test_the_server_is_reached_only_when_no_rule_matched(self):
         send = self.dart().split('Future<http.StreamedResponse> send(')[1].split('/// 앱을 apiClientProvider')[0]
         self.assertEqual(send.count('_inner.send('), 1)
+        self.assertLess(send.index('okRules.any('), send.index('_inner.send('))  # 성공(200)으로 대신 답하는 길도 서버를 안 부른다
+        self.assertLess(send.index('faked.add('), send.index('final status = _statusFor('))  # 그 길은 상태코드 규칙보다 먼저 돌려준다
         self.assertLess(send.index('if (status == null)'), send.index('_inner.send('))
-        self.assertLess(send.index('_inner.send('), send.index('faked.add('))  # 대신 답하는 길은 서버를 부르지 않고 바로 돌려준다
+        self.assertLess(send.index('_inner.send('), send.rindex('faked.add('))  # 상태코드로 대신 답하는 길은 서버를 부르지 않고 바로 돌려준다
+
+    def test_the_avatar_walk_lets_only_the_photo_replacement_pass_as_a_fake_success_and_takes_it_back(self):
+        code = re.sub(r'(?m)^\s*//.*$', '', self.dart())
+        walk = code.split('Future<Map<String, Object?>> _fkRegenerate(')[1].split('/// 설정 → 탈퇴하기')[0]
+        self.assertEqual(re.findall(r"okRules\.add\('([^']+)'\)", walk), ['PUT /me/photos'])
+        self.assertEqual(re.findall(r"okRules\.remove\('([^']+)'\)", walk), ['PUT /me/photos'])
+        self.assertLess(walk.index('okRules.add('), walk.index('_photoPress('))  # 누르기 전에 걸고
+        self.assertLess(walk.index('_photoPress('), walk.index('finally'))  # 끝에서 거둔다(예외가 나도)
 
     def test_only_one_helper_presses_the_final_delete_and_it_is_answered_by_the_fake(self):
         code = re.sub(r'(?m)^\s*//.*$', '', self.dart())  # 머리 주석은 빼고 코드만

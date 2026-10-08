@@ -74,29 +74,9 @@ Future<void> _photoPress(WidgetTester tester, Finder finder) async {
   await tester.tap(finder.last);
 }
 
-/// [text] 토스트가 나타난 때부터 사라진 때까지(ms). 안 나타나면 (false, null).
-Future<(bool, int?)> _photoToast(WidgetTester tester, String text, {Duration within = const Duration(seconds: 25)}) async {
-  final watch = Stopwatch()..start();
-  Duration? seen;
-  int? shownMs;
-  while (watch.elapsed < within) {
-    await tester.pump(const Duration(milliseconds: 50));
-    final up = _has(find.text(text));
-    if (up && seen == null) seen = watch.elapsed;
-    if (!up && seen != null) {
-      shownMs = (watch.elapsed - seen).inMilliseconds;
-      break;
-    }
-  }
-  return (seen != null, shownMs);
-}
-
-/// 15 → 히어로 알약 "다시 만들기 · 10" → 15b 시트가 올라올 때까지.
-Future<void> _photoOpenSheet(WidgetTester tester) async {
-  await tap(tester, find.text(_regenPill));
-  await pumpUntil(tester, find.byType(SafetySheet));
-  await wait(tester, const Duration(milliseconds: 500)); // 시트가 올라오는 움직임
-}
+/// 15 → 히어로 알약 "다시 만들기 · 10" → 사진 고르기(15b-4 → 15b-5, PC 가 앱 캐시에 넣어 둔 사진 한 장) → 15b 시트가 올라올 때까지.
+/// 알약은 이제 시트가 아니라 사진 고르기를 먼저 연다(regen_pick.dart). 시트의 만들기를 누르면 그 사진이 지금 아바타 원본 칸을 대신한다.
+Future<void> _photoOpenSheet(WidgetTester tester) => e2eRegenToSheet(tester, _regenPill);
 
 /// 15-5 → "실제 사진 교체" → 15-7.
 Future<void> _photoOpenEditor(WidgetTester tester) async {
@@ -191,7 +171,8 @@ const _photoWait = Duration(minutes: 11); // 워커가 새 아바타를 만들�
 Future<Map<String, Object?>> _photoRegenWait(WidgetTester tester, String cta, {Future<Map<String, Object?>> Function()? midway}) async {
   final before = _avatarFile(tester);
   await _photoPress(tester, find.descendant(of: find.byType(SafetySheet), matching: find.text(cta)));
-  final generating = await appears(tester, find.text(_photoGenerating), const Duration(seconds: 15));
+  // 만들기를 누르면 새 사진 교체(PUT /me/photos: SafeSearch · 업로드)가 먼저고 그다음 등록이라, 변환 중 안내는 예전보다 늦게 뜬다.
+  final generating = await appears(tester, find.text(_photoGenerating), const Duration(seconds: 60));
   final extra = midway == null ? const <String, Object?>{} : await midway();
   final watch = Stopwatch()..start();
   while (watch.elapsed < _photoWait && (_avatarFile(tester) == before || _has(find.text(_photoGenerating)))) {
@@ -249,12 +230,15 @@ final Map<String, Area1Case> area5CasesPhoto = {
     await _photoOpenSheet(tester);
     final texts = _photoSheetTexts(tester);
     await _photoPress(tester, find.descendant(of: find.byType(SafetySheet), matching: find.text(_photoPaidCta)));
-    final toast = await _photoToast(tester, _photoLowTitle);
+    // 사진 교체가 먼저 성공한 뒤 등록이 402 로 막힌다 — 서버 문구는 15 의 토스트(아래 화면, 안 보임)가 아니라 사진 고르기(15b-5)의
+    // 칸 아래 문구로 보인다. 그 문구가 뜰 때까지 본다(업로드 · 검사 시간 때문에 넉넉히).
+    final caption = await appears(tester, find.text(_photoLowTitle), const Duration(seconds: 60));
     final state = _photoMeContainer(tester).read(avatarGenerationViewModelProvider);
     return {
       'sheet_title': texts.isEmpty ? null : texts.first,
       'sheet_body': _photoLine(texts, _heartLine),
-      'toast_seen': toast.$1,
+      'caption_seen': caption != null,
+      'on_pick_screen': _has(find.byType(AvatarRegenPickScreen)),
       'regen_state': state.status.name,
       'regen_error': state.errorMessage,
     };

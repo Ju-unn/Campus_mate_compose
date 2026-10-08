@@ -1,6 +1,7 @@
 """영역 2 폰 A 3차(망 끊기 · 카드 · 알림 · 공유 창 · 하트 다시 만들기)의 PC 쪽 시험 — 폰 · 운영 없이 가짜 앱 · 가짜 HTTP.
 저장소 루트에서 `python -m unittest e2e.test_area2_phone3`."""
 
+import re
 import unittest
 from datetime import datetime
 from unittest import mock
@@ -11,6 +12,7 @@ from e2e.area1 import SEOUL
 from e2e.test_area1_phone import FakePhone
 from e2e.test_area2 import Base, Fake
 from e2e.tools import Blocked, Reply
+from e2e.fake_regen_photo import patch_regen_photo
 
 # 2026-10-05(월) 부터 한 주 — 요일마다 정오(서울)
 WEEK = {name: datetime(2026, 10, 5 + i, 12, 0, tzinfo=SEOUL) for i, name in enumerate('월화수목금토일')}
@@ -163,6 +165,10 @@ class RegionTest(Base):
 
 
 class CaseBase(Base):
+    def setUp(self):
+        super().setUp()
+        self.regen_calls = patch_regen_photo(self, area2_phone3, when=lambda: len(self.fake.calls))  # 사진 옮기기 대신 부른 때만 적는다
+
     def go(self, case, phone, rules=()):
         fake = Fake(list(rules))
         for patcher in (mock.patch.object(tools, 'call', fake), mock.patch.object(area2_phone3.time, 'sleep', lambda s: None)):
@@ -184,6 +190,11 @@ class LowHeartsTest(CaseBase):
         self.assertEqual([b['p_amount'] for b in self.fake.bodies('POST', 'rpc/grant_hearts')], [9])
         self.assertEqual(len(self.fake.bodies('POST', '/me/avatar/regenerate')), 1)
         self.assertIn('token_hash', phone.jobs[0])
+
+    def test_the_regen_photo_is_pushed_once_before_any_request_so_the_app_can_pick_it_in_the_pick_screen(self):
+        rules = [('POST', '/me/avatar/regenerate', lambda b, u: Reply(402, {'detail': '하트가 모자라요'})), *self.RULES]
+        self.go('E-HEART-44', FakePhone(), rules)
+        self.assertEqual(self.regen_calls, [0])  # 서버 요청이 하나도 나가기 전 — 계정을 만들기 전
 
     def test_the_regeneration_request_is_sent_only_once_even_when_the_link_drops(self):
         rules = [('POST', '/me/avatar/regenerate', lambda b, u: Reply(402, {'detail': '하트가 모자라요'})), *self.RULES]
@@ -543,6 +554,37 @@ class RealAiTest(CaseBase):
         phone = FakePhone(midway_step={'step': 'started'})
         with mock.patch.dict(area2_phone3.os.environ, {'E2E_REAL_AI': '1'}):
             self.assertEqual(self.go('E-HEART-42', phone, rules)[0], 'blocked')
+
+
+class WaitForTest(unittest.TestCase):
+    def test_it_sleeps_the_given_interval_and_the_default_five_seconds_otherwise(self):
+        sleeps, ticks = [], iter([False, False, True])
+        with mock.patch('time.sleep', sleeps.append):
+            self.assertTrue(area2_phone3._wait_for(lambda: next(ticks), 60, 0.3))
+        self.assertEqual(sleeps, [0.3, 0.3])
+        sleeps.clear()
+        ticks = iter([False, True])
+        with mock.patch('time.sleep', sleeps.append):
+            self.assertTrue(area2_phone3._wait_for(lambda: next(ticks), 60))
+        self.assertEqual(sleeps, [area2_phone3.POLL])
+
+    def test_the_short_poll_is_well_under_a_second_and_the_default_one_is_not(self):
+        self.assertTrue(0.1 <= area2_phone3.FAST_POLL <= 0.5)
+        self.assertGreaterEqual(area2_phone3.POLL, 1)
+
+    def test_it_gives_up_after_the_seconds(self):
+        with mock.patch('time.sleep', lambda s: None), mock.patch('time.monotonic', side_effect=[0, 1, 2, 61]):
+            self.assertFalse(area2_phone3._wait_for(lambda: False, 60, 0.3))
+
+
+class AppRegenWaitTest(unittest.TestCase):
+    def test_the_generating_notice_is_awaited_longer_than_the_photo_replace_takes(self):
+        # 만들기는 사진 교체(업로드 · SafeSearch)가 먼저다 — 15초로는 모자라 fail → 유료 가설이 한 번 더 도는 길이 생긴다(area5_photo 는 60초).
+        text = (tools.ROOT / 'frontend' / 'integration_test' / 'area2_c.dart').read_text(encoding='utf-8')
+        body = text[text.index('Area1Case _regen()'):text.index('final Map<String, Area1Case> area2cCases')]
+        seconds = re.search(r"pumpUntil\(tester, find\.text\(_generating\), timeout: const Duration\(seconds: (\d+)\)\)", body)
+        self.assertIsNotNone(seconds)
+        self.assertGreaterEqual(int(seconds.group(1)), 60)
 
 
 class RegistryTest(unittest.TestCase):

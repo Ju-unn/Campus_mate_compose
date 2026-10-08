@@ -72,6 +72,15 @@ def _push(phone, run, *names):
     tools.adb(serial, 'shell', f"run-as {tools.PACKAGE} sh -c 'mkdir -p {APP_DIR} && {copies}'")
 
 
+REGEN_PHOTO = 'face1.jpg'  # frontend/integration_test/regen_pick.dart 의 regenPhotoName 과 같은 파일 — 얼굴이 보여야 기기 안 얼굴 검사를 지난다
+
+
+def regen_photo(run, phone):
+    """아바타 다시 만들기가 사진부터 고르게 되어(15b-4 → 15b-5) 앱이 갤러리에서 고를 사진 한 장을 폰 앱 캐시로 옮긴다. 가설의 맨 앞(계정을 만들기
+    전)에서 부른다 — 사진 세트가 없으면 계정을 만들기 전에 blocked. 만들기를 누르면 이 사진이 지금 아바타 원본 칸을 대신한다(서버 사진 목록이 바뀐다)."""
+    _push(phone, run, REGEN_PHOTO)
+
+
 def _attempts(run, account_id):
     return _rows(run, f'student_verification_attempts?profile_id=eq.{account_id}&order=id&select=result,reject_reason,reviewed_at')
 

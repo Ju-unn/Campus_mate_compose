@@ -3,6 +3,7 @@
 
 서버가 502 · 500 · 429 를 주는 일은 운영 서버에서 만들 수 없으므로, 앱을 `apiClientProvider` 만 바꿔 끼워 다시 띄우고 정한 요청에만 가짜 응답을 준다(lib/ 는 안 바뀐다).
 가짜가 대신 답한 요청은 서버에 닿지 않는다 — 그래서 DB 는 안 바뀌고 임베딩 · 이미지 생성(유료)도 안 나가며 `E2E_REAL_AI` 문이 필요 없다.
+다시 만들기 길은 사진 교체(`PUT /me/photos`)가 먼저라, 그 걸음만 가짜가 성공(200)으로 대신 답하고(서버에 안 닿는다) 이어지는 등록(`POST /me/avatar/regenerate`)에 상태코드를 준다.
 PC 는 그것을 두 가지로 확인한다: ① 앱이 말한 `faked`(대신 답한 요청)에 그 길이 상태코드와 함께 있는가 ② `passed`(가짜 없이 서버로 그냥 간 요청)에 그 길이 없는가.
 탈퇴(POST /account/withdraw)는 앱 쪽 가짜가 규칙이 없어도 서버에 안 보낸다. 그래도 PC 는 끝에 status · withdrawn_at 이 그대로인지 본다.
 
@@ -15,6 +16,7 @@ E-EDGE-08  429: 15-6 저장에 "너무 많이 시도했어요. 잠시 후 다시
 
 from e2e import area1, tools
 from e2e.area1 import Check, _app
+from e2e.area1_b3 import regen_photo
 from e2e.area2_phone3 import _balance
 from e2e.area3_phone import MISSING
 from e2e.area5_edge import NEW_HEIGHT, _prepare
@@ -48,6 +50,8 @@ def _faked(check, said, places, status, label):
 
 def _saves(run, phone, status, places):
     check = Check()
+    if 'avatar' in places:
+        regen_photo(run, phone)  # 다시 만들기는 사진부터 고른다(15b-4) — 앱이 갤러리에서 이 사진을 고른다
     account, token = _home(run)
     _prepare(run, account)  # 키 178 · 관심사 4개 · 사진 2장 이상(15-7 에서 맞바꿀 것)
     if 'avatar' in places and len(_ready_avatars(run, account)) != 1:

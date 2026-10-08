@@ -22,6 +22,7 @@ from e2e.test_area3_safe import _who
 from e2e.test_area5_edge import ScriptApp
 from e2e.test_area5_wd import WdBase, code_of, dart, top_functions
 from e2e.tools import Reply
+from e2e.fake_regen_photo import patch_regen_photo
 
 CASES = ['E-EDGE-04', 'E-EDGE-12', 'E-WD-19', 'E-WD-20', 'E-EDGE-10', 'E-EDGE-09']
 EMULATOR = ['E-EDGE-04', 'E-WD-20', 'E-EDGE-10', 'E-EDGE-09']
@@ -43,6 +44,10 @@ class App(ScriptApp):
 class NewBase(WdBase):
     def setUp(self):
         super().setUp()
+        self.regen_calls = patch_regen_photo(self, area5_new, when=lambda: len(self.fake.sent))  # 사진 옮기기 대신 부른 때만 적는다
+        patcher = mock.patch.object(area5_new, 'PUT_WAIT', 0.2)  # 새 원본 사진을 기다리는 시간 — 안 닿는 시험은 짧게 기다리고 막힌다
+        patcher.start()
+        self.addCleanup(patcher.stop)
         self.font = '1.0'  # 기기의 지금 글자 배율
         self.font_takes = True
         self.rooted = True
@@ -184,8 +189,11 @@ class Edge04Test(NewBase):
         return {'generating_seen': True, 'generating_ms': 40000, 'failed_toast': False, 'avatar_changed': True,
                 'regen_state': 'ready', **over}
 
-    def run04(self, reached=True, answer=None, serial=EMU):
+    def run04(self, reached=True, answer=None, serial=EMU, replaced=True):
         def step(name, job):
+            if name == 'pressed' and replaced:  # 사진 교체(PUT /me/photos)가 먼저 서버에 닿는다 — 새 원본 사진 행이 생긴다
+                self.fake.rows('profile_photos').append({'id': 'src-new', 'profile_id': f'id-{self.fake.verifies}', 'position': 0,
+                                                        'is_avatar_source': True, 'storage_path': 'x/new-source.jpg'})
             if name == 'pressed' and reached:
                 self.fake.rows('profile_avatars').append({'id': 'new', 'profile_id': f'id-{self.fake.verifies}', 'status': 'pending',
                                                           'storage_path': 'x/new.png', 'created_at': now().isoformat()})
@@ -200,6 +208,7 @@ class Edge04Test(NewBase):
     def test_pass_a_request_that_reached_keeps_the_spinner_and_ends_in_the_new_picture(self):
         result, note, _ = self.run04()
         self.assertEqual(result, 'pass', note)
+        self.assertEqual(self.regen_calls, [0])  # 사진을 앱 캐시에 옮기는 일은 계정을 만들기 전
         self.assertIn('닿음', note)
         lines = self.emu_lines()
         self.assertEqual(lines[0], 'emu network delay 5000')
@@ -207,6 +216,34 @@ class Edge04Test(NewBase):
         wifi = [e for e in self.events if isinstance(e, str) and e.startswith('wifi')]
         self.assertEqual(wifi[:2], ['wifi False', 'wifi True'])
         self.assertTrue(self.wifi)
+
+    def test_the_cut_waits_for_the_new_source_photo_then_for_the_delayed_response_and_one_more_second(self):
+        # 사진 교체가 서버에 닿은 뒤 그 응답이 앱에 닿는 지연(5초)만큼 더 기다려 앱이 등록을 보낸 때로 잡고, 거기서 1초 뒤 끊는다.
+        sleeps = []
+        with mock.patch('time.sleep', lambda seconds: sleeps.append(seconds)):
+            result, note, _ = self.run04()
+        self.assertEqual(result, 'pass', note)
+        self.assertIn(area5_new.REGEN_DELAY_MS / 1000 + area5_new.CUT_AFTER, sleeps)
+
+    def test_the_new_source_photo_is_watched_with_the_short_poll(self):
+        seen = []
+        real = area5_new._wait_for
+
+        def spy(until, seconds, poll=None):
+            seen.append((seconds, poll))
+            return real(until, seconds, poll)
+        with mock.patch.object(area5_new, '_wait_for', spy):
+            result, note, _ = self.run04()
+        self.assertEqual(result, 'pass', note)
+        self.assertIn((area5_new.PUT_WAIT, area5_new.FAST_POLL), seen)  # 5초 간격이면 끊기가 요청이 서버에 닿은 뒤 1~6초 이상 밀린다
+
+    def test_without_a_new_source_photo_the_cut_is_blocked_and_the_network_comes_back(self):
+        # 사진 교체가 안 닿았으면 "등록 응답만 놓치는 걸음" 을 못 만든다 — 끊지 않고 blocked. 늦춘 망은 되돌린다.
+        result, note, _ = self.run04(replaced=False)
+        self.assertEqual(result, 'blocked', note)
+        self.assertIn('새 원본 사진', note)
+        self.assertTrue(self.wifi)
+        self.assertEqual(self.emu_lines()[-1], 'emu network delay none')
 
     def test_pass_a_request_that_never_reached_is_recorded(self):
         result, note, _ = self.run04(reached=False)

@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 
 from e2e import area1, area2, area4_set2, notify, tools
 from e2e.area1 import SEOUL, Check, _api, _app, _one, _patch, _rows, _signed_in
+from e2e.area1_b3 import regen_photo
 from e2e.area2 import _ONCE, _card, _grant, _guard, _insert, _person
 from e2e.area4 import _cut, _offline, _restore, stepper
 from e2e.tools import Blocked
@@ -26,6 +27,7 @@ FRIEND_TITLE = '친구가 가입했어요'  # friend_reviews/router.py notify_re
 LOW_HEARTS = '하트가 모자라요'  # errors.HEARTS_NOT_ENOUGH
 AI_WAIT = 480  # 아바타 한 장이 완성되기를 기다리는 시간(초) — 시나리오 "수 분 안"
 POLL = 5
+FAST_POLL = 0.3  # 짧은 사이에 반응해야 하는 기다림(앱 죽이기 · 망 끊기)용 — POLL(5초)로 보면 "0.3초 뒤" 가 5초 넘게 밀린다
 TEST_REGION = 'e2e'  # region_group_settings 에서 쓰기를 허락하는 유일한 지역(시나리오 G1)
 _PAID = {}  # 유료(AI) 호출이 이미 시작된 가설 → 그때까지 나온 (결과, 메모). run_case 의 fail 재시도로 같은 비용을 두 번 내지 않고, 다시 불리면 이 결과를 돌려준다
 SHARE_LABELS = ['복사', 'Copy']
@@ -255,12 +257,13 @@ def tap_copy(serial):
     return False, f' · 창 라벨 {sheet_labels(xml)}'
 
 
-def _wait_for(until, seconds):
+def _wait_for(until, seconds, poll=None):
+    """[until] 이 참이 될 때까지 [poll]초(기본 POLL) 간격으로 본다. [seconds] 가 지나도 안 참이면 False."""
     deadline = time.monotonic() + seconds
     while not until():
         if time.monotonic() >= deadline:
             return False
-        time.sleep(POLL)
+        time.sleep(POLL if poll is None else poll)
     return True
 
 
@@ -361,6 +364,7 @@ def p_ref_04(run, phone):
 
 def p_heart_44(run, phone):
     check = Check()
+    regen_photo(run, phone)  # 알약은 사진 고르기를 먼저 연다(15b-4) — 앱이 갤러리에서 이 사진을 고르고 시트까지 간다. 시트에서 막혀 사진 교체는 부르지 않는다
     account, token = _signed_in(run, 'home')
     _add_avatar(run, account)
     _give(run, account, 9)
@@ -419,6 +423,7 @@ def _avatars_at(run, account):
 
 def _regen_once(run, phone, case_name, extra_avatar, balance, cost):
     check = Check()
+    regen_photo(run, phone)  # 알약 → 사진 고르기(15b-4 → 15b-5) → 시트 — 만들기를 누르면 이 사진이 아바타 원본 칸을 대신하고 Vision 1번이 나간다
     account, token = _signed_in(run, 'home')
     if extra_avatar:
         _add_avatar(run, account)

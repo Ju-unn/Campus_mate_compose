@@ -10,10 +10,11 @@ part of 'area5.dart';
 /// 히어로 그림의 파일 이름(주소 맨 끝) — 주소 전체에는 계정 번호가 들어 있어 이름만 말한다. 그림이 없으면 null.
 String? _avatarFile(WidgetTester tester) {
   final pictures = find.descendant(
-    of: find.byType(ProfileHero),
+    of: find.byType(ProfileHero, skipOffstage: false),
     matching: find.byWidgetPredicate(
       (w) => w is DecoratedBox && w.decoration is BoxDecoration && (w.decoration as BoxDecoration).image?.image is NetworkImage,
     ),
+    skipOffstage: false,
   );
   if (!_has(pictures)) return null;
   final image = (tester.widget<DecoratedBox>(pictures.first).decoration as BoxDecoration).image!.image as NetworkImage;
@@ -25,8 +26,7 @@ String? _textOf(WidgetTester tester, Finder finder) => _has(finder) ? tester.wid
 /// 히어로 알약("다시 만들기 · 10")을 눌러 15b 시트를 열고 보유 하트 줄을 읽은 뒤 "취소" 로 닫는다.
 /// 만들기 · 충전 버튼은 누르지 않는다 — "10 쓰고 만들기" 는 유료 AI 를 부른다. 무료 시트(아바타 1장)에는 그 줄이 없어 null.
 Future<Map<String, Object?>> _readHeartSheet(WidgetTester tester) async {
-  await tap(tester, find.text(_regenPill));
-  await pumpUntil(tester, find.byType(SafetySheet));
+  await e2eRegenToSheet(tester, _regenPill); // 알약은 사진 고르기를 먼저 연다 — 시트는 그 사진을 고른 뒤 버튼에서 뜬다
   final text = _textOf(tester, find.textContaining(_heartLine));
   await tap(tester, find.widgetWithText(SafetySheetButton, _cancel));
   await wait(tester, const Duration(seconds: 1)); // 시트가 닫히는 움직임
@@ -353,12 +353,12 @@ final Map<String, Area1Case> area5CasesRead = {
   }),
   'E-EDGE-14': _session((tester, job) async {
     final sheets = <Map<String, Object?>>[];
-    // 15b — 나 탭 히어로 알약
+    // 15b — 나 탭 히어로 알약 → 사진 고르기(15b-4 → 15b-5) 위에 뜬 시트. 뒤로는 시트만 닫고 사진 고르기 화면은 그대로여야 한다.
     await _openMe(tester);
-    await tap(tester, find.text(_regenPill));
-    await pumpUntil(tester, find.byType(SafetySheet));
+    await e2eRegenToSheet(tester, _regenPill);
     sheets.add(await _sheetBack(tester, 'regen', find.byType(SafetySheet)));
     await _closeIfOpen(tester, find.byType(SafetySheet));
+    await _returnTo(tester, '내 프로필'); // 시트가 사진 고르기 위에 있었다 — 15 로 돌아가야 설정 톱니가 보인다
     // 16c 1차 — 설정 "탈퇴하기"
     await _openSettings(tester);
     await _openWithdrawSheet(tester);
