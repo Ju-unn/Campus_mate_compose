@@ -11,10 +11,26 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// 그 밖의 403(`user_banned` 등)은 코드 문제가 아니므로 이 목록에 넣지 않는다.
 const _wrongCodeCodes = <String>{'otp_expired', 'invalid_credentials'};
 
-/// 서버(backend `app/core/errors.py`)가 POST /school-email/verify 403 의 `detail` 에 싣는 문구.
-/// 앱은 다른 오류처럼 문구로 가른다(safety_errors.dart 와 같은 방식) — 글자까지 같아야 한다.
+/// 서버(backend `app/core/errors.py` `CODE_*`)가 POST /school-email/verify 오류의 `code` 에 싣는 값.
+const _codeAlreadyVerified = 'SCHOOL_EMAIL_ALREADY_VERIFIED';
+const _codeNotConfirmed = 'SCHOOL_EMAIL_NOT_CONFIRMED';
+const _codesRejected = {'SCHOOL_EMAIL_DOMAIN_NOT_ALLOWED', 'SCHOOL_EMAIL_REJOIN_BLOCKED'};
+const _codeAuthUnavailable = 'AUTH_UNAVAILABLE';
+
+/// ponytail: code 가 없는 옛 서버 호환용 문구 비교 — 서버 배포 뒤 제거 가능. 글자까지 같아야 한다.
 const _alreadyVerified = '이미 학교 메일 인증이 끝났어요'; // SCHOOL_EMAIL_ALREADY_VERIFIED
 const _notConfirmed = '학교 메일 인증이 끝나지 않았어요'; // SCHOOL_EMAIL_NOT_CONFIRMED
+
+/// 등록되지 않은 학교 메일. 가입 직전 훅(02)과 서버(03)가 이제 같은 문구다.
+const unknownSchoolEmailMessage = '등록되지 않은 학교 메일이에요';
+
+/// 422 거절 문구(옛 서버 호환). 재가입 제한은 훅("…이메일이에요")과 서버("…메일이에요") 글자가 달라 둘 다 둔다.
+const _rejectedMessages = {
+  unknownSchoolEmailMessage,
+  '허용되지 않은 학교 이메일이에요', // 옛 훅 문구, 호환용
+  '재가입이 제한된 메일이에요', // 서버 SCHOOL_EMAIL_BLOCKED
+  '재가입이 제한된 이메일이에요', // 훅 HOOK_BLOCKED
+};
 
 /// [SchoolEmailRepository]를 임시 Supabase 연결 + FastAPI 로 구현한다.
 class SupabaseSchoolEmailRepository implements SchoolEmailRepository {
@@ -56,18 +72,22 @@ class SupabaseSchoolEmailRepository implements SchoolEmailRepository {
 
   @override
   Future<Result<void>> complete(String temporaryAccessToken) async {
-    try {
-      final result = await _api.send(
-        'POST',
-        '/school-email/verify',
-        (_) {},
-        body: {'temp_access_token': temporaryAccessToken},
-      );
-      return result.when<Result<void>>(onSuccess: (_) => const Success(null), onFailure: _toCompleteResult);
-    } finally {
+    final result = await _api.send(
+      'POST',
+      '/school-email/verify',
+      (_) {},
+      body: {'temp_access_token': temporaryAccessToken},
+    );
+    // null = 성공(이미 인증 포함).
+    final failure = result.when<Failure?>(onSuccess: (_) => null, onFailure: _toCompleteFailure);
+    if (failure == null || endsSchoolEmailAttempt(failure)) {
       await _connection.close();
     }
+    return failure == null ? const Success(null) : FailureResult(failure);
   }
+
+  @override
+  Future<void> discard() => _connection.close();
 
   /// 429 는 보내기 한도(같은 메일에 60초 안에 다시 보내기 포함), 422 는 가입 직전 훅의 거절(등록되지 않은 학교 ·
   /// 재가입 제한 — 서버 문구를 그대로)이다(backend `auth_hooks/schemas.py` 의 422). 나머지는 가르지 않는다.
@@ -99,17 +119,39 @@ class SupabaseSchoolEmailRepository implements SchoolEmailRepository {
     return const SchoolEmailIncompleteFailure();
   }
 
-  /// 이미 인증 → 성공과 같이. 미확인 · 서버가 잠깐 못 받음 · 네트워크 → 다시 하라는 문구.
-  /// 409(다른 소셜 계정) · 422(서버 문구) · 세션 · 정지 같은 나머지는 그대로 올린다.
-  Result<void> _toCompleteResult(Failure failure) {
-    final message = failure.toDisplayMessage();
-    if (failure is ServerRejectedFailure && message == _alreadyVerified) {
-      return const Success(null);
+  /// 서버가 잠깐 못 받음 · 네트워크 → 다시 하라는 문구. 서버 거절은 code(없으면 문구)로 가른다.
+  /// 409(다른 소셜 계정, http_send 가 이미 가름) · 세션 · 정지 같은 나머지는 그대로 올린다.
+  Failure? _toCompleteFailure(Failure failure) {
+    if (failure is ServerRejectedFailure) {
+      return failure.hasAnyCode() ? _byCode(failure) : _byMessage(failure);
     }
     final isTransient = failure is NetworkFailure || failure is ServerUnavailableFailure || failure is UnknownFailure;
-    if (isTransient || (failure is ServerRejectedFailure && message == _notConfirmed)) {
-      return const FailureResult(SchoolEmailIncompleteFailure());
+    return isTransient ? const SchoolEmailIncompleteFailure() : failure;
+  }
+
+  /// null = 이미 인증(성공과 같이). 계약에 없는 code(SOCIAL_ONLY · PROFILE_NOT_FOUND)는 서버 문구 그대로.
+  Failure? _byCode(ServerRejectedFailure failure) {
+    if (failure.hasCode(_codeAlreadyVerified)) {
+      return null;
     }
-    return FailureResult(failure);
+    if (failure.hasCode(_codeNotConfirmed)) {
+      return const SchoolEmailNotConfirmedFailure();
+    }
+    if (_codesRejected.any(failure.hasCode)) {
+      return SchoolEmailRejectedFailure(failure.toDisplayMessage());
+    }
+    return failure.hasCode(_codeAuthUnavailable) ? const SchoolEmailIncompleteFailure() : failure;
+  }
+
+  /// ponytail: code 없는 옛 서버 호환 — 서버 배포 뒤 제거 가능.
+  Failure? _byMessage(ServerRejectedFailure failure) {
+    final message = failure.toDisplayMessage();
+    if (message == _alreadyVerified) {
+      return null;
+    }
+    if (message == _notConfirmed) {
+      return const SchoolEmailNotConfirmedFailure();
+    }
+    return _rejectedMessages.contains(message) ? SchoolEmailRejectedFailure(message) : failure;
   }
 }

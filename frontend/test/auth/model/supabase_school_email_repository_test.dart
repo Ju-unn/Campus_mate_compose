@@ -83,12 +83,12 @@ void main() {
 
     test('가입 직전 훅이 거절하면(422) 서버 문구를 입력칸 아래 문구로 그대로 쓴다', () async {
       when(() => temporary.signInWithOtp(email: any(named: 'email'), shouldCreateUser: any(named: 'shouldCreateUser')))
-          .thenThrow(const AuthException('허용되지 않은 학교 이메일이에요', statusCode: '422'));
+          .thenThrow(const AuthException('등록되지 않은 학교 메일이에요', statusCode: '422'));
 
       final failure = failureOf(await buildRepository().requestCode(email));
 
       expect(failure, isA<SignUpRejectedFailure>());
-      expect(failure!.toDisplayMessage(), '허용되지 않은 학교 이메일이에요');
+      expect(failure!.toDisplayMessage(), '등록되지 않은 학교 메일이에요');
     });
 
     test('그 밖의 실패는 가르지 않고 "인증번호를 보내지 못했어요"', () async {
@@ -167,6 +167,14 @@ void main() {
   });
 
   group('complete', () {
+    Future<SupabaseSchoolEmailRepository> openedRepository() async {
+      final repository = buildRepository();
+      when(() => temporary.signInWithOtp(email: any(named: 'email'), shouldCreateUser: any(named: 'shouldCreateUser')))
+          .thenAnswer((_) async {});
+      await repository.requestCode(email);
+      return repository;
+    }
+
     test('메인(소셜) 토큰으로 인증한 POST /school-email/verify 에 임시 토큰을 싣는다', () async {
       final result = await buildRepository().complete('temp-token');
 
@@ -178,38 +186,109 @@ void main() {
       expect(jsonDecode(sent.single.body), {'temp_access_token': 'temp-token'});
     });
 
-    test('성공하면 임시 연결을 이 기기에서만 로그아웃해 비운다', () async {
-      final repository = buildRepository();
-      when(() => temporary.signInWithOtp(email: any(named: 'email'), shouldCreateUser: any(named: 'shouldCreateUser')))
-          .thenAnswer((_) async {});
-      await repository.requestCode(email);
+    // 서버(#426)가 코드 있는 오류마다 `code` 를 싣는다. 문구가 달라도 code 로 가른다.
+    group('code 가 있으면 code 로 가른다', () {
+      test('SCHOOL_EMAIL_ALREADY_VERIFIED 는 문구가 달라도 성공과 같이 본다', () async {
+        respond = (_) => json(403, {'detail': '다른 문구', 'code': 'SCHOOL_EMAIL_ALREADY_VERIFIED'});
 
-      await repository.complete('temp-token');
+        expect(failureOf(await buildRepository().complete('temp-token')), isNull);
+      });
 
-      verify(() => temporary.signOut(scope: SignOutScope.local)).called(1);
+      test('SCHOOL_EMAIL_NOT_CONFIRMED 는 문구가 달라도 SchoolEmailNotConfirmedFailure', () async {
+        respond = (_) => json(403, {'detail': '다른 문구', 'code': 'SCHOOL_EMAIL_NOT_CONFIRMED'});
+
+        final failure = failureOf(await buildRepository().complete('temp-token'));
+
+        expect(failure, isA<SchoolEmailNotConfirmedFailure>());
+        expect(failure!.toDisplayMessage(), '학교 메일 인증을 마치지 못했어요. 잠시 뒤 다시 시도해 주세요');
+      });
+
+      test('DOMAIN_NOT_ALLOWED · REJOIN_BLOCKED 는 서버 문구를 그대로 담은 SchoolEmailRejectedFailure', () async {
+        for (final (code, message) in [
+          ('SCHOOL_EMAIL_DOMAIN_NOT_ALLOWED', '등록되지 않은 학교 메일이에요'),
+          ('SCHOOL_EMAIL_REJOIN_BLOCKED', '재가입이 제한된 메일이에요'),
+        ]) {
+          respond = (_) => json(422, {'detail': message, 'code': code});
+
+          final failure = failureOf(await buildRepository().complete('temp-token'));
+
+          expect(failure, isA<SchoolEmailRejectedFailure>(), reason: code);
+          expect(failure!.toDisplayMessage(), message, reason: code);
+        }
+      });
+
+      test('SCHOOL_EMAIL_TAKEN + provider 는 SchoolEmailTakenFailure', () async {
+        respond = (_) => json(409, {'detail': '이 메일은 카카오로 가입돼 있어요', 'code': 'SCHOOL_EMAIL_TAKEN', 'provider': 'kakao'});
+
+        final failure = failureOf(await buildRepository().complete('temp-token'));
+
+        expect(failure, isA<SchoolEmailTakenFailure>());
+        expect((failure! as SchoolEmailTakenFailure).toHintMessage(), '카카오 계정으로 로그인해 주세요');
+      });
+
+      test('AUTH_UNAVAILABLE(503) 는 다시 하라는 문구', () async {
+        respond = (_) => json(503, {'detail': '잠시 뒤 다시 시도해 주세요', 'code': 'AUTH_UNAVAILABLE'});
+
+        expect(failureOf(await buildRepository().complete('temp-token')), isA<SchoolEmailIncompleteFailure>());
+      });
+
+      test('계약에 없는 code(SOCIAL_ONLY · PROFILE_NOT_FOUND)는 서버 문구를 그대로', () async {
+        for (final (status, code, message) in [
+          (403, 'SCHOOL_EMAIL_SOCIAL_ONLY', '소셜 로그인 계정만 학교 메일을 인증할 수 있어요'),
+          (404, 'PROFILE_NOT_FOUND', '프로필을 찾을 수 없어요'),
+        ]) {
+          respond = (_) => json(status, {'detail': message, 'code': code});
+
+          final failure = failureOf(await buildRepository().complete('temp-token'));
+
+          expect(failure, isA<ServerRejectedFailure>(), reason: code);
+          expect(failure!.toDisplayMessage(), message, reason: code);
+        }
+      });
     });
 
-    test('실패해도 임시 연결을 비운다', () async {
-      respond = (_) => json(403, {'detail': '학교 메일 인증이 끝나지 않았어요'});
-      final repository = buildRepository();
-      when(() => temporary.signInWithOtp(email: any(named: 'email'), shouldCreateUser: any(named: 'shouldCreateUser')))
-          .thenAnswer((_) async {});
-      await repository.requestCode(email);
+    // ponytail: 옛 서버(code 없음) 호환 — 서버 배포 뒤 제거 가능.
+    group('code 가 없으면(옛 서버) 문구로 가른다', () {
+      test('403 "이미 학교 메일 인증이 끝났어요" 는 성공과 같이 본다', () async {
+        respond = (_) => json(403, {'detail': '이미 학교 메일 인증이 끝났어요'});
 
-      await repository.complete('temp-token');
+        expect(failureOf(await buildRepository().complete('temp-token')), isNull);
+      });
 
-      verify(() => temporary.signOut(scope: SignOutScope.local)).called(1);
+      test('403 "학교 메일 인증이 끝나지 않았어요" 는 SchoolEmailNotConfirmedFailure', () async {
+        respond = (_) => json(403, {'detail': '학교 메일 인증이 끝나지 않았어요'});
+
+        expect(failureOf(await buildRepository().complete('temp-token')), isA<SchoolEmailNotConfirmedFailure>());
+      });
+
+      test('422 거절 문구(새 문구 · 훅 문구 · 옛 호환 문구)는 SchoolEmailRejectedFailure 에 그대로', () async {
+        for (final message in [
+          '등록되지 않은 학교 메일이에요',
+          '재가입이 제한된 메일이에요',
+          '재가입이 제한된 이메일이에요',
+          '허용되지 않은 학교 이메일이에요',
+        ]) {
+          respond = (_) => json(422, {'detail': message});
+
+          final failure = failureOf(await buildRepository().complete('temp-token'));
+
+          expect(failure, isA<SchoolEmailRejectedFailure>(), reason: message);
+          expect(failure!.toDisplayMessage(), message, reason: message);
+        }
+      });
+
+      test('409 provider 는 code 없이도 SchoolEmailTakenFailure', () async {
+        respond = (_) => json(409, {'detail': '이 메일은 카카오로 가입돼 있어요', 'provider': 'kakao'});
+
+        final failure = failureOf(await buildRepository().complete('temp-token'));
+
+        expect(failure, isA<SchoolEmailTakenFailure>());
+        expect(failure!.toDisplayMessage(), '이 메일은 카카오로 가입돼 있어요');
+      });
     });
 
-    test('403 이미 인증(SCHOOL_EMAIL_ALREADY_VERIFIED)은 성공과 같이 본다 — 게이트를 다시 읽으면 된다', () async {
-      respond = (_) => json(403, {'detail': '이미 학교 메일 인증이 끝났어요'});
-
-      expect(failureOf(await buildRepository().complete('temp-token')), isNull);
-    });
-
-    test('403 미확인(SCHOOL_EMAIL_NOT_CONFIRMED) · 503 · 네트워크는 "학교 메일 인증을 마치지 못했어요"', () async {
+    test('503 · 네트워크는 "학교 메일 인증을 마치지 못했어요"', () async {
       for (final response in [
-        () => json(403, {'detail': '학교 메일 인증이 끝나지 않았어요'}),
         () => json(503, {'detail': '잠시 뒤 다시 시도해 주세요'}),
         () => throw http.ClientException('network'),
       ]) {
@@ -222,22 +301,49 @@ void main() {
       }
     });
 
-    test('422 두 가지는 서버 문구를 그대로 쓴다', () async {
-      for (final message in ['등록되지 않은 학교 메일이에요', '재가입이 제한된 메일이에요']) {
-        respond = (_) => json(422, {'detail': message});
+    // 임시 연결은 성공 · 409 · 422 · 02 로 돌아갈 때 · 로그아웃 · 앱 종료에서만 비운다(지시문 13 A-5).
+    group('임시 연결을 비우는 때', () {
+      final ends = <String, http.Response Function()>{
+        '성공': () => json(200, {'ok': true}),
+        '이미 인증': () => json(403, {'detail': '이미 학교 메일 인증이 끝났어요', 'code': 'SCHOOL_EMAIL_ALREADY_VERIFIED'}),
+        '409': () => json(409, {'detail': '이 메일은 구글로 가입돼 있어요', 'code': 'SCHOOL_EMAIL_TAKEN', 'provider': 'google'}),
+        '422': () => json(422, {'detail': '등록되지 않은 학교 메일이에요', 'code': 'SCHOOL_EMAIL_DOMAIN_NOT_ALLOWED'}),
+      };
+      for (final MapEntry(key: name, value: response) in ends.entries) {
+        test('$name 이면 이 기기에서만 로그아웃해 비운다', () async {
+          respond = (_) => response();
+          final repository = await openedRepository();
 
-        expect(failureOf(await buildRepository().complete('temp-token'))!.toDisplayMessage(), message);
+          await repository.complete('temp-token');
+
+          verify(() => temporary.signOut(scope: SignOutScope.local)).called(1);
+        });
       }
-    });
 
-    test('409 는 provider 로 어느 소셜 계정인지 알려 준다', () async {
-      respond = (_) => json(409, {'detail': '이 메일은 카카오로 가입돼 있어요', 'provider': 'kakao'});
+      final keeps = <String, http.Response Function()>{
+        '네트워크': () => throw http.ClientException('network'),
+        '503': () => json(503, {'detail': '잠시 뒤 다시 시도해 주세요', 'code': 'AUTH_UNAVAILABLE'}),
+        'SCHOOL_EMAIL_NOT_CONFIRMED': () =>
+            json(403, {'detail': '학교 메일 인증이 끝나지 않았어요', 'code': 'SCHOOL_EMAIL_NOT_CONFIRMED'}),
+      };
+      for (final MapEntry(key: name, value: response) in keeps.entries) {
+        test('$name 이면 비우지 않는다 — 같은 03 에서 complete 만 다시 부를 수 있게', () async {
+          respond = (_) => response();
+          final repository = await openedRepository();
 
-      final failure = failureOf(await buildRepository().complete('temp-token'));
+          await repository.complete('temp-token');
 
-      expect(failure, isA<SchoolEmailTakenFailure>());
-      expect(failure!.toDisplayMessage(), '이 메일은 카카오로 가입돼 있어요');
-      expect((failure as SchoolEmailTakenFailure).toHintMessage(), '카카오 계정으로 로그인해 주세요');
+          verifyNever(() => temporary.signOut(scope: any(named: 'scope')));
+        });
+      }
+
+      test('02 로 돌아가면(discard) 비운다', () async {
+        final repository = await openedRepository();
+
+        await repository.discard();
+
+        verify(() => temporary.signOut(scope: SignOutScope.local)).called(1);
+      });
     });
   });
 }

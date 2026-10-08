@@ -59,7 +59,7 @@ void main() {
 
     test('가입 직전 훅이 거절하면 서버 문구를 입력칸 아래 문구로 쓴다', () async {
       final repository = FakeSchoolEmailRepository()
-        ..nextRequestCodeResult = const FailureResult(SignUpRejectedFailure('허용되지 않은 학교 이메일이에요'));
+        ..nextRequestCodeResult = const FailureResult(SignUpRejectedFailure('등록되지 않은 학교 메일이에요'));
       final container = ProviderContainer(
         overrides: [schoolEmailRepositoryProvider.overrideWithValue(repository)],
       );
@@ -69,7 +69,7 @@ void main() {
 
       await viewModel.submit();
 
-      expect(container.read(signUpViewModelProvider).errorMessage, '허용되지 않은 학교 이메일이에요');
+      expect(container.read(signUpViewModelProvider).errorMessage, '등록되지 않은 학교 메일이에요');
     });
 
     test('제출이 실패하면 errorMessage 가 채워진다', () async {

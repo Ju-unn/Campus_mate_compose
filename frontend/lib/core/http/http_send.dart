@@ -66,7 +66,9 @@ Failure _toRejection(http.Response response) {
   if (detail is! String) {
     return const UnknownFailure();
   }
-  return _schoolEmailTaken(response.statusCode, detail, body['provider']) ?? ServerRejectedFailure(detail);
+  final code = body['code'];
+  return _schoolEmailTaken(response.statusCode, detail, body['provider']) ??
+      ServerRejectedFailure(detail, code: code is String ? code : null);
 }
 
 /// POST /school-email/verify 409 만 기계용 `provider` 를 함께 준다(backend school_email/router.py

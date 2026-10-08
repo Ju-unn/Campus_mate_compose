@@ -22,6 +22,14 @@ void main() {
     expect(repository.completedTokens, ['temporary-access-token']);
   });
 
+  test('discard 도 부른 순서에 남긴다', () async {
+    final repository = FakeSchoolEmailRepository();
+
+    await repository.discard();
+
+    expect(repository.calls, ['discard']);
+  });
+
   test('next…Result 를 지정하면 그 결과를 돌려준다', () async {
     final repository = FakeSchoolEmailRepository()
       ..nextRequestCodeResult = const FailureResult(RateLimitedFailure())

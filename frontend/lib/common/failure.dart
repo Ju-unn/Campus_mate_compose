@@ -109,13 +109,22 @@ final class PhotoUnreadableFailure extends Failure {
 }
 
 /// 학생증 인증 서버가 거부한 경우(예: 검토 중 재제출). 서버 메시지를 그대로 보여준다.
+/// 서버가 기계용 `code` 를 함께 주면(POST /school-email/verify 등) 그것도 들고 있다 — 문구 대신 code 로 가를 수 있게.
 final class ServerRejectedFailure extends Failure {
-  const ServerRejectedFailure(this._message);
+  // Dart 3.13 private named parameter: 호출부는 code: 로 넘긴다
+  const ServerRejectedFailure(this._message, {this._code});
 
   final String _message;
+  final String? _code;
 
   @override
   String toDisplayMessage() => _message;
+
+  /// 서버가 이 code 를 실어 보냈는지.
+  bool hasCode(String code) => _code == code;
+
+  /// code 칸이 있었는지. 없으면 옛 서버라 문구로 가른다.
+  bool hasAnyCode() => _code != null;
 }
 
 /// 정지된 계정(403 + `X-Account-Status: suspended`). 서버 `errors.py` ACCOUNT_SUSPENDED 와 같은 글자.
@@ -144,14 +153,33 @@ final class CodeNotSentFailure extends Failure {
   String toDisplayMessage() => '인증번호를 보내지 못했어요. 잠시 뒤 다시 시도해 주세요';
 }
 
-/// 학교 메일 인증(03)을 끝내지 못한 경우 — 서버가 임시 토큰을 못 읽음(403 SCHOOL_EMAIL_NOT_CONFIRMED) · 503 · 네트워크.
-/// 사용자가 할 일은 같다: 잠시 뒤 다시.
+/// 학교 메일 인증(03)을 끝내지 못한 경우 — 503 · 네트워크 · 서버 내부 오류. 사용자가 할 일은 잠시 뒤 다시다.
 final class SchoolEmailIncompleteFailure extends Failure {
   const SchoolEmailIncompleteFailure();
 
   // 임시 문구, 디자인 확정 대기
   @override
   String toDisplayMessage() => '학교 메일 인증을 마치지 못했어요. 잠시 뒤 다시 시도해 주세요';
+}
+
+/// 서버가 임시 토큰을 학교 메일 인증으로 읽지 못했다(403 SCHOOL_EMAIL_NOT_CONFIRMED). 문구는 [SchoolEmailIncompleteFailure]
+/// 와 같지만, 다른 학교 메일로 다시 시작하는 길("다른 학교 메일 입력")을 함께 보여 줘서 따로 둔다.
+final class SchoolEmailNotConfirmedFailure extends Failure {
+  const SchoolEmailNotConfirmedFailure();
+
+  // 임시 문구, 디자인 확정 대기
+  @override
+  String toDisplayMessage() => '학교 메일 인증을 마치지 못했어요. 잠시 뒤 다시 시도해 주세요';
+}
+
+/// 등록되지 않은 학교 메일 · 재가입 제한(POST /school-email/verify 422). 문구는 서버가 내려 준 것을 그대로 쓴다.
+final class SchoolEmailRejectedFailure extends Failure {
+  const SchoolEmailRejectedFailure(this._serverMessage);
+
+  final String _serverMessage;
+
+  @override
+  String toDisplayMessage() => _serverMessage;
 }
 
 /// 이 학교 메일을 다른 소셜 계정이 이미 인증했다(POST /school-email/verify 409).
@@ -164,9 +192,16 @@ final class SchoolEmailTakenFailure extends Failure {
 
   static const _providerLabels = <String, String>{'kakao': '카카오', 'google': '구글', 'apple': '애플'};
 
+  /// `provider == email` — 소셜이 아닌 이메일 방식 계정이 이 메일을 쥐고 있다(서버 `SCHOOL_EMAIL_TAKEN_BY_EMAIL_ACCOUNT` 와 같은 글자).
+  static const _emailAccountProvider = 'email';
+  static const takenByEmailAccountMessage = '이 학교 메일로 이미 가입된 계정이 있어요. 문의해 주세요';
+
   // 임시 문구, 디자인 확정 대기
   @override
   String toDisplayMessage() {
+    if (_provider == _emailAccountProvider) {
+      return takenByEmailAccountMessage;
+    }
     final label = _providerLabels[_provider];
     return label == null ? _serverMessage : '이 메일은 $label로 가입돼 있어요';
   }

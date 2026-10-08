@@ -36,4 +36,9 @@ class FakeSchoolEmailRepository implements SchoolEmailRepository {
     calls.add('complete');
     return Future.delayed(Duration.zero, () => nextCompleteResult);
   }
+
+  @override
+  Future<void> discard() async {
+    calls.add('discard');
+  }
 }
