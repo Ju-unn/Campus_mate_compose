@@ -29,8 +29,9 @@ class BioViewModel extends Notifier<BioUiState> {
     return drafts.read<BioUiState?>(DraftScreen.bio, BioUiState.fromDraft) ?? const BioUiState();
   }
 
-  /// 글이 바뀔 때마다 남긴다(저장소가 디바운스한다). 처음 상태(복원한 값 그대로)는 다시 쓰지 않고,
-  /// 끝낸 단계는 서버에 있으니 남기지 않는다. 글 말고 다른 것(진행 표시 등)만 바뀌었으면 쓰지 않는다.
+  /// 글이 바뀔 때마다 남긴다(저장소가 디바운스한다). 사용자가 고칠 때뿐 아니라 AI 초안이 도착해 빈 글이 초안으로
+  /// 바뀔 때도 남긴다. 처음 상태(복원한 값 그대로)는 다시 쓰지 않고, 끝낸 단계는 서버에 있으니 남기지 않는다.
+  /// 글 말고 다른 것(진행 표시 등)만 바뀌었으면 쓰지 않는다.
   void _saveDraft(DraftStore drafts, BioUiState? previous, BioUiState next) {
     if (previous == null || next.completed || previous.bio == next.bio) {
       return;
