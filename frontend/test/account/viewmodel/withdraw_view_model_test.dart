@@ -6,11 +6,18 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/auth/account_status_listenable.dart';
 import 'package:campus_mate/core/draft/draft_store.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../core/draft/fake_draft_store.dart';
 import '../model/fake_account_repository.dart';
+
+/// 전부 지우기가 던진다 — 디스크 오류 같은 경우. 문구에 값이 들어 있다고 치고 로그에 새지 않는지 본다.
+class _BrokenDraftStore extends FakeDraftStore {
+  @override
+  Future<void> clearAll() async => throw StateError('disk broke: 010-1234-5678');
+}
 
 void main() {
   late FakeAccountRepository repository;
@@ -102,5 +109,27 @@ void main() {
 
     expect(drafts.clearAllCalls, 0);
     expect(drafts.saved, isNotEmpty);
+  });
+
+  test('임시 저장 값 지우기가 던져도 탈퇴는 끝나고, 처리 안 된 오류도 · 로그의 값도 남지 않는다', () async {
+    // 로그아웃이 한 번 더 지우므로 결과에는 영향이 없다 — 여기서는 삼킨다.
+    final logs = <String>[];
+    final original = debugPrint;
+    debugPrint = (message, {wrapWidth}) => logs.add(message ?? '');
+    addTearDown(() => debugPrint = original);
+    final broken = ProviderContainer(
+      overrides: [
+        accountRepositoryProvider.overrideWithValue(repository),
+        draftStoreProvider.overrideWithValue(_BrokenDraftStore()),
+      ],
+    );
+    addTearDown(broken.dispose);
+    broken.listen(withdrawViewModelProvider, (_, _) {});
+
+    await broken.read(withdrawViewModelProvider.notifier).withdraw();
+    await Future<void>.delayed(Duration.zero); // 기다리지 않은 지우기가 끝나도록 한 바퀴 돌린다.
+
+    expect(broken.read(accountStatusListenableProvider).value, AccountStatus.withdrawn);
+    expect(logs.join('\n'), isNot(contains('010-1234-5678')));
   });
 }
