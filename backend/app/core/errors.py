@@ -34,8 +34,8 @@ SCHOOL_EMAIL_ALREADY_VERIFIED = "이미 학교 메일 인증이 끝났어요"
 SCHOOL_EMAIL_SOCIAL_ONLY = "소셜 로그인 계정만 학교 메일을 인증할 수 있어요"
 
 # 가입 직전 훅(auth_hooks). 앱이 GoTrue 오류 문구로 그대로 받는다.
-# 등록 안 된 도메인은 서버 전체가 SCHOOL_EMAIL_UNKNOWN_DOMAIN 한 문구를 쓴다(사용자 결정, 지시문 12-5).
-HOOK_BLOCKED = "재가입이 제한된 이메일이에요"
+# 등록 안 된 도메인 · 재가입 제한은 서버 전체가 SCHOOL_EMAIL_UNKNOWN_DOMAIN · SCHOOL_EMAIL_BLOCKED 한 문구씩 쓴다
+# (사용자 결정, 지시문 12-5 · 14-2). 앱이 문구를 글자 그대로 비교하는 길이 있어 하나여야 한다.
 HOOK_UNKNOWN_PROVIDER = "가입할 수 없는 계정이에요"
 
 # 기계가 읽는 오류 code(POST /school-email/verify). 앱은 문구가 아니라 이 값으로 가른다 — 문구는 바뀔 수 있다.

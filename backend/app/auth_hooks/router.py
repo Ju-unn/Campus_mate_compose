@@ -40,7 +40,7 @@ async def before_user_created(
 
     email_hmac = hash_email(settings.identity_hmac_key, payload.email)
     if await policy.is_blocked(email_hmac):
-        return HookDecision.reject(errors.HOOK_BLOCKED)
+        return HookDecision.reject(errors.SCHOOL_EMAIL_BLOCKED)
 
     return HookDecision.allow()
 
