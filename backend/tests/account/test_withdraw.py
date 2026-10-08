@@ -70,6 +70,13 @@ def test_a_suspended_or_unverified_account_can_still_withdraw(client, world):
     assert client.post("/account/withdraw", headers=AUTH).status_code == 200
 
 
+def test_an_account_before_the_school_email_can_still_withdraw(client, world):
+    """소셜로 가입만 하고 학교 메일 전인 사람도 나갈 수 있어야 한다(학교 메일 관문은 get_verified_* 에만 있다)."""
+    world.profiles[ME].update(school_email_verified_at=None, student_verification="none", department=None)
+
+    assert client.post("/account/withdraw", headers=AUTH).status_code == 200
+
+
 def test_calling_again_after_withdrawal_is_401_with_the_header(client, world):
     client.post("/account/withdraw", headers=AUTH)
 

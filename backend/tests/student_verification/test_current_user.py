@@ -159,8 +159,67 @@ async def test_suspension_is_checked_before_the_student_id_gate():
     assert exc_info.value.detail == "이용이 제한된 계정이에요"
 
 
+# 소셜 로그인 전환: 학교 메일 확인을 마친 사람(전은 아래 학교 메일 관문 시험이 본다).
+VERIFIED_AT = "2026-10-01T00:00:00+00:00"
+
+
 async def test_an_active_or_unknown_status_passes_the_gate():
-    for row in ({"student_verification": "verified", "department": "컴공", "status": "active"},
-                {"student_verification": "verified", "department": "컴공"}):
+    for row in ({"student_verification": "verified", "department": "컴공", "status": "active",
+                 "school_email_verified_at": VERIFIED_AT},
+                {"student_verification": "verified", "department": "컴공", "school_email_verified_at": VERIFIED_AT}):
         assert await get_verified_user_id(_settings(), _gate_client(row),
                                           authorization="Bearer valid-token") == UUID(USER_ID)
+
+
+# 학교 메일 관문(소셜 로그인 전환) — 순서: 정지 → 동의 → 학교 메일 → 학생증 → 학과와 학번 ------------------
+
+async def test_before_the_school_email_is_403_without_a_status_header():
+    client = _gate_client({"student_verification": "verified", "department": "컴공", "status": "active",
+                           "school_email_verified_at": None})
+
+    with pytest.raises(HTTPException) as exc_info:
+        await get_verified_user_id(_settings(), client, authorization="Bearer valid-token")
+
+    assert exc_info.value.status_code == 403
+    assert exc_info.value.detail == errors.SCHOOL_EMAIL_REQUIRED
+    assert not exc_info.value.headers
+
+
+async def test_a_missing_school_email_column_is_treated_as_not_verified():
+    """칸이 안 오면 확인 전으로 본다 — 열린 문이 되지 않게(정지 칸이 없을 때와 반대 규칙)."""
+    client = _gate_client({"student_verification": "verified", "department": "컴공", "status": "active"})
+
+    with pytest.raises(HTTPException) as exc_info:
+        await get_verified_user_id(_settings(), client, authorization="Bearer valid-token")
+
+    assert exc_info.value.detail == errors.SCHOOL_EMAIL_REQUIRED
+
+
+async def test_suspension_is_checked_before_the_school_email():
+    client = _gate_client({"student_verification": "verified", "department": "컴공", "status": "suspended",
+                           "school_email_verified_at": None})
+
+    with pytest.raises(HTTPException) as exc_info:
+        await get_verified_user_id(_settings(), client, authorization="Bearer valid-token")
+
+    assert exc_info.value.detail == errors.ACCOUNT_SUSPENDED
+
+
+async def test_the_school_email_is_checked_before_the_student_id_and_the_department():
+    client = _gate_client({"student_verification": "pending", "department": None, "status": "active",
+                           "school_email_verified_at": None})
+
+    with pytest.raises(HTTPException) as exc_info:
+        await get_verified_user_id(_settings(), client, authorization="Bearer valid-token")
+
+    assert exc_info.value.detail == errors.SCHOOL_EMAIL_REQUIRED
+
+
+async def test_after_the_school_email_the_student_id_gate_answers():
+    client = _gate_client({"student_verification": "pending", "department": None, "status": "active",
+                           "school_email_verified_at": VERIFIED_AT})
+
+    with pytest.raises(HTTPException) as exc_info:
+        await get_verified_user_id(_settings(), client, authorization="Bearer valid-token")
+
+    assert exc_info.value.detail == errors.STUDENT_VERIFICATION_REQUIRED

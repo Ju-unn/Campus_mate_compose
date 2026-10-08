@@ -398,6 +398,40 @@ def test_submit_is_403_with_the_status_header_for_a_suspended_account(verificati
     assert _calls(sent, "POST", "/student_verification_attempts") == []
 
 
+def test_submit_is_403_before_the_school_email():
+    sent, vision_client = _wire(_gate_row("none", school_email_verified_at=None), ocr_text="서울대학교 홍길동")
+
+    response = _submit()
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == errors.SCHOOL_EMAIL_REQUIRED
+    assert "x-account-status" not in response.headers
+    vision_client.batch_annotate_images.assert_not_awaited()
+    assert _calls(sent, "POST", "/storage/v1/") == []
+    assert _calls(sent, "POST", "/profile_private") == []
+
+
+def test_submit_asks_for_consent_before_the_school_email():
+    _wire(_gate_row("none", school_email_verified_at=None), consented=False)
+
+    assert _submit().json()["detail"] == errors.CONSENT_REQUIRED
+
+
+def test_submit_answers_a_suspended_account_before_the_school_email():
+    _wire({**_gate_row("none", school_email_verified_at=None), "status": "suspended"})
+
+    assert _submit().headers["X-Account-Status"] == "suspended"
+
+
+def test_submit_asks_for_the_school_email_before_the_409s():
+    _wire(_gate_row("pending", school_email_verified_at=None))
+
+    response = _submit()
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == errors.SCHOOL_EMAIL_REQUIRED
+
+
 def test_submit_returns_409_while_review_is_pending():
     sent, vision_client = _wire(_gate_row("pending"), ocr_text="서울대학교 홍길동")
 
@@ -620,6 +654,22 @@ def test_school_info_is_403_with_the_status_header_for_a_suspended_account():
     assert response.json()["detail"] == errors.ACCOUNT_SUSPENDED
     assert response.headers["X-Account-Status"] == "suspended"
     assert _calls(sent, "PATCH", "/rest/v1/profiles") == []
+
+
+def test_school_info_is_403_before_the_school_email():
+    sent, _ = _wire(_gate_row("verified", school_email_verified_at=None))
+
+    response = _post_school_info()
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == errors.SCHOOL_EMAIL_REQUIRED
+    assert _calls(sent, "PATCH", "/rest/v1/profiles") == []
+
+
+def test_school_info_answers_a_suspended_account_before_the_school_email():
+    _wire({**_gate_row("verified", school_email_verified_at=None), "status": "suspended"})
+
+    assert _post_school_info().headers["X-Account-Status"] == "suspended"
 
 
 def test_a_suspended_account_can_still_read_its_verification_status():
