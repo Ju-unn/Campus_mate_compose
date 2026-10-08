@@ -2,7 +2,9 @@ import 'package:campus_mate/account/model/account_repository.dart';
 import 'package:campus_mate/account/view/account_screen.dart';
 import 'package:campus_mate/account/view/account_suspended_screen.dart';
 import 'package:campus_mate/account/view/kakao_id_settings_screen.dart';
+import 'package:campus_mate/auth/model/social_login_repository_provider.dart';
 import 'package:campus_mate/auth/model/verification_gate.dart';
+import 'package:campus_mate/auth/view/start_view.dart';
 import 'package:campus_mate/billing/view/heart_store_screen.dart';
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/chat/view/chat_room_screen.dart';
@@ -11,6 +13,7 @@ import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/auth/account_status_listenable.dart';
 import 'package:campus_mate/core/router/app_router.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
+import 'package:campus_mate/core/supabase/auth_session_listenable_provider.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
 import 'package:campus_mate/faq/model/faq_cache.dart';
 import 'package:campus_mate/faq/model/faq_repository.dart';
@@ -42,6 +45,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../account/model/fake_account_repository.dart';
+import '../../auth/model/fake_social_login_repository.dart';
 import '../../chat/model/fake_chat_repository.dart';
 import '../../faq/model/fake_faq.dart';
 import '../../friend_review/model/fake_friend_review_repository.dart';
@@ -49,6 +53,7 @@ import '../../home/model/fake_home_repository.dart';
 import '../../matching/model/fake_card_repository.dart';
 import '../../me/model/fake_me_repository.dart';
 import '../../safety/model/fake_safety_repository.dart';
+import '../supabase/fake_auth_session.dart';
 
 /// 이 파일은 경로·화면 연결만 본다. 게이트별 이동 규칙은 auth_redirect_test 가 맡는다.
 VerificationGate _passedGate() => VerificationGate.complete;
@@ -85,6 +90,17 @@ const _onboardingPaths = <String>[
   AppRoutes.onboardingBio,
 ];
 
+/// 로그아웃 상태의 시작 화면이 읽는 세션 · 소셜 로그인 저장소를 가짜로 건다(실제 Supabase 없음).
+Widget _guestScope(Widget child) {
+  return ProviderScope(
+    overrides: [
+      authSessionListenableProvider.overrideWithValue(FakeAuthSession().listenable),
+      socialLoginRepositoryProvider.overrideWithValue(FakeSocialLoginRepository()),
+    ],
+    child: child,
+  );
+}
+
 void main() {
   testWidgets('스플래시를 붙잡는 동안에는 스플래시가 보인다', (tester) async {
     var isHeld = true;
@@ -95,38 +111,34 @@ void main() {
       isSplashHeld: () => isHeld,
     );
 
-    await tester.pumpWidget(
-      ProviderScope(
-        child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
-      ),
-    );
+    await tester.pumpWidget(_guestScope(MaterialApp.router(routerConfig: router, theme: AppTheme.light())));
     await tester.pumpAndSettle();
 
     expect(find.text('CampusMate'), findsOneWidget);
 
-    // 시간이 다 되면(SplashHold 가 알림) 원래 이동 규칙으로 돌아간다.
+    // 시간이 다 되면(SplashHold 가 알림) 원래 이동 규칙으로 돌아간다 — 로그아웃 상태는 시작 화면에 그대로 머문다
+    // (예전에는 02 학교 메일 입력 화면으로 갔다, 대장 지시문 07).
     isHeld = false;
     router.refresh();
     await tester.pumpAndSettle();
 
-    expect(find.text('대학 이메일로 시작해요'), findsOneWidget);
+    expect(find.byType(StartView), findsOneWidget);
+    expect(find.text('대학 이메일로 시작해요'), findsNothing);
   });
 
-  testWidgets('로그인하지 않으면 로그인 화면이 보인다', (tester) async {
+  testWidgets('로그인하지 않으면 소셜 로그인 버튼이 있는 시작 화면이 보인다', (tester) async {
     final router = AppRouter.create(
       isAuthenticated: () => false,
       verificationGate: _passedGate,
       onboardingStep: _passedStep,
     );
 
-    await tester.pumpWidget(
-      ProviderScope(
-        child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
-      ),
-    );
+    await tester.pumpWidget(_guestScope(MaterialApp.router(routerConfig: router, theme: AppTheme.light())));
     await tester.pumpAndSettle();
 
-    expect(find.text('대학 이메일로 시작해요'), findsOneWidget);
+    expect(find.byType(StartView), findsOneWidget);
+    expect(find.text('카카오 로그인').hitTestable(), findsOneWidget);
+    expect(find.text('Google 계정으로 로그인').hitTestable(), findsOneWidget);
   });
 
   // 홈은 09b 메인이다. 오늘의 카드는 하단 내비 "오늘" 탭(`/today`)에 있다.
@@ -176,19 +188,23 @@ void main() {
     expect(find.byType(MyProfileScreen), findsOneWidget);
   });
 
-  testWidgets('extra 없이 인증코드 화면에 진입하면 로그인 화면으로 보낸다', (tester) async {
+  // 예전에는 "extra 없이 인증코드 화면에 진입하면 로그인 화면으로" 를 봤다. 이제 로그아웃 상태는 인증코드 화면에
+  // 닿기 전에 AuthRedirect 가 시작 화면으로 돌려보낸다(옛 경로는 지시문 08 까지 남아 있다).
+  testWidgets('로그아웃 상태로 옛 인증코드 · 로그인 화면에 가도 시작 화면으로 보낸다', (tester) async {
     final router = AppRouter.create(
       isAuthenticated: () => false,
       verificationGate: _passedGate,
       onboardingStep: _passedStep,
     );
-    await tester.pumpWidget(
-      ProviderScope(child: MaterialApp.router(routerConfig: router, theme: AppTheme.light())),
-    );
-    router.go(AppRoutes.verifyCode);
-    await tester.pumpAndSettle();
+    await tester.pumpWidget(_guestScope(MaterialApp.router(routerConfig: router, theme: AppTheme.light())));
 
-    expect(find.text('대학 이메일로 시작해요'), findsOneWidget);
+    for (final path in [AppRoutes.verifyCode, AppRoutes.login]) {
+      router.go(path);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(StartView), findsOneWidget, reason: path);
+      expect(find.text('대학 이메일로 시작해요'), findsNothing, reason: path);
+    }
   });
 
   // 푸시·매칭 성사는 `go` 로 방을 여는데 그때 스택에는 방 한 장뿐이다.

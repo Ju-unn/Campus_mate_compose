@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import 'package:campus_mate/account/model/login_notice.dart';
+import 'package:campus_mate/auth/model/kakao_login_gateway.dart';
 import 'package:campus_mate/auth/model/verification_gate.dart';
 import 'package:campus_mate/core/auth/account_status_listenable.dart';
 import 'package:campus_mate/core/auth/session_scope.dart';
 import 'package:campus_mate/core/auth/sign_out.dart';
+import 'package:campus_mate/core/env.dart';
 import 'package:campus_mate/core/lifecycle/resume_refresh.dart';
 import 'package:campus_mate/core/push/push_provider.dart';
 import 'package:campus_mate/core/push/push_refresh.dart';
@@ -17,6 +19,7 @@ import 'package:campus_mate/core/router/verification_gate_listenable.dart';
 import 'package:campus_mate/core/router/verification_gate_listenable_provider.dart';
 import 'package:campus_mate/core/router/splash_hold.dart';
 import 'package:campus_mate/core/supabase/auth_session_listenable.dart';
+import 'package:campus_mate/core/supabase/auth_session_listenable_provider.dart';
 import 'package:campus_mate/core/supabase/supabase_config.dart';
 import 'package:campus_mate/core/supabase/supabase_initializer.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
@@ -32,6 +35,8 @@ Future<void> main() async {
   // (firebase_options.dart 를 만들지 않는 이유 — flutterfire CLI 를 새로 들이지 않는다).
   await Firebase.initializeApp();
   await SupabaseInitializer.run(SupabaseConfig.fromEnvironment());
+  // 키가 없는 빌드(시험 · CI)는 건너뛴다 — 앱은 켜지고 카카오 버튼만 실패 토스트를 띄운다.
+  await initializeKakaoSdk(Env.kakaoNativeAppKey);
   runApp(SessionScope(
     authChanges: Supabase.instance.client.auth.onAuthStateChange,
     child: const CampusMateApp(),
@@ -64,7 +69,8 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
   @override
   void initState() {
     super.initState();
-    _authSession = AuthSessionListenable(Supabase.instance.client);
+    // 시작 화면이 로그아웃 확인에 쓰는 것과 같은 인스턴스다. 로그아웃하면 SessionScope 가 새로 만든다.
+    _authSession = ref.read(authSessionListenableProvider);
     // 3b·3c·온보딩 ViewModel 이 각 단계 직후 부르는 것과 같은 인스턴스여야 라우터가 다시 평가된다.
     _verificationGate = ref.read(verificationGateListenableProvider);
     _onboardingStep = ref.read(onboardingStepListenableProvider);
@@ -84,7 +90,7 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
   void _refreshChatsOnResume() =>
       refreshOnResume(ref.read, isAuthenticated: _authSession.isAuthenticated, gate: _verificationGate.value);
 
-  /// 탈퇴(직접 16c 든 다른 기기에서든)면 로그인 화면용 알림을 남기고 로그아웃한다 — 로그아웃은 여기 한 곳뿐이다.
+  /// 탈퇴(직접 16c 든 다른 기기에서든)면 시작 화면용 알림을 남기고 로그아웃한다 — 로그아웃은 여기 한 곳뿐이다.
   void _signOutWhenWithdrawn() => signOutWhenWithdrawn(_accountStatus.value, ref.read(signOutProvider));
 
   /// 세션이 바뀔 때마다 게이트·온보딩 단계를 다시 조회한다.
@@ -194,7 +200,7 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
     );
   }
 
-  /// 게이트는 provider 가 소유해 [ProviderScope] 와 함께 정리된다 — 여기서 dispose 하지 않는다.
+  /// 세션 리스너 · 게이트는 provider 가 소유해 [ProviderScope] 와 함께 정리된다 — 여기서 dispose 하지 않는다.
   @override
   void dispose() {
     _lifecycle.dispose();
@@ -206,7 +212,6 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
     _onboardingStep.removeListener(_openPendingPushRoute);
     _accountStatus.removeListener(_signOutWhenWithdrawn);
     _authSession.removeListener(_refreshVerificationGate);
-    _authSession.dispose();
     _splashHold.dispose();
     super.dispose();
   }

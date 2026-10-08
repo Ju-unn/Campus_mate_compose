@@ -1,3 +1,4 @@
+import 'package:campus_mate/auth/view/start_view.dart';
 import 'package:campus_mate/main.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -23,7 +24,9 @@ void main() {
     await Supabase.initialize(url: 'https://example.supabase.co', publishableKey: 'test-anon-key');
   });
 
-  testWidgets('앱을 실행하면 스플래시를 잠깐 보여준 뒤 로그인 화면으로 진입한다', (tester) async {
+  // 예전에는 스플래시 뒤 02 학교 메일 입력 화면으로 갔다. 이제 스플래시가 곧 시작 화면이고,
+  // 로그아웃 상태면 그 자리에 소셜 로그인 버튼이 나타난다(대장 지시문 07).
+  testWidgets('앱을 실행하면 로그아웃 상태는 시작 화면에 머물고 소셜 로그인 버튼이 보인다', (tester) async {
     await tester.pumpWidget(const ProviderScope(child: CampusMateApp()));
     await tester.pumpAndSettle();
 
@@ -33,6 +36,8 @@ void main() {
     await tester.pump(_splashHoldDuration);
     await tester.pumpAndSettle();
 
-    expect(find.text('대학 이메일로 시작해요'), findsOneWidget);
+    expect(find.byType(StartView), findsOneWidget);
+    expect(find.text('카카오 로그인').hitTestable(), findsOneWidget);
+    expect(find.text('대학 이메일로 시작해요'), findsNothing);
   });
 }
