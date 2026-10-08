@@ -1,3 +1,4 @@
+import 'package:campus_mate/core/draft/draft_store.dart';
 import 'package:campus_mate/core/push/push_provider.dart';
 import 'package:campus_mate/core/push/push_registrar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,15 +18,27 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// 그동안 제자리라, 여기서 건너뛰면 앱을 다시 켜기 전에는 다시 시도할 길이 없다. (로그인 만료는 대개 gotrue 가
 /// refresh 실패 때 세션을 이미 지워 안 갇힌다 — refresh 응답에 세션이 없는 드문 경우만 여기에 기댄다.)
 /// 정리 오류는 로그아웃 뒤 그대로 던진다 — 숨기지 않는다.
-Future<void> signOut(PushRegistrar registrar, GoTrueClient auth) async {
+///
+/// 온보딩 임시 저장 값([DraftStore])도 여기서 전부 지운다(사진 임시 파일 포함). 다음에 이 폰으로 로그인하는 사람이
+/// 앞사람이 쓰던 값을 보지 않게 하고, 평문 값을 폰에 남겨 두지 않는다. 세션이 끝나기 전에 지운다.
+/// 탈퇴도 main.dart 리스너가 이 함수로 로그아웃하므로 같이 지워진다.
+Future<void> signOut(PushRegistrar registrar, GoTrueClient auth, DraftStore drafts) async {
   try {
     await registrar.stop();
   } finally {
     try {
-      await auth.signOut();
-    } on AuthException {
-      // 위 주석 — 남은 것은 서버 쪽 알림뿐이다.
+      await drafts.clearAll();
+    } finally {
+      await _signOutOnDevice(auth);
     }
+  }
+}
+
+Future<void> _signOutOnDevice(GoTrueClient auth) async {
+  try {
+    await auth.signOut();
+  } on AuthException {
+    // 위 주석 — 남은 것은 서버 쪽 알림뿐이다.
   }
 }
 
@@ -33,5 +46,6 @@ Future<void> signOut(PushRegistrar registrar, GoTrueClient auth) async {
 /// registrar 는 main.dart 가 [PushRegistrar.start] 한 그 인스턴스여야 등록한 토큰을 지운다 — 같은 provider 에서 읽는다.
 final signOutProvider = Provider<Future<void> Function()>((ref) {
   final registrar = ref.read(pushRegistrarProvider);
-  return () => signOut(registrar, Supabase.instance.client.auth);
+  final drafts = ref.read(draftStoreProvider);
+  return () => signOut(registrar, Supabase.instance.client.auth, drafts);
 });
