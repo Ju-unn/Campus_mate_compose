@@ -12,6 +12,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'area1.dart';
 import 'area4.dart' show area4Cases;
+import 'regen_pick.dart';
 import 'support.dart';
 
 /// 영역 2 폰 A 3차 — 망 끊기 5 · 알림 2 · 카드 3 · 공유 창 1 · 하트 모자람 1 · 실제 AI 3. PC 쪽은 e2e/area2_phone3.py 의 같은 번호.
@@ -124,12 +125,13 @@ int? _seconds(WidgetTester tester) {
   return parts[0] * 3600 + parts[1] * 60 + parts[2];
 }
 
-/// 나 탭 → "다시 만들기 · 10" 알약 → 15b 시트가 뜰 때까지.
+/// 나 탭 → "다시 만들기 · 10" 알약 → 사진 고르기(15b-4 → 15b-5, PC 가 앱 캐시에 넣어 둔 사진 한 장) → 15b 시트가 뜰 때까지.
+/// 알약은 이제 시트가 아니라 사진 고르기를 먼저 연다 — 시트의 만들기를 누르면 그 사진이 지금 아바타 원본 칸을 대신한다.
 Future<void> _openRegen(WidgetTester tester, String title) async {
   await arrive(tester, 'home');
   await tap(tester, _tab('나'));
   await pumpUntil(tester, find.text(_pill), timeout: const Duration(seconds: 20));
-  await tap(tester, find.text(_pill));
+  await e2eRegenToSheet(tester, _pill);
   await pumpUntil(tester, find.text(title), timeout: const Duration(seconds: 10));
 }
 

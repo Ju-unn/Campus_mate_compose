@@ -28,6 +28,7 @@ import 'package:campus_mate/matching/view/acceptance_row.dart';
 import 'package:campus_mate/matching/view/card_detail_screen.dart';
 import 'package:campus_mate/matching/view/conversations_screen.dart';
 import 'package:campus_mate/matching/view/daily_card_summary.dart';
+import 'package:campus_mate/me/view/avatar_regen_pick_screen.dart';
 import 'package:campus_mate/me/view/basic_info_edit_screen.dart';
 import 'package:campus_mate/me/view/me_load_error.dart';
 import 'package:campus_mate/me/view/my_photos_screen.dart';
@@ -54,6 +55,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'area1.dart';
+import 'regen_pick.dart';
 import 'support.dart';
 
 part 'area5_act.dart';
