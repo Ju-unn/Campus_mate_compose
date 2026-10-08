@@ -29,12 +29,32 @@ SOCIAL_PROVIDERS = frozenset({"kakao", "google", "apple"})
 TEMP_ACCOUNT_MAX_AGE = timedelta(minutes=30)
 
 
+def _error(status_code: int, detail: str, code: str, **extra) -> JSONResponse:
+    """오류 응답 {"detail": <문구>, "code": <기계용 값>, ...}. detail 은 HTTPException 과 같은 자리라 옛 앱도 읽는다."""
+    return JSONResponse(status_code=status_code, content={"detail": detail, "code": code, **extra})
+
+
 def _taken_response(provider: str) -> JSONResponse:
-    """409. `detail` 은 다른 오류와 같은 자리의 문구, `provider` 는 앱이 가르는 기계용 값이다."""
-    label = errors.SCHOOL_EMAIL_PROVIDER_LABELS.get(provider, provider)
-    return JSONResponse(status_code=409, content={
-        "detail": errors.SCHOOL_EMAIL_TAKEN.format(provider=label), "provider": provider,
-    })
+    """409. code 는 SCHOOL_EMAIL_TAKEN, `provider` 는 앱이 가르는 기계용 값이다(kakao · google · apple · email)."""
+    if provider in errors.SCHOOL_EMAIL_PROVIDER_LABELS:
+        detail = errors.SCHOOL_EMAIL_TAKEN.format(provider=errors.SCHOOL_EMAIL_PROVIDER_LABELS[provider])
+    else:
+        detail = errors.SCHOOL_EMAIL_TAKEN_BY_EMAIL_ACCOUNT
+    return _error(409, detail, errors.CODE_SCHOOL_EMAIL_TAKEN, provider=provider)
+
+
+def _auth_unavailable() -> JSONResponse:
+    return _error(503, errors.AUTH_UNAVAILABLE, errors.CODE_AUTH_UNAVAILABLE)
+
+
+async def _read_auth_user(settings: Settings, client: httpx.AsyncClient, authorization: str) -> dict | None:
+    """fetch_auth_user 의 503(인증 장애)만 None 으로 바꿔 code 를 실을 수 있게 한다. 4xx 는 그대로 올린다."""
+    try:
+        return await fetch_auth_user(settings, client, authorization)
+    except HTTPException as exc:
+        if exc.status_code == 503:
+            return None
+        raise
 
 
 def normalize_email(email: str) -> str:
@@ -158,23 +178,27 @@ async def verify(
 
     state = await _gate(caller)  # 1 정지 · 2 동의
     if state.get("school_email_verified_at") is not None:  # 3
-        raise HTTPException(status_code=403, detail=errors.SCHOOL_EMAIL_ALREADY_VERIFIED)
+        return _error(403, errors.SCHOOL_EMAIL_ALREADY_VERIFIED, errors.CODE_SCHOOL_EMAIL_ALREADY_VERIFIED)
 
     try:
-        caller_user = await fetch_auth_user(settings, client, authorization)
+        caller_user = await _read_auth_user(settings, client, authorization)
     except httpx.HTTPStatusError:
         raise HTTPException(status_code=401, detail=errors.SESSION_EXPIRED)
+    if caller_user is None:
+        return _auth_unavailable()
     provider = _caller_provider(caller_user)
     if provider is None:  # 4
-        raise HTTPException(status_code=403, detail=errors.SCHOOL_EMAIL_SOCIAL_ONLY)
+        return _error(403, errors.SCHOOL_EMAIL_SOCIAL_ONLY, errors.CODE_SCHOOL_EMAIL_SOCIAL_ONLY)
 
-    try:  # 5 — 장애(5xx · 429 · 연결 실패)는 fetch_auth_user 가 503 으로 올린다
-        temp_user = await fetch_auth_user(settings, client, f"Bearer {body.temp_access_token}")
+    try:  # 5 — 장애(5xx · 429 · 연결 실패)는 503 AUTH_UNAVAILABLE
+        temp_user = await _read_auth_user(settings, client, f"Bearer {body.temp_access_token}")
     except httpx.HTTPStatusError:
-        raise HTTPException(status_code=403, detail=errors.SCHOOL_EMAIL_NOT_CONFIRMED)
+        return _error(403, errors.SCHOOL_EMAIL_NOT_CONFIRMED, errors.CODE_SCHOOL_EMAIL_NOT_CONFIRMED)
+    if temp_user is None:
+        return _auth_unavailable()
     email = confirmed_temp_email(temp_user, caller_id)
     if email is None:  # 6 — 남의 계정일 수 있어 지우지 않는다
-        raise HTTPException(status_code=403, detail=errors.SCHOOL_EMAIL_NOT_CONFIRMED)
+        return _error(403, errors.SCHOOL_EMAIL_NOT_CONFIRMED, errors.CODE_SCHOOL_EMAIL_NOT_CONFIRMED)
     repo = SchoolEmailRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
     if not await _is_fresh_temp_account(repo, temp_user, now):  # 6-b — 실제 계정이다: RPC 도 삭제도 하지 않는다
         return _taken_response("email")
@@ -184,11 +208,6 @@ async def verify(
     return outcome
 
 
-def _refusal(status_code: int, detail: str) -> JSONResponse:
-    """HTTPException 과 같은 모양({"detail": ...}). 결과가 정해진 거절이라 예외 대신 돌려준다 — 임시 계정을 지운 뒤 낸다."""
-    return JSONResponse(status_code=status_code, content={"detail": detail})
-
-
 async def _decide(caller: Caller, email: str, provider: str):
     """7 도메인 → 8 재가입 제한 → 9 DB 함수. 결과가 정해지면 응답을 **돌려준다**(부르는 쪽이 임시 계정을 지운다).
     DB 함수 자체가 실패하면 예외로 올린다 — 결과가 안 정해졌으니 임시 계정을 남겨 앱이 다시 부를 수 있게 한다."""
@@ -196,17 +215,17 @@ async def _decide(caller: Caller, email: str, provider: str):
     policy = SignupPolicy(settings.postgrest_url, settings.supabase_service_role_key, client)
     university_id = await policy.find_university_id(email.rsplit("@", 1)[-1])
     if university_id is None:
-        return _refusal(422, errors.SCHOOL_EMAIL_UNKNOWN_DOMAIN)
+        return _error(422, errors.SCHOOL_EMAIL_UNKNOWN_DOMAIN, errors.CODE_SCHOOL_EMAIL_DOMAIN_NOT_ALLOWED)
     email_hmac = hash_email(settings.identity_hmac_key, email)
     if await policy.is_blocked(email_hmac):
-        return _refusal(422, errors.SCHOOL_EMAIL_BLOCKED)
+        return _error(422, errors.SCHOOL_EMAIL_BLOCKED, errors.CODE_SCHOOL_EMAIL_REJOIN_BLOCKED)
 
     repo = SchoolEmailRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
     result = await repo.complete_verification(profile_id, email_hmac, university_id, provider)
     if result == "ok":
         return {"ok": True}
     if result == "already_verified":
-        return _refusal(403, errors.SCHOOL_EMAIL_ALREADY_VERIFIED)
+        return _error(403, errors.SCHOOL_EMAIL_ALREADY_VERIFIED, errors.CODE_SCHOOL_EMAIL_ALREADY_VERIFIED)
     if result == "no_profile":
-        return _refusal(404, errors.PROFILE_NOT_FOUND)
+        return _error(404, errors.PROFILE_NOT_FOUND, errors.CODE_PROFILE_NOT_FOUND)
     return _taken_response(result)

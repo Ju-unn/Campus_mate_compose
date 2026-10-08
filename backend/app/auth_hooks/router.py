@@ -36,7 +36,7 @@ async def before_user_created(
     policy = SignupPolicy(settings.postgrest_url, settings.supabase_service_role_key, client)
     university_id = await policy.find_university_id(payload.email_domain)
     if university_id is None:
-        return HookDecision.reject(errors.HOOK_UNKNOWN_DOMAIN)
+        return HookDecision.reject(errors.SCHOOL_EMAIL_UNKNOWN_DOMAIN)
 
     email_hmac = hash_email(settings.identity_hmac_key, payload.email)
     if await policy.is_blocked(email_hmac):
