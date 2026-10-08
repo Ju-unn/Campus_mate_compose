@@ -31,6 +31,11 @@ class StartView extends ConsumerStatefulWidget {
   ConsumerState<StartView> createState() => _StartViewState();
 }
 
+/// 후속 지시문 13 B-2 디자인 값: 영역 아래 28, 안내 줄 위 padding 4, 안내 줄 높이 20.
+const double _bottomPadding = 28;
+const double _noticeTopPadding = 4;
+const double _noticeLineHeight = 20;
+
 class _StartViewState extends ConsumerState<StartView> {
   /// 토스트가 떠 있는 시간(04-2 · 02 토스트와 같다).
   static const _toastDuration = Duration(seconds: 3);
@@ -77,7 +82,8 @@ class _StartViewState extends ConsumerState<StartView> {
             SliverFillRemaining(
               hasScrollBody: false,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.lg),
+                // 좌우 24, 소셜 버튼 영역 아래 28(후속 지시문 13 B-2).
+                padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, _bottomPadding),
                 child: Column(
                   children: [
                     Expanded(child: _Hero(toast: state.toast)),
@@ -194,11 +200,15 @@ class _LoginArea extends ConsumerWidget {
               onPressed: state.isEnabled(provider) ? () => viewModel.signIn(provider) : null,
             ),
           ],
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            '학교 메일 인증은 가입할 때 한 번만 해요',
-            textAlign: TextAlign.center,
-            style: AppTypography.caption.copyWith(color: AppColors.muted),
+          const SizedBox(height: AppSpacing.sm), // 마지막 버튼 아래 12
+          Padding(
+            padding: const EdgeInsets.only(top: _noticeTopPadding),
+            child: Text(
+              '학교 메일 인증은 가입할 때 한 번만 해요',
+              textAlign: TextAlign.center,
+              // 줄 높이 20(캡션 12 의 20/12배).
+              style: AppTypography.caption.copyWith(color: AppColors.muted, height: _noticeLineHeight / 12),
+            ),
           ),
         ],
       ),

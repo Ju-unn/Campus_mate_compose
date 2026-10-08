@@ -134,6 +134,17 @@ void main() {
     });
   });
 
+  // 후속 지시문 13 B-2: 마지막 버튼 아래 12, 안내 줄 위 padding 4, 줄 높이 20, 영역 아래 28.
+  testWidgets('안내 줄은 마지막 버튼 아래 12 + 줄 위 4, 줄 높이 20, 화면 맨 아래까지 28', (tester) async {
+    await _pump(tester);
+
+    final google = tester.getRect(_button(SocialProvider.google));
+    final notice = tester.getRect(find.text(_notice));
+    expect(notice.top - google.bottom, 12 + 4);
+    expect(notice.height, 20);
+    expect(740 - notice.bottom, 28);
+  });
+
   group('로그인 진행', () {
     testWidgets('누르면 그 버튼만 스피너(심볼 유지), 나머지는 비활성, 진행 중 탭은 무시한다', (tester) async {
       final (_, repository) = await _pump(tester);

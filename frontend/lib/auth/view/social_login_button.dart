@@ -51,7 +51,7 @@ class SocialLoginButton extends StatelessWidget {
             height: height,
             width: double.infinity,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: _Brand.edgePadding),
+              padding: EdgeInsets.symmetric(horizontal: brand.edgePadding),
               child: Center(child: _Content(brand: brand, isLoading: isLoading)),
             ),
           ),
@@ -115,10 +115,8 @@ class _Brand {
     required this.label,
     required this.labelStyle,
     required this.semanticsLabel,
+    required this.edgePadding,
   });
-
-  /// 버튼 안쪽 좌우 여백 — 구글 규칙 "로고 앞 12 · 글자 뒤 12". 카카오도 같은 값으로 둔다.
-  static const double edgePadding = 12;
 
   factory _Brand.of(SocialProvider provider) {
     return switch (provider) {
@@ -139,6 +137,8 @@ class _Brand {
     // 크기는 카카오 가이드 "레이블은 버튼 높이의 1/3 이하" → 46/3 ≈ 15.3 이하인 15.
     labelStyle: TextStyle(inherit: false, fontSize: 15, height: 1.2, color: AppColors.kakaoLabel),
     semanticsLabel: SocialLoginLabels.kakaoSemantics,
+    // 카카오는 안쪽 좌우 padding 을 따로 두지 않고 심볼 + 레이블을 가운데 정렬한다(후속 지시문 13 B-2).
+    edgePadding: 0,
   );
 
   static final _Brand _google = _Brand(
@@ -164,6 +164,8 @@ class _Brand {
       color: AppColors.googleLabel,
     ),
     semanticsLabel: SocialLoginLabels.googleSemantics,
+    // 구글 규칙 "로고 앞 12 · 글자 뒤 12".
+    edgePadding: 12,
   );
 
   final Color container;
@@ -174,6 +176,9 @@ class _Brand {
   final String label;
   final TextStyle labelStyle;
   final String semanticsLabel;
+
+  /// 버튼 안쪽 좌우 여백.
+  final double edgePadding;
 }
 
 /// 카카오 말풍선 심볼을 [size]×[size] 칸에 맞춰 만든다.

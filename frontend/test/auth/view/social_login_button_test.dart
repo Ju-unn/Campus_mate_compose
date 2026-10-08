@@ -40,6 +40,11 @@ Material _material(WidgetTester tester) => tester.widget<Material>(
 
 RoundedRectangleBorder _shape(WidgetTester tester) => _material(tester).shape! as RoundedRectangleBorder;
 
+/// 버튼 칸(46 높이) 바로 안쪽의 여백.
+EdgeInsetsGeometry _contentPadding(WidgetTester tester) => tester
+    .widget<Padding>(find.descendant(of: find.byType(InkWell), matching: find.byType(Padding)).first)
+    .padding;
+
 /// 화면에 실제로 그려진 글자 모양(DefaultTextStyle 과 합쳐진 뒤의 값).
 TextStyle _renderedStyle(WidgetTester tester, String text) {
   final rich = tester.widget<RichText>(find.descendant(of: find.text(text), matching: find.byType(RichText)));
@@ -135,6 +140,13 @@ void main() {
       expect(groupCenter, moreOrLessEquals(button.center.dx, epsilon: 0.5));
     });
 
+    // 후속 지시문 13 B-2: 카카오는 안쪽 좌우 padding 을 따로 두지 않는다(구글만 12).
+    testWidgets('안쪽 좌우 여백 없이 심볼과 레이블만 가운데 정렬한다', (tester) async {
+      await _pump(tester, SocialProvider.kakao, onPressed: () {});
+
+      expect(_contentPadding(tester), EdgeInsets.zero);
+    });
+
     testWidgets('읽기 이름은 "카카오로 로그인"', (tester) async {
       final handle = tester.ensureSemantics();
       await _pump(tester, SocialProvider.kakao, onPressed: () {});
@@ -198,6 +210,12 @@ void main() {
       final label = tester.getRect(find.text('Google 계정으로 로그인'));
       expect(logo.left - button.left, greaterThanOrEqualTo(12 - 0.01));
       expect(button.right - label.right, greaterThanOrEqualTo(12 - 0.01));
+    });
+
+    testWidgets('안쪽 좌우 여백은 12', (tester) async {
+      await _pump(tester, SocialProvider.google, onPressed: () {});
+
+      expect(_contentPadding(tester), const EdgeInsets.symmetric(horizontal: 12));
     });
 
     testWidgets('읽기 이름은 "Google 계정으로 로그인"', (tester) async {
