@@ -1,3 +1,4 @@
+import 'package:campus_mate/core/draft/draft_screen.dart';
 import 'package:campus_mate/profile/model/tags.dart' as tag_pool;
 
 /// 관심사(04-5)·나의 특징(04-6)·이상형 특징(06-2) 화면이 서로 다른 점만 모아 둔다.
@@ -6,6 +7,7 @@ enum TagPickerKind {
   interests(
     pool: tag_pool.interestTags,
     endpoint: 'interests',
+    draftScreen: DraftScreen.interests,
     headline: '주로 관심 있는 게 뭐예요?',
     subtext: '비슷한 취향을 가진 사람을 먼저 보여드려요.',
     tagName: '관심사 태그',
@@ -15,6 +17,7 @@ enum TagPickerKind {
   myTraits(
     pool: tag_pool.myTraits,
     endpoint: 'my-traits',
+    draftScreen: DraftScreen.myTraits,
     headline: '어떤 특징을 가지고 계신가요?',
     subtext: '나를 가장 잘 나타내는 모습을 골라주세요.',
     tagName: '나의 특징',
@@ -24,6 +27,7 @@ enum TagPickerKind {
   idealTraits(
     pool: tag_pool.idealTraits,
     endpoint: 'ideal-traits',
+    draftScreen: DraftScreen.idealTraits,
     headline: '어떤 분을 만나고 싶나요?',
     subtext: '이런 분이면 좋겠다 싶은 모습을 골라주세요.',
     tagName: '이상형 특징',
@@ -34,6 +38,7 @@ enum TagPickerKind {
   const TagPickerKind({
     required this.pool,
     required this.endpoint,
+    required this.draftScreen,
     required this.headline,
     required this.subtext,
     required this.tagName,
@@ -43,6 +48,9 @@ enum TagPickerKind {
 
   final List<String> pool;
   final String endpoint;
+
+  /// 온보딩에서 쓰던 선택을 폰에 임시 저장하는 자리. 세 화면이 서로 섞이지 않게 따로 둔다.
+  final DraftScreen draftScreen;
   final String headline;
   final String subtext;
   final String tagName;

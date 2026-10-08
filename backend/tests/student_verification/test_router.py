@@ -16,6 +16,7 @@ from app.student_verification.matching import REVIEW_REASON_LABELS
 from app.core.deps import get_client, get_settings, get_vision_client_factory
 from app.main import app
 from app.settings import Settings
+from app.student_verification.router import fetch_verification_status
 
 PROFILE_ID = UUID("11111111-1111-1111-1111-111111111111")
 JPEG = b"\xff\xd8\xff" + b"fake-student-id-bytes"
@@ -57,6 +58,7 @@ def _wire(
     ocr_text: str = "",
     reject_reason: str | None = None,
     fails: Callable[[httpx.Request], bool] = lambda request: False,
+    consented: bool = True,
 ) -> tuple[list[httpx.Request], AsyncMock]:
     """목 트랜스포트와 목 Vision 클라이언트를 라우터에 주입하고, 나간 요청 목록을 돌려준다."""
     sent: list[httpx.Request] = []
@@ -76,6 +78,8 @@ def _wire(
             return httpx.Response(200, json=[{"reject_reason": reject_reason}])
         # 가입 동의(02-c)는 3b 앞 관문이다. 여기 테스트는 이번 판 동의를 마친 사용자다(동의 전은 tests/consents).
         if "/rest/v1/user_consents" in url and request.method == "GET":
+            if not consented:
+                return httpx.Response(200, json=[])
             return httpx.Response(200, json=[{"kind": k, "version": CONSENT_VERSION} for k in sorted(REQUIRED_KINDS)])
         if "/rest/v1/profiles" in url and request.method == "GET":
             return httpx.Response(200, json=[gate_row])
@@ -88,8 +92,14 @@ def _wire(
     return sent, vision_client
 
 
-def _gate_row(status: str = "none", department: str | None = None) -> dict:
-    return {"student_verification": status, "department": department, "universities": {"name": "서울대학교"}}
+# 소셜 로그인 전환: 여기 사람은 학교 메일 확인을 마쳤다(전은 school_email_verified_at=None 으로 따로 본다).
+SCHOOL_EMAIL_VERIFIED_AT = "2026-10-01T00:00:00+00:00"
+
+
+def _gate_row(status: str = "none", department: str | None = None,
+              school_email_verified_at: str | None = SCHOOL_EMAIL_VERIFIED_AT) -> dict:
+    return {"student_verification": status, "department": department, "universities": {"name": "서울대학교"},
+            "school_email_verified_at": school_email_verified_at}
 
 
 def _submit(
@@ -388,6 +398,40 @@ def test_submit_is_403_with_the_status_header_for_a_suspended_account(verificati
     assert _calls(sent, "POST", "/student_verification_attempts") == []
 
 
+def test_submit_is_403_before_the_school_email():
+    sent, vision_client = _wire(_gate_row("none", school_email_verified_at=None), ocr_text="서울대학교 홍길동")
+
+    response = _submit()
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == errors.SCHOOL_EMAIL_REQUIRED
+    assert "x-account-status" not in response.headers
+    vision_client.batch_annotate_images.assert_not_awaited()
+    assert _calls(sent, "POST", "/storage/v1/") == []
+    assert _calls(sent, "POST", "/profile_private") == []
+
+
+def test_submit_asks_for_consent_before_the_school_email():
+    _wire(_gate_row("none", school_email_verified_at=None), consented=False)
+
+    assert _submit().json()["detail"] == errors.CONSENT_REQUIRED
+
+
+def test_submit_answers_a_suspended_account_before_the_school_email():
+    _wire({**_gate_row("none", school_email_verified_at=None), "status": "suspended"})
+
+    assert _submit().headers["X-Account-Status"] == "suspended"
+
+
+def test_submit_asks_for_the_school_email_before_the_409s():
+    _wire(_gate_row("pending", school_email_verified_at=None))
+
+    response = _submit()
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == errors.SCHOOL_EMAIL_REQUIRED
+
+
 def test_submit_returns_409_while_review_is_pending():
     sent, vision_client = _wire(_gate_row("pending"), ocr_text="서울대학교 홍길동")
 
@@ -490,7 +534,7 @@ def test_status_verified_with_school_info():
 
     assert response.status_code == 200
     assert response.json() == {"status": "verified", "has_school_info": True, "reject_reason": None,
-                               "consent": "current"}
+                               "consent": "current", "school_email_verified": True}
     assert _calls(sent, "GET", "/student_verification_attempts") == []
 
 
@@ -500,7 +544,7 @@ def test_status_verified_without_school_info():
     response = _fetch_status()
 
     assert response.json() == {"status": "verified", "has_school_info": False, "reject_reason": None,
-                               "consent": "current"}
+                               "consent": "current", "school_email_verified": True}
 
 
 def test_status_rejected_includes_reject_reason():
@@ -509,8 +553,36 @@ def test_status_rejected_includes_reject_reason():
     response = _fetch_status()
 
     assert response.json() == {"status": "rejected", "has_school_info": False, "reject_reason": "사진이 흐려요",
-                               "consent": "current"}
+                               "consent": "current", "school_email_verified": True}
     assert len(_calls(sent, "GET", "/student_verification_attempts")) == 1
+
+
+def test_status_says_when_the_school_email_is_not_verified_yet():
+    """소셜로 막 가입한 사람(학교 메일 전)도 이 응답에 닿는다 — 앱이 학교 메일 화면으로 보낸다."""
+    _wire(_gate_row("none", school_email_verified_at=None))
+
+    response = _fetch_status()
+
+    assert response.status_code == 200
+    assert response.json()["school_email_verified"] is False
+    # 옛 응답을 쓰는 앱이 아직 있다 — 기존 필드는 그대로 나간다.
+    assert {"status", "has_school_info", "reject_reason", "consent"} <= response.json().keys()
+
+
+def test_the_gate_order_is_written_down_on_the_status_endpoint():
+    """앱이 이 응답으로 다음 화면을 고른다 — 순서를 문서로 고정한다."""
+    assert "정지 → 동의 → 학교 메일 → 학생증 → 학과와 학번" in fetch_verification_status.__doc__
+
+
+def test_submit_answers_a_suspended_account_before_asking_for_consent():
+    """정지 → 동의 순서. 동의 403 은 헤더가 없어서 먼저 나가면 앱이 정지 안내 화면으로 못 간다."""
+    sent, vision_client = _wire({**_gate_row("none"), "status": "suspended"}, consented=False)
+
+    response = _submit()
+
+    assert response.status_code == 403
+    assert response.headers["X-Account-Status"] == "suspended"
+    vision_client.batch_annotate_images.assert_not_awaited()
 
 
 def test_a_login_only_api_turns_a_withdrawn_account_away_with_401_and_the_header():
@@ -582,6 +654,22 @@ def test_school_info_is_403_with_the_status_header_for_a_suspended_account():
     assert response.json()["detail"] == errors.ACCOUNT_SUSPENDED
     assert response.headers["X-Account-Status"] == "suspended"
     assert _calls(sent, "PATCH", "/rest/v1/profiles") == []
+
+
+def test_school_info_is_403_before_the_school_email():
+    sent, _ = _wire(_gate_row("verified", school_email_verified_at=None))
+
+    response = _post_school_info()
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == errors.SCHOOL_EMAIL_REQUIRED
+    assert _calls(sent, "PATCH", "/rest/v1/profiles") == []
+
+
+def test_school_info_answers_a_suspended_account_before_the_school_email():
+    _wire({**_gate_row("verified", school_email_verified_at=None), "status": "suspended"})
+
+    assert _post_school_info().headers["X-Account-Status"] == "suspended"
 
 
 def test_a_suspended_account_can_still_read_its_verification_status():

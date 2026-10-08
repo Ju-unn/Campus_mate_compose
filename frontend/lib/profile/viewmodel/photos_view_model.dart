@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:campus_mate/auth/model/face_detector_provider.dart';
 import 'package:campus_mate/auth/model/image_compressor_provider.dart';
 import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/core/draft/draft_screen.dart';
+import 'package:campus_mate/core/draft/draft_store.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/profile/model/photos_repository_provider.dart';
 import 'package:campus_mate/profile/viewmodel/avatar_generation_view_model.dart';
@@ -15,7 +17,7 @@ final photosViewModelProvider = NotifierProvider<PhotosViewModel, PhotosUiState>
   PhotosViewModel.new,
 );
 
-const _maxPhotos = 4;
+const _maxPhotos = PhotosUiState.maxPhotos;
 
 /// 갤러리에서 남은 칸 수([limit])만큼 고른다 — 화면 안내대로 여러 장을 한 번에 고를 수 있다.
 /// image_picker 는 플랫폼 플러그인이라 단위 테스트에서 부를 수 없어
@@ -29,8 +31,31 @@ Future<List<File>> _pickFromGallery(int limit) async {
 class PhotosViewModel extends Notifier<PhotosUiState> {
   Future<List<File>> Function(int limit) pickFromGallery = _pickFromGallery;
 
+  /// 온보딩일 때만 채워진다. 15-7 사진 수정(`MyPhotosViewModel`)은 [build] 를 덮어써 비어 있다 —
+  /// 편집은 열 때마다 서버 사진으로 채우므로 임시 저장을 쓰지도 지우지도(사진 파일 포함) 않는다.
+  DraftStore? _drafts;
+
   @override
-  PhotosUiState build() => const PhotosUiState();
+  PhotosUiState build() {
+    final drafts = ref.read(draftStoreProvider);
+    _drafts = drafts;
+    listenSelf((previous, next) => _saveDraft(drafts, previous, next));
+    return _initialState(drafts);
+  }
+
+  /// 처음 상태를 정하는 단 한 곳이다. 지금은 폰에 남긴 사진(파일이 남은 것만) 또는 빈 칸 — 나중에 서버 값을 끼울 자리다.
+  PhotosUiState _initialState(DraftStore drafts) {
+    return drafts.read(DraftScreen.photos, PhotosUiState.fromDraft) ?? const PhotosUiState();
+  }
+
+  /// 칸이 바뀔 때마다 경로와 아바타 표시를 남긴다(저장소가 디바운스한다). 처음 상태(복원한 값 그대로)는 다시 쓰지 않고,
+  /// 끝낸 단계는 서버에 있으니 남기지 않는다.
+  void _saveDraft(DraftStore drafts, PhotosUiState? previous, PhotosUiState next) {
+    if (previous == null || next.completed) {
+      return;
+    }
+    drafts.write(DraftScreen.photos, next.toDraft(), files: next.draftFiles);
+  }
 
   /// 갤러리에서 사진을 골라 압축해 담는다. 고르지 않고 닫으면 아무 일도 하지 않는다.
   /// 이미 4장이면 말없이 무시하지 않고 왜 안 되는지 알려 준다(2026-09-20 리뷰 제안 d).
@@ -164,7 +189,18 @@ class PhotosViewModel extends Notifier<PhotosUiState> {
       next = await _withAvatarRequested(next);
     }
     state = next;
+    _discardDraftIfCompleted();
     _refreshOnboardingStepIfCompleted();
+  }
+
+  /// 사진을 올리고 아바타 작업까지 등록했으면 저장 정보와 그 임시 파일을 지운다.
+  /// 등록이 막혀 04-3 에 머물면 다시 올려야 하므로 남긴다. 편집 모드는 [_drafts] 가 없어 아무것도 하지 않는다.
+  void _discardDraftIfCompleted() {
+    final drafts = _drafts;
+    if (drafts == null || !state.completed) {
+      return;
+    }
+    unawaited(drafts.clear(DraftScreen.photos));
   }
 
   /// 아바타 작업을 등록한다. 만드는 데 1분쯤 걸리지만 **기다리지 않는다** — 서버가 202 를 바로 준다

@@ -6,9 +6,12 @@ import 'package:campus_mate/profile/model/profile_enums.dart';
 import 'package:campus_mate/profile/viewmodel/appearance_type_view_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:campus_mate/core/draft/draft_screen.dart';
+import 'package:campus_mate/core/draft/draft_store.dart';
 
 import '../model/fake_appearance_type_repository.dart';
 import '../model/fake_onboarding_repository.dart';
+import '../../core/draft/fake_draft_store.dart';
 
 void main() {
   late FakeAppearanceTypeRepository repository;
@@ -65,5 +68,51 @@ void main() {
     expect(state.completed, isFalse);
     expect(state.errorMessage, isNotNull);
     expect(onboardingRepository.fetchCount, 0);
+  });
+
+  group('임시 저장', () {
+    late FakeDraftStore drafts;
+
+    setUp(() => drafts = FakeDraftStore());
+
+    /// 앱을 다시 연 것처럼 새 컨테이너(새 뷰모델)를 만든다. 저장소는 같은 것을 쓴다.
+    ProviderContainer open() {
+      final opened = ProviderContainer(
+        overrides: [
+          appearanceTypeRepositoryProvider.overrideWithValue(repository),
+          onboardingRepositoryProvider.overrideWithValue(onboardingRepository),
+          draftStoreProvider.overrideWithValue(drafts),
+        ],
+      );
+      addTearDown(opened.dispose);
+      return opened;
+    }
+
+    test('고른 값은 저장되고 뷰모델을 새로 만들면 돌아온다', () {
+      final vm = open().read(appearanceTypeViewModelProvider.notifier);
+      vm.changeAnimalType(AnimalType.fox);
+      vm.changeImpressionType(ImpressionType.tofu);
+
+      final restored = open().read(appearanceTypeViewModelProvider);
+      expect(restored.animalType, AnimalType.fox);
+      expect(restored.impressionType, ImpressionType.tofu);
+    });
+
+    test('"다음" 이 성공하면 이 화면 값을 지운다', () async {
+      final vm = open().read(appearanceTypeViewModelProvider.notifier);
+      vm.changeAnimalType(AnimalType.fox);
+      vm.changeImpressionType(ImpressionType.tofu);
+
+      await vm.submit();
+
+      expect(drafts.cleared, [DraftScreen.appearanceType]);
+      expect(open().read(appearanceTypeViewModelProvider).animalType, isNull);
+    });
+
+    test('모르는 값(앱 업데이트로 사라진 종류)이면 버리고 빈 화면으로 시작한다', () {
+      drafts.saved['account-a/${DraftScreen.appearanceType.key}'] = '{"animalType": "unicorn"}';
+
+      expect(open().read(appearanceTypeViewModelProvider).animalType, isNull);
+    });
   });
 }

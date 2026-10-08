@@ -6,28 +6,34 @@ import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  // 시작 화면(스플래시를 고친 것)에 소셜 로그인 버튼이 있다 — 로그아웃 상태는 어디로 가든 시작 화면에 머문다(대장 지시문 07).
+  // 예전에는 로그인(학교 메일 입력) 화면으로 보냈다. 그 화면은 지시문 08 에서 로그인 뒤 단계가 된다.
   group('로그인하지 않은 사용자', () {
     // 게이트가 미통과여도 로그인이 먼저다 — 게이트 화면이 로그인보다 앞설 수 없다.
     const redirect = AuthRedirect(false, VerificationGate.needsStudentVerification, OnboardingStep.basicInfo);
 
-    test('로그인 화면에서는 이동시키지 않는다', () {
-      expect(redirect.resolve(AppRoutes.login), isNull);
+    test('시작 화면(스플래시)에 머문다', () {
+      expect(redirect.resolve(AppRoutes.splash), isNull);
     });
 
-    test('홈으로 가려 하면 로그인 화면으로 보낸다', () {
-      expect(redirect.resolve(AppRoutes.home), AppRoutes.login);
+    test('홈으로 가려 하면 시작 화면으로 보낸다', () {
+      expect(redirect.resolve(AppRoutes.home), AppRoutes.splash);
     });
 
-    test('스플래시에서도 로그인 화면으로 보낸다', () {
-      expect(redirect.resolve(AppRoutes.splash), AppRoutes.login);
+    test('옛 학교 메일 로그인 · 인증코드 화면으로 가도 시작 화면으로 보낸다', () {
+      expect(redirect.resolve(AppRoutes.login), AppRoutes.splash);
+      expect(redirect.resolve(AppRoutes.verifyCode), AppRoutes.splash);
     });
 
-    test('인증코드 화면에서는 이동시키지 않는다', () {
-      expect(redirect.resolve(AppRoutes.verifyCode), isNull);
+    test('학생증 화면으로 가려 해도 시작 화면으로 보낸다', () {
+      expect(redirect.resolve(AppRoutes.studentVerification), AppRoutes.splash);
     });
 
-    test('학생증 화면으로 가려 해도 로그인 화면으로 보낸다', () {
-      expect(redirect.resolve(AppRoutes.studentVerification), AppRoutes.login);
+    test('관문을 아직 모를 때(로그아웃하면 게이트가 unknown 으로 돌아간다)에도 시작 화면에 머문다', () {
+      const unknown = AuthRedirect(false, VerificationGate.unknown, OnboardingStep.basicInfo);
+
+      expect(unknown.resolve(AppRoutes.splash), isNull);
+      expect(unknown.resolve(AppRoutes.home), AppRoutes.splash);
     });
   });
 
@@ -127,10 +133,10 @@ void main() {
       expect(redirect.resolve(AppRoutes.consent), AppRoutes.accountSuspended);
     });
 
-    test('로그인 전에는 02-c 로 가도 로그인 화면으로 보낸다', () {
+    test('로그인 전에는 02-c 로 가도 시작 화면으로 보낸다', () {
       const redirect = AuthRedirect(false, VerificationGate.needsConsent, OnboardingStep.basicInfo);
 
-      expect(redirect.resolve(AppRoutes.consent), AppRoutes.login);
+      expect(redirect.resolve(AppRoutes.consent), AppRoutes.splash);
     });
   });
 
@@ -237,10 +243,10 @@ void main() {
       expect(redirect.resolve(AppRoutes.offline), AppRoutes.accountSuspended);
     });
 
-    test('로그인 전에는 인터넷 없음 화면도 로그인 화면으로 보낸다', () {
+    test('로그인 전에는 인터넷 없음 화면도 시작 화면으로 보낸다', () {
       const redirect = AuthRedirect(false, VerificationGate.unreachable, OnboardingStep.basicInfo);
 
-      expect(redirect.resolve(AppRoutes.offline), AppRoutes.login);
+      expect(redirect.resolve(AppRoutes.offline), AppRoutes.splash);
     });
   });
 
@@ -352,8 +358,8 @@ void main() {
       const redirect = AuthRedirect(false, VerificationGate.complete, OnboardingStep.complete,
           accountStatus: AccountStatus.suspended);
 
-      expect(redirect.resolve(AppRoutes.login), isNull);
-      expect(redirect.resolve(AppRoutes.accountSuspended), AppRoutes.login);
+      expect(redirect.resolve(AppRoutes.splash), isNull);
+      expect(redirect.resolve(AppRoutes.accountSuspended), AppRoutes.splash);
     });
   });
 

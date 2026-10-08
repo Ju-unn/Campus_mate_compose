@@ -23,6 +23,7 @@ from app.profile_onboarding.startup_check import warn_if_fallback_avatar_missing
 from app.profile_onboarding.tasks_router import router as profile_onboarding_tasks_router
 from app.referral.router import router as referral_router
 from app.safety.router import router as safety_router
+from app.school_email.router import router as school_email_router
 from app.student_verification.review_hook import router as verification_review_hook_router
 from app.student_verification.router import router as student_verification_router
 
@@ -48,6 +49,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="CampusMate Backend", lifespan=lifespan)
 app.include_router(auth_hooks_router)
 app.include_router(consents_router)
+app.include_router(school_email_router)
 app.include_router(student_verification_router)
 app.include_router(verification_review_hook_router)
 app.include_router(profile_onboarding_router)

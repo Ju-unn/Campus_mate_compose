@@ -57,3 +57,4 @@ class SignupPolicy:
         )
         response.raise_for_status()
         return len(response.json()) > 0
+

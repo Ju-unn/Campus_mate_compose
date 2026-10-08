@@ -5,6 +5,7 @@ import 'package:campus_mate/auth/model/university_email.dart';
 import 'package:campus_mate/auth/model/verification_gate.dart';
 import 'package:campus_mate/auth/view/school_info_screen.dart';
 import 'package:campus_mate/auth/view/sign_up_screen.dart';
+import 'package:campus_mate/auth/view/start_view.dart';
 import 'package:campus_mate/auth/view/student_verification_screen.dart';
 import 'package:campus_mate/auth/view/verify_code_screen.dart';
 import 'package:campus_mate/billing/model/heart_task.dart';
@@ -21,7 +22,6 @@ import 'package:campus_mate/core/auth/account_status_listenable.dart';
 import 'package:campus_mate/core/offline/offline_screen.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/router/auth_redirect.dart';
-import 'package:campus_mate/core/router/placeholder_screens.dart';
 import 'package:campus_mate/faq/view/faq_screen.dart';
 import 'package:campus_mate/friend_review/view/friend_review_compose_sheet.dart';
 import 'package:campus_mate/friend_review/view/received_reviews_screen.dart';
@@ -99,7 +99,7 @@ abstract final class AppRouter {
   /// 3b·3c 는 [AuthRedirect] 가 미인증·게이트 미충족을 이미 막아 화면 가드를 두지 않는다.
   static List<RouteBase> _routes() {
     return <RouteBase>[
-      GoRoute(path: AppRoutes.splash, builder: (context, state) => const SplashScreen()),
+      GoRoute(path: AppRoutes.splash, builder: (context, state) => const StartView()),
       GoRoute(path: AppRoutes.offline, builder: (context, state) => const OfflineScreen()),
       GoRoute(path: AppRoutes.login, builder: (context, state) => const SignUpScreen()),
       GoRoute(path: AppRoutes.verifyCode, redirect: _verifyCodeGuard, builder: _buildVerifyCode),

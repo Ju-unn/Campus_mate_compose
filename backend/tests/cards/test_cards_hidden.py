@@ -88,7 +88,7 @@ class _World:
             return httpx.Response(201, json=[])
         if table == "profiles":
             if "student_verification" in params.get("select", ""):
-                return httpx.Response(200, json=[{"student_verification": "verified", "department": "컴공"}])
+                return httpx.Response(200, json=[{"student_verification": "verified", "department": "컴공", "school_email_verified_at": "2026-10-01T00:00:00+00:00"}])
             return httpx.Response(200, json=[_profile(params["id"].removeprefix("eq."))])
         if table == "blocks":
             return httpx.Response(200, json=BLOCKS)

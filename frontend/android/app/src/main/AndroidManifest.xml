@@ -31,6 +31,19 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- 카카오 로그인(카카오 계정 · 카카오톡)이 끝나고 앱으로 돌아오는 화면. 클래스 이름은 kakao_flutter_sdk_auth 2.0.1 의
+             것 그대로여야 한다(다르면 로그인 뒤 앱이 죽는다). kakaoKey 는 build.gradle.kts 가 넣는다(키는 저장소에 없음).
+             카카오톡 앱 조회용 <queries>(com.kakao.talk)는 kakao_flutter_sdk_common 매니페스트에 이미 있어 병합으로 들어온다. -->
+        <activity
+            android:name="com.kakao.sdk.flutter.auth.AuthCodeHandlerActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="kakao${kakaoKey}" android:host="oauth" />
+            </intent-filter>
+        </activity>
         <!-- 앱이 꺼져 있을 때 시스템이 알림을 띄울 채널. 지정하지 않으면 안드로이드가 경고를 남긴다. -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"

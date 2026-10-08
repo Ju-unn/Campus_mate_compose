@@ -37,7 +37,7 @@ def _wire(handler: Callable[[httpx.Request], httpx.Response]) -> TestClient:
         if "/auth/v1/user" in url:
             return httpx.Response(200, json={"id": PROFILE_ID})
         if "student_verification" in url and request.method == "GET":
-            return httpx.Response(200, json=[{"student_verification": "verified", "department": "컴공"}])
+            return httpx.Response(200, json=[{"student_verification": "verified", "department": "컴공", "school_email_verified_at": "2026-10-01T00:00:00+00:00"}])
         return handler(request)
 
     app.dependency_overrides[get_client] = lambda: httpx.AsyncClient(transport=httpx.MockTransport(wrapped))
@@ -85,7 +85,7 @@ def test_push_token_works_before_student_verification(method, path):
         if "/auth/v1/user" in str(request.url):
             return httpx.Response(200, json={"id": PROFILE_ID})
         if request.method == "GET" and "student_verification" in request.url.params.get("select", ""):
-            return httpx.Response(200, json=[{"student_verification": "pending", "department": None}])
+            return httpx.Response(200, json=[{"student_verification": "pending", "department": None, "school_email_verified_at": "2026-10-01T00:00:00+00:00"}])
         seen.append(request)
         return httpx.Response(200, json=[])
 

@@ -99,7 +99,7 @@ class _Fake:
             return httpx.Response(200, json={"id": str(PROFILE_ID)})
         if "student_verification" in url and request.method == "GET":
             return httpx.Response(
-                200, json=[{"student_verification": "verified", "department": "컴퓨터공학과"}]
+                200, json=[{"student_verification": "verified", "department": "컴퓨터공학과", "school_email_verified_at": "2026-10-01T00:00:00+00:00"}]
             )
         if "cloudtasks.googleapis.com" in url:
             return httpx.Response(self.enqueue_status, json={"name": "tasks/1"})

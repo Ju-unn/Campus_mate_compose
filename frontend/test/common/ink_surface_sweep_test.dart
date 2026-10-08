@@ -3,17 +3,20 @@ import 'package:campus_mate/auth/model/face_detector_provider.dart';
 import 'package:campus_mate/auth/model/image_compressor_provider.dart';
 import 'package:campus_mate/auth/model/school_info_repository_provider.dart';
 import 'package:campus_mate/auth/model/school_name_provider.dart';
+import 'package:campus_mate/auth/model/social_login_repository_provider.dart';
 import 'package:campus_mate/auth/model/student_verification_repository_provider.dart';
 import 'package:campus_mate/auth/model/university_email.dart';
 import 'package:campus_mate/auth/model/verification_gate_repository_provider.dart';
 import 'package:campus_mate/auth/view/school_info_screen.dart';
 import 'package:campus_mate/auth/view/sign_up_screen.dart';
+import 'package:campus_mate/auth/view/start_view.dart';
 import 'package:campus_mate/auth/view/student_verification_screen.dart';
 import 'package:campus_mate/auth/view/verify_code_screen.dart';
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/core/router/placeholder_screens.dart';
+import 'package:campus_mate/core/supabase/auth_session_listenable_provider.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:campus_mate/profile/model/acquisition_repository_provider.dart';
@@ -51,9 +54,11 @@ import '../auth/model/fake_school_email_repository.dart';
 import '../auth/model/fake_face_detector.dart';
 import '../auth/model/fake_image_compressor.dart';
 import '../auth/model/fake_school_info_repository.dart';
+import '../auth/model/fake_social_login_repository.dart';
 import '../auth/model/fake_student_verification_repository.dart';
 import '../auth/model/fake_verification_gate_repository.dart';
 import '../chat/model/fake_chat_repository.dart';
+import '../core/supabase/fake_auth_session.dart';
 import '../matching/model/fake_card_repository.dart';
 import '../profile/model/fake_acquisition_repository.dart';
 import '../profile/model/fake_appearance_type_repository.dart';
@@ -166,7 +171,8 @@ final UniversityEmail _email = UniversityEmail.tryParse('hong@snu.ac.kr')!;
 
 /// `lib/core/router/app_router.dart` 의 가입·온보딩 경로 전부 + 준비 중 탭 두 개.
 final List<_Screen> _screens = [
-  _Screen('SplashScreen', () => const SplashScreen(), hasInk: false),
+  // 스플래시를 고친 시작 화면. 로그아웃 상태라 소셜 로그인 버튼(잉크)이 그려진다(대장 지시문 07).
+  _Screen('StartView', () => const StartView()),
   _Screen('SignUpScreen', () => const SignUpScreen()),
   _Screen('VerifyCodeScreen', () => VerifyCodeScreen(email: _email)),
   _Screen('StudentVerificationScreen', () => const StudentVerificationScreen(), settle: 2),
@@ -216,9 +222,13 @@ final List<_Screen> _screens = [
 
 /// 각 화면의 기존 테스트가 쓰는 가짜 저장소를 한 컨테이너에 모두 건다. 테마는 앱과 같다(`main.dart`).
 Future<void> _pumpScreen(WidgetTester tester, _Screen screen) async {
+  final session = FakeAuthSession();
+  addTearDown(session.dispose);
   final container = ProviderContainer(
     overrides: [
       schoolEmailRepositoryProvider.overrideWithValue(FakeSchoolEmailRepository()),
+      authSessionListenableProvider.overrideWithValue(session.listenable),
+      socialLoginRepositoryProvider.overrideWithValue(FakeSocialLoginRepository()),
       studentVerificationRepositoryProvider.overrideWithValue(FakeStudentVerificationRepository()),
       faceDetectorProvider.overrideWithValue(FakeFaceDetector()),
       imageCompressorProvider.overrideWithValue(FakeImageCompressor()),

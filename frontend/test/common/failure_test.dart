@@ -101,4 +101,15 @@ void main() {
       expect(const SchoolEmailRejectedFailure('등록되지 않은 학교 메일이에요').toDisplayMessage(), '등록되지 않은 학교 메일이에요');
     });
   });
+
+  // 시작 화면 소셜 로그인 토스트 문구(대장 지시문 07).
+  test('소셜 로그인을 사용자가 취소하면 취소 안내를 보여준다', () {
+    const failure = LoginCancelledFailure();
+    expect(failure.toDisplayMessage(), '로그인이 취소됐어요');
+  });
+
+  test('소셜 로그인이 실패하면 잠시 뒤 다시 시도하라고 안내한다', () {
+    const failure = SocialLoginFailure();
+    expect(failure.toDisplayMessage(), '로그인하지 못했어요. 잠시 뒤 다시 시도해 주세요');
+  });
 }

@@ -1,10 +1,14 @@
 import 'dart:async';
 
 import 'package:campus_mate/account/model/login_notice.dart';
+import 'package:campus_mate/auth/model/kakao_login_gateway.dart';
 import 'package:campus_mate/auth/model/verification_gate.dart';
 import 'package:campus_mate/core/auth/account_status_listenable.dart';
 import 'package:campus_mate/core/auth/session_scope.dart';
 import 'package:campus_mate/core/auth/sign_out.dart';
+import 'package:campus_mate/core/draft/draft_store.dart';
+import 'package:campus_mate/core/draft/open_draft_store.dart';
+import 'package:campus_mate/core/env.dart';
 import 'package:campus_mate/core/lifecycle/resume_refresh.dart';
 import 'package:campus_mate/core/push/push_provider.dart';
 import 'package:campus_mate/core/push/push_refresh.dart';
@@ -17,6 +21,7 @@ import 'package:campus_mate/core/router/verification_gate_listenable.dart';
 import 'package:campus_mate/core/router/verification_gate_listenable_provider.dart';
 import 'package:campus_mate/core/router/splash_hold.dart';
 import 'package:campus_mate/core/supabase/auth_session_listenable.dart';
+import 'package:campus_mate/core/supabase/auth_session_listenable_provider.dart';
 import 'package:campus_mate/core/supabase/supabase_config.dart';
 import 'package:campus_mate/core/supabase/supabase_initializer.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
@@ -32,8 +37,14 @@ Future<void> main() async {
   // (firebase_options.dart 를 만들지 않는 이유 — flutterfire CLI 를 새로 들이지 않는다).
   await Firebase.initializeApp();
   await SupabaseInitializer.run(SupabaseConfig.fromEnvironment());
+  // 온보딩 뷰모델이 처음 상태를 만들 때 바로 읽을 수 있게 디스크를 한 번 읽어 둔다. 못 열어도 앱은 뜬다.
+  // 계정 id 는 따로 들고 있지 않고 그때그때 Supabase 세션(로그인 상태)에서 읽는다 — 로그인 전이면 null 이라 쓰지 않는다.
+  final drafts = await openDraftStore(accountId: () => Supabase.instance.client.auth.currentUser?.id);
+  // 키가 없는 빌드(시험 · CI)는 건너뛴다 — 앱은 켜지고 카카오 버튼만 실패 토스트를 띄운다.
+  await initializeKakaoSdk(Env.kakaoNativeAppKey);
   runApp(SessionScope(
     authChanges: Supabase.instance.client.auth.onAuthStateChange,
+    overrides: [draftStoreProvider.overrideWithValue(drafts)],
     child: const CampusMateApp(),
   ));
 }
@@ -64,7 +75,8 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
   @override
   void initState() {
     super.initState();
-    _authSession = AuthSessionListenable(Supabase.instance.client);
+    // 시작 화면이 로그아웃 확인에 쓰는 것과 같은 인스턴스다. 로그아웃하면 SessionScope 가 새로 만든다.
+    _authSession = ref.read(authSessionListenableProvider);
     // 3b·3c·온보딩 ViewModel 이 각 단계 직후 부르는 것과 같은 인스턴스여야 라우터가 다시 평가된다.
     _verificationGate = ref.read(verificationGateListenableProvider);
     _onboardingStep = ref.read(onboardingStepListenableProvider);
@@ -84,7 +96,7 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
   void _refreshChatsOnResume() =>
       refreshOnResume(ref.read, isAuthenticated: _authSession.isAuthenticated, gate: _verificationGate.value);
 
-  /// 탈퇴(직접 16c 든 다른 기기에서든)면 로그인 화면용 알림을 남기고 로그아웃한다 — 로그아웃은 여기 한 곳뿐이다.
+  /// 탈퇴(직접 16c 든 다른 기기에서든)면 시작 화면용 알림을 남기고 로그아웃한다 — 로그아웃은 여기 한 곳뿐이다.
   void _signOutWhenWithdrawn() => signOutWhenWithdrawn(_accountStatus.value, ref.read(signOutProvider));
 
   /// 세션이 바뀔 때마다 게이트·온보딩 단계를 다시 조회한다.
@@ -92,16 +104,23 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
   /// 다음 사용자가 물려받으면 안 되므로 캐시를 비운다.
   void _refreshVerificationGate() {
     if (!_authSession.isAuthenticated) {
-      // 앞 사용자가 눌러 둔 알림 경로를 다음 사용자가 물려받지 않게 한다.
-      _pendingPushPath = null;
-      _verificationGate.reset();
-      _onboardingStep.reset();
-      _stopPush();
+      _forgetSession();
       return;
     }
     unawaited(_verificationGate.refresh());
     unawaited(_onboardingStep.refresh());
     _startPush();
+  }
+
+  /// 세션이 없어졌을 때(로그아웃 · 탈퇴 · gotrue 가 갱신 실패로 세션을 스스로 버린 경우 모두) 앞 사용자의 것을 비운다.
+  void _forgetSession() {
+    // 앞 사용자가 눌러 둔 알림 경로를 다음 사용자가 물려받지 않게 한다.
+    _pendingPushPath = null;
+    _verificationGate.reset();
+    _onboardingStep.reset();
+    _stopPush();
+    // 온보딩 임시 저장 값도 지운다 — signOut() 을 지나지 않고 세션만 사라지는 경로가 있다. 두 번 지워도 같은 결과다.
+    unawaited(ref.read(draftStoreProvider).clearAll());
   }
 
   /// 로그인한 뒤에만 FCM 을 건드린다 — 로그인 전에는 등록할 주인이 없고,
@@ -194,7 +213,7 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
     );
   }
 
-  /// 게이트는 provider 가 소유해 [ProviderScope] 와 함께 정리된다 — 여기서 dispose 하지 않는다.
+  /// 세션 리스너 · 게이트는 provider 가 소유해 [ProviderScope] 와 함께 정리된다 — 여기서 dispose 하지 않는다.
   @override
   void dispose() {
     _lifecycle.dispose();
@@ -206,7 +225,6 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
     _onboardingStep.removeListener(_openPendingPushRoute);
     _accountStatus.removeListener(_signOutWhenWithdrawn);
     _authSession.removeListener(_refreshVerificationGate);
-    _authSession.dispose();
     _splashHold.dispose();
     super.dispose();
   }

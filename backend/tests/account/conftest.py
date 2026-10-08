@@ -30,7 +30,7 @@ def client(world: AccountWorld, monkeypatch: pytest.MonkeyPatch):
     http = httpx.AsyncClient(transport=httpx.MockTransport(world.handle))
     monkeypatch.setattr(batch_auth.id_token, "verify_oauth2_token", _google_signs)
     app.dependency_overrides[get_settings] = lambda: settings(
-        batch_audience=AUDIENCE, batch_service_account=SCHEDULER
+        batch_audience=AUDIENCE, batch_service_account=SCHEDULER, **world.settings_overrides
     )
     app.dependency_overrides[get_client] = lambda: http
     app.dependency_overrides[get_now] = lambda: NOW
