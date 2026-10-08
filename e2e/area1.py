@@ -380,7 +380,7 @@ def attempt(run, case):
 # ── 폰 가설 37 중 36(E-ONB-05 는 두 기기라 묶음 6) ─────────────────────────────────────────────────────────────────────────────────
 # 함수 하나 `(run, phone) -> (결과, 메모)`. phone(**일감) 은 앱을 한 번 새로 켜 같은 번호의 앱 쪽
 # (frontend/integration_test/area1.dart)을 돌리고 앱이 한 말(dict, 답이 없으면 None)을 돌려준다. 일감 키:
-#   token_hash  관리자 generate_link 1회용 토큰 — 앱이 이것으로 로그인한다(없으면 로그아웃 상태로 시작)
+#   token_hash  관리자 generate_link 1회용 토큰 — 앱이 이것으로 로그인한다(없으면 로그아웃 상태 = 시작 화면 'start' 로 시작)
 #   fresh=False 앱이 저장된 세션을 그대로 쓴다(재시작 가설). 기본은 앞 세션을 지우고 시작
 #   expect      도착해야 할 화면 이름(앱 쪽 `screens` 의 키)
 #   limit       기다릴 초(없으면 다시 켠 경우 5, 새로 켠 경우 30) — 느린 에뮬 가설만 넓힌다
@@ -457,19 +457,24 @@ def _at(text):
 
 
 def p_auth_05(run, phone):
+    """소셜 로그인 전환 뒤 02 는 로그인한 계정의 학교 메일 인증이다 — 학교 메일 인증 전 계정(needs_school_email)으로 로그인시켜
+    02 에서 등록 안 된 도메인을 넣는다. 훅이 거절하므로 임시 계정이 생기면 안 된다(생겼으면 바로 지운다)."""
     check = Check()
+    _, token = _signed_in(run, 'needs_school_email')
     _, email = run.alias('example.com')
-    _app(check, phone(email=email))
+    _app(check, phone(token_hash=token, email=email))
     _no_user(run, email, check)
     return check.result()
 
 
 def p_auth_16(run, phone):
-    """앱이 실제로 코드를 요청한다 — 테스트대학 메일함에 메일 1통이 간다(읽지 않음)."""
+    """02 → 03 에서 틀린 코드(학교 메일 인증 전 계정으로 로그인해 02 에 간다). 앱이 실제로 코드를 요청한다 — 테스트대학 메일함에
+    메일 1통이 간다(읽지 않음). 번호 요청이 만든 email 방식 임시 계정은 뒷정리 목록에 적는다."""
     check = Check()
+    _, token = _signed_in(run, 'needs_school_email')
     n, email = run.alias()
-    _app(check, phone(email=email))
-    _signed_up(run, n, email, check)  # 요청으로 생긴 계정을 뒷정리 목록에
+    _app(check, phone(token_hash=token, email=email))
+    _signed_up(run, n, email, check)  # 요청으로 생긴 임시 계정을 뒷정리 목록에
     return check.result()
 
 
@@ -491,7 +496,7 @@ def p_auth_20(run, phone):
                      {'apikey': run.cfg['SUPABASE_ANON_KEY'], 'Authorization': f"Bearer {account['token']}"})
     if out[0] >= 300:
         raise Blocked(f'전체 로그아웃 {out[0]}')
-    _app(check, phone(fresh=False, expect='login'), '다시 켬')
+    _app(check, phone(fresh=False, expect='start'), '다시 켬')  # 로그아웃 상태의 첫 화면(소셜 로그인 전환 뒤 시작 화면)
     return check.result()
 
 
@@ -691,6 +696,8 @@ PHONE = {
     'E-ONB-06': p_onb_06, 'E-ONB-07': _on_phone('gate_done'), 'E-ONB-10': _on_phone('gate_done'), 'E-ONB-11': p_onb_11,
     'E-ONB-12': _on_phone('gate_done'), 'E-ONB-13': p_onb_13, 'E-ONB-15': _on_phone('gate_done'), 'E-ONB-16': _mbti_empty,
     'E-ONB-17': _mbti_empty, 'E-ONB-18': p_onb_18,
+    # 소셜 로그인 전환으로 더한 가설 — 동의 화면에서 로그아웃하면 시작 화면 · 소셜 버튼(카카오 → 구글, 애플 없음). 판정은 앱이 다 한다.
+    'E-AUTH-23': _on_phone('new'),
 }
 BUNDLES['area1-b1-phone'] = list(PHONE)
 

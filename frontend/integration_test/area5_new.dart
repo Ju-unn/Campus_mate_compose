@@ -77,8 +77,8 @@ Future<Map<String, Object?>> _nwSessionCut(WidgetTester tester, Map<String, dyna
   await wait(tester, const Duration(milliseconds: 400));
   FocusManager.instance.primaryFocus?.unfocus();
   await _edTapSave(tester);
-  await _actUntil(tester, () => _has(screen('login')) || _title(tester) == _actManageTitle, timeout: const Duration(seconds: 30));
-  if (_has(screen('login'))) {
+  await _actUntil(tester, () => _has(screen('start')) || _title(tester) == _actManageTitle, timeout: const Duration(seconds: 30));
+  if (_has(screen('start'))) {
     final (_, notice) = await _twoLoginNotice(tester);
     await step('end');
     return {'login_after_save': true, 'notice': notice, 'saved_title': null, 'login_ms': null, 'late_notice': null};
@@ -87,12 +87,12 @@ Future<Map<String, Object?>> _nwSessionCut(WidgetTester tester, Map<String, dyna
   await step('15-5:saved');
   final watch = Stopwatch()..start();
   await _returnTo(tester, '내 프로필');
-  if (!_has(screen('login')) && _has(_tab('오늘'))) await tap(tester, _tab('오늘'));
+  if (!_has(screen('start')) && _has(_tab('오늘'))) await tap(tester, _tab('오늘'));
   String? notice;
-  while (watch.elapsed < _nwClockLoginWait && !_has(screen('login'))) {
+  while (watch.elapsed < _nwClockLoginWait && !_has(screen('start'))) {
     await tester.pump(const Duration(milliseconds: 200));
   }
-  final loginMs = _has(screen('login')) ? watch.elapsedMilliseconds : null;
+  final loginMs = _has(screen('start')) ? watch.elapsedMilliseconds : null;
   if (loginMs != null) notice = (await _twoLoginNotice(tester)).$2;
   await step('end');
   return {'login_after_save': false, 'notice': null, 'saved_title': savedTitle, 'login_ms': loginMs, 'late_notice': notice};
@@ -111,7 +111,7 @@ Future<Map<String, Object?>> _nwClockSave(WidgetTester tester, Map<String, dynam
   var loginSeen = false;
   var expiredSeen = false;
   void look() {
-    loginSeen |= _has(screen('login'));
+    loginSeen |= _has(screen('start'));
     expiredSeen |= (_wdToast(tester) ?? '').contains(_nwExpiredPart);
   }
 
@@ -230,7 +230,7 @@ Future<Map<String, Object?>> _nwWithdrawOffline(WidgetTester tester) async {
   await _wdWithdraw(tester);
   final error = find.descendant(of: find.byType(WithdrawFinalSheet), matching: find.text(_edNetwork));
   final seen = await appears(tester, error, const Duration(seconds: 20)) != null;
-  final offline = {'error': seen ? _edNetwork : null, 'sheet_open': _has(find.byType(WithdrawFinalSheet)), 'login_seen': _has(screen('login'))};
+  final offline = {'error': seen ? _edNetwork : null, 'sheet_open': _has(find.byType(WithdrawFinalSheet)), 'login_seen': _has(screen('start'))};
   await step('failed');
   final tappedAt = await _wdWithdraw(tester);
   return {...offline, 'tapped_at': tappedAt, ...await _wdToLogin(tester)};

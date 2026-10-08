@@ -543,7 +543,7 @@ final Map<String, Area1Case> area3CasesSafe = {
     await arrive(tester, 'suspended'); // 정지된 채 로그인 — 첫 요청이 403
     final again = await step('relogin'); // PC 가 정지를 풀고 새 로그인 토큰을 go 에 실어 준다
     await tap(tester, button(_logoutButton));
-    await arrive(tester, 'login', timeout: const Duration(seconds: 15));
+    await arrive(tester, 'start', timeout: const Duration(seconds: 15));
     await signIn(again['token_hash'] as String); // 같은 프로세스 — 로그아웃마다 계정 상태가 새로 시작하는지(Ruling 36)
     await arrive(tester, 'home', timeout: const Duration(seconds: 40));
     final text = job['text'] as String;

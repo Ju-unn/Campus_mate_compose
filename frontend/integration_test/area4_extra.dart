@@ -103,13 +103,13 @@ Future<void> _sessionAlive(String when) async {
 
 /// E-SET-67 의 B 쪽 확인 — 로그인 화면으로 쫓겨나지 않았고, 서버가 이 기기의 세션을 그대로 알고, 대화 탭을 새로 열어도 상대 방이 그대로다.
 Future<void> _chatStillWorks(WidgetTester tester, String nickname, String when) async {
-  must(screen('login').evaluate().isEmpty, '$when: 로그인 화면으로 쫓겨남');
+  must(screen('start').evaluate().isEmpty, '$when: 로그인 화면으로 쫓겨남');
   await _sessionAlive(when);
   await tap(tester, _tab('나'));
   await wait(tester, const Duration(seconds: 1));
   await _openChatTab(tester);
   await pumpUntil(tester, _chatRowOf(nickname), timeout: const Duration(seconds: 20));
-  must(screen('login').evaluate().isEmpty, '$when: 로그인 화면으로 쫓겨남');
+  must(screen('start').evaluate().isEmpty, '$when: 로그인 화면으로 쫓겨남');
 }
 
 final Map<String, Area1Case> _extraCases = {
@@ -220,7 +220,7 @@ final Map<String, Area1Case> _extraCases = {
     await tap(tester, find.byIcon(AppIcons.settings));
     await arrive(tester, 'settings');
     await _confirmLogout(tester);
-    await arrive(tester, 'login', timeout: const Duration(seconds: 15));
+    await arrive(tester, 'start', timeout: const Duration(seconds: 15));
     await step('a-out');
     return null;
   }),

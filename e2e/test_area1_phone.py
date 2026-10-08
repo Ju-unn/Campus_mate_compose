@@ -1,10 +1,12 @@
 """영역 1 폰 가설의 PC 쪽(계정 준비 · 앱에 넘길 일감 · DB 판정) 시험 — 폰 · 운영 없이 가짜 앱 · 가짜 HTTP 로 돈다.
 저장소 루트에서 `python -m unittest e2e.test_area1_phone`."""
 
+import json
+import re
 import unittest
 from unittest import mock
 
-from e2e import area1
+from e2e import area1, tools
 from e2e.test_area1 import Base
 from e2e.tools import Reply
 
@@ -46,7 +48,8 @@ class PhoneBundleTest(Base):
                 prefix, word = word.rsplit('-', 1)
             cases.append(f'{prefix}-{word}')
         self.assertEqual(len(cases), 37)
-        self.assertEqual(area1.BUNDLES['area1-b1-phone'], [c for c in cases if c != 'E-ONB-05'])
+        # 소셜 로그인 전환으로 더한 E-AUTH-23(로그아웃 뒤 시작 화면 · 소셜 버튼)이 끝에 붙는다
+        self.assertEqual(area1.BUNDLES['area1-b1-phone'], [c for c in cases if c != 'E-ONB-05'] + ['E-AUTH-23'])
         self.assertLessEqual(set(area1.BUNDLES['area1-b1-phone']), set(area1.PHONE))
         self.assertIn('E-ONB-05', area1.PHONE_SKIPPED)
 
@@ -125,16 +128,42 @@ class ConsentTest(Base):
 
 
 class SessionTest(Base):
-    def test_auth_05_sends_an_example_com_address_without_signing_in(self):
-        self.serve()
+    def _school_email_profile(self, fake):
+        return [b for m, p, b in fake.calls if (m, p) == ('POST', '/rest/v1/profiles')]
+
+    def test_auth_05_signs_in_an_account_before_school_email_and_sends_an_example_com_address(self):
+        # 소셜 로그인 전환 뒤 02 는 로그인한 계정의 학교 메일 인증 관문 — 학교 · 인증 시각이 빈 프로필이라야 앱이 02 로 보낸다
+        fake = self.serve()
         phone = FakePhone()
         self.assertEqual(area1.attempt_phone(self.run, 'E-AUTH-05', phone)[0], 'pass')
-        self.assertEqual(list(phone.jobs[0]), ['email'])
+        self.assertEqual(sorted(phone.jobs[0]), ['email', 'token_hash'])
         self.assertTrue(phone.jobs[0]['email'].endswith('@example.com'))
+        self.assertEqual(self._school_email_profile(fake), [{'id': 'id-1', 'university_id': None, 'school_email_verified_at': None}])
+        self.assertIn('/me/consents', fake.paths('POST'))  # 동의가 학교 메일보다 앞 관문
+
+    def test_auth_16_signs_in_an_account_before_school_email_and_keeps_the_temporary_account_for_cleanup(self):
+        fake = self.serve()
+        phone = FakePhone()
+
+        def app(**job):  # 앱의 번호 요청이 email 방식 임시 계정을 만든다
+            fake.users.append({'id': 'temp', 'email': job['email']})
+            return phone(**job)
+        self.assertEqual(area1.attempt_phone(self.run, 'E-AUTH-16', app)[0], 'pass')
+        self.assertEqual(sorted(phone.jobs[0]), ['email', 'token_hash'])
+        self.assertTrue(phone.jobs[0]['email'].endswith('@gmail.com'))  # 시험 메일 도메인 — 훅이 통과시켜 03 으로 간다
+        self.assertEqual(self._school_email_profile(fake)[0]['school_email_verified_at'], None)
+        written = [a['email'] for a in json.loads((self.run.out / 'accounts.json').read_text(encoding='utf-8'))]
+        self.assertIn(phone.jobs[0]['email'], written)  # 번호 요청으로 생긴 임시 email 계정도 뒷정리 목록에
+
+    def test_auth_23_is_a_signed_in_new_account_whose_logout_lands_on_the_start_screen(self):
+        self.serve()
+        phone = FakePhone()
+        self.assertEqual(area1.attempt_phone(self.run, 'E-AUTH-23', phone), ('pass', ''))
+        self.assertEqual(phone.jobs, [{'token_hash': 'h'}])
 
     def test_auth_05_account_made_anyway_is_deleted_and_fails(self):
         fake = self.serve({('GET', '/auth/v1/admin/users'): Reply(200, {'users': [
-            {'id': '11111111-1111-4111-8111-111111111111', 'email': 'base+e2e1001@example.com'}]})})
+            {'id': '11111111-1111-4111-8111-111111111111', 'email': 'base+e2e1002@example.com'}]})})  # 1001 은 로그인할 계정
         self.assertEqual(area1.attempt_phone(self.run, 'E-AUTH-05', FakePhone())[0], 'fail')
         self.assertIn('/auth/v1/admin/users/11111111-1111-4111-8111-111111111111', fake.paths('DELETE'))
 
@@ -151,7 +180,7 @@ class SessionTest(Base):
         self.assertEqual(area1.attempt_phone(self.run, 'E-AUTH-20', phone)[0], 'pass')
         self.assertIn('/auth/v1/logout', fake.paths('POST'))
         self.assertEqual([j.get('fresh', True) for j in phone.jobs], [True, False])
-        self.assertEqual(phone.jobs[1]['expect'], 'login')
+        self.assertEqual(phone.jobs[1]['expect'], 'start')  # 로그아웃 상태의 첫 화면(소셜 로그인 전환)
 
     def test_auth_20_logout_failure_is_blocked(self):
         self.serve({('POST', '/auth/v1/logout'): Reply(401, None)})
@@ -254,6 +283,42 @@ class OnboardingTest(Base):
         self.assertEqual(phone.jobs[0]['kakao'], '  cm_test  ')
         self.serve({('GET', '/rest/v1/profile_private'): Reply(200, [{'kakao_id': '  cm_test  '}])})
         self.assertEqual(area1.attempt_phone(self.run, 'E-ONB-18', FakePhone())[0], 'fail')
+
+
+class StartScreenContractTest(unittest.TestCase):
+    """앱 쪽(integration_test)의 화면 이름이 지금 앱 글자와 맞는지 — 소셜 로그인 전환으로 'login' 을 'start' · 'schoolEmail' 로 나눴다."""
+
+    @staticmethod
+    def read(*parts):
+        return (tools.ROOT / 'frontend').joinpath(*parts).read_text(encoding='utf-8')
+
+    def screens(self):
+        source = self.read('integration_test', 'area1.dart')
+        table = source[source.index('const screens = {'):source.index('};', source.index('const screens = {'))]
+        return dict(re.findall(r"^  '([\w-]+)': '([^']*)',", table, re.M))
+
+    def test_start_and_school_email_are_split_and_login_is_gone(self):
+        screens = self.screens()
+        self.assertNotIn('login', screens)
+        self.assertIn(f"'{screens['start']}'", self.read('lib', 'auth', 'view', 'start_view.dart'))
+        self.assertIn(f"'{screens['schoolEmail']}'", self.read('lib', 'auth', 'view', 'sign_up_screen.dart'))
+
+    def test_no_app_side_hypothesis_still_waits_for_the_old_login_screen(self):
+        for path in sorted((tools.ROOT / 'frontend' / 'integration_test').glob('*.dart')):
+            source = path.read_text(encoding='utf-8')
+            self.assertNotIn("screen('login')", source, path.name)
+            self.assertNotIn("arrive(tester, 'login'", source, path.name)
+
+    def test_the_social_buttons_the_app_side_looks_for_are_the_app_labels(self):
+        area1_dart = self.read('integration_test', 'area1.dart')
+        labels = self.read('lib', 'auth', 'view', 'social_login_button.dart')
+        for name in ('kakao', 'google'):
+            label = re.search(rf"static const String {name} = '([^']+)';", labels).group(1)
+            self.assertIn(f"'{label}'", area1_dart)
+        self.assertIn("'E-AUTH-23': _session(", area1_dart)
+
+    def test_the_rejected_text_on_02_is_the_servers(self):
+        self.assertIn(f"const _rejected = '{area1.REJECTED}';", self.read('integration_test', 'area1.dart'))
 
 
 if __name__ == '__main__':

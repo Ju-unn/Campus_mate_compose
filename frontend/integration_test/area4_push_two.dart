@@ -34,7 +34,7 @@ final Map<String, Area1Case> _pushTwoCases = {
     await step('in');
     await step('both', timeout: _peerWait);
     await _confirmLogout(tester);
-    await arrive(tester, 'login', timeout: const Duration(seconds: 15));
+    await arrive(tester, 'start', timeout: const Duration(seconds: 15));
     await step('out', timeout: _peerWait);
     return null;
   }),
@@ -42,7 +42,7 @@ final Map<String, Area1Case> _pushTwoCases = {
     await _joinAfter(tester, 'wait');
     await step('in', timeout: _peerWait);
     await step('stay', timeout: _peerWait);
-    must(screen('login').evaluate().isEmpty, 'A 가 로그아웃했는데 B 가 로그인 화면으로 돌아감 — 로그아웃은 그 기기만이어야 함');
+    must(screen('start').evaluate().isEmpty, 'A 가 로그아웃했는데 B 가 로그인 화면으로 돌아감 — 로그아웃은 그 기기만이어야 함');
     must(find.byType(AppBottomNav).evaluate().isNotEmpty, 'A 가 로그아웃한 뒤 B 의 하단 내비가 안 보임');
     return null;
   }),
@@ -57,7 +57,7 @@ final Map<String, Area1Case> _pushTwoCases = {
     await tap(tester, button('영구 삭제'));
     await pumpUntil(tester, find.text('정말 삭제할까요?'), timeout: const Duration(seconds: 5));
     await tap(tester, button('정말 영구 삭제'));
-    await arrive(tester, 'login', timeout: const Duration(seconds: 15));
+    await arrive(tester, 'start', timeout: const Duration(seconds: 15));
     await step('withdrawn', timeout: _peerWait);
     return null;
   }),
@@ -68,7 +68,7 @@ final Map<String, Area1Case> _pushTwoCases = {
     try {
       await Supabase.instance.client.auth.refreshSession();
     } catch (_) {} // 지워진 계정이라 새로고침은 실패한다 — 화면이 로그인으로 돌아가는지가 판정
-    await arrive(tester, 'login', timeout: const Duration(seconds: 30));
+    await arrive(tester, 'start', timeout: const Duration(seconds: 30));
     return null;
   }),
 };

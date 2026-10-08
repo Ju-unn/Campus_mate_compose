@@ -16,7 +16,7 @@ const _gateContentWait = Duration(seconds: 10); // 방이 열린 뒤 앱바 닉�
 /// 대화 목록은 알림 경로가 방 id 없이 목록으로 떨어진 경우를 위해 더했다(area3_b3.dart `_screensNow` 와 같다).
 List<String> _gateScreensNow() {
   final seen = <String, Finder>{
-    for (final name in const ['login', 'consent', 'consent-renew', '3b', '3c', '04-1', 'home']) name: screen(name),
+    for (final name in const ['start', 'consent', 'consent-renew', '3b', '3c', '04-1', 'home']) name: screen(name),
     'conversations': find.byType(ConversationsScreen),
   };
   return [for (final entry in seen.entries) if (entry.value.evaluate().isNotEmpty) entry.key];

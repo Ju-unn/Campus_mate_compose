@@ -95,7 +95,7 @@ final Map<String, Area1Case> _b2Cases = {
     await _settingsWithdraw(tester);
     final tappedAt = DateTime.now().toUtc().toIso8601String();
     await tap(tester, button('정말 영구 삭제'));
-    await arrive(tester, 'login', timeout: const Duration(seconds: 15));
+    await arrive(tester, 'start', timeout: const Duration(seconds: 15));
     return {'tapped_at': tappedAt};
   }),
   'E-AUTH-08': _session((tester, job) async {
@@ -104,15 +104,15 @@ final Map<String, Area1Case> _b2Cases = {
     await pumpUntil(tester, find.text('정지 중에 탈퇴할까요?'), timeout: const Duration(seconds: 5));
     must(find.text('정지 중에 탈퇴하면 다시 가입할 수 없어요').evaluate().isNotEmpty, '정지 중 탈퇴 경고 없음');
     await tap(tester, button('정말 영구 삭제'));
-    await arrive(tester, 'login', timeout: const Duration(seconds: 15));
+    await arrive(tester, 'start', timeout: const Duration(seconds: 15));
     return null;
   }),
-  // 탈퇴한 계정으로 새로 로그인 — 첫 API 가 401 · withdrawn 이라 로그인 화면 + 3초 토스트.
-  // 로그인 직전에도 로그인 화면이 잠깐 보이므로(앞 세션을 지움) 토스트가 뜨는 것을 기준으로 잰다.
+  // 탈퇴한 계정으로 새로 로그인 — 첫 API 가 401 · withdrawn 이라 시작 화면(로그아웃) + 3초 토스트.
+  // 로그인 직전에도 시작 화면이 잠깐 보이므로(앞 세션을 지움) 토스트가 뜨는 것을 기준으로 잰다.
   'E-AUTH-09': _session((tester, job) async {
     final at = await appears(tester, find.text(_withdrawnNotice), const Duration(seconds: 10));
     must(at != null, '10초 안에 "$_withdrawnNotice" 토스트가 안 나옴');
-    must(screen('login').evaluate().isNotEmpty, '토스트가 떴는데 로그인 화면이 아님');
+    must(screen('start').evaluate().isNotEmpty, '토스트가 떴는데 시작 화면(로그아웃)이 아님');
     return {'note': '토스트까지 ${at!.inMilliseconds}ms'};
   }),
   'E-GATE-04': _session((tester, job) async {

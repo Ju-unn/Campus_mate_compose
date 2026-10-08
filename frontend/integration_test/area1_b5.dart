@@ -11,7 +11,7 @@ Future<Duration> _heldScreen(WidgetTester tester, {Duration within = const Durat
   var sawLogin = false;
   while (watch.elapsed < within && find.text(_held).evaluate().isEmpty) {
     await tester.pump(const Duration(milliseconds: 100));
-    sawLogin |= screen('login').evaluate().isNotEmpty;
+    sawLogin |= screen('start').evaluate().isNotEmpty;
   }
   must(find.text(_held).evaluate().isNotEmpty, '${within.inSeconds}초 안에 대기 화면 "$_held" 가 안 나옴 — 지금 보이는 것: ${_whereNow()}');
   must(!noLogin || !sawLogin, '다시 켰는데 로그인 화면이 나옴');

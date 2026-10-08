@@ -11,7 +11,7 @@ const _pushContentWait = Duration(seconds: 10); // 화면이 열린 뒤 사람 �
 
 /// 지금 보이는 화면 이름들 — 도착 화면이 안 열렸을 때 약관 · 온보딩 · 로그인 어디에 머무는지 PC 가 가린다(area1.dart `screens` 의 키).
 List<String> _pushScreens() => [
-      for (final name in const ['login', 'consent', 'consent-renew', '3b', '3c', '04-1', 'home']) if (screen(name).evaluate().isNotEmpty) name,
+      for (final name in const ['start', 'consent', 'consent-renew', '3b', '3c', '04-1', 'home']) if (screen(name).evaluate().isNotEmpty) name,
     ];
 
 /// 도착 화면에서 본 것 — 화면이 열렸나(dest) · 그 사람이 보이나(who) · (일감에 body 가 있으면) 방금 글이 보이나(body).
