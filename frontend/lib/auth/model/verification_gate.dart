@@ -13,6 +13,10 @@ enum VerificationGate {
 
   /// 약관이 바뀌어 다시 동의해야 한다(02-c-4). 온보딩을 마친 계정도 여기로 온다.
   needsConsentRenewal,
+
+  /// 학교 메일을 아직 인증하지 않았다(02 · 03). 동의 다음, 학생증 앞이다 — 가입 때 한 번만 받는다.
+  /// 소셜 로그인 계정의 이메일과는 별개다. 판단은 서버 `school_email_verified` 만 본다.
+  needsSchoolEmail,
   needsStudentVerification,
   needsSchoolInfo,
   complete,

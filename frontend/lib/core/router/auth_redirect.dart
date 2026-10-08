@@ -42,7 +42,7 @@ class AuthRedirect {
     }
     final gateTarget = _gateTarget();
     if (gateTarget != null) {
-      return location == gateTarget ? null : gateTarget;
+      return _isOnGate(location, gateTarget) ? null : gateTarget;
     }
     final onboardingTarget = _onboardingTarget();
     if (onboardingTarget != null) {
@@ -62,10 +62,21 @@ class AuthRedirect {
       VerificationGate.unknown => AppRoutes.splash,
       VerificationGate.unreachable => AppRoutes.offline,
       VerificationGate.needsConsent || VerificationGate.needsConsentRenewal => AppRoutes.consent,
+      // 02(학교 메일 입력). 03(인증번호)도 같은 관문이다 — [_isOnGate].
+      VerificationGate.needsSchoolEmail => AppRoutes.login,
       VerificationGate.needsStudentVerification => AppRoutes.studentVerification,
       VerificationGate.needsSchoolInfo => AppRoutes.schoolInfo,
       VerificationGate.complete => null,
     };
+  }
+
+  /// 관문 하나가 화면 둘인 경우(학교 메일 02 → 03) 둘째 화면도 그 관문으로 본다.
+  /// 인증을 마쳐 관문이 바뀌면 02 · 03 둘 다 다음 관문으로 밀려나 다시 돌아오지 못한다.
+  bool _isOnGate(String location, String gateTarget) {
+    if (location == gateTarget) {
+      return true;
+    }
+    return _gate == VerificationGate.needsSchoolEmail && location == AppRoutes.verifyCode;
   }
 
   /// 아직 끝내지 못한 온보딩 화면. 모두 끝냈으면 null.
@@ -91,6 +102,7 @@ class AuthRedirect {
   /// 홈은 09b 메인 자리 화면이고, 오늘의 카드는 하단 내비의 `/today` 다(조각 4).
   bool _isBeforeHome(String location) {
     return location == AppRoutes.login ||
+        location == AppRoutes.verifyCode ||
         location == AppRoutes.splash ||
         location == AppRoutes.offline ||
         location == AppRoutes.consent ||

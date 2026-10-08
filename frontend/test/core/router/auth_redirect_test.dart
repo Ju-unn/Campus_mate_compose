@@ -134,6 +134,74 @@ void main() {
     });
   });
 
+  group('학교 메일 관문(02 · 03, 동의 다음)', () {
+    const redirect = AuthRedirect(true, VerificationGate.needsSchoolEmail, OnboardingStep.basicInfo);
+
+    test('학교 메일 인증 전이면 02(학교 메일 입력)로 보낸다', () {
+      for (final path in [
+        AppRoutes.splash,
+        AppRoutes.consent,
+        AppRoutes.studentVerification,
+        AppRoutes.schoolInfo,
+        AppRoutes.onboardingBasicInfo,
+        AppRoutes.home,
+      ]) {
+        expect(redirect.resolve(path), AppRoutes.login, reason: path);
+      }
+    });
+
+    test('02 와 03(인증번호)에는 머문다', () {
+      expect(redirect.resolve(AppRoutes.login), isNull);
+      expect(redirect.resolve(AppRoutes.verifyCode), isNull);
+    });
+
+    test('인증을 마치면 02 · 03 에서 학생증(3b)으로 보내고 다시 돌아오지 못한다', () {
+      const verified = AuthRedirect(true, VerificationGate.needsStudentVerification, OnboardingStep.basicInfo);
+
+      expect(verified.resolve(AppRoutes.login), AppRoutes.studentVerification);
+      expect(verified.resolve(AppRoutes.verifyCode), AppRoutes.studentVerification);
+    });
+
+    test('모두 끝난 계정은 03 에 머물지 않고 홈으로 간다', () {
+      const done = AuthRedirect(true, VerificationGate.complete, OnboardingStep.complete);
+
+      expect(done.resolve(AppRoutes.verifyCode), AppRoutes.home);
+    });
+
+    test('다른 관문에서는 03 으로 가지 못한다', () {
+      expect(
+        const AuthRedirect(true, VerificationGate.needsConsent, OnboardingStep.basicInfo).resolve(AppRoutes.verifyCode),
+        AppRoutes.consent,
+      );
+      expect(
+        const AuthRedirect(true, VerificationGate.needsSchoolInfo, OnboardingStep.basicInfo)
+            .resolve(AppRoutes.verifyCode),
+        AppRoutes.schoolInfo,
+      );
+    });
+  });
+
+  // 순서 고정: 정지 > 동의 > 학교 메일 > 학생증 > 학과와 학번 > 온보딩. 한 줄이 (계정 상태, 관문) 하나다.
+  group('관문 순서 표', () {
+    const rows = <(AccountStatus, VerificationGate, String)>[
+      (AccountStatus.suspended, VerificationGate.needsConsent, AppRoutes.accountSuspended),
+      (AccountStatus.suspended, VerificationGate.needsSchoolEmail, AppRoutes.accountSuspended),
+      (AccountStatus.active, VerificationGate.needsConsent, AppRoutes.consent),
+      (AccountStatus.active, VerificationGate.needsConsentRenewal, AppRoutes.consent),
+      (AccountStatus.active, VerificationGate.needsSchoolEmail, AppRoutes.login),
+      (AccountStatus.active, VerificationGate.needsStudentVerification, AppRoutes.studentVerification),
+      (AccountStatus.active, VerificationGate.needsSchoolInfo, AppRoutes.schoolInfo),
+      (AccountStatus.active, VerificationGate.complete, AppRoutes.onboardingBasicInfo),
+    ];
+    for (final (status, gate, target) in rows) {
+      test('$status · $gate → $target', () {
+        final redirect = AuthRedirect(true, gate, OnboardingStep.basicInfo, accountStatus: status);
+
+        expect(redirect.resolve(AppRoutes.home), target);
+      });
+    }
+  });
+
   group('관문을 아직 모를 때(결정 13, B10)', () {
     test('묻는 중이면 동의 화면 대신 스플래시에 둔다', () {
       const redirect = AuthRedirect(true, VerificationGate.unknown, OnboardingStep.basicInfo);
