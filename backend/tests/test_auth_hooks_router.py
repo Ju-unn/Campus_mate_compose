@@ -108,7 +108,8 @@ def test_rejects_blocked_email():
     response = _post_hook(TestClient(app), _user("hong@snu.ac.kr"), _db([], blocked=True))
 
     assert response.status_code == 200
-    assert response.json() == {"error": {"http_code": 422, "message": "재가입이 제한된 이메일이에요"}}
+    # 문구는 서버 전체에서 하나다(지시문 14-2) — /school-email/verify 와 같다. 앱이 글자 그대로 비교하는 길이 있다.
+    assert response.json() == {"error": {"http_code": 422, "message": "재가입이 제한된 메일이에요"}}
 
 
 def test_blocked_email_hash_uses_identity_key():
