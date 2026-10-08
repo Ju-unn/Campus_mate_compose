@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:campus_mate/account/view/account_screen.dart';
+import 'package:campus_mate/billing/view/heart_store_screen.dart';
 import 'package:campus_mate/chat/view/chat_list_row.dart';
 import 'package:campus_mate/chat/view/chat_room_screen.dart';
 import 'package:campus_mate/chat/view/message_bubble.dart';
@@ -57,9 +58,9 @@ part 'area4_extra.dart';
 const _networkDown = '네트워크 연결을 확인해 주세요';
 const _dash = '—';
 
-/// 설정 16 의 줄(위 → 아래).
+/// 설정 16 의 줄(위 → 아래). 맨 위 보유 하트 블록(`X4olk`, 글자 "보유 하트")과 하트 카드 첫 줄 "하트 충전"(`zlpeY`)이 들어 있다.
 const _settingsRows = [
-  '매칭 활성화', '무료로 하트 모으기', '친구 초대', '계정', '알림', '차단 목록', '연락처 차단', '자주 묻는 질문', '이용약관',
+  '보유 하트', '매칭 활성화', '하트 충전', '무료로 하트 모으기', '친구 초대', '계정', '알림', '차단 목록', '연락처 차단', '자주 묻는 질문', '이용약관',
   '개인정보처리방침', '로그아웃', '탈퇴하기',
 ];
 
