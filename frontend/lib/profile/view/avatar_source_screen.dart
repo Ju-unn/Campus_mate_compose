@@ -4,9 +4,9 @@ import 'package:campus_mate/common/widgets/notice_card.dart';
 import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
-import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/profile/view/avatar_source_tile.dart';
 import 'package:campus_mate/profile/viewmodel/photos_ui_state.dart';
 import 'package:campus_mate/profile/viewmodel/photos_view_model.dart';
 import 'package:flutter/material.dart';
@@ -108,8 +108,9 @@ class _SourceGrid extends StatelessWidget {
                   if (col > 0) const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: row * 2 + col < photos.length
-                        ? _SourceTile(
-                            photo: photos[row * 2 + col],
+                        ? AvatarSourceTile(
+                            image: photos[row * 2 + col].image,
+                            isSelected: photos[row * 2 + col].isAvatarSource,
                             onTap: onSelect == null ? null : () => onSelect!(row * 2 + col),
                           )
                         : const SizedBox.shrink(),
@@ -123,58 +124,3 @@ class _SourceGrid extends StatelessWidget {
     );
   }
 }
-
-class _SourceTile extends StatelessWidget {
-  const _SourceTile({required this.photo, required this.onTap});
-
-  final SelectedPhoto photo;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final isSelected = photo.isAvatarSource;
-    return Semantics(
-      button: true,
-      selected: isSelected,
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          clipBehavior: Clip.antiAlias,
-          foregroundDecoration: isSelected
-              ? BoxDecoration(
-                  border: Border.all(color: AppColors.primary, width: 3),
-                  borderRadius: BorderRadius.circular(AppRadius.md),
-                )
-              : null,
-          decoration: BoxDecoration(borderRadius: BorderRadius.circular(AppRadius.md)),
-          child: Stack(
-            children: [
-              Positioned.fill(child: Image(image: photo.image, fit: BoxFit.cover)),
-              if (isSelected)
-                Positioned(
-                  left: AppSpacing.xs,
-                  top: AppSpacing.xs,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      borderRadius: BorderRadius.circular(AppRadius.pill),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(AppIcons.check, size: 12, color: AppColors.onPrimary),
-                        const SizedBox(width: AppSpacing.xxs),
-                        Text('아바타로 선택', style: AppTypography.badge.copyWith(color: AppColors.onPrimary)),
-                      ],
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-

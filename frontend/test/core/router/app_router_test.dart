@@ -22,6 +22,7 @@ import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:campus_mate/matching/view/conversations_screen.dart';
 import 'package:campus_mate/me/model/me_repository_provider.dart';
 import 'package:campus_mate/me/model/my_profile.dart';
+import 'package:campus_mate/me/view/avatar_regen_pick_screen.dart';
 import 'package:campus_mate/me/view/basic_info_edit_screen.dart';
 import 'package:campus_mate/me/view/card_preview_screen.dart';
 import 'package:campus_mate/me/view/my_photos_screen.dart';
@@ -324,6 +325,15 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(FaqScreen), findsOneWidget);
+    });
+
+    testWidgets('/me/avatar-regen 은 15b-4 아바타 다시 만들기 · 사진 고르기다', (tester) async {
+      final router = await pumpRouter(tester);
+
+      router.go(AppRoutes.myAvatarRegen);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AvatarRegenPickScreen), findsOneWidget);
     });
 
     testWidgets('/hearts/store 는 18 하트 스토어다', (tester) async {
