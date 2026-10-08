@@ -69,7 +69,7 @@ gcloud run deploy campus-mate-backend \
   --region asia-northeast3 \
   --allow-unauthenticated \
   --set-env-vars SUPABASE_URL=<project-url>,GOOGLE_CLOUD_PROJECT=<PROJECT_ID>,AVATAR_TASKS_QUEUE=<큐 이름>,AVATAR_WORKER_URL=<cloud-run-url>/tasks/avatar-generate,AVATAR_TASKS_SERVICE_ACCOUNT=<큐가 쓸 서비스 계정 이메일>,BATCH_AUDIENCE=<cloud-run-url>,BATCH_SERVICE_ACCOUNT=campus-mate-scheduler@<PROJECT_ID>.iam.gserviceaccount.com \
-  --set-secrets SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest,AUTH_HOOK_SIGNING_SECRET=auth-hook-signing-secret:latest,DISCORD_WEBHOOK_URL=discord-review-webhook-url:latest,IDENTITY_HMAC_KEY=identity-hmac-key:latest,OPENAI_API_KEY=open-api-key:latest,PHONE_ENCRYPTION_KEY=phone-number-encryption-key:latest,DISCORD_REPORT_WEBHOOK_URL=discord-report-webhook-url:latest,KAKAO_ADMIN_KEY=kakao-admin-key:latest
+  --set-secrets SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest,AUTH_HOOK_SIGNING_SECRET=auth-hook-signing-secret:latest,DISCORD_WEBHOOK_URL=discord-review-webhook-url:latest,IDENTITY_HMAC_KEY=identity-hmac-key:latest,OPENAI_API_KEY=open-api-key:latest,PHONE_ENCRYPTION_KEY=phone-number-encryption-key:latest,DISCORD_REPORT_WEBHOOK_URL=discord-report-webhook-url:latest,KAKAO_ADMIN_KEY=kakao-admin-key:latest,VERIFICATION_HOOK_SECRET=verification-hook-secret:latest
 ```
 
 `BATCH_AUDIENCE` · `BATCH_SERVICE_ACCOUNT` 중 하나라도 빠뜨리면 세 배치(`/batch/*`)는 **아무 요청도 통과시키지 않는다**(전부 401).
@@ -80,7 +80,7 @@ gcloud run deploy campus-mate-backend \
 비어 있으면 그 단계만 건너뛴다(경고 없이, 서버 시작은 막지 않는다). 시크릿 이름 `kakao-admin-key`, 등록 완료(2026-10-09).
 위 `--set-secrets` 목록에 `KAKAO_ADMIN_KEY=kakao-admin-key:latest` 를 더해 쓴다. 값은 이 문서에 적지 않는다.
 
-**`IDENTITY_HMAC_KEY`·`OPENAI_API_KEY`·`PHONE_ENCRYPTION_KEY` 3개가 이 명령에서 빠져 있었다(PR #85 리뷰에서 잡음, §0 에는 시크릿 등록만 돼 있고 배포 명령에 연결이 안 됐던 것). `settings.py` 가 필수(`min_length=1` 등)로 요구하므로 빠지면 그 자리에서 기동이 실패한다.** → **2026-09-29 확인: 위 명령에 셋 다 들어 있다**(조각 6 배포 때 반영, 시크릿 이름 `identity-hmac-key` · `open-api-key` · `phone-number-encryption-key`). 조각 6 에서 `DISCORD_REPORT_WEBHOOK_URL`(`discord-report-webhook-url`, 신고 전용 채널 — 비어 있으면 신고 알림만 건너뛰고 경고 로그)이 더해졌다. `settings.py` 가 읽는 env · 시크릿은 위 한 줄로 전부다(2026-09-29 `settings.py` 와 대조)
+**`IDENTITY_HMAC_KEY`·`OPENAI_API_KEY`·`PHONE_ENCRYPTION_KEY` 3개가 이 명령에서 빠져 있었다(PR #85 리뷰에서 잡음, §0 에는 시크릿 등록만 돼 있고 배포 명령에 연결이 안 됐던 것). `settings.py` 가 필수(`min_length=1` 등)로 요구하므로 빠지면 그 자리에서 기동이 실패한다.** → **2026-09-29 확인: 위 명령에 셋 다 들어 있다**(조각 6 배포 때 반영, 시크릿 이름 `identity-hmac-key` · `open-api-key` · `phone-number-encryption-key`). 조각 6 에서 `DISCORD_REPORT_WEBHOOK_URL`(`discord-report-webhook-url`, 신고 전용 채널 — 비어 있으면 신고 알림만 건너뛰고 경고 로그)이 더해졌다. `settings.py` 가 읽는 env 7개 · 시크릿 9개는 위 명령으로 전부다(2026-10-09 `settings.py` 와 다시 대조. 종전 2026-09-29 대조 뒤 더해진 `KAKAO_ADMIN_KEY` 와 `VERIFICATION_HOOK_SECRET`(`verification-hook-secret`, 학생증 검토 결과 훅의 공유 비밀 — 비어 있으면 `/hooks/verification-reviewed` 가 모든 요청을 막는다)이 명령에서 빠져 있었다)
 
 **Auth OTP expiry — Supabase 대시보드 Authentication 설정의 OTP 유효시간을 300초(5분)로 맞춘다.** 기본값(3600초)과 앱의 인증 코드 화면 카운트다운(5분)이 어긋나 있었다(운영에서는 아직 3600초, 승인 대기 중).
 
