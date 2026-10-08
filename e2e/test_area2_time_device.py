@@ -154,7 +154,7 @@ COLUMNS = {
     'profiles': {'id', 'university_id', 'nickname', 'gender', 'birth_year', 'status', 'last_active_at', 'created_at', 'matching_paused'},
 }
 EMBEDS = {'profiles': {'universities'}, 'daily_cards': {'card_decisions'}}
-HELPER_TABLES = {'profile_vectors', 'profile_private', 'profile_avatars'}  # 계정 공장(Run.account) · 사람 만들기 도우미가 쓰는 표 — 열은 그쪽 시험이 본다
+HELPER_TABLES = {'profile_vectors', 'profile_private', 'profile_avatars', 'school_email_claims'}  # 계정 공장(Run.account) · 사람 만들기 도우미가 쓰는 표 — 열은 그쪽 시험이 본다
 BODY_CHECKED = {'daily_cards', 'universities', 'region_group_settings'}  # 쓰는 본문 열도 검사하는 표
 RESERVED = {'select', 'order', 'limit', 'offset', 'or', 'and', 'on_conflict'}
 SETTINGS = {'card_arrived': True, 'acceptance_received': True, 'match_made': True, 'new_message': True, 'trust_reminder': True,

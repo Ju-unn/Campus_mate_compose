@@ -904,7 +904,8 @@ class SafetyNetTest(TimeBase):
         tables = {s['path'].rsplit('/', 1)[1] for s in fake.sent if s['path'].startswith('/rest/v1/') and '/rpc/' not in s['path']}
         self.assertTrue({'daily_cards', 'card_decisions', 'acceptance_responses', 'matches', 'polls', 'heart_transactions',
                          'heart_task_submissions', 'profiles'} <= tables)
-        self.assertEqual(tables - set(SCHEMA), {'profile_vectors', 'universities', 'university_email_domains', 'profile_avatars'})  # 계정 공장 몫
+        self.assertEqual(tables - set(SCHEMA), {'profile_vectors', 'universities', 'university_email_domains', 'profile_avatars',
+                                             'school_email_claims'})  # 계정 공장 몫
         mine = area2._mine(self.run)
         ledger = {r['id']: r['profile_id'] for r in fake.rows('heart_transactions')}
         cards = {c['id']: {c['owner_id'], c['target_id']} for c in fake.rows('daily_cards')}

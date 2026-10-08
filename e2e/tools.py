@@ -10,6 +10,7 @@ import os
 import queue
 import random
 import re
+import secrets
 import ssl
 import string
 import subprocess
@@ -590,7 +591,7 @@ class Run:
         """프로필 한 행을 서비스 키로 넣는다 — 학교 메일 인증 완료(⑩ complete_school_email_verification)가 남기는 두 칸만 채운다.
         나머지 칸(status='pending' · referral_code · interest_tags 등)은 표 기본값이다 — 트리거도 `insert (id)` 만 한다.
         [school_email]=False 면 학교 · 인증 시각을 비운다(소셜 가입 직후의 pending 프로필과 같은 모양 → 앱이 02 로 보낸다).
-        school_email_claims 는 넣지 않는다(HMAC 키가 FastAPI 에만 있다). 같은 id 가 이미 있으면 그대로 둔다(재시도 멱등)."""
+        같은 id 가 이미 있으면 그대로 둔다(재시도 멱등). 인증한 계정이면 [_claim] 으로 학교 메일 기록 한 행도 넣는다."""
         if school_email:
             university = e2e_university(self.cfg, self.key)
             if not university:
@@ -603,6 +604,20 @@ class Run:
                      prefer='resolution=ignore-duplicates')
         if reply[0] >= 300:
             raise Blocked(f'프로필 만들기 {reply[0]} {reply[1]}')
+        if school_email:
+            self._claim(account, university, verified_at)
+
+    def _claim(self, account, university, verified_at):
+        """school_email_claims 한 행 — 탈퇴(account/router.py withdraw)가 이 해시로 재가입 제한 행을 남긴다.
+        진짜 학교 메일 HMAC 은 키가 FastAPI 에만 있어 못 만든다 — 계정마다 임의 32바이트(bytea `\\x…`)다. 그래서 "같은 메일로 다시
+        가입하면 거절" 은 이 계정으로 확인할 수 없다(그런 가설은 막아 둔다). 학교 · 시각은 프로필과 같은 값, 가입 방식은 email.
+        학교 메일 인증 전(needs_school_email)에는 넣지 않는다 — university_id 가 not null 이고, 행이 있으면 인증 함수가 already_verified 로 본다.
+        계정을 지우면 profiles → claims 가 cascade 로 지워진다(뒷정리 그대로). 해시는 한 번 정해 다시 보내도 같은 행이라 멱등."""
+        row = {'school_email_hmac': f'\\x{secrets.token_hex(32)}', 'university_id': university, 'profile_id': account['id'],
+               'provider': 'email', 'key_version': 1, 'verified_at': verified_at}
+        reply = rest(self.cfg, self.key, 'POST', 'school_email_claims', row, prefer='resolution=ignore-duplicates')
+        if reply[0] >= 300:
+            raise Blocked(f'학교 메일 기록 {reply[0]} {reply[1]}')
 
     def link(self, email):
         """관리자 generate_link 의 1회용 토큰(token_hash) — 메일이 나가지 않는다. 폰 가설은 이것을 앱에 넘긴다."""
