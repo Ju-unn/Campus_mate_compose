@@ -1,6 +1,4 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
-import 'package:campus_mate/common/widgets/icon_3d.dart';
-import 'package:campus_mate/common/widgets/photo_slider.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -10,13 +8,16 @@ import 'package:campus_mate/friend_review/view/partner_reviews_section.dart';
 import 'package:campus_mate/matching/view/card_detail_screen.dart';
 import 'package:campus_mate/safety/model/partner_profile.dart';
 import 'package:campus_mate/safety/model/safety_repository.dart';
+import 'package:campus_mate/safety/view/revealed_profile_parts.dart';
 import 'package:campus_mate/safety/view/safety_actions.dart';
 import 'package:campus_mate/safety/viewmodel/partner_profile_ui_state.dart';
 import 'package:campus_mate/safety/viewmodel/partner_profile_view_model.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+// 실사진 서명 URL → 그림 provider 는 15-4b 와 같이 쓰려고 revealed_profile_parts.dart 로 옮겼다. 시험이 여기서 읽던 이름은 그대로 둔다.
+export 'package:campus_mate/safety/view/revealed_profile_parts.dart' show partnerPhotoImageProvider;
 
 /// 14c 상대 프로필 상세(pen `VTX3D`). 본문은 10b 카드([ProfileCard])를 그대로 쓰고,
 /// 14c 에만 있는 것(실사진 · 신뢰 배지 · 카카오 카드 · 신고/차단 링크)을 카드 슬롯에 꽂는다.
@@ -103,14 +104,14 @@ class _ProfileBody extends ConsumerWidget {
         detail: profile.detail,
         // 게이트 전(null)이거나 0장이면 사진 칸이 없다 — 카드는 10b 와 같다.
         header: switch (profile.photoUrls) {
-          [_, ...] && final urls => _PhotoHeader(urls: urls),
+          [_, ...] && final urls => RevealedPhotoHeader(urls: urls),
           _ => null,
         },
         nameTrailing: revealed ? const _TrustBadge() : null,
         footer: _Footer(
           afterIdealNote: profile.detail.idealNote != null,
           reviews: PartnerReviewsSection(profileId: profileId, nickname: profile.detail.profile.nickname),
-          kakao: revealed ? _KakaoCard(kakaoId: profile.kakaoId) : null,
+          kakao: revealed ? KakaoIdCard(kakaoId: profile.kakaoId) : null,
           onReport: () => reportThenLeave(context, ref, ReportTarget.profile(profileId)),
           onBlock: () => _block(context, ref),
         ),
@@ -130,31 +131,6 @@ class _ProfileBody extends ConsumerWidget {
     if (error != null) {
       showSafetyToast(messenger, error, icon: AppIcons.circleAlert);
     }
-  }
-}
-
-/// 실사진 서명 URL → 그림. 서명 URL 은 읽을 때마다 바뀌어 디스크 캐시가 맞을 일이 없다 — 메모리 캐시만 쓰는
-/// [NetworkImage] 로 둔다. 테스트는 네트워크 없이 그리려고 이 provider 를 바꿔 끼운다.
-final partnerPhotoImageProvider = Provider<ImageProvider Function(String url)>((ref) => NetworkImage.new);
-
-/// 카드 맨 위 실사진(14c "Real Photo Slider" 288×260). 게이트 뒤에만 온다.
-class _PhotoHeader extends ConsumerWidget {
-  const _PhotoHeader({required this.urls});
-
-  final List<String> urls;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final image = ref.watch(partnerPhotoImageProvider);
-    return Padding(
-      // 값표에 슬라이더 아래 간격이 없다 — 카드 안 섹션 간격 13(pen `TORAs`)을 따른다.
-      padding: const EdgeInsets.only(bottom: 13),
-      child: PhotoSlider(
-        photos: [for (final url in urls) image(url)],
-        photoSize: const Size(288, 260),
-        bordered: true, // pen `uMias` → 마스터 `YJdUT` 안 `oE1rh` PhotoSlide · Real — 안쪽 1px #DDDDDD
-      ),
-    );
   }
 }
 
@@ -212,128 +188,9 @@ class _Footer extends StatelessWidget {
         if (afterIdealNote) const SizedBox(height: 13),
         reviews,
         if (kakao != null) ...[kakao!, const SizedBox(height: 1)],
-        const Divider(height: 1, thickness: 1, color: AppColors.hairlineSoft),
-        // 배율을 키우면 두 링크가 한 줄에 안 들어간다 — 넘치지 않게 다음 줄로 내린다.
-        Wrap(
-          spacing: 6,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            _ActionLink(icon: AppIcon3d.siren, label: '신고하기', onTap: onReport),
-            Padding(
-              padding: _linkPadding,
-              // pen `Z0DRuj` 14 / hairline.
-              child: Text('·', style: _linkStyle),
-            ),
-            _ActionLink(icon: AppIcon3d.ban, label: '차단하기', onTap: onBlock),
-          ],
-        ),
+        ReportBlockLinks(onReport: onReport, onBlock: onBlock),
         const SizedBox(height: 3),
       ],
-    );
-  }
-}
-
-/// 누르는 영역 48 = 위 11(구분선 뒤 pen 간격) + 글자 20 + 아래 17.
-const EdgeInsets _linkPadding = EdgeInsets.only(top: 11, bottom: 17);
-
-/// pen `bLICR` · `wOUWs` 14 / 보통 굵기, 줄높이 속성 없음 · 렌더 20. 가운데 점만 hairline 색이다.
-final TextStyle _linkStyle = AppTypography.bodySmall.copyWith(color: AppColors.hairline, height: 20 / 14);
-
-/// 회색 글자 링크(pen `divm8` — 버튼이 아니라 글자 모양, 빨강 없음). 앞 그림은 3D 18(사이렌 `jsi9g` · 금지 `eUCJv`).
-class _ActionLink extends StatelessWidget {
-  const _ActionLink({required this.icon, required this.label, required this.onTap});
-
-  final AppIcon3d icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      // 눌림 효과가 스크롤과 같이 움직이게 링크 안에 Material 을 둔다(COMMON §4-2).
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: _linkPadding,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon3d(icon, size: 18),
-                const SizedBox(width: 6),
-                Flexible(child: Text(label, style: _linkStyle.copyWith(color: AppColors.muted))),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// 카카오 카드(pen `tLtXl`): 채움 primary-wash, 모서리 12, 여백 [12,14], 라벨 11 · 값 16/600(사이 2), copy 18 primary-text.
-/// 14b 카톡 행(`I9ZyOV`)과 색 · 여백 · 모서리가 달라 따로 둔다.
-class _KakaoCard extends StatelessWidget {
-  const _KakaoCard({required this.kakaoId});
-
-  final String? kakaoId;
-
-  @override
-  Widget build(BuildContext context) {
-    final id = kakaoId;
-    return Container(
-      // 세로 여백 12 는 글자 칸에만 준다 — 복사 버튼(48)은 높이 64 안에 세로 가운데로 들어간다.
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(
-        color: AppColors.primaryWash,
-        // pen 모서리 12 는 라운드 토큰(sm 8 · md 14) 사이 값이다.
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '카카오톡 아이디',
-                    // pen 11 / 보통 굵기, 줄높이 속성 없음 · 렌더 16.
-                    style: AppTypography.caption
-                        .copyWith(fontSize: 11, color: AppColors.muted, height: 16 / 11),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    // 게이트 뒤라도 상대가 아직 적지 않았을 수 있다 — 14b 와 같은 말로 적는다.
-                    id ?? '상대가 아직 아이디를 등록하지 않았어요',
-                    // pen 16/600, 줄높이 속성 없음 · 렌더 22.
-                    style: AppTypography.bodyStrong.copyWith(color: AppColors.ink, height: 22 / 16),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (id != null)
-            IconButton(
-              // 누르는 영역 48, 보이는 아이콘 18 은 pen 자리(오른쪽 여백 14 에 붙음)에 둔다.
-              padding: EdgeInsets.zero,
-              alignment: Alignment.centerRight,
-              constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-              icon: const Icon(AppIcons.copy, size: 18, color: AppColors.primaryText),
-              tooltip: '복사',
-              onPressed: () async {
-                await Clipboard.setData(ClipboardData(text: id));
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context)
-                      .showSnackBar(const SnackBar(content: Text('카카오톡 아이디를 복사했어요')));
-                }
-              },
-            ),
-        ],
-      ),
     );
   }
 }
