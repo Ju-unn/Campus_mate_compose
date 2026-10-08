@@ -284,7 +284,9 @@ class WdBase(ReadBase):
                         mock.patch.object(tools, 'batch', side_effect=fake_batch), mock.patch.object(Run, 'shot'),
                         mock.patch.object(Run, 'remember'), mock.patch.object(area2, '_guard'),
                         mock.patch.object(batch_gate, 'now_seoul', return_value=datetime(2026, 10, 6, 12, 0, tzinfo=area1.SEOUL)),
-                        mock.patch.object(area5_wd, 'BATCH_WAIT', 0), mock.patch.object(area5_wd, 'PAUSE_WAIT', 0)):
+                        mock.patch.object(area5_wd, 'BATCH_WAIT', 0), mock.patch.object(area5_wd, 'PAUSE_WAIT', 0),
+                        # E-WD-14 · 15 는 소셜 로그인 전환으로 막혀 있다(RejoinBlockedTest) — 남겨 둔 판정은 켜고 본다
+                        mock.patch.object(area5_wd, 'REJOIN_ON_02', True)):
             patcher.start()
         area3_phone5._FAILED.clear()
         self.addCleanup(area3_phone5._FAILED.clear)
@@ -1019,6 +1021,32 @@ class RejoinTest(WdBase):
             with self.subTest(name):
                 self.case(name, self.asks())
                 self.writes_only_mine()
+
+
+class RejoinBlockedTest(WdBase):
+    """소셜 로그인 전환: 02 는 로그인한 계정의 학교 메일 인증이 됐고, 공장 계정은 school_email_claims 가 없어 탈퇴가 재가입 제한을
+    남기지 않는다(account/router.py withdraw). 대체 가설이 생길 때까지 14 · 15 는 계정 · 탈퇴 · 운영 정리 배치 전에 blocked."""
+
+    def setUp(self):
+        super().setUp()
+        mock.patch.object(area5_wd, 'REJOIN_ON_02', False).start()
+
+    def test_14_15_are_blocked_before_any_account_batch_or_app(self):
+        for name in ('E-WD-14', 'E-WD-15'):
+            with self.subTest(name):
+                app = self.stop_app(lambda job: said())
+                (result, note), _ = self.case(name, None, app=app)
+                self.assertEqual(result, 'blocked', note)
+                self.assertIn('소셜 로그인 전환으로 의미 변경, 대체 가설 필요', note)
+                self.assertIn('school_email_claims', note)
+                self.assertEqual((self.fake.users, self.batches, app.jobs), ([], [], []))
+
+    def test_the_app_side_is_blocked_with_the_same_words_and_keeps_the_02_check_for_later(self):
+        source = dart('area5_wd.dart')
+        self.assertIn('소셜 로그인 전환으로 의미 변경, 대체 가설 필요', source)
+        for name in ('E-WD-14', 'E-WD-15'):
+            self.assertRegex(source, rf"'{name}': _session\(\(tester, job\) => _wdRejoinOn02\(tester, job\)\)")
+        self.assertIn("await arrive(tester, 'schoolEmail');", source)  # 되살리면 02 는 로그인한 계정의 학교 메일 인증
 
 
 # ── E-WD-16 정지 중 탈퇴 ─────────────────────────────────────────────────────────────────────────────

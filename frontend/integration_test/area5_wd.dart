@@ -4,6 +4,7 @@ part of 'area5.dart';
 // 앱은 화면을 열어 누르고 본 것을 Map 으로 말한다(문구는 사람이 읽는 글자 그대로, 못 본 것은 null).
 // 탈퇴 버튼("정말 영구 삭제")은 [_wdWithdraw] 한 곳에서만 누르고, 거기 닿는 가설은 E-WD-04 · 16 · 18 · E-EDGE-20 넷이다(e2e/test_area5_wd.py 가 고정).
 // 누르기는 줄 전체 폭 위젯의 가운데가 아니라 안의 글자를 누른다(#282). 시트 안 버튼은 시트가 다 올라온 뒤(_openFinalSheet 가 기다린다) 누른다.
+// 소셜 로그인 전환 뒤 아래 "02(로그인 화면)" 은 로그아웃하면 닿는 시작 화면(screen('start'))이다 — 02 는 로그인한 계정의 학교 메일 인증 화면이 됐다.
 
 const _wdForever = '정말 영구 삭제'; // withdraw_sheets.dart 최종 시트 AppButton
 const _wdPause = '일시중지'; // withdraw_sheets.dart `_PauseOffer` TextButton
@@ -43,7 +44,7 @@ Future<Map<String, Object?>> _wdToLogin(WidgetTester tester, {Duration within = 
   final watch = Stopwatch()..start();
   while (watch.elapsed < within) {
     await tester.pump(const Duration(milliseconds: 100));
-    if (_has(screen('login'))) return {'login_ms': watch.elapsedMilliseconds, 'notice': _wdToast(tester)};
+    if (_has(screen('start'))) return {'login_ms': watch.elapsedMilliseconds, 'notice': _wdToast(tester)};
   }
   return {'login_ms': null, 'notice': null};
 }
@@ -51,13 +52,13 @@ Future<Map<String, Object?>> _wdToLogin(WidgetTester tester, {Duration within = 
 /// 02 에 다시 들어간다 — 로그아웃 상태에서 한 번 더 로그아웃하면 SessionScope 가 화면 트리를 새로 만든다(로그아웃 뒤 02 가 처음 그려지는 길과 같다).
 /// 새 02 가 그려지면 1.5초 동안 알림이 다시 뜨는지 본다.
 Future<Map<String, Object?>> _wdReenter(WidgetTester tester) async {
-  final before = screen('login').evaluate().first;
+  final before = screen('start').evaluate().first;
   await Supabase.instance.client.auth.signOut(scope: SignOutScope.local);
   final watch = Stopwatch()..start();
   var fresh = false;
   while (!fresh && watch.elapsed < const Duration(seconds: 10)) {
     await tester.pump(const Duration(milliseconds: 100));
-    final seen = screen('login').evaluate();
+    final seen = screen('start').evaluate();
     fresh = seen.isNotEmpty && !identical(seen.first, before);
   }
   String? again;
@@ -79,8 +80,9 @@ Future<bool?> _wdMatchingToggle(WidgetTester tester) async {
 }
 
 /// 02 에 [email] 을 넣고 "인증 메일 받기" 글자를 누른 뒤 15초 안에 03(코드 화면)이 뜨는지 · 칸 아래 빨간 글자(거절 문구)가 뜨는지.
+/// 소셜 로그인 전환 뒤 02 는 로그인한 계정의 학교 메일 인증 관문이다 — 학교 메일 인증 전 계정으로 로그인해 와야 닿는다.
 Future<Map<String, Object?>> _wdAskCode(WidgetTester tester, String email) async {
-  await arrive(tester, 'login');
+  await arrive(tester, 'schoolEmail');
   await type(tester, input(_wdEmailHint), email);
   await tap(tester, find.descendant(of: find.byType(AppButton), matching: find.text(_wdRequestCode)));
   final error = find.byWidgetPredicate((w) => w is Text && w.style?.color == AppColors.error);
@@ -89,6 +91,17 @@ Future<Map<String, Object?>> _wdAskCode(WidgetTester tester, String email) async
     await tester.pump(const Duration(milliseconds: 200));
   }
   return {'code_screen': _has(screen('code')), 'error': _textOf(tester, error)};
+}
+
+/// E-WD-14 · 15(탈퇴한 메일로 02 에서 다시 가입) — 소셜 로그인 전환으로 막아 둔다(PC 쪽 e2e/area5_wd.py REJOIN_ON_02_BLOCKED 와 같은 까닭).
+/// 옛 PC 흐름은 로그아웃 상태로 켠다(02 에 못 닿는다). 대체 가설이 생겨 PC 가 02 로 보내는 계정(학교 메일 인증 전)으로
+/// 로그인시켜 오면 [_wdAskCode] 판정을 그대로 쓴다.
+Future<Map<String, Object?>> _wdRejoinOn02(WidgetTester tester, Map<String, dynamic> job) async {
+  if (Supabase.instance.client.auth.currentSession == null) {
+    throw E2eBlocked('소셜 로그인 전환으로 의미 변경, 대체 가설 필요 — 02 는 로그인한 계정의 학교 메일 인증이고, '
+        '공장 계정은 school_email_claims 가 없어 탈퇴가 재가입 제한을 남기지 않는다');
+  }
+  return _wdAskCode(tester, job['email'] as String);
 }
 
 /// 최종 시트를 연 채 `final` 에서 멈췄다가(PC 가 정지를 걸거나 먼저 탈퇴한다) "정말 영구 삭제" 를 누르고 02 까지.
@@ -122,7 +135,7 @@ Future<Map<String, Object?>> _wdAfterRestart(WidgetTester tester) async {
   while (watch.elapsed < const Duration(seconds: 30) && (landed == null || watch.elapsed - landed < const Duration(seconds: 3))) {
     await tester.pump(const Duration(milliseconds: 100));
     home |= _has(screen('home')) || _has(find.byType(AppBottomNav));
-    if (_has(screen('login'))) {
+    if (_has(screen('start'))) {
       login = true;
       notice ??= _wdToast(tester);
     }
@@ -161,12 +174,12 @@ final Map<String, Area1Case> area5CasesWd = {
     while (notice == null && watch.elapsed < _wdLoginWait) {
       await tester.pump(const Duration(milliseconds: 100));
       home |= _has(screen('home')) || _has(find.byType(AppBottomNav));
-      if (_has(screen('login'))) notice = _wdToast(tester);
+      if (_has(screen('start'))) notice = _wdToast(tester);
     }
-    return {'notice': notice, 'login_seen': _has(screen('login')), 'home_seen': home, 'notice_ms': watch.elapsedMilliseconds};
+    return {'notice': notice, 'login_seen': _has(screen('start')), 'home_seen': home, 'notice_ms': watch.elapsedMilliseconds};
   }),
-  'E-WD-14': _session((tester, job) => _wdAskCode(tester, job['email'] as String)),
-  'E-WD-15': _session((tester, job) => _wdAskCode(tester, job['email'] as String)),
+  'E-WD-14': _session((tester, job) => _wdRejoinOn02(tester, job)),
+  'E-WD-15': _session((tester, job) => _wdRejoinOn02(tester, job)),
   'E-WD-16': _session((tester, job) => _wdRace(tester)),
   'E-WD-18': _session((tester, job) => _wdRace(tester)),
   'E-EDGE-20': (tester, job) => job['phase'] == 'after' ? _wdAfterRestart(tester) : _session(_wdPressThenDie)(tester, job),
