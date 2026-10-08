@@ -206,8 +206,8 @@ class _LoginArea extends ConsumerWidget {
             child: Text(
               '학교 메일 인증은 가입할 때 한 번만 해요',
               textAlign: TextAlign.center,
-              // 줄 높이 20(캡션 12 의 20/12배).
-              style: AppTypography.caption.copyWith(color: AppColors.muted, height: _noticeLineHeight / 12),
+              // 14px(대장 지시문 15, 디자인 파일 값), 줄 높이 20 = 20/14배. 기존 14px 스타일 bodySmall 을 쓴다.
+              style: AppTypography.bodySmall.copyWith(color: AppColors.muted, height: _noticeLineHeight / 14),
             ),
           ),
         ],

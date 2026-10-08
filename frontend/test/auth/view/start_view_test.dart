@@ -122,12 +122,13 @@ void main() {
       expect(_button(SocialProvider.apple), findsNothing);
     });
 
-    testWidgets('맨 아래에 작은 회색 안내 줄이 가운데 있다', (tester) async {
+    testWidgets('맨 아래에 14px 회색 안내 줄이 가운데 있다', (tester) async {
       await _pump(tester);
 
       final notice = tester.widget<Text>(find.text(_notice));
       expect(notice.style?.color, AppColors.muted);
-      expect(notice.style?.fontSize, AppTypography.caption.fontSize);
+      // 대장 지시문 15(디자인 파일 값): 14px(줄 높이 20 은 아래 간격 시험이 본다).
+      expect(notice.style?.fontSize, 14);
       expect(notice.textAlign, TextAlign.center);
       expect(tester.getRect(find.text(_notice)).top, greaterThan(tester.getRect(_button(SocialProvider.google)).bottom));
       expect(tester.getCenter(find.text(_notice)).dx, moreOrLessEquals(180, epsilon: 0.5));
@@ -136,13 +137,17 @@ void main() {
 
   // 후속 지시문 13 B-2: 마지막 버튼 아래 12, 안내 줄 위 padding 4, 줄 높이 20, 영역 아래 28.
   testWidgets('안내 줄은 마지막 버튼 아래 12 + 줄 위 4, 줄 높이 20, 화면 맨 아래까지 28', (tester) async {
-    await _pump(tester);
+    // 시험 글꼴은 글자마다 1em 폭이라 14px 24자(띄어쓰기 포함)가 360 폭(칸 312)에서 두 줄로 꺾인다.
+    // 실제 Pretendard 로는 한 줄이다 — 한 줄로 그려지는 412 폭(흔한 안드로이드 폭)에서 잰다.
+    await _pump(tester, size: const Size(412, 915));
 
     final google = tester.getRect(_button(SocialProvider.google));
     final notice = tester.getRect(find.text(_notice));
     expect(notice.top - google.bottom, 12 + 4);
     expect(notice.height, 20);
-    expect(740 - notice.bottom, 28);
+    expect(915 - notice.bottom, 28);
+    final style = tester.widget<Text>(find.text(_notice)).style!;
+    expect(style.fontSize! * style.height!, moreOrLessEquals(20));
   });
 
   group('로그인 진행', () {

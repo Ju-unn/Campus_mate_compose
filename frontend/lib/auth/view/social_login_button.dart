@@ -78,7 +78,7 @@ class _Content extends StatelessWidget {
         // 글자 2.0배에서 칸이 모자라면 한 줄 그대로 비율을 유지하며 줄인다 — 잘리거나 말줄임되지 않는다.
         Flexible(
           child: isLoading
-              ? _Spinner(color: brand.labelStyle.color!)
+              ? _Spinner(size: brand.spinnerSize, color: brand.labelStyle.color!)
               : FittedBox(
                   fit: BoxFit.scaleDown,
                   child: Text(brand.label, maxLines: 1, softWrap: false, style: brand.labelStyle),
@@ -90,15 +90,15 @@ class _Content extends StatelessWidget {
 }
 
 class _Spinner extends StatelessWidget {
-  const _Spinner({required this.color});
+  const _Spinner({required this.size, required this.color});
 
-  static const double _size = 18;
+  final double size;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox.square(
-      dimension: _size,
+      dimension: size,
       child: CircularProgressIndicator(strokeWidth: 2, color: color),
     );
   }
@@ -116,6 +116,7 @@ class _Brand {
     required this.labelStyle,
     required this.semanticsLabel,
     required this.edgePadding,
+    required this.spinnerSize,
   });
 
   factory _Brand.of(SocialProvider provider) {
@@ -130,15 +131,24 @@ class _Brand {
     container: AppColors.kakaoContainer,
     stroke: BorderSide.none,
     mark: const CustomPaint(painter: _KakaoSymbolPainter()),
-    markSize: 18,
+    // 공식 도형 원래 크기 13×13 그대로, 키우지 않는다(대장 지시문 15, 디자인 파일 값).
+    markSize: 13,
     markGap: 8,
     label: SocialLoginLabels.kakao,
     // inherit: false — 앱 기본 글꼴 Pretendard(테마 textTheme)를 물려받지 않고 OS 기본 서체로 그린다.
-    // 크기는 카카오 가이드 "레이블은 버튼 높이의 1/3 이하" → 46/3 ≈ 15.3 이하인 15.
-    labelStyle: TextStyle(inherit: false, fontSize: 15, height: 1.2, color: AppColors.kakaoLabel),
+    // 크기는 카카오 가이드 "레이블은 버튼 높이의 1/3 이하" → 46/3 ≈ 15.3 이하인 15. 굵기 500(대장 지시문 15, 디자인 파일 값).
+    labelStyle: TextStyle(
+      inherit: false,
+      fontSize: 15,
+      fontWeight: FontWeight.w500,
+      height: 1.2,
+      color: AppColors.kakaoLabel,
+    ),
     semanticsLabel: SocialLoginLabels.kakaoSemantics,
     // 카카오는 안쪽 좌우 padding 을 따로 두지 않고 심볼 + 레이블을 가운데 정렬한다(후속 지시문 13 B-2).
     edgePadding: 0,
+    // 진행 중 스피너 20×20(대장 지시문 15, 디자인 파일 값). 심볼 13 과 따로 둔다.
+    spinnerSize: 20,
   );
 
   static final _Brand _google = _Brand(
@@ -166,6 +176,8 @@ class _Brand {
     semanticsLabel: SocialLoginLabels.googleSemantics,
     // 구글 규칙 "로고 앞 12 · 글자 뒤 12".
     edgePadding: 12,
+    // 구글 스피너는 지시가 없어 처음 값 18 그대로.
+    spinnerSize: 18,
   );
 
   final Color container;
@@ -179,6 +191,9 @@ class _Brand {
 
   /// 버튼 안쪽 좌우 여백.
   final double edgePadding;
+
+  /// 진행 중 레이블 자리에 오는 스피너 한 변.
+  final double spinnerSize;
 }
 
 /// 카카오 말풍선 심볼을 [size]×[size] 칸에 맞춰 만든다.

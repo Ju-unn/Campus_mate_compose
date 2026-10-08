@@ -122,19 +122,35 @@ void main() {
       expect(style.fontFamilyFallback, isNull);
     });
 
+    // 대장 지시문 15(디자인 파일 값): 굵기 500.
+    testWidgets('레이블 굵기는 500', (tester) async {
+      await _pump(tester, SocialProvider.kakao, onPressed: () {});
+
+      expect(_renderedStyle(tester, '카카오 로그인').fontWeight, FontWeight.w500);
+    });
+
+    // 대장 지시문 15(디자인 파일 값): 진행 중 스피너 20×20, 색은 레이블과 같은 검정 85%.
+    testWidgets('진행 중 스피너는 20×20, 검정 85%', (tester) async {
+      await _pump(tester, SocialProvider.kakao, onPressed: () {}, isLoading: true);
+
+      expect(tester.getSize(find.byType(CircularProgressIndicator)), const Size(20, 20));
+      expect(tester.widget<CircularProgressIndicator>(find.byType(CircularProgressIndicator)).color, AppColors.kakaoLabel);
+    });
+
     testWidgets('레이블 글자 크기는 버튼 높이의 1/3 이하', (tester) async {
       await _pump(tester, SocialProvider.kakao, onPressed: () {});
 
       expect(_renderedStyle(tester, '카카오 로그인').fontSize, lessThanOrEqualTo(46 / 3));
     });
 
-    testWidgets('심볼은 약 18×18, 레이블과 8 떨어져 함께 가운데 정렬', (tester) async {
+    // 대장 지시문 15(디자인 파일 값): 심볼은 공식 도형 원래 크기 13×13 그대로(키우지 않는다).
+    testWidgets('심볼은 13×13, 레이블과 8 떨어져 함께 가운데 정렬', (tester) async {
       await _pump(tester, SocialProvider.kakao, onPressed: () {});
 
       final symbol = tester.getRect(find.byKey(SocialLoginButton.markKey));
       final label = tester.getRect(find.text('카카오 로그인'));
       final button = tester.getRect(find.byType(SocialLoginButton));
-      expect(symbol.size, const Size(18, 18));
+      expect(symbol.size, const Size(13, 13));
       expect(label.left - symbol.right, moreOrLessEquals(8, epsilon: 0.01));
       final groupCenter = (symbol.left + label.right) / 2;
       expect(groupCenter, moreOrLessEquals(button.center.dx, epsilon: 0.5));
