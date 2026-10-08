@@ -825,6 +825,81 @@ class Chat67Test(Base5):
         self.assertEqual(result, 'pass', note)
         self.assertNotIn('뷰모델', note)
 
+    # ── 채널 측정: 앱이 잰 방 채널 사실 한 구절(area3_b5.dart _RoomChannelWatch) — 통과 · 실패 모두 메모에 ───────────────
+
+    OK_EVENT = {'ms': 350, 'status': 'ok', 'extension': 'postgres_changes', 'message': 'Subscribed to PostgreSQL'}
+
+    def measured(self, seconds=0.5, bubble=True, **channel):
+        """말풍선 이야기([says])에 채널 측정 키만 더한 앱 — 키를 안 주면 옛 앱과 같다."""
+        live = self.says(seconds=seconds, bubble=bubble)[None]
+        return {None: lambda job: {**live(job), **channel}}
+
+    def test_a_passing_note_says_when_the_channel_joined_what_it_was_at_send_and_the_system_events(self):
+        (result, note), _ = self.run67(self.measured(joined_ms=420, joined_at_send=True, system_events=[self.OK_EVENT]))
+        self.assertEqual(result, 'pass', note)
+        self.assertRegex(note, r'^지연 [\d.]+초\(앱 시계 − 서버가 찍은 보낸 시각\)')  # 기존 문구는 그대로 앞에
+        for part in ('채널 joined 420ms', '보낼 때 joined=True', 'system 1건(첫 ok 350ms)', 'postgres_changes/ok', 'Subscribed to PostgreSQL'):
+            self.assertIn(part, note)
+
+    def test_a_failing_note_carries_the_channel_phrase_whether_the_bubble_never_showed_or_showed_late(self):
+        channel = dict(joined_ms=420, joined_at_send=True, system_events=[self.OK_EVENT])
+        for label, says in (('안 뜸', self.measured(bubble=False, seen_at=None, **channel)), ('늦게 뜸', self.measured(seconds=30.0, **channel))):
+            with self.subTest(label):
+                self.setUp()
+                (result, note), _ = self.run67(says)
+                self.assertEqual(result, 'fail', note)
+                for part in ('채널 joined 420ms', '보낼 때 joined=True', 'system 1건(첫 ok 350ms)'):
+                    self.assertIn(part, note)
+
+    def test_an_app_that_says_nothing_about_the_channel_leaves_every_note_as_it_was(self):
+        (_, passed), _ = self.run67()
+        self.setUp()
+        (_, failed), _ = self.run67(self.failing())
+        for note in (passed, failed):
+            self.assertNotIn('채널 joined', note)
+            self.assertNotIn('보낼 때 joined', note)
+            self.assertNotIn('system', note)
+
+    def test_a_channel_that_was_not_joined_at_send_stands_out_in_both_a_pass_and_a_fail(self):
+        for label, says in (('pass', self.measured(joined_ms=3100, joined_at_send=False, system_events=[])),
+                            ('fail', self.measured(bubble=False, seen_at=None, joined_ms=3100, joined_at_send=False, system_events=[]))):
+            with self.subTest(label):
+                self.setUp()
+                (_, note), _ = self.run67(says)
+                self.assertIn('보낼 때 joined=False', note)
+
+    def test_a_channel_never_seen_joined_and_no_system_events_are_told_plainly(self):
+        (_, note), _ = self.run67(self.measured(joined_ms=None, joined_at_send=None, system_events=[]))
+        for part in ('채널 joined 못 봄', '보낼 때 joined=None', 'system 0건'):
+            self.assertIn(part, note)
+
+    def test_system_events_without_an_ok_say_so_and_keep_each_shape_so_the_next_run_can_learn_it(self):
+        events = [{'ms': 200, 'status': 'error', 'extension': 'postgres_changes', 'message': 'bad filter'},
+                  {'ms': 640, 'status': 'ok', 'extension': 'system', 'message': 'Replication connection established'}]
+        (_, note), _ = self.run67(self.measured(joined_ms=100, joined_at_send=True, system_events=events[:1]))
+        self.assertIn('system 1건(ok 없음)', note)
+        self.assertIn('200ms postgres_changes/error', note)
+        self.setUp()
+        (_, note), _ = self.run67(self.measured(joined_ms=100, joined_at_send=True, system_events=events))
+        self.assertIn('system 2건(첫 ok 640ms)', note)
+        self.assertIn('640ms system/ok', note)
+
+    def test_a_malformed_channel_report_never_turns_the_result_into_an_error(self):
+        for report in ({'joined_ms': 'soon', 'joined_at_send': 'maybe', 'system_events': 'junk'},
+                       {'system_events': [None, 7, {'ms': 5}, {'status': 'ok'}]}, {'system_events': None}, {'joined_ms': None}):
+            with self.subTest(report):
+                self.setUp()
+                (result, note), _ = self.run67(self.measured(**report))
+                self.assertEqual(result, 'pass', note)
+
+    def test_the_channel_measurements_add_no_server_read_to_a_pass(self):
+        """통과 경로의 추가 DB 호출 0 — 채널 측정은 앱이 말한 값만 문장으로 옮긴다."""
+        (result, note), _ = self.run67(self.measured(joined_ms=420, joined_at_send=True, system_events=[self.OK_EVENT]))
+        self.assertEqual(result, 'pass', note)
+        after_send = self.fake.sent[[i for i, s in enumerate(self.fake.sent) if s['path'].endswith('/messages') and s['method'] == 'POST'][-1] + 1:]
+        reads = [(s['path'], s['query'].get('select'), s['auth']) for s in after_send if s['path'].startswith('/rest/v1/')]
+        self.assertEqual(reads, [('/rest/v1/messages', 'created_at', 'svc')])
+
     # ── 진단: 말풍선이 안 떴을 때 서버가 가진 사실 · 다시 읽기 해석 ─────────────────────────────────────
 
     def failing(self, **extra):
