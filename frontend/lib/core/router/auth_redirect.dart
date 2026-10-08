@@ -32,7 +32,7 @@ class AuthRedirect {
   /// 그 다음 온보딩 화면에 묶어둔다. 둘 다 끝났으면 로그인·스플래시·게이트·온보딩 화면에
   /// 머무를 이유가 없다.
   String? _resolveForMember(String location) {
-    // 탈퇴 · 로그인 만료면 곧 main.dart 가 로그아웃해 로그인 화면으로 간다 — 그 사이 관문 화면으로 튀지 않게 제자리.
+    // 탈퇴 · 로그인 만료면 곧 main.dart 가 로그아웃해 시작 화면으로 간다 — 그 사이 관문 화면으로 튀지 않게 제자리.
     if (_accountStatus == AccountStatus.withdrawn || _accountStatus == AccountStatus.expired) {
       return null;
     }
@@ -123,11 +123,13 @@ class AuthRedirect {
     AppRoutes.onboardingBio,
   };
 
-  /// 로그인하지 않은 사용자는 로그인·인증코드 화면 외에는 갈 수 없다.
+  /// 로그인하지 않은 사용자는 시작 화면(스플래시를 고친 것, 소셜 로그인 버튼이 있다)에만 머문다.
+  /// 예전에는 로그인(학교 메일 입력) · 인증코드 화면으로 보냈다 — 그 둘은 지시문 08 에서 로그인 뒤 단계가 되고,
+  /// 그때까지 경로만 남아 있다(로그아웃 상태로 가면 시작 화면으로 돌아온다).
   String? _resolveForGuest(String location) {
-    if (location == AppRoutes.login || location == AppRoutes.verifyCode) {
+    if (location == AppRoutes.splash) {
       return null;
     }
-    return AppRoutes.login;
+    return AppRoutes.splash;
   }
 }

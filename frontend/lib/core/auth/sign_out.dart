@@ -1,6 +1,9 @@
+import 'package:campus_mate/auth/model/social_login_repository.dart';
+import 'package:campus_mate/auth/model/social_login_repository_provider.dart';
 import 'package:campus_mate/core/draft/draft_store.dart';
 import 'package:campus_mate/core/push/push_provider.dart';
 import 'package:campus_mate/core/push/push_registrar.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -22,7 +25,16 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// 온보딩 임시 저장 값([DraftStore])도 여기서 전부 지운다(사진 임시 파일 포함). 다음에 이 폰으로 로그인하는 사람이
 /// 앞사람이 쓰던 값을 보지 않게 하고, 평문 값을 폰에 남겨 두지 않는다. 세션이 끝나기 전에 지운다.
 /// 탈퇴도 main.dart 리스너가 이 함수로 로그아웃하므로 같이 지워진다.
-Future<void> signOut(PushRegistrar registrar, GoTrueClient auth, DraftStore drafts) async {
+///
+/// 앱 로그아웃 직후 [social] 로 카카오 · 구글 SDK 로그인도 끊는다(후속 지시문 13 B-1). 탈퇴에도 같이 적용된다.
+/// 임시 저장 지우기와 공급자 로그아웃은 서로 독립이다 — 임시 저장 지우기가 던져도 앱 로그아웃과 공급자
+/// 로그아웃은 하고(그 오류는 끝난 뒤 그대로 던진다, 위 "숨기지 않는다"), 공급자 쪽 실패는 삼킨다(오류 종류만 로그).
+Future<void> signOut(
+  PushRegistrar registrar,
+  GoTrueClient auth,
+  DraftStore drafts, {
+  SocialLoginRepository? social,
+}) async {
   try {
     await registrar.stop();
   } finally {
@@ -30,7 +42,16 @@ Future<void> signOut(PushRegistrar registrar, GoTrueClient auth, DraftStore draf
       await drafts.clearAll();
     } finally {
       await _signOutOnDevice(auth);
+      await _signOutProviders(social);
     }
+  }
+}
+
+Future<void> _signOutProviders(SocialLoginRepository? social) async {
+  try {
+    await social?.signOutProviders();
+  } on Object catch (error) {
+    debugPrint('소셜 공급자 로그아웃 실패: ${error.runtimeType}');
   }
 }
 
@@ -47,5 +68,6 @@ Future<void> _signOutOnDevice(GoTrueClient auth) async {
 final signOutProvider = Provider<Future<void> Function()>((ref) {
   final registrar = ref.read(pushRegistrarProvider);
   final drafts = ref.read(draftStoreProvider);
-  return () => signOut(registrar, Supabase.instance.client.auth, drafts);
+  final social = ref.read(socialLoginRepositoryProvider);
+  return () => signOut(registrar, Supabase.instance.client.auth, drafts, social: social);
 });

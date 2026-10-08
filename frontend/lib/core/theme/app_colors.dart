@@ -72,4 +72,25 @@ abstract final class AppColors {
 
   /// 매칭 성사, 학생 인증 완료
   static const Color success = Color(0xFF25795A);
+
+  // ── 소셜 로그인 버튼(시작 화면). 앱 토큰이 아니라 각 사 브랜드 규칙 값이다(대장 지시문 07 규칙표).
+  //    눌림 · 로딩 · 비활성에서도 바꾸지 않는다.
+
+  /// 카카오 로그인 버튼 바탕(카카오 로그인 디자인 가이드)
+  static const Color kakaoContainer = Color(0xFFFEE500);
+
+  /// 카카오 말풍선 심볼. 공식 SVG 의 #191919 가 아니라 가이드 본문 값(규칙표 §1)
+  static const Color kakaoSymbol = Color(0xFF000000);
+
+  /// 카카오 레이블 — 검정 불투명도 85%
+  static final Color kakaoLabel = const Color(0xFF000000).withValues(alpha: 0.85);
+
+  /// 구글 버튼 바탕(Google 브랜드 가이드, 밝은 테마)
+  static const Color googleContainer = Color(0xFFFFFFFF);
+
+  /// 구글 버튼 안쪽 1px 획
+  static const Color googleStroke = Color(0xFF747775);
+
+  /// 구글 레이블
+  static const Color googleLabel = Color(0xFF1F1F1F);
 }
