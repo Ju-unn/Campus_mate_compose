@@ -293,6 +293,39 @@ def test_a_failing_admin_list_does_not_stop_the_other_steps(client, world):
     assert result["deleted_accounts"] == 1
 
 
+def test_a_temp_candidate_skipped_for_its_profile_is_counted(client, world):
+    """프로필이 있어 건너뛴 이메일 계정을 skipped_accounts 에 센다(운영에서 보이게, 지시문 12-3)."""
+    world.temp_email_account(OLD_EMAIL_USER, hours_ago=24 * 40, with_profile=True)
+
+    result = _run(client)
+
+    assert result["deleted_temp_email_accounts"] == 0
+    assert result["skipped_accounts"] == 1
+
+
+def test_a_temp_candidate_skipped_for_an_unreadable_profile_is_counted(client, world):
+    world.temp_email_account(TEMP_OLD, hours_ago=48)
+    world.unreadable_profiles = {TEMP_OLD}
+
+    result = _run(client)
+
+    assert result["deleted_temp_email_accounts"] == 0
+    assert result["skipped_accounts"] == 1
+
+
+def test_old_email_accounts_with_profiles_do_not_crowd_out_a_leftover(client, world):
+    """프로필 있는 옛 이메일 계정이 100개를 넘어도 그 뒤의 진짜 잔여물을 지운다(후보 100개 자르기에 막히지 않는다)."""
+    for n in range(120):
+        world.temp_email_account(f"{n:08d}-2222-2222-2222-222222222222", hours_ago=24 * 40, with_profile=True)
+    world.temp_email_account(TEMP_OLD, hours_ago=25)
+
+    result = _run(client)
+
+    assert result["deleted_temp_email_accounts"] == 1
+    assert len(world.calls("DELETE", f"/auth/v1/admin/users/{TEMP_OLD}")) == 1
+    assert result["skipped_accounts"] == 120
+
+
 def test_running_the_temp_step_twice_is_safe(client, world):
     world.temp_email_account(TEMP_OLD, hours_ago=25)
     assert _run(client)["deleted_temp_email_accounts"] == 1
