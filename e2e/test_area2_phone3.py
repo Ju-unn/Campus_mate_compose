@@ -1,6 +1,7 @@
 """영역 2 폰 A 3차(망 끊기 · 카드 · 알림 · 공유 창 · 하트 다시 만들기)의 PC 쪽 시험 — 폰 · 운영 없이 가짜 앱 · 가짜 HTTP.
 저장소 루트에서 `python -m unittest e2e.test_area2_phone3`."""
 
+import re
 import unittest
 from datetime import datetime
 from unittest import mock
@@ -553,6 +554,37 @@ class RealAiTest(CaseBase):
         phone = FakePhone(midway_step={'step': 'started'})
         with mock.patch.dict(area2_phone3.os.environ, {'E2E_REAL_AI': '1'}):
             self.assertEqual(self.go('E-HEART-42', phone, rules)[0], 'blocked')
+
+
+class WaitForTest(unittest.TestCase):
+    def test_it_sleeps_the_given_interval_and_the_default_five_seconds_otherwise(self):
+        sleeps, ticks = [], iter([False, False, True])
+        with mock.patch('time.sleep', sleeps.append):
+            self.assertTrue(area2_phone3._wait_for(lambda: next(ticks), 60, 0.3))
+        self.assertEqual(sleeps, [0.3, 0.3])
+        sleeps.clear()
+        ticks = iter([False, True])
+        with mock.patch('time.sleep', sleeps.append):
+            self.assertTrue(area2_phone3._wait_for(lambda: next(ticks), 60))
+        self.assertEqual(sleeps, [area2_phone3.POLL])
+
+    def test_the_short_poll_is_well_under_a_second_and_the_default_one_is_not(self):
+        self.assertTrue(0.1 <= area2_phone3.FAST_POLL <= 0.5)
+        self.assertGreaterEqual(area2_phone3.POLL, 1)
+
+    def test_it_gives_up_after_the_seconds(self):
+        with mock.patch('time.sleep', lambda s: None), mock.patch('time.monotonic', side_effect=[0, 1, 2, 61]):
+            self.assertFalse(area2_phone3._wait_for(lambda: False, 60, 0.3))
+
+
+class AppRegenWaitTest(unittest.TestCase):
+    def test_the_generating_notice_is_awaited_longer_than_the_photo_replace_takes(self):
+        # 만들기는 사진 교체(업로드 · SafeSearch)가 먼저다 — 15초로는 모자라 fail → 유료 가설이 한 번 더 도는 길이 생긴다(area5_photo 는 60초).
+        text = (tools.ROOT / 'frontend' / 'integration_test' / 'area2_c.dart').read_text(encoding='utf-8')
+        body = text[text.index('Area1Case _regen()'):text.index('final Map<String, Area1Case> area2cCases')]
+        seconds = re.search(r"pumpUntil\(tester, find\.text\(_generating\), timeout: const Duration\(seconds: (\d+)\)\)", body)
+        self.assertIsNotNone(seconds)
+        self.assertGreaterEqual(int(seconds.group(1)), 60)
 
 
 class RegistryTest(unittest.TestCase):

@@ -21,7 +21,7 @@ import time
 from e2e import area1, tools
 from e2e.area1 import Check, _app, _rows
 from e2e.area1_b3 import regen_photo
-from e2e.area2_phone3 import _balance, _slow, _wait_for
+from e2e.area2_phone3 import FAST_POLL, _balance, _slow, _wait_for
 from e2e.area3_phone import MISSING
 from e2e.area5_act import _paid_case
 from e2e.area5_photo import COST, HEARTS, WORKER_MS, WORKER_WAIT, _hearts_to, _paid_body, _regen_ui, _two_ready
@@ -50,9 +50,10 @@ def _newest_ready_file(run, account):
 
 
 def _kill_once_registered(phone, run, account, known):
-    """앱이 누른 직후 보낸 멈춤 말에 — 새 아바타 시도 행이 서버에 생길 때까지 기다렸다가 [KILL_AFTER]초 뒤 죽인다. 안 생기면 죽이지 않고 blocked."""
+    """앱이 누른 직후 보낸 멈춤 말에 — 새 아바타 시도 행이 서버에 생길 때까지 [FAST_POLL]초 간격으로 보다가 [KILL_AFTER]초 뒤 죽인다(5초 간격이면 "0.3초 뒤" 가
+    5초 넘게 밀린다). 안 생기면 죽이지 않고 blocked."""
     def kill(said):
-        if not _wait_for(lambda: _new_rows(run, account, known), REGISTER_WAIT):
+        if not _wait_for(lambda: _new_rows(run, account, known), REGISTER_WAIT, FAST_POLL):
             raise Blocked(f'누른 뒤 {REGISTER_WAIT}초가 지나도 새 아바타 행이 서버에 없음 — 사진 교체나 등록이 안 닿았다, 죽일 때를 못 잡음')
         return _kill_soon(phone, KILL_AFTER)(said)
     return kill
@@ -83,7 +84,7 @@ def _new_rows(run, account, known):
 def _reached_server(run, account, known):
     """죽인 뒤 서버에 새 시도 행이 생겼나 — 없으면 요청이 안 닿은 것이라 판정할 수 없다."""
     if not _wait_for(lambda: _new_rows(run, account, known), ATTEMPT_WAIT):
-        raise Blocked(f'죽인 뒤 {ATTEMPT_WAIT}초가 지나도 새 아바타 행이 서버에 없음 — 요청이 안 닿았다(2초가 짧았나), 판정 못 함')
+        raise Blocked(f'죽인 뒤 {ATTEMPT_WAIT}초가 지나도 새 아바타 행이 서버에 없음 — 요청이 안 닿았다(죽이기가 등록보다 일렀나), 판정 못 함')
 
 
 def _one_charge(check, run, account, known, balance_want):
@@ -116,7 +117,7 @@ def p_edge_17(run, phone, paid):
                f"다시 켠 앱의 히어로 그림 {said.get('avatar_file', MISSING)!r}(기대 가장 늦게 만든 ready {file!r})")
     check.that(said.get('sheet_body', MISSING) == _paid_body(HEARTS - COST),
                f"다시 켠 앱의 15b 글 {said.get('sheet_body', MISSING)!r}(기대 {_paid_body(HEARTS - COST)!r} — 줄어든 하트)")
-    return check.result(f'누른 뒤 {ms}ms 에 kill · 다시 켠 앱이 새 그림과 하트 {HEARTS - COST} 를 봄. 유료 호출: 큐 등록 1번 · OpenAI 이미지 1번(하트 {COST}개)')
+    return check.result(f'새 시도 행이 보인 뒤 {ms}ms 에 kill · 다시 켠 앱이 새 그림과 하트 {HEARTS - COST} 를 봄. 유료 호출: 큐 등록 1번 · OpenAI 이미지 1번(하트 {COST}개)')
 
 
 def p_edge_18(run, phone, paid):
@@ -138,7 +139,7 @@ def p_edge_18(run, phone, paid):
         raise Blocked(f'아바타 생성이 실패(AI 쪽) — 앱 결함으로 세지 않는다(새 행 {[r[1] for r in new]})')
     _regen_ui(check, said)
     _one_charge(check, run, account, known, HEARTS - COST)
-    return check.result(f"누른 뒤 {ms}ms 에 kill · 앱 실행 {LATE:.0f}초 뒤 새 행 {seen.get('statuses')} 에서 다시 누름 · 새 행 하나 · 하트 한 번. "
+    return check.result(f"새 시도 행이 보인 뒤 {ms}ms 에 kill · 앱 실행 {LATE:.0f}초 뒤 새 행 {seen.get('statuses')} 에서 다시 누름 · 새 행 하나 · 하트 한 번. "
                         '"서버 202" 는 앱이 코드를 안 말해 새 행 · 원장으로 대신 봄. 유료 호출: 큐 등록 1번 · OpenAI 이미지 1번')
 
 

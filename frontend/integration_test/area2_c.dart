@@ -142,7 +142,8 @@ Area1Case _regen() => _session((tester, job) async {
       final body = free ? _freeBody : '하트 10개가 차감돼요. 지금 보유한 하트는 ${job['balance']}개예요. 새 아바타는 바로 프로필에 반영돼요.';
       must(_count(find.text(body)) == 1, '시트 글 "$body" ${_count(find.text(body))}개');
       await tap(tester, find.text(free ? _freeCta : _paidCta));
-      await pumpUntil(tester, find.text(_generating), timeout: const Duration(seconds: 15));
+      // 만들기는 사진 교체(PUT /me/photos — 업로드 · SafeSearch)가 먼저라 "변환 중" 안내까지 예전(등록만)보다 오래 걸린다 — area5_photo 와 같이 60초.
+      await pumpUntil(tester, find.text(_generating), timeout: const Duration(seconds: 60));
       await _longStep('started', const Duration(minutes: 12)); // PC 가 새 아바타 완성 · 잔액을 본다
       must(await _gone(tester, find.text(_generating), const Duration(seconds: 120)), '완성 뒤에도 "$_generating" 안내가 남음');
       return null;

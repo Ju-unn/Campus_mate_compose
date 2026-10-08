@@ -225,6 +225,18 @@ class Edge04Test(NewBase):
         self.assertEqual(result, 'pass', note)
         self.assertIn(area5_new.REGEN_DELAY_MS / 1000 + area5_new.CUT_AFTER, sleeps)
 
+    def test_the_new_source_photo_is_watched_with_the_short_poll(self):
+        seen = []
+        real = area5_new._wait_for
+
+        def spy(until, seconds, poll=None):
+            seen.append((seconds, poll))
+            return real(until, seconds, poll)
+        with mock.patch.object(area5_new, '_wait_for', spy):
+            result, note, _ = self.run04()
+        self.assertEqual(result, 'pass', note)
+        self.assertIn((area5_new.PUT_WAIT, area5_new.FAST_POLL), seen)  # 5초 간격이면 끊기가 요청이 서버에 닿은 뒤 1~6초 이상 밀린다
+
     def test_without_a_new_source_photo_the_cut_is_blocked_and_the_network_comes_back(self):
         # 사진 교체가 안 닿았으면 "등록 응답만 놓치는 걸음" 을 못 만든다 — 끊지 않고 blocked. 늦춘 망은 되돌린다.
         result, note, _ = self.run04(replaced=False)

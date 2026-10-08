@@ -27,6 +27,7 @@ FRIEND_TITLE = '친구가 가입했어요'  # friend_reviews/router.py notify_re
 LOW_HEARTS = '하트가 모자라요'  # errors.HEARTS_NOT_ENOUGH
 AI_WAIT = 480  # 아바타 한 장이 완성되기를 기다리는 시간(초) — 시나리오 "수 분 안"
 POLL = 5
+FAST_POLL = 0.3  # 짧은 사이에 반응해야 하는 기다림(앱 죽이기 · 망 끊기)용 — POLL(5초)로 보면 "0.3초 뒤" 가 5초 넘게 밀린다
 TEST_REGION = 'e2e'  # region_group_settings 에서 쓰기를 허락하는 유일한 지역(시나리오 G1)
 _PAID = {}  # 유료(AI) 호출이 이미 시작된 가설 → 그때까지 나온 (결과, 메모). run_case 의 fail 재시도로 같은 비용을 두 번 내지 않고, 다시 불리면 이 결과를 돌려준다
 SHARE_LABELS = ['복사', 'Copy']
@@ -256,12 +257,13 @@ def tap_copy(serial):
     return False, f' · 창 라벨 {sheet_labels(xml)}'
 
 
-def _wait_for(until, seconds):
+def _wait_for(until, seconds, poll=None):
+    """[until] 이 참이 될 때까지 [poll]초(기본 POLL) 간격으로 본다. [seconds] 가 지나도 안 참이면 False."""
     deadline = time.monotonic() + seconds
     while not until():
         if time.monotonic() >= deadline:
             return False
-        time.sleep(POLL)
+        time.sleep(POLL if poll is None else poll)
     return True
 
 

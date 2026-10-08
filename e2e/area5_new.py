@@ -39,7 +39,7 @@ from e2e import area1, area2, emu, tools
 from e2e.area1 import Check, _app
 from e2e.area1_b3 import regen_photo
 from e2e.area1_b2 import _blocks
-from e2e.area2_phone3 import AI_WAIT, _balance, _slow, _wait_for, offline
+from e2e.area2_phone3 import AI_WAIT, FAST_POLL, _balance, _slow, _wait_for, offline
 from e2e.area3_phone import MISSING
 from e2e.area4 import _restore, stepper
 from e2e.area5_act import _cut_settled, _paid_case, _profile, _set, _unlock, _write
@@ -91,7 +91,8 @@ def p_edge_04(run, phone, paid):
         # 서버에 새 원본 사진이 생기는 것을 본 뒤(교체가 서버에 닿음) 그 응답이 앱에 닿는 지연([REGEN_DELAY_MS]) 만큼 더 기다려 앱이 등록을 보낸 때로 잡고 거기서 1초 뒤 끊는다.
         # 어림짐작이라 등록이 서버에 닿았는지는 아래에서 새 아바타 행으로 가른다 — 안 닿았으면 결과 기록(pass 메모)이다.
         old_paths = {r['storage_path'] for r in photos_before}
-        if not _wait_for(lambda: {r['storage_path'] for r in _photos_now(run, account)} != old_paths, PUT_WAIT):
+        # [FAST_POLL]초 간격으로 봐 5초 간격의 어림 오차(끊기가 요청이 서버에 닿은 뒤 1~6초 이상 밀림)를 줄인다.
+        if not _wait_for(lambda: {r['storage_path'] for r in _photos_now(run, account)} != old_paths, PUT_WAIT, FAST_POLL):
             raise Blocked(f'눌린 뒤 {PUT_WAIT}초가 지나도 새 원본 사진이 서버에 없음 — 사진 교체가 안 닿았다, 등록 응답을 놓치는 걸음을 못 잡음')
         time.sleep(REGEN_DELAY_MS / 1000 + CUT_AFTER)
         emu.net(serial, False)
