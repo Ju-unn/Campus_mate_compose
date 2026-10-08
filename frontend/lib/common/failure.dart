@@ -133,3 +133,20 @@ final class WithdrawnFailure extends Failure {
   @override
   String toDisplayMessage() => '탈퇴한 계정이에요';
 }
+
+/// 사용자가 소셜 로그인 창을 닫거나 취소한 경우(시작 화면 토스트, 대장 지시문 07).
+final class LoginCancelledFailure extends Failure {
+  const LoginCancelledFailure();
+
+  @override
+  String toDisplayMessage() => '로그인이 취소됐어요';
+}
+
+/// 소셜 로그인이 취소 말고 다른 이유(네트워크 · 키 없음 · ID 토큰 없음 · Supabase 거절)로 끝난 경우.
+/// 사유는 사용자에게 나누어 보이지 않는다(대장 지시문 07).
+final class SocialLoginFailure extends Failure {
+  const SocialLoginFailure();
+
+  @override
+  String toDisplayMessage() => '로그인하지 못했어요. 잠시 뒤 다시 시도해 주세요';
+}
