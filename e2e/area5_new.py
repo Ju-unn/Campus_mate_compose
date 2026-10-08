@@ -37,12 +37,14 @@ from datetime import datetime, timedelta, timezone
 
 from e2e import area1, area2, emu, tools
 from e2e.area1 import Check, _app
+from e2e.area1_b3 import regen_photo
 from e2e.area1_b2 import _blocks
-from e2e.area2_phone3 import AI_WAIT, _balance, _slow, offline
+from e2e.area2_phone3 import AI_WAIT, _balance, _slow, _wait_for, offline
 from e2e.area3_phone import MISSING
 from e2e.area4 import _restore, stepper
 from e2e.area5_act import _cut_settled, _paid_case, _profile, _set, _unlock, _write
 from e2e.area5_edge import NETWORK, NEW_HEIGHT, OLD_HEIGHT, _emu, _net_normal, _walk
+from e2e.area5_photo import _photos_now
 from e2e.area5_read import TITLES, _avatar_rows, _home, _ready_avatars
 from e2e.area5_wd import EXPIRED, LOGIN_MS, ROOM, WITHDRAWN, _notice, _reached_login, _sessions_cut, _state, _tapped, _withdrawn
 from e2e.tools import Blocked
@@ -50,6 +52,7 @@ from e2e.tools import Blocked
 APP_WAIT = 180  # Run.phone 이 앱의 말 하나를 기다리는 초(기본값)
 REGEN_DELAY_MS = 5000  # 시나리오 E-EDGE-04 "망 지연 5초"
 CUT_AFTER, OFFLINE = 1, 10  # E-EDGE-04 "누른 뒤 1초에 끊고 10초 뒤 켬"
+PUT_WAIT = 240  # 망이 5초씩 늦는 채로 사진 교체(업로드 · SafeSearch)가 서버에 닿기를 기다리는 시간(초) — E-EDGE-04
 CUT_CHECK = 6  # 끊은 뒤 핑이 멎기를 기다리는 초 — 10초 단절 안에서 잰다
 HOLD_MS =(CUT_AFTER + OFFLINE) * 1000  # 변환 중 안내가 적어도 이때까지 떠 있어야 한다(망이 돌아온 때)
 WORKER_WAIT = AI_WAIT + 420  # 앱이 워커를 기다리는 시간(초) — 앱은 11분까지 본다(area5_photo.WORKER_WAIT 와 같다)
@@ -70,6 +73,7 @@ def _now():
 def p_edge_04(run, phone, paid):
     serial = phone.serial
     emu.require_emulator(serial)
+    regen_photo(run, phone)  # 다시 만들기는 사진부터 고른다(15b-4) — 앱이 갤러리에서 이 사진을 고른다
     check = Check()
     account, token = _home(run)
     ready = len(_ready_avatars(run, account))
@@ -77,12 +81,19 @@ def p_edge_04(run, phone, paid):
         raise Blocked(f'준비: ready 아바타 {ready}장 — 기대 1장(무료로 만드는 차례)')
     known = {r[0] for r in _avatar_rows(run, account)}
     balance = _balance(run, account)
+    photos_before = _photos_now(run, account)
 
     def slow(said):  # 앱이 15b 시트를 연 채 멈춤 — 망을 5초 늦춘다
         _emu(serial, 'network', 'delay', str(REGEN_DELAY_MS))
 
-    def cut(said):  # 앱이 "무료로 만들기" 를 누르자마자 말함 — 1초 뒤 끊고 10초 뒤 켠다
-        time.sleep(CUT_AFTER)
+    def cut(said):  # 앱이 "무료로 만들기" 를 누르자마자 말함 — 등록 요청이 나갈 때쯤 1초 뒤 끊고 10초 뒤 켠다
+        # 만들기는 사진 교체(PUT /me/photos)가 먼저고 이어 등록(POST /me/avatar/regenerate)이다. "응답만 놓친 등록" 을 보려면 끊는 때가 등록 요청이 나간 뒤여야 한다 —
+        # 서버에 새 원본 사진이 생기는 것을 본 뒤(교체가 서버에 닿음) 그 응답이 앱에 닿는 지연([REGEN_DELAY_MS]) 만큼 더 기다려 앱이 등록을 보낸 때로 잡고 거기서 1초 뒤 끊는다.
+        # 어림짐작이라 등록이 서버에 닿았는지는 아래에서 새 아바타 행으로 가른다 — 안 닿았으면 결과 기록(pass 메모)이다.
+        old_paths = {r['storage_path'] for r in photos_before}
+        if not _wait_for(lambda: {r['storage_path'] for r in _photos_now(run, account)} != old_paths, PUT_WAIT):
+            raise Blocked(f'눌린 뒤 {PUT_WAIT}초가 지나도 새 원본 사진이 서버에 없음 — 사진 교체가 안 닿았다, 등록 응답을 놓치는 걸음을 못 잡음')
+        time.sleep(REGEN_DELAY_MS / 1000 + CUT_AFTER)
         emu.net(serial, False)
         started = time.monotonic()
         if not emu.wait_net(serial, False, timeout=CUT_CHECK):  # 안 끊겼는데 지나가면 "응답만 놓친 길" 을 안 본 채 pass 가 된다
@@ -294,7 +305,7 @@ EMULATOR = ['E-EDGE-04', 'E-WD-20', 'E-EDGE-10', 'E-EDGE-09']  # --device B — 
 area1.PHONE.update(PHONE)
 area1.BUNDLES['area5-new'] = list(PHONE)
 tools.CASE_LIMITS.update({
-    'E-EDGE-04': WORKER_WAIT + ROOM,  # 워커 기다림(앱 11분) + 준비
+    'E-EDGE-04': WORKER_WAIT + PUT_WAIT + ROOM,  # 워커 기다림(앱 11분) + 준비
     'E-EDGE-12': len(SCALES) * 2 * APP_WAIT + ROOM,  # 배율마다 앱 한 번(멈춤 하나)
     'E-WD-19': 3 * APP_WAIT + ROOM,  # 멈춤 둘 · 결과
     'E-WD-20': 2 * APP_WAIT + ROOM,  # 멈춤 · 5초 지연 결과

@@ -22,6 +22,10 @@ class _FkClient extends http.BaseClient {
   /// `METHOD /경로` → 대신 줄 상태코드.
   final Map<String, int> rules = {};
 
+  /// 서버에 안 보내고 **성공(200)** 으로 대신 답할 `METHOD /경로` — 다시 만들기는 사진 교체(`PUT /me/photos`)가 먼저라, 그 걸음을 성공으로 넘겨야
+  /// 이어지는 등록(`POST /me/avatar/regenerate`)에 오류를 줄 수 있다. 서버에 안 닿으니 DB 는 안 바뀐다. [rules] 보다 먼저 본다.
+  final Set<String> okRules = {};
+
   /// 대신 답한 요청(`METHOD /경로=상태`) · 서버로 그냥 간 요청(지켜보는 여섯 길만).
   final List<String> faked = [];
   final List<String> passed = [];
@@ -44,8 +48,17 @@ class _FkClient extends http.BaseClient {
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) {
     built = true;
-    final status = _statusFor(request);
     final key = '${request.method} ${request.url.path}';
+    if (okRules.any((rule) => _matches(rule, request))) {
+      faked.add('$key=200');
+      return Future.value(http.StreamedResponse(
+        Stream.value(utf8.encode('{"ok":true}')),
+        200,
+        request: request,
+        headers: const {'content-type': 'application/json'},
+      ));
+    }
+    final status = _statusFor(request);
     if (status == null) {
       if (_fkWatched.any((rule) => _matches(rule, request))) passed.add(key);
       return _inner.send(request);
@@ -153,11 +166,18 @@ Future<Map<String, Object?>> _fkSave(WidgetTester tester, String place, Map<Stri
 }
 
 /// 15 → 히어로 알약 → 15b "무료로 만들기" — 토스트 글자를 본다.
-Future<Map<String, Object?>> _fkRegenerate(WidgetTester tester, Map<String, dynamic> job) async {
+Future<Map<String, Object?>> _fkRegenerate(WidgetTester tester, Map<String, dynamic> job, _FkClient fake) async {
   await _returnTo(tester, '내 프로필');
   await _photoOpenSheet(tester);
-  await _photoPress(tester, find.descendant(of: find.byType(SafetySheet), matching: find.text(_photoFreeCta)));
-  return {...await _fkRefused(tester, 'avatar', null, job['expect'] as String), 'generating_gone': !_has(find.text(_photoGenerating))};
+  // 만들기는 사진 교체(PUT /me/photos)가 먼저다 — 그 걸음은 성공으로 대신 답해(서버에 안 닿는다) 등록(POST /me/avatar/regenerate)의 오류를 본다.
+  fake.okRules.add('PUT /me/photos');
+  try {
+    await _photoPress(tester, find.descendant(of: find.byType(SafetySheet), matching: find.text(_photoFreeCta)));
+    // 오류 문구는 15 의 토스트(아래 화면)가 아니라 사진 고르기(15b-5) 칸 아래에 뜬다.
+    return {...await _fkRefused(tester, 'avatar', null, job['expect'] as String), 'generating_gone': !_has(find.text(_photoGenerating))};
+  } finally {
+    fake.okRules.remove('PUT /me/photos');
+  }
 }
 
 /// 설정 → 탈퇴하기 → 영구 삭제 → "정말 영구 삭제" — 가짜가 서버 대신 답하므로 계정은 그대로다. 최종 시트에 문구가 뜬다.
@@ -217,7 +237,7 @@ Future<Map<String, Object?>> _fkSaves(WidgetTester tester, Map<String, dynamic> 
   for (final place in ['15-6', '15-7']) {
     if (places.contains(place)) walks.add(await _fkSave(tester, place, job));
   }
-  if (places.contains('avatar')) walks.add(await _fkRegenerate(tester, job));
+  if (places.contains('avatar')) walks.add(await _fkRegenerate(tester, job, fake));
   if (places.contains('withdraw')) walks.add(await _fkWithdraw(tester, job));
   return {'walks': walks};
 }
