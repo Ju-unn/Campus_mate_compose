@@ -72,63 +72,58 @@ def test_allows_known_domain():
     assert response.json() == {}
 
 
-def test_rejects_unknown_domain():
+def _no_db_calls(seen: list[httpx.Request]):
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json=[])
+        seen.append(request)
+        return httpx.Response(200, json=[{"university_id": "22222222-2222-2222-2222-222222222222"}])
+    return httpx.MockTransport(handler)
 
-    client = TestClient(app)
+
+# 소셜 로그인 전환: 소셜 계정에는 학교 메일이 없어(카카오는 이메일조차 없다) 훅은 서명만 보고 항상 허용한다.
+# 도메인 · 재가입 제한 거절 시험은 tests/school_email/test_school_email_check.py 로 옮겼다(같은 내용).
+
+@pytest.mark.parametrize("email", ["hong@unknown.ac.kr", "hong@gmail.com", ""])
+def test_any_email_is_allowed_without_asking_the_db(email):
+    seen: list[httpx.Request] = []
+
     response = _post_hook(
-        client,
-        {"metadata": {"uuid": "11111111-1111-1111-1111-111111111111", "name": "before-user-created"}, "user": {"email": "hong@unknown.ac.kr"}},
-        httpx.MockTransport(handler),
-    )
-
-    # GoTrue 는 4xx 상태 본문을 읽지 않고 500 으로 바꾼다 — 거절은 200 + `error` 객체여야 메시지가 앱까지 간다.
-    # http_code 422 는 앱이 "가입 거절" 로 읽는 값(supabase_auth_repository.dart `_toFailure`).
-    assert response.status_code == 200
-    assert response.json() == {"error": {"http_code": 422, "message": "허용되지 않은 학교 이메일이에요"}}
-
-
-def test_rejects_blocked_email():
-    def handler(request: httpx.Request) -> httpx.Response:
-        if "university_email_domains" in str(request.url):
-            return httpx.Response(200, json=[{"university_id": "22222222-2222-2222-2222-222222222222"}])
-        return httpx.Response(200, json=[{"blocked_until": "2099-01-01T00:00:00Z"}])
-
-    client = TestClient(app)
-    response = _post_hook(
-        client,
-        {"metadata": {"uuid": "11111111-1111-1111-1111-111111111111", "name": "before-user-created"}, "user": {"email": "hong@snu.ac.kr"}},
-        httpx.MockTransport(handler),
+        TestClient(app),
+        {"metadata": {"uuid": "11111111-1111-1111-1111-111111111111", "name": "before-user-created"}, "user": {"email": email}},
+        _no_db_calls(seen),
     )
 
     assert response.status_code == 200
-    assert response.json() == {"error": {"http_code": 422, "message": "재가입이 제한된 이메일이에요"}}
+    assert response.json() == {}
+    # 도메인 · 재가입 제한은 이제 /school-email/check · confirm 이 본다 — 훅은 PostgREST 를 부르지 않는다.
+    assert seen == []
 
 
-def test_blocked_email_hash_uses_identity_key():
-    """재가입 차단 해시는 **신원 키**로 만든다(미결 41①).
+def test_a_blocked_email_is_no_longer_refused_here():
+    """재가입 제한 해시가 걸려 있어도 훅은 통과시킨다 — 학교 메일 확인(1 · 2번)이 같은 해시로 막는다."""
+    seen: list[httpx.Request] = []
 
-    서명 키로 만들면 서명 키를 바꾸는 순간 저장된 해시가 전부 안 맞아 차단이 풀린다.
-    """
-    asked: list[str] = []
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        if "university_email_domains" in str(request.url):
-            return httpx.Response(200, json=[{"university_id": "22222222-2222-2222-2222-222222222222"}])
-        asked.append(request.url.params.get("email_hmac", ""))
-        return httpx.Response(200, json=[])
-
-    client = TestClient(app)
-    _post_hook(
-        client,
+    response = _post_hook(
+        TestClient(app),
         {"metadata": {"uuid": "11111111-1111-1111-1111-111111111111", "name": "before-user-created"}, "user": {"email": "hong@snu.ac.kr"}},
-        httpx.MockTransport(handler),
+        _no_db_calls(seen),
     )
 
-    expected = hash_email(IDENTITY_KEY, "hong@snu.ac.kr")
-    assert asked == [f"eq.\\x{expected.hex()}"]
-    assert hash_email(SECRET, "hong@snu.ac.kr") != expected
+    assert response.json() == {}
+    assert [r for r in seen if r.url.path == "/rest/v1/signup_blocks"] == []
+
+
+def test_a_kakao_signup_without_any_email_is_allowed():
+    """카카오는 이메일 권한 없이 가입하면 user.email 이 아예 없다."""
+    seen: list[httpx.Request] = []
+
+    response = _post_hook(
+        TestClient(app),
+        {"metadata": {"uuid": "11111111-1111-1111-1111-111111111111", "name": "before-user-created"}, "user": {}},
+        _no_db_calls(seen),
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {}
 
 
 def test_invalid_signature_returns_401():
