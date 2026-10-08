@@ -41,8 +41,10 @@ def social_user(user_id: str, provider: str = "kakao") -> dict:
             "identities": [{"provider": provider, "identity_data": {"sub": "4242"}}]}
 
 
-def temp_email_user(email: str = "hong@snu.ac.kr") -> dict:
-    return {"id": TEMP, "email": email, "email_confirmed_at": "2026-10-08T02:59:00Z",
+def temp_email_user(email: str = "hong@snu.ac.kr", user_id: str = TEMP,
+                    created_at: str | None = "2026-10-08T02:58:00Z") -> dict:
+    """방금(NOW 2분 전) 만든 임시 계정. 프로필은 없다(VerifyWorld.profiles 에 넣지 않는다)."""
+    return {"id": user_id, "email": email, "email_confirmed_at": "2026-10-08T02:59:00Z", "created_at": created_at,
             "app_metadata": {"provider": "email", "providers": ["email"]},
             "identities": [{"provider": "email", "identity_data": {"email": email, "sub": TEMP}}]}
 
@@ -71,7 +73,12 @@ class VerifyWorld:
         self.rpc_status = 200
         self.rpc_result: str | None = None     # 정하면 계산 대신 이 값을 돌려준다
         self.admin_delete_status = 200
+        self.admin_get_status = 200
         self.deleted_users: list[str] = []
+        # 프로필 읽기(id 하나)가 실패할 id
+        self.unreadable_profiles: set[str] = set()
+        # DB 함수를 부른 뒤 이 id 의 프로필이 막 생긴 것처럼 만든다(삭제 직전 재확인 경쟁)
+        self.profile_appears_on_rpc: str | None = None
 
     # ------------------------------------------------------------------
     def handle(self, request: httpx.Request) -> httpx.Response:
@@ -82,15 +89,22 @@ class VerifyWorld:
         if path == "/auth/v1/user":
             return self._auth_user(request)
         if path.startswith("/auth/v1/admin/users/"):
-            assert request.method == "DELETE"
             assert request.headers["authorization"] == "Bearer service-key"
             user_id = path.rsplit("/", 1)[1]
+            if request.method == "GET":
+                user = next((u for u in self.tokens.values() if u["id"] == user_id), None)
+                if self.admin_get_status != 200:
+                    return httpx.Response(self.admin_get_status, json={"msg": "boom"})
+                return httpx.Response(200, json=user) if user else httpx.Response(404, json={"msg": "User not found"})
+            assert request.method == "DELETE"
             if self.admin_delete_status != 200:
                 return httpx.Response(self.admin_delete_status, json={"msg": "boom"})
             self.deleted_users.append(user_id)
             self.tokens = {t: u for t, u in self.tokens.items() if u["id"] != user_id}
             return httpx.Response(200, json={})
         if path == "/rest/v1/profiles":
+            if params["id"].removeprefix("eq.") in self.unreadable_profiles:
+                return httpx.Response(500, json={"message": "boom"})
             row = self.profiles.get(params["id"].removeprefix("eq."))
             if row is None:
                 return httpx.Response(200, json=[])
@@ -126,6 +140,8 @@ class VerifyWorld:
         if self.rpc_status != 200:
             return httpx.Response(self.rpc_status, json={"message": "boom"})
         result = self.rpc_result or self._decide(body)
+        if self.profile_appears_on_rpc:
+            self.profiles[self.profile_appears_on_rpc] = {"status": "active", "school_email_verified_at": None}
         return httpx.Response(200, content=json.dumps(result), headers={"Content-Type": "application/json"})
 
     def _decide(self, body: dict) -> str:

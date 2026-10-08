@@ -8,10 +8,10 @@ import logging
 import httpx
 import pytest
 
-from app.account.repository import SupabaseAdmin
 from app.core import errors
 from app.signup_policy import bytea_literal, hash_email
-from verify_world import AUTH, IDENTITY_KEY, ME, OTHER, OTHER_TOKEN, SNU, TEMP, TEMP_TOKEN, settings, temp_email_user
+from verify_world import (AUTH, IDENTITY_KEY, ME, NOW, OTHER, OTHER_TOKEN, SNU, TEMP, TEMP_TOKEN, VerifyWorld, settings,
+                          temp_email_user)
 
 HMAC = bytea_literal(hash_email(IDENTITY_KEY, "hong@snu.ac.kr"))
 
@@ -322,20 +322,139 @@ def test_a_failed_temp_delete_still_answers_200_and_logs_no_email_or_token(clien
     assert TEMP_TOKEN not in caplog.text
 
 
-async def test_the_delete_helper_never_deletes_the_caller():
-    """6번 검사를 지나도 삭제 직전에 한 번 더 본다 — 호출한 사람의 id 면 부르지 않는다."""
+async def _run_delete_helper(world: VerifyWorld, temp_id: str = TEMP, caller_id: str = ME) -> None:
     from app.school_email.router import delete_temp_account
 
-    seen: list[httpx.Request] = []
+    client = httpx.AsyncClient(transport=httpx.MockTransport(world.handle))
+    await delete_temp_account(settings(), client, temp_id=temp_id, caller_id=caller_id, now=NOW)
 
-    def handler(request: httpx.Request) -> httpx.Response:
-        seen.append(request)
-        return httpx.Response(200, json={})
 
-    admin = SupabaseAdmin(settings(), httpx.AsyncClient(transport=httpx.MockTransport(handler)))
+async def test_the_delete_helper_deletes_a_fresh_profileless_temp_account():
+    world = VerifyWorld()
 
-    await delete_temp_account(admin, temp_id=ME, caller_id=ME)
-    assert seen == []
+    await _run_delete_helper(world)
 
-    await delete_temp_account(admin, temp_id=TEMP, caller_id=ME)
-    assert [r.url.path for r in seen] == [f"/auth/v1/admin/users/{TEMP}"]
+    assert world.deleted_users == [TEMP]
+
+
+async def test_the_delete_helper_never_deletes_the_caller():
+    """① 6번 검사를 지나도 삭제 직전에 한 번 더 본다 — 호출한 사람의 id 면 부르지 않는다."""
+    world = VerifyWorld()
+
+    await _run_delete_helper(world, temp_id=ME, caller_id=ME)
+
+    assert world.deleted_users == []
+    assert world.calls("DELETE", f"/auth/v1/admin/users/{ME}") == []
+
+
+@pytest.mark.parametrize("identities", [[{"provider": "email"}, {"provider": "kakao"}], [{"provider": "kakao"}], []])
+async def test_the_delete_helper_rechecks_the_identities(identities):
+    """② 삭제 직전에 관리자 API 로 다시 읽어 identities 가 정확히 email 하나인지 본다."""
+    world = VerifyWorld()
+    world.tokens[TEMP_TOKEN]["identities"] = identities
+
+    await _run_delete_helper(world)
+
+    assert world.deleted_users == []
+
+
+@pytest.mark.parametrize("created_at", ["2026-10-08T02:00:00Z", None, "어제"])
+async def test_the_delete_helper_rechecks_that_it_was_created_just_now(created_at):
+    """③ 30분보다 오래됐거나 생성 시각을 못 읽으면 임시 계정이 아니다."""
+    world = VerifyWorld()
+    world.tokens[TEMP_TOKEN]["created_at"] = created_at
+
+    await _run_delete_helper(world)
+
+    assert world.deleted_users == []
+
+
+async def test_the_delete_helper_rechecks_that_there_is_no_profile():
+    world = VerifyWorld()
+    world.profiles[TEMP] = {"status": "active", "school_email_verified_at": None}
+
+    await _run_delete_helper(world)
+
+    assert world.deleted_users == []
+
+
+@pytest.mark.parametrize("trouble", ["admin", "profile"])
+async def test_the_delete_helper_does_not_delete_when_a_recheck_cannot_be_read(trouble, caplog):
+    world = VerifyWorld()
+    if trouble == "admin":
+        world.admin_get_status = 500
+    else:
+        world.unreadable_profiles = {TEMP}
+
+    with caplog.at_level(logging.DEBUG):
+        await _run_delete_helper(world)
+
+    assert world.deleted_users == []
+    assert "hong@snu.ac.kr" not in caplog.text.lower()
+
+
+# 임시 계정이 아닌 실제 계정의 토큰(지시문 10 · 12) -------------------------------------------------
+#
+# 임시 연결로 signInWithOtp 를 한 학교 메일이 이미 있는 옛 이메일 가입 계정의 메일이면, 그 토큰의 주인은 새 임시 계정이
+# 아니라 그 실제 계정이다(프로필 있음, 오래전 생성). DB 함수는 claims 행이 없는 기존 가입자를 막지 못하므로
+# 서버가 여기서 막지 않으면 호출자가 남의 학교 메일로 인증되고, 그 실제 계정까지 지워진다.
+
+OLD_EMAIL_USER = "99999999-9999-9999-9999-999999999999"
+OLD_TOKEN = "old-email-account-token"
+
+
+def _old_email_account(world: VerifyWorld, created_at: str = "2026-03-02T00:00:00Z", with_profile: bool = True) -> None:
+    world.tokens[OLD_TOKEN] = temp_email_user(user_id=OLD_EMAIL_USER, created_at=created_at)
+    if with_profile:
+        world.profiles[OLD_EMAIL_USER] = {"status": "active", "university_id": SNU,
+                                          "school_email_verified_at": "2026-03-02T00:00:00+00:00"}
+
+
+def _assert_taken_by_an_email_account_and_untouched(response, world: VerifyWorld) -> None:
+    assert response.status_code == 409
+    assert response.json()["provider"] == "email"
+    assert world.rpc_bodies == []
+    assert world.calls("DELETE", f"/auth/v1/admin/users/{OLD_EMAIL_USER}") == []
+    assert world.deleted_users == []
+
+
+def test_a_real_old_email_account_token_is_409_and_never_deleted(client, world):
+    _old_email_account(world)
+
+    _assert_taken_by_an_email_account_and_untouched(_verify(client, OLD_TOKEN), world)
+
+
+def test_a_temp_token_whose_owner_has_a_profile_is_409_even_if_new(client, world):
+    _old_email_account(world, created_at="2026-10-08T02:58:00Z")
+
+    _assert_taken_by_an_email_account_and_untouched(_verify(client, OLD_TOKEN), world)
+
+
+def test_an_unreadable_profile_check_counts_as_a_profile(client, world):
+    _old_email_account(world, created_at="2026-10-08T02:58:00Z", with_profile=False)
+    world.unreadable_profiles = {OLD_EMAIL_USER}
+
+    _assert_taken_by_an_email_account_and_untouched(_verify(client, OLD_TOKEN), world)
+
+
+@pytest.mark.parametrize("created_at", ["2026-10-08T02:00:00Z", "2026-10-08T02:29:00Z", None, "모름"])
+def test_an_email_account_older_than_30_minutes_is_409_and_never_deleted(client, world, created_at):
+    _old_email_account(world, created_at=created_at, with_profile=False)
+
+    _assert_taken_by_an_email_account_and_untouched(_verify(client, OLD_TOKEN), world)
+
+
+def test_a_fresh_temp_account_still_verifies_and_is_deleted_once(client, world):
+    assert _verify(client).status_code == 200
+    assert world.deleted_users == [TEMP]
+    assert len(world.calls("DELETE", f"/auth/v1/admin/users/{TEMP}")) == 1
+
+
+def test_a_profile_appearing_right_before_the_delete_stops_it(client, world):
+    """경쟁: DB 함수를 부른 뒤 임시 id 로 프로필이 막 생겼다면 지우지 않는다(삭제 직전 재확인)."""
+    world.profile_appears_on_rpc = TEMP
+
+    response = _verify(client)
+
+    assert response.status_code == 200
+    assert world.deleted_users == []
