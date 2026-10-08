@@ -1,6 +1,7 @@
 """영역 2·4 미등록 가설 10개 시험 — 운영 · 기기 없이 가짜 HTTP · 가짜 adb 로 돈다. 저장소 루트에서 `python -m unittest e2e.test_area4_extra`."""
 
 import os
+import re
 import unittest
 from unittest import mock
 from urllib.parse import urlsplit
@@ -122,6 +123,65 @@ class DartContractTest(unittest.TestCase):
     def case_body(start, end):
         text = (tools.ROOT / 'frontend' / 'integration_test' / 'area4_extra.dart').read_text(encoding='utf-8')
         return text[text.index(start):text.index(end)]
+
+    def test_heart_51_keeps_its_case_number_and_both_sides_say_what_it_means_now(self):
+        # 이름(의미)이 "스토어가 없다" 에서 "쓰는 곳 · 사는 곳이 새 설계와 맞다" 로 바뀌었다 — 번호는 그대로, 바뀐 뜻을 PC 문서와 앱 주석 양쪽에 적는다.
+        doc = area4_extra.heart_51.__doc__
+        self.assertIn('새 설계', doc)
+        self.assertIn('번호는 그대로', doc)
+        app = self.case_body("// 51(", "'E-SET-04'")
+        self.assertIn('새 설계', app)
+        self.assertIn('번호는 그대로', app)
+
+    def test_heart_51_splits_the_words_locked_cards_everywhere_store_words_only_in_settings(self):
+        text = (tools.ROOT / 'frontend' / 'integration_test' / 'area4_extra.dart').read_text(encoding='utf-8')
+        self.assertIn("const _heartLockedWords = ['한 명 더', '잠긴 카드', '잠금 카드', '카드 구매'];", text)
+        self.assertIn("const _heartStoreWords = ['스토어', '하트 충전'];", text)
+        body = self.case_body("'E-HEART-51'", "'E-SET-04'")
+        # 잠긴 카드 계열은 모든 화면(오늘 포함)에서, 스토어 계열은 오늘 · 나 탭에서만 없어야 한다.
+        self.assertIn('_noneOnHeartScreens(tester, _heartLockedWords, today: true, tabsOnly: _heartStoreWords)', body)
+        # 설정에서는 "하트 충전" 을 눌러 스토어가 열리고, 스토어 화면에도 잠긴 카드 글이 없다.
+        self.assertIn('_openHeartStoreFromSettings(tester)', body)
+        self.assertIn("_seeNone(_heartLockedWords, '하트 스토어')", body)
+
+    def test_the_walk_applies_tabs_only_words_to_today_and_me_but_not_to_settings(self):
+        walk = self.case_body('Future<void> _noneOnHeartScreens', 'Future<void> _openHeartStoreFromSettings')
+        self.assertIn("_seeNone([...words, ...tabsOnly], '오늘 탭')", walk)
+        self.assertIn("_seeNone([...words, ...tabsOnly], '나 탭')", walk)
+        self.assertIn("_seeNone(words, '설정($row 까지)')", walk)  # 설정은 words 만 — 스토어 입구가 있어야 하는 곳
+
+    def test_the_settings_entry_must_exist_and_opens_the_store_screen(self):
+        helper = self.case_body('Future<void> _openHeartStoreFromSettings', "final Map<String, Area1Case> _extraCases")
+        self.assertIn("must(find.text(_heartChargeLabel).evaluate().isNotEmpty", helper)  # 없으면 실패(스토어 입구가 사라진 것)
+        self.assertIn('find.byType(HeartStoreScreen)', helper)
+
+    def test_the_settings_entry_goes_back_to_the_top_before_looking_for_it(self):
+        # 앞에서 설정을 맨 아래까지 훑으면 "하트 충전" 줄이 위로 밀려 만들어지지 않을 수 있다 — _reveal 은 아래로만 스크롤하므로 맨 위로 되돌린 뒤 찾는다.
+        helper = self.case_body('Future<void> _openHeartStoreFromSettings', "final Map<String, Area1Case> _extraCases")
+        self.assertIn('_toTop(tester)', helper)
+        self.assertLess(helper.index('_toTop(tester)'), helper.index('_reveal(tester, find.text(_heartChargeLabel))'))
+
+    def test_heart_49_also_looks_at_the_heart_store_screen_for_money_out_words(self):
+        body = self.case_body("'E-HEART-49'", "// 51(")
+        self.assertIn('_noneOnHeartScreens(tester, _heartMoneyWords)', body)
+        self.assertIn('_openHeartStoreFromSettings(tester)', body)
+        self.assertIn("_seeNone(_heartMoneyWords, '하트 스토어')", body)
+
+    def test_the_settings_rows_list_has_the_balance_block_on_top_and_the_charge_row_in_the_heart_card(self):
+        # pen: 보유 하트 블록(X4olk) → 매칭 섹션 → 하트 섹션(하트 충전 zlpeY → 무료로 하트 모으기 → 친구 초대). E-SET-01 이 이 순서를 y 좌표로 본다.
+        area4 = (tools.ROOT / 'frontend' / 'integration_test' / 'area4.dart').read_text(encoding='utf-8')
+        rows = area4[area4.index('const _settingsRows = ['):area4.index('];', area4.index('const _settingsRows = ['))]
+        names = re.findall(r"'([^']+)'", rows)
+        self.assertEqual(names[:5], ['보유 하트', '매칭 활성화', '하트 충전', '무료로 하트 모으기', '친구 초대'])
+        self.assertEqual(names[-1], '탈퇴하기')
+
+    def test_the_charge_label_is_one_constant_equal_to_the_settings_row_title(self):
+        # 라벨이 pen 값표와 달라지면 이 한 줄만 고친다(pen `zlpeY` "하트 충전").
+        text = (tools.ROOT / 'frontend' / 'integration_test' / 'area4_extra.dart').read_text(encoding='utf-8')
+        self.assertEqual(text.count("const _heartChargeLabel = '하트 충전';"), 1)
+        shown = (tools.ROOT / 'frontend' / 'lib' / 'matching' / 'view' / 'settings_screen.dart').read_text(encoding='utf-8')
+        self.assertIn("title: '하트 충전'", shown)
+        self.assertIn("Text('보유 하트'", shown)  # 블록 글자 — _settingsRows 의 첫 줄
 
     def test_set_26_reads_the_unblock_sheet_text_before_it_confirms(self):
         body = self.case_body("'E-SET-26'", "'E-SET-43'")

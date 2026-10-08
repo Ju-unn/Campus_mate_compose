@@ -36,6 +36,7 @@ SEEN = 10  # 앱이 누른 뒤 맨 위 화면이 바뀌기를 기다리는 시�
 # 계정 탈퇴(/account/withdraw)는 하트 출금이 아니다 — 'withdraw' 는 하트 이름이 붙은 경로만 센다.
 FORBIDDEN_HEART = ('refund', 'cashout', 'transfer', 'gift', 'send_heart', 'send-heart', 'exchange',
                    'heart_withdraw', 'heart-withdraw', 'hearts/withdraw')
+# 스토어 화면(18)은 지금 서버 경로가 없다 — 구매 경로가 생겨도 카드를 사거나 잠긴 카드를 푸는 이름이면 이 판이 잡는다.
 FORBIDDEN_STORE = ('heart_store', 'heart-store', 'unlock_card', 'unlock-card', 'buy_card', 'buy-card')
 
 
@@ -95,7 +96,7 @@ def _named(paths, words):
 
 
 def heart_49(run, phone):
-    """하트를 현금으로 바꾸거나(환급) 남에게 주는(선물 · 송금) 경로가 서버에 없고, 나 탭 · 설정에도 그런 글이 없다(화면은 앱이)."""
+    """하트를 현금으로 바꾸거나(환급) 남에게 주는(선물 · 송금) 경로가 서버에 없고, 나 탭 · 설정 · 하트 스토어(18)에도 그런 글이 없다(화면은 앱이)."""
     check = Check()
     account = area2._home(run)
     found = _named(_paths(run, account['token']), FORBIDDEN_HEART)
@@ -105,8 +106,11 @@ def heart_49(run, phone):
 
 
 def heart_51(run, phone):
-    """하트 쓰는 곳은 아바타 다시 만들기 하나 — 잠긴 카드(한 명 더) · 하트 스토어가 없다: /cards/today 의 locked_card_available 이 False 이고
-    서버에 스토어 · 카드 구매 경로가 없으며, 오늘 · 나 · 설정에도 그런 글이 없다(화면은 앱이)."""
+    """하트를 쓰는 곳 · 사는 곳이 새 설계(하트 스토어 18 · 설정의 보유 하트 블록)와 맞다. 번호는 그대로 두고 의미만 바꿨다 —
+    옛 의미는 "하트 스토어 자체가 없다" 였으나 스토어(#411 `/hearts/store`)와 설정 블록이 생겼다.
+    서버(PC): /cards/today 의 locked_card_available 이 False 이고, 서버에 잠긴 카드 해제 · 카드 구매 경로가 없다(스토어 화면은 서버 경로가 아직 없다).
+    화면(앱): ① 오늘 · 나 · 설정 · 하트 스토어 어디에도 잠긴 카드(한 명 더) · 카드 구매 글이 없고, ② 오늘 · 나 탭에는 스토어로 가는 글(스토어 · 하트 충전)도 없고,
+    ③ 설정에는 "하트 충전" 줄이 있어 누르면 하트 스토어가 열린다."""
     check = Check()
     account = area2._home(run)
     today = _api(run, 'GET', '/cards/today', account['token'])
@@ -115,7 +119,7 @@ def heart_51(run, phone):
         got = (today[1] or {}).get('locked_card_available')
         check.that(got is False, f'locked_card_available {got!r}(기대 False)')
     found = _named(_paths(run, account['token']), FORBIDDEN_STORE)
-    check.that(not found, f'서버에 하트 스토어 · 카드 구매 경로가 있음: {found}')
+    check.that(not found, f'서버에 잠긴 카드 해제 · 카드 구매 경로가 있음: {found}')
     _app(check, phone(token_hash=run.link(account['email'])))
     return check.result()
 

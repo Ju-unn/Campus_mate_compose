@@ -1,4 +1,5 @@
 import 'package:campus_mate/account/view/withdraw_sheets.dart';
+import 'package:campus_mate/billing/model/heart_bundles.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
@@ -13,6 +14,7 @@ import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/faq/viewmodel/faq_provider.dart';
 import 'package:campus_mate/matching/viewmodel/notification_settings_view_model.dart';
+import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:campus_mate/referral/view/invite_friends_sheet.dart';
 import 'package:campus_mate/safety/view/contact_permission_sheets.dart';
 import 'package:campus_mate/safety/view/safety_actions.dart';
@@ -20,13 +22,31 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-/// 설정(DESIGN.md 화면 16, pen `lMDpY`). 섹션 머리글 + 카드 넷(매칭 · 하트 · 계정·정보 · 지원), 줄마다 3D 아이콘.
-/// pen 맨 위 보유 하트 블록(`X4olk`)과 "하트 충전" 줄(`zlpeY`)은 스토어 화면이 없어 뺀다(대장 10-03, 결제 개편 때).
-class SettingsScreen extends ConsumerWidget {
+/// 설정(DESIGN.md 화면 16, pen `lMDpY`). 맨 위 보유 하트 블록(`X4olk`) + 섹션 머리글 + 카드 넷(매칭 · 하트 · 계정·정보 · 지원), 줄마다 3D 아이콘.
+/// 하트 스토어(18, `/hearts/store`)로 가는 입구가 둘이다 — 맨 위 블록과 하트 카드 첫 줄 "하트 충전"(`zlpeY`).
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  /// 스토어가 열려 있는 동안 입구를 또 눌러도(같은 프레임의 연타 포함) 스토어를 한 겹만 쌓는다.
+  bool _openingStore = false;
+
+  Future<void> _openHeartStore() async {
+    if (_openingStore) return;
+    _openingStore = true;
+    try {
+      await context.push(AppRoutes.heartStore);
+    } finally {
+      _openingStore = false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(notificationSettingsViewModelProvider);
     // DESIGN §8.13: 받지도 못하고 캐시도 없을 때만 숨긴다. 받는 중에는 보인다 — 늦게 튀어나와 아래 줄이 밀리지 않게.
     final faq = ref.watch(faqProvider);
@@ -38,6 +58,9 @@ class SettingsScreen extends ConsumerWidget {
           // pen `HM9xA` 위 12 · 좌우 16 · 섹션 사이 20.
           padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
           children: [
+            // pen `X4olk` — 맨 위, 다음 섹션과 사이 20(목록 gap).
+            _HeartBalanceBlock(onTap: _openHeartStore),
+            _sectionGap,
             _Section('매칭', [
               SwitchListTile.adaptive(
                 // 꺼짐 = 일시중지다. 화면은 "활성화"를 묻고 서버에는 그 반대를 보낸다.
@@ -64,6 +87,8 @@ class SettingsScreen extends ConsumerWidget {
               ),
             _sectionGap,
             _Section('하트', [
+              // pen `zlpeY` — 하트 카드 첫 줄. 아이콘은 3D 가 아니라 lucide plus 20 #3F3F3F.
+              _Row.plain(icon: AppIcons.plus, title: '하트 충전', onTap: _openHeartStore),
               _Row(
                 icon: AppIcon3d.gift,
                 title: '무료로 하트 모으기',
@@ -189,10 +214,19 @@ class _Section extends StatelessWidget {
 }
 
 /// 설정 줄(pen `K4uiNp`): 52(설명이 있으면 72) · 3D 아이콘 24 → 12 → 제목, 오른쪽 chevron-right 20 #6A6A6A.
+/// [Row.plain] 은 3D 아이콘 대신 lucide 아이콘 20 #3F3F3F 를 쓴다("하트 충전" `zlpeY`).
 class _Row extends StatelessWidget {
-  const _Row({required this.icon, required this.title, required this.onTap, this.iconSize = 24, this.note});
+  const _Row({required AppIcon3d this.icon, required this.title, required this.onTap, this.iconSize = 24, this.note})
+      : plainIcon = null;
 
-  final AppIcon3d icon;
+  const _Row.plain({required IconData icon, required this.title, required this.onTap})
+      : plainIcon = icon,
+        icon = null,
+        iconSize = 20,
+        note = null;
+
+  final AppIcon3d? icon;
+  final IconData? plainIcon;
   final double iconSize;
   final String title;
   final String? note;
@@ -207,11 +241,83 @@ class _Row extends StatelessWidget {
       contentPadding: _rowPadding,
       horizontalTitleGap: AppSpacing.sm,
       minLeadingWidth: 0,
-      leading: Icon3d(icon, size: iconSize),
+      leading: plainIcon != null
+          ? Icon(plainIcon, size: iconSize, color: AppColors.body)
+          : Icon3d(icon!, size: iconSize),
       title: Text(title, style: _titleStyle),
       subtitle: note == null ? null : Text(note!, style: _noteStyle),
       trailing: const Icon(AppIcons.chevronRight, size: 20, color: AppColors.muted),
       onTap: onTap,
+    );
+  }
+}
+
+/// 재화 하트(DESIGN §5.4 — Lucide 가 아니라 이미지). pen `l4vdk`.
+const String _heartAsset = 'assets/images/heart-flat-vector-v3.png';
+
+/// 보유 하트 블록(pen `X4olk`, `WQfXW` HeartBalanceCard 인스턴스): 폭 fill · 높이 64 · 안쪽 좌우 16 · gap 10 · #FFF0F2 · 모서리 12 ·
+/// 하트 그림 28 → 세로(보유 하트 14/600 #6A6A6A · 숫자 20/700 #222222, gap 2) → "충전" 14/700 #C4224B → chevron-right 20 #C4224B.
+/// 블록 전체가 하트 스토어(18)로 가는 누름 칸이다. 숫자는 서버 값(내 프로필 heartBalance) — 읽는 중 · 실패는 pen 에 없어 숫자 자리에 "-" 를 둔다.
+/// 높이 64 는 최소값이다 — 글자를 키우면 늘어난다(DESIGN §11.2).
+class _HeartBalanceBlock extends ConsumerWidget {
+  const _HeartBalanceBlock({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final balance = ref.watch(
+      myProfileProvider.select(
+        (profile) => profile.value?.when(onSuccess: (value) => value.heartBalance, onFailure: (_) => null),
+      ),
+    );
+    final radius = BorderRadius.circular(AppRadius.input);
+    return Semantics(
+      // 한 덩어리로 읽는다 — "보유 하트 320개, 충전".
+      label: balance == null ? '보유 하트를 불러오는 중, 충전' : '보유 하트 $balance개, 충전',
+      button: true,
+      excludeSemantics: true,
+      onTap: onTap,
+      child: Material(
+        color: AppColors.primaryWash,
+        borderRadius: radius,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          borderRadius: radius,
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 64),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+              child: Row(
+                spacing: 10,
+                children: [
+                  Image.asset(_heartAsset, width: 28, height: 28, fit: BoxFit.contain, excludeFromSemantics: true),
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      spacing: 2,
+                      children: [
+                        Text('보유 하트', style: AppTypography.labelSmall.copyWith(color: AppColors.muted)),
+                        Text(
+                          balance == null ? '-' : '${formatWon(balance)}개',
+                          style: AppTypography.title.copyWith(fontWeight: FontWeight.w700, color: AppColors.ink),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    '충전',
+                    style: AppTypography.labelSmall.copyWith(color: AppColors.primaryText, fontWeight: FontWeight.w700),
+                  ),
+                  const Icon(AppIcons.chevronRight, size: 20, color: AppColors.primaryText),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

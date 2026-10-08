@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:campus_mate/account/model/account_repository.dart';
 import 'package:campus_mate/account/view/account_screen.dart';
 import 'package:campus_mate/account/view/withdraw_sheets.dart';
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
@@ -19,6 +20,8 @@ import 'package:campus_mate/faq/model/faq_item.dart';
 import 'package:campus_mate/faq/model/faq_repository.dart';
 import 'package:campus_mate/faq/view/faq_screen.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
+import 'package:campus_mate/me/model/me_repository_provider.dart';
+import 'package:campus_mate/me/model/my_profile.dart';
 import 'package:campus_mate/matching/view/settings_screen.dart';
 import 'package:campus_mate/referral/model/invite_share.dart';
 import 'package:campus_mate/referral/model/referral_repository_provider.dart';
@@ -39,10 +42,42 @@ import 'package:go_router/go_router.dart';
 
 import '../../account/model/fake_account_repository.dart';
 import '../../faq/model/fake_faq.dart';
+import '../../me/model/fake_me_repository.dart';
 import '../../referral/model/fake_referral_repository.dart';
 import '../../safety/model/fake_contact_blocks.dart';
 import '../../safety/model/fake_safety_repository.dart';
 import '../model/fake_card_repository.dart';
+
+MyProfile _profile(int hearts) => MyProfile(
+  nickname: '여우',
+  age: 23,
+  university: '가나대학교',
+  major: '경영학과',
+  heightCm: 178,
+  mbti: 'ENFP',
+  avatarUrl: null,
+  photos: const [],
+  preferredAgeMin: 22,
+  preferredAgeMax: 27,
+  preferredHeightMin: 165,
+  preferredHeightMax: 180,
+  bio: '',
+  heartBalance: hearts,
+  avatarRegenCost: 10,
+);
+
+/// 잔액을 늦게 주는 가짜 — [gate] 가 끝나기 전까지는 읽는 중이다.
+class _SlowMeRepository extends FakeMeRepository {
+  _SlowMeRepository(super.profile, this.gate);
+
+  final Future<void> gate;
+
+  @override
+  Future<Result<MyProfile>> fetchProfile() async {
+    await gate;
+    return super.fetchProfile();
+  }
+}
 
 void main() {
   var signOutCalls = 0;
@@ -54,6 +89,8 @@ void main() {
     FakeDeviceContactSource? contacts,
     List<FaqItem> faq = faqFixture,
     Future<void>? faqGate,
+    Result<MyProfile>? profile,
+    Future<void>? profileGate,
   }) async {
     signOutCalls = 0;
     opened = [];
@@ -68,6 +105,11 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         cardRepositoryProvider.overrideWithValue(repository),
+        meRepositoryProvider.overrideWithValue(
+          profileGate == null
+              ? FakeMeRepository(profile ?? Success(_profile(320)))
+              : _SlowMeRepository(profile ?? Success(_profile(320)), profileGate),
+        ),
         safetyRepositoryProvider.overrideWithValue(FakeSafetyRepository()),
         signOutProvider.overrideWithValue(() async => signOutCalls++),
         deviceContactSourceProvider.overrideWithValue(contacts ?? FakeDeviceContactSource()),
@@ -92,6 +134,7 @@ void main() {
         GoRoute(path: AppRoutes.contactPicker, builder: (context, state) => const ContactPickerScreen()),
         GoRoute(path: AppRoutes.account, builder: (context, state) => const AccountScreen()),
         GoRoute(path: AppRoutes.heartTasks, builder: (context, state) => const Text('18a')),
+        GoRoute(path: AppRoutes.heartStore, builder: (context, state) => const Text('18 스토어')),
         GoRoute(path: AppRoutes.faq, builder: (context, state) => const FaqScreen()),
       ],
     );
@@ -346,15 +389,13 @@ void main() {
     expect(find.byType(WithdrawFirstSheet), findsOneWidget);
   });
 
-  // 하트 충전 줄 · 보유 하트 블록(X4olk · zlpeY)은 설정에 아직 없다(대장 10-03, 결제 개편 때 뺐고, 하트 스토어 18 은 생겼지만 설정 연결은 프로필탭 몫으로 남음).
-  testWidgets('"무료로 하트 모으기" 줄은 하트 카드 첫 줄 · 친구 초대 바로 위, 3D 선물 24 와 셰브런이다(pen lMDpY oNgRd · oBpe4)', (tester) async {
+  testWidgets('"무료로 하트 모으기" 줄은 하트 카드 둘째 줄 · 하트 충전 바로 아래 · 친구 초대 바로 위, 3D 선물 24 와 셰브런이다(pen lMDpY oNgRd · oBpe4)', (tester) async {
     await pump(tester);
 
     expect(tile('무료로 하트 모으기'), findsOneWidget);
-    expect(tester.getRect(tile('무료로 하트 모으기')).top, tester.getRect(find.text('하트')).bottom + 8);
+    expect(tester.getRect(tile('무료로 하트 모으기')).top, tester.getRect(tile('하트 충전')).bottom);
     expect(tester.getRect(tile('무료로 하트 모으기')).bottom, tester.getRect(tile('친구 초대')).top);
     expect(icon3d(tester, '무료로 하트 모으기').icon, AppIcon3d.gift);
-    expect(find.text('하트 충전'), findsNothing);
     expect(find.descendant(of: tile('무료로 하트 모으기'), matching: find.byIcon(AppIcons.chevronRight)), findsOneWidget);
   });
 
@@ -367,7 +408,7 @@ void main() {
     expect(find.text('18a'), findsOneWidget);
   });
 
-  testWidgets('섹션은 매칭 · 하트 · 계정·정보 · 지원 순, 머리글 14/700 #6A6A6A 아래 8 에 카드, 섹션 사이 20, 목록 여백 위 12 · 좌우 16(pen HM9xA · BOxgn)', (tester) async {
+  testWidgets('맨 위 보유 하트 블록 다음에 매칭 · 하트 · 계정·정보 · 지원 순, 머리글 14/700 #6A6A6A 아래 8 에 카드, 섹션 사이 20, 목록 여백 위 12 · 좌우 16(pen HM9xA · BOxgn)', (tester) async {
     await pump(tester);
 
     for (final header in ['매칭', '하트', '계정·정보', '지원']) {
@@ -376,9 +417,11 @@ void main() {
       expect(style.fontWeight, FontWeight.w700);
       expect(style.color, AppColors.muted);
     }
-    expect(tester.getTopLeft(find.text('매칭')), const Offset(16, 56 + 12));
+    // 목록 맨 위 안쪽 여백 12 뒤에 보유 하트 블록(높이 64)이 오고, 다음 섹션까지 20(pen `HM9xA` gap 20 · `X4olk`).
+    expect(tester.getTopLeft(find.text('매칭')), const Offset(16, 56 + 12 + 64 + 20));
     expect(tester.getRect(tile('매칭 활성화')).top, tester.getRect(find.text('매칭')).bottom + 8);
     expect(tester.getRect(find.text('하트')).top, tester.getRect(tile('매칭 활성화')).bottom + 20);
+    expect(tester.getRect(tile('하트 충전')).top, tester.getRect(find.text('하트')).bottom + 8);
     expect(tester.getRect(find.text('계정·정보')).top, tester.getRect(tile('친구 초대')).bottom + 20);
     expect(tester.getRect(find.text('지원')).top, tester.getRect(tile('연락처 차단')).bottom + 20);
   });
@@ -463,6 +506,225 @@ void main() {
 
     expect(find.byType(AppToast), findsOneWidget);
     expect(find.byType(SettingsScreen), findsOneWidget);
+  });
+
+  group('보유 하트 블록(pen X4olk) · "하트 충전" 줄(pen zlpeY)', () {
+    Finder block() => find.ancestor(of: find.text('보유 하트'), matching: find.byType(Material)).first;
+    Finder store() => find.text('18 스토어');
+    Future<void> penFrame(WidgetTester tester, {double scale = 1.0}) async {
+      tester.view.physicalSize = const Size(360, 1102) * tester.view.devicePixelRatio; // pen `lMDpY` 360×1102
+      if (scale != 1.0) {
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      }
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('목록 맨 위(위 여백 12 · 좌우 16 · 폭 328 · 높이 64) · #FFF0F2 · 모서리 12 · 테두리 · 그림자 없음', (tester) async {
+      await pump(tester);
+      await penFrame(tester);
+
+      final rect = tester.getRect(block());
+      expect(rect.topLeft, const Offset(16, 56 + 12));
+      expect((rect.width, rect.height), (328, 64));
+      final material = tester.widget<Material>(block());
+      expect(material.color, AppColors.primaryWash);
+      expect(material.borderRadius, BorderRadius.circular(AppRadius.input));
+      expect(material.shape, isNull);
+      expect(material.elevation, 0);
+      expect(find.descendant(of: block(), matching: find.byType(DecoratedBox)), findsNothing); // 테두리 · 그림자 없음
+      expect(tester.getTopLeft(find.text('매칭')).dy, rect.bottom + 20);
+    });
+
+    testWidgets('안쪽: 하트 그림 28 → 10 → 세로(보유 하트 · 숫자, 사이 2) → 10 → 충전 → 10 → 셰브런 20, 안쪽 좌우 16', (tester) async {
+      await pump(tester);
+      await penFrame(tester);
+
+      final rect = tester.getRect(block());
+      final heart = find.descendant(of: block(), matching: find.byType(Image));
+      expect((tester.widget<Image>(heart).image as AssetImage).assetName, 'assets/images/heart-flat-vector-v3.png');
+      expect(tester.getSize(heart), const Size(28, 28));
+      expect(tester.getTopLeft(heart).dx, rect.left + 16);
+      expect(tester.getCenter(heart).dy, rect.center.dy);
+      expect(tester.getTopLeft(find.text('보유 하트')).dx, tester.getTopRight(heart).dx + 10);
+      expect(tester.getTopLeft(find.text('320개')).dx, tester.getTopLeft(find.text('보유 하트')).dx); // 왼쪽 정렬
+      final chevron = find.descendant(of: block(), matching: find.byIcon(AppIcons.chevronRight));
+      expect(tester.getSize(chevron), const Size(20, 20));
+      expect(tester.getTopRight(chevron).dx, rect.right - 16);
+      expect(tester.getTopRight(find.text('충전')).dx + 10, tester.getTopLeft(chevron).dx);
+      expect(tester.getCenter(find.text('충전')).dy, rect.center.dy);
+      expect(tester.getCenter(chevron).dy, rect.center.dy);
+      // 위 글자와 숫자 사이 2 는 줄 높이 안쪽 여백이 있어 글자 상자 사이로 잰다.
+      final column = tester.getRect(find.ancestor(of: find.text('보유 하트'), matching: find.byType(Column)).first);
+      expect(tester.getCenter(find.byWidget(tester.widget(find.ancestor(of: find.text('보유 하트'), matching: find.byType(Column)).first))).dy,
+          closeTo(rect.center.dy, 0.6));
+      expect(column.height, closeTo(tester.getSize(find.text('보유 하트')).height + 2 + tester.getSize(find.text('320개')).height, 0.6));
+    });
+
+    testWidgets('글자: 보유 하트 14/600 #6A6A6A · 숫자 20/700 #222222 · 충전 14/700 #C4224B · 셰브런 #C4224B', (tester) async {
+      await pump(tester);
+      await penFrame(tester);
+
+      TextStyle style(String text) => tester.renderObject<RenderParagraph>(find.text(text)).text.style!;
+      expect((style('보유 하트').fontSize, style('보유 하트').fontWeight, style('보유 하트').color), (14, FontWeight.w600, AppColors.muted));
+      expect((style('320개').fontSize, style('320개').fontWeight, style('320개').color), (20, FontWeight.w700, AppColors.ink));
+      expect((style('충전').fontSize, style('충전').fontWeight, style('충전').color), (14, FontWeight.w700, AppColors.primaryText));
+      final chevron = find.descendant(of: block(), matching: find.byIcon(AppIcons.chevronRight));
+      expect(tester.widget<Icon>(chevron).color, AppColors.primaryText);
+    });
+
+    testWidgets('숫자는 서버 값을 "N개" 로 — 1,000 이상은 쉼표, 0 도 그대로', (tester) async {
+      await pump(tester, profile: Success(_profile(1250)));
+      await tester.pump();
+      expect(find.text('1,250개'), findsOneWidget);
+
+      await pump(tester, profile: Success(_profile(0)));
+      await tester.pump();
+      expect(find.text('0개'), findsOneWidget);
+    });
+
+    testWidgets('[pen 에 없는 상태] 읽는 중에는 숫자 자리에 "-" 를 두고 블록 · 높이는 그대로, 값이 오면 바뀐다', (tester) async {
+      final gate = Completer<void>();
+      await pump(tester, profileGate: gate.future);
+      await penFrame(tester);
+
+      expect(find.text('-'), findsOneWidget);
+      expect(tester.getSize(block()), const Size(328, 64));
+      final matchingTop = tester.getTopLeft(find.text('매칭')).dy;
+
+      gate.complete();
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('320개'), findsOneWidget);
+      expect(find.text('-'), findsNothing);
+      expect(tester.getTopLeft(find.text('매칭')).dy, matchingTop); // 아래 줄이 밀리지 않는다
+    });
+
+    testWidgets('[pen 에 없는 상태] 읽기에 실패하면 "-" 이고 눌러서 스토어는 열린다', (tester) async {
+      await pump(tester, profile: const FailureResult(NetworkFailure()));
+      await tester.pump();
+
+      expect(find.text('-'), findsOneWidget);
+      await tester.tap(find.text('충전'));
+      await tester.pumpAndSettle();
+      expect(store(), findsOneWidget);
+    });
+
+    testWidgets('블록 어디를 눌러도(글자 · 그림 · 셰브런 · 가장자리) 하트 스토어로 간다', (tester) async {
+      for (final target in <Finder Function()>[
+        () => find.text('보유 하트'),
+        () => find.text('320개'),
+        () => find.text('충전'),
+        () => find.descendant(of: block(), matching: find.byType(Image)),
+        () => find.descendant(of: block(), matching: find.byIcon(AppIcons.chevronRight)),
+      ]) {
+        await pump(tester);
+        await tester.pump();
+        await tester.tap(target());
+        await tester.pumpAndSettle();
+        expect(store(), findsOneWidget);
+      }
+    });
+
+    testWidgets('"하트 충전" 줄을 눌러도 하트 스토어로 간다', (tester) async {
+      await pump(tester);
+
+      await tester.tap(find.text('하트 충전'));
+      await tester.pumpAndSettle();
+
+      expect(store(), findsOneWidget);
+    });
+
+    testWidgets('블록과 줄을 프레임 없이 연달아 눌러도 스토어는 한 겹이고, 닫으면 다시 열 수 있다', (tester) async {
+      await pump(tester);
+      await tester.pump();
+
+      await tester.tap(find.text('충전'));
+      await tester.tap(find.text('하트 충전')); // 첫 누름이 만든 길이 아직 그려지기 전
+      await tester.pumpAndSettle();
+      expect(store(), findsOneWidget);
+      tester.state<NavigatorState>(find.byType(Navigator).first).pop();
+      await tester.pumpAndSettle();
+      expect(store(), findsNothing);
+      expect(find.byType(SettingsScreen), findsOneWidget); // 한 번 닫으면 설정이다(두 겹이면 스토어가 남는다)
+
+      await tester.tap(find.text('하트 충전'));
+      await tester.pumpAndSettle();
+      expect(store(), findsOneWidget);
+    });
+
+    testWidgets('"하트 충전" 줄은 하트 카드 첫 줄 — 52 · 안쪽 14 · lucide plus 20 #3F3F3F → 12 → 16/400 #222222 · 셰브런 20 #6A6A6A · 아래 선 #EBEBEB', (tester) async {
+      await pump(tester);
+
+      final row = tester.getRect(tile('하트 충전'));
+      expect(row.height, 52);
+      expect(row.top, tester.getRect(find.text('하트')).bottom + 8);
+      final plus = find.descendant(of: tile('하트 충전'), matching: find.byIcon(AppIcons.plus));
+      expect(tester.getSize(plus), const Size(20, 20));
+      expect(tester.widget<Icon>(plus).color, AppColors.body);
+      expect(tester.getTopLeft(plus).dx, row.left + 14);
+      expect(find.descendant(of: tile('하트 충전'), matching: find.byType(Icon3d)), findsNothing); // 3D 아이콘이 아니다
+      expect(tester.getTopLeft(find.text('하트 충전')).dx, row.left + 14 + 20 + 12);
+      final title = tester.renderObject<RenderParagraph>(find.text('하트 충전')).text.style!;
+      expect((title.fontSize, title.fontWeight, title.color), (16, FontWeight.w400, AppColors.ink));
+      final chevron = find.descendant(of: tile('하트 충전'), matching: find.byIcon(AppIcons.chevronRight));
+      expect(tester.widget<Icon>(chevron).color, AppColors.muted);
+      expect(tester.getTopRight(chevron).dx, row.right - 14);
+      expect(divider(tester, '하트 충전'), const BorderSide(color: AppColors.hairlineSoft));
+    });
+
+    testWidgets('스크린리더: 블록은 "보유 하트 320개, 충전" 한 덩어리 버튼', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pump(tester);
+      await tester.pump();
+
+      final data = tester.getSemantics(find.byWidgetPredicate((w) => w is Semantics && w.properties.label == '보유 하트 320개, 충전')).getSemanticsData();
+      expect(data.label, '보유 하트 320개, 충전');
+      expect(data.hasAction(SemanticsAction.tap), isTrue);
+      expect(data.flagsCollection.isButton, isTrue);
+      // 안쪽 글자 · 그림이 따로 읽히지 않는다 — 한 덩어리(excludeSemantics). 자식 노드가 있으면 "보유 하트" · "320개" · "충전" 이 따로 읽힌다.
+      expect(tester.getSemantics(find.byWidgetPredicate((w) => w is Semantics && w.properties.label == '보유 하트 320개, 충전')).childrenCount, 0);
+      handle.dispose();
+    });
+
+    testWidgets('누름 칸은 안드로이드 터치 영역(48×48) 기준을 지킨다(블록 64 · 줄 52)', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pump(tester);
+      await tester.pump();
+
+      await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
+      handle.dispose();
+    });
+
+    testWidgets('눌림 효과는 블록 안에서 그려진다(COMMON §4-2) — 잉크가 블록 Material 위다', (tester) async {
+      await pump(tester);
+      final controller = Material.of(tester.element(find.descendant(of: block(), matching: find.byType(InkWell))));
+      expect(controller, isNot(paints..rrect()));
+
+      final gesture = await tester.startGesture(tester.getCenter(find.text('충전')));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(controller, paints..rrect());
+      expect(tester.getRect(find.descendant(of: block(), matching: find.byType(InkWell))), tester.getRect(block()));
+      await gesture.up();
+      await tester.pumpAndSettle();
+    });
+
+    for (final scale in [1.3, 2.0]) {
+      testWidgets('글자 배율 $scale 에서도 넘치지 않고 높이는 64 이상으로 늘어나며 글자가 잘리지 않는다', (tester) async {
+        await pump(tester);
+        await penFrame(tester, scale: scale);
+
+        expect(tester.takeException(), isNull);
+        expect(tester.getSize(block()).height, greaterThanOrEqualTo(64));
+        for (final text in ['보유 하트', '320개', '충전']) {
+          final paragraph = tester.renderObject<RenderParagraph>(find.text(text));
+          expect(paragraph.getMaxIntrinsicHeight(paragraph.size.width), lessThanOrEqualTo(paragraph.size.height + 0.5), reason: text);
+          expect(paragraph.getMinIntrinsicWidth(double.infinity), lessThanOrEqualTo(paragraph.size.width + 0.5), reason: text);
+        }
+      });
+    }
   });
 
   testWidgets('360 폭 · 2.0배에서도 넘치지 않는다', (tester) async {
