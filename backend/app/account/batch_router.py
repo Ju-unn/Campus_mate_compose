@@ -65,7 +65,7 @@ async def run_cleanup(accounts: AccountRepository, admin: SupabaseAdmin, now: da
     ①-c 학교 메일 verify 가 못 지운 임시 이메일 계정 24시간 뒤(deleted_temp_email_accounts)
     ② 처리 끝나고 1년 지난 신고(열린 신고는 남는다) ③ 만료된 재가입 제한 ④ 옛 키 버전 지인 차단 세기(경고)
     ⑤ 검수 끝나고 60일 지난 하트 인증샷은 엔드포인트(run_cleanup_batch)가 이어서 지운다.
-    skipped_accounts 는 ① · ①-b 에서 건너뛴 사람을 합친 수다."""
+    skipped_accounts 는 ① · ①-b · ①-c 에서 건너뛴 사람을 합친 수다(①-c 는 프로필 있음 · 확인 실패)."""
     withdrawn = await accounts.fetch_withdrawn_before(now - WITHDRAWN_RETENTION, CLEANUP_ACCOUNT_LIMIT)
     deleted, skipped = await _delete_accounts(admin, withdrawn, "탈퇴 계정")
     unverified = (await accounts.list_unverified_accounts(UNVERIFIED_RETENTION_DAYS, CLEANUP_ACCOUNT_LIMIT)
@@ -73,11 +73,11 @@ async def run_cleanup(accounts: AccountRepository, admin: SupabaseAdmin, now: da
     deleted_unverified, skipped_unverified = await _delete_accounts(
         admin, unverified, "학교 메일 미확인 계정", still_due=accounts.is_still_unverified)
     try:
-        deleted_temp = await _delete_temp_email_accounts(accounts, admin, now)
+        deleted_temp, skipped_temp = await _delete_temp_email_accounts(accounts, admin, now)
     except Exception as exc:
         # 이 단계가 실패해도 나머지 정리는 계속한다. 내일 다시 한다.
         logger.warning("임시 이메일 계정 정리 실패 %s", type(exc).__name__)
-        deleted_temp = 0
+        deleted_temp = skipped_temp = 0
 
     stale = await accounts.count_contact_blocks_not_on(IDENTITY_KEY_VERSION)
     if stale:
@@ -85,7 +85,7 @@ async def run_cleanup(accounts: AccountRepository, admin: SupabaseAdmin, now: da
         logger.warning("contact_blocks stale key_version rows=%d (current=%d)", stale, IDENTITY_KEY_VERSION)
     return {
         "deleted_accounts": deleted,
-        "skipped_accounts": skipped + skipped_unverified,
+        "skipped_accounts": skipped + skipped_unverified + skipped_temp,
         "deleted_unverified": deleted_unverified,
         "deleted_temp_email_accounts": deleted_temp,
         "deleted_reports": await accounts.delete_reports_before(now - REPORT_RETENTION),
@@ -108,31 +108,39 @@ def _is_temp_email_account(user: dict, cutoff: datetime) -> bool:
     return created < cutoff
 
 
-async def _delete_temp_email_accounts(accounts: AccountRepository, admin: SupabaseAdmin, now: datetime) -> int:
-    """임시 이메일 계정 잔여물을 최대 CLEANUP_ACCOUNT_LIMIT 개 지운다. 지우기 직전에 프로필이 없는지 다시 읽고,
-    있거나 못 읽으면 건너뛴다(소셜 전환 전 학교 메일 OTP 로 가입한 옛 계정은 프로필이 있다). 파일은 없다."""
+async def _delete_temp_email_accounts(accounts: AccountRepository, admin: SupabaseAdmin,
+                                      now: datetime) -> tuple[int, int]:
+    """임시 이메일 계정 잔여물을 최대 CLEANUP_ACCOUNT_LIMIT 개 지운다. (지운 수, 건너뛴 수).
+
+    지우기 직전에 프로필이 없는지 다시 읽고, 있거나 못 읽으면 건너뛰어 센다(소셜 전환 전 학교 메일 OTP 로 가입한
+    옛 계정은 프로필이 있다). 후보를 먼저 다 모은 뒤 지운다 — 지우면서 쪽을 넘기면 목록이 당겨져 건너뛰는 사람이 생기고,
+    후보를 100개로 자르면 프로필 있는 옛 계정이 앞자리를 다 채워 진짜 잔여물에 닿지 못한다. 파일은 없다."""
     # ponytail: 관리자 목록 전체 스캔, 가입자가 많아지면 DB 함수로 옮긴다
     cutoff = now - TEMP_EMAIL_ACCOUNT_RETENTION
     candidates: list[str] = []
     page = 1
-    while len(candidates) < CLEANUP_ACCOUNT_LIMIT:
+    while True:
         users = await admin.list_users(page, ADMIN_USERS_PER_PAGE)
         candidates += [u["id"] for u in users if _is_temp_email_account(u, cutoff)]
         if len(users) < ADMIN_USERS_PER_PAGE:
             break
         page += 1
 
-    deleted = 0
-    for user_id in candidates[:CLEANUP_ACCOUNT_LIMIT]:
+    deleted = skipped = 0
+    for user_id in candidates:
+        if deleted >= CLEANUP_ACCOUNT_LIMIT:
+            break
         try:
             if await accounts.has_profile(user_id):
+                skipped += 1
                 continue
             await admin.delete_user(user_id)
         except Exception:
             logger.warning("임시 이메일 계정 정리 건너뜀 user=%s", user_id)
+            skipped += 1
             continue
         deleted += 1
-    return deleted
+    return deleted, skipped
 
 
 @router.post("/batch/cleanup")
