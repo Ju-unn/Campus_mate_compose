@@ -344,16 +344,20 @@ def _live_diagnosis(said):
     return text
 
 
+# 앱은 채널을 처음 찾은 관찰에서야 system 바인딩을 건다(area3_b5.dart _RoomChannelWatch) — 그 전에 온 이벤트는 못 본다. 건수를 정확한 값으로 읽지 않게 붙이는 단서.
+_SYSTEM_EVENTS_FLOOR = ' — 건수는 하한: 채널을 늦게 찾으면 앞 이벤트는 못 봄'
+
+
 def _system_events_note(events):
-    """앱이 방 채널에서 받은 system 이벤트를 한 토막으로 — 개수 · 첫 ok 시각 · (최대 4건의) 모양. 모양을 같이 남기는 이유: 서버가 보내는 system 이벤트의
-    실제 값은 아직 못 봤다(area3_b5.dart _RoomChannelWatch) — 이번 실행이 `isPostgresReady` 가 맞는 모양을 보고 있었는지 가른다. 어떤 모양이 와도 던지지 않는다."""
+    """앱이 방 채널에서 받은 system 이벤트를 한 토막으로 — 개수 · 첫 ok 시각 · (최대 4건의) 모양 · 건수가 하한이라는 단서. 모양을 같이 남기는 이유: 서버가 보내는
+    system 이벤트의 실제 값은 아직 못 봤다(area3_b5.dart _RoomChannelWatch) — 이번 실행이 `isPostgresReady` 가 맞는 모양을 보고 있었는지 가른다. 어떤 모양이 와도 던지지 않는다."""
     if not isinstance(events, list):
         return f'system 보고 모양 이상({type(events).__name__})'
     shown = [e for e in events if isinstance(e, dict)]
     first_ok = next((e.get('ms') for e in shown if e.get('status') == 'ok'), None)
     head = f"system {len(shown)}건({f'첫 ok {first_ok}ms' if first_ok is not None else 'ok 없음'})"
     shapes = ', '.join(f"{e.get('ms')}ms {e.get('extension')}/{e.get('status')} {e.get('message')!r}" for e in shown[:4])
-    return f'{head} [{shapes}]' if shapes else head
+    return (f'{head} [{shapes}]' if shapes else head) + _SYSTEM_EVENTS_FLOOR
 
 
 def _channel_note(said):
@@ -469,7 +473,7 @@ def p_chat_67(run, phone):
     return check.result(' · '.join(part for part in (note, channel) if part))
 
 
-PHONE5 ={'E-CHAT-50': p_chat_50, 'E-CHAT-51': p_chat_51, 'E-CHAT-52': p_chat_52, 'E-CHAT-55': p_chat_55, 'E-CHAT-57': p_chat_57,
+PHONE5 = {'E-CHAT-50': p_chat_50, 'E-CHAT-51': p_chat_51, 'E-CHAT-52': p_chat_52, 'E-CHAT-55': p_chat_55, 'E-CHAT-57': p_chat_57,
           'E-CHAT-65': p_chat_65, 'E-CHAT-66': p_chat_66, 'E-CHAT-67': p_chat_67}
 PHONE5 = {name: _permitted(_single_shot(case)) for name, case in PHONE5.items()}
 tools.CASE_LIMITS.update({name: CASE_LIMIT for name in PHONE5})
