@@ -20,7 +20,7 @@ insert into public.universities (id, name, region_group, card_opens_at) values
   ('00000000-0000-0000-0000-000000001902', '코호트지남테스트대학교', 'cohort_test', '2020-01-06 07:00+09'),
   ('00000000-0000-0000-0000-000000001903', '코호트예정테스트대학교', 'cohort_test', '2099-01-05 07:00+09');
 
--- auth.users 트리거(handle_new_user_profile)가 이 도메인으로 학교를 찾아 pending 프로필을 만든다.
+-- auth.users 트리거(handle_new_user_profile)가 pending 프로필을 만들고, 아래 update 가 이 도메인으로 학교를 채운다.
 insert into public.university_email_domains (domain, university_id) values
   ('open.cohort-test.ac.kr', '00000000-0000-0000-0000-000000001901'),
   ('past.cohort-test.ac.kr', '00000000-0000-0000-0000-000000001902'),
@@ -34,6 +34,12 @@ insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000019b2', 'co-pf@past.cohort-test.ac.kr'),
   ('00000000-0000-0000-0000-0000000019c1', 'co-sm@soon.cohort-test.ac.kr'),
   ('00000000-0000-0000-0000-0000000019c2', 'co-sf@soon.cohort-test.ac.kr');
+
+-- 20261008010000(소셜 로그인)부터 트리거가 학교를 비워 둔다 — 옛 트리거처럼 메일 도메인으로 학교를 채운다.
+update public.profiles p set university_id = d.university_id
+  from auth.users u
+  join public.university_email_domains d on d.domain = split_part(u.email, '@', 2)
+ where u.id = p.id and p.university_id is null;
 
 update public.profiles set nickname = '열림남자' where id = '00000000-0000-0000-0000-0000000019a1';
 update public.profiles set nickname = '열림여자' where id = '00000000-0000-0000-0000-0000000019a2';
