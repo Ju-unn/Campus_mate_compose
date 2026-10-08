@@ -13,7 +13,7 @@ from app.consents.policy import consent_state
 from app.consents.repository import ConsentRepository, require_current_consent
 from app.core import errors
 from app.core.deps import Caller, get_caller, get_vision_client_factory
-from app.student_verification.current_user import reject_suspended
+from app.student_verification.current_user import reject_suspended, require_school_email
 from app.student_verification.discord_notifier import DiscordNotifier
 from app.student_verification.image_validation import student_id_content_type
 from app.student_verification.matching import ReviewReason, missing_from_student_id
@@ -48,6 +48,7 @@ async def submit_student_verification(
     # 동의 403 은 헤더가 없어서 정지보다 먼저 나가면 앱이 정지 안내 화면으로 못 간다.
     reject_suspended(gate.get("status"))
     await require_current_consent(settings, client, profile_id)
+    require_school_email(gate)
     status = gate["student_verification"]
     if status == "pending":
         raise HTTPException(status_code=409, detail=errors.VERIFICATION_IN_REVIEW)
@@ -164,6 +165,7 @@ async def save_school_info(body: SchoolInfoRequest, caller: Caller = Depends(get
     gate = await repo.fetch_gate_status(profile_id)
     # 결정 9(B6, 10-01): 정지 계정은 학과 · 학번을 바꾸지 못한다. 인증 상태 조회 · 동의 · 탈퇴는 열어 둔다.
     reject_suspended(gate.get("status"))
+    require_school_email(gate)
     if gate["student_verification"] != "verified":
         raise HTTPException(status_code=403, detail=errors.STUDENT_VERIFICATION_REQUIRED)
 

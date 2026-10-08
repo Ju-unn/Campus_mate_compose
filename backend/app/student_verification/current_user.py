@@ -53,6 +53,15 @@ def reject_suspended(status: str | None) -> None:
                             headers={"X-Account-Status": "suspended"})
 
 
+def require_school_email(gate: dict) -> None:
+    """학교 메일 확인 전(school_email_verified_at 이 NULL)이면 403. 동의 관문처럼 X-Account-Status 를 싣지 않는다.
+
+    칸이 아예 없어도 확인 전으로 본다 — 정지 칸이 없을 때(막지 않는다)와 반대다. 이 관문은 열린 문이 되면 안 된다.
+    email_confirmed_at 은 보지 않는다 — 소셜 계정은 가입 순간 채워진다(school_email/router.py)."""
+    if gate.get("school_email_verified_at") is None:
+        raise HTTPException(status_code=403, detail=errors.SCHOOL_EMAIL_REQUIRED)
+
+
 async def get_signed_in_user_id(
     settings: Settings,
     client: httpx.AsyncClient,
@@ -73,7 +82,10 @@ async def get_verified_user_id(
     authorization: str | None = None,
 ) -> UUID:
     """학생증 인증을 마친 사용자만 통과시킨다. 온보딩 엔드포인트가 공통으로 쓰는 관문이라
-    조각1 의 `fetch_gate_status` 를 그대로 재사용한다(2026-09-20 리뷰 필수 1)."""
+    조각1 의 `fetch_gate_status` 를 그대로 재사용한다(2026-09-20 리뷰 필수 1).
+
+    순서: 탈퇴(401) → 정지 → 학교 메일 → 학생증 → 학과. 동의는 학생증 제출(3b)이 앞에서 막는다 —
+    전체 관문 순서는 정지 → 동의 → 학교 메일 → 학생증 → 학과와 학번 이다(GET /me/verification-status)."""
     profile_id = await get_current_user_id(settings, client, authorization)
     repo = StudentVerificationRepository(
         settings.postgrest_url, settings.supabase_service_role_key, client
@@ -81,6 +93,7 @@ async def get_verified_user_id(
     gate = await repo.fetch_gate_status(profile_id)
     _reject_withdrawn(gate.get("status"))
     reject_suspended(gate.get("status"))  # 학생증 · 학과보다 먼저 본다.
+    require_school_email(gate)
     if gate["student_verification"] != "verified":
         raise HTTPException(status_code=403, detail=errors.STUDENT_VERIFICATION_REQUIRED)
     if gate["department"] is None:
