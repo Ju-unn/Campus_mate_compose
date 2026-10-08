@@ -3,6 +3,7 @@ from uuid import UUID
 
 from app.core.http import raise_for_status
 from app.core.postgrest import PostgrestRepository
+from app.signup_policy import bytea_literal
 
 
 class SchoolEmailRepository(PostgrestRepository):
@@ -26,3 +27,16 @@ class SchoolEmailRepository(PostgrestRepository):
         )
         raise_for_status(response)
 
+
+    async def complete_verification(self, profile_id: UUID, email_hmac: bytes, university_id: str,
+                                    provider: str) -> str:
+        """SQL `complete_school_email_verification` 이 claim 기록과 프로필 표시를 한 트랜잭션에서 한다.
+
+        'ok' · 'already_verified' · 'no_profile', 그 밖에는 이 학교 메일을 이미 쓰는 다른 계정의 provider.
+        text 하나를 돌려주는 함수라 본문은 JSON 스칼라다."""
+        response = await self._post("rpc/complete_school_email_verification", json={
+            "p_profile": str(profile_id), "p_email_hmac": bytea_literal(email_hmac),
+            "p_university": university_id, "p_provider": provider,
+        })
+        raise_for_status(response)
+        return response.json()
