@@ -91,4 +91,23 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text('1'), findsOneWidget);
   });
+
+  testWidgets('바꿔 끼운 provider(임시 저장소)는 로그아웃 뒤 새로 만든 ProviderScope 에도 그대로 들어간다', (tester) async {
+    // 임시 저장소는 앱을 켤 때 디스크를 한 번 읽어 둔 것이라 main.dart 가 한 번 만들어 넘긴다 — 로그아웃마다 잃으면 안 된다.
+    final service = Provider<String>((ref) => '기본값');
+    await tester.pumpWidget(SessionScope(
+      authChanges: authChanges.stream,
+      overrides: [service.overrideWithValue('바꿔 끼운 값')],
+      child: Consumer(
+        builder: (context, ref, _) => Text('${ref.watch(service)} ${ref.watch(probe)}', textDirection: TextDirection.ltr),
+      ),
+    ));
+    expect(find.text('바꿔 끼운 값 1'), findsOneWidget);
+
+    authChanges.add(const AuthState(AuthChangeEvent.signedOut, null));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('바꿔 끼운 값 2'), findsOneWidget, reason: '컨테이너는 새것(2)이고 바꿔 끼운 값은 그대로다');
+  });
 }
