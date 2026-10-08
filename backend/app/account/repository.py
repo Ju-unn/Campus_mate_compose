@@ -135,6 +135,12 @@ class SupabaseAdmin:
         response.raise_for_status()
         return response.json().get("users") or []
 
+    async def fetch_user(self, user_id: UUID | str) -> dict:
+        """`GET /admin/users/{id}` — 그 auth 사용자 전체(identities · created_at). 실패하면 예외다."""
+        response = await self._client.get(f"{self._auth_url}/admin/users/{user_id}", headers=self._headers)
+        response.raise_for_status()
+        return response.json()
+
     async def delete_user(self, profile_id: UUID | str) -> None:
         """auth 사용자째 지운다 — profiles 와 딸린 표는 FK cascade 다(pr3-db-report §2, 편차 2)."""
         response = await self._client.delete(f"{self._auth_url}/admin/users/{profile_id}", headers=self._headers)

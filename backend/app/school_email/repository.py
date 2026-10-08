@@ -29,3 +29,9 @@ class SchoolEmailRepository(PostgrestRepository):
         })
         raise_for_status(response)
         return response.json()
+
+    async def has_profile(self, user_id: str) -> bool:
+        """그 auth 사용자에게 프로필 행이 있는지. 임시 이메일 계정에는 없다. 읽기 실패는 예외로 올린다."""
+        response = await self._get("profiles", params={"id": f"eq.{user_id}", "select": "id"})
+        raise_for_status(response)
+        return bool(response.json())

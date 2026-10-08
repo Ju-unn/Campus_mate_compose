@@ -5,6 +5,7 @@
 옛 check · confirm(소셜 계정에 updateUser(email) 로 이메일을 붙이는 방식)은 폐기했다(지시문 05).
 """
 import logging
+from datetime import datetime, timedelta, timezone
 
 import httpx
 from fastapi import APIRouter, Depends, Header, HTTPException
@@ -14,8 +15,9 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.account.repository import SupabaseAdmin
 from app.consents.repository import require_current_consent
 from app.core import errors
-from app.core.deps import Caller, get_caller
+from app.core.deps import Caller, get_caller, get_now
 from app.school_email.repository import SchoolEmailRepository
+from app.settings import Settings
 from app.signup_policy import SignupPolicy, hash_email
 from app.student_verification.current_user import fetch_auth_user, reject_suspended
 
@@ -23,6 +25,8 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 SOCIAL_PROVIDERS = frozenset({"kakao", "google", "apple"})
+# 앱이 OTP 를 받아 만든 임시 계정은 방금 생긴 것이다. 이보다 오래된 이메일 계정은 임시 계정이 아니라 실제 계정으로 본다.
+TEMP_ACCOUNT_MAX_AGE = timedelta(minutes=30)
 
 
 def _taken_response(provider: str) -> JSONResponse:
@@ -83,11 +87,54 @@ def confirmed_temp_email(temp_user: dict, caller_id: str) -> str | None:
     return email
 
 
-async def delete_temp_account(admin: SupabaseAdmin, temp_id: str, caller_id: str) -> None:
+def _created_just_now(user: dict, now: datetime) -> bool:
+    """created_at 이 지금 − TEMP_ACCOUNT_MAX_AGE 안이면 True. 없거나 해석할 수 없으면 오래된 것으로 본다(False)."""
+    try:
+        created = datetime.fromisoformat(user["created_at"])
+    except (KeyError, TypeError, ValueError):
+        return False
+    if created.tzinfo is None:
+        created = created.replace(tzinfo=timezone.utc)
+    return now - created <= TEMP_ACCOUNT_MAX_AGE
+
+
+async def _is_fresh_temp_account(repo: SchoolEmailRepository, temp_user: dict, now: datetime) -> bool:
+    """방금 만들어졌고 프로필이 없는 계정만 임시 계정이다. 프로필을 못 읽으면 있는 것으로 본다.
+
+    임시 연결로 OTP 를 받은 메일이 옛 이메일 가입 계정의 메일이면 그 토큰의 주인은 **실제 계정**이다(프로필 있음,
+    오래전 생성). DB 함수는 claims 행이 없는 기존 가입자를 막지 못해서, 여기서 막지 않으면 호출자가 남의 학교 메일로
+    인증되고 그 실제 계정까지 지워진다."""
+    if not _created_just_now(temp_user, now):
+        return False
+    try:
+        return not await repo.has_profile(str(temp_user["id"]))
+    except Exception as exc:
+        logger.warning("임시 계정 프로필 확인 실패 — 실제 계정으로 본다 %s", type(exc).__name__)
+        return False
+
+
+async def delete_temp_account(settings: Settings, client: httpx.AsyncClient, temp_id: str, caller_id: str,
+                              now: datetime) -> None:
     """임시 이메일 계정을 관리자 API 로 지운다(최선만). 실패는 경고만 — 정리 배치가 하루 뒤 지운다.
-    이메일 · 토큰은 로그에 남기지 않는다. **호출한 사람의 id 면 절대 부르지 않는다**(삭제 직전 한 번 더)."""
+
+    삭제 **직전에** 세 가지를 다시 본다. 하나라도 어긋나거나 읽지 못하면 지우지 않는다.
+    ① id ≠ 호출한 사람 ② 관리자 API 로 다시 읽은 identities 가 정확히 email 하나 ③ 프로필 없음 + 방금 생성.
+    이메일 · 토큰은 로그에 남기지 않는다."""
     if str(temp_id) == str(caller_id):
         logger.error("임시 계정 삭제를 멈춤 — 호출한 사람과 같은 id profile=%s", caller_id)
+        return
+    admin = SupabaseAdmin(settings, client)
+    repo = SchoolEmailRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
+    try:
+        user = await admin.fetch_user(temp_id)
+        has_profile = await repo.has_profile(str(temp_id))
+    except Exception as exc:
+        logger.warning("임시 계정 삭제 전 재확인 실패 — 지우지 않는다 %s", type(exc).__name__)
+        return
+    providers = [identity.get("provider") for identity in user.get("identities") or []]
+    if str(user.get("id")) != str(temp_id) or providers != ["email"] or has_profile \
+            or not _created_just_now(user, now):
+        logger.warning("임시 계정이 아닌 것으로 보여 지우지 않는다 user=%s", temp_id)
         return
     try:
         await admin.delete_user(temp_id)
@@ -100,6 +147,7 @@ async def verify(
     body: VerifyRequest,
     caller: Caller = Depends(get_caller),
     authorization: str | None = Header(default=None),
+    now: datetime = Depends(get_now),
 ) -> dict[str, bool]:
     """정지 → 동의 → 이미 인증 → 소셜 계정만 → 임시 토큰 읽기 → 임시 계정 검사 → 도메인 → 재가입 제한 → DB 함수.
 
@@ -127,9 +175,12 @@ async def verify(
     email = confirmed_temp_email(temp_user, caller_id)
     if email is None:  # 6 — 남의 계정일 수 있어 지우지 않는다
         raise HTTPException(status_code=403, detail=errors.SCHOOL_EMAIL_NOT_CONFIRMED)
+    repo = SchoolEmailRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
+    if not await _is_fresh_temp_account(repo, temp_user, now):  # 6-b — 실제 계정이다: RPC 도 삭제도 하지 않는다
+        return _taken_response("email")
 
     outcome = await _decide(caller, email, provider)
-    await delete_temp_account(SupabaseAdmin(settings, client), temp_user["id"], caller_id)
+    await delete_temp_account(settings, client, temp_user["id"], caller_id, now)
     return outcome
 
 
