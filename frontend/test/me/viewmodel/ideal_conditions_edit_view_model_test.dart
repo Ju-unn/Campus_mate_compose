@@ -13,10 +13,12 @@ import 'package:campus_mate/profile/viewmodel/ideal_conditions_ui_state.dart';
 import 'package:campus_mate/profile/viewmodel/ideal_conditions_view_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:campus_mate/core/draft/draft_store.dart';
 
 import '../../profile/model/fake_ideal_conditions_repository.dart';
 import '../../profile/model/fake_onboarding_repository.dart';
 import '../model/fake_me_repository.dart';
+import '../../core/draft/fake_draft_store.dart';
 
 MyProfile _profile({
   int? ageMin = 25,
@@ -48,8 +50,10 @@ void main() {
   late FakeOnboardingRepository onboarding;
   late ProviderContainer container;
   late ProviderSubscription<IdealConditionsUiState> subscription;
+  late FakeDraftStore drafts;
 
   Future<void> open(MyProfile profile) async {
+    drafts = FakeDraftStore();
     me = FakeMeRepository(Success(profile));
     conditions = FakeIdealConditionsRepository();
     onboarding = FakeOnboardingRepository();
@@ -58,6 +62,7 @@ void main() {
         meRepositoryProvider.overrideWithValue(me),
         idealConditionsRepositoryProvider.overrideWithValue(conditions),
         onboardingRepositoryProvider.overrideWithValue(onboarding),
+        draftStoreProvider.overrideWithValue(drafts),
       ],
     );
     addTearDown(container.dispose);
@@ -168,5 +173,17 @@ void main() {
     final state = subscription.read();
     expect((state.preferredAgeMin, state.preferredAgeMax), (25, 30));
     expect(state.preferredAnimalTypes, [AnimalType.dog, AnimalType.fox]);
+  });
+
+  test('편집 모드는 임시 저장을 하지 않는다 — 온보딩 값을 쓰지도 지우지도 않는다', () async {
+    // 편집은 열 때마다 서버 값으로 채운다. 고르다 만 값이 온보딩 임시 저장 자리에 섞이면 안 된다.
+    await open(_profile());
+    viewModel().changeAgeRange(24, 29);
+
+    await viewModel().submit();
+
+    expect(subscription.read().completed, isTrue);
+    expect(drafts.saved, isEmpty);
+    expect(drafts.cleared, isEmpty);
   });
 }
