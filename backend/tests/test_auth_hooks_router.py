@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 from app.core.deps import get_client, get_settings
 from app.main import app
 from app.settings import Settings
+from app.signup_policy import hash_email
 
 
 SECRET = "whsec_" + base64.b64encode(b"test-secret-key-32-bytes-long!!").decode()
@@ -52,77 +53,114 @@ def _post_hook(client: TestClient, body: dict, mock_transport: httpx.MockTranspo
     return client.post("/hooks/before-user-created", content=raw_body, headers=headers)
 
 
-def test_allows_known_domain():
-    def handler(request: httpx.Request) -> httpx.Response:
-        if "university_email_domains" in str(request.url):
-            return httpx.Response(200, json=[{"university_id": "22222222-2222-2222-2222-222222222222"}])
-        return httpx.Response(200, json=[])
+SNU = "22222222-2222-2222-2222-222222222222"
 
-    client = TestClient(app)
-    response = _post_hook(
-        client,
-        {"metadata": {"uuid": "11111111-1111-1111-1111-111111111111", "name": "before-user-created"}, "user": {"email": "hong@snu.ac.kr"}},
-        httpx.MockTransport(handler),
-    )
+
+def _user(email: str | None = "hong@snu.ac.kr", provider: str | None = "email") -> dict:
+    """GoTrue 가 보내는 본문 모양. provider 는 user.app_metadata.provider 에 온다(None 이면 칸을 아예 뺀다)."""
+    user: dict = {} if email is None else {"email": email}
+    if provider is not None:
+        user["app_metadata"] = {"provider": provider, "providers": [provider]}
+    return {"metadata": {"uuid": "11111111-1111-1111-1111-111111111111", "name": "before-user-created"}, "user": user}
+
+
+def _db(seen: list[httpx.Request], domains: dict[str, str] | None = None, blocked: bool = False):
+    """PostgREST 가짜. 경로로 가르고(부분 문자열 금지), 나간 요청을 seen 에 쌓는다."""
+    domains = {"snu.ac.kr": SNU} if domains is None else domains
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        if request.url.path == "/rest/v1/university_email_domains":
+            university = domains.get(request.url.params["domain"].removeprefix("eq."))
+            return httpx.Response(200, json=[{"university_id": university}] if university else [])
+        if request.url.path == "/rest/v1/signup_blocks":
+            return httpx.Response(200, json=[{"blocked_until": "2099-01-01T00:00:00Z"}] if blocked else [])
+        raise AssertionError(f"예상하지 못한 요청 {request.url}")
+
+    return httpx.MockTransport(handler)
+
+
+# 이메일 방식(provider=email — 학교 메일 인증용 임시 계정)만 학교 도메인 · 재가입 제한을 본다(옛 동작 그대로) ---------
+
+def test_allows_known_domain():
+    seen: list[httpx.Request] = []
+
+    response = _post_hook(TestClient(app), _user("hong@snu.ac.kr"), _db(seen))
 
     # GoTrue 는 200 본문에 `error` 가 없으면 통과시킨다 — 빈 객체 + JSON Content-Type 이 문서의 "허용" 모양.
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("application/json")
     assert response.json() == {}
+    assert [r.url.path for r in seen] == ["/rest/v1/university_email_domains", "/rest/v1/signup_blocks"]
 
 
-def _no_db_calls(seen: list[httpx.Request]):
-    def handler(request: httpx.Request) -> httpx.Response:
-        seen.append(request)
-        return httpx.Response(200, json=[{"university_id": "22222222-2222-2222-2222-222222222222"}])
-    return httpx.MockTransport(handler)
+def test_rejects_unknown_domain():
+    response = _post_hook(TestClient(app), _user("hong@unknown.ac.kr"), _db([]))
+
+    # GoTrue 는 4xx 상태 본문을 읽지 않고 500 으로 바꾼다 — 거절은 200 + `error` 객체여야 메시지가 앱까지 간다.
+    # http_code 422 는 앱이 "가입 거절" 로 읽는 값(supabase_auth_repository.dart `_toFailure`).
+    assert response.status_code == 200
+    assert response.json() == {"error": {"http_code": 422, "message": "허용되지 않은 학교 이메일이에요"}}
 
 
-# 소셜 로그인 전환: 소셜 계정에는 학교 메일이 없어(카카오는 이메일조차 없다) 훅은 서명만 보고 항상 허용한다.
-# 도메인 · 재가입 제한 거절 시험은 tests/school_email/test_school_email_check.py 로 옮겼다(같은 내용).
+def test_rejects_blocked_email():
+    response = _post_hook(TestClient(app), _user("hong@snu.ac.kr"), _db([], blocked=True))
 
-@pytest.mark.parametrize("email", ["hong@unknown.ac.kr", "hong@gmail.com", ""])
-def test_any_email_is_allowed_without_asking_the_db(email):
+    assert response.status_code == 200
+    assert response.json() == {"error": {"http_code": 422, "message": "재가입이 제한된 이메일이에요"}}
+
+
+def test_blocked_email_hash_uses_identity_key():
+    """재가입 차단 해시는 **신원 키**로 만든다(미결 41①).
+
+    서명 키로 만들면 서명 키를 바꾸는 순간 저장된 해시가 전부 안 맞아 차단이 풀린다.
+    """
     seen: list[httpx.Request] = []
 
-    response = _post_hook(
-        TestClient(app),
-        {"metadata": {"uuid": "11111111-1111-1111-1111-111111111111", "name": "before-user-created"}, "user": {"email": email}},
-        _no_db_calls(seen),
-    )
+    _post_hook(TestClient(app), _user("Hong@SNU.ac.kr"), _db(seen))
+
+    expected = hash_email(IDENTITY_KEY, "hong@snu.ac.kr")
+    asked = [r.url.params["email_hmac"] for r in seen if r.url.path == "/rest/v1/signup_blocks"]
+    assert asked == [f"eq.\\x{expected.hex()}"]
+    assert hash_email(SECRET, "hong@snu.ac.kr") != expected
+
+
+def test_an_email_signup_without_an_email_is_rejected():
+    response = _post_hook(TestClient(app), _user(email=None), _db([]))
+
+    assert response.json()["error"]["http_code"] == 422
+
+
+# 소셜(kakao · google · apple)은 검사 없이 허용 — 소셜 계정에는 학교 메일이 없다(카카오는 이메일조차 없다) ---------
+
+@pytest.mark.parametrize("provider", ["kakao", "google", "apple"])
+@pytest.mark.parametrize("email", ["hong@gmail.com", "hong@unknown.ac.kr", None])
+def test_a_social_signup_is_allowed_without_asking_the_db(provider, email):
+    seen: list[httpx.Request] = []
+
+    response = _post_hook(TestClient(app), _user(email, provider), _db(seen))
 
     assert response.status_code == 200
     assert response.json() == {}
-    # 도메인 · 재가입 제한은 이제 /school-email/check · confirm 이 본다 — 훅은 PostgREST 를 부르지 않는다.
     assert seen == []
 
 
-def test_a_blocked_email_is_no_longer_refused_here():
-    """재가입 제한 해시가 걸려 있어도 훅은 통과시킨다 — 학교 메일 확인(1 · 2번)이 같은 해시로 막는다."""
+# provider 를 못 읽으면 거절한다 — 실패하면 열지 않는다 -------------------------------------------------
+
+@pytest.mark.parametrize("payload", [
+    _user(provider=None),
+    {"metadata": {"name": "before-user-created"}, "user": {"email": "hong@snu.ac.kr", "app_metadata": {}}},
+    {"metadata": {"name": "before-user-created"}, "user": {"email": "hong@snu.ac.kr", "app_metadata": None}},
+    _user(provider="github"),
+])
+def test_an_unreadable_or_unknown_provider_is_rejected(payload):
     seen: list[httpx.Request] = []
 
-    response = _post_hook(
-        TestClient(app),
-        {"metadata": {"uuid": "11111111-1111-1111-1111-111111111111", "name": "before-user-created"}, "user": {"email": "hong@snu.ac.kr"}},
-        _no_db_calls(seen),
-    )
-
-    assert response.json() == {}
-    assert [r for r in seen if r.url.path == "/rest/v1/signup_blocks"] == []
-
-
-def test_a_kakao_signup_without_any_email_is_allowed():
-    """카카오는 이메일 권한 없이 가입하면 user.email 이 아예 없다."""
-    seen: list[httpx.Request] = []
-
-    response = _post_hook(
-        TestClient(app),
-        {"metadata": {"uuid": "11111111-1111-1111-1111-111111111111", "name": "before-user-created"}, "user": {}},
-        _no_db_calls(seen),
-    )
+    response = _post_hook(TestClient(app), payload, _db(seen))
 
     assert response.status_code == 200
-    assert response.json() == {}
+    assert response.json() == {"error": {"http_code": 422, "message": "가입할 수 없는 계정이에요"}}
+    assert seen == []
 
 
 def test_invalid_signature_returns_401():
