@@ -26,4 +26,7 @@ abstract final class AppRadius {
 
   /// 카드 (pen Card `GvbBr` · Card · Outline `sPWwm`, 2026-10-01 개편)
   static const double card = 16;
+
+  /// 시작 화면 소셜 로그인 버튼(46 높이, 대장 지시문 07 규칙표 값). [input] 과 값은 같지만 근거가 달라 따로 둔다.
+  static const double socialButton = 12;
 }

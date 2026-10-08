@@ -42,4 +42,18 @@ void main() {
     expect(AppColors.errorWash, const Color(0xFFFAEFEC));
     expect(AppColors.success, const Color(0xFF25795A));
   });
+
+  // 소셜 로그인 버튼은 앱 토큰이 아니라 각 사 브랜드 규칙을 따른다(대장 지시문 07 규칙표 값).
+  test('카카오 버튼 색은 카카오 로그인 디자인 가이드 값을 쓴다', () {
+    expect(AppColors.kakaoContainer, const Color(0xFFFEE500));
+    // 공식 SVG 의 #191919 가 아니라 가이드 본문 값 #000000(규칙표 §1).
+    expect(AppColors.kakaoSymbol, const Color(0xFF000000));
+    expect(AppColors.kakaoLabel, const Color(0xFF000000).withValues(alpha: 0.85));
+  });
+
+  test('구글 버튼 색은 Google 브랜드 가이드 밝은 테마 값을 쓴다', () {
+    expect(AppColors.googleContainer, const Color(0xFFFFFFFF));
+    expect(AppColors.googleStroke, const Color(0xFF747775));
+    expect(AppColors.googleLabel, const Color(0xFF1F1F1F));
+  });
 }

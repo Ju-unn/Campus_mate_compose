@@ -18,4 +18,8 @@ void main() {
     expect(AppRadius.input, 12);
     expect(AppRadius.card, 16);
   });
+
+  test('소셜 로그인 버튼 라운드는 12 다(대장 지시문 07 규칙표 값)', () {
+    expect(AppRadius.socialButton, 12);
+  });
 }
