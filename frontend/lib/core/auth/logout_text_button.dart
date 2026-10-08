@@ -1,6 +1,5 @@
+import 'package:campus_mate/common/widgets/muted_text_button.dart';
 import 'package:campus_mate/core/auth/confirm_sign_out.dart';
-import 'package:campus_mate/core/theme/app_colors.dart';
-import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -11,19 +10,6 @@ class LogoutTextButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Material(
-      type: MaterialType.transparency,
-      child: InkWell(
-        onTap: () => confirmSignOut(context, ref),
-        // 높이는 최소값만 건다 — 글자를 키우면 버튼이 따라 커진다.
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 48),
-          child: Center(
-            // pen `u05wB` 14/600, 줄높이 속성 없음 · 렌더 20.
-            child: Text('로그아웃', style: AppTypography.labelSmall.copyWith(color: AppColors.muted, height: 20 / 14)),
-          ),
-        ),
-      ),
-    );
+    return MutedTextButton(label: '로그아웃', onPressed: () => confirmSignOut(context, ref));
   }
 }

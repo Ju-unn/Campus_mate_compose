@@ -5,6 +5,7 @@ class VerifyCodeUiState {
     this.isSubmitting = false,
     this.errorMessage,
     this.errorHint,
+    this.canChooseAnotherEmail = false,
     this.resendAvailableAt,
     this.codeExpiresAt,
     this.isCodeRejected = false,
@@ -17,6 +18,9 @@ class VerifyCodeUiState {
 
   /// [errorMessage] 아래 둘째 줄(다른 소셜 계정이 쓰는 메일일 때 "카카오 계정으로 로그인해 주세요"). 없으면 한 줄.
   final String? errorHint;
+
+  /// 이 메일로는 끝낼 수 없다(409 · 422 · 미확인) — 오류 문구 아래에 "다른 학교 메일 입력"(02 로)을 보인다.
+  final bool canChooseAnotherEmail;
 
   /// 이 시각 전에는 재전송 버튼을 눌러도 요청을 보내지 않는다(60초 쿨다운, spec §13-38).
   final DateTime? resendAvailableAt;

@@ -1,6 +1,8 @@
+import 'package:campus_mate/auth/model/school_email_repository.dart';
 import 'package:campus_mate/auth/model/school_email_repository_provider.dart';
 import 'package:campus_mate/auth/model/university_email.dart';
 import 'package:campus_mate/auth/model/verification_code.dart';
+import 'package:campus_mate/auth/viewmodel/sign_up_view_model.dart';
 import 'package:campus_mate/auth/viewmodel/verify_code_ui_state.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
@@ -28,6 +30,11 @@ class VerifyCodeViewModel extends Notifier<VerifyCodeUiState> {
   VerifyCodeViewModel(this._email);
 
   final UniversityEmail _email;
+
+  /// 코드 확인에 성공한 임시 토큰. complete 가 다시 해 볼 만한 이유로 실패하면(네트워크 · 503 · 미확인) 남겨 두고,
+  /// 다음 "확인" 은 verifyCode 를 건너뛰고 complete 만 부른다 — 이미 쓴 코드를 다시 확인하면 "코드가 맞지 않아요" 가 된다.
+  /// 메모리에만 있다(앱을 끄면 02 부터).
+  String? _temporaryToken;
 
   /// 테스트에서 시각을 고정하기 위한 훅. 기본은 실제 현재 시각.
   DateTime now() => ref.read(verifyCodeNowProvider)();
@@ -76,13 +83,44 @@ class VerifyCodeViewModel extends Notifier<VerifyCodeUiState> {
 
   /// 임시 연결로 코드를 확인하고, 되면 그 임시 토큰으로 서버에 인증을 마친다. 코드가 틀리면 서버는 부르지 않는다.
   Future<Result<void>> _verifyAndComplete(VerificationCode code) async {
-    final repository = ref.read(schoolEmailRepositoryProvider);
-    final verified = await repository.verifyCode(_email, code);
-    return verified.when(
-      onSuccess: repository.complete,
+    final token = await _temporaryTokenFor(code);
+    return token.when(
+      onSuccess: _complete,
       onFailure: (failure) async => FailureResult<void>(failure),
     );
   }
+
+  /// 저장한 임시 토큰이 있으면 그것을, 없으면 코드를 확인해 받는다.
+  Future<Result<String>> _temporaryTokenFor(VerificationCode code) async {
+    final saved = _temporaryToken;
+    if (saved != null) {
+      return Success(saved);
+    }
+    final verified = await ref.read(schoolEmailRepositoryProvider).verifyCode(_email, code);
+    _temporaryToken = verified.when(onSuccess: (token) => token, onFailure: (_) => null);
+    return verified;
+  }
+
+  /// 성공 · 409 · 422 면 시도가 끝났다 — 토큰을 버린다(저장소도 임시 연결을 비운다).
+  Future<Result<void>> _complete(String token) async {
+    final result = await ref.read(schoolEmailRepositoryProvider).complete(token);
+    final failure = result.when(onSuccess: (_) => null, onFailure: (failure) => failure);
+    if (failure == null || endsSchoolEmailAttempt(failure)) {
+      _temporaryToken = null;
+    }
+    return result;
+  }
+
+  /// "다른 학교 메일 입력" — 임시 연결과 토큰을 버리고 02 의 입력값을 비운다. 화면 이동은 화면이 한다.
+  Future<void> startOver() async {
+    _temporaryToken = null;
+    ref.invalidate(signUpViewModelProvider);
+    await ref.read(schoolEmailRepositoryProvider).discard();
+  }
+
+  /// 이 메일로는 끝낼 수 없는 실패 — 02 로 돌아가는 길을 보인다.
+  static bool _needsAnotherEmail(Failure failure) =>
+      endsSchoolEmailAttempt(failure) || failure is SchoolEmailNotConfirmedFailure;
 
   /// 오류는 입력칸 아래 문구로만 보인다(팝업 없음). 다른 소셜 계정이 쓰는 메일이면 둘째 줄을 단다.
   VerifyCodeUiState _failed(Failure failure) {
@@ -90,6 +128,7 @@ class VerifyCodeViewModel extends Notifier<VerifyCodeUiState> {
       codeInput: state.codeInput,
       errorMessage: failure.toDisplayMessage(),
       errorHint: failure is SchoolEmailTakenFailure ? failure.toHintMessage() : null,
+      canChooseAnotherEmail: _needsAnotherEmail(failure),
       resendAvailableAt: state.resendAvailableAt,
       codeExpiresAt: state.codeExpiresAt,
       isCodeRejected: failure is WrongCodeFailure,
@@ -101,7 +140,8 @@ class VerifyCodeViewModel extends Notifier<VerifyCodeUiState> {
     if (!state.canResend(now())) {
       return;
     }
-    // 새 코드가 오므로 입력칸을 비운다 — 안 비우면 예전 코드가 남아 그대로 제출된다.
+    // 새 코드가 오므로 입력칸을 비운다 — 안 비우면 예전 코드가 남아 그대로 제출된다. 저장한 임시 토큰도 버린다.
+    _temporaryToken = null;
     state = VerifyCodeUiState(
       resendAvailableAt: now().add(_resendCooldown),
       codeExpiresAt: now().add(codeLifetime),

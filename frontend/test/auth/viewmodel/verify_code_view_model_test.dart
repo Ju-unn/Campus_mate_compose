@@ -2,6 +2,7 @@ import 'package:campus_mate/auth/model/school_email_repository_provider.dart';
 import 'package:campus_mate/auth/model/verification_gate.dart';
 import 'package:campus_mate/auth/model/verification_gate_repository_provider.dart';
 import 'package:campus_mate/auth/model/university_email.dart';
+import 'package:campus_mate/auth/viewmodel/sign_up_view_model.dart';
 import 'package:campus_mate/auth/viewmodel/verify_code_view_model.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
@@ -193,5 +194,119 @@ void main() {
     await viewModel.resend();
 
     expect(repository.requestedEmails, isEmpty);
+  });
+  // 지시문 13 A-5: complete 가 실패해도(네트워크 · 503 · 미확인) 같은 03 에서 "확인" 을 다시 누르면 complete 만 다시 부른다.
+  group('complete 실패 뒤 다시 시도', () {
+    test('verifyCode 는 다시 부르지 않고 저장한 임시 토큰으로 complete 만 부른다', () async {
+      final repository = FakeSchoolEmailRepository()
+        ..nextVerifyCodeResult = const Success('temporary-token')
+        ..nextCompleteResult = const FailureResult(SchoolEmailIncompleteFailure());
+      final container = buildContainer(repository);
+      final viewModel = container.read(verifyCodeViewModelProvider(email).notifier);
+      viewModel.changeCode('123456');
+      await viewModel.submit();
+      repository.nextCompleteResult = const Success(null);
+
+      await viewModel.submit();
+
+      expect(repository.calls, ['verifyCode', 'complete', 'complete']);
+      expect(repository.completedTokens, ['temporary-token', 'temporary-token']);
+      expect(container.read(verifyCodeViewModelProvider(email)).verified, isTrue);
+    });
+
+    test('미확인(403)도 같이 complete 만 다시 부른다', () async {
+      final repository = FakeSchoolEmailRepository()
+        ..nextCompleteResult = const FailureResult(SchoolEmailNotConfirmedFailure());
+      final container = buildContainer(repository);
+      final viewModel = container.read(verifyCodeViewModelProvider(email).notifier);
+      viewModel.changeCode('123456');
+      await viewModel.submit();
+
+      await viewModel.submit();
+
+      expect(repository.calls, ['verifyCode', 'complete', 'complete']);
+    });
+
+    test('409 · 422 로 시도가 끝났으면 다시 누를 때 verifyCode 부터', () async {
+      for (final failure in [
+        const SchoolEmailTakenFailure('서버 문구', 'kakao'),
+        const SchoolEmailRejectedFailure('등록되지 않은 학교 메일이에요'),
+      ]) {
+        final repository = FakeSchoolEmailRepository()..nextCompleteResult = FailureResult(failure);
+        final container = buildContainer(repository);
+        final viewModel = container.read(verifyCodeViewModelProvider(email).notifier);
+        viewModel.changeCode('123456');
+        await viewModel.submit();
+
+        await viewModel.submit();
+
+        expect(repository.calls, ['verifyCode', 'complete', 'verifyCode', 'complete'], reason: '$failure');
+      }
+    });
+
+    test('메일을 다시 받으면 새 코드라 verifyCode 부터', () async {
+      final repository = FakeSchoolEmailRepository()
+        ..nextCompleteResult = const FailureResult(SchoolEmailIncompleteFailure());
+      var now = DateTime(2026, 1, 1, 12);
+      final container = buildContainer(repository, now: () => now);
+      final viewModel = container.read(verifyCodeViewModelProvider(email).notifier);
+      viewModel.changeCode('123456');
+      await viewModel.submit();
+      now = now.add(const Duration(seconds: 60));
+      await viewModel.resend();
+      viewModel.changeCode('654321');
+
+      await viewModel.submit();
+
+      expect(repository.calls, ['verifyCode', 'complete', 'requestCode', 'verifyCode', 'complete']);
+    });
+  });
+
+  // 지시문 13 A-4: 409 · 422 · 미확인이면 "다른 학교 메일 입력" 으로 02 로 돌아갈 수 있다.
+  group('다른 학교 메일 입력', () {
+    test('409 · 422 · 미확인에서만 보인다', () async {
+      final cases = <Failure, bool>{
+        const SchoolEmailTakenFailure('서버 문구', 'google'): true,
+        const SchoolEmailRejectedFailure('등록되지 않은 학교 메일이에요'): true,
+        const SchoolEmailRejectedFailure('재가입이 제한된 메일이에요'): true,
+        const SchoolEmailNotConfirmedFailure(): true,
+        const SchoolEmailIncompleteFailure(): false,
+        const RateLimitedFailure(): false,
+      };
+      for (final MapEntry(key: failure, value: shown) in cases.entries) {
+        final repository = FakeSchoolEmailRepository()..nextCompleteResult = FailureResult(failure);
+        final container = buildContainer(repository);
+        final viewModel = container.read(verifyCodeViewModelProvider(email).notifier);
+        viewModel.changeCode('123456');
+
+        await viewModel.submit();
+
+        expect(container.read(verifyCodeViewModelProvider(email)).canChooseAnotherEmail, shown, reason: '$failure');
+      }
+    });
+
+    test('틀린 코드에는 보이지 않는다', () async {
+      final repository = FakeSchoolEmailRepository()..nextVerifyCodeResult = const FailureResult(WrongCodeFailure());
+      final container = buildContainer(repository);
+      final viewModel = container.read(verifyCodeViewModelProvider(email).notifier);
+      viewModel.changeCode('000000');
+
+      await viewModel.submit();
+
+      expect(container.read(verifyCodeViewModelProvider(email)).canChooseAnotherEmail, isFalse);
+    });
+
+    test('startOver 는 임시 연결을 비우고 02 의 입력값을 비운다', () async {
+      final repository = FakeSchoolEmailRepository();
+      final container = buildContainer(repository);
+      container.read(signUpViewModelProvider.notifier).changeEmail('hong@snu.ac.kr');
+      final viewModel = container.read(verifyCodeViewModelProvider(email).notifier);
+
+      await viewModel.startOver();
+
+      expect(repository.calls, ['discard']);
+      expect(container.read(signUpViewModelProvider).emailInput, isEmpty);
+      expect(container.read(signUpViewModelProvider).canSubmit, isFalse);
+    });
   });
 }
