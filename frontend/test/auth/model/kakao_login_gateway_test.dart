@@ -19,8 +19,19 @@ class _FakeKakaoClient implements KakaoLoginClient {
   final List<String> calls = [];
   final List<String> nonces = [];
 
+  Object? logoutError;
+
   @override
   bool isConfigured() => configured;
+
+  @override
+  Future<void> logout() async {
+    calls.add('logout');
+    final error = logoutError;
+    if (error != null) {
+      throw error;
+    }
+  }
 
   @override
   Future<bool> isTalkInstalled() async {
@@ -149,6 +160,30 @@ void main() {
     await gateway.obtainCredential();
 
     expect(client.nonces.toSet(), hasLength(2));
+  });
+
+  group('로그아웃', () {
+    test('앱 로그아웃 때 카카오 SDK 로그아웃도 부른다', () async {
+      final client = _FakeKakaoClient();
+
+      await KakaoLoginGateway(client).signOut();
+
+      expect(client.calls, ['logout']);
+    });
+
+    test('카카오 로그아웃이 실패해도(카카오로 로그인한 적 없음 등) 던지지 않는다', () async {
+      final client = _FakeKakaoClient()..logoutError = KakaoClientException(ClientErrorCause.tokenNotFound, 'no token');
+
+      await expectLater(KakaoLoginGateway(client).signOut(), completes);
+    });
+
+    test('앱 키가 없는 빌드면(SDK 를 초기화하지 않았다) 부르지 않는다', () async {
+      final client = _FakeKakaoClient(configured: false);
+
+      await KakaoLoginGateway(client).signOut();
+
+      expect(client.calls, isEmpty);
+    });
   });
 
   group('SdkKakaoLoginClient', () {

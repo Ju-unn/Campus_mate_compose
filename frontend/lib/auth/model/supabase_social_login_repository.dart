@@ -29,6 +29,14 @@ class SupabaseSocialLoginRepository implements SocialLoginRepository {
     );
   }
 
+  @override
+  Future<void> signOutProviders() async {
+    // 게이트웨이마다 실패를 삼키므로 하나가 실패해도 나머지는 계속한다.
+    for (final gateway in _gateways.values) {
+      await gateway.signOut();
+    }
+  }
+
   Future<Result<void>> _exchange(SocialCredential credential, SocialProvider provider) async {
     try {
       await credential.signInTo(_auth, provider);

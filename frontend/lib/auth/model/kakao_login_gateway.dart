@@ -23,6 +23,9 @@ abstract interface class KakaoLoginClient {
   /// 네이티브 앱 키가 들어 있는 빌드인지. 아니면 SDK 를 부르지 않는다.
   bool isConfigured();
 
+  /// 카카오 SDK 가 들고 있는 토큰을 지운다(`UserApi.instance.logout()`).
+  Future<void> logout();
+
   Future<bool> isTalkInstalled();
 
   Future<String?> loginWithTalk(String hashedNonce);
@@ -38,6 +41,9 @@ class SdkKakaoLoginClient implements KakaoLoginClient {
 
   @override
   bool isConfigured() => _nativeAppKey.trim().isNotEmpty;
+
+  @override
+  Future<void> logout() => UserApi.instance.logout();
 
   @override
   Future<bool> isTalkInstalled() => isKakaoTalkInstalled();
@@ -77,6 +83,20 @@ class KakaoLoginGateway implements IdTokenGateway {
       // 키 · 토큰 · 이메일은 남기지 않는다 — 오류 종류 이름만.
       debugPrint('카카오 로그인 실패: ${error.runtimeType}');
       return FailureResult(_isCancel(error) ? const LoginCancelledFailure() : const SocialLoginFailure());
+    }
+  }
+
+  /// 키가 없는 빌드는 SDK 를 초기화하지 않았으므로 부르지 않는다. 카카오로 로그인한 적이 없어 토큰이 없을 때도
+  /// SDK 가 던지는데, 앱 로그아웃은 이미 끝났으므로 삼킨다.
+  @override
+  Future<void> signOut() async {
+    if (!_client.isConfigured()) {
+      return;
+    }
+    try {
+      await _client.logout();
+    } on Object catch (error) {
+      debugPrint('카카오 로그아웃 실패: ${error.runtimeType}');
     }
   }
 

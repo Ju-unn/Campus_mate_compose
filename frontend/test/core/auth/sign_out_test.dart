@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../auth/model/fake_social_login_repository.dart';
 import '../../matching/model/fake_card_repository.dart';
 import '../push/fake_push_messaging.dart';
 
@@ -52,4 +53,55 @@ void main() {
 
     verify(() => auth.signOut()).called(1);
   });
+
+  group('소셜 공급자 로그아웃(후속 13 B-1)', () {
+    test('앱 로그아웃 직후 카카오 · 구글 로그아웃을 부른다', () async {
+      final order = <String>[];
+      final registrar = PushRegistrar(FakePushMessaging(token: 'tok-1'), FakeCardRepository());
+      final auth = MockGoTrueClient();
+      when(() => auth.signOut()).thenAnswer((_) async => order.add('signOut'));
+      final social = _OrderedSocial(order);
+
+      await signOut(registrar, auth, social: social);
+
+      expect(order, ['signOut', 'providers']);
+    });
+
+    test('공급자 로그아웃이 던져도 앱 로그아웃은 끝나 있고 던지지 않는다', () async {
+      final registrar = PushRegistrar(FakePushMessaging(token: 'tok-1'), FakeCardRepository());
+      final auth = MockGoTrueClient();
+      when(() => auth.signOut()).thenAnswer((_) async {});
+
+      await expectLater(signOut(registrar, auth, social: _ThrowingSocial()), completes);
+
+      verify(() => auth.signOut()).called(1);
+    });
+
+    test('푸시 토큰 정리가 던져도 공급자 로그아웃까지 한다', () async {
+      final repository = FakeCardRepository(onDelete: () => throw StateError('push cleanup broke'));
+      final registrar = PushRegistrar(FakePushMessaging(token: 'tok-1'), repository);
+      await registrar.start();
+      final auth = MockGoTrueClient();
+      when(() => auth.signOut()).thenAnswer((_) async {});
+      final social = FakeSocialLoginRepository();
+
+      await expectLater(signOut(registrar, auth, social: social), throwsStateError);
+
+      expect(social.signOutProvidersCalls, 1);
+    });
+  });
+}
+
+class _OrderedSocial extends FakeSocialLoginRepository {
+  _OrderedSocial(this._order);
+
+  final List<String> _order;
+
+  @override
+  Future<void> signOutProviders() async => _order.add('providers');
+}
+
+class _ThrowingSocial extends FakeSocialLoginRepository {
+  @override
+  Future<void> signOutProviders() async => throw StateError('kakao logout broke');
 }

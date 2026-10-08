@@ -15,9 +15,20 @@ class _FakeGoogleClient implements GoogleLoginClient {
   Object? initializeError;
   Object? authenticateError;
   String? idToken = 'google-id-token';
+  int signOutCalls = 0;
+  Object? signOutError;
 
   @override
   bool isConfigured() => configured;
+
+  @override
+  Future<void> signOut() async {
+    signOutCalls++;
+    final error = signOutError;
+    if (error != null) {
+      throw error;
+    }
+  }
 
   @override
   Future<void> initialize(String hashedNonce) async {
@@ -114,6 +125,34 @@ void main() {
     expect(_failureOf(first), isA<SocialLoginFailure>());
     expect(_failureOf(second), isNull);
     expect(client.initializedNonces, hasLength(2));
+  });
+
+  group('로그아웃', () {
+    test('구글로 로그인한 뒤면 앱 로그아웃 때 GoogleSignIn 로그아웃도 부른다', () async {
+      final client = _FakeGoogleClient();
+      final gateway = GoogleLoginGateway(client);
+      await gateway.obtainCredential();
+
+      await gateway.signOut();
+
+      expect(client.signOutCalls, 1);
+    });
+
+    test('initialize 전이면 부르지 않는다(v7 은 initialize 전 호출이 정의되지 않음)', () async {
+      final client = _FakeGoogleClient();
+
+      await GoogleLoginGateway(client).signOut();
+
+      expect(client.signOutCalls, 0);
+    });
+
+    test('구글 로그아웃이 실패해도 던지지 않는다', () async {
+      final client = _FakeGoogleClient()..signOutError = StateError('signOut');
+      final gateway = GoogleLoginGateway(client);
+      await gateway.obtainCredential();
+
+      await expectLater(gateway.signOut(), completes);
+    });
   });
 
   group('SdkGoogleLoginClient', () {

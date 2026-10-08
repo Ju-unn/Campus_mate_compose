@@ -12,6 +12,12 @@ class FakeSocialLoginRepository implements SocialLoginRepository {
   Result<void>? nextResult;
   Completer<Result<void>> completer = Completer<Result<void>>();
   final List<SocialProvider> requested = [];
+  int signOutProvidersCalls = 0;
+
+  @override
+  Future<void> signOutProviders() async {
+    signOutProvidersCalls++;
+  }
 
   @override
   Future<Result<void>> signIn(SocialProvider provider) {

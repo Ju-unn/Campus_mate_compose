@@ -9,12 +9,18 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// 계정 이메일은 읽지도 쓰지도 않는다 — 학교 메일 인증은 별도 단계(지시문 08)다.
 abstract interface class SocialLoginRepository {
   Future<Result<void>> signIn(SocialProvider provider);
+
+  /// 앱 로그아웃 직후 카카오 · 구글 SDK 쪽 로그인도 끊는다(`core/auth/sign_out.dart`). 실패는 삼킨다.
+  Future<void> signOutProviders();
 }
 
 /// 공급자 SDK 에서 ID 토큰을 받아 오는 쪽. 카카오 · 구글 SDK 를 이 뒤에 숨겨 시험에서 가짜로 바꾼다.
 abstract interface class IdTokenGateway {
   /// 취소면 [LoginCancelledFailure], 그 밖의 실패는 [SocialLoginFailure].
   Future<Result<SocialCredential>> obtainCredential();
+
+  /// 공급자 SDK 의 로그인 상태를 지운다. 실패해도 던지지 않는다(로그에는 오류 종류 이름만).
+  Future<void> signOut();
 }
 
 /// 공급자가 준 ID 토큰과, 그 토큰에 해시로 실린 원본 nonce 한 쌍.

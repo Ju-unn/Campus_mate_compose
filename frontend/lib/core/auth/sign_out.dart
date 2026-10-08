@@ -1,5 +1,8 @@
+import 'package:campus_mate/auth/model/social_login_repository.dart';
+import 'package:campus_mate/auth/model/social_login_repository_provider.dart';
 import 'package:campus_mate/core/push/push_provider.dart';
 import 'package:campus_mate/core/push/push_registrar.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -17,7 +20,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// 그동안 제자리라, 여기서 건너뛰면 앱을 다시 켜기 전에는 다시 시도할 길이 없다. (로그인 만료는 대개 gotrue 가
 /// refresh 실패 때 세션을 이미 지워 안 갇힌다 — refresh 응답에 세션이 없는 드문 경우만 여기에 기댄다.)
 /// 정리 오류는 로그아웃 뒤 그대로 던진다 — 숨기지 않는다.
-Future<void> signOut(PushRegistrar registrar, GoTrueClient auth) async {
+///
+/// 앱 로그아웃 직후 [social] 로 카카오 · 구글 SDK 로그인도 끊는다(후속 지시문 13 B-1). 탈퇴도 main.dart 의
+/// 리스너가 이 함수를 지나므로 같이 적용된다. 공급자 쪽 실패는 앱 로그아웃에 영향을 주지 않는다.
+Future<void> signOut(PushRegistrar registrar, GoTrueClient auth, {SocialLoginRepository? social}) async {
   try {
     await registrar.stop();
   } finally {
@@ -26,6 +32,15 @@ Future<void> signOut(PushRegistrar registrar, GoTrueClient auth) async {
     } on AuthException {
       // 위 주석 — 남은 것은 서버 쪽 알림뿐이다.
     }
+    await _signOutProviders(social);
+  }
+}
+
+Future<void> _signOutProviders(SocialLoginRepository? social) async {
+  try {
+    await social?.signOutProviders();
+  } on Object catch (error) {
+    debugPrint('소셜 공급자 로그아웃 실패: ${error.runtimeType}');
   }
 }
 
@@ -33,5 +48,6 @@ Future<void> signOut(PushRegistrar registrar, GoTrueClient auth) async {
 /// registrar 는 main.dart 가 [PushRegistrar.start] 한 그 인스턴스여야 등록한 토큰을 지운다 — 같은 provider 에서 읽는다.
 final signOutProvider = Provider<Future<void> Function()>((ref) {
   final registrar = ref.read(pushRegistrarProvider);
-  return () => signOut(registrar, Supabase.instance.client.auth);
+  final social = ref.read(socialLoginRepositoryProvider);
+  return () => signOut(registrar, Supabase.instance.client.auth, social: social);
 });

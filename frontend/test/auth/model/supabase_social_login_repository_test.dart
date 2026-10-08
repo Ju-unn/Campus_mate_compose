@@ -115,4 +115,10 @@ void main() {
 
     expect(_failureOf(result), isA<SocialLoginFailure>());
   });
+
+  test('앱 로그아웃 때 모든 공급자 게이트웨이의 로그아웃을 부른다', () async {
+    await repository.signOutProviders();
+
+    expect((kakao.signOutCalls, google.signOutCalls), (1, 1));
+  });
 }

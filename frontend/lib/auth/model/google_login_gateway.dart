@@ -15,6 +15,9 @@ abstract interface class GoogleLoginClient {
 
   /// 계정을 고르게 하고 ID 토큰을 돌려준다(없으면 null).
   Future<String?> authenticate();
+
+  /// `GoogleSignIn.instance.signOut()`. [initialize] 뒤에만 부른다.
+  Future<void> signOut();
 }
 
 /// 실제 `google_sign_in` 7.2.0 을 부른다.
@@ -37,6 +40,9 @@ class SdkGoogleLoginClient implements GoogleLoginClient {
     final account = await GoogleSignIn.instance.authenticate(scopeHint: const ['email']);
     return account.authentication.idToken;
   }
+
+  @override
+  Future<void> signOut() => GoogleSignIn.instance.signOut();
 }
 
 /// 구글 로그인으로 ID 토큰을 받아 온다.
@@ -64,6 +70,22 @@ class GoogleLoginGateway implements IdTokenGateway {
       // 키 · 토큰 · 이메일은 남기지 않는다 — 오류 종류 이름만.
       debugPrint('구글 로그인 실패: ${error.runtimeType}');
       return FailureResult(_isCancel(error) ? const LoginCancelledFailure() : const SocialLoginFailure());
+    }
+  }
+
+  /// v7 은 initialize 전 호출이 정의되지 않으므로, 이 프로세스에서 구글 로그인을 시도한 적이 있을 때만 부른다.
+  /// 실패해도 앱 로그아웃은 이미 끝났으므로 삼킨다.
+  @override
+  Future<void> signOut() async {
+    final initialization = _initialization;
+    if (initialization == null) {
+      return;
+    }
+    try {
+      await initialization;
+      await _client.signOut();
+    } on Object catch (error) {
+      debugPrint('구글 로그아웃 실패: ${error.runtimeType}');
     }
   }
 
