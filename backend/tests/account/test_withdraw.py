@@ -2,7 +2,10 @@
 import json
 import logging
 
+import pytest
+
 from account_world import AUTH, EMAIL, ME
+from app.core import errors
 from app.signup_policy import IDENTITY_KEY_VERSION, bytea_literal, hash_email
 
 
@@ -16,9 +19,11 @@ def test_withdrawing_calls_the_db_function_with_the_email_hmac(client, world):
         "p_email_hmac": bytea_literal(hash_email("identity-key-test", EMAIL)),
         "p_key_version": IDENTITY_KEY_VERSION,
     }]
-    # 이메일은 auth admin 에서 service_role 키로 읽는다.
-    lookup = world.calls("GET", f"/auth/v1/admin/users/{ME}")[0]
+    # 해시는 학교 메일 인증 기록(school_email_claims)에서 service_role 키로 읽는다 — auth 의 email 은 더 읽지 않는다.
+    lookup = world.calls("GET", "/rest/v1/school_email_claims")[0]
     assert lookup.headers["authorization"] == "Bearer service-key"
+    assert lookup.url.params["profile_id"] == f"eq.{ME}"
+    assert world.calls("GET", f"/auth/v1/admin/users/{ME}") == []
     assert world.profiles[ME]["status"] == "withdrawn"
 
 
@@ -56,11 +61,76 @@ def test_a_db_failure_is_500_and_nothing_after_it_runs(client, world):
     assert world.calls("POST", "/auth/v1/logout") == []
 
 
-def test_an_email_lookup_failure_is_500_before_the_db_function(client, world):
-    world.fail = {f"GET /auth/v1/admin/users/{ME}"}
+@pytest.mark.parametrize("trouble", ["500", "unreachable"])
+def test_a_claims_read_failure_is_503_before_the_db_function(client, world, trouble):
+    """해시를 못 읽은 채 NULL 로 탈퇴시키면 재가입 제한을 잃는다 — 진행하지 않는다(옛 '이메일 조회 실패 → 500' 자리)."""
+    if trouble == "500":
+        world.fail = {"GET /rest/v1/school_email_claims"}
+    else:
+        world.claims_unreachable = True
 
-    assert client.post("/account/withdraw", headers=AUTH).status_code == 500
+    response = client.post("/account/withdraw", headers=AUTH)
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == errors.AUTH_UNAVAILABLE
     assert world.withdraw_bodies == []
+    assert world.profiles[ME]["status"] == "active"
+    assert world.calls("POST", "/auth/v1/logout") == []
+    assert world.kakao_unlinks == []
+
+
+@pytest.mark.parametrize("auth_email", ["", None, "missing"])
+def test_a_kakao_account_without_an_email_uses_the_claims_hash(client, world, auth_email):
+    if auth_email == "missing":
+        world.emails.pop(ME)
+    else:
+        world.emails[ME] = auth_email
+    world.claims[ME] = {"school_email_hmac": bytea_literal(hash_email("identity-key-test", "kim@snu.ac.kr")),
+                        "key_version": 2}
+
+    response = client.post("/account/withdraw", headers=AUTH)
+
+    assert response.status_code == 200
+    assert world.withdraw_bodies == [{
+        "p_profile_id": ME,
+        "p_email_hmac": bytea_literal(hash_email("identity-key-test", "kim@snu.ac.kr")),
+        "p_key_version": 2,
+    }]
+
+
+def test_an_account_before_the_school_email_withdraws_without_a_hash(client, world):
+    world.claims.pop(ME)
+    world.profiles[ME].update(school_email_verified_at=None)
+
+    response = client.post("/account/withdraw", headers=AUTH)
+
+    assert response.status_code == 200
+    # 학교 메일을 쓴 적이 없으니 막을 메일도 없다 — DB 함수는 NULL 이면 signup_blocks 를 남기지 않는다.
+    assert world.withdraw_bodies == [{"p_profile_id": ME, "p_email_hmac": None, "p_key_version": IDENTITY_KEY_VERSION}]
+    assert world.profiles[ME]["status"] == "withdrawn"
+
+
+def test_an_old_email_account_backfilled_into_claims_uses_the_claims_hash(client, world):
+    """옛 학교 메일 OTP 가입자는 claims 에 provider=email 로 백필된다. auth 의 email 이 달라도 claims 해시를 쓴다."""
+    world.emails[ME] = "Changed@Elsewhere.example"
+    school = bytea_literal(hash_email("identity-key-test", EMAIL))
+
+    client.post("/account/withdraw", headers=AUTH)
+
+    assert world.withdraw_bodies[0]["p_email_hmac"] == school
+    assert world.withdraw_bodies[0]["p_email_hmac"] != bytea_literal(
+        hash_email("identity-key-test", "Changed@Elsewhere.example"))
+
+
+def test_the_later_steps_still_run_for_an_account_without_claims(client, world):
+    world.claims.pop(ME)
+    world.settings_overrides = {"kakao_admin_key": "kakao-admin-test"}
+
+    assert client.post("/account/withdraw", headers=AUTH).status_code == 200
+    assert ME not in world.push_tokens
+    assert world.files["student-id-temp"][ME] == []
+    assert len(world.kakao_unlinks) == 1
+    assert len(world.calls("POST", "/auth/v1/logout")) == 1
 
 
 def test_a_suspended_or_unverified_account_can_still_withdraw(client, world):

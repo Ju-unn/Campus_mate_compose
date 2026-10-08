@@ -10,6 +10,7 @@ import httpx
 
 from app.core.time import SEOUL
 from app.settings import Settings
+from app.signup_policy import bytea_literal, hash_email
 
 ME = "11111111-1111-1111-1111-111111111111"
 OLD = "22222222-2222-2222-2222-222222222222"     # 31일 전 탈퇴
@@ -55,6 +56,12 @@ class AccountWorld:
         self.contact_key_versions: list[int] = []
         self.fail: set[str] = set()            # "DELETE /storage/v1/object/avatars" 처럼 막을 요청
         self.withdraw_bodies: list[dict] = []
+        # school_email_claims(학교 메일 인증 기록) — profile_id → {school_email_hmac(bytea 리터럴), key_version}.
+        # ME 는 학교 메일(EMAIL)로 인증을 마친 사람이다. 탈퇴의 재가입 제한 해시는 이 행에서 온다(auth 의 email 이 아니다).
+        self.claims: dict[str, dict] = {
+            ME: {"school_email_hmac": bytea_literal(hash_email("identity-key-test", EMAIL)), "key_version": 1},
+        }
+        self.claims_unreachable = False
         self.unverified_lookups: list[dict] = []
         # RPC 가 고른 뒤 그 사이 인증을 마친 사람처럼, 조건과 상관없이 RPC 결과에 끼워 넣을 id
         self.stale_unverified: list[str] = []
@@ -201,6 +208,16 @@ class AccountWorld:
                if "signed_up_at" in p and p["school_email_verified_at"] is None and p["signed_up_at"] < cutoff]
         ids += [pid for pid in self.stale_unverified if pid not in ids]
         return httpx.Response(200, json=[{"id": pid} for pid in ids[:body.get("p_limit", 100)]])
+
+    def _school_email_claims(self, method, params, body):
+        assert method == "GET"
+        assert set(params) == {"profile_id", "select"}
+        if self.claims_unreachable:
+            raise httpx.ConnectError("연결 실패")
+        row = self.claims.get(self._eq(params, "profile_id"))
+        if row is None:
+            return httpx.Response(200, json=[])
+        return httpx.Response(200, json=[{c: row[c] for c in params["select"].split(",")}])
 
     def _heart_task_submissions(self, method, params, body):
         return httpx.Response(200, json=[])
