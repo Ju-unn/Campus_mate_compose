@@ -123,6 +123,10 @@ void main() {
       expect(isPostgresReady(payload), isTrue);
     });
 
+    test('메시지가 없어도 확장이 postgres_changes 인 ok 면 준비됨이다 — 확장 조건이 홀로 선다', () {
+      expect(isPostgresReady({'extension': 'postgres_changes', 'status': 'ok'}), isTrue);
+    });
+
     test('확장 이름이 달라도 메시지가 "Subscribed to PostgreSQL" 인 ok 면 준비됨이다', () {
       expect(isPostgresReady({'status': 'ok', 'message': 'Subscribed to PostgreSQL'}), isTrue);
     });
@@ -160,6 +164,54 @@ void main() {
       expect(isPostgresReady(const <String, Object?>{}), isFalse);
       expect(isPostgresReady({'status': 'ok', 'extension': 7, 'message': 7}), isFalse);
       expect(isPostgresReady({'status': null, 'extension': null, 'message': null}), isFalse);
+    });
+  });
+
+  // RealtimeMessageStream 이 채널에 거는 system 걸이 — 채널을 켜지 않고 이 함수만으로 "ok 면 준비됨을 알린다" 를 확인한다.
+  group('systemEventListener — system 이벤트를 받는 쪽의 준비됨 신호로 바꾼다', () {
+    const ok = {'extension': 'postgres_changes', 'status': 'ok', 'message': 'Subscribed to PostgreSQL'};
+
+    test('ok 이벤트면 준비됨을 알린다', () {
+      systemEventListener(() => readies++)(ok);
+
+      expect(readies, 1);
+    });
+
+    test('ok 가 아닌 이벤트는 알리지 않는다 — error · 상관없는 system 이벤트', () {
+      final onSystem = systemEventListener(() => readies++);
+
+      onSystem({'extension': 'postgres_changes', 'status': 'error', 'message': 'Subscribed to PostgreSQL'});
+      onSystem({'extension': 'presence', 'status': 'ok', 'message': 'Joined'});
+
+      expect(readies, 0);
+    });
+
+    test('Map 이 아니거나 값 타입이 이상해도 던지지 않고 알리지 않는다', () {
+      final onSystem = systemEventListener(() => readies++);
+
+      for (final weird in <Object?>[null, 'ok', 42, ['status', 'ok'], const <String, Object?>{}, {'status': 'ok', 'extension': 7, 'message': 7}]) {
+        onSystem(weird);
+      }
+
+      expect(readies, 0);
+    });
+
+    test('onReady 를 안 넘겨도 어떤 이벤트가 와도 던지지 않는다', () {
+      final onSystem = systemEventListener(null);
+
+      onSystem(ok);
+      onSystem(null);
+      onSystem({'status': 'error'});
+    });
+
+    test('ok 가 여러 번 오면 그만큼 알린다 — 멱등은 받는 쪽 몫이다', () {
+      final onSystem = systemEventListener(() => readies++);
+
+      onSystem(ok);
+      onSystem(ok);
+      onSystem(ok);
+
+      expect(readies, 3);
     });
   });
 }

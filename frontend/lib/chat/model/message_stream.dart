@@ -43,6 +43,8 @@ void Function(RealtimeSubscribeStatus, Object?) channelStatusListener({
 
 /// 서버가 postgres_changes 구독을 만들었다는 `system` 이벤트에 흔히 실리는 문구. 실기기 값은 아직 못 봤다(E-CHAT-67 진단 대기) —
 /// 모양이 다르면 아래 [isPostgresReady] 만 고치면 된다.
+/// 참고: 둘째 문구('Replication connection established')는 지금은 사실상 죽은 코드다 — 우리 채널은 `RealtimeChannelConfig(replicationReady: true)`
+/// 옵션 없이 만들어서 서버가 그 system 이벤트를 안 보낸다. 그 옵션을 켤 때 쓰인다.
 const List<String> _postgresReadyMessages = [
   'Subscribed to PostgreSQL', // Realtime 서버가 postgres_changes 구독을 만들면 보내는 알림
   'Replication connection established', // `RealtimeChannelConfig.replicationReady` 를 켠 채널의 복제 연결 알림
@@ -58,6 +60,16 @@ bool isPostgresReady(Object? payload) {
   final message = payload['message'];
   return payload['extension'] == 'postgres_changes' ||
       (message is String && _postgresReadyMessages.any(message.contains));
+}
+
+/// 채널의 `system` 이벤트를 받는 쪽 신호로 바꾼다 — [isPostgresReady] 인 이벤트마다 [onReady]. 같은 이벤트가 여러 번 와도
+/// 그만큼 부른다(멱등은 받는 쪽 몫). [onReady] 가 없거나 이벤트 모양이 이상해도 던지지 않는다.
+void Function(dynamic) systemEventListener(void Function()? onReady) {
+  return (payload) {
+    if (isPostgresReady(payload)) {
+      onReady?.call();
+    }
+  };
 }
 
 /// Supabase Realtime 구현. 읽기 권한은 ERD §2 가 `messages` 에 걸어 둔 RLS 를 그대로 물려받는다 —
@@ -94,7 +106,7 @@ class RealtimeMessageStream implements MessageStream {
             )
             // 서버가 postgres_changes 구독을 만들었다고 알리면 준비됨 — 이 걸이는 구독 전에 걸어야 하고,
             // realtime_client 가 subscribe() 안에서 error 를 channelError 로 올리는 걸이와는 별개다.
-            .onSystemEvents((payload) => isPostgresReady(payload) ? onReady?.call() : null)
+            .onSystemEvents(systemEventListener(onReady))
             .subscribe(
               channelStatusListener(onError: controller.addError, onRejoined: onRejoined, onReady: onReady),
             );

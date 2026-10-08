@@ -884,6 +884,25 @@ class Chat67Test(Base5):
         self.assertIn('system 2건(첫 ok 640ms)', note)
         self.assertIn('640ms system/ok', note)
 
+    FLOOR_PHRASE = '하한'
+
+    def test_the_system_event_count_is_told_as_a_lower_bound_whenever_the_app_reported_events(self):
+        """앱은 채널을 처음 찾은 관찰에서 system 바인딩을 건다(area3_b5.dart _RoomChannelWatch) — 그 전 이벤트는 못 본다. 건수를 정확한 값으로 읽지 않게 단서를 붙인다."""
+        for label, events in (('0건', []), ('1건', [self.OK_EVENT]), ('ok 없음', [{'ms': 200, 'status': 'error', 'extension': 'postgres_changes', 'message': 'bad'}])):
+            with self.subTest(label):
+                self.setUp()
+                (_, note), _ = self.run67(self.measured(joined_ms=100, joined_at_send=True, system_events=events))
+                self.assertIn(self.FLOOR_PHRASE, note)
+                self.assertIn('채널을 늦게 찾으면 앞 이벤트는 못 봄', note)
+
+    def test_no_lower_bound_phrase_when_the_app_said_nothing_about_system_events_or_the_report_is_malformed(self):
+        """앱이 system_events 를 말하지 않았거나 목록이 아니면 건수 자체가 없으니 하한 단서도 없다."""
+        for label, says in (('말 안 함', self.measured(joined_ms=100, joined_at_send=True)), ('목록 아님', self.measured(system_events='junk'))):
+            with self.subTest(label):
+                self.setUp()
+                (_, note), _ = self.run67(says)
+                self.assertNotIn(self.FLOOR_PHRASE, note)
+
     def test_a_malformed_channel_report_never_turns_the_result_into_an_error(self):
         for report in ({'joined_ms': 'soon', 'joined_at_send': 'maybe', 'system_events': 'junk'},
                        {'system_events': [None, 7, {'ms': 5}, {'status': 'ok'}]}, {'system_events': None}, {'joined_ms': None}):
