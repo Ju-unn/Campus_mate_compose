@@ -27,7 +27,7 @@
              그대로라 14f 시트가 안 가린다. 문구는 처음 뜬 오류(시트 · 방 다시 읽기가 오류 줄을 지울 수 있다)로 본다.
   E-CHAT-65  "B: HOME → 목록" — 알림은 로그인 판 + 프로세스 죽임으로 지켜보고, 목록은 배치 뒤 앱을 새로 켜서 본다(55 와 같은 control).
   E-CHAT-66  "둘 다 방 열기" — B 는 앱 방의 "신뢰 확인 완료" 카드, A 는 API 방 머리말의 gate.passed(그 값이 카드를 그린다). A 화면 자체는 못 본다.
-  E-CHAT-67  "B ≤ 2.0초 표시" — 보낸 시각은 서버가 messages.created_at 에 찍은 값, 본 시각은 앱이 방 뷰모델에서 그 글을 처음 본 앱 시계(UTC)다. 폰 시계와 서버 시계의
+  E-CHAT-67  "B ≤ 2.0초 표시" — 앱은 방 읽기 뒤 postgres_changes 준비 신호를 기다린 뒤(상한 8초) 보낸다(안정된 방에서 잰다) — 준비 전 틈에 보낸 글은 이 가설이 가린다. 보낸 시각은 서버가 messages.created_at 에 찍은 값, 본 시각은 앱이 방 뷰모델에서 그 글을 처음 본 앱 시계(UTC)다. 폰 시계와 서버 시계의
              차(시계 차)가 그대로 섞인다 — 음수가 나오면 메모에 남기고 0 으로 친다. 말풍선이 안 떴으면(fail) 메모에 앱 진단 옆으로 서버 진단(DB 행 · B 토큰으로 읽기 ·
              참가자 · 방 상태)과, 앱이 방을 다시 읽어 본 결과의 '추정:' 해석을 붙인다 — fail 이면 같은 번들에서 다시 안 돌리니 한 번에 원인을 가를 증거를 남기려는 것이고 판정은 그대로다.
   E-CHAT-69  cleanup 은 탈퇴 30일 지난 모든 계정(실사용자 포함)을 지우는 하루 한 번 job 이다 — 이번 실행이 만든 계정만 쓰지만 배치 자체는 전부에 돈다(예약 실행과 같은 일).
@@ -360,8 +360,21 @@ def _system_events_note(events):
     return (f'{head} [{shapes}]' if shapes else head) + _SYSTEM_EVENTS_FLOOR
 
 
+APP_READY_WAIT = 8  # area3_b5.dart _batchReadyWait — 앱이 방 읽기 뒤 postgres_changes 준비 신호를 기다리는 상한(초)
+
+
+def _ready_note(ready_ms):
+    """앱이 준비 신호(postgres_changes 준비 system 이벤트)를 받은 시각 한 구절. 못 받았으면(null) 상한까지 기다린 뒤 보낸 것이고, 채널을 늦게 찾아 이미 지나간 신호를
+    놓쳤을 수도 있다(그러면 '안 왔다' 가 아니라 '못 봤다'). 숫자가 아닌 값(참 · 거짓 포함)은 시각으로 옮기지 않고 모양 이상으로 적는다. 던지지 않는다."""
+    if ready_ms is None:
+        return f'준비 신호 못 받음(상한 {APP_READY_WAIT}초 뒤에 보냄 — 채널을 늦게 찾으면 놓칠 수 있음)'
+    if isinstance(ready_ms, (int, float)) and not isinstance(ready_ms, bool):
+        return f'준비 신호 {ready_ms}ms'
+    return f'준비 신호 보고 모양 이상({type(ready_ms).__name__})'
+
+
 def _channel_note(said):
-    """앱이 잰 방 채널 사실 한 구절 — 채널이 방 읽기 뒤 몇 ms 에 처음 joined 로 보였는지 · 글을 보내기 직전에 joined 였는지 · system 이벤트.
+    """앱이 잰 방 채널 사실 한 구절 — 채널이 방 읽기 뒤 몇 ms 에 처음 joined 로 보였는지 · 글을 보내기 직전에 joined 였는지 · 준비 신호를 받은 시각 · system 이벤트.
     pass 든 fail 이든 메모에 붙는다(E-CHAT-67 의 "채널 준비 전에 보낸 글" 가설을 다음 실기기 실행이 확정 / 기각하게). 앱이 말한 키만 옮기므로 서버 호출은 없고,
     키가 하나도 없으면(옛 앱) ''. 값이 이상해도 던지지 않는다(진단은 판정을 바꾸지 않는다)."""
     parts = []
@@ -370,6 +383,8 @@ def _channel_note(said):
         parts.append(f'채널 joined {joined}ms' if joined is not None else '채널 joined 못 봄')
     if 'joined_at_send' in said:
         parts.append(f"보낼 때 joined={said['joined_at_send']}")
+    if 'ready_ms' in said:
+        parts.append(_ready_note(said['ready_ms']))
     if 'system_events' in said:
         parts.append(_system_events_note(said['system_events']))
     return ' · '.join(parts)

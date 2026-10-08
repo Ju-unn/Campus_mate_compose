@@ -903,6 +903,44 @@ class Chat67Test(Base5):
                 (_, note), _ = self.run67(says)
                 self.assertNotIn(self.FLOOR_PHRASE, note)
 
+    # ── 준비 신호: 앱이 방 읽기 뒤 postgres_changes 준비 system 이벤트를 기다린 뒤(상한 8초) 보낸다 — 받은 시각(ready_ms)이 메모에 ───────────────
+
+    def test_a_note_says_when_the_ready_signal_came_in_both_a_pass_and_a_fail(self):
+        channel = dict(joined_ms=2072, joined_at_send=True, system_events=[self.OK_EVENT], ready_ms=4409)
+        for label, says in (('pass', self.measured(**channel)), ('fail', self.measured(bubble=False, seen_at=None, **channel))):
+            with self.subTest(label):
+                self.setUp()
+                (result, note), _ = self.run67(says)
+                self.assertEqual(result, label, note)
+                self.assertIn('준비 신호 4409ms', note)
+                self.assertNotIn('준비 신호 못 받음', note)
+
+    def test_a_ready_signal_never_received_is_told_with_the_cap_and_the_late_find_caveat_in_both_a_pass_and_a_fail(self):
+        channel = dict(joined_ms=2072, joined_at_send=True, system_events=[], ready_ms=None)
+        for label, says in (('pass', self.measured(**channel)), ('fail', self.measured(bubble=False, seen_at=None, **channel))):
+            with self.subTest(label):
+                self.setUp()
+                (result, note), _ = self.run67(says)
+                self.assertEqual(result, label, note)
+                self.assertIn('준비 신호 못 받음(상한 8초 뒤에 보냄 — 채널을 늦게 찾으면 놓칠 수 있음)', note)
+
+    def test_an_app_that_does_not_say_ready_ms_leaves_the_note_without_a_ready_phrase(self):
+        """옛 앱(ready_ms 키 없음)은 구절을 아무것도 안 붙인다 — 채널 측정 키가 있어도, 하나도 없어도."""
+        for label, says in (('채널 키만', self.measured(joined_ms=420, joined_at_send=True, system_events=[self.OK_EVENT])), ('아무 키도 없음', None)):
+            with self.subTest(label):
+                self.setUp()
+                (_, note), _ = self.run67(*([says] if says else []))
+                self.assertNotIn('준비 신호', note)
+
+    def test_a_malformed_ready_ms_is_told_as_malformed_and_never_as_a_time(self):
+        for report in ('soon', True, [4409]):
+            with self.subTest(report):
+                self.setUp()
+                (result, note), _ = self.run67(self.measured(ready_ms=report))
+                self.assertEqual(result, 'pass', note)
+                self.assertIn('준비 신호 보고 모양 이상', note)
+                self.assertNotRegex(note, r'준비 신호 \d')
+
     def test_a_malformed_channel_report_never_turns_the_result_into_an_error(self):
         for report in ({'joined_ms': 'soon', 'joined_at_send': 'maybe', 'system_events': 'junk'},
                        {'system_events': [None, 7, {'ms': 5}, {'status': 'ok'}]}, {'system_events': None}, {'joined_ms': None}):

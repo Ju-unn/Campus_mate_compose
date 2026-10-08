@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:campus_mate/chat/model/message_stream.dart';
 import 'package:campus_mate/chat/view/chat_input_bar.dart';
 import 'package:campus_mate/chat/view/chat_list_row.dart';
 import 'package:campus_mate/chat/view/chat_room_screen.dart';

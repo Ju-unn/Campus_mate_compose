@@ -11,9 +11,11 @@ const _batchListWait = Duration(seconds: 30); // 로그인 · 목록 조회 · �
 const _batchCardWait = Duration(seconds: 15); // 방 머리말을 읽고 14b 카드를 그리는 시간
 const _batchTrustDone = '신뢰 확인 완료'; // trust_reveal_bubble.dart:49
 const _batchRoomLoadWait = Duration(seconds: 15); // 방 뷰모델이 머리말 · 첫 페이지 읽기를 끝내는 시간
-// 가설(실물 미확인): 방 뷰모델은 구독을 첫 페이지 읽기 직전에 걸어(chat_room_view_model.dart:49-60) 읽기가 끝난 직후엔 실시간 채널이 아직 안 붙었을 수 있다.
-// PC 가 보내기 전에 채널이 붙을 시간을 준다 — E-CHAT-67 이 구독 전에 글이 들어가 못 받은 것인지 가르려는 것이라 이 시간 자체가 판정을 바꾸지 않는다.
-const _batchSubscribeWait = Duration(seconds: 2);
+// 방 뷰모델은 구독을 첫 페이지 읽기 직전에 걸지만(chat_room_view_model.dart:49-60) 서버가 postgres_changes 복제를 살리는 건 join 성공 **뒤**의 비동기라,
+// 방 읽기가 끝난 직후엔 글을 밀어 줄 준비가 아직 안 됐을 수 있다(10-08 14:06 실기기: 채널 joined 2072ms · 보낼 때 joined=True 인데 postgres_changes 준비 system 이벤트는
+// 4409ms). 시나리오는 "방을 열고 안정된 뒤 보내고 ≤ 2.0초 표시"(E-CHAT-01 도 안정된 방에서 잰다)라서 고정 2초 대신 그 준비 신호([isPostgresReady])를 기다린 뒤 보낸다.
+// 상한을 두는 건 신호를 끝내 못 받아도(아래 [_RoomChannelWatch] 가 늦게 찾아 놓침 등) 시험이 멈추지 않게 하려는 것이다 — 못 받은 채 보냈는지는 PC 가 `ready_ms == null` 로 안다.
+const _batchReadyWait = Duration(seconds: 8);
 const _batchReconnectWait = Duration(seconds: 5); // 글이 안 떴을 때 진단으로 방을 다시 읽는 시간의 상한(판정과 무관)
 
 /// E-CHAT-55 · 65 — 배치 뒤 로그인해 대화 목록을 읽는다. 목록이 그려졌다는 증거로 PC 가 닫지 않고 둔 다른 방(control) 줄이 뜰 때까지 기다린 뒤,
@@ -62,14 +64,17 @@ Future<Map<String, Object?>> _batchCardInRoom(WidgetTester tester, Map<String, d
 List<String> _batchTail(List<String> bodies) =>
     bodies.skip(bodies.length > 5 ? bodies.length - 5 : 0).map((body) => body.length > 40 ? body.substring(0, 40) : body).toList();
 
-/// E-CHAT-67 — 방을 열고 뷰모델이 방 읽기를 끝낸 뒤(E-CHAT-10 과 같다) 구독 채널이 붙을 시간을 더 주고 `step` 에서 멈춘다. PC 가 그사이 A 로 한 건 보내면(본문 `body`)
+/// E-CHAT-67 — 방을 열고 뷰모델이 방 읽기를 끝낸 뒤(E-CHAT-10 과 같다) postgres_changes 준비 신호를 기다리고(상한 [_batchReadyWait]) `step` 에서 멈춘다. PC 가 그사이 A 로 한 건 보내면(본문 `body`)
 /// 방 뷰모델이 그 글을 처음 가진 앱 시계(UTC)를 말한다. 읽기를 못 끝내거나 오류면 `step` 을 부르지 않고 `loaded: false` 로 끝낸다.
 /// 보낸 시각은 PC 가 서버가 찍은 messages.created_at 으로 읽는다 — 폰 시계와 서버 시계의 차가 섞인다(PC 메모에 남는다).
 /// 끝에 진단(방 읽기 · 통과 도장 · 뷰모델 글 수 · 뷰모델 · 화면 본문 · 오류)을 실어 말풍선이 안 떴을 때 PC 메모가 원인을 가르게 한다.
 /// 글을 끝내 못 봤으면(`seen_at` 없음) 판정을 돌려주기 직전에 [_batchReconnectProbe] 로 방을 한 번 다시 읽어 본다 — 이 재연결은 fail 때 원인을 가르는 진단일 뿐
 /// 판정에 안 쓴다(돌려주는 `seen_at` · `bubble` · 뷰모델 글 수 · 오류 같은 기존 값은 모두 재연결 **전** 값이다).
-/// pass · fail 모두에 채널 측정 `joined_ms` · `joined_at_send` · `system_events` 도 싣는다([_RoomChannelWatch]) — "글이 구독이 붙기 전에 들어갔는가" 가설을
-/// 확정 / 기각하려는 것이라 방 읽기 뒤 [_batchSubscribeWait] 만 기다리는 시험 자체는 그대로 둔다(채널 준비를 기다려 주면 결함이 가려진다).
+/// pass · fail 모두에 채널 측정 `joined_ms` · `joined_at_send` · `system_events` · `ready_ms` 도 싣는다([_RoomChannelWatch]). `ready_ms` 는 준비 신호를 받은 시각(ms)이고
+/// 상한까지 못 받고 보냈으면 null 이다.
+/// **이 대기가 가리는 것(한계)**: 시나리오는 안정된 방의 표시 시간을 재는 것이라 준비 신호를 기다려 주므로, 준비 신호 **전** 틈에 보낸 글이 2초 안에 안 뜨는 문제는
+/// 이 시험이 더 이상 드러내지 않는다. 그 틈은 10-08 14:06 실행의 fail 기록(2.3초 · joined 2072ms · system ok 4409ms)과 #423 의 message_stream 단위 시험이 남기는 것이다.
+/// 채널을 늦게 찾아 이미 지나간 ok 를 놓치면 상한까지 다 기다리고 `ready_ms` 가 거짓으로 null 이 된다 — 판정은 안 틀리고 시험만 느려진다.
 Future<Map<String, Object?>> _batchLiveBubble(WidgetTester tester, Map<String, dynamic> job) async {
   await _openRoom(tester, job['nickname'] as String);
   final body = job['body'] as String;
@@ -86,10 +91,10 @@ Future<Map<String, Object?>> _batchLiveBubble(WidgetTester tester, Map<String, d
   if (loaded.isLoading || loaded.errorMessage != null) {
     return {'loaded': false, 'error': loaded.errorMessage, 'seen_at': null, 'bubble': false};
   }
-  final settling = Stopwatch()..start();
-  while (settling.elapsed < _batchSubscribeWait) {
+  final waiting = Stopwatch()..start();
+  while (!channel.isReady && waiting.elapsed < _batchReadyWait) { // 방 읽기 동안 이미 ok 가 왔으면 한 번도 안 기다린다
     await tester.pump(const Duration(milliseconds: 100));
-    channel.observe();
+    channel.observe(); // 채널을 찾는 즉시 system 바인딩이 걸리게 계속 본다
   }
   String? seenAt;
   final sub = container.listen(chatRoomViewModelProvider(matchId), (_, next) {
@@ -137,6 +142,8 @@ List<String> _batchChannels() => Supabase.instance.client
 /// (realtime_client 가 subscribe() 안에서 error 를 channelError 로 올리려고 거는 것과 같은 길 — realtime_channel.dart:173).
 /// - 시계는 만든 순간([_openRoom] 직후)부터다. [observe] 를 부를 때만 채널을 보므로 `joined_ms` 의 해상도는 호출 간격(100ms)이다.
 /// - system 바인딩은 채널을 **처음 찾은 관찰**에서 건다 — 방 뷰모델이 구독을 건 뒤 그 첫 관찰까지 온 이벤트는 놓칠 수 있다(`system_events` 는 하한이다).
+/// - 준비 신호는 lib 의 [isPostgresReady](앱이 실제로 쓰는 판별)가 처음 참이라고 한 system 이벤트다. 그 시각이 `ready_ms` — 바인딩 전에 지나간 ok 는 못 봐서
+///   못 받은 것(null)이 "신호가 안 왔다" 는 뜻은 아니다.
 class _RoomChannelWatch {
   _RoomChannelWatch(this._matchId);
 
@@ -145,6 +152,10 @@ class _RoomChannelWatch {
   final List<Map<String, Object?>> _systemEvents = [];
   RealtimeChannel? _channel;
   int? _joinedMs;
+  int? _readyMs;
+
+  /// postgres_changes 준비 신호를 받았는가.
+  bool get isReady => _readyMs != null;
 
   /// 채널 상태를 한 번 본다. 처음 찾으면 system 바인딩을 걸고, 처음 joined 로 보이면 그 시각(ms)을 적는다.
   void observe() {
@@ -159,9 +170,14 @@ class _RoomChannelWatch {
     return channel == null ? null : _isJoined(channel);
   }
 
-  /// 돌려줄 값. `joined_ms` 는 끝까지 joined 를 못 봤으면 null, `system_events` 는 `{ms, status, extension, message}` 목록이다.
-  Map<String, Object?> report({required bool? joinedAtSend}) =>
-      {'joined_ms': _joinedMs, 'joined_at_send': joinedAtSend, 'system_events': List.of(_systemEvents)};
+  /// 돌려줄 값. `joined_ms` 는 끝까지 joined 를 못 봤으면 null, `system_events` 는 `{ms, status, extension, message}` 목록,
+  /// `ready_ms` 는 준비 신호를 못 받았으면 null 이다.
+  Map<String, Object?> report({required bool? joinedAtSend}) => {
+        'joined_ms': _joinedMs,
+        'joined_at_send': joinedAtSend,
+        'system_events': List.of(_systemEvents),
+        'ready_ms': _readyMs,
+      };
 
   RealtimeChannel? _find() => Supabase.instance.client.getChannels().where(_isRoomChannel).firstOrNull;
 
@@ -180,7 +196,9 @@ class _RoomChannelWatch {
       return value != null && value.length > limit ? value.substring(0, limit) : value;
     }
 
-    _systemEvents.add({'ms': _clock.elapsedMilliseconds, 'status': text('status'), 'extension': text('extension'), 'message': text('message')});
+    final ms = _clock.elapsedMilliseconds;
+    _systemEvents.add({'ms': ms, 'status': text('status'), 'extension': text('extension'), 'message': text('message')});
+    if (_readyMs == null && isPostgresReady(payload)) _readyMs = ms;
   }
 }
 
