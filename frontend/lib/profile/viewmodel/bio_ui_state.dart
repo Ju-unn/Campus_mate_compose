@@ -21,6 +21,17 @@ class BioUiState {
 
   bool get canSubmit => bio.trim().isNotEmpty && !isSubmitting;
 
+  /// 폰에 임시 저장할 값 — 06-3 입력칸의 **글만** 남긴다. 사용자가 고친 글뿐 아니라 AI 초안이 막 도착한 그 글도
+  /// 포함된다(무해하다 — 같은 글로 06-3 에 들어가고 초안을 다시 만들지 않는다). 안내 문구 · 진행 표시는 남기지 않는다.
+  Map<String, Object?> toDraft() => {'bio': bio};
+
+  /// [toDraft] 로 남긴 글로 06-3 에 바로 들어간다(초안을 다시 만들어 고친 글을 덮지 않는다).
+  /// 빈 글이면 null — 다시 열면 06-2b 에서 초안부터 받는다. 모양이 안 맞으면 던진다 — 저장소가 받아서 버린다.
+  static BioUiState? fromDraft(Map<String, Object?> data) {
+    final bio = data['bio'] as String;
+    return bio.trim().isEmpty ? null : BioUiState(bio: bio, draftLoaded: true);
+  }
+
   BioUiState copyWith({
     String? bio,
     bool? isLoadingDraft,

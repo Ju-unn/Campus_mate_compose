@@ -3,9 +3,12 @@ import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
 import 'package:campus_mate/profile/viewmodel/ideal_note_view_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:campus_mate/core/draft/draft_screen.dart';
+import 'package:campus_mate/core/draft/draft_store.dart';
 
 import '../model/fake_ideal_note_repository.dart';
 import '../model/fake_onboarding_repository.dart';
+import '../../core/draft/fake_draft_store.dart';
 
 void main() {
   late FakeIdealNoteRepository repository;
@@ -101,5 +104,58 @@ void main() {
     final state = container.read(idealNoteViewModelProvider);
     expect(state.errorMessage, isNull);
     expect(state.lengthMessage, '10자 이상 입력해 주세요');
+  });
+
+  group('임시 저장', () {
+    late FakeDraftStore drafts;
+
+    setUp(() => drafts = FakeDraftStore());
+
+    /// 앱을 다시 연 것처럼 새 컨테이너(새 뷰모델)를 만든다. 저장소는 같은 것을 쓴다.
+    ProviderContainer open() {
+      final opened = ProviderContainer(
+        overrides: [
+          idealNoteRepositoryProvider.overrideWithValue(repository),
+          onboardingRepositoryProvider.overrideWithValue(onboardingRepository),
+          draftStoreProvider.overrideWithValue(drafts),
+        ],
+      );
+      addTearDown(opened.dispose);
+      return opened;
+    }
+
+    test('쓰던 글은 저장되고 새로 만들면 돌아온다', () {
+      open().read(idealNoteViewModelProvider.notifier).changeNote('대화가 잘 통하는');
+
+      expect(open().read(idealNoteViewModelProvider).note, '대화가 잘 통하는');
+    });
+
+    test('"다음" 이 성공하면 이 화면 값을 지운다', () async {
+      final vm = open().read(idealNoteViewModelProvider.notifier);
+      vm.changeNote('대화가 잘 통하는 사람이 좋아요');
+
+      await vm.submit();
+
+      expect(drafts.cleared, [DraftScreen.idealNote]);
+      expect(open().read(idealNoteViewModelProvider).note, isEmpty);
+    });
+
+    test('짧아서 보내지 않았으면 글은 남는다', () async {
+      final vm = open().read(idealNoteViewModelProvider.notifier);
+      vm.changeNote('짧은 글');
+
+      await vm.submit();
+
+      expect(drafts.cleared, isEmpty);
+      expect(open().read(idealNoteViewModelProvider).note, '짧은 글');
+    });
+
+    test('다른 계정으로 로그인하면 앞사람 글이 보이지 않는다', () {
+      open().read(idealNoteViewModelProvider.notifier).changeNote('앞사람이 쓰던 글');
+
+      drafts.accountId = 'account-b';
+
+      expect(open().read(idealNoteViewModelProvider).note, isEmpty);
+    });
   });
 }

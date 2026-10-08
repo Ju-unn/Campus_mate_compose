@@ -12,12 +12,17 @@ import 'package:campus_mate/profile/viewmodel/photos_ui_state.dart';
 import 'package:campus_mate/profile/viewmodel/photos_view_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:campus_mate/core/draft/draft_screen.dart';
+import 'package:campus_mate/core/draft/draft_store.dart';
+import 'package:campus_mate/core/draft/shared_preferences_draft_store.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../auth/model/fake_face_detector.dart';
 import '../../auth/model/fake_image_compressor.dart';
 import '../model/fake_avatar_repository.dart';
 import '../model/fake_onboarding_repository.dart';
 import '../model/fake_photos_repository.dart';
+import '../../core/draft/fake_draft_store.dart';
 
 void main() {
   late FakePhotosRepository repository;
@@ -354,5 +359,120 @@ void main() {
 
     expect(container.read(photosViewModelProvider).completed, isFalse);
     expect(container.read(photosViewModelProvider).errorMessage, isNotNull);
+  });
+
+  group('임시 저장', () {
+    late FakeDraftStore drafts;
+    late Directory dir;
+    late List<File> files;
+
+    setUp(() {
+      drafts = FakeDraftStore();
+      // 얼굴 확인 · 압축이 끝난 사진은 임시 폴더에 있다 — 진짜 파일이어야 "남아 있는지" 를 볼 수 있다.
+      dir = Directory.systemTemp.createTempSync('photos_draft');
+      files = [for (final name in ['a.jpg', 'b.jpg', 'c.jpg']) File('${dir.path}/$name')..writeAsBytesSync([1])];
+    });
+    tearDown(() {
+      if (dir.existsSync()) {
+        dir.deleteSync(recursive: true);
+      }
+    });
+
+    /// 앱을 다시 연 것처럼 새 컨테이너(새 뷰모델)를 만든다. 저장소는 같은 것을 쓴다.
+    ProviderContainer open({DraftStore? store}) {
+      final opened = ProviderContainer(
+        overrides: [
+          photosRepositoryProvider.overrideWithValue(repository),
+          imageCompressorProvider.overrideWithValue(imageCompressor),
+          faceDetectorProvider.overrideWithValue(faceDetector),
+          onboardingRepositoryProvider.overrideWithValue(onboardingRepository),
+          avatarRepositoryProvider.overrideWithValue(avatarRepository),
+          draftStoreProvider.overrideWithValue(store ?? drafts),
+        ],
+      );
+      addTearDown(opened.dispose);
+      return opened;
+    }
+
+    /// 세 장을 고르고 [avatar] 번째를 아바타로 정한다.
+    Future<PhotosViewModel> pickThree(ProviderContainer opened, {int avatar = 1}) async {
+      final vm = opened.read(photosViewModelProvider.notifier)..pickFromGallery = (limit) async => files;
+      await vm.addPhoto();
+      vm.setAvatarSource(avatar);
+      return vm;
+    }
+
+    List<String> pathsOf(ProviderContainer opened) =>
+        [for (final photo in opened.read(photosViewModelProvider).photos) photo.file!.path];
+
+    test('고른 사진의 경로와 아바타 선택이 저장되고 새로 만들면 돌아온다', () async {
+      await pickThree(open());
+
+      final reopened = open();
+      expect(pathsOf(reopened), [for (final file in files) file.path]);
+      final avatar = [for (final photo in reopened.read(photosViewModelProvider).photos) photo.isAvatarSource];
+      expect(avatar, [false, true, false]);
+    });
+
+    test('복원한 사진은 얼굴 확인 · 압축을 다시 하지 않는다', () async {
+      await pickThree(open());
+      final compressedBefore = imageCompressor.compressedSources.length;
+
+      open().read(photosViewModelProvider);
+
+      expect(imageCompressor.compressedSources, hasLength(compressedBefore));
+    });
+
+    test('사라진 파일은 그 칸만 비우고 남은 사진은 돌려준다', () async {
+      await pickThree(open(), avatar: 2);
+      files[0].deleteSync(); // 시스템이 임시 폴더를 비운 경우
+
+      final reopened = open();
+      expect(pathsOf(reopened), [files[1].path, files[2].path]);
+      final avatar = [for (final photo in reopened.read(photosViewModelProvider).photos) photo.isAvatarSource];
+      expect(avatar, [false, true], reason: '아바타로 고른 사진이 남아 있으면 선택도 그대로다');
+    });
+
+    test('아바타로 고른 사진이 사라지면 아바타 선택은 비어 04-3 에서 다시 고른다', () async {
+      await pickThree(open(), avatar: 0);
+      files[0].deleteSync();
+
+      final restored = open().read(photosViewModelProvider);
+      expect(restored.photos.where((photo) => photo.isAvatarSource), isEmpty);
+    });
+
+    test('저장할 때 사진 파일을 딸린 파일로 함께 적는다', () async {
+      await pickThree(open());
+
+      expect(drafts.files['account-a/${DraftScreen.photos.key}'], [for (final file in files) file.path]);
+    });
+
+    test('"다음" 이 성공하면 저장 정보와 그 임시 파일을 함께 지운다', () async {
+      SharedPreferences.setMockInitialValues({});
+      final preferences = await SharedPreferences.getInstance();
+      // 고른 사진은 시스템 임시 폴더 아래에 있다 — 앱 임시 폴더 자리로 그 폴더를 준다.
+      final store = SharedPreferencesDraftStore(
+        preferences,
+        accountId: () => 'account-a',
+        fileDirectory: Directory.systemTemp.path,
+        debounce: Duration.zero,
+      );
+      final vm = await pickThree(open(store: store));
+
+      await vm.submit();
+
+      expect(open(store: store).read(photosViewModelProvider).photos, isEmpty);
+      expect(files.where((file) => file.existsSync()), isEmpty);
+    });
+
+    test('아바타 등록이 막혀 04-3 에 머물면 사진은 남는다(다시 올려야 한다)', () async {
+      avatarRepository.nextResult = const FailureResult(ServerRejectedFailure('아바타 원본 사진을 먼저 골라 주세요'));
+      final vm = await pickThree(open());
+
+      await vm.submit();
+
+      expect(drafts.cleared, isEmpty);
+      expect(pathsOf(open()), hasLength(3));
+    });
   });
 }

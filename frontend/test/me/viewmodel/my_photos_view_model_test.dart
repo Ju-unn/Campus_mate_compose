@@ -13,10 +13,12 @@ import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:campus_mate/profile/viewmodel/photos_ui_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:campus_mate/core/draft/draft_store.dart';
 
 import '../../auth/model/fake_face_detector.dart';
 import '../../auth/model/fake_image_compressor.dart';
 import '../model/fake_me_repository.dart';
+import '../../core/draft/fake_draft_store.dart';
 
 /// 서버 사진 행 — [source] 번째가 아바타 원본. 이름·학교는 지어낸 값이다.
 MyProfile _profile({List<String> ids = const ['p-a', 'p-b', 'p-c'], int source = 0}) => MyProfile(
@@ -43,6 +45,7 @@ void main() {
   late FakeFaceDetector faceDetector;
   late ProviderContainer container;
   late ProviderSubscription<PhotosUiState> subscription;
+  late FakeDraftStore drafts;
 
   MyPhotosViewModel viewModel() => container.read(myPhotosViewModelProvider.notifier);
   PhotosUiState state() => subscription.read();
@@ -51,11 +54,13 @@ void main() {
   Future<void> open(MyProfile profile) async {
     me = FakeMeRepository(Success(profile));
     faceDetector = FakeFaceDetector();
+    drafts = FakeDraftStore();
     container = ProviderContainer(
       overrides: [
         meRepositoryProvider.overrideWithValue(me),
         imageCompressorProvider.overrideWithValue(FakeImageCompressor()),
         faceDetectorProvider.overrideWithValue(faceDetector),
+        draftStoreProvider.overrideWithValue(drafts),
       ],
     );
     addTearDown(container.dispose);
@@ -225,5 +230,20 @@ void main() {
     subscription = container.listen(myPhotosViewModelProvider, (_, _) {});
 
     expect([for (final photo in state().photos) photo.key], ['p-a', 'p-b']);
+  });
+
+  test('편집 모드는 임시 저장을 하지 않는다 — 온보딩 값을 쓰지도 지우지도(사진 파일 포함) 않는다', () async {
+    // 편집은 열 때마다 서버 값으로 채운다. 고르다 만 사진이 온보딩 임시 저장 자리에 섞이면 안 된다.
+    await open(_profile());
+    await addPhoto(File('new.jpg'));
+    viewModel().removePhoto(0);
+    viewModel().setAvatarSource(1);
+
+    await viewModel().save();
+
+    expect(state().completed, isTrue);
+    expect(drafts.saved, isEmpty);
+    expect(drafts.cleared, isEmpty);
+    expect(drafts.deletedFiles, isEmpty);
   });
 }

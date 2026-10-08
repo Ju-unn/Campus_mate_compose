@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:campus_mate/profile/model/basic_info_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
@@ -7,9 +8,14 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:campus_mate/core/draft/draft_screen.dart';
+import 'package:campus_mate/core/draft/draft_store.dart';
+import 'package:campus_mate/core/draft/shared_preferences_draft_store.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../model/fake_basic_info_repository.dart';
 import '../model/fake_onboarding_repository.dart';
+import '../../core/draft/fake_draft_store.dart';
 
 const _thisYear = 2026;
 
@@ -307,5 +313,140 @@ void main() {
     final again = container.read(basicInfoViewModelProvider);
     expect(again.isMbtiUnknown, isFalse);
     expect(again.mbtiPoles, {'E'});
+  });
+
+  group('임시 저장', () {
+    late FakeDraftStore drafts;
+
+    setUp(() => drafts = FakeDraftStore());
+
+    /// 앱을 다시 연 것처럼 새 컨테이너(새 뷰모델)를 만든다. 저장소는 같은 것을 쓴다.
+    ProviderContainer open({DraftStore? store}) {
+      final opened = ProviderContainer(
+        overrides: [
+          basicInfoNowProvider.overrideWithValue(() => DateTime(_thisYear, 6, 1)),
+          basicInfoRepositoryProvider.overrideWithValue(repository),
+          onboardingRepositoryProvider.overrideWithValue(onboardingRepository),
+          draftStoreProvider.overrideWithValue(store ?? drafts),
+        ],
+      );
+      addTearDown(opened.dispose);
+      return opened;
+    }
+
+    const phone = '010-1234-5678';
+
+    void fillAll(BasicInfoViewModel vm) {
+      vm.changeNickname('가나다');
+      vm.changeBirthYear('2000');
+      vm.changeHeight('170');
+      vm.changePhoneNumber(phone);
+      vm.changeGender('female');
+      vm.toggleMbtiPole('E');
+      vm.toggleMbtiPole('N');
+    }
+
+    test('쓰던 값은 저장되고, 뷰모델을 새로 만들면 전화번호만 빼고 그대로 돌아온다', () {
+      fillAll(open().read(basicInfoViewModelProvider.notifier));
+
+      final restored = open().read(basicInfoViewModelProvider);
+      expect(restored.nicknameInput, '가나다');
+      expect(restored.birthYearInput, '2000');
+      expect(restored.heightInput, '170');
+      expect(restored.gender, 'female');
+      expect(restored.mbtiPoles, {'E', 'N'});
+      expect(restored.phoneNumberInput, isEmpty, reason: '전화번호는 다시 입력받는다');
+    });
+
+    test('MBTI "모름" 도 돌아온다', () {
+      open().read(basicInfoViewModelProvider.notifier).toggleMbtiUnknown();
+
+      expect(open().read(basicInfoViewModelProvider).isMbtiUnknown, isTrue);
+    });
+
+    test('전화번호는 저장소에 들어가지 않는다', () {
+      fillAll(open().read(basicInfoViewModelProvider.notifier));
+
+      expect(drafts.dump, contains('가나다'), reason: '나머지 값은 저장돼야 이 시험이 뜻이 있다');
+      for (final piece in ['1234', '5678', '01012345678', phone]) {
+        expect(drafts.dump, isNot(contains(piece)));
+      }
+    });
+
+    testWidgets('진짜 저장소(shared_preferences)로도 전화번호는 디스크에 남지 않는다', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final preferences = await SharedPreferences.getInstance();
+      final store = SharedPreferencesDraftStore(
+        preferences,
+        accountId: () => 'account-a',
+        fileDirectory: Directory.systemTemp.path,
+      );
+
+      fillAll(open(store: store).read(basicInfoViewModelProvider.notifier));
+      await tester.pump(const Duration(seconds: 1));
+
+      final disk = [for (final key in preferences.getKeys()) '$key=${preferences.get(key)}'].join('\n');
+      expect(disk, contains('가나다'));
+      expect(disk, isNot(contains('1234')));
+      expect(disk, isNot(contains('5678')));
+    });
+
+    test('"다음" 이 성공하면 이 화면 값을 지운다', () async {
+      final vm = open().read(basicInfoViewModelProvider.notifier);
+      fillAll(vm);
+
+      await vm.submit();
+
+      expect(drafts.cleared, contains(DraftScreen.basicInfo));
+      expect(open().read(basicInfoViewModelProvider).nicknameInput, isEmpty);
+    });
+
+    test('"다음" 이 실패하면 값은 남는다', () async {
+      repository.nextSubmitResult = const FailureResult(NetworkFailure());
+      final vm = open().read(basicInfoViewModelProvider.notifier);
+      fillAll(vm);
+
+      await vm.submit();
+
+      expect(drafts.cleared, isEmpty);
+      expect(open().read(basicInfoViewModelProvider).nicknameInput, '가나다');
+    });
+
+    test('다른 계정으로 로그인하면 앞사람 값이 보이지 않는다', () {
+      fillAll(open().read(basicInfoViewModelProvider.notifier));
+
+      drafts.accountId = 'account-b';
+
+      expect(open().read(basicInfoViewModelProvider).nicknameInput, isEmpty);
+    });
+
+    testWidgets('복원한 닉네임은 300ms 뒤 다시 확인해 안내를 띄운다(판정 결과는 저장하지 않는다)', (tester) async {
+      open().read(basicInfoViewModelProvider.notifier).changeNickname('가나다');
+      await tester.pump(const Duration(milliseconds: 350));
+      repository.checkedNicknames.clear();
+
+      final reopened = open();
+      expect(reopened.read(basicInfoViewModelProvider).nicknameSuccess, isNull);
+      await tester.pump(const Duration(milliseconds: 350));
+
+      expect(repository.checkedNicknames, ['가나다']);
+      expect(reopened.read(basicInfoViewModelProvider).nicknameSuccess, '사용할 수 있는 닉네임이에요');
+    });
+
+    testWidgets('복원할 값이 없으면 열 때 중복 확인을 부르지 않는다', (tester) async {
+      open().read(basicInfoViewModelProvider);
+      await tester.pump(const Duration(milliseconds: 350));
+
+      expect(repository.checkedNicknames, isEmpty);
+    });
+
+    test('모양이 맞지 않는 값은 버리고 빈 화면으로 시작한다', () {
+      drafts.saved['account-a/${DraftScreen.basicInfo.key}'] = '{"nickname": 42}';
+
+      final state = open().read(basicInfoViewModelProvider);
+
+      expect(state.nicknameInput, isEmpty);
+      expect(drafts.saved, isEmpty);
+    });
   });
 }
