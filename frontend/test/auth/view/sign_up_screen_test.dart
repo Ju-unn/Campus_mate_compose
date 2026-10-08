@@ -192,6 +192,16 @@ void main() {
       expect(label.style!.fontWeight, FontWeight.w600);
     });
 
+    // 디자인 값: 02 아래 여백 16(지시문 16). 맨 아래 줄(로그아웃)이 화면 아래에서 16 위에 끝난다.
+    testWidgets('맨 아래 여백은 16 이다', (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await pumpScreen(tester);
+
+      expect(tester.getRect(find.widgetWithText(InkWell, '로그아웃')).bottom, 844 - 16);
+    });
+
     testWidgets('로그아웃은 16g 시트로 한 번 더 묻고, 확인하면 로그아웃을 한 번 부른다', (tester) async {
       var signOutCalls = 0;
       await tester.pumpWidget(
