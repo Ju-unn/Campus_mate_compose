@@ -37,6 +37,13 @@ class AccountRepository(PostgrestRepository):
         raise_for_status(response)
         return [row["id"] for row in response.json()]
 
+    async def list_unverified_accounts(self, older_than_days: int) -> list[str]:
+        """가입 뒤 그 일수가 지나도록 학교 메일 확인(school_email_verified_at)을 안 한 프로필 id.
+        SQL `list_unverified_accounts(p_older_than_days)` 가 고른다(소셜 로그인 전환)."""
+        response = await self._post("rpc/list_unverified_accounts", json={"p_older_than_days": older_than_days})
+        raise_for_status(response)
+        return [row["id"] for row in response.json()]
+
     async def _delete_counted(self, table: str, params: dict) -> int:
         """지운 행 수. 작은 칸 하나만 돌려받아 센다(PostgrestRepository._delete 는 Prefer 를 받지 않는다)."""
         response = await self._client.delete(
