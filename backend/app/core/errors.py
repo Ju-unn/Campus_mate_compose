@@ -25,8 +25,6 @@ SCHOOL_EMAIL_BLOCKED = "재가입이 제한된 메일이에요"
 # {provider} 에는 SCHOOL_EMAIL_PROVIDER_LABELS 의 이름이 들어간다. 앱은 문구가 아니라 응답의 provider 로 가른다.
 SCHOOL_EMAIL_TAKEN = "이 메일은 {provider}로 가입돼 있어요"
 SCHOOL_EMAIL_PROVIDER_LABELS = {"kakao": "카카오", "google": "구글", "apple": "애플", "email": "학교 메일"}
-# 앱이 verifyOTP 를 끝내지 않았다(계정에 email identity 가 없다).
-SCHOOL_EMAIL_NOT_VERIFIED = "학교 메일 인증이 끝나지 않았어요"
 # POST /school-email/verify: 임시 이메일 계정 토큰이 거절됐거나 확인된 이메일 계정 하나가 아니다.
 SCHOOL_EMAIL_NOT_CONFIRMED = "학교 메일 인증이 끝나지 않았어요"
 SCHOOL_EMAIL_ALREADY_VERIFIED = "이미 학교 메일 인증이 끝났어요"

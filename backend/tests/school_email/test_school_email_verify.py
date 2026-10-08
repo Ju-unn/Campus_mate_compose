@@ -7,32 +7,13 @@ import logging
 
 import httpx
 import pytest
-from fastapi.testclient import TestClient
 
 from app.account.repository import SupabaseAdmin
 from app.core import errors
-from app.core.deps import get_client, get_settings
-from app.main import app
 from app.signup_policy import bytea_literal, hash_email
-from verify_world import (AUTH, IDENTITY_KEY, ME, OTHER, OTHER_TOKEN, SNU, TEMP, TEMP_TOKEN, VerifyWorld,
-                          settings, temp_email_user)
+from verify_world import AUTH, IDENTITY_KEY, ME, OTHER, OTHER_TOKEN, SNU, TEMP, TEMP_TOKEN, settings, temp_email_user
 
 HMAC = bytea_literal(hash_email(IDENTITY_KEY, "hong@snu.ac.kr"))
-
-
-@pytest.fixture
-def world() -> VerifyWorld:
-    return VerifyWorld()
-
-
-@pytest.fixture
-def client(world: VerifyWorld):
-    http = httpx.AsyncClient(transport=httpx.MockTransport(world.handle))
-    # settings(**kwargs) 를 그대로 넣으면 FastAPI 가 kwargs 를 쿼리로 읽어 422 다 — 람다로 감싼다.
-    app.dependency_overrides[get_settings] = lambda: settings()
-    app.dependency_overrides[get_client] = lambda: http
-    yield TestClient(app, raise_server_exceptions=False)
-    app.dependency_overrides.clear()
 
 
 def _verify(client, token: str = TEMP_TOKEN):
@@ -282,6 +263,16 @@ def test_an_email_used_by_another_account_is_409_with_the_provider(client, world
     assert response.json()["provider"] == provider
     assert response.json()["detail"] == f"이 메일은 {label}로 가입돼 있어요"
     assert world.deleted_users == [TEMP]
+
+
+def test_an_email_account_from_before_social_login_is_409_too(client, world):
+    """옛 학교 메일 OTP 가입 계정이 이미 그 메일을 쓰면 DB 함수가 'email' 을 돌려줄 수 있다(계약 밖, 대비)."""
+    world.claims[HMAC] = (OTHER, "email")
+
+    response = _verify(client)
+
+    assert response.status_code == 409
+    assert response.json()["provider"] == "email"
 
 
 def test_the_callers_own_claim_does_not_count_as_another_account(client, world):

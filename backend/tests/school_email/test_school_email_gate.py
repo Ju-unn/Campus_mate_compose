@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 import app.main as main
 from app.core import errors
 from app.core.deps import get_client, get_settings, get_verified_caller
-from school_email_world import AUTH, ME, settings
+from verify_world import AUTH, ME, settings
 
 
 def _uses_verified_caller(dependant) -> bool:

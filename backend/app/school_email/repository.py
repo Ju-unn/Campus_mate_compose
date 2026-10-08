@@ -1,4 +1,3 @@
-from datetime import datetime
 from uuid import UUID
 
 from app.core.http import raise_for_status
@@ -17,16 +16,6 @@ class SchoolEmailRepository(PostgrestRepository):
         raise_for_status(response)
         rows = response.json()
         return rows[0] if rows else {}
-
-    async def record_verified(self, profile_id: UUID, university_id: str, verified_at: datetime) -> None:
-        """학교와 확인 시각을 쓴다. `school_email_verified_at is null` 조건을 요청에 걸어 먼저 쓴 값을 덮지 않는다."""
-        response = await self._patch(
-            "profiles",
-            params={"id": f"eq.{profile_id}", "school_email_verified_at": "is.null"},
-            json={"university_id": university_id, "school_email_verified_at": verified_at.isoformat()},
-        )
-        raise_for_status(response)
-
 
     async def complete_verification(self, profile_id: UUID, email_hmac: bytes, university_id: str,
                                     provider: str) -> str:
