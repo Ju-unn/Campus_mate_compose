@@ -133,6 +133,30 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
       });
   }
 
+  /// 구독이 "글을 밀어 줄 준비가 됐을 수 있다" 고 알렸다(E-CHAT-67). 서버는 postgres_changes 복제를 join 성공 **뒤에**
+  /// 비동기로 살려서, 첫 페이지를 읽은 뒤 ~ 복제가 살기 전에 들어온 줄은 첫 읽기도 구독도 못 받는다 — 첫 페이지를 한 번 더 읽어 합친다.
+  /// **조용하다**: 로딩 · `hasMore`(이미 위로 읽어 둔 옛 줄) · 떠 있던 오류 줄을 건드리지 않고 실패해도 문구를 띄우지 않는다.
+  /// 겹쳐 불려도(처음 붙음 · system 이벤트 · 첫 페이지 읽기) 합치기가 id 로 멱등이라 막지 않는다 —
+  /// 진행 중이면 건너뛰는 가드는 오히려 먼저 시작한 읽기가 놓친 줄을 두 번째 신호가 데려오지 못하게 한다.
+  Future<void> _catchUpAfterReady() async {
+    if (!_alive) {
+      return;
+    }
+    final result = await _repository.fetchMessages(_matchId);
+    if (!_alive) {
+      return;
+    }
+    result.when<void>(onSuccess: _mergeQuietly, onFailure: (_) {});
+  }
+
+  void _mergeQuietly(MessagePage page) {
+    state = state.copyWith(
+      messages: _merge(state.messages, page.messages),
+      errorMessage: state.errorMessage,
+    );
+    _refreshIfRoomChangedMeanwhile();
+  }
+
   /// 구독은 **화면이 살아 있는 동안만**. 끊는 것은 [build] 의 `onDispose` 가 한다.
   void _subscribe() {
     if (_subscription != null) {
@@ -142,7 +166,13 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
     _subscription = ref
         .read(messageStreamProvider)
         // 짧게 끊겼다가 통로가 스스로 다시 붙었다 — 배너의 "다시 시도" 와 같은 길로 놓친 줄을 데려온다(결함 A12).
-        .subscribe(_matchId, onRejoined: () => generation == _generation ? unawaited(reconnect()) : null)
+        .subscribe(
+          _matchId,
+          onRejoined: () => generation == _generation ? unawaited(reconnect()) : null,
+          // 서버가 글을 밀어 줄 준비가 됐을 수 있다(E-CHAT-67) — **reconnect 가 아니라** 조용한 한 번 더 읽기다.
+          // 다시 구독하면 다시 붙음 → 다시 구독이 끝없이 돈다.
+          onReady: () => generation == _generation ? unawaited(_catchUpAfterReady()) : null,
+        )
         .listen(
           (message) => generation == _generation ? _receive(message) : null,
           onError: (Object _) {

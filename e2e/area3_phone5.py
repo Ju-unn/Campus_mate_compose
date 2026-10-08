@@ -344,6 +344,33 @@ def _live_diagnosis(said):
     return text
 
 
+def _system_events_note(events):
+    """앱이 방 채널에서 받은 system 이벤트를 한 토막으로 — 개수 · 첫 ok 시각 · (최대 4건의) 모양. 모양을 같이 남기는 이유: 서버가 보내는 system 이벤트의
+    실제 값은 아직 못 봤다(area3_b5.dart _RoomChannelWatch) — 이번 실행이 `isPostgresReady` 가 맞는 모양을 보고 있었는지 가른다. 어떤 모양이 와도 던지지 않는다."""
+    if not isinstance(events, list):
+        return f'system 보고 모양 이상({type(events).__name__})'
+    shown = [e for e in events if isinstance(e, dict)]
+    first_ok = next((e.get('ms') for e in shown if e.get('status') == 'ok'), None)
+    head = f"system {len(shown)}건({f'첫 ok {first_ok}ms' if first_ok is not None else 'ok 없음'})"
+    shapes = ', '.join(f"{e.get('ms')}ms {e.get('extension')}/{e.get('status')} {e.get('message')!r}" for e in shown[:4])
+    return f'{head} [{shapes}]' if shapes else head
+
+
+def _channel_note(said):
+    """앱이 잰 방 채널 사실 한 구절 — 채널이 방 읽기 뒤 몇 ms 에 처음 joined 로 보였는지 · 글을 보내기 직전에 joined 였는지 · system 이벤트.
+    pass 든 fail 이든 메모에 붙는다(E-CHAT-67 의 "채널 준비 전에 보낸 글" 가설을 다음 실기기 실행이 확정 / 기각하게). 앱이 말한 키만 옮기므로 서버 호출은 없고,
+    키가 하나도 없으면(옛 앱) ''. 값이 이상해도 던지지 않는다(진단은 판정을 바꾸지 않는다)."""
+    parts = []
+    if 'joined_ms' in said:
+        joined = said['joined_ms']
+        parts.append(f'채널 joined {joined}ms' if joined is not None else '채널 joined 못 봄')
+    if 'joined_at_send' in said:
+        parts.append(f"보낼 때 joined={said['joined_at_send']}")
+    if 'system_events' in said:
+        parts.append(_system_events_note(said['system_events']))
+    return ' · '.join(parts)
+
+
 def _read(read):
     """진단 읽기 하나 → (값, 못 읽은 사유). 진단 때문에 fail 이 blocked 로 바뀌면 안 되니 여기서 다 잡는다. Blocked 의 글은 시험이 쓴 것(경로 · 상태)이라 그대로,
     그 밖(끊김)은 예외 글에 주소가 들 수 있어 종류만 적는다. 읽는 것은 모두 행 목록이다 — 목록이 아닌 200 은 못 읽은 것으로 친다."""
@@ -423,8 +450,9 @@ def p_chat_67(run, phone):
     if said and said.get('loaded') is False:  # 앱이 방 읽기를 못 끝내 글을 보내기 전에 멈췄다 — 구독 전에 보내면 가짜 실패(E-CHAT-10 과 같다)
         raise Blocked(f"B 방이 안 읽힘(loaded False · 오류 {said.get('error')!r}) — 글을 보내지 않았다. 로그인 · 방 확인")
     check.reply('A 보내기', sent[0] if sent else (0, '앱이 멈추기 전에 끝남'), 201)
-    note = ''
+    note, channel = '', ''
     if said:
+        channel = _channel_note(said)
         shown = said.get('bubble') is True
         why = '' if shown else f' · {_server_diagnosis(run, me, partner, match_id, body, said)}'  # 안 떴을 때만 DB 를 더 읽는다
         check.that(shown, f"B 말풍선 {said.get('bubble', MISSING)}(기대 True) · 앱이 글을 본 시각 seen_at {said.get('seen_at', MISSING)} · {_live_diagnosis(said)}{why}")
@@ -436,10 +464,12 @@ def p_chat_67(run, phone):
             note = f'지연 {delay:.2f}초(앱 시계 − 서버가 찍은 보낸 시각)' + (' — 음수는 폰 시계가 서버보다 앞선 시계 차' if delay < 0 else '')
         elif said.get('bubble') is True:
             check.problems.append('앱이 본 시각(seen_at)을 말하지 않음')
-    return check.result(note)
+    if channel and check.problems:  # fail 은 메모가 문제 목록뿐이다 — 채널 측정도 거기 붙인다
+        check.problems.append(channel)
+    return check.result(' · '.join(part for part in (note, channel) if part))
 
 
-PHONE5 = {'E-CHAT-50': p_chat_50, 'E-CHAT-51': p_chat_51, 'E-CHAT-52': p_chat_52, 'E-CHAT-55': p_chat_55, 'E-CHAT-57': p_chat_57,
+PHONE5 ={'E-CHAT-50': p_chat_50, 'E-CHAT-51': p_chat_51, 'E-CHAT-52': p_chat_52, 'E-CHAT-55': p_chat_55, 'E-CHAT-57': p_chat_57,
           'E-CHAT-65': p_chat_65, 'E-CHAT-66': p_chat_66, 'E-CHAT-67': p_chat_67}
 PHONE5 = {name: _permitted(_single_shot(case)) for name, case in PHONE5.items()}
 tools.CASE_LIMITS.update({name: CASE_LIMIT for name in PHONE5})

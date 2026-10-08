@@ -68,30 +68,40 @@ List<String> _batchTail(List<String> bodies) =>
 /// 끝에 진단(방 읽기 · 통과 도장 · 뷰모델 글 수 · 뷰모델 · 화면 본문 · 오류)을 실어 말풍선이 안 떴을 때 PC 메모가 원인을 가르게 한다.
 /// 글을 끝내 못 봤으면(`seen_at` 없음) 판정을 돌려주기 직전에 [_batchReconnectProbe] 로 방을 한 번 다시 읽어 본다 — 이 재연결은 fail 때 원인을 가르는 진단일 뿐
 /// 판정에 안 쓴다(돌려주는 `seen_at` · `bubble` · 뷰모델 글 수 · 오류 같은 기존 값은 모두 재연결 **전** 값이다).
+/// pass · fail 모두에 채널 측정 `joined_ms` · `joined_at_send` · `system_events` 도 싣는다([_RoomChannelWatch]) — "글이 구독이 붙기 전에 들어갔는가" 가설을
+/// 확정 / 기각하려는 것이라 방 읽기 뒤 [_batchSubscribeWait] 만 기다리는 시험 자체는 그대로 둔다(채널 준비를 기다려 주면 결함이 가려진다).
 Future<Map<String, Object?>> _batchLiveBubble(WidgetTester tester, Map<String, dynamic> job) async {
   await _openRoom(tester, job['nickname'] as String);
   final body = job['body'] as String;
   final room = find.byType(ChatRoomScreen);
   final container = ProviderScope.containerOf(tester.element(room));
   final matchId = tester.widget<ChatRoomScreen>(room).matchId;
+  final channel = _RoomChannelWatch(matchId)..observe(); // 방 열림이 끝난 시점부터 채널을 지켜본다(진단만 — 앱 동작은 그대로)
   final loading = Stopwatch()..start();
   while (container.read(chatRoomViewModelProvider(matchId)).isLoading && loading.elapsed < _batchRoomLoadWait) {
     await tester.pump(const Duration(milliseconds: 100));
+    channel.observe();
   }
   final loaded = container.read(chatRoomViewModelProvider(matchId));
   if (loaded.isLoading || loaded.errorMessage != null) {
     return {'loaded': false, 'error': loaded.errorMessage, 'seen_at': null, 'bubble': false};
   }
-  await wait(tester, _batchSubscribeWait);
+  final settling = Stopwatch()..start();
+  while (settling.elapsed < _batchSubscribeWait) {
+    await tester.pump(const Duration(milliseconds: 100));
+    channel.observe();
+  }
   String? seenAt;
   final sub = container.listen(chatRoomViewModelProvider(matchId), (_, next) {
     if (seenAt == null && next.messages.any((message) => message.body == body)) seenAt = DateTime.now().toUtc().toIso8601String();
   });
   try {
+    final joinedAtSend = channel.isJoinedNow(); // PC 가 보내기 직전의 채널 — 아직 안 붙었다면 "구독 전에 보낸 글" 이다
     await step('ready'); // PC 가 A 로 한 건 보낸다
     final watch = Stopwatch()..start();
     while (seenAt == null && watch.elapsed < const Duration(seconds: 10)) {
       await tester.pump(const Duration(milliseconds: 100));
+      channel.observe(); // 보낸 뒤에 처음 joined 로 보였다면 그것도 joined_ms 가 말해 준다
     }
     await tester.pump(const Duration(milliseconds: 500)); // 뷰모델이 글을 가진 프레임엔 말풍선이 아직 안 그려졌을 수 있다(10-06 02:06 bubble False)
     final bubble = _has(find.byWidgetPredicate((w) => w is MessageBubble && w.message.body == body, skipOffstage: false));
@@ -105,6 +115,7 @@ Future<Map<String, Object?>> _batchLiveBubble(WidgetTester tester, Map<String, d
       'error': now.errorMessage,
       'seen_at': seenAt,
       'bubble': bubble,
+      ...channel.report(joinedAtSend: joinedAtSend), // pass · fail 모두 — 재연결 진단 **전**의 값이다
     };
     if (seenAt == null) said.addAll(await _batchReconnectProbe(tester, container, matchId, body));
     return said;
@@ -120,6 +131,58 @@ List<String> _batchChannels() => Supabase.instance.client
     // ignore: invalid_use_of_internal_member
     .map((channel) => '${channel.topic} joined=${channel.isJoined}')
     .toList();
+
+/// E-CHAT-67 채널 측정 — 방 채널(`topic` 이 `…messages:<matchId>` 로 끝남)이 방 열림이 끝난 뒤 **언제 처음 joined 로 보였는지**와 서버가 그 채널로 보낸
+/// `system` 이벤트를 재서 [report] 로 돌려준다. 앱 동작은 안 바꾼다 — 채널 목록을 읽고, 공개 API 인 `onSystemEvents` 바인딩 하나만 더한다
+/// (realtime_client 가 subscribe() 안에서 error 를 channelError 로 올리려고 거는 것과 같은 길 — realtime_channel.dart:173).
+/// - 시계는 만든 순간([_openRoom] 직후)부터다. [observe] 를 부를 때만 채널을 보므로 `joined_ms` 의 해상도는 호출 간격(100ms)이다.
+/// - system 바인딩은 채널을 **처음 찾은 관찰**에서 건다 — 방 뷰모델이 구독을 건 뒤 그 첫 관찰까지 온 이벤트는 놓칠 수 있다(`system_events` 는 하한이다).
+class _RoomChannelWatch {
+  _RoomChannelWatch(this._matchId);
+
+  final String _matchId;
+  final Stopwatch _clock = Stopwatch()..start();
+  final List<Map<String, Object?>> _systemEvents = [];
+  RealtimeChannel? _channel;
+  int? _joinedMs;
+
+  /// 채널 상태를 한 번 본다. 처음 찾으면 system 바인딩을 걸고, 처음 joined 로 보이면 그 시각(ms)을 적는다.
+  void observe() {
+    final channel = _channel ??= _find()?.onSystemEvents(_record);
+    if (channel != null && _joinedMs == null && _isJoined(channel)) _joinedMs = _clock.elapsedMilliseconds;
+  }
+
+  /// 지금 joined 인가 — 채널을 못 찾았으면 null.
+  bool? isJoinedNow() {
+    observe();
+    final channel = _channel;
+    return channel == null ? null : _isJoined(channel);
+  }
+
+  /// 돌려줄 값. `joined_ms` 는 끝까지 joined 를 못 봤으면 null, `system_events` 는 `{ms, status, extension, message}` 목록이다.
+  Map<String, Object?> report({required bool? joinedAtSend}) =>
+      {'joined_ms': _joinedMs, 'joined_at_send': joinedAtSend, 'system_events': List.of(_systemEvents)};
+
+  RealtimeChannel? _find() => Supabase.instance.client.getChannels().where(_isRoomChannel).firstOrNull;
+
+  // `topic` · `isJoined` 는 realtime_client 가 안쪽 표시(@internal)로 둔 값이다(realtime_channel.dart:31 · 1045) — 공개된 길이 없어 이 진단에서만 읽는다.
+  // ignore: invalid_use_of_internal_member
+  bool _isRoomChannel(RealtimeChannel channel) => channel.topic.endsWith('messages:$_matchId');
+
+  // ignore: invalid_use_of_internal_member
+  bool _isJoined(RealtimeChannel channel) => channel.isJoined;
+
+  /// 서버가 보낸 값이라 모양을 믿지 않는다 — Map 이 아니면 모두 null 로 적는다. 메시지는 길이만 잘라 둔다.
+  void _record(dynamic payload) {
+    final fields = payload is Map ? payload : const {};
+    String? text(String key, [int limit = 200]) {
+      final value = fields[key]?.toString();
+      return value != null && value.length > limit ? value.substring(0, limit) : value;
+    }
+
+    _systemEvents.add({'ms': _clock.elapsedMilliseconds, 'status': text('status'), 'extension': text('extension'), 'message': text('message')});
+  }
+}
 
 /// E-CHAT-67 에서 글을 못 봤을 때만 부르는 진단 — 재연결 **전** 상태(방 뷰모델 isDisconnected · 소켓 · 실시간이 쓰는 토큰이 로그인 세션 토큰인지 · 실시간 채널 목록)를
 /// 적은 뒤 방 뷰모델 reconnect() 를 한 번 불러(상한 [_batchReconnectWait]) 다시 읽은 방에 그 글이 있는지를 `after_reconnect` 로 돌려준다. PC 메모가
