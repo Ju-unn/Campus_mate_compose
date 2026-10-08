@@ -1038,7 +1038,7 @@ class RejoinBlockedTest(WdBase):
                 (result, note), _ = self.case(name, None, app=app)
                 self.assertEqual(result, 'blocked', note)
                 self.assertIn('소셜 로그인 전환으로 의미 변경, 대체 가설 필요', note)
-                self.assertIn('school_email_claims', note)
+                self.assertIn('시험 계정의 학교 메일 해시가 임의값이라 같은 메일 재가입 거절을 확인할 수 없음', note)
                 self.assertEqual((self.fake.users, self.batches, app.jobs), ([], [], []))
 
     def test_the_app_side_is_blocked_with_the_same_words_and_keeps_the_02_check_for_later(self):

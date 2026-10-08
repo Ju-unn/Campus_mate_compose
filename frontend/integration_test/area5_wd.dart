@@ -99,7 +99,7 @@ Future<Map<String, Object?>> _wdAskCode(WidgetTester tester, String email) async
 Future<Map<String, Object?>> _wdRejoinOn02(WidgetTester tester, Map<String, dynamic> job) async {
   if (Supabase.instance.client.auth.currentSession == null) {
     throw E2eBlocked('소셜 로그인 전환으로 의미 변경, 대체 가설 필요 — 02 는 로그인한 계정의 학교 메일 인증이고, '
-        '공장 계정은 school_email_claims 가 없어 탈퇴가 재가입 제한을 남기지 않는다');
+        '시험 계정의 학교 메일 해시가 임의값이라 같은 메일 재가입 거절을 확인할 수 없음');
   }
   return _wdAskCode(tester, job['email'] as String);
 }
