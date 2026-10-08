@@ -264,22 +264,23 @@ select lives_ok(
 -- 20260919181357 은 클라우드 미적용 상태에서 파일째 삭제했다(분석담당 리뷰, SQL delete 는 메타 행만 지우고
 -- 실제 파일은 고아로 남긴다).
 
--- 4c. auth.users INSERT 트리거 (postgres, Task C2) ---------------------------
+-- 4c. auth.users INSERT 트리거 (postgres, Task C2 → 소셜 로그인 20261008010000 으로 바뀜) ---------
+-- 학교는 학교 메일 인증(complete_school_email_verification)만 정한다. 도메인이 맞아도 트리거는 학교를 비워 두고,
+-- 화이트리스트에 없는 도메인도 막지 않는다(소셜 계정 메일은 학교 메일이 아니다). 자세한 갈래는 social_login_test.sql.
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000cc', 'rls-c@test.ac.kr');
 
-select is(
-  (select university_id from public.profiles where id = '00000000-0000-0000-0000-0000000000cc'),
-  '00000000-0000-0000-0000-000000000001'::uuid,
-  '트리거가 도메인에 맞는 university_id 로 profiles pending 행을 만든다'
+select ok(
+  (select university_id is null and school_email_verified_at is null
+     from public.profiles where id = '00000000-0000-0000-0000-0000000000cc'),
+  '트리거는 학교를 비운 pending 행을 만든다(도메인이 맞아도 학교는 학교 메일 인증이 정한다)'
 );
 
-select throws_ok(
+select lives_ok(
   $$insert into auth.users (id, email)
     values ('00000000-0000-0000-0000-0000000000dd', 'rls-d@unknown-domain.ac.kr')$$,
-  'P0001', null,
-  '화이트리스트에 없는 도메인이면 트리거가 막는다'
+  '화이트리스트에 없는 도메인이어도 트리거가 막지 않는다'
 );
 
 -- 5. 탈퇴 cascade (postgres) ----------------------------------------------------
