@@ -14,6 +14,7 @@ const _batchRoomLoadWait = Duration(seconds: 15); // 방 뷰모델이 머리말 
 // 가설(실물 미확인): 방 뷰모델은 구독을 첫 페이지 읽기 직전에 걸어(chat_room_view_model.dart:49-60) 읽기가 끝난 직후엔 실시간 채널이 아직 안 붙었을 수 있다.
 // PC 가 보내기 전에 채널이 붙을 시간을 준다 — E-CHAT-67 이 구독 전에 글이 들어가 못 받은 것인지 가르려는 것이라 이 시간 자체가 판정을 바꾸지 않는다.
 const _batchSubscribeWait = Duration(seconds: 2);
+const _batchReconnectWait = Duration(seconds: 5); // 글이 안 떴을 때 진단으로 방을 다시 읽는 시간의 상한(판정과 무관)
 
 /// E-CHAT-55 · 65 — 배치 뒤 로그인해 대화 목록을 읽는다. 목록이 그려졌다는 증거로 PC 가 닫지 않고 둔 다른 방(control) 줄이 뜰 때까지 기다린 뒤,
 /// 목록 줄의 닉네임을 모두 말한다(그 방이 있는지 없는지는 PC 가 가린다). 안 뜨면 `waited: false` — PC 는 판정 대신 blocked 로 본다.
@@ -65,6 +66,8 @@ List<String> _batchTail(List<String> bodies) =>
 /// 방 뷰모델이 그 글을 처음 가진 앱 시계(UTC)를 말한다. 읽기를 못 끝내거나 오류면 `step` 을 부르지 않고 `loaded: false` 로 끝낸다.
 /// 보낸 시각은 PC 가 서버가 찍은 messages.created_at 으로 읽는다 — 폰 시계와 서버 시계의 차가 섞인다(PC 메모에 남는다).
 /// 끝에 진단(방 읽기 · 통과 도장 · 뷰모델 글 수 · 뷰모델 · 화면 본문 · 오류)을 실어 말풍선이 안 떴을 때 PC 메모가 원인을 가르게 한다.
+/// 글을 끝내 못 봤으면(`seen_at` 없음) 판정을 돌려주기 직전에 [_batchReconnectProbe] 로 방을 한 번 다시 읽어 본다 — 이 재연결은 fail 때 원인을 가르는 진단일 뿐
+/// 판정에 안 쓴다(돌려주는 `seen_at` · `bubble` · 뷰모델 글 수 · 오류 같은 기존 값은 모두 재연결 **전** 값이다).
 Future<Map<String, Object?>> _batchLiveBubble(WidgetTester tester, Map<String, dynamic> job) async {
   await _openRoom(tester, job['nickname'] as String);
   final body = job['body'] as String;
@@ -93,7 +96,7 @@ Future<Map<String, Object?>> _batchLiveBubble(WidgetTester tester, Map<String, d
     await tester.pump(const Duration(milliseconds: 500)); // 뷰모델이 글을 가진 프레임엔 말풍선이 아직 안 그려졌을 수 있다(10-06 02:06 bubble False)
     final bubble = _has(find.byWidgetPredicate((w) => w is MessageBubble && w.message.body == body, skipOffstage: false));
     final now = container.read(chatRoomViewModelProvider(matchId));
-    return {
+    final said = <String, Object?>{
       'loaded': true,
       'passed': now.room?.gate.passed,
       'vm_count': now.messages.length,
@@ -103,9 +106,62 @@ Future<Map<String, Object?>> _batchLiveBubble(WidgetTester tester, Map<String, d
       'seen_at': seenAt,
       'bubble': bubble,
     };
+    if (seenAt == null) said.addAll(await _batchReconnectProbe(tester, container, matchId, body));
+    return said;
   } finally {
     sub.close();
   }
+}
+
+/// 지금 붙어 있는 실시간 채널 — "topic joined=…" 글. `topic` · `isJoined` 는 realtime_client 가 안쪽 표시(@internal)로 둔 값이라 이 진단에서만 읽는다
+/// (공개된 길이 없다: realtime_client-2.13.0 realtime_channel.dart:31 · 1045).
+List<String> _batchChannels() => Supabase.instance.client
+    .getChannels()
+    // ignore: invalid_use_of_internal_member
+    .map((channel) => '${channel.topic} joined=${channel.isJoined}')
+    .toList();
+
+/// E-CHAT-67 에서 글을 못 봤을 때만 부르는 진단 — 재연결 **전** 상태(방 뷰모델 isDisconnected · 소켓 · 실시간이 쓰는 토큰이 로그인 세션 토큰인지 · 실시간 채널 목록)를
+/// 적은 뒤 방 뷰모델 reconnect() 를 한 번 불러(상한 [_batchReconnectWait]) 다시 읽은 방에 그 글이 있는지를 `after_reconnect` 로 돌려준다. PC 메모가
+/// "다시 읽으면 보인다 = 실시간 통로만 놓쳤다" 와 "다시 읽어도 없다" 를 가른다. 판정에는 안 쓰인다. 토큰은 같은지(참 · 거짓)만 말하고 값은 말하지 않는다 —
+/// 서버가 RLS 를 실시간 연결에 실린 토큰으로 가리므로(익명 키가 실려 있으면 `to authenticated` 정책이 모든 줄을 가린다) 그 토큰이 사용자 것이었는지를 본다.
+Future<Map<String, Object?>> _batchReconnectProbe(
+  WidgetTester tester,
+  ProviderContainer container,
+  String matchId,
+  String body,
+) async {
+  final client = Supabase.instance.client;
+  final disconnected = container.read(chatRoomViewModelProvider(matchId)).isDisconnected;
+  final socket = client.realtime.connectionState;
+  final session = client.auth.currentSession?.accessToken;
+  final sameToken = session != null && client.realtime.accessToken == session;
+  final channels = _batchChannels();
+  var finished = false;
+  String? thrown;
+  unawaited(container
+      .read(chatRoomViewModelProvider(matchId).notifier)
+      .reconnect()
+      .then<void>((_) {}, onError: (Object error) => thrown = error.runtimeType.toString())
+      .whenComplete(() => finished = true));
+  final watch = Stopwatch()..start();
+  while (!finished && watch.elapsed < _batchReconnectWait) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+  final after = container.read(chatRoomViewModelProvider(matchId));
+  return {
+    'disconnected_before': disconnected,
+    'socket_before': socket,
+    'rt_token_is_session': sameToken,
+    'channels_before': channels,
+    'after_reconnect': {
+      'found': after.messages.any((message) => message.body == body),
+      'vm_count': after.messages.length,
+      'vm_bodies': _batchTail(after.messages.map((message) => message.body).toList()),
+      'finished': finished,
+      'error': thrown ?? after.errorMessage,
+    },
+  };
 }
 
 final Map<String, Area1Case> area3Cases5 = {
