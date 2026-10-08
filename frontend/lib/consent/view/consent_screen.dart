@@ -9,7 +9,7 @@ import 'package:campus_mate/consent/model/open_url.dart';
 import 'package:campus_mate/consent/view/consent_row.dart';
 import 'package:campus_mate/consent/viewmodel/consent_ui_state.dart';
 import 'package:campus_mate/consent/viewmodel/consent_view_model.dart';
-import 'package:campus_mate/core/auth/confirm_sign_out.dart';
+import 'package:campus_mate/core/auth/logout_text_button.dart';
 import 'package:campus_mate/core/router/verification_gate_listenable_provider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -111,7 +111,7 @@ class _ConsentScreenState extends ConsumerState<ConsentScreen> {
                       isLoading: state.isSubmitting,
                     ),
                     const SizedBox(height: AppSpacing.xxs),
-                    _LogoutButton(onPressed: () => confirmSignOut(context, ref)),
+                    const LogoutTextButton(),
                   ],
                 ),
               ),
@@ -166,26 +166,3 @@ class _Body extends StatelessWidget {
 }
 
 /// 로그아웃 글자 버튼(pen `xeQen`). 높이 48 · 14/600 #6A6A6A — AppButton 글자 버튼(primaryText)과 색이 달라 여기 둔다.
-class _LogoutButton extends StatelessWidget {
-  const _LogoutButton({required this.onPressed});
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      type: MaterialType.transparency,
-      child: InkWell(
-        onTap: onPressed,
-        // 높이는 최소값만 건다 — 글자를 키우면 버튼이 따라 커진다.
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 48),
-          child: Center(
-            // pen `u05wB` 14/600, 줄높이 속성 없음 · 렌더 20.
-            child: Text('로그아웃', style: AppTypography.labelSmall.copyWith(color: AppColors.muted, height: 20 / 14)),
-          ),
-        ),
-      ),
-    );
-  }
-}
