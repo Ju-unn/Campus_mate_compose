@@ -8,11 +8,11 @@ import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/friend_review/view/my_friend_reviews_section.dart';
 import 'package:campus_mate/me/model/my_profile.dart';
-import 'package:campus_mate/me/view/avatar_regen_sheet.dart';
 import 'package:campus_mate/me/view/me_load_error.dart';
 import 'package:campus_mate/me/view/me_toast.dart';
 import 'package:campus_mate/me/view/profile_entry_row.dart';
 import 'package:campus_mate/me/view/profile_hero.dart';
+import 'package:campus_mate/me/viewmodel/avatar_regen_pick_view_model.dart' show openMyProfileScreens;
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:campus_mate/profile/viewmodel/avatar_generation_ui_state.dart';
 import 'package:campus_mate/profile/viewmodel/avatar_generation_view_model.dart';
@@ -46,15 +46,12 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> with MeToastH
     label: '아바타를 만들지 못했어요.\n하트는 차감되지 않았어요.',
   );
 
-  /// 열려 있는 화면 15 수. 뷰모델의 폴링 타이머는 하나라, 떠난 화면이 뒤늦게 끊으면 돌아온 화면의 폴링까지 끊긴다.
-  static var _openCount = 0;
-
   late final AvatarGenerationViewModel _avatar;
 
   @override
   void initState() {
     super.initState();
-    _openCount++;
+    openMyProfileScreens++;
     // 화면을 닫는 순간에는 ref 를 쓸 수 없어 미리 잡아 둔다(05-12 와 같은 방식).
     _avatar = ref.read(avatarGenerationViewModelProvider.notifier);
     // 만드는 중에 떠났다 돌아왔으면 멈춘 폴링을 다시 잇는다(Review Focus 3). idle 에서 부르면 "기다리는 중" 으로 보고
@@ -66,9 +63,9 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> with MeToastH
 
   @override
   void dispose() {
-    _openCount--;
     // 뷰모델은 화면보다 오래 산다(온보딩과 같이 쓴다) — 떠나는 쪽이 직접 끊는다.
     _avatar.stopPolling();
+    openMyProfileScreens--;
     super.dispose();
   }
 
@@ -110,7 +107,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> with MeToastH
             onSuccess: (profile) => _ProfileContent(
               profile: profile,
               // 15-2 `EAqjZ` — 만드는 동안 알약은 꺼진다.
-              onRegenerate: isGenerating ? null : () => _openRegenSheet(profile),
+              onRegenerate: isGenerating ? null : () => context.push(AppRoutes.myAvatarRegen),
             ),
             onFailure: (_) => MeLoadError(onRetry: retry),
           ),
@@ -134,32 +131,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> with MeToastH
 
   static AppToast _alertToast(String message) =>
       AppToast(leading: const Icon(AppIcons.alertTriangle, size: 16, color: AppColors.onInk), label: message);
-
-  /// 15b 시트(값은 서버 `avatar_regen_cost` · `heart_balance`). 충전은 하트 스토어(18, `/hearts/store`)로 간다.
-  Future<void> _openRegenSheet(MyProfile profile) async {
-    final choice = await showAvatarRegenSheet(
-      context,
-      cost: profile.avatarRegenCost,
-      heartBalance: profile.heartBalance,
-    );
-    if (!mounted) return;
-    switch (choice) {
-      case AvatarRegenChoice.regenerate:
-        await _regenerate();
-      case AvatarRegenChoice.chargeHearts:
-        await context.push(AppRoutes.heartStore);
-      case null:
-        break;
-    }
-  }
-
-  /// 결과(완성 · 실패 · 서버 문구)는 [_onAvatarChanged] 가 상태 변화로 받는다 — 돌려받는 문구는 거기서 이미 보였다.
-  Future<void> _regenerate() async {
-    await _avatar.regenerate();
-    // 등록 응답을 기다리는 사이 화면을 떠났으면 방금 걸린 폴링을 끊는다 — dispose 는 이미 지나갔다.
-    // 그사이 15 를 다시 열었으면 그 화면이 폴링을 쥐고 있으니 그대로 둔다.
-    if (!mounted && _openCount == 0) _avatar.stopPolling();
-  }
 }
 
 /// 본문 — 히어로 자리 `nrcYh`(위 8 · 좌우 16) → 히어로 → 44 → 입구 두 줄(`sx7MA`, 사이 12) → 32 → 지인 리뷰 칸(`Cux1p`) → 아래 40.

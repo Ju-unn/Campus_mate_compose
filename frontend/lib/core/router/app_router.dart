@@ -35,6 +35,7 @@ import 'package:campus_mate/matching/view/notification_settings_screen.dart';
 import 'package:campus_mate/matching/view/settings_screen.dart';
 import 'package:campus_mate/matching/view/today_cards_screen.dart';
 import 'package:campus_mate/me/view/basic_info_edit_screen.dart';
+import 'package:campus_mate/me/view/avatar_regen_pick_screen.dart';
 import 'package:campus_mate/me/view/card_preview_screen.dart';
 import 'package:campus_mate/me/view/my_photos_screen.dart';
 import 'package:campus_mate/me/view/my_profile_screen.dart';
@@ -130,6 +131,7 @@ abstract final class AppRouter {
       // 화면 15 개편(계획서 2026-09-28-me-profile.md A10) — 15 입구에서 push 로 연다.
       GoRoute(path: AppRoutes.myProfileManage, builder: (context, state) => const ProfileManageScreen()),
       GoRoute(path: AppRoutes.myCardPreview, builder: (context, state) => const CardPreviewScreen()),
+      GoRoute(path: AppRoutes.myAvatarRegen, builder: (context, state) => const AvatarRegenPickScreen()),
       GoRoute(path: AppRoutes.myPhotos, builder: (context, state) => const MyPhotosScreen()),
       GoRoute(path: AppRoutes.myBasicInfo, builder: (context, state) => const BasicInfoEditScreen()),
     ];

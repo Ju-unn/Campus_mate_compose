@@ -27,6 +27,7 @@ import 'package:campus_mate/me/view/profile_hero.dart';
 import 'package:campus_mate/me/view/profile_manage_screen.dart';
 import 'package:campus_mate/profile/model/avatar_generation_outcome.dart';
 import 'package:campus_mate/profile/model/avatar_repository_provider.dart';
+import 'package:campus_mate/profile/viewmodel/avatar_generation_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -109,11 +110,12 @@ Finder _imageBox(String url) => find.byWidgetPredicate(
 
 /// 화면 15 한 벌 — 저장소 두 개와 라우터를 테스트가 들고 있는다.
 class _Harness {
-  _Harness(this.me, this.avatars, this.router);
+  _Harness(this.me, this.avatars, this.router, this.container);
 
   final FakeMeRepository me;
   final FakeAvatarRepository avatars;
   final GoRouter router;
+  final ProviderContainer container;
 }
 
 void main() {
@@ -157,6 +159,7 @@ void main() {
         GoRoute(path: AppRoutes.friendReviewsWritten, builder: (context, state) => const Scaffold(body: Text('20e 화면'))),
         GoRoute(path: AppRoutes.settings, builder: (context, state) => const Scaffold(body: Text('설정 화면'))),
         GoRoute(path: AppRoutes.heartStore, builder: (context, state) => const Scaffold(body: Text('18 스토어 화면'))),
+        GoRoute(path: AppRoutes.myAvatarRegen, builder: (context, state) => const Scaffold(body: Text('15b-4 사진 고르기 화면'))),
         GoRoute(path: AppRoutes.myCardPreview, builder: (context, state) => const CardPreviewScreen()),
         GoRoute(path: AppRoutes.myProfileManage, builder: (context, state) => const ProfileManageScreen()),
       ],
@@ -169,7 +172,7 @@ void main() {
       ),
     );
     if (settle) await tester.pump();
-    return _Harness(repository, avatarRepository, router);
+    return _Harness(repository, avatarRepository, router, container);
   }
 
   void usePenFrame(WidgetTester tester, {double height = 884}) {
@@ -194,11 +197,10 @@ void main() {
     }
   }
 
-  /// 알약 → 15b 시트 → [cta] 를 누른다.
-  Future<void> chooseInSheet(WidgetTester tester, String cta) async {
-    await tester.tap(find.text(_pillLabel));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text(cta));
+  /// 사진 고르기(15b-4/5)가 마지막에 하는 일 — 공용 뷰모델로 아바타를 등록한다. 15 는 그 상태가 바뀌는 것만 본다(만드는 중 · 실패 · 완성).
+  Future<void> startRegenerate(WidgetTester tester, _Harness harness) async {
+    // 등록 응답이 늦는 경우(generateGate)도 시험하므로 끝나기를 기다리지 않는다 — 사진 고르기 화면도 이 호출 뒤에 15 로 돌아올 뿐이다.
+    unawaited(harness.container.read(avatarGenerationViewModelProvider.notifier).regenerate());
     await settle(tester);
   }
 
@@ -426,31 +428,22 @@ void main() {
     });
   });
 
-  group('15 연결 — 15b · 15-2 · 15-3(옛 A8, 입구 `R5Quru`)', () {
-    testWidgets('알약을 누르면 15b 시트가 서버 비용 · 잔액으로 뜬다', (tester) async {
-      await pump(tester, result: Success(_profile(heartBalance: 320, avatarRegenCost: 10)));
+  group('15 연결 — 15b-4 · 15-2 · 15-3(옛 A8, 입구 `R5Quru`)', () {
+    testWidgets('알약을 누르면 사진 고르기(15b-4)로 간다 — 시트가 아니라 사진부터 고른다', (tester) async {
+      final harness = await pump(tester);
 
       await tester.tap(find.text(_pillLabel));
       await tester.pumpAndSettle();
 
-      expect(find.text('아바타를 다시 만들까요?'), findsOneWidget);
-      expect(find.textContaining('하트 10개가 차감돼요. 지금 보유한 하트는 320개예요.'), findsOneWidget);
-      expect(find.text('10 쓰고 만들기'), findsOneWidget);
-    });
-
-    testWidgets('취소하면 아무것도 부르지 않는다', (tester) async {
-      final harness = await pump(tester);
-
-      await chooseInSheet(tester, '취소');
-
+      expect(find.text('15b-4 사진 고르기 화면'), findsOneWidget);
+      expect(find.text('아바타를 다시 만들까요?'), findsNothing);
       expect(harness.avatars.regenerateCount, 0);
-      expect(_toast, findsNothing);
     });
 
-    testWidgets('"10 쓰고 만들기" → 다시 만들기 1회, 만드는 동안 알약이 꺼지고(15-2) 변환 중 토스트(도는 표시)', (tester) async {
+    testWidgets('아바타를 등록하면 다시 만들기 1회, 만드는 동안 알약이 꺼지고(15-2) 변환 중 토스트(도는 표시)', (tester) async {
       final harness = await pump(tester);
 
-      await chooseInSheet(tester, '10 쓰고 만들기');
+      await startRegenerate(tester, harness);
 
       expect(harness.avatars.regenerateCount, 1);
       expect(tester.widget<ProfileHero>(find.byType(ProfileHero)).onRegenerate, isNull);
@@ -460,21 +453,21 @@ void main() {
       expect(find.descendant(of: _toast, matching: find.byType(CircularProgressIndicator)), findsOneWidget);
     });
 
-    testWidgets('만드는 동안 알약을 눌러도 시트가 안 뜨고 두 번째 요청이 나가지 않는다', (tester) async {
+    testWidgets('만드는 동안 알약을 눌러도 사진 고르기가 안 열리고 두 번째 요청이 나가지 않는다', (tester) async {
       final harness = await pump(tester);
-      await chooseInSheet(tester, '10 쓰고 만들기');
+      await startRegenerate(tester, harness);
 
       await tester.tap(find.text(_pillLabel), warnIfMissed: false);
       await settle(tester);
 
-      expect(find.text('아바타를 다시 만들까요?'), findsNothing);
+      expect(find.text('15b-4 사진 고르기 화면'), findsNothing);
       expect(harness.avatars.regenerateCount, 1);
     });
 
     testWidgets('변환 중 토스트는 내비 위 12 · 가로 가운데(04-3 과 같은 자리, N18)', (tester) async {
       usePenFrame(tester);
-      await pump(tester);
-      await chooseInSheet(tester, '10 쓰고 만들기');
+      final harness = await pump(tester);
+      await startRegenerate(tester, harness);
 
       expect(tester.getTopLeft(find.byType(AppBottomNav)).dy - tester.getBottomLeft(_toast).dy, 12);
       expect(tester.getCenter(_toast).dx, 180);
@@ -482,9 +475,9 @@ void main() {
 
     testWidgets('실패로 바뀌면 15-3 토스트(triangle-alert + 두 줄)가 2초 뜨고 알약은 다시 켜진다', (tester) async {
       final avatars = FakeAvatarRepository()..statusResults.add(const Success(AvatarFailed()));
-      await pump(tester, avatars: avatars);
+      final harness = await pump(tester, avatars: avatars);
 
-      await chooseInSheet(tester, '10 쓰고 만들기');
+      await startRegenerate(tester, harness);
 
       expect(find.text(_failedMessage), findsOneWidget);
       expect(find.text('아바타로 변환 중이에요'), findsNothing);
@@ -505,7 +498,7 @@ void main() {
       expect(harness.me.calls, 1);
       harness.me.profile = Success(_profile(avatarUrl: 'https://img.test/new.png', heartBalance: 310));
 
-      await chooseInSheet(tester, '10 쓰고 만들기');
+      await startRegenerate(tester, harness);
 
       expect(harness.me.calls, 2);
       expect(_imageBox('https://img.test/new.png'), findsOneWidget);
@@ -517,16 +510,16 @@ void main() {
       final avatars = FakeAvatarRepository()..statusResults.add(const Success(AvatarFailed()));
       final harness = await pump(tester, avatars: avatars);
 
-      await chooseInSheet(tester, '10 쓰고 만들기');
+      await startRegenerate(tester, harness);
 
       expect(harness.me.calls, 1);
     });
 
     testWidgets('하트가 모자라다는(402) 서버 문구는 그 문구 그대로 토스트 — 15-3 문구가 아니다', (tester) async {
       final avatars = FakeAvatarRepository()..nextResult = const FailureResult(ServerRejectedFailure('하트가 모자라요'));
-      await pump(tester, avatars: avatars);
+      final harness = await pump(tester, avatars: avatars);
 
-      await chooseInSheet(tester, '10 쓰고 만들기');
+      await startRegenerate(tester, harness);
 
       expect(find.descendant(of: _toast, matching: find.text('하트가 모자라요')), findsOneWidget);
       expect(find.text(_failedMessage), findsNothing);
@@ -535,20 +528,9 @@ void main() {
       expect(_toast, findsNothing);
     });
 
-    testWidgets('15b-3 "하트 충전하기" → 시트가 닫히고 하트 스토어(18)로 간다, 다시 만들기는 부르지 않는다', (tester) async {
-      final harness = await pump(tester, result: Success(_profile(heartBalance: 3, avatarRegenCost: 10)));
-
-      await chooseInSheet(tester, '하트 충전하기');
-      await tester.pumpAndSettle();
-
-      expect(find.text('하트가 모자라요'), findsNothing);
-      expect(find.text('18 스토어 화면'), findsOneWidget);
-      expect(harness.avatars.regenerateCount, 0);
-    });
-
     testWidgets('만드는 중에 화면을 떠나면 그만 묻는다(폴링 멈춤)', (tester) async {
       final harness = await pump(tester);
-      await chooseInSheet(tester, '10 쓰고 만들기');
+      await startRegenerate(tester, harness);
       final asked = harness.avatars.statusCount;
 
       harness.router.go(AppRoutes.settings);
@@ -561,7 +543,7 @@ void main() {
 
     testWidgets('만드는 중에 떠났다 돌아오면 상태를 다시 묻고 폴링을 잇는다(Review Focus 3)', (tester) async {
       final harness = await pump(tester);
-      await chooseInSheet(tester, '10 쓰고 만들기');
+      await startRegenerate(tester, harness);
       harness.router.go(AppRoutes.settings);
       await tester.pumpAndSettle();
       final asked = harness.avatars.statusCount;
@@ -573,40 +555,6 @@ void main() {
       expect(find.text('아바타로 변환 중이에요'), findsOneWidget);
       await tester.pump(const Duration(seconds: 5));
       expect(harness.avatars.statusCount, asked + 2);
-    });
-
-    testWidgets('등록 응답을 기다리는 사이 떠나도 폴링이 남지 않는다', (tester) async {
-      final avatars = FakeAvatarRepository()..generateGate = Completer<void>();
-      final harness = await pump(tester, avatars: avatars);
-      await chooseInSheet(tester, '10 쓰고 만들기');
-
-      harness.router.go(AppRoutes.settings);
-      await tester.pumpAndSettle();
-      avatars.generateGate!.complete();
-      await tester.pump();
-      final asked = avatars.statusCount;
-      await tester.pump(const Duration(seconds: 12));
-
-      expect(avatars.statusCount, asked);
-    });
-
-    testWidgets('등록 응답을 기다리는 사이 떠났다가 응답 전에 돌아오면 폴링을 잇는다', (tester) async {
-      // 뷰모델의 폴링 타이머는 하나다 — 떠난 화면이 뒤늦게 끊으면 돌아온 화면이 "변환 중" 에 멈춘다(검토 권고 1).
-      final avatars = FakeAvatarRepository()..generateGate = Completer<void>();
-      final harness = await pump(tester, avatars: avatars);
-      await chooseInSheet(tester, '10 쓰고 만들기');
-
-      harness.router.go(AppRoutes.settings);
-      await tester.pumpAndSettle();
-      harness.router.go(AppRoutes.myProfile);
-      await settle(tester);
-      avatars.generateGate!.complete();
-      await tester.pump();
-      final asked = avatars.statusCount;
-      await tester.pump(const Duration(seconds: 12));
-
-      expect(find.text('아바타로 변환 중이에요'), findsOneWidget);
-      expect(avatars.statusCount, greaterThan(asked));
     });
 
     testWidgets('만드는 중이 아니면 화면을 열어도 상태를 묻지 않는다', (tester) async {
