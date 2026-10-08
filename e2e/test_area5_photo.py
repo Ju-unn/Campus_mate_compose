@@ -1094,7 +1094,7 @@ class WorkerRegenTest(PhotoBase):
     def test_every_regen_case_is_blocked_before_any_account_when_the_photo_set_lacks_face1(self):
         # 다시 만들기는 사진부터 고른다 — 앱 캐시에 옮길 face1.jpg 가 없으면 앱이 막히기 전에 PC 가 계정을 만들지 않고 blocked 로 끝낸다(E-ME-38 과 같다).
         (self.folder / 'face1.jpg').unlink()
-        for name in ('E-ME-10', 'E-ME-11', 'E-ME-12', 'E-ME-13', 'E-ME-14', 'E-ME-16'):
+        for name in ('E-ME-10', 'E-ME-11', 'E-ME-12', 'E-ME-13', 'E-ME-14', 'E-ME-16', 'E-ME-40'):
             with self.subTest(name):
                 self.reset_paid()
                 (result, note), app = self.case(name, said())
@@ -1643,16 +1643,20 @@ class RemoveSourceTest(PhotoBase):
 
     worker = WorkerRegenTest.worker
 
+    def good_report(self, **over):
+        return said(**{'ids_open': self.ids, 'ids_removed': self.ids[1:], 'title': '프로필 편집', 'avatar_before': 'a.png', 'avatar_after': 'a.png',
+                       'generating_seen': True, 'avatar_changed': True, 'generating_gone': True, 'regen_state': 'ready', 'waited_ms': 20000, **over})
+
     def good(self, source=0, **over):
         def answer(job):
             rows = self.photos()
             self.assertEqual(len(rows), 3)
             self.ids = [r['id'] for r in rows]
-            self.app_save(keep(rows[1], rows[2]), source)
+            self.app_save(keep(rows[1], rows[2]), source)  # 15-7 에서 원본(첫 칸)을 빼고 저장
+            self.app_replace_source()  # 이어서 다시 만들기: 사진 고르기에서 고른 사진이 새 원본 칸을 대신한다(Vision 1번)
             self.assertEqual(self.call_regenerate()[0], 202)
             self.worker()
-            return said(**{'ids_open': self.ids, 'ids_removed': self.ids[1:], 'title': '프로필 편집', 'avatar_before': 'a.png', 'avatar_after': 'a.png',
-                           'generating_seen': True, 'avatar_changed': True, 'generating_gone': True, 'regen_state': 'ready', 'waited_ms': 20000, **over})
+            return self.good_report(**over)
         return answer
 
     def test_40_the_new_first_photo_becomes_the_source_the_avatar_stays_and_the_next_regenerate_makes_a_new_one(self):
@@ -1660,11 +1664,25 @@ class RemoveSourceTest(PhotoBase):
         self.assertEqual(result, 'pass', note)
         self.assertEqual(app.jobs, [{'token_hash': 'h'}])
         rows = self.photos()
-        self.assertEqual([r['id'] for r in rows], self.ids[1:])
+        self.assertEqual(rows[1]['id'], self.ids[2])  # 옛 셋째는 그대로
+        self.assertNotIn(rows[0]['id'], self.ids)  # 새로 고른 사진이 원본 칸을 대신해 새 id — 옛 첫째 · 둘째 id 는 없다
         self.assertEqual([r['position'] for r in rows], [0, 1])
         self.assertEqual([r['is_avatar_source'] for r in rows], [True, False])
         self.assertEqual(sorted(a['status'] for a in self.avatars()), ['ready', 'ready'])
-        self.assertEqual(self.fake.vision_calls, 0)  # 새 파일이 없다
+        self.assertEqual(self.fake.vision_calls, 1)  # 15-7 저장은 새 파일이 없고(0), 다시 만들기의 사진 교체가 1번
+        self.assertEqual(self.pushed_regen_photo(), ['face1.jpg'])  # 사진을 계정을 만들기 전에 앱 캐시로 옮겼다
+
+    def test_40_fails_when_the_new_source_photo_was_never_replaced(self):
+        def skipped(job):
+            rows = self.photos()
+            self.ids = [r['id'] for r in rows]
+            self.app_save(keep(rows[1], rows[2]), 0)
+            self.assertEqual(self.call_regenerate()[0], 202)  # 사진 교체 없이 등록만 — 옛 흐름
+            self.worker()
+            return self.good_report()
+        (result, note), _ = self.case('E-ME-40', skipped)
+        self.assertEqual(result, 'fail', note)
+        self.assertIn('원본', note)
 
     def test_40_is_behind_the_real_ai_gate_and_makes_no_request_without_it(self):
         with mock.patch.dict(os.environ, {}, clear=True):
@@ -1704,6 +1722,7 @@ class RemoveSourceTest(PhotoBase):
         def stuck(job):
             rows = self.photos()
             self.app_save(keep(rows[1], rows[2]), 0)
+            self.app_replace_source()
             return said(ids_open=[r['id'] for r in rows], ids_removed=[r['id'] for r in rows[1:]], title='프로필 편집', avatar_before='a.png',
                         avatar_after='a.png', generating_seen=True, avatar_changed=True, generating_gone=True, regen_state='ready', waited_ms=1)
         (result, note), _ = self.case('E-ME-40', stuck)

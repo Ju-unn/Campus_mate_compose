@@ -8,7 +8,7 @@
 
 "다시 만들기" 는 사진부터 고른다(15b-4 → 15b-5 → 하트 확인 시트, 사용자 결정 2026-10-08): 알약을 누르면 사진 고르기가 먼저 뜨고, 앱이 갤러리 훅으로 폰 앱 캐시의
 face1.jpg 한 장을 고른 뒤 시트에서 "만들기" 를 누르면 `PUT /me/photos` 가 그 사진으로 지금 아바타 원본 칸만 바꾸고(장수 그대로) 이어 `POST /me/avatar/regenerate` 를 부른다.
-그래서 다시 만들기를 하는 가설(10 · 11 · 12 · 13 · 14 · 16)은 맨 앞에서 `regen_photo` 로 사진을 앱 캐시에 옮기고(없으면 계정을 만들기 전에 blocked), 만들기를 누르는 가설은
+그래서 다시 만들기를 하는 가설(10 · 11 · 12 · 13 · 14 · 16 · 40)은 맨 앞에서 `regen_photo` 로 사진을 앱 캐시에 옮기고(없으면 계정을 만들기 전에 blocked), 만들기를 누르는 가설은
 끝에서 원본 칸이 새 사진으로 바뀌었는지(`_source_replaced`)도 본다. 하트가 모자라 시트에서 막히는 12 는 사진 교체도 안 불렀는지 본다.
 
 유료 호출 표(서버 코드 근거 — 이 모양이 바뀌면 test_area5_photo.PaidFactsTest 가 걸린다)
@@ -22,6 +22,7 @@ face1.jpg 한 장을 고른 뒤 시트에서 "만들기" 를 누르면 `PUT /me/
          바꾼다 — 워커가 그 전에 행을 읽었다면 1번 나가고(끝에 :93 에서 0행이라 skipped, 하트도 안 빼고 그림도 안 적는다), 워커가 끝까지 먼저면 ready 라 blocked.
   ME-38  OpenAI 0 · Vision 1(새 사진 1장에 한 번, me/router.py:166-171) · 게이트 없음(area1_b3 의 사진 가설도 Vision 에 게이트가 없다).
   ME-10 · 11 · 16  Vision 1 — 만들기 앞의 사진 교체(새 파일 1장에 한 번). OpenAI 는 각 1번(워커) — 아래 가설 설명.
+  ME-40  Vision 1 — 원본을 빼는 저장(앱의 15-7)은 새 파일이 없어 0, 이어지는 다시 만들기의 사진 교체가 1. OpenAI 1번(워커). 게이트 E2E_REAL_AI=1 + _PAID.
   ME-39  OpenAI 0 · Vision 0 — 새 파일이 없는 저장은 반복문이 비어 있다.
   ME-41  OpenAI 0 · Vision 0 — 저장 버튼을 안 누른다. 서버 경계 확인 두 번(1칸 · 5칸)은 ①에서 422(:154)라 Vision 앞에서 끝나고 새 파일도 없다.
   ME-42  OpenAI 0 · Vision 0 — 얼굴 판정은 기기 안(ML Kit)이고 저장 버튼을 안 누른다.
@@ -557,6 +558,7 @@ def p_me_42(run, phone):
 
 def p_me_40(run, phone, paid):
     check = Check()
+    regen_photo(run, phone)  # 저장 뒤 이어지는 다시 만들기는 알약 → 사진 고르기를 거친다 — 계정을 만들기 전에 사진을 앱 캐시로
     account, token = _home(run)
     _ready_photos(run, account, 3)
     rows = _photos_now(run, account)
@@ -571,10 +573,14 @@ def p_me_40(run, phone, paid):
     check.that(said.get('ids_removed', MISSING) == ids[1:], f"첫 칸(원본)을 뺀 뒤 {said.get('ids_removed', MISSING)}(기대 {ids[1:]})")
     check.that(said.get('title', MISSING) == TITLES['15-5'], f"저장 뒤 화면 {said.get('title', MISSING)!r}(기대 15-5 {TITLES['15-5']!r})")
     now = _photos_now(run, account)
-    check.that([r['id'] for r in now] == ids[1:], f"DB 순서 {[r['id'] for r in now]}(기대 원본을 뺀 {ids[1:]})")
+    # 두 번 바뀐다 — ① 15-7 저장이 첫 칸(원본)을 빼 옛 둘째가 새 첫 칸(원본)이 되고, ② 이어진 다시 만들기가 그 원본 칸을 새로 고른 사진으로 바꾼다(새 id, 장수 그대로).
+    # 그래서 끝 모습은 [새 사진(원본), 옛 셋째]이고 옛 첫째 · 둘째 id 는 모두 사라진다.
+    after_save = [{**rows[1], 'is_avatar_source': True}, rows[2]]
+    _source_replaced(check, run, account, after_save)
     check.that([r['position'] for r in now] == [0, 1], f"DB 위치 {[r['position'] for r in now]}(기대 [0, 1])")
-    sources = [r['id'] for r in now if r['is_avatar_source']]
-    check.that(sources == ids[1:2], f'아바타 원본 표시 {sources}(기대 새 첫 칸 {ids[1:2]} 한 개)')
+    check.that(bool(now) and now[0]['is_avatar_source'], f"새 첫 칸이 원본 {now[0]['is_avatar_source'] if now else MISSING}(기대 True — 새로 고른 사진이 첫 칸을 대신한다)")
+    check.that(len(now) == 2 and now[1]['id'] == ids[2], f"원본이 아닌 칸 {[r['id'] for r in now[1:]]}(기대 옛 셋째 {ids[2]} 그대로)")
+    check.that(not set(ids[:2]) & {r['id'] for r in now}, f"빠졌어야 할 칸(옛 첫째 · 옛 둘째)이 남음 {sorted(set(ids[:2]) & {r['id'] for r in now})}")
     _storage_matches(check, now, _files(run, 'profile-photos', account['id']))
     before_url = said.get('avatar_before', MISSING)
     check.that(before_url is not None and before_url == said.get('avatar_after', MISSING),
@@ -583,7 +589,7 @@ def p_me_40(run, phone, paid):
     after = _one_new_ready(check, run, account, ready)
     check.that(set(avatars) <= set(after), f'기존 아바타 행이 바뀜 {sorted(set(avatars) - set(after))}(기대 그대로 — 사진 저장은 아바타를 안 건드린다)')
     return check.result('다음 다시 만들기가 새 원본으로 돈다는 것은 서버가 원본 행(is_avatar_source)을 읽어 만든다는 코드 사실과 완성(409 없이)으로 본다 — '
-                        '워커가 어느 사진을 썼는지는 PC 가 못 본다. 유료 호출: 큐 등록 1번 · 워커의 OpenAI 이미지 생성 1번')
+                        '워커가 어느 사진을 썼는지는 PC 가 못 본다. 유료 호출: Vision 1번(사진 교체) · 큐 등록 1번 · 워커의 OpenAI 이미지 생성 1번')
 
 
 def p_me_43(run, phone):
