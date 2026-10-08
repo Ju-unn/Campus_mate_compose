@@ -415,6 +415,26 @@ void main() {
       expect(open().read(basicInfoViewModelProvider).nicknameInput, isEmpty);
     });
 
+    testWidgets('복원한 닉네임은 300ms 뒤 다시 확인해 안내를 띄운다(판정 결과는 저장하지 않는다)', (tester) async {
+      open().read(basicInfoViewModelProvider.notifier).changeNickname('가나다');
+      await tester.pump(const Duration(milliseconds: 350));
+      repository.checkedNicknames.clear();
+
+      final reopened = open();
+      expect(reopened.read(basicInfoViewModelProvider).nicknameSuccess, isNull);
+      await tester.pump(const Duration(milliseconds: 350));
+
+      expect(repository.checkedNicknames, ['가나다']);
+      expect(reopened.read(basicInfoViewModelProvider).nicknameSuccess, '사용할 수 있는 닉네임이에요');
+    });
+
+    testWidgets('복원할 값이 없으면 열 때 중복 확인을 부르지 않는다', (tester) async {
+      open().read(basicInfoViewModelProvider);
+      await tester.pump(const Duration(milliseconds: 350));
+
+      expect(repository.checkedNicknames, isEmpty);
+    });
+
     test('모양이 맞지 않는 값은 버리고 빈 화면으로 시작한다', () {
       drafts.saved['account-a/${DraftScreen.basicInfo.key}'] = '{"nickname": 42}';
 

@@ -31,9 +31,17 @@ class BasicInfoViewModel extends Notifier<BasicInfoUiState> {
     final drafts = ref.read(draftStoreProvider);
     listenSelf((previous, next) => _saveDraft(drafts, previous, next));
     final initial = _initialState(drafts, ref.read(basicInfoNowProvider)().year);
-    // 복원한 닉네임도 형식 · 중복 안내를 다시 받는다 — 판정 결과는 저장하지 않았다.
-    _scheduleNicknameCheck(initial.nicknameInput);
+    _recheckRestoredNickname(initial.nicknameInput);
     return initial;
+  }
+
+  /// 복원한 닉네임도 형식 · 중복 안내를 다시 받는다 — 판정 결과는 저장하지 않았다.
+  /// 빈 칸으로 열면(복원할 값이 없으면) 예전처럼 아무것도 걸지 않는다.
+  void _recheckRestoredNickname(String nickname) {
+    if (nickname.isEmpty) {
+      return;
+    }
+    _scheduleNicknameCheck(nickname);
   }
 
   /// 처음 상태를 정하는 단 한 곳이다. 지금은 폰에 남긴 값 또는 빈 값 — 나중에 서버 값을 끼울 자리다.
