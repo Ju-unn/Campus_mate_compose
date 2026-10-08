@@ -19,8 +19,9 @@ class SharedPreferencesDraftStore implements DraftStore {
   SharedPreferencesDraftStore(
     this._preferences, {
     required this._accountId,
+    required String fileDirectory,
     this._debounce = defaultDebounce,
-  });
+  }) : _fileDirectory = _withoutTrailingSeparator(Directory(fileDirectory).absolute.path);
 
   static const String keyPrefix = 'onboarding_draft';
 
@@ -33,6 +34,9 @@ class SharedPreferencesDraftStore implements DraftStore {
   final SharedPreferences _preferences;
   final String? Function() _accountId;
   final Duration _debounce;
+
+  /// 지워도 되는 파일이 사는 곳(앱 임시 폴더). 이 밖의 경로는 저장돼 있어도 지우지 않는다.
+  final String _fileDirectory;
 
   /// 아직 디스크에 안 쓴 값. 키마다 마지막 값 하나만 기다린다.
   final Map<String, _PendingWrite> _pending = {};
@@ -134,9 +138,20 @@ class SharedPreferencesDraftStore implements DraftStore {
     }
   }
 
-  /// 시스템이 임시 폴더를 이미 비웠을 수 있다 — 없는 파일은 건너뛴다.
+  /// [path] 가 앱 임시 폴더 **안**에 있는가. 저장된 경로를 그대로 믿지 않는다 — `..` 로 빠져나가는 경로와,
+  /// 이름 앞부분만 같은 이웃 폴더(`/tmp_other`)는 밖으로 본다.
+  bool _isInsideFileDirectory(String path) {
+    final separator = Platform.pathSeparator;
+    final absolute = File(path).absolute.path;
+    if (absolute.split(separator).contains('..')) {
+      return false;
+    }
+    return absolute.startsWith('$_fileDirectory$separator');
+  }
+
+  /// 시스템이 임시 폴더를 이미 비웠을 수 있다 — 없는 파일은 건너뛴다. 앱 임시 폴더 밖의 경로는 지우지 않는다.
   void _deleteFiles(Iterable<String> paths) {
-    for (final path in paths) {
+    for (final path in paths.where(_isInsideFileDirectory)) {
       final file = File(path);
       try {
         if (file.existsSync()) {
@@ -147,6 +162,12 @@ class SharedPreferencesDraftStore implements DraftStore {
       }
     }
   }
+}
+
+/// 경로 끝의 구분자를 뗀다 — `/tmp/` 와 `/tmp` 를 같게 본다.
+String _withoutTrailingSeparator(String path) {
+  final separator = Platform.pathSeparator;
+  return path.length > 1 && path.endsWith(separator) ? path.substring(0, path.length - 1) : path;
 }
 
 /// 디바운스 중인 쓰기 하나. 마지막 값과 그 값을 쓸 타이머.
