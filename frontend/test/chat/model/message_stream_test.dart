@@ -7,12 +7,18 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 void main() {
   late List<Object> errors;
   late int rejoins;
+  late int readies;
   late void Function(RealtimeSubscribeStatus, Object?) listener;
 
   setUp(() {
     errors = [];
     rejoins = 0;
-    listener = channelStatusListener(onError: errors.add, onRejoined: () => rejoins++);
+    readies = 0;
+    listener = channelStatusListener(
+      onError: errors.add,
+      onRejoined: () => rejoins++,
+      onReady: () => readies++,
+    );
   });
 
   test('처음 붙을 때는 다시 붙음이 아니다 — 부르면 다시 구독이 끝없이 돈다', () {
@@ -53,5 +59,107 @@ void main() {
 
     expect(errors, hasLength(1));
     expect(rejoins, 0);
+  });
+
+  // 서버는 postgres_changes 복제를 join 성공 **뒤에** 비동기로 만든다 — 처음 붙은 순간부터 복제가 살기 전까지
+  // 들어온 줄은 구독도 첫 페이지 읽기도 못 받는다(E-CHAT-67). 그래서 처음 붙음에 "준비됨" 을 알려 한 번 더 읽게 한다.
+  test('끊김 없이 처음 붙으면 준비됨이다 — 다시 붙음은 아니다', () {
+    listener(RealtimeSubscribeStatus.subscribed, null);
+
+    expect(readies, 1);
+    expect(rejoins, 0);
+  });
+
+  test('끊겼다가 다시 붙으면 다시 붙음만 부른다 — 준비됨까지 부르면 전체를 두 번 읽는다', () {
+    listener(RealtimeSubscribeStatus.subscribed, null);
+    listener(RealtimeSubscribeStatus.channelError, null);
+    listener(RealtimeSubscribeStatus.subscribed, null);
+
+    expect(rejoins, 1);
+    expect(readies, 1); // 처음 붙음 몫뿐
+  });
+
+  test('처음 붙기 전에 끊겼다 붙으면 다시 붙음이다 — 준비됨은 아니다', () {
+    listener(RealtimeSubscribeStatus.timedOut, null);
+    listener(RealtimeSubscribeStatus.subscribed, null);
+
+    expect(rejoins, 1);
+    expect(readies, 0);
+  });
+
+  test('끊김 없이 붙음이 또 와도 준비됨을 또 알린다 — 받는 쪽이 멱등이라 안전하다', () {
+    listener(RealtimeSubscribeStatus.subscribed, null);
+    listener(RealtimeSubscribeStatus.subscribed, null);
+
+    expect(readies, 2);
+    expect(rejoins, 0);
+  });
+
+  test('끊김 · closed 는 준비됨이 아니다', () {
+    listener(RealtimeSubscribeStatus.channelError, null);
+    listener(RealtimeSubscribeStatus.closed, null);
+
+    expect(readies, 0);
+  });
+
+  test('콜백을 안 넘겨도 어떤 상태가 와도 던지지 않는다', () {
+    final bare = channelStatusListener(onError: (_) {});
+
+    for (final status in RealtimeSubscribeStatus.values) {
+      bare(status, null);
+    }
+    bare(RealtimeSubscribeStatus.subscribed, null);
+  });
+
+  group('isPostgresReady — 서버가 postgres_changes 구독을 만들었다는 system 이벤트', () {
+    test('postgres_changes 확장의 ok 면 준비됨이다', () {
+      const payload = {
+        'extension': 'postgres_changes',
+        'message': 'Subscribed to PostgreSQL',
+        'status': 'ok',
+        'channel': 'messages:m1',
+      };
+
+      expect(isPostgresReady(payload), isTrue);
+    });
+
+    test('확장 이름이 달라도 메시지가 "Subscribed to PostgreSQL" 인 ok 면 준비됨이다', () {
+      expect(isPostgresReady({'status': 'ok', 'message': 'Subscribed to PostgreSQL'}), isTrue);
+    });
+
+    test('복제 연결 준비 알림(replication_ready 를 켠 채널)의 ok 도 준비됨이다', () {
+      const payload = {
+        'extension': 'system',
+        'message': 'Replication connection established',
+        'status': 'ok',
+      };
+
+      expect(isPostgresReady(payload), isTrue);
+    });
+
+    test('error 는 준비됨이 아니다 — 이 실패는 realtime_client 가 channelError 로 따로 올린다', () {
+      const payload = {
+        'extension': 'postgres_changes',
+        'message': 'Subscribed to PostgreSQL',
+        'status': 'error',
+      };
+
+      expect(isPostgresReady(payload), isFalse);
+    });
+
+    test('ok 여도 postgres 구독과 상관없는 system 이벤트는 준비됨이 아니다', () {
+      expect(isPostgresReady({'extension': 'presence', 'status': 'ok', 'message': 'Joined'}), isFalse);
+      expect(isPostgresReady({'status': 'ok'}), isFalse);
+    });
+
+    test('Map 이 아니거나 비어 있거나 값 타입이 이상해도 던지지 않고 false 다', () {
+      expect(isPostgresReady(null), isFalse);
+      expect(isPostgresReady('ok'), isFalse);
+      expect(isPostgresReady(42), isFalse);
+      expect(isPostgresReady(['status', 'ok']), isFalse);
+      expect(isPostgresReady(const <String, Object?>{}), isFalse);
+      expect(isPostgresReady({'status': 'ok', 'extension': 7, 'message': 7}), isFalse);
+      expect(isPostgresReady({'status': null, 'extension': null, 'message': null}), isFalse);
+    });
   });
 }
