@@ -36,7 +36,8 @@ OURS = 'topResumedActivity=ActivityRecord{1 u0 io.github.juunn.campusmate/.MainA
 LAUNCHER = 'topResumedActivity=ActivityRecord{1 u0 com.sec.android.app.launcher/.Launcher t1}'
 BACK = ('S', 'shell', 'input', 'keyevent', 'KEYCODE_BACK')
 TITLES = {'15': '내 프로필', '15-4': '남이 보는 내 프로필', '15-5': '프로필 편집', '15c': '자기소개·태그 수정',
-          '06-1': '이상형 조건 수정', 'tag': '관심사 수정', '15-6': '기본 정보 수정', '15-7': '사진 수정', '16': '설정'}
+          '06-1': '이상형 조건 수정', 'tag': '관심사 수정', '15-6': '기본 정보 수정', '15-7': '사진 수정', '16': '설정',
+          '15b-5': '아바타 다시 만들기'}
 SECTIONS = ['실제 사진', '기본 정보', '선호 조건', '자기소개']
 DELETED = ['프로필과 인증 정보', '수락 매칭 기록', '모든 대화 내용']
 EN_DASH = '–'
@@ -482,6 +483,7 @@ class HeroTest(ReadBase):
     def test_01_hero_shows_name_age_school_major_latest_avatar_badge_chip_and_the_balance(self):
         _, app = self.passes('E-ME-01', self.good())
         self.assertEqual(app.jobs, [{'token_hash': 'h'}])
+        self.assertEqual(self.regen_calls, [0])  # 15b 시트를 읽으려면 사진 고르기를 거친다 — 사진은 계정을 만들기 전에 앱 캐시로
         row = self.profile()
         self.assertEqual((row['birth_year'], row['major']), (datetime.now(SEOUL).year - 23, '디자인학과'))
         avatars = sorted(self.rows('profile_avatars'), key=lambda r: r['created_at'])
@@ -539,6 +541,7 @@ class NoHeartsTest(ReadBase):
     def test_02_without_an_entitlements_row_the_balance_reads_zero_and_the_screen_has_no_error(self):
         _, app = self.passes('E-ME-02', self.good())
         self.assertEqual(app.jobs, [{'token_hash': 'h'}])
+        self.assertEqual(self.regen_calls, [0])
         self.assertEqual(self.rows('entitlements'), [])
         self.assertEqual(len(self.rows('profile_avatars')), 2)  # 두 장이라야 15b 시트가 보유 하트 줄을 보인다(1장이면 무료 시트)
 
@@ -1025,7 +1028,7 @@ class SystemBackTest(ReadBase):
 
     # 14
     def sheets(self, **over):
-        out = {'regen': {'step': 'regen', 'open_before': True, 'open_after': False, 'title': TITLES['15']},
+        out = {'regen': {'step': 'regen', 'open_before': True, 'open_after': False, 'title': TITLES['15b-5']},
                'withdraw-first': {'step': 'withdraw-first', 'open_before': True, 'open_after': False, 'title': TITLES['16'],
                                   'final_open': False},
                'withdraw-final': {'step': 'withdraw-final', 'open_before': True, 'open_after': False, 'title': TITLES['16'],
@@ -1039,6 +1042,7 @@ class SystemBackTest(ReadBase):
 
     def test_edge_14_back_closes_only_the_sheet_on_15b_and_both_16c_sheets_and_nothing_is_sent(self):
         _, app = self.passes('E-EDGE-14', None, self.edge14(self.sheets()))
+        self.assertEqual(self.regen_calls, [0])  # 15b 시트는 사진 고르기를 거쳐 뜬다 — 사진을 앱 캐시에 옮기는 일은 계정을 만들기 전
         self.assertEqual(self.adb_calls, [BACK] * 3)
         self.assertEqual(self.events, ['step:regen', 'back', 'go', 'step:withdraw-first', 'back', 'go',
                                        'step:withdraw-final', 'back', 'go'])
@@ -1048,6 +1052,7 @@ class SystemBackTest(ReadBase):
     def test_edge_14_fails_on_a_sheet_that_stays_a_wrong_screen_or_the_other_sheet_opening(self):
         for over, word in (({'regen': {'open_after': True}}, '15b'), ({'regen': {'open_before': False}}, '15b'),
                            ({'regen': {'title': TITLES['16']}}, '15b'),
+                           ({'regen': {'title': TITLES['15']}}, '15b'),  # 뒤로가 시트와 사진 고르기 화면을 한꺼번에 닫았다
                            ({'withdraw-first': {'open_after': True}}, '16c 1차'), ({'withdraw-first': {'final_open': True}}, '16c 1차'),
                            ({'withdraw-first': {'title': TITLES['15']}}, '16c 1차'),
                            ({'withdraw-final': {'open_after': True}}, '16c 최종'), ({'withdraw-final': {'first_open': True}}, '16c 최종'),
@@ -1198,6 +1203,21 @@ class AppContractTest(unittest.TestCase):
         self.assertEqual(area5_read.END, 'end')
         # 묻는 창은 두 번째 뒤로가 닫기 전에 본다
         self.assertLess(self.back_from.index('_asking()'), self.back_from.index("step('$name-again')"))
+
+    def test_edge_14_opens_the_15b_sheet_through_the_photo_pick_and_goes_back_to_15_before_the_settings(self):
+        # 알약은 사진 고르기를 먼저 연다 — 알약만 누르고 시트를 기다리면 시간 초과로 fail 한다(PC 시험은 앱을 목으로 대신해 못 잡는다).
+        block = dart_block(self.app, "'E-EDGE-14':", "'E-EDGE-16':")
+        self.assertIn('e2eRegenToSheet(tester, _regenPill)', block)
+        self.assertNotRegex(block, r'tap\(tester, find\.text\(_regenPill\)\)')
+        self.assertLess(block.index('e2eRegenToSheet'), block.index("_sheetBack(tester, 'regen'"))
+        # 시트를 닫은 뒤 사진 고르기 화면에서 15 로 돌아가야 설정 톱니가 보인다 — 주석 속 글자가 아니라 실제 호출 줄을 본다
+        back = re.search(r"^\s*await _returnTo\(tester, '내 프로필'\);", block, re.M)
+        settings = re.search(r'^\s*await _openSettings\(tester\);', block, re.M)
+        self.assertIsNotNone(back)
+        self.assertLess(back.start(), settings.start())
+        self.assertEqual(area5_read.TITLES['15'], '내 프로필')
+        self.assertIn("EditAppBar(title: '%s')" % area5_read.TITLES['15b-5'], (tools.ROOT / 'frontend' / 'lib' / 'me' / 'view' / 'avatar_regen_pick_screen.dart').read_text(encoding='utf-8'))
+        self.assertEqual(area5_read.EDGE_14[0][:3], ('regen', '15b-5', '15b'))
 
     def test_only_the_two_screens_with_typed_text_clear_the_focus_before_back(self):
         typed = re.findall(r"_backFrom\(tester, '([\w-]+)'[^;]*\btyped: true", self.app)

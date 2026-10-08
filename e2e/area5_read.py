@@ -60,7 +60,8 @@ REAL_NAME = 'E2E실명확인'  # 가짜 이름 — 응답에 이 글자가 있�
 NICKNAME_INTERVAL = timedelta(days=30)  # me/schemas.py NICKNAME_CHANGE_INTERVAL
 BACK = ('shell', 'input', 'keyevent', 'KEYCODE_BACK')
 TITLES = {'15': '내 프로필', '15-4': '남이 보는 내 프로필', '15-5': '프로필 편집', '15c': '자기소개·태그 수정',  # 앱바 글자(각 화면 코드)
-          '06-1': '이상형 조건 수정', 'tag': '관심사 수정', '15-6': '기본 정보 수정', '15-7': '사진 수정', '16': '설정'}
+          '06-1': '이상형 조건 수정', 'tag': '관심사 수정', '15-6': '기본 정보 수정', '15-7': '사진 수정', '16': '설정',
+          '15b-5': '아바타 다시 만들기'}  # 15b 시트가 뜨는 사진 고르기 화면(avatar_regen_pick_screen.dart 의 EditAppBar)
 SECTIONS = ['실제 사진', '기본 정보', '선호 조건', '자기소개']  # profile_manage_screen.dart 섹션 제목 순서
 DELETED = ['프로필과 인증 정보', '수락 매칭 기록', '모든 대화 내용']  # withdraw_sheets.dart `_DeletedItems`
 EN_DASH = '–'
@@ -80,7 +81,8 @@ NO_VALUE_TO_EDIT = {'15-5', '15-4'}
 AGAIN = '-again'  # EDGE-13 — 첫 뒤로 뒤에도 연 화면 그대로면 앱이 `{이름}-again` 에서 한 번 더 멈춘다(PC 는 뒤로를 한 번 더)
 END = 'end'  # EDGE-13 앱의 마지막 멈춤 — 뒤로 없이 Run.phone 의 마지막 go 로 끝난다
 # EDGE-14 — (멈추는 이름, 뒤로 뒤 도착 화면, 라벨, 다른 시트가 열렸는지 보는 칸)
-EDGE_14 = (('regen', '15', '15b', None), ('withdraw-first', '16', '16c 1차', 'final_open'), ('withdraw-final', '16', '16c 최종', 'first_open'))
+# 15b 시트는 사진 고르기(15b-5) 위에 뜬다 — 뒤로는 시트만 닫고 이 화면이 남는다(15 로 돌아가지 않는다).
+EDGE_14 = (('regen', '15b-5', '15b', None), ('withdraw-first', '16', '16c 1차', 'final_open'), ('withdraw-final', '16', '16c 최종', 'first_open'))
 SAVED = ('nickname,nickname_changed_at,bio,height_cm,mbti,major,interest_tags,my_traits,ideal_traits,preferred_age_min,preferred_age_max,'
          'preferred_height_min,preferred_height_max,preferred_mbti_flags,preferred_animal_types,preferred_impression_types,status')
 
@@ -509,6 +511,7 @@ def p_edge_13(run, phone):
 
 def p_edge_14(run, phone):
     check = Check()
+    regen_photo(run, phone)  # 15b 시트는 알약 → 사진 고르기(15b-4 → 15b-5)를 거쳐 뜬다 — 앱이 갤러리에서 이 사진을 고른다
     account, token = _home(run)
     blocks, avatars = _signup_blocks(run), _avatar_rows(run, account)
     pressed = []

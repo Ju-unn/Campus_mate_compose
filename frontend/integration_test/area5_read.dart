@@ -353,12 +353,12 @@ final Map<String, Area1Case> area5CasesRead = {
   }),
   'E-EDGE-14': _session((tester, job) async {
     final sheets = <Map<String, Object?>>[];
-    // 15b — 나 탭 히어로 알약
+    // 15b — 나 탭 히어로 알약 → 사진 고르기(15b-4 → 15b-5) 위에 뜬 시트. 뒤로는 시트만 닫고 사진 고르기 화면은 그대로여야 한다.
     await _openMe(tester);
-    await tap(tester, find.text(_regenPill));
-    await pumpUntil(tester, find.byType(SafetySheet));
+    await e2eRegenToSheet(tester, _regenPill);
     sheets.add(await _sheetBack(tester, 'regen', find.byType(SafetySheet)));
     await _closeIfOpen(tester, find.byType(SafetySheet));
+    await _returnTo(tester, '내 프로필'); // 시트가 사진 고르기 위에 있었다 — 15 로 돌아가야 설정 톱니가 보인다
     // 16c 1차 — 설정 "탈퇴하기"
     await _openSettings(tester);
     await _openWithdrawSheet(tester);
