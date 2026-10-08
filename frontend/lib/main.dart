@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:campus_mate/account/model/login_notice.dart';
 import 'package:campus_mate/auth/model/verification_gate.dart';
@@ -7,7 +6,7 @@ import 'package:campus_mate/core/auth/account_status_listenable.dart';
 import 'package:campus_mate/core/auth/session_scope.dart';
 import 'package:campus_mate/core/auth/sign_out.dart';
 import 'package:campus_mate/core/draft/draft_store.dart';
-import 'package:campus_mate/core/draft/shared_preferences_draft_store.dart';
+import 'package:campus_mate/core/draft/open_draft_store.dart';
 import 'package:campus_mate/core/lifecycle/resume_refresh.dart';
 import 'package:campus_mate/core/push/push_provider.dart';
 import 'package:campus_mate/core/push/push_refresh.dart';
@@ -27,8 +26,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 Future<void> main() async {
@@ -37,24 +34,14 @@ Future<void> main() async {
   // (firebase_options.dart 를 만들지 않는 이유 — flutterfire CLI 를 새로 들이지 않는다).
   await Firebase.initializeApp();
   await SupabaseInitializer.run(SupabaseConfig.fromEnvironment());
-  // 온보딩 뷰모델이 처음 상태를 만들 때 바로 읽을 수 있게 디스크를 한 번 읽어 둔다.
-  final preferences = await SharedPreferences.getInstance();
-  // 압축한 사진이 사는 앱 임시 폴더 — 임시 저장소는 이 안의 파일만 지운다.
-  final temporary = await getTemporaryDirectory();
+  // 온보딩 뷰모델이 처음 상태를 만들 때 바로 읽을 수 있게 디스크를 한 번 읽어 둔다. 못 열어도 앱은 뜬다.
+  // 계정 id 는 따로 들고 있지 않고 그때그때 Supabase 세션(로그인 상태)에서 읽는다 — 로그인 전이면 null 이라 쓰지 않는다.
+  final drafts = await openDraftStore(accountId: () => Supabase.instance.client.auth.currentUser?.id);
   runApp(SessionScope(
     authChanges: Supabase.instance.client.auth.onAuthStateChange,
-    overrides: [draftStoreProvider.overrideWithValue(_draftStore(preferences, temporary))],
+    overrides: [draftStoreProvider.overrideWithValue(drafts)],
     child: const CampusMateApp(),
   ));
-}
-
-/// 계정 id 는 따로 들고 있지 않고 그때그때 Supabase 세션(로그인 상태)에서 읽는다 — 로그인 전이면 null 이라 쓰지 않는다.
-DraftStore _draftStore(SharedPreferences preferences, Directory temporary) {
-  return SharedPreferencesDraftStore(
-    preferences,
-    accountId: () => Supabase.instance.client.auth.currentUser?.id,
-    fileDirectory: temporary.path,
-  );
 }
 
 /// 앱 루트 위젯. 로그인 상태는 [AuthSessionListenable] 이,
