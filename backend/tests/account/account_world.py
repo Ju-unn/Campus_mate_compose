@@ -55,6 +55,12 @@ class AccountWorld:
         self.contact_key_versions: list[int] = []
         self.fail: set[str] = set()            # "DELETE /storage/v1/object/avatars" 처럼 막을 요청
         self.withdraw_bodies: list[dict] = []
+        # GET /auth/v1/user 의 identities(탈퇴 때 카카오 연결 끊기가 본다). 기본은 카카오 가입자.
+        self.identities: list[dict] = [{"provider": "kakao", "identity_data": {"sub": "4242"}}]
+        self.kakao_unlinks: list[httpx.Request] = []
+        self.kakao_unlink_status = 200
+        self.kakao_unreachable = False
+        self.settings_overrides: dict = {}
 
     def withdrawn(self, profile_id: str, days_ago: int) -> None:
         """days_ago 일 전에 탈퇴한 사람을 세상에 둔다(버킷마다 파일 하나씩)."""
@@ -69,9 +75,15 @@ class AccountWorld:
         path = request.url.path
         if any(f"{request.method} {path}".startswith(rule) for rule in self.fail):
             return httpx.Response(500, json={"message": "boom"})
+        if request.url.host == "kapi.kakao.com":
+            assert path == "/v1/user/unlink"
+            self.kakao_unlinks.append(request)
+            if self.kakao_unreachable:
+                raise httpx.ConnectError("연결 실패", request=request)
+            return httpx.Response(self.kakao_unlink_status, json={"id": 4242})
         body = json.loads(request.content) if request.content else None
         if path == "/auth/v1/user":
-            return httpx.Response(200, json={"id": self.caller})
+            return httpx.Response(200, json={"id": self.caller, "identities": self.identities})
         if path.startswith("/auth/v1/admin/users/"):
             return self._admin_user(request.method, path.rsplit("/", 1)[1])
         if path == "/auth/v1/logout":
