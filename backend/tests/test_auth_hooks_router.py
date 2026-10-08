@@ -11,7 +11,6 @@ from fastapi.testclient import TestClient
 from app.core.deps import get_client, get_settings
 from app.main import app
 from app.settings import Settings
-from app.signup_policy import hash_email
 
 
 SECRET = "whsec_" + base64.b64encode(b"test-secret-key-32-bytes-long!!").decode()
