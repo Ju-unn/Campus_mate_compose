@@ -53,6 +53,8 @@ Future<void> _noneOnHeartScreens(
 
 /// 설정 맨 위의 보유 하트 블록에서 "하트 충전" 을 눌러 하트 스토어(18)를 연다 — 설정 16 에 있어야 하는 유일한 스토어 입구.
 Future<void> _openHeartStoreFromSettings(WidgetTester tester) async {
+  // 앞에서 설정을 맨 아래까지 훑었다 — "하트 충전" 줄이 위로 밀려 아직 만들어지지 않았을 수 있고 _reveal 은 아래로만 스크롤한다. 맨 위로 되돌린 뒤 찾는다.
+  await _toTop(tester);
   await _reveal(tester, find.text(_heartChargeLabel));
   must(find.text(_heartChargeLabel).evaluate().isNotEmpty, '설정에 "$_heartChargeLabel" 줄이 없음');
   await tap(tester, find.text(_heartChargeLabel));

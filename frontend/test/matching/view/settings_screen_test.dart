@@ -683,6 +683,8 @@ void main() {
       expect(data.label, '보유 하트 320개, 충전');
       expect(data.hasAction(SemanticsAction.tap), isTrue);
       expect(data.flagsCollection.isButton, isTrue);
+      // 안쪽 글자 · 그림이 따로 읽히지 않는다 — 한 덩어리(excludeSemantics). 자식 노드가 있으면 "보유 하트" · "320개" · "충전" 이 따로 읽힌다.
+      expect(tester.getSemantics(find.byWidgetPredicate((w) => w is Semantics && w.properties.label == '보유 하트 320개, 충전')).childrenCount, 0);
       handle.dispose();
     });
 

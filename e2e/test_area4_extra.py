@@ -155,6 +155,12 @@ class DartContractTest(unittest.TestCase):
         self.assertIn("must(find.text(_heartChargeLabel).evaluate().isNotEmpty", helper)  # 없으면 실패(스토어 입구가 사라진 것)
         self.assertIn('find.byType(HeartStoreScreen)', helper)
 
+    def test_the_settings_entry_goes_back_to_the_top_before_looking_for_it(self):
+        # 앞에서 설정을 맨 아래까지 훑으면 "하트 충전" 줄이 위로 밀려 만들어지지 않을 수 있다 — _reveal 은 아래로만 스크롤하므로 맨 위로 되돌린 뒤 찾는다.
+        helper = self.case_body('Future<void> _openHeartStoreFromSettings', "final Map<String, Area1Case> _extraCases")
+        self.assertIn('_toTop(tester)', helper)
+        self.assertLess(helper.index('_toTop(tester)'), helper.index('_reveal(tester, find.text(_heartChargeLabel))'))
+
     def test_heart_49_also_looks_at_the_heart_store_screen_for_money_out_words(self):
         body = self.case_body("'E-HEART-49'", "// 51(")
         self.assertIn('_noneOnHeartScreens(tester, _heartMoneyWords)', body)
