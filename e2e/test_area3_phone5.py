@@ -825,6 +825,151 @@ class Chat67Test(Base5):
         self.assertEqual(result, 'pass', note)
         self.assertNotIn('뷰모델', note)
 
+    # ── 진단: 말풍선이 안 떴을 때 서버가 가진 사실 · 다시 읽기 해석 ─────────────────────────────────────
+
+    def failing(self, **extra):
+        return {None: {'seen_at': None, 'bubble': False, **extra}}
+
+    def reread(self, found, **extra):
+        """앱이 방 뷰모델 reconnect() 뒤에 말한 것(area3_b5.dart _batchLiveBubble)."""
+        return {'found': found, 'vm_count': 1 if found else 0, 'vm_bodies': ['본문'] if found else [], 'finished': True, 'error': None, **extra}
+
+    def intercept(self, table, respond, when=lambda sent: True):
+        """[table] 읽기 중 [when](sent) 인 것만 [respond](sent) 로 바꿔 답한다 — 나머지는 가짜 표 그대로."""
+        self.fake.handlers.insert(0, ('GET', re.compile(rf'/rest/v1/{table}'),
+                                      lambda sent: respond(sent) if when(sent) else self.fake._table('GET', table, sent)))
+
+    def diagnosis_read(self, select, by_b=False):
+        """진단 읽기(select 가 정확히 [select]; [by_b] 면 B 의 토큰, 아니면 서비스 키)만 가리는 조건 — 기존 읽기는 건드리지 않는다."""
+        return lambda sent: sent['query'].get('select') == select and (sent['auth'] == 'tok-1') == by_b
+
+    def hide_from_b(self):
+        """B 의 토큰(tok-1)으로 messages 를 읽으면 0행 — RLS 가 가린 것처럼. 서비스 키 읽기는 그대로 표에서."""
+        self.intercept('messages', lambda sent: Reply(200, []), when=lambda sent: sent['auth'] == 'tok-1')
+
+    def lose_the_row(self):
+        """서버가 201 을 주고도 행을 안 남긴 것처럼."""
+        self.fake.handlers.insert(0, ('POST', re.compile(r'/chat/matches/[^/]+/messages'), Reply(201, {'id': 'm'})))
+
+    def sent_body(self):
+        return next(e for e in self.events if e[0] == 'send')[2]
+
+    MESSAGES, PARTICIPANTS, ROOM = 'id,sender_id,kind,created_at', 'profile_id,left_at,last_read_at', 'created_at,trust_passed_at,chat_closed_at'
+
+    def test_the_bubble_fail_note_carries_the_servers_facts_row_b_token_read_participant_and_room(self):
+        (result, note), _ = self.run67(self.failing())
+        self.assertEqual(result, 'fail')
+        self.assertIn('seen_at None', note)  # 기존 문구는 그대로
+        for part in ('서버 진단', 'DB 행 1건', "A 가 보낸 것 1건 · kind ['text']", 'B 토큰으로 읽기 200 · 보이는 행 1건',
+                     '참가자 2행 · B left_at None', 'B last_read_at None', '방 created_at', 'trust_passed_at', 'chat_closed_at None'):
+            self.assertIn(part, note)
+        read = next(s for s in self.fake.sent if s['auth'] == 'tok-1' and s['path'] == '/rest/v1/messages')  # 공개 키 + B 의 토큰(RLS 를 거친다)
+        self.assertEqual(read['apikey'], 'anon')
+        self.assertEqual(read['query'], {'match_id': f"eq.{self.target()['id']}", 'body': f'eq.{self.sent_body()}', 'select': self.MESSAGES})
+
+    def test_a_row_the_b_token_cannot_see_is_told_apart_from_a_row_that_is_not_there(self):
+        self.hide_from_b()
+        (_, note), _ = self.run67(self.failing())
+        self.assertIn('DB 행 1건', note)
+        self.assertIn('B 토큰으로 읽기 200 · 보이는 행 0건', note)
+
+    def test_a_passing_bubble_reads_no_diagnosis_and_keeps_its_note(self):
+        (result, note), _ = self.run67()
+        self.assertEqual(result, 'pass', note)
+        self.assertRegex(note, r'^지연 [\d.]+초\(앱 시계 − 서버가 찍은 보낸 시각\)$')
+        after_send = self.fake.sent[[i for i, s in enumerate(self.fake.sent) if s['path'].endswith('/messages') and s['method'] == 'POST'][-1] + 1:]
+        reads = [(s['path'], s['query'].get('select'), s['auth']) for s in after_send if s['path'].startswith('/rest/v1/')]
+        self.assertEqual(reads, [('/rest/v1/messages', 'created_at', 'svc')])  # 지연을 재는 기존 읽기 하나뿐 — 진단 읽기 0건
+
+    def test_a_diagnosis_read_that_fails_is_told_in_the_note_and_the_fail_stays_a_fail(self):
+        for table, select, reply in (('messages', self.MESSAGES, Reply(500, {'message': 'boom'})), ('match_participants', self.PARTICIPANTS, Reply(500, None)),
+                                     ('matches', self.ROOM, Reply(503, None))):
+            with self.subTest(table):
+                self.setUp()
+                self.intercept(table, lambda sent, reply=reply: reply, when=self.diagnosis_read(select))
+                (result, note), _ = self.run67(self.failing())
+                self.assertEqual(result, 'fail', note)  # blocked 로 안 바뀐다
+                self.assertIn('읽지 못함', note)
+                self.assertIn('B 말풍선', note)
+                self.assertIn('서버 진단', note)
+
+    def test_a_b_token_read_the_server_refuses_is_told_with_its_status_and_the_other_facts_still_come(self):
+        self.intercept('messages', lambda sent: Reply(401, {'code': '42501'}), when=self.diagnosis_read(self.MESSAGES, by_b=True))
+        (result, note), _ = self.run67(self.failing())
+        self.assertEqual(result, 'fail', note)
+        self.assertIn('B 토큰으로 읽기 읽지 못함(상태 401)', note)
+        self.assertIn('DB 행 1건', note)
+        self.assertIn('참가자 2행', note)
+
+    def test_a_read_that_drops_the_connection_is_told_by_its_kind_only_and_the_fail_stays_a_fail(self):
+        def drop(sent):
+            raise ConnectionResetError('https://secret.example/rest/v1/x')  # 예외 글에 주소가 들어도 메모엔 종류만
+        self.intercept('match_participants', drop, when=self.diagnosis_read(self.PARTICIPANTS))
+        (result, note), _ = self.run67(self.failing())
+        self.assertEqual(result, 'fail', note)
+        self.assertIn('읽지 못함(ConnectionResetError)', note)
+        self.assertNotIn('secret.example', note)
+
+    def test_a_read_that_answers_in_an_unexpected_shape_is_told_not_crashed(self):
+        for by_b in (False, True):
+            with self.subTest(by_b=by_b):
+                self.setUp()
+                self.intercept('messages', lambda sent: Reply(200, {'not': 'a list'}), when=self.diagnosis_read(self.MESSAGES, by_b=by_b))
+                (result, note), _ = self.run67(self.failing())
+                self.assertEqual(result, 'fail', note)
+                self.assertIn('읽지 못함', note)
+
+    def test_a_message_the_app_finds_after_reconnecting_is_a_guess_that_only_the_live_channel_missed_it(self):
+        (result, note), _ = self.run67(self.failing(after_reconnect=self.reread(True)))
+        self.assertEqual(result, 'fail')
+        self.assertIn('추정: 다시 읽으면 보임 — 실시간 채널만 글을 못 받음(서버 저장·RLS 는 정상)', note)
+        self.assertNotIn('앱이 다시 읽어도 못 가져옴', note)
+
+    def test_a_message_the_app_cannot_find_even_after_reconnecting_with_db_and_b_token_fine_blames_the_app(self):
+        (_, note), _ = self.run67(self.failing(after_reconnect=self.reread(False)))
+        self.assertIn('추정: DB·RLS 정상인데 앱이 다시 읽어도 못 가져옴', note)
+        self.assertNotIn('다시 읽으면 보임', note)
+
+    def test_no_row_in_the_db_after_a_201_is_a_guess_that_the_server_lied(self):
+        self.lose_the_row()
+        (result, note), _ = self.run67(self.failing(after_reconnect=self.reread(False)))
+        self.assertEqual(result, 'fail')
+        self.assertIn('DB 행 0건', note)
+        self.assertIn('추정: 서버가 201 을 줬는데 행이 없음', note)
+
+    def test_a_row_the_b_token_cannot_see_is_a_guess_about_rls_or_the_participant_row(self):
+        self.hide_from_b()
+        (_, note), _ = self.run67(self.failing(after_reconnect=self.reread(False)))
+        self.assertIn('추정: B 토큰으로 안 읽힘 — RLS/참가자 쪽', note)
+        self.assertNotIn('DB·RLS 정상', note)
+
+    def test_a_reconnect_that_did_not_finish_or_ended_in_an_error_cannot_blame_the_app(self):
+        for extra in ({'finished': False}, {'error': '네트워크 오류'}):
+            with self.subTest(extra):
+                self.setUp()
+                (_, note), _ = self.run67(self.failing(after_reconnect=self.reread(False, **extra)))
+                self.assertIn('추정: 앱의 다시 읽기가 제시간에 안 끝나거나 오류로 끝나 가르지 못함', note)
+                self.assertNotIn('DB·RLS 정상', note)
+
+    def test_a_guess_with_a_read_it_could_not_make_does_not_call_the_server_fine(self):
+        self.intercept('messages', lambda sent: Reply(500, None), when=self.diagnosis_read(self.MESSAGES))
+        (_, note), _ = self.run67(self.failing(after_reconnect=self.reread(True)))
+        self.assertIn('읽지 못함', note)
+        self.assertNotIn('서버 저장·RLS 는 정상', note)
+        self.assertIn('추정: 다시 읽으면 보임', note)
+
+    def test_the_guess_is_set_apart_from_the_facts_and_only_comes_when_the_app_reconnected(self):
+        (_, note), _ = self.run67(self.failing())  # 옛 앱 — 다시 읽기를 안 말함
+        self.assertIn('서버 진단', note)
+        self.assertNotIn('추정', note)
+
+    def test_the_apps_state_before_the_reconnect_and_what_it_found_after_are_in_the_note(self):
+        (_, note), _ = self.run67(self.failing(disconnected_before=True, socket_before='open', rt_token_is_session=False,
+                                               channels_before=['realtime:messages:m1 joined=false'], after_reconnect=self.reread(True)))
+        for part in ('재연결 전 isDisconnected True', '소켓 open', '실시간 토큰이 세션 토큰과 같음 False', 'realtime:messages:m1 joined=false',
+                     '재연결 뒤 찾음 True', '뷰모델 글 1건'):
+            self.assertIn(part, note)
+
     def test_a_send_that_fails_is_a_fail_with_the_status(self):
         self.fake.handlers.insert(0, ('POST', re.compile(r'/chat/matches/[^/]+/messages'), Reply(409, {'detail': '종료된 대화예요'})))
         (result, note), _ = self.run67({None: {'seen_at': None, 'bubble': False}})
