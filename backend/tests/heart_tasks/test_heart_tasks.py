@@ -68,7 +68,7 @@ def _wire(handler: Callable[[httpx.Request], httpx.Response], seen: list[httpx.R
             return httpx.Response(200, json={"id": PROFILE_ID})
         # 관문 조회는 select 키로 가른다(reference_backend_test_mock_traps).
         if request.method == "GET" and "student_verification" in request.url.params.get("select", ""):
-            return httpx.Response(200, json=[{"student_verification": "verified", "department": "컴공"}])
+            return httpx.Response(200, json=[{"student_verification": "verified", "department": "컴공", "school_email_verified_at": "2026-10-01T00:00:00+00:00"}])
         if seen is not None:
             seen.append(request)
         return handler(request)

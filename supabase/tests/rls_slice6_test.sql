@@ -44,7 +44,8 @@ where id in (
   '00000000-0000-0000-0000-000000000068', '00000000-0000-0000-0000-000000000069',
   '00000000-0000-0000-0000-00000000006a'
 )
-on conflict (id) do nothing;
+-- 20261008010000(소셜 로그인)부터 트리거가 학교를 비워 두므로 여기서 학교를 채운다 — 후보 · 지급 함수가 학교로 지역그룹을 본다.
+on conflict (id) do update set university_id = excluded.university_id;
 
 update public.profiles set
   nickname = '가나다라', gender = 'male', status = 'active',

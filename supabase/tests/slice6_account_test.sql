@@ -7,7 +7,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(52);
+select plan(56);
 
 -- 준비 --------------------------------------------------------------------
 -- PH = ...70(번호 저장), WA = ...71(active 탈퇴), WS = ...72(suspended 탈퇴),
@@ -27,6 +27,11 @@ insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-000000000074', 'a8-wi@test8.ac.kr'),
   ('00000000-0000-0000-0000-000000000075', 'a8-del@test8.ac.kr'),
   ('00000000-0000-0000-0000-000000000076', 'a8-pt@test8.ac.kr');
+
+-- WN = ...77: 계정 메일이 없는 카카오 계정. 학교 메일 인증 전(pending)이라 탈퇴 때 넘길 이메일 해시가 없다
+-- (20261008040000). 트리거가 학교 없는 pending 행을 만든다.
+insert into auth.users (id, email, raw_app_meta_data) values
+  ('00000000-0000-0000-0000-000000000077', null, '{"provider": "kakao", "providers": ["kakao"]}');
 
 -- on_auth_user_created 트리거가 pending 행을 이미 만든다(다른 테스트와 같은 모양).
 insert into public.profiles (id, university_id)
@@ -133,6 +138,10 @@ select throws_ok(
 select throws_ok(
   $$select public.withdraw_account('00000000-0000-0000-0000-000000000070', '\x70'::bytea, 1::smallint)$$,
   '42501', null, 'authenticated 는 withdraw_account 를 실행할 수 없다(42501)'
+);
+select throws_ok(
+  $$select public.withdraw_account('00000000-0000-0000-0000-000000000077', null, 1::smallint)$$,
+  '42501', null, '이메일 해시가 null 이어도 authenticated 는 withdraw_account 를 실행할 수 없다(42501)'
 );
 
 reset role;
@@ -286,6 +295,28 @@ select lives_ok(
 select is(
   (select count(*) from public.signup_blocks where email_hmac = '\x7fa1'::bytea),
   0::bigint, '없는 프로필로 부르면 재가입 제한 행을 만들지 않는다'
+);
+
+-- 이메일 해시가 없는 계정(학교 메일 인증 전 · 메일 없는 소셜): 탈퇴는 되고 재가입 제한만 남기지 않는다(20261008040000).
+create temporary table signup_blocks_before_null_hash as select count(*) as n from public.signup_blocks;
+
+-- FastAPI 와 같은 service_role 로 부른다 — security invoker 라 권한이 모자라면 여기서 드러난다.
+set local role service_role;
+select lives_ok(
+  $$select public.withdraw_account('00000000-0000-0000-0000-000000000077', null, 1::smallint)$$,
+  '이메일 해시가 null 인 계정도 오류 없이 탈퇴한다(signup_blocks PK 에 null 을 넣지 않는다)'
+);
+reset role;
+
+select ok(
+  (select status = 'withdrawn' and withdrawn_at = now()
+     from public.profiles where id = '00000000-0000-0000-0000-000000000077'),
+  '해시가 없어도 status 는 withdrawn, withdrawn_at 은 지금이다'
+);
+select is(
+  (select count(*) from public.signup_blocks),
+  (select n from signup_blocks_before_null_hash),
+  '해시가 없으면 재가입 제한 행을 만들지 않는다'
 );
 
 -- 4. 탈퇴 계정 삭제(정리 배치의 전제) --------------------------------------------------

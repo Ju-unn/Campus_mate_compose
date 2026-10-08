@@ -10,16 +10,27 @@ import httpx
 from app.core.http import raise_for_status
 from app.core.postgrest import PostgrestRepository
 from app.settings import Settings
-from app.signup_policy import bytea_literal
 
 
 class AccountRepository(PostgrestRepository):
 
-    async def withdraw(self, profile_id: UUID | str, email_hmac: bytes, key_version: int) -> None:
-        """상태 · withdrawn_at · 재가입 제한을 한 트랜잭션에서(SQL `withdraw_account`, 멱등)."""
+    async def fetch_school_email_claim(self, profile_id: UUID | str) -> dict | None:
+        """그 사람의 학교 메일 인증 기록(school_email_claims) — 해시(bytea 리터럴)와 키 버전. 없으면 None(인증 전).
+        읽기 실패는 예외로 올린다."""
+        response = await self._get("school_email_claims", params={
+            "profile_id": f"eq.{profile_id}", "select": "school_email_hmac,key_version",
+        })
+        raise_for_status(response)
+        rows = response.json()
+        return rows[0] if rows else None
+
+    async def withdraw(self, profile_id: UUID | str, email_hmac: str | None, key_version: int) -> None:
+        """상태 · withdrawn_at · 재가입 제한을 한 트랜잭션에서(SQL `withdraw_account`, 멱등).
+
+        email_hmac 은 PostgREST 의 bytea 리터럴(`\\x…`) 그대로다. None 이면 JSON null 이고, DB 함수는 재가입 제한을
+        남기지 않는다(20261008040000 — 학교 메일 인증 전 계정)."""
         response = await self._post("rpc/withdraw_account", json={
-            "p_profile_id": str(profile_id), "p_email_hmac": bytea_literal(email_hmac),
-            "p_key_version": key_version,
+            "p_profile_id": str(profile_id), "p_email_hmac": email_hmac, "p_key_version": key_version,
         })
         raise_for_status(response)
 
@@ -36,6 +47,29 @@ class AccountRepository(PostgrestRepository):
         })
         raise_for_status(response)
         return [row["id"] for row in response.json()]
+
+    async def list_unverified_accounts(self, older_than_days: int, limit: int) -> list[str]:
+        """가입 뒤 그 일수가 지나도록 학교 메일 확인(school_email_verified_at)을 안 한 프로필 id.
+        SQL `list_unverified_accounts(p_older_than_days, p_limit)` 가 고른다(소셜 로그인 전환)."""
+        response = await self._post("rpc/list_unverified_accounts", json={
+            "p_older_than_days": older_than_days, "p_limit": limit,
+        })
+        raise_for_status(response)
+        return [row["id"] for row in response.json()]
+
+    async def is_still_unverified(self, profile_id: str) -> bool:
+        """지우기 직전 재확인. 프로필이 있고 school_email_verified_at 이 NULL 일 때만 True.
+        행이 없어도 False 다(확인할 수 없으면 지우지 않는다). 읽기 실패는 예외로 올린다."""
+        response = await self._get("profiles", params={"id": f"eq.{profile_id}", "select": "school_email_verified_at"})
+        raise_for_status(response)
+        rows = response.json()
+        return bool(rows) and rows[0].get("school_email_verified_at") is None
+
+    async def has_profile(self, profile_id: str) -> bool:
+        """임시 이메일 계정 잔여물을 지우기 직전 재확인. 읽기 실패는 예외로 올린다(부르는 쪽이 건너뛴다)."""
+        response = await self._get("profiles", params={"id": f"eq.{profile_id}", "select": "id"})
+        raise_for_status(response)
+        return bool(response.json())
 
     async def _delete_counted(self, table: str, params: dict) -> int:
         """지운 행 수. 작은 칸 하나만 돌려받아 센다(PostgrestRepository._delete 는 Prefer 를 받지 않는다)."""
@@ -98,11 +132,19 @@ class SupabaseAdmin:
         self._headers = {"apikey": self._key, "Authorization": f"Bearer {self._key}"}
         self._client = client
 
-    async def fetch_email(self, profile_id: UUID | str) -> str:
-        """`GET /admin/users/{id}` — 원본 이메일은 해시를 뜨는 데만 쓰고 어디에도 남기지 않는다."""
-        response = await self._client.get(f"{self._auth_url}/admin/users/{profile_id}", headers=self._headers)
+    async def list_users(self, page: int, per_page: int) -> list[dict]:
+        """`GET /admin/users?page=&per_page=` 한 쪽(1부터). 빈 목록이면 끝이다."""
+        response = await self._client.get(
+            f"{self._auth_url}/admin/users", params={"page": page, "per_page": per_page}, headers=self._headers,
+        )
         response.raise_for_status()
-        return response.json()["email"]
+        return response.json().get("users") or []
+
+    async def fetch_user(self, user_id: UUID | str) -> dict:
+        """`GET /admin/users/{id}` — 그 auth 사용자 전체(identities · created_at). 실패하면 예외다."""
+        response = await self._client.get(f"{self._auth_url}/admin/users/{user_id}", headers=self._headers)
+        response.raise_for_status()
+        return response.json()
 
     async def delete_user(self, profile_id: UUID | str) -> None:
         """auth 사용자째 지운다 — profiles 와 딸린 표는 FK cascade 다(pr3-db-report §2, 편차 2)."""

@@ -12,10 +12,12 @@ import 'package:campus_mate/profile/viewmodel/tag_picker_kind.dart';
 import 'package:campus_mate/profile/viewmodel/tag_picker_view_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:campus_mate/core/draft/draft_store.dart';
 
 import '../../profile/model/fake_onboarding_repository.dart';
 import '../../profile/model/fake_tag_picker_repository.dart';
 import '../model/fake_me_repository.dart';
+import '../../core/draft/fake_draft_store.dart';
 
 const _profile = MyProfile(
   nickname: '여우',
@@ -40,8 +42,10 @@ void main() {
   late FakeTagPickerRepository tags;
   late FakeOnboardingRepository onboarding;
   late ProviderContainer container;
+  late FakeDraftStore drafts;
 
   setUp(() async {
+    drafts = FakeDraftStore();
     me = FakeMeRepository(const Success(_profile));
     tags = FakeTagPickerRepository();
     onboarding = FakeOnboardingRepository();
@@ -50,6 +54,7 @@ void main() {
         meRepositoryProvider.overrideWithValue(me),
         tagPickerRepositoryProvider.overrideWithValue(tags),
         onboardingRepositoryProvider.overrideWithValue(onboarding),
+        draftStoreProvider.overrideWithValue(drafts),
       ],
     );
     // 편집 화면은 화면 15 · 15c 를 거쳐 열린다 — 그때는 내 프로필이 이미 읽혀 있다.
@@ -139,5 +144,19 @@ void main() {
     addTearDown(second.close);
 
     expect(second.read().selected, {'카페가기', '여행', '요리'});
+  });
+
+  test('편집 모드는 임시 저장을 하지 않는다 — 온보딩 값을 쓰지도 지우지도 않는다', () async {
+    // 편집은 열 때마다 서버 값으로 채운다. 고르다 만 값이 온보딩 임시 저장 자리에 섞이면 안 된다.
+    final subscription = container.listen(tagEditViewModelProvider(TagPickerKind.interests), (_, _) {});
+    addTearDown(subscription.close);
+    final viewModel = container.read(tagEditViewModelProvider(TagPickerKind.interests).notifier);
+    viewModel.toggle('독서');
+
+    await viewModel.submit();
+
+    expect(subscription.read().completed, isTrue);
+    expect(drafts.saved, isEmpty);
+    expect(drafts.cleared, isEmpty);
   });
 }

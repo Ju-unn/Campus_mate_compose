@@ -5,9 +5,12 @@ import 'package:campus_mate/profile/viewmodel/ideal_conditions_ui_state.dart';
 import 'package:campus_mate/profile/viewmodel/ideal_conditions_view_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:campus_mate/core/draft/draft_screen.dart';
+import 'package:campus_mate/core/draft/draft_store.dart';
 
 import '../model/fake_ideal_conditions_repository.dart';
 import '../model/fake_onboarding_repository.dart';
+import '../../core/draft/fake_draft_store.dart';
 
 void main() {
   late FakeIdealConditionsRepository repository;
@@ -105,5 +108,63 @@ void main() {
 
     await vm.submit();
     expect(repository.submitted!.preferredAnimalTypes, [AnimalType.cat]);
+  });
+
+  group('임시 저장', () {
+    late FakeDraftStore drafts;
+
+    setUp(() => drafts = FakeDraftStore());
+
+    /// 앱을 다시 연 것처럼 새 컨테이너(새 뷰모델)를 만든다. 저장소는 같은 것을 쓴다.
+    ProviderContainer open() {
+      final opened = ProviderContainer(
+        overrides: [
+          idealConditionsRepositoryProvider.overrideWithValue(repository),
+          onboardingRepositoryProvider.overrideWithValue(onboardingRepository),
+          draftStoreProvider.overrideWithValue(drafts),
+        ],
+      );
+      addTearDown(opened.dispose);
+      return opened;
+    }
+
+    test('모든 조건이 저장되고 새로 만들면 돌아온다', () {
+      final vm = open().read(idealConditionsViewModelProvider.notifier);
+      vm.changeAgeRange(20, 30);
+      vm.changeAgeIgnored(true);
+      vm.changeHeightRange(160, 175);
+      vm.changeHeightIgnored(true);
+      vm.toggleMbtiPole('E');
+      vm.toggleAnimalType(AnimalType.cat);
+      vm.toggleAnimalType(AnimalType.dog);
+      vm.toggleImpressionType(ImpressionType.kind);
+
+      final restored = open().read(idealConditionsViewModelProvider);
+      expect((restored.preferredAgeMin, restored.preferredAgeMax, restored.ageIgnored), (20, 30, true));
+      expect((restored.preferredHeightMin, restored.preferredHeightMax, restored.heightIgnored), (160, 175, true));
+      expect(restored.preferredMbtiFlags, {'E': true});
+      expect(restored.preferredAnimalTypes, [AnimalType.cat, AnimalType.dog]);
+      expect(restored.preferredImpressionTypes, [ImpressionType.kind]);
+    });
+
+    test('"다음" 이 성공하면 이 화면 값을 지운다', () async {
+      final vm = open().read(idealConditionsViewModelProvider.notifier);
+      pickRequiredAppearance(vm);
+      vm.changeAgeRange(20, 30);
+
+      await vm.submit();
+
+      expect(drafts.cleared, [DraftScreen.idealConditions]);
+      expect(open().read(idealConditionsViewModelProvider).preferredAgeMin, 22);
+    });
+
+    test('범위를 벗어난 값이면 버리고 기본값으로 시작한다', () {
+      drafts.saved['account-a/${DraftScreen.idealConditions.key}'] =
+          '{"preferredAgeMin": 5, "preferredAgeMax": 99, "ageIgnored": false, "preferredHeightMin": 165, '
+          '"preferredHeightMax": 180, "heightIgnored": false, "preferredMbtiFlags": {}, '
+          '"preferredAnimalTypes": [], "preferredImpressionTypes": []}';
+
+      expect(open().read(idealConditionsViewModelProvider).preferredAgeMin, 22);
+    });
   });
 }

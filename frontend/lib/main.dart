@@ -6,6 +6,8 @@ import 'package:campus_mate/auth/model/verification_gate.dart';
 import 'package:campus_mate/core/auth/account_status_listenable.dart';
 import 'package:campus_mate/core/auth/session_scope.dart';
 import 'package:campus_mate/core/auth/sign_out.dart';
+import 'package:campus_mate/core/draft/draft_store.dart';
+import 'package:campus_mate/core/draft/open_draft_store.dart';
 import 'package:campus_mate/core/env.dart';
 import 'package:campus_mate/core/lifecycle/resume_refresh.dart';
 import 'package:campus_mate/core/push/push_provider.dart';
@@ -35,10 +37,14 @@ Future<void> main() async {
   // (firebase_options.dart 를 만들지 않는 이유 — flutterfire CLI 를 새로 들이지 않는다).
   await Firebase.initializeApp();
   await SupabaseInitializer.run(SupabaseConfig.fromEnvironment());
+  // 온보딩 뷰모델이 처음 상태를 만들 때 바로 읽을 수 있게 디스크를 한 번 읽어 둔다. 못 열어도 앱은 뜬다.
+  // 계정 id 는 따로 들고 있지 않고 그때그때 Supabase 세션(로그인 상태)에서 읽는다 — 로그인 전이면 null 이라 쓰지 않는다.
+  final drafts = await openDraftStore(accountId: () => Supabase.instance.client.auth.currentUser?.id);
   // 키가 없는 빌드(시험 · CI)는 건너뛴다 — 앱은 켜지고 카카오 버튼만 실패 토스트를 띄운다.
   await initializeKakaoSdk(Env.kakaoNativeAppKey);
   runApp(SessionScope(
     authChanges: Supabase.instance.client.auth.onAuthStateChange,
+    overrides: [draftStoreProvider.overrideWithValue(drafts)],
     child: const CampusMateApp(),
   ));
 }
@@ -98,16 +104,23 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
   /// 다음 사용자가 물려받으면 안 되므로 캐시를 비운다.
   void _refreshVerificationGate() {
     if (!_authSession.isAuthenticated) {
-      // 앞 사용자가 눌러 둔 알림 경로를 다음 사용자가 물려받지 않게 한다.
-      _pendingPushPath = null;
-      _verificationGate.reset();
-      _onboardingStep.reset();
-      _stopPush();
+      _forgetSession();
       return;
     }
     unawaited(_verificationGate.refresh());
     unawaited(_onboardingStep.refresh());
     _startPush();
+  }
+
+  /// 세션이 없어졌을 때(로그아웃 · 탈퇴 · gotrue 가 갱신 실패로 세션을 스스로 버린 경우 모두) 앞 사용자의 것을 비운다.
+  void _forgetSession() {
+    // 앞 사용자가 눌러 둔 알림 경로를 다음 사용자가 물려받지 않게 한다.
+    _pendingPushPath = null;
+    _verificationGate.reset();
+    _onboardingStep.reset();
+    _stopPush();
+    // 온보딩 임시 저장 값도 지운다 — signOut() 을 지나지 않고 세션만 사라지는 경로가 있다. 두 번 지워도 같은 결과다.
+    unawaited(ref.read(draftStoreProvider).clearAll());
   }
 
   /// 로그인한 뒤에만 FCM 을 건드린다 — 로그인 전에는 등록할 주인이 없고,

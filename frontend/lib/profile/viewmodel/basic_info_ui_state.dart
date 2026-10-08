@@ -104,6 +104,39 @@ class BasicInfoUiState {
     return value != null && value > thisYear - minAge ? '${thisYear - minAge}년생부터 가입할 수 있어요' : null;
   }
 
+  /// 폰에 임시 저장할 값. **전화번호는 넣지 않는다** — 평문으로 폰에 남기지 않는다(2026-10-08 사용자 결정).
+  /// 앱을 다시 열면 전화번호 칸만 비어 있고 다시 입력받는다. 확인 결과 · 진행 표시도 남기지 않는다.
+  Map<String, Object?> toDraft() => {
+        'nickname': nicknameInput,
+        'birthYear': birthYearInput,
+        'height': heightInput,
+        'gender': gender,
+        'mbtiPoles': mbtiPoles.toList(),
+        'mbtiUnknown': isMbtiUnknown,
+      };
+
+  /// [toDraft] 로 남긴 값으로 처음 상태를 만든다. 모양이 안 맞으면 던진다 — 저장소가 받아서 버린다.
+  static BasicInfoUiState fromDraft(Map<String, Object?> data, {required int thisYear}) {
+    return BasicInfoUiState(
+      thisYear: thisYear,
+      nicknameInput: data['nickname'] as String,
+      birthYearInput: data['birthYear'] as String,
+      heightInput: data['height'] as String,
+      gender: data['gender'] as String?,
+      mbtiPoles: _mbtiPolesFromDraft(data['mbtiPoles']),
+      isMbtiUnknown: data['mbtiUnknown'] as bool,
+    );
+  }
+
+  /// 남긴 MBTI 극. 네 축의 글자(E/I · N/S · T/F · J/P)가 아니면 던진다.
+  static Set<String> _mbtiPolesFromDraft(Object? raw) {
+    final poles = (raw as List).cast<String>().toSet();
+    if (!poles.every(mbtiAxes.expand((axis) => axis).contains)) {
+      throw const FormatException('MBTI 극이 아닌 글자');
+    }
+    return poles;
+  }
+
   /// 확인이 실패했거나(네트워크) 아직 안 끝났어도 막지 않는다 — 제출 때 서버가 다시 본다.
   bool get _isNicknameValid {
     return nicknamePattern.hasMatch(nicknameInput) && nicknameCheck != NicknameCheck.taken;

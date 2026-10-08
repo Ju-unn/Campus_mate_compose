@@ -126,7 +126,8 @@ class FakeSupabase:
         select = params.get("select", "")
         if "student_verification" in select:
             return httpx.Response(200, json=[{"student_verification": "verified", "department": "컴공",
-                                              "status": self.my_status}])
+                                              "status": self.my_status,
+                                              "school_email_verified_at": "2026-10-01T00:00:00+00:00"}])
         row = self.profiles.get(profile_id)
         return httpx.Response(200, json=[row] if row else [])
 
