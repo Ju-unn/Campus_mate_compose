@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/profile/model/kakao_id_repository_provider.dart';
@@ -84,7 +86,11 @@ void main() {
     testWidgets('진짜 저장소(shared_preferences)로도 디스크에 남지 않는다', (tester) async {
       SharedPreferences.setMockInitialValues({});
       final preferences = await SharedPreferences.getInstance();
-      final store = SharedPreferencesDraftStore(preferences, accountId: () => 'account-a');
+      final store = SharedPreferencesDraftStore(
+        preferences,
+        accountId: () => 'account-a',
+        fileDirectory: Directory.systemTemp.path,
+      );
 
       open(store).read(kakaoIdViewModelProvider.notifier).changeKakaoId('secret_kakao');
       await tester.pump(const Duration(seconds: 1));

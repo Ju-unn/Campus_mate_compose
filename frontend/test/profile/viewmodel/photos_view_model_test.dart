@@ -450,7 +450,13 @@ void main() {
     test('"다음" 이 성공하면 저장 정보와 그 임시 파일을 함께 지운다', () async {
       SharedPreferences.setMockInitialValues({});
       final preferences = await SharedPreferences.getInstance();
-      final store = SharedPreferencesDraftStore(preferences, accountId: () => 'account-a', debounce: Duration.zero);
+      // 고른 사진은 시스템 임시 폴더 아래에 있다 — 앱 임시 폴더 자리로 그 폴더를 준다.
+      final store = SharedPreferencesDraftStore(
+        preferences,
+        accountId: () => 'account-a',
+        fileDirectory: Directory.systemTemp.path,
+        debounce: Duration.zero,
+      );
       final vm = await pickThree(open(store: store));
 
       await vm.submit();

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:campus_mate/profile/model/basic_info_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
@@ -375,7 +376,11 @@ void main() {
     testWidgets('진짜 저장소(shared_preferences)로도 전화번호는 디스크에 남지 않는다', (tester) async {
       SharedPreferences.setMockInitialValues({});
       final preferences = await SharedPreferences.getInstance();
-      final store = SharedPreferencesDraftStore(preferences, accountId: () => 'account-a');
+      final store = SharedPreferencesDraftStore(
+        preferences,
+        accountId: () => 'account-a',
+        fileDirectory: Directory.systemTemp.path,
+      );
 
       fillAll(open(store: store).read(basicInfoViewModelProvider.notifier));
       await tester.pump(const Duration(seconds: 1));

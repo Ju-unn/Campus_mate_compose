@@ -15,8 +15,13 @@ void main() {
   late SharedPreferences preferences;
   late String? account;
 
-  SharedPreferencesDraftStore store({Duration debounce = Duration.zero}) =>
-      SharedPreferencesDraftStore(preferences, accountId: () => account, debounce: debounce);
+  /// [fileDirectory] 는 앱 임시 폴더 자리다. 시험에서는 시스템 임시 폴더를 쓴다.
+  SharedPreferencesDraftStore store({Duration debounce = Duration.zero, String? fileDirectory}) => SharedPreferencesDraftStore(
+        preferences,
+        accountId: () => account,
+        fileDirectory: fileDirectory ?? Directory.systemTemp.path,
+        debounce: debounce,
+      );
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
@@ -232,6 +237,47 @@ void main() {
       await drafts.clear(DraftScreen.photos);
 
       expect(pending.existsSync(), isFalse);
+    });
+
+    test('앱 임시 폴더 안의 파일은 지우고, 밖의 파일은 지우지 않고 건너뛴다', () async {
+      // 저장된 경로를 그대로 믿지 않는다 — 압축이 실패해 원본 경로가 남는 길이 있다(image_compressor.dart).
+      final outsideDir = Directory.systemTemp.createTempSync('draft_outside');
+      addTearDown(() => outsideDir.deleteSync(recursive: true));
+      final outside = File('${outsideDir.path}/original.jpg')..writeAsBytesSync([1]);
+      final inside = photo('compressed.jpg');
+      final drafts = store(fileDirectory: dir.path);
+      drafts.write(DraftScreen.photos, {'n': 2}, files: [outside.path, inside.path]);
+      await _settle();
+
+      await drafts.clear(DraftScreen.photos);
+
+      expect(inside.existsSync(), isFalse);
+      expect(outside.existsSync(), isTrue);
+    });
+
+    test('.. 로 앱 임시 폴더를 빠져나가는 경로도 건너뛴다', () async {
+      final inner = Directory('${dir.path}/app_tmp')..createSync();
+      final escaped = photo('escaped.jpg');
+      final drafts = store(fileDirectory: inner.path);
+      drafts.write(DraftScreen.photos, {'n': 1}, files: ['${inner.path}/../escaped.jpg']);
+      await _settle();
+
+      await drafts.clearAll();
+
+      expect(escaped.existsSync(), isTrue);
+    });
+
+    test('앱 임시 폴더와 이름만 앞부분이 같은 이웃 폴더의 파일도 건너뛴다', () async {
+      final inner = Directory('${dir.path}/tmp')..createSync();
+      final neighbour = Directory('${dir.path}/tmp_other')..createSync();
+      final file = File('${neighbour.path}/x.jpg')..writeAsBytesSync([1]);
+      final drafts = store(fileDirectory: inner.path);
+      drafts.write(DraftScreen.photos, {'n': 1}, files: [file.path]);
+      await _settle();
+
+      await drafts.clear(DraftScreen.photos);
+
+      expect(file.existsSync(), isTrue);
     });
 
     test('이미 없어진 파일은 건너뛴다(던지지 않는다)', () async {
