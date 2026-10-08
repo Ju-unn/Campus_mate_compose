@@ -97,7 +97,12 @@ class _AccountContent extends StatelessWidget {
           const _SectionHeader('로그인 정보'),
           const SizedBox(height: AppSpacing.xs),
           _InfoCard(rows: [
-            _InfoRow(icon: AppIcon3d.mail, label: '학교 이메일', value: info.email),
+            // 소셜 로그인 뒤라 이메일 대신 로그인 수단을 보인다. 모르면 줄 자체를 뺀다(빈 줄이 남지 않게).
+            if (_loginLabel(info.loginProvider) case final label?)
+              _InfoRow(icon: AppIcon3d.privacy, label: '로그인 수단', value: label),
+            // 학교 메일은 해시만 있어 주소를 보일 수 없다 — 학교 정보가 있을 때만 학교 이름과 인증 완료를 보인다.
+            if (info.university.isNotEmpty)
+              _InfoRow(icon: AppIcon3d.mail, label: '학교 메일', value: '${info.university} · 학교 메일 인증 완료'),
             _InfoRow(icon: AppIcon3d.badgeCheck, label: '학생 인증', value: '인증 완료', valueStyle: _verifiedStyle),
           ]),
           const SizedBox(height: _sectionGap),
@@ -135,6 +140,14 @@ class _AccountContent extends StatelessWidget {
       ),
     );
   }
+
+  /// 로그인 수단 이름. 모르는 값(email 등)이면 null — 줄을 그리지 않는다.
+  static String? _loginLabel(String? provider) => switch (provider) {
+        'kakao' => '카카오 로그인',
+        'google' => 'Google 로그인',
+        'apple' => 'Apple 로그인',
+        _ => null,
+      };
 
   /// 한국 날짜 — 기기 시간대에 끌려가지 않게 UTC+9 로 고정해서 계산한다.
   static String _joinedAtLabel(DateTime joinedAt) {

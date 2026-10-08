@@ -1,7 +1,7 @@
-/// 16e 계정 화면이 그리는 값 한 벌. 이메일은 이 기기의 로그인 세션, 나머지는 서버 `GET /account`.
+/// 16e 계정 화면이 그리는 값 한 벌. 로그인 수단은 이 기기의 로그인 세션, 나머지는 서버 `GET /account`.
 class AccountInfo {
   const AccountInfo({
-    required this.email,
+    required this.loginProvider,
     required this.realName,
     required this.birthYear,
     required this.university,
@@ -9,7 +9,9 @@ class AccountInfo {
     required this.kakaoId,
   });
 
-  final String email;
+  /// 세션 `app_metadata.provider`(kakao · google · apple …). 못 읽으면 null.
+  /// 소셜 로그인 뒤 `user.email` 은 개인 메일이거나(구글) 비어 있어(카카오) 이 화면에 쓰지 않는다.
+  final String? loginProvider;
 
   /// 본인만 여기서 본다(CLAUDE.md §7). 학생증 제출 전이면 null.
   final String? realName;

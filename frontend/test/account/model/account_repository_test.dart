@@ -26,7 +26,7 @@ void main() {
     final user = MockUser();
     when(() => session.accessToken).thenReturn('token-abc');
     when(() => auth.currentSession).thenReturn(session);
-    when(() => user.email).thenReturn('hong@snu.ac.kr');
+    when(() => user.appMetadata).thenReturn({'provider': 'kakao'});
     when(() => auth.currentUser).thenReturn(user);
     seen = [];
   });
@@ -47,7 +47,7 @@ void main() {
     );
   }
 
-  test('GET /account 값과 세션 이메일을 AccountInfo 로 읽는다', () async {
+  test('GET /account 값과 세션의 로그인 수단을 AccountInfo 로 읽는다', () async {
     final result = await repositoryReturning(json({
       'real_name': '홍길동', 'birth_year': 2003, 'university': '서울대학교',
       'joined_at': '2026-09-01T10:00:00+00:00', 'kakao_id': 'fox_rain',
@@ -56,12 +56,26 @@ void main() {
 
     expect(seen.single.method, 'GET');
     expect(seen.single.url.toString(), 'https://api.test/account');
-    expect(info.email, 'hong@snu.ac.kr');
+    expect(info.loginProvider, 'kakao');
     expect(info.realName, '홍길동');
     expect(info.birthYear, 2003);
     expect(info.university, '서울대학교');
     expect(info.joinedAt, DateTime.utc(2026, 9, 1, 10));
     expect(info.kakaoId, 'fox_rain');
+  });
+
+  // 소셜 로그인 뒤 user.email 은 개인 메일이거나(구글) 비어 있다(카카오) — 16e 는 이메일을 보이지 않는다(지시문 13 A-7).
+  test('로그인 수단을 못 읽으면 null', () async {
+    final user = MockUser();
+    when(() => user.appMetadata).thenReturn(<String, dynamic>{});
+    when(() => auth.currentUser).thenReturn(user);
+
+    final result = await repositoryReturning(json({
+      'real_name': null, 'birth_year': null, 'university': '서울대학교',
+      'joined_at': '2026-09-01T10:00:00+00:00', 'kakao_id': null,
+    })).fetchAccount();
+
+    expect(result.when<AccountInfo?>(onSuccess: (i) => i, onFailure: (_) => null)!.loginProvider, isNull);
   });
 
   test('빈 칸은 null 로 받는다', () async {
