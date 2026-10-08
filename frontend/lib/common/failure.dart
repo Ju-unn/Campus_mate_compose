@@ -133,3 +133,48 @@ final class WithdrawnFailure extends Failure {
   @override
   String toDisplayMessage() => '탈퇴한 계정이에요';
 }
+
+/// 학교 메일(02)로 인증번호를 보내지 못한 경우. 한도(429) · 가입 거절(422) 말고는 원인을 가르지 않는다 —
+/// GoTrue 가 다른 실패를 어떤 코드로 주는지 확실하지 않아서다.
+final class CodeNotSentFailure extends Failure {
+  const CodeNotSentFailure();
+
+  // 임시 문구, 디자인 확정 대기
+  @override
+  String toDisplayMessage() => '인증번호를 보내지 못했어요. 잠시 뒤 다시 시도해 주세요';
+}
+
+/// 학교 메일 인증(03)을 끝내지 못한 경우 — 서버가 임시 토큰을 못 읽음(403 SCHOOL_EMAIL_NOT_CONFIRMED) · 503 · 네트워크.
+/// 사용자가 할 일은 같다: 잠시 뒤 다시.
+final class SchoolEmailIncompleteFailure extends Failure {
+  const SchoolEmailIncompleteFailure();
+
+  // 임시 문구, 디자인 확정 대기
+  @override
+  String toDisplayMessage() => '학교 메일 인증을 마치지 못했어요. 잠시 뒤 다시 시도해 주세요';
+}
+
+/// 이 학교 메일을 다른 소셜 계정이 이미 인증했다(POST /school-email/verify 409).
+/// 문구가 아니라 서버가 함께 주는 기계용 `provider` 로 가른다. 모르는 값이면 서버 문구를 그대로 쓴다.
+final class SchoolEmailTakenFailure extends Failure {
+  const SchoolEmailTakenFailure(this._serverMessage, this._provider);
+
+  final String _serverMessage;
+  final String _provider;
+
+  static const _providerLabels = <String, String>{'kakao': '카카오', 'google': '구글', 'apple': '애플'};
+
+  // 임시 문구, 디자인 확정 대기
+  @override
+  String toDisplayMessage() {
+    final label = _providerLabels[_provider];
+    return label == null ? _serverMessage : '이 메일은 $label로 가입돼 있어요';
+  }
+
+  /// 입력칸 아래 둘째 줄. 모르는 수단이면 없다.
+  // 임시 문구, 디자인 확정 대기
+  String? toHintMessage() {
+    final label = _providerLabels[_provider];
+    return label == null ? null : '$label 계정으로 로그인해 주세요';
+  }
+}

@@ -54,4 +54,33 @@ void main() {
     const failure = ServerRejectedFailure('이미 검토 중이에요');
     expect(failure.toDisplayMessage(), '이미 검토 중이에요');
   });
+  group('학교 메일 인증(02 · 03)', () {
+    test('인증번호를 못 보냈으면 잠시 뒤 다시 하라는 임시 문구', () {
+      expect(const CodeNotSentFailure().toDisplayMessage(), '인증번호를 보내지 못했어요. 잠시 뒤 다시 시도해 주세요');
+    });
+
+    test('학교 메일 인증을 못 마쳤으면 잠시 뒤 다시 하라는 임시 문구', () {
+      expect(
+        const SchoolEmailIncompleteFailure().toDisplayMessage(),
+        '학교 메일 인증을 마치지 못했어요. 잠시 뒤 다시 시도해 주세요',
+      );
+    });
+
+    test('다른 소셜 계정이 쓰는 메일이면 그 수단의 한국어 이름으로 말하고, 그 계정으로 로그인하라고 덧붙인다', () {
+      const cases = {'kakao': '카카오', 'google': '구글', 'apple': '애플'};
+      for (final MapEntry(key: provider, value: label) in cases.entries) {
+        final failure = SchoolEmailTakenFailure('서버 문구', provider);
+
+        expect(failure.toDisplayMessage(), '이 메일은 $label로 가입돼 있어요', reason: provider);
+        expect(failure.toHintMessage(), '$label 계정으로 로그인해 주세요', reason: provider);
+      }
+    });
+
+    test('모르는 수단이면 서버 문구를 그대로 쓰고 보조 문구는 없다', () {
+      const failure = SchoolEmailTakenFailure('이 메일은 학교 메일로 가입돼 있어요', 'email');
+
+      expect(failure.toDisplayMessage(), '이 메일은 학교 메일로 가입돼 있어요');
+      expect(failure.toHintMessage(), isNull);
+    });
+  });
 }

@@ -66,7 +66,18 @@ Failure _toRejection(http.Response response) {
   if (detail is! String) {
     return const UnknownFailure();
   }
-  return ServerRejectedFailure(detail);
+  return _schoolEmailTaken(response.statusCode, detail, body['provider']) ?? ServerRejectedFailure(detail);
+}
+
+/// POST /school-email/verify 409 만 기계용 `provider` 를 함께 준다(backend school_email/router.py
+/// `_taken_response`). 상태코드와 칸이 둘 다 맞을 때만 읽는다 — 다른 409 는 그대로 서버 문구다.
+const int _conflict = 409;
+
+Failure? _schoolEmailTaken(int statusCode, String detail, Object? provider) {
+  if (statusCode != _conflict || provider is! String) {
+    return null;
+  }
+  return SchoolEmailTakenFailure(detail, provider);
 }
 
 /// 로그인한 사람만 부를 수 있는 요청을 보낸다. 세션이 없으면 요청을 만들지도 않고 실패로 돌려준다 —
