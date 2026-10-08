@@ -266,13 +266,14 @@ def test_an_email_used_by_another_account_is_409_with_the_provider(client, world
 
 
 def test_an_email_account_from_before_social_login_is_409_too(client, world):
-    """옛 학교 메일 OTP 가입 계정이 이미 그 메일을 쓰면 DB 함수가 'email' 을 돌려줄 수 있다(계약 밖, 대비)."""
+    """옛 학교 메일 OTP 가입 계정이 이미 그 메일을 쓰면 DB 함수가 'email' 을 돌려준다(지시문 10 · DB PR 계약)."""
     world.claims[HMAC] = (OTHER, "email")
 
     response = _verify(client)
 
     assert response.status_code == 409
     assert response.json()["provider"] == "email"
+    assert response.json()["detail"] == "이 학교 메일로 이미 가입된 계정이 있어요. 문의해 주세요"
 
 
 def test_the_callers_own_claim_does_not_count_as_another_account(client, world):
@@ -458,3 +459,103 @@ def test_a_profile_appearing_right_before_the_delete_stops_it(client, world):
 
     assert response.status_code == 200
     assert world.deleted_users == []
+
+
+# 오류 응답의 기계용 code(앱 PR 과의 맞춤, 지시문 12-5) ------------------------------------------------------
+#
+# 앱은 문구가 아니라 code 로 가른다. 모양: {"detail": <문구>, "code": <코드>} (409 만 "provider" 가 더 붙는다).
+
+def _expect(response, status_code: int, detail: str, code: str, **extra) -> None:
+    assert response.status_code == status_code
+    assert response.json() == {"detail": detail, "code": code, **extra}
+
+
+def test_code_not_confirmed_for_a_refused_temp_token(client, world):
+    world.auth_trouble[TEMP_TOKEN] = 401
+
+    _expect(_verify(client), 403, "학교 메일 인증이 끝나지 않았어요", "SCHOOL_EMAIL_NOT_CONFIRMED")
+
+
+def test_code_not_confirmed_for_a_social_token_in_the_temp_slot(client, world):
+    _expect(_verify(client, OTHER_TOKEN), 403, "학교 메일 인증이 끝나지 않았어요", "SCHOOL_EMAIL_NOT_CONFIRMED")
+
+
+def test_code_already_verified_from_the_profile(client, world):
+    world.profiles[ME]["school_email_verified_at"] = "2026-10-01T00:00:00+00:00"
+
+    _expect(_verify(client), 403, "이미 학교 메일 인증이 끝났어요", "SCHOOL_EMAIL_ALREADY_VERIFIED")
+
+
+def test_code_already_verified_from_the_db(client, world):
+    world.rpc_result = "already_verified"
+
+    _expect(_verify(client), 403, "이미 학교 메일 인증이 끝났어요", "SCHOOL_EMAIL_ALREADY_VERIFIED")
+
+
+def test_code_social_only(client, world):
+    world.tokens["user-token"]["app_metadata"] = {"provider": "email"}
+
+    _expect(_verify(client), 403, errors.SCHOOL_EMAIL_SOCIAL_ONLY, "SCHOOL_EMAIL_SOCIAL_ONLY")
+
+
+def test_code_domain_not_allowed(client, world):
+    world.tokens[TEMP_TOKEN] = temp_email_user("hong@unknown.ac.kr")
+
+    _expect(_verify(client), 422, "등록되지 않은 학교 메일이에요", "SCHOOL_EMAIL_DOMAIN_NOT_ALLOWED")
+
+
+def test_code_rejoin_blocked(client, world):
+    world.blocked_hmacs.add(HMAC)
+
+    _expect(_verify(client), 422, "재가입이 제한된 메일이에요", "SCHOOL_EMAIL_REJOIN_BLOCKED")
+
+
+@pytest.mark.parametrize("provider, label", [("kakao", "카카오"), ("google", "구글"), ("apple", "애플")])
+def test_code_taken_by_a_social_account(client, world, provider, label):
+    world.claims[HMAC] = (OTHER, provider)
+
+    _expect(_verify(client), 409, f"이 메일은 {label}로 가입돼 있어요", "SCHOOL_EMAIL_TAKEN", provider=provider)
+
+
+def test_code_taken_by_an_old_email_account_from_the_db(client, world):
+    world.claims[HMAC] = (OTHER, "email")
+
+    _expect(_verify(client), 409, "이 학교 메일로 이미 가입된 계정이 있어요. 문의해 주세요", "SCHOOL_EMAIL_TAKEN",
+            provider="email")
+
+
+def test_code_taken_by_a_real_old_email_account_token(client, world):
+    _old_email_account(world)
+
+    _expect(_verify(client, OLD_TOKEN), 409, "이 학교 메일로 이미 가입된 계정이 있어요. 문의해 주세요",
+            "SCHOOL_EMAIL_TAKEN", provider="email")
+
+
+def test_code_profile_not_found(client, world):
+    world.rpc_result = "no_profile"
+
+    _expect(_verify(client), 404, "프로필을 찾을 수 없어요", "PROFILE_NOT_FOUND")
+
+
+@pytest.mark.parametrize("trouble", [503, 429, "unreachable"])
+def test_code_auth_unavailable_on_the_temp_token(client, world, trouble):
+    world.auth_trouble[TEMP_TOKEN] = trouble
+
+    _expect(_verify(client), 503, "잠시 뒤 다시 시도해 주세요", "AUTH_UNAVAILABLE")
+
+
+def test_code_auth_unavailable_while_reading_the_callers_provider(client, world):
+    # 로그인 관문(get_current_user_id)은 지나고, verify 가 호출자 수단을 읽는 두 번째 호출에서 장애가 난 경우.
+    calls = {"n": 0}
+    original = world._auth_user
+
+    def flaky(request):
+        if request.headers.get("authorization") == AUTH["Authorization"]:
+            calls["n"] += 1
+            if calls["n"] == 2:
+                return httpx.Response(503, json={"msg": "trouble"})
+        return original(request)
+
+    world._auth_user = flaky
+
+    _expect(_verify(client), 503, "잠시 뒤 다시 시도해 주세요", "AUTH_UNAVAILABLE")

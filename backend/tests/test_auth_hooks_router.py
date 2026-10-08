@@ -100,7 +100,8 @@ def test_rejects_unknown_domain():
     # GoTrue 는 4xx 상태 본문을 읽지 않고 500 으로 바꾼다 — 거절은 200 + `error` 객체여야 메시지가 앱까지 간다.
     # http_code 422 는 앱이 "가입 거절" 로 읽는 값(supabase_auth_repository.dart `_toFailure`).
     assert response.status_code == 200
-    assert response.json() == {"error": {"http_code": 422, "message": "허용되지 않은 학교 이메일이에요"}}
+    # 문구는 서버 전체에서 하나다(사용자 결정, 지시문 12-5) — /school-email/verify 와 같다.
+    assert response.json() == {"error": {"http_code": 422, "message": "등록되지 않은 학교 메일이에요"}}
 
 
 def test_rejects_blocked_email():
