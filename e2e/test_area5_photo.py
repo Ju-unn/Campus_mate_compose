@@ -1091,6 +1091,19 @@ class WorkerRegenTest(PhotoBase):
                 self.assertEqual(result, 'pass', note)
                 self.assertEqual(self.pushed_regen_photo(), ['face1.jpg'])
 
+    def test_every_regen_case_is_blocked_before_any_account_when_the_photo_set_lacks_face1(self):
+        # 다시 만들기는 사진부터 고른다 — 앱 캐시에 옮길 face1.jpg 가 없으면 앱이 막히기 전에 PC 가 계정을 만들지 않고 blocked 로 끝낸다(E-ME-38 과 같다).
+        (self.folder / 'face1.jpg').unlink()
+        for name in ('E-ME-10', 'E-ME-11', 'E-ME-12', 'E-ME-13', 'E-ME-14', 'E-ME-16'):
+            with self.subTest(name):
+                self.reset_paid()
+                (result, note), app = self.case(name, said())
+                self.assertEqual(result, 'blocked', note)
+                self.assertIn('사진 세트 없음', note)
+                self.assertIn('face1.jpg', note)
+                self.assertEqual(self.fake.users, [])
+                self.assertEqual(app.jobs, [])
+
     def test_the_three_are_behind_the_real_ai_gate_and_make_no_request_without_it(self):
         for name in ('E-ME-10', 'E-ME-11', 'E-ME-16'):
             with self.subTest(name), mock.patch.dict(os.environ, {}, clear=True):
