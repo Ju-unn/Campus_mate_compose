@@ -173,11 +173,14 @@ class FakeMessageStream implements MessageStream {
   bool isClosed = false;
   /// 구독마다 받은 "다시 붙음" 콜백. 옛 구독 것도 남겨 늦게 오는 신호를 흉내 낸다.
   final List<void Function()?> _onRejoined = [];
+  /// 구독마다 받은 "글을 밀어 줄 준비됨" 콜백. [_onRejoined] 와 같은 방식으로 옛 구독 것도 남긴다.
+  final List<void Function()?> _onReady = [];
 
   @override
-  Stream<Message> subscribe(String matchId, {void Function()? onRejoined}) {
+  Stream<Message> subscribe(String matchId, {void Function()? onRejoined, void Function()? onReady}) {
     subscribed.add(matchId);
     _onRejoined.add(onRejoined);
+    _onReady.add(onReady);
     return _controller.stream.doOnCancel(() => isClosed = true);
   }
 
@@ -188,6 +191,10 @@ class FakeMessageStream implements MessageStream {
 
   /// 끊겼던 통로가 스스로 다시 붙은 상황(결함 A12) — 기본은 마지막 구독, [subscription] 으로 옛 구독(0부터).
   void rejoin({int? subscription}) => _onRejoined[subscription ?? _onRejoined.length - 1]?.call();
+
+  /// 서버가 이 구독의 글을 실제로 밀어 줄 준비가 됐을 수 있는 순간(E-CHAT-67) — 처음 붙음이거나 postgres_changes
+  /// 구독이 만들어졌다는 system 이벤트. 기본은 마지막 구독, [subscription] 으로 옛 구독(0부터).
+  void ready({int? subscription}) => _onReady[subscription ?? _onReady.length - 1]?.call();
 }
 
 extension _CancelHook<T> on Stream<T> {
