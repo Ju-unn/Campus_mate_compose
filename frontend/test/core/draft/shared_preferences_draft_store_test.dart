@@ -198,7 +198,7 @@ void main() {
       }
     });
 
-    File photo(String name) => File('${dir.path}/$name')..writeAsBytesSync([1, 2, 3]);
+    File photo(String name) => File(_path(dir.path, name))..writeAsBytesSync([1, 2, 3]);
 
     test('한 화면을 지우면 그 값에 딸린 파일도 지운다', () async {
       final first = photo('a.jpg');
@@ -243,7 +243,7 @@ void main() {
       // 저장된 경로를 그대로 믿지 않는다 — 압축이 실패해 원본 경로가 남는 길이 있다(image_compressor.dart).
       final outsideDir = Directory.systemTemp.createTempSync('draft_outside');
       addTearDown(() => outsideDir.deleteSync(recursive: true));
-      final outside = File('${outsideDir.path}/original.jpg')..writeAsBytesSync([1]);
+      final outside = File(_path(outsideDir.path, 'original.jpg'))..writeAsBytesSync([1]);
       final inside = photo('compressed.jpg');
       final drafts = store(fileDirectory: dir.path);
       drafts.write(DraftScreen.photos, {'n': 2}, files: [outside.path, inside.path]);
@@ -256,10 +256,10 @@ void main() {
     });
 
     test('.. 로 앱 임시 폴더를 빠져나가는 경로도 건너뛴다', () async {
-      final inner = Directory('${dir.path}/app_tmp')..createSync();
+      final inner = Directory(_path(dir.path, 'app_tmp'))..createSync();
       final escaped = photo('escaped.jpg');
       final drafts = store(fileDirectory: inner.path);
-      drafts.write(DraftScreen.photos, {'n': 1}, files: ['${inner.path}/../escaped.jpg']);
+      drafts.write(DraftScreen.photos, {'n': 1}, files: [_path(_path(inner.path, '..'), 'escaped.jpg')]);
       await _settle();
 
       await drafts.clearAll();
@@ -268,9 +268,9 @@ void main() {
     });
 
     test('앱 임시 폴더와 이름만 앞부분이 같은 이웃 폴더의 파일도 건너뛴다', () async {
-      final inner = Directory('${dir.path}/tmp')..createSync();
-      final neighbour = Directory('${dir.path}/tmp_other')..createSync();
-      final file = File('${neighbour.path}/x.jpg')..writeAsBytesSync([1]);
+      final inner = Directory(_path(dir.path, 'tmp'))..createSync();
+      final neighbour = Directory(_path(dir.path, 'tmp_other'))..createSync();
+      final file = File(_path(neighbour.path, 'x.jpg'))..writeAsBytesSync([1]);
       final drafts = store(fileDirectory: inner.path);
       drafts.write(DraftScreen.photos, {'n': 1}, files: [file.path]);
       await _settle();
@@ -282,7 +282,7 @@ void main() {
 
     test('이미 없어진 파일은 건너뛴다(던지지 않는다)', () async {
       final drafts = store();
-      drafts.write(DraftScreen.photos, {'n': 1}, files: ['${dir.path}/gone.jpg']);
+      drafts.write(DraftScreen.photos, {'n': 1}, files: [_path(dir.path, 'gone.jpg')]);
       await _settle();
 
       await expectLater(drafts.clear(DraftScreen.photos), completes);
@@ -321,3 +321,6 @@ void main() {
     });
   });
 }
+
+/// [directory] 아래 [name] 경로 — 구분자는 플랫폼 것을 쓴다(구현의 접두어 검사가 `Platform.pathSeparator` 로 가른다. `/` 로 이으면 Windows 에서 안쪽 파일도 밖으로 판정된다).
+String _path(String directory, String name) => '$directory${Platform.pathSeparator}$name';
