@@ -4,6 +4,7 @@ import logging
 from fastapi import APIRouter, Depends, Header
 
 from app.account.repository import AccountRepository, SupabaseAdmin
+from app.account.social_unlink import unlink_kakao
 from app.chat.repository import ChatRepository
 from app.core.deps import Caller, get_caller, get_verified_caller
 from app.signup_policy import IDENTITY_KEY_VERSION, hash_email
@@ -19,7 +20,8 @@ async def withdraw(caller: Caller = Depends(get_caller),
     """탈퇴. 로그인만 본다 — 정지 · 학생증 미인증인 사람도 나갈 수 있어야 한다(정지 중 탈퇴 = 무기한 제한).
 
     ① 이메일 → HMAC ② DB 함수 한 번(상태 + 재가입 제한). 여기까지 실패하면 500 이고 다시 부르면 된다.
-    ③ 뒤 셋은 각각 best-effort 다. 남은 것은 30일 정리 배치가 auth 사용자째 지운다."""
+    ③ 뒤 넷은 각각 best-effort 다. 남은 것은 30일 정리 배치가 auth 사용자째 지운다.
+    카카오 연결 끊기는 로그아웃 앞이다 — 로그아웃 뒤에는 그 토큰으로 회원번호(/user)를 못 읽을 수 있다."""
     settings, client, profile_id = caller
     accounts = AccountRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
     admin = SupabaseAdmin(settings, client)
@@ -31,6 +33,7 @@ async def withdraw(caller: Caller = Depends(get_caller),
     steps = (
         ("push_tokens", lambda: accounts.delete_push_tokens(profile_id)),
         ("student_id_files", lambda: admin.empty_folder("student-id-temp", profile_id)),
+        ("kakao_unlink", lambda: unlink_kakao(settings, client, authorization)),
         ("logout", lambda: admin.logout_everywhere(authorization)),
     )
     for name, step in steps:
