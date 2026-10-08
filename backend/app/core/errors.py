@@ -31,6 +31,11 @@ SCHOOL_EMAIL_ALREADY_VERIFIED = "이미 학교 메일 인증이 끝났어요"
 # 소셜(카카오 · 구글 · 애플) 계정만 부른다 — 임시 이메일 계정 자신은 못 쓴다.
 SCHOOL_EMAIL_SOCIAL_ONLY = "소셜 로그인 계정만 학교 메일을 인증할 수 있어요"
 
+# 가입 직전 훅(auth_hooks). 앱이 GoTrue 오류 문구로 그대로 받는다.
+HOOK_UNKNOWN_DOMAIN = "허용되지 않은 학교 이메일이에요"
+HOOK_BLOCKED = "재가입이 제한된 이메일이에요"
+HOOK_UNKNOWN_PROVIDER = "가입할 수 없는 계정이에요"
+
 # 기계가 보는 응답(훅·배치). 사람에게 보이지 않아 한국어가 아니다.
 INVALID_SIGNATURE = "invalid signature"
 UNAUTHORIZED = "unauthorized"
