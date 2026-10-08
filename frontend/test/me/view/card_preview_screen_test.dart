@@ -516,7 +516,7 @@ void main() {
       final empty = FakeAccountRepository()
         ..accountResult = Success(
           AccountInfo(
-            email: 'a@b.c',
+            loginProvider: 'kakao',
             realName: null,
             birthYear: null,
             university: '가나대학교',
@@ -549,7 +549,7 @@ void main() {
       final blank = FakeAccountRepository()
         ..accountResult = Success(
           AccountInfo(
-            email: 'a@b.c',
+            loginProvider: 'kakao',
             realName: null,
             birthYear: null,
             university: '가나대학교',
@@ -617,7 +617,7 @@ void main() {
       final empty = FakeAccountRepository()
         ..accountResult = Success(
           AccountInfo(
-            email: 'a@b.c',
+            loginProvider: 'kakao',
             realName: null,
             birthYear: null,
             university: '가나대학교',

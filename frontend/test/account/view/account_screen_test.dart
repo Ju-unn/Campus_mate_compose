@@ -70,15 +70,17 @@ void main() {
     return fake;
   }
 
-  AccountInfo info({String? realName, int? birthYear, String? kakaoId, DateTime? joinedAt}) => AccountInfo(
-        email: 'hong@snu.ac.kr', realName: realName, birthYear: birthYear, university: '서울대학교',
+  AccountInfo info({String? realName, int? birthYear, String? kakaoId, DateTime? joinedAt, String? loginProvider = 'kakao'}) =>
+      AccountInfo(
+        loginProvider: loginProvider, realName: realName, birthYear: birthYear, university: '서울대학교',
         joinedAt: joinedAt ?? DateTime.utc(2026, 9, 1, 10), kakaoId: kakaoId,
       );
 
   testWidgets('로그인 · 본인 확인 · 연락처 · 가입 값이 보인다', (tester) async {
     await pump(tester);
 
-    expect(find.text('hong@snu.ac.kr'), findsOneWidget);
+    expect(find.text('카카오 로그인'), findsOneWidget);
+    expect(find.text('서울대학교 · 학교 메일 인증 완료'), findsOneWidget);
     expect(find.text('인증 완료'), findsOneWidget);
     expect(find.text('홍길동'), findsOneWidget);
     expect(find.text('2003'), findsOneWidget); // pen EYBxA — 숫자만
@@ -88,11 +90,41 @@ void main() {
     expect(find.text(AccountScreen.privacyNote), findsOneWidget);
   });
 
+  // 지시문 13 A-7 — 소셜 로그인 뒤라 이메일 대신 로그인 수단과 학교 메일 인증 여부를 보인다.
+  group('로그인 정보(소셜 로그인 뒤)', () {
+    testWidgets('세션 이메일은 보이지 않는다', (tester) async {
+      await pump(tester);
+
+      expect(find.text('학교 이메일'), findsNothing);
+      expect(find.textContaining('@'), findsNothing);
+    });
+
+    testWidgets('로그인 수단은 이름으로 — 카카오 로그인 · Google 로그인 · Apple 로그인', (tester) async {
+      for (final (provider, label) in [('kakao', '카카오 로그인'), ('google', 'Google 로그인'), ('apple', 'Apple 로그인')]) {
+        await pump(tester, repository: FakeAccountRepository()..accountResult = Success(info(loginProvider: provider)));
+
+        expect(find.text(label), findsOneWidget, reason: provider);
+        expect(find.text('로그인 수단'), findsOneWidget, reason: provider);
+      }
+    });
+
+    testWidgets('로그인 수단을 모르면 그 줄 자체가 없다(빈 줄이 남지 않는다)', (tester) async {
+      for (final provider in [null, 'email']) {
+        await pump(tester, repository: FakeAccountRepository()..accountResult = Success(info(loginProvider: provider)));
+
+        expect(find.text('로그인 수단'), findsNothing, reason: '$provider');
+        expect(find.text(AccountScreen.emptyValue), findsNWidgets(3), reason: '실명 · 출생연도 · 카톡만 "—"');
+        expect(find.text('서울대학교 · 학교 메일 인증 완료'), findsOneWidget);
+      }
+    });
+  });
+
   testWidgets('줄마다 pen 의 3D 그림이 그 순서로, 크기 22 로 그려진다(pen `huZA9` · `shH3F` · `PkqpC` · `H62oC` · `E5TUHj` · `Lua1H` · `UCEwf`)', (tester) async {
     await pump(tester);
 
     final icons = tester.widgetList<Icon3d>(find.byType(Icon3d)).toList();
     expect([for (final icon in icons) icon.icon], [
+      AppIcon3d.privacy,
       AppIcon3d.mail,
       AppIcon3d.badgeCheck,
       AppIcon3d.userRound,
@@ -143,11 +175,12 @@ void main() {
     }
 
     // 로그인 정보 `w8eLx5` 132 = 머리 28 + 줄 52×2 · 본인 확인 `P59fF` 184 = 28 + 52×3 · 연락처 `irepB` 80 · 가입 `tZMom` 80 = 28 + 52.
+    // 지시문 13 A-7: 소셜 로그인 뒤 로그인 정보에 "로그인 수단" 줄이 더해져 줄 3개(52×3)다 — pen 은 아직 2줄(디자인 확인 대기).
     final login = card('로그인 정보');
     final identity = card('본인 확인 정보');
     final contact = card('연락처 공개 정보');
     final joined = card('가입 정보');
-    for (final (rect, height) in [(login, 104.0), (identity, 156.0), (contact, 52.0), (joined, 52.0)]) {
+    for (final (rect, height) in [(login, 156.0), (identity, 156.0), (contact, 52.0), (joined, 52.0)]) {
       expect(rect.width, 328);
       expect(rect.height, height);
       expect(rect.left, 16);
@@ -176,7 +209,7 @@ void main() {
       return p.localToGlobal(Offset(last.right, 0)).dx;
     }
 
-    for (final value in ['hong@snu.ac.kr', '인증 완료', '홍길동', '2003', '서울대학교', '2026.09.01']) {
+    for (final value in ['카카오 로그인', '서울대학교 · 학교 메일 인증 완료', '인증 완료', '홍길동', '2003', '서울대학교', '2026.09.01']) {
       expect(lastGlyphRight(value), closeTo(cardInnerRight, 0.5), reason: value);
     }
     // 카톡 줄은 셰브런(18)이 끝에 붙고, 값은 줄 간격 12 앞에서 끝난다.
@@ -207,7 +240,7 @@ void main() {
       // 지어낸 긴 학교 이름 — 값 칸에서 두 줄로 접힌다.
       const school = '가나다라마바사대학교 아자차카타파하캠퍼스';
       final account = AccountInfo(
-        email: 'hong@snu.ac.kr', realName: null, birthYear: null, university: school,
+        loginProvider: 'kakao', realName: null, birthYear: null, university: school,
         joinedAt: DateTime.utc(2026, 9, 1, 10), kakaoId: null,
       );
       await pump(

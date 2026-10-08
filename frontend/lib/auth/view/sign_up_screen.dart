@@ -5,6 +5,7 @@ import 'package:campus_mate/auth/viewmodel/sign_up_ui_state.dart';
 import 'package:campus_mate/auth/viewmodel/sign_up_view_model.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/core/auth/logout_text_button.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -15,10 +16,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-/// 대학 이메일로 가입을 시작하는 화면 (DESIGN.md 화면 02, pen `emHNY`).
+/// 학교 메일을 입력하는 화면 (DESIGN.md 화면 02, pen `emHNY`). 소셜 로그인 · 약관 동의(02-c) 다음 관문이다.
 ///
-/// 스플래시 다음 첫 화면이라 갈 곳이 없어 앱바를 두지 않는다
-/// (pen 원본에는 앱바가 있으나 2026-09-15 사용자 결정으로 뺐다).
+/// 앞 화면이 약관 동의라 돌아갈 곳이 없어 앱바(뒤로가기)를 두지 않는다
+/// (pen 원본에는 앱바가 있으나 2026-09-15 사용자 결정으로 뺐다). 대신 맨 아래에 02-c 와 같은 로그아웃을 둔다 —
+/// 소셜로 잘못 들어온 사람의 탈출구다.
 class SignUpScreen extends ConsumerStatefulWidget {
   const SignUpScreen({super.key});
 
@@ -63,7 +65,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
             SliverFillRemaining(
               hasScrollBody: false,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 28),
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 16), // 아래 16 은 디자인 값(03 은 28 그대로)
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -104,6 +106,8 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                     ],
                     // 동의는 로그인 뒤 02-c 에서 항목별로 받는다 — 여기 있던 묵시 동의 줄은 지웠다(사용자 결정 2026-09-29).
                     AppButton(label: '인증 메일 받기', onPressed: state.canSubmit ? viewModel.submit : null),
+                    const SizedBox(height: AppSpacing.xxs), // 02-c 와 같은 간격
+                    const LogoutTextButton(),
                   ],
                 ),
               ),

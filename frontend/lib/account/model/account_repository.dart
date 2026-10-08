@@ -17,7 +17,7 @@ abstract interface class AccountRepository {
   Future<Result<String?>> fetchKakaoId();
 }
 
-/// [AccountRepository] 를 FastAPI 호출로 구현한다. 16e 이메일은 서버가 싣지 않아 세션에서 읽는다.
+/// [AccountRepository] 를 FastAPI 호출로 구현한다. 16e 로그인 수단은 서버가 싣지 않아 세션에서 읽는다.
 class HttpAccountRepository implements AccountRepository {
   const HttpAccountRepository(this._api, this._auth);
 
@@ -28,8 +28,7 @@ class HttpAccountRepository implements AccountRepository {
   Future<Result<AccountInfo>> fetchAccount() => _api.send('GET', '/account', (body) {
         final json = body as Map<String, dynamic>;
         return AccountInfo(
-          // 관문을 지난 세션이라 이메일은 늘 있다 — 없으면 빈 줄로 그린다.
-          email: _auth.currentUser?.email ?? '',
+          loginProvider: _loginProvider(),
           realName: json['real_name'] as String?,
           birthYear: json['birth_year'] as int?,
           university: json['university'] as String,
@@ -37,6 +36,11 @@ class HttpAccountRepository implements AccountRepository {
           kakaoId: json['kakao_id'] as String?,
         );
       });
+
+  String? _loginProvider() {
+    final provider = _auth.currentUser?.appMetadata['provider'];
+    return provider is String ? provider : null;
+  }
 
   @override
   Future<Result<void>> withdraw() => _api.send('POST', '/account/withdraw', (_) {});

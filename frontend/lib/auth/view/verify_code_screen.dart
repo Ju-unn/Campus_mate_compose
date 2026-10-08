@@ -3,6 +3,8 @@ import 'package:campus_mate/auth/viewmodel/verify_code_view_model.dart';
 import 'package:campus_mate/chat/view/chat_time.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/common/widgets/muted_text_button.dart';
+import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -11,6 +13,7 @@ import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 /// 인증코드 입력 화면 (DESIGN.md 화면 03, pen `VuiDi` / 오류 `Vn6w4`).
 ///
@@ -61,6 +64,24 @@ class VerifyCodeScreen extends ConsumerWidget {
                     ),
                   ],
                 ),
+                // 둘째 줄(다른 소셜 계정이 쓰는 메일). 첫 줄 글자 시작에 맞춘다(아이콘 14 + 간격).
+                if (state.errorHint != null)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 14 + AppSpacing.xxs),
+                    child: Text(state.errorHint!, style: AppTypography.caption.copyWith(color: AppColors.error)),
+                  ),
+                // 이 메일로는 끝낼 수 없다(409 · 422 · 미확인) — 02 로 돌아가 다른 학교 메일을 넣는다(입력값은 비운다).
+                if (state.canChooseAnotherEmail)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: MutedTextButton(
+                      label: '다른 학교 메일 입력',
+                      onPressed: () async {
+                        await viewModel.startOver();
+                        if (context.mounted) context.go(AppRoutes.login);
+                      },
+                    ),
+                  ),
               ],
               const SizedBox(height: AppSpacing.md),
               if (expiresAt != null) _ExpiryTimer(expiresAt: expiresAt),

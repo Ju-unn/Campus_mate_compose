@@ -51,6 +51,66 @@ void main() {
     expect(failure!.toDisplayMessage(), '이미 검토 중이에요');
   });
 
+  // POST /school-email/verify 409 — 문구가 아니라 기계용 `provider` 로 가른다(backend school_email/router.py).
+  test('409 에 provider 가 있으면 SchoolEmailTakenFailure 로 수단을 담는다', () async {
+    final client = MockClient((request) async {
+      return http.Response(
+        jsonEncode({'detail': '이 메일은 구글로 가입돼 있어요', 'provider': 'google'}),
+        409,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      );
+    });
+
+    final result = await sendHttpRequest(client, buildRequest());
+
+    final failure = result.when(onSuccess: (_) => null, onFailure: (f) => f);
+    expect(failure, isA<SchoolEmailTakenFailure>());
+    expect(failure!.toDisplayMessage(), '이 메일은 구글로 가입돼 있어요');
+    expect((failure as SchoolEmailTakenFailure).toHintMessage(), '구글 계정으로 로그인해 주세요');
+  });
+
+  test('4xx 에 code 가 있으면 ServerRejectedFailure 가 그 code 를 들고 있다', () async {
+    final client = MockClient((request) async {
+      return http.Response(
+        jsonEncode({'detail': '학교 메일 인증이 끝나지 않았어요', 'code': 'SCHOOL_EMAIL_NOT_CONFIRMED'}),
+        403,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      );
+    });
+
+    final result = await sendHttpRequest(client, buildRequest());
+
+    final failure = result.when(onSuccess: (_) => null, onFailure: (f) => f)! as ServerRejectedFailure;
+    expect(failure.hasCode('SCHOOL_EMAIL_NOT_CONFIRMED'), isTrue);
+    expect(failure.hasCode('SCHOOL_EMAIL_ALREADY_VERIFIED'), isFalse);
+    expect(failure.hasAnyCode(), isTrue);
+    expect(failure.toDisplayMessage(), '학교 메일 인증이 끝나지 않았어요');
+  });
+
+  test('code 가 없으면(옛 서버) hasAnyCode 는 false', () async {
+    final client = MockClient((request) async {
+      return http.Response(jsonEncode({'detail': '거절'}), 403, headers: {'content-type': 'application/json'});
+    });
+
+    final result = await sendHttpRequest(client, buildRequest());
+
+    expect((result.when(onSuccess: (_) => null, onFailure: (f) => f)! as ServerRejectedFailure).hasAnyCode(), isFalse);
+  });
+
+  test('409 가 아니면 provider 칸이 있어도 ServerRejectedFailure 그대로', () async {
+    final client = MockClient((request) async {
+      return http.Response(
+        jsonEncode({'detail': '거절', 'provider': 'kakao'}),
+        403,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      );
+    });
+
+    final result = await sendHttpRequest(client, buildRequest());
+
+    expect(result.when(onSuccess: (_) => null, onFailure: (f) => f), isA<ServerRejectedFailure>());
+  });
+
   test('FastAPI 422 처럼 detail 이 리스트면 앱이 죽지 않고 UnknownFailure', () async {
     final client = MockClient((request) async {
       return http.Response(

@@ -94,7 +94,7 @@
 ```
 lib/
 ├── auth/                  조각 1 — 학생인증
-│   ├── model/             UniversityEmail, VerificationCode, AuthRepository
+│   ├── model/             UniversityEmail, VerificationCode, SchoolEmailRepository, SocialLoginRepository
 │   ├── view/              SignUpScreen, VerifyCodeScreen
 │   └── viewmodel/         SignUpViewModel, SignUpUiState
 ├── profile/               조각 2
@@ -104,6 +104,7 @@ lib/
 ├── billing/               조각 7 — 결제
 ├── common/                값 객체, 확장, 에러 타입, Result
 └── core/
+    ├── draft/             온보딩 입력 임시 저장(DraftStore · DraftScreen)
     ├── supabase/          클라이언트 초기화, 테이블 상수
     ├── router/            go_router 라우팅
     ├── push/               FCM 초기화·토큰 관리

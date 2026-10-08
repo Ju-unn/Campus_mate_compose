@@ -1,7 +1,9 @@
-import 'package:campus_mate/auth/model/auth_repository_provider.dart';
+import 'package:campus_mate/auth/model/school_email_repository_provider.dart';
+import 'package:campus_mate/auth/model/verification_gate_repository_provider.dart';
 import 'package:campus_mate/auth/model/university_email.dart';
 import 'package:campus_mate/auth/view/verify_code_screen.dart';
 import 'package:campus_mate/auth/viewmodel/verify_code_view_model.dart';
+import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/common/failure.dart';
@@ -10,19 +12,22 @@ import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import '../model/fake_auth_repository.dart';
+import 'package:go_router/go_router.dart';
+import '../model/fake_school_email_repository.dart';
+import '../model/fake_verification_gate_repository.dart';
 
 void main() {
   final email = UniversityEmail.tryParse('hong@snu.ac.kr')!;
 
   Future<ProviderContainer> pumpScreen(
     WidgetTester tester, {
-    FakeAuthRepository? repository,
+    FakeSchoolEmailRepository? repository,
     DateTime Function()? now,
   }) async {
     final container = ProviderContainer(
       overrides: [
-        authRepositoryProvider.overrideWithValue(repository ?? FakeAuthRepository()),
+        schoolEmailRepositoryProvider.overrideWithValue(repository ?? FakeSchoolEmailRepository()),
+        verificationGateRepositoryProvider.overrideWithValue(FakeVerificationGateRepository()),
         if (now != null) verifyCodeNowProvider.overrideWithValue(now),
       ],
     );
@@ -123,7 +128,7 @@ void main() {
   });
 
   testWidgets('코드가 거부되면 여섯 칸 테두리가 오류 색으로 바뀐다', (tester) async {
-    final repository = FakeAuthRepository()..nextVerifyOtpResult = const FailureResult(WrongCodeFailure());
+    final repository = FakeSchoolEmailRepository()..nextVerifyCodeResult = const FailureResult(WrongCodeFailure());
     await pumpScreen(tester, repository: repository);
     await tester.enterText(find.byType(TextField), '000000');
     await tester.pump();
@@ -158,7 +163,7 @@ void main() {
   });
 
   testWidgets('코드가 틀리면 pen Vn6w4 오류 문구를 보여준다', (tester) async {
-    final repository = FakeAuthRepository()..nextVerifyOtpResult = const FailureResult(WrongCodeFailure());
+    final repository = FakeSchoolEmailRepository()..nextVerifyCodeResult = const FailureResult(WrongCodeFailure());
     await pumpScreen(tester, repository: repository);
     await tester.enterText(find.byType(TextField), '000000');
     await tester.pump();
@@ -171,7 +176,7 @@ void main() {
   });
 
   testWidgets('검증에 실패하면 에러 문구를 보여준다', (tester) async {
-    final repository = FakeAuthRepository()..nextVerifyOtpResult = const FailureResult(UnknownFailure());
+    final repository = FakeSchoolEmailRepository()..nextVerifyCodeResult = const FailureResult(UnknownFailure());
     await pumpScreen(tester, repository: repository);
     await tester.enterText(find.byType(TextField), '000000');
     await tester.pump();
@@ -181,5 +186,108 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
 
     expect(find.text('알 수 없는 오류가 발생했습니다'), findsOneWidget);
+  });
+  testWidgets('다른 소셜 계정이 쓰는 메일이면 입력칸 아래에 두 줄로 알려 준다(팝업 없음)', (tester) async {
+    final repository = FakeSchoolEmailRepository()
+      ..nextCompleteResult = const FailureResult(SchoolEmailTakenFailure('서버 문구', 'kakao'));
+    await pumpScreen(tester, repository: repository);
+    await tester.enterText(find.byType(TextField), '123456');
+    await tester.pump();
+
+    await tester.tap(find.text('확인'));
+    // verifyCode · complete 가 차례로 가짜 지연을 하나씩 갖는다.
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump(const Duration(milliseconds: 1));
+
+    expect(find.text('이 메일은 카카오로 가입돼 있어요'), findsOneWidget);
+    expect(find.text('카카오 계정으로 로그인해 주세요'), findsOneWidget);
+    expect(find.byType(Dialog), findsNothing);
+    expect(find.byType(BottomSheet), findsNothing);
+    // 입력칸(여섯 칸) 아래에 있다.
+    expect(tester.getTopLeft(find.text('이 메일은 카카오로 가입돼 있어요')).dy,
+        greaterThan(tester.getBottomLeft(find.byType(TextField)).dy));
+    expect(tester.getTopLeft(find.text('카카오 계정으로 로그인해 주세요')).dy,
+        greaterThan(tester.getTopLeft(find.text('이 메일은 카카오로 가입돼 있어요')).dy));
+  });
+
+  testWidgets('서버가 인증을 못 마치면 다시 하라는 임시 문구를 보여준다', (tester) async {
+    final repository = FakeSchoolEmailRepository()
+      ..nextCompleteResult = const FailureResult(SchoolEmailIncompleteFailure());
+    await pumpScreen(tester, repository: repository);
+    await tester.enterText(find.byType(TextField), '123456');
+    await tester.pump();
+
+    await tester.tap(find.text('확인'));
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump(const Duration(milliseconds: 1));
+
+    expect(find.text('학교 메일 인증을 마치지 못했어요. 잠시 뒤 다시 시도해 주세요'), findsOneWidget);
+  });
+  group('다른 학교 메일 입력(지시문 13 A-4)', () {
+    Future<FakeSchoolEmailRepository> pumpWithRouter(WidgetTester tester, Failure failure) async {
+      final repository = FakeSchoolEmailRepository()..nextCompleteResult = FailureResult(failure);
+      final container = ProviderContainer(
+        overrides: [
+          schoolEmailRepositoryProvider.overrideWithValue(repository),
+          verificationGateRepositoryProvider.overrideWithValue(FakeVerificationGateRepository()),
+        ],
+      );
+      addTearDown(container.dispose);
+      final router = GoRouter(
+        initialLocation: AppRoutes.verifyCode,
+        routes: [
+          GoRoute(path: AppRoutes.login, builder: (context, state) => const Scaffold(body: Text('02 학교 메일 입력'))),
+          GoRoute(path: AppRoutes.verifyCode, builder: (context, state) => VerifyCodeScreen(email: email)),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(container: container, child: MaterialApp.router(routerConfig: router)),
+      );
+      await tester.enterText(find.byType(TextField), '123456');
+      await tester.pump();
+      await tester.tap(find.text('확인'));
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pump(const Duration(milliseconds: 1));
+      return repository;
+    }
+
+    testWidgets('409 면 오류 문구 아래에 02 로그아웃 줄과 같은 모양(48 · 14/600 muted)으로 보인다', (tester) async {
+      await pumpWithRouter(tester, const SchoolEmailTakenFailure('서버 문구', 'kakao'));
+
+      final button = find.widgetWithText(InkWell, '다른 학교 메일 입력');
+      expect(button, findsOneWidget);
+      expect(tester.getSize(button).height, 48);
+      expect(tester.getTopLeft(button).dy, greaterThanOrEqualTo(tester.getBottomLeft(find.text('카카오 계정으로 로그인해 주세요')).dy));
+      final label = tester.widget<Text>(find.text('다른 학교 메일 입력'));
+      expect(label.style!.fontSize, 14);
+      expect(label.style!.fontWeight, FontWeight.w600);
+      expect(label.style!.color, AppColors.muted);
+    });
+
+    testWidgets('422 · 미확인이어도 보인다', (tester) async {
+      await pumpWithRouter(tester, const SchoolEmailRejectedFailure('등록되지 않은 학교 메일이에요'));
+      expect(find.text('다른 학교 메일 입력'), findsOneWidget);
+
+      await pumpWithRouter(tester, const SchoolEmailNotConfirmedFailure());
+      expect(find.text('다른 학교 메일 입력'), findsOneWidget);
+    });
+
+    testWidgets('잠시 뒤 다시(네트워크 · 503)에는 보이지 않는다', (tester) async {
+      await pumpWithRouter(tester, const SchoolEmailIncompleteFailure());
+
+      expect(find.text('다른 학교 메일 입력'), findsNothing);
+    });
+
+    testWidgets('누르면 임시 연결을 비우고 02 로 간다', (tester) async {
+      final repository = await pumpWithRouter(tester, const SchoolEmailTakenFailure('서버 문구', 'google'));
+
+      await tester.tap(find.text('다른 학교 메일 입력'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(repository.calls.last, 'discard');
+      expect(find.text('02 학교 메일 입력'), findsOneWidget);
+    });
   });
 }

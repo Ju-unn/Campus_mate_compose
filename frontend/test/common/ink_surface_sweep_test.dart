@@ -1,4 +1,4 @@
-import 'package:campus_mate/auth/model/auth_repository_provider.dart';
+import 'package:campus_mate/auth/model/school_email_repository_provider.dart';
 import 'package:campus_mate/auth/model/face_detector_provider.dart';
 import 'package:campus_mate/auth/model/image_compressor_provider.dart';
 import 'package:campus_mate/auth/model/school_info_repository_provider.dart';
@@ -50,7 +50,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../auth/model/fake_auth_repository.dart';
+import '../auth/model/fake_school_email_repository.dart';
 import '../auth/model/fake_face_detector.dart';
 import '../auth/model/fake_image_compressor.dart';
 import '../auth/model/fake_school_info_repository.dart';
@@ -226,9 +226,9 @@ Future<void> _pumpScreen(WidgetTester tester, _Screen screen) async {
   addTearDown(session.dispose);
   final container = ProviderContainer(
     overrides: [
+      schoolEmailRepositoryProvider.overrideWithValue(FakeSchoolEmailRepository()),
       authSessionListenableProvider.overrideWithValue(session.listenable),
       socialLoginRepositoryProvider.overrideWithValue(FakeSocialLoginRepository()),
-      authRepositoryProvider.overrideWithValue(FakeAuthRepository()),
       studentVerificationRepositoryProvider.overrideWithValue(FakeStudentVerificationRepository()),
       faceDetectorProvider.overrideWithValue(FakeFaceDetector()),
       imageCompressorProvider.overrideWithValue(FakeImageCompressor()),
