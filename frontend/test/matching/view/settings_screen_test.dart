@@ -325,7 +325,7 @@ void main() {
     await openLogoutSheet(tester);
 
     expect(inSheet('로그아웃할까요?'), findsOneWidget);
-    expect(inSheet('다시 로그인하려면 학교 이메일로 인증 코드를 한 번 더 받아야 해요.'), findsOneWidget);
+    expect(inSheet('다시 로그인하려면 처음 화면에서 카카오, 구글 중 쓰던 계정으로 로그인해 주세요.'), findsOneWidget);
     expect(inSheet('로그아웃'), findsOneWidget);
     expect(inSheet('취소'), findsOneWidget);
   });
