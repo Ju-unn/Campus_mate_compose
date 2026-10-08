@@ -1,11 +1,9 @@
-import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from app.auth_hooks.schemas import BeforeUserCreatedPayload, HookDecision
+from app.auth_hooks.schemas import HookDecision
 from app.core import errors
-from app.core.deps import get_client, get_settings
+from app.core.deps import get_settings
 from app.settings import Settings
-from app.signup_policy import SignupPolicy, hash_email
 from app.webhook_signature import verify_webhook_signature
 
 router = APIRouter()
@@ -15,22 +13,13 @@ router = APIRouter()
 async def before_user_created(
     request: Request,
     settings: Settings = Depends(get_settings),
-    client: httpx.AsyncClient = Depends(get_client),
 ) -> HookDecision:
+    """서명만 보고 항상 허용한다(소셜 로그인 전환).
+
+    소셜 계정에는 학교 메일이 없다(카카오는 이메일조차 없다). 학교 도메인 · 재가입 제한 검사는
+    가입 뒤 학교 메일 확인(POST /school-email/check · confirm)이 같은 해시로 한다."""
     body = await request.body()
     _verify_signature_or_raise(settings, request.headers, body)
-
-    payload = BeforeUserCreatedPayload.model_validate_json(body)
-    policy = SignupPolicy(settings.postgrest_url, settings.supabase_service_role_key, client)
-
-    university_id = await policy.find_university_id(payload.email_domain)
-    if university_id is None:
-        return HookDecision.reject("허용되지 않은 학교 이메일이에요")
-
-    email_hmac = hash_email(settings.identity_hmac_key, payload.email)
-    if await policy.is_blocked(email_hmac):
-        return HookDecision.reject("재가입이 제한된 이메일이에요")
-
     return HookDecision.allow()
 
 
