@@ -406,6 +406,28 @@ void main() {
       expect(tester.widget<AppButton>(cta).onPressed, isNotNull); // 다시 누를 수 있다
     });
 
+    testWidgets('사진 교체가 실패한 뒤 다시 누르면 사진을 다시 교체하고 등록은 그다음 한 번만 한다 — 실패한 교체를 끝난 것으로 치지 않는다', (tester) async {
+      await pump(tester);
+      me.savePhotosResult = const FailureResult(ServerRejectedFailure('사진을 다시 확인해 주세요'));
+      await choosePhoto(tester);
+      await tester.tap(cta);
+      await tester.pumpAndSettle();
+      await press(tester, '10 쓰고 만들기');
+      expect(me.photoSaves, hasLength(1));
+      expect(avatars.regenerateCount, 0);
+      expect(find.text('사진을 다시 확인해 주세요'), findsOneWidget);
+
+      me.savePhotosResult = const Success(null); // 서버가 이번엔 받아 준다
+      await tester.tap(cta);
+      await tester.pumpAndSettle();
+      await press(tester, '10 쓰고 만들기');
+
+      expect(me.photoSaves, hasLength(2)); // 옛 원본으로 등록하지 않고 사진부터 다시 바꿨다
+      expect(avatars.photoSavesWhenRegistered, [2]);
+      expect(avatars.regenerateCount, 1);
+      expect(find.text('화면 15'), findsOneWidget);
+    });
+
     testWidgets('교체는 됐는데 등록이 막히면 문구를 보이고, 다시 누르면 사진은 다시 올리지 않고 등록만 한다', (tester) async {
       await pump(tester);
       avatars.nextResult = const FailureResult(ServerRejectedFailure('잠시 뒤 다시 시도해 주세요'));

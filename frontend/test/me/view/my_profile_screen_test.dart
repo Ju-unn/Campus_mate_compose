@@ -25,6 +25,7 @@ import 'package:campus_mate/me/view/my_profile_screen.dart';
 import 'package:campus_mate/me/view/profile_entry_row.dart';
 import 'package:campus_mate/me/view/profile_hero.dart';
 import 'package:campus_mate/me/view/profile_manage_screen.dart';
+import 'package:campus_mate/me/viewmodel/avatar_regen_pick_view_model.dart' show openMyProfileScreens;
 import 'package:campus_mate/profile/model/avatar_generation_outcome.dart';
 import 'package:campus_mate/profile/model/avatar_repository_provider.dart';
 import 'package:campus_mate/profile/viewmodel/avatar_generation_view_model.dart';
@@ -438,6 +439,21 @@ void main() {
       expect(find.text('15b-4 사진 고르기 화면'), findsOneWidget);
       expect(find.text('아바타를 다시 만들까요?'), findsNothing);
       expect(harness.avatars.regenerateCount, 0);
+    });
+
+    testWidgets('열린 화면 15 수 — 떠 있는 동안 하나 늘고, 사진 고르기를 겹쳐 올려도 그대로이며, 닫히면 줄어든다', (tester) async {
+      // 사진 고르기 뷰모델이 "등록 응답을 기다리는 사이 15 가 모두 닫혔나" 를 이 수로 가른다 — 세지 않으면 폴링이 끊긴다.
+      final before = openMyProfileScreens;
+      final harness = await pump(tester);
+      expect(openMyProfileScreens, before + 1);
+
+      unawaited(harness.router.push(AppRoutes.myAvatarRegen)); // 15 위에 15b-4 가 겹쳐 올라가도 15 는 아래에 열려 있다
+      await tester.pumpAndSettle();
+      expect(find.text('15b-4 사진 고르기 화면'), findsOneWidget);
+      expect(openMyProfileScreens, before + 1);
+
+      await tester.pumpWidget(const SizedBox()); // 화면 15 가 닫힌다
+      expect(openMyProfileScreens, before);
     });
 
     testWidgets('아바타를 등록하면 다시 만들기 1회, 만드는 동안 알약이 꺼지고(15-2) 변환 중 토스트(도는 표시)', (tester) async {
