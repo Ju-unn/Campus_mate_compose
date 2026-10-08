@@ -1,6 +1,7 @@
 """영역 1 계정 공장 · 뒷정리 · API 가설 시험 — 운영 없이 가짜 HTTP 로 돈다. 저장소 루트에서 `python -m unittest e2e.test_area1`."""
 
 import json
+import re
 import tempfile
 import unittest
 from datetime import datetime, timezone
@@ -15,7 +16,7 @@ CFG = {'SUPABASE_URL': 'https://sb.test', 'SUPABASE_ANON_KEY': 'anon', 'API_BASE
        'E2E_MAIL_BASE': 'base@gmail.com'}
 SV = '학생증 인증을 먼저 끝내 주세요'
 INVALID = '입력한 값을 다시 확인해 주세요'
-REJECT = {'msg': '허용되지 않은 학교 이메일이에요'}
+REJECT = {'msg': '등록되지 않은 학교 메일이에요'}  # 서버 errors.SCHOOL_EMAIL_UNKNOWN_DOMAIN
 
 
 class FakeServer:
@@ -321,15 +322,14 @@ class CleanupTest(Base):
 
 # 가설마다 (통과 응답, 하나만 어긋난 응답). 어긋난 쪽은 fail 이어야 한다 — 기대 판단이 실제로 무언가를 본다는 증거.
 YEAR = datetime.now(area1.SEOUL).year
-PROFILE_OK = Reply(200, [{'status': 'pending', 'student_verification': 'none', 'university_id': 'U', 'referral_code': 'ABC234'}])
+# 소셜 로그인 전환 뒤 email 방식 가입(학교 메일 OTP)은 프로필을 만들지 않는다(20261008010000 ⑤) — 한 행이라도 있으면 fail.
+PROFILE_ROW = Reply(200, [{'id': 'id-1'}])
 CASES = {
-    'E-AUTH-01': ({('GET', '/rest/v1/profiles'): PROFILE_OK},
-                  {('GET', '/rest/v1/profiles'): Reply(200, [{**PROFILE_OK.body[0], 'referral_code': 'ABC10O'}])}),
-    'E-AUTH-02': ({('GET', '/rest/v1/profiles'): PROFILE_OK},
-                  {('GET', '/rest/v1/profiles'): Reply(200, [])}),
+    'E-AUTH-01': ({('GET', '/rest/v1/profiles'): Reply(200, [])}, {('GET', '/rest/v1/profiles'): PROFILE_ROW}),
+    'E-AUTH-02': ({('GET', '/rest/v1/profiles'): Reply(200, [])}, {('GET', '/rest/v1/profiles'): PROFILE_ROW}),
     'E-AUTH-03': ({('POST', '/auth/v1/otp'): Reply(422, REJECT)}, {}),
     'E-AUTH-04': ({('POST', '/auth/v1/otp'): Reply(422, REJECT)},
-                  {('POST', '/auth/v1/otp'): Reply(422, {'msg': '재가입이 제한된 이메일이에요'})}),
+                  {('POST', '/auth/v1/otp'): Reply(422, {'msg': '재가입이 제한된 메일이에요'})}),
     'E-AUTH-06': ({('POST', '/hooks/before-user-created'): Reply(401, {'detail': 'invalid signature'})},
                   {('POST', '/hooks/before-user-created'): [Reply(401, {'detail': 'invalid signature'}), Reply(200, {})]}),
     'E-AUTH-13': ({('POST', '/auth/v1/admin/users'): Reply(422, REJECT)}, {}),
@@ -414,11 +414,37 @@ class HypothesisTest(Base):
         area1.CASES['E-GATE-50'](self.run)
         self.assertEqual(len([p for p in fake.paths('DELETE') if p.startswith('/cards/push-tokens/')]), 2)
 
-    def test_auth_13_notes_which_defence_stopped_it(self):
+    def test_auth_13_only_the_hook_can_stop_it_now(self):
+        # 소셜 로그인 전환 뒤 트리거는 email 방식을 막지 않고 건너뛴다(20261008010000 ⑤) — 남은 방어는 훅 하나다.
         self.serve({('POST', '/auth/v1/admin/users'): Reply(422, REJECT)})
         self.assertEqual(area1.CASES['E-AUTH-13'](self.run), ('pass', '가입 훅이 막음'))
         self.serve({('POST', '/auth/v1/admin/users'): Reply(500, {'msg': 'Database error creating new user'})})
-        self.assertEqual(area1.CASES['E-AUTH-13'](self.run), ('pass', '트리거가 막음'))
+        result, note = area1.CASES['E-AUTH-13'](self.run)
+        self.assertEqual(result, 'fail')
+        self.assertIn('Database error', note)
+
+    def test_auth_01_and_02_sign_up_makes_an_auth_user_but_no_profile(self):
+        for case in ('E-AUTH-01', 'E-AUTH-02'):
+            with self.subTest(case=case):
+                fake = self.serve({('GET', '/rest/v1/profiles'): Reply(200, [])})
+                self.assertEqual(area1.CASES[case](self.run)[0], 'pass')
+                self.assertEqual(fake.paths('POST')[0], '/auth/v1/otp')
+                self.assertIn('/rest/v1/profiles', fake.paths('GET'))
+                self.assertNotIn('/rest/v1/profiles', fake.paths('POST'))  # 시험이 프로필을 만들어 주지 않는다
+                # 가입 요청으로 생긴 계정은 accounts.json 에 적어 뒷정리가 지운다
+                written = json.loads((self.run.out / 'accounts.json').read_text(encoding='utf-8'))
+                self.assertIn(fake.users[-1]['id'], [a['id'] for a in written])
+
+    def test_auth_01_without_an_auth_user_is_a_fail(self):
+        self.serve({('POST', '/auth/v1/otp'): Reply(200, {})})
+        result, note = area1.CASES['E-AUTH-01'](self.run)
+        self.assertEqual(result, 'fail')
+        self.assertIn('auth 사용자 0명', note)
+
+    def test_the_rejected_text_is_the_servers_unknown_domain_text(self):
+        errors = (tools.ROOT / 'backend' / 'app' / 'core' / 'errors.py').read_text(encoding='utf-8')
+        server = re.search(r'^SCHOOL_EMAIL_UNKNOWN_DOMAIN = "([^"]+)"', errors, re.M).group(1)
+        self.assertEqual(area1.REJECTED, server)
 
     def test_setup_failure_is_blocked(self):
         self.serve({('POST', '/me/consents'): Reply(503, None)})

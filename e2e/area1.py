@@ -2,11 +2,15 @@
 기대값은 바탕화면 E2E_최종테스트_시나리오.md 영역 1 의 그 줄이다.
 
 가설 하나 = 함수 하나 `(run) -> (결과, 메모)`. 계정은 [Run.account] 로 그때그때 새로 만든다(별칭 번호는 다시 안 쓴다).
+
+소셜 로그인 전환(20261008 마이그레이션): 앱은 카카오 · 구글(· 애플)로만 가입한다. email 방식(학교 메일 OTP) 가입은 이제 로그인한 뒤
+학교 메일 인증(02)이 잠깐 만드는 임시 계정이라 프로필이 생기지 않는다 — E-AUTH-01 · 02 는 그것을 본다. 가입 직전 훅은 email 방식에
+학교 도메인 · 재가입 제한을 그대로 검사하므로 E-AUTH-03 · 04 · 06 은 그대로다. 시험 계정은 관리자가 만든 email 방식 계정에
+공장이 프로필을 직접 넣은 것이다(tools.Run.account).
 """
 
 import base64
 import random
-import re
 import string
 import time
 import uuid
@@ -17,7 +21,7 @@ from e2e.tools import Blocked
 
 SEOUL = timezone(timedelta(hours=9))  # 서버 나이 계산(core/time.py)과 같은 날짜
 
-REJECTED = '허용되지 않은 학교 이메일이에요'
+REJECTED = '등록되지 않은 학교 메일이에요'  # 서버 errors.SCHOOL_EMAIL_UNKNOWN_DOMAIN(훅 · verify 가 같은 문구)
 SV_REQUIRED = '학생증 인증을 먼저 끝내 주세요'
 CONSENT_REQUIRED = '약관 동의를 먼저 해 주세요'
 INVALID_INPUT = '입력한 값을 다시 확인해 주세요'
@@ -76,7 +80,7 @@ def _patch(run, path, body):
 
 
 def _otp(run, email):
-    """앱과 같은 가입 요청(공개 키, 새 사용자 만들기 켬)."""
+    """학교 메일 인증(02)의 번호 요청과 같은 가입 요청(공개 키, 새 사용자 만들기 켬) — email 방식 임시 계정이 생긴다."""
     return tools.call('POST', f"{run.cfg['SUPABASE_URL']}/auth/v1/otp", {'apikey': run.cfg['SUPABASE_ANON_KEY']},
                       {'email': email, 'create_user': True})
 
@@ -113,29 +117,30 @@ def _no_user(run, email, check):
     check.problems.append(f"계정이 만들어졌다({user['id']}) — 바로 지움")
 
 
-def auth_01(run):
+NO_PROFILE = '소셜 로그인 전환으로 기대 변경 — email 방식 가입은 auth 사용자만 생기고 프로필 0행'
+
+
+def _signed_up_without_profile(run, label, n, email):
+    """email 방식 가입 요청 → 200 · auth 사용자 1명 · profiles 0행(가입 트리거가 email 방식을 건너뛴다, 20261008010000 ⑤).
+    생긴 계정은 accounts.json 에 적어 뒷정리가 지운다(지우지 못해도 서버 정리 배치가 하루 뒤 프로필 없는 email 계정을 지운다)."""
     check = Check()
-    n, email = run.alias()
-    check.reply('가입 요청', _otp(run, email), 200)
+    check.reply(label, _otp(run, email), 200)
     if user := _signed_up(run, n, email, check):
-        rows = _rows(run, f"profiles?id=eq.{user['id']}&select=status,student_verification,university_id,referral_code")
-        check.that(len(rows) == 1, f'profiles {len(rows)}행')
-        for p in rows[:1]:
-            check.that(p['status'] == 'pending', f"status {p['status']}")
-            check.that(p['student_verification'] == 'none', f"student_verification {p['student_verification']}")
-            check.that(p['university_id'] == _test_university(run), f"university_id {p['university_id']}")
-            check.that(re.fullmatch(r'[A-HJ-NP-Z2-9]{6}', p['referral_code'] or ''), f"referral_code {p['referral_code']!r}")
-    return check.result()
+        rows = _rows(run, f"profiles?id=eq.{user['id']}&select=id")
+        check.that(not rows, f'profiles {len(rows)}행(기대 0 — email 방식은 프로필을 만들지 않는다)')
+    return check.result(NO_PROFILE)
+
+
+def auth_01(run):
+    """시험 메일 도메인(등록된 학교)으로 가입 요청 — 소셜 로그인 전환으로 기대 변경: 예전 "프로필 pending 1행" → 이제 프로필 0행."""
+    n, email = run.alias()
+    return _signed_up_without_profile(run, '가입 요청', n, email)
 
 
 def auth_02(run):
-    check = Check()
+    """대문자 도메인도 훅이 소문자로 읽어 통과한다 — 소셜 로그인 전환으로 기대 변경: 프로필 0행(예전 "같은 학교 프로필 1행")."""
     n, email = run.alias(tools.mail_base(run.cfg)[1].upper())
-    check.reply('대문자 도메인 가입', _otp(run, email), 200)
-    if user := _signed_up(run, n, email, check):
-        rows = _rows(run, f"profiles?id=eq.{user['id']}&select=university_id")
-        check.that(len(rows) == 1 and rows[0]['university_id'] == _test_university(run), f'profiles {rows}')
-    return check.result()
+    return _signed_up_without_profile(run, '대문자 도메인 가입', n, email)
 
 
 def _rejected(run, domain):
@@ -165,13 +170,15 @@ def auth_06(run):
 
 
 def auth_13(run):
-    """관리자 생성이 가입 훅을 타는지 모른다(T1) — 막혔다면 누가 막았는지 메모에 남긴다."""
+    """관리자 생성이 가입 훅을 타는지 모른다(T1). 소셜 로그인 전환 뒤 가입 트리거는 email 방식을 막지 않고 건너뛰므로
+    (예전에는 등록 안 된 도메인이면 트리거가 오류를 냈다) 막을 수 있는 것은 훅 하나다 — 훅의 거절 문구가 아니면 fail."""
     check = Check()
     _, email = run.alias('example.com')
     status, body = tools.admin(run.cfg, run.key, 'POST', 'users', {'email': email, 'email_confirm': True})
-    check.that(status >= 400, f'관리자 생성이 {status} 로 성공')
+    check.that(status >= 400, f'관리자 생성이 {status} 로 성공 — 훅이 관리자 생성을 안 탄다')
+    check.that(status < 400 or REJECTED in str(_detail(body)), f'{status} 이지만 훅의 거절 문구가 아님: {_detail(body)}')
     _no_user(run, email, check)
-    return check.result('가입 훅이 막음' if REJECTED in str(_detail(body)) else '트리거가 막음')
+    return check.result('가입 훅이 막음')
 
 
 def gate_06(run):
