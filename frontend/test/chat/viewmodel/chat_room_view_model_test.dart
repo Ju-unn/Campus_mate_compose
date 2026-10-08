@@ -506,4 +506,173 @@ void main() {
     expect(repository.pages, isEmpty);
     expect(stream.subscribed, isEmpty);
   });
+
+  // E-CHAT-67 — 서버는 postgres_changes 복제를 join 성공 뒤에 비동기로 만든다. "첫 페이지를 읽은 시점 ~ 복제가 살기 전"
+  // 사이에 들어온 글은 첫 읽기도 구독도 못 받는다. 구독이 "준비됨" 을 알리면 첫 페이지를 조용히 한 번 더 읽어 합친다.
+  group('구독이 준비됐다고 알리면(ready)', () {
+    Future<void> settle() => Future<void>.delayed(Duration.zero);
+
+    ChatRoomUiState read(ProviderContainer container) => container.read(chatRoomViewModelProvider('m1'));
+
+    test('첫 페이지를 읽은 뒤 저장소에 생긴 글이 합쳐진다 — 구독으로는 오지 않았다', () async {
+      repository.messages = Success(MessagePage(messages: [messageFixture(id: 'msg-1')], hasMore: false));
+      final container = containerFor();
+      await opened(container);
+
+      repository.messages = Success(MessagePage(
+        messages: [messageFixture(id: 'msg-1'), messageFixture(id: 'msg-2', body: '놓친 줄', createdAt: DateTime(2026, 9, 22, 14, 11))],
+        hasMore: false,
+      ));
+      stream.ready();
+      await settle();
+
+      expect(read(container).messages.map((message) => message.id), ['msg-1', 'msg-2']);
+      // 다시 구독하지도, 머리말을 다시 읽지도 않는다 — reconnect 를 부르면 다시 구독 → 다시 붙음이 끝없이 돈다.
+      expect(stream.subscribed, ['m1']);
+      expect(repository.roomFetchCount, 1);
+    });
+
+    test('이미 있는 글은 두 번 그리지 않는다 — 신호가 겹쳐 와도 마찬가지다', () async {
+      repository.messages = Success(MessagePage(messages: [messageFixture(id: 'msg-1')], hasMore: false));
+      final container = containerFor();
+      await opened(container);
+      stream.push(messageFixture(id: 'msg-2', createdAt: DateTime(2026, 9, 22, 14, 11)));
+      await settle();
+
+      repository.messages = Success(MessagePage(
+        messages: [messageFixture(id: 'msg-1'), messageFixture(id: 'msg-2', createdAt: DateTime(2026, 9, 22, 14, 11))],
+        hasMore: false,
+      ));
+      stream
+        ..ready()
+        ..ready();
+      await settle();
+
+      expect(read(container).messages.map((message) => message.id), ['msg-1', 'msg-2']);
+    });
+
+    test('위로 올려 읽어 둔 옛 줄과 hasMore 를 지우지 않는다', () async {
+      final oldest = messageFixture(id: 'msg-0', createdAt: DateTime(2026, 9, 22, 9));
+      final middle = messageFixture(id: 'msg-5', createdAt: DateTime(2026, 9, 22, 15));
+      repository.messages = Success(MessagePage(messages: [middle], hasMore: true));
+      final container = containerFor();
+      await opened(container);
+      repository.messages = Success(MessagePage(messages: [oldest], hasMore: false));
+      await container.read(chatRoomViewModelProvider('m1').notifier).loadMore();
+      expect(read(container).hasMore, isFalse);
+
+      // 첫 페이지 결과의 hasMore 는 "더 옛 줄이 있다" 라고 말하지만, 이미 끝까지 올려 읽었다.
+      repository.messages = Success(MessagePage(
+        messages: [middle, messageFixture(id: 'msg-6', createdAt: DateTime(2026, 9, 22, 16))],
+        hasMore: true,
+      ));
+      stream.ready();
+      await settle();
+
+      expect(read(container).messages.map((message) => message.id), ['msg-0', 'msg-5', 'msg-6']);
+      expect(read(container).hasMore, isFalse);
+    });
+
+    test('읽기 실패는 오류 줄을 띄우지 않고 가진 글을 그대로 둔다', () async {
+      repository.messages = Success(MessagePage(messages: [messageFixture(id: 'msg-1')], hasMore: false));
+      final container = containerFor();
+      await opened(container);
+
+      repository.messages = const FailureResult(NetworkFailure());
+      stream.ready();
+      await settle();
+
+      expect(read(container).errorMessage, isNull);
+      expect(read(container).isLoading, isFalse);
+      expect(read(container).messages.map((message) => message.id), ['msg-1']);
+    });
+
+    test('읽기에 성공해도 떠 있던 오류 줄은 지우지 않는다 — 조용한 재조회다', () async {
+      final container = containerFor();
+      await opened(container);
+      repository.sendResult = const FailureResult(NetworkFailure());
+      await container.read(chatRoomViewModelProvider('m1').notifier).send('안녕');
+      expect(read(container).errorMessage, '네트워크 연결을 확인해 주세요');
+
+      repository.messages = Success(MessagePage(messages: [messageFixture(id: 'msg-2')], hasMore: false));
+      stream.ready();
+      await settle();
+
+      expect(read(container).errorMessage, '네트워크 연결을 확인해 주세요');
+      expect(read(container).messages.map((message) => message.id), ['msg-2']);
+    });
+
+    test('다시 연결한 뒤 옛 구독이 늦게 알리는 준비됨은 무시한다', () async {
+      final container = containerFor();
+      await opened(container);
+      await container.read(chatRoomViewModelProvider('m1').notifier).reconnect();
+      final fetches = repository.pages.length;
+      repository.messages = Success(MessagePage(messages: [messageFixture(id: 'late')], hasMore: false));
+
+      stream.ready(subscription: 0);
+      await settle();
+
+      expect(repository.pages.length, fetches);
+      expect(read(container).messages, isEmpty);
+    });
+
+    test('화면을 닫은 뒤의 준비됨은 아무것도 읽지 않는다', () async {
+      final container = containerFor();
+      await opened(container);
+      final fetches = repository.pages.length;
+      container.dispose();
+
+      stream.ready();
+      await settle();
+
+      expect(repository.pages.length, fetches);
+    });
+
+    test('읽는 도중에 화면이 닫혀도 닫힌 뒤에는 상태를 건드리지 않는다', () async {
+      final container = containerFor();
+      await opened(container);
+      repository.messages = Success(MessagePage(messages: [messageFixture(id: 'late')], hasMore: false));
+      repository.onFetchMessages = container.dispose; // 요청이 나간 뒤 응답이 오기 전에 닫힌다
+
+      stream.ready();
+      await settle();
+
+      // 닫힌 Notifier 에 state 를 쓰면 던진다 — 던졌다면 이 시험이 처리 안 된 오류로 실패한다.
+      expect(repository.pages, hasLength(2));
+    });
+
+    test('합친 줄이 상대의 두 번째 수락이면 머리말을 조용히 다시 읽는다', () async {
+      repository.room = Success(roomFixture(myResponse: 'accept'));
+      final container = containerFor();
+      await opened(container);
+      expect(repository.roomFetchCount, 1);
+      repository.messages = Success(MessagePage(
+        messages: [messageFixture(id: 'accept-2', kind: MessageKind.trustAccept)],
+        hasMore: false,
+      ));
+      repository.room = Success(roomFixture(passed: true, kakaoId: 'fox_rain'));
+
+      stream.ready();
+      await settle();
+
+      expect(repository.roomFetchCount, 2);
+      expect(read(container).room!.gate.passed, isTrue);
+    });
+
+    test('합친 줄이 상대의 나감이면 머리말을 다시 읽어 입력창을 잠근다', () async {
+      final container = containerFor();
+      await opened(container);
+      repository.messages = Success(MessagePage(
+        messages: [messageFixture(id: 'left-1', kind: MessageKind.left, body: '여우비님이 채팅방을 나갔어요')],
+        hasMore: false,
+      ));
+      repository.room = Success(roomFixture(partnerLeft: true));
+
+      stream.ready();
+      await settle();
+
+      expect(repository.roomFetchCount, 2);
+      expect(read(container).isPartnerGone, isTrue);
+    });
+  });
 }
