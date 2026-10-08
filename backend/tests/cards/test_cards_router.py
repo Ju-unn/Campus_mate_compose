@@ -50,7 +50,7 @@ def _wire(handler: Callable[[httpx.Request], httpx.Response]) -> TestClient:
         if "/auth/v1/user" in url:
             return httpx.Response(200, json={"id": PROFILE_ID})
         if "student_verification" in url and request.method == "GET":
-            return httpx.Response(200, json=[{"student_verification": "verified", "department": "컴공"}])
+            return httpx.Response(200, json=[{"student_verification": "verified", "department": "컴공", "school_email_verified_at": "2026-10-01T00:00:00+00:00"}])
         return handler(request)
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(wrapped))

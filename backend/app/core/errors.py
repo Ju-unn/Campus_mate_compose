@@ -10,12 +10,44 @@ LOGIN_REQUIRED = "로그인이 필요해요"
 SESSION_EXPIRED = "세션이 만료됐어요, 다시 로그인해 주세요"
 # Supabase 인증이 잠깐 못 받을 때(5xx · 429 · 연결 실패). 401 이 아니다 — 앱이 로그아웃시키지 않게.
 AUTH_UNAVAILABLE = "잠시 뒤 다시 시도해 주세요"
+# 소셜 로그인 전환: 학교 메일 확인(POST /school-email/verify) 전. 임시 문구 — 최종은 디자인에서 정한다.
+SCHOOL_EMAIL_REQUIRED = "학교 메일 인증을 먼저 끝내 주세요"
 STUDENT_VERIFICATION_REQUIRED = "학생증 인증을 먼저 끝내 주세요"
 DEPARTMENT_REQUIRED = "학과 정보를 먼저 입력해 주세요"
 
 # 가입 동의(consents, 화면 02-c)
 CONSENT_REQUIRED = "약관 동의를 먼저 해 주세요"
 CONSENT_INCOMPLETE = "필수 항목에 모두 동의해 주세요"
+
+# 학교 메일 확인(school_email, 소셜 로그인 전환). 최종 문구는 디자인에서 정한다 — 지금은 임시 문구.
+SCHOOL_EMAIL_UNKNOWN_DOMAIN = "등록되지 않은 학교 메일이에요"
+SCHOOL_EMAIL_BLOCKED = "재가입이 제한된 메일이에요"
+# {provider} 에는 SCHOOL_EMAIL_PROVIDER_LABELS 의 이름이 들어간다. 앱은 문구가 아니라 응답의 provider 로 가른다.
+SCHOOL_EMAIL_TAKEN = "이 메일은 {provider}로 가입돼 있어요"
+SCHOOL_EMAIL_PROVIDER_LABELS = {"kakao": "카카오", "google": "구글", "apple": "애플"}
+# provider=email(소셜 로그인 전에 이 학교 메일로 가입한 옛 계정)일 때의 409 문구.
+SCHOOL_EMAIL_TAKEN_BY_EMAIL_ACCOUNT = "이 학교 메일로 이미 가입된 계정이 있어요. 문의해 주세요"
+# POST /school-email/verify: 임시 이메일 계정 토큰이 거절됐거나 확인된 이메일 계정 하나가 아니다.
+SCHOOL_EMAIL_NOT_CONFIRMED = "학교 메일 인증이 끝나지 않았어요"
+SCHOOL_EMAIL_ALREADY_VERIFIED = "이미 학교 메일 인증이 끝났어요"
+# 소셜(카카오 · 구글 · 애플) 계정만 부른다 — 임시 이메일 계정 자신은 못 쓴다.
+SCHOOL_EMAIL_SOCIAL_ONLY = "소셜 로그인 계정만 학교 메일을 인증할 수 있어요"
+
+# 가입 직전 훅(auth_hooks). 앱이 GoTrue 오류 문구로 그대로 받는다.
+# 등록 안 된 도메인 · 재가입 제한은 서버 전체가 SCHOOL_EMAIL_UNKNOWN_DOMAIN · SCHOOL_EMAIL_BLOCKED 한 문구씩 쓴다
+# (사용자 결정, 지시문 12-5 · 14-2). 앱이 문구를 글자 그대로 비교하는 길이 있어 하나여야 한다.
+HOOK_UNKNOWN_PROVIDER = "가입할 수 없는 계정이에요"
+
+# 기계가 읽는 오류 code(POST /school-email/verify). 앱은 문구가 아니라 이 값으로 가른다 — 문구는 바뀔 수 있다.
+# 응답 모양: {"detail": <문구>, "code": <아래 값>} (409 는 "provider" 가 더 붙는다).
+CODE_SCHOOL_EMAIL_NOT_CONFIRMED = "SCHOOL_EMAIL_NOT_CONFIRMED"
+CODE_SCHOOL_EMAIL_ALREADY_VERIFIED = "SCHOOL_EMAIL_ALREADY_VERIFIED"
+CODE_SCHOOL_EMAIL_SOCIAL_ONLY = "SCHOOL_EMAIL_SOCIAL_ONLY"
+CODE_SCHOOL_EMAIL_DOMAIN_NOT_ALLOWED = "SCHOOL_EMAIL_DOMAIN_NOT_ALLOWED"
+CODE_SCHOOL_EMAIL_REJOIN_BLOCKED = "SCHOOL_EMAIL_REJOIN_BLOCKED"
+CODE_SCHOOL_EMAIL_TAKEN = "SCHOOL_EMAIL_TAKEN"
+CODE_PROFILE_NOT_FOUND = "PROFILE_NOT_FOUND"
+CODE_AUTH_UNAVAILABLE = "AUTH_UNAVAILABLE"
 
 # 기계가 보는 응답(훅·배치). 사람에게 보이지 않아 한국어가 아니다.
 INVALID_SIGNATURE = "invalid signature"

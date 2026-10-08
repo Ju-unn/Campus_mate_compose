@@ -6,7 +6,10 @@ from pydantic import BaseModel
 class _HookUser(BaseModel):
     # 이 이메일은 Supabase 가 가입 절차에서 이미 형식을 검증한 뒤 훅으로 보낸다
     # (EmailStr 은 email-validator 라는 새 의존성이 필요해 안 쓴다 — YAGNI).
-    email: str
+    # 소셜(카카오)은 이메일 없이 가입할 수 있어 비어 올 수 있다.
+    email: str = ""
+    # 가입 수단은 GoTrue 사용자 객체의 app_metadata.provider 에 온다(email · kakao · google · apple ...).
+    app_metadata: dict | None = None
 
 
 class BeforeUserCreatedPayload(BaseModel):
@@ -14,6 +17,12 @@ class BeforeUserCreatedPayload(BaseModel):
     # 최상위 `user_id` 를 필수로 두는 바람에 훅이 500 으로 죽었다 (2026-09-22 실기기 테스트).
     # 쓰는 곳이 없는 필드라 되살리지 않고 지운다. `metadata` 는 pydantic 이 알아서 흘린다.
     user: _HookUser
+
+    @property
+    def provider(self) -> str | None:
+        """못 읽으면 None — 훅은 None 을 거절한다(실패하면 열지 않는다)."""
+        provider = (self.user.app_metadata or {}).get("provider")
+        return provider if isinstance(provider, str) and provider else None
 
     @property
     def email(self) -> str:

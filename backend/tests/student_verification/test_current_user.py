@@ -5,9 +5,10 @@ import httpx
 import pytest
 from fastapi import HTTPException
 
+from app.account.social_unlink import unlink_kakao
 from app.core import errors
 from app.settings import Settings
-from app.student_verification.current_user import get_current_user_id, get_verified_user_id
+from app.student_verification.current_user import fetch_auth_user, get_current_user_id, get_verified_user_id
 
 USER_ID = "11111111-1111-1111-1111-111111111111"
 
@@ -159,8 +160,128 @@ async def test_suspension_is_checked_before_the_student_id_gate():
     assert exc_info.value.detail == "이용이 제한된 계정이에요"
 
 
+# 소셜 로그인 전환: 학교 메일 확인을 마친 사람(전은 아래 학교 메일 관문 시험이 본다).
+VERIFIED_AT = "2026-10-01T00:00:00+00:00"
+
+
 async def test_an_active_or_unknown_status_passes_the_gate():
-    for row in ({"student_verification": "verified", "department": "컴공", "status": "active"},
-                {"student_verification": "verified", "department": "컴공"}):
+    for row in ({"student_verification": "verified", "department": "컴공", "status": "active",
+                 "school_email_verified_at": VERIFIED_AT},
+                {"student_verification": "verified", "department": "컴공", "school_email_verified_at": VERIFIED_AT}):
         assert await get_verified_user_id(_settings(), _gate_client(row),
                                           authorization="Bearer valid-token") == UUID(USER_ID)
+
+
+# 학교 메일 관문(소셜 로그인 전환) — 순서: 정지 → 동의 → 학교 메일 → 학생증 → 학과와 학번 ------------------
+
+async def test_before_the_school_email_is_403_without_a_status_header():
+    client = _gate_client({"student_verification": "verified", "department": "컴공", "status": "active",
+                           "school_email_verified_at": None})
+
+    with pytest.raises(HTTPException) as exc_info:
+        await get_verified_user_id(_settings(), client, authorization="Bearer valid-token")
+
+    assert exc_info.value.status_code == 403
+    assert exc_info.value.detail == errors.SCHOOL_EMAIL_REQUIRED
+    assert not exc_info.value.headers
+
+
+async def test_a_missing_school_email_column_is_treated_as_not_verified():
+    """칸이 안 오면 확인 전으로 본다 — 열린 문이 되지 않게(정지 칸이 없을 때와 반대 규칙)."""
+    client = _gate_client({"student_verification": "verified", "department": "컴공", "status": "active"})
+
+    with pytest.raises(HTTPException) as exc_info:
+        await get_verified_user_id(_settings(), client, authorization="Bearer valid-token")
+
+    assert exc_info.value.detail == errors.SCHOOL_EMAIL_REQUIRED
+
+
+async def test_suspension_is_checked_before_the_school_email():
+    client = _gate_client({"student_verification": "verified", "department": "컴공", "status": "suspended",
+                           "school_email_verified_at": None})
+
+    with pytest.raises(HTTPException) as exc_info:
+        await get_verified_user_id(_settings(), client, authorization="Bearer valid-token")
+
+    assert exc_info.value.detail == errors.ACCOUNT_SUSPENDED
+
+
+async def test_the_school_email_is_checked_before_the_student_id_and_the_department():
+    client = _gate_client({"student_verification": "pending", "department": None, "status": "active",
+                           "school_email_verified_at": None})
+
+    with pytest.raises(HTTPException) as exc_info:
+        await get_verified_user_id(_settings(), client, authorization="Bearer valid-token")
+
+    assert exc_info.value.detail == errors.SCHOOL_EMAIL_REQUIRED
+
+
+async def test_after_the_school_email_the_student_id_gate_answers():
+    client = _gate_client({"student_verification": "pending", "department": None, "status": "active",
+                           "school_email_verified_at": VERIFIED_AT})
+
+    with pytest.raises(HTTPException) as exc_info:
+        await get_verified_user_id(_settings(), client, authorization="Bearer valid-token")
+
+    assert exc_info.value.detail == errors.STUDENT_VERIFICATION_REQUIRED
+
+
+# fetch_auth_user(카카오 연결 끊기 · 학교 메일 verify 가 씀) — 인증 서비스 장애는 500 이 아니라 503 ---------------
+
+@pytest.mark.parametrize("status", [429, 500, 502, 503, 504])
+async def test_fetch_auth_user_turns_auth_trouble_into_503(status):
+    client = httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(status)))
+
+    with pytest.raises(HTTPException) as exc_info:
+        await fetch_auth_user(_settings(), client, "Bearer valid-token")
+
+    assert exc_info.value.status_code == 503
+    assert exc_info.value.detail == errors.AUTH_UNAVAILABLE
+
+
+async def test_fetch_auth_user_turns_an_unreachable_auth_into_503():
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("연결 실패")
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+    with pytest.raises(HTTPException) as exc_info:
+        await fetch_auth_user(_settings(), client, "Bearer valid-token")
+
+    assert exc_info.value.status_code == 503
+    assert exc_info.value.detail == errors.AUTH_UNAVAILABLE
+
+
+@pytest.mark.parametrize("status", [400, 401, 403, 404])
+async def test_fetch_auth_user_leaves_other_4xx_as_a_status_error(status):
+    """그 밖의 4xx 는 지금처럼 httpx 의 상태 오류다 — 부르는 쪽이 뜻을 정한다(verify 는 403, 탈퇴는 경고)."""
+    client = httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(status)))
+
+    with pytest.raises(httpx.HTTPStatusError):
+        await fetch_auth_user(_settings(), client, "Bearer refused-token")
+
+
+async def test_fetch_auth_user_returns_the_user_and_sends_the_given_token():
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json={"id": USER_ID, "identities": []})
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+    assert await fetch_auth_user(_settings(), client, "Bearer some-token") == {"id": USER_ID, "identities": []}
+    assert str(seen[0].url) == "https://x.supabase.co/auth/v1/user"
+    assert seen[0].headers["authorization"] == "Bearer some-token"
+    assert seen[0].headers["apikey"] == "service-key"
+
+
+async def test_the_kakao_unlink_step_gets_a_503_not_a_bare_http_error():
+    """탈퇴의 카카오 단계가 인증 장애를 만나면 503 으로 올린다 — 탈퇴는 best-effort 단계라 그대로 끝난다."""
+    client = httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(503)))
+    settings = _settings().model_copy(update={"kakao_admin_key": "kakao-admin-test"})
+
+    with pytest.raises(HTTPException) as exc_info:
+        await unlink_kakao(settings, client, "Bearer valid-token")
+
+    assert exc_info.value.status_code == 503

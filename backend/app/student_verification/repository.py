@@ -12,8 +12,10 @@ class StudentVerificationRepository(PostgrestRepository):
             "profiles",
             # 학과는 온보딩이 이미 채우는 profiles.major 를 그대로 쓴다. API·클라이언트가 아는 이름은
             # department 라서 PostgREST 별칭으로 돌려준다(alias:column). status 는 조각 6 정지 관문이 본다.
+            # school_email_verified_at 은 학교 메일 관문(소셜 로그인 전환)이 본다 — NULL 이면 확인 전.
             params={"id": f"eq.{profile_id}",
-                    "select": "student_verification,department:major,universities(name),status"},
+                    "select": "student_verification,department:major,universities(name),status,"
+                              "school_email_verified_at"},
         )
         raise_for_status(response)
         rows = response.json()

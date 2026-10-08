@@ -65,7 +65,7 @@ def _wire(
             return httpx.Response(200, json={"id": str(PROFILE_ID)})
         # 학생 인증 관문(get_verified_user_id)이 보는 조회. 기본은 인증도 학과 입력도 끝낸 사용자다.
         if "student_verification" in url and request.method == "GET":
-            return httpx.Response(200, json=[{"student_verification": verification, "department": department}])
+            return httpx.Response(200, json=[{"student_verification": verification, "department": department, "school_email_verified_at": "2026-10-01T00:00:00+00:00"}])
         return handler(request)
 
     app.dependency_overrides[get_client] = lambda: httpx.AsyncClient(transport=httpx.MockTransport(wrapped))
