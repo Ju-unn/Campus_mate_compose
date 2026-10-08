@@ -142,6 +142,19 @@ void main() {
       expect(drafts.dump, isNot(contains('초안을 만들지 못했어요')));
     });
 
+    test('AI 초안이 도착한 순간의 글도 저장된다 — 고치기 전에 꺼져도 같은 글로 06-3 에 바로 들어간다', () async {
+      // 06-3 입력칸의 글이 바뀔 때마다 남긴다. 초안 도착(빈 글 → 초안)도 그 변화 중 하나다.
+      await open().read(bioViewModelProvider.notifier).loadDraft();
+      final draftsBefore = repository.draftCount;
+
+      final reopened = open();
+      await reopened.read(bioViewModelProvider.notifier).loadDraft();
+
+      expect(drafts.dump, contains('안녕하세요! 활발한 성격이에요.'));
+      expect(reopened.read(bioViewModelProvider).bio, '안녕하세요! 활발한 성격이에요.');
+      expect(repository.draftCount, draftsBefore, reason: '초안을 다시 만들지 않는다');
+    });
+
     test('빈 글은 복원하지 않는다 — 다시 열면 초안부터 받는다', () {
       open().read(bioViewModelProvider.notifier).changeBio('   ');
 
