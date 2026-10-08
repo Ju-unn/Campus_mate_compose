@@ -95,8 +95,74 @@ def test_running_again_finds_nothing_left(client, world):
     assert _run(client) == {
         "deleted_accounts": 0, "skipped_accounts": 0, "deleted_reports": 0,
         "deleted_signup_blocks": 0, "stale_key_rows": 0,
-        "deleted_heart_proofs": 0,
+        "deleted_heart_proofs": 0, "deleted_unverified": 0,
     }
+
+
+# 학교 메일 확인 전 계정 14일 뒤 삭제(소셜 로그인 전환) -------------------------------------------
+
+UNVERIFIED_OLD = "55555555-5555-5555-5555-555555555555"     # 15일 전 가입, 학교 메일 전
+UNVERIFIED_NEW = "66666666-6666-6666-6666-666666666666"     # 13일 전 가입, 학교 메일 전
+
+
+def test_an_account_still_unverified_after_14_days_goes_but_13_days_stays(client, world):
+    world.unverified(UNVERIFIED_OLD, days_ago=15)
+    world.unverified(UNVERIFIED_NEW, days_ago=13)
+
+    result = _run(client)
+
+    assert result["deleted_unverified"] == 1
+    assert world.unverified_lookups == [{"p_older_than_days": 14}]
+    # 탈퇴 30일 정리와 같은 길 — 버킷 넷의 파일을 먼저 지우고 auth 사용자째 지운다(profiles 는 cascade).
+    assert len(world.calls("DELETE", f"/auth/v1/admin/users/{UNVERIFIED_OLD}")) == 1
+    assert world.calls("DELETE", f"/auth/v1/admin/users/{UNVERIFIED_NEW}") == []
+    for bucket in BUCKETS:
+        assert world.files[bucket][UNVERIFIED_OLD] == []
+        assert world.files[bucket][UNVERIFIED_NEW] == ["u.jpg"]
+
+
+def test_a_verified_or_withdrawn_account_is_not_counted_as_unverified(client, world):
+    world.withdrawn(OLD, days_ago=31)
+
+    result = _run(client)
+
+    assert result["deleted_accounts"] == 1
+    assert result["deleted_unverified"] == 0
+    assert world.calls("DELETE", "/auth/v1/admin/users/11111111-1111-1111-1111-111111111111") == []
+
+
+def test_one_unverified_failure_does_not_stop_the_next(client, world):
+    world.unverified(UNVERIFIED_OLD, days_ago=20)
+    world.unverified(UNVERIFIED_NEW, days_ago=16)
+    world.fail = {f"DELETE /auth/v1/admin/users/{UNVERIFIED_OLD}"}
+
+    result = _run(client)
+
+    assert result["deleted_unverified"] == 1
+    assert result["skipped_accounts"] == 1
+    assert len(world.calls("DELETE", f"/auth/v1/admin/users/{UNVERIFIED_NEW}")) == 1
+    assert UNVERIFIED_OLD in world.emails
+
+
+def test_a_file_failure_keeps_the_unverified_auth_user_for_tomorrow(client, world):
+    world.unverified(UNVERIFIED_OLD, days_ago=15)
+    world.fail = {"DELETE /storage/v1/object/avatars"}
+
+    result = _run(client)
+
+    assert result["deleted_unverified"] == 0
+    assert world.calls("DELETE", f"/auth/v1/admin/users/{UNVERIFIED_OLD}") == []
+
+
+def test_running_the_unverified_step_twice_is_safe(client, world):
+    world.unverified(UNVERIFIED_OLD, days_ago=15)
+    assert _run(client)["deleted_unverified"] == 1
+
+    again = _run(client)
+
+    assert again["deleted_unverified"] == 0
+    assert again["skipped_accounts"] == 0
+    assert len(world.calls("DELETE", f"/auth/v1/admin/users/{UNVERIFIED_OLD}")) == 1
 
 
 def test_rows_under_an_old_key_version_are_counted_and_warned(client, world, caplog):

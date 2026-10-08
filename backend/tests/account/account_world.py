@@ -55,6 +55,7 @@ class AccountWorld:
         self.contact_key_versions: list[int] = []
         self.fail: set[str] = set()            # "DELETE /storage/v1/object/avatars" 처럼 막을 요청
         self.withdraw_bodies: list[dict] = []
+        self.unverified_lookups: list[dict] = []
         # GET /auth/v1/user 의 identities(탈퇴 때 카카오 연결 끊기가 본다). 기본은 카카오 가입자.
         self.identities: list[dict] = [{"provider": "kakao", "identity_data": {"sub": "4242"}}]
         self.kakao_unlinks: list[httpx.Request] = []
@@ -68,6 +69,14 @@ class AccountWorld:
         self.emails[profile_id] = f"{profile_id[:4]}@snu.ac.kr"
         for bucket in BUCKETS:
             self.files[bucket][profile_id] = ["x.jpg"]
+
+    def unverified(self, profile_id: str, days_ago: int) -> None:
+        """days_ago 일 전에 소셜로 가입하고 학교 메일 확인을 안 한 사람(버킷마다 파일 하나씩)."""
+        self.profiles[profile_id] = {"status": "active", "withdrawn_at": None, "school_email_verified_at": None,
+                                     "signed_up_at": NOW - timedelta(days=days_ago)}
+        self.emails[profile_id] = ""
+        for bucket in BUCKETS:
+            self.files[bucket][profile_id] = ["u.jpg"]
 
     # ------------------------------------------------------------------
     def handle(self, request: httpx.Request) -> httpx.Response:
@@ -138,6 +147,15 @@ class AccountWorld:
                                               "department": row.get("department"), "status": row["status"],
                                               "school_email_verified_at": row.get("school_email_verified_at")}])
         return httpx.Response(200, json=[{"status": row["status"]}])
+
+    def _rpc_list_unverified_accounts(self, method, params, body):
+        """SQL 함수 흉내: school_email_verified_at 이 null 이고 가입 뒤 p_older_than_days 일이 지난 프로필 id."""
+        assert method == "POST"
+        self.unverified_lookups.append(body)
+        cutoff = NOW - timedelta(days=body["p_older_than_days"])
+        return httpx.Response(200, json=[{"id": pid} for pid, p in self.profiles.items()
+                                         if "signed_up_at" in p and p["school_email_verified_at"] is None
+                                         and p["signed_up_at"] < cutoff])
 
     def _heart_task_submissions(self, method, params, body):
         return httpx.Response(200, json=[])
