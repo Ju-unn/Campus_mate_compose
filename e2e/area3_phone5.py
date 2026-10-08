@@ -28,7 +28,8 @@
   E-CHAT-65  "B: HOME → 목록" — 알림은 로그인 판 + 프로세스 죽임으로 지켜보고, 목록은 배치 뒤 앱을 새로 켜서 본다(55 와 같은 control).
   E-CHAT-66  "둘 다 방 열기" — B 는 앱 방의 "신뢰 확인 완료" 카드, A 는 API 방 머리말의 gate.passed(그 값이 카드를 그린다). A 화면 자체는 못 본다.
   E-CHAT-67  "B ≤ 2.0초 표시" — 보낸 시각은 서버가 messages.created_at 에 찍은 값, 본 시각은 앱이 방 뷰모델에서 그 글을 처음 본 앱 시계(UTC)다. 폰 시계와 서버 시계의
-             차(시계 차)가 그대로 섞인다 — 음수가 나오면 메모에 남기고 0 으로 친다.
+             차(시계 차)가 그대로 섞인다 — 음수가 나오면 메모에 남기고 0 으로 친다. 말풍선이 안 떴으면(fail) 메모에 앱 진단 옆으로 서버 진단(DB 행 · B 토큰으로 읽기 ·
+             참가자 · 방 상태)과, 앱이 방을 다시 읽어 본 결과의 '추정:' 해석을 붙인다 — fail 이면 같은 번들에서 다시 안 돌리니 한 번에 원인을 가를 증거를 남기려는 것이고 판정은 그대로다.
   E-CHAT-69  cleanup 은 탈퇴 30일 지난 모든 계정(실사용자 포함)을 지우는 하루 한 번 job 이다 — 이번 실행이 만든 계정만 쓰지만 배치 자체는 전부에 돈다(예약 실행과 같은 일).
 """
 
@@ -40,7 +41,7 @@ from datetime import datetime, timedelta, timezone
 from e2e import area1, area2, area3, batch_gate, notify, notify_factory, tools
 from e2e.area1 import Check, _api, _app, _find_user, _patch, _rows
 from e2e.area2_phone3 import _wait_for, notice_memo
-from e2e.area3 import _count, _match, _messages, _send
+from e2e.area3 import _as_user, _count, _match, _messages, _send
 from e2e.area3_phone import MISSING, _me, _ok, _permitted, _person
 from e2e.area3_phone3 import APP_WAIT, NOTICE_WAIT, SEEN, TOKEN_WAIT, _screens
 from e2e.tools import Blocked
@@ -329,9 +330,80 @@ def _at(text):
 
 
 def _live_diagnosis(said):
-    """말풍선이 안 떴을 때 앱이 본 것 — 방 읽기 · 통과 도장 · 뷰모델 글 · 화면 글 · 오류(구독 전에 글이 들어갔는지, 구독은 됐는데 못 그렸는지 가른다)."""
-    return (f"앱 진단 loaded {said.get('loaded', MISSING)} · gate passed {said.get('passed', MISSING)} · 뷰모델 글 {said.get('vm_count', MISSING)}건 "
+    """말풍선이 안 떴을 때 앱이 본 것 — 방 읽기 · 통과 도장 · 뷰모델 글 · 화면 글 · 오류(구독 전에 글이 들어갔는지, 구독은 됐는데 못 그렸는지 가른다).
+    seen_at 이 없던 앱은 판정 뒤에 방을 다시 읽어 본다(area3_b5.dart _batchLiveBubble) — 그 전의 통로 상태와 다시 읽은 결과도 붙인다."""
+    text = (f"앱 진단 loaded {said.get('loaded', MISSING)} · gate passed {said.get('passed', MISSING)} · 뷰모델 글 {said.get('vm_count', MISSING)}건 "
             f"{said.get('vm_bodies', MISSING)} · 화면 말풍선 {said.get('screen_bodies', MISSING)} · 오류 {said.get('error', MISSING)!r}")
+    if 'channels_before' in said:
+        text += (f" · 재연결 전 isDisconnected {said.get('disconnected_before', MISSING)} · 소켓 {said.get('socket_before', MISSING)} · "
+                 f"실시간 토큰이 세션 토큰과 같음 {said.get('rt_token_is_session', MISSING)} · 채널 {said.get('channels_before')}")
+    again = said.get('after_reconnect')
+    if isinstance(again, dict):
+        text += (f" · 재연결 뒤 찾음 {again.get('found', MISSING)} · 재연결 뒤 뷰모델 글 {again.get('vm_count', MISSING)}건 {again.get('vm_bodies', MISSING)} · "
+                 f"다시 읽기 끝남 {again.get('finished', MISSING)} · 다시 읽기 오류 {again.get('error', MISSING)!r}")
+    return text
+
+
+def _read(read):
+    """진단 읽기 하나 → (값, 못 읽은 사유). 진단 때문에 fail 이 blocked 로 바뀌면 안 되니 여기서 다 잡는다. Blocked 의 글은 시험이 쓴 것(경로 · 상태)이라 그대로,
+    그 밖(끊김)은 예외 글에 주소가 들 수 있어 종류만 적는다. 읽는 것은 모두 행 목록이다 — 목록이 아닌 200 은 못 읽은 것으로 친다."""
+    try:
+        got = read()
+        if not isinstance(got, list):
+            raise Blocked('응답이 행 목록이 아님')
+        return got, None
+    except Blocked as e:
+        return None, str(e)
+    except Exception as e:  # noqa: BLE001 — 진단은 판정을 바꾸지 않는다
+        return None, type(e).__name__
+
+
+def _as_b(run, me, path):
+    """B 의 토큰으로(공개 키 + 사용자 토큰 — RLS 를 거친다) 읽은 행. 200 이 아니면 읽지 못한 것이다(상태가 사유)."""
+    status, rows = _as_user(run, me, 'GET', path)
+    if status != 200:
+        raise Blocked(f'상태 {status}')
+    return rows
+
+
+def _server_diagnosis(run, me, partner, match_id, body, said):
+    """말풍선이 **안 떴을 때만** 부른다(떴으면 DB 를 더 읽지 않는다). 앱 진단 문장 옆에 붙는 서버 쪽 사실 — 글 행이 DB 에 있는지(서비스 키) · B 의 권한(RLS)으로 읽히는지 ·
+    B 의 참가자 행 · 방 상태. 앱이 다시 읽기를 말했으면 그 해석을 '추정:' 으로 사실과 가려 덧붙인다."""
+    path = f'messages?match_id=eq.{match_id}&body=eq.{body}&select=id,sender_id,kind,created_at'
+    stored, why_stored = _read(lambda: _rows(run, path))
+    seen, why_seen = _read(lambda: _as_b(run, me, path))
+    parts, why_parts = _read(lambda: _rows(run, f'match_participants?match_id=eq.{match_id}&select=profile_id,left_at,last_read_at'))
+    room, why_room = _read(lambda: _rows(run, f'matches?id=eq.{match_id}&select=created_at,trust_passed_at,chat_closed_at'))
+    mine = next((p for p in parts or [] if p.get('profile_id') == me['id']), None)
+    facts = [
+        f"DB 행 {len(stored)}건(A 가 보낸 것 {sum(r.get('sender_id') == partner['id'] for r in stored)}건 · kind {sorted({r.get('kind') for r in stored})})"
+        if stored is not None else f'DB 행 읽지 못함({why_stored})',
+        f'B 토큰으로 읽기 200 · 보이는 행 {len(seen)}건' if seen is not None else f'B 토큰으로 읽기 읽지 못함({why_seen})',
+        (f"참가자 {len(parts)}행 · " + (f"B left_at {mine.get('left_at')} · B last_read_at {mine.get('last_read_at')}" if mine else 'B 행 없음'))
+        if parts is not None else f'참가자 읽지 못함({why_parts})',
+        (f"방 created_at {room[0].get('created_at')} · trust_passed_at {room[0].get('trust_passed_at')} · chat_closed_at {room[0].get('chat_closed_at')}"
+         if room else '방 행 없음') if room is not None else f'방 읽지 못함({why_room})',
+    ]
+    text = '서버 진단 ' + '; '.join(facts)
+    again = said.get('after_reconnect')
+    if isinstance(again, dict):
+        text += f' · 추정: {_reconnect_guess(again, stored, seen)}'
+    return text
+
+
+def _reconnect_guess(again, stored, seen):
+    """다시 읽기(reconnect) 결과의 해석 — 가설이다. 사실이 먼저 갈린다: DB 에 없음 → B 토큰이 못 봄 → 앱의 다시 읽기가 못 끝남 → 보임 → 못 찾음.
+    [stored] · [seen] 이 None 이면 그 읽기를 못 한 것이라 "정상" 이라 말하지 않는다."""
+    if stored == []:
+        return '서버가 201 을 줬는데 행이 없음'
+    if seen == []:
+        return 'B 토큰으로 안 읽힘 — RLS/참가자 쪽'
+    sound = bool(stored) and bool(seen)
+    if again.get('found') is True:
+        return '다시 읽으면 보임 — 실시간 채널만 글을 못 받음' + ('(서버 저장·RLS 는 정상)' if sound else '')
+    if again.get('finished') is False or again.get('error'):
+        return '앱의 다시 읽기가 제시간에 안 끝나거나 오류로 끝나 가르지 못함'
+    return 'DB·RLS 정상인데 앱이 다시 읽어도 못 가져옴' if sound else '다시 읽어도 안 보이지만 읽지 못한 진단이 있어 원인을 못 가름'
 
 
 def p_chat_67(run, phone):
@@ -353,7 +425,9 @@ def p_chat_67(run, phone):
     check.reply('A 보내기', sent[0] if sent else (0, '앱이 멈추기 전에 끝남'), 201)
     note = ''
     if said:
-        check.that(said.get('bubble') is True, f"B 말풍선 {said.get('bubble', MISSING)}(기대 True) · 앱이 글을 본 시각 seen_at {said.get('seen_at', MISSING)} · {_live_diagnosis(said)}")
+        shown = said.get('bubble') is True
+        why = '' if shown else f' · {_server_diagnosis(run, me, partner, match_id, body, said)}'  # 안 떴을 때만 DB 를 더 읽는다
+        check.that(shown, f"B 말풍선 {said.get('bubble', MISSING)}(기대 True) · 앱이 글을 본 시각 seen_at {said.get('seen_at', MISSING)} · {_live_diagnosis(said)}{why}")
         created = _at((_rows(run, f'messages?match_id=eq.{match_id}&body=eq.{body}&select=created_at') or [{}])[0].get('created_at'))
         seen = _at(said.get('seen_at'))
         if created and seen:
