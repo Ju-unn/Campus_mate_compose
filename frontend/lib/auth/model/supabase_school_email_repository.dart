@@ -125,6 +125,7 @@ class SupabaseSchoolEmailRepository implements SchoolEmailRepository {
     if (failure is ServerRejectedFailure) {
       return failure.hasAnyCode() ? _byCode(failure) : _byMessage(failure);
     }
+    // 알 수 없는 오류(UnknownFailure)는 일시 오류로 보고 임시 연결을 남긴다 — 같은 03 에서 complete 만 다시 부를 수 있게.
     final isTransient = failure is NetworkFailure || failure is ServerUnavailableFailure || failure is UnknownFailure;
     return isTransient ? const SchoolEmailIncompleteFailure() : failure;
   }
