@@ -76,7 +76,7 @@ class _FkClient extends http.BaseClient {
 /// SessionScope(lib/core/auth/session_scope.dart)와 같은 일을 하되 **맨 위 ProviderScope** 에 apiClientProvider 의 바꿔 끼움을 단다.
 /// 겹친 ProviderScope 에 단 바꿔 끼움은 그 아래 위젯이 직접 읽는 provider 에만 먹는다(예: homeNowProvider) — 저장소 provider(meRepositoryProvider 등)는
 /// 맨 위 컨테이너가 만들어 맨 위의 apiClientProvider 를 읽으므로 가짜가 한 번도 안 지났다(2026-10-07 기기 실행: 넷 다 blocked).
-/// SessionScope 는 overrides 를 못 받아 lib 를 안 고치려고 같은 모양을 시험 쪽에 둔다 — 로그아웃(signedOut)마다 컨테이너를 새로 만드는 것까지 같다.
+/// 이 하네스를 만들 때는 SessionScope 가 overrides 를 못 받아 같은 모양을 시험 쪽에 두었다(지금은 받는다 — PR #427) — 로그아웃(signedOut)마다 컨테이너를 새로 만드는 것까지 같다.
 class _FkScope extends StatefulWidget {
   const _FkScope({required this.fake, super.key});
 
