@@ -94,7 +94,7 @@
 ```
 lib/
 ├── auth/                  조각 1 — 학생인증
-│   ├── model/             UniversityEmail, VerificationCode, AuthRepository
+│   ├── model/             UniversityEmail, VerificationCode, SchoolEmailRepository, SocialLoginRepository
 │   ├── view/              SignUpScreen, VerifyCodeScreen
 │   └── viewmodel/         SignUpViewModel, SignUpUiState
 ├── profile/               조각 2
