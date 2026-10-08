@@ -8,6 +8,7 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/auth/account_status_listenable.dart';
 import 'package:campus_mate/core/auth/sign_out.dart';
+import 'package:campus_mate/core/draft/draft_store.dart';
 import 'package:campus_mate/core/http/api_client_provider.dart';
 import 'package:campus_mate/core/push/push_provider.dart';
 import 'package:campus_mate/home/model/home_repository_provider.dart';
@@ -24,6 +25,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'auth/model/fake_verification_gate_repository.dart';
 import 'chat/model/fake_chat_repository.dart';
+import 'core/draft/fake_draft_store.dart';
 import 'core/push/fake_push_messaging.dart';
 import 'home/model/fake_home_repository.dart';
 import 'matching/model/fake_card_repository.dart';
@@ -108,6 +110,41 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(AccountSuspendedScreen), findsOneWidget);
+    });
+
+    testWidgets('세션이 스스로 끝나면(signedOut 만 온다) 온보딩 임시 저장 값을 지운다', (tester) async {
+      // gotrue 가 토큰 갱신에 실패해 세션을 스스로 버리면 signOut() 을 지나지 않는다 — 그래도 폰에 값을 남기지 않는다.
+      final drafts = FakeDraftStore(accountId: 'u1')..saved['u1/basic_info'] = '{"nickname":"가나다"}';
+      final container = ProviderContainer(
+        overrides: [
+          verificationGateRepositoryProvider.overrideWithValue(FakeVerificationGateRepository()),
+          onboardingRepositoryProvider.overrideWithValue(FakeOnboardingRepository()),
+          pushMessagingProvider.overrideWithValue(FakePushMessaging(token: 't', granted: false)),
+          cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
+          chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
+          homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
+          signOutProvider.overrideWithValue(() async {}),
+          draftStoreProvider.overrideWithValue(drafts),
+        ],
+      );
+      addTearDown(container.dispose);
+      await tester.pumpWidget(UncontrolledProviderScope(container: container, child: const CampusMateApp()));
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
+      expect(drafts.clearAllCalls, 0, reason: '로그인한 채로 켜면 지우지 않는다');
+
+      // 앱의 로그아웃(signOutProvider)을 거치지 않고 세션만 사라진다.
+      await tester.runAsync(() async {
+        try {
+          await auth().signOut();
+        } on AuthException {
+          // 서버 알림은 테스트 바인딩의 가짜 HTTP 가 막는다 — 이 기기 세션은 이미 지워졌다.
+        }
+      });
+      await tester.pumpAndSettle();
+
+      expect(drafts.clearAllCalls, greaterThanOrEqualTo(1));
+      expect(drafts.saved, isEmpty);
     });
 
     test('앱 공용 ApiClient 가 탈퇴 헤더를 받으면 계정 상태가 탈퇴가 된다', () async {
