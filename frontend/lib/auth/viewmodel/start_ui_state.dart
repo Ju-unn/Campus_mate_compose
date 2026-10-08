@@ -19,14 +19,15 @@ class StartUiState {
   bool isEnabled(SocialProvider provider) => inProgress == null;
 }
 
-/// 시작 화면 토스트 한 장. 취소는 아이콘 없이, 실패 · 로그아웃 알림은 경고 아이콘과 함께(대장 지시문 07).
+/// 시작 화면 토스트 한 장(후속 지시문 13 B-3).
+/// 취소는 폭을 내용에 맞추고 `info` 아이콘(높이 40), 실패 · 로그아웃 알림은 버튼 폭에 `triangle-alert`(두 줄이면 높이 60).
 class StartToast {
-  const StartToast({required this.message, required this.hasWarningIcon});
+  const StartToast({required this.message, required this.isCancellation});
 
   factory StartToast.fromFailure(Failure failure) {
-    return StartToast(message: failure.toDisplayMessage(), hasWarningIcon: failure is! LoginCancelledFailure);
+    return StartToast(message: failure.toDisplayMessage(), isCancellation: failure is LoginCancelledFailure);
   }
 
   final String message;
-  final bool hasWarningIcon;
+  final bool isCancellation;
 }

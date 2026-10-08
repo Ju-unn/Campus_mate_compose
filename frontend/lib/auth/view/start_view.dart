@@ -151,7 +151,9 @@ class _Brand extends StatelessWidget {
   }
 }
 
-/// 기존 [AppToast](짙은 #222222 알약, 흰 글씨 14/600)를 버튼과 같은 폭으로 늘려 쓴다. 긴 글은 2줄까지 늘어난다.
+/// 기존 [AppToast](짙은 #222222 알약, 흰 글씨 14/600, 위아래 10)를 쓴다(후속 지시문 13 B-3).
+/// 취소는 폭을 내용에 맞춰 가운데 · `info` 아이콘(한 줄 높이 40), 실패 · 로그아웃 알림은 버튼 폭 · `triangle-alert`
+/// (긴 글은 두 줄, 높이 60).
 class _Toast extends StatelessWidget {
   const _Toast({required this.toast});
 
@@ -159,14 +161,12 @@ class _Toast extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      key: StartView.toastKey,
-      width: double.infinity,
-      child: AppToast(
-        label: toast.message,
-        leading: toast.hasWarningIcon ? const Icon(AppIcons.alertTriangle, size: 16, color: AppColors.onInk) : null,
-      ),
-    );
+    final icon = toast.isCancellation ? AppIcons.info : AppIcons.alertTriangle;
+    final pill = AppToast(label: toast.message, leading: Icon(icon, size: 16, color: AppColors.onInk));
+    if (toast.isCancellation) {
+      return Center(key: StartView.toastKey, widthFactor: 1, heightFactor: 1, child: pill);
+    }
+    return SizedBox(key: StartView.toastKey, width: double.infinity, child: pill);
   }
 }
 

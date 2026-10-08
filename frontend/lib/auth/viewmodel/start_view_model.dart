@@ -26,7 +26,7 @@ class StartViewModel extends Notifier<StartUiState> {
 
   /// 로그아웃하며 남긴 알림(탈퇴 · 로그인 만료 — `LoginNotice`)을 같은 토스트 자리에 띄운다.
   void showNotice(String message) {
-    state = StartUiState(inProgress: state.inProgress, toast: StartToast(message: message, hasWarningIcon: true));
+    state = StartUiState(inProgress: state.inProgress, toast: StartToast(message: message, isCancellation: false));
   }
 
   /// 몇 초 뒤 화면이 부른다.

@@ -178,6 +178,9 @@ void main() {
           findsOneWidget);
       expect(kakao.top - toast.bottom, 12);
       expect((toast.left, toast.width), (kakao.left, kakao.width));
+      // 두 줄이면 높이 60(후속 지시문 13 B-3).
+      expect(tester.getSize(find.text(message)).height, 40);
+      expect(toast.height, 60);
       expect(_inkOf(tester, SocialProvider.kakao).onTap, isNotNull);
 
       await tester.pump(const Duration(seconds: 3));
@@ -185,7 +188,7 @@ void main() {
       expect(find.text(message), findsNothing);
     });
 
-    testWidgets('취소면 아이콘 없는 취소 토스트', (tester) async {
+    testWidgets('취소면 info 아이콘 취소 토스트(내용 폭 · 높이 40)', (tester) async {
       final (_, repository) = await _pump(tester);
 
       await tester.tap(_button(SocialProvider.kakao));
@@ -193,8 +196,17 @@ void main() {
       await tester.pump();
       await tester.pump();
 
+      // 후속 지시문 13 B-3: 취소 토스트는 폭을 내용에 맞추고 info 아이콘, 높이 40, 버튼 영역 바로 위 가운데.
       expect(find.text('로그인이 취소됐어요'), findsOneWidget);
-      expect(find.descendant(of: find.byKey(StartView.toastKey), matching: find.byType(Icon)), findsNothing);
+      expect(find.descendant(of: find.byKey(StartView.toastKey), matching: find.byIcon(AppIcons.info)), findsOneWidget);
+      expect(find.descendant(of: find.byKey(StartView.toastKey), matching: find.byIcon(AppIcons.alertTriangle)),
+          findsNothing);
+      final toast = tester.getRect(find.byKey(StartView.toastKey));
+      final kakao = tester.getRect(_button(SocialProvider.kakao));
+      expect(toast.width, lessThan(kakao.width));
+      expect(toast.center.dx, moreOrLessEquals(kakao.center.dx, epsilon: 0.5));
+      expect(toast.height, 40);
+      expect(kakao.top - toast.bottom, 12);
       await tester.pump(const Duration(seconds: 3));
     });
 

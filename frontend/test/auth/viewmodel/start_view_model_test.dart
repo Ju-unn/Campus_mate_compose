@@ -57,23 +57,23 @@ void main() {
     expect(state().toast, isNull);
   });
 
-  test('취소면 아이콘 없는 취소 토스트', () async {
+  test('취소면 취소 모양 토스트', () async {
     final signIn = viewModel().signIn(SocialProvider.kakao);
     repository.completer.complete(const FailureResult(LoginCancelledFailure()));
     await signIn;
 
     expect(state().inProgress, isNull);
     expect(state().toast?.message, '로그인이 취소됐어요');
-    expect(state().toast?.hasWarningIcon, isFalse);
+    expect(state().toast?.isCancellation, isTrue);
   });
 
-  test('실패면 경고 아이콘이 있는 실패 토스트', () async {
+  test('실패면 실패 모양(경고 아이콘) 토스트', () async {
     final signIn = viewModel().signIn(SocialProvider.kakao);
     repository.completer.complete(const FailureResult(SocialLoginFailure()));
     await signIn;
 
     expect(state().toast?.message, '로그인하지 못했어요. 잠시 뒤 다시 시도해 주세요');
-    expect(state().toast?.hasWarningIcon, isTrue);
+    expect(state().toast?.isCancellation, isFalse);
   });
 
   test('토스트를 닫으면 사라지고, 다시 누를 수 있다', () async {
@@ -102,6 +102,6 @@ void main() {
     viewModel().showNotice('탈퇴한 계정이에요');
 
     expect(state().toast?.message, '탈퇴한 계정이에요');
-    expect(state().toast?.hasWarningIcon, isTrue);
+    expect(state().toast?.isCancellation, isFalse);
   });
 }
