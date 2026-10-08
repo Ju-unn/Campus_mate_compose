@@ -30,6 +30,12 @@ class IdealNoteUiState {
   /// 쓰는 도중 10자에 못 미칠 때의 회색 안내 — 화면에 들어오자마자(0자) 보여주지 않는다.
   String? get lengthMessage => _trimmedLength == 0 || isLongEnough ? null : lengthHint;
 
+  /// 폰에 임시 저장할 값 — 쓰던 글뿐이다.
+  Map<String, Object?> toDraft() => {'note': note};
+
+  /// [toDraft] 로 남긴 값으로 처음 상태를 만든다. 모양이 안 맞으면 던진다 — 저장소가 받아서 버린다.
+  static IdealNoteUiState fromDraft(Map<String, Object?> data) => IdealNoteUiState(note: data['note'] as String);
+
   IdealNoteUiState copyWith({
     String? note,
     bool? isSubmitting,

@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/core/draft/draft_screen.dart';
+import 'package:campus_mate/core/draft/draft_store.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/profile/model/profile_enums.dart';
 import 'package:campus_mate/profile/model/survey_repository_provider.dart';
@@ -16,9 +18,26 @@ class SurveyViewModel extends Notifier<SurveyUiState> {
   /// (2026-09-26 사용자 결정). 아무 쪽도 아닌 사람은 건드리지 않고 그냥 넘어가면 0 이 저장된다.
   /// 종교·흡연은 대상이 아니다 — 그 둘은 고르기 전까지 "다음" 이 꺼져 있다.
   @override
-  SurveyUiState build() => SurveyUiState(
-        answers: {for (var axis = 1; axis <= SurveyUiState.axisCount; axis++) axis: 0},
-      );
+  SurveyUiState build() {
+    final drafts = ref.read(draftStoreProvider);
+    listenSelf((previous, next) => _saveDraft(drafts, previous, next));
+    return _initialState(drafts);
+  }
+
+  /// 처음 상태를 정하는 단 한 곳이다. 지금은 폰에 남긴 값 또는 빈 값(9축 가운데) — 나중에 서버 값을 끼울 자리다.
+  SurveyUiState _initialState(DraftStore drafts) {
+    final restored = drafts.read(DraftScreen.survey, SurveyUiState.fromDraft);
+    return restored ?? SurveyUiState(answers: {for (var axis = 1; axis <= SurveyUiState.axisCount; axis++) axis: 0});
+  }
+
+  /// 값이 바뀔 때마다 남긴다(저장소가 디바운스한다). 처음 상태(복원한 값 그대로)는 다시 쓰지 않고,
+  /// 끝낸 단계는 서버에 있으니 남기지 않는다.
+  void _saveDraft(DraftStore drafts, SurveyUiState? previous, SurveyUiState next) {
+    if (previous == null || next.completed) {
+      return;
+    }
+    drafts.write(DraftScreen.survey, next.toDraft());
+  }
 
   /// 5단계(-1/-0.5/0/0.5/1) 슬라이더 값. 축은 1~9.
   void answer(int axis, double value) {
@@ -48,7 +67,16 @@ class SurveyViewModel extends Notifier<SurveyUiState> {
       isSubmitting: true,
     );
     state = await _submittedState();
+    _discardDraftIfCompleted();
     _refreshOnboardingStepIfCompleted();
+  }
+
+  /// 단계를 끝냈으면 이 화면의 임시 저장 값을 지운다 — 다음에 다시 열 일이 없다.
+  void _discardDraftIfCompleted() {
+    if (!state.completed) {
+      return;
+    }
+    unawaited(ref.read(draftStoreProvider).clear(DraftScreen.survey));
   }
 
   Future<SurveyUiState> _submittedState() async {

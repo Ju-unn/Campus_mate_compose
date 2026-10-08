@@ -41,6 +41,9 @@ class PhotosUiState {
     this.completed = false,
   });
 
+  /// 한 번에 올릴 수 있는 최대 장수.
+  static const int maxPhotos = 4;
+
   final List<SelectedPhoto> photos;
 
   /// 고른 사진에 얼굴이 있는지 살펴보는 중. 빈 칸 하나가 기다리는 표시로 바뀐다.
@@ -73,4 +76,30 @@ class PhotosUiState {
 
   /// 04-3 에서 올릴 수 있는지.
   bool get canSubmit => !isSubmitting && canProceed && photos.where((p) => p.isAvatarSource).length == 1;
+
+  /// 이번에 고른 사진(파일이 있는 칸)만 — 이미 올려 둔 사진은 15-7 편집에만 있고 임시 저장 대상이 아니다.
+  Iterable<SelectedPhoto> get _pickedPhotos => photos.where((photo) => photo.file != null);
+
+  /// 폰에 임시 저장할 값 — 고른 사진의 **파일 경로**와 아바타 원본 표시. 사진 자체는 임시 폴더에 그대로 있다.
+  Map<String, Object?> toDraft() => {
+        'photos': [
+          for (final photo in _pickedPhotos) {'path': photo.file!.path, 'isAvatarSource': photo.isAvatarSource},
+        ],
+      };
+
+  /// [toDraft] 와 함께 지울 파일 — "다음" 성공 · 로그아웃 · 탈퇴 때 저장 정보와 같이 지운다.
+  List<String> get draftFiles => [for (final photo in _pickedPhotos) photo.file!.path];
+
+  /// [toDraft] 로 남긴 경로 중 **파일이 남아 있는 것만** 칸에 넣는다(시스템이 임시 폴더를 비웠을 수 있다).
+  /// 이미 얼굴 확인 · 압축이 끝난 파일이라 다시 처리하지 않는다. 아바타 원본은 많아야 한 장만 살린다 —
+  /// 그 사진이 사라졌으면 비워 두고, 04-2 → 04-3 으로 넘어갈 때 첫 장이 골라진다. 모양이 안 맞으면 던진다.
+  static PhotosUiState fromDraft(Map<String, Object?> data) {
+    final saved = [
+      for (final item in (data['photos'] as List).cast<Map<String, Object?>>())
+        SelectedPhoto(File(item['path'] as String), isAvatarSource: item['isAvatarSource'] as bool),
+    ];
+    final kept = saved.where((photo) => photo.file!.existsSync()).take(maxPhotos).toList();
+    final avatar = kept.indexWhere((photo) => photo.isAvatarSource);
+    return PhotosUiState(photos: [for (var i = 0; i < kept.length; i++) kept[i].copyWith(isAvatarSource: i == avatar)]);
+  }
 }

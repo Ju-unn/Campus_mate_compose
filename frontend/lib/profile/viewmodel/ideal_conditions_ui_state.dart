@@ -60,6 +60,57 @@ class IdealConditionsUiState {
         preferredImpressionTypes.length <= maxAppearanceChoices;
   }
 
+  /// 폰에 임시 저장할 값 — 고른 조건 전부. "상관없어요" 도 표시 그대로 남긴다.
+  Map<String, Object?> toDraft() => {
+        'preferredAgeMin': preferredAgeMin,
+        'preferredAgeMax': preferredAgeMax,
+        'ageIgnored': ageIgnored,
+        'preferredHeightMin': preferredHeightMin,
+        'preferredHeightMax': preferredHeightMax,
+        'heightIgnored': heightIgnored,
+        'preferredMbtiFlags': preferredMbtiFlags,
+        'preferredAnimalTypes': [for (final type in preferredAnimalTypes) type.name],
+        'preferredImpressionTypes': [for (final type in preferredImpressionTypes) type.name],
+      };
+
+  /// [toDraft] 로 남긴 값으로 처음 상태를 만든다. 프리셋 범위 · 개수를 벗어나거나 이름을 모르면 던진다 —
+  /// 저장소가 받아서 버린다(앱 업데이트로 범위가 바뀌어도 슬라이더가 깨지지 않게).
+  static IdealConditionsUiState fromDraft(Map<String, Object?> data) {
+    final restored = IdealConditionsUiState(
+      preferredAgeMin: data['preferredAgeMin'] as int,
+      preferredAgeMax: data['preferredAgeMax'] as int,
+      ageIgnored: data['ageIgnored'] as bool,
+      preferredHeightMin: data['preferredHeightMin'] as int,
+      preferredHeightMax: data['preferredHeightMax'] as int,
+      heightIgnored: data['heightIgnored'] as bool,
+      // cast() 는 꺼낼 때에야 던진다 — 화면을 그리다 터지지 않게 여기서 하나씩 확인한다.
+      preferredMbtiFlags: {
+        for (final entry in (data['preferredMbtiFlags'] as Map<String, Object?>).entries) entry.key: entry.value as bool,
+      },
+      preferredAnimalTypes: [for (final name in data['preferredAnimalTypes'] as List) AnimalType.values.byName(name as String)],
+      preferredImpressionTypes: [
+        for (final name in data['preferredImpressionTypes'] as List) ImpressionType.values.byName(name as String),
+      ],
+    );
+    if (!restored._isWithinPresets) {
+      throw const FormatException('이상형 조건이 프리셋 범위를 벗어남');
+    }
+    return restored;
+  }
+
+  /// 슬라이더 프리셋 · 고를 수 있는 개수 · MBTI 극 안에 있는가.
+  bool get _isWithinPresets {
+    return ageFloor <= preferredAgeMin &&
+        preferredAgeMin <= preferredAgeMax &&
+        preferredAgeMax <= ageCeiling &&
+        heightFloor <= preferredHeightMin &&
+        preferredHeightMin <= preferredHeightMax &&
+        preferredHeightMax <= heightCeiling &&
+        preferredMbtiFlags.keys.every(mbtiPoles.contains) &&
+        preferredAnimalTypes.length <= maxAppearanceChoices &&
+        preferredImpressionTypes.length <= maxAppearanceChoices;
+  }
+
   IdealConditionsUiState copyWith({
     int? preferredAgeMin,
     int? preferredAgeMax,

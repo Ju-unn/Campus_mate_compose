@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/core/draft/draft_screen.dart';
+import 'package:campus_mate/core/draft/draft_store.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/profile/model/basic_info_repository.dart';
 import 'package:campus_mate/profile/model/basic_info_repository_provider.dart';
@@ -26,12 +28,36 @@ class BasicInfoViewModel extends Notifier<BasicInfoUiState> {
   @override
   BasicInfoUiState build() {
     ref.onDispose(() => _debounce?.cancel());
-    return BasicInfoUiState(thisYear: ref.read(basicInfoNowProvider)().year);
+    final drafts = ref.read(draftStoreProvider);
+    listenSelf((previous, next) => _saveDraft(drafts, previous, next));
+    final initial = _initialState(drafts, ref.read(basicInfoNowProvider)().year);
+    // 복원한 닉네임도 형식 · 중복 안내를 다시 받는다 — 판정 결과는 저장하지 않았다.
+    _scheduleNicknameCheck(initial.nicknameInput);
+    return initial;
+  }
+
+  /// 처음 상태를 정하는 단 한 곳이다. 지금은 폰에 남긴 값 또는 빈 값 — 나중에 서버 값을 끼울 자리다.
+  BasicInfoUiState _initialState(DraftStore drafts, int thisYear) {
+    final restored = drafts.read(DraftScreen.basicInfo, (data) => BasicInfoUiState.fromDraft(data, thisYear: thisYear));
+    return restored ?? BasicInfoUiState(thisYear: thisYear);
+  }
+
+  /// 값이 바뀔 때마다 남긴다(저장소가 디바운스한다). 처음 상태(복원한 값 그대로)는 다시 쓰지 않고,
+  /// 끝낸 단계는 서버에 있으니 남기지 않는다.
+  void _saveDraft(DraftStore drafts, BasicInfoUiState? previous, BasicInfoUiState next) {
+    if (previous == null || next.completed) {
+      return;
+    }
+    drafts.write(DraftScreen.basicInfo, next.toDraft());
   }
 
   void changeNickname(String value) {
     // 입력이 바뀌는 순간 지난 판정은 지운다 — 다 지운 값에 "사용할 수 있어요" 가 남아 있으면 안 된다.
     state = _copyWith(nicknameInput: value, nicknameCheck: NicknameCheck.none);
+    _scheduleNicknameCheck(value);
+  }
+
+  void _scheduleNicknameCheck(String value) {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 300), () => _checkNickname(value));
   }
@@ -85,7 +111,16 @@ class BasicInfoViewModel extends Notifier<BasicInfoUiState> {
     }
     state = _copyWith(isSubmitting: true, errorMessage: null);
     state = await _submittedState();
+    _discardDraftIfCompleted();
     _refreshOnboardingStepIfCompleted();
+  }
+
+  /// 단계를 끝냈으면 이 화면의 임시 저장 값을 지운다 — 다음에 다시 열 일이 없다.
+  void _discardDraftIfCompleted() {
+    if (!state.completed) {
+      return;
+    }
+    unawaited(ref.read(draftStoreProvider).clear(DraftScreen.basicInfo));
   }
 
   Future<BasicInfoUiState> _submittedState() async {
