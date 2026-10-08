@@ -1,19 +1,29 @@
-import 'package:campus_mate/auth/model/auth_repository_provider.dart';
+import 'package:campus_mate/auth/model/school_email_repository_provider.dart';
+import 'package:campus_mate/auth/model/verification_gate.dart';
+import 'package:campus_mate/auth/model/verification_gate_repository_provider.dart';
 import 'package:campus_mate/auth/model/university_email.dart';
 import 'package:campus_mate/auth/viewmodel/verify_code_view_model.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/core/router/verification_gate_listenable_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import '../model/fake_auth_repository.dart';
+import '../model/fake_school_email_repository.dart';
+import '../model/fake_verification_gate_repository.dart';
 
 void main() {
   final email = UniversityEmail.tryParse('hong@snu.ac.kr')!;
 
-  ProviderContainer buildContainer(FakeAuthRepository repository, {DateTime Function()? now}) {
+  late FakeVerificationGateRepository gateRepository;
+
+  setUp(() => gateRepository = FakeVerificationGateRepository()
+    ..nextResult = const Success(VerificationGate.needsStudentVerification));
+
+  ProviderContainer buildContainer(FakeSchoolEmailRepository repository, {DateTime Function()? now}) {
     final container = ProviderContainer(
       overrides: [
-        authRepositoryProvider.overrideWithValue(repository),
+        schoolEmailRepositoryProvider.overrideWithValue(repository),
+        verificationGateRepositoryProvider.overrideWithValue(gateRepository),
         if (now != null) verifyCodeNowProvider.overrideWithValue(now),
       ],
     );
@@ -22,7 +32,7 @@ void main() {
   }
 
   test('올바른 코드를 제출하면 verified 가 true', () async {
-    final container = buildContainer(FakeAuthRepository());
+    final container = buildContainer(FakeSchoolEmailRepository());
     final viewModel = container.read(verifyCodeViewModelProvider(email).notifier);
     viewModel.changeCode('123456');
 
@@ -31,8 +41,82 @@ void main() {
     expect(container.read(verifyCodeViewModelProvider(email)).verified, isTrue);
   });
 
+  test('확인에 성공하면 임시 토큰으로 complete 를 이어 부르고 게이트를 다시 읽는다', () async {
+    final repository = FakeSchoolEmailRepository()..nextVerifyCodeResult = const Success('temporary-token');
+    final container = buildContainer(repository);
+    final viewModel = container.read(verifyCodeViewModelProvider(email).notifier);
+    viewModel.changeCode('123456');
+
+    await viewModel.submit();
+
+    expect(repository.calls, ['verifyCode', 'complete']);
+    expect(repository.completedTokens, ['temporary-token']);
+    // 기존 refresh gate 경로 — 게이트가 다음 단계(학생증)로 보낸다.
+    expect(gateRepository.fetchCount, 1);
+    expect(container.read(verificationGateListenableProvider).value, VerificationGate.needsStudentVerification);
+  });
+
+  test('코드가 틀리면 complete 를 부르지 않고 여섯 칸을 거부 상태로 둔다', () async {
+    final repository = FakeSchoolEmailRepository()..nextVerifyCodeResult = const FailureResult(WrongCodeFailure());
+    final container = buildContainer(repository);
+    final viewModel = container.read(verifyCodeViewModelProvider(email).notifier);
+    viewModel.changeCode('000000');
+
+    await viewModel.submit();
+
+    final state = container.read(verifyCodeViewModelProvider(email));
+    expect(repository.calls, ['verifyCode']);
+    expect(state.errorMessage, '코드가 맞지 않아요. 다시 확인해 주세요.');
+    expect(state.isCodeRejected, isTrue);
+    expect(gateRepository.fetchCount, 0);
+  });
+
+  test('다른 소셜 계정이 쓰는 메일이면(409) 두 줄 문구를 채우고 게이트는 그대로', () async {
+    final repository = FakeSchoolEmailRepository()
+      ..nextCompleteResult = const FailureResult(SchoolEmailTakenFailure('서버 문구', 'google'));
+    final container = buildContainer(repository);
+    final viewModel = container.read(verifyCodeViewModelProvider(email).notifier);
+    viewModel.changeCode('123456');
+
+    await viewModel.submit();
+
+    final state = container.read(verifyCodeViewModelProvider(email));
+    expect(state.errorMessage, '이 메일은 구글로 가입돼 있어요');
+    expect(state.errorHint, '구글 계정으로 로그인해 주세요');
+    expect(state.isCodeRejected, isFalse);
+    expect(state.verified, isFalse);
+    expect(gateRepository.fetchCount, 0);
+  });
+
+  test('서버가 인증을 못 마치면(403 미확인 · 503 · 네트워크) 다시 하라는 문구', () async {
+    final repository = FakeSchoolEmailRepository()
+      ..nextCompleteResult = const FailureResult(SchoolEmailIncompleteFailure());
+    final container = buildContainer(repository);
+    final viewModel = container.read(verifyCodeViewModelProvider(email).notifier);
+    viewModel.changeCode('123456');
+
+    await viewModel.submit();
+
+    final state = container.read(verifyCodeViewModelProvider(email));
+    expect(state.errorMessage, '학교 메일 인증을 마치지 못했어요. 잠시 뒤 다시 시도해 주세요');
+    expect(state.errorHint, isNull);
+    expect(state.isSubmitting, isFalse);
+  });
+
+  test('422 는 서버 문구를 그대로 입력칸 아래 문구로', () async {
+    final repository = FakeSchoolEmailRepository()
+      ..nextCompleteResult = const FailureResult(ServerRejectedFailure('재가입이 제한된 메일이에요'));
+    final container = buildContainer(repository);
+    final viewModel = container.read(verifyCodeViewModelProvider(email).notifier);
+    viewModel.changeCode('123456');
+
+    await viewModel.submit();
+
+    expect(container.read(verifyCodeViewModelProvider(email)).errorMessage, '재가입이 제한된 메일이에요');
+  });
+
   test('검증이 실패하면 errorMessage 가 채워진다', () async {
-    final repository = FakeAuthRepository()..nextVerifyOtpResult = const FailureResult(UnknownFailure());
+    final repository = FakeSchoolEmailRepository()..nextVerifyCodeResult = const FailureResult(UnknownFailure());
     final container = buildContainer(repository);
     final viewModel = container.read(verifyCodeViewModelProvider(email).notifier);
     viewModel.changeCode('000000');
@@ -48,7 +132,7 @@ void main() {
     // 로그인 화면이 방금 메일을 보내고 이 화면을 연다 — 열자마자 버튼이 켜져 있으면
     // 먼저 온 코드를 버리고 한 통을 더 보내게 된다(실기기 테스트에서 나온 문제).
     final now = DateTime(2026, 1, 1, 12);
-    final container = buildContainer(FakeAuthRepository(), now: () => now);
+    final container = buildContainer(FakeSchoolEmailRepository(), now: () => now);
 
     final state = container.read(verifyCodeViewModelProvider(email));
 
@@ -57,7 +141,7 @@ void main() {
   });
 
   test('재전송하면 60초 뒤로 resendAvailableAt 이 설정된다', () async {
-    final repository = FakeAuthRepository();
+    final repository = FakeSchoolEmailRepository();
     var now = DateTime(2026, 1, 1, 12);
     final container = buildContainer(repository, now: () => now);
     final viewModel = container.read(verifyCodeViewModelProvider(email).notifier);
@@ -76,7 +160,7 @@ void main() {
     expect(codeLifetime, const Duration(minutes: 5));
 
     var now = DateTime(2026, 1, 1, 12);
-    final container = buildContainer(FakeAuthRepository(), now: () => now);
+    final container = buildContainer(FakeSchoolEmailRepository(), now: () => now);
     final viewModel = container.read(verifyCodeViewModelProvider(email).notifier);
     now = now.add(const Duration(seconds: 60));
 
@@ -87,7 +171,7 @@ void main() {
 
   test('재전송하면 입력해 둔 코드를 비운다', () async {
     var now = DateTime(2026, 1, 1, 12);
-    final container = buildContainer(FakeAuthRepository(), now: () => now);
+    final container = buildContainer(FakeSchoolEmailRepository(), now: () => now);
     final viewModel = container.read(verifyCodeViewModelProvider(email).notifier);
     viewModel.changeCode('123456');
     now = now.add(const Duration(seconds: 60));
@@ -98,7 +182,7 @@ void main() {
   });
 
   test('쿨다운 중에는 재전송을 보내지 않는다', () async {
-    final repository = FakeAuthRepository();
+    final repository = FakeSchoolEmailRepository();
     var now = DateTime(2026, 1, 1, 12);
     final container = buildContainer(repository, now: () => now);
     final viewModel = container.read(verifyCodeViewModelProvider(email).notifier);

@@ -1,8 +1,10 @@
-import 'package:campus_mate/auth/model/auth_repository_provider.dart';
+import 'package:campus_mate/auth/model/school_email_repository_provider.dart';
 import 'package:campus_mate/auth/model/university_email.dart';
 import 'package:campus_mate/auth/model/verification_code.dart';
 import 'package:campus_mate/auth/viewmodel/verify_code_ui_state.dart';
 import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/core/router/verification_gate_listenable_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final verifyCodeViewModelProvider = NotifierProvider.family<VerifyCodeViewModel, VerifyCodeUiState, UniversityEmail>(
@@ -61,16 +63,36 @@ class VerifyCodeViewModel extends Notifier<VerifyCodeUiState> {
       resendAvailableAt: state.resendAvailableAt,
       codeExpiresAt: state.codeExpiresAt,
     );
-    final result = await ref.read(authRepositoryProvider).verifyOtp(_email, code);
-    state = result.when(
-      onSuccess: (_) => VerifyCodeUiState(codeInput: state.codeInput, verified: true),
-      onFailure: (failure) => VerifyCodeUiState(
-        codeInput: state.codeInput,
-        errorMessage: failure.toDisplayMessage(),
-        resendAvailableAt: state.resendAvailableAt,
-        codeExpiresAt: state.codeExpiresAt,
-        isCodeRejected: failure is WrongCodeFailure,
-      ),
+    final result = await _verifyAndComplete(code);
+    final failure = result.when(onSuccess: (_) => null, onFailure: (failure) => failure);
+    if (failure != null) {
+      state = _failed(failure);
+      return;
+    }
+    state = VerifyCodeUiState(codeInput: state.codeInput, verified: true);
+    // 기존 refresh gate 경로 — 게이트가 다음 관문(학생증)으로 보낸다(02-c 동의 화면과 같이 기다린다).
+    await ref.read(verificationGateListenableProvider).refresh();
+  }
+
+  /// 임시 연결로 코드를 확인하고, 되면 그 임시 토큰으로 서버에 인증을 마친다. 코드가 틀리면 서버는 부르지 않는다.
+  Future<Result<void>> _verifyAndComplete(VerificationCode code) async {
+    final repository = ref.read(schoolEmailRepositoryProvider);
+    final verified = await repository.verifyCode(_email, code);
+    return verified.when(
+      onSuccess: repository.complete,
+      onFailure: (failure) async => FailureResult<void>(failure),
+    );
+  }
+
+  /// 오류는 입력칸 아래 문구로만 보인다(팝업 없음). 다른 소셜 계정이 쓰는 메일이면 둘째 줄을 단다.
+  VerifyCodeUiState _failed(Failure failure) {
+    return VerifyCodeUiState(
+      codeInput: state.codeInput,
+      errorMessage: failure.toDisplayMessage(),
+      errorHint: failure is SchoolEmailTakenFailure ? failure.toHintMessage() : null,
+      resendAvailableAt: state.resendAvailableAt,
+      codeExpiresAt: state.codeExpiresAt,
+      isCodeRejected: failure is WrongCodeFailure,
     );
   }
 
@@ -84,6 +106,6 @@ class VerifyCodeViewModel extends Notifier<VerifyCodeUiState> {
       resendAvailableAt: now().add(_resendCooldown),
       codeExpiresAt: now().add(codeLifetime),
     );
-    await ref.read(authRepositoryProvider).requestOtp(_email);
+    await ref.read(schoolEmailRepositoryProvider).requestCode(_email);
   }
 }

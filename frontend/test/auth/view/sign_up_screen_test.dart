@@ -1,14 +1,16 @@
 import 'package:campus_mate/account/model/login_notice.dart';
-import 'package:campus_mate/auth/model/auth_repository_provider.dart';
+import 'package:campus_mate/auth/model/school_email_repository_provider.dart';
 import 'package:campus_mate/auth/view/sign_up_screen.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/core/auth/sign_out.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
+import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
-import '../model/fake_auth_repository.dart';
+import '../model/fake_school_email_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -110,10 +112,10 @@ void main() {
       // 성공 결과를 쓰면 요청이 끝나자마자 인증코드 화면으로 이동을 시도하는데,
       // 이 테스트는 라우터 없는 MaterialApp 이라 그 이동이 죽는다. 로딩 중
       // 상태만 보면 되므로 실패 결과로 두고, 끝나면 pumpAndSettle 로 지연 타이머를 정리한다.
-      final repository = FakeAuthRepository()..nextRequestOtpResult = const FailureResult(RateLimitedFailure());
+      final repository = FakeSchoolEmailRepository()..nextRequestCodeResult = const FailureResult(RateLimitedFailure());
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [authRepositoryProvider.overrideWithValue(repository)],
+          overrides: [schoolEmailRepositoryProvider.overrideWithValue(repository)],
           child: const MaterialApp(home: SignUpScreen()),
         ),
       );
@@ -130,10 +132,10 @@ void main() {
     });
 
     testWidgets('요청이 실패하면 에러 문구를 보여준다', (tester) async {
-      final repository = FakeAuthRepository()..nextRequestOtpResult = const FailureResult(RateLimitedFailure());
+      final repository = FakeSchoolEmailRepository()..nextRequestCodeResult = const FailureResult(RateLimitedFailure());
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [authRepositoryProvider.overrideWithValue(repository)],
+          overrides: [schoolEmailRepositoryProvider.overrideWithValue(repository)],
           child: const MaterialApp(home: SignUpScreen()),
         ),
       );
@@ -144,6 +146,69 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('너무 많이 시도했어요. 잠시 후 다시 시도해 주세요'), findsOneWidget);
+    });
+
+    testWidgets('등록되지 않은 학교 메일이면 서버 문구를 입력칸 아래에 보여준다(팝업 없음)', (tester) async {
+      final repository = FakeSchoolEmailRepository()
+        ..nextRequestCodeResult = const FailureResult(SignUpRejectedFailure('허용되지 않은 학교 이메일이에요'));
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [schoolEmailRepositoryProvider.overrideWithValue(repository)],
+          child: const MaterialApp(home: SignUpScreen()),
+        ),
+      );
+      await tester.enterText(find.byType(TextField), 'hong@unknown.ac.kr');
+      await tester.pump();
+
+      await tester.tap(find.text('인증 메일 받기'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('허용되지 않은 학교 이메일이에요'), findsOneWidget);
+      expect(find.byType(Dialog), findsNothing);
+      expect(find.byType(BottomSheet), findsNothing);
+    });
+  });
+
+  // 학교 메일은 약관 동의(02-c) 다음 관문이다 — 앞 화면으로 돌아갈 곳이 없고, 소셜로 잘못 들어온 사람의 탈출구가 로그아웃이다.
+  group('관문 화면(동의 다음)', () {
+    testWidgets('뒤로가기 화살표가 없다', (tester) async {
+      await pumpScreen(tester);
+
+      expect(find.byType(BackButton), findsNothing);
+      expect(find.byIcon(Icons.arrow_back), findsNothing);
+    });
+
+    testWidgets('맨 아래 CTA 밑에 02-c 와 같은 로그아웃 글자 버튼이 있다(48 · 14/600 muted)', (tester) async {
+      await pumpScreen(tester);
+
+      final logout = find.widgetWithText(InkWell, '로그아웃');
+      expect(logout, findsOneWidget);
+      final cta = tester.getRect(find.byType(ElevatedButton));
+      expect(tester.getRect(logout).top, cta.bottom + 4);
+      expect(tester.getRect(logout).height, 48);
+      final label = tester.widget<Text>(find.text('로그아웃'));
+      expect(label.style!.color, AppColors.muted);
+      expect(label.style!.fontSize, 14);
+      expect(label.style!.fontWeight, FontWeight.w600);
+    });
+
+    testWidgets('로그아웃은 16g 시트로 한 번 더 묻고, 확인하면 로그아웃을 한 번 부른다', (tester) async {
+      var signOutCalls = 0;
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [signOutProvider.overrideWithValue(() async => signOutCalls++)],
+          child: const MaterialApp(home: SignUpScreen()),
+        ),
+      );
+
+      await tester.tap(find.text('로그아웃'));
+      await tester.pumpAndSettle();
+      expect(find.text('로그아웃할까요?'), findsOneWidget);
+
+      await tester.tap(find.descendant(of: find.byType(SafetyConfirmSheet), matching: find.text('로그아웃')));
+      await tester.pumpAndSettle();
+
+      expect(signOutCalls, 1);
     });
   });
 

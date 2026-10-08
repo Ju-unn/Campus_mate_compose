@@ -4,6 +4,7 @@ class VerifyCodeUiState {
     this.codeInput = '',
     this.isSubmitting = false,
     this.errorMessage,
+    this.errorHint,
     this.resendAvailableAt,
     this.codeExpiresAt,
     this.isCodeRejected = false,
@@ -14,6 +15,9 @@ class VerifyCodeUiState {
   final bool isSubmitting;
   final String? errorMessage;
 
+  /// [errorMessage] 아래 둘째 줄(다른 소셜 계정이 쓰는 메일일 때 "카카오 계정으로 로그인해 주세요"). 없으면 한 줄.
+  final String? errorHint;
+
   /// 이 시각 전에는 재전송 버튼을 눌러도 요청을 보내지 않는다(60초 쿨다운, spec §13-38).
   final DateTime? resendAvailableAt;
 
@@ -23,7 +27,7 @@ class VerifyCodeUiState {
   /// 코드가 틀렸거나 만료돼 거부됐는지. 여섯 칸 테두리를 빨갛게 그린다(pen `Vn6w4`).
   final bool isCodeRejected;
 
-  /// 검증에 성공했는지. 화면이 이 값을 보고 라우터 재평가를 트리거한다.
+  /// 학교 메일 인증(확인 + 서버 기록)이 끝났는지. 게이트를 다시 읽어 라우터가 다음 관문으로 보낸다.
   final bool verified;
 
   /// 기한이 지난 코드는 보내 봐야 "코드가 맞지 않아요" 만 돌아온다 — 버튼을 먼저 끈다.

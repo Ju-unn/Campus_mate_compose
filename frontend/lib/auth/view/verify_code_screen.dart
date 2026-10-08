@@ -61,6 +61,12 @@ class VerifyCodeScreen extends ConsumerWidget {
                     ),
                   ],
                 ),
+                // 둘째 줄(다른 소셜 계정이 쓰는 메일). 첫 줄 글자 시작에 맞춘다(아이콘 14 + 간격).
+                if (state.errorHint != null)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 14 + AppSpacing.xxs),
+                    child: Text(state.errorHint!, style: AppTypography.caption.copyWith(color: AppColors.error)),
+                  ),
               ],
               const SizedBox(height: AppSpacing.md),
               if (expiresAt != null) _ExpiryTimer(expiresAt: expiresAt),
