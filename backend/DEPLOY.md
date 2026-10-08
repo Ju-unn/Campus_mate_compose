@@ -428,6 +428,30 @@ cd backend
 # 출력은 건수뿐이다: filled=<채운 행> skipped=<휴대전화가 아니거나 복호화 결과가 없는 행>
 ```
 
+**학교 메일 인증 기록 백필(소셜 로그인 전환)** — 학교 메일 OTP 로 가입한 기존 계정의 학교 메일 해시를
+`school_email_claims` 에 채운다. 마이그레이션이 `profiles.school_email_verified_at` 은 채웠지만 이 표는 비어 있고,
+HMAC 키가 서버에만 있어 SQL 로는 못 채운다. 비어 있으면 기존 사용자의 학교 메일로 새 소셜 계정이 인증받을 수 있다.
+
+- **언제**: 소셜 로그인 마이그레이션 적용 **뒤**, Supabase 의 카카오 · 구글 로그인을 켜고 앱을 배포하기 **전**.
+  서버 배포 전후는 상관없지만 소셜 로그인 공개 전에는 반드시 끝낸다.
+- **어떻게**: 위 백필과 같은 자리(backend 폴더)에서 한 번 돌린다. `settings.py` 가 §2 의 env 와 시크릿을 전부 요구한다
+  — 이 스크립트가 실제로 쓰는 것은 `SUPABASE_URL` · `SUPABASE_SERVICE_ROLE_KEY` · `IDENTITY_HMAC_KEY` 다.
+  값은 Secret Manager 에서 env 로 넣고 여기 적지 않는다.
+
+```bash
+cd backend
+.venv/Scripts/python.exe -m scripts.backfill_school_email_claims
+# 출력은 건수뿐이다: filled=<채운 계정> skipped=<계정 이메일을 못 읽었거나 빈 계정>
+#                    already=<이미 기록이 있는 계정> conflicts=<같은 학교 메일 해시가 다른 계정에 이미 있음>
+```
+
+- **확인**: 실행 뒤 SQL 편집기에서 `select count(*) from public.school_email_claims` 가 대상 수와 같은지 본다.
+  대상 수는 `select count(*) from public.profiles where school_email_verified_at is not null and university_id is not null and status <> 'withdrawn'` 이다.
+  `skipped` 나 `conflicts` 가 0 이 아니면 그 수만큼 모자란다 — skipped 는 다시 돌리면 다시 고르고, conflicts 는 같은 학교 메일을
+  쓴 기존 계정이 둘 있다는 뜻이라 사람이 본다(출력에 id 를 싣지 않으니 SQL 로 찾는다).
+- **다시 돌려도 안전하다**: 이미 기록이 있는 계정은 건너뛰고(already), 쓸 때도 같은 해시가 있으면 덮지 않는다.
+  탈퇴한 계정은 대상이 아니다(재가입 제한은 `signup_blocks` 가 맡는다).
+
 **정리 배치 job** — 매일 04:00 Asia/Seoul 에 `/batch/cleanup`. **처음부터 OIDC 다**(§4-3 의 계정 · 권한 ·
 `BATCH_AUDIENCE` 를 그대로 쓰고 `--headers` 는 붙이지 않는다). 무료 한도 3 job 중 세 번째다. 3단계 배포 뒤에 만든다.
 **2026-09-29 만들었다**(대장 — OIDC · 헤더 없음, 손으로 돌려 200 확인).
