@@ -37,12 +37,28 @@ class AccountRepository(PostgrestRepository):
         raise_for_status(response)
         return [row["id"] for row in response.json()]
 
-    async def list_unverified_accounts(self, older_than_days: int) -> list[str]:
+    async def list_unverified_accounts(self, older_than_days: int, limit: int) -> list[str]:
         """가입 뒤 그 일수가 지나도록 학교 메일 확인(school_email_verified_at)을 안 한 프로필 id.
-        SQL `list_unverified_accounts(p_older_than_days)` 가 고른다(소셜 로그인 전환)."""
-        response = await self._post("rpc/list_unverified_accounts", json={"p_older_than_days": older_than_days})
+        SQL `list_unverified_accounts(p_older_than_days, p_limit)` 가 고른다(소셜 로그인 전환)."""
+        response = await self._post("rpc/list_unverified_accounts", json={
+            "p_older_than_days": older_than_days, "p_limit": limit,
+        })
         raise_for_status(response)
         return [row["id"] for row in response.json()]
+
+    async def is_still_unverified(self, profile_id: str) -> bool:
+        """지우기 직전 재확인. 프로필이 있고 school_email_verified_at 이 NULL 일 때만 True.
+        행이 없어도 False 다(확인할 수 없으면 지우지 않는다). 읽기 실패는 예외로 올린다."""
+        response = await self._get("profiles", params={"id": f"eq.{profile_id}", "select": "school_email_verified_at"})
+        raise_for_status(response)
+        rows = response.json()
+        return bool(rows) and rows[0].get("school_email_verified_at") is None
+
+    async def has_profile(self, profile_id: str) -> bool:
+        """임시 이메일 계정 잔여물을 지우기 직전 재확인. 읽기 실패는 예외로 올린다(부르는 쪽이 건너뛴다)."""
+        response = await self._get("profiles", params={"id": f"eq.{profile_id}", "select": "id"})
+        raise_for_status(response)
+        return bool(response.json())
 
     async def _delete_counted(self, table: str, params: dict) -> int:
         """지운 행 수. 작은 칸 하나만 돌려받아 센다(PostgrestRepository._delete 는 Prefer 를 받지 않는다)."""
@@ -110,6 +126,14 @@ class SupabaseAdmin:
         response = await self._client.get(f"{self._auth_url}/admin/users/{profile_id}", headers=self._headers)
         response.raise_for_status()
         return response.json()["email"]
+
+    async def list_users(self, page: int, per_page: int) -> list[dict]:
+        """`GET /admin/users?page=&per_page=` 한 쪽(1부터). 빈 목록이면 끝이다."""
+        response = await self._client.get(
+            f"{self._auth_url}/admin/users", params={"page": page, "per_page": per_page}, headers=self._headers,
+        )
+        response.raise_for_status()
+        return response.json().get("users") or []
 
     async def delete_user(self, profile_id: UUID | str) -> None:
         """auth 사용자째 지운다 — profiles 와 딸린 표는 FK cascade 다(pr3-db-report §2, 편차 2)."""
