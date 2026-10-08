@@ -10,16 +10,27 @@ import httpx
 from app.core.http import raise_for_status
 from app.core.postgrest import PostgrestRepository
 from app.settings import Settings
-from app.signup_policy import bytea_literal
 
 
 class AccountRepository(PostgrestRepository):
 
-    async def withdraw(self, profile_id: UUID | str, email_hmac: bytes, key_version: int) -> None:
-        """상태 · withdrawn_at · 재가입 제한을 한 트랜잭션에서(SQL `withdraw_account`, 멱등)."""
+    async def fetch_school_email_claim(self, profile_id: UUID | str) -> dict | None:
+        """그 사람의 학교 메일 인증 기록(school_email_claims) — 해시(bytea 리터럴)와 키 버전. 없으면 None(인증 전).
+        읽기 실패는 예외로 올린다."""
+        response = await self._get("school_email_claims", params={
+            "profile_id": f"eq.{profile_id}", "select": "school_email_hmac,key_version",
+        })
+        raise_for_status(response)
+        rows = response.json()
+        return rows[0] if rows else None
+
+    async def withdraw(self, profile_id: UUID | str, email_hmac: str | None, key_version: int) -> None:
+        """상태 · withdrawn_at · 재가입 제한을 한 트랜잭션에서(SQL `withdraw_account`, 멱등).
+
+        email_hmac 은 PostgREST 의 bytea 리터럴(`\\x…`) 그대로다. None 이면 JSON null 이고, DB 함수는 재가입 제한을
+        남기지 않는다(20261008040000 — 학교 메일 인증 전 계정)."""
         response = await self._post("rpc/withdraw_account", json={
-            "p_profile_id": str(profile_id), "p_email_hmac": bytea_literal(email_hmac),
-            "p_key_version": key_version,
+            "p_profile_id": str(profile_id), "p_email_hmac": email_hmac, "p_key_version": key_version,
         })
         raise_for_status(response)
 
@@ -120,12 +131,6 @@ class SupabaseAdmin:
         self._key = settings.supabase_service_role_key
         self._headers = {"apikey": self._key, "Authorization": f"Bearer {self._key}"}
         self._client = client
-
-    async def fetch_email(self, profile_id: UUID | str) -> str:
-        """`GET /admin/users/{id}` — 원본 이메일은 해시를 뜨는 데만 쓰고 어디에도 남기지 않는다."""
-        response = await self._client.get(f"{self._auth_url}/admin/users/{profile_id}", headers=self._headers)
-        response.raise_for_status()
-        return response.json()["email"]
 
     async def list_users(self, page: int, per_page: int) -> list[dict]:
         """`GET /admin/users?page=&per_page=` 한 쪽(1부터). 빈 목록이면 끝이다."""
