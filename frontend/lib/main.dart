@@ -103,16 +103,23 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
   /// 다음 사용자가 물려받으면 안 되므로 캐시를 비운다.
   void _refreshVerificationGate() {
     if (!_authSession.isAuthenticated) {
-      // 앞 사용자가 눌러 둔 알림 경로를 다음 사용자가 물려받지 않게 한다.
-      _pendingPushPath = null;
-      _verificationGate.reset();
-      _onboardingStep.reset();
-      _stopPush();
+      _forgetSession();
       return;
     }
     unawaited(_verificationGate.refresh());
     unawaited(_onboardingStep.refresh());
     _startPush();
+  }
+
+  /// 세션이 없어졌을 때(로그아웃 · 탈퇴 · gotrue 가 갱신 실패로 세션을 스스로 버린 경우 모두) 앞 사용자의 것을 비운다.
+  void _forgetSession() {
+    // 앞 사용자가 눌러 둔 알림 경로를 다음 사용자가 물려받지 않게 한다.
+    _pendingPushPath = null;
+    _verificationGate.reset();
+    _onboardingStep.reset();
+    _stopPush();
+    // 온보딩 임시 저장 값도 지운다 — signOut() 을 지나지 않고 세션만 사라지는 경로가 있다. 두 번 지워도 같은 결과다.
+    unawaited(ref.read(draftStoreProvider).clearAll());
   }
 
   /// 로그인한 뒤에만 FCM 을 건드린다 — 로그인 전에는 등록할 주인이 없고,
