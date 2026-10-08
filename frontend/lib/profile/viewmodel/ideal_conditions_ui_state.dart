@@ -76,21 +76,10 @@ class IdealConditionsUiState {
   /// [toDraft] 로 남긴 값으로 처음 상태를 만든다. 프리셋 범위 · 개수를 벗어나거나 이름을 모르면 던진다 —
   /// 저장소가 받아서 버린다(앱 업데이트로 범위가 바뀌어도 슬라이더가 깨지지 않게).
   static IdealConditionsUiState fromDraft(Map<String, Object?> data) {
-    final restored = IdealConditionsUiState(
-      preferredAgeMin: data['preferredAgeMin'] as int,
-      preferredAgeMax: data['preferredAgeMax'] as int,
-      ageIgnored: data['ageIgnored'] as bool,
-      preferredHeightMin: data['preferredHeightMin'] as int,
-      preferredHeightMax: data['preferredHeightMax'] as int,
-      heightIgnored: data['heightIgnored'] as bool,
-      // cast() 는 꺼낼 때에야 던진다 — 화면을 그리다 터지지 않게 여기서 하나씩 확인한다.
-      preferredMbtiFlags: {
-        for (final entry in (data['preferredMbtiFlags'] as Map<String, Object?>).entries) entry.key: entry.value as bool,
-      },
-      preferredAnimalTypes: [for (final name in data['preferredAnimalTypes'] as List) AnimalType.values.byName(name as String)],
-      preferredImpressionTypes: [
-        for (final name in data['preferredImpressionTypes'] as List) ImpressionType.values.byName(name as String),
-      ],
+    final restored = _rangesFromDraft(data).copyWith(
+      preferredMbtiFlags: _mbtiFlagsFromDraft(data['preferredMbtiFlags']),
+      preferredAnimalTypes: _namesFromDraft(data['preferredAnimalTypes'], AnimalType.values),
+      preferredImpressionTypes: _namesFromDraft(data['preferredImpressionTypes'], ImpressionType.values),
     );
     if (!restored._isWithinPresets) {
       throw const FormatException('이상형 조건이 프리셋 범위를 벗어남');
@@ -98,15 +87,40 @@ class IdealConditionsUiState {
     return restored;
   }
 
+  /// 나이 · 키 범위와 "상관없어요" 표시만 읽는다. 나머지는 기본값이다.
+  static IdealConditionsUiState _rangesFromDraft(Map<String, Object?> data) => IdealConditionsUiState(
+        preferredAgeMin: data['preferredAgeMin'] as int,
+        preferredAgeMax: data['preferredAgeMax'] as int,
+        ageIgnored: data['ageIgnored'] as bool,
+        preferredHeightMin: data['preferredHeightMin'] as int,
+        preferredHeightMax: data['preferredHeightMax'] as int,
+        heightIgnored: data['heightIgnored'] as bool,
+      );
+
+  /// cast() 는 꺼낼 때에야 던진다 — 화면을 그리다 터지지 않게 여기서 하나씩 확인한다.
+  static Map<String, bool> _mbtiFlagsFromDraft(Object? raw) => {
+        for (final entry in (raw as Map<String, Object?>).entries) entry.key: entry.value as bool,
+      };
+
+  /// 이름 목록을 enum 으로 바꾼다. 모르는 이름이면 `byName` 이 던진다.
+  static List<T> _namesFromDraft<T extends Enum>(Object? raw, List<T> values) => [
+        for (final name in raw as List) values.byName(name as String),
+      ];
+
   /// 슬라이더 프리셋 · 고를 수 있는 개수 · MBTI 극 안에 있는가.
-  bool get _isWithinPresets {
+  bool get _isWithinPresets => _areRangesWithinPresets && _areChoicesWithinLimits;
+
+  bool get _areRangesWithinPresets {
     return ageFloor <= preferredAgeMin &&
         preferredAgeMin <= preferredAgeMax &&
         preferredAgeMax <= ageCeiling &&
         heightFloor <= preferredHeightMin &&
         preferredHeightMin <= preferredHeightMax &&
-        preferredHeightMax <= heightCeiling &&
-        preferredMbtiFlags.keys.every(mbtiPoles.contains) &&
+        preferredHeightMax <= heightCeiling;
+  }
+
+  bool get _areChoicesWithinLimits {
+    return preferredMbtiFlags.keys.every(mbtiPoles.contains) &&
         preferredAnimalTypes.length <= maxAppearanceChoices &&
         preferredImpressionTypes.length <= maxAppearanceChoices;
   }

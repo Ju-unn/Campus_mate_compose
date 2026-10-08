@@ -45,13 +45,18 @@ class SharedPreferencesDraftStore implements DraftStore {
   T? read<T>(DraftScreen screen, T Function(Map<String, Object?> data) decode) {
     final key = _keyOf(screen);
     final raw = key == null ? null : _rawOf(key);
-    if (raw == null) {
+    if (key == null || raw == null) {
       return null;
     }
+    return _decodeOrDiscard(key, raw, decode);
+  }
+
+  /// 버전 · 모양이 안 맞는 값은 다음에 또 걸리지 않게 지우고 null 을 준다.
+  T? _decodeOrDiscard<T>(String key, String raw, T Function(Map<String, Object?> data) decode) {
     try {
       return decode(_dataOf(raw));
     } on Object {
-      unawaited(_discard(key!)); // 버전 · 모양이 안 맞는 값 — 다음에 또 걸리지 않게 지운다.
+      unawaited(_discard(key));
       return null;
     }
   }
@@ -151,15 +156,18 @@ class SharedPreferencesDraftStore implements DraftStore {
 
   /// 시스템이 임시 폴더를 이미 비웠을 수 있다 — 없는 파일은 건너뛴다. 앱 임시 폴더 밖의 경로는 지우지 않는다.
   void _deleteFiles(Iterable<String> paths) {
-    for (final path in paths.where(_isInsideFileDirectory)) {
-      final file = File(path);
-      try {
-        if (file.existsSync()) {
-          file.deleteSync();
-        }
-      } on FileSystemException {
-        // 지우지 못한 임시 파일은 시스템이 언젠가 비운다 — 로그아웃 · 다음 단계를 막을 일이 아니다.
-      }
+    paths.where(_isInsideFileDirectory).forEach(_deleteFile);
+  }
+
+  void _deleteFile(String path) {
+    final file = File(path);
+    if (!file.existsSync()) {
+      return;
+    }
+    try {
+      file.deleteSync();
+    } on FileSystemException {
+      // 지우지 못한 임시 파일은 시스템이 언젠가 비운다 — 로그아웃 · 다음 단계를 막을 일이 아니다.
     }
   }
 }
