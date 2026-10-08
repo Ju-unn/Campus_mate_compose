@@ -68,7 +68,7 @@ def _wire(handler: Callable[[httpx.Request], httpx.Response], verification: str 
             return httpx.Response(200, json={"id": PROFILE_ID})
         # 관문 조회는 select 키로 가른다 — 내 프로필 조회도 profiles 를 읽는다.
         if request.method == "GET" and "student_verification" in request.url.params.get("select", ""):
-            return httpx.Response(200, json=[{"student_verification": verification, "department": "컴공"}])
+            return httpx.Response(200, json=[{"student_verification": verification, "department": "컴공", "school_email_verified_at": "2026-10-01T00:00:00+00:00"}])
         return handler(request)
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(wrapped))

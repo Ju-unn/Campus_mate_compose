@@ -40,6 +40,7 @@ class AccountWorld:
         self.caller = ME
         self.profiles: dict[str, dict] = {
             ME: {"status": "active", "withdrawn_at": None, "student_verification": "verified", "department": "컴공",
+                 "school_email_verified_at": "2026-09-01T10:30:00+00:00",
                  "birth_year": 2003, "created_at": "2026-09-01T10:00:00+00:00", "university": "서울대학교"},
         }
         self.emails: dict[str, str] = {ME: EMAIL}
@@ -122,7 +123,8 @@ class AccountWorld:
                                               "universities": {"name": row["university"]}}])
         if "student_verification" in params["select"]:
             return httpx.Response(200, json=[{"student_verification": row.get("student_verification"),
-                                              "department": row.get("department"), "status": row["status"]}])
+                                              "department": row.get("department"), "status": row["status"],
+                                              "school_email_verified_at": row.get("school_email_verified_at")}])
         return httpx.Response(200, json=[{"status": row["status"]}])
 
     def _heart_task_submissions(self, method, params, body):

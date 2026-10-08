@@ -31,7 +31,7 @@ def _wire(handler) -> TestClient:
         if "/auth/v1/user" in str(request.url):
             return httpx.Response(200, json={"id": str(PROFILE_ID)})
         if "student_verification" in request.url.params.get("select", "") and request.method == "GET":
-            return httpx.Response(200, json=[{"student_verification": "verified", "department": "컴퓨터공학과"}])
+            return httpx.Response(200, json=[{"student_verification": "verified", "department": "컴퓨터공학과", "school_email_verified_at": "2026-10-01T00:00:00+00:00"}])
         return handler(request)
 
     app.dependency_overrides[get_client] = lambda: httpx.AsyncClient(transport=httpx.MockTransport(wrapped))

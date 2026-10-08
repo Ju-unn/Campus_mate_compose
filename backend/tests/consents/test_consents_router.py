@@ -171,7 +171,9 @@ def test_student_verification_upload_is_403_before_consent():
 
 def test_next_step_is_403_before_consent():
     _, client = _wire([], gate_row={"student_verification": "verified", "department": "컴퓨터공학과",
-                                    "universities": {"name": "서울대학교"}, "status": "active"})
+                                    "universities": {"name": "서울대학교"}, "status": "active",
+                                    # 학교 메일까지 마친 사람이 새 판 약관을 아직 안 받은 경우(재동의).
+                                    "school_email_verified_at": "2026-10-01T00:00:00+00:00"})
 
     response = client.get("/profile-onboarding/next-step", headers=AUTH_HEADERS)
 
