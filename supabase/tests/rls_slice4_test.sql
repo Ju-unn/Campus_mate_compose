@@ -172,44 +172,44 @@ select ok(
 
 -- 3. 하드 필터(설계 §6.7 · §2.4) ---------------------------------------------
 select is(
-  (select count(*) from public.match_candidates('00000000-0000-0000-0000-0000000000aa')
-    where candidate_id = '00000000-0000-0000-0000-0000000000fa'),
+  (select count(*) from jsonb_array_elements(public.match_candidates('00000000-0000-0000-0000-0000000000aa')) e
+    where e ->> 'candidate_id' = '00000000-0000-0000-0000-0000000000fa'),
   0::bigint, '매칭을 일시중지한 사람은 후보가 아니다'
 );
 
 select is(
-  (select count(*) from public.match_candidates('00000000-0000-0000-0000-0000000000aa')
-    where candidate_id = '00000000-0000-0000-0000-0000000000fd'),
+  (select count(*) from jsonb_array_elements(public.match_candidates('00000000-0000-0000-0000-0000000000aa')) e
+    where e ->> 'candidate_id' = '00000000-0000-0000-0000-0000000000fd' and (e ->> 'pickable')::boolean),
   0::bigint, '거절한 지 90일이 지나지 않은 상대는 아직 후보가 아니다'
 );
 
 select is(
-  (select count(*) from public.match_candidates('00000000-0000-0000-0000-0000000000aa')
-    where candidate_id = '00000000-0000-0000-0000-0000000000fe'),
+  (select count(*) from jsonb_array_elements(public.match_candidates('00000000-0000-0000-0000-0000000000aa')) e
+    where e ->> 'candidate_id' = '00000000-0000-0000-0000-0000000000fe' and (e ->> 'pickable')::boolean),
   1::bigint, '거절한 지 90일이 지난 상대는 다시 후보가 된다'
 );
 
 select is(
-  (select count(*) from public.match_candidates('00000000-0000-0000-0000-0000000000aa')
-    where candidate_id = '00000000-0000-0000-0000-0000000000fb'),
+  (select count(*) from jsonb_array_elements(public.match_candidates('00000000-0000-0000-0000-0000000000aa')) e
+    where e ->> 'candidate_id' = '00000000-0000-0000-0000-0000000000fb' and (e ->> 'pickable')::boolean),
   0::bigint, '무응답 만료 뒤 14일이 지나지 않은 상대는 아직 후보가 아니다'
 );
 
 select is(
-  (select count(*) from public.match_candidates('00000000-0000-0000-0000-0000000000aa')
-    where candidate_id = '00000000-0000-0000-0000-0000000000fc'),
+  (select count(*) from jsonb_array_elements(public.match_candidates('00000000-0000-0000-0000-0000000000aa')) e
+    where e ->> 'candidate_id' = '00000000-0000-0000-0000-0000000000fc' and (e ->> 'pickable')::boolean),
   1::bigint, '무응답 만료 뒤 14일이 지난 상대는 다시 후보가 된다'
 );
 
 select is(
-  (select count(*) from public.match_candidates('00000000-0000-0000-0000-0000000000aa')
-    where candidate_id = '00000000-0000-0000-0000-0000000000f0'),
+  (select count(*) from jsonb_array_elements(public.match_candidates('00000000-0000-0000-0000-0000000000aa')) e
+    where e ->> 'candidate_id' = '00000000-0000-0000-0000-0000000000f0' and (e ->> 'pickable')::boolean),
   0::bigint, '이미 매칭된 상대는 기간과 상관없이 영원히 후보가 아니다'
 );
 
 select is(
-  (select count(*) from public.match_candidates('00000000-0000-0000-0000-0000000000aa')
-    where candidate_id = '00000000-0000-0000-0000-0000000000f1'),
+  (select count(*) from jsonb_array_elements(public.match_candidates('00000000-0000-0000-0000-0000000000aa')) e
+    where e ->> 'candidate_id' = '00000000-0000-0000-0000-0000000000f1' and (e ->> 'pickable')::boolean),
   0::bigint, '내가 수락 응답을 한 상대는 90일이 지나기 전까지 후보가 아니다'
 );
 

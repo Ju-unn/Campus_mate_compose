@@ -80,21 +80,21 @@ select results_eq(
 
 -- 2. 후보 -------------------------------------------------------------------
 select results_eq(
-  $$select candidate_id from public.match_candidates('00000000-0000-0000-0000-0000000019a1')
-    order by candidate_id$$,
+  $$select (e ->> 'candidate_id')::uuid from jsonb_array_elements(public.match_candidates('00000000-0000-0000-0000-0000000019a1')) e
+    order by 1$$,
   $$values ('00000000-0000-0000-0000-0000000019a2'::uuid), ('00000000-0000-0000-0000-0000000019b2'::uuid)$$,
   'match_candidates: null 학교 사람의 후보에 지난 학교 사람은 나오고 앞으로 열 학교 사람은 없다'
 );
 
 select results_eq(
-  $$select candidate_id from public.match_candidates('00000000-0000-0000-0000-0000000019b1')
-    order by candidate_id$$,
+  $$select (e ->> 'candidate_id')::uuid from jsonb_array_elements(public.match_candidates('00000000-0000-0000-0000-0000000019b1')) e
+    order by 1$$,
   $$values ('00000000-0000-0000-0000-0000000019a2'::uuid), ('00000000-0000-0000-0000-0000000019b2'::uuid)$$,
   'match_candidates: 지난 학교 사람도 후보를 받는다(앞으로 열 학교 사람은 없다)'
 );
 
 select is_empty(
-  $$select candidate_id from public.match_candidates('00000000-0000-0000-0000-0000000019c1')$$,
+  $$select 1 from jsonb_array_elements(public.match_candidates('00000000-0000-0000-0000-0000000019c1'))$$,
   'match_candidates: 앞으로 열 학교 사람은 후보를 한 명도 받지 않는다(구매 카드도 열리기 전엔 못 받는다)'
 );
 

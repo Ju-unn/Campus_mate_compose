@@ -157,27 +157,27 @@ select is(public.jaccard(array['a','b','c'], array['b','c','d']), 0.5::numeric,
 
 -- 관심사 2/4, 내 특징↔상대 이상형 1/5, 상대 특징↔내 이상형 2/4 → (0.5 + 0.35) / 2 = 0.425
 select is(
-  (select round(tag_score, 4) from public.match_candidates('00000000-0000-0000-0000-0000000000aa')),
+  (select round((e ->> 'tag_score')::numeric, 4) from jsonb_array_elements(public.match_candidates('00000000-0000-0000-0000-0000000000aa')) e),
   round(((2::numeric/4) + ((1::numeric/5) + (2::numeric/4)) / 2) / 2, 4),
   '태그점수 = 평균[관심사 자카드, 양방향 특징 자카드의 평균]'
 );
 
 -- 4. 하드 필터 — 걸려야 하는 사람은 안 나온다(설계 §6.7) ------------------------
 select is(
-  (select count(*) from public.match_candidates('00000000-0000-0000-0000-0000000000aa')
-    where candidate_id = '00000000-0000-0000-0000-0000000000cc'),
+  (select count(*) from jsonb_array_elements(public.match_candidates('00000000-0000-0000-0000-0000000000aa')) e
+    where e ->> 'candidate_id' = '00000000-0000-0000-0000-0000000000cc'),
   0::bigint, '같은 성별은 후보가 아니다'
 );
 
 select is(
-  (select count(*) from public.match_candidates('00000000-0000-0000-0000-0000000000aa')
-    where candidate_id = '00000000-0000-0000-0000-0000000000dd'),
+  (select count(*) from jsonb_array_elements(public.match_candidates('00000000-0000-0000-0000-0000000000aa')) e
+    where e ->> 'candidate_id' = '00000000-0000-0000-0000-0000000000dd'),
   0::bigint, '다른 지역그룹은 후보가 아니다'
 );
 
 select is(
-  (select count(*) from public.match_candidates('00000000-0000-0000-0000-0000000000aa')
-    where candidate_id = '00000000-0000-0000-0000-0000000000ee'),
+  (select count(*) from jsonb_array_elements(public.match_candidates('00000000-0000-0000-0000-0000000000aa')) e
+    where e ->> 'candidate_id' = '00000000-0000-0000-0000-0000000000ee'),
   0::bigint, '15일을 넘게 접속하지 않은 사람은 후보가 아니다'
 );
 
