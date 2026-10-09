@@ -66,10 +66,10 @@ void main() {
     final result = await buildRepository(client).fetchSummary();
 
     final summary = result.when<HomeSummary?>(onSuccess: (s) => s, onFailure: (_) => null)!;
-    // pen `b9Rask` · `Ch4h6` 과 같은 그림 두 장, review-strip `L7wKi` 의 4.8 · 143.
+    // pen `b9Rask` · `Ch4h6` 과 같은 그림 두 장. 리뷰 띠는 출시 전 임시 값 5.0 · 1(사용자 결정 2026-10-09).
     expect(summary.presentPeopleImages, ['assets/images/person-f1-blind-v1.png', 'assets/images/person-f4-blind-v1.png']);
-    expect(summary.reviewRating, 4.8);
-    expect(summary.reviewCount, 143);
+    expect(summary.reviewRating, 5.0);
+    expect(summary.reviewCount, 1);
   });
 
   test('cohort 가 null 이면 대기 없음이다(이미 열린 학교)', () async {
