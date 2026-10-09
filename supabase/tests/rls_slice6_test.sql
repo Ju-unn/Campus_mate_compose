@@ -349,56 +349,56 @@ select is(
 
 -- 5. 후보 필터(match_candidates, 기준 사용자 A) ----------------------------------
 select is(
-  (select count(*) from public.match_candidates('00000000-0000-0000-0000-000000000060')
-    where candidate_id = '00000000-0000-0000-0000-000000000061'),
+  (select count(*) from jsonb_array_elements(public.match_candidates('00000000-0000-0000-0000-000000000060')) e
+    where e ->> 'candidate_id' = '00000000-0000-0000-0000-000000000061'),
   1::bigint, '아무 조건도 없는 대조군은 후보로 나온다'
 );
 
 select is(
-  (select count(*) from public.match_candidates('00000000-0000-0000-0000-000000000060')
-    where candidate_id = '00000000-0000-0000-0000-000000000062'),
+  (select count(*) from jsonb_array_elements(public.match_candidates('00000000-0000-0000-0000-000000000060')) e
+    where e ->> 'candidate_id' = '00000000-0000-0000-0000-000000000062'),
   0::bigint, 'A 가 차단한 사람은 후보가 아니다'
 );
 
 select is(
-  (select count(*) from public.match_candidates('00000000-0000-0000-0000-000000000060')
-    where candidate_id = '00000000-0000-0000-0000-000000000063'),
+  (select count(*) from jsonb_array_elements(public.match_candidates('00000000-0000-0000-0000-000000000060')) e
+    where e ->> 'candidate_id' = '00000000-0000-0000-0000-000000000063'),
   0::bigint, 'A 를 차단한 사람은 후보가 아니다'
 );
 
 select is(
-  (select count(*) from public.match_candidates('00000000-0000-0000-0000-000000000060')
-    where candidate_id = '00000000-0000-0000-0000-000000000064'),
+  (select count(*) from jsonb_array_elements(public.match_candidates('00000000-0000-0000-0000-000000000060')) e
+    where e ->> 'candidate_id' = '00000000-0000-0000-0000-000000000064'),
   0::bigint, 'auto_hidden_at 이 찍힌 사람은 후보가 아니다'
 );
 
 select is(
-  (select count(*) from public.match_candidates('00000000-0000-0000-0000-000000000060')
-    where candidate_id = '00000000-0000-0000-0000-000000000065'),
+  (select count(*) from jsonb_array_elements(public.match_candidates('00000000-0000-0000-0000-000000000060')) e
+    where e ->> 'candidate_id' = '00000000-0000-0000-0000-000000000065'),
   0::bigint, 'A 가 등록한 번호가 후보의 phone_hmac 이면 후보가 아니다'
 );
 
 select is(
-  (select count(*) from public.match_candidates('00000000-0000-0000-0000-000000000060')
-    where candidate_id = '00000000-0000-0000-0000-000000000066'),
+  (select count(*) from jsonb_array_elements(public.match_candidates('00000000-0000-0000-0000-000000000060')) e
+    where e ->> 'candidate_id' = '00000000-0000-0000-0000-000000000066'),
   0::bigint, '후보가 등록한 번호가 A 의 phone_hmac 이면 후보가 아니다'
 );
 
 select is(
-  (select count(*) from public.match_candidates('00000000-0000-0000-0000-000000000060')
-    where candidate_id = '00000000-0000-0000-0000-000000000067'),
+  (select count(*) from jsonb_array_elements(public.match_candidates('00000000-0000-0000-0000-000000000060')) e
+    where e ->> 'candidate_id' = '00000000-0000-0000-0000-000000000067'),
   1::bigint, 'key_version 이 다르면 지인차단으로 제외하지 않는다'
 );
 
 select is(
-  (select count(*) from public.match_candidates('00000000-0000-0000-0000-000000000060')
-    where candidate_id = '00000000-0000-0000-0000-000000000068'),
+  (select count(*) from jsonb_array_elements(public.match_candidates('00000000-0000-0000-0000-000000000060')) e
+    where e ->> 'candidate_id' = '00000000-0000-0000-0000-000000000068'),
   1::bigint, '후보의 phone_hmac 이 null 이면 A 의 지인차단이 있어도 제외하지 않는다'
 );
 
 select is(
-  (select count(*) from public.match_candidates('00000000-0000-0000-0000-000000000060')
-    where candidate_id = '00000000-0000-0000-0000-00000000006a'),
+  (select count(*) from jsonb_array_elements(public.match_candidates('00000000-0000-0000-0000-000000000060')) e
+    where e ->> 'candidate_id' = '00000000-0000-0000-0000-00000000006a'),
   1::bigint, '후보가 등록한 A 번호라도 key_version 이 다르면 지인차단으로 제외하지 않는다'
 );
 
