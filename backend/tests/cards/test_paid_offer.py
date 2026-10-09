@@ -121,24 +121,20 @@ def test_smoke_religion_needs_no_penalty_on_both():
 
 
 def test_texts_never_show_school_score_or_ideal_condition_words():
-    owner = owner_row(interest_tags=["러닝", "카페가기"], mbti="INFP",
-                      preferred_age_min=20, preferred_age_max=30,
-                      universities={"name": "테스트대학교"}, nickname="여우비")
-    target = _target(trait_score=0.93, tag_score=0.88, text_score=0.91, mbti="ENFJ",
-                     interest_tags=["러닝", "카페가기"], universities={"name": "가짜대학교"},
-                     nickname="토끼", score=0.87)
-    all_kinds = []
-    for kind in ("tendency", "tags", "ideal", "mbti", "age_height", "smoke_religion"):
-        # 한 번에 셋까지라 하나씩 남겨 모든 문구를 본다.
-        only = {k: 0.0 for k in ("trait_score", "tag_score", "text_score")}
-        reasons = build_reasons(owner, {**target, **only, **{
-            "tendency": {"trait_score": 0.93}, "tags": {"tag_score": 0.88},
-            "ideal": {"text_score": 0.91}}.get(kind, {})})
-        all_kinds += reasons
+    who = {"universities": {"name": "테스트대학교"}, "nickname": "여우비"}
+    them = {"universities": {"name": "가짜대학교"}, "nickname": "토끼", "score": 0.87}
+    # 점수 세 가지가 다 나오는 쌍(계수 쪽은 종교를 달리해 끼지 않게)과, 계수 세 가지가 다 나오는 쌍.
+    by_scores = build_reasons(
+        owner_row(interest_tags=["러닝", "카페가기"], religion="christian", **who),
+        _target(trait_score=0.93, tag_score=0.88, text_score=0.91, interest_tags=["러닝", "카페가기"],
+                religion="none", **them))
+    by_coefficients = build_reasons(
+        owner_row(mbti="INFP", preferred_age_min=20, preferred_age_max=30, **who),
+        _target(mbti="ENFJ", **them))
+    reasons = by_scores + by_coefficients
 
-    texts = {r["text"] for r in all_kinds}
-    assert {r["kind"] for r in all_kinds} == {"tendency", "tags", "ideal", "mbti", "age_height", "smoke_religion"}
-    for text in texts:
+    assert {r["kind"] for r in reasons} == {"tendency", "tags", "ideal", "mbti", "age_height", "smoke_religion"}
+    for text in {r["text"] for r in reasons}:
         assert "대학" not in text and "학교" not in text
         assert not re.search(r"\d|%", text)
         assert "이상형 조건에 맞는" not in text
