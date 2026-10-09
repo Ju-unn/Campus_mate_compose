@@ -39,24 +39,26 @@ def test_threshold_is_one_constant_starting_at_half():
 
 
 def test_reasons_are_at_most_three_and_ordered_by_strength():
-    owner = owner_row(interest_tags=["러닝", "카페가기"], mbti="INFP", religion="christian")
-    target = _target(trait_score=0.9, tag_score=0.7, text_score=0.8, mbti="ENFJ",
+    owner = owner_row(interest_tags=["러닝", "카페가기"], mbti="INFP", preferred_mbti_flags={"E": True},
+                      religion="christian")
+    target = _target(trait_score=0.9, text_score=0.7, mbti="ENFJ",
                      interest_tags=["카페가기", "러닝"], religion="none")
 
     reasons = build_reasons(owner, target)
 
-    # MBTI 는 불이익 없이 맞아 1.0, 종교가 달라 smoke_religion 은 빠진다. 1.0 > 0.9 > 0.8 > 0.7 순서.
-    assert [r["kind"] for r in reasons] == ["mbti", "tendency", "ideal"]
+    # 성향 0.9 > 태그(공통 2개) 0.8 > 이상형 0.7 > MBTI 0.6 — 네 개가 후보지만 셋만 남는다.
+    assert [r["kind"] for r in reasons] == ["tendency", "tags", "ideal"]
     assert len(reasons) == 3
 
 
 def test_ties_follow_the_listed_order():
-    owner = owner_row(mbti="INFP", preferred_height_min=160, preferred_height_max=175)
-    target = _target(trait_score=1.0, mbti="ENFJ")
+    owner = owner_row(mbti="INFP", preferred_mbti_flags={"E": True}, preferred_height_min=160,
+                      preferred_height_max=175)
+    target = _target(trait_score=0.6, mbti="ENFJ")
 
     reasons = build_reasons(owner, target)
 
-    # tendency · mbti · age_height · smoke_religion 이 모두 1.0 — 나열 순서대로 앞의 셋.
+    # tendency · mbti · age_height · smoke_religion 이 모두 0.6 — 나열 순서대로 앞의 셋.
     assert [r["kind"] for r in reasons] == ["tendency", "mbti", "age_height"]
 
 
@@ -120,6 +122,51 @@ def test_smoke_religion_needs_no_penalty_on_both():
     assert build_reasons(owner_row(religion="christian"), _target(religion="none")) == []
 
 
+def test_mbti_reason_needs_the_owner_to_have_chosen_a_preference():
+    """선호 MBTI 가 `{}` 이면 "전부 상관없음" 이라 맞는 이유가 아니다. 한 글자라도 골랐을 때만 센다."""
+    target = _target(mbti="ENFJ", religion="none")
+
+    assert build_reasons(owner_row(mbti="INFP", preferred_mbti_flags={}, religion="christian"), target) == []
+    chosen = owner_row(mbti="INFP", preferred_mbti_flags={"E": True}, religion="christian")
+    assert [r["kind"] for r in build_reasons(chosen, target)] == ["mbti"]
+
+
+def test_score_reasons_come_before_coefficient_reasons():
+    """계수형(MBTI · 나이키 · 흡연종교)은 불이익이 없어도 0.6 이다 — 0.6 을 넘는 점수형이 앞선다."""
+    owner = owner_row(mbti="INFP", preferred_mbti_flags={"E": True}, preferred_height_min=160,
+                      preferred_height_max=175)
+    target = _target(trait_score=0.65, text_score=0.7, mbti="ENFJ")
+
+    assert [r["kind"] for r in build_reasons(owner, target)] == ["ideal", "tendency", "mbti"]
+
+
+def test_coefficient_reasons_fill_in_when_the_scores_are_low():
+    owner = owner_row(mbti="INFP", preferred_mbti_flags={"E": True}, preferred_height_min=160,
+                      preferred_height_max=175)
+    target = _target(trait_score=0.55, mbti="ENFJ")
+
+    # 성향 0.55 는 문턱은 넘지만 계수형 0.6 보다 낮아, 셋이 다 차면 밀려난다.
+    assert [r["kind"] for r in build_reasons(owner, target)] == ["mbti", "age_height", "smoke_religion"]
+
+
+def test_one_common_tag_counts_half_and_ignores_tag_score():
+    """공통 태그 1개 = 0.5(문턱 이상, 계수형 0.6 · 성향 0.55 보다 뒤). tag_score 가 0.99 여도 세기는 그대로다."""
+    owner = owner_row(interest_tags=["러닝", "영화"])
+    target = _target(trait_score=0.55, tag_score=0.99, interest_tags=["러닝", "등산"])
+
+    assert [r["kind"] for r in build_reasons(owner, target)] == ["smoke_religion", "tendency", "tags"]
+
+
+def test_two_or_more_common_tags_count_point_eight():
+    owner = owner_row(interest_tags=["러닝", "영화", "등산"])
+    target = _target(trait_score=0.7, tag_score=0.0, interest_tags=["러닝", "영화", "등산"])
+
+    reasons = build_reasons(owner, target)
+
+    assert [r["kind"] for r in reasons] == ["tags", "tendency", "smoke_religion"]
+    assert reasons[0]["text"] == "#러닝 #영화가 같아요"  # 셋이 겹쳐도 이름은 둘까지
+
+
 def test_texts_never_show_school_score_or_ideal_condition_words():
     who = {"universities": {"name": "테스트대학교"}, "nickname": "여우비"}
     them = {"universities": {"name": "가짜대학교"}, "nickname": "토끼", "score": 0.87}
@@ -129,7 +176,8 @@ def test_texts_never_show_school_score_or_ideal_condition_words():
         _target(trait_score=0.93, tag_score=0.88, text_score=0.91, interest_tags=["러닝", "카페가기"],
                 religion="none", **them))
     by_coefficients = build_reasons(
-        owner_row(mbti="INFP", preferred_age_min=20, preferred_age_max=30, **who),
+        owner_row(mbti="INFP", preferred_mbti_flags={"E": True}, preferred_age_min=20, preferred_age_max=30,
+                  **who),
         _target(mbti="ENFJ", **them))
     reasons = by_scores + by_coefficients
 
@@ -149,7 +197,8 @@ def test_reason_texts_are_the_agreed_words():
         target = _target(interest_tags=["러닝", "카페"], religion="none", **scores)
         texts.update({r["kind"]: r["text"] for r in build_reasons(plain, target)})
     # 계수 세 가지는 점수 없이 한 번에 나온다.
-    strict = owner_row(mbti="INFP", preferred_age_min=20, preferred_age_max=30)
+    strict = owner_row(mbti="INFP", preferred_mbti_flags={"E": True}, preferred_age_min=20,
+                       preferred_age_max=30)
     texts.update({r["kind"]: r["text"] for r in build_reasons(strict, _target(mbti="ENFJ"))})
 
     assert texts == {

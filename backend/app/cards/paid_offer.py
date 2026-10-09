@@ -17,6 +17,13 @@ PAID_CARD_COST = 50
 REASON_THRESHOLD = 0.5
 MAX_REASONS = 3
 MAX_TAG_NAMES = 2
+# 계수형 이유(mbti · age_height · smoke_religion)는 "불이익이 없다" 만 말할 뿐 얼마나 잘 맞는지는 모른다 — 1.0 으로
+# 치면 점수형(성향 · 이상형 글)을 늘 이긴다. 0.6 으로 두어 점수형이 0.6 을 넘으면 앞서고, 점수형이 낮을 때는
+# 계수형이 빈자리를 채운다(사용자 위임으로 확정한 안 B).
+COEFFICIENT_STRENGTH = 0.6
+# 태그는 tag_score 대신 공통 관심 태그 개수로 잰다: 1개 0.5(문턱), 2개 이상 0.8.
+TAG_STRENGTH_ONE = 0.5
+TAG_STRENGTH_MANY = 0.8
 # 나열 순서가 곧 동점일 때의 순서다.
 REASON_KINDS = ("tendency", "tags", "ideal", "mbti", "age_height", "smoke_religion")
 _FIXED_TEXTS = {
@@ -40,19 +47,21 @@ def _subject_particle(word: str) -> str:
 
 
 def _common_tags(owner: dict, target: dict) -> list[str]:
-    """공통 관심 태그 이름. 내 태그 순서를 따라 최대 MAX_TAG_NAMES 개."""
+    """공통 관심 태그 이름 전부(내 태그 순서). 개수는 세기에, 앞의 MAX_TAG_NAMES 개는 문구에 쓴다."""
     theirs = set(target.get("interest_tags") or [])
-    return [tag for tag in owner.get("interest_tags") or [] if tag in theirs][:MAX_TAG_NAMES]
+    return [tag for tag in owner.get("interest_tags") or [] if tag in theirs]
 
 
 def _strengths(owner: dict, target: dict, tags: list[str]) -> dict[str, float]:
-    """요소마다 0~1. 점수 세 가지(scoring.final_score 의 trait · tag · text)는 그대로, 계수 세 가지는
-    불이익 없이(계수 1.0) 맞고 말할 근거가 있을 때만 1.0 이다 — MBTI 가 없거나 범위를 아무도 두지 않았으면
-    계수가 1.0 이어도 "맞아요" 라고 하지 않는다."""
-    mbti_ok = bool(owner.get("mbti") and target.get("mbti")) and mbti_coefficient(
-        owner.get("preferred_mbti_flags") or {}, target["mbti"],
-        target.get("preferred_mbti_flags") or {}, owner["mbti"],
-    ) >= _NO_PENALTY
+    """요소마다 0~1. 점수형 둘(성향 · 이상형 글)은 final_score 의 점수 그대로, 태그는 공통 태그 개수로, 계수형
+    셋은 불이익 없이 맞고 말할 근거가 있을 때만 COEFFICIENT_STRENGTH 다 — MBTI 가 없거나 내 선호 MBTI 를 안
+    골랐거나(`{}` = 전부 상관없음) 범위를 아무도 두지 않았으면 계수가 1.0 이어도 "맞아요" 라고 하지 않는다."""
+    mbti_ok = bool(owner.get("mbti") and target.get("mbti") and owner.get("preferred_mbti_flags")) and (
+        mbti_coefficient(
+            owner.get("preferred_mbti_flags") or {}, target["mbti"],
+            target.get("preferred_mbti_flags") or {}, owner["mbti"],
+        ) >= _NO_PENALTY
+    )
     age_height_ok = any(p.get(k) is not None for p in (owner, target) for k in _RANGE_KEYS) and (
         range_coefficient(
             owner.get("height_cm"), owner.get("preferred_height_min"), owner.get("preferred_height_max"),
@@ -69,11 +78,11 @@ def _strengths(owner: dict, target: dict, tags: list[str]) -> dict[str, float]:
         and owner.get("religion") == target.get("religion")
     return {
         "tendency": float(target.get("trait_score") or 0),
-        "tags": float(target.get("tag_score") or 0) if tags else 0.0,
+        "tags": TAG_STRENGTH_MANY if len(tags) >= 2 else TAG_STRENGTH_ONE if tags else 0.0,
         "ideal": float(target.get("text_score") or 0),
-        "mbti": 1.0 if mbti_ok else 0.0,
-        "age_height": 1.0 if age_height_ok else 0.0,
-        "smoke_religion": 1.0 if smoke_religion_ok else 0.0,
+        "mbti": COEFFICIENT_STRENGTH if mbti_ok else 0.0,
+        "age_height": COEFFICIENT_STRENGTH if age_height_ok else 0.0,
+        "smoke_religion": COEFFICIENT_STRENGTH if smoke_religion_ok else 0.0,
     }
 
 
@@ -89,8 +98,8 @@ def build_reasons(owner_row: dict, target_candidate: dict) -> list[dict]:
     reasons = []
     for kind in chosen[:MAX_REASONS]:
         if kind == "tags":
-            names = " ".join(f"#{tag}" for tag in tags)
-            text = f"{names}{_subject_particle(tags[-1])} 같아요"
+            shown = tags[:MAX_TAG_NAMES]
+            text = f"{' '.join(f'#{tag}' for tag in shown)}{_subject_particle(shown[-1])} 같아요"
         else:
             text = _FIXED_TEXTS[kind]
         reasons.append({"kind": kind, "text": text})
