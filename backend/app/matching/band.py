@@ -9,7 +9,7 @@ import random
 
 from app.matching.scoring import rank
 
-# 출처: 카드 구간 뽑기 설계(사용자 승인) — 무료 상위 80%, 유료 상위 20%, 구간은 최소 5명.
+# 출처: 설계 문서 「01_설계_카드선정_유료카드」(사용자 승인) — 무료 상위 80%, 유료 상위 20%, 구간은 최소 5명.
 FREE_BAND_RATIO = 0.8
 PAID_BAND_RATIO = 0.2
 BAND_MINIMUM = 5
