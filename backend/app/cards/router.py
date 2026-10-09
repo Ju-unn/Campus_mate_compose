@@ -212,7 +212,8 @@ async def get_today_cards(wiring: _Wiring = Depends(_wire), rng: random.Random =
             if may_offer and not pool_empty:
                 # ponytail: 살아 있는 제안이 없을 때만 여기서 후보 전체 순위를 다시 매긴다(새로 가입한 사람 · 지급
                 # 요일이 아닌 날 · 배치가 놓친 날을 메운다). 후보 1,000명 규모면 요청당 rank_all 한 번(수 ms)과 RPC
-                # 한 번이고, 주기당 한 번 만들고 나면 위의 읽기 경로로 간다. 더 커지면 제안 만들기를 배치 전용으로
+                # 한 번이고, 주기당 한 번 만들고 나면 위의 읽기 경로로 간다. 병목은 파이썬이 아니라 RPC 한 번과
+                # 응답 크기(후보 1,500명 약 650KB)다. 더 커지면 제안 만들기를 배치 전용으로
                 # 돌리고 이 자리는 캐시(또는 "준비 중")만 읽게 바꾼다.
                 owner_row = await matching_repo.fetch_owner(wiring.profile_id)
                 made = await ensure_offer(wiring.repo, owner_row, rank_all(owner_row, candidates), cycle,
@@ -403,12 +404,18 @@ async def purchase_paid_card(offer_id: str, wiring: _Wiring = Depends(_wire)) ->
     outcome = await wiring.repo.purchase_paid_card(wiring.profile_id, offer_id)
     result = outcome.get("result")
     if result in ("ok", "already_purchased"):
-        return {"card_id": outcome["card_id"]}
+        card_id = outcome.get("card_id")
+        if card_id:
+            return {"card_id": card_id}
+        if result == "already_purchased":
+            # 산 카드가 지워졌다 — 줄 카드가 없으니 "열 수 없는 카드" 로 말해 앱이 화면을 새로 읽게 한다.
+            raise HTTPException(status_code=409, detail=errors.PAID_OFFER_GONE)
+        # ok 는 항상 card_id 를 담는다는 계약이 깨졌다 — 아래 5xx 와 같이 올린다.
     if result in _PURCHASE_FAILURES:
         status, detail = _PURCHASE_FAILURES[result]
         raise HTTPException(status_code=status, detail=detail)
     # 계약에 없는 값 — 반쪽 상태를 만들지 않도록 그대로 5xx 로 올린다.
-    raise RuntimeError(f"purchase_paid_card 가 모르는 결과를 돌려줬다: {result!r}")
+    raise RuntimeError(f"purchase_paid_card 가 계약 밖의 결과를 돌려줬다: {outcome!r}")
 
 
 # ↓ 아래에 새 `/cards/...` 경로를 두지 않는다. `{card_id}` 가 먼저 먹어 버린다.

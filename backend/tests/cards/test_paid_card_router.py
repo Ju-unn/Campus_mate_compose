@@ -85,7 +85,8 @@ def _in(value: str) -> list[str]:
 
 class _World:
     def __init__(self, offers=(), candidates=(), cards=(), profiles=None,
-                 purchase=None, purchase_status: int = 200):
+                 purchase=None, purchase_status: int = 200, region_settings=None):
+        self.region_settings = REGION_SETTINGS if region_settings is None else region_settings
         self.offers = [dict(o) for o in offers]
         self.candidates = list(candidates)
         self.cards = list(cards)
@@ -117,7 +118,7 @@ class _World:
             ids = _in(params["id"]) if params["id"].startswith("in.") else [params["id"].removeprefix("eq.")]
             return httpx.Response(200, json=[self._person(i) for i in ids])
         if table == "region_group_settings":
-            return httpx.Response(200, json=REGION_SETTINGS)
+            return httpx.Response(200, json=self.region_settings)
         if table == "daily_cards" and request.method == "GET":
             return httpx.Response(200, json=self.cards)
         if table == "rpc/match_candidates":
@@ -387,4 +388,49 @@ def test_a_failing_purchase_function_is_a_5xx_and_nothing_else_is_written(wire):
     response = wire(world).post("/cards/paid/offer-1/purchase", headers=AUTH)
 
     assert response.status_code >= 500
+    _no_side_writes(world)
+
+
+def test_without_region_settings_the_paid_card_is_null(wire):
+    """지역 설정 행이 없으면 주기를 몰라 제안을 만들지도 읽지도 않는다 — 다음 지급 시각도 null."""
+    world = _World(offers=[_offer()], candidates=[_candidate(i) for i in range(20)], region_settings=[])
+
+    body = wire(world).get("/cards/today", headers=AUTH).json()
+
+    assert body["paid_card"] is None
+    assert body["locked_card_available"] is False
+    assert body["next_issue_at"] is None
+    assert world.count("POST", "paid_card_offers") == 0
+
+
+def test_an_unknown_purchase_result_is_a_5xx_and_nothing_else_is_written(wire):
+    """DB 계약 밖의 result 는 성공으로 읽지 않고 그대로 500 으로 올린다(반쪽 상태를 만들지 않는다)."""
+    world = _World(offers=[_offer()], purchase={"result": "surprise"})
+
+    response = wire(world).post("/cards/paid/offer-1/purchase", headers=AUTH)
+
+    assert response.status_code == 500
+    _no_side_writes(world)
+
+
+@pytest.mark.parametrize("purchase", [{"result": "already_purchased", "card_id": None},
+                                      {"result": "already_purchased"}])
+def test_already_purchased_but_the_card_is_gone_is_409(wire, purchase):
+    """산 카드가 지워져 card_id 가 null(또는 없음)이면 줄 카드가 없다 — 500 이 아니라 앱이 화면을 새로 읽게 409 다."""
+    world = _World(offers=[_offer()], purchase=purchase)
+
+    response = wire(world).post("/cards/paid/offer-1/purchase", headers=AUTH)
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == errors.PAID_OFFER_GONE
+    _no_side_writes(world)
+
+
+def test_ok_without_a_card_id_is_a_5xx(wire):
+    """ok 는 항상 card_id 를 담는다는 계약이다 — 깨졌으면 null 카드를 200 으로 주지 않는다."""
+    world = _World(offers=[_offer()], purchase={"result": "ok", "card_id": None})
+
+    response = wire(world).post("/cards/paid/offer-1/purchase", headers=AUTH)
+
+    assert response.status_code == 500
     _no_side_writes(world)
