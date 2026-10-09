@@ -21,8 +21,10 @@ async def issue_daily_cards(card_repo, matching_repo, sender, now: datetime,
     대상자마다 ① 이번 주기의 유료 카드 제안을 먼저 확보하고 ② 그 사람을 빼고 무료 카드를 상위 80% 구간에서
     무작위로 뽑는다(지시문 22). rng 는 시험이 시드를 고정하려고 받는다.
 
-    ponytail: 대상자마다 RPC 2번(프로필 + 후보)과 유료 제안 읽기 2번 · 쓰기 1~2번(새로 정할 때 태그 이름 읽기 포함)을 부른다. 서울 한 그룹 · 수백 명 규모에서는 충분하고,
-    수천 명이 되면 후보 조회를 한 번에 모아 오는 SQL 로 바꾼다(백로그)."""
+    ponytail: 사람당 호출이 많다. 이미 제안이 있는 사람(재사용 경로)은 읽기 약 7번(프로필 · 후보 2번 + 구매 여부 · 제안
+    목록 2번 + 대상 자격 확인 3번), 새 제안을 만드는 사람은 읽기 약 5번(프로필 · 후보 · 구매 여부 · 제안 목록 ·
+    태그 이름) + insert 2번(제안 · 카드)이다. 서울 한 그룹 · 수백 명 규모에서는 충분하고, 수천 명이 되면 후보 조회를
+    한 번에 모아 오는 SQL 로 바꾼다(백로그). 사람 단위 try/except 가 있어 한 사람의 실패가 뒷사람을 막지 않는다."""
     rng = rng or random.Random()
     settings_by_region = {row["region_group"]: row for row in await card_repo.fetch_region_settings()}
     counts = await card_repo.fetch_active_counts()
@@ -49,6 +51,7 @@ async def issue_daily_cards(card_repo, matching_repo, sender, now: datetime,
 
     issued = 0
     no_candidate = 0
+    failed = 0
     for owner in await card_repo.fetch_issue_owners():
         region = owner["region_group"]
         weekdays = weekdays_by_region.get(region)
@@ -58,34 +61,50 @@ async def issue_daily_cards(card_repo, matching_repo, sender, now: datetime,
         owner_id = owner["profile_id"]
         if owner_id in issued_today:
             continue
-        owner_row = await matching_repo.fetch_owner(owner_id)
-        # 후보는 이미 본 사람까지 전부다(pickable 칸) — 구간은 전체로 재고 뽑을 때만 pickable 을 본다.
-        ranked = rank_all(owner_row, await matching_repo.fetch_candidates(owner_id))
-        issue_time = _parse_time(settings_by_region[region]["issue_time"])
-
-        # ① 유료 제안은 무료 카드가 나가든 말든 확보한다. ② 그 사람은 무료 카드에서 뺀다.
-        offer = await ensure_offer(card_repo, owner_row, ranked, last_issue_at(now, weekdays, issue_time),
-                                   rng, now)
-        exclude = frozenset({str(offer["target_id"])}) if offer else frozenset()
-        picked = pick_from_band(ranked, FREE_BAND_RATIO, rng, exclude=exclude)
-        if picked is None:
-            # 구간에 뽑을 사람이 없으면 이번 주기에는 카드가 없다 — 화면 11b `iQZoa` 가 이 상태를 설명한다.
-            no_candidate += 1
+        try:
+            got_card = await _issue_to_owner(card_repo, matching_repo, sender, now, rng, owner_id, weekdays,
+                                             settings_by_region[region])
+        except Exception:
+            # 한 사람의 실패(프로필이 지워져 404 · 후보 RPC 오류 등)가 뒷사람 지급을 막으면 안 된다. 사람 정보는
+            # 로그에 남기지 않는다(profile_id 만).
+            logger.exception("카드 지급 실패 owner=%s", owner_id)
+            failed += 1
             continue
+        if got_card:
+            issued += 1
+        else:
+            no_candidate += 1
 
-        expires_at = next_issue_at(now, weekdays, issue_time)
-        card = await card_repo.insert_card(owner_id, picked["candidate_id"], expires_at)
-        issued += 1
+    return {"issued": issued, "no_candidate": no_candidate, "skipped_regions": skipped, "failed": failed}
 
-        if sender is not None:
-            try:
-                await notify(
-                    card_repo, sender, owner_id, "card_arrived",
-                    "오늘의 카드가 도착했어요", "지금 확인해 보세요",
-                    {"route": "daily_card", "card_id": str(card["id"])}, now=now,
-                )
-            except Exception:
-                # 카드는 이미 들어갔다. 알림 한 건 때문에 뒷사람 지급까지 멈추는 쪽이 훨씬 나쁘다.
-                logger.exception("카드 도착 알림 실패 owner=%s", owner_id)
 
-    return {"issued": issued, "no_candidate": no_candidate, "skipped_regions": skipped}
+async def _issue_to_owner(card_repo, matching_repo, sender, now: datetime, rng: random.Random, owner_id: str,
+                          weekdays: list[int], region_settings: dict) -> bool:
+    """한 사람 몫: 유료 제안 확보 → 무료 카드 지급 → 알림. 카드를 줬으면 True, 뽑을 사람이 없었으면 False."""
+    owner_row = await matching_repo.fetch_owner(owner_id)
+    # 후보는 이미 본 사람까지 전부다(pickable 칸) — 구간은 전체로 재고 뽑을 때만 pickable 을 본다.
+    ranked = rank_all(owner_row, await matching_repo.fetch_candidates(owner_id))
+    issue_time = _parse_time(region_settings["issue_time"])
+
+    # ① 유료 제안은 무료 카드가 나가든 말든 확보한다. ② 그 사람은 무료 카드에서 뺀다.
+    offer = await ensure_offer(card_repo, owner_row, ranked, last_issue_at(now, weekdays, issue_time), rng, now)
+    exclude = frozenset({str(offer["target_id"])}) if offer else frozenset()
+    picked = pick_from_band(ranked, FREE_BAND_RATIO, rng, exclude=exclude)
+    if picked is None:
+        # 구간에 뽑을 사람이 없으면 이번 주기에는 카드가 없다 — 화면 11b `iQZoa` 가 이 상태를 설명한다.
+        return False
+
+    expires_at = next_issue_at(now, weekdays, issue_time)
+    card = await card_repo.insert_card(owner_id, picked["candidate_id"], expires_at)
+
+    if sender is not None:
+        try:
+            await notify(
+                card_repo, sender, owner_id, "card_arrived",
+                "오늘의 카드가 도착했어요", "지금 확인해 보세요",
+                {"route": "daily_card", "card_id": str(card["id"])}, now=now,
+            )
+        except Exception:
+            # 카드는 이미 들어갔다. 알림 한 건 때문에 뒷사람 지급까지 멈추는 쪽이 훨씬 나쁘다.
+            logger.exception("카드 도착 알림 실패 owner=%s", owner_id)
+    return True

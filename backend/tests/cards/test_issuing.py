@@ -1,7 +1,9 @@
+import logging
 import random
 from datetime import datetime
 
 import httpx
+from fastapi import HTTPException
 
 from app.cards.issuing import issue_daily_cards
 from app.core.time import SEOUL
@@ -154,7 +156,7 @@ async def test_a_paid_offer_is_made_even_without_a_free_card():
     result = await issue_daily_cards(repo, _FakeMatchingRepo(_many(10, lambda i: i == 0)), sender=None,
                                      now=MONDAY_7AM, rng=random.Random(0))
 
-    assert result == {"issued": 0, "no_candidate": 1, "skipped_regions": []}
+    assert result == {"issued": 0, "no_candidate": 1, "skipped_regions": [], "failed": 0}
     assert [(o["owner_id"], o["target_id"], o["status"]) for o in repo.offers] == [
         ("owner-1", "c0000", "offered")]
     assert repo.offers[0]["cycle_started_at"] == MONDAY_7AM.isoformat()
@@ -380,4 +382,50 @@ async def test_owner_without_candidates_is_counted_not_crashed():
 
     result = await issue_daily_cards(repo, matching, sender=None, now=MONDAY_7AM)
 
-    assert result == {"issued": 0, "no_candidate": 1, "skipped_regions": []}
+    assert result == {"issued": 0, "no_candidate": 1, "skipped_regions": [], "failed": 0}
+
+
+class _PerOwnerFailure(_FakeMatchingRepo):
+    """owner-1 만 터지고 owner-2 는 멀쩡한 가짜. broken 은 fetch_owner(404) 나 fetch_candidates(그 밖의 예외)."""
+    def __init__(self, candidates, broken: str):
+        super().__init__(candidates)
+        self._broken = broken
+
+    async def fetch_owner(self, profile_id):
+        if self._broken == "owner" and profile_id == "owner-1":
+            raise HTTPException(status_code=404)
+        return await super().fetch_owner(profile_id)
+
+    async def fetch_candidates(self, profile_id):
+        if self._broken == "candidates" and profile_id == "owner-1":
+            raise RuntimeError("후보 RPC 죽음 닉네임=여우비")
+        return await super().fetch_candidates(profile_id)
+
+
+async def test_one_failing_owner_does_not_stop_the_next_owner(caplog):
+    """사람 한 명이 실패해도 배치는 다음 사람으로 간다. 실패한 수는 결과에 failed 로 알린다."""
+    repo = _FakeCardRepo([{"profile_id": "owner-1", "region_group": "seoul"},
+                          {"profile_id": "owner-2", "region_group": "seoul"}])
+
+    with caplog.at_level(logging.ERROR, logger="app.cards.issuing"):
+        result = await issue_daily_cards(repo, _PerOwnerFailure(TWO, "candidates"), sender=None,
+                                         now=MONDAY_7AM, rng=random.Random(0))
+
+    assert result == {"issued": 1, "no_candidate": 0, "skipped_regions": [], "failed": 1}
+    assert [c["owner_id"] for c in repo.cards] == ["owner-2"]
+    # 로그에는 profile_id 만 남긴다 — 예외 메시지에 닉네임이 섞여 있어도 우리 문구에는 이름을 넣지 않는다.
+    [record] = [r for r in caplog.records if r.name == "app.cards.issuing"]
+    assert "owner-1" in record.getMessage()
+    assert "여우비" not in record.getMessage()
+
+
+async def test_a_deleted_profile_skips_only_that_owner():
+    """fetch_owner 는 프로필이 지워졌으면 404 를 올린다 — 예전에는 배치 전체가 멈췄다."""
+    repo = _FakeCardRepo([{"profile_id": "owner-1", "region_group": "seoul"},
+                          {"profile_id": "owner-2", "region_group": "seoul"}])
+
+    result = await issue_daily_cards(repo, _PerOwnerFailure(TWO, "owner"), sender=None,
+                                     now=MONDAY_7AM, rng=random.Random(0))
+
+    assert result == {"issued": 1, "no_candidate": 0, "skipped_regions": [], "failed": 1}
+    assert [c["owner_id"] for c in repo.cards] == ["owner-2"]
