@@ -197,6 +197,34 @@ def test_accept_notifies_the_target():
     assert len(pushes) == 1
 
 
+def test_accept_push_says_a_chat_request_arrived():
+    """받는 사람 버튼이 "대화 신청하기" 로 바뀌었다(지시문 22 G) — kind 는 acceptance_received 그대로."""
+    import json
+    pushes: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if request.url.host == "fcm.googleapis.com":
+            pushes.append(json.loads(request.content)["message"])
+            return httpx.Response(200, json={"name": "sent"})
+        if path == "/rest/v1/daily_cards":
+            return httpx.Response(200, json=[_live_card()])
+        if path == "/rest/v1/push_tokens":
+            return httpx.Response(200, json=[{"token": "tok"}])
+        if path == "/rest/v1/notification_settings":
+            return httpx.Response(200, json=[{"acceptance_received": True, "quiet_hours": False}])
+        if path == "/rest/v1/profiles":
+            return httpx.Response(200, json=[TARGET_PROFILE])
+        if request.method == "GET":
+            return httpx.Response(200, json=[])
+        return httpx.Response(201, json=[{"id": "x"}])
+
+    _wire(handler).post("/cards/card-1/decision", headers=AUTH_HEADERS, json={"decision": "accept"})
+
+    assert pushes[0]["notification"] == {"title": "대화 신청이 왔어요", "body": "여우비 님이 대화를 신청했어요"}
+    assert pushes[0]["data"]["route"] == "acceptances"
+
+
 def test_reject_notifies_nobody():
     """거절은 조용히 끝난다 — 상대에게 아무 신호도 가지 않는다(설계 §2.2)."""
     pushes: list[str] = []
