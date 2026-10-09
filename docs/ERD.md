@@ -3,6 +3,7 @@
 > **상태: 초안 v3 (2026-09-13 ~ 09-14) · 2차 검수 반려 반영 · 최종 검토 반영 · 탈퇴 정책 결정 반영 · 조각 0·조각 1(1a·1b) Supabase 적용 완료(1a·1b 는 2026-09-20, MCP `apply_migration`).** 조각 0 은 `supabase/migrations/` 4개 + `seed.sql` 로 적용됐다. 조각 1(1a 이메일 인증 훅·1b 학생증 인증)은 마이그레이션 11개(학생증 사진 삭제 트리거였던 `20260919181357` 은 클라우드에 올린 적 없이 폐기·삭제, PR #43)와 `supabase/tests/rls_slice1_test.sql` 을 클라우드에 적용했다(자세한 상태는 `docs/SUPABASE.md` §1). 조각 2 이후는 파일 없음. **PR #99(`20260924163241`, 2026-09-25) 로 `profile_avatars.storage_path` not null 해제 + check 추가 적용됨** — 자세한 상태는 `docs/SUPABASE.md` §1.
 > 근거: 설계 문서 `docs/superpowers/specs/2026-09-05-campusmate-foundation-design.md` (§2·§5·§6·§7·§13), `frontend/docs/DESIGN.md` (§5.2·§8·§9), 2026-09-13 ~ 09-14 사용자 결정(§11).
 > **2026-09-29 문서 정리 갱신.** 조각 6(신고 · 차단 · 지인 차단 · 탈퇴) · 커뮤니티 · 추천 · 무료 하트 인증 · 지인 리뷰 · 코호트 · 가입 동의 · FAQ 까지 저장소 `supabase/migrations/` 가 **52개**이고, 운영(Supabase)에는 마지막으로 `create_faq`(운영 기록 `20260929054505`)와 그 앞 `create_user_consents`(`20260929051356`)가 적용됐다(대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다). 아래 각 표의 "조각N 제안" 표시는 만들 때의 기록이고, 실제로 만든 칸은 이번 정리에서 "적용됨" 으로 바꿨다.
+> **2026-10-09 갱신(소셜 로그인 전환).** 저장소 `supabase/migrations/` 가 **61개**다. 마지막 네 파일 `20261008010000`(학교 없는 pending 프로필) · `20261008020000`(소셜 이름 지우기 트리거) · `20261008030000`(`school_email_claims` · 정리 · 인증 완료 함수) · `20261008040000`(이메일 해시 없는 탈퇴)이 **2026-10-09 운영에 적용됐다**(대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다). 반영 위치: §1 조감도 · §2 표 · §3 `profiles` · `school_email_claims` · 트리거 · 함수, §5 `withdraw_account`. **데이터 이전**: 기존 사용자 25명(대장 전달 값)은 `school_email_verified_at` = 가입 시각(`created_at`, `20261008010000` 의 update)으로, `school_email_claims` 는 `provider = 'email'` 로 채웠다(`backend/scripts/backfill_school_email_claims.py` — HMAC 키가 서버에만 있어 SQL 로 못 채운다).
 
 ## 읽는 법
 
@@ -22,6 +23,8 @@ erDiagram
     universities ||--o{ profiles : "소속"
     region_group_settings ||..o{ universities : "region_group"
     profiles ||--o| profile_private : "민감 정보"
+    profiles ||--o| school_email_claims : "학교 메일 1개 · 인증 전이면 없음"
+    universities ||--o{ school_email_claims : "학교 · restrict"
     profiles ||--o{ student_verification_attempts : "학생증 제출"
     profiles ||--o{ profile_photos : "실사진"
     profiles ||--o{ profile_avatars : "아바타"
@@ -92,6 +95,7 @@ erDiagram
 | `polls` · `poll_votes` | 없음 | FastAPI 전용 — `author_id` 를 열면 익명이 깨지고(DESIGN §8.11), `poll_votes` 는 본인 행만 열면 집계가 안 되고 다 열면 누가 뭘 골랐는지 보인다 |
 | `faq` | `authenticated` 전체 | 2026-09-29 적용. 앱이 supabase-flutter 로 바로 읽는다(공개 참조 표 — ERD_DECISIONS 8 의 예외). `authenticated` = `select` 만, `anon` 없음, `service_role` = 네 권한(문구는 대시보드에서 고친다). 첫 문구 36행은 마이그레이션 안 insert(묶음별 7 · 5 · 6 · 4 · 6 · 8) |
 | `signup_blocks` · `promo_codes` · `promo_redemptions` | 없음 | 서버 전용 |
+| `school_email_claims` | 없음 | FastAPI 전용(2026-10-09 운영 적용). RLS 켬 · 정책 0 — 본인 행도 못 읽는다(`signup_blocks` 와 같다). `service_role` 만 네 권한. 인증 여부는 FastAPI 가 내려준다(§3) |
 
 사이클 B pgTAP 기대값의 기준:
 
@@ -116,6 +120,8 @@ erDiagram
     universities ||--o{ profiles : "소속"
     region_group_settings ||..o{ universities : "region_group"
     profiles ||--o| profile_private : "민감 정보"
+    profiles ||--o| school_email_claims : "학교 메일 인증 1회"
+    universities ||--o{ school_email_claims : "on delete restrict"
     profiles ||--o{ student_verification_attempts : "학생증 제출 한 번에 한 행"
     profiles ||--o{ user_consents : "항목 × 판마다 한 행"
     profiles ||--o{ profile_photos : "실사진 2~4장"
@@ -139,14 +145,18 @@ erDiagram
 
     region_group_settings {
         text region_group PK "조각4 · 가칭"
-        smallint[] issue_weekdays "지급 요일 · 초기 월목 · 성비 미달이면 1개"
+        smallint[] issue_weekdays "지급 요일 · 배치가 사다리로 덮는 결과값 · 기본 월(1) · 2026-10-03 5단계(ladder.py)"
+        integer ladder_twice_per_week_min "남녀 중 적은 쪽 활성 인원 이 값 이상 주 2회(월목) · 기본 50 · 미만은 주 1회(월)"
+        integer ladder_three_per_week_min "주 3회(월수금) · 기본 500"
+        integer ladder_four_per_week_min "주 4회(월수금일) · 기본 1000"
+        integer ladder_daily_min "매일 · 기본 2000 · 넷은 오름차순 check"
         time issue_time "07:00 · Asia/Seoul"
         timestamptz updated_at
     }
 
     profiles {
         uuid id PK, FK "조각0 · auth.users.id"
-        uuid university_id FK "조각0 · 메일 도메인으로 서버가 정함"
+        uuid university_id FK "조각0 · 2026-10-09 null 허용 · 학교 메일 인증(complete_school_email_verification)이 정함 · null=인증 전"
         text nickname UK "조각0 · lower 유니크 · 한글영문 2~5자"
         gender gender "조각0 · 하드 필터"
         smallint birth_year "조각0 · 연 나이 19세 이상"
@@ -185,6 +195,16 @@ erDiagram
         timestamptz withdrawn_at "조각6 적용 · 탈퇴 요청 시각 · 30일 뒤 계정 삭제 · status=withdrawn 과 짝(check)"
         timestamptz auto_hidden_at "조각6 적용 · 서로 다른 3명 신고로 자동 가림된 시각 · 카드 · 새 매칭 제외"
         text referral_code UK "추천 2026-09-28 적용 · 대문자 숫자 6자(0 O 1 I 제외) · DB 기본값으로 발급 · not null"
+        timestamptz school_email_verified_at "2026-10-09 적용 · 학교 메일 인증 시각 · null=인증 전(14일 뒤 정리 배치) · auth.users.email_confirmed_at 과 다름"
+    }
+
+    school_email_claims {
+        bytea school_email_hmac PK "2026-10-09 적용 · 학교 메일 HMAC(FastAPI 계산) · 주소는 저장 안 함"
+        uuid university_id FK "not null · on delete restrict · 인덱스"
+        uuid profile_id FK, UK "not null · 계정당 1개 · on delete cascade"
+        text provider "not null · kakao google apple email(check) · email=소셜 전 OTP 가입 기존 계정"
+        smallint key_version "not null · 기본 1 · 같은 버전끼리만 대조"
+        timestamptz verified_at "not null · 기본 now()"
     }
 
     profile_private {
@@ -252,7 +272,8 @@ erDiagram
 
 - `profiles` 폐기 컬럼 — 만들지 않는다: `hide_same_major`(설계 미결27), `ideal_description`(설계 미결33). `looking_for`는 조각0에 만들었다가 "찾는 성별" 폐지(반대 성별 자동 매칭, 2026-09-14 사용자 결정)로 조각2 마이그레이션에서 지웠다 — 조각0 마이그레이션 파일은 고치지 않았다(§12-36 완료)
 - `profiles` 행은 FastAPI가 아니라 **`auth.users` INSERT 후 Postgres 트리거(`handle_new_user_profile`)**가 만든다(2026-09-18, FK 순서 문제로 정정 — §11-26). Before User Created 훅 시점엔 `auth.users` 행이 아직 커밋 전이라 거기서 `profiles` insert 를 하면 FK 위반이 난다. 3b의 `profile_private` 가 이 행을 FK로 가리키므로 먼저 있어야 한다. 클라이언트 INSERT는 없다(§2)
-- **이 시점에 정해지는 `university_id`(메일 도메인으로) · `status`(`pending`)만 `not null` 이다.** 온보딩(DESIGN 04-1 이후)에서 받는 `nickname` · `gender` · `birth_year` · `height_cm` 는 null 허용이고, 아래 check 로 필수값 없는 `active` 전환을 막는다. 조각 0 계획서 초안처럼 온보딩 컬럼을 `not null` 로 두면 FastAPI insert가 실패한다. **`looking_for` 는 이 check 에서도 조각2 마이그레이션 때 함께 빠졌다**(§12-36)
+  - **2026-10-09 개정(`20261008010000` ⑤)**: 트리거는 **학교를 정하지 않는다.** `raw_app_meta_data.provider = 'email'` 인 계정(학교 메일 인증번호를 받으려고 앱이 잠깐 만드는 임시 계정)은 **프로필을 만들지 않고**, 그 밖의 계정(카카오 · 구글 · 애플, provider 없는 행 포함)은 `insert into profiles (id)` 로 **학교 없는 `pending` 프로필**만 만든다. 학교는 아래 `complete_school_email_verification` 한 길로만 정한다(학교 도메인 구글 계정에 여기서 학교를 채우면 `school_email_claims` 에 메일이 안 남아 "학교 메일 1개 = 계정 1개" 가 깨진다)
+- **이 시점에 정해지는 `university_id`(메일 도메인으로) · `status`(`pending`)만 `not null` 이다.** **2026-10-09 개정: `university_id` 도 null 허용이다**(`20261008010000` ①) — 학교 메일 인증 전에는 비어 있고, 이 칸을 읽는 SQL(`match_candidates` · `card_issue_owners` · `region_active_counts` · `home_stats`)은 inner join · `=` 비교라 인증 전 사람은 후보 · 카드 · 사다리 인원 · 학교 목록에서 빠진다. 지금 트리거가 정하는 `not null` 값은 `status`(`pending`)뿐이다. 온보딩(DESIGN 04-1 이후)에서 받는 `nickname` · `gender` · `birth_year` · `height_cm` 는 null 허용이고, 아래 check 로 필수값 없는 `active` 전환을 막는다. 조각 0 계획서 초안처럼 온보딩 컬럼을 `not null` 로 두면 FastAPI insert가 실패한다. **`looking_for` 는 이 check 에서도 조각2 마이그레이션 때 함께 빠졌다**(§12-36)
   `check (status <> 'active' or (nickname is not null and gender is not null and birth_year is not null and height_cm is not null))`
 - 가입 나이의 "올해"는 Asia/Seoul 기준이다(UTC 12월 31일 15:00 경계). check 에 `now()` 를 넣지 않고 FastAPI가 검사한다. DB에는 `now()` 없는 정적 범위 check만 둔다
 - `profiles` 정적 check(조각 0): `nickname` 한글·영문 2~5자, `birth_year` 1950~2020, `height_cm` 120~230, `preferred_height_min` · `max` 도 120~230 이고 min ≤ max, `admission_year` 1950~2100(두 자리 입력을 그대로 저장하는 실수 방지), `mbti` `^[EI][NS][TF][JP]$`, `preferred_mbti_flags` 는 JSON 객체(키 E I N S T F J P, 값 boolean · true 가 ok, 설계 §6.4 — 기본 `{}` 는 전부 ok 와 같은 결과), `interest_tags` 5개 이하(하한 3개는 FastAPI 온보딩 완료 검사)
@@ -286,6 +307,12 @@ erDiagram
 - **`user_consents`(가입 동의, 2026-09-29 적용 — 운영 기록 `20260929051356`)**: 항목 × 판마다 한 행, PK `(profile_id, kind, version)`, `version` 은 `YYYY-MM-DD` check, `agreed_at` 은 서버 시각. FastAPI 전용이고 **`service_role` 도 `select` · `insert` 만** — 동의 기록은 고치지 않는다(§2 예외). 탈퇴 계정 삭제 때 cascade. **`kind` enum 의 `sensitive_religion` · `overseas_transfer` 값은 남겨 두지만 쓰지 않는다**(2026-09-29 4칸 결정: 필수 = `terms` · `privacy`, 선택 = 마케팅 — 마케팅은 이 표가 아니라 `notification_settings.marketing`). 운영에 적용된 enum 이라 값을 지울 수 없어 남긴다(§8). 종교는 개인정보 수집·이용 동의 안에, OpenAI 국외 이전은 처리방침 공개로 대신한다(설계 §7.8)
 - **`universities.card_opens_at`(코호트, 2026-09-28 적용)**: null 이면 이미 열린 학교(지금 학교 전부). 값이 있으면 check `universities_card_opens_monday_0700` 가 **서울 월요일 07:00 · 유한 값**만 받는다. `match_candidates` · `card_issue_owners` · `region_active_counts` 가 "열림 = null 이거나 지남" 조건 한 줄씩을 더했다(시그니처 그대로 `create or replace`). `universities` 는 `anon` 까지 읽기라 여는 시각도 공개된다. 종전 제안 `recruit_starts_at` 은 **만들지 않는다**(학교 행을 넣는 순간이 모집 시작)
 - **`profiles.referral_code`(2026-09-28 적용)**: `generate_referral_code()` 기본값 · unique · check `^[A-HJ-NP-Z2-9]{6}$`, 기존 행도 채웠다. 정지 · 탈퇴한 사람의 코드는 없는 코드로 처리한다
+- **`profiles.school_email_verified_at`(소셜 로그인, 2026-10-09 운영 적용 — `20261008010000`)**: null = 학교 메일 인증 전. 소셜 가입 때 GoTrue 가 채우는 `auth.users.email_confirmed_at` 은 학교 메일 증거로 쓰지 않고 이 칸만 본다. check **`profiles_verified_requires_university`** `(school_email_verified_at is null or university_id is not null)` — "인증했는데 학교 없음" 반쪽 상태를 막는다. 부분 인덱스 **`idx_profiles_unverified_created_at`** `on profiles (created_at) where school_email_verified_at is null` — 정리 배치가 "인증 전 + 오래된 순" 으로 읽는다. 같은 파일이 기존 행(학교 있는 행)을 `school_email_verified_at = created_at` 으로 채웠다(상태줄 "데이터 이전")
+- **`school_email_claims`(학교 메일 1개 = 계정 1개, 2026-10-09 운영 적용 — `20261008030000` ⑦)**: 지금 그 학교 메일을 쓰는 계정. PK `school_email_hmac`(FastAPI 가 계산한 HMAC 만 — DB 에서 계산하면 키가 Postgres 에 들어온다), `university_id` FK `on delete restrict` + 인덱스 `school_email_claims_university_id_index`, `profile_id` **unique** FK `on delete cascade`(인증 뒤 메일 변경 불가), `provider` check `kakao` `google` `apple` `email`(`email` = 소셜 로그인 전에 학교 메일 OTP 로 가입한 기존 계정, 백필 스크립트가 넣는다), `key_version` 기본 1(행마다 키 버전, 대조는 같은 버전끼리), `verified_at` 기본 `now()`. **RLS 켬 · 정책 없음**, `revoke all ... from anon, authenticated, service_role` 뒤 `service_role` 에만 `select` · `insert` · `update` · `delete`. 탈퇴 뒤 재가입 제한은 `signup_blocks` 가 따로 맡는다 — 탈퇴 30일 뒤 `auth.users` 가 지워지면 이 행도 cascade 로 지워져 그 메일을 다시 쓸 수 있다
+- **트리거 `scrub_social_identity_names`(2026-10-09 운영 적용 — `20261008020000` ⑥)**: `auth.users`(`before insert or update of raw_user_meta_data`) · `auth.identities`(`before insert or update of identity_data`) 두 곳에 같은 이름으로 건다. 소셜 제공자가 넣는 이름 · 사진을 저장 전에 지운다 — 지울 키가 아니라 **남길 키 6개만** 적는다: `email` · `sub` · `provider_id` · `iss` · `email_verified` · `phone_verified`. 객체가 아닌 값은 건드리지 않는다. 함수는 security invoker, `anon` · `authenticated` 실행 권한 회수. auth 스키마 표에 거는 트리거라 Supabase 업그레이드 뒤 남아 있는지 다시 본다
+- **DB 함수(2026-10-09 운영 적용 — `20261008030000`)** — 둘 다 security invoker, `public` · `anon` · `authenticated` 회수, `service_role` 만 실행
+  - `list_unverified_accounts(p_older_than_days integer, p_limit integer default 100) returns table (id uuid)` — 학교 메일 인증 전(`school_email_verified_at is null`)이고 `p_older_than_days` 일이 지난 프로필 id 를 오래된 순 `p_limit` 개. 둘 중 하나라도 null 이거나 1 미만이면 22023 오류. 고르기만 하고 지우는 것은 FastAPI 가 auth 관리자 API 로 한다(정리 배치, 14일). email 방식 임시 계정은 프로필이 없어 여기 나오지 않는다
+  - `complete_school_email_verification(p_profile uuid, p_email_hmac bytea, p_university uuid, p_provider text, p_key_version smallint default 1) returns text` — claims 기록과 프로필의 학교 · 인증 시각을 한 트랜잭션에 쓴다(프로필 행 `for update` 잠금, 같은 메일 동시 호출은 `on conflict do nothing`). 돌려주는 값: `ok` = 기록함(같은 계정 · 같은 메일로 다시 불러도 `ok`, 멱등) / `kakao` · `google` · `apple` · `email` = 그 메일을 다른 계정이 쓰고 있다, 그 계정의 가입 방식(아무것도 안 바꿈) / `already_verified` = 이 계정은 이미 인증함(인증 시각이 있거나 claims 행이 있음, 인증 뒤 변경 금지) / `no_profile` = 프로필 없음. 가입 방식이 넷 밖이면 23514
 
 ## 4. 카드 · 매칭 · 채팅 (조각 4~5)
 
@@ -395,7 +422,7 @@ erDiagram
 - 채팅방의 "신뢰 확인 완료" 카드(`trust-reveal-bubble`)는 메시지 행이 아니라 `matches.trust_passed_at` 으로 그린다
 - **읽음은 메시지가 아니라 `match_participants.last_read_at` 에 둔다.** `messages.read_at` 은 두 사람이 다 읽으므로, 상대가 조용히 나가면 내 메시지가 계속 안 읽힘으로 남아 나가기가 드러난다. 안 읽은 수는 상대가 보낸 메시지 중 `created_at` > 내 `last_read_at` 이고, 갱신은 메시지마다가 아니라 방에 들어올 때와 나갈 때 한 번씩이다(나갈 때도 갱신해야 방 안에서 받은 메시지가 안 읽음으로 남지 않는다). 상대에게 보이는 읽음 표시는 없다
 - 수락이 겹치는 경로 두 가지: A의 카드에서 A accept → B가 받은 수락함에서 응답(`acceptance_responses`), 또는 서로의 카드에서 둘 다 accept. 어느 쪽이든 양쪽 accept 가 되면 FastAPI가 `matches` 와 `match_participants` 2행을 만든다
-- **하드 필터 "이미 카드로 받은 사람"의 정의(§11-4, 설계 §6.7)**: 내가 결정한 카드의 상대(`card_decisions`) + 받은 수락함에서 응답한 상대(`acceptance_responses`) + 매칭 이력이 있는 상대(`matches`, 게이트 실패 포함) + 아직 만료되지 않은 카드의 상대. **무응답으로 만료된 무상 카드의 상대는 다시 나올 수 있다.** 그래서 `daily_cards (owner_id, target_id)` 는 unique가 아니라 일반 인덱스다
+- **하드 필터 "이미 카드로 받은 사람"의 정의(§11-4, 설계 §6.7)**: 내가 결정한 카드의 상대(`card_decisions`) + 받은 수락함에서 응답한 상대(`acceptance_responses`) + 매칭 이력이 있는 상대(`matches`, 게이트 실패 포함) + 아직 만료되지 않은 카드의 상대. **무응답으로 만료된 무상 카드의 상대는 다시 나올 수 있다.** **실제 동작(2026-09-21 사용자 확정, `20260928050000` `match_candidates`)은 영구 제외가 아니라 쉬는 기간이다**: 결정한 카드의 상대는 결정 후 90일, 무응답 만료 카드의 상대는 만료 후 14일, 내가 수락 응답을 한 상대도 90일 쉬고, **매칭된 상대만 영구 제외**다. 그래서 `daily_cards (owner_id, target_id)` 는 unique가 아니라 일반 인덱스다
 - **`pending_pushes`(밤 알림 보류, 결정 4 · 2026-10-01 사용자 — 2026-10-03 제안, 운영 미적용)**: 조용한 시간(22~08시)에 걸린 받은 수락 · 매칭 · 지인 리뷰 · 학생증 검토 결과(A7) 알림을 버리지 않고 원래 제목 · 본문 · `data` 그대로 한 행씩 넣는다(`app/cards/push.py` `notify`). 매시 chat-gate 배치가 조용하지 않은 시각(08~21시)에 돌면 사람 × 가는 화면(`data.route`)으로 묶어 보내고 지운다 — 1건이면 원래 알림, 여러 건이면 "밤사이 2명이 나를 수락했어요" 식 묶음. 친구 가입(리뷰 쓰기) · 학생증 검토 결과 알림은 묶지 않고 한 건씩 보낸다. **내가 방금 한 행동으로 생긴 내 쪽 알림은 보류하지 않고 버린다**(대장 10-03) — 밤에 내가 눌러 생긴 매칭의 내 쪽 "매칭됐어요!", 마지막에 누른 사람 쪽 "카카오톡 아이디를 주고받았어요"(둘 다 방금 화면에서 봤다, `notify(defer=False)`). 보낼 때 `notify` 를 다시 지나서 밤사이 끈 알림 · 정지 · 탈퇴는 걸린다. 채팅 · 카드 도착은 조용한 시간 예외라, 신뢰 확인 리마인드는 보낼 시각을 08시로 미뤄 둬서 이 표에 오지 않는다. `kind` 는 enum 이 아니라 4값 check 다
 - 알림 토글은 지금 7개다. DESIGN 16d의 "내 글의 새 댓글"은 이번 스코프에 커뮤니티 댓글이 없어서(DESIGN §8.11) 컬럼을 두지 않고, 댓글을 도입할 때 추가한다 — 검토11. DESIGN 16d는 지금 고치지 않는다
 
@@ -450,7 +477,7 @@ erDiagram
 - **매칭 중 차단은 `matches` 에 기록하지 않는다.** `chat_closed_at` 같은 공유 값으로 처리하면 상대가 차단을 추론한다. 차단한 사람의 `match_participants.left_at` 과 `blocks` 행으로만 처리한다(설계 §7.2 "차단당한 쪽은 알 수 없어야")
 - `reports.target_snapshot` — 게이트 실패 채팅 삭제(설계 §2.5)나 탈퇴 30일 뒤 삭제(§11-15)로 신고된 원본이 사라져도 24시간 조치 근거(애플 심사 지침 1.2)가 남아야 한다. `reporter_id` 는 `on delete set null`. 처리가 끝나고(`resolved_at`) 1년 뒤 행째 지운다(§11-23). check 후보 `(status = 'open') = (resolved_at is null)`
 - `signup_blocks` 는 탈퇴로 `profiles` 가 지워진 뒤에도 남아야 하므로 관계가 없다. 원본 이메일을 남기지 않으려고 HMAC 으로 제안. 가입 때 FastAPI HTTP Auth Hook 이 메일 도메인 화이트리스트와 함께 이 표를 검사한다(§11-12). 정지 중 탈퇴는 `blocked_until` 을 `infinity` 로 써서 기간 없이 막는다(§11-22). 기한(`blocked_until`)이 지난 행은 FastAPI 배치(신고 1년 삭제와 같은 배치)가 지운다. 남기면 재탈퇴 때 `email_hmac` PK 가 충돌한다
-- **조각 6 적용 기록(2026-09-27, 마이그레이션 `20260927010000` ~ `20260927030100`, 운영 적용됨).** ① `reports`: enum `report_reason` 5값, `reason_note`(기타 한 줄, 1~200자), `target_profile_id`(대상의 주인, 자동 가림 셈), unique `reports_once_per_reporter (reporter_id, target_type, target_id)`, check `reports_status_pair`, 인덱스 `target_profile_id` · `created_at`. 하루 10건 상한은 FastAPI 가 센다. **1년 삭제는 `resolved_at` 기준이다** — 2026-09-29 PR #165 로 코드를 바로잡았다(그 전 배치는 `created_at` 기준이라 1년 넘게 열린 신고까지 지웠다). `resolved_at` 인덱스는 아직 없다(백로그). 적용된 마이그레이션 `20260927010200` 33줄 주석의 옛 기준 문장은 파일을 고치지 않는 규칙이라 그대로다 ② `blocks`: PK `(blocker_id, blocked_id)`, 자기 차단 check, `blocked_id` 인덱스. 신고하면 같은 요청 안에서 차단 행도 넣는다(지인 리뷰 신고만 예외) ③ `contact_blocks`: 위 모양 + `contact_hmac` 인덱스, **클라이언트 권한 0**(§2 개정) ④ `profile_private.phone_hmac` · `phone_hmac_key_version` 을 `set_phone_number`(5인자, `20260927030000`)가 번호와 같이 쓴다 — 옛 번호는 백필 스크립트로 한 번 채웠다 ⑤ `withdraw_account()`(`20260927030100`) — 상태 · `withdrawn_at` · `signup_blocks` 를 한 트랜잭션에(정지면 무기한, 아니면 2개월, 두 번 불러도 같다) ⑥ `match_candidates` · `card_issue_owners` 가 차단(양방향) · 자동 가림 · 지인 차단(같은 키 버전) 을 뺀다(`20260927010500`)
+- **조각 6 적용 기록(2026-09-27, 마이그레이션 `20260927010000` ~ `20260927030100`, 운영 적용됨).** ① `reports`: enum `report_reason` 5값, `reason_note`(기타 한 줄, 1~200자), `target_profile_id`(대상의 주인, 자동 가림 셈), unique `reports_once_per_reporter (reporter_id, target_type, target_id)`, check `reports_status_pair`, 인덱스 `target_profile_id` · `created_at`. 하루 10건 상한은 FastAPI 가 센다. **1년 삭제는 `resolved_at` 기준이다** — 2026-09-29 PR #165 로 코드를 바로잡았다(그 전 배치는 `created_at` 기준이라 1년 넘게 열린 신고까지 지웠다). `resolved_at` 인덱스는 아직 없다(백로그). 적용된 마이그레이션 `20260927010200` 33줄 주석의 옛 기준 문장은 파일을 고치지 않는 규칙이라 그대로다 ② `blocks`: PK `(blocker_id, blocked_id)`, 자기 차단 check, `blocked_id` 인덱스. 신고하면 같은 요청 안에서 차단 행도 넣는다(지인 리뷰 신고만 예외) ③ `contact_blocks`: 위 모양 + `contact_hmac` 인덱스, **클라이언트 권한 0**(§2 개정) ④ `profile_private.phone_hmac` · `phone_hmac_key_version` 을 `set_phone_number`(5인자, `20260927030000`)가 번호와 같이 쓴다 — 옛 번호는 백필 스크립트로 한 번 채웠다 ⑤ `withdraw_account()`(`20260927030100`) — 상태 · `withdrawn_at` · `signup_blocks` 를 한 트랜잭션에(정지면 무기한, 아니면 2개월, 두 번 불러도 같다). **2026-10-09 개정(`20261008040000`, 운영 적용)**: `p_email_hmac` 이 null 이면(카카오처럼 메일이 없거나 학교 메일 인증 전에 나가는 계정) 상태 · `withdrawn_at` 만 바꾸고 `signup_blocks` 는 남기지 않는다. 서명 · security invoker · `service_role` 만 실행은 그대로 ⑥ `match_candidates` · `card_issue_owners` 가 차단(양방향) · 자동 가림 · 지인 차단(같은 키 버전) 을 뺀다(`20260927010500`)
 - **`profile_private.phone_hmac` 유니크는 걸지 않는다**(2026-09-22 사용자 결정, 검토5 해결) — "한 번호 한 계정" 을 DB 로 강제하지 않는다. 학교 메일이 둘인 사람이 같은 번호로 계정 둘을 굴려 정지 · 재가입 제한을 우회할 수 있는 것은 알려진 한계다. 같은 번호 추천 보상 중복은 `redeem_referral` 이 막는다(§6)
 
 ## 6. 하트 · 추천 · 지인 리뷰 (조각 7 전후)
