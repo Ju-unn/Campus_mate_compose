@@ -68,11 +68,15 @@ class Fake(FakeServer):
         if name in NO_ID_TABLES and 'id' in sent['query'].get('select', '').split(','):
             return Reply(400, {'code': '42703', 'message': f'column {name}.id does not exist'})
         match = [r for r in rows if all(str(r.get(k)) == v[3:] for k, v in sent['query'].items()
-                                        if v.startswith('eq.') and k != 'select')]
+                                        if v.startswith('eq.') and k != 'select')
+                 and all(str(r.get(k)).lower() == v[6:].lower() for k, v in sent['query'].items() if v.startswith('ilike.'))]
         if method == 'POST':
             if mismatched_keys(sent['body']):
                 return mismatched_keys(sent['body'])
-            rows += sent['body'] if isinstance(sent['body'], list) else [sent['body']]
+            new = sent['body'] if isinstance(sent['body'], list) else [sent['body']]
+            if name == 'profiles':  # 계정 공장의 프로필(Prefer: resolution=ignore-duplicates) — 같은 id 는 그대로 둔다
+                new = [r for r in new if not any(o.get('id') == r.get('id') for o in rows)]
+            rows += new
             return Reply(201, None)
         if method == 'PATCH':
             if name == 'profiles' and 'status' in sent['body']:

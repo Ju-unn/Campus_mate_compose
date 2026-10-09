@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:math';
 
+import 'package:campus_mate/auth/view/start_view.dart';
 import 'package:campus_mate/auth/viewmodel/student_verification_view_model.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
@@ -48,8 +49,11 @@ part 'area3_b9.dart';
 typedef Area1Case = Future<Map<String, Object?>?> Function(WidgetTester tester, Map<String, dynamic> job);
 
 /// 화면 이름 → 그 화면에만 있는 제목 글자.
+/// 소셜 로그인 전환 뒤 로그아웃 상태의 첫 화면은 시작 화면(`/`)이고, 02(학교 메일 입력)는 **로그인한 뒤** 학교 메일 인증
+/// 관문(needsSchoolEmail)에서만 나온다 — 로그아웃 · 세션 만료 · 탈퇴 뒤 도착은 'start', 번호 받기는 'schoolEmail'.
 const screens = {
-  'login': '대학 이메일로 시작해요', // 2 sign_up_screen
+  'start': '학교 메일 인증은 가입할 때 한 번만 해요', // / start_view — 소셜 버튼 아래 안내 줄(로그아웃이 확인된 뒤에만 보인다)
+  'schoolEmail': '대학 이메일로 시작해요', // 02 sign_up_screen — 로그인한 계정의 학교 메일 인증
   'code': '인증 코드를 입력해요', // 3 verify_code_screen
   'consent': '서비스 이용을 위해 동의해 주세요', // 02-c consent_screen
   '3b': '학교와 재학 상태를 확인해요', // student_verification_screen _Hero
@@ -82,7 +86,10 @@ const screens = {
   '01-1': '인터넷 연결을 확인해 주세요', // offline_screen
 };
 
-const _rejected = '허용되지 않은 학교 이메일이에요';
+const _rejected = '등록되지 않은 학교 메일이에요'; // 가입 직전 훅(서버 errors.SCHOOL_EMAIL_UNKNOWN_DOMAIN) — 02 가 그대로 띄운다
+// 시작 화면 소셜 버튼(social_login_button.dart SocialLoginLabels). 안드로이드는 애플 버튼이 없다.
+const _kakaoLogin = '카카오 로그인';
+const _googleLogin = 'Google 계정으로 로그인';
 const _wrongCode = '코드가 맞지 않아요. 다시 확인해 주세요.';
 const _nicknameOk = '사용할 수 있는 닉네임이에요';
 const _nicknameBad = '한글 또는 영문 2~5자로 입력해 주세요';
@@ -93,8 +100,16 @@ const _consentCta = '동의하고 계속하기';
 Finder screen(String name) => switch (name) {
       '05-12' => find.byType(AvatarGenerationScreen),
       'home' => find.byType(HomeScreen),
+      'start' => _signedOutStart(),
       _ => find.text(screens[name]!),
     };
+
+/// 시작 화면의 버튼 영역은 로그인한 사람이 관문 조회를 기다리는 동안에도 자리만 차지한 채 트리에 있다(start_view.dart
+/// `Visibility(maintainSize)`) — 그 영역이 보일 때(로그아웃이 확인됐을 때)의 안내 줄만 '시작 화면에 닿음' 으로 친다.
+Finder _signedOutStart() => find.descendant(
+      of: find.byWidgetPredicate((w) => w is Visibility && w.key == StartView.loginAreaKey && w.visible),
+      matching: find.text(screens['start']!),
+    );
 
 /// 입력칸 — 힌트(placeholder) 또는 라벨 글자로.
 Finder input(String hintOrLabel) => find.byWidgetPredicate(
@@ -167,21 +182,21 @@ Area1Case _session(Area1Case body) => (tester, job) async {
 
 bool _fresh(Map<String, dynamic> job) => job['fresh'] != false;
 
-/// [expect] 화면에 닿는다. 다시 켠 경우(fresh=false)엔 5초(스플래시 2 + 3) 안, 로그인 화면이 한 번도 안 나와야 한다.
+/// [expect] 화면에 닿는다. 다시 켠 경우(fresh=false)엔 5초(스플래시 2 + 3) 안, 시작 화면(로그아웃 상태)이 한 번도 안 나와야 한다.
 /// 일감에 [limit](초)이 있으면 그 시간까지 기다린다 — 에뮬은 실폰보다 느려 5초가 모자란다. 5초를 넘기면 알림에 그 사실을 남기고, 못 닿으면 지금 보이는 화면을 알린다.
 Future<Map<String, Object?>?> _arriveAt(WidgetTester tester, Map<String, dynamic> job) async {
   final name = job['expect'] as String;
   final limit = Duration(seconds: job['limit'] as int? ?? (_fresh(job) ? 30 : 5));
   final watch = Stopwatch()..start();
-  var sawLogin = false;
+  var sawStart = false;
   var found = false;
   while (watch.elapsed < limit && !found) {
     await tester.pump(const Duration(milliseconds: 100));
-    sawLogin |= name != 'login' && screen('login').evaluate().isNotEmpty;
+    sawStart |= name != 'start' && screen('start').evaluate().isNotEmpty;
     found = screen(name).evaluate().isNotEmpty;
   }
-  must(found, '${limit.inSeconds}초 안에 $name 화면이 안 나옴 — 지금 보이는 것: ${_whereNow()} (그동안 로그인 화면은 ${sawLogin ? '보였음' : '안 보였음'})');
-  must(_fresh(job) || !sawLogin, '다시 켰는데 로그인 화면이 나옴');
+  must(found, '${limit.inSeconds}초 안에 $name 화면이 안 나옴 — 지금 보이는 것: ${_whereNow()} (그동안 시작 화면은 ${sawStart ? '보였음' : '안 보였음'})');
+  must(_fresh(job) || !sawStart, '다시 켰는데 시작 화면(로그아웃 상태)이 나옴');
   final slow = limit > const Duration(seconds: 5) && !_fresh(job) && watch.elapsed > const Duration(seconds: 5);
   return {'note': '${watch.elapsedMilliseconds}ms${slow ? ' (시나리오 5초 초과 — 에뮬 기준 ${limit.inSeconds}초까지 허용)' : ''}'};
 }
@@ -189,8 +204,9 @@ Future<Map<String, Object?>?> _arriveAt(WidgetTester tester, Map<String, dynamic
 /// 지금 어느 화면인지 — 못 닿았을 때 "느린 건지, 막힌 건지" 를 가리는 단서.
 String _whereNow() {
   final seen = <String, Finder>{
-    '로그인': screen('login'),
+    '시작 화면': screen('start'),
     '동의': screen('consent'),
+    '02 학교 메일': screen('schoolEmail'),
     '3b 폼': screen('3b'),
     '3c': screen('3c'),
     '홈': screen('home'),
@@ -261,23 +277,48 @@ Future<void> _fillBasics(
 }
 
 final Map<String, Area1Case> area1Cases = {
+  // 소셜 로그인 전환 뒤 02 는 로그인한 뒤의 학교 메일 인증 관문이다 — PC 가 학교 메일 인증 전 계정(needs_school_email)으로
+  // 로그인시킨다. 번호 요청은 앱의 임시 연결이 email 방식 가입으로 보내고, 가입 직전 훅이 등록 안 된 도메인을 거절한다.
   'E-AUTH-05': _session((tester, job) async {
-    await arrive(tester, 'login');
+    await arrive(tester, 'schoolEmail');
     await type(tester, input('hong@snu.ac.kr'), job['email'] as String);
     await tap(tester, button('인증 메일 받기'));
     await pumpUntil(tester, find.text(_rejected), timeout: const Duration(seconds: 15));
     must(await appears(tester, screen('code'), const Duration(seconds: 3)) == null, '인증 코드 화면으로 넘어감');
     return null;
   }),
+  // 03 에서 틀린 코드 — 임시 연결만 거절되고, 로그인한 계정(메인 세션)은 그대로 03 에 남는다(예전: 로그인 안 됨을 봤다).
   'E-AUTH-16': _session((tester, job) async {
-    await arrive(tester, 'login');
+    await arrive(tester, 'schoolEmail');
+    final me = Supabase.instance.client.auth.currentSession?.user.id;
+    must(me != null, '02 에 닿았는데 로그인한 세션이 없음');
     await type(tester, input('hong@snu.ac.kr'), job['email'] as String);
     await tap(tester, button('인증 메일 받기'));
     await arrive(tester, 'code');
     await type(tester, input('인증 코드 6자리'), '000000');
     await tap(tester, button('확인'));
     await pumpUntil(tester, find.text(_wrongCode), timeout: const Duration(seconds: 15));
-    must(Supabase.instance.client.auth.currentSession == null, '틀린 코드로 로그인됨');
+    must(Supabase.instance.client.auth.currentSession?.user.id == me, '틀린 코드 뒤 메인 세션의 계정이 바뀜');
+    must(screen('code').evaluate().isNotEmpty, '틀린 코드 뒤 03 을 떠남 — 지금 보이는 것: ${_whereNow()}');
+    return null;
+  }),
+  // 새 가설: 로그아웃하면 시작 화면에 닿고 소셜 버튼 둘(카카오 → 구글)이 보인다. 안드로이드는 애플 버튼이 없다.
+  // 소셜 로그인 자체는 누르지 않는다 — 카카오 · 구글 로그인 창은 사람만 누를 수 있다.
+  'E-AUTH-23': _session((tester, job) async {
+    await arrive(tester, 'consent');
+    await tap(tester, find.text('로그아웃'));
+    await pumpUntil(tester, find.text('로그아웃할까요?'), timeout: const Duration(seconds: 5));
+    await tap(tester, find.widgetWithText(SafetySheetButton, '로그아웃'));
+    await arrive(tester, 'start', timeout: const Duration(seconds: 10));
+    must(Supabase.instance.client.auth.currentSession == null, '세션이 남아 있음');
+    final area = find.byKey(StartView.loginAreaKey);
+    for (final label in [_kakaoLogin, _googleLogin]) {
+      must(find.descendant(of: area, matching: find.text(label)).evaluate().length == 1, '시작 화면에 "$label" 버튼이 1개가 아님');
+    }
+    final kakaoAbove = tester.getTopLeft(find.text(_kakaoLogin)).dy < tester.getTopLeft(find.text(_googleLogin)).dy;
+    must(kakaoAbove, '카카오 버튼이 구글 버튼 위가 아님');
+    must(find.textContaining('Apple').evaluate().isEmpty, '안드로이드 시작 화면에 애플 버튼이 보임');
+    must(screen('schoolEmail').evaluate().isEmpty, '로그아웃했는데 02(학교 메일 입력)가 보임');
     return null;
   }),
   'E-AUTH-17': _session(_arriveAt),
@@ -285,7 +326,7 @@ final Map<String, Area1Case> area1Cases = {
   'E-AUTH-21': _session((tester, job) async {
     await arrive(tester, '04-1b');
     await Supabase.instance.client.auth.signOut(scope: SignOutScope.local);
-    await arrive(tester, 'login');
+    await arrive(tester, 'start');
     await signIn(job['second'] as String);
     final watch = Stopwatch()..start();
     var sawFirst = false;
@@ -375,7 +416,7 @@ final Map<String, Area1Case> area1Cases = {
     // 시트의 확인 버튼은 AppButton 이 아니라 SafetySheetButton 이다(confirm_sign_out → showSafetyConfirmSheet).
     // 02-c 아래의 로그아웃은 글자 버튼이라 이 찾기에 안 걸린다 — 10-04 실폰 GATE-14 "No element" 원인.
     await tap(tester, find.widgetWithText(SafetySheetButton, '로그아웃'));
-    await arrive(tester, 'login', timeout: const Duration(seconds: 10));
+    await arrive(tester, 'start', timeout: const Duration(seconds: 10));
     must(Supabase.instance.client.auth.currentSession == null, '세션이 남아 있음');
     return null;
   }),

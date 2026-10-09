@@ -5,6 +5,7 @@
 """
 
 import calendar
+import functools
 import random
 import time
 import urllib.parse
@@ -29,7 +30,7 @@ SCREEN_AFTER = {
     'my_traits': '05-01', 'survey': '05-12', 'avatar': '06-1', 'ideal_conditions': '06-2', 'ideal_traits': '06-2a',
     'ideal_note': '06-3', 'home': 'home',
 }
-REJOIN_BLOCKED = '재가입이 제한된 이메일이에요'
+REJOIN_BLOCKED = '재가입이 제한된 메일이에요'  # 서버 errors.SCHOOL_EMAIL_BLOCKED(훅 · verify 가 같은 문구)
 NOT_FOUND = '없는 코드예요, 다시 확인해 주세요'
 NOT_ALLOWED = '이 코드는 쓸 수 없어요'
 ONCE = '추천 코드는 한 번만 입력할 수 있어요'
@@ -147,7 +148,9 @@ def auth_11(run):
     check.reply('같은 메일 재가입', _otp(run, account['email']), 200)
     if user := _signed_up(run, account['n'], account['email'], check):
         check.that(user['id'] != account['id'], '이전과 같은 id')
-        check.that(len(_rows(run, f"profiles?id=eq.{user['id']}&select=id")) == 1, '새 profiles 행 없음')
+        # 소셜 로그인 전환으로 기대 변경 — 다시 가입한 것은 email 방식이라 프로필이 생기지 않는다(예전 "새 profiles 1행")
+        rows = _rows(run, f"profiles?id=eq.{user['id']}&select=id")
+        check.that(not rows, f'새 profiles {len(rows)}행(기대 0 — email 방식은 프로필을 만들지 않는다)')
     return check.result()
 
 
@@ -538,7 +541,25 @@ PHONE = {
     'E-ONB-64': p_onb_64, 'E-ONB-65': p_onb_65, 'E-ONB-66': p_onb_66, 'E-ONB-70': p_onb_70, 'E-ONB-71': p_onb_71,
     'E-ONB-72': _acquisition('other', 30), 'E-ONB-73': _acquisition('everytime', 0),
 }
-CASES = {'E-AUTH-10': auth_10, 'E-AUTH-11': auth_11, 'E-AUTH-12': auth_12, 'E-ONB-67': onb_67, 'E-ONB-68': onb_68}
+# 공장 계정의 school_email_claims 해시는 임의값이다(tools.Run._claim — 진짜 HMAC 키는 FastAPI 에만). 탈퇴는 그 해시로 제한 행을 남기므로
+# "새 행 · 기한 · 정리 배치"(07 · 08 · 12)는 볼 수 있지만, 가입 직전 훅은 실제 메일의 HMAC 으로 대조하므로 같은 메일 재가입을 보는
+# 10(`_otp(... account['email'])` 422 REJOIN_BLOCKED) · 11(같은 메일 200 — 임의 해시라 제한이 끝났는지와 상관없이 늘 200)은 확인할 수 없다.
+SAME_MAIL_REJOIN_BLOCKED = '시험 계정의 학교 메일 해시가 임의값이라 같은 메일 재가입 거절을 확인할 수 없음'
+SAME_MAIL_REJOIN = False  # 진짜 해시를 가진 시험 계정(서버 백필 등)이 생기면 켠다 — 판정은 그대로 남겨 둔다
+
+
+def _same_mail(case):
+    """막혀 있으면 계정 · 탈퇴 · 운영 정리 배치 전에 blocked."""
+    @functools.wraps(case)
+    def guarded(run, *args):
+        if not SAME_MAIL_REJOIN:
+            raise Blocked(SAME_MAIL_REJOIN_BLOCKED)
+        return case(run, *args)
+    return guarded
+
+
+CASES = {'E-AUTH-10': _same_mail(auth_10), 'E-AUTH-11': _same_mail(auth_11), 'E-AUTH-12': auth_12, 'E-ONB-67': onb_67,
+         'E-ONB-68': onb_68}
 
 area1.PHONE.update(PHONE)
 area1.CASES.update(CASES)

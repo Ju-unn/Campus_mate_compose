@@ -76,7 +76,7 @@ class _FkClient extends http.BaseClient {
 /// SessionScope(lib/core/auth/session_scope.dart)와 같은 일을 하되 **맨 위 ProviderScope** 에 apiClientProvider 의 바꿔 끼움을 단다.
 /// 겹친 ProviderScope 에 단 바꿔 끼움은 그 아래 위젯이 직접 읽는 provider 에만 먹는다(예: homeNowProvider) — 저장소 provider(meRepositoryProvider 등)는
 /// 맨 위 컨테이너가 만들어 맨 위의 apiClientProvider 를 읽으므로 가짜가 한 번도 안 지났다(2026-10-07 기기 실행: 넷 다 blocked).
-/// 이 하네스를 만들 때는 SessionScope 가 overrides 를 못 받아 같은 모양을 시험 쪽에 두었다(지금은 받는다 — PR #427) — 로그아웃(signedOut)마다 컨테이너를 새로 만드는 것까지 같다.
+/// lib 의 SessionScope 도 이제 overrides 를 받는다(PR #427). 이 하네스는 그 전에 시험 쪽에 둔 같은 모양을 그대로 쓴다 — 로그아웃(signedOut)마다 컨테이너를 새로 만드는 것까지 같다.
 class _FkScope extends StatefulWidget {
   const _FkScope({required this.fake, super.key});
 
@@ -193,7 +193,7 @@ Future<Map<String, Object?>> _fkWithdraw(WidgetTester tester, Map<String, dynami
   final expect = job['expect'] as String;
   final sheet = find.descendant(of: find.byType(WithdrawFinalSheet), matching: find.text(expect));
   final seen = await appears(tester, sheet, const Duration(seconds: 15)) != null;
-  return {'place': 'withdraw', 'error': seen ? expect : null, 'sheet_open': _has(find.byType(WithdrawFinalSheet)), 'login': _has(screen('login'))};
+  return {'place': 'withdraw', 'error': seen ? expect : null, 'sheet_open': _has(find.byType(WithdrawFinalSheet)), 'login': _has(screen('start'))};
 }
 
 const _fkLoadFail = '잠시 뒤 다시 시도해 주세요'; // me/view/me_load_error.dart

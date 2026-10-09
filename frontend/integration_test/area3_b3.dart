@@ -13,7 +13,7 @@ const _pushContentWait = Duration(seconds: 10); // 방이 열린 뒤 닉네임 �
 /// 이름은 area1.dart `screens` 의 키와 같고(`screen` 으로 찾는다), 대화 목록은 알림 경로가 방 id 없이 목록(push_route.dart `_chatRoom`)으로 떨어진 경우를 위해 더했다.
 List<String> _screensNow() {
   final seen = <String, Finder>{
-    for (final name in const ['login', 'consent', 'consent-renew', '3b', '3c', '04-1', 'home']) name: screen(name),
+    for (final name in const ['start', 'consent', 'consent-renew', '3b', '3c', '04-1', 'home']) name: screen(name),
     'conversations': find.byType(ConversationsScreen),
   };
   return [for (final entry in seen.entries) if (entry.value.evaluate().isNotEmpty) entry.key];

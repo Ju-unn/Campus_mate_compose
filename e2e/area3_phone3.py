@@ -29,7 +29,7 @@ TOKEN_WAIT = 30  # 기기 토큰이 서버에 올라오기를 기다리는 초(a
 NOTICE_WAIT = 60  # 알림이 오기를 기다리는 초(시나리오 4-1 의 T)
 APP_WAIT = 90  # 눌린 앱이 방을 읽고 말하기를 기다리는 초(앱 안의 30 + 10 + 10초 기다림이 모두 끝나도 남는 여유)
 SEEN = (('room', '방 화면'), ('nickname', '앱바 닉네임'), ('message', '방금 메시지'))
-SCREEN_LABELS = {'login': '로그인', 'consent': '약관 동의', 'consent-renew': '약관 갱신', '3b': '학생 인증', '3c': '학교 정보',
+SCREEN_LABELS = {'start': '시작 화면(로그아웃)', 'consent': '약관 동의', 'consent-renew': '약관 갱신', '3b': '학생 인증', '3c': '학교 정보',
                  '04-1': '온보딩 기본 정보', 'home': '홈', 'conversations': '대화 목록'}  # area3_b3.dart _screensNow 의 이름
 
 

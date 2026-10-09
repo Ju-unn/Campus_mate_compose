@@ -188,6 +188,10 @@ class World(Store):
                 return Reply(400, {'code': '42703', 'message': f'column {name}.{unknown[0]} does not exist'})
         if name == 'profiles' and method == 'PATCH' and 'id' in sent['query']:
             self.profile(sent['query']['id'][3:])
+        if name == 'profiles' and method == 'POST':  # 계정 공장이 만드는 프로필 — 나머지 칸은 기본값(위 profile)
+            for row in sent['body'] if isinstance(sent['body'], list) else [sent['body']]:
+                self.profile(row['id']).update({k: v for k, v in row.items() if v is not None})
+            return Reply(201, None)
         if name == 'daily_cards' and method == 'POST':
             for row in sent['body'] if isinstance(sent['body'], list) else [sent['body']]:
                 row.setdefault('issued_at', area2._now().isoformat())

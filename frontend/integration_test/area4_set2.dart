@@ -331,7 +331,7 @@ final Map<String, Area1Case> _set2Cases = {
     await step('ready'); // PC 가 기기 토큰이 서버에 올라온 것을 확인한다
     final tapped = Stopwatch()..start();
     await _confirmLogout(tester);
-    await arrive(tester, 'login', timeout: const Duration(seconds: 15));
+    await arrive(tester, 'start', timeout: const Duration(seconds: 15));
     return {'note': '로그인 화면까지 ${tapped.elapsedMilliseconds}ms'};
   }),
   'E-SET-66': _session((tester, job) async {
@@ -349,7 +349,7 @@ final Map<String, Area1Case> _set2Cases = {
     await tap(tester, find.byIcon(AppIcons.settings));
     await arrive(tester, 'settings');
     await _confirmLogout(tester);
-    await arrive(tester, 'login', timeout: const Duration(seconds: 15));
+    await arrive(tester, 'start', timeout: const Duration(seconds: 15));
     await signIn(job['second'] as String);
     await arrive(tester, 'home', timeout: const Duration(seconds: 40));
     for (final label in ['오늘', '대화', '나']) {
@@ -363,7 +363,7 @@ final Map<String, Area1Case> _set2Cases = {
     await _openSettings(tester);
     await step('cut');
     await _confirmLogout(tester);
-    await arrive(tester, 'login', timeout: const Duration(seconds: 30));
+    await arrive(tester, 'start', timeout: const Duration(seconds: 30));
     must(find.text(const UnknownFailure().toDisplayMessage()).evaluate().isEmpty, '오류 문구가 보임');
     return null;
   }),
@@ -386,7 +386,7 @@ final Map<String, Area1Case> _set2Cases = {
     await tap(tester, button('영구 삭제'));
     await pumpUntil(tester, find.text('정말 삭제할까요?'), timeout: const Duration(seconds: 5));
     await tap(tester, button('정말 영구 삭제'));
-    await arrive(tester, 'login', timeout: const Duration(seconds: 15));
+    await arrive(tester, 'start', timeout: const Duration(seconds: 15));
     final at = await appears(tester, find.text(_withdrawnToast), const Duration(seconds: 10));
     must(at != null, '10초 안에 "$_withdrawnToast" 토스트가 안 나옴');
     await wait(tester, const Duration(seconds: 3, milliseconds: 500));

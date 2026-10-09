@@ -39,7 +39,7 @@ APP_WAIT = 90  # 눌린 앱이 오늘 탭을 찾고 말하기를 기다리는 �
 SLOW_OPEN_MS = 10_000  # 시나리오 "앱이 켜진 뒤 10초 안" — 넘으면 메모에 경고
 MISSING = '(말 없음)'
 CASE_LIMIT_SLOW = 900  # 배치 · 60초 지켜보기 · 앱 기다림이 겹쳐 기본 420초를 넘는 가설
-SCREEN_LABELS = {'login': '로그인', 'consent': '약관 동의', 'consent-renew': '약관 갱신', '3b': '학생 인증', '3c': '학교 정보',
+SCREEN_LABELS = {'start': '시작 화면(로그아웃)', 'consent': '약관 동의', 'consent-renew': '약관 갱신', '3b': '학생 인증', '3c': '학교 정보',
                  '04-1': '온보딩 기본 정보', 'home': '홈', 'today': '오늘 탭'}  # area4_push_card.dart _cardScreensNow 의 이름
 APP_KEYS = ('today', 'cards', 'today_ms', 'screen', 'opened_at')  # 03 의 tap 판에서 앱이 PC 에 말하는 것
 

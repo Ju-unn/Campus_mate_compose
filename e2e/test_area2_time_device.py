@@ -154,7 +154,7 @@ COLUMNS = {
     'profiles': {'id', 'university_id', 'nickname', 'gender', 'birth_year', 'status', 'last_active_at', 'created_at', 'matching_paused'},
 }
 EMBEDS = {'profiles': {'universities'}, 'daily_cards': {'card_decisions'}}
-HELPER_TABLES = {'profile_vectors', 'profile_private', 'profile_avatars'}  # 계정 공장(Run.account) · 사람 만들기 도우미가 쓰는 표 — 열은 그쪽 시험이 본다
+HELPER_TABLES = {'profile_vectors', 'profile_private', 'profile_avatars', 'school_email_claims'}  # 계정 공장(Run.account) · 사람 만들기 도우미가 쓰는 표 — 열은 그쪽 시험이 본다
 BODY_CHECKED = {'daily_cards', 'universities', 'region_group_settings'}  # 쓰는 본문 열도 검사하는 표
 RESERVED = {'select', 'order', 'limit', 'offset', 'or', 'and', 'on_conflict'}
 SETTINGS = {'card_arrived': True, 'acceptance_received': True, 'match_made': True, 'new_message': True, 'trust_reminder': True,
@@ -1868,6 +1868,8 @@ class SafetyNetTest(DeviceBase):
                 elif table in ('daily_cards', 'profiles', 'pending_pushes', 'push_tokens'):
                     rows = sent['body'] if isinstance(sent['body'], list) else [sent['body']]
                     owners = {r['owner_id'] for r in rows if isinstance(r, dict) and 'owner_id' in r}
+                    # 계정 공장이 넣는 프로필 행(POST profiles)은 본문의 id 가 주인이다
+                    owners |= {r['id'] for r in rows if table == 'profiles' and isinstance(r, dict) and 'id' in r}
                     owners |= {sent['query'][k][3:] for k in ('owner_id', 'id', 'profile_id') if k in sent['query']}
                     self.assertTrue(owners and owners <= made, (case, sent))
 

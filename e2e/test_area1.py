@@ -1,9 +1,10 @@
 """영역 1 계정 공장 · 뒷정리 · API 가설 시험 — 운영 없이 가짜 HTTP 로 돈다. 저장소 루트에서 `python -m unittest e2e.test_area1`."""
 
 import json
+import re
 import tempfile
 import unittest
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest import mock
 from urllib.parse import urlsplit
@@ -15,7 +16,7 @@ CFG = {'SUPABASE_URL': 'https://sb.test', 'SUPABASE_ANON_KEY': 'anon', 'API_BASE
        'E2E_MAIL_BASE': 'base@gmail.com'}
 SV = '학생증 인증을 먼저 끝내 주세요'
 INVALID = '입력한 값을 다시 확인해 주세요'
-REJECT = {'msg': '허용되지 않은 학교 이메일이에요'}
+REJECT = {'msg': '등록되지 않은 학교 메일이에요'}  # 서버 errors.SCHOOL_EMAIL_UNKNOWN_DOMAIN
 
 
 class FakeServer:
@@ -26,6 +27,7 @@ class FakeServer:
         self.calls = []
         self.urls = []
         self.raws = []  # (메서드, 주소, 바이트) — multipart · 파일 올리기
+        self.headers = []  # (메서드, 경로, 헤더) — Prefer 같은 요청 머리를 본다
         self.users = []
         self._ids = 0  # 사용자를 지워도 id 가 다시 안 나오게
 
@@ -33,6 +35,7 @@ class FakeServer:
         path = urlsplit(url).path
         self.calls.append((method, path, body))
         self.urls.append((method, url))
+        self.headers.append((method, path, dict(headers or {})))
         if raw:
             self.raws.append((method, url, raw[0]))
         route = self.routes.get((method, path))
@@ -103,9 +106,10 @@ class AccountTest(Base):
         account = self.run.account('basic')
 
         self.assertEqual((account['email'], account['stage'], account['token']), ('base+e2e1001@gmail.com', 'basic', 'tok'))
-        self.assertEqual(fake.paths('POST'), ['/auth/v1/admin/users', '/auth/v1/admin/generate_link', '/auth/v1/verify',
-                                              '/me/consents', '/school-info', '/profile-onboarding/basic-info'])
-        self.assertEqual([b for m, p, b in fake.calls if p == '/rest/v1/profiles'], [{'student_verification': 'verified'}])
+        self.assertEqual(fake.paths('POST'), ['/auth/v1/admin/users', '/rest/v1/profiles', '/rest/v1/school_email_claims',
+                                              '/auth/v1/admin/generate_link',
+                                              '/auth/v1/verify', '/me/consents', '/school-info', '/profile-onboarding/basic-info'])
+        self.assertEqual([b for m, p, b in fake.calls if (m, p) == ('PATCH', '/rest/v1/profiles')], [{'student_verification': 'verified'}])
         nickname = [b for m, p, b in fake.calls if p == '/profile-onboarding/basic-info'][0]['nickname']
         self.assertRegex(nickname, r'^[A-Za-z]{5}$')
         written = json.loads((self.run.out / 'accounts.json').read_text(encoding='utf-8'))
@@ -116,8 +120,112 @@ class AccountTest(Base):
     def test_pending_account_stops_at_pending(self):
         fake = self.serve()
         self.assertEqual(self.run.account('pending')['stage'], 'pending')
-        self.assertEqual([b for m, p, b in fake.calls if p == '/rest/v1/profiles'], [{'student_verification': 'pending'}])
+        self.assertEqual([b for m, p, b in fake.calls if (m, p) == ('PATCH', '/rest/v1/profiles')], [{'student_verification': 'pending'}])
         self.assertNotIn('/school-info', fake.paths())
+
+    # 소셜 로그인 전환(20261008010000 ⑤): 가입 트리거는 email 방식 계정에 프로필을 만들지 않는다 — 공장이 서비스 키로 대신 만든다.
+    def _profile_rows(self, fake):
+        return [b for m, p, b in fake.calls if (m, p) == ('POST', '/rest/v1/profiles')]
+
+    def test_factory_makes_the_profile_itself_with_the_test_university_and_school_email_verified(self):
+        fake = self.serve()
+        before = datetime.now(timezone.utc)
+        self.run.account('new')
+        rows = self._profile_rows(fake)
+        self.assertEqual(len(rows), 1)
+        row = rows[0]
+        self.assertEqual(sorted(row), ['id', 'school_email_verified_at', 'university_id'])
+        self.assertEqual((row['id'], row['university_id']), ('id-1', 'U'))
+        at = datetime.fromisoformat(row['school_email_verified_at'])
+        self.assertIsNotNone(at.tzinfo)
+        self.assertLessEqual(abs((at - before).total_seconds()), 60)
+        # 학교는 시험 메일 도메인에 등록된 학교(area1._test_university 와 같은 질의)
+        self.assertIn(('GET', 'https://sb.test/rest/v1/university_email_domains?domain=eq.gmail.com&select=university_id'), fake.urls)
+        # 두 번 불러도(재시도) 한 행 — ignore-duplicates 로 멱등
+        prefer = [h.get('Prefer') for m, p, h in fake.headers if (m, p) == ('POST', '/rest/v1/profiles')]
+        self.assertEqual(prefer, ['resolution=ignore-duplicates'])
+
+    def test_profile_comes_right_after_the_account_and_before_any_sign_in(self):
+        fake = self.serve()
+        self.run.account('consented')
+        posts = fake.paths('POST')
+        self.assertEqual(posts[:4], ['/auth/v1/admin/users', '/rest/v1/profiles', '/rest/v1/school_email_claims',
+                                     '/auth/v1/admin/generate_link'])
+
+    def _claims(self, fake):
+        return [b for m, p, b in fake.calls if (m, p) == ('POST', '/rest/v1/school_email_claims')]
+
+    def test_factory_writes_one_claims_row_with_a_random_hash_and_the_profiles_school_and_time(self):
+        # 탈퇴(account/router.py withdraw)가 claims 의 해시로 재가입 제한 행을 남기게 — 진짜 메일 HMAC 은 FastAPI 만 계산하므로 임의값.
+        fake = self.serve()
+        self.run.account('basic')
+        profile, = self._profile_rows(fake)
+        claims = self._claims(fake)
+        self.assertEqual(len(claims), 1)
+        claim = claims[0]
+        self.assertEqual(sorted(claim), ['key_version', 'profile_id', 'provider', 'school_email_hmac', 'university_id', 'verified_at'])
+        self.assertEqual((claim['profile_id'], claim['provider'], claim['key_version']), ('id-1', 'email', 1))
+        self.assertEqual((claim['university_id'], claim['verified_at']), (profile['university_id'], profile['school_email_verified_at']))
+        self.assertRegex(claim['school_email_hmac'], r'^\\x[0-9a-f]{64}$')  # bytea 32바이트(area1_b2 · area5_wd 와 같은 꼴)
+        prefer = [h.get('Prefer') for m, p, h in fake.headers if (m, p) == ('POST', '/rest/v1/school_email_claims')]
+        self.assertEqual(prefer, ['resolution=ignore-duplicates'])
+        posts = fake.paths('POST')
+        self.assertLess(posts.index('/rest/v1/profiles'), posts.index('/rest/v1/school_email_claims'))  # FK — 프로필이 먼저
+        self.assertLess(posts.index('/rest/v1/school_email_claims'), posts.index('/auth/v1/verify'))
+
+    def test_each_account_gets_its_own_hash(self):
+        fake = self.serve()
+        self.run.account('new')
+        self.run.account('new')
+        hashes = [c['school_email_hmac'] for c in self._claims(fake)]
+        self.assertEqual(len(set(hashes)), 2)
+
+    def test_failed_claims_insert_is_blocked_before_signing_in(self):
+        fake = self.serve({('POST', '/rest/v1/school_email_claims'): Reply(409, {'message': 'conflict'})})
+        with self.assertRaisesRegex(Blocked, '학교 메일 기록 409'):
+            self.run.account('new')
+        self.assertNotIn('/auth/v1/verify', fake.paths())
+
+    def test_needs_school_email_account_has_no_claims_row(self):
+        # 학교 메일 인증 전 — claims 는 university_id not null 이고, 있으면 complete_school_email_verification 이 already_verified 로 본다.
+        fake = self.serve()
+        self.run.account('needs_school_email')
+        self.assertEqual(self._claims(fake), [])
+
+    def test_claims_go_away_with_the_account_by_cascade_so_cleanup_is_unchanged(self):
+        sql = (tools.ROOT / 'supabase' / 'migrations' / '20261008030000_create_school_email_claims.sql').read_text(encoding='utf-8')
+        self.assertIn('profile_id uuid not null unique references public.profiles (id) on delete cascade', sql)
+        self.assertIn("provider text not null check (provider in ('kakao', 'google', 'apple', 'email'))", sql)
+        profiles = (tools.ROOT / 'supabase' / 'migrations' / '20260913054544_create_profiles.sql').read_text(encoding='utf-8')
+        self.assertIn('id uuid primary key references auth.users (id) on delete cascade', profiles)
+
+    def test_no_test_university_is_blocked_but_the_created_account_is_already_written(self):
+        fake = self.serve({('GET', '/rest/v1/university_email_domains'): Reply(200, [])})
+        with self.assertRaisesRegex(Blocked, '시험 대학'):
+            self.run.account('new')
+        self.assertEqual(self._profile_rows(fake), [])
+        written = json.loads((self.run.out / 'accounts.json').read_text(encoding='utf-8'))
+        self.assertEqual([(a['id'], a['stage']) for a in written], [('id-1', 'new')])
+
+    def test_failed_profile_insert_is_blocked_before_signing_in(self):
+        fake = self.serve({('POST', '/rest/v1/profiles'): Reply(409, {'message': 'conflict'})})
+        with self.assertRaisesRegex(Blocked, '프로필 만들기 409'):
+            self.run.account('new')
+        self.assertNotIn('/auth/v1/verify', fake.paths())
+        written = json.loads((self.run.out / 'accounts.json').read_text(encoding='utf-8'))
+        self.assertEqual([a['id'] for a in written], ['id-1'])
+
+    def test_needs_school_email_account_has_a_profile_before_school_email_and_has_consented(self):
+        # 앱의 needsSchoolEmail 관문(02)에 걸리는 계정 — 소셜 pending 프로필처럼 학교 · 인증 시각이 비어 있다.
+        fake = self.serve()
+        account = self.run.account('needs_school_email')
+        self.assertEqual(account['stage'], 'needs_school_email')
+        self.assertEqual(self._profile_rows(fake), [{'id': 'id-1', 'university_id': None, 'school_email_verified_at': None}])
+        self.assertIn('/me/consents', fake.paths('POST'))
+        self.assertNotIn('/school-info', fake.paths())
+        self.assertEqual([b for m, p, b in fake.calls if (m, p) == ('PATCH', '/rest/v1/profiles')], [])
+        written = json.loads((self.run.out / 'accounts.json').read_text(encoding='utf-8'))
+        self.assertEqual([a['stage'] for a in written], ['needs_school_email'])
 
     def test_failed_step_is_blocked_but_the_created_account_is_already_written(self):
         self.serve({('POST', '/me/consents'): Reply(500, None)})
@@ -257,15 +365,14 @@ class CleanupTest(Base):
 
 # 가설마다 (통과 응답, 하나만 어긋난 응답). 어긋난 쪽은 fail 이어야 한다 — 기대 판단이 실제로 무언가를 본다는 증거.
 YEAR = datetime.now(area1.SEOUL).year
-PROFILE_OK = Reply(200, [{'status': 'pending', 'student_verification': 'none', 'university_id': 'U', 'referral_code': 'ABC234'}])
+# 소셜 로그인 전환 뒤 email 방식 가입(학교 메일 OTP)은 프로필을 만들지 않는다(20261008010000 ⑤) — 한 행이라도 있으면 fail.
+PROFILE_ROW = Reply(200, [{'id': 'id-1'}])
 CASES = {
-    'E-AUTH-01': ({('GET', '/rest/v1/profiles'): PROFILE_OK},
-                  {('GET', '/rest/v1/profiles'): Reply(200, [{**PROFILE_OK.body[0], 'referral_code': 'ABC10O'}])}),
-    'E-AUTH-02': ({('GET', '/rest/v1/profiles'): PROFILE_OK},
-                  {('GET', '/rest/v1/profiles'): Reply(200, [])}),
+    'E-AUTH-01': ({('GET', '/rest/v1/profiles'): Reply(200, [])}, {('GET', '/rest/v1/profiles'): PROFILE_ROW}),
+    'E-AUTH-02': ({('GET', '/rest/v1/profiles'): Reply(200, [])}, {('GET', '/rest/v1/profiles'): PROFILE_ROW}),
     'E-AUTH-03': ({('POST', '/auth/v1/otp'): Reply(422, REJECT)}, {}),
     'E-AUTH-04': ({('POST', '/auth/v1/otp'): Reply(422, REJECT)},
-                  {('POST', '/auth/v1/otp'): Reply(422, {'msg': '재가입이 제한된 이메일이에요'})}),
+                  {('POST', '/auth/v1/otp'): Reply(422, {'msg': '재가입이 제한된 메일이에요'})}),
     'E-AUTH-06': ({('POST', '/hooks/before-user-created'): Reply(401, {'detail': 'invalid signature'})},
                   {('POST', '/hooks/before-user-created'): [Reply(401, {'detail': 'invalid signature'}), Reply(200, {})]}),
     'E-AUTH-13': ({('POST', '/auth/v1/admin/users'): Reply(422, REJECT)}, {}),
@@ -350,11 +457,37 @@ class HypothesisTest(Base):
         area1.CASES['E-GATE-50'](self.run)
         self.assertEqual(len([p for p in fake.paths('DELETE') if p.startswith('/cards/push-tokens/')]), 2)
 
-    def test_auth_13_notes_which_defence_stopped_it(self):
+    def test_auth_13_only_the_hook_can_stop_it_now(self):
+        # 소셜 로그인 전환 뒤 트리거는 email 방식을 막지 않고 건너뛴다(20261008010000 ⑤) — 남은 방어는 훅 하나다.
         self.serve({('POST', '/auth/v1/admin/users'): Reply(422, REJECT)})
         self.assertEqual(area1.CASES['E-AUTH-13'](self.run), ('pass', '가입 훅이 막음'))
         self.serve({('POST', '/auth/v1/admin/users'): Reply(500, {'msg': 'Database error creating new user'})})
-        self.assertEqual(area1.CASES['E-AUTH-13'](self.run), ('pass', '트리거가 막음'))
+        result, note = area1.CASES['E-AUTH-13'](self.run)
+        self.assertEqual(result, 'fail')
+        self.assertIn('Database error', note)
+
+    def test_auth_01_and_02_sign_up_makes_an_auth_user_but_no_profile(self):
+        for case in ('E-AUTH-01', 'E-AUTH-02'):
+            with self.subTest(case=case):
+                fake = self.serve({('GET', '/rest/v1/profiles'): Reply(200, [])})
+                self.assertEqual(area1.CASES[case](self.run)[0], 'pass')
+                self.assertEqual(fake.paths('POST')[0], '/auth/v1/otp')
+                self.assertIn('/rest/v1/profiles', fake.paths('GET'))
+                self.assertNotIn('/rest/v1/profiles', fake.paths('POST'))  # 시험이 프로필을 만들어 주지 않는다
+                # 가입 요청으로 생긴 계정은 accounts.json 에 적어 뒷정리가 지운다
+                written = json.loads((self.run.out / 'accounts.json').read_text(encoding='utf-8'))
+                self.assertIn(fake.users[-1]['id'], [a['id'] for a in written])
+
+    def test_auth_01_without_an_auth_user_is_a_fail(self):
+        self.serve({('POST', '/auth/v1/otp'): Reply(200, {})})
+        result, note = area1.CASES['E-AUTH-01'](self.run)
+        self.assertEqual(result, 'fail')
+        self.assertIn('auth 사용자 0명', note)
+
+    def test_the_rejected_text_is_the_servers_unknown_domain_text(self):
+        errors = (tools.ROOT / 'backend' / 'app' / 'core' / 'errors.py').read_text(encoding='utf-8')
+        server = re.search(r'^SCHOOL_EMAIL_UNKNOWN_DOMAIN = "([^"]+)"', errors, re.M).group(1)
+        self.assertEqual(area1.REJECTED, server)
 
     def test_setup_failure_is_blocked(self):
         self.serve({('POST', '/me/consents'): Reply(503, None)})

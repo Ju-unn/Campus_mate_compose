@@ -58,7 +58,7 @@ final Map<String, Area1Case> _pushA4Cases = {
   'E-PUSH-60': _session((tester, job) async {
     if (job['phase'] == 'again') {
       await arrive(tester, 'home', timeout: const Duration(seconds: 30));
-      must(screen('login').evaluate().isEmpty, '다시 켰는데 로그인 화면이 보임');
+      must(screen('start').evaluate().isEmpty, '다시 켰는데 로그인 화면이 보임');
       return null;
     }
     await _signedIn(tester);
@@ -110,7 +110,7 @@ final Map<String, Area1Case> _pushA4Cases = {
     await _openSettings(tester);
     await step('logged_in', timeout: _pcWork);
     await _confirmLogout(tester);
-    await arrive(tester, 'login', timeout: const Duration(seconds: 15));
+    await arrive(tester, 'start', timeout: const Duration(seconds: 15));
     return null;
   }),
   // A 로그인(PC 가 토큰 행) → 로그아웃 → C 로그인 → (PC 가 토큰 주인 · 두 알림).
@@ -118,7 +118,7 @@ final Map<String, Area1Case> _pushA4Cases = {
     await _openSettings(tester);
     await step('first_ready');
     await _confirmLogout(tester);
-    await arrive(tester, 'login', timeout: const Duration(seconds: 15));
+    await arrive(tester, 'start', timeout: const Duration(seconds: 15));
     await signIn(job['second'] as String);
     await arrive(tester, 'home', timeout: const Duration(seconds: 40));
     await step('second_ready', timeout: _pcWork);
@@ -129,7 +129,7 @@ final Map<String, Area1Case> _pushA4Cases = {
     await _openSettings(tester);
     await step('logged_in', timeout: _pcWork);
     await _confirmLogout(tester);
-    await arrive(tester, 'login', timeout: const Duration(seconds: 30));
+    await arrive(tester, 'start', timeout: const Duration(seconds: 30));
     must(find.text(const UnknownFailure().toDisplayMessage()).evaluate().isEmpty, '오류 문구가 보임');
     await step('logged_out', timeout: _pcWork);
     return null;

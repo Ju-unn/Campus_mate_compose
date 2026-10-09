@@ -40,7 +40,7 @@ PRESSING = ['E-WD-04', 'E-WD-16', 'E-WD-18', 'E-EDGE-20']  # 앱이 "정말 영�
 BATCHED = ['E-WD-12', 'E-WD-14', 'E-WD-15', 'E-WD-16']  # 운영 cleanup 을 부르는 넷
 WITHDRAWN = '탈퇴한 계정이에요'
 EXPIRED = '세션이 만료됐어요, 다시 로그인해 주세요'
-REJOIN = '재가입이 제한된 이메일이에요'
+REJOIN = '재가입이 제한된 메일이에요'  # 서버 errors.SCHOOL_EMAIL_BLOCKED
 BUCKETS = ('avatars', 'profile-photos', 'student-id-temp', 'heart-task-proofs')
 BACKEND = tools.ROOT / 'backend' / 'app'
 MIGRATIONS = tools.ROOT / 'supabase' / 'migrations'
@@ -229,8 +229,9 @@ class WdFake(ReadFake):
                 return self.drops_forever_blocks
             return self.drops_expired_blocks and datetime.fromisoformat(b['blocked_until']) < stamp
         kept = [b for b in blocks if not expired(b)]
-        result = {'deleted_accounts': deleted, 'skipped_accounts': 0, 'deleted_reports': 0,
-                  'deleted_signup_blocks': len(blocks) - len(kept), 'stale_key_rows': 0, 'deleted_heart_proofs': 0}
+        result = {'deleted_accounts': deleted, 'skipped_accounts': 0, 'deleted_unverified': 0, 'deleted_temp_email_accounts': 0,
+                  'deleted_reports': 0, 'deleted_signup_blocks': len(blocks) - len(kept), 'stale_key_rows': 0,
+                  'deleted_heart_proofs': 0}
         self.tables['signup_blocks'] = kept
         self.cleanups.append(result)
         return result
@@ -283,7 +284,9 @@ class WdBase(ReadBase):
                         mock.patch.object(tools, 'batch', side_effect=fake_batch), mock.patch.object(Run, 'shot'),
                         mock.patch.object(Run, 'remember'), mock.patch.object(area2, '_guard'),
                         mock.patch.object(batch_gate, 'now_seoul', return_value=datetime(2026, 10, 6, 12, 0, tzinfo=area1.SEOUL)),
-                        mock.patch.object(area5_wd, 'BATCH_WAIT', 0), mock.patch.object(area5_wd, 'PAUSE_WAIT', 0)):
+                        mock.patch.object(area5_wd, 'BATCH_WAIT', 0), mock.patch.object(area5_wd, 'PAUSE_WAIT', 0),
+                        # E-WD-14 · 15 는 소셜 로그인 전환으로 막혀 있다(RejoinBlockedTest) — 남겨 둔 판정은 켜고 본다
+                        mock.patch.object(area5_wd, 'REJOIN_ON_02', True)):
             patcher.start()
         area3_phone5._FAILED.clear()
         self.addCleanup(area3_phone5._FAILED.clear)
@@ -516,11 +519,14 @@ class AppContractTest(unittest.TestCase):
 
 class ServerFactsTest(unittest.TestCase):
     def test_the_cleanup_answer_has_the_keys_of_the_real_server(self):
+        # 소셜 로그인 전환으로 학교 메일 인증 전 계정 · 임시 email 계정 정리 칸이 더해졌다
         self.assertEqual(server_keys('account/batch_router.py', 'run_cleanup'),
-                         ['deleted_accounts', 'skipped_accounts', 'deleted_reports', 'deleted_signup_blocks', 'stale_key_rows'])
+                         ['deleted_accounts', 'skipped_accounts', 'deleted_unverified', 'deleted_temp_email_accounts',
+                          'deleted_reports', 'deleted_signup_blocks', 'stale_key_rows'])
         self.assertIn('result["deleted_heart_proofs"] =', backend('account', 'batch_router.py'))
         fake = WdFake()
-        self.assertEqual(sorted(fake.cleanup()), sorted(['deleted_accounts', 'skipped_accounts', 'deleted_reports', 'deleted_signup_blocks',
+        self.assertEqual(sorted(fake.cleanup()), sorted(['deleted_accounts', 'skipped_accounts', 'deleted_unverified',
+                                                          'deleted_temp_email_accounts', 'deleted_reports', 'deleted_signup_blocks',
                                                           'stale_key_rows', 'deleted_heart_proofs']))
 
     def test_the_retention_is_thirty_days_and_the_module_stands_one_day_on_each_side(self):
@@ -574,9 +580,10 @@ class ServerFactsTest(unittest.TestCase):
 
     def test_the_hook_blocks_only_until_the_end_and_says_the_rejoin_text(self):
         self.assertIn('"blocked_until": "gt.now()"', backend('signup_policy.py'))
-        self.assertIn(f'return HookDecision.reject("{REJOIN}")', backend('auth_hooks', 'router.py'))
-        self.assertIn("if (error.statusCode == '422') {\n      return SignUpRejectedFailure(error.message);",
-                      lib('auth', 'model', 'supabase_auth_repository.dart').replace('\r\n', '\n'))
+        self.assertIn('return HookDecision.reject(errors.SCHOOL_EMAIL_BLOCKED)', backend('auth_hooks', 'router.py'))
+        self.assertIn(f'SCHOOL_EMAIL_BLOCKED = "{REJOIN}"', backend('core', 'errors.py'))
+        # 02 의 번호 요청은 소셜 로그인 전환 뒤 학교 메일 저장소(임시 연결)가 한다 — 422 문구를 그대로 띄운다
+        self.assertIn("'422' => SignUpRejectedFailure(error.message),", lib('auth', 'model', 'supabase_school_email_repository.dart'))
         self.assertEqual(area5_wd.REJOIN_BLOCKED, REJOIN)
 
     def test_signup_blocks_has_no_id_column_and_the_fake_says_so(self):
@@ -1014,6 +1021,32 @@ class RejoinTest(WdBase):
             with self.subTest(name):
                 self.case(name, self.asks())
                 self.writes_only_mine()
+
+
+class RejoinBlockedTest(WdBase):
+    """소셜 로그인 전환: 02 는 로그인한 계정의 학교 메일 인증이 됐고, 공장 계정은 school_email_claims 가 없어 탈퇴가 재가입 제한을
+    남기지 않는다(account/router.py withdraw). 대체 가설이 생길 때까지 14 · 15 는 계정 · 탈퇴 · 운영 정리 배치 전에 blocked."""
+
+    def setUp(self):
+        super().setUp()
+        mock.patch.object(area5_wd, 'REJOIN_ON_02', False).start()
+
+    def test_14_15_are_blocked_before_any_account_batch_or_app(self):
+        for name in ('E-WD-14', 'E-WD-15'):
+            with self.subTest(name):
+                app = self.stop_app(lambda job: said())
+                (result, note), _ = self.case(name, None, app=app)
+                self.assertEqual(result, 'blocked', note)
+                self.assertIn('소셜 로그인 전환으로 의미 변경, 대체 가설 필요', note)
+                self.assertIn('시험 계정의 학교 메일 해시가 임의값이라 같은 메일 재가입 거절을 확인할 수 없음', note)
+                self.assertEqual((self.fake.users, self.batches, app.jobs), ([], [], []))
+
+    def test_the_app_side_is_blocked_with_the_same_words_and_keeps_the_02_check_for_later(self):
+        source = dart('area5_wd.dart')
+        self.assertIn('소셜 로그인 전환으로 의미 변경, 대체 가설 필요', source)
+        for name in ('E-WD-14', 'E-WD-15'):
+            self.assertRegex(source, rf"'{name}': _session\(\(tester, job\) => _wdRejoinOn02\(tester, job\)\)")
+        self.assertIn("await arrive(tester, 'schoolEmail');", source)  # 되살리면 02 는 로그인한 계정의 학교 메일 인증
 
 
 # ── E-WD-16 정지 중 탈퇴 ─────────────────────────────────────────────────────────────────────────────

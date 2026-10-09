@@ -24,11 +24,13 @@ MONDAY = datetime(2026, 10, 5, 10, 0, tzinfo=SEOUL)
 IN_REVIEW = '이미 확인 중이에요, 결과를 기다려 주세요'
 
 # 표 → 열. 출처: 20260913054544_create_profiles · 20260920043514 · 20260920160537_create_daily_cards · 20260920160544_create_matches ·
-# 20260920043832_create_heart_ledger · 20260927020000_create_polls · 20260928030000_create_heart_task_submissions
+# 20260920043832_create_heart_ledger · 20260927020000_create_polls · 20260928030000_create_heart_task_submissions ·
+# 20261008010000_social_login_pending_profiles(school_email_verified_at — 계정 공장이 프로필을 직접 만든다)
 SCHEMA = {
     'profiles': {'id', 'status', 'gender', 'last_active_at', 'matching_paused', 'student_verification', 'is_smoker', 'religion', 'mbti',
                  'preferred_mbti_flags', 'preferred_height_min', 'preferred_height_max', 'preferred_age_min', 'preferred_age_max',
-                 'interest_tags', 'my_traits', 'ideal_traits', 'height_cm', 'birth_year', 'university_id', 'nickname'},
+                 'interest_tags', 'my_traits', 'ideal_traits', 'height_cm', 'birth_year', 'university_id', 'nickname',
+                 'school_email_verified_at'},
     'daily_cards': {'id', 'owner_id', 'target_id', 'source', 'issued_at', 'expires_at'},
     'card_decisions': {'card_id', 'decision', 'decided_at'},
     'acceptance_responses': {'card_id', 'responder_id', 'decision', 'decided_at'},
@@ -902,7 +904,8 @@ class SafetyNetTest(TimeBase):
         tables = {s['path'].rsplit('/', 1)[1] for s in fake.sent if s['path'].startswith('/rest/v1/') and '/rpc/' not in s['path']}
         self.assertTrue({'daily_cards', 'card_decisions', 'acceptance_responses', 'matches', 'polls', 'heart_transactions',
                          'heart_task_submissions', 'profiles'} <= tables)
-        self.assertEqual(tables - set(SCHEMA), {'profile_vectors', 'universities', 'university_email_domains', 'profile_avatars'})  # 계정 공장 몫
+        self.assertEqual(tables - set(SCHEMA), {'profile_vectors', 'universities', 'university_email_domains', 'profile_avatars',
+                                             'school_email_claims'})  # 계정 공장 몫
         mine = area2._mine(self.run)
         ledger = {r['id']: r['profile_id'] for r in fake.rows('heart_transactions')}
         cards = {c['id']: {c['owner_id'], c['target_id']} for c in fake.rows('daily_cards')}

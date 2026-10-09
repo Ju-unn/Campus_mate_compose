@@ -48,10 +48,10 @@ Area1Case _twoA() => _session((tester, job) async {
 /// 02 가 뜰 때까지(최대 [_wdLoginWait]) 기다리고, 뜨면 2초 안에 알림 글자를 읽는다 → (02 에 닿음, 알림).
 Future<(bool, String?)> _twoLoginNotice(WidgetTester tester) async {
   final watch = Stopwatch()..start();
-  while (watch.elapsed < _wdLoginWait && !_has(screen('login'))) {
+  while (watch.elapsed < _wdLoginWait && !_has(screen('start'))) {
     await tester.pump(const Duration(milliseconds: 100));
   }
-  if (!_has(screen('login'))) return (false, null);
+  if (!_has(screen('start'))) return (false, null);
   String? notice;
   final look = Stopwatch()..start();
   while (notice == null && look.elapsed < const Duration(seconds: 2)) {

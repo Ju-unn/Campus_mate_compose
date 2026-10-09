@@ -2,6 +2,10 @@
 기대값은 바탕화면 E2E_시나리오_조각/5_나탭_탈퇴_경계.md 5-2 · 5-4 표의 그 줄을 지금 코드와 대조한 것이다. 앱 쪽은
 frontend/integration_test/area5_wd.dart 의 같은 번호(area5.dart 가 묶는다). E-WD-12 는 앱이 없는 API 가설(area1.CASES)이다.
 
+소셜 로그인 전환(20261008) 뒤: 아래와 메모의 "02(로그인 화면)" 은 로그아웃하면 닿는 시작 화면(앱 쪽 screen('start'))을 뜻한다 — 02 는 이제
+로그인한 계정의 학교 메일 인증 화면이다. 탈퇴한 메일로 02 에서 다시 가입하는 E-WD-14 · 15 는 막아 두었다(REJOIN_ON_02_BLOCKED).
+공장 계정의 school_email_claims 해시는 임의값이다 — 탈퇴는 그 해시로 제한 행을 남기므로 새 행 · 기한을 보는 04 · 16 · 18 · EDGE-20 은 그대로 돈다.
+
 가설 하나 = 함수 하나. PC 가 계정을 만들고 서비스 키 DB 로 준비하면, 앱이 화면을 열어 누르고 본 것을 Map 으로 말하고(문구는 사람이 읽는 글자 그대로,
 못 본 것은 None — `MISSING` 과 가른다), 판정은 여기서 한다. 탈퇴는 되돌릴 수 없어 계정은 가설마다 새로 만든다.
 쓰기는 이번 실행이 만든 계정에만 한다(area2._guard) — 앱이 "정말 영구 삭제" 를 누르는 넷(04 · 16 · 18 · EDGE-20)은 area5_read._home 이
@@ -54,6 +58,7 @@ gcloud 는 결과 칸(deleted_accounts 등)을 보여 주지 않아 DB 로 본�
 디스코드 — 9개 모두 0줄. 세 길(POST /reports · /heart-tasks/{task}/submissions · /student-verification)을 부르지 않는다.
 """
 
+import functools
 import random
 import time
 import urllib.parse
@@ -471,8 +476,26 @@ def p_edge_20(run, phone):
     return check.result(f'누름 말을 받고 {ms}ms 에 kill · 서버 {status}{login} · 알림 {notice!r}')
 
 
+# 소셜 로그인 전환(20261008)으로 14 · 15 의 전제가 둘 다 깨졌다 — 지우지 않고 막아 둔다(번호 그대로, 판정은 남겨 둔다).
+REJOIN_ON_02_BLOCKED = ('소셜 로그인 전환으로 의미 변경, 대체 가설 필요 — 02 는 이제 로그인한 계정의 학교 메일 인증이라 로그아웃 상태에서 '
+                        '탈퇴한 메일을 넣을 수 없고, 시험 계정의 학교 메일 해시가 임의값이라 같은 메일 재가입 거절을 확인할 수 없음'
+                        '(school_email_claims — tools.Run._claim)')
+REJOIN_ON_02 = False  # 대체 가설(claims 있는 계정 · 02 로 보내는 needs_school_email 계정)이 생기면 켠다
+
+
+def _rejoin_on_02(case):
+    """막혀 있으면 계정 · 탈퇴 · 운영 정리 배치 · 앱 모두 전에 blocked."""
+    @functools.wraps(case)
+    def guarded(run, *args):
+        if not REJOIN_ON_02:
+            raise Blocked(REJOIN_ON_02_BLOCKED)
+        return case(run, *args)
+    return guarded
+
+
 PHONE = {
-    'E-WD-02': p_wd_02, 'E-WD-04': p_wd_04, 'E-WD-13': p_wd_13, 'E-WD-14': _single_shot(p_wd_14), 'E-WD-15': _single_shot(p_wd_15),
+    'E-WD-02': p_wd_02, 'E-WD-04': p_wd_04, 'E-WD-13': p_wd_13,
+    'E-WD-14': _rejoin_on_02(_single_shot(p_wd_14)), 'E-WD-15': _rejoin_on_02(_single_shot(p_wd_15)),
     'E-WD-16': _single_shot(p_wd_16), 'E-WD-18': p_wd_18, 'E-EDGE-20': p_edge_20,
 }
 CASES = {'E-WD-12': _single_shot(wd_12)}

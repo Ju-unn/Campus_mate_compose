@@ -2,6 +2,7 @@
 저장소 루트에서 `python -m unittest e2e.test_area1_b2`."""
 
 import json
+import re
 import time
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -196,6 +197,10 @@ class CleanupBatchTest(Base):
         sleeper = mock.patch.object(area1_b2.time, 'sleep')
         sleeper.start()
         self.addCleanup(sleeper.stop)
+        # E-AUTH-10 · 11 은 막혀 있다(SameMailRejoinBlockedTest) — 남겨 둔 판정은 켜고 본다
+        rejoin = mock.patch.object(area1_b2, 'SAME_MAIL_REJOIN', True)
+        rejoin.start()
+        self.addCleanup(rejoin.stop)
 
     def gone_after_batch(self, extra=None):
         """정리 배치 뒤엔 auth 사용자가 없다."""
@@ -208,7 +213,7 @@ class CleanupBatchTest(Base):
         return fake
 
     def test_auth_10_rejoining_after_cleanup_is_refused(self):
-        fake = self.gone_after_batch({('POST', '/auth/v1/otp'): Reply(422, {'msg': '재가입이 제한된 이메일이에요'})})
+        fake = self.gone_after_batch({('POST', '/auth/v1/otp'): Reply(422, {'msg': '재가입이 제한된 메일이에요'})})
         self.assertEqual(area1.attempt(self.run, 'E-AUTH-10'), ('pass', ''))
         self.batch.assert_called_once_with('cleanup')
         withdrawn_at = [b['withdrawn_at'] for m, p, b in fake.calls if m == 'PATCH' and b and 'withdrawn_at' in b][0]
@@ -231,13 +236,25 @@ class CleanupBatchTest(Base):
         self.assertEqual(area1.attempt(self.run, 'E-AUTH-10')[0], 'fail')
 
     def test_auth_11_expired_block_lets_the_same_mail_join_again(self):
+        # 다시 가입한 것은 email 방식이라 프로필이 생기지 않는다(소셜 로그인 전환, 20261008010000 ⑤)
         fake = self.gone_after_batch({('GET', '/rest/v1/signup_blocks'): [Reply(200, []), Reply(200, [{'email_hmac': '\\x0a'}])],
-                                      ('GET', '/rest/v1/profiles'): Reply(200, [{'id': 'new'}])})
+                                      ('GET', '/rest/v1/profiles'): Reply(200, [])})
         self.assertEqual(area1.attempt(self.run, 'E-AUTH-11'), ('pass', ''))
         expired = [b for m, p, b in fake.calls if m == 'PATCH' and b and 'blocked_until' in b]
         self.assertEqual(len(expired), 1)
         self.assertLess(datetime.fromisoformat(expired[0]['blocked_until']), datetime.now(timezone.utc))
         self.assertIn(('PATCH', 'https://sb.test/rest/v1/signup_blocks?email_hmac=eq.%5Cx0a'), fake.urls)
+
+    def test_auth_11_a_profile_for_the_rejoined_email_account_is_a_fail(self):
+        self.gone_after_batch({('GET', '/rest/v1/signup_blocks'): [Reply(200, []), Reply(200, [{'email_hmac': '\\x0a'}])],
+                               ('GET', '/rest/v1/profiles'): Reply(200, [{'id': 'new'}])})
+        self.assertEqual(area1.attempt(self.run, 'E-AUTH-11')[0], 'fail')
+
+    def test_the_rejoin_text_is_the_servers_blocked_text(self):
+        errors = (tools.ROOT / 'backend' / 'app' / 'core' / 'errors.py').read_text(encoding='utf-8')
+        self.assertEqual(area1_b2.REJOIN_BLOCKED, re.search(r'^SCHOOL_EMAIL_BLOCKED = "([^"]+)"', errors, re.M).group(1))
+        self.assertIn('return HookDecision.reject(errors.SCHOOL_EMAIL_BLOCKED)',
+                      (tools.ROOT / 'backend' / 'app' / 'auth_hooks' / 'router.py').read_text(encoding='utf-8'))
 
     def test_auth_12_expired_row_goes_and_forever_row_stays(self):
         fake = self.serve({('GET', '/rest/v1/signup_blocks'): Reply(200, [{'blocked_until': 'infinity'}])})
@@ -494,6 +511,28 @@ class BundleTest(unittest.TestCase):
         for left_out in ('E-AUTH-15', 'E-ONB-32', 'E-ONB-45', 'E-ONB-69'):
             self.assertNotIn(left_out, b2)
             self.assertIn(left_out, area1_b2.LEFT_OUT)
+
+
+
+class SameMailRejoinBlockedTest(Base):
+    """공장 계정의 학교 메일 해시는 임의값이라 훅이 같은 메일을 대조할 수 없다 — 같은 메일 재가입을 보는 10 · 11 은 계정 · 탈퇴 · 정리 배치 전에 blocked."""
+
+    def test_10_and_11_are_blocked_before_any_account_or_batch(self):
+        fake = self.serve()
+        with mock.patch.object(tools, 'batch') as batch:
+            for case in ('E-AUTH-10', 'E-AUTH-11'):
+                with self.subTest(case):
+                    result, note = area1.attempt(self.run, case)
+                    self.assertEqual(result, 'blocked', note)
+                    self.assertIn('시험 계정의 학교 메일 해시가 임의값이라 같은 메일 재가입 거절을 확인할 수 없음', note)
+        batch.assert_not_called()
+        self.assertEqual(fake.users, [])
+
+    def test_the_block_row_checks_stay_open(self):
+        # 07 · 08 · 12 는 해시 값이 아니라 "새 행이 생겼다 · 기한 · 정리 배치" 만 본다 — claims 가 있으면 확인할 수 있다
+        for case in ('E-AUTH-07', 'E-AUTH-08', 'E-AUTH-09'):
+            self.assertIs(area1.PHONE[case], getattr(area1_b2, f"p_auth_{case[-2:]}"))
+        self.assertIs(area1.CASES['E-AUTH-12'], area1_b2.auth_12)
 
 
 if __name__ == '__main__':

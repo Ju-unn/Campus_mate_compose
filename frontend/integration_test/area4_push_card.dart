@@ -16,7 +16,7 @@ const _cardTodayTitle = '오늘의 카드'; // today_cards_screen.dart 앱바 �
 /// 이름은 area1.dart `screens` 의 키와 같고(`screen` 으로 찾는다), 오늘 탭은 화면 종류로 찾는다.
 List<String> _cardScreensNow() {
   final seen = <String, Finder>{
-    for (final name in const ['login', 'consent', 'consent-renew', '3b', '3c', '04-1', 'home']) name: screen(name),
+    for (final name in const ['start', 'consent', 'consent-renew', '3b', '3c', '04-1', 'home']) name: screen(name),
     'today': find.byType(TodayCardsScreen),
   };
   return [for (final entry in seen.entries) if (entry.value.evaluate().isNotEmpty) entry.key];

@@ -241,7 +241,7 @@ class RegistryTest(FakeBase):
         self.assertIn('overrides: [', scope)
         self.assertIn('apiClientProvider.overrideWith', scope)
         self.assertIn('runApp(_FkScope(', code)
-        self.assertNotIn('SessionScope(', code)  # lib 의 SessionScope 는 overrides 를 못 받는다
+        self.assertNotIn('SessionScope(', code)  # 하네스는 자기 _FkScope 를 쓴다(lib 의 SessionScope 도 PR #427 부터 overrides 를 받는다)
 
     def test_withdraw_opens_the_sheet_from_the_me_tab_and_never_looks_for_the_home_screen_again(self):
         # _wdOpenFinal 은 _openMe → arrive('home') 로 시작한다 — 이미 나 탭 안이면 HomeScreen 이 없어 30초 뒤 fail(2026-10-07 기기 실행).
