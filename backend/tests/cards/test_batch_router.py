@@ -59,4 +59,4 @@ def test_batch_with_a_scheduler_id_token_runs_the_issuing_pass(monkeypatch):
     )
 
     assert response.status_code == 200
-    assert response.json() == {"issued": 0, "no_candidate": 0, "skipped_regions": []}
+    assert response.json() == {"issued": 0, "no_candidate": 0, "skipped_regions": [], "failed": 0}

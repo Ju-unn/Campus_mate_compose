@@ -120,8 +120,9 @@ job 을 새로 만들면 `--headers` 대신 §4-3 의 `--oidc-service-account-em
 
 - Cloud Run 이 `--allow-unauthenticated` 라 이 엔드포인트는 스스로를 지킨다(조각 1a auth hook 과 같은 이유).
 - 토큰이 없거나 틀리면 401 이고, 그때는 아무 카드도 나가지 않는다.
-- 실행 결과는 `{"issued": 3, "no_candidate": 1, "skipped_regions": ["busan"]}` 모양으로 돌아오고
-  Cloud Logging 에 남는다. `skipped_regions` 는 오늘이 지급 요일이 아닌 지역그룹이다.
+- 실행 결과는 `{"issued": 3, "no_candidate": 1, "skipped_regions": ["busan"], "failed": 0}` 모양으로 돌아오고
+  Cloud Logging 에 남는다. `skipped_regions` 는 오늘이 지급 요일이 아닌 지역그룹이고, `failed` 는 사람 단위로
+  실패해 건너뛴 수다(0 이 아니면 로그의 "카드 지급 실패 owner=…" 를 본다 — 배치는 멈추지 않는다).
 - 실행 시간이 600초를 넘기 시작하면 지역그룹별로 job 을 나눈다(백로그).
 
 손으로 한 번 돌려 보려면:
@@ -132,6 +133,16 @@ gcloud scheduler jobs run campus-mate-daily-cards --location=asia-northeast3
 
 **주의:** 이 배치는 조각 4 의 DB 마이그레이션(`region_group_settings` · `daily_cards` …)이 클라우드에
 적용된 뒤에야 돈다. 적용 전에 job 을 만들면 매일 500 이 쌓인다 — 마이그레이션 적용 뒤에 만든다.
+
+**카드 선정 · 유료 카드(지시문 22) 배포 순서:** DB 마이그레이션 4개(`20261010010000` ~ `20261010040000`) 적용 →
+곧바로 서버 배포 → 앱 배포. 두 단계 사이를 짧게 둔다.
+
+- 서버를 먼저 배포하면 깨진다. DB 에 `pickable` 칸이 없어 `KeyError` 로 `/cards/today` 와 지급 배치가 실패한다
+  (`paid_card_offers` 표 · `rpc/purchase_paid_card` 도 마찬가지다).
+- 반대로 DB 만 적용되고 옛 서버가 남아 있으면, 이제 후보에 이미 본 사람까지 들어 있어서 옛 서버가 쉬는 기간 안의
+  사람이나 살아 있는 카드가 있는 사람에게도 카드를 줄 수 있다. 그렇게 쌓인 데이터는 되돌릴 수 없다.
+- 그래서 지급 배치 시각(07:00 Asia/Seoul)을 피해서 배포한다. 두 단계의 간격이 07:00 에 걸치면 그동안
+  Cloud Scheduler 의 카드 지급 job(`campus-mate-daily-cards`)을 잠시 중지했다가 서버 배포 뒤에 다시 켠다.
 
 ## 4-1. 신뢰 확인 게이트 배치 (조각 5, 2026-09-22)
 

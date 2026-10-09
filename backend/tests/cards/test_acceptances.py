@@ -162,6 +162,11 @@ def test_accepting_creates_a_match_and_notifies_both():
     assert response.json() == {"matched": True, "match_id": "match-1"}
     assert sum("/rest/v1/match_participants" in url for url in posted) == 1
     assert len(pushes) == 2
+    # 신청한 쪽(카드 주인)에게는 "신청을 수락했어요"(지시문 22 G), 방금 수락한 나에게는 기존 문구 그대로.
+    assert [p["message"]["notification"] for p in pushes] == [
+        {"title": "매칭됐어요!", "body": "여우비 님이 신청을 수락했어요."},
+        {"title": "매칭됐어요!", "body": "여우비 님과 대화를 시작해 보세요"},
+    ]
 
 
 def test_an_already_existing_match_does_not_notify_twice():

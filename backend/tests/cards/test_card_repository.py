@@ -249,3 +249,21 @@ async def test_profile_status_is_read_for_the_push_gate():
     assert await repo.fetch_profile_status("p1") == "suspended"
     assert seen[0]["id"] == "eq.p1"
     assert seen[0]["select"] == "status"
+
+
+async def test_insert_offer_sends_status_offered_and_leaves_created_at_to_the_db():
+    seen: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        import json
+        seen.append(json.loads(request.content))
+        return httpx.Response(201, json=[{"id": "offer-1"}])
+
+    repo, _ = _repo(handler)
+    cycle = datetime(2026, 9, 21, 7, 0, tzinfo=SEOUL)
+    await repo.insert_offer("owner-1", cycle, "target-1", [{"kind": "tendency", "text": "성향이 비슷해요"}], 5)
+
+    assert seen == [{
+        "owner_id": "owner-1", "cycle_started_at": cycle.isoformat(), "target_id": "target-1",
+        "reasons": [{"kind": "tendency", "text": "성향이 비슷해요"}], "band_count": 5, "status": "offered",
+    }]

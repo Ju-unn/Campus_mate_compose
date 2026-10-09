@@ -256,3 +256,10 @@ def test_old_top_one_rule_slides_out_of_the_band():
     assert all(r >= size for r in old_ranks[size:])  # 41번째부터 20% 밖
     top_band_seen = {c["candidate_id"] for c in ranked[:size]}
     assert pick_from_band(_rest(ranked, top_band_seen), PAID_BAND_RATIO, random.Random(0)) is None
+
+
+def test_a_candidate_without_pickable_is_a_key_error():
+    """DB 계약(지시문 22)의 pickable 이 빠진 후보는 조용히 True 로 읽지 않고 터진다 — 검토 권고."""
+    ranked = [{"candidate_id": "c000", "score": 0.9}]
+    with pytest.raises(KeyError):
+        pick_from_band(ranked, FREE_BAND_RATIO, random.Random(0))

@@ -66,7 +66,7 @@ def activity_coefficient(last_active_at: datetime | str) -> float:
     return 0.4  # 15일 이상은 SQL 하드 필터에서 이미 빠졌다
 
 
-def _age(profile: dict) -> int | None:
+def profile_age(profile: dict) -> int | None:
     """설계 §6.1 의 나이는 만 나이가 아니라 "올해 − 태어난 해"다(가입 자격 계산과 같은 기준)."""
     birth_year = profile.get("birth_year")
     # 여기도 일부러 벽시계다 — 경계가 해 단위다. 요청 경로이긴 하지만 시각에 따라 갈리는 동작이 없다.
@@ -94,8 +94,8 @@ def final_score(owner: dict, candidate: dict) -> float:
         )
         # 선호는 "나이"인데 컬럼은 "태어난 해"라 부호가 반대다 — 나이로 바꿔 넘긴다.
         * range_coefficient(
-            _age(owner), owner["preferred_age_min"], owner["preferred_age_max"],
-            _age(candidate), candidate["preferred_age_min"], candidate["preferred_age_max"],
+            profile_age(owner), owner["preferred_age_min"], owner["preferred_age_max"],
+            profile_age(candidate), candidate["preferred_age_min"], candidate["preferred_age_max"],
             near=2,
         )
         * smoking

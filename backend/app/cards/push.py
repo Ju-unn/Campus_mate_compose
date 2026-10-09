@@ -23,7 +23,8 @@ _DEFERRED = {"acceptance_received", "match_made", "new_friend_review", "verifica
 # 아침 묶음 문구. 사람 × (kind, 가는 화면 data.route)로 묶는다 — 같은 kind 라도 가는 화면이 달라서다.
 # 여기 없는 짝(친구 가입 → 리뷰 쓰기, 학생증 검토 결과)은 알림마다 내용 · 갈 곳이 달라 묶지 않고 한 건씩 보낸다.
 _BUNDLES = {
-    ("acceptance_received", "acceptances"): ("나를 수락한 사람이 있어요", "밤사이 {n}명이 나를 수락했어요"),
+    # 받는 쪽 버튼이 "대화 신청하기" · 목록이 "받은 신청" 이다(지시문 22 G). kind 와 설정 키는 그대로 둔다.
+    ("acceptance_received", "acceptances"): ("대화 신청이 왔어요", "밤사이 {n}명이 대화를 신청했어요"),
     ("match_made", "match"): ("매칭됐어요!", "밤사이 {n}명과 매칭됐어요"),
     # 방 id 없이 보내면 앱이 방 대신 대화 목록을 연다(push_route.dart).
     ("match_made", "chat"): ("카카오톡 아이디를 주고받았어요", "밤사이 {n}명과 프로필이 공개됐어요"),

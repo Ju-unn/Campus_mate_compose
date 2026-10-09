@@ -26,7 +26,9 @@ async def get_candidates(
         return {"candidates": []}
     candidates = await repo.fetch_candidates(profile_id)
 
-    ranked = rank(owner, candidates)[:limit]
+    # match_candidates 는 이미 본 사람(pickable=False)도 돌려준다(지시문 22) — 목록에는 새로 만날 사람만 남긴다.
+    # 칸이 빠졌으면 KeyError 로 드러낸다(band.pick_from_band 와 같은 규칙).
+    ranked = [c for c in rank(owner, candidates) if c["pickable"]][:limit]
     return {
         "candidates": [
             {"profile_id": c["candidate_id"], "score": round(c["score"], 4)} for c in ranked

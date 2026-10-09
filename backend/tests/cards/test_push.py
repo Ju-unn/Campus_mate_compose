@@ -185,13 +185,13 @@ async def test_a_night_acceptance_is_kept_for_the_morning():
     repo = _FakeRepo(["tok"], {"acceptance_received": True, "quiet_hours": True})
     sender, pushes = _recording_sender()
 
-    sent = await notify(repo, sender, "p1", "acceptance_received", "나를 수락한 사람이 있어요",
-                        "A 님이 대화를 하고 싶어 해요", {"route": "acceptances", "card_id": "c1"}, now=NIGHT)
+    sent = await notify(repo, sender, "p1", "acceptance_received", "대화 신청이 왔어요",
+                        "A 님이 대화를 신청했어요", {"route": "acceptances", "card_id": "c1"}, now=NIGHT)
 
     assert sent == 0
     assert pushes == []
-    assert repo.pending == [{"profile_id": "p1", "kind": "acceptance_received", "title": "나를 수락한 사람이 있어요",
-                             "body": "A 님이 대화를 하고 싶어 해요",
+    assert repo.pending == [{"profile_id": "p1", "kind": "acceptance_received", "title": "대화 신청이 왔어요",
+                             "body": "A 님이 대화를 신청했어요",
                              "data": {"route": "acceptances", "card_id": "c1"}}]
 
 
@@ -214,19 +214,19 @@ async def test_a_switched_off_kind_is_not_kept_either():
 
 async def test_a_single_kept_push_goes_out_as_it_was():
     repo = _FakeRepo(["tok"], {}, pending=[
-        _row("r1", "p1", "match_made", "match", "매칭됐어요!", "A 님도 수락했어요", match_id="m1"),
+        _row("r1", "p1", "match_made", "match", "매칭됐어요!", "A 님이 신청을 수락했어요.", match_id="m1"),
     ])
     sender, pushes = _recording_sender()
 
     assert await send_pending(repo, sender, MORNING) == 1
 
-    assert pushes[0]["notification"] == {"title": "매칭됐어요!", "body": "A 님도 수락했어요"}
+    assert pushes[0]["notification"] == {"title": "매칭됐어요!", "body": "A 님이 신청을 수락했어요."}
     assert pushes[0]["data"] == {"route": "match", "match_id": "m1"}
     assert repo.pending_deleted == ["r1"]
 
 
 async def test_several_kept_pushes_of_one_kind_become_one_bundle():
-    """사용자 결정 모양 "밤사이 2명이 수락했어요". 묶음은 목록 화면으로 간다 — 어느 한 건으로 보내지 않는다."""
+    """사용자 결정 모양 "밤사이 2명이 대화를 신청했어요"(지시문 22 G). 묶음은 목록 화면으로 간다 — 어느 한 건으로 보내지 않는다."""
     repo = _FakeRepo(["tok"], {}, pending=[
         _row("r1", "p1", "acceptance_received", "acceptances", card_id="c1"),
         _row("r2", "p1", "acceptance_received", "acceptances", card_id="c2"),
@@ -236,7 +236,7 @@ async def test_several_kept_pushes_of_one_kind_become_one_bundle():
     assert await send_pending(repo, sender, MORNING) == 1
 
     assert len(pushes) == 1
-    assert pushes[0]["notification"] == {"title": "나를 수락한 사람이 있어요", "body": "밤사이 2명이 나를 수락했어요"}
+    assert pushes[0]["notification"] == {"title": "대화 신청이 왔어요", "body": "밤사이 2명이 대화를 신청했어요"}
     assert pushes[0]["data"] == {"route": "acceptances"}
     assert sorted(repo.pending_deleted) == ["r1", "r2"]
 

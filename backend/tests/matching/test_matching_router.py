@@ -51,6 +51,7 @@ def test_candidates_are_sorted_by_score_and_cut_to_limit():
         "preferred_height_min": None, "preferred_height_max": None, "birth_year": 2003,
         "preferred_age_min": None, "preferred_age_max": None, "is_smoker": True,
         "religion": "none", "last_active_at": now, "tag_score": 0, "text_score": 0,
+        "pickable": True,
     }
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -139,3 +140,31 @@ def test_candidates_return_404_when_profile_row_is_gone():
     )
 
     assert response.status_code == 404
+
+
+def test_candidates_list_only_pickable_people():
+    """match_candidates 가 이제 이미 본 사람(pickable=False)도 돌려준다(지시문 22 DB 계약 1).
+    후보 목록은 지금처럼 새로 만날 수 있는 사람만 보여 준다 — 순위는 매기되 목록에서 뺀다."""
+    now = datetime.now(timezone.utc).isoformat()
+    candidate = {
+        "mbti": None, "preferred_mbti_flags": {}, "height_cm": 165,
+        "preferred_height_min": None, "preferred_height_max": None, "birth_year": 2003,
+        "preferred_age_min": None, "preferred_age_max": None, "is_smoker": True,
+        "religion": "none", "last_active_at": now, "tag_score": 0, "text_score": 0,
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/rest/v1/rpc/match_candidates":
+            return httpx.Response(200, json=[
+                {**candidate, "candidate_id": "seen", "trait_score": 0.9, "pickable": False},
+                {**candidate, "candidate_id": "new", "trait_score": 0.1, "pickable": True},
+            ])
+        if request.url.path == "/rest/v1/profiles":
+            return httpx.Response(200, json=[_owner()])
+        if request.url.path == "/rest/v1/profile_vectors":
+            return httpx.Response(200, json=[{"profile_id": PROFILE_ID}])
+        return httpx.Response(200, json=[])
+
+    body = _wire(handler).get("/matching/candidates", headers=AUTH_HEADERS).json()
+
+    assert [c["profile_id"] for c in body["candidates"]] == ["new"]
