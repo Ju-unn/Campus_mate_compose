@@ -8,7 +8,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(43);
+select plan(48);
 
 -- 준비 --------------------------------------------------------------------
 insert into public.region_group_settings (region_group) values ('paid_test');
@@ -42,7 +42,7 @@ insert into public.entitlements (profile_id, heart_balance) values
   ('00000000-0000-0000-0000-000000003101', 120),
   ('00000000-0000-0000-0000-000000003111', 10);
 
--- 제안(offer id = …f0xx). 같은 주기에 offered 는 하나만 가능해서 offered 끼리는 주기를 다르게 둔다.
+-- 제안(offer id = …f0xx). 같은 주기에 offered · purchased 를 합쳐 하나만 가능해서 서로 주기를 다르게 둔다.
 insert into public.paid_card_offers (id, owner_id, cycle_started_at, target_id, reasons, band_count, status) values
   ('00000000-0000-0000-0000-00000000f001', '00000000-0000-0000-0000-000000003101', now() - interval '1 day',  '00000000-0000-0000-0000-000000003102', '["같은 동네"]', 3, 'offered'),
   ('00000000-0000-0000-0000-00000000f002', '00000000-0000-0000-0000-000000003101', now() - interval '8 days', '00000000-0000-0000-0000-000000003103', '[]', 3, 'replaced'),
@@ -61,7 +61,7 @@ insert into public.daily_cards (owner_id, target_id, source, expires_at) values
 
 -- 1. 표 구조 · 권한 -----------------------------------------------------------
 select has_table('public', 'paid_card_offers', '유료 카드 제안 표가 있다');
-select has_index('public', 'paid_card_offers', 'paid_card_offers_one_offered_per_cycle', '주기마다 offered 하나 — 부분 유일 인덱스');
+select has_index('public', 'paid_card_offers', 'paid_card_offers_one_live_per_cycle', '주기마다 offered · purchased 합쳐 하나 — 부분 유일 인덱스');
 select has_index('public', 'paid_card_offers', 'paid_card_offers_owner_created_index', '사람별 최근 제안 인덱스');
 select is((select relrowsecurity from pg_class where oid = 'public.paid_card_offers'::regclass), true, 'RLS 켜짐');
 select is((select count(*) from pg_policies where schemaname = 'public' and tablename = 'paid_card_offers'), 0::bigint, '정책 없음 = 클라이언트 접근 없음');
@@ -112,6 +112,39 @@ select is(
   (select status::text from public.paid_card_offers where id = '00000000-0000-0000-0000-00000000f001'),
   'offered', '제안의 기본 상태는 offered 다'
 );
+
+-- 주기당 한 장: 이미 산(purchased) 주기에는 새 offered 도, 또 다른 purchased 도 넣을 수 없다(돈이 걸린 규칙).
+-- 시험 행은 아래 흐름에 끼지 않게 -30일 · -31일 주기에 두고 블록 끝에서 지운다.
+insert into public.paid_card_offers (owner_id, cycle_started_at, target_id, band_count, status) values
+  ('00000000-0000-0000-0000-000000003101', now() - interval '30 days', '00000000-0000-0000-0000-000000003108', 3, 'purchased'),
+  ('00000000-0000-0000-0000-000000003101', now() - interval '31 days', '00000000-0000-0000-0000-000000003108', 3, 'expired');
+select throws_ok(
+  $$insert into public.paid_card_offers (owner_id, cycle_started_at, target_id, band_count, status)
+    values ('00000000-0000-0000-0000-000000003101', now() - interval '30 days', '00000000-0000-0000-0000-000000003102', 3, 'offered')$$,
+  '23505', null, '이미 산 주기에는 새 offered 를 넣을 수 없다'
+);
+select throws_ok(
+  $$insert into public.paid_card_offers (owner_id, cycle_started_at, target_id, band_count, status)
+    values ('00000000-0000-0000-0000-000000003101', now() - interval '30 days', '00000000-0000-0000-0000-000000003102', 3, 'purchased')$$,
+  '23505', null, '같은 주기에 purchased 를 두 장 둘 수 없다'
+);
+select lives_ok(
+  $$insert into public.paid_card_offers (owner_id, cycle_started_at, target_id, band_count, status)
+    values ('00000000-0000-0000-0000-000000003101', now() - interval '30 days', '00000000-0000-0000-0000-000000003102', 3, 'replaced')$$,
+  '이미 산 주기에도 replaced 이력은 쌓일 수 있다'
+);
+select lives_ok(
+  $$insert into public.paid_card_offers (owner_id, cycle_started_at, target_id, band_count, status)
+    values ('00000000-0000-0000-0000-000000003101', now() - interval '32 days', '00000000-0000-0000-0000-000000003102', 3, 'offered')$$,
+  '산 적 없는 다른 주기에는 offered 를 넣을 수 있다'
+);
+select lives_ok(
+  $$insert into public.paid_card_offers (owner_id, cycle_started_at, target_id, band_count, status)
+    values ('00000000-0000-0000-0000-000000003101', now() - interval '31 days', '00000000-0000-0000-0000-000000003102', 3, 'offered')$$,
+  'expired 로 끝난 주기에는 새 offered 를 넣을 수 있다'
+);
+delete from public.paid_card_offers
+ where owner_id = '00000000-0000-0000-0000-000000003101' and cycle_started_at <= now() - interval '30 days';
 
 -- 옛 제안을 replaced 로 돌리면 같은 주기에 새 offered 를 넣을 수 있다(서버의 재선정).
 -- f004 를 바꾸고 새 행을 넣은 뒤, 아래 시험 흐름을 위해 되돌린다.
