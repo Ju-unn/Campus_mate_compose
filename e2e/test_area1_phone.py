@@ -138,7 +138,9 @@ class SessionTest(Base):
         self.assertEqual(area1.attempt_phone(self.run, 'E-AUTH-05', phone)[0], 'pass')
         self.assertEqual(sorted(phone.jobs[0]), ['email', 'token_hash'])
         self.assertTrue(phone.jobs[0]['email'].endswith('@example.com'))
-        self.assertEqual(self._school_email_profile(fake), [{'id': 'id-1', 'university_id': None, 'school_email_verified_at': None}])
+        row, = self._school_email_profile(fake)
+        self.assertRegex(row.pop('referral_code'), r'^[A-HJ-NP-Z2-9]{6}$')  # 공장이 직접 뽑는 추천인 코드(test_area1 AccountTest.CODE)
+        self.assertEqual(row, {'id': 'id-1', 'university_id': None, 'school_email_verified_at': None})
         self.assertIn('/me/consents', fake.paths('POST'))  # 동의가 학교 메일보다 앞 관문
 
     def test_auth_16_signs_in_an_account_before_school_email_and_keeps_the_temporary_account_for_cleanup(self):

@@ -325,6 +325,13 @@ STAGES = ('new', 'consented', 'needs_school_email', 'pending', 'verified', 'gate
 SIDE_STAGES = {'pending': ('consented', 'pending'), 'needs_school_email': ('consented',)}
 OLD_CONSENT_VERSION = '2026-09-01'  # 서버 상수(consents/policy.py)보다 옛 판 — 재동의 가설이 데이터로 흉내 낸다
 PHOTO = ROOT / 'frontend' / 'assets' / 'images' / 'mascot-male.png'  # 실제 사람 사진 대신 앱에 든 그림(SafeSearch 통과)
+REFERRAL_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'  # generate_referral_code() 와 같은 32글자(0 · O · 1 · I 뺌, 20260928010000)
+_CODE_TRIES = 5  # 그 함수도 다섯 번까지 다시 뽑는다
+
+
+def referral_code():
+    """profiles_referral_code_format(`^[A-HJ-NP-Z2-9]{6}$`)에 맞는 새 추천인 코드."""
+    return ''.join(secrets.choice(REFERRAL_LETTERS) for _ in range(6))
 
 
 def mail_base(cfg):
@@ -588,8 +595,10 @@ class Run:
         return {**account, 'token': token}
 
     def _profile(self, account, school_email=True):
-        """프로필 한 행을 서비스 키로 넣는다 — 학교 메일 인증 완료(⑩ complete_school_email_verification)가 남기는 두 칸만 채운다.
-        나머지 칸(status='pending' · referral_code · interest_tags 등)은 표 기본값이다 — 트리거도 `insert (id)` 만 한다.
+        """프로필 한 행을 서비스 키로 넣는다 — 학교 메일 인증 완료(⑩ complete_school_email_verification)가 남기는 두 칸과 추천인 코드.
+        referral_code 기본값 generate_referral_code() 는 운영에서 서비스 키도 execute 가 없어(403 42501) 공장이 [referral_code] 로 뽑는다.
+        ignore-duplicates 는 기본 키(id)만 보므로 코드가 겹치면 23505 — 그때만 새로 뽑아 DB 함수처럼 다섯 번까지.
+        나머지 칸(status='pending' · interest_tags 등)은 상수 · now() 기본값이다 — 트리거도 `insert (id)` 만 한다.
         [school_email]=False 면 학교 · 인증 시각을 비운다(소셜 가입 직후의 pending 프로필과 같은 모양 → 앱이 02 로 보낸다).
         같은 id 가 이미 있으면 그대로 둔다(재시도 멱등). 인증한 계정이면 [_claim] 으로 학교 메일 기록 한 행도 넣는다."""
         if school_email:
@@ -599,9 +608,12 @@ class Run:
             verified_at = datetime.now(timezone.utc).isoformat(timespec='seconds')
         else:
             university = verified_at = None
-        reply = rest(self.cfg, self.key, 'POST', 'profiles',
-                     {'id': account['id'], 'university_id': university, 'school_email_verified_at': verified_at},
-                     prefer='resolution=ignore-duplicates')
+        row = {'id': account['id'], 'university_id': university, 'school_email_verified_at': verified_at}
+        for _ in range(_CODE_TRIES):
+            reply = rest(self.cfg, self.key, 'POST', 'profiles', {**row, 'referral_code': referral_code()},
+                         prefer='resolution=ignore-duplicates')
+            if not (reply[0] == 409 and isinstance(reply[1], dict) and reply[1].get('code') == '23505'):
+                break
         if reply[0] >= 300:
             raise Blocked(f'프로필 만들기 {reply[0]} {reply[1]}')
         if school_email:
