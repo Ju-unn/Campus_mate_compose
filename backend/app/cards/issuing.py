@@ -1,9 +1,11 @@
 import logging
+import random
 from datetime import datetime, time
 
-from app.cards.ladder import bottleneck_count, ladder_weekdays, next_issue_at
+from app.cards.ladder import bottleneck_count, ladder_weekdays, last_issue_at, next_issue_at
+from app.cards.paid_offer import ensure_offer
 from app.cards.push import notify
-from app.matching.scoring import rank
+from app.matching.band import FREE_BAND_RATIO, pick_from_band, rank_all
 
 logger = logging.getLogger(__name__)
 
@@ -12,11 +14,16 @@ def _parse_time(value: str) -> time:
     return time.fromisoformat(value)
 
 
-async def issue_daily_cards(card_repo, matching_repo, sender, now: datetime) -> dict:
+async def issue_daily_cards(card_repo, matching_repo, sender, now: datetime,
+                            rng: random.Random | None = None) -> dict:
     """하루 한 번 도는 지급 배치(설계 §2.1). Cloud Scheduler 가 07:00 Asia/Seoul 에 부른다.
 
-    ponytail: 대상자마다 RPC 2번(프로필 + 후보)을 부른다. 서울 한 그룹 · 수백 명 규모에서는 충분하고,
+    대상자마다 ① 이번 주기의 유료 카드 제안을 먼저 확보하고 ② 그 사람을 빼고 무료 카드를 상위 80% 구간에서
+    무작위로 뽑는다(지시문 22). rng 는 시험이 시드를 고정하려고 받는다.
+
+    ponytail: 대상자마다 RPC 2번(프로필 + 후보)과 유료 제안 읽기 2번 · 쓰기 1~2번(새로 정할 때 태그 이름 읽기 포함)을 부른다. 서울 한 그룹 · 수백 명 규모에서는 충분하고,
     수천 명이 되면 후보 조회를 한 번에 모아 오는 SQL 로 바꾼다(백로그)."""
+    rng = rng or random.Random()
     settings_by_region = {row["region_group"]: row for row in await card_repo.fetch_region_settings()}
     counts = await card_repo.fetch_active_counts()
 
@@ -52,15 +59,22 @@ async def issue_daily_cards(card_repo, matching_repo, sender, now: datetime) -> 
         if owner_id in issued_today:
             continue
         owner_row = await matching_repo.fetch_owner(owner_id)
-        ranked = rank(owner_row, await matching_repo.fetch_candidates(owner_id))
-        if not ranked:
-            # 후보가 없으면 카드가 없다 — 화면 11b `iQZoa` 가 이 상태를 설명한다.
+        # 후보는 이미 본 사람까지 전부다(pickable 칸) — 구간은 전체로 재고 뽑을 때만 pickable 을 본다.
+        ranked = rank_all(owner_row, await matching_repo.fetch_candidates(owner_id))
+        issue_time = _parse_time(settings_by_region[region]["issue_time"])
+
+        # ① 유료 제안은 무료 카드가 나가든 말든 확보한다. ② 그 사람은 무료 카드에서 뺀다.
+        offer = await ensure_offer(card_repo, owner_row, ranked, last_issue_at(now, weekdays, issue_time),
+                                   rng, now)
+        exclude = frozenset({str(offer["target_id"])}) if offer else frozenset()
+        picked = pick_from_band(ranked, FREE_BAND_RATIO, rng, exclude=exclude)
+        if picked is None:
+            # 구간에 뽑을 사람이 없으면 이번 주기에는 카드가 없다 — 화면 11b `iQZoa` 가 이 상태를 설명한다.
             no_candidate += 1
             continue
 
-        settings_row = settings_by_region[region]
-        expires_at = next_issue_at(now, weekdays, _parse_time(settings_row["issue_time"]))
-        card = await card_repo.insert_card(owner_id, ranked[0]["candidate_id"], expires_at)
+        expires_at = next_issue_at(now, weekdays, issue_time)
+        card = await card_repo.insert_card(owner_id, picked["candidate_id"], expires_at)
         issued += 1
 
         if sender is not None:

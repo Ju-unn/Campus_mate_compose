@@ -133,6 +133,10 @@ gcloud scheduler jobs run campus-mate-daily-cards --location=asia-northeast3
 **주의:** 이 배치는 조각 4 의 DB 마이그레이션(`region_group_settings` · `daily_cards` …)이 클라우드에
 적용된 뒤에야 돈다. 적용 전에 job 을 만들면 매일 500 이 쌓인다 — 마이그레이션 적용 뒤에 만든다.
 
+**유료 카드(지시문 22) 배포 순서:** DB 마이그레이션 적용 → 서버 배포 → 앱 배포. 서버를 먼저 배포하면
+`/cards/today` 가 깨진다(`paid_card_offers` 표 · `match_candidates` 의 `pickable` 칸 · `rpc/purchase_paid_card` 를
+서버가 바로 읽는다). 지급 배치도 같은 이유로 마이그레이션 전에는 500 이다.
+
 ## 4-1. 신뢰 확인 게이트 배치 (조각 5, 2026-09-22)
 
 매시 정각 Asia/Seoul 에 `/batch/chat-gate` 를 부른다. 두 가지를 한다 — ① 매칭 24시간을 막 넘긴

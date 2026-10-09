@@ -1,14 +1,20 @@
+import random
 from datetime import datetime, time, timedelta, timezone
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, field_validator
 
-from app.cards.ladder import next_issue_at
+from app.cards.ladder import last_issue_at, next_issue_at
+from app.cards.paid_offer import PAID_CARD_COST, ensure_offer, target_eligible
 from app.cards.push import FcmSender, notify
 from app.cards.repository import NOTIFICATION_DEFAULTS, CardRepository
+# is_active 는 safety · friend_reviews 가 여기서 가져간다 — 판정 자체는 visibility 한 곳에 있다.
+from app.cards.visibility import hidden_from_cards as _hidden_from_cards
+from app.cards.visibility import is_active  # noqa: F401
 from app.core import errors
 from app.core.deps import Caller, get_caller, get_client, get_now, get_settings, get_verified_caller
+from app.matching.band import rank_all
 from app.matching.repository import MatchingRepository
 from app.settings import Settings
 
@@ -66,6 +72,11 @@ def get_sender(
     return FcmSender(settings.google_cloud_project, client)
 
 
+def get_rng() -> random.Random:
+    """유료 카드 제안을 새로 정할 때 쓰는 난수 발생기. 시험은 시드를 고정한 발생기를 끼운다."""
+    return random.Random()
+
+
 def _wiring(caller: Caller, sender: FcmSender, now: datetime) -> _Wiring:
     settings, client, profile_id = caller
     repo = CardRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
@@ -89,10 +100,15 @@ async def _wire_signed_in(
     return _wiring(caller, sender, now)
 
 
+def _avatar_url(profile: dict, supabase_url: str) -> str | None:
+    """가장 최근에 다 만든 아바타의 공개 저장소 주소. 카드 앞면과 유료 카드(흐림은 앱이 한다)가 같이 쓴다."""
+    avatars = [a for a in profile.get("profile_avatars") or [] if a["status"] == "ready"]
+    latest = max(avatars, key=lambda a: a["created_at"], default=None)
+    return f"{supabase_url}/storage/v1/object/public/avatars/{latest['storage_path']}" if latest else None
+
+
 def _card_profile(profile: dict, supabase_url: str, now: datetime) -> dict:
     """카드 앞면에 그릴 것만 고른다 — 실명·연락처·사진 원본은 내려보내지 않는다(설계 §7.1)."""
-    avatars = [a for a in profile.get("profile_avatars", []) if a["status"] == "ready"]
-    latest = max(avatars, key=lambda a: a["created_at"], default=None)
     return {
         "profile_id": profile["id"],
         "nickname": profile["nickname"],
@@ -100,25 +116,21 @@ def _card_profile(profile: dict, supabase_url: str, now: datetime) -> dict:
         "age": now.year - profile["birth_year"] + 1,
         "university": (profile.get("universities") or {}).get("name"),
         "major": profile.get("major"),
-        "avatar_url": (
-            f"{supabase_url}/storage/v1/object/public/avatars/{latest['storage_path']}"
-            if latest else None
-        ),
+        "avatar_url": _avatar_url(profile, supabase_url),
     }
 
 
-def is_active(profile: dict) -> bool:
-    """정지 · 탈퇴 · 가입 중이 아닌가. 14c 상대 프로필(safety)도 같은 판정을 쓴다.
-    status 칸이 없는 행은 active 로 읽는다 — 로그인 관문이 status 없는 행을 통과시키는 것과 같은 규칙이다."""
-    return profile.get("status", "active") == "active"
-
-
-def _hidden_from_cards(other_id: str, profile: dict, blocked: set[str]) -> bool:
-    """상대가 내 카드 화면에서 사라져야 하는가(조각 6) — 차단 · 지인 차단(어느 방향이든) · 정지 · 탈퇴 · 자동 가림.
-
-    후보 SQL(PR 1)은 새 카드가 나가는 것을 막고, 여기는 **이미 나간 카드와 받은 수락**을 막는다 —
-    차단한 상대의 수락을 눌러 매칭이 생기면 안 된다. 오늘 카드 · 카드 상세 · 결정 · 수락함 · 수락 응답이 같이 쓴다."""
-    return other_id in blocked or not is_active(profile) or bool(profile.get("auto_hidden_at"))
+def _offered_card(offer: dict, target: dict, supabase_url: str) -> dict:
+    """유료 카드 앞면(결제 전). 이름 · 닉네임 · 학교 · 나이 · 학과 · MBTI 같은 프로필 칸은 **절대** 넣지 않는다 —
+    결제 전에 사람이 드러나면 안 된다. 아바타는 앱이 흐리게 그린다(주소 자체는 공개 저장소 주소다)."""
+    return {
+        "state": "offered",
+        "offer_id": offer["id"],
+        "band_count": offer["band_count"],
+        "reasons": offer.get("reasons") or [],
+        "avatar_url": _avatar_url(target, supabase_url),
+        "cost": PAID_CARD_COST,
+    }
 
 
 async def _blocked_among(wiring: _Wiring, others: list[str]) -> set[str]:
@@ -129,26 +141,34 @@ async def _blocked_among(wiring: _Wiring, others: list[str]) -> set[str]:
         | await wiring.repo.fetch_contact_block_partner_ids(wiring.profile_id, others)
 
 
-async def _next_issue_at(repo: CardRepository, profile_id: str, now: datetime) -> str | None:
-    """다음 지급 시각(화면 11 의 카운트다운 재료). 지역 설정 행이 없으면 알 수 없으니 null 이다."""
+async def _region_row(repo: CardRepository, profile_id: str) -> dict | None:
+    """내 지역 설정 행(지급 요일 · 시각). 없으면 다음 지급 시각도 이번 주기도 알 수 없다."""
     region = await repo.fetch_region_group(profile_id)
     rows = {row["region_group"]: row for row in await repo.fetch_region_settings()}
-    row = rows.get(region)
-    if row is None:
-        return None
-    issued = next_issue_at(now, row["issue_weekdays"], time.fromisoformat(row["issue_time"]))
-    return issued.isoformat()
+    return rows.get(region)
 
 
 @router.get("/cards/today")
-async def get_today_cards(wiring: _Wiring = Depends(_wire)) -> dict:
+async def get_today_cards(wiring: _Wiring = Depends(_wire), rng: random.Random = Depends(get_rng)) -> dict:
     """오늘의 카드(화면 10 `W0CjO`). 살아 있는 카드가 없으면 빈 목록 + 다음 지급 시각만 내려간다
-    (화면 11 `i4VFS` 가 그 상태를 그린다)."""
+    (화면 11 `i4VFS` 가 그 상태를 그린다). 유료 카드 제안은 `paid_card` 로 내려간다(지시문 22 E)."""
     now = wiring.now
+
+    region = await _region_row(wiring.repo, wiring.profile_id)
+    issue_time = time.fromisoformat(region["issue_time"]) if region else None
+    # 유료 제안의 "이번 주기" = 가장 최근 지급 시각. 지역 설정이 없으면 주기를 몰라 제안도 없다(paid_card null).
+    cycle = last_issue_at(now, region["issue_weekdays"], issue_time) if region else None
+    offer = None
+    if cycle is not None:
+        # 지난 주기에 남은 offered 는 여기서 쓰지 않는다 — 아래 ensure_offer 가 expired 로 바꾼다.
+        offer = next((o for o in await wiring.repo.fetch_offered(wiring.profile_id)
+                      if datetime.fromisoformat(o["cycle_started_at"]) >= cycle), None)
 
     cards = []
     live = await wiring.repo.fetch_live_cards(wiring.profile_id)
-    blocked = await _blocked_among(wiring, [card["target_id"] for card in live])
+    # 제안 대상도 같은 차단 조회에 넣는다 — 요청마다 차단은 한 번만 읽는다.
+    others = [card["target_id"] for card in live] + ([str(offer["target_id"])] if offer else [])
+    blocked = await _blocked_among(wiring, others)
     # ponytail: 카드마다 프로필을 읽는 N+1 이다(조각 4 부터). 살아 있는 카드는 몇 장뿐이라 이대로 두고,
     # 수십 장이 되면 target_id in (...) 한 번으로 접는다. 차단은 요청마다 한 번만 읽는다.
     for card in live:
@@ -161,20 +181,56 @@ async def get_today_cards(wiring: _Wiring = Depends(_wire)) -> dict:
             "expires_at": card["expires_at"],
             "profile": _card_profile(profile, wiring.settings.supabase_url, now),
         })
+    # 산 카드에는 그 카드를 만든 제안의 맞는 이유를 붙인다. 무료 카드에는 붙이지 않는다.
+    bought = [card["card_id"] for card in cards if card["source"] == "purchased"]
+    if bought:
+        reasons = await wiring.repo.fetch_purchased_reasons(bought)
+        for card in cards:
+            if card["source"] == "purchased":
+                card["reasons"] = reasons.get(card["card_id"], [])
+
+    paid_card = None
+    if offer is not None:
+        eligible, target = await target_eligible(wiring.repo, wiring.profile_id, str(offer["target_id"]), blocked)
+        if eligible:
+            # 살아 있는 제안이 있으면 읽기만 한다 — 순위를 다시 매기지 않는다.
+            paid_card = _offered_card(offer, target, wiring.settings.supabase_url)
 
     candidate_pool_empty = False
-    if not cards:
-        # 카드가 있으면 묻지 않는다 — 평소에는 추가 쿼리가 0 이다. 화면 11 과 11b 를 가르는 값이다.
-        matching_repo = MatchingRepository(
-            wiring.settings.postgrest_url, wiring.settings.supabase_service_role_key, wiring.client
-        )
-        candidate_pool_empty = not await matching_repo.fetch_candidates(wiring.profile_id)
+    if paid_card is None:
+        # 이번 주기에 이미 샀으면 paid_card 는 null 이다(산 카드는 cards 목록에 있다).
+        may_offer = cycle is not None and not await wiring.repo.has_purchased_since(wiring.profile_id, cycle)
+        if not cards or may_offer:
+            matching_repo = MatchingRepository(
+                wiring.settings.postgrest_url, wiring.settings.supabase_service_role_key, wiring.client
+            )
+            candidates = await matching_repo.fetch_candidates(wiring.profile_id)
+            # 후보에는 이미 본 사람도 들어 있다 — 뽑을 수 있는(pickable) 사람이 없어야 화면 11b 다.
+            pool_empty = not any(c["pickable"] for c in candidates)
+            # 카드가 있으면 11b 가 아니다 — 지금처럼 카드가 있을 때는 false 다.
+            candidate_pool_empty = not cards and pool_empty
+            if may_offer and not pool_empty:
+                # ponytail: 살아 있는 제안이 없을 때만 여기서 후보 전체 순위를 다시 매긴다(새로 가입한 사람 · 지급
+                # 요일이 아닌 날 · 배치가 놓친 날을 메운다). 후보 1,000명 규모면 요청당 rank_all 한 번(수 ms)과 RPC
+                # 한 번이고, 주기당 한 번 만들고 나면 위의 읽기 경로로 간다. 더 커지면 제안 만들기를 배치 전용으로
+                # 돌리고 이 자리는 캐시(또는 "준비 중")만 읽게 바꾼다.
+                owner_row = await matching_repo.fetch_owner(wiring.profile_id)
+                made = await ensure_offer(wiring.repo, owner_row, rank_all(owner_row, candidates), cycle,
+                                          rng, now, blocked=blocked)
+                if made is None:
+                    # 후보는 있는데 상위 20% 구간에 뽑을 사람이 없다 — 구매는 막힌다.
+                    paid_card = {"state": "empty"}
+                else:
+                    target = await wiring.repo.fetch_offer_target(made["target_id"])
+                    paid_card = _offered_card(made, target, wiring.settings.supabase_url)
 
     return {
         "cards": cards,
-        "next_issue_at": await _next_issue_at(wiring.repo, wiring.profile_id, now),
-        # 잠금 카드는 하트로 여는 조각 7 물건이라 아직 생기지 않는다 — 계약만 채워 둔다.
-        "locked_card_available": False,
+        # 다음 지급 시각(화면 11 의 카운트다운 재료). 지역 설정 행이 없으면 알 수 없으니 null 이다.
+        "next_issue_at": next_issue_at(now, region["issue_weekdays"], issue_time).isoformat() if region else None,
+        "paid_card": paid_card,
+        # 옛 앱 호환: paid_card 가 offered 일 때만 true.
+        "locked_card_available": bool(paid_card and paid_card["state"] == "offered"),
         "candidate_pool_empty": candidate_pool_empty,
     }
 
@@ -199,9 +255,10 @@ async def decide_card(card_id: str, body: DecisionRequest,
     await wiring.repo.insert_decision(card_id, body.decision)
     if body.decision == "accept":
         # 거절은 조용히 끝난다 — 상대에게 아무 신호도 보내지 않는다(설계 §2.2).
+        # 받는 쪽 화면은 "대화 신청하기" · "받은 신청" 이다(지시문 22 G). kind 는 acceptance_received 그대로.
         me = await wiring.repo.fetch_card_profile(wiring.profile_id)
         await notify(wiring.repo, wiring.sender, card["target_id"], "acceptance_received",
-                     "나를 수락한 사람이 있어요", f"{me['nickname']} 님이 대화를 하고 싶어 해요",
+                     "대화 신청이 왔어요", f"{me['nickname']} 님이 대화를 신청했어요",
                      {"route": "acceptances", "card_id": card_id}, now=now)
     return {"ok": True}
 
@@ -265,7 +322,7 @@ async def respond_to_acceptance(card_id: str, body: DecisionRequest,
         me = await wiring.repo.fetch_card_profile(wiring.profile_id)
         # 상대 프로필은 위 숨김 검사에서 이미 읽었다(accepter).
         await notify(wiring.repo, wiring.sender, card["owner_id"], "match_made", "매칭됐어요!",
-                     f"{me['nickname']} 님도 수락했어요",
+                     f"{me['nickname']} 님이 신청을 수락했어요.",
                      {"route": "match", "match_id": match["id"]}, now=now)
         # 내 쪽은 방금 화면에서 매칭을 봤다 — 밤이면 아침에 다시 알리지 않고 버린다(대장 10-03).
         await notify(wiring.repo, wiring.sender, wiring.profile_id, "match_made", "매칭됐어요!",
@@ -326,6 +383,32 @@ async def update_matching_paused(body: MatchingPausedRequest,
     """매칭 활성화 토글(화면 16 `TLrmq`). 끄면 다음 지급부터 카드가 오지도 가지도 않는다."""
     await wiring.repo.set_matching_paused(wiring.profile_id, body.paused)
     return {"ok": True}
+
+
+# 구매 결과(rpc/purchase_paid_card) → 응답. ok · already_purchased 는 카드 id 를 담는다.
+_PURCHASE_FAILURES = {
+    "not_enough_hearts": (402, errors.HEARTS_NOT_ENOUGH),  # 앱이 하트 스토어로 보낸다
+    "offer_gone": (409, errors.PAID_OFFER_GONE),  # 제안이 offered 가 아니거나 대상이 자격을 잃음 — 앱이 새로 읽는다
+}
+
+
+@router.post("/cards/paid/{offer_id}/purchase")
+async def purchase_paid_card(offer_id: str, wiring: _Wiring = Depends(_wire)) -> dict:
+    """유료 카드 구매(지시문 22 F). 하트 차감 · daily_cards 생성 · 제안 purchased 처리는 DB 함수가 한 번에 한다 —
+    서버는 따로 하트를 빼거나 카드를 만들지 않는다. 두 번 눌러도 같은 카드 id 다(하트는 DB 가 한 번만 뺀다)."""
+    offer = await wiring.repo.fetch_offer(offer_id)
+    if offer is None or str(offer["owner_id"]) != wiring.profile_id:
+        # 남의 제안 id 는 있는지조차 알려 주지 않는다.
+        raise HTTPException(status_code=404, detail=errors.CARD_NOT_FOUND)
+    outcome = await wiring.repo.purchase_paid_card(wiring.profile_id, offer_id)
+    result = outcome.get("result")
+    if result in ("ok", "already_purchased"):
+        return {"card_id": outcome["card_id"]}
+    if result in _PURCHASE_FAILURES:
+        status, detail = _PURCHASE_FAILURES[result]
+        raise HTTPException(status_code=status, detail=detail)
+    # 계약에 없는 값 — 반쪽 상태를 만들지 않도록 그대로 5xx 로 올린다.
+    raise RuntimeError(f"purchase_paid_card 가 모르는 결과를 돌려줬다: {result!r}")
 
 
 # ↓ 아래에 새 `/cards/...` 경로를 두지 않는다. `{card_id}` 가 먼저 먹어 버린다.

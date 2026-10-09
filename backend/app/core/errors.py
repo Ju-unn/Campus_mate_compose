@@ -93,6 +93,8 @@ ACCEPTANCE_NOT_FOUND = "수락을 찾을 수 없어요"
 ACCEPTANCE_ALREADY_ANSWERED = "이미 답한 수락이에요"
 ACCEPTANCE_EXPIRED = "기한이 지났어요"
 UNKNOWN_NOTIFICATION_SETTING = "알 수 없는 알림 설정이에요"
+# 유료 카드(지시문 22): 제안이 offered 가 아니거나 대상이 자격을 잃었다(409). 앱은 화면을 새로 읽는다.
+PAID_OFFER_GONE = "지금은 열 수 없는 카드예요"
 MATCH_CONFLICT = "매칭 정보를 다시 확인해 주세요"
 
 # 채팅 · 신뢰 확인 게이트

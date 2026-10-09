@@ -5,7 +5,7 @@ from uuid import UUID
 from fastapi import HTTPException
 
 from app.core import errors
-from app.core.http import raise_for_status
+from app.core.http import error_code, raise_for_status
 from app.core.postgrest import PostgrestRepository
 
 logger = logging.getLogger(__name__)
@@ -35,6 +35,15 @@ NOTIFICATION_DEFAULTS = {
     "new_message": True, "trust_reminder": True, "new_friend_review": True,
     "marketing": False, "quiet_hours": True,
 }
+
+
+_OFFER_COLUMNS = "id,owner_id,cycle_started_at,target_id,reasons,band_count,status,purchased_card_id"
+# 유료 카드 제안 대상의 자격(조각 6 판정 + 일시중지)과 흐린 아바타 주소만 읽는다 — 다른 프로필 칸은 읽지도 않는다.
+_OFFER_TARGET_COLUMNS = "id,status,auto_hidden_at,matching_paused,profile_avatars(storage_path,status,created_at)"
+
+
+class PaidOfferConflict(Exception):
+    """같은 사람 · 같은 주기에 offered 제안이 이미 있다(부분 유일 인덱스, 동시 요청). 부른 쪽이 다시 읽는다."""
 
 
 class CardRepository(PostgrestRepository):
@@ -125,6 +134,74 @@ class CardRepository(PostgrestRepository):
 
     async def insert_decision(self, card_id: UUID | str, decision: str) -> None:
         await self._rows_post("card_decisions", {"card_id": str(card_id), "decision": decision}, prefer="")
+
+    # 유료 카드 제안(paid_card_offers, 지시문 22) ---------------------------------------
+    async def fetch_offered(self, owner_id: UUID | str) -> list[dict]:
+        """아직 사지 않은 제안. 주기마다 최대 하나라 지난 주기에 남은 것까지 몇 줄뿐이다."""
+        return await self._rows("paid_card_offers", {
+            "owner_id": f"eq.{owner_id}", "status": "eq.offered", "select": _OFFER_COLUMNS,
+        })
+
+    async def has_purchased_since(self, owner_id: UUID | str, since: datetime) -> bool:
+        """이번 주기에 이미 샀는가 — 샀으면 주기당 1장이라 새 제안을 만들지 않는다."""
+        rows = await self._rows("paid_card_offers", {
+            "owner_id": f"eq.{owner_id}", "status": "eq.purchased",
+            "cycle_started_at": f"gte.{since.isoformat()}", "select": "id", "limit": 1,
+        })
+        return bool(rows)
+
+    async def insert_offer(self, owner_id: UUID | str, cycle_started_at: datetime, target_id: UUID | str,
+                           reasons: list[dict], band_count: int) -> dict:
+        response = await self._post("paid_card_offers", json={
+            "owner_id": str(owner_id), "cycle_started_at": cycle_started_at.isoformat(),
+            "target_id": str(target_id), "reasons": reasons, "band_count": band_count,
+        }, prefer="return=representation")
+        if response.status_code == 409 or error_code(response) == "23505":
+            raise PaidOfferConflict()
+        raise_for_status(response)
+        return response.json()[0]
+
+    async def set_offer_status(self, offer_id: UUID | str, status: str) -> None:
+        """offered 인 것만 바꾼다 — 그사이 DB 가 purchased 로 바꿨으면 건드리지 않는다."""
+        response = await self._patch(
+            "paid_card_offers",
+            params={"id": f"eq.{offer_id}", "status": "eq.offered"},
+            json={"status": status},
+        )
+        raise_for_status(response)
+
+    async def fetch_offer(self, offer_id: UUID | str) -> dict | None:
+        rows = await self._rows("paid_card_offers", {"id": f"eq.{offer_id}", "select": _OFFER_COLUMNS})
+        return rows[0] if rows else None
+
+    async def fetch_purchased_reasons(self, card_ids: list[str]) -> dict[str, list[dict]]:
+        """산 카드 → 그 카드를 만든 제안의 이유 태그(purchased_card_id 로 찾는다)."""
+        if not card_ids:
+            return {}
+        rows = await self._rows("paid_card_offers", {
+            "purchased_card_id": f"in.({','.join(card_ids)})", "select": "purchased_card_id,reasons",
+        })
+        return {row["purchased_card_id"]: row["reasons"] or [] for row in rows}
+
+    async def purchase_paid_card(self, owner_id: UUID | str, offer_id: UUID | str) -> dict:
+        """하트 차감 · daily_cards 생성 · 제안 purchased 처리를 DB 함수가 한 번에 한다(원자성은 DB 몫).
+        5xx 는 그대로 올린다 — 서버가 반쪽 상태를 만들지 않는다."""
+        response = await self._post("rpc/purchase_paid_card", json={
+            "p_owner": str(owner_id), "p_offer": str(offer_id),
+        })
+        raise_for_status(response)
+        return response.json()
+
+    async def fetch_offer_target(self, profile_id: UUID | str) -> dict:
+        rows = await self._rows("profiles", {"id": f"eq.{profile_id}", "select": _OFFER_TARGET_COLUMNS})
+        return rows[0] if rows else {}
+
+    async def fetch_interest_tags(self, profile_ids: list[str]) -> dict[str, list[str]]:
+        """맞는 이유의 공통 관심 태그 이름. 후보 RPC 는 점수만 돌려줘서 이름은 따로 읽는다(새 제안을 만들 때만)."""
+        rows = await self._rows("profiles", {
+            "id": f"in.({','.join(str(i) for i in profile_ids)})", "select": "id,interest_tags",
+        })
+        return {row["id"]: row.get("interest_tags") or [] for row in rows}
 
     # 받은 수락함 -------------------------------------------------------------
     async def fetch_pending_acceptances(self, profile_id: UUID | str, days: int = 7,

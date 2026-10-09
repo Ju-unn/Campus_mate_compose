@@ -29,10 +29,29 @@ def bottleneck_count(counts: dict[str, int]) -> int:
     return min(counts.get("male", 0), counts.get("female", 0))
 
 
+def _issue_times(now: datetime, weekdays: Sequence[int], issue_time: time, days) -> list[datetime]:
+    """now 의 날짜에서 days 만큼 떨어진 날 중 지급 요일인 날의 지급 시각들(days 순서 그대로)."""
+    times = []
+    for offset in days:
+        day = (now + timedelta(days=offset)).date()
+        if day.isoweekday() in weekdays:
+            times.append(datetime.combine(day, issue_time, tzinfo=now.tzinfo))
+    return times
+
+
 def next_issue_at(now: datetime, weekdays: Sequence[int], issue_time: time) -> datetime:
     """오늘 다음으로 카드가 나가는 시각. 무료 카드의 expires_at 이 이 값이다(설계 §2.4)."""
-    for ahead in range(1, 8):
-        day = (now + timedelta(days=ahead)).date()
-        if day.isoweekday() in weekdays:
-            return datetime.combine(day, issue_time, tzinfo=now.tzinfo)
+    for issued in _issue_times(now, weekdays, issue_time, range(1, 8)):
+        return issued
+    raise ValueError(f"지급 요일이 비어 있다: {weekdays!r}")
+
+
+def last_issue_at(now: datetime, weekdays: Sequence[int], issue_time: time) -> datetime:
+    """now 이하인 가장 최근 지급 시각 — 유료 카드 제안의 "이번 주기"(paid_card_offers.cycle_started_at).
+
+    오늘이 지급 요일이라도 지급 시각 전이면 지난 지급일이다. 사다리가 바뀌면 weekdays 가 바뀌므로 주기 시작도
+    따라 바뀐다(주 1회 → 매일로 오르면 수요일의 주기 시작이 월요일에서 수요일이 된다)."""
+    for issued in _issue_times(now, weekdays, issue_time, range(0, -8, -1)):
+        if issued <= now:
+            return issued
     raise ValueError(f"지급 요일이 비어 있다: {weekdays!r}")
