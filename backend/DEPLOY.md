@@ -77,7 +77,7 @@ gcloud run deploy campus-mate-backend \
 2026-09-29 OIDC 전환 5단계로 `CARD_BATCH_SECRET` 은 이 명령과 서버 코드에서 빠졌다(§4-3).
 
 **`KAKAO_ADMIN_KEY`(소셜 로그인 전환)** — 카카오 앱의 어드민 키. 탈퇴할 때 카카오 연결 끊기(`app/account/social_unlink.py`)에 쓴다.
-비어 있으면 그 단계만 건너뛴다(경고 없이, 서버 시작은 막지 않는다). 시크릿 이름 `kakao-admin-key`, 등록 완료(2026-10-09).
+비어 있으면 그 단계만 건너뛴다(경고 없이, 서버 시작은 막지 않는다). Secret Manager 에 시크릿 `kakao-admin-key` 로 등록했다(2026-10-09).
 위 `--set-secrets` 목록에 `KAKAO_ADMIN_KEY=kakao-admin-key:latest` 를 더해 쓴다. 값은 이 문서에 적지 않는다.
 
 **`IDENTITY_HMAC_KEY`·`OPENAI_API_KEY`·`PHONE_ENCRYPTION_KEY` 3개가 이 명령에서 빠져 있었다(PR #85 리뷰에서 잡음, §0 에는 시크릿 등록만 돼 있고 배포 명령에 연결이 안 됐던 것). `settings.py` 가 필수(`min_length=1` 등)로 요구하므로 빠지면 그 자리에서 기동이 실패한다.** → **2026-09-29 확인: 위 명령에 셋 다 들어 있다**(조각 6 배포 때 반영, 시크릿 이름 `identity-hmac-key` · `open-api-key` · `phone-number-encryption-key`). 조각 6 에서 `DISCORD_REPORT_WEBHOOK_URL`(`discord-report-webhook-url`, 신고 전용 채널 — 비어 있으면 신고 알림만 건너뛰고 경고 로그)이 더해졌다. `settings.py` 가 읽는 env 7개 · 시크릿 9개는 위 명령으로 전부다(2026-10-09 `settings.py` 와 다시 대조. 종전 2026-09-29 대조 뒤 더해진 `KAKAO_ADMIN_KEY` 와 `VERIFICATION_HOOK_SECRET`(`verification-hook-secret`, 학생증 검토 결과 훅의 공유 비밀 — 비어 있으면 `/hooks/verification-reviewed` 가 모든 요청을 막는다)이 명령에서 빠져 있었다)
