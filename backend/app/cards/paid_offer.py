@@ -9,7 +9,7 @@ from datetime import datetime
 from app.cards.repository import PaidOfferConflict
 from app.cards.visibility import hidden_from_cards
 from app.matching.band import PAID_BAND_RATIO, band_size, pick_from_band
-from app.matching.scoring import _age, mbti_coefficient, range_coefficient
+from app.matching.scoring import mbti_coefficient, profile_age, range_coefficient
 
 # 유료 카드 한 장 값(하트). 실제 차감은 DB 함수가 한다 — 이 값은 화면에 보여 줄 가격이다(DB 와 같은 값이어야 한다).
 PAID_CARD_COST = 50
@@ -59,8 +59,8 @@ def _strengths(owner: dict, target: dict, tags: list[str]) -> dict[str, float]:
             target.get("height_cm"), target.get("preferred_height_min"), target.get("preferred_height_max"),
             near=5,
         ) * range_coefficient(
-            _age(owner), owner.get("preferred_age_min"), owner.get("preferred_age_max"),
-            _age(target), target.get("preferred_age_min"), target.get("preferred_age_max"),
+            profile_age(owner), owner.get("preferred_age_min"), owner.get("preferred_age_max"),
+            profile_age(target), target.get("preferred_age_min"), target.get("preferred_age_max"),
             near=2,
         )
     ) >= _NO_PENALTY
