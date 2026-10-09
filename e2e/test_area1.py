@@ -127,6 +127,38 @@ class AccountTest(Base):
     def _profile_rows(self, fake):
         return [b for m, p, b in fake.calls if (m, p) == ('POST', '/rest/v1/profiles')]
 
+    # 추천인 코드 — 칸 기본값 generate_referral_code() 는 운영에서 서비스 키도 못 불러(403 42501) 공장이 직접 뽑는다.
+    # 꼴은 profiles_referral_code_format(20260928010000_create_referrals.sql), 겹치면 profiles_referral_code_key 가 23505.
+    CODE = r'^[A-HJ-NP-Z2-9]{6}$'
+    TAKEN = Reply(409, {'code': '23505', 'message': 'duplicate key value violates unique constraint "profiles_referral_code_key"'})
+
+    def test_a_taken_referral_code_is_drawn_again_and_the_account_goes_on(self):
+        fake = self.serve({('POST', '/rest/v1/profiles'): [self.TAKEN, Reply(201, None)]})
+        self.run.account('new')
+        first, second = self._profile_rows(fake)
+        self.assertNotEqual(first['referral_code'], second['referral_code'])
+        self.assertRegex(second['referral_code'], self.CODE)
+        self.assertEqual({k: v for k, v in first.items() if k != 'referral_code'},
+                         {k: v for k, v in second.items() if k != 'referral_code'})
+        self.assertIn('/auth/v1/verify', fake.paths())
+
+    def test_referral_code_stops_after_five_taken_draws(self):
+        fake = self.serve({('POST', '/rest/v1/profiles'): self.TAKEN})
+        with self.assertRaisesRegex(Blocked, '프로필 만들기 409'):
+            self.run.account('new')
+        self.assertEqual(len({r['referral_code'] for r in self._profile_rows(fake)}), 5)
+        self.assertNotIn('/auth/v1/verify', fake.paths())
+
+    def test_referral_code_uses_only_the_databases_32_letters(self):
+        sql = (tools.ROOT / 'supabase' / 'migrations' / '20260928010000_create_referrals.sql').read_text(encoding='utf-8')
+        letters, = re.findall(r"substr\('([A-Z0-9]+)'", sql)
+        self.assertEqual(letters, 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789')
+        fake = self.serve()
+        for _ in range(200):
+            self.run._profile({'id': 'id-1'}, school_email=False)
+        drawn = ''.join(r['referral_code'] for r in self._profile_rows(fake))
+        self.assertEqual(set(drawn), set(letters))  # 0 · 1 · I · O 없이 32글자 모두(1200글자에서 하나라도 빠질 확률 ≈ 32·e⁻³⁸)
+
     def test_factory_makes_the_profile_itself_with_the_test_university_and_school_email_verified(self):
         fake = self.serve()
         before = datetime.now(timezone.utc)
@@ -134,8 +166,9 @@ class AccountTest(Base):
         rows = self._profile_rows(fake)
         self.assertEqual(len(rows), 1)
         row = rows[0]
-        self.assertEqual(sorted(row), ['id', 'school_email_verified_at', 'university_id'])
+        self.assertEqual(sorted(row), ['id', 'referral_code', 'school_email_verified_at', 'university_id'])
         self.assertEqual((row['id'], row['university_id']), ('id-1', 'U'))
+        self.assertRegex(row['referral_code'], self.CODE)
         at = datetime.fromisoformat(row['school_email_verified_at'])
         self.assertIsNotNone(at.tzinfo)
         self.assertLessEqual(abs((at - before).total_seconds()), 60)
@@ -211,6 +244,7 @@ class AccountTest(Base):
         fake = self.serve({('POST', '/rest/v1/profiles'): Reply(409, {'message': 'conflict'})})
         with self.assertRaisesRegex(Blocked, '프로필 만들기 409'):
             self.run.account('new')
+        self.assertEqual(len(self._profile_rows(fake)), 1)  # 코드 겹침(23505)이 아닌 409 는 다시 뽑지 않는다
         self.assertNotIn('/auth/v1/verify', fake.paths())
         written = json.loads((self.run.out / 'accounts.json').read_text(encoding='utf-8'))
         self.assertEqual([a['id'] for a in written], ['id-1'])
@@ -220,7 +254,9 @@ class AccountTest(Base):
         fake = self.serve()
         account = self.run.account('needs_school_email')
         self.assertEqual(account['stage'], 'needs_school_email')
-        self.assertEqual(self._profile_rows(fake), [{'id': 'id-1', 'university_id': None, 'school_email_verified_at': None}])
+        row, = self._profile_rows(fake)
+        self.assertRegex(row.pop('referral_code'), self.CODE)
+        self.assertEqual(row, {'id': 'id-1', 'university_id': None, 'school_email_verified_at': None})
         self.assertIn('/me/consents', fake.paths('POST'))
         self.assertNotIn('/school-info', fake.paths())
         self.assertEqual([b for m, p, b in fake.calls if (m, p) == ('PATCH', '/rest/v1/profiles')], [])
