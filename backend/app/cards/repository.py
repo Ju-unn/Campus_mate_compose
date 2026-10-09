@@ -155,6 +155,7 @@ class CardRepository(PostgrestRepository):
         response = await self._post("paid_card_offers", json={
             "owner_id": str(owner_id), "cycle_started_at": cycle_started_at.isoformat(),
             "target_id": str(target_id), "reasons": reasons, "band_count": band_count,
+            "status": "offered",  # DB 기본값에 기대지 않는다. created_at 은 DB 기본값에 맡긴다.
         }, prefer="return=representation")
         if response.status_code == 409 or error_code(response) == "23505":
             raise PaidOfferConflict()
