@@ -350,13 +350,20 @@ def test_pressing_buy_twice_gives_the_same_answer(wire):
     assert world.count("POST", "rpc/purchase_paid_card") == 2
 
 
+def test_purchase_error_wording_is_pinned_because_the_app_compares_it():
+    """앱(frontend/lib/matching/model/paid_card.dart)이 옛 방식으로 문구를 글자 그대로 비교한다 — 바꾸면 앱이 일반 실패로 떨어진다."""
+    assert errors.HEARTS_NOT_ENOUGH == "하트가 모자라요"
+    assert errors.PAID_OFFER_GONE == "지금은 열 수 없는 카드예요"
+
+
 def test_not_enough_hearts_is_402(wire):
     world = _World(offers=[_offer()], purchase={"result": "not_enough_hearts"})
 
     response = wire(world).post("/cards/paid/offer-1/purchase", headers=AUTH)
 
     assert response.status_code == 402
-    assert response.json()["detail"] == errors.HEARTS_NOT_ENOUGH
+    # 앱(paid_card.dart)이 detail 문구와 code 둘 다로 가른다 — 모양 {"detail", "code"} 를 못 박는다.
+    assert response.json() == {"detail": "하트가 모자라요", "code": "hearts_not_enough"}
     _no_side_writes(world)
 
 
@@ -366,7 +373,7 @@ def test_a_gone_offer_is_409(wire):
     response = wire(world).post("/cards/paid/offer-1/purchase", headers=AUTH)
 
     assert response.status_code == 409
-    assert response.json()["detail"] == errors.PAID_OFFER_GONE == "지금은 열 수 없는 카드예요"
+    assert response.json() == {"detail": "지금은 열 수 없는 카드예요", "code": "paid_offer_gone"}
     _no_side_writes(world)
 
 
@@ -422,7 +429,7 @@ def test_already_purchased_but_the_card_is_gone_is_409(wire, purchase):
     response = wire(world).post("/cards/paid/offer-1/purchase", headers=AUTH)
 
     assert response.status_code == 409
-    assert response.json()["detail"] == errors.PAID_OFFER_GONE
+    assert response.json() == {"detail": "지금은 열 수 없는 카드예요", "code": "paid_offer_gone"}
     _no_side_writes(world)
 
 

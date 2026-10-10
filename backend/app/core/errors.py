@@ -77,6 +77,7 @@ PHOTOS_CHANGED = "사진이 바뀌었어요, 다시 열어 주세요"
 AVATAR_ALREADY_CREATED = "아바타는 한 번만 만들 수 있어요"
 AVATAR_SOURCE_REQUIRED = "아바타 원본 사진을 먼저 골라 주세요"
 AVATAR_NOT_CREATED = "아바타를 먼저 만들어 주세요"
+# 앱(frontend/lib/matching/model/paid_card.dart)이 구매 402 를 이 문구 글자 그대로도 비교한다 — 바꾸면 앱이 일반 실패로 떨어진다. 기계용 code 는 CODE_HEARTS_NOT_ENOUGH.
 HEARTS_NOT_ENOUGH = "하트가 모자라요"
 # 큐 설정이 비었거나(503) 작업 등록이 실패했을 때(502). 둘 다 사용자가 할 일은 같다 — 잠시 뒤 다시.
 AVATAR_QUEUE_UNAVAILABLE = "지금은 아바타를 만들 수 없어요, 잠시 뒤 다시 시도해 주세요"
@@ -94,7 +95,11 @@ ACCEPTANCE_ALREADY_ANSWERED = "이미 답한 수락이에요"
 ACCEPTANCE_EXPIRED = "기한이 지났어요"
 UNKNOWN_NOTIFICATION_SETTING = "알 수 없는 알림 설정이에요"
 # 유료 카드(지시문 22): 제안이 offered 가 아니거나 대상이 자격을 잃었다(409). 앱은 화면을 새로 읽는다.
+# 앱(paid_card.dart)이 구매 409 를 이 문구 글자 그대로도 비교한다 — 바꾸면 앱이 일반 실패로 떨어진다. 기계용 code 는 CODE_PAID_OFFER_GONE.
 PAID_OFFER_GONE = "지금은 열 수 없는 카드예요"
+# 유료 카드 구매 오류(POST /cards/paid/{offer_id}/purchase)의 기계용 code. 응답 {"detail": <문구>, "code": <아래 값>} — detail 은 그대로다.
+CODE_HEARTS_NOT_ENOUGH = "hearts_not_enough"
+CODE_PAID_OFFER_GONE = "paid_offer_gone"
 MATCH_CONFLICT = "매칭 정보를 다시 확인해 주세요"
 
 # 채팅 · 신뢰 확인 게이트

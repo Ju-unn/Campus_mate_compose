@@ -3,6 +3,7 @@ from datetime import datetime, time, timedelta, timezone
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, field_validator
 
 from app.cards.ladder import last_issue_at, next_issue_at
@@ -388,13 +389,19 @@ async def update_matching_paused(body: MatchingPausedRequest,
 
 # 구매 결과(rpc/purchase_paid_card) → 응답. ok · already_purchased 는 카드 id 를 담는다.
 _PURCHASE_FAILURES = {
-    "not_enough_hearts": (402, errors.HEARTS_NOT_ENOUGH),  # 앱이 하트 스토어로 보낸다
-    "offer_gone": (409, errors.PAID_OFFER_GONE),  # 제안이 offered 가 아니거나 대상이 자격을 잃음 — 앱이 새로 읽는다
+    "not_enough_hearts": (402, errors.HEARTS_NOT_ENOUGH, errors.CODE_HEARTS_NOT_ENOUGH),  # 앱이 하트 스토어로 보낸다
+    # 제안이 offered 가 아니거나 대상이 자격을 잃음 — 앱이 새로 읽는다
+    "offer_gone": (409, errors.PAID_OFFER_GONE, errors.CODE_PAID_OFFER_GONE),
 }
 
 
-@router.post("/cards/paid/{offer_id}/purchase")
-async def purchase_paid_card(offer_id: str, wiring: _Wiring = Depends(_wire)) -> dict:
+def _purchase_error(status_code: int, detail: str, code: str) -> JSONResponse:
+    """{"detail": <문구>, "code": <기계용 값>}. detail 은 HTTPException 과 같은 자리라 옛 앱(문구 비교)도 읽는다."""
+    return JSONResponse(status_code=status_code, content={"detail": detail, "code": code})
+
+
+@router.post("/cards/paid/{offer_id}/purchase", response_model=None)
+async def purchase_paid_card(offer_id: str, wiring: _Wiring = Depends(_wire)) -> dict | JSONResponse:
     """유료 카드 구매(지시문 22 F). 하트 차감 · daily_cards 생성 · 제안 purchased 처리는 DB 함수가 한 번에 한다 —
     서버는 따로 하트를 빼거나 카드를 만들지 않는다. 두 번 눌러도 같은 카드 id 다(하트는 DB 가 한 번만 뺀다)."""
     offer = await wiring.repo.fetch_offer(offer_id)
@@ -409,11 +416,10 @@ async def purchase_paid_card(offer_id: str, wiring: _Wiring = Depends(_wire)) ->
             return {"card_id": card_id}
         if result == "already_purchased":
             # 산 카드가 지워졌다 — 줄 카드가 없으니 "열 수 없는 카드" 로 말해 앱이 화면을 새로 읽게 한다.
-            raise HTTPException(status_code=409, detail=errors.PAID_OFFER_GONE)
+            return _purchase_error(409, errors.PAID_OFFER_GONE, errors.CODE_PAID_OFFER_GONE)
         # ok 는 항상 card_id 를 담는다는 계약이 깨졌다 — 아래 5xx 와 같이 올린다.
     if result in _PURCHASE_FAILURES:
-        status, detail = _PURCHASE_FAILURES[result]
-        raise HTTPException(status_code=status, detail=detail)
+        return _purchase_error(*_PURCHASE_FAILURES[result])
     # 계약에 없는 값 — 반쪽 상태를 만들지 않도록 그대로 5xx 로 올린다.
     raise RuntimeError(f"purchase_paid_card 가 계약 밖의 결과를 돌려줬다: {outcome!r}")
 
