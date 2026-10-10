@@ -19,6 +19,19 @@ val kakaoNativeAppKey: String = System.getenv("KAKAO_NATIVE_APP_KEY")
     }.getProperty("KAKAO_NATIVE_APP_KEY")
     ?: ""
 
+// 릴리스 서명 — 키스토어 정보는 android/key.properties(gitignore 대상)에서 읽는다. 저장소에 비밀번호·키 파일을 두지 않는다.
+// 환경변수 CAMPUSMATE_KEY_PROPERTIES 로 다른 위치의 파일을 가리킬 수 있다(CI·점검용).
+// 파일이 없거나 storeFile 이 비어 있으면 디버그 서명으로 폴백 — 로컬 개발·`flutter run --release` 가 깨지지 않는다.
+// 항목: storeFile, storePassword, keyAlias, keyPassword
+val keystoreProperties: Properties = Properties().apply {
+    val keyPropertiesFile = System.getenv("CAMPUSMATE_KEY_PROPERTIES")?.let { File(it) }
+        ?: rootProject.file("key.properties")
+    if (keyPropertiesFile.exists()) {
+        keyPropertiesFile.inputStream().use { load(it) }
+    }
+}
+val hasReleaseKey: Boolean = !keystoreProperties.getProperty("storeFile").isNullOrBlank()
+
 android {
     namespace = "io.github.juunn.campusmate"
     compileSdk = flutter.compileSdkVersion
@@ -46,11 +59,20 @@ android {
         manifestPlaceholders["kakaoKey"] = kakaoNativeAppKey
     }
 
+    signingConfigs {
+        if (hasReleaseKey) {
+            create("release") {
+                storeFile = rootProject.file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName(if (hasReleaseKey) "release" else "debug")
         }
     }
 }
