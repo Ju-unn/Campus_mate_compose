@@ -850,6 +850,60 @@ void main() {
     await tester.pump(const Duration(seconds: 2)); // 토스트 타이머를 끝내 둔다
   });
 
+  // 15-6 확대(10-10) — MBTI 도 15-6 에서 고친다. 15-5 기본 정보 줄(키 · MBTI · 학과)이 저장 뒤 다시 읽어 새 MBTI 를 그린다.
+  testWidgets('saving_a_new_mbti_in_15_6_shows_it_in_the_15_5_basic_info_row — 가짜 저장소 + 실제 라우터', (tester) async {
+    final me = FakeMeRepository(Success(_profile()));
+    final router = AppRouter.create(
+      isAuthenticated: () => true,
+      verificationGate: () => VerificationGate.complete,
+      onboardingStep: () => OnboardingStep.complete,
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          // 첫 화면(홈)이 하단 내비 뱃지와 요약을 읽는다.
+          cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
+          chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
+          homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
+          notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
+          meRepositoryProvider.overrideWithValue(me),
+        ],
+        child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+      ),
+    );
+    router.go(AppRoutes.myProfileManage);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('ENFP'), 200, scrollable: _list);
+    expect(find.text('ENFP'), findsOneWidget);
+    await tapVisible(tester, find.text('수정 ›'));
+    await tester.pumpAndSettle();
+    expect(find.byType(BasicInfoEditScreen), findsOneWidget);
+
+    // MBTI 의 E 를 I 로 바꿔 저장한다. 서버는 PATCH 를 받는 동안 값을 바꾼다 — 15-5 가 다시 읽어야만 새 MBTI 가 보인다.
+    await tester.ensureVisible(find.text('I'));
+    await tester.tap(find.text('I'));
+    await tester.pump();
+    me.holdUpdate = Completer<void>();
+    await tester.tap(find.widgetWithText(AppButton, '저장'));
+    await tester.pump();
+    me.profile = Success(_profile(mbti: 'INFP'));
+    me.holdUpdate!.complete();
+    await tester.pumpAndSettle();
+
+    expect(me.updates, [
+      {'mbti': 'INFP'},
+    ]);
+    expect(find.byType(BasicInfoEditScreen), findsNothing);
+    expect(find.byType(ProfileManageScreen), findsOneWidget);
+    expect(find.text('저장했어요'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('INFP'), 200, scrollable: _list);
+    expect(find.text('INFP'), findsOneWidget);
+    expect(find.text('ENFP'), findsNothing);
+    await tester.pump(const Duration(seconds: 2)); // 토스트 타이머를 끝내 둔다
+  });
+
+
   // DESIGN §11.2 — 시스템 글꼴 확대(최대 2.0)에서도 깨지지 않는다. 화면 15 테스트와 같은 잣대.
   for (final scale in [1.0, 1.3, 1.5, 2.0]) {
     testWidgets('15-5 — 폭 360 · 글자 배율 $scale 에서 넘침 · 잘림이 없다(스크롤 전 · 끝), "수정 ›" 누름 칸은 글자를 품는다', (tester) async {

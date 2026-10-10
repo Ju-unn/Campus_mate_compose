@@ -382,6 +382,116 @@ void main() {
     });
   });
 
+  group('기본 정보 수정 확대(15-6) — 새 4키 · 잠금 행 값', () {
+    const base = <String, Object?>{
+      'nickname': '여우',
+      'age': 24,
+      'university': '가나대학교',
+      'major': '경영학과',
+      'height_cm': 178,
+      'mbti': 'ENFP',
+      'avatar_url': null,
+      'photo_urls': <String>[],
+      'preferred_age_min': null,
+      'preferred_age_max': null,
+      'preferred_height_min': null,
+      'preferred_height_max': null,
+      'bio': null,
+      ..._editKeys,
+    };
+
+    Future<MyProfile> read(Map<String, Object?> extra) async {
+      final client = MockClient((_) async => jsonResponse({...base, ...extra}));
+      return profileOf(await buildRepository(client).fetchProfile())!;
+    }
+
+    test('religion · is_smoker · animal_type · impression_type 를 열거형으로 읽는다', () async {
+      final profile = await read({
+        'religion': 'buddhist',
+        'is_smoker': true,
+        'animal_type': 'wolf',
+        'impression_type': 'chic',
+        'birth_year': 2001,
+        'gender': 'male',
+      });
+
+      expect(profile.religion, Religion.buddhist);
+      expect(profile.isSmoker, isTrue);
+      expect(profile.animalType, AnimalType.wolf);
+      expect(profile.impressionType, ImpressionType.chic);
+      expect(profile.birthYear, 2001);
+      expect(profile.gender, 'male');
+    });
+
+    test('온보딩이 안 끝나 null 로 오거나 키가 아예 없어도(옛 서버) null 로 읽는다', () async {
+      final nulls = await read({'religion': null, 'is_smoker': null, 'animal_type': null, 'impression_type': null});
+      final missing = await read(const {});
+
+      for (final profile in [nulls, missing]) {
+        expect(profile.religion, isNull);
+        expect(profile.isSmoker, isNull);
+        expect(profile.animalType, isNull);
+        expect(profile.impressionType, isNull);
+        expect(profile.birthYear, isNull);
+        expect(profile.gender, isNull);
+      }
+    });
+  });
+
+  group('updateProfile — 15-6 확대 칸(MBTI · 종교 · 흡연 · 얼굴상 · 인상)', () {
+    Future<Map<String, Object?>> sent(Future<Result<void>> Function(HttpMeRepository) call) async {
+      late http.Request request;
+      final client = MockClient((r) async {
+        request = r;
+        return jsonResponse({'ok': true});
+      });
+      await call(buildRepository(client));
+      expect(request.method, 'PATCH');
+      expect(request.url.toString(), 'https://api.test/me/profile');
+      return jsonDecode(request.body) as Map<String, Object?>;
+    }
+
+    test('MBTI 글자 · 종교 · 흡연은 서버 값 그대로 보낸다', () async {
+      final body = await sent(
+        (repository) => repository.updateProfile(mbti: 'INTJ', religion: Religion.catholic, isSmoker: false),
+      );
+
+      expect(body, {'mbti': 'INTJ', 'religion': 'catholic', 'is_smoker': false});
+    });
+
+    test('흡연 false 도 빠지지 않고 간다 — null 과 false 는 다르다', () async {
+      final body = await sent((repository) => repository.updateProfile(isSmoker: false));
+
+      expect(body, {'is_smoker': false});
+    });
+
+    test('MBTI 를 "선택 안 함" 으로 바꾸면 mbti: null 을 보낸다', () async {
+      final body = await sent((repository) => repository.updateProfile(clearMbti: true));
+
+      expect(body, {'mbti': null});
+    });
+
+    test('MBTI 를 안 건드리면 mbti 키가 아예 없다 — null 로 지우지 않는다', () async {
+      final body = await sent((repository) => repository.updateProfile(nickname: '바다'));
+
+      expect(body.containsKey('mbti'), isFalse);
+    });
+
+    test('얼굴상 · 인상은 쌍으로만 보낸다', () async {
+      final body = await sent(
+        (repository) => repository.updateProfile(
+          appearance: (animalType: AnimalType.fox, impressionType: ImpressionType.tofu),
+        ),
+      );
+
+      expect(body, {'animal_type': 'fox', 'impression_type': 'tofu'});
+    });
+
+    test('MBTI 글자와 지우기를 같이 주면 던진다(둘 중 하나만)', () {
+      expect(() => HttpMeRepository(ApiClient('https://api.test', MockClient((_) async => jsonResponse({})), auth)).updateProfile(mbti: 'ENFP', clearMbti: true), throwsAssertionError);
+    });
+  });
+
   test('서버 오류면 실패를 돌려준다', () async {
     final client = MockClient((_) async => jsonResponse({'detail': 'boom'}, 500));
 

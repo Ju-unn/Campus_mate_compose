@@ -1,20 +1,26 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/common/widgets/mbti_pole_toggle.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/me/view/edit_app_bar.dart';
+import 'package:campus_mate/me/view/locked_fact_row.dart';
 import 'package:campus_mate/me/viewmodel/basic_info_edit_view_model.dart';
+import 'package:campus_mate/profile/view/appearance_pickers.dart';
 import 'package:campus_mate/profile/view/basic_info_screen.dart';
+import 'package:campus_mate/profile/view/choice_pickers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-/// 15-6 기본 정보 수정(pen `mhdYA` · 15-6-2 `ZuPTD`, 계획서 2026-09-28-me-profile.md A16). 15-5 "수정 ›"(`A8LX2`)이 연다.
-/// 닉네임 → 16 → 키 → (빈 자리) → "저장". 저장하면 `true` 를 돌려주며 15-5 로 돌아간다 — 15-5 가 "저장했어요" 를 띄운다(B4).
-/// 출생연도 · 성별은 못 고치고 실명은 나오지 않는다(U6).
+/// 15-6 기본 정보 수정(pen `mhdYA` · 15-6-2 `ZuPTD`, 계획서 2026-09-28-me-profile.md A16 · 2026-10-10 확대). 15-5 "수정 ›"(`A8LX2`)이 연다.
+/// 닉네임 → 16 → 키 → "바꿀 수 있는 정보"(내 MBTI · 종교 · 흡연 · 내 동물상 · 내 인상, 구역 사이 24) →
+/// "바꿀 수 없는 정보"(출생연도 · 성별 · 학과 잠금 행) → "저장". 저장하면 `true` 를 돌려주며 15-5 로 돌아간다 — 15-5 가
+/// "저장했어요" 를 띄운다(B4). 실명 · 전화번호 · 학번은 나오지 않는다(서버가 내려 주지 않는다).
 class BasicInfoEditScreen extends ConsumerStatefulWidget {
   const BasicInfoEditScreen({super.key});
 
@@ -50,38 +56,51 @@ class _BasicInfoEditScreenState extends ConsumerState<BasicInfoEditScreen> {
         child: Column(
           children: [
             Expanded(
-              // 본문 `fP8cs` 좌우 24, 위 여백 `We4y3` 32, 닉네임 ↔ 키 `MNhYr` 16. 큰 글씨에서 넘치면 스크롤로 내준다.
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.xl, AppSpacing.lg, 0),
-                children: [
-                  _InputField(
-                    label: '닉네임',
-                    controller: _nickname,
-                    onChanged: viewModel.changeNickname,
-                    isLocked: state.isNicknameLocked,
-                    isSaving: state.isSubmitting,
-                    hasError: state.nicknameError != null,
-                    inputFormatters: nicknameInputFormatters,
-                    note: _nicknameNote(state),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  _InputField(
-                    label: '키 (cm)',
-                    controller: _height,
-                    onChanged: viewModel.changeHeight,
-                    isSaving: state.isSubmitting,
-                    hasError: state.heightError != null,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: heightInputFormatters,
-                    note: switch (state.heightError) {
-                      final message? => _FieldNote.error(message),
-                      null => null,
-                    },
-                  ),
-                ],
+              // 본문 `fP8cs` 좌우 24, 위 여백 `We4y3` 32, 닉네임 ↔ 키 `MNhYr` 16. 긴 화면이라(구역 5개 + 잠금 구역) 스크롤로 내준다 —
+              // pen 은 저장 버튼까지 한 장으로 그렸지만 앱은 버튼을 아래에 고정한다. 스크롤 안 글은 ListView 가 아니라
+              // Column 으로 한 번에 짠다(1500 남짓이라 가볍고, 화면 밖 칸도 시험이 찾을 수 있다).
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.xl, AppSpacing.lg, AppSpacing.lg),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _InputField(
+                      label: '닉네임',
+                      controller: _nickname,
+                      onChanged: viewModel.changeNickname,
+                      isLocked: state.isNicknameLocked,
+                      isSaving: state.isSubmitting,
+                      hasError: state.nicknameError != null,
+                      inputFormatters: nicknameInputFormatters,
+                      note: _nicknameNote(state),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    _InputField(
+                      label: '키 (cm)',
+                      controller: _height,
+                      onChanged: viewModel.changeHeight,
+                      isSaving: state.isSubmitting,
+                      hasError: state.heightError != null,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: heightInputFormatters,
+                      note: switch (state.heightError) {
+                        final message? => _FieldNote.error(message),
+                        null => null,
+                      },
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    _EditSections(state: state, viewModel: viewModel),
+                    _LockedSection(state: state),
+                  ],
+                ),
               ),
             ),
-            _Footer(error: state.errorMessage, isSaving: state.isSubmitting, onSave: state.canSave ? viewModel.save : null),
+            _Footer(
+              error: state.errorMessage,
+              showsRecalculationNote: state.showsRecalculationNote,
+              isSaving: state.isSubmitting,
+              onSave: state.canSave ? viewModel.save : null,
+            ),
           ],
         ),
       ),
@@ -114,10 +133,7 @@ class _BasicInfoEditScreenState extends ConsumerState<BasicInfoEditScreen> {
   }
 
   /// 04-1 확인 중 표식(`LabeledField`)과 같은 14 · 선 2 의 도는 원.
-  static const Widget _spinner = SizedBox.square(
-    dimension: 14,
-    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.muted),
-  );
+  static const Widget _spinner = _Spinner14(color: AppColors.muted);
 }
 
 /// 라벨 14/600 body — 줄높이 속성 없음 · 렌더 20(pen `VCwQo`).
@@ -129,7 +145,159 @@ final _valueStyle = AppTypography.body.copyWith(height: 23 / 16);
 /// helper 12/400 — 줄높이 속성 없음 · 렌더 17(pen `XATaU`).
 final _noteStyle = AppTypography.caption.copyWith(height: 17 / 12);
 
-/// TextInput `PccKZ` — 라벨 → 8 → 상자 → 8 → helper. 상자는 surface-soft · 모서리 12 · 테두리 hairline 1 · 안쪽 [0,16]
+/// 지름 14 · 선 2 의 도는 원 — 04-1 "확인 중…" 과 저장 중 안내(pen `sMuCd` 14)가 쓴다.
+class _Spinner14 extends StatelessWidget {
+  const _Spinner14({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(dimension: 14, child: CircularProgressIndicator(strokeWidth: 2, color: color));
+  }
+}
+
+/// "바꿀 수 있는 정보"(pen `hyt7p`) — 닉네임 · 키 아래 24 에서 시작해 구역 사이 24.
+/// 구역마다 라벨 14/600 → 8 → 고르는 칸. 라벨 색은 pen 이 구역마다 다르게 칠했다(MBTI · 종교 · 흡연 `#3F3F3F`, 동물상 · 인상 `#222222`).
+class _EditSections extends StatelessWidget {
+  const _EditSections({required this.state, required this.viewModel});
+
+  final BasicInfoEditUiState state;
+  final BasicInfoEditViewModel viewModel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _Section(
+          label: '내 MBTI',
+          child: MbtiPoleToggle(
+            selected: state.mbtiPoles,
+            onTap: viewModel.toggleMbtiPole,
+            unknownLabel: '모름',
+            isUnknownSelected: state.isMbtiUnknown,
+            onUnknownTap: viewModel.toggleMbtiUnknown,
+          ),
+        ),
+        _Section(
+          label: '종교',
+          child: ReligionPicker(selected: state.religion, onSelected: viewModel.changeReligion),
+        ),
+        _Section(
+          label: '흡연',
+          child: SmokePicker(isSmoker: state.isSmoker, onSelected: viewModel.changeIsSmoker),
+        ),
+        _Section(
+          label: '내 동물상',
+          color: AppColors.ink,
+          child: AnimalTypePicker(
+            selected: {?state.animalType},
+            onTap: viewModel.changeAnimalType,
+          ),
+        ),
+        _Section(
+          label: '내 인상',
+          color: AppColors.ink,
+          isLast: true,
+          child: ImpressionTypePicker(
+            selected: {?state.impressionType},
+            onTap: viewModel.changeImpressionType,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _Section extends StatelessWidget {
+  const _Section({required this.label, required this.child, this.color = AppColors.body, this.isLast = false});
+
+  final String label;
+  final Widget child;
+  final Color color;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: isLast ? 0 : AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: _labelStyle.copyWith(color: color)),
+          const SizedBox(height: AppSpacing.xs),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+/// "바꿀 수 없는 정보"(pen `ltx1u`) — 위 32 · 라벨 → 8 → 상자(`OBj2z`) → 8 → 안내(`wuU5P`).
+/// 상자는 surface-soft · 모서리 12 · 테두리 hairline 1 · 안쪽 [4,16](테두리가 안쪽이라 pen 높이 152 = 4 + 48×3 + 4).
+class _LockedSection extends StatelessWidget {
+  const _LockedSection({required this.state});
+
+  final BasicInfoEditUiState state;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.xl),
+      child: SizedBox(
+        width: double.infinity,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('바꿀 수 없는 정보', style: _labelStyle),
+            const SizedBox(height: AppSpacing.xs),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md - 1, vertical: AppSpacing.xxs - 1),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceSoft,
+                borderRadius: BorderRadius.circular(AppRadius.input),
+                border: Border.all(color: AppColors.hairline),
+              ),
+              child: Column(
+                children: [
+                  LockedFactRow(label: '출생연도', value: state.birthYear?.toString() ?? _unknown),
+                  LockedFactRow(label: '성별', value: _genderLabel(state.gender)),
+                  LockedFactRow(label: '학과', value: state.major ?? _unknown),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon3d(AppIcon3d.infoBlue, size: 18),
+                const SizedBox(width: AppSpacing.xxs),
+                Expanded(
+                  child: Text(
+                    '가입할 때 확인한 정보라 바꿀 수 없어요',
+                    style: _noteStyle.copyWith(color: AppColors.muted),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 서버가 값을 안 주면(옛 서버 · 온보딩 전) 빈 칸 대신 줄표 — 15-5 의 키 · 학과 줄과 같다.
+  static const String _unknown = '-';
+
+  static String _genderLabel(String? gender) => switch (gender) {
+        'male' => '남성',
+        'female' => '여성',
+        _ => _unknown,
+      };
+}
+
+/// 라벨 → 8 → 상자 → 8 → helper 에서 입력 칸 하나. TextInput `PccKZ` — 상자는 surface-soft · 모서리 12 · 테두리 hairline 1 · 안쪽 [0,16]
 /// · 세로 가운데(2026-10-01 개편 — 옛 56 · 8 · outline). 모양은 04-1 `LabeledField` 와 같고(오류 때 테두리 error 2, 누르면 ink 2)
 /// 상자 높이 · 여백 · helper 표식만 pen 값이라 여기서 그린다. 52 는 최소값이다 — 글자를 키우면 상자가 늘어난다(DESIGN §11.2).
 ///
@@ -245,12 +413,19 @@ class _FieldNote extends StatelessWidget {
   }
 }
 
-/// 저장 실패 글(caption · error, 버튼 위 8 — 04-1 · 15-7 과 같은 자리) → "저장"(`fx0HX` 312×56). 버튼을 화면 아래에 붙이고
-/// 바 안쪽 [8,24,8,24](Bottom Bar CTA `A8INC6`, 2026-10-01 개편 — 옛 위 16 · 아래 28)를 두는 것은 15c · 15-7 과 같다.
+/// 버튼 위 안내 한 줄 → "저장"(`fx0HX` 312×52). 안내는 둘 중 하나다 — 저장 중 "점수를 다시 계산하는 중이에요"(`Z6N24` 도는 원 14 + 12/400
+/// muted, MBTI · 동물상 · 인상이 바뀐 때만) 또는 저장 실패(`C3oV5u` circle-alert 14 + 12/400 error). 둘 다 표식 → 4 → 글자, 버튼 위 8.
+/// 버튼을 화면 아래에 붙이고 바 안쪽 [8,24,8,24](Bottom Bar CTA `A8INC6`, 2026-10-01 개편 — 옛 위 16 · 아래 28)를 두는 것은 15c · 15-7 과 같다.
 class _Footer extends StatelessWidget {
-  const _Footer({required this.error, required this.isSaving, required this.onSave});
+  const _Footer({
+    required this.error,
+    required this.showsRecalculationNote,
+    required this.isSaving,
+    required this.onSave,
+  });
 
   final String? error;
+  final bool showsRecalculationNote;
   final bool isSaving;
   final VoidCallback? onSave;
 
@@ -263,11 +438,42 @@ class _Footer extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (error != null) ...[
-            Text(error, style: AppTypography.caption.copyWith(color: AppColors.error)),
-            const SizedBox(height: AppSpacing.xs),
-          ],
+          if (error != null)
+            _FooterNote(
+              leading: const Icon(AppIcons.circleAlert, size: 14, color: AppColors.error),
+              color: AppColors.error,
+              text: error,
+            )
+          else if (showsRecalculationNote)
+            const _FooterNote(
+              leading: _Spinner14(color: AppColors.muted),
+              color: AppColors.muted,
+              text: '점수를 다시 계산하는 중이에요. 몇 초 걸려요',
+            ),
           AppButton(label: '저장', onPressed: onSave, isLoading: isSaving),
+        ],
+      ),
+    );
+  }
+}
+
+/// 버튼 위 안내 한 줄(pen `Z6N24` · `C3oV5u` — 표식 14 → 4 → 12/400, 줄높이 1.4, 아래 8 은 버튼과의 간격).
+class _FooterNote extends StatelessWidget {
+  const _FooterNote({required this.leading, required this.color, required this.text});
+
+  final Widget leading;
+  final Color color;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+      child: Row(
+        children: [
+          leading,
+          const SizedBox(width: AppSpacing.xxs),
+          Expanded(child: Text(text, style: AppTypography.caption.copyWith(color: color))),
         ],
       ),
     );
