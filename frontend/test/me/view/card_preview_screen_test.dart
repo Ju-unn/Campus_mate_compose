@@ -492,11 +492,11 @@ void main() {
       expect(find.byTooltip('복사'), findsOneWidget);
     });
 
-    // 14c(partner_profile_screen_test "이런 사람이 좋아요 글 아래 간격")와 같은 잣대 — 카드의 footer 간격 13 / 1 / 3 이 15-4b 에서도 그대로다.
+    // 14c(partner_profile_screen_test "이런 사람이 좋아요 글 아래 간격")와 같은 잣대 — 글 아래 → 카카오 카드 13 이 15-4b 에서도 그대로다.
     Rect kakaoRect(WidgetTester tester) =>
         tester.getRect(find.ancestor(of: find.text('카카오톡 아이디'), matching: find.byType(Container)).first);
 
-    testWidgets('안내 → 카드 32, "이런 사람이 좋아요" 글 아래 끝 → 카카오 카드 위 끝 13, 카카오 카드 → 구분선 1', (tester) async {
+    testWidgets('안내 → 카드 32, "이런 사람이 좋아요" 글 아래 끝 → 카카오 카드 위 끝 13', (tester) async {
       await openAfter(tester);
       await scrollToEnd(tester);
 
@@ -509,10 +509,9 @@ void main() {
       await scrollToEnd(tester);
       expect(find.text('이런 사람이 좋아요'), findsOneWidget);
       expect(kakaoRect(tester).top - tester.getRect(find.text('대화가 잘 통하는 사람이 좋아요.')).bottom, 13);
-      expect(tester.getRect(find.byType(Divider).last).top - kakaoRect(tester).bottom, 1);
     });
 
-    testWidgets('카카오 카드가 빠져도(아이디 없음) 글 아래 끝 → 구분선 위 끝은 13 이다', (tester) async {
+    testWidgets('카카오 카드가 빠지면(아이디 없음) 글 아래 끝 → 카드 아래 끝은 안쪽 여백 20 + 테두리 1 이다', (tester) async {
       final empty = FakeAccountRepository()
         ..accountResult = Success(
           AccountInfo(
@@ -527,22 +526,18 @@ void main() {
       await openAfter(tester, account: empty);
       await scrollToEnd(tester);
 
-      expect(
-        tester.getRect(find.byType(Divider).last).top - tester.getRect(find.text('대화가 잘 통하는 사람이 좋아요.')).bottom,
-        13,
-      );
+      final card = tester.getRect(find.byType(ProfileCard));
+      expect(card.bottom - tester.getRect(find.text('대화가 잘 통하는 사람이 좋아요.')).bottom, 21);
     });
 
-    testWidgets('카드 맨 아래: 구분선 → 신고하기 줄 11 · 줄 아래 → 카드 아래 끝 3 + 안쪽 여백(누르는 영역 안)', (tester) async {
+    // 내가 내 프로필을 미리 볼 때는 신고 · 차단 줄이 없다(사용자 결정 2026-10-10 — pen 은 그대로, 14c 가 같은 조각을 쓴다).
+    // 신고 줄이 빠진 자리는 카드의 기본 아래 안쪽 여백 20(+ 테두리 1)이 받는다 — 수락 전 카드와 같은 끝 모양.
+    testWidgets('카드 맨 아래: 카카오 카드 아래 끝 → 카드 아래 끝은 안쪽 여백 20 + 테두리 1', (tester) async {
       await openAfter(tester);
       await scrollToEnd(tester);
 
-      final divider = tester.getRect(find.byType(Divider).last);
-      final report = tester.getRect(find.text('신고하기'));
-      // 링크 글자 윗선까지 11 (누르는 영역 위 11 = pen 구분선 뒤 간격) — 글자 줄높이만큼 안쪽이라 11 이상 + 줄높이 여유 안.
-      expect(report.top - divider.bottom, greaterThanOrEqualTo(11));
       final card = tester.getRect(find.byType(ProfileCard));
-      expect(card.bottom - report.bottom, greaterThanOrEqualTo(17 + 3));
+      expect(card.bottom - kakaoRect(tester).bottom, 21);
     });
 
     testWidgets('카카오톡 아이디가 빈 문자열이어도 카카오 카드는 뜨지 않는다', (tester) async {
@@ -562,18 +557,19 @@ void main() {
 
       expect(find.byType(KakaoIdCard), findsNothing);
       expect(find.text('카카오톡 아이디'), findsNothing);
-      expect(find.byType(ReportBlockLinks), findsOneWidget);
+      expect(find.byType(ReportBlockLinks), findsNothing);
     });
 
-    testWidgets('신고하기 · 차단하기 줄은 보이지만 내 카드라 누를 곳이 없다', (tester) async {
+    testWidgets('신고하기 · 차단하기 줄은 내 프로필 미리보기에 없다(구분선도 없다)', (tester) async {
       await openAfter(tester);
       await scrollToEnd(tester);
 
-      expect(find.byType(ReportBlockLinks), findsOneWidget);
-      expect(find.text('신고하기'), findsOneWidget);
-      expect(find.text('차단하기'), findsOneWidget);
-      expect(find.ancestor(of: find.text('신고하기'), matching: find.byType(InkWell)), findsNothing);
-      expect(find.ancestor(of: find.text('차단하기'), matching: find.byType(InkWell)), findsNothing);
+      expect(find.byType(ReportBlockLinks), findsNothing);
+      expect(find.text('신고하기'), findsNothing);
+      expect(find.text('차단하기'), findsNothing);
+      // 카드 안 구분선(자기소개 · 사실 칸 사이)은 있어도, "이런 사람이 좋아요" 글 아래에 구분선이 남아 있으면 줄만 지우고 선이 떠 있는 것이다.
+      final lastDivider = tester.getRect(find.byType(Divider).last);
+      expect(lastDivider.bottom, lessThan(tester.getRect(find.text('이런 사람이 좋아요')).top));
     });
 
     testWidgets('"신뢰 확인 완료" 는 이 화면에 없다(수락 후에도 pen 에 없음)', (tester) async {
@@ -629,7 +625,10 @@ void main() {
       await scrollToEnd(tester);
 
       expect(find.byType(KakaoIdCard), findsNothing);
-      expect(find.byType(ReportBlockLinks), findsOneWidget);
+      expect(find.byType(ReportBlockLinks), findsNothing);
+      // 카카오 카드도 없으면 "이런 사람이 좋아요" 글이 카드 맨 아래다 — 안쪽 여백 20 + 테두리 1.
+      final card = tester.getRect(find.byType(ProfileCard));
+      expect(card.bottom - tester.getRect(find.text('대화가 잘 통하는 사람이 좋아요.')).bottom, 21);
     });
 
     testWidgets('계정을 못 읽어도 같다', (tester) async {
