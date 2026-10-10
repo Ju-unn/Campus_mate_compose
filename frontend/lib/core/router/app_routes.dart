@@ -61,6 +61,9 @@ abstract final class AppRoutes {
   /// 조각 6 A6 — 16e-1 카카오톡 아이디 변경(pen `bWrnD`). 16e 계정 줄과 14f "변경" 이 연다(flat 경로, 프로필탭 합의).
   static const String kakaoIdSettings = '/settings/account/kakao-id';
 
+  /// 09c 홈 종 알림함(pen `WiGM2`) — 홈 앱바의 종이 push 로 연다. 하단 내비가 없는 하위 화면이다.
+  static const String notifications = '/notifications';
+
   /// 조각 5 — 채팅방(화면 14). `/chat/:matchId`
   static const String chatRoom = '/chat';
 

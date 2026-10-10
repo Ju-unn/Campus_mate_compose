@@ -39,6 +39,8 @@ import 'package:campus_mate/profile/viewmodel/tag_picker_kind.dart';
 import 'package:campus_mate/safety/model/safety_repository_provider.dart';
 import 'package:campus_mate/safety/view/block_list_screen.dart';
 import 'package:campus_mate/safety/view/partner_profile_screen.dart';
+import 'package:campus_mate/notifications/model/notifications_repository_provider.dart';
+import 'package:campus_mate/notifications/view/notifications_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -54,6 +56,7 @@ import '../../matching/model/fake_card_repository.dart';
 import '../../me/model/fake_me_repository.dart';
 import '../../safety/model/fake_safety_repository.dart';
 import '../supabase/fake_auth_session.dart';
+import '../../notifications/model/fake_notifications_repository.dart';
 
 /// 이 파일은 경로·화면 연결만 본다. 게이트별 이동 규칙은 auth_redirect_test 가 맡는다.
 VerificationGate _passedGate() => VerificationGate.complete;
@@ -156,6 +159,7 @@ void main() {
           cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
           chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
           homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
+          notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
         ],
         child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
       ),
@@ -178,6 +182,7 @@ void main() {
           cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
           chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
           meRepositoryProvider.overrideWithValue(FakeMeRepository(const FailureResult(NetworkFailure()))),
+          notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
         ],
         child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
       ),
@@ -223,6 +228,7 @@ void main() {
           chatRepositoryProvider
               .overrideWithValue(FakeChatRepository()..room = Success(roomFixture())),
           messageStreamProvider.overrideWithValue(FakeMessageStream()),
+          notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
         ],
         child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
       ),
@@ -252,6 +258,7 @@ void main() {
           chatRepositoryProvider
               .overrideWithValue(FakeChatRepository()..room = Success(roomFixture())),
           messageStreamProvider.overrideWithValue(FakeMessageStream()),
+          notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
         ],
         child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
       ),
@@ -285,6 +292,7 @@ void main() {
         overrides: [
           cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
           homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
+          notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
           chatRepositoryProvider.overrideWithValue(
               FakeChatRepository()..room = Success(roomFixture(passed: passedRoom, kakaoId: 'fox_rain'))),
           messageStreamProvider.overrideWithValue(FakeMessageStream()),
@@ -359,6 +367,16 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(HeartStoreScreen), findsOneWidget);
+    });
+
+    testWidgets('/notifications 는 09c 홈 종 알림함이다', (tester) async {
+      final router = await pumpRouter(tester);
+
+      router.go(AppRoutes.notifications);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(NotificationsScreen), findsOneWidget);
+      expect(find.text('아직 받은 알림이 없어요'), findsOneWidget);
     });
 
     testWidgets('/friend-reviews 는 20c 받은 리뷰다', (tester) async {
@@ -452,6 +470,7 @@ void main() {
             cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
             chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
             homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
+            notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
             meRepositoryProvider.overrideWithValue(FakeMeRepository(const Success(_meProfile))),
           ],
           child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
