@@ -68,6 +68,11 @@ async def get_my_profile(
         "major": profile["major"],
         "height_cm": profile["height_cm"],
         "mbti": profile["mbti"],
+        # 기본 정보 수정(15-6)이 현재 값으로 채운다. 구버전 앱은 모르는 키를 무시한다.
+        "religion": profile["religion"],
+        "is_smoker": profile["is_smoker"],
+        "animal_type": profile["animal_type"],
+        "impression_type": profile["impression_type"],
         "avatar_url": _latest_avatar_url(profile, settings.supabase_url),
         # 옛 앱이 읽는 칸이라 남긴다(서버가 먼저 배포된다). 새 앱은 photos 를 읽는다.
         "photo_urls": urls,
