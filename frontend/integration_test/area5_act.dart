@@ -59,10 +59,10 @@ Future<void> _actEnterBasic(WidgetTester tester) async {
   await wait(tester, const Duration(milliseconds: 500));
 }
 
-/// 15-5 → "선호 나이 범위" 입구 → 06-1(편집 모드).
+/// 15-5 → "이상형 조건 수정" 입구 → 06-1(편집 모드).
 Future<void> _actEnterIdeal(WidgetTester tester) async {
-  await _reveal(tester, _entry(_agePref));
-  await tap(tester, _entry(_agePref));
+  await _reveal(tester, _entry(_idealEntry));
+  await tap(tester, _entry(_idealEntry));
   await pumpUntil(tester, find.byType(IdealConditionsScreen));
   await _actUntil(tester, () => _title(tester) == _actIdealTitle);
   await wait(tester, const Duration(milliseconds: 500));
@@ -181,16 +181,15 @@ Future<void> _actPickAnimal(WidgetTester tester, String label) =>
 Future<void> _actPickImpression(WidgetTester tester, String label) =>
     tap(tester, find.descendant(of: find.byType(ImpressionTypePicker), matching: find.text(label)));
 
-/// 06-1 "저장" 을 눌러 15-5 로 돌아와 선호 조건 두 줄을 읽는다 — 새로 읽는 동안 낡은 글자를 읽지 않게 [wantAge] 가 될 때까지 기다린다.
-Future<Map<String, Object?>> _actSaveIdeal(WidgetTester tester, String wantAge) async {
+/// 06-1 "저장" 을 눌러 15-5 로 돌아와 선호 조건 한 줄(나이 · 키가 한 노트)을 읽는다 — 새로 읽는 동안 낡은 글자를 읽지 않게 [wantNote] 가 될 때까지 기다린다.
+Future<Map<String, Object?>> _actSaveIdeal(WidgetTester tester, String wantNote) async {
   await tap(tester, button(_actSave));
   final back = await _actUntilTitle(tester, _actManageTitle);
   await _actManageLoaded(tester);
   await wait(tester, const Duration(milliseconds: 500));
-  await _reveal(tester, _entry(_agePref));
-  await _actUntil(tester, () => _entryNote(tester, _agePref) == wantAge);
-  await tester.scrollUntilVisible(find.text(_heightPref), 300, scrollable: _manageScrollable);
-  return {'back_title': back, 'age_note': _entryNote(tester, _agePref), 'height_note': _entryNote(tester, _heightPref)};
+  await _reveal(tester, _entry(_idealEntry));
+  await _actUntil(tester, () => _entryNote(tester, _idealEntry) == wantNote);
+  return {'back_title': back, 'ideal_note': _entryNote(tester, _idealEntry)};
 }
 
 // ── 태그 편집(21) ───────────────────────────────────────────────────────────────────────────────────
@@ -297,15 +296,14 @@ final Map<String, Area1Case> area5CasesAct = {
     tester.widget<RangeSlider>(find.byType(RangeSlider).first).onChanged!(const RangeValues(24, 30));
     await tester.pump(const Duration(milliseconds: 300));
     final changedAge = _actSummary(tester, _actAgeSummary);
-    final saved = await _actSaveIdeal(tester, '24세–30세');
+    final saved = await _actSaveIdeal(tester, '나이 24–30세 · 키 165–180cm');
     return {
       'title': title,
       'first_age': firstAge,
       'first_height': firstHeight,
       'changed_age': changedAge,
       'back_title': saved['back_title'],
-      'age_note': saved['age_note'],
-      'height_note': saved['height_note'],
+      'ideal_note': saved['ideal_note'],
     };
   }),
   'E-ME-25': _session((tester, job) async {
@@ -314,13 +312,12 @@ final Map<String, Area1Case> area5CasesAct = {
     await tap(tester, find.text(_ageIgnore));
     await tap(tester, find.text(_actHeightIgnore));
     final boxes = [for (final box in tester.widgetList<Checkbox>(find.byType(Checkbox))) box.value];
-    final saved = await _actSaveIdeal(tester, '상관없어요');
+    final saved = await _actSaveIdeal(tester, '나이 · 키 모두 상관없어요');
     return {
       'age_ignored': boxes.isNotEmpty && boxes[0] == true,
       'height_ignored': boxes.length > 1 && boxes[1] == true,
       'back_title': saved['back_title'],
-      'age_note': saved['age_note'],
-      'height_note': saved['height_note'],
+      'ideal_note': saved['ideal_note'],
     };
   }),
   'E-ME-26': _session((tester, job) async {

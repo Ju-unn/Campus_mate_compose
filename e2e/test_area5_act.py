@@ -322,7 +322,7 @@ class AppContractTest(unittest.TestCase):
         for literal in ('저장', '프로필 편집', '자기소개·태그 수정', '이상형 조건 수정', '기본 정보 수정', '저장했어요', '사용할 수 있는 닉네임이에요',
                         '한글 또는 영문 2~5자로 입력해 주세요', '이미 있는 닉네임이에요', '숫자 3자리를 확인해 주세요', '키는 상관없어요',
                         '나이는 상관없어요', '강아지상', '고양이상', '여우상', '곰상', '토끼상', '아랍상', '두부상', '선한상', '시크상', '청순상',
-                        '수정', '선호 나이 범위', '선호 키 범위', '자기소개 · 태그'):
+                        '수정', '자기소개 · 태그'):
             with self.subTest(literal):
                 self.assertIn(f"'{literal}'", screens)
                 self.assertIn(f"'{literal}'", dart('area5_act.dart') + dart('area5.dart') + dart('area1.dart'))
@@ -971,7 +971,7 @@ class IdealConditionsTest(ActBase):
             self.planted()
             self.app_saves(preferred_age_min=24, preferred_age_max=30)
             return said(**{'title': '이상형 조건 수정', 'first_age': '22세 ~ 27세', 'first_height': '165cm ~ 180cm', 'changed_age': '24세 ~ 30세',
-                           'back_title': '프로필 편집', 'age_note': '24세–30세', 'height_note': '165cm ~ 180cm', **over})
+                           'back_title': '프로필 편집', 'ideal_note': '나이 24–30세 · 키 165–180cm', **over})
         return answer
 
     def test_24_opens_with_the_server_values_and_saving_24_to_30_shows_on_15_5_and_remakes_the_vectors(self):
@@ -985,8 +985,9 @@ class IdealConditionsTest(ActBase):
 
     def test_24_fails_on_each_wrong_screen_value(self):
         for over, word in (({'title': '이상형 조건'}, '앱바'), ({'first_age': '20세 ~ 30세'}, '처음 나이'), ({'first_height': '150cm 이하 ~ 190cm 이상'}, '처음 키'),
-                           ({'changed_age': '22세 ~ 27세'}, '고른 나이'), ({'back_title': '내 프로필'}, '15-5'), ({'age_note': '22세–27세'}, '나이 줄'),
-                           ({'age_note': '24세-30세'}, '나이 줄'), ({'height_note': '상관없어요'}, '키 줄')):
+                           ({'changed_age': '22세 ~ 27세'}, '고른 나이'), ({'back_title': '내 프로필'}, '15-5'),
+                           ({'ideal_note': '나이 22–27세 · 키 165–180cm'}, '이상형 줄'), ({'ideal_note': '나이 24-30세 · 키 165–180cm'}, '이상형 줄'),
+                           ({'ideal_note': '나이 24–30세 · 키 상관없어요'}, '이상형 줄')):
             with self.subTest(over):
                 self.reset_paid()
                 self.fails('E-ME-24', self.good24(**over), word)
@@ -1024,8 +1025,8 @@ class IdealConditionsTest(ActBase):
         def answer(job):
             self.planted()
             self.app_saves(preferred_age_min=19, preferred_age_max=35, preferred_height_min=None, preferred_height_max=None)
-            return said(**{'age_ignored': True, 'height_ignored': True, 'back_title': '프로필 편집', 'age_note': '상관없어요',
-                           'height_note': '상관없어요', **over})
+            return said(**{'age_ignored': True, 'height_ignored': True, 'back_title': '프로필 편집',
+                           'ideal_note': '나이 · 키 모두 상관없어요', **over})
         return answer
 
     def test_25_ignoring_age_and_height_saves_19_to_35_and_empty_heights_and_15_5_says_anything_twice(self):
@@ -1038,7 +1039,7 @@ class IdealConditionsTest(ActBase):
 
     def test_25_fails_on_each_wrong_screen_value(self):
         for over, word in (({'age_ignored': False}, '나이 체크'), ({'height_ignored': False}, '키 체크'), ({'back_title': '설정'}, '15-5'),
-                           ({'age_note': '19세–35세 이상'}, '나이 줄'), ({'height_note': '150cm 이하 ~ 190cm 이상'}, '키 줄')):
+                           ({'ideal_note': '나이 19–35세 이상 · 키 150cm 이하 ~ 190cm 이상'}, '이상형 줄'), ({'ideal_note': '상관없어요'}, '이상형 줄')):
             with self.subTest(over):
                 self.reset_paid()
                 self.fails('E-ME-25', self.good25(**over), word)
@@ -1054,7 +1055,7 @@ class IdealConditionsTest(ActBase):
                 def saves(job, fields=fields):
                     self.planted()
                     self.app_saves(**fields)
-                    return said(age_ignored=True, height_ignored=True, back_title='프로필 편집', age_note='상관없어요', height_note='상관없어요')
+                    return said(age_ignored=True, height_ignored=True, back_title='프로필 편집', ideal_note='나이 · 키 모두 상관없어요')
                 self.fails('E-ME-25', saves, word)
         self.reset_paid()
         self.fake.embeds = False

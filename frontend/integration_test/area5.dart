@@ -93,8 +93,7 @@ const _suspendedSheetTitle = '정지 중에 탈퇴할까요?'; // 14f-1
 const _suspendedWarning = '정지 중에 탈퇴하면 다시 가입할 수 없어요';
 const _sectionTitles = ['실제 사진', '기본 정보', '선호 조건', '자기소개']; // profile_manage_screen.dart `_SectionHeader`
 const _bioEntry = '자기소개 · 태그';
-const _agePref = '선호 나이 범위';
-const _heightPref = '선호 키 범위';
+const _idealEntry = '이상형 조건 수정'; // 15-5 선호 조건의 입구 한 줄(나이 · 키가 한 노트에 든다)
 const _replacePhotos = '실제 사진 교체';
 const _ageIgnore = '나이는 상관없어요'; // ideal_conditions_screen.dart 체크 줄
 
