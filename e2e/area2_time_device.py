@@ -289,6 +289,7 @@ def p_card_01(run, phone):
     check = Check()
     a, b = _pair(run)
     control = _control(run, 'male')
+    _person(run, 'female')  # 새 선정은 유료 제안이 후보 1명을 먼저 가져가 무료 카드가 안 나온다 — A 의 후보를 2명으로(대조군은 3번째 계정 그대로)
     with _permitted(phone.serial), _every_day(run, a):
         _app(check, phone(token_hash=run.link(a['email'])))
         before = _ready(run, phone, a)

@@ -44,7 +44,12 @@ Future<Map<String, Object?>> _wdToLogin(WidgetTester tester, {Duration within = 
   final watch = Stopwatch()..start();
   while (watch.elapsed < within) {
     await tester.pump(const Duration(milliseconds: 100));
-    if (_has(screen('start'))) return {'login_ms': watch.elapsedMilliseconds, 'notice': _wdToast(tester)};
+    if (_has(screen('start'))) {
+      final ms = watch.elapsedMilliseconds;
+      // 알림은 시작 화면의 첫 프레임 뒤(addPostFrameCallback)에 뜬다 — 첫 프레임에 읽으면 늘 null 이다.
+      final shown = await appears(tester, find.byType(AppToast), const Duration(milliseconds: 1500));
+      return {'login_ms': ms, 'notice': shown == null ? null : _wdToast(tester)};
+    }
   }
   return {'login_ms': null, 'notice': null};
 }

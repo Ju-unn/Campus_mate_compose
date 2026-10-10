@@ -593,7 +593,7 @@ class ControlTest(DeviceBase):
         phone = self.phone()
         self.world.on_link = lambda: None
         self.go('E-CARD-01', phone)
-        self.assertEqual(len(self.world.users), 3)
+        self.assertEqual(len(self.world.users), 4)  # A · B · 대조군 + A 의 둘째 후보(새 선정은 유료 제안이 후보 1명을 먼저 가져간다)
 
 
 class WorldToolTest(DeviceBase):
