@@ -23,6 +23,14 @@ class HttpCardRepository implements CardRepository {
       'GET', '/cards/$cardId', (body) => CardDetail.fromJson(body as Map<String, dynamic>));
 
   @override
+  Future<Result<String>> purchasePaidCard(String offerId) => _api.send(
+        'POST',
+        '/cards/paid/$offerId/purchase',
+        // card_id 가 없거나 문자열이 아니면 ApiClient 가 UnknownFailure 로 바꾼다 — 성공으로 치지 않는다.
+        (body) => (body as Map<String, dynamic>)['card_id'] as String,
+      );
+
+  @override
   Future<Result<void>> decide(String cardId, CardDecision decision) => _api.send(
         'POST',
         '/cards/$cardId/decision',

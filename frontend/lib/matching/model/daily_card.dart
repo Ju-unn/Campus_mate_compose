@@ -1,4 +1,5 @@
 import 'package:campus_mate/matching/model/card_profile.dart';
+import 'package:campus_mate/matching/model/paid_card.dart';
 
 /// 카드가 어디서 왔는지(ERD `card_source`). 구매 카드는 조각 7 에서 생긴다.
 enum CardSource {
@@ -15,6 +16,7 @@ class DailyCard {
     required this.source,
     required this.profile,
     this.expiresAt,
+    this.reasons = const [],
   });
 
   final String cardId;
@@ -24,12 +26,17 @@ class DailyCard {
   /// 무응답 만료 시각. 구매 카드는 만료가 없어 null 이다(설계 §2.4).
   final DateTime? expiresAt;
 
+  /// 산 카드에 서버가 붙여 주는 "맞는 이유". 무료 카드는 빈 목록이다.
+  /// 지시문 23: 요약 카드 모양은 그대로라 **데이터만 받아 둔다**(화면에 아직 그리지 않는다).
+  final List<ReasonTag> reasons;
+
   factory DailyCard.fromJson(Map<String, dynamic> json) {
     return DailyCard(
       cardId: json['card_id'] as String,
       source: CardSource.fromWire(json['source'] as String),
       profile: CardProfile.fromJson(json['profile'] as Map<String, dynamic>),
       expiresAt: _parseTime(json['expires_at']),
+      reasons: ReasonTag.listFrom(json['reasons']),
     );
   }
 }
@@ -39,7 +46,7 @@ class TodayCards {
   const TodayCards({
     required this.cards,
     this.nextIssueAt,
-    this.lockedCardAvailable = false,
+    this.paidCard,
     this.candidatePoolEmpty = false,
   });
 
@@ -48,8 +55,9 @@ class TodayCards {
   /// 다음 지급 시각. 화면 11 의 카운트다운 재료다.
   final DateTime? nextIssueAt;
 
-  /// 잠금 카드를 열 후보가 남아 있는지. **조각 7(하트) 전까지는 읽지 않는다.**
-  final bool lockedCardAvailable;
+  /// 결제 카드(잠금 카드) 자리. 없으면 null — 후보 풀이 비었거나 이번 주기에 이미 샀다.
+  /// 옛 호환 칸 `locked_card_available` 은 서버가 아직 내려 주지만 앱은 읽지 않는다(지시문 23).
+  final PaidCard? paidCard;
 
   /// 후보 풀 자체가 비었는지. 화면 11(`i4VFS`)과 11b(`iQZoa`)를 가르는 값이다.
   final bool candidatePoolEmpty;
@@ -60,7 +68,7 @@ class TodayCards {
           .map((card) => DailyCard.fromJson(card as Map<String, dynamic>))
           .toList(),
       nextIssueAt: _parseTime(json['next_issue_at']),
-      lockedCardAvailable: json['locked_card_available'] as bool? ?? false,
+      paidCard: PaidCard.tryParse(json['paid_card']),
       candidatePoolEmpty: json['candidate_pool_empty'] as bool? ?? false,
     );
   }
