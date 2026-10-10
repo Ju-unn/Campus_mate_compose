@@ -41,7 +41,7 @@ VERIFIED_ROUTES = [
     'GET /matching/candidates',
     'GET /cards/today', 'POST /cards/{card_id}/decision', 'GET /cards/acceptances', 'POST /cards/acceptances/{card_id}',
     'GET /cards/notification-settings', 'PATCH /cards/notification-settings', 'GET /cards/matching-paused',
-    'PATCH /cards/matching-paused', 'GET /cards/{card_id}',
+    'PATCH /cards/matching-paused', 'POST /cards/paid/{offer_id}/purchase', 'GET /cards/{card_id}',
     'GET /chat/conversations', 'GET /chat/matches/{match_id}', 'GET /chat/matches/{match_id}/messages',
     'POST /chat/matches/{match_id}/messages', 'PATCH /chat/matches/{match_id}/read', 'POST /chat/matches/{match_id}/leave',
     'POST /chat/matches/{match_id}/trust',
