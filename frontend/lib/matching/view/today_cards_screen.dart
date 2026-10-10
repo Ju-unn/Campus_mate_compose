@@ -12,7 +12,9 @@ import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/home/view/cohort_wait_view.dart';
 import 'package:campus_mate/home/viewmodel/home_summary_provider.dart';
 import 'package:campus_mate/matching/model/daily_card.dart';
+import 'package:campus_mate/matching/model/paid_card.dart';
 import 'package:campus_mate/matching/view/daily_card_summary.dart';
+import 'package:campus_mate/matching/view/paid_card_slot.dart';
 import 'package:campus_mate/matching/viewmodel/today_cards_ui_state.dart';
 import 'package:campus_mate/matching/viewmodel/today_cards_view_model.dart';
 import 'package:flutter/material.dart';
@@ -28,6 +30,12 @@ class TodayCardsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(todayCardsViewModelProvider);
     final cohort = ref.watch(homeSummaryProvider).value?.cohort;
+    // 결제 카드를 열다가 생긴 일(하트 부족 시트 · 토스트)은 카드가 사라져도 남도록 화면에서 듣는다.
+    ref.listen(todayCardsViewModelProvider.select((s) => s.notice), (previous, notice) {
+      if (notice != null) {
+        unawaited(handlePurchaseNotice(context, ref, notice));
+      }
+    });
     return Scaffold(
       // 탭 앱바 제목은 x20 에서 시작한다(pen). 오른쪽 아이콘은 없다 —
       // 알림 종은 "메인" 탭에만 두기로 했고(2026-09-23 사용자 결정), 설정 진입점은 따로 정해진다.
@@ -41,8 +49,8 @@ class TodayCardsScreen extends ConsumerWidget {
           onRefresh: ref.read(todayCardsViewModelProvider.notifier).refresh,
           child: switch (state.phase) {
             TodayCardsPhase.loading => const _SkeletonCards(),
-            TodayCardsPhase.cards => _CardList(cards: state.cards),
-            TodayCardsPhase.waiting => _WaitingPanel(nextIssueAt: state.nextIssueAt),
+            TodayCardsPhase.cards => _CardList(cards: state.cards, paidCard: state.paidCard),
+            TodayCardsPhase.waiting => _WaitingPanel(nextIssueAt: state.nextIssueAt, paidCard: state.paidCard),
             TodayCardsPhase.noCandidates => const _NoCandidatesPanel(),
             TodayCardsPhase.failed => _FailedPanel(message: state.errorMessage),
           },
@@ -76,17 +84,23 @@ class _SkeletonCards extends StatelessWidget {
 }
 
 class _CardList extends ConsumerWidget {
-  const _CardList({required this.cards});
+  const _CardList({required this.cards, required this.paidCard});
 
   final List<DailyCard> cards;
+
+  /// 무료 카드 바로 아래, 목록의 마지막에 붙는다(pen `b2jvOY`, 간격 16). 없으면 null.
+  final PaidCard? paidCard;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return ListView.separated(
       padding: const EdgeInsets.all(AppSpacing.md),
-      itemCount: cards.length,
+      itemCount: cards.length + (paidCard == null ? 0 : 1),
       separatorBuilder: (context, index) => const SizedBox(height: AppSpacing.md),
       itemBuilder: (context, index) {
+        if (index == cards.length) {
+          return PaidCardSlot(paidCard: paidCard!);
+        }
         final card = cards[index];
         return DailyCardSummary(
           card: card,
@@ -104,9 +118,13 @@ class _CardList extends ConsumerWidget {
 /// 화면 11 — 오늘 몫은 끝났고 다음 지급일을 기다린다.
 /// 세로 간격 6 · 22 · 24 · 14 는 pen `i4VFS` 실측값이라 간격 토큰과 맞지 않는다.
 class _WaitingPanel extends StatelessWidget {
-  const _WaitingPanel({required this.nextIssueAt});
+  const _WaitingPanel({required this.nextIssueAt, required this.paidCard});
 
   final DateTime? nextIssueAt;
+
+  /// 오늘 카드를 이미 정했어도 결제 카드는 살 수 있다 — 띠 아래에 붙인다.
+  /// 이 모양은 pen 에 없는 **추정 배치**다(지시문 23 "모호한 것" 1).
+  final PaidCard? paidCard;
 
   @override
   Widget build(BuildContext context) {
@@ -131,6 +149,11 @@ class _WaitingPanel extends StatelessWidget {
         Image.asset('assets/images/mascot-male-waiting.png', width: 88),
         const SizedBox(height: 14),
         const _TomorrowBand(),
+        if (paidCard != null) ...[
+          const SizedBox(height: AppSpacing.md),
+          SizedBox(width: double.infinity, child: PaidCardSlot(paidCard: paidCard!)),
+          const SizedBox(height: AppSpacing.md),
+        ],
       ],
     );
   }
