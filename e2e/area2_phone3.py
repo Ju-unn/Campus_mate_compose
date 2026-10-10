@@ -273,10 +273,17 @@ def p_card_02(run, phone, after=None):
     notify.ensure_delivery(phone.serial)  # 푸시 연결이 죽은 폰이면 "알림이 안 왔다" 를 앱 탓으로 읽게 된다 — 시작 때 한 번 점검
     check = Check()
     a, b, token = _seed_pair(run)
+    _person(run, 'female')  # 새 선정은 유료 제안이 후보 1명을 먼저 가져간다 — A 의 후보를 2명으로 해야 무료 카드가 나온다
     region = _region_of(run, a)
-    target = _one(run, f"profiles?id=eq.{b['id']}&select=nickname,birth_year,universities(name)")
-    shown = {'name_age': f"{target.get('nickname')}, {now_seoul().year - (target.get('birth_year') or 0) + 1}",  # 나이 = 올해 − 태어난 해 + 1
-             'school': (target.get('universities') or {}).get('name') or ''}
+
+    def shown_of(person_id):
+        """앱이 오늘 탭 카드에서 찾을 글 — 나이 = 올해 − 태어난 해 + 1."""
+        person = _one(run, f"profiles?id=eq.{person_id}&select=nickname,birth_year,universities(name)")
+        return {'name_age': f"{person.get('nickname')}, {now_seoul().year - (person.get('birth_year') or 0) + 1}",
+                'school': (person.get('universities') or {}).get('name') or ''}
+
+    shown = shown_of(b['id'])  # 처음 일감 값(배치 뒤 실제 카드 상대로 덮어쓴다)
+    actual = {}
 
     def background(said):
         # 기기 토큰이 서버에 올라와야 배치가 보낸 알림이 이 폰에 닿는다(E-SET-65 와 같은 기다림)
@@ -289,6 +296,10 @@ def p_card_02(run, phone, after=None):
         check.that(got, '배치 뒤 90초 안에 A 의 daily_cards 가 안 생김')
         if not got:
             return
+        # 새 선정은 구간 안 무작위라 카드 상대가 B 라는 보장이 없다 — 실제로 지급된 카드의 상대를 앱 기대로 넘긴다(go 에 실려 앱의 step 이 받는다)
+        target = _rows(run, f"daily_cards?owner_id=eq.{a['id']}&source=eq.daily&select=target_id")
+        if target and target[0].get('target_id'):
+            actual.update(shown_of(target[0]['target_id']))
         new = notify.wait_new(phone.serial, before, seconds=30, match=lambda n: (n.title, n.text) == (CARD_TITLE, CARD_BODY))
         arrived = [n for n in new if (n.title, n.text) == (CARD_TITLE, CARD_BODY)]
         check.that(arrived, f'30초 안에 알림 "{CARD_TITLE} / {CARD_BODY}" 없음(새 알림 {len(new)}건: {notice_memo(new)})')
@@ -301,7 +312,11 @@ def p_card_02(run, phone, after=None):
     notify.grant_notifications(phone.serial)
     try:
         with region_set(run, region, issue_weekdays=EVERY_DAY, **LADDER_ZERO):
-            _app(check, phone(midway=stepper(phone, background), token_hash=token, **shown))
+            def midway(said):
+                background(said)
+                return dict(actual) or None  # 카드 상대를 읽었으면 앱 기대를 그 사람으로 바꾼다
+
+            _app(check, phone(midway=midway, token_hash=token, **shown))
     finally:
         notify.revoke_notifications(phone.serial)
     cards = _rows(run, f"daily_cards?owner_id=eq.{a['id']}&select=id,source")

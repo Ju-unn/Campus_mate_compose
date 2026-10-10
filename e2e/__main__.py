@@ -72,6 +72,7 @@ from e2e import area3_chat_nt  # noqa: F401 — 영역 3 알림 10개 E-CHAT-17 
 from e2e import area3_chat_rt  # noqa: F401 — 영역 3 실시간 · 화면 — 폰 한 대 E-CHAT-01 · 02 · 07 · 22 · 23 · 24 · 61 · 72 + 두 기기 E-CHAT-03 · 58(twodev.TWO · area1.BUNDLES 에도 더한다)
 from e2e import area3_phone11  # noqa: F401 — 영역 3 신뢰 확인 E-CHAT-37 · 38 · 40 · 41(폰 한 대) + 39 · 44(폰 + 에뮬 두 기기, 묶음 area3-two-11)
 from e2e import area3_phone9  # noqa: F401 — 영역 3 지인 리뷰 알림 E-REV-16 · 17 · 26(단일 폰, area1.PHONE · area3.BUNDLES) · E-REV-41(두 기기, twodev.TWO)
+from e2e import area4_inbox  # noqa: F401 — 영역 4 알림함(E-INBOX-01 · 02 폰, 03 · 04 API)
 from e2e import area4_push_card  # noqa: F401 — 영역 4 알림 카드 배치 9(E-PUSH-01~09, daily-cards 를 불러 알림이 오는지 · 안 오는지)
 from e2e import area3_batch  # noqa: F401 — 영역 3 배치 E-BATCH-14~17 · 22 · 23 을 기존 판(E-PUSH-40 · 46 · 44 · 47 · E-AUTH-12 · E-HEART-22)의 별칭으로 area1.PHONE · area3.BUNDLES 에 더한다(API 둘은 아래 API_CASES)
 from e2e import area2_aliases  # 영역 2 별칭 9개(E-CARD-40 · 43 · 46 · 48, E-BATCH-05~09) — 원본(area2_time_device · area4_push · area2_time_batch) 뒤에

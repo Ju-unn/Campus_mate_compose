@@ -264,6 +264,7 @@ class WaitingCardTest(CaseBase):
 
 
 CARD = notify.Notice('k1', '오늘의 카드가 도착했어요', '지금 확인해 보세요', 'cards')
+APP_PASS_CARD = {'result': 'pass'}
 
 
 class CardNotificationTest(CaseBase):
@@ -272,7 +273,7 @@ class CardNotificationTest(CaseBase):
                 ('GET', 'universities(region_group)', lambda b, u: Reply(200, [{'universities': {'region_group': 'e2e'}}])),
                 ('GET', 'push_tokens', lambda b, u: Reply(200, [{'token': 't'}] * tokens)),
                 ('GET', 'select=nickname', lambda b, u: Reply(200, [{'nickname': 'Abcde', 'birth_year': 2004, 'universities': {'name': '테스트대학'}}])),
-                ('GET', 'daily_cards', lambda b, u: Reply(200, [{'id': 'c1', 'source': 'daily'}]))]
+                ('GET', 'daily_cards', lambda b, u: Reply(200, [{'id': 'c1', 'source': 'daily', 'target_id': 'id-3'}]))]
 
     def run_case(self, new=(CARD,), tokens=1):
         calls = []
@@ -311,6 +312,63 @@ class CardNotificationTest(CaseBase):
         result, _, calls = self.run_case(tokens=0)
         self.assertEqual(result[0], 'blocked')
         self.assertNotIn(('batch', 'daily-cards'), calls)
+
+    def test_the_app_is_told_the_person_the_card_really_went_to_not_the_one_the_pc_made(self):
+        # 새 선정은 구간 안 무작위라 카드 상대가 PC 가 만든 B 가 아닐 수 있다 — 배치 뒤 daily_cards 의 상대를 읽어 앱의 go 에 실어 준다(E-PUSH-02 불안정 수정)
+        told = []
+
+        class Spy(FakePhone):
+            def __call__(self, midway=None, **job):
+                self.jobs.append(job)
+                told.append(midway(self.midway_step))
+                return self.answers[0]
+
+        rules = self.rules()
+        rules.insert(0, ('GET', 'profiles?id=eq.id-3', lambda b, u: Reply(200, [{'nickname': 'Real', 'birth_year': 2003, 'universities': {'name': '다른대학'}}])))
+        patches = [mock.patch.object(area2_phone3.area2, '_batch', lambda name: None), mock.patch.object(notify, 'grant_notifications', lambda s: None),
+                   mock.patch.object(notify, 'revoke_notifications', lambda s: None), mock.patch.object(notify, 'ensure_delivery', lambda s: None),
+                   mock.patch.object(notify, 'read_notifications', lambda s: []), mock.patch.object(notify, 'background', lambda s: None),
+                   mock.patch.object(notify, 'wait_new', lambda s, b, count=1, seconds=0, match=None: [CARD]),
+                   mock.patch.object(notify, 'tap_notification', lambda s, title: None)]
+        for patcher in patches:
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        phone = Spy(APP_PASS_CARD, midway_step={'step': 'background'})
+        phone.serial = 'S'
+        with mock.patch.object(area2_phone3.time, 'monotonic', side_effect=iter(range(0, 10000))):
+            self.go('E-CARD-02', phone, rules)
+        year = area2_phone3.now_seoul().year
+        self.assertEqual(told, [{'name_age': f'Real, {year - 2003 + 1}', 'school': '다른대학'}])
+        self.assertEqual(phone.jobs[0]['name_age'], f'Abcde, {year - 2004 + 1}')  # 처음 일감은 B(PC 가 만든 사람) — 배치 뒤 값으로 덮인다
+
+    def test_a_card_row_without_a_target_leaves_the_apps_first_expectation_alone(self):
+        told = []
+
+        class Spy(FakePhone):
+            def __call__(self, midway=None, **job):
+                self.jobs.append(job)
+                told.append(midway(self.midway_step))
+                return self.answers[0]
+
+        rules = [('GET', 'daily_cards', lambda b, u: Reply(200, [{'id': 'c1', 'source': 'daily'}])), *self.rules()]
+        patches = [mock.patch.object(area2_phone3.area2, '_batch', lambda name: None), mock.patch.object(notify, 'grant_notifications', lambda s: None),
+                   mock.patch.object(notify, 'revoke_notifications', lambda s: None), mock.patch.object(notify, 'ensure_delivery', lambda s: None),
+                   mock.patch.object(notify, 'read_notifications', lambda s: []), mock.patch.object(notify, 'background', lambda s: None),
+                   mock.patch.object(notify, 'wait_new', lambda s, b, count=1, seconds=0, match=None: [CARD]),
+                   mock.patch.object(notify, 'tap_notification', lambda s, title: None)]
+        for patcher in patches:
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        phone = Spy(APP_PASS_CARD, midway_step={'step': 'background'})
+        phone.serial = 'S'
+        with mock.patch.object(area2_phone3.time, 'monotonic', side_effect=iter(range(0, 10000))):
+            self.go('E-CARD-02', phone, rules)
+        self.assertEqual(told, [None])  # 실은 값이 없으면 앱은 처음 일감 값으로 찾는다
+
+    def test_the_card_case_makes_a_second_woman_so_the_paid_offer_cannot_take_the_only_candidate(self):
+        result, phone, calls = self.run_case()
+        genders = [b['gender'] for b in self.fake.bodies('PATCH', '/rest/v1/profiles') if 'gender' in b]
+        self.assertEqual(genders, ['male', 'female', 'female'])
 
     def test_no_new_notification_is_a_fail_and_nothing_is_tapped(self):
         result, _, calls = self.run_case(new=())

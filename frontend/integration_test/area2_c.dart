@@ -217,14 +217,17 @@ final Map<String, Area1Case> area2cCases = {
   'E-CARD-02': _session((tester, job) async {
     await arrive(tester, 'home');
     await wait(tester, const Duration(seconds: 2));
-    await _longStep('background', const Duration(minutes: 6));
+    // 새 선정은 구간 안 무작위라 카드 상대가 PC 가 처음 만든 B 가 아닐 수 있다 — PC 가 배치 뒤 실제 카드 상대를 go 에 실어 주면 그 글을 찾는다.
+    final go = await step('background', timeout: const Duration(minutes: 6));
+    final nameAge = (go['name_age'] ?? job['name_age']) as String;
+    final school = (go['school'] ?? job['school']) as String;
     await pumpUntil(tester, find.text(_todayTitle), timeout: const Duration(seconds: 30));
     await pumpUntil(tester, find.byType(DailyCardSummary), timeout: const Duration(seconds: 30));
     must(_count(find.byType(DailyCardSummary)) == 1, '카드 ${_count(find.byType(DailyCardSummary))}장(기대 1)');
-    for (final text in [job['name_age'] as String, _verified, _detail]) {
+    for (final text in [nameAge, _verified, _detail]) {
       must(_count(find.text(text)) == 1, '"$text" ${_count(find.text(text))}개');
     }
-    must(find.textContaining(job['school'] as String).evaluate().isNotEmpty, '학교 줄 "${job['school']}" 없음');
+    must(find.textContaining(school).evaluate().isNotEmpty, '학교 줄 "$school" 없음');
     return null;
   }),
   // 영역 1 E-ONB-61 과 같은 앱 동작(추천인 폰을 홈까지 켜 둔다) — 알림 확인은 PC.

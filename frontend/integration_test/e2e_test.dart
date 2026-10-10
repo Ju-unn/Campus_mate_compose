@@ -7,6 +7,7 @@ import 'area1.dart';
 import 'area2_emu_home.dart';
 import 'area3.dart';
 import 'area4.dart';
+import 'area4_inbox.dart';
 import 'area2.dart';
 import 'area2_c.dart';
 import 'area2_b.dart';
@@ -25,6 +26,7 @@ final Map<String, Future<Object?> Function(WidgetTester tester, Map<String, dyna
   ...area2EmuHomeCases,
   ...area3Cases,
   ...area4Cases,
+  ...area4InboxCases,
   ...area2Cases,
   ...area2cCases,
   ...area2bCases,
