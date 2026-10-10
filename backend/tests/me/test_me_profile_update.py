@@ -21,7 +21,7 @@ LOCKED = {"nickname": "하늘", "nickname_changed_at": "2026-09-20T00:00:00+09:0
 
 def _patch(
     body: dict, current: dict = CURRENT, seen: list | None = None,
-    conflict: bool = False, patch_error_code: str | None = None,
+    conflict: bool = False, patch_error_code: str | None = None, embed_error: Exception | None = None,
 ) -> httpx.Response:
     """profiles GET(select=nickname,nickname_changed_at) → [current], profiles PATCH → 204(conflict 면 409 23505),
     profile_vectors POST → 201. seen 에 가드 뒤 요청을 쌓는다."""
@@ -51,6 +51,7 @@ def _patch(
     openai_client.embeddings.create.return_value = SimpleNamespace(
         data=[SimpleNamespace(embedding=[0.1] * 512), SimpleNamespace(embedding=[0.2] * 512)]
     )
+    openai_client.embeddings.create.side_effect = embed_error
     app.dependency_overrides[onboarding_router.get_openai] = lambda: openai_client
     app.dependency_overrides[get_now] = lambda: NOW
     return _wire(handler).patch("/me/profile", headers=AUTH_HEADERS, json=body)
@@ -72,6 +73,17 @@ def test_bio_is_trimmed_saved_and_refreshes_the_vectors():
     assert response.json() == {"ok": True}
     assert _profile_patches(seen) == [{"bio": "새 소개"}]
     assert len(_vector_saves(seen)) == 1
+
+
+def test_an_openai_timeout_does_not_undo_the_bio_save():
+    """임베딩이 시간 안에 안 와도 저장은 남고 응답은 200 이다 — 벡터는 다음 저장이 메운다."""
+    seen = []
+    response = _patch({"bio": "새 소개"}, seen=seen, embed_error=TimeoutError("slow"))
+
+    assert response.status_code == 200
+    assert response.json() == {"ok": True}
+    assert _profile_patches(seen) == [{"bio": "새 소개"}]
+    assert _vector_saves(seen) == []
 
 
 def test_blank_bio_is_422_and_writes_nothing():

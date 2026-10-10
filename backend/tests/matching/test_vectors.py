@@ -2,6 +2,8 @@ import json
 from unittest.mock import AsyncMock
 
 import httpx
+import pytest
+from openai import APITimeoutError
 
 from app.matching.repository import MatchingRepository
 from app.matching.vectors import refresh_vectors
@@ -84,3 +86,15 @@ async def test_refresh_vectors_skips_empty_sentence():
     ]
     assert len(saved[0]["self_embedding"]) == 512
     assert "want_embedding" not in saved[0]
+
+
+@pytest.mark.parametrize("error", [TimeoutError("slow"), APITimeoutError(request=httpx.Request("POST", "https://api.openai.com/v1/embeddings"))])
+async def test_refresh_vectors_swallows_an_openai_timeout(error):
+    """OpenAI 가 시간 안에 못 답해도 예외를 올리지 않는다 — 사용자의 저장은 이미 끝났다."""
+    saved: list[dict] = []
+    openai_client = AsyncMock()
+    openai_client.embeddings.create.side_effect = error
+
+    await refresh_vectors(_repo(_materials_handler(saved)), openai_client, PROFILE_ID)
+
+    assert saved == []
