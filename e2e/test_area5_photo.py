@@ -434,7 +434,9 @@ class AppContractTest(unittest.TestCase):
     def test_the_screens_say_the_same_numbers(self):
         # 15-7 의 2~4장 · 저장 규칙 / 끌기 / 갤러리 안내 — 시험이 기대하는 숫자가 지금 코드의 숫자다.
         self.assertIn('photos.length >= 2 && photos.length <= 4', lib('profile', 'viewmodel', 'photos_ui_state.dart'))
-        self.assertIn('const _maxPhotos = 4;', lib('profile', 'viewmodel', 'photos_view_model.dart'))
+        # 화면 쪽 상수는 PhotosUiState.maxPhotos 하나를 보고, 그 숫자가 4 다(임시 저장 커밋 bace611e 이후).
+        self.assertIn('const _maxPhotos = PhotosUiState.maxPhotos;', lib('profile', 'viewmodel', 'photos_view_model.dart'))
+        self.assertIn('static const int maxPhotos = 4;', lib('profile', 'viewmodel', 'photos_ui_state.dart'))
         self.assertIn('MIN_PHOTOS, MAX_PHOTOS = 2, 4', (ROOT / 'me' / 'photo_layout.py').read_text(encoding='utf-8'))
         tiles = lib('profile', 'view', 'photo_tiles.dart')
         self.assertIn('LongPressDraggable<String>', tiles)

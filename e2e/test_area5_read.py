@@ -69,6 +69,11 @@ def columns(select):
     return [c.split('(')[0].strip() for c in out + [current] if c.strip()]
 
 
+def assert_fake_has_server_keys(test, fake_keys, server_keys_):
+    """가짜 응답 칸 = 진짜 서버 칸(정확 일치)."""
+    test.assertEqual(sorted(fake_keys), sorted(server_keys_))
+
+
 def server_keys(path, function):
     """서버 소스에서 [function] 이 돌려주는 dict 리터럴의 문자열 키 — 가짜 서버가 진짜 응답 칸을 빠뜨리지 않았는지 맞대 본다."""
     tree = ast.parse((tools.ROOT / 'backend' / 'app' / path).read_text(encoding='utf-8'))
@@ -133,6 +138,7 @@ class ReadFake(PhoneFake):
                         'nickname': None, 'nickname_changed_at': None, 'withdrawn_at': None, 'bio': '소개', 'student_number': None,
                         'preferred_age_min': 20, 'preferred_age_max': 30, 'preferred_height_min': None, 'preferred_height_max': None,
                         'interest_tags': ['카페가기', '자전거', '패션'], 'my_traits': ['깨끗한 피부'], 'ideal_traits': ['연상'],
+                        'religion': 'none', 'is_smoker': False, 'animal_type': 'dog', 'impression_type': 'kind',
                         'preferred_mbti_flags': {}, 'preferred_animal_types': ['dog'], 'preferred_impression_types': ['kind']})
         return row
 
@@ -197,7 +203,9 @@ class ReadFake(PhoneFake):
         balance = next((e['heart_balance'] for e in self.rows('entitlements') if e['profile_id'] == who), 0)
         return Reply(200, {
             'nickname': row['nickname'], 'age': self._age(row), 'university': row['universities']['name'], 'major': row['major'],
+            'birth_year': row['birth_year'], 'gender': row['gender'],
             'height_cm': row['height_cm'], 'mbti': row['mbti'], 'avatar_url': self._avatar_url(who), 'photo_urls': urls,
+            'religion': row['religion'], 'is_smoker': row['is_smoker'], 'animal_type': row['animal_type'], 'impression_type': row['impression_type'],
             'preferred_age_min': row['preferred_age_min'], 'preferred_age_max': row['preferred_age_max'],
             'preferred_height_min': row['preferred_height_min'], 'preferred_height_max': row['preferred_height_max'],
             'bio': row['bio'], 'interest_tags': row['interest_tags'], 'my_traits': row['my_traits'], 'ideal_traits': row['ideal_traits'],
@@ -1129,7 +1137,7 @@ class FakeShapeTest(ReadBase):
     def test_the_fake_answers_have_the_keys_of_the_real_server(self):
         self.fake.profile('id-1')
         mine = self.fake._me_profile({'auth': 'tok-1'}).body
-        self.assertEqual(sorted(mine), sorted(server_keys('me/router.py', 'get_my_profile')))
+        assert_fake_has_server_keys(self, mine, server_keys('me/router.py', 'get_my_profile'))
         shown = self.fake._preview({'auth': 'tok-1'}).body
         self.assertEqual(sorted(shown), sorted(server_keys('cards/router.py', 'profile_detail')))
         self.assertEqual(sorted(shown['profile']), sorted(server_keys('cards/router.py', '_card_profile')))
