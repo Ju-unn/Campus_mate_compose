@@ -25,9 +25,9 @@ import 'support.dart';
 /// 이 파일은 `flutter analyze` 만 돌렸고 기기에서는 아직 안 돌려 봤다 — 특히 당겨서 새로 고침(E-POLL-02)의 제스처 크기.
 
 // 13 대화 — frontend/lib/matching/view/conversations_screen.dart · acceptance_row.dart · match_made_screen.dart
-const _acceptWaiting = '수락 대기'; // conversations_screen.dart:88
+const _acceptWaiting = '받은 신청'; // conversations_screen.dart:88
 const _reject = '거절'; // acceptance_row.dart:65
-const _accept = '수락하고 대화 시작'; // acceptance_row.dart:73
+const _accept = '수락하기'; // acceptance_row.dart:73
 const _noChats = '아직 시작된 대화가 없어요'; // conversations_screen.dart _EmptyState
 const _acceptanceNotFound = '수락을 찾을 수 없어요'; // backend core/errors.py ACCEPTANCE_NOT_FOUND — 오류 줄로 그대로 뜬다
 const _matchMade = '매칭됐어요!'; // match_made_screen.dart:32
@@ -73,7 +73,7 @@ Future<void> _openConversations(WidgetTester tester) async {
   await pumpUntil(tester, find.byType(ConversationsScreen), timeout: const Duration(seconds: 10));
 }
 
-/// 수락 대기 섹션이 "수락 대기 1명" 에 [nickname] 줄 하나와 두 버튼(거절 · 수락하고 대화 시작)뿐인지.
+/// 수락 대기 섹션이 "받은 신청 1명" 에 [nickname] 줄 하나와 두 버튼(거절 · 수락하기)뿐인지.
 Future<void> _oneWaiting(WidgetTester tester, String nickname) async {
   final row = _acceptanceOf(nickname);
   final shown = await appears(tester, row, const Duration(seconds: 15));
@@ -104,7 +104,7 @@ final Map<String, Area1Case> _acceptanceCases = {
     await _oneWaiting(tester, nickname);
     return null;
   }),
-  // PC 가 A 의 수락을 앱 켜기 전에 넣어 두었다 — 대화 탭의 수락함에서 "수락하고 대화 시작" → 12 "매칭됐어요!" · "{A닉} 님도 수락했어요.".
+  // PC 가 A 의 수락을 앱 켜기 전에 넣어 두었다 — 대화 탭의 수락함에서 "수락하기" → 12 "매칭됐어요!" · "{A닉} 님과 매칭됐어요.".
   'E-CARD-45': _session((tester, job) async {
     final nickname = job['nickname'] as String;
     await _openConversations(tester);
@@ -113,11 +113,11 @@ final Map<String, Area1Case> _acceptanceCases = {
     await pumpUntil(tester, find.text(_matchMade), timeout: const Duration(seconds: 20));
     await wait(tester, const Duration(milliseconds: 500)); // 넘김 애니메이션이 끝나게
     must(_count(find.text(_matchMade)) == 1, '"$_matchMade" ${_count(find.text(_matchMade))}개(기대 1)');
-    final sentence = find.textContaining('$nickname 님도 수락했어요.');
-    must(_count(sentence) == 1, '"$nickname 님도 수락했어요." ${_count(sentence)}개(기대 1)');
+    final sentence = find.textContaining('$nickname 님과 매칭됐어요.');
+    must(_count(sentence) == 1, '"$nickname 님과 매칭됐어요." ${_count(sentence)}개(기대 1)');
     return null;
   }),
-  // 수락 대기를 띄운 뒤 PC 가 A 를 정지 → "수락하고 대화 시작" → 오류 줄 "수락을 찾을 수 없어요", 줄이 사라지고 12 는 안 뜬다.
+  // 수락 대기를 띄운 뒤 PC 가 A 를 정지 → "수락하기" → 오류 줄 "수락을 찾을 수 없어요", 줄이 사라지고 12 는 안 뜬다.
   'E-CARD-86': _session((tester, job) async {
     final nickname = job['nickname'] as String;
     await _openConversations(tester);

@@ -141,7 +141,7 @@ final Map<String, Area1Case> area5CasesTwo = {
     if (await appears(tester, drawn, _twoLoadWait) == null) throw E2eBlocked('대화 탭이 $_twoLoadWait 안에 안 그려짐');
     await wait(tester, const Duration(seconds: 1));
     final waiting = [for (final row in tester.widgetList<AcceptanceRow>(find.byType(AcceptanceRow))) row.acceptance.profile.nickname];
-    must(!waiting.contains(nickname), 'B 받은 수락에 탈퇴한 $nickname 이 있음(수락 대기 $waiting)');
+    must(!waiting.contains(nickname), 'B 받은 신청에 탈퇴한 $nickname 이 있음(받은 신청 $waiting)');
     return null;
   }),
 

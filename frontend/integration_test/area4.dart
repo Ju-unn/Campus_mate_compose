@@ -66,11 +66,11 @@ const _settingsRows = [
 
 /// 16d 에 보이는 것(위 → 아래) — 섹션 머리글 4개와 스위치 8개. 스위치는 서버 칸 이름으로 짝을 짓는다.
 const _screen16d = [
-  '매칭', '오늘의 카드 도착', '받은 수락', '매칭 성립', '대화', '새 메시지', '신뢰 확인 리마인드', '지인 리뷰·커뮤니티', '새 지인 리뷰',
+  '매칭', '오늘의 카드 도착', '받은 신청', '매칭 성립', '대화', '새 메시지', '신뢰 확인 리마인드', '지인 리뷰·커뮤니티', '새 지인 리뷰',
   '기타', '혜택·이벤트 소식', '방해 금지 시간 (22:00 ~ 08:00)',
 ];
 const _switchTitles = {
-  'card_arrived': '오늘의 카드 도착', 'acceptance_received': '받은 수락', 'match_made': '매칭 성립', 'new_message': '새 메시지',
+  'card_arrived': '오늘의 카드 도착', 'acceptance_received': '받은 신청', 'match_made': '매칭 성립', 'new_message': '새 메시지',
   'trust_reminder': '신뢰 확인 리마인드', 'new_friend_review': '새 지인 리뷰', 'marketing': '혜택·이벤트 소식',
   'quiet_hours': '방해 금지 시간 (22:00 ~ 08:00)',
 };

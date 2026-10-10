@@ -25,10 +25,10 @@ import 'support.dart';
 /// 'match' 푸시는 수락함만 새로 읽는다(main.dart:154-158). 그래서 서버 쪽 일이 끝난 뒤의 모습을 보는 기기는 로그아웃한 채 멈춰 있다가
 /// PC 가 go 에 실어 준 새 토큰으로 로그인한다([_loginAfter]).
 
-const _accept = '수락하기'; // common/widgets/card_action_bar.dart:43
+const _accept = '대화 신청하기'; // common/widgets/card_action_bar.dart:43
 const _reject = '거절'; // :29 · acceptance_row.dart:65
-const _acceptStart = '수락하고 대화 시작'; // acceptance_row.dart:73
-const _waitingHeader = '수락 대기'; // matching/view/conversations_screen.dart:88
+const _acceptStart = '수락하기'; // acceptance_row.dart:73
+const _waitingHeader = '받은 신청'; // matching/view/conversations_screen.dart:88
 const _chatHeader = '대화 중'; // :118
 const _emptyTitle = '아직 시작된 대화가 없어요'; // :187
 const _matchMade = '매칭됐어요!'; // match_made_screen.dart:30
@@ -219,7 +219,7 @@ final Map<String, Area1Case> area2TwoAcceptCases = {
     return null;
   }),
 
-  // 47: B 가 수락함에서 "수락하고 대화 시작" → 12 → "대화 시작하기" → 방(배너 1) → 뒤로 → 대화 중 1줄. A 는 방이 생긴 뒤 로그인해 대화 중 1줄 → 방(배너 1).
+  // 47: B 가 수락함에서 "수락하기" → 12 → "대화 시작하기" → 방(배너 1) → 뒤로 → 대화 중 1줄. A 는 방이 생긴 뒤 로그인해 대화 중 1줄 → 방(배너 1).
   'E-CARD-47/A': _loginAfter('open', (tester, job) async {
     final nickname = job['nickname'] as String;
     await _openChat(tester);
@@ -287,7 +287,7 @@ final Map<String, Area1Case> area2TwoAcceptCases = {
     await _expectOneAcceptance(tester, nickname, 'A');
     await tap(tester, button(_acceptStart));
     await pumpUntil(tester, find.text(_matchMade), timeout: const Duration(seconds: 20));
-    must(_count(find.textContaining('$nickname 님도 수락했어요')) == 1, '12 의 "$nickname 님도 수락했어요" ${_count(find.textContaining('$nickname 님도 수락했어요'))}개(기대 1)');
+    must(_count(find.textContaining('$nickname 님과 매칭됐어요')) == 1, '12 의 "$nickname 님과 매칭됐어요" ${_count(find.textContaining('$nickname 님과 매칭됐어요'))}개(기대 1)');
     await step('matched');
     await tap(tester, button(_startChat));
     await pumpUntil(tester, find.byType(ChatRoomScreen), timeout: const Duration(seconds: 15));
