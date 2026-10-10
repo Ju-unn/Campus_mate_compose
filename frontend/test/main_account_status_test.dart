@@ -16,6 +16,7 @@ import 'package:campus_mate/home/view/home_screen.dart';
 import 'package:campus_mate/main.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
+import 'package:campus_mate/notifications/model/notifications_repository_provider.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -30,6 +31,7 @@ import 'core/push/fake_push_messaging.dart';
 import 'home/model/fake_home_repository.dart';
 import 'matching/model/fake_card_repository.dart';
 import 'profile/model/fake_onboarding_repository.dart';
+import 'notifications/model/fake_notifications_repository.dart';
 
 /// main.dart 의 계정 상태 배선 세 줄(조각 6 A4)을 지킨다 — 리스너(탈퇴 → 로그아웃),
 /// 라우터 refresh 병합(정지 → 안내), apiClientProvider 의 onFailure(헤더 → 상태).
@@ -95,6 +97,7 @@ void main() {
           cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
           chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
           homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
+          notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
           signOutProvider.overrideWithValue(() async {}),
         ],
       );
@@ -123,6 +126,7 @@ void main() {
           cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
           chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
           homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
+          notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
           signOutProvider.overrideWithValue(() async {}),
           draftStoreProvider.overrideWithValue(drafts),
         ],

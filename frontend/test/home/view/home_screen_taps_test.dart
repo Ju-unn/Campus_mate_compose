@@ -11,6 +11,7 @@ import 'package:campus_mate/home/model/store_review_url.dart';
 import 'package:campus_mate/home/view/home_screen.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:campus_mate/me/model/me_repository_provider.dart';
+import 'package:campus_mate/notifications/model/notifications_repository_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,6 +22,7 @@ import '../../chat/model/fake_chat_repository.dart';
 import '../../matching/model/fake_card_repository.dart';
 import '../../me/model/fake_me_repository.dart';
 import '../model/fake_home_repository.dart';
+import '../../notifications/model/fake_notifications_repository.dart';
 
 /// 홈의 두 누를 곳 — "리뷰 남기기"(스토어 주소가 비어 있는 동안은 "곧 열려요")와 프로필 완성도 카드(→ 프로필 편집 허브).
 void main() {
@@ -53,6 +55,7 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         homeRepositoryProvider.overrideWithValue(home),
+        notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
         meRepositoryProvider.overrideWithValue(FakeMeRepository(const FailureResult(NetworkFailure()))),
         cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
         chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
