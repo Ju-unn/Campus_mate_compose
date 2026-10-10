@@ -17,8 +17,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// 하단 내비 없음. 앱바 아래 밑줄 탭 바("수락 전" · "수락 후")가 두 모양을 가른다 — 처음엔 수락 전.
 ///
 /// 카드는 10b · 14c 가 같이 쓰는 [ProfileCard] 다. 수락 전은 실사진 · 카카오 카드 · 신고/차단 줄 · "신뢰 확인 완료"(`CTtPd`)가
-/// 없는 모양(pen `kpIeX`)이고, 수락 후는 14c 가 쓰는 조각([RevealedPhotoHeader] · [KakaoIdCard] · [ReportBlockLinks])을 그대로
-/// 얹어 상대가 수락한 뒤 보게 될 모양을 미리 보여 준다. 값은 `GET /me/card-preview`(10b 와 같은 몸통, 계획서 N2) +
+/// 없는 모양(pen `kpIeX`)이고, 수락 후는 14c 가 쓰는 조각([RevealedPhotoHeader] · [KakaoIdCard])을 그대로
+/// 얹어 상대가 수락한 뒤 보게 될 모양을 미리 보여 준다. 신고/차단 줄은 14c 에만 있다 — 내가 내 프로필을 볼 때는 누를 곳이 없어
+/// 앱에서만 뺐다(사용자 결정 2026-10-10 · pen `vn8R2` 안 신고/차단 줄은 그대로 둠, 같은 그림을 상대 프로필이 쓴다). 값은 `GET /me/card-preview`(10b 와 같은 몸통, 계획서 N2) +
 /// 내 프로필의 실사진 · 계정의 카카오톡 아이디.
 class CardPreviewScreen extends ConsumerStatefulWidget {
   const CardPreviewScreen({super.key});
@@ -100,7 +101,7 @@ class _BeforeAccept extends StatelessWidget {
   }
 }
 
-/// 15-4b 수락 후: 안내(`J7rLm`) + 실사진 슬라이더 · 카카오톡 아이디 카드 · 신고/차단 줄이 붙은 카드.
+/// 15-4b 수락 후: 안내(`J7rLm`) + 실사진 슬라이더 · 카카오톡 아이디 카드가 붙은 카드(신고/차단 줄 없음).
 ///
 /// 실사진은 내 프로필의 사진들, 카카오톡 아이디는 내 계정의 값이다(pen 의 사진 · "hong_gildong" 은 예시). 둘을 다 읽을 때까지
 /// 가운데 도는 표시를 보인다(카드가 나중에 늘어나 튀지 않게). 읽지 못한 쪽은 그 칸만 빠진다 — pen 에 없는 상태.
@@ -132,31 +133,32 @@ class _AfterAccept extends ConsumerWidget {
           detail: detail,
           // 사진이 없으면(읽기 실패 · 0장) 슬라이더 칸이 없다 — 14c 와 같다.
           header: urls.isEmpty ? null : RevealedPhotoHeader(urls: urls),
-          footer: _AfterAcceptFooter(afterIdealNote: detail.idealNote != null, kakaoId: kakaoId),
+          // 카카오 카드가 없으면 footer 도 없다 — 카드 기본 아래 여백 20 이 맨 끝을 받는다(수락 전 카드와 같은 끝).
+          footer: kakaoId == null || kakaoId.isEmpty
+              ? null
+              : _AfterAcceptFooter(afterIdealNote: detail.idealNote != null, kakaoId: kakaoId),
         ),
       ],
     );
   }
 }
 
-/// 카드 맨 아래(14c `_Footer` 와 같은 틀에서 지인 리뷰만 뺀다): [13] → 카카오 카드 → 1 → 구분선 + 신고/차단 줄 → 3.
-/// 아이디가 비었거나 못 읽으면 카카오 카드 칸이 빠진다(pen 에 없는 상태). 신고/차단은 내 카드라 누를 곳이 없다.
+/// 카드 맨 아래(14c `_Footer` 와 같은 틀에서 지인 리뷰 · 신고/차단 줄을 뺀다): [13] → 카카오 카드 → 20.
+/// 신고/차단 줄이 빠져 footer 가 가져간 카드 아래 여백(footer 가 있으면 0)을 기본값 20 으로 되돌려 준다.
 class _AfterAcceptFooter extends StatelessWidget {
   const _AfterAcceptFooter({required this.afterIdealNote, required this.kakaoId});
 
   final bool afterIdealNote;
-  final String? kakaoId;
+  final String kakaoId;
 
   @override
   Widget build(BuildContext context) {
-    final id = kakaoId;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (afterIdealNote) const SizedBox(height: 13),
-        if (id != null && id.isNotEmpty) ...[KakaoIdCard(kakaoId: id), const SizedBox(height: 1)],
-        const ReportBlockLinks(),
-        const SizedBox(height: 3),
+        KakaoIdCard(kakaoId: kakaoId),
+        const SizedBox(height: 20),
       ],
     );
   }
