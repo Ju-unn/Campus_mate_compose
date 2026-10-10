@@ -106,7 +106,7 @@ async def notify(repo, sender: FcmSender, profile_id, kind: str,
                  title: str, body: str, data: dict[str, str], now: datetime, defer: bool = True,
                  record: bool = True) -> int:
     """알림 스위치와 조용한 시간을 본 뒤 그 사람의 모든 기기로 보낸다. 보낸 건수를 돌려준다.
-    푸시와 같은 관문(정지 · 탈퇴 · 스위치)을 지난 알림은 조용한 시간이어도 그 순간 알림함에 한 줄 남는다.
+    정지 · 탈퇴 관문을 지난 알림은 스위치가 꺼져 있어도, 조용한 시간이어도 그 순간 알림함에 한 줄 남는다(푸시만 안 간다).
 
     `defer=False` 면 조용한 시간에 보류하지 않고 옛날처럼 버린다 — 방금 화면에서 본 일을 알리는 자리용이다.
     `record=False` 는 알림함에 이미 남긴 알림을 다시 보내는 자리(아침 묶음)용이다 — 중복 기록을 막는다."""
@@ -114,11 +114,12 @@ async def notify(repo, sender: FcmSender, profile_id, kind: str,
         # 조각 6: 정지 · 탈퇴 계정에는 어떤 알림도 보내지 않는다. 모든 푸시가 이 함수를 지나서 한 곳만 본다.
         # 탈퇴는 토큰도 지우지만 best-effort 라 남을 수 있어 여기서 한 번 더 막는다.
         return 0
+    if record:
+        # 사용자 결정(2026-10-10): 스위치는 푸시만 끈다. 알림함에는 스위치와 상관없이 남아 종에서 다시 볼 수 있다.
+        await _record(repo, profile_id, kind, title, body, data)
     settings = await repo.fetch_notification_settings(profile_id)
     if not settings.get(kind, True):
         return 0
-    if record:
-        await _record(repo, profile_id, kind, title, body, data)
     if settings.get("quiet_hours", True) and kind not in _QUIET_HOURS_EXEMPT and _is_quiet(now):
         if defer and kind in _DEFERRED:
             await repo.insert_pending_push(profile_id, kind, title, body, data)

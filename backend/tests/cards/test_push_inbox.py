@@ -96,12 +96,33 @@ async def test_chat_and_gate_pushes_are_not_recorded(push_kind):
     assert len(pushes) == 1
 
 
-async def test_a_switched_off_kind_is_not_recorded():
+async def test_a_switched_off_kind_is_still_recorded_but_not_pushed():
+    """사용자 결정(2026-10-10): 스위치는 푸시만 끈다. 알림함(종)에는 남아서 다시 볼 수 있다."""
     repo, (sender, pushes) = _Repo({"acceptance_received": False}), _sender()
 
-    await notify(repo, sender, "p1", "acceptance_received", "제목", "본문", DATA, now=DAY)
+    sent = await notify(repo, sender, "p1", "acceptance_received", "제목", "본문", DATA, now=DAY)
 
-    assert repo.inbox == [] and pushes == []
+    assert repo.inbox == [("p1", "chat_request", "제목", "본문", DATA)]  # 한 번만
+    assert sent == 0 and pushes == []
+
+
+async def test_a_switched_off_kind_at_night_is_recorded_once_and_not_kept_for_the_morning():
+    repo, (sender, pushes) = _Repo({"acceptance_received": False}), _sender()
+
+    await notify(repo, sender, "p1", "acceptance_received", "제목", "본문", DATA, now=NIGHT)
+
+    assert len(repo.inbox) == 1 and repo.pending == [] and pushes == []
+
+
+async def test_a_switch_turned_off_overnight_does_not_record_again_in_the_morning():
+    repo, (sender, pushes) = _Repo(), _sender()
+    await notify(repo, sender, "p1", "acceptance_received", "제목", "본문", DATA, now=NIGHT)
+    repo._settings = {"acceptance_received": False}  # 밤사이 스위치를 껐다
+
+    assert await send_pending(repo, sender, MORNING) == 0
+
+    assert pushes == [] and len(repo.inbox) == 1  # 푸시는 안 가고, 기록은 밤의 한 줄 그대로
+    assert repo.pending_deleted == ["r0"]
 
 
 @pytest.mark.parametrize("status", ["suspended", "withdrawn"])
