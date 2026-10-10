@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/push/push_messaging.dart';
 import 'package:campus_mate/matching/model/card_repository.dart';
 
@@ -9,11 +11,17 @@ import 'package:campus_mate/matching/model/card_repository.dart';
 /// 마치기 전이라 서버가 등록을 403 으로 막는데, 그때는 토큰을 기억하지 않으므로
 /// 인증 게이트가 열린 뒤 다시 부르면 그때 등록된다(2026-09-23 실기기 테스트).
 class PushRegistrar {
-  PushRegistrar(this._messaging, this._repository, {this._retryDelay = const Duration(minutes: 1)});
+  PushRegistrar(
+    this._messaging,
+    this._repository, {
+    this._retryDelay = const Duration(minutes: 1),
+    this._deleteTimeout = const Duration(seconds: 5),
+  });
 
   final PushMessaging _messaging;
   final CardRepository _repository;
   final Duration _retryDelay;
+  final Duration _deleteTimeout;
 
   StreamSubscription<String>? _refreshSubscription;
   String? _registeredToken;
@@ -68,7 +76,11 @@ class PushRegistrar {
     if (token == null) {
       return;
     }
-    final deleted = await _repository.deletePushToken(token);
+    // 앱 http 에는 타임아웃이 없다 — 매달린 DELETE 를 기다리면 로그아웃(signOut 의 finally)까지 못 간다.
+    // 끝나지 않으면 인터넷 없음과 같게 보고 기기 토큰을 버린다. 늦게 온 DELETE 는 서버가 주인까지 맞춰 지워 무해하다.
+    final deleted = await _repository
+        .deletePushToken(token)
+        .timeout(_deleteTimeout, onTimeout: () => const FailureResult(NetworkFailure()));
     if (deleted.when(onSuccess: (_) => false, onFailure: (_) => true)) {
       // 기다리지 않는다 — 느린 망에서 로그아웃 화면이 FCM 을 기다리며 멈추지 않게.
       _discarding = _discardOnDevice();
