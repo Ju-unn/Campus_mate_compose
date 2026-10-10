@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:campus_mate/billing/view/heart_balance_chip.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
@@ -21,6 +23,7 @@ import 'package:campus_mate/home/view/tag.dart';
 import 'package:campus_mate/home/viewmodel/home_summary_provider.dart';
 import 'package:campus_mate/me/view/me_toast.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
+import 'package:campus_mate/notifications/viewmodel/unread_count_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -36,6 +39,28 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeScreen> {
   bool _opening = false;
+
+  /// 알림함이 열려 있는 동안 종을 또 눌러도 한 겹만 쌓는다.
+  bool _openingInbox = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // 종 배지의 안 읽은 수 — 홈에 들어올 때 읽는다(앱이 돌아올 때는 resume_refresh, 알림함에서 돌아올 때는 아래 [_openNotifications]).
+    unawaited(ref.read(unreadCountProvider.notifier).refresh());
+  }
+
+  /// 종 → 알림함(09c). 돌아오면 안 읽은 수를 다시 읽는다 — 알림함에서 읽은 것이 배지에 맞게 줄어 있어야 한다.
+  Future<void> _openNotifications() async {
+    if (_openingInbox) return;
+    _openingInbox = true;
+    try {
+      await context.push(AppRoutes.notifications);
+    } finally {
+      _openingInbox = false;
+    }
+    if (mounted) unawaited(ref.read(unreadCountProvider.notifier).refresh());
+  }
 
   /// 상점이 열려 있는 동안 "+" 를 또 눌러도(같은 프레임의 연타 포함) 상점을 한 겹만 쌓는다.
   bool _openingStore = false;
@@ -102,12 +127,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
           child: Text('CampusMate', style: AppTypography.navTitle.copyWith(color: AppColors.primary)),
         ),
         actions: [
-          // 숫자 배지는 알림함이 생길 때까지 숨긴다(사용자 결정 2026-09-26) — 안 읽은 알림 수의 출처가 아직 없다.
+          // 숫자 배지: 2026-09-26 에 알림함이 없어 숨겼다가(`count: 0` 고정) 알림함(09c)이 생겨 다시 켠다 — 0 이면 없고, 99 를 넘으면 "99+".
           // pen `Trailing`(`ihX4y` 안) — 하트 칩(`sysyz` 인스턴스 "+" 켬, 높이 44) · gap 4 · 종. 칩은 잔액을 읽는 동안 · 못 읽으면 자리째 숨는다.
           // "+" 는 하트 상점(18, `/hearts/store`)으로 간다.
           HeartBalanceChip(showPlus: true, onPlus: _openHeartStore),
           const SizedBox(width: AppSpacing.xxs),
-          const NotifyIconButton(count: 0),
+          NotifyIconButton(count: ref.watch(unreadCountProvider), onTap: _openNotifications),
           const SizedBox(width: AppSpacing.xs),
         ],
       ),
