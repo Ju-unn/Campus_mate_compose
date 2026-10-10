@@ -29,6 +29,9 @@ _logger = logging.getLogger(__name__)
 # 실사진 서명 URL 의 유효 시간. 채팅방(chat/router.py)과 같은 1시간이다.
 PHOTO_URL_TTL_SECONDS = 3600
 
+# 매칭 문장 재료인 칸(matching/sentences.py). 이 칸이 바뀌어야 PATCH /me/profile 이 벡터를 다시 만든다.
+SENTENCE_FIELDS = frozenset({"bio", "mbti", "animal_type", "impression_type"})
+
 
 def _latest_avatar_url(profile: dict, supabase_url: str) -> str | None:
     # 채팅방 _avatar_url 과 같은 규칙 — ready 중 가장 늦게 만든 한 장, 없으면 None.
@@ -65,6 +68,11 @@ async def get_my_profile(
         "major": profile["major"],
         "height_cm": profile["height_cm"],
         "mbti": profile["mbti"],
+        # 기본 정보 수정(15-6)이 현재 값으로 채운다. 구버전 앱은 모르는 키를 무시한다.
+        "religion": profile["religion"],
+        "is_smoker": profile["is_smoker"],
+        "animal_type": profile["animal_type"],
+        "impression_type": profile["impression_type"],
         "avatar_url": _latest_avatar_url(profile, settings.supabase_url),
         # 옛 앱이 읽는 칸이라 남긴다(서버가 먼저 배포된다). 새 앱은 photos 를 읽는다.
         "photo_urls": urls,
@@ -229,10 +237,13 @@ async def update_my_profile(
 
     if fields:
         await repo.update_profile(profile_id, fields)
-    # 자기소개만 문장 재료다(matching/sentences.py) — 수정하면 바로 다시 만든다(spec 482줄, 2026-09-19).
-    if "bio" in fields:
+    # 문장 재료(자기소개 · MBTI · 얼굴상 · 인상, matching/sentences.py)가 바뀌면 바로 다시 만든다(spec 482줄, 2026-09-19).
+    # 종교 · 흡연은 감점 계수로만 쓰여(scoring.py) 문장에 안 들어간다 — 다시 만들 일이 없다.
+    if fields.keys() & SENTENCE_FIELDS:
         await refresh_vectors(
             MatchingRepository(settings.postgrest_url, settings.supabase_service_role_key, client),
             openai_client, profile_id,
         )
+    # 값은 남기지 않는다 — MBTI · 종교 · 흡연은 민감 정보다. 바뀐 칸 이름과 프로필 id 만.
+    _logger.info("프로필 수정 profile_id=%s fields=%s", profile_id, sorted(fields.keys() - {"nickname_changed_at"}))
     return {"ok": True}

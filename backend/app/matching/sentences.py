@@ -4,6 +4,7 @@
 원문을 그대로 이어붙인다. 재료가 없는 자리는 문장째로 뺀다 — 빈칸이 들어간 문장을 임베딩하면
 "MBTI는 다" 같은 잡음이 벡터에 섞인다."""
 
+# DB enum 과 같이 고칠 것: me/schemas.py 가 이 사전(ANIMAL_LABELS · IMPRESSION_PHRASES)을 PATCH 허용값으로 쓴다.
 # 화면 라벨(frontend profile_enums.dart)과 같은 문구다.
 ANIMAL_LABELS = {
     "dog": "강아지상", "cat": "고양이상", "fox": "여우상", "bear": "곰상",
