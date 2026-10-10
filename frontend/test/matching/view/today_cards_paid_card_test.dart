@@ -16,6 +16,7 @@ import 'package:campus_mate/matching/view/today_cards_screen.dart';
 import 'package:campus_mate/matching/viewmodel/today_cards_view_model.dart';
 import 'package:campus_mate/me/model/me_repository_provider.dart';
 import 'package:campus_mate/me/model/my_profile.dart';
+import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:campus_mate/notifications/model/notifications_repository_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -357,6 +358,99 @@ void main() {
 
       expect(find.text('18 스토어'), findsNothing);
       expect(find.byType(PaidCardLocked), findsOneWidget);
+    });
+
+    group('열기 전에 잔액을 서버에서 새로 읽는다 (폰 스모크 후속)', () {
+      testWidgets('앱이 들고 있던 잔액이 오래된 0 이어도 서버가 60 이면 확인 시트에 60 이 보인다', (tester) async {
+        cards.today = const Success(TodayCards(cards: [_free], paidCard: _offer));
+        me.profile = Success(_profile(0));
+        await pump(tester);
+        // 다른 화면이 이미 0 을 읽어 캐시해 둔 상태.
+        final container = ProviderScope.containerOf(tester.element(find.byType(TodayCardsScreen)));
+        await container.read(myProfileProvider.future);
+        // 그 뒤 서버가 하트를 지급했다.
+        me.profile = Success(_profile(60));
+
+        await tapOpen(tester);
+
+        expect(find.text('이 사람을 지금 열어 볼까요?'), findsOneWidget);
+        expect(find.textContaining('지금 보유한 하트는 60개예요'), findsOneWidget);
+        expect(find.textContaining('보유한 하트는 0개예요'), findsNothing);
+      });
+
+      testWidgets('새로 읽은 잔액이 cost 보다 작으면 확인 시트 없이 바로 "하트가 모자라요" 시트가 뜨고 서버 구매는 가지 않는다', (tester) async {
+        cards.today = const Success(TodayCards(cards: [_free], paidCard: _offer));
+        me.profile = Success(_profile(0));
+        await pump(tester);
+
+        await tapOpen(tester);
+
+        expect(find.text('이 사람을 지금 열어 볼까요?'), findsNothing);
+        expect(find.text('하트가 모자라요'), findsOneWidget);
+        expect(find.text('하트 50개가 필요해요. 지금 보유한 하트는 0개예요.'), findsOneWidget);
+        expect(cards.purchasedOfferIds, isEmpty);
+      });
+
+      testWidgets('부족 시트의 "하트 스토어로 가기" → 스토어, 돌아오면 잔액을 다시 읽어 충전했으면 확인 시트로 간다', (tester) async {
+        cards.today = const Success(TodayCards(cards: [_free], paidCard: _offer));
+        me.profile = Success(_profile(0));
+        await pump(tester);
+
+        await tapOpen(tester);
+        await tester.tap(find.text('하트 스토어로 가기'));
+        await tester.pumpAndSettle();
+        expect(find.text('18 스토어'), findsOneWidget);
+
+        me.profile = Success(_profile(500));
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+        await tapOpen(tester);
+
+        expect(find.textContaining('지금 보유한 하트는 500개예요'), findsOneWidget);
+        expect(cards.purchasedOfferIds, isEmpty);
+      });
+
+      testWidgets('부족 시트의 "닫기" 면 스토어로 가지 않고 버튼은 다시 눌린다', (tester) async {
+        cards.today = const Success(TodayCards(cards: [_free], paidCard: _offer));
+        me.profile = Success(_profile(0));
+        await pump(tester);
+
+        await tapOpen(tester);
+        await tester.tap(find.text('닫기'));
+        await tester.pumpAndSettle();
+        expect(find.text('18 스토어'), findsNothing);
+
+        await tapOpen(tester);
+        expect(find.text('하트가 모자라요'), findsOneWidget);
+      });
+
+      testWidgets('잔액이 정확히 cost 와 같으면 부족이 아니다 — 확인 시트가 뜬다', (tester) async {
+        cards.today = const Success(TodayCards(cards: [_free], paidCard: _offer));
+        me.profile = Success(_profile(50));
+        await pump(tester);
+
+        await tapOpen(tester);
+
+        expect(find.text('이 사람을 지금 열어 볼까요?'), findsOneWidget);
+        expect(find.textContaining('지금 보유한 하트는 50개예요'), findsOneWidget);
+      });
+
+      testWidgets('잔액을 못 읽으면 잔액 문장 없이 확인 시트를 띄우고, 부족 판정은 서버 402 에 맡긴다', (tester) async {
+        cards.today = const Success(TodayCards(cards: [_free], paidCard: _offer));
+        me.profile = const FailureResult(NetworkFailure());
+        cards.purchaseResult = const FailureResult(ServerRejectedFailure(heartsNotEnoughMessage));
+        await pump(tester);
+
+        await tapOpen(tester);
+        expect(find.text('이 사람을 지금 열어 볼까요?'), findsOneWidget);
+        expect(find.textContaining('지금 보유한 하트'), findsNothing);
+
+        await tester.tap(find.text('50 쓰고 열기'));
+        await tester.pumpAndSettle();
+
+        expect(cards.purchasedOfferIds, ['offer-1']);
+        expect(find.text('하트가 모자라요'), findsOneWidget);
+      });
     });
 
     testWidgets('409 → 화면을 새로 읽고 토스트 "지금은 열 수 없는 카드예요"', (tester) async {
