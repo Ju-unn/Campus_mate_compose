@@ -173,3 +173,44 @@ def test_height_outside_the_db_range_is_422():
 
 def test_rejects_missing_login():
     assert _wire(lambda r: httpx.Response(404)).patch("/me/profile", json={"bio": "새 소개"}).status_code == 401
+
+
+# ---- 기본 정보 수정 확대: MBTI · 종교 · 흡연 · 얼굴상 · 인상 (사용자 결정 2026-10-10) ----
+
+@pytest.mark.parametrize("body", [
+    {"mbti": "ENFP"}, {"mbti": "ISTJ"}, {"religion": "buddhist"}, {"religion": "none"},
+    {"is_smoker": True}, {"is_smoker": False},
+    {"animal_type": "hamster", "impression_type": "innocent"},
+])
+def test_new_fields_are_saved_as_sent(body):
+    seen = []
+    assert _patch(body, seen=seen).status_code == 200
+    assert _profile_patches(seen) == [body]
+
+
+@pytest.mark.parametrize("body", [
+    {"mbti": "enfp"}, {"mbti": "ENF"}, {"mbti": "XXXX"}, {"mbti": "ENFPX"}, {"mbti": ""},
+    {"religion": "islam"}, {"religion": ""}, {"religion": None},
+    {"is_smoker": None}, {"is_smoker": "yes"},
+    {"animal_type": "dragon", "impression_type": "kind"},
+    {"animal_type": "dog", "impression_type": "scary"},
+    {"animal_type": None, "impression_type": None},
+])
+def test_bad_values_for_the_new_fields_are_422_and_write_nothing(body):
+    seen = []
+    assert _patch(body, seen=seen).status_code == 422
+    assert _profile_patches(seen) == []
+
+
+@pytest.mark.parametrize("body", [{"animal_type": "dog"}, {"impression_type": "kind"}])
+def test_animal_and_impression_come_as_a_pair(body):
+    # 문장은 둘 다 있어야 만들어진다 — 한쪽만 바꾸면 반쪽 얼굴상이 남는다.
+    seen = []
+    assert _patch(body, seen=seen).status_code == 422
+    assert _profile_patches(seen) == []
+
+
+def test_nickname_lock_still_blocks_a_save_that_also_carries_new_fields():
+    seen = []
+    assert _patch({"nickname": "바다", "mbti": "INTJ"}, current=LOCKED, seen=seen).status_code == 409
+    assert _profile_patches(seen) == []
