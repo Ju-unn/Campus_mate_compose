@@ -39,7 +39,9 @@ class _PaidCardSlotState extends ConsumerState<PaidCardSlot> {
     };
   }
 
-  /// "N으로 열기" → 확인 시트 → 열기. 취소하면 아무 일도 없다.
+  /// "N으로 열기" → (잔액을 서버에서 새로 읽음) → 확인 시트 → 열기. 취소하면 아무 일도 없다.
+  /// 새로 읽은 잔액이 모자라면 확인 시트를 건너뛰고 바로 "하트가 모자라요" 시트다(눌러 봐야 서버 402 일 일이라).
+  /// 잔액을 못 읽으면(null) 부족 판정은 서버 402 에 맡기고 잔액 문장 없이 확인 시트를 띄운다.
   Future<void> _open(PaidCardOffered offered) async {
     if (_opening) {
       return;
@@ -48,6 +50,10 @@ class _PaidCardSlotState extends ConsumerState<PaidCardSlot> {
     try {
       final balance = await _heartBalance(ref);
       if (!mounted) {
+        return;
+      }
+      if (balance != null && balance < offered.cost) {
+        await _offerHeartStore(context, ref, cost: offered.cost, balance: balance);
         return;
       }
       final confirmed = await showPaidCardConfirmSheet(context, cost: offered.cost, heartBalance: balance);
@@ -81,19 +87,27 @@ Future<void> handlePurchaseNotice(BuildContext context, WidgetRef ref, PurchaseN
   if (!context.mounted) {
     return;
   }
-  final toStore = await showPaidCardHeartsShortSheet(context, cost: paid.cost, heartBalance: balance);
+  await _offerHeartStore(context, ref, cost: paid.cost, balance: balance);
+}
+
+/// "하트가 모자라요" 시트 → "하트 스토어로 가기" 면 스토어를 열고, 돌아오면 잔액을 다시 읽게 한다.
+Future<void> _offerHeartStore(BuildContext context, WidgetRef ref, {required int cost, required int? balance}) async {
+  final toStore = await showPaidCardHeartsShortSheet(context, cost: cost, heartBalance: balance);
   if (!toStore || !context.mounted) {
     return;
   }
   await context.push<void>(AppRoutes.heartStore);
-  // 스토어에서 하트를 채웠을 수 있다 — 잔액만 다시 읽게 한다(다음에 읽을 때 새로 가져온다).
+  // 스토어에서 하트를 채웠을 수 있다 — 잔액을 무효로 해 다음에 읽을 때 새로 가져온다.
   if (context.mounted) {
     ref.invalidate(myProfileProvider);
   }
 }
 
-/// 내 하트 잔액. 읽는 중 · 실패이면 null — 시트가 잔액 문장을 뺀다. 잔액 provider 는 새로 만들지 않고 기존 것을 쓴다.
+/// 내 하트 잔액을 **서버에서 새로** 읽는다. 내 정보 provider 는 한 번 읽으면 캐시되어 서버가 하트를 지급한 뒤에도
+/// 옛 값을 보여 줬다 — 무효로 만든 뒤 다시 읽는다(새 API 없이 기존 provider 의 무효화 관례를 따른다).
+/// 읽기 실패이면 null — 시트가 잔액 문장을 뺀다.
 Future<int?> _heartBalance(WidgetRef ref) async {
+  ref.invalidate(myProfileProvider);
   final result = await ref.read(myProfileProvider.future);
   return result.when(onSuccess: (profile) => profile.heartBalance, onFailure: (_) => null);
 }
