@@ -4,6 +4,7 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -12,8 +13,11 @@ import 'package:campus_mate/me/model/me_repository_provider.dart';
 import 'package:campus_mate/me/model/my_profile.dart';
 import 'package:campus_mate/me/view/basic_info_edit_screen.dart';
 import 'package:campus_mate/me/view/edit_app_bar.dart';
+import 'package:campus_mate/me/view/locked_fact_row.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:campus_mate/profile/model/basic_info_repository_provider.dart';
+import 'package:campus_mate/profile/model/profile_enums.dart';
+import 'package:campus_mate/profile/view/appearance_pickers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -28,13 +32,26 @@ import '../model/fake_me_repository.dart';
 final _unlocksAt = DateTime.parse('2026-10-26T15:00:00+00:00');
 
 /// 이름·학교는 지어낸 값이다.
-MyProfile _profile({int? heightCm = 178, DateTime? nicknameChangeableAt}) => MyProfile(
+MyProfile _profile({
+  int? heightCm = 178,
+  DateTime? nicknameChangeableAt,
+  String? mbti = 'ENFP',
+  int? birthYear = 2001,
+  String? gender = 'male',
+}) =>
+    MyProfile(
       nickname: '늑대',
       age: 24,
       university: '가나대학교',
       major: '경영학과',
       heightCm: heightCm,
-      mbti: 'ENFP',
+      mbti: mbti,
+      religion: Religion.none,
+      isSmoker: false,
+      animalType: AnimalType.dog,
+      impressionType: ImpressionType.arab,
+      birthYear: birthYear,
+      gender: gender,
       avatarUrl: null,
       preferredAgeMin: null,
       preferredAgeMax: null,
@@ -43,6 +60,10 @@ MyProfile _profile({int? heightCm = 178, DateTime? nicknameChangeableAt}) => MyP
       bio: null,
       nicknameChangeableAt: nicknameChangeableAt,
     );
+
+/// 칩 · 칸 하나의 상자(Ink) 크기와 자리. 글자 위에서 올라가 가장 가까운 Ink 를 잰다.
+Rect _rectOf(WidgetTester tester, String label) =>
+    tester.getRect(find.ancestor(of: find.text(label), matching: find.byType(Ink)).first);
 
 final _nicknameField = find.byType(TextField).at(0);
 final _heightField = find.byType(TextField).at(1);
@@ -224,14 +245,6 @@ void main() {
       expect(tester.getRect(find.byType(AppButton)), const Rect.fromLTWH(24, 780 - 8 - 52, 312, 52));
     });
 
-    testWidgets('출생연도 · 성별 · 실명 · 전화번호 · MBTI 칸은 없다(U6) — 입력 칸은 닉네임 · 키 둘뿐', (tester) async {
-      await pump(tester);
-
-      expect(find.byType(TextField), findsNWidgets(2));
-      for (final absent in ['출생연도', '성별', '실명', '이름', '전화번호', 'MBTI', '남성', '여성']) {
-        expect(find.textContaining(absent), findsNothing, reason: absent);
-      }
-    });
   });
 
   group('15-6-2 `ZuPTD` 닉네임 잠김', () {
@@ -492,13 +505,15 @@ void main() {
       await tapSave(tester);
       await tester.pumpAndSettle();
 
-      final error = find.text(const NetworkFailure().toDisplayMessage());
+      final error = find.text('저장하지 못했어요. 잠시 후 다시 시도해 주세요');
       expect(error, findsOneWidget);
       final style = tester.widget<Text>(error).style!;
       expect((style.fontSize, style.color), (12, AppColors.error));
       expect(tester.getBottomLeft(error).dy, lessThan(tester.getTopLeft(find.byType(AppButton)).dy));
       expect(tester.getTopLeft(error).dy, greaterThan(tester.getBottomLeft(_heightField).dy));
-      expect(find.byIcon(AppIcons.circleAlert), findsNothing, reason: '칸 탓이 아니다');
+      // pen 15-6c `C3oV5u` — 버튼 위 실패 안내도 circle-alert 14 를 단다(칸 아래 오류와 같은 아이콘).
+      expect(find.byIcon(AppIcons.circleAlert), findsOneWidget);
+      expect(find.text('저장하지 못했어요. 잠시 후 다시 시도해 주세요'), findsOneWidget);
       expect(tester.widget<EditableText>(_valueOf(_heightField)).controller.text, '180');
       expect(saveButton(tester).onPressed, isNotNull);
     });
@@ -515,6 +530,383 @@ void main() {
 
     expect(tester.widget<EditableText>(_valueOf(_heightField)).controller.text, '178');
     expect(saveButton(tester).onPressed, isNull);
+  });
+
+  // 15-6 확대(2026-10-10) — pen `mhdYA` 의 새 구역. 아래 y 는 pen 보다 모두 1 작다: 닉네임 helper 줄이 pen 18(3D 느낌표) · 앱 17(lucide 14 + 글자 17)인
+  // 기존 1px 차이가 그대로 내려온 것이다(기존 테스트 '키 줄 209' 와 같은 값 — 보고서에 pen 수정 제안/확인 요청으로 적는다). 구역이 길어 화면 한 장(780)에 안 들어가니 긴 화면(360×1700)에서 위치를 잰다.
+  // pen 좌표는 본문 `fP8cs`(y56) 기준이라 화면 y = 56 + pen y. 구역 `hyt7p`(y234, 위 24, 구역 사이 24) 안의 구역 y:
+  // MBTI 24 · 종교 197 · 흡연 373 · 동물상 481 · 인상 765, 잠금 구역 `ltx1u`(y1123, 위 32).
+  group('15-6 확대 `mhdYA` — 바꿀 수 있는 정보 5개 구역', () {
+    void useTallFrame(WidgetTester tester) {
+      tester.view.physicalSize = const Size(360, 1700);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+    }
+
+    Color fillOf(WidgetTester tester, String label) {
+      final ink = tester.widget<Ink>(find.ancestor(of: find.text(label), matching: find.byType(Ink)).first);
+      return (ink.decoration! as BoxDecoration).color!;
+    }
+
+    Rect cellRect(WidgetTester tester, String label) =>
+        tester.getRect(find.ancestor(of: find.text(label), matching: find.byType(Ink)).first);
+
+    testWidgets('구역 라벨 — 14/600, 자리는 pen y(MBTI 313 · 종교 486 · 흡연 662 · 동물상 770 · 인상 1054), 높이 20', (tester) async {
+      useTallFrame(tester);
+      await pump(tester);
+
+      for (final (label, top, color) in [
+        ('내 MBTI', 313.0, AppColors.body),
+        ('종교', 486.0, AppColors.body),
+        ('흡연', 662.0, AppColors.body),
+        ('내 동물상', 770.0, AppColors.ink),
+        ('내 인상', 1054.0, AppColors.ink),
+      ]) {
+        expect(tester.getTopLeft(find.text(label)), Offset(24, top), reason: label);
+        expect(tester.getSize(find.text(label)).height, 20, reason: label);
+        final style = tester.widget<Text>(find.text(label)).style!;
+        expect((style.fontSize, style.fontWeight, style.color), (14, FontWeight.w600, color), reason: label);
+      }
+    });
+
+    testWidgets('내 MBTI `W55Zl` — 칩 48×35 4개씩 두 줄(E S F P / I N T J) + "모름" 56×35, 칸 사이 8', (tester) async {
+      useTallFrame(tester);
+      await pump(tester);
+
+      expect(_rectOf(tester, 'E'), const Rect.fromLTWH(24, 341, 48, 35));
+      expect(_rectOf(tester, 'S'), const Rect.fromLTWH(80, 341, 48, 35));
+      expect(_rectOf(tester, 'P'), const Rect.fromLTWH(192, 341, 48, 35));
+      expect(_rectOf(tester, 'I'), const Rect.fromLTWH(24, 384, 48, 35));
+      expect(_rectOf(tester, 'J'), const Rect.fromLTWH(192, 384, 48, 35));
+      expect(_rectOf(tester, '모름'), const Rect.fromLTWH(24, 427, 56, 35));
+    });
+
+    testWidgets('내 MBTI — 서버 ENFP 면 E N F P 만 분홍 워시, 나머지는 surface-soft', (tester) async {
+      useTallFrame(tester);
+      await pump(tester, profile: _profile(mbti: 'ENFP'));
+
+      for (final selected in ['E', 'N', 'F', 'P']) {
+        expect(fillOf(tester, selected), AppColors.primaryWash, reason: selected);
+      }
+      for (final other in ['S', 'I', 'T', 'J', '모름']) {
+        expect(fillOf(tester, other), AppColors.surfaceSoft, reason: other);
+      }
+    });
+
+    testWidgets('내 MBTI — 서버 값이 없으면(선택 안 함) "모름" 이 켜진 채 열린다', (tester) async {
+      useTallFrame(tester);
+      await pump(tester, profile: _profile(mbti: null));
+
+      expect(fillOf(tester, '모름'), AppColors.primaryWash);
+      expect(fillOf(tester, 'E'), AppColors.surfaceSoft);
+    });
+
+    testWidgets('종교 `Mq0sf` — 2×2 칸 150×56 · 사이 12, 라벨 아래 8(514) · 서버 값(무교)만 켜짐', (tester) async {
+      useTallFrame(tester);
+      await pump(tester);
+
+      expect(cellRect(tester, '무교'), const Rect.fromLTWH(24, 514, 150, 56));
+      expect(cellRect(tester, '기독교'), const Rect.fromLTWH(186, 514, 150, 56));
+      expect(cellRect(tester, '천주교'), const Rect.fromLTWH(24, 582, 150, 56));
+      expect(cellRect(tester, '불교'), const Rect.fromLTWH(186, 582, 150, 56));
+      expect(fillOf(tester, '무교'), AppColors.primaryWash);
+      expect(fillOf(tester, '불교'), AppColors.surfaceSoft);
+    });
+
+    testWidgets('흡연 `etqsg` — 한다 · 안 한다 150×56 · 사이 12(690), 서버 값(안 한다)만 켜짐', (tester) async {
+      useTallFrame(tester);
+      await pump(tester);
+
+      expect(cellRect(tester, '한다'), const Rect.fromLTWH(24, 690, 150, 56));
+      expect(cellRect(tester, '안 한다'), const Rect.fromLTWH(186, 690, 150, 56));
+      expect(fillOf(tester, '안 한다'), AppColors.primaryWash);
+      expect(fillOf(tester, '한다'), AppColors.surfaceSoft);
+    });
+
+    testWidgets('내 동물상 `sCmSr` 312×232(798) · 내 인상 `dvFI4` 312×96(1082) — 서버 값이 골라져 있다', (tester) async {
+      useTallFrame(tester);
+      await pump(tester);
+
+      final animals = tester.getRect(find.byType(AnimalTypePicker));
+      expect((animals.left, animals.top, animals.width), (24, 798, 312));
+      expect(animals.height, closeTo(232, 0.01));
+      final impressions = tester.getRect(find.byType(ImpressionTypePicker));
+      expect(impressions, const Rect.fromLTWH(24, 1082, 312, 96));
+      final dog = tester.widget<Ink>(find.ancestor(of: find.text('강아지상'), matching: find.byType(Ink)).first);
+      expect((dog.decoration! as BoxDecoration).color, AppColors.primaryWash);
+      expect(fillOf(tester, '아랍상'), AppColors.primaryWash);
+      expect(fillOf(tester, '두부상'), AppColors.surfaceSoft);
+    });
+  });
+
+  group('15-6 확대 — 바꿀 수 없는 정보(잠금 구역 `ltx1u`)', () {
+    void useTallFrame(WidgetTester tester) {
+      tester.view.physicalSize = const Size(360, 1700);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+    }
+
+    testWidgets('라벨 `myHzC` 14/600 body(1210) → 8 → 상자 `OBj2z` 312×152(1238) — surface-soft · 모서리 12 · 테두리 hairline 1', (tester) async {
+      useTallFrame(tester);
+      await pump(tester);
+
+      expect(tester.getTopLeft(find.text('바꿀 수 없는 정보')), const Offset(24, 1210));
+      final style = tester.widget<Text>(find.text('바꿀 수 없는 정보')).style!;
+      expect((style.fontSize, style.fontWeight, style.color), (14, FontWeight.w600, AppColors.body));
+      final box = find.ancestor(of: find.byType(LockedFactRow).first, matching: find.byType(Container)).first;
+      expect(tester.getRect(box), const Rect.fromLTWH(24, 1238, 312, 154 - 2));
+      final decoration = tester.widget<Container>(box).decoration! as BoxDecoration;
+      expect(decoration.color, AppColors.surfaceSoft);
+      expect(decoration.borderRadius, BorderRadius.circular(12));
+      expect((decoration.border! as Border).top, const BorderSide(color: AppColors.hairline));
+    });
+
+    testWidgets('잠금 행 3개 — 출생연도 2001 · 성별 남성 · 학과 경영학과, 각 296×48(x40)', (tester) async {
+      useTallFrame(tester);
+      await pump(tester);
+
+      final rows = find.byType(LockedFactRow);
+      expect(rows, findsNWidgets(3));
+      for (var i = 0; i < 3; i++) {
+        expect(tester.getRect(rows.at(i)), Rect.fromLTWH(40, 1242.0 + 48 * i, 280, 48), reason: '행 $i');
+      }
+      for (final text in ['출생연도', '2001', '성별', '남성', '학과', '경영학과']) {
+        expect(find.text(text), findsOneWidget, reason: text);
+      }
+      expect(find.byIcon(AppIcons.lock), findsNWidgets(3));
+    });
+
+    testWidgets('성별 female 은 "여성", 값이 없으면(옛 서버) 줄표', (tester) async {
+      useTallFrame(tester);
+      await pump(tester, profile: _profile(gender: 'female', birthYear: null));
+
+      expect(find.text('여성'), findsOneWidget);
+      expect(find.text('-'), findsOneWidget, reason: '출생연도');
+    });
+
+    testWidgets('안내 `wuU5P` — 파란 느낌표 3D 18 + 4 + "가입할 때 확인한 정보라 바꿀 수 없어요" 12/400 muted', (tester) async {
+      useTallFrame(tester);
+      await pump(tester);
+
+      const text = '가입할 때 확인한 정보라 바꿀 수 없어요';
+      expect(find.text(text), findsOneWidget);
+      final style = tester.widget<Text>(find.text(text)).style!;
+      expect((style.fontSize, style.fontWeight, style.color), (12, FontWeight.w400, AppColors.muted));
+      final icon = tester.getRect(find.byType(Icon3d));
+      expect(icon, const Rect.fromLTWH(24, 1398, 18, 18));
+      expect(tester.getTopLeft(find.text(text)).dx, 24 + 18 + 4);
+    });
+
+    testWidgets('잠금 행은 눌러도 아무 일이 없다 — 저장은 꺼진 채', (tester) async {
+      useTallFrame(tester);
+      await pump(tester);
+
+      await tester.tap(find.text('2001'));
+      await tester.tap(find.text('경영학과'));
+      await tester.pump();
+
+      expect(saveButton(tester).onPressed, isNull);
+      expect(me.updates, isEmpty);
+    });
+
+    testWidgets('전화번호 · 학번 · 실명 줄은 없다(서버가 내려 주지 않는다) — 입력 칸은 닉네임 · 키 둘뿐', (tester) async {
+      useTallFrame(tester);
+      await pump(tester);
+
+      expect(find.byType(TextField), findsNWidgets(2));
+      for (final absent in ['전화번호', '학번', '실명', '이름']) {
+        expect(find.textContaining(absent), findsNothing, reason: absent);
+      }
+    });
+  });
+
+  group('15-6 확대 — 저장(`fx0HX`) 상태 4개와 칸별 전송', () {
+    Future<void> tapText(WidgetTester tester, String label) async {
+      await tester.ensureVisible(find.text(label));
+      await tester.tap(find.text(label));
+      await tester.pump();
+    }
+
+    testWidgets('mhdYA 변경 없음 — 저장 비활성(#E5E5E5 · 라벨 #929292), 안내 없음', (tester) async {
+      await pump(tester);
+
+      expect(saveButton(tester).onPressed, isNull);
+      expect(find.text('점수를 다시 계산하는 중이에요. 몇 초 걸려요'), findsNothing);
+      expect(find.text('저장하지 못했어요. 잠시 후 다시 시도해 주세요'), findsNothing);
+    });
+
+    testWidgets('N5B0rW 변경 있음 — MBTI 극을 바꾸면 저장이 켜지고 {"mbti"} 만 보낸다', (tester) async {
+      await pump(tester, profile: _profile(mbti: 'ENFP'));
+
+      await tapText(tester, 'I');
+      expect(saveButton(tester).onPressed, isNotNull);
+      await tapSave(tester);
+      await tester.pumpAndSettle();
+
+      expect(me.updates, [
+        {'mbti': 'INFP'},
+      ]);
+      expect(popped, isTrue);
+    });
+
+    testWidgets('"모름" 을 누르면 MBTI 를 지운다 — 본문에 "mbti": null', (tester) async {
+      await pump(tester, profile: _profile(mbti: 'ENFP'));
+
+      await tapText(tester, '모름');
+      await tapSave(tester);
+      await tester.pumpAndSettle();
+
+      expect(me.updates, [
+        {'mbti': null},
+      ]);
+    });
+
+    testWidgets('종교 · 흡연만 바꾸면 그 둘만 보낸다', (tester) async {
+      await pump(tester);
+
+      await tapText(tester, '천주교');
+      await tapText(tester, '한다');
+      await tapSave(tester);
+      await tester.pumpAndSettle();
+
+      expect(me.updates, [
+        {'religion': 'catholic', 'is_smoker': true},
+      ]);
+    });
+
+    testWidgets('동물상만 바꿔도 동물상 · 인상 둘 다 보낸다', (tester) async {
+      await pump(tester);
+
+      await tapText(tester, '고양이상');
+      await tapSave(tester);
+      await tester.pumpAndSettle();
+
+      expect(me.updates, [
+        {'animal_type': 'cat', 'impression_type': 'arab'},
+      ]);
+    });
+
+    testWidgets('원래 값으로 되돌리면 저장이 다시 꺼진다', (tester) async {
+      await pump(tester);
+
+      await tapText(tester, '불교');
+      expect(saveButton(tester).onPressed, isNotNull);
+      await tapText(tester, '무교');
+
+      expect(saveButton(tester).onPressed, isNull);
+    });
+
+    testWidgets('15-6-2 닉네임 잠금 — 새 구역도 같이 있고 종교를 바꾸면 저장이 켜진다', (tester) async {
+      await pump(tester, profile: _profile(nicknameChangeableAt: _unlocksAt));
+
+      expect(find.text('내 MBTI'), findsOneWidget);
+      expect(find.text('바꿀 수 없는 정보'), findsOneWidget);
+      expect(saveButton(tester).onPressed, isNull);
+      await tapText(tester, '불교');
+      expect(saveButton(tester).onPressed, isNotNull);
+    });
+
+    Finder note(String text) => find.text(text);
+
+    testWidgets('U4f5Q 저장 중(MBTI 바뀜) — 흰 스피너 버튼 + 위 안내 "점수를 다시 계산하는 중이에요. 몇 초 걸려요"(도는 원 14 · 12/400 muted · 버튼 위 8)', (tester) async {
+      usePenFrame(tester);
+      await pump(tester, profile: _profile(mbti: 'ENFP'));
+      await tapText(tester, 'I');
+      me.holdUpdate = Completer<void>();
+
+      await tapSave(tester);
+
+      expect(saveButton(tester).isLoading, isTrue);
+      final text = note('점수를 다시 계산하는 중이에요. 몇 초 걸려요');
+      expect(text, findsOneWidget);
+      final style = tester.widget<Text>(text).style!;
+      expect((style.fontSize, style.fontWeight, style.color), (12, FontWeight.w400, AppColors.muted));
+      final spinner = find.byWidgetPredicate((w) => w is SizedBox && w.width == 14 && w.child is CircularProgressIndicator);
+      expect(spinner, findsOneWidget);
+      expect(tester.getTopLeft(text).dx, 24 + 14 + 4);
+      expect(tester.getBottomLeft(find.ancestor(of: text, matching: find.byType(Row)).first).dy + 8, closeTo(tester.getTopLeft(find.byType(AppButton)).dy, 2));
+      me.holdUpdate!.complete();
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('저장 중이어도 종교 · 흡연 · 키만 바뀌었으면 안내가 없다', (tester) async {
+      await pump(tester, profile: _profile(mbti: 'ENFP'));
+      await tapText(tester, '불교');
+      me.holdUpdate = Completer<void>();
+
+      await tapSave(tester);
+
+      expect(saveButton(tester).isLoading, isTrue);
+      expect(note('점수를 다시 계산하는 중이에요. 몇 초 걸려요'), findsNothing);
+      me.holdUpdate!.complete();
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('저장 중에는 칩도 눌러지지 않는다', (tester) async {
+      await pump(tester, profile: _profile(mbti: 'ENFP'));
+      await tapText(tester, 'I');
+      me.holdUpdate = Completer<void>();
+      await tapSave(tester);
+
+      await tapText(tester, '불교');
+
+      expect(me.updates, hasLength(1));
+      me.holdUpdate!.complete();
+      await tester.pumpAndSettle();
+      expect(me.updates.single.containsKey('religion'), isFalse);
+    });
+
+    testWidgets('Q1UbA 저장 실패 — 버튼 위 "저장하지 못했어요. 잠시 후 다시 시도해 주세요"(circle-alert 14 · 12/400 error · 버튼 위 8), 버튼은 다시 눌린다', (tester) async {
+      usePenFrame(tester);
+      await pump(tester, profile: _profile(mbti: 'ENFP'));
+      await tapText(tester, 'I');
+      me.updateResult = const FailureResult(NetworkFailure());
+
+      await tapSave(tester);
+      await tester.pumpAndSettle();
+
+      const message = '저장하지 못했어요. 잠시 후 다시 시도해 주세요';
+      final text = find.text(message);
+      expect(text, findsOneWidget);
+      final style = tester.widget<Text>(text).style!;
+      expect((style.fontSize, style.fontWeight, style.color), (12, FontWeight.w400, AppColors.error));
+      final icon = tester.widget<Icon>(find.byIcon(AppIcons.circleAlert));
+      expect((icon.size, icon.color), (14, AppColors.error));
+      expect(tester.getTopLeft(text).dx, 24 + 14 + 4);
+      expect(tester.getBottomLeft(text).dy, lessThanOrEqualTo(tester.getTopLeft(find.byType(AppButton)).dy));
+      expect(saveButton(tester).onPressed, isNotNull);
+      expect(find.byType(BasicInfoEditScreen), findsOneWidget);
+    });
+  });
+
+  group('15-6 확대 — 본문 스크롤', () {
+    testWidgets('780 높이에서는 아래 구역이 화면 밖이고, 스크롤하면 잠금 구역까지 닿는다 — 저장 버튼은 제자리', (tester) async {
+      usePenFrame(tester);
+      await pump(tester);
+      final buttonBefore = tester.getRect(find.byType(AppButton));
+      expect(tester.getTopLeft(find.text('바꿀 수 없는 정보')).dy, greaterThan(780));
+
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, -3000));
+      await tester.pumpAndSettle();
+
+      expect(tester.getTopLeft(find.text('바꿀 수 없는 정보')).dy, lessThan(780 - 52));
+      expect(find.text('가입할 때 확인한 정보라 바꿀 수 없어요'), findsOneWidget);
+      expect(tester.getRect(find.byType(AppButton)), buttonBefore);
+    });
+
+    testWidgets('키보드가 올라와도(아래 가림 300) 닉네임 · 키 칸을 칠 수 있고 본문이 줄어든 만큼 스크롤된다', (tester) async {
+      usePenFrame(tester);
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      addTearDown(tester.view.resetViewInsets);
+      await pump(tester);
+
+      await tester.enterText(_heightField, '180');
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(saveButton(tester).onPressed, isNotNull);
+      expect(tester.getRect(find.byType(AppButton)).bottom, lessThanOrEqualTo(780 - 300));
+    });
   });
 
   testWidgets('누르는 위젯의 눌림 효과는 제 크기 Material 위에 그린다(COMMON §4-2)', (tester) async {

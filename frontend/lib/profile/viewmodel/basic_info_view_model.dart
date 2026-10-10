@@ -7,6 +7,7 @@ import 'package:campus_mate/core/draft/draft_store.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/profile/model/basic_info_repository.dart';
 import 'package:campus_mate/profile/model/basic_info_repository_provider.dart';
+import 'package:campus_mate/profile/model/mbti_poles.dart';
 import 'package:campus_mate/profile/viewmodel/basic_info_ui_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -101,12 +102,7 @@ class BasicInfoViewModel extends Notifier<BasicInfoUiState> {
   void changeGender(String value) => state = _copyWith(gender: value);
   /// 같은 축의 다른 극은 자동으로 꺼진다 — 축마다 하나만 고른다.
   void toggleMbtiPole(String pole) {
-    final axis = BasicInfoUiState.mbtiAxes.firstWhere((axis) => axis.contains(pole));
-    final poles = {...state.mbtiPoles}..removeAll(axis);
-    if (!state.mbtiPoles.contains(pole)) {
-      poles.add(pole);
-    }
-    state = _copyWith(mbtiPoles: poles, isMbtiUnknown: false);
+    state = _copyWith(mbtiPoles: MbtiPoles.toggle(state.mbtiPoles, pole), isMbtiUnknown: false);
   }
 
   void toggleMbtiUnknown() {

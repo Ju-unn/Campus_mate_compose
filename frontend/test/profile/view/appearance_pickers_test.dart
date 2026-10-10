@@ -49,6 +49,46 @@ void main() {
     expect(tester.getSize(find.byType(SelectChip).first).height, 44);
   });
 
+  group('동물상 — 글자 확대(DESIGN §11.2)', () {
+    Future<void> pumpScaled(WidgetTester tester, double scale, {double width = 312}) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MediaQuery(
+            data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+            child: Scaffold(
+              body: SingleChildScrollView(
+                child: SizedBox(width: width, child: AnimalTypePicker(selected: const {}, onTap: (_) {})),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    testWidgets('배율 1.0 이면 pen 값 그대로 312×232(칸 72×112 · 간격 8)', (tester) async {
+      await pumpScaled(tester, 1);
+
+      final size = tester.getSize(find.byType(AnimalTypePicker));
+      expect(size.width, closeTo(312, 0.01));
+      expect(size.height, closeTo(232, 0.01));
+    });
+
+    for (final scale in [1.3, 1.5, 2.0]) {
+      testWidgets('배율 $scale 에서도 이름이 칸 밖으로 넘치지 않는다(칸이 이름 높이만큼 늘어난다)', (tester) async {
+        await pumpScaled(tester, scale);
+
+        expect(tester.takeException(), isNull);
+        expect(tester.getSize(find.byType(AnimalTypePicker)).height, greaterThanOrEqualTo(231.99));
+      });
+    }
+
+    testWidgets('좁은 기기(폭 272)에서 배율 2.0 이어도 넘치지 않는다', (tester) async {
+      await pumpScaled(tester, 2, width: 272);
+
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   // 눌림 효과는 가장 가까운 Material 에 그린다 — 그게 Scaffold 면 스크롤해도 테두리만 떠 있다(COMMON §4-2).
   testWidgets('동물상 칸 눌림 효과는 화면이 아니라 칸이 그린다', (tester) async {
     await pumpNarrow(tester, AnimalTypePicker(selected: const {}, onTap: (_) {}));

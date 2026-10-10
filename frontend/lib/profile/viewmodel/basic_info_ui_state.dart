@@ -1,4 +1,5 @@
 import 'package:campus_mate/common/phone_number_formatter.dart';
+import 'package:campus_mate/profile/model/mbti_poles.dart';
 
 /// 닉네임 한 줄 안내의 상태(DESIGN.md §8.5 `nickname-field` "인라인 중복확인 상태").
 /// 입력이 바뀌면 [none] 으로 돌아가고, 디바운스가 끝난 뒤 형식·중복 확인 결과로 채워진다.
@@ -42,20 +43,10 @@ class BasicInfoUiState {
   /// "모름" 을 고른 상태. 값은 보내지 않는다(MBTI 는 선택 항목이다).
   final bool isMbtiUnknown;
 
-  static const List<List<String>> mbtiAxes = [
-    ['E', 'I'],
-    ['N', 'S'],
-    ['T', 'F'],
-    ['J', 'P'],
-  ];
+  static const List<List<String>> mbtiAxes = MbtiPoles.axes;
 
   /// 네 축을 모두 고른 경우에만 채워진다.
-  String? get mbti {
-    final letters = [
-      for (final axis in mbtiAxes) axis.firstWhere(mbtiPoles.contains, orElse: () => ''),
-    ];
-    return letters.contains('') ? null : letters.join();
-  }
+  String? get mbti => MbtiPoles.code(mbtiPoles);
   final bool isSubmitting;
   final String? errorMessage;
   final bool completed;

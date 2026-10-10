@@ -47,8 +47,17 @@ class HttpMeRepository implements MeRepository {
           heartBalance: json['heart_balance'] as int,
           avatarRegenCost: json['avatar_regen_cost'] as int,
           nicknameChangeableAt: changeableAt == null ? null : DateTime.parse(changeableAt).toLocal(),
+          religion: _enumOrNull(Religion.values, json['religion']),
+          isSmoker: json['is_smoker'] as bool?,
+          animalType: _enumOrNull(AnimalType.values, json['animal_type']),
+          impressionType: _enumOrNull(ImpressionType.values, json['impression_type']),
+          birthYear: json['birth_year'] as int?,
+          gender: json['gender'] as String?,
         );
       });
+
+  /// 서버 문자열(= enum 이름)을 열거형으로. null 이거나 키가 없으면 null, 모르는 값이면 던진다(→ 실패 처리).
+  static T? _enumOrNull<T extends Enum>(List<T> values, Object? name) => name == null ? null : values.byName(name as String);
 
   static MyPhoto _photo(Map<String, dynamic> json) => MyPhoto(
         id: json['id'] as String,
@@ -66,12 +75,34 @@ class HttpMeRepository implements MeRepository {
       });
 
   @override
-  Future<Result<void>> updateProfile({String? bio, String? nickname, int? heightCm}) => _api.send(
-        'PATCH',
-        '/me/profile',
-        (_) {},
-        body: {'bio': ?bio, 'nickname': ?nickname, 'height_cm': ?heightCm},
-      );
+  Future<Result<void>> updateProfile({
+    String? bio,
+    String? nickname,
+    int? heightCm,
+    String? mbti,
+    bool clearMbti = false,
+    Religion? religion,
+    bool? isSmoker,
+    ({AnimalType animalType, ImpressionType impressionType})? appearance,
+  }) {
+    assert(mbti == null || !clearMbti, 'MBTI 는 글자를 보내거나 지우거나 둘 중 하나다');
+    return _api.send(
+      'PATCH',
+      '/me/profile',
+      (_) {},
+      body: {
+        'bio': ?bio,
+        'nickname': ?nickname,
+        'height_cm': ?heightCm,
+        // MBTI 만 null 이 "선택 안 함" 이라는 뜻이다 — 서버가 모든 null 을 거절하는 다른 칸과 달리 이 칸만 null 을 보낸다.
+        if (clearMbti) 'mbti': null else 'mbti': ?mbti,
+        'religion': ?religion?.name,
+        'is_smoker': ?isSmoker,
+        'animal_type': ?appearance?.animalType.name,
+        'impression_type': ?appearance?.impressionType.name,
+      },
+    );
+  }
 
   /// `ApiClient.sendMultipart` 는 파일 하나 · POST 전용이라 `sendRequest` 로 직접 만든다.
   @override

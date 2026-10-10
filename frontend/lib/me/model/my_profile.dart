@@ -26,6 +26,12 @@ class MyProfile {
     this.heartBalance = 0,
     this.avatarRegenCost = 0,
     this.nicknameChangeableAt,
+    this.religion,
+    this.isSmoker,
+    this.animalType,
+    this.impressionType,
+    this.birthYear,
+    this.gender,
   });
 
   final String nickname;
@@ -68,6 +74,17 @@ class MyProfile {
 
   /// 닉네임이 잠겨 있으면 풀리는 때(기기 시간대). null = 지금 바꿀 수 있음 — 판정은 서버 시계로 한다.
   final DateTime? nicknameChangeableAt;
+
+  /// 15-6 기본 정보 수정이 현재 값으로 채우는 칸. 온보딩이 안 끝났거나 옛 서버면 null.
+  final Religion? religion;
+  final bool? isSmoker;
+  final AnimalType? animalType;
+  final ImpressionType? impressionType;
+
+  /// 15-6 "바꿀 수 없는 정보"(출생연도 · 성별). 서버가 `birth_year` · `gender` 를 내려 주기 전에는 null 이다.
+  /// [gender] 는 서버 값 그대로(`male` · `female`).
+  final int? birthYear;
+  final String? gender;
 
   /// 실사진 서명 URL. 대표 사진(0번)부터 순서대로 — 화면 15 슬라이더가 읽는다.
   List<String> get photoUrls => [for (final photo in photos) photo.url];
