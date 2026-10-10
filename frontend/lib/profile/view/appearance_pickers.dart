@@ -14,41 +14,75 @@ class AnimalTypePicker extends StatelessWidget {
   final Set<AnimalType> selected;
   final ValueChanged<AnimalType> onTap;
 
+  static const int _columns = 4;
+
   @override
   Widget build(BuildContext context) {
     // 8종을 2행×4열로 깐다(datingApp.pen `mpvfQ` 안 `Ryq6H`) — 카드 72×112, 간격 8, 아이콘 위·이름 아래다.
     // 폭을 숫자로 박지 않고 비율로 둔다 — 360dp 기준 실측이라 더 좁은 기기에서는 같이 줄어들어야 한다.
-    return GridView.count(
-      crossAxisCount: 4,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: AppSpacing.xs,
-      crossAxisSpacing: AppSpacing.xs,
-      childAspectRatio: 72 / 112,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cellWidth = (constraints.maxWidth - AppSpacing.xs * (_columns - 1)) / _columns;
+        return GridView.count(
+          crossAxisCount: _columns,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: AppSpacing.xs,
+          crossAxisSpacing: AppSpacing.xs,
+          mainAxisExtent: _cellHeight(context, cellWidth),
+          children: [
+            for (final type in AnimalType.values)
+              _PickerCell(
+                isSelected: selected.contains(type),
+                onTap: () => onTap(type),
+                child: _cellBody(type),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _cellBody(AnimalType type) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        for (final type in AnimalType.values)
-          _PickerCell(
-            isSelected: selected.contains(type),
-            onTap: () => onTap(type),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // 카드 폭에 꽉 차는 정사각 그림(pen 72×72, 좌우 여백 없음).
-                AspectRatio(
-                  aspectRatio: 1,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(AppRadius.md),
-                    child: Image.asset(type.iconAsset, fit: BoxFit.cover),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xxs),
-                // 4열이라 칸이 좁다 — '햄스터상'까지 한 줄에 들어가는 크기다(종전 label 18sp 는 넘친다).
-                Text(type.label, style: AppTypography.labelSmall.copyWith(color: AppColors.ink)),
-              ],
-            ),
+        // 카드 폭에 꽉 차는 정사각 그림(pen 72×72, 좌우 여백 없음).
+        AspectRatio(
+          aspectRatio: 1,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            child: Image.asset(type.iconAsset, fit: BoxFit.cover),
           ),
+        ),
+        const SizedBox(height: AppSpacing.xxs),
+        // 4열이라 칸이 좁다 — '햄스터상'까지 한 줄에 들어가는 크기다(종전 label 18sp 는 넘친다).
+        // 글자를 키우면(DESIGN §11.2) 네 글자 이름이 칸 폭을 넘고, 한글은 낱말 중간에서 줄이 안 접혀 잘린다 — 칸 폭에 맞춰 줄여 그린다.
+        FittedBox(fit: BoxFit.scaleDown, child: Text(type.label, style: _nameStyle)),
       ],
     );
+  }
+
+  static final TextStyle _nameStyle = AppTypography.labelSmall.copyWith(color: AppColors.ink);
+
+  /// 칸 높이. 평소는 pen 비율(72×112)이다. 글자를 키우면 이름이 (줄여 그려도) 그림 아래 자리를 넘을 수 있어, 가장 높은 이름에
+  /// 맞춰 칸을 늘린다. 칸 안쪽은 테두리 1 씩을 뺀 폭이고, 그림은 그 폭의 정사각이다.
+  double _cellHeight(BuildContext context, double cellWidth) {
+    final penHeight = cellWidth * 112 / 72;
+    final innerWidth = cellWidth - 2;
+    final textScaler = MediaQuery.textScalerOf(context);
+    var nameHeight = 0.0;
+    for (final type in AnimalType.values) {
+      final painter = TextPainter(
+        text: TextSpan(text: type.label, style: _nameStyle),
+        textDirection: TextDirection.ltr,
+        textScaler: textScaler,
+      )..layout();
+      final fitted = painter.width > innerWidth ? painter.height * innerWidth / painter.width : painter.height;
+      nameHeight = nameHeight < fitted ? fitted : nameHeight;
+    }
+    final needed = 2 + innerWidth + AppSpacing.xxs + nameHeight;
+    return needed > penHeight ? needed : penHeight;
   }
 }
 

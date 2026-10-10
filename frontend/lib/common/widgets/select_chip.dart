@@ -47,21 +47,25 @@ class SelectChip extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(radius),
-          child: Ink(
-            width: width,
-            height: height,
-            decoration: BoxDecoration(
-              color: isSelected ? AppColors.primaryWash : AppColors.surfaceSoft,
-              borderRadius: BorderRadius.circular(radius),
-              border: Border.all(color: isSelected ? AppColors.primary : Colors.transparent),
-            ),
-            // 칸 너비를 받지 않은 칩은 **글자 폭만큼만** 차지한다 — `widthFactor` 가 없으면
-            // 줄 폭을 통째로 먹어서 `Wrap` 안에서 칩이 한 줄에 하나씩 쌓인다(2026-09-26 실기기).
-            child: Center(
-              widthFactor: width == null ? 1 : null,
-              child: Padding(
-                padding: padding,
-                child: Text(label, style: AppTypography.labelSmall.copyWith(color: AppColors.ink)),
+          // 칸 크기는 **최소값**이다 — 평소는 pen 값(너비 [width] · 높이 [height], 테두리 포함) 그대로이고, 글자를 키우면
+          // (DESIGN §11.2) 글자에 맞춰 늘어난다. 고정 크기로 두면 "모름"(폭 56)이 두 줄로 접혀 잘린다.
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minWidth: width ?? 0, minHeight: height),
+            child: Ink(
+              decoration: BoxDecoration(
+                color: isSelected ? AppColors.primaryWash : AppColors.surfaceSoft,
+                borderRadius: BorderRadius.circular(radius),
+                border: Border.all(color: isSelected ? AppColors.primary : Colors.transparent),
+              ),
+              // 칸 너비를 받지 않은 칩은 **글자 폭만큼만** 차지한다 — 늘어나 채우면
+              // 줄 폭을 통째로 먹어서 `Wrap` 안에서 칩이 한 줄에 하나씩 쌓인다(2026-09-26 실기기).
+              child: Center(
+                widthFactor: 1,
+                heightFactor: 1,
+                child: Padding(
+                  padding: padding,
+                  child: Text(label, style: AppTypography.labelSmall.copyWith(color: AppColors.ink)),
+                ),
               ),
             ),
           ),
