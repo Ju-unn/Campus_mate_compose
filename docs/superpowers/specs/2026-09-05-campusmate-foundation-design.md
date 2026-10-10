@@ -77,7 +77,7 @@
    B가 거절 → 조용히 종료 (A에게 거절 사실을 알리지 않는다)
 ```
 
-> **용어 개정(2026-10-10).** 사용자에게 보이는 말이 바뀐다: 카드 결정 버튼 "수락하기" → **"대화 신청하기"**, 대화 탭의 "수락 대기" · 알림 설정의 "받은 수락" → **"받은 신청"**(받은 신청 줄의 버튼은 "수락하고 대화 시작" → "수락하기"). 서버 푸시는 이미 새 말이다("대화 신청이 왔어요", 운영 리비전 00051). **앱 반영 예정(PR #443, draft).** 위 흐름의 ②·③ 은 새 말로는 "대화 신청이 왔어요" · "받은 신청"이다. 서버 값(`accept`, `acceptance_*` 표, `kind = acceptance_received`)과 매칭 후 신뢰 확인 게이트(§2.5)의 "수락"은 그대로다.
+> **용어 개정(2026-10-10).** 사용자에게 보이는 말이 바뀐다: 카드 결정 버튼 "수락하기" → **"대화 신청하기"**, 대화 탭의 "수락 대기" · 알림 설정의 "받은 수락" → **"받은 신청"**(받은 신청 줄의 버튼은 "수락하고 대화 시작" → "수락하기"). 서버 푸시는 이미 새 말이다("대화 신청이 왔어요", 운영 리비전 00051). **앱 코드는 main 에 반영됐다(PR #443 merge, 앱 배포 전).** 위 흐름의 ②·③ 은 새 말로는 "대화 신청이 왔어요" · "받은 신청"이다. 서버 값(`accept`, `acceptance_*` 표, `kind = acceptance_received`)과 매칭 후 신뢰 확인 게이트(§2.5)의 "수락"은 그대로다.
 
 **한쪽 수락을 상대에게 알리는 이유**: B의 오늘 카드에 A가 없더라도 A를 보게 되므로 **매칭률이 크게 오른다.**
 카드를 한 번에 소수만 지급하는 구조에서는 서로의 카드가 겹칠 확률이 낮아 이 경로가 필수적이다.
@@ -92,7 +92,7 @@
 
 ### 2.4 수익 모델
 
-> **구현 상태(2026-10-10 확인, 종전 2026-10-09 "구현 전" 표시를 개정).** 추가 카드(= 유료 카드)의 **서버 · DB 는 구현되어 운영에 반영됐다**(PR #440, 운영 리비전 00051 · 마이그레이션 `20261010010000` ~ `040000`. 주기당 한 장을 DB 가 막는 `20261010050000` 은 PR #442 로 운영 적용 중). `GET /cards/today` 는 `paid_card`(`offered` · `empty` · null)를 내려주고(`locked_card_available` 은 `paid_card` 가 `offered` 일 때만 true — 옛 앱 호환), 구매는 `POST /cards/paid/{offer_id}/purchase`(성공 200 · 하트 부족 402 · 제안이 사라짐 409 · 없거나 남의 제안 404)다(`backend/app/cards/router.py`). **앱 UI(잠금 카드 · 구매 시트)는 PR #443(draft)이 검토 대기 중**이라 아직 앱에는 없다. **하트를 돈으로 사는 인앱결제는 여전히 미구현**이다(스토어 화면의 구매 버튼은 "곧 열려요"). 선정 규칙(무료 상위 80% 무작위 · 유료 주기마다 상위 20% 사전 선정)은 §6.8, 승인된 설계 원문은 사용자 폴더의 `수익모델_재설계/01_설계_카드선정_유료카드.md` 다.
+> **구현 상태(2026-10-10 확인, 종전 2026-10-09 "구현 전" 표시를 개정).** 추가 카드(= 유료 카드)의 **서버 · DB 는 구현되어 운영에 반영됐다**(PR #440, 운영 리비전 00051 · 마이그레이션 `20261010010000` ~ `040000`. 주기당 한 장을 DB 가 막는 `20261010050000` 도 PR #442 로 운영 적용 완료, 2026-10-10). `GET /cards/today` 는 `paid_card`(`offered` · `empty` · null)를 내려주고(`locked_card_available` 은 `paid_card` 가 `offered` 일 때만 true — 옛 앱 호환), 구매는 `POST /cards/paid/{offer_id}/purchase`(성공 200 · 하트 부족 402 · 제안이 사라짐 409 · 없거나 남의 제안 404)다(`backend/app/cards/router.py`). **앱 UI(잠금 카드 · 구매 시트)는 PR #443 으로 main 에 반영됐다(앱 배포 전)** — 사용자 기기의 앱에는 아직 없다. **하트를 돈으로 사는 인앱결제는 여전히 미구현**이다(스토어 화면의 구매 버튼은 "곧 열려요"). 선정 규칙(무료 상위 80% 무작위 · 유료 주기마다 상위 20% 사전 선정)은 §6.8, 승인된 설계 원문은 사용자 폴더의 `수익모델_재설계/01_설계_카드선정_유료카드.md` 다.
 
 **현재 수익 모델은 하트(재화) 판매다**(2026-09-08 등록비 폐지, §13-17): 가입비 없음(남녀 동일 무료), **하트 1개 = 60원(2026-09-14, DESIGN.md §13-114·§13-115)**, 추가 카드 50하트(지급 주기당 1장), 아바타 재생성 10하트(최초 1회 무료) — 상세는 DESIGN.md §8.10.
 
@@ -388,7 +388,7 @@ Provider는 `BuildContext`에 묶이고, BLoC은 이 규모에 비해 보일러�
 | `core/http.py` | `raise_for_status` — PostgREST 오류 코드를 보고 409·422 로 옮겨 준다 |
 | `core/postgrest.py` | `PostgrestRepository` — 저장소들이 물려받는 `_get`/`_post`/`_patch`/`_delete` |
 | `core/time.py` | `SEOUL`(UTC+9 고정). 서버 시계가 UTC 라도 날짜는 한국 기준으로 세야 12월 31일 밤에 기준이 하루 어긋나지 않는다 |
-| `core/batch_auth.py` | **2026-09-27 조각 6 추가.** 기계가 부르는 엔드포인트의 신원 확인 — `verify_oidc_token`(구글 ID 토큰 · audience · 발급 서비스 계정 확인, 아바타 워커와 배치가 같이 쓴다) · `verify_batch_caller`(OIDC 전환 기간에는 옛 `X-Batch-Secret` 헤더 **또는** ID 토큰, `backend/DEPLOY.md` §4-3). 설정을 직접 읽지 않고 부르는 라우터가 값을 넘긴다 |
+| `core/batch_auth.py` | **2026-09-27 조각 6 추가.** 기계가 부르는 엔드포인트의 신원 확인 — `verify_oidc_token`(구글 ID 토큰 · audience · 발급 서비스 계정 확인, 아바타 워커와 배치가 같이 쓴다) · ~~`verify_batch_caller`(OIDC 전환 기간에는 옛 `X-Batch-Secret` 헤더 **또는** ID 토큰)~~ — 2026-09-29 OIDC 전환이 끝나 함수가 코드에서 빠졌다(`backend/DEPLOY.md` §4-3). 설정을 직접 읽지 않고 부르는 라우터가 값을 넘긴다 |
 
 **2026-09-29 갱신.** `core/errors.py` 문구 상수는 **57개**가 됐다(조각 6 · 커뮤니티 · 지인 리뷰 · 하트 모으기 · 가입 동의 문구). `core/deps.py` 에 `get_now`(이번 요청의 "지금", 한국 시각 — 테스트가 시각을 고정하는 이음매)가 늘었고, `get_caller` 는 탈퇴한 계정을 401 로 막는다. 기능 모듈은 `account` · `chat` · `community` · `consents` · `friend_reviews` · `heart_tasks` · `home` · `me` · `referral` · `safety` 가 늘었다. **"기능 모듈은 서로를 import 하지 않는다" 는 지금은 지켜지지 않는다** — 예: `safety` 가 `cards` · `chat` · `friend_reviews` 를, `me` 가 `cards` · `matching` · `profile_onboarding` 을, `account` 가 `chat` · `heart_tasks` 를 가져다 쓴다(카드 상세 조립 `profile_detail()` · 방 나가기 · 정리 배치처럼 한 곳에 둔 함수를 재사용하려고). 규칙을 되살려 공용 부분을 `core` 로 올릴지는 정하지 않았다 — 사실만 기록한다(아바타 최신 1장 고르기가 chat · cards · me 세 곳에 사본으로 있는 것도 같은 문제다)
 
@@ -717,7 +717,7 @@ DB 안에서 `pg_cron` 으로 돌리려던 계획을 접고, **Cloud Scheduler �
 | --- | --- |
 | 부르는 쪽 | Cloud Scheduler job `campus-mate-daily-cards` (asia-northeast3), 매일 07:00 Asia/Seoul |
 | 불리는 쪽 | `POST /batch/daily-cards` (Cloud Run, `--allow-unauthenticated`) |
-| 인증 | 공유 비밀 헤더 `X-Batch-Secret` 을 `hmac.compare_digest` 로 대조. 비밀이 없거나 틀리면 401 이고 카드는 한 장도 안 나간다 |
+| 인증 | **구글이 서명한 ID 토큰(OIDC)**: Cloud Scheduler job 이 `Authorization: Bearer` 토큰을 달고 오면 서버가 `verify_oidc_token`(`backend/app/core/batch_auth.py`)으로 서명 · audience(`BATCH_AUDIENCE`, 경로 없는 서비스 URL) · 발급 서비스 계정(`BATCH_SERVICE_ACCOUNT`)을 확인한다. 설정이 비었거나 토큰이 틀리면 401 이고 카드는 한 장도 안 나간다. 종전(2026-09-21 ~ 09-29): 공유 비밀 헤더 `X-Batch-Secret` 을 `hmac.compare_digest` 로 대조 — 2026-09-29 OIDC 전환으로 개정, 서버는 그 헤더를 더 받지 않는다(`backend/DEPLOY.md` §4-3) |
 | 요일 판정 | **job 은 하나다.** 오늘이 지급 요일인지는 `app/cards/ladder.py` 가 지역그룹마다 판정한다 — 요일별 job 을 만들지 않는다 |
 | 응답 | `{"issued": n, "no_candidate": n, "skipped_regions": [...], "failed": n}` — Cloud Logging 에 남는다. `failed` 는 2026-10-10 에 생겼다: 한 사람의 지급이 예외로 실패하면 로그(profile_id 만)에 남기고 센 뒤 다음 사람으로 넘어간다 |
 
