@@ -66,7 +66,7 @@ void main() {
     expect(find.text('ENFP'), findsOneWidget);
     expect(find.byType(TraitBar), findsNWidgets(9));
     expect(find.text('거절'), findsOneWidget);
-    expect(find.text('수락하기'), findsOneWidget);
+    expect(find.text('대화 신청하기'), findsOneWidget);
   });
 
   testWidgets('태그 칩은 줄 폭을 먹지 않아 같은 줄에 나란히 선다', (tester) async {
@@ -111,7 +111,7 @@ void main() {
       setScreen(tester, scale);
 
       await pump(tester);
-      await tester.scrollUntilVisible(find.text('수락하기'), 200);
+      await tester.scrollUntilVisible(find.text('대화 신청하기'), 200);
 
       expect(tester.takeException(), isNull);
     });
@@ -155,7 +155,7 @@ void main() {
 
     await pump(tester);
     final clipped = clippedTexts();
-    await tester.scrollUntilVisible(find.text('수락하기'), 200);
+    await tester.scrollUntilVisible(find.text('대화 신청하기'), 200);
     clipped.addAll(clippedTexts());
     // 넘침은 위 배율 테스트가 본다 — 여기서는 잘림만 본다.
     tester.takeException();
@@ -163,13 +163,13 @@ void main() {
     expect(clipped.toSet(), isEmpty);
   });
 
-  testWidgets('수락을 누르면 수락이 서버로 간다', (tester) async {
+  testWidgets('대화 신청하기를 누르면 수락(accept)이 서버로 간다', (tester) async {
     final repository = await pump(tester);
 
     // 버튼이 하단 고정에서 카드 아래로 내려와(pen `TORAs`) 스크롤해야 닿는다.
-    await tester.ensureVisible(find.text('수락하기'));
+    await tester.ensureVisible(find.text('대화 신청하기'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('수락하기'));
+    await tester.tap(find.text('대화 신청하기'));
     await tester.pump();
 
     expect(repository.decisions.single.decision, CardDecision.accept);
