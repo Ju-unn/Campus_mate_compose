@@ -18,6 +18,7 @@ from app.heart_tasks.router import router as heart_tasks_router
 from app.home.router import router as home_router
 from app.matching.router import router as matching_router
 from app.me.router import router as me_router
+from app.notifications.router import router as notifications_router
 from app.profile_onboarding.router import router as profile_onboarding_router
 from app.profile_onboarding.startup_check import warn_if_fallback_avatar_missing
 from app.profile_onboarding.tasks_router import router as profile_onboarding_tasks_router
@@ -60,6 +61,7 @@ app.include_router(cards_router)
 app.include_router(chat_batch_router)
 app.include_router(chat_router)
 app.include_router(home_router)
+app.include_router(notifications_router)
 app.include_router(me_router)
 app.include_router(safety_router)
 app.include_router(community_router)
