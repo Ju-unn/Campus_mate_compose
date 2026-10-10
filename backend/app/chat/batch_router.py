@@ -11,6 +11,8 @@ from app.chat.repository import ChatRepository
 from app.core.batch_auth import verify_oidc_token
 from app.core.deps import get_client, get_settings
 from app.core.time import SEOUL
+from app.notifications.repository import NotificationRepository
+from app.notifications.retention import purge_expired
 from app.settings import Settings
 
 logger = logging.getLogger(__name__)
@@ -92,4 +94,7 @@ async def run_chat_gate_batch(
     now = datetime.now(SEOUL)
     result = await run_chat_gate(repo, push_repo, sender, now=now)
     # 밤에 보류한 알림을 아침에 묶어 보내는 일도 이 매시 배치에 붙인다(결정 4 — 새 스케줄러 없음).
-    return {**result, "deferred_sent": await send_pending(push_repo, sender, now)}
+    deferred_sent = await send_pending(push_repo, sender, now)
+    # 90일 지난 알림함 줄도 같은 배치가 지운다(설계 §8-4). 실패해도 위 결과는 그대로 돌려준다.
+    purged = await purge_expired(NotificationRepository(settings.postgrest_url, key, client), now)
+    return {**result, "deferred_sent": deferred_sent, "notifications_purged": purged}

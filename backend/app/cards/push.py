@@ -20,6 +20,15 @@ _QUIET_HOURS_EXEMPT = {"card_arrived", "new_message"}
 # 조용한 시간에 걸리면 버리지 않고 pending_pushes 에 넣어 아침에 묶어 보낸다(결정 4, 2026-10-01 사용자).
 # 학생증 검토 결과(A7)도 예외가 아니라 보관함으로 간다 — 예외는 채팅 · 카드 도착뿐이다(사용자 규칙).
 _DEFERRED = {"acceptance_received", "match_made", "new_friend_review", "verification_result"}
+# 알림함(설계 §7·§8-4)에 남기는 푸시 kind -> notifications.kind. 여기 없는 kind(채팅 new_message ·
+# 게이트 trust_reminder)는 알림함에 쌓지 않는다.
+_INBOX_KINDS = {
+    "card_arrived": "card_arrived",
+    "acceptance_received": "chat_request",
+    "match_made": "match_made",
+    "new_friend_review": "friend_review",
+    "verification_result": "verification_result",
+}
 # 아침 묶음 문구. 사람 × (kind, 가는 화면 data.route)로 묶는다 — 같은 kind 라도 가는 화면이 달라서다.
 # 여기 없는 짝(친구 가입 → 리뷰 쓰기, 학생증 검토 결과)은 알림마다 내용 · 갈 곳이 달라 묶지 않고 한 건씩 보낸다.
 _BUNDLES = {
@@ -81,11 +90,26 @@ def _is_quiet(now: datetime) -> bool:
     return now.hour >= _QUIET_START_HOUR or now.hour < _QUIET_END_HOUR
 
 
-async def notify(repo, sender: FcmSender, profile_id, kind: str,
-                 title: str, body: str, data: dict[str, str], now: datetime, defer: bool = True) -> int:
-    """알림 스위치와 조용한 시간을 본 뒤 그 사람의 모든 기기로 보낸다. 보낸 건수를 돌려준다.
+async def _record(repo, profile_id, kind: str, title: str, body: str, data: dict[str, str]) -> None:
+    """알림함에 한 줄 남긴다. 실패는 로그만 — 푸시 · 카드 지급 · 결정 저장을 막지 않는다.
+    로그에는 title · body 를 남기지 않는다(닉네임이 들어갈 수 있다). profile_id 와 kind 만."""
+    inbox_kind = _INBOX_KINDS.get(kind)
+    if inbox_kind is None:
+        return
+    try:
+        await repo.insert_notification(profile_id, inbox_kind, title, body, data)
+    except Exception:
+        logger.exception("알림함 기록 실패 profile=%s kind=%s", profile_id, kind)
 
-    `defer=False` 면 조용한 시간에 보류하지 않고 옛날처럼 버린다 — 방금 화면에서 본 일을 알리는 자리용이다."""
+
+async def notify(repo, sender: FcmSender, profile_id, kind: str,
+                 title: str, body: str, data: dict[str, str], now: datetime, defer: bool = True,
+                 record: bool = True) -> int:
+    """알림 스위치와 조용한 시간을 본 뒤 그 사람의 모든 기기로 보낸다. 보낸 건수를 돌려준다.
+    푸시와 같은 관문(정지 · 탈퇴 · 스위치)을 지난 알림은 조용한 시간이어도 그 순간 알림함에 한 줄 남는다.
+
+    `defer=False` 면 조용한 시간에 보류하지 않고 옛날처럼 버린다 — 방금 화면에서 본 일을 알리는 자리용이다.
+    `record=False` 는 알림함에 이미 남긴 알림을 다시 보내는 자리(아침 묶음)용이다 — 중복 기록을 막는다."""
     if await repo.fetch_profile_status(profile_id) in ("suspended", "withdrawn"):
         # 조각 6: 정지 · 탈퇴 계정에는 어떤 알림도 보내지 않는다. 모든 푸시가 이 함수를 지나서 한 곳만 본다.
         # 탈퇴는 토큰도 지우지만 best-effort 라 남을 수 있어 여기서 한 번 더 막는다.
@@ -93,6 +117,8 @@ async def notify(repo, sender: FcmSender, profile_id, kind: str,
     settings = await repo.fetch_notification_settings(profile_id)
     if not settings.get(kind, True):
         return 0
+    if record:
+        await _record(repo, profile_id, kind, title, body, data)
     if settings.get("quiet_hours", True) and kind not in _QUIET_HOURS_EXEMPT and _is_quiet(now):
         if defer and kind in _DEFERRED:
             await repo.insert_pending_push(profile_id, kind, title, body, data)
@@ -129,7 +155,8 @@ async def send_pending(repo, sender: FcmSender, now: datetime) -> int:
         for kind, title, body, data in pushes:
             try:
                 # notify 를 다시 지난다 — 밤사이 끈 알림 · 정지 · 탈퇴는 여기서 걸린다.
-                sent += 1 if await notify(repo, sender, profile_id, kind, title, body, data, now=now) else 0
+                # 알림함에는 밤에 이미 남겼으므로 record=False 로 중복 기록을 막는다.
+                sent += 1 if await notify(repo, sender, profile_id, kind, title, body, data, now=now, record=False) else 0
             except Exception:
                 # 한 사람 알림 때문에 뒷사람 묶음까지 멈추는 쪽이 훨씬 나쁘다.
                 logger.exception("아침 묶음 알림 실패 profile=%s route=%s", profile_id, route)
