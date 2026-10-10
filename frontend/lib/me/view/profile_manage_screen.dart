@@ -344,8 +344,8 @@ class _FactRow extends StatelessWidget {
   }
 }
 
-/// 선호 조건 `J0ZhR6` — 헤더(오른쪽 없음) → 12 → ProfileEntryRow 두 개(`sR3If` · `t1Eok`, 사이 12).
-/// 두 행 모두 06-1 편집으로 간다 — 나이 · 키가 한 화면에 있다(U1).
+/// 선호 조건 `J0ZhR6` — 헤더(오른쪽 없음) → 12 → ProfileEntryRow 한 줄(`sR3If` "이상형 조건 수정").
+/// 나이 · 키가 06-1 한 화면에 있어(U1) 옛 두 행(선호 나이 · 선호 키)을 한 줄로 합쳤다. 노트 `B4ppA` 는 "나이 22–27세 · 키 165–180cm".
 class _PreferenceSection extends StatelessWidget {
   const _PreferenceSection({required this.profile});
 
@@ -359,40 +359,41 @@ class _PreferenceSection extends StatelessWidget {
         const _SectionHeader(title: '선호 조건'),
         const SizedBox(height: AppSpacing.sm),
         ProfileEntryRow(
-          icon: AppIcon3d.calendar,
-          title: '선호 나이 범위',
-          note: _ageRangeNote(),
-          onTap: () => context.push(AppRoutes.myIdealConditions),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        ProfileEntryRow(
-          icon: AppIcon3d.ruler,
-          title: '선호 키 범위',
-          note: _heightRangeNote(),
+          icon: AppIcon3d.heart, // pen `l3oDHo` 하트 `zxXQG`
+          title: '이상형 조건 수정',
+          note: _note(),
           onTap: () => context.push(AppRoutes.myIdealConditions),
         ),
       ],
     );
   }
 
-  /// "22세–27세"(pen 그대로, en dash·띄어쓰기 없음). 06-1 "나이는 상관없어요"는 전 구간(19~35)으로 저장된다.
-  /// 위 끝 35 는 06-1 처럼 "35세 이상"(사용자 결정 2026-09-27). 아래 끝 19 는 06-1 도 "19세" 라 그대로 둔다.
-  String _ageRangeNote() {
-    final (min, max) = (profile.preferredAgeMin, profile.preferredAgeMax);
-    final isWholeRange = min == IdealConditionsUiState.ageFloor && max == IdealConditionsUiState.ageCeiling;
-    if (min == null || max == null || isWholeRange) return _noPreference;
-    final upper = max == IdealConditionsUiState.ageCeiling ? '$max세 이상' : '$max세';
-    return '$min세–$upper';
+  /// 둘 다 "상관없어요"면 한 번만 말한다. 아니면 pen 처럼 "나이 … · 키 …".
+  String _note() {
+    final age = _agePart();
+    final height = _heightPart();
+    if (age == null && height == null) return '나이 · 키 모두 $_noPreference';
+    return '나이 ${age ?? _noPreference} · 키 ${height ?? _noPreference}';
   }
 
-  /// "165cm ~ 180cm"(pen 그대로). 06-1 "키는 상관없어요"는 null 로 저장된다.
-  /// 끝값 150·190 은 06-1 처럼 "150cm 이하"·"190cm 이상"(사용자 결정 2026-09-27) — 06-1 의 표기 함수는 private 이라 규칙을 여기 둔다.
-  String _heightRangeNote() {
+  /// "22–27세"(pen 그대로, en dash). 06-1 "나이는 상관없어요"는 전 구간(19~35)으로 저장된다 → null.
+  /// 위 끝 35 는 06-1 처럼 "35세 이상"(사용자 결정 2026-09-27). 아래 끝 19 는 06-1 도 "19세" 라 그대로 둔다.
+  String? _agePart() {
+    final (min, max) = (profile.preferredAgeMin, profile.preferredAgeMax);
+    final isWholeRange = min == IdealConditionsUiState.ageFloor && max == IdealConditionsUiState.ageCeiling;
+    if (min == null || max == null || isWholeRange) return null;
+    return '$min–$max세${max == IdealConditionsUiState.ageCeiling ? ' 이상' : ''}';
+  }
+
+  /// "165–180cm"(pen 그대로). 06-1 "키는 상관없어요"는 null 로 저장된다 → null.
+  /// 끝값 150·190 은 06-1 처럼 "150cm 이하"·"190cm 이상"(사용자 결정 2026-09-27)이라 그때만 "150cm 이하 ~ 180cm" 꼴을 쓴다.
+  String? _heightPart() {
     final (min, max) = (profile.preferredHeightMin, profile.preferredHeightMax);
-    if (min == null || max == null) return _noPreference;
-    final lower = min == IdealConditionsUiState.heightFloor ? '${min}cm 이하' : '${min}cm';
-    final upper = max == IdealConditionsUiState.heightCeiling ? '${max}cm 이상' : '${max}cm';
-    return '$lower ~ $upper';
+    if (min == null || max == null) return null;
+    final atFloor = min == IdealConditionsUiState.heightFloor;
+    final atCeiling = max == IdealConditionsUiState.heightCeiling;
+    if (!atFloor && !atCeiling) return '$min–${max}cm';
+    return '${min}cm${atFloor ? ' 이하' : ''} ~ ${max}cm${atCeiling ? ' 이상' : ''}';
   }
 
   /// pen 에 없는 상태 — 06-1 체크박스 문구와 같은 말을 쓴다(사용자 결정 2026-09-27).

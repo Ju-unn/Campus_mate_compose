@@ -263,17 +263,16 @@ void main() {
         expect(tester.getSize(factRows.at(i)), const Size(296, 48));
       }
 
-      // 선호 조건 `J0ZhR6`: 32 → 헤더 → 12 → 입구 행 328×84 → 12 → 328×84.
+      // 선호 조건 `J0ZhR6`(높이 121): 32 → 헤더 → 12 → 입구 행 한 줄 `sR3If` 328×84.
       expect(y(find.text('선호 조건')) - bottom(facts), 32);
-      final age = find.widgetWithText(ProfileEntryRow, '선호 나이 범위');
-      final height = find.widgetWithText(ProfileEntryRow, '선호 키 범위');
-      expect(y(age) - bottom(find.text('선호 조건')), 12);
-      expect(y(height) - bottom(age), 12);
-      expect(tester.getSize(age), const Size(328, 84));
-      expect(tester.getSize(height), const Size(328, 84));
+      final ideal = find.widgetWithText(ProfileEntryRow, '이상형 조건 수정');
+      expect(y(ideal) - bottom(find.text('선호 조건')), 12);
+      // 높이 84 는 최소값 — 테스트 글꼴은 한글이 Pretendard 보다 넓어 pen 노트(폭 184)도 여기선 두 줄이 된다.
+      expect(tester.getSize(ideal).width, 328);
+      expect(tester.getSize(ideal).height, greaterThanOrEqualTo(84));
 
       // 자기소개 `jVQAw`: 32 → 헤더 → 12 → 본문 → 12 → 15c 입구 행.
-      expect(y(find.text('자기소개')) - bottom(height), 32);
+      expect(y(find.text('자기소개')) - bottom(ideal), 32);
       expect(y(find.text(_bio)) - bottom(find.text('자기소개')), 12);
       final entry = find.widgetWithText(ProfileEntryRow, '자기소개 · 태그');
       expect(y(entry) - bottom(find.text(_bio)), 12);
@@ -530,77 +529,88 @@ void main() {
     });
   });
 
-  group('선호 조건 `J0ZhR6` — ProfileEntryRow 두 개(`sR3If` · `t1Eok`)', () {
-    Future<void> showRows(WidgetTester tester) =>
-        tester.scrollUntilVisible(find.text('선호 키 범위'), 200, scrollable: _list);
+  group('선호 조건 `J0ZhR6` — ProfileEntryRow 한 줄(`sR3If` 이상형 조건 수정)', () {
+    final ideal = find.widgetWithText(ProfileEntryRow, '이상형 조건 수정');
 
-    ProfileEntryRow rowOf(WidgetTester tester, String title) =>
-        tester.widget<ProfileEntryRow>(find.widgetWithText(ProfileEntryRow, title));
+    Future<void> showRow(WidgetTester tester) => tester.scrollUntilVisible(ideal, 200, scrollable: _list);
 
-    testWidgets('선호 나이 "22세–27세"(calendar), 선호 키 "165cm ~ 180cm"(ruler) — pen 형식 그대로, 셰브런', (tester) async {
+    ProfileEntryRow rowOf(WidgetTester tester) => tester.widget<ProfileEntryRow>(ideal);
+
+    testWidgets('선호 나이 · 선호 키 행은 따로 없고, "이상형 조건 수정" 한 줄(하트 · 한 문장 노트 · 셰브런)만 있다', (tester) async {
       await pump(tester);
-      await showRows(tester);
+      await showRow(tester);
 
-      final age = rowOf(tester, '선호 나이 범위');
-      final height = rowOf(tester, '선호 키 범위');
-      expect((age.icon, age.note), (AppIcon3d.calendar, '22세–27세'));
-      expect((height.icon, height.note), (AppIcon3d.ruler, '165cm ~ 180cm'));
-      for (final title in ['선호 나이 범위', '선호 키 범위']) {
-        final row = find.widgetWithText(ProfileEntryRow, title);
-        expect(find.descendant(of: row, matching: find.byIcon(AppIcons.chevronRight)), findsOneWidget);
-      }
+      expect(find.text('선호 나이 범위'), findsNothing);
+      expect(find.text('선호 키 범위'), findsNothing);
+      expect(ideal, findsOneWidget);
+      final row = rowOf(tester);
+      expect((row.icon, row.note), (AppIcon3d.heart, '나이 22–27세 · 키 165–180cm')); // 하트 `zxXQG`, 노트 `B4ppA`
+      expect(find.descendant(of: ideal, matching: find.byIcon(AppIcons.chevronRight)), findsOneWidget);
     });
 
-    // U1 — 셰브런은 값을 고치는 화면(06-1 편집)으로 잇는다. 두 행 모두 같은 화면이다(06-1 에 나이 · 키가 같이 있다).
-    for (final title in ['선호 나이 범위', '선호 키 범위']) {
-      testWidgets('"$title" 행을 누르면 06-1 편집(`/me/ideal-conditions`)으로 간다', (tester) async {
-        await pump(tester);
+    // U1 — 셰브런은 값을 고치는 화면(06-1 편집)으로 잇는다.
+    testWidgets('"이상형 조건 수정" 행을 누르면 06-1 편집(`/me/ideal-conditions`)으로 간다', (tester) async {
+      await pump(tester);
 
-        await tapVisible(tester, find.text(title));
-        await tester.pumpAndSettle();
+      await tapVisible(tester, find.text('이상형 조건 수정'));
+      await tester.pumpAndSettle();
 
-        expect(find.text('06-1 편집 화면'), findsOneWidget);
-      });
-    }
+      expect(find.text('06-1 편집 화면'), findsOneWidget);
+    });
 
     testWidgets('눌림 효과는 스크롤 밖이 아니라 행 크기 Material 이 그린다(COMMON §4-2)', (tester) async {
       usePenFrame(tester);
       await pump(tester);
-      await showRows(tester);
+      await showRow(tester);
 
-      for (final title in ['선호 나이 범위', '선호 키 범위']) {
-        final row = find.widgetWithText(ProfileEntryRow, title);
-        final ink = find.descendant(of: row, matching: find.byType(InkWell));
-        final painter = find.ancestor(of: ink, matching: find.byType(Material)).first;
-        expect(tester.getSize(painter), const Size(328, 84), reason: title);
-        expect(tester.getSize(ink), const Size(328, 84), reason: title);
-      }
+      final ink = find.descendant(of: ideal, matching: find.byType(InkWell));
+      final painter = find.ancestor(of: ink, matching: find.byType(Material)).first;
+      // 높이는 노트 줄 수에 따라 늘어난다(pen 84 는 최소값) — 눌림 칸이 행과 같은 크기인지만 본다.
+      expect(tester.getSize(painter), tester.getSize(ideal));
+      expect(tester.getSize(ink), tester.getSize(ideal));
+      expect(tester.getSize(ideal).width, 328);
     });
 
-    Future<String> noteOf(WidgetTester tester, String title, MyProfile profile) async {
+    Future<String> noteOf(WidgetTester tester, MyProfile profile) async {
       await pump(tester, result: Success(profile));
-      await showRows(tester);
-      return rowOf(tester, title).note;
+      await showRow(tester);
+      return rowOf(tester).note;
     }
 
-    for (final (title, profile, note) in [
-      ('선호 키 범위', _profile(preferredHeightMin: null, preferredHeightMax: null), '상관없어요'),
-      ('선호 키 범위', _profile(preferredHeightMax: null), '상관없어요'),
-      ('선호 나이 범위', _profile(preferredAgeMin: null, preferredAgeMax: null), '상관없어요'),
+    // 06-1 의 끝값 표기(나이 "35세 이상", 키 "150cm 이하" · "190cm 이상" — 사용자 결정 2026-09-27)를 한 문장 안에서도 따른다.
+    for (final (profile, note) in [
+      (_profile(), '나이 22–27세 · 키 165–180cm'),
+      (_profile(preferredHeightMin: null, preferredHeightMax: null), '나이 22–27세 · 키 상관없어요'),
+      (_profile(preferredHeightMax: null), '나이 22–27세 · 키 상관없어요'),
+      (_profile(preferredAgeMin: null, preferredAgeMax: null), '나이 상관없어요 · 키 165–180cm'),
       // 나이가 전 구간(19~35)이면 06-1 "나이는 상관없어요" 와 같다.
-      ('선호 나이 범위', _profile(preferredAgeMin: 19, preferredAgeMax: 35), '상관없어요'),
-      // 나이 아래 끝 19 는 06-1 처럼 그대로 "19세".
-      ('선호 나이 범위', _profile(preferredAgeMin: 19, preferredAgeMax: 27), '19세–27세'),
-      // 끝값 표기는 06-1(`ideal_conditions_screen` _ageSummary·_heightSummary)과 같다 — 사용자 결정 2026-09-27.
-      ('선호 나이 범위', _profile(preferredAgeMin: 25, preferredAgeMax: 35), '25세–35세 이상'),
-      ('선호 키 범위', _profile(preferredHeightMin: 150, preferredHeightMax: 180), '150cm 이하 ~ 180cm'),
-      ('선호 키 범위', _profile(preferredHeightMin: 165, preferredHeightMax: 190), '165cm ~ 190cm 이상'),
-      ('선호 키 범위', _profile(preferredHeightMin: 150, preferredHeightMax: 190), '150cm 이하 ~ 190cm 이상'),
+      (_profile(preferredAgeMin: 19, preferredAgeMax: 35), '나이 상관없어요 · 키 165–180cm'),
+      (_profile(preferredAgeMin: null, preferredAgeMax: null, preferredHeightMin: null, preferredHeightMax: null), '나이 · 키 모두 상관없어요'),
+      // 나이 아래 끝 19 는 06-1 처럼 그대로 "19".
+      (_profile(preferredAgeMin: 19, preferredAgeMax: 27), '나이 19–27세 · 키 165–180cm'),
+      (_profile(preferredAgeMin: 25, preferredAgeMax: 35), '나이 25–35세 이상 · 키 165–180cm'),
+      (_profile(preferredHeightMin: 150, preferredHeightMax: 180), '나이 22–27세 · 키 150cm 이하 ~ 180cm'),
+      (_profile(preferredHeightMin: 165, preferredHeightMax: 190), '나이 22–27세 · 키 165cm ~ 190cm 이상'),
+      (_profile(preferredHeightMin: 150, preferredHeightMax: 190), '나이 22–27세 · 키 150cm 이하 ~ 190cm 이상'),
     ]) {
-      testWidgets('"$title" 표기 — "$note"', (tester) async {
-        expect(await noteOf(tester, title, profile), note);
+      testWidgets('노트 표기 — "$note"', (tester) async {
+        expect(await noteOf(tester, profile), note);
       });
     }
+
+    testWidgets('가장 긴 노트도 글자 배율 2.0 에서 잘리지 않고 행이 늘어난다(최소 84)', (tester) async {
+      usePenFrame(tester);
+      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+      final longest = _profile(preferredAgeMin: 25, preferredAgeMax: 35, preferredHeightMin: 150, preferredHeightMax: 190);
+      await pump(tester, result: Success(longest));
+      await showRow(tester);
+
+      expect(tester.takeException(), isNull);
+      expect(tester.getSize(ideal).height, greaterThanOrEqualTo(84));
+      expect(_clippedTexts(), isEmpty);
+    });
   });
 
   group('자기소개 `jVQAw`', () {

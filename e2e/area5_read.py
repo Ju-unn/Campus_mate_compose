@@ -65,12 +65,13 @@ TITLES = {'15': '내 프로필', '15-4': '남이 보는 내 프로필', '15-5': 
 SECTIONS = ['실제 사진', '기본 정보', '선호 조건', '자기소개']  # profile_manage_screen.dart 섹션 제목 순서
 DELETED = ['프로필과 인증 정보', '신청·매칭 기록', '모든 대화 내용']  # withdraw_sheets.dart `_DeletedItems`
 EN_DASH = '–'
-# 선호 조건 두 판 — (이름, 넣을 칸, 나이 줄, 키 줄). 끝값 35 · 150 · 190 은 "이상" · "이하" 가 붙고, 전 구간은 "상관없어요".
+# 선호 조건 두 판 — (이름, 넣을 칸, 이상형 줄). 나이 · 키가 한 노트에 든다(profile_manage_screen.dart `_note`).
+# 끝값 35 · 150 · 190 은 "이상" · "이하" 가 붙고, 나이 전 구간 + 키 없음은 "나이 · 키 모두 상관없어요".
 PREFERENCES = (
     ('끝값', {'preferred_age_min': 22, 'preferred_age_max': 35, 'preferred_height_min': 150, 'preferred_height_max': 190},
-     f'22세{EN_DASH}35세 이상', '150cm 이하 ~ 190cm 이상'),
+     f'나이 22{EN_DASH}35세 이상 · 키 150cm 이하 ~ 190cm 이상'),
     ('전 구간', {'preferred_age_min': 19, 'preferred_age_max': 35, 'preferred_height_min': None, 'preferred_height_max': None},
-     '상관없어요', '상관없어요'),
+     '나이 · 키 모두 상관없어요'),
 )
 LEAKY_KEY = re.compile(r'kakao|phone|real_name|photo', re.I)
 # EDGE-13 — (앱이 멈추는 이름, 연 화면, 뒤로 뒤 도착 화면, 라벨). 15-5 · 15-4 는 고칠 값이 없다.
@@ -347,13 +348,12 @@ def p_me_08(run, phone):
 
 def p_me_09(run, phone):
     check = Check()
-    for name, fields, age_note, height_note in PREFERENCES:
+    for name, fields, ideal_note in PREFERENCES:
         account, token = _home(run)
         _patch(run, f"profiles?id=eq.{account['id']}", fields)
         part = Check()
         said = _app(part, phone(token_hash=token), name)
-        part.that(said.get('age_note', MISSING) == age_note, f"나이 줄 {said.get('age_note', MISSING)!r}(기대 {age_note!r})")
-        part.that(said.get('height_note', MISSING) == height_note, f"키 줄 {said.get('height_note', MISSING)!r}(기대 {height_note!r})")
+        part.that(said.get('ideal_note', MISSING) == ideal_note, f"이상형 줄 {said.get('ideal_note', MISSING)!r}(기대 {ideal_note!r})")
         check.problems += [f'{name}: {p}' for p in part.problems]
     return check.result()
 

@@ -697,8 +697,8 @@ class ManageScreenTest(ReadBase):
 
 class PreferenceTextTest(ReadBase):
     def answers(self, first=None, second=None):
-        ends = {'age_note': f'22세{EN_DASH}35세 이상', 'height_note': '150cm 이하 ~ 190cm 이상'}
-        anything = {'age_note': '상관없어요', 'height_note': '상관없어요'}
+        ends = {'ideal_note': f'나이 22{EN_DASH}35세 이상 · 키 150cm 이하 ~ 190cm 이상'}
+        anything = {'ideal_note': '나이 · 키 모두 상관없어요'}
         return Sequence(said(**{**ends, **(first or {})}), said(**{**anything, **(second or {})}))
 
     def test_09_end_values_read_over_and_under_and_the_whole_range_reads_anything(self):
@@ -712,11 +712,11 @@ class PreferenceTextTest(ReadBase):
 
     def test_09_fails_in_each_variant_with_its_name(self):
         for first, second, words in (
-                ({'age_note': '22세–35세'}, None, ('끝값', '나이 줄')),
-                ({'height_note': '150cm ~ 190cm'}, None, ('끝값', '키 줄')),
-                ({'age_note': '22세-35세 이상'}, None, ('끝값', '나이 줄')),  # 하이픈 — en dash 가 아니다
-                (None, {'age_note': '19세–35세 이상'}, ('전 구간', '나이 줄')),
-                (None, {'height_note': '150cm 이하 ~ 190cm 이상'}, ('전 구간', '키 줄'))):
+                ({'ideal_note': f'나이 22{EN_DASH}35세 · 키 150cm 이하 ~ 190cm 이상'}, None, ('끝값', '이상형 줄')),
+                ({'ideal_note': f'나이 22{EN_DASH}35세 이상 · 키 150cm ~ 190cm'}, None, ('끝값', '이상형 줄')),
+                ({'ideal_note': '나이 22-35세 이상 · 키 150cm 이하 ~ 190cm 이상'}, None, ('끝값', '이상형 줄')),  # 하이픈 — en dash 가 아니다
+                (None, {'ideal_note': f'나이 19{EN_DASH}35세 이상 · 키 상관없어요'}, ('전 구간', '이상형 줄')),
+                (None, {'ideal_note': '상관없어요'}, ('전 구간', '이상형 줄'))):
             with self.subTest(first=first, second=second):
                 self.fails('E-ME-09', self.answers(first, second), *words)
 

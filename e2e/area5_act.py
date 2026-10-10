@@ -358,7 +358,7 @@ def p_me_24(run, phone, paid):
     said = _app(check, phone(token_hash=token))
     for key, want, label in (('title', TITLES['06-1'], '앱바'), ('first_age', '22세 ~ 27세', '처음 나이 줄'), ('first_height', '165cm ~ 180cm', '처음 키 줄'),
                              ('changed_age', '24세 ~ 30세', '슬라이더로 고른 나이 줄'), ('back_title', TITLES['15-5'], '저장 뒤 화면(15-5)'),
-                             ('age_note', '24세–30세', '15-5 나이 줄'), ('height_note', '165cm ~ 180cm', '15-5 키 줄')):
+                             ('ideal_note', '나이 24–30세 · 키 165–180cm', '15-5 이상형 줄')):
         check.that(said.get(key, MISSING) == want, f'{label} {said.get(key, MISSING)!r}(기대 {want!r})')
     db = _prefs_kept(check, run, account)
     check.that((db.get('preferred_age_min'), db.get('preferred_age_max')) == (24, 30),
@@ -377,8 +377,8 @@ def p_me_25(run, phone, paid):
     check.that(said.get('age_ignored') is True, f"나이 체크 {said.get('age_ignored', MISSING)}(기대 켜짐)")
     check.that(said.get('height_ignored') is True, f"키 체크 {said.get('height_ignored', MISSING)}(기대 켜짐)")
     check.that(said.get('back_title', MISSING) == TITLES['15-5'], f"저장 뒤 화면 {said.get('back_title', MISSING)!r}(기대 15-5 {TITLES['15-5']!r})")
-    check.that(said.get('age_note', MISSING) == '상관없어요', f"15-5 나이 줄 {said.get('age_note', MISSING)!r}(기대 '상관없어요')")
-    check.that(said.get('height_note', MISSING) == '상관없어요', f"15-5 키 줄 {said.get('height_note', MISSING)!r}(기대 '상관없어요')")
+    check.that(said.get('ideal_note', MISSING) == '나이 · 키 모두 상관없어요',
+               f"15-5 이상형 줄 {said.get('ideal_note', MISSING)!r}(기대 '나이 · 키 모두 상관없어요')")
     db = _prefs_kept(check, run, account, '키')
     check.that((db.get('preferred_age_min'), db.get('preferred_age_max')) == (19, 35),
                f"DB 나이 {db.get('preferred_age_min')}~{db.get('preferred_age_max')}(기대 19~35)")

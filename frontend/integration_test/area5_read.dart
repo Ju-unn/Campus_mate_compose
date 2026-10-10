@@ -231,9 +231,8 @@ final Map<String, Area1Case> area5CasesRead = {
   }),
   'E-ME-09': _session((tester, job) async {
     await _openManage(tester);
-    await _reveal(tester, find.text(_agePref));
-    await tester.scrollUntilVisible(find.text(_heightPref), 300, scrollable: _manageScrollable);
-    return {'age_note': _entryNote(tester, _agePref), 'height_note': _entryNote(tester, _heightPref)};
+    await _reveal(tester, _entry(_idealEntry));
+    return {'ideal_note': _entryNote(tester, _idealEntry)};
   }),
   'E-ME-28': _session((tester, job) => _readBasicInfo(tester)),
   'E-ME-29': _session((tester, job) => _readBasicInfo(tester)),
@@ -308,8 +307,8 @@ final Map<String, Area1Case> area5CasesRead = {
     walks.add(await _backFrom(tester, '15c', edited: fieldText(tester, find.byType(TextField)) == bio, typed: true));
     await _returnTo(tester, '프로필 편집');
     // 06-1(나이 "상관없어요" 를 바꾼 채) → 15-5
-    await _reveal(tester, _entry(_agePref));
-    await tap(tester, _entry(_agePref));
+    await _reveal(tester, _entry(_idealEntry));
+    await tap(tester, _entry(_idealEntry));
     await pumpUntil(tester, find.byType(IdealConditionsScreen));
     await wait(tester, const Duration(milliseconds: 500));
     final ignored = tester.widget<Checkbox>(find.byType(Checkbox).first).value;

@@ -240,6 +240,28 @@ void main() {
       expect(find.descendant(of: row('4'), matching: find.byKey(notificationUnreadDotKey)), findsNothing);
     });
 
+    testWidgets('읽음 줄도 점 슬롯 폭 8 + 앞 간격 12 를 비워 둬서 글 칸이 안 읽음과 같은 224(`FOB6f` 복원 · 점 `OYASd` 만 숨김)', (tester) async {
+      await pump(
+        tester,
+        repository: FakeNotificationsRepository(pages: [
+          NotificationsPage(
+            items: [
+              fakeNotification('u', body: '아주 긴 본문 ' * 30),
+              fakeNotification('r', body: '아주 긴 본문 ' * 30, read: true),
+            ],
+            unreadCount: 1,
+          ),
+        ]),
+      );
+
+      Finder body(String id) => find.descendant(of: row(id), matching: find.textContaining('아주 긴 본문'));
+      expect(tester.getSize(body('u')).width, 224); // 안 읽음 `votNn` Copy
+      expect(tester.getSize(body('r')).width, 224); // 읽음 `xmVrG` Copy (옛 244)
+      expect(tester.getTopLeft(body('r')).dx, tester.getTopLeft(body('u')).dx);
+      expect(find.descendant(of: row('r'), matching: find.byKey(notificationUnreadDotKey)), findsNothing);
+      expect(find.descendant(of: row('u'), matching: find.byKey(notificationUnreadDotKey)), findsOneWidget);
+    });
+
     testWidgets('본문 14 muted, 시간 12 muted(대비 4.5:1 을 넘기려 #9A9A9A 대신 muted)', (tester) async {
       await pump(tester);
 
