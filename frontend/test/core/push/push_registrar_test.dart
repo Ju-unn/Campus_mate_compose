@@ -104,6 +104,18 @@ void main() {
       expect(messaging.deletedOnDevice, 1);
     });
 
+    test('서버 삭제가 끝나지 않으면 기다리다 실패로 보고 기기 토큰을 버린다', () async {
+      // 앱 http 에는 타임아웃이 없다 — 매달린 DELETE 를 기다리면 로그아웃(signOut 의 finally)까지 못 간다.
+      final messaging = FakePushMessaging(token: 'tok-1');
+      final registrar = PushRegistrar(messaging, _HangingDeleteRepository(), deleteTimeout: Duration.zero);
+      await registrar.start();
+
+      await registrar.stop();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(messaging.deletedOnDevice, 1);
+    }, timeout: const Timeout(Duration(seconds: 2)));
+
     test('로그아웃은 기기 토큰 버리기를 기다리지 않고, 그사이 다시 로그인하면 버린 뒤에 토큰을 받는다', () async {
       // 느린 망에서 로그아웃 화면이 FCM 을 기다리며 멈추지 않게 · 곧 버려질 토큰을 새 주인으로 등록하지 않게.
       final gate = Completer<void>();
@@ -159,4 +171,9 @@ void main() {
       expect(messaging.deleteTokenCalls, callsAfterLogin);
     });
   });
+}
+
+class _HangingDeleteRepository extends FakeCardRepository {
+  @override
+  Future<Result<void>> deletePushToken(String token) => Completer<Result<void>>().future;
 }
