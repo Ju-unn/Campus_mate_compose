@@ -312,6 +312,10 @@ async def accept_trust_gate(match_id: str, wiring: _Wiring = Depends(_wire)) -> 
     # **통과 도장이 수락 바로 다음이다.** 사이에 시스템 줄이나 푸시를 끼우면, 그 한 번이 끊겼을 때
     # trust_response=accept 인데 trust_passed_at 은 비어 있는 방이 남는다. 다시 눌러도 409 고
     # 48시간 배치가 그 방을 닫아 버려 되살릴 길이 없다.
+    # 상대 값은 **저장한 뒤에 다시 읽는다.** 맨 처음 읽은 partner 를 쓰면, 수락이 수십 ms 안에 겹친 두 요청이
+    # 서로 저장 전 값을 읽고 둘 다 "상대 미응답" 이라 판정해 도장이 안 찍힌다(E-CHAT-44). 나중에 저장한 쪽은
+    # 반드시 상대의 수락을 보므로, 두 요청 중 적어도 하나는 통과를 알아챈다.
+    _, partner = _sides(await wiring.repo.fetch_match(match_id, wiring.profile_id) or match, wiring.profile_id)
     passed = gate.is_passed(["accept", partner["trust_response"]])
     # False 면 같은 순간에 양쪽이 눌러 상대가 먼저 찍은 것이다 — 알림은 찍은 쪽이 보냈다.
     stamped = passed and await wiring.repo.pass_trust_gate(match_id, now)
