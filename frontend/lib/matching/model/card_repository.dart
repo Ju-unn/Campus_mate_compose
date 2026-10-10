@@ -16,6 +16,8 @@ enum CardDecision {
 abstract interface class CardRepository {
   Future<Result<TodayCards>> fetchToday();
   Future<Result<CardDetail>> fetchCard(String cardId);
+  /// 결제 카드를 연다(하트 차감 포함). 성공하면 새 카드 번호다. 402 · 409 는 [PaidPurchaseFailure] 로 가른다.
+  Future<Result<String>> purchasePaidCard(String offerId);
   Future<Result<void>> decide(String cardId, CardDecision decision);
   Future<Result<List<Acceptance>>> fetchAcceptances();
   Future<Result<AcceptanceOutcome>> respondToAcceptance(String cardId, CardDecision decision);

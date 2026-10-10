@@ -10,7 +10,7 @@ void main() {
     );
 
     expect(find.text('매칭됐어요!'), findsOneWidget);
-    expect(find.text('토끼 님도 수락했어요.\n대화를 시작해 보세요.'), findsOneWidget);
+    expect(find.text('토끼 님과 매칭됐어요.\n대화를 시작해 보세요.'), findsOneWidget);
     expect(find.text('나중에 확인하기'), findsOneWidget);
   });
 }

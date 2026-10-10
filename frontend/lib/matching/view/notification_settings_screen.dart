@@ -26,8 +26,8 @@ const _sections = <({String title, List<_Row> rows})>[
       ),
       (
         key: 'acceptance_received',
-        title: '받은 수락',
-        note: '상대가 나를 수락했을 때',
+        title: '받은 신청',
+        note: '상대가 나에게 대화를 신청했을 때',
         icon: AppIcon3d.heart,
       ),
       (

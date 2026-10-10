@@ -30,7 +30,7 @@ class MatchMadeScreen extends StatelessWidget {
               Text('매칭됐어요!', style: AppTypography.headline.copyWith(color: AppColors.ink)),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                '$nickname 님도 수락했어요.\n대화를 시작해 보세요.',
+                '$nickname 님과 매칭됐어요.\n대화를 시작해 보세요.',
                 textAlign: TextAlign.center,
                 style: AppTypography.body.copyWith(color: AppColors.muted),
               ),

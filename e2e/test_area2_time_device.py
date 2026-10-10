@@ -262,7 +262,7 @@ class World(Fake):
         """수락이면 받는 사람(카드의 target)에게 알림 — 방해 금지 시간(밤)이고 그 사람이 켜 뒀으면 보관함, 아니면 바로 알림창."""
         card = next(c for c in self.tables['daily_cards'] if c['id'] == sent['path'].split('/')[2])
         if sent['body']['decision'] == 'accept' and not (self.night and self.drop):
-            target, text = card['target_id'], f"닉{card['owner_id']} 님이 대화를 하고 싶어 해요"
+            target, text = card['target_id'], f"닉{card['owner_id']} 님이 대화를 신청했어요"
             if self.night and self.defer and {**SETTINGS, **self.settings.get(target, {})}['quiet_hours']:
                 self.tables.setdefault('pending_pushes', []).append({
                     'id': f'p{len(self.tables.get("pending_pushes", []))}', 'profile_id': target, 'kind': 'acceptance_received',
@@ -1270,7 +1270,7 @@ class Card44Test(DeviceBase):
         self.assertEqual(len(self.world.shade), 1)  # 두 번째(방해 금지를 끈 뒤) 수락만 밤에 뜸
         saved = json.loads(self.state.read_text(encoding='utf-8'))
         self.assertEqual(saved['night_date'], '2026-10-06')
-        self.assertEqual((saved['receiver_id'], saved['title'], saved['text']), ('id-3', td.NIGHT_TITLE, '닉id-1 님이 대화를 하고 싶어 해요'))
+        self.assertEqual((saved['receiver_id'], saved['title'], saved['text']), ('id-3', td.NIGHT_TITLE, '닉id-1 님이 대화를 신청했어요'))
         self.assertEqual(saved['pending_id'], self.world.tables['pending_pushes'][0]['id'])
         self.assertIn(('none', 60), self.windows)
 
@@ -1401,7 +1401,7 @@ class Card44Test(DeviceBase):
     def test_a_different_text_is_a_fail(self):
         self.night()
         self.scripts['chat-gate'] = lambda: (self.world.tables.__setitem__('pending_pushes', []),
-                                              self.world.post(td.NIGHT_TITLE, '밤사이 2명이 나를 수락했어요'))
+                                              self.world.post(td.NIGHT_TITLE, '밤사이 2명이 대화를 신청했어요'))
         self.assertEqual(self.morning()[0][0], 'fail')
 
     def test_a_state_two_days_old_starts_over_instead_of_judging_a_notice_that_may_be_gone(self):

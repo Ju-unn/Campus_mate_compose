@@ -103,7 +103,7 @@ class _Body extends ConsumerWidget {
     final isBusy = state.respondingCardId != null;
     return [
       PinnedHeaderSliver(
-        child: _SectionHeader(title: '수락 대기', count: state.acceptances.length),
+        child: _SectionHeader(title: '받은 신청', count: state.acceptances.length),
       ),
       SliverList.separated(
         itemCount: state.acceptances.length,
@@ -209,7 +209,7 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.sm),
             Text(
-              '서로 수락하면 여기에서 대화를 시작할 수 있어요.',
+              '신청을 수락하면 여기에서 대화를 시작할 수 있어요.',
               textAlign: TextAlign.center,
               style: AppTypography.bodySmall.copyWith(color: AppColors.muted, height: 1.5),
             ),

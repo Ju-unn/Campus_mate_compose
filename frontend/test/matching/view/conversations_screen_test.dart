@@ -50,15 +50,15 @@ void main() {
   double headerHeight(WidgetTester tester, String title) =>
       tester.getSize(find.ancestor(of: find.text(title), matching: find.byType(Container)).first).height;
 
-  testWidgets('수락 대기 섹션에 사람 수와 행을 보여준다', (tester) async {
+  testWidgets('받은 신청 섹션에 사람 수와 행을 보여준다', (tester) async {
     final repository = FakeCardRepository()..acceptances = const Success([_acceptance]);
 
     await pump(tester, repository);
 
-    expect(find.text('수락 대기'), findsOneWidget);
+    expect(find.text('받은 신청'), findsOneWidget);
     expect(find.text('1명'), findsOneWidget);
     expect(find.text('초코라떼, 25'), findsOneWidget);
-    expect(find.text('수락하고 대화 시작'), findsOneWidget);
+    expect(find.text('수락하기'), findsOneWidget);
   });
 
   for (final scale in [1.0, 1.75, 2.0]) {
@@ -72,7 +72,7 @@ void main() {
 
       // 높이 44 고정이면 제목(20 × 1.4 = 28)이 1.75 에서 49 가 되어 넘친다.
       expect(tester.takeException(), isNull);
-      for (final title in ['수락 대기', '대화 중']) {
+      for (final title in ['받은 신청', '대화 중']) {
         final p = tester.renderObject<RenderParagraph>(find.text(title));
         expect(p.size.height, greaterThanOrEqualTo(p.getMaxIntrinsicHeight(p.size.width) - 0.5), reason: title);
         // 배율 1.0 에서는 pen 높이 44 그대로다.
@@ -81,7 +81,7 @@ void main() {
     });
   }
 
-  testWidgets('목록을 내려도 수락 대기 헤더는 위에 붙어 있고 대화 중 헤더는 같이 올라간다', (tester) async {
+  testWidgets('목록을 내려도 받은 신청 헤더는 위에 붙어 있고 대화 중 헤더는 같이 올라간다', (tester) async {
     final chat = FakeChatRepository()
       ..conversations = Success([
         for (var i = 0; i < 15; i++) conversationFixture(matchId: 'm$i', nickname: '사람$i'),
@@ -93,16 +93,16 @@ void main() {
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -600));
     await tester.pumpAndSettle();
 
-    expect(tester.getTopLeft(find.text('수락 대기')).dy, greaterThanOrEqualTo(top));
-    expect(tester.getRect(find.text('수락 대기')).top - top, lessThan(44));
+    expect(tester.getTopLeft(find.text('받은 신청')).dy, greaterThanOrEqualTo(top));
+    expect(tester.getRect(find.text('받은 신청')).top - top, lessThan(44));
     expect(find.text('대화 중').hitTestable(), findsNothing);
   });
 
-  testWidgets('수락 대기가 0건이면 대화 중 헤더만 높이 44 로 맨 위에 온다', (tester) async {
+  testWidgets('받은 신청이 0건이면 대화 중 헤더만 높이 44 로 맨 위에 온다', (tester) async {
     final chat = FakeChatRepository()..conversations = Success([conversationFixture()]);
     await pump(tester, FakeCardRepository(), chat);
 
-    expect(find.text('수락 대기'), findsNothing);
+    expect(find.text('받은 신청'), findsNothing);
     expect(find.text('1명'), findsOneWidget);
     expect(headerHeight(tester, '대화 중'), 44);
     expect(
@@ -111,11 +111,14 @@ void main() {
     );
   });
 
-  testWidgets('받은 수락이 없으면 빈 상태 문구만 보여준다', (tester) async {
+  testWidgets('받은 신청이 없으면 빈 상태 문구만 보여준다', (tester) async {
     await pump(tester, FakeCardRepository());
 
     expect(find.text('아직 시작된 대화가 없어요'), findsOneWidget);
-    expect(find.text('수락 대기'), findsNothing);
+    // pen `X0Hha9` — 제목은 그대로, 본문만 "신청을 수락하면" 으로 바뀌었다(지시문 23 F).
+    expect(find.text('신청을 수락하면 여기에서 대화를 시작할 수 있어요.'), findsOneWidget);
+    expect(find.text('서로 수락하면 여기에서 대화를 시작할 수 있어요.'), findsNothing);
+    expect(find.text('받은 신청'), findsNothing);
   });
 
   testWidgets('거절을 누르면 거절이 서버로 간다', (tester) async {
@@ -149,7 +152,7 @@ void main() {
 
     await pump(tester, repository);
 
-    expect(find.text('수락 대기'), findsOneWidget);
+    expect(find.text('받은 신청'), findsOneWidget);
     expect(find.text('대화 중'), findsNothing);
   });
 
@@ -302,7 +305,7 @@ void main() {
 
     testWidgets('다른 탭에 갔다가 이 화면으로 돌아오면 수락 대기도 다시 읽는다', (tester) async {
       await openScreen(tester);
-      expect(find.text('수락 대기'), findsNothing);
+      expect(find.text('받은 신청'), findsNothing);
       cards.acceptances = const Success([_acceptance]);
 
       await leaveAndReturn(tester);

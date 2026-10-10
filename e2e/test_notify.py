@@ -22,7 +22,7 @@ def record(pkg, key, title, text, channel='campus_mate_default', wrapped=True):
 
 USB = record('android', '0|android|1|null|1000', 'USB 디버깅이 연결됨', '탭하여 끄기', channel='ADB')
 CARD = record(OURS, f'0|{OURS}|11|FCM-Notification:1|10123', '오늘의 카드가 도착했어요', '지금 확인해 보세요')
-ACCEPT = record(OURS, f'0|{OURS}|12|FCM-Notification:2|10123', '나를 수락한 사람이 있어요', '민트 님이 대화를 하고 싶어 해요', wrapped=False)
+ACCEPT = record(OURS, f'0|{OURS}|12|FCM-Notification:2|10123', '대화 신청이 왔어요', '민트 님이 대화를 신청했어요', wrapped=False)
 
 
 class ParseTest(unittest.TestCase):
@@ -30,7 +30,7 @@ class ParseTest(unittest.TestCase):
         found = notify.parse_notifications(USB + CARD + ACCEPT)
         self.assertEqual([(n.title, n.text, n.channel) for n in found],
                          [('오늘의 카드가 도착했어요', '지금 확인해 보세요', 'campus_mate_default'),
-                          ('나를 수락한 사람이 있어요', '민트 님이 대화를 하고 싶어 해요', 'campus_mate_default')])
+                          ('대화 신청이 왔어요', '민트 님이 대화를 신청했어요', 'campus_mate_default')])
         self.assertIn('FCM-Notification:1', found[0].key)
 
     def test_a_title_that_ends_with_a_parenthesis_is_kept_whole(self):
@@ -94,7 +94,7 @@ class WaitTest(unittest.TestCase):
         before = notify.parse_notifications(USB + CARD)
         with self.reads(USB + CARD, USB + CARD + ACCEPT):
             got = notify.wait_new('S', before, count=1, seconds=60)
-        self.assertEqual([n.title for n in got], ['나를 수락한 사람이 있어요'])
+        self.assertEqual([n.title for n in got], ['대화 신청이 왔어요'])
 
     def test_wait_new_waits_for_the_requested_count(self):
         with self.reads(USB + CARD, USB + CARD + ACCEPT):
@@ -196,7 +196,7 @@ class TapTest(unittest.TestCase):
             self.run_tap('')
 
     def test_unicode_in_the_dump_is_read_as_utf8(self):
-        self.run_tap(ui(('나를 수락한 사람이 있어요', '[0,0][100,100]')), title='나를 수락한 사람이 있어요')
+        self.run_tap(ui(('대화 신청이 왔어요', '[0,0][100,100]')), title='대화 신청이 왔어요')
         self.assertIn(('shell', 'input', 'tap', '50', '50'), self.sent)
 
     # ── 눌렀는데 앱이 안 열린 경우(실기기: 짧은 닉네임 제목 알림을 눌러도 알림창이 그대로 열려 있었다) ──
@@ -244,9 +244,9 @@ class TapTest(unittest.TestCase):
         self.assertEqual(len(self.taps()), 1)
 
     def test_with_a_body_it_picks_the_row_whose_body_matches_not_an_older_row_with_the_same_title(self):
-        old_and_new = ui(('매칭됐어요!', '[100,300][500,360]'), ('옛 닉네임 님도 수락했어요', '[100,370][500,420]'),
-                         ('매칭됐어요!', '[100,700][500,760]'), ('Mina 님도 수락했어요', '[100,770][500,820]'))
-        self.run_tap(old_and_new, title='매칭됐어요!', body='Mina 님도 수락했어요')
+        old_and_new = ui(('매칭됐어요!', '[100,300][500,360]'), ('옛 닉네임 님이 신청을 수락했어요.', '[100,370][500,420]'),
+                         ('매칭됐어요!', '[100,700][500,760]'), ('Mina 님이 신청을 수락했어요.', '[100,770][500,820]'))
+        self.run_tap(old_and_new, title='매칭됐어요!', body='Mina 님이 신청을 수락했어요.')
         self.assertEqual(self.taps()[0], ('300', '730'))  # 아래쪽(새) 줄의 제목
 
     def test_a_body_that_no_row_has_is_blocked_not_a_tap_on_the_wrong_row(self):

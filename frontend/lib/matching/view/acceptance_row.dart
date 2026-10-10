@@ -70,7 +70,7 @@ class AcceptanceRow extends StatelessWidget {
               ),
               const SizedBox(width: AppSpacing.xs),
               Expanded(
-                child: AppButton(label: '수락하고 대화 시작', onPressed: onAccept, height: 44),
+                child: AppButton(label: '수락하기', onPressed: onAccept, height: 44),
               ),
             ],
           ),

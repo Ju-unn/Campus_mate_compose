@@ -55,7 +55,7 @@ const _close = '닫기'; // :140
 // 16d — frontend/lib/matching/view/notification_settings_screen.dart _sections :16-75. 기본값 = cards/repository.py NOTIFICATION_DEFAULTS.
 const _notificationDefaults = {
   '오늘의 카드 도착': true,
-  '받은 수락': true,
+  '받은 신청': true,
   '매칭 성립': true,
   '새 메시지': true,
   '신뢰 확인 리마인드': true,

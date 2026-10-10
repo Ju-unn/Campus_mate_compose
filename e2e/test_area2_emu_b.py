@@ -22,7 +22,7 @@ from e2e.tools import Blocked, Reply
 BUNDLE = ('E-CARD-41 E-CARD-45 E-CARD-86 E-POLL-02 E-POLL-04 E-POLL-05 E-POLL-06 E-POLL-28 E-REF-07 E-REF-08 E-REF-17').split()
 EMU = 'emulator-5554'
 PASS = {'result': 'pass'}
-ACCEPT_TITLE = '나를 수락한 사람이 있어요'
+ACCEPT_TITLE = '대화 신청이 왔어요'
 NOT_FOUND = '수락을 찾을 수 없어요'
 
 
@@ -177,7 +177,7 @@ class EveryCaseTest(EmuBase):
 
 class AcceptanceTest(EmuBase):
     def match_made(self, world, job):
-        """앱이 "수락하고 대화 시작" 을 눌러 서버에 남기는 일."""
+        """앱이 "수락하기" 을 눌러 서버에 남기는 일."""
         card = world.rows('daily_cards')[0]
         self.assertEqual(world.respond({'auth': 'tok-2', 'path': f"/cards/acceptances/{card['id']}", 'body': {'decision': 'accept'}}).status, 200)
 
@@ -289,7 +289,7 @@ class Card41Test(EmuBase):
             self.addCleanup(patcher.stop)
 
     def body(self):
-        return f"{self.nick('id-1')} 님이 대화를 하고 싶어 해요"
+        return f"{self.nick('id-1')} 님이 대화를 신청했어요"
 
     def wait_new(self, serial, before, count=1, seconds=0, match=None):
         self.calls.append(('wait_new', seconds, match is not None, len(self.world.rows('card_decisions'))))
@@ -338,7 +338,7 @@ class Card41Test(EmuBase):
         self.assertFalse([c for c in self.calls if isinstance(c, tuple) and c[0] == 'tap'])
 
     def test_an_older_notification_with_another_nickname_is_not_tapped(self):
-        self.notices = [notify.Notice('old2', ACCEPT_TITLE, '다른닉 님이 대화를 하고 싶어 해요', 'c')]
+        self.notices = [notify.Notice('old2', ACCEPT_TITLE, '다른닉 님이 대화를 신청했어요', 'c')]
         self.assertEqual(self.go()[0][0], 'blocked')
         self.assertFalse([c for c in self.calls if isinstance(c, tuple) and c[0] == 'tap'])
 
@@ -361,7 +361,7 @@ class Card41Test(EmuBase):
         self.assertNotIn('/auth/v1/admin/users', [s['path'] for s in self.world.sent])
 
     def test_app_answers(self):
-        for answer, want in (({'result': 'fail', 'note': '수락 대기 없음'}, 'fail'), ({'result': 'blocked', 'note': '홈 아님'}, 'blocked'), (None, 'fail')):
+        for answer, want in (({'result': 'fail', 'note': '받은 신청 없음'}, 'fail'), ({'result': 'blocked', 'note': '홈 아님'}, 'blocked'), (None, 'fail')):
             with self.subTest(answer):
                 self.setUp()
                 (result, note), _ = self.go(answer)

@@ -119,7 +119,7 @@ void main() {
       expect(find.byType(ProfileCard), findsOneWidget);
       expect(safety.partnerProfileRequests, ['p2']);
       // 결정 바(거절 · 수락)와 지인 리뷰는 없다.
-      expect(find.text('수락하기'), findsNothing);
+      expect(find.text('대화 신청하기'), findsNothing);
       expect(find.text('지인 리뷰'), findsNothing);
     });
 

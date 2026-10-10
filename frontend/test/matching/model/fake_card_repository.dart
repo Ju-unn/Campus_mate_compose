@@ -24,6 +24,18 @@ class FakeCardRepository implements CardRepository {
 
   int fetchTodayCount = 0;
 
+  /// 유료 카드 구매 결과. 성공이면 새 카드 번호다.
+  Result<String> purchaseResult = const Success('card-new');
+
+  /// 구매가 서버에 간 제안 번호들(몇 번 갔는지 · 어느 제안인지).
+  final List<String> purchasedOfferIds = [];
+
+  /// 채워 두면 구매 응답이 이것이 끝날 때까지 멈춘다 — 응답 도중에 또 누르는 상황용.
+  Completer<void>? holdPurchase;
+
+  /// 채워 두면 구매 호출이 끝난 뒤의 [fetchToday] 는 이 값을 돌려준다(서버가 산 카드를 목록에 넣은 모양).
+  Result<TodayCards>? todayAfterPurchase;
+
   /// 수락함을 읽은 횟수. 앱 복귀·화면 진입 때 다시 읽는지 볼 때 쓴다.
   int fetchAcceptancesCount = 0;
 
@@ -41,7 +53,14 @@ class FakeCardRepository implements CardRepository {
   @override
   Future<Result<TodayCards>> fetchToday() async {
     fetchTodayCount += 1;
-    return today;
+    return purchasedOfferIds.isNotEmpty && todayAfterPurchase != null ? todayAfterPurchase! : today;
+  }
+
+  @override
+  Future<Result<String>> purchasePaidCard(String offerId) async {
+    purchasedOfferIds.add(offerId);
+    await holdPurchase?.future;
+    return purchaseResult;
   }
 
   @override

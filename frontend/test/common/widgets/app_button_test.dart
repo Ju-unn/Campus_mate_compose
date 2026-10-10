@@ -95,6 +95,30 @@ void main() {
     });
   });
 
+  group('AppButton 끝 아이콘 (결제 카드 안내 시트 `yqPNS` — 라벨 오른쪽 화살표 20, 간격 8)', () {
+    testWidgets('trailingIcon 을 주면 라벨 오른쪽 8 에 20×20 아이콘이 붙는다', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AppButton(label: '알겠어요', onPressed: () {}, trailingIcon: Icons.arrow_forward),
+          ),
+        ),
+      );
+
+      final icon = find.descendant(of: find.byType(AppButton), matching: find.byType(Icon));
+      expect(tester.getSize(icon), const Size(20, 20));
+      expect(tester.getTopLeft(icon).dx - tester.getTopRight(find.text('알겠어요')).dx, 8);
+    });
+
+    testWidgets('주지 않으면 지금 그대로 글자 하나뿐이다 (다른 화면 영향 없음)', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(home: Scaffold(body: AppButton(label: '다음으로', onPressed: () {}))),
+      );
+
+      expect(find.descendant(of: find.byType(AppButton), matching: find.byType(Icon)), findsNothing);
+    });
+  });
+
   group('AppButton 색 (DESIGN.md §8.3)', () {
     testWidgets('primary 의 평상시 채움·텍스트색', (tester) async {
       final style = await styleOf(

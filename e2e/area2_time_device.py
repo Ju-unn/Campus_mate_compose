@@ -41,7 +41,7 @@ SETTLE = 10  # 알림이 온 뒤 같은 알림이 한 번 더 오는지 보는 �
 INTERVAL_MIN = 55  # 서버 요청 간격 "1분 미만" 의 기계 오차(초)
 OPEN_LATE = 125  # 여는 시각(07:00:00) 뒤 09b 가 보이기까지 허용 — 시나리오 "07:02:00 사이" + 시계 오차
 FLIP_LATE = 65  # 자정 뒤 D-숫자가 바뀌기까지 허용 — 시나리오 "00:01 사이" + 시계 오차
-NIGHT_TITLE = '나를 수락한 사람이 있어요'  # backend/app/cards/router.py decide_card
+NIGHT_TITLE = '대화 신청이 왔어요'  # backend/app/cards/router.py decide_card
 
 
 def now_seoul():
@@ -618,7 +618,7 @@ def _card44_night(run, phone):
         before = notify.read_notifications(phone.serial)
         check.reply('A2 수락', _api(run, 'POST', f'/cards/{c2}/decision', a2['token'], {'decision': 'accept'}, **_ONCE), 200)
         nickname = _one(run, f"profiles?id=eq.{a2['id']}&select=nickname").get('nickname')
-        want = (NIGHT_TITLE, f'{nickname} 님이 대화를 하고 싶어 해요')
+        want = (NIGHT_TITLE, f'{nickname} 님이 대화를 신청했어요')
         new = notify.wait_new(phone.serial, before, seconds=NOTICE_WAIT)
         check.that(any((n.title, n.text) == want for n in new),
                    f'방해 금지를 끈 뒤 {NOTICE_WAIT}초 안에 알림 "{want[0]} / {want[1]}" 없음(새 알림 {len(new)}건)')

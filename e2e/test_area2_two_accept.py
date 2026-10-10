@@ -412,7 +412,7 @@ class InboxRejectTest(Base):
         self.assertEqual(self.two.went[1][2], {'token_hash': 'h'})  # A 는 거절 뒤에 로그인 — 아무 신호가 없었는지 새로 읽는다
 
     def test_the_inbox_row_exists_before_the_app_starts(self):
-        # 시작 전에 A 의 수락이 서버에 있어야 B 의 앱이 첫 읽기에서 "수락 대기 1명" 을 본다
+        # 시작 전에 A 의 수락이 서버에 있어야 B 의 앱이 첫 읽기에서 "받은 신청 1명" 을 본다
         seen = []
         self.passes('E-CARD-49', ('B', 'rejected', lambda: (seen.append(self.world.decided(self.world.card_between(A, B))), self.b_rejects())),
                     ('A', 'wait', None))

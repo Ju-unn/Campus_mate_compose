@@ -35,7 +35,7 @@ def card(run, owner, target):
 
 
 def accept_card(run, owner, card_id):
-    """owner 가 카드를 수락 — 받는 쪽에 "나를 수락한 사람이 있어요" 가 간다."""
+    """owner 가 카드를 수락 — 받는 쪽에 "대화 신청이 왔어요" 가 간다."""
     _ok(_api(run, 'POST', f'/cards/{card_id}/decision', owner['token'], {'decision': 'accept'}), '카드 수락')
 
 

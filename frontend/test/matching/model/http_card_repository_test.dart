@@ -3,7 +3,9 @@ import 'dart:convert';
 import 'package:campus_mate/core/http/api_client.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/matching/model/card_repository.dart';
+import 'package:campus_mate/matching/model/daily_card.dart';
 import 'package:campus_mate/matching/model/http_card_repository.dart';
+import 'package:campus_mate/matching/model/paid_card.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -58,7 +60,6 @@ void main() {
           },
         ],
         'next_issue_at': '2026-09-24T07:00:00+09:00',
-        'locked_card_available': true,
         'candidate_pool_empty': false,
       });
     });
@@ -77,7 +78,6 @@ void main() {
     final client = MockClient((request) async => jsonResponse({
           'cards': <Object>[],
           'next_issue_at': null,
-          'locked_card_available': false,
           'candidate_pool_empty': true,
         }));
 
@@ -86,6 +86,137 @@ void main() {
     final today = result.when(onSuccess: (value) => value, onFailure: (_) => null);
     expect(today!.cards, isEmpty);
     expect(today.candidatePoolEmpty, isTrue);
+  });
+
+  group('결제 카드(지시문 23, 서버 PR #440 `paid_card`)', () {
+    Future<TodayCards?> readToday(Map<String, dynamic> extra) async {
+      final client = MockClient((request) async => jsonResponse({
+            'cards': <Object>[],
+            'next_issue_at': null,
+            'candidate_pool_empty': false,
+            ...extra,
+          }));
+      final result = await buildRepository(client).fetchToday();
+      return result.when(onSuccess: (value) => value, onFailure: (_) => null);
+    }
+
+    test('offered 는 제안 번호 · 인원 · 이유 · 아바타 · 값을 읽는다', () async {
+      final today = await readToday({
+        'paid_card': {
+          'state': 'offered',
+          'offer_id': 'offer-1',
+          'band_count': 7,
+          'reasons': [
+            {'kind': 'tendency', 'text': '성향이 비슷해요'},
+            {'kind': 'tags', 'text': '#러닝 #카페가 같아요'},
+          ],
+          'avatar_url': 'https://cdn.test/blur-me.png',
+          'cost': 50,
+        },
+      });
+
+      final paid = today!.paidCard as PaidCardOffered;
+      expect(paid.offerId, 'offer-1');
+      expect(paid.bandCount, 7);
+      expect(paid.cost, 50);
+      expect(paid.avatarUrl, 'https://cdn.test/blur-me.png');
+      expect(paid.reasons.map((r) => r.text), ['성향이 비슷해요', '#러닝 #카페가 같아요']);
+      expect(paid.reasons.first.kind, 'tendency');
+    });
+
+    test('offered 인데 아바타가 아직 없으면 avatarUrl 만 null 이다', () async {
+      final today = await readToday({
+        'paid_card': {'state': 'offered', 'offer_id': 'o', 'band_count': 1, 'reasons': <Object>[], 'avatar_url': null, 'cost': 50},
+      });
+
+      final paid = today!.paidCard as PaidCardOffered;
+      expect(paid.avatarUrl, isNull);
+      expect(paid.reasons, isEmpty);
+    });
+
+    test('empty 는 열 사람이 없다는 뜻이다', () async {
+      final today = await readToday({'paid_card': {'state': 'empty'}});
+
+      expect(today!.paidCard, isA<PaidCardEmpty>());
+    });
+
+    test('paid_card 가 null 이거나 아예 없으면 결제 카드 없음이다', () async {
+      expect((await readToday({'paid_card': null}))!.paidCard, isNull);
+      expect((await readToday({}))!.paidCard, isNull);
+    });
+
+    test('모르는 state 는 결제 카드 없음으로 본다 — 앱이 지어내지 않는다', () async {
+      final today = await readToday({'paid_card': {'state': 'sold'}});
+
+      expect(today!.paidCard, isNull);
+    });
+
+    test('산 카드(purchased)는 이유 목록을 받아 두고, 무료 카드는 빈 목록이다', () async {
+      final today = await readToday({
+        'cards': [
+          {
+            'card_id': 'c-free',
+            'source': 'daily',
+            'expires_at': null,
+            'profile': {'profile_id': 'a', 'nickname': '여우비', 'age': 23},
+          },
+          {
+            'card_id': 'c-bought',
+            'source': 'purchased',
+            'expires_at': null,
+            'profile': {'profile_id': 'b', 'nickname': '토끼', 'age': 24},
+            'reasons': [
+              {'kind': 'mbti', 'text': 'MBTI가 잘 맞아요'},
+            ],
+          },
+        ],
+      });
+
+      expect(today!.cards.first.reasons, isEmpty);
+      expect(today.cards.last.reasons.single.text, 'MBTI가 잘 맞아요');
+    });
+
+    test('구매는 POST /cards/paid/{offer_id}/purchase 로 가고 카드 번호를 돌려준다', () async {
+      late http.Request sent;
+      final client = MockClient((request) async {
+        sent = request;
+        return jsonResponse({'card_id': 'card-9'});
+      });
+
+      final result = await buildRepository(client).purchasePaidCard('offer-1');
+
+      expect(sent.method, 'POST');
+      expect(sent.url.toString(), 'https://api.test/cards/paid/offer-1/purchase');
+      expect(result.when(onSuccess: (id) => id, onFailure: (_) => null), 'card-9');
+    });
+
+    test('402 는 하트 부족 문구로, 409 는 "지금은 열 수 없는 카드" 문구로 돌아온다', () async {
+      Future<Failure?> failureOf(int status, String detail) async {
+        final client = MockClient((request) async => http.Response(
+              jsonEncode({'detail': detail}),
+              status,
+              headers: {'content-type': 'application/json; charset=utf-8'},
+            ));
+        final result = await buildRepository(client).purchasePaidCard('offer-1');
+        return result.when(onSuccess: (_) => null, onFailure: (f) => f);
+      }
+
+      final short = await failureOf(402, '하트가 모자라요');
+      final gone = await failureOf(409, '지금은 열 수 없는 카드예요');
+
+      expect(short!.isHeartsNotEnough, isTrue);
+      expect(short.isPaidOfferGone, isFalse);
+      expect(gone!.isPaidOfferGone, isTrue);
+      expect(gone.isHeartsNotEnough, isFalse);
+    });
+
+    test('응답에 card_id 가 없으면 성공으로 치지 않는다', () async {
+      final client = MockClient((request) async => jsonResponse({'ok': true}));
+
+      final result = await buildRepository(client).purchasePaidCard('offer-1');
+
+      expect(result.when(onSuccess: (_) => null, onFailure: (f) => f), isA<UnknownFailure>());
+    });
   });
 
   test('결정은 decision 값을 그대로 보낸다', () async {

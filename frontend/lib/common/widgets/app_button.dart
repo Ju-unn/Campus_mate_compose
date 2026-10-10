@@ -15,6 +15,7 @@ class AppButton extends StatelessWidget {
     this.variant = AppButtonVariant.primary,
     this.height,
     this.isLoading = false,
+    this.trailingIcon,
     super.key,
   });
 
@@ -29,6 +30,9 @@ class AppButton extends StatelessWidget {
   /// 저장 중(나 탭 편집 계획서 D8, pen 06-1 예시 `k5Gv4l`) — 글자 자리에 20 스피너(`sMuCd`)를 돌리고 누름을 막는다.
   /// 채움은 평상시 색 그대로 둔다: 꺼진 회색 위에서는 흰 스피너가 보이지 않는다.
   final bool isLoading;
+
+  /// 라벨 오른쪽 20×20 아이콘(간격 8). 결제 카드 안내 시트의 "알겠어요 →"(pen `yqPNS`)가 쓴다. 비워 두면 글자만이다.
+  final IconData? trailingIcon;
 
   bool get _isTextVariant => variant == AppButtonVariant.text;
 
@@ -47,7 +51,19 @@ class AppButton extends StatelessWidget {
       style: _styleFor(height ?? (_isTextVariant ? 48 : 52)),
       child: isLoading
           ? _spinner()
-          : Text(label, style: _isTextVariant ? _textLabel : (_isNeutral ? _neutralLabel : AppTypography.button)),
+          : _content(),
+    );
+  }
+
+  Widget _content() {
+    final text = Text(label, style: _isTextVariant ? _textLabel : (_isNeutral ? _neutralLabel : AppTypography.button));
+    final icon = trailingIcon;
+    if (icon == null) {
+      return text;
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [Flexible(child: text), const SizedBox(width: 8), Icon(icon, size: 20)],
     );
   }
 

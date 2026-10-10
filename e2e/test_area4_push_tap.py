@@ -53,9 +53,9 @@ class TapBase(PushBase):
         """상대의 행동이 부르는 API 에 맞춰 알림이 뜨게 한다."""
         on = self.world.on
         if kind == 'accept':
-            on('POST', '/decision', lambda b, u: [(ACCEPT, f'{PARTNER} 님이 대화를 하고 싶어 해요')])
+            on('POST', '/decision', lambda b, u: [(ACCEPT, f'{PARTNER} 님이 대화를 신청했어요')])
         elif kind == 'match':
-            on('POST', '/cards/acceptances/', lambda b, u: [(MATCH, f'{PARTNER} 님도 수락했어요')])
+            on('POST', '/cards/acceptances/', lambda b, u: [(MATCH, f'{PARTNER} 님이 신청을 수락했어요.')])
         elif kind == 'message':
             on('POST', '/messages', lambda b, u: [(PARTNER, b['body'])])
         elif kind == 'public':

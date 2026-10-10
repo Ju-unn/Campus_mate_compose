@@ -15,7 +15,7 @@ from e2e.test_area2 import Fake
 from e2e.test_area2_phone3 import CaseBase
 from e2e.tools import Blocked, Reply
 
-ACCEPT = '나를 수락한 사람이 있어요'
+ACCEPT = '대화 신청이 왔어요'
 MATCH = '매칭됐어요!'
 PUBLIC = '카카오톡 아이디를 주고받았어요'
 REVIEW = '새 지인 리뷰가 도착했어요'
@@ -126,7 +126,7 @@ class PushBase(CaseBase):
 
 
 class AcceptTest(PushBase):
-    BODY = f'{PARTNER} 님이 대화를 하고 싶어 해요'
+    BODY = f'{PARTNER} 님이 대화를 신청했어요'
 
     def test_10_the_accept_notification_arrives_and_the_phone_went_to_the_back_first(self):
         self.world.on('POST', '/decision', lambda b, u: [(ACCEPT, self.BODY)] if b == {'decision': 'accept'} else [])
@@ -139,7 +139,7 @@ class AcceptTest(PushBase):
         self.assertEqual(self.fake.bodies('POST', '/decision'), [{'decision': 'accept'}])
 
     def test_10_other_words_are_a_fail_that_names_what_arrived(self):
-        self.world.on('POST', '/decision', lambda b, u: [(ACCEPT, '다른 님이 대화를 하고 싶어 해요')])
+        self.world.on('POST', '/decision', lambda b, u: [(ACCEPT, '다른 님이 대화를 신청했어요')])
         result = self.go_push('E-PUSH-10')
         self.assertEqual(result[0], 'fail')
         self.assertIn('다른 님이', result[1])
@@ -161,22 +161,22 @@ class AcceptTest(PushBase):
         self.assertEqual(self.fake.bodies('POST', '/decision'), [])
 
     def test_17_the_owner_on_the_phone_gets_the_match_notification_when_the_target_accepts_back(self):
-        self.world.on('POST', '/cards/acceptances/', lambda b, u: [(MATCH, f'{PARTNER} 님도 수락했어요')])
+        self.world.on('POST', '/cards/acceptances/', lambda b, u: [(MATCH, f'{PARTNER} 님이 신청을 수락했어요.')])
         rules = [('GET', 'matches?', lambda b, u: Reply(200, [{'id': 'm1'}]))]
         result = self.go_push('E-PUSH-17', rules)
         self.assertEqual(result[0], 'pass', result)
 
     def test_17_a_second_copy_of_the_match_notification_is_a_fail(self):
-        self.world.on('POST', '/cards/acceptances/', lambda b, u: [(MATCH, f'{PARTNER} 님도 수락했어요')] * 2)
+        self.world.on('POST', '/cards/acceptances/', lambda b, u: [(MATCH, f'{PARTNER} 님이 신청을 수락했어요.')] * 2)
         rules = [('GET', 'matches?', lambda b, u: Reply(200, [{'id': 'm1'}]))]
         self.assertEqual(self.go_push('E-PUSH-17', rules)[0], 'fail')
 
     def test_17_a_match_row_count_other_than_one_is_a_fail(self):
-        self.world.on('POST', '/cards/acceptances/', lambda b, u: [(MATCH, f'{PARTNER} 님도 수락했어요')])
+        self.world.on('POST', '/cards/acceptances/', lambda b, u: [(MATCH, f'{PARTNER} 님이 신청을 수락했어요.')])
         self.assertEqual(self.go_push('E-PUSH-17', [('GET', 'matches?', lambda b, u: Reply(200, []))])[0], 'fail')
 
     def test_17_not_matched_is_a_fail_even_if_the_notification_came(self):
-        self.world.on('POST', '/cards/acceptances/', lambda b, u: [(MATCH, f'{PARTNER} 님도 수락했어요')])
+        self.world.on('POST', '/cards/acceptances/', lambda b, u: [(MATCH, f'{PARTNER} 님이 신청을 수락했어요.')])
         rules = [('POST', '/cards/acceptances/', lambda b, u: Reply(200, {'matched': False}))]
         self.assertEqual(self.go_push('E-PUSH-17', rules)[0], 'fail')
 
@@ -185,12 +185,12 @@ class AcceptTest(PushBase):
         rules = [('POST', '/cards/acceptances/', lambda b, u: Reply(200, {'matched': True, 'match_id': 'm1'}))]
         result = self.go_push('E-PUSH-18', rules)
         self.assertEqual(result[0], 'pass', result)
-        # 폰 계정이 직접 받은 수락을 수락한다 — 앞서 온 "나를 수락한 사람" 알림은 이 가설의 판정에 들어가지 않는다
+        # 폰 계정이 직접 받은 수락을 수락한다 — 앞서 온 "대화 신청이 왔어요" 알림은 이 가설의 판정에 들어가지 않는다
         self.assertEqual(self.fake.bodies('POST', '/cards/acceptances/'), [{'decision': 'accept'}])
 
     def test_21_two_directions_still_give_one_match_notification_and_one_match(self):
         def make(body, url):
-            return [(MATCH, f'{PARTNER} 님도 수락했어요')] if not self.fake.bodies('POST', '/cards/acceptances/') else []
+            return [(MATCH, f'{PARTNER} 님이 신청을 수락했어요.')] if not self.fake.bodies('POST', '/cards/acceptances/') else []
         self.world.on('POST', '/cards/acceptances/', make)
         rules = [('POST', '/cards/acceptances/', lambda b, u: Reply(200, {'matched': True, 'match_id': 'm1'})),
                  ('GET', 'matches?', lambda b, u: Reply(200, [{'id': 'm1'}]))]
@@ -198,7 +198,7 @@ class AcceptTest(PushBase):
         self.assertEqual(result[0], 'pass', result)
 
     def test_21_a_second_match_notification_is_a_fail(self):
-        self.world.on('POST', '/cards/acceptances/', lambda b, u: [(MATCH, f'{PARTNER} 님도 수락했어요')])
+        self.world.on('POST', '/cards/acceptances/', lambda b, u: [(MATCH, f'{PARTNER} 님이 신청을 수락했어요.')])
         rules = [('POST', '/cards/acceptances/', lambda b, u: Reply(200, {'matched': True, 'match_id': 'm1'})),
                  ('GET', 'matches?', lambda b, u: Reply(200, [{'id': 'm1'}]))]
         self.assertEqual(self.go_push('E-PUSH-21', rules)[0], 'fail')
@@ -250,13 +250,13 @@ class SilentTest(PushBase):
         self.assertEqual(self.fake.bodies('PATCH', '/cards/notification-settings'), [{'match_made': False}])
 
     def test_22_a_match_notification_with_the_switch_off_is_a_fail(self):
-        self.world.on('POST', '/cards/acceptances/', lambda b, u: [(MATCH, f'{PARTNER} 님도 수락했어요')])
+        self.world.on('POST', '/cards/acceptances/', lambda b, u: [(MATCH, f'{PARTNER} 님이 신청을 수락했어요.')])
         rules = [('POST', '/cards/acceptances/', lambda b, u: Reply(200, {'matched': True, 'match_id': 'm1'}))]
         self.assertEqual(self.go_push('E-PUSH-22', rules)[0], 'fail')
 
     def test_32_new_message_off_means_no_message_notification_and_the_control_is_an_accept(self):
         # 새 메시지 스위치를 껐으니 메시지로는 대조할 수 없다 — 수락 알림으로 대조한다
-        self.world.on('POST', '/decision', lambda b, u: [(ACCEPT, f'{CTL} 님이 대화를 하고 싶어 해요')])
+        self.world.on('POST', '/decision', lambda b, u: [(ACCEPT, f'{CTL} 님이 대화를 신청했어요')])
         result = self.go_push('E-PUSH-32', [('POST', '/messages', lambda b, u: Reply(201, {'id': 'x'}))])
         self.assertEqual(result[0], 'pass', result)
         self.assertEqual(self.fake.bodies('PATCH', '/cards/notification-settings'), [{'new_message': False}])
@@ -279,7 +279,7 @@ class SilentTest(PushBase):
         self.assertEqual(self.go_push('E-PUSH-34', rules)[0], 'fail')
 
     def test_36_trust_accept_with_new_message_off_is_silent_and_the_control_is_an_accept(self):
-        self.world.on('POST', '/decision', lambda b, u: [(ACCEPT, f'{CTL} 님이 대화를 하고 싶어 해요')])
+        self.world.on('POST', '/decision', lambda b, u: [(ACCEPT, f'{CTL} 님이 대화를 신청했어요')])
         result = self.go_push('E-PUSH-36')
         self.assertEqual(result[0], 'pass', result)
         self.assertEqual(self.fake.bodies('PATCH', '/cards/notification-settings'), [{'new_message': False}])

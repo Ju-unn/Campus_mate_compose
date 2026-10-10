@@ -21,9 +21,13 @@ class FakeMeRepository implements MeRepository {
   /// 채워 두면 저장이 이 Completer 가 끝날 때까지 기다린다("저장 중" 모양 확인용).
   Completer<void>? holdUpdate;
 
+  /// 채워 두면 프로필 읽기가 이 Completer 가 끝날 때까지 기다린다("잔액을 읽는 중" 모양 확인용).
+  Completer<void>? holdFetch;
+
   @override
   Future<Result<MyProfile>> fetchProfile() async {
     calls++;
+    await holdFetch?.future;
     return profile;
   }
 
