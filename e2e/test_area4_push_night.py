@@ -24,7 +24,7 @@ from e2e import test_area2_time_device as base
 from e2e.test_area2_time_device import MON, TUE, WED, DeviceBase, seoul
 from e2e.tools import Blocked, Reply
 
-ACCEPT = '나를 수락한 사람이 있어요'
+ACCEPT = '대화 신청이 왔어요'
 MATCH = '매칭됐어요!'
 PUBLIC = '카카오톡 아이디를 주고받았어요'
 REVIEW = '새 지인 리뷰가 도착했어요'
@@ -36,7 +36,7 @@ TUESDAY = '2026-10-06'
 EXEMPT = {'card_arrived', 'new_message'}
 DEFERRED = {'acceptance_received', 'match_made', 'new_friend_review', 'verification_result'}
 BUNDLES = {  # backend/app/cards/push.py _BUNDLES
-    ('acceptance_received', 'acceptances'): (ACCEPT, '밤사이 {n}명이 나를 수락했어요'),
+    ('acceptance_received', 'acceptances'): (ACCEPT, '밤사이 {n}명이 대화를 신청했어요'),
     ('match_made', 'match'): (MATCH, '밤사이 {n}명과 매칭됐어요'),
     ('match_made', 'chat'): (PUBLIC, '밤사이 {n}명과 프로필이 공개됐어요'),
     ('new_friend_review', 'friend_reviews'): (REVIEW, '밤사이 리뷰 {n}개가 도착했어요'),
@@ -140,7 +140,7 @@ class NightWorld(base.World):
         card = next(c for c in self.tables['daily_cards'] if c['id'] == sent['path'].split('/')[2])
         if sent['body']['decision'] == 'accept':
             self.decided_at.append(self.clock.now)
-            self.push(card['target_id'], 'acceptance_received', ACCEPT, f"{self.nick(card['owner_id'])} 님이 대화를 하고 싶어 해요",
+            self.push(card['target_id'], 'acceptance_received', ACCEPT, f"{self.nick(card['owner_id'])} 님이 대화를 신청했어요",
                       {'route': 'acceptances', 'card_id': card['id']})
         if self.decide_takes:
             self.tick(self.decide_takes)
@@ -156,7 +156,7 @@ class NightWorld(base.World):
         self.tables.setdefault('matches', []).append({'id': match_id, 'profile_a': low, 'profile_b': high, 'trust_passed_at': None})
         self.tables.setdefault('match_participants', []).extend({'match_id': match_id, 'profile_id': p} for p in (low, high))
         data = {'route': 'match', 'match_id': match_id}
-        self.push(owner, 'match_made', MATCH, f'{self.nick(me)} 님도 수락했어요', data)
+        self.push(owner, 'match_made', MATCH, f'{self.nick(me)} 님이 신청을 수락했어요.', data)
         self.push(me, 'match_made', MATCH, f'{self.nick(owner)} 님과 대화를 시작해 보세요', data, defer=False)  # 방금 누른 쪽은 보관 없이 버림
         return Reply(200, {'matched': True, 'match_id': match_id})
 
@@ -356,12 +356,12 @@ class StepTest(unittest.TestCase):
 
 TWO_STAGE = {
     # 번호: (보관 행 [(kind, route)], 아침에 뜰 알림 [(제목, 본문)])
-    '15': ([('acceptance_received', 'acceptances')], [(ACCEPT, f'{PARTNER} 님이 대화를 하고 싶어 해요')]),
-    '23': ([('match_made', 'match')], [(MATCH, f'{PARTNER} 님도 수락했어요')]),
+    '15': ([('acceptance_received', 'acceptances')], [(ACCEPT, f'{PARTNER} 님이 대화를 신청했어요')]),
+    '23': ([('match_made', 'match')], [(MATCH, f'{PARTNER} 님이 신청을 수락했어요.')]),
     '52': ([('new_friend_review', 'friend_reviews')], [(REVIEW, f'{PARTNER} 님이 리뷰를 남겼어요')]),
-    '83': ([('acceptance_received', 'acceptances')] * 2, [(ACCEPT, '밤사이 2명이 나를 수락했어요')]),
+    '83': ([('acceptance_received', 'acceptances')] * 2, [(ACCEPT, '밤사이 2명이 대화를 신청했어요')]),
     '84': ([('acceptance_received', 'acceptances')], []),  # 아침에 스위치를 끈다 → 아무것도 안 온다
-    '85': ([('acceptance_received', 'acceptances')], [(ACCEPT, f'{PARTNER} 님이 대화를 하고 싶어 해요')]),
+    '85': ([('acceptance_received', 'acceptances')], [(ACCEPT, f'{PARTNER} 님이 대화를 신청했어요')]),
     '86': ([('match_made', 'chat')], [(PUBLIC, f'{PARTNER} 님의 프로필이 공개됐어요')]),
     '87': ([('new_friend_review', 'friend_reviews')] * 2, [(REVIEW, '밤사이 리뷰 2개가 도착했어요')]),
     '88': ([('new_friend_review', 'friend_review_write')] * 2, None),  # 문구는 시험이 가입한 두 계정의 닉네임에서
@@ -591,7 +591,7 @@ class MorningBehaviourTest(TwoStageBase):
         self.assertEqual(result[0], 'pass', result)
         self.assertIn('예약', result[1])
         self.assertEqual(self.batches, ['chat-gate'], '08시 예약이 보냈으니 손 호출은 한 번뿐')
-        self.assertEqual(self.arrived(self.shade_before, {ACCEPT}), [(ACCEPT, f'{PARTNER} 님이 대화를 하고 싶어 해요')])
+        self.assertEqual(self.arrived(self.shade_before, {ACCEPT}), [(ACCEPT, f'{PARTNER} 님이 대화를 신청했어요')])
         self.assertEqual(self.pending(), [])
 
     def test_85_the_anchor_match_is_made_before_the_row_is_planted_and_stamped_by_the_batch(self):
@@ -889,7 +889,7 @@ class SingleNightTest(NightBase):
         flips = self.world.by('PATCH', '/cards/notification-settings')
         self.assertEqual([(s['auth'], s['body']) for s in flips], [('tok-1', {'quiet_hours': False})])
         self.assertLess(self.world.sent.index(flips[0]), self.world.sent.index(self.world.by('POST', '/cards/')[0]))
-        self.assertEqual(self.arrived(0, {ACCEPT}), [(ACCEPT, f'{PARTNER} 님이 대화를 하고 싶어 해요')])
+        self.assertEqual(self.arrived(0, {ACCEPT}), [(ACCEPT, f'{PARTNER} 님이 대화를 신청했어요')])
         self.assertEqual(self.pending(), [])
         self.assertFalse((self.run.out / 'night_16.json').exists())  # 단계가 하나다
 
@@ -1043,7 +1043,7 @@ class EdgeTest(NightBase):
         first, second = self.accept_times()
         self.assertTrue(TUE(21, 59, 20) <= first < TUE(22, 0), first)
         self.assertGreaterEqual(second, TUE(22, 0, 20))
-        self.assertEqual(self.arrived(0, {ACCEPT}), [(ACCEPT, f'{PARTNER} 님이 대화를 하고 싶어 해요')])  # 21:59 몫 하나뿐
+        self.assertEqual(self.arrived(0, {ACCEPT}), [(ACCEPT, f'{PARTNER} 님이 대화를 신청했어요')])  # 21:59 몫 하나뿐
         self.assertEqual(self.pending(), [], '시험 뒤 보관 행은 지운다(08시 예약이 먹지 않게)')
         self.assertIn('21:59', note)  # 잰 시각이 메모에 남는다
         self.assertIn('22:00', note)
@@ -1102,7 +1102,7 @@ class EdgeTest(NightBase):
         first, second = self.accept_times()
         self.assertTrue(TUE(7, 59, 20) <= first < TUE(8, 0), first)
         self.assertGreaterEqual(second, TUE(8, 0, 20))
-        self.assertEqual(self.arrived(0, {ACCEPT}), [(ACCEPT, f'{THIRD} 님이 대화를 하고 싶어 해요')])  # 두 번째 수락자 몫만
+        self.assertEqual(self.arrived(0, {ACCEPT}), [(ACCEPT, f'{THIRD} 님이 대화를 신청했어요')])  # 두 번째 수락자 몫만
         self.assertEqual(self.pending(), [])
         self.assertIn('07:59', note)
 

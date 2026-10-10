@@ -25,7 +25,7 @@ def now():
 
 
 def notice(nick, title=push.TITLE):
-    return notify.Notice(key=f'k-{nick}', title=title, text=f'{nick} 님이 대화를 하고 싶어 해요', channel='c')
+    return notify.Notice(key=f'k-{nick}', title=title, text=f'{nick} 님이 대화를 신청했어요', channel='c')
 
 
 class Db(FakeServer):

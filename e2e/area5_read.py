@@ -63,7 +63,7 @@ TITLES = {'15': '내 프로필', '15-4': '남이 보는 내 프로필', '15-5': 
           '06-1': '이상형 조건 수정', 'tag': '관심사 수정', '15-6': '기본 정보 수정', '15-7': '사진 수정', '16': '설정',
           '15b-5': '아바타 다시 만들기'}  # 15b 시트가 뜨는 사진 고르기 화면(avatar_regen_pick_screen.dart 의 EditAppBar)
 SECTIONS = ['실제 사진', '기본 정보', '선호 조건', '자기소개']  # profile_manage_screen.dart 섹션 제목 순서
-DELETED = ['프로필과 인증 정보', '수락 매칭 기록', '모든 대화 내용']  # withdraw_sheets.dart `_DeletedItems`
+DELETED = ['프로필과 인증 정보', '신청·매칭 기록', '모든 대화 내용']  # withdraw_sheets.dart `_DeletedItems`
 EN_DASH = '–'
 # 선호 조건 두 판 — (이름, 넣을 칸, 나이 줄, 키 줄). 끝값 35 · 150 · 190 은 "이상" · "이하" 가 붙고, 전 구간은 "상관없어요".
 PREFERENCES = (

@@ -24,7 +24,7 @@ from e2e.area1 import Check, _api, _app, _one, _patch, _rows, _signed_in
 from e2e.area4 import stepper
 from e2e.tools import Blocked
 
-TITLE = '나를 수락한 사람이 있어요'  # backend/app/cards/router.py 의 받은 수락 알림 제목 — 본문은 "{닉네임} 님이 대화를 하고 싶어 해요"
+TITLE = '대화 신청이 왔어요'  # backend/app/cards/router.py 의 받은 수락 알림 제목 — 본문은 "{닉네임} 님이 대화를 신청했어요"
 TOKEN_WAIT = 30  # 로그인 뒤 기기 토큰이 서버에 올라오기를 기다리는 시간(초) — 시나리오 E-PUSH-58 의 30초
 GONE_WAIT = 10  # 로그아웃 · 거부 뒤 토큰 행이 (안) 생기기를 지켜보는 시간(초)
 MARKETING_WAIT = 10  # 스위치를 누른 뒤 서버 저장이 끝나기를 기다리는 시간(초)

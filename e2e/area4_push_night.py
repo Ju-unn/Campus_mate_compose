@@ -310,7 +310,7 @@ def _n_two_accepts(s):
         factory.accept_card(s.run, person, card)
     s.silent(before, only=lambda n: n.title == ACCEPT_TITLE)
     _keep(s, 2, 'acceptance_received', 'acceptances')
-    return [(ACCEPT_TITLE, '밤사이 2명이 나를 수락했어요')]
+    return [(ACCEPT_TITLE, '밤사이 2명이 대화를 신청했어요')]
 
 
 def _n_public(s):

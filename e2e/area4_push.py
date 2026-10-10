@@ -31,7 +31,7 @@ CONTROL_WAIT = 30  # 대조 알림을 기다리는 초
 SETTLE = 20  # 알림이 온 뒤 같은 알림이 또 오는지 더 보는 초
 CASE_LIMIT_SLOW = 900  # 60초 지켜보기 + 대조 + 앱 켜기가 겹쳐 기본 420초를 넘는 가설
 
-ACCEPT_TITLE = '나를 수락한 사람이 있어요'
+ACCEPT_TITLE = '대화 신청이 왔어요'
 MATCH_TITLE = '매칭됐어요!'
 PUBLIC_TITLE = '카카오톡 아이디를 주고받았어요'
 REVIEW_TITLE = '새 지인 리뷰가 도착했어요'
@@ -42,11 +42,11 @@ HIGH = 4  # NotificationManager.IMPORTANCE_HIGH
 
 
 def accept_body(nickname):
-    return f'{nickname} 님이 대화를 하고 싶어 해요'
+    return f'{nickname} 님이 대화를 신청했어요'
 
 
 def _matched(nickname):
-    return f'{nickname} 님도 수락했어요'
+    return f'{nickname} 님이 신청을 수락했어요.'
 
 
 def _started(nickname):
@@ -202,7 +202,7 @@ def push_17(s):
 def push_18(s):
     card = factory.card(s.run, s.partner, s.me)
     factory.accept_card(s.run, s.partner, card)
-    before = s.before()  # 앞서 온 "나를 수락한 사람" 알림이 늦게 떠도 문구로 가려 보니 판정에 안 섞인다
+    before = s.before()  # 앞서 온 "대화 신청이 왔어요" 알림이 늦게 떠도 문구로 가려 보니 판정에 안 섞인다
     s.matched('폰 계정이 받은 수락을 수락', factory.accept_back(s.run, s.me, card))
     s.arrives(before, MATCH_TITLE, _started(s.nick), once=True)
 

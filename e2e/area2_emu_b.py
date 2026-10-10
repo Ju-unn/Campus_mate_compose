@@ -28,7 +28,7 @@ from e2e.area2_phone_b import PREFIX, _balance, _cleaned
 from e2e.area3_phone import _ok
 from e2e.tools import Blocked
 
-ACCEPT_TITLE = '나를 수락한 사람이 있어요'  # backend cards/router.py decide_card
+ACCEPT_TITLE = '대화 신청이 왔어요'  # backend cards/router.py decide_card
 ACCEPT_NOT_FOUND = '수락을 찾을 수 없어요'  # backend core/errors.py ACCEPTANCE_NOT_FOUND
 TOKEN_WAIT = 30  # 기기 토큰이 서버에 올라오기를 기다리는 초(area2_phone3 p_card_02 와 같다)
 NOTICE_WAIT = 30  # 수락 알림이 오기를 기다리는 초(시나리오 E-CARD-40 의 "30초 안")
@@ -66,12 +66,12 @@ def _matches(run, a, b):
 
 
 def p_card_41(run, phone):
-    """B 앱을 홈에 켜 둔 채 HOME → A 가 카드를 수락 → B 의 알림을 눌러 대화 탭이 열린다(앱이 "수락 대기 1명" · A 줄 · 두 버튼을 본다).
+    """B 앱을 홈에 켜 둔 채 HOME → A 가 카드를 수락 → B 의 알림을 눌러 대화 탭이 열린다(앱이 "받은 신청 1명" · A 줄 · 두 버튼을 본다).
     acceptance_received 는 조용한 시간에 아침으로 보류되므로(push.py _DEFERRED) 낮 08~22시에만."""
     notify.require_daytime()
     check = Check()
     a, b, nickname, token, card = _senders_card(run)
-    body = f'{nickname} 님이 대화를 하고 싶어 해요'  # decide_card 의 알림 본문
+    body = f'{nickname} 님이 대화를 신청했어요'  # decide_card 의 알림 본문
 
     def accept_and_tap(said):
         if not _wait_for(lambda: _rows(run, f"push_tokens?profile_id=eq.{b['id']}&select=token"), TOKEN_WAIT):
@@ -92,7 +92,7 @@ def p_card_41(run, phone):
 
 
 def p_card_45(run, phone):
-    """B 가 대화 탭의 수락함에서 "수락하고 대화 시작" → 12 화면. 매칭 1행 · 당사자 2행은 여기서 본다(앱은 푸시를 안 쓴다 — A 의 수락은 앱을 켜기 전에 이미 있다)."""
+    """B 가 대화 탭의 수락함에서 "수락하기" → 12 화면. 매칭 1행 · 당사자 2행은 여기서 본다(앱은 푸시를 안 쓴다 — A 의 수락은 앱을 켜기 전에 이미 있다)."""
     check = Check()
     a, b, nickname, token, card = _senders_card(run)
     _accept(run, a, card)
@@ -106,7 +106,7 @@ def p_card_45(run, phone):
 
 
 def p_card_86(run, phone):
-    """수락 대기를 띄운 뒤 A 를 정지 → "수락하고 대화 시작" → "수락을 찾을 수 없어요". 차단 · 자동 가림도 서버는 같은 판정(_hidden_from_cards)이라 정지만 본다."""
+    """수락 대기를 띄운 뒤 A 를 정지 → "수락하기" → "수락을 찾을 수 없어요". 차단 · 자동 가림도 서버는 같은 판정(_hidden_from_cards)이라 정지만 본다."""
     check = Check()
     a, b, nickname, token, card = _senders_card(run)
     _accept(run, a, card)

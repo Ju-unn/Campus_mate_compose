@@ -160,7 +160,7 @@ class AlertTest(PushBase):
             receiver = f'tok-{int(caller.removeprefix("tok-")) - 1}'
             return [] if (receiver, {'new_message': False}) in switched else [(self.nick_of(caller), TRUST)]
         self.world.on('POST', '/trust', trust)
-        self.world.on('POST', '/decision', lambda b, u: [(ACCEPT, f'{self.nick_of(self.caller())} 님이 대화를 하고 싶어 해요')])
+        self.world.on('POST', '/decision', lambda b, u: [(ACCEPT, f'{self.nick_of(self.caller())} 님이 대화를 신청했어요')])
         result = self.go_push('E-CHAT-38')
         self.assertEqual(result[0], 'pass', result)
         self.assertEqual(switched, [('tok-3', {'new_message': False})])  # 끈 판의 받는 사람(둘째 판의 폰 계정)만
@@ -168,7 +168,7 @@ class AlertTest(PushBase):
         self.assertEqual(trusts, ['tok-2', 'tok-4'])  # 두 판 모두 상대가 수락
 
     def test_38_a_missing_or_doubled_accept_notification_when_on_is_a_fail(self):
-        self.world.on('POST', '/decision', lambda b, u: [(ACCEPT, f'{self.nick_of(self.caller())} 님이 대화를 하고 싶어 해요')])
+        self.world.on('POST', '/decision', lambda b, u: [(ACCEPT, f'{self.nick_of(self.caller())} 님이 대화를 신청했어요')])
         self.assertEqual(self.go_push('E-CHAT-38')[0], 'fail')  # 켠 판인데 안 옴
         self.world.reset()
         self.world.on('POST', '/trust', lambda b, u: [(self.nick_of(self.caller()), TRUST)] * 2)
@@ -176,7 +176,7 @@ class AlertTest(PushBase):
 
     def test_38_a_notification_that_comes_with_the_switch_off_is_a_fail(self):
         self.world.on('POST', '/trust', lambda b, u: [(self.nick_of(self.caller()), TRUST)])
-        self.world.on('POST', '/decision', lambda b, u: [(ACCEPT, f'{self.nick_of(self.caller())} 님이 대화를 하고 싶어 해요')])
+        self.world.on('POST', '/decision', lambda b, u: [(ACCEPT, f'{self.nick_of(self.caller())} 님이 대화를 신청했어요')])
         result = self.go_push('E-CHAT-38')
         self.assertEqual(result[0], 'fail')
         self.assertIn('안 와야 할 알림', result[1])

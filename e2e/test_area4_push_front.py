@@ -115,7 +115,7 @@ class NothingPopsUpTest(FrontBase):
         self.assertEqual(self.world.log[-1], 'revoke')
 
     def test_a_notice_that_pops_up_in_front_is_a_fail_and_no_control_is_needed(self):
-        self.world.on('POST', '/decision', lambda b, u: [(ACCEPT, f'{PARTNER} 님이 대화를 하고 싶어 해요')])
+        self.world.on('POST', '/decision', lambda b, u: [(ACCEPT, f'{PARTNER} 님이 대화를 신청했어요')])
         result = self.go_front('14')
         self.assertEqual(result[0], 'fail')
         self.assertIn('안 와야 할', result[1])
