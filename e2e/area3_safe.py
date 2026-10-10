@@ -46,6 +46,8 @@ VERIFIED_ROUTES = [
     'POST /chat/matches/{match_id}/messages', 'PATCH /chat/matches/{match_id}/read', 'POST /chat/matches/{match_id}/leave',
     'POST /chat/matches/{match_id}/trust',
     'GET /home/summary',
+    'GET /notifications', 'GET /notifications/unread-count', 'POST /notifications/read-all',
+    'POST /notifications/{notification_id}/read',
     'GET /me/profile', 'GET /me/card-preview', 'POST /me/avatar/regenerate', 'PUT /me/photos', 'PATCH /me/profile',
     'POST /reports', 'POST /blocks/{profile_id}', 'GET /blocks', 'DELETE /blocks/{profile_id}', 'GET /profiles/{profile_id}',
     'POST /contact-blocks', 'GET /contact-blocks', 'DELETE /contact-blocks/{block_id}',
