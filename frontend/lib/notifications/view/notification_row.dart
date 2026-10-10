@@ -92,11 +92,10 @@ class NotificationRow extends StatelessWidget {
                       ],
                     ),
                   ),
-                  // pen `z548M` Unread Slot — 읽음 변형은 슬롯을 끈다(점도, 앞의 간격 12 도 없다).
-                  if (!item.read) ...[
-                    const SizedBox(width: 12),
-                    const _UnreadDot(),
-                  ],
+                  // pen `z548M` Unread Slot(폭 8). 읽음 변형 `iVIkt` 도 슬롯 `FOB6f` 와 앞 간격 12 를 그대로 두고
+                  // 점 `OYASd` 만 숨긴다 — 읽음 · 안 읽음 글 칸이 같은 224.
+                  const SizedBox(width: 12),
+                  SizedBox(width: 8, child: item.read ? null : const _UnreadDot()),
                 ],
               ),
             ),
