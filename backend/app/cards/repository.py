@@ -366,6 +366,13 @@ class CardRepository(PostgrestRepository):
         response = await self._delete("pending_pushes", params={"id": f"in.({','.join(ids)})"})
         raise_for_status(response)
 
+    async def insert_notification(self, profile_id: UUID | str, kind: str, title: str, body: str,
+                                  data: dict[str, str]) -> None:
+        """알림함(notifications) 한 줄. push.notify 가 부른다 — 실패해도 거기서 삼키니 여기선 그대로 올린다."""
+        await self._rows_post("notifications", {
+            "profile_id": str(profile_id), "kind": kind, "title": title, "body": body, "data": data,
+        }, prefer="return=minimal")
+
     async def fetch_profile_status(self, profile_id: UUID | str) -> str | None:
         """푸시 관문(push.notify)이 정지 계정을 거르는 데 쓴다. 행이나 칸이 없으면 None(= 막지 않는다,
         로그인 관문과 같은 규칙)."""
