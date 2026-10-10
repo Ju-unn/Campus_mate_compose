@@ -1,5 +1,6 @@
 """15c 자기소개 · 15-6 닉네임 · 키 저장 PATCH /me/profile(계획서 2-5)."""
 import json
+import logging
 from datetime import datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -8,7 +9,7 @@ import httpx
 import pytest
 
 import app.profile_onboarding.router as onboarding_router
-from tests.me.test_me_profile import AUTH_HEADERS, _wire, overrides  # noqa: F401 — autouse 픽스처
+from tests.me.test_me_profile import AUTH_HEADERS, PROFILE_ID, _wire, overrides  # noqa: F401 — autouse 픽스처
 from app.core.deps import get_now
 from app.core.time import SEOUL
 from app.main import app
@@ -188,6 +189,13 @@ def test_new_fields_are_saved_as_sent(body):
     assert _profile_patches(seen) == [body]
 
 
+def test_mbti_null_clears_it_as_not_chosen():
+    seen = []
+    assert _patch({"mbti": None}, seen=seen).status_code == 200
+    assert _profile_patches(seen) == [{"mbti": None}]
+    assert len(_vector_saves(seen)) == 1   # 문장에서 MBTI 가 빠지니 다시 만든다
+
+
 @pytest.mark.parametrize("body", [
     {"mbti": "enfp"}, {"mbti": "ENF"}, {"mbti": "XXXX"}, {"mbti": "ENFPX"}, {"mbti": ""},
     {"religion": "islam"}, {"religion": ""}, {"religion": None},
@@ -210,7 +218,41 @@ def test_animal_and_impression_come_as_a_pair(body):
     assert _profile_patches(seen) == []
 
 
+def test_religion_and_smoking_alone_do_not_rebuild_the_vectors():
+    # 종교 · 흡연은 감점 계수로만 쓰이고 문장에는 안 들어간다(matching/scoring.py).
+    seen = []
+    assert _patch({"religion": "catholic", "is_smoker": True}, seen=seen).status_code == 200
+    assert _vector_saves(seen) == []
+    assert not [r for r in seen if r.method == "GET" and r.url.path.endswith("/survey_answers")]
+
+
+@pytest.mark.parametrize("body", [
+    {"mbti": "INTJ"}, {"animal_type": "fox", "impression_type": "chic"}, {"bio": "새 소개"},
+])
+def test_sentence_fields_rebuild_the_vectors(body):
+    seen = []
+    assert _patch(body, seen=seen).status_code == 200
+    assert len(_vector_saves(seen)) == 1
+
+
+def test_mixed_save_rebuilds_the_vectors_once():
+    seen = []
+    assert _patch({"religion": "none", "mbti": "INTJ"}, seen=seen).status_code == 200
+    assert _profile_patches(seen) == [{"religion": "none", "mbti": "INTJ"}]
+    assert len(_vector_saves(seen)) == 1
+
+
 def test_nickname_lock_still_blocks_a_save_that_also_carries_new_fields():
     seen = []
     assert _patch({"nickname": "바다", "mbti": "INTJ"}, current=LOCKED, seen=seen).status_code == 409
     assert _profile_patches(seen) == []
+
+
+def test_log_has_changed_field_names_and_profile_id_but_never_the_values(caplog):
+    with caplog.at_level(logging.INFO, logger="app.me.router"):
+        assert _patch({"mbti": "INTJ", "religion": "buddhist", "is_smoker": True}).status_code == 200
+    text = caplog.text
+    assert "is_smoker" in text and "mbti" in text and "religion" in text
+    assert PROFILE_ID in text
+    for value in ("INTJ", "buddhist", "True"):
+        assert value not in text
