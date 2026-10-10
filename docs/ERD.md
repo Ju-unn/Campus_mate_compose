@@ -4,6 +4,7 @@
 > 근거: 설계 문서 `docs/superpowers/specs/2026-09-05-campusmate-foundation-design.md` (§2·§5·§6·§7·§13), `frontend/docs/DESIGN.md` (§5.2·§8·§9), 2026-09-13 ~ 09-14 사용자 결정(§11).
 > **2026-09-29 문서 정리 갱신.** 조각 6(신고 · 차단 · 지인 차단 · 탈퇴) · 커뮤니티 · 추천 · 무료 하트 인증 · 지인 리뷰 · 코호트 · 가입 동의 · FAQ 까지 저장소 `supabase/migrations/` 가 **52개**이고, 운영(Supabase)에는 마지막으로 `create_faq`(운영 기록 `20260929054505`)와 그 앞 `create_user_consents`(`20260929051356`)가 적용됐다(대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다). 아래 각 표의 "조각N 제안" 표시는 만들 때의 기록이고, 실제로 만든 칸은 이번 정리에서 "적용됨" 으로 바꿨다.
 > **2026-10-09 갱신(소셜 로그인 전환).** 저장소 `supabase/migrations/` 가 **61개**다. 마지막 네 파일 `20261008010000`(학교 없는 pending 프로필) · `20261008020000`(소셜 이름 지우기 트리거) · `20261008030000`(`school_email_claims` · 정리 · 인증 완료 함수) · `20261008040000`(이메일 해시 없는 탈퇴)이 **2026-10-09 운영에 적용됐다**(대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다). 반영 위치: §1 조감도 · §2 표 · §3 `profiles` · `school_email_claims` · 트리거 · 함수, §5 `withdraw_account`. **데이터 이전**: 기존 사용자 25명(대장 전달 값)은 `school_email_verified_at` = 가입 시각(`created_at`, `20261008010000` 의 update)으로, `school_email_claims` 는 `provider = 'email'` 로 채웠다(`backend/scripts/backfill_school_email_claims.py` — HMAC 키가 서버에만 있어 SQL 로 못 채운다).
+> **2026-10-10 갱신(카드 선정 · 유료 카드).** 저장소 `supabase/migrations/` 가 **66개**다(PR #442 merge 뒤 main 기준). 새로 생긴 다섯 파일: `20261010010000`(`match_candidates` 반환을 jsonb 배열 + `pickable` 로) · `20261010020000`(`paid_card_offers`) · `20261010030000`(`purchase_paid_card`) · `20261010040000`(`notifications`) · `20261010050000`(유료 카드 주기당 한 장을 막는 부분 유일 인덱스 교체, PR #442)는 모두 **2026-10-10 운영에 적용됐다**(대장 전달 값: 운영 마이그레이션 66개 확인 — 이 문서 담당이 클라우드를 조회하지 않았다). 반영 위치: §1 조감도 · §2 표 · §4(`daily_cards` 옆 두 표와 함수) · §8 `paid_card_offer_status`. `notifications` 의 90일 보관 정리는 서버 배치 몫이고 구현 중이다(마이그레이션에는 없다).
 
 ## 읽는 법
 
@@ -11,7 +12,7 @@
 - **`제안`** = 스펙에 없어서 이 ERD가 제안하는 것
 - **`검토N`** = 아직 정해지지 않은 것. 번호는 §12 "남은 검토"
 - **`민감`** = 남에게 가는 응답에 절대 담지 않는 값(설계 §7.1). 민감 값은 `profile_private` 에만 둔다
-- 컬럼 없이 계산하는 값: 가입 나이 자격(Asia/Seoul 기준 올해 − `birth_year` ≥ 19, FastAPI 검사), 신뢰 확인 기한(`matches.created_at` + 48시간), 안 읽은 메시지 수(상대가 보낸 메시지 중 `created_at` > 내 `match_participants.last_read_at`), 아바타 교체 무료 여부(`profile_avatars` 성공 건수), 주기당 추가 카드 1장(`daily_cards.source`), 월간 추천 랭킹(`referrals` 집계, 탈퇴자 제외 §3. 계정 삭제 cascade 로 지난달 행이 줄 수 있어 월말에 순위를 확정해 지급한다 — 조각 7)
+- 컬럼 없이 계산하는 값: 가입 나이 자격(Asia/Seoul 기준 올해 − `birth_year` ≥ 19, FastAPI 검사), 신뢰 확인 기한(`matches.created_at` + 48시간), 안 읽은 메시지 수(상대가 보낸 메시지 중 `created_at` > 내 `match_participants.last_read_at`), 아바타 교체 무료 여부(`profile_avatars` 성공 건수), 주기당 추가 카드 1장(`daily_cards.source` — **2026-10-10 개정: `paid_card_offers` 의 부분 유일 인덱스 `paid_card_offers_one_live_per_cycle` 가 DB 에서 막는다**, §4), 월간 추천 랭킹(`referrals` 집계, 탈퇴자 제외 §3. 계정 삭제 cascade 로 지난달 행이 줄 수 있어 월말에 순위를 확정해 지급한다 — 조각 7)
 
 ## 1. 조감도
 
@@ -39,6 +40,9 @@ erDiagram
     profiles ||--o{ push_tokens : "기기"
     profiles ||--o| notification_settings : "알림"
     profiles ||--o{ pending_pushes : "밤 알림 보류"
+    profiles ||--o{ notifications : "알림함"
+    profiles ||--o{ paid_card_offers : "유료 카드 제안 owner · target"
+    daily_cards |o--o{ paid_card_offers : "산 카드 · 카드가 지워지면 칸만 비운다"
     profiles ||--o{ user_consents : "가입 동의"
     profiles ||--o{ blocks : "차단"
     profiles |o--o{ reports : "신고"
@@ -81,6 +85,8 @@ erDiagram
 | `profile_photos` · `profile_avatars` · `survey_answers` | 본인 행 (`profile_id`) | |
 | `profile_vectors` | 없음 | FastAPI 전용 |
 | `daily_cards` · `card_decisions` · `acceptance_responses` | 없음 | FastAPI 전용 — 카드 화면에는 상대 정보가 섞인다 |
+| `paid_card_offers` | 없음 | FastAPI 전용(2026-10-10 운영 적용). RLS 켬 · 정책 0 — 본인 행도 못 읽는다. `service_role` 만 네 권한. 제안은 서버가 `GET /cards/today` 의 `paid_card` 로 내려준다(§4) |
+| `notifications` | 없음 | FastAPI 전용(2026-10-10 운영 적용). RLS 켬 · 정책 0, `service_role` 만 네 권한. 안 읽은 개수 · 목록은 서버가 내려준다(§4) |
 | `matches` | 당사자 (`profile_a` · `profile_b`) | 둘 다 알아도 되는 값만 있다 |
 | `match_participants` | 본인 행 (`profile_id`) | 이 테이블로는 상대 행을 못 읽는다. 상대의 수락·나가기는 `messages` 의 시스템 줄로 전해진다(§4) |
 | `messages` | 참여 중인 매칭의 메시지 | `exists (select 1 from match_participants mp where mp.match_id = messages.match_id and mp.profile_id = (select auth.uid()) and mp.left_at is null)` |
@@ -333,6 +339,10 @@ erDiagram
     profiles ||--o{ push_tokens : "기기"
     profiles ||--o| notification_settings : "16d"
     profiles ||--o{ pending_pushes : "밤 알림 보류"
+    profiles ||--o{ notifications : "알림함"
+    profiles ||--o{ paid_card_offers : "owner_id"
+    profiles ||--o{ paid_card_offers : "target_id"
+    daily_cards |o--o{ paid_card_offers : "purchased_card_id"
 
     daily_cards {
         uuid id PK "조각4"
@@ -412,6 +422,29 @@ erDiagram
         jsonb data "route 등"
         timestamptz created_at
     }
+
+    paid_card_offers {
+        uuid id PK "2026-10-10 운영 적용"
+        uuid owner_id FK "on delete cascade · 살 사람"
+        timestamptz cycle_started_at "이 제안이 속한 카드 주기의 시작 시각"
+        uuid target_id FK "on delete cascade · 열릴 상대"
+        jsonb reasons "맞는 이유 태그 최대 3개 · 기본 빈 배열"
+        integer band_count "뽑을 때의 후보 폭 · check 1 이상"
+        paid_card_offer_status status "offered purchased replaced expired · 기본 offered"
+        uuid purchased_card_id FK "daily_cards · on delete set null · check status=purchased 일 때만"
+        timestamptz created_at
+    }
+
+    notifications {
+        uuid id PK "2026-10-10 운영 적용"
+        uuid profile_id FK "on delete cascade"
+        text kind "card_arrived chat_request match_made friend_review verification_result night_digest"
+        text title
+        text body
+        jsonb data "푸시 data 와 같은 모양 · 기본 빈 객체"
+        timestamptz created_at
+        timestamptz read_at "null=안 읽음"
+    }
 ```
 
 - `matches` 는 `unique (profile_a, profile_b)` + `check (profile_a < profile_b)`
@@ -422,8 +455,11 @@ erDiagram
 - 채팅방의 "신뢰 확인 완료" 카드(`trust-reveal-bubble`)는 메시지 행이 아니라 `matches.trust_passed_at` 으로 그린다
 - **읽음은 메시지가 아니라 `match_participants.last_read_at` 에 둔다.** `messages.read_at` 은 두 사람이 다 읽으므로, 상대가 조용히 나가면 내 메시지가 계속 안 읽힘으로 남아 나가기가 드러난다. 안 읽은 수는 상대가 보낸 메시지 중 `created_at` > 내 `last_read_at` 이고, 갱신은 메시지마다가 아니라 방에 들어올 때와 나갈 때 한 번씩이다(나갈 때도 갱신해야 방 안에서 받은 메시지가 안 읽음으로 남지 않는다). 상대에게 보이는 읽음 표시는 없다
 - 수락이 겹치는 경로 두 가지: A의 카드에서 A accept → B가 받은 수락함에서 응답(`acceptance_responses`), 또는 서로의 카드에서 둘 다 accept. 어느 쪽이든 양쪽 accept 가 되면 FastAPI가 `matches` 와 `match_participants` 2행을 만든다
-- **하드 필터 "이미 카드로 받은 사람"의 정의(§11-4, 설계 §6.7)**: 내가 결정한 카드의 상대(`card_decisions`) + 받은 수락함에서 응답한 상대(`acceptance_responses`) + 매칭 이력이 있는 상대(`matches`, 게이트 실패 포함) + 아직 만료되지 않은 카드의 상대. **무응답으로 만료된 무상 카드의 상대는 다시 나올 수 있다.** **실제 동작(2026-09-21 사용자 확정, `20260928050000` `match_candidates`)은 영구 제외가 아니라 쉬는 기간이다**: 결정한 카드의 상대는 결정 후 90일, 무응답 만료 카드의 상대는 만료 후 14일, 내가 수락 응답을 한 상대도 90일 쉬고, **매칭된 상대만 영구 제외**다. 그래서 `daily_cards (owner_id, target_id)` 는 unique가 아니라 일반 인덱스다
-- **`pending_pushes`(밤 알림 보류, 결정 4 · 2026-10-01 사용자 — 2026-10-03 제안, 운영 미적용)**: 조용한 시간(22~08시)에 걸린 받은 수락 · 매칭 · 지인 리뷰 · 학생증 검토 결과(A7) 알림을 버리지 않고 원래 제목 · 본문 · `data` 그대로 한 행씩 넣는다(`app/cards/push.py` `notify`). 매시 chat-gate 배치가 조용하지 않은 시각(08~21시)에 돌면 사람 × 가는 화면(`data.route`)으로 묶어 보내고 지운다 — 1건이면 원래 알림, 여러 건이면 "밤사이 2명이 나를 수락했어요" 식 묶음. 친구 가입(리뷰 쓰기) · 학생증 검토 결과 알림은 묶지 않고 한 건씩 보낸다. **내가 방금 한 행동으로 생긴 내 쪽 알림은 보류하지 않고 버린다**(대장 10-03) — 밤에 내가 눌러 생긴 매칭의 내 쪽 "매칭됐어요!", 마지막에 누른 사람 쪽 "카카오톡 아이디를 주고받았어요"(둘 다 방금 화면에서 봤다, `notify(defer=False)`). 보낼 때 `notify` 를 다시 지나서 밤사이 끈 알림 · 정지 · 탈퇴는 걸린다. 채팅 · 카드 도착은 조용한 시간 예외라, 신뢰 확인 리마인드는 보낼 시각을 08시로 미뤄 둬서 이 표에 오지 않는다. `kind` 는 enum 이 아니라 4값 check 다
+- **하드 필터 "이미 카드로 받은 사람"의 정의(§11-4, 설계 §6.7)**: 내가 결정한 카드의 상대(`card_decisions`) + 받은 수락함에서 응답한 상대(`acceptance_responses`) + 매칭 이력이 있는 상대(`matches`, 게이트 실패 포함) + 아직 만료되지 않은 카드의 상대. **무응답으로 만료된 무상 카드의 상대는 다시 나올 수 있다.** **실제 동작(2026-09-21 사용자 확정, `20260928050000` `match_candidates`)은 영구 제외가 아니라 쉬는 기간이다**: 결정한 카드의 상대는 결정 후 90일, 무응답 만료 카드의 상대는 만료 후 14일, 내가 수락 응답을 한 상대도 90일 쉬고, **매칭된 상대만 영구 제외**다. 그래서 `daily_cards (owner_id, target_id)` 는 unique가 아니라 일반 인덱스다. **2026-10-10 개정(`20261010010000`, 운영 적용): 위 "쉬는 중" 사람은 이제 후보에서 빠지지 않고 `pickable = false` 로 함께 나온다**(결정 전 카드 — 구매 카드 포함 — 와 매칭된 상대도 같다). 순위는 쉬는 사람까지 포함한 전체 후보로 매기고 뽑을 때만 `pickable` 을 본다(서버 `backend/app/matching/band.py`). 하드 필터(이성 · 같은 지역그룹 · 열린 학교 · active · 접속 15일 · 일시중지 · 자동 가림 · 차단 · 지인 차단 · 벡터 있음)에 걸린 사람은 종전대로 행 자체가 없다. 함수 반환이 `table(...)` 에서 **jsonb 배열 한 덩어리**로 바뀌어(`drop` 뒤 `create`, 호출 주소는 그대로) PostgREST 가 행 집합을 1,000행에서 자르던 상한이 사라졌다 — 후보가 없으면 null 이 아니라 `[]` 다
+- **`pending_pushes`(밤 알림 보류, 결정 4 · 2026-10-01 사용자 — 2026-10-03 제안, 운영 미적용)**: 조용한 시간(22~08시)에 걸린 받은 수락 · 매칭 · 지인 리뷰 · 학생증 검토 결과(A7) 알림을 버리지 않고 원래 제목 · 본문 · `data` 그대로 한 행씩 넣는다(`app/cards/push.py` `notify`). 매시 chat-gate 배치가 조용하지 않은 시각(08~21시)에 돌면 사람 × 가는 화면(`data.route`)으로 묶어 보내고 지운다 — 1건이면 원래 알림, 여러 건이면 "대화 신청이 왔어요 / 밤사이 2명이 대화를 신청했어요" 식 묶음(2026-10-10 개정, PR #440 — 종전 "밤사이 2명이 나를 수락했어요". 단건 알림도 "대화 신청이 왔어요"이고 `kind` 값 `acceptance_received` 는 그대로다). 친구 가입(리뷰 쓰기) · 학생증 검토 결과 알림은 묶지 않고 한 건씩 보낸다. **내가 방금 한 행동으로 생긴 내 쪽 알림은 보류하지 않고 버린다**(대장 10-03) — 밤에 내가 눌러 생긴 매칭의 내 쪽 "매칭됐어요!", 마지막에 누른 사람 쪽 "카카오톡 아이디를 주고받았어요"(둘 다 방금 화면에서 봤다, `notify(defer=False)`). 보낼 때 `notify` 를 다시 지나서 밤사이 끈 알림 · 정지 · 탈퇴는 걸린다. 채팅 · 카드 도착은 조용한 시간 예외라, 신뢰 확인 리마인드는 보낼 시각을 08시로 미뤄 둬서 이 표에 오지 않는다. `kind` 는 enum 이 아니라 4값 check 다
+- **`paid_card_offers`(유료 카드 제안, 2026-10-10 운영 적용 — `20261010020000` · 주기당 한 장 인덱스 교체 `20261010050000`)**: 서버가 주기마다 상위 20% 구간에서 **미리** 한 명을 골라 적어 두는 표다. 컬럼은 위 그림. enum `paid_card_offer_status`(§8) 4값 — `offered`(제안 중) · `purchased`(산 것) · `replaced`(대상이 자격을 잃어 다시 고름) · `expired`(주기가 지나도록 안 삼). FK 삭제 규칙: `owner_id` · `target_id` 는 `on delete cascade`(탈퇴 정리를 막지 않는다), `purchased_card_id` 는 `on delete set null`(카드가 지워지면 칸만 비고 제안 행은 남는다 — 그래서 `purchased` 이면서 null 인 행도 정상). 제약: `check (band_count >= 1)`(뽑을 사람이 없으면 제안이 생기지 않는다), `check (purchased_card_id is null or status = 'purchased')`. **주기당 한 장은 부분 유일 인덱스 `paid_card_offers_one_live_per_cycle (owner_id, cycle_started_at) where status in ('offered','purchased')` 가 DB 에서 막는다** — `20261010050000`(PR #442, 2026-10-10 운영 적용 완료)이 종전 인덱스 `paid_card_offers_one_offered_per_cycle`(`offered` 만 막아 구매 뒤 같은 주기에 새 `offered` 가 들어갈 수 있었다)를 지우고 바꿨다. `replaced` · `expired` 는 몇 개든 쌓인다(재선정 · 만료 이력). 보조 인덱스: `(owner_id, created_at desc)` · `(target_id)` · `(purchased_card_id) where purchased_card_id is not null`(FK 칸 인덱스 관례). RLS 켬 · **정책 없음**, `service_role` 만 `select` · `insert` · `update` · `delete`
+- **함수 `purchase_paid_card(p_owner uuid, p_offer uuid) → jsonb`(2026-10-10 운영 적용 — `20261010030000`)**: 제안 하나를 하트 **50개**(함수 안 상수 `c_price`, 바꾸려면 마이그레이션)로 사서 `daily_cards.source = 'purchased'`(`expires_at` null) 카드 한 장을 만든다. security invoker, `public` · `anon` · `authenticated` 회수, `service_role` 만 실행. 제안 행을 `for update` 로 잠근 채 끝까지 가서 같은 제안을 동시에 두 번 불러도 하트는 한 번만 빠진다. 돌려주는 `result` 4값: `ok`(`card_id` 포함) · `already_purchased`(`card_id` 포함, 하트 · 카드 그대로) · `not_enough_hearts`(아무것도 안 바뀐다) · `offer_gone`(제안이 없거나 · 남의 것이거나 · `offered` 가 아니거나 · 대상이 이제 고를 수 없다). **대상이 자격을 잃어서 `offer_gone` 을 돌려줄 때만** 그 제안을 `replaced` 로 바꿔 둔다(서버가 낡은 제안을 계속 보여 주는 것을 막는다). 자격은 `match_candidates` 의 `pickable` 을 그대로 써서 한 곳에서 정한다. 하트 차감은 `grant_hearts(…, 'extra_card', p_offer)` 로 카드를 만들기보다 먼저 하고, 부족하면 `entitlements_balance_non_negative` 제약 위반을 하트 부족으로 읽는다
+- **`notifications`(알림함, 2026-10-10 운영 적용 — `20261010040000`)**: 푸시와 별개로 앱 안 목록에 쌓는 기록(푸시를 껐거나 못 받아도 다시 본다). `kind` 는 enum 이 아니라 **text + check 6값**(`card_arrived` · `chat_request` · `match_made` · `friend_review` · `verification_result` · `night_digest` — 새 종류는 check 를 바꾸는 마이그레이션으로 늘린다, `pending_pushes` 와 같다). 인덱스: 안 읽은 개수용 부분 인덱스 `notifications_unread_index (profile_id) where read_at is null` · 최근순 목록용 `(profile_id, created_at desc)`. `profile_id` 는 `on delete cascade`. RLS 켬 · 정책 0, `service_role` 만 네 권한. **90일 보관 정리는 서버 배치 몫이고 구현 중이다**(이 마이그레이션에는 없다)
 - 알림 토글은 지금 7개다. DESIGN 16d의 "내 글의 새 댓글"은 이번 스코프에 커뮤니티 댓글이 없어서(DESIGN §8.11) 컬럼을 두지 않고, 댓글을 도입할 때 추가한다 — 검토11. DESIGN 16d는 지금 고치지 않는다
 
 ## 5. 안전 · 계정 상태 (조각 6)
@@ -476,7 +512,7 @@ erDiagram
 - **16b 목록의 이름·끝 4자리는 서버에 두지 않는다**(§11-9). 8d에서 고를 때 앱이 기기 안에만 저장하고, FastAPI가 등록 응답으로 돌려준 `contact_blocks.id` 를 키로 짝지어 보여준다. `contact_hmac` 을 키로 쓰지 않는 이유: HMAC 키를 교체하면(검토9) 값이 바뀌어 이름이 전부 끊기고, 클라이언트에 HMAC 값을 줄 필요도 없어진다. 앱을 재설치하거나 기기를 바꾸면 이름 없이 "이전에 차단한 연락처"로 보이지만 차단과 해제는 그대로 된다
 - **매칭 중 차단은 `matches` 에 기록하지 않는다.** `chat_closed_at` 같은 공유 값으로 처리하면 상대가 차단을 추론한다. 차단한 사람의 `match_participants.left_at` 과 `blocks` 행으로만 처리한다(설계 §7.2 "차단당한 쪽은 알 수 없어야")
 - `reports.target_snapshot` — 게이트 실패 채팅 삭제(설계 §2.5)나 탈퇴 30일 뒤 삭제(§11-15)로 신고된 원본이 사라져도 24시간 조치 근거(애플 심사 지침 1.2)가 남아야 한다. `reporter_id` 는 `on delete set null`. 처리가 끝나고(`resolved_at`) 1년 뒤 행째 지운다(§11-23). check 후보 `(status = 'open') = (resolved_at is null)`
-- `signup_blocks` 는 탈퇴로 `profiles` 가 지워진 뒤에도 남아야 하므로 관계가 없다. 원본 이메일을 남기지 않으려고 HMAC 으로 제안. 가입 때 FastAPI HTTP Auth Hook 이 메일 도메인 화이트리스트와 함께 이 표를 검사한다(§11-12). 정지 중 탈퇴는 `blocked_until` 을 `infinity` 로 써서 기간 없이 막는다(§11-22). 기한(`blocked_until`)이 지난 행은 FastAPI 배치(신고 1년 삭제와 같은 배치)가 지운다. 남기면 재탈퇴 때 `email_hmac` PK 가 충돌한다
+- `signup_blocks` 는 탈퇴로 `profiles` 가 지워진 뒤에도 남아야 하므로 관계가 없다. 원본 이메일을 남기지 않으려고 HMAC 으로 제안. 종전: 가입 때 FastAPI HTTP Auth Hook 이 메일 도메인 화이트리스트와 함께 이 표를 검사한다(§11-12). **2026-10-09 소셜 로그인 전환으로 개정**: 소셜(카카오 · 구글 · 애플) 가입에는 이 검사가 없다 — Hook(`POST /hooks/before-user-created`)은 소셜을 검사 없이 허용하고, 학교 메일 인증용 임시 이메일 계정만 도메인 화이트리스트 → 이 표 순으로 본다(모르는 가입 수단은 거절). 인증을 끝내는 `POST /school-email/verify` 도 같은 두 검사를 한 번 더 한 뒤에 DB 함수 `complete_school_email_verification` 을 부른다(`backend/app/auth_hooks/router.py` · `backend/app/school_email/router.py`). 정지 중 탈퇴는 `blocked_until` 을 `infinity` 로 써서 기간 없이 막는다(§11-22). 기한(`blocked_until`)이 지난 행은 FastAPI 배치(신고 1년 삭제와 같은 배치)가 지운다. 남기면 재탈퇴 때 `email_hmac` PK 가 충돌한다
 - **조각 6 적용 기록(2026-09-27, 마이그레이션 `20260927010000` ~ `20260927030100`, 운영 적용됨).** ① `reports`: enum `report_reason` 5값, `reason_note`(기타 한 줄, 1~200자), `target_profile_id`(대상의 주인, 자동 가림 셈), unique `reports_once_per_reporter (reporter_id, target_type, target_id)`, check `reports_status_pair`, 인덱스 `target_profile_id` · `created_at`. 하루 10건 상한은 FastAPI 가 센다. **1년 삭제는 `resolved_at` 기준이다** — 2026-09-29 PR #165 로 코드를 바로잡았다(그 전 배치는 `created_at` 기준이라 1년 넘게 열린 신고까지 지웠다). `resolved_at` 인덱스는 아직 없다(백로그). 적용된 마이그레이션 `20260927010200` 33줄 주석의 옛 기준 문장은 파일을 고치지 않는 규칙이라 그대로다 ② `blocks`: PK `(blocker_id, blocked_id)`, 자기 차단 check, `blocked_id` 인덱스. 신고하면 같은 요청 안에서 차단 행도 넣는다(지인 리뷰 신고만 예외) ③ `contact_blocks`: 위 모양 + `contact_hmac` 인덱스, **클라이언트 권한 0**(§2 개정) ④ `profile_private.phone_hmac` · `phone_hmac_key_version` 을 `set_phone_number`(5인자, `20260927030000`)가 번호와 같이 쓴다 — 옛 번호는 백필 스크립트로 한 번 채웠다 ⑤ `withdraw_account()`(`20260927030100`) — 상태 · `withdrawn_at` · `signup_blocks` 를 한 트랜잭션에(정지면 무기한, 아니면 2개월, 두 번 불러도 같다). **2026-10-09 개정(`20261008040000`, 운영 적용)**: `p_email_hmac` 이 null 이면(카카오처럼 메일이 없거나 학교 메일 인증 전에 나가는 계정) 상태 · `withdrawn_at` 만 바꾸고 `signup_blocks` 는 남기지 않는다. 서명 · security invoker · `service_role` 만 실행은 그대로 ⑥ `match_candidates` · `card_issue_owners` 가 차단(양방향) · 자동 가림 · 지인 차단(같은 키 버전) 을 뺀다(`20260927010500`)
 - **`profile_private.phone_hmac` 유니크는 걸지 않는다**(2026-09-22 사용자 결정, 검토5 해결) — "한 번호 한 계정" 을 DB 로 강제하지 않는다. 학교 메일이 둘인 사람이 같은 번호로 계정 둘을 굴려 정지 · 재가입 제한을 우회할 수 있는 것은 알려진 한계다. 같은 번호 추천 보상 중복은 `redeem_referral` 이 막는다(§6)
 
@@ -633,6 +669,7 @@ enum 값은 만든 뒤 지울 수 없다(추가·이름 변경만 된다). 그�
 | `avatar_status` | `pending` `ready` `failed` | 제안 |
 | `card_source` | `daily` `purchased` | §4 |
 | `card_decision` | `accept` `reject` | §4 |
+| `paid_card_offer_status` | `offered` `purchased` `replaced` `expired` | §4 — 2026-10-10 운영 적용(`20261010020000`) |
 | `trust_response` | `accept` `reject` | 설계 §2.5 |
 | `device_platform` | `android` `ios` | 제안 |
 | `report_target` | `profile` `message` `friend_review` `poll` | 조각6 — 2026-09-27 적용. 앱 신고 입구는 `profile` · `message` · `friend_review`(받은 사람만), `poll` 은 아직 422 |
