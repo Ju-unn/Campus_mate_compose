@@ -2,10 +2,10 @@ import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/common/widgets/trait_slider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
-import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/profile/model/profile_enums.dart';
+import 'package:campus_mate/profile/view/choice_pickers.dart';
 import 'package:campus_mate/profile/viewmodel/survey_ui_state.dart';
 import 'package:campus_mate/profile/viewmodel/survey_view_model.dart';
 import 'package:flutter/material.dart';
@@ -178,22 +178,7 @@ class _ReligionPage extends StatelessWidget {
       children: [
         Text('종교가 있으신가요?', style: AppTypography.headline.copyWith(color: AppColors.ink)),
         const SizedBox(height: AppSpacing.xl),
-        GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: AppSpacing.sm,
-          crossAxisSpacing: AppSpacing.sm,
-          mainAxisExtent: 56,
-          children: [
-            for (final religion in Religion.values)
-              _ChoiceCell(
-                label: religion.label,
-                isSelected: selected == religion,
-                onTap: () => onSelected(religion),
-              ),
-          ],
-        ),
+        ReligionPicker(selected: selected, onSelected: onSelected),
       ],
     );
   }
@@ -212,62 +197,8 @@ class _SmokePage extends StatelessWidget {
       children: [
         Text('담배를 피우시나요?', style: AppTypography.headline.copyWith(color: AppColors.ink)),
         const SizedBox(height: AppSpacing.xl),
-        SizedBox(
-          height: 56,
-          child: Row(
-            children: [
-              Expanded(
-                child: _ChoiceCell(
-                  label: '한다',
-                  isSelected: isSmoker == true,
-                  onTap: () => onSelected(true),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: _ChoiceCell(
-                  label: '안 한다',
-                  isSelected: isSmoker == false,
-                  onTap: () => onSelected(false),
-                ),
-              ),
-            ],
-          ),
-        ),
+        SmokePicker(isSmoker: isSmoker, onSelected: onSelected),
       ],
-    );
-  }
-}
-
-/// 종교·흡연 공통 "칸 선택"(DESIGN.md §8.5 religion-select·smoke-toggle).
-/// 비선택 채움은 표면 회색이다(pen `Rmfti`·`Y1TDq2` 2026-09-26 수정) —
-/// 종전 `primaryDisabled`(#E5E5E5)는 **비활성 채움** 토큰이라, 고를 수 있는 칸이 꺼진 버튼처럼 보였다.
-class _ChoiceCell extends StatelessWidget {
-  const _ChoiceCell({required this.label, required this.isSelected, required this.onTap});
-
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    // 칸이 자기 Material 을 들고 있어야 채움이 Scaffold 에 칠해지지 않는다(select_chip.dart 와 같다).
-    return Material(
-      type: MaterialType.transparency,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppRadius.sm),
-        child: Ink(
-          decoration: BoxDecoration(
-            color: isSelected ? AppColors.primaryWash : AppColors.surfaceSoft,
-            borderRadius: BorderRadius.circular(AppRadius.sm),
-            border: Border.all(color: isSelected ? AppColors.primary : Colors.transparent),
-          ),
-          child: Center(
-            child: Text(label, style: AppTypography.label.copyWith(color: AppColors.ink)),
-          ),
-        ),
-      ),
     );
   }
 }
