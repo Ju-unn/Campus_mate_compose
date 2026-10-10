@@ -46,7 +46,10 @@ void main() {
     await pump(tester);
 
     expect(find.text('오늘의 카드 도착'), findsOneWidget);
-    expect(find.text('받은 수락'), findsOneWidget);
+    expect(find.text('받은 신청'), findsOneWidget);
+    expect(find.text('상대가 나에게 대화를 신청했을 때'), findsOneWidget);
+    // 매칭 성사 알림 행은 사용자 확인 전까지 옛 글자 그대로다(지시문 23 F).
+    expect(find.text('서로 수락해 대화가 열렸을 때'), findsOneWidget);
     // 댓글 스위치는 대응 컬럼이 없어 이번 조각에서 그리지 않는다(커뮤니티는 조각 6).
     expect(find.text('내 글의 새 댓글'), findsNothing);
   });
@@ -57,7 +60,7 @@ void main() {
     final icons = [for (final icon in tester.widgetList<Icon3d>(find.byType(Icon3d, skipOffstage: false))) icon.icon];
     expect(icons, [
       AppIcon3d.layers, // 오늘의 카드 도착
-      AppIcon3d.heart, // 받은 수락
+      AppIcon3d.heart, // 받은 신청
       AppIcon3d.users, // 매칭 성립
       AppIcon3d.chat, // 새 메시지(pen 인스턴스 `K4uiNp` — 그림 확인 전)
       AppIcon3d.clock, // 신뢰 확인 리마인드

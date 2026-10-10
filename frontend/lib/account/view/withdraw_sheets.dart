@@ -227,7 +227,7 @@ class _DeletedItems extends StatelessWidget {
   /// pen 줄의 3D 아이콘 인스턴스 `PkqpC`(프로필) · `zxXQG`(하트) · `Lua1H`(대화).
   static const _items = <(AppIcon3d, String)>[
     (AppIcon3d.userRound, '프로필과 인증 정보'),
-    (AppIcon3d.heart, '수락 매칭 기록'),
+    (AppIcon3d.heart, '신청·매칭 기록'),
     (AppIcon3d.chat, '모든 대화 내용'),
   ];
 
