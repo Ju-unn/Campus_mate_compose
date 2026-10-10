@@ -18,6 +18,7 @@ import 'package:campus_mate/home/model/home_repository_provider.dart';
 import 'package:campus_mate/main.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
+import 'package:campus_mate/notifications/model/notifications_repository_provider.dart';
 import 'package:flutter/material.dart' show AppLifecycleState;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -31,6 +32,7 @@ import 'core/push/fake_push_messaging.dart';
 import 'home/model/fake_home_repository.dart';
 import 'matching/model/fake_card_repository.dart';
 import 'profile/model/fake_onboarding_repository.dart';
+import 'notifications/model/fake_notifications_repository.dart';
 
 /// 관문 조회가 [complete] 를 부를 때까지 끝나지 않는다 — 콜드 스타트에서 서버가 늦게 답하는 모양.
 class _SlowGateRepository implements VerificationGateRepository {
@@ -86,6 +88,7 @@ void main() {
         cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
         chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
         homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
+        notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
         signOutProvider.overrideWithValue(() async {}),
       ],
     );
@@ -125,6 +128,7 @@ void main() {
         cardRepositoryProvider.overrideWithValue(appCards),
         chatRepositoryProvider.overrideWithValue(appChat),
         homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
+        notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
         signOutProvider.overrideWithValue(() async {}),
       ],
     );
@@ -171,6 +175,7 @@ void main() {
         cardRepositoryProvider.overrideWithValue(appCards),
         chatRepositoryProvider.overrideWithValue(chat),
         homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
+        notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
         signOutProvider.overrideWithValue(() async {}),
       ],
     );

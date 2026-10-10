@@ -29,6 +29,7 @@ import 'package:campus_mate/me/view/profile_edit_screen.dart';
 import 'package:campus_mate/me/view/profile_entry_row.dart';
 import 'package:campus_mate/me/view/profile_manage_screen.dart';
 import 'package:campus_mate/profile/model/onboarding_step.dart';
+import 'package:campus_mate/notifications/model/notifications_repository_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -41,6 +42,7 @@ import '../../chat/model/fake_chat_repository.dart';
 import '../../home/model/fake_home_repository.dart';
 import '../../matching/model/fake_card_repository.dart';
 import '../model/fake_me_repository.dart';
+import '../../notifications/model/fake_notifications_repository.dart';
 
 /// 사진 요청을 받기만 하고 답하지 않는 HttpClient — 화면 15 테스트와 같은 이유(그림은 "아직 오는 중").
 class _PendingHttpClient extends Mock implements HttpClient {}
@@ -703,6 +705,7 @@ void main() {
           cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
           chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
           homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
+          notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
           meRepositoryProvider.overrideWithValue(me),
         ],
         child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
@@ -752,6 +755,7 @@ void main() {
           cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
           chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
           homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
+          notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
           meRepositoryProvider.overrideWithValue(me),
         ],
         child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
@@ -801,6 +805,7 @@ void main() {
           cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
           chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
           homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
+          notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
           meRepositoryProvider.overrideWithValue(me),
         ],
         child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),

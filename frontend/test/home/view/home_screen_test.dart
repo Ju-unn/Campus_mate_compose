@@ -16,6 +16,7 @@ import 'package:campus_mate/home/view/notify_icon_button.dart';
 import 'package:campus_mate/home/view/tag.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:campus_mate/me/model/me_repository_provider.dart';
+import 'package:campus_mate/notifications/model/notifications_repository_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -26,6 +27,7 @@ import '../../chat/model/fake_chat_repository.dart';
 import '../../matching/model/fake_card_repository.dart';
 import '../../me/model/fake_me_repository.dart';
 import '../model/fake_home_repository.dart';
+import '../../notifications/model/fake_notifications_repository.dart';
 
 /// mosaic-rail 도 가로 Scrollable 이라 세로 목록을 짚어 준다.
 final _mainList = find.byType(Scrollable).first;
@@ -57,6 +59,7 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         homeRepositoryProvider.overrideWithValue(FakeHomeRepository(result)),
+        notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
         meRepositoryProvider.overrideWithValue(FakeMeRepository(const FailureResult(NetworkFailure()))),
         // 하단 내비 뱃지가 수락 대기·안 읽은 메시지를 읽는다(§8.8).
         cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
@@ -237,14 +240,6 @@ void main() {
 
       expect(railX(tester), before);
     });
-  });
-
-  testWidgets('앱바 알림 종에 숫자 배지를 달지 않는다 — 알림함이 생길 때까지(사용자 결정 2026-09-26)', (tester) async {
-    await pump(tester);
-
-    expect(find.text('CampusMate'), findsOneWidget);
-    expect(find.byType(NotifyIconButton), findsOneWidget);
-    expect(find.descendant(of: find.byType(NotifyIconButton), matching: find.byType(Text)), findsNothing);
   });
 
   testWidgets('프로필 완성도 카드는 저장소의 퍼센트를 보여준다', (tester) async {

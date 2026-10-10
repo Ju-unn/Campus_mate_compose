@@ -16,6 +16,7 @@ import 'package:campus_mate/matching/view/today_cards_screen.dart';
 import 'package:campus_mate/matching/viewmodel/today_cards_view_model.dart';
 import 'package:campus_mate/me/model/me_repository_provider.dart';
 import 'package:campus_mate/me/model/my_profile.dart';
+import 'package:campus_mate/notifications/model/notifications_repository_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -26,6 +27,7 @@ import '../../chat/model/fake_chat_repository.dart';
 import '../../home/model/fake_home_repository.dart';
 import '../../me/model/fake_me_repository.dart';
 import '../model/fake_card_repository.dart';
+import '../../notifications/model/fake_notifications_repository.dart';
 
 /// 오늘 탭 안의 결제 카드(pen `W0CjO` 의 `b2jvOY`, `SoMVZ` 의 `IJGRA`) 자리 · 흐름 · 이름 바꾸기 (지시문 23 B~E).
 Future<void> _loadPretendard() async {
@@ -105,6 +107,7 @@ void main() {
           cardRepositoryProvider.overrideWithValue(cards),
           chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
           homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
+          notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
           meRepositoryProvider.overrideWithValue(me),
         ],
         child: MaterialApp.router(routerConfig: router),

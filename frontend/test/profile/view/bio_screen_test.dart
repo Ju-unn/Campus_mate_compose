@@ -17,6 +17,7 @@ import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:campus_mate/profile/view/bio_screen.dart';
 import 'package:campus_mate/referral/model/referral_repository_provider.dart';
 import 'package:campus_mate/referral/view/referral_code_screen.dart';
+import 'package:campus_mate/notifications/model/notifications_repository_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -26,6 +27,7 @@ import '../../home/model/fake_home_repository.dart';
 import '../../matching/model/fake_card_repository.dart';
 import '../../referral/model/fake_referral_repository.dart';
 import '../model/fake_bio_repository.dart';
+import '../../notifications/model/fake_notifications_repository.dart';
 
 /// 서버 next-step 을 흉내 낸다. [hold] 가 있으면 그것이 끝날 때까지 답을 미룬다(느린 네트워크).
 class _StepRepository implements OnboardingRepository {
@@ -50,6 +52,7 @@ Future<void> _pumpAtBio(WidgetTester tester, _StepRepository steps, {FakeBioRepo
       cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
       chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
       homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
+      notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
     ],
   );
   addTearDown(container.dispose);

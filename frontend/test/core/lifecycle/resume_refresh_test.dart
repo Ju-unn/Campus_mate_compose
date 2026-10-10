@@ -9,23 +9,29 @@ import 'package:campus_mate/core/lifecycle/resume_refresh.dart';
 import 'package:campus_mate/core/push/push_refresh.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:campus_mate/matching/viewmodel/acceptances_view_model.dart';
+import 'package:campus_mate/notifications/model/notifications_repository_provider.dart';
+import 'package:campus_mate/notifications/viewmodel/unread_count_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../chat/model/fake_chat_repository.dart';
 import '../../matching/model/fake_card_repository.dart';
+import '../../notifications/model/fake_notifications_repository.dart';
 
 void main() {
   late FakeChatRepository chat;
   late FakeCardRepository cards;
+  late FakeNotificationsRepository notifications;
   late ProviderContainer container;
 
   setUp(() {
     chat = FakeChatRepository()..conversations = Success([conversationFixture(unreadCount: 2)]);
     cards = FakeCardRepository();
+    notifications = FakeNotificationsRepository(unreadCount: 4);
     container = ProviderContainer(overrides: [
       chatRepositoryProvider.overrideWithValue(chat),
       cardRepositoryProvider.overrideWithValue(cards),
+      notificationsRepositoryProvider.overrideWithValue(notifications),
     ]);
     addTearDown(container.dispose);
   });
@@ -52,6 +58,26 @@ void main() {
     expect(cards.fetchAcceptancesCount, cardsBefore + 1);
     // 하단 내비 뱃지가 읽는 값이 새로 바뀐다.
     expect(container.read(chatBadgeCountProvider), 7);
+  });
+
+  test('돌아오면 홈 종 배지의 안 읽은 알림 수도 다시 읽는다', () async {
+    expect(container.read(unreadCountProvider), 0);
+
+    resume();
+    await pumpEventQueue();
+
+    expect(notifications.countCalls, 1);
+    expect(container.read(unreadCountProvider), 4);
+  });
+
+  test('로그아웃 상태 · 관문 미완료에서는 안 읽은 알림 수도 읽지 않는다', () async {
+    resume(isAuthenticated: false);
+    for (final gate in VerificationGate.values.where((gate) => gate != VerificationGate.complete)) {
+      resume(gate: gate);
+    }
+    await pumpEventQueue();
+
+    expect(notifications.countCalls, 0);
   });
 
   test('로그아웃 상태면 아무것도 읽지 않는다 — 목록 provider 도 만들지 않는다', () async {

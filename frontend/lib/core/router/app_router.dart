@@ -41,6 +41,7 @@ import 'package:campus_mate/me/view/my_photos_screen.dart';
 import 'package:campus_mate/me/view/my_profile_screen.dart';
 import 'package:campus_mate/me/view/profile_edit_screen.dart';
 import 'package:campus_mate/me/view/profile_manage_screen.dart';
+import 'package:campus_mate/notifications/view/notifications_screen.dart';
 import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:campus_mate/profile/view/acquisition_screen.dart';
 import 'package:campus_mate/profile/view/appearance_type_screen.dart';
@@ -188,6 +189,7 @@ abstract final class AppRouter {
           ),
         ],
       ),
+      GoRoute(path: AppRoutes.notifications, builder: (context, state) => const NotificationsScreen()),
       GoRoute(path: AppRoutes.today, builder: (context, state) => const TodayCardsScreen()),
       GoRoute(
         path: '${AppRoutes.cardDetail}/:cardId',
