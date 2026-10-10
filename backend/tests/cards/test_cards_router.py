@@ -92,6 +92,24 @@ def test_today_returns_the_live_card_with_profile():
     assert body["candidate_pool_empty"] is False
 
 
+def test_card_profile_never_carries_birth_year_or_gender():
+    # 출생연도·성별은 본인 프로필(GET /me/profile)에만 나간다 — 남의 카드에는 나이만 보인다.
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if "/rest/v1/daily_cards" in url:
+            return httpx.Response(200, json=[_live_card()])
+        if "/rest/v1/profiles" in url:
+            return httpx.Response(200, json=[{**TARGET_PROFILE, "gender": "female"}])
+        if "/rest/v1/region_group_settings" in url:
+            return httpx.Response(200, json=REGION_SETTINGS)
+        return httpx.Response(200, json=[])
+
+    card = _wire(handler).get("/cards/today", headers=AUTH_HEADERS).json()["cards"][0]
+
+    assert "age" in card["profile"]
+    assert not {"birth_year", "gender"} & set(card["profile"])
+
+
 def test_today_without_cards_tells_the_pool_is_empty():
     """카드도 후보도 없으면 화면 11b(지금은 소개할 사람이 없어요)가 떠야 한다."""
     def handler(request: httpx.Request) -> httpx.Response:
