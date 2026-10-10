@@ -12,7 +12,7 @@ class MeRepository(PostgrestRepository):
     async def fetch_profile(self, profile_id: UUID) -> dict:
         response = await self._get("profiles", params={
             "id": f"eq.{profile_id}",
-            "select": "nickname,nickname_changed_at,bio,birth_year,height_cm,mbti,religion,is_smoker,animal_type,impression_type,major,universities(name),"
+            "select": "nickname,nickname_changed_at,bio,birth_year,gender,height_cm,mbti,religion,is_smoker,animal_type,impression_type,major,universities(name),"
                       "preferred_age_min,preferred_age_max,"
                       "preferred_height_min,preferred_height_max,"
                       "interest_tags,my_traits,ideal_traits,"

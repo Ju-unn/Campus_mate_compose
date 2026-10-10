@@ -20,7 +20,7 @@ NOW = datetime(2026, 9, 27, 14, 0, tzinfo=SEOUL)
 FULL_PROFILE = {
     "nickname": "하늘",
     "bio": "주말엔 산책해요",
-    "birth_year": 2003, "height_cm": 178, "mbti": "ENFP",
+    "birth_year": 2003, "gender": "female", "height_cm": 178, "mbti": "ENFP",
     "religion": "none", "is_smoker": False, "animal_type": "fox", "impression_type": "chic", "major": "컴퓨터공학과",
     "universities": {"name": "서울대학교"},
     "preferred_age_min": 21, "preferred_age_max": 27,
@@ -106,7 +106,7 @@ def test_profile_returns_my_fields():
     assert response.status_code == 200
     assert response.json() == {
         "nickname": "하늘",
-        "age": 24, "university": "서울대학교", "major": "컴퓨터공학과",
+        "age": 24, "birth_year": 2003, "gender": "female", "university": "서울대학교", "major": "컴퓨터공학과",
         "height_cm": 178, "mbti": "ENFP",
         "religion": "none", "is_smoker": False, "animal_type": "fox", "impression_type": "chic",
         "avatar_url": f"{SUPABASE_URL}/storage/v1/object/public/avatars/{PROFILE_ID}/new.png",
@@ -138,6 +138,15 @@ def test_profile_asks_the_db_for_the_four_edit_fields():
 
     select = next(r.url.params["select"] for r in seen if r.url.path.endswith("/profiles") and "nickname" in r.url.params.get("select", ""))
     assert {"religion", "is_smoker", "animal_type", "impression_type"} <= set(select.split(","))
+
+
+def test_profile_asks_the_db_for_birth_year_and_gender():
+    # 잠금 행(출생연도·성별)용 — 가짜 PostgREST 는 select 를 안 보니 요청 문자열을 직접 본다.
+    seen: list[httpx.Request] = []
+    _get(FULL_PROFILE, seen)
+
+    select = next(r.url.params["select"] for r in seen if r.url.path.endswith("/profiles") and "nickname" in r.url.params.get("select", ""))
+    assert {"birth_year", "gender"} <= set(select.split(","))
 
 
 def test_profile_rejects_missing_login():
@@ -177,7 +186,7 @@ def test_empty_profile_gives_nulls_and_no_photos():
     # 학생 인증 관문은 온보딩 완료(status active)를 보지 않는다 — 출생연도·키가 아직 빈 채로 닿을 수 있다.
     profile = {
         "nickname": "하늘", "bio": None,
-        "birth_year": None, "height_cm": None, "mbti": None, "major": None,
+        "birth_year": None, "gender": None, "height_cm": None, "mbti": None, "major": None,
         "religion": None, "is_smoker": None, "animal_type": None, "impression_type": None,
         "universities": {"name": "서울대학교"},
         "preferred_age_min": None, "preferred_age_max": None,
@@ -196,7 +205,7 @@ def test_empty_profile_gives_nulls_and_no_photos():
     assert body["photo_urls"] == []
     assert body["photos"] == []
     assert (body["heart_balance"], body["avatar_regen_cost"], body["nickname_changeable_at"]) == (0, 0, None)
-    for key in ("bio", "age", "height_cm", "mbti", "religion", "is_smoker", "animal_type", "impression_type", "major",
+    for key in ("bio", "age", "birth_year", "gender", "height_cm", "mbti", "religion", "is_smoker", "animal_type", "impression_type", "major",
                 "preferred_age_min", "preferred_age_max", "preferred_height_min", "preferred_height_max"):
         assert body[key] is None
     # 사진이 없으면 서명 요청도 없다.

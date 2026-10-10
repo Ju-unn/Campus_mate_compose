@@ -64,6 +64,9 @@ async def get_my_profile(
         "nickname": profile["nickname"],
         # 화면은 "늑대, 24" 처럼 쓴다(pen `xew8J`). 조각 2 와 같은 계산식을 쓴다.
         "age": now.year - birth_year + 1 if birth_year is not None else None,
+        # 기본 정보 수정(15-6)의 잠금 행(출생연도·성별) — 본인 전용 응답이라 여기에만 싣는다.
+        "birth_year": birth_year,
+        "gender": profile["gender"],
         "university": profile["universities"]["name"],
         "major": profile["major"],
         "height_cm": profile["height_cm"],
