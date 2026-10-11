@@ -70,7 +70,7 @@ async def _wire(
 ) -> _Wiring:
     settings, client, profile_id = caller
     key = settings.supabase_service_role_key
-    repo = ChatRepository(settings.postgrest_url, key, client)
+    repo = ChatRepository(settings.postgrest_url, key, client, encryption_key=settings.phone_encryption_key)
     push_repo = CardRepository(settings.postgrest_url, key, client)
     photos = ProfilePhotoStorage(settings.storage_url, key, client)
     # profile_id 는 PostgREST 에서 문자열로 오니 비교가 되게 str 로 맞춘다.

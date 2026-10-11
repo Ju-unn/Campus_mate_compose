@@ -224,10 +224,7 @@ class ChatRepository(PostgrestRepository):
     # 게이트를 통과한 뒤에만 부르는 것 ------------------------------------------
     async def fetch_kakao_id(self, profile_id: UUID | str) -> str | None:
         """앱에는 FastAPI 가 내려준다 — profile_private 는 authenticated 에게 열려 있지 않다(ERD §11-20)."""
-        rows = await self._rows("profile_private", {
-            "profile_id": f"eq.{profile_id}", "select": "kakao_id",
-        })
-        return rows[0]["kakao_id"] if rows else None
+        return (await self._read_private(profile_id, ("kakao_id",)))["kakao_id"]
 
     async def fetch_photo_paths(self, profile_id: UUID | str) -> list[str]:
         """실사진 경로(대표 사진이 0번). 비공개 버킷이라 라우터가 서명 URL 로 바꿔 내려보낸다."""
