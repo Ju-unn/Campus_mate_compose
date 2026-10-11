@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import UUID
 
 from app.core.http import raise_for_status
@@ -78,5 +79,62 @@ class StudentVerificationRepository(PostgrestRepository):
             params={"id": f"eq.{profile_id}"},
             # 컬럼 이름은 major 다 — department 는 API·클라이언트 쪽 이름이라 여기서만 바꿔 준다.
             json={"major": department, "student_number": student_number},
+        )
+        raise_for_status(response)
+
+    async def fetch_latest_attempt(self, profile_id: UUID) -> dict | None:
+        """가장 최근 제출 한 줄(id · file_path · reject_reason · result). 인증이 끝날 때까지 새 제출이 막혀 있어 이 줄이 지금 심사 대상이다."""
+        response = await self._get(
+            "student_verification_attempts",
+            params={"profile_id": f"eq.{profile_id}", "order": "submitted_at.desc", "limit": "1",
+                    "select": "id,file_path,reject_reason,result"},
+        )
+        raise_for_status(response)
+        rows = response.json()
+        return rows[0] if rows else None
+
+    async def fetch_attempt_by_path(self, file_path: str) -> dict | None:
+        response = await self._get(
+            "student_verification_attempts",
+            params={"file_path": f"eq.{file_path}", "select": "id,result", "limit": "1"},
+        )
+        raise_for_status(response)
+        rows = response.json()
+        return rows[0] if rows else None
+
+    async def fetch_pending_attempts_submitted_by(self, cutoff: datetime, limit: int) -> list[dict]:
+        """cutoff 이전에 내서 아직 대기 중인 시도(오래된 것부터). 기한 만료 정리가 쓴다."""
+        response = await self._get(
+            "student_verification_attempts",
+            params={"result": "eq.pending", "submitted_at": f"lte.{cutoff.isoformat()}",
+                    "order": "submitted_at", "limit": str(limit), "select": "id,profile_id,file_path"},
+        )
+        raise_for_status(response)
+        return response.json()
+
+    async def close_attempt(self, attempt_id: int, reason: str, now: datetime) -> None:
+        """대기 중인 시도를 반려로 닫는다. result=pending 조건이 붙어 있어 이미 확정된 행은 건드리지 않는다."""
+        response = await self._patch(
+            "student_verification_attempts",
+            params={"id": f"eq.{attempt_id}", "result": "eq.pending"},
+            json={"result": "rejected", "reject_reason": reason, "reviewed_at": now.isoformat()},
+        )
+        raise_for_status(response)
+
+    async def reopen_attempt(self, attempt_id: int) -> None:
+        """close_attempt 를 되돌린다(프로필을 못 바꿨을 때). 내일 배치가 다시 고른다. 반려 상태인 행만 되돌린다."""
+        response = await self._patch(
+            "student_verification_attempts",
+            params={"id": f"eq.{attempt_id}", "result": "eq.rejected"},
+            json={"result": "pending", "reject_reason": None, "reviewed_at": None},
+        )
+        raise_for_status(response)
+
+    async def reject_profile_if_pending(self, profile_id: UUID) -> None:
+        """사람이 이미 확정한 프로필(verified 등)은 덮어쓰지 않는다."""
+        response = await self._patch(
+            "profiles",
+            params={"id": f"eq.{profile_id}", "student_verification": "eq.pending"},
+            json={"student_verification": "rejected"},
         )
         raise_for_status(response)

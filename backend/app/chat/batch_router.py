@@ -14,6 +14,9 @@ from app.core.time import SEOUL
 from app.notifications.repository import NotificationRepository
 from app.notifications.retention import purge_expired
 from app.settings import Settings
+from app.student_verification.repository import StudentVerificationRepository
+from app.student_verification.retention import purge_student_id_photos
+from app.student_verification.storage import StudentIdStorage
 
 logger = logging.getLogger(__name__)
 
@@ -97,4 +100,13 @@ async def run_chat_gate_batch(
     deferred_sent = await send_pending(push_repo, sender, now)
     # 90일 지난 알림함 줄도 같은 배치가 지운다(설계 §8-4). 실패해도 위 결과는 그대로 돌려준다.
     purged = await purge_expired(NotificationRepository(settings.postgrest_url, key, client), now)
-    return {**result, "deferred_sent": deferred_sent, "notifications_purged": purged}
+    # 학생증 사진 정리(사용자 결정 2026-10-11): 사람이 재검토한 시도의 남은 사진 삭제 + 검토 대기 30일 만료. 실패해도 위 결과는 그대로.
+    try:
+        photos = await purge_student_id_photos(
+            StudentVerificationRepository(settings.postgrest_url, key, client),
+            StudentIdStorage(settings.storage_url, key, client), now)
+    except Exception as exc:
+        # purge 는 스스로 예외를 삼키지만 마지막 방어선이다 — 앞 작업(리마인드 · 마감)의 결과를 잃지 않는다.
+        logger.warning("학생증 사진 정리 실패 %s", type(exc).__name__)
+        photos = {"photos_deleted": 0, "pending_expired": 0}
+    return {**result, "deferred_sent": deferred_sent, "notifications_purged": purged, **photos}
