@@ -131,7 +131,7 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
       final messaging = ref.read(pushMessagingProvider);
       _pushSubscriptions.addAll([
         // 앱이 켜져 있을 때는 알림 배너 대신 화면을 갱신한다(새 의존성 표의 결정).
-        messaging.onMessage.listen(_refreshForRoute),
+        messaging.onMessage.listen(_onForegroundMessage),
         // 알림을 눌러서 열었을 때만 화면을 옮긴다.
         messaging.onMessageOpenedApp.listen(_openRoute),
       ]);
@@ -172,6 +172,12 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
   /// 서버는 "상대가 방을 보고 있으면 새 메시지 푸시를 보내지 않는다" 를 `last_read_at` 30초로
   /// 눈대중하는데, 그 눈대중이 빗나가도 여기서 배너가 되지 않는다는 것이 앱 쪽 계약이다.
   void _refreshForRoute(Map<String, dynamic> data) => refreshForPush(ref.read, data);
+
+  /// 앱이 켜진 채 받은 푸시 — 해당 화면 목록과 홈 종 배지를 함께 맞춘다(눌러 연 경우는 [_openRoute] 가 목록만 맞춘다).
+  void _onForegroundMessage(Map<String, dynamic> data) {
+    _refreshForRoute(data);
+    refreshUnreadForPush(ref.read, isAuthenticated: _authSession.isAuthenticated, gate: _verificationGate.value);
+  }
 
   /// 알림을 눌러 연 경우에도 목록을 다시 읽는다 — 백그라운드에 있던 앱은 [_refreshForRoute] 를 못 받았고,
   /// 대화 탭 같은 목록은 들어갈 때 다시 읽지 않아 옮기기만 하면 낡은 목록(빈 상태)이 그대로 보인다.
