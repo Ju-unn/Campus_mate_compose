@@ -108,11 +108,13 @@ select is(
 select is(
   (select count(*) from pg_proc
      where pronamespace = 'public'::regnamespace
-       and proname in ('decrypt_phone_number', 'set_phone_number', 'grant_hearts')
+       and proname in ('decrypt_phone_number', 'set_phone_number', 'grant_hearts',
+                       'set_real_name', 'set_kakao_id', 'decrypt_profile_private',
+                       'backfill_profile_private_encryption')
        and proconfig is not null
        and exists (select 1 from unnest(proconfig) cfg where cfg like 'search_path=%')),
-  3::bigint,
-  'decrypt_phone_number·set_phone_number·grant_hearts 는 search_path 가 고정돼 있다(advisor WARN 조치)'
+  7::bigint,
+  'decrypt_phone_number·set_phone_number·grant_hearts·set_real_name·set_kakao_id·decrypt_profile_private·backfill_profile_private_encryption 는 search_path 가 고정돼 있다(advisor WARN 조치)'
 );
 
 -- 각 테이블에 A·B 한 행씩 준비한다(RLS 우회 상태에서).
