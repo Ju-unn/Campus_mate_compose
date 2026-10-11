@@ -48,3 +48,19 @@ async def test_upload_failure_raises():
 
     with pytest.raises(httpx.HTTPStatusError):
         await storage.upload(PROFILE_ID, b"fake-jpeg-bytes", "image/jpeg")
+
+
+async def test_delete_treats_an_already_missing_object_as_deleted():
+    # 자동 통과 직후 훅이 같은 사진을 한 번 더 지우려 할 때처럼 이미 없는 파일 — 고아가 아니라 목표 상태다.
+    client = httpx.AsyncClient(transport=httpx.MockTransport(
+        lambda r: httpx.Response(404, json={"statusCode": "404", "error": "not_found"})))
+    storage = StudentIdStorage("https://x.supabase.co/storage/v1", "service-key", client)
+
+    assert await storage.delete(f"{PROFILE_ID}/gone.jpg") is True
+
+
+async def test_delete_still_reports_a_server_error_as_failed():
+    client = httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(500, json={})))
+    storage = StudentIdStorage("https://x.supabase.co/storage/v1", "service-key", client)
+
+    assert await storage.delete(f"{PROFILE_ID}/x.jpg") is False
