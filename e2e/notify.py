@@ -2,6 +2,7 @@
 
 import subprocess
 import re
+import shlex
 import time
 import xml.etree.ElementTree as ET
 from collections import namedtuple
@@ -149,6 +150,22 @@ def expect_none(serial, before, seconds=NOTICE_WAIT):
         if time.monotonic() >= deadline:
             return list(seen.values())
         time.sleep(POLL_SECONDS)
+
+
+SNOOZE_MS = 365 * 24 * 3600 * 1000  # 치운 알림이 되살아나면 뒤 가설의 "안 온다" 창에 새 알림으로 잡힌다 — 실행보다 훨씬 길게
+
+
+def clear(serial, notices):
+    """[notices](read_notifications 로 읽은 것)를 알림창에서 치운다 — 제목 · 본문이 고정인 알림은 [tap_notification] 의 body 로도 옛 것을 못 가른다.
+    셸에는 남의 앱 알림을 지우는 명령이 없어 `cmd notification snooze` 로 오래 미룬다. 다시 읽어 남아 있으면 [Blocked] — 그대로 누르면 옛 알림을 누를 수 있다."""
+    keys = {n.key for n in notices}
+    if not keys:
+        return
+    for key in keys:
+        tools.adb(serial, 'shell', 'cmd', 'notification', 'snooze', '--for', str(SNOOZE_MS), shlex.quote(key), check=False)
+    left = keys & {n.key for n in read_notifications(serial)}
+    if left:
+        raise Blocked(f'옛 알림 {len(left)}건을 못 치움(cmd notification snooze) — 같은 제목의 옛 알림을 누를 수 있다')
 
 
 TAP_TRIES = 3  # 눌러도 앱이 안 열리면 다시 누르는 횟수

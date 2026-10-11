@@ -274,6 +274,42 @@ class TapTest(unittest.TestCase):
         self.assertEqual(len(self.reads), 3)
 
 
+class ClearTest(unittest.TestCase):
+    """제목 · 본문이 고정인 알림(리마인드)은 본문으로도 옛 것을 못 가른다 — 누르기 전에 옛 것을 알림창에서 치운다."""
+    OLD = notify.Notice(f'0|{OURS}|11|FCM-Notification:1|10123', '신뢰 확인이 기다리고 있어요', '카카오톡 아이디를 공유할지 정해 주세요', 'c')
+
+    def phone(self, after):
+        """[after]: 치운 뒤 읽힐 dumpsys notification."""
+        sent = []
+
+        def fake(serial, *a, check=True):
+            sent.append((a, check))
+            return after if a[:2] == ('shell', 'dumpsys') else ''
+        return sent, mock.patch.object(tools, 'adb', fake)
+
+    def test_each_old_notice_is_snoozed_by_its_quoted_key_then_read_again(self):
+        sent, patch = self.phone(USB)
+        with patch:
+            notify.clear('S', [self.OLD])
+        # 키의 | 는 기기 셸에서 파이프라 따옴표로 싼다 · 실패는 다시 읽기가 잡으니 check=False
+        self.assertEqual(sent[0], (('shell', 'cmd', 'notification', 'snooze', '--for', str(notify.SNOOZE_MS), f"'{self.OLD.key}'"), False))
+        self.assertEqual(sent[-1][0][:2], ('shell', 'dumpsys'))
+
+    def test_the_snooze_outlasts_a_night_run_so_it_does_not_come_back_as_new_in_a_later_case(self):
+        self.assertGreaterEqual(notify.SNOOZE_MS, 7 * 24 * 3600 * 1000)
+
+    def test_a_notice_still_there_after_the_snooze_is_blocked(self):
+        sent, patch = self.phone(USB + record(OURS, self.OLD.key, self.OLD.title, self.OLD.text))
+        with patch, self.assertRaisesRegex(Blocked, '못 치움'):
+            notify.clear('S', [self.OLD])
+
+    def test_nothing_to_clear_sends_nothing(self):
+        sent, patch = self.phone(USB)
+        with patch:
+            notify.clear('S', [])
+        self.assertEqual(sent, [])
+
+
 class AppStateTest(unittest.TestCase):
     def setUp(self):
         patch = mock.patch.object(notify.time, 'sleep')
