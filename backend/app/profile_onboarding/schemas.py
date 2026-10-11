@@ -32,8 +32,13 @@ class BasicInfoRequest(BaseModel):
         return birth_year
 
 
+# 카카오톡 아이디 입력 상한. 실제 카카오톡 아이디(영문·숫자·._-, 4~20자 안팎)보다 넉넉한 안전 상한이다 —
+# 상한이 없으면 아무 길이나 암호화 RPC 와 DB 로 흘러간다.
+KAKAO_ID_MAX_LENGTH = 64
+
+
 class KakaoIdRequest(BaseModel):
-    kakao_id: str
+    kakao_id: str = Field(max_length=KAKAO_ID_MAX_LENGTH)
 
 
 class AppearanceTypeRequest(BaseModel):

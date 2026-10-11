@@ -338,6 +338,9 @@ class ProfileOnboardingRepository(PostgrestRepository):
         raise_for_status(private_response)
         private_rows = private_response.json()
         private = private_rows[0] if private_rows else {"phone_number": None, "kakao_id": None}
+        if private["kakao_id"] is None:
+            # 이중 쓰기 기간: 평문이 비어도 enc 열에 있으면 설정된 것이다. 복호화가 안 되면 없는 것으로 본다.
+            private["kakao_id"] = (await self._decrypt_private(profile_id, ("kakao_id",)))["kakao_id"]
 
         photos_response = await self._get(
             "profile_photos",
