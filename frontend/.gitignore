@@ -56,6 +56,8 @@ app.*.map.json
 **/*.jks
 key.properties
 android/key.properties
+# iOS 소셜 로그인 키(카카오 네이티브 앱 키 · 구글 클라이언트 ID). 예시는 Secrets.xcconfig.example
+ios/Flutter/Secrets.xcconfig
 
 # --- Supabase ---
 supabase/.temp/
