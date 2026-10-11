@@ -111,6 +111,8 @@ void main() {
   // 앱 복귀 때 읽는 두 목록의 가짜 저장소 — 읽은 횟수를 본다. 두 pump 도우미가 채운다.
   late FakeChatRepository appChat;
   late FakeCardRepository appCards;
+  // 홈 종 배지가 읽는 안 읽은 알림 수의 가짜 저장소 — 읽은 횟수를 본다. 두 pump 도우미가 채운다.
+  late FakeNotificationsRepository appNotifications;
 
   Future<void> pumpPendingVerification(WidgetTester tester) async {
     gate = FakeVerificationGateRepository()..nextResult = const Success(VerificationGate.needsStudentVerification);
@@ -119,6 +121,7 @@ void main() {
     messaging = FakePushMessaging(token: 't', granted: false);
     appChat = FakeChatRepository();
     appCards = FakeCardRepository();
+    appNotifications = FakeNotificationsRepository();
     final container = ProviderContainer(
       overrides: [
         verificationGateRepositoryProvider.overrideWithValue(gate),
@@ -128,7 +131,7 @@ void main() {
         cardRepositoryProvider.overrideWithValue(appCards),
         chatRepositoryProvider.overrideWithValue(appChat),
         homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
-        notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
+        notificationsRepositoryProvider.overrideWithValue(appNotifications),
         signOutProvider.overrideWithValue(() async {}),
       ],
     );
@@ -166,6 +169,7 @@ void main() {
   Future<(FakeChatRepository, FakePushMessaging)> pumpHome(WidgetTester tester) async {
     final chat = appChat = FakeChatRepository();
     appCards = FakeCardRepository();
+    appNotifications = FakeNotificationsRepository(unreadCount: 3);
     final push = FakePushMessaging(token: 't', granted: false);
     final container = ProviderContainer(
       overrides: [
@@ -175,7 +179,7 @@ void main() {
         cardRepositoryProvider.overrideWithValue(appCards),
         chatRepositoryProvider.overrideWithValue(chat),
         homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
-        notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
+        notificationsRepositoryProvider.overrideWithValue(appNotifications),
         signOutProvider.overrideWithValue(() async {}),
       ],
     );
@@ -277,5 +281,35 @@ void main() {
 
     expect(chat.conversationsFetchCount, before);
     expect(appCards.fetchAcceptancesCount, cardsBefore);
+  });
+
+  // 앱이 켜진 채 푸시가 오면 홈 종 배지가 바로 맞는다 — 예전에는 홈 진입 · 앱 재개 · 알림함 복귀 때만 읽었다.
+  testWidgets('앱이 켜진 채 푸시가 오면 홈 종 배지의 안 읽은 알림 수를 다시 읽는다', (tester) async {
+    final (_, push) = await pumpHome(tester);
+    final before = appNotifications.countCalls;
+    appNotifications.unreadCount = 5;
+
+    push.emitMessage({'route': 'acceptances', 'card_id': 'c1'});
+    await tester.pumpAndSettle();
+
+    expect(appNotifications.countCalls, before + 1);
+    expect(find.text('5'), findsOneWidget);
+  });
+
+  testWidgets('로그아웃한 직후 푸시가 와도 안 읽은 알림 수를 읽지 않는다', (tester) async {
+    final (_, push) = await pumpHome(tester);
+    final before = appNotifications.countCalls;
+    await tester.runAsync(() async {
+      try {
+        await auth().signOut();
+      } on AuthException {
+        // 서버 알림은 테스트 바인딩의 가짜 HTTP 가 막는다 — 이 기기 세션은 이미 지워졌다.
+      }
+    });
+
+    push.emitMessage({'route': 'acceptances'});
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(appNotifications.countCalls, before);
   });
 }

@@ -62,6 +62,31 @@ void main() {
       expect(const ServerRejectedFailure('다른 거절').isPaidOfferGone, isFalse);
     });
 
+    test('서버가 code 를 주면 문구가 달라도 code 로 가른다', () {
+      const short = ServerRejectedFailure('문구가 바뀌었어요', code: 'hearts_not_enough');
+      const gone = ServerRejectedFailure('문구가 바뀌었어요', code: 'paid_offer_gone');
+
+      expect(short.isHeartsNotEnough, isTrue);
+      expect(short.isPaidOfferGone, isFalse);
+      expect(gone.isPaidOfferGone, isTrue);
+      expect(gone.isHeartsNotEnough, isFalse);
+    });
+
+    test('code 가 있으면 문구가 맞아도 code 를 따른다 — 모르는 code 는 일반 실패다', () {
+      const unknown = ServerRejectedFailure(heartsNotEnoughMessage, code: 'something_else');
+      const crossed = ServerRejectedFailure(heartsNotEnoughMessage, code: 'paid_offer_gone');
+
+      expect(unknown.isHeartsNotEnough, isFalse);
+      expect(unknown.isPaidOfferGone, isFalse);
+      expect(crossed.isHeartsNotEnough, isFalse);
+      expect(crossed.isPaidOfferGone, isTrue);
+    });
+
+    test('code 가 없는 옛 응답은 문구로 가른다', () {
+      expect(const ServerRejectedFailure(heartsNotEnoughMessage).isHeartsNotEnough, isTrue);
+      expect(const ServerRejectedFailure(paidOfferGoneMessage).isPaidOfferGone, isTrue);
+    });
+
     test('문구가 서버 errors.py 와 같은 글자다', () {
       expect(heartsNotEnoughMessage, '하트가 모자라요');
       expect(paidOfferGoneMessage, '지금은 열 수 없는 카드예요');

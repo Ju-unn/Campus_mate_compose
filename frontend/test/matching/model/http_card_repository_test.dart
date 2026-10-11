@@ -210,6 +210,26 @@ void main() {
       expect(gone.isHeartsNotEnough, isFalse);
     });
 
+    test('서버가 실어 보낸 code 로 402 · 409 를 가른다 — 문구가 달라도 같다', () async {
+      Future<Failure?> failureOf(int status, String code) async {
+        final client = MockClient((request) async => http.Response(
+              jsonEncode({'detail': '바뀐 문구', 'code': code}),
+              status,
+              headers: {'content-type': 'application/json; charset=utf-8'},
+            ));
+        final result = await buildRepository(client).purchasePaidCard('offer-1');
+        return result.when(onSuccess: (_) => null, onFailure: (f) => f);
+      }
+
+      final short = await failureOf(402, 'hearts_not_enough');
+      final gone = await failureOf(409, 'paid_offer_gone');
+
+      expect(short!.isHeartsNotEnough, isTrue);
+      expect(short.isPaidOfferGone, isFalse);
+      expect(gone!.isPaidOfferGone, isTrue);
+      expect(gone.isHeartsNotEnough, isFalse);
+    });
+
     test('응답에 card_id 가 없으면 성공으로 치지 않는다', () async {
       final client = MockClient((request) async => jsonResponse({'ok': true}));
 

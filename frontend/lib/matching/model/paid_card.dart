@@ -1,19 +1,33 @@
 import 'package:campus_mate/common/failure.dart';
 
-/// 서버 `errors.py` 의 HEARTS_NOT_ENOUGH(402)와 같은 글자. 서버가 기계용 `code` 를 주지 않아(`ServerRejectedFailure`
-/// 에 상태코드도 없다) 문구로 가른다 — 서버가 code 를 주게 되면 [PaidPurchaseFailure] 만 고친다.
+/// 서버가 구매 실패 응답에 실어 보내는 기계용 `code`(backend `errors.py` CODE_HEARTS_NOT_ENOUGH · CODE_PAID_OFFER_GONE).
+/// 앱은 이 code 로 먼저 가른다.
+const String heartsNotEnoughCode = 'hearts_not_enough';
+const String paidOfferGoneCode = 'paid_offer_gone';
+
+/// 서버 `errors.py` 의 HEARTS_NOT_ENOUGH(402)와 같은 글자. code 를 주지 않는 옛 서버·다른 경로를 위한 폴백이다
+/// (`ServerRejectedFailure` 에 상태코드가 없어 문구로 가른다).
 const String heartsNotEnoughMessage = '하트가 모자라요';
 
-/// 서버 `errors.py` 의 PAID_OFFER_GONE(409)와 같은 글자.
+/// 서버 `errors.py` 의 PAID_OFFER_GONE(409)와 같은 글자. 위와 같은 폴백이다.
 const String paidOfferGoneMessage = '지금은 열 수 없는 카드예요';
 
 /// 유료 카드 구매가 거절된 두 경우를 가른다(지시문 23 A3).
+/// code 가 있으면 code 만 믿는다 — 모르는 code 는 문구가 맞아도 일반 실패다. code 가 없을 때만 문구로 가른다.
 extension PaidPurchaseFailure on Failure {
   /// 402 — 하트가 모자라다. 하트 스토어로 보낸다.
-  bool get isHeartsNotEnough => this is ServerRejectedFailure && toDisplayMessage() == heartsNotEnoughMessage;
+  bool get isHeartsNotEnough => _is(heartsNotEnoughCode, heartsNotEnoughMessage);
 
   /// 409 — 제안이 이미 닫혔거나 상대가 자격을 잃었다. 화면을 새로 읽는다.
-  bool get isPaidOfferGone => this is ServerRejectedFailure && toDisplayMessage() == paidOfferGoneMessage;
+  bool get isPaidOfferGone => _is(paidOfferGoneCode, paidOfferGoneMessage);
+
+  bool _is(String code, String message) {
+    final failure = this;
+    if (failure is! ServerRejectedFailure) {
+      return false;
+    }
+    return failure.hasAnyCode() ? failure.hasCode(code) : failure.toDisplayMessage() == message;
+  }
 }
 
 /// 서버가 문구까지 만들어 준 "맞는 이유" 한 줄(`reasons[]`). 앱이 문구를 만들지 않는다.
