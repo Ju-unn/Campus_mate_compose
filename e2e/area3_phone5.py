@@ -205,6 +205,7 @@ def _remind(run, phone, age, accepts, switch_off, arrives):
     check.that(len(arrived) == 1, f'B 알림 "{TITLE} / {BODY}" {len(arrived)}건(기대 1) — 새 알림 {len(new)}건: {notice_memo(new)}')
     if check.problems:
         return check.result()
+    notify.clear(phone.serial, [n for n in before if n.title == TITLE])  # 앞 시도 계정의 방으로 가는 옛 리마인드 — 제목 · 본문이 같아 누를 때 못 가른다
     # 누르기 전에 일감을 넣는다 — 알림으로 콜드 스타트한 앱이 e2e_test.dart 의 hear() 로 이것을 가져간다
     phone.hub.tell({'case': phone.case, 'phase': 'tap', 'nickname': partner['nickname'], 'body': ROOM_LINE})
     notify.tap_notification(phone.serial, TITLE)

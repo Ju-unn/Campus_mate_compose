@@ -84,6 +84,7 @@ class Base5(Phone2):
             mock.patch.object(notify, 'wait_new', self.wait_new),
             mock.patch.object(notify, 'expect_none', self.expect_none),
             mock.patch.object(notify, 'tap_notification', lambda s, title: self.events.append(('tap', title))),
+            mock.patch.object(notify, 'clear', lambda s, notices: self.events.append(('clear', [n.key for n in notices]))),
             mock.patch('time.monotonic', side_effect=itertools.count()),  # 기다림(_wait_for)이 진짜 시간을 안 쓰고 한 번에 한 칸씩 흐른다
         ]
         for patcher in fakes:
@@ -386,7 +387,7 @@ class Chat50Test(Base5):
         (result, note), phone = self.run50()
         self.assertEqual(result, 'pass', note)
         self.assertEqual([n for n in self.names() if n not in ('send',)],
-                         ['trust', 'app', 'read', 'kill', 'gcloud', 'wait_new', 'wait_new', 'tell', 'tap', 'result'])
+                         ['trust', 'app', 'read', 'kill', 'gcloud', 'wait_new', 'wait_new', 'clear', 'tell', 'tap', 'result'])
         self.assertEqual(self.events[self.names().index('app')], ('app', {'token_hash': 'h', 'phase': 'login'}))
         self.assertIn(('trust', 'id-2'), self.events)  # A(상대)만 수락해 둔다 — 폰 계정(B)은 아직
         self.assertIn(('gcloud', 'chat-gate'), self.events)
@@ -402,6 +403,14 @@ class Chat50Test(Base5):
         sent = [r for r in self.fake.tables['messages'] if r['body'] == tell['body']]
         self.assertEqual([(r['sender_id'], r.get('kind', 'text')) for r in sent], [('id-2', 'text')])  # 푸시 없이 DB 로 넣은 상대의 글
         self.assertIn(('tap', TITLE), self.events)
+
+    def test_an_old_reminder_left_by_an_earlier_try_is_cleared_before_the_tap(self):
+        # 앞 시도 계정의 방으로 가는 리마인드가 알림창에 남아 있다 — 제목 · 본문이 같아 제목으로 누르면 그것을 누를 수 있다
+        self.old = [notify.Notice('stale', TITLE, BODY, 'c'), notify.Notice('other', '남은 알림', '', 'c')]
+        (result, note), _ = self.run50()
+        self.assertEqual(result, 'pass', note)
+        self.assertIn(('clear', ['stale']), self.events)  # 다른 제목의 남은 알림은 건드리지 않는다
+        self.assertLess(self.names().index('clear'), self.names().index('tap'))
 
     def test_the_room_is_aged_a_day_and_five_minutes_the_sentinel_two_days(self):
         self.run50()
