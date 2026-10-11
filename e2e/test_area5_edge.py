@@ -236,8 +236,9 @@ class RegistryTest(unittest.TestCase):
 
     def test_there_is_still_no_request_timeout_in_the_app(self):
         lib = tools.ROOT / 'frontend' / 'lib'
-        timeouts = [p.name for p in lib.rglob('*.dart') if '.timeout(' in p.read_text(encoding='utf-8')]
-        self.assertEqual(timeouts, [], 'E-EDGE-25 의 "요청 시간 제한 없음" 이 바뀌었다 — 기대값을 다시 본다')
+        counts = {p.relative_to(lib).as_posix(): p.read_text(encoding='utf-8').count('.timeout(') for p in lib.rglob('*.dart')}
+        allowed = {'core/push/push_registrar.dart': 1}  # 로그아웃 멈춤 수정(948009b4)의 토큰 삭제 5초 — 로그아웃 길만이라 E-EDGE-25 저장 요청과 무관
+        self.assertEqual({name: n for name, n in counts.items() if n}, allowed, 'E-EDGE-25 의 "요청 시간 제한 없음" 이 바뀌었다 — 기대값을 다시 본다')
 
     def test_the_app_registers_the_seven_and_the_keys_match(self):
         text = dart('area5_edge.dart')
@@ -620,6 +621,7 @@ class Edge25Test(EdgeBase):
         self.assertFalse(self.dropped())
         self.assertIn('로딩', note)
         self.assertIn('시간 제한', note)
+        self.assertNotIn('.timeout( 0건', note)  # 로그아웃 토큰 삭제 timeout 1건이 있다 — 0건이라고 적지 않는다
 
     def test_a_spinner_that_ended_is_still_recorded_not_failed(self):
         result, note = self.run25({'loading_at_end': False, 'error': NETWORK})
