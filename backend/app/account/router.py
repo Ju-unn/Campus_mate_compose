@@ -61,7 +61,9 @@ async def get_my_account(caller: Caller = Depends(get_verified_caller)) -> dict:
     """16e 계정 화면. 실명은 본인에게 가는 이 응답에만 싣고 로그에 찍지 않는다(DESIGN §9 16e · ERD §11-2).
     이메일은 앱이 자기 세션에서 읽는다. 인증 상태는 싣지 않는다 — 관문을 지난 사람만 닿으니 늘 '인증 완료'다."""
     settings, client, profile_id = caller
-    accounts = AccountRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
+    accounts = AccountRepository(
+        settings.postgrest_url, settings.supabase_service_role_key, client, encryption_key=settings.phone_encryption_key
+    )
     profile = await accounts.fetch_account(profile_id)
     private = await accounts.fetch_private(profile_id)
     return {
@@ -77,5 +79,7 @@ async def get_my_account(caller: Caller = Depends(get_verified_caller)) -> dict:
 async def get_my_kakao_id(caller: Caller = Depends(get_verified_caller)) -> dict:
     """내 카카오톡 아이디(16e-1). 앱은 profile_private 를 직접 읽지 못한다(ERD §11-20)."""
     settings, client, profile_id = caller
-    repo = ChatRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
+    repo = ChatRepository(
+        settings.postgrest_url, settings.supabase_service_role_key, client, encryption_key=settings.phone_encryption_key
+    )
     return {"kakao_id": await repo.fetch_kakao_id(profile_id)}
