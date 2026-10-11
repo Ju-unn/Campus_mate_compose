@@ -69,6 +69,9 @@ class FakeSupabase:
         }
         self.photo_paths: dict[str, list[str]] = {PARTNER: ["p2/1.jpg", "p2/2.jpg"]}
         self.kakao_ids: dict[str, str] = {ME: "my_id", PARTNER: "fox_rain"}
+        # kakao_id_enc 를 복호화한 값(이중 쓰기 기간). 있으면 평문 열보다 먼저 읽힌다.
+        self.kakao_ids_enc: dict[str, str] = {}
+        self.decrypt_unavailable = False   # 복호화 RPC 가 404 인 때(서버가 DB 보다 먼저 나간 경우)
         self.messages: dict[str, dict] = {
             MESSAGE_ID: {"id": MESSAGE_ID, "match_id": MATCH_ID, "sender_id": PARTNER, "kind": "text",
                          "body": "기분 나쁜 말", "created_at": "2126-09-22T11:00:00+09:00"},
@@ -106,7 +109,7 @@ class FakeSupabase:
         self.log.append(f"{request.method} {table}")
         params = url.params
         body = json.loads(request.content) if request.content else None
-        return getattr(self, f"_{table}")(request.method, params, body)
+        return getattr(self, "_" + table.replace("/", "_"))(request.method, params, body)
 
     def _eq(self, params: httpx.QueryParams, key: str) -> str | None:
         value = params.get(key)
@@ -202,6 +205,12 @@ class FakeSupabase:
     def _profile_private(self, method, params, body):
         kakao = self.kakao_ids.get(self._eq(params, "profile_id"))
         return httpx.Response(200, json=[{"kakao_id": kakao}] if kakao else [])
+
+    def _rpc_decrypt_profile_private(self, method, params, body):
+        if self.decrypt_unavailable:
+            return httpx.Response(404, json={"message": "function not found"})
+        assert body["p_key"] == "phone-key-test"
+        return httpx.Response(200, json=[{"real_name": None, "kakao_id": self.kakao_ids_enc.get(body["p_profile"])}])
 
     def _daily_cards(self, method, params, body):
         # 10b 카드 상세와 14c 가 같은 몸통을 쓰는지 대조할 때만 쓴다 — 내가 받은 상대 카드 한 장.

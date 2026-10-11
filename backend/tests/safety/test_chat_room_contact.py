@@ -82,3 +82,27 @@ def test_a_suspended_partner_after_the_gate_takes_the_contact_away(client, world
     assert "kakao_id" not in body
     assert "photo_urls" not in body
     assert _signed_urls(world) == []
+
+
+def test_the_gate_reveals_the_decrypted_kakao_id_when_only_enc_has_it(client, world):
+    """배선 확인 — 방 머리말이 복호화 키를 들고 있어야 enc 열의 값이 나간다."""
+    world.kakao_ids.pop(PARTNER)
+    world.kakao_ids_enc[PARTNER] = "fox_enc"
+    world.kakao_ids_enc[ME] = "my_enc"
+    world.match["trust_passed_at"] = GATE_PASSED_AT
+
+    body = _room(client, world)
+
+    assert body["kakao_id"] == "fox_enc"
+    assert body["my_kakao_id"] == "my_enc"
+
+
+def test_the_gate_reveals_the_plain_kakao_id_when_decrypt_is_unavailable(client, world):
+    """서버가 DB 보다 먼저 나가 RPC 가 404 여도 채팅방은 평문 열로 그대로 뜬다."""
+    world.decrypt_unavailable = True
+    world.match["trust_passed_at"] = GATE_PASSED_AT
+
+    body = _room(client, world)
+
+    assert body["kakao_id"] == "fox_rain"
+    assert body["my_kakao_id"] == "my_id"

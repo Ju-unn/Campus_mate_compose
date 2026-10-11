@@ -59,6 +59,7 @@ def _wire(
     reject_reason: str | None = None,
     fails: Callable[[httpx.Request], bool] = lambda request: False,
     consented: bool = True,
+    fail_status: int = 500,
 ) -> tuple[list[httpx.Request], AsyncMock]:
     """목 트랜스포트와 목 Vision 클라이언트를 라우터에 주입하고, 나간 요청 목록을 돌려준다."""
     sent: list[httpx.Request] = []
@@ -67,7 +68,7 @@ def _wire(
         sent.append(request)
         url = str(request.url)
         if fails(request):
-            return httpx.Response(500, json={"message": "boom"})
+            return httpx.Response(fail_status, json={"message": "boom"})
         if "/auth/v1/user" in url:
             return httpx.Response(200, json={"id": str(PROFILE_ID)})
         if "/storage/v1/" in url:
@@ -680,3 +681,45 @@ def test_a_suspended_account_can_still_read_its_verification_status():
 
     assert response.status_code == 200
     assert response.json()["status"] == "verified"
+
+
+# --- 실명 이중 쓰기(서버 PR 2): 옛 평문 열 + enc 열 -------------------------------------
+
+
+def test_submit_writes_the_real_name_to_both_the_plain_and_the_encrypted_column():
+    sent, _ = _wire(_gate_row("none"), ocr_text="서울대학교 학생증 홍길동 2021123456")
+
+    assert _submit().status_code == 200
+
+    plain = _calls(sent, "POST", "/rest/v1/profile_private")
+    assert [json.loads(r.content)["real_name"] for r in plain] == ["홍길동"]
+    encrypted = _calls(sent, "POST", "/rest/v1/rpc/set_real_name")
+    assert [json.loads(r.content) for r in encrypted] == [
+        {"p_profile": str(PROFILE_ID), "p_real_name": "홍길동", "p_key": "phone-key-test"}
+    ]
+    assert "phone-key-test" not in str(encrypted[0].url)
+
+
+@pytest.mark.parametrize("status", [404, 500])
+def test_submit_still_succeeds_when_the_encrypted_write_fails(status, caplog):
+    """enc 쓰기가 실패해도(서버가 DB 보다 먼저 나가 RPC 가 404 인 때 포함) 학생증 제출은 그대로 성공한다."""
+    sent, _ = _wire(_gate_row("none"), ocr_text="서울대학교 학생증 홍길동 2021123456",
+                    fails=lambda r: "/rpc/set_real_name" in str(r.url), fail_status=status)
+
+    with caplog.at_level(logging.DEBUG):
+        response = _submit()
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "verified"}
+    # 평문 열은 그대로 써졌고, 실패는 필드 이름과 profile_id 만 남긴다(실명 · 키 없음).
+    assert len(_calls(sent, "POST", "/rest/v1/profile_private")) == 1
+    warning = next(r.getMessage() for r in caplog.records if "enc 쓰기 실패" in r.getMessage())
+    assert "field=real_name" in warning and str(PROFILE_ID) in warning
+    assert "홍길동" not in caplog.text and "phone-key-test" not in caplog.text
+
+
+def test_submit_does_not_write_the_encrypted_name_when_the_name_is_rejected():
+    sent, _ = _wire(_gate_row("none"))
+
+    assert _submit(real_name="홍길동1").status_code == 400
+    assert _calls(sent, "POST", "/rest/v1/rpc/set_real_name") == []

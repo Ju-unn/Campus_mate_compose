@@ -104,12 +104,7 @@ class AccountRepository(PostgrestRepository):
 
     async def fetch_private(self, profile_id: UUID | str) -> dict:
         """실명 · 카톡 아이디. 관문을 지났으면 행이 늘 있지만(3b 에서 만든다), 없다고 500 을 내지 않는다."""
-        response = await self._get("profile_private", params={
-            "profile_id": f"eq.{profile_id}", "select": "real_name,kakao_id",
-        })
-        raise_for_status(response)
-        rows = response.json()
-        return rows[0] if rows else {}
+        return await self._read_private(profile_id, ("real_name", "kakao_id"))
 
     async def count_contact_blocks_not_on(self, key_version: int) -> int:
         response = await self._client.get(

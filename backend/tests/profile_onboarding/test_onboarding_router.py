@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import base64
 import json
 from collections.abc import Callable
@@ -603,3 +604,144 @@ def test_ideal_note_refreshes_matching_vectors():
     assert len(saved) == 1
     assert len(saved[0]["self_embedding"]) == 512
     assert len(saved[0]["want_embedding"]) == 512
+
+
+# --- 카카오톡 아이디 이중 쓰기 · 진행도 (서버 PR 2) ----------------------------------------------------------------
+
+
+def _post_kakao_id(client: TestClient, kakao_id: str = "fox_rain"):
+    return client.post("/profile-onboarding/kakao-id", headers=AUTH_HEADERS, json={"kakao_id": kakao_id})
+
+
+def test_kakao_id_is_written_to_both_the_plain_and_the_encrypted_column():
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json=[])
+
+    response = _post_kakao_id(_wire(handler))
+
+    assert response.status_code == 200
+    plain = [r for r in seen if r.method == "PATCH" and "/rest/v1/profile_private" in str(r.url)]
+    assert [json.loads(r.content)["kakao_id"] for r in plain] == ["fox_rain"]
+    encrypted = [r for r in seen if "/rest/v1/rpc/set_kakao_id" in str(r.url)]
+    assert [json.loads(r.content) for r in encrypted] == [
+        {"p_profile": str(PROFILE_ID), "p_kakao_id": "fox_rain", "p_key": "phone-key-test"}
+    ]
+    assert "phone-key-test" not in str(encrypted[0].url)
+
+
+def test_kakao_id_creates_the_private_row_before_the_update_only_encrypted_write():
+    """set_kakao_id 는 UPDATE 전용 — 행이 없으면 0행을 고치고 조용히 끝난다. 부르기 전에 행을 보장한다."""
+    calls: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if "/rest/v1/profile_private" in url and request.method == "POST":
+            calls.append("ensure_private_row")
+        if "/rest/v1/rpc/set_kakao_id" in url:
+            calls.append("set_kakao_id")
+        return httpx.Response(200, json=[])
+
+    assert _post_kakao_id(_wire(handler)).status_code == 200
+    assert calls == ["ensure_private_row", "set_kakao_id"]
+
+
+@pytest.mark.parametrize("failing", ["set_kakao_id", "ensure_private_row"])
+@pytest.mark.parametrize("status", [404, 500])
+def test_kakao_id_save_succeeds_even_when_the_encrypted_write_fails(failing, status, caplog):
+    """평문이 진실인 기간이라 enc 쓰기 실패(서버가 DB 보다 먼저 나가 RPC 404 인 때 포함)는 요청을 실패시키지 않는다."""
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        is_rpc = "/rest/v1/rpc/set_kakao_id" in url
+        is_ensure = "/rest/v1/profile_private" in url and request.method == "POST"
+        if (failing == "set_kakao_id" and is_rpc) or (failing == "ensure_private_row" and is_ensure):
+            return httpx.Response(status, json={"message": "boom"})
+        return httpx.Response(200, json=[])
+
+    with caplog.at_level(logging.DEBUG):
+        response = _post_kakao_id(_wire(handler), "secret_kakao")
+
+    assert response.status_code == 200
+    assert response.json() == {"ok": True}
+    warning = next(r.getMessage() for r in caplog.records if "enc 쓰기 실패" in r.getMessage())
+    assert "field=kakao_id" in warning and str(PROFILE_ID) in warning
+    assert "secret_kakao" not in caplog.text and "phone-key-test" not in caplog.text
+
+
+def test_kakao_id_plain_write_failure_still_fails_the_request_and_skips_the_encrypted_write():
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(str(request.url))
+        if request.method == "PATCH" and "/rest/v1/profile_private" in str(request.url):
+            return httpx.Response(500, json={"message": "boom"})
+        return httpx.Response(200, json=[])
+
+    _wire(handler)
+    client = TestClient(app, raise_server_exceptions=False)
+
+    assert _post_kakao_id(client).status_code == 500
+    assert not any("set_kakao_id" in url for url in seen)
+
+
+def test_kakao_id_has_a_generous_upper_bound():
+    client = _wire(lambda request: httpx.Response(200, json=[]))
+
+    assert _post_kakao_id(client, "a" * 64).status_code == 200
+    assert _post_kakao_id(client, "a" * 65).status_code == 422
+
+
+def _next_step_handler(plain_kakao_id: str | None, decrypted_kakao_id: str | None, decrypt_status: int = 200):
+    from app.consents.policy import CONSENT_VERSION, REQUIRED_KINDS
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if "/rest/v1/user_consents" in url:
+            return httpx.Response(200, json=[{"kind": k, "version": CONSENT_VERSION} for k in sorted(REQUIRED_KINDS)])
+        if "/rest/v1/rpc/decrypt_profile_private" in url:
+            if decrypt_status != 200:
+                return httpx.Response(decrypt_status, json={"message": "boom"})
+            return httpx.Response(200, json=[{"real_name": None, "kakao_id": decrypted_kakao_id}])
+        if "/rest/v1/profile_private" in url:
+            return httpx.Response(200, json=[{"phone_number": "\\x01", "kakao_id": plain_kakao_id}])
+        if "/rest/v1/profiles" in url:
+            return httpx.Response(200, json=[{
+                "nickname": "가나", "gender": "male", "mbti": None, "animal_type": None, "impression_type": None,
+                "interest_tags": [], "my_traits": [], "religion": None, "is_smoker": None,
+                "preferred_age_min": None, "preferred_animal_types": [], "preferred_impression_types": [],
+                "ideal_traits": [], "ideal_note": None, "bio": None,
+            }])
+        return httpx.Response(200, json=[])
+
+    return handler
+
+
+def _step(handler) -> str:
+    return _wire(handler).get("/profile-onboarding/next-step", headers=AUTH_HEADERS).json()["step"]
+
+
+def test_progress_counts_a_kakao_id_that_exists_only_in_the_encrypted_column():
+    assert _step(_next_step_handler(plain_kakao_id=None, decrypted_kakao_id="fox_enc")) == "photos"
+
+
+def test_progress_counts_a_kakao_id_that_exists_only_in_the_plain_column_without_decrypting():
+    seen: list[str] = []
+    inner = _next_step_handler(plain_kakao_id="fox_old", decrypted_kakao_id=None)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(str(request.url))
+        return inner(request)
+
+    assert _step(handler) == "photos"
+    assert not any("decrypt_profile_private" in url for url in seen)
+
+
+def test_progress_asks_for_the_kakao_id_when_neither_column_has_it():
+    assert _step(_next_step_handler(plain_kakao_id=None, decrypted_kakao_id=None)) == "kakao_id"
+
+
+def test_progress_survives_a_missing_decrypt_function():
+    """서버가 DB 보다 먼저 나가 RPC 가 404 여도 진행도는 평문 열만으로 계산된다."""
+    assert _step(_next_step_handler(None, None, decrypt_status=404)) == "kakao_id"

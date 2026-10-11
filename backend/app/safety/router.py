@@ -79,7 +79,7 @@ class _Wiring:
         # PostgREST 가 돌려주는 id 는 문자열이라 비교가 되게 str 로 맞춘다.
         self.profile_id = str(profile_id)
         self.repo = SafetyRepository(settings.postgrest_url, key, client)
-        self.chat = ChatRepository(settings.postgrest_url, key, client)
+        self.chat = ChatRepository(settings.postgrest_url, key, client, encryption_key=settings.phone_encryption_key)
         self.cards = CardRepository(settings.postgrest_url, key, client)
         self.photos = ProfilePhotoStorage(settings.storage_url, key, client)
         self.now = now
