@@ -237,7 +237,7 @@ def test_the_batch_endpoint_runs_with_a_scheduler_id_token(oidc_overrides, monke
     assert response.status_code == 200
     # 밤에 보류한 알림 아침 묶음(결정 4)도 같은 배치가 보낸다.
     assert response.json() == {"reminded": 0, "closed": 0, "passed": 0, "deferred_sent": 0,
-                               "notifications_purged": 0}
+                               "notifications_purged": 0, "photos_deleted": 0, "pending_expired": 0}
 
 
 # 조각 6: 정지 ------------------------------------------------------------------------
