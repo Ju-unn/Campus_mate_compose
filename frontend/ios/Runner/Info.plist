@@ -5,15 +5,19 @@
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
-	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<string>ko</string>
 	<key>CFBundleDisplayName</key>
-	<string>Campus Mate</string>
+	<string>CampusMate</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>ko</string>
+	</array>
 	<key>CFBundleName</key>
 	<string>campus_mate</string>
 	<key>CFBundlePackageType</key>
@@ -22,8 +26,42 @@
 	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<!-- 카카오 로그인 복귀 스킴 kakao{네이티브 앱 키}. 값은 gitignore 된 ios/Flutter/Secrets.xcconfig 에서 온다. -->
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>kakao$(KAKAO_NATIVE_APP_KEY)</string>
+			</array>
+		</dict>
+		<!-- 구글 로그인 복귀 스킴(GoogleService-Info.plist 의 REVERSED_CLIENT_ID). 값은 Secrets.xcconfig 에서 온다. -->
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>$(GOOGLE_REVERSED_CLIENT_ID)</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<!-- 구글 로그인 iOS 클라이언트 ID. 서버(웹) 클라이언트 ID 는 앱 코드가 dart-define 의 GOOGLE_WEB_CLIENT_ID 로 따로 넘긴다. -->
+	<key>GIDClientID</key>
+	<string>$(GOOGLE_IOS_CLIENT_ID)</string>
+	<!-- 암호화는 OS 기본(HTTPS)만 쓴다 — 수출 규정 질문 면제. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<!-- 카카오톡 앱이 깔려 있는지 확인하는 스킴(kakao_flutter_sdk_common platform_support.dart: 로그인 · 공유 · 채널). -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>kakaokompassauth</string>
+		<string>kakaolink</string>
+		<string>kakaoplus</string>
+	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>
@@ -53,23 +91,18 @@
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
+	<!-- 서버 푸시(FCM → APNs)를 받는다. 알림 표시 자체는 aps 페이로드가 한다. -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
+	<!-- iPhone 전용 · 세로 고정. 기기 종류는 pbxproj 의 TARGETED_DEVICE_FAMILY = 1 이 정한다. iPad 를 지원하려면 그 값을 "1,2" 로 되돌리고 UISupportedInterfaceOrientations~ipad 키를 되살린다. -->
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
-	<key>UISupportedInterfaceOrientations~ipad</key>
-	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationPortraitUpsideDown</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>프로필 사진을 등록하기 위해 사진 접근 권한이 필요합니다.</string>
-	<key>NSCameraUsageDescription</key>
-	<string>프로필 사진을 촬영하기 위해 카메라 접근 권한이 필요합니다.</string>
+	<string>프로필 사진, 학생증·졸업증명서 사진, 인증 사진을 고르기 위해 사진 보관함에 접근해요. 고른 사진만 쓰고 다른 사진은 보지 않아요.</string>
 	<key>NSContactsUsageDescription</key>
 	<string>차단할 지인을 연락처에서 고르기 위해 사용해요. 번호는 암호화해 대조에만 쓰고 원본은 저장하지 않아요.</string>
 </dict>
