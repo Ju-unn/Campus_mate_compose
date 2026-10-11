@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- 푸시 알림(APNs) 환경. Debug.xcconfig 는 development, Release.xcconfig 는 production 을 준다(Secrets.xcconfig 로 덮어쓸 수 있다). -->
+	<key>aps-environment</key>
+	<string>$(APS_ENVIRONMENT)</string>
+	<!-- Sign in with Apple 은 애플 로그인을 구현할 때 여기에 com.apple.developer.applesignin = [Default] 를 더하고 Xcode 에서 capability 를 켠다. 지금은 넣지 않는다. -->
+</dict>
+</plist>
