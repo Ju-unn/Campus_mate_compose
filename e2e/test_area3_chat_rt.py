@@ -474,7 +474,7 @@ class MissedTest(DeviceBase):
 
     def setUp(self):
         super().setUp()
-        self.fake.on('GET', r'/rest/v1/profile_private', lambda sent: Reply(200, [{'kakao_id': self.KAKAO}]))
+        self.fake.on('POST', r'/rest/v1/rpc/decrypt_profile_private', lambda sent: Reply(200, [{'real_name': None, 'kakao_id': self.KAKAO}]))
 
     def good(self, **override):
         def answer(job):
@@ -535,7 +535,7 @@ class MissedTest(DeviceBase):
 
     def test_24_a_partner_without_a_kakao_id_is_blocked(self):
         self.fake.handlers[:] = [h for h in self.fake.handlers if 'profile_private' not in h[1].pattern]
-        self.fake.on('GET', r'/rest/v1/profile_private', Reply(200, [{'kakao_id': None}]))
+        self.fake.on('POST', r'/rest/v1/rpc/decrypt_profile_private', Reply(200, [{'real_name': None, 'kakao_id': None}]))
         (result, note), app = self.stepping('E-CHAT-24', ['cut', 'changed'], self.good())
         self.assertEqual(result, 'blocked', note)
         self.assertIn('kakao_id', note)

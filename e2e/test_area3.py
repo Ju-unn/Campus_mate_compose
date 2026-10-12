@@ -12,8 +12,8 @@ from pathlib import Path
 from unittest import mock
 from urllib.parse import parse_qsl, urlsplit
 
-from e2e import area3, tools
-from e2e.test_area1 import CFG, FakeServer
+from e2e import area3, fake_private, tools
+from e2e.test_area1 import CFG, FakeServer, with_private_key
 from e2e.tools import Reply, Run
 
 NOT_FOUND = '대화를 찾을 수 없어요'
@@ -34,7 +34,8 @@ def mismatched_keys(body):
 
 
 class Fake(FakeServer):
-    """표 저장소 + 시험이 정한 API 답. 계정은 만든 순서대로 id-1 · id-2 …, 토큰은 tok-1 · tok-2 …"""
+    """표 저장소 + 시험이 정한 API 답. 계정은 만든 순서대로 id-1 · id-2 …, 토큰은 tok-1 · tok-2 …
+    profile_private 의 실명 · 카톡 아이디는 암호화 RPC 로만 읽고 쓴다(fake_private)."""
 
     def __init__(self):
         super().__init__()
@@ -59,14 +60,27 @@ class Fake(FakeServer):
         for want, pattern, reply in self.handlers:
             if want == method and pattern.fullmatch(parts.path):
                 return reply(sent) if callable(reply) else reply
+        answered = fake_private.rpc(parts.path, body, self._private_row, self._new_private_row)
+        if answered:
+            return answered
         if parts.path.startswith('/rest/v1/') and parts.path.split('/')[-1] not in RACE_TABLES:
             return self._table(method, parts.path.split('/')[-1], sent)
         return super().__call__(method, url, headers, body, raw)
+
+    def _private_row(self, who):
+        return next((r for r in self.tables.get('profile_private', []) if r.get('profile_id') == who), None)
+
+    def _new_private_row(self, who):
+        self.tables.setdefault('profile_private', []).append(row := {'profile_id': who})
+        return row
 
     def _table(self, method, name, sent):
         rows = self.tables.setdefault(name, [])
         if name in NO_ID_TABLES and 'id' in sent['query'].get('select', '').split(','):
             return Reply(400, {'code': '42703', 'message': f'column {name}.id does not exist'})
+        if name == 'profile_private' and method in ('GET', 'PATCH') and \
+                fake_private.plain_used(sent['query'].get('select'), sent['body'] if method == 'PATCH' else None):
+            return fake_private.GONE
         match = [r for r in rows if all(str(r.get(k)) == v[3:] for k, v in sent['query'].items()
                                         if v.startswith('eq.') and k != 'select')
                  and all(str(r.get(k)).lower() == v[6:].lower() for k, v in sent['query'].items() if v.startswith('ilike.'))]
@@ -105,6 +119,7 @@ class Base(unittest.TestCase):
         patcher = mock.patch.object(tools, 'call', self.fake)
         patcher.start()
         self.addCleanup(patcher.stop)
+        with_private_key(self)
 
     def case(self, name):
         return area3.attempt(self.run_, name)

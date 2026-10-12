@@ -24,7 +24,7 @@
 
 from e2e import area1, area2, area3, tools, twodev
 from e2e import notify_factory as factory
-from e2e.area1 import Check, _api, _app, _one, _rows
+from e2e.area1 import Check, _api, _app, _rows
 from e2e.area2_two_accept import _after, _verdict
 from e2e.area3 import _match
 from e2e.area3_phone import MISSING, _permitted, _person
@@ -162,7 +162,7 @@ def _pair(run):
 
 def _facts(run, account):
     """화면에 나와야 할 [account] 의 카카오톡 아이디와 첫(position 이 가장 앞) 실사진 경로 — 없으면 화면을 맞출 기준이 없다."""
-    kakao = _one(run, f"profile_private?profile_id=eq.{account['id']}&select=kakao_id").get('kakao_id')
+    kakao = run.read_private(account['id'])['kakao_id']
     photos = _rows(run, f"profile_photos?profile_id=eq.{account['id']}&select=storage_path,position")
     if not kakao or not photos:
         raise Blocked(f"준비: {account['nickname']} 의 카카오톡 아이디({kakao!r}) 또는 실사진({len(photos)}장)이 없음 — 공개 화면을 맞출 기준이 없다")

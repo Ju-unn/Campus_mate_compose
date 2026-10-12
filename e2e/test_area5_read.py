@@ -20,7 +20,7 @@ from unittest import mock
 
 from e2e import area1, area2, area2_phone3, area5_read, notify, tools
 from e2e.area1 import SEOUL
-from e2e.test_area1 import CFG
+from e2e.test_area1 import CFG, with_private_key
 from e2e.test_area3_phone import App, said
 from e2e.test_area3_phone2 import as_fn
 from e2e.test_area3_safe import _who
@@ -313,6 +313,7 @@ class ReadBase(unittest.TestCase):
                         mock.patch.object(area2, '_guard'), mock.patch.object(area2_phone3, '_guard')):
             patcher.start()
             self.addCleanup(patcher.stop)
+        with_private_key(self)
 
     def case(self, name, answer, app=None):
         """가설 하나를 깨끗한 가짜 서버에서 — 계정은 늘 id-1 부터. [answer] 는 앱의 말(dict 또는 일감 → dict)."""
@@ -629,14 +630,11 @@ class CardPreviewTest(ReadBase):
         self.assertNotEqual(seen[0][0], seen[1][0])  # 계정마다 다르다
 
     def test_06_is_blocked_when_the_private_values_could_not_be_replaced(self):
-        self.swallow('PATCH', r'/rest/v1/profile_private')
+        self.swallow('POST', r'/rest/v1/rpc/set_(real_name|kakao_id)')
         self.blocked('E-ME-06', self.good(), '준비', 'real_name')  # 둘 다 못 바꿈 — 실명이 비어 있다
         self.fake.handlers.pop(0)
-
-        def only_the_name(sent):  # 실명만 들어가고 카톡 아이디는 공장 값(`e2e{n}`) 그대로 — 학번과 겹친다
-            self.fake.private('id-1')['real_name'] = sent['body']['real_name']
-            return Reply(204, None)
-        self.fake.handlers.insert(0, ('PATCH', re.compile(r'/rest/v1/profile_private'), only_the_name))
+        # 실명만 들어가고 카톡 아이디는 공장 값(`e2e{n}`) 그대로 — 학번과 겹친다
+        self.swallow('POST', r'/rest/v1/rpc/set_kakao_id')
         self.blocked('E-ME-06', self.good(), '준비', '넣은 값과 다르다')
 
     def test_06_fails_when_the_api_does_not_answer_200(self):

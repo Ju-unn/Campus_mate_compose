@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from unittest import mock
 from urllib.parse import parse_qs, urlsplit
 
-from e2e import area1, area4, notify, tools
+from e2e import area1, area4, fake_private, notify, tools
 from e2e.test_area1 import FakeServer, Base
 from e2e.test_area1_phone import APP_PASS, FakePhone
 from e2e.tools import Blocked, Reply
@@ -18,7 +18,8 @@ SEOUL = timezone(timedelta(hours=9))
 
 
 class FakeDb(FakeServer):
-    """알림 스위치 · 프로필 · 비공개 · 차단 표를 기억하는 가짜 운영. PATCH 가 행을 바꾸고 GET 이 읽는다."""
+    """알림 스위치 · 프로필 · 비공개 · 차단 표를 기억하는 가짜 운영. PATCH 가 행을 바꾸고 GET 이 읽는다.
+    비공개([private])의 실명 · 카톡 아이디는 암호화 RPC 로만 읽고 쓴다(fake_private)."""
 
     def __init__(self, routes=None):
         super().__init__(routes)
@@ -50,7 +51,12 @@ class FakeDb(FakeServer):
             if who not in self.profiles and 'nickname' in query.get('select', [''])[0]:
                 return Reply(200, [{'nickname': f'nick-{who}'}])  # 닉네임만 읽는 가설은 아무 계정이나 있다
             return Reply(200, [self.profiles[who]] if who in self.profiles else [])
+        answered = fake_private.rpc(path, body, self.private.get, lambda who: self.private.setdefault(who, {}))
+        if answered:
+            return answered
         if path == '/rest/v1/profile_private' and method in ('GET', 'PATCH'):
+            if fake_private.plain_used(query.get('select', [''])[0], body if method == 'PATCH' else None):
+                return fake_private.GONE
             who = query.get('profile_id', [None])[0]
             who = who.replace('eq.', '') if who else next(iter(self.private), None)
             if method == 'PATCH':
@@ -249,8 +255,8 @@ class PhoneCaseTest(Base):
         # 활성 계정은 출생연도가 비면 DB 제약(profiles_active_requires_onboarding)이 막고, 카톡 아이디가 비면 서버 온보딩 판정
         # (onboarding_progress.py 의 kakao_id 단계)이 앱을 온보딩으로 보내 계정 화면에 못 간다(폰 10-04) — 실명만 비운다.
         self.assertNotIn(('PATCH', '/rest/v1/profiles', {'birth_year': None}), db.calls)
-        kakao = [b for m, p, b in db.calls if p == '/rest/v1/profile_private' and m == 'PATCH']
-        self.assertEqual(kakao, [{'real_name': None}])
+        writes = [(p, b) for m, p, b in db.calls if (m, p) == ('PATCH', '/rest/v1/profile_private') or p.startswith('/rest/v1/rpc/set_')]
+        self.assertEqual(writes, [('/rest/v1/rpc/set_real_name', {'p_profile': 'id-1', 'p_real_name': '', 'p_key': 'k'})])
 
     def test_set_19_new_kakao_id_must_land_in_the_db(self):
         db = serve_db(self)
