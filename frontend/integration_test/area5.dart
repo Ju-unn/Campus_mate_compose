@@ -112,10 +112,12 @@ Finder _tab(String label) => find.descendant(of: find.byType(AppBottomNav), matc
 Finder _entry(String title) => find.descendant(of: find.byType(ProfileEntryRow), matching: find.text(title));
 
 /// 맨 위 화면의 앱바 글자(없으면 null) — 화면이 어디인지 말할 때 쓴다.
+/// 15 · 홈 제목은 큰 글자에서 자르지 않고 줄이려 FittedBox 안 Text 다 — 한 겹 풀어 읽는다(풀지 않으면 15 에서 null).
 String? _title(WidgetTester tester) {
   final bars = find.byType(AppBar);
   if (!_has(bars)) return null;
-  final title = tester.widget<AppBar>(bars.last).title;
+  final bar = tester.widget<AppBar>(bars.last).title;
+  final title = bar is FittedBox ? bar.child : bar;
   return title is Text ? title.data : null;
 }
 
