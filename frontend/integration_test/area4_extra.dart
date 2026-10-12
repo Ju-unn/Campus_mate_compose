@@ -6,8 +6,13 @@ part of 'area4.dart';
 /// 하트를 현금으로 바꾸거나 남에게 주는 길을 암시하는 글(E-HEART-49).
 const _heartMoneyWords = ['환급', '선물', '송금', '현금', '출금'];
 
-/// 잠긴 카드(한 명 더) · 카드 구매를 암시하는 글 — E-HEART-51 은 오늘 · 나 · 설정 · 하트 스토어 어디에도 이 글이 없어야 한다.
-const _heartLockedWords = ['한 명 더', '잠긴 카드', '잠금 카드', '카드 구매'];
+/// 10-09 유료 카드 설계가 화면에 쓰지 말라고 한 글 — E-HEART-51 은 오늘 · 나 · 설정 · 하트 스토어 어디에도 이 글이 없어야 한다.
+/// "한 명 더" 는 양으로 파는 옛 잠금 카드 문구(설계 01 §1 이 바꾼 것), "이상형 조건에 맞는" 은 하드 필터가 아니라 거짓(§3-4),
+/// "상위 20%" · "가장 잘 맞는 한 명" 은 §8. (옛 "잠긴 카드 · 카드 구매" 는 결제 카드가 없다는 뜻이었다 — 이제 [_paidCardAsServerSaid] 가 본다.)
+const _heartBannedWords = ['한 명 더', '이상형 조건에 맞는', '상위 20%', '가장 잘 맞는 한 명'];
+
+/// 오늘 탭 결제 카드(잠금 카드, matching/view/paid_card_locked.dart)의 버튼 · 머리글 — 서버 paid_card 가 offered 가 아니면 둘 다 없어야 한다.
+const _paidCardWords = ['으로 열기', '명이 기다리고 있어요'];
 
 /// 하트 스토어로 가는 글 — E-HEART-51: 오늘 · 나 탭에는 없고(스토어 입구는 홈 하트 칩의 "+" 와 설정의 보유 하트 블록뿐), 설정에는 있어서 누르면 스토어가 열린다.
 const _heartStoreWords = ['스토어', '하트 충전'];
@@ -26,18 +31,20 @@ void _seeNone(List<String> words, String where) {
 }
 
 /// 홈 → ([today] 면 오늘 탭) → 나 탭 → 설정 16 을 위에서 아래로 훑으며 [words] 가 어디에도 없다. [tabsOnly] 는 오늘 · 나 탭에서만 없어야 하는 글이다
-/// (설정 16 에는 있어야 하거나 있어도 되는 글 — 하트 스토어 입구).
+/// (설정 16 에는 있어야 하거나 있어도 되는 글 — 하트 스토어 입구). [onToday] 는 오늘 탭이 떠 있는 동안 더 볼 것.
 Future<void> _noneOnHeartScreens(
   WidgetTester tester,
   List<String> words, {
   bool today = false,
   List<String> tabsOnly = const [],
+  Future<void> Function()? onToday,
 }) async {
   await arrive(tester, 'home');
   if (today) {
     await tap(tester, _tab('오늘'));
     await wait(tester, const Duration(seconds: 3)); // 카드 · 안내가 그려지기를
     _seeNone([...words, ...tabsOnly], '오늘 탭');
+    await onToday?.call();
   }
   await tap(tester, _tab('나'));
   await pumpUntil(tester, find.byIcon(AppIcons.settings));
@@ -49,6 +56,23 @@ Future<void> _noneOnHeartScreens(
     await _reveal(tester, find.text(row));
     _seeNone(words, '설정($row 까지)');
   }
+}
+
+/// 오늘 탭의 결제 카드가 PC 가 읽은 서버 `paid_card` 와 맞다 — offered 면 "N으로 열기" · "N명이 기다리고 있어요" 가 보이고(목록 맨 끝이라
+/// 아직 안 그려졌으면 내려 본다), null · empty 면 둘 다 없다(empty 는 "잘 맞는 새 사람이 들어오면 다시 열려요" 안내만, 설계 01 §3-3).
+Future<void> _paidCardAsServerSaid(WidgetTester tester, Object? paid) async {
+  if (paid case {'state': 'offered', 'cost': final int cost, 'band_count': final int band}) {
+    final list = find.descendant(of: find.byType(TodayCardsScreen), matching: find.byType(Scrollable));
+    for (final text in ['$cost으로 열기', '$band명이 기다리고 있어요']) {
+      final shown = find.textContaining(text, findRichText: true);
+      if (await appears(tester, shown, const Duration(seconds: 5)) == null && list.evaluate().isNotEmpty) {
+        await tester.scrollUntilVisible(shown, 300, scrollable: list.first);
+      }
+      must(shown.evaluate().isNotEmpty, '오늘 탭에 결제 카드 "$text" 가 없음(서버 paid_card 는 offered)');
+    }
+    return;
+  }
+  _seeNone(_paidCardWords, '오늘 탭(서버 paid_card ${paid is Map ? paid['state'] : paid})');
 }
 
 /// 설정 맨 위의 보유 하트 블록에서 "하트 충전" 을 눌러 하트 스토어(18)를 연다 — 설정 16 에 있어야 하는 유일한 스토어 입구.
@@ -121,16 +145,17 @@ final Map<String, Area1Case> _extraCases = {
     _seeNone(_heartMoneyWords, '하트 스토어');
     return null;
   }),
-  // 51(의미를 "하트를 쓰는 곳 · 사는 곳이 새 설계(스토어 · 설정 블록)와 맞다" 로 바꿨다 — 번호는 그대로):
-  //   ① 오늘 · 나 · 설정 · 하트 스토어 어디에도 잠긴 카드(한 명 더) · 카드 구매 글이 없다.
+  // 51(의미를 "하트를 쓰는 곳 · 사는 곳이 새 설계와 맞다" 로 바꿨다 — 번호는 그대로. 새 설계 = 10-09 유료 카드 재설계, 설계 01 §3-3 · §3-4):
+  //   ① 오늘 · 나 · 설정 · 하트 스토어 어디에도 설계가 금한 글(_heartBannedWords)이 없다.
   //   ② 오늘 · 나 탭에는 스토어로 가는 글(스토어 · 하트 충전)도 없다 — 스토어 입구는 홈 하트 칩의 "+" 와 설정 블록뿐.
   //   ③ 설정에는 "하트 충전" 줄이 있고 누르면 하트 스토어(18)가 열린다.
-  // locked_card_available · 서버 경로(스토어 · 카드 구매 · 잠금 해제 없음)는 PC 가 본다.
+  //   ④ 오늘 탭의 결제 카드("N으로 열기" · "N명이 기다리고 있어요")는 PC 가 읽은 paid_card 가 offered 일 때만 보인다.
+  // paid_card 모양 · locked_card_available 일관성 · 서버 경로(구매 경로 하나 · 환급 · 선물 없음)는 PC 가 본다.
   'E-HEART-51': _session((tester, job) async {
-    await _noneOnHeartScreens(tester, _heartLockedWords, today: true, tabsOnly: _heartStoreWords);
+    await _noneOnHeartScreens(tester, _heartBannedWords, today: true, tabsOnly: _heartStoreWords, onToday: () => _paidCardAsServerSaid(tester, job['paid_card']));
     await _openHeartStoreFromSettings(tester);
     await wait(tester, const Duration(seconds: 2));
-    _seeNone(_heartLockedWords, '하트 스토어');
+    _seeNone(_heartBannedWords, '하트 스토어');
     return null;
   }),
   // 04: 설정 16 의 "매칭 활성화" 를 끈다(켜짐 = 일시중지 아님). 저장은 PC 가 matching_paused 로 보고 배치 뒤 카드 0 을 본다.
