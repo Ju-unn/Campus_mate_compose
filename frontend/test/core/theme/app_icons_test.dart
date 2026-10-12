@@ -20,6 +20,7 @@ void main() {
     expect(AppIcons.settings, LucideIcons.settings);
     expect(AppIcons.bell, LucideIcons.bell);
     expect(AppIcons.arrowLeft, LucideIcons.arrowLeft);
+    expect(AppIcons.clock, LucideIcons.clock);
     expect(AppIcons.ellipsis, LucideIcons.ellipsis);
     expect(AppIcons.camera, LucideIcons.camera);
     expect(AppIcons.creditCard, LucideIcons.creditCard);

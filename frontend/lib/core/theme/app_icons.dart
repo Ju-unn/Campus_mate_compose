@@ -31,6 +31,9 @@ abstract final class AppIcons {
 
   /// 14f 남은 시간 상자(pen `p0XJA6`). `timer` 는 시안이 쓰지 않는 모래시계 쪽이다
   static const IconData clock3 = LucideIcons.clock3;
+
+  /// 20f-4 횟수 제한 줄(pen `Mi3ux/DOBgd` icon "clock" — 바늘 12시 · 4시, clock3 과 다르다)
+  static const IconData clock = LucideIcons.clock;
   static const IconData arrowLeft = LucideIcons.arrowLeft;
   static const IconData ellipsis = LucideIcons.ellipsis;
   static const IconData camera = LucideIcons.camera;
