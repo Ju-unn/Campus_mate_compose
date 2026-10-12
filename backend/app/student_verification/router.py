@@ -55,7 +55,8 @@ async def submit_student_verification(
     status = gate["student_verification"]
     if status == "pending":
         raise HTTPException(status_code=409, detail=errors.VERIFICATION_IN_REVIEW)
-    # 끝난 인증을 다시 제출하면 pending 으로 되돌아가 삭제 트리거의 "pending → verified/rejected" 전이가 꼬인다.
+    # 끝난 인증을 다시 제출하면 pending 으로 되돌아가 검토 결과 트리거(pending → verified/rejected 때 훅을 불러
+    # 알림을 보내고 사진을 지운다)가 꼬인다.
     if status == "verified":
         raise HTTPException(status_code=409, detail=errors.VERIFICATION_ALREADY_DONE)
 
