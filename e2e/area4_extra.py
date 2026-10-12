@@ -16,6 +16,7 @@ E-SET-55(운영 faq 표 수정 — 대장 10-04 skip). E-HEART-50 · E-SET-57(�
 
 import contextlib
 import re
+import sys
 import time
 
 from e2e import area1, area2, area2_phone3, area2_time_batch, area3, area4, batch_gate, emu, notify, tools, twodev
@@ -83,12 +84,27 @@ def heart_46(run):
 
 # ── E-HEART-49 · 51 하트 환급 · 선물 · 스토어 경로가 없다 ───────────────────────────────────────────────
 
-def _paths(run, token):
-    """서버가 광고하는 경로들(/openapi.json) — 못 읽으면 blocked(못 읽고 "없다" 로 통과하면 안 된다)."""
-    status, body = _api(run, 'GET', '/openapi.json', token)[:2]
-    if status != 200 or not isinstance(body, dict) or not isinstance(body.get('paths'), dict):
-        raise Blocked(f'openapi 를 못 읽음({status}) — 경로 없음을 확인할 수 없다')
-    return [path.lower() for path in body['paths']]
+def _backend_app():
+    """이 저장소 backend 의 FastAPI 앱(app.main:app). 의존성이 없으면 blocked — 바깥 python 3.14 에는 google-auth 가 없다."""
+    backend = str(tools.ROOT / 'backend')
+    sys.path.insert(0, backend)
+    try:
+        from app.main import app
+    except ImportError as e:
+        raise Blocked(f'백엔드 코드를 못 읽음({e}) — backend/.venv 파이썬으로 돌린다') from e
+    finally:
+        sys.path.remove(backend)
+    return app
+
+
+def _paths():
+    """서버 경로들 — 운영 /openapi.json 은 배포에서 닫혀서 코드의 app.openapi() 로 읽는다(openapi_url=None 이어도 된다).
+    못 읽거나 비면 blocked(못 읽고 "없다" 로 통과하면 안 된다)."""
+    # 의도는 "서버에 하트 환급 · 선물 경로가 없다" — 운영은 이 backend 를 그대로 배포하니 코드에서 읽어도 같은 결론이다.
+    paths = _backend_app().openapi().get('paths')
+    if not isinstance(paths, dict) or not paths:
+        raise Blocked('백엔드 app.openapi() 에 경로가 없음 — 경로 없음을 확인할 수 없다')
+    return [path.lower() for path in paths]
 
 
 def _named(paths, words):
@@ -99,10 +115,10 @@ def heart_49(run, phone):
     """하트를 현금으로 바꾸거나(환급) 남에게 주는(선물 · 송금) 경로가 서버에 없고, 나 탭 · 설정 · 하트 스토어(18)에도 그런 글이 없다(화면은 앱이)."""
     check = Check()
     account = area2._home(run)
-    found = _named(_paths(run, account['token']), FORBIDDEN_HEART)
+    found = _named(_paths(), FORBIDDEN_HEART)
     check.that(not found, f'서버에 하트 환급 · 선물 경로가 있음: {found}')
     _app(check, phone(token_hash=run.link(account['email'])))
-    return check.result('서버 경로는 /openapi.json 이름으로 본다(' + ' · '.join(FORBIDDEN_HEART) + ')')
+    return check.result('서버 경로는 백엔드 코드 app.openapi() 의 이름으로 본다(' + ' · '.join(FORBIDDEN_HEART) + ')')
 
 
 def heart_51(run, phone):
@@ -118,7 +134,7 @@ def heart_51(run, phone):
     if today[0] == 200:
         got = (today[1] or {}).get('locked_card_available')
         check.that(got is False, f'locked_card_available {got!r}(기대 False)')
-    found = _named(_paths(run, account['token']), FORBIDDEN_STORE)
+    found = _named(_paths(), FORBIDDEN_STORE)
     check.that(not found, f'서버에 잠긴 카드 해제 · 카드 구매 경로가 있음: {found}')
     _app(check, phone(token_hash=run.link(account['email'])))
     return check.result()
