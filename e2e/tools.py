@@ -327,6 +327,7 @@ OLD_CONSENT_VERSION = '2026-09-01'  # 서버 상수(consents/policy.py)보다 �
 PHOTO = ROOT / 'frontend' / 'assets' / 'images' / 'mascot-male.png'  # 실제 사람 사진 대신 앱에 든 그림(SafeSearch 통과)
 REFERRAL_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'  # generate_referral_code() 와 같은 32글자(0 · O · 1 · I 뺌, 20260928010000)
 _CODE_TRIES = 5  # 그 함수도 다섯 번까지 다시 뽑는다
+PRIVATE_KEY_ENV = 'PHONE_ENCRYPTION_KEY'  # 실명 · 카톡 아이디 암호화 키(서버 설정과 같은 이름) — 환경 변수로만 받는다. e2e.env 는 앱 빌드에 들어가서 안 된다
 
 
 def referral_code():
@@ -650,6 +651,30 @@ class Run:
         if status != 200:
             raise Blocked(f'verify {status}')
         return body['access_token']
+
+    def read_private(self, profile_id):
+        """실명 · 카톡 아이디 {real_name, kakao_id} — 서버와 같은 복호화 RPC(decrypt_profile_private)로 읽는다. 행이 없으면 둘 다 None.
+        평문 열(real_name · kakao_id)은 M2 로 없어지므로 읽지 않는다."""
+        body = self._private_rpc('decrypt_profile_private', {'p_profile': profile_id})
+        row = body[0] if isinstance(body, list) and body else {}
+        return {'real_name': row.get('real_name'), 'kakao_id': row.get('kakao_id')}
+
+    def seed_private(self, profile_id, real_name=None, kakao_id=None):
+        """준 칸만 서버와 같은 암호화 RPC(set_real_name · set_kakao_id)로 쓴다. None 은 그대로 두고, '' 는 비운다(DB 함수가 null 로 저장).
+        set_real_name 은 행이 없으면 만들고, set_kakao_id 는 행이 있어야 바뀐다 — 계정 공장의 basic 단계가 행을 만든다."""
+        for field, value in (('real_name', real_name), ('kakao_id', kakao_id)):
+            if value is not None:
+                self._private_rpc(f'set_{field}', {'p_profile': profile_id, f'p_{field}': value})
+
+    def _private_rpc(self, name, args):
+        # 키는 서버와 같은 PHONE_ENCRYPTION_KEY — JSON 바디로만 보낸다(주소에 넣으면 접근 로그에 남는다). 메모에는 상태 · 코드만 싣는다.
+        key = os.environ.get(PRIVATE_KEY_ENV)
+        if not key:
+            raise Blocked(f'환경 변수 {PRIVATE_KEY_ENV} 가 없다 — 실명 · 카톡 아이디는 암호문이라 서버와 같은 키가 있어야 읽고 쓴다')
+        status, body = rest(self.cfg, self.key, 'POST', f'rpc/{name}', {**args, 'p_key': key})
+        if status >= 300:
+            raise Blocked(f"{name} {status} {(body.get('code') if isinstance(body, dict) else None) or ''}".rstrip())
+        return body
 
     def _old_consent(self, account):
         """user_consents 는 고치지 않는 기록이라 서비스 키도 update 권한이 없다 — 옛 판 행을 처음부터 넣는다."""

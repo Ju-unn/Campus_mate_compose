@@ -1,10 +1,12 @@
 """하네스 자체 시험 — 기기 · 운영 없이 돈다. 저장소 루트에서 `python -m unittest e2e.test_tools`."""
 
 import json
+import tempfile
 import unittest
 import urllib.request
 from email.parser import BytesParser
 from email.policy import default
+from pathlib import Path
 from unittest import mock
 
 from e2e import tools
@@ -139,6 +141,72 @@ class FormTest(unittest.TestCase):
         message = BytesParser(policy=default).parsebytes(f'Content-Type: {kind}\r\n\r\n'.encode() + data)
         parts = {p.get_param('name', header='content-disposition'): (p.get_filename(), p.get_content()) for p in message.iter_parts()}
         self.assertEqual(parts, {'layout': (None, '[1]'), 'avatar_source': (None, '0')})
+
+
+class PrivateTest(unittest.TestCase):
+    """Run.read_private · seed_private — 실명 · 카톡 아이디는 암호문 열뿐이라(M2 로 평문 열 삭제) 복호화 · 암호화 RPC 로만 읽고 쓴다.
+    키는 환경 변수 PHONE_ENCRYPTION_KEY 에서 받아 JSON 바디로만 보낸다(주소 · 메모에 안 싣는다)."""
+
+    KEY = 'secret-k'
+
+    def setUp(self):
+        self.run = tools.Run(Path(tempfile.mkdtemp()) / 'b', 'b', cfg={'SUPABASE_URL': 'https://sb.test'}, key='svc')
+        self.sent, self.replies = [], []
+        patcher = mock.patch.object(tools, 'call', self.fake)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        env = mock.patch.dict(tools.os.environ, {'PHONE_ENCRYPTION_KEY': self.KEY})
+        env.start()
+        self.addCleanup(env.stop)
+
+    def fake(self, method, url, headers=None, body=None, **options):
+        self.sent.append((method, url, body))
+        return self.replies.pop(0) if self.replies else tools.Reply(204, None)
+
+    def test_read_decrypts_through_the_rpc_with_the_key_only_in_the_body(self):
+        self.replies.append(tools.Reply(200, [{'real_name': '홍길동', 'kakao_id': 'e2e1'}]))
+        self.assertEqual(self.run.read_private('id-1'), {'real_name': '홍길동', 'kakao_id': 'e2e1'})
+        [(method, url, body)] = self.sent
+        self.assertEqual((method, url), ('POST', 'https://sb.test/rest/v1/rpc/decrypt_profile_private'))
+        self.assertEqual(body, {'p_profile': 'id-1', 'p_key': self.KEY})
+
+    def test_read_of_a_missing_row_is_two_nones(self):
+        self.replies.append(tools.Reply(200, []))
+        self.assertEqual(self.run.read_private('id-1'), {'real_name': None, 'kakao_id': None})
+
+    def test_without_the_key_reading_or_writing_is_blocked_before_any_request(self):
+        with mock.patch.dict(tools.os.environ, {}, clear=True):
+            for act in (lambda: self.run.read_private('id-1'), lambda: self.run.seed_private('id-1', kakao_id='k')):
+                with self.assertRaises(tools.Blocked) as caught:
+                    act()
+                self.assertIn('PHONE_ENCRYPTION_KEY', str(caught.exception))
+        self.assertEqual(self.sent, [])
+
+    def test_a_failed_rpc_is_blocked_with_the_code_but_never_the_key(self):
+        for act in (lambda: self.run.read_private('id-1'), lambda: self.run.seed_private('id-1', real_name='A')):
+            self.replies.append(tools.Reply(400, {'code': '39000', 'message': f'Wrong key {self.KEY}'}))
+            with self.assertRaises(tools.Blocked) as caught:
+                act()
+            self.assertIn('39000', str(caught.exception))
+            self.assertNotIn(self.KEY, str(caught.exception))
+        for reply in (tools.Reply(503, {'message': 'down'}), tools.Reply(502, None)):  # 코드가 없으면 상태만
+            self.replies.append(reply)
+            with self.assertRaises(tools.Blocked) as caught:
+                self.run.read_private('id-1')
+            self.assertEqual(str(caught.exception), f'decrypt_profile_private {reply.status}')
+
+    def test_seed_writes_each_given_field_through_its_rpc_and_leaves_none_alone(self):
+        self.run.seed_private('id-1', real_name='E2E실명', kakao_id='kk1')
+        self.run.seed_private('id-2', kakao_id='kk2')
+        self.assertEqual(self.sent, [
+            ('POST', 'https://sb.test/rest/v1/rpc/set_real_name', {'p_profile': 'id-1', 'p_real_name': 'E2E실명', 'p_key': self.KEY}),
+            ('POST', 'https://sb.test/rest/v1/rpc/set_kakao_id', {'p_profile': 'id-1', 'p_kakao_id': 'kk1', 'p_key': self.KEY}),
+            ('POST', 'https://sb.test/rest/v1/rpc/set_kakao_id', {'p_profile': 'id-2', 'p_kakao_id': 'kk2', 'p_key': self.KEY})])
+
+    def test_seed_with_an_empty_string_clears_the_field(self):
+        self.run.seed_private('id-1', real_name='')  # DB 함수가 빈 문자열을 암호문 null 로 저장한다
+        self.assertEqual(self.sent, [('POST', 'https://sb.test/rest/v1/rpc/set_real_name',
+                                      {'p_profile': 'id-1', 'p_real_name': '', 'p_key': self.KEY})])
 
 
 class ParserTest(unittest.TestCase):
