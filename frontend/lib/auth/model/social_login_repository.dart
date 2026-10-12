@@ -10,7 +10,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 abstract interface class SocialLoginRepository {
   Future<Result<void>> signIn(SocialProvider provider);
 
-  /// 앱 로그아웃 직후 카카오 · 구글 SDK 쪽 로그인도 끊는다(`core/auth/sign_out.dart`). 실패는 삼킨다.
+  /// 앱 로그아웃 직후 카카오 · 구글 SDK 쪽 로그인도 끊는다(`core/auth/sign_out.dart`, 애플은 지울 것이 없다). 실패는 삼킨다.
   Future<void> signOutProviders();
 }
 

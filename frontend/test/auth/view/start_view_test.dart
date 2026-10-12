@@ -234,6 +234,98 @@ void main() {
     });
   });
 
+  // pen `jXJSY` 시작 화면 4종: 애플 버튼은 iOS 에서만, 구글 아래 12.
+  group('플랫폼별 버튼', () {
+    final ios = TargetPlatformVariant.only(TargetPlatform.iOS);
+
+    testWidgets('iOS: 카카오 → 구글 → 애플 순서, 세로 간격 12, 셋 다 좌우 24 를 뺀 같은 폭 · 높이 46', (tester) async {
+      await _pump(tester);
+
+      final kakao = tester.getRect(_button(SocialProvider.kakao).hitTestable());
+      final google = tester.getRect(_button(SocialProvider.google).hitTestable());
+      final apple = tester.getRect(_button(SocialProvider.apple).hitTestable());
+      expect(google.top - kakao.bottom, 12);
+      expect(apple.top - google.bottom, 12);
+      for (final rect in [kakao, google, apple]) {
+        expect((rect.left, rect.width, rect.height), (24, 360 - 48, 46));
+      }
+      expect(find.text('Apple로 로그인'), findsOneWidget);
+      // 안내 줄은 맨 아래 버튼(애플) 밑에 온다.
+      expect(tester.getRect(find.text(_notice)).top, greaterThan(apple.bottom));
+    }, variant: ios);
+
+    testWidgets('안드로이드: 카카오 · 구글 둘뿐, 애플 버튼은 없다', (tester) async {
+      await _pump(tester);
+
+      expect(find.byType(SocialLoginButton), findsNWidgets(2));
+      expect(_button(SocialProvider.apple), findsNothing);
+      expect(find.textContaining('Apple'), findsNothing);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
+    testWidgets('iOS: 애플을 누르면 애플 버튼만 덮개 + 스피너, 카카오 · 구글은 눌리지 않고 진행 중 탭은 무시한다', (tester) async {
+      final (_, repository) = await _pump(tester);
+
+      await tester.tap(_button(SocialProvider.apple));
+      await tester.pump();
+
+      expect(find.descendant(of: _button(SocialProvider.apple), matching: find.byKey(SocialLoginButton.busyOverlayKey)),
+          findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(_inkOf(tester, SocialProvider.kakao).onTap, isNull);
+      expect(_inkOf(tester, SocialProvider.google).onTap, isNull);
+      await tester.tap(_button(SocialProvider.kakao));
+      await tester.tap(_button(SocialProvider.google));
+      await tester.tap(_button(SocialProvider.apple));
+      expect(repository.requested, [SocialProvider.apple]);
+    }, variant: ios);
+
+    testWidgets('iOS: 카카오가 진행 중이면 애플도 눌리지 않는다', (tester) async {
+      final (_, repository) = await _pump(tester);
+
+      await tester.tap(_button(SocialProvider.kakao));
+      await tester.pump();
+
+      expect(_inkOf(tester, SocialProvider.apple).onTap, isNull);
+      expect(find.byKey(SocialLoginButton.busyOverlayKey), findsNothing);
+      await tester.tap(_button(SocialProvider.apple));
+      expect(repository.requested, [SocialProvider.kakao]);
+    }, variant: ios);
+
+    testWidgets('iOS: 애플 창을 닫으면 취소 토스트가 뜨고 버튼이 다시 눌린다', (tester) async {
+      final (_, repository) = await _pump(tester);
+
+      await tester.tap(_button(SocialProvider.apple));
+      repository.completer.complete(const FailureResult(LoginCancelledFailure()));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('로그인이 취소됐어요'), findsOneWidget);
+      expect(find.byKey(SocialLoginButton.busyOverlayKey), findsNothing);
+      expect(_inkOf(tester, SocialProvider.apple).onTap, isNotNull);
+      await tester.pump(const Duration(seconds: 3));
+    }, variant: ios);
+
+    for (final scale in [1.0, 1.5, 2.0]) {
+      for (final size in [const Size(360, 740), const Size(320, 568)]) {
+        testWidgets('iOS: $scale배 · ${size.width.toInt()}×${size.height.toInt()} 에서 버튼 셋이 넘치지 않는다(실패 토스트 포함)',
+            (tester) async {
+          final (_, repository) = await _pump(tester, textScale: scale, size: size);
+
+          await tester.tap(_button(SocialProvider.apple));
+          repository.completer.complete(const FailureResult(SocialLoginFailure()));
+          await tester.pump();
+          await tester.pump();
+
+          expect(tester.takeException(), isNull);
+          for (final provider in SocialProvider.values) {
+            expect(tester.getSize(_button(provider)).height, 46);
+          }
+          await tester.pump(const Duration(seconds: 3));
+        }, variant: ios);
+      }
+    }
+  });
+
   testWidgets('로그아웃하며 남긴 알림(탈퇴 등)을 토스트로 한 번 보여준다', (tester) async {
     LoginNotice.post('탈퇴한 계정이에요');
 

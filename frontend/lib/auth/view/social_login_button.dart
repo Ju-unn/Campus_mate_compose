@@ -2,6 +2,7 @@ import 'package:campus_mate/auth/model/social_provider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:flutter/material.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart' show SignInWithAppleButton;
 
 /// 소셜 로그인 버튼 문구. 각 사 브랜드 규칙이 정한 글자라 바꾸지 않는다(대장 지시문 07).
 abstract final class SocialLoginLabels {
@@ -10,16 +11,21 @@ abstract final class SocialLoginLabels {
   /// "Google" 한 단어만 쓰는 것은 Google 브랜드 규칙 위반이다.
   static const String google = 'Google 계정으로 로그인';
 
+  /// 애플 한국어 버튼 문구(애플 공식 "Sign in with Apple" 한국어판, pen `n4d2T3` 의 공식 PNG 글자).
+  static const String apple = 'Apple로 로그인';
+
   /// 화면 읽기 이름.
   static const String kakaoSemantics = '카카오로 로그인';
   static const String googleSemantics = 'Google 계정으로 로그인';
+  static const String appleSemantics = 'Apple로 로그인';
 }
 
-/// 시작 화면의 소셜 로그인 버튼 한 개(카카오 · 구글, 애플은 자리만).
+/// 시작 화면의 소셜 로그인 버튼 한 개(카카오 · 구글 · 애플, 애플은 iOS 에서만 화면에 놓인다).
 ///
 /// 높이 46 · 모서리 12 고정, 폭은 부모 칸 전체. [onPressed] 가 null 이면 비활성이고,
 /// 비활성 · 로딩 · 눌림에서도 **브랜드 색을 바꾸지 않는다**(눌림은 잉크 효과만).
-/// 로딩이면 레이블 자리에 스피너가 오고 심볼 · 로고는 그대로 남는다.
+/// 로딩이면 카카오 · 구글은 레이블 자리에 스피너가 오고 심볼 · 로고는 그대로 남는다.
+/// 애플은 공식 버튼을 그대로 두고 그 위에 반투명 덮개 + 스피너를 겹친다([_AppleButton]).
 class SocialLoginButton extends StatelessWidget {
   const SocialLoginButton({required this.provider, required this.onPressed, this.isLoading = false, super.key});
 
@@ -32,16 +38,20 @@ class SocialLoginButton extends StatelessWidget {
   /// 심볼 · 로고 칸(시험이 위치를 잰다).
   static const Key markKey = ValueKey('social-login-mark');
 
+  /// 애플 버튼이 진행 중일 때 공식 버튼 위에 겹치는 덮개(시험이 크기를 잰다).
+  static const Key busyOverlayKey = ValueKey('social-login-busy-overlay');
+
   @override
   Widget build(BuildContext context) {
+    // 애플은 패키지의 공식 버튼을 고치지 않고 그 위에 겹쳐 그린다([_AppleButton]). 카카오 · 구글은 아래 브랜드 값으로 그린다.
+    if (provider == SocialProvider.apple) {
+      return _accessible(SocialLoginLabels.appleSemantics, _AppleButton(onPressed: onPressed, isLoading: isLoading));
+    }
     final brand = _Brand.of(provider);
-    return Semantics(
-      button: true,
-      enabled: onPressed != null && !isLoading,
-      label: brand.semanticsLabel,
-      excludeSemantics: true,
+    return _accessible(
+      brand.semanticsLabel,
       // 잉크가 화면 전체가 아니라 버튼 크기의 Material 위에 그려지게 버튼마다 Material 을 둔다(COMMON §4-2).
-      child: Material(
+      Material(
         color: brand.container,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.socialButton), side: brand.stroke),
         clipBehavior: Clip.antiAlias,
@@ -57,6 +67,102 @@ class SocialLoginButton extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  /// 읽기 이름 하나짜리 버튼으로 읽힌다 — 안쪽 글자 · 패키지 버튼의 읽기 정보는 지운다.
+  /// 그러면 안쪽 InkWell 의 '누르기' 동작도 같이 지워지므로, 켜져 있을 때 여기서 직접 단다.
+  Widget _accessible(String label, Widget child) {
+    final isActive = onPressed != null && !isLoading;
+    return Semantics(
+      button: true,
+      enabled: isActive,
+      label: label,
+      onTap: isActive ? onPressed : null,
+      excludeSemantics: true,
+      child: child,
+    );
+  }
+}
+
+/// 애플 버튼(pen `n4d2T3` SocialButton/Apple — 높이 46, 모서리 12, 폭 칸 전체, 바탕 #000000).
+///
+/// 그림은 `sign_in_with_apple` 의 [SignInWithAppleButton](애플 가이드 비율: 글자 = 높이의 43%, 로고 칸 = 높이의 28/44,
+/// 벡터 로고)을 **고치지 않고** 쓴다. pen 이 쓴 공식 PNG 는 300×46 한 장뿐이라 312 칸 · 3배 화면에서 늘어나고 흐려진다.
+/// 그 위젯은 CupertinoButton 이라 비활성이면 회색으로 바뀌고 누르면 흐려진다 — 다른 소셜 버튼 규칙(브랜드 색 고정,
+/// 눌림은 잉크만)과 맞추려고 터치 · 포커스는 막고, 눌림 · 비활성 · 진행 중은 위에 겹친 투명 Material + InkWell 이 맡는다.
+class _AppleButton extends StatelessWidget {
+  const _AppleButton({required this.onPressed, required this.isLoading});
+
+  final VoidCallback? onPressed;
+  final bool isLoading;
+
+  /// 패키지 버튼(CupertinoButton)이 그리는 모서리와 같은 모양 — 잉크 · 덮개가 검은 모서리 밖으로 새지 않게.
+  static const ShapeBorder _shape =
+      RoundedSuperellipseBorder(borderRadius: BorderRadius.all(Radius.circular(AppRadius.socialButton)));
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: SocialLoginButton.height,
+      width: double.infinity,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          const _OfficialAppleButton(),
+          if (isLoading) const _BusyOverlay(shape: _shape),
+          Material(
+            type: MaterialType.transparency,
+            shape: _shape,
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(onTap: isLoading ? null : onPressed),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 공식 버튼 그대로. 늘 "켜진" 모양으로 그리게 빈 콜백을 주고, 실제 누름은 위의 InkWell 이 받는다.
+class _OfficialAppleButton extends StatelessWidget {
+  const _OfficialAppleButton();
+
+  static void _drawsEnabled() {}
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: ExcludeFocus(
+        // 애플 시스템 버튼(ASAuthorizationAppleIDButton)처럼 글자 배율을 따르지 않는다 — 46 칸에서 잘리지 않게.
+        // 큰 글자를 쓰는 사람도 읽기 이름(Semantics)으로 같은 문구를 듣는다.
+        child: MediaQuery.withNoTextScaling(
+          child: SignInWithAppleButton(
+            onPressed: _drawsEnabled,
+            text: SocialLoginLabels.apple,
+            height: SocialLoginButton.height,
+            borderRadius: const BorderRadius.all(Radius.circular(AppRadius.socialButton)),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 진행 중 덮개 — pen 에 애플 진행 화면이 없어 공식 버튼을 바꾸지 않고 위에 겹친다(대장 결정).
+/// 덮개는 기존 딤 토큰 [AppColors.scrim](검정 50%), 스피너는 카카오 진행 값 20×20 · 굵기 2 를 흰색으로.
+class _BusyOverlay extends StatelessWidget {
+  const _BusyOverlay({required this.shape});
+
+  final ShapeBorder shape;
+
+  static const double _spinnerSize = 20;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      key: SocialLoginButton.busyOverlayKey,
+      decoration: ShapeDecoration(shape: shape, color: AppColors.scrim),
+      child: const Center(child: _Spinner(size: _spinnerSize, color: AppColors.onInk)),
     );
   }
 }
@@ -123,7 +229,8 @@ class _Brand {
     return switch (provider) {
       SocialProvider.kakao => _kakao,
       SocialProvider.google => _google,
-      SocialProvider.apple => throw UnimplementedError('애플 로그인 버튼은 개발자 계정 승인 뒤 별도 PR 에서 그린다'),
+      // 애플은 SocialLoginButton.build 가 먼저 [_AppleButton] 으로 보내 여기로 오지 않는다.
+      SocialProvider.apple => throw StateError('애플 버튼은 _AppleButton 이 그린다'),
     };
   }
 

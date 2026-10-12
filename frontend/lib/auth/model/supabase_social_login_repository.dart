@@ -13,7 +13,7 @@ class SupabaseSocialLoginRepository implements SocialLoginRepository {
 
   final GoTrueClient _auth;
 
-  /// 게이트웨이가 없는 공급자(지금은 애플)는 실패로 끝난다.
+  /// 게이트웨이가 없는 공급자는 실패로 끝난다.
   final Map<SocialProvider, IdTokenGateway> _gateways;
 
   @override

@@ -11,8 +11,9 @@ Future<void> confirmSignOut(BuildContext context, WidgetRef ref) async {
   final confirmed = await showSafetyConfirmSheet(
     context,
     title: '로그아웃할까요?',
-    // 소셜 로그인 뒤라 학교 메일 인증코드를 말하지 않는다. 애플은 아직 로그인 수단이 아니라 넣지 않았다.
-    description: '다시 로그인하려면 처음 화면에서 카카오, 구글 중 쓰던 계정으로 로그인해 주세요.',
+    // 소셜 로그인 뒤라 학교 메일 인증코드를 말하지 않는다. 공급자는 나열하지 않는다 — 안드로이드는 카카오 · 구글,
+    // iOS 는 애플까지 셋이다(2026-10-13 대장 결정).
+    description: '다시 로그인하려면 처음 화면에서 쓰던 소셜 계정으로 로그인해 주세요.',
     confirmLabel: '로그아웃',
   );
   if (confirmed) {

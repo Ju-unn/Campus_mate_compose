@@ -1,4 +1,4 @@
-"""탈퇴 때 소셜 연결 끊기. 지금은 카카오만 한다(애플 토큰 철회는 애플 로그인 PR 몫).
+"""탈퇴 때 소셜 연결 끊기. 지금은 카카오만 한다(애플 토큰 철회(App Store 5.1.1(v))는 출시 전 별도 서버 PR 에서 한다(Sign in with Apple 용 p8 키 필요)).
 
 카카오 회원번호는 `GET {auth_url}/user` 의 identities 중 provider kakao 의 identity_data.sub 다.
 회원번호와 키는 어디에도 남기지 않는다 — 실패는 부르는 쪽(account/router.py)이 단계 이름만 경고로 남긴다.
