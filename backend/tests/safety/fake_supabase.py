@@ -11,6 +11,7 @@ import httpx
 
 from app.core.time import SEOUL
 from app.settings import Settings
+from private_columns import plaintext_gone
 
 ME = "11111111-1111-1111-1111-111111111111"
 PARTNER = "22222222-2222-2222-2222-222222222222"
@@ -68,10 +69,9 @@ class FakeSupabase:
             },
         }
         self.photo_paths: dict[str, list[str]] = {PARTNER: ["p2/1.jpg", "p2/2.jpg"]}
+        # kakao_id_enc 를 복호화한 값 — decrypt_profile_private RPC 가 돌려준다. 평문 kakao_id 열은 없다(M2).
         self.kakao_ids: dict[str, str] = {ME: "my_id", PARTNER: "fox_rain"}
-        # kakao_id_enc 를 복호화한 값(이중 쓰기 기간). 있으면 평문 열보다 먼저 읽힌다.
-        self.kakao_ids_enc: dict[str, str] = {}
-        self.decrypt_unavailable = False   # 복호화 RPC 가 404 인 때(서버가 DB 보다 먼저 나간 경우)
+        self.decrypt_unavailable = False   # 복호화 RPC 가 404 인 때(키 · 함수 설정 사고)
         self.messages: dict[str, dict] = {
             MESSAGE_ID: {"id": MESSAGE_ID, "match_id": MATCH_ID, "sender_id": PARTNER, "kind": "text",
                          "body": "기분 나쁜 말", "created_at": "2126-09-22T11:00:00+09:00"},
@@ -105,6 +105,8 @@ class FakeSupabase:
         if url.path.startswith("/storage/v1/object/sign/profile-photos/"):
             path = url.path.removeprefix("/storage/v1/object/sign/profile-photos/")
             return httpx.Response(200, json={"signedURL": f"/object/sign/profile-photos/{path}?token=t"})
+        if gone := plaintext_gone(request):  # M2: 평문 kakao_id 열이 없다
+            return gone
         table = url.path.removeprefix("/rest/v1/")
         self.log.append(f"{request.method} {table}")
         params = url.params
@@ -203,14 +205,14 @@ class FakeSupabase:
         return httpx.Response(200, json=[{"storage_path": p, "position": i} for i, p in enumerate(paths)])
 
     def _profile_private(self, method, params, body):
-        kakao = self.kakao_ids.get(self._eq(params, "profile_id"))
-        return httpx.Response(200, json=[{"kakao_id": kakao}] if kakao else [])
+        # 남은 열(phone_hmac 등) 읽기 — 지인 차단 대조(10b 카드 상세)가 부른다. 번호가 등록된 사람이 없다.
+        return httpx.Response(200, json=[])
 
     def _rpc_decrypt_profile_private(self, method, params, body):
         if self.decrypt_unavailable:
             return httpx.Response(404, json={"message": "function not found"})
         assert body["p_key"] == "phone-key-test"
-        return httpx.Response(200, json=[{"real_name": None, "kakao_id": self.kakao_ids_enc.get(body["p_profile"])}])
+        return httpx.Response(200, json=[{"real_name": None, "kakao_id": self.kakao_ids.get(body["p_profile"])}])
 
     def _daily_cards(self, method, params, body):
         # 10b 카드 상세와 14c 가 같은 몸통을 쓰는지 대조할 때만 쓴다 — 내가 받은 상대 카드 한 장.

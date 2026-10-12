@@ -7,7 +7,6 @@ import logging
 
 import httpx
 
-from app.core.http import raise_for_status
 from app.profile_onboarding.encryption import decrypt_profile_private
 
 logger = logging.getLogger(__name__)
@@ -17,7 +16,7 @@ class PostgrestRepository:
     """service_role 키로 PostgREST 를 직접 부르는 저장소의 공통 부모.
 
     encryption_key 는 profile_private 의 실명 · 카카오톡 아이디를 복호화해 읽는 저장소만 넘긴다
-    (settings.phone_encryption_key). 없으면 옛 평문 열만 읽는다."""
+    (settings.phone_encryption_key). 없으면 그 둘을 읽지 못한다(_read_private)."""
 
     def __init__(
         self, postgrest_url: str, service_role_key: str, client: httpx.AsyncClient,
@@ -61,34 +60,19 @@ class PostgrestRepository:
             f"{self._postgrest_url}/{path}", params=params, headers=self._headers
         )
 
-    async def _decrypt_private(self, profile_id, fields: tuple[str, ...]) -> dict[str, str | None]:
-        """enc 열을 복호화한 값. 키가 없거나 복호화가 실패하면 전부 None 이다(요청을 죽이지 않는다).
-        실패 로그에는 필드 이름만 남긴다."""
+    async def _read_private(self, profile_id, fields: tuple[str, ...]) -> dict[str, str | None]:
+        """profile_private 의 real_name · kakao_id 읽기 단일 지점. 암호문 열을 복호화해서만 읽는다(M2 — 평문 열은 없다).
+
+        값이 없으면 None. 복호화 실패는 예외로 올린다 — None 으로 삼키면 "아직 안 냈다" 로 보여 이미 낸 사람을
+        다시 입력 화면으로 보내거나 상대에게 아이디가 없는 것처럼 보인다. 키 없이 만든 저장소는 읽을 수 없다(배선 실수)."""
         if not self._encryption_key:
-            return {field: None for field in fields}
+            raise RuntimeError("profile_private 를 읽으려면 encryption_key 를 넘겨야 한다")
         try:
             decrypted = await decrypt_profile_private(
                 self._postgrest_url, self._service_role_key, self._client, profile_id, self._encryption_key
             )
-        except (httpx.HTTPError, ValueError) as exc:
-            logger.warning("profile_private 복호화 실패 → 평문 열로 폴백 fields=%s error=%s",
-                           ",".join(fields), type(exc).__name__)
-            return {field: None for field in fields}
+        except httpx.HTTPStatusError as exc:
+            # 키 버전 불일치 같은 운영 사고를 찾을 한 줄. str(exc) 에는 URL 이 들어 있어 쓰지 않는다 — profile_id · 상태 코드만.
+            logger.error("profile_private 복호화 실패 profile_id=%s status=%s", profile_id, exc.response.status_code)
+            raise
         return {field: decrypted[field] for field in fields}
-
-    async def _read_private(self, profile_id, fields: tuple[str, ...]) -> dict[str, str | None]:
-        """profile_private 의 real_name · kakao_id 읽기 단일 지점(이중 쓰기 기간 — 서버 PR 2).
-
-        enc 열을 복호화해 쓰고, 그 칸이 비었거나 복호화가 실패하면 옛 평문 열로 폴백한다. 둘 다 없으면 None.
-        평문 열 읽기 실패는 예외로 올린다(옛 동작 그대로)."""
-        result = await self._decrypt_private(profile_id, fields)
-        missing = [field for field in fields if result[field] is None]
-        if missing:
-            response = await self._get("profile_private", params={
-                "profile_id": f"eq.{profile_id}", "select": ",".join(missing),
-            })
-            raise_for_status(response)
-            rows = response.json()
-            if rows:
-                result.update({field: rows[0].get(field) for field in missing})
-        return result

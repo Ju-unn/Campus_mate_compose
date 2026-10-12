@@ -12,6 +12,7 @@ from app.core.deps import get_client, get_now, get_settings
 from app.core.time import SEOUL
 from app.main import app
 from app.settings import Settings
+from private_columns import plaintext_gone
 
 PROFILE_ID = "11111111-1111-1111-1111-111111111111"
 PARTNER_ID = "22222222-2222-2222-2222-222222222222"
@@ -56,7 +57,7 @@ def _wire(handler: Callable[[httpx.Request], httpx.Response]) -> TestClient:
             return httpx.Response(200, json={"id": PROFILE_ID})
         if "student_verification" in url and request.method == "GET":
             return httpx.Response(200, json=[{"student_verification": "verified", "department": "컴공", "school_email_verified_at": "2026-10-01T00:00:00+00:00"}])
-        return handler(request)
+        return plaintext_gone(request) or handler(request)  # M2: 평문 kakao_id 열이 없다
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(wrapped))
     app.dependency_overrides[get_client] = lambda: client
@@ -162,10 +163,10 @@ def test_room_always_carries_my_own_kakao_id():
         url = str(request.url)
         if "/rest/v1/matches" in url:
             return httpx.Response(200, json=[_match()])
-        if "/rest/v1/profile_private" in url:
-            # 내 행만 돌려준다 — 상대 아이디는 통과 전에 조회조차 하지 않는다.
-            assert f"eq.{PROFILE_ID}" in url
-            return httpx.Response(200, json=[{"kakao_id": "my_id"}])
+        if request.url.path.endswith("/rpc/decrypt_profile_private"):
+            # 내 것만 복호화한다 — 상대 아이디는 통과 전에 조회조차 하지 않는다.
+            assert json.loads(request.content)["p_profile"] == PROFILE_ID
+            return httpx.Response(200, json=[{"real_name": None, "kakao_id": "my_id"}])
         if "/rest/v1/profiles" in url:
             return httpx.Response(200, json=[PARTNER_PROFILE])
         return httpx.Response(200, json=[])
@@ -183,12 +184,10 @@ def test_room_after_the_gate_carries_the_kakao_id_and_signed_photos():
         url = str(request.url)
         if "/rest/v1/matches" in url:
             return httpx.Response(200, json=[passed])
-        if "/rest/v1/profile_private" in url:
-            # 내 행과 상대 행을 갈라 준다 — 두 아이디가 뒤바뀌면 아래 단언이 잡는다.
-            if f"eq.{PROFILE_ID}" in url:
-                return httpx.Response(200, json=[{"kakao_id": "my_id"}])
-            assert f"eq.{PARTNER_ID}" in url
-            return httpx.Response(200, json=[{"kakao_id": "fox_rain"}])
+        if request.url.path.endswith("/rpc/decrypt_profile_private"):
+            # 내 것과 상대 것을 갈라 준다 — 두 아이디가 뒤바뀌면 아래 단언이 잡는다.
+            kakao = {PROFILE_ID: "my_id", PARTNER_ID: "fox_rain"}[json.loads(request.content)["p_profile"]]
+            return httpx.Response(200, json=[{"real_name": None, "kakao_id": kakao}])
         if "/rest/v1/profile_photos" in url:
             return httpx.Response(200, json=[{"storage_path": "p2/1.jpg", "position": 0}])
         if "/storage/v1/object/sign/profile-photos/" in url:
@@ -345,8 +344,8 @@ def _accept_the_gate() -> tuple[dict, _Calls]:
     calls = _Calls()
 
     def handler(request: httpx.Request) -> httpx.Response:
-        if "/rest/v1/profile_private" in str(request.url):
-            return httpx.Response(200, json=[{"kakao_id": "fox_rain"}])
+        if request.url.path.endswith("/rpc/decrypt_profile_private"):
+            return httpx.Response(200, json=[{"real_name": None, "kakao_id": "fox_rain"}])
         return _handler(calls, both)(request)
 
     body = _wire(handler).post(f"/chat/matches/{MATCH_ID}/trust", headers=AUTH_HEADERS).json()

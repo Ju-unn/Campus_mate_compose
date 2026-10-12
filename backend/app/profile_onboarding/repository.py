@@ -20,8 +20,8 @@ class ProfileOnboardingRepository(PostgrestRepository):
         return len(response.json()) == 0
 
     async def ensure_private_row(self, profile_id: UUID) -> None:
-        # 이 행은 보통 학생증 제출(upsert_real_name)이 만들지만, 그 단계를 거치지 않은 계정도 있다
-        # (대시보드에서 verified 로 바꾼 경우 등). 뒤이은 set_phone_number·update_kakao_id 가 UPDATE 라
+        # 이 행은 보통 학생증 제출(set_real_name, upsert)이 만들지만, 그 단계를 거치지 않은 계정도 있다
+        # (대시보드에서 verified 로 바꾼 경우 등). 뒤이은 set_phone_number·set_kakao_id 가 UPDATE 라
         # 행이 없으면 0행을 고치고 성공처럼 끝나므로, 온보딩 첫 저장에서 행을 보장한다. 있으면 건드리지 않는다.
         response = await self._post(
             "profile_private", json={"profile_id": str(profile_id)}, prefer="resolution=ignore-duplicates"
@@ -40,14 +40,6 @@ class ProfileOnboardingRepository(PostgrestRepository):
             },
         )
         raise_for_status(response, conflict_detail=errors.NICKNAME_TAKEN)
-
-    async def update_kakao_id(self, profile_id: UUID, kakao_id: str) -> None:
-        response = await self._patch(
-            "profile_private",
-            params={"profile_id": f"eq.{profile_id}"},
-            json={"kakao_id": kakao_id, "updated_at": "now()"},
-        )
-        raise_for_status(response)
 
     async def save_photo(
         self, profile_id: UUID, storage_path: str, position: int, is_avatar_source: bool
@@ -333,14 +325,13 @@ class ProfileOnboardingRepository(PostgrestRepository):
 
         private_response = await self._get(
             "profile_private",
-            params={"profile_id": f"eq.{profile_id}", "select": "phone_number,kakao_id"},
+            params={"profile_id": f"eq.{profile_id}", "select": "phone_number"},
         )
         raise_for_status(private_response)
         private_rows = private_response.json()
-        private = private_rows[0] if private_rows else {"phone_number": None, "kakao_id": None}
-        if private["kakao_id"] is None:
-            # 이중 쓰기 기간: 평문이 비어도 enc 열에 있으면 설정된 것이다. 복호화가 안 되면 없는 것으로 본다.
-            private["kakao_id"] = (await self._decrypt_private(profile_id, ("kakao_id",)))["kakao_id"]
+        phone_number = private_rows[0]["phone_number"] if private_rows else None
+        # 카톡 아이디는 암호문 열에만 있다(M2). 복호화 실패는 예외다 — "미입력" 으로 보면 낸 사람을 04-1b 로 돌려보낸다.
+        kakao_id = (await self._read_private(profile_id, ("kakao_id",)))["kakao_id"]
 
         photos_response = await self._get(
             "profile_photos",
@@ -364,8 +355,8 @@ class ProfileOnboardingRepository(PostgrestRepository):
 
         return {
             "nickname": profile["nickname"],
-            "phone_set": private["phone_number"] is not None,
-            "kakao_id_set": private["kakao_id"] is not None,
+            "phone_set": phone_number is not None,
+            "kakao_id_set": kakao_id is not None,
             "photo_count": len(photos),
             "has_avatar_source": any(p["is_avatar_source"] for p in photos),
             "avatar_ready": len(avatars_response.json()) > 0,

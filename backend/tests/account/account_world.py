@@ -11,6 +11,7 @@ import httpx
 from app.core.time import SEOUL
 from app.settings import Settings
 from app.signup_policy import bytea_literal, hash_email
+from private_columns import plaintext_gone
 
 ME = "11111111-1111-1111-1111-111111111111"
 OLD = "22222222-2222-2222-2222-222222222222"     # 31일 전 탈퇴
@@ -49,11 +50,10 @@ class AccountWorld:
             bucket: {ME: ["a.png"]} for bucket in BUCKETS
         }
         self.push_tokens: dict[str, list[str]] = {ME: ["tok-1", "tok-2"]}
+        # 암호문 열(real_name_enc · kakao_id_enc)을 복호화한 값 — decrypt_profile_private RPC 가 돌려준다.
+        # 평문 real_name · kakao_id 열은 없다(M2) — 서버가 그 열을 쓰면 42703.
         self.kakao_ids: dict[str, str] = {}
         self.real_names: dict[str, str] = {}
-        # enc 열(real_name_enc · kakao_id_enc)을 복호화한 값 — decrypt_profile_private RPC 가 돌려준다(이중 쓰기 기간).
-        self.kakao_ids_enc: dict[str, str] = {}
-        self.real_names_enc: dict[str, str] = {}
         self.decrypt_bodies: list[dict] = []
         self.reports: list[dict] = []          # {id, created_at, resolved_at}
         self.signup_blocks: list[dict] = []    # {email_hmac, blocked_until}
@@ -148,6 +148,8 @@ class AccountWorld:
                     self.files[bucket][owner].remove(name)
                     gone.append({"name": prefix})
             return httpx.Response(200, json=gone)
+        if gone := plaintext_gone(request):
+            return gone
         table = path.removeprefix("/rest/v1/")
         return getattr(self, "_" + table.replace("/", "_"))(request.method, request.url.params, body)
 
@@ -238,23 +240,14 @@ class AccountWorld:
         self.push_tokens.pop(self._eq(params, "profile_id"), None)
         return httpx.Response(204)
 
-    def _profile_private(self, method, params, body):
-        owner = self._eq(params, "profile_id")
-        row = {"kakao_id": self.kakao_ids.get(owner), "real_name": self.real_names.get(owner)}
-        if not any(row.values()):
-            return httpx.Response(200, json=[])
-        return httpx.Response(200, json=[{column: row[column] for column in params["select"].split(",")}])
-
     def _rpc_decrypt_profile_private(self, method, params, body):
-        """SQL 함수 흉내: enc 열을 복호화한 {real_name, kakao_id} 한 행. 행 자체가 없으면 빈 목록."""
+        """SQL 함수 흉내: 암호문 열을 복호화한 {real_name, kakao_id} 한 행. 값이 없으면 그 칸은 null."""
         assert method == "POST"
         self.decrypt_bodies.append(body)
         assert body["p_key"] == "phone-key-test"
         owner = body["p_profile"]
-        if owner not in self.kakao_ids_enc and owner not in self.real_names_enc:
-            return httpx.Response(200, json=[{"real_name": None, "kakao_id": None}])
-        return httpx.Response(200, json=[{"real_name": self.real_names_enc.get(owner),
-                                          "kakao_id": self.kakao_ids_enc.get(owner)}])
+        return httpx.Response(200, json=[{"real_name": self.real_names.get(owner),
+                                          "kakao_id": self.kakao_ids.get(owner)}])
 
     def _reports(self, method, params, body):
         assert method == "DELETE"

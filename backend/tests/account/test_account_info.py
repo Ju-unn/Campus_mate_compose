@@ -17,11 +17,12 @@ def test_my_account_rows_come_back(client, world):
     }
 
 
-def test_missing_private_row_is_null_not_500(client, world):
-    body = client.get("/account", headers=AUTH).json()
+def test_missing_private_values_are_null_not_500(client, world):
+    response = client.get("/account", headers=AUTH)
 
-    assert body["real_name"] is None
-    assert body["kakao_id"] is None
+    assert response.status_code == 200
+    assert response.json()["real_name"] is None
+    assert response.json()["kakao_id"] is None
 
 
 def test_unverified_caller_is_403(client, world):
@@ -40,12 +41,10 @@ def test_real_name_never_reaches_logs(client, world, caplog):
     assert "홍길동" not in caplog.text
 
 
-# 실명 · 카톡 아이디는 enc 열을 복호화해 읽고, 비었거나 복호화가 안 되면 옛 평문 열로 폴백한다(서버 PR 2).
-def test_account_reads_the_decrypted_values_when_enc_columns_are_filled(client, world):
-    world.real_names_enc[ME] = "홍길동"
-    world.kakao_ids_enc[ME] = "fox_enc"
-    world.real_names[ME] = "옛이름"
-    world.kakao_ids[ME] = "fox_old"
+# 실명 · 카톡 아이디는 암호문 열을 복호화해서만 읽는다(M2 — 평문 열은 없다).
+def test_account_reads_the_private_values_only_through_the_decrypt_rpc(client, world):
+    world.real_names[ME] = "홍길동"
+    world.kakao_ids[ME] = "fox_enc"
 
     body = client.get("/account", headers=AUTH).json()
 
@@ -53,47 +52,19 @@ def test_account_reads_the_decrypted_values_when_enc_columns_are_filled(client, 
     # 키는 JSON 바디로만 간다.
     assert world.decrypt_bodies == [{"p_profile": ME, "p_key": "phone-key-test"}]
     assert all("phone-key-test" not in str(r.url) for r in world.requests)
+    assert not [r for r in world.requests if r.url.path == "/rest/v1/profile_private"]
 
 
-def test_account_falls_back_per_field_to_the_plain_column_when_enc_is_null(client, world):
-    world.real_names_enc[ME] = "홍길동"      # 실명만 enc, 카톡 아이디는 아직 평문뿐
-    world.kakao_ids[ME] = "fox_old"
-
-    body = client.get("/account", headers=AUTH).json()
-
-    assert body["real_name"] == "홍길동" and body["kakao_id"] == "fox_old"
-
-
-def test_account_falls_back_to_the_plain_columns_when_decrypt_is_unavailable(client, world):
-    """서버가 DB 보다 먼저 나가 RPC 가 404 여도 계정 화면은 그대로 뜬다(배포 순서)."""
-    world.fail.add("POST /rest/v1/rpc/decrypt_profile_private")
+def test_account_fails_instead_of_showing_blanks_when_decrypt_fails(client, world, caplog):
+    """복호화가 안 될 때 빈칸으로 보여 주면 "실명 미입력" 으로 오인한다 — 요청을 실패시킨다. 로그에 값 · 키는 없다."""
     world.real_names[ME] = "홍길동"
-    world.kakao_ids[ME] = "fox_old"
-
-    response = client.get("/account", headers=AUTH)
-
-    assert response.status_code == 200
-    assert response.json()["real_name"] == "홍길동" and response.json()["kakao_id"] == "fox_old"
-
-
-def test_account_is_null_when_decrypt_fails_and_the_plain_columns_are_empty(client, world):
+    world.kakao_ids[ME] = "fox_enc"
     world.fail.add("POST /rest/v1/rpc/decrypt_profile_private")
-
-    body = client.get("/account", headers=AUTH).json()
-
-    assert body["real_name"] is None and body["kakao_id"] is None
-
-
-def test_decrypt_failure_and_decrypted_values_never_reach_logs(client, world, caplog):
-    world.real_names_enc[ME] = "홍길동"
-    world.kakao_ids_enc[ME] = "fox_enc"
-    world.fail.add("POST /rest/v1/rpc/decrypt_profile_private")
-    world.real_names[ME] = "홍길동"
-    world.kakao_ids[ME] = "fox_old"
 
     with caplog.at_level(logging.DEBUG):
-        client.get("/account", headers=AUTH)
+        response = client.get("/account", headers=AUTH)
 
-    assert "복호화" in caplog.text   # 폴백했다는 흔적은 남는다
-    for secret in ("홍길동", "fox_old", "fox_enc", "phone-key-test"):
-        assert secret not in caplog.text
+    assert response.status_code == 500
+    assert not [r for r in world.requests if r.url.path == "/rest/v1/profile_private"]
+    for secret in ("홍길동", "fox_enc", "phone-key-test"):
+        assert secret not in caplog.text and secret not in response.text

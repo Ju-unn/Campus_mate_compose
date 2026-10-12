@@ -18,6 +18,7 @@ from app.main import app
 from app.settings import Settings
 from app.student_verification.repository import StudentVerificationRepository
 from app.student_verification.router import fetch_verification_status
+from private_columns import plaintext_gone
 
 PROFILE_ID = UUID("11111111-1111-1111-1111-111111111111")
 JPEG = b"\xff\xd8\xff" + b"fake-student-id-bytes"
@@ -70,6 +71,8 @@ def _wire(
         url = str(request.url)
         if fails(request):
             return httpx.Response(fail_status, json={"message": "boom"})
+        if gone := plaintext_gone(request):  # M2: 평문 real_name 열이 없다
+            return gone
         if "/auth/v1/user" in url:
             return httpx.Response(200, json={"id": str(PROFILE_ID)})
         if "/storage/v1/" in url:
@@ -153,7 +156,7 @@ def test_submit_returns_verified_when_ocr_matches():
     assert upload.url.host == "x.supabase.co"
     assert str(upload.url).startswith(f"https://x.supabase.co/storage/v1/object/student-id-temp/{PROFILE_ID}/")
     assert upload.content == JPEG
-    assert json.loads(_calls(sent, "POST", "/profile_private")[0].content)["real_name"] == "홍길동"
+    assert json.loads(_calls(sent, "POST", "/rpc/set_real_name")[0].content)["p_real_name"] == "홍길동"
     attempt = json.loads(_calls(sent, "POST", "/student_verification_attempts")[0].content)
     assert attempt["result"] == "pending"
     assert attempt["profile_id"] == str(PROFILE_ID)
@@ -306,7 +309,7 @@ def _storage_delete(request: httpx.Request) -> bool:
     return request.method == "DELETE" and "/storage/v1/object/student-id-temp/" in str(request.url)
 
 
-@pytest.mark.parametrize("failing_write", ["/rest/v1/profile_private", "/rest/v1/student_verification_attempts"])
+@pytest.mark.parametrize("failing_write", ["/rest/v1/rpc/set_real_name", "/rest/v1/student_verification_attempts"])
 def test_photo_is_deleted_when_a_write_before_the_attempt_row_fails(failing_write):
     sent, vision_client = _wire(_gate_row("none"), ocr_text="서울대학교 학생증 홍길동",
                                 fails=lambda r: r.method == "POST" and failing_write in str(r.url))
@@ -534,7 +537,7 @@ def test_submit_is_403_before_the_school_email():
     assert "x-account-status" not in response.headers
     vision_client.batch_annotate_images.assert_not_awaited()
     assert _calls(sent, "POST", "/storage/v1/") == []
-    assert _calls(sent, "POST", "/profile_private") == []
+    assert _calls(sent, "POST", "/rpc/set_real_name") == []
 
 
 def test_submit_asks_for_consent_before_the_school_email():
@@ -599,7 +602,7 @@ def test_submit_returns_400_for_blank_real_name():
     assert response.status_code == 400
     vision_client.batch_annotate_images.assert_not_awaited()
     assert _calls(sent, "POST", "/storage/v1/") == []
-    assert _calls(sent, "POST", "/profile_private") == []
+    assert _calls(sent, "POST", "/rpc/set_real_name") == []
 
 
 def test_submit_returns_400_when_real_name_is_one_letter_with_spaces():
@@ -611,7 +614,7 @@ def test_submit_returns_400_when_real_name_is_one_letter_with_spaces():
     assert response.status_code == 400
     assert response.json()["detail"] == errors.REAL_NAME_REQUIRED
     vision_client.batch_annotate_images.assert_not_awaited()
-    assert _calls(sent, "POST", "/profile_private") == []
+    assert _calls(sent, "POST", "/rpc/set_real_name") == []
 
 
 def test_submit_returns_400_when_real_name_has_digits_or_symbols():
@@ -623,7 +626,7 @@ def test_submit_returns_400_when_real_name_has_digits_or_symbols():
     assert response.status_code == 400
     assert response.json()["detail"] == errors.REAL_NAME_INVALID
     vision_client.batch_annotate_images.assert_not_awaited()
-    assert _calls(sent, "POST", "/profile_private") == []
+    assert _calls(sent, "POST", "/rpc/set_real_name") == []
 
 
 def test_submit_accepts_an_english_name_with_a_space():
@@ -633,7 +636,7 @@ def test_submit_accepts_an_english_name_with_a_space():
     response = _submit(real_name="Jun seok")
 
     assert response.status_code == 200
-    assert json.loads(_calls(sent, "POST", "/profile_private")[0].content)["real_name"] == "Jun seok"
+    assert json.loads(_calls(sent, "POST", "/rpc/set_real_name")[0].content)["p_real_name"] == "Jun seok"
 
 
 def test_submit_returns_401_without_authorization_header():
@@ -808,38 +811,40 @@ def test_a_suspended_account_can_still_read_its_verification_status():
     assert response.json()["status"] == "verified"
 
 
-# --- 실명 이중 쓰기(서버 PR 2): 옛 평문 열 + enc 열 -------------------------------------
+# --- 실명 저장(M2): 평문 열은 없다 — 암호화 RPC 하나뿐 ----------------------------------------
 
 
-def test_submit_writes_the_real_name_to_both_the_plain_and_the_encrypted_column():
+def test_submit_writes_the_real_name_only_through_the_encryption_rpc():
     sent, _ = _wire(_gate_row("none"), ocr_text="서울대학교 학생증 홍길동 2021123456")
 
     assert _submit().status_code == 200
 
-    plain = _calls(sent, "POST", "/rest/v1/profile_private")
-    assert [json.loads(r.content)["real_name"] for r in plain] == ["홍길동"]
     encrypted = _calls(sent, "POST", "/rest/v1/rpc/set_real_name")
     assert [json.loads(r.content) for r in encrypted] == [
         {"p_profile": str(PROFILE_ID), "p_real_name": "홍길동", "p_key": "phone-key-test"}
     ]
     assert "phone-key-test" not in str(encrypted[0].url)
+    assert _calls(sent, "POST", "/rest/v1/profile_private") == []
 
 
 @pytest.mark.parametrize("status", [404, 500])
-def test_submit_still_succeeds_when_the_encrypted_write_fails(status, caplog):
-    """enc 쓰기가 실패해도(서버가 DB 보다 먼저 나가 RPC 가 404 인 때 포함) 학생증 제출은 그대로 성공한다."""
-    sent, _ = _wire(_gate_row("none"), ocr_text="서울대학교 학생증 홍길동 2021123456",
-                    fails=lambda r: "/rpc/set_real_name" in str(r.url), fail_status=status)
+def test_submit_fails_and_deletes_the_photo_when_the_encrypted_write_fails(status, caplog):
+    """암호문이 유일한 저장소다 — 실명 없이 심사 대기로 넘기지 않는다. 시도 행도 남기지 않고, 방금 올린 사진은 지운다."""
+    sent, vision_client = _wire(_gate_row("none"), ocr_text="서울대학교 학생증 홍길동 2021123456",
+                                fails=lambda r: "/rpc/set_real_name" in str(r.url), fail_status=status)
 
     with caplog.at_level(logging.DEBUG):
-        response = _submit()
+        response = TestClient(app, raise_server_exceptions=False).post(
+            "/student-verification", files={"photo": ("student-id.jpg", JPEG, "application/octet-stream")},
+            data={"real_name": "홍길동"}, headers=AUTH_HEADERS,
+        )
 
-    assert response.status_code == 200
-    assert response.json() == {"status": "verified"}
-    # 평문 열은 그대로 써졌고, 실패는 필드 이름과 profile_id 만 남긴다(실명 · 키 없음).
-    assert len(_calls(sent, "POST", "/rest/v1/profile_private")) == 1
-    warning = next(r.getMessage() for r in caplog.records if "enc 쓰기 실패" in r.getMessage())
-    assert "field=real_name" in warning and str(PROFILE_ID) in warning
+    assert response.status_code == 500
+    assert len(_calls(sent, "POST", "/rest/v1/rpc/set_real_name")) == 1
+    assert _calls(sent, "POST", "/student_verification_attempts") == []
+    assert [str(r.url).split("/object/student-id-temp/")[1]
+            for r in _calls(sent, "DELETE", "/storage/v1/object/student-id-temp/")] == [_uploaded_path(sent)]
+    vision_client.batch_annotate_images.assert_not_awaited()
     assert "홍길동" not in caplog.text and "phone-key-test" not in caplog.text
 
 

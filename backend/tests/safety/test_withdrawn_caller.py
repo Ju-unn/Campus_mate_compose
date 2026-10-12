@@ -27,10 +27,9 @@ def test_a_withdrawn_partner_looks_like_one_who_left_even_after_the_gate(client,
     assert "photo_urls" not in body
 
 
-def test_a_withdrawn_partner_stays_hidden_even_when_only_the_encrypted_kakao_id_exists(client, world):
-    """enc 열로 읽게 돼도 탈퇴한 상대의 카톡 아이디는 나가지 않는다 — 가리는 판정은 읽기 앞이다."""
-    world.kakao_ids_enc[PARTNER] = "fox_enc"
-    world.kakao_ids.pop(PARTNER)
+def test_a_withdrawn_partner_stays_hidden_even_when_the_encrypted_kakao_id_exists(client, world):
+    """enc 열로 읽어도 탈퇴한 상대의 카톡 아이디는 나가지 않는다 — 가리는 판정은 읽기 앞이다."""
+    world.kakao_ids[PARTNER] = "fox_enc"
     world.match["trust_passed_at"] = "2126-09-23T10:00:00+09:00"
     world.match["match_participants"][1]["profiles"] = {"status": "withdrawn"}
 

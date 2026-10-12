@@ -3,6 +3,9 @@
 사용자 결정 2026-09-27(검토 I-1): 차단은 차단한 쪽의 left_at 이라 나가기와 같은 판정을 탄다.
 두 경우의 응답이 한 글자라도 다르면 상대가 차단을 알아챈다(설계 §7.2). 14c 는 이미 404 다.
 """
+from fastapi.testclient import TestClient
+
+from app.main import app
 from fake_supabase import AUTH, MATCH_ID, ME, PARTNER, FakeSupabase
 
 GATE_PASSED_AT = "2126-09-23T10:00:00+09:00"
@@ -84,25 +87,23 @@ def test_a_suspended_partner_after_the_gate_takes_the_contact_away(client, world
     assert _signed_urls(world) == []
 
 
-def test_the_gate_reveals_the_decrypted_kakao_id_when_only_enc_has_it(client, world):
-    """배선 확인 — 방 머리말이 복호화 키를 들고 있어야 enc 열의 값이 나간다."""
-    world.kakao_ids.pop(PARTNER)
-    world.kakao_ids_enc[PARTNER] = "fox_enc"
-    world.kakao_ids_enc[ME] = "my_enc"
-    world.match["trust_passed_at"] = GATE_PASSED_AT
-
-    body = _room(client, world)
-
-    assert body["kakao_id"] == "fox_enc"
-    assert body["my_kakao_id"] == "my_enc"
-
-
-def test_the_gate_reveals_the_plain_kakao_id_when_decrypt_is_unavailable(client, world):
-    """서버가 DB 보다 먼저 나가 RPC 가 404 여도 채팅방은 평문 열로 그대로 뜬다."""
-    world.decrypt_unavailable = True
+def test_the_gate_reveals_the_kakao_ids_through_the_decrypt_rpc_only(client, world):
+    """배선 확인 — 방 머리말이 복호화 키를 들고 있어야 암호문 열의 값이 나간다(평문 열은 없다, M2)."""
     world.match["trust_passed_at"] = GATE_PASSED_AT
 
     body = _room(client, world)
 
     assert body["kakao_id"] == "fox_rain"
     assert body["my_kakao_id"] == "my_id"
+    assert not [r for r in world.requests if r.url.path == "/rest/v1/profile_private"]
+
+
+def test_the_room_fails_instead_of_hiding_the_kakao_id_when_decrypt_is_unavailable(client, world):
+    """복호화가 안 될 때 "아이디 없음" 으로 내려보내면 상대가 아이디를 안 낸 것처럼 보인다 — 방 요청을 실패시킨다."""
+    world.decrypt_unavailable = True
+    world.match["trust_passed_at"] = GATE_PASSED_AT
+
+    response = TestClient(app, raise_server_exceptions=False).get(f"/chat/matches/{MATCH_ID}", headers=AUTH)
+
+    assert response.status_code == 500
+    assert "fox_rain" not in response.text and "my_id" not in response.text

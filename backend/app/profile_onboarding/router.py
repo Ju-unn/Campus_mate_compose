@@ -20,7 +20,7 @@ from app.profile_onboarding.avatars import (
     apply_fallback_avatar,
     get_openai_client,
 )
-from app.profile_onboarding.encryption import set_encrypted_kakao_id, set_encrypted_phone_number, write_best_effort
+from app.profile_onboarding.encryption import set_encrypted_kakao_id, set_encrypted_phone_number
 from app.profile_onboarding.onboarding_progress import next_step
 from app.profile_onboarding.phone_number import to_e164
 from app.profile_onboarding.photos import check_safe_search
@@ -117,19 +117,13 @@ async def submit_kakao_id(
     body: KakaoIdRequest, caller: Caller = Depends(get_verified_caller)
 ) -> dict[str, bool]:
     settings, client, profile_id = caller
-    repo = _repo(settings, client)
-    await repo.update_kakao_id(profile_id, body.kakao_id)
-
-    # 이중 쓰기 기간: 평문이 진실이라 enc 쓰기가 실패해도 저장은 성공이다(백필이 메운다).
-    # set_kakao_id 는 UPDATE 전용이라 행을 먼저 보장한다 — 행 보장도 같은 best-effort 안에 둔다.
-    async def write_encrypted() -> None:
-        await repo.ensure_private_row(profile_id)
-        await set_encrypted_kakao_id(
-            settings.postgrest_url, settings.supabase_service_role_key, client,
-            profile_id, body.kakao_id, settings.phone_encryption_key,
-        )
-
-    await write_best_effort("kakao_id", profile_id, write_encrypted)
+    # 카톡 아이디는 암호문 열에만 산다(M2) — 둘 중 하나라도 실패하면 저장도 실패다(삼키면 값이 어디에도 안 남는다).
+    # set_kakao_id 는 UPDATE 전용이라 행을 먼저 보장한다.
+    await _repo(settings, client).ensure_private_row(profile_id)
+    await set_encrypted_kakao_id(
+        settings.postgrest_url, settings.supabase_service_role_key, client,
+        profile_id, body.kakao_id, settings.phone_encryption_key,
+    )
     return {"ok": True}
 
 
