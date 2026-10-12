@@ -58,6 +58,55 @@ CI 는 같은 두 파일(`Secrets.xcconfig`, `GoogleService-Info.plist`)을 가�
 
 iOS 15.5 이상(ML Kit 얼굴 감지 요구), iPhone 전용, 세로 고정이다. iPad 를 지원하려면 `ios/Runner.xcodeproj/project.pbxproj` 의 `TARGETED_DEVICE_FAMILY = 1` 3곳을 `"1,2"` 로 되돌리고 `Info.plist` 에 `UISupportedInterfaceOrientations~ipad` 를 되살린다.
 
+## TestFlight 로 아이폰에 설치하기 (맥 없이)
+
+`iOS TestFlight` 워크플로(`.github/workflows/ios-testflight.yml`)가 macOS 러너에서 진짜 키로 빌드하고, App Store Connect API 키 하나로 서명해 TestFlight 에 올린다. 수동 실행만 되고 저장소 주인이 실행할 때만 돈다. 서명 방식(서명 없는 보관본 → 푸시 권한을 실은 임시 서명 → 애플 클라우드 배포 인증서로 내보내며 업로드)과 흔한 실패 대처는 그 파일 맨 위 주석에 있다. 애플 로그인은 아직 앱에 없어서 이 빌드로는 시험할 수 없다.
+
+수동 실행 워크플로는 기본 브랜치(main)에 있어야 Actions 탭 목록에 뜬다. 그래서 첫 실행은 이 워크플로가 main 에 merge 된 뒤다.
+
+### 처음 한 번만
+
+1. developer.apple.com > Certificates, Identifiers & Profiles > Identifiers 에 앱 번들 ID(`ios/Runner.xcodeproj/project.pbxproj` 의 `PRODUCT_BUNDLE_IDENTIFIER`)를 App ID 로 등록하고 Push Notifications 를 켠다.
+2. App Store Connect > 앱 > "+" > 신규 앱: 위 번들 ID 를 고르고 이름과 SKU 를 넣는다. 앱 기록이 없으면 업로드가 실패한다. 밀린 약관(비즈니스 > 계약) 동의도 끝낸다.
+3. App Store Connect > 사용자 및 액세스 > 통합 > App Store Connect API > 팀 키 "+": 역할은 Admin(클라우드 배포 인증서를 만들려면 필요). `.p8` 은 한 번만 내려받을 수 있다. 키 ID 와 그 화면 위쪽의 Issuer ID 를 적어 둔다. 이 화면을 처음 열면 계정 소유자(Account Holder)가 Request Access(액세스 요청)를 눌러 API 사용을 켜야 키를 만들 수 있다.
+4. Firebase 콘솔에서 같은 번들 ID 의 iOS 앱 `GoogleService-Info.plist` 를 받는다. 푸시를 받으려면 Firebase > 프로젝트 설정 > 클라우드 메시징에 APNs 인증 키(developer.apple.com > Keys 에서 만드는 별도의 .p8)를 올린다. 새로 받은 plist 에 `CLIENT_ID` · `REVERSED_CLIENT_ID` 가 없으면 Google Cloud 콘솔 > API 및 서비스 > 사용자 인증 정보 > OAuth 클라이언트 ID 만들기 > iOS(같은 번들 ID)로 iOS 클라이언트를 만들고, 그 클라이언트 ID 와 뒤집은 값(`com.googleusercontent.apps.…`)을 아래 `GOOGLE_IOS_CLIENT_ID` · `GOOGLE_REVERSED_CLIENT_ID` 에 넣는다. 지금 쓰는 plist 에는 둘 다 들어 있다.
+5. 로그인 쪽: 카카오 개발자 콘솔 > 플랫폼 > iOS 에 번들 ID 를 등록하고, Supabase 대시보드의 구글 제공자 Client IDs 에 iOS 클라이언트 ID 가 없으면 쉼표로 더한다(웹 ID 가 맨 앞).
+6. `ios-release` 환경이 이미 있으면 건너뛴다. 없으면 만든다(권장): GitHub 저장소 > Settings > Environments > New environment > 이름 `ios-release` > Deployment branches and tags 를 Selected branches and tags 로 바꾸고 `main` 을 더한다. 안 만들어도 첫 실행 때 GitHub 가 같은 이름으로 만들지만 보호 규칙이 없어 main 만 허용이 걸리지 않는다.
+7. 아래 12개 비밀을 이름 그대로 환경 비밀(Environments > `ios-release` > Environment secrets > Add secret)에 넣고 저장소 비밀은 지운다. 이 저장소는 이미 옮겨 두었다. 값 앞뒤에 공백이나 줄바꿈을 넣지 않는다. 값은 이 파일에 적지 않는다.
+
+   base64 두 개는 파일이 있는 폴더에서 PowerShell 을 열고 **한 줄씩** 만든다: 첫 줄 실행 → GitHub 의 `ASC_KEY_P8_B64` 칸에 붙여넣고 저장 → 둘째 줄 실행 → `IOS_GOOGLE_SERVICE_INFO_B64` 칸에 붙여넣고 저장. 두 줄을 한꺼번에 실행하면 클립보드가 둘째 값으로 덮어써진다. `Resolve-Path` 는 .NET 이 PowerShell 의 현재 폴더를 모르기 때문에 붙인다.
+
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes((Resolve-Path "AuthKey_키ID.p8"))) | Set-Clipboard
+[Convert]::ToBase64String([IO.File]::ReadAllBytes((Resolve-Path "GoogleService-Info.plist"))) | Set-Clipboard
+```
+
+
+| 이름 | 넣는 것 |
+| --- | --- |
+| `APPLE_TEAM_ID` | 애플 개발자 팀 ID |
+| `ASC_KEY_ID` | App Store Connect API 키 ID |
+| `ASC_ISSUER_ID` | 같은 화면의 Issuer ID |
+| `ASC_KEY_P8_B64` | `.p8` 파일의 base64 |
+| `IOS_GOOGLE_SERVICE_INFO_B64` | `GoogleService-Info.plist` 의 base64 |
+| `KAKAO_NATIVE_APP_KEY` | 카카오 네이티브 앱 키 |
+| `GOOGLE_WEB_CLIENT_ID` | 구글 웹 클라이언트 ID(앱이 serverClientId 로 쓰는 값) |
+| `GOOGLE_IOS_CLIENT_ID` | plist 의 `CLIENT_ID` |
+| `GOOGLE_REVERSED_CLIENT_ID` | plist 의 `REVERSED_CLIENT_ID` |
+| `SUPABASE_URL` | Supabase 프로젝트 URL |
+| `SUPABASE_ANON_KEY` | Supabase publishable(anon) 키 |
+| `API_BASE_URL` | 운영 서버(Cloud Run) 주소 |
+
+### 실행할 때마다
+
+1. GitHub > Actions > iOS TestFlight > Run workflow(main). 30~40분쯤 걸린다. 빌드 번호는 실행 번호이고, 앱 버전 이름은 `pubspec.yaml` 의 `version` 그대로다.
+2. 실패하면 빨간 단계의 `::error::` 줄을 본다(비밀은 이름만 찍힌다). 그 실행의 아티팩트 `ios-testflight-logs-<실행 번호>` 에 이 워크플로가 만든 로그 두 개(빌드 · 업로드)가 비밀과 실명을 지운 채 7일 남는다. xcodebuild 의 자세한 기록은 계정 정보가 섞여 올리지 않는다. 성공한 실행을 Re-run 하면 빌드 번호가 겹쳐 실패하니 늘 Run workflow 로 새로 돌린다.
+3. 성공하면 App Store Connect > 앱 > TestFlight 에서 빌드 처리가 끝날 때까지 10~30분 기다린다(끝나면 애플 메일이 온다).
+4. 처음 한 번: TestFlight > 내부 테스팅 > "+" 로 그룹을 만들고 테스터(App Store Connect 사용자인 본인 Apple ID)를 더한다. 이후 새 빌드는 그 그룹에 넣는다(그룹의 자동 배포를 켜 두면 생략).
+5. 아이폰 App Store 에서 TestFlight 앱을 설치하고 같은 Apple ID 로 로그인해 초대받은 CampusMate 를 설치한다.
+
+워크플로의 검사 스크립트 `.github/scripts/ios_testflight.py`(비밀 확인 · 번들 ID 확인 · 로그 비밀 지우기)를 고치면 저장소 루트에서 `python -m unittest discover -s .github/scripts -v` 를 돌린다(워크플로 구조 검사는 PyYAML 이 있을 때만 돈다 — `backend/.venv` 파이썬에는 있다).
+
 ## 앱 아이콘 교체
 
 지금 아이콘은 시안 B 다: 흰 바탕에 분홍(#FF385C) 토끼 귀 하트 심볼, 그 아래 검은 `CampusMate` 글자(2026-10-12 사용자 결정, 직전의 분홍 바탕 심볼만 시안 A 를 바꿨다). 원본은 바탕화면의 `datingApp` 폴더 안 `design/designMaterials/google-play-logo-128.png` 한 장(128x128)뿐이다. 알림 아이콘은 따로 정한다(여기서 다루지 않는다).
