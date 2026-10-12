@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:campus_mate/auth/model/verification_gate.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
 import 'package:campus_mate/matching/viewmodel/acceptances_view_model.dart';
+import 'package:campus_mate/matching/viewmodel/sent_requests_view_model.dart';
 import 'package:campus_mate/notifications/viewmodel/unread_count_provider.dart';
 import 'package:flutter_riverpod/misc.dart' show ProviderListenable;
 
@@ -21,6 +22,8 @@ void refreshOnResume(
     return;
   }
   unawaited(read(acceptancesViewModelProvider.notifier).refresh(quiet: true));
+  // 보낸 신청은 숫자 재료가 아니지만 대화 탭을 보던 중이면 매칭된 신청이 "기다리는 중" 으로 남는다(대화 중에는 방이 보이는데).
+  unawaited(read(sentRequestsViewModelProvider.notifier).refresh(quiet: true));
   unawaited(read(conversationsViewModelProvider.notifier).refresh(quiet: true));
   unawaited(read(unreadCountProvider.notifier).refresh());
 }

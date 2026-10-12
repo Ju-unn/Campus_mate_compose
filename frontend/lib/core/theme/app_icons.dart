@@ -47,6 +47,9 @@ abstract final class AppIcons {
   static const IconData imagePlus = LucideIcons.imagePlus;
   static const IconData plus = LucideIcons.plus;
   static const IconData timer = LucideIcons.timer;
+
+  /// 대화 탭 보낸 신청 "만료됨" 칩(pen `SentRequestRow` d6otzp)
+  static const IconData timerOff = LucideIcons.timerOff;
   static const IconData shieldCheck = LucideIcons.shieldCheck;
   static const IconData phone = LucideIcons.phone;
   static const IconData contactRound = LucideIcons.contactRound;

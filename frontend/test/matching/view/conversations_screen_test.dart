@@ -1,19 +1,40 @@
+import 'dart:async';
+
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/chat/model/message.dart';
+import 'package:campus_mate/chat/view/chat_list_row.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
+import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/core/router/app_routes.dart';
+import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/matching/model/acceptance.dart';
 import 'package:campus_mate/matching/model/card_profile.dart';
 import 'package:campus_mate/matching/model/card_repository.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
+import 'package:campus_mate/matching/model/sent_request.dart';
+import 'package:campus_mate/matching/view/acceptance_row.dart';
 import 'package:campus_mate/matching/view/conversations_screen.dart';
+import 'package:campus_mate/matching/view/sent_request_row.dart';
+import 'package:campus_mate/matching/viewmodel/sent_requests_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../chat/model/fake_chat_repository.dart';
 import '../model/fake_card_repository.dart';
+
+SentRequest _sent(String cardId, {SentRequestStatus status = SentRequestStatus.waiting, String? matchId}) => SentRequest(
+      cardId: cardId,
+      status: status,
+      daysLeft: status == SentRequestStatus.waiting ? 3 : null,
+      matchId: matchId,
+      profile: CardProfile(nickname: '보낸$cardId', age: 24, university: '테스트대학교'),
+    );
 
 const _acceptance = Acceptance(
   cardId: 'card-1',
@@ -253,6 +274,246 @@ void main() {
     });
   });
 
+  group('보낸 신청(2026-10-13 사용자 결정 B · pen ULllO · wOZst)', () {
+    /// 섹션 헤더 칸의 위끝.
+    double headerTop(WidgetTester tester, String title) =>
+        tester.getTopLeft(find.ancestor(of: find.text(title), matching: find.byType(Container)).first).dy;
+
+    double headerBottom(WidgetTester tester, String title) =>
+        tester.getBottomLeft(find.ancestor(of: find.text(title), matching: find.byType(Container)).first).dy;
+
+    testWidgets('받은 신청 아래 · 대화 중 위에 "보낸 신청 N명" 섹션이 온다', (tester) async {
+      final chat = FakeChatRepository()..conversations = Success([conversationFixture()]);
+      final repository = FakeCardRepository()
+        ..acceptances = const Success([_acceptance])
+        ..sent = Success([_sent('s1'), _sent('s2', status: SentRequestStatus.rejected)]);
+
+      await pump(tester, repository, chat);
+
+      expect(find.text('보낸 신청'), findsOneWidget);
+      expect(find.byType(SentRequestRow), findsNWidgets(2));
+      final countOfSent =
+          find.descendant(of: find.ancestor(of: find.text('보낸 신청'), matching: find.byType(Row)).first, matching: find.text('2명'));
+      expect(countOfSent, findsOneWidget);
+      expect(headerTop(tester, '받은 신청'), lessThan(headerTop(tester, '보낸 신청')));
+      expect(headerTop(tester, '보낸 신청'), lessThan(headerTop(tester, '대화 중')));
+      // 배율 1.0 에서 헤더는 다른 섹션과 같은 44 다.
+      expect(headerHeight(tester, '보낸 신청'), 44);
+    });
+
+    testWidgets('간격: 받은 신청 끝 → 보낸 신청 헤더 22, 헤더 → 첫 행 4, 보낸 신청 끝 → 대화 중 헤더 22', (tester) async {
+      final chat = FakeChatRepository()..conversations = Success([conversationFixture()]);
+      final repository = FakeCardRepository()
+        ..acceptances = const Success([_acceptance])
+        ..sent = Success([_sent('s1'), _sent('s2')]);
+
+      await pump(tester, repository, chat);
+
+      final rows = find.byType(SentRequestRow);
+      expect(headerTop(tester, '보낸 신청') - tester.getBottomLeft(find.byType(AcceptanceRow)).dy, 22);
+      expect(tester.getTopLeft(rows.first).dy - headerBottom(tester, '보낸 신청'), 4);
+      expect(headerTop(tester, '대화 중') - tester.getBottomLeft(rows.last).dy, 22);
+    });
+
+    testWidgets('행은 본문 여백 16 안에 있고 사이에 hairline-soft 1px 선이 있다', (tester) async {
+      final repository = FakeCardRepository()..sent = Success([_sent('s1'), _sent('s2')]);
+
+      await pump(tester, repository);
+
+      final rows = find.byType(SentRequestRow);
+      expect(tester.getTopLeft(rows.first).dx, 16);
+      expect(tester.getTopRight(rows.first).dx, 800 - 16);
+      final divider = tester.widget<Divider>(
+          find.descendant(of: find.byType(SliverPadding), matching: find.byType(Divider)).first);
+      expect(divider.thickness, 1);
+      expect(divider.height, 1);
+      expect(divider.color, AppColors.hairlineSoft);
+      expect(tester.getTopLeft(rows.last).dy - tester.getBottomLeft(rows.first).dy, 1);
+    });
+
+    testWidgets('보낸 신청만 있으면 빈 화면이 아니라 보낸 신청 섹션만 맨 위에 보인다(wOZst)', (tester) async {
+      final repository = FakeCardRepository()..sent = Success([_sent('s1')]);
+
+      await pump(tester, repository);
+
+      expect(find.text('아직 시작된 대화가 없어요'), findsNothing);
+      expect(find.text('받은 신청'), findsNothing);
+      expect(find.text('대화 중'), findsNothing);
+      expect(find.byType(SentRequestRow), findsOneWidget);
+      expect(headerTop(tester, '보낸 신청') - tester.getTopLeft(find.byType(CustomScrollView)).dy, 0);
+    });
+
+    testWidgets('셋 다 비었을 때만 빈 화면이다', (tester) async {
+      await pump(tester, FakeCardRepository());
+
+      expect(find.text('아직 시작된 대화가 없어요'), findsOneWidget);
+      expect(find.text('보낸 신청'), findsNothing);
+    });
+
+    testWidgets('보낸 신청을 읽는 중이면 다른 둘이 끝났어도 스켈레톤이다 — 섹션이 뒤늦게 끼어들지 않게', (tester) async {
+      final chat = FakeChatRepository()..conversations = Success([conversationFixture()]);
+      final repository = FakeCardRepository()
+        ..sent = Success([_sent('s1')])
+        ..holdSent = Completer<void>();
+
+      await pump(tester, repository, chat);
+      expect(find.text('대화 중'), findsNothing);
+      expect(find.byType(SentRequestRow), findsNothing);
+
+      repository.holdSent!.complete();
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.byType(SentRequestRow), findsOneWidget);
+      expect(find.text('대화 중'), findsOneWidget);
+    });
+
+    testWidgets('보낸 신청 읽기가 실패하면 위에 오류 줄이 뜨고 다른 섹션은 그대로 보인다', (tester) async {
+      final chat = FakeChatRepository()..conversations = Success([conversationFixture()]);
+      final repository = FakeCardRepository()
+        ..acceptances = const Success([_acceptance])
+        ..sent = const FailureResult(NetworkFailure());
+
+      await pump(tester, repository, chat);
+
+      expect(find.text(const NetworkFailure().toDisplayMessage()), findsOneWidget);
+      expect(find.text('보낸 신청'), findsNothing);
+      expect(find.byType(AcceptanceRow), findsOneWidget);
+      expect(find.byType(ChatListRow), findsOneWidget);
+    });
+
+    testWidgets('목록을 내리면 받은 신청 헤더만 붙어 있고 보낸 신청 헤더는 같이 올라간다', (tester) async {
+      final chat = FakeChatRepository()
+        ..conversations = Success([
+          for (var i = 0; i < 15; i++) conversationFixture(matchId: 'm$i', nickname: '사람$i'),
+        ]);
+      final repository = FakeCardRepository()
+        ..acceptances = const Success([_acceptance])
+        ..sent = Success([_sent('s1')]);
+      await pump(tester, repository, chat);
+
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -600));
+      await tester.pumpAndSettle();
+
+      expect(find.text('받은 신청').hitTestable(), findsOneWidget);
+      expect(find.text('보낸 신청').hitTestable(), findsNothing);
+    });
+
+    testWidgets('하단 내비 숫자에 보낸 신청은 들어가지 않는다', (tester) async {
+      final repository = FakeCardRepository()
+        ..acceptances = const Success([_acceptance])
+        ..sent = Success([_sent('s1'), _sent('s2'), _sent('s3')]);
+      final chat = FakeChatRepository()..conversations = Success([conversationFixture(unreadCount: 3)]);
+
+      await pump(tester, repository, chat);
+
+      expect(find.text('4'), findsOneWidget);
+    });
+
+    testWidgets('매칭됐고 방이 있는 줄을 누르면 대화 중 행과 같은 방 경로로 간다', (tester) async {
+      final repository = FakeCardRepository()
+        ..sent = Success([_sent('s1', status: SentRequestStatus.matched, matchId: 'm-9')]);
+      final container = ProviderContainer(overrides: [
+        cardRepositoryProvider.overrideWithValue(repository),
+        chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
+      ]);
+      addTearDown(container.dispose);
+      final router = GoRouter(
+        initialLocation: AppRoutes.conversations,
+        routes: [
+          GoRoute(path: AppRoutes.conversations, builder: (context, state) => const ConversationsScreen()),
+          GoRoute(
+            path: '${AppRoutes.chatRoom}/:matchId',
+            builder: (context, state) => Text('방 ${state.pathParameters['matchId']}'),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(routerConfig: router),
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(SentRequestRow));
+      await tester.pumpAndSettle();
+
+      expect(find.text('방 m-9'), findsOneWidget);
+    });
+
+    testWidgets('화면에 들어올 때 · 당겨서 새로고침할 때 보낸 신청도 다시 읽는다', (tester) async {
+      final chat = FakeChatRepository()..conversations = Success([conversationFixture()]);
+      final repository = FakeCardRepository();
+      await pump(tester, repository, chat);
+      expect(repository.fetchSentCount, 1);
+
+      await tester.fling(find.byType(CustomScrollView), const Offset(0, 300), 1000);
+      await tester.pumpAndSettle();
+
+      expect(repository.fetchSentCount, 2);
+    });
+
+    group('10b 에서 대화 신청하고 넘어왔을 때(Q1322I)', () {
+      Future<ProviderContainer> arrive(WidgetTester tester, FakeCardRepository repository, FakeChatRepository chat) async {
+        final container = ProviderContainer(overrides: [
+          cardRepositoryProvider.overrideWithValue(repository),
+          chatRepositoryProvider.overrideWithValue(chat),
+        ]);
+        addTearDown(container.dispose);
+        unawaited(container.read(sentRequestsViewModelProvider.notifier).announceSent());
+        await tester.pumpWidget(UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: ConversationsScreen()),
+        ));
+        await tester.pump();
+        await tester.pump();
+        return container;
+      }
+
+      testWidgets('토스트 "신청을 보냈어요" 가 체크 16 과 함께 하단 내비 위 16 · 가로 가운데에 뜬다', (tester) async {
+        await arrive(tester, FakeCardRepository()..sent = Success([_sent('s1')]), FakeChatRepository());
+        await tester.pump(const Duration(milliseconds: 300));
+
+        final toast = find.byType(AppToast);
+        expect(toast, findsOneWidget);
+        expect(tester.widget<AppToast>(toast).label, '신청을 보냈어요');
+        final icon = tester.widget<Icon>(find.descendant(of: toast, matching: find.byType(Icon)));
+        expect(icon.icon, AppIcons.check);
+        expect(icon.size, 16);
+        expect(tester.getBottomLeft(toast).dy, tester.getTopLeft(find.byType(AppBottomNav)).dy - 16);
+        expect(tester.getCenter(toast).dx, 400);
+      });
+
+      testWidgets('보낸 신청 헤더가 받은 신청 고정 헤더 바로 아래에 오도록 내려 준다', (tester) async {
+        final chat = FakeChatRepository()
+          ..conversations = Success([
+            for (var i = 0; i < 15; i++) conversationFixture(matchId: 'm$i', nickname: '사람$i'),
+          ]);
+        final repository = FakeCardRepository()
+          ..acceptances = Success([
+            for (var i = 0; i < 4; i++)
+              Acceptance(cardId: 'a$i', profile: CardProfile(profileId: 'p$i', nickname: '사람a$i', age: 25)),
+          ])
+          ..sent = Success([_sent('s1')]);
+
+        await arrive(tester, repository, chat);
+        await tester.pump();
+
+        expect(headerTop(tester, '보낸 신청'), headerBottom(tester, '받은 신청'));
+        expect(find.text('보낸 신청').hitTestable(), findsOneWidget);
+      });
+
+      testWidgets('그냥 탭으로 들어오면 토스트도 스크롤도 없다', (tester) async {
+        final repository = FakeCardRepository()..sent = Success([_sent('s1')]);
+
+        await pump(tester, repository);
+        await tester.pump(const Duration(milliseconds: 300));
+
+        expect(find.byType(AppToast), findsNothing);
+      });
+    });
+  });
+
   group('화면에 들어올 때마다 수락 대기와 대화 목록을 다시 읽는다', () {
     late FakeChatRepository chat;
     late FakeCardRepository cards;
@@ -312,6 +573,16 @@ void main() {
 
       expect(cards.fetchAcceptancesCount, 2);
       expect(find.text('초코라떼, 25'), findsOneWidget);
+    });
+
+    testWidgets('다른 탭에 갔다가 이 화면으로 돌아오면 보낸 신청도 다시 읽는다', (tester) async {
+      await openScreen(tester);
+      cards.sent = Success([_sent('s1', status: SentRequestStatus.matched, matchId: 'm-1')]);
+
+      await leaveAndReturn(tester);
+
+      expect(cards.fetchSentCount, 2);
+      expect(find.text('매칭됨'), findsOneWidget);
     });
 
     testWidgets('돌아와 다시 읽다 실패해도 있던 줄은 남고 오류 문구는 새로 뜨지 않는다', (tester) async {

@@ -6,6 +6,7 @@ import 'package:campus_mate/matching/model/card_repository.dart';
 import 'package:campus_mate/matching/model/daily_card.dart';
 import 'package:campus_mate/matching/model/http_card_repository.dart';
 import 'package:campus_mate/matching/model/paid_card.dart';
+import 'package:campus_mate/matching/model/sent_request.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -293,6 +294,68 @@ void main() {
     final outcome = result.when(onSuccess: (value) => value, onFailure: (_) => null);
     expect(outcome!.matched, isTrue);
     expect(outcome.matchId, 'm-1');
+  });
+
+  test('보낸 신청은 GET /cards/sent 를 읽어 서버 순서 그대로 올린다', () async {
+    final client = MockClient((request) async {
+      expect(request.method, 'GET');
+      expect(request.url.toString(), 'https://api.test/cards/sent');
+      expect(request.headers['Authorization'], 'Bearer token-abc');
+      Map<String, dynamic> row(String cardId, String status, {int? daysLeft, String? matchId}) => {
+            'card_id': cardId,
+            'status': status,
+            'sent_at': '2026-10-13T10:00:00+00:00',
+            'expires_at': '2026-10-20T10:00:00+00:00',
+            'days_left': daysLeft,
+            'resolved_at': null,
+            'match_id': matchId,
+            'profile': {'nickname': '여우비', 'age': 23, 'university': null, 'major': null, 'avatar_url': null},
+          };
+      return jsonResponse({
+        'sent': [
+          row('c-new', 'waiting', daysLeft: 7),
+          row('c-mid', 'matched', matchId: 'm-1'),
+          row('c-old', 'expired'),
+        ],
+      });
+    });
+
+    final result = await buildRepository(client).fetchSentRequests();
+
+    final sent = result.when(onSuccess: (value) => value, onFailure: (_) => null)!;
+    expect(sent.map((request) => request.cardId), ['c-new', 'c-mid', 'c-old']);
+    expect(sent.map((request) => request.status),
+        [SentRequestStatus.waiting, SentRequestStatus.matched, SentRequestStatus.expired]);
+    expect(sent.first.daysLeft, 7);
+    expect(sent[1].matchId, 'm-1');
+  });
+
+  test('모르는 상태(cancelled)가 섞여도 그 줄만 건너뛰고 나머지는 나온다', () async {
+    final client = MockClient((request) async {
+      Map<String, dynamic> row(String cardId, String status) => {
+            'card_id': cardId,
+            'status': status,
+            'days_left': null,
+            'match_id': null,
+            'profile': {'nickname': '여우비', 'age': 23, 'university': null, 'major': null, 'avatar_url': null},
+          };
+      return jsonResponse({
+        'sent': [row('c-1', 'waiting'), row('c-x', 'cancelled'), row('c-2', 'rejected')],
+      });
+    });
+
+    final result = await buildRepository(client).fetchSentRequests();
+
+    final sent = result.when(onSuccess: (value) => value, onFailure: (_) => null)!;
+    expect(sent.map((request) => request.cardId), ['c-1', 'c-2']);
+  });
+
+  test('보낸 신청이 없으면 빈 목록이다', () async {
+    final client = MockClient((request) async => jsonResponse({'sent': <Object>[]}));
+
+    final result = await buildRepository(client).fetchSentRequests();
+
+    expect(result.when(onSuccess: (value) => value, onFailure: (_) => null), isEmpty);
   });
 
   test('기한이 지난 수락(410)은 서버 문구를 그대로 보여준다', () async {

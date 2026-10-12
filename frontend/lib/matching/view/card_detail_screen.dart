@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/card_action_bar.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/school_label.dart';
 import 'package:campus_mate/common/widgets/trait_bar.dart';
+import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -11,9 +14,12 @@ import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/matching/model/card_detail.dart';
 import 'package:campus_mate/matching/model/card_repository.dart';
 import 'package:campus_mate/matching/viewmodel/card_detail_view_model.dart';
+import 'package:campus_mate/matching/viewmodel/sent_requests_view_model.dart';
+import 'package:campus_mate/matching/viewmodel/today_cards_view_model.dart';
 import 'package:campus_mate/profile/model/profile_enums.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 /// 10b 상대 프로필 상세 · 결정(pen `TORAs`). 실사진·카카오톡 아이디는 여기에도 없다 —
 /// 그건 신뢰 확인(조각 5) 뒤다. 신고·차단 진입점은 조각 6 이 붙인다.
@@ -29,10 +35,18 @@ class CardDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final provider = cardDetailViewModelProvider(cardId);
     final state = ref.watch(provider);
-    // 결정이 끝나면 오늘 탭으로 돌아간다. 수락이 쌍방이어도 여기서 매칭 화면으로 가지 않는다 —
-    // 상대의 수락은 나중에 오고, 매칭 성사(12)는 받은 수락함에서만 일어난다.
+    // 거절("넘기기")하면 오늘 탭으로 돌아간다. 대화 신청을 보내면 대화 탭 "보낸 신청" 으로 간다(2026-10-13 사용자 결정 B).
+    // 수락이 쌍방이어도 여기서 매칭 화면으로 가지 않는다 — 상대의 수락은 나중에 오고, 매칭 성사(12)는 받은 수락함에서만 일어난다.
     ref.listen(provider, (previous, next) {
-      if (next.decided && !(previous?.decided ?? false) && Navigator.canPop(context)) {
+      if (!next.decided || (previous?.decided ?? false)) {
+        return;
+      }
+      final router = GoRouter.maybeOf(context);
+      if (next.decision == CardDecision.accept && router != null) {
+        _goToSentRequests(ref, router);
+        return;
+      }
+      if (Navigator.canPop(context)) {
         Navigator.pop(context);
       }
     });
@@ -71,6 +85,15 @@ class CardDetailScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// 10b 를 닫고 대화 탭으로 간다 — 탭 전환이라 하단 내비처럼 `go` 다(10b 로 되돌아오지 않는다).
+/// 대화 탭은 보낸 신청을 처음부터 다시 읽고, 토스트를 띄운 뒤 그 섹션으로 내린다(`announceSent`).
+/// `go` 는 오늘 탭의 push 를 끝내지 않아 오늘 탭이 결정 뒤에 하던 다시 읽기(`markDecided`)를 여기서 대신한다.
+void _goToSentRequests(WidgetRef ref, GoRouter router) {
+  unawaited(ref.read(todayCardsViewModelProvider.notifier).markDecided());
+  unawaited(ref.read(sentRequestsViewModelProvider.notifier).announceSent());
+  router.go(AppRoutes.conversations);
 }
 
 class _Message extends StatelessWidget {

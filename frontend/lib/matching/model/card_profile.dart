@@ -1,15 +1,16 @@
 /// 카드 앞면·수락함 행이 쓰는 최소 프로필(설계 §7.1 — 실명·연락처는 서버가 내려보내지 않는다).
 class CardProfile {
   const CardProfile({
-    required this.profileId,
     required this.nickname,
     required this.age,
+    this.profileId,
     this.university,
     this.major,
     this.avatarUrl,
   });
 
-  final String profileId;
+  /// 보낸 신청(`GET /cards/sent`)은 상대 id 를 싣지 않아 null 이다. 카드 · 수락함은 늘 싣는다.
+  final String? profileId;
   final String nickname;
   final int age;
   final String? university;
@@ -26,7 +27,7 @@ class CardProfile {
 
   factory CardProfile.fromJson(Map<String, dynamic> json) {
     return CardProfile(
-      profileId: json['profile_id'] as String,
+      profileId: json['profile_id'] as String?,
       nickname: json['nickname'] as String,
       age: json['age'] as int,
       university: json['university'] as String?,

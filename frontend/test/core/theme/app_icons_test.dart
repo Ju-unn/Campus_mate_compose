@@ -30,6 +30,7 @@ void main() {
     expect(AppIcons.arrowRight, LucideIcons.arrowRight);
     expect(AppIcons.imagePlus, LucideIcons.imagePlus);
     expect(AppIcons.timer, LucideIcons.timer);
+    expect(AppIcons.timerOff, LucideIcons.timerOff);
     expect(AppIcons.shieldCheck, LucideIcons.shieldCheck);
     expect(AppIcons.phone, LucideIcons.phone);
     expect(AppIcons.contactRound, LucideIcons.contactRound);

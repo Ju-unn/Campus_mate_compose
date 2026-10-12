@@ -6,6 +6,7 @@ import 'package:campus_mate/matching/model/card_detail.dart';
 import 'package:campus_mate/matching/model/card_repository.dart';
 import 'package:campus_mate/matching/model/daily_card.dart';
 import 'package:campus_mate/matching/model/notification_preferences.dart';
+import 'package:campus_mate/matching/model/sent_request.dart';
 
 /// 화면·ViewModel 테스트용 가짜 저장소. 돌려줄 값을 필드로 바꿔 끼운다.
 class FakeCardRepository implements CardRepository {
@@ -44,6 +45,11 @@ class FakeCardRepository implements CardRepository {
 
   /// 채워 두면 수락함 조회가 이것이 끝날 때까지 멈춘다 — 읽는 도중에 또 읽으려는 상황용.
   Completer<void>? holdAcceptances;
+
+  /// 보낸 신청(`GET /cards/sent`)과 읽은 횟수. [holdSent] 를 채우면 그 조회가 멈춘다.
+  Result<List<SentRequest>> sent = const Success([]);
+  int fetchSentCount = 0;
+  Completer<void>? holdSent;
   final List<({String cardId, CardDecision decision})> decisions = [];
   final List<({String key, bool value})> preferenceUpdates = [];
   final List<String> registeredTokens = [];
@@ -86,6 +92,14 @@ class FakeCardRepository implements CardRepository {
     decisions.add((cardId: cardId, decision: decision));
     await holdRespond?.future;
     return acceptanceOutcome;
+  }
+
+  @override
+  Future<Result<List<SentRequest>>> fetchSentRequests() async {
+    fetchSentCount += 1;
+    final snapshot = sent;
+    await holdSent?.future;
+    return snapshot;
   }
 
   @override

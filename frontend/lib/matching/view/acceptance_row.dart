@@ -36,7 +36,7 @@ class AcceptanceRow extends StatelessWidget {
         children: [
           Row(
             children: [
-              _Avatar(url: profile.avatarUrl),
+              RowAvatar(url: profile.avatarUrl),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Column(
@@ -80,9 +80,9 @@ class AcceptanceRow extends StatelessWidget {
   }
 }
 
-/// 44dp 원형 아바타(§8.6). 아직 아바타가 없는 사람은 회색 원으로 둔다.
-class _Avatar extends StatelessWidget {
-  const _Avatar({required this.url});
+/// 44dp 원형 아바타(§8.6). 아직 아바타가 없는 사람은 회색 원으로 둔다. 받은 신청 · 보낸 신청 행이 같이 쓴다.
+class RowAvatar extends StatelessWidget {
+  const RowAvatar({required this.url, super.key});
 
   final String? url;
 

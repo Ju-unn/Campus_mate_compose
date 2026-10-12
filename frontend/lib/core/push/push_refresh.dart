@@ -4,6 +4,7 @@ import 'package:campus_mate/auth/model/verification_gate.dart';
 import 'package:campus_mate/auth/viewmodel/student_verification_view_model.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
 import 'package:campus_mate/matching/viewmodel/acceptances_view_model.dart';
+import 'package:campus_mate/matching/viewmodel/sent_requests_view_model.dart';
 import 'package:campus_mate/matching/viewmodel/today_cards_view_model.dart';
 import 'package:campus_mate/notifications/viewmodel/unread_count_provider.dart';
 import 'package:flutter_riverpod/misc.dart' show ProviderListenable;
@@ -17,9 +18,10 @@ void refreshForPush(T Function<T>(ProviderListenable<T>) read, Map<String, dynam
       unawaited(read(todayCardsViewModelProvider.notifier).refresh());
     case 'acceptances':
       unawaited(read(acceptancesViewModelProvider.notifier).refresh());
-    // 매칭 성사 — 수락함에서 그 줄이 빠지고 대화 목록에 방이 생긴다. 대화 탭은 들어갈 때 다시 읽지 않는다.
+    // 매칭 성사 — 수락함에서 그 줄이 빠지고 대화 목록에 방이 생긴다. 내가 보낸 신청이었으면 보낸 신청이 "매칭됨" 이 된다.
     case 'match':
       unawaited(read(acceptancesViewModelProvider.notifier).refresh());
+      unawaited(read(sentRequestsViewModelProvider.notifier).refresh());
       unawaited(read(conversationsViewModelProvider.notifier).refresh());
     // 방을 열어 두고 있으면 Realtime 이 이미 줄을 붙였다 — 여기서는 목록만 맞춘다.
     case 'chat':

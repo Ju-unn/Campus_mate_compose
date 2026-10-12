@@ -1,9 +1,15 @@
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/trait_bar.dart';
+import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/matching/model/card_detail.dart';
+import 'package:campus_mate/matching/model/sent_request.dart';
+import 'package:campus_mate/matching/view/conversations_screen.dart';
+import 'package:campus_mate/matching/viewmodel/today_cards_view_model.dart';
+import 'package:go_router/go_router.dart';
 import 'package:campus_mate/matching/model/card_profile.dart';
 import 'package:campus_mate/matching/model/card_repository.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
@@ -161,6 +167,105 @@ void main() {
     tester.takeException();
 
     expect(clipped.toSet(), isEmpty);
+  });
+
+  group('결정한 뒤 어디로 가나(2026-10-13 사용자 결정 B)', () {
+    late FakeCardRepository repository;
+    late GoRouter router;
+
+    /// 오늘 탭(자리 화면) → 10b push.
+    Future<ProviderContainer> openFromToday(WidgetTester tester) async {
+      repository = FakeCardRepository()..card = Success(_detail);
+      final container = ProviderContainer(overrides: [
+        cardRepositoryProvider.overrideWithValue(repository),
+        chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
+      ]);
+      addTearDown(container.dispose);
+      router = GoRouter(
+        initialLocation: AppRoutes.today,
+        routes: [
+          GoRoute(
+            path: AppRoutes.today,
+            builder: (context, state) => Scaffold(
+              body: TextButton(
+                onPressed: () => context.push('${AppRoutes.cardDetail}/card-1'),
+                child: const Text('카드 열기'),
+              ),
+            ),
+          ),
+          GoRoute(
+            path: '${AppRoutes.cardDetail}/:cardId',
+            builder: (context, state) => CardDetailScreen(cardId: state.pathParameters['cardId']!),
+          ),
+          GoRoute(path: AppRoutes.conversations, builder: (context, state) => const ConversationsScreen()),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(routerConfig: router),
+      ));
+      // 오늘 목록은 이미 한 번 읽혀 있다.
+      await container.read(todayCardsViewModelProvider.notifier).refresh();
+      await tester.tap(find.text('카드 열기'));
+      await tester.pumpAndSettle();
+      return container;
+    }
+
+    Future<void> tapDecision(WidgetTester tester, String label) async {
+      await tester.ensureVisible(find.text(label));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(label));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+    }
+
+    testWidgets('대화 신청하기 → 10b 가 닫히고 대화 탭으로 가 "신청을 보냈어요" 토스트, 오늘 목록 · 보낸 신청을 다시 읽는다',
+        (tester) async {
+      await openFromToday(tester);
+      final todayBefore = repository.fetchTodayCount;
+      repository.sent = const Success([
+        SentRequest(
+          cardId: 'card-1',
+          status: SentRequestStatus.waiting,
+          daysLeft: 7,
+          profile: CardProfile(nickname: '여우비', age: 23),
+        ),
+      ]);
+
+      await tapDecision(tester, '대화 신청하기');
+
+      expect(repository.decisions.single.decision, CardDecision.accept);
+      expect(find.byType(CardDetailScreen), findsNothing);
+      expect(find.byType(ConversationsScreen), findsOneWidget);
+      expect(find.text('신청을 보냈어요'), findsOneWidget);
+      expect(find.text('7일 남음'), findsOneWidget);
+      // 탭 전환이라 쌓이지 않는다 — 뒤로 가도 10b 로 돌아가지 않는다.
+      expect(router.canPop(), isFalse);
+      expect(repository.fetchTodayCount, todayBefore + 1);
+    });
+
+    testWidgets('거절 → 지금처럼 오늘 탭으로 돌아오고 대화 탭으로 가지 않는다', (tester) async {
+      await openFromToday(tester);
+
+      await tapDecision(tester, '거절');
+      await tester.pumpAndSettle();
+
+      expect(repository.decisions.single.decision, CardDecision.reject);
+      expect(find.text('카드 열기'), findsOneWidget);
+      expect(find.byType(ConversationsScreen), findsNothing);
+      expect(find.text('신청을 보냈어요'), findsNothing);
+    });
+
+    testWidgets('신청이 실패하면 10b 에 남는다', (tester) async {
+      await openFromToday(tester);
+      repository.writeResult = const FailureResult(NetworkFailure());
+
+      await tapDecision(tester, '대화 신청하기');
+
+      expect(find.byType(CardDetailScreen), findsOneWidget);
+      expect(find.byType(ConversationsScreen), findsNothing);
+    });
   });
 
   testWidgets('대화 신청하기를 누르면 수락(accept)이 서버로 간다', (tester) async {
