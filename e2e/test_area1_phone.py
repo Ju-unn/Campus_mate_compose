@@ -279,11 +279,12 @@ class OnboardingTest(Base):
             self.assertEqual(area1.attempt_phone(self.run, case, FakePhone())[0], 'fail', case)
 
     def test_onb_18_kakao_id_is_trimmed(self):
-        self.serve({('GET', '/rest/v1/profile_private'): Reply(200, [{'kakao_id': 'cm_test'}])})
+        decrypt = ('POST', '/rest/v1/rpc/decrypt_profile_private')  # 평문 열은 M2 로 없어진다 — 복호화 RPC 로만 읽는다
+        self.serve({decrypt: Reply(200, [{'real_name': None, 'kakao_id': 'cm_test'}])})
         phone = FakePhone()
         self.assertEqual(area1.attempt_phone(self.run, 'E-ONB-18', phone)[0], 'pass')
         self.assertEqual(phone.jobs[0]['kakao'], '  cm_test  ')
-        self.serve({('GET', '/rest/v1/profile_private'): Reply(200, [{'kakao_id': '  cm_test  '}])})
+        self.serve({decrypt: Reply(200, [{'real_name': None, 'kakao_id': '  cm_test  '}])})
         self.assertEqual(area1.attempt_phone(self.run, 'E-ONB-18', FakePhone())[0], 'fail')
 
 
