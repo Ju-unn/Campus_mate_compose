@@ -8,7 +8,8 @@ const _faqHint = '궁금한 내용을 검색해 보세요';
 const _inviteDescription = '친구가 가입할 때 이 코드를 넣으면 둘 다 하트 50개를 받아요.';
 const _copied = '코드를 복사했어요';
 const _faqMail = 'appmailerl4538@gmail.com';
-const _logoutDescription = '다시 로그인하려면 학교 이메일로 인증 코드를 한 번 더 받아야 해요.';
+// 소셜 로그인 뒤 로그아웃 시트 문구(eaddab62, core/auth/confirm_sign_out.dart).
+const _logoutDescription = '다시 로그인하려면 처음 화면에서 카카오, 구글 중 쓰던 계정으로 로그인해 주세요.';
 const _withdrawnToast = '탈퇴한 계정이에요';
 
 List<String> _strings(Object? value) => (value as List).cast<String>();
