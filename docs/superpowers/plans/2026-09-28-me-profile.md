@@ -169,7 +169,7 @@ pen 이 고정 높이여도 코드는 minHeight(DESIGN §11.2).
 | 섹션 헤더 | SectionHeader `Ymhdq`: 제목 17/700 #222222(렌더 25), 오른쪽 글자 14/400 #6A6A6A(렌더 20), 가로 space_between. 섹션 안 gap 12 | `GimcE` · `PfZjU` · `Gjodp` · `ZpArm` | `_SectionHeader` |
 | 실제 사진 | 헤더 "실제 사진" + 오른쪽 "서로 수락하면 전달돼요". 슬라이더 gap 8, 사진 252×184 r14 cover, 배지 lock "수락 후 공개"(Badge · Small, 위 12 · 오른쪽 13), 점 6 gap 6 #222222/#DDDDDD, 교체 버튼 328×44 #F2F2F2 r8 "실제 사진 교체" 14/600 #222222 lh1.5 → **"곧 열려요"**(N4) | `Rn3AC` / `c9Co2` / `r6b8Vu` / `RaYKc` / `E7Cv2` | 15 에서 옮긴 `_RealPhotoSection` (제목만 헤더로) |
 | 기본 정보 | 헤더 "기본 정보" + "수정 ›" **14/400 #6A6A6A 글자만**(N12 — 15c 분홍과 다름), 누름 44 → "곧 열려요"(N4). 카드 **#FFFFFF r14 + 카드 그림자**, padding [4,16], 줄 48(아이콘 19 #6A6A6A · gap 10 · 라벨 14/400 #6A6A6A · 값 14/600 #222222), 구분선 없음. 내 키 · MBTI · 학과 | `QldHz` / `PfZjU` / `A8LX2` / `N1dIuc` | 15 에서 옮긴 `_ProfileFacts`(바탕 · 그림자만 바뀜) |
-| 선호 조건 | 헤더 "선호 조건"(오른쪽 없음) + ProfileEntryRow 2개 gap 12: calendar "선호 나이 범위" · ruler "선호 키 범위" → 06-1 편집 | `J0ZhR6` / `sR3If` · `t1Eok` | 15 에서 옮긴 두 행 |
+| 선호 조건 | 헤더 "선호 조건"(오른쪽 없음) + ProfileEntryRow 2개 gap 12: calendar "선호 나이 범위" · ruler "선호 키 범위" → 06-1 편집. **2026-10-10 개정(PR #452, 아래 구현 편차 기록) — 지금은 ProfileEntryRow 한 줄 "이상형 조건 수정"(하트, 노트 "나이 22–27세 · 키 165–180cm")** | `J0ZhR6` / `sR3If` · `t1Eok` | 15 에서 옮긴 두 행 → 한 줄(`_PreferenceSection`) |
 | 자기소개 | 헤더 "자기소개"(오른쪽 없음) → 본문 16/400 #3F3F3F lh1.6 → 12 → ProfileEntryRow tags "자기소개 · 태그" / "관심사 · 나의 특징 · 이상형" → 15c | `jVQAw` / `IUPXc` / `bTDTS` | 15 에서 옮긴 `_BioSection` + `m2szef` 행 |
 
 **15b 시트 `aGaPA` · `N5lXcc` · `i8rkW`** — 옛 계획서 4절 15b 표 그대로(A8 앞부분에서 구현 · 검토 끝). 값표로 확인한 것:
@@ -791,3 +791,13 @@ null 안전 컴파일 오류라 `photo.file!.path` 로 바꿨다(값 · 뜻 같�
 - **main 위로 옮기며(09-29) — `AppIcons.info` 겹침.** 채팅탭 지인 리뷰 PR 3(#167)가 먼저 merge 돼 main `app_icons.dart` 에 같은
   이름 `info` 가 있다(20c · 14d). 대장 규칙대로 나중 쪽인 이 PR 이 자기 줄 · 주석을 빼고, main 줄의 주석에 "15d 닉네임
   helper(`G1tl8`)" 만 덧붙였다(같은 이름 두 번이면 컴파일 오류). 화면 커밋을 고쳐 커밋마다 컴파일되게 했다.
+
+### 15-5 선호 조건 한 줄로 (PR #452, 2026-10-10 main 반영 — 2026-10-12 문서 정리에서 기록)
+
+- 4절 15-5 표 "선호 조건" 의 ProfileEntryRow 2개(calendar "선호 나이 범위" · ruler "선호 키 범위", gap 12)를 **한 줄**
+  "이상형 조건 수정"(pen `sR3If`, 아이콘 `AppIcon3d.heart`, 노트 `B4ppA` "나이 22–27세 · 키 165–180cm")으로 합쳤다
+  (`lib/me/view/profile_manage_screen.dart` `_PreferenceSection`). 이유: 06-1 한 화면에 나이 · 키가 같이 있어 입구가 둘일 까닭이 없다.
+- 노트 규칙: 나이 · 키 각각 "상관없어요"(전 구간 저장)면 그 칸만 "상관없어요", 둘 다면 "나이 · 키 모두 상관없어요". 나이 위 끝 35 는 "35세 이상".
+- 테스트: `profile_manage_screen_test.dart` "선호 나이 · 선호 키 행은 따로 없고, "이상형 조건 수정" 한 줄(하트 · 한 문장 노트 · 셰브런)만 있다".
+- 남은 옛 말(코드 담당 몫, 이 문서 정리에서 고치지 않음): `core/theme/app_icons.dart` 의 `ruler` · `calendar` 주석("화면 15 … 선호 키 범위 행" ·
+  "선호 나이 범위 행"), `ideal_conditions_screen.dart` · `me/viewmodel/ideal_conditions_edit_view_model.dart` 머리 주석의 "화면 15 선호 나이 · 키 행".
