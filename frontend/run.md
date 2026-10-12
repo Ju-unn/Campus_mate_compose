@@ -50,6 +50,10 @@ CI 는 같은 두 파일(`Secrets.xcconfig`, `GoogleService-Info.plist`)을 가�
 
 `Debug.xcconfig` 는 `APS_ENVIRONMENT = development`, `Release.xcconfig` 는 `production` 이다(`Runner.entitlements` 가 읽는다). 개발용 기기에서 릴리스 빌드를 돌려 서명 오류가 나면 `Secrets.xcconfig` 에 `APS_ENVIRONMENT = development` 를 한 줄 더한다.
 
+### 애플 로그인
+
+시작 화면의 'Apple로 로그인'은 iOS 에서만 보이고 키를 넣지 않는다 — `Runner.entitlements` 의 Sign in with Apple 과 Supabase 대시보드 Authentication > Providers > Apple 켜기 · Client IDs 에 번들 ID `io.github.juunn.campusmate` 넣기(사용자가 끝냄)로 묶인다.
+
 ### 최소 버전 · 기기
 
 iOS 15.5 이상(ML Kit 얼굴 감지 요구), iPhone 전용, 세로 고정이다. iPad 를 지원하려면 `ios/Runner.xcodeproj/project.pbxproj` 의 `TARGETED_DEVICE_FAMILY = 1` 3곳을 `"1,2"` 로 되돌리고 `Info.plist` 에 `UISupportedInterfaceOrientations~ipad` 를 되살린다.
