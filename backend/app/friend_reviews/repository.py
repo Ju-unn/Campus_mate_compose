@@ -79,6 +79,19 @@ class FriendReviewRepository(PostgrestRepository):
         })
         return rows[0] if rows else None
 
+    async def fetch_by_code(self, code: str) -> dict | None:
+        """친구 코드(= 추천 코드 profiles.referral_code)의 주인. 확인 화면에 그릴 닉네임 · 학교, active 판정용 status,
+        같은 번호 판정용 번호 해시. profile_private 는 PK 가 profiles FK 라 일대일 — 객체 하나(행이 없으면 null)로 온다."""
+        rows = await self._rows("profiles", {
+            "referral_code": f"eq.{code}", "select": "id,nickname,status,universities(name),profile_private(phone_hmac)",
+        })
+        return rows[0] if rows else None
+
+    async def fetch_phone_hmac(self, profile_id: UUID | str) -> str | None:
+        """내 번호 해시. 행이 없거나 비어 있으면(백필 전 옛 계정) None."""
+        rows = await self._rows("profile_private", {"profile_id": f"eq.{profile_id}", "select": "phone_hmac"})
+        return rows[0]["phone_hmac"] if rows else None
+
     async def insert_review(self, row: dict) -> str:
         response = await self._post("friend_reviews", json=row, prefer="return=representation")
         # 23505 = friend_reviews_once — 동시에 두 번 눌러도 한 줄만 남고 나머지는 409.
