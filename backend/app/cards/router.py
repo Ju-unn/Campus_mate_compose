@@ -1,3 +1,4 @@
+import math
 import random
 from datetime import datetime, time, timedelta, timezone
 
@@ -25,6 +26,10 @@ router = APIRouter()
 
 # 받은 수락은 7일이 지나면 목록에서도, 응답에서도 사라진다(2026-09-21 사용자 확정).
 ACCEPTANCE_TTL_DAYS = 7
+# 보낸 신청은 끝난 뒤(거절 · 만료 · 성사) 이 기간만 목록에 남는다(2026-10-13 사용자 결정). 바꿀 때는 이 값만.
+SENT_RETENTION_DAYS = 7
+# 보낸 신청 상한. 하루 카드 몇 장이라 2주에 수십 건을 넘지 않는다 — 페이지 없이 상한만 둔다.
+SENT_LIMIT = 50
 
 
 class DecisionRequest(BaseModel):
@@ -301,6 +306,74 @@ async def get_acceptances(wiring: _Wiring = Depends(_wire)) -> dict:
             "profile": _card_profile(profile, wiring.settings.supabase_url, now),
         })
     return {"acceptances": acceptances}
+
+
+def _sent_state(response: dict | None, match: dict | None, expires_at: datetime,
+                now: datetime) -> tuple[str, datetime | None]:
+    """(상태, 끝난 시각). 매칭 > 상대 응답 > 기한 순으로 본다. 매칭은 상대 카드로 생겼어도 친다(결정 11) —
+    그때 내 신청에는 응답 행이 없다. accept 응답인데 매칭 행이 없으면(매칭 쓰기가 끊긴 경우) 응답 시각으로 matched."""
+    if match:
+        return "matched", datetime.fromisoformat(match["created_at"])
+    if response:
+        status = "rejected" if response["decision"] == "reject" else "matched"
+        return status, datetime.fromisoformat(response["decided_at"])
+    # 받는 쪽이 410 을 받는 순간(respond_to_acceptance)과 같은 경계다.
+    if now >= expires_at:
+        return "expired", expires_at
+    return "waiting", None
+
+
+@router.get("/cards/sent")
+async def get_sent_requests(wiring: _Wiring = Depends(_wire)) -> dict:
+    """보낸 신청(대화 탭, 2026-10-13 사용자 결정 B) — 내가 수락한 카드의 상태: waiting · matched · rejected · expired.
+    거절도 보낸 사람에게 보인다(설계 §2.2 "거절은 알리지 않는다" 번복). 푸시 · 알림함은 없다 — 화면을 열 때만 본다.
+    상대가 차단 · 정지 · 탈퇴 · 가림이면 카드 · 수락함처럼 빠진다. 매칭 뒤 **어느 쪽이든 방을 나갔으면** 그것도 똑같이
+    빠진다 — 나가기만 남고 차단만 사라지면 차단 사실이 샌다(설계 §7.2, 14c safety get_partner_profile 과 같은 규칙).
+    결정 · 프로필 · 매칭 · 차단을 각 한 번씩 읽는다.
+
+    계약: match_id 가 null 인 matched(상대 수락은 있는데 매칭 행이 없는 경우)는 누를 수 없다.
+    days_left 는 남은 시간의 올림이다 — waiting 에서 1 이면 24시간 이하다. 앱은 1 을 "오늘 마감", 2 이상을
+    "N일 남음" 으로 그린다(서버는 "1일 남음" 을 따로 가르지 않는다)."""
+    now = wiring.now
+    # 보낸 지 14일까지만 읽는다. 맹점: 보낸 지 7일 넘어 상대 카드로 뒤늦게 매칭되면 매칭 뒤 7일이 아니라 보낸 지 14일에 빠진다.
+    since = now - timedelta(days=ACCEPTANCE_TTL_DAYS + SENT_RETENTION_DAYS)
+    rows = await wiring.repo.fetch_sent_acceptances(wiring.profile_id, since, SENT_LIMIT)
+    if not rows:
+        return {"sent": []}
+    targets = list(dict.fromkeys(row["daily_cards"]["target_id"] for row in rows))
+    profiles = await wiring.repo.fetch_card_profiles(targets)
+    blocked = await _blocked_among(wiring, targets)
+    matches = await wiring.repo.fetch_matches_by_partner(wiring.profile_id)
+
+    sent = []
+    for row in rows:
+        target_id = row["daily_cards"]["target_id"]
+        profile = profiles.get(target_id)
+        match = matches.get(target_id)
+        if not profile or _hidden_from_cards(target_id, profile, blocked) or (
+                match and any(p["left_at"] for p in match["match_participants"])):
+            continue
+        sent_at = datetime.fromisoformat(row["decided_at"])
+        expires_at = sent_at + timedelta(days=ACCEPTANCE_TTL_DAYS)
+        status, resolved_at = _sent_state(row["daily_cards"]["acceptance_responses"], match, expires_at, now)
+        if resolved_at and now - resolved_at >= timedelta(days=SENT_RETENTION_DAYS):
+            continue
+        card = _card_profile(profile, wiring.settings.supabase_url, now)
+        # 상대 profile_id 는 싣지 않는다. 아바타는 그 카드 앞면에서 보던 공개 주소 그대로다(이미 열어 본 카드).
+        del card["profile_id"]
+        sent.append({
+            "card_id": row["card_id"],
+            "status": status,
+            "sent_at": sent_at.isoformat(),
+            "expires_at": expires_at.isoformat(),
+            # 남은 일수는 올림 — 기다리는 동안 0 일은 없다(마지막 1시간도 1).
+            "days_left": math.ceil((expires_at - now) / timedelta(days=1)) if status == "waiting" else None,
+            "resolved_at": resolved_at.isoformat() if resolved_at else None,
+            # 대화 탭의 방(`/chat/matches/{match_id}`). 매칭이 아니거나 매칭 행이 없는 matched 면 null(누를 수 없다).
+            "match_id": match["id"] if match else None,
+            "profile": card,
+        })
+    return {"sent": sent}
 
 
 @router.post("/cards/acceptances/{card_id}")
