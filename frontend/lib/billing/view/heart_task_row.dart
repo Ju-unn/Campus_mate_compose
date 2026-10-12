@@ -151,7 +151,7 @@ class _Chip extends StatelessWidget {
   }
 }
 
-/// pen "매일" 배지 `Aioxz`(투표 줄만).
+/// pen "매일" 배지 `Aioxz`(투표 줄만). 글자는 "하루 1번"(사용자 결정 10-12 — 하루 첫 투표만 하트, pen 동기화 대기).
 class _DailyBadge extends StatelessWidget {
   const _DailyBadge();
 
@@ -162,7 +162,7 @@ class _DailyBadge extends StatelessWidget {
       decoration: BoxDecoration(color: AppColors.surfaceStrong, borderRadius: BorderRadius.circular(AppRadius.pill)),
       // pen `klkPA` 글자 칸 16 — badge 토큰 줄높이(1.3)면 14.3 이라 알약이 18.3 으로 얇아진다.
       child: Text(
-        '매일',
+        '하루 1번',
         style: AppTypography.badge.copyWith(fontWeight: FontWeight.w700, color: AppColors.muted, height: 16 / 11),
       ),
     );

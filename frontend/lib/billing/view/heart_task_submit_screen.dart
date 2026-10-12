@@ -18,8 +18,15 @@ import 'package:go_router/go_router.dart';
 
 const String _guide = '스크린샷을 첨부하면 확인 후 하트를 드려요';
 
-/// 에브리타임만 붙는다(DESIGN §8.10 `review-submission`). 안내 아래 캡션 한 줄(대장 09-28 (가), 계획서 편차 6).
-const String _everytimeHint = '날짜가 보이게 찍어 주세요';
+/// 안내 아래 인증 기준 캡션(12/400 muted). 종전엔 에브리타임만 "날짜가 보이게 찍어 주세요"(대장 09-28 (가), 계획서 편차 6) —
+/// 사용자 결정 10-12 로 항목마다 기준을 적고, 날짜 안내는 에브리타임 기준에 합쳤다. pen 은 아직 옛 글자다(동기화 대기).
+/// 승인은 운영자가 눈으로 본다 — 서버는 이 기준을 검사하지 않는다.
+String? _criteria(HeartTaskKind kind) => switch (kind) {
+      HeartTaskKind.everytimePost => '앱 이름(CampusMate)이 들어간 홍보 글을 올리고, 올린 날짜가 보이게 찍어 주세요',
+      HeartTaskKind.kakaoShare => '5명 이상이 있는 학교 단톡방에 공유한 글과 단톡방 인원 수가 보이게 찍어 주세요',
+      // 투표는 제출 화면이 없다(라우터가 18a 로 돌려보낸다).
+      HeartTaskKind.pollVote => null,
+    };
 const String _uploaderLabel = '스크린샷 첨부하기';
 const String _retryCaption = '다시 찍어 올려 주세요';
 
@@ -110,9 +117,9 @@ class _HeartTaskSubmitScreenState extends ConsumerState<HeartTaskSubmitScreen> {
             if (reason != null) ...[_RejectReasonAlert(reason: reason), const SizedBox(height: AppSpacing.md)],
             // pen `qLG9R` 16/600 #3F3F3F, 줄높이 속성 없음 · 렌더 23.
             Text(_guide, style: AppTypography.bodyStrong.copyWith(color: AppColors.body, height: 23 / 16)),
-            if (widget.kind == HeartTaskKind.everytimePost) ...[
+            if (_criteria(widget.kind) case final criteria?) ...[
               const SizedBox(height: AppSpacing.xxs),
-              Text(_everytimeHint, style: AppTypography.caption.copyWith(color: AppColors.muted)),
+              Text(criteria, style: AppTypography.caption.copyWith(color: AppColors.muted)),
             ],
             const SizedBox(height: AppSpacing.md),
             _ProofUploader(photo: state.photo, onTap: state.isSubmitting ? null : viewModel.pickPhoto),

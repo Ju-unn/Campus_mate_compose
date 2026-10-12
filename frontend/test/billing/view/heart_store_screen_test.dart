@@ -25,6 +25,9 @@ import 'package:go_router/go_router.dart';
 import '../../me/model/fake_me_repository.dart';
 import '../model/fake_heart_task_repository.dart';
 
+/// "무료로 모으기" 안내(pen `cVVgB` 두 줄 + 투표 지급 기준 한 줄 — 대장 지시 10-12, pen 동기화 대기).
+const _notice = '초기 보상 기준 · 인증 후 지급\n100명 이후 홍보 30 / 단톡방 20 하트\n커뮤니티 투표 하루 첫 투표 1번만 10 · 한 주 최대 30 하트';
+
 /// 이름·학교는 지어낸 값이다.
 MyProfile _profile(int hearts) => MyProfile(
   nickname: '여우',
@@ -436,8 +439,43 @@ void main() {
       expect(find.text('커뮤니티 투표'), findsOneWidget);
       expect(tester.getSize(rows.at(0)), const Size(328, 64));
       expect(tester.getTopLeft(rows.at(1)).dy - tester.getBottomLeft(rows.at(0)).dy, 4);
-      expect(find.text('초기 보상 기준 · 인증 후 지급\n100명 이후 홍보 30 / 단톡방 20 하트'), findsOneWidget);
+      expect(find.text(_notice), findsOneWidget);
     });
+
+    testWidgets('투표 줄 — "하루 1번" 배지가 길어져도(Pretendard) 줄은 328×64, 제목 · 배지 모두 한 줄', (tester) async {
+      await pump(tester);
+
+      final vote = find.byType(HeartTaskRow).at(2);
+      expect(tester.getSize(vote), const Size(328, 64));
+      expect(tester.getSize(find.descendant(of: vote, matching: find.text('커뮤니티 투표'))).height, 20);
+      final badge = find.ancestor(of: find.text('하루 1번'), matching: find.byType(Container)).first;
+      expect(tester.getSize(badge).height, 20);
+    });
+
+    testWidgets('안내 `cVVgB` 셋째 줄은 투표 지급 기준 — 12/400 muted 줄높이 1.4, 한 줄씩 세 줄(16.8 × 3)', (tester) async {
+      await pump(tester);
+
+      final notice = find.text(_notice);
+      final style = tester.widget<Text>(notice).style!;
+      expect((style.fontSize, style.fontWeight, style.height, style.color), (12, FontWeight.w400, 1.4, AppColors.muted));
+      // 높이는 픽셀 맞춤으로 줄마다 17 이 된다(16.8 → 17, 세 줄 51) — 줄 수(높이 ÷ 16.8)로 본다. 접히면 4.
+      expect(tester.getSize(notice).height / (12 * 1.4), closeTo(3, 0.1), reason: '셋째 줄이 360 폭에서 접히지 않는다');
+    });
+
+    for (final scale in [1.0, 1.3, 2.0]) {
+      testWidgets('글자 배율 $scale — 제목 → 4 → 안내 → 12 → 첫 줄, 안내는 잘리지 않고 늘어나기만 한다', (tester) async {
+        await pump(tester, textScale: scale, height: 3000);
+
+        final title = tester.getRect(find.text('무료로 모으기'));
+        final notice = tester.getRect(find.text(_notice));
+        final firstRow = tester.getRect(find.byType(HeartTaskRow).first);
+        expect(notice.top - title.bottom, closeTo(4, 0.5));
+        expect(firstRow.top - notice.bottom, closeTo(12, 0.5));
+        expect(notice.height, greaterThanOrEqualTo(3 * 12 * 1.4 * scale - 0.5));
+        expect(tester.widget<Text>(find.text(_notice)).maxLines, isNull);
+        expect(tester.takeException(), isNull);
+      });
+    }
 
     testWidgets('투표 미완료 줄을 누르면 커뮤니티로, 인증 미완료 줄을 누르면 제출(18b)로 간다', (tester) async {
       tasks.tasks = Success(sampleHeartTasks(everytime: HeartTaskState.open));

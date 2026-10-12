@@ -10,9 +10,6 @@ import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// pen `EJDsZ`. 초기값 기준 안내(DESIGN §8.10 표) — 줄의 하트 수는 서버 값이다.
-const String _rewardNotice = '초기 보상 기준 · 인증 후 지급\n100명 이후 홍보 30 / 단톡방 20 하트';
-
 /// pen `NYgh7` 여백 [8,16,32,16].
 const EdgeInsets _listPadding = EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.xs, AppSpacing.md, AppSpacing.xl);
 
@@ -66,7 +63,8 @@ class HeartTasksScreen extends ConsumerWidget {
     return ListView(
       padding: _listPadding,
       children: [
-        Text(_rewardNotice, style: AppTypography.caption.copyWith(color: AppColors.muted)),
+        // pen `EJDsZ`.
+        Text(heartRewardNotice, style: AppTypography.caption.copyWith(color: AppColors.muted)),
         // pen 섹션 간격 8 + 빈칸 `vlmhj` 8 + 간격 8.
         const SizedBox(height: AppSpacing.lg),
         for (final (index, task) in state.tasks.indexed) ...[

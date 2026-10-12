@@ -6,10 +6,31 @@ import 'package:campus_mate/community/model/community_repository.dart';
 import 'package:campus_mate/community/model/community_repository_provider.dart';
 import 'package:campus_mate/community/model/poll.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
+import 'package:campus_mate/me/model/me_repository_provider.dart';
+import 'package:campus_mate/me/model/my_profile.dart';
+import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../me/model/fake_me_repository.dart';
 import '../model/fake_community_repository.dart';
+
+/// 이름 · 학교는 지어낸 값이다.
+const _profile = MyProfile(
+  nickname: '여우',
+  age: 23,
+  university: '가나대학교',
+  major: null,
+  heightCm: null,
+  mbti: null,
+  avatarUrl: null,
+  preferredAgeMin: 22,
+  preferredAgeMax: 27,
+  preferredHeightMin: null,
+  preferredHeightMax: null,
+  bio: '',
+  heartBalance: 320,
+);
 
 void main() {
   late FakeCommunityRepository repository;
@@ -80,6 +101,49 @@ void main() {
       ..voteResult = Success(VoteOutcome(poll: pollFixture(myChoice: PollChoice.b), rewarded: false));
     final container = await start();
     expect(await viewModel(container).vote('p1', PollChoice.b), isNull);
+  });
+
+  group('보유 하트(내 프로필) — 홈 칩 · 하트 스토어 · 설정이 같은 값을 읽는다', () {
+    late FakeMeRepository me;
+
+    /// 화면이 이미 잔액을 한 번 읽은 상태에서 시작한다.
+    Future<ProviderContainer> startWithProfile() async {
+      me = FakeMeRepository(const Success(_profile));
+      final container = ProviderContainer(
+        overrides: [
+          communityRepositoryProvider.overrideWithValue(repository),
+          meRepositoryProvider.overrideWithValue(me),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container.read(myProfileProvider.future);
+      await container.read(communityFeedViewModelProvider.notifier).refresh();
+      return container;
+    }
+
+    test('투표로 하트를 받으면 내 프로필을 다시 읽는다 — 상점 · 홈의 잔액이 바로 맞는다', () async {
+      repository
+        ..page = Success(PollPage(polls: [pollFixture()], hasMore: false))
+        ..voteResult = Success(VoteOutcome(poll: pollFixture(myChoice: PollChoice.a), rewarded: true));
+      final container = await startWithProfile();
+
+      await viewModel(container).vote('p1', PollChoice.a);
+      await container.read(myProfileProvider.future);
+
+      expect(me.calls, 2, reason: '하트가 들어왔으니 GET /me/profile 을 한 번 더 부른다');
+    });
+
+    test('하트를 안 받은 투표(오늘 이미 받음 · 주 한도)는 다시 읽지 않는다', () async {
+      repository
+        ..page = Success(PollPage(polls: [pollFixture()], hasMore: false))
+        ..voteResult = Success(VoteOutcome(poll: pollFixture(myChoice: PollChoice.a), rewarded: false));
+      final container = await startWithProfile();
+
+      await viewModel(container).vote('p1', PollChoice.a);
+      await container.read(myProfileProvider.future);
+
+      expect(me.calls, 1);
+    });
   });
 
   test('이미 다른 기기에서 투표했으면 문구를 주고 그 글만 다시 읽어 결과로 바꾼다', () async {
