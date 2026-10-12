@@ -79,7 +79,18 @@ def code_app(*paths):
 
 
 DOC_PATHS = ('/openapi.json', '/docs', '/redoc')
-TODAY = ('GET', '/cards/today', lambda b, u: Reply(200, {'cards': [], 'locked_card_available': False}))
+PURCHASE = '/cards/paid/{offer_id}/purchase'
+# 10-09 유료 카드 재설계(84df7d24) 뒤 서버 GET /cards/today 의 세 모양(backend/app/cards/router.py get_today_cards).
+OFFERED = {'state': 'offered', 'offer_id': 'o-1', 'band_count': 3, 'reasons': [], 'avatar_url': None, 'cost': 50}
+SHAPES = {'none': (None, False), 'empty': ({'state': 'empty'}, False), 'offered': (OFFERED, True)}
+
+
+def today_reply(paid, flag):
+    body = {'cards': [], 'next_issue_at': None, 'paid_card': paid, 'locked_card_available': flag, 'candidate_pool_empty': False}
+    return ('GET', '/cards/today', lambda b, u: Reply(200, body))
+
+
+TODAY = today_reply(None, False)
 
 
 class OpenapiTest(Base):
@@ -129,22 +140,41 @@ class OpenapiTest(Base):
             self.skipTest(f'백엔드 의존성이 없다: {e}')
         self.assertIn('/cards/today', paths)
         self.assertEqual(area4_extra._named(paths, area4_extra.FORBIDDEN_HEART), [])  # 지금 main 에는 환급 · 선물 경로가 없다
+        self.assertEqual(area4_extra._named(paths, area4_extra.PURCHASE_WORDS), [PURCHASE])  # 카드를 사는 길은 하나
         self.assertNotIn(str(tools.ROOT / 'backend'), sys.path)  # 읽은 뒤 sys.path 를 되돌린다
 
-    def test_heart_51_passes_with_no_locked_card_and_no_store_route(self):
-        (result, memo), phone = self.run_case('E-HEART-51', [TODAY], app=code_app('/cards/today'))
-        self.assertEqual(result, 'pass')
+    def test_heart_51_passes_on_each_real_today_shape_and_hands_the_paid_card_to_the_app(self):
+        for name, (paid, flag) in SHAPES.items():
+            with self.subTest(name):
+                (result, memo), phone = self.run_case('E-HEART-51', [today_reply(paid, flag)], app=code_app('/cards/today', PURCHASE))
+                self.assertEqual(result, 'pass', memo)
+                self.assertEqual(phone.jobs[0]['paid_card'], paid)  # 앱이 오늘 탭의 결제 카드를 이 값과 맞춰 본다
 
-    def test_heart_51_fails_on_a_locked_card_a_missing_flag_or_a_store_route(self):
-        for flag in (True, None):
-            body = {'cards': []} if flag is None else {'cards': [], 'locked_card_available': flag}
-            rules = [('GET', '/cards/today', lambda b, u, body=body: Reply(200, body))]
-            (result, memo), _ = self.run_case('E-HEART-51', rules, app=code_app('/cards/today'))
-            self.assertEqual(result, 'fail', flag)
-            self.assertIn('locked_card_available', memo)
-        (result, memo), _ = self.run_case('E-HEART-51', [TODAY], app=code_app('/heart_store/items'))
-        self.assertEqual(result, 'fail')
-        self.assertIn('/heart_store/items', memo)
+    def test_heart_51_fails_when_the_compat_flag_disagrees_with_the_paid_card(self):
+        for paid, flag in ((OFFERED, False), (None, True), ({'state': 'empty'}, True), (OFFERED, None)):
+            with self.subTest(paid=paid, flag=flag):
+                (result, memo), _ = self.run_case('E-HEART-51', [today_reply(paid, flag)], app=code_app('/cards/today', PURCHASE))
+                self.assertEqual(result, 'fail')
+                self.assertIn('locked_card_available', memo)
+
+    def test_heart_51_fails_on_an_old_or_unknown_paid_card_shape(self):
+        broken = {'cards': [], 'locked_card_available': False}  # 재설계 전 서버 — paid_card 칸이 없다
+        for rule in (('GET', '/cards/today', lambda b, u: Reply(200, broken)), today_reply({'state': 'sold'}, False),
+                     today_reply({'state': 'offered', 'offer_id': 'o-1'}, True)):  # offered 인데 앱이 그릴 band_count · cost 가 없다
+            with self.subTest(rule=rule):
+                (result, memo), _ = self.run_case('E-HEART-51', [rule], app=code_app('/cards/today', PURCHASE))
+                self.assertEqual(result, 'fail')
+                self.assertIn('paid_card', memo)
+
+    def test_heart_51_wants_exactly_the_one_paid_card_purchase_route(self):
+        for paths, named in ((('/cards/today',), '[]'), (('/cards/today', PURCHASE, '/heart_store/items'), '/heart_store/items'),
+                             (('/cards/today', PURCHASE, '/cards/{card_id}/unlock'), '/cards/{card_id}/unlock'),
+                             (('/cards/today', PURCHASE, '/hearts/purchase'), '/hearts/purchase'),
+                             (('/cards/today', PURCHASE, '/hearts/gift'), '/hearts/gift')):
+            with self.subTest(paths=paths):
+                (result, memo), _ = self.run_case('E-HEART-51', [TODAY], app=code_app(*paths))
+                self.assertEqual(result, 'fail')
+                self.assertIn(named, memo)
 
 
 class DartContractTest(unittest.TestCase):
@@ -157,23 +187,44 @@ class DartContractTest(unittest.TestCase):
 
     def test_heart_51_keeps_its_case_number_and_both_sides_say_what_it_means_now(self):
         # 이름(의미)이 "스토어가 없다" 에서 "쓰는 곳 · 사는 곳이 새 설계와 맞다" 로 바뀌었다 — 번호는 그대로, 바뀐 뜻을 PC 문서와 앱 주석 양쪽에 적는다.
+        # 10-09 유료 카드 재설계 뒤 "새 설계" 는 그 설계(오늘 탭 결제 카드 · 구매 경로 하나)다.
         doc = area4_extra.heart_51.__doc__
-        self.assertIn('새 설계', doc)
-        self.assertIn('번호는 그대로', doc)
         app = self.case_body("// 51(", "'E-SET-04'")
-        self.assertIn('새 설계', app)
-        self.assertIn('번호는 그대로', app)
+        for side in (doc, app):
+            self.assertIn('새 설계', side)
+            self.assertIn('번호는 그대로', side)
+            self.assertIn('10-09', side)
 
-    def test_heart_51_splits_the_words_locked_cards_everywhere_store_words_only_in_settings(self):
+    def test_heart_51_splits_banned_words_everywhere_store_words_only_in_settings_and_matches_the_paid_card(self):
         text = (tools.ROOT / 'frontend' / 'integration_test' / 'area4_extra.dart').read_text(encoding='utf-8')
-        self.assertIn("const _heartLockedWords = ['한 명 더', '잠긴 카드', '잠금 카드', '카드 구매'];", text)
+        self.assertNotIn('_heartLockedWords', text)  # "잠긴 카드가 없다" 는 옛 뜻 — 결제 카드가 생겨 거짓 통과였다
+        self.assertIn("const _heartBannedWords = ['한 명 더', '이상형 조건에 맞는', '상위 20%', '가장 잘 맞는 한 명'];", text)
         self.assertIn("const _heartStoreWords = ['스토어', '하트 충전'];", text)
         body = self.case_body("'E-HEART-51'", "'E-SET-04'")
-        # 잠긴 카드 계열은 모든 화면(오늘 포함)에서, 스토어 계열은 오늘 · 나 탭에서만 없어야 한다.
-        self.assertIn('_noneOnHeartScreens(tester, _heartLockedWords, today: true, tabsOnly: _heartStoreWords)', body)
-        # 설정에서는 "하트 충전" 을 눌러 스토어가 열리고, 스토어 화면에도 잠긴 카드 글이 없다.
+        # 설계가 금한 글은 모든 화면(오늘 포함)에서, 스토어 계열은 오늘 · 나 탭에서만 없어야 하고, 오늘 탭의 결제 카드는 서버 값과 맞아야 한다.
+        self.assertIn('_noneOnHeartScreens(tester, _heartBannedWords, today: true, tabsOnly: _heartStoreWords, '
+                      "onToday: () => _paidCardAsServerSaid(tester, job['paid_card']))", body)
+        # 설정에서는 "하트 충전" 을 눌러 스토어가 열리고, 스토어 화면에도 금한 글이 없다.
         self.assertIn('_openHeartStoreFromSettings(tester)', body)
-        self.assertIn("_seeNone(_heartLockedWords, '하트 스토어')", body)
+        self.assertIn("_seeNone(_heartBannedWords, '하트 스토어')", body)
+
+    def test_the_paid_card_check_wants_both_words_when_offered_and_neither_otherwise(self):
+        helper = self.case_body('Future<void> _paidCardAsServerSaid', 'Future<void> _openHeartStoreFromSettings')
+        self.assertIn("case {'state': 'offered', 'cost': final int cost, 'band_count': final int band}", helper)
+        self.assertIn("for (final text in ['$cost으로 열기', '$band명이 기다리고 있어요'])", helper)
+        self.assertIn("_seeNone(_paidCardWords, ", helper)
+        text = (tools.ROOT / 'frontend' / 'integration_test' / 'area4_extra.dart').read_text(encoding='utf-8')
+        self.assertIn("const _paidCardWords = ['으로 열기', '명이 기다리고 있어요'];", text)
+        # 그 글자는 앱의 결제 카드(paid_card_locked.dart)가 그리는 글자다.
+        shown = (tools.ROOT / 'frontend' / 'lib' / 'matching' / 'view' / 'paid_card_locked.dart').read_text(encoding='utf-8')
+        self.assertIn("label: '${card.cost}으로 열기'", shown)
+        self.assertIn("$bandCount명이 기다리고 있어요'", shown)
+
+    def test_the_walk_runs_the_today_check_while_the_today_tab_is_open(self):
+        walk = self.case_body('Future<void> _noneOnHeartScreens', 'Future<void> _paidCardAsServerSaid')
+        today, me = walk.index("_seeNone([...words, ...tabsOnly], '오늘 탭')"), walk.index("await tap(tester, _tab('나'))")
+        self.assertLess(today, walk.index('await onToday?.call()'))
+        self.assertLess(walk.index('await onToday?.call()'), me)
 
     def test_the_walk_applies_tabs_only_words_to_today_and_me_but_not_to_settings(self):
         walk = self.case_body('Future<void> _noneOnHeartScreens', 'Future<void> _openHeartStoreFromSettings')
