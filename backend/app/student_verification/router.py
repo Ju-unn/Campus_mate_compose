@@ -2,6 +2,7 @@ import asyncio
 import logging
 import re
 from collections.abc import Callable
+from uuid import UUID
 
 import httpx
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -14,6 +15,7 @@ from app.consents.repository import ConsentRepository, require_current_consent
 from app.core import errors
 from app.core.deps import Caller, get_caller, get_vision_client_factory
 from app.profile_onboarding.encryption import set_encrypted_real_name, write_best_effort
+from app.settings import Settings
 from app.student_verification.current_user import reject_suspended, require_school_email
 from app.student_verification.discord_notifier import DiscordNotifier
 from app.student_verification.image_validation import student_id_content_type
@@ -53,7 +55,8 @@ async def submit_student_verification(
     status = gate["student_verification"]
     if status == "pending":
         raise HTTPException(status_code=409, detail=errors.VERIFICATION_IN_REVIEW)
-    # 끝난 인증을 다시 제출하면 pending 으로 되돌아가 삭제 트리거의 "pending → verified/rejected" 전이가 꼬인다.
+    # 끝난 인증을 다시 제출하면 pending 으로 되돌아가 검토 결과 트리거(pending → verified/rejected 때 훅을 불러
+    # 알림을 보내고 사진을 지운다)가 꼬인다.
     if status == "verified":
         raise HTTPException(status_code=409, detail=errors.VERIFICATION_ALREADY_DONE)
 
@@ -75,14 +78,20 @@ async def submit_student_verification(
     storage = StudentIdStorage(settings.storage_url, settings.supabase_service_role_key, client)
     file_path = await storage.upload(profile_id, data, content_type)
 
-    await repo.upsert_real_name(profile_id, name)
-    # 이중 쓰기 기간: 평문이 진실이라 enc 쓰기가 실패해도 제출은 계속된다(백필이 메운다).
-    await write_best_effort("real_name", profile_id, lambda: set_encrypted_real_name(
-        settings.postgrest_url, settings.supabase_service_role_key, client,
-        profile_id, name, settings.phone_encryption_key,
-    ))
-    # 결과가 어느 쪽이든 먼저 pending 으로 남긴다 — 삭제 트리거가 "pending → verified/rejected" 전이만 보기 때문이다.
-    await repo.record_attempt(profile_id, file_path, "pending")
+    try:
+        await repo.upsert_real_name(profile_id, name)
+        # 이중 쓰기 기간: 평문이 진실이라 enc 쓰기가 실패해도 제출은 계속된다(백필이 메운다).
+        await write_best_effort("real_name", profile_id, lambda: set_encrypted_real_name(
+            settings.postgrest_url, settings.supabase_service_role_key, client,
+            profile_id, name, settings.phone_encryption_key,
+        ))
+        # 결과가 어느 쪽이든 먼저 pending 시도 행으로 남긴다 — 사람 검토 대기열이고, 검토 결과 훅과 매시 배치
+        # (retention.py)가 이 행을 보고 사진을 지운다.
+        await repo.record_attempt(profile_id, file_path, "pending")
+    except Exception:
+        # 시도 행이 없으면 매시 배치가 이 사진을 영영 고르지 않는다(30일 보관 약속이 깨진다) — 지금 지우고 원래 오류를 낸다.
+        await _delete_or_report_orphan(settings, client, storage, profile_id, file_path)
+        raise
     await repo.update_verification_status(profile_id, "pending")
 
     reason: ReviewReason | None = None
@@ -118,10 +127,7 @@ async def submit_student_verification(
             # SQL 트리거가 아니라 여기서 직접 지운다 — `delete from storage.objects`는 메타 행만 지우고
             # 실제 파일은 고아로 남는다(Supabase storage/management 문서, 2026-09-20 분석담당 리뷰).
             # 삭제 실패는 인증 결과를 실패시키지 않고 디스코드로만 알린다(고아 파일 수동 정리용).
-            # 로그 · 알림에는 계정 id 만 — 사진 경로는 남기지 않는다(COMMON §3). 알림은 실패해도 삼킨다(discord_notifier).
-            if not await storage.delete(file_path):
-                _logger.error("학생증 사진 삭제 실패 — 고아 파일, profile_id=%s", profile_id)
-                await DiscordNotifier(settings.discord_webhook_url, client).notify_orphaned_file(profile_id)
+            await _delete_or_report_orphan(settings, client, storage, profile_id, file_path)
             return {"status": "verified"}
 
     # 사람이 왜 봐야 하는지 한 줄로 남긴다(2026-09-26 사용자 결정). **이 줄에는** 실명·OCR 원문·사진 경로를
@@ -136,6 +142,16 @@ async def submit_student_verification(
     )
     await DiscordNotifier(settings.discord_webhook_url, client).notify_pending_review(reason, profile_id)
     return {"status": "pending"}
+
+
+async def _delete_or_report_orphan(settings: Settings, client: httpx.AsyncClient, storage: StudentIdStorage,
+                                   profile_id: UUID, file_path: str) -> None:
+    """방금 올린 사진을 지운다. 삭제 실패는 부른 쪽 결과를 바꾸지 않고 디스코드로만 알린다(고아 파일 수동 정리용).
+    404 는 이미 없는 것이라 성공이다(storage.delete). 로그 · 알림에는 계정 id 만 — 사진 경로는 남기지 않는다(COMMON §3).
+    알림은 실패해도 삼킨다(discord_notifier)."""
+    if not await storage.delete(file_path):
+        _logger.error("학생증 사진 삭제 실패 — 고아 파일, profile_id=%s", profile_id)
+        await DiscordNotifier(settings.discord_webhook_url, client).notify_orphaned_file(profile_id)
 
 
 @router.get("/me/verification-status")

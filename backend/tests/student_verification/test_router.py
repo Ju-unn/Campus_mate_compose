@@ -16,6 +16,7 @@ from app.student_verification.matching import REVIEW_REASON_LABELS
 from app.core.deps import get_client, get_settings, get_vision_client_factory
 from app.main import app
 from app.settings import Settings
+from app.student_verification.repository import StudentVerificationRepository
 from app.student_verification.router import fetch_verification_status
 
 PROFILE_ID = UUID("11111111-1111-1111-1111-111111111111")
@@ -297,6 +298,81 @@ def test_confirm_failure_log_carries_no_photo_path(caplog):
     assert _uploaded_path(sent).split("/")[1] not in caplog.text
 
 
+# --- 업로드 뒤 시도 행을 쓰기 전에 실패하면 방금 올린 사진을 지운다 -----------------------------
+# 매시 배치(retention)는 시도 행으로만 사진을 고른다 — 행이 없는 사진은 30일이 지나도 안 지워진다.
+
+
+def _storage_delete(request: httpx.Request) -> bool:
+    return request.method == "DELETE" and "/storage/v1/object/student-id-temp/" in str(request.url)
+
+
+@pytest.mark.parametrize("failing_write", ["/rest/v1/profile_private", "/rest/v1/student_verification_attempts"])
+def test_photo_is_deleted_when_a_write_before_the_attempt_row_fails(failing_write):
+    sent, vision_client = _wire(_gate_row("none"), ocr_text="서울대학교 학생증 홍길동",
+                                fails=lambda r: r.method == "POST" and failing_write in str(r.url))
+
+    response = _submit()
+
+    assert response.status_code == 500
+    deletion = _calls(sent, "DELETE", "/storage/v1/object/student-id-temp/")
+    assert [str(r.url).split("/object/student-id-temp/")[1] for r in deletion] == [_uploaded_path(sent)]
+    vision_client.batch_annotate_images.assert_not_awaited()
+    assert _calls(sent, "POST", "discord.com") == []
+
+
+def test_photo_is_deleted_when_the_attempt_row_write_raises_outright(monkeypatch):
+    # 응답 없이 끊긴 경우(시간 초과)도 같다 — 예외 종류를 가리지 않는다.
+    monkeypatch.setattr(StudentVerificationRepository, "record_attempt",
+                        AsyncMock(side_effect=httpx.ReadTimeout("timed out")))
+    sent, _ = _wire(_gate_row("none"), ocr_text="서울대학교 학생증 홍길동")
+
+    with pytest.raises(httpx.ReadTimeout):
+        _submit()
+
+    assert len(_calls(sent, "DELETE", "/storage/v1/object/student-id-temp/")) == 1
+
+
+def test_a_404_on_the_cleanup_delete_is_not_an_orphan():
+    def attempt_fails_and_photo_is_gone(request: httpx.Request) -> bool:
+        is_attempt_insert = request.method == "POST" and "/student_verification_attempts" in str(request.url)
+        return is_attempt_insert or _storage_delete(request)
+
+    sent, _ = _wire(_gate_row("none"), fails=attempt_fails_and_photo_is_gone, fail_status=404)
+
+    _submit()
+
+    assert len(_calls(sent, "DELETE", "/storage/v1/object/student-id-temp/")) == 1
+    assert _calls(sent, "POST", "discord.com") == []
+
+
+def test_cleanup_delete_failure_sends_the_orphan_notice_with_the_id_only(caplog):
+    def attempt_and_delete_fail(request: httpx.Request) -> bool:
+        is_attempt_insert = request.method == "POST" and "/student_verification_attempts" in str(request.url)
+        return is_attempt_insert or _storage_delete(request)
+
+    sent, _ = _wire(_gate_row("none"), fails=attempt_and_delete_fail)
+
+    with caplog.at_level(logging.WARNING):
+        assert _submit().status_code == 500
+
+    photo_name = _uploaded_path(sent).split("/")[1]
+    notice = _discord_content(sent)
+    assert str(PROFILE_ID) in notice and photo_name not in notice
+    assert "webhooks" not in caplog.text
+    assert f"profile_id={PROFILE_ID}" in caplog.text and photo_name not in caplog.text
+
+
+def test_photo_stays_once_the_attempt_row_exists():
+    # 시도 행이 생긴 뒤의 실패는 배치가 30일 안에 맡는다 — 사람이 볼 사진을 먼저 지우지 않는다.
+    def pending_status_patch_fails(request: httpx.Request) -> bool:
+        return request.method == "PATCH" and "/rest/v1/profiles" in str(request.url)
+
+    sent, _ = _wire(_gate_row("none"), ocr_text="서울대학교 학생증 홍길동", fails=pending_status_patch_fails)
+
+    assert _submit().status_code == 500
+    assert _calls(sent, "DELETE", "/storage/v1/") == []
+
+
 def test_verified_path_logs_no_review_warning(caplog):
     sent, _ = _wire(_gate_row("none"), ocr_text="서울대학교 학생증 홍길동")
 
@@ -494,7 +570,7 @@ def test_submit_returns_409_while_review_is_pending():
 
 
 def test_submit_returns_409_when_already_verified():
-    # 끝난 인증을 다시 제출하면 pending 으로 되돌아가 사진 삭제 트리거가 꼬인다 — 아무 일도 하지 않고 막는다.
+    # 끝난 인증을 다시 제출하면 pending 으로 되돌아가 검토 결과 트리거가 꼬인다 — 아무 일도 하지 않고 막는다.
     sent, vision_client = _wire(_gate_row("verified"), ocr_text="서울대학교 홍길동")
 
     response = _submit()
