@@ -5,6 +5,7 @@
 > **2026-09-29 문서 정리 갱신.** 조각 6(신고 · 차단 · 지인 차단 · 탈퇴) · 커뮤니티 · 추천 · 무료 하트 인증 · 지인 리뷰 · 코호트 · 가입 동의 · FAQ 까지 저장소 `supabase/migrations/` 가 **52개**이고, 운영(Supabase)에는 마지막으로 `create_faq`(운영 기록 `20260929054505`)와 그 앞 `create_user_consents`(`20260929051356`)가 적용됐다(대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다). 아래 각 표의 "조각N 제안" 표시는 만들 때의 기록이고, 실제로 만든 칸은 이번 정리에서 "적용됨" 으로 바꿨다.
 > **2026-10-09 갱신(소셜 로그인 전환).** 저장소 `supabase/migrations/` 가 **61개**다. 마지막 네 파일 `20261008010000`(학교 없는 pending 프로필) · `20261008020000`(소셜 이름 지우기 트리거) · `20261008030000`(`school_email_claims` · 정리 · 인증 완료 함수) · `20261008040000`(이메일 해시 없는 탈퇴)이 **2026-10-09 운영에 적용됐다**(대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다). 반영 위치: §1 조감도 · §2 표 · §3 `profiles` · `school_email_claims` · 트리거 · 함수, §5 `withdraw_account`. **데이터 이전**: 기존 사용자 25명(대장 전달 값)은 `school_email_verified_at` = 가입 시각(`created_at`, `20261008010000` 의 update)으로, `school_email_claims` 는 `provider = 'email'` 로 채웠다(`backend/scripts/backfill_school_email_claims.py` — HMAC 키가 서버에만 있어 SQL 로 못 채운다).
 > **2026-10-10 갱신(카드 선정 · 유료 카드).** 저장소 `supabase/migrations/` 가 **66개**다(PR #442 merge 뒤 main 기준). 새로 생긴 다섯 파일: `20261010010000`(`match_candidates` 반환을 jsonb 배열 + `pickable` 로) · `20261010020000`(`paid_card_offers`) · `20261010030000`(`purchase_paid_card`) · `20261010040000`(`notifications`) · `20261010050000`(유료 카드 주기당 한 장을 막는 부분 유일 인덱스 교체, PR #442)는 모두 **2026-10-10 운영에 적용됐다**(대장 전달 값: 운영 마이그레이션 66개 확인 — 이 문서 담당이 클라우드를 조회하지 않았다). 반영 위치: §1 조감도 · §2 표 · §4(`daily_cards` 옆 두 표와 함수) · §8 `paid_card_offer_status`. `notifications` 의 90일 보관 정리는 서버 배치 몫이고 구현 중이다(마이그레이션에는 없다).
+> **2026-10-12 갱신(실명 · 카톡 암호화 · 학생증 사진 정리).** 저장소 `supabase/migrations/` 가 **67개**다. 새 파일 `20261011010000`(실명 · 카톡 암호화 M1 — `profile_private.real_name_enc` · `kakao_id_enc` + 함수 4개)이 운영에 적용됐다(대장 전달 값: 운영 67개 — 이 문서 담당이 클라우드를 조회하지 않았다). 백필 끝(2행, 불일치 0), 옛 평문 열을 지우는 M2 는 아직이다. 학생증 사진 정리(검토 대기 30일 상한 · 사람 확정 뒤 삭제, 2026-10-11 사용자 결정)는 스키마 변경 없이 서버 코드로 했다. 반영 위치: §2 `profile_private` 행 · §3 `profile_private` · `student_verification_attempts` · §9 `student-id-temp`. (위 10-10 줄의 `notifications` 90일 정리도 그 뒤 매시 `chat-gate` 배치에 들어갔다 — `backend/DEPLOY.md` §4-1.)
 
 ## 읽는 법
 
@@ -80,7 +81,7 @@ erDiagram
 | `universities` · `university_email_domains` | `anon` · `authenticated` 전체 | 가입 화면의 학교·도메인 확인 |
 | `region_group_settings` | `authenticated` 전체 | 다음 지급 시각 표시 |
 | `profiles` | 본인 행 (`id`) | |
-| `profile_private` | 본인 행 (`profile_id`) · 컬럼 grant `profile_id` · `real_name` 만 | 16e 본인 실명 조회. 번호 암호문·`phone_hmac`·카카오톡 아이디는 내려가지 않는다. 앱은 `select *` 대신 컬럼을 지정한다. 본인 `kakao_id`(16e · 14f · 16e-1)는 FastAPI 가 내려준다(§11-20). **2026-09-28 개정: 16e 는 실명도 서버 `GET /account` 로 받는다**(실명 · 출생연도 · 학교 · 가입일 · 카톡을 한 번에, 계획서 `2026-09-27-account-logout.md` T2). 컬럼 grant 는 남아 있지만 지금 앱은 이 표를 직접 읽지 않는다 |
+| `profile_private` | 본인 행 (`profile_id`) · 컬럼 grant `profile_id` · `real_name` 만 | 16e 본인 실명 조회. 번호 암호문·`phone_hmac`·카카오톡 아이디는 내려가지 않는다. 앱은 `select *` 대신 컬럼을 지정한다. 본인 `kakao_id`(16e · 14f · 16e-1)는 FastAPI 가 내려준다(§11-20). **2026-09-28 개정: 16e 는 실명도 서버 `GET /account` 로 받는다**(실명 · 출생연도 · 학교 · 가입일 · 카톡을 한 번에, 계획서 `2026-09-27-account-logout.md` T2). 컬럼 grant 는 남아 있지만 지금 앱은 이 표를 직접 읽지 않는다. **2026-10-12 추가: 새 암호문 열 `real_name_enc` · `kakao_id_enc` 는 grant 하지 않는다**(`20261011010000`) — 읽기는 서버가 `service_role` 로 `decrypt_profile_private` 를 불러서만 한다(§3) |
 | `student_verification_attempts` | 없음 | FastAPI 전용 — 본인 반려 사유는 FastAPI 응답으로 내려주고, 재시도 횟수는 행 수로 FastAPI 가 센다(§12-4) |
 | `profile_photos` · `profile_avatars` · `survey_answers` | 본인 행 (`profile_id`) | |
 | `profile_vectors` | 없음 | FastAPI 전용 |
@@ -215,11 +216,13 @@ erDiagram
 
     profile_private {
         uuid profile_id PK, FK "조각1"
-        text real_name "조각1 · 민감 · 3b 입력 · 학생증 이름 대조 · 본인만 16e 조회"
+        text real_name "조각1 · 민감 · 3b 입력 · 학생증 이름 대조 · 본인만 16e 조회 · 평문, M2 에서 삭제 예정(2026-10-11)"
+        bytea real_name_enc "2026-10-11 적용 · 민감 · real_name 의 pgcrypto 암호문 · 키 PHONE_ENCRYPTION_KEY · grant 없음"
         bytea phone_number "조각2 · 민감 · 04-1 · pgcrypto 암호문(2026-09-29 표기 정정, 종전 text)"
         bytea phone_hmac "조각6 적용 · 민감 · 지인 차단 · 추천 같은 번호 대조 · 유니크 안 검(검토5 해결)"
         smallint phone_hmac_key_version "조각6 적용 · 기본 1 · 같은 버전끼리만 대조"
-        text kakao_id "조각2 · 민감 · 04-1b 가입 시 필수 입력(2026-09-14 개정, 종전 조각5 신뢰 확인 시점 수집) · 신뢰 확인 통과 후 상대에게만 · 주인이 withdrawn 이면 상대에게 주지 않음(§3)"
+        text kakao_id "조각2 · 민감 · 04-1b 가입 시 필수 입력(2026-09-14 개정, 종전 조각5 신뢰 확인 시점 수집) · 신뢰 확인 통과 후 상대에게만 · 주인이 withdrawn 이면 상대에게 주지 않음(§3) · 평문, M2 에서 삭제 예정(2026-10-11)"
+        bytea kakao_id_enc "2026-10-11 적용 · 민감 · kakao_id 의 pgcrypto 암호문 · 키 PHONE_ENCRYPTION_KEY · grant 없음"
         timestamptz updated_at
     }
 
@@ -228,7 +231,7 @@ erDiagram
         uuid profile_id FK "조각1 · cascade"
         text file_path "조각1 · student-id-temp 객체 경로"
         verification_status result "조각1 · 기본 pending · none 불가"
-        text reject_reason "조각1 · rejected 일 때"
+        text reject_reason "조각1 · rejected 일 때 · 30일 기한 만료면 서버 고정 문구(2026-10-11)"
         timestamptz submitted_at "조각1"
         timestamptz reviewed_at "조각1 · 판정 전 null"
     }
@@ -288,8 +291,9 @@ erDiagram
 - `universities.name` 은 unique 다(시드가 이름으로 도메인을 짝짓는다). `university_email_domains.domain` 은 소문자 도메인 형식 check `^[a-z0-9-]+(\.[a-z0-9-]+)+$`. 도메인 1개는 대학 1개에만 속하고, 서울 밖 캠퍼스도 따로 나누지 않는다(§11-10)
 - 조각 4에서 `universities.region_group` 에 `region_group_settings` FK 를 걸 때는 같은 마이그레이션에서 `seoul` 행을 먼저 넣는다
 - 민감 값(`real_name` · `phone_number` · `phone_hmac` · `kakao_id`)은 `profile_private` 로 분리했다. 서버 코드가 남의 프로필을 `select *` 로 읽어도 민감 값이 딸려 나오지 않는다. 접근 감사 로그는 테이블 없이 FastAPI 구조화 로그로 남긴다(§11-13). 운영자도 FastAPI 관리 기능으로만 조회하고 Supabase 대시보드·SQL 로 직접 보지 않는다(§11-18)
+- **실명 · 카카오톡 아이디 암호화(2026-10-11, M1 `20261011010000` 운영 적용 · PR #464 · #467)** — 전화번호와 같은 `pgp_sym_encrypt` · 같은 키(`PHONE_ENCRYPTION_KEY`, FastAPI Secret Manager 전용)로 `real_name_enc` · `kakao_id_enc`(`bytea`)에 둔다. 함수 4개 `set_real_name` · `set_kakao_id` · `decrypt_profile_private` · `backfill_profile_private_encryption`(임시) — 전부 security invoker, `service_role` 만 실행, 키는 RPC JSON 바디로만(세부 `docs/SUPABASE.md` §8). 지금은 **이중 쓰기 기간**이라 서버가 평문 · 암호문 둘 다 쓰고, 값을 내려줄 때는 복호화 값을 먼저 쓰고 비면 평문으로 폴백한다(온보딩 진행 판단만 평문 먼저, `docs/SUPABASE.md` §8). 옛 행은 백필로 채웠다(2026-10-12, 2행 · 불일치 0). **M2(평문 `real_name` · `kakao_id` 열과 백필 함수 삭제)는 아직** — 하네스 · 서버의 평문 사용을 뺀 뒤 사용자 승인으로 적용한다(`backend/DEPLOY.md` §4-4)
 - `student_verification` 은 boolean이 아니라 상태값(`none` `pending` `verified` `rejected`, 2026-09-14 확정)이다. 3b의 "조금 더 확인이 필요해요" 대기 상태를 담아야 하기 때문이다
-- `student_verification_attempts` 는 학생증 제출 한 번에 한 행이다(§12-4, 2026-09-14 사용자 결정). 재시도 횟수(설계 미결3)는 이 테이블의 행 수로 FastAPI 가 세고, 반려 사유(`reject_reason`)는 본인에게 FastAPI 응답으로 내려준다. `result` 는 제출 직후 `pending` 이고 `none` 일 수 없다(check). 클라이언트 권한은 없다(§2). **`verified` 확정 후 재제출은 FastAPI 가 막는다(409, 2026-09-20 결정)** — `rejected` 는 계속 재제출 가능
+- `student_verification_attempts` 는 학생증 제출 한 번에 한 행이다(§12-4, 2026-09-14 사용자 결정). 재시도 횟수(설계 미결3)는 이 테이블의 행 수로 FastAPI 가 세고, 반려 사유(`reject_reason`)는 본인에게 FastAPI 응답으로 내려준다. `result` 는 제출 직후 `pending` 이고 `none` 일 수 없다(check). 클라이언트 권한은 없다(§2). **`verified` 확정 후 재제출은 FastAPI 가 막는다(409, 2026-09-20 결정)** — `rejected` 는 계속 재제출 가능. **검토 대기 상한 30일(2026-10-11 사용자 결정, PR #463)** — `submitted_at` 이 30일 지났는데 `result = pending` 인 행은 매시 `chat-gate` 배치가 `rejected` · `reject_reason` "검토 기한이 지나 사진을 삭제했어요. 학생증을 다시 올려 주세요" · `reviewed_at` 으로 닫고, 그 행이 그 사람의 최근 제출이면 `profiles.student_verification` 을 (`pending` 일 때만) `rejected` 로 바꾼다. 검토 결과 훅은 이 사유 문구로 "기한 만료" 알림을 고른다(`app/student_verification/retention.py` · `review_hook.py`). 스키마 변경은 없다
 - **`profiles.department` 컬럼은 만들지 않는다(2026-09-20 결정)** — 학과는 기존 `major` 컬럼을 재사용하고, FastAPI 응답에서만 `department` 로 별칭한다. 학번은 `student_number` 컬럼을 새로 추가했다(설계 §7.3, 마이그레이션 `20260919181319`)
 - **`profiles.bio_draft` · `bio_draft_generated_at`**: AI 자기소개 초안은 최초 1회만 생성한다. `bio_draft_generated_at` 이 이미 있으면 재호출 시 재생성하지 않고 저장된 `bio_draft` 값을 그대로 반환한다(설계 §13-71)
 - **`profiles.ideal_note`**: 빈 문자열이면 "미입력"으로 취급한다. 매칭 임베딩("원해" 문장, 설계 §6.3) 계산에서는 빈 문자열을 "없음"으로 처리한다
@@ -697,7 +701,7 @@ enum 값은 만든 뒤 지울 수 없다(추가·이름 변경만 된다). 그�
 | `profile-photos` | 비공개 | 0 | 실사진 2~4장. 서명 URL은 본인과, 신뢰 확인을 통과한 상대에게만 준다. 사진 주인이 탈퇴(`withdrawn`)하면 남은 상대에게도 주지 않는다(§3). 이미 발급한 서명 URL 은 만료까지 열리므로 실사진 서명 URL 만료는 짧게 둔다(조각 5). **제한: 파일 10MB · `image/jpeg` `image/png`**(2026-09-14 사용자 결정, 조각 0 파일은 두고 조각 1 마이그레이션에서 추가 · 클라우드 적용됨(2026-09-20)) — 클라이언트가 업로드 전에 압축하고 JPEG 로 다시 인코딩한다. 파일 내용(매직 바이트) 검사는 FastAPI 가 한다 |
 | `avatars` | **공개**(2026-09-20 결정) | 2 | 만화 아바타. 항상 노출되는 이미지라 공개 버킷으로 바꾸자는 안은 설계 §7.4 예외라서 조각 2에서 결정 — 검토2 → **공개로 확정**(위 정정 ②) |
 | `heart-task-proofs` | 비공개 | 무료 하트(2026-09-28 적용) | 무료 하트 인증샷. **제한: 파일 10MB · `image/jpeg` `image/png`**. 경로 `{profile_id}/{submission_id}.jpg`(png 면 `.png`). 올리기 · 지우기 모두 FastAPI(`service_role`). 검수 끝나고 60일 뒤(하루 100장씩) · 탈퇴 정리 때 지운다 |
-| `student-id-temp` | 비공개 | 1 | 학생증 사진. 자동 대조 실패 시 사람이 재검토해야 해서(설계 §7.3) **검증이 끝날 때까지만 임시 보관하고, 끝나면 즉시 삭제**한다. **구현(2026-09-20 정정, PR #43) — Postgres 트리거가 아니라 FastAPI 가 Storage API로 직접 지운다**: `profiles.student_verification` 을 `verified`/`rejected` 로 확정한 직후 FastAPI 가 그 사람의 최근 제출 파일을 Storage API `DELETE`로 지운다. `delete from storage.objects` 트리거(`student_verification_finalized`, 마이그레이션 `20260919181357`)는 `storage.objects` 메타 행만 지우고 실제 파일 객체는 고아로 남기기 때문에 폐기했다(클라우드에 적용된 적 없음, 파일도 삭제) — Supabase Storage 문서상 파일 삭제는 Storage API를 거쳐야 한다. 삭제 실패는 인증 결과(성공)에 영향을 주지 않고 로그와 디스코드 알림으로만 남으며, 고아 파일은 대시보드에서 손으로 지운다(SUPABASE.md §7). 보관 기간을 따로 두지 않는다. 검증이 끝나기 전에 탈퇴한 사람의 파일은 탈퇴 즉시(30일 보관 예외, §11-19), 가입 도중 이탈한 사람의 파일도 FastAPI 가 지운다(이탈 판단 시점은 조각 1에서 정한다). **제한: 파일 10MB · `image/jpeg` `image/png`**(2026-09-14 사용자 결정) — 클라이언트가 업로드 전에 압축하고 JPEG 로 다시 인코딩한다. 버킷 제한은 업로드 쪽이 신고한 content type 과 크기로만 막으므로(413 · 400), 파일 내용(매직 바이트)은 FastAPI 가 업로드 뒤 대조 전에 검사한다(조각 1 서버) |
+| `student-id-temp` | 비공개 | 1 | 학생증 사진. 자동 대조 실패 시 사람이 재검토해야 해서(설계 §7.3) **검증이 끝날 때까지만 임시 보관하고, 끝나면 즉시 삭제**한다. **구현(2026-09-20 정정, PR #43) — Postgres 트리거가 아니라 FastAPI 가 Storage API로 직접 지운다**: `profiles.student_verification` 을 `verified`/`rejected` 로 확정한 직후 FastAPI 가 그 사람의 최근 제출 파일을 Storage API `DELETE`로 지운다. `delete from storage.objects` 트리거(`student_verification_finalized`, 마이그레이션 `20260919181357`)는 `storage.objects` 메타 행만 지우고 실제 파일 객체는 고아로 남기기 때문에 폐기했다(클라우드에 적용된 적 없음, 파일도 삭제) — Supabase Storage 문서상 파일 삭제는 Storage API를 거쳐야 한다. 삭제 실패는 인증 결과(성공)에 영향을 주지 않고 로그와 디스코드 알림으로만 남으며, 고아 파일은 대시보드에서 손으로 지운다(SUPABASE.md §7). 보관 기간을 따로 두지 않는다. **2026-10-11 사용자 결정으로 개정(PR #463) — 종전 "대시보드 수동 확정 뒤에는 손으로 지운다 · 보관 기간을 따로 두지 않는다"**: 지우는 곳이 셋이다 — ① 자동 통과 직후 FastAPI(`router`) ② 사람이 대시보드에서 확정한 직후 검토 결과 훅(`review_hook`, 최근 제출의 `result` 가 `pending` 이 아닐 때만) ③ 매시 `chat-gate` 배치(`retention`) — 검토가 끝났는데 남은 사진을 지우고, **검토 대기 30일**을 넘긴 시도는 반려로 닫은 뒤 사진을 지운다(§3 `student_verification_attempts`). 그래서 시도 행이 있는 사진은 제출 뒤 30일(+ 배치 한 시간)을 넘겨 남지 않고, 손으로 지울 일은 없어졌다. 버킷 404(이미 없음)는 삭제 성공으로 친다. **알려진 빈틈(2026-10-12 문서 정리에서 확인)**: 배치는 버킷 경로로 시도 행을 찾아 판단하므로, 업로드는 됐는데 시도 행 기록 전에 요청이 실패한 사진(시도 행 없음)은 지우지 않는다 — 탈퇴 정리 때까지 남는다(`retention.py` "시도 행이 없으면 … ①이 30일에 맡는다" 는 행이 곧 생기는 경우만 덮는다). 검증이 끝나기 전에 탈퇴한 사람의 파일은 탈퇴 즉시(30일 보관 예외, §11-19), 가입 도중 이탈한 사람의 파일도 FastAPI 가 지운다(이탈 판단 시점은 조각 1에서 정한다). **제한: 파일 10MB · `image/jpeg` `image/png`**(2026-09-14 사용자 결정) — 클라이언트가 업로드 전에 압축하고 JPEG 로 다시 인코딩한다. 버킷 제한은 업로드 쪽이 신고한 content type 과 크기로만 막으므로(413 · 400), 파일 내용(매직 바이트)은 FastAPI 가 업로드 뒤 대조 전에 검사한다(조각 1 서버) |
 
 ## 10. 조각 0 마이그레이션 범위 → `docs/ERD_DECISIONS.md` §10
 

@@ -80,7 +80,7 @@ gcloud run deploy campus-mate-backend \
 비어 있으면 그 단계만 건너뛴다(경고 없이, 서버 시작은 막지 않는다). Secret Manager 에 시크릿 `kakao-admin-key` 로 등록했다(2026-10-09).
 위 `--set-secrets` 목록에 `KAKAO_ADMIN_KEY=kakao-admin-key:latest` 를 더해 쓴다. 값은 이 문서에 적지 않는다.
 
-**`IDENTITY_HMAC_KEY`·`OPENAI_API_KEY`·`PHONE_ENCRYPTION_KEY` 3개가 이 명령에서 빠져 있었다(PR #85 리뷰에서 잡음, §0 에는 시크릿 등록만 돼 있고 배포 명령에 연결이 안 됐던 것). `settings.py` 가 필수(`min_length=1` 등)로 요구하므로 빠지면 그 자리에서 기동이 실패한다.** → **2026-09-29 확인: 위 명령에 셋 다 들어 있다**(조각 6 배포 때 반영, 시크릿 이름 `identity-hmac-key` · `open-api-key` · `phone-number-encryption-key`). 조각 6 에서 `DISCORD_REPORT_WEBHOOK_URL`(`discord-report-webhook-url`, 신고 전용 채널 — 비어 있으면 신고 알림만 건너뛰고 경고 로그)이 더해졌다. `settings.py` 가 읽는 env 7개 · 시크릿 9개는 위 명령으로 전부다(2026-10-09 `settings.py` 와 다시 대조. 종전 2026-09-29 대조 뒤 더해진 `KAKAO_ADMIN_KEY` 와 `VERIFICATION_HOOK_SECRET`(`verification-hook-secret`, 학생증 검토 결과 훅의 공유 비밀 — 비어 있으면 `/hooks/verification-reviewed` 가 모든 요청을 막는다)이 명령에서 빠져 있었다)
+**`IDENTITY_HMAC_KEY`·`OPENAI_API_KEY`·`PHONE_ENCRYPTION_KEY` 3개가 이 명령에서 빠져 있었다(PR #85 리뷰에서 잡음, §0 에는 시크릿 등록만 돼 있고 배포 명령에 연결이 안 됐던 것). `settings.py` 가 필수(`min_length=1` 등)로 요구하므로 빠지면 그 자리에서 기동이 실패한다.** → **2026-09-29 확인: 위 명령에 셋 다 들어 있다**(조각 6 배포 때 반영, 시크릿 이름 `identity-hmac-key` · `open-api-key` · `phone-number-encryption-key`). 조각 6 에서 `DISCORD_REPORT_WEBHOOK_URL`(`discord-report-webhook-url`, 신고 전용 채널 — 비어 있으면 신고 알림만 건너뛰고 경고 로그)이 더해졌다. `settings.py` 가 읽는 env 7개 · 시크릿 9개는 위 명령으로 전부다(2026-10-09 `settings.py` 와 다시 대조. 종전 2026-09-29 대조 뒤 더해진 `KAKAO_ADMIN_KEY` 와 `VERIFICATION_HOOK_SECRET`(`verification-hook-secret`, 학생증 검토 결과 훅의 공유 비밀 — 비어 있으면 `/hooks/verification-reviewed` 가 모든 요청을 막는다)이 명령에서 빠져 있었다). **2026-10-11 부터 `PHONE_ENCRYPTION_KEY` 는 실명 · 카카오톡 아이디 암호화에도 쓴다**(같은 키, §4-4 · `docs/SUPABASE.md` §8) — 이 키를 바꾸면 전화번호 · 실명 · 카톡 암호문을 모두 다시 암호화해야 한다
 
 **Auth OTP expiry — Supabase 대시보드 Authentication 설정의 OTP 유효시간을 300초(5분)로 맞춘다.** 기본값(3600초)과 앱의 인증 코드 화면 카운트다운(5분)이 어긋나 있었다(운영에서는 아직 3600초, 승인 대기 중).
 
@@ -173,6 +173,15 @@ audience 를 쓴다(둘 다 우리 스케줄러만 부르는 엔드포인트라 
   따라잡으므로 문제가 없다.
 - 새벽(22~8시)에 걸린 리마인드는 서버가 **아침 8시로 미뤄** 보낸다. 조용한 시간에 버려지면 창이 한 번뿐이라
   영영 못 가기 때문이다.
+- **2026-10-12 갱신 — 같은 매시 배치가 하는 일이 셋 더 붙었다**(새 job · env · 시크릿 없음, 응답도 칸만 늘었다).
+  지금 응답은 `{"reminded", "closed", "passed", "deferred_sent", "notifications_purged", "photos_deleted", "pending_expired"}` 모양이다.
+  - `deferred_sent` — 밤에 보류한 알림을 아침에 묶어 보낸 수. `notifications_purged` — 90일 지난 알림함 줄을 지운 수.
+  - **학생증 사진 정리(사용자 결정 2026-10-11, PR #463, 서버 revision `00058` 이후 — 대장 전달 값)** — `app/student_verification/retention.py`.
+    ① 제출하고 **30일이 지나도 검토 대기**인 시도를 반려로 닫고(사유 "검토 기한이 지나 사진을 삭제했어요. 학생증을 다시 올려 주세요",
+    한 번에 100명) 사진을 지운다 → `pending_expired`. ② 검토가 끝났는데 `student-id-temp` 에 남은 사진을 지운다 → `photos_deleted`(①의 삭제 포함).
+    시도를 먼저 닫고 프로필을 나중에 바꾸므로 그 순간 검토 결과 훅이 "기한 만료" 알림을 보낸다. 실패는 로그(시도 id 만)에 남기고
+    다음 정각이 다시 고른다 — 앞의 리마인드 · 마감 결과는 잃지 않는다.
+  - `photos_deleted` 가 매시 계속 0 이 아니면 대시보드 수동 확정 뒤 훅이 사진을 못 지우고 있다는 뜻이다(`docs/SUPABASE.md` §7).
 
 **주의:** 이 job 도 조각 5 의 `messages` 마이그레이션이 클라우드에 적용된 뒤에 만든다.
 
@@ -463,6 +472,40 @@ cd backend
 - **다시 돌려도 안전하다**: 이미 기록이 있는 계정은 건너뛰고(already), 쓸 때도 같은 해시가 있으면 덮지 않는다.
   탈퇴한 계정은 대상이 아니다(재가입 제한은 `signup_blocks` 가 맡는다).
 
+**실명 · 카카오톡 아이디 암호화 백필(2026-10-11, PR #461 · #464 · #467)** — 옛 평문 `profile_private.real_name` · `kakao_id` 를
+암호문 열 `real_name_enc` · `kakao_id_enc` 로 옮긴다. 전화번호와 같은 `pgp_sym_encrypt` 에 **같은 키**(`PHONE_ENCRYPTION_KEY`)를 쓴다.
+DB 함수 · 규칙은 `docs/SUPABASE.md` §8.
+
+- **순서** — 이 순서대로, 앞 단계가 끝난 뒤에 다음으로 간다.
+  1. 마이그레이션 M1 `20261011010000_encrypt_real_name_and_kakao_id` 적용(새 열 2개 + 함수 4개, 옛 열은 그대로).
+  2. 이중 쓰기 서버 배포(PR #464, revision `00059`) — 실명 · 카톡을 옛 열과 새 열에 같이 쓰고, 읽을 때는 복호화 값을 먼저 쓰고 비면 평문으로 폴백한다.
+  3. **그 뒤에** 백필 한 번(아래). 2 전에 돌리면 그 사이 가입한 행의 암호문이 비어 남는다.
+  4. 읽기 전환 — 2 의 복호화 우선 · 평문 폴백으로 이미 끝났다(따로 배포할 것 없음).
+  5. M2(옛 평문 열 · `backfill_profile_private_encryption` 함수 삭제, 별도 PR) — **아직 안 했다.** E2E 하네스가 평문 열을 직접 읽는 곳을 고친 뒤
+     사용자 승인을 받고 한다. **M2 보다 서버가 먼저다** — 지금 서버는 평문 열에 계속 쓰고(`upsert_real_name` · `update_kakao_id`)
+     복호화 값이 비면 평문 열을 select 한다(`core/postgrest.py` `_read_private`, `profile_onboarding/repository.py`). 열이 사라지면
+     이 요청들이 실패하므로, 평문 쓰기 · 폴백 읽기를 뺀 서버를 먼저 배포하고 M2 를 적용한다.
+- **어떻게** — 위 백필과 같은 자리(backend 폴더)에서. 실제로 쓰는 값은 `SUPABASE_URL` · `SUPABASE_SERVICE_ROLE_KEY` · `PHONE_ENCRYPTION_KEY`
+  셋이다. `settings.py` 가 부팅할 때 `AUTH_HOOK_SIGNING_SECRET` · `IDENTITY_HMAC_KEY` · `DISCORD_WEBHOOK_URL` · `GOOGLE_CLOUD_PROJECT` · `OPENAI_API_KEY`
+  도 요구하므로 이 다섯은 아무 더미 값이면 된다. 진짜 값은 Secret Manager 에서 env 로 넣고 여기 적지 않는다.
+
+```bash
+cd backend
+.venv/Scripts/python.exe -m scripts.backfill_encrypt_profile_private
+# 출력은 건수 한 줄뿐이다(실명 · 카톡 · 키 · profile_id 를 찍지 않는다):
+#   requested=<함수를 부른 행> real_name_plain=<평문 있는 행> real_name_enc=<암호문 있는 행> real_name_mismatch=<복호화 ≠ 평문>
+#   kakao_id_plain=… kakao_id_enc=… kakao_id_mismatch=…
+# mismatch 가 하나라도 0 이 아니면 종료 코드 1 이다 — M2 전에 사람이 본다.
+```
+
+- **다시 돌려도 안전하다**: 암호문이 빈 행만 고르고, DB 함수도 암호문이 이미 있는 열은 덮지 않는다(이중 쓰기로 먼저 들어간 새 값을 지킨다).
+  빈 문자열 평문은 암호문 null 과 같다.
+- **운영 기록(2026-10-12, 대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다)**: 1 · 2 · 3 끝. 백필 대상 2행, mismatch 0. M2 대기.
+- **키 로그 노출 점검(M1 머리말 "적용 뒤 확인할 것")**: `pg_stat_statements`(대시보드 Query Performance) · Postgres 로그에서
+  `pgp_sym_encrypt` · `pgp_sym_decrypt` 호출의 키 인자가 `$1` 같은 **자리표시자로만** 보이는지 본다(전화번호 함수 `20260920043638` 과 같은 위험).
+  PostgREST 는 RPC 인자를 JSON 바디로 받아 바인딩하므로 보통 문제없지만, `log_statement` · `auto_explain` 같은 설정이 인자 값을 남기는지 같이 본다.
+  서버는 키를 JSON 바디로만 넘기고 URL 에는 넣지 않는다(`app/profile_onboarding/encryption.py`). 점검 결과는 아직 이 문서에 기록이 없다.
+
 **정리 배치 job** — 매일 04:00 Asia/Seoul 에 `/batch/cleanup`. **처음부터 OIDC 다**(§4-3 의 계정 · 권한 ·
 `BATCH_AUDIENCE` 를 그대로 쓰고 `--headers` 는 붙이지 않는다). 무료 한도 3 job 중 세 번째다. 3단계 배포 뒤에 만든다.
 **2026-09-29 만들었다**(대장 — OIDC · 헤더 없음, 손으로 돌려 200 확인).
@@ -519,6 +562,11 @@ select public.grant_hearts('<profile_id>', -<지급한 하트>, 'admin_adjust', 
 **확인할 것**: 운영 첫 검수 때 Edit row 로 반려 저장이 되는지 한 번 본다(대시보드가 `created_at` 까지 다시 보내면 위 SQL 한 줄로). 배포 뒤 첫 04:00 정리 배치 응답에서 `skipped_accounts` 0 과 `deleted_heart_proofs` 칸을 본다.
 
 ## 5. 현재 배포 상태 (2026-09-26 기준)
+
+**2026-10-12 갱신(대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다).** 운영 마이그레이션 **67개**(저장소 `supabase/migrations/` 도 67개,
+마지막 `20261011010000_encrypt_real_name_and_kakao_id`). 서버는 학생증 사진 정리(§4-1, `00058` 이후)와 실명 · 카톡 이중 쓰기(§4-4, `00059`)까지 나갔다.
+실명 · 카톡 백필 끝(2행, 불일치 0), M2 대기. 새 env · 시크릿 · job 은 없다. iOS 푸시용 `apns` 블록(PR #465, `app/cards/push.py` — 소리 있는 일반 알림 ·
+우선순위 10)도 서버 코드뿐이라 배포 설정이 따로 없다. 아래 2026-09-29 표는 그 뒤로 갱신하지 않았다.
 
 **2026-09-29 갱신(대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다).**
 
