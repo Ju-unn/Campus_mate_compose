@@ -4,6 +4,8 @@ import httpx
 
 # 기본(폴백) 아바타 그림 8종. 성별 무관 공용 마스코트 하나를 쓴다(동물상 8종과는 별개, 사람 그림이 아니다).
 _FALLBACK_AVATAR_SOURCE_PATH = "defaults/fallback-avatar.png"
+# 원본 받기(download) 시간 제한. 공용 클라이언트 기본값(5초)보다 짧다 — 미리보기는 없어도 카드가 열린다.
+_DOWNLOAD_TIMEOUT_SECONDS = 2.0
 
 
 class AvatarStorage:
@@ -26,6 +28,14 @@ class AvatarStorage:
         )
         response.raise_for_status()
         return path
+
+    async def download(self, path: str) -> bytes:
+        """원본을 서버가 직접 받는다 — 결제 전 유료 카드는 주소 대신 서버가 줄인 미리보기만 준다(cards/paid_preview).
+        오늘 탭 응답 안에서 부르니 짧게 기다린다(연결 · 읽기 단계마다 2초). 넘기면 예외 — 부른 쪽이 회색 원으로 둔다."""
+        response = await self._client.get(f"{self._storage_url}/object/avatars/{path}", headers=self._headers,
+                                          timeout=_DOWNLOAD_TIMEOUT_SECONDS)
+        response.raise_for_status()
+        return response.content
 
     async def fallback_exists(self) -> bool:
         """복사 원본이 버킷에 있는지 읽기만으로 본다. 목록을 못 읽으면 예외다(없다는 뜻이 아니다).
