@@ -18,8 +18,8 @@ import 'package:go_router/go_router.dart';
 class IdealConditionsScreen extends ConsumerWidget {
   const IdealConditionsScreen({this.isEditing = false, super.key});
 
-  /// 나 탭 편집 모드(화면 15 선호 나이 · 키 행, 계획서 A5 · D5) — 서버 값으로 채우고, 편집 앱바 "이상형 조건 수정" 과
-  /// "저장" 을 쓰고, 저장이 끝나면 15 로 돌아간다. 본문은 온보딩과 같다.
+  /// 나 탭 편집 모드(계획서 A5 · D5) — 15-5 프로필 편집의 "이상형 조건 수정" 한 줄(pen `sR3If`)이 연다. 서버 값으로
+  /// 채우고, 편집 앱바 "이상형 조건 수정" 과 "저장" 을 쓰고, 저장이 끝나면 15-5 로 돌아간다. 본문은 온보딩과 같다.
   final bool isEditing;
 
   @override
