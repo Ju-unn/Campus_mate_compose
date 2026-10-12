@@ -11,6 +11,7 @@ import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -170,16 +171,22 @@ class _Toast extends StatelessWidget {
   }
 }
 
-/// 카카오 → 구글 버튼과 맨 아래 안내 줄. 로그아웃이 확인되기 전에는 그리지도, 누르게도, 읽히게도 하지 않고
-/// 크기만 차지한다([Visibility.maintainSize]).
+/// 카카오 → 구글(→ iOS 면 애플) 버튼과 맨 아래 안내 줄(pen `jXJSY` 시작 화면 4종). 로그아웃이 확인되기 전에는
+/// 그리지도, 누르게도, 읽히게도 하지 않고 크기만 차지한다([Visibility.maintainSize]).
 class _LoginArea extends ConsumerWidget {
   const _LoginArea({required this.state, required this.isSignedOut});
 
   final StartUiState state;
   final bool isSignedOut;
 
-  /// 이번 PR 은 카카오 · 구글만. 애플은 iOS 에서만, 개발자 계정 승인 뒤 별도 PR.
-  static const _providers = [SocialProvider.kakao, SocialProvider.google];
+  /// 애플 로그인은 iOS 앱에서만(안드로이드 · 웹은 애플 SDK 가 웹 흐름이라 쓰지 않는다). dart:io `Platform` 대신
+  /// [defaultTargetPlatform] 을 보는 건 시험에서 덮어쓸 수 있어서다. 그 값은 웹(아이폰 사파리)에서도 iOS 로 나오므로
+  /// [kIsWeb] 을 먼저 본다(`http_card_repository.dart` 와 같은 방식).
+  static List<SocialProvider> _providers() => [
+        SocialProvider.kakao,
+        SocialProvider.google,
+        if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) SocialProvider.apple,
+      ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -192,7 +199,7 @@ class _LoginArea extends ConsumerWidget {
       maintainState: true,
       child: Column(
         children: [
-          for (final (index, provider) in _providers.indexed) ...[
+          for (final (index, provider) in _providers().indexed) ...[
             if (index > 0) const SizedBox(height: AppSpacing.sm), // 버튼 세로 간격 12
             SocialLoginButton(
               provider: provider,
