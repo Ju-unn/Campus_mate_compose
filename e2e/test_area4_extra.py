@@ -2,6 +2,7 @@
 
 import os
 import re
+import sys
 import unittest
 from unittest import mock
 from urllib.parse import urlsplit
@@ -12,10 +13,6 @@ from e2e.test_area2 import Base, Fake
 from e2e.tools import Blocked, Reply
 
 THREE_NOT_CODED = ['E-HEART-06', 'E-HEART-47', 'E-SET-55']  # 50 · 56 · 57 은 뒤에 area4_terms · area4_set56 이 등록했다
-
-
-def paths_reply(*paths):
-    return lambda b, u: Reply(200, {'paths': {p: {} for p in paths}})
 
 
 class RegistryTest(unittest.TestCase):
@@ -72,46 +69,80 @@ class Heart46Test(Base):
                 area4_extra.heart_46(self.run)
 
 
+def code_app(*paths):
+    """배포처럼 /docs · /openapi.json 을 닫은(openapi_url=None) 진짜 FastAPI — 경로는 app.openapi() 로만 읽힌다."""
+    from fastapi import FastAPI
+    app = FastAPI(openapi_url=None, docs_url=None, redoc_url=None)
+    for path in paths:
+        app.add_api_route(path, lambda: None, methods=['GET'])
+    return app
+
+
+DOC_PATHS = ('/openapi.json', '/docs', '/redoc')
+TODAY = ('GET', '/cards/today', lambda b, u: Reply(200, {'cards': [], 'locked_card_available': False}))
+
+
 class OpenapiTest(Base):
-    def run_case(self, case, rules, phone=None):
-        phone = phone or FakePhone()
-        with mock.patch.object(tools, 'call', Fake(rules)):
-            return area1.attempt_phone(self.run, case, phone), phone
+    """E-HEART-49 · 51 의 서버 경로는 운영 /openapi.json(배포에서 닫힘)이 아니라 이 저장소 backend 의 app.openapi() 로 읽는다."""
+
+    def run_case(self, case, rules, phone=None, app=None):
+        phone, fake = phone or FakePhone(), Fake(rules)
+        with mock.patch.object(tools, 'call', fake), mock.patch.object(area4_extra, '_backend_app', return_value=app):
+            outcome = area1.attempt_phone(self.run, case, phone)
+        self.assertEqual([p for _, p, _ in fake.options if p in DOC_PATHS], [], '운영 서버에 문서 경로를 요청함')
+        return outcome, phone
+
+    def test_app_openapi_still_lists_paths_when_the_docs_are_closed(self):
+        app = code_app('/me/hearts')
+        self.assertIsNone(app.openapi_url)
+        self.assertIn('/me/hearts', app.openapi()['paths'])
 
     def test_heart_49_passes_when_no_refund_gift_or_transfer_route_exists_and_asks_the_app(self):
-        (result, memo), phone = self.run_case('E-HEART-49', [('GET', '/openapi.json', paths_reply('/me/hearts', '/heart-tasks/{task}'))])
+        (result, memo), phone = self.run_case('E-HEART-49', [], app=code_app('/me/hearts', '/heart-tasks/{task}'))
         self.assertEqual(result, 'pass')
         self.assertEqual(len(phone.jobs), 1)
+        self.assertIn('app.openapi()', memo)
 
     def test_heart_49_names_a_forbidden_route(self):
-        (result, memo), _ = self.run_case('E-HEART-49', [('GET', '/openapi.json', paths_reply('/me/hearts', '/hearts/Gift'))])
+        (result, memo), _ = self.run_case('E-HEART-49', [], app=code_app('/me/hearts', '/hearts/Gift'))
         self.assertEqual(result, 'fail')
         self.assertIn('/hearts/gift', memo)
 
-    def test_an_unreadable_openapi_is_blocked_not_a_pass(self):
+    def test_a_backend_that_cannot_be_imported_is_blocked_not_a_pass(self):
         for case in ('E-HEART-49', 'E-HEART-51'):
-            rules = [('GET', '/openapi.json', lambda b, u: Reply(404, {'detail': 'x'})),
-                     ('GET', '/cards/today', lambda b, u: Reply(200, {'cards': [], 'locked_card_available': False}))]
-            (result, memo), _ = self.run_case(case, rules)
+            fake = Fake([TODAY])
+            with mock.patch.object(tools, 'call', fake), mock.patch.dict(sys.modules, {'app.main': None}):
+                result, memo = area1.attempt_phone(self.run, case, FakePhone())
             self.assertEqual(result, 'blocked', case)
-            self.assertIn('openapi', memo)
+            self.assertIn('백엔드', memo)
+            self.assertEqual([p for _, p, _ in fake.options if p in DOC_PATHS], [])
+
+    def test_an_app_with_no_paths_is_blocked_not_a_pass(self):
+        (result, memo), _ = self.run_case('E-HEART-49', [], app=code_app())
+        self.assertEqual(result, 'blocked')
+
+    @unittest.skipUnless((tools.ROOT / 'backend' / 'app' / 'main.py').exists(), '백엔드 코드가 없다')
+    def test_the_real_backend_app_is_read_from_this_tree(self):
+        try:
+            paths = area4_extra._paths()
+        except Blocked as e:
+            self.skipTest(f'백엔드 의존성이 없다: {e}')
+        self.assertIn('/cards/today', paths)
+        self.assertEqual(area4_extra._named(paths, area4_extra.FORBIDDEN_HEART), [])  # 지금 main 에는 환급 · 선물 경로가 없다
+        self.assertNotIn(str(tools.ROOT / 'backend'), sys.path)  # 읽은 뒤 sys.path 를 되돌린다
 
     def test_heart_51_passes_with_no_locked_card_and_no_store_route(self):
-        rules = [('GET', '/cards/today', lambda b, u: Reply(200, {'cards': [], 'locked_card_available': False})),
-                 ('GET', '/openapi.json', paths_reply('/cards/today'))]
-        (result, memo), phone = self.run_case('E-HEART-51', rules)
+        (result, memo), phone = self.run_case('E-HEART-51', [TODAY], app=code_app('/cards/today'))
         self.assertEqual(result, 'pass')
 
     def test_heart_51_fails_on_a_locked_card_a_missing_flag_or_a_store_route(self):
         for flag in (True, None):
             body = {'cards': []} if flag is None else {'cards': [], 'locked_card_available': flag}
-            rules = [('GET', '/cards/today', lambda b, u, body=body: Reply(200, body)), ('GET', '/openapi.json', paths_reply('/cards/today'))]
-            (result, memo), _ = self.run_case('E-HEART-51', rules)
+            rules = [('GET', '/cards/today', lambda b, u, body=body: Reply(200, body))]
+            (result, memo), _ = self.run_case('E-HEART-51', rules, app=code_app('/cards/today'))
             self.assertEqual(result, 'fail', flag)
             self.assertIn('locked_card_available', memo)
-        rules = [('GET', '/cards/today', lambda b, u: Reply(200, {'cards': [], 'locked_card_available': False})),
-                 ('GET', '/openapi.json', paths_reply('/heart_store/items'))]
-        (result, memo), _ = self.run_case('E-HEART-51', rules)
+        (result, memo), _ = self.run_case('E-HEART-51', [TODAY], app=code_app('/heart_store/items'))
         self.assertEqual(result, 'fail')
         self.assertIn('/heart_store/items', memo)
 
