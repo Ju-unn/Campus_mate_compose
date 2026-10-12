@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:campus_mate/common/failure.dart';
 
 /// 서버가 구매 실패 응답에 실어 보내는 기계용 `code`(backend `errors.py` CODE_HEARTS_NOT_ENOUGH · CODE_PAID_OFFER_GONE).
@@ -80,7 +83,7 @@ final class PaidCardOffered extends PaidCard {
     required this.offerId,
     required this.bandCount,
     required this.reasons,
-    required this.avatarUrl,
+    required this.preview,
     required this.cost,
   });
 
@@ -90,8 +93,9 @@ final class PaidCardOffered extends PaidCard {
   final int bandCount;
   final List<ReasonTag> reasons;
 
-  /// 공개 저장소 주소다 — **반드시 흐림을 입혀서만** 그린다(지시문 23 서버 계약의 알려진 한계).
-  final String? avatarUrl;
+  /// 서버가 원본 아바타를 8×10 으로 줄여 준 JPEG(보안 점검 #3). 원본 주소는 결제 전에 아예 오지 않는다 —
+  /// 주소에 상대 profile_id 가 있어 열면 얼굴이 보였다. 서버가 못 만들었으면 null(회색 원).
+  final Uint8List? preview;
 
   /// 열 때 드는 하트. 버튼 글자 "N으로 열기" 의 N 이다.
   final int cost;
@@ -101,7 +105,6 @@ final class PaidCardOffered extends PaidCard {
     final offerId = json['offer_id'];
     final bandCount = json['band_count'];
     final cost = json['cost'];
-    final avatarUrl = json['avatar_url'];
     if (offerId is! String || bandCount is! int || cost is! int) {
       return null;
     }
@@ -109,9 +112,21 @@ final class PaidCardOffered extends PaidCard {
       offerId: offerId,
       bandCount: bandCount,
       reasons: ReasonTag.listFrom(json['reasons']),
-      avatarUrl: avatarUrl is String ? avatarUrl : null,
+      preview: _decodePreview(json['preview']),
       cost: cost,
     );
+  }
+
+  /// base64 글자가 아니면 null — 미리보기 하나가 틀렸다고 결제 카드를 없애지 않는다.
+  static Uint8List? _decodePreview(Object? value) {
+    if (value is! String) {
+      return null;
+    }
+    try {
+      return base64Decode(value);
+    } on FormatException {
+      return null;
+    }
   }
 }
 

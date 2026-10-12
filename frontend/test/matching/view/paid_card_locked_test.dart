@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -30,13 +31,16 @@ const _penReasons = [
   ReasonTag(kind: 'ideal', text: "'이런 사람이 좋아요'와 잘 맞아요"),
 ];
 
+/// 서버가 주는 8×10 JPEG 자리. 모양만 보면 되니 가장 작은 1×1 PNG 를 쓴다.
+final _tinyPreview = base64Decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==');
+
 PaidCardOffered _offer({
   int bandCount = 7,
   List<ReasonTag> reasons = _penReasons,
-  String? avatarUrl,
+  Uint8List? preview,
   int cost = 50,
 }) =>
-    PaidCardOffered(offerId: 'offer-1', bandCount: bandCount, reasons: reasons, avatarUrl: avatarUrl, cost: cost);
+    PaidCardOffered(offerId: 'offer-1', bandCount: bandCount, reasons: reasons, preview: preview, cost: cost);
 
 bool _isReasonTag(Widget w) => w.key is ValueKey<String> && (w.key! as ValueKey<String>).value.startsWith('reason-tag:');
 
@@ -113,27 +117,49 @@ void main() {
       expect(rel(tester, find.byKey(const ValueKey('paid-card-avatar'))), const Rect.fromLTWH(120, 20, 88, 88));
     });
 
-    testWidgets('사진은 blur 10 을 입힌 채로만 그린다 — 흐리지 않은 원본이 어디에도 없다', (tester) async {
-      final semantics = tester.ensureSemantics();
-      await pump(tester, offer: _offer(avatarUrl: 'https://cdn.test/original.png'));
+    testWidgets('서버가 준 작은 미리보기를 메모리에서 그리고, blur 10 을 입힌 채로만 그린다 — 네트워크 주소가 없다', (tester) async {
+      await pump(tester, offer: _offer(preview: _tinyPreview));
 
       final photos = find.byKey(const ValueKey('paid-card-photo'));
       expect(photos, findsOneWidget);
+      final photo = tester.widget<Image>(photos);
+      expect((photo.image as MemoryImage).bytes, _tinyPreview);
+      expect(photo.fit, BoxFit.cover);
+      // 오늘 탭을 다시 읽어도 깜빡이지 않는다.
+      expect(photo.gaplessPlayback, isTrue);
+      // 사진에는 낭독 이름이 붙지 않는다.
+      expect(photo.semanticLabel, isNull);
       final blurred = find.ancestor(of: photos, matching: find.byType(ImageFiltered));
       expect(blurred, findsOneWidget);
       expect(tester.widget<ImageFiltered>(blurred).imageFilter, ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10));
-      // 사진에는 낭독 이름이 붙지 않는다.
-      expect(find.bySemanticsLabel(RegExp('original|cdn')), findsNothing);
-      semantics.dispose();
+      expect(find.byKey(const ValueKey('paid-card-lock')), findsOneWidget);
     });
 
-    testWidgets('사진이 없으면 회색 원 + 자물쇠', (tester) async {
-      await pump(tester, offer: _offer(avatarUrl: null));
+    testWidgets('미리보기가 없으면 회색 원 + 자물쇠', (tester) async {
+      await pump(tester, offer: _offer(preview: null));
 
       expect(find.byKey(const ValueKey('paid-card-photo')), findsNothing);
       final empty = tester.widget<DecoratedBox>(find.byKey(const ValueKey('paid-card-avatar-fallback')));
       expect((empty.decoration as BoxDecoration).color, AppColors.surfaceStrong);
       expect(find.byKey(const ValueKey('paid-card-lock')), findsOneWidget);
+    });
+
+    testWidgets('base64 는 맞지만 그림이 깨졌으면 그리기 실패 자리에 회색 원 + 자물쇠', (tester) async {
+      // JPEG 머리(FF D8 FF)만 있고 몸통이 없는 바이트 — 서버 응답이 중간에 잘린 경우.
+      await pump(tester, offer: _offer(preview: Uint8List.fromList([0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10])));
+      // 그림 풀기는 엔진이 시험 시계 밖에서 한다 — 진짜 시간으로 실패를 기다린 뒤 다시 그린다.
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+      await tester.pump();
+
+      expect(find.byKey(const ValueKey('paid-card-photo')), findsOneWidget);
+      final broken = find.descendant(
+        of: find.byKey(const ValueKey('paid-card-photo')),
+        matching: find.byKey(const ValueKey('paid-card-avatar-fallback')),
+      );
+      expect(broken, findsOneWidget);
+      expect((tester.widget<DecoratedBox>(broken).decoration as BoxDecoration).color, AppColors.surfaceStrong);
+      expect(find.byKey(const ValueKey('paid-card-lock')), findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('자물쇠 원 `DMOuj` 36×36 아바타 안 (26,26), 흰색 80%(#FFFFFFCC) · 안의 lock 18 #222222', (tester) async {

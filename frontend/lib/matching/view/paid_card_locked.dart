@@ -1,6 +1,6 @@
+import 'dart:typed_data';
 import 'dart:ui' show ImageFilter;
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_elevation.dart';
@@ -75,7 +75,7 @@ class PaidCardLocked extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Center(child: _MosaicAvatar(url: card.avatarUrl)),
+                Center(child: _MosaicAvatar(preview: card.preview)),
                 const SizedBox(height: _gap),
                 _Headline(bandCount: card.bandCount),
                 if (reasons.isNotEmpty) ...[
@@ -119,12 +119,13 @@ class PaidCardHeart extends StatelessWidget {
   }
 }
 
-/// `FLFiL` 88×88 원. 사진은 **반드시 blur 를 입힌 채로만** 그린다 — 자리를 채우는 동안 · 실패했을 때는 회색 원이다.
-/// 공개 저장소 주소라서 흐림은 앱의 몫이다(서버 계약의 알려진 한계). 낭독기에는 읽히지 않게 한다.
+/// `FLFiL` 88×88 원. 사진은 **반드시 blur 를 입힌 채로만** 그린다 — 없을 때 · 그리기에 실패했을 때는 회색 원이다.
+/// 사진은 서버가 원본을 8×10 으로 줄여 준 작은 JPEG 다(보안 점검 #3) — 원본 주소는 결제 전에 오지 않는다.
+/// 그것을 키워 blur 10 을 입히면 pen 의 모자이크 모양이 된다. 낭독기에는 읽히지 않게 한다.
 class _MosaicAvatar extends StatelessWidget {
-  const _MosaicAvatar({required this.url});
+  const _MosaicAvatar({required this.preview});
 
-  final String? url;
+  final Uint8List? preview;
 
   /// pen `q758n6` blur 반지름 10.
   static const double _blur = 10;
@@ -136,7 +137,7 @@ class _MosaicAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final photo = url;
+    final photo = preview;
     return ExcludeSemantics(
       child: SizedBox(
         key: const ValueKey('paid-card-avatar'),
@@ -152,12 +153,13 @@ class _MosaicAvatar extends StatelessWidget {
               else
                 ImageFiltered(
                   imageFilter: ImageFilter.blur(sigmaX: _blur, sigmaY: _blur),
-                  child: CachedNetworkImage(
+                  child: Image.memory(
+                    photo,
                     key: const ValueKey('paid-card-photo'),
-                    imageUrl: photo,
                     fit: BoxFit.cover,
-                    placeholder: (context, url) => _fallback,
-                    errorWidget: (context, url, error) => _fallback,
+                    // 오늘 탭을 다시 읽어 같은 그림이 새로 와도 회색으로 깜빡이지 않는다.
+                    gaplessPlayback: true,
+                    errorBuilder: (context, error, stackTrace) => _fallback,
                   ),
                 ),
               const Center(child: _LockCircle()),
