@@ -222,6 +222,18 @@ class CardRepository(PostgrestRepository):
         })
         return [row for row in rows if not row["daily_cards"]["acceptance_responses"]]
 
+    async def fetch_sent_acceptances(self, profile_id: UUID | str, since: datetime, limit: int) -> list[dict]:
+        """보낸 신청 — 내가 수락한 카드와 상대의 응답(거절도 행으로 남는다), 최신 순. 받은 수락함과 같은 길로
+        daily_cards 를 거쳐 acceptance_responses 를 붙인다.
+        효율은 daily_cards_owner_issued_index → card_decisions PK 경로를 기대하며 EXPLAIN 으로 확인 필요."""
+        return await self._rows("card_decisions", {
+            "select": "card_id,decided_at,daily_cards!inner(target_id,acceptance_responses(decision,decided_at))",
+            "decision": "eq.accept",
+            "decided_at": f"gte.{since.astimezone(timezone.utc).isoformat()}",
+            "daily_cards.owner_id": f"eq.{profile_id}",
+            "order": "decided_at.desc", "limit": limit,
+        })
+
     async def insert_acceptance_response(
         self, card_id: UUID | str, responder_id: UUID | str, decision: str
     ) -> None:
@@ -264,6 +276,15 @@ class CardRepository(PostgrestRepository):
         rows = await self._rows("profiles", {"id": f"eq.{profile_id}", "select": _CARD_PROFILE_COLUMNS})
         return rows[0] if rows else {}
 
+    async def fetch_card_profiles(self, profile_ids: list[str]) -> dict[str, dict]:
+        """fetch_card_profile 의 여러 명 판 — 한 번에 읽는다(보낸 신청)."""
+        if not profile_ids:
+            return {}
+        rows = await self._rows("profiles", {
+            "id": f"in.({','.join(profile_ids)})", "select": _CARD_PROFILE_COLUMNS,
+        })
+        return {row["id"]: row for row in rows}
+
     async def fetch_card_detail_profile(self, profile_id: UUID | str) -> dict:
         rows = await self._rows("profiles", {"id": f"eq.{profile_id}", "select": _CARD_DETAIL_COLUMNS})
         return rows[0] if rows else {}
@@ -279,14 +300,19 @@ class CardRepository(PostgrestRepository):
         return {row["blocked_id"] if row["blocker_id"] == me else row["blocker_id"] for row in rows}
 
     async def fetch_match_partner_ids(self, profile_id: UUID | str) -> set[str]:
-        """이미 나와 매칭된 사람(결정 11). 수락함에서 뺀다 — A→B, B→A 를 둘 다 수락하면 매칭이 먼저 생긴다.
+        """이미 나와 매칭된 사람(결정 11). 수락함에서 뺀다 — A→B, B→A 를 둘 다 수락하면 매칭이 먼저 생긴다."""
+        return set(await self.fetch_matches_by_partner(profile_id))
+
+    async def fetch_matches_by_partner(self, profile_id: UUID | str) -> dict[str, dict]:
+        """상대 id → 나와의 매칭 행(id · created_at · match_participants 목록[{profile_id, left_at}]).
+        한 쌍에 매칭은 하나다(matches_pair_unique). 참가자는 한 매칭에 두 행이라 목록으로 온다(chat fetch_match 와 같다).
         ponytail: 상한이 없다 — 매칭이 db-max-rows(1000)를 넘으면 조용히 잘린다. 그때 RPC 로."""
         rows = await self._rows("matches", {
             "or": f"(profile_a.eq.{profile_id},profile_b.eq.{profile_id})",
-            "select": "profile_a,profile_b",
+            "select": "id,profile_a,profile_b,created_at,match_participants(profile_id,left_at)",
         })
         me = str(profile_id)
-        return {row["profile_b"] if row["profile_a"] == me else row["profile_a"] for row in rows}
+        return {row["profile_b"] if row["profile_a"] == me else row["profile_a"]: row for row in rows}
 
     async def fetch_contact_block_partner_ids(self, profile_id: UUID | str, others: list[str]) -> set[str]:
         """others 중 지인 차단(어느 방향이든)으로 이어진 사람(결정 8 ②). 후보 SQL(match_candidates)과 같은 규칙 —
