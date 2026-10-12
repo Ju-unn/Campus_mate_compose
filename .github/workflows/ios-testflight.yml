@@ -1,0 +1,233 @@
+name: iOS TestFlight
+
+# 맥 없이 아이폰 실기기 시험(카카오 · 구글 로그인, 푸시)용 빌드를 서명해 TestFlight 에 올린다.
+# 수동 실행 전용: Actions > iOS TestFlight > Run workflow(이 파일이 main 에 있어야 Actions 에 보인다).
+# 컴파일 점검은 ios-build.yml 이 따로 한다(가짜 키, 서명 없음).
+# 실행 순서 · 비밀 이름 목록 · ios-release 환경 만드는 법: frontend/run.md 의 "TestFlight 로 아이폰에 설치하기".
+#
+# 서명 방식 — 인증서 파일(.p12) 없이 App Store Connect API 키 하나로:
+#   1. flutter build ipa --no-codesign 으로 서명 없는 Runner.xcarchive 를 만든다.
+#   2. 보관본 안의 앱에 임시(ad-hoc) 서명을 하며 Runner.entitlements(푸시 aps-environment)를 싣는다.
+#   3. xcodebuild -exportArchive 가 API 키 + -allowProvisioningUpdates 로 애플이 보관하는 클라우드 배포 인증서와
+#      App Store 프로비저닝 프로필을 써서 다시 서명하고, 그대로 App Store Connect 에 올린다(destination upload).
+#   archive 단계에서 API 키로 자동 서명하지 않는 이유: 그러면 러너마다 개발 인증서를 새로 만들고, 새 러너에는 그 개인 키가 없어
+#   두 번째 실행부터 "Revoke certificate ... private key is not installed in your keychain" 으로 실패한다(Apple 포럼 695759).
+#   2 가 필요한 이유: 서명 없는 보관본에는 권한이 실리지 않아 내보낸 앱에서 푸시 권한이 빠진다(ITMS-90078, Apple 포럼 671800).
+#
+# 비밀은 잡 전체 env 에 두지 않고 그 값을 쓰는 run 단계의 env 로만 넘긴다. 액션(uses) 단계에는 하나도 가지 않는다.
+# 서명 키(ASC_*)와 팀 ID 는 업로드 단계에만 들어가고, 복원한 .p8 은 그 단계가 끝나면 지운다.
+#
+# 흔한 실패와 대처:
+#   - "No suitable application records were found": App Store Connect 에 이 번들 ID 의 앱 기록이 없다.
+#     developer.apple.com > Identifiers 에 번들 ID 를 등록(Push Notifications 체크)하고 App Store Connect > 앱 > "+" 로 새 앱을 만든다.
+#     밀린 약관(Agreements) 동의가 있어도 업로드가 막힌다.
+#   - "Cloud signing permission error" · 인증서나 프로필을 못 만든다: API 키 권한 부족. 클라우드 배포 인증서는 Admin(관리자)
+#     역할 팀 키가 필요하다(App Manager 키로는 안 될 수 있다). Admin 키를 새로 만들어 ASC_KEY_ID · ASC_ISSUER_ID · ASC_KEY_P8_B64 를 바꾼다.
+#   - 이 워크플로의 "번들 ID 확인" 단계 실패: Firebase 에서 앱 번들 ID 로 등록한 iOS 앱의 GoogleService-Info.plist 를 다시 받아
+#     IOS_GOOGLE_SERVICE_INFO_B64 를 바꾼다. 구글 ID 불일치면 GOOGLE_IOS_CLIENT_ID · GOOGLE_REVERSED_CLIENT_ID 를 plist 값으로 맞춘다.
+#   - "... doesn't support the Push Notifications capability" · "... doesn't include the aps-environment entitlement":
+#     Identifiers 에서 그 번들 ID 의 Push Notifications 를 켜고 다시 실행한다. 애플 로그인을 넣을 때는 Sign in with Apple 도 켠다
+#     (지금 앱의 Runner.entitlements 에는 애플 로그인 권한이 없다).
+#   - App Store Connect 빌드에 수출 규정(암호화) 질문이 뜬다: Info.plist 의 ITSAppUsesNonExemptEncryption=false 라 보통 묻지 않는다.
+#     물으면 "OS 기본 HTTPS 외 암호화 없음(면제)" 쪽으로 답한다.
+#   - "The bundle version must be higher": 빌드 번호(= 이 워크플로의 실행 번호)가 이미 올라가 있다. 성공한 실행을 Re-run 하지 말고
+#     Run workflow 로 새로 실행한다.
+#   실패하면 이 워크플로가 만든 로그 두 개(flutter-build-ipa.log, export-upload.log)만 비밀과 실명을 지워 아티팩트
+#   ios-testflight-logs-<실행 번호> 로 7일 남긴다. xcodebuild 의 자세한 기록(xcdistributionlogs)과 IPA 는 올리지 않는다.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# 업로드 도중 끊기지 않게 앞 실행을 취소하지 않고 줄을 세운다.
+concurrency:
+  group: ios-testflight
+  cancel-in-progress: false
+
+jobs:
+  testflight:
+    # 남이 실수로 돌리지 않게 막는 조건일 뿐 보안 경계가 아니다(쓰기 권한이 있으면 이 파일을 고칠 수 있다).
+    # 경계는 저장소 쓰기 권한과 ios-release 환경(배포 브랜치 main 만)이다.
+    if: github.triggering_actor == github.repository_owner
+    # 환경이 아직 없으면 GitHub 가 첫 실행 때 보호 규칙 없이 만든다. 저장소 비밀도 그대로 읽힌다.
+    environment: ios-release
+    runs-on: macos-latest
+    timeout-minutes: 60
+    env:
+      # CFBundleVersion. 앱 버전 이름(CFBundleShortVersionString)은 pubspec.yaml 의 version 그대로다.
+      BUILD_NUMBER: ${{ github.run_number }}
+      TOOL: ${{ github.workspace }}/.github/scripts/ios_testflight.py
+      PLIST: ios/Runner/GoogleService-Info.plist
+      XCCONFIG: ios/Flutter/Secrets.xcconfig
+      ARCHIVE: build/ios/archive/Runner.xcarchive
+    defaults:
+      run:
+        working-directory: frontend
+        # bash -eo pipefail: 로그를 비밀 지우개와 tee 로 넘겨도 앞 명령의 실패가 묻히지 않는다.
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: 비밀 확인(빈 것 · 모양이 틀린 것은 이름만 출력)
+        env:
+          IOS_GOOGLE_SERVICE_INFO_B64: ${{ secrets.IOS_GOOGLE_SERVICE_INFO_B64 }}
+          KAKAO_NATIVE_APP_KEY: ${{ secrets.KAKAO_NATIVE_APP_KEY }}
+          GOOGLE_WEB_CLIENT_ID: ${{ secrets.GOOGLE_WEB_CLIENT_ID }}
+          GOOGLE_IOS_CLIENT_ID: ${{ secrets.GOOGLE_IOS_CLIENT_ID }}
+          GOOGLE_REVERSED_CLIENT_ID: ${{ secrets.GOOGLE_REVERSED_CLIENT_ID }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          API_BASE_URL: ${{ secrets.API_BASE_URL }}
+          # 서명 키와 팀 ID 는 값을 넘기지 않고 있는지만 알린다(값은 업로드 단계에서 다시 검사).
+          HAS_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID != '' }}
+          HAS_ASC_KEY_ID: ${{ secrets.ASC_KEY_ID != '' }}
+          HAS_ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID != '' }}
+          HAS_ASC_KEY_P8_B64: ${{ secrets.ASC_KEY_P8_B64 != '' }}
+        run: |
+          set +x
+          echo "### iOS TestFlight" >> "$GITHUB_STEP_SUMMARY"
+          python3 "$TOOL" check-secrets
+
+      # 외부(제3자) 액션이라 태그 대신 커밋으로 고정한다(v2.23.0).
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version: 3.47.3
+          channel: stable
+      - run: flutter pub get
+
+      - name: 비밀 파일 복원(GoogleService-Info.plist · Secrets.xcconfig)
+        env:
+          IOS_GOOGLE_SERVICE_INFO_B64: ${{ secrets.IOS_GOOGLE_SERVICE_INFO_B64 }}
+          KAKAO_NATIVE_APP_KEY: ${{ secrets.KAKAO_NATIVE_APP_KEY }}
+          GOOGLE_WEB_CLIENT_ID: ${{ secrets.GOOGLE_WEB_CLIENT_ID }}
+          GOOGLE_IOS_CLIENT_ID: ${{ secrets.GOOGLE_IOS_CLIENT_ID }}
+          GOOGLE_REVERSED_CLIENT_ID: ${{ secrets.GOOGLE_REVERSED_CLIENT_ID }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          API_BASE_URL: ${{ secrets.API_BASE_URL }}
+        run: |
+          set +x
+          python3 "$TOOL" decode IOS_GOOGLE_SERVICE_INFO_B64 "$PLIST"
+          # 값에 // 가 있으면 xcconfig 가 그 뒤를 버린다 — 비밀 확인 단계가 이미 막았다.
+          {
+            echo "KAKAO_NATIVE_APP_KEY = $KAKAO_NATIVE_APP_KEY"
+            echo "GOOGLE_IOS_CLIENT_ID = $GOOGLE_IOS_CLIENT_ID"
+            echo "GOOGLE_REVERSED_CLIENT_ID = $GOOGLE_REVERSED_CLIENT_ID"
+          } > "$XCCONFIG"
+          # 두 파일 안의 값과 dart-define 인코딩도 로그에서 가린다(비밀 자체는 GitHub 가 가린다).
+          python3 "$TOOL" mask "$PLIST" "$XCCONFIG"
+          mkdir -p "$RUNNER_TEMP/logs"
+
+      - name: 번들 ID 확인(앱 설정 = GoogleService-Info.plist)
+        env:
+          GOOGLE_IOS_CLIENT_ID: ${{ secrets.GOOGLE_IOS_CLIENT_ID }}
+          GOOGLE_REVERSED_CLIENT_ID: ${{ secrets.GOOGLE_REVERSED_CLIENT_ID }}
+        run: |
+          set +x
+          # 빌드 설정 전체에는 비밀이 섞여 있어 화면에 찍지 않고 파일로만 받는다.
+          xcodebuild -showBuildSettings -project ios/Runner.xcodeproj -target Runner -configuration Release \
+            > "$RUNNER_TEMP/build_settings.txt"
+          python3 "$TOOL" check-plist "$PLIST" "$RUNNER_TEMP/build_settings.txt"
+
+      - name: 서명 없는 보관본(xcarchive) 만들기
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          API_BASE_URL: ${{ secrets.API_BASE_URL }}
+          KAKAO_NATIVE_APP_KEY: ${{ secrets.KAKAO_NATIVE_APP_KEY }}
+          GOOGLE_WEB_CLIENT_ID: ${{ secrets.GOOGLE_WEB_CLIENT_ID }}
+        run: |
+          set +x
+          xcodebuild -version
+          flutter build ipa --release --no-codesign --build-number="$BUILD_NUMBER" \
+            --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+            --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
+            --dart-define=API_BASE_URL="$API_BASE_URL" \
+            --dart-define=KAKAO_NATIVE_APP_KEY="$KAKAO_NATIVE_APP_KEY" \
+            --dart-define=GOOGLE_WEB_CLIENT_ID="$GOOGLE_WEB_CLIENT_ID" \
+            2>&1 | python3 -u "$TOOL" scrub "$PLIST" "$XCCONFIG" | tee "$RUNNER_TEMP/logs/flutter-build-ipa.log"
+          APP_PLIST="$ARCHIVE/Products/Applications/Runner.app/Info.plist"
+          read_key() { /usr/libexec/PlistBuddy -c "Print :$1" "$APP_PLIST"; }
+          LINE="번들 ID $(read_key CFBundleIdentifier) · 버전 $(read_key CFBundleShortVersionString) · 빌드 번호 $(read_key CFBundleVersion)"
+          echo "$LINE"
+          echo "- $LINE" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 푸시 권한을 실어 임시(ad-hoc) 서명
+        run: |
+          set +x
+          APP="$ARCHIVE/Products/Applications/Runner.app"
+          python3 "$TOOL" entitlements ios/Runner/Runner.entitlements "$RUNNER_TEMP/build_settings.txt" "$RUNNER_TEMP/Runner.entitlements"
+          # 안쪽(Frameworks)부터 서명해야 바깥 앱이 서명된다. 진짜 서명은 다음 단계의 내보내기가 다시 한다.
+          # ponytail: 앱 확장(PlugIns, 예: 알림 서비스 확장)을 더하면 그 안도 여기서 서명하고 그 확장의 권한을 실어야 한다.
+          find "$APP/Frameworks" -mindepth 1 -maxdepth 1 \( -name '*.framework' -o -name '*.dylib' \) \
+            -exec codesign --force --sign - {} +
+          codesign --force --sign - --entitlements "$RUNNER_TEMP/Runner.entitlements" "$APP"
+          SIGNED="$(codesign -d --entitlements - "$APP" 2>/dev/null)"
+          if [[ "$SIGNED" != *aps-environment* ]]; then
+            echo "::error::보관본 서명에 푸시 권한(aps-environment)이 없다 — ios/Runner/Runner.entitlements 를 확인한다"
+            exit 1
+          fi
+
+      - name: 클라우드 서명 후 TestFlight 업로드
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8_B64: ${{ secrets.ASC_KEY_P8_B64 }}
+        run: |
+          set +x
+          KEY="$RUNNER_TEMP/private_keys/AuthKey.p8"
+          OPTIONS="$RUNNER_TEMP/ExportOptions.plist"
+          # 키 파일과 팀 ID 가 든 설정 파일은 이 단계가 성공하든 실패하든 끝나면 지운다.
+          trap 'rm -f "$KEY" "$OPTIONS"' EXIT
+          python3 "$TOOL" check-secrets APPLE_TEAM_ID ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8_B64
+          python3 "$TOOL" decode ASC_KEY_P8_B64 "$KEY"
+          cat > "$OPTIONS" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>teamID</key><string>$APPLE_TEAM_ID</string>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+            <key>uploadSymbols</key><true/>
+          </dict>
+          </plist>
+          EOF
+          xcodebuild -exportArchive \
+            -archivePath "$ARCHIVE" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -exportOptionsPlist "$OPTIONS" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$KEY" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            2>&1 | python3 -u "$TOOL" scrub "$PLIST" "$XCCONFIG" | tee "$RUNNER_TEMP/logs/export-upload.log"
+          LINE="업로드 성공 — App Store Connect > 앱 > TestFlight 에서 빌드 처리(10~30분)를 기다린 뒤 내부 테스터에게 연다."
+          echo "$LINE"
+          echo "- $LINE" >> "$GITHUB_STEP_SUMMARY"
+
+      # 우리가 만든 로그 두 개만 모은다. xcdistributionlogs 같은 자세한 기록은 계정 · 팀(개인 계정은 실명) 정보가
+      # 어떤 모양으로 들어 있을지 몰라 지우개를 믿을 수 없어 올리지 않는다. 비밀 env 없이 두 파일의 값과 실명 모양으로 한 번 더 지운다.
+      - name: 실패 로그 모으기(비밀 · 실명 지움)
+        id: logs
+        if: failure()
+        run: |
+          set +x
+          mkdir -p "$RUNNER_TEMP/failure-logs"
+          cp "$RUNNER_TEMP/logs/flutter-build-ipa.log" "$RUNNER_TEMP/failure-logs/" 2>/dev/null || true
+          cp "$RUNNER_TEMP/logs/export-upload.log" "$RUNNER_TEMP/failure-logs/" 2>/dev/null || true
+          python3 "$TOOL" scrub "$PLIST" "$XCCONFIG" "$RUNNER_TEMP/failure-logs"
+      # 지우기 단계가 끝까지 성공했을 때만 올린다.
+      - uses: actions/upload-artifact@v7
+        if: failure() && steps.logs.outcome == 'success'
+        with:
+          name: ios-testflight-logs-${{ github.run_number }}
+          path: ${{ runner.temp }}/failure-logs
+          retention-days: 7
+          if-no-files-found: ignore
