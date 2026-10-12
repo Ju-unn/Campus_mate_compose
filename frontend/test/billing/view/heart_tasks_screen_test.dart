@@ -17,6 +17,9 @@ import 'package:go_router/go_router.dart';
 
 import '../model/fake_heart_task_repository.dart';
 
+/// 18a 안내(pen `EJDsZ` 두 줄 + 투표 지급 기준 한 줄 — 하트 스토어와 같은 문구, 대장 결정 10-12, pen 동기화 대기).
+const _notice = '초기 보상 기준 · 인증 후 지급\n100명 이후 홍보 30 / 단톡방 20 하트\n커뮤니티 투표 하루 첫 투표 1번만 10 · 한 주 최대 30 하트';
+
 void main() {
   late FakeHeartTaskRepository repository;
 
@@ -53,7 +56,7 @@ void main() {
     await pump(tester);
 
     expect(find.text('무료로 하트 모으기'), findsOneWidget);
-    expect(find.text('초기 보상 기준 · 인증 후 지급\n100명 이후 홍보 30 / 단톡방 20 하트'), findsOneWidget);
+    expect(find.text(_notice), findsOneWidget);
     expect(find.text('무료로 모으기'), findsNothing);
     expect(find.text('에브리타임 홍보'), findsOneWidget);
     expect(find.text('50 · 월 1회'), findsOneWidget);
@@ -62,9 +65,11 @@ void main() {
     expect(find.text('25 · 월 3회'), findsOneWidget);
     expect(find.text('완료'), findsOneWidget);
     expect(find.text('커뮤니티 투표'), findsOneWidget);
-    expect(find.text('매일'), findsOneWidget);
-    // pen `Uaex2` 알약 높이 20(글자 칸 16 + 위아래 2).
-    expect(tester.getSize(find.ancestor(of: find.text('매일'), matching: find.byType(Container)).first).height, 20);
+    // 투표 배지 글자는 "하루 1번"(사용자 결정 10-12, 종전 pen "매일" — pen 동기화 대기).
+    expect(find.text('하루 1번'), findsOneWidget);
+    expect(find.text('매일'), findsNothing);
+    // pen `Uaex2` 알약 높이 20(글자 칸 16 + 위아래 2) — 글자가 길어져도 한 줄.
+    expect(tester.getSize(find.ancestor(of: find.text('하루 1번'), matching: find.byType(Container)).first).height, 20);
     expect(find.text('10 · 주 최대 30'), findsOneWidget);
     expect(find.text('참여'), findsOneWidget);
     expect(find.image(const AssetImage('assets/images/heart-flat-vector-v3.png')), findsNWidgets(3));
@@ -79,13 +84,30 @@ void main() {
     expect(first.left, 16);
     expect(first.size, const Size(328, 64));
     expect(second.top - first.bottom, 8);
-    expect(first.top - tester.getRect(find.textContaining('초기 보상 기준')).bottom, 24);
+    expect(first.top - tester.getRect(find.text(_notice)).bottom, 24);
     // 시계 칩은 시험 글꼴 글자가 Pretendard 보다 넓어 72 를 넘는다 — 폭은 완료 칩으로 잰다.
     final chip = find.ancestor(of: find.text('완료'), matching: find.byType(ConstrainedBox)).first;
     expect(tester.getSize(chip), const Size(72, 28));
   });
 
-  testWidgets('pen 18a 아이콘 — 줄마다 3D 28 이 x0 · 줄 가운데(공유 n40Hd · 투표 x5QLa), 검수중 칩 시계 3D 16(e2aMg · oq6tX)', (tester) async {
+  for (final scale in [1.0, 1.3, 2.0]) {
+    testWidgets('글자 배율 $scale — 안내 `EJDsZ` 세 줄은 목록 맨 위(앱바 56 + 8)에서 잘리지 않고 늘어나며, 첫 줄까지 24 그대로', (tester) async {
+      await pump(tester, textScale: scale);
+
+      final text = find.text(_notice);
+      final style = tester.widget<Text>(text).style!;
+      expect((style.fontSize, style.fontWeight, style.height, style.color), (12, FontWeight.w400, 1.4, AppColors.muted));
+      expect(tester.widget<Text>(text).maxLines, isNull);
+      final notice = tester.getRect(text);
+      expect(notice.top, 56 + 8);
+      // 한 줄씩인지는 하트 스토어 시험이 Pretendard 로 본다(같은 상수 · 같은 폭 328) — 이 파일의 시험 글꼴은 한글이 넓어 접힌다.
+      expect(notice.height, greaterThanOrEqualTo(3 * 12 * 1.4 * scale - 0.5));
+      expect(tester.getRect(find.byType(HeartTaskRow).first).top - notice.bottom, 24);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('pen 18a 아이콘 —줄마다 3D 28 이 x0 · 줄 가운데(공유 n40Hd · 투표 x5QLa), 검수중 칩 시계 3D 16(e2aMg · oq6tX)', (tester) async {
     await pump(tester);
 
     Finder icon3d(AppIcon3d icon) => find.byWidgetPredicate((w) => w is Icon3d && w.icon == icon);
@@ -187,5 +209,16 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.text('다시 제출'), findsOneWidget);
+    // "하루 1번" 배지는 2배에서도 한 줄(글자 칸 16×2 + 위아래 2) — 넘치면 제목 쪽이 접힌다.
+    expect(tester.getSize(find.ancestor(of: find.text('하루 1번'), matching: find.byType(Container)).first).height, 36);
+  });
+
+  testWidgets('투표 배지는 낭독도 "하루 1번" 이다', (tester) async {
+    final handle = tester.ensureSemantics();
+    await pump(tester);
+
+    expect(find.bySemanticsLabel(RegExp('하루 1번')), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp('매일')), findsNothing);
+    handle.dispose();
   });
 }
