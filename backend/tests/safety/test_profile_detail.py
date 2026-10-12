@@ -86,8 +86,7 @@ def test_every_hidden_case_is_the_same_404(client, world, target, change):
 
 
 def test_14c_reads_the_kakao_id_from_the_encrypted_column(client, world):
-    world.kakao_ids.pop(PARTNER)
-    world.kakao_ids_enc[PARTNER] = "fox_enc"
+    world.kakao_ids[PARTNER] = "fox_enc"
     world.match["trust_passed_at"] = "2126-09-23T10:00:00+09:00"
 
     assert client.get(f"/profiles/{PARTNER}", headers=AUTH).json()["kakao_id"] == "fox_enc"

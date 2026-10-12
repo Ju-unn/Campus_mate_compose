@@ -3,9 +3,11 @@ import logging
 from datetime import datetime
 
 import httpx
+import pytest
 
 from app.chat.repository import ChatRepository
 from app.core.time import SEOUL
+from private_columns import plaintext_gone
 
 URL = "https://x.supabase.co/rest/v1"
 ME = "11111111-1111-1111-1111-111111111111"
@@ -263,23 +265,22 @@ async def test_rooms_carry_each_participants_status():
     assert all("match_participants(" in s and "profiles(status)" in s for s in seen)
 
 
-# 카카오톡 아이디 읽기(서버 PR 2 — 이중 쓰기 + 폴백 읽기) ---------------------------------
-def _kakao_repo(decrypt, plaintext, seen):
-    """decrypt: 복호화 RPC 의 응답(함수면 호출). plaintext: 옛 평문 열 GET 의 응답 행 목록."""
+# 카카오톡 아이디 읽기(M2 — 암호문 열을 복호화해서만 읽는다. 평문 열은 없다) -----------------------
+def _kakao_repo(decrypt, seen):
+    """decrypt: 복호화 RPC 의 응답(함수면 호출). profile_private 평문 열은 없다(쓰면 42703)."""
     def handler(request: httpx.Request) -> httpx.Response:
         seen.append(request)
         if request.url.path.endswith("/rpc/decrypt_profile_private"):
             return decrypt(request) if callable(decrypt) else httpx.Response(200, json=decrypt)
-        assert request.url.path.endswith("/profile_private")
-        return httpx.Response(200, json=plaintext)
+        return plaintext_gone(request) or httpx.Response(200, json=[])
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     return ChatRepository(URL, "service-key", client, encryption_key="enc-key")
 
 
-async def test_fetch_kakao_id_prefers_the_decrypted_value_and_skips_the_plain_column():
+async def test_fetch_kakao_id_reads_the_decrypted_value():
     seen: list[httpx.Request] = []
-    repo = _kakao_repo([{"real_name": None, "kakao_id": "enc_id"}], [{"kakao_id": "old_id"}], seen)
+    repo = _kakao_repo([{"real_name": None, "kakao_id": "enc_id"}], seen)
 
     assert await repo.fetch_kakao_id(ME) == "enc_id"
 
@@ -287,49 +288,32 @@ async def test_fetch_kakao_id_prefers_the_decrypted_value_and_skips_the_plain_co
     assert json.loads(seen[0].content) == {"p_profile": ME, "p_key": "enc-key"}
 
 
-async def test_fetch_kakao_id_falls_back_to_the_plain_column_when_enc_is_null():
+async def test_fetch_kakao_id_is_none_when_the_encrypted_column_is_empty_without_a_plaintext_read():
+    for decrypted in ([], [{"real_name": None, "kakao_id": None}]):
+        seen: list[httpx.Request] = []
+
+        assert await _kakao_repo(decrypted, seen).fetch_kakao_id(ME) is None
+        assert [r.url.path.rsplit("/", 1)[1] for r in seen] == ["decrypt_profile_private"]
+
+
+async def test_fetch_kakao_id_raises_when_decrypt_fails_without_a_plaintext_read(caplog):
+    """"없음" 으로 삼키면 상대가 아이디를 안 낸 것처럼 보인다 — 실패는 실패로 올린다."""
     seen: list[httpx.Request] = []
-    repo = _kakao_repo([{"real_name": None, "kakao_id": None}], [{"kakao_id": "old_id"}], seen)
+    repo = _kakao_repo(lambda request: httpx.Response(404, json={"message": "no function"}), seen)
 
-    assert await repo.fetch_kakao_id(ME) == "old_id"
+    with caplog.at_level(logging.DEBUG), pytest.raises(httpx.HTTPStatusError):
+        await repo.fetch_kakao_id(ME)
+
+    assert [r.url.path.rsplit("/", 1)[1] for r in seen] == ["decrypt_profile_private"]
+    assert "enc-key" not in caplog.text
 
 
-async def test_fetch_kakao_id_falls_back_to_the_plain_column_when_decrypt_fails(caplog):
+async def test_fetch_kakao_id_without_a_key_refuses_to_read():
+    """키를 안 넘긴 저장소(배치 등)는 읽을 길이 없다 — 조용히 None 이 아니라 바로 오류다(배선 실수를 드러낸다)."""
     seen: list[httpx.Request] = []
-    repo = _kakao_repo(lambda request: httpx.Response(404, json={"message": "no function"}),
-                       [{"kakao_id": "old_id"}], seen)
+    repo = ChatRepository(URL, "service-key", httpx.AsyncClient(transport=httpx.MockTransport(
+        lambda request: seen.append(request) or httpx.Response(200, json=[]))))
 
-    with caplog.at_level(logging.DEBUG):
-        assert await repo.fetch_kakao_id(ME) == "old_id"
-
-    # 로그에는 필드 이름만 — 값 · 키는 없다.
-    assert "kakao_id" in caplog.text
-    assert "old_id" not in caplog.text and "enc-key" not in caplog.text
-
-
-async def test_fetch_kakao_id_is_none_when_neither_column_has_it():
-    seen: list[httpx.Request] = []
-
-    assert await _kakao_repo([], [], seen).fetch_kakao_id(ME) is None
-    assert await _kakao_repo([{"real_name": None, "kakao_id": None}], [{"kakao_id": None}], seen).fetch_kakao_id(ME) is None
-
-
-async def test_fetch_kakao_id_is_none_when_decrypt_fails_and_the_plain_column_is_empty():
-    seen: list[httpx.Request] = []
-    repo = _kakao_repo(lambda request: httpx.Response(500), [], seen)
-
-    assert await repo.fetch_kakao_id(ME) is None
-
-
-async def test_fetch_kakao_id_without_a_key_reads_only_the_plain_column():
-    """키를 안 넘긴 저장소(배치 등)는 복호화를 시도하지 않는다 — 실수로 키 없이 RPC 를 부르지 않게."""
-    seen: list[httpx.Request] = []
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        seen.append(request)
-        return httpx.Response(200, json=[{"kakao_id": "old_id"}])
-
-    repo = ChatRepository(URL, "service-key", httpx.AsyncClient(transport=httpx.MockTransport(handler)))
-
-    assert await repo.fetch_kakao_id(ME) == "old_id"
-    assert all("rpc" not in r.url.path for r in seen)
+    with pytest.raises(RuntimeError):
+        await repo.fetch_kakao_id(ME)
+    assert seen == []

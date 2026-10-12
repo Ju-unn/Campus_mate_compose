@@ -17,6 +17,7 @@ from app.core.deps import get_client, get_now, get_settings
 from app.core.time import SEOUL
 from app.main import app
 from app.settings import Settings
+from private_columns import plaintext_gone
 
 PROFILE_ID = "11111111-1111-1111-1111-111111111111"
 PARTNER_ID = "22222222-2222-2222-2222-222222222222"
@@ -101,8 +102,10 @@ class _Room:
             return httpx.Response(200, json=[{"profile_id": target}])
         if "/rest/v1/messages" in url and request.method == "POST":
             return httpx.Response(201, json=[{"id": "msg-1", **json.loads(request.content)}])
-        if "/rest/v1/profile_private" in url:
-            return httpx.Response(200, json=[{"kakao_id": "fox_rain"}])
+        if request.url.path.endswith("/rpc/decrypt_profile_private"):  # M2: 평문 열 없이 복호화로만 읽는다
+            return httpx.Response(200, json=[{"real_name": None, "kakao_id": "fox_rain"}])
+        if gone := plaintext_gone(request):
+            return gone
         if "/rest/v1/profiles" in url:
             return httpx.Response(200, json=[{"id": PARTNER_ID, "nickname": "여우비", "profile_avatars": []}])
         if "/rest/v1/push_tokens" in url:
