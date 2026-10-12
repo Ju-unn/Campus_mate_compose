@@ -1,0 +1,74 @@
+name: iOS build
+
+# iOS 는 Windows 에서 빌드할 수 없어 macOS 러너로 컴파일만 확인한다(서명 없음).
+# 비용을 아끼려고 PR 마다가 아니라 iOS · 의존성 · 앱 코드가 바뀔 때와 수동 실행(workflow_dispatch)으로만 돈다.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'frontend/ios/**'
+      - 'frontend/pubspec.yaml'
+      - 'frontend/pubspec.lock'
+      - 'frontend/lib/**'
+      - '.github/workflows/ios-build.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/ios/**'
+      - 'frontend/pubspec.yaml'
+      - 'frontend/pubspec.lock'
+      - 'frontend/lib/**'
+      - '.github/workflows/ios-build.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ios-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios-build:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.3
+          channel: stable
+      - run: flutter pub get
+
+      # 진짜 Firebase 설정 파일은 저장소에 없다(gitignore). 컴파일 확인용 가짜 값 — 실제 Firebase 에는 연결되지 않는다.
+      - name: 가짜 GoogleService-Info.plist 만들기
+        run: |
+          cat > ios/Runner/GoogleService-Info.plist <<'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>API_KEY</key><string>dummy-api-key</string>
+            <key>GCM_SENDER_ID</key><string>000000000000</string>
+            <key>PLIST_VERSION</key><string>1</string>
+            <key>BUNDLE_ID</key><string>io.github.juunn.campusmate</string>
+            <key>PROJECT_ID</key><string>dummy-project</string>
+            <key>STORAGE_BUCKET</key><string>dummy-project.appspot.com</string>
+            <key>GOOGLE_APP_ID</key><string>1:000000000000:ios:0000000000000000</string>
+            <key>CLIENT_ID</key><string>000000000000-dummy.apps.googleusercontent.com</string>
+            <key>REVERSED_CLIENT_ID</key><string>com.googleusercontent.apps.000000000000-dummy</string>
+          </dict>
+          </plist>
+          EOF
+
+      # 소셜 로그인 키 자리에 더미 값을 넣는다 — Info.plist 의 $(변수) 가 비지 않는지만 본다.
+      - name: 가짜 Secrets.xcconfig 만들기
+        run: |
+          {
+            echo "KAKAO_NATIVE_APP_KEY = dummykakaonativekey"
+            echo "GOOGLE_IOS_CLIENT_ID = 000000000000-dummy.apps.googleusercontent.com"
+            echo "GOOGLE_REVERSED_CLIENT_ID = com.googleusercontent.apps.000000000000-dummy"
+          } > ios/Flutter/Secrets.xcconfig
+
+      - name: iOS 릴리스 빌드(서명 없음)
+        run: flutter build ios --release --no-codesign

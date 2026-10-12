@@ -10,6 +10,7 @@ import 'package:campus_mate/core/draft/draft_store.dart';
 import 'package:campus_mate/core/draft/open_draft_store.dart';
 import 'package:campus_mate/core/env.dart';
 import 'package:campus_mate/core/lifecycle/resume_refresh.dart';
+import 'package:campus_mate/core/push/firebase_bootstrap.dart';
 import 'package:campus_mate/core/push/push_provider.dart';
 import 'package:campus_mate/core/push/push_refresh.dart';
 import 'package:campus_mate/core/push/push_route.dart';
@@ -25,7 +26,6 @@ import 'package:campus_mate/core/supabase/auth_session_listenable_provider.dart'
 import 'package:campus_mate/core/supabase/supabase_config.dart';
 import 'package:campus_mate/core/supabase/supabase_initializer.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -35,7 +35,8 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // 안드로이드는 google-services 플러그인이 넣어 준 리소스를 읽으므로 options 를 코드에 적지 않는다
   // (firebase_options.dart 를 만들지 않는 이유 — flutterfire CLI 를 새로 들이지 않는다).
-  await Firebase.initializeApp();
+  // 실패해도(iOS 에 GoogleService-Info.plist 가 없을 때) 앱은 푸시 없이 계속 뜬다 — 아래 pushMessagingProvider 덮어쓰기.
+  final firebaseReady = await initializeFirebase();
   await SupabaseInitializer.run(SupabaseConfig.fromEnvironment());
   // 온보딩 뷰모델이 처음 상태를 만들 때 바로 읽을 수 있게 디스크를 한 번 읽어 둔다. 못 열어도 앱은 뜬다.
   // 계정 id 는 따로 들고 있지 않고 그때그때 Supabase 세션(로그인 상태)에서 읽는다 — 로그인 전이면 null 이라 쓰지 않는다.
@@ -44,7 +45,10 @@ Future<void> main() async {
   await initializeKakaoSdk(Env.kakaoNativeAppKey);
   runApp(SessionScope(
     authChanges: Supabase.instance.client.auth.onAuthStateChange,
-    overrides: [draftStoreProvider.overrideWithValue(drafts)],
+    overrides: [
+      draftStoreProvider.overrideWithValue(drafts),
+      if (!firebaseReady) pushMessagingProvider.overrideWithValue(const NoPushMessaging()),
+    ],
     child: const CampusMateApp(),
   ));
 }

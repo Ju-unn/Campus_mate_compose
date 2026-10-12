@@ -60,6 +60,22 @@ async def test_send_posts_to_fcm_v1_with_bearer_token():
     assert seen[0].headers["Authorization"] == "Bearer ya29.test"
 
 
+async def test_send_asks_apns_to_deliver_a_visible_alert_now():
+    """iOS 는 FCM 이 APNs 로 넘겨 준다. 조용한 알림이 아니라 소리 있는 일반 알림이고 우선순위 10(즉시)이어야 한다.
+    안드로이드 블록은 그대로여야 한다."""
+    seen: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(json.loads(request.content))
+        return httpx.Response(200, json={})
+
+    await _sender(handler).send("tok", "제목", "본문", {"route": "daily_card"})
+
+    message = seen[0]["message"]
+    assert message["apns"] == {"headers": {"apns-priority": "10"}, "payload": {"aps": {"sound": "default"}}}
+    assert message["android"] == {"priority": "high"}
+
+
 async def test_dead_token_is_reported_as_dead():
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(404, json={"error": {"status": "NOT_FOUND"}})

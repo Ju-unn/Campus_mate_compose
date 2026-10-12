@@ -1,1 +1,5 @@
 #include "Generated.xcconfig"
+// Runner.entitlements 의 aps-environment(푸시 환경). 개발용 기기에서 릴리스 빌드를 돌릴 때는 Secrets.xcconfig 에서 development 로 덮어쓴다.
+APS_ENVIRONMENT = production
+// 카카오·구글 로그인 키. 이 파일은 gitignore 대상이라 없을 수 있다(없으면 빈 값 — 빌드는 되고 소셜 로그인 버튼만 실패).
+#include? "Secrets.xcconfig"

@@ -70,6 +70,8 @@ class FcmSender:
                 # data 값은 문자열만 허용된다. 앱은 route 로 어느 화면을 열지 고른다(Task A7).
                 "data": {key: str(value) for key, value in data.items()},
                 "android": {"priority": "high"},
+                # iOS: 조용한 알림이 아니라 소리 있는 일반 알림, 즉시 전달(우선순위 10). 제목·본문은 notification 이 채운다.
+                "apns": {"headers": {"apns-priority": "10"}, "payload": {"aps": {"sound": "default"}}},
             }
         }
         response = await self._client.post(

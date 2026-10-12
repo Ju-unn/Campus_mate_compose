@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- 앱 본체의 개인정보 매니페스트(초안). 플러그인(firebase_messaging · shared_preferences · kakao 등)은 각자 매니페스트를 들고 있어 합쳐진다.
+	     Xcode 의 Product > Archive > Generate Privacy Report 로 합쳐진 결과를 최종 확인한다. -->
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<!-- 수집 항목(이메일 · 닉네임 · 사진 · 연락처 해시 등)은 App Store Connect 의 "앱 개인정보" 설문에서 답한다. 여기는 비워 둔다(확정 전). -->
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<!-- shared_preferences: 이 앱 안의 설정만 읽고 쓴다. -->
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>CA92.1</string>
+			</array>
+		</dict>
+		<!-- path_provider · flutter_image_compress · 이미지 캐시: 앱 컨테이너 안 파일의 크기 · 수정 시각을 본다. 이 둘은 자체 매니페스트가 없다. -->
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>C617.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>
