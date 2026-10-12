@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import UUID
 
 from app.core import errors
@@ -91,6 +92,12 @@ class FriendReviewRepository(PostgrestRepository):
         """내 번호 해시. 행이 없거나 비어 있으면(백필 전 옛 계정) None."""
         rows = await self._rows("profile_private", {"profile_id": f"eq.{profile_id}", "select": "phone_hmac"})
         return rows[0]["phone_hmac"] if rows else None
+
+    async def count_written_since(self, reviewer: UUID | str, since: datetime, cap: int) -> int:
+        """since 이후 내가 쓴 리뷰 수(경로 · 상태 무관). 상한(cap)까지만 센다 — 넘었는지만 알면 된다."""
+        return len(await self._rows("friend_reviews", {
+            "reviewer_id": f"eq.{reviewer}", "created_at": f"gte.{since.isoformat()}", "select": "id", "limit": cap,
+        }))
 
     async def insert_review(self, row: dict) -> str:
         response = await self._post("friend_reviews", json=row, prefer="return=representation")
