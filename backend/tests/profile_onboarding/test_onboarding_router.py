@@ -554,6 +554,36 @@ def test_ideal_note_accepts_exactly_ten_characters():
     assert patched[0]["ideal_note"] == "말 잘 통하는 사람"
 
 
+# 자유 글 상한(2026-10-12 보안 점검 #11). 앱 입력칸에는 상한이 없어 넉넉하게 1000자 — 채팅 한 통과 같다.
+@pytest.mark.parametrize(("path", "field"), [("/profile-onboarding/ideal-note", "note"), ("/profile-onboarding/bio", "bio")])
+def test_free_text_over_a_thousand_characters_is_422_and_writes_nothing(path, field):
+    patched: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "/rest/v1/profiles" in str(request.url) and request.method == "PATCH":
+            patched.append(json.loads(request.content))
+        return httpx.Response(200, json=[])
+
+    response = _wire(handler).post(path, headers=AUTH_HEADERS, json={field: "가" * 1001})
+
+    assert response.status_code == 422
+    assert patched == []
+
+
+def test_ideal_note_accepts_a_thousand_characters():
+    patched: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "/rest/v1/profiles" in str(request.url) and request.method == "PATCH":
+            patched.append(json.loads(request.content))
+        return httpx.Response(200, json=[])
+
+    response = _wire(handler).post("/profile-onboarding/ideal-note", headers=AUTH_HEADERS, json={"note": "가" * 1000})
+
+    assert response.status_code == 200
+    assert patched[0]["ideal_note"] == "가" * 1000
+
+
 def test_ideal_conditions_rejects_empty_face_or_impression_choice():
     """선호 얼굴상·인상도 각 1개 이상 필수다."""
     patched: list[dict] = []
