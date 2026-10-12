@@ -299,9 +299,10 @@ async def create_review(body: ReviewRequest, w: _Wiring = Depends(_wire)) -> dic
     else:
         target, review_id = await _write_by_code(w, body.friend_code, row)
     try:
-        me = await w.cards.fetch_card_profile(w.profile_id)
-        await notify(w.cards, w.sender, target, "new_friend_review", "새 지인 리뷰가 도착했어요",
-                     f"{me['nickname']} 님이 리뷰를 남겼어요", {"route": "friend_reviews"}, now=w.now)
+        # 닉네임이 비면(온보딩 중간) "None 님이" 가 나가지 않게 푸시를 건너뛴다 — 프로필이 없을 때와 같은 처리다.
+        if nickname := (await w.cards.fetch_card_profile(w.profile_id)).get("nickname"):
+            await notify(w.cards, w.sender, target, "new_friend_review", "새 지인 리뷰가 도착했어요",
+                         f"{nickname} 님이 리뷰를 남겼어요", {"route": "friend_reviews"}, now=w.now)
     except Exception:
         # 리뷰는 이미 저장됐다 — 알림 한 건 때문에 201 을 놓치는 쪽이 훨씬 나쁘다.
         logger.exception("새 지인 리뷰 푸시 실패 review=%s reviewee=%s", review_id, target)
