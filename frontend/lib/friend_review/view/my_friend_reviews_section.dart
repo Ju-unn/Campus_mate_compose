@@ -11,7 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 /// 화면 15 지인 리뷰 칸(pen `Cux1p`, 간격 12): 헤더 "지인 리뷰"(`p7FSo`, SectionHeader `Ymhdq` — 오른쪽 꺼짐) →
-/// 분홍 줄 "친구들이 본 나"(`o9BA0`) → 20c · 흰 줄 "내가 쓴 리뷰"(`tStBN`) → 20e.
+/// 분홍 줄 "친구들이 본 나"(`o9BA0`) → 20c · 흰 줄 "내가 쓴 리뷰"(`tStBN`) → 20e · 흰 줄 "리뷰 쓰기"(`H9STF`) → 20f.
 /// 개수는 20c · 20e 와 같은 목록 뷰모델을 읽는다 — 20e 에서 지우면 돌아왔을 때 개수가 이미 줄어 있다.
 class MyFriendReviewsSection extends ConsumerWidget {
   const MyFriendReviewsSection({super.key});
@@ -46,6 +46,14 @@ class MyFriendReviewsSection extends ConsumerWidget {
           title: '내가 쓴 리뷰',
           note: _count('쓴 리뷰', written),
           onTap: () => context.push(AppRoutes.friendReviewsWritten),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        // pen H9STF(fN0xc) — 3D 연필 HJLp3, 개수 없는 고정 노트.
+        ProfileEntryRow(
+          icon: AppIcon3d.pencil,
+          title: '리뷰 쓰기',
+          note: '친구 코드로 리뷰를 남겨요',
+          onTap: () => context.push(AppRoutes.friendReviewCode),
         ),
       ],
     );
