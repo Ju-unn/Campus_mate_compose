@@ -248,6 +248,23 @@ def test_verified_stays_verified_when_the_orphan_notice_fails(caplog):
     assert [r for r in caplog.records if "reason=" in r.getMessage()] == []
 
 
+def test_pending_submit_survives_a_rate_limited_discord_and_logs_no_webhook(caplog):
+    """디스코드가 429 를 줘도 제출은 pending 으로 끝난다 — 상태는 이미 DB 에 적혔고 운영자는 대시보드로 본다.
+    종전에는 raise_for_status 가 터져 500 이 났고, 그 예외 문구에 웹훅 주소(토큰)가 실렸다(2026-10-12 보안 점검 #9)."""
+
+    def discord_rate_limited(request: httpx.Request) -> bool:
+        return "discord.com" in str(request.url)
+
+    _wire(_gate_row("none"), ocr_text="서울대학교 학생증 김철수", fails=discord_rate_limited, fail_status=429)
+
+    with caplog.at_level(logging.WARNING):
+        response = _submit()
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "pending"}
+    assert "webhooks" not in caplog.text
+
+
 def test_verified_path_logs_no_review_warning(caplog):
     sent, _ = _wire(_gate_row("none"), ocr_text="서울대학교 학생증 홍길동")
 
