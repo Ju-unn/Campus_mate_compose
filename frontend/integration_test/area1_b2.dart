@@ -21,8 +21,9 @@ void _stays(WidgetTester tester, String name) {
 
 /// 20b 리뷰 시트를 닫는다(뒤로 가기와 같은 pop) → 20d.
 Future<void> _closeReviewSheet(WidgetTester tester) async {
-  await pumpUntil(tester, find.text('추천으로 연결된 친구'), timeout: const Duration(seconds: 5));
-  Navigator.of(tester.element(find.text('추천으로 연결된 친구'))).pop();
+  // 관계 문구(friendReviewRelationLabel)는 바뀔 수 있어 시트 자체를 기다린다(10-13 "추천으로 연결된 친구" → "친구").
+  await pumpUntil(tester, find.byType(FriendReviewComposeSheet), timeout: const Duration(seconds: 5));
+  Navigator.of(tester.element(find.byType(FriendReviewComposeSheet))).pop();
   await arrive(tester, '20d', timeout: const Duration(seconds: 10));
 }
 

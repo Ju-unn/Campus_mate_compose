@@ -12,7 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // 화면 문구 — pen t3hFo(14c) · FXNL4(14d), 값표 B §4 · §5.
 const _sectionTitle = '지인 리뷰'; // pen Bw7Rz
-const _sheetNotice = '리뷰는 추천 코드로 연결된 지인만 남길 수 있어요. 부적절한 내용은 신고해주세요.'; // pen prY8p
+const _sheetNotice = '리뷰는 친구 코드를 받은 지인만 남길 수 있어요. 부적절한 내용은 신고해주세요.'; // pen prY8p
 
 /// 14c 에 보이는 카드 수(pen 2장). 더 있으면 "N개 모두 보기" → 14d. 2개 이하면 다 보여 링크가 없다(편차).
 const int _visibleCount = 2;

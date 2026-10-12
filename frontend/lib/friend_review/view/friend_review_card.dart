@@ -6,9 +6,9 @@ import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/friend_review/model/friend_review.dart';
 import 'package:flutter/material.dart';
 
-/// 카드 · 20b 머리의 관계 줄. DB · API 에 관계 칸이 없고 추천은 학교를 따지지 않는다 —
-/// pen 의 "같은 학교 친구" 등은 예시라 고정 문구 하나로 둔다(대장 Q3, 2026-09-29).
-const String friendReviewRelationLabel = '추천으로 연결된 친구';
+/// 카드 · 20b 머리의 관계 줄. DB · API 에 관계 칸이 없고 추천 · 친구 코드는 학교를 따지지 않는다 —
+/// pen 의 "같은 학교 친구" 등은 예시라 고정 문구 하나로 둔다(대장 Q3, 2026-09-29). 문구는 pen iFxLX "친구"(친구 코드로 쓰기, 10-13).
+const String friendReviewRelationLabel = '친구';
 
 // 토큰에 없는 pen 값(S0MR2b).
 const double _headerHeight = 48; // pen B095D 높이
