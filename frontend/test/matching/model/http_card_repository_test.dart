@@ -110,7 +110,7 @@ void main() {
             {'kind': 'tendency', 'text': '성향이 비슷해요'},
             {'kind': 'tags', 'text': '#러닝 #카페가 같아요'},
           ],
-          'avatar_url': 'https://cdn.test/blur-me.png',
+          'preview': base64Encode([0xFF, 0xD8, 0xFF, 0xE0]),
           'cost': 50,
         },
       });
@@ -119,19 +119,37 @@ void main() {
       expect(paid.offerId, 'offer-1');
       expect(paid.bandCount, 7);
       expect(paid.cost, 50);
-      expect(paid.avatarUrl, 'https://cdn.test/blur-me.png');
+      expect(paid.preview, [0xFF, 0xD8, 0xFF, 0xE0]);
       expect(paid.reasons.map((r) => r.text), ['성향이 비슷해요', '#러닝 #카페가 같아요']);
       expect(paid.reasons.first.kind, 'tendency');
     });
 
-    test('offered 인데 아바타가 아직 없으면 avatarUrl 만 null 이다', () async {
+    test('offered 인데 미리보기가 null · base64 가 아님 · 글자가 아님이면 preview 만 null 이다 — 카드는 그대로 연다', () async {
+      for (final preview in <Object?>[null, 'not base64!', 7]) {
+        final today = await readToday({
+          'paid_card': {'state': 'offered', 'offer_id': 'o', 'band_count': 1, 'reasons': <Object>[], 'preview': preview, 'cost': 50},
+        });
+
+        final paid = today!.paidCard as PaidCardOffered;
+        expect(paid.preview, isNull, reason: '$preview');
+        expect(paid.reasons, isEmpty);
+      }
+    });
+
+    test('옛 서버의 avatar_url(원본 주소)은 읽지 않는다 — 결제 전에 원본을 그리는 길이 없다', () async {
       final today = await readToday({
-        'paid_card': {'state': 'offered', 'offer_id': 'o', 'band_count': 1, 'reasons': <Object>[], 'avatar_url': null, 'cost': 50},
+        'paid_card': {
+          'state': 'offered',
+          'offer_id': 'o',
+          'band_count': 1,
+          'reasons': <Object>[],
+          'avatar_url': 'https://cdn.test/original.png',
+          'cost': 50,
+        },
       });
 
       final paid = today!.paidCard as PaidCardOffered;
-      expect(paid.avatarUrl, isNull);
-      expect(paid.reasons, isEmpty);
+      expect(paid.preview, isNull);
     });
 
     test('empty 는 열 사람이 없다는 뜻이다', () async {

@@ -16,6 +16,10 @@ dependencies = [
     # **이름으로 적어 둘 뿐**이라 실제로 받아 오는 패키지는 바뀌지 않는다 — Vision 을 걷어내는 날
     # 조용히 사라지지 않게 하는 줄이다.
     "google-auth>=2.38",
+    # 결제 전 유료 카드의 흐린 미리보기(원본 아바타 → 8×10 JPEG, cards/paid_preview). 보안 점검 #3(2026-10-12 사용자 승인).
+    # 12.3 아래로 내리지 않는다 — 12.2.0 에 있던 CVE 13건이 12.3.0 에서 고쳐졌다(검토 OSV 확인).
+    # manylinux 휠에 libjpeg 가 들어 있어 slim 이미지에 시스템 패키지를 더하지 않는다.
+    "pillow>=12.3",
 ]
 
 [project.optional-dependencies]

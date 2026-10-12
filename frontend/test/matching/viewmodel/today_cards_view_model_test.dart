@@ -20,7 +20,7 @@ const _offer = PaidCardOffered(
   offerId: 'offer-1',
   bandCount: 7,
   reasons: [ReasonTag(kind: 'tendency', text: '성향이 비슷해요')],
-  avatarUrl: null,
+  preview: null,
   cost: 50,
 );
 

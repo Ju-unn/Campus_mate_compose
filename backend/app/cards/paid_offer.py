@@ -109,7 +109,7 @@ def build_reasons(owner_row: dict, target_candidate: dict) -> list[dict]:
 async def target_eligible(card_repo, owner_id: str, target_id: str,
                           blocked: set[str] | None = None) -> tuple[bool, dict]:
     """정해 둔 사람이 아직 자격이 있는가 — 카드 화면과 같은 판정(차단 · 지인 차단 · 정지 · 탈퇴 · 자동 가림)에
-    일시중지를 더한다. `(자격, 읽은 프로필)` — 프로필은 부른 쪽이 아바타 주소를 만들 때 다시 쓴다.
+    일시중지를 더한다. `(자격, 읽은 프로필)` — 프로필은 부른 쪽이 흐린 미리보기를 만들 때 다시 쓴다.
     blocked 를 주면 차단을 다시 읽지 않는다(GET /cards/today 는 요청마다 한 번 읽어 둔다)."""
     profile = await card_repo.fetch_offer_target(target_id)
     if not profile:

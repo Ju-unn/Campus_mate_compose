@@ -58,7 +58,7 @@ const _offer = PaidCardOffered(
     ReasonTag(kind: 'tendency', text: '성향이 비슷해요'),
     ReasonTag(kind: 'tags', text: '#러닝 #카페가 같아요'),
   ],
-  avatarUrl: null,
+  preview: null,
   cost: 50,
 );
 
@@ -310,7 +310,7 @@ void main() {
       cards.today = const Success(
         TodayCards(
           cards: [_free],
-          paidCard: PaidCardOffered(offerId: 'offer-2', bandCount: 5, reasons: [], avatarUrl: null, cost: 50),
+          paidCard: PaidCardOffered(offerId: 'offer-2', bandCount: 5, reasons: [], preview: null, cost: 50),
         ),
       );
       final container = ProviderScope.containerOf(tester.element(find.byType(TodayCardsScreen)));

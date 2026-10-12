@@ -2,6 +2,9 @@
 
 가짜 PostgREST 는 경로와 쿼리 키로만 가른다(URL 문자열 일부로 가르지 않는다). DB 계약:
 paid_card_offers 표 · rpc/purchase_paid_card(하트 차감 · 카드 생성 · 제안 처리를 DB 가 한 번에)."""
+import asyncio
+import base64
+import io
 import json
 import random
 from datetime import datetime
@@ -9,7 +12,9 @@ from datetime import datetime
 import httpx
 import pytest
 from fastapi.testclient import TestClient
+from PIL import Image
 
+import app.cards.paid_preview as paid_preview
 import app.cards.router as router_module
 from app.cards.push import FcmSender
 from app.core import errors
@@ -25,7 +30,18 @@ CYCLE = datetime(2026, 9, 21, 7, 0, tzinfo=SEOUL)
 LAST_CYCLE = datetime(2026, 9, 17, 7, 0, tzinfo=SEOUL)    # 지난 목요일
 REGION_SETTINGS = [{"region_group": "seoul", "issue_weekdays": [1, 4], "issue_time": "07:00:00"}]
 REASONS = [{"kind": "tendency", "text": "성향이 비슷해요"}, {"kind": "mbti", "text": "MBTI가 잘 맞아요"}]
-PAID_CARD_KEYS = {"state", "offer_id", "band_count", "reasons", "avatar_url", "cost"}
+# 결제 전에는 아바타 주소(경로에 상대 profile_id)를 싣지 않는다 — 서버가 줄인 작은 JPEG 만 preview 로 간다(보안 점검 #3).
+PAID_CARD_KEYS = {"state", "offer_id", "band_count", "reasons", "preview", "cost"}
+# 서버가 원본 아바타를 받는 Storage 경로(서비스 키로 읽는다).
+AVATAR_OBJECT = "/storage/v1/object/avatars/"
+
+
+def _png() -> bytes:
+    """아바타 원본 대신 쓰는 1024×1536 PNG(늘 같은 그림)."""
+    image = Image.linear_gradient("L").resize((1024, 1536)).convert("RGB")
+    out = io.BytesIO()
+    image.save(out, "PNG")
+    return out.getvalue()
 
 
 class _FakeCredentials:
@@ -85,7 +101,7 @@ def _in(value: str) -> list[str]:
 
 class _World:
     def __init__(self, offers=(), candidates=(), cards=(), profiles=None,
-                 purchase=None, purchase_status: int = 200, region_settings=None):
+                 purchase=None, purchase_status: int = 200, region_settings=None, avatars=None):
         self.region_settings = REGION_SETTINGS if region_settings is None else region_settings
         self.offers = [dict(o) for o in offers]
         self.candidates = list(candidates)
@@ -95,6 +111,12 @@ class _World:
         self.purchase_status = purchase_status
         self.calls: list[tuple[str, str]] = []
         self.rpc_bodies: list[dict] = []
+        # Storage 의 아바타 원본(경로 → 바이트). 없는 경로는 404 다.
+        self.avatars = avatars or {}
+        self.downloads: list[str] = []
+        # True 면 Storage 가 응답하지 않는다(시간 초과). 원본 요청이 달고 온 시간 제한을 적어 둔다.
+        self.slow_storage = False
+        self.download_timeouts: list[dict] = []
 
     def count(self, method: str, table: str) -> int:
         return self.calls.count((method, table))
@@ -109,6 +131,16 @@ class _World:
         path, params = request.url.path, request.url.params
         if path == "/auth/v1/user":
             return httpx.Response(200, json={"id": ME})
+        if path.startswith(AVATAR_OBJECT) and request.method == "GET":
+            key = path.removeprefix(AVATAR_OBJECT)
+            self.downloads.append(key)
+            self.download_timeouts.append(request.extensions["timeout"])
+            if self.slow_storage:
+                # 가짜 전송은 시간을 재지 않는다 — 진짜 클라이언트가 제한에 걸렸을 때 내는 예외를 그대로 낸다.
+                raise httpx.ReadTimeout("storage did not answer", request=request)
+            if key not in self.avatars:
+                return httpx.Response(404, json={"error": "not_found"})
+            return httpx.Response(200, content=self.avatars[key], headers={"Content-Type": "image/png"})
         table = path.removeprefix("/rest/v1/")
         self.calls.append((request.method, table))
         if table == "profiles":
@@ -160,6 +192,9 @@ class _World:
 
 @pytest.fixture
 def wire():
+    # 미리보기 캐시는 프로세스에 하나라 시험끼리 섞이지 않게 앞뒤로 비운다.
+    paid_preview.clear_cache()
+
     def build(world: _World) -> TestClient:
         http = httpx.AsyncClient(transport=httpx.MockTransport(world.handle))
         app.dependency_overrides[get_settings] = lambda: _settings()
@@ -172,6 +207,7 @@ def wire():
 
     yield build
     app.dependency_overrides.clear()
+    paid_preview.clear_cache()
 
 
 # GET /cards/today ----------------------------------------------------------------------------
@@ -183,7 +219,7 @@ def test_a_live_offer_is_shown_without_recomputing_the_ranking(wire):
 
     assert body["paid_card"] == {
         "state": "offered", "offer_id": "offer-1", "band_count": 4, "reasons": REASONS,
-        "avatar_url": "https://x.supabase.co/storage/v1/object/public/avatars/c03/a.png", "cost": 50,
+        "preview": None, "cost": 50,
     }
     assert body["locked_card_available"] is True
     # 제안이 살아 있으면 후보 전체 순위를 다시 매기지 않는다 — 후보 풀이 비지 않았다는 것도 제안으로 안다.
@@ -203,6 +239,106 @@ def test_an_offered_card_carries_no_other_profile_field(wire):
     dumped = json.dumps(paid, ensure_ascii=False)
     for leak in ("숨은닉네임", "숨은학과", "ENTJ", "숨은대학교", "1999", "c03\""):
         assert leak not in dumped
+
+
+def test_before_buying_nothing_in_the_response_points_at_the_person(wire):
+    """응답을 가로채도 결제 전에는 원본 주소 · 저장소 경로 · 상대 profile_id 를 알 수 없다."""
+    world = _World(offers=[_offer()], avatars={"c03/a.png": _png()})
+
+    response = wire(world).get("/cards/today", headers=AUTH)
+
+    assert response.status_code == 200
+    preview = response.json()["paid_card"]["preview"]
+    assert preview
+    # base64 글자 안에 우연히 같은 글자가 있을 수 있어 preview 값은 빼고 본다.
+    text = response.text.replace(preview, "")
+    for leak in ("c03", "avatars/", "a.png", "storage/v1", "supabase.co"):
+        assert leak not in text
+
+
+def test_the_preview_is_a_tiny_jpeg_not_the_original(wire):
+    original = _png()
+    world = _World(offers=[_offer()], avatars={"c03/a.png": original})
+
+    preview = base64.b64decode(wire(world).get("/cards/today", headers=AUTH).json()["paid_card"]["preview"])
+
+    assert preview[:3] == b"\xff\xd8\xff"
+    assert len(preview) <= 1500
+    assert preview != original
+    with Image.open(io.BytesIO(preview)) as image:
+        assert image.width * image.height <= 16 * 16
+
+
+@pytest.mark.parametrize("avatars", [{}, {"c03/a.png": b"not an image"}])
+def test_a_failed_download_or_a_broken_image_leaves_the_preview_null(wire, avatars):
+    """원본을 못 받거나 못 읽어도 카드는 그대로 열린다 — 앱은 회색 원을 그린다."""
+    world = _World(offers=[_offer()], avatars=avatars)
+
+    response = wire(world).get("/cards/today", headers=AUTH)
+
+    assert response.status_code == 200
+    paid = response.json()["paid_card"]
+    assert paid["state"] == "offered"
+    assert paid["preview"] is None
+
+
+def test_a_slow_storage_gives_up_quickly_and_leaves_the_preview_null(wire):
+    """원본 받기가 오늘 탭 응답을 오래 붙잡지 않는다 — 짧은 제한(2초 이하)에 걸리면 회색 원으로 그냥 연다."""
+    world = _World(offers=[_offer()], avatars={"c03/a.png": _png()})
+    world.slow_storage = True
+
+    response = wire(world).get("/cards/today", headers=AUTH)
+
+    assert response.status_code == 200
+    assert response.json()["paid_card"]["state"] == "offered"
+    assert response.json()["paid_card"]["preview"] is None
+    [timeout] = world.download_timeouts
+    assert all(seconds is not None and seconds <= 2.0 for seconds in timeout.values())
+
+
+def test_the_same_avatar_is_downloaded_once(wire):
+    world = _World(offers=[_offer()], avatars={"c03/a.png": _png()})
+    client = wire(world)
+
+    first = client.get("/cards/today", headers=AUTH).json()["paid_card"]["preview"]
+    second = client.get("/cards/today", headers=AUTH).json()["paid_card"]["preview"]
+
+    assert first == second
+    assert world.downloads == ["c03/a.png"]
+
+
+def test_shrinking_the_image_runs_off_the_event_loop(wire, monkeypatch):
+    """디코딩 · 축소는 CPU 일이다 — 이벤트 루프 위에서 돌면 그동안 다른 요청이 멈춘다."""
+    where = []
+    shrink = paid_preview.blur_preview
+
+    def spy(original: bytes) -> bytes:
+        try:
+            asyncio.get_running_loop()
+            where.append("event loop")
+        except RuntimeError:
+            where.append("worker thread")
+        return shrink(original)
+
+    monkeypatch.setattr(paid_preview, "blur_preview", spy)
+    world = _World(offers=[_offer()], avatars={"c03/a.png": _png()})
+
+    wire(world).get("/cards/today", headers=AUTH)
+
+    assert where == ["worker thread"]
+
+
+def test_after_buying_the_card_shows_the_avatar_as_before(wire):
+    """산 카드는 무료 카드와 같은 앞면이다 — 원본 아바타 주소가 그대로 간다."""
+    world = _World(offers=[_offer(status="purchased", purchased_card_id="card-p")],
+                   candidates=[_candidate(i) for i in range(20)],
+                   cards=[_card("card-p", "c03", source="purchased")])
+
+    body = wire(world).get("/cards/today", headers=AUTH).json()
+
+    [card] = body["cards"]
+    assert card["profile"]["avatar_url"] == "https://x.supabase.co/storage/v1/object/public/avatars/c03/a.png"
+    assert body["paid_card"] is None
 
 
 def test_no_offer_yet_makes_one_lazily(wire):
