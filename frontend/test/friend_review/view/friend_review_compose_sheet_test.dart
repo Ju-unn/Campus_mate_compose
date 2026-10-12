@@ -348,6 +348,72 @@ void main() {
     });
   });
 
+  group('친구 코드로(20f → 20b)', () {
+    final friend = friendCodeMatchFixture(code: 'K7M2QX', nickname: '봄바람');
+
+    Future<void> openByCode(WidgetTester tester) async {
+      tester.view.physicalSize = const Size(360, 780);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final container = ProviderContainer(overrides: [friendReviewRepositoryProvider.overrideWithValue(repository)]);
+      addTearDown(container.dispose);
+      await tester.pumpWidget(UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () async {
+                  result = await showFriendCodeReviewComposeSheet(context, friend);
+                  closed = true;
+                },
+                child: const Text('열기'),
+              ),
+            ),
+          ),
+        ),
+      ));
+      await tester.tap(find.text('열기'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('같은 시트(NHcsP) — 머리는 확인 결과의 닉네임 · 관계 "친구", 서버에 대상을 묻지 않는다', (tester) async {
+      await openByCode(tester);
+
+      expect(sheet(), findsOneWidget);
+      expect(find.descendant(of: sheet(), matching: find.text('봄바람')), findsOneWidget);
+      expect(find.descendant(of: sheet(), matching: find.text('봄')), findsOneWidget);
+      expect(find.descendant(of: sheet(), matching: find.text(friendReviewRelationLabel)), findsOneWidget);
+      expect(repository.targetRequests, isEmpty);
+      expect(tester.getRect(submit()), Rect.fromLTWH(16, 780 - 24 - 52, 328, 52));
+    });
+
+    testWidgets('남기면 friend_code 로 보내고 "리뷰를 남겼어요" 토스트 뒤 닫힌다, 결과 true', (tester) async {
+      await openByCode(tester);
+      await tapChip(tester, '성실해요');
+
+      await tester.tap(submit());
+      await tester.pumpAndSettle();
+
+      expect(repository.codeCreates.single.friendCode, 'K7M2QX');
+      expect(repository.creates, isEmpty);
+      expect((closed, result), (true, true));
+      expect(find.widgetWithText(AppToast, '리뷰를 남겼어요'), findsOneWidget);
+    });
+
+    testWidgets('429 면 시트 안 토스트 "잠시 후 다시 시도해 주세요." — 시트는 남는다', (tester) async {
+      repository.createResult = const FailureResult(RateLimitedFailure());
+      await openByCode(tester);
+      await tapChip(tester, '성실해요');
+
+      await tester.tap(submit());
+      await tester.pumpAndSettle();
+
+      expect(find.descendant(of: sheet(), matching: find.widgetWithText(AppToast, '잠시 후 다시 시도해 주세요.')), findsOneWidget);
+      expect(closed, isFalse);
+    });
+  });
+
   group('넘침', () {
     testWidgets('12종이 664 에 다 안 들어가도 넘치지 않고 가운데만 스크롤 — 버튼은 바닥 그대로', (tester) async {
       await open(tester);

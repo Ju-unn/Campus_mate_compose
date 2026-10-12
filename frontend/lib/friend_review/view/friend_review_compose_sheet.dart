@@ -35,9 +35,16 @@ const Key friendReviewComposeHandleKey = ValueKey('friend-review-compose-handle'
 const Key friendReviewCommentBoxKey = ValueKey('friend-review-comment-box');
 const Key friendReviewSubmitKey = ValueKey('friend-review-submit');
 
-/// 20b 를 지금 화면 위에 띄운다 — 온보딩 20 코드 확인 뒤(PR 4)가 부른다. 남기면 true, 아니면 null.
+/// 20b 를 지금 화면 위에 띄운다 — 온보딩 20 코드 확인 뒤 · 20e 기다리는 친구가 부른다. 남기면 true, 아니면 null.
 /// 보내는 중에 닫으면 저장돼도 null 이다 — 부르는 쪽은 null 을 "안 씀" 으로 가르지 말 것.
-Future<bool?> showFriendReviewComposeSheet(BuildContext context, String revieweeId) {
+Future<bool?> showFriendReviewComposeSheet(BuildContext context, String revieweeId) =>
+    _showSheet(context, FriendReviewComposeSheet(revieweeId: revieweeId));
+
+/// 20f 친구 코드 확인 뒤 "리뷰 쓰기" 가 부른다 — 같은 시트, 머리는 확인 결과, 저장은 코드로. 결과는 위와 같다.
+Future<bool?> showFriendCodeReviewComposeSheet(BuildContext context, FriendCodeMatch friend) =>
+    _showSheet(context, FriendReviewComposeSheet.byCode(friend: friend));
+
+Future<bool?> _showSheet(BuildContext context, FriendReviewComposeSheet sheet) {
   return showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
@@ -46,7 +53,7 @@ Future<bool?> showFriendReviewComposeSheet(BuildContext context, String reviewee
     backgroundColor: Colors.transparent,
     // pen nIrPW 판 채움 #00000080 = 모달 딤 토큰.
     barrierColor: AppColors.scrim,
-    builder: (_) => FriendReviewComposeSheet(revieweeId: revieweeId),
+    builder: (_) => sheet,
   );
 }
 
@@ -73,9 +80,14 @@ class FriendReviewComposePage extends Page<bool> {
 /// 20b 리뷰 쓰기 시트 본문(pen `NHcsP`). 664 고정, 손잡이만(제목 · 닫기 없음).
 /// 태그가 서버 12종이라 pen(6개) 보다 길다 — 가운데만 스크롤하고 버튼은 바닥에 둔다(편차).
 class FriendReviewComposeSheet extends ConsumerStatefulWidget {
-  const FriendReviewComposeSheet({required this.revieweeId, super.key});
+  const FriendReviewComposeSheet({required String this.revieweeId, super.key}) : friend = null;
 
-  final String revieweeId;
+  /// 20f 친구 코드로 확인한 상대. 프로필 id 가 없어 열 때 대상을 다시 묻지 않는다.
+  const FriendReviewComposeSheet.byCode({required FriendCodeMatch this.friend, super.key}) : revieweeId = null;
+
+  /// 둘 중 하나만 있다.
+  final String? revieweeId;
+  final FriendCodeMatch? friend;
 
   @override
   ConsumerState<FriendReviewComposeSheet> createState() => _FriendReviewComposeSheetState();
@@ -95,11 +107,14 @@ class _FriendReviewComposeSheetState extends ConsumerState<FriendReviewComposeSh
 
   @override
   Widget build(BuildContext context) {
-    final provider = friendReviewComposeViewModelProvider(widget.revieweeId);
+    final friend = widget.friend;
+    final provider = friend != null
+        ? friendCodeReviewComposeViewModelProvider(friend)
+        : friendReviewComposeViewModelProvider(widget.revieweeId!);
     final state = ref.watch(provider);
     final viewModel = ref.read(provider.notifier);
     ref.listen(provider, _onChanged);
-    final target = state.target;
+    final nickname = state.nickname;
     return Padding(
       // 키보드가 올라오면 그만큼 올린다 — 664 가 남은 높이보다 크면 시트가 줄고 가운데가 스크롤한다.
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
@@ -123,12 +138,12 @@ class _FriendReviewComposeSheetState extends ConsumerState<FriendReviewComposeSh
                   const Center(child: _Handle()),
                   Expanded(
                     // pen 에 없는 상태(대장 4) — 대상을 읽는 동안은 가운데 도는 표시만.
-                    child: target == null
+                    child: nickname == null
                         ? const Center(child: CircularProgressIndicator())
                         : SingleChildScrollView(
                             padding: const EdgeInsets.all(AppSpacing.md),
                             child: _Form(
-                              target: target,
+                              nickname: nickname,
                               state: state,
                               comment: _comment,
                               onToggle: viewModel.toggleTag,
@@ -139,7 +154,7 @@ class _FriendReviewComposeSheetState extends ConsumerState<FriendReviewComposeSh
                 ],
               ),
               // 바닥 고정 버튼. 시트 안 토스트가 이 위에 뜬다.
-              bottomNavigationBar: target == null
+              bottomNavigationBar: nickname == null
                   ? null
                   : SafeArea(
                       top: false,
@@ -210,14 +225,14 @@ class _Handle extends StatelessWidget {
 /// 스크롤 칸(pen 간격 16): 머리 → 질문 1 → 태그 → 질문 2 → 한마디.
 class _Form extends StatelessWidget {
   const _Form({
-    required this.target,
+    required this.nickname,
     required this.state,
     required this.comment,
     required this.onToggle,
     required this.onCommentChanged,
   });
 
-  final ReviewTarget target;
+  final String nickname;
   final FriendReviewComposeUiState state;
   final TextEditingController comment;
   final ValueChanged<String> onToggle;
@@ -228,7 +243,8 @@ class _Form extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _TargetHeader(nickname: target.nickname),
+        // pen eRud0 에는 학교 칸이 없다 — 친구 코드로 와도 닉네임 · 관계만 그린다.
+        _TargetHeader(nickname: nickname),
         const SizedBox(height: AppSpacing.md),
         const _Question(_tagQuestion),
         // 칩의 누르는 영역이 보이는 칩보다 위아래로 4 씩 크다 — 보이는 간격 16 을 맞추려고 4 를 뺀다.
