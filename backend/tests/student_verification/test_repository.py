@@ -83,33 +83,6 @@ async def test_fetch_reject_reason_returns_none_when_no_rows():
     assert result is None
 
 
-async def test_upsert_real_name_sends_merge_duplicates():
-    captured: dict = {}
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        captured["url"] = str(request.url)
-        captured["json"] = json.loads(request.content)
-        captured["headers"] = request.headers
-        return httpx.Response(201, json=[])
-
-    repo = _repo(handler)
-
-    await repo.upsert_real_name(PROFILE_ID, "홍길동")
-
-    assert captured["url"] == f"{POSTGREST_URL}/profile_private"
-    assert captured["json"] == {"profile_id": str(PROFILE_ID), "real_name": "홍길동", "updated_at": "now()"}
-    assert captured["headers"]["prefer"] == "resolution=merge-duplicates"
-    assert captured["headers"]["apikey"] == "service-key"
-    assert captured["headers"]["authorization"] == "Bearer service-key"
-    assert captured["headers"]["content-type"] == "application/json"
-
-
-async def test_upsert_real_name_raises_on_error():
-    repo = _repo(lambda request: httpx.Response(500))
-
-    with pytest.raises(httpx.HTTPStatusError):
-        await repo.upsert_real_name(PROFILE_ID, "홍길동")
-
 
 async def test_record_attempt_posts_attempt_row():
     captured: dict = {}

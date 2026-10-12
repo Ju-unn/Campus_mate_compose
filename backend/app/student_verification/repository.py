@@ -40,14 +40,6 @@ class StudentVerificationRepository(PostgrestRepository):
         rows = response.json()
         return rows[0]["reject_reason"] if rows else None
 
-    async def upsert_real_name(self, profile_id: UUID, real_name: str) -> None:
-        response = await self._post(
-            "profile_private",
-            json={"profile_id": str(profile_id), "real_name": real_name, "updated_at": "now()"},
-            prefer="resolution=merge-duplicates",
-        )
-        raise_for_status(response)
-
     async def record_attempt(self, profile_id: UUID, file_path: str, result: str) -> None:
         response = await self._post(
             "student_verification_attempts",

@@ -14,7 +14,7 @@ from app.consents.policy import consent_state
 from app.consents.repository import ConsentRepository, require_current_consent
 from app.core import errors
 from app.core.deps import Caller, get_caller, get_vision_client_factory
-from app.profile_onboarding.encryption import set_encrypted_real_name, write_best_effort
+from app.profile_onboarding.encryption import set_encrypted_real_name
 from app.settings import Settings
 from app.student_verification.current_user import reject_suspended, require_school_email
 from app.student_verification.discord_notifier import DiscordNotifier
@@ -79,12 +79,12 @@ async def submit_student_verification(
     file_path = await storage.upload(profile_id, data, content_type)
 
     try:
-        await repo.upsert_real_name(profile_id, name)
-        # 이중 쓰기 기간: 평문이 진실이라 enc 쓰기가 실패해도 제출은 계속된다(백필이 메운다).
-        await write_best_effort("real_name", profile_id, lambda: set_encrypted_real_name(
+        # 실명은 암호문 열에만 산다(M2) — 이 쓰기가 실패하면 제출도 실패다(실명 없이 심사 대기로 넘기지 않는다).
+        # DB 함수가 profile_private 행이 없으면 만든다(upsert).
+        await set_encrypted_real_name(
             settings.postgrest_url, settings.supabase_service_role_key, client,
             profile_id, name, settings.phone_encryption_key,
-        ))
+        )
         # 결과가 어느 쪽이든 먼저 pending 시도 행으로 남긴다 — 사람 검토 대기열이고, 검토 결과 훅과 매시 배치
         # (retention.py)가 이 행을 보고 사진을 지운다.
         await repo.record_attempt(profile_id, file_path, "pending")
