@@ -39,7 +39,9 @@ Future<void> e2eRegenToSheet(WidgetTester tester, String pill) async {
   await pumpUntil(tester, find.byType(AvatarRegenPickScreen), timeout: _regenScreenWait);
   final container = ProviderScope.containerOf(tester.element(find.byType(AvatarRegenPickScreen)));
   container.read(avatarRegenPickViewModelProvider.notifier).pickFromGallery = () async => photo;
-  await tap(tester, find.byIcon(AppIcons.plus)); // 빈 "사진 추가" 칸의 + 아이콘(다른 + 는 이 화면에 없다)
+  // 빈 "사진 추가" 칸의 + 아이콘. 이 화면에 다른 + 는 없지만, 15 에서 넘어오는 움직임 동안에는 아래 15 앱바 하트 칩의 "+" 도 잠깐 보인다 —
+  // tap 헬퍼는 찾은 것 중 마지막(위에 올라온 이 화면 쪽)을 누른다.
+  await tap(tester, find.byIcon(AppIcons.plus));
   final picked = await appears(tester, find.byType(AvatarSourceTile), _regenCheckWait);
   if (picked == null) {
     throw E2eBlocked('다시 만들기 사진이 기기 얼굴 검사에서 빠짐($regenPhotoName) — 사진 세트 확인');
