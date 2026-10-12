@@ -112,8 +112,8 @@ def test_a_duplicate_report_is_409_and_the_block_already_went_out(client, world)
 def test_a_failing_report_insert_leaves_the_block_in_place(client, world):
     world.report_insert_status = 500
 
-    with pytest.raises(httpx.HTTPStatusError):
-        client.post("/reports", json=_profile_report(), headers=AUTH)
+    # 잡히지 않은 저장소 실패는 main 의 전역 처리기가 500 으로 바꾼다(예외가 앱 밖으로 새지 않는다).
+    assert client.post("/reports", json=_profile_report(), headers=AUTH).status_code == 500
 
     assert len(world.blocks) == 1
     assert world.reports == []

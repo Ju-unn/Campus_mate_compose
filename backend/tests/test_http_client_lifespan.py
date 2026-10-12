@@ -32,16 +32,18 @@ def fresh_settings():
 
 
 @pytest.mark.parametrize("value", [None, ""])
-def test_boot_fails_when_a_secret_is_missing_or_empty(monkeypatch, fresh_settings, value):
+@pytest.mark.parametrize("name", ["IDENTITY_HMAC_KEY", "PHONE_ENCRYPTION_KEY"])
+def test_boot_fails_when_a_secret_is_missing_or_empty(monkeypatch, fresh_settings, name, value):
     """빠진 · 빈 환경변수는 **첫 요청이 아니라 부팅에서** 잡혀야 한다.
 
     lifespan 이 설정을 만들기 전에는 컨테이너가 뜨고 /health 까지 통과한 뒤 첫 요청부터 500 이었다.
-    빈 문자열도 막는다 — 빈 키로 해시를 계산하면 재가입 차단이 조용히 풀린다.
+    빈 문자열도 막는다 — 빈 키로 해시를 계산하면 재가입 차단이 조용히 풀리고, 빈 암호 키로는 전화번호 ·
+    실명 · 카카오톡 아이디가 빈 키로 암호화된다(2026-10-12 보안 점검 #12).
     """
     if value is None:
-        monkeypatch.delenv("IDENTITY_HMAC_KEY", raising=False)
+        monkeypatch.delenv(name, raising=False)
     else:
-        monkeypatch.setenv("IDENTITY_HMAC_KEY", value)
+        monkeypatch.setenv(name, value)
 
     with pytest.raises(ValidationError):
         with TestClient(app):

@@ -93,10 +93,11 @@ async def generate_avatar_task(
     if updated == 0:
         if result.status == "ready":
             # 올려 둔 그림은 아무도 안 쓰는 고아가 된다. 지우러 가지 않는다 — 드물고, 지우다 실패하면
-            # 워커만 복잡해진다. 사람이 찾을 수 있게 경로만 남긴다.
+            # 워커만 복잡해진다. 사람이 찾을 수 있게 id 만 남긴다 — 저장 경로는 로그에 남기지 않는다(COMMON §3).
+            # 그림은 avatars 버킷의 그 profile_id 폴더에 있다.
             _logger.warning(
-                "아바타를 만들었지만 기록할 행이 없다 — 고아 그림으로 둔다 profile_id=%s storage_path=%s",
-                body.profile_id, result.storage_path,
+                "아바타를 만들었지만 기록할 행이 없다 — 고아 그림으로 둔다 profile_id=%s attempt_id=%s",
+                body.profile_id, body.attempt_id,
             )
         return {"status": "skipped"}
 

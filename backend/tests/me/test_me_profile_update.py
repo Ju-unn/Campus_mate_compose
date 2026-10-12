@@ -92,6 +92,19 @@ def test_blank_bio_is_422_and_writes_nothing():
     assert _profile_patches(seen) == []
 
 
+def test_bio_over_a_thousand_characters_is_422_and_writes_nothing():
+    # 자유 글 상한(2026-10-12 보안 점검 #11) — 온보딩 /bio 와 같은 1000자.
+    seen = []
+    assert _patch({"bio": "가" * 1001}, seen=seen).status_code == 422
+    assert _profile_patches(seen) == []
+
+
+def test_bio_of_a_thousand_characters_is_saved():
+    seen = []
+    assert _patch({"bio": "가" * 1000}, seen=seen).status_code == 200
+    assert _profile_patches(seen) == [{"bio": "가" * 1000}]
+
+
 def test_an_empty_body_is_422():
     # 고칠 칸이 없는 요청은 앱 버그다 — 아무것도 안 쓰고 200 을 주면 숨는다.
     assert _patch({}).status_code == 422

@@ -616,8 +616,12 @@ def test_worker_leaves_an_orphan_image_alone_and_says_so(monkeypatch, caplog):
     with caplog.at_level("WARNING", logger="app.profile_onboarding.tasks_router"):
         assert _worker(fake, _openai(True)).json() == {"status": "skipped"}
 
-    # 지우러 가지 않는다 — 드물고, 지우다 실패하면 워커만 복잡해진다. 사람이 찾을 수 있게 경로만 남긴다.
-    assert any("고아" in r.getMessage() for r in caplog.records)
+    # 지우러 가지 않는다 — 드물고, 지우다 실패하면 워커만 복잡해진다. 사람이 찾을 수 있게 id 만 남긴다 —
+    # 저장 경로는 로그에 남기지 않는다(COMMON §3, 2026-10-12 보안 점검 #18).
+    orphan = next(r.getMessage() for r in caplog.records if "고아" in r.getMessage())
+    (upload,) = fake.calls("POST", "/storage/v1/object/avatars/")
+    assert str(upload.url).rsplit("/", 1)[1] not in orphan
+    assert f"profile_id={PROFILE_ID}" in orphan and f"attempt_id={ATTEMPT_ID}" in orphan
     assert fake.calls("DELETE", "/storage/v1/object/avatars/") == []
 
 

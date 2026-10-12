@@ -1,5 +1,6 @@
 import inspect
 import json
+import logging
 from typing import get_args
 from uuid import UUID
 
@@ -63,9 +64,61 @@ async def test_notify_pending_review_takes_no_parameter_that_could_carry_a_value
     assert list(inspect.signature(notifier.notify_pending_review).parameters) == ["reason", "profile_id"]
 
 
-async def test_notify_pending_review_raises_on_failure():
-    client = httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(500)))
-    notifier = DiscordNotifier(WEBHOOK_URL, client)
+async def test_orphan_notice_carries_only_the_account_id():
+    # 사진 경로는 싣지 않는다(COMMON §3, 2026-10-12 보안 점검 #18) — 계정 id 로 Storage 폴더를 찾는다.
+    client, captured = _mock_client()
 
-    with pytest.raises(httpx.HTTPStatusError):
-        await notifier.notify_pending_review("vision_error", PROFILE_ID)
+    await DiscordNotifier(WEBHOOK_URL, client).notify_orphaned_file(PROFILE_ID)
+
+    assert json.loads(captured["body"]) == {
+        "content": (
+            f"학생증 사진 삭제가 실패해 고아 파일이 남았어요 (계정: {PROFILE_ID}). "
+            "Storage student-id-temp 에서 그 계정 폴더를 손으로 지워 주세요."
+        )
+    }
+    assert list(inspect.signature(DiscordNotifier.notify_orphaned_file).parameters) == ["self", "profile_id"]
+
+
+# 웹훅 주소에는 토큰이 들어 있다. httpx 의 raise_for_status 예외 문구에는 주소가 통째로 실려
+# 로그에 남는다(2026-10-12 보안 점검 #9) — 상태 코드 · 예외 이름만 남기고 삼킨다.
+SECRET_WEBHOOK_URL = "https://discord.com/api/webhooks/123/SECRET-TOKEN"
+SENDS = {
+    "pending_review": lambda notifier: notifier.notify_pending_review("vision_error", PROFILE_ID),
+    "orphaned_file": lambda notifier: notifier.notify_orphaned_file(PROFILE_ID),
+    "missing_fallback_avatar": lambda notifier: notifier.notify_missing_fallback_avatar("defaults/fallback-avatar.png"),
+}
+
+
+@pytest.mark.parametrize("reply", [httpx.Response(429), httpx.Response(500, json={"message": "boom"}),
+                                   httpx.ConnectError("down")], ids=["429", "500", "connect"])
+@pytest.mark.parametrize("send", SENDS.values(), ids=SENDS.keys())
+async def test_a_failed_notice_is_swallowed_and_never_logs_the_webhook_address(reply, send, caplog):
+    def handler(request: httpx.Request) -> httpx.Response:
+        if isinstance(reply, Exception):
+            raise reply
+        return reply
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+    with caplog.at_level(logging.WARNING):
+        await send(DiscordNotifier(SECRET_WEBHOOK_URL, client))
+
+    assert caplog.records, "실패는 로그에 남아야 한다"
+    assert "SECRET-TOKEN" not in caplog.text
+    assert "webhooks" not in caplog.text
+    if isinstance(reply, httpx.Response):
+        assert f"status={reply.status_code}" in caplog.text
+
+
+# 설정 오류 모양의 주소(시크릿 끝의 줄바꿈 · 잘못된 포트). httpx.InvalidURL 은 HTTPError 하위가 아니라 따로 잡아야 한다.
+@pytest.mark.parametrize("webhook_url", [SECRET_WEBHOOK_URL + "\n", "https://discord.com:abc/api/webhooks/123/SECRET-TOKEN"],
+                         ids=["trailing_newline", "bad_port"])
+async def test_a_malformed_webhook_address_is_swallowed_and_never_logged(webhook_url, caplog):
+    client = httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(204)))
+
+    with caplog.at_level(logging.WARNING):
+        await DiscordNotifier(webhook_url, client).notify_pending_review("vision_error", PROFILE_ID)
+
+    assert "InvalidURL" in caplog.text
+    assert "SECRET-TOKEN" not in caplog.text
+    assert "webhooks" not in caplog.text

@@ -83,10 +83,13 @@ class IdealConditionsRequest(BaseModel):
 
 
 IDEAL_NOTE_MIN_LENGTH = 10
+# 자유 글(자기소개 · 이상형 글) 상한. 앱 입력칸에는 상한이 없어 넉넉하게 채팅 한 통과 같은 1000자다 —
+# 상한이 없으면 아무 길이나 DB 와 임베딩(유료)으로 흘러간다(2026-10-12 보안 점검 #11). DB check 는 없다.
+FREE_TEXT_MAX_LENGTH = 1000
 
 
 class IdealNoteRequest(BaseModel):
-    note: str
+    note: str = Field(max_length=FREE_TEXT_MAX_LENGTH)
 
     @field_validator("note")
     @classmethod
@@ -101,7 +104,7 @@ class IdealNoteRequest(BaseModel):
 
 
 class BioRequest(BaseModel):
-    bio: str
+    bio: str = Field(max_length=FREE_TEXT_MAX_LENGTH)
 
 
 ACQUISITION_NOTE_MAX_LENGTH = 30  # pen 값이 다르면 여기와 앱 acquisitionNoteMaxLength 를 같이 바꾼다

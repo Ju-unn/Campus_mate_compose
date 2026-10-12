@@ -108,28 +108,25 @@ async def submit_student_verification(
             # confirm_failed 로 찍힌다(2026-09-26 분석 권고1).
             await repo.update_attempt_result(profile_id, file_path, "verified")
             await repo.update_verification_status(profile_id, "verified")
-        except httpx.HTTPError:
+        except httpx.HTTPError as exc:
             # 확정을 못 쓰면 상태가 pending 에 갇혀 재제출이 409 로 막힌다 — OCR 실패와 같게 사람 재검토로 넘긴다.
-            _logger.exception("학생증 인증 확정 실패 — 사람 재검토로 넘긴다")
+            # 예외 문구는 남기지 않는다 — 시도 행 PATCH 주소에 사진 경로(file_path)가 붙어 있다(COMMON §3).
+            _logger.error("학생증 인증 확정 실패 — 사람 재검토로 넘긴다 profile_id=%s %s", profile_id, type(exc).__name__)
             reason = "confirm_failed"
         else:
             # 여기부터는 인증이 이미 끝난 뒤의 뒷정리다 — 무엇이 실패해도 결과는 verified 다.
             # SQL 트리거가 아니라 여기서 직접 지운다 — `delete from storage.objects`는 메타 행만 지우고
             # 실제 파일은 고아로 남는다(Supabase storage/management 문서, 2026-09-20 분석담당 리뷰).
             # 삭제 실패는 인증 결과를 실패시키지 않고 디스코드로만 알린다(고아 파일 수동 정리용).
+            # 로그 · 알림에는 계정 id 만 — 사진 경로는 남기지 않는다(COMMON §3). 알림은 실패해도 삼킨다(discord_notifier).
             if not await storage.delete(file_path):
-                _logger.error("학생증 사진 삭제 실패 — 고아 파일, profile_id=%s file_path=%s", profile_id, file_path)
-                try:
-                    await DiscordNotifier(settings.discord_webhook_url, client).notify_orphaned_file(file_path)
-                except httpx.HTTPError:
-                    # 알림까지 실패하면 위 로그가 마지막 흔적이다. 끝난 인증을 되돌리지는 않는다
-                    # (종전에는 이 예외가 바깥 except 에 걸려 verified 인데 사유가 confirm_failed 로 찍혔다).
-                    _logger.exception("고아 파일 알림 실패 — 로그만 남긴다")
+                _logger.error("학생증 사진 삭제 실패 — 고아 파일, profile_id=%s", profile_id)
+                await DiscordNotifier(settings.discord_webhook_url, client).notify_orphaned_file(profile_id)
             return {"status": "verified"}
 
     # 사람이 왜 봐야 하는지 한 줄로 남긴다(2026-09-26 사용자 결정). **이 줄에는** 실명·OCR 원문·사진 경로를
     # 넣지 않는다 — 학교 이름은 공개 데이터라 남기고, OCR 은 내용 대신 글자 수만 남겨 "아예 못 읽었는지"를
-    # 구분한다. (위 _logger.exception 의 스택에는 PATCH 주소가 찍혀 사진 경로가 섞일 수 있다.)
+    # 구분한다.
     _logger.warning(
         "학생증 자동 판정 실패 — 사람 재검토로 넘긴다: reason=%s profile_id=%s school=%s ocr_chars=%d",
         reason,

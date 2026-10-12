@@ -1,7 +1,9 @@
+import logging
 from contextlib import asynccontextmanager
 
 import httpx
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 
 from app.account.batch_router import router as account_batch_router
 from app.account.router import router as account_router
@@ -28,6 +30,9 @@ from app.school_email.router import router as school_email_router
 from app.student_verification.review_hook import router as verification_review_hook_router
 from app.student_verification.router import router as student_verification_router
 
+_logger = logging.getLogger(__name__)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """설정을 확인하고 HTTP 클라이언트를 하나 만든다(미결 41③).
@@ -47,7 +52,9 @@ async def lifespan(app: FastAPI):
         yield
 
 
-app = FastAPI(title="CampusMate Backend", lifespan=lifespan)
+# 문서 주소(/docs · /redoc · /openapi.json)는 열지 않는다 — 운영에서 경로 목록 · 요청 모양을 누구에게나 보여 준다
+# (2026-10-12 보안 점검 #10). 경로 이름이 필요하면 코드에서 app.openapi() 를 부른다.
+app = FastAPI(title="CampusMate Backend", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
 app.include_router(auth_hooks_router)
 app.include_router(consents_router)
 app.include_router(school_email_router)
@@ -70,6 +77,15 @@ app.include_router(account_router)
 app.include_router(referral_router)
 app.include_router(friend_reviews_router)
 app.include_router(heart_tasks_router)
+
+
+@app.exception_handler(httpx.HTTPStatusError)
+async def upstream_call_failed(request: Request, exc: httpx.HTTPStatusError) -> JSONResponse:
+    """라우터가 잡지 않은 저장소 호출 실패. 그냥 두면 uvicorn 이 "Exception in ASGI application" 에 예외 문구를 찍는데,
+    그 문구에는 요청 주소(Supabase 호스트 · 사진 경로)가 통째로 들어 있다(2026-10-12 보안 점검).
+    메서드 · 상태 코드 · 예외 이름만 남긴다. 예외 클래스 전용 처리기라 다시 던지지 않는다(Exception · 500 처리기는 다시 던진다)."""
+    _logger.error("저장소 호출 실패 %s %s status=%s", type(exc).__name__, exc.request.method, exc.response.status_code)
+    return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
 
 
 @app.get("/health")
