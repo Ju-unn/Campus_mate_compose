@@ -219,25 +219,6 @@ void main() {
       expect((icon.size, icon.color), (22, AppColors.ink));
     });
 
-    testWidgets('하트 잔액 칩(`MjtQA`, "+" 없음)이 톱니 바로 왼쪽 — 오른쪽 끝 x300, 위 6, 높이 44, 톱니와 사이 4', (tester) async {
-      usePenFrame(tester);
-      await pump(tester, result: Success(_profile(heartBalance: 320)));
-
-      final chip = find.byType(HeartBalanceChipView);
-      expect(find.text('320'), findsOneWidget);
-      expect(find.byIcon(AppIcons.plus), findsNothing);
-      expect(tester.getTopRight(chip), const Offset(300, 6));
-      expect(tester.getSize(chip).height, 44);
-      expect(tester.getTopLeft(find.byTooltip('설정')).dx - tester.getTopRight(chip).dx, 4);
-    });
-
-    testWidgets('잔액을 못 읽으면 칩이 없다', (tester) async {
-      usePenFrame(tester);
-      await pump(tester, result: const FailureResult(NetworkFailure()));
-
-      expect(find.byType(HeartBalanceChipView), findsNothing);
-    });
-
     testWidgets('톱니를 누르면 설정으로 간다', (tester) async {
       // pen 에서 설정(16)으로 가는 문은 15 내 프로필 `nkFJV` 의 톱니(`hwVQB` 안 `C7teyl`) 하나뿐이다.
       await pump(tester);
@@ -247,6 +228,148 @@ void main() {
 
       expect(find.text('설정 화면'), findsOneWidget);
     });
+  });
+
+  // 사용자 요청 2026-10-12 "나 탭에도 위에 하트 잔여 및 + 버튼을 넣어줘, 메인탭처럼" — 홈(`ihX4y`)과 같은 "+" 켠 칩.
+  // pen `MjtQA` 는 아직 "+" 없음(81×44, x219~300)이라 pen 동기화가 필요하다 — 홈 `ihX4y` 와 같은 103×44 로 켜면 칩 왼쪽 끝 x219→x197.
+  // 자리는 홈 칩과 같다 — 띠 오른쪽 끝 x300 · 위 6 · 44, 톱니 x304. 칩 폭(103)은 테스트 글꼴이 Pretendard 보다 넓어 여기서 재지 않는다(칩 시험이 숫자 폭을 빼고 잰다).
+  group('앱바 하트 칩 — "+" 켬(홈과 같은 공용 `HeartBalanceChip`)', () {
+    final chip = find.byType(HeartBalanceChipView);
+    // 눈에 보이는 띠(44) — 칩 상자는 투명한 눌림 칸까지 48 이다.
+    final band = find.descendant(of: chip, matching: find.byType(Material)).first;
+    final gear = find.byTooltip('설정');
+
+    /// 홈 `expectTrailing` 과 같은 값 — 띠 오른쪽 끝 x300 · 위 6 · 높이 44, 눌림 칸 48(위 4), 톱니 x304 · 48×48 · 위 4.
+    void expectTrailing(WidgetTester tester) {
+      expect(tester.getTopRight(band), const Offset(300, 6));
+      expect(tester.getSize(band).height, 44);
+      expect(tester.getTopRight(chip), const Offset(300, 4));
+      expect(tester.getSize(chip).height, 48);
+      expect(tester.getTopLeft(gear), const Offset(304, 4));
+      expect(tester.getSize(gear), const Size(48, 48));
+      expect(tester.getTopLeft(gear).dx - tester.getTopRight(band).dx, 4);
+    }
+
+    testWidgets('잔액 숫자와 "+" 가 보이고 칩은 톱니 바로 왼쪽(홈과 같은 자리)', (tester) async {
+      usePenFrame(tester);
+      await pump(tester, result: Success(_profile(heartBalance: 320)));
+
+      expect(find.byType(HeartBalanceChip), findsOneWidget);
+      expect(find.descendant(of: chip, matching: find.text('320')), findsOneWidget);
+      expect(find.descendant(of: chip, matching: find.byIcon(AppIcons.plus)), findsOneWidget);
+      final view = tester.widget<HeartBalanceChipView>(chip);
+      expect((view.showPlus, view.balance), (true, 320));
+      expectTrailing(tester);
+    });
+
+    testWidgets('제목 "내 프로필" 은 x20 에서 시작하고 칩과 겹치지 않는다 · 앱바 높이 56', (tester) async {
+      usePenFrame(tester);
+      await pump(tester);
+
+      final title = find.text('내 프로필');
+      expect(tester.getTopLeft(title).dx, 20);
+      expect(tester.getTopRight(title).dx, lessThanOrEqualTo(tester.getTopLeft(chip).dx));
+      expect(tester.getSize(find.byType(AppBar)).height, 56);
+    });
+
+    testWidgets('"+" 를 누르면 하트 상점(`/hearts/store`)으로 간다', (tester) async {
+      await pump(tester);
+
+      await tester.tap(chip);
+      await tester.pumpAndSettle();
+
+      expect(find.text('18 스토어 화면'), findsOneWidget);
+    });
+
+    testWidgets('띠 위 투명한 눌림 칸(띠에서 1px 위)을 눌러도 상점으로 간다', (tester) async {
+      usePenFrame(tester);
+      await pump(tester);
+
+      await tester.tapAt(Offset(tester.getRect(band).center.dx, tester.getTopLeft(band).dy - 1));
+      await tester.pumpAndSettle();
+
+      expect(find.text('18 스토어 화면'), findsOneWidget);
+    });
+
+    testWidgets('"+" 를 프레임 없이 두 번 눌러도 상점은 한 겹만 쌓인다', (tester) async {
+      await pump(tester);
+
+      await tester.tap(chip);
+      await tester.tap(chip);
+      await tester.pumpAndSettle();
+
+      expect(find.text('18 스토어 화면', skipOffstage: false), findsOneWidget);
+      tester.state<NavigatorState>(find.byType(Navigator).first).pop();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byType(MyProfileScreen), findsOneWidget);
+      expect(find.text('18 스토어 화면'), findsNothing);
+    });
+
+    testWidgets('상점에서 돌아오면 잔액을 다시 읽고, 본문은 로딩으로 바뀌지 않는다', (tester) async {
+      final harness = await pump(tester);
+      expect(harness.me.calls, 1);
+
+      await tester.tap(chip);
+      await tester.pumpAndSettle();
+      expect(harness.me.calls, 1); // 상점에 있는 동안은 다시 읽지 않는다
+
+      harness.me.profile = Success(_profile(heartBalance: 370));
+      tester.state<NavigatorState>(find.byType(Navigator).first).pop();
+      await tester.pump();
+      // 다시 읽는 동안에도 히어로가 그대로다(가운데 로딩으로 깜빡이지 않는다).
+      expect(find.byType(ProfileHero), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(harness.me.calls, 2);
+      expect(find.descendant(of: chip, matching: find.text('370')), findsOneWidget);
+    });
+
+    testWidgets('스크린리더 힌트에 "하트 충전" 이 붙는다', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pump(tester);
+
+      expect(tester.getSemantics(chip).getSemanticsData().hint, '하트 충전');
+      handle.dispose();
+    });
+
+    testWidgets('읽는 중에는 칩이 없고 톱니 · 제목 자리는 칩이 있을 때와 같다', (tester) async {
+      usePenFrame(tester);
+      await pump(tester, settle: false);
+
+      expect(chip, findsNothing);
+      expect(tester.getTopLeft(gear), const Offset(304, 4));
+      expect(tester.getTopLeft(find.text('내 프로필')).dx, 20);
+      expect(tester.getSize(find.byType(AppBar)).height, 56);
+      await tester.pump();
+      expectTrailing(tester);
+    });
+
+    testWidgets('잔액을 못 읽으면 칩이 없고 톱니는 그대로다', (tester) async {
+      usePenFrame(tester);
+      await pump(tester, result: const FailureResult(NetworkFailure()));
+
+      expect(chip, findsNothing);
+      expect(tester.getTopLeft(gear), const Offset(304, 4));
+      expect(tester.getSize(find.byType(AppBar)).height, 56);
+    });
+
+    for (final scale in [1.3, 1.5, 2.0]) {
+      testWidgets('글자 배율 $scale — 칩 띠 44 · 톱니 자리 그대로, 제목이 칩을 덮거나 잘리지 않는다', (tester) async {
+        usePenFrame(tester);
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await pump(tester);
+
+        expect(tester.takeException(), isNull);
+        expectTrailing(tester);
+        final title = find.text('내 프로필');
+        expect(tester.getTopRight(title).dx, lessThanOrEqualTo(tester.getTopLeft(chip).dx));
+        final paragraph = tester.renderObject<RenderParagraph>(title);
+        expect(paragraph.getMinIntrinsicWidth(double.infinity), lessThanOrEqualTo(paragraph.size.width + 0.5));
+        expect(paragraph.getMaxIntrinsicHeight(paragraph.constraints.maxWidth), lessThanOrEqualTo(paragraph.size.height + 0.5));
+      });
+    }
   });
 
   testWidgets('하단 내비는 "나" 탭이 켜져 있다', (tester) async {

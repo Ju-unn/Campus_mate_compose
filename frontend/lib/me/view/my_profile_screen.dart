@@ -48,6 +48,21 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> with MeToastH
 
   late final AvatarGenerationViewModel _avatar;
 
+  /// 상점이 열려 있는 동안 "+" 를 또 눌러도(같은 프레임의 연타 포함) 상점을 한 겹만 쌓는다(홈 `_openHeartStore` 와 같다).
+  bool _openingStore = false;
+
+  /// 하트 칩의 "+" → 하트 상점. 상점에서 돌아오면 잔액을 다시 읽는다 — 다시 읽는 동안 본문은 앞 값을 그대로 보인다.
+  Future<void> _openHeartStore() async {
+    if (_openingStore) return;
+    _openingStore = true;
+    try {
+      await context.push(AppRoutes.heartStore);
+    } finally {
+      _openingStore = false;
+    }
+    if (mounted) ref.invalidate(myProfileProvider);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -77,10 +92,17 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> with MeToastH
       // pen `hwVQB` — 09b 첫 화면과 같은 관례: 제목 x20, 톱니 48 뒤 오른쪽 여백 8.
       appBar: AppBar(
         titleSpacing: 20,
-        title: Text('내 프로필', style: AppTypography.navTitle.copyWith(color: AppColors.ink)),
+        // 홈 앱바와 같다 — 제목은 칩 · 톱니가 쓰고 남는 폭을 차지하고, 글자를 키워 모자라면 줄이지 자르지 않는다("+" 로 칩이 22 넓어졌다).
+        title: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text('내 프로필', style: AppTypography.navTitle.copyWith(color: AppColors.ink)),
+        ),
         actions: [
-          // 하트 잔액 칩 `MjtQA` 81×44 — 톱니 바로 왼쪽, 사이 4(`hwVQB` 칩 x219~300 · 톱니 x304). "+" 는 없다.
-          const HeartBalanceChip(),
+          // 하트 잔액 칩 `MjtQA` — 톱니 바로 왼쪽, 사이 4(띠 오른쪽 끝 x300 · 톱니 x304). 칩은 잔액을 읽는 동안 · 못 읽으면 자리째 숨는다.
+          // 사용자 요청(2026-10-12 "나 탭에도 위에 하트 잔여 및 + 버튼을 넣어줘, 메인탭처럼")으로 홈(`ihX4y`)처럼 "+" 를 켜고 하트 상점으로 간다.
+          // pen `MjtQA` 는 아직 "+" 없음(81×44) — pen 동기화 필요.
+          HeartBalanceChip(showPlus: true, onPlus: _openHeartStore),
           const SizedBox(width: AppSpacing.xxs),
           IconButton(
             tooltip: '설정',
