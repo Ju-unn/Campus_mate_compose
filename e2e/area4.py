@@ -143,10 +143,14 @@ def p_set_14(run, phone):
     private = run.read_private(account['id'])
     if not profile.get('created_at') or not (profile.get('universities') or {}).get('name'):
         raise Blocked(f'프로필을 못 읽음 {profile}')
-    texts = [account['email'], '인증 완료', private.get('real_name') or EMPTY,
-             str(profile['birth_year']) if profile.get('birth_year') else EMPTY, profile['universities']['name'],
+    school = profile['universities']['name']
+    # 16e 는 소셜 로그인 전환 뒤 이메일을 보이지 않는다(6200647e — user.email 은 개인 메일이거나 비어 있다). 대신 "학교 메일" 줄
+    # "{학교} · 학교 메일 인증 완료" 와 "로그인 수단" 줄(카카오 · Google · Apple)이다(account_screen.dart _AccountContent).
+    # 공장 계정은 관리자 API 로 만든 email 방식이라 로그인 수단 이름이 없어 그 줄을 아예 그리지 않는다(_loginLabel → null).
+    texts = [f'{school} · 학교 메일 인증 완료', '인증 완료', private.get('real_name') or EMPTY,
+             str(profile['birth_year']) if profile.get('birth_year') else EMPTY, school,
              private.get('kakao_id') or EMPTY, _korean_date(profile['created_at'])]
-    _app(check, phone(token_hash=token, texts=texts))
+    _app(check, phone(token_hash=token, texts=texts, absent=[account['email'], '로그인 수단']))
     return check.result()
 
 

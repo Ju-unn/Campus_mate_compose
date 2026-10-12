@@ -238,7 +238,17 @@ class PhoneCaseTest(Base):
         private = {'id-1': {'real_name': None, 'kakao_id': 'e2e1001'}}
         (result, _), phone, _, _ = self.attempt('E-SET-14', profiles=profiles, private=private)
         self.assertEqual(result, 'pass')
-        self.assertEqual(phone.jobs[0]['texts'], ['base+e2e1001@gmail.com', '인증 완료', '—', '2004', '테스트대', 'e2e1001', '2026.03.15'])
+        # 6200647e 뒤 16e 는 이메일 대신 "학교 메일" 줄({학교} · 학교 메일 인증 완료)을 보인다.
+        self.assertEqual(phone.jobs[0]['texts'],
+                         ['테스트대 · 학교 메일 인증 완료', '인증 완료', '—', '2004', '테스트대', 'e2e1001', '2026.03.15'])
+
+    def test_set_14_the_email_and_the_login_method_row_must_not_be_on_the_screen(self):
+        # 이메일은 소셜 로그인 뒤 개인 메일이거나 비어 있어 뺐다(6200647e). 공장 계정은 email 방식이라 로그인 수단을 몰라 그 줄이 없다.
+        profiles = {'id-1': {'birth_year': 2004, 'created_at': '2026-03-14T15:30:00+00:00', 'universities': {'name': '테스트대'}}}
+        (result, _), phone, _, _ = self.attempt('E-SET-14', profiles=profiles, private={'id-1': {'kakao_id': 'k'}})
+        self.assertEqual(result, 'pass')
+        self.assertEqual(phone.jobs[0]['absent'], ['base+e2e1001@gmail.com', '로그인 수단'])
+        self.assertNotIn('base+e2e1001@gmail.com', phone.jobs[0]['texts'])
 
     def test_set_15_sets_created_at_to_korean_00_30(self):
         (result, _), phone, db, _ = self.attempt('E-SET-15')
@@ -367,8 +377,23 @@ class PhoneCaseTest(Base):
         self.assertEqual(result, 'fail')
 
 
+class AccountScreenContractTest(unittest.TestCase):
+    """E-SET-14 의 기대 글자가 지금 16e 화면 코드와 같고, 앱 쪽이 PC 가 준 [absent] 가 16e 에 없는지 본다(기기 없이 원문으로)."""
+
+    def test_the_school_mail_and_login_method_copy_is_what_the_screen_draws(self):
+        shown = (tools.ROOT / 'frontend' / 'lib' / 'account' / 'view' / 'account_screen.dart').read_text(encoding='utf-8')
+        self.assertIn("value: '${info.university} · 학교 메일 인증 완료'", shown)
+        self.assertIn("label: '로그인 수단'", shown)
+        self.assertNotIn("'email' =>", shown)  # email 방식(공장 계정)은 이름이 없어 로그인 수단 줄을 그리지 않는다
+
+    def test_the_app_side_of_set_14_looks_for_the_absent_words(self):
+        text = (tools.ROOT / 'frontend' / 'integration_test' / 'area4.dart').read_text(encoding='utf-8')
+        body = text[text.index("'E-SET-14'"):text.index("'E-SET-15'")]
+        self.assertIn("_seeNone((job['absent'] as List).cast<String>(), '16e')", body)
+
+
 class BundleTest(unittest.TestCase):
-    PLAN = ('E-SET-01 05 06 07 09 10 11 13 14 15 16 17 18 19 20 21 22 23 24 25 27 28').split()
+    PLAN =('E-SET-01 05 06 07 09 10 11 13 14 15 16 17 18 19 20 21 22 23 24 25 27 28').split()
 
     def test_set_one_is_the_plan_plus_the_api_case(self):
         cases = [f'E-SET-{n}' if not n.startswith('E-') else n for n in self.PLAN]
