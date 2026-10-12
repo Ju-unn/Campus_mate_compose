@@ -19,6 +19,13 @@ INVALID = '입력한 값을 다시 확인해 주세요'
 REJECT = {'msg': '등록되지 않은 학교 메일이에요'}  # 서버 errors.SCHOOL_EMAIL_UNKNOWN_DOMAIN
 
 
+def with_private_key(case):
+    """실명 · 카톡 아이디 RPC 의 키(환경 변수) — 시험 동안만 가짜 값으로 둔다(Run.read_private · seed_private)."""
+    patcher = mock.patch.dict(tools.os.environ, {tools.PRIVATE_KEY_ENV: 'k'})
+    patcher.start()
+    case.addCleanup(patcher.stop)
+
+
 class FakeServer:
     """운영 대신 답한다. routes[(메서드, 경로)] = Reply 또는 Reply 목록(차례로, 마지막은 계속). 나머지는 성공 기본값."""
 
@@ -74,6 +81,7 @@ class Base(unittest.TestCase):
         self.root = Path(tempfile.mkdtemp())
         (self.root / 'KEEP.txt').write_text(f'MANUAL {self.KEPT}\n', encoding='utf-8')
         self.run = Run(self.root / 'area1-b1', 'b', cfg=CFG, key='svc')
+        with_private_key(self)
 
     def serve(self, routes=None):
         fake = FakeServer(routes)
