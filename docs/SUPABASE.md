@@ -10,6 +10,8 @@ Supabase **MCP 플러그인(`supabase`)이 설치·인증돼 있다.** 클라우
 
 **2026-09-29 문서 정리 갱신(대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다).** 저장소 `supabase/migrations/` 는 **52개**다. 그 사이 조각 2 ~ 5 · 아바타 비동기 · 홈 집계 · 조각 6(신고 · 차단 · 지인 차단 · 탈퇴) · 커뮤니티 · 추천 · `grant_hearts` 음수 · 무료 하트 인증 · 지인 리뷰 · 코호트 · 가입 동의 · FAQ 가 운영에 적용됐고, **마지막 적용은 `create_faq`(운영 기록 `20260929054505`), 그 앞 `create_user_consents`(`20260929051356`)** 이다. 위 "조각 2 이후는 파일도 없다" · "로컬 스택(Docker)은 없다" · "마이그레이션 24개" 는 2026-09-20 기록으로 남긴다 — 지금은 로컬 스택(Docker)에서 `supabase db reset` · `supabase test db` 로 먼저 검증하고, 모든 작업 폴더가 같은 로컬 DB 를 쓰므로 한 번에 한 작업만 돌린다. 적용 순서가 서버 배포와 얽힌 기능(조각 6 PR 3 · 무료 하트 · 코호트 · 가입 동의)의 순서는 `backend/DEPLOY.md` §4-4 · §4-5 가 기준이다. 적용은 여전히 **ERD 그림 → 사용자 검토 → 사용자 승인** 뒤에만 한다.
 
+**2026-10-12 갱신(대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다).** 저장소 · 운영 모두 **67개**, 마지막 적용은 `20261011010000_encrypt_real_name_and_kakao_id`(실명 · 카톡 암호화 M1, §8). 그 앞은 소셜 로그인 4개(`20261008010000` ~ `040000`) · 카드 선정 · 유료 카드 · 알림함 5개(`20261010010000` ~ `050000`)다(`docs/ERD.md` 상태줄).
+
 ## 2. 시작할 때
 
 - 스키마·RLS·Storage·Auth 를 건드리기 전에 `supabase:supabase` 스킬(보안 체크리스트)과 `supabase:supabase-postgres-best-practices` 스킬을 로드한다
@@ -54,4 +56,22 @@ Supabase **MCP 플러그인(`supabase`)이 설치·인증돼 있다.** 클라우
 
 1. **`student_verification_attempts`** 에서 해당 제출 행을 찾아 `result` 를 `verified` 또는 `rejected` 로 바꾸고, `reviewed_at` 을 지금 시각으로 채운다. `rejected` 면 `reject_reason` 도 채운다(본인에게 재검토 결과로 내려간다)
 2. 같은 `profile_id` 의 **`profiles.student_verification`** 을 1번과 같은 값으로 바꾼다(자동 경로와 같은 순서 — attempts 먼저, profiles 나중)
-3. **`student-id-temp` 버킷에서 해당 파일을 Storage UI 로 손으로 지운다.** 자동 확정은 FastAPI 가 확정 직후 Storage API로 파일을 지우지만(§1, ERD.md §9), 대시보드 수동 확정은 이 자동 삭제 경로를 타지 않으므로 지우지 않으면 파일이 그대로 남는다
+3. ~~**`student-id-temp` 버킷에서 해당 파일을 Storage UI 로 손으로 지운다.**~~ **2026-10-11 사용자 결정으로 개정(PR #463)** — 종전 "대시보드 수동 확정은 자동 삭제 경로를 타지 않으므로 손으로 지운다". 지금은 **손으로 지우지 않는다.** 2번 저장으로 `profiles` 가 `pending` → `verified`/`rejected` 로 바뀌면 DB 트리거(`on_student_verification_reviewed`, `20261003030000`)가 FastAPI `/hooks/verification-reviewed` 를 부르고, 훅이 알림을 보내기 전에 그 사람의 **가장 최근 제출**을 읽어 `result` 가 `pending` 이 아니면 사진을 지운다(`app/student_verification/review_hook.py`). 훅이 못 지웠으면 매시 `chat-gate` 배치가 "검토가 끝났는데 버킷에 남은 사진"을 찾아 지운다(`backend/DEPLOY.md` §4-1). **그래서 1 → 2 순서가 그대로 중요하다** — `profiles` 를 먼저 바꾸면 훅이 읽는 시도가 아직 `pending` 이라 사진을 안 지운다(1번을 저장한 뒤 다음 정각 배치가 지운다)
+
+**검토 대기 상한 30일(2026-10-11 사용자 결정, PR #463).** 제출하고 30일이 지나도 `pending` 인 시도는 매시 배치가 1 · 2 를 대신한다 — `student_verification_attempts` 를 `rejected` · `reject_reason` "검토 기한이 지나 사진을 삭제했어요. 학생증을 다시 올려 주세요" · `reviewed_at` 으로 닫고, 그 시도가 최근 제출이면 `profiles.student_verification` 도 `pending` 일 때만 `rejected` 로 바꾼 뒤 사진을 지운다. 사람이 이미 확정한 행은 건드리지 않는다. 그 사이 사람이 직접 검토하려면 30일 안에 위 1 · 2 를 끝낸다.
+
+## 8. 실명 · 카카오톡 아이디 암호화 (2026-10-11, M1 `20261011010000` · PR #461 · #464 · #467)
+
+`profile_private.real_name` · `kakao_id` 를 전화번호(`phone_number`, `20260920043638`)와 같은 방식으로 암호화한다. 적용 · 백필 순서와 운영 기록은 `backend/DEPLOY.md` §4-4 가 기준이다.
+
+- **새 열**: `real_name_enc` · `kakao_id_enc` — `bytea`, `extensions.pgp_sym_encrypt(평문, 키)` 암호문. 키는 전화번호와 **같은** `PHONE_ENCRYPTION_KEY`(FastAPI Secret Manager 전용, DB 에 두지 않는다). `authenticated` 에는 grant 하지 않는다(`20260914055617` 의 "이후 조각에서 컬럼을 추가해도 authenticated 에는 grant 하지 않는다"). 빈 문자열은 암호화하지 않고 null 로 둔다
+- **함수 4개** — 모두 security invoker · `search_path = ''` · `public` · `anon` · `authenticated` 실행 회수 · **`service_role` 만 실행**. 키가 null · 빈 문자열이면 22023 오류(pgcrypto 는 null 키에 조용히 null 을 돌려줘 암호문이 덮이거나 복호화가 전부 null 로 보이기 때문)
+  - `set_real_name(p_profile uuid, p_real_name text, p_key text) returns void` — upsert(행이 없으면 만든다. 가입 뒤 첫 쓰기가 실명이다)
+  - `set_kakao_id(p_profile uuid, p_kakao_id text, p_key text) returns void` — update 전용(행이 없으면 0행. 서버가 `ensure_private_row` 로 먼저 보장한다)
+  - `decrypt_profile_private(p_profile uuid, p_key text) returns table (real_name text, kakao_id text)` — 행이 없으면 0행, 암호문이 null 이면 그 값만 null. 틀린 키는 39000 오류. 본인 · 관리자 조회에만 쓴다
+  - `backfill_profile_private_encryption(p_profile uuid, p_key text) returns void` — **임시, M2 에서 삭제.** 평문을 암호문 열로 옮기되 암호문이 이미 있는 열은 덮지 않는다(멱등)
+- **키는 RPC 의 JSON 바디로만 넘긴다** — URL 쿼리스트링에 넣으면 웹서버 접근 로그에 남는다(전화번호와 같은 2026-09-20 승인 조건, `app/profile_onboarding/encryption.py`)
+- **서버(이중 쓰기 기간)**: 쓰기는 평문 열 + 암호문 열 둘 다(암호문 쓰기 실패는 요청을 실패시키지 않고 경고 로그만 — 백필이 메운다). 값을 내려주는 읽기(16e 계정 · 내 카톡 조회 · 채팅 신뢰 확인의 상대 카톡)는 `core/postgrest.py` `_read_private` 가 **복호화 값을 먼저 쓰고, 비었거나 복호화가 실패하면 평문 열로 폴백**한다. 온보딩 진행 판단(`kakao_id_set`, `profile_onboarding/repository.py`)만 반대로 평문을 먼저 보고 비었을 때 복호화로 확인한다. 로그에는 필드 이름 · profile_id · 예외 종류만 남긴다
+- **M2(옛 평문 열 · 백필 함수 삭제)는 아직이다.** E2E 하네스의 평문 열 조회를 고치고, 평문 쓰기 · 폴백 읽기를 뺀 서버를 먼저 배포한 뒤 사용자 승인을 받아 적용한다(`backend/DEPLOY.md` §4-4 순서 5)
+- **적용 뒤 확인할 것 — 키 로그 노출**: `pg_stat_statements` · Postgres 로그에 `pgp_sym_encrypt` / `pgp_sym_decrypt` 의 키 인자가 `$1` 같은 자리표시자로만 보이는지, `log_statement` · `auto_explain` 이 인자 값을 남기지 않는지 본다(M1 머리말 1번). 점검 결과는 아직 기록이 없다
+- **대시보드에서 손으로 복호화해야 할 때**: `select * from public.decrypt_profile_private('<profile_id>', '<키>');` — 키를 SQL 창에 붙여넣는 일 자체가 감사 대상이라 실행 전후로 사유를 운영 기록에 남긴다(M1 머리말 3번). 평소 원칙은 그대로 "운영자는 `profile_private` 를 FastAPI 관리 기능으로만 본다"(ERD_DECISIONS §11-18)
