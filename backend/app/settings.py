@@ -21,7 +21,8 @@ class Settings(BaseSettings):
     # 조각 2: Secret Manager 키 이름 `openai-api-key`(2026-09-19 준비 가이드 메모)
     openai_api_key: str
     # 조각 2: Secret Manager 키 이름 `phone-number-encryption-key` — pgcrypto pgp_sym_encrypt/decrypt 에 넘긴다.
-    phone_encryption_key: str
+    # 빈 값을 막는다 — `PHONE_ENCRYPTION_KEY=` 로 배포하면 전화번호 · 실명 · 카카오톡 아이디가 빈 키로 암호화된다.
+    phone_encryption_key: str = Field(min_length=1)
     # 조각 6: 세 배치(/batch/*)를 Cloud Scheduler 만 부르게 하는 ID 토큰의 audience(경로 없는 서비스 URL)와
     # 발급 계정(core/batch_auth.py). 하나라도 비면 배치가 아무도 통과시키지 않는다(열린 문이 되지 않게).
     batch_audience: str = ""
