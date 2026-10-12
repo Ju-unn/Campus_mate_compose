@@ -2,6 +2,7 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/community/model/community_repository_provider.dart';
 import 'package:campus_mate/community/model/poll.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_ui_state.dart';
+import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final communityFeedViewModelProvider =
@@ -66,7 +67,10 @@ class CommunityFeedViewModel extends Notifier<CommunityFeedUiState> {
     final message = await result.when<Future<String?>>(
       onSuccess: (outcome) async {
         _replace(outcome.poll);
-        return outcome.rewarded ? pollRewardMessage : null;
+        if (!outcome.rewarded) return null;
+        // 하트가 들어왔다 — 홈 칩 · 하트 스토어 · 설정이 읽는 잔액(내 프로필)을 다시 읽게 한다.
+        ref.invalidate(myProfileProvider);
+        return pollRewardMessage;
       },
       onFailure: (failure) async {
         // 다른 기기에서 이미 투표했거나(409) 글이 사라졌을 수 있다(404) — 그 글만 다시 읽어 서버에 맞춘다.
