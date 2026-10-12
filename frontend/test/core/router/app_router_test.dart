@@ -18,6 +18,7 @@ import 'package:campus_mate/core/theme/app_theme.dart';
 import 'package:campus_mate/faq/model/faq_cache.dart';
 import 'package:campus_mate/faq/model/faq_repository.dart';
 import 'package:campus_mate/faq/view/faq_screen.dart';
+import 'package:campus_mate/friend_review/view/friend_code_screen.dart';
 import 'package:campus_mate/friend_review/model/friend_review_repository_provider.dart';
 import 'package:campus_mate/home/model/home_repository_provider.dart';
 import 'package:campus_mate/home/view/home_screen.dart';
@@ -395,6 +396,15 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('내가 쓴 리뷰'), findsOneWidget);
+    });
+
+    testWidgets('/friend-reviews/code 는 20f 친구 코드로 리뷰 쓰기다', (tester) async {
+      final router = await pumpRouter(tester);
+
+      router.go(AppRoutes.friendReviewCode);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(FriendCodeScreen), findsOneWidget);
     });
 
     // 추천 가입 푸시(`friend_review_write`)가 가는 곳 — 홈이 밑에 깔리고 그 위에 20b 시트(대장 Q1).

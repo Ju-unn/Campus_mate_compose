@@ -20,8 +20,9 @@ import '../model/fake_friend_review_repository.dart';
 
 final _received = find.widgetWithText(ProfileEntryRow, '친구들이 본 나');
 final _written = find.widgetWithText(ProfileEntryRow, '내가 쓴 리뷰');
+final _write = find.widgetWithText(ProfileEntryRow, '리뷰 쓰기');
 
-/// 15 지인 리뷰 칸(pen `Cux1p`, 값표 20e §1 · 값표 B §8): 헤더 → 12 → 분홍 줄 `o9BA0` → 12 → 흰 줄 `tStBN`.
+/// 15 지인 리뷰 칸(pen `Cux1p` 313, 값표 20e §1 · 값표 B §8): 헤더 → 12 → 분홍 줄 `o9BA0` → 12 → 흰 줄 `tStBN` → 12 → 흰 줄 `H9STF`.
 void main() {
   late FakeFriendReviewRepository reviews;
 
@@ -58,6 +59,7 @@ void main() {
         ),
         GoRoute(path: AppRoutes.friendReviews, builder: (context, state) => const Scaffold(body: Text('20c 화면'))),
         GoRoute(path: AppRoutes.friendReviewsWritten, builder: (context, state) => const WrittenReviewsScreen()),
+        GoRoute(path: AppRoutes.friendReviewCode, builder: (context, state) => const Scaffold(body: Text('20f 화면'))),
       ],
     );
     addTearDown(router.dispose);
@@ -73,7 +75,7 @@ void main() {
 
   String noteOf(WidgetTester tester, Finder row) => tester.widget<ProfileEntryRow>(row).note;
 
-  testWidgets('헤더 "지인 리뷰"(p7FSo/mHDrn) 17/700 ink 렌더 25 → 12 → 분홍 줄 84 → 12 → 흰 줄 84, 폭 328', (tester) async {
+  testWidgets('헤더 "지인 리뷰"(p7FSo/mHDrn) 17/700 ink 렌더 25 → 12 → 분홍 줄 84 → 12 → 흰 줄 84 → 12 → 흰 줄 84, 폭 328', (tester) async {
     await pump(tester);
 
     final header = find.text('지인 리뷰');
@@ -87,7 +89,25 @@ void main() {
     expect(written.top - received.bottom, 12);
     expect((received.left, received.width, received.height), (16, 328, 84));
     expect((written.left, written.width, written.height), (16, 328, 84));
-    expect(tester.getSize(find.byType(MyFriendReviewsSection)).height, 25 + 12 + 84 + 12 + 84);
+    final write = tester.getRect(_write);
+    expect(write.top - written.bottom, 12);
+    expect((write.left, write.width, write.height), (16, 328, 84));
+    expect(tester.getSize(find.byType(MyFriendReviewsSection)).height, 313);
+  });
+
+  testWidgets('셋째 줄(H9STF, fN0xc)은 흰 줄 · 3D 연필 "리뷰 쓰기" / "친구 코드로 리뷰를 남겨요" — 개수 없음, 누르면 20f(push)', (tester) async {
+    await pump(tester);
+
+    final row = tester.widget<ProfileEntryRow>(_write);
+    expect((row.emphasis, row.icon, row.note), (false, AppIcon3d.pencil, '친구 코드로 리뷰를 남겨요'));
+    // pen HJLp3 = designMaterialsCompact/ui-3d-pencil.webp.
+    expect(AppIcon3d.pencil.asset, 'assets/icons/ui-3d-pencil.webp');
+    await tester.tap(_write);
+    await tester.pumpAndSettle();
+    expect(find.text('20f 화면'), findsOneWidget);
+    expect(await tester.binding.handlePopRoute(), isTrue);
+    await tester.pumpAndSettle();
+    expect(find.byType(MyFriendReviewsSection), findsOneWidget);
   });
 
   testWidgets('분홍 줄(o9BA0)은 강조 · 3D heart-handshake "친구들이 본 나", 흰 줄(tStBN)은 3D 대화 "내가 쓴 리뷰"', (tester) async {

@@ -1,10 +1,8 @@
-import 'package:campus_mate/friend_review/model/friend_review.dart';
-
 /// 20b 작성 시트 하나의 상태.
 class FriendReviewComposeUiState {
   const FriendReviewComposeUiState({
     this.isLoading = true,
-    this.target,
+    this.nickname,
     this.alreadyWritten = false,
     this.loadError,
     this.selected = const [],
@@ -15,7 +13,10 @@ class FriendReviewComposeUiState {
   });
 
   final bool isLoading;
-  final ReviewTarget? target;
+
+  /// 머리에 그릴 받는 사람. 추천 연결은 열 때 읽어(`fetchTarget`) 채우고, 친구 코드는 확인 결과로 처음부터 있다.
+  /// 프로필 id 는 상태에 두지 않는다 — 보낼 대상은 뷰모델이 쥔다(코드 방식은 id 가 없다).
+  final String? nickname;
 
   /// 열기 전 물음(`fetchTarget`)이 409 — 시트를 띄우지 않고 토스트로 안내할 근거(계획서 P3).
   final bool alreadyWritten;
@@ -38,7 +39,7 @@ class FriendReviewComposeUiState {
   /// [loadError] · [submitError] 는 넘기지 않으면 지워진다 — 다음 시도에서 지난 실패 문구가 남지 않는다.
   FriendReviewComposeUiState copyWith({
     bool? isLoading,
-    ReviewTarget? target,
+    String? nickname,
     bool? alreadyWritten,
     String? loadError,
     List<String>? selected,
@@ -49,7 +50,7 @@ class FriendReviewComposeUiState {
   }) {
     return FriendReviewComposeUiState(
       isLoading: isLoading ?? this.isLoading,
-      target: target ?? this.target,
+      nickname: nickname ?? this.nickname,
       alreadyWritten: alreadyWritten ?? this.alreadyWritten,
       loadError: loadError,
       selected: selected ?? this.selected,

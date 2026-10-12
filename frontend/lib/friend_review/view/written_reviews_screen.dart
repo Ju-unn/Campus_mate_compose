@@ -21,7 +21,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 const _title = '내가 쓴 리뷰'; // pen V7KzU
 const _notice = '내가 남긴 리뷰는 언제든 지울 수 있어요.\n수정은 할 수 없어요.'; // pen DPIaV
 const _emptyTitle = '아직 쓴 리뷰가 없어요'; // pen QlDBt/ZBzIg
-const _emptyDescription = '추천으로 연결된 친구에게\n리뷰를 남기면 여기에 모여요'; // pen QlDBt/DFs55
+const _emptyDescription = '친구에게\n리뷰를 남기면 여기에 모여요'; // pen QlDBt/DFs55
 const _sheetTitle = '리뷰를 지울까요?'; // pen UClUE/xd8je
 const _deletedMessage = '리뷰를 지웠어요'; // pen W7HENj/LGEZH
 const _waitingTitle = '리뷰를 기다리는 친구'; // pen bDZnr/qa34E
@@ -222,7 +222,7 @@ class _WaitingFriends extends StatelessWidget {
         Text(_waitingDescription, style: AppTypography.bodySmall.copyWith(fontSize: 13, height: 1.5, color: AppColors.muted)),
         for (final friend in friends) ...[
           const SizedBox(height: AppSpacing.xs),
-          WritableFriendRow(friend: friend, onWrite: () => onWrite(friend)),
+          WritableFriendRow(nickname: friend.nickname, university: friend.university, onWrite: () => onWrite(friend)),
         ],
         const SizedBox(height: AppSpacing.md),
         Text(_title, style: heading),
@@ -231,17 +231,29 @@ class _WaitingFriends extends StatelessWidget {
   }
 }
 
-/// 친구 한 줄(pen `LJhYM`): 64 · 흰 바탕 r12 · 테두리 hairlineSoft 1 · 좌우 12 · 간격 12 —
-/// 이니셜 40(`eNFmA`) → 닉네임 15/600 · 2 · 학교 → "쓰기". 테두리는 pen 처럼 여백을 먹지 않게 DecoratedBox 로 그린다.
+/// 친구 한 줄(pen 마스터 `gN7m3` WritableFriendRow — 20e `LJhYM` · 20f `vqob4`): 64 · 흰 바탕 r12 · 테두리 hairlineSoft 1 ·
+/// 좌우 12 · 간격 12 — 이니셜 40(`ubsh0`) → 닉네임 15/600 · 2 · 학교 → "쓰기"(`MZDFe`). 테두리는 pen 처럼 여백을 먹지 않게
+/// DecoratedBox 로 그린다. 20f 확인 결과 줄은 이니셜 · "쓰기" 를 끈다(pen override ubsh0 · MZDFe enabled false).
 class WritableFriendRow extends StatelessWidget {
-  const WritableFriendRow({required this.friend, required this.onWrite, super.key});
+  const WritableFriendRow({
+    required this.nickname,
+    this.university,
+    this.onWrite,
+    this.showInitial = true,
+    super.key,
+  });
 
-  final ReviewTarget friend;
-  final VoidCallback onWrite;
+  final String nickname;
+  final String? university;
+
+  /// null 이면 "쓰기" 가 없다(20f — 바닥 버튼 "리뷰 쓰기" 가 대신한다).
+  final VoidCallback? onWrite;
+  final bool showInitial;
 
   @override
   Widget build(BuildContext context) {
-    final university = friend.university;
+    final university = this.university;
+    final onWrite = this.onWrite;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: AppColors.canvas,
@@ -255,19 +267,22 @@ class WritableFriendRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
           child: Row(
             children: [
-              FriendReviewInitial(
-                nickname: friend.nickname,
-                size: 40,
-                // pen HP0vI 원 #FFF0F2 · YAaTW 17/600 ink.
-                style: AppTypography.subtitle.copyWith(color: AppColors.ink, height: 1),
-              ),
-              const SizedBox(width: AppSpacing.sm),
+              if (showInitial) ...[
+                FriendReviewInitial(
+                  nickname: nickname,
+                  size: 40,
+                  // pen HP0vI 원 #FFF0F2 · YAaTW 17/600 ink.
+                  style: AppTypography.subtitle.copyWith(color: AppColors.ink, height: 1),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+              ],
               Expanded(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(friend.nickname, style: AppTypography.bodyStrong.copyWith(fontSize: 15, color: AppColors.ink)),
+                    // pen OThJi 15/600 ink, 줄높이 속성 없음 · 렌더 22.
+                    Text(nickname, style: AppTypography.bodyStrong.copyWith(fontSize: 15, color: AppColors.ink, height: 22 / 15)),
                     if (university != null) ...[
                       const SizedBox(height: 2),
                       // pen YQMGC: 로고 16(HcLjG) · 간격 4 · ZD9sX 14 / body / 1.5.
@@ -276,8 +291,7 @@ class WritableFriendRow extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: AppSpacing.sm),
-              _WriteButton(onPressed: onWrite),
+              if (onWrite != null) ...[const SizedBox(width: AppSpacing.sm), _WriteButton(onPressed: onWrite)],
             ],
           ),
         ),

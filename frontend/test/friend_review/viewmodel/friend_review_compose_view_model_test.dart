@@ -44,7 +44,7 @@ void main() {
       await opened();
 
       expect(state().isLoading, isFalse);
-      expect(state().target?.nickname, '달빛');
+      expect(state().nickname, '달빛');
       expect(state().alreadyWritten, isFalse);
       expect(repository.targetRequests, [revieweeId]);
     });
@@ -72,7 +72,7 @@ void main() {
       await opened();
 
       expect(state().alreadyWritten, isTrue);
-      expect(state().target, isNull);
+      expect(state().nickname, isNull);
     });
 
     test('그 밖의 실패는 loadError 에 담긴다', () async {
@@ -193,5 +193,62 @@ void main() {
       expect(state().submitError, '이미 리뷰를 남겼어요');
       expect(state().isSubmitting, isFalse);
     });
+  });
+
+  group('친구 코드로(20f → 20b)', () {
+    final friend = friendCodeMatchFixture(code: 'K7M2QX', nickname: '봄바람');
+
+    FriendReviewComposeViewModel codeViewModel() =>
+        container.read(friendCodeReviewComposeViewModelProvider(friend).notifier);
+    FriendReviewComposeUiState codeState() => container.read(friendCodeReviewComposeViewModelProvider(friend));
+
+    Future<void> openedByCode() async {
+      container.listen(friendCodeReviewComposeViewModelProvider(friend), (_, _) {});
+      await Future<void>.delayed(Duration.zero);
+    }
+
+    test('열면 대상을 서버에 묻지 않고 확인 결과의 닉네임으로 바로 그린다(프로필 id 가 없다)', () async {
+      await openedByCode();
+
+      expect((codeState().isLoading, codeState().nickname, codeState().alreadyWritten), (false, '봄바람', false));
+      expect(repository.targetRequests, isEmpty);
+    });
+
+    test('submit 은 reviewee_id 가 아니라 friend_code 로 보낸다', () async {
+      await openedByCode();
+      codeViewModel()
+        ..toggleTag('성실해요')
+        ..setComment('믿음직해요');
+
+      await codeViewModel().submit();
+
+      final sent = repository.codeCreates.single;
+      expect((sent.friendCode, sent.comment), ('K7M2QX', '믿음직해요'));
+      expect(sent.tags, ['성실해요']);
+      expect(repository.creates, isEmpty);
+      expect(codeState().submitted, isTrue);
+    });
+
+    test('submit 429 는 서버 문구 "잠시 후 다시 시도해 주세요." 로 보여 준다(앱 기본 한도 문구가 아니라)', () async {
+      await openedByCode();
+      repository.createResult = const FailureResult(RateLimitedFailure());
+      codeViewModel().toggleTag('성실해요');
+
+      await codeViewModel().submit();
+
+      expect((codeState().submitted, codeState().submitError), (false, '잠시 후 다시 시도해 주세요.'));
+    });
+
+    for (final detail in ['이미 리뷰를 남겼어요', '코드를 찾을 수 없어요']) {
+      test('submit 이 "$detail" 이면 서버 문구 그대로', () async {
+        await openedByCode();
+        repository.createResult = FailureResult(ServerRejectedFailure(detail));
+        codeViewModel().toggleTag('성실해요');
+
+        await codeViewModel().submit();
+
+        expect((codeState().submitted, codeState().submitError), (false, detail));
+      });
+    }
   });
 }

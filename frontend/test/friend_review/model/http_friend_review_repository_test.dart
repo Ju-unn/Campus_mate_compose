@@ -73,6 +73,50 @@ void main() {
     expect(jsonDecode(blankSeen.single.body)['comment'], isNull);
   });
 
+  test('lookupFriendCode 는 POST /friend-reviews/code-lookup {code} — 응답을 보낸 코드와 묶는다', () async {
+    final (client, seen) = recording(jsonResponse({
+      'nickname': '봄바람',
+      'university': '테스트대학교',
+      'already_reviewed': false,
+    }));
+
+    final result = await buildRepository(client).lookupFriendCode('K7M2QX');
+
+    final request = seen.single;
+    expect(request.method, 'POST');
+    expect(request.url.toString(), 'https://api.test/friend-reviews/code-lookup');
+    expect(jsonDecode(request.body), {'code': 'K7M2QX'});
+    final friend = result.when(onSuccess: (value) => value, onFailure: (_) => null)!;
+    expect((friend.code, friend.nickname, friend.university, friend.alreadyReviewed), ('K7M2QX', '봄바람', '테스트대학교', false));
+  });
+
+  test('lookupFriendCode 404 는 서버 문구 "코드를 찾을 수 없어요"', () async {
+    final (client, _) = recording(jsonResponse({'detail': '코드를 찾을 수 없어요'}, 404));
+
+    final result = await buildRepository(client).lookupFriendCode('ZZZZZZ');
+
+    expect(result.when(onSuccess: (_) => 'ok', onFailure: (failure) => failure.toDisplayMessage()), '코드를 찾을 수 없어요');
+  });
+
+  test('createReviewByCode 는 POST /friend-reviews 에 reviewee_id 없이 friend_code 를 싣고, 빈 한마디는 null', () async {
+    final (client, seen) = recording(jsonResponse({'id': 'r1'}, 201));
+
+    await buildRepository(client).createReviewByCode(friendCode: 'K7M2QX', tags: ['성실해요'], comment: '  좋아요 ');
+
+    final request = seen.single;
+    expect(request.method, 'POST');
+    expect(request.url.toString(), 'https://api.test/friend-reviews');
+    expect(jsonDecode(request.body), {
+      'friend_code': 'K7M2QX',
+      'tags': ['성실해요'],
+      'comment': '좋아요',
+    });
+
+    final (blankClient, blankSeen) = recording(jsonResponse({'id': 'r1'}, 201));
+    await buildRepository(blankClient).createReviewByCode(friendCode: 'K7M2QX', tags: ['성실해요'], comment: '   ');
+    expect(jsonDecode(blankSeen.single.body)['comment'], isNull);
+  });
+
   test('fetchAbout 은 GET /friend-reviews/about/{id} 의 reviews 를 읽는다', () async {
     final (client, seen) = recording(jsonResponse({
       'reviews': [reviewJson()],

@@ -96,6 +96,7 @@ final _preview = find.widgetWithText(ProfileEntryRow, '남이 보는 내 프로�
 final _manage = find.widgetWithText(ProfileEntryRow, '프로필 편집');
 final _received = find.widgetWithText(ProfileEntryRow, '친구들이 본 나');
 final _written = find.widgetWithText(ProfileEntryRow, '내가 쓴 리뷰');
+final _writeByCode = find.widgetWithText(ProfileEntryRow, '리뷰 쓰기');
 
 /// 알약 몸통(흰 · 회색 알약을 칠하는 Material).
 final _pill = find.ancestor(of: find.text(_pillLabel), matching: find.byType(Material)).first;
@@ -413,12 +414,12 @@ void main() {
       expect(manage.height, greaterThanOrEqualTo(84));
     });
 
-    testWidgets('본문 아래 40 — 끝까지 스크롤하면 지인 리뷰 칸 끝("내가 쓴 리뷰" 줄)과 하단 내비 사이 40', (tester) async {
+    testWidgets('본문 아래 40 — 끝까지 스크롤하면 지인 리뷰 칸 끝("리뷰 쓰기" 줄 H9STF)과 하단 내비 사이 40', (tester) async {
       usePenFrame(tester, height: 600);
       await pump(tester);
       await scrollToEnd(tester);
 
-      expect(tester.getTopLeft(find.byType(AppBottomNav)).dy - tester.getBottomLeft(_written).dy, 40);
+      expect(tester.getTopLeft(find.byType(AppBottomNav)).dy - tester.getBottomLeft(_writeByCode).dy, 40);
     });
 
     testWidgets('지인 리뷰 칸 `Cux1p` 은 입구 줄 아래 32(N3) — 두 줄을 누르면 20c · 20e 로 간다', (tester) async {

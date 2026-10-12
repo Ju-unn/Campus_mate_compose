@@ -114,8 +114,8 @@ void main() {
     expect((body.color, body.fontSize, body.fontWeight), (AppColors.body, 14, FontWeight.w400));
   });
 
-  test('관계 문구는 고정 "추천으로 연결된 친구"(DB · API 에 관계 칸이 없다)', () {
-    expect(friendReviewRelationLabel, '추천으로 연결된 친구');
+  test('관계 문구는 고정 "친구"(pen iFxLX — DB · API 에 관계 칸이 없고 친구 코드로도 쓴다)', () {
+    expect(friendReviewRelationLabel, '친구');
   });
 
   testWidgets('학교가 없으면 배지 없이 이니셜이 맨 앞이다', (tester) async {

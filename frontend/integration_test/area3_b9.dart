@@ -13,7 +13,8 @@ const _rev41Confirmed = Duration(seconds: 5); // 시나리오 "코드 확인 직
 Future<String> _rev41Sheet(WidgetTester tester, Duration within, String what) async {
   final sheet = find.byType(FriendReviewComposeSheet);
   must(await appears(tester, sheet, within) != null, what);
-  return tester.widget<FriendReviewComposeSheet>(sheet.first).revieweeId;
+  // 추천 푸시로 연 시트라 프로필 id 가 있다(친구 코드로 연 시트만 null).
+  return tester.widget<FriendReviewComposeSheet>(sheet.first).revieweeId!;
 }
 
 final Map<String, Area1Case> area3Cases9 = {

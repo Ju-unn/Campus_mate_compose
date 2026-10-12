@@ -13,7 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../model/fake_friend_review_repository.dart';
 
-const _sheetNotice = '리뷰는 추천 코드로 연결된 지인만 남길 수 있어요. 부적절한 내용은 신고해주세요.';
+const _sheetNotice = '리뷰는 친구 코드를 받은 지인만 남길 수 있어요. 부적절한 내용은 신고해주세요.'; // pen prY8p
 
 List<FriendReview> _reviews(int count) => [
       for (var i = 0; i < count; i++)

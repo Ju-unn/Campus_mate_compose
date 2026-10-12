@@ -28,4 +28,14 @@ abstract interface class FriendReviewRepository {
     required List<String> tags,
     String? comment,
   });
+
+  /// 20f 친구 코드 확인. 없는 코드 · 막힌 사람 · 본인은 전부 같은 404 "코드를 찾을 수 없어요", 실패가 잦으면 429.
+  Future<Result<FriendCodeMatch>> lookupFriendCode(String code);
+
+  /// 20f → 20b 코드로 쓰기. [create] 와 같은 몸에 대상만 `friend_code`. 404 · 409 · 429(하루 상한 포함)는 서버가 다시 가른다.
+  Future<Result<void>> createReviewByCode({
+    required String friendCode,
+    required List<String> tags,
+    String? comment,
+  });
 }

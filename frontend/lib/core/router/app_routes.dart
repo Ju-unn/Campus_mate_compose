@@ -87,6 +87,8 @@ abstract final class AppRoutes {
   static const String friendReviews = '/friend-reviews';
   static const String friendReviewsWritten = '/friend-reviews/written';
   static const String friendReviewWrite = '/home/friend-reviews/write';
+  /// 20f 친구 코드로 리뷰 쓰기(15 지인 리뷰 칸 "리뷰 쓰기" 줄이 push 로 연다).
+  static const String friendReviewCode = '/friend-reviews/code';
 
   /// 아직 화면이 없는 탭 — 자리 화면으로 보낸다(커뮤니티 조각 6, 내 프로필 후속)
   static const String community = '/community';

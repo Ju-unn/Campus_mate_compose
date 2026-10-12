@@ -25,7 +25,7 @@ import '../model/fake_friend_review_repository.dart';
 
 const _notice = '내가 남긴 리뷰는 언제든 지울 수 있어요.\n수정은 할 수 없어요.'; // pen DPIaV
 const _emptyTitle = '아직 쓴 리뷰가 없어요'; // pen QlDBt/ZBzIg
-const _emptyBody = '추천으로 연결된 친구에게\n리뷰를 남기면 여기에 모여요'; // pen QlDBt/DFs55
+const _emptyBody = '친구에게\n리뷰를 남기면 여기에 모여요'; // pen QlDBt/DFs55
 const _sheetTitle = '리뷰를 지울까요?'; // pen UClUE/xd8je
 const _sheetBody = '지우면 봄바람님 프로필에서 바로 사라지고\n되돌릴 수 없어요.'; // pen UClUE/O7tR3q
 const _deleted = '리뷰를 지웠어요'; // pen W7HENj/LGEZH
