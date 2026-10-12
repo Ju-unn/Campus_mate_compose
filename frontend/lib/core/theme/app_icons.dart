@@ -80,10 +80,11 @@ abstract final class AppIcons {
   /// 20 추천 코드 "마지막 단계" 배지 (pen `h1CMd`)
   static const IconData sparkles = LucideIcons.sparkles;
 
-  /// 화면 15 "내 키" Facts 행·"선호 키 범위" 행 (pen `K31sZl` · `Te5KQ`)
+  /// 지금은 쓰는 곳이 없다 — 옛 화면 15 "내 키" · "선호 키 범위" 행(pen `K31sZl` · `Te5KQ`)이 쓰던 아이콘이다.
+  /// 선호 나이 · 키 두 행은 15-5 "이상형 조건 수정" 한 줄로 합쳐졌고, 15-5 "내 키" 행은 [AppIcon3d.ruler] 를 쓴다.
   static const IconData ruler = LucideIcons.ruler;
 
-  /// 화면 15 "선호 나이 범위" 행 (pen `vFPb8`)
+  /// 지금은 쓰는 곳이 없다 — 옛 화면 15 "선호 나이 범위" 행(pen `vFPb8`)이 쓰던 아이콘이다(위 [ruler] 와 같은 사정).
   static const IconData calendar = LucideIcons.calendar;
 
   /// 화면 16e "가입일" 행 (pen `nntyt`)
