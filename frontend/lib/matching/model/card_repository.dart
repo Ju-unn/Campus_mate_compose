@@ -3,6 +3,7 @@ import 'package:campus_mate/matching/model/acceptance.dart';
 import 'package:campus_mate/matching/model/card_detail.dart';
 import 'package:campus_mate/matching/model/daily_card.dart';
 import 'package:campus_mate/matching/model/notification_preferences.dart';
+import 'package:campus_mate/matching/model/sent_request.dart';
 
 /// 수락·거절 한 쌍. 카드 결정과 수락함 응답이 같은 값을 쓴다(ERD `card_decision`).
 enum CardDecision {
@@ -21,6 +22,9 @@ abstract interface class CardRepository {
   Future<Result<void>> decide(String cardId, CardDecision decision);
   Future<Result<List<Acceptance>>> fetchAcceptances();
   Future<Result<AcceptanceOutcome>> respondToAcceptance(String cardId, CardDecision decision);
+
+  /// 내가 대화 신청한 카드들(대화 탭 "보낸 신청"). 최신 신청 먼저, 최대 50건 — 서버 순서 그대로다.
+  Future<Result<List<SentRequest>>> fetchSentRequests();
   Future<Result<void>> registerPushToken(String token);
   Future<Result<void>> deletePushToken(String token);
   Future<Result<NotificationPreferences>> fetchNotificationPreferences();

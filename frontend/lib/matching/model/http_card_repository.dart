@@ -5,6 +5,7 @@ import 'package:campus_mate/matching/model/card_detail.dart';
 import 'package:campus_mate/matching/model/card_repository.dart';
 import 'package:campus_mate/matching/model/daily_card.dart';
 import 'package:campus_mate/matching/model/notification_preferences.dart';
+import 'package:campus_mate/matching/model/sent_request.dart';
 import 'package:flutter/foundation.dart';
 
 /// [CardRepository] 를 FastAPI 호출로 구현한다. 상태코드 분류와 세션 확인은
@@ -54,6 +55,18 @@ class HttpCardRepository implements CardRepository {
         '/cards/acceptances/$cardId',
         (body) => AcceptanceOutcome.fromJson(body as Map<String, dynamic>),
         body: {'decision': decision.wire},
+      );
+
+  @override
+  Future<Result<List<SentRequest>>> fetchSentRequests() => _api.send(
+        'GET',
+        '/cards/sent',
+        // 서버가 새 상태를 더해도 목록 전체가 실패하지 않게, 모르는 상태 줄만 건너뛴다.
+        (body) => ((body as Map<String, dynamic>)['sent'] as List<dynamic>)
+            .cast<Map<String, dynamic>>()
+            .where((item) => SentRequestStatus.values.asNameMap().containsKey(item['status']))
+            .map(SentRequest.fromJson)
+            .toList(),
       );
 
   @override
