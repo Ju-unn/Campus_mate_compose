@@ -12,6 +12,8 @@ Supabase **MCP 플러그인(`supabase`)이 설치·인증돼 있다.** 클라우
 
 **2026-10-12 갱신(대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다).** 저장소 · 운영 모두 **67개**, 마지막 적용은 `20261011010000_encrypt_real_name_and_kakao_id`(실명 · 카톡 암호화 M1, §8). 그 앞은 소셜 로그인 4개(`20261008010000` ~ `040000`) · 카드 선정 · 유료 카드 · 알림함 5개(`20261010010000` ~ `050000`)다(`docs/ERD.md` 상태줄).
 
+**2026-10-12 저녁 갱신(대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다).** 운영 **68개** — 마지막은 M2 `drop_plaintext_real_name_and_kakao_id`(파일 `20261012010000`, 운영 기록 버전 `20261012070722` — §4 관례대로 파일 이름과 원격 버전이 다르다, 정상). M2 는 `profile_private` 의 평문 `real_name` · `kakao_id` 열과 함수 `backfill_profile_private_encryption` 을 지웠다(§8). **운영 적용은 끝났고 파일은 DB PR #476(draft) merge 대기**라 저장소 main 은 아직 67개다 — #476 이 merge 되면 저장소도 68개가 된다. 실행 기록 · 롤백 주의는 `backend/DEPLOY.md` §4-4.
+
 ## 2. 시작할 때
 
 - 스키마·RLS·Storage·Auth 를 건드리기 전에 `supabase:supabase` 스킬(보안 체크리스트)과 `supabase:supabase-postgres-best-practices` 스킬을 로드한다
@@ -60,18 +62,21 @@ Supabase **MCP 플러그인(`supabase`)이 설치·인증돼 있다.** 클라우
 
 **검토 대기 상한 30일(2026-10-11 사용자 결정, PR #463).** 제출하고 30일이 지나도 `pending` 인 시도는 매시 배치가 1 · 2 를 대신한다 — `student_verification_attempts` 를 `rejected` · `reject_reason` "검토 기한이 지나 사진을 삭제했어요. 학생증을 다시 올려 주세요" · `reviewed_at` 으로 닫고, 그 시도가 최근 제출이면 `profiles.student_verification` 도 `pending` 일 때만 `rejected` 로 바꾼 뒤 사진을 지운다. 사람이 이미 확정한 행은 건드리지 않는다. 그 사이 사람이 직접 검토하려면 30일 안에 위 1 · 2 를 끝낸다.
 
-## 8. 실명 · 카카오톡 아이디 암호화 (2026-10-11, M1 `20261011010000` · PR #461 · #464 · #467)
+## 8. 실명 · 카카오톡 아이디 암호화 (2026-10-11, M1 `20261011010000` · PR #461 · #464 · #467 · 2026-10-12 M2 `20261012010000` · PR #474 · #476)
 
 `profile_private.real_name` · `kakao_id` 를 전화번호(`phone_number`, `20260920043638`)와 같은 방식으로 암호화한다. 적용 · 백필 순서와 운영 기록은 `backend/DEPLOY.md` §4-4 가 기준이다.
 
+**지금 상태(2026-10-12 M2 운영 적용 뒤)**: 평문 열 `real_name` · `kakao_id` 는 없다 — 실명 · 카톡 아이디는 암호문 `real_name_enc` · `kakao_id_enc` 에만 있다. 남은 함수는 `set_real_name` · `set_kakao_id` · `decrypt_profile_private` **셋**(`service_role` 전용)이다. `authenticated` 의 컬럼 grant 는 `profile_id` 하나만 남았다(`select (real_name)` 은 열과 함께 사라졌다). M2 파일은 DB PR #476 merge 대기(운영에는 적용됨). 아래 M1 때 쓴 서술 중 "함수 4개" · "이중 쓰기 기간" · "M2 는 아직" 은 2026-10-12 개정으로 바뀌었다(줄마다 표시).
+
 - **새 열**: `real_name_enc` · `kakao_id_enc` — `bytea`, `extensions.pgp_sym_encrypt(평문, 키)` 암호문. 키는 전화번호와 **같은** `PHONE_ENCRYPTION_KEY`(FastAPI Secret Manager 전용, DB 에 두지 않는다). `authenticated` 에는 grant 하지 않는다(`20260914055617` 의 "이후 조각에서 컬럼을 추가해도 authenticated 에는 grant 하지 않는다"). 빈 문자열은 암호화하지 않고 null 로 둔다
-- **함수 4개** — 모두 security invoker · `search_path = ''` · `public` · `anon` · `authenticated` 실행 회수 · **`service_role` 만 실행**. 키가 null · 빈 문자열이면 22023 오류(pgcrypto 는 null 키에 조용히 null 을 돌려줘 암호문이 덮이거나 복호화가 전부 null 로 보이기 때문)
+- **함수 4개(2026-10-12 M2 뒤 3개)** — 모두 security invoker · `search_path = ''` · `public` · `anon` · `authenticated` 실행 회수 · **`service_role` 만 실행**. 키가 null · 빈 문자열이면 22023 오류(pgcrypto 는 null 키에 조용히 null 을 돌려줘 암호문이 덮이거나 복호화가 전부 null 로 보이기 때문)
   - `set_real_name(p_profile uuid, p_real_name text, p_key text) returns void` — upsert(행이 없으면 만든다. 가입 뒤 첫 쓰기가 실명이다)
   - `set_kakao_id(p_profile uuid, p_kakao_id text, p_key text) returns void` — update 전용(행이 없으면 0행. 서버가 `ensure_private_row` 로 먼저 보장한다)
   - `decrypt_profile_private(p_profile uuid, p_key text) returns table (real_name text, kakao_id text)` — 행이 없으면 0행, 암호문이 null 이면 그 값만 null. 틀린 키는 39000 오류. 본인 · 관리자 조회에만 쓴다
-  - `backfill_profile_private_encryption(p_profile uuid, p_key text) returns void` — **임시, M2 에서 삭제.** 평문을 암호문 열로 옮기되 암호문이 이미 있는 열은 덮지 않는다(멱등)
+  - `backfill_profile_private_encryption(p_profile uuid, p_key text) returns void` — **임시, M2 에서 삭제.** 평문을 암호문 열로 옮기되 암호문이 이미 있는 열은 덮지 않는다(멱등). **2026-10-12 M2 로 운영에서 삭제됐다** — 이 함수를 부르던 일회용 스크립트 `backend/scripts/backfill_encrypt_profile_private.py` 는 죽은 코드다
 - **키는 RPC 의 JSON 바디로만 넘긴다** — URL 쿼리스트링에 넣으면 웹서버 접근 로그에 남는다(전화번호와 같은 2026-09-20 승인 조건, `app/profile_onboarding/encryption.py`)
-- **서버(이중 쓰기 기간)**: 쓰기는 평문 열 + 암호문 열 둘 다(암호문 쓰기 실패는 요청을 실패시키지 않고 경고 로그만 — 백필이 메운다). 값을 내려주는 읽기(16e 계정 · 내 카톡 조회 · 채팅 신뢰 확인의 상대 카톡)는 `core/postgrest.py` `_read_private` 가 **복호화 값을 먼저 쓰고, 비었거나 복호화가 실패하면 평문 열로 폴백**한다. 온보딩 진행 판단(`kakao_id_set`, `profile_onboarding/repository.py`)만 반대로 평문을 먼저 보고 비었을 때 복호화로 확인한다. 로그에는 필드 이름 · profile_id · 예외 종류만 남긴다
-- **M2(옛 평문 열 · 백필 함수 삭제)는 아직이다.** E2E 하네스의 평문 열 조회를 고치고, 평문 쓰기 · 폴백 읽기를 뺀 서버를 먼저 배포한 뒤 사용자 승인을 받아 적용한다(`backend/DEPLOY.md` §4-4 순서 5)
-- **적용 뒤 확인할 것 — 키 로그 노출**: `pg_stat_statements` · Postgres 로그에 `pgp_sym_encrypt` / `pgp_sym_decrypt` 의 키 인자가 `$1` 같은 자리표시자로만 보이는지, `log_statement` · `auto_explain` 이 인자 값을 남기지 않는지 본다(M1 머리말 1번). 점검 결과는 아직 기록이 없다
+- **읽기 · 쓰기 규칙(2026-10-12 개정, PR #474 · 리비전 `00063` — 종전 "이중 쓰기 기간" 서술은 바로 아래에 기록으로 남긴다)**: **복호화 전용, 실패는 오류다.** 쓰기는 암호화 RPC(`set_real_name` · `set_kakao_id`) 하나뿐이고 실패하면 요청이 실패한다(삼키지 않는다). 읽기는 `core/postgrest.py` `_read_private` 한 곳이 `decrypt_profile_private` 로만 하고, 온보딩 진행 판단(`kakao_id_set`)도 같은 복호화 값을 본다. **복호화가 실패하면 None 으로 삼키지 않고 예외로 올린다** — None 이면 "아직 안 냈다" 로 보여 이미 낸 사람을 입력 화면으로 되돌리거나 상대에게 아이디가 없는 것처럼 보이기 때문이다. 복호화 실패 로그에는 `profile_id` · 상태 코드만 남긴다(예외 문구에 주소가 들어 있어 쓰지 않는다)
+- ~~**서버(이중 쓰기 기간)**: 쓰기는 평문 열 + 암호문 열 둘 다(암호문 쓰기 실패는 요청을 실패시키지 않고 경고 로그만 — 백필이 메운다). 값을 내려주는 읽기(16e 계정 · 내 카톡 조회 · 채팅 신뢰 확인의 상대 카톡)는 `core/postgrest.py` `_read_private` 가 **복호화 값을 먼저 쓰고, 비었거나 복호화가 실패하면 평문 열로 폴백**한다. 온보딩 진행 판단(`kakao_id_set`, `profile_onboarding/repository.py`)만 반대로 평문을 먼저 보고 비었을 때 복호화로 확인한다. 로그에는 필드 이름 · profile_id · 예외 종류만 남긴다~~ (2026-10-11 ~ 10-12 리비전 `00059` ~ `00062` 의 동작 — 기록)
+- ~~**M2(옛 평문 열 · 백필 함수 삭제)는 아직이다.**~~ **M2 는 2026-10-12 운영에 적용됐다**(파일 `20261012010000`, 운영 기록 버전 `20261012070722`, 파일은 DB PR #476 merge 대기). 순서는 계획대로 하네스 수정 → 평문 쓰기 · 폴백 읽기를 뺀 서버(`00063`) 배포 → 사용자 승인 → 적용이었고, 적용 뒤 `vacuum full public.profile_private` 를 돌렸다. 되돌릴 수 없고 사용자가 되살릴 백업도 없다(`backend/DEPLOY.md` §4-4 "M2 실행 기록")
+- **적용 뒤 확인할 것 — 키 로그 노출**: `pg_stat_statements` · Postgres 로그에 `pgp_sym_encrypt` / `pgp_sym_decrypt` 의 키 인자가 `$1` 같은 자리표시자로만 보이는지, `log_statement` · `auto_explain` 이 인자 값을 남기지 않는지 본다(M1 머리말 1번). ~~점검 결과는 아직 기록이 없다~~ **점검 결과(2026-10-12, 대장 전달 값)**: `pg_stat_statements` 의 RPC 문장은 본문이 파라미터라 키가 평문으로 남지 않았고, 운영 `log_statement` 는 `ddl` 이다
 - **대시보드에서 손으로 복호화해야 할 때**: `select * from public.decrypt_profile_private('<profile_id>', '<키>');` — 키를 SQL 창에 붙여넣는 일 자체가 감사 대상이라 실행 전후로 사유를 운영 기록에 남긴다(M1 머리말 3번). 평소 원칙은 그대로 "운영자는 `profile_private` 를 FastAPI 관리 기능으로만 본다"(ERD_DECISIONS §11-18)

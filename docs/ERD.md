@@ -6,6 +6,7 @@
 > **2026-10-09 갱신(소셜 로그인 전환).** 저장소 `supabase/migrations/` 가 **61개**다. 마지막 네 파일 `20261008010000`(학교 없는 pending 프로필) · `20261008020000`(소셜 이름 지우기 트리거) · `20261008030000`(`school_email_claims` · 정리 · 인증 완료 함수) · `20261008040000`(이메일 해시 없는 탈퇴)이 **2026-10-09 운영에 적용됐다**(대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다). 반영 위치: §1 조감도 · §2 표 · §3 `profiles` · `school_email_claims` · 트리거 · 함수, §5 `withdraw_account`. **데이터 이전**: 기존 사용자 25명(대장 전달 값)은 `school_email_verified_at` = 가입 시각(`created_at`, `20261008010000` 의 update)으로, `school_email_claims` 는 `provider = 'email'` 로 채웠다(`backend/scripts/backfill_school_email_claims.py` — HMAC 키가 서버에만 있어 SQL 로 못 채운다).
 > **2026-10-10 갱신(카드 선정 · 유료 카드).** 저장소 `supabase/migrations/` 가 **66개**다(PR #442 merge 뒤 main 기준). 새로 생긴 다섯 파일: `20261010010000`(`match_candidates` 반환을 jsonb 배열 + `pickable` 로) · `20261010020000`(`paid_card_offers`) · `20261010030000`(`purchase_paid_card`) · `20261010040000`(`notifications`) · `20261010050000`(유료 카드 주기당 한 장을 막는 부분 유일 인덱스 교체, PR #442)는 모두 **2026-10-10 운영에 적용됐다**(대장 전달 값: 운영 마이그레이션 66개 확인 — 이 문서 담당이 클라우드를 조회하지 않았다). 반영 위치: §1 조감도 · §2 표 · §4(`daily_cards` 옆 두 표와 함수) · §8 `paid_card_offer_status`. `notifications` 의 90일 보관 정리는 서버 배치 몫이고 구현 중이다(마이그레이션에는 없다).
 > **2026-10-12 갱신(실명 · 카톡 암호화 · 학생증 사진 정리).** 저장소 `supabase/migrations/` 가 **67개**다. 새 파일 `20261011010000`(실명 · 카톡 암호화 M1 — `profile_private.real_name_enc` · `kakao_id_enc` + 함수 4개)이 운영에 적용됐다(대장 전달 값: 운영 67개 — 이 문서 담당이 클라우드를 조회하지 않았다). 백필 끝(2행, 불일치 0), 옛 평문 열을 지우는 M2 는 아직이다. 학생증 사진 정리(검토 대기 30일 상한 · 사람 확정 뒤 삭제, 2026-10-11 사용자 결정)는 스키마 변경 없이 서버 코드로 했다. 반영 위치: §2 `profile_private` 행 · §3 `profile_private` · `student_verification_attempts` · §9 `student-id-temp`. (위 10-10 줄의 `notifications` 90일 정리도 그 뒤 매시 `chat-gate` 배치에 들어갔다 — `backend/DEPLOY.md` §4-1.)
+> **2026-10-12 저녁 갱신(M2 — 평문 열 삭제).** 운영 마이그레이션 **68개**(대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다). 새로 적용된 `20261012010000_drop_plaintext_real_name_and_kakao_id`(운영 기록 버전 `20261012070722`)가 `profile_private.real_name` · `kakao_id` 평문 열과 함수 `backfill_profile_private_encryption` 을 지웠다 — 실명 · 카톡 아이디는 암호문 `real_name_enc` · `kakao_id_enc` 에만 있다(ERD_DECISIONS §11-30). **파일은 DB PR #476(draft) merge 대기**라 저장소 main 은 아직 67개다. 반영 위치: §2 `profile_private` 행 · pgTAP 기대값 · §3 `profile_private` 그림 · 주석.
 
 ## 읽는 법
 
@@ -81,7 +82,7 @@ erDiagram
 | `universities` · `university_email_domains` | `anon` · `authenticated` 전체 | 가입 화면의 학교·도메인 확인 |
 | `region_group_settings` | `authenticated` 전체 | 다음 지급 시각 표시 |
 | `profiles` | 본인 행 (`id`) | |
-| `profile_private` | 본인 행 (`profile_id`) · 컬럼 grant `profile_id` · `real_name` 만 | 16e 본인 실명 조회. 번호 암호문·`phone_hmac`·카카오톡 아이디는 내려가지 않는다. 앱은 `select *` 대신 컬럼을 지정한다. 본인 `kakao_id`(16e · 14f · 16e-1)는 FastAPI 가 내려준다(§11-20). **2026-09-28 개정: 16e 는 실명도 서버 `GET /account` 로 받는다**(실명 · 출생연도 · 학교 · 가입일 · 카톡을 한 번에, 계획서 `2026-09-27-account-logout.md` T2). 컬럼 grant 는 남아 있지만 지금 앱은 이 표를 직접 읽지 않는다. **2026-10-12 추가: 새 암호문 열 `real_name_enc` · `kakao_id_enc` 는 grant 하지 않는다**(`20261011010000`) — 읽기는 서버가 `service_role` 로 `decrypt_profile_private` 를 불러서만 한다(§3) |
+| `profile_private` | 본인 행 (`profile_id`) · 컬럼 grant `profile_id` · `real_name` 만 | 16e 본인 실명 조회. 번호 암호문·`phone_hmac`·카카오톡 아이디는 내려가지 않는다. 앱은 `select *` 대신 컬럼을 지정한다. 본인 `kakao_id`(16e · 14f · 16e-1)는 FastAPI 가 내려준다(§11-20). **2026-09-28 개정: 16e 는 실명도 서버 `GET /account` 로 받는다**(실명 · 출생연도 · 학교 · 가입일 · 카톡을 한 번에, 계획서 `2026-09-27-account-logout.md` T2). 컬럼 grant 는 남아 있지만 지금 앱은 이 표를 직접 읽지 않는다. **2026-10-12 추가: 새 암호문 열 `real_name_enc` · `kakao_id_enc` 는 grant 하지 않는다**(`20261011010000`) — 읽기는 서버가 `service_role` 로 `decrypt_profile_private` 를 불러서만 한다(§3). **2026-10-12 M2 개정(`20261012010000`, 운영 적용 · 파일은 PR #476 merge 대기)**: 평문 `real_name` 열이 지워져 그 컬럼 grant 도 사라졌다 — 지금 `authenticated` 의 컬럼 grant 는 `profile_id` 하나다(종전 "`profile_id` · `real_name` 만") |
 | `student_verification_attempts` | 없음 | FastAPI 전용 — 본인 반려 사유는 FastAPI 응답으로 내려주고, 재시도 횟수는 행 수로 FastAPI 가 센다(§12-4) |
 | `profile_photos` · `profile_avatars` · `survey_answers` | 본인 행 (`profile_id`) | |
 | `profile_vectors` | 없음 | FastAPI 전용 |
@@ -108,7 +109,7 @@ erDiagram
 
 - 읽기가 있는 테이블: 남의 행 0행. `match_participants` 는 같은 매칭 상대의 행도 0행, `messages` 는 비당사자와 `left_at` 이 찍힌 본인 모두 0행
 - 읽기가 없는 테이블(FastAPI · 서버 전용): 본인 행이라도 `select` 가 42501
-- 컬럼 grant 테이블: `profile_private` 에서 본인 `select real_name` 은 1행, `select *` 는 42501(조각 1). 본인 `select kakao_id` 도 42501(§11-20)
+- 컬럼 grant 테이블: `profile_private` 에서 본인 `select real_name` 은 1행, `select *` 는 42501(조각 1). 본인 `select kakao_id` 도 42501(§11-20). **2026-10-12 M2 개정**: 평문 열이 없어져 본인 `select profile_id` 가 1행이고 `select *` 는 그대로 42501 이다(PR #476 의 `rls_slice1_test.sql` · `profile_private_drop_plaintext_test.sql`)
 - 모든 테이블: `anon` · `authenticated` 의 INSERT · UPDATE · DELETE 가 42501
 - `anon` 은 `universities` · `university_email_domains` 읽기만 된다
 - `profiles` 제약: 온보딩 컬럼 없는 `pending` 행 insert 는 성공, 필수값 없이 `active` 로 바꾸면 check 위반, 대소문자만 다른 닉네임은 unique 위반(§3)
@@ -216,13 +217,11 @@ erDiagram
 
     profile_private {
         uuid profile_id PK, FK "조각1"
-        text real_name "조각1 · 민감 · 3b 입력 · 학생증 이름 대조 · 본인만 16e 조회 · 평문, M2 에서 삭제 예정(2026-10-11)"
-        bytea real_name_enc "2026-10-11 적용 · 민감 · real_name 의 pgcrypto 암호문 · 키 PHONE_ENCRYPTION_KEY · grant 없음"
+        bytea real_name_enc "2026-10-11 적용 · 민감 · 실명 pgcrypto 암호문(3b 입력 · 학생증 이름 대조 · 본인만 16e 조회) · 키 PHONE_ENCRYPTION_KEY · grant 없음 · 2026-10-12 M2 뒤 실명의 유일한 저장소"
         bytea phone_number "조각2 · 민감 · 04-1 · pgcrypto 암호문(2026-09-29 표기 정정, 종전 text)"
         bytea phone_hmac "조각6 적용 · 민감 · 지인 차단 · 추천 같은 번호 대조 · 유니크 안 검(검토5 해결)"
         smallint phone_hmac_key_version "조각6 적용 · 기본 1 · 같은 버전끼리만 대조"
-        text kakao_id "조각2 · 민감 · 04-1b 가입 시 필수 입력(2026-09-14 개정, 종전 조각5 신뢰 확인 시점 수집) · 신뢰 확인 통과 후 상대에게만 · 주인이 withdrawn 이면 상대에게 주지 않음(§3) · 평문, M2 에서 삭제 예정(2026-10-11)"
-        bytea kakao_id_enc "2026-10-11 적용 · 민감 · kakao_id 의 pgcrypto 암호문 · 키 PHONE_ENCRYPTION_KEY · grant 없음"
+        bytea kakao_id_enc "2026-10-11 적용 · 민감 · 카톡 아이디 pgcrypto 암호문(04-1b 필수 입력 · 신뢰 확인 통과 후 상대에게만 · 주인이 withdrawn 이면 주지 않음) · 키 PHONE_ENCRYPTION_KEY · grant 없음 · 2026-10-12 M2 뒤 유일한 저장소"
         timestamptz updated_at
     }
 
@@ -292,6 +291,7 @@ erDiagram
 - 조각 4에서 `universities.region_group` 에 `region_group_settings` FK 를 걸 때는 같은 마이그레이션에서 `seoul` 행을 먼저 넣는다
 - 민감 값(`real_name` · `phone_number` · `phone_hmac` · `kakao_id`)은 `profile_private` 로 분리했다. 서버 코드가 남의 프로필을 `select *` 로 읽어도 민감 값이 딸려 나오지 않는다. 접근 감사 로그는 테이블 없이 FastAPI 구조화 로그로 남긴다(§11-13). 운영자도 FastAPI 관리 기능으로만 조회하고 Supabase 대시보드·SQL 로 직접 보지 않는다(§11-18)
 - **실명 · 카카오톡 아이디 암호화(2026-10-11, M1 `20261011010000` 운영 적용 · PR #464 · #467)** — 전화번호와 같은 `pgp_sym_encrypt` · 같은 키(`PHONE_ENCRYPTION_KEY`, FastAPI Secret Manager 전용)로 `real_name_enc` · `kakao_id_enc`(`bytea`)에 둔다. 함수 4개 `set_real_name` · `set_kakao_id` · `decrypt_profile_private` · `backfill_profile_private_encryption`(임시) — 전부 security invoker, `service_role` 만 실행, 키는 RPC JSON 바디로만(세부 `docs/SUPABASE.md` §8). 지금은 **이중 쓰기 기간**이라 서버가 평문 · 암호문 둘 다 쓰고, 값을 내려줄 때는 복호화 값을 먼저 쓰고 비면 평문으로 폴백한다(온보딩 진행 판단만 평문 먼저, `docs/SUPABASE.md` §8). 옛 행은 백필로 채웠다(2026-10-12, 2행 · 불일치 0). **M2(평문 `real_name` · `kakao_id` 열과 백필 함수 삭제)는 아직** — 하네스 · 서버의 평문 사용을 뺀 뒤 사용자 승인으로 적용한다(`backend/DEPLOY.md` §4-4)
+- **M2 운영 적용(2026-10-12, `20261012010000` · 운영 기록 버전 `20261012070722` · 파일은 PR #476 merge 대기, ERD_DECISIONS §11-30)** — 위 줄의 "이중 쓰기 기간" · "M2 는 아직" 은 이날로 끝났다. 평문 열 `text real_name`(조각 1) · `text kakao_id`(조각 2)를 지워 위 그림에서도 뺐고, 그 설명(3b 입력 · 학생증 이름 대조 · 본인만 16e 조회 / 04-1b 필수 입력 · 신뢰 확인 통과 뒤 상대에게만 · 주인이 `withdrawn` 이면 주지 않음)은 암호문 열 줄로 옮겼다. 함수는 `set_real_name` · `set_kakao_id` · `decrypt_profile_private` 셋만 남았다. 서버(리비전 `00063`, PR #474)는 복호화로만 읽고 실패를 오류로 올린다(`docs/SUPABASE.md` §8). `authenticated` 의 `select (real_name)` 컬럼 grant 는 열과 함께 사라졌다. 되돌릴 수 없다 — 롤백 마이그레이션 · 사용자 백업 없음(`backend/DEPLOY.md` §4-4)
 - `student_verification` 은 boolean이 아니라 상태값(`none` `pending` `verified` `rejected`, 2026-09-14 확정)이다. 3b의 "조금 더 확인이 필요해요" 대기 상태를 담아야 하기 때문이다
 - `student_verification_attempts` 는 학생증 제출 한 번에 한 행이다(§12-4, 2026-09-14 사용자 결정). 재시도 횟수(설계 미결3)는 이 테이블의 행 수로 FastAPI 가 세고, 반려 사유(`reject_reason`)는 본인에게 FastAPI 응답으로 내려준다. `result` 는 제출 직후 `pending` 이고 `none` 일 수 없다(check). 클라이언트 권한은 없다(§2). **`verified` 확정 후 재제출은 FastAPI 가 막는다(409, 2026-09-20 결정)** — `rejected` 는 계속 재제출 가능. **검토 대기 상한 30일(2026-10-11 사용자 결정, PR #463)** — `submitted_at` 이 30일 지났는데 `result = pending` 인 행은 매시 `chat-gate` 배치가 `rejected` · `reject_reason` "검토 기한이 지나 사진을 삭제했어요. 학생증을 다시 올려 주세요" · `reviewed_at` 으로 닫고, 그 행이 그 사람의 최근 제출이면 `profiles.student_verification` 을 (`pending` 일 때만) `rejected` 로 바꾼다. 검토 결과 훅은 이 사유 문구로 "기한 만료" 알림을 고른다(`app/student_verification/retention.py` · `review_hook.py`). 스키마 변경은 없다
 - **`profiles.department` 컬럼은 만들지 않는다(2026-09-20 결정)** — 학과는 기존 `major` 컬럼을 재사용하고, FastAPI 응답에서만 `department` 로 별칭한다. 학번은 `student_number` 컬럼을 새로 추가했다(설계 §7.3, 마이그레이션 `20260919181319`)
