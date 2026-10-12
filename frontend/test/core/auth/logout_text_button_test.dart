@@ -37,7 +37,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('로그아웃할까요?'), findsOneWidget);
     // 소셜 로그인 뒤라 학교 메일 인증코드를 말하지 않는다(지시문 13 A-6).
-    expect(find.text('다시 로그인하려면 처음 화면에서 카카오, 구글 중 쓰던 계정으로 로그인해 주세요.'), findsOneWidget);
+    // 공급자를 나열하지 않는다 — iOS 에는 애플도 있다(2026-10-13 대장 결정).
+    expect(find.text('다시 로그인하려면 처음 화면에서 쓰던 소셜 계정으로 로그인해 주세요.'), findsOneWidget);
     expect(find.textContaining('인증 코드'), findsNothing);
 
     await tester.tap(find.descendant(of: find.byType(SafetyConfirmSheet), matching: find.text('로그아웃')));

@@ -106,7 +106,7 @@ class LogoutCopyTest(unittest.TestCase):
         # eaddab62 뒤 로그아웃 시트는 소셜 로그인 문구다(core/auth/confirm_sign_out.dart) — 앱 쪽 E-SET-64 가 같은 글을 기대해야 한다.
         shown = (tools.ROOT / 'frontend' / 'lib' / 'core' / 'auth' / 'confirm_sign_out.dart').read_text(encoding='utf-8')
         said = (tools.ROOT / 'frontend' / 'integration_test' / 'area4_set2.dart').read_text(encoding='utf-8')
-        text = '다시 로그인하려면 처음 화면에서 카카오, 구글 중 쓰던 계정으로 로그인해 주세요.'
+        text = '다시 로그인하려면 처음 화면에서 쓰던 소셜 계정으로 로그인해 주세요.'
         self.assertIn(f"description: '{text}'", shown)
         self.assertIn(f"const _logoutDescription = '{text}';", said)
 
