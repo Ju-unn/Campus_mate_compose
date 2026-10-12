@@ -21,6 +21,10 @@ import 'package:go_router/go_router.dart';
 import '../../auth/model/fake_image_compressor.dart';
 import '../model/fake_heart_task_repository.dart';
 
+/// 무료 하트 인증 기준(사용자 결정 10-12 — pen 동기화 대기). 에브리타임은 옛 "날짜가 보이게 찍어 주세요" 를 합쳤다.
+const _everytimeCriteria = '앱 이름(CampusMate)이 들어간 홍보 글을 올리고, 올린 날짜가 보이게 찍어 주세요';
+const _kakaoCriteria = '5명 이상이 있는 학교 단톡방에 공유한 글과 단톡방 인원 수가 보이게 찍어 주세요';
+
 void main() {
   late FakeHeartTaskRepository repository;
   // 없는 파일이어도 된다 — 위젯 테스트의 가짜 시계에서는 파일을 실제로 읽지 않는다.
@@ -66,23 +70,43 @@ void main() {
     return router;
   }
 
-  testWidgets('18b — 안내 · 업로더 · 꺼진 "제출하기", 반려 알림 · 에브리타임 줄은 없다', (tester) async {
+  testWidgets('18b — 안내 · 단톡방 인증 기준 · 업로더 · 꺼진 "제출하기", 반려 알림 · 에브리타임 기준은 없다', (tester) async {
     await pump(tester);
 
     expect(find.text('인증샷 제출'), findsOneWidget);
     expect(find.text('스크린샷을 첨부하면 확인 후 하트를 드려요'), findsOneWidget);
+    expect(find.text(_kakaoCriteria), findsOneWidget);
     expect(find.text('스크린샷 첨부하기'), findsOneWidget);
-    expect(find.text('날짜가 보이게 찍어 주세요'), findsNothing);
+    expect(find.text(_everytimeCriteria), findsNothing);
     expect(find.textContaining('반려 사유'), findsNothing);
     expect(tester.widget<ElevatedButton>(find.byType(ElevatedButton)).onPressed, isNull);
     expect(find.text('제출하기'), findsOneWidget);
   });
 
-  testWidgets('에브리타임만 "날짜가 보이게 찍어 주세요" 한 줄이 붙는다(편차 6)', (tester) async {
+  testWidgets('에브리타임은 앱 이름 · 날짜 기준 한 덩어리 — 옛 "날짜가 보이게 찍어 주세요" 는 합쳐져 따로 없다', (tester) async {
     await pump(tester, kind: HeartTaskKind.everytimePost);
 
-    expect(find.text('날짜가 보이게 찍어 주세요'), findsOneWidget);
+    expect(find.text(_everytimeCriteria), findsOneWidget);
+    expect(find.text('날짜가 보이게 찍어 주세요'), findsNothing);
+    expect(find.text(_kakaoCriteria), findsNothing);
   });
+
+  for (final (kind, criteria) in [
+    (HeartTaskKind.everytimePost, _everytimeCriteria),
+    (HeartTaskKind.kakaoShare, _kakaoCriteria),
+  ]) {
+    testWidgets('${kind.code} 기준 — 12/400 muted 줄높이 1.4, 안내 → 4 → 기준 → 16 → 업로더(옛 날짜 캡션 자리 그대로)', (tester) async {
+      await pump(tester, kind: kind);
+
+      final text = find.text(criteria);
+      final style = tester.widget<Text>(text).style!;
+      expect((style.fontSize, style.fontWeight, style.height, style.color), (12, FontWeight.w400, 1.4, AppColors.muted));
+      final guide = tester.getRect(find.text('스크린샷을 첨부하면 확인 후 하트를 드려요'));
+      final rect = tester.getRect(text);
+      expect(rect.top - guide.bottom, 4);
+      expect(tester.getRect(find.byKey(heartTaskUploaderKey)).top - rect.bottom, 16);
+    });
+  }
 
   testWidgets('18b-2 — 사유 알림과 "다시 제출하기", pen 배치 16 · 99 · 138 · 374', (tester) async {
     await pump(tester, reason: HeartTaskRejectReason.dateMissing);
@@ -103,9 +127,13 @@ void main() {
     expect(tester.getRect(alert).top - body, 16);
     expect(tester.getRect(alert).height, 67);
     expect(tester.getRect(find.text('스크린샷을 첨부하면 확인 후 하트를 드려요')).top - body, 99);
-    expect(tester.getRect(find.byKey(heartTaskUploaderKey)).top - body, 138);
-    expect(tester.getRect(find.byKey(heartTaskUploaderKey)).height, 220);
-    expect(tester.getRect(find.byType(ElevatedButton)).top - body, 374);
+    // pen 의 업로더 138 · 버튼 374 는 기준 캡션이 없을 때 값이다(사용자 결정 10-12 로 단톡방에도 캡션이 붙었다 — pen 동기화 대기).
+    // 캡션 높이만큼만 내려가고 간격 규칙(안내 → 4 → 캡션 → 16 → 업로더 → 16 → 버튼)은 그대로다.
+    final caption = tester.getRect(find.text(_kakaoCriteria));
+    final uploader = tester.getRect(find.byKey(heartTaskUploaderKey));
+    expect(uploader.top - body, 138 + 4 + caption.height);
+    expect(uploader.height, 220);
+    expect(tester.getRect(find.byType(ElevatedButton)).top - uploader.bottom, 16);
   });
 
   testWidgets('사진을 고르면 버튼이 켜지고, 제출하면 18c 로 바뀌며 뒤로 가면 18a 다', (tester) async {
@@ -163,15 +191,23 @@ void main() {
     expect(tester.getSize(painter), tester.getSize(tile));
   });
 
-  testWidgets('글자 2배에서도 넘침 예외가 없고 말줄임으로 잘린 글자도 없다', (tester) async {
-    tester.platformDispatcher.textScaleFactorTestValue = 2;
-    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-    await pump(tester, kind: HeartTaskKind.everytimePost, reason: HeartTaskRejectReason.notVerified);
+  for (final (kind, criteria) in [
+    (HeartTaskKind.everytimePost, _everytimeCriteria),
+    (HeartTaskKind.kakaoShare, _kakaoCriteria),
+  ]) {
+    testWidgets('${kind.code} — 글자 2배에서도 넘침 예외가 없고 말줄임으로 잘린 글자도 없다(기준 캡션 포함)', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await pump(tester, kind: kind, reason: HeartTaskRejectReason.notVerified);
 
-    expect(tester.takeException(), isNull);
-    // 넘침 예외가 없어도 maxLines 로 조용히 잘릴 수 있다(DESIGN §11.2) — 화면 글자를 전부 본다.
-    for (final paragraph in tester.renderObjectList<RenderParagraph>(find.byType(RichText))) {
-      expect(paragraph.didExceedMaxLines, isFalse, reason: paragraph.text.toPlainText());
-    }
-  });
+      expect(tester.takeException(), isNull);
+      expect(find.text(criteria), findsOneWidget);
+      // 넘침 예외가 없어도 maxLines 로 조용히 잘릴 수 있다(DESIGN §11.2) — 화면 글자를 전부 본다.
+      for (final paragraph in tester.renderObjectList<RenderParagraph>(find.byType(RichText))) {
+        expect(paragraph.didExceedMaxLines, isFalse, reason: paragraph.text.toPlainText());
+      }
+      // 캡션 아래 간격 규칙도 2배에서 그대로다.
+      expect(tester.getRect(find.byKey(heartTaskUploaderKey)).top - tester.getRect(find.text(criteria)).bottom, 16);
+    });
+  }
 }
