@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import UUID
 
 from app.core import errors
@@ -78,6 +79,25 @@ class FriendReviewRepository(PostgrestRepository):
             "select": "id,nickname,status,profile_avatars(storage_path,status,created_at)",
         })
         return rows[0] if rows else None
+
+    async def fetch_by_code(self, code: str) -> dict | None:
+        """친구 코드(= 추천 코드 profiles.referral_code)의 주인. 확인 화면에 그릴 닉네임 · 학교, active 판정용 status,
+        같은 번호 판정용 번호 해시. profile_private 는 PK 가 profiles FK 라 일대일 — 객체 하나(행이 없으면 null)로 온다."""
+        rows = await self._rows("profiles", {
+            "referral_code": f"eq.{code}", "select": "id,nickname,status,universities(name),profile_private(phone_hmac)",
+        })
+        return rows[0] if rows else None
+
+    async def fetch_phone_hmac(self, profile_id: UUID | str) -> str | None:
+        """내 번호 해시. 행이 없거나 비어 있으면(백필 전 옛 계정) None."""
+        rows = await self._rows("profile_private", {"profile_id": f"eq.{profile_id}", "select": "phone_hmac"})
+        return rows[0]["phone_hmac"] if rows else None
+
+    async def count_written_since(self, reviewer: UUID | str, since: datetime, cap: int) -> int:
+        """since 이후 내가 쓴 리뷰 수(경로 · 상태 무관). 상한(cap)까지만 센다 — 넘었는지만 알면 된다."""
+        return len(await self._rows("friend_reviews", {
+            "reviewer_id": f"eq.{reviewer}", "created_at": f"gte.{since.isoformat()}", "select": "id", "limit": cap,
+        }))
 
     async def insert_review(self, row: dict) -> str:
         response = await self._post("friend_reviews", json=row, prefer="return=representation")

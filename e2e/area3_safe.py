@@ -58,6 +58,7 @@ VERIFIED_ROUTES = [
     'GET /referral/my-code', 'POST /referral/redeem',
     'GET /friend-reviews/received', 'GET /friend-reviews/about/{profile_id}', 'GET /friend-reviews/targets/{profile_id}',
     'POST /friend-reviews', 'GET /friend-reviews/writable', 'GET /friend-reviews/written', 'DELETE /friend-reviews/{review_id}',
+    'POST /friend-reviews/code-lookup',
     'GET /heart-tasks', 'POST /heart-tasks/{task}/submissions',
 ]
 # 정지 계정의 "DB 변화 0" 을 보는 표 — 계정 칸 이름.

@@ -3,12 +3,14 @@
 리뷰는 **숨길 때 한 곳**(`_visible`)에서 거른다 — 작성자 active 아님 · 가림 · 보는 사람과의 차단(결정 6).
 응답에는 reviewer_id 를 싣지 않는다(Global Constraints).
 """
+import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, StringConstraints, field_validator, model_validator
 
 from app.cards.push import FcmSender, notify
 from app.cards.repository import CardRepository
@@ -33,9 +35,27 @@ TAGS = (
 MAX_TAGS = 3
 COMMENT_MAX_LENGTH = 100
 
+# 친구 코드(= 추천 코드, 설정 > 친구 초대의 그 코드)로 쓰기 — 사용자 결정 10-13. 앱이 글자 그대로 띄운다.
+# errors.py 는 공유 파일이라 여기 둔다(옮기려면 대장 허락).
+FRIEND_CODE_NOT_FOUND = "코드를 찾을 수 없어요"
+FRIEND_CODE_TRY_LATER = "잠시 후 다시 시도해 주세요."
+CODE_FAILURE_LIMIT = 10
+CODE_FAILURE_WINDOW = timedelta(hours=1)
+CODE_REVIEW_DAILY_LIMIT = 5
+CODE_REVIEW_WINDOW = timedelta(hours=24)
+
+# 대문자 · 공백 정리는 서버가 한다. 여기서는 빈 값과 터무니없이 긴 값만 막는다(referral RedeemRequest 와 같은 틀).
+FriendCode = Annotated[str, StringConstraints(min_length=1, max_length=20, pattern=r"\S")]
+
+
+class CodeLookupRequest(BaseModel):
+    code: FriendCode
+
 
 class ReviewRequest(BaseModel):
-    reviewee_id: UUID
+    # 대상은 둘 중 하나만: 추천으로 이어진 사람(reviewee_id) 또는 친구 코드(friend_code).
+    reviewee_id: UUID | None = None
+    friend_code: FriendCode | None = None
     tags: list[str] = Field(min_length=1, max_length=MAX_TAGS)
     comment: str | None = Field(default=None, max_length=COMMENT_MAX_LENGTH)
 
@@ -52,6 +72,46 @@ class ReviewRequest(BaseModel):
         # 깎은 뒤에 길이(max_length)를 잰다 — "가"×100 뒤에 공백 하나가 붙었다고 422 를 내지 않는다.
         # 공백뿐이면 한마디가 없는 것이다. DB check 는 빈 글을 막으므로 null 로 넣는다.
         return (value.strip() or None) if isinstance(value, str) else value
+
+    @model_validator(mode="after")
+    def _one_target(self) -> "ReviewRequest":
+        if (self.reviewee_id is None) == (self.friend_code is None):
+            raise ValueError("reviewee_id 와 friend_code 중 하나만 보낸다")
+        return self
+
+
+class _Window:
+    """사용자당 최근 span 안의 시각, limit 개까지(슬라이딩 창). hold 는 await 없이 자리를 먼저 잡고(꽉 찼으면 429)
+    일이 안 되면 release 로 돌려준다 — 동시에 여러 요청이 와도 한도를 넘지 못한다. 막힌(429) 시도는 세지 않아
+    두드려도 창이 밀리지 않는다. span 이 지난 사람은 hold 때마다 지워 메모리가 늘지 않는다.
+    ponytail: 프로세스 안 dict 라 한도가 인스턴스별이다 — Cloud Run 이 N 대로 늘면 N 배까지 느슨해지고 재시작하면
+    비워진다. 한도가 실제로 뚫리면 DB 카운터(시각 행 + 시간 인덱스)로 올린다."""
+
+    def __init__(self, limit: int, span: timedelta):
+        self.limit, self.span = limit, span
+        self.times: dict[str, list[datetime]] = {}
+
+    def hold(self, me: str, now: datetime) -> None:
+        cutoff = now - self.span
+        for key in [key for key, times in self.times.items() if not times or times[-1] <= cutoff]:
+            del self.times[key]
+        times = [t for t in self.times.get(me, []) if t > cutoff]
+        if len(times) >= self.limit:
+            self.times[me] = times
+            raise HTTPException(status_code=429, detail=FRIEND_CODE_TRY_LATER)
+        self.times[me] = [*times, now]
+
+    def release(self, me: str, now: datetime) -> None:
+        times = self.times.get(me)
+        if times and now in times:
+            times.remove(now)
+
+
+# 코드 확인 실패(시간당 10번). 확인 전에 잡고 맞으면 돌려준다 — 실패만 남는다.
+_CODE_FAILURES = _Window(CODE_FAILURE_LIMIT, CODE_FAILURE_WINDOW)
+# 코드 경로로 쓴 시각(24시간 5건). 저장 전에 잡고 저장이 안 되면 돌려준다. **지워도 남는다** — 쓰기 · 지우기를
+# 되풀이해 DB 수(count_written_since)를 0 으로 되돌리면 상한과 "새 지인 리뷰" 푸시가 무한히 되풀이된다(검토 필수1).
+_CODE_WRITES = _Window(CODE_REVIEW_DAILY_LIMIT, CODE_REVIEW_WINDOW)
 
 
 class _Wiring:
@@ -158,18 +218,91 @@ async def get_target(profile_id: UUID, w: _Wiring = Depends(_wire)) -> dict:
             "avatar_url": avatar_url(profile, w.settings.supabase_url)}
 
 
+def _code_refusal(me: str, profile: dict | None, blocked: set[str], my_phone: str | None) -> str | None:
+    """친구 코드의 주인에게 쓸 수 없는 이유(로그용 이름). 없으면 None."""
+    if profile is None:
+        return "not_found"
+    target = profile["id"]
+    if target == me:
+        return "self"
+    if not is_active(profile):
+        return "inactive"
+    if target in blocked:
+        return "blocked"
+    # 둘 다 번호 해시가 있을 때만 비교한다(redeem_referral 과 같은 규칙) — 같은 번호 = 한 사람의 두 계정.
+    if my_phone and my_phone == (profile.get("profile_private") or {}).get("phone_hmac"):
+        return "same_phone"
+    return None
+
+
+async def _code_target(w: _Wiring, code: str) -> dict:
+    """친구 코드의 주인 — 리뷰를 쓸 수 있는 사람일 때만. 추천 연결(referrals)은 보지 않는다: 하트 · 랭킹과 무관하다.
+    거절 이유는 로그에만 가르고 응답은 하나다(있는데 막힌 코드와 없는 코드를 구분할 수 없게). 확인 · 저장이 같이 쓴다."""
+    _CODE_FAILURES.hold(w.profile_id, w.now)
+    # 사유와 상관없이 같은 조회 셋을 한 번에 보낸다 — PostgREST 왕복 수(응답 시간)로 사유를 가를 수 없게(권고1).
+    try:
+        profile, blocked, my_phone = await asyncio.gather(
+            w.repo.fetch_by_code("".join(code.split()).upper()),
+            w.cards.fetch_block_partner_ids(w.profile_id),
+            w.repo.fetch_phone_hmac(w.profile_id),
+        )
+    except BaseException:
+        # DB 장애 · 시간 초과 · 끊김은 코드 실패가 아니다 — 자리를 돌려줘 정상 사용자가 한 시간 429 에 갇히지 않게.
+        _CODE_FAILURES.release(w.profile_id, w.now)
+        raise
+    if reason := _code_refusal(w.profile_id, profile, blocked, my_phone):
+        # 코드 · 닉네임 원문은 남기지 않는다.
+        logger.warning("친구 코드 거절 reason=%s caller=%s", reason, w.profile_id)
+        raise HTTPException(status_code=404, detail=FRIEND_CODE_NOT_FOUND)
+    _CODE_FAILURES.release(w.profile_id, w.now)
+    return profile
+
+
+async def _write_by_code(w: _Wiring, code: str, row: dict) -> tuple[str, str]:
+    """코드 경로 저장 → (받는 사람 id, 리뷰 id). 앱이 본 확인 결과를 믿지 않고 코드로 다시 찾아 같은 검사를 한다.
+    코드만 알면 누구에게나 쓸 수 있어 하루 5건 상한을 둔다. 둘 중 하나라도 5건이면 429:
+    ① 프로세스 안 작성 기록(_CODE_WRITES — 지워도 남는다, await 전에 자리를 잡아 동시 요청도 막는다)
+    ② DB 수(재시작 · 다른 인스턴스 보완). 경로 · 상태 무관 — 추천 경로(reviewee_id)로 쓴 리뷰도 센다."""
+    target = (await _code_target(w, code))["id"]
+    if await w.repo.has_written(w.profile_id, target):
+        raise HTTPException(status_code=409, detail=errors.FRIEND_REVIEW_ALREADY_WRITTEN)
+    _CODE_WRITES.hold(w.profile_id, w.now)
+    try:
+        since = w.now - CODE_REVIEW_WINDOW
+        if await w.repo.count_written_since(w.profile_id, since, CODE_REVIEW_DAILY_LIMIT) >= CODE_REVIEW_DAILY_LIMIT:
+            raise HTTPException(status_code=429, detail=FRIEND_CODE_TRY_LATER)
+        return target, await w.repo.insert_review({**row, "reviewee_id": target})
+    except BaseException:
+        # 저장이 안 됐으면(DB 상한 · 동시 409 · 오류 · 끊김) 자리를 돌려준다.
+        _CODE_WRITES.release(w.profile_id, w.now)
+        raise
+
+
+@router.post("/friend-reviews/code-lookup")
+async def lookup_code(body: CodeLookupRequest, w: _Wiring = Depends(_wire)) -> dict:
+    """친구 코드 확인(가입 뒤 지인 리뷰 쓰기 입구). 닉네임 · 학교만 준다 — 프로필 id · 아바타는 싣지 않는다.
+    이미 썼으면 already_reviewed(앱이 쓰기 대신 안내). 저장은 POST /friend-reviews 가 코드로 다시 확인한다."""
+    profile = await _code_target(w, body.code)
+    return {"nickname": profile["nickname"], "university": (profile.get("universities") or {}).get("name"),
+            "already_reviewed": await w.repo.has_written(w.profile_id, profile["id"])}
+
+
 @router.post("/friend-reviews", status_code=201)
 async def create_review(body: ReviewRequest, w: _Wiring = Depends(_wire)) -> dict:
-    """20b "리뷰 남기기". 저장한 뒤 받은 사람에게 푸시(결정 8). 푸시 쪽 예외는 전부 로그만 남기고 저장은 그대로다."""
-    target = str(body.reviewee_id)
-    await _writable_target(w, target)
-    review_id = await w.repo.insert_review({
-        "reviewer_id": w.profile_id, "reviewee_id": target, "tags": body.tags, "comment": body.comment,
-    })
+    """20b "리뷰 남기기". 저장한 뒤 받은 사람에게 푸시(결정 8). 푸시 쪽 예외는 전부 로그만 남기고 저장은 그대로다.
+    friend_code 면 _write_by_code 가 코드로 다시 확인하고 하루 상한을 본다."""
+    row = {"reviewer_id": w.profile_id, "tags": body.tags, "comment": body.comment}
+    if body.friend_code is None:
+        target = str(body.reviewee_id)
+        await _writable_target(w, target)
+        review_id = await w.repo.insert_review({**row, "reviewee_id": target})
+    else:
+        target, review_id = await _write_by_code(w, body.friend_code, row)
     try:
-        me = await w.cards.fetch_card_profile(w.profile_id)
-        await notify(w.cards, w.sender, target, "new_friend_review", "새 지인 리뷰가 도착했어요",
-                     f"{me['nickname']} 님이 리뷰를 남겼어요", {"route": "friend_reviews"}, now=w.now)
+        # 닉네임이 비면(온보딩 중간) "None 님이" 가 나가지 않게 푸시를 건너뛴다 — 프로필이 없을 때와 같은 처리다.
+        if nickname := (await w.cards.fetch_card_profile(w.profile_id)).get("nickname"):
+            await notify(w.cards, w.sender, target, "new_friend_review", "새 지인 리뷰가 도착했어요",
+                         f"{nickname} 님이 리뷰를 남겼어요", {"route": "friend_reviews"}, now=w.now)
     except Exception:
         # 리뷰는 이미 저장됐다 — 알림 한 건 때문에 201 을 놓치는 쪽이 훨씬 나쁘다.
         logger.exception("새 지인 리뷰 푸시 실패 review=%s reviewee=%s", review_id, target)
