@@ -5,6 +5,10 @@
 	<!-- 푸시 알림(APNs) 환경. Debug.xcconfig 는 development, Release.xcconfig 는 production 을 준다(Secrets.xcconfig 로 덮어쓸 수 있다). -->
 	<key>aps-environment</key>
 	<string>$(APS_ENVIRONMENT)</string>
-	<!-- Sign in with Apple 은 애플 로그인을 구현할 때 여기에 com.apple.developer.applesignin = [Default] 를 더하고 Xcode 에서 capability 를 켠다. 지금은 넣지 않는다. -->
+	<!-- Sign in with Apple(시작 화면 애플 로그인). Xcode 의 Signing & Capabilities > Sign in with Apple 과 같은 값이다. -->
+	<key>com.apple.developer.applesignin</key>
+	<array>
+		<string>Default</string>
+	</array>
 </dict>
 </plist>
