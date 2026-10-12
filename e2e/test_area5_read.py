@@ -1241,6 +1241,16 @@ class AppContractTest(unittest.TestCase):
             self.assertNotIn(stale, order)
         self.assertIn('await _reveal(tester, find.text(title));', order)  # 제목 줄은 보이는 줄만 만들어지니 끌어온 뒤 읽는다
 
+    def test_the_title_reader_sees_through_the_fitted_box_the_me_tab_title_sits_in(self):
+        # 15 의 제목은 큰 글자에서 자르지 않고 줄이려 FittedBox 안 Text 다(my_profile_screen.dart, 홈 앱바와 같다). 앱바 글자를 읽는
+        # _title() 이 Text 만 보면 15 에서 null 을 말해 EDGE-13 의 15-5 → 15 · 15-4 → 15 가 fail 하고 _returnTo('내 프로필') 이 멈추지 못한다.
+        me = (tools.ROOT / 'frontend' / 'lib' / 'me' / 'view' / 'my_profile_screen.dart').read_text(encoding='utf-8')
+        self.assertRegex(me, r"(?s)title: FittedBox\((?:(?!\n        \),).)*child: Text\('%s'" % area5_read.TITLES['15'])
+        helper = dart_block((tools.ROOT / 'frontend' / 'integration_test' / 'area5.dart').read_text(encoding='utf-8'),
+                            'String? _title(WidgetTester', '\n}\n')
+        self.assertRegex(helper, r'\bis FittedBox \? \w+\.child : ')
+        self.assertIn('is Text ?', helper)
+
 
 if __name__ == '__main__':
     unittest.main()
