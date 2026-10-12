@@ -37,8 +37,10 @@ SEEN = 10  # 앱이 누른 뒤 맨 위 화면이 바뀌기를 기다리는 시�
 # 계정 탈퇴(/account/withdraw)는 하트 출금이 아니다 — 'withdraw' 는 하트 이름이 붙은 경로만 센다.
 FORBIDDEN_HEART = ('refund', 'cashout', 'transfer', 'gift', 'send_heart', 'send-heart', 'exchange',
                    'heart_withdraw', 'heart-withdraw', 'hearts/withdraw')
-# 스토어 화면(18)은 지금 서버 경로가 없다 — 구매 경로가 생겨도 카드를 사거나 잠긴 카드를 푸는 이름이면 이 판이 잡는다.
-FORBIDDEN_STORE = ('heart_store', 'heart-store', 'unlock_card', 'unlock-card', 'buy_card', 'buy-card')
+# 10-09 유료 카드 재설계(84df7d24) 뒤 하트로 카드를 사는 서버 경로는 이것 하나다(설계 01 §3-3 · §8-3, backend/app/cards/router.py).
+PAID_PURCHASE = '/cards/paid/{offer_id}/purchase'
+# 사거나 여는 이름이 붙은 경로 — PAID_PURCHASE 말고는 없어야 한다(스토어 화면 18 은 서버 경로가 없다 · 인앱결제는 설계 범위 밖 §5).
+PURCHASE_WORDS = ('purchase', 'buy', 'unlock', 'heart_store', 'heart-store')
 
 
 # ── E-HEART-46 아바타 만드는 중 잔액이 모자라지면 무료 ─────────────────────────────────────────────────
@@ -82,7 +84,7 @@ def heart_46(run):
     return result
 
 
-# ── E-HEART-49 · 51 하트 환급 · 선물 · 스토어 경로가 없다 ───────────────────────────────────────────────
+# ── E-HEART-49 하트 환급 · 선물 경로가 없다 · 51 하트를 쓰는 곳 · 사는 곳이 10-09 설계와 맞다 ─────────────────
 
 def _backend_app():
     """이 저장소 backend 의 FastAPI 앱(app.main:app). 의존성이 없으면 blocked — 바깥 python 3.14 에는 google-auth 가 없다."""
@@ -121,22 +123,40 @@ def heart_49(run, phone):
     return check.result('서버 경로는 백엔드 코드 app.openapi() 의 이름으로 본다(' + ' · '.join(FORBIDDEN_HEART) + ')')
 
 
+def _paid_card(check, body):
+    """/cards/today 의 paid_card 가 설계의 세 모양(null · offered · empty, 설계 01 §3-3 · §3-4) 중 하나인지 보고, 옛 앱 호환 값
+    locked_card_available 이 그것과 맞는지(offered 일 때만 True — router.py get_today_cards) 본다. 앱에 넘길 paid_card 를 돌려준다."""
+    paid = body.get('paid_card')
+    state = paid.get('state') if isinstance(paid, dict) else None
+    known = 'paid_card' in body and (paid is None or state == 'empty' or
+                                     (state == 'offered' and all(isinstance(paid.get(k), int) for k in ('band_count', 'cost'))))
+    check.that(known, f'paid_card {paid!r}(기대 null · empty · band_count · cost 가 있는 offered)' if 'paid_card' in body
+               else 'paid_card 칸이 없음(10-09 재설계 전 서버)')
+    flag = body.get('locked_card_available')
+    check.that(flag is (state == 'offered'), f'locked_card_available {flag!r}(기대 {state == "offered"} — paid_card 가 {state or paid!r})')
+    return paid
+
+
 def heart_51(run, phone):
-    """하트를 쓰는 곳 · 사는 곳이 새 설계(하트 스토어 18 · 설정의 보유 하트 블록)와 맞다. 번호는 그대로 두고 의미만 바꿨다 —
-    옛 의미는 "하트 스토어 자체가 없다" 였으나 스토어(#411 `/hearts/store`)와 설정 블록이 생겼다.
-    서버(PC): /cards/today 의 locked_card_available 이 False 이고, 서버에 잠긴 카드 해제 · 카드 구매 경로가 없다(스토어 화면은 서버 경로가 아직 없다).
-    화면(앱): ① 오늘 · 나 · 설정 · 하트 스토어 어디에도 잠긴 카드(한 명 더) · 카드 구매 글이 없고, ② 오늘 · 나 탭에는 스토어로 가는 글(스토어 · 하트 충전)도 없고,
-    ③ 설정에는 "하트 충전" 줄이 있어 누르면 하트 스토어가 열린다."""
+    """하트를 쓰는 곳 · 사는 곳이 새 설계와 맞다. 번호는 그대로 두고 의미만 두 번 바꿨다 — 처음은 "하트 스토어 자체가 없다",
+    그다음은 "스토어(#411) · 설정 블록은 있고 잠긴 카드 · 카드 구매는 없다" 였다. 10-09 유료 카드 재설계(84df7d24, 설계 01
+    §3-3 · §3-4)로 오늘 탭 결제 카드(50하트)와 구매 경로가 생겨 지금 새 설계는 그 설계다.
+    서버(PC): /cards/today 의 paid_card 가 null · empty · offered 중 하나이고 locked_card_available 이 그것과 맞다(offered 일 때만 True).
+    서버 경로(app.openapi()) 중 사거나 여는 이름은 PAID_PURCHASE 하나뿐이고 하트 환급 · 선물 경로는 없다.
+    화면(앱): ① 오늘 · 나 · 설정 · 하트 스토어 어디에도 설계가 금한 글이 없고, ② 오늘 · 나 탭에는 스토어로 가는 글(스토어 · 하트 충전)도 없고,
+    ③ 설정에는 "하트 충전" 줄이 있어 누르면 하트 스토어가 열리고, ④ 오늘 탭의 결제 카드("N으로 열기" · "N명이 기다리고 있어요")는
+    PC 가 읽은 paid_card 가 offered 일 때만 보인다."""
     check = Check()
     account = area2._home(run)
     today = _api(run, 'GET', '/cards/today', account['token'])
     check.reply('오늘 카드', today, 200)
-    if today[0] == 200:
-        got = (today[1] or {}).get('locked_card_available')
-        check.that(got is False, f'locked_card_available {got!r}(기대 False)')
-    found = _named(_paths(), FORBIDDEN_STORE)
-    check.that(not found, f'서버에 잠긴 카드 해제 · 카드 구매 경로가 있음: {found}')
-    _app(check, phone(token_hash=run.link(account['email'])))
+    paid = _paid_card(check, today[1] or {}) if today[0] == 200 else None
+    paths = _paths()
+    found = _named(paths, FORBIDDEN_HEART)
+    check.that(not found, f'서버에 하트 환급 · 선물 경로가 있음: {found}')
+    bought = _named(paths, PURCHASE_WORDS)
+    check.that(bought == [PAID_PURCHASE], f'사거나 여는 서버 경로 {bought}(기대 {PAID_PURCHASE} 하나)')
+    _app(check, phone(token_hash=run.link(account['email']), paid_card=paid))
     return check.result()
 
 
