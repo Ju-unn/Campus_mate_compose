@@ -1,3 +1,4 @@
+import 'package:campus_mate/auth/model/apple_login_gateway.dart';
 import 'package:campus_mate/auth/model/google_login_gateway.dart';
 import 'package:campus_mate/auth/model/kakao_login_gateway.dart';
 import 'package:campus_mate/auth/model/social_login_repository.dart';
@@ -13,6 +14,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 final Map<SocialProvider, IdTokenGateway> _gateways = {
   SocialProvider.kakao: const KakaoLoginGateway(SdkKakaoLoginClient(Env.kakaoNativeAppKey)),
   SocialProvider.google: GoogleLoginGateway(const SdkGoogleLoginClient(Env.googleWebClientId)),
+  // 애플은 키가 없다(번들 ID 와 iOS capability 로 묶인다). 버튼은 iOS 에서만 그린다(start_view.dart).
+  SocialProvider.apple: const AppleLoginGateway(SdkAppleLoginClient()),
 };
 
 final socialLoginRepositoryProvider = Provider<SocialLoginRepository>((ref) {

@@ -1,16 +1,38 @@
+import 'dart:convert';
+
+import 'package:campus_mate/auth/model/apple_login_gateway.dart';
 import 'package:campus_mate/auth/model/login_nonce.dart';
 import 'package:campus_mate/auth/model/social_login_repository.dart';
 import 'package:campus_mate/auth/model/social_provider.dart';
 import 'package:campus_mate/auth/model/supabase_social_login_repository.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart'
+    show AuthorizationErrorCode, SignInWithAppleAuthorizationException;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'fake_id_token_gateway.dart';
 
 class MockGoTrueClient extends Mock implements GoTrueClient {}
+
+/// 실제 애플 창 대신 쓰는 가짜. 애플 창에 넘어간(해시한) nonce 를 적어 둔다.
+class _FakeAppleClient implements AppleLoginClient {
+  final List<String> nonces = [];
+  Object? error;
+
+  @override
+  Future<String?> requestIdToken(String hashedNonce) async {
+    nonces.add(hashedNonce);
+    final current = error;
+    if (current != null) {
+      throw current;
+    }
+    return 'apple-id-token';
+  }
+}
 
 const _rawNonce = LoginNonce('raw-nonce-value');
 
@@ -110,10 +132,70 @@ void main() {
     expect(_failureOf(result), isA<SocialLoginFailure>());
   });
 
-  test('게이트웨이가 없는 공급자(애플, 이번 PR 미구현)는 실패다', () async {
+  test('게이트웨이를 넣지 않은 공급자는 Supabase 를 부르지 않고 실패다', () async {
+    // 이 시험의 저장소에는 애플 게이트웨이를 넣지 않았다.
     final result = await repository.signIn(SocialProvider.apple);
 
     expect(_failureOf(result), isA<SocialLoginFailure>());
+    verifyNever(() => auth.signInWithIdToken(
+          provider: any(named: 'provider'),
+          idToken: any(named: 'idToken'),
+          nonce: any(named: 'nonce'),
+        ));
+  });
+
+  group('애플(실제 AppleLoginGateway + 가짜 애플 창)', () {
+    late _FakeAppleClient appleClient;
+    late SupabaseSocialLoginRepository withApple;
+
+    setUp(() {
+      appleClient = _FakeAppleClient();
+      withApple = SupabaseSocialLoginRepository(auth, {SocialProvider.apple: AppleLoginGateway(appleClient)});
+    });
+
+    test('identityToken 과 원본 nonce 를 OAuthProvider.apple 로 넘기고, 원본의 SHA-256 이 애플 창에 준 값이다', () async {
+      stubSignIn();
+
+      final result = await withApple.signIn(SocialProvider.apple);
+
+      expect(_failureOf(result), isNull);
+      final rawNonce = verify(() => auth.signInWithIdToken(
+            provider: OAuthProvider.apple,
+            idToken: 'apple-id-token',
+            nonce: captureAny(named: 'nonce'),
+          )).captured.single as String;
+      final hashedNonce = appleClient.nonces.single;
+      expect(rawNonce, isNot(hashedNonce));
+      expect(sha256.convert(utf8.encode(rawNonce)).toString(), hashedNonce);
+    });
+
+    test('애플 창을 닫으면 Supabase 를 부르지 않고 취소다', () async {
+      appleClient.error = const SignInWithAppleAuthorizationException(
+        code: AuthorizationErrorCode.canceled,
+        message: 'canceled',
+      );
+
+      final result = await withApple.signIn(SocialProvider.apple);
+
+      expect(_failureOf(result), isA<LoginCancelledFailure>());
+      verifyNever(() => auth.signInWithIdToken(
+            provider: any(named: 'provider'),
+            idToken: any(named: 'idToken'),
+            nonce: any(named: 'nonce'),
+          ));
+    });
+
+    test('Supabase 가 애플 토큰을 거절하면 실패다', () async {
+      when(() => auth.signInWithIdToken(
+            provider: any(named: 'provider'),
+            idToken: any(named: 'idToken'),
+            nonce: any(named: 'nonce'),
+          )).thenThrow(const AuthException('Unacceptable audience', statusCode: '400'));
+
+      final result = await withApple.signIn(SocialProvider.apple);
+
+      expect(_failureOf(result), isA<SocialLoginFailure>());
+    });
   });
 
   test('앱 로그아웃 때 모든 공급자 게이트웨이의 로그아웃을 부른다', () async {
