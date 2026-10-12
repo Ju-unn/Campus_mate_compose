@@ -265,6 +265,38 @@ def test_pending_submit_survives_a_rate_limited_discord_and_logs_no_webhook(capl
     assert "webhooks" not in caplog.text
 
 
+def test_orphan_log_and_notice_carry_the_account_id_not_the_photo_path(caplog):
+    # 사진 경로는 로그 · 디스코드 어디에도 남기지 않는다(COMMON §3, 2026-10-12 보안 점검 #18).
+    def delete_fails(request: httpx.Request) -> bool:
+        return request.method == "DELETE" and "/storage/v1/object/student-id-temp/" in str(request.url)
+
+    sent, _ = _wire(_gate_row("none"), ocr_text="서울대학교 학생증 홍길동", fails=delete_fails)
+
+    with caplog.at_level(logging.WARNING):
+        assert _submit().json() == {"status": "verified"}
+
+    path = _uploaded_path(sent)
+    assert path.split("/")[1] not in caplog.text
+    assert f"profile_id={PROFILE_ID}" in caplog.text
+    notice = _discord_content(sent)
+    assert path.split("/")[1] not in notice
+    assert str(PROFILE_ID) in notice
+
+
+def test_confirm_failure_log_carries_no_photo_path(caplog):
+    # 시도 행 PATCH 주소에는 file_path 가 붙는다 — 예외 문구를 통째로 남기면 경로가 샌다.
+    def attempt_patch_fails(request: httpx.Request) -> bool:
+        return request.method == "PATCH" and "/student_verification_attempts" in str(request.url)
+
+    sent, _ = _wire(_gate_row("none"), ocr_text="서울대학교 학생증 홍길동", fails=attempt_patch_fails)
+
+    with caplog.at_level(logging.WARNING):
+        assert _submit().json() == {"status": "pending"}
+
+    assert "reason=confirm_failed" in _review_warning(caplog)
+    assert _uploaded_path(sent).split("/")[1] not in caplog.text
+
+
 def test_verified_path_logs_no_review_warning(caplog):
     sent, _ = _wire(_gate_row("none"), ocr_text="서울대학교 학생증 홍길동")
 
