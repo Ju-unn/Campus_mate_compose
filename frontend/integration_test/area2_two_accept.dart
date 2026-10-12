@@ -6,6 +6,7 @@ import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/matching/view/acceptance_row.dart';
 import 'package:campus_mate/matching/view/conversations_screen.dart';
 import 'package:campus_mate/matching/view/daily_card_summary.dart';
+import 'package:campus_mate/matching/view/sent_request_row.dart';
 import 'package:campus_mate/matching/viewmodel/acceptances_view_model.dart';
 import 'package:campus_mate/matching/viewmodel/notification_settings_view_model.dart';
 import 'package:flutter/material.dart';
@@ -21,7 +22,8 @@ import 'support.dart';
 /// 화면 글자는 시나리오가 아니라 지금 화면 코드에서 옮겼다. 알림은 보지 않는다(마지막 묶음).
 /// 이 파일은 `flutter analyze` 만 돌렸고 기기에서는 아직 안 돌려 봤다.
 ///
-/// 목록은 앱이 처음 읽을 때의 서버 상태로 굳는다 — provider 는 로그아웃 때만 비워지고(core/auth/session_scope.dart), 대화 탭은 들어갈 때 새로 읽지 않으며,
+/// 목록은 앱이 처음 읽을 때의 서버 상태로 굳는다 — provider 는 로그아웃 때만 비워지고(core/auth/session_scope.dart), 대화 탭 목록은
+/// 앱 복귀 · 푸시 · 당겨서 새로고침 때만 다시 읽히며(10b 에서 신청을 보낸 직후의 보낸 신청은 예외로 처음부터 다시 읽는다),
 /// 'match' 푸시는 수락함만 새로 읽는다(main.dart:154-158). 그래서 서버 쪽 일이 끝난 뒤의 모습을 보는 기기는 로그아웃한 채 멈춰 있다가
 /// PC 가 go 에 실어 준 새 토큰으로 로그인한다([_loginAfter]).
 
@@ -31,6 +33,7 @@ const _acceptStart = '수락하기'; // acceptance_row.dart:73
 const _waitingHeader = '받은 신청'; // matching/view/conversations_screen.dart:88
 const _chatHeader = '대화 중'; // :118
 const _emptyTitle = '아직 시작된 대화가 없어요'; // :187
+const _rejectedChip = '거절됨'; // matching/view/sent_request_row.dart _StatusChip
 const _matchMade = '매칭됐어요!'; // match_made_screen.dart:30
 const _startChat = '대화 시작하기'; // :39
 const _preAccept = '카카오톡 아이디를 먼저 공유해도 돼요'; // chat/view/chat_room_screen.dart:385
@@ -99,6 +102,24 @@ Future<void> _expectEmptyChat(WidgetTester tester, String who) async {
   must(_count(find.text(_matchMade)) == 0, '$who 에게 "$_matchMade" 화면이 뜸');
 }
 
+/// 신청이 거절된 보낸 사람의 대화 탭 — 받은 신청 · 대화 중은 없고 보낸 신청에 "거절됨" 한 줄만 있다.
+/// 2026-10-13 사용자 결정 B 로 거절이 보낸 사람에게 보이게 되어(빈 화면이 아니다) E-CARD-49/A 의 기대를 바꿨다.
+Future<void> _expectRejectedSent(WidgetTester tester, String who) async {
+  await _openChat(tester);
+  await pumpUntil(
+    tester,
+    find.byWidgetPredicate(
+        (w) => w is AcceptanceRow || w is ChatListRow || w is SentRequestRow || (w is Text && w.data == _emptyTitle)),
+    timeout: const Duration(seconds: 20),
+  );
+  must(_count(find.byType(AcceptanceRow)) == 0, '$who 대화 탭에 수락 대기 줄 ${_count(find.byType(AcceptanceRow))}개(기대 0)');
+  must(_count(find.byType(ChatListRow)) == 0, '$who 대화 탭에 대화 중 줄 ${_count(find.byType(ChatListRow))}개(기대 0)');
+  must(_count(find.byType(SentRequestRow)) == 1, '$who 보낸 신청 줄 ${_count(find.byType(SentRequestRow))}개(기대 1)');
+  final rejected = find.descendant(of: find.byType(SentRequestRow), matching: find.text(_rejectedChip));
+  must(_count(rejected) == 1, '$who 보낸 신청 줄에 "$_rejectedChip" ${_count(rejected)}개(기대 1)');
+  must(_count(find.text(_matchMade)) == 0, '$who 에게 "$_matchMade" 화면이 뜸');
+}
+
 /// 수락 대기에 [nickname] 한 줄만 있다("수락 대기" 옆 "1명") — 대화 탭을 연 직후.
 Future<void> _expectOneAcceptance(WidgetTester tester, String nickname, String who) async {
   await _openChat(tester);
@@ -140,10 +161,25 @@ Future<void> _openCard(WidgetTester tester) async {
   await pumpUntil(tester, find.text(_accept), timeout: const Duration(seconds: 15));
 }
 
-/// 결정이 끝나 10b 가 닫히고(수락하기 글이 사라짐) 오늘 탭에 그 카드가 남지 않는다. 10b 가 위에 있는 동안은 아래 목록이 안 잡히므로 닫힌 뒤에 본다.
+/// 거절("넘기기") 뒤: 10b 가 닫히고(수락하기 글이 사라짐) 오늘 탭에 그 카드가 남지 않는다. 10b 가 위에 있는 동안은 아래 목록이 안 잡히므로 닫힌 뒤에 본다.
+/// 수락(대화 신청)은 오늘 탭이 아니라 대화 탭 "보낸 신청" 으로 가므로 [_sentAndShown] 을 쓴다.
 Future<void> _decidedAndGone(WidgetTester tester) async {
   must(await _gone(tester, find.text(_accept), const Duration(seconds: 20)), '결정 뒤에도 10b 가 안 닫힘');
   must(await _gone(tester, find.byType(DailyCardSummary), const Duration(seconds: 15)), '돌아왔는데 오늘 탭에 카드가 남음');
+}
+
+/// 대화 신청을 보낸 뒤(2026-10-13 사용자 결정 B): 10b 가 닫히고 대화 탭이 열려 "보낸 신청" 에 방금 보낸 줄 한 개와
+/// 응답 기한 칩("N일 남음" 또는 "오늘 마감")이 보인다.
+Future<void> _sentAndShown(WidgetTester tester) async {
+  must(await _gone(tester, find.text(_accept), const Duration(seconds: 20)), '신청을 보냈는데 10b 가 안 닫힘');
+  await pumpUntil(tester, find.byType(ConversationsScreen), timeout: const Duration(seconds: 15));
+  await pumpUntil(tester, find.byType(SentRequestRow), timeout: const Duration(seconds: 20));
+  must(_count(find.byType(SentRequestRow)) == 1, '보낸 신청 줄 ${_count(find.byType(SentRequestRow))}개(기대 1)');
+  final deadline = find.descendant(
+    of: find.byType(SentRequestRow),
+    matching: find.byWidgetPredicate((w) => w is Text && RegExp(r'^(\d+일 남음|오늘 마감)$').hasMatch(w.data ?? '')),
+  );
+  must(_count(deadline) == 1, '보낸 신청 줄에 기한 칩("N일 남음" · "오늘 마감") ${_count(deadline)}개(기대 1)');
 }
 
 // ── 33 일시중지 ──────────────────────────────────────────────────────────────────────────────────────
@@ -243,9 +279,10 @@ final Map<String, Area1Case> area2TwoAcceptCases = {
     return null;
   }),
 
-  // 49: B 가 수락함에서 "거절" → 줄이 사라지고 매칭 화면 없음 → PC 가 acceptance_responses · matches 를 본다 → A 는 그 뒤에 로그인해 대화 탭이 비어 있다.
+  // 49: B 가 수락함에서 "거절" → 줄이 사라지고 매칭 화면 없음 → PC 가 acceptance_responses · matches 를 본다 → A 는 그 뒤에 로그인해
+  // 받은 신청 · 대화 중은 비어 있고 보낸 신청에 "거절됨" 한 줄(2026-10-13 사용자 결정 B — 예전엔 대화 탭이 통째로 비었다).
   'E-CARD-49/A': _loginAfter('wait', (tester, job) async {
-    await _expectEmptyChat(tester, 'A');
+    await _expectRejectedSent(tester, 'A');
     return null;
   }),
   'E-CARD-49/B': _login((tester, job) async {
@@ -259,7 +296,7 @@ final Map<String, Area1Case> area2TwoAcceptCases = {
     return null;
   }),
 
-  // 85: A 가 10b 에서 "수락하기" 를 0.1초 간격으로 두 번 누른다 → 화면이 정상으로 돌아온다 → PC 가 card_decisions 한 행을 본다 → B 가 그 뒤에 로그인해 수락 대기 한 줄.
+  // 85: A 가 10b 에서 "수락하기" 를 0.1초 간격으로 두 번 누른다 → 대화 탭 "보낸 신청" 에 한 줄 + 기한 칩이 보인다 → PC 가 card_decisions 한 행을 본다 → B 가 그 뒤에 로그인해 수락 대기 한 줄.
   'E-CARD-85/A': _login((tester, job) async {
     await _openCard(tester);
     final accept = find.text(_accept);
@@ -271,7 +308,7 @@ final Map<String, Area1Case> area2TwoAcceptCases = {
       throw E2eBlocked('두 번째를 누르기 전에 10b 가 이미 닫힘(응답이 0.1초보다 빠름) — 연타 방어를 확인하지 못함');
     }
     await tester.tap(accept.last, warnIfMissed: false); // 처리 중이라 꺼진 버튼 — 눌려도 아무 일이 없어야 한다
-    await _decidedAndGone(tester);
+    await _sentAndShown(tester);
     await step('accepted');
     return null;
   }),
