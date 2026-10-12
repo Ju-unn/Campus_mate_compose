@@ -113,7 +113,7 @@ Future<void> _chatStillWorks(WidgetTester tester, String nickname, String when) 
 }
 
 final Map<String, Area1Case> _extraCases = {
-  // 49: 나 탭 · 설정 · 하트 스토어(18)에 환급 · 선물 · 송금으로 이어지는 글이 없다. 서버 경로는 PC 가 /openapi.json 으로 본다.
+  // 49: 나 탭 · 설정 · 하트 스토어(18)에 환급 · 선물 · 송금으로 이어지는 글이 없다. 서버 경로는 로컬 코드의 app.openapi() 로 본다.
   'E-HEART-49': _session((tester, job) async {
     await _noneOnHeartScreens(tester, _heartMoneyWords);
     await _openHeartStoreFromSettings(tester);

@@ -409,8 +409,8 @@ def test_the_gate_is_stamped_before_the_system_line():
             return httpx.Response(500, json={"message": "서버가 끊겼다"})
         return _handler(calls, both)(request)
 
-    with pytest.raises(httpx.HTTPStatusError):
-        _wire(handler).post(f"/chat/matches/{MATCH_ID}/trust", headers=AUTH_HEADERS)
+    # 잡히지 않은 저장소 실패는 main 의 전역 처리기가 500 으로 바꾼다(예외가 앱 밖으로 새지 않는다).
+    assert _wire(handler).post(f"/chat/matches/{MATCH_ID}/trust", headers=AUTH_HEADERS).status_code == 500
 
     assert order == ["stamp", "system_line"]
     assert [patch for _, patch in calls.patches if "trust_passed_at" in patch]
