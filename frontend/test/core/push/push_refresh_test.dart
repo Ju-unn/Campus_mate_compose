@@ -6,6 +6,8 @@ import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
 import 'package:campus_mate/core/push/push_refresh.dart';
 import 'package:campus_mate/matching/viewmodel/acceptances_ui_state.dart';
 import 'package:campus_mate/matching/viewmodel/acceptances_view_model.dart';
+import 'package:campus_mate/matching/viewmodel/sent_requests_ui_state.dart';
+import 'package:campus_mate/matching/viewmodel/sent_requests_view_model.dart';
 import 'package:campus_mate/matching/viewmodel/today_cards_ui_state.dart';
 import 'package:campus_mate/matching/viewmodel/today_cards_view_model.dart';
 import 'package:campus_mate/notifications/model/notifications_repository_provider.dart';
@@ -42,6 +44,14 @@ class _Conversations extends ConversationsViewModel {
   Future<void> refresh({bool quiet = false}) async => _refreshed.add('conversations');
 }
 
+class _Sent extends SentRequestsViewModel {
+  @override
+  SentRequestsUiState build() => const SentRequestsUiState();
+
+  @override
+  Future<void> refresh({bool quiet = false}) async => _refreshed.add('sent');
+}
+
 class _Verification extends StudentVerificationViewModel {
   @override
   StudentVerificationUiState build() => const StudentVerificationUiState();
@@ -59,6 +69,7 @@ void main() {
       todayCardsViewModelProvider.overrideWith(_Today.new),
       acceptancesViewModelProvider.overrideWith(_Acceptances.new),
       conversationsViewModelProvider.overrideWith(_Conversations.new),
+      sentRequestsViewModelProvider.overrideWith(_Sent.new),
       studentVerificationViewModelProvider.overrideWith(_Verification.new),
     ]);
     addTearDown(container.dispose);
@@ -69,8 +80,9 @@ void main() {
     return List.of(_refreshed);
   }
 
-  test('매칭 성사 알림은 수락함과 대화 목록을 둘 다 다시 읽는다', () {
-    expect(refreshedBy({'route': 'match', 'match_id': 'm1'}), unorderedEquals(['acceptances', 'conversations']));
+  test('매칭 성사 알림은 수락함 · 보낸 신청 · 대화 목록을 다시 읽는다 — 내 신청이 매칭됨으로 바뀐다', () {
+    expect(refreshedBy({'route': 'match', 'match_id': 'm1'}),
+        unorderedEquals(['acceptances', 'sent', 'conversations']));
   });
 
   test('받은 수락 알림은 수락함만 다시 읽는다 — 방은 내가 답해야 생긴다', () {

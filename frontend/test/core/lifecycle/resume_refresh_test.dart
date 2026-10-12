@@ -9,6 +9,7 @@ import 'package:campus_mate/core/lifecycle/resume_refresh.dart';
 import 'package:campus_mate/core/push/push_refresh.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:campus_mate/matching/viewmodel/acceptances_view_model.dart';
+import 'package:campus_mate/matching/viewmodel/sent_requests_view_model.dart';
 import 'package:campus_mate/notifications/model/notifications_repository_provider.dart';
 import 'package:campus_mate/notifications/viewmodel/unread_count_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -58,6 +59,26 @@ void main() {
     expect(cards.fetchAcceptancesCount, cardsBefore + 1);
     // 하단 내비 뱃지가 읽는 값이 새로 바뀐다.
     expect(container.read(chatBadgeCountProvider), 7);
+  });
+
+  test('돌아오면 보낸 신청도 다시 읽는다 — 대화 탭을 보고 있으면 매칭된 신청이 "기다리는 중" 으로 남지 않게', () async {
+    await container.read(sentRequestsViewModelProvider.notifier).refresh();
+    final before = cards.fetchSentCount;
+
+    resume();
+    await pumpEventQueue();
+
+    expect(cards.fetchSentCount, before + 1);
+  });
+
+  test('로그아웃 상태 · 관문 미완료에서는 보낸 신청을 읽지 않는다', () async {
+    resume(isAuthenticated: false);
+    for (final gate in VerificationGate.values.where((gate) => gate != VerificationGate.complete)) {
+      resume(gate: gate);
+    }
+    await pumpEventQueue();
+
+    expect(cards.fetchSentCount, 0);
   });
 
   test('돌아오면 홈 종 배지의 안 읽은 알림 수도 다시 읽는다', () async {
