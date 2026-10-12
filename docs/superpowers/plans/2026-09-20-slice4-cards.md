@@ -4992,3 +4992,16 @@ Flutter 테스트는 Firebase 를 켜지 않는다 — A7 의 `PushMessaging` �
 2. **`matches` 삽입을 `on_conflict=profile_a,profile_b` upsert 로.** A→B, B→A 카드가 같은 날 나가면
    두 사람이 각각 매칭을 만들려 해서 나중 쪽이 `matches_pair_unique` 로 터진다.
 3. **시각은 앱에서 `.toLocal()` 로 바꿔 보여준다**(`daily_card.dart`) — 서버는 UTC 로 내려준다.
+
+### 2026-10-13 보낸 신청 — 대화 탭 세 번째 섹션(서버 PR #483 · 앱 PR #485)
+
+이 계획서의 "받은 수락함" 에 이어 붙은 사용자 결정(10-13)이다. 규칙은 설계 문서 §2.2 개정, 화면은 DESIGN.md §8.6 · §9 13-1 ~ 13-3, 서버 계약은 `backend/DEPLOY.md` §4-7. DB 변경은 없다. 달라진 곳:
+
+1. **`GET /cards/sent` 는 `/cards/{card_id}` 보다 앞에 선언한다** — 위 PR #65 편차 4 와 같은 이유다(순서가 반대면 `sent` 가 `card_id` 로 먹힌다). 테스트에 "라우트 순서" 가 있다
+2. **칩 28 · 행 72 는 `minHeight` 다** — 배율 1.0 의 값이라 글자를 키우면 따라 자란다(DESIGN §11.2). 칩 글자 자간(letterSpacing)은 pen 값을 확인하지 못해 `caption` 토큰을 썼다
+3. **지시 밖 변경**: 앱 복귀(`resume_refresh`)와 매칭 푸시(`push_refresh`) 때 보낸 신청도 다시 읽는다 — 대화 탭을 보던 중 상대가 수락해 매칭되면 보낸 신청이 "기다리는 중" 으로 남아 방과 어긋난다
+4. **`CardProfile.profileId` 를 선택값으로 바꿨다**(보낸 신청 응답에 상대 id 가 없다). 받은 신청 행의 아바타를 `RowAvatar` 로 꺼내 두 행이 같이 쓴다
+5. **서버가 모르는 `status` 를 내려도 그 줄만 건너뛴다**(앱이 죽지 않는다). 남은 날은 서버 `days_left` 하나만 본다 — 기기 시계로 다시 재지 않는다
+6. **E2E 하네스**: E-CARD-49/A · 85/A 가 신청 뒤 대화 탭 이동을 따라가도록 `area2_two_accept.dart` 와 `e2e/area2_two_accept.py` 를 같이 고쳤다(Dart 와 PC 키 계약 때문에 한 커밋)
+7. **서버 맹점**: 보낸 지 7일이 넘어 상대 카드로 뒤늦게 매칭되면 매칭 뒤 7일이 아니라 보낸 지 14일에 목록에서 빠진다(코드 주석)
+8. **남은 것**: `fetch_sent_acceptances` 의 EXPLAIN 인덱스 경로 확인. 이 PR 범위 밖의 기존 문제(백로그): 매칭 뒤에도 살아 있는 상대 카드를 수락할 수 있어 푸시가 가는 이슈, 응답 저장과 매칭 쓰기가 한 번에 묶이지 않는 이슈
