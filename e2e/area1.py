@@ -680,8 +680,8 @@ def p_onb_18(run, phone):
     check = Check()
     account, token = _signed_in(run, 'basic')
     _app(check, phone(token_hash=token, kakao='  cm_test  '))
-    saved = _one(run, f"profile_private?profile_id=eq.{account['id']}&select=kakao_id")
-    check.that(saved.get('kakao_id') == 'cm_test', f'kakao_id {saved}')
+    saved = run.read_private(account['id'])['kakao_id']
+    check.that(saved == 'cm_test', f'kakao_id {saved!r}')
     return check.result()
 
 

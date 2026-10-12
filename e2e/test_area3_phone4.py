@@ -3,7 +3,7 @@
 
 가짜 서버는 e2e/test_area3.py 의 Fake, 가짜 앱은 test_area3_phone.py 의 App(47 은 멈춤을 흉내 내는 MidwayApp).
 가짜 서버는 앱이 쓰는 행을 저절로 만들지 않으므로 "앱이 나갔다 · 저장했다" 는 시험이 가짜 앱 안에서 행을 직접 바꿔 흉내 낸다.
-profile_private 는 계정 공장이 안 만들어 시험이 [private] 한 줄로 GET 에 답한다.
+profile_private 는 계정 공장이 안 만들어 시험이 [private] 한 줄로 복호화 RPC(decrypt_profile_private)에 답한다.
 계정은 만든 순서대로 id-1(폰 계정) · id-2(상대), 토큰은 tok-1 · tok-2 …
 """
 
@@ -39,7 +39,7 @@ class Gate4Base(Phone2):
     def setUp(self):
         super().setUp()
         self.private = {'kakao_id': 'e2e1'}  # 폰 계정의 DB 카카오톡 아이디
-        self.fake.on('GET', r'/rest/v1/profile_private', lambda sent: Reply(200, [dict(self.private)]))
+        self.fake.on('POST', r'/rest/v1/rpc/decrypt_profile_private', lambda sent: Reply(200, [{'real_name': None, **self.private}]))
 
     def patched(self, index=0):
         """PC 가 [index] 번째 매칭에 옮겨 적은 created_at(옮기지 않았으면 None)."""

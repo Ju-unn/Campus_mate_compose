@@ -62,7 +62,7 @@ def _settings(run, account_id):
 
 
 def _kakao(run, account_id):
-    return _one(run, f'profile_private?profile_id=eq.{account_id}&select=kakao_id').get('kakao_id')
+    return run.read_private(account_id)['kakao_id']
 
 
 def _korean_date(text):
@@ -140,7 +140,7 @@ def p_set_14(run, phone):
     check = Check()
     account, token = _signed_in(run, 'home')
     profile = _one(run, f"profiles?id=eq.{account['id']}&select=birth_year,created_at,universities(name)")
-    private = _one(run, f"profile_private?profile_id=eq.{account['id']}&select=real_name,kakao_id")
+    private = run.read_private(account['id'])
     if not profile.get('created_at') or not (profile.get('universities') or {}).get('name'):
         raise Blocked(f'프로필을 못 읽음 {profile}')
     texts = [account['email'], '인증 완료', private.get('real_name') or EMPTY,
@@ -164,7 +164,8 @@ def p_set_16(run, phone):
     account, token = _signed_in(run, 'home')
     # 활성 계정은 출생연도가 비면 DB 제약(profiles_active_requires_onboarding)이 막고, 카톡 아이디가 비면 서버 온보딩 판정
     # (onboarding_progress.py 의 kakao_id 단계)이 앱을 온보딩으로 보내 계정 화면에 못 간다(폰 10-04) — 실명만 비워 "—" 1개.
-    _patch(run, f"profile_private?profile_id=eq.{account['id']}", {'real_name': None})
+    # 공장 계정은 학생증 제출을 안 거쳐 평문 실명도 비어 있다 — 서버가 평문으로 폴백하는 이중 쓰기 기간에도 "—" 다.
+    run.seed_private(account['id'], real_name='')
     _app(check, phone(token_hash=token, dashes=1))
     return check.result()
 

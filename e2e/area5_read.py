@@ -277,8 +277,8 @@ def p_me_06(run, phone):
     account, token = _home(run, phone_number=number)
     me = account['id']
     kakao = f'kk{uuid.uuid4().hex[:8]}'  # 학번(`e2e{n}`)과 겹치지 않는 값 — 학번은 응답에 실린다
-    _patch(run, f'profile_private?profile_id=eq.{me}', {'real_name': REAL_NAME, 'kakao_id': kakao})
-    private = _one(run, f'profile_private?profile_id=eq.{me}&select=kakao_id,real_name,phone_number')
+    run.seed_private(me, real_name=REAL_NAME, kakao_id=kakao)
+    private = {**_one(run, f'profile_private?profile_id=eq.{me}&select=phone_number'), **run.read_private(me)}
     photos = _rows(run, f'profile_photos?profile_id=eq.{me}&select=id')
     empty = [k for k in ('real_name', 'phone_number') if not private.get(k)]
     if empty or not photos:

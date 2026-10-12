@@ -76,7 +76,7 @@ def _aged(run, age):
 
 
 def _kakao(run, account):
-    return _one(run, f"profile_private?profile_id=eq.{account['id']}&select=kakao_id").get('kakao_id')
+    return run.read_private(account['id'])['kakao_id']
 
 
 def _side(run, match_id, account):
