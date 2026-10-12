@@ -60,3 +60,37 @@ class ReviewTarget {
     );
   }
 }
+
+/// 20f 친구 코드 확인 결과(`POST /friend-reviews/code-lookup`). 서버는 프로필 id 를 주지 않는다 —
+/// 저장(20b)도 [code] 로 다시 보내고 서버가 다시 찾는다. 같은 값이면 같다(20b 시트 뷰모델을 이 값으로 고른다).
+class FriendCodeMatch {
+  const FriendCodeMatch({required this.code, required this.nickname, this.university, this.alreadyReviewed = false});
+
+  /// 사용자가 확인에 보낸 코드 그대로(서버가 공백 · 대소문자를 정리한다).
+  final String code;
+  final String nickname;
+  final String? university;
+
+  /// 이미 이 사람에게 쓴 리뷰가 있다(20f-3b) — 쓰기 대신 안내.
+  final bool alreadyReviewed;
+
+  factory FriendCodeMatch.fromJson(String code, Map<String, dynamic> json) {
+    return FriendCodeMatch(
+      code: code,
+      nickname: json['nickname'] as String,
+      university: json['university'] as String?,
+      alreadyReviewed: json['already_reviewed'] as bool,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is FriendCodeMatch &&
+      other.code == code &&
+      other.nickname == nickname &&
+      other.university == university &&
+      other.alreadyReviewed == alreadyReviewed;
+
+  @override
+  int get hashCode => Object.hash(code, nickname, university, alreadyReviewed);
+}

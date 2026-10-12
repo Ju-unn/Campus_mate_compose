@@ -78,6 +78,28 @@ void main() {
     expect(target.university, '테스트대학교');
   });
 
+  test('FriendCodeMatch.fromJson 은 보낸 코드와 code-lookup 응답(닉네임 · 학교 · already_reviewed)을 묶는다', () {
+    final friend = FriendCodeMatch.fromJson('K7M2QX', {
+      'nickname': '봄바람',
+      'university': '테스트대학교',
+      'already_reviewed': true,
+    });
+
+    expect((friend.code, friend.nickname, friend.university, friend.alreadyReviewed), ('K7M2QX', '봄바람', '테스트대학교', true));
+    // 학교가 없는 사람도 있다(응답 null).
+    final noSchool = FriendCodeMatch.fromJson('K7M2QX', {'nickname': '봄바람', 'university': null, 'already_reviewed': false});
+    expect((noSchool.university, noSchool.alreadyReviewed), (null, false));
+  });
+
+  test('FriendCodeMatch 는 값이 같으면 같다 — 20b 시트 뷰모델을 이 값으로 고른다', () {
+    const a = FriendCodeMatch(code: 'K7M2QX', nickname: '봄바람', university: '테스트대학교');
+    const b = FriendCodeMatch(code: 'K7M2QX', nickname: '봄바람', university: '테스트대학교');
+
+    expect(a, b);
+    expect(a.hashCode, b.hashCode);
+    expect(a == const FriendCodeMatch(code: 'A1B2C3', nickname: '봄바람', university: '테스트대학교'), isFalse);
+  });
+
   test('리뷰 신고 대상은 target_type friend_review 로 간다', () {
     expect(const ReportTarget.friendReview('r1').toJson(), {'target_type': 'friend_review', 'target_id': 'r1'});
   });

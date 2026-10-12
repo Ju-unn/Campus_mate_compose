@@ -91,6 +91,42 @@ class FakeFriendReviewRepository implements FriendReviewRepository {
     await holdCreate?.future;
     return createResult;
   }
+
+  /// 20f 코드 확인이 돌려줄 값. 기본은 학교가 있고 아직 안 쓴 친구.
+  Result<FriendCodeMatch> lookupResult = Success(friendCodeMatchFixture());
+  final List<String> lookups = [];
+
+  /// 채워 두면 lookupFriendCode() 가 이것이 끝날 때까지 멈춘다 — 확인 중 상태용.
+  Completer<void>? holdLookup;
+
+  @override
+  Future<Result<FriendCodeMatch>> lookupFriendCode(String code) async {
+    lookups.add(code);
+    await holdLookup?.future;
+    return lookupResult;
+  }
+
+  final List<({String friendCode, List<String> tags, String? comment})> codeCreates = [];
+
+  @override
+  Future<Result<void>> createReviewByCode({
+    required String friendCode,
+    required List<String> tags,
+    String? comment,
+  }) async {
+    codeCreates.add((friendCode: friendCode, tags: tags, comment: comment));
+    await holdCreate?.future;
+    return createResult;
+  }
+}
+
+FriendCodeMatch friendCodeMatchFixture({
+  String code = 'K7M2QX',
+  String nickname = '봄바람',
+  String? university = '테스트대학교',
+  bool alreadyReviewed = false,
+}) {
+  return FriendCodeMatch(code: code, nickname: nickname, university: university, alreadyReviewed: alreadyReviewed);
 }
 
 ReviewTarget reviewTargetFixture({

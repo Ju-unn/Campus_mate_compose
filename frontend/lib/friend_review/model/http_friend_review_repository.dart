@@ -52,11 +52,31 @@ class HttpFriendReviewRepository implements FriendReviewRepository {
     required String revieweeId,
     required List<String> tags,
     String? comment,
-  }) {
+  }) =>
+      _post({'reviewee_id': revieweeId}, tags, comment);
+
+  @override
+  Future<Result<FriendCodeMatch>> lookupFriendCode(String code) => _api.send(
+        'POST',
+        '/friend-reviews/code-lookup',
+        (body) => FriendCodeMatch.fromJson(code, body as Map<String, dynamic>),
+        body: {'code': code},
+      );
+
+  @override
+  Future<Result<void>> createReviewByCode({
+    required String friendCode,
+    required List<String> tags,
+    String? comment,
+  }) =>
+      _post({'friend_code': friendCode}, tags, comment);
+
+  /// 대상([target] — `reviewee_id` 또는 `friend_code` 하나)만 다르고 몸은 같다.
+  Future<Result<void>> _post(Map<String, Object?> target, List<String> tags, String? comment) {
     // 다듬어 비었으면 null 로 보낸다 — 공백만 친 한마디가 리뷰에 남을 이유가 없다.
     final trimmed = comment?.trim() ?? '';
     return _api.send('POST', '/friend-reviews', (_) {}, body: {
-      'reviewee_id': revieweeId,
+      ...target,
       'tags': tags,
       'comment': trimmed.isEmpty ? null : trimmed,
     });
