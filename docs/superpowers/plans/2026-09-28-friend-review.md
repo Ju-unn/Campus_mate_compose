@@ -1422,3 +1422,17 @@ pen 에 없어 정한 곳(대장 4 · 9 기존 모양)
 
 - **pgTAP 준비에 `university_email_domains` 한 줄을 넣고 `profiles` 직접 insert 를 뺐다.** 가입 트리거(`handle_new_user`)가 도메인이 없으면 예외를 내고, `profiles` 행은 트리거가 만든다(`referral_test.sql` 과 같은 준비). 파일 이름은 `20260928040000_create_friend_reviews.sql`(대장 09-28), `rls_slice0_test.sql` 권한 전수 표 +4(허락: 통합대장 09-28).
 - **pgTAP 15 → 18(검토 권고 1 · 사소 1).** 받은 사람 계정 삭제 cascade · 서버 embed 가 기대는 FK 이름 두 개와 `confdeltype = 'c'` · `policies_are` 정책 0 을 더했다. 전체 12파일 355 PASS.
+
+### 친구 코드로 리뷰 쓰기(20f, 2026-10-13 — 서버 PR #486 · 앱 PR #487)
+
+이 계획서 뒤에 사용자 결정(10-13)으로 붙은 기능이라 Task 로 쪼개 쓰지 않았다. 규칙은 설계 문서 §2.8 "구현과 개정(2026-10-13)", 화면은 DESIGN.md §9 20f, 서버 계약은 `backend/DEPLOY.md` §4-7. 계획서 본문과 달라진 곳:
+
+- **20b 시트가 `friend_code` 대상도 받는다.** 필수 `revieweeId` 하나이던 시트 입력이 `revieweeId` 또는 확인 결과(`FriendCodeMatch`) 둘 중 하나가 됐다(뷰모델 `forProfile` / `forCode`). 코드 대상은 프로필 id 가 없어 열 때 `fetchTarget` 을 부르지 않고 머리를 닉네임만으로 그린다. E2E 하네스 `area3_b9.dart` 는 이 변경으로 `revieweeId!` 가 필요했다(최소 수정)
+- **붙여넣기 포매터는 "추천 코드" 뒤 토큰만 읽는다**(대장 10-13) — 공유 문구 전체(`inviteShareText`)를 붙이면 앞의 "CampusMate" 를 코드로 고르던 문제를 막는다. 한글은 칸에 남지 않아 "추천 코드" 는 붙여 넣을 때만 보인다. 온보딩 20 화면은 그대로여서 같은 붙여넣기가 코드로 안 읽힌다(알려진 한계)
+- **20b 를 저장 없이 닫으면 20f 가 `recheck()` 한다.** 저장이 409 였거나, 보내는 중에 닫았거나, 다른 기기에서 썼을 수 있어 서버에 다시 묻고 `already_reviewed` 면 20f-3b 로 바꾼다. 시트 반환형(`bool?`)은 그대로 두었다. 실패(404 · 429 · 네트워크)면 지금 확인 결과를 그대로 둔다
+- **429 문구는 앱이 되살린다.** `http_send` 가 429 를 `RateLimitedFailure` 로 바꾸며 서버 문구를 버려, `friendCodeTryLaterMessage`(서버 `FRIEND_CODE_TRY_LATER` 와 같은 글자)로 돌려놓는다. 404 는 문구로 가른다(`isFriendCodeNotFound`, 위 A2 의 409 와 같은 이유)
+- **`WritableFriendRow` 를 일반화**했다(friend 대신 nickname / university, 이니셜 · "쓰기" 끄기 — 20e 와 20f 가 같이 쓴다). 닉네임 줄높이 24 → 22(pen 렌더값)
+- 공유 파일: `app_icons.dart` +1(`clock` — 시안 icon "clock" 은 `clock3` 과 달라 따로 둔다), `app_router.dart` · `app_routes.dart` 경로 +1(`/friend-reviews/code`)
+- **서버**: 상한 둘(확인 실패 시간당 10 · 코드 경로 쓰기 24시간 5)은 프로세스 안 메모리 창이고 쓰기 상한만 DB 수가 보완한다 — 출시 전 DB 기록으로 올리는 백로그(설계 문서 §13 출시 전 결정 44). `errors.py` 는 공유 파일이라 건드리지 않고 상수 둘(`FRIEND_CODE_NOT_FOUND` · `FRIEND_CODE_TRY_LATER`)을 라우터에 뒀다. 닉네임이 비면 "새 지인 리뷰" 푸시를 건너뛴다
+- 검토: Opus 1차 FAIL(지우고 다시 쓰기로 상한 우회) → 프로세스 안 작성 기록(지워도 남음)으로 수정 → 재검토 PASS
+- 남은 것: 20f 의 E2E 케이스 없음(후속). 네트워크 실패 상태는 pen 에 없다
