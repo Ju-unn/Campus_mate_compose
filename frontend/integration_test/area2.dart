@@ -65,19 +65,22 @@ const _notificationDefaults = {
 };
 
 // 18a — frontend/lib/billing/view/heart_tasks_screen.dart · heart_task_row.dart
-const _rewardNotice = '초기 보상 기준 · 인증 후 지급\n100명 이후 홍보 30 / 단톡방 20 하트'; // heart_tasks_screen.dart:17
+// heart_task_actions.dart heartRewardNotice(18a · 하트 스토어 공용, 10-12 투표 기준 셋째 줄 추가)
+const _rewardNotice = '초기 보상 기준 · 인증 후 지급\n100명 이후 홍보 30 / 단톡방 20 하트\n커뮤니티 투표 하루 첫 투표 1번만 10 · 한 주 최대 30 하트';
 const _taskOrder = 'everytime_post,kakao_share,poll_vote'; // 서버 TASK_ORDER(heart_tasks/router.py:23)
-// 줄마다 보여야 할 글(heart_task_row.dart _title :87-91 · _rewardText :94-96 · "매일" :165 · 버튼 :101).
+// 줄마다 보여야 할 글(heart_task_row.dart _title :87-91 · _rewardText :94-96 · "하루 1번" :165 · 버튼 :101).
 const _taskRows = [
   ['에브리타임 홍보', '50 · 월 1회', '인증하기'],
   ['학교 단톡방 공유', '25 · 월 3회', '인증하기'],
-  ['커뮤니티 투표', '매일', '10 · 주 최대 30', '참여'],
+  ['커뮤니티 투표', '하루 1번', '10 · 주 최대 30', '참여'],
 ];
 
 // 18b — frontend/lib/billing/view/heart_task_submit_screen.dart
 const _submitTitle = '인증샷 제출'; // :103
 const _submitGuide = '스크린샷을 첨부하면 확인 후 하트를 드려요'; // :19
-const _dateHint = '날짜가 보이게 찍어 주세요'; // :22 — 에브리타임만
+// _criteria :24-29 — 항목마다 한 줄. 에브리타임 줄에 옛 날짜 안내("날짜가 보이게 찍어 주세요")가 합쳐졌다(10-12).
+const _everytimeCriteria = '앱 이름(CampusMate)이 들어간 홍보 글을 올리고, 올린 날짜가 보이게 찍어 주세요';
+const _kakaoCriteria = '5명 이상이 있는 학교 단톡방에 공유한 글과 단톡방 인원 수가 보이게 찍어 주세요';
 const _submit = '제출하기'; // :131
 
 /// 앞 가설의 세션을 지우고([fresh] 가 false 면 그대로 둔다) 일감의 토큰으로 로그인한 뒤 [body] 를 돈다(area1.dart 와 같은 모양).
@@ -349,14 +352,17 @@ final Map<String, Area1Case> area2Cases = {
   'E-HEART-02': _session((tester, job) async {
     await _openSubmit(tester, _taskRows[0][0]);
     must(_count(find.text(_submitGuide)) == 1, '안내 "$_submitGuide" ${_count(find.text(_submitGuide))}개');
-    must(_count(find.text(_dateHint)) == 1, '"$_dateHint" ${_count(find.text(_dateHint))}개');
+    must(_count(find.text(_everytimeCriteria)) == 1, '"$_everytimeCriteria" ${_count(find.text(_everytimeCriteria))}개');
+    must(_count(find.text(_kakaoCriteria)) == 0, '에브리타임 18b 에 단톡방 기준 "$_kakaoCriteria" 가 보임');
     must(!enabled(tester, _submit), '사진 전인데 "$_submit" 이 켜짐');
     return null;
   }),
   'E-HEART-03': _session((tester, job) async {
     await _openSubmit(tester, _taskRows[1][0]);
     must(_count(find.text(_submitGuide)) == 1, '안내 "$_submitGuide" ${_count(find.text(_submitGuide))}개');
-    must(_count(find.text(_dateHint)) == 0, '단톡방 18b 에 "$_dateHint" 가 보임');
+    // 날짜 안내는 에브리타임 기준 문장에만 있다 — 단톡방 기준 문장에는 "날짜" 가 없다.
+    must(_count(find.text(_everytimeCriteria)) == 0, '단톡방 18b 에 날짜 안내 "$_everytimeCriteria" 가 보임');
+    must(_count(find.text(_kakaoCriteria)) == 1, '"$_kakaoCriteria" ${_count(find.text(_kakaoCriteria))}개');
     return null;
   }),
 };
