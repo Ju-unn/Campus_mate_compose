@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- 적응형 아이콘 배경. 브랜드 분홍(Rausch), 원본 app-icon-128.png 배경과 같은 값. -->
-    <color name="ic_launcher_background">#FF385C</color>
+    <!-- 적응형 아이콘 배경. 흰색, 원본 google-play-logo-128.png 배경과 같은 값. -->
+    <color name="ic_launcher_background">#FFFFFF</color>
 </resources>

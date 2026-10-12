@@ -3,6 +3,7 @@
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@color/ic_launcher_background" />
     <foreground android:drawable="@mipmap/ic_launcher_foreground" />
-    <!-- 안드로이드 13+ "테마 아이콘" 을 켠 사용자용. 흰 심볼만 있는 전경을 그대로 쓴다. -->
+    <!-- 안드로이드 13+ "테마 아이콘" 을 켠 사용자용. 로고(심볼+글자) 전경의 알파를 그대로 쓴다.
+         글자 획이 가늘어 작은 크기에서는 글자가 뭉개질 수 있다(run.md "앱 아이콘 교체"). -->
     <monochrome android:drawable="@mipmap/ic_launcher_foreground" />
 </adaptive-icon>
