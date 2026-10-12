@@ -40,6 +40,7 @@ VERIFIED_ROUTES = [
     'POST /profile-onboarding/acquisition', 'GET /profile-onboarding/next-step',
     'GET /matching/candidates',
     'GET /cards/today', 'POST /cards/{card_id}/decision', 'GET /cards/acceptances', 'POST /cards/acceptances/{card_id}',
+    'GET /cards/sent',
     'GET /cards/notification-settings', 'PATCH /cards/notification-settings', 'GET /cards/matching-paused',
     'PATCH /cards/matching-paused', 'POST /cards/paid/{offer_id}/purchase', 'GET /cards/{card_id}',
     'GET /chat/conversations', 'GET /chat/matches/{match_id}', 'GET /chat/matches/{match_id}/messages',
