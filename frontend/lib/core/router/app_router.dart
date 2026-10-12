@@ -23,6 +23,7 @@ import 'package:campus_mate/core/offline/offline_screen.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/router/auth_redirect.dart';
 import 'package:campus_mate/faq/view/faq_screen.dart';
+import 'package:campus_mate/friend_review/view/friend_code_screen.dart';
 import 'package:campus_mate/friend_review/view/friend_review_compose_sheet.dart';
 import 'package:campus_mate/friend_review/view/received_reviews_screen.dart';
 import 'package:campus_mate/friend_review/view/written_reviews_screen.dart';
@@ -171,6 +172,7 @@ abstract final class AppRouter {
       GoRoute(path: AppRoutes.heartTaskPending, builder: (context, state) => const HeartTaskPendingScreen()),
       GoRoute(path: AppRoutes.friendReviews, builder: (context, state) => const ReceivedReviewsScreen()),
       GoRoute(path: AppRoutes.friendReviewsWritten, builder: (context, state) => const WrittenReviewsScreen()),
+      GoRoute(path: AppRoutes.friendReviewCode, builder: (context, state) => const FriendCodeScreen()),
     ];
   }
 
