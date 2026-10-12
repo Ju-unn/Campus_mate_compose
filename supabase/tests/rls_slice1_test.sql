@@ -30,9 +30,10 @@ insert into public.profiles (id, university_id) values
   ('00000000-0000-0000-0000-0000000000bb', '00000000-0000-0000-0000-000000000001')
 on conflict (id) do nothing;
 
-insert into public.profile_private (profile_id, real_name) values
-  ('00000000-0000-0000-0000-0000000000aa', '김가나'),
-  ('00000000-0000-0000-0000-0000000000bb', '이다라');
+-- 실명은 암호문 열(real_name_enc)에만 있다(M2 20261012010000 이 평문 열을 지웠다) — 여기서는 행의 RLS · 권한만 본다.
+insert into public.profile_private (profile_id) values
+  ('00000000-0000-0000-0000-0000000000aa'),
+  ('00000000-0000-0000-0000-0000000000bb');
 
 -- 1. 학생증 인증 상태 · 버킷 (ERD §3 · §8 · §9) ------------------------------------
 
@@ -87,18 +88,18 @@ set local role authenticated;
 set local request.jwt.claims to '{"sub": "00000000-0000-0000-0000-0000000000aa", "role": "authenticated"}';
 
 select results_eq(
-  $$select profile_id, real_name from public.profile_private$$,
-  $$values ('00000000-0000-0000-0000-0000000000aa'::uuid, '김가나')$$,
-  'A 는 profile_private 에서 본인 실명 1행만 본다'
+  $$select profile_id from public.profile_private$$,
+  $$values ('00000000-0000-0000-0000-0000000000aa'::uuid)$$,
+  'A 는 profile_private 에서 본인 행 1개만 본다'
 );
 
 select is_empty(
-  $$select real_name from public.profile_private
+  $$select profile_id from public.profile_private
      where profile_id = '00000000-0000-0000-0000-0000000000bb'$$,
-  'A 는 남의 실명을 볼 수 없다'
+  'A 는 남의 행을 볼 수 없다'
 );
 
--- 컬럼 grant 가 profile_id · real_name 뿐이라 updated_at(이후 조각의 민감 컬럼도)이 섞이면 막힌다.
+-- 컬럼 grant 가 profile_id 뿐이라 updated_at(이후 조각의 민감 컬럼도)이 섞이면 막힌다.
 select throws_ok(
   $$select * from public.profile_private$$,
   '42501', null,
@@ -106,17 +107,17 @@ select throws_ok(
 );
 
 select throws_ok(
-  $$insert into public.profile_private (profile_id, real_name)
-    values ('00000000-0000-0000-0000-0000000000aa', '박바꿈')$$,
+  $$insert into public.profile_private (profile_id)
+    values ('00000000-0000-0000-0000-0000000000aa')$$,
   '42501', null,
   'A 도 profile_private 에 직접 insert 할 수 없다'
 );
 
 select throws_ok(
-  $$update public.profile_private set real_name = '박바꿈'
+  $$update public.profile_private set updated_at = now()
      where profile_id = '00000000-0000-0000-0000-0000000000aa'$$,
   '42501', null,
-  'A 도 본인 실명을 직접 update 할 수 없다'
+  'A 도 본인 행을 직접 update 할 수 없다'
 );
 
 select throws_ok(
@@ -145,20 +146,20 @@ set local role anon;
 set local request.jwt.claims to '{"role": "anon"}';
 
 select throws_ok(
-  $$select real_name from public.profile_private$$,
+  $$select profile_id from public.profile_private$$,
   '42501', null,
   'anon 은 profile_private 를 읽을 수 없다'
 );
 
 select throws_ok(
-  $$insert into public.profile_private (profile_id, real_name)
-    values ('00000000-0000-0000-0000-0000000000aa', '박바꿈')$$,
+  $$insert into public.profile_private (profile_id)
+    values ('00000000-0000-0000-0000-0000000000aa')$$,
   '42501', null,
   'anon 은 profile_private 에 insert 할 수 없다'
 );
 
 select throws_ok(
-  $$update public.profile_private set real_name = '박바꿈'$$,
+  $$update public.profile_private set updated_at = now()$$,
   '42501', null,
   'anon 은 profile_private 를 update 할 수 없다'
 );
@@ -194,9 +195,9 @@ select is(
 );
 
 select lives_ok(
-  $$update public.profile_private set real_name = '이라마', updated_at = now()
+  $$update public.profile_private set real_name_enc = null, updated_at = now()
      where profile_id = '00000000-0000-0000-0000-0000000000bb'$$,
-  'service_role 은 실명을 update 한다'
+  'service_role 은 실명 암호문 열을 update 한다'
 );
 
 select lives_ok(
@@ -206,8 +207,8 @@ select lives_ok(
 );
 
 select lives_ok(
-  $$insert into public.profile_private (profile_id, real_name)
-    values ('00000000-0000-0000-0000-0000000000bb', '이다라')$$,
+  $$insert into public.profile_private (profile_id)
+    values ('00000000-0000-0000-0000-0000000000bb')$$,
   'service_role 은 profile_private 행을 insert 한다'
 );
 

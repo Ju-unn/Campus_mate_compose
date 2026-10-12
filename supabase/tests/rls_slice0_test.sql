@@ -207,7 +207,6 @@ select results_eq(
       ('profile_private', 'service_role', 'SELECT'),
       ('profile_private', 'service_role', 'UPDATE'),
       ('profile_private.profile_id', 'authenticated', 'SELECT'),
-      ('profile_private.real_name', 'authenticated', 'SELECT'),
       ('profile_vectors', 'service_role', 'DELETE'),
       ('profile_vectors', 'service_role', 'INSERT'),
       ('profile_vectors', 'service_role', 'SELECT'),
