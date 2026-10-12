@@ -38,7 +38,8 @@ NOTIFICATION_DEFAULTS = {
 
 
 _OFFER_COLUMNS = "id,owner_id,cycle_started_at,target_id,reasons,band_count,status,purchased_card_id"
-# 유료 카드 제안 대상의 자격(조각 6 판정 + 일시중지)과 흐린 아바타 주소만 읽는다 — 다른 프로필 칸은 읽지도 않는다.
+# 유료 카드 제안 대상의 자격(조각 6 판정 + 일시중지)과 흐린 미리보기 재료(아바타 경로)만 읽는다 — 다른 프로필 칸은
+# 읽지도 않는다. 경로 자체는 응답에 싣지 않는다(상대 profile_id 가 들어 있다, cards/paid_preview).
 _OFFER_TARGET_COLUMNS = "id,status,auto_hidden_at,matching_paused,profile_avatars(storage_path,status,created_at)"
 
 

@@ -8,6 +8,7 @@ from pydantic import BaseModel, field_validator
 
 from app.cards.ladder import last_issue_at, next_issue_at
 from app.cards.paid_offer import PAID_CARD_COST, ensure_offer, target_eligible
+from app.cards.paid_preview import preview_of
 from app.cards.push import FcmSender, notify
 from app.cards.repository import NOTIFICATION_DEFAULTS, CardRepository
 # is_active 는 safety · friend_reviews 가 여기서 가져간다 — 판정 자체는 visibility 한 곳에 있다.
@@ -17,6 +18,7 @@ from app.core import errors
 from app.core.deps import Caller, get_caller, get_client, get_now, get_settings, get_verified_caller
 from app.matching.band import rank_all
 from app.matching.repository import MatchingRepository
+from app.profile_onboarding.storage import AvatarStorage
 from app.settings import Settings
 
 router = APIRouter()
@@ -101,11 +103,17 @@ async def _wire_signed_in(
     return _wiring(caller, sender, now)
 
 
-def _avatar_url(profile: dict, supabase_url: str) -> str | None:
-    """가장 최근에 다 만든 아바타의 공개 저장소 주소. 카드 앞면과 유료 카드(흐림은 앱이 한다)가 같이 쓴다."""
+def _avatar_path(profile: dict) -> str | None:
+    """가장 최근에 다 만든 아바타의 저장소 경로(`{profile_id}/…png`)."""
     avatars = [a for a in profile.get("profile_avatars") or [] if a["status"] == "ready"]
     latest = max(avatars, key=lambda a: a["created_at"], default=None)
-    return f"{supabase_url}/storage/v1/object/public/avatars/{latest['storage_path']}" if latest else None
+    return latest["storage_path"] if latest else None
+
+
+def _avatar_url(profile: dict, supabase_url: str) -> str | None:
+    """카드 앞면의 공개 저장소 주소. 결제 전 유료 카드에는 쓰지 않는다 — 주소에 상대 profile_id 가 있다."""
+    path = _avatar_path(profile)
+    return f"{supabase_url}/storage/v1/object/public/avatars/{path}" if path else None
 
 
 def _card_profile(profile: dict, supabase_url: str, now: datetime) -> dict:
@@ -121,15 +129,18 @@ def _card_profile(profile: dict, supabase_url: str, now: datetime) -> dict:
     }
 
 
-def _offered_card(offer: dict, target: dict, supabase_url: str) -> dict:
+async def _offered_card(wiring: _Wiring, offer: dict, target: dict) -> dict:
     """유료 카드 앞면(결제 전). 이름 · 닉네임 · 학교 · 나이 · 학과 · MBTI 같은 프로필 칸은 **절대** 넣지 않는다 —
-    결제 전에 사람이 드러나면 안 된다. 아바타는 앱이 흐리게 그린다(주소 자체는 공개 저장소 주소다)."""
+    결제 전에 사람이 드러나면 안 된다. 아바타 주소 · 경로 · 상대 profile_id 도 넣지 않는다(공개 저장소라 열면 얼굴이
+    보인다, 보안 점검 #3). 대신 서버가 8×10 으로 줄인 JPEG 를 base64 로 싣는다 — 못 만들면 null 이다."""
+    settings = wiring.settings
+    storage = AvatarStorage(settings.storage_url, settings.supabase_service_role_key, wiring.client)
     return {
         "state": "offered",
         "offer_id": offer["id"],
         "band_count": offer["band_count"],
         "reasons": offer.get("reasons") or [],
-        "avatar_url": _avatar_url(target, supabase_url),
+        "preview": await preview_of(storage, _avatar_path(target)),
         "cost": PAID_CARD_COST,
     }
 
@@ -195,7 +206,7 @@ async def get_today_cards(wiring: _Wiring = Depends(_wire), rng: random.Random =
         eligible, target = await target_eligible(wiring.repo, wiring.profile_id, str(offer["target_id"]), blocked)
         if eligible:
             # 살아 있는 제안이 있으면 읽기만 한다 — 순위를 다시 매기지 않는다.
-            paid_card = _offered_card(offer, target, wiring.settings.supabase_url)
+            paid_card = await _offered_card(wiring, offer, target)
 
     candidate_pool_empty = False
     if paid_card is None:
@@ -224,7 +235,7 @@ async def get_today_cards(wiring: _Wiring = Depends(_wire), rng: random.Random =
                     paid_card = {"state": "empty"}
                 else:
                     target = await wiring.repo.fetch_offer_target(made["target_id"])
-                    paid_card = _offered_card(made, target, wiring.settings.supabase_url)
+                    paid_card = await _offered_card(wiring, made, target)
 
     return {
         "cards": cards,
