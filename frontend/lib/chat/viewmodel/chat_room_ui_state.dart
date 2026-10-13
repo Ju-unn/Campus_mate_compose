@@ -61,7 +61,7 @@ class ChatRoomUiState {
   final bool isDisconnected;
   final String? errorMessage;
 
-  /// 상대가 마지막으로 읽은 시각. 머리말 · 첫 페이지 · 5초 확인이 받은 값 중 **가장 늦은 것**이다.
+  /// 상대가 마지막으로 읽은 시각. 머리말 · 첫 페이지 · 2초 확인이 받은 값 중 **가장 늦은 것**이다.
   final PartnerRead partnerRead;
 
   bool get isEmpty => messages.isEmpty;

@@ -9,6 +9,7 @@ import 'package:campus_mate/chat/view/date_divider.dart';
 import 'package:campus_mate/chat/view/message_bubble.dart';
 import 'package:campus_mate/chat/view/system_message.dart';
 import 'package:campus_mate/chat/view/trust_reveal_bubble.dart';
+import 'package:campus_mate/chat/viewmodel/chat_room_view_model.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
@@ -511,12 +512,12 @@ void main() {
       expect(unreadMarks(), findsNothing);
     });
 
-    testWidgets('5초 확인에서 상대가 읽었으면 1 이 바로 사라진다(애니메이션 없음)', (tester) async {
+    testWidgets('2초 확인에서 상대가 읽었으면 1 이 바로 사라진다(애니메이션 없음)', (tester) async {
       await pumpRead(tester, const PartnerRead.known(null));
       expect(unreadMarks(), findsNWidgets(3));
 
       repository.partnerReadResult = Success(PartnerRead.known(at.add(const Duration(minutes: 1))));
-      await tester.pump(const Duration(seconds: 5));
+      await tester.pump(partnerReadPollInterval);
       await tester.pump();
 
       expect(unreadMarks(), findsNothing);
