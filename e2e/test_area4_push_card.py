@@ -131,7 +131,7 @@ class DelegateTest(CardBase):
     def test_the_jobs_the_phone_gets_carry_the_push_number_not_the_card_number(self):
         for number, scripts, kw in (
             ('E-PUSH-01', self.issue_to('id-1', 'id-3'), {}),
-            ('E-PUSH-04', self.issue_to('id-1', notice=False), {'step': LIVE}),
+            ('E-PUSH-04', self.issue_to('id-1'), {'step': LIVE}),  # #503 뒤 앞에 있어도 카드 도착 알림 1건
             ('E-PUSH-05', self.issue_to('id-1', notice=False), {}),
         ):
             with self.subTest(case=number):

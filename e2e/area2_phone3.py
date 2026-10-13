@@ -290,7 +290,7 @@ def p_card_02(run, phone, after=None):
         if not _wait_for(lambda: _rows(run, f"push_tokens?profile_id=eq.{a['id']}&select=token"), 30):
             raise Blocked('30초 안에 기기 토큰이 서버에 안 올라옴 — 알림 권한 · FCM 확인')
         before = notify.read_notifications(phone.serial)  # 앞에 남은 알림과 섞이지 않게 — 새로 생긴 것만 본다
-        notify.background(phone.serial)  # 앱이 앞에 있으면 배너가 안 뜬다(시나리오 G4)
+        notify.background(phone.serial)  # 뒤에서 FCM 이 띄우는 알림을 누르는 길(시나리오 G4 — #503 뒤 앞이면 앱이 직접 띄운다)
         area2._batch('daily-cards')
         got = _wait_for(lambda: _rows(run, f"daily_cards?owner_id=eq.{a['id']}&source=eq.daily&select=id"), 90)
         check.that(got, '배치 뒤 90초 안에 A 의 daily_cards 가 안 생김')

@@ -547,7 +547,10 @@ class ServerFactsTest(unittest.TestCase):
 
     def test_the_withdraw_route_takes_any_signed_in_caller_and_then_cuts_every_login(self):
         router = backend('account', 'router.py')
-        self.assertIn('async def withdraw(caller: Caller = Depends(get_caller),', router)  # 정지 · 미인증도 받는다(E-WD-16)
+        # 시그니처는 줄을 나눠 쓴다(body · caller · authorization) — 줄 모양이 아니라 caller 가 기대는 의존성을 본다.
+        signature = re.search(r'async def withdraw\((.*?)\)\s*->\s*dict:', router, re.S)
+        self.assertIsNotNone(signature, 'withdraw 라우트 시그니처를 못 찾음')
+        self.assertRegex(signature.group(1), r'\bcaller: Caller = Depends\(get_caller\)')  # get_verified_caller 가 아니다 — 정지 · 미인증도 받는다(E-WD-16)
         order = [router.index(word) for word in ('accounts.withdraw(', '"push_tokens"', '"student_id_files"', '"logout"')]
         self.assertEqual(order, sorted(order))
         self.assertIn('admin.empty_folder("student-id-temp", profile_id)', router)

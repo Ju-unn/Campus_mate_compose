@@ -6,7 +6,8 @@ part of 'area4.dart';
 //  · 42 — 홈에서 멈춘다(`step`). PC 가 앱을 뒤로 보내고 배치를 불러 알림을 누르면, 앱은 열린 방(ChatRoomScreen)과 앱바 닉네임을 본다. 앱이 살아 있는 채 눌리는 판이다.
 //  · 79 — 두 판이다. phase 없음은 홈까지(위와 같다), phase tap 은 PC 가 앱을 죽인 뒤 알림을 눌러 콜드 스타트한 앱이(e2e_test.dart 의 hear()) 방을 연다.
 //        E-CHAT-32(area3_b3.dart)와 같은 방식이고 메시지 본문 확인만 뺐다. tap 판은 `_session` 으로 안 감싸 앞 판이 저장한 세션을 그대로 쓴다.
-//  · 80 — 대화 탭을 앞에 두고 멈춘다. PC 가 배치를 부르고 60초 지켜본 뒤(앞에서는 배너가 없다) 돌려보내면, 앱은 대화 목록과 상대 줄이 그대로인지 본다.
+//  · 80 — 대화 탭을 앞에 두고 멈춘다. PC 가 배치를 부르고 앞에서 뜬 리마인드 1개를 본 뒤(#503 — 열린 방이 아니면 앞에서도 뜬다) 돌려보내면,
+//        앱은 대화 목록과 상대 줄이 그대로인지 본다.
 
 const _gateLongStep = Duration(minutes: 8); // PC 가 배치 · 앵커 확인 · 60초 지켜보기 · 대조를 하는 동안 멈춰 있는 시간
 const _gateRoomWait = Duration(seconds: 30); // 알림으로 켜진/돌아온 앱이 방을 여는 시간(로그인 · 관문 조회 · 라우터가 눌러 둔 경로를 받아 주는 시간)
@@ -50,10 +51,10 @@ final Map<String, Area1Case> _pushGateCases = {
   'E-PUSH-80': _session((tester, job) async {
     final nickname = job['nickname'] as String;
     await arrive(tester, 'home');
-    await tap(tester, _tab('대화'));
+    await tap(tester, navTab('대화'));
     await pumpUntil(tester, _gateRow(nickname));
-    await step('front', timeout: _gateLongStep); // PC: 배치 → 앞에서 60초 0개 → 뒤로 → 대조 → 다시 앞으로
-    await wait(tester, const Duration(seconds: 2)); // 앞으로 돌아와 목록이 다시 그려질 틈
+    await step('front', timeout: _gateLongStep); // PC: 배치 → 앞에서 리마인드 1개(+20초 더 봄)
+    await wait(tester, const Duration(seconds: 2)); // 푸시가 다시 읽게 한 목록이 그려질 틈
     return {
       'list': find.byType(ConversationsScreen).evaluate().isNotEmpty,
       'row': _gateRow(nickname).evaluate().isNotEmpty,

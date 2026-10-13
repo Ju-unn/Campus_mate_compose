@@ -264,9 +264,9 @@ final Map<String, Area1Case> area5CasesPhoto = {
     await _openMe(tester);
     await _photoOpenSheet(tester);
     return _photoRegenWait(tester, _photoFreeCta, midway: () async {
-      await tap(tester, _tab('오늘')); // 만드는 중에 나 탭을 떠난다 — 화면 15 가 닫히며 폴링을 끊는다
+      await tap(tester, navTab('오늘')); // 만드는 중에 나 탭을 떠난다 — 화면 15 가 닫히며 폴링을 끊는다
       await wait(tester, const Duration(seconds: 5));
-      await tap(tester, _tab('나')); // 돌아오면 만드는 중이면 폴링을 다시 잇는다
+      await tap(tester, navTab('나')); // 돌아오면 만드는 중이면 폴링을 다시 잇는다
       await pumpUntil(tester, find.byType(ProfileHero));
       return {'generating_after_return': _has(find.text(_photoGenerating))};
     });

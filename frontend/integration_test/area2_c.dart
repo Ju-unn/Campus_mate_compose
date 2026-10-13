@@ -1,5 +1,4 @@
 import 'package:campus_mate/billing/view/heart_task_row.dart';
-import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/home/view/home_screen.dart';
 import 'package:campus_mate/home/viewmodel/home_summary_provider.dart';
 import 'package:campus_mate/matching/view/daily_card_summary.dart';
@@ -56,9 +55,6 @@ Area1Case _session(Area1Case body) => (tester, job) async {
 
 Finder _inHome(Finder finder) => find.descendant(of: find.byType(HomeScreen), matching: finder);
 
-/// 하단 내비의 탭([label] = 메인 · 오늘 · 커뮤니티 · 대화 · 나).
-Finder _tab(String label) => find.descendant(of: find.byType(AppBottomNav), matching: find.text(label));
-
 int _count(Finder finder) => finder.evaluate().length;
 
 /// 오래 걸리는 PC 일(배치 · AI 생성)을 기다리는 멈춤 — support.step 은 2분까지만 기다린다.
@@ -80,7 +76,7 @@ Future<bool> _gone(WidgetTester tester, Finder finder, Duration within) async {
 /// 홈 → 나 탭 → 톱니(설정). [beforeGear] 는 톱니 직전에 멈춘다 — 망을 끊고 설정을 여는 가설용.
 Future<void> _toSettings(WidgetTester tester, {Future<void> Function()? beforeGear}) async {
   await arrive(tester, 'home');
-  await tap(tester, _tab('나'));
+  await tap(tester, navTab('나'));
   await pumpUntil(tester, find.byTooltip('설정'), timeout: const Duration(seconds: 10));
   await beforeGear?.call();
   await tap(tester, find.byTooltip('설정'));
@@ -114,7 +110,7 @@ Finder get _sheetCode => find.descendant(
 /// 오늘 탭을 열고 [name] 이 뜰 때까지.
 Future<void> _todayShows(WidgetTester tester, Finder name) async {
   await arrive(tester, 'home');
-  await tap(tester, _tab('오늘'));
+  await tap(tester, navTab('오늘'));
   await pumpUntil(tester, name, timeout: const Duration(seconds: 30));
 }
 
@@ -129,7 +125,7 @@ int? _seconds(WidgetTester tester) {
 /// 알약은 이제 시트가 아니라 사진 고르기를 먼저 연다 — 시트의 만들기를 누르면 그 사진이 지금 아바타 원본 칸을 대신한다.
 Future<void> _openRegen(WidgetTester tester, String title) async {
   await arrive(tester, 'home');
-  await tap(tester, _tab('나'));
+  await tap(tester, navTab('나'));
   await pumpUntil(tester, find.text(_pill), timeout: const Duration(seconds: 20));
   await e2eRegenToSheet(tester, _pill);
   await pumpUntil(tester, find.text(title), timeout: const Duration(seconds: 10));
@@ -174,7 +170,7 @@ final Map<String, Area1Case> area2cCases = {
   'E-CARD-16': _session((tester, job) async {
     await arrive(tester, 'home');
     await _cut(tester);
-    await tap(tester, _tab('오늘'));
+    await tap(tester, navTab('오늘'));
     // 복구 뒤 모양은 계정 상태(카드 · 대기 · 후보 없음)에 따라 다르다 — 오류 화면이 아니면 된다.
     await _failedThenRecovered(
         tester,
@@ -185,7 +181,7 @@ final Map<String, Area1Case> area2cCases = {
   'E-POLL-30': _session((tester, job) async {
     await arrive(tester, 'home');
     await _cut(tester);
-    await tap(tester, _tab('커뮤니티'));
+    await tap(tester, navTab('커뮤니티'));
     await _failedThenRecovered(tester, find.byTooltip('질문 올리기'));
     return null;
   }),

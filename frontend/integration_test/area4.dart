@@ -8,7 +8,6 @@ import 'package:campus_mate/chat/view/chat_room_screen.dart';
 import 'package:campus_mate/chat/view/message_bubble.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
-import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/faq/view/faq_screen.dart';
 import 'package:campus_mate/friend_review/view/friend_review_card.dart';
@@ -92,8 +91,6 @@ Area1Case _session(Area1Case body) => (tester, job) async {
       return body(tester, job);
     };
 
-Finder _tab(String label) => find.descendant(of: find.byType(AppBottomNav), matching: find.text(label));
-
 /// 앱바 제목 — 아래 깔린 화면은 가려져(offstage) 안 잡힌다.
 Finder _screenTitle(String title) => find.descendant(of: find.byType(AppBar), matching: find.text(title));
 
@@ -123,7 +120,7 @@ Future<void> _reveal(WidgetTester tester, Finder finder) async {
 /// 홈 → 나 탭 → 톱니바퀴 → 설정 16.
 Future<void> _openSettings(WidgetTester tester) async {
   await arrive(tester, 'home');
-  await tap(tester, _tab('나'));
+  await tap(tester, navTab('나'));
   await pumpUntil(tester, find.byIcon(AppIcons.settings));
   await tap(tester, find.byIcon(AppIcons.settings));
   await arrive(tester, 'settings');

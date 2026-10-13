@@ -12,8 +12,8 @@ const _reviewHeld = '조금 더 확인이 필요해요'; // 3b 대기 화면(sta
 /// 알림 권한을 거부해도 앱은 그대로 쓴다 — 홈에 닿고 하단 탭이 보이고 "오늘" 탭을 누르면 오늘 화면이 열린다.
 Future<void> _homeUsable(WidgetTester tester) async {
   await arrive(tester, 'home');
-  must(find.byType(AppBottomNav).evaluate().isNotEmpty, '하단 내비가 안 보임');
-  await tap(tester, _tab('오늘'));
+  must(bottomNav.evaluate().isNotEmpty, '하단 내비가 안 보임');
+  await tap(tester, navTab('오늘'));
   await wait(tester, const Duration(seconds: 2));
   must(find.byType(TodayCardsScreen).evaluate().isNotEmpty, '오늘 탭을 눌렀는데 오늘 화면이 안 열림');
 }

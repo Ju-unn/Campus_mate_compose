@@ -87,7 +87,7 @@ Future<Map<String, Object?>> _nwSessionCut(WidgetTester tester, Map<String, dyna
   await step('15-5:saved');
   final watch = Stopwatch()..start();
   await _returnTo(tester, '내 프로필');
-  if (!_has(screen('start')) && _has(_tab('오늘'))) await tap(tester, _tab('오늘'));
+  if (!_has(screen('start')) && _has(navTab('오늘'))) await tap(tester, navTab('오늘'));
   String? notice;
   while (watch.elapsed < _nwClockLoginWait && !_has(screen('start'))) {
     await tester.pump(const Duration(milliseconds: 200));
@@ -187,7 +187,7 @@ Future<Map<String, Object?>> _nwOverflowWalk(WidgetTester tester, Map<String, dy
     final want = (job['scale'] as num).toDouble();
     if ((scale - want).abs() > 0.1) throw E2eBlocked('글자 배율 $scale 이 $want 가 아님 — 기기 설정이 안 먹었다');
     await open('15', () async {
-      await tap(tester, _tab('나'));
+      await tap(tester, navTab('나'));
       await pumpUntil(tester, find.byType(ProfileHero));
     });
     await open('15-4', () async {

@@ -1122,7 +1122,7 @@ class RegistryTest(Phone9):
 
     def test_case_limits_cover_the_worst_case_prep_waits_and_cuts(self):
         limits = {name: tools.CASE_LIMITS[name] for name in PHONE + TWO}
-        self.assertEqual(limits, {'E-CHAT-01': 487.0, 'E-CHAT-02': 487.0, 'E-CHAT-07': 480, 'E-CHAT-22': 558, 'E-CHAT-23': 471, 'E-CHAT-24': 1056,
+        self.assertEqual(limits, {'E-CHAT-01': 487.0, 'E-CHAT-02': 487.0, 'E-CHAT-07': 490, 'E-CHAT-22': 558, 'E-CHAT-23': 471, 'E-CHAT-24': 1056,
                                   'E-CHAT-61': 446, 'E-CHAT-72': 465, 'E-CHAT-03': 900, 'E-CHAT-58': 900})
         for name, seconds in limits.items():
             self.assertGreater(seconds, tools.CASE_LIMIT, name)  # 기본 420 으로는 모자란다

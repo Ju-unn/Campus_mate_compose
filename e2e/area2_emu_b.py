@@ -77,7 +77,7 @@ def p_card_41(run, phone):
         if not _wait_for(lambda: _rows(run, f"push_tokens?profile_id=eq.{b['id']}&select=token"), TOKEN_WAIT):
             raise Blocked(f'{TOKEN_WAIT}초 안에 기기 토큰이 서버에 안 올라옴 — 이 에뮬이 FCM 토큰을 못 받는다(구글 로그인 · Play 서비스가 없는 이미지는 알림이 안 온다)')
         before = notify.read_notifications(phone.serial)  # 앞에 남은 알림과 섞이지 않게 — 새로 생긴 것만 본다
-        notify.background(phone.serial)  # 앱이 앞에 있으면 배너가 안 뜬다(시나리오 G4)
+        notify.background(phone.serial)  # 뒤에서 FCM 이 띄우는 알림을 누르는 길(시나리오 G4 — #503 뒤 앞이면 앱이 직접 띄운다)
         _accept(run, a, card)
         new = notify.wait_new(phone.serial, before, seconds=NOTICE_WAIT, match=lambda n: (n.title, n.text) == (ACCEPT_TITLE, body))
         if not any((n.title, n.text) == (ACCEPT_TITLE, body) for n in new):

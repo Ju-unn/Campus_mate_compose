@@ -1,13 +1,14 @@
 part of 'area4.dart';
 
-// 영역 4 PUSH A3 — 앱이 앞에 있을 때 알림은 안 뜨고 화면만 바뀌는지 7개. PC 쪽은 e2e/area4_push_front.py 의 같은 번호(계정 · 상대 행동 · 알림 읽기는 전부 PC).
+// 영역 4 PUSH A3 — 앱이 앞에 있을 때 알림과 화면 7개. PC 쪽은 e2e/area4_push_front.py 의 같은 번호(계정 · 상대 행동 · 알림 읽기는 전부 PC).
 // 앱이 하는 일은 셋이다 — 홈에서 멈춰 PC 가 토큰을 기다리게 하고(`home`), 그 화면으로 가 앞에 머문 채 멈춰 PC 가 상대 행동을 부르게 하고(`ready`),
-// 화면이 저절로 바뀌었는지 본 대로 말한다(`judged` 에서 PC 가 알림 0개를 지켜보는 동안 멈춤). 31 은 방에 들어갔다 나온 뒤(`left`) PC 가 HOME 으로 내린다.
+// 화면이 저절로 바뀌었는지 본 대로 말한다(`judged` 에서 PC 가 알림창을 보는 동안 멈춤 — #503 뒤 열린 방이 아닌 14 · 20 · 53 · 82 는 앞에서도 알림 1개,
+// 열린 방 29 · 30 은 0개 + HOME 대조). 31 은 방에 들어갔다 나온 뒤(`left`) PC 가 HOME 으로 내린다.
 
 const _pushFrontCases = ['14', '20', '29', '30', '31', '53', '82'];
 const _pushFrontWait = Duration(seconds: 30); // 화면이 저절로 바뀌기를 기다리는 시간(시나리오 T)
 const _pushRoomMessageWait = Duration(seconds: 10); // 29: 방에서 메시지 줄이 보이기를 기다리는 시간(시나리오 2초 — 걸린 ms 를 메모에 남긴다)
-const _pushHold = Duration(minutes: 4); // PC 가 하는 일(토큰 대기 · 31초 기다림 · 알림 60초 지켜보기 · 대조) 동안 앱은 기다린다
+const _pushHold = Duration(minutes: 4); // PC 가 하는 일(토큰 대기 · 31초 기다림 · 알림 60초 기다리기/지켜보기 · 20초 더 보기 · 대조) 동안 앱은 기다린다
 
 BuildContext _pushContext(WidgetTester tester) => tester.element(find.byType(Scaffold).first);
 
@@ -24,9 +25,9 @@ Future<void> _pushGo(WidgetTester tester, Map<String, dynamic> job) async {
   final screen = job['screen'] as String;
   switch (screen) {
     case 'conversations':
-      await tap(tester, _tab('대화'));
+      await tap(tester, navTab('대화'));
     case 'today':
-      await tap(tester, _tab('오늘'));
+      await tap(tester, navTab('오늘'));
     case 'room':
       unawaited(GoRouter.of(_pushContext(tester)).push('${AppRoutes.chatRoom}/${job['match_id']}'));
     default:
@@ -56,7 +57,7 @@ Future<Map<String, Object?>> _pushJudge(WidgetTester tester, String number, Map<
           null;
       seen['ms'] = watch.elapsedMilliseconds;
     case '82':
-      seen['badge'] = await appears(tester, find.descendant(of: find.byType(AppBottomNav), matching: find.text('1')), _pushFrontWait) != null;
+      seen['badge'] = await appears(tester, find.descendant(of: bottomNav, matching: find.text('1')), _pushFrontWait) != null;
     case '53':
       // 앞에서는 화면 갱신이 없다 — 한참 기다려도 줄이 안 생기고, 나갔다 다시 들어가야 1줄이 보인다.
       await wait(tester, const Duration(seconds: 10));
@@ -85,7 +86,7 @@ Area1Case _pushFrontCase(String number) => _session((tester, job) async {
       }
       await step('ready', timeout: _pushHold); // PC: 상대가 행동한다(30 은 31초 기다린 뒤)
       final seen = await _pushJudge(tester, number, job);
-      await step('judged', timeout: _pushHold); // PC: 알림이 0개인지 지켜보고, HOME 으로 내려 대조 알림을 본다
+      await step('judged', timeout: _pushHold); // PC: 앞에서 뜬 알림 1개(14 · 20 · 53 · 82) 또는 열린 방 0개 + HOME 대조(29 · 30)를 본다
       return seen;
     });
 

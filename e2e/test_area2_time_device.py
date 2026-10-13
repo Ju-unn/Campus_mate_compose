@@ -833,23 +833,31 @@ class Card20Test(DeviceBase):
 class Card03Test(DeviceBase):
     def setUp(self):
         super().setUp()
-        self.scripts['daily-cards'] = self.issue_to('id-1', notice=False)  # 앞에 있을 때는 알림이 뜨지 않는다
+        self.scripts['daily-cards'] = self.issue_to('id-1')  # #503 뒤 앱은 앞에 있어도 카드 도착 알림을 띄운다
 
-    def test_app_in_front_batch_card_and_no_notice_and_the_home_key_is_never_pressed(self):
+    def test_app_in_front_batch_card_and_exactly_one_notice_and_the_home_key_is_never_pressed(self):
         phone = self.phone(top=OURS, midway_step={'step': 'live'})
         result = self.go('E-CARD-03', phone)
         self.assertEqual(result[0], 'pass', result)
         self.assertEqual(self.log, ['grant', 'read', 'batch:daily-cards', 'revoke'])  # home 없음 — 앞에 둔 채
         self.assertEqual(phone.acted, ['live'])
-        self.assertIn(('none', 30), self.windows)
+        self.assertIn(('new', td.NOTICE_WAIT), self.windows)  # 30초 안에 오고
+        self.assertIn(('none', td.SETTLE), self.windows)  # 그 뒤 더 봐 그것뿐
+        self.assertEqual([(n.title, n.text) for n in self.world.shade], [CARD])
 
     def test_an_app_that_is_not_in_front_is_blocked_before_the_batch(self):
         result = self.go('E-CARD-03', self.phone(top=CHROME, midway_step={'step': 'live'}))
         self.assertEqual(result[0], 'blocked')
         self.assertEqual(self.batches, [])
 
-    def test_a_banner_that_shows_anyway_is_a_fail(self):
-        self.scripts['daily-cards'] = self.issue_to('id-1')
+    def test_no_notice_while_the_app_is_in_front_is_a_fail(self):
+        self.scripts['daily-cards'] = self.issue_to('id-1', notice=False)  # #503 이전 앱 · 회귀 — 앞이면 안 띄운다
+        result = self.go('E-CARD-03', self.phone(top=OURS, midway_step={'step': 'live'}))
+        self.assertEqual(result[0], 'fail')
+        self.assertIn(CARD[0], result[1])
+
+    def test_two_notices_while_the_app_is_in_front_is_a_fail(self):
+        self.scripts['daily-cards'] = lambda: (self.world.give_card('id-1'), self.world.post(*CARD), self.world.post(*CARD))
         self.assertEqual(self.go('E-CARD-03', self.phone(top=OURS, midway_step={'step': 'live'}))[0], 'fail')
 
     def test_a_card_that_never_reaches_the_db_is_blocked_because_a_slow_batch_looks_the_same(self):
@@ -1659,9 +1667,9 @@ class WorstWaitTest(DeviceBase):
 
     def arrange(self, case):
         """가설을 끝까지(알림 · 카드가 다 오게) 돌릴 가짜 세계와 폰 — 기존 Card··Test 의 준비를 그대로 줄였다."""
-        if case in ('E-CARD-01', 'E-CARD-17', 'E-CARD-19'):
+        if case in ('E-CARD-01', 'E-CARD-17', 'E-CARD-19', 'E-CARD-03'):  # 03 — #503 뒤 앞에 있어도 알림이 뜬다
             self.scripts['daily-cards'] = self.issue_to('id-1')
-        elif case in ('E-CARD-18', 'E-CARD-03'):
+        elif case == 'E-CARD-18':
             self.scripts['daily-cards'] = self.issue_to('id-1', notice=False)
         elif case == 'E-CARD-20':
             carded = set()

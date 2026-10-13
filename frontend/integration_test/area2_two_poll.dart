@@ -1,4 +1,3 @@
-import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/community/view/community_feed_screen.dart';
 import 'package:campus_mate/community/view/poll_card.dart';
 import 'package:campus_mate/community/view/poll_detail_screen.dart';
@@ -44,9 +43,6 @@ int _count(Finder finder) => finder.evaluate().length;
 
 Finder get _feed => find.byType(CommunityFeedScreen);
 
-/// 하단 내비의 탭([label] = 메인 · 오늘 · 커뮤니티 · 대화 · 나).
-Finder _tab(String label) => find.descendant(of: find.byType(AppBottomNav), matching: find.text(label));
-
 Finder _cardOf(String question) => find.widgetWithText(PollCard, question);
 
 Finder _inCard(String question, Finder matching) => find.descendant(of: _cardOf(question), matching: matching);
@@ -59,7 +55,7 @@ CommunityFeedUiState _feedState(WidgetTester tester) =>
 /// 메인 → 커뮤니티 탭 → 첫 쪽을 받을 때까지.
 Future<void> _openCommunity(WidgetTester tester) async {
   await arrive(tester, 'home');
-  await tap(tester, _tab('커뮤니티'));
+  await tap(tester, navTab('커뮤니티'));
   await pumpUntil(tester, _feed, timeout: const Duration(seconds: 10));
   final watch = Stopwatch()..start();
   while (_feedState(tester).isLoading) {

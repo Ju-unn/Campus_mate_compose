@@ -103,7 +103,7 @@ def _run(run, phone, kind, state):
         def hold(said):
             token_arrives()
             before = notify.read_notifications(phone.serial)  # 앞에 남은 알림과 섞이지 않게 — 새로 생긴 것만 본다
-            notify.background(phone.serial)  # 앱이 앞에 있으면 배너가 안 뜬다
+            notify.background(phone.serial)  # 뒤에서 FCM 이 띄우는 알림을 본다(#503 뒤 앞이면 앱이 직접 띄운다)
             if make_and_tap(before):
                 notify.tap_notification(phone.serial, want[0], want[1])
                 time.sleep(1)

@@ -31,9 +31,10 @@ now 가 그 안이라 서버는 정상으로 리마인드를 보낸다(가설은
                 알림이 있으면 pass, 없으면 08:06~08:48 에 손 호출 1번 더. 예약+손 호출이 겹쳐 2개여도 개수는 사유가 아님(메모). 이 가설만 낮 검사를 안 한다(07시).
                 한 시간 가까이 걸린다(CASE_LIMITS 4500).
   42 · 80       시나리오는 B에뮬 — 폰 한 대로 돈다. 42 는 앱이 살아 있는 채(뒤) 누르므로 앱이 `step` 에서 멈춘 사이 PC 가 일한다(midway). 79 는 앱을 죽이고 누르는
-                콜드 스타트(E-CHAT-32 방식, phase login → kill → phase tap). 80 은 앱을 대화 탭에 둔 채 배치 → 60초 0개 → HOME → 대조 → 다시 앞.
-  80            "대화 목록만 다시 읽는다" 는 앱 안 일이라 목록과 상대 줄이 그대로인지만 본다. 서버가 정말 보냈는지(reminded 에 폰 계정 포함)는 응답을 못 읽는다 —
-                앵커로 배치가 돈 것까지만 확인.
+                콜드 스타트(E-CHAT-32 방식, phase login → kill → phase tap). 80 은 앱을 대화 탭에 둔 채 배치 → 앞에서 리마인드 1개.
+  80            시나리오는 "앞이면 배너 없음" 이지만 #503(2026-10-13) 뒤 앱은 앞에 있어도 열린 방이 아니면 시스템 알림을 직접 띄운다 — 대화 목록 앞에서 리마인드가
+                정확히 1개(20초 더 봄) 와야 pass. 온 알림이 길이 살아 있다는 증거라 HOME 대조가 없고, 안 왔는데 앵커 도장도 없으면 blocked.
+                "대화 목록만 다시 읽는다" 는 앱 안 일이라 목록과 상대 줄이 그대로인지만 본다.
   79            앱이 방을 연 시각은 앱이 말한 ms(일감을 받은 뒤, 앱 부팅 포함)를 메모하고 30초 안이면 pass(시나리오 10초는 메모로만).
   48            "알림 없이" — 리마인드뿐 아니라 새 알림 전부 0개를 본다. 배치는 매칭을 하나씩 훑어 앵커 도장이 chat_closed_at 보다 먼저 찍힐 수 있어, 앵커를 본 뒤에도
                 SETTLE 초까지 chat_closed_at 을 기다린 다음에야 안 닫혔다고(FAIL) 본다.
@@ -50,7 +51,6 @@ from e2e.area2_phone3 import _wait_for
 from e2e.area3_phone import _permitted
 from e2e.area3_phone3 import _screens
 from e2e.area4_push import CASE_LIMIT_SLOW, SETTLE, TOKEN_WAIT, _Scene
-from e2e.area4_push_a4 import _front
 from e2e.tools import Blocked
 
 REMINDER_TITLE = '신뢰 확인이 기다리고 있어요'  # backend/app/chat/batch_router.py run_chat_gate
@@ -408,17 +408,15 @@ def push_80(s):
         _need_token(s)
         before = s.before()
         _fire(s, [(match_id, DUE)])
-        _confirm_ran(s, anchor)
-        s.silent(before, only=_is_reminder, control=None)  # 앞에서는 배너가 없다
-        notify.background(s.phone.serial)
-        s.control('message')  # 뒤로 간 폰에는 오는 알림 — 읽는 길이 살아 있다는 증거
-        _front(s.phone.serial)
+        # #503 뒤 앱은 앞에 있어도 열린 방이 아니면 시스템 알림을 띄운다 — 온 리마인드가 길이 살아 있다는 증거라 HOME 대조가 없다
+        if not s.arrives(before, REMINDER_TITLE, REMINDER_BODY, once=True):
+            _confirm_ran(s, anchor)  # 안 왔는데 배치가 안 돈 것이면 fail 이 아니라 blocked
 
     said = _app(s.check, s.phone(midway=reminded, token_hash=token, nickname=s.nick))
     if said:
         s.check.that(said.get('list') is True, f"대화 목록 화면이 사라짐 — 그때 보인 화면 {_screens(said)}")
         s.check.that(said.get('row') is True, f'대화 목록에서 {s.nick} 줄이 사라짐')
-    s.notes.append('앞에서는 배너가 없다는 것만 확인 — 서버 발송 여부(reminded 에 폰 계정 포함)는 응답을 못 읽음 · 앵커로 배치가 돈 것까지만')
+    s.notes.append('앞(대화 목록)에서도 리마인드 1개(#503 — 앱이 직접 띄움) · 상대(B) 쪽 알림은 폰이 하나라 못 봄')
 
 
 PHONE = {'E-PUSH-40': push_40, 'E-PUSH-41': push_41, 'E-PUSH-42': push_42, 'E-PUSH-43': push_43, 'E-PUSH-44': push_44, 'E-PUSH-45': push_45,

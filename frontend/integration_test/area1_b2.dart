@@ -8,9 +8,6 @@ const _noCode = '없는 코드예요, 다시 확인해 주세요';
 const _notAllowed = '이 코드는 쓸 수 없어요';
 const _noteShort = '10자 이상 입력해 주세요';
 
-/// 하단 내비의 탭([label] = 메인 · 오늘 · 커뮤니티 · 대화 · 나).
-Finder _tab(String label) => find.descendant(of: find.byType(AppBottomNav), matching: find.text(label));
-
 Finder _textButton(String label) => find.widgetWithText(TextButton, label);
 
 /// 뒤로 가기로 [name] 을 못 벗어나는지 — 라우터에 돌아갈 곳이 없어야 한다.
@@ -76,7 +73,7 @@ Future<void> _answer(WidgetTester tester, int count) async {
 }
 
 Future<void> _settingsWithdraw(WidgetTester tester) async {
-  await tap(tester, _tab('나'));
+  await tap(tester, navTab('나'));
   await pumpUntil(tester, find.byTooltip('설정'), timeout: const Duration(seconds: 10));
   await tap(tester, find.byTooltip('설정'));
   await arrive(tester, 'settings', timeout: const Duration(seconds: 5));
@@ -119,7 +116,7 @@ final Map<String, Area1Case> _b2Cases = {
   'E-GATE-04': _session((tester, job) async {
     await arrive(tester, 'home');
     await step('home'); // PC 가 status=suspended 로 바꾼다
-    await tap(tester, _tab('오늘'));
+    await tap(tester, navTab('오늘'));
     final at = await appears(tester, screen('suspended'), const Duration(seconds: 3));
     must(at != null, '3초 안에 정지 안내 화면이 안 나옴');
     _stays(tester, 'suspended');
@@ -264,7 +261,7 @@ final Map<String, Area1Case> _b2Cases = {
   }),
   'E-ONB-56': _session((tester, job) async {
     await arrive(tester, '04-5');
-    must(find.byType(AppBottomNav).evaluate().isEmpty, '온보딩 중에 하단 내비가 보임');
+    must(bottomNav.evaluate().isEmpty, '온보딩 중에 하단 내비가 보임');
     _stays(tester, '04-5');
     return null;
   }),
@@ -368,7 +365,7 @@ Future<Map<String, Object?>?> _renewToHome(WidgetTester tester, Map<String, dyna
   await tap(tester, button(_consentCta));
   final watch = Stopwatch()..start();
   var saw041 = false;
-  while (screen('home').evaluate().isEmpty || find.byType(AppBottomNav).evaluate().isEmpty) {
+  while (screen('home').evaluate().isEmpty || bottomNav.evaluate().isEmpty) {
     must(watch.elapsed < const Duration(seconds: 5), '5초 안에 홈이 안 나옴');
     await tester.pump(const Duration(milliseconds: 100));
     saw041 |= screen('04-1').evaluate().isNotEmpty;

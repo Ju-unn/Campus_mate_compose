@@ -43,7 +43,7 @@ final Map<String, Area1Case> _pushTwoCases = {
     await step('in', timeout: _peerWait);
     await step('stay', timeout: _peerWait);
     must(screen('start').evaluate().isEmpty, 'A 가 로그아웃했는데 B 가 로그인 화면으로 돌아감 — 로그아웃은 그 기기만이어야 함');
-    must(find.byType(AppBottomNav).evaluate().isNotEmpty, 'A 가 로그아웃한 뒤 B 의 하단 내비가 안 보임');
+    must(bottomNav.evaluate().isNotEmpty, 'A 가 로그아웃한 뒤 B 의 하단 내비가 안 보임');
     return null;
   }),
   // A 가 설정 → 탈퇴하기 → 영구 삭제 → 정말 영구 삭제 → 로그인 화면. B 는 그 뒤에 세션을 강제로 새로 받으려 해 로그인 화면으로 돌아간다

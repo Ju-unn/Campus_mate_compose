@@ -146,8 +146,9 @@ Map<String, String?> _rtBadges(WidgetTester tester, String nickname) {
   };
 }
 
-/// E-CHAT-07 — 대화 목록을 열고 `sent` 에서 멈춘다(PC 가 A 로 3건 보낸다 — 목록은 실시간이 아니라 새로고침해야 안다). 당겨서 새로고침(끌기 → 안 되면 같은 표시기를 직접 띄움)한 뒤
-/// 목록 뱃지 · 아래 탭 뱃지를 읽고, 방에 들어갔다 뒤로 나온 다음(나갈 때 읽음이 찍히고 목록이 다시 읽힌다) 다시 읽는다.
+/// E-CHAT-07 — 대화 목록을 열고 `sent` 에서 멈춘다(PC 가 A 로 3건 보낸다). 목록은 이제 새로고침 없이도 바뀐다(사용자 채널 이벤트 · 3초/30초 폴링 · 푸시,
+/// #502 #509 #510) — 그래도 시나리오대로 당겨서 새로고침(끌기 → 안 되면 같은 표시기를 직접 띄움)하고, 뱃지가 3에 닿을 때까지(이벤트가 한 건씩 늦게 와
+/// 1 · 2 로 잠깐 보일 수 있다) 기다린 뒤 목록 뱃지 · 아래 탭 뱃지를 읽는다. 방에 들어갔다 뒤로 나온 다음(나갈 때 읽음이 찍히고 목록이 다시 읽힌다) 다시 읽는다.
 Future<Map<String, Object?>> _rtUnread(WidgetTester tester, Map<String, dynamic> job) async {
   final nickname = job['nickname'] as String;
   await _toConversations(tester);
@@ -163,7 +164,9 @@ Future<Map<String, Object?>> _rtUnread(WidgetTester tester, Map<String, dynamic>
     unawaited(tester.state<RefreshIndicatorState>(find.byType(RefreshIndicator)).show());
     await appears(tester, badge, const Duration(seconds: 10));
   }
-  await wait(tester, const Duration(seconds: 1)); // 아래 탭 합이 같이 그려지게
+  // PC 가 보내는 3건(e2e/area3_chat_rt.py p_chat_07)이 다 셀 때까지 — 안 닿으면 그때 값을 그대로 말하고 PC 가 fail 로 본다
+  await _rtUntil(tester, () => _rtBadges(tester, nickname).values.every((count) => count == '3'), const Duration(seconds: 10));
+  await wait(tester, const Duration(seconds: 1)); // 늦게 한 건 더 세는 일이 없는지
   final before = _rtBadges(tester, nickname);
   await tap(tester, _row(nickname));
   await pumpUntil(tester, find.descendant(of: find.byType(AppBar), matching: find.text(nickname)));

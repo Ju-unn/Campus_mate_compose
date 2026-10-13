@@ -293,7 +293,7 @@ def p_card_01(run, phone):
     with _permitted(phone.serial), _every_day(run, a):
         _app(check, phone(token_hash=run.link(a['email'])))
         before = _ready(run, phone, a)
-        notify.background(phone.serial)  # 앱이 앞에 있으면 배너가 안 뜬다(E-CARD-03)
+        notify.background(phone.serial)  # 뒤에서 FCM 이 띄우는 길을 본다(앞이면 앱이 직접 띄운다 — E-CARD-03, #503)
         if _issue(check, run, a, control=control):
             _one_notice(check, phone.serial, before)
     check.that(len(_daily_rows(run, a)) == 1, f'A 카드가 {len(_daily_rows(run, a))}장(기대 1)')
@@ -410,7 +410,8 @@ def p_card_20(run, phone):
 
 
 def p_card_03(run, phone):
-    """앱이 화면 앞에 있는 채로 배치 → 30초 안에 카드가 목록에 저절로 나타나고(앱이 판정) 알림창에는 새 알림 0."""
+    """앱이 화면 앞에 있는 채로 배치 → 30초 안에 카드가 목록에 저절로 나타나고(앱이 판정) 알림창에는 카드 도착 알림이 정확히 1건.
+    #503(2026-10-13) 뒤 안드로이드 앱은 앞에 있어도 받은 푸시를 시스템 알림으로 직접 띄운다(지금 열린 채팅방만 건너뜀) — 시나리오의 "앞이면 0" 은 뒤집혔다."""
     require_daily_cards_open()
     notify.ensure_delivery(phone.serial)  # 푸시 연결이 죽은 폰은 FCM 200 인데도 안 떠서 "온다" 는 헛fail, "안 온다" 는 헛통과 — 계정을 만들기 전에 되살린다(또는 blocked)
     check = Check()
@@ -423,8 +424,7 @@ def p_card_03(run, phone):
             raise Blocked(f'앱이 화면 앞에 없음({top[:80]}) — 앞에 둔 채 보는 가설이다')
         before = _ready(run, phone, a)
         if _issue(check, run, a, control=control):
-            seen = notify.expect_none(phone.serial, before, seconds=NOTICE_WAIT)  # 카드가 생긴 뒤 30초 내내 — 앱이 이 사이에 목록을 새로 읽는다
-            check.that(not seen, f'앱이 앞에 있는데 새 알림 {len(seen)}건(배너): {[n.title for n in seen]}')
+            _one_notice(check, phone.serial, before)  # 카드가 생긴 뒤 30초 안 1건 + SETTLE 더 봐 그것뿐 — 앱은 이 사이에 목록을 새로 읽는다
 
     with _permitted(phone.serial), _every_day(run, a):
         _app(check, _slow(phone, LIVE_APP_WAIT)(midway=live, token_hash=run.link(a['email'])))
@@ -691,7 +691,7 @@ ROOM = 300  # 준비 몫(초) — 계정 3~4개(각 REST 여러 번) + 로그인
 _NOTICE_RUN = DELIVERY_PREP + APP_BASE + TOKEN_WAIT + CARD_WAIT + NOTICE_WAIT + SETTLE  # 01 · 17 · 29 — 배치 → 카드 → 알림 한 건 확인
 WORST_WAIT = {
     'E-CARD-01': _NOTICE_RUN, 'E-CARD-17': _NOTICE_RUN, 'E-HOME-29': _NOTICE_RUN,
-    'E-CARD-03': DELIVERY_PREP + LIVE_APP_WAIT + TOKEN_WAIT + CARD_WAIT + NOTICE_WAIT,  # 앱이 앞에 선 채(멈춤 600) 중간에 토큰 · 배치 · 알림 없음 지켜보기
+    'E-CARD-03': DELIVERY_PREP + LIVE_APP_WAIT + TOKEN_WAIT + CARD_WAIT + NOTICE_WAIT + SETTLE,  # 앱이 앞에 선 채(멈춤 600) 중간에 토큰 · 배치 · 앞에서 뜬 알림 1건(#503)
     'E-CARD-13': APP_WAIT + CARD_WAIT,  # 앱(멈춤 900) 중간에 배치 → 대조군 카드. 알림 점검 · 토큰 없음
     'E-CARD-18': DELIVERY_PREP + APP_BASE + TOKEN_WAIT + CARD_WAIT + QUIET_WAIT,
     'E-CARD-19': DELIVERY_PREP + APP_BASE + TOKEN_WAIT + CARD_WAIT + NOTICE_WAIT + CARD_WAIT + NOTICE_WAIT + SETTLE,  # 배치 두 번 · 권한 뺀 알림 0 → 준 뒤 알림 1

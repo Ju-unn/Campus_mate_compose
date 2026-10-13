@@ -122,13 +122,14 @@ Finder _bubbleOf(String body) => find.byWidgetPredicate((w) => w is MessageBubbl
 
 Finder _systemOf(String body) => find.byWidgetPredicate((w) => w is SystemMessage && w.body == body);
 
-/// [target] 을 길게 눌러 "이 메시지 신고" 팝업이 뜨는지 — 떴으면 신고하지 않고 닫는다.
-Future<bool> _menuOnLongPress(WidgetTester tester, Finder target) async {
+/// [target] 의 글 [body] 를 길게 눌러 "이 메시지 신고" 팝업이 뜨는지 — 떴으면 신고하지 않고 닫는다.
+Future<bool> _menuOnLongPress(WidgetTester tester, Finder target, String body) async {
   await pumpUntil(tester, target);
   await tester.ensureVisible(target.first);
   await tester.pump();
   // 위젯 가운데가 아니라 안의 글자를 누른다 — MessageBubble 은 줄 폭 전체를 차지하는 Align 이라 가운데는 말풍선 옆 빈 자리다(상대 말풍선은 왼쪽에 붙는다).
-  await tester.longPress(find.descendant(of: target.first, matching: find.byType(Text)).first);
+  // 첫 Text 가 아니라 글 자체 — 상대가 안 읽은 내 말풍선은 첫 Text 가 길게 누르기 밖의 읽음 표시 '1' 이라(#505) 메뉴가 없다고 헛통과한다.
+  await tester.longPress(find.descendant(of: target.first, matching: find.text(body)).first);
   final shown = await appears(tester, find.text(_bubbleMenuLabel), const Duration(seconds: 2)) != null;
   if (shown) {
     Navigator.of(tester.element(find.text(_bubbleMenuLabel))).pop();
@@ -263,7 +264,7 @@ Future<Map<String, Object?>> _suspendedPartnerRoom(WidgetTester tester, Map<Stri
 /// 홈 → 나 탭 → 톱니바퀴 → 설정 → "차단 목록".
 Future<void> _openBlockList(WidgetTester tester) async {
   await arrive(tester, 'home');
-  await tap(tester, _tab('나'));
+  await tap(tester, navTab('나'));
   await pumpUntil(tester, find.byIcon(AppIcons.settings));
   await tap(tester, find.byIcon(AppIcons.settings));
   await arrive(tester, 'settings');
@@ -319,9 +320,10 @@ final Map<String, Area1Case> area3CasesSafe = {
     await _openRoom(tester, job['nickname'] as String);
     await pumpUntil(tester, find.byType(ChatInputBar));
     // 상대 말풍선이 대조군이다 — 거기서 메뉴가 안 뜨면 아래 둘의 "없음" 은 길게 누르기가 안 된 것일 수도 있다.
-    final onTheirs = await _menuOnLongPress(tester, _bubbleOf(job['theirs'] as String));
-    final onMine = await _menuOnLongPress(tester, _bubbleOf(job['mine'] as String));
-    final onSystem = await _menuOnLongPress(tester, _systemOf(job['system'] as String));
+    final theirs = job['theirs'] as String, mine = job['mine'] as String, system = job['system'] as String;
+    final onTheirs = await _menuOnLongPress(tester, _bubbleOf(theirs), theirs);
+    final onMine = await _menuOnLongPress(tester, _bubbleOf(mine), mine);
+    final onSystem = await _menuOnLongPress(tester, _systemOf(system), system);
     return {'menu_on_mine': onMine, 'menu_on_system': onSystem, 'menu_on_theirs': onTheirs};
   }),
   'E-SAFE-06': _session((tester, job) async {
@@ -374,7 +376,7 @@ final Map<String, Area1Case> area3CasesSafe = {
   }),
   'E-SAFE-11': _session((tester, job) async {
     await arrive(tester, 'home');
-    await tap(tester, _tab(_communityTab));
+    await tap(tester, navTab(_communityTab));
     await pumpUntil(tester, find.byType(PollCard));
     final mine = _pollCard(job['own'] as String);
     final theirs = _pollCard(job['question'] as String);

@@ -91,7 +91,7 @@ def _run(run, phone, route, judge, send=fcm_send, creds=credentials):
         if len(rows) != 1:
             raise Blocked(f'이 계정의 기기 토큰이 {len(rows)}개 — 시험 폰 한 대에만 보내야 해서 보내지 않음')
         before = notify.read_notifications(phone.serial)
-        notify.background(phone.serial)  # 앱이 앞에 있으면 배너가 안 뜬다
+        notify.background(phone.serial)  # 뒤에서 FCM 이 띄우는 알림을 본다(#503 뒤 앞이면 앱이 직접 띄운다)
         send(secret, rows[0]['token'], title, BODY, {'route': route})
         new = notify.wait_new(phone.serial, before, seconds=notify.NOTICE_WAIT, match=lambda n: (n.title, n.text) == (title, BODY))
         seen['arrived'] = any((n.title, n.text) == (title, BODY) for n in new)

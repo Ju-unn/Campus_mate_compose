@@ -4,7 +4,7 @@ part of 'area5.dart';
 // 열쇠는 `번호/A`(폰) · `번호/B`(에뮬)이고, 두 앱이 서로 기다리는 순서는 PC 가 `step` 에서 잇는다(e2e/twodev.py).
 // A 는 늘 "정말 영구 삭제" 를 실제로 누른다 — [_twoWithdrawA] 한 곳에서만 area5_wd.dart 의 _wdOpenFinal · _wdWithdraw · _wdToLogin 을 부르고,
 // 거기 닿는 것은 `/A` 다섯뿐이다(e2e/test_area5_two.py 가 고정). B 쪽은 탈퇴 · 나가기 버튼을 누르지 않는다(있는지만 본다).
-// B 는 목록이 처음 읽을 때 굳으므로(area2_two_accept.dart 머리말) 로그아웃한 채 멈췄다가 PC 가 go 에 실어 준 새 토큰으로 로그인한다.
+// B 는 목록이 언제 다시 읽혔는지에 기대지 않으려고(area2_two_accept.dart 머리말) 로그아웃한 채 멈췄다가 PC 가 go 에 실어 준 새 토큰으로 로그인한다.
 // 화면 판정은 앱이 must 로(어긋나면 fail), DB 판정은 PC 가 한다. 이 파일의 이름은 모두 `_two` 로 시작한다.
 // 이 파일은 `flutter analyze` 만 통과했고 기기에서는 아직 안 돌려 봤다.
 
@@ -64,7 +64,7 @@ Future<(bool, String?)> _twoLoginNotice(WidgetTester tester) async {
 /// 오늘 탭을 열어 다 그려질 때까지 — 카드 한 장 또는 빈 안내 글. 안 그려지면 판정할 수 없다(blocked).
 Future<void> _twoOpenToday(WidgetTester tester) async {
   await arrive(tester, 'home');
-  await tap(tester, _tab('오늘'));
+  await tap(tester, navTab('오늘'));
   final drawn = find.byWidgetPredicate((w) =>
       w is DailyCardSummary || (w is Text && (_twoTodayEmpty.contains(w.data) || (w.data ?? '').startsWith('내일 '))));
   if (await appears(tester, drawn, _twoLoadWait) == null) throw E2eBlocked('오늘 탭이 $_twoLoadWait 안에 안 그려짐');
@@ -93,7 +93,7 @@ final Map<String, Area1Case> area5CasesTwo = {
     must(refresh != null, 'B: 로그인했는데 refresh token 이 없음');
     await step('home');
     final go = await step('tap', timeout: _twoLongWait); // A 가 탈퇴한 뒤 — PC 가 B 가 볼 알림을 준다
-    await tap(tester, _tab('나')); // 아무 탭 — 나 탭은 열 때 /me/profile 을 부른다(요청 발생)
+    await tap(tester, navTab('나')); // 아무 탭 — 나 탭은 열 때 /me/profile 을 부른다(요청 발생)
     final (login, notice) = await _twoLoginNotice(tester);
     must(login, 'B: 탭을 누른 뒤 02(로그인 화면)로 안 튕김');
     must(notice == go['notice'], 'B: 02 알림 $notice(기대 ${go['notice']})');
@@ -136,7 +136,7 @@ final Map<String, Area1Case> area5CasesTwo = {
     final nickname = job['nickname'] as String;
     await _twoOpenToday(tester);
     _twoNoTodayCard(tester, nickname);
-    await tap(tester, _tab('대화'));
+    await tap(tester, navTab('대화'));
     final drawn = find.byWidgetPredicate((w) => w is AcceptanceRow || w is ChatListRow || (w is Text && w.data == _twoChatEmpty));
     if (await appears(tester, drawn, _twoLoadWait) == null) throw E2eBlocked('대화 탭이 $_twoLoadWait 안에 안 그려짐');
     await wait(tester, const Duration(seconds: 1));

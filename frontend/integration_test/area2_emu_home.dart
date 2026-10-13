@@ -1,4 +1,3 @@
-import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/home/model/home_summary.dart';
 import 'package:campus_mate/home/view/cohort_wait_view.dart';
@@ -33,8 +32,6 @@ Area1Case _session(Area1Case body) => (tester, job) async {
       if (job['token_hash'] case final String hash) await signIn(hash);
       return body(tester, job);
     };
-
-Finder _tab(String label) => find.descendant(of: find.byType(AppBottomNav), matching: find.text(label));
 
 int _count(Finder finder) => finder.evaluate().length;
 
@@ -98,7 +95,7 @@ final Map<String, Area1Case> area2EmuHomeCases = {
   // 오늘 탭도 같은 대기 화면 — "우리 학교 첫 카드까지" 1개, 카드 목록 0.
   'E-HOME-21': _session((tester, job) async {
     await _waitScreen(tester);
-    await tap(tester, _tab('오늘'));
+    await tap(tester, navTab('오늘'));
     await pumpUntil(tester, find.text(_todayTitle), timeout: const Duration(seconds: 15));
     await pumpUntil(tester, find.textContaining(_cohortLine), timeout: const Duration(seconds: 15));
     must(_count(find.textContaining(_cohortLine)) == 1, '"$_cohortLine" ${_count(find.textContaining(_cohortLine))}개(기대 1)');

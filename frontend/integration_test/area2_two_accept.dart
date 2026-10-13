@@ -2,7 +2,6 @@ import 'package:campus_mate/chat/view/chat_list_row.dart';
 import 'package:campus_mate/chat/view/chat_room_screen.dart';
 import 'package:campus_mate/chat/view/trust_banner.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
-import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/matching/view/acceptance_row.dart';
 import 'package:campus_mate/matching/view/conversations_screen.dart';
 import 'package:campus_mate/matching/view/daily_card_summary.dart';
@@ -22,10 +21,9 @@ import 'support.dart';
 /// 화면 글자는 시나리오가 아니라 지금 화면 코드에서 옮겼다. 알림은 보지 않는다(마지막 묶음).
 /// 이 파일은 `flutter analyze` 만 돌렸고 기기에서는 아직 안 돌려 봤다.
 ///
-/// 목록은 앱이 처음 읽을 때의 서버 상태로 굳는다 — provider 는 로그아웃 때만 비워지고(core/auth/session_scope.dart), 대화 탭 목록은
-/// 앱 복귀 · 푸시 · 당겨서 새로고침 때만 다시 읽히며(10b 에서 신청을 보낸 직후의 보낸 신청은 예외로 처음부터 다시 읽는다),
-/// 'match' 푸시는 수락함만 새로 읽는다(main.dart:154-158). 그래서 서버 쪽 일이 끝난 뒤의 모습을 보는 기기는 로그아웃한 채 멈춰 있다가
-/// PC 가 go 에 실어 준 새 토큰으로 로그인한다([_loginAfter]).
+/// 목록은 이제 저절로 다시 읽힌다 — 대화 탭에 들어올 때마다 세 목록을 다시 읽고, 떠 있는 동안 대화 목록은 폴링(3초, 사용자 채널이 붙으면 30초) ·
+/// 사용자 채널 이벤트로 바뀐다(matching/view/conversations_screen.dart · chat/viewmodel/user_channel.dart). 그래도 서버 쪽 일이 끝난 뒤의 모습을 보는 기기는
+/// 로그아웃한 채 멈춰 있다가 PC 가 go 에 실어 준 새 토큰으로 로그인한다([_loginAfter]) — 다시 읽힌 때에 기대지 않고 그 순간의 서버 상태를 한 번에 읽는다.
 
 const _accept = '대화 신청하기'; // common/widgets/card_action_bar.dart:43
 const _reject = '거절'; // :29 · acceptance_row.dart:65
@@ -41,9 +39,6 @@ const _pausedSwitch = '매칭 활성화'; // matching/view/settings_screen.dart:
 const _longWait = Duration(minutes: 8); // 상대 기기가 일을 끝내기를 기다리는 멈춤(support.step 은 2분까지만 기다린다)
 
 int _count(Finder finder) => finder.evaluate().length;
-
-/// 하단 내비의 탭([label] = 메인 · 오늘 · 커뮤니티 · 대화 · 나).
-Finder _tab(String label) => find.descendant(of: find.byType(AppBottomNav), matching: find.text(label));
 
 Future<void> _signOut() => Supabase.instance.client.auth.signOut(scope: SignOutScope.local);
 
@@ -75,7 +70,7 @@ Future<bool> _gone(WidgetTester tester, Finder finder, Duration within) async {
 /// 홈 → 하단 내비 "대화" 탭(13).
 Future<void> _openChat(WidgetTester tester) async {
   await arrive(tester, 'home');
-  await tap(tester, _tab('대화'));
+  await tap(tester, navTab('대화'));
   await pumpUntil(tester, find.byType(ConversationsScreen), timeout: const Duration(seconds: 15));
 }
 
@@ -154,7 +149,7 @@ Future<void> _expectRoom(WidgetTester tester, String nickname, String who) async
 /// 오늘 탭 → 카드 한 장 → 10b(수락하기 · 거절 버튼이 보일 때까지).
 Future<void> _openCard(WidgetTester tester) async {
   await arrive(tester, 'home');
-  await tap(tester, _tab('오늘'));
+  await tap(tester, navTab('오늘'));
   await pumpUntil(tester, find.byType(DailyCardSummary), timeout: const Duration(seconds: 30));
   must(_count(find.byType(DailyCardSummary)) == 1, '카드 ${_count(find.byType(DailyCardSummary))}장(기대 1)');
   await tap(tester, find.byType(DailyCardSummary));
@@ -191,7 +186,7 @@ bool _on(WidgetTester tester) => tester.widget<SwitchListTile>(_switch).value;
 /// 홈 → 나 탭 → 톱니(설정 16).
 Future<void> _openSettings(WidgetTester tester) async {
   await arrive(tester, 'home');
-  await tap(tester, _tab('나'));
+  await tap(tester, navTab('나'));
   await pumpUntil(tester, find.byTooltip('설정'), timeout: const Duration(seconds: 10));
   await tap(tester, find.byTooltip('설정'));
   await arrive(tester, 'settings', timeout: const Duration(seconds: 10));

@@ -85,7 +85,7 @@ class Base10(PushBase):
         self.deliver = True  # 서버가 푸시를 보내는가(앞이면 배너 없음과 따로)
         self.partner_delivers = True  # 어긋난 서버 — 폰 계정의 방 상대(tok-2)의 알림만 안 간다(알림 길 자체는 살아 있다)
         self.controls = True  # 상대(대조)의 알림은 뜨는가
-        self.show_in_front = False  # 어긋난 앱 — 앞에 있어도 배너를 띄운다
+        self.show_in_front = False  # 앱이 앞(열린 방이 아닌 화면)에 있어도 알림을 띄우는가 — #503 뒤 앱은 띄운다. 이 가짜는 방 안을 모르니 그런 판(30)만 켠다
         self.ignore_switch = False  # 어긋난 서버 — 알림 스위치가 꺼져도 보낸다
         self.granted = True  # 기기의 알림 권한 — 꺼져 있으면 서버가 보내도 알림창에 안 뜬다
         self.sent_at = {}  # 글 → 서버가 찍은 보낸 가짜 시각
@@ -433,31 +433,36 @@ def list_says(**changes):
 
 
 class ListAndTapTest(Base10):
-    def run30(self, said=None, acts=(None, None, None)):
+    def run30(self, said=None, acts=(None, None, None), shows=True):
+        # #503 뒤 앱 — 대화 목록은 열린 방이 아니라 앞에 있어도 알림을 띄운다(shows=False 는 그 전의 앱 · 회귀)
+        self.show_in_front = shows
         phone = Phone10(self.world, list_says() if said is None else said, acts=acts)
         return self.go10('E-CHAT-30', phone), phone
 
-    def test_30_the_partner_sends_while_the_app_stays_on_the_list_and_no_system_notification_pops_up(self):
+    def test_30_the_partner_sends_while_the_app_stays_on_the_list_and_one_system_notification_pops_up_in_front(self):
         result, phone = self.run30()
         self.assertEqual(result[0], 'pass', result)
         self.assertEqual(phone.acts, [])
         self.assertEqual(sorted(phone.jobs[0]), ['body', 'nickname', 'token_hash'])
         self.assertEqual(self.sent_by('tok-2'), [phone.jobs[0]['body']])
         self.assertEqual(self.world.log[self.at('POST chat/')[0] - 1], 'read')  # 앞에 있던 알림을 읽어 둔 바로 뒤에 보낸다
-        self.assertLess(self.at('POST chat/')[0], self.at('background')[0])  # 앱이 앞에 있는 동안 보낸다 — HOME 은 지켜본 뒤 대조 때 한다
-        self.assertIn(('watch', notify.NOTICE_WAIT), self.watched)
+        self.assertNotIn('background', self.world.log)  # 앞에 둔 채 판정 — 온 알림이 푸시 증거라 HOME 대조가 없다
+        self.assertEqual(self.sent_by('tok-3'), [])
+        self.assertIn(('wait', notify.NOTICE_WAIT, True), self.watched)  # 그 글의 알림을 기다린다
+        self.assertIn(('watch', area3_chat_nt.SETTLE), self.watched)  # 온 뒤 한 번 더 오는지 본다
         self.assertIn('ms', result[1])
 
-    def test_30_a_notification_that_pops_up_in_front_is_a_fail_and_needs_no_control(self):
-        self.show_in_front = True
-        result, _ = self.run30()
+    def test_30_no_notification_in_front_is_a_fail_and_needs_no_control(self):
+        result, _ = self.run30(shows=False)
         self.assertEqual(result[0], 'fail', result)
-        self.assertIn('안 와야 할', result[1])
+        self.assertIn('없음', result[1])
         self.assertEqual(self.sent_by('tok-3'), [])
 
-    def test_30_zero_notifications_with_a_dead_path_is_blocked_not_a_pass(self):
-        self.controls = False
-        self.assertEqual(self.run30()[0][0], 'blocked')
+    def test_30_two_notifications_for_the_one_message_is_a_fail(self):
+        self.world.on('POST', '/messages', lambda b, u: [(PARTNER, b['body'])] if self.world.callers[-1][2] == 'tok-2' else [])  # 한 번 더 뜬다
+        result, _ = self.run30()
+        self.assertEqual(result[0], 'fail', result)
+        self.assertIn('2', result[1])
 
     def test_30_a_list_that_did_not_update_by_itself_is_a_fail(self):
         for label, said in (('last line', list_says(last='아직 메시지가 없어요')), ('no badge', list_says(badge=None)),
@@ -820,7 +825,14 @@ class AppSideTest(unittest.TestCase):
         self.assertLessEqual(read, {'nickname', 'body', 'phase', 'token_hash', 'case'})
         self.assertTrue({'nickname', 'body', 'phase'} <= read)
 
-    def test_30_measures_that_it_stayed_in_front_before_the_judged_step_where_the_pc_sends_it_home(self):
+    def test_30_the_list_wait_outlasts_the_30_second_safety_poll_and_matches_the_pc(self):
+        # 사용자 채널이 붙어 있는데 이벤트를 놓치면 목록은 30초 안전망 폴링(conversations_screen.dart conversationsPollSlow)에야 바뀐다
+        found = re.search(r'const _ntListWait = Duration\(seconds: (\d+)\);', self.dart)
+        self.assertIsNotNone(found)
+        self.assertGreaterEqual(int(found.group(1)), 40)
+        self.assertEqual(int(found.group(1)), area3_chat_nt.LIST_WAIT)  # PC 의 시간 상한(WORST)이 같은 값을 센다
+
+    def test_30_measures_that_it_stayed_in_front_before_the_judged_step(self):
         self.assertLess(self.dart.index("'list_front'"), self.dart.index("step('judged'"))
         self.assertLess(self.dart.index("'resumed'"), self.dart.index("step('judged'"))
         self.assertNotIn("'front'", self.dart)

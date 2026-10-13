@@ -194,7 +194,7 @@ def _notified(run, phone, check, verdict):
         if not _until(lambda: _rows(run, f"push_tokens?profile_id=eq.{account['id']}&select=token"), TOKEN_TRIES, 2):
             raise Blocked(f'{TOKEN_TRIES * 2}초 안에 기기 토큰이 서버에 안 올라옴 — 알림 권한 · FCM 확인')
         before = notify.read_notifications(phone.serial)  # 앞에 남은 알림과 섞이지 않게 — 새로 생긴 것만 본다
-        notify.background(phone.serial)  # 앱이 앞에 있으면 배너 없이 화면만 새로 고친다
+        notify.background(phone.serial)  # 뒤에서 FCM 이 띄우는 알림을 본다(#503 뒤 앞이면 앱이 직접 띄우고 화면도 새로 고친다)
         if verdict == 'approved':
             _approve(run, account['id'])
         else:

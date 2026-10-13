@@ -1,4 +1,3 @@
-import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/core/auth/session_scope.dart';
 import 'package:campus_mate/home/model/home_summary.dart';
 import 'package:campus_mate/home/view/cohort_wait_view.dart' show homeNowProvider;
@@ -35,8 +34,6 @@ Area1Case _session(Area1Case body) => (tester, job) async {
     };
 
 Finder _inHome(Finder finder) => find.descendant(of: find.byType(HomeScreen), matching: finder);
-
-Finder _tab(String label) => find.descendant(of: find.byType(AppBottomNav), matching: find.text(label));
 
 int _count(Finder finder) => finder.evaluate().length;
 
@@ -84,10 +81,10 @@ final Map<String, Area1Case> area2dCases = {
   'E-CARD-20': area1Cases['E-ONB-61']!,
   'E-CARD-44': area1Cases['E-ONB-61']!,
   'E-HOME-29': area1Cases['E-ONB-61']!,
-  // 앱이 오늘 탭을 앞에 둔 채 PC 가 배치를 돌린다 — 배너 없이 목록이 저절로 새로 고쳐져 카드가 나타나야 한다.
+  // 앱이 오늘 탭을 앞에 둔 채 PC 가 배치를 돌린다 — 목록이 저절로 새로 고쳐져 카드가 나타나야 한다(알림은 #503 뒤 앞에서도 1건 — PC 가 본다).
   'E-CARD-03': _session((tester, job) async {
     await arrive(tester, 'home');
-    await tap(tester, _tab('오늘'));
+    await tap(tester, navTab('오늘'));
     await pumpUntil(tester, find.text(_todayTitle), timeout: const Duration(seconds: 15));
     await wait(tester, const Duration(seconds: 4)); // 첫 조회가 끝나기를
     if (_count(find.byType(DailyCardSummary)) != 0) throw E2eBlocked('준비가 틀림: 배치 전인데 카드가 이미 있음');
@@ -101,7 +98,7 @@ final Map<String, Area1Case> area2dCases = {
     await arrive(tester, 'home');
     await wait(tester, const Duration(seconds: 2));
     await _longStep('batch', const Duration(minutes: 15));
-    await tap(tester, _tab('오늘'));
+    await tap(tester, navTab('오늘'));
     await pumpUntil(tester, find.text(_noCandidates), timeout: const Duration(seconds: 30));
     must(_count(find.text(_noCandidates)) == 1, '"$_noCandidates" ${_count(find.text(_noCandidates))}개');
     must(_count(find.byType(DailyCardSummary)) == 0, '후보가 없는데 카드가 보임');

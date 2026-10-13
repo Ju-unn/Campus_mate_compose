@@ -992,29 +992,31 @@ class Front80Test(GateBase):
     def front(self, **kw):
         return {'result': 'pass', 'list': True, 'row': True, 'screen': ['conversations'], **kw}
 
-    def setUp(self):
-        super().setUp()
-        self.world.hide = True  # 앞에 있는 앱은 배너를 안 띄운다(서버는 보냈다)
+    # #503 뒤 앱은 앞(대화 목록 — 열린 방이 아님)에 있어도 서버가 보낸 리마인드를 시스템 알림으로 띄운다 — world.hide 는 기본 False(뜬다)
 
-    def test_80_with_the_app_in_front_no_banner_then_a_control_message_in_the_back_and_the_list_stays(self):
+    def test_80_with_the_app_in_front_the_reminder_pops_up_once_and_the_list_stays(self):
         phone = self.phone(self.front())
         result = self.go('E-PUSH-80', phone)
         self.assertEqual(result[0], 'pass', result)
-        self.assertEqual(self.reminders(), [])
-        self.assertTrue(self.control_arrived())
+        self.assertEqual(len(self.reminders()), 1)
+        self.assertFalse(self.control_arrived())  # 온 리마인드가 길이 살아 있다는 증거라 대조가 없다
         self.assertEqual(phone.jobs[0]['nickname'], PARTNER)
-        self.assertIn('서버 발송', result[1])  # 앞에서는 배너가 없다는 것만 확인 — 서버가 보냈는지는 응답을 못 읽음
+        self.assertIn('#503', result[1])
 
-    def test_80_the_app_stays_in_front_for_the_batch_and_the_watch_then_goes_back_for_the_control_and_returns(self):
+    def test_80_the_app_stays_in_front_for_the_batch_and_the_reminder_and_never_goes_back(self):
         self.go('E-PUSH-80')
-        self.assertEqual(self.log, ['grant', 'batch', 'background', 'front', 'revoke'])
-        self.assertLess(self.batch_at(), self.at('POST', '/messages'))  # 대조 메시지는 배치 뒤
+        self.assertEqual(self.log, ['grant', 'batch', 'revoke'])  # 뒤로 · 앞으로 없음
+        self.assertIn(('none', gate.SETTLE), self.windows)  # 온 뒤 같은 리마인드가 또 오는지 더 본다
 
-    def test_80_a_banner_while_the_app_is_in_front_is_a_fail(self):
-        self.world.hide = False
+    def test_80_no_reminder_in_front_with_a_stamped_anchor_is_a_fail(self):
+        self.world.hide = True  # 배치는 돌았는데 앞에서 안 뜬다(#503 이전 앱 · 회귀)
         result = self.go('E-PUSH-80', self.phone(self.front()))
         self.assertEqual(result[0], 'fail')
-        self.assertIn('안 와야 할 알림', result[1])
+        self.assertIn(TITLE, result[1])
+
+    def test_80_two_reminders_in_front_is_a_fail(self):
+        self.world.duplicate = True
+        self.assertEqual(self.go('E-PUSH-80', self.phone(self.front()))[0], 'fail')
 
     def test_80_a_list_that_vanished_is_a_fail(self):
         self.assertEqual(self.go('E-PUSH-80', self.phone(self.front(list=False)))[0], 'fail')
@@ -1024,17 +1026,11 @@ class Front80Test(GateBase):
         self.assertEqual(result[0], 'fail')
         self.assertIn(PARTNER, result[1])
 
-    def test_80_no_stamp_is_blocked_before_judging_silence(self):
+    def test_80_no_reminder_and_no_stamp_is_blocked(self):
         self.world.gate_on = False
         result = self.go('E-PUSH-80')
         self.assertEqual(result[0], 'blocked')
         self.assertIn('배치가 돈 것 같지 않아', result[1])
-
-    def test_80_a_control_message_that_never_arrives_is_blocked(self):
-        self.world.permitted = lambda: not any(s['path'].endswith('/messages') for s in self.world.sent)
-        result = self.go('E-PUSH-80')
-        self.assertEqual(result[0], 'blocked')
-        self.assertIn('대조 알림', result[1])
 
 
 # ── 배치를 부른 뒤의 fail 은 다시 안 돈다 ───────────────────────────────────────────────────────────
@@ -1046,7 +1042,7 @@ FAIL_AFTER_BATCH = {
     'E-PUSH-40': {'hide': True}, 'E-PUSH-41': {'bug': 'remind_all'}, 'E-PUSH-42': {'hide': True, 'says': SKIPPED_42},
     'E-PUSH-43': {'bug': 'ignore_switch'}, 'E-PUSH-44': {'bug': 'remind_all', 'now': TUE(7, 20)}, 'E-PUSH-45': {'bug': 'remind_all'},
     'E-PUSH-46': {'hide': True}, 'E-PUSH-47': {'bug': 'ignore_left'}, 'E-PUSH-48': {'bug': 'no_close'},
-    'E-PUSH-79': {'hide': True}, 'E-PUSH-80': {'hide': False, 'says': FRONT_80},  # 앞에 있는 앱에 배너가 뜬 서버
+    'E-PUSH-79': {'hide': True}, 'E-PUSH-80': {'hide': True, 'says': FRONT_80},  # 앞에 있는 앱에 리마인드가 안 뜬 경우(#503 뒤엔 떠야 한다)
 }
 
 

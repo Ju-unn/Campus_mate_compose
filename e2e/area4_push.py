@@ -89,7 +89,7 @@ class _Scene:
             return
         if not _wait_for(lambda: _rows(run, f"push_tokens?profile_id=eq.{self.me['id']}&select=token"), TOKEN_WAIT):
             raise Blocked(f'{TOKEN_WAIT}초 안에 기기 토큰이 서버에 안 올라옴 — 알림 권한 · FCM 확인')
-        notify.background(phone.serial)  # 앱이 앞에 있으면 배너가 안 뜬다
+        notify.background(phone.serial)  # 뒤에서 FCM 이 띄우는 길을 본다(#503 뒤 앞이면 앱이 직접 띄운다 — 그 길은 area4_push_front)
         self.ready = True
 
     @property
