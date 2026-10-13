@@ -2,6 +2,9 @@
 import hashlib
 import json
 import logging
+import pathlib
+import subprocess
+import sys
 from datetime import datetime, timedelta
 
 import httpx
@@ -171,3 +174,111 @@ def test_purge_removes_records_past_retention_and_test_purchases_of_deleted_acco
     cutoff = (NOW - timedelta(days=5 * 365 + 2)).isoformat()
     assert delete.url.params["or"] == f"(purchased_at.lt.{cutoff},and(is_test.is.true,profile_id.is.null))"
     assert delete.headers["Prefer"] == "return=representation"
+
+
+# 진단 로그 ----------------------------------------------------------------------------------------
+# 운영에서 "콘솔에선 환불됐는데 회수가 안 된다"를 가르는 INFO 줄. 구매 토큰 · 토큰 해시 · profile_id · 액세스 토큰은 남기지 않는다.
+
+START_ISO = "2026-10-06T15:15:00+09:00"  # NOW - 7일
+ORDER = "GPA.3312-3456-7890-12345"
+VOIDED_AT, VOIDED_ISO = "1791868800000", "2026-10-13T14:20:00+09:00"
+BOUGHT_AT, BOUGHT_ISO = "1791680700000", "2026-10-11T10:05:00+09:00"
+
+
+def _infos(caplog, prefix: str) -> list[str]:
+    return [r.getMessage() for r in caplog.records if r.levelno == logging.INFO and r.getMessage().startswith(prefix)]
+
+
+def _assert_no_secrets(caplog, *tokens: str):
+    for secret in (*tokens, *map(_sha, tokens), A, "play-access-token", "id-token"):
+        assert secret not in caplog.text, secret
+
+
+@pytest.mark.parametrize("page, keys", [
+    ({}, "[]"),
+    # 항목 없이 쪽 정보만 오는 답 — 형식이 다른 답인지 키 이름으로 가린다
+    ({"pageInfo": {"totalResults": 0}, "tokenPagination": {}}, "['pageInfo', 'tokenPagination']"),
+])
+def test_log_nothing_voided_gives_zero_counts_the_window_start_and_the_response_keys(scheduler, caplog, page, keys):
+    caplog.set_level(logging.INFO)
+    test_client, _ = _wire([page])
+
+    assert _run(test_client).json() == {"voided": 0, "refunded": 0, "already_refunded": 0, "unknown": 0, "purged": 0}
+    assert _infos(caplog, "환불 회수 배치") == [
+        f"환불 회수 배치 voided=0 matched=0 refunded=0 skipped=0 startTime={START_ISO}"]
+    assert _infos(caplog, "구글 무효 목록 응답") == [f"구글 무효 목록 응답 keys={keys} voidedPurchases=0"]
+    assert _infos(caplog, "환불 회수 항목") == []
+
+
+def test_log_a_clawed_back_purchase_with_only_safe_fields(scheduler, caplog):
+    caplog.set_level(logging.INFO)
+    item = {"kind": "androidpublisher#voidedPurchase", "purchaseToken": T1, "orderId": ORDER,
+            "purchaseTimeMillis": BOUGHT_AT, "voidedTimeMillis": VOIDED_AT, "voidedSource": 1, "voidedReason": 0}
+    refunds = {_sha(T1): {"result": "refunded", "profile_id": A, "clawed_back": 50, "shortfall": 0}}
+    test_client, _ = _wire([{"voidedPurchases": [item]}], refunds)
+
+    assert _run(test_client).json() == {"voided": 1, "refunded": 1, "already_refunded": 0, "unknown": 0, "purged": 0}
+    assert _infos(caplog, "환불 회수 배치") == [
+        f"환불 회수 배치 voided=1 matched=1 refunded=1 skipped=0 startTime={START_ISO}"]
+    assert _infos(caplog, "구글 무효 목록 응답") == ["구글 무효 목록 응답 keys=['voidedPurchases'] voidedPurchases=1"]
+    assert _infos(caplog, "환불 회수 항목") == [
+        f"환불 회수 항목 orderId=GPA.3312-345 voidedTime={VOIDED_ISO} purchaseTime={BOUGHT_ISO} "
+        "voidedSource=1 voidedReason=0 result=refunded"]
+    assert ORDER not in caplog.text
+    _assert_no_secrets(caplog, T1)
+
+
+def test_log_unmatched_and_already_refunded_purchases_count_as_skipped(scheduler, caplog):
+    caplog.set_level(logging.INFO)
+    page = {"voidedPurchases": [
+        {"purchaseToken": T2, "orderId": "GPA.2", "voidedTimeMillis": VOIDED_AT, "voidedSource": 0, "voidedReason": 1},
+        {"purchaseToken": T3, "orderId": "GPA.3", "voidedTimeMillis": VOIDED_AT, "voidedSource": 2, "voidedReason": 8},
+    ]}
+    refunds = {_sha(T2): {"result": "unknown"}, _sha(T3): {"result": "already_refunded"}}
+    test_client, _ = _wire([page], refunds)
+
+    assert _run(test_client).json() == {"voided": 2, "refunded": 0, "already_refunded": 1, "unknown": 1, "purged": 0}
+    # matched = DB 에 그 영수증이 있었다(회수 · 이미 회수). skipped = 할 일이 없었다(이미 회수 · DB 에 없음)
+    assert _infos(caplog, "환불 회수 배치") == [
+        f"환불 회수 배치 voided=2 matched=1 refunded=0 skipped=2 startTime={START_ISO}"]
+    assert _infos(caplog, "환불 회수 항목") == [
+        f"환불 회수 항목 orderId=GPA.2 voidedTime={VOIDED_ISO} purchaseTime=- voidedSource=0 voidedReason=1 result=unknown",
+        f"환불 회수 항목 orderId=GPA.3 voidedTime={VOIDED_ISO} purchaseTime=- voidedSource=2 voidedReason=8 "
+        "result=already_refunded",
+    ]
+    _assert_no_secrets(caplog, T2, T3)
+
+
+def test_log_lists_at_most_ten_items_but_counts_them_all(scheduler, caplog):
+    caplog.set_level(logging.INFO)
+    tokens = [f"voided-token-many-{n}" for n in range(12)]
+    page = {"voidedPurchases": [{"purchaseToken": t, "orderId": f"GPA.{n}"} for n, t in enumerate(tokens)]}
+    test_client, _ = _wire([page], {_sha(t): {"result": "unknown"} for t in tokens})
+
+    assert _run(test_client).json()["unknown"] == 12
+    items = _infos(caplog, "환불 회수 항목")
+    assert [line.split()[3] for line in items] == [f"orderId=GPA.{n}" for n in range(10)]
+    assert _infos(caplog, "환불 회수 배치") == [
+        f"환불 회수 배치 voided=12 matched=0 refunded=0 skipped=12 startTime={START_ISO}"]
+    _assert_no_secrets(caplog, *tokens)
+
+
+def test_log_a_missing_or_odd_field_does_not_break_the_batch(scheduler, caplog):
+    caplog.set_level(logging.INFO)
+    page = {"voidedPurchases": [{"purchaseToken": T1, "voidedTimeMillis": "not-a-number"}]}
+    test_client, _ = _wire([page], {_sha(T1): {"result": "unknown"}})
+
+    response = _run(test_client)
+
+    assert response.status_code == 200 and response.json()["unknown"] == 1
+    assert _infos(caplog, "환불 회수 항목") == [
+        "환불 회수 항목 orderId=- voidedTime=- purchaseTime=- voidedSource=None voidedReason=None result=unknown"]
+
+
+def test_billing_info_logs_reach_stderr_in_a_fresh_process():
+    """운영(uvicorn)은 루트 로거에 핸들러가 없고 수준이 WARNING 이라 INFO 가 버려진다. 새 프로세스에서 실제로 찍히는지 본다."""
+    code = ("from app.billing import batch_router, play; "
+            "batch_router.logger.info('batch-probe'); play.logger.info('play-probe')")
+    backend = pathlib.Path(__file__).resolve().parents[2]
+    done = subprocess.run([sys.executable, "-c", code], cwd=backend, capture_output=True, text=True, timeout=60)
+    assert "batch-probe" in done.stderr and "play-probe" in done.stderr, done.stderr
