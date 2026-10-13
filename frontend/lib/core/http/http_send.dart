@@ -6,12 +6,21 @@ import 'package:campus_mate/common/result.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+/// 응답이 끝내 오지 않는 조회(GET)를 [NetworkFailure] 로 끊는 시간. 와이파이 ↔ LTE 전환 · 앱이 잠든 사이 끊긴
+/// 연결에 나간 요청은 실패도 성공도 없이 영영 기다릴 수 있다 — 그러면 읽는 중 합치기(`_inFlight`)를 쓰는 뷰모델은
+/// 앱을 껐다 켤 때까지 폴링 · 탭 진입 · 복귀 · 푸시 갱신을 모두 그 요청에 묶는다(10-13 아이폰 대화 목록이 멈춤).
+/// 앱 GET 의 지난 30일 최장 응답이 11.6초(Cloud Run 콜드 스타트)라 그보다 넉넉히 둔다.
+/// 쓰기는 끊지 않는다 — 아바타 생성(POST)은 60초까지 걸리고, 메시지 보내기는 끊었다 다시 보내면 두 번 갈 수 있다.
+const Duration readTimeout = Duration(seconds: 15);
+
 /// 모든 기능의 HTTP Repository(인증·온보딩·매칭)가 공유하는 요청-전송·상태코드 분류.
-/// 네트워크 예외(연결 실패)와 비정상 응답 바디(파싱 실패)를 모두 [Failure] 로 감싸
+/// 네트워크 예외(연결 실패 · 조회 시간 초과)와 비정상 응답 바디(파싱 실패)를 모두 [Failure] 로 감싸
 /// [Result] 를 벗어나 예외가 그대로 튀는 일이 없게 한다.
 Future<Result<http.Response>> sendHttpRequest(http.Client client, http.BaseRequest request) async {
   try {
-    final response = await http.Response.fromStream(await client.send(request));
+    final pending = client.send(request).then(http.Response.fromStream);
+    // TimeoutException 도 Exception 이라 아래에서 NetworkFailure 가 된다.
+    final response = await (request.method == 'GET' ? pending.timeout(readTimeout) : pending);
     return _classify(response);
   } on Exception catch (_) {
     return const FailureResult(NetworkFailure());
