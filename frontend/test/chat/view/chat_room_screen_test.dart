@@ -445,7 +445,28 @@ void main() {
       await pump(tester);
     }
 
+    Finder bubbleOf(String body) => find.widgetWithText(MessageBubble, body);
     Finder unreadMarks() => find.text('1');
+
+    testWidgets('hDNbq 같은 분 3개를 모두 안 읽었으면 말풍선마다 1, 시각은 마지막에만, 사이 4', (tester) async {
+      await pumpRead(tester, const PartnerRead.known(null));
+
+      expect(unreadMarks(), findsNWidgets(3));
+      for (final body in lines) {
+        expect(find.descendant(of: bubbleOf(body), matching: unreadMarks()), findsOneWidget, reason: body);
+      }
+      expect(find.text('오후 2:15'), findsOneWidget);
+      expect(find.descendant(of: bubbleOf(lines.last), matching: find.text('오후 2:15')), findsOneWidget);
+      final rects = [for (final body in lines) tester.getRect(bubbleOf(body))];
+      expect([rects[1].top - rects[0].bottom, rects[2].top - rects[1].bottom], [4, 4]);
+    });
+
+    testWidgets('Kq8Vr 앞 2개는 읽고 마지막 1개만 안 읽었으면 마지막에만 1', (tester) async {
+      await pumpRead(tester, PartnerRead.known(at.add(const Duration(seconds: 15))));
+
+      expect(unreadMarks(), findsOneWidget);
+      expect(find.descendant(of: bubbleOf(lines.last), matching: unreadMarks()), findsOneWidget);
+    });
 
     testWidgets('MNWTN 모두 읽었으면 1 이 하나도 없다', (tester) async {
       await pumpRead(tester, PartnerRead.known(at.add(const Duration(minutes: 1))));
@@ -488,6 +509,47 @@ void main() {
       repository.holdSend!.complete();
       await tester.pumpAndSettle();
       expect(unreadMarks(), findsNothing);
+    });
+
+    testWidgets('5초 확인에서 상대가 읽었으면 1 이 바로 사라진다(애니메이션 없음)', (tester) async {
+      await pumpRead(tester, const PartnerRead.known(null));
+      expect(unreadMarks(), findsNWidgets(3));
+
+      repository.partnerReadResult = Success(PartnerRead.known(at.add(const Duration(minutes: 1))));
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pump();
+
+      expect(unreadMarks(), findsNothing);
+    });
+
+    testWidgets('앱이 백그라운드에 있는 동안은 묻지 않고, 돌아오면 바로 묻는다', (tester) async {
+      await pumpRead(tester, const PartnerRead.known(null));
+      for (final state in [AppLifecycleState.inactive, AppLifecycleState.hidden, AppLifecycleState.paused]) {
+        tester.binding.handleAppLifecycleStateChanged(state);
+      }
+
+      await tester.pump(const Duration(seconds: 20));
+      expect(repository.partnerReadFetchCount, 0);
+
+      for (final state in [AppLifecycleState.hidden, AppLifecycleState.inactive, AppLifecycleState.resumed]) {
+        tester.binding.handleAppLifecycleStateChanged(state);
+      }
+      await tester.pump();
+      expect(repository.partnerReadFetchCount, greaterThanOrEqualTo(1));
+    });
+
+    testWidgets('다른 화면이 방을 덮으면 멈추고, 돌아오면 바로 묻는다', (tester) async {
+      await pumpRead(tester, const PartnerRead.known(null));
+      unawaited(Navigator.of(tester.element(find.byType(ChatRoomScreen)))
+          .push(MaterialPageRoute<void>(builder: (_) => const Scaffold(body: Text('상대 프로필')))));
+      await tester.pumpAndSettle();
+
+      await tester.pump(const Duration(seconds: 20));
+      expect(repository.partnerReadFetchCount, 0);
+
+      Navigator.of(tester.element(find.text('상대 프로필'))).pop();
+      await tester.pumpAndSettle();
+      expect(repository.partnerReadFetchCount, 1);
     });
   });
 }

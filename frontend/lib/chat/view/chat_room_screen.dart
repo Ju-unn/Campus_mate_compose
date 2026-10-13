@@ -47,6 +47,9 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
   final ScrollController _scroll = ScrollController();
   late final ChatRepository _repository;
   late final ConversationsViewModel _conversations;
+
+  /// 이 화면이 살아 있는 동안 계속 지켜보므로(build 의 watch) 같은 인스턴스다. 닫을 때 쓰려고 잡아 둔다.
+  late final ChatRoomViewModel _viewModel;
   late final AppLifecycleListener _lifecycle;
   bool _sheetShown = false;
 
@@ -57,15 +60,38 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
   /// 차단 요청이 실패했을 때 입력 바 위에 띄우는 한 줄. 이 한 줄뿐이라 뷰모델을 따로 두지 않는다.
   String? _safetyError;
 
+  /// 방이 실제로 보이는가 = 앱이 앞에 있고(hide/show) 이 방 위를 다른 화면이 덮지 않았다.
+  /// 안 보이는 동안 상대 읽음을 묻지 않고 읽음도 찍지 않는다(카톡식 '1', [ChatRoomViewModel.setVisible]).
+  bool _appShown = true;
+  bool _routeOnTop = true;
+
   @override
   void initState() {
     super.initState();
     // 화면을 닫는 순간에는 ref 를 쓸 수 없어 미리 잡아 둔다.
     _repository = ref.read(chatRepositoryProvider);
     _conversations = ref.read(conversationsViewModelProvider.notifier);
+    _viewModel = ref.read(chatRoomViewModelProvider(widget.matchId).notifier);
     _scroll.addListener(_loadMoreAtTop);
     // 백그라운드에 있는 동안 온 메시지는 구독으로 오지 않는다 — 돌아오면 다시 읽는다(백로그 18).
-    _lifecycle = AppLifecycleListener(onResume: _reconnect);
+    _lifecycle = AppLifecycleListener(
+      onResume: _reconnect,
+      onHide: () => _syncVisible(appShown: false),
+      onShow: () => _syncVisible(appShown: true),
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 위에 화면(상대 프로필 · 시트 · 다이얼로그)이 올라오고 내려갈 때마다 다시 불린다.
+    _syncVisible(routeOnTop: ModalRoute.isCurrentOf(context) ?? true);
+  }
+
+  void _syncVisible({bool? appShown, bool? routeOnTop}) {
+    _appShown = appShown ?? _appShown;
+    _routeOnTop = routeOnTop ?? _routeOnTop;
+    _viewModel.setVisible(_appShown && _routeOnTop);
   }
 
   @override
@@ -73,6 +99,8 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
     _reminderTimer?.cancel();
     _lifecycle.dispose();
     _scroll.dispose();
+    // 방을 나가면 상대 읽음 확인 · 읽음 묶음을 바로 멈춘다 — 뷰모델이 버려지기를 기다리지 않는다.
+    _viewModel.setVisible(false);
     // 나갈 때 한 번 더 읽음을 찍는다(ERD §4) — 방에서 본 것이 목록에 안 읽은 채로 남지 않게.
     unawaited(_repository.markRead(widget.matchId).then((_) => _conversations.refresh()));
     super.dispose();
@@ -86,9 +114,6 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
   }
 
   DateTime _now() => ref.read(chatRoomNowProvider)();
-
-  ChatRoomViewModel get _viewModel =>
-      ref.read(chatRoomViewModelProvider(widget.matchId).notifier);
 
   void _reconnect() {
     if (mounted) {

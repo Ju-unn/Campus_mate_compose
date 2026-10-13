@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:campus_mate/chat/model/chat_repository.dart';
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
+import 'package:campus_mate/chat/model/chat_room.dart';
 import 'package:campus_mate/chat/model/message.dart';
 import 'package:campus_mate/chat/viewmodel/chat_room_ui_state.dart';
 import 'package:campus_mate/chat/viewmodel/chat_room_view_model.dart';
@@ -673,6 +674,195 @@ void main() {
 
       expect(repository.roomFetchCount, 2);
       expect(read(container).isPartnerGone, isTrue);
+    });
+  });
+
+  // 카톡식 '1'(사용자 결정 10-13). 5초 확인과 읽음 묶음은 시계가 아니라 Timer 로 돈다 —
+  // testWidgets 의 가짜 시간으로 5초를 실제로 기다리지 않고 넘긴다.
+  group('상대 읽음 확인과 읽음 묶음', () {
+    final sentAt = DateTime(2026, 10, 13, 14, 15);
+    final readAfter = PartnerRead.known(sentAt.add(const Duration(seconds: 1)));
+    Message mine([String id = 'mine-1']) => messageFixture(id: id, senderId: myId, createdAt: sentAt);
+    Message theirs(String id) => messageFixture(id: id, createdAt: sentAt);
+
+    /// 방을 열고 첫 페이지까지 들어오게 한다. 시험 끝에 컨테이너를 닫아 남은 Timer 를 지운다.
+    Future<ProviderContainer> openRoom(WidgetTester tester, {List<Message>? messages}) async {
+      repository.room = Success(roomFixture(partnerRead: const PartnerRead.known(null)));
+      repository.messages = Success(MessagePage(messages: messages ?? [mine()], hasMore: false));
+      final container = ProviderContainer(overrides: [
+        chatRepositoryProvider.overrideWithValue(repository),
+        messageStreamProvider.overrideWithValue(stream),
+      ]);
+      addTearDown(container.dispose);
+      container.listen(chatRoomViewModelProvider('m1'), (_, _) {});
+      await tester.pump();
+      await tester.pump();
+      return container;
+    }
+
+    ChatRoomUiState stateOf(ProviderContainer container) => container.read(chatRoomViewModelProvider('m1'));
+    ChatRoomViewModel viewModelOf(ProviderContainer container) =>
+        container.read(chatRoomViewModelProvider('m1').notifier);
+    bool hasUnread(ProviderContainer container) =>
+        stateOf(container).messages.any(stateOf(container).isUnreadByPartner);
+
+    testWidgets('방이 보이는 동안 5초마다 상대 읽음을 묻고, 읽었으면 1 이 사라진다', (tester) async {
+      final container = await openRoom(tester);
+      expect(hasUnread(container), isTrue);
+
+      await tester.pump(const Duration(seconds: 4));
+      expect(repository.partnerReadFetchCount, 0);
+      repository.partnerReadResult = Success(readAfter);
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(repository.partnerReadFetchCount, 1);
+      expect(hasUnread(container), isFalse);
+      container.dispose();
+    });
+
+    testWidgets('메시지 목록은 건드리지 않고 방 머리말도 다시 읽지 않는다', (tester) async {
+      final container = await openRoom(tester);
+      final pagesBefore = repository.pages.length;
+
+      await tester.pump(const Duration(seconds: 10));
+
+      expect((repository.partnerReadFetchCount, repository.pages.length, repository.roomFetchCount), (2, pagesBefore, 1));
+      container.dispose();
+    });
+
+    testWidgets('안 읽은 내 줄이 없으면 묻지 않는다', (tester) async {
+      final container = await openRoom(tester, messages: [theirs('t1')]);
+
+      await tester.pump(const Duration(seconds: 15));
+
+      expect(repository.partnerReadFetchCount, 0);
+      container.dispose();
+    });
+
+    testWidgets('앞 확인이 안 끝났으면 겹쳐 부르지 않는다', (tester) async {
+      final container = await openRoom(tester);
+      repository.holdPartnerRead = Completer<void>();
+
+      await tester.pump(const Duration(seconds: 15));
+      expect(repository.partnerReadFetchCount, 1);
+
+      repository.holdPartnerRead!.complete();
+      await tester.pump(const Duration(seconds: 5));
+      expect(repository.partnerReadFetchCount, 2);
+      container.dispose();
+    });
+
+    testWidgets('확인이 실패하면 조용히 넘어가고 떠 있던 오류 줄도 그대로 둔다', (tester) async {
+      final container = await openRoom(tester);
+      repository.sendResult = const FailureResult(NetworkFailure());
+      await viewModelOf(container).send('안녕');
+      final error = stateOf(container).errorMessage;
+      expect(error, isNotNull);
+
+      repository.partnerReadResult = const FailureResult(NetworkFailure());
+      await tester.pump(const Duration(seconds: 5));
+      expect((stateOf(container).errorMessage, hasUnread(container)), (error, true));
+
+      repository.partnerReadResult = Success(readAfter);
+      await tester.pump(const Duration(seconds: 5));
+      expect((stateOf(container).errorMessage, hasUnread(container)), (error, false));
+      container.dispose();
+    });
+
+    testWidgets('늦게 도착한 옛 읽음 값이 새 값을 덮어 1 을 되살리지 않는다', (tester) async {
+      final container = await openRoom(tester);
+      repository.partnerReadResult = Success(readAfter);
+      await tester.pump(const Duration(seconds: 5));
+      expect(hasUnread(container), isFalse);
+
+      // 재연결이 읽은 머리말 · 첫 페이지가 그보다 이른 값(한 번도 안 읽음)을 들고 왔다.
+      repository.room = Success(roomFixture(partnerRead: const PartnerRead.known(null)));
+      repository.messages = Success(MessagePage(messages: [mine()], hasMore: false, partnerRead: const PartnerRead.known(null)));
+      await viewModelOf(container).reconnect();
+
+      expect(hasUnread(container), isFalse);
+      container.dispose();
+    });
+
+    testWidgets('안 보이면(백그라운드 · 다른 화면) 멈추고, 다시 보이면 바로 한 번 묻고 이어 간다', (tester) async {
+      final container = await openRoom(tester);
+      viewModelOf(container).setVisible(false);
+
+      await tester.pump(const Duration(seconds: 20));
+      expect(repository.partnerReadFetchCount, 0);
+
+      viewModelOf(container).setVisible(true);
+      await tester.pump();
+      expect(repository.partnerReadFetchCount, 1);
+
+      await tester.pump(const Duration(seconds: 5));
+      expect(repository.partnerReadFetchCount, 2);
+      container.dispose();
+    });
+
+    testWidgets('방을 닫으면 확인이 멈춘다', (tester) async {
+      final container = await openRoom(tester);
+      container.dispose();
+
+      await tester.pump(const Duration(seconds: 20));
+
+      expect(repository.partnerReadFetchCount, 0);
+    });
+
+    testWidgets('방을 보는 동안 받은 상대 줄은 읽음으로 찍되 3초에 한 번으로 묶는다', (tester) async {
+      final container = await openRoom(tester);
+      expect(repository.readCount, 1);
+
+      stream.push(theirs('t1'));
+      await tester.pump();
+      expect(repository.readCount, 2);
+
+      stream.push(theirs('t2'));
+      await tester.pump(const Duration(milliseconds: 500));
+      stream.push(theirs('t3'));
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(repository.readCount, 2);
+
+      await tester.pump(const Duration(seconds: 2));
+      expect(repository.readCount, 3);
+
+      await tester.pump(const Duration(seconds: 10));
+      expect(repository.readCount, 3);
+      container.dispose();
+    });
+
+    testWidgets('내 줄이 돌아올 때는 읽음을 찍지 않는다', (tester) async {
+      final container = await openRoom(tester);
+
+      stream.push(mine('mine-2'));
+      await tester.pump(const Duration(seconds: 5));
+
+      expect(repository.readCount, 1);
+      container.dispose();
+    });
+
+    testWidgets('안 보이는 동안 온 상대 줄은 찍지 않고, 다시 보이면 찍는다', (tester) async {
+      final container = await openRoom(tester);
+      viewModelOf(container).setVisible(false);
+
+      stream.push(theirs('t1'));
+      await tester.pump(const Duration(seconds: 5));
+      expect(repository.readCount, 1);
+
+      viewModelOf(container).setVisible(true);
+      await tester.pump();
+      expect(repository.readCount, 2);
+      container.dispose();
+    });
+
+    testWidgets('다시 연결하면(앱 복귀 · 다시 시도) 읽음을 찍는다', (tester) async {
+      final container = await openRoom(tester);
+
+      await viewModelOf(container).reconnect();
+      await tester.pump();
+
+      expect(repository.readCount, 2);
+      container.dispose();
     });
   });
 }
