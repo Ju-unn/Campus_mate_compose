@@ -50,7 +50,7 @@ final Map<String, Area1Case> _pushGateCases = {
   'E-PUSH-80': _session((tester, job) async {
     final nickname = job['nickname'] as String;
     await arrive(tester, 'home');
-    await tap(tester, _tab('대화'));
+    await tap(tester, navTab('대화'));
     await pumpUntil(tester, _gateRow(nickname));
     await step('front', timeout: _gateLongStep); // PC: 배치 → 앞에서 60초 0개 → 뒤로 → 대조 → 다시 앞으로
     await wait(tester, const Duration(seconds: 2)); // 앞으로 돌아와 목록이 다시 그려질 틈

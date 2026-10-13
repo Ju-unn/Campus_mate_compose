@@ -1,9 +1,19 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
+import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+/// 하단 내비 — 5개 탭 화면은 유리 알약([GlassBottomNav], #507), 카드 상세만 [AppBottomNav]. 둘 중 어느 것이든 찾는다.
+/// "내비가 없다" 도 이것으로 본다 — 한쪽만 보면 다른 쪽이 떠 있어도 없다고 헛통과한다.
+Finder get bottomNav =>
+    find.byWidgetPredicate((w) => w is GlassBottomNav || w is AppBottomNav, description: '하단 내비(유리 · 옛)');
+
+/// 하단 내비의 탭 글자([label] = 메인 · 오늘 · 커뮤니티 · 대화 · 나). 두 내비의 탭 글자는 같다.
+Finder navTab(String label) => find.descendant(of: bottomNav, matching: find.text(label));
 
 /// PC 우편함(e2e/tools.py Hub). 기기 쪽은 늘 127.0.0.1:8765 — `adb reverse` 가 PC 의 기기별 포트로 잇는다.
 final _hub = Uri.parse('http://127.0.0.1:8765');

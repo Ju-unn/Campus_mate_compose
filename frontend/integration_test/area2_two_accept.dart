@@ -2,7 +2,6 @@ import 'package:campus_mate/chat/view/chat_list_row.dart';
 import 'package:campus_mate/chat/view/chat_room_screen.dart';
 import 'package:campus_mate/chat/view/trust_banner.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
-import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/matching/view/acceptance_row.dart';
 import 'package:campus_mate/matching/view/conversations_screen.dart';
 import 'package:campus_mate/matching/view/daily_card_summary.dart';
@@ -42,9 +41,6 @@ const _longWait = Duration(minutes: 8); // 상대 기기가 일을 끝내기를 
 
 int _count(Finder finder) => finder.evaluate().length;
 
-/// 하단 내비의 탭([label] = 메인 · 오늘 · 커뮤니티 · 대화 · 나).
-Finder _tab(String label) => find.descendant(of: find.byType(AppBottomNav), matching: find.text(label));
-
 Future<void> _signOut() => Supabase.instance.client.auth.signOut(scope: SignOutScope.local);
 
 /// 앞 가설의 세션을 지우고 일감의 토큰으로 곧바로 로그인한 뒤 [body] 를 돈다.
@@ -75,7 +71,7 @@ Future<bool> _gone(WidgetTester tester, Finder finder, Duration within) async {
 /// 홈 → 하단 내비 "대화" 탭(13).
 Future<void> _openChat(WidgetTester tester) async {
   await arrive(tester, 'home');
-  await tap(tester, _tab('대화'));
+  await tap(tester, navTab('대화'));
   await pumpUntil(tester, find.byType(ConversationsScreen), timeout: const Duration(seconds: 15));
 }
 
@@ -154,7 +150,7 @@ Future<void> _expectRoom(WidgetTester tester, String nickname, String who) async
 /// 오늘 탭 → 카드 한 장 → 10b(수락하기 · 거절 버튼이 보일 때까지).
 Future<void> _openCard(WidgetTester tester) async {
   await arrive(tester, 'home');
-  await tap(tester, _tab('오늘'));
+  await tap(tester, navTab('오늘'));
   await pumpUntil(tester, find.byType(DailyCardSummary), timeout: const Duration(seconds: 30));
   must(_count(find.byType(DailyCardSummary)) == 1, '카드 ${_count(find.byType(DailyCardSummary))}장(기대 1)');
   await tap(tester, find.byType(DailyCardSummary));
@@ -191,7 +187,7 @@ bool _on(WidgetTester tester) => tester.widget<SwitchListTile>(_switch).value;
 /// 홈 → 나 탭 → 톱니(설정 16).
 Future<void> _openSettings(WidgetTester tester) async {
   await arrive(tester, 'home');
-  await tap(tester, _tab('나'));
+  await tap(tester, navTab('나'));
   await pumpUntil(tester, find.byTooltip('설정'), timeout: const Duration(seconds: 10));
   await tap(tester, find.byTooltip('설정'));
   await arrive(tester, 'settings', timeout: const Duration(seconds: 10));

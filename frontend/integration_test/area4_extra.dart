@@ -42,12 +42,12 @@ Future<void> _noneOnHeartScreens(
 }) async {
   await arrive(tester, 'home');
   if (today) {
-    await tap(tester, _tab('오늘'));
+    await tap(tester, navTab('오늘'));
     await wait(tester, const Duration(seconds: 3)); // 카드 · 안내가 그려지기를
     _seeNone([...words, ...tabsOnly], '오늘 탭');
     await onToday?.call();
   }
-  await tap(tester, _tab('나'));
+  await tap(tester, navTab('나'));
   await pumpUntil(tester, find.byIcon(AppIcons.settings));
   await wait(tester, const Duration(seconds: 2));
   _seeNone([...words, ...tabsOnly], '나 탭');
@@ -88,16 +88,16 @@ Future<void> _openHeartStoreFromSettings(WidgetTester tester) async {
 
 /// 하단 내비가 다시 보일 때까지 뒤로 간다(설정 · 차단 목록 같은 위에 얹힌 화면을 걷어 낸다).
 Future<void> _backToTabs(WidgetTester tester) async {
-  for (var i = 0; i < 5 && find.byType(AppBottomNav).evaluate().isEmpty; i++) {
+  for (var i = 0; i < 5 && bottomNav.evaluate().isEmpty; i++) {
     await tap(tester, find.byType(BackButton));
     await wait(tester, const Duration(milliseconds: 600));
   }
-  must(find.byType(AppBottomNav).evaluate().isNotEmpty, '뒤로 갔는데 하단 내비가 안 보임');
+  must(bottomNav.evaluate().isNotEmpty, '뒤로 갔는데 하단 내비가 안 보임');
 }
 
 /// 하단 내비 "대화" 탭을 열고 목록이 읽힌 모습(수락 대기 · 대화 중 · 빈 화면 중 하나)이 될 때까지.
 Future<void> _openChatTab(WidgetTester tester) async {
-  await tap(tester, _tab('대화'));
+  await tap(tester, navTab('대화'));
   await pumpUntil(tester, find.byType(ConversationsScreen), timeout: const Duration(seconds: 15));
   await pumpUntil(
     tester,
@@ -130,7 +130,7 @@ Future<void> _sessionAlive(String when) async {
 Future<void> _chatStillWorks(WidgetTester tester, String nickname, String when) async {
   must(screen('start').evaluate().isEmpty, '$when: 로그인 화면으로 쫓겨남');
   await _sessionAlive(when);
-  await tap(tester, _tab('나'));
+  await tap(tester, navTab('나'));
   await wait(tester, const Duration(seconds: 1));
   await _openChatTab(tester);
   await pumpUntil(tester, _chatRowOf(nickname), timeout: const Duration(seconds: 20));
@@ -242,7 +242,7 @@ final Map<String, Area1Case> _extraCases = {
     await _openChatTab(tester);
     await pumpUntil(tester, _chatRowOf(nickname), timeout: const Duration(seconds: 20));
     await step('a-in', timeout: _set67Wait); // PC 가 B 가 들어와 방을 볼 때까지 기다렸다 돌려준다
-    await tap(tester, _tab('나'));
+    await tap(tester, navTab('나'));
     await pumpUntil(tester, find.byIcon(AppIcons.settings));
     await tap(tester, find.byIcon(AppIcons.settings));
     await arrive(tester, 'settings');

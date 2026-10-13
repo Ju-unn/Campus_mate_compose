@@ -263,7 +263,7 @@ Future<Map<String, Object?>> _suspendedPartnerRoom(WidgetTester tester, Map<Stri
 /// 홈 → 나 탭 → 톱니바퀴 → 설정 → "차단 목록".
 Future<void> _openBlockList(WidgetTester tester) async {
   await arrive(tester, 'home');
-  await tap(tester, _tab('나'));
+  await tap(tester, navTab('나'));
   await pumpUntil(tester, find.byIcon(AppIcons.settings));
   await tap(tester, find.byIcon(AppIcons.settings));
   await arrive(tester, 'settings');
@@ -374,7 +374,7 @@ final Map<String, Area1Case> area3CasesSafe = {
   }),
   'E-SAFE-11': _session((tester, job) async {
     await arrive(tester, 'home');
-    await tap(tester, _tab(_communityTab));
+    await tap(tester, navTab(_communityTab));
     await pumpUntil(tester, find.byType(PollCard));
     final mine = _pollCard(job['own'] as String);
     final theirs = _pollCard(job['question'] as String);

@@ -261,7 +261,7 @@ final Map<String, Area1Case> area5CasesFake = {
     final hero = find.byType(ProfileHero);
     walks.add(await _fkLoadError(tester, fake, '15', '/me/profile', status, () async {
       container.invalidate(myProfileProvider);
-      await tap(tester, _tab('나'));
+      await tap(tester, navTab('나'));
     }, hero));
     await pumpUntil(tester, hero);
     walks.add(await _fkLoadError(tester, fake, '15-5', '/me/profile', status, () async {

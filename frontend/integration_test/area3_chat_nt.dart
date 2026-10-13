@@ -99,7 +99,7 @@ bool _ntOn(WidgetTester tester, String title) => tester.widget<SwitchListTile>(_
 /// 홈 → 나 탭 → 톱니바퀴 → 설정 16 → "알림"(16d). 서버 값을 다 읽어 올 때까지 기다린다 — 늦게 온 처음 값이 방금 누른 스위치를 덮지 않게(notification_settings_view_model.dart).
 Future<void> _ntOpen16d(WidgetTester tester, String title) async {
   await arrive(tester, 'home');
-  await tap(tester, _tab('나'));
+  await tap(tester, navTab('나'));
   await pumpUntil(tester, find.byIcon(AppIcons.settings));
   await tap(tester, find.byIcon(AppIcons.settings));
   await arrive(tester, 'settings');

@@ -4,7 +4,6 @@ import 'package:campus_mate/billing/view/heart_task_row.dart';
 import 'package:campus_mate/billing/view/heart_task_submit_screen.dart';
 import 'package:campus_mate/billing/view/heart_tasks_screen.dart';
 import 'package:campus_mate/billing/viewmodel/heart_task_submit_view_model.dart';
-import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/trait_bar.dart';
 import 'package:campus_mate/community/view/community_feed_screen.dart';
 import 'package:campus_mate/community/view/poll_card.dart';
@@ -87,9 +86,6 @@ Area1Case _session(Area1Case body) => (tester, job) async {
 
 int _count(Finder finder) => finder.evaluate().length;
 
-/// 하단 내비의 탭([label] = 메인 · 오늘 · 커뮤니티 · 대화 · 나).
-Finder _tab(String label) => find.descendant(of: find.byType(AppBottomNav), matching: find.text(label));
-
 /// [finder] 가 [within] 안에 사라지면 true.
 Future<bool> _gone(WidgetTester tester, Finder finder, Duration within) async {
   final watch = Stopwatch()..start();
@@ -118,7 +114,7 @@ CommunityFeedUiState _feedState(WidgetTester tester) =>
 /// 메인 → 커뮤니티 탭 → 첫 쪽을 받을 때까지.
 Future<void> _openCommunity(WidgetTester tester) async {
   await arrive(tester, 'home');
-  await tap(tester, _tab('커뮤니티'));
+  await tap(tester, navTab('커뮤니티'));
   await pumpUntil(tester, _feed, timeout: const Duration(seconds: 10));
   final watch = Stopwatch()..start();
   while (_feedState(tester).isLoading) {
@@ -315,7 +311,7 @@ final Map<String, Area1Case> _pollCases = {
 /// 메인 → 나 → 톱니(설정). 설정은 나 탭 위에 쌓인다.
 Future<void> _openSettings(WidgetTester tester) async {
   await arrive(tester, 'home');
-  await tap(tester, _tab('나'));
+  await tap(tester, navTab('나'));
   await pumpUntil(tester, find.byTooltip('설정'), timeout: const Duration(seconds: 10));
   await tap(tester, find.byTooltip('설정'));
   await arrive(tester, 'settings', timeout: const Duration(seconds: 5));
@@ -538,7 +534,7 @@ Future<void> _checkProfile(WidgetTester tester, Map<String, dynamic> person) asy
 final Map<String, Area1Case> _cardCases = {
   'E-CARD-90': _session((tester, job) async {
     await arrive(tester, 'home');
-    await tap(tester, _tab('오늘'));
+    await tap(tester, navTab('오늘'));
     for (final person in (job['people'] as List<dynamic>).cast<Map<String, dynamic>>()) {
       await _checkProfile(tester, person);
     }

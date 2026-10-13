@@ -31,7 +31,7 @@ final Map<String, Area1Case> area5CasesMore = {
   // B: 오늘 탭 → A 가 대상인 카드 한 장 → 카드 상세(10b) 의 카드 글자를 PC 에 말한다. PC 가 A 의 글자와 맞대 본다.
   'E-ME-05/B': _session((tester, job) async {
     await arrive(tester, 'home');
-    await tap(tester, _tab('오늘'));
+    await tap(tester, navTab('오늘'));
     await pumpUntil(tester, find.byType(DailyCardSummary), timeout: const Duration(seconds: 30));
     await tap(tester, find.byType(DailyCardSummary));
     await pumpUntil(tester, find.byType(ProfileCard), timeout: const Duration(seconds: 15));

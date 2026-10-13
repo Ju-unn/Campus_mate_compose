@@ -16,7 +16,7 @@ Finder _tmRow(String nickname) => find.byWidgetPredicate((w) => w is ChatListRow
 /// 홈 → 아래 탭 "대화"(13).
 Future<void> _tmConversations(WidgetTester tester) async {
   await arrive(tester, 'home');
-  await tap(tester, _tab('대화'));
+  await tap(tester, navTab('대화'));
   await pumpUntil(tester, find.byType(ConversationsScreen), timeout: const Duration(seconds: 15));
 }
 

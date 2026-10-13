@@ -222,7 +222,7 @@ class DartContractTest(unittest.TestCase):
 
     def test_the_walk_runs_the_today_check_while_the_today_tab_is_open(self):
         walk = self.case_body('Future<void> _noneOnHeartScreens', 'Future<void> _paidCardAsServerSaid')
-        today, me = walk.index("_seeNone([...words, ...tabsOnly], '오늘 탭')"), walk.index("await tap(tester, _tab('나'))")
+        today, me = walk.index("_seeNone([...words, ...tabsOnly], '오늘 탭')"), walk.index("await tap(tester, navTab('나'))")
         self.assertLess(today, walk.index('await onToday?.call()'))
         self.assertLess(walk.index('await onToday?.call()'), me)
 

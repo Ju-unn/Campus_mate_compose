@@ -1,7 +1,6 @@
 import 'dart:math';
 
 import 'package:campus_mate/billing/view/heart_task_row.dart';
-import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/home/view/cohort_wait_view.dart';
@@ -157,13 +156,10 @@ String _asset(ImageProvider image) => switch (image) {
       _ => '',
     };
 
-/// 하단 내비의 탭([label] = 메인 · 오늘 · 커뮤니티 · 대화 · 나).
-Finder _tab(String label) => find.descendant(of: find.byType(AppBottomNav), matching: find.text(label));
-
 /// 메인 → 나 → 톱니(설정). 설정은 나 탭 위에 쌓인다.
 Future<void> _openSettings(WidgetTester tester) async {
   await arrive(tester, 'home');
-  await tap(tester, _tab('나'));
+  await tap(tester, navTab('나'));
   await pumpUntil(tester, find.byTooltip('설정'), timeout: const Duration(seconds: 10));
   await tap(tester, find.byTooltip('설정'));
   await arrive(tester, 'settings', timeout: const Duration(seconds: 5));

@@ -2,7 +2,6 @@ import 'package:campus_mate/billing/model/heart_task.dart';
 import 'package:campus_mate/billing/view/heart_task_row.dart';
 import 'package:campus_mate/billing/view/heart_tasks_screen.dart';
 import 'package:campus_mate/billing/viewmodel/heart_tasks_view_model.dart';
-import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/community/view/community_feed_screen.dart';
 import 'package:campus_mate/community/view/poll_card.dart';
 import 'package:campus_mate/community/view/poll_donut.dart';
@@ -49,9 +48,6 @@ Area1Case _session(Area1Case body) => (tester, job) async {
       return body(tester, job);
     };
 
-/// 하단 내비의 탭([label] = 메인 · 오늘 · 커뮤니티 · 대화 · 나).
-Finder _tab(String label) => find.descendant(of: find.byType(AppBottomNav), matching: find.text(label));
-
 int _count(Finder finder) => finder.evaluate().length;
 
 /// 오래 걸리는 PC 일(HOME · 수락 · 알림 도착 · 알림 누르기)을 기다리는 멈춤 — support.step 은 2분까지만 기다린다.
@@ -69,7 +65,7 @@ Finder _acceptanceOf(String nickname) =>
 /// 홈 → 대화 탭 → 13 이 뜰 때까지.
 Future<void> _openConversations(WidgetTester tester) async {
   await arrive(tester, 'home');
-  await tap(tester, _tab('대화'));
+  await tap(tester, navTab('대화'));
   await pumpUntil(tester, find.byType(ConversationsScreen), timeout: const Duration(seconds: 10));
 }
 
@@ -143,7 +139,7 @@ CommunityFeedUiState _feedState(WidgetTester tester) =>
 /// 메인 → 커뮤니티 탭 → 첫 쪽을 받을 때까지.
 Future<void> _openCommunity(WidgetTester tester) async {
   await arrive(tester, 'home');
-  await tap(tester, _tab('커뮤니티'));
+  await tap(tester, navTab('커뮤니티'));
   await pumpUntil(tester, _feed, timeout: const Duration(seconds: 10));
   final watch = Stopwatch()..start();
   while (_feedState(tester).isLoading) {
@@ -229,7 +225,7 @@ final Map<String, Area1Case> _pollCases = {
   // PC 가 이번 주 원장 2건을 넣어 두었다 — 18a 투표 줄이 "참여"(open)이고 앱이 서버에서 읽은 used · limit 가 PC 값과 같다.
   'E-POLL-28': _session((tester, job) async {
     await arrive(tester, 'home');
-    await tap(tester, _tab('나'));
+    await tap(tester, navTab('나'));
     await pumpUntil(tester, find.byTooltip('설정'), timeout: const Duration(seconds: 10));
     await tap(tester, find.byTooltip('설정'));
     await arrive(tester, 'settings', timeout: const Duration(seconds: 5));

@@ -159,7 +159,7 @@ final Map<String, Area1Case> area5CasesRead = {
   }),
   'E-ME-02': _session((tester, job) async {
     await arrive(tester, 'home');
-    await tap(tester, _tab('나'));
+    await tap(tester, navTab('나'));
     final watch = Stopwatch()..start();
     while (watch.elapsed < const Duration(seconds: 30) && !_has(find.byType(ProfileHero)) && !_has(find.byType(MeLoadError))) {
       await tester.pump(const Duration(milliseconds: 100));
@@ -187,7 +187,7 @@ final Map<String, Area1Case> area5CasesRead = {
   'E-ME-04': _session((tester, job) async {
     await arrive(tester, 'home');
     await step('cut'); // PC 가 비행기 모드를 켠다
-    await tap(tester, _tab('나'));
+    await tap(tester, navTab('나'));
     await pumpUntil(tester, find.byType(MeLoadError), timeout: const Duration(seconds: 60));
     final errorText = _textOf(tester, find.text('잠시 뒤 다시 시도해 주세요'));
     final retryText = _textOf(tester, find.text('다시 시도'));

@@ -3,7 +3,6 @@ import 'dart:math';
 
 import 'package:campus_mate/auth/view/start_view.dart';
 import 'package:campus_mate/auth/viewmodel/student_verification_view_model.dart';
-import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/app_checkbox.dart';
@@ -348,7 +347,7 @@ final Map<String, Area1Case> area1Cases = {
     await arrive(tester, 'suspended');
     must(button('로그아웃').evaluate().length == 1, '"로그아웃" 버튼 수 ${button('로그아웃').evaluate().length}');
     must(find.text('탈퇴하기').evaluate().length == 1, '"탈퇴하기" 없음');
-    must(find.byType(AppBottomNav).evaluate().isEmpty, '하단 내비가 보임');
+    must(bottomNav.evaluate().isEmpty, '하단 내비가 보임');
     return null;
   }),
   'E-GATE-07': _session((tester, job) async {

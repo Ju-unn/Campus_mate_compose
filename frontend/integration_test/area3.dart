@@ -10,7 +10,6 @@ import 'package:campus_mate/chat/view/system_message.dart';
 import 'package:campus_mate/chat/view/trust_banner.dart';
 import 'package:campus_mate/chat/view/trust_gate_sheet.dart';
 import 'package:campus_mate/chat/viewmodel/chat_room_view_model.dart';
-import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/community/view/poll_card.dart';
@@ -78,15 +77,13 @@ Area1Case _session(Area1Case body) => (tester, job) async {
       return body(tester, job);
     };
 
-Finder _tab(String label) => find.descendant(of: find.byType(AppBottomNav), matching: find.text(label));
-
 /// 대화 목록의 [nickname] 줄.
 Finder _row(String nickname) =>
     find.byWidgetPredicate((w) => w is ChatListRow && w.conversation.partner.nickname == nickname);
 
 Future<void> _toConversations(WidgetTester tester) async {
   await arrive(tester, 'home');
-  await tap(tester, _tab('대화'));
+  await tap(tester, navTab('대화'));
 }
 
 /// 목록에서 [nickname] 방을 연다 — 앱바에 그 닉네임이 뜨면 방 머리말을 읽은 것이다.
@@ -100,7 +97,7 @@ Future<void> _openRoom(WidgetTester tester, String nickname) async {
 /// 아래 탭 뱃지 — 탭 이름은 글자라 숫자(와 "99+")만 뱃지다.
 String? _navBadge(WidgetTester tester) {
   final badge = find.descendant(
-    of: find.byType(AppBottomNav),
+    of: bottomNav,
     matching: find.byWidgetPredicate((w) => w is Text && RegExp(r'^\d+\+?$').hasMatch(w.data ?? '')),
   );
   return badge.evaluate().isEmpty ? null : tester.widget<Text>(badge.first).data;
@@ -230,7 +227,7 @@ Future<Map<String, Object?>> _openCompose(WidgetTester tester, Map<String, dynam
 /// 안에 Scrollable 이 생겨야 읽기가 끝난 것이다.
 Future<void> _openMyTab(WidgetTester tester) async {
   await arrive(tester, 'home');
-  await tap(tester, _tab('나'));
+  await tap(tester, navTab('나'));
   final loaded = find.descendant(of: find.byType(MyProfileScreen), matching: find.byType(Scrollable));
   try {
     await pumpUntil(tester, loaded, timeout: const Duration(seconds: 60));

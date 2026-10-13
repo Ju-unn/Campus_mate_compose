@@ -17,7 +17,7 @@ List<String> _strings(Object? value) => (value as List).cast<String>();
 /// 홈 → 나 탭 → (옵션 [beforeGear]) → 톱니바퀴 → 설정 16. 망을 끊고 설정을 처음 여는 가설용으로 톱니바퀴 직전에 멈출 수 있다.
 Future<void> _openSettingsAfter(WidgetTester tester, Future<void> Function() beforeGear) async {
   await arrive(tester, 'home');
-  await tap(tester, _tab('나'));
+  await tap(tester, navTab('나'));
   await pumpUntil(tester, find.byIcon(AppIcons.settings));
   await beforeGear();
   await tap(tester, find.byIcon(AppIcons.settings));
@@ -339,7 +339,7 @@ final Map<String, Area1Case> _set2Cases = {
     final nick = job['nick'] as String;
     Future<void> visit() async {
       for (final label in ['오늘', '대화', '나']) {
-        await tap(tester, _tab(label));
+        await tap(tester, navTab(label));
         await wait(tester, const Duration(seconds: 2));
       }
     }
@@ -354,7 +354,7 @@ final Map<String, Area1Case> _set2Cases = {
     await signIn(job['second'] as String);
     await arrive(tester, 'home', timeout: const Duration(seconds: 40));
     for (final label in ['오늘', '대화', '나']) {
-      await tap(tester, _tab(label));
+      await tap(tester, navTab(label));
       await wait(tester, const Duration(seconds: 2));
       must(find.textContaining(nick).evaluate().isEmpty, '$label 탭에 앞 계정 닉네임 "$nick" 이 남음');
     }

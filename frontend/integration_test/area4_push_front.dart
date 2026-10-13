@@ -24,9 +24,9 @@ Future<void> _pushGo(WidgetTester tester, Map<String, dynamic> job) async {
   final screen = job['screen'] as String;
   switch (screen) {
     case 'conversations':
-      await tap(tester, _tab('대화'));
+      await tap(tester, navTab('대화'));
     case 'today':
-      await tap(tester, _tab('오늘'));
+      await tap(tester, navTab('오늘'));
     case 'room':
       unawaited(GoRouter.of(_pushContext(tester)).push('${AppRoutes.chatRoom}/${job['match_id']}'));
     default:
@@ -56,7 +56,7 @@ Future<Map<String, Object?>> _pushJudge(WidgetTester tester, String number, Map<
           null;
       seen['ms'] = watch.elapsedMilliseconds;
     case '82':
-      seen['badge'] = await appears(tester, find.descendant(of: find.byType(AppBottomNav), matching: find.text('1')), _pushFrontWait) != null;
+      seen['badge'] = await appears(tester, find.descendant(of: bottomNav, matching: find.text('1')), _pushFrontWait) != null;
     case '53':
       // 앞에서는 화면 갱신이 없다 — 한참 기다려도 줄이 안 생기고, 나갔다 다시 들어가야 1줄이 보인다.
       await wait(tester, const Duration(seconds: 10));

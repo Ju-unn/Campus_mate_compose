@@ -8,7 +8,6 @@ import 'package:campus_mate/chat/view/chat_list_row.dart';
 import 'package:campus_mate/chat/view/chat_room_screen.dart';
 import 'package:campus_mate/chat/view/message_bubble.dart';
 import 'package:campus_mate/chat/view/trust_reveal_bubble.dart';
-import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/photo_slider.dart';
@@ -106,8 +105,6 @@ Area1Case _session(Area1Case body) => (tester, job) async {
       return body(tester, job);
     };
 
-Finder _tab(String label) => find.descendant(of: find.byType(AppBottomNav), matching: find.text(label));
-
 /// 나 탭 입구 줄의 제목 글자 — 줄 가운데가 아니라 안의 글자를 누른다(줄 전체 폭 위젯의 가운데는 빈 자리일 수 있다).
 Finder _entry(String title) => find.descendant(of: find.byType(ProfileEntryRow), matching: find.text(title));
 
@@ -124,7 +121,7 @@ String? _title(WidgetTester tester) {
 /// 홈 → 아래 탭 "나" → 히어로가 그려질 때까지.
 Future<void> _openMe(WidgetTester tester) async {
   await arrive(tester, 'home');
-  await tap(tester, _tab('나'));
+  await tap(tester, navTab('나'));
   await pumpUntil(tester, find.byType(ProfileHero));
 }
 

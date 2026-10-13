@@ -139,7 +139,7 @@ Future<Map<String, Object?>> _wdAfterRestart(WidgetTester tester) async {
   String? notice;
   while (watch.elapsed < const Duration(seconds: 30) && (landed == null || watch.elapsed - landed < const Duration(seconds: 3))) {
     await tester.pump(const Duration(milliseconds: 100));
-    home |= _has(screen('home')) || _has(find.byType(AppBottomNav));
+    home |= _has(screen('home')) || _has(bottomNav);
     if (_has(screen('start'))) {
       login = true;
       notice ??= _wdToast(tester);
@@ -178,7 +178,7 @@ final Map<String, Area1Case> area5CasesWd = {
     String? notice;
     while (notice == null && watch.elapsed < _wdLoginWait) {
       await tester.pump(const Duration(milliseconds: 100));
-      home |= _has(screen('home')) || _has(find.byType(AppBottomNav));
+      home |= _has(screen('home')) || _has(bottomNav);
       if (_has(screen('start'))) notice = _wdToast(tester);
     }
     return {'notice': notice, 'login_seen': _has(screen('start')), 'home_seen': home, 'notice_ms': watch.elapsedMilliseconds};
