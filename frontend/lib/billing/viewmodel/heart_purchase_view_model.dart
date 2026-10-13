@@ -31,10 +31,10 @@ class HeartPurchaseViewModel extends Notifier<HeartPurchaseUiState> {
   /// 결제 결과를 하나씩 차례로 처리한다(서버 확인이 겹치지 않게).
   Future<void> _queue = Future.value();
 
-  /// 서버로 보내는 중인 토큰 — 같은 구매가 결제 창 · 복구로 두 번 와도 한 번만 보낸다.
+  /// 서버로 보내 처리(지급 뒤 자격 다시 읽기까지)하는 중인 토큰 — 같은 구매가 결제 창 · 복구로 두 번 와도 한 번만 보낸다.
   final Set<String> _inFlight = {};
 
-  /// 다시 보내도 답이 같은 토큰(다른 계정 · 이미 처리 · 확인 실패). 이 뷰모델이 사는 동안(= 이 로그인) 다시 보내지 않는다.
+  /// 다시 보내도 답이 같은 토큰(다른 계정 · 이미 처리 · 환불 · 확인 실패). 이 뷰모델이 사는 동안(= 이 로그인) 다시 보내지 않는다.
   final Set<String> _finished = {};
 
   Future<void>? _refreshing;
@@ -166,12 +166,13 @@ class HeartPurchaseViewModel extends Notifier<HeartPurchaseUiState> {
       if (ref.mounted) _onRejected(token, const UnknownFailure());
       return;
     }
-    _inFlight.remove(token);
     if (!ref.mounted) return;
     await result.when(
       onSuccess: (outcome) => _onVerified(token, outcome),
       onFailure: (failure) async => _onRejected(token, failure),
     );
+    // 처리가 끝난 뒤에 푼다 — 지급 뒤 자격을 다시 읽는(_reloadBonus) 사이에 같은 토큰이 복구로 또 와도 다시 보내지 않게.
+    _inFlight.remove(token);
   }
 
   /// 이 기기 스토어의 서버 확인 — 구글은 구매 토큰, 애플은 거래 번호를 보낸다.
@@ -207,13 +208,16 @@ class HeartPurchaseViewModel extends Notifier<HeartPurchaseUiState> {
     status.when(onSuccess: (value) => state = state.copyWith(bonus: value.bonus), onFailure: (_) {});
   }
 
-  /// 거절 · 지연은 끝내지 않는다 — 애플은 끝내지 않은 거래를 다음 앱 시작 때 다시 준다(다른 계정이면 결제한 계정으로 로그인했을 때
-  /// 들어오고, 422 는 서버를 고친 뒤 다시 확인된다). 이미 처리(409 token_used)만은 하트가 이미 들어간 거래라 끝낸다 — 남겨 두면
-  /// StoreKit 이 같은 상품의 새 결제를 막는다.
+  /// 거절 · 지연은 대개 끝내지 않는다 — 애플은 끝내지 않은 거래를 다음 앱 시작 때 다시 준다(다른 계정이면 결제한 계정으로
+  /// 로그인했을 때 들어오고, 422 purchase_invalid 는 서버를 고친 뒤 다시 확인된다). 끝내는 거절은 둘이다([HeartPurchaseNotice.finishesPurchase]):
+  /// - 409 purchase_token_used: 그 거래를 **다른 계정(profile)이 이미 받았다**(같은 계정이 다시 보내면 200 already_granted 다).
+  ///   서버가 계정 표시를 먼저 대조하므로 거의 안 생긴다. 다시 보내도 이 계정에는 하트가 들어갈 길이 없어 끝낸다.
+  /// - 422 purchase_revoked: 애플이 환불한 거래 — 하트 없이 끝낸다.
+  /// 남겨 두면 StoreKit 이 같은 상품의 새 결제를 막는다(storekit_duplicate_product_object). 구글 창구의 finish 는 아무것도 하지 않는다.
   void _onRejected(String token, Failure failure) {
     final notice = HeartPurchaseNotice.fromVerifyFailure(failure);
     if (notice.isFinalForToken) _finished.add(token);
-    if (notice == HeartPurchaseNotice.alreadyProcessed) unawaited(_gateway.finish(token));
+    if (notice.finishesPurchase) unawaited(_gateway.finish(token));
     final phase = notice == HeartPurchaseNotice.delayed ? HeartPurchasePhase.delayed : HeartPurchasePhase.idle;
     state = notice.isBanner
         ? state.copyWith(phase: phase, banner: notice)

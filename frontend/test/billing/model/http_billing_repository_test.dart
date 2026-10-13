@@ -189,6 +189,8 @@ void main() {
       (409, 'purchase_other_account'),
       (409, 'purchase_token_used'),
       (422, 'purchase_invalid'),
+      // 애플만 — 환불된 거래.
+      (422, 'purchase_revoked'),
     ]) {
       test('$status $code → ServerRejectedFailure.hasCode(구글과 같은 코드)', () async {
         final result = await verify((_) => json({'detail': '서버 문구', 'code': code}, status));

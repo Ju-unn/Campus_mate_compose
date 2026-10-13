@@ -12,6 +12,9 @@ enum HeartPurchaseNotice {
   /// 토스트 `bs9a7`(circle-check) — 서버 409 purchase_token_used.
   alreadyProcessed('이미 처리된 결제예요'),
 
+  /// 토스트(info, pen 에 없음 — 후속) — 서버 422 purchase_revoked(애플이 환불한 거래). 하트 없이 거래를 끝낸다.
+  revoked('환불된 결제예요'),
+
   /// 배너 `Qufgn`(timer) — 결제 창 pending · 서버 202.
   pending('결제 확인을 기다리고 있어요', caption: '확인되면 하트가 들어와요'),
 
@@ -27,11 +30,12 @@ enum HeartPurchaseNotice {
   /// 배너 `wvbOe`(info) — 서버 409 purchase_other_account.
   otherAccount('다른 계정으로 결제한 하트예요', caption: '결제한 계정으로 로그인하면 들어와요'),
 
-  /// 빨간 배너 `YOhKL` — 스토어를 쓸 수 없음 · 가격 0개. App Store 설명은 pen 에 없다(후속) — 스토어 이름만 바꿨다.
+  /// 빨간 배너 `YOhKL` — 스토어를 쓸 수 없음 · 가격 0개 · 서버 상태를 못 읽음. App Store 설명은 pen 에 없다(후속) —
+  /// 아이폰은 원인이 로그인이 아니라 기기의 앱 내 구입 제한 · 상품 미등록 · 심사 전이라 원인을 가리지 않는 글자로 둔다.
   unavailable(
     '지금은 하트를 살 수 없어요',
     caption: '구글 플레이에 로그인했는지 확인해 주세요',
-    appStoreCaption: 'App Store에 로그인했는지 확인해 주세요',
+    appStoreCaption: '이 기기에서 App Store 결제를 쓸 수 없거나 상품을 불러오지 못했어요',
     isError: true,
   );
 
@@ -52,7 +56,12 @@ enum HeartPurchaseNotice {
   String? captionOn(PaymentStore store) => store == PaymentStore.appStore ? appStoreCaption ?? caption : caption;
 
   /// 같은 구매 토큰을 다시 보내도 서버 답이 바뀌지 않는다 — 이 앱이 켜져 있는 동안은 다시 보내지 않는다.
-  bool get isFinalForToken => this == alreadyProcessed || this == invalid || this == otherAccount;
+  bool get isFinalForToken => this == alreadyProcessed || this == revoked || this == invalid || this == otherAccount;
+
+  /// 거절이어도 구매를 끝낸다(finish) — 다시 보내도 이 계정에 하트가 들어갈 길이 없는 거래다. 끝내지 않으면 StoreKit 에 남아
+  /// 같은 Apple ID 가 같은 상품을 다시 못 산다(storekit_duplicate_product_object). 확인 실패 · 다른 계정은 다음에 들어올 길이
+  /// 남아 끝내지 않는다.
+  bool get finishesPurchase => this == alreadyProcessed || this == revoked;
 
   /// POST /billing/google/verify · /billing/apple/verify 실패(두 서버가 같은 code 를 쓴다). 서버 code 로 가르고, 그 밖
   /// (503 billing_unavailable · apple_not_configured · 네트워크 · 500 · 관문)은 모두 지급 지연이다 —
@@ -61,6 +70,7 @@ enum HeartPurchaseNotice {
     if (failure is! ServerRejectedFailure) return delayed;
     if (failure.hasCode('purchase_other_account')) return otherAccount;
     if (failure.hasCode('purchase_token_used')) return alreadyProcessed;
+    if (failure.hasCode('purchase_revoked')) return revoked;
     if (failure.hasCode('purchase_invalid')) return invalid;
     return delayed;
   }

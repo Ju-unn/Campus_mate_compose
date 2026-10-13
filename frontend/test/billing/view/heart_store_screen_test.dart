@@ -842,8 +842,36 @@ void main() {
       await pump(tester);
 
       expect(find.text('지금은 하트를 살 수 없어요'), findsOneWidget);
-      expect(find.text('App Store에 로그인했는지 확인해 주세요'), findsOneWidget);
+      expect(find.text('이 기기에서 App Store 결제를 쓸 수 없거나 상품을 불러오지 못했어요'), findsOneWidget);
       expect(inBar('구매할 수 없어요'), findsOneWidget);
+    }, variant: ios);
+
+    testWidgets('서버 상태(/billing/status)를 못 읽어도(연결 실패) 결제 불가 설명은 App Store 판 — 구글 플레이를 말하지 않는다', (tester) async {
+      supported = null;
+      billing.status = const FailureResult(NetworkFailure());
+      await pump(tester);
+
+      expect(find.textContaining('구글'), findsNothing);
+      expect(find.text('지금은 하트를 살 수 없어요'), findsOneWidget);
+      expect(find.text('이 기기에서 App Store 결제를 쓸 수 없거나 상품을 불러오지 못했어요'), findsOneWidget);
+    }, variant: ios);
+
+    testWidgets('환불된 거래(422 purchase_revoked) → "환불된 결제예요" 토스트(info) — 성공 표시(circle-check)가 아니다', (tester) async {
+      supported = null;
+      billing.outcome = const FailureResult(ServerRejectedFailure('x', code: 'purchase_revoked'));
+      await pump(tester);
+      await openSheet(tester);
+
+      await tester.tap(inSheet('5,700원에 구매'));
+      await tester.pump();
+      await emit(tester, [const StorePurchased('heart_100', '2000000123456789')]);
+      await tester.pumpAndSettle(const Duration(milliseconds: 100));
+
+      expect(find.widgetWithText(AppToast, '환불된 결제예요'), findsOneWidget);
+      expect(tester.widget<Icon>(find.descendant(of: find.byType(AppToast), matching: find.byType(Icon))).icon, AppIcons.info);
+      expect(find.byType(HeartPurchaseBanner), findsNothing);
+      expect(gateway.finished, ['2000000123456789']);
+      await tester.pump(const Duration(seconds: 2));
     }, variant: ios);
   });
 

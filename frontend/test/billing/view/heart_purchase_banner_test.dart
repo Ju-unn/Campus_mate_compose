@@ -63,10 +63,10 @@ void main() {
     expect(find.text('구글 플레이에 로그인했는지 확인해 주세요'), findsOneWidget);
   });
 
-  testWidgets('App Store(iOS)의 결제 불가 설명은 App Store 를 가리킨다 — 구글 플레이를 말하지 않는다', (tester) async {
+  testWidgets('App Store(iOS)의 결제 불가 설명은 원인 중립 App Store 문구 — 구글 플레이를 말하지 않는다', (tester) async {
     await pump(tester, HeartPurchaseNotice.unavailable, store: PaymentStore.appStore);
 
-    expect(find.text('App Store에 로그인했는지 확인해 주세요'), findsOneWidget);
+    expect(find.text('이 기기에서 App Store 결제를 쓸 수 없거나 상품을 불러오지 못했어요'), findsOneWidget);
     expect(find.textContaining('구글'), findsNothing);
   });
 

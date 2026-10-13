@@ -207,7 +207,9 @@ def test_a_transaction_another_account_already_received_is_409():
     {"productId": "heart_50"},
     {"bundleId": "com.someone.else"},
     {"bundleId": None},
-    {"revocationDate": BOUGHT_AT_MS + 60_000, "revocationReason": 0},
+    # 환불된 거래라도 우리 거래가 아니면(번들 · 상품이 다르면) 환불 코드가 아니다 — 앱은 purchase_revoked 에서만 거래를 끝낸다.
+    {"revocationDate": BOUGHT_AT_MS + 60_000, "bundleId": "com.someone.else"},
+    {"revocationDate": BOUGHT_AT_MS + 60_000, "productId": "heart_50"},
     {"type": "Non-Consumable"},
     {"type": None},
     {"inAppOwnershipType": "FAMILY_SHARED"},
@@ -223,6 +225,20 @@ def test_a_transaction_apple_does_not_vouch_for_as_this_purchase_is_invalid(chan
 
     assert response.status_code == 422
     assert response.json() == {"detail": errors.PURCHASE_INVALID, "code": "purchase_invalid"}
+    assert _grants(seen) == []
+
+
+@pytest.mark.parametrize("token", [APPLE_TOKEN, apple_account_token("22222222-2222-2222-2222-222222222222")])
+def test_a_refunded_transaction_is_422_purchase_revoked_whatever_account_it_carries(token):
+    # 환불된(revocationDate) 거래는 다시 보내도 하트가 들어갈 길이 없다 — 따로 된 code 를 받은 앱만 거래를 끝낸다(하트 없음).
+    # 남겨 두면 같은 Apple ID 가 같은 상품을 다시 못 산다(storekit_duplicate_product_object). 계정 대조보다 먼저 본다 —
+    # 다른 계정의 환불 거래도 결제한 계정으로 로그인해 받을 하트가 없다.
+    test_client, seen = _wire(production=sign(_transaction(revocationDate=BOUGHT_AT_MS + 60_000, revocationReason=0,
+                                                           appAccountToken=token)), rpc=GRANTED)
+    response = _verify(test_client)
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": errors.PURCHASE_REVOKED, "code": "purchase_revoked"}
     assert _grants(seen) == []
 
 

@@ -137,9 +137,13 @@ BILLING_UNAVAILABLE = "하트 지급이 늦어지고 있어요. 앱을 다시 �
 PURCHASE_INVALID = "결제를 확인하지 못했어요. 문제가 계속되면 문의해 주세요"
 PURCHASE_OTHER_ACCOUNT = "다른 계정으로 결제한 하트예요. 결제한 계정으로 로그인하면 들어와요"
 PURCHASE_TOKEN_USED = "이미 처리된 결제예요"
+# 애플이 환불한(revocationDate) 거래(apple_router.py). 다시 보내도 하트가 들어갈 길이 없어 앱은 이 code 에서만 거래를 끝낸다
+# (하트 없음) — 남겨 두면 같은 Apple ID 가 같은 상품을 다시 못 산다. 상태는 PURCHASE_INVALID 와 같은 422 다.
+PURCHASE_REVOKED = "환불된 결제예요"
 CODE_BILLING_UNAVAILABLE = "billing_unavailable"
 CODE_PURCHASE_INVALID = "purchase_invalid"
 CODE_PURCHASE_OTHER_ACCOUNT = "purchase_other_account"
 CODE_PURCHASE_TOKEN_USED = "purchase_token_used"
+CODE_PURCHASE_REVOKED = "purchase_revoked"
 # 아이폰 결제 확인 키(apple_iap_*)가 아직 없다 — 문구는 BILLING_UNAVAILABLE 그대로, 앱은 모르는 코드라 '지급 지연'으로 둔다.
 CODE_APPLE_NOT_CONFIGURED = "apple_not_configured"
