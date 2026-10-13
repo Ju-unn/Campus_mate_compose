@@ -16,7 +16,6 @@ import 'package:campus_mate/faq/viewmodel/faq_provider.dart';
 import 'package:campus_mate/matching/viewmodel/notification_settings_view_model.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:campus_mate/referral/view/invite_friends_sheet.dart';
-import 'package:campus_mate/safety/view/contact_permission_sheets.dart';
 import 'package:campus_mate/safety/view/safety_actions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -110,7 +109,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 onTap: () => context.push(AppRoutes.notificationSettings),
               ),
               _Row(icon: AppIcon3d.blockUser, title: '차단 목록', onTap: () => context.push(AppRoutes.blockList)),
-              _Row(icon: AppIcon3d.contact, title: '연락처 차단', onTap: () => openContactBlocks(context, ref)),
+              // 16b 는 권한 없이 연다 — 권한을 거부한 사람도 등록한 차단을 보고 풀 수 있게. 권한은 16b "추가" 에서만 묻는다.
+              _Row(icon: AppIcon3d.contact, title: '연락처 차단', onTap: () => context.push(AppRoutes.contactBlocks)),
             ]),
             _sectionGap,
             _Section('지원', [

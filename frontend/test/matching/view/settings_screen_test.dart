@@ -33,6 +33,7 @@ import 'package:campus_mate/safety/model/safety_repository_provider.dart';
 import 'package:campus_mate/safety/view/block_list_screen.dart';
 import 'package:campus_mate/safety/view/contact_block_list_screen.dart';
 import 'package:campus_mate/safety/view/contact_picker_screen.dart';
+import 'package:campus_mate/safety/view/contact_row.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -87,6 +88,7 @@ void main() {
   Future<FakeCardRepository> pump(
     WidgetTester tester, {
     FakeDeviceContactSource? contacts,
+    FakeContactBlockRepository? contactBlocks,
     List<FaqItem> faq = faqFixture,
     Future<void>? faqGate,
     Result<MyProfile>? profile,
@@ -113,7 +115,7 @@ void main() {
         safetyRepositoryProvider.overrideWithValue(FakeSafetyRepository()),
         signOutProvider.overrideWithValue(() async => signOutCalls++),
         deviceContactSourceProvider.overrideWithValue(contacts ?? FakeDeviceContactSource()),
-        contactBlockRepositoryProvider.overrideWithValue(FakeContactBlockRepository()),
+        contactBlockRepositoryProvider.overrideWithValue(contactBlocks ?? FakeContactBlockRepository()),
         contactNameStoreProvider.overrideWithValue(FakeContactNameStore()),
         accountRepositoryProvider.overrideWithValue(FakeAccountRepository()),
         referralRepositoryProvider.overrideWithValue(FakeReferralRepository()),
@@ -252,14 +254,27 @@ void main() {
     expect(find.byType(ContactBlockListScreen), findsOneWidget);
   });
 
-  testWidgets('권한이 없으면 "연락처 차단" 은 8a 안내 시트를 띄운다', (tester) async {
-    await pump(tester);
+  // 권한을 거부(또는 나중에 끈)한 사람도 이미 등록한 차단을 보고 풀 수 있어야 한다 — 권한은 16b 의 "추가" 에서만 묻는다.
+  testWidgets('권한이 거부돼 있어도 "연락처 차단" 은 권한을 묻지 않고 16b 를 열고, 해제까지 된다', (tester) async {
+    final contacts = FakeDeviceContactSource(grantOnRequest: false);
+    final blocks = FakeContactBlockRepository()..blocks = Success([contactBlockFixture('b1')]);
+    await pump(tester, contacts: contacts, contactBlocks: blocks);
 
     await tester.tap(find.text('연락처 차단'));
     await tester.pumpAndSettle();
 
-    expect(find.text('연락처 접근을 허용해 주세요'), findsOneWidget);
-    expect(find.byType(ContactBlockListScreen), findsNothing);
+    expect(find.byType(ContactBlockListScreen), findsOneWidget);
+    expect(find.text('연락처 접근을 허용해 주세요'), findsNothing);
+    expect(find.text('이전에 차단한 연락처'), findsOneWidget);
+
+    await tester.tap(find.descendant(of: find.byType(ContactRow), matching: find.byType(IconButton)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('해제'));
+    await tester.pumpAndSettle();
+
+    expect(blocks.removed, ['b1']);
+    expect(find.byType(ContactRow), findsNothing);
+    expect(contacts.requestCount, 0);
   });
 
   testWidgets('"자주 묻는 질문" 줄은 지원 카드 첫 줄, 3D 도움말 22 와 셰브런이다(pen lMDpY l1K4Xa · fmONi)', (tester) async {
