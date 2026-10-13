@@ -45,6 +45,12 @@ class Settings(BaseSettings):
     apple_team_id: str = ""
     apple_key_id: str = ""
     apple_private_key: str = ""
+    # 아이폰 하트 구매(billing/apple_router.py)가 App Store Server API 를 부를 때 쓰는 앱 내 구입 키(.p8)의
+    # 키 ID · 발급자(Issuer) ID · PEM 본문(Secret Manager `apple-iap-private-key`). 위 Sign in with Apple 키와 다른 키다(재사용 불가).
+    # 하나라도 비면 아이폰 결제 확인만 503(apple_not_configured)이고 서버 시작은 막지 않는다. 환불 알림은 이 키 없이 돈다.
+    apple_iap_key_id: str = ""
+    apple_iap_issuer_id: str = ""
+    apple_iap_private_key: str = ""
 
     @property
     def postgrest_url(self) -> str:

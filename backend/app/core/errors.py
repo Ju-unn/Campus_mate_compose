@@ -141,3 +141,5 @@ CODE_BILLING_UNAVAILABLE = "billing_unavailable"
 CODE_PURCHASE_INVALID = "purchase_invalid"
 CODE_PURCHASE_OTHER_ACCOUNT = "purchase_other_account"
 CODE_PURCHASE_TOKEN_USED = "purchase_token_used"
+# 아이폰 결제 확인 키(apple_iap_*)가 아직 없다 — 문구는 BILLING_UNAVAILABLE 그대로, 앱은 모르는 코드라 '지급 지연'으로 둔다.
+CODE_APPLE_NOT_CONFIGURED = "apple_not_configured"
