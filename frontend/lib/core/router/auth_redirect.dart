@@ -17,7 +17,8 @@ class AuthRedirect {
 
   final bool _isAuthenticated;
   final VerificationGate _gate;
-  final OnboardingStep _onboardingStep;
+  /// null 이면 아직 조회 중이다([OnboardingStepListenable]).
+  final OnboardingStep? _onboardingStep;
   final AccountStatus _accountStatus;
 
   /// 이동이 필요 없으면 null 을 돌려준다 (go_router 의 규약).
@@ -82,6 +83,8 @@ class AuthRedirect {
   /// 아직 끝내지 못한 온보딩 화면. 모두 끝냈으면 null.
   String? _onboardingTarget() {
     return switch (_onboardingStep) {
+      // 단계를 묻는 중이면 스플래시에 둔다 — 관문의 `unknown` 과 같다. 04-1 로 보내면 마친 사람에게도 04-1 이 번쩍인다.
+      null => AppRoutes.splash,
       OnboardingStep.basicInfo => AppRoutes.onboardingBasicInfo,
       OnboardingStep.kakaoId => AppRoutes.onboardingKakaoId,
       OnboardingStep.photos => AppRoutes.onboardingPhotos,

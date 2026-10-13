@@ -328,6 +328,40 @@ void main() {
     });
   });
 
+  // 관문 조회가 온보딩 단계 조회보다 먼저 끝나면, 온보딩을 마친 사람에게 04-1 이 몇 초 보였다가 홈으로 갔다.
+  group('관문은 통과했지만 온보딩 단계를 아직 모를 때(null)', () {
+    const redirect = AuthRedirect(true, VerificationGate.complete, null);
+
+    test('스플래시에 머문다', () {
+      expect(redirect.resolve(AppRoutes.splash), isNull);
+    });
+
+    test('다른 곳에 있으면 온보딩 화면이 아니라 스플래시로 보낸다', () {
+      for (final path in [AppRoutes.login, AppRoutes.studentVerification, AppRoutes.schoolInfo, AppRoutes.home]) {
+        expect(redirect.resolve(path), AppRoutes.splash, reason: path);
+      }
+    });
+
+    test('관문이 남았으면 단계를 몰라도 관문이 먼저다', () {
+      const gated = AuthRedirect(true, VerificationGate.needsStudentVerification, null);
+
+      expect(gated.resolve(AppRoutes.splash), AppRoutes.studentVerification);
+    });
+
+    test('정지가 단계 모름보다 먼저다', () {
+      const suspended = AuthRedirect(true, VerificationGate.complete, null, accountStatus: AccountStatus.suspended);
+
+      expect(suspended.resolve(AppRoutes.splash), AppRoutes.accountSuspended);
+    });
+
+    test('로그인 전이면 단계를 몰라도 시작 화면 규칙 그대로다', () {
+      const guest = AuthRedirect(false, VerificationGate.unknown, null);
+
+      expect(guest.resolve(AppRoutes.splash), isNull);
+      expect(guest.resolve(AppRoutes.home), AppRoutes.splash);
+    });
+  });
+
   group('정지된 계정(조각 6 A4)', () {
     test('suspended wins over onboarding default', () {
       // 정지면 온보딩 단계 조회가 403 이라 기본값 basicInfo 에 머문다 — 그래도 04-1 로 튀지 않는다.
