@@ -1,10 +1,11 @@
+import hashlib
 from unittest.mock import AsyncMock
 
 import httpx
 import pytest
 from openai import AsyncOpenAI
 
-from app.profile_onboarding.avatars import AvatarGenerator, MAX_CONSECUTIVE_FAILURES, avatar_regen_cost
+from app.profile_onboarding.avatars import _STYLE_PROMPT_MAIN, AvatarGenerator, MAX_CONSECUTIVE_FAILURES, avatar_regen_cost
 
 # student_id_content_type 이 매직바이트로 JPEG 라고 인정하는 최소 바이트열.
 _JPEG_BYTES = b"\xff\xd8\xff" + b"0" * 32
@@ -51,9 +52,9 @@ async def test_generate_sends_source_photo_with_its_own_mimetype():
 
 
 async def test_generate_sends_style_reference_as_second_image_at_high_fidelity():
-    """지시문 한 줄로는 블라인드 아바타 화풍이 나오지 않아 기준 그림 1장을 같이 보낸다(2026-09-25 결정 B).
+    """지시문만으로는 화풍이 나오지 않아 기준 그림 1장을 같이 보낸다(2026-09-25 결정 B, 순서: 사진 → 기준 그림).
 
-    지시문 문구 자체는 단정하지 않는다 — 화풍을 다듬을 때마다 깨질 이유가 없다.
+    지시문 문구는 `test_generate_prompt_*` 가 따로 고정한다. 여기서는 전송 모양(이미지 순서·호출 인자)만 본다.
     """
     requests: list[httpx.Request] = []
 
@@ -69,6 +70,53 @@ async def test_generate_sends_style_reference_as_second_image_at_high_fidelity()
     assert _form_value(body, "input_fidelity") == "high"
     # 00019 에서 실제로 정사각으로 잘려 나왔다 — 표시용은 전부 세로다(DESIGN §5.2).
     assert _form_value(body, "size") == "1024x1536"
+    # 프롬프트만 바꾸는 작업이다 — 이 둘이 움직이면 비용(장당 약 $0.37 추정)이 바뀐다.
+    assert _form_value(body, "model") == "gpt-image-1"
+    assert _form_value(body, "quality") == "high"
+
+
+async def test_generate_prompt_tells_which_image_is_photo_and_which_is_style_only():
+    """새 프롬프트의 'the reference male chibi illustration' 은 두 번째 그림을 가리킨다 — 머리말이 앞에서 못박는다."""
+    requests: list[httpx.Request] = []
+
+    await _generator_recording_requests(requests).generate("profile-id", _JPEG_BYTES)
+
+    prompt = _form_value(requests[0].content, "prompt")
+    preamble, found, _ = prompt.partition("Transform the provided photo")
+    assert found, "본문 첫 문장이 머리말 뒤에 그대로 있어야 한다"
+    assert "FIRST image" in preamble
+    assert "SECOND image" in preamble
+    assert "style reference only" in preamble
+    assert "never copy" in preamble
+
+
+# 사용자가 붙여넣은 프롬프트 본문(2026-10-13)의 지문이다. 본문은 한 글자도 고치지 않기로 했다 —
+# 일부러 고칠 때만 이 두 상수를 같이 바꾼다(사용자 결정을 다시 받은 뒤에).
+_PROMPT_MAIN_SHA256 = "f06d9256e053bddbad996371ecec8fd6788c2132927b1138888125dc225ecbe3"
+_PROMPT_MAIN_BYTES = 4207
+
+
+def test_prompt_main_is_the_user_pasted_text_verbatim():
+    encoded = _STYLE_PROMPT_MAIN.encode()
+    assert len(encoded) == _PROMPT_MAIN_BYTES
+    assert hashlib.sha256(encoded).hexdigest() == _PROMPT_MAIN_SHA256
+
+
+async def test_generate_prompt_keeps_recognizable_face_of_the_original_person():
+    """2026-10-13 사용자 결정: 블라인드(얼굴만 단순화) 대신 알아볼 수 있는 얼굴 특징을 유지하는 화풍이다."""
+    requests: list[httpx.Request] = []
+
+    await _generator_recording_requests(requests).generate("profile-id", _JPEG_BYTES)
+
+    prompt = _form_value(requests[0].content, "prompt")
+    assert prompt.index("FIRST image") < prompt.index("Transform the provided photo")
+    assert "Preserve the original person's gender, recognizable facial features" in prompt
+    assert "matching the exact visual style of the reference male chibi illustration" in prompt
+    assert "**Negative constraints**" in prompt
+    assert "no extra people, no text, and no logos." in prompt
+    # 옛 블라인드 화풍 지시가 새 프롬프트와 섞여 남으면 서로 모순된다.
+    assert "Simplify only the face" not in prompt
+    assert "two tall black oval dots" not in prompt
 
 
 async def test_generate_returns_ready_on_first_success():

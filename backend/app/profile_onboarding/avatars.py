@@ -43,38 +43,87 @@ def avatar_regen_cost(ready_count: int) -> int:
 # 둘이 어긋나면 "조회는 실패라는데 POST 는 아직 만드는 중이라고 튕기는" 잠긴 상태가 생긴다.
 STALE_PENDING_AFTER = timedelta(minutes=10)
 
-# 화풍 기준 그림 1장을 같이 보낸다(2026-09-25 사용자 결정 B) — 지시문만으로는 "옷·머리·배경은 그대로,
-# 얼굴만 단순화" 하는 블라인드 아바타 화풍(frontend/docs/DESIGN.md §5.2)이 나오지 않았다(운영 00019).
-# 원본은 design/designMaterials/person-f3-blind-v1.png 로, 실사진과 구도가 같고 덧붙인 손동작·소품이 없다.
+# 화풍 기준 그림 1장을 같이 보낸다(2026-09-25 사용자 결정 B) — 지시문만으로는 원하는 화풍이 나오지 않았다(운영 00019).
+# 기준 그림은 design/designMaterials/person-f3-blind-v1.png 에서 만든 여성 그림이다(파일 이름의 blind 는 옛 이름).
+# 실사진과 구도가 같고 덧붙인 손동작·소품이 없다.
 # 모델이 입력을 짧은 변 512px 로 줄여 보므로 1122x1402 원본은 과하다 — 1024x1280 JPEG(품질 90)로 다시
 # 저장해 2.3MB 를 286KB 로 줄였다. 요청마다 같이 올라가는 파일이라 작을수록 낫다.
 # 파일이 없으면 import 에서 바로 터진다 — 배포 이미지에 안 들어간 것을 요청마다 실패로 알아채는 것보다 낫다.
 _STYLE_REFERENCE_BYTES = (Path(__file__).parent / "avatar_style_reference.jpg").read_bytes()
 
-# 모델이 가장 잘 따르는 언어라 영어로 적는다. 두 장을 보내므로 "두 번째는 화풍 참고일 뿐" 을 먼저 못박는다.
-# 금지 목록은 운영 00019 결과에서 실제로 나온 어긋남이다 — 단색 배경으로 교체, 옷 교체, 감은 초승달 눈에
-# 이가 다 보이는 웃음, 정사각형 크롭. 원본 표정이 어떻든 기준 그림의 차분한 표정으로 통일한다.
-_STYLE_PROMPT = (
-    "You are given two images. The FIRST image is the user photo to redraw. The SECOND image is a "
-    "style reference only: never copy its person, face, hairstyle, clothing, background or props.\n"
-    "Redraw the first photo in the style of the second image. Keep from the first photo: the same "
-    "vertical framing and crop, the same head position and pose, the same background scene, the "
-    "same clothes and their colour, the same hair shape and hair colour, and the same accessories "
-    "such as earrings or glasses. Repaint the background, the clothes and the hair as a flat gouache "
-    "and watercolour illustration on paper texture, with soft muted colours and visible brush "
-    "texture.\n"
-    "Simplify only the face, exactly like the reference: a round face with a thick dark brown "
-    "outline, two tall black oval dots for open eyes, one small dot for the nose, one small closed "
-    "curved smile, round pink blush patches with two or three hatch lines, short simple eyebrows "
-    "and simple ears. Keep the person's own skin tone, gender presentation and facial hair from "
-    "the first photo. Draw that same calm expression no matter how the person is smiling in the "
-    "photo.\n"
-    "Never do any of these: replace the background with a flat single colour or an empty studio "
-    "backdrop; change or recolour the clothes; crop to a square; draw closed crescent eyes, a wide "
-    "open mouth, teeth or an exaggerated grin; draw realistic eyes, nose, mouth or skin texture; "
-    "use glossy flat-vector clipart shading; add hands, gestures, props, text, watermark, logo or "
-    "frame."
+# 2026-10-13 사용자 결정: 얼굴만 단순화하던 블라인드 아바타 화풍(frontend/docs/DESIGN.md §5.2)을 버리고,
+# 사용자가 붙여넣은 아래 프롬프트를 **그대로** 쓴다 — 원본 인물의 알아볼 수 있는 얼굴 특징·헤어·옷·소품·
+# 배경 구도를 유지하는 귀여운 손그림 2D 수채화 일러스트다. 본문(MAIN)은 한 글자도 고치지 않는다
+# (마크다운 ** 표시와 'the reference male chibi illustration' 문구 포함). 영어로 적는 것도 그대로다.
+# 본문의 'reference male chibi illustration' 은 우리가 보내는 두 번째 그림(여성 그림)을 가리키므로,
+# 앞에 이미지 역할 머리말(PREAMBLE)만 덧붙인다 — 첫 장은 변환할 사진, 둘째 장은 화풍 참고일 뿐 복사 금지.
+# 호출 인자(model·input_fidelity·size·quality)는 그대로라 장당 비용 추정(약 $0.37)도 그대로다.
+# 운영 00019 에서 실제로 나온 어긋남(단색 배경, 옷 교체, 정사각 크롭)은 새 본문의 구도·옷 유지 지시가 덮을 것으로 기대한다(첫 운영 결과로 확인 전).
+_STYLE_PROMPT_PREAMBLE = (
+    "You are given two images. The FIRST image is the user photo to transform. The SECOND image is a "
+    "style reference only: use it to match the visual style, but never copy its person, face, "
+    "hairstyle, clothing, background or props.\n\n"
 )
+
+_STYLE_PROMPT_MAIN = (
+    "Transform the provided photo into a cute, hand-drawn 2D watercolor illustration, matching the "
+    "exact visual style of the reference male chibi illustration.\n\n"
+    "**1. Character and facial style**\n"
+    "Preserve the original person's gender, recognizable facial features, hairstyle, hair length, "
+    "hair color, pose, expression, clothing, accessories, and all objects they are holding. Use a "
+    "cute Korean webtoon character style mixed with a simple Japanese slice-of-life illustration. "
+    "Draw a softly rounded face, small simple nose, minimal dark oval eyes, natural curved "
+    "eyebrows, a small gentle smile, and subtle rosy blush on both cheeks. Keep the eyes simple, "
+    "matte, and naturally proportioned, with minimal highlights. Use NO long eyelashes, NO "
+    "dramatic eyeliner, NO glamorous makeup, and NO glossy anime eyes. The face should look "
+    "innocent, understated, charming, and deliberately hand-drawn.\n\n"
+    "**2. Hair and character sharpness**\n"
+    "Keep the original hairstyle and silhouette as accurately as possible. Render the hair with "
+    "clean, clearly defined dark-brown outlines, distinct hair sections, individual hand-drawn "
+    "strands, and layered brush strokes. The hair must look crisp, structured, and richly textured "
+    "rather than blurry, flat, or overly smooth. Keep the character's face, hair, hands, clothing, "
+    "and foreground objects relatively sharp and visually prominent.\n\n"
+    "**3. Clothing and material texture**\n"
+    "Preserve the original outfit exactly, including its color, shape, neckline, folds, buttons, "
+    "knit patterns, and other details. Use clear hand-drawn contours and visible fabric texture. "
+    "For knitted clothing, draw distinct ribbing, stitches, and woven patterns. Use layered "
+    "watercolor strokes and subtle cel shading to create depth without realistic photographic "
+    "detail. Clothing should be well-defined and textured, not washed out or blurred.\n\n"
+    "**4. Linework and illustration technique**\n"
+    "Use clean, soft, moderately thick dark-brown outlines with consistent line weight. Apply flat "
+    "pastel color shapes, simple facial details, restrained cel shading, and subtle hand-painted "
+    "brush marks. The result must look like an intentionally illustrated 2D cartoon, not a "
+    "photograph, not photorealistic anime, and not a photo with an artistic filter. Avoid "
+    "excessive outlines, scratchy sketching, overcomplicated facial anatomy, and exaggerated chibi "
+    "proportions.\n\n"
+    "**5. Paper and watercolor texture**\n"
+    "Add visible fine paper grain and subtle watercolor pigment variation throughout the "
+    "illustration. Apply the texture consistently to the character and background, but keep the "
+    "character's contours, eyes, hair strands, and clothing patterns clear and readable. Preserve "
+    "rich dark hair tones and distinct clothing colors. Do not let the paper texture overpower the "
+    "character or make the entire image hazy.\n\n"
+    "**6. Background and lighting**\n"
+    "Recreate the original background composition, camera angle, perspective, lighting, and "
+    "recognizable environmental elements. Convert the environment into soft, painterly watercolor "
+    "shapes with simplified details, muted earthy colors, gentle atmospheric softness, and subtle "
+    "paper texture. Keep the background slightly softer and less detailed than the character. "
+    "Preserve the original setting rather than inventing a new one. Use warm natural light, gentle "
+    "shadows, and a cozy, nostalgic pastel palette.\n\n"
+    "**7. Composition and output quality**\n"
+    "Preserve the original framing, body position, head angle, and placement of objects. Keep the "
+    "character as the clear focal point. Maintain a harmonious balance between crisp character "
+    "details and a softly painted background. Produce polished, high-quality 2D illustration with "
+    "clean silhouettes, readable details, natural colors, and a cohesive hand-drawn aesthetic.\n\n"
+    "**Negative constraints**\n"
+    "No photorealism, no 3D rendering, no realistic skin pores, no glossy eyes, no oversized "
+    "sparkling eyes, no long eyelashes, no heavy eyeliner, no glamorous makeup, no excessive facial "
+    "detail, no blurry hair, no blurry clothing, no plastic-smooth surfaces, no excessive pastel "
+    "fading, no washed-out character, no exaggerated facial proportions, no changed outfit, no "
+    "changed hairstyle, no altered pose, no added accessories, no extra people, no text, and no "
+    "logos."
+)
+
+_STYLE_PROMPT = _STYLE_PROMPT_PREAMBLE + _STYLE_PROMPT_MAIN
 
 
 @dataclass(frozen=True)
