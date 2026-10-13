@@ -2,6 +2,8 @@ import 'package:campus_mate/account/viewmodel/account_info_provider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/friend_review/view/partner_reviews_section.dart';
+import 'package:campus_mate/friend_review/viewmodel/friend_review_list_view_model.dart';
 import 'package:campus_mate/matching/model/card_detail.dart';
 import 'package:campus_mate/matching/view/card_detail_screen.dart';
 import 'package:campus_mate/me/view/edit_app_bar.dart';
@@ -20,7 +22,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// 없는 모양(pen `kpIeX`)이고, 수락 후는 14c 가 쓰는 조각([RevealedPhotoHeader] · [KakaoIdCard])을 그대로
 /// 얹어 상대가 수락한 뒤 보게 될 모양을 미리 보여 준다. 신고/차단 줄은 14c 에만 있다 — 내가 내 프로필을 볼 때는 누를 곳이 없어
 /// 앱에서만 뺐다(사용자 결정 2026-10-10 · pen `vn8R2` 안 신고/차단 줄은 그대로 둠, 같은 그림을 상대 프로필이 쓴다). 값은 `GET /me/card-preview`(10b 와 같은 몸통, 계획서 N2) +
-/// 내 프로필의 실사진 · 계정의 카카오톡 아이디.
+/// 내 프로필의 실사진 · 계정의 카카오톡 아이디 + 내가 받은 지인 리뷰(`GET /friend-reviews/received`).
+/// 두 모양 다 카드 안 이상형 메모 뒤에 14c 와 같은 지인 리뷰 섹션이 있다(pen `lLY1f` · `h0lBy`) — 수락 후는 그 아래 카카오 카드.
 class CardPreviewScreen extends ConsumerStatefulWidget {
   const CardPreviewScreen({super.key});
 
@@ -34,11 +37,23 @@ class _CardPreviewScreenState extends ConsumerState<CardPreviewScreen> {
   var _selected = 0;
 
   @override
+  void initState() {
+    super.initState();
+    // 15 가 같은 받은 리뷰 목록을 쥐고 있으면 목록이 버려지지 않아 15 에 머무는 사이 늘어난 리뷰가 안 보인다 —
+    // 들어올 때 목록을 둔 채 다시 읽는다(20c 와 같은 규칙). 처음 읽는 중이면 그 결과를 기다린다.
+    ref.read(friendReviewListViewModelProvider(myReceivedReviews).notifier).refresh();
+  }
+
+  @override
   Widget build(BuildContext context) {
     // 화면이 떠 있는 동안 두 값을 살려 둔다 — accountInfoProvider 는 autoDispose 라 "수락 후" 를 떠날 때마다 버려져
     // 탭을 오갈 때마다 계정을 다시 읽고 도는 표시가 다시 뜬다. 처음 한 번 미리 읽어 "수락 후" 로 바꿀 때 바로 보이게도 한다.
     ref.watch(accountInfoProvider);
     ref.watch(myProfileProvider);
+    // 받은 리뷰도 같은 이유로 여기서 살려 둔다(탭을 오가도 다시 읽지 않는다). 있는지만 보고 섹션 자리를 정한다.
+    final hasReviews = ref.watch(
+      friendReviewListViewModelProvider(myReceivedReviews).select((state) => state.reviews.isNotEmpty),
+    );
     return Scaffold(
       appBar: const EditAppBar(title: '남이 보는 내 프로필'),
       body: SafeArea(
@@ -46,7 +61,7 @@ class _CardPreviewScreenState extends ConsumerState<CardPreviewScreen> {
         child: Column(
           children: [
             MeTabBar(labels: _tabs, selected: _selected, onSelected: (index) => setState(() => _selected = index)),
-            Expanded(child: _body()),
+            Expanded(child: _body(hasReviews: hasReviews)),
           ],
         ),
       ),
@@ -54,7 +69,7 @@ class _CardPreviewScreenState extends ConsumerState<CardPreviewScreen> {
   }
 
   /// 불러오는 중 · 실패는 pen 에 없는 상태다 — 화면 15 와 같은 모양(가운데 로딩 / [MeLoadError], 계획서 N9).
-  Widget _body() {
+  Widget _body({required bool hasReviews}) {
     void retry() => ref.invalidate(myCardPreviewProvider);
     return ref
         .watch(myCardPreviewProvider)
@@ -62,7 +77,9 @@ class _CardPreviewScreenState extends ConsumerState<CardPreviewScreen> {
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, stackTrace) => MeLoadError(onRetry: retry),
           data: (result) => result.when(
-            onSuccess: (detail) => _selected == 0 ? _BeforeAccept(detail: detail) : _AfterAccept(detail: detail),
+            onSuccess: (detail) => _selected == 0
+                ? _BeforeAccept(detail: detail, hasReviews: hasReviews)
+                : _AfterAccept(detail: detail, hasReviews: hasReviews),
             onFailure: (_) => MeLoadError(onRetry: retry),
           ),
         );
@@ -81,11 +98,12 @@ const EdgeInsets _bodyPadding = EdgeInsets.fromLTRB(
   _bodyBottom,
 );
 
-/// 15-4 수락 전: 안내(`Ocmk4`) + 실사진 · 카카오 카드가 없는 카드.
+/// 15-4 수락 전: 안내(`Ocmk4`) + 실사진 · 카카오 카드가 없는 카드(지인 리뷰는 있다).
 class _BeforeAccept extends StatelessWidget {
-  const _BeforeAccept({required this.detail});
+  const _BeforeAccept({required this.detail, required this.hasReviews});
 
   final CardDetail detail;
+  final bool hasReviews;
 
   @override
   Widget build(BuildContext context) {
@@ -94,8 +112,7 @@ class _BeforeAccept extends StatelessWidget {
       children: [
         const _PreviewNotice(text: '대화 상대가 보는 내 프로필이에요. 실제 사진과 카카오톡 아이디는 둘 다 수락한 뒤에 공개돼요.'),
         const SizedBox(height: AppSpacing.xl),
-        // 지인 리뷰 섹션(kpIeX 안) — 채팅탭 지인 리뷰 PR 4 가 넣는다(깃발 숨김 N6).
-        ProfileCard(detail: detail),
+        ProfileCard(detail: detail, footer: _footer(detail, hasReviews: hasReviews)),
       ],
     );
   }
@@ -106,9 +123,10 @@ class _BeforeAccept extends StatelessWidget {
 /// 실사진은 내 프로필의 사진들, 카카오톡 아이디는 내 계정의 값이다(pen 의 사진 · "hong_gildong" 은 예시). 둘을 다 읽을 때까지
 /// 가운데 도는 표시를 보인다(카드가 나중에 늘어나 튀지 않게). 읽지 못한 쪽은 그 칸만 빠진다 — pen 에 없는 상태.
 class _AfterAccept extends ConsumerWidget {
-  const _AfterAccept({required this.detail});
+  const _AfterAccept({required this.detail, required this.hasReviews});
 
   final CardDetail detail;
+  final bool hasReviews;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -133,32 +151,67 @@ class _AfterAccept extends ConsumerWidget {
           detail: detail,
           // 사진이 없으면(읽기 실패 · 0장) 슬라이더 칸이 없다 — 14c 와 같다.
           header: urls.isEmpty ? null : RevealedPhotoHeader(urls: urls),
-          // 카카오 카드가 없으면 footer 도 없다 — 카드 기본 아래 여백 20 이 맨 끝을 받는다(수락 전 카드와 같은 끝).
-          footer: kakaoId == null || kakaoId.isEmpty
-              ? null
-              : _AfterAcceptFooter(afterIdealNote: detail.idealNote != null, kakaoId: kakaoId),
+          footer: _footer(detail, hasReviews: hasReviews, kakaoId: kakaoId),
         ),
       ],
     );
   }
 }
 
-/// 카드 맨 아래(14c `_Footer` 와 같은 틀에서 지인 리뷰 · 신고/차단 줄을 뺀다): [13] → 카카오 카드 → 20.
-/// 신고/차단 줄이 빠져 footer 가 가져간 카드 아래 여백(footer 가 있으면 0)을 기본값 20 으로 되돌려 준다.
-class _AfterAcceptFooter extends StatelessWidget {
-  const _AfterAcceptFooter({required this.afterIdealNote, required this.kakaoId});
+/// 카드 아래 여백 20(pen `kpIeX` · `vnWFe` 여백 20). footer 가 있으면 카드가 이 여백을 footer 에 넘긴다([ProfileCard.footer]).
+const double _cardBottom = 20;
 
+/// 지인 리뷰 섹션이 스스로 끝에 두는 간격(pen `ChJNT` 13 → 카카오 카드, [PartnerReviewsSection] 의 아래 13).
+const double _reviewsBottom = 13;
+
+/// 지인 리뷰도 카카오 카드도 없으면 footer 가 없다 — 카드 기본 아래 여백 20 이 맨 끝을 받는다(앞뒤 간격이 남지 않는다).
+/// 읽는 중 · 실패한 리뷰도 자리를 차지하지 않는다(P6). 카카오톡 아이디가 빈 문자열이면 없는 것과 같다.
+Widget? _footer(CardDetail detail, {required bool hasReviews, String? kakaoId}) {
+  final kakao = kakaoId == null || kakaoId.isEmpty ? null : kakaoId;
+  if (!hasReviews && kakao == null) {
+    return null;
+  }
+  return _PreviewFooter(
+    afterIdealNote: detail.idealNote != null,
+    nickname: detail.profile.nickname,
+    hasReviews: hasReviews,
+    kakaoId: kakao,
+  );
+}
+
+/// 카드 맨 아래(14c `_Footer` 와 같은 틀에서 신고/차단 줄을 뺐다):
+/// [13] → 지인 리뷰(헤더 `lLY1f` · `h0lBy` → 카드 2장, 끝 13) → 카카오 카드(수락 후만, `WiG7J`) → 20.
+/// 수락 전(또는 카카오톡 아이디가 없을 때)은 마지막 리뷰 카드 → 카드 끝이 여백 20 이다 — 섹션 끝 13 에 7 을 더한다.
+class _PreviewFooter extends StatelessWidget {
+  const _PreviewFooter({
+    required this.afterIdealNote,
+    required this.nickname,
+    required this.hasReviews,
+    required this.kakaoId,
+  });
+
+  /// 카드 마지막 칸이 "이런 사람이 좋아요" 글이다 — 이 글만 섹션 간격 13 없이 끝난다(14c `_Footer` 와 같다).
   final bool afterIdealNote;
-  final String kakaoId;
+
+  /// 14d 시트 제목 "친구들이 본 {내 닉네임}".
+  final String nickname;
+  final bool hasReviews;
+  final String? kakaoId;
 
   @override
   Widget build(BuildContext context) {
+    final kakao = kakaoId;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // pen `RS6bp` · `OdpW0` 13.
         if (afterIdealNote) const SizedBox(height: 13),
-        KakaoIdCard(kakaoId: kakaoId),
-        const SizedBox(height: 20),
+        if (hasReviews) PartnerReviewsSection.mine(nickname: nickname),
+        if (kakao != null) ...[
+          KakaoIdCard(kakaoId: kakao),
+          const SizedBox(height: _cardBottom),
+        ] else
+          const SizedBox(height: _cardBottom - _reviewsBottom),
       ],
     );
   }

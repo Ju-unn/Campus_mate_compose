@@ -26,22 +26,32 @@ const double _sheetMaxHeightFactor = 0.9; // pen 은 3장(hug 750)만 그렸다 
 /// 테스트가 14d 손잡이 크기를 재는 데 쓴다.
 const Key partnerReviewsSheetHandleKey = ValueKey('partner-reviews-sheet-handle');
 
-({FriendReviewListSource source, String? profileId}) _about(String profileId) =>
-    (source: FriendReviewListSource.about, profileId: profileId);
+/// 섹션 · 시트가 읽는 목록. 상대 것(14c · 14d)은 about, 내 것(15-4 · 15-4b)은 received 다.
+typedef _ReviewList = ({FriendReviewListSource source, String? profileId});
+
+/// 15-4 · 15-4b 내 것. 서버 about 은 본인 id 로 부르면 안 된다(find_match(나, 나)) — 반드시 received 로 읽는다.
+/// 15 지인 리뷰 칸 · 20c 와 같은 인자라 같은 목록 뷰모델을 같이 쓴다.
+const ({FriendReviewListSource source, String? profileId}) myReceivedReviews =
+    (source: FriendReviewListSource.received, profileId: null);
 
 /// 14c 상대 프로필 카드 안 "지인 리뷰"(pen `t3hFo` = 원본 `HlGva`). 헤더 → 8 → 카드 → 8 → 카드 → 13.
 /// 위 13 은 앞 칸이 이미 준다. 신고 깃발은 없다 — 서버가 받은 사람만 신고를 받는다(P2 · 대장 Q2).
+/// [PartnerReviewsSection.mine] 은 15-4 · 15-4b 남이 보는 내 프로필(pen `lLY1f` · `h0lBy`)에 같은 모양으로 내가 받은 리뷰를 그린다.
 class PartnerReviewsSection extends ConsumerWidget {
-  const PartnerReviewsSection({required this.profileId, required this.nickname, super.key});
+  const PartnerReviewsSection({required String profileId, required this.nickname, super.key})
+    : _list = (source: FriendReviewListSource.about, profileId: profileId);
 
-  final String profileId;
+  /// 15-4 · 15-4b. 내가 내 리뷰를 신고하는 곳이 아니라 깃발이 없다(신고는 20c 몫).
+  const PartnerReviewsSection.mine({required this.nickname, super.key}) : _list = myReceivedReviews;
+
+  final _ReviewList _list;
 
   /// 14d 제목 "친구들이 본 {닉네임}".
   final String nickname;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final reviews = ref.watch(friendReviewListViewModelProvider(_about(profileId)).select((state) => state.reviews));
+    final reviews = ref.watch(friendReviewListViewModelProvider(_list).select((state) => state.reviews));
     // 읽는 중 · 실패 · 0개는 자리를 차지하지 않는다(P6) — 다 읽은 뒤 14c 가 흔들리지 않게 아예 없다.
     if (reviews.isEmpty) {
       return const SizedBox.shrink();
@@ -72,7 +82,7 @@ class PartnerReviewsSection extends ConsumerWidget {
             child: Material(
               type: MaterialType.transparency,
               child: InkWell(
-                onTap: () => showPartnerReviewsSheet(context, profileId: profileId, nickname: nickname),
+                onTap: () => _showSheet(context, PartnerReviewsSheet._(_list, nickname)),
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(minHeight: _minTapHeight),
                   // 높이만 재는 사본 — 낭독에서 빠진다(안 그러면 "지인 리뷰" 가 두 번 읽힌다).
@@ -135,28 +145,32 @@ class _SectionHeader extends StatelessWidget {
 }
 
 /// 14d 리뷰 전체 시트를 띄운다. 섹션과 같은 목록 상태를 읽어 다시 부르지 않는다.
-Future<void> showPartnerReviewsSheet(BuildContext context, {required String profileId, required String nickname}) {
+Future<void> _showSheet(BuildContext context, PartnerReviewsSheet sheet) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     // pen 은 시트만 그렸다(딤 없음) — 다른 시트와 같은 모달 딤 토큰을 쓴다.
     barrierColor: AppColors.scrim,
-    builder: (_) => PartnerReviewsSheet(profileId: profileId, nickname: nickname),
+    builder: (_) => sheet,
   );
 }
 
 /// 14d 상대 지인 리뷰 전체(pen `FXNL4`): 손잡이만(닫기 없음) → 제목 · 개수 → 카드 전부(간격 12) → 안내 상자.
 /// 높이는 내용만큼(hug), 화면 90% 를 넘으면 그 안에서 스크롤한다. 신고 깃발은 없다(대장 Q2).
+/// 15-4 · 15-4b 의 섹션([PartnerReviewsSection.mine])이 열면 내가 받은 리뷰를 그린다 — 제목은 "친구들이 본 {내 닉네임}", 안내 문구는 14d 그대로.
 class PartnerReviewsSheet extends ConsumerWidget {
-  const PartnerReviewsSheet({required this.profileId, required this.nickname, super.key});
+  const PartnerReviewsSheet({required String profileId, required String nickname, Key? key})
+    : this._((source: FriendReviewListSource.about, profileId: profileId), nickname, key: key);
 
-  final String profileId;
+  const PartnerReviewsSheet._(this._list, this.nickname, {super.key});
+
+  final _ReviewList _list;
   final String nickname;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final reviews = ref.watch(friendReviewListViewModelProvider(_about(profileId)).select((state) => state.reviews));
+    final reviews = ref.watch(friendReviewListViewModelProvider(_list).select((state) => state.reviews));
     return ConstrainedBox(
       constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * _sheetMaxHeightFactor),
       child: Container(

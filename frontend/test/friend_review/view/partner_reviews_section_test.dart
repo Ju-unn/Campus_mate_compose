@@ -27,8 +27,13 @@ void main() {
 
   setUp(() => repository = FakeFriendReviewRepository()..about = Success(_reviews(3)));
 
-  /// 14c 카드 안쪽 폭 288 에 섹션만 놓는다.
-  Future<void> pump(WidgetTester tester, {double scale = 1, bool settle = true}) async {
+  /// 14c 카드 안쪽 폭 288 에 섹션만 놓는다. [section] 을 주면 그 섹션(15-4 의 내 것 변형 등)을 놓는다.
+  Future<void> pump(
+    WidgetTester tester, {
+    double scale = 1,
+    bool settle = true,
+    Widget section = const PartnerReviewsSection(profileId: 'p2', nickname: '토끼'),
+  }) async {
     tester.view.physicalSize = const Size(360, 780);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -38,17 +43,13 @@ void main() {
     addTearDown(container.dispose);
     await tester.pumpWidget(UncontrolledProviderScope(
       container: container,
-      child: const MaterialApp(
+      child: MaterialApp(
         home: Scaffold(
           body: SingleChildScrollView(
-            padding: EdgeInsets.symmetric(horizontal: 36),
+            padding: const EdgeInsets.symmetric(horizontal: 36),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text('위 칸'),
-                PartnerReviewsSection(profileId: 'p2', nickname: '토끼'),
-                Text('아래 칸'),
-              ],
+              children: [const Text('위 칸'), section, const Text('아래 칸')],
             ),
           ),
         ),
@@ -278,4 +279,51 @@ void main() {
       expect(clipped(), isEmpty);
     });
   }
+
+  // 15-4 · 15-4b 남이 보는 내 프로필 — 같은 섹션 · 시트를 내가 받은 리뷰(GET /friend-reviews/received)로 그린다.
+  // 서버 about 은 본인 id 로 부르면 안 된다(find_match(나, 나)).
+  group('내 것 변형(.mine, 15-4 · 15-4b)', () {
+    const mine = PartnerReviewsSection.mine(nickname: '하늘');
+
+    testWidgets('받은 리뷰를 읽고 about 은 부르지 않는다 — 3개면 2장 + "3개 모두 보기", 깃발 없음', (tester) async {
+      repository
+        ..about = const Success([])
+        ..received = Success(_reviews(3));
+      await pump(tester, section: mine);
+
+      expect(repository.receivedCount, 1);
+      expect(repository.aboutRequests, isEmpty);
+      expect(find.text('지인 리뷰'), findsWidgets);
+      expect(find.byType(FriendReviewCard), findsNWidgets(2));
+      expect(find.text('3개 모두 보기'), findsWidgets);
+      expect(find.byIcon(AppIcons.flag), findsNothing);
+    });
+
+    testWidgets('0개면 자리를 차지하지 않는다(P6)', (tester) async {
+      repository.received = const Success([]);
+      await pump(tester, section: mine);
+
+      expect(find.text('지인 리뷰'), findsNothing);
+      expect(tester.getRect(find.text('아래 칸')).top, tester.getRect(find.text('위 칸')).bottom);
+    });
+
+    testWidgets('"모두 보기" → 14d 시트 제목 "친구들이 본 {내 닉네임}", 카드 전부 · 정책 안내 그대로, 다시 읽지 않는다', (tester) async {
+      repository.received = Success(_reviews(3));
+      await pump(tester, section: mine);
+
+      await tester.tap(showAllInk());
+      await tester.pumpAndSettle();
+
+      final sheet = find.byType(PartnerReviewsSheet);
+      expect(find.descendant(of: sheet, matching: find.text('친구들이 본 하늘')), findsOneWidget);
+      expect(find.descendant(of: sheet, matching: find.text('리뷰 3개')), findsOneWidget);
+      expect(find.descendant(of: sheet, matching: find.byType(FriendReviewCard)), findsNWidgets(3));
+      expect(find.descendant(of: sheet, matching: find.byIcon(AppIcons.flag)), findsNothing);
+      await tester.scrollUntilVisible(find.text(_sheetNotice), 200,
+          scrollable: find.descendant(of: sheet, matching: find.byType(Scrollable)));
+      expect(find.text(_sheetNotice), findsOneWidget);
+      expect(repository.receivedCount, 1);
+      expect(repository.aboutRequests, isEmpty);
+    });
+  });
 }
