@@ -43,84 +43,97 @@ def avatar_regen_cost(ready_count: int) -> int:
 # 둘이 어긋나면 "조회는 실패라는데 POST 는 아직 만드는 중이라고 튕기는" 잠긴 상태가 생긴다.
 STALE_PENDING_AFTER = timedelta(minutes=10)
 
-# 화풍 기준 그림 1장을 같이 보낸다(2026-09-25 사용자 결정 B) — 지시문만으로는 원하는 화풍이 나오지 않았다(운영 00019).
-# 기준 그림은 design/designMaterials/person-f3-blind-v1.png 에서 만든 여성 그림이다(파일 이름의 blind 는 옛 이름).
-# 실사진과 구도가 같고 덧붙인 손동작·소품이 없다.
-# 모델이 입력을 짧은 변 512px 로 줄여 보므로 1122x1402 원본은 과하다 — 1024x1280 JPEG(품질 90)로 다시
-# 저장해 2.3MB 를 286KB 로 줄였다. 요청마다 같이 올라가는 파일이라 작을수록 낫다.
+# 화풍 참고 그림 1장을 같이 보낸다(2026-09-25 사용자 결정 B) — 지시문만으로는 원하는 화풍이 나오지 않았다(운영 00019).
+# 참고 그림은 frontend/assets/images/person-f1-blind-v1.png(목표 그림)를 1024x1280 JPEG(품질 90)로 줄인 것이다
+# (2.4MB → 약 326KB). 요청마다 같이 올라가는 파일이라 작을수록 낫다. 프롬프트 v2-8 시험이 이 파일로 돌았다.
 # 파일이 없으면 import 에서 바로 터진다 — 배포 이미지에 안 들어간 것을 요청마다 실패로 알아채는 것보다 낫다.
 _STYLE_REFERENCE_BYTES = (Path(__file__).parent / "avatar_style_reference.jpg").read_bytes()
 
-# 2026-10-13 사용자 결정: 얼굴만 단순화하던 블라인드 아바타 화풍(frontend/docs/DESIGN.md §5.2)을 버리고,
-# 사용자가 붙여넣은 아래 프롬프트를 **그대로** 쓴다 — 원본 인물의 알아볼 수 있는 얼굴 특징·헤어·옷·소품·
-# 배경 구도를 유지하는 귀여운 손그림 2D 수채화 일러스트다. 본문(MAIN)은 한 글자도 고치지 않는다
-# (마크다운 ** 표시와 'the reference male chibi illustration' 문구 포함). 영어로 적는 것도 그대로다.
-# 본문의 'reference male chibi illustration' 은 우리가 보내는 두 번째 그림(여성 그림)을 가리키므로,
-# 앞에 이미지 역할 머리말(PREAMBLE)만 덧붙인다 — 첫 장은 변환할 사진, 둘째 장은 화풍 참고일 뿐 복사 금지.
-# 호출 인자(model·input_fidelity·size·quality)는 그대로라 장당 비용 추정(약 $0.37)도 그대로다.
-# 운영 00019 에서 실제로 나온 어긋남(단색 배경, 옷 교체, 정사각 크롭)은 새 본문의 구도·옷 유지 지시가 덮을 것으로 기대한다(첫 운영 결과로 확인 전).
+# 2026-10-14 사용자 결정: 점·선 얼굴 + 선명한 화풍(v2-8). 참고 그림은 화풍만 참고하고, 배경은 첫 사진 것만 쓴다
+# (v2-7 시험에서 실내·단색 배경 사진 4장이 모두 참고 그림의 계단·벚꽃·건물로 바뀌었다). 머리말(PREAMBLE)이
+# 이미지 역할을 정하고(첫 장 = 변환할 사진, 둘째 장 = 화풍 참고일 뿐 내용·배경 복사 금지) 본문(MAIN)이 화풍을 정한다.
+# 두 문자열은 시험한 문구를 그대로 옮겼다 — 고치면 다시 시험한다(해시는 test_avatars.py 가 고정).
+# 시험 기록(결과·v2-7 → v2-8 변경 요약)은 저장소 밖 출시준비/아바타_시험_1013/v3/프롬프트_v3.md 10절이다.
 _STYLE_PROMPT_PREAMBLE = (
     "You are given two images. The FIRST image is the user photo to transform. The SECOND image is a "
-    "style reference only: use it to match the visual style, but never copy its person, face, "
-    "hairstyle, clothing, background or props.\n\n"
+    "STYLE reference only. Copy only its way of drawing: the face (flat skin, tiny dot nose, small oval "
+    "eyes, thin short eyebrows, thin curved smile, soft blush circles with a few tiny strokes, and a "
+    "partial thin dark-brown outline only around the face, neck and collar), its crisp, detailed hair, "
+    "its knit and fabric texture, and its clean, sharp illustrated look. NEVER use its content: not its "
+    "person, identity, hairstyle or clothing, and NEVER its scenery, background, buildings, trees, "
+    "stairs, lamp posts, cherry blossoms, sky or the colors of its setting. Recreate ONLY the FIRST "
+    "image's own person, hairstyle, outfit, pose, background and setting.\n\n"
 )
 
 _STYLE_PROMPT_MAIN = (
-    "Transform the provided photo into a cute, hand-drawn 2D watercolor illustration, matching the "
-    "exact visual style of the reference male chibi illustration.\n\n"
-    "**1. Character and facial style**\n"
-    "Preserve the original person's gender, recognizable facial features, hairstyle, hair length, "
-    "hair color, pose, expression, clothing, accessories, and all objects they are holding. Use a "
-    "cute Korean webtoon character style mixed with a simple Japanese slice-of-life illustration. "
-    "Draw a softly rounded face, small simple nose, minimal dark oval eyes, natural curved "
-    "eyebrows, a small gentle smile, and subtle rosy blush on both cheeks. Keep the eyes simple, "
-    "matte, and naturally proportioned, with minimal highlights. Use NO long eyelashes, NO "
-    "dramatic eyeliner, NO glamorous makeup, and NO glossy anime eyes. The face should look "
-    "innocent, understated, charming, and deliberately hand-drawn.\n\n"
-    "**2. Hair and character sharpness**\n"
-    "Keep the original hairstyle and silhouette as accurately as possible. Render the hair with "
-    "clean, clearly defined dark-brown outlines, distinct hair sections, individual hand-drawn "
-    "strands, and layered brush strokes. The hair must look crisp, structured, and richly textured "
-    "rather than blurry, flat, or overly smooth. Keep the character's face, hair, hands, clothing, "
-    "and foreground objects relatively sharp and visually prominent.\n\n"
-    "**3. Clothing and material texture**\n"
-    "Preserve the original outfit exactly, including its color, shape, neckline, folds, buttons, "
-    "knit patterns, and other details. Use clear hand-drawn contours and visible fabric texture. "
-    "For knitted clothing, draw distinct ribbing, stitches, and woven patterns. Use layered "
-    "watercolor strokes and subtle cel shading to create depth without realistic photographic "
-    "detail. Clothing should be well-defined and textured, not washed out or blurred.\n\n"
-    "**4. Linework and illustration technique**\n"
-    "Use clean, soft, moderately thick dark-brown outlines with consistent line weight. Apply flat "
-    "pastel color shapes, simple facial details, restrained cel shading, and subtle hand-painted "
-    "brush marks. The result must look like an intentionally illustrated 2D cartoon, not a "
-    "photograph, not photorealistic anime, and not a photo with an artistic filter. Avoid "
-    "excessive outlines, scratchy sketching, overcomplicated facial anatomy, and exaggerated chibi "
-    "proportions.\n\n"
-    "**5. Paper and watercolor texture**\n"
-    "Add visible fine paper grain and subtle watercolor pigment variation throughout the "
-    "illustration. Apply the texture consistently to the character and background, but keep the "
-    "character's contours, eyes, hair strands, and clothing patterns clear and readable. Preserve "
-    "rich dark hair tones and distinct clothing colors. Do not let the paper texture overpower the "
-    "character or make the entire image hazy.\n\n"
-    "**6. Background and lighting**\n"
-    "Recreate the original background composition, camera angle, perspective, lighting, and "
-    "recognizable environmental elements. Convert the environment into soft, painterly watercolor "
-    "shapes with simplified details, muted earthy colors, gentle atmospheric softness, and subtle "
-    "paper texture. Keep the background slightly softer and less detailed than the character. "
-    "Preserve the original setting rather than inventing a new one. Use warm natural light, gentle "
-    "shadows, and a cozy, nostalgic pastel palette.\n\n"
-    "**7. Composition and output quality**\n"
-    "Preserve the original framing, body position, head angle, and placement of objects. Keep the "
-    "character as the clear focal point. Maintain a harmonious balance between crisp character "
-    "details and a softly painted background. Produce polished, high-quality 2D illustration with "
-    "clean silhouettes, readable details, natural colors, and a cohesive hand-drawn aesthetic.\n\n"
+    "Transform the provided photo into a clean, crisp, high-clarity digital 2D illustration with "
+    "smooth flat fills and finely detailed linework and shading, matching the visual style of the "
+    "reference illustration: a deliberately simple dot-and-line face placed on an intricately drawn head of "
+    "hair, detailed clothing and a sharply drawn background. This is NOT a painting: no watercolor, no gouache, no oil-paint or brush-stroke look, no painterly blur.\n\n"
+    "**1. Face: only dots and lines**\n"
+    "Draw the face with dots and lines only. The skin is one flat, even, clean light peach color (not orange, not yellow) with "
+    "no texture, no grain, no shading, no shadow and no gradient. Eyes: two small solid black vertical ovals "
+    "(matte, no highlights). Nose: the nose is a single tiny round dot like a period, exactly as in the reference illustration; never a line, curve, hook or nostril. Mouth: one thin gentle curved line forming a small "
+    "smile. Eyebrows: short thin brown lines. Cheeks: two round soft pink blush circles, each with "
+    "two or three short thin lines inside. Ears: simple rounded shapes with a pink inner part. Use a "
+    "thin, dark-brown, slightly broken outline ONLY around the face, neck and collar edges. Do not "
+    "draw any outline around the hair or the background.\n\n"
+    "**2. Keep the person recognizable**\n"
+    "Preserve the original person's gender, hairstyle, hair length, hair color, bangs, parting, "
+    "glasses, moles or freckles (as tiny dots) and other recognizable traits. Quietly keep the "
+    "person's face proportions (face width versus height, how far apart the eyes sit, how high or low they sit), the spacing and angle of the eyes, the shape and thickness of the "
+    "eyebrows, the face shape and the smile character, expressed through the same simple dots and "
+    "lines. Do not add realistic facial detail, so the person is recognizable as a charming simplified "
+    "drawing, not as a portrait.\n\n"
+    "**3. Hair: rich, individually drawn texture**\n"
+    "Keep the original hairstyle, volume and silhouette. Draw the hair as many fine individual "
+    "strands with thin lines, in layered clumps with subtle soft highlights and a light sheen along the strands, a few stray flyaway "
+    "hairs at the crown and edges, and see-through bangs where individual strands are visible over "
+    "the forehead. The hair must look richly textured, crisp and dimensional, never flat, smooth, "
+    "blurry or a single solid mass.\n\n"
+    "**4. Clothing and material texture**\n"
+    "Preserve the original outfit exactly: color, shape, neckline, collar, folds, buttons and "
+    "patterns. Render the fabric sharply with clearly visible texture: knitwear with distinct ribbing "
+    "and stitch rows, woven fabrics with fine weave marks, soft folds and gentle shading in "
+    "collars and sleeves, and clearly drawn buttons and seams. Clothing must be vivid and "
+    "well-defined, not washed out or blurred.\n\n"
+    "**5. Background: the first photo's own background, clean and sharp**\n"
+    "Recreate the FIRST photo's actual background in the same positions, composition, camera angle, "
+    "perspective and colors, simplified into the same clean, crisp illustrated style: for example an "
+    "indoor shop with shelves, plants and posters, a plain studio wall, a dark blurred setting, or "
+    "shop shelves, or an outdoor campus with its own trees and buildings, whatever the photo really "
+    "shows. A plain solid-color background stays a plain solid color, and a blurred or dark "
+    "background stays blurred or dark, only simplified and cleaned. Do NOT invent buildings, trees, "
+    "stairs, flowers, lamp posts or sky that are not in the first photo. Keep the original weather, "
+    "sky and time of day (an overcast sky stays overcast). Where the background is detailed, draw it "
+    "crisp and clean, with no haze, color bleeding, wash, or uneven pigment density. Use neutral, "
+    "clean lighting with gentle highlights and shadows, with no warm color grade. Keep the character "
+    "as the focal point, with the face being the simplest part.\n\n"
+    "**6. Finish and color**\n"
+    "Use a clean, crisp digital 2D look with clean vector-like edges and smooth, opaque, even flat "
+    "fills. NO paper grain, NO canvas texture, NO noise, NO watercolor, NO gouache, NO oil-paint or "
+    "brush-stroke look, NO painterly blur, no bleeding, no soft or feathered edges, no wet-paint "
+    "effects. Use a neutral white balance and keep the colors of the photo as they are: whites stay "
+    "pure white, the sky stays a clear blue, greens stay fresh green, and skin is a clean light "
+    "peach, NOT orange, NOT yellow. NO sepia, NO warm color grade, NO vintage film filter, NO "
+    "golden-hour tint, NO yellowish overlay, NO aged-paper look. The whole image must look "
+    "high-resolution, bright, clear and crisp.\n\n"
+    "**7. Composition**\n"
+    "Preserve the original framing, body position, head angle, expression, gaze direction and the "
+    "placement of every object, including anything held in the hands. Exactly one person, the clear "
+    "focal point. Keep the exact head turn and gaze direction. Keep the exact hair color (black stays "
+    "black). Keep glasses with the exact frame shape and color, with the eyes drawn inside the lenses "
+    "and the thin frame lines never covering the eyes. Keep hats, logos on hats and clothing, "
+    "badges and neck straps. Keep permanent features such as moles and dimples, but remove temporary "
+    "marks such as stains, dirt, scratches and food on the skin.\n\n"
     "**Negative constraints**\n"
-    "No photorealism, no 3D rendering, no realistic skin pores, no glossy eyes, no oversized "
-    "sparkling eyes, no long eyelashes, no heavy eyeliner, no glamorous makeup, no excessive facial "
-    "detail, no blurry hair, no blurry clothing, no plastic-smooth surfaces, no excessive pastel "
-    "fading, no washed-out character, no exaggerated facial proportions, no changed outfit, no "
-    "changed hairstyle, no altered pose, no added accessories, no extra people, no text, and no "
-    "logos."
+    "No photorealism, no 3D rendering, no realistic skin pores or skin shading, no glossy eyes, no "
+    "oversized sparkling eyes, no line-shaped, curved or hooked nose, no long eyelashes, no heavy eyeliner, no glamorous makeup, no "
+    "exaggerated chibi proportions, no watercolor, no blurry or hazy background, no flat or blurry "
+    "hair, no blurry clothing, no thick outline around hair or background, no changed outfit, no "
+    "changed hairstyle, no altered pose, no added accessories or props, no extra people, no stairs, no cherry blossoms, no gothic building "
+    "and no lamp post unless they are in the first photo, and no added text or logos that are not in "
+    "the first photo."
 )
 
 _STYLE_PROMPT = _STYLE_PROMPT_PREAMBLE + _STYLE_PROMPT_MAIN
@@ -151,24 +164,23 @@ class AvatarGenerator:
             if content_type is None:
                 raise ValueError("아바타 원본 사진의 형식을 알 수 없다")
             response = await self._openai_client.images.edit(
-                model="gpt-image-1",
+                # 2026-10-14 사용자 결정. 시험(사진 4장)에서 장당 약 20초, 입력 약 3,600~3,800 · 출력 1,372 토큰
+                # → 장당 약 $0.07(입력 $8 · 출력 $30 / 100만 토큰 가격표 기준 추정, 실청구는 아직 확인 못 했다).
+                # 옛 gpt-image-1 + input_fidelity=high 는 약 $0.37 이었다.
+                model="gpt-image-2.5-flare",
                 image=[
                     (f"source.{content_type.removeprefix('image/')}", source_photo_bytes, content_type),
                     ("style-reference.jpg", _STYLE_REFERENCE_BYTES, "image/jpeg"),
                 ],
                 prompt=_STYLE_PROMPT,
-                # 원본의 구도·옷·머리·액세서리를 그대로 두는 것이 이 기능의 전부다. 두 장 모두에 걸리므로
-                # 첫 결과에서 기준 그림의 단발·벚꽃 같은 요소가 새어 나오면, 다음 손잡이는 기준 그림을
-                # 얼굴 위주로 잘라 넣는 것이다 — low 로 내리지는 말 것(원본 유지가 통째로 무너진다).
-                input_fidelity="high",
+                # input_fidelity 는 넣지 않는다 — 이 모델은 키만 있어도 400 invalid_input_fidelity_model 이다.
+                # 원본(구도·옷·머리) 유지는 모델 기본 동작과 프롬프트 7절이 맡는다.
                 # 표시용 사진은 전부 세로 4:5 다(DESIGN §5.2) — 지원되는 비율 중 가장 가까운 세로를 고른다.
-                # 비용은 늘어난다 — 00019 는 정사각 high(약 $0.167)로 나왔는데 세로 high 는 약 $0.25 고,
-                # input_fidelity=high 가 입력 이미지마다 토큰을 더 물려 2장이면 약 +$0.12 다. 장당 약
-                # $0.17 → 약 $0.37 로 두 배쯤 된다(공개 가격표 기준 추정, 실청구는 아직 확인 못 했다).
-                # quality 를 medium 으로 내리면 출력값은 1/4 이지만 머리카락·종이 질감이 뭉개진다.
                 size="1024x1536",
+                # 시험은 high 로만 돌았다(출력 토큰이 high 에서도 1,372 라 실제 차이는 확인 못 했다).
                 quality="high",
             )
+            # 응답 모양은 gpt-image-1 과 같다 — 시험 스크립트도 data[0].b64_json 을 읽었고 1024x1536 PNG 가 나왔다.
             image_bytes = base64.b64decode(response.data[0].b64_json)
         except Exception:
             _logger.exception("아바타 생성 실패 — profile_id=%s", profile_id)

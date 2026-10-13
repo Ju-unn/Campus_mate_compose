@@ -8,7 +8,7 @@ from openai import AsyncOpenAI
 from PIL import Image
 
 from app.profile_onboarding.avatars import (
-    _STYLE_PROMPT_MAIN,
+    _STYLE_PROMPT,
     _STYLE_REFERENCE_BYTES,
     AvatarGenerator,
     MAX_CONSECUTIVE_FAILURES,
@@ -59,8 +59,8 @@ async def test_generate_sends_source_photo_with_its_own_mimetype():
     assert 'filename="source.jpeg"' in source_headers
 
 
-async def test_generate_sends_style_reference_as_second_image_at_high_fidelity():
-    """지시문만으로는 화풍이 나오지 않아 기준 그림 1장을 같이 보낸다(2026-09-25 결정 B, 순서: 사진 → 기준 그림).
+async def test_generate_sends_photo_and_style_reference_to_flare_without_input_fidelity():
+    """2026-10-14 사용자 결정: gpt-image-2.5-flare 로 바꾼다. 사진 → 화풍 참고 그림 순서 2장은 그대로다.
 
     지시문 문구는 `test_generate_prompt_*` 가 따로 고정한다. 여기서는 전송 모양(이미지 순서·호출 인자)만 본다.
     """
@@ -74,17 +74,16 @@ async def test_generate_sends_style_reference_as_second_image_at_high_fidelity()
     assert len(headers) == 2
     assert 'filename="source.jpeg"' in headers[0]
     assert 'filename="style-reference.jpg"' in headers[1]
-    # 원본의 구도·옷·머리를 유지하는 유일한 손잡이다. 빠지면 모델이 사진을 자유롭게 다시 그린다.
-    assert _form_value(body, "input_fidelity") == "high"
+    assert _form_value(body, "model") == "gpt-image-2.5-flare"
+    # 새 모델은 input_fidelity 를 받지 않는다 — 값이 무엇이든 키가 실리면 400 invalid_input_fidelity_model 이다.
+    assert b'name="input_fidelity"' not in body
     # 00019 에서 실제로 정사각으로 잘려 나왔다 — 표시용은 전부 세로다(DESIGN §5.2).
     assert _form_value(body, "size") == "1024x1536"
-    # 프롬프트만 바꾸는 작업이다 — 이 둘이 움직이면 비용(장당 약 $0.37 추정)이 바뀐다.
-    assert _form_value(body, "model") == "gpt-image-1"
     assert _form_value(body, "quality") == "high"
 
 
 async def test_generate_prompt_tells_which_image_is_photo_and_which_is_style_only():
-    """새 프롬프트의 'the reference male chibi illustration' 은 두 번째 그림을 가리킨다 — 머리말이 앞에서 못박는다."""
+    """둘째 그림의 장면(계단·벚꽃·건물)이 배경으로 새어 들던 것을 머리말이 막는다(v2-8, 시험 4장)."""
     requests: list[httpx.Request] = []
 
     await _generator_recording_requests(requests).generate("profile-id", _JPEG_BYTES)
@@ -93,38 +92,41 @@ async def test_generate_prompt_tells_which_image_is_photo_and_which_is_style_onl
     preamble, found, _ = prompt.partition("Transform the provided photo")
     assert found, "본문 첫 문장이 머리말 뒤에 그대로 있어야 한다"
     assert "FIRST image" in preamble
-    assert "SECOND image" in preamble
-    assert "style reference only" in preamble
-    assert "never copy" in preamble
+    assert "SECOND image is a STYLE reference only" in preamble
+    assert "NEVER use its content" in preamble
+    assert "NEVER its scenery, background" in preamble
+    assert "Recreate ONLY the FIRST image's own person" in preamble
 
 
-# 사용자가 붙여넣은 프롬프트 본문(2026-10-13)의 지문이다. 본문은 한 글자도 고치지 않기로 했다 —
-# 일부러 고칠 때만 이 두 상수를 같이 바꾼다(사용자 결정을 다시 받은 뒤에).
-_PROMPT_MAIN_SHA256 = "f06d9256e053bddbad996371ecec8fd6788c2132927b1138888125dc225ecbe3"
-_PROMPT_MAIN_BYTES = 4207
+# 시험을 거친 v2-8 프롬프트(머리말 + 본문, 2026-10-14 사용자 결정)의 지문이다. 시험 스크립트의 문자열을
+# 그대로 옮겼다 — 일부러 고칠 때만 이 두 상수를 같이 바꾼다(다시 시험하고 사용자 결정을 받은 뒤에).
+_PROMPT_SHA256 = "5d664d4820492fb9e16d2cccf556ce07573d2da8b6dda747474895b2e56c44b8"
+_PROMPT_BYTES = 6641
 
 
-def test_prompt_main_is_the_user_pasted_text_verbatim():
-    encoded = _STYLE_PROMPT_MAIN.encode()
-    assert len(encoded) == _PROMPT_MAIN_BYTES
-    assert hashlib.sha256(encoded).hexdigest() == _PROMPT_MAIN_SHA256
+def test_prompt_is_the_tested_v2_8_text_verbatim():
+    encoded = _STYLE_PROMPT.encode()
+    assert len(encoded) == _PROMPT_BYTES
+    assert hashlib.sha256(encoded).hexdigest() == _PROMPT_SHA256
 
 
-async def test_generate_prompt_keeps_recognizable_face_of_the_original_person():
-    """2026-10-13 사용자 결정: 블라인드(얼굴만 단순화) 대신 알아볼 수 있는 얼굴 특징을 유지하는 화풍이다."""
+async def test_generate_prompt_draws_a_dot_and_line_face_without_the_old_watercolor_style():
+    """2026-10-14 사용자 결정: 점·선 얼굴 + 선명한 디지털 화풍. 10-13 의 수채화 지시가 섞여 남으면 서로 모순된다."""
     requests: list[httpx.Request] = []
 
     await _generator_recording_requests(requests).generate("profile-id", _JPEG_BYTES)
 
     prompt = _form_value(requests[0].content, "prompt")
     assert prompt.index("FIRST image") < prompt.index("Transform the provided photo")
-    assert "Preserve the original person's gender, recognizable facial features" in prompt
-    assert "matching the exact visual style of the reference male chibi illustration" in prompt
+    assert "**1. Face: only dots and lines**" in prompt
+    assert "**2. Keep the person recognizable**" in prompt
+    assert "Recreate the FIRST photo's actual background" in prompt
     assert "**Negative constraints**" in prompt
-    assert "no extra people, no text, and no logos." in prompt
-    # 옛 블라인드 화풍 지시가 새 프롬프트와 섞여 남으면 서로 모순된다.
+    assert prompt.endswith("and no added text or logos that are not in the first photo.")
+    assert "hand-drawn 2D watercolor illustration" not in prompt
+    assert "reference male chibi illustration" not in prompt
+    assert "Add visible fine paper grain" not in prompt
     assert "Simplify only the face" not in prompt
-    assert "two tall black oval dots" not in prompt
 
 
 # 화풍 참고 그림 = frontend/assets/images/person-f1-blind-v1.png 를 1024x1280 JPEG(품질 90)로 줄인 파일.
