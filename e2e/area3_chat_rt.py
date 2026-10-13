@@ -17,6 +17,8 @@
   E-CHAT-03  "A · B 가 0.5초 간격으로 번갈아" — 두 앱이 PC 가 함께 놓아 준 뒤 각자 1.0초 간격으로 입력칸에 쓰고 보내기를 눌러 보낸다(B 는 0.5초 늦게 시작). 기기마다 누르는 시간이
                   조금 어긋나 정확한 0.5초 엇갈림은 아니다 — 판정은 DB `(created_at, id)` 순서와 두 화면 순서의 일치이고, 줄마다 2.0초는 상대 기기가 그 글을 처음 본 앱 시계와 서버 시각의 차(음수는 뺀다).
   E-CHAT-07  "당겨서 새로고침" — 먼저 손가락 끌기(fling)를 하고 6초 안에 안 갱신되면 같은 새로고침 표시기를 직접 띄운다(E-SAFE-50 과 같은 길). 어느 쪽인지 메모에 `당기기`로 남긴다.
+             목록은 이제 새로고침 없이도 바뀐다(사용자 채널 이벤트 · 3초/30초 폴링 · 푸시, #502 #509 #510) — 그래서 `당기기` 는 무엇이 목록을 바꿨는지의 증거가 아니고,
+             앱은 뱃지가 3에 닿을 때까지 10초 더 기다린 뒤 읽는다(이벤트가 한 건씩 늦게 오면 1 · 2 로 잠깐 보인다).
   E-CHAT-22 · 24 · 72  망은 `svc wifi/data` 가 아니라 비행기 모드(notify.airplane)로 끊는다(E-CHAT-25 와 같은 길 — 폰 USB 우편함은 안 끊긴다). 72 는 끊기 → 3건 → 5초 → 켜기 순서이고
                   켜는 쪽 기다림(settle)을 0 으로 해 "켠 뒤 10초" 를 켠 직후부터 센다.
   E-CHAT-23  HOME 은 notify.background, 돌아오기는 monkey LAUNCHER(area4_push_a4._front — 떠 있는 앱은 그대로 앞으로 온다). 시나리오는 걸린 시간만 "기록" 이라 하므로 숫자 판정은 없고,
@@ -69,7 +71,7 @@ STREAM_TIME = (STREAM - 1) * GAP + SEND_WORST  # 칸은 첫 보내기에서 세�
 PHONE_LIMITS = {  # 가설마다 줄 초 — 기본 420 은 계정 둘 준비(300) + 앱 켜기(90)만으로 거의 찬다
     'E-CHAT-01': PREP + APP_OPEN + STREAM_TIME + TAIL,
     'E-CHAT-02': PREP + APP_OPEN + STREAM_TIME + TAIL,
-    'E-CHAT-07': PREP + APP_OPEN + 60 + 3 * SEND_WORST,  # PC 의 3건 보내기 최악 30 + 끌기 6 + 직접 새로고침 10 + 방 들어갔다 나오기 · 읽음 반영 40 안팎
+    'E-CHAT-07': PREP + APP_OPEN + 70 + 3 * SEND_WORST,  # PC 의 3건 보내기 최악 30 + 끌기 6 + 직접 새로고침 10 + 뱃지가 3에 닿기 10 + 방 들어갔다 나오기 · 읽음 반영 40 안팎
     'E-CHAT-22': PREP + APP_OPEN + BANNER_WAIT + OFFLINE_LINES * SEND_WORST + notify.SETTLE_SECONDS + RETRY_WAIT + TAIL,
     'E-CHAT-23': PREP + APP_OPEN + BG_SETTLE + MISSED_LINES * SEND_WORST + BG_STAY + 15 + TAIL,
     'E-CHAT-24': len(VARIANTS) * (PREP + APP_OPEN + BANNER_WAIT + 2 * SEND_WORST + notify.SETTLE_SECONDS + RETRY_WAIT + TAIL),  # 판마다 계정 · 앱을 새로
