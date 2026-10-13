@@ -1,11 +1,15 @@
 """구글 플레이 개발자 API 창구(billing/play.py). 실제 구글은 부르지 않는다 — httpx.MockTransport 로 답을 정한다."""
 import hashlib
 import logging
+from types import SimpleNamespace
 from uuid import UUID
 
+import google.auth
+import google.auth.exceptions
 import httpx
 import pytest
 
+from app.billing import play
 from app.billing.play import PACKAGE_NAME, PlayApi, PlayUnavailable, account_token, token_hash
 
 PROFILE = UUID("11111111-1111-1111-1111-111111111111")
@@ -119,6 +123,73 @@ async def test_voided_since_with_nothing_voided_is_empty():
 async def test_voided_since_failure_is_unavailable(status):
     with pytest.raises(PlayUnavailable):
         await _api(lambda r: httpx.Response(status)).voided_since(0)
+
+
+def _play_lines(caplog) -> list[str]:
+    return [r.getMessage() for r in caplog.records if r.name == "app.billing.play"]
+
+
+@pytest.mark.parametrize("status", [401, 403])
+async def test_a_refusal_logs_googles_reason_but_never_a_token(status, caplog):
+    # 401 의 원인(플레이 콘솔 권한 · 토큰 범위 · 인증)은 구글 본문에만 있다. 본문이 구매 토큰을 되울려도 로그엔 안 남는다.
+    body = {"error": {
+        "code": status, "status": "UNAUTHENTICATED",
+        "message": f"The current user has insufficient permissions. {TOKEN} play-access-token " + "y" * 300,
+        "errors": [{"reason": "permissionDenied", "domain": "androidpublisher"}],
+    }}
+    with caplog.at_level(logging.WARNING), pytest.raises(PlayUnavailable):
+        await _api(lambda r: httpx.Response(status, json=body)).get_purchase("heart_100", TOKEN)
+
+    (line,) = _play_lines(caplog)
+    assert line.startswith(f"구글 플레이 API 거절 status={status} ")
+    assert "code=" in line and "UNAUTHENTICATED" in line and "reason=permissionDenied" in line
+    assert "The current user has insufficient permissions." in line and "<token>" in line
+    assert TOKEN not in line and "play-access-token" not in line
+    assert "y" * 200 not in line  # message 는 200자까지
+
+
+async def test_a_refusal_that_is_not_json_logs_only_its_first_100_characters(caplog):
+    with caplog.at_level(logging.WARNING), pytest.raises(PlayUnavailable):
+        await _api(lambda r: httpx.Response(401, text=f"<html>denied {TOKEN} " + "z" * 300)).get_purchase("heart_100", TOKEN)
+
+    (line,) = _play_lines(caplog)
+    assert "<html>denied <token>" in line and TOKEN not in line
+    assert "z" * 100 not in line
+
+
+async def test_an_outage_does_not_log_the_body(caplog):
+    with caplog.at_level(logging.WARNING), pytest.raises(PlayUnavailable):
+        await _api(lambda r: httpx.Response(503, text="busy")).get_purchase("heart_100", TOKEN)
+    assert _play_lines(caplog) == []
+
+
+async def test_a_credential_failure_is_unavailable_logged_and_retried_next_time(monkeypatch, caplog):
+    # 메타데이터 · ADC 가 토큰을 못 주면 플레이 API 에 닿기 전에 끝난다 — 그 원인도 401 처럼 로그에서 읽혀야 한다.
+    refreshes = []
+
+    def refresh(request):
+        refreshes.append(request)
+        raise google.auth.exceptions.RefreshError(
+            "Failed to retrieve the access token from the metadata service. Status: 403")
+
+    monkeypatch.setattr(play, "_credentials", None)
+    monkeypatch.setattr(google.auth, "default",
+                        lambda scopes=None: (SimpleNamespace(valid=False, token=None, refresh=refresh), "campus-test"))
+    google_calls = []
+    api = PlayApi(httpx.AsyncClient(transport=httpx.MockTransport(
+        lambda r: google_calls.append(r) or httpx.Response(200, json={}))))
+
+    with caplog.at_level(logging.WARNING), pytest.raises(PlayUnavailable):
+        await api.get_purchase("heart_100", TOKEN)
+
+    (line,) = _play_lines(caplog)
+    assert line.startswith("구글 플레이 자격 만들기 실패 error=RefreshError ")
+    assert "Failed to retrieve the access token from the metadata service" in line
+    assert google_calls == []  # 토큰이 없으니 구글 플레이는 부르지 않는다
+    # 실패한 자격은 굳지 않는다 — 다음 요청이 다시 refresh 한다.
+    with pytest.raises(PlayUnavailable):
+        await api.get_purchase("heart_100", TOKEN)
+    assert len(refreshes) == 2
 
 
 def test_httpx_request_lines_are_never_logged_at_info():
