@@ -67,6 +67,20 @@ class FakeChatRepository implements ChatRepository {
     return messages;
   }
 
+  /// 상대 읽음 확인(메시지 1건 조회)이 돌려줄 값과 부른 횟수.
+  Result<PartnerRead> partnerReadResult = const Success(PartnerRead.unknown());
+  int partnerReadFetchCount = 0;
+
+  /// 채워 두면 상대 읽음 확인이 이것이 끝날 때까지 멈춘다 — 확인이 겹쳐 불리는지 볼 때 쓴다.
+  Completer<void>? holdPartnerRead;
+
+  @override
+  Future<Result<PartnerRead>> fetchPartnerRead(String matchId) async {
+    partnerReadFetchCount += 1;
+    await holdPartnerRead?.future;
+    return partnerReadResult;
+  }
+
   @override
   Future<Result<Message?>> sendMessage(String matchId, String body) async {
     sent.add(body);
@@ -112,6 +126,7 @@ ChatRoom roomFixture({
   String? kakaoId,
   String? myKakaoId,
   List<String> photoUrls = const [],
+  PartnerRead partnerRead = const PartnerRead.unknown(),
 }) {
   final created = createdAt ?? DateTime.now();
   return ChatRoom(
@@ -128,6 +143,7 @@ ChatRoom roomFixture({
     kakaoId: kakaoId,
     myKakaoId: myKakaoId,
     photoUrls: photoUrls,
+    partnerRead: partnerRead,
   );
 }
 

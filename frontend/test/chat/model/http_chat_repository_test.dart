@@ -123,6 +123,43 @@ void main() {
     expect(page.hasMore, isTrue);
   });
 
+  test('상대 읽음 확인은 메시지 1건만 묻고 partner_last_read_at 만 읽는다', () async {
+    // 방 머리말을 묻지 않는다 — 부를 때마다 실사진 서명 URL 이 새로 만들어져 앱바 아바타가 깜박인다.
+    late http.Request seen;
+    final client = MockClient((request) async {
+      seen = request;
+      return jsonResponse({
+        'messages': [
+          {
+            'id': 'm2', 'sender_id': 'p1', 'kind': 'text', 'body': '두 번째',
+            'created_at': '2026-09-22T14:20:00+09:00',
+          },
+        ],
+        'has_more': true,
+        'partner_last_read_at': '2026-09-22T14:15:00+09:00',
+      });
+    });
+
+    final result = await buildRepository(client).fetchPartnerRead('m1');
+
+    expect((seen.method, seen.url.path), ('GET', '/chat/matches/m1/messages'));
+    expect(seen.url.queryParameters, {'limit': '1'});
+    final read = result.when(onSuccess: (value) => value, onFailure: (_) => null)!;
+    expect(read.hasNotRead(DateTime.parse('2026-09-22T14:14:59+09:00')), isFalse);
+    expect(read.hasNotRead(DateTime.parse('2026-09-22T14:15:01+09:00')), isTrue);
+  });
+
+  test('메시지 목록 응답의 partner_last_read_at 도 페이지에 담는다', () async {
+    final client = MockClient((request) async =>
+        jsonResponse({'messages': [], 'has_more': false, 'partner_last_read_at': null}));
+
+    final result = await buildRepository(client).fetchMessages('m1');
+
+    final page = result.when(onSuccess: (value) => value, onFailure: (_) => null)!;
+    // null = 상대가 한 번도 안 읽음 → 내 줄은 전부 안 읽음이다.
+    expect(page.partnerRead.hasNotRead(DateTime.utc(2000)), isTrue);
+  });
+
   test('모르는 종류의 줄은 건너뛰고 나머지를 보여준다', () async {
     final client = MockClient((request) async {
       return jsonResponse({

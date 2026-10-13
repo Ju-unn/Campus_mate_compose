@@ -60,6 +60,15 @@ class HttpChatRepository implements ChatRepository {
       _api.send('PATCH', '/chat/matches/$matchId/read', (_) {});
 
   @override
+  Future<Result<PartnerRead>> fetchPartnerRead(String matchId) => _api.send(
+        'GET',
+        '/chat/matches/$matchId/messages',
+        (body) => PartnerRead.fromJson(body as Map<String, dynamic>),
+        // 줄은 쓰지 않는다 — 서버가 응답마다 붙이는 partner_last_read_at 만 본다.
+        query: {'limit': '1'},
+      );
+
+  @override
   Future<Result<void>> leave(String matchId) =>
       _api.send('POST', '/chat/matches/$matchId/leave', (_) {});
 
