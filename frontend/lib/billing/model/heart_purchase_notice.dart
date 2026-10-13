@@ -30,11 +30,12 @@ enum HeartPurchaseNotice {
   /// 배너 `wvbOe`(info) — 서버 409 purchase_other_account.
   otherAccount('다른 계정으로 결제한 하트예요', caption: '결제한 계정으로 로그인하면 들어와요'),
 
-  /// 빨간 배너 `YOhKL` — 스토어를 쓸 수 없음 · 가격 0개. App Store 설명은 pen 에 없다(후속) — 스토어 이름만 바꿨다.
+  /// 빨간 배너 `YOhKL` — 스토어를 쓸 수 없음 · 가격 0개 · 서버 상태를 못 읽음. App Store 설명은 pen 에 없다(후속) —
+  /// 아이폰은 원인이 로그인이 아니라 기기의 앱 내 구입 제한 · 상품 미등록 · 심사 전이라 원인을 가리지 않는 글자로 둔다.
   unavailable(
     '지금은 하트를 살 수 없어요',
     caption: '구글 플레이에 로그인했는지 확인해 주세요',
-    appStoreCaption: 'App Store에 로그인했는지 확인해 주세요',
+    appStoreCaption: '이 기기에서 App Store 결제를 쓸 수 없거나 상품을 불러오지 못했어요',
     isError: true,
   );
 
