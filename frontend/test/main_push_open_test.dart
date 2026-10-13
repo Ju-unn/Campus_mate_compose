@@ -9,6 +9,7 @@ import 'package:campus_mate/auth/model/verification_gate_repository.dart';
 import 'package:campus_mate/auth/model/verification_gate_repository_provider.dart';
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/chat/model/conversation.dart';
+import 'package:campus_mate/chat/view/chat_room_screen.dart';
 import 'package:campus_mate/matching/view/conversations_screen.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
@@ -29,6 +30,7 @@ import 'auth/model/fake_student_verification_repository.dart';
 import 'auth/model/fake_verification_gate_repository.dart';
 import 'chat/model/fake_chat_repository.dart';
 import 'core/push/fake_push_messaging.dart';
+import 'core/push/fake_system_notifications.dart';
 import 'home/model/fake_home_repository.dart';
 import 'matching/model/fake_card_repository.dart';
 import 'profile/model/fake_onboarding_repository.dart';
@@ -165,19 +167,26 @@ void main() {
     expect(find.text('인증이 거절됐어요'), findsOneWidget);
   });
 
+  // 앱이 떠 있을 때 받은 푸시를 안드로이드가 띄우는 시스템 알림 창구. pumpHome 이 채운다.
+  late FakeSystemNotifications appSystemNotifications;
+
   // 알림을 눌러 열면 화면만 옮기고 목록은 낡은 채로 남았다 — 대화 탭은 들어갈 때 다시 읽지 않는다.
-  Future<(FakeChatRepository, FakePushMessaging)> pumpHome(WidgetTester tester) async {
-    final chat = appChat = FakeChatRepository();
+  // [launch] 는 꺼진 앱을 앱이 직접 띄운 알림으로 켰다고 흉내 낸다.
+  Future<(FakeChatRepository, FakePushMessaging)> pumpHome(WidgetTester tester, {Map<String, dynamic>? launch}) async {
+    final chat = appChat = FakeChatRepository()..room = Success(roomFixture());
     appCards = FakeCardRepository();
     appNotifications = FakeNotificationsRepository(unreadCount: 3);
+    appSystemNotifications = FakeSystemNotifications(launch: launch);
     final push = FakePushMessaging(token: 't', granted: false);
     final container = ProviderContainer(
       overrides: [
         verificationGateRepositoryProvider.overrideWithValue(FakeVerificationGateRepository()),
         onboardingRepositoryProvider.overrideWithValue(FakeOnboardingRepository()),
         pushMessagingProvider.overrideWithValue(push),
+        systemNotificationsProvider.overrideWithValue(appSystemNotifications),
         cardRepositoryProvider.overrideWithValue(appCards),
         chatRepositoryProvider.overrideWithValue(chat),
+        messageStreamProvider.overrideWithValue(FakeMessageStream()),
         homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
         notificationsRepositoryProvider.overrideWithValue(appNotifications),
         signOutProvider.overrideWithValue(() async {}),
@@ -295,6 +304,75 @@ void main() {
     expect(appNotifications.countCalls, before + 1);
     expect(find.text('5'), findsOneWidget);
   });
+
+  // 2026-10-13 사용자 요청: 앱이 떠 있어도 알림이 보이게 한다(조각 4 계획서의 "배너를 띄우지 않는다" 를 뒤집었다).
+  testWidgets('앱이 켜진 채 받은 푸시를 시스템 알림으로 띄우고 목록 갱신 · 종 배지도 그대로 한다', (tester) async {
+    final (_, push) = await pumpHome(tester);
+    final before = appNotifications.countCalls;
+    final acceptancesBefore = appCards.fetchAcceptancesCount;
+
+    push.emitMessage({'route': 'acceptances', 'card_id': 'c1'}, title: '대화 신청이 왔어요', body: '새연결님이 신청했어요');
+    await tester.pumpAndSettle();
+
+    expect(appSystemNotifications.shown.single.title, '대화 신청이 왔어요');
+    expect(appSystemNotifications.shown.single.data['route'], 'acceptances');
+    expect(appNotifications.countCalls, before + 1);
+    expect(appCards.fetchAcceptancesCount, greaterThan(acceptancesBefore));
+  });
+
+  // 대화 목록에서 방을 누르면 push 로 열린다 — 라우터의 맨 위 화면으로 지금 방을 알아야 한다.
+  testWidgets('지금 열려 있는 채팅방의 새 메시지는 시스템 알림으로 띄우지 않고, 다른 방 메시지는 띄운다', (tester) async {
+    final (chat, push) = await pumpHome(tester);
+    chat.conversations = Success([conversationWith('새연결')]);
+    push.emitOpened({'route': 'match'});
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('새연결'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ChatRoomScreen), findsOneWidget);
+
+    push.emitMessage({'route': 'chat', 'match_id': 'm1'}, title: '새연결', body: '안녕하세요');
+    await tester.pumpAndSettle();
+    expect(appSystemNotifications.shown, isEmpty);
+
+    push.emitMessage({'route': 'chat', 'match_id': 'm2'}, title: '다른사람', body: '반가워요');
+    await tester.pumpAndSettle();
+    expect(appSystemNotifications.shown.single.data['match_id'], 'm2');
+  });
+
+  testWidgets('앱이 직접 띄운 알림을 누르면 FCM 알림을 누른 것과 같은 화면으로 간다', (tester) async {
+    final (chat, _) = await pumpHome(tester);
+    final before = chat.conversationsFetchCount;
+    chat.conversations = Success([conversationWith('새연결')]);
+
+    appSystemNotifications.emitTap({'route': 'match', 'match_id': 'm1'});
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ConversationsScreen), findsOneWidget);
+    expect(chat.conversationsFetchCount, greaterThan(before));
+    expect(find.text('새연결'), findsOneWidget);
+  });
+
+  testWidgets('앱이 직접 띄운 알림을 눌러 꺼진 앱을 켜면 그 화면으로 간다', (tester) async {
+    await pumpHome(tester, launch: {'route': 'acceptances'});
+
+    expect(find.byType(ConversationsScreen), findsOneWidget);
+  });
+
+  // iOS 는 FCM 표시 옵션이 시스템 배너를 띄운다 — 앱이 또 띄우면 같은 알림이 두 번 뜬다.
+  testWidgets(
+    'iOS 에서는 FCM 포그라운드 표시를 켜고 앱이 직접 알림을 띄우지 않는다',
+    (tester) async {
+      final (_, push) = await pumpHome(tester);
+
+      push.emitMessage({'route': 'acceptances'}, title: '대화 신청이 왔어요', body: '본문');
+      await tester.pumpAndSettle();
+
+      expect(push.presentWhileOpenCalls, 1);
+      expect(appSystemNotifications.initializeCalls, 0);
+      expect(appSystemNotifications.shown, isEmpty);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+  );
 
   testWidgets('로그아웃한 직후 푸시가 와도 안 읽은 알림 수를 읽지 않는다', (tester) async {
     final (_, push) = await pumpHome(tester);

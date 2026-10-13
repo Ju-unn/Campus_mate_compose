@@ -39,11 +39,14 @@ class NoPushMessaging implements PushMessaging {
   Stream<String> get onTokenRefresh => const Stream<String>.empty();
 
   @override
-  Stream<Map<String, dynamic>> get onMessage => const Stream<Map<String, dynamic>>.empty();
+  Stream<PushMessage> get onMessage => const Stream<PushMessage>.empty();
 
   @override
   Stream<Map<String, dynamic>> get onMessageOpenedApp => const Stream<Map<String, dynamic>>.empty();
 
   @override
   Future<Map<String, dynamic>?> initialMessage() async => null;
+
+  @override
+  Future<void> presentWhileOpen() async {}
 }

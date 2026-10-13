@@ -65,13 +65,14 @@ class FakePushMessaging implements PushMessaging {
   @override
   Stream<String> get onTokenRefresh => _refresh.stream;
 
-  final StreamController<Map<String, dynamic>> _messages = StreamController<Map<String, dynamic>>.broadcast();
+  final StreamController<PushMessage> _messages = StreamController<PushMessage>.broadcast();
 
-  /// 앱이 켜져 있을 때 알림이 왔다고 흉내 낸다.
-  void emitMessage(Map<String, dynamic> data) => _messages.add(data);
+  /// 앱이 켜져 있을 때 알림이 왔다고 흉내 낸다. 서버처럼 제목 · 본문을 함께 줄 수 있다.
+  void emitMessage(Map<String, dynamic> data, {String? title, String? body}) =>
+      _messages.add((data: data, title: title, body: body));
 
   @override
-  Stream<Map<String, dynamic>> get onMessage => _messages.stream;
+  Stream<PushMessage> get onMessage => _messages.stream;
 
   final StreamController<Map<String, dynamic>> _opened = StreamController<Map<String, dynamic>>.broadcast();
 
@@ -83,4 +84,10 @@ class FakePushMessaging implements PushMessaging {
 
   @override
   Future<Map<String, dynamic>?> initialMessage() async => initial;
+
+  /// iOS 포그라운드 표시를 켠 횟수.
+  int presentWhileOpenCalls = 0;
+
+  @override
+  Future<void> presentWhileOpen() async => presentWhileOpenCalls++;
 }

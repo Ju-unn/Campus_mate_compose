@@ -11,6 +11,8 @@ import 'package:campus_mate/core/draft/open_draft_store.dart';
 import 'package:campus_mate/core/env.dart';
 import 'package:campus_mate/core/lifecycle/resume_refresh.dart';
 import 'package:campus_mate/core/push/firebase_bootstrap.dart';
+import 'package:campus_mate/core/push/local_system_notifications.dart';
+import 'package:campus_mate/core/push/push_messaging.dart';
 import 'package:campus_mate/core/push/push_provider.dart';
 import 'package:campus_mate/core/push/push_refresh.dart';
 import 'package:campus_mate/core/push/push_route.dart';
@@ -27,6 +29,7 @@ import 'package:campus_mate/core/supabase/supabase_config.dart';
 import 'package:campus_mate/core/supabase/supabase_initializer.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -48,6 +51,8 @@ Future<void> main() async {
     overrides: [
       draftStoreProvider.overrideWithValue(drafts),
       if (!firebaseReady) pushMessagingProvider.overrideWithValue(const NoPushMessaging()),
+      // 안드로이드 시스템 알림 창구는 앱을 켤 때 한 번만 만든다 — 로그아웃해도 새로 만들지 않는다(push_provider.dart).
+      systemNotificationsProvider.overrideWithValue(LocalSystemNotifications(FlutterLocalNotificationsPlugin())),
     ],
     child: const CampusMateApp(),
   ));
@@ -72,7 +77,7 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
   late final AppLifecycleListener _lifecycle;
   /// 스플래시를 잠깐 붙잡아 두는 임시 장치 (로고 작업 때 다시 본다).
   final SplashHold _splashHold = SplashHold();
-  final List<StreamSubscription<Map<String, dynamic>>> _pushSubscriptions = [];
+  final List<StreamSubscription<Object>> _pushSubscriptions = [];
   /// 알림을 눌러 연 경로. 라우터가 그대로 받아 줄 때까지 붙잡아 둔다([_openPendingPushRoute]).
   String? _pendingPushPath;
 
@@ -133,19 +138,26 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
   void _startPush() {
     if (_pushSubscriptions.isEmpty) {
       final messaging = ref.read(pushMessagingProvider);
+      final foreground = ref.read(foregroundPushProvider);
       _pushSubscriptions.addAll([
-        // 앱이 켜져 있을 때는 알림 배너 대신 화면을 갱신한다(새 의존성 표의 결정).
+        // 앱이 켜져 있을 때 받은 알림 — 화면을 갱신하고 시스템 알림으로도 보여 준다(2026-10-13 사용자 요청).
         messaging.onMessage.listen(_onForegroundMessage),
-        // 알림을 눌러서 열었을 때만 화면을 옮긴다.
+        // 알림을 눌러서 열었을 때만 화면을 옮긴다. 앱이 직접 띄운 알림(안드로이드)을 눌러도 같은 길로 간다.
         messaging.onMessageOpenedApp.listen(_openRoute),
+        foreground.onTap.listen(_openRoute),
       ]);
-      unawaited(messaging.initialMessage().then((data) {
-        if (data != null) {
-          _openRoute(data);
-        }
-      }));
+      unawaited(messaging.initialMessage().then(_openLaunchRoute));
+      // 안드로이드는 시스템 알림 창구를 준비하고, iOS 는 FCM 포그라운드 표시를 켠다.
+      unawaited(foreground.start().then(_openLaunchRoute));
     }
     unawaited(ref.read(pushRegistrarProvider).start());
+  }
+
+  /// 꺼진 앱을 알림(FCM 이 띄운 것이든 앱이 직접 띄운 것이든)을 눌러 켰으면 그 화면으로 간다.
+  void _openLaunchRoute(Map<String, dynamic>? data) {
+    if (data != null) {
+      _openRoute(data);
+    }
   }
 
   /// 새로 가입한 사용자는 학생 인증·학과 입력 전이라 토큰 등록이 403 으로 막힌다 —
@@ -172,15 +184,19 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
     unawaited(ref.read(pushRegistrarProvider).stop());
   }
 
-  /// 앱이 켜져 있는 동안에는 **어떤 알림도 배너로 띄우지 않고** 해당 화면만 갱신한다.
-  /// 서버는 "상대가 방을 보고 있으면 새 메시지 푸시를 보내지 않는다" 를 `last_read_at` 30초로
-  /// 눈대중하는데, 그 눈대중이 빗나가도 여기서 배너가 되지 않는다는 것이 앱 쪽 계약이다.
+  /// 푸시가 가리키는 화면의 목록을 다시 읽는다 — 앱이 켜진 채 받은 알림과 알림을 눌러 연 경우 둘 다.
   void _refreshForRoute(Map<String, dynamic> data) => refreshForPush(ref.read, data);
 
-  /// 앱이 켜진 채 받은 푸시 — 해당 화면 목록과 홈 종 배지를 함께 맞춘다(눌러 연 경우는 [_openRoute] 가 목록만 맞춘다).
-  void _onForegroundMessage(Map<String, dynamic> data) {
-    _refreshForRoute(data);
+  /// 앱이 켜진 채 받은 푸시 — 해당 화면 목록과 홈 종 배지를 맞추고, 시스템 알림으로도 보여 준다
+  /// (2026-10-13 사용자 요청으로 조각 4 의 "앱이 켜져 있으면 배너를 띄우지 않는다" 를 뒤집었다).
+  /// 지금 열려 있는 채팅방의 알림은 안드로이드에서 띄우지 않는다 — 서버의 "방을 보고 있으면 안 보낸다"
+  /// (`last_read_at` 30초 눈대중)가 빗나간 경우다. iOS 는 시스템이 띄워 막지 못한다(`core/push/foreground_push.dart`).
+  void _onForegroundMessage(PushMessage message) {
+    _refreshForRoute(message.data);
     refreshUnreadForPush(ref.read, isAuthenticated: _authSession.isAuthenticated, gate: _verificationGate.value);
+    // 맨 위 화면의 경로 — 대화 목록에서 push 로 연 채팅방도 여기에 잡힌다.
+    final currentLocation = _router.state.matchedLocation;
+    unawaited(ref.read(foregroundPushProvider).present(message, currentLocation: currentLocation));
   }
 
   /// 알림을 눌러 연 경우에도 목록을 다시 읽는다 — 백그라운드에 있던 앱은 [_refreshForRoute] 를 못 받았고,

@@ -51,6 +51,12 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="campus_mate_default" />
+        <!-- 알림 줄 작은 아이콘(흰색 + 투명 실루엣). 없으면 FCM 이 앱 아이콘을 써서 흰 네모로 보인다.
+             앱이 떠 있을 때 앱이 직접 띄우는 알림(local_system_notifications.dart)도 같은 그림을 쓴다.
+             여기서 참조하므로 릴리스 빌드의 리소스 줄이기(R8)가 이 그림을 지우지 않는다. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_stat_campusmate" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

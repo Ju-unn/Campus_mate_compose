@@ -50,6 +50,9 @@ dependencies:
   # 푸시 알림(조각 4). firebase_core 는 firebase_messaging 이 요구해서 함께 들어간다.
   firebase_core: ^4.1.1
   firebase_messaging: ^16.0.2
+  # 앱이 화면에 떠 있을 때 받은 푸시를 안드로이드 시스템 알림으로 띄운다(2026-10-13 승인). iOS 는 쓰지 않는다 —
+  # iOS 는 FCM 의 포그라운드 표시 옵션이 띄운다(lib/core/push/foreground_push.dart).
+  flutter_local_notifications: ^22.3.2
   share_plus: ^13.3.0
   url_launcher: ^6.3.2
   # 소셜 로그인(대장 지시문 07)과 nonce 해시
