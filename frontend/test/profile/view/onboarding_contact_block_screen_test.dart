@@ -42,7 +42,17 @@ void main() {
     // 앱바 제목(x6w7Xd)과 본문 제목(h7ToU) 둘이다.
     expect(find.text('지인 차단'), findsNWidgets(2));
     expect(find.text('아는 사람을 만나고 싶지 않다면 연락처로 미리 막을 수 있어요'), findsOneWidget);
-    expect(find.text('연락처 번호는 암호화해서 비교에만 쓰고, 연락처 목록은 저장하지 않아요'), findsOneWidget);
+    // 안내(xxLBt)는 코드 사실 문장이다(2026-10-14 "연락처 안내 문구 정정"). 기기에는 이름 · 가린 번호가 남으니
+    // 옛 "연락처 목록은 저장하지 않아요" 는 틀렸다. pen 옛 문구와 다르다(pen 후속).
+    expect(
+      find.text(
+        '고른 분의 전화번호만 원래 번호로 되돌릴 수 없는 형태로 바꿔 서버에 저장해요. '
+        '이름과 연락처 목록은 서버로 보내지 않아요. '
+        '이 기기에는 고른 분의 이름과 가린 번호만 저장돼요.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.textContaining('암호화'), findsNothing);
     expect(find.text('연락처에서 지인 차단하기'), findsOneWidget);
     expect(find.text('건너뛰기'), findsOneWidget);
     expect(find.text('나중에 설정 > 지인 차단에서 할 수 있어요'), findsOneWidget);

@@ -22,7 +22,8 @@ List<String> _contactNames(Map<String, dynamic> job) => (job['names'] as List).c
 int _blockRows() =>
     find.descendant(of: find.byType(ContactBlockListScreen), matching: find.byType(ContactRow)).evaluate().length;
 
-/// 설정 → "연락처 차단" 줄. 권한이 있으면 16b, 없으면 8a 가 뜬다.
+/// 설정 → "연락처 차단" 줄. 권한과 상관없이 16b 가 열린다 — 권한은 16b "추가" 에서만 묻는다(2026-10-14,
+/// 권한을 거부한 사람도 등록한 차단을 보고 풀 수 있게).
 Future<void> _tapContactBlocks(WidgetTester tester) async {
   await _openSettings(tester);
   await _reveal(tester, find.text(_blocksTitle));
@@ -78,9 +79,10 @@ Future<void> _blockViaPicker(WidgetTester tester, Map<String, dynamic> job, List
   await _pick(tester, names);
 }
 
-/// 8a 시트를 띄운다(권한 없음).
+/// 16b 의 "추가" 로 8a 시트를 띄운다(권한 없음).
 Future<void> _askSheet(WidgetTester tester) async {
-  await _tapContactBlocks(tester);
+  await _inBlockList(tester);
+  await _tapAdd(tester);
   await pumpUntil(tester, find.text(_permissionAsk));
 }
 
@@ -89,7 +91,7 @@ final Map<String, Area1Case> _contactsCases = {
     await _askSheet(tester);
     must(_sheetButton('허용하고 계속').evaluate().isNotEmpty, '"허용하고 계속" 이 없음');
     must(_sheetButton('나중에 할게요').evaluate().isNotEmpty, '"나중에 할게요" 가 없음');
-    must(find.byType(ContactPickerScreen).evaluate().isEmpty && find.byType(ContactBlockListScreen).evaluate().isEmpty, '8a 보다 먼저 다른 화면이 열림');
+    must(find.byType(ContactPickerScreen).evaluate().isEmpty, '8a 보다 먼저 8d 가 열림');
     return null;
   }),
   'E-SET-30': _session((tester, job) async {

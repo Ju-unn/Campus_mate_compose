@@ -3,22 +3,15 @@ import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/safety/model/device_contacts.dart';
+import 'package:campus_mate/safety/view/contact_privacy_copy.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-/// 설정 "연락처 차단" 줄이 부른다. 권한이 이미 있으면 16b 로 바로 간다(8a 생략, DESIGN §9 화면 8a).
-/// 없으면 8a → 8d 를 먼저 거치고, 거기서 차단을 마쳤을 때만 16b 로 간다.
-Future<void> openContactBlocks(BuildContext context, WidgetRef ref) async {
-  final granted = await ref.read(deviceContactSourceProvider).hasPermission();
-  if (!context.mounted) return;
-  final ready = granted || await openContactPicker(context, ref);
-  if (ready && context.mounted) context.push(AppRoutes.contactBlocks);
-}
-
 /// 8d 로 간다. 권한이 없으면 8a 안내를 먼저 띄우고, OS 권한을 받지 못하면 8a-2 로 끝난다.
-/// 8d 에서 차단을 마쳤으면 true. 06-4 는 [route] 로 온보딩 쪽 8d 를 연다.
+/// 8d 에서 차단을 마쳤으면 true. 부르는 곳은 새로 고를 때뿐이다(16b "추가" · 06-4 버튼) — 16b 목록 · 해제는 권한 없이 연다.
+/// 06-4 는 [route] 로 온보딩 쪽 8d 를 연다.
 Future<bool> openContactPicker(BuildContext context, WidgetRef ref, {String route = AppRoutes.contactPicker}) async {
   final source = ref.read(deviceContactSourceProvider);
   final granted = await source.hasPermission() || (context.mounted && await _askPermission(context, source));
@@ -32,7 +25,8 @@ Future<bool> _askPermission(BuildContext context, DeviceContactSource source) as
   final allow = await _showPermissionSheet(
     context,
     title: '연락처 접근을 허용해 주세요',
-    description: '내 연락처에 있는 지인이 카드에 뜨지 않게 하려면 연락처를 읽어야 해요. 전화번호는 암호화해 대조에만 쓰고 원본은 저장하지 않아요.',
+    // pen YPJbz 옛 문구("암호화해 대조에만")는 사실과 달라 코드 사실 문장으로 바꿨다(2026-10-14, pen 후속).
+    description: '내 연락처에 있는 지인이 카드에 뜨지 않게 하려면 연락처를 읽어야 해요. $contactServerNotice $contactNotSentNotice',
     primaryLabel: '허용하고 계속',
     neutralLabel: '나중에 할게요',
   );

@@ -6,6 +6,7 @@ import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/safety/view/contact_permission_sheets.dart';
+import 'package:campus_mate/safety/view/contact_privacy_copy.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -147,8 +148,10 @@ class _Notice extends StatelessWidget {
       decoration: BoxDecoration(color: AppColors.primaryWash, borderRadius: BorderRadius.circular(_noticeRadius)),
       child: Padding(
         padding: const EdgeInsets.all(_noticePadding),
+        // pen 옛 문구("암호화해서 비교에만 · 연락처 목록은 저장하지 않아요")는 사실과 달라 — 기기엔 이름 · 가린 번호가 남는다 —
+        // 코드 사실 문장으로 바꿨다(2026-10-14, pen 후속).
         child: Text(
-          '연락처 번호는 암호화해서 비교에만 쓰고, 연락처 목록은 저장하지 않아요',
+          '$contactServerNotice $contactNotSentNotice $contactDeviceNotice',
           style: AppTypography.bodySmall.copyWith(height: 1.5, color: AppColors.body),
         ),
       ),
