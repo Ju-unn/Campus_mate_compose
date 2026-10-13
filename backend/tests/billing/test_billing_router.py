@@ -11,6 +11,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
+from app.billing.apple import apple_account_token
 from app.billing.play import PlayApi, account_token
 from app.billing.router import play_api_dependency
 from app.core import errors
@@ -293,6 +294,7 @@ def test_status_before_any_purchase_offers_the_first_purchase_bonus():
     assert response.status_code == 200
     assert response.json() == {
         "account_token": account_token(PROFILE_ID),
+        "apple_account_token": apple_account_token(PROFILE_ID),
         "first_purchase_bonus": {"hearts": 50, "min_product_hearts": 100},
     }
     assert PROFILE_ID not in response.text
@@ -304,7 +306,8 @@ def test_status_after_a_purchase_has_no_bonus():
     test_client, _ = _wire(purchases=[{"id": "p1"}])
     body = test_client.get("/billing/status", headers=AUTH).json()
 
-    assert body == {"account_token": account_token(PROFILE_ID), "first_purchase_bonus": None}
+    assert body == {"account_token": account_token(PROFILE_ID), "apple_account_token": apple_account_token(PROFILE_ID),
+                    "first_purchase_bonus": None}
 
 
 def test_status_needs_a_login():
@@ -324,5 +327,6 @@ HARNESS_WORDS = ("refund", "cashout", "transfer", "gift", "send_heart", "send-he
 def test_billing_paths_avoid_the_harness_words():
     billing = [p for p in app.openapi()["paths"] if p.startswith(("/billing", "/batch/billing"))]
 
-    assert sorted(billing) == ["/batch/billing-voided", "/billing/google/verify", "/billing/status"]
+    assert sorted(billing) == ["/batch/billing-voided", "/billing/apple/notifications", "/billing/apple/verify",
+                              "/billing/google/verify", "/billing/status"]
     assert [p for p in billing if any(word in p.lower() for word in HARNESS_WORDS)] == []

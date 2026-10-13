@@ -1,4 +1,5 @@
-"""하트 구매(구글 플레이 인앱결제). 계획서 바탕화면 출시준비/인앱결제_구현계획_초안.md 3-3 · 5-1.
+"""하트 구매(구글 플레이 인앱결제)와 상점 상태. 계획서 바탕화면 출시준비/인앱결제_구현계획_초안.md 3-3 · 5-1.
+아이폰(애플) 확인 · 환불 알림은 apple_router.py.
 
 경로 이름에 refund · purchase · buy 등을 쓰지 않는다 — E2E 하네스 E-HEART-49 · 51(e2e/area4_extra.py)이
 그런 이름의 경로를 유료 카드 하나만 허용한다.
@@ -13,6 +14,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from app.billing import play
+from app.billing.apple import apple_account_token
 from app.billing.play import PlayApi, PlayUnavailable, account_token, token_hash
 from app.billing.repository import BillingRepository
 from app.core import errors
@@ -25,10 +27,12 @@ logger = logging.getLogger(__name__)
 # 유료 카드 가격과 같은 방식. 바꿀 때 둘을 같이 바꾼다.
 FIRST_PURCHASE_BONUS = 50
 BONUS_MIN_PRODUCT_HEARTS = 100
+# 두 스토어에 같은 이름으로 등록한 상품 5종(지급량 · 가격은 DB 함수 grant_store_purchase).
+ProductId = Literal["heart_50", "heart_100", "heart_200", "heart_400", "heart_800"]
 
 
 class GoogleVerifyRequest(BaseModel):
-    product_id: Literal["heart_50", "heart_100", "heart_200", "heart_400", "heart_800"]
+    product_id: ProductId
     # 구글 주소에 그대로 들어간다 — 영문 · 숫자 · . _ - 만 받는다(/ · 공백 금지, 첫 글자는 영문 · 숫자).
     purchase_token: str = Field(min_length=1, max_length=1000, pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
@@ -49,10 +53,11 @@ def _error(status_code: int, detail: str, code: str) -> JSONResponse:
 
 @router.get("/billing/status")
 async def billing_status(caller: Caller = Depends(get_verified_caller)) -> dict:
-    """상점(15e)이 열릴 때. 구매 창에 실을 계정 표시와 첫 구매 자격. 자격 판정은 지급 때 DB 가 다시 한다."""
+    """상점(15e)이 열릴 때. 구매 창에 실을 계정 표시(구글 · 애플)와 첫 구매 자격. 자격 판정은 지급 때 DB 가 다시 한다."""
     bought = await _repo(caller).has_purchase(caller.profile_id)
     bonus = None if bought else {"hearts": FIRST_PURCHASE_BONUS, "min_product_hearts": BONUS_MIN_PRODUCT_HEARTS}
-    return {"account_token": account_token(caller.profile_id), "first_purchase_bonus": bonus}
+    return {"account_token": account_token(caller.profile_id),
+            "apple_account_token": apple_account_token(caller.profile_id), "first_purchase_bonus": bonus}
 
 
 @router.post("/billing/google/verify", response_model=None)
