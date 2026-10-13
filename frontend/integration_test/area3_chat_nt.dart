@@ -7,7 +7,9 @@ part of 'area3.dart';
 
 const _ntHold = Duration(minutes: 6); // PC 가 토큰 · 알림 · 대조를 기다리는 동안 앱이 멈춰 기다리는 시간
 const _ntRoomWait = Duration(seconds: 15); // 방을 열고 뷰모델이 읽기를 끝내기를 기다리는 시간
-const _ntListWait = Duration(seconds: 30); // 30: 목록이 저절로 새로 고쳐지기를 기다리는 시간
+// 30: 목록이 저절로 새로 고쳐지기를 기다리는 시간(e2e/area3_chat_nt.py LIST_WAIT 와 같다). 사용자 채널이 붙은 채 이벤트를 놓치면
+// 목록은 30초 안전망 폴링(conversations_screen.dart conversationsPollSlow)에야 바뀌어 30초로는 경계에 걸린다.
+const _ntListWait = Duration(seconds: 45);
 const _ntSwitchWait = Duration(seconds: 15); // 33: 스위치가 기대한 값이 되기를 기다리는 시간
 
 /// 로그인해 홈에 닿아 3초 머문다(알림 토큰 등록은 홈에 닿은 뒤 앱이 알아서 한다 — 영역 1 E-ONB-61 과 같은 동작). 말할 것은 없다.
@@ -59,6 +61,7 @@ String? _ntBadge(WidgetTester tester, Finder row) {
 }
 
 /// E-CHAT-30 — 대화 목록에서 멈춘 채 PC 가 보내기를 기다리고, 그 글이 마지막 줄로 저절로 올라오는지 · 뱃지가 늘었는지 본다(새로고침은 안 누른다).
+/// 목록은 푸시 말고도 사용자 채널 · 폴링으로 바뀌어 이것은 화면 판정이다 — 푸시가 닿았는지는 PC 가 앞에서 뜬 알림 1건으로 본다(#503).
 Future<Map<String, Object?>?> _ntListLive(WidgetTester tester, Map<String, dynamic> job) async {
   final nickname = job['nickname'] as String;
   final body = job['body'] as String;
@@ -84,11 +87,11 @@ Future<Map<String, Object?>?> _ntListLive(WidgetTester tester, Map<String, dynam
     'badge': _ntBadge(tester, row),
     'nav_badge': _navBadge(tester),
     'ms': ms,
-    // 앞에 머물렀다는 증거는 PC 가 HOME 으로 내리기 전(아래 judged 멈춤 앞)에 잰다 — 뒤에 재면 내려간 뒤 값이라 아무것도 증명 못 한다.
+    // 앞에 머물렀다는 증거는 목록이 바뀐 그 순간(아래 judged 멈춤 앞)에 잰다 — PC 가 알림을 기다리는 동안 앱이 앞이었다는 근거다.
     'list_front': find.byType(ConversationsScreen).evaluate().isNotEmpty,
     'resumed': WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed,
   };
-  await step('judged', timeout: _ntHold); // PC: 알림이 0건인지 지켜보고, HOME 으로 내려 대조 알림을 본다
+  await step('judged', timeout: _ntHold); // PC: 목록 앞에서 그 글의 알림이 정확히 1건 떴는지 본다(#503 — 열린 방이 아니면 앞에서도 뜬다)
   return seen;
 }
 

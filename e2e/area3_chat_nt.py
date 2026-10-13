@@ -5,10 +5,10 @@
 알림은 PC 가 `dumpsys notification` 으로 읽고, 앱은 화면에서 본 것(방 · 목록 · 스위치)만 말한다. 판정은 여기서 한다.
 알림 길(읽기 · 토큰 · FCM)이 죽은 폰에서 서버 규칙이 틀렸다는 허위 fail 이 나지 않게 대조를 둔다. 대조는 새 상대가 새 방에서 보낸 메시지 1건이다(폰 계정의 읽음 시각 창 · 스위치와
 무관한 방 — 같은 방으로 보내면 서버가 막아 길이 죽은 것으로 오해한다):
-  "알림 0건" 이 기대값인 28 · 30 · 35 · 59   대조가 안 오면 fail 이 아니라 blocked(28 은 창이 닫힌 뒤 같은 상대의 메시지, 35 는 권한을 켜고 다시 로그인한 뒤의 새 방 메시지).
+  "알림 0건" 이 기대값인 28 · 35 · 59   대조가 안 오면 fail 이 아니라 blocked(28 은 창이 닫힌 뒤 같은 상대의 메시지, 35 는 권한을 켜고 다시 로그인한 뒤의 새 방 메시지).
   "알림 1건" 이 기대값인 29 · 33   기대한 알림(둘째 · 켠 뒤)이 안 오면 곧바로 fail 하지 않고 새 방 대조를 보낸다 — 그것도 안 오면 blocked("알림 길이 죽음"), 그것만 오면 fail(서버 규칙 어긋남).
   33 은 서버의 스위치 값이 켜진 채일 때만 대조한다(꺼진 채면 대조도 막히므로 서버 값 어긋남으로 바로 fail).
-  26 · 27 · 17 · 31   오는 알림 자체가 증거라 대조가 없다(안 오면 fail).
+  26 · 27 · 17 · 30 · 31   오는 알림 자체가 증거라 대조가 없다(안 오면 fail).
 
 낮 제한은 걸지 않는다 — new_message 는 backend cards/push.py 의 `_QUIET_HOURS_EXEMPT` 에 들어 있어 방해 금지 시간(22~08시)에도 간다(E-CHAT-34 · E-PUSH-33 이 본다).
 푸시 연결 점검(notify.ensure_delivery)은 가설마다 시작에 한 번.
@@ -25,9 +25,11 @@
              프로세스는 살아 있다. "0건" 은 60초 지켜보고, 창이 닫힌 뒤 같은 상대의 메시지가 알림이 되는지로 길을 확인한다.
   E-CHAT-29  "A: 10초 뒤 1건 → 40초 뒤 1건 더" 의 40초는 방에서 나와 HOME 한 때부터다(첫 건 뒤 25초 지켜보고 5초 더 기다려 맞춘다 — 서버 창 30초를 넘기려고). 알려진 한계(서버 눈대중)를
              확인하는 판이지 바람직하다는 판정이 아니다. 두 번째 알림은 60초까지, 정확히 1건(20초 더 봄). 첫 메시지의 알림이 뒤늦게 와도 fail.
-  E-CHAT-30  앱이 대화 목록에서 멈춘 사이 PC 가 보내고, 앱이 30초까지 목록 마지막 줄 · 뱃지를 지켜본다(새로고침 안 누름). 서버가 실제로 FCM 을 보냈는지는 못 본다(보낸 건수 없음) —
-             목록이 저절로 바뀐 것이 푸시가 앱에 닿았다는 증거다. 앞에 있어 "알림 0건" 이 정상이라, 지켜본 뒤 HOME 으로 내려 대조 메시지가 알림이 되는지 본다(area4_push_front 와 같은 길).
-             "앞에 머물렀다" 는 앱이 목록이 바뀐 것을 본 그 순간(PC 가 HOME 으로 내리기 전)에 잰 화면(list_front)과 앱 생명주기(resumed)로 본다.
+  E-CHAT-30  앱이 대화 목록에서 멈춘 사이 PC 가 보내고, 앱이 LIST_WAIT(45초)까지 목록 마지막 줄 · 뱃지를 지켜본다(새로고침 안 누름). 목록은 이제 푸시 말고도 저절로 바뀐다
+             (사용자 채널 이벤트 · 3초 폴링, 채널이 붙어 있으면 30초 안전망 폴링 — #502 #509 #510) — 그래서 목록이 바뀐 것은 푸시가 닿은 증거가 아니라 화면 판정이고,
+             기다림은 30초 안전망보다 길게 둔다. 푸시 증거는 알림이다: #503 뒤 앱은 앞에 있어도 열린 방이 아니면 시스템 알림을 띄우므로, 목록 앞에서 "상대 / 글" 알림이
+             정확히 1건(20초 더 봄) 와야 pass(area4_push_front._arrives_in_front 와 같은 길 · 대조 없음). 서버가 FCM 을 보낸 건수는 못 본다.
+             "앞에 머물렀다" 는 앱이 목록이 바뀐 것을 본 그 순간(judged 멈춤 앞)에 잰 화면(list_front)과 앱 생명주기(resumed)로 본다.
   E-CHAT-31  앱을 HOME 으로 내린 채(프로세스 살아 있음) 알림을 누른다 — 꺼진 앱(콜드 스타트)은 E-CHAT-32 의 몫. 시나리오의 `uiautomator dump` 화면 글자가 아니라 앱 안의 위젯 트리(앱바 닉네임 ·
              말풍선)로 읽고, 방이 열리기를 30초 · 닉네임 · 글을 10초까지 기다린다(10초 판정은 아님).
   E-CHAT-33  앱이 16d 에서 "새 메시지" 스위치를 직접 누른다. 서버 값은 notification_settings 를 읽어 확인한다. 끈 동안은 HOME → 상대 보내기 → 60초 0건, 켠 뒤는 HOME → 보내기 → 1건
@@ -56,7 +58,7 @@ from e2e.area3_phone5 import LIVE_LIMIT, _at
 from e2e.area4 import stepper
 from e2e.area4_push import SETTLE, _Scene
 from e2e.area4_push_a4 import DIALOG_WAIT, GONE_WAIT, _front, _granted, _is_deny, _tap_node, _tokens
-from e2e.area4_push_front import _silent_then_control
+from e2e.area4_push_front import _arrives_in_front
 from e2e.tools import Blocked
 
 HELLO = '안녕하세요'
@@ -75,6 +77,7 @@ FIRST_WATCH = 25  # 29: 첫 메시지 뒤 알림이 안 뜨는지 지켜보는 �
 SECOND_WAIT = 60  # 29: 두 번째 알림을 기다리는 초
 SWITCH_SAVE = 10  # 33: 앱이 스위치를 누른 뒤 서버(notification_settings)에 값이 쓰이기를 기다리는 초
 FRONT_SETTLE = 2  # 33 · 35: monkey 로 앱을 앞으로 가져온 뒤 프레임이 다시 돌기를 기다리는 초(곧바로 go 를 넣으면 앱이 아직 뒤에 있다)
+LIST_WAIT = 45  # 30: 앱이 목록이 저절로 바뀌기를 기다리는 초(area3_chat_nt.dart _ntListWait 와 같다) — 30초 안전망 폴링보다 길게
 
 # 가설 하나에 줄 시간(초) — 기다림이 전부 최대로 걸릴 때의 합 + MARGIN 을 60 단위로 올린다. 기본(tools.CASE_LIMIT 420)에 들면 따로 안 올린다.
 BOOT = 90  # 앱 켜기 → 로그인 → 홈까지
@@ -91,7 +94,7 @@ WORST = {
     'E-CHAT-27': CONNECT + SETUP + BOOT + TOKEN_WAIT + NOTICE + SETTLE,
     'E-CHAT-28': CONNECT + SETUP + BOOT + TOKEN_WAIT + ROOM + STAMP_WAIT + NOTICE + CONTROL_WAIT,
     'E-CHAT-29': CONNECT + SETUP + BOOT + TOKEN_WAIT + ROOM + STAMP_WAIT + SECOND_AT + SECOND_WAIT + SETTLE,
-    'E-CHAT-30': CONNECT + SETUP + BOOT + TOKEN_WAIT + ROOM + 30 + NOTICE + CONTROL_WAIT,  # 30: 목록이 저절로 바뀌기를 기다리는 30초
+    'E-CHAT-30': CONNECT + SETUP + BOOT + TOKEN_WAIT + ROOM + LIST_WAIT + NOTICE + SETTLE,  # 목록 기다림 뒤 앞에서 뜬 알림 1건 + 20초 더 보기
     'E-CHAT-31': CONNECT + SETUP + BOOT + TOKEN_WAIT + NOTICE + TAP + TAP_APP,
     'E-CHAT-33': CONNECT + SETUP + BOOT + TOKEN_WAIT + 60 + 2 * SWITCH_SAVE + 2 * NOTICE + 15 + 20 + SETTLE,  # 60: 16d 까지 · 15: 앞으로 · 20: 두 번째 누름
     'E-CHAT-35': CONNECT + SETUP + BOOT + DIALOG_WAIT + GONE_WAIT + NOTICE + 15 + ROOM + 10 + BOOT + TOKEN_WAIT + CONTROL_WAIT,  # 15: 앞으로 · 10: 방 안 실시간
@@ -335,14 +338,14 @@ def p_chat_30(run, phone):
         rig.say(body)  # 앱은 대화 목록 앞에 있다 — HOME 으로 내리지 않는다
 
     def watch(said):
-        _silent_then_control(run, phone, rig.check, rig.me, state['before'])  # 앞에 있는 동안 0건 → HOME 으로 내려 대조 메시지가 알림이 되는지
+        _arrives_in_front(rig.serial, rig.check, state['before'], (rig.nick, body))  # 목록 앞이어도 그 글의 알림 1건(#503) — 이것이 푸시가 닿은 증거
 
     said = _app(rig.check, phone(midway=stepper(phone, rig.token_arrives, act, watch), **rig.job(body=body)))
     if not said:
         return rig.check.result()
-    # 증거는 앱이 목록이 바뀐 것을 본 그 순간(PC 가 HOME 으로 내리기 전)에 잰 값이다 — 지켜보는 60초 동안 앞에 있었다는 근거
+    # 증거는 앱이 목록이 바뀐 것을 본 그 순간(judged 멈춤 앞)에 잰 값이다 — 알림을 기다리는 동안 앞에 있었다는 근거
     rig.check.that(said.get('list_front') is True, f"앱이 대화 목록 화면에 머물지 못함(list_front={said.get('list_front', MISSING)})")
-    rig.check.that(said.get('resumed') is True, f"앱이 앞(resumed)에 있지 않았음(resumed={said.get('resumed', MISSING)}) — 앞에 있어서 알림이 안 뜬 것이 아닐 수 있다")
+    rig.check.that(said.get('resumed') is True, f"앱이 앞(resumed)에 있지 않았음(resumed={said.get('resumed', MISSING)}) — 온 알림이 앞에서 뜬 것이 아닐 수 있다")
     rig.check.that(said.get('last') == body,
                    f"목록 마지막 줄 {said.get('last', MISSING)!r}(기대 {body!r}) — 새로고침 없이 저절로 바뀌어야 함(앞 줄 {said.get('last_before', MISSING)!r})")
     before, after = _badge(said.get('badge_before')), _badge(said.get('badge'))
