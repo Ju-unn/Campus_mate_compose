@@ -1,6 +1,7 @@
 import 'package:campus_mate/auth/model/social_login_repository_provider.dart';
 import 'package:campus_mate/auth/model/social_provider.dart';
 import 'package:campus_mate/auth/viewmodel/start_ui_state.dart';
+import 'package:campus_mate/core/back_exit/back_exit_view_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final startViewModelProvider = NotifierProvider<StartViewModel, StartUiState>(StartViewModel.new);
@@ -27,6 +28,14 @@ class StartViewModel extends Notifier<StartUiState> {
   /// 로그아웃하며 남긴 알림(탈퇴 · 로그인 만료 — `LoginNotice`)을 같은 토스트 자리에 띄운다.
   void showNotice(String message) {
     state = StartUiState(inProgress: state.inProgress, toast: StartToast(message: message, isCancellation: false));
+  }
+
+  /// 안드로이드 뒤로가기로 앱이 닫히려 할 때 "한 번 더 누르면 종료돼요" 를 같은 토스트 자리에 띄운다(info 아이콘, 취소 토스트와 같은 모양).
+  void showBackExitHint() {
+    state = StartUiState(
+      inProgress: state.inProgress,
+      toast: const StartToast(message: backExitMessage, isCancellation: true),
+    );
   }
 
   /// 몇 초 뒤 화면이 부른다.
