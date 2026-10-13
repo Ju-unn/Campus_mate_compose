@@ -63,6 +63,8 @@ dependencies:
   sign_in_with_apple: ^8.2.0
   # 온보딩 입력 임시 저장(2026-10-08 승인). 전화번호 · 카카오톡 아이디는 넣지 않는다(lib/core/draft/).
   shared_preferences: ^2.5.6
+  # 하트 구매(구글 플레이 인앱결제, 2026-10-13 사용자 승인). 안드로이드 구현(in_app_purchase_android)은 이 패키지가 끌고 온다.
+  in_app_purchase: ^3.3.1
 
 dev_dependencies:
   flutter_test:

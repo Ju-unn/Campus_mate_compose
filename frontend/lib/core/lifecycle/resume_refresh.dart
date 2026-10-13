@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:campus_mate/auth/model/verification_gate.dart';
+import 'package:campus_mate/billing/viewmodel/heart_purchase_view_model.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
 import 'package:campus_mate/matching/viewmodel/acceptances_view_model.dart';
 import 'package:campus_mate/matching/viewmodel/sent_requests_view_model.dart';
@@ -9,6 +10,7 @@ import 'package:flutter_riverpod/misc.dart' show ProviderListenable;
 
 /// 앱이 백그라운드에서 돌아왔을 때(앱 루트가 부른다) 하단 내비 "대화" 숫자의 재료인
 /// 수락 대기와 대화 목록(그리고 홈 종 배지의 안 읽은 알림 수)을 **조용히** 다시 읽는다 — 어느 탭에 있든 숫자가 낡지 않게.
+/// 하트 결제도 여기서 복구한다 — 결제 창(구글 플레이 화면)에서 돌아오거나, 지급이 늦어진 결제를 앱을 다시 열 때 이어서 받는다.
 ///
 /// 로그아웃 상태와, 관문이 끝나지 않은 계정(대화 조회가 403 일 수 있다)은 건너뛴다 —
 /// 건너뛰는 동안에는 아직 안 만들어진 provider 를 여기서 처음 만들지도 않는다.
@@ -26,4 +28,5 @@ void refreshOnResume(
   unawaited(read(sentRequestsViewModelProvider.notifier).refresh(quiet: true));
   unawaited(read(conversationsViewModelProvider.notifier).refresh(quiet: true));
   unawaited(read(unreadCountProvider.notifier).refresh());
+  unawaited(read(heartPurchaseViewModelProvider.notifier).refresh());
 }
