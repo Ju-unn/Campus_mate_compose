@@ -4,7 +4,7 @@
 
 가설 하나 = `(run, two) -> (결과, 메모)`(e2e/twodev.py). A 는 늘 폰에서 나 탭 → 설정 → 탈퇴하기 → 영구 삭제 → "정말 영구 삭제" 를 실제로 누른다
 (area5_wd.dart 의 _wdOpenFinal · _wdWithdraw 를 쓴다 — area5_two.dart 의 A 쪽만). 02 에 닿으면 `withdrawn` 에서 멈추고, PC 가 DB 로 탈퇴를 확인한 뒤
-`a-out` 을 세운다. B 는 그 뒤에 움직인다 — 목록은 앱이 처음 읽을 때의 서버 상태로 굳으므로(area2_two_accept 머리말) 대부분 로그아웃한 채 `wait` 에서
+`a-out` 을 세운다. B 는 그 뒤에 움직인다 — 목록이 언제 다시 읽혔는지에 기대지 않으려고(area2_two_accept 머리말) 대부분 로그아웃한 채 `wait` 에서
 멈췄다가 PC 가 go 에 실어 준 새 토큰으로 로그인한다(그게 시나리오의 "새로고침"이다). 1회용 토큰은 같은 계정이 새로 받으면 앞 것이 죽으므로 늦게 쓸 토큰은 그때 받는다.
 PC 가 직접 본 어긋남은 [Check] 에 모아 두 기기 결과와 합친다(area2_two_accept._verdict — PC 가 찾은 것은 앱이 막혔어도 fail).
 쓰기는 이번 실행이 만든 계정에만(area2._guard). 탈퇴는 되돌릴 수 없어 계정은 가설마다 새로 만든다.
@@ -181,7 +181,7 @@ def two_07(run, two):
 
     result, memo = two({('A', 'withdrawn'): _out(run, check, a, gone), ('B', 'wait'): _login_after_out(run, b)},
                        a_job=_a_job(run, a), b_job={'nickname': _nickname(run, a)}, **LIMITS)
-    return _verdict(check, result, memo, 'B 의 "새로고침" 은 A 탈퇴 뒤 새 로그인(목록은 처음 읽을 때 굳는다)')
+    return _verdict(check, result, memo, 'B 의 "새로고침" 은 A 탈퇴 뒤 새 로그인(그 순간의 서버 상태를 한 번에 읽는다)')
 
 
 # ── E-WD-08 새 카드 후보 ────────────────────────────────────────────────────────────────────────────

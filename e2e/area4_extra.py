@@ -39,7 +39,8 @@ FORBIDDEN_HEART = ('refund', 'cashout', 'transfer', 'gift', 'send_heart', 'send-
                    'heart_withdraw', 'heart-withdraw', 'hearts/withdraw')
 # 10-09 유료 카드 재설계(84df7d24) 뒤 하트로 카드를 사는 서버 경로는 이것 하나다(설계 01 §3-3 · §8-3, backend/app/cards/router.py).
 PAID_PURCHASE = '/cards/paid/{offer_id}/purchase'
-# 사거나 여는 이름이 붙은 경로 — PAID_PURCHASE 말고는 없어야 한다(스토어 화면 18 은 서버 경로가 없다 · 인앱결제는 설계 범위 밖 §5).
+# 사거나 여는 이름이 붙은 경로 — PAID_PURCHASE 말고는 없어야 한다. 하트 충전 인앱결제(#499 서버 · #506 앱)의 경로는 /billing/status ·
+# /billing/google/verify · /batch/billing-voided 라 이 단어에 안 걸린다 — 새 결제 경로가 이 단어를 쓰면 여기서 걸리니 그때 목록을 다시 본다.
 PURCHASE_WORDS = ('purchase', 'buy', 'unlock', 'heart_store', 'heart-store')
 
 

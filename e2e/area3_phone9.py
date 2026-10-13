@@ -69,7 +69,7 @@ def p_rev_16(run, phone):
     def hold(said):
         _token_up(run, me)
         before = notify.read_notifications(phone.serial)
-        notify.background(phone.serial)  # 앱이 앞에 있으면 배너가 안 뜬다
+        notify.background(phone.serial)  # 뒤에서 FCM 이 띄우는 알림을 본다(#503 뒤 앞이면 앱이 직접 띄운다)
         factory.review(run, partner, me)
         seen['tapped'] = _once(check, phone.serial, before, want)
         if seen['tapped']:

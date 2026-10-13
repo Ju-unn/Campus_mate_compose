@@ -21,10 +21,9 @@ import 'support.dart';
 /// 화면 글자는 시나리오가 아니라 지금 화면 코드에서 옮겼다. 알림은 보지 않는다(마지막 묶음).
 /// 이 파일은 `flutter analyze` 만 돌렸고 기기에서는 아직 안 돌려 봤다.
 ///
-/// 목록은 앱이 처음 읽을 때의 서버 상태로 굳는다 — provider 는 로그아웃 때만 비워지고(core/auth/session_scope.dart), 대화 탭 목록은
-/// 앱 복귀 · 푸시 · 당겨서 새로고침 때만 다시 읽히며(10b 에서 신청을 보낸 직후의 보낸 신청은 예외로 처음부터 다시 읽는다),
-/// 'match' 푸시는 수락함만 새로 읽는다(main.dart:154-158). 그래서 서버 쪽 일이 끝난 뒤의 모습을 보는 기기는 로그아웃한 채 멈춰 있다가
-/// PC 가 go 에 실어 준 새 토큰으로 로그인한다([_loginAfter]).
+/// 목록은 이제 저절로 다시 읽힌다 — 대화 탭에 들어올 때마다 세 목록을 다시 읽고, 떠 있는 동안 대화 목록은 폴링(3초, 사용자 채널이 붙으면 30초) ·
+/// 사용자 채널 이벤트로 바뀐다(matching/view/conversations_screen.dart · chat/viewmodel/user_channel.dart). 그래도 서버 쪽 일이 끝난 뒤의 모습을 보는 기기는
+/// 로그아웃한 채 멈춰 있다가 PC 가 go 에 실어 준 새 토큰으로 로그인한다([_loginAfter]) — 다시 읽힌 때에 기대지 않고 그 순간의 서버 상태를 한 번에 읽는다.
 
 const _accept = '대화 신청하기'; // common/widgets/card_action_bar.dart:43
 const _reject = '거절'; // :29 · acceptance_row.dart:65
