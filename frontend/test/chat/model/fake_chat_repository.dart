@@ -169,11 +169,12 @@ Conversation conversationFixture({
   String? lastMessage = '내일 시간 괜찮으세요?',
   MessageKind? lastMessageKind = MessageKind.text,
   int unreadCount = 0,
+  DateTime? lastMessageAt,
 }) {
   return Conversation(
     matchId: matchId,
     partner: ChatPartner(profileId: partnerId, nickname: nickname),
-    lastMessageAt: DateTime(2026, 9, 22, 14, 14),
+    lastMessageAt: lastMessageAt ?? DateTime(2026, 9, 22, 14, 14),
     unreadCount: unreadCount,
     trustPassed: false,
     remainingSeconds: 3600,

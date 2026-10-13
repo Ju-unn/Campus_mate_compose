@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:campus_mate/chat/model/chat_errors.dart';
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
+import 'package:campus_mate/chat/model/conversation.dart';
+import 'package:campus_mate/chat/model/user_event_stream.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_ui_state.dart';
 import 'package:campus_mate/matching/viewmodel/acceptances_view_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,15 +11,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 final conversationsViewModelProvider =
     NotifierProvider<ConversationsViewModel, ConversationsUiState>(ConversationsViewModel.new);
 
-/// 대화 중 목록(화면 13 아래 섹션). **목록은 실시간 구독을 쓰지 않는다** —
-/// 방을 안 열었는데 채널을 열어 둘 이유가 없다. 푸시 · 당겨서 새로고침에 더해, 대화 탭 화면이 떠 있는 동안은
-/// 화면의 3초 타이머가 `refresh(quiet: true)` 를 부른다(`conversations_screen.dart`) — 타이머는 화면이 쥐고 이 뷰모델은 모른다.
+/// 대화 중 목록(화면 13 아래 섹션). 방마다 채널을 열지 않고, 앱이 앞에 있는 동안 듣는 **사용자 채널** 하나
+/// (`user:<내 id>`, 설계안 A — `user_channel.dart`)가 새 줄을 [applyMessage] 로 바로 넣는다. 푸시 · 당겨서 새로고침에 더해,
+/// 대화 탭 화면이 떠 있는 동안은 화면의 타이머가 `refresh(quiet: true)` 를 부른다(`conversations_screen.dart`, 채널이
+/// 붙었으면 30초 · 아니면 3초) — 타이머는 화면이 쥐고 이 뷰모델은 모른다. 값의 기준은 서버 읽기다.
 class ConversationsViewModel extends Notifier<ConversationsUiState> {
   Future<void>? _inFlight;
 
   /// 진행 중인 읽기에 조용하지 않은 호출이 합쳐졌다. 그 읽기는 호출보다 먼저 시작됐으니(낡았을 수 있고,
   /// 실패해도 오류를 안 보인다) 끝난 뒤 조용하지 않게 한 번 더 읽는다. 합쳐진 호출이 몇 번이든 한 번이다.
   bool _readAgain = false;
+
+  /// 진행 중인 읽기 도중 실시간 줄이 왔거나 사용자 채널이 붙었다. 그 읽기는 그보다 먼저 서버를 봤을 수 있어 결과가 방금 넣은 줄을
+  /// 덮거나 놓친다 — 끝난 뒤 **조용히** 한 번 더 읽어 서버 값으로 맞춘다(사용자가 누른 일이 아니라 실패해도 오류 줄을 띄우지 않는다).
+  bool _readAgainQuietly = false;
 
   @override
   ConversationsUiState build() {
@@ -39,10 +48,49 @@ class ConversationsViewModel extends Notifier<ConversationsUiState> {
 
   Future<void> _loadAndRepeat(bool quiet) async {
     await _load(quiet: quiet);
-    while (_readAgain) {
+    while (_readAgain || _readAgainQuietly) {
+      final loud = _readAgain;
       _readAgain = false;
-      await _load(quiet: false);
+      _readAgainQuietly = false;
+      await _load(quiet: !loud);
     }
+  }
+
+  /// 사용자 채널이 (다시) 붙었거나 방이 바뀌었다 — 조용히 읽는다. **읽는 중이면 겹쳐 부르지 않되 끝난 뒤 한 번 더 읽는다**:
+  /// 그 읽기(앱 복귀 읽기 등)는 채널이 붙기 전의 서버를 봤을 수 있어, 그 사이 들어온 줄이 읽기에도 이벤트에도 없다.
+  void catchUp() {
+    if (_inFlight != null) {
+      _readAgainQuietly = true;
+      return;
+    }
+    unawaited(refresh(quiet: true));
+  }
+
+  /// 사용자 채널로 온 새 줄(설계안 A)을 서버를 다시 읽지 않고 바로 반영한다 — 마지막 줄 · 시각 · 안 읽은 수, 그 방을 위로.
+  /// 내가(다른 기기에서) 보낸 줄과 사용자가 지금 보고 있는 방([seen])의 줄은 안 읽은 수를 올리지 않는다.
+  /// 같은 줄이 두 번 와도 · 서버 목록이 이미 센 줄이 와도 [Conversation.receive] 가 한 번만 센다. 목록에 없는 방이면 다시 읽는다.
+  void applyMessage(MessageEvent event, {required String myId, required bool seen}) {
+    if (_inFlight != null) {
+      _readAgainQuietly = true;
+    }
+    final index = state.conversations.indexWhere((conversation) => conversation.matchId == event.matchId);
+    if (index < 0) {
+      unawaited(refresh(quiet: true));
+      return;
+    }
+    final message = event.message;
+    final current = state.conversations[index];
+    final updated = current.receive(message, unread: message.senderId != myId && !seen);
+    if (!identical(updated, current)) {
+      state = state.copyWith(conversations: _placed(updated), errorMessage: state.errorMessage);
+    }
+  }
+
+  /// [updated] 를 서버와 같은 순서(마지막 줄 시각 내림차순) 자리에 다시 세운다.
+  List<Conversation> _placed(Conversation updated) {
+    final others = [for (final c in state.conversations) if (c.matchId != updated.matchId) c];
+    final at = others.indexWhere((c) => !c.lastMessageAt.isAfter(updated.lastMessageAt));
+    return others..insert(at < 0 ? others.length : at, updated);
   }
 
   Future<void> _load({required bool quiet}) async {
