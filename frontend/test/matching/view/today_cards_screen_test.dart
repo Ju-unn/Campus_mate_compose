@@ -2,6 +2,8 @@ import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
+import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
 import 'package:campus_mate/home/model/cohort_wait.dart';
 import 'package:campus_mate/home/model/home_repository_provider.dart';
 import 'package:campus_mate/home/model/home_summary.dart';
@@ -76,7 +78,7 @@ void main() {
       expect(find.byType(CohortWaitView), findsOneWidget);
       expect(find.text('여우비, 23'), findsNothing);
       expect(find.text('오늘의 카드'), findsOneWidget);
-      expect(tester.widget<AppBottomNav>(find.byType(AppBottomNav)).current, AppTab.today);
+      expect(tester.widget<GlassBottomNav>(find.byType(GlassBottomNav)).current, AppTab.today);
     });
 
     testWidgets('cohort 가 null 이면 지금 그대로 카드를 보여준다', (tester) async {
@@ -84,6 +86,54 @@ void main() {
 
       expect(find.byType(CohortWaitView), findsNothing);
       expect(find.text('여우비, 23'), findsOneWidget);
+    });
+  });
+
+  group('유리 내비(pen `xtj0K` · 견본 `hseoX`)', () {
+    void penFrame(WidgetTester tester) {
+      tester.view.physicalSize = const Size(360, 780);
+      tester.view.devicePixelRatio = 1;
+      tester.view.padding = const FakeViewPadding(bottom: 20);
+      addTearDown(tester.view.reset);
+    }
+
+    final threeCards = FakeCardRepository()
+      ..today = Success(
+        TodayCards(
+          cards: [
+            for (final id in ['c1', 'c2', 'c3'])
+              DailyCard(
+                cardId: id,
+                source: CardSource.daily,
+                profile: const CardProfile(profileId: 't1', nickname: '여우비', age: 23, university: '테스트대학교', major: '컴퓨터공학과'),
+              ),
+          ],
+        ),
+      );
+
+    testWidgets('카드 목록은 알약 뒤로 이어지고, 끝까지 내리면 마지막 카드 아래 16 에 알약', (tester) async {
+      penFrame(tester);
+      await pump(tester, threeCards);
+
+      expect(tester.widget<Scaffold>(find.byType(Scaffold)).extendBody, isTrue);
+      expect(tester.getRect(find.byType(Scrollable).first).bottom, 780);
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, -5000));
+      await tester.pumpAndSettle();
+
+      final last = find.byType(DailyCardSummary).last;
+      expect(tester.getRect(find.byType(GlassBottomNav)).top - tester.getBottomLeft(last).dy, 16);
+    });
+
+    testWidgets('실패 화면은 앱바 아래 ~ 알약 위 사이 가운데에 선다(본문이 알약 뒤로 늘어나도)', (tester) async {
+      penFrame(tester);
+      await pump(tester, FakeCardRepository()..today = const FailureResult(NetworkFailure()));
+      await tester.pumpAndSettle();
+
+      final retry = find.text('다시 시도');
+      expect(retry, findsOneWidget);
+      final column = find.ancestor(of: find.byType(AppButton), matching: find.byType(Column)).first;
+      final pillTop = tester.getRect(find.byType(GlassBottomNav)).top;
+      expect(tester.getCenter(column).dy, closeTo((56 + pillTop) / 2, 0.5));
     });
   });
 

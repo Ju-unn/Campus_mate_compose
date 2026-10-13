@@ -4,6 +4,7 @@ import 'package:campus_mate/billing/view/heart_balance_chip.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/consent/model/open_url.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
@@ -117,6 +118,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
     final summary = ref.watch(homeSummaryProvider).value;
     final cohort = summary?.cohort;
     return Scaffold(
+      // 유리 내비(pen `xtj0K`) 뒤로 본문이 이어진다 — 아래 여백은 본문 MediaQuery padding.bottom(알약 + 띄움 + safe area).
+      extendBody: true,
       // pen `o57Mt` — 제목은 x20, 오른쪽 여백 8.
       appBar: AppBar(
         titleSpacing: 20,
@@ -136,19 +139,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
           const SizedBox(width: AppSpacing.xs),
         ],
       ),
-      bottomNavigationBar: const AppBottomNav(current: AppTab.main),
+      bottomNavigationBar: const GlassBottomNav(current: AppTab.main),
       // 우리 학교가 아직 첫 카드를 안 열었으면 본문만 19 대기 화면으로 바꿔 끼운다(코호트 계획서 결정 1).
       body: MeToastLayer(
         toast: timedToast,
         child: cohort != null
             ? CohortWaitView(cohort: cohort)
-            : ListView(
-                // pen `aEtSx` padding [8,16,0,16] — 앱바 바로 아래 첫 카드가 y8 에서 시작한다. 아래 20 은 스크롤 끝 여백(pen 은 내비가 덮는다).
-                padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.xs, AppSpacing.md, 20),
-                children: [
-                  const _HeroToday(),
-                  if (summary != null) ..._summarySections(summary),
-                ],
+            // 알약 자리는 Scaffold 가 **본문** MediaQuery 에 넣는다 — 이 화면 context(Scaffold 위)에서는 safe area 뿐이라 본문 안 context 로 읽는다.
+            : Builder(
+                builder: (bodyContext) => ListView(
+                  // pen `aEtSx` padding [8,16,0,16] — 앱바 바로 아래 첫 카드가 y8 에서 시작한다. 아래 20 은 스크롤 끝 여백,
+                  // 그 밑에 알약 자리(pen `eA1oQ` 하단 여백 98 = 알약 66 + 띄움 12 + safe area 20)를 더한다.
+                  padding: EdgeInsets.fromLTRB(
+                    AppSpacing.md,
+                    AppSpacing.xs,
+                    AppSpacing.md,
+                    20 + MediaQuery.paddingOf(bodyContext).bottom,
+                  ),
+                  children: [
+                    const _HeroToday(),
+                    if (summary != null) ..._summarySections(summary),
+                  ],
+                ),
               ),
       ),
     );

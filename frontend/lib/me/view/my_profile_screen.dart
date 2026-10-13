@@ -1,6 +1,7 @@
 import 'package:campus_mate/billing/view/heart_balance_chip.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -89,6 +90,8 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> with MeToastH
     ref.listen(avatarGenerationViewModelProvider, _onAvatarChanged);
     final isGenerating = ref.watch(avatarGenerationViewModelProvider.select((state) => state.isGenerating));
     return Scaffold(
+      // 유리 내비(pen `xtj0K`) 뒤로 본문이 이어진다 — 아래 여백은 본문 MediaQuery padding.bottom(알약 + 띄움 + safe area).
+      extendBody: true,
       // pen `hwVQB` — 09b 첫 화면과 같은 관례: 제목 x20, 톱니 48 뒤 오른쪽 여백 8.
       appBar: AppBar(
         titleSpacing: 20,
@@ -113,25 +116,32 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> with MeToastH
           const SizedBox(width: AppSpacing.xs),
         ],
       ),
-      bottomNavigationBar: const AppBottomNav(current: AppTab.me),
+      bottomNavigationBar: const GlassBottomNav(current: AppTab.me),
       // 토스트는 한 번에 하나 — 만드는 동안은 변환 중 안내가 자리를 쥔다(그동안 알약이 꺼져 다른 안내가 생길 길이 없다).
-      body: MeToastLayer(toast: isGenerating ? _generatingToast : timedToast, child: _body(isGenerating)),
+      // 알약 자리는 Scaffold 가 **본문** MediaQuery 에 넣는다 — 화면 context(Scaffold 위)에서는 safe area 뿐이라 본문 안에서 읽는다.
+      body: MeToastLayer(
+        toast: isGenerating ? _generatingToast : timedToast,
+        child: Builder(builder: (bodyContext) => _body(isGenerating, MediaQuery.paddingOf(bodyContext).bottom)),
+      ),
     );
   }
 
   /// 불러오는 중·실패는 pen 에 없는 상태다 — 가운데 로딩 / [MeLoadError](15-4 · 15-5 와 같은 모양, 계획서 N9).
-  Widget _body(bool isGenerating) {
+  /// [navInset] 은 유리 내비 알약 자리(알약 + 띄움 + safe area).
+  Widget _body(bool isGenerating, double navInset) {
     void retry() => ref.invalidate(myProfileProvider);
+    // 본문이 유리 내비 뒤까지 이어진다 — 목록이 아닌 상태는 알약 자리를 비우고 그 위 영역 가운데에 둔다.
+    Widget aboveNav(Widget child) => Padding(padding: EdgeInsets.only(bottom: navInset), child: child);
     return ref.watch(myProfileProvider).when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, stackTrace) => MeLoadError(onRetry: retry),
+          loading: () => aboveNav(const Center(child: CircularProgressIndicator())),
+          error: (error, stackTrace) => aboveNav(MeLoadError(onRetry: retry)),
           data: (result) => result.when(
             onSuccess: (profile) => _ProfileContent(
               profile: profile,
               // 15-2 `EAqjZ` — 만드는 동안 알약은 꺼진다.
               onRegenerate: isGenerating ? null : () => context.push(AppRoutes.myAvatarRegen),
             ),
-            onFailure: (_) => MeLoadError(onRetry: retry),
+            onFailure: (_) => aboveNav(MeLoadError(onRetry: retry)),
           ),
         );
   }
@@ -171,7 +181,13 @@ class _ProfileContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.xs, AppSpacing.md, _bottomPadding),
+      // 아래 40 밑에 알약 자리(pen `AjQZo` 하단 여백 98 = 알약 66 + 띄움 12 + safe area 20)를 더한다.
+      padding: EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.xs,
+        AppSpacing.md,
+        _bottomPadding + MediaQuery.paddingOf(context).bottom,
+      ),
       children: [
         ProfileHero(profile: profile, onRegenerate: onRegenerate),
         const SizedBox(height: _heroToEntries),

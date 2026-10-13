@@ -7,6 +7,7 @@ import 'package:campus_mate/chat/viewmodel/conversations_ui_state.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -137,10 +138,13 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
     });
 
     return Scaffold(
+      // 유리 내비(pen `xtj0K`) 뒤로 본문이 이어진다 — 아래 여백은 본문 MediaQuery padding.bottom(알약 + 띄움 + safe area).
+      extendBody: true,
       // 탭 앱바 제목은 x20 에서 시작한다(pen).
       appBar: AppBar(titleSpacing: 20, title: Text('대화', style: AppTypography.navTitle)),
-      bottomNavigationBar: const AppBottomNav(current: AppTab.chat),
-      body: SafeArea(child: _Body(sentHeaderKey: _sentHeaderKey, onLoaded: _revealSentOnce)),
+      bottomNavigationBar: const GlassBottomNav(current: AppTab.chat),
+      // 아래는 비우지 않는다 — 각 상태가 알약 자리를 직접 피한다(목록은 알약 뒤로 이어진다).
+      body: SafeArea(bottom: false, child: _Body(sentHeaderKey: _sentHeaderKey, onLoaded: _revealSentOnce)),
     );
   }
 }
@@ -191,8 +195,11 @@ class _Body extends ConsumerWidget {
     }
     WidgetsBinding.instance.addPostFrameCallback((_) => onLoaded());
     final errorMessage = acceptances.errorMessage ?? sent.errorMessage ?? chats.errorMessage;
+    // 본문이 유리 내비 뒤까지 이어진다 — 알약 자리(본문 MediaQuery padding.bottom).
+    final navInset = MediaQuery.paddingOf(context).bottom;
     if (acceptances.acceptances.isEmpty && sent.requests.isEmpty && chats.conversations.isEmpty) {
-      return _EmptyState(errorMessage: errorMessage);
+      // 빈 상태는 알약 위 영역 가운데에 둔다.
+      return Padding(padding: EdgeInsets.only(bottom: navInset), child: _EmptyState(errorMessage: errorMessage));
     }
     return RefreshIndicator(
       onRefresh: () => Future.wait([
@@ -211,7 +218,8 @@ class _Body extends ConsumerWidget {
             hasBelow: chats.conversations.isNotEmpty,
           ),
           ..._conversationSlivers(context, ref, chats),
-          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.md)),
+          // 끝 여백 16 + 알약 자리 — 마지막 줄이 알약 위 16 에 멈춘다.
+          SliverToBoxAdapter(child: SizedBox(height: AppSpacing.md + navInset)),
         ],
       ),
     );
@@ -408,7 +416,13 @@ class _SkeletonRows extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      // 아래는 알약 자리를 더한다(본문이 유리 내비 뒤까지 이어진다).
+      padding: EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.md + MediaQuery.paddingOf(context).bottom,
+      ),
       children: [
         for (var i = 0; i < 2; i++) _bar(104),
         for (var i = 0; i < 3; i++) _bar(72),
