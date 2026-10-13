@@ -48,6 +48,7 @@
 - `flutter_local_notifications` 는 **앱이 켜져 있을 때** 알림을 띄우려면 필요하다. 이번 조각은 앱이 켜져 있으면
   알림 배너 대신 **화면을 바로 갱신**한다(카드 화면 새로고침 · 대화 탭 수락 대기 갱신) — 그래서 넣지 않는다.
   앱이 꺼져 있거나 백그라운드일 때의 알림은 안드로이드 시스템이 `notification` 페이로드로 직접 띄워 준다.
+  **→ 2026-10-13 사용자 결정으로 번복(PR #503)**: 앱이 앞에 있어도 시스템 알림을 띄우고 `flutter_local_notifications` 를 넣었다. 맨 아래 "구현 편차 기록" 의 2026-10-13 앞 화면 알림 절.
 
 **이 표 밖의 새 의존성이 실행 중 필요해지면 코드를 쓰기 전에 대장에게 보고한다**(사용자 승인 필요).
 
@@ -5005,3 +5006,13 @@ Flutter 테스트는 Firebase 를 켜지 않는다 — A7 의 `PushMessaging` �
 6. **E2E 하네스**: E-CARD-49/A · 85/A 가 신청 뒤 대화 탭 이동을 따라가도록 `area2_two_accept.dart` 와 `e2e/area2_two_accept.py` 를 같이 고쳤다(Dart 와 PC 키 계약 때문에 한 커밋)
 7. **서버 맹점**: 보낸 지 7일이 넘어 상대 카드로 뒤늦게 매칭되면 매칭 뒤 7일이 아니라 보낸 지 14일에 목록에서 빠진다(코드 주석)
 8. **남은 것**: `fetch_sent_acceptances` 의 EXPLAIN 인덱스 경로 확인. 이 PR 범위 밖의 기존 문제(백로그): 매칭 뒤에도 살아 있는 상대 카드를 수락할 수 있어 푸시가 가는 이슈, 응답 저장과 매칭 쓰기가 한 번에 묶이지 않는 이슈
+
+### 2026-10-13 앞 화면 알림 — "앱이 켜져 있으면 배너 대신 화면 갱신" 번복(앱 PR #503)
+
+이 계획서 맨 위 "대안과 비교" 의 **"앱이 켜져 있으면 알림 배너 대신 화면을 바로 갱신한다 — 그래서 `flutter_local_notifications` 를 넣지 않는다"(48-50행)를 2026-10-13 사용자 요청("앱이 떠 있어도 알림 오게 해줘")으로 뒤집었다.** 서버 · DB 변경은 없다. 화면 규칙은 DESIGN.md §8.8 "앞 화면 알림" · §9 16d. 달라진 곳:
+
+1. **새 의존성 `flutter_local_notifications ^22.3.2`**(사용자 승인 원문 10-13 "flutter_local_notifications 승인"). 이 패키지가 요구하는 안드로이드 **core library desugaring**(`desugar_jdk_libs:2.1.4`, `android/app/build.gradle.kts`)도 같이 켰다 — 이 gradle 라이브러리가 "그 밖의 의존성" 규칙에 걸리는지는 사용자 사후 확인 대상으로 PR 에 적었다
+2. **안드로이드**: 앱이 앞에 있을 때 받은 FCM 은 시스템이 띄우지 않으므로 앱이 직접 **헤드업 알림**으로 띄운다(`core/push/foreground_push.dart` `ForegroundPush` · `local_system_notifications.dart`). **지금 열려 있는 채팅방의 알림은 건너뛴다.** 같은 방 알림은 덮어쓰고, 누르면 기존 푸시 라우팅(`data.route`)으로 간다. 화면 갱신(목록 다시 읽기 · 종 배지)은 종전대로 같이 한다
+3. **iOS**: FCM 앞 화면 표시 옵션(`setForegroundNotificationPresentationOptions(alert, badge, sound)`)을 켜 시스템이 배너를 띄운다 — 앱이 다시 띄우지 않는다(두 번 뜨지 않게). 그래서 **iOS 는 지금 열린 방 알림을 막지 못한다**(알려진 한계)
+4. **알림 아이콘 `ic_stat_campusmate`**(흰 실루엣, `drawable-*` 5개 밀도)를 매니페스트 `default_notification_icon` 으로 지정해 FCM 알림과 앱 알림이 같은 그림을 쓴다. 만든 방법은 `frontend/run.md` "알림 아이콘"
+5. **E2E 하네스 영향**: 앞 화면 "알림 0건" 을 기대하던 7건(area4_push_front E-PUSH-14 · 20 · 53 · 82, area3_chat_nt E-CHAT-30, area2_time_device p_card_03)은 후속으로 뒤집어야 한다. **실기기 확인 전**: 디자게링을 켜면 Android 12L+ 에서 죽는다는 플러그인 README 보고가 있어 실기기 확인이 필요하다(PR 본문)
