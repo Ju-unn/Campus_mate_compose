@@ -1,9 +1,13 @@
 import json
+import logging
+import pathlib
+import subprocess
+import sys
 from datetime import datetime
 
 import httpx
 
-from app.cards.push import FcmSender, notify, send_pending
+from app.cards.push import FcmSender, PushToken, notify, send_pending
 from app.cards.repository import CardRepository
 from app.core.time import SEOUL
 
@@ -381,3 +385,100 @@ async def test_verification_results_are_never_bundled():
 
     assert await send_pending(repo, sender, MORNING) == 2
     assert [p["notification"]["body"] for p in pushes] == ["거절", "승인"]
+
+
+# ---- 전송 로그(진단용) ---------------------------------------------------------------------------------------------
+# 합성 토큰이다. 로그에는 앞 6자와 길이만 남아야 하고 원문(특히 뒷부분)은 어디에도 없어야 한다.
+_LOG_TOKEN = "fcmABC:APA91b-SYNTHETIC-TAIL-0123456789"
+_LOG_TOKEN_MASK = f"fcmABC…({len(_LOG_TOKEN)})"
+_APNS_401 = {"error": {
+    "code": 401,
+    "message": "APNs credential is invalid.",
+    "status": "UNAUTHENTICATED",
+    "details": [{"@type": "type.googleapis.com/google.firebase.fcm.v1.FcmError", "errorCode": "THIRD_PARTY_AUTH_ERROR"}],
+}}
+
+
+def _log_text(caplog) -> str:
+    return "\n".join(record.getMessage() for record in caplog.records)
+
+
+async def test_failure_log_has_fcm_error_fields_and_masked_token(caplog):
+    caplog.set_level(logging.INFO, logger="app.cards.push")
+    sender = _sender(lambda request: httpx.Response(401, json=_APNS_401))
+
+    result = await sender.send(_LOG_TOKEN, "제목-비밀", "본문-비밀", {}, kind="card_arrived", platform="ios")
+
+    assert result == "failed"
+    text = _log_text(caplog)
+    for expected in ("401", "UNAUTHENTICATED", "APNs credential is invalid.", "THIRD_PARTY_AUTH_ERROR",
+                     "kind=card_arrived", "platform=ios", _LOG_TOKEN_MASK):
+        assert expected in text, expected
+    assert _LOG_TOKEN not in text and "SYNTHETIC-TAIL" not in text
+    assert "제목-비밀" not in text and "본문-비밀" not in text
+    assert [record.levelno for record in caplog.records] == [logging.WARNING]
+
+
+async def test_failure_log_scrubs_a_token_that_fcm_echoes_back(caplog):
+    caplog.set_level(logging.INFO, logger="app.cards.push")
+    echoed = {"error": {"code": 400, "status": "INVALID_ARGUMENT", "message": f"bad token {_LOG_TOKEN} here"}}
+    sender = _sender(lambda request: httpx.Response(400, json=echoed))
+
+    await sender.send(_LOG_TOKEN, "t", "b", {}, kind="new_message", platform="android")
+
+    text = _log_text(caplog)
+    assert "INVALID_ARGUMENT" in text and "SYNTHETIC-TAIL" not in text
+
+
+async def test_failure_log_caps_a_long_message_at_300_chars(caplog):
+    caplog.set_level(logging.INFO, logger="app.cards.push")
+    long = {"error": {"code": 500, "status": "INTERNAL", "message": "x" * 2000}}
+    sender = _sender(lambda request: httpx.Response(500, json=long))
+
+    await sender.send(_LOG_TOKEN, "t", "b", {}, kind="k", platform="ios")
+
+    detail = _log_text(caplog).split(" | ")[1]
+    assert "INTERNAL" in detail and len(detail) <= 300
+
+
+async def test_failure_log_for_non_json_response_keeps_first_200_chars(caplog):
+    caplog.set_level(logging.INFO, logger="app.cards.push")
+    sender = _sender(lambda request: httpx.Response(502, text="<html>" + "y" * 500))
+
+    assert await sender.send(_LOG_TOKEN, "t", "b", {}, kind="k", platform="ios") == "failed"
+
+    text = _log_text(caplog)
+    assert "502" in text and "<html>" in text
+    assert "y" * 200 not in text  # 앞 200자(여는 태그 6자 포함)에서 잘린다
+    assert _LOG_TOKEN not in text
+
+
+async def test_success_logs_one_info_line_without_token_body_or_title(caplog):
+    caplog.set_level(logging.INFO, logger="app.cards.push")
+    sender = _sender(lambda request: httpx.Response(200, json={"name": "projects/campus-mate/messages/1"}))
+
+    assert await sender.send(_LOG_TOKEN, "제목-비밀", "본문-비밀", {}, kind="card_arrived", platform="android") == "sent"
+
+    assert [(record.levelno, record.getMessage()) for record in caplog.records] == [
+        (logging.INFO, f"FCM 전송 성공 kind=card_arrived platform=android token={_LOG_TOKEN_MASK}"),
+    ]
+
+
+async def test_notify_passes_kind_and_platform_from_the_token_row_to_the_log(caplog):
+    caplog.set_level(logging.INFO, logger="app.cards.push")
+    repo = _FakeRepo([PushToken(_LOG_TOKEN, "ios")], {"acceptance_received": True, "quiet_hours": False})
+    sender = _sender(lambda request: httpx.Response(200, json={}))
+
+    sent = await notify(repo, sender, "p1", "acceptance_received", "제목", "본문", {},
+                        now=datetime(2026, 9, 21, 12, 0, tzinfo=SEOUL))
+
+    assert sent == 1
+    assert "kind=acceptance_received platform=ios" in _log_text(caplog)
+
+
+def test_push_info_logs_reach_stderr_in_a_fresh_process():
+    """운영(uvicorn)은 루트 로거에 핸들러가 없고 수준이 WARNING 이라 INFO 가 버려진다. 새 프로세스에서 실제로 찍히는지 본다."""
+    code = "from app.cards.push import logger; logger.info('visible-probe')"
+    backend = pathlib.Path(__file__).resolve().parents[2]
+    done = subprocess.run([sys.executable, "-c", code], cwd=backend, capture_output=True, text=True, timeout=60)
+    assert "visible-probe" in done.stderr, done.stderr
