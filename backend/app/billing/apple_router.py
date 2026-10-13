@@ -60,7 +60,8 @@ def apple_api_dependency(settings: Settings = Depends(get_settings),
 
 
 def _vouches(transaction: dict, body: AppleVerifyRequest) -> bool:
-    """애플이 서명한 거래가 '이 요청의 상품을 정상 결제한 소모품 한 개'인가. 계정은 따로 본다(다르면 409)."""
+    """애플이 서명한 거래가 '이 요청의 상품을 결제한 소모품 한 개'인가. 환불 여부(있으면 422 purchase_revoked) ·
+    계정(다르면 409)은 따로 본다."""
     return (transaction.get("environment") in _ENVIRONMENTS
             and transaction.get("transactionId") == body.transaction_id
             and transaction.get("bundleId") == apple.BUNDLE_ID
@@ -69,7 +70,6 @@ def _vouches(transaction: dict, body: AppleVerifyRequest) -> bool:
             and transaction.get("type") == "Consumable"
             and transaction.get("inAppOwnershipType") == "PURCHASED"
             and transaction.get("quantity", 1) == 1
-            and transaction.get("revocationDate") is None
             and isinstance(transaction.get("purchaseDate"), int))
 
 
@@ -101,6 +101,10 @@ async def verify_apple_purchase(
         logger.warning("확인되지 않는 애플 거래 profile=%s product=%s found=%s",
                        caller.profile_id, body.product_id, transaction is not None)
         return _error(422, errors.PURCHASE_INVALID, errors.CODE_PURCHASE_INVALID)
+    if transaction.get("revocationDate") is not None:
+        # 환불된 거래 — 누구에게도 줄 하트가 없어 계정 대조보다 먼저 본다. 앱은 이 code 에서만 거래를 끝낸다(하트 없음).
+        logger.warning("환불된 애플 거래 profile=%s product=%s", caller.profile_id, body.product_id)
+        return _error(422, errors.PURCHASE_REVOKED, errors.CODE_PURCHASE_REVOKED)
     if not is_account_token(transaction.get("appAccountToken"), caller.profile_id):
         logger.warning("다른 계정의 애플 거래 profile=%s product=%s", caller.profile_id, body.product_id)
         return _error(409, errors.PURCHASE_OTHER_ACCOUNT, errors.CODE_PURCHASE_OTHER_ACCOUNT)
