@@ -12,3 +12,7 @@ final Uri privacyItemsLink = Uri.parse('$_page#efcc38385bef4185b6577d663ebd3bc8'
 
 /// 설정 16 "개인정보처리방침" 줄(A6). 2부 첫 블록 앵커를 받기 전까지 페이지 맨 위(1부 · 2부가 다 보인다, 대장 10-03 나).
 final Uri privacyPolicyLink = Uri.parse(_page);
+
+/// 하트 구매 결제 안내(pen `bBjRD` "유료 서비스 약관 ›")가 여는 곳. **임시** — 유료 서비스 약관이 법률 검토로 확정되기 전이라
+/// 약관동의 페이지의 공개(notion.site) 주소를 그대로 둔다(대장 지시 10-13). 확정 약관 주소 · 앵커를 받으면 이 줄만 바꾼다.
+final Uri paidServiceTermsLink = Uri.parse('https://golden-leech-197.notion.site/3e9d998f0dee8082be84e126630b02a7');
