@@ -25,9 +25,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-/// 대화 탭이 떠 있는 동안 대화 목록을 조용히 다시 읽는 간격(2026-10-13 대장 결정). 서버가 방에서 나온 뒤 30초 동안
-/// 새 메시지 푸시를 보내지 않아, 푸시만으로는 그 사이 온 답장이 목록에 안 뜬다.
-const Duration conversationsPollInterval = Duration(seconds: 5);
+/// 대화 탭이 떠 있는 동안 대화 목록을 조용히 다시 읽는 간격(2026-10-13 대장 결정, 같은 날 사용자 요청으로 5초 → 3초).
+/// 서버가 방에서 나온 뒤 30초 동안 새 메시지 푸시를 보내지 않아, 푸시만으로는 그 사이 온 답장이 목록에 안 뜬다.
+/// 한 번 읽을 때 서버가 대화 N개에 PostgREST 를 3N+3 번 부르는 무거운 요청이라 방 안 읽음 확인(2초)보다 길게 둔다.
+const Duration conversationsPollInterval = Duration(seconds: 3);
 
 /// 대화(DESIGN.md 화면 13, pen `CeqVY`). **받은 신청**(위) + **보낸 신청**(가운데, 2026-10-13 사용자 결정 B · pen `ULllO`)
 /// + **대화 중**(아래) 세 섹션이고, 섹션은 각자 provider 를 보며 서로를 모른다. §8.6 의 "건수가 0이면 섹션을 그리지 않는다".

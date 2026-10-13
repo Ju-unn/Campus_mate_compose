@@ -652,7 +652,7 @@ void main() {
   });
 
   // 목록은 실시간 구독을 쓰지 않으니, 푸시가 없는 사이(방에서 나온 뒤 30초 등)의 새 메시지는 폴링으로 맞춘다.
-  group('대화 탭이 떠 있는 동안 5초마다 대화 목록을 조용히 다시 읽는다', () {
+  group('대화 탭이 떠 있는 동안 3초마다 대화 목록을 조용히 다시 읽는다', () {
     late FakeChatRepository chat;
     late FakeCardRepository cards;
     late ProviderContainer container;
@@ -692,11 +692,11 @@ void main() {
       }
     }
 
-    testWidgets('간격은 5초 하나다', (tester) async {
-      expect(conversationsPollInterval, const Duration(seconds: 5));
+    testWidgets('간격은 3초 하나다(사용자 요청 10-13, 5초 → 3초)', (tester) async {
+      expect(conversationsPollInterval, const Duration(seconds: 3));
     });
 
-    testWidgets('5초가 되기 전에는 다시 읽지 않고, 5초마다 한 번씩 읽는다', (tester) async {
+    testWidgets('3초가 되기 전에는 다시 읽지 않고, 3초마다 한 번씩 읽는다', (tester) async {
       await openScreen(tester);
       expect(chat.conversationsFetchCount, 1);
 
@@ -738,7 +738,7 @@ void main() {
       await tester.pump();
     });
 
-    testWidgets('읽는 중에 5초가 또 지나도 겹쳐 부르지 않고, 끝난 뒤 다음 주기에 읽는다', (tester) async {
+    testWidgets('읽는 중에 3초가 또 지나도 겹쳐 부르지 않고, 끝난 뒤 다음 주기에 읽는다', (tester) async {
       await openScreen(tester);
       chat.holdConversations = Completer<void>();
 
@@ -771,7 +771,7 @@ void main() {
       expect(find.text('다시 연결됐어요'), findsOneWidget);
     });
 
-    testWidgets('앱이 백그라운드에 있는 동안은 읽지 않고, 돌아오면 다시 5초마다 읽는다', (tester) async {
+    testWidgets('앱이 백그라운드에 있는 동안은 읽지 않고, 돌아오면 다시 3초마다 읽는다', (tester) async {
       await openScreen(tester);
 
       background(tester);
