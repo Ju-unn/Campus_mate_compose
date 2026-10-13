@@ -212,6 +212,31 @@ void main() {
     expect(find.byType(ContactRow), findsNWidgets(3));
   });
 
+  testWidgets('권한이 없으면 "추가" 에서만 8a 를 띄우고, 거부하면 8a-2 · 기기 설정 열기 뒤 16b 에 남는다', (tester) async {
+    source
+      ..granted = false
+      ..grantOnRequest = false;
+    await pump(tester);
+    // 목록은 권한 없이 그려진다.
+    expect(find.text('김지은'), findsOneWidget);
+    expect(source.requestCount, 0);
+
+    await tester.tap(find.text('추가'));
+    await tester.pumpAndSettle();
+    expect(find.text('연락처 접근을 허용해 주세요'), findsOneWidget);
+
+    await tester.tap(find.text('허용하고 계속'));
+    await tester.pumpAndSettle();
+    expect(find.text('연락처 권한이 꺼져 있어요'), findsOneWidget);
+
+    await tester.tap(find.text('기기 설정 열기'));
+    await tester.pumpAndSettle();
+    expect(source.openSettingsCount, 1);
+    expect(find.byType(ContactPickerScreen), findsNothing);
+    expect(find.byType(ContactBlockListScreen), findsOneWidget);
+    expect(repository.fetchCount, 1);
+  });
+
   testWidgets('rows ink stays inside the list when scrolled (COMMON §4-2)', (tester) async {
     await pump(tester);
 
