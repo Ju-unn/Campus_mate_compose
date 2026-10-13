@@ -81,7 +81,7 @@ final Map<String, Area1Case> area2dCases = {
   'E-CARD-20': area1Cases['E-ONB-61']!,
   'E-CARD-44': area1Cases['E-ONB-61']!,
   'E-HOME-29': area1Cases['E-ONB-61']!,
-  // 앱이 오늘 탭을 앞에 둔 채 PC 가 배치를 돌린다 — 배너 없이 목록이 저절로 새로 고쳐져 카드가 나타나야 한다.
+  // 앱이 오늘 탭을 앞에 둔 채 PC 가 배치를 돌린다 — 목록이 저절로 새로 고쳐져 카드가 나타나야 한다(알림은 #503 뒤 앞에서도 1건 — PC 가 본다).
   'E-CARD-03': _session((tester, job) async {
     await arrive(tester, 'home');
     await tap(tester, navTab('오늘'));
