@@ -4,6 +4,7 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -70,6 +71,9 @@ void main() {
     return router;
   }
 
+  // 신고 버튼 = 사이렌 22 + "신고하기"(pen qRvp8). 시트의 "신고하기" 글자와 겹치지 않게 사이렌 그림으로 찾는다.
+  Finder sirens() => find.byWidgetPredicate((w) => w is Icon3d && w.icon == AppIcon3d.siren);
+
   Finder backButton() => find.ancestor(of: find.byIcon(AppIcons.arrowLeft), matching: find.byType(IconButton));
 
   Rect noticeBox(WidgetTester tester) =>
@@ -77,12 +81,12 @@ void main() {
 
   Future<void> report(WidgetTester tester, {String nickname = '달빛'}) async {
     final card = find.ancestor(of: find.text(nickname), matching: find.byType(FriendReviewCard));
-    await tester.tap(find.descendant(of: card, matching: find.byIcon(AppIcons.flag)));
+    await tester.tap(find.descendant(of: card, matching: sirens()));
     await tester.pumpAndSettle();
     expect(find.byType(ReportSheet), findsOneWidget);
     await tester.tap(find.text('광고·스팸'));
     await tester.pump();
-    await tester.tap(find.text('신고하기'));
+    await tester.tap(find.descendant(of: find.byType(ReportSheet), matching: find.text('신고하기')));
     await tester.pumpAndSettle();
   }
 
@@ -129,7 +133,7 @@ void main() {
       expect((style.fontSize, style.color, style.fontWeight), (14, AppColors.body, FontWeight.w400));
     });
 
-    testWidgets('카드는 안내 상자 뒤 16, 카드 사이 16, 폭 328, 카드마다 깃발', (tester) async {
+    testWidgets('카드는 안내 상자 뒤 16, 카드 사이 16, 폭 328, 카드마다 신고 버튼', (tester) async {
       await pump(tester);
 
       final cards = find.byType(FriendReviewCard);
@@ -139,7 +143,8 @@ void main() {
       expect(first.top - noticeBox(tester).bottom, 16);
       expect(second.top - first.bottom, 16);
       expect(first.width, 328);
-      expect(find.byIcon(AppIcons.flag), findsNWidgets(2));
+      expect(sirens(), findsNWidgets(2));
+      expect(find.byIcon(AppIcons.flag), findsNothing);
       expect(reviews.receivedCount, 1);
     });
   });
@@ -193,7 +198,7 @@ void main() {
     testWidgets('시트를 닫으면 아무것도 보내지 않는다', (tester) async {
       await pump(tester);
 
-      await tester.tap(find.byIcon(AppIcons.flag).first);
+      await tester.tap(sirens().first);
       await tester.pumpAndSettle();
       await tester.tapAt(const Offset(180, 20));
       await tester.pumpAndSettle();

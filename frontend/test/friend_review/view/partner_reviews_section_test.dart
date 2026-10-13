@@ -1,6 +1,7 @@
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/friend_review/model/friend_review.dart';
 import 'package:campus_mate/friend_review/model/friend_review_repository_provider.dart';
@@ -103,8 +104,8 @@ void main() {
       expect(second.top - first.bottom, 8);
       expect(tester.getRect(find.text('아래 칸')).top - second.bottom, 13);
       expect(find.text('친구2'), findsNothing);
-      // 깃발은 20c 만(대장 Q2).
-      expect(find.byIcon(AppIcons.flag), findsNothing);
+      // 신고 버튼(사이렌)은 20c 만(대장 Q2).
+      expect(find.byWidgetPredicate((w) => w is Icon3d && w.icon == AppIcon3d.siren), findsNothing);
     });
 
     testWidgets('헤더 글자(pen Bw7Rz · e1E2HG · l8Yq7) — 14/600 muted · 12/600 primaryText + chevron 14, 간격 2', (tester) async {
@@ -200,7 +201,7 @@ void main() {
       expect(tester.getRect(cards.first).top - tester.getRect(title).bottom, 12);
       expect(tester.getRect(cards.at(1)).top - tester.getRect(cards.first).bottom, 12);
       expect(tester.getRect(cards.first).width, 328);
-      expect(find.descendant(of: sheet(), matching: find.byIcon(AppIcons.flag)), findsNothing);
+      expect(find.descendant(of: sheet(), matching: find.byWidgetPredicate((w) => w is Icon3d && w.icon == AppIcon3d.siren)), findsNothing);
       expect(find.descendant(of: sheet(), matching: find.byIcon(AppIcons.x)), findsNothing);
       await tester.scrollUntilVisible(find.text(_sheetNotice), 200,
           scrollable: find.descendant(of: sheet(), matching: find.byType(Scrollable)));

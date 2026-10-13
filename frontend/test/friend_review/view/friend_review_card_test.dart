@@ -1,4 +1,5 @@
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/friend_review/model/friend_review.dart';
 import 'package:campus_mate/friend_review/view/friend_review_card.dart';
@@ -131,19 +132,33 @@ void main() {
     expect(tester.getSize(find.byType(FriendReviewCard)).height, 16 + 48 + 12 + 31 + 16);
   });
 
-  testWidgets('onReport 가 없으면 깃발이 없다', (tester) async {
+  Finder siren() => find.byWidgetPredicate((w) => w is Icon3d && w.icon == AppIcon3d.siren);
+
+  testWidgets('onReport 가 없으면 신고 버튼(사이렌 · 신고하기)이 없다', (tester) async {
     await pump(tester, pen());
 
+    expect(siren(), findsNothing);
+    expect(find.text('신고하기'), findsNothing);
     expect(find.byIcon(AppIcons.flag), findsNothing);
   });
 
-  testWidgets('onReport 가 있으면 머리 줄 오른쪽 끝에 깃발 20 · 누름칸 48×48, 누르면 한 번 불린다', (tester) async {
+  // pen S0MR2b/qRvp8 Report Review 48×48 세로 gap 2 가운데: aXNKI 사이렌 22(jsi9g) + o1niSD "신고하기" 9/600 #6E5861 lh1.
+  testWidgets('onReport 가 있으면 깃발이 아니라 사이렌 22 + "신고하기" 9/600 #6E5861, 누름칸 48×48, 누르면 한 번 불린다', (tester) async {
     var reported = 0;
     await pump(tester, pen(), onReport: () => reported += 1);
 
-    final flag = tester.widget<Icon>(find.byIcon(AppIcons.flag));
-    expect((flag.size, flag.color), (20, AppColors.muted));
-    final button = find.ancestor(of: find.byIcon(AppIcons.flag), matching: find.byType(IconButton));
+    expect(find.byIcon(AppIcons.flag), findsNothing);
+    expect(siren(), findsOneWidget);
+    expect(tester.getSize(siren()), const Size(22, 22));
+    final label = tester.widget<Text>(find.text('신고하기'));
+    expect((label.style!.fontSize, label.style!.fontWeight, label.style!.color), (9, FontWeight.w600, const Color(0xFF6E5861)));
+    // 렌더 34×9, 사이렌 아래 간격 2, 같은 가운데 줄.
+    final labelBox = tester.getRect(find.text('신고하기'));
+    final sirenBox = tester.getRect(siren());
+    expect(labelBox.top - sirenBox.bottom, 2);
+    expect(labelBox.center.dx, sirenBox.center.dx);
+
+    final button = find.ancestor(of: siren(), matching: find.byType(InkResponse));
     final cell = tester.getRect(button);
     expect(cell.size, const Size(48, 48));
     final card = tester.getRect(find.byType(FriendReviewCard));
@@ -153,13 +168,33 @@ void main() {
     expect(reported, 1);
   });
 
+  testWidgets('신고 버튼 낭독은 "신고하기" 버튼 하나다(사이렌 그림은 읽지 않는다)', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await pump(tester, pen(), onReport: () {});
+
+    expect(
+      tester.getSemantics(find.ancestor(of: siren(), matching: find.byType(InkResponse))),
+      isSemantics(label: '신고하기', isButton: true, hasTapAction: true),
+    );
+    semantics.dispose();
+  });
+
+  testWidgets('글자 배율 2.0 에서도 신고 버튼 누름칸은 48 아래로 줄지 않는다', (tester) async {
+    await pump(tester, pen(), onReport: () {}, width: 288, scale: 2);
+
+    final cell = tester.getRect(find.ancestor(of: siren(), matching: find.byType(InkResponse)));
+    expect(cell.width, greaterThanOrEqualTo(48));
+    expect(cell.height, greaterThanOrEqualTo(48));
+  });
+
   // 20e(pen `FEysN` 카드 v6BbW · kwBwj): 같은 누름칸 qRvp8 자리에 trash-2(E1Qfy7) 20 #6A6A6A.
   testWidgets('onDelete 가 있으면 깃발 자리에 휴지통 20 muted · 누름칸 48×48, 낭독 "리뷰 지우기", 누르면 한 번 불린다', (tester) async {
     final semantics = tester.ensureSemantics();
     var deleted = 0;
     await pump(tester, pen(), onDelete: () => deleted += 1);
 
-    expect(find.byIcon(AppIcons.flag), findsNothing);
+    expect(siren(), findsNothing);
+    expect(find.text('신고하기'), findsNothing);
     final trash = tester.widget<Icon>(find.byIcon(AppIcons.trash2));
     expect((trash.size, trash.color), (20, AppColors.muted));
     final button = find.ancestor(of: find.byIcon(AppIcons.trash2), matching: find.byType(IconButton));

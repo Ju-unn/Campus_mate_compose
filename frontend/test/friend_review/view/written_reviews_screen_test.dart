@@ -9,6 +9,7 @@ import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/school_label.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/friend_review/model/friend_review_repository_provider.dart';
 import 'package:campus_mate/friend_review/model/friend_review_tags.dart';
@@ -138,7 +139,7 @@ void main() {
       expect(find.descendant(of: cards.at(0), matching: find.text('달빛')), findsOneWidget);
       expect(find.text(friendReviewRelationLabel), findsNWidgets(2));
       expect(find.byIcon(AppIcons.trash2), findsNWidgets(2));
-      expect(find.byIcon(AppIcons.flag), findsNothing);
+      expect(find.byWidgetPredicate((w) => w is Icon3d && w.icon == AppIcon3d.siren), findsNothing);
       expect(reviews.writtenCount, 1);
     });
   });
