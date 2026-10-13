@@ -327,5 +327,6 @@ HARNESS_WORDS = ("refund", "cashout", "transfer", "gift", "send_heart", "send-he
 def test_billing_paths_avoid_the_harness_words():
     billing = [p for p in app.openapi()["paths"] if p.startswith(("/billing", "/batch/billing"))]
 
-    assert sorted(billing) == ["/batch/billing-voided", "/billing/google/verify", "/billing/status"]
+    assert sorted(billing) == ["/batch/billing-voided", "/billing/apple/notifications", "/billing/apple/verify",
+                              "/billing/google/verify", "/billing/status"]
     assert [p for p in billing if any(word in p.lower() for word in HARNESS_WORDS)] == []
