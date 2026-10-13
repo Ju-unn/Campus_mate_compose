@@ -33,7 +33,7 @@ class DailyCardSummary extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _BadgeRow(expiresAt: card.expiresAt),
+            _BadgeRow(source: card.source, expiresAt: card.expiresAt),
             const SizedBox(height: AppSpacing.md),
             _SummaryRow(card: card),
             const SizedBox(height: AppSpacing.md),
@@ -67,31 +67,52 @@ String hourLabel(DateTime value) {
   return '${isMorning ? '오전' : '오후'} $hour시';
 }
 
-/// pen `kaRGO`. "무료 카드 초기화" `ZMHUK`(만료 = 다음 지급 시각) + "학생 인증" `aRL8x`.
-/// 구매 카드 배지 `ZvKiJ` 는 조각 7 — 구매 카드는 만료가 없어 시계 배지도 없다.
+/// pen `kaRGO`(화면 `Keynu` 의 `mj74J`). 왼쪽부터 "무료 카드 초기화" `ZMHUK`(만료 = 다음 지급 시각) ·
+/// "구매 카드" `ZvKiJ`(구매한 카드만) · "학생 인증" `aRL8x`. 구매 카드는 만료가 없어 시계 배지가 안 뜬다.
+///
+/// `ZvKiJ` 값(마스터 Badge `XPRBv` 인스턴스, resolveVariables 로 읽음): 채움 #E00B41 = `primary-pressed`,
+/// 모서리 999 · 패딩 [6,10] · 간격 4 · 높이 30, 아이콘 lucide `shopping-bag` 18 흰색,
+/// 글자 "구매 카드" 11/600 흰색 — `AppTypography.badge` 와 같다(pen lineHeight 1.5 는 기존 배지 둘과 같은 드리프트).
 class _BadgeRow extends StatelessWidget {
-  const _BadgeRow({required this.expiresAt});
+  const _BadgeRow({required this.source, required this.expiresAt});
 
+  final CardSource source;
   final DateTime? expiresAt;
 
   @override
   Widget build(BuildContext context) {
     final at = expiresAt;
     // 글자를 키워 한 줄에 안 들어가면 다음 줄로 내린다(DESIGN §11.2).
-    return Wrap(
-      alignment: WrapAlignment.end,
-      spacing: 6,
-      runSpacing: 6,
-      children: [
-        if (at != null)
-          _Pill(
-            color: AppColors.primaryDisabled,
-            icon: AppIcon3d.clock,
-            label: '${weekdayNames[at.weekday - 1]}요일 ${hourLabel(at)}까지',
-            textColor: AppColors.ink,
+    // 폭을 꽉 채워야 `alignment: end` 가 먹는다 — 부모 Column 이 start 라 Wrap 이 내용 폭으로 줄어 왼쪽에 붙었다(pen `kaRGO` 는 288 꽉 참, 오른쪽 정렬).
+    return SizedBox(
+      width: double.infinity,
+      child: Wrap(
+        alignment: WrapAlignment.end,
+        spacing: 6,
+        runSpacing: 6,
+        children: [
+          if (at != null)
+            _Pill(
+              color: AppColors.primaryDisabled,
+              icon: const Icon3d(AppIcon3d.clock, size: 18),
+              label: '${weekdayNames[at.weekday - 1]}요일 ${hourLabel(at)}까지',
+              textColor: AppColors.ink,
+            ),
+          if (source == CardSource.purchased)
+            const _Pill(
+              color: AppColors.primaryPressed,
+              icon: Icon(AppIcons.shoppingBag, size: 18, color: AppColors.onPrimary),
+              label: '구매 카드',
+              textColor: AppColors.onPrimary,
+            ),
+          const _Pill(
+            color: AppColors.surfaceInk,
+            icon: Icon3d(AppIcon3d.badgeCheck, size: 18),
+            label: '학생 인증',
+            textColor: AppColors.onInk,
           ),
-        const _Pill(color: AppColors.surfaceInk, icon: AppIcon3d.badgeCheck, label: '학생 인증', textColor: AppColors.onInk),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -100,7 +121,7 @@ class _Pill extends StatelessWidget {
   const _Pill({required this.color, required this.icon, required this.label, required this.textColor});
 
   final Color color;
-  final AppIcon3d icon;
+  final Widget icon;
   final String label;
   final Color textColor;
 
@@ -112,7 +133,7 @@ class _Pill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon3d(icon, size: 18),
+          icon,
           const SizedBox(width: AppSpacing.xxs),
           Flexible(child: Text(label, style: AppTypography.badge.copyWith(color: textColor))),
         ],

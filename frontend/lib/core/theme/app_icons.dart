@@ -53,6 +53,9 @@ abstract final class AppIcons {
 
   /// 대화 탭 보낸 신청 "만료됨" 칩(pen `SentRequestRow` d6otzp)
   static const IconData timerOff = LucideIcons.timerOff;
+
+  /// 오늘 탭 요약 카드 "구매 카드" 배지(pen `mj74J/ZvKiJ` icon "shopping-bag", DESIGN §8.1)
+  static const IconData shoppingBag = LucideIcons.shoppingBag;
   static const IconData shieldCheck = LucideIcons.shieldCheck;
   static const IconData phone = LucideIcons.phone;
   static const IconData contactRound = LucideIcons.contactRound;
