@@ -40,6 +40,11 @@ class Settings(BaseSettings):
     # 소셜 로그인 전환: 탈퇴 때 카카오 연결 끊기(account/social_unlink.py)에 쓰는 앱 어드민 키.
     # 비면 연결 끊기를 건너뛴다 — 서버 시작을 막지 않는다.
     kakao_admin_key: str = ""
+    # 탈퇴 때 애플 토큰 철회(App Store 5.1.1(v), account/social_unlink.py). Sign in with Apple 키(.p8)의
+    # 팀 ID · 키 ID · PEM 본문(Secret Manager `apple-sign-in-private-key`). 하나라도 비면 철회를 건너뛴다 — 서버 시작을 막지 않는다.
+    apple_team_id: str = ""
+    apple_key_id: str = ""
+    apple_private_key: str = ""
 
     @property
     def postgrest_url(self) -> str:
