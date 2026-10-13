@@ -8,6 +8,8 @@ from fastapi.responses import JSONResponse
 from app.account.batch_router import router as account_batch_router
 from app.account.router import router as account_router
 from app.auth_hooks.router import router as auth_hooks_router
+from app.billing.batch_router import router as billing_batch_router
+from app.billing.router import router as billing_router
 from app.cards.batch_router import router as cards_batch_router
 from app.cards.router import router as cards_router
 from app.chat.batch_router import router as chat_batch_router
@@ -77,6 +79,8 @@ app.include_router(account_router)
 app.include_router(referral_router)
 app.include_router(friend_reviews_router)
 app.include_router(heart_tasks_router)
+app.include_router(billing_router)
+app.include_router(billing_batch_router)
 
 
 @app.exception_handler(httpx.HTTPStatusError)

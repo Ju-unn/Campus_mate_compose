@@ -60,6 +60,7 @@ VERIFIED_ROUTES = [
     'POST /friend-reviews', 'GET /friend-reviews/writable', 'GET /friend-reviews/written', 'DELETE /friend-reviews/{review_id}',
     'POST /friend-reviews/code-lookup',
     'GET /heart-tasks', 'POST /heart-tasks/{task}/submissions',
+    'GET /billing/status', 'POST /billing/google/verify',
 ]
 # 정지 계정의 "DB 변화 0" 을 보는 표 — 계정 칸 이름.
 OWNED = {'messages': 'sender_id', 'reports': 'reporter_id', 'blocks': 'blocker_id', 'contact_blocks': 'owner_id',
