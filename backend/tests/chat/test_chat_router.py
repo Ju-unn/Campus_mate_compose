@@ -90,6 +90,9 @@ class _Calls:
         self.patches: list[tuple[str, dict]] = []
         # 밤에 아침으로 보류된 알림의 받는 사람(pending_pushes, 결정 4).
         self.kept: list[str] = []
+        # 실시간 이벤트(설계안 A) 한 줄씩 — {"topic", "event", "payload", "private"}.
+        self.broadcasts: list[dict] = []
+        self.broadcast_status = 202
 
 
 def _handler(calls: _Calls, match: dict, *, messages: list[dict] | None = None,
@@ -99,6 +102,9 @@ def _handler(calls: _Calls, match: dict, *, messages: list[dict] | None = None,
         if "fcm.googleapis.com" in url:
             calls.pushes.append(json.loads(request.content)["message"])
             return httpx.Response(200, json={"name": "projects/x/messages/1"})
+        if request.url.path == "/realtime/v1/api/broadcast":
+            calls.broadcasts.extend(json.loads(request.content)["messages"])
+            return httpx.Response(calls.broadcast_status)
         if "/rest/v1/matches" in url:
             if request.method == "PATCH":
                 calls.patches.append((url, json.loads(request.content)))
@@ -107,7 +113,17 @@ def _handler(calls: _Calls, match: dict, *, messages: list[dict] | None = None,
         if "/rest/v1/match_participants" in url:
             if request.method == "PATCH":
                 calls.patches.append((url, json.loads(request.content)))
+                if patch_rows is None:
+                    # 고친 칸을 방에 반영한다 — 나간 뒤의 받는 사람 조회가 그 사람을 빼는지 보려면 필요하다.
+                    who = request.url.params.get("profile_id", "").removeprefix("eq.")
+                    for row in match["match_participants"]:
+                        if row["profile_id"] == who:
+                            row.update(json.loads(request.content))
                 return httpx.Response(200, json=patch_rows if patch_rows is not None else [{"x": 1}])
+            if request.url.params.get("left_at") == "is.null" and request.url.params.get("select") == "profile_id":
+                # 실시간 받는 사람 조회(방에 남은 사람만).
+                return httpx.Response(200, json=[{"profile_id": p["profile_id"]}
+                                                 for p in match["match_participants"] if not p["left_at"]])
             return httpx.Response(200, json=[])
         if "/rest/v1/messages" in url:
             if request.method == "POST":
@@ -651,3 +667,93 @@ def test_lifting_the_suspension_opens_the_room_again():
     assert client.get(f"/chat/matches/{MATCH_ID}", headers=AUTH_HEADERS).json()["gate"]["partner_left"] is False
     assert client.post(f"/chat/matches/{MATCH_ID}/messages", json={"body": "다시 안녕"},
                        headers=AUTH_HEADERS).status_code == 201
+
+
+# 실시간 이벤트(채팅 실시간 전환 안 A, 10-13) --------------------------------------------
+
+ME_TOPIC = f"user:{PROFILE_ID}"
+PARTNER_TOPIC = f"user:{PARTNER_ID}"
+
+
+def _topics(calls: _Calls, event: str) -> list[str]:
+    return [b["topic"] for b in calls.broadcasts if b["event"] == event]
+
+
+def test_sending_tells_both_people_on_their_private_channels():
+    calls = _Calls()
+    _wire(_handler(calls, _match())).post(
+        f"/chat/matches/{MATCH_ID}/messages", json={"body": "안녕하세요"}, headers=AUTH_HEADERS)
+
+    assert _topics(calls, "message") == [ME_TOPIC, PARTNER_TOPIC]
+    event = calls.broadcasts[0]
+    assert event["private"] is True
+    assert event["payload"]["match_id"] == MATCH_ID
+    assert event["payload"]["message"]["body"] == "안녕하세요"
+    assert event["payload"]["message"]["sender_id"] == PROFILE_ID
+
+
+def test_the_partner_in_the_room_gets_the_event_but_still_no_push():
+    """푸시 30초 규칙(결정 5)은 그대로다 — 이벤트는 푸시와 상관없이 간다."""
+    looking = _read_match(None, NOW.isoformat())
+    calls = _Calls()
+    _wire(_handler(calls, looking)).post(
+        f"/chat/matches/{MATCH_ID}/messages", json={"body": "보고 있어요?"}, headers=AUTH_HEADERS)
+
+    assert calls.pushes == []
+    assert PARTNER_TOPIC in _topics(calls, "message")
+
+
+def test_the_push_still_goes_once_the_partner_read_more_than_thirty_seconds_ago():
+    away = _read_match(None, "2026-09-22T13:59:29+09:00")  # NOW 14:00:00 의 31초 전
+    calls = _Calls()
+    _wire(_handler(calls, away)).post(
+        f"/chat/matches/{MATCH_ID}/messages", json={"body": "어디 갔어요?"}, headers=AUTH_HEADERS)
+
+    assert len(calls.pushes) == 1
+    assert PARTNER_TOPIC in _topics(calls, "message")
+
+
+def test_a_failing_broadcast_still_sends_the_message_and_the_push():
+    calls = _Calls()
+    calls.broadcast_status = 500
+    response = _wire(_handler(calls, _match())).post(
+        f"/chat/matches/{MATCH_ID}/messages", json={"body": "안녕하세요"}, headers=AUTH_HEADERS)
+
+    assert response.status_code == 201
+    assert len(calls.pushes) == 1
+
+
+def test_marking_read_tells_only_the_partner():
+    calls = _Calls()
+    response = _wire(_handler(calls, _match())).patch(
+        f"/chat/matches/{MATCH_ID}/read", headers=AUTH_HEADERS)
+
+    assert response.status_code == 200
+    assert _topics(calls, "read") == [PARTNER_TOPIC]
+    assert calls.broadcasts[0]["payload"] == {
+        "match_id": MATCH_ID, "reader_id": PROFILE_ID, "last_read_at": NOW.isoformat()}
+
+
+def test_leaving_tells_only_the_partner_with_the_system_line():
+    calls = _Calls()
+    _wire(_handler(calls, _match())).post(f"/chat/matches/{MATCH_ID}/leave", headers=AUTH_HEADERS)
+
+    assert _topics(calls, "message") == [PARTNER_TOPIC]
+    assert calls.broadcasts[0]["payload"]["message"]["kind"] == "left"
+
+
+def test_accepting_the_gate_tells_both_with_the_system_line():
+    calls = _Calls()
+    _wire(_handler(calls, _match())).post(f"/chat/matches/{MATCH_ID}/trust", headers=AUTH_HEADERS)
+
+    assert _topics(calls, "message") == [ME_TOPIC, PARTNER_TOPIC]
+    assert calls.broadcasts[0]["payload"]["message"]["kind"] == "trust_accept"
+
+
+def test_a_rejected_send_tells_nobody():
+    closed = _match(chat_closed_at="2126-09-24T10:00:00+09:00")
+    calls = _Calls()
+    _wire(_handler(calls, closed)).post(
+        f"/chat/matches/{MATCH_ID}/messages", json={"body": "늦었나요"}, headers=AUTH_HEADERS)
+
+    assert calls.broadcasts == []

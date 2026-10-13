@@ -68,8 +68,8 @@ def _accepted_card(decided_at: str, **overrides) -> dict:
     }
 
 
-def _pushes_and_matches(handler_extra=None):
-    """FCM 호출과 만들어진 매칭·참가자 행을 모아 두는 공통 핸들러."""
+def _pushes_and_matches(handler_extra=None, broadcasts: list[dict] | None = None):
+    """FCM 호출과 만들어진 매칭·참가자 행을 모아 두는 공통 핸들러. broadcasts 를 넘기면 실시간 이벤트도 모은다."""
     pushes: list[dict] = []
     posted: list[str] = []
 
@@ -79,6 +79,11 @@ def _pushes_and_matches(handler_extra=None):
             import json
             pushes.append(json.loads(request.content))
             return httpx.Response(200, json={"name": "sent"})
+        if request.url.path == "/realtime/v1/api/broadcast":
+            import json
+            if broadcasts is not None:
+                broadcasts.extend(json.loads(request.content)["messages"])
+            return httpx.Response(202)
         if request.method == "POST" and "/rest/v1/" in url:
             posted.append(url)
         if "/rest/v1/matches" in url and request.method == "POST":
@@ -191,6 +196,42 @@ def test_an_already_existing_match_does_not_notify_twice():
 
     assert response.json() == {"matched": True, "match_id": "match-1"}
     assert pushes == []
+
+
+def _accept_card_one(conflict: bool) -> list[dict]:
+    """card-1 을 수락하고 나간 실시간 이벤트를 돌려준다. conflict 면 매칭이 이미 있었던 경우다."""
+    broadcasts: list[dict] = []
+
+    def extra(request: httpx.Request) -> httpx.Response:
+        if "/rest/v1/daily_cards" in str(request.url):
+            return httpx.Response(200, json=[_accepted_card(_hours_ago(24))])
+        return httpx.Response(200, json=[])
+
+    handler, _, _ = _pushes_and_matches(extra, broadcasts)
+
+    def maybe_conflicting(request: httpx.Request) -> httpx.Response:
+        if conflict and "/rest/v1/matches" in str(request.url):
+            return httpx.Response(201, json=[]) if request.method == "POST" else httpx.Response(200, json=[{"id": "match-1"}])
+        return handler(request)
+
+    response = _wire(maybe_conflicting).post("/cards/acceptances/card-1", headers=AUTH_HEADERS,
+                                             json={"decision": "accept"})
+    assert response.status_code == 200
+    return broadcasts
+
+
+def test_a_new_match_tells_both_people_to_reload_the_list():
+    """새 방은 상대 프로필이 필요해서 신호만 보낸다 — 앱이 목록을 한 번 다시 읽는다(설계안 A)."""
+    broadcasts = _accept_card_one(conflict=False)
+
+    assert [(b["topic"], b["event"]) for b in broadcasts] == [
+        (f"user:{OTHER_ID}", "room_changed"), (f"user:{PROFILE_ID}", "room_changed")]
+    assert broadcasts[0]["payload"] == {"match_id": "match-1", "reason": "matched"}
+    assert broadcasts[0]["private"] is True
+
+
+def test_an_already_existing_match_tells_nobody():
+    assert _accept_card_one(conflict=True) == []
 
 
 def test_rejecting_does_not_notify_anyone():

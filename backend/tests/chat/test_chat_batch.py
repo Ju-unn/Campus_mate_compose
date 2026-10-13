@@ -240,6 +240,63 @@ def test_the_batch_endpoint_runs_with_a_scheduler_id_token(oidc_overrides, monke
                                "notifications_purged": 0, "photos_deleted": 0, "pending_expired": 0}
 
 
+def test_closing_from_the_batch_endpoint_tells_both_people(oidc_overrides, monkeypatch):
+    """48시간 마감으로 닫힌 방은 목록에서 빠진다 — 두 사람에게 room_changed(closed) 를 쏜다(설계안 A)."""
+    monkeypatch.setattr(batch_auth.id_token, "verify_oauth2_token",
+                        lambda token, request, audience: {"email": SCHEDULER, "email_verified": True})
+    expired = _match(created_at=(datetime.now(SEOUL) - timedelta(hours=49)).isoformat())
+    broadcasts: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/realtime/v1/api/broadcast":
+            broadcasts.extend(json.loads(request.content)["messages"])
+            return httpx.Response(202)
+        if request.url.path == "/rest/v1/matches":
+            return httpx.Response(200, json=[{"id": MATCH_ID}] if request.method == "PATCH" else [expired])
+        if request.url.path == "/rest/v1/match_participants" and request.url.params.get("left_at") == "is.null":
+            return httpx.Response(200, json=[{"profile_id": A}, {"profile_id": B}])
+        return httpx.Response(200, json=[])
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    app.dependency_overrides[get_client] = lambda: client
+
+    response = TestClient(app).post("/batch/chat-gate", headers={"Authorization": "Bearer id-token"})
+
+    assert response.json()["closed"] == 1
+    assert [(b["topic"], b["event"], b["payload"]) for b in broadcasts] == [
+        (f"user:{A}", "room_changed", {"match_id": MATCH_ID, "reason": "closed"}),
+        (f"user:{B}", "room_changed", {"match_id": MATCH_ID, "reason": "closed"}),
+    ]
+
+
+def test_a_dead_realtime_is_tried_once_per_batch_not_once_per_room(oidc_overrides, monkeypatch):
+    """Realtime 장애 때 마감 방마다 제한시간을 기다리면 배치가 길어진다 — 첫 실패 뒤 나머지 방은 건너뛴다(검토 권고 1).
+    방 닫기 자체는 그대로 다 된다."""
+    monkeypatch.setattr(batch_auth.id_token, "verify_oauth2_token",
+                        lambda token, request, audience: {"email": SCHEDULER, "email_verified": True})
+    old = (datetime.now(SEOUL) - timedelta(hours=49)).isoformat()
+    rooms = [_match(id=f"room-{n}", created_at=old) for n in range(3)]
+    attempts: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/realtime/v1/api/broadcast":
+            attempts.append(request)
+            raise httpx.ConnectTimeout("down", request=request)
+        if request.url.path == "/rest/v1/matches":
+            return httpx.Response(200, json=[{"id": "x"}] if request.method == "PATCH" else rooms)
+        if request.url.path == "/rest/v1/match_participants" and request.url.params.get("left_at") == "is.null":
+            return httpx.Response(200, json=[{"profile_id": A}, {"profile_id": B}])
+        return httpx.Response(200, json=[])
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    app.dependency_overrides[get_client] = lambda: client
+
+    response = TestClient(app).post("/batch/chat-gate", headers={"Authorization": "Bearer id-token"})
+
+    assert response.json()["closed"] == 3
+    assert len(attempts) == 1
+
+
 # 조각 6: 정지 ------------------------------------------------------------------------
 
 def _with_status(status_a: str, status_b: str, **overrides) -> dict:

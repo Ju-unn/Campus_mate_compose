@@ -15,6 +15,7 @@ from app.cards.repository import NOTIFICATION_DEFAULTS, CardRepository
 # is_active 는 safety · friend_reviews 가 여기서 가져간다 — 판정 자체는 visibility 한 곳에 있다.
 from app.cards.visibility import hidden_from_cards as _hidden_from_cards
 from app.cards.visibility import is_active  # noqa: F401
+from app.chat.realtime import Broadcaster
 from app.core import errors
 from app.core.deps import Caller, get_caller, get_client, get_now, get_settings, get_verified_caller
 from app.matching.band import rank_all
@@ -405,6 +406,9 @@ async def respond_to_acceptance(card_id: str, body: DecisionRequest,
     # 매칭 성사는 양쪽 모두에게 알린다(화면 12 `UFNSi`). 다만 신규일 때만이다 —
     # A→B, B→A 카드가 같은 날 나가 둘 다 수락하면 두 번째 수락은 이미 있는 매칭을 다시 본다.
     if is_new:
+        # 두 사람의 대화 목록에 새 방이 생겼다는 신호만 보낸다(실시간 안 A) — 상대 프로필은 앱이 목록을 다시 읽어 가져온다.
+        await Broadcaster(wiring.settings.supabase_url, wiring.settings.supabase_service_role_key, wiring.client).send(
+            [card["owner_id"], wiring.profile_id], "room_changed", {"match_id": match["id"], "reason": "matched"})
         me = await wiring.repo.fetch_card_profile(wiring.profile_id)
         # 상대 프로필은 위 숨김 검사에서 이미 읽었다(accepter).
         await notify(wiring.repo, wiring.sender, card["owner_id"], "match_made", "매칭됐어요!",

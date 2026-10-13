@@ -2,6 +2,9 @@ import logging
 from datetime import datetime
 from uuid import UUID
 
+import httpx
+
+from app.chat.realtime import Broadcaster
 from app.core.http import raise_for_status
 from app.core.postgrest import PostgrestRepository
 
@@ -24,7 +27,31 @@ _MESSAGE_COLUMNS = "id,sender_id,kind,body,created_at"
 
 
 class ChatRepository(PostgrestRepository):
-    """채팅이 건드리는 세 테이블(messages · match_participants · matches)의 유일한 출입구."""
+    """채팅이 건드리는 세 테이블(messages · match_participants · matches)의 유일한 출입구.
+
+    `broadcaster` 를 넘기면 메시지 · 읽음 · 닫기 직후 방에 남은 사람에게 실시간 이벤트를 쏜다(설계안 A).
+    쓰기 길목이 여기 한 곳이라 보내기 · 나가기 · 차단 · 수락 줄이 빠짐없이 따라온다. 쏠 일이 없는 곳은 넘기지 않는다."""
+
+    def __init__(self, postgrest_url: str, service_role_key: str, client: httpx.AsyncClient,
+                 encryption_key: str | None = None, broadcaster: Broadcaster | None = None):
+        super().__init__(postgrest_url, service_role_key, client, encryption_key)
+        self._broadcaster = broadcaster
+
+    async def _announce(self, match_id: UUID | str, event: str, payload: dict,
+                        skip: UUID | str | None = None) -> None:
+        """방에 남은 사람(left_at 없음)에게 쏜다. 나간 · 차단한 사람은 채널이 열려 있어도 받지 않는다 —
+        채널 권한은 입장할 때 한 번만 계산되니 여기서 막는다. 실패는 삼킨다 — 쓰기는 이미 끝났다."""
+        if self._broadcaster is None:
+            return
+        try:
+            rows = await self._rows("match_participants", {
+                "match_id": f"eq.{match_id}", "left_at": "is.null", "select": "profile_id",
+            })
+        except Exception as exc:
+            logger.warning("실시간 받는 사람 조회 실패 event=%s %s", event, type(exc).__name__)
+            return
+        recipients = [row["profile_id"] for row in rows if row["profile_id"] != str(skip)]
+        await self._broadcaster.send(recipients, event, payload)
 
     async def _rows(self, path: str, params: dict) -> list[dict]:
         response = await self._get(path, params=params)
@@ -138,6 +165,9 @@ class ChatRepository(PostgrestRepository):
         rows = await self._rows_post("messages", {
             "match_id": str(match_id), "sender_id": str(sender_id), "kind": kind, "body": body,
         })
+        # 보낸 사람도 받는다(다른 기기 목록). 행 전체가 아니라 목록 · 안 읽은 수에 쓰는 칸만 싣는다.
+        message = {column: rows[0].get(column) for column in _MESSAGE_COLUMNS.split(",")}
+        await self._announce(match_id, "message", {"match_id": str(match_id), "message": message})
         return rows[0]
 
     async def count_unread(self, match_id: UUID | str, profile_id: UUID | str,
@@ -160,6 +190,10 @@ class ChatRepository(PostgrestRepository):
             "match_id": f"eq.{match_id}", "profile_id": f"eq.{profile_id}",
         }, json={"last_read_at": now.isoformat()})
         raise_for_status(response)
+        # 상대 화면의 읽음 '1' 을 지운다. 읽은 시각은 상대 한 명에게만 간다(match_participants RLS 는 그대로).
+        await self._announce(match_id, "read", {
+            "match_id": str(match_id), "reader_id": str(profile_id), "last_read_at": now.isoformat(),
+        }, skip=profile_id)
 
     # 나가기 · 게이트 --------------------------------------------------------
     async def leave(self, match_id: UUID | str, profile_id: UUID | str, now: datetime) -> bool:
@@ -206,6 +240,9 @@ class ChatRepository(PostgrestRepository):
         rows = await self._rows_patch("matches", {
             "id": f"eq.{match_id}", "chat_closed_at": "is.null",
         }, {"chat_closed_at": now.isoformat()})
+        if rows:
+            # 닫힌 방은 목록에서 빠진다 — 앱은 이 신호로 목록을 한 번 다시 읽는다.
+            await self._announce(match_id, "room_changed", {"match_id": str(match_id), "reason": "closed"})
         return bool(rows)
 
     async def fetch_open_matches(self, limit: int = _OPEN_MATCH_LIMIT) -> list[dict]:

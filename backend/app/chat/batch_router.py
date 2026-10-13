@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Header
 from app.cards.push import FcmSender, notify, send_pending
 from app.cards.repository import CardRepository
 from app.chat import gate
+from app.chat.realtime import Broadcaster
 from app.chat.repository import ChatRepository
 from app.core.batch_auth import verify_oidc_token
 from app.core.deps import get_client, get_settings
@@ -90,7 +91,10 @@ async def run_chat_gate_batch(
     )
 
     key = settings.supabase_service_role_key
-    repo = ChatRepository(settings.postgrest_url, key, client)
+    # 48시간 마감으로 닫히는 방을 두 사람의 목록에서 바로 빼려고 실시간 이벤트를 쏜다(close_chat).
+    # Realtime 이 죽었으면 첫 실패 뒤 나머지 방은 건너뛴다 — 방마다 제한시간을 기다리지 않는다. 앱은 목록 새로고침이 메운다.
+    repo = ChatRepository(settings.postgrest_url, key, client,
+                          broadcaster=Broadcaster(settings.supabase_url, key, client, give_up_after_failure=True))
     # notify() 가 보는 알림 스위치·기기 토큰은 조각 4 저장소가 들고 있다(router.py 와 같은 이유).
     push_repo = CardRepository(settings.postgrest_url, key, client)
     sender = FcmSender(settings.google_cloud_project, client)

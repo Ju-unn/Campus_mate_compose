@@ -78,6 +78,7 @@ class FakeSupabase:
         }
         self.blocks: list[dict] = []        # {blocker_id, blocked_id, created_at}
         self.posted_messages: list[dict] = []
+        self.broadcasts: list[dict] = []    # 실시간 이벤트 한 줄씩(설계안 A)
         self.reports: list[dict] = []       # 넣은 신고 본문
         self.recent_report_count = 0        # 최근 24시간 내 신고 수(하루 상한 조회가 받는 행 수)
         self.open_reporters: list[str] = [] # 대상에게 이미 들어와 있던 open 신고의 reporter_id
@@ -102,6 +103,9 @@ class FakeSupabase:
             return httpx.Response(self.discord_status)
         if url.path == "/auth/v1/user":
             return httpx.Response(200, json={"id": self.caller})
+        if url.path == "/realtime/v1/api/broadcast":
+            self.broadcasts.extend(json.loads(request.content)["messages"])
+            return httpx.Response(202)
         if url.path.startswith("/storage/v1/object/sign/profile-photos/"):
             path = url.path.removeprefix("/storage/v1/object/sign/profile-photos/")
             return httpx.Response(200, json={"signedURL": f"/object/sign/profile-photos/{path}?token=t"})
@@ -146,6 +150,11 @@ class FakeSupabase:
         return httpx.Response(200, json=[match] if pair == (match["profile_a"], match["profile_b"]) else [])
 
     def _match_participants(self, method, params, body):
+        if method == "GET":
+            # 실시간 받는 사람 조회 — 방에 남은 사람(left_at 없음)만.
+            assert params.get("left_at") == "is.null"
+            return httpx.Response(200, json=[{"profile_id": p["profile_id"]}
+                                             for p in self.match["match_participants"] if not p["left_at"]])
         assert method == "PATCH"
         profile_id = self._eq(params, "profile_id")
         row = next(p for p in self.match["match_participants"] if p["profile_id"] == profile_id)
@@ -157,7 +166,8 @@ class FakeSupabase:
     def _messages(self, method, params, body):
         if method == "POST":
             self.posted_messages.append(body)
-            return httpx.Response(201, json=[{"id": "msg-new", **body}])
+            # 진짜 PostgREST(return=representation)처럼 DB 기본값 created_at 도 돌려준다.
+            return httpx.Response(201, json=[{"id": "msg-new", **body, "created_at": NOW.isoformat()}])
         row = self.messages.get(self._eq(params, "id"))
         return httpx.Response(200, json=[row] if row else [])
 

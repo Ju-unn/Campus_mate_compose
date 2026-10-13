@@ -32,6 +32,17 @@ def test_blocking_leaves_the_room_exactly_like_leave(client, world):
     }]
 
 
+def test_blocking_tells_the_partner_exactly_like_leave_and_not_me(client, world):
+    """실시간 이벤트도 나가기와 같은 모양이다 — 차단이라는 낱말 · 칸이 없다. 나는 left_at 이 찍혀 받지 않는다."""
+    client.post(f"/blocks/{PARTNER}", headers=AUTH)
+
+    assert [(b["topic"], b["event"]) for b in world.broadcasts] == [(f"user:{PARTNER}", "message")]
+    assert world.broadcasts[0]["payload"] == {"match_id": MATCH_ID, "message": {
+        "id": "msg-new", "sender_id": ME, "kind": "left", "body": "나나님이 채팅방을 나갔어요",
+        "created_at": "2026-09-27T14:00:00+09:00",
+    }}
+
+
 def test_blocking_after_i_already_left_skips_the_room(client, world):
     world.match["match_participants"][0]["left_at"] = "2126-09-22T12:00:00+09:00"
 

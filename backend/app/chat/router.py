@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field, field_validator
 from app.cards.push import FcmSender, notify
 from app.cards.repository import CardRepository
 from app.chat import gate
+from app.chat.realtime import Broadcaster
 from app.chat.repository import MESSAGE_MAX_LENGTH, MESSAGE_PAGE_SIZE, ChatRepository
 from app.core import errors
 from app.core.deps import Caller, get_client, get_now, get_settings, get_verified_caller
@@ -70,7 +71,8 @@ async def _wire(
 ) -> _Wiring:
     settings, client, profile_id = caller
     key = settings.supabase_service_role_key
-    repo = ChatRepository(settings.postgrest_url, key, client, encryption_key=settings.phone_encryption_key)
+    repo = ChatRepository(settings.postgrest_url, key, client, encryption_key=settings.phone_encryption_key,
+                          broadcaster=Broadcaster(settings.supabase_url, key, client))
     push_repo = CardRepository(settings.postgrest_url, key, client)
     photos = ProfilePhotoStorage(settings.storage_url, key, client)
     # profile_id 는 PostgREST 에서 문자열로 오니 비교가 되게 str 로 맞춘다.
