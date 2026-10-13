@@ -7,6 +7,7 @@ import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
+import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -71,6 +72,43 @@ void main() {
   /// 섹션 헤더 칸(제목을 감싼 가장 가까운 Container)의 높이.
   double headerHeight(WidgetTester tester, String title) =>
       tester.getSize(find.ancestor(of: find.text(title), matching: find.byType(Container)).first).height;
+
+  group('유리 내비(pen `xtj0K`)', () {
+    void penFrame(WidgetTester tester) {
+      tester.view.physicalSize = const Size(360, 780);
+      tester.view.devicePixelRatio = 1;
+      tester.view.padding = const FakeViewPadding(bottom: 20);
+      addTearDown(tester.view.reset);
+    }
+
+    testWidgets('목록은 알약 뒤로 이어지고, 끝까지 내리면 마지막 대화 줄 아래 16 에 알약', (tester) async {
+      penFrame(tester);
+      final chat = FakeChatRepository()
+        ..conversations = Success([
+          for (var i = 0; i < 15; i++) conversationFixture(matchId: 'm$i', nickname: '사람$i'),
+        ]);
+      await pump(tester, FakeCardRepository(), chat);
+      await tester.pumpAndSettle();
+
+      expect(tester.widget<Scaffold>(find.byType(Scaffold)).extendBody, isTrue);
+      expect(tester.widget<GlassBottomNav>(find.byType(GlassBottomNav)).current, AppTab.chat);
+      expect(tester.getRect(find.byType(CustomScrollView)).bottom, 780);
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -5000));
+      await tester.pumpAndSettle();
+
+      expect(tester.getRect(find.byType(GlassBottomNav)).top - tester.getBottomLeft(find.byType(ChatListRow).last).dy, 16);
+    });
+
+    testWidgets('빈 상태는 앱바 아래 ~ 알약 위 사이 가운데에 선다', (tester) async {
+      penFrame(tester);
+      await pump(tester, FakeCardRepository());
+      await tester.pumpAndSettle();
+
+      final empty = find.ancestor(of: find.text('아직 시작된 대화가 없어요'), matching: find.byType(Center)).first;
+      final pillTop = tester.getRect(find.byType(GlassBottomNav)).top;
+      expect(tester.getCenter(empty).dy, closeTo((56 + pillTop) / 2, 0.5));
+    });
+  });
 
   testWidgets('받은 신청 섹션에 사람 수와 행을 보여준다', (tester) async {
     final repository = FakeCardRepository()..acceptances = const Success([_acceptance]);
@@ -481,7 +519,7 @@ void main() {
         final icon = tester.widget<Icon>(find.descendant(of: toast, matching: find.byType(Icon)));
         expect(icon.icon, AppIcons.check);
         expect(icon.size, 16);
-        expect(tester.getBottomLeft(toast).dy, tester.getTopLeft(find.byType(AppBottomNav)).dy - 16);
+        expect(tester.getBottomLeft(toast).dy, tester.getTopLeft(find.byType(GlassBottomNav)).dy - 16);
         expect(tester.getCenter(toast).dx, 400);
       });
 

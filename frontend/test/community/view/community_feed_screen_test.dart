@@ -4,6 +4,7 @@ import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
+import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/community/model/community_repository.dart';
 import 'package:campus_mate/community/model/community_repository_provider.dart';
@@ -69,6 +70,38 @@ void main() {
     );
     await tester.pumpAndSettle();
   }
+
+  group('유리 내비(pen `xtj0K`)', () {
+    void penFrame(WidgetTester tester) {
+      tester.view.physicalSize = const Size(360, 780);
+      tester.view.devicePixelRatio = 1;
+      tester.view.padding = const FakeViewPadding(bottom: 20);
+      addTearDown(tester.view.reset);
+    }
+
+    testWidgets('피드는 알약 뒤로 이어지고, 끝까지 내리면 마지막 글 아래 8 에 알약', (tester) async {
+      penFrame(tester);
+      repository.page = Success(PollPage(polls: [for (var i = 0; i < 6; i++) pollFixture(id: 'p$i')], hasMore: false));
+      await pump(tester);
+
+      expect(tester.widget<Scaffold>(find.byType(Scaffold)).extendBody, isTrue);
+      expect(tester.widget<GlassBottomNav>(find.byType(GlassBottomNav)).current, AppTab.community);
+      expect(tester.getRect(find.byType(Scrollable).first).bottom, 780);
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, -5000));
+      await tester.pumpAndSettle();
+
+      expect(tester.getRect(find.byType(GlassBottomNav)).top - tester.getBottomLeft(find.byType(PollCard).last).dy, 8);
+    });
+
+    testWidgets('빈 상태는 앱바 아래 ~ 알약 위 사이 가운데에 선다', (tester) async {
+      penFrame(tester);
+      await pump(tester);
+
+      final empty = find.ancestor(of: find.text('아직 질문이 없어요'), matching: find.byType(Center)).first;
+      final pillTop = tester.getRect(find.byType(GlassBottomNav)).top;
+      expect(tester.getCenter(empty).dy, closeTo((56 + pillTop) / 2, 0.5));
+    });
+  });
 
   testWidgets('글이 없으면 빈 상태(n2tqZ)', (tester) async {
     await pump(tester);
@@ -260,7 +293,7 @@ void main() {
     await tester.tap(find.bySemanticsLabel('찬성'));
     await tester.pumpAndSettle();
     final toast = tester.getRect(find.byType(AppToast));
-    expect(tester.getRect(find.byType(AppBottomNav)).top - toast.bottom, 16);
+    expect(tester.getRect(find.byType(GlassBottomNav)).top - toast.bottom, 16);
     expect(toast.center.dx, 400); // 가운데(기본 테스트 화면 폭 800)
   });
 
@@ -441,7 +474,7 @@ void main() {
     expect(icon.size, 16);
     final toast = tester.getRect(find.byType(AppToast));
     expect(toast.height, 40);
-    expect(tester.getRect(find.byType(AppBottomNav)).top - toast.bottom, 16);
+    expect(tester.getRect(find.byType(GlassBottomNav)).top - toast.bottom, 16);
     expect(toast.center.dx, 400);
   });
 
@@ -490,7 +523,7 @@ void main() {
     await tester.pumpAndSettle();
     final toast = tester.getRect(find.byType(AppToast));
     expect(toast.height, 40);
-    expect(tester.getRect(find.byType(AppBottomNav)).top - toast.bottom, 16);
+    expect(tester.getRect(find.byType(GlassBottomNav)).top - toast.bottom, 16);
     expect(toast.center.dx, 400); // 가운데(기본 테스트 화면 폭 800)
     // 폭 97 은 pen 글꼴 기준 — 테스트 글꼴(Ahem)에선 좌우 안쪽 16 + 글자 폭만 본다.
     expect(toast.width, tester.getSize(find.text(pollDeletedMessage)).width + 16 * 2);

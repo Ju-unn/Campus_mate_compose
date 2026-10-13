@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
-import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
+import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/home/model/cohort_wait.dart';
@@ -221,7 +221,8 @@ void main() {
     expect(tester.getSize(button), const Size(328, 52));
     // 버튼 글자는 button 16/700(디자인 공통 1003).
     expect(tester.widget<Text>(find.text('친구에게 초대 링크 보내기')).style!.fontSize, 16);
-    expect(tester.getTopLeft(find.byType(AppBottomNav)).dy - tester.getBottomLeft(button).dy, 24);
+    // 유리 내비(pen `xtj0K`) — 본문이 알약 뒤까지 이어져도 버튼은 알약 위 24.
+    expect(tester.getTopLeft(find.byType(GlassBottomNav)).dy - tester.getBottomLeft(button).dy, 24);
   });
 
   testWidgets('pen 값 — 큰 날짜 `IDJ3M` 은 countdown 이 아닌 48/700 lh1.5 자간 0 · 모집 판 두 줄은 lh1.5 사이 4', (tester) async {

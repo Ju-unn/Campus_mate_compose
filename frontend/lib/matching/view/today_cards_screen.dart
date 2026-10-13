@@ -3,6 +3,7 @@ import 'dart:ui' show ImageFilter;
 
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -37,14 +38,18 @@ class TodayCardsScreen extends ConsumerWidget {
       }
     });
     return Scaffold(
+      // 유리 내비(pen `xtj0K`) 뒤로 본문이 이어진다 — 아래 여백은 본문 MediaQuery padding.bottom(알약 + 띄움 + safe area).
+      extendBody: true,
       // 탭 앱바 제목은 x20 에서 시작한다(pen). 오른쪽 아이콘은 없다 —
       // 알림 종은 "메인" 탭에만 두기로 했고(2026-09-23 사용자 결정), 설정 진입점은 따로 정해진다.
       appBar: AppBar(
         titleSpacing: 20,
         title: Text('오늘의 카드', style: AppTypography.navTitle),
       ),
-      bottomNavigationBar: const AppBottomNav(current: AppTab.today),
+      bottomNavigationBar: const GlassBottomNav(current: AppTab.today),
+      // 아래는 비우지 않는다 — 각 상태가 알약 자리를 직접 피한다(목록은 알약 뒤로 이어진다).
       body: cohort != null ? CohortWaitView(cohort: cohort) : SafeArea(
+        bottom: false,
         child: RefreshIndicator(
           onRefresh: ref.read(todayCardsViewModelProvider.notifier).refresh,
           child: switch (state.phase) {
@@ -60,6 +65,14 @@ class TodayCardsScreen extends ConsumerWidget {
   }
 }
 
+/// 카드 목록 · 스켈레톤 여백 16. 아래는 알약 자리(본문 MediaQuery padding.bottom)를 더해 마지막 카드가 알약 위 16 에 멈춘다.
+EdgeInsets _listPadding(BuildContext context) => EdgeInsets.fromLTRB(
+  AppSpacing.md,
+  AppSpacing.md,
+  AppSpacing.md,
+  AppSpacing.md + MediaQuery.paddingOf(context).bottom,
+);
+
 /// 첫 조회 중(화면 `Ukg21`). 반짝임 애니메이션은 두지 않는다 — 시안 `x4FuK` 도 정적이다.
 class _SkeletonCards extends StatelessWidget {
   const _SkeletonCards();
@@ -67,7 +80,7 @@ class _SkeletonCards extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: _listPadding(context),
       children: List<Widget>.generate(
         2,
         (_) => Container(
@@ -94,7 +107,7 @@ class _CardList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return ListView.separated(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: _listPadding(context),
       itemCount: cards.length + (paidCard == null ? 0 : 1),
       separatorBuilder: (context, index) => const SizedBox(height: AppSpacing.md),
       itemBuilder: (context, index) {
@@ -441,11 +454,14 @@ class _CenteredPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 본문이 유리 내비 뒤까지 이어진다 — 알약 자리는 비우고 그 위 영역에서 가운데에 둔다.
+    final navInset = MediaQuery.paddingOf(context).bottom;
     return LayoutBuilder(
       builder: (context, constraints) => SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.only(bottom: navInset),
         child: ConstrainedBox(
-          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+          constraints: BoxConstraints(minHeight: (constraints.maxHeight - navInset).clamp(0, double.infinity)),
           child: Padding(
             padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
             child: Column(

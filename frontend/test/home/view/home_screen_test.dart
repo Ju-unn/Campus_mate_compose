@@ -2,6 +2,8 @@ import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
+import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/home/model/cohort_wait.dart';
@@ -462,6 +464,46 @@ void main() {
     expect(box.boxShadow, const [BoxShadow(color: Color(0x1C745C78), offset: Offset(0, 1), blurRadius: 4)]);
   });
 
+  testWidgets('유리 내비(pen `xtj0K`) — 본문은 알약 뒤로 이어지고, 끝까지 내리면 완성도 카드 아래 20 에 알약(pen `eA1oQ` 하단 여백 98)', (tester) async {
+    tester.view.physicalSize = const Size(360, 780);
+    tester.view.devicePixelRatio = 1;
+    tester.view.padding = const FakeViewPadding(bottom: 20);
+    addTearDown(tester.view.reset);
+    await pump(tester);
+
+    expect(tester.widget<Scaffold>(find.byType(Scaffold)).extendBody, isTrue);
+    expect(tester.widget<GlassBottomNav>(find.byType(GlassBottomNav)).current, AppTab.main);
+    expect(tester.getRect(_mainList).bottom, 780);
+    // 레일이 계속 흘러 pumpAndSettle 은 끝나지 않는다 — 끝에 닿을 때까지 끌고, 당김 늘어남이 돌아오도록 여러 프레임을 흘린다.
+    final position = tester.state<ScrollableState>(_mainList).position;
+    do {
+      await tester.drag(_mainList, const Offset(0, -3000));
+      for (var i = 0; i < 20; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+    } while (position.pixels < position.maxScrollExtent);
+
+    final nudge = find.ancestor(of: find.text('프로필을 조금 더 채우면'), matching: find.byType(Container)).last;
+    expect(tester.getRect(find.byType(GlassBottomNav)).top - tester.getBottomLeft(nudge).dy, 20);
+  });
+
+  testWidgets('토스트는 알약 위 12 에 뜬다(본문이 알약 뒤까지 이어져도)', (tester) async {
+    tester.view.physicalSize = const Size(360, 780);
+    tester.view.devicePixelRatio = 1;
+    tester.view.padding = const FakeViewPadding(bottom: 20);
+    addTearDown(tester.view.reset);
+    await pump(tester);
+
+    // 리뷰 주소가 비어 있으면 "곧 열려요" 토스트가 뜬다.
+    await tester.scrollUntilVisible(find.text('리뷰 남기기'), 200, scrollable: _mainList);
+    await tester.tap(find.text('리뷰 남기기'));
+    await tester.pump();
+
+    final toast = find.byType(AppToast);
+    expect(toast, findsOneWidget);
+    expect(tester.getRect(find.byType(GlassBottomNav)).top - tester.getBottomLeft(toast).dy, 12);
+  });
+
   testWidgets('요약을 못 받아도 hero-today 는 남는다', (tester) async {
     await pump(tester, const FailureResult(NetworkFailure()));
 
@@ -493,7 +535,7 @@ void main() {
       expect(find.text('전달된 카드'), findsNothing);
       expect(find.text('CampusMate'), findsOneWidget);
       expect(find.byType(NotifyIconButton), findsOneWidget);
-      expect(find.byType(AppBottomNav), findsOneWidget);
+      expect(find.byType(GlassBottomNav), findsOneWidget);
     });
 
     testWidgets('cohort 가 null 이면 09b 그대로다', (tester) async {

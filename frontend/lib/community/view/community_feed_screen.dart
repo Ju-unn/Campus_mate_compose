@@ -1,5 +1,6 @@
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
 import 'package:campus_mate/community/model/poll.dart';
 import 'package:campus_mate/community/view/poll_card.dart';
 import 'package:campus_mate/community/view/poll_sheets.dart';
@@ -53,6 +54,8 @@ class _CommunityFeedScreenState extends ConsumerState<CommunityFeedScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(communityFeedViewModelProvider);
     return Scaffold(
+      // 유리 내비(pen `xtj0K`) 뒤로 본문이 이어진다 — 아래 여백은 본문 MediaQuery padding.bottom(알약 + 띄움 + safe area).
+      extendBody: true,
       // pen `Iblb3`: 56, 왼쪽 20 · 오른쪽 8, 제목 20/700.
       appBar: AppBar(
         titleSpacing: 20,
@@ -72,18 +75,22 @@ class _CommunityFeedScreenState extends ConsumerState<CommunityFeedScreen> {
           const SizedBox(width: AppSpacing.xs),
         ],
       ),
-      body: _body(state),
-      bottomNavigationBar: const AppBottomNav(current: AppTab.community),
+      // 알약 자리는 Scaffold 가 **본문** MediaQuery 에 넣는다 — 화면 context(Scaffold 위)에서는 safe area 뿐이라 본문 안에서 읽는다.
+      body: Builder(builder: (bodyContext) => _body(state, MediaQuery.paddingOf(bodyContext).bottom)),
+      bottomNavigationBar: const GlassBottomNav(current: AppTab.community),
     );
   }
 
-  Widget _body(CommunityFeedUiState state) {
+  /// [navInset] 은 유리 내비 알약 자리(알약 + 띄움 + safe area).
+  Widget _body(CommunityFeedUiState state, double navInset) {
     final viewModel = ref.read(communityFeedViewModelProvider.notifier);
-    if (state.isLoading) return const Center(child: CircularProgressIndicator());
+    // 본문이 유리 내비 뒤까지 이어진다 — 목록이 아닌 상태는 알약 자리를 비우고 그 위 영역 가운데에 둔다.
+    Widget aboveNav(Widget child) => Padding(padding: EdgeInsets.only(bottom: navInset), child: child);
+    if (state.isLoading) return aboveNav(const Center(child: CircularProgressIndicator()));
     if (state.polls.isEmpty && state.errorMessage != null) {
-      return _LoadError(message: state.errorMessage!, onRetry: viewModel.refresh);
+      return aboveNav(_LoadError(message: state.errorMessage!, onRetry: viewModel.refresh));
     }
-    if (state.polls.isEmpty) return const _EmptyFeed();
+    if (state.polls.isEmpty) return aboveNav(const _EmptyFeed());
     final now = ref.read(communityNowProvider)();
     return RefreshIndicator(
       onRefresh: viewModel.refresh,
@@ -91,8 +98,8 @@ class _CommunityFeedScreenState extends ConsumerState<CommunityFeedScreen> {
         controller: _scroll,
         // 글이 한두 개라 화면을 못 채워도 아래로 당겨 새로 고칠 수 있게 — 기본 물리는 짧은 목록의 당김을 막는다.
         physics: const AlwaysScrollableScrollPhysics(),
-        // pen `FXyNI`: 위아래 8 · 좌우 16, 카드 사이 12.
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
+        // pen `FXyNI`: 위아래 8 · 좌우 16, 카드 사이 12. 아래 8 밑에 알약 자리를 더한다(마지막 글이 알약 위 8 에 멈춘다).
+        padding: EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.xs, AppSpacing.md, AppSpacing.xs + navInset),
         itemCount: state.polls.length + (state.isLoadingMore ? 1 : 0),
         separatorBuilder: (context, index) => const SizedBox(height: AppSpacing.sm),
         // 화면 context 를 쓴다 — 마지막 글을 지우면 목록이 빈 화면으로 바뀌어 항목 쪽 context 는 사라진다(삭제 뒤 토스트).

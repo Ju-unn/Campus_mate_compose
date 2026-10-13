@@ -48,6 +48,8 @@ mixin MeToastHost<T extends StatefulWidget> on State<T> {
 
 /// [child] 위, 화면 아래 12 · 가로 가운데에 [toast] 를 얹는다. 토스트 공통 규칙(DESIGN §8.5)은 "하단 버튼 위 12" 인데
 /// 15 · 15-5 는 하단 버튼이 없어 본문 아래 끝(15 는 내비 바로 위)에서 12 — 04-3 토스트와 같은 자리다(N18).
+/// 본문이 유리 내비 뒤로 이어지는 탭 화면(09b · 15)은 본문 MediaQuery padding.bottom 이 알약 자리라 그만큼 올린다
+/// (15-5 는 SafeArea 가 이미 그 값을 써 0 이다).
 class MeToastLayer extends StatelessWidget {
   const MeToastLayer({required this.toast, required this.child, super.key});
 
@@ -61,7 +63,12 @@ class MeToastLayer extends StatelessWidget {
       children: [
         Positioned.fill(child: child),
         if (toast != null)
-          Positioned(left: 0, right: 0, bottom: AppSpacing.sm, child: Center(child: toast)),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: AppSpacing.sm + MediaQuery.paddingOf(context).bottom,
+            child: Center(child: toast),
+          ),
       ],
     );
   }

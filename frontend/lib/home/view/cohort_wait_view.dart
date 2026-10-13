@@ -139,9 +139,10 @@ class _CohortWaitViewState extends ConsumerState<CohortWaitView> {
         SliverFillRemaining(
           hasScrollBody: false,
           // pen `R1DPu` padding [8,16,24,16], gap 20. SliverPadding 으로 감싸면 채움 높이가 아래 24 를 빼지 않아
-          // 버튼이 내비에 붙는다 — 그래서 안쪽 Padding 이다.
+          // 버튼이 내비에 붙는다 — 그래서 안쪽 Padding 이다. 본문이 유리 내비(pen `xtj0K`) 뒤까지 이어지므로
+          // 알약 자리(본문 MediaQuery padding.bottom)를 더해 버튼이 알약 위 24 에 선다.
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            padding: EdgeInsets.fromLTRB(16, 8, 16, 24 + MediaQuery.paddingOf(context).bottom),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [

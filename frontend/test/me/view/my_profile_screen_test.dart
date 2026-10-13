@@ -7,6 +7,7 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/university_logos.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
+import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/photo_slider.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
@@ -376,7 +377,7 @@ void main() {
   testWidgets('하단 내비는 "나" 탭이 켜져 있다', (tester) async {
     await pump(tester);
 
-    expect(tester.widget<AppBottomNav>(find.byType(AppBottomNav)).current, AppTab.me);
+    expect(tester.widget<GlassBottomNav>(find.byType(GlassBottomNav)).current, AppTab.me);
   });
 
   testWidgets('히어로 `l8p6X` 가 내 프로필 값으로 맨 위에 있다', (tester) async {
@@ -414,12 +415,16 @@ void main() {
       expect(manage.height, greaterThanOrEqualTo(84));
     });
 
-    testWidgets('본문 아래 40 — 끝까지 스크롤하면 지인 리뷰 칸 끝("리뷰 쓰기" 줄 H9STF)과 하단 내비 사이 40', (tester) async {
+    testWidgets('본문 아래 40 — 끝까지 스크롤하면 지인 리뷰 칸 끝("리뷰 쓰기" 줄 H9STF)과 알약 사이 40(pen `AjQZo` 본문 아래 40 + 하단 여백 98)', (tester) async {
       usePenFrame(tester, height: 600);
+      tester.view.padding = const FakeViewPadding(bottom: 20);
       await pump(tester);
+      expect(tester.widget<Scaffold>(find.byType(Scaffold)).extendBody, isTrue);
+      // 본문은 알약 뒤까지 이어진다.
+      expect(tester.getRect(_list).bottom, 600);
       await scrollToEnd(tester);
 
-      expect(tester.getTopLeft(find.byType(AppBottomNav)).dy - tester.getBottomLeft(_writeByCode).dy, 40);
+      expect(tester.getTopLeft(find.byType(GlassBottomNav)).dy - tester.getBottomLeft(_writeByCode).dy, 40);
     });
 
     testWidgets('지인 리뷰 칸 `Cux1p` 은 입구 줄 아래 32(N3) — 두 줄을 누르면 20c · 20e 로 간다', (tester) async {
@@ -524,7 +529,7 @@ void main() {
 
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
       expect(find.byTooltip('설정'), findsOneWidget);
-      expect(find.byType(AppBottomNav), findsOneWidget);
+      expect(find.byType(GlassBottomNav), findsOneWidget);
       await tester.pump();
     });
 
@@ -536,7 +541,18 @@ void main() {
       expect(find.text(const UnknownFailure().toDisplayMessage()), findsNothing);
       expect(find.text('다시 시도'), findsOneWidget);
       expect(find.byTooltip('설정'), findsOneWidget);
-      expect(find.byType(AppBottomNav), findsOneWidget);
+      expect(find.byType(GlassBottomNav), findsOneWidget);
+    });
+
+    testWidgets('실패 화면은 앱바 아래 ~ 알약 위 사이 가운데에 선다(본문이 유리 내비 뒤로 늘어나도)', (tester) async {
+      usePenFrame(tester, height: 780);
+      tester.view.padding = const FakeViewPadding(bottom: 20);
+      await pump(tester, result: const FailureResult(NetworkFailure()));
+
+      final center = find.ancestor(of: find.text('잠시 뒤 다시 시도해 주세요'), matching: find.byType(Center)).first;
+      final pillTop = tester.getRect(find.byType(GlassBottomNav)).top;
+      expect(pillTop, 682);
+      expect(tester.getCenter(center).dy, closeTo((56 + pillTop) / 2, 0.5));
     });
 
     testWidgets('"다시 시도" 를 누르면 다시 불러와 화면을 그린다', (tester) async {
@@ -609,7 +625,7 @@ void main() {
       final harness = await pump(tester);
       await startRegenerate(tester, harness);
 
-      expect(tester.getTopLeft(find.byType(AppBottomNav)).dy - tester.getBottomLeft(_toast).dy, 12);
+      expect(tester.getTopLeft(find.byType(GlassBottomNav)).dy - tester.getBottomLeft(_toast).dy, 12);
       expect(tester.getCenter(_toast).dx, 180);
     });
 
