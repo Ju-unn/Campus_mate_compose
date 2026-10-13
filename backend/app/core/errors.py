@@ -130,3 +130,14 @@ FRIEND_REVIEW_ALREADY_WRITTEN = "이미 리뷰를 남겼어요"
 # 무료로 하트 모으기
 HEART_TASK_IN_REVIEW = "이미 확인 중이에요, 결과를 기다려 주세요"
 HEART_TASK_MONTHLY_LIMIT = "이번 달에는 더 인증할 수 없어요"
+
+# 인앱결제(billing/router.py, 인앱결제 계획서 7-2 초안 — pen 확정 뒤 같은 글자로). 응답 {"detail": <문구>, "code": <아래 값>},
+# 앱은 code 로 가른다.
+BILLING_UNAVAILABLE = "하트 지급이 늦어지고 있어요. 앱을 다시 열면 이어서 들어와요"
+PURCHASE_INVALID = "결제를 확인하지 못했어요. 문제가 계속되면 문의해 주세요"
+PURCHASE_OTHER_ACCOUNT = "다른 계정으로 결제한 하트예요. 결제한 계정으로 로그인하면 들어와요"
+PURCHASE_TOKEN_USED = "이미 처리된 결제예요"
+CODE_BILLING_UNAVAILABLE = "billing_unavailable"
+CODE_PURCHASE_INVALID = "purchase_invalid"
+CODE_PURCHASE_OTHER_ACCOUNT = "purchase_other_account"
+CODE_PURCHASE_TOKEN_USED = "purchase_token_used"
