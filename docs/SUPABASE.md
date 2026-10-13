@@ -14,6 +14,8 @@ Supabase **MCP 플러그인(`supabase`)이 설치·인증돼 있다.** 클라우
 
 **2026-10-12 저녁 갱신(대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다).** 운영 **68개** — 마지막은 M2 `drop_plaintext_real_name_and_kakao_id`(파일 `20261012010000`, 운영 기록 버전 `20261012070722` — §4 관례대로 파일 이름과 원격 버전이 다르다, 정상). M2 는 `profile_private` 의 평문 `real_name` · `kakao_id` 열과 함수 `backfill_profile_private_encryption` 을 지웠다(§8). **운영 적용은 끝났고 파일은 DB PR #476(draft) merge 대기**라 저장소 main 은 아직 67개다 — #476 이 merge 되면 저장소도 68개가 된다. 실행 기록 · 롤백 주의는 `backend/DEPLOY.md` §4-4.
 
+**2026-10-14 갱신(대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다).** 저장소 · 운영 모두 **71개**다(위 M2 파일은 PR #476 merge 로 저장소에도 들어왔다). 그 뒤 세 파일: `20261013010000_add_heart_reason_first_purchase_bonus` · `20261013010100_billing_purchases`(인앱결제 `purchases` 표 · `grant_store_purchase` · `refund_store_purchase`, PR #498) · **`20261013152736_user_channel_realtime_policy`(마지막 적용, 원격 버전 `20261013154505`, PR #512)** — 채팅 실시간 사용자 채널의 `realtime.messages` 받기 정책 `user_channel_read_own` 하나다(테이블 · publication · grant 변경 없음, `docs/ERD.md` §2). Realtime 설정 "Allow public access" 는 끄지 않았다(방 채널 `messages:<match_id>` 가 public 이다). 적용 순서는 `backend/DEPLOY.md` §4-8 · §4-9.
+
 ## 2. 시작할 때
 
 - 스키마·RLS·Storage·Auth 를 건드리기 전에 `supabase:supabase` 스킬(보안 체크리스트)과 `supabase:supabase-postgres-best-practices` 스킬을 로드한다
@@ -47,6 +49,11 @@ Supabase **MCP 플러그인(`supabase`)이 설치·인증돼 있다.** 클라우
 - **grant는 RLS와 같은 마이그레이션에 둔다.** 새 테이블에 `anon`·`authenticated` 권한이 자동으로 붙는지는 프로젝트 설정마다 달라 믿지 않는다 — 테이블마다 `revoke all ... from anon, authenticated, service_role` 뒤에 ERD.md §2 표대로 `anon`·`authenticated`에는 필요한 `select`만 주고, `service_role`에는 `select`·`insert`·`update`·`delete`를 모두 준다. `service_role`까지 revoke하는 이유는 자동 grant 여부(프로젝트 설정·적용 시점)와 상관없이 결과를 같게 만들기 위해서다
 - **클라이언트 Storage 정책은 두지 않는다.** 업로드·조회는 FastAPI가 발급하는 서명 업로드 URL·서명 URL로만 한다(2026-09-13 확정, ERD.md §9·§11-8)
 - RLS 테스트는 pgTAP (`supabase/tests/*.sql`) — 다른 사용자로 조회 시 0행뿐 아니라, `anon`·`authenticated`·`service_role`·`PUBLIC`의 테이블·컬럼 권한(ACL), Storage 버킷·정책, 탈퇴 cascade까지 표대로 맞는지 검사한다. 기대값 기준은 ERD.md §2 (`frontend/CLAUDE.md` §8)
+- **`realtime.messages`(Supabase 내장 Realtime 표)에 정책을 둘 때(2026-10-13, `20261013152736`)** — 위 "`public` 스키마" 규칙의 바깥이다
+  - 정책은 마이그레이션(`postgres` 역할)으로 만들 수 있다. 표 · publication · grant 는 Supabase 가 관리하므로 건드리지 않는다
+  - 토픽은 행의 `topic` 칸이 아니라 **`(select realtime.topic())`** 로 본다(Realtime 이 입장 때 세션에 건다). `auth.uid()` 처럼 `(select …)` 로 감싼다. 받기(`for select`)만 두고 **보내기(`for insert`) 정책은 만들지 않는다**(쏘는 쪽은 서버 `service_role` 뿐 — RLS 를 거치지 않는다)
+  - 정책은 **입장 때 한 번 계산돼 연결 동안 캐시된다** — 방을 나간 사람처럼 "입장 뒤 바뀌는 권한" 을 정책으로 막을 수 없다. 서버가 쏘지 않는 것으로 막는다
+  - **pgTAP**: `realtime.messages` 는 `inserted_at` **하루 단위 파티션 표**이고 기본 파티션이 없다(맞는 파티션이 없으면 넣기가 실패). 파티션은 Realtime 서비스가 며칠 앞까지 만들고 `postgres` 는 `realtime` 스키마에 표를 만들 권한이 없어 시험이 만들 수 없다 — 그래서 시험 행은 오늘 날짜가 아니라 **이미 있는 파티션 가운데 가장 늦은 날짜**로 넣는다(`supabase/tests/user_channel_realtime_policy_test.sql`, 파티션이 하나도 없으면 오류로 멈춘다). 받기 판정은 Realtime 과 같은 설정(`role` · `request.jwt.claim.sub` · `realtime.topic`)을 세션에 걸고 시험 행이 보이는지로 본다. 알려진 사소: 한 시험이 표 전체를 읽어 로컬에 다른 행이 있으면 거짓 FAIL 이 날 수 있다(후속으로 `where topic` 조건)
 
 ## 6. pgvector
 
