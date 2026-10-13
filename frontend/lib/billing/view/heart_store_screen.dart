@@ -1,13 +1,18 @@
 import 'dart:async';
 
 import 'package:campus_mate/billing/model/heart_bundles.dart';
+import 'package:campus_mate/billing/model/heart_purchase_notice.dart';
 import 'package:campus_mate/billing/view/heart_bundle_card.dart';
+import 'package:campus_mate/billing/view/heart_payment_notice.dart';
+import 'package:campus_mate/billing/view/heart_purchase_banner.dart';
 import 'package:campus_mate/billing/view/heart_purchase_bar.dart';
 import 'package:campus_mate/billing/view/heart_purchase_button.dart';
 import 'package:campus_mate/billing/view/heart_purchase_sheet.dart';
 import 'package:campus_mate/billing/view/heart_store_notice.dart';
 import 'package:campus_mate/billing/view/heart_task_actions.dart';
 import 'package:campus_mate/billing/view/heart_task_row.dart';
+import 'package:campus_mate/billing/viewmodel/heart_purchase_ui_state.dart';
+import 'package:campus_mate/billing/viewmodel/heart_purchase_view_model.dart';
 import 'package:campus_mate/billing/viewmodel/heart_tasks_view_model.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
@@ -29,9 +34,12 @@ const String _heartAsset = 'assets/images/heart-flat-vector-v3.png';
 /// pen `kdljs` Heart Value Scene.
 const String _heroAsset = 'assets/images/heart-value-scene.png';
 
-/// 18 하트 스토어(pen `IAy1j`). 보유 하트 · 하트 번들 구매 · 무료로 모으기. 15b 시트의 "충전하기"가 연다(설정의 보유 하트 블록은 아직 연결 전).
+/// 15e 하트 상점(pen `IAy1j` · 인앱결제 시안 6b `W50VA`). 보유 하트 · 하트 번들 구매 · 무료로 모으기.
+/// 입구: 홈 · 나 탭 앱바 하트 칩 "+" · 설정 보유 하트 블록 · 15b 시트 "충전하기".
 ///
-/// 구매는 아직 열리지 않았다 — 번들 카드는 고르기만 하고, 하단 바의 회색 "곧 열려요" 가 구매 확인 시트를 연다(pen 시안).
+/// 구매(안드로이드만): 카드 = 선택 → 하단 바 → 구매 확인 시트(18d) → 결제 창 → 서버 확인 → 하트. 상태는 앱 수명 동안 사는
+/// [heartPurchaseViewModelProvider] 하나가 들고 있고, 이 화면은 들어올 때마다 다시 읽게 한다(가격 · 자격 · 지난 결제 복구).
+/// iOS · 웹은 구매 섹션과 하단 바를 숨긴다(15e-9 `GKEM9` — 애플 결제는 후속).
 class HeartStoreScreen extends ConsumerStatefulWidget {
   const HeartStoreScreen({super.key});
 
@@ -42,9 +50,17 @@ class HeartStoreScreen extends ConsumerStatefulWidget {
 class _HeartStoreScreenState extends ConsumerState<HeartStoreScreen> {
   static const Duration _toastDuration = Duration(seconds: 2);
 
-  int _selected = defaultHeartBundleIndex;
-  bool _toast = false;
+  HeartPurchaseToast? _toast;
   Timer? _toastTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    // 그리는 도중에 provider 를 바꾸지 않게 다음 차례로 미룬다. 상점에 들어왔으니 지난 배너 · 토스트는 지운다(배너 규칙).
+    Future.microtask(() {
+      if (mounted) unawaited(ref.read(heartPurchaseViewModelProvider.notifier).refresh(fromStore: true));
+    });
+  }
 
   @override
   void dispose() {
@@ -52,59 +68,109 @@ class _HeartStoreScreenState extends ConsumerState<HeartStoreScreen> {
     super.dispose();
   }
 
-  /// 구매 확인 시트를 열고 고른 것을 처리한다. 실결제를 열 때 [HeartPurchaseChoice.request] 줄만 바꾸면 된다.
+  /// 구매 확인 시트. 결제 창 · 결과는 뷰모델이 처리하고, 여기서는 도움말만 받는다.
   Future<void> _openPurchaseSheet() async {
-    final choice = await showHeartPurchaseSheet(context, heartBundles[_selected]);
-    if (!mounted) return;
-    switch (choice) {
-      case HeartPurchaseChoice.request:
-        _showComingSoon();
-      case HeartPurchaseChoice.help:
-        unawaited(context.push(AppRoutes.faq));
-      case null:
-        break;
-    }
+    final choice = await showHeartPurchaseSheet(context);
+    if (mounted && choice == HeartPurchaseChoice.help) unawaited(context.push(AppRoutes.faq));
   }
 
-  void _showComingSoon() {
+  void _showToast(HeartPurchaseToast toast) {
     _toastTimer?.cancel();
-    setState(() => _toast = true);
+    setState(() => _toast = toast);
     _toastTimer = Timer(_toastDuration, () {
-      if (mounted) setState(() => _toast = false);
+      if (mounted) setState(() => _toast = null);
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final bundle = heartBundles[_selected];
+    final supported = ref.watch(heartPurchaseSupportedProvider);
+    if (supported) {
+      ref.listen(heartPurchaseViewModelProvider.select((s) => s.toast), (_, next) {
+        if (next == null) return;
+        _showToast(next);
+        ref.read(heartPurchaseViewModelProvider.notifier).clearToast();
+      });
+    }
+    final state = supported ? ref.watch(heartPurchaseViewModelProvider) : null;
+    final banner = state?.banner;
+    final toast = state == null ? null : _toastFor(state);
     return Scaffold(
       appBar: _appBar(context),
-      bottomNavigationBar: HeartPurchaseBar(bundle: bundle, onPurchase: _openPurchaseSheet),
-      body: Stack(
+      bottomNavigationBar: state == null ? null : _bar(state),
+      body: Column(
         children: [
-          ListView(
-            // pen `eagSX` 안쪽 [8,16,32,16] · 칸 사이 24.
-            padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.xs, AppSpacing.md, AppSpacing.xl),
-            children: [
-              const _Hero(),
-              const SizedBox(height: AppSpacing.lg),
-              const _BalanceBlock(),
-              const SizedBox(height: AppSpacing.lg),
-              _PurchaseSection(selected: _selected, onSelect: (index) => setState(() => _selected = index)),
-              const SizedBox(height: AppSpacing.lg),
-              const _FreeSection(),
-            ],
-          ),
-          if (_toast)
-            const Positioned(
-              left: AppSpacing.md,
-              right: AppSpacing.md,
-              bottom: AppSpacing.sm,
-              child: Center(child: _ComingSoonToast()),
+          // 배너는 앱바 바로 아래, 본문을 밀어 내린다(pen 15e-6 `xJ0HR` y56 · 본문 y123).
+          if (banner != null) HeartPurchaseBanner(notice: banner),
+          Expanded(
+            child: Stack(
+              children: [
+                ListView(
+                  // pen `eagSX` 안쪽 [8,16,32,16] · 칸 사이 24.
+                  padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.xs, AppSpacing.md, AppSpacing.xl),
+                  children: [
+                    const _Hero(),
+                    const SizedBox(height: AppSpacing.lg),
+                    const _BalanceBlock(),
+                    const SizedBox(height: AppSpacing.lg),
+                    if (state != null) ...[_PurchaseSection(state: state), const SizedBox(height: AppSpacing.lg)],
+                    const _FreeSection(),
+                  ],
+                ),
+                // 토스트 아래 끝은 바 위 12(pen `eZlLw`).
+                if (toast != null)
+                  Positioned(
+                    left: AppSpacing.md,
+                    right: AppSpacing.md,
+                    bottom: AppSpacing.sm,
+                    child: Center(child: toast),
+                  ),
+              ],
             ),
+          ),
         ],
       ),
     );
+  }
+
+  /// 서버 확인 중(15e-3 `H1e2id`)에는 "하트를 넣고 있어요" 가 끝날 때까지 남고, 그 밖에는 2초짜리 안내 토스트
+  /// (성공 `X0G8Fz` · `ksBC8` · 이미 처리 `bs9a7` 은 circle-check, 취소 `imxbJ` 는 info).
+  Widget? _toastFor(HeartPurchaseUiState state) {
+    if (state.phase == HeartPurchasePhase.verifying) {
+      return const AppToast(leading: PurchaseSpinner(size: 16, color: AppColors.onInk), label: '하트를 넣고 있어요');
+    }
+    final toast = _toast;
+    if (toast == null) return null;
+    final canceled = toast is NoticeToast && toast.notice == HeartPurchaseNotice.canceled;
+    return AppToast(
+      leading: Icon(canceled ? AppIcons.info : AppIcons.circleCheck, size: 16, color: AppColors.onInk),
+      label: toast.message,
+    );
+  }
+
+  /// 하단 바 버튼(pen `ipbPs`): 사기 전 primary "100하트 받기 · 5,700원" · 결제 창 대기 / 확인 중 회색 + 도는 표시 ·
+  /// 지급 지연 회색 "지급 확인 중이에요" · 결제 불가 회색 "구매할 수 없어요". 스토어 연결 중(pen 에 없음)은 같은 글자의 회색.
+  Widget _bar(HeartPurchaseUiState state) {
+    final bundle = state.selectedBundle;
+    final (label, busy) = switch (state.phase) {
+      HeartPurchasePhase.purchasing => ('결제 진행 중이에요', true),
+      HeartPurchasePhase.verifying => ('결제 확인 중이에요', true),
+      HeartPurchasePhase.delayed => ('지급 확인 중이에요', false),
+      HeartPurchasePhase.idle => (_idleLabel(state, bundle), false),
+    };
+    return HeartPurchaseBar(
+      bundle: bundle,
+      buttonLabel: label,
+      busy: busy,
+      onPurchase: state.canBuy(bundle.productId) ? _openPurchaseSheet : null,
+    );
+  }
+
+  /// 결제 불가이거나, 스토어는 열렸는데 이 상품의 가격 · 계정 표시가 없으면 "구매할 수 없어요".
+  String _idleLabel(HeartPurchaseUiState state, HeartBundle bundle) {
+    final unavailable = state.availability == HeartStoreAvailability.unavailable ||
+        (state.availability == HeartStoreAvailability.available && !state.canBuy(bundle.productId));
+    return unavailable ? '구매할 수 없어요' : '${bundle.quantityLabel} 받기 · ${bundle.priceLabel}';
   }
 
   /// pen `RRpV8`(AppBar · Sub 360×56): 안쪽 [0,12], 뒤로 48 (x12), 제목 "하트" 18/700 (x64), 오른쪽 3D 도움말 24 (누름 48, x300).
@@ -192,15 +258,14 @@ class _BalanceBlock extends ConsumerWidget {
   }
 }
 
-/// 구매하기 `zEdiV`: 제목 20/600 → 12 → 안내 → 12 → 번들 카드 5장(사이 16, 추천 태그가 걸치는 위 12).
-class _PurchaseSection extends StatelessWidget {
-  const _PurchaseSection({required this.selected, required this.onSelect});
+/// 구매하기 `zEdiV`(15e-1 `Bbp5P`): 제목 20/600 → 12 → 안내 → 12 → 번들 카드 5장(사이 16, 추천 태그가 걸치는 위 12) → 12 → 결제 안내.
+class _PurchaseSection extends ConsumerWidget {
+  const _PurchaseSection({required this.state});
 
-  final int selected;
-  final ValueChanged<int> onSelect;
+  final HeartPurchaseUiState state;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -212,13 +277,21 @@ class _PurchaseSection extends StatelessWidget {
           padding: const EdgeInsets.only(top: AppSpacing.sm),
           child: Column(
             children: [
-              for (final (index, bundle) in heartBundles.indexed) ...[
+              for (final (index, bundle) in heartBundles.map(state.priced).indexed) ...[
                 if (index > 0) const SizedBox(height: AppSpacing.md),
-                HeartBundleCard(bundle: bundle, selected: index == selected, onTap: () => onSelect(index)),
+                HeartBundleCard(
+                  bundle: bundle,
+                  selected: bundle.productId == state.selectedProductId,
+                  bonusHearts: state.bonusFor(bundle),
+                  onTap: () => ref.read(heartPurchaseViewModelProvider.notifier).select(bundle.productId),
+                ),
               ],
             ],
           ),
         ),
+        const SizedBox(height: AppSpacing.sm),
+        // 결제 안내 `saa1s`(PaymentNotice `bBjRD`).
+        const HeartPaymentNotice(),
       ],
     );
   }
@@ -275,19 +348,6 @@ class _LoadError extends StatelessWidget {
         const SizedBox(height: AppSpacing.sm),
         AppButton(label: '다시 시도', variant: AppButtonVariant.text, onPressed: onRetry),
       ],
-    );
-  }
-}
-
-/// "곧 열려요" — 구매 확인 시트의 구매 버튼을 눌렀을 때(실결제는 아직 없다).
-class _ComingSoonToast extends StatelessWidget {
-  const _ComingSoonToast();
-
-  @override
-  Widget build(BuildContext context) {
-    return const AppToast(
-      leading: Icon(AppIcons.clock3, size: 16, color: AppColors.onInk),
-      label: heartPurchaseLabel,
     );
   }
 }

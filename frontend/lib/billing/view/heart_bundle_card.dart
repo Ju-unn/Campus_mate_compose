@@ -7,12 +7,20 @@ import 'package:flutter/material.dart';
 
 /// 번들 카드 한 장(pen `w0vIYG` HeartBundleCard 328×88). 고른 카드는 바탕 primaryWash · 테두리 2px primary(`J0o8uB`).
 /// 테두리는 안쪽에 덧그려서 고르고 말 때 안의 글자가 움직이지 않는다.
+/// [bonusHearts] 가 있으면 우상단에 "첫 구매 +50" 배지(슬롯 `lpyBA`) — 서버가 첫 구매 자격을 줄 때 100하트 이상 카드에만(15e-1).
 class HeartBundleCard extends StatelessWidget {
-  const HeartBundleCard({required this.bundle, required this.selected, required this.onTap, super.key});
+  const HeartBundleCard({
+    required this.bundle,
+    required this.selected,
+    required this.onTap,
+    this.bonusHearts,
+    super.key,
+  });
 
   final HeartBundle bundle;
   final bool selected;
   final VoidCallback onTap;
+  final int? bonusHearts;
 
   static const double _maxTextScale = 1.3;
 
@@ -61,7 +69,7 @@ class HeartBundleCard extends StatelessWidget {
                       ),
                       // 수량 · 할인 · 가격 사이는 모두 12(pen Info ↔ Discount ↔ PriceCol gap).
                       const SizedBox(width: AppSpacing.sm),
-                      if (bundle.discountPercent != null) ...[
+                      if (bundle.showsDiscount) ...[
                         _Discount(bundle: bundle),
                         const SizedBox(width: AppSpacing.sm),
                       ],
@@ -74,6 +82,9 @@ class HeartBundleCard extends StatelessWidget {
           ),
           // 추천 태그 `Fs0PO` — 카드 위 끝에 걸친다(x16 · y−9, 높이 18, 좌우 8).
           if (bundle.isRecommended) const Positioned(left: AppSpacing.md, top: -9, child: _RecommendTag()),
+          // 첫 구매 배지 슬롯 `lpyBA` — 같은 높이(y−9)에서 오른쪽 16 에 붙는다(pen 100하트 카드에서 추천 태그 x16..53 · 배지 x241..312).
+          if (bonusHearts case final hearts?)
+            Positioned(right: AppSpacing.md, top: -9, child: _BonusBadge(hearts: hearts)),
         ],
       ),
     );
@@ -82,10 +93,11 @@ class HeartBundleCard extends StatelessWidget {
   String get _semanticsLabel {
     final parts = [
       bundle.quantityLabel,
-      '${formatWon(bundle.price)}원',
-      if (bundle.discountPercent != null) '${bundle.discountPercent}퍼센트 할인',
+      bundle.priceLabel,
+      if (bundle.showsDiscount) '${bundle.discountPercent}퍼센트 할인',
       if (bundle.isMaxDiscount) '최대 할인',
       if (bundle.isRecommended) '추천',
+      if (bonusHearts case final hearts?) '첫 구매 보너스 $hearts하트',
     ];
     return parts.join(', ');
   }
@@ -124,7 +136,7 @@ class _PriceColumn extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        Text('${formatWon(bundle.price)}원', style: AppTypography.subNavTitle.copyWith(color: AppColors.ink)),
+        Text(bundle.priceLabel, style: AppTypography.subNavTitle.copyWith(color: AppColors.ink)),
         if (original != null) ...[
           const SizedBox(height: AppSpacing.xxs),
           Row(
@@ -156,6 +168,40 @@ class _RecommendTag extends StatelessWidget {
       alignment: Alignment.center,
       decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(AppRadius.pill)),
       child: Text('추천', style: AppTypography.badge.copyWith(color: AppColors.onInk, height: 1.0)),
+    );
+  }
+}
+
+/// "첫 구매 +50"(pen 마스터 `mflMT` BonusBadge 71×18): 흰 채움 · 1px primary 테두리 · pill · 좌우 8 · 글자 11/700 primaryText.
+/// 테두리는 덧그린다 — pen 획은 크기에 들지 않는다(71 = 글자 55 + 좌우 8). 시간 압박 문구는 넣지 않는다(DESIGN §8.10).
+/// 글자 배율은 카드와 같은 1.3 까지만 — 높이 18 이 고정이라 그 이상이면 글자가 칸 밖으로 잘린다.
+class _BonusBadge extends StatelessWidget {
+  const _BonusBadge({required this.hearts});
+
+  final int hearts;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(AppRadius.pill);
+    return MediaQuery.withClampedTextScaling(
+      maxScaleFactor: HeartBundleCard._maxTextScale,
+      child: Container(
+        height: 18,
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(color: AppColors.canvas, borderRadius: radius),
+        foregroundDecoration: BoxDecoration(borderRadius: radius, border: Border.all(color: AppColors.primary)),
+        // pen 라벨 `oL6jS` 은 자간이 없다(badge 토큰의 +0.22 를 뺀다). 줄높이는 추천 태그와 같이 1.0.
+        child: Text(
+          '첫 구매 +$hearts',
+          style: AppTypography.badge.copyWith(
+            color: AppColors.primaryText,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0,
+            height: 1.0,
+          ),
+        ),
+      ),
     );
   }
 }
