@@ -1,36 +1,16 @@
 import asyncio
 import logging
-import sys
 from datetime import datetime
 
 import google.auth
 import httpx
 from google.auth.transport.requests import Request as GoogleAuthRequest
 
+from app.core.logs import show_info
+
 logger = logging.getLogger(__name__)
-
-
-class _StderrHandler(logging.StreamHandler):
-    """그때그때의 sys.stderr 로 쓴다(테스트가 stderr 를 바꿔도 닫힌 파일에 쓰지 않는다)."""
-
-    def __init__(self):
-        super().__init__()
-
-    @property
-    def stream(self):
-        return sys.stderr
-
-    @stream.setter
-    def stream(self, _value):
-        pass
-
-
-# 운영(uvicorn)은 루트 로거에 핸들러가 없고 수준이 WARNING 이라, 이 로거만 INFO 를 내려면 수준과 핸들러가 둘 다 필요하다.
-# 전송 성공 INFO 한 줄이 Cloud Run 로그에 보이게 하는 최소 방법이다 — app 전체 수준은 건드리지 않는다.
-logger.setLevel(logging.INFO)
-_handler = _StderrHandler()
-_handler.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
-logger.addHandler(_handler)
+# 전송 성공 INFO 한 줄이 Cloud Run 로그에 보이게 한다(운영 루트 로거는 WARNING — core/logs.py).
+show_info(logger)
 
 _DETAIL_MAX = 300
 _RAW_MAX = 200
