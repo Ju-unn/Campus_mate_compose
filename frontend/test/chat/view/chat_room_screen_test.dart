@@ -539,6 +539,21 @@ void main() {
       expect(repository.partnerReadFetchCount, greaterThanOrEqualTo(1));
     });
 
+    // iOS 순서: 알림 센터 · 제어 센터를 내렸다 올리면 hidden 없이 inactive ↔ resumed 만 오간다 — 방은 계속 보이는 것이다.
+    testWidgets('inactive ↔ resumed 만 오가면 확인이 끊기지 않는다', (tester) async {
+      await pumpRead(tester, const PartnerRead.known(null));
+      for (var i = 0; i < 3; i++) {
+        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+        await tester.pump(const Duration(milliseconds: 500));
+        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+        await tester.pump();
+      }
+      final before = repository.partnerReadFetchCount;
+
+      await tester.pump(partnerReadPollInterval);
+      expect(repository.partnerReadFetchCount, greaterThan(before));
+    });
+
     testWidgets('다른 화면이 방을 덮으면 멈추고, 돌아오면 바로 묻는다', (tester) async {
       await pumpRead(tester, const PartnerRead.known(null));
       unawaited(Navigator.of(tester.element(find.byType(ChatRoomScreen)))

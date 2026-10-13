@@ -1,15 +1,23 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:campus_mate/chat/model/chat_repository.dart';
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/chat/model/chat_room.dart';
+import 'package:campus_mate/chat/model/http_chat_repository.dart';
 import 'package:campus_mate/chat/model/message.dart';
 import 'package:campus_mate/chat/viewmodel/chat_room_ui_state.dart';
 import 'package:campus_mate/chat/viewmodel/chat_room_view_model.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/core/http/api_client.dart';
+import 'package:campus_mate/core/http/http_send.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:mocktail/mocktail.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show GoTrueClient, Session;
 
 import '../model/fake_chat_repository.dart';
 
@@ -868,5 +876,72 @@ void main() {
       expect(repository.readCount, 2);
       container.dispose();
     });
+
+    // 10-13 아이폰: 방에 들어올 때 찍는 읽음이 끝내 안 돌아오면 확인이 영영 시작되지 않았다(그 방문 내내 '1' 이 남는다).
+    // 가짜 저장소는 요청이 걸리는 일이 없다 — 실제 HTTP 저장소 · ApiClient 를 지나게 한다.
+    testWidgets('들어올 때 찍는 읽음(PATCH)이 끝내 안 돌아와도, 시간 제한 뒤 상대 읽음 확인이 시작된다', (tester) async {
+      var partnerReadCalls = 0;
+      final client = MockClient((request) {
+        final path = request.url.path;
+        if (request.method == 'PATCH') return Completer<http.Response>().future;
+        if (path == '/chat/conversations') return Future.value(_json({'conversations': <Object>[]}));
+        if (path == '/chat/matches/m1') return Future.value(_json(_roomJson));
+        if (request.url.queryParameters['limit'] == '1') {
+          partnerReadCalls += 1;
+          return Future.value(_json({'messages': <Object>[], 'has_more': true, 'partner_last_read_at': null}));
+        }
+        return Future.value(_json({'messages': [_myMessageJson], 'has_more': false, 'partner_last_read_at': null}));
+      });
+      final auth = _MockGoTrueClient();
+      final session = _MockSession();
+      when(() => session.accessToken).thenReturn('token');
+      when(() => auth.currentSession).thenReturn(session);
+      final container = ProviderContainer(overrides: [
+        chatRepositoryProvider.overrideWithValue(HttpChatRepository(ApiClient('https://api.test', client, auth))),
+        messageStreamProvider.overrideWithValue(stream),
+      ]);
+      addTearDown(container.dispose);
+      container.listen(chatRoomViewModelProvider('m1'), (_, _) {});
+      await tester.pump();
+      await tester.pump();
+      expect(hasUnread(container), isTrue);
+
+      await tester.pump(partnerReadPollInterval * 3);
+      expect(partnerReadCalls, 0, reason: '읽음 찍기가 걸린 동안');
+
+      await tester.pump(readTimeout + partnerReadPollInterval);
+      expect(partnerReadCalls, greaterThanOrEqualTo(1), reason: '걸린 읽음 찍기가 끊긴 뒤');
+      container.dispose();
+    });
   });
 }
+
+http.Response _json(Object body) =>
+    http.Response(jsonEncode(body), 200, headers: {'content-type': 'application/json; charset=utf-8'});
+
+const _roomJson = {
+  'match_id': 'm1',
+  'created_at': '2026-10-13T14:00:00+09:00',
+  'chat_closed_at': null,
+  'my_last_read_at': null,
+  'partner': {'profile_id': 'p2', 'nickname': '여우비', 'avatar_url': null},
+  'gate': {
+    'my_response': null,
+    'passed': false,
+    'partner_left': false,
+    'deadline_at': '2026-10-15T14:00:00+09:00',
+    'remaining_seconds': 172800,
+  },
+};
+
+const _myMessageJson = {
+  'id': 'mine-1',
+  'sender_id': 'me',
+  'kind': 'text',
+  'body': '안녕하세요',
+  'created_at': '2026-10-13T14:15:00+09:00',
+};
+
+class _MockGoTrueClient extends Mock implements GoTrueClient {}
+
+class _MockSession extends Mock implements Session {}
