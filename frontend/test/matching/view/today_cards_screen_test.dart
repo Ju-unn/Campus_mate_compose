@@ -9,6 +9,7 @@ import 'package:campus_mate/home/view/cohort_wait_view.dart';
 import 'package:campus_mate/matching/model/card_profile.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:campus_mate/matching/model/daily_card.dart';
+import 'package:campus_mate/matching/view/daily_card_summary.dart';
 import 'package:campus_mate/matching/view/today_cards_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -111,6 +112,33 @@ void main() {
     expect(find.text('여우비, 23'), findsOneWidget);
     expect(find.text('테스트대학교 · 컴퓨터공학과'), findsOneWidget);
     expect(find.text('프로필 자세히 보기'), findsOneWidget);
+  });
+
+  testWidgets('구매 카드가 섞인 목록 — 구매 카드에만 "구매 카드" 배지가 붙는다(pen Keynu/mj74J)', (tester) async {
+    const profile = CardProfile(
+      profileId: 't1',
+      nickname: '여우비',
+      age: 23,
+      university: '테스트대학교',
+      major: '컴퓨터공학과',
+    );
+    final repository = FakeCardRepository()
+      ..today = const Success(
+        TodayCards(
+          cards: [
+            DailyCard(cardId: 'free-1', source: CardSource.daily, profile: profile),
+            DailyCard(cardId: 'paid-1', source: CardSource.purchased, profile: profile),
+          ],
+        ),
+      );
+
+    await pump(tester, repository);
+
+    expect(find.text('프로필 자세히 보기'), findsNWidgets(2));
+    expect(find.text('구매 카드'), findsOneWidget);
+    final paidCard = find.ancestor(of: find.text('구매 카드'), matching: find.byType(DailyCardSummary));
+    expect(paidCard, findsOneWidget);
+    expect(tester.widget<DailyCardSummary>(paidCard).card.cardId, 'paid-1');
   });
 
   testWidgets('후보 풀이 비면 11b 문구와 알림 안내를 보여준다', (tester) async {
