@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:campus_mate/account/model/account_repository.dart';
+import 'package:campus_mate/account/model/apple_withdrawal_code.dart';
 import 'package:campus_mate/account/model/login_notice.dart';
 import 'package:campus_mate/account/viewmodel/withdraw_view_model.dart';
 import 'package:campus_mate/common/failure.dart';
@@ -15,6 +16,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'fake_account_repository.dart';
+import 'fake_apple_withdrawal_code.dart';
 
 class MockGoTrueClient extends Mock implements GoTrueClient {}
 
@@ -68,7 +70,10 @@ void main() {
       when(() => auth.currentSession).thenReturn(session);
       repository = FakeAccountRepository();
       container = ProviderContainer(
-        overrides: [accountRepositoryProvider.overrideWith((ref) => repository)],
+        overrides: [
+          accountRepositoryProvider.overrideWith((ref) => repository),
+          appleWithdrawalCodeProvider.overrideWithValue(FakeAppleWithdrawalCode()),
+        ],
       );
       listenable = container.read(accountStatusListenableProvider);
       listenable.addListener(() => signOutWhenWithdrawn(listenable.value, () async => signOutCalls++));

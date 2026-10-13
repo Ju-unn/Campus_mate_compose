@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:campus_mate/account/model/account_repository.dart';
+import 'package:campus_mate/account/model/apple_withdrawal_code.dart';
 import 'package:campus_mate/account/view/withdraw_sheets.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
@@ -17,6 +18,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../../matching/model/fake_card_repository.dart';
 import '../model/fake_account_repository.dart';
+import '../model/fake_apple_withdrawal_code.dart';
 
 void main() {
   late FakeCardRepository cards;
@@ -34,6 +36,7 @@ void main() {
       overrides: [
         cardRepositoryProvider.overrideWithValue(cards),
         accountRepositoryProvider.overrideWithValue(account),
+        appleWithdrawalCodeProvider.overrideWithValue(FakeAppleWithdrawalCode()),
       ],
     );
     addTearDown(container.dispose);

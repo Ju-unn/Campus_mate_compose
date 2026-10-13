@@ -1,4 +1,5 @@
 import 'package:campus_mate/account/model/account_repository.dart';
+import 'package:campus_mate/account/model/apple_withdrawal_code.dart';
 import 'package:campus_mate/account/view/account_suspended_screen.dart';
 import 'package:campus_mate/account/view/withdraw_sheets.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
@@ -12,6 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../model/fake_account_repository.dart';
+import '../model/fake_apple_withdrawal_code.dart';
 
 void main() {
   late int signOutCalls;
@@ -25,6 +27,7 @@ void main() {
       overrides: [
         signOutProvider.overrideWithValue(() async => signOutCalls++),
         accountRepositoryProvider.overrideWithValue(account),
+        appleWithdrawalCodeProvider.overrideWithValue(FakeAppleWithdrawalCode()),
       ],
     );
     addTearDown(container.dispose);
