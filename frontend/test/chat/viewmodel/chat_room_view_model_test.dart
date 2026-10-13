@@ -6,8 +6,10 @@ import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/chat/model/chat_room.dart';
 import 'package:campus_mate/chat/model/http_chat_repository.dart';
 import 'package:campus_mate/chat/model/message.dart';
+import 'package:campus_mate/chat/model/user_event_stream.dart';
 import 'package:campus_mate/chat/viewmodel/chat_room_ui_state.dart';
 import 'package:campus_mate/chat/viewmodel/chat_room_view_model.dart';
+import 'package:campus_mate/chat/viewmodel/user_channel.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/http/api_client.dart';
@@ -685,7 +687,7 @@ void main() {
     });
   });
 
-  // 카톡식 '1'(사용자 결정 10-13). 상대 읽음 확인([partnerReadPollInterval])과 읽음 묶음은 시계가 아니라 Timer 로 돈다 —
+  // 카톡식 '1'(사용자 결정 10-13). 상대 읽음 확인([partnerReadPollFast])과 읽음 묶음은 시계가 아니라 Timer 로 돈다 —
   // testWidgets 의 가짜 시간으로 실제로 기다리지 않고 넘긴다.
   group('상대 읽음 확인과 읽음 묶음', () {
     final sentAt = DateTime(2026, 10, 13, 14, 15);
@@ -694,12 +696,14 @@ void main() {
     Message theirs(String id) => messageFixture(id: id, createdAt: sentAt);
 
     /// 방을 열고 첫 페이지까지 들어오게 한다. 시험 끝에 컨테이너를 닫아 남은 Timer 를 지운다.
-    Future<ProviderContainer> openRoom(WidgetTester tester, {List<Message>? messages}) async {
+    /// [live] 는 사용자 채널(`user:<내 id>`)이 붙어 있는가 — 붙었으면 확인이 느려진다.
+    Future<ProviderContainer> openRoom(WidgetTester tester, {List<Message>? messages, bool live = false}) async {
       repository.room = Success(roomFixture(partnerRead: const PartnerRead.known(null)));
       repository.messages = Success(MessagePage(messages: messages ?? [mine()], hasMore: false));
       final container = ProviderContainer(overrides: [
         chatRepositoryProvider.overrideWithValue(repository),
         messageStreamProvider.overrideWithValue(stream),
+        userChannelProvider.overrideWith(() => FakeUserChannel(initiallyLive: live)),
       ]);
       addTearDown(container.dispose);
       container.listen(chatRoomViewModelProvider('m1'), (_, _) {});
@@ -714,15 +718,125 @@ void main() {
     bool hasUnread(ProviderContainer container) =>
         stateOf(container).messages.any(stateOf(container).isUnreadByPartner);
 
-    test('확인 간격은 2초 하나다(사용자 요청 10-13, 5초 → 2초)', () {
-      expect(partnerReadPollInterval, const Duration(seconds: 2));
+    test('확인 간격은 사용자 채널이 안 붙었으면 2초(사용자 요청 10-13), 붙었으면 30초 안전망이다(설계안 A)', () {
+      expect(partnerReadPollFast, const Duration(seconds: 2));
+      expect(partnerReadPollSlow, const Duration(seconds: 30));
+    });
+
+    // 사용자 채널이 실제로 붙었을 때(SUBSCRIBED)만 느리게 — 정책 적용 전(입장 거부)에 앱을 먼저 배포해도 지금과 같은 체감이다.
+    testWidgets('사용자 채널이 붙어 있으면 30초마다만 묻는다', (tester) async {
+      final container = await openRoom(tester, live: true);
+
+      await tester.pump(partnerReadPollSlow - const Duration(milliseconds: 1));
+      expect(repository.partnerReadFetchCount, 0);
+      await tester.pump(const Duration(milliseconds: 1));
+
+      expect(repository.partnerReadFetchCount, 1);
+      container.dispose();
+    });
+
+    testWidgets('사용자 채널이 끊기면 바로 한 번 묻고 2초 간격으로 돌아간다 — 다시 붙으면 30초로', (tester) async {
+      final container = await openRoom(tester, live: true);
+      final channel = container.read(userChannelProvider.notifier) as FakeUserChannel;
+
+      channel.setLive(false);
+      await tester.pump();
+      expect(repository.partnerReadFetchCount, 1);
+      await tester.pump(partnerReadPollFast);
+      expect(repository.partnerReadFetchCount, 2);
+
+      channel.setLive(true);
+      await tester.pump();
+      expect(repository.partnerReadFetchCount, 3);
+      await tester.pump(partnerReadPollFast * 3);
+      expect(repository.partnerReadFetchCount, 3);
+      container.dispose();
+    });
+
+    testWidgets('안 보이는 동안 채널 상태가 바뀌어도 묻지 않는다', (tester) async {
+      final container = await openRoom(tester, live: true);
+      viewModelOf(container).setVisible(false);
+
+      (container.read(userChannelProvider.notifier) as FakeUserChannel).setLive(false);
+      await tester.pump(partnerReadPollFast * 3);
+
+      expect(repository.partnerReadFetchCount, 0);
+      container.dispose();
+    });
+
+    testWidgets('read 이벤트가 오면 폴링을 기다리지 않고 내 줄의 1 이 바로 사라진다', (tester) async {
+      final container = await openRoom(tester, live: true);
+      expect(hasUnread(container), isTrue);
+
+      viewModelOf(container).receivePartnerRead(ReadEvent('m1', readerId: partnerId, readAt: sentAt.add(const Duration(seconds: 1))));
+      await tester.pump();
+
+      expect(hasUnread(container), isFalse);
+      expect(repository.partnerReadFetchCount, 0);
+      container.dispose();
+    });
+
+    // 서버 읽음 시각은 +09:00, 방 응답은 +00:00 으로 올 수 있다 — 시각을 순간으로 비교해야 늦은 값이 이긴다.
+    testWidgets('늦게 온 옛 read 이벤트는 1 을 되살리지 않는다 — 오프셋이 달라도 순간으로 비교한다', (tester) async {
+      final container = await openRoom(tester, live: true);
+      // 내 줄보다 5분 늦은 읽음은 +09:00 으로, 5분 이른 읽음은 +00:00(Z) 으로 적힌 문자열에서 읽는다.
+      String kst(DateTime at) => '${at.toUtc().add(const Duration(hours: 9)).toIso8601String().replaceFirst('Z', '')}+09:00';
+      final later = DateTime.parse(kst(sentAt.add(const Duration(minutes: 5))));
+      final earlier = DateTime.parse(sentAt.subtract(const Duration(minutes: 5)).toUtc().toIso8601String());
+
+      viewModelOf(container).receivePartnerRead(ReadEvent('m1', readerId: partnerId, readAt: later));
+      viewModelOf(container).receivePartnerRead(ReadEvent('m1', readerId: partnerId, readAt: earlier));
+      await tester.pump();
+
+      expect(hasUnread(container), isFalse);
+      container.dispose();
+    });
+
+    testWidgets('상대가 아닌 사람의 읽음 · 다른 방의 읽음은 쓰지 않는다', (tester) async {
+      final container = await openRoom(tester, live: true);
+      final readAt = sentAt.add(const Duration(seconds: 1));
+
+      viewModelOf(container).receivePartnerRead(ReadEvent('m1', readerId: myId, readAt: readAt));
+      viewModelOf(container).receivePartnerRead(ReadEvent('m2', readerId: partnerId, readAt: readAt));
+      await tester.pump();
+
+      expect(hasUnread(container), isTrue);
+      container.dispose();
+    });
+
+    testWidgets('사용자 채널로 온 이 방의 줄은 방 채널과 겹쳐도 한 번만 붙고, 지금 보이는지 알려 준다', (tester) async {
+      final container = await openRoom(tester);
+
+      stream.push(theirs('t1'));
+      await tester.pump();
+      final seen = viewModelOf(container).receiveFromUserChannel(theirs('t1'));
+      await tester.pump();
+
+      expect(seen, isTrue);
+      expect(stateOf(container).messages.where((message) => message.id == 't1'), hasLength(1));
+
+      viewModelOf(container).setVisible(false);
+      expect(viewModelOf(container).receiveFromUserChannel(theirs('t2')), isFalse);
+      container.dispose();
+    });
+
+    testWidgets('사용자 채널로만 온 상대 줄도 방에 붙고 읽음을 찍는다(방 채널 복제가 늦을 때)', (tester) async {
+      final container = await openRoom(tester);
+      expect(repository.readCount, 1);
+
+      viewModelOf(container).receiveFromUserChannel(theirs('t1'));
+      await tester.pump();
+
+      expect(stateOf(container).messages.map((message) => message.id), contains('t1'));
+      expect(repository.readCount, 2);
+      container.dispose();
     });
 
     testWidgets('방이 보이는 동안 2초마다 상대 읽음을 묻고, 읽었으면 1 이 사라진다', (tester) async {
       final container = await openRoom(tester);
       expect(hasUnread(container), isTrue);
 
-      await tester.pump(partnerReadPollInterval - const Duration(milliseconds: 1));
+      await tester.pump(partnerReadPollFast - const Duration(milliseconds: 1));
       expect(repository.partnerReadFetchCount, 0);
       repository.partnerReadResult = Success(readAfter);
       await tester.pump(const Duration(milliseconds: 1));
@@ -736,7 +850,7 @@ void main() {
       final container = await openRoom(tester);
       final pagesBefore = repository.pages.length;
 
-      await tester.pump(partnerReadPollInterval * 2);
+      await tester.pump(partnerReadPollFast * 2);
 
       expect((repository.partnerReadFetchCount, repository.pages.length, repository.roomFetchCount), (2, pagesBefore, 1));
       container.dispose();
@@ -745,7 +859,7 @@ void main() {
     testWidgets('안 읽은 내 줄이 없으면 묻지 않는다', (tester) async {
       final container = await openRoom(tester, messages: [theirs('t1')]);
 
-      await tester.pump(partnerReadPollInterval * 3);
+      await tester.pump(partnerReadPollFast * 3);
 
       expect(repository.partnerReadFetchCount, 0);
       container.dispose();
@@ -755,11 +869,11 @@ void main() {
       final container = await openRoom(tester);
       repository.holdPartnerRead = Completer<void>();
 
-      await tester.pump(partnerReadPollInterval * 3);
+      await tester.pump(partnerReadPollFast * 3);
       expect(repository.partnerReadFetchCount, 1);
 
       repository.holdPartnerRead!.complete();
-      await tester.pump(partnerReadPollInterval);
+      await tester.pump(partnerReadPollFast);
       expect(repository.partnerReadFetchCount, 2);
       container.dispose();
     });
@@ -772,11 +886,11 @@ void main() {
       expect(error, isNotNull);
 
       repository.partnerReadResult = const FailureResult(NetworkFailure());
-      await tester.pump(partnerReadPollInterval);
+      await tester.pump(partnerReadPollFast);
       expect((stateOf(container).errorMessage, hasUnread(container)), (error, true));
 
       repository.partnerReadResult = Success(readAfter);
-      await tester.pump(partnerReadPollInterval);
+      await tester.pump(partnerReadPollFast);
       expect((stateOf(container).errorMessage, hasUnread(container)), (error, false));
       container.dispose();
     });
@@ -784,7 +898,7 @@ void main() {
     testWidgets('늦게 도착한 옛 읽음 값이 새 값을 덮어 1 을 되살리지 않는다', (tester) async {
       final container = await openRoom(tester);
       repository.partnerReadResult = Success(readAfter);
-      await tester.pump(partnerReadPollInterval);
+      await tester.pump(partnerReadPollFast);
       expect(hasUnread(container), isFalse);
 
       // 재연결이 읽은 머리말 · 첫 페이지가 그보다 이른 값(한 번도 안 읽음)을 들고 왔다.
@@ -800,14 +914,14 @@ void main() {
       final container = await openRoom(tester);
       viewModelOf(container).setVisible(false);
 
-      await tester.pump(partnerReadPollInterval * 4);
+      await tester.pump(partnerReadPollFast * 4);
       expect(repository.partnerReadFetchCount, 0);
 
       viewModelOf(container).setVisible(true);
       await tester.pump();
       expect(repository.partnerReadFetchCount, 1);
 
-      await tester.pump(partnerReadPollInterval);
+      await tester.pump(partnerReadPollFast);
       expect(repository.partnerReadFetchCount, 2);
       container.dispose();
     });
@@ -816,7 +930,7 @@ void main() {
       final container = await openRoom(tester);
       container.dispose();
 
-      await tester.pump(partnerReadPollInterval * 4);
+      await tester.pump(partnerReadPollFast * 4);
 
       expect(repository.partnerReadFetchCount, 0);
     });
@@ -906,10 +1020,10 @@ void main() {
       await tester.pump();
       expect(hasUnread(container), isTrue);
 
-      await tester.pump(partnerReadPollInterval * 3);
+      await tester.pump(partnerReadPollFast * 3);
       expect(partnerReadCalls, 0, reason: '읽음 찍기가 걸린 동안');
 
-      await tester.pump(readTimeout + partnerReadPollInterval);
+      await tester.pump(readTimeout + partnerReadPollFast);
       expect(partnerReadCalls, greaterThanOrEqualTo(1), reason: '걸린 읽음 찍기가 끊긴 뒤');
       container.dispose();
     });

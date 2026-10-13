@@ -5,6 +5,8 @@ import 'package:campus_mate/chat/model/chat_room.dart';
 import 'package:campus_mate/chat/model/conversation.dart';
 import 'package:campus_mate/chat/model/message.dart';
 import 'package:campus_mate/chat/model/message_stream.dart';
+import 'package:campus_mate/chat/model/user_event_stream.dart';
+import 'package:campus_mate/chat/viewmodel/user_channel.dart';
 import 'package:campus_mate/common/result.dart';
 
 /// 화면·ViewModel 테스트용 가짜 저장소. 돌려줄 값을 필드로 바꿔 끼운다.
@@ -212,6 +214,50 @@ class FakeMessageStream implements MessageStream {
   /// 서버가 이 구독의 글을 실제로 밀어 줄 준비가 됐을 수 있는 순간(E-CHAT-67) — 처음 붙음이거나 postgres_changes
   /// 구독이 만들어졌다는 system 이벤트. 기본은 마지막 구독, [subscription] 으로 옛 구독(0부터).
   void ready({int? subscription}) => _onReady[subscription ?? _onReady.length - 1]?.call();
+}
+
+/// 사용자 채널(`user:<내 id>`) 자리에 끼우는 가짜. 구독마다 통로를 따로 만든다 — 옛 구독이 늦게 뱉는 신호도 흉내 낼 수 있다.
+class FakeUserEventStream implements UserEventStream {
+  final List<String> subscribed = [];
+  final List<StreamController<UserEvent>> _channels = [];
+  final List<void Function()?> _onSubscribed = [];
+
+  /// 받는 쪽이 끊은(채널을 닫은) 구독 수.
+  int closedCount = 0;
+
+  @override
+  Stream<UserEvent> subscribe(String profileId, {void Function()? onSubscribed}) {
+    subscribed.add(profileId);
+    _onSubscribed.add(onSubscribed);
+    final channel = StreamController<UserEvent>(onCancel: () => closedCount++);
+    _channels.add(channel);
+    return channel.stream;
+  }
+
+  /// 지금 열려 있는 구독 수.
+  int get openCount => subscribed.length - closedCount;
+
+  int _pick(int? subscription) => subscription ?? _channels.length - 1;
+
+  /// 서버가 입장을 받아 줬다(SUBSCRIBED). 기본은 마지막 구독, [subscription] 으로 옛 구독(0부터).
+  void connect({int? subscription}) => _onSubscribed[_pick(subscription)]?.call();
+
+  void push(UserEvent event, {int? subscription}) => _channels[_pick(subscription)].add(event);
+
+  /// 입장 거부(정책 없음) · 끊김 · 타임아웃. 진짜 구현은 이것들을 스트림 오류로 올린다.
+  void fail({int? subscription}) => _channels[_pick(subscription)].addError(StateError('realtime channelError'));
+}
+
+/// 사용자 채널의 연결 상태만 정해 두는 가짜 — 방 · 목록 폴링 간격 시험용. [setLive] 로 붙음 · 끊김을 바꾼다.
+class FakeUserChannel extends UserChannel {
+  FakeUserChannel({this.initiallyLive = false});
+
+  final bool initiallyLive;
+
+  @override
+  bool build() => initiallyLive;
+
+  void setLive(bool live) => state = live;
 }
 
 extension _CancelHook<T> on Stream<T> {
