@@ -1,6 +1,10 @@
 import 'dart:async';
 
 import 'package:campus_mate/auth/model/verification_gate.dart';
+import 'package:campus_mate/billing/model/billing_repository_provider.dart';
+import 'package:campus_mate/billing/model/heart_store_gateway.dart';
+import 'package:campus_mate/billing/model/store_purchase.dart';
+import 'package:campus_mate/billing/viewmodel/heart_purchase_view_model.dart';
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
 import 'package:campus_mate/common/failure.dart';
@@ -15,6 +19,8 @@ import 'package:campus_mate/notifications/viewmodel/unread_count_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../billing/model/fake_billing_repository.dart';
+import '../../billing/model/fake_heart_store_gateway.dart';
 import '../../chat/model/fake_chat_repository.dart';
 import '../../matching/model/fake_card_repository.dart';
 import '../../notifications/model/fake_notifications_repository.dart';
@@ -23,16 +29,23 @@ void main() {
   late FakeChatRepository chat;
   late FakeCardRepository cards;
   late FakeNotificationsRepository notifications;
+  late FakeHeartStoreGateway store;
+  late FakeBillingRepository billing;
   late ProviderContainer container;
 
   setUp(() {
     chat = FakeChatRepository()..conversations = Success([conversationFixture(unreadCount: 2)]);
     cards = FakeCardRepository();
     notifications = FakeNotificationsRepository(unreadCount: 4);
+    store = FakeHeartStoreGateway();
+    billing = FakeBillingRepository();
     container = ProviderContainer(overrides: [
       chatRepositoryProvider.overrideWithValue(chat),
       cardRepositoryProvider.overrideWithValue(cards),
       notificationsRepositoryProvider.overrideWithValue(notifications),
+      heartStoreGatewayProvider.overrideWithValue(store),
+      billingRepositoryProvider.overrideWithValue(billing),
+      heartPurchaseSupportedProvider.overrideWithValue(true),
     ]);
     addTearDown(container.dispose);
   });
@@ -175,5 +188,25 @@ void main() {
     final chats = container.read(conversationsViewModelProvider);
     expect(chats.isLoading, isFalse);
     expect(chats.errorMessage, isNotNull);
+  });
+
+  test('돌아오면 소비 안 된 하트 결제를 복구해 서버로 보낸다(결제 직후 앱이 꺼졌거나 지급이 늦어진 결제)', () async {
+    store.unconsumed = const [StorePurchased('heart_100', 'paid-while-away')];
+
+    resume();
+    await pumpEventQueue();
+
+    expect(store.recoverCount, 1);
+    expect(billing.verified, [('heart_100', 'paid-while-away')]);
+  });
+
+  test('로그아웃 상태 · 관문 미완료에서는 하트 결제 복구를 하지 않는다(서버 확인은 학생증 관문 뒤)', () async {
+    resume(isAuthenticated: false);
+    for (final gate in VerificationGate.values.where((gate) => gate != VerificationGate.complete)) {
+      resume(gate: gate);
+    }
+    await pumpEventQueue();
+
+    expect((store.availableCount, store.recoverCount), (0, 0));
   });
 }

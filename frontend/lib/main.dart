@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:campus_mate/account/model/login_notice.dart';
 import 'package:campus_mate/auth/model/kakao_login_gateway.dart';
 import 'package:campus_mate/auth/model/verification_gate.dart';
+import 'package:campus_mate/billing/model/heart_store_gateway.dart';
+import 'package:campus_mate/billing/model/in_app_heart_store_gateway.dart';
+import 'package:campus_mate/billing/viewmodel/heart_purchase_view_model.dart';
 import 'package:campus_mate/core/auth/account_status_listenable.dart';
 import 'package:campus_mate/core/auth/session_scope.dart';
 import 'package:campus_mate/core/auth/sign_out.dart';
@@ -28,10 +31,12 @@ import 'package:campus_mate/core/supabase/auth_session_listenable_provider.dart'
 import 'package:campus_mate/core/supabase/supabase_config.dart';
 import 'package:campus_mate/core/supabase/supabase_initializer.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 Future<void> main() async {
@@ -53,6 +58,10 @@ Future<void> main() async {
       if (!firebaseReady) pushMessagingProvider.overrideWithValue(const NoPushMessaging()),
       // 안드로이드 시스템 알림 창구는 앱을 켤 때 한 번만 만든다 — 로그아웃해도 새로 만들지 않는다(push_provider.dart).
       systemNotificationsProvider.overrideWithValue(LocalSystemNotifications(FlutterLocalNotificationsPlugin())),
+      // 하트 구매는 안드로이드(구글 플레이)만 연다(계획서 7-1). 다른 곳은 provider 기본값(아무것도 하지 않는 창구)이다.
+      // 로그아웃해도 버리지 않는다 — 플러그인 하나를 앱이 끝날 때까지 쓴다.
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
+        heartStoreGatewayProvider.overrideWithValue(InAppHeartStoreGateway(InAppPurchase.instance)),
     ],
     child: const CampusMateApp(),
   ));
@@ -93,6 +102,7 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
     _accountStatus = ref.read(accountStatusListenableProvider);
     _authSession.addListener(_refreshVerificationGate);
     _verificationGate.addListener(_startPushWhenGateOpens);
+    _verificationGate.addListener(_startHeartPurchasesWhenGateOpens);
     _verificationGate.addListener(_openPendingPushRoute);
     _onboardingStep.addListener(_openPendingPushRoute);
     _accountStatus.addListener(_signOutWhenWithdrawn);
@@ -166,6 +176,15 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
   void _startPushWhenGateOpens() {
     if (_verificationGate.value == VerificationGate.complete) {
       _startPush();
+    }
+  }
+
+  /// 하트 결제 구독은 상점이 아니라 여기서 연다 — 상점이 닫혀 있어도 늦게 온 결제를 받고, 결제 직후 앱이 꺼졌던 결제를 복구한다
+  /// (계획서 6-1 ①). 서버 확인은 학생증 관문 뒤라 관문이 열린 다음에만. 뷰모델은 앱 수명 동안 하나이고, 로그아웃하면
+  /// SessionScope 가 컨테이너째 버린다 — 다음 사람이 로그인해 관문이 열리면 새 뷰모델이 다시 구독한다.
+  void _startHeartPurchasesWhenGateOpens() {
+    if (_verificationGate.value == VerificationGate.complete) {
+      unawaited(ref.read(heartPurchaseViewModelProvider.notifier).refresh());
     }
   }
 
@@ -247,6 +266,7 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
       unawaited(subscription.cancel());
     }
     _verificationGate.removeListener(_startPushWhenGateOpens);
+    _verificationGate.removeListener(_startHeartPurchasesWhenGateOpens);
     _verificationGate.removeListener(_openPendingPushRoute);
     _onboardingStep.removeListener(_openPendingPushRoute);
     _accountStatus.removeListener(_signOutWhenWithdrawn);
