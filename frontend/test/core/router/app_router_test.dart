@@ -482,6 +482,8 @@ void main() {
             homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
             notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
             meRepositoryProvider.overrideWithValue(FakeMeRepository(const Success(_meProfile))),
+            // 15-4 가 카드 안 지인 리뷰로 내가 받은 리뷰를 읽는다.
+            friendReviewRepositoryProvider.overrideWithValue(FakeFriendReviewRepository()),
           ],
           child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
         ),

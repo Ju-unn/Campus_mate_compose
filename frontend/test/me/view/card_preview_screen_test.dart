@@ -11,6 +11,11 @@ import 'package:campus_mate/common/widgets/photo_slider.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
+import 'package:campus_mate/friend_review/model/friend_review.dart';
+import 'package:campus_mate/friend_review/model/friend_review_repository_provider.dart';
+import 'package:campus_mate/friend_review/view/friend_review_card.dart';
+import 'package:campus_mate/friend_review/view/partner_reviews_section.dart';
+import 'package:campus_mate/friend_review/viewmodel/friend_review_list_view_model.dart';
 import 'package:campus_mate/matching/model/card_detail.dart';
 import 'package:campus_mate/matching/model/card_profile.dart';
 import 'package:campus_mate/matching/view/card_detail_screen.dart';
@@ -29,6 +34,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../account/model/fake_account_repository.dart';
+import '../../friend_review/model/fake_friend_review_repository.dart';
 import '../model/fake_me_repository.dart';
 
 const _notice = '대화 상대가 보는 내 프로필이에요. 실제 사진과 카카오톡 아이디는 둘 다 수락한 뒤에 공개돼요.';
@@ -116,6 +122,16 @@ const _png = <int>[
 
 const _noticeAfter = '수락하면 상대에게 이렇게 보여요';
 
+const _idealNote = '대화가 잘 통하는 사람이 좋아요.';
+
+const _sheetNotice = '리뷰는 친구 코드를 받은 지인만 남길 수 있어요. 부적절한 내용은 신고해주세요.'; // 14d pen prY8p 그대로
+
+/// 내가 받은 리뷰(`GET /friend-reviews/received`). 이름은 지어낸 값이다.
+List<FriendReview> _reviews(int count) => [
+  for (var i = 0; i < count; i++)
+    friendReviewFixture(id: 'r$i', nickname: '친구$i', comment: '과제할 때 먼저 도와주는 편이에요. 같이 있으면 대화가 편해요.'),
+];
+
 /// 내 프로필(실사진 두 장). 이름·학교는 지어낸 값이다.
 MyProfile _profile({int photos = 2}) => MyProfile(
   nickname: '하늘',
@@ -138,11 +154,15 @@ MyProfile _profile({int photos = 2}) => MyProfile(
 /// 15-4 남이 보는 내 프로필(pen `gnEwq` 360×1714, 계획서 4절 15-4 표 · A13).
 void main() {
   /// 화면 15 자리 위에 15-4 를 올린다. [settle] 이 false 면 첫 프레임(불러오는 중)에서 멈춘다.
+  /// 받은 리뷰는 [reviews] 가 돌려준다(기본 0개). [fifteenHoldsReviews] 면 진짜 15 처럼 받은 리뷰 목록을 쥐고 있다.
   Future<FakeMeRepository> pump(
     WidgetTester tester, {
     Result<CardDetail>? result,
     Result<MyProfile>? profile,
     FakeAccountRepository? account,
+    FakeFriendReviewRepository? reviews,
+    bool fifteenHoldsReviews = false,
+    VoidCallback? beforeOpen,
     bool settle = true,
   }) async {
     final repository = FakeMeRepository(profile ?? Success(_profile()))..cardPreview = result ?? Success(_detail());
@@ -150,6 +170,7 @@ void main() {
       overrides: [
         meRepositoryProvider.overrideWithValue(repository),
         accountRepositoryProvider.overrideWithValue(account ?? FakeAccountRepository()),
+        friendReviewRepositoryProvider.overrideWithValue(reviews ?? FakeFriendReviewRepository()),
         // 실사진 서명 URL 은 네트워크 없이 작은 그림으로 대신한다.
         partnerPhotoImageProvider.overrideWithValue((url) => MemoryImage(Uint8List.fromList(_png))),
       ],
@@ -160,7 +181,16 @@ void main() {
       routes: [
         GoRoute(
           path: AppRoutes.myProfile,
-          builder: (context, state) => const Scaffold(body: Text('화면 15')),
+          builder: (context, state) => fifteenHoldsReviews
+              ? Consumer(
+                  builder: (context, ref, _) {
+                    ref.watch(
+                      friendReviewListViewModelProvider((source: FriendReviewListSource.received, profileId: null)),
+                    );
+                    return const Scaffold(body: Text('화면 15'));
+                  },
+                )
+              : const Scaffold(body: Text('화면 15')),
         ),
         GoRoute(path: AppRoutes.myCardPreview, builder: (context, state) => const CardPreviewScreen()),
       ],
@@ -172,6 +202,11 @@ void main() {
         child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
       ),
     );
+    // 15 가 다 읽은 뒤 [beforeOpen] 으로 서버 값을 바꾸고 15-4 를 연다 — 15 에 머무는 사이 리뷰가 늘어난 경우.
+    if (beforeOpen != null) {
+      await tester.pumpAndSettle();
+      beforeOpen();
+    }
     unawaited(router.push(AppRoutes.myCardPreview));
     await tester.pump();
     if (settle) await tester.pumpAndSettle();
@@ -660,11 +695,12 @@ void main() {
     });
 
     for (final scale in [1.3, 1.5, 2.0]) {
-      testWidgets('글자 배율 $scale 에서도 수락 후 탭이 넘치거나 잘리지 않는다(스크롤 전 · 끝)', (tester) async {
+      testWidgets('글자 배율 $scale 에서도 수락 후 탭(지인 리뷰 3개 포함)이 넘치거나 잘리지 않는다(스크롤 전 · 끝)', (tester) async {
         usePenFrame(tester, height: 1000);
         tester.platformDispatcher.textScaleFactorTestValue = scale;
         addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-        await pump(tester);
+        await pump(tester, reviews: FakeFriendReviewRepository()..received = Success(_reviews(3)));
+        expect(find.byType(FriendReviewCard), findsNWidgets(2));
         await tester.tap(find.text('수락 후'));
         await tester.pumpAndSettle();
 
@@ -686,6 +722,181 @@ void main() {
 
       expect(find.byType(MeLoadError), findsOneWidget);
       expect(find.byType(MeTabBar), findsOneWidget);
+    });
+  });
+
+  // 15-4 `kpIeX` · 15-4b `vnWFe` 안: 이상형 메모 → 13(`RS6bp` · `OdpW0`) → 헤더(`lLY1f` · `h0lBy`) → 8 → 카드(`vOLQ1` · `X3aFDk`)
+  // → 8 → 카드(`muTFX` · `Ufbi2`) → 수락 전은 카드 여백 20 / 수락 후는 13(`ChJNT`) → 카카오 카드. 14c 섹션을 내 받은 리뷰로 쓴다.
+  group('지인 리뷰 섹션(이상형 메모 뒤 · 카카오 카드 앞)', () {
+    final noKakao = AccountInfo(
+      loginProvider: 'kakao',
+      realName: null,
+      birthYear: null,
+      university: '가나대학교',
+      joinedAt: DateTime.utc(2026),
+      kakaoId: null,
+    );
+
+    Future<FakeFriendReviewRepository> open(
+      WidgetTester tester, {
+      int count = 2,
+      bool after = false,
+      Result<List<FriendReview>>? received,
+      FakeAccountRepository? account,
+    }) async {
+      usePenFrame(tester, height: 1000);
+      final reviews = FakeFriendReviewRepository()..received = received ?? Success(_reviews(count));
+      await pump(tester, reviews: reviews, account: account);
+      if (after) {
+        await tester.tap(find.text('수락 후'));
+        await tester.pumpAndSettle();
+      }
+      await scrollToEnd(tester);
+      return reviews;
+    }
+
+    Rect idealNote(WidgetTester tester) => tester.getRect(find.text(_idealNote));
+    // 3개면 누르는 칸 높이를 재는 보이지 않는 헤더 사본이 하나 더 있다 — 보이는 쪽(먼저 그린 것)을 잰다.
+    Rect header(WidgetTester tester) => tester.getRect(find.text('지인 리뷰').first);
+    Rect card(WidgetTester tester) => tester.getRect(find.byType(ProfileCard));
+    Rect kakao(WidgetTester tester) =>
+        tester.getRect(find.ancestor(of: find.text('카카오톡 아이디'), matching: find.byType(Container)).first);
+    final reviewCards = find.byType(FriendReviewCard);
+    final showAll = find.descendant(of: find.byType(PartnerReviewsSection), matching: find.byType(InkWell));
+    final sheet = find.byType(PartnerReviewsSheet);
+
+    for (final after in [false, true]) {
+      final tab = after ? '15-4b 수락 후' : '15-4 수락 전';
+
+      testWidgets('$tab — 리뷰 2개면 헤더 "지인 리뷰" · 카드 2장, "모두 보기" 없음. 내가 받은 리뷰(received)를 읽는다', (tester) async {
+        final reviews = await open(tester, after: after);
+
+        expect(find.text('지인 리뷰'), findsOneWidget);
+        expect(reviewCards, findsNWidgets(2));
+        expect(find.textContaining('모두 보기'), findsNothing);
+        expect(reviews.receivedCount, greaterThanOrEqualTo(1));
+        // 서버 about 은 본인 id 로 부르면 안 된다(find_match(나, 나)).
+        expect(reviews.aboutRequests, isEmpty);
+      });
+
+      testWidgets('$tab — 이상형 메모 → 13 → 헤더(20) → 8 → 카드 → 8 → 카드, 카드는 카드 안쪽 폭을 다 쓴다', (tester) async {
+        await open(tester, after: after);
+
+        expect(header(tester).top - idealNote(tester).bottom, 13);
+        expect(header(tester).height, 20);
+        final first = tester.getRect(reviewCards.at(0));
+        final second = tester.getRect(reviewCards.at(1));
+        expect(first.top - header(tester).bottom, 8);
+        expect(second.top - first.bottom, 8);
+        // 안쪽 폭 286(328 - 테두리 2 - 여백 40) — 14c 와 같이 pen 288 보다 2 좁다.
+        expect(first.left, card(tester).left + 21);
+        expect(first.width, card(tester).deflate(21).width);
+      });
+
+      testWidgets('$tab — 리뷰 3개면 카드 2장 + "3개 모두 보기", 누르면 14d 시트 "친구들이 본 하늘" 에 3장과 정책 안내', (tester) async {
+        final reviews = await open(tester, count: 3, after: after);
+
+        expect(reviewCards, findsNWidgets(2));
+        expect(find.text('3개 모두 보기'), findsWidgets);
+        await tester.tap(showAll);
+        await tester.pumpAndSettle();
+
+        expect(find.descendant(of: sheet, matching: find.text('친구들이 본 하늘')), findsOneWidget);
+        expect(find.descendant(of: sheet, matching: find.text('리뷰 3개')), findsOneWidget);
+        expect(find.descendant(of: sheet, matching: find.byType(FriendReviewCard)), findsNWidgets(3));
+        await tester.scrollUntilVisible(
+          find.text(_sheetNotice),
+          200,
+          scrollable: find.descendant(of: sheet, matching: find.byType(Scrollable)),
+        );
+        expect(find.text(_sheetNotice), findsOneWidget);
+        expect(reviews.aboutRequests, isEmpty);
+      });
+
+      testWidgets('$tab — 리뷰 카드(섹션 · 시트)에 신고 깃발 · 사이렌이 없다(내 리뷰 신고는 20c 몫)', (tester) async {
+        await open(tester, count: 3, after: after);
+
+        void expectNoReport(String where) {
+          expect(find.descendant(of: reviewCards, matching: find.byType(IconButton)), findsNothing, reason: where);
+          expect(find.descendant(of: reviewCards, matching: find.textContaining('신고')), findsNothing, reason: where);
+          expect(find.byTooltip('신고하기'), findsNothing, reason: where);
+        }
+
+        expectNoReport('섹션');
+        await tester.tap(showAll);
+        await tester.pumpAndSettle();
+        expectNoReport('시트');
+      });
+
+      testWidgets('$tab — 리뷰 0개면 섹션도, 섹션 앞뒤 간격도 없다', (tester) async {
+        await open(tester, count: 0, after: after);
+
+        expect(find.text('지인 리뷰'), findsNothing);
+        expect(reviewCards, findsNothing);
+        if (after) {
+          expect(kakao(tester).top - idealNote(tester).bottom, 13);
+        } else {
+          expect(tester.widget<ProfileCard>(find.byType(ProfileCard)).footer, isNull);
+          expect(card(tester).bottom - idealNote(tester).bottom, 21);
+        }
+      });
+
+      testWidgets('$tab — 받은 리뷰를 못 읽으면 섹션 자리가 없다(P6)', (tester) async {
+        await open(tester, after: after, received: const FailureResult(NetworkFailure()));
+
+        expect(find.text('지인 리뷰'), findsNothing);
+        expect(reviewCards, findsNothing);
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    testWidgets('15-4 수락 전 — 마지막 리뷰 카드 → 카드 아래 끝은 여백 20 + 테두리 1(pen `kpIeX` 여백 20, 카카오 카드 없음)', (tester) async {
+      await open(tester);
+
+      expect(find.byType(KakaoIdCard), findsNothing);
+      expect(card(tester).bottom - tester.getRect(reviewCards.last).bottom, 21);
+    });
+
+    testWidgets('15-4b 수락 후 — 마지막 리뷰 카드 → 13 → 카카오 카드 → 카드 아래 끝 20 + 1(pen `ChJNT` 13)', (tester) async {
+      await open(tester, after: true);
+
+      expect(kakao(tester).top - tester.getRect(reviewCards.last).bottom, 13);
+      expect(card(tester).bottom - kakao(tester).bottom, 21);
+    });
+
+    testWidgets('15-4b 수락 후 카카오톡 아이디가 없으면 마지막 리뷰 카드가 맨 아래 — 20 + 1', (tester) async {
+      await open(tester, after: true, account: FakeAccountRepository()..accountResult = Success(noKakao));
+
+      expect(find.byType(KakaoIdCard), findsNothing);
+      expect(card(tester).bottom - tester.getRect(reviewCards.last).bottom, 21);
+    });
+
+    testWidgets('탭을 오가도 받은 리뷰를 다시 읽지 않는다', (tester) async {
+      final reviews = await open(tester);
+      final reads = reviews.receivedCount;
+
+      await tester.tap(find.text('수락 후'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('수락 전'));
+      await tester.pumpAndSettle();
+
+      expect(reviews.receivedCount, reads);
+      expect(reviewCards, findsWidgets);
+    });
+
+    testWidgets('15 가 받은 리뷰 목록을 쥐고 있어도 15-4 에 들어올 때 다시 읽는다 — 15 에 있는 사이 친구가 남긴 리뷰도 보인다', (tester) async {
+      usePenFrame(tester, height: 1000);
+      final reviews = FakeFriendReviewRepository();
+      await pump(
+        tester,
+        reviews: reviews,
+        fifteenHoldsReviews: true,
+        beforeOpen: () => reviews.received = Success(_reviews(2)),
+      );
+      await scrollToEnd(tester);
+
+      expect(reviews.receivedCount, 2);
+      expect(reviewCards, findsNWidgets(2));
     });
   });
 
@@ -722,13 +933,14 @@ void main() {
 
   // DESIGN §11.2 — 시스템 글꼴 확대(최대 2.0)에서도 깨지지 않는다. 화면 15 테스트와 같은 잣대.
   for (final scale in [1.0, 1.3, 1.5, 2.0]) {
-    testWidgets('15-4 — 폭 360 · 글자 배율 $scale 에서 넘침 · 잘림이 없다(스크롤 전 · 끝)', (tester) async {
+    testWidgets('15-4 — 폭 360 · 글자 배율 $scale 에서 넘침 · 잘림이 없다(지인 리뷰 3개 포함, 스크롤 전 · 끝)', (tester) async {
       // 테스트 글꼴은 한글이 Pretendard 보다 넓다 — 여기서 버티면 실제 폰에서도 버틴다.
       usePenFrame(tester);
       tester.platformDispatcher.textScaleFactorTestValue = scale;
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
 
-      await pump(tester);
+      await pump(tester, reviews: FakeFriendReviewRepository()..received = Success(_reviews(3)));
+      expect(find.byType(FriendReviewCard), findsNWidgets(2));
       expect(tester.takeException(), isNull);
       final clipped = _clippedTexts();
       await scrollToEnd(tester);
