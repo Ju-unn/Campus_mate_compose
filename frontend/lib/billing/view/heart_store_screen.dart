@@ -135,16 +135,17 @@ class _HeartStoreScreenState extends ConsumerState<HeartStoreScreen> {
   }
 
   /// 서버 확인 중(15e-3 `H1e2id`)에는 "하트를 넣고 있어요" 가 끝날 때까지 남고, 그 밖에는 2초짜리 안내 토스트
-  /// (성공 `X0G8Fz` · `ksBC8` · 이미 처리 `bs9a7` 은 circle-check, 취소 `imxbJ` 는 info).
+  /// (성공 `X0G8Fz` · `ksBC8` · 이미 처리 `bs9a7` 은 circle-check, 취소 `imxbJ` · 환불(pen 후속)은 info).
   Widget? _toastFor(HeartPurchaseUiState state) {
     if (state.phase == HeartPurchasePhase.verifying) {
       return const AppToast(leading: PurchaseSpinner(size: 16, color: AppColors.onInk), label: '하트를 넣고 있어요');
     }
     final toast = _toast;
     if (toast == null) return null;
-    final canceled = toast is NoticeToast && toast.notice == HeartPurchaseNotice.canceled;
+    final info = toast is NoticeToast &&
+        (toast.notice == HeartPurchaseNotice.canceled || toast.notice == HeartPurchaseNotice.revoked);
     return AppToast(
-      leading: Icon(canceled ? AppIcons.info : AppIcons.circleCheck, size: 16, color: AppColors.onInk),
+      leading: Icon(info ? AppIcons.info : AppIcons.circleCheck, size: 16, color: AppColors.onInk),
       label: toast.message,
     );
   }

@@ -530,7 +530,24 @@ void main() {
       expect(gateway.finished, isEmpty);
     });
 
-    test('409 이미 처리(purchase_token_used) → 하트가 이미 들어간 거래라 끝낸다(남겨 두면 같은 상품을 다시 못 산다)', () async {
+    test('422 환불(purchase_revoked) → 하트 없이 거래를 끝낸다(남겨 두면 같은 상품을 다시 못 산다) · "환불된 결제예요" 토스트', () async {
+      await openStore();
+      container.listen(myProfileProvider, (_, _) {});
+      await pumpEventQueue();
+      final profileReads = me.calls;
+      repo.outcome = const FailureResult(ServerRejectedFailure('환불된 결제예요', code: 'purchase_revoked'));
+
+      await emit([const StorePurchased('heart_100', transactionId)]);
+      await emit([const StorePurchased('heart_100', transactionId)]);
+
+      expect(gateway.finished, [transactionId]);
+      expect((state().toast! as NoticeToast).notice, HeartPurchaseNotice.revoked);
+      expect((state().phase, state().banner), (HeartPurchasePhase.idle, null));
+      expect(me.calls, profileReads, reason: '하트가 들어가지 않았다 — 잔액을 다시 읽지 않는다');
+      expect(repo.appleVerified, hasLength(1), reason: '끝낸 거래는 다시 보내지 않는다');
+    });
+
+    test('409 이미 처리(purchase_token_used — 다른 계정이 이미 받은 거래) → 끝낸다(다시 보내도 이 계정에는 안 들어가고, 남겨 두면 같은 상품을 다시 못 산다)', () async {
       await openStore();
       repo.outcome = const FailureResult(ServerRejectedFailure('x', code: 'purchase_token_used'));
 
