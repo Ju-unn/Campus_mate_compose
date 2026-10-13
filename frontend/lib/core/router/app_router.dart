@@ -19,6 +19,7 @@ import 'package:campus_mate/community/view/community_feed_screen.dart';
 import 'package:campus_mate/community/view/poll_composer_screen.dart';
 import 'package:campus_mate/community/view/poll_detail_screen.dart';
 import 'package:campus_mate/core/auth/account_status_listenable.dart';
+import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
 import 'package:campus_mate/core/offline/offline_screen.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/router/auth_redirect.dart';
@@ -176,12 +177,14 @@ abstract final class AppRouter {
     ];
   }
 
-  /// 조각 4 — 오늘의 카드와 그 주변. `home` 은 09b 메인이고 서버 `/home/summary` 로 채운다 — 사람들 칸·리뷰 칸만 목값이다(`homeRepositoryProvider`).
+  /// 조각 4 — 오늘의 카드와 그 주변. 하단 내비 탭 5개(`home` · `today` · `community` · `conversations` · `myProfile`)는
+  /// 셸 없이 각자 최상위 경로라, 안드로이드 뒤로가기 확인([BackExitScope])을 탭마다 한 겹씩 두른다.
+  /// `home` 은 09b 메인이고 서버 `/home/summary` 로 채운다 — 사람들 칸·리뷰 칸만 목값이다(`homeRepositoryProvider`).
   static List<RouteBase> _slice4Routes() {
     return <RouteBase>[
       GoRoute(
         path: AppRoutes.home,
-        builder: (context, state) => const HomeScreen(),
+        builder: (context, state) => const BackExitScope(child: HomeScreen()),
         routes: [
           // 20b — AppRoutes.friendReviewWrite/:profileId. 홈이 밑에 깔리고 그 위에 시트가 뜬다(추천 가입 푸시).
           GoRoute(
@@ -192,14 +195,14 @@ abstract final class AppRouter {
         ],
       ),
       GoRoute(path: AppRoutes.notifications, builder: (context, state) => const NotificationsScreen()),
-      GoRoute(path: AppRoutes.today, builder: (context, state) => const TodayCardsScreen()),
+      GoRoute(path: AppRoutes.today, builder: (context, state) => const BackExitScope(child: TodayCardsScreen())),
       GoRoute(
         path: '${AppRoutes.cardDetail}/:cardId',
         builder: (context, state) => CardDetailScreen(cardId: state.pathParameters['cardId']!),
       ),
       GoRoute(
         path: AppRoutes.conversations,
-        builder: (context, state) => const ConversationsScreen(),
+        builder: (context, state) => const BackExitScope(child: ConversationsScreen()),
       ),
       GoRoute(
         path: AppRoutes.matchMade,
@@ -221,7 +224,7 @@ abstract final class AppRouter {
       GoRoute(path: AppRoutes.faq, builder: (context, state) => const FaqScreen()),
       GoRoute(
         path: AppRoutes.community,
-        builder: (context, state) => const CommunityFeedScreen(),
+        builder: (context, state) => const BackExitScope(child: CommunityFeedScreen()),
       ),
       GoRoute(path: AppRoutes.communityNew, builder: (context, state) => const PollComposerScreen()),
       GoRoute(
@@ -230,7 +233,7 @@ abstract final class AppRouter {
       ),
       GoRoute(
         path: AppRoutes.myProfile,
-        builder: (context, state) => const MyProfileScreen(),
+        builder: (context, state) => const BackExitScope(child: MyProfileScreen()),
       ),
     ];
   }

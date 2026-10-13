@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:campus_mate/account/model/account_repository.dart';
 import 'package:campus_mate/account/view/account_screen.dart';
 import 'package:campus_mate/account/view/account_suspended_screen.dart';
@@ -8,9 +10,11 @@ import 'package:campus_mate/auth/view/start_view.dart';
 import 'package:campus_mate/billing/view/heart_store_screen.dart';
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/chat/view/chat_room_screen.dart';
+import 'package:campus_mate/community/model/community_repository_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/auth/account_status_listenable.dart';
+import 'package:campus_mate/core/back_exit/back_exit_view_model.dart';
 import 'package:campus_mate/core/router/app_router.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/supabase/auth_session_listenable_provider.dart';
@@ -43,6 +47,7 @@ import 'package:campus_mate/safety/view/partner_profile_screen.dart';
 import 'package:campus_mate/notifications/model/notifications_repository_provider.dart';
 import 'package:campus_mate/notifications/view/notifications_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -50,6 +55,7 @@ import 'package:go_router/go_router.dart';
 import '../../account/model/fake_account_repository.dart';
 import '../../auth/model/fake_social_login_repository.dart';
 import '../../chat/model/fake_chat_repository.dart';
+import '../../community/model/fake_community_repository.dart';
 import '../../faq/model/fake_faq.dart';
 import '../../friend_review/model/fake_friend_review_repository.dart';
 import '../../home/model/fake_home_repository.dart';
@@ -599,5 +605,110 @@ void main() {
         AppRoutes.onboardingContactPicker,
       ]),
     );
+  });
+
+  // 안드로이드에서 하단 내비 탭(최상위 화면)의 시스템 뒤로가기는 앱이 닫히려는 순간뿐이다 — 거기서만 한 번 더 확인한다.
+  group('최상위 탭의 뒤로가기 확인', () {
+    late int exitCalls;
+
+    Future<GoRouter> pumpMember(WidgetTester tester, {OnboardingStep step = OnboardingStep.complete}) async {
+      exitCalls = 0;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        if (call.method == 'SystemNavigator.pop') exitCalls++;
+        return null;
+      });
+      addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
+      final router = AppRouter.create(
+        isAuthenticated: () => true,
+        verificationGate: _passedGate,
+        onboardingStep: () => step,
+      );
+      addTearDown(router.dispose);
+      final container = ProviderContainer(
+        overrides: [
+          cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
+          chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
+          communityRepositoryProvider.overrideWithValue(FakeCommunityRepository()),
+          homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
+          meRepositoryProvider.overrideWithValue(FakeMeRepository(const FailureResult(NetworkFailure()))),
+          notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
+          faqRepositoryProvider.overrideWithValue(FakeFaqRepository(const Success(faqFixture))),
+          faqCacheProvider.overrideWithValue(FakeFaqCache()),
+        ],
+      );
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      return router;
+    }
+
+    const tabs = <(String, String)>[
+      (AppRoutes.home, '메인'),
+      (AppRoutes.today, '오늘'),
+      (AppRoutes.community, '커뮤니티'),
+      (AppRoutes.conversations, '대화'),
+      (AppRoutes.myProfile, '나'),
+    ];
+    for (final (path, name) in tabs) {
+      testWidgets('$name 탭: 첫 뒤로가기는 안내만, 한 번 더 누르면 앱을 닫는다', (tester) async {
+        final router = await pumpMember(tester);
+        router.go(path);
+        await tester.pumpAndSettle();
+
+        await tester.binding.handlePopRoute();
+        await tester.pump();
+
+        expect(find.text(backExitMessage), findsOneWidget);
+        expect(exitCalls, 0);
+
+        await tester.binding.handlePopRoute();
+        await tester.pump();
+
+        expect(exitCalls, 1);
+      });
+    }
+
+    testWidgets('탭 위에 열린 화면에서는 한 단계만 뒤로 가고 안내는 뜨지 않는다', (tester) async {
+      final router = await pumpMember(tester);
+      unawaited(router.push(AppRoutes.faq));
+      await tester.pumpAndSettle();
+      expect(find.byType(FaqScreen), findsOneWidget);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(HomeScreen), findsOneWidget);
+      expect(find.text(backExitMessage), findsNothing);
+      expect(exitCalls, 0);
+    });
+
+    testWidgets('다른 화면 위에 push 로 올라온 탭에서는 안내 없이 그 화면으로 돌아간다', (tester) async {
+      final router = await pumpMember(tester);
+      unawaited(router.push(AppRoutes.faq));
+      await tester.pumpAndSettle();
+      unawaited(router.push(AppRoutes.today));
+      await tester.pumpAndSettle();
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(FaqScreen), findsOneWidget);
+      expect(find.text(backExitMessage), findsNothing);
+      expect(exitCalls, 0);
+    });
+
+    testWidgets('온보딩 도중의 뒤로가기는 건드리지 않는다', (tester) async {
+      await pumpMember(tester, step: OnboardingStep.kakaoId);
+
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+
+      expect(find.text(backExitMessage), findsNothing);
+    });
   });
 }
