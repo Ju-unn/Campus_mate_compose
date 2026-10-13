@@ -11,7 +11,8 @@ abstract interface class AccountRepository {
   Future<Result<AccountInfo>> fetchAccount();
 
   /// 탈퇴. 이미 탈퇴한 계정이면 `WithdrawnFailure` 가 온다 — 성공으로 볼지는 ViewModel 이 정한다.
-  Future<Result<void>> withdraw();
+  /// [appleAuthorizationCode] 가 있으면 서버가 애플 토큰을 철회한다(App Store 5.1.1(v)). 없으면 철회만 건너뛴다.
+  Future<Result<void>> withdraw({String? appleAuthorizationCode});
 
   /// 저장된 내 카카오톡 아이디. 없으면 null.
   Future<Result<String?>> fetchKakaoId();
@@ -43,7 +44,12 @@ class HttpAccountRepository implements AccountRepository {
   }
 
   @override
-  Future<Result<void>> withdraw() => _api.send('POST', '/account/withdraw', (_) {});
+  Future<Result<void>> withdraw({String? appleAuthorizationCode}) => _api.send(
+        'POST',
+        '/account/withdraw',
+        (_) {},
+        body: appleAuthorizationCode == null ? null : {'apple_authorization_code': appleAuthorizationCode},
+      );
 
   @override
   Future<Result<String?>> fetchKakaoId() =>

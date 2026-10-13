@@ -32,6 +32,9 @@ class _FakeAppleClient implements AppleLoginClient {
     }
     return 'apple-id-token';
   }
+
+  @override
+  Future<String> requestAuthorizationCode() => throw UnimplementedError('탈퇴용 — 로그인은 부르지 않는다');
 }
 
 const _rawNonce = LoginNonce('raw-nonce-value');

@@ -105,6 +105,20 @@ void main() {
     expect(result.when(onSuccess: (_) => true, onFailure: (_) => false), isTrue);
   });
 
+  test('애플 코드가 없으면(카카오 · 구글 · 애플 창을 닫은 사람) 본문 없이 보낸다 — 지금까지와 같다', () async {
+    await repositoryReturning(json({'ok': true})).withdraw();
+
+    expect(seen.single.body, isEmpty);
+  });
+
+  test('애플 코드가 있으면 본문 apple_authorization_code 에 싣는다(서버가 애플 토큰을 철회한다)', () async {
+    final result = await repositoryReturning(json({'ok': true})).withdraw(appleAuthorizationCode: 'apple-code');
+
+    expect(seen.single.headers['content-type'], startsWith('application/json'));
+    expect(jsonDecode(seen.single.body), {'apple_authorization_code': 'apple-code'});
+    expect(result.when(onSuccess: (_) => true, onFailure: (_) => false), isTrue);
+  });
+
   test('이미 탈퇴한 계정이면 WithdrawnFailure 를 그대로 돌려준다(성공 판단은 ViewModel 몫)', () async {
     final result = await repositoryReturning(
       json({'detail': '탈퇴한 계정이에요'}, 401, {'x-account-status': 'withdrawn'}),

@@ -21,6 +21,8 @@ EMAIL = "Hong@SNU.ac.kr"
 NOW = datetime(2026, 9, 27, 4, 0, tzinfo=SEOUL)
 BUCKETS = ("avatars", "profile-photos", "student-id-temp", "heart-task-proofs")
 INFINITY = datetime.max.replace(tzinfo=SEOUL)
+APPLE_ACCESS_TOKEN = "apple-access-token-test"
+APPLE_REFRESH_TOKEN = "apple-refresh-token-test"
 
 
 def settings(**overrides) -> Settings:
@@ -83,6 +85,11 @@ class AccountWorld:
         self.kakao_unlinks: list[httpx.Request] = []
         self.kakao_unlink_status = 200
         self.kakao_unreachable = False
+        # appleid.apple.com(탈퇴 때 애플 토큰 철회) — 코드 교환(/auth/token) 다음 철회(/auth/revoke).
+        self.apple_requests: list[httpx.Request] = []
+        self.apple_token_status = 200
+        self.apple_revoke_status = 200
+        self.apple_unreachable = False
         self.settings_overrides: dict = {}
 
     def withdrawn(self, profile_id: str, days_ago: int) -> None:
@@ -125,6 +132,8 @@ class AccountWorld:
             if self.kakao_unreachable:
                 raise httpx.ConnectError("연결 실패", request=request)
             return httpx.Response(self.kakao_unlink_status, json={"id": 4242})
+        if request.url.host == "appleid.apple.com":
+            return self._apple(request)
         body = json.loads(request.content) if request.content else None
         if path == "/auth/v1/user":
             return httpx.Response(200, json={"id": self.caller, "identities": self.identities})
@@ -152,6 +161,20 @@ class AccountWorld:
             return gone
         table = path.removeprefix("/rest/v1/")
         return getattr(self, "_" + table.replace("/", "_"))(request.method, request.url.params, body)
+
+    def _apple(self, request: httpx.Request) -> httpx.Response:
+        """애플 토큰 서버 흉내. 코드 교환은 refresh_token 을 주고, 철회는 빈 200 이다(애플 문서)."""
+        assert request.method == "POST"
+        self.apple_requests.append(request)
+        if self.apple_unreachable:
+            raise httpx.ConnectError("연결 실패", request=request)
+        if request.url.path == "/auth/token":
+            return httpx.Response(self.apple_token_status, json={
+                "access_token": APPLE_ACCESS_TOKEN, "refresh_token": APPLE_REFRESH_TOKEN,
+                "id_token": "header.payload.signature", "token_type": "Bearer", "expires_in": 3600,
+            })
+        assert request.url.path == "/auth/revoke"
+        return httpx.Response(self.apple_revoke_status)
 
     def _admin_user(self, method: str, user_id: str) -> httpx.Response:
         if user_id not in self.emails:

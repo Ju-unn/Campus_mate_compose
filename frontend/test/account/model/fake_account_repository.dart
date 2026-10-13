@@ -19,6 +19,9 @@ class FakeAccountRepository implements AccountRepository {
   Result<String?> kakaoIdResult = const Success('hong_gildong');
   int accountFetches = 0;
   int withdrawCalls = 0;
+
+  /// [withdraw] 가 받은 애플 코드(부를 때마다 하나).
+  final List<String?> withdrawAppleCodes = [];
   int kakaoIdFetches = 0;
 
   /// 채워 두면 [withdraw] 가 끝나지 않고 기다린다 — 보내는 중 상태를 보려고.
@@ -31,8 +34,9 @@ class FakeAccountRepository implements AccountRepository {
   }
 
   @override
-  Future<Result<void>> withdraw() async {
+  Future<Result<void>> withdraw({String? appleAuthorizationCode}) async {
     withdrawCalls++;
+    withdrawAppleCodes.add(appleAuthorizationCode);
     await holdWithdraw?.future;
     return withdrawResult;
   }

@@ -26,6 +26,9 @@ class _FakeAppleClient implements AppleLoginClient {
     }
     return idToken;
   }
+
+  @override
+  Future<String> requestAuthorizationCode() => throw UnimplementedError('탈퇴용 — 로그인 게이트웨이는 부르지 않는다');
 }
 
 Failure? _failureOf(Result<SocialCredential> result) => result.when(onSuccess: (_) => null, onFailure: (f) => f);
@@ -109,6 +112,37 @@ void main() {
   group('SdkAppleLoginClient', () {
     test('애플 창에는 이메일만 묻는다(앱이 이름을 읽지도 저장하지도 않아 최소 수집)', () {
       expect(SdkAppleLoginClient.scopes, [AppleIDAuthorizationScopes.email]);
+    });
+
+    group('탈퇴 전 재인증(requestAuthorizationCode)', () {
+      // sign_in_with_apple 8.2.0 이 iOS 와 주고받는 채널. 시험(FLUTTER_TEST)에서는 플랫폼 확인을 건너뛰고 이 채널로 간다.
+      const channel = MethodChannel('com.aboutyou.dart_packages.sign_in_with_apple');
+      late List<MethodCall> calls;
+
+      setUp(() {
+        TestWidgetsFlutterBinding.ensureInitialized();
+        calls = [];
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(channel, (call) async {
+          calls.add(call);
+          return {'type': 'appleid', 'authorizationCode': 'one-time-code', 'identityToken': 'id-token'};
+        });
+      });
+      tearDown(() {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(channel, null);
+      });
+
+      test('애플 창이 준 일회용 authorizationCode 를 돌려준다', () async {
+        expect(await const SdkAppleLoginClient().requestAuthorizationCode(), 'one-time-code');
+        expect(calls.single.method, 'performAuthorizationRequest');
+      });
+
+      test('이메일 · 이름도 nonce 도 묻지 않는다 — 철회용 코드만 받는다', () async {
+        await const SdkAppleLoginClient().requestAuthorizationCode();
+
+        final request = (calls.single.arguments as List<Object?>).single! as Map<Object?, Object?>;
+        expect(request['scopes'], isEmpty);
+        expect(request.containsKey('nonce'), isFalse);
+      });
     });
   });
 }

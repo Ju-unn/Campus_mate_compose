@@ -9,6 +9,10 @@ import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 abstract interface class AppleLoginClient {
   /// iOS 애플 로그인 창을 띄우고 identityToken 을 돌려준다(없으면 null).
   Future<String?> requestIdToken(String hashedNonce);
+
+  /// 탈퇴 전 애플 창을 한 번 더 띄워 일회용 authorizationCode(5분)를 받는다 — 서버가 애플 토큰 철회에 쓴다.
+  /// 닫거나 실패하면 SDK 예외가 그대로 나간다(부르는 쪽이 삼킨다).
+  Future<String> requestAuthorizationCode();
 }
 
 /// 실제 `sign_in_with_apple` 8.2.0 을 부른다(iOS 시스템 창). 시작 화면이 iOS 에서만 버튼을 그리므로 안드로이드에서는 불리지 않는다.
@@ -28,6 +32,13 @@ class SdkAppleLoginClient implements AppleLoginClient {
       nonce: hashedNonce,
     );
     return credential.identityToken;
+  }
+
+  /// 이메일 · 이름도 nonce 도 묻지 않는다 — 철회용 코드만 받으면 된다.
+  @override
+  Future<String> requestAuthorizationCode() async {
+    final credential = await SignInWithApple.getAppleIDCredential(scopes: const []);
+    return credential.authorizationCode;
   }
 }
 
