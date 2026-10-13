@@ -7,6 +7,7 @@
 > **2026-10-10 갱신(카드 선정 · 유료 카드).** 저장소 `supabase/migrations/` 가 **66개**다(PR #442 merge 뒤 main 기준). 새로 생긴 다섯 파일: `20261010010000`(`match_candidates` 반환을 jsonb 배열 + `pickable` 로) · `20261010020000`(`paid_card_offers`) · `20261010030000`(`purchase_paid_card`) · `20261010040000`(`notifications`) · `20261010050000`(유료 카드 주기당 한 장을 막는 부분 유일 인덱스 교체, PR #442)는 모두 **2026-10-10 운영에 적용됐다**(대장 전달 값: 운영 마이그레이션 66개 확인 — 이 문서 담당이 클라우드를 조회하지 않았다). 반영 위치: §1 조감도 · §2 표 · §4(`daily_cards` 옆 두 표와 함수) · §8 `paid_card_offer_status`. `notifications` 의 90일 보관 정리는 서버 배치 몫이고 구현 중이다(마이그레이션에는 없다).
 > **2026-10-12 갱신(실명 · 카톡 암호화 · 학생증 사진 정리).** 저장소 `supabase/migrations/` 가 **67개**다. 새 파일 `20261011010000`(실명 · 카톡 암호화 M1 — `profile_private.real_name_enc` · `kakao_id_enc` + 함수 4개)이 운영에 적용됐다(대장 전달 값: 운영 67개 — 이 문서 담당이 클라우드를 조회하지 않았다). 백필 끝(2행, 불일치 0), 옛 평문 열을 지우는 M2 는 아직이다. 학생증 사진 정리(검토 대기 30일 상한 · 사람 확정 뒤 삭제, 2026-10-11 사용자 결정)는 스키마 변경 없이 서버 코드로 했다. 반영 위치: §2 `profile_private` 행 · §3 `profile_private` · `student_verification_attempts` · §9 `student-id-temp`. (위 10-10 줄의 `notifications` 90일 정리도 그 뒤 매시 `chat-gate` 배치에 들어갔다 — `backend/DEPLOY.md` §4-1.)
 > **2026-10-12 저녁 갱신(M2 — 평문 열 삭제).** 운영 마이그레이션 **68개**(대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다). 새로 적용된 `20261012010000_drop_plaintext_real_name_and_kakao_id`(운영 기록 버전 `20261012070722`)가 `profile_private.real_name` · `kakao_id` 평문 열과 함수 `backfill_profile_private_encryption` 을 지웠다 — 실명 · 카톡 아이디는 암호문 `real_name_enc` · `kakao_id_enc` 에만 있다(ERD_DECISIONS §11-30). **파일은 DB PR #476(draft) merge 대기**라 저장소 main 은 아직 67개다. 반영 위치: §2 `profile_private` 행 · pgTAP 기대값 · §3 `profile_private` 그림 · 주석.
+> **2026-10-14 갱신(인앱결제 · 채팅 실시간 · 읽음 '1').** 저장소 `supabase/migrations/` 가 **71개**다(main `455ccae7` 기준 — 위 10-12 저녁 줄의 M2 파일은 DB PR #476 merge 로 저장소에도 들어왔다). 새로 생긴 세 파일: `20261013010000_add_heart_reason_first_purchase_bonus`(`heart_reason` 에 `first_purchase_bonus`) · `20261013010100_billing_purchases`(`purchases` 표 · enum 두 개 · 함수 `grant_store_purchase` · `refund_store_purchase`, PR #498) · `20261013152736_user_channel_realtime_policy`(`realtime.messages` 받기 정책 `user_channel_read_own`, PR #512). 운영 마이그레이션도 **71개**이고 마지막은 `user_channel_realtime_policy`(원격 버전 `20261013154505` — 파일 이름 타임스탬프와 다른 것은 `docs/SUPABASE.md` §4 관례대로 정상)다(대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다). 반영 위치: §2 표(`match_participants` · `realtime.messages`) · §4 `match_participants.last_read_at`(상대에게 보이는 읽음 '1', 2026-10-13 사용자 결정) · §6 `purchases` · §8 `store_platform` · `purchase_status` · `heart_reason`.
 
 ## 읽는 법
 
@@ -90,7 +91,7 @@ erDiagram
 | `paid_card_offers` | 없음 | FastAPI 전용(2026-10-10 운영 적용). RLS 켬 · 정책 0 — 본인 행도 못 읽는다. `service_role` 만 네 권한. 제안은 서버가 `GET /cards/today` 의 `paid_card` 로 내려준다(§4) |
 | `notifications` | 없음 | FastAPI 전용(2026-10-10 운영 적용). RLS 켬 · 정책 0, `service_role` 만 네 권한. 안 읽은 개수 · 목록은 서버가 내려준다(§4) |
 | `matches` | 당사자 (`profile_a` · `profile_b`) | 둘 다 알아도 되는 값만 있다 |
-| `match_participants` | 본인 행 (`profile_id`) | 이 테이블로는 상대 행을 못 읽는다. 상대의 수락·나가기는 `messages` 의 시스템 줄로 전해진다(§4) |
+| `match_participants` | 본인 행 (`profile_id`) | 이 테이블로는 상대 행을 못 읽는다. 상대의 수락·나가기는 `messages` 의 시스템 줄로 전해진다(§4). **2026-10-13 추가: 상대가 읽은 시각(읽음 '1')은 이 정책을 열지 않고 FastAPI 가 `service_role` 로 읽어 응답 키 `partner_last_read_at` 으로 준다**(§4) |
 | `messages` | 참여 중인 매칭의 메시지 | `exists (select 1 from match_participants mp where mp.match_id = messages.match_id and mp.profile_id = (select auth.uid()) and mp.left_at is null)` |
 | `push_tokens` | 없음 | FastAPI 전용 |
 | `notification_settings` | 본인 행 | |
@@ -104,6 +105,7 @@ erDiagram
 | `faq` | `authenticated` 전체 | 2026-09-29 적용. 앱이 supabase-flutter 로 바로 읽는다(공개 참조 표 — ERD_DECISIONS 8 의 예외). `authenticated` = `select` 만, `anon` 없음, `service_role` = 네 권한(문구는 대시보드에서 고친다). 첫 문구 36행은 마이그레이션 안 insert(묶음별 7 · 5 · 6 · 4 · 6 · 8) |
 | `signup_blocks` · `promo_codes` · `promo_redemptions` | 없음 | 서버 전용 |
 | `school_email_claims` | 없음 | FastAPI 전용(2026-10-09 운영 적용). RLS 켬 · 정책 0 — 본인 행도 못 읽는다(`signup_blocks` 와 같다). `service_role` 만 네 권한. 인증 여부는 FastAPI 가 내려준다(§3) |
+| `realtime.messages`(Supabase 내장 — 우리 테이블이 아니다) | `authenticated` 본인 토픽의 broadcast 만 | **2026-10-14 운영 적용(`20261013152736`, PR #512) — 채팅 실시간 사용자 채널 입장 권한.** 정책 하나 `user_channel_read_own`: `for select to authenticated using (realtime.messages.extension = 'broadcast' and (select realtime.topic()) = 'user:' \|\| (select auth.uid())::text)` — 앱은 비공개(private) 채널 `user:<내 profile_id>` 에만 들어온다(남의 토픽 · presence · `anon` 은 입장 때 거부). **보내기(insert) 정책은 두지 않는다** — 쏘는 쪽은 FastAPI 의 `service_role` REST Broadcast 뿐이라(RLS 를 거치지 않는다) 앱이 남의 채널로 가짜 이벤트를 쏠 수 없다. 테이블 조회가 없어 입장이 가볍다. 테이블 · publication · grant · `security definer` 변경 없음. 정책은 입장 때 한 번 계산돼 연결 동안 캐시되므로 나간 · 차단한 사람에게 안 쏘는 것은 서버 규칙(`left_at is null` 인 사람에게만)이 맡는다. 방 채널 `messages:<match_id>`(`postgres_changes`, public 채널)는 이 정책과 무관하다. 이벤트 계약은 `backend/DEPLOY.md` §4-8 |
 
 사이클 B pgTAP 기대값의 기준:
 
@@ -385,7 +387,7 @@ erDiagram
         trust_response trust_response "조각5 · accept 또는 null · 거절은 left_at 으로 남는다"
         timestamptz responded_at "조각5"
         timestamptz left_at "조각5 · 채팅방 나가기(게이트 거절 포함) · 상대에게 시스템 줄로 보인다"
-        timestamptz last_read_at "조각5 제안 · 방 진입·이탈 때 갱신 · 상대에게 비공개"
+        timestamptz last_read_at "조각5 · 방 진입·이탈 · 보는 중 받은 줄 3초 묶음 · 상대 화면 읽음 1 의 기준(10-13 개정, 종전 상대에게 비공개)"
     }
 
     messages {
@@ -458,6 +460,10 @@ erDiagram
 - **`chat_closed_at` 은 기한이 됐을 때만 기록한다.** 단 **한쪽이라도 나간 매칭은 아예 닫지 않는다** — 닫을 사람이 없는데 닫으면 남은 사람의 지난 대화만 목록에서 사라진다. 닫는다는 것은 이 칸 하나를 찍는 것뿐이고 메시지는 지우지 않는다(조각 7 "잠긴 방"이 다시 쓴다)
 - 채팅방의 "신뢰 확인 완료" 카드(`trust-reveal-bubble`)는 메시지 행이 아니라 `matches.trust_passed_at` 으로 그린다
 - **읽음은 메시지가 아니라 `match_participants.last_read_at` 에 둔다.** `messages.read_at` 은 두 사람이 다 읽으므로, 상대가 조용히 나가면 내 메시지가 계속 안 읽힘으로 남아 나가기가 드러난다. 안 읽은 수는 상대가 보낸 메시지 중 `created_at` > 내 `last_read_at` 이고, 갱신은 메시지마다가 아니라 방에 들어올 때와 나갈 때 한 번씩이다(나갈 때도 갱신해야 방 안에서 받은 메시지가 안 읽음으로 남지 않는다). 상대에게 보이는 읽음 표시는 없다
+  - **2026-10-13 사용자 결정으로 개정, 종전 "상대에게 보이는 읽음 표시는 없다" · "갱신은 방에 들어올 때와 나갈 때 한 번씩"(서버 PR #501 · 앱 PR #505 · 실시간 PR #508 · #510 — DB 변경 없음).** 카톡식 **안 읽음 '1'** 을 둔다 — 내가 보낸 사람 글 줄(`kind = 'text'`) 가운데 `created_at` > 상대 `last_read_at` 인 줄에 '1' 이 붙고 상대가 읽으면 사라진다(시스템 줄 · 상대 줄 · 상대가 나간 방에는 없다, 화면은 DESIGN §8.6). 읽음을 메시지가 아니라 `last_read_at` 에 두는 이유(위 문장)는 그대로다
+  - **갱신 시점(`PATCH /chat/matches/{id}/read` → 서버 `touch_read`)**: 방에 들어올 때 · 나갈 때 + **방을 보는 동안 받은 상대 줄을 3초 묶음으로**(첫 줄은 바로 찍고, 3초 안에 더 온 줄은 끝에 한 번 더 — 앱 `markReadThrottle`). 앱이 뒤로 가거나 다른 화면이 방을 덮으면 찍지 않는다
+  - **상대 값은 응답 키 `partner_last_read_at` 으로만 간다** — 방 머리말 `GET /chat/matches/{id}` 와 메시지 목록 `GET /chat/matches/{id}/messages`(`limit` 과 무관하게 늘 실린다, 상대가 한 번도 안 읽었으면 null). `match_participants` 는 여전히 본인 행만 읽는다(§2) — 상대 행을 여는 RLS · `security definer` 는 만들지 않았다. 읽음을 찍은 직후 서버가 상대 한 사람의 사용자 채널(`user:<상대 id>`, §2 `realtime.messages`)로 `read` 이벤트를 쏴 '1' 을 바로 지운다
+  - **푸시 30초 규칙(`chat/router.py` `IN_ROOM_WINDOW` — 상대 `last_read_at` 이 30초 안이면 새 메시지 푸시를 건너뛴다)은 그대로다.** 다만 방을 보는 동안 받은 줄마다 읽음이 다시 찍혀 30초 창이 이어지므로, 대화가 오가는 동안에는 푸시가 가지 않는다(종전에는 방에 들어온 뒤 30초까지만). 말이 30초 넘게 끊긴 뒤 온 첫 줄은 푸시가 나가지만, 안드로이드 앱이 지금 그 방을 보고 있으면 앞 화면 알림을 건너뛴다(iOS 는 못 막는다, DESIGN §8.8 알림)
 - **보낸 신청(2026-10-13, 서버 PR #483 `GET /cards/sent` — DB 변경 없음, 마이그레이션 0건)**: 신청자 A 가 자기 `card_decisions`(accept)와 B 의 `acceptance_responses` 를 읽어 상태를 만든다 — 매칭 행이 있으면 `matched` > B 의 응답이 reject 면 `rejected`(accept 면 `matched`) > 기한(`decided_at` + 7일)이 지났으면 `expired` > 아니면 `waiting`. **그래서 거절 행(`acceptance_responses.decision = reject`)은 하드 필터용 기록일 뿐 아니라 신청자에게 보이는 데이터다**(설계 문서 §2.2 개정). 끝난 뒤(거절 · 만료 · 성사) 7일이 지나면 목록에서만 빠지고 행을 지우는 규칙은 새로 두지 않았다(서버 조회 조건 `SENT_RETENTION_DAYS`). 상대가 차단 · 정지 · 탈퇴 · 가림이거나 매칭 뒤 어느 쪽이든 방을 나갔으면 이유를 가르지 않고 목록에서 뺀다
 - 수락이 겹치는 경로 두 가지: A의 카드에서 A accept → B가 받은 수락함에서 응답(`acceptance_responses`), 또는 서로의 카드에서 둘 다 accept. 어느 쪽이든 양쪽 accept 가 되면 FastAPI가 `matches` 와 `match_participants` 2행을 만든다
 - **하드 필터 "이미 카드로 받은 사람"의 정의(§11-4, 설계 §6.7)**: 내가 결정한 카드의 상대(`card_decisions`) + 받은 수락함에서 응답한 상대(`acceptance_responses`) + 매칭 이력이 있는 상대(`matches`, 게이트 실패 포함) + 아직 만료되지 않은 카드의 상대. **무응답으로 만료된 무상 카드의 상대는 다시 나올 수 있다.** **실제 동작(2026-09-21 사용자 확정, `20260928050000` `match_candidates`)은 영구 제외가 아니라 쉬는 기간이다**: 결정한 카드의 상대는 결정 후 90일, 무응답 만료 카드의 상대는 만료 후 14일, 내가 수락 응답을 한 상대도 90일 쉬고, **매칭된 상대만 영구 제외**다. 그래서 `daily_cards (owner_id, target_id)` 는 unique가 아니라 일반 인덱스다. **2026-10-10 개정(`20261010010000`, 운영 적용): 위 "쉬는 중" 사람은 이제 후보에서 빠지지 않고 `pickable = false` 로 함께 나온다**(결정 전 카드 — 구매 카드 포함 — 와 매칭된 상대도 같다). 순위는 쉬는 사람까지 포함한 전체 후보로 매기고 뽑을 때만 `pickable` 을 본다(서버 `backend/app/matching/band.py`). 하드 필터(이성 · 같은 지역그룹 · 열린 학교 · active · 접속 15일 · 일시중지 · 자동 가림 · 차단 · 지인 차단 · 벡터 있음)에 걸린 사람은 종전대로 행 자체가 없다. 함수 반환이 `table(...)` 에서 **jsonb 배열 한 덩어리**로 바뀌어(`drop` 뒤 `create`, 호출 주소는 그대로) PostgREST 가 행 집합을 1,000행에서 자르던 상한이 사라졌다 — 후보가 없으면 null 이 아니라 `[]` 다
@@ -553,15 +559,21 @@ erDiagram
     }
 
     purchases {
-        uuid id PK "조각7"
-        uuid profile_id FK "계정 삭제(탈퇴 30일 뒤) 시 null · 5년 보관"
-        store_platform store "app_store play_store"
-        text product_id "50 100 200 400 번들"
-        text store_transaction_id UK "영수증 중복 방지"
-        integer heart_amount
-        integer price_krw
-        purchase_status status "verified refunded"
+        uuid id PK "2026-10-13 운영 적용 · 20261013010100"
+        uuid profile_id FK "계정 삭제(탈퇴 30일 뒤) 시 null · 5년 보관 · 인덱스"
+        store_platform store "play_store app_store"
+        text product_id "heart_50 heart_100 heart_200 heart_400 heart_800"
+        text store_order_id "구글 주문 번호 GPA · 없을 수 있다"
+        text token_hash "구매 토큰 sha256 16진 64자 · 원문은 두지 않는다 · (store, token_hash) unique"
+        integer heart_amount "> 0"
+        integer bonus_hearts "첫 구매 보너스 · 기본 0"
+        integer price_krw "서버 상품표 판매가 > 0"
+        purchase_status status "granted refunded · 기본 granted"
+        boolean is_test "라이선스 테스터 결제 · 기본 false"
+        integer clawed_back_hearts "환불 때 실제 회수한 하트"
         timestamptz purchased_at
+        timestamptz granted_at "기본 now()"
+        timestamptz refunded_at "status=refunded 일 때만(check)"
     }
 
     heart_task_submissions {
@@ -609,6 +621,10 @@ erDiagram
 
 - `entitlements.heart_balance` 는 `heart_transactions` 합계의 캐시다. 지급·차감은 FastAPI가 한 트랜잭션에서 둘 다 쓴다(설계 §7.6)
 - `purchases` 는 탈퇴해도 지우지 않는다(§11-14). `profile_id` 는 `on delete set null` 이라 null 허용이고, 금액·상품·영수증 번호만 남는다. `store_transaction_id` unique 도 남아 재가입한 계정이 같은 영수증을 다시 쓰지 못한다. `purchased_at` 5년 뒤 FastAPI 가 지운다. 하트 원장(`heart_transactions`)은 탈퇴와 함께 지워진다. 법령에 따라 보존하는 정보는 다른 개인정보와 분리해 저장해야 하는데(개인정보보호법 제21조③), 별도 테이블에 `profile_id` 없이 남기므로 이를 충족한다고 본다
+  - **2026-10-13 구현으로 개정(PR #498 · 서버 PR #499 · 앱 PR #506, 운영 적용 — 종전 위 그림의 제안 모양 `store_transaction_id` unique · `purchase_status` `verified` · 번들 50~400)**: 영수증 중복은 **구매 토큰 원문이 아니라 sha256 해시** `token_hash` 로 막는다 — unique `purchases_token_once (store, token_hash)`(원문은 서비스 계정과 함께면 조회 · 소비가 되는 값이라 두지 않는다). 위 "`store_transaction_id` unique 도 남아 재가입한 계정이 같은 영수증을 다시 쓰지 못한다" 는 이 unique 가 맡는다. 제약 `purchases_token_hash_shape`(`^[0-9a-f]{64}$`) · `purchases_amounts_valid` · `purchases_refund_consistent`(`refunded` ⇔ `refunded_at` 있음). 인덱스 `purchases_profile_id_index`. RLS 정책 하나 `purchases are readable by owner`(본인 행 select), `authenticated` = `select` 만, `service_role` = 네 권한. **대기(pending) 결제는 행을 만들지 않는다**(지급 전이라 기록할 것이 없다)
+  - **함수 `grant_store_purchase(p_profile_id, p_store, p_product_id, p_token_hash, p_order_id, p_purchased_at, p_is_test) → jsonb`**: 구매 행 + 하트 + 첫 구매 판정 + 보너스 + 원장을 한 트랜잭션에. 상품표(하트 · 판매가)와 보너스(+50 · 100하트 이상)는 이 함수 안 상수 한 곳이다(바꾸려면 마이그레이션). `result` 4값 — `granted` · `already_granted`(같은 사람이 같은 영수증을 또 보냄, 하트 그대로) · `token_used`(다른 사람이 이미 쓴 영수증) · `unknown_product`. 사람마다 `pg_advisory_xact_lock` 으로 줄을 세워 두 기기에서 동시에 첫 구매를 해도 보너스는 한 번이다. **첫 구매 = 이 사람의 구매 행이 하나도 없음(환불된 것도 센다) + 100하트 이상 상품.** 원장은 두 줄로 나눠 적는다 — `purchase`(구매분) · `first_purchase_bonus`(보너스), 둘 다 `ref_id` = 구매 행 id
+  - **함수 `refund_store_purchase(p_store, p_token_hash) → jsonb`**: 구매분 + 보너스를 `min(잔액, 합계)` 만 회수한다(잔액은 음수가 되지 않는다, 이미 쓴 하트는 회수하지 못한다). 원장은 `refund` 음수 한 줄(회수 0 이면 줄 없음), 행은 `refunded` · `refunded_at` · `clawed_back_hearts`. `result` 3값 — `refunded`(`clawed_back` · `shortfall` 포함, 계정이 지워진 구매는 모자람 0) · `already_refunded` · `unknown`(우리가 지급한 적 없는 영수증). 매시 환불(voided) 조회 배치가 부른다(`backend/DEPLOY.md` §4-9)
+  - 두 함수 모두 security invoker · `search_path = ''` · `public` · `anon` · `authenticated` 실행 회수 · `service_role` 만 실행(`purchase_paid_card` 와 같다, `docs/SUPABASE.md` §5)
 - `friend_reviews` 는 `unique (reviewer_id, reviewee_id)`. 추천 관계 확인은 FastAPI가 `referrals` 로 한다 — **2026-10-13 개정(서버 PR #486, DB 변경 없음): 친구 코드 경로(`friend_code`)는 `referrals` 를 보지 않고 `profiles.referral_code` 로 받는 사람을 찾는다.** 같은 사람에게 한 번(`friend_reviews_once` → 409)은 두 경로 모두 같다(설계 문서 §2.8)
   - **2026-09-28 적용 기록**: 제약 이름 `friend_reviews_once`(두 번째는 서버 409) · `friend_reviews_not_self` · `friend_reviews_tags_count`(1~3) · `friend_reviews_comment_length`, 인덱스 `(reviewee_id, created_at desc)`, 두 FK 이름 `friend_reviews_reviewer_id_fkey` · `friend_reviews_reviewee_id_fkey`(서버 embed 가 쓴다). **2026-09-29 작성자 삭제**는 DB 변경 없이 서버가 하드 삭제한다 — 신고 기록은 `reports.target_snapshot` 에 남고 `target_id` 는 FK 가 없어 깨지지 않는다. 지우면 unique 가 풀려 다시 쓸 수 있다
 - **`referrals`(2026-09-28 적용)**: RLS 켬 · 정책 0 · `service_role` 만. 두 FK `on delete cascade`, check `referrals_not_self`, 인덱스 `referrals_referrer_id_index`. DB 함수 `redeem_referral(referee, code)` 가 코드 검사 → 행 넣기 → 양쪽 `grant_hearts(50, 'referral', ref_id = referee_id)` 를 한 트랜잭션에 한다. 같은 번호 두 갈래(추천인과 같은 번호 · 이 번호로 이미 보상받음)와 자기 코드는 같은 422 로 막는다 — `phone_hmac` 이 빈 옛 계정은 비교하지 않는다. 정지 · 탈퇴 추천인 코드는 404
@@ -680,9 +696,9 @@ enum 값은 만든 뒤 지울 수 없다(추가·이름 변경만 된다). 그�
 | `report_target` | `profile` `message` `friend_review` `poll` | 조각6 — 2026-09-27 적용. 앱 신고 입구는 `profile` · `message` · `friend_review`(받은 사람만), `poll` 은 아직 422 |
 | `report_status` | `open` `actioned` `dismissed` | 조각6 — 2026-09-27 적용 |
 | `report_reason` | `abuse` `sexual` `spam` `fake` `other` | 조각6 — 2026-09-27 적용(검토10 해결). 화면: 욕설·비방·혐오 / 성적 불쾌감 / 광고·스팸 / 사칭·허위 / 기타 |
-| `store_platform` | `app_store` `play_store` | 제안 |
-| `purchase_status` | `verified` `refunded` | 제안 |
-| `heart_reason` | `purchase` `referral` `promo` `free_task` `poll_vote` `extra_card` `avatar_regen` `refund` `admin_adjust` | 제안 — 환불 회수와 운영 보정 포함 |
+| `store_platform` | `play_store` `app_store` | §6 — 2026-10-13 운영 적용(`20261013010100`, 종전 "제안") |
+| `purchase_status` | `granted` `refunded` | §6 — 2026-10-13 운영 적용(`20261013010100`). **종전 제안 `verified` 를 `granted` 로 바꿨다** — 대기(pending) 결제는 행을 만들지 않아 "확인됨" 과 "지급됨" 을 가를 일이 없다 |
+| `heart_reason` | `purchase` `referral` `promo` `free_task` `poll_vote` `extra_card` `avatar_regen` `refund` `admin_adjust` `first_purchase_bonus` | 환불 회수와 운영 보정 포함. 앞의 9값은 2026-09-20 적용(`20260920043832`). **`first_purchase_bonus` 는 2026-10-13 운영 적용**(`20261013010000` — enum 값은 같은 트랜잭션에서 못 써 쓰는 마이그레이션과 파일을 나눴다). 인앱결제 지급은 `purchase`, 환불 회수는 `refund` 를 쓴다(§6) |
 | `heart_task` | `everytime_post` `kakao_share` | DESIGN §8.10 — 2026-09-28 적용 |
 | `submission_status` | `submitted` `approved` `rejected` | DESIGN §8.10 — 2026-09-28 적용 |
 | `heart_task_reject_reason` | `date_missing` `not_verified` `reused` | 2026-09-28 적용(무료 하트 D3) — 화면: 날짜가 안 보여요 / 게시글·공유가 확인되지 않아요 / 이미 쓴 캡처예요 |
