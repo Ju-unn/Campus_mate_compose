@@ -2,7 +2,7 @@ from datetime import datetime
 
 from app.core.postgrest import PostgrestRepository
 
-_STORE = "play_store"
+PLAY_STORE, APP_STORE = "play_store", "app_store"
 
 
 class BillingRepository(PostgrestRepository):
@@ -10,17 +10,17 @@ class BillingRepository(PostgrestRepository):
     이름 · 인자는 마이그레이션(20261013010100_billing_purchases.sql)과 글자까지 같다."""
 
     async def grant_store_purchase(self, profile_id, product_id: str, token_hash: str, order_id: str | None,
-                                   purchased_at: datetime, *, is_test: bool) -> dict:
+                                   purchased_at: datetime, *, is_test: bool, store: str = PLAY_STORE) -> dict:
         response = await self._post("rpc/grant_store_purchase", json={
-            "p_profile_id": str(profile_id), "p_store": _STORE, "p_product_id": product_id,
+            "p_profile_id": str(profile_id), "p_store": store, "p_product_id": product_id,
             "p_token_hash": token_hash, "p_order_id": order_id,
             "p_purchased_at": purchased_at.isoformat(), "p_is_test": is_test,
         })
         response.raise_for_status()
         return response.json()
 
-    async def refund_store_purchase(self, token_hash: str) -> dict:
-        response = await self._post("rpc/refund_store_purchase", json={"p_store": _STORE, "p_token_hash": token_hash})
+    async def refund_store_purchase(self, token_hash: str, *, store: str = PLAY_STORE) -> dict:
+        response = await self._post("rpc/refund_store_purchase", json={"p_store": store, "p_token_hash": token_hash})
         response.raise_for_status()
         return response.json()
 
