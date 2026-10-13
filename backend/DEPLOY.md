@@ -83,6 +83,17 @@ gcloud run deploy campus-mate-backend \
 **`APPLE_PRIVATE_KEY`(애플 토큰 철회, App Store 5.1.1(v))** — 탈퇴할 때 애플 토큰 철회(`app/account/social_unlink.py`)에 쓴다. Sign in with Apple 키(`.p8`)의 PEM 본문을 Secret Manager 에 시크릿 `apple-sign-in-private-key` 로 등록하고(`gcloud secrets create apple-sign-in-private-key --data-file=AuthKey_<키 ID>.p8`, PEM 이라 줄바꿈이 남아도 · `tr -d '\r\n'` 로 지워도 읽힌다), 위 `--set-secrets` 목록에 `APPLE_PRIVATE_KEY=apple-sign-in-private-key:latest` 를 더한다. 같이 쓰는 `APPLE_TEAM_ID`(팀 ID) · `APPLE_KEY_ID`(키 ID)는 비밀이 아니라 `--set-env-vars` 에 `APPLE_TEAM_ID=<팀 ID>,APPLE_KEY_ID=<키 ID>` 로 더한다.
 셋 중 하나라도 비면 그 단계만 건너뛴다(경고 없이, 서버 시작은 막지 않는다). 앱이 탈퇴 본문에 `apple_authorization_code` 를 실어 보낸 애플 사용자만 철회한다 — 코드를 애플 `/auth/token` 으로 refresh_token 과 바꾼 뒤 `/auth/revoke` 로 바로 철회하고, 토큰은 저장하지 않는다. client_id 는 번들 ID(`io.github.juunn.campusmate`)다. 2026-10-13 기준 시크릿 등록 전이라 위 명령에는 아직 없다. 값은 이 문서에 적지 않는다.
 
+**2026-10-14 정정 — 위 전체 명령은 지금 서비스 설정과 같지 않다(그대로 다시 돌리지 않는다).** 위 명령에는 `APPLE_TEAM_ID` · `APPLE_KEY_ID`(env)와 `APPLE_PRIVATE_KEY=apple-sign-in-private-key:latest`(시크릿)가 빠져 있다. `--set-env-vars` · `--set-secrets` 는 **목록 전체를 갈아끼우므로**, 서비스에 APPLE_* 가 들어 있는 상태에서 위 명령을 그대로 돌리면 APPLE_* 가 지워져 애플 토큰 철회가 조용히 건너뛰어진다(셋 중 하나라도 비면 건너뛴다). `settings.py` 가 읽는 값은 지금 **env 9개 · 시크릿 10개**다(위 2026-10-09 대조 뒤 `APPLE_TEAM_ID` · `APPLE_KEY_ID` · `APPLE_PRIVATE_KEY` 가 더해졌다). 위 명령을 다시 써야 하면 두 목록에 APPLE_* 를 더한 뒤 쓴다 — 시크릿 `apple-sign-in-private-key` 가 Secret Manager 에 없으면 그 명령은 실패한다. **지금 운영 서비스에 APPLE_* 가 실제로 들어 있는지는 이 문서 담당이 확인하지 못했다**(클라우드 미조회).
+
+**현행 배포 방식(2026-10-13 ~ 14 배포 기준, 대장 전달 값)** — 설정을 바꾸지 않는 코드 배포는 env · 시크릿 목록을 넘기지 않는다. 그러면 새 리비전이 **직전 리비전의 env · 시크릿을 그대로 이어받는다**:
+
+```bash
+cd backend
+gcloud run deploy campus-mate-backend --source . --project=<PROJECT_ID> --region=asia-northeast3 --allow-unauthenticated --quiet
+```
+
+새 env · 시크릿이 생길 때만 `--update-env-vars` · `--update-secrets`(목록에 **더하기**)를 쓴다 — `--set-*`(갈아끼우기)는 위 이유로 쓰지 않는다. 배포 뒤 리비전 이름 · 되돌림 하한은 §5.
+
 **`IDENTITY_HMAC_KEY`·`OPENAI_API_KEY`·`PHONE_ENCRYPTION_KEY` 3개가 이 명령에서 빠져 있었다(PR #85 리뷰에서 잡음, §0 에는 시크릿 등록만 돼 있고 배포 명령에 연결이 안 됐던 것). `settings.py` 가 필수(`min_length=1` 등)로 요구하므로 빠지면 그 자리에서 기동이 실패한다.** → **2026-09-29 확인: 위 명령에 셋 다 들어 있다**(조각 6 배포 때 반영, 시크릿 이름 `identity-hmac-key` · `open-api-key` · `phone-number-encryption-key`). 조각 6 에서 `DISCORD_REPORT_WEBHOOK_URL`(`discord-report-webhook-url`, 신고 전용 채널 — 비어 있으면 신고 알림만 건너뛰고 경고 로그)이 더해졌다. `settings.py` 가 읽는 env 7개 · 시크릿 9개는 위 명령으로 전부다(2026-10-09 `settings.py` 와 다시 대조. 종전 2026-09-29 대조 뒤 더해진 `KAKAO_ADMIN_KEY` 와 `VERIFICATION_HOOK_SECRET`(`verification-hook-secret`, 학생증 검토 결과 훅의 공유 비밀 — 비어 있으면 `/hooks/verification-reviewed` 가 모든 요청을 막는다)이 명령에서 빠져 있었다). **2026-10-11 부터 `PHONE_ENCRYPTION_KEY` 는 실명 · 카카오톡 아이디 암호화에도 쓴다**(같은 키, §4-4 · `docs/SUPABASE.md` §8) — 이 키를 바꾸면 전화번호 · 실명 · 카톡 암호문을 모두 다시 암호화해야 한다
 
 **Auth OTP expiry — Supabase 대시보드 Authentication 설정의 OTP 유효시간을 300초(5분)로 맞춘다.** 기본값(3600초)과 앱의 인증 코드 화면 카운트다운(5분)이 어긋나 있었다(운영에서는 아직 3600초, 승인 대기 중).
@@ -668,7 +679,55 @@ select public.grant_hearts('<profile_id>', -<지급한 하트>, 'admin_adjust', 
 - **확인 실패 창 · 작성 상한 창은 서버 인스턴스 메모리다.** Cloud Run 이 재시작하거나 인스턴스가 늘면 느슨해진다(쓰기 상한은 DB 작성 수가 보완, 확인 실패 상한은 보완 없음). 출시 전 DB 작성 기록으로 올린다(설계 문서 §13 출시 전 결정 44). 기존 `/referral/redeem` 에는 실패 횟수 제한이 없다(별도 PR)
 - 두 PR 은 DB 를 건드리지 않아 리비전만 되돌리면 된다. 다만 `00064` 아래로 가면 앱의 보낸 신청 읽기가, `00065` 아래로 가면 20f 가 서버 오류를 만난다(추정 — 앱은 오류 줄 · 실패 문구로 처리한다). 이 기능이 들어간 앱 빌드가 나간 뒤에는 서버를 이 리비전 아래로 되돌리지 않는다
 
+## 4-8. 채팅 읽음 '1' · 실시간 이벤트 · 푸시 로그 (2026-10-13 ~ 14)
+
+설계안 원문은 사용자 폴더 `CampusMate_문서/기획·설계/채팅_실시간_전환_설계안_10-13.md`(안 A — 서버가 쏘고 앱은 사용자 채널 하나를 듣는다). **순서는 서버 → 운영 DB 정책 → 앱** 이었다(서버만 먼저 나가도 듣는 앱이 없어 무해하고, 정책 전에 나간 앱은 입장이 거부돼 폴링으로만 돈다). 리비전은 대장 전달 값이다(§5). 새 env · 시크릿 · job 은 없다.
+
+### 채팅 API — `partner_last_read_at` (PR #501, 리비전 `00069`)
+
+`GET /chat/matches/{match_id}`(방 머리말)와 `GET /chat/matches/{match_id}/messages`(메시지 목록) 응답에 **`partner_last_read_at`**(상대의 `match_participants.last_read_at`, ISO 시각)을 싣는다. 상대가 한 번도 안 읽었으면 `null`, `limit` 과 무관하게 늘 실린다 — 앱은 `limit=1` 로 가볍게 불러 읽음 변화를 본다. 나간 방은 종전대로 404, 상대가 나간 방은 그대로 읽히고 값도 실린다. 옛 앱은 모르는 키를 무시한다. 읽음 찍기는 종전 `PATCH /chat/matches/{id}/read`(앱이 방에 들어올 때 · 나갈 때 · 보는 동안 받은 줄 3초 묶음, `docs/ERD.md` §4). 푸시 30초 규칙(`IN_ROOM_WINDOW`)은 그대로다.
+
+### 실시간 이벤트 계약 (서버 PR #508 `00070` · DB PR #512 · 앱 PR #510)
+
+- **채널**: 사람마다 `user:<profile_id>` 하나, **반드시 private**. 입장 권한은 `realtime.messages` 받기 정책 `user_channel_read_own`(본인 토픽 broadcast 만, `docs/ERD.md` §2) — **운영 적용 완료**(2026-10-14, 원격 `20261013154505`). 보내기(insert) 정책은 없다
+- **쏘는 쪽**: FastAPI 가 `service_role` 키로 Supabase Realtime Broadcast REST(`POST <SUPABASE_URL>/realtime/v1/api/broadcast`, `messages` 배열에 받는 사람 몫을 묶어 **한 번**)를 부른다(`app/chat/realtime.py` `Broadcaster`). 받는 사람은 쓰기 직후 `match_participants` 의 `left_at is null` 을 다시 읽어 정한다 — 나간 · 차단한 사람은 채널이 열려 있어도 받지 않는다
+- **실패는 로그만 남기고 삼킨다**(쓰기는 이미 끝났다 — 요청은 성공). 로그 `실시간 쏘기 실패 event=<이벤트> status=<코드>` 또는 예외 이름만(예외 문구에 프로젝트 주소가 들어 있어 쓰지 않는다)
+- **요청 안에서 `await`, 제한 1.5초**(`TIMEOUT_SECONDS`) — Cloud Run 은 응답 뒤 CPU 를 줄여 응답 뒤 작업이 밀리거나 사라지기 때문이다. **마감 배치(chat-gate)는 첫 실패 뒤 나머지 방 쏘기를 건너뛴다**(`give_up_after_failure`, Realtime 장애 때 방마다 1.5초씩 기다리지 않게). 요청 경로는 매번 시도한다
+- **이벤트 3종**:
+
+| 이벤트 | 받는 사람 | payload | 쏘는 곳 |
+| --- | --- | --- | --- |
+| `message` | 방에 남은 두 사람 — **보낸 사람 본인 포함**(다른 기기 목록) | `{match_id, message: {id, sender_id, kind, body, created_at}}` — `kind` 는 `text` · `left` · `trust_accept` | `ChatRepository.insert_message`(보내기 · 나감 줄 · 수락 줄 · 차단이 모두 지난다) |
+| `read` | **상대에게만** | `{match_id, reader_id, last_read_at}` | `touch_read`(읽음 찍기) |
+| `room_changed` | 두 사람 | `{match_id, reason}` — `reason` 은 `matched`(새 매칭, `cards/router.py` 매칭 생성 직후) · `closed`(마감 배치가 방을 닫음) | 매칭 생성 · 방 닫기 |
+
+- **앱 쪽 규칙(PR #510)**: 로그인 · 관문 통과 · 앱이 보이는 동안만 구독하고, 뒤로 가면 멈추고 로그아웃하면 채널을 지운다. 인증 갱신은 supabase_flutter 가 자동으로 `setAuth` 한다. 거부되면 2초에서 5분까지 지수 백오프로 다시 건다. **폴링은 채널이 실제로 `SUBSCRIBED` 일 때만 30초(안전망)로 늦추고, 아니면(거부 · 끊김 · 정책 없음) 대화 탭 목록 3초 · 방 안 읽음 확인 2초**다. 값의 기준은 늘 서버 API 다 — 이벤트는 빨리 보여 주는 용도라 유실돼도 폴링 · 복귀 새로고침이 메운다. 붙을 때 목록 한 번 읽기와 방 읽음 확인으로 놓친 이벤트를 메운다
+- **Realtime 설정 "Allow public access" 는 끄지 않는다** — 방 채널 `messages:<match_id>`(postgres_changes)가 public 채널이라서다(PR #512)
+- **남은 확인**: 동시 연결 한도(앱이 앞에 있는 모든 사용자가 소켓 1개) — 요금제 한도와 대조는 출시 전(설계안 §7). 하네스 대기값(정책 뒤 목록 폴링 30초)은 후속
+- **되돌리기**: 앱이 이벤트를 못 받아도 폴링으로 돈다. 정책 되돌리기는 `drop policy if exists "user_channel_read_own" on realtime.messages;`(새 마이그레이션 + 별도 승인)
+
+### 푸시 로그 · APNs 키 (PR #500, 리비전 `00069` / 2026-10-13 아이폰 푸시 복구)
+
+- 성공은 INFO 한 줄 **`FCM 전송 성공 kind=<종류> platform=<android|ios> token=<앞 6자>…(<길이>)`**, 실패는 WARNING **`FCM 전송 실패 <상태 코드> kind=… platform=… token=… | <FCM 오류 status · code · message · errorCode>`**(JSON 이 아니면 앞 200자, 전체 300자 상한). 토큰은 앞 6자와 길이만 남기고 FCM 이 토큰을 되돌려 줘도 한 번 더 가린다. 제목 · 본문 · 이름은 남기지 않는다. `app.cards.push` 로거에만 INFO 수준과 stderr 핸들러를 단다(운영 uvicorn 은 루트 핸들러가 없어 한 줄씩 나온다). Cloud Run 로그에서 `FCM 전송 성공` · `FCM 전송 실패` 로 찾는다
+- **APNs 인증 키**: 아이폰(TestFlight · 출시 빌드)은 애플 운영 APNs 서버를 쓴다. 옛 키 `JT647G2N3A` 는 **샌드박스 전용**이라 운영에서 FCM 401 `Invalid APNs credential` 이 났다. **2026-10-13 새 키 `R52HCC98ZY`(Sandbox & Production 범위)를 Firebase 클라우드 메시징에 올려 해결했다**(실기기 도착 · 로그 `FCM 전송 성공 … platform=ios` 확인). 키 ID 는 비밀이 아니지만 **키 파일(.p8) 내용은 이 문서 · 채팅 · 로그 어디에도 적지 않는다.** 옛 키를 애플에서 지울지는 사용자 결정 전이다(안 지움). 서버 설정은 바뀌지 않았다(FCM 이 APNs 로 보낸다)
+
+## 4-9. 인앱결제 — 구글 플레이 하트 구매 서버 (2026-10-13, 서버 PR #499 · DB PR #498)
+
+**배포 순서는 DB 적용 → 서버 PR merge → 서버 배포 → 앱**이었다(서버가 먼저 나가면 없는 DB 함수를 부른다). 새 env · 시크릿은 없다 — 구글 플레이 개발자 API(`androidpublisher`)는 **Cloud Run 서비스 계정(ADC)** 으로 부른다(FCM 과 같은 방식, 새 패키지 없음). 그래서 **플레이 콘솔 "사용자 및 권한" 에 이 서비스 계정을 초대**해야 구매 조회 · 소비가 된다(앱 PR #506 기준 미확인 — 플레이 콘솔 상품 5개 등록 · 라이선스 테스터와 함께 샌드박스 시험 전 준비). 표 · 함수는 `docs/ERD.md` §6, 화면은 DESIGN.md §8.10. 경로 이름에 `refund` · `purchase` · `buy` 를 쓰지 않는다(E2E 하네스 E-HEART-49 · 51 이 그런 이름의 경로를 유료 카드 하나만 허용한다).
+
+| 경로 | 뜻 |
+| --- | --- |
+| `GET /billing/status` | 학생증 통과 가입자. `{account_token, first_purchase_bonus}` — `account_token` 은 결제 창의 `applicationUserName`(구글 `obfuscatedExternalAccountId`)에 싣는 계정 표시(sha256 방식), `first_purchase_bonus` 는 구매 이력이 없으면 `{hearts: 50, min_product_hearts: 100}`, 있으면 null(화면 배지용 — 실제 판정은 지급 때 DB 함수가 다시 한다) |
+| `POST /billing/google/verify` | 본문 `{product_id, purchase_token}`(`heart_50` ~ `heart_800`, 토큰은 영문 · 숫자 · `. _ -` 만 1000자 이하). **200** `{result: granted \| already_granted, hearts, bonus_hearts, heart_balance}` · **202** `{result: pending}`(결제 대기 — 행을 만들지 않는다) · **409** `purchase_other_account`(다른 계정 표시 — 소비하지 않는다, 3일 안에 안 오면 구글이 환불) · **409** `purchase_token_used`(다른 사람이 이미 받은 영수증) · **422** `purchase_invalid`(결제됨이 아님 · 수량 1 아님 · 상품 불일치) · **503** `billing_unavailable`(구글 조회 실패 — 앱은 지연으로 보고 나중에 다시 보낸다). 지급 뒤 아직 소비 전이면 **서버가 소비(consume)** 한다(실패해도 다음 재전송 때 다시) — 앱은 소비하지 않는다 |
+| `POST /batch/billing-voided` | 배치 전용(카드 · 채팅 · 정리 배치와 같은 OIDC 문). 구글 Voided Purchases 를 **최근 7일** 조회해 `refund_store_purchase` 로 회수하고(멱등이라 겹쳐도 된다), 5년 지난 구매 행을 지운다. 응답 `{voided, …건수, purged}`. 구글이 답하지 못하면 503 이고 아무것도 바꾸지 않는다. 회수가 모자라면(이미 쓴 하트) 경고 로그만 — 번호와 숫자만 남긴다 |
+
+- **로그**: 구매 토큰 · 주문 번호는 남기지 않는다(`profile_id` · 상품 · 결과 · 상태 코드만). httpx INFO 가 주소(토큰 포함)를 찍지 않게 못박았다(`app/billing/play.py`)
+- **알려진 한계**: verify 요청 빈도 제한 없음(출시 전 백로그) · 구글 쪽 동작은 샌드박스 시험으로 확인 전 · 계정 표시 토큰은 sha256 방식 유지
+- **`/batch/billing-voided` 를 매시 부르는 Cloud Scheduler job 을 만들었는지는 이 문서 담당이 확인하지 못했다** — §5 2026-09-29 표 기준 job 은 무료 한도 3개가 찼다(대장 확인 필요). 만들 때는 §4-3 의 OIDC job 만들기 명령을 경로만 바꿔 쓴다
+
 ## 5. 현재 배포 상태 (2026-09-26 기준)
+
+**2026-10-14 갱신(대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다).** 돌고 있는 리비전 **`campus-mate-backend-00070-jz7`**(채팅 실시간 서버 PR #508 포함). **되돌림 1순위는 `00069-p8f`**(읽음 시각 `partner_last_read_at` · 푸시 로그 · 인앱결제 서버까지, PR #499 · #500 · #501 — `00070` 은 실시간 쏘기만 더했다). **어떤 경우에도 `00063` 아래로 되돌리지 않는다**(M2 평문 열 삭제 뒤 `00062` 이하는 없는 열에 써서 깨진다, §4-4 "서버 롤백 주의"). `00064` · `00065` 아래로 가면 보낸 신청 · 친구 코드 리뷰가(§4-7) 서버 오류를 만나고, `00069` 아래로 가면 앱이 읽음 '1' 을 그리지 않고(`partner_last_read_at` 키가 없으면 옛 서버로 본다) 하트 구매 확인이 없는 경로를 만난다(추정). **`00070` 아래(`00069`)로 되돌리면 실시간 이벤트가 멈추는데, 앱은 채널이 붙어(SUBSCRIBED) 있으면 폴링을 30초로 늦춘 채라 목록 · '1' 이 최대 30초 늦어진다**(§4-8 — 폴링 안전망이 받친다). 배포는 §2 "현행 배포 방식"(env · 시크릿 이어받기)으로 했다. 운영 마이그레이션 **71개** — 마지막 `user_channel_realtime_policy`(원격 `20261013154505`, `docs/ERD.md` 상태줄). 새 env · 시크릿은 없다(인앱결제 구글 API 는 Cloud Run 서비스 계정 ADC — 플레이 콘솔에 그 서비스 계정을 초대해야 한다, §4-9). 실시간 쏘기는 기존 `SUPABASE_URL` · 서비스 키를 쓴다(§4-8)
 
 **2026-10-13 갱신(PR 본문 값 — 이 문서 담당이 클라우드를 조회하지 않았다).** 리비전 `00064`(보낸 신청 `GET /cards/sent`, PR #483) → `campus-mate-backend-00065-b7n`(친구 코드 지인 리뷰, PR #486). 두 PR 모두 마이그레이션 · env · 시크릿 · job 이 없다(§4-7). 아래 10-12 값 뒤에 다른 변동이 있었는지는 확인하지 못했다.
 
