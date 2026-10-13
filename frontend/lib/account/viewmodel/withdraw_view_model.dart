@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:campus_mate/account/model/account_repository.dart';
+import 'package:campus_mate/account/model/apple_withdrawal_code.dart';
 import 'package:campus_mate/account/viewmodel/withdraw_ui_state.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/core/auth/account_status_listenable.dart';
@@ -15,6 +16,7 @@ final withdrawViewModelProvider =
 /// 16c 탈퇴. 로그아웃은 하지 않는다 — 계정 상태만 withdrawn 으로 바꾸면
 /// main.dart 리스너 한 곳이 알림을 남기고 로그아웃한다(두 곳에서 부르지 않는다).
 /// 온보딩 임시 저장 값은 탈퇴가 확인된 그 자리에서 먼저 지운다 — 로그아웃 때 한 번 더 지워도 같은 결과다.
+/// 애플 사용자는 보내기 전에 애플 창이 한 번 더 뜬다([AppleWithdrawalCode]). 닫아도 탈퇴는 그대로 간다.
 class WithdrawViewModel extends Notifier<WithdrawUiState> {
   @override
   WithdrawUiState build() => const WithdrawUiState();
@@ -27,7 +29,9 @@ class WithdrawViewModel extends Notifier<WithdrawUiState> {
     // 응답 전에 시트가 닫혀 이 ViewModel 이 버려져도 탈퇴는 이미 됐다 — 상태를 올릴 곳을 먼저 잡아 둔다.
     final accountStatus = ref.read(accountStatusListenableProvider);
     final drafts = ref.read(draftStoreProvider);
-    final result = await ref.read(accountRepositoryProvider).withdraw();
+    final repository = ref.read(accountRepositoryProvider);
+    final appleCode = await ref.read(appleWithdrawalCodeProvider).obtain();
+    final result = await repository.withdraw(appleAuthorizationCode: appleCode);
     result.when<void>(
       onSuccess: (_) => _onWithdrawn(accountStatus, drafts),
       onFailure: (failure) => _onFailure(failure, accountStatus, drafts),

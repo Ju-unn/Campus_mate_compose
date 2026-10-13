@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:campus_mate/account/model/account_repository.dart';
+import 'package:campus_mate/account/model/apple_withdrawal_code.dart';
 import 'package:campus_mate/account/viewmodel/withdraw_view_model.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
@@ -12,6 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../../core/draft/fake_draft_store.dart';
 import '../model/fake_account_repository.dart';
+import '../model/fake_apple_withdrawal_code.dart';
 
 /// 전부 지우기가 던진다 — 디스크 오류 같은 경우. 문구에 값이 들어 있다고 치고 로그에 새지 않는지 본다.
 class _BrokenDraftStore extends FakeDraftStore {
@@ -22,15 +24,18 @@ class _BrokenDraftStore extends FakeDraftStore {
 void main() {
   late FakeAccountRepository repository;
   late FakeDraftStore drafts;
+  late FakeAppleWithdrawalCode apple;
   late ProviderContainer container;
 
   setUp(() {
     repository = FakeAccountRepository();
     drafts = FakeDraftStore()..saved['account-a/basic_info'] = '{"nickname":"가나다"}';
+    apple = FakeAppleWithdrawalCode();
     container = ProviderContainer(
       overrides: [
         accountRepositoryProvider.overrideWithValue(repository),
         draftStoreProvider.overrideWithValue(drafts),
+        appleWithdrawalCodeProvider.overrideWithValue(apple),
       ],
     );
     addTearDown(container.dispose);
@@ -46,6 +51,58 @@ void main() {
 
     expect(status(), AccountStatus.withdrawn);
     expect(container.read(withdrawViewModelProvider).errorMessage, isNull);
+  });
+
+  test('애플 사용자는 애플 창이 준 코드를 탈퇴 요청에 싣는다', () async {
+    apple.code = 'apple-one-time-code';
+
+    await viewModel().withdraw();
+
+    expect(apple.obtainCalls, 1);
+    expect(repository.withdrawAppleCodes, ['apple-one-time-code']);
+    expect(status(), AccountStatus.withdrawn);
+  });
+
+  test('코드가 없어도(카카오 · 구글, 애플 창을 닫거나 실패) 그대로 탈퇴한다', () async {
+    await viewModel().withdraw();
+
+    expect(repository.withdrawAppleCodes, [null]);
+    expect(status(), AccountStatus.withdrawn);
+  });
+
+  test('애플 창이 떠 있는 동안 다시 눌러도 창도 서버 요청도 한 번이다', () async {
+    apple.hold = Completer<void>();
+
+    final first = viewModel().withdraw();
+    expect(container.read(withdrawViewModelProvider).isSubmitting, isTrue);
+    await viewModel().withdraw();
+    apple.hold!.complete();
+    await first;
+
+    expect(apple.obtainCalls, 1);
+    expect(repository.withdrawCalls, 1);
+  });
+
+  test('애플 창이 떠 있는 동안 시트가 닫혀 ViewModel 이 버려져도 탈퇴는 끝까지 간다', () async {
+    apple.hold = Completer<void>();
+    final scoped = ProviderContainer(
+      overrides: [
+        accountRepositoryProvider.overrideWithValue(repository),
+        draftStoreProvider.overrideWithValue(drafts),
+        appleWithdrawalCodeProvider.overrideWithValue(apple),
+      ],
+    );
+    addTearDown(scoped.dispose);
+    final subscription = scoped.listen(withdrawViewModelProvider, (_, _) {});
+    final pending = scoped.read(withdrawViewModelProvider.notifier).withdraw();
+
+    subscription.close(); // 시트가 닫혔다(autoDispose)
+    await Future<void>.delayed(Duration.zero);
+    apple.hold!.complete();
+    await pending;
+
+    expect(repository.withdrawCalls, 1);
+    expect(scoped.read(accountStatusListenableProvider).value, AccountStatus.withdrawn);
   });
 
   test('withdrawn 401 on retry counts as success', () async {
@@ -121,6 +178,7 @@ void main() {
       overrides: [
         accountRepositoryProvider.overrideWithValue(repository),
         draftStoreProvider.overrideWithValue(_BrokenDraftStore()),
+        appleWithdrawalCodeProvider.overrideWithValue(apple),
       ],
     );
     addTearDown(broken.dispose);
