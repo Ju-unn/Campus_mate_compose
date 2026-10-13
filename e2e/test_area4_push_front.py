@@ -1,4 +1,4 @@
-"""영역 4 PUSH A3(앱이 앞에 있을 때 알림은 안 뜨고 화면만 바뀌는지 7개) 시험 — 폰 · 운영 없이 가짜 HTTP · 가짜 알림창 · 가짜 앱.
+"""영역 4 PUSH A3(앱이 앞에 있을 때 알림 · 화면 7개 — #503 뒤 열린 방이 아니면 앞에서도 알림이 뜬다) 시험 — 폰 · 운영 없이 가짜 HTTP · 가짜 알림창 · 가짜 앱.
 저장소 루트에서 `python -m unittest e2e.test_area4_push_front`.
 
 계정은 만든 순서대로 id-1(폰 계정 · Mina) · id-2(상대 · Jiho) · id-3(대조 · Ctlx), 토큰은 tok-1 · tok-2 · tok-3.
@@ -50,12 +50,19 @@ class FrontBase(PushBase):
         patcher = mock.patch.object(area4_push_front, 'time', SimpleNamespace(sleep=lambda s: self.slept.append(s)))
         patcher.start()
         self.addCleanup(patcher.stop)
-        # 앞에 있는 동안은 알림이 안 뜨고, HOME 으로 내린 뒤에는 보낸 메시지가 알림으로 뜬다(대조) — 제목은 보낸 사람 닉네임
         self.default_rules()
 
+    def by_partner(self):
+        return self.world.callers[-1][2] == 'tok-2'
+
     def default_rules(self):
-        self.world.on('POST', '/messages', lambda b, u: [] if 'background' not in self.world.log else
-                      [(PARTNER if self.world.callers[-1][2] == 'tok-2' else CTL, b['body'])])
+        """#503 뒤 앱 — 앱이 앞이어도 상대 행동은 알림으로 뜬다. 지금 열린 방(29 · 30)의 메시지만 HOME 으로 내리기 전까지 안 뜬다
+        (29 는 서버 30초 창 · 30 은 앱이 그 방을 보고 있어 건너뜀). 메시지 제목은 보낸 사람 닉네임."""
+        in_room = lambda: 'app:room' in self.world.log and 'background' not in self.world.log  # noqa: E731
+        self.world.on('POST', '/messages', lambda b, u: [] if in_room() else [(PARTNER if self.by_partner() else CTL, b['body'])])
+        self.world.on('POST', '/decision', lambda b, u: [(ACCEPT, f'{PARTNER} 님이 대화를 신청했어요')] if self.by_partner() else [])
+        self.world.on('POST', '/cards/acceptances/', lambda b, u: [(MATCH, f'{PARTNER} 님이 신청을 수락했어요.')] if self.by_partner() else [])
+        self.world.on('POST', '/friend-reviews', lambda b, u: [(REVIEW, f'{PARTNER} 님이 리뷰를 남겼어요')] if self.by_partner() else [])
 
     def second_message_only(self):
         """31 — 첫 메시지는 알림이 없고(30초 안), 두 번째(40초 뒤)부터 뜬다."""
@@ -73,9 +80,13 @@ class FrontBase(PushBase):
     def callers_of(self, piece):
         return [who for m, p, who in self.world.callers if m == 'POST' and piece in p and who in ('tok-1', 'tok-2')]
 
+    def controls(self):
+        """대조 상대(tok-3)가 보낸 메시지 — HOME 대조를 했다는 흔적."""
+        return [p for m, p, who in self.world.callers if m == 'POST' and p.endswith('/messages') and who == 'tok-3']
+
 
 class EachCaseTest(FrontBase):
-    def test_all_seven_pass_when_nothing_pops_up_and_the_screen_changes(self):
+    def test_all_seven_pass_when_the_front_notices_pop_up_the_room_stays_silent_and_the_screen_changes(self):
         for number in NUMBERS:
             with self.subTest(number=number):
                 self.world.reset()
@@ -104,26 +115,85 @@ class EachCaseTest(FrontBase):
                 self.assertEqual(phone.jobs[0]['nickname'], PARTNER)
 
 
-class NothingPopsUpTest(FrontBase):
-    """14 · 20 · 29 · 30 · 53 · 82 — 앞에 있는 동안 알림이 0개여야 하고, 그 뒤 HOME 에서 대조 알림이 와야 믿는다."""
+FRONT = {'14': (ACCEPT, f'{PARTNER} 님이 대화를 신청했어요'), '20': (MATCH, f'{PARTNER} 님이 신청을 수락했어요.'),
+         '53': (REVIEW, f'{PARTNER} 님이 리뷰를 남겼어요'), '82': (PARTNER, None)}  # 82 본문은 상대가 보낸 글
 
-    def test_the_partner_acts_while_the_app_is_in_front_then_the_app_goes_home_for_the_control(self):
-        self.go_front('14')
-        self.assertLess(self.at('read')[0], self.at('POST cards/')[-1] if self.at('POST cards/') else 10 ** 6)
-        self.assertLess(self.at('POST cards/')[-1], self.at('background')[0])  # 상대 행동 → 앞에서 지켜보기 → HOME → 대조
-        self.assertLess(self.at('background')[0], self.at('POST chat/')[-1])
-        self.assertEqual(self.world.log[-1], 'revoke')
 
-    def test_a_notice_that_pops_up_in_front_is_a_fail_and_no_control_is_needed(self):
-        self.world.on('POST', '/decision', lambda b, u: [(ACCEPT, f'{PARTNER} 님이 대화를 신청했어요')])
+class FrontNoticeTest(FrontBase):
+    """14 · 20 · 53 · 82 — #503 뒤 안드로이드 앱은 앞에 있어도 시스템 알림을 띄운다(열린 방만 건너뜀). 앞에서 그 알림이 정확히 1개여야 pass,
+    온 알림이 길이 살아 있다는 증거라 HOME 대조는 없다."""
+
+    def test_the_notice_pops_up_while_the_app_stays_in_front_and_the_phone_never_goes_home(self):
+        for number, (title, text) in FRONT.items():
+            with self.subTest(number=number):
+                self.world.reset()
+                self.default_rules()
+                self.watched.clear()
+                result = self.go_front(number)
+                self.assertEqual(result[0], 'pass', (number, result))
+                self.assertNotIn('background', self.world.log)  # 앞에 둔 채 판정 — HOME 으로 내리지 않는다
+                self.assertEqual(self.controls(), [])  # 대조 메시지 없음
+                self.assertIn(('wait', area4_push_front.NOTICE_WAIT, True), self.watched)  # 아무 알림이 아니라 그 제목 · 본문을 기다린다
+                self.assertIn(('watch', area4_push_front.SETTLE), self.watched)  # 온 뒤 같은 알림이 또 오는지 더 본다
+                shown = [(n.title, n.text) for n in self.world.shade if n.title == title]
+                self.assertEqual(len(shown), 1, shown)
+                if text is not None:
+                    self.assertEqual(shown[0][1], text)
+
+    def test_no_notice_in_front_is_a_fail_not_blocked(self):
+        for number in FRONT:
+            with self.subTest(number=number):
+                self.world.reset()  # 규칙 없음 — 앞에서 아무것도 안 뜬다(#503 이전 앱 · 회귀)
+                result = self.go_front(number)
+                self.assertEqual(result[0], 'fail', (number, result))
+                self.assertIn('없음', result[1])
+                self.assertEqual(self.controls(), [])  # HOME 대조를 보내지 않는다 — 안 온 것은 그대로 fail
+
+    def test_other_words_are_a_fail(self):
+        self.world.rules.clear()
+        self.world.on('POST', '/decision', lambda b, u: [(ACCEPT, '다른 님이 대화를 신청했어요')] if self.by_partner() else [])
         result = self.go_front('14')
         self.assertEqual(result[0], 'fail')
+        self.assertIn(f'{PARTNER} 님이 대화를 신청했어요', result[1])  # 기다린 문구를 이름 댄다(이 가짜 wait_new 는 match 로 걸러 엉뚱한 알림은 메모에 안 남는다)
+
+    def test_two_of_the_same_notice_is_a_fail(self):
+        self.world.rules.clear()
+        self.world.on('POST', '/cards/acceptances/', lambda b, u: [(MATCH, f'{PARTNER} 님이 신청을 수락했어요.')] * 2 if self.by_partner() else [])
+        result = self.go_front('20')
+        self.assertEqual(result[0], 'fail')
+        self.assertIn('2', result[1])
+
+
+class RoomSilentTest(FrontBase):
+    """29 · 30 — 열린 방 안. 29 는 서버가 안 보내고(30초 창), 30 은 서버가 보내도 앱이 지금 방이라 건너뛴다. 앞에서 0개 → HOME 대조가 와야 믿는다."""
+
+    def test_the_partner_sends_while_the_room_is_open_then_the_app_goes_home_for_the_control(self):
+        for number in ('29', '30'):
+            with self.subTest(number=number):
+                self.world.reset()
+                self.default_rules()
+                result = self.go_front(number)
+                self.assertEqual(result[0], 'pass', (number, result))
+                self.assertLess(self.at('read')[0], self.at('POST chat/')[0])
+                self.assertLess(self.at('POST chat/')[0], self.at('background')[0])  # 상대 메시지 → 앞에서 지켜보기 → HOME → 대조
+                self.assertLess(self.at('background')[0], self.at('POST chat/')[-1])
+                self.assertEqual(self.world.log[-1], 'revoke')
+
+    def test_a_message_that_pops_up_in_the_open_room_is_a_fail_and_no_control_is_needed(self):
+        self.world.rules.clear()
+        self.world.on('POST', '/messages', lambda b, u: [(PARTNER, b['body'])])  # 열린 방인데도 뜬다
+        result = self.go_front('30')
+        self.assertEqual(result[0], 'fail')
         self.assertIn('안 와야 할', result[1])
-        self.assertEqual(self.callers_of('/messages'), [])
+        self.assertEqual(self.callers_of('/messages'), ['tok-2'])
 
     def test_a_control_that_never_arrives_is_blocked_not_a_pass(self):
         self.world.rules.clear()  # 대조 알림이 안 뜬다
-        self.assertEqual(self.go_front('14')[0], 'blocked')
+        self.assertEqual(self.go_front('29')[0], 'blocked')
+
+
+class ScreenTest(FrontBase):
+    """앱이 본 화면 — 저절로 바뀌었는지 · 앞에 머물렀는지."""
 
     def test_the_screen_not_changing_is_a_fail(self):
         for number, key in (('14', 'row'), ('20', 'row'), ('29', 'body'), ('82', 'badge')):
@@ -197,8 +267,9 @@ class ThirtyOneTest(FrontBase):
 
     def test_the_control_must_be_the_message_that_was_sent_not_any_new_notification(self):
         self.world.rules.clear()
-        self.world.on('POST', '/messages', lambda b, u: [(CTL, '엉뚱한 알림')])  # 대조 메시지 대신 다른 알림이 뜬다
-        self.assertEqual(self.go_front('14')[0], 'blocked')
+        # 방 안(29)에서는 0개, HOME 뒤 대조 메시지 대신 다른 알림이 뜬다
+        self.world.on('POST', '/messages', lambda b, u: [(CTL, '엉뚱한 알림')] if 'background' in self.world.log else [])
+        self.assertEqual(self.go_front('29')[0], 'blocked')
 
     def test_a_notification_for_the_first_message_is_a_fail(self):
         self.world.rules.clear()
