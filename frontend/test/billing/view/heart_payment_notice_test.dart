@@ -45,6 +45,16 @@ void main() {
     expect((refund.top - store.bottom, terms.top - refund.bottom), (4, 4));
   });
 
+  testWidgets('iOS 는 App Store 판 두 줄(pen 후속) — 구글 플레이를 말하지 않고 모양은 같다', (tester) async {
+    await pump(tester);
+
+    expect(find.text('결제는 App Store로 처리돼요'), findsOneWidget);
+    expect(find.text('결제 취소 · 환불은 App Store 환불 절차를 따라요'), findsOneWidget);
+    expect(find.textContaining('구글'), findsNothing);
+    final style = tester.widget<Text>(find.text('결제는 App Store로 처리돼요')).style!;
+    expect((style.fontSize, style.color, style.height), (12, AppColors.muted, 1.5));
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
   testWidgets('"환불" 은 있어도 하네스 금지어(환급 · 선물 · 송금 · 현금 · 출금)는 없다(E-HEART-49)', (tester) async {
     await pump(tester);
 

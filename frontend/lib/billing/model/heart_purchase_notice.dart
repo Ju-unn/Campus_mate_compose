@@ -1,3 +1,4 @@
+import 'package:campus_mate/billing/model/payment_store.dart';
 import 'package:campus_mate/common/failure.dart';
 
 /// 하트 구매 안내 · 오류(pen 15e-8 `JGoPI`, 계획서 7-2 표). [caption] 이 있으면 앱바 아래 배너(pen Alert `teNRJ`),
@@ -26,23 +27,35 @@ enum HeartPurchaseNotice {
   /// 배너 `wvbOe`(info) — 서버 409 purchase_other_account.
   otherAccount('다른 계정으로 결제한 하트예요', caption: '결제한 계정으로 로그인하면 들어와요'),
 
-  /// 빨간 배너 `YOhKL` — 스토어를 쓸 수 없음 · 가격 0개.
-  unavailable('지금은 하트를 살 수 없어요', caption: '구글 플레이에 로그인했는지 확인해 주세요', isError: true);
+  /// 빨간 배너 `YOhKL` — 스토어를 쓸 수 없음 · 가격 0개. App Store 설명은 pen 에 없다(후속) — 스토어 이름만 바꿨다.
+  unavailable(
+    '지금은 하트를 살 수 없어요',
+    caption: '구글 플레이에 로그인했는지 확인해 주세요',
+    appStoreCaption: 'App Store에 로그인했는지 확인해 주세요',
+    isError: true,
+  );
 
-  const HeartPurchaseNotice(this.title, {this.caption, this.isError = false});
+  const HeartPurchaseNotice(this.title, {this.caption, this.appStoreCaption, this.isError = false});
 
   final String title;
   final String? caption;
+
+  /// App Store 에서 다르게 말하는 설명(스토어 이름이 든 것만). 없으면 [caption] 을 그대로 쓴다.
+  final String? appStoreCaption;
 
   /// 빨간 오류 배너(pen 채움 #FAEFEC · 글자 #C13515).
   final bool isError;
 
   bool get isBanner => caption != null;
 
+  /// 이 기기 스토어에 맞춘 설명 — 배너가 그린다.
+  String? captionOn(PaymentStore store) => store == PaymentStore.appStore ? appStoreCaption ?? caption : caption;
+
   /// 같은 구매 토큰을 다시 보내도 서버 답이 바뀌지 않는다 — 이 앱이 켜져 있는 동안은 다시 보내지 않는다.
   bool get isFinalForToken => this == alreadyProcessed || this == invalid || this == otherAccount;
 
-  /// POST /billing/google/verify 실패. 서버 code 로 가르고, 그 밖(503 · 네트워크 · 500 · 관문)은 모두 지급 지연이다 —
+  /// POST /billing/google/verify · /billing/apple/verify 실패(두 서버가 같은 code 를 쓴다). 서버 code 로 가르고, 그 밖
+  /// (503 billing_unavailable · apple_not_configured · 네트워크 · 500 · 관문)은 모두 지급 지연이다 —
   /// 구매를 끝내지 않았으니 다음 복구(앱 시작 · 상점 진입 · 복귀)에서 다시 보낸다.
   static HeartPurchaseNotice fromVerifyFailure(Failure failure) {
     if (failure is! ServerRejectedFailure) return delayed;

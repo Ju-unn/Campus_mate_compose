@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:campus_mate/billing/model/heart_bundles.dart';
 import 'package:campus_mate/billing/model/heart_purchase_notice.dart';
+import 'package:campus_mate/billing/model/payment_store.dart';
 import 'package:campus_mate/billing/view/heart_bundle_card.dart';
 import 'package:campus_mate/billing/view/heart_payment_notice.dart';
 import 'package:campus_mate/billing/view/heart_purchase_banner.dart';
@@ -37,9 +38,9 @@ const String _heroAsset = 'assets/images/heart-value-scene.png';
 /// 15e 하트 상점(pen `IAy1j` · 인앱결제 시안 6b `W50VA`). 보유 하트 · 하트 번들 구매 · 무료로 모으기.
 /// 입구: 홈 · 나 탭 앱바 하트 칩 "+" · 설정 보유 하트 블록 · 15b 시트 "충전하기".
 ///
-/// 구매(안드로이드만): 카드 = 선택 → 하단 바 → 구매 확인 시트(18d) → 결제 창 → 서버 확인 → 하트. 상태는 앱 수명 동안 사는
+/// 구매(안드로이드 · iOS): 카드 = 선택 → 하단 바 → 구매 확인 시트(18d) → 결제 창 → 서버 확인 → 하트. 상태는 앱 수명 동안 사는
 /// [heartPurchaseViewModelProvider] 하나가 들고 있고, 이 화면은 들어올 때마다 다시 읽게 한다(가격 · 자격 · 지난 결제 복구).
-/// iOS · 웹은 구매 섹션과 하단 바를 숨긴다(15e-9 `GKEM9` — 애플 결제는 후속).
+/// 웹 · 데스크톱은 구매 섹션과 하단 바를 숨긴다(15e-9 `GKEM9`). 스토어 이름이 든 글자는 기기 스토어를 따른다(App Store 판은 pen 후속).
 class HeartStoreScreen extends ConsumerStatefulWidget {
   const HeartStoreScreen({super.key});
 
@@ -101,7 +102,7 @@ class _HeartStoreScreenState extends ConsumerState<HeartStoreScreen> {
       body: Column(
         children: [
           // 배너는 앱바 바로 아래, 본문을 밀어 내린다(pen 15e-6 `xJ0HR` y56 · 본문 y123).
-          if (banner != null) HeartPurchaseBanner(notice: banner),
+          if (banner != null) HeartPurchaseBanner(notice: banner, store: ref.watch(paymentStoreProvider)),
           Expanded(
             child: Stack(
               children: [
