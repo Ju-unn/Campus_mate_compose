@@ -24,12 +24,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+/// 대화 탭이 떠 있는 동안 대화 목록을 조용히 다시 읽는 간격(2026-10-13 대장 결정). 서버가 방에서 나온 뒤 30초 동안
+/// 새 메시지 푸시를 보내지 않아, 푸시만으로는 그 사이 온 답장이 목록에 안 뜬다.
+const Duration conversationsPollInterval = Duration(seconds: 5);
+
 /// 대화(DESIGN.md 화면 13, pen `CeqVY`). **받은 신청**(위) + **보낸 신청**(가운데, 2026-10-13 사용자 결정 B · pen `ULllO`)
 /// + **대화 중**(아래) 세 섹션이고, 섹션은 각자 provider 를 보며 서로를 모른다. §8.6 의 "건수가 0이면 섹션을 그리지 않는다".
 ///
 /// 이 화면에 **들어올 때마다**(탭을 옮겨 돌아올 때 포함) 세 목록과 안 읽은 수를 **조용히** 다시 읽는다 —
 /// 실패해도 이미 보이는 줄은 그대로고 오류 줄을 새로 띄우지 않는다. 앱이 백그라운드에서 돌아올 때는 앱 루트가
 /// 읽는다(`core/lifecycle/resume_refresh.dart`). 실시간 구독은 쓰지 않는다 — 읽는 중이면 뷰모델 가드가 겹침을 막는다.
+///
+/// 화면이 맨 위에 보이고 앱이 앞에 있는 동안은 [conversationsPollInterval] 마다 **대화 목록만** 조용히 다시 읽는다 —
+/// 푸시가 안 오는 사이(방에서 나온 뒤 30초 등)의 새 메시지 · 새 방 · 안 읽은 수가 반영된다. 탭을 옮기거나 다른 화면이
+/// 덮거나 앱이 백그라운드로 가면 멈춘다. 받은 신청 · 보낸 신청은 폴링하지 않는다.
 ///
 /// 10b 에서 대화 신청을 보내고 넘어오면(`SentRequestsViewModel.announceSent`) 토스트를 한 번 띄우고, 목록이 다 그려진 뒤
 /// 보낸 신청 헤더가 받은 신청 고정 헤더 바로 아래에 오도록 한 번 내린다(pen `Q1322I`). 새 줄을 따로 강조하지 않는다.
@@ -46,9 +54,24 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
   /// 신청을 보내고 넘어와 아직 보낸 신청 자리로 내리지 않았다.
   bool _revealSent = false;
 
+  Timer? _pollTimer;
+
+  /// 앱이 백그라운드로 가면 멈추고 돌아오면 다시 건다. 돌아온 직후의 읽기는 앱 루트가 한다(`resume_refresh.dart`).
+  late final AppLifecycleListener _lifecycle;
+  bool _appInForeground = true;
+
+  /// 이 화면이 맨 위 경로인가. 상세 · 채팅방이나 다이얼로그가 덮으면 false — 가려진 목록은 읽지 않는다.
+  bool _onTop = true;
+
   @override
   void initState() {
     super.initState();
+    _lifecycle = AppLifecycleListener(
+      onStateChange: (state) {
+        _appInForeground = state == AppLifecycleState.resumed;
+        _syncPolling();
+      },
+    );
     _revealSent = ref.read(sentRequestsViewModelProvider.notifier).takeJustSent();
     if (_revealSent) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -57,6 +80,36 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
     }
     unawaited(ref.read(acceptancesViewModelProvider.notifier).refresh(quiet: true));
     unawaited(ref.read(sentRequestsViewModelProvider.notifier).refresh(quiet: true));
+    unawaited(ref.read(conversationsViewModelProvider.notifier).refresh(quiet: true));
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 이 경로가 맨 위에서 벗어나거나 돌아올 때 다시 불린다(ModalRoute.isCurrentOf 가 변화를 구독한다).
+    _onTop = ModalRoute.isCurrentOf(context) ?? true;
+    _syncPolling();
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    _lifecycle.dispose();
+    super.dispose();
+  }
+
+  /// 화면이 보이고 앱이 앞에 있을 때만 타이머를 돌린다(`student_verification_screen.dart` 의 폴링과 같은 방식).
+  void _syncPolling() {
+    if (!_appInForeground || !_onTop) {
+      _pollTimer?.cancel();
+      _pollTimer = null;
+      return;
+    }
+    _pollTimer ??= Timer.periodic(conversationsPollInterval, (_) => _pollConversations());
+  }
+
+  /// 조용히 읽는다 — 실패해도 있던 줄은 그대로고 오류 줄은 없다(다음 주기에 다시). 읽는 중이면 뷰모델 가드가 합쳐 겹치지 않는다.
+  void _pollConversations() {
     unawaited(ref.read(conversationsViewModelProvider.notifier).refresh(quiet: true));
   }
 

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/chat/model/message.dart';
 import 'package:campus_mate/chat/view/chat_list_row.dart';
+import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
@@ -609,6 +610,164 @@ void main() {
 
       expect(find.text(const NetworkFailure().toDisplayMessage()), findsOneWidget);
       expect(find.text('여우비'), findsOneWidget);
+    });
+  });
+
+  // 목록은 실시간 구독을 쓰지 않으니, 푸시가 없는 사이(방에서 나온 뒤 30초 등)의 새 메시지는 폴링으로 맞춘다.
+  group('대화 탭이 떠 있는 동안 5초마다 대화 목록을 조용히 다시 읽는다', () {
+    late FakeChatRepository chat;
+    late FakeCardRepository cards;
+    late ProviderContainer container;
+    final navigatorKey = GlobalKey<NavigatorState>();
+
+    setUp(() {
+      chat = FakeChatRepository()..conversations = Success([conversationFixture(unreadCount: 2)]);
+      cards = FakeCardRepository();
+      container = ProviderContainer(
+        overrides: [
+          cardRepositoryProvider.overrideWithValue(cards),
+          chatRepositoryProvider.overrideWithValue(chat),
+        ],
+      );
+      addTearDown(container.dispose);
+    });
+
+    Future<void> openScreen(WidgetTester tester) async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(navigatorKey: navigatorKey, home: const ConversationsScreen()),
+        ),
+      );
+      await tester.pump();
+    }
+
+    void background(WidgetTester tester) {
+      for (final state in [AppLifecycleState.inactive, AppLifecycleState.hidden, AppLifecycleState.paused]) {
+        tester.binding.handleAppLifecycleStateChanged(state);
+      }
+    }
+
+    void foreground(WidgetTester tester) {
+      for (final state in [AppLifecycleState.hidden, AppLifecycleState.inactive, AppLifecycleState.resumed]) {
+        tester.binding.handleAppLifecycleStateChanged(state);
+      }
+    }
+
+    testWidgets('간격은 5초 하나다', (tester) async {
+      expect(conversationsPollInterval, const Duration(seconds: 5));
+    });
+
+    testWidgets('5초가 되기 전에는 다시 읽지 않고, 5초마다 한 번씩 읽는다', (tester) async {
+      await openScreen(tester);
+      expect(chat.conversationsFetchCount, 1);
+
+      await tester.pump(conversationsPollInterval - const Duration(milliseconds: 1));
+      expect(chat.conversationsFetchCount, 1);
+
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(chat.conversationsFetchCount, 2);
+
+      await tester.pump(conversationsPollInterval);
+      expect(chat.conversationsFetchCount, 3);
+    });
+
+    testWidgets('푸시 없이도 새 메시지와 안 읽은 수가 목록과 하단 내비 숫자에 바뀐다', (tester) async {
+      await openScreen(tester);
+      expect(find.text('내일 시간 괜찮으세요?'), findsOneWidget);
+      chat.conversations = Success([
+        conversationFixture(lastMessage: '답장 왔어요', unreadCount: 5),
+        conversationFixture(matchId: 'm2', nickname: '새방', unreadCount: 1),
+      ]);
+
+      await tester.pump(conversationsPollInterval);
+      await tester.pump();
+
+      expect(find.text('답장 왔어요'), findsOneWidget);
+      expect(find.text('새방'), findsOneWidget);
+      expect(container.read(chatBadgeCountProvider), 6);
+    });
+
+    testWidgets('읽는 동안에도 스켈레톤 없이 있던 줄이 그대로 보인다', (tester) async {
+      await openScreen(tester);
+      chat.holdConversations = Completer<void>();
+
+      await tester.pump(conversationsPollInterval);
+
+      expect(chat.conversationsFetchCount, 2);
+      expect(find.text('여우비'), findsOneWidget);
+      chat.holdConversations!.complete();
+      await tester.pump();
+    });
+
+    testWidgets('읽는 중에 5초가 또 지나도 겹쳐 부르지 않고, 끝난 뒤 다음 주기에 읽는다', (tester) async {
+      await openScreen(tester);
+      chat.holdConversations = Completer<void>();
+
+      await tester.pump(conversationsPollInterval * 3);
+      expect(chat.conversationsFetchCount, 2);
+
+      chat.holdConversations!.complete();
+      chat.holdConversations = null;
+      await tester.pump();
+      await tester.pump(conversationsPollInterval);
+      expect(chat.conversationsFetchCount, 3);
+    });
+
+    testWidgets('읽기가 실패해도 있던 줄은 남고 오류 문구는 없으며, 다음 주기에 다시 읽어 되살아난다', (tester) async {
+      await openScreen(tester);
+      chat.conversations = const FailureResult(NetworkFailure());
+
+      await tester.pump(conversationsPollInterval);
+      await tester.pump();
+
+      expect(chat.conversationsFetchCount, 2);
+      expect(find.text('여우비'), findsOneWidget);
+      expect(find.text(const NetworkFailure().toDisplayMessage()), findsNothing);
+
+      chat.conversations = Success([conversationFixture(lastMessage: '다시 연결됐어요')]);
+      await tester.pump(conversationsPollInterval);
+      await tester.pump();
+
+      expect(chat.conversationsFetchCount, 3);
+      expect(find.text('다시 연결됐어요'), findsOneWidget);
+    });
+
+    testWidgets('앱이 백그라운드에 있는 동안은 읽지 않고, 돌아오면 다시 5초마다 읽는다', (tester) async {
+      await openScreen(tester);
+
+      background(tester);
+      await tester.pump(conversationsPollInterval * 6);
+      expect(chat.conversationsFetchCount, 1);
+
+      foreground(tester);
+      await tester.pump(conversationsPollInterval);
+      expect(chat.conversationsFetchCount, 2);
+    });
+
+    testWidgets('다른 화면이 위에 덮이면(상세 · 채팅방) 읽지 않고, 닫히면 다시 읽는다', (tester) async {
+      await openScreen(tester);
+
+      unawaited(navigatorKey.currentState!.push(MaterialPageRoute<void>(builder: (_) => const Text('방'))));
+      await tester.pumpAndSettle();
+      final before = chat.conversationsFetchCount;
+      await tester.pump(conversationsPollInterval * 6);
+      expect(chat.conversationsFetchCount, before);
+
+      navigatorKey.currentState!.pop();
+      await tester.pumpAndSettle();
+      await tester.pump(conversationsPollInterval);
+      expect(chat.conversationsFetchCount, before + 1);
+    });
+
+    testWidgets('화면을 떠나면 타이머가 접혀 더 읽지 않는다', (tester) async {
+      await openScreen(tester);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      final before = chat.conversationsFetchCount;
+      await tester.pump(conversationsPollInterval * 6);
+
+      expect(chat.conversationsFetchCount, before);
     });
   });
 }
