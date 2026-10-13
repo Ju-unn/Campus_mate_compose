@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.cards.repository import CardRepository
 from app.cards.router import is_active, profile_detail
+from app.chat.realtime import Broadcaster
 from app.chat.repository import ChatRepository
 from app.chat.router import avatar_url, latest_avatar_path, revealed_contact
 from app.community.repository import CommunityRepository
@@ -79,7 +80,9 @@ class _Wiring:
         # PostgREST 가 돌려주는 id 는 문자열이라 비교가 되게 str 로 맞춘다.
         self.profile_id = str(profile_id)
         self.repo = SafetyRepository(settings.postgrest_url, key, client)
-        self.chat = ChatRepository(settings.postgrest_url, key, client, encryption_key=settings.phone_encryption_key)
+        # 차단은 /leave 와 같은 함수로 나간다 — 남은 사람에게 가는 실시간 이벤트도 글자까지 같다.
+        self.chat = ChatRepository(settings.postgrest_url, key, client, encryption_key=settings.phone_encryption_key,
+                                   broadcaster=Broadcaster(settings.supabase_url, key, client))
         self.cards = CardRepository(settings.postgrest_url, key, client)
         self.photos = ProfilePhotoStorage(settings.storage_url, key, client)
         self.now = now
