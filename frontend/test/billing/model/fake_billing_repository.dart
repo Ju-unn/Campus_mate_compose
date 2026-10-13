@@ -32,6 +32,9 @@ class FakeBillingRepository implements BillingRepository {
   /// 채워 두면 verify 가 이것이 끝날 때까지 멈춘다 — "결제 확인 중" 모양 · 차례 확인용.
   Completer<void>? holdVerify;
 
+  /// 채워 두면 fetchStatus 가 이것이 끝날 때까지 멈춘다 — 지급 뒤 첫 구매 자격 다시 읽기 사이를 본다.
+  Completer<void>? holdStatus;
+
   /// verify 가 지금 몇 개 동시에 돌고 있는지(차례대로 보내는지 본다).
   int running = 0;
   int maxRunning = 0;
@@ -39,6 +42,7 @@ class FakeBillingRepository implements BillingRepository {
   @override
   Future<Result<BillingStatus>> fetchStatus() async {
     statusCount++;
+    await holdStatus?.future;
     return status;
   }
 

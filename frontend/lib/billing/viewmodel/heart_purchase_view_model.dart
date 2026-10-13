@@ -31,7 +31,7 @@ class HeartPurchaseViewModel extends Notifier<HeartPurchaseUiState> {
   /// 결제 결과를 하나씩 차례로 처리한다(서버 확인이 겹치지 않게).
   Future<void> _queue = Future.value();
 
-  /// 서버로 보내는 중인 토큰 — 같은 구매가 결제 창 · 복구로 두 번 와도 한 번만 보낸다.
+  /// 서버로 보내 처리(지급 뒤 자격 다시 읽기까지)하는 중인 토큰 — 같은 구매가 결제 창 · 복구로 두 번 와도 한 번만 보낸다.
   final Set<String> _inFlight = {};
 
   /// 다시 보내도 답이 같은 토큰(다른 계정 · 이미 처리 · 환불 · 확인 실패). 이 뷰모델이 사는 동안(= 이 로그인) 다시 보내지 않는다.
@@ -166,12 +166,13 @@ class HeartPurchaseViewModel extends Notifier<HeartPurchaseUiState> {
       if (ref.mounted) _onRejected(token, const UnknownFailure());
       return;
     }
-    _inFlight.remove(token);
     if (!ref.mounted) return;
     await result.when(
       onSuccess: (outcome) => _onVerified(token, outcome),
       onFailure: (failure) async => _onRejected(token, failure),
     );
+    // 처리가 끝난 뒤에 푼다 — 지급 뒤 자격을 다시 읽는(_reloadBonus) 사이에 같은 토큰이 복구로 또 와도 다시 보내지 않게.
+    _inFlight.remove(token);
   }
 
   /// 이 기기 스토어의 서버 확인 — 구글은 구매 토큰, 애플은 거래 번호를 보낸다.

@@ -373,6 +373,19 @@ void main() {
       expect(repo.maxRunning, 1);
     });
 
+    test('지급 뒤 첫 구매 자격을 다시 읽는 사이에 같은 토큰이 또 와도(복귀 · 복구) 다시 보내지 않는다(구글 · 애플 같은 길)', () async {
+      final statusReads = repo.statusCount;
+      repo.holdStatus = Completer<void>();
+
+      await emit([const StorePurchased('heart_100', 'tok')]);
+      expect(repo.statusCount, statusReads + 1, reason: '자격 다시 읽기(/billing/status)에서 멈춰 있다');
+      await emit([const StorePurchased('heart_100', 'tok')]);
+      repo.holdStatus!.complete();
+      await pumpEventQueue();
+
+      expect(repo.verified, [('heart_100', 'tok')]);
+    });
+
     test('확인 중인 토큰이 복구로 또 와도(결제 창에서 돌아온 복귀) 한 번만 보낸다', () async {
       repo.holdVerify = Completer<void>();
       gateway.emit([const StorePurchased('heart_100', 'tok')]);
