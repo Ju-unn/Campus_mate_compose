@@ -5,6 +5,7 @@ import 'package:campus_mate/billing/model/billing_repository_provider.dart';
 import 'package:campus_mate/billing/model/heart_bundles.dart';
 import 'package:campus_mate/billing/model/heart_purchase_notice.dart';
 import 'package:campus_mate/billing/model/heart_store_gateway.dart';
+import 'package:campus_mate/billing/model/payment_store.dart';
 import 'package:campus_mate/billing/model/store_purchase.dart';
 import 'package:campus_mate/billing/viewmodel/heart_purchase_ui_state.dart';
 import 'package:campus_mate/common/failure.dart';
@@ -13,15 +14,19 @@ import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// 하트 구매를 이 기기에서 여는지. 이번 범위는 안드로이드(구글 플레이)뿐이다 — iOS · 웹은 구매 영역을 숨긴다(15e-9, 계획서 7-1).
-final heartPurchaseSupportedProvider = Provider<bool>((ref) => !kIsWeb && defaultTargetPlatform == TargetPlatform.android);
+/// 하트 구매를 이 기기에서 여는지 — 안드로이드(구글 플레이)와 iOS(App Store, 2026-10-14 사용자 결정 "첫 출시에 포함").
+/// 웹 · 데스크톱은 구매 영역을 숨긴다(15e-9). 어느 스토어인지는 paymentStoreProvider.
+final heartPurchaseSupportedProvider = Provider<bool>(
+  (ref) => !kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS),
+);
 
 /// 앱 수명 동안 하나(keepAlive). 로그인 뒤 관문이 열리면 앱 루트가 처음 읽어 결제 스트림 구독을 시작한다 — 상점이 닫혀 있어도
 /// 늦게 온 결제를 받는다. 로그아웃하면 SessionScope 가 컨테이너째 버려 다음 사람이 앞사람의 계정 표시를 물려받지 않는다.
 final heartPurchaseViewModelProvider =
     NotifierProvider<HeartPurchaseViewModel, HeartPurchaseUiState>(HeartPurchaseViewModel.new);
 
-/// 15e · 18d 하트 구매. 결제 창 → 서버 확인 → 하트. 구매를 끝내는(소비) 것은 서버다 — 앱은 끝내지 않는다.
+/// 15e · 18d 하트 구매. 결제 창 → 서버 확인 → 하트 → 끝내기. 끝내기([HeartStoreGateway.finish])는 서버가 하트를 넣었다고 답한
+/// 뒤에만 부른다 — 구글은 서버가 소비로 끝내 창구가 아무것도 하지 않고, 애플은 이때 거래를 끝낸다.
 class HeartPurchaseViewModel extends Notifier<HeartPurchaseUiState> {
   /// 결제 결과를 하나씩 차례로 처리한다(서버 확인이 겹치지 않게).
   Future<void> _queue = Future.value();
@@ -36,6 +41,7 @@ class HeartPurchaseViewModel extends Notifier<HeartPurchaseUiState> {
 
   HeartStoreGateway get _gateway => ref.read(heartStoreGatewayProvider);
   BillingRepository get _repository => ref.read(billingRepositoryProvider);
+  PaymentStore get _store => ref.read(paymentStoreProvider);
 
   @override
   HeartPurchaseUiState build() {
@@ -69,12 +75,14 @@ class HeartPurchaseViewModel extends Notifier<HeartPurchaseUiState> {
     final status = await _repository.fetchStatus();
     if (!ref.mounted) return;
     final loaded = status.when(onSuccess: (value) => value, onFailure: (_) => null);
-    if (prices.isEmpty || loaded == null) return _markUnavailable();
+    // 계정 표시는 이 기기 스토어의 것 — 구글용 64자를 애플에 싣지 않는다(애플은 UUID 만 받는다).
+    final accountToken = loaded?.accountTokenFor(_store);
+    if (prices.isEmpty || loaded == null || accountToken == null) return _markUnavailable();
     state = state.copyWith(
       availability: HeartStoreAvailability.available,
       prices: prices,
       bonus: loaded.bonus,
-      accountToken: loaded.accountToken,
+      accountToken: accountToken,
       banner: state.banner == HeartPurchaseNotice.unavailable ? null : state.banner,
     );
   }
@@ -150,7 +158,7 @@ class HeartPurchaseViewModel extends Notifier<HeartPurchaseUiState> {
     state = state.copyWith(phase: HeartPurchasePhase.verifying);
     final Result<PurchaseOutcome> result;
     try {
-      result = await _repository.verifyGoogle(purchase.productId, token);
+      result = await _send(purchase);
     } catch (_) {
       // 저장소는 Result 로만 답하기로 했지만, 계약 밖 오류 하나가 줄(_queue)을 끊으면 이 뒤 결제가 모두 멈춘다 —
       // 지급 지연으로 두고 토큰을 풀어 다음 복구 때 다시 보낸다(돈이 걸린 길이라 넓게 잡는다).
@@ -160,10 +168,21 @@ class HeartPurchaseViewModel extends Notifier<HeartPurchaseUiState> {
     }
     _inFlight.remove(token);
     if (!ref.mounted) return;
-    await result.when(onSuccess: _onVerified, onFailure: (failure) async => _onRejected(token, failure));
+    await result.when(
+      onSuccess: (outcome) => _onVerified(token, outcome),
+      onFailure: (failure) async => _onRejected(token, failure),
+    );
   }
 
-  Future<void> _onVerified(PurchaseOutcome outcome) async {
+  /// 이 기기 스토어의 서버 확인 — 구글은 구매 토큰, 애플은 거래 번호를 보낸다.
+  Future<Result<PurchaseOutcome>> _send(StorePurchased purchase) => switch (_store) {
+        PaymentStore.googlePlay => _repository.verifyGoogle(purchase.productId, purchase.purchaseToken),
+        PaymentStore.appStore => _repository.verifyApple(purchase.productId, purchase.purchaseToken),
+      };
+
+  Future<void> _onVerified(String token, PurchaseOutcome outcome) async {
+    // 하트가 들어갔다(새로 · 이미) — 이제야 끝낸다. 대기(202)는 아직 결제됨이 아니라 끝내지 않는다.
+    if (outcome is PurchaseGranted) unawaited(_gateway.finish(token));
     switch (outcome) {
       case PurchasePendingAtStore():
         state = state.copyWith(phase: HeartPurchasePhase.idle, banner: HeartPurchaseNotice.pending);
@@ -188,9 +207,13 @@ class HeartPurchaseViewModel extends Notifier<HeartPurchaseUiState> {
     status.when(onSuccess: (value) => state = state.copyWith(bonus: value.bonus), onFailure: (_) {});
   }
 
+  /// 거절 · 지연은 끝내지 않는다 — 애플은 끝내지 않은 거래를 다음 앱 시작 때 다시 준다(다른 계정이면 결제한 계정으로 로그인했을 때
+  /// 들어오고, 422 는 서버를 고친 뒤 다시 확인된다). 이미 처리(409 token_used)만은 하트가 이미 들어간 거래라 끝낸다 — 남겨 두면
+  /// StoreKit 이 같은 상품의 새 결제를 막는다.
   void _onRejected(String token, Failure failure) {
     final notice = HeartPurchaseNotice.fromVerifyFailure(failure);
     if (notice.isFinalForToken) _finished.add(token);
+    if (notice == HeartPurchaseNotice.alreadyProcessed) unawaited(_gateway.finish(token));
     final phase = notice == HeartPurchaseNotice.delayed ? HeartPurchasePhase.delayed : HeartPurchasePhase.idle;
     state = notice.isBanner
         ? state.copyWith(phase: phase, banner: notice)
