@@ -16,7 +16,11 @@ import google.auth.exceptions
 import httpx
 from google.auth.transport.requests import Request as GoogleAuthRequest
 
+from app.core.logs import show_info
+
 logger = logging.getLogger(__name__)
+# 무효 목록 응답 모양(INFO)이 Cloud Run 로그에 보이게 한다 — core/logs.py.
+show_info(logger)
 # httpx 는 INFO 에서 요청 주소를 찍는다 — 주소에 구매 토큰이 있다. 지금 루트 수준(WARNING)에서도 안 찍히지만,
 # 누가 INFO 를 켜도 새지 않게 못박는다.
 logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -138,6 +142,9 @@ class PlayApi:
             if not response.is_success:
                 raise PlayUnavailable(response.status_code)
             body = response.json()
+            # 키 이름만 남긴다(값에는 구매 토큰이 있다). 항목 없이 쪽 정보만 오는 등 다른 모양의 답을 가려낸다.
+            logger.info("구글 무효 목록 응답 keys=%s voidedPurchases=%d",
+                        sorted(body), len(body.get("voidedPurchases", [])))
             items += body.get("voidedPurchases", [])
             page = (body.get("tokenPagination") or {}).get("nextPageToken")
             if not page:
