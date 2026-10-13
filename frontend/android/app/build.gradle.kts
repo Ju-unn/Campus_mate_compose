@@ -38,6 +38,8 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
+        // flutter_local_notifications(2026-10-13 승인)가 요구한다 — 이 플러그인 build.gradle 이 켜 두어 앱도 켜야 빌드된다.
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -85,4 +87,9 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // 위 isCoreLibraryDesugaringEnabled 짝. 버전은 flutter_local_notifications 22.3.2 README · 플러그인 build.gradle 과 같다.
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
