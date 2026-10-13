@@ -1,11 +1,19 @@
 import hashlib
+import io
 from unittest.mock import AsyncMock
 
 import httpx
 import pytest
 from openai import AsyncOpenAI
+from PIL import Image
 
-from app.profile_onboarding.avatars import _STYLE_PROMPT_MAIN, AvatarGenerator, MAX_CONSECUTIVE_FAILURES, avatar_regen_cost
+from app.profile_onboarding.avatars import (
+    _STYLE_PROMPT_MAIN,
+    _STYLE_REFERENCE_BYTES,
+    AvatarGenerator,
+    MAX_CONSECUTIVE_FAILURES,
+    avatar_regen_cost,
+)
 
 # student_id_content_type 이 매직바이트로 JPEG 라고 인정하는 최소 바이트열.
 _JPEG_BYTES = b"\xff\xd8\xff" + b"0" * 32
@@ -117,6 +125,20 @@ async def test_generate_prompt_keeps_recognizable_face_of_the_original_person():
     # 옛 블라인드 화풍 지시가 새 프롬프트와 섞여 남으면 서로 모순된다.
     assert "Simplify only the face" not in prompt
     assert "two tall black oval dots" not in prompt
+
+
+# 화풍 참고 그림 = frontend/assets/images/person-f1-blind-v1.png 를 1024x1280 JPEG(품질 90)로 줄인 파일.
+# 시험 4장이 이 파일로 돌았다 — 다른 그림으로 바꾸면 다시 시험해야 한다.
+_STYLE_REFERENCE_SHA256 = "2dd029c76b8c956114f2eb7163720f4355dde48d28e4dcbcf99d4601159cdf51"
+
+
+def test_style_reference_is_the_tested_small_portrait_jpeg():
+    image = Image.open(io.BytesIO(_STYLE_REFERENCE_BYTES))
+    assert image.format == "JPEG"
+    assert image.size == (1024, 1280)
+    # 요청마다 같이 올라가는 파일이다 — 원본 PNG(약 2.4MB)를 그대로 넣으면 이 범위를 벗어난다.
+    assert 200_000 < len(_STYLE_REFERENCE_BYTES) < 500_000
+    assert hashlib.sha256(_STYLE_REFERENCE_BYTES).hexdigest() == _STYLE_REFERENCE_SHA256
 
 
 async def test_generate_returns_ready_on_first_success():
