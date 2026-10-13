@@ -8,6 +8,7 @@ from unittest import mock
 from urllib.parse import parse_qs, urlsplit
 
 from e2e import area1, area4, fake_private, notify, tools
+from e2e import area4_contacts  # noqa: F401 — 에뮬 묶음 area4-contacts 를 area1.BUNDLES 에 등록한다(단독 실행에서도 BundleTest 가 본다)
 from e2e.test_area1 import FakeServer, Base
 from e2e.test_area1_phone import APP_PASS, FakePhone
 from e2e.tools import Blocked, Reply

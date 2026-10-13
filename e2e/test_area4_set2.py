@@ -6,6 +6,7 @@ import unittest
 from unittest import mock
 
 from e2e import area1, area4, area4_set2, notify, tools
+from e2e import area4_extra, area4_set56, area4_terms  # noqa: F401 — area4-extra(-emu · -two) · area4-set56 · area4-terms 묶음을 등록한다(단독 실행에서도 RegistryTest 가 본다)
 from e2e.test_area1 import Base
 from e2e.test_area4 import FakeDb
 from e2e.test_area1_phone import APP_PASS, FakePhone

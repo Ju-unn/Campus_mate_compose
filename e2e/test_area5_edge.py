@@ -234,11 +234,20 @@ class RegistryTest(unittest.TestCase):
         self.assertIn(f"return '{NETWORK}';", failure)
         self.assertEqual(area5_edge.NETWORK, NETWORK)
 
-    def test_there_is_still_no_request_timeout_in_the_app(self):
+    def test_there_is_no_request_timeout_in_the_app_outside_the_allowed_places(self):
+        """E-EDGE-25 는 앱이 저장 요청(쓰기)을 시간 제한으로 끊지 않는다는 전제로 판정한다. `.timeout(` 은 허용된 세 곳에만 있다:
+        로그아웃 토큰 삭제 5초(push_registrar, 948009b4) · 조회 GET 만 15초(http_send readTimeout, #509) · 쓰기 가운데 읽음 PATCH 하나만 15초
+        (http_chat_repository markRead, 대장 결정 10-13). 그 밖의 쓰기(POST · PUT · DELETE, 읽음 말고의 PATCH)는 시간 제한이 없다 —
+        새 `.timeout(` 이 생기거나, GET 조건이 풀리거나, 끊는 쓰기가 읽음 PATCH 말고 다른 것이 되면 여기서 걸린다."""
         lib = tools.ROOT / 'frontend' / 'lib'
         counts = {p.relative_to(lib).as_posix(): p.read_text(encoding='utf-8').count('.timeout(') for p in lib.rglob('*.dart')}
-        allowed = {'core/push/push_registrar.dart': 1}  # 로그아웃 멈춤 수정(948009b4)의 토큰 삭제 5초 — 로그아웃 길만이라 E-EDGE-25 저장 요청과 무관
-        self.assertEqual({name: n for name, n in counts.items() if n}, allowed, 'E-EDGE-25 의 "요청 시간 제한 없음" 이 바뀌었다 — 기대값을 다시 본다')
+        allowed = {'core/push/push_registrar.dart': 1, 'core/http/http_send.dart': 1, 'chat/model/http_chat_repository.dart': 1}
+        self.assertEqual({name: n for name, n in counts.items() if n}, allowed, 'E-EDGE-25 의 "허용된 곳 밖에는 요청 시간 제한 없음" 이 바뀌었다 — 기대값을 다시 본다')
+        send = (lib / 'core' / 'http' / 'http_send.dart').read_text(encoding='utf-8')
+        self.assertIn("await (request.method == 'GET' ? pending.timeout(readTimeout) : pending)", send)  # 공용 전송은 GET 만 끊는다
+        chat = (lib / 'chat' / 'model' / 'http_chat_repository.dart').read_text(encoding='utf-8')
+        self.assertRegex(chat, r"Future<Result<void>> markRead\(String matchId\) => _api\s*\.send\('PATCH', '/chat/matches/\$matchId/read', \(_\) \{\}\)\s*"
+                               r"\.timeout\(readTimeout")  # 끊는 쓰기는 읽음 PATCH 하나
 
     def test_the_app_registers_the_seven_and_the_keys_match(self):
         text = dart('area5_edge.dart')
