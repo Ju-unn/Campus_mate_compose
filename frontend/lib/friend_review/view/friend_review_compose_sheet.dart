@@ -7,6 +7,7 @@ import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/friend_review/model/friend_review.dart';
 import 'package:campus_mate/friend_review/model/friend_review_tags.dart';
 import 'package:campus_mate/friend_review/view/friend_review_card.dart';
+import 'package:campus_mate/friend_review/view/line_break_limit_formatter.dart';
 import 'package:campus_mate/friend_review/viewmodel/friend_review_compose_ui_state.dart';
 import 'package:campus_mate/friend_review/viewmodel/friend_review_compose_view_model.dart';
 import 'package:campus_mate/safety/view/safety_actions.dart';
@@ -410,9 +411,17 @@ class _CommentBox extends StatelessWidget {
           TextField(
             controller: controller,
             onChanged: onChanged,
-            maxLines: null,
-            // 100자는 코드포인트로 센다 — 서버 len() 이 그렇게 센다(신고 메모 · 입력 바와 같은 formatter).
-            inputFormatters: [codePointLimitFormatter(friendReviewCommentMaxLength)],
+            // pen NHcsP 의 한마디 칸 h3SkMd(Textarea Zhq9p)는 빈 상태 104(글 1줄 22). minLines 1 이라 빈 칸은 104 그대로이고,
+            // 줄이 늘면 3줄(63)까지만 커진다(그때 칸 109). 3줄을 넘는 글(자동 줄 바꿈)은 칸 안에서 스크롤해 시트가 더 안 늘어난다.
+            // 엔터로 만든 줄은 아래 formatter 가 3줄로 막는다. minLines 를 안 주면 maxLines 만큼 처음부터 커져 pen 104 와 어긋난다.
+            minLines: 1,
+            maxLines: friendReviewCommentMaxLines,
+            inputFormatters: [
+              // 줄 바꿈 2개(3줄) 상한 먼저, 그다음 100자. 이 시트만 쓴다(신고 메모 · 입력 바는 줄 수 제한 없음).
+              lineBreakLimitFormatter(friendReviewCommentMaxLines),
+              // 100자는 코드포인트로 센다 — 서버 len() 이 그렇게 센다(신고 메모 · 입력 바와 같은 formatter).
+              codePointLimitFormatter(friendReviewCommentMaxLength),
+            ],
             style: AppTypography.bodySmall.copyWith(color: AppColors.ink, height: 1.5),
             decoration: InputDecoration.collapsed(
               hintText: _commentHint,

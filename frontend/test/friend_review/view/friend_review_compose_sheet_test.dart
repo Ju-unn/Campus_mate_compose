@@ -235,6 +235,75 @@ void main() {
       expect(find.text('100 / 100'), findsOneWidget);
       expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, '가' * 100);
     });
+
+    // pen h3SkMd(Textarea Zhq9p): 높이 104, 글 칸은 줄 바꿈 2개(3줄) 안에 든다. 엔터로 만든 줄만 3줄로 막는다.
+    String fieldText(WidgetTester tester) => tester.widget<TextField>(find.byType(TextField)).controller!.text;
+
+    testWidgets('엔터는 3번째 줄까지 눌러지고 4번째 줄은 안 된다', (tester) async {
+      await open(tester);
+      await tester.showKeyboard(find.byType(TextField));
+      Future<void> type(String text) async {
+        tester.testTextInput.updateEditingValue(
+          TextEditingValue(text: text, selection: TextSelection.collapsed(offset: text.length)),
+        );
+        await tester.pump();
+      }
+
+      await type('가');
+      await type('가\n');
+      await type('가\n나');
+      await type('가\n나\n');
+      await type('가\n나\n다');
+      expect(fieldText(tester), '가\n나\n다');
+
+      await type('가\n나\n다\n');
+
+      expect(fieldText(tester), '가\n나\n다');
+      expect(find.text('5 / 100'), findsOneWidget);
+    });
+
+    testWidgets('붙여넣기로 줄 바꿈이 많이 들어오면 3줄까지만 남기고 나머지는 공백이 된다', (tester) async {
+      await open(tester);
+
+      await tester.enterText(find.byType(TextField), '하나\r\n둘\r\n셋\r\n넷');
+      await tester.pump();
+
+      expect(fieldText(tester), '하나\n둘\n셋 넷');
+      expect(find.text('8 / 100'), findsOneWidget);
+    });
+
+    testWidgets('줄 바꿈 상한과 100자가 같이 걸린다 — 줄 바꿈은 공백으로, 글자는 100자에서 자른다', (tester) async {
+      await open(tester);
+
+      await tester.enterText(find.byType(TextField), '가\n나\n다\n${'라' * 120}');
+      await tester.pump();
+
+      expect(fieldText(tester), '가\n나\n다 ${'라' * 94}');
+      expect(find.text('100 / 100'), findsOneWidget);
+    });
+
+    testWidgets('입력칸은 3줄을 넘어 커지지 않는다 — 긴 글은 칸 안에서 스크롤, 시트는 그대로', (tester) async {
+      await open(tester);
+      await tester.enterText(find.byType(TextField), '가' * 100);
+      await tester.pump();
+
+      final field = tester.getRect(find.byType(TextField));
+      expect(tester.widget<TextField>(find.byType(TextField)).maxLines, 3);
+      expect(field.height, lessThanOrEqualTo(3 * 21.0 + 1));
+      // 빈 칸 104(pen h3SkMd) → 3줄 찬 칸 109(글 63 + 간격 4 + 카운터 18 + 여백 24). 더는 안 커진다.
+      expect(tester.getSize(find.byKey(friendReviewCommentBoxKey)).height, 109);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('빈 칸은 pen 104 그대로, 한 줄 · 두 줄까지는 104 를 안 넘는다', (tester) async {
+      await open(tester);
+      expect(tester.getSize(find.byKey(friendReviewCommentBoxKey)).height, 104);
+
+      await tester.enterText(find.byType(TextField), '가\n나');
+      await tester.pump();
+
+      expect(tester.getSize(find.byKey(friendReviewCommentBoxKey)).height, 104);
+    });
   });
 
   group('보내기', () {

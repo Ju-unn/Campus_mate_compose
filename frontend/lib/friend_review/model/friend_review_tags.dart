@@ -20,3 +20,6 @@ const int friendReviewMaxTags = 3;
 
 /// 한마디 최대 글자 수(서버와 같음, 101자는 422).
 const int friendReviewCommentMaxLength = 100;
+
+/// 한마디 입력칸의 줄 수 상한(엔터로 만든 줄 3줄 = 줄 바꿈 2개). 앱 쪽 제한이고 서버는 줄 수를 검사하지 않는다.
+const int friendReviewCommentMaxLines = 3;
