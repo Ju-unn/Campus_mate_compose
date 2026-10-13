@@ -8,7 +8,8 @@ final conversationsViewModelProvider =
     NotifierProvider<ConversationsViewModel, ConversationsUiState>(ConversationsViewModel.new);
 
 /// 대화 중 목록(화면 13 아래 섹션). **목록은 실시간 구독을 쓰지 않는다** —
-/// 푸시와 당겨서 새로고침으로 충분하고, 방을 안 열었는데 채널을 열어 둘 이유가 없다.
+/// 방을 안 열었는데 채널을 열어 둘 이유가 없다. 푸시 · 당겨서 새로고침에 더해, 대화 탭 화면이 떠 있는 동안은
+/// 화면의 5초 타이머가 `refresh(quiet: true)` 를 부른다(`conversations_screen.dart`) — 타이머는 화면이 쥐고 이 뷰모델은 모른다.
 class ConversationsViewModel extends Notifier<ConversationsUiState> {
   Future<void>? _inFlight;
 
