@@ -107,10 +107,16 @@ void main() {
     expect(tester.widget<AppButton>(cta()).onPressed, isNotNull);
   });
 
-  testWidgets('8d shows the fixed encryption line at the bottom', (tester) async {
+  // 안내는 코드 사실 문장이다(2026-10-14 "연락처 안내 문구 정정") — 서버엔 되돌릴 수 없는 형태, 기기엔 이름 · 가린 번호.
+  // pen mqa0S 옛 문구와 다르다(pen 후속).
+  const notice8d = '고른 분의 전화번호만 원래 번호로 되돌릴 수 없는 형태로 바꿔 서버에 저장해요. '
+      '이 기기에는 고른 분의 이름과 가린 번호만 저장돼요.';
+
+  testWidgets('8d shows the fixed privacy notice at the bottom', (tester) async {
     await pump(tester);
 
-    final notice = tester.getRect(find.text('번호는 암호화해 대조에만 쓰고 원본은 저장하지 않아요.'));
+    expect(find.textContaining('암호화'), findsNothing);
+    final notice = tester.getRect(find.text(notice8d));
     final button = tester.getRect(cta());
     // Bottom Bar CTA(A8INC6) 여백 [8,24,8,24], 간격 8 — 안내 → 8 → 버튼 → 8 → 화면 끝.
     expect(button.top - notice.bottom, 8);
@@ -118,7 +124,7 @@ void main() {
     expect(button.height, 52); // HE8FZ 2026-10-01 개편
     expect(button.left, 24);
     expect(button.width, 312);
-    final noticeText = tester.widget<Text>(find.text('번호는 암호화해 대조에만 쓰고 원본은 저장하지 않아요.'));
+    final noticeText = tester.widget<Text>(find.text(notice8d));
     expect(noticeText.style?.fontSize, 12);
     expect(noticeText.style?.color, AppColors.muted);
     // A8INC6 · bzBZZ 위 선은 투명 — 하단 바에 테두리를 긋지 않는다(대장 pen 확인 10-03).

@@ -3,6 +3,7 @@ import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/safety/model/device_contacts.dart';
+import 'package:campus_mate/safety/view/contact_privacy_copy.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -24,7 +25,8 @@ Future<bool> _askPermission(BuildContext context, DeviceContactSource source) as
   final allow = await _showPermissionSheet(
     context,
     title: '연락처 접근을 허용해 주세요',
-    description: '내 연락처에 있는 지인이 카드에 뜨지 않게 하려면 연락처를 읽어야 해요. 전화번호는 암호화해 대조에만 쓰고 원본은 저장하지 않아요.',
+    // pen YPJbz 옛 문구("암호화해 대조에만")는 사실과 달라 코드 사실 문장으로 바꿨다(2026-10-14, pen 후속).
+    description: '내 연락처에 있는 지인이 카드에 뜨지 않게 하려면 연락처를 읽어야 해요. $contactServerNotice $contactNotSentNotice',
     primaryLabel: '허용하고 계속',
     neutralLabel: '나중에 할게요',
   );

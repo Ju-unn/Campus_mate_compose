@@ -7,6 +7,7 @@ import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/safety/model/contact_name_store.dart';
 import 'package:campus_mate/safety/model/device_contacts.dart';
+import 'package:campus_mate/safety/view/contact_privacy_copy.dart';
 import 'package:campus_mate/safety/view/contact_row.dart';
 import 'package:campus_mate/safety/viewmodel/contact_picker_ui_state.dart';
 import 'package:campus_mate/safety/viewmodel/contact_picker_view_model.dart';
@@ -138,8 +139,9 @@ class _BottomBar extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.xs),
               ],
+              // pen mqa0S 옛 문구("암호화해 대조에만")는 사실과 달라 코드 사실 문장으로 바꿨다(2026-10-14, pen 후속).
               Text(
-                '번호는 암호화해 대조에만 쓰고 원본은 저장하지 않아요.',
+                '$contactServerNotice $contactDeviceNotice',
                 style: AppTypography.caption.copyWith(color: AppColors.muted, height: 1.5),
               ),
               const SizedBox(height: AppSpacing.xs),

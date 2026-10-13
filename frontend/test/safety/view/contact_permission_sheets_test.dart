@@ -79,16 +79,23 @@ void main() {
     expect(source.requestCount, 0);
   });
 
-  testWidgets('first entry shows 8a with pen copy', (tester) async {
+  // 설명은 코드 사실 문장이다(2026-10-14 사용자 결정 "연락처 안내 문구 정정"): 서버로는 고른 사람 번호만 가고 해시로만 남는다.
+  // '암호화' 는 풀 수 있는 변환이라 쓰지 않는다. pen YPJbz 옛 문구와 다르다(pen 후속).
+  testWidgets('first entry shows 8a with the factual privacy copy', (tester) async {
     await pump(tester);
 
     await open(tester);
 
     expect(find.text(title8a), findsOneWidget);
     expect(
-      find.text('내 연락처에 있는 지인이 카드에 뜨지 않게 하려면 연락처를 읽어야 해요. 전화번호는 암호화해 대조에만 쓰고 원본은 저장하지 않아요.'),
+      find.text(
+        '내 연락처에 있는 지인이 카드에 뜨지 않게 하려면 연락처를 읽어야 해요. '
+        '고른 분의 전화번호만 원래 번호로 되돌릴 수 없는 형태로 바꿔 서버에 저장해요. '
+        '이름과 연락처 목록은 서버로 보내지 않아요.',
+      ),
       findsOneWidget,
     );
+    expect(find.textContaining('암호화'), findsNothing);
     expect(find.widgetWithText(SafetySheetButton, '허용하고 계속'), findsOneWidget);
     expect(find.widgetWithText(SafetySheetButton, '나중에 할게요'), findsOneWidget);
     expect(source.requestCount, 0);
