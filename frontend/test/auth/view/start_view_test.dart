@@ -5,12 +5,14 @@ import 'package:campus_mate/auth/view/social_login_button.dart';
 import 'package:campus_mate/auth/view/start_view.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/core/back_exit/back_exit_view_model.dart';
 import 'package:campus_mate/core/supabase/auth_session_listenable_provider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -355,5 +357,49 @@ void main() {
         });
       }
     }
+  });
+
+  // 시작 화면은 앱의 맨 아래 화면이다 — 안드로이드 뒤로가기가 앱을 바로 닫지 않는다. 안내는 자기 토스트 자리(버튼 바로 위)에 띄운다.
+  group('뒤로가기 확인', () {
+    late int exitCalls;
+
+    setUp(() => exitCalls = 0);
+
+    Future<void> pumpAndroid(WidgetTester tester) async {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        if (call.method == 'SystemNavigator.pop') exitCalls++;
+        return null;
+      });
+      addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
+      await _pump(tester);
+    }
+
+    testWidgets('안드로이드: 첫 뒤로가기는 info 토스트만 띄우고, 2초 안에 한 번 더 누르면 앱을 닫는다', (tester) async {
+      await pumpAndroid(tester);
+
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+
+      expect(find.text(backExitMessage), findsOneWidget);
+      expect(find.byKey(StartView.toastKey), findsOneWidget);
+      expect(find.descendant(of: find.byKey(StartView.toastKey), matching: find.byIcon(AppIcons.info)), findsOneWidget);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(exitCalls, 0);
+
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+
+      expect(exitCalls, 1);
+      await tester.pump(const Duration(seconds: 3));
+    }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
+    testWidgets('iOS: 가로채지 않는다', (tester) async {
+      await pumpAndroid(tester);
+
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+
+      expect(find.text(backExitMessage), findsNothing);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
   });
 }

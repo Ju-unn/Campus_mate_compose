@@ -6,6 +6,7 @@ import 'package:campus_mate/auth/view/social_login_button.dart';
 import 'package:campus_mate/auth/viewmodel/start_ui_state.dart';
 import 'package:campus_mate/auth/viewmodel/start_view_model.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
 import 'package:campus_mate/core/supabase/auth_session_listenable_provider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -75,28 +76,31 @@ class _StartViewState extends ConsumerState<StartView> {
     ref.listen(startViewModelProvider, _onStateChanged);
     final state = ref.watch(startViewModelProvider);
     final session = ref.watch(authSessionListenableProvider);
-    return Scaffold(
-      body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            // 보통 글자에선 버튼이 아래에 붙고, 글자를 키워 넘치면 같이 스크롤된다(DESIGN §11.2).
-            SliverFillRemaining(
-              hasScrollBody: false,
-              child: Padding(
-                // 좌우 24, 소셜 버튼 영역 아래 28(후속 지시문 13 B-2).
-                padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, _bottomPadding),
-                child: Column(
-                  children: [
-                    Expanded(child: _Hero(toast: state.toast)),
-                    ListenableBuilder(
-                      listenable: session,
-                      builder: (context, _) => _LoginArea(state: state, isSignedOut: !session.isAuthenticated),
-                    ),
-                  ],
+    return BackExitScope(
+      onHint: _viewModel().showBackExitHint,
+      child: Scaffold(
+        body: SafeArea(
+          child: CustomScrollView(
+            slivers: [
+              // 보통 글자에선 버튼이 아래에 붙고, 글자를 키워 넘치면 같이 스크롤된다(DESIGN §11.2).
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Padding(
+                  // 좌우 24, 소셜 버튼 영역 아래 28(후속 지시문 13 B-2).
+                  padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, _bottomPadding),
+                  child: Column(
+                    children: [
+                      Expanded(child: _Hero(toast: state.toast)),
+                      ListenableBuilder(
+                        listenable: session,
+                        builder: (context, _) => _LoginArea(state: state, isSignedOut: !session.isAuthenticated),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
