@@ -1,6 +1,15 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 
+/// 앱이 떠 있을 때 받은 푸시 한 건. [data] 는 갈 화면(route)을, [title] · [body] 는 시스템 알림에 다시 띄울 글을 준다.
+/// 서버는 늘 notification(제목 · 본문)과 data 를 함께 보낸다(`backend/app/cards/push.py` FcmSender.send) —
+/// data 만 온 알림이면 제목 · 본문이 null 이고, 그때는 시스템 알림을 띄우지 않는다.
+typedef PushMessage = ({Map<String, dynamic> data, String? title, String? body});
+
+/// FCM 메시지를 [PushMessage] 로 옮긴다.
+PushMessage pushMessageOf(RemoteMessage message) =>
+    (data: message.data, title: message.notification?.title, body: message.notification?.body);
+
 /// `FirebaseMessaging` 을 감싼 얇은 인터페이스. 테스트가 Firebase 를 켜지 않아도 되게 한다
 /// (조각 1b 의 `FaceDetector` 래퍼와 같은 이유).
 abstract interface class PushMessaging {
@@ -17,9 +26,15 @@ abstract interface class PushMessaging {
   /// 인터넷이 없으면 던진다.
   Future<void> deleteToken();
   Stream<String> get onTokenRefresh;
-  Stream<Map<String, dynamic>> get onMessage;
+
+  /// 앱이 떠 있을 때 받은 푸시. 화면 갱신은 data 로, 시스템 알림은 제목 · 본문으로 한다(`core/push/foreground_push.dart`).
+  Stream<PushMessage> get onMessage;
   Stream<Map<String, dynamic>> get onMessageOpenedApp;
   Future<Map<String, dynamic>?> initialMessage();
+
+  /// iOS: 앱이 떠 있을 때 온 알림도 시스템이 배너 · 소리로 보여 주게 한다. 안드로이드는 FCM 이 아무 일도 하지 않는다 —
+  /// 안드로이드는 앱이 직접 시스템 알림을 띄운다(`core/push/foreground_push.dart`).
+  Future<void> presentWhileOpen();
 }
 
 class FirebasePushMessaging implements PushMessaging {
@@ -51,8 +66,7 @@ class FirebasePushMessaging implements PushMessaging {
   Stream<String> get onTokenRefresh => _messaging.onTokenRefresh;
 
   @override
-  Stream<Map<String, dynamic>> get onMessage =>
-      FirebaseMessaging.onMessage.map((message) => message.data);
+  Stream<PushMessage> get onMessage => FirebaseMessaging.onMessage.map(pushMessageOf);
 
   @override
   Stream<Map<String, dynamic>> get onMessageOpenedApp =>
@@ -61,4 +75,8 @@ class FirebasePushMessaging implements PushMessaging {
   @override
   Future<Map<String, dynamic>?> initialMessage() async =>
       (await _messaging.getInitialMessage())?.data;
+
+  @override
+  Future<void> presentWhileOpen() =>
+      _messaging.setForegroundNotificationPresentationOptions(alert: true, badge: true, sound: true);
 }

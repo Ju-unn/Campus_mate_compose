@@ -32,9 +32,10 @@ void main() {
       expect(await messaging.onTokenRefresh.isEmpty, isTrue);
     });
 
-    test('토큰 버리기와 설정 열기는 아무 일도 하지 않고 끝난다', () async {
+    test('토큰 버리기 · 설정 열기 · 포그라운드 표시 켜기는 아무 일도 하지 않고 끝난다', () async {
       await messaging.deleteToken();
       await messaging.openNotificationSettings();
+      await messaging.presentWhileOpen();
     });
   });
 }
