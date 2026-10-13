@@ -6,6 +6,7 @@ import 'package:campus_mate/auth/model/verification_gate.dart';
 import 'package:campus_mate/billing/model/heart_store_gateway.dart';
 import 'package:campus_mate/billing/model/in_app_heart_store_gateway.dart';
 import 'package:campus_mate/billing/viewmodel/heart_purchase_view_model.dart';
+import 'package:campus_mate/chat/viewmodel/user_channel.dart';
 import 'package:campus_mate/core/auth/account_status_listenable.dart';
 import 'package:campus_mate/core/auth/session_scope.dart';
 import 'package:campus_mate/core/auth/sign_out.dart';
@@ -83,7 +84,11 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
   late final AccountStatusListenable _accountStatus;
   late final GoRouter _router;
   /// 앱이 백그라운드에서 돌아올 때 하단 내비 "대화" 숫자를 갱신한다([_refreshChatsOnResume]).
+  /// 앱이 화면에서 사라지고(hide) 다시 보일 때(show) 사용자 채널을 끊고 다시 건다([_syncUserChannel]).
   late final AppLifecycleListener _lifecycle;
+
+  /// 앱이 화면에 보이는가(hidden · paused 가 아니다). 앱은 보이는 채로 시작한다.
+  bool _appShown = true;
   /// 스플래시를 잠깐 붙잡아 두는 임시 장치 (로고 작업 때 다시 본다).
   final SplashHold _splashHold = SplashHold();
   final List<StreamSubscription<Object>> _pushSubscriptions = [];
@@ -104,16 +109,40 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
     _verificationGate.addListener(_startPushWhenGateOpens);
     _verificationGate.addListener(_startHeartPurchasesWhenGateOpens);
     _verificationGate.addListener(_openPendingPushRoute);
+    _verificationGate.addListener(_syncUserChannel);
     _onboardingStep.addListener(_openPendingPushRoute);
     _accountStatus.addListener(_signOutWhenWithdrawn);
     _router = _createRouter();
-    _lifecycle = AppLifecycleListener(onResume: _refreshChatsOnResume);
+    _lifecycle = AppLifecycleListener(
+      onResume: _refreshChatsOnResume,
+      onHide: () => _setAppShown(false),
+      onShow: () => _setAppShown(true),
+    );
     _refreshVerificationGate();
   }
 
   /// 어느 탭에 있든 돌아오면 대화 목록·수락 대기를 다시 읽는다. 로그아웃·관문 미완료 가드는 함수 안에 있다.
   void _refreshChatsOnResume() =>
       refreshOnResume(ref.read, isAuthenticated: _authSession.isAuthenticated, gate: _verificationGate.value);
+
+  void _setAppShown(bool shown) {
+    _appShown = shown;
+    _syncUserChannel();
+  }
+
+  /// 사용자 채널 `user:<내 id>`(채팅 실시간 전환 설계안 A)는 **앱이 보이고 로그인 · 관문을 통과한 동안만** 연다 —
+  /// 뒤로 가면 끊고(연결 수 · 배터리, 그동안은 푸시가 맡는다) 앞으로 오면 다시 건다. 붙으면 채널이 목록을 한 번 읽어
+  /// 놓친 이벤트를 메운다. 로그아웃하면 여기서 끊고, SessionScope 가 컨테이너째 버리며 남은 것도 정리된다.
+  void _syncUserChannel() {
+    final channel = ref.read(userChannelProvider.notifier);
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    final open = _appShown && _authSession.isAuthenticated && _verificationGate.value == VerificationGate.complete;
+    if (!open || userId == null) {
+      channel.stop();
+      return;
+    }
+    channel.start(userId);
+  }
 
   /// 탈퇴(직접 16c 든 다른 기기에서든)면 시작 화면용 알림을 남기고 로그아웃한다 — 로그아웃은 여기 한 곳뿐이다.
   void _signOutWhenWithdrawn() => signOutWhenWithdrawn(_accountStatus.value, ref.read(signOutProvider));
@@ -122,6 +151,7 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
   /// 로그아웃하면 조회에 쓸 토큰이 없고, 앞 사용자의 통과 상태를
   /// 다음 사용자가 물려받으면 안 되므로 캐시를 비운다.
   void _refreshVerificationGate() {
+    _syncUserChannel();
     if (!_authSession.isAuthenticated) {
       _forgetSession();
       return;
@@ -268,6 +298,7 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
     _verificationGate.removeListener(_startPushWhenGateOpens);
     _verificationGate.removeListener(_startHeartPurchasesWhenGateOpens);
     _verificationGate.removeListener(_openPendingPushRoute);
+    _verificationGate.removeListener(_syncUserChannel);
     _onboardingStep.removeListener(_openPendingPushRoute);
     _accountStatus.removeListener(_signOutWhenWithdrawn);
     _authSession.removeListener(_refreshVerificationGate);

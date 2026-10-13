@@ -9,7 +9,12 @@ import 'package:campus_mate/auth/model/verification_gate_repository.dart';
 import 'package:campus_mate/auth/model/verification_gate_repository_provider.dart';
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/chat/model/conversation.dart';
+import 'package:campus_mate/chat/model/message.dart';
+import 'package:campus_mate/chat/model/user_event_stream.dart';
 import 'package:campus_mate/chat/view/chat_room_screen.dart';
+import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
+import 'package:campus_mate/chat/viewmodel/user_channel.dart';
+import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
 import 'package:campus_mate/matching/view/conversations_screen.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
@@ -89,6 +94,7 @@ void main() {
         ),
         cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
         chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
+        userEventStreamProvider.overrideWithValue(FakeUserEventStream()),
         homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
         notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
         signOutProvider.overrideWithValue(() async {}),
@@ -115,6 +121,9 @@ void main() {
   late FakeCardRepository appCards;
   // 홈 종 배지가 읽는 안 읽은 알림 수의 가짜 저장소 — 읽은 횟수를 본다. 두 pump 도우미가 채운다.
   late FakeNotificationsRepository appNotifications;
+  // 사용자 채널(`user:<내 id>`, 설계안 A) 자리의 가짜와 앱 컨테이너 — 두 pump 도우미가 채운다.
+  late FakeUserEventStream appEvents;
+  late ProviderContainer appContainer;
 
   Future<void> pumpPendingVerification(WidgetTester tester) async {
     gate = FakeVerificationGateRepository()..nextResult = const Success(VerificationGate.needsStudentVerification);
@@ -124,6 +133,7 @@ void main() {
     appChat = FakeChatRepository();
     appCards = FakeCardRepository();
     appNotifications = FakeNotificationsRepository();
+    appEvents = FakeUserEventStream();
     final container = ProviderContainer(
       overrides: [
         verificationGateRepositoryProvider.overrideWithValue(gate),
@@ -132,6 +142,7 @@ void main() {
         pushMessagingProvider.overrideWithValue(messaging),
         cardRepositoryProvider.overrideWithValue(appCards),
         chatRepositoryProvider.overrideWithValue(appChat),
+        userEventStreamProvider.overrideWithValue(appEvents),
         homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
         notificationsRepositoryProvider.overrideWithValue(appNotifications),
         signOutProvider.overrideWithValue(() async {}),
@@ -177,8 +188,9 @@ void main() {
     appCards = FakeCardRepository();
     appNotifications = FakeNotificationsRepository(unreadCount: 3);
     appSystemNotifications = FakeSystemNotifications(launch: launch);
+    appEvents = FakeUserEventStream();
     final push = FakePushMessaging(token: 't', granted: false);
-    final container = ProviderContainer(
+    final container = appContainer = ProviderContainer(
       overrides: [
         verificationGateRepositoryProvider.overrideWithValue(FakeVerificationGateRepository()),
         onboardingRepositoryProvider.overrideWithValue(FakeOnboardingRepository()),
@@ -187,6 +199,7 @@ void main() {
         cardRepositoryProvider.overrideWithValue(appCards),
         chatRepositoryProvider.overrideWithValue(chat),
         messageStreamProvider.overrideWithValue(FakeMessageStream()),
+        userEventStreamProvider.overrideWithValue(appEvents),
         homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
         notificationsRepositoryProvider.overrideWithValue(appNotifications),
         signOutProvider.overrideWithValue(() async {}),
@@ -389,5 +402,83 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(appNotifications.countCalls, before);
+  });
+
+  // 채팅 실시간 전환 설계안 A 4단계 — 앱이 앞에 있는 동안 로그인 · 관문 통과한 사람의 `user:<내 id>` 하나를 듣는다.
+  group('사용자 채널', () {
+    testWidgets('관문이 열린 사람은 내 id 로 채널을 하나 연다', (tester) async {
+      await pumpHome(tester);
+
+      expect(appEvents.subscribed, ['u1']);
+      expect(appEvents.openCount, 1);
+    });
+
+    testWidgets('관문이 안 끝난 사람은 채널을 열지 않는다', (tester) async {
+      await pumpPendingVerification(tester);
+
+      expect(appEvents.subscribed, isEmpty);
+    });
+
+    testWidgets('붙으면 연결됨이 되고, 홈 탭에 있어도 상대 메시지가 오면 하단 내비 대화 숫자가 바로 바뀐다', (tester) async {
+      final (chat, _) = await pumpHome(tester);
+      chat.conversations = Success([conversationWith('새연결')]);
+      appEvents.connect();
+      await tester.pumpAndSettle();
+      expect(appContainer.read(userChannelProvider), isTrue);
+      expect(appContainer.read(chatBadgeCountProvider), 0);
+
+      appEvents.push(MessageEvent(
+        'm1',
+        Message(id: 'msg-rt', senderId: 'p1', body: '지금 왔어요', kind: MessageKind.text, createdAt: DateTime(2026, 10, 6)),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(appContainer.read(chatBadgeCountProvider), 1);
+      expect(find.descendant(of: find.byType(GlassBottomNav), matching: find.text('1')), findsOneWidget);
+    });
+
+    testWidgets('앱이 뒤로 가면 채널을 닫고, 앞으로 오면 다시 열어 붙은 뒤 목록을 한 번 더 읽는다', (tester) async {
+      final (chat, _) = await pumpHome(tester);
+      appEvents.connect();
+      await tester.pumpAndSettle();
+
+      for (final state in [AppLifecycleState.inactive, AppLifecycleState.hidden, AppLifecycleState.paused]) {
+        tester.binding.handleAppLifecycleStateChanged(state);
+      }
+      await tester.pump();
+      expect((appEvents.openCount, appContainer.read(userChannelProvider)), (0, false));
+
+      for (final state in [AppLifecycleState.hidden, AppLifecycleState.inactive, AppLifecycleState.resumed]) {
+        tester.binding.handleAppLifecycleStateChanged(state);
+      }
+      await tester.pumpAndSettle();
+      auth().stopAutoRefresh();
+      expect(appEvents.subscribed, ['u1', 'u1']);
+      expect(appEvents.openCount, 1);
+      final before = chat.conversationsFetchCount;
+
+      appEvents.connect();
+      await tester.pumpAndSettle();
+
+      expect(chat.conversationsFetchCount, before + 1);
+      expect(appContainer.read(userChannelProvider), isTrue);
+    });
+
+    testWidgets('로그아웃하면 채널을 닫는다', (tester) async {
+      await pumpHome(tester);
+      appEvents.connect();
+      await tester.pumpAndSettle();
+
+      await tester.runAsync(() async {
+        try {
+          await auth().signOut();
+        } on AuthException {
+          // 서버 알림은 테스트 바인딩의 가짜 HTTP 가 막는다 — 이 기기 세션은 이미 지워졌다.
+        }
+      });
+      await tester.pump();
+
+      expect(appEvents.openCount, 0);
+    });
   });
 }
