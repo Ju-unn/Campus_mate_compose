@@ -152,7 +152,10 @@ class _SummaryRow extends StatelessWidget {
   }
 }
 
-/// 96dp 원형 + 흰 링 3px(§8.1). 아바타가 아직 없는 사람은 회색 원으로 둔다.
+/// 96dp 원형 + 흰 링 3px(§8.1, pen `JvMzE`: 사진 채움 96 + 안쪽 테두리 3 #FFFFFF).
+/// pen 처럼 사진을 96 원 전체로 자르고 링은 그 위에 덧그린다. 링을 `decoration` 의 border 로 두면
+/// 사진이 90 정사각으로 안쪽에 밀려 들어가 바깥 96 원으로만 잘리므로 네 변이 평평한 팔각형이 된다.
+/// 아바타가 아직 없는 사람은 회색 원으로 둔다.
 class _Avatar extends StatelessWidget {
   const _Avatar({required this.url});
 
@@ -163,15 +166,18 @@ class _Avatar extends StatelessWidget {
     return Container(
       width: 96,
       height: 96,
-      decoration: BoxDecoration(
+      foregroundDecoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: AppColors.surfaceStrong,
         border: Border.all(color: AppColors.canvas, width: 3),
       ),
-      clipBehavior: Clip.antiAlias,
-      child: url == null
-          ? const Icon(AppIcons.userRound, color: AppColors.disabled)
-          : CachedNetworkImage(imageUrl: url!, fit: BoxFit.cover),
+      child: ClipOval(
+        child: ColoredBox(
+          color: AppColors.surfaceStrong,
+          child: url == null
+              ? const Center(child: Icon(AppIcons.userRound, color: AppColors.disabled))
+              : CachedNetworkImage(imageUrl: url!, width: 96, height: 96, fit: BoxFit.cover),
+        ),
+      ),
     );
   }
 }
