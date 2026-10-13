@@ -12,6 +12,32 @@ flutter run \
 
 소셜 로그인(시작 화면)을 쓰려면 `--dart-define=KAKAO_NATIVE_APP_KEY=...` `--dart-define=GOOGLE_WEB_CLIENT_ID=...` 를 함께 넣고, 안드로이드 빌드에는 카카오 복귀 스킴용으로 같은 이름 `KAKAO_NATIVE_APP_KEY` 를 환경변수나 `android/local.properties` 에도 둔다(없으면 빌드는 되고 버튼만 실패 토스트).
 
+**`flutter run`(디버그 서명)의 한계 — 소셜 로그인이 실패한다(2026-10-14 확인).** 카카오 · 구글 로그인과 Firebase 는 앱 서명 지문으로 앱을 알아보는데, 등록된 지문은 아래 두 키뿐이고 **디버그 서명은 어디에도 등록돼 있지 않다.** 그래서 `flutter run` · `--debug` 빌드는 화면 시험은 되지만 로그인 뒤 화면은 못 본다. 폰에서 로그인까지 시험하려면 둘 중 하나다:
+
+- **릴리스 APK(업로드 키 서명)** — `flutter build apk --release ...` 뒤 `adb install`. 단 폰에 구글 플레이로 설치한 앱이 있으면 서명이 달라(아래 "구글 앱 서명 키") 덮어쓸 수 없다 — 지우고 깔거나 아래 내부 테스트를 쓴다
+- **구글 플레이 내부 테스트 AAB** — 아래 "AAB 빌드" 로 만들어 플레이 콘솔 내부 테스트 트랙에 올리고 폰에서 플레이로 받는다(인앱결제 샌드박스 시험도 이 길이다)
+
+### 안드로이드 서명 키 (값은 지문만 — 키 파일 · 비밀번호는 저장소 밖)
+
+플레이 앱 서명을 켜 두어 키가 둘이다. 사용자에게 가는(플레이로 설치한) 앱은 구글 키로 다시 서명된다 — **업로드 키 지문만 등록하면 플레이 설치본의 로그인이 막힌다.** 두 키의 SHA-1 · SHA-256 을 Firebase 안드로이드 앱에, 구글 클라우드 OAuth 안드로이드 클라이언트에, 카카오 키 해시를 카카오 개발자 콘솔에 모두 등록했다(2026-10-14, 플레이 설치본에서 카카오 · 구글 로그인 성공 — 사용자 확인).
+
+| 키 | 쓰는 곳 | SHA-1 | 카카오 키 해시 |
+| --- | --- | --- | --- |
+| **업로드 키**(릴리스 키스토어 — `android/key.properties` 가 가리킨다, gitignore 대상) | 직접 `adb install` 한 릴리스 APK · 플레이에 올리는 AAB | `63:56:4E:B2:1A:B0:F4:82:BC:3E:54:CE:2C:CC:B6:73:7A:3A:5B:EC` | (기록 없음) |
+| **구글 앱 서명 키**(플레이가 보관) | 구글 플레이로 설치한 앱 | `3C:65:10:99:A7:8C:5D:D1:64:30:2D:CF:19:0A:A1:26:85:7C:6F:CE` | `PGUQmaeMXdFkMC3PGQqhJoV8b84=` |
+
+구글 앱 서명 키 지문은 폰의 플레이 설치본을 `adb pull` 해 `apksigner verify --print-certs` 로 읽어 확정했다(플레이 콘솔 "앱 무결성" 화면의 값과 같다). `android/key.properties` 가 없으면 릴리스 빌드도 디버그 서명으로 떨어진다(`android/app/build.gradle.kts`).
+
+### AAB 빌드 (구글 플레이 업로드)
+
+```bash
+flutter build appbundle --release --build-number=<N> --dart-define-from-file=<dart-define 파일>
+```
+
+- **versionCode(`--build-number`)는 업로드마다 +1** 한다 — 플레이는 이미 올린 번호를 다시 받지 않는다. `pubspec.yaml` 의 `version`(`1.0.0+1`)은 건드리지 않고 명령의 `--build-number` 로만 올린다. 2026-10-14 기준 **2 까지** 올렸다(다음은 3)
+- `--dart-define-from-file` 의 파일(키 · 주소가 든 JSON)은 저장소 밖에 둔다. 값 · 파일 내용은 이 문서에 적지 않는다
+- 결과물 `build/app/outputs/bundle/release/app-release.aab` 를 플레이 콘솔 내부 테스트에 올린다(올리기는 사용자가 한다)
+
 ## 테스트
 
 ```bash
@@ -60,7 +86,7 @@ iOS 15.5 이상(ML Kit 얼굴 감지 요구), iPhone 전용, 세로 고정이다
 
 ## TestFlight 로 아이폰에 설치하기 (맥 없이)
 
-`iOS TestFlight` 워크플로(`.github/workflows/ios-testflight.yml`)가 macOS 러너에서 진짜 키로 빌드하고, App Store Connect API 키 하나로 서명해 TestFlight 에 올린다. 수동 실행만 되고 저장소 주인이 실행할 때만 돈다. 서명 방식(서명 없는 보관본 → 푸시 권한을 실은 임시 서명 → 애플 클라우드 배포 인증서로 내보내며 업로드)과 흔한 실패 대처는 그 파일 맨 위 주석에 있다. 애플 로그인은 아직 앱에 없어서 이 빌드로는 시험할 수 없다.
+`iOS TestFlight` 워크플로(`.github/workflows/ios-testflight.yml`)가 macOS 러너에서 진짜 키로 빌드하고, App Store Connect API 키 하나로 서명해 TestFlight 에 올린다. 수동 실행만 되고 저장소 주인이 실행할 때만 돈다. 서명 방식(서명 없는 보관본 → 푸시 권한을 실은 임시 서명 → 애플 클라우드 배포 인증서로 내보내며 업로드)과 흔한 실패 대처는 그 파일 맨 위 주석에 있다. ~~애플 로그인은 아직 앱에 없어서 이 빌드로는 시험할 수 없다.~~ (2026-10-14 정정 — iOS 애플 로그인은 PR #482(2026-10-12)로 들어왔다, 위 "애플 로그인")
 
 수동 실행 워크플로는 기본 브랜치(main)에 있어야 Actions 탭 목록에 뜬다. 그래서 첫 실행은 이 워크플로가 main 에 merge 된 뒤다.
 
@@ -109,7 +135,7 @@ iOS 15.5 이상(ML Kit 얼굴 감지 요구), iPhone 전용, 세로 고정이다
 
 ## 앱 아이콘 교체
 
-지금 아이콘은 시안 B 다: 흰 바탕에 분홍(#FF385C) 토끼 귀 하트 심볼, 그 아래 검은 `CampusMate` 글자(2026-10-12 사용자 결정, 직전의 분홍 바탕 심볼만 시안 A 를 바꿨다). 원본은 바탕화면의 `datingApp` 폴더 안 `design/designMaterials/google-play-logo-128.png` 한 장(128x128)뿐이다. 알림 아이콘은 따로 정한다(여기서 다루지 않는다).
+지금 아이콘은 시안 B 다: 흰 바탕에 분홍(#FF385C) 토끼 귀 하트 심볼, 그 아래 검은 `CampusMate` 글자(2026-10-12 사용자 결정, 직전의 분홍 바탕 심볼만 시안 A 를 바꿨다). 원본은 바탕화면의 `datingApp` 폴더 안 `design/designMaterials/google-play-logo-128.png` 한 장(128x128)뿐이다. 알림 아이콘은 따로 정한다(아래 "알림 아이콘").
 
 글자 한계: 홈 화면 아이콘은 기기 화소와 상관없이 실제 크기가 손톱만 해서(48~60dp) 글자 높이가 1mm 남짓, 아이콘 아래 앱 이름의 절반쯤이다. 파일 화소로는 80px 이상에서 글자가 또렷하고, 58~72px 은 겨우, 48px 이하(iOS 알림·설정 @1x, 안드로이드 mdpi)는 회색 줄로 뭉개진다. 안드로이드 13+ 테마 아이콘(monochrome)도 같은 전경을 한 색으로 칠하므로 같은 한계다.
 
@@ -150,3 +176,14 @@ flutter_launcher_icons:
 
    `dart run flutter_launcher_icons` 를 돌리면 iOS `AppIcon.appiconset` 과 안드로이드 `mipmap-*` 이 새로 만들어진다.
 3. 빌드 없이 확인: `flutter analyze` 와 위 `verify_icons.py`.
+
+## 알림 아이콘 (안드로이드 상태바, 2026-10-13 PR #503)
+
+안드로이드 상태바 알림 아이콘은 **흰색 + 투명 바탕 실루엣**이어야 한다(시스템이 알파만 보고 색을 입힌다 — 컬러 앱 아이콘을 쓰면 흰 네모로 보인다).
+
+| 자리 | 파일 | 크기 |
+| --- | --- | --- |
+| 안드로이드 | `android/app/src/main/res/drawable-{mdpi,hdpi,xhdpi,xxhdpi,xxxhdpi}/ic_stat_campusmate.png` | 24dp 캔버스 — 24, 36, 48, 72, 96 px |
+| 연결 | `AndroidManifest.xml` 의 `com.google.firebase.messaging.default_notification_icon` = `@drawable/ic_stat_campusmate` | FCM 이 띄우는 알림(앱이 뒤에 있을 때)과 앱이 직접 띄우는 앞 화면 알림이 같은 그림을 쓴다 |
+
+**만든 방법**: iOS 1024 앱 아이콘(`AppIcon.appiconset` 의 1024)에서 **분홍 심볼이 덮인 정도를 알파로 뽑아 흰색으로 칠했다**(글자 · 흰 바탕은 버린다). 24dp 캔버스에 **사방 1dp 여백**을 두고 밀도별로 줄였다. 앱 아이콘을 바꾸면 이 아이콘도 같이 다시 만든다. iOS 는 알림에 앱 아이콘을 그대로 쓰므로 따로 만들 것이 없다.
