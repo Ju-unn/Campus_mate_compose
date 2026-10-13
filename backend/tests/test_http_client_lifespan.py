@@ -1,4 +1,10 @@
 """lifespan 이 설정을 확인하고 HTTP 클라이언트를 하나 만드는지(미결 41③)."""
+import logging
+import pathlib
+import subprocess
+import sys
+
+import cryptography
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
@@ -48,3 +54,20 @@ def test_boot_fails_when_a_secret_is_missing_or_empty(monkeypatch, fresh_setting
     with pytest.raises(ValidationError):
         with TestClient(app):
             pass
+
+
+def test_boot_logs_the_cryptography_version(caplog):
+    """애플 서명(인앱결제 JWS · 탈퇴 철회 client_secret)이 쓰는 cryptography 가 운영 이미지에 들었는지 배포 뒤 로그 한 줄로 본다."""
+    caplog.set_level(logging.INFO)
+    with TestClient(app):
+        pass
+
+    assert f"cryptography={cryptography.__version__}" in [r.getMessage() for r in caplog.records]
+
+
+def test_the_boot_log_reaches_stderr_in_a_fresh_process():
+    """운영(uvicorn)은 루트 로거에 핸들러가 없고 수준이 WARNING 이라 INFO 가 버려진다(core/logs.py)."""
+    code = "from app import main; main._logger.info('main-probe')"
+    backend = pathlib.Path(__file__).resolve().parents[1]
+    done = subprocess.run([sys.executable, "-c", code], cwd=backend, capture_output=True, text=True, timeout=60)
+    assert "main-probe" in done.stderr, done.stderr

@@ -20,6 +20,10 @@ dependencies = [
     # 12.3 아래로 내리지 않는다 — 12.2.0 에 있던 CVE 13건이 12.3.0 에서 고쳐졌다(검토 OSV 확인).
     # manylinux 휠에 libjpeg 가 들어 있어 slim 이미지에 시스템 패키지를 더하지 않는다.
     "pillow>=12.3",
+    # 애플 서명 — 아이폰 하트 구매의 App Store JWS 인증서 체인 검증 · App Store Server API 토큰(ES256)(billing/apple.py)과
+    # 탈퇴 때 애플 토큰 철회(account/social_unlink.py 의 google-auth ES256Signer). google-auth 가 이미 끌고 오던 것을
+    # 이름으로 적어 조용히 빠지지 않게 한다(2026-10-14 사용자 승인). 하한은 시험한 버전(50.0.1)의 주 버전.
+    "cryptography>=50",
 ]
 
 [project.optional-dependencies]

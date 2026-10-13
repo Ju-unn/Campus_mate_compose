@@ -1,6 +1,7 @@
 import logging
 from contextlib import asynccontextmanager
 
+import cryptography
 import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -17,6 +18,7 @@ from app.chat.router import router as chat_router
 from app.community.router import router as community_router
 from app.consents.router import router as consents_router
 from app.core.deps import get_settings
+from app.core.logs import show_info
 from app.friend_reviews.router import router as friend_reviews_router
 from app.heart_tasks.router import router as heart_tasks_router
 from app.home.router import router as home_router
@@ -33,6 +35,8 @@ from app.student_verification.review_hook import router as verification_review_h
 from app.student_verification.router import router as student_verification_router
 
 _logger = logging.getLogger(__name__)
+# 부팅 한 줄(INFO)이 Cloud Run 로그에 보이게 한다 — core/logs.py.
+show_info(_logger)
 
 
 @asynccontextmanager
@@ -47,6 +51,8 @@ async def lifespan(app: FastAPI):
     `core/deps.py` 의 `get_client` 한 곳뿐이다.
     """
     settings = get_settings()
+    # 애플 서명(아이폰 하트 구매 JWS · 탈퇴 때 애플 철회)이 쓰는 부품이 운영 이미지에 들었는지 배포 뒤 이 한 줄로 본다.
+    _logger.info("cryptography=%s", cryptography.__version__)
     async with httpx.AsyncClient() as client:
         app.state.http_client = client
         # 기본 아바타 원본 확인(결함 D-02) — 알리기만 하고 부팅을 막지 않는다(예외도 삼킨다).
