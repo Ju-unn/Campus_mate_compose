@@ -12,7 +12,7 @@ MAX_PREVIEW_BYTES = 1500
 
 
 def avatar_png(mode: str = "RGB", size: tuple[int, int] = (1024, 1536)) -> bytes:
-    """gpt-image-1 아바타와 같은 1024×1536 PNG. 잡음이라 줄이기 전 정보가 가장 많다."""
+    """아바타(gpt-image-2.5-flare)와 같은 1024×1536 PNG. 잡음이라 줄이기 전 정보가 가장 많다."""
     channels = len(mode)
     image = Image.frombytes(mode, size, os.urandom(size[0] * size[1] * channels))
     out = io.BytesIO()
