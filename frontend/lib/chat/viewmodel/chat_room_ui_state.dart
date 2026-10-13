@@ -36,6 +36,7 @@ class ChatRoomUiState {
     this.sheetDismissed = false,
     this.isDisconnected = false,
     this.errorMessage,
+    this.partnerRead = const PartnerRead.unknown(),
   });
 
   final bool isLoading;
@@ -60,7 +61,21 @@ class ChatRoomUiState {
   final bool isDisconnected;
   final String? errorMessage;
 
+  /// 상대가 마지막으로 읽은 시각. 머리말 · 첫 페이지 · 5초 확인이 받은 값 중 **가장 늦은 것**이다.
+  final PartnerRead partnerRead;
+
   bool get isEmpty => messages.isEmpty;
+
+  /// 이 줄 옆에 안 읽음 '1' 을 그리는가(pen `RvjRp` 읽음 표시 `Qs5As`). **내가 보낸 text 줄마다 따로** 정한다.
+  /// 상대 줄 · 시스템 줄에는 없고, 상대가 나간 방에서도 없다 — 읽을 사람이 없다(대장 결정 10-13).
+  /// 보내는 중 · 실패한 글은 말풍선이 없어(서버가 돌려준 줄만 그린다) 여기까지 오지 않는다.
+  bool isUnreadByPartner(Message message) {
+    final room = this.room;
+    if (room == null || message.isSystem || isPartnerGone || message.senderId == room.partner.profileId) {
+      return false;
+    }
+    return partnerRead.hasNotRead(message.createdAt);
+  }
 
   /// 입력창을 잠가야 하는 방(결정 7). 대화는 읽을 수 있지만 더 쓰지는 못한다.
   bool get isPartnerGone => room?.gate.partnerLeft ?? false;
@@ -117,6 +132,7 @@ class ChatRoomUiState {
     bool? sheetDismissed,
     bool? isDisconnected,
     String? errorMessage,
+    PartnerRead? partnerRead,
   }) {
     return ChatRoomUiState(
       isLoading: isLoading ?? this.isLoading,
@@ -130,6 +146,7 @@ class ChatRoomUiState {
       isDisconnected: isDisconnected ?? this.isDisconnected,
       // 덮어쓰기다 — null 로도 지워져야 한다.
       errorMessage: errorMessage,
+      partnerRead: partnerRead ?? this.partnerRead,
     );
   }
 }

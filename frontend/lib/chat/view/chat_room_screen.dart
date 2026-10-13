@@ -459,65 +459,96 @@ class _MessageList extends StatelessWidget {
       reverse: true,
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
       itemCount: items.length,
-      separatorBuilder: (context, index) => const SizedBox(height: AppSpacing.xs),
-      itemBuilder: (context, index) => items[index],
+      // index 번 줄(아래) 과 그 위 줄 사이. 같은 분 묶음 안은 4(pen `mmtWq` gap 4).
+      separatorBuilder: (context, index) =>
+          SizedBox(height: items[index].joinsAbove ? AppSpacing.xxs : AppSpacing.xs),
+      itemBuilder: (context, index) => items[index].child,
     );
   }
 
   /// 오래된 것부터 쌓고 마지막에 뒤집는다 — `reverse: true` 리스트는 0번이 맨 아래다.
-  List<Widget> _items(ChatRoom room) {
-    final widgets = <Widget>[];
+  List<_ListItem> _items(ChatRoom room) {
+    final messages = state.messages;
+    final items = <_ListItem>[];
     // 14b 카드는 메시지가 아니라 `matches.trust_passed_at` 에서 나온다 — 줄로 저장하지 않는다.
     // 상대가 나갔거나 나를 차단한 방(앱에는 둘 다 "나간 방")에는 통째로 그리지 않는다 — 서버가 아이디 · 실사진을
     // 내리지 않아 "아직 등록하지 않았어요" 로 잘못 읽히고, 14c 도 404 다(사용자 결정 09-27).
     final reveal = room.gate.passed && !state.isPartnerGone
         ? TrustRevealBubble(kakaoId: room.kakaoId, onViewProfile: onViewProfile)
         : null;
-    final revealAt = state.revealAnchorAt;
-    var revealPlaced = reveal == null;
+    final revealIndex = _revealIndex(messages, state.revealAnchorAt);
+    // 카드가 끼면 묶음이 끊긴다 — 카드 앞 줄도 자기 시각을 보인다.
+    bool joinsAbove(int index) =>
+        index > 0 && index < messages.length && index != revealIndex && _sameMinuteRun(messages[index - 1], messages[index]);
     DateTime? lastDay;
-    for (final message in state.messages) {
-      // 그 시각보다 늦은 첫 줄 **앞**에 끼운다. 날짜가 바뀌는 줄이면 구분선도 카드 뒤로 간다 —
-      // 카드는 통과한 날에 속한다.
-      if (!revealPlaced && revealAt != null && message.createdAt.isAfter(revealAt)) {
-        widgets.add(reveal!);
-        revealPlaced = true;
+    for (var index = 0; index < messages.length; index++) {
+      final message = messages[index];
+      // 날짜가 바뀌는 줄이면 구분선도 카드 뒤로 간다 — 카드는 통과한 날에 속한다.
+      if (reveal != null && index == revealIndex) {
+        items.add((child: reveal, joinsAbove: false));
       }
       final day = DateUtils.dateOnly(message.createdAt);
-      if (lastDay == null || day != lastDay) {
-        widgets.add(DateDivider(date: message.createdAt));
+      if (day != lastDay) {
+        items.add((child: DateDivider(date: message.createdAt), joinsAbove: false));
         lastDay = day;
       }
-      widgets.add(_bubble(room, message));
+      items.add((child: _bubble(room, message, showTime: !joinsAbove(index + 1)), joinsAbove: joinsAbove(index)));
     }
-    // 통과 뒤 대화가 없거나 통과 시각을 모르면(passed_at 을 내리기 전 서버) 끝에 붙는다.
-    if (!revealPlaced) {
-      widgets.add(reveal!);
+    if (reveal != null && revealIndex == messages.length) {
+      items.add((child: reveal, joinsAbove: false));
     }
     if (state.isLoadingMore) {
-      widgets.insert(0, const Center(child: CircularProgressIndicator()));
+      items.insert(0, (child: const Center(child: CircularProgressIndicator()), joinsAbove: false));
     }
-    return widgets.reversed.toList();
+    return items.reversed.toList();
   }
 
-  Widget _bubble(ChatRoom room, Message message) {
+  /// 14b 카드는 그 시각보다 늦은 첫 줄 **앞**에 끼운다. 그런 줄이 없거나 통과 시각을 모르면
+  /// (passed_at 을 내리기 전 서버) 대화 끝이다 = [messages] 의 길이.
+  static int _revealIndex(List<Message> messages, DateTime? revealAt) {
+    if (revealAt == null) {
+      return messages.length;
+    }
+    final index = messages.indexWhere((message) => message.createdAt.isAfter(revealAt));
+    return index < 0 ? messages.length : index;
+  }
+
+  /// 같은 사람이 같은 분에 보낸 연속 말풍선(pen `RvjRp` 메모 · `mmtWq`): 시각은 마지막 줄에만, 사이 4.
+  /// "같은 분" 은 화면에 찍히는 시각("오후 2:15")이 같다는 뜻이다. 시스템 줄은 묶지 않는다.
+  static bool _sameMinuteRun(Message above, Message below) =>
+      !above.isSystem &&
+      !below.isSystem &&
+      above.senderId == below.senderId &&
+      DateUtils.isSameDay(above.createdAt, below.createdAt) &&
+      timeLabel(above.createdAt) == timeLabel(below.createdAt);
+
+  Widget _bubble(ChatRoom room, Message message, {required bool showTime}) {
     if (message.isSystem) {
       return SystemMessage(body: message.body);
     }
     // 내 id 를 따로 들고 다니지 않는다 — 상대가 아니면 내 것이다.
     if (message.senderId != room.partner.profileId) {
-      return MessageBubble(message: message, isMine: true);
+      return MessageBubble(
+        message: message,
+        isMine: true,
+        isUnread: state.isUnreadByPartner(message),
+        showTime: showTime,
+      );
     }
     // 신고 메뉴는 상대 말풍선에만 있다(pen `I8fOcN`). Builder 로 이 말풍선 행의 context 를 잡는다.
     return Builder(
       builder: (bubbleContext) => MessageBubble(
         message: message,
         isMine: false,
+        showTime: showTime,
         onLongPress: () => onBubbleLongPress(bubbleContext, message),
       ),
     );
   }
 }
+
+/// 목록 한 칸. [joinsAbove] 면 바로 위 줄과 같은 분 묶음이라 간격이 4로 좁다.
+typedef _ListItem = ({Widget child, bool joinsAbove});
 
 /// 상대가 나간 방의 입력 바 자리(결정 7 · 10, pen 14g `z5ULI` `EyXt8`): 안내 위, "채팅방 나가기" 아래.
 /// **비활성 입력칸을 남겨 두지 않는다.** 눌러도 아무 일 없는 칸이 제일 나쁘다. 나가기는 ⋯ 메뉴와 같은 길이다.

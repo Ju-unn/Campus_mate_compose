@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:campus_mate/chat/model/chat_repository.dart';
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
+import 'package:campus_mate/chat/model/chat_room.dart';
 import 'package:campus_mate/chat/model/message.dart';
 import 'package:campus_mate/chat/view/chat_room_screen.dart';
 import 'package:campus_mate/chat/view/date_divider.dart';
@@ -420,6 +421,73 @@ void main() {
       final nextDay = dividers.singleWhere((divider) => divider.date.day == 23);
       expect(card, lessThan(tester.getTopLeft(find.byWidget(nextDay)).dy));
       expect(card, greaterThan(tester.getTopLeft(find.textContaining('수락했어요')).dy));
+    });
+  });
+
+  // 카톡식 안 읽음 '1'(사용자 결정 10-13, pen 구역 c57Ze). 내 text 말풍선마다 따로 붙는다.
+  group('안 읽음 1(pen c57Ze)', () {
+    final at = DateTime(2026, 10, 13, 14, 15);
+    const lines = ['네 좋아요, 토요일 오후 어떠세요?', '3시쯤 학교 앞 카페 어때요?', '제가 자리 먼저 알아볼게요 :)'];
+
+    /// 시안 Kq8Vr · MNWTN · hDNbq 의 아래쪽: 상대 한 줄(14:14) 뒤 같은 분(14:15)에 보낸 내 줄 3개.
+    List<Message> sameMinuteRun() => [
+          messageFixture(id: 'their', senderId: partnerId, body: '저도요! 혹시 이번 주말에 시간 괜찮으실까요?', createdAt: at.subtract(const Duration(minutes: 1))),
+          for (var i = 0; i < lines.length; i++)
+            messageFixture(id: 'mine-$i', senderId: myId, body: lines[i], createdAt: at.add(Duration(seconds: i * 10))),
+        ];
+
+    Future<void> pumpRead(WidgetTester tester, PartnerRead read, {List<Message>? messages, bool partnerLeft = false}) async {
+      tester.view.physicalSize = const Size(360, 780);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      repository.room = Success(roomFixture(partnerRead: read, partnerLeft: partnerLeft));
+      repository.messages = Success(MessagePage(messages: messages ?? sameMinuteRun(), hasMore: false, partnerRead: read));
+      await pump(tester);
+    }
+
+    Finder unreadMarks() => find.text('1');
+
+    testWidgets('MNWTN 모두 읽었으면 1 이 하나도 없다', (tester) async {
+      await pumpRead(tester, PartnerRead.known(at.add(const Duration(minutes: 1))));
+
+      expect(unreadMarks(), findsNothing);
+    });
+
+    testWidgets('상대 말풍선과 시스템 줄에는 없다', (tester) async {
+      await pumpRead(tester, const PartnerRead.known(null), messages: [
+        messageFixture(id: 'their', senderId: partnerId, body: '안녕하세요', createdAt: at),
+        messageFixture(id: 'sys', senderId: myId, kind: MessageKind.trustAccept, body: '카카오톡 아이디 공개를 수락했어요', createdAt: at),
+      ]);
+
+      expect(find.byType(SystemMessage), findsOneWidget);
+      expect(unreadMarks(), findsNothing);
+    });
+
+    testWidgets('상대가 나간 방에서는 숨긴다 — 읽을 사람이 없다', (tester) async {
+      await pumpRead(tester, const PartnerRead.known(null), partnerLeft: true);
+
+      expect(unreadMarks(), findsNothing);
+    });
+
+    testWidgets('서버가 읽음 시각을 안 주면(옛 서버) 그리지 않는다', (tester) async {
+      await pumpRead(tester, const PartnerRead.unknown());
+
+      expect(unreadMarks(), findsNothing);
+    });
+
+    testWidgets('보내는 중이거나 보내기에 실패한 글에는 1 이 없다 — 말풍선이 생기지 않는다', (tester) async {
+      await pumpRead(tester, const PartnerRead.known(null), messages: const []);
+      repository.holdSend = Completer<void>();
+      repository.sendResult = const FailureResult(NetworkFailure());
+
+      await tester.enterText(find.byType(TextField), '보내는 중');
+      await tester.tap(find.bySemanticsLabel('보내기'));
+      await tester.pump();
+      expect(unreadMarks(), findsNothing);
+
+      repository.holdSend!.complete();
+      await tester.pumpAndSettle();
+      expect(unreadMarks(), findsNothing);
     });
   });
 }
