@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:campus_mate/chat/model/http_chat_repository.dart';
 import 'package:campus_mate/chat/model/message.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/core/http/api_client.dart';
+import 'package:campus_mate/core/http/http_send.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -276,5 +278,44 @@ void main() {
 
     final room = result.when(onSuccess: (value) => value, onFailure: (_) => null);
     expect(room!.gate.passedAt, DateTime.parse('2026-09-22T03:30:00Z').toLocal());
+  });
+
+  // 10-13 아이폰: 와이파이 ↔ LTE 전환 중 나간 요청이 끝내 안 돌아왔다. 방에 들어올 때 찍는 읽음이 걸리면
+  // 방 안 상대 읽음 확인이 시작되지 않는다 — 다시 찍어도 해가 없는 이 쓰기만 조회와 같은 시간에 끊는다(대장 결정 10-13).
+  group('응답이 끝내 오지 않는 쓰기', () {
+    testWidgets('읽음 찍기(PATCH /read)는 시간 제한이 지나면 NetworkFailure 로 끝난다', (tester) async {
+      final client = MockClient((request) => Completer<http.Response>().future);
+      Object? outcome;
+      unawaited(buildRepository(client)
+          .markRead('m1')
+          .then((result) => outcome = result.when(onSuccess: (_) => 'success', onFailure: (f) => f)));
+
+      await tester.pump(readTimeout - const Duration(milliseconds: 1));
+      expect(outcome, isNull);
+
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(outcome, isA<NetworkFailure>());
+    });
+
+    testWidgets('보내기(POST)는 끊지 않는다 — 끊었다 다시 보내면 두 번 갈 수 있다', (tester) async {
+      final reply = Completer<http.Response>();
+      final client = MockClient((request) => reply.future);
+      Object? outcome;
+      unawaited(buildRepository(client)
+          .sendMessage('m1', '안녕하세요')
+          .then((result) => outcome = result.when(onSuccess: (m) => m?.body, onFailure: (f) => f)));
+
+      await tester.pump(readTimeout * 4);
+      expect(outcome, isNull);
+
+      reply.complete(jsonResponse({
+        'message': {
+          'id': 'm9', 'sender_id': 'p1', 'kind': 'text', 'body': '안녕하세요',
+          'created_at': '2026-09-22T14:30:00+09:00',
+        },
+      }, 201));
+      await tester.pump();
+      expect(outcome, '안녕하세요');
+    });
   });
 }

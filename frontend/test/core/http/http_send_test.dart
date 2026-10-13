@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:campus_mate/common/failure.dart';
@@ -223,6 +224,37 @@ void main() {
     final result = await sendHttpRequest(client, buildRequest());
 
     expect(result.when(onSuccess: (_) => null, onFailure: (f) => f), isA<NetworkFailure>());
+  });
+
+  // 10-13 아이폰: 와이파이 ↔ LTE 를 오가던 중 나간 요청이 끝내 안 돌아와(실패도 아님) 기다리던 쪽이 영영 멈췄다.
+  group('응답이 끝내 오지 않는 요청', () {
+    testWidgets('조회(GET)는 시간 제한이 지나면 NetworkFailure 로 끝난다', (tester) async {
+      final client = MockClient((request) => Completer<http.Response>().future);
+      Object? outcome;
+      unawaited(sendHttpRequest(client, buildRequest())
+          .then((result) => outcome = result.when(onSuccess: (_) => 'success', onFailure: (f) => f)));
+
+      await tester.pump(readTimeout - const Duration(milliseconds: 1));
+      expect(outcome, isNull);
+
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(outcome, isA<NetworkFailure>());
+    });
+
+    testWidgets('쓰기(POST)는 끊지 않는다 — 아바타 생성은 60초 걸리고, 보내기는 끊으면 두 번 갈 수 있다', (tester) async {
+      final reply = Completer<http.Response>();
+      final client = MockClient((request) => reply.future);
+      Object? outcome;
+      unawaited(sendHttpRequest(client, http.Request('POST', Uri.parse('https://api.test/avatar')))
+          .then((result) => outcome = result.when(onSuccess: (response) => response.body, onFailure: (f) => f)));
+
+      await tester.pump(readTimeout * 4);
+      expect(outcome, isNull);
+
+      reply.complete(http.Response('ok', 200));
+      await tester.pump();
+      expect(outcome, 'ok');
+    });
   });
 
   test('세션이 있으면 토큰을 붙여 보낸다', () async {

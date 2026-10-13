@@ -19,10 +19,10 @@ final chatRoomViewModelProvider =
 /// (`verifyCodeNowProvider` 와 같은 방식) — 24시간 경계를 실제 시계 없이 넘기려고(백로그 22).
 final chatRoomNowProvider = Provider<DateTime Function()>((ref) => DateTime.now);
 
-/// 방이 보이는 동안 상대가 내 줄을 읽었는지 묻는 주기(카톡식 '1', 사용자 결정 10-13).
-/// 실시간 통로로는 상대의 읽음이 오지 않아 이만큼 늦게 사라질 수 있다.
-/// ponytail: 5초 폴링이다. 즉시 사라지게 하려면 읽음 시각을 Realtime 으로 밀어 줘야 한다(서버 · 구독 변경).
-const Duration partnerReadPollInterval = Duration(seconds: 5);
+/// 방이 보이는 동안 상대가 내 줄을 읽었는지 묻는 주기(카톡식 '1', 사용자 결정 10-13, 같은 날 사용자 요청으로 5초 → 2초).
+/// 실시간 통로로는 상대의 읽음이 오지 않아 이만큼 늦게 사라질 수 있다. 메시지 1건 조회라 가볍다.
+/// ponytail: 2초 폴링이다. 즉시 사라지게 하려면 읽음 시각을 Realtime 으로 밀어 줘야 한다(서버 · 구독 변경).
+const Duration partnerReadPollInterval = Duration(seconds: 2);
 
 /// 방을 보는 동안 받은 상대 줄의 읽음을 묶는 간격. 첫 줄에 바로 찍고, 그 사이 온 줄은 끝에 한 번 더 찍는다.
 const Duration markReadThrottle = Duration(seconds: 3);
@@ -385,7 +385,7 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
 
   /// 방이 화면에 보이는가 — 앱 복귀 · 덮었던 화면이 닫힘 = true, 백그라운드 · 다른 화면이 덮음 = false.
   /// 안 보이는 동안에는 상대 읽음을 묻지 않고 **읽음도 찍지 않는다** — 보지 않은 줄을 읽었다고 알리면 안 된다.
-  /// 다시 보이면 바로 한 번 묻고 5초 주기를 이어 가며, 그사이 온 상대 줄의 읽음을 찍는다.
+  /// 다시 보이면 바로 한 번 묻고 [partnerReadPollInterval] 주기를 이어 가며, 그사이 온 상대 줄의 읽음을 찍는다.
   void setVisible(bool visible) {
     if (visible == _visible) {
       return;

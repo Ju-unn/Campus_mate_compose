@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
+import 'package:campus_mate/chat/model/http_chat_repository.dart';
 import 'package:campus_mate/chat/model/message.dart';
 import 'package:campus_mate/chat/view/chat_list_row.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
@@ -9,6 +11,8 @@ import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/core/http/api_client.dart';
+import 'package:campus_mate/core/http/http_send.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -26,6 +30,10 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:mocktail/mocktail.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show GoTrueClient, Session;
 
 import '../../chat/model/fake_chat_repository.dart';
 import '../model/fake_card_repository.dart';
@@ -652,7 +660,7 @@ void main() {
   });
 
   // 목록은 실시간 구독을 쓰지 않으니, 푸시가 없는 사이(방에서 나온 뒤 30초 등)의 새 메시지는 폴링으로 맞춘다.
-  group('대화 탭이 떠 있는 동안 5초마다 대화 목록을 조용히 다시 읽는다', () {
+  group('대화 탭이 떠 있는 동안 3초마다 대화 목록을 조용히 다시 읽는다', () {
     late FakeChatRepository chat;
     late FakeCardRepository cards;
     late ProviderContainer container;
@@ -692,11 +700,11 @@ void main() {
       }
     }
 
-    testWidgets('간격은 5초 하나다', (tester) async {
-      expect(conversationsPollInterval, const Duration(seconds: 5));
+    testWidgets('간격은 3초 하나다(사용자 요청 10-13, 5초 → 3초)', (tester) async {
+      expect(conversationsPollInterval, const Duration(seconds: 3));
     });
 
-    testWidgets('5초가 되기 전에는 다시 읽지 않고, 5초마다 한 번씩 읽는다', (tester) async {
+    testWidgets('3초가 되기 전에는 다시 읽지 않고, 3초마다 한 번씩 읽는다', (tester) async {
       await openScreen(tester);
       expect(chat.conversationsFetchCount, 1);
 
@@ -738,7 +746,7 @@ void main() {
       await tester.pump();
     });
 
-    testWidgets('읽는 중에 5초가 또 지나도 겹쳐 부르지 않고, 끝난 뒤 다음 주기에 읽는다', (tester) async {
+    testWidgets('읽는 중에 3초가 또 지나도 겹쳐 부르지 않고, 끝난 뒤 다음 주기에 읽는다', (tester) async {
       await openScreen(tester);
       chat.holdConversations = Completer<void>();
 
@@ -771,7 +779,7 @@ void main() {
       expect(find.text('다시 연결됐어요'), findsOneWidget);
     });
 
-    testWidgets('앱이 백그라운드에 있는 동안은 읽지 않고, 돌아오면 다시 5초마다 읽는다', (tester) async {
+    testWidgets('앱이 백그라운드에 있는 동안은 읽지 않고, 돌아오면 다시 3초마다 읽는다', (tester) async {
       await openScreen(tester);
 
       background(tester);
@@ -781,6 +789,23 @@ void main() {
       foreground(tester);
       await tester.pump(conversationsPollInterval);
       expect(chat.conversationsFetchCount, 2);
+    });
+
+    // iOS 순서: 알림을 눌러 켜면 화면이 inactive 인 채로 만들어지고, 알림 센터 · 제어 센터를 내리면 inactive ↔ resumed 만 오간다.
+    testWidgets('inactive 로 만들어져 뒤늦게 resumed 가 와도, inactive ↔ resumed 를 여러 번 오가도 마지막 resumed 뒤 한 주기에 읽는다',
+        (tester) async {
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await openScreen(tester);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      for (var i = 0; i < 3; i++) {
+        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+        await tester.pump(const Duration(milliseconds: 500));
+        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      }
+      final before = chat.conversationsFetchCount;
+
+      await tester.pump(conversationsPollInterval);
+      expect(chat.conversationsFetchCount, before + 1);
     });
 
     testWidgets('다른 화면이 위에 덮이면(상세 · 채팅방) 읽지 않고, 닫히면 다시 읽는다', (tester) async {
@@ -807,5 +832,87 @@ void main() {
 
       expect(chat.conversationsFetchCount, before);
     });
+
+    // 위 시험들은 MaterialApp(home:) 위라 실제 앱의 길(셸 없는 최상위 탭 경로를 유리 내비가 `context.go` 로 바꾸고,
+    // 방은 그 위에 `context.push`)을 지나지 않았다 — 그 길에서 맨 위 판정(ModalRoute.isCurrentOf)이 어긋나도 못 잡는다.
+    testWidgets('실제 앱처럼 유리 내비로 탭을 옮기고 방을 열고 닫아도, 대화 탭이 맨 위일 때만 읽는다', (tester) async {
+      final router = GoRouter(
+        initialLocation: AppRoutes.home,
+        routes: [
+          GoRoute(
+            path: AppRoutes.home,
+            builder: (_, _) => const Scaffold(bottomNavigationBar: GlassBottomNav(current: AppTab.main)),
+          ),
+          GoRoute(path: AppRoutes.conversations, builder: (_, _) => const ConversationsScreen()),
+          GoRoute(path: '${AppRoutes.chatRoom}/:matchId', builder: (_, _) => const Scaffold(body: Text('방'))),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(container: container, child: MaterialApp.router(routerConfig: router)),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('대화'));
+      await tester.pumpAndSettle();
+      final entered = chat.conversationsFetchCount;
+      await tester.pump(conversationsPollInterval * 2);
+      expect(chat.conversationsFetchCount, entered + 2, reason: '탭에 들어와 있는 동안');
+
+      await tester.tap(find.text('여우비'));
+      await tester.pumpAndSettle();
+      final inRoom = chat.conversationsFetchCount;
+      await tester.pump(conversationsPollInterval * 3);
+      expect(chat.conversationsFetchCount, inRoom, reason: '방이 덮은 동안');
+
+      router.pop();
+      await tester.pumpAndSettle();
+      final back = chat.conversationsFetchCount;
+      await tester.pump(conversationsPollInterval * 2);
+      expect(chat.conversationsFetchCount, back + 2, reason: '방을 닫고 돌아온 뒤');
+
+      await tester.tap(find.text('메인'));
+      await tester.pumpAndSettle();
+      final left = chat.conversationsFetchCount;
+      await tester.pump(conversationsPollInterval * 3);
+      expect(chat.conversationsFetchCount, left, reason: '다른 탭으로 옮긴 뒤');
+    }, variant: const TargetPlatformVariant({TargetPlatform.android, TargetPlatform.iOS}));
+  });
+
+  // 10-13 아이폰(Cloud Run 로그): 와이파이 → LTE 로 바뀌던 중 나간 목록 요청 하나가 끝내 안 돌아오자, 그 뒤의 폴링 · 복귀 ·
+  // 방 진입 목록 읽기가 모두 읽는 중 합치기(_inFlight)로 그 요청에 묶여 앱을 껐다 켤 때까지 목록이 멈췄다.
+  // 가짜 저장소는 요청이 걸리는 일이 없어 이걸 못 본다 — 실제 HTTP 저장소 · ApiClient 를 지나게 한다.
+  testWidgets('목록 요청 하나가 끝내 안 돌아와도, 시간 제한 뒤 다음 주기에 다시 읽는다', (tester) async {
+    var listCalls = 0;
+    final client = MockClient((request) {
+      listCalls += 1;
+      // 첫 폴링(두 번째 읽기)만 영영 응답이 없다.
+      if (listCalls == 2) return Completer<http.Response>().future;
+      return Future.value(http.Response(jsonEncode({'conversations': <Object>[]}), 200));
+    });
+    final auth = _MockGoTrueClient();
+    final session = _MockSession();
+    when(() => session.accessToken).thenReturn('token');
+    when(() => auth.currentSession).thenReturn(session);
+    final container = ProviderContainer(overrides: [
+      cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
+      chatRepositoryProvider.overrideWithValue(HttpChatRepository(ApiClient('https://api.test', client, auth))),
+    ]);
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(container: container, child: const MaterialApp(home: ConversationsScreen())),
+    );
+    await tester.pump();
+    expect(listCalls, 1);
+
+    await tester.pump(conversationsPollInterval);
+    expect(listCalls, 2, reason: '이 요청이 걸린다');
+
+    await tester.pump(readTimeout + conversationsPollInterval);
+    expect(listCalls, greaterThanOrEqualTo(3), reason: '걸린 요청이 끊긴 뒤 다음 주기');
   });
 }
+
+class _MockGoTrueClient extends Mock implements GoTrueClient {}
+
+class _MockSession extends Mock implements Session {}

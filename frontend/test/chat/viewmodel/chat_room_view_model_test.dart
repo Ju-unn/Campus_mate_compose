@@ -1,15 +1,23 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:campus_mate/chat/model/chat_repository.dart';
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/chat/model/chat_room.dart';
+import 'package:campus_mate/chat/model/http_chat_repository.dart';
 import 'package:campus_mate/chat/model/message.dart';
 import 'package:campus_mate/chat/viewmodel/chat_room_ui_state.dart';
 import 'package:campus_mate/chat/viewmodel/chat_room_view_model.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/core/http/api_client.dart';
+import 'package:campus_mate/core/http/http_send.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:mocktail/mocktail.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show GoTrueClient, Session;
 
 import '../model/fake_chat_repository.dart';
 
@@ -677,8 +685,8 @@ void main() {
     });
   });
 
-  // 카톡식 '1'(사용자 결정 10-13). 5초 확인과 읽음 묶음은 시계가 아니라 Timer 로 돈다 —
-  // testWidgets 의 가짜 시간으로 5초를 실제로 기다리지 않고 넘긴다.
+  // 카톡식 '1'(사용자 결정 10-13). 상대 읽음 확인([partnerReadPollInterval])과 읽음 묶음은 시계가 아니라 Timer 로 돈다 —
+  // testWidgets 의 가짜 시간으로 실제로 기다리지 않고 넘긴다.
   group('상대 읽음 확인과 읽음 묶음', () {
     final sentAt = DateTime(2026, 10, 13, 14, 15);
     final readAfter = PartnerRead.known(sentAt.add(const Duration(seconds: 1)));
@@ -706,14 +714,18 @@ void main() {
     bool hasUnread(ProviderContainer container) =>
         stateOf(container).messages.any(stateOf(container).isUnreadByPartner);
 
-    testWidgets('방이 보이는 동안 5초마다 상대 읽음을 묻고, 읽었으면 1 이 사라진다', (tester) async {
+    test('확인 간격은 2초 하나다(사용자 요청 10-13, 5초 → 2초)', () {
+      expect(partnerReadPollInterval, const Duration(seconds: 2));
+    });
+
+    testWidgets('방이 보이는 동안 2초마다 상대 읽음을 묻고, 읽었으면 1 이 사라진다', (tester) async {
       final container = await openRoom(tester);
       expect(hasUnread(container), isTrue);
 
-      await tester.pump(const Duration(seconds: 4));
+      await tester.pump(partnerReadPollInterval - const Duration(milliseconds: 1));
       expect(repository.partnerReadFetchCount, 0);
       repository.partnerReadResult = Success(readAfter);
-      await tester.pump(const Duration(seconds: 1));
+      await tester.pump(const Duration(milliseconds: 1));
 
       expect(repository.partnerReadFetchCount, 1);
       expect(hasUnread(container), isFalse);
@@ -724,7 +736,7 @@ void main() {
       final container = await openRoom(tester);
       final pagesBefore = repository.pages.length;
 
-      await tester.pump(const Duration(seconds: 10));
+      await tester.pump(partnerReadPollInterval * 2);
 
       expect((repository.partnerReadFetchCount, repository.pages.length, repository.roomFetchCount), (2, pagesBefore, 1));
       container.dispose();
@@ -733,7 +745,7 @@ void main() {
     testWidgets('안 읽은 내 줄이 없으면 묻지 않는다', (tester) async {
       final container = await openRoom(tester, messages: [theirs('t1')]);
 
-      await tester.pump(const Duration(seconds: 15));
+      await tester.pump(partnerReadPollInterval * 3);
 
       expect(repository.partnerReadFetchCount, 0);
       container.dispose();
@@ -743,11 +755,11 @@ void main() {
       final container = await openRoom(tester);
       repository.holdPartnerRead = Completer<void>();
 
-      await tester.pump(const Duration(seconds: 15));
+      await tester.pump(partnerReadPollInterval * 3);
       expect(repository.partnerReadFetchCount, 1);
 
       repository.holdPartnerRead!.complete();
-      await tester.pump(const Duration(seconds: 5));
+      await tester.pump(partnerReadPollInterval);
       expect(repository.partnerReadFetchCount, 2);
       container.dispose();
     });
@@ -760,11 +772,11 @@ void main() {
       expect(error, isNotNull);
 
       repository.partnerReadResult = const FailureResult(NetworkFailure());
-      await tester.pump(const Duration(seconds: 5));
+      await tester.pump(partnerReadPollInterval);
       expect((stateOf(container).errorMessage, hasUnread(container)), (error, true));
 
       repository.partnerReadResult = Success(readAfter);
-      await tester.pump(const Duration(seconds: 5));
+      await tester.pump(partnerReadPollInterval);
       expect((stateOf(container).errorMessage, hasUnread(container)), (error, false));
       container.dispose();
     });
@@ -772,7 +784,7 @@ void main() {
     testWidgets('늦게 도착한 옛 읽음 값이 새 값을 덮어 1 을 되살리지 않는다', (tester) async {
       final container = await openRoom(tester);
       repository.partnerReadResult = Success(readAfter);
-      await tester.pump(const Duration(seconds: 5));
+      await tester.pump(partnerReadPollInterval);
       expect(hasUnread(container), isFalse);
 
       // 재연결이 읽은 머리말 · 첫 페이지가 그보다 이른 값(한 번도 안 읽음)을 들고 왔다.
@@ -788,14 +800,14 @@ void main() {
       final container = await openRoom(tester);
       viewModelOf(container).setVisible(false);
 
-      await tester.pump(const Duration(seconds: 20));
+      await tester.pump(partnerReadPollInterval * 4);
       expect(repository.partnerReadFetchCount, 0);
 
       viewModelOf(container).setVisible(true);
       await tester.pump();
       expect(repository.partnerReadFetchCount, 1);
 
-      await tester.pump(const Duration(seconds: 5));
+      await tester.pump(partnerReadPollInterval);
       expect(repository.partnerReadFetchCount, 2);
       container.dispose();
     });
@@ -804,7 +816,7 @@ void main() {
       final container = await openRoom(tester);
       container.dispose();
 
-      await tester.pump(const Duration(seconds: 20));
+      await tester.pump(partnerReadPollInterval * 4);
 
       expect(repository.partnerReadFetchCount, 0);
     });
@@ -864,5 +876,72 @@ void main() {
       expect(repository.readCount, 2);
       container.dispose();
     });
+
+    // 10-13 아이폰: 방에 들어올 때 찍는 읽음이 끝내 안 돌아오면 확인이 영영 시작되지 않았다(그 방문 내내 '1' 이 남는다).
+    // 가짜 저장소는 요청이 걸리는 일이 없다 — 실제 HTTP 저장소 · ApiClient 를 지나게 한다.
+    testWidgets('들어올 때 찍는 읽음(PATCH)이 끝내 안 돌아와도, 시간 제한 뒤 상대 읽음 확인이 시작된다', (tester) async {
+      var partnerReadCalls = 0;
+      final client = MockClient((request) {
+        final path = request.url.path;
+        if (request.method == 'PATCH') return Completer<http.Response>().future;
+        if (path == '/chat/conversations') return Future.value(_json({'conversations': <Object>[]}));
+        if (path == '/chat/matches/m1') return Future.value(_json(_roomJson));
+        if (request.url.queryParameters['limit'] == '1') {
+          partnerReadCalls += 1;
+          return Future.value(_json({'messages': <Object>[], 'has_more': true, 'partner_last_read_at': null}));
+        }
+        return Future.value(_json({'messages': [_myMessageJson], 'has_more': false, 'partner_last_read_at': null}));
+      });
+      final auth = _MockGoTrueClient();
+      final session = _MockSession();
+      when(() => session.accessToken).thenReturn('token');
+      when(() => auth.currentSession).thenReturn(session);
+      final container = ProviderContainer(overrides: [
+        chatRepositoryProvider.overrideWithValue(HttpChatRepository(ApiClient('https://api.test', client, auth))),
+        messageStreamProvider.overrideWithValue(stream),
+      ]);
+      addTearDown(container.dispose);
+      container.listen(chatRoomViewModelProvider('m1'), (_, _) {});
+      await tester.pump();
+      await tester.pump();
+      expect(hasUnread(container), isTrue);
+
+      await tester.pump(partnerReadPollInterval * 3);
+      expect(partnerReadCalls, 0, reason: '읽음 찍기가 걸린 동안');
+
+      await tester.pump(readTimeout + partnerReadPollInterval);
+      expect(partnerReadCalls, greaterThanOrEqualTo(1), reason: '걸린 읽음 찍기가 끊긴 뒤');
+      container.dispose();
+    });
   });
 }
+
+http.Response _json(Object body) =>
+    http.Response(jsonEncode(body), 200, headers: {'content-type': 'application/json; charset=utf-8'});
+
+const _roomJson = {
+  'match_id': 'm1',
+  'created_at': '2026-10-13T14:00:00+09:00',
+  'chat_closed_at': null,
+  'my_last_read_at': null,
+  'partner': {'profile_id': 'p2', 'nickname': '여우비', 'avatar_url': null},
+  'gate': {
+    'my_response': null,
+    'passed': false,
+    'partner_left': false,
+    'deadline_at': '2026-10-15T14:00:00+09:00',
+    'remaining_seconds': 172800,
+  },
+};
+
+const _myMessageJson = {
+  'id': 'mine-1',
+  'sender_id': 'me',
+  'kind': 'text',
+  'body': '안녕하세요',
+  'created_at': '2026-10-13T14:15:00+09:00',
+};
+
+class _MockGoTrueClient extends Mock implements GoTrueClient {}
+
+class _MockSession extends Mock implements Session {}
