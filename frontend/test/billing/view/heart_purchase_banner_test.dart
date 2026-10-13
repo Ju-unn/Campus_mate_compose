@@ -1,4 +1,5 @@
 import 'package:campus_mate/billing/model/heart_purchase_notice.dart';
+import 'package:campus_mate/billing/model/payment_store.dart';
 import 'package:campus_mate/billing/view/heart_purchase_banner.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -10,7 +11,12 @@ import 'pretendard.dart';
 void main() {
   setUpAll(loadPretendard);
 
-  Future<void> pump(WidgetTester tester, HeartPurchaseNotice notice, {double textScale = 1}) async {
+  Future<void> pump(
+    WidgetTester tester,
+    HeartPurchaseNotice notice, {
+    double textScale = 1,
+    PaymentStore store = PaymentStore.googlePlay,
+  }) async {
     tester.view.physicalSize = const Size(360, 640);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -18,7 +24,7 @@ void main() {
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(body: Column(children: [HeartPurchaseBanner(notice: notice)])),
+        home: Scaffold(body: Column(children: [HeartPurchaseBanner(notice: notice, store: store)])),
       ),
     );
   }
@@ -55,6 +61,13 @@ void main() {
     expect((icon.icon, icon.color), (AppIcons.alertTriangle, AppColors.error));
     expect(tester.widget<Text>(find.text('지금은 하트를 살 수 없어요')).style!.color, AppColors.error);
     expect(find.text('구글 플레이에 로그인했는지 확인해 주세요'), findsOneWidget);
+  });
+
+  testWidgets('App Store(iOS)의 결제 불가 설명은 App Store 를 가리킨다 — 구글 플레이를 말하지 않는다', (tester) async {
+    await pump(tester, HeartPurchaseNotice.unavailable, store: PaymentStore.appStore);
+
+    expect(find.text('App Store에 로그인했는지 확인해 주세요'), findsOneWidget);
+    expect(find.textContaining('구글'), findsNothing);
   });
 
   testWidgets('아이콘은 pen 대로 — 대기 timer · 다른 계정 info · 실패 · 확인 실패 triangle-alert', (tester) async {

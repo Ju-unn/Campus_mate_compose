@@ -86,7 +86,9 @@ void main() {
   late FakeHeartStoreGateway gateway;
   late FakeBillingRepository billing;
   late GoRouter router;
-  late bool supported;
+
+  /// null 이면 덮지 않는다 — 기기(시험 플랫폼)에 따라 진짜 provider 가 정한다.
+  late bool? supported;
   late List<Uri> opened;
   late FakeMeRepository me;
 
@@ -130,7 +132,7 @@ void main() {
           meRepositoryProvider.overrideWithValue(profile == null ? me : FakeMeRepository(profile)),
           heartStoreGatewayProvider.overrideWithValue(gateway),
           billingRepositoryProvider.overrideWithValue(billing),
-          heartPurchaseSupportedProvider.overrideWithValue(supported),
+          if (supported case final value?) heartPurchaseSupportedProvider.overrideWithValue(value),
           openUrlProvider.overrideWithValue((uri) async {
             opened.add(uri);
             return true;
@@ -806,7 +808,46 @@ void main() {
     });
   });
 
-  group('iOS · 웹(15e-9 `GKEM9`)', () {
+  group('iOS(App Store)', () {
+    final ios = TargetPlatformVariant.only(TargetPlatform.iOS);
+
+    testWidgets('구매 섹션 · 하단 바가 보이고 결제 안내는 App Store 판 — 구글 플레이를 말하지 않는다', (tester) async {
+      supported = null;
+      await pump(tester);
+
+      expect(find.text('구매하기'), findsOneWidget);
+      expect(find.byType(HeartBundleCard), findsNWidgets(5));
+      expect(inBar('100하트 받기 · 5,700원'), findsOneWidget);
+      expect(find.text('결제는 App Store로 처리돼요'), findsOneWidget);
+      expect(find.textContaining('구글'), findsNothing);
+    }, variant: ios);
+
+    testWidgets('구매 → 결제 창에는 애플 계정 표시(UUID)', (tester) async {
+      supported = null;
+      await pump(tester);
+      await openSheet(tester);
+
+      await tester.tap(inSheet('5,700원에 구매'));
+      await tester.pump();
+
+      expect(gateway.bought, [('heart_100', fakeAppleAccountToken)]);
+      expect(find.descendant(of: find.byType(BottomSheet), matching: find.text('결제는 App Store로 처리돼요')), findsOneWidget);
+      await emit(tester, [const StorePurchaseCanceled('')]);
+      await tester.pumpAndSettle(const Duration(milliseconds: 100));
+    }, variant: ios);
+
+    testWidgets('스토어 가격을 못 읽으면(상품 미등록 · 샌드박스 불가) 구글처럼 결제 불가 배너 — 설명은 App Store', (tester) async {
+      supported = null;
+      gateway.prices = {};
+      await pump(tester);
+
+      expect(find.text('지금은 하트를 살 수 없어요'), findsOneWidget);
+      expect(find.text('App Store에 로그인했는지 확인해 주세요'), findsOneWidget);
+      expect(inBar('구매할 수 없어요'), findsOneWidget);
+    }, variant: ios);
+  });
+
+  group('웹 · 데스크톱(15e-9 `GKEM9`)', () {
     testWidgets('구매 섹션 · 하단 바 · 배너가 없고 무료로 모으기가 보유 하트 바로 아래(y332)', (tester) async {
       supported = false;
       gateway.available = false;

@@ -1,4 +1,5 @@
 import 'package:campus_mate/billing/model/heart_purchase_notice.dart';
+import 'package:campus_mate/billing/model/payment_store.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -17,6 +18,14 @@ void main() {
         ('unavailable', '지금은 하트를 살 수 없어요', '구글 플레이에 로그인했는지 확인해 주세요'),
       ],
     );
+  });
+
+  test('스토어 이름이 든 설명은 결제 불가 하나 — App Store 에서는 App Store 로(pen 후속), 나머지는 두 스토어가 같다', () {
+    expect(HeartPurchaseNotice.unavailable.captionOn(PaymentStore.appStore), 'App Store에 로그인했는지 확인해 주세요');
+    expect(HeartPurchaseNotice.unavailable.captionOn(PaymentStore.googlePlay), '구글 플레이에 로그인했는지 확인해 주세요');
+    for (final notice in HeartPurchaseNotice.values.where((n) => n != HeartPurchaseNotice.unavailable)) {
+      expect(notice.captionOn(PaymentStore.appStore), notice.caption, reason: notice.name);
+    }
   });
 
   test('토스트는 취소 · 이미 처리 둘뿐이고 나머지는 앱바 아래 배너다', () {

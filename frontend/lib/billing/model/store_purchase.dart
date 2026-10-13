@@ -14,7 +14,8 @@ sealed class StorePurchaseEvent {
   final String productId;
 }
 
-/// 결제됨(또는 소비되지 않은 지난 결제를 다시 받음). [purchaseToken] 은 구글 구매 토큰이다.
+/// 결제됨(또는 끝나지 않은 지난 결제를 다시 받음). [purchaseToken] 은 서버로 보낼 증거 — 구글은 구매 토큰, 애플은 거래 번호
+/// (StoreKit 2 `Transaction.id`, 숫자 글자)다.
 final class StorePurchased extends StorePurchaseEvent {
   const StorePurchased(super.productId, this.purchaseToken);
 

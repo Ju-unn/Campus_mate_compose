@@ -68,7 +68,13 @@ void main() {
   late FakeHeartStoreGateway store;
   late FakeBillingRepository billing;
 
-  Future<void> pumpApp(WidgetTester tester, {VerificationGate gate = VerificationGate.complete}) async {
+  /// [byPlatform] 이면 구매를 여는지 · 어느 스토어인지를 덮지 않는다 — 시험 플랫폼(variant)대로 진짜 provider 가 정한다.
+  Future<void> pumpApp(
+    WidgetTester tester, {
+    VerificationGate gate = VerificationGate.complete,
+    bool byPlatform = false,
+    List<StorePurchaseEvent> unconsumed = const [StorePurchased('heart_100', 'paid-before-crash')],
+  }) async {
     store = FakeHeartStoreGateway();
     billing = FakeBillingRepository();
     final container = ProviderContainer(
@@ -88,11 +94,11 @@ void main() {
         signOutProvider.overrideWithValue(() async {}),
         heartStoreGatewayProvider.overrideWithValue(store),
         billingRepositoryProvider.overrideWithValue(billing),
-        heartPurchaseSupportedProvider.overrideWithValue(true),
+        if (!byPlatform) heartPurchaseSupportedProvider.overrideWithValue(true),
       ],
     );
     addTearDown(container.dispose);
-    store.unconsumed = const [StorePurchased('heart_100', 'paid-before-crash')];
+    store.unconsumed = unconsumed;
     await tester.pumpWidget(UncontrolledProviderScope(container: container, child: const CampusMateApp()));
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
@@ -113,6 +119,22 @@ void main() {
 
     expect(billing.verified.last, ('heart_200', 'late'));
   });
+
+  testWidgets('iOS — 관문이 열리면 끝내지 않은 애플 거래를 거래 번호로 애플 확인에 보내고, 지급된 뒤에 끝낸다', (tester) async {
+    await pumpApp(tester, byPlatform: true, unconsumed: const [StorePurchased('heart_100', '2000000123456789')]);
+
+    expect(store.recoverCount, 1);
+    expect(billing.appleVerified, [('heart_100', '2000000123456789')]);
+    expect(billing.verified, isEmpty, reason: '구글 확인으로 보내지 않는다');
+    expect(store.finished, ['2000000123456789']);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
+  testWidgets('안드로이드도 기기 그대로 구매를 열고 구글 확인으로 보낸다(구글 경로 불변)', (tester) async {
+    await pumpApp(tester, byPlatform: true);
+
+    expect(billing.verified, [('heart_100', 'paid-before-crash')]);
+    expect(billing.appleVerified, isEmpty);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
   testWidgets('관문이 열리기 전(학생증 검토 중)에는 하트 결제를 건드리지 않는다 — 서버 확인은 관문 뒤', (tester) async {
     await pumpApp(tester, gate: VerificationGate.needsStudentVerification);

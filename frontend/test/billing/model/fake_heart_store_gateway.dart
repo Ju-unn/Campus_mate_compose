@@ -22,6 +22,9 @@ class FakeHeartStoreGateway implements HeartStoreGateway {
   List<StorePurchaseEvent> unconsumed = const [];
 
   final List<(String, String)> bought = [];
+
+  /// [finish] 로 끝낸 구매 토큰(애플 거래 번호) — 순서대로.
+  final List<String> finished = [];
   int recoverCount = 0;
   int availableCount = 0;
 
@@ -55,4 +58,7 @@ class FakeHeartStoreGateway implements HeartStoreGateway {
     recoverCount++;
     if (unconsumed.isNotEmpty) emit(unconsumed);
   }
+
+  @override
+  Future<void> finish(String purchaseToken) async => finished.add(purchaseToken);
 }

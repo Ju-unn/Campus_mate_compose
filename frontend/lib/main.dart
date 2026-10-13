@@ -32,7 +32,6 @@ import 'package:campus_mate/core/supabase/auth_session_listenable_provider.dart'
 import 'package:campus_mate/core/supabase/supabase_config.dart';
 import 'package:campus_mate/core/supabase/supabase_initializer.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -59,10 +58,10 @@ Future<void> main() async {
       if (!firebaseReady) pushMessagingProvider.overrideWithValue(const NoPushMessaging()),
       // 안드로이드 시스템 알림 창구는 앱을 켤 때 한 번만 만든다 — 로그아웃해도 새로 만들지 않는다(push_provider.dart).
       systemNotificationsProvider.overrideWithValue(LocalSystemNotifications(FlutterLocalNotificationsPlugin())),
-      // 하트 구매는 안드로이드(구글 플레이)만 연다(계획서 7-1). 다른 곳은 provider 기본값(아무것도 하지 않는 창구)이다.
-      // 로그아웃해도 버리지 않는다 — 플러그인 하나를 앱이 끝날 때까지 쓴다.
-      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
-        heartStoreGatewayProvider.overrideWithValue(InAppHeartStoreGateway(InAppPurchase.instance)),
+      // 하트 구매는 안드로이드(구글 플레이)와 iOS(App Store)에서 연다. 다른 곳은 provider 기본값(아무것도 하지 않는 창구)이다.
+      // 로그아웃해도 버리지 않는다 — 플러그인 하나를 앱이 끝날 때까지 쓴다. iOS 창구는 여기서(앱 시작) 바로 거래를 듣기 시작한다.
+      if (platformHeartStoreGateway(() => InAppPurchase.instance) case final gateway?)
+        heartStoreGatewayProvider.overrideWithValue(gateway),
     ],
     child: const CampusMateApp(),
   ));

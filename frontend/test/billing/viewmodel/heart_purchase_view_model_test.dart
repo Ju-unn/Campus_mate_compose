@@ -4,6 +4,7 @@ import 'package:campus_mate/billing/model/billing_repository.dart';
 import 'package:campus_mate/billing/model/billing_repository_provider.dart';
 import 'package:campus_mate/billing/model/heart_purchase_notice.dart';
 import 'package:campus_mate/billing/model/heart_store_gateway.dart';
+import 'package:campus_mate/billing/model/payment_store.dart';
 import 'package:campus_mate/billing/model/store_purchase.dart';
 import 'package:campus_mate/billing/viewmodel/heart_purchase_ui_state.dart';
 import 'package:campus_mate/billing/viewmodel/heart_purchase_view_model.dart';
@@ -11,6 +12,7 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/me/model/me_repository_provider.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -24,11 +26,12 @@ void main() {
   late FakeMeRepository me;
   late ProviderContainer container;
 
-  ProviderContainer makeContainer({bool supported = true}) {
+  ProviderContainer makeContainer({bool supported = true, PaymentStore store = PaymentStore.googlePlay}) {
     final made = ProviderContainer(overrides: [
       heartStoreGatewayProvider.overrideWithValue(gateway),
       billingRepositoryProvider.overrideWithValue(repo),
       heartPurchaseSupportedProvider.overrideWithValue(supported),
+      paymentStoreProvider.overrideWithValue(store),
       meRepositoryProvider.overrideWithValue(me),
     ]);
     addTearDown(made.dispose);
@@ -102,7 +105,7 @@ void main() {
       expect((state().canBuy('heart_100'), state().canBuy('heart_800')), (true, false));
     });
 
-    test('안드로이드가 아니면(iOS · 웹) 아무것도 부르지 않는다', () async {
+    test('구매를 열지 않는 기기(웹 · 데스크톱)면 아무것도 부르지 않는다', () async {
       container = makeContainer(supported: false);
 
       await openStore();
@@ -403,6 +406,158 @@ void main() {
       vm().clearToast();
 
       expect(state().toast, isNull);
+    });
+  });
+
+  group('구매를 끝내는 때(finish — 구글 창구는 아무것도 하지 않고, 애플 창구는 거래를 끝낸다)', () {
+    setUp(() async {
+      await openStore();
+      await vm().buy();
+    });
+
+    test('구글도 같은 길 — 서버가 지급했다고 답한 뒤에 finish 를 부른다(구글 창구에서는 소비를 서버가 하므로 아무 일 없음)', () async {
+      await emit([const StorePurchased('heart_100', 'tok')]);
+
+      expect(repo.verified, [('heart_100', 'tok')]);
+      expect(repo.appleVerified, isEmpty);
+      expect(gateway.finished, ['tok']);
+    });
+
+    test('서버 202(구글 대기)는 끝내지 않는다', () async {
+      repo.outcome = const Success(PurchasePendingAtStore());
+
+      await emit([const StorePurchased('heart_100', 'tok')]);
+
+      expect(gateway.finished, isEmpty);
+    });
+  });
+
+  group('App Store(iOS)', () {
+    const transactionId = '2000000123456789';
+
+    setUp(() => container = makeContainer(store: PaymentStore.appStore));
+
+    test('결제 창에는 apple_account_token(UUID)을 싣는다 — 구글용 64자 계정 표시가 아니다', () async {
+      await openStore();
+
+      await vm().buy();
+
+      expect(gateway.bought, [('heart_100', fakeAppleAccountToken)]);
+    });
+
+    test('애플 계정 표시를 주지 않는 서버(배포 전)면 iOS 는 결제 불가 배너 — 구글 표시로 대신 사지 않는다', () async {
+      repo.status = Success(BillingStatus(accountToken: fakeAccountToken, bonus: fakeBonus));
+
+      await openStore();
+
+      expect((state().availability, state().banner), (HeartStoreAvailability.unavailable, HeartPurchaseNotice.unavailable));
+      expect(state().canBuy('heart_100'), isFalse);
+    });
+
+    test('결제됨 → /billing/apple/verify 에 (상품, 거래 번호), 구글 확인은 부르지 않는다', () async {
+      await openStore();
+
+      await emit([const StorePurchased('heart_200', transactionId)]);
+
+      expect(repo.appleVerified, [('heart_200', transactionId)]);
+      expect(repo.verified, isEmpty);
+    });
+
+    test('서버 200(granted) 뒤에만 거래를 끝낸다 — 확인 중에는 끝내지 않는다', () async {
+      await openStore();
+      repo.holdVerify = Completer<void>();
+
+      await emit([const StorePurchased('heart_100', transactionId)]);
+      expect(gateway.finished, isEmpty, reason: '서버가 지급하기 전에 끝내면 지급이 늦어진 결제를 되살릴 수 없다');
+      repo.holdVerify!.complete();
+      await pumpEventQueue();
+
+      expect(gateway.finished, [transactionId]);
+      expect((state().toast! as GrantedToast).message, '150하트가 들어왔어요(보너스 50 포함)');
+    });
+
+    test('이미 받은 거래(already_granted)도 끝낸다 — 하트는 이미 들어갔다', () async {
+      await openStore();
+      repo.outcome = const Success(PurchaseGranted(hearts: 100, bonusHearts: 0, isNew: false));
+
+      await emit([const StorePurchased('heart_100', transactionId)]);
+
+      expect(gateway.finished, [transactionId]);
+    });
+
+    for (final failure in const <Failure>[ServerUnavailableFailure(), NetworkFailure(), UnknownFailure()]) {
+      test('${failure.runtimeType}(503 billing_unavailable · apple_not_configured 포함) → 끝내지 않고 지급 지연, 다음 복구 때 다시 보낸다', () async {
+        await openStore();
+        repo.outcome = FailureResult(failure);
+
+        await emit([const StorePurchased('heart_100', transactionId)]);
+
+        expect((state().phase, state().banner), (HeartPurchasePhase.delayed, HeartPurchaseNotice.delayed));
+        expect(gateway.finished, isEmpty);
+        repo.outcome = const Success(PurchaseGranted(hearts: 100, bonusHearts: 50, isNew: true));
+        gateway.unconsumed = const [StorePurchased('heart_100', transactionId)];
+        await openStore();
+        expect(repo.appleVerified, [('heart_100', transactionId), ('heart_100', transactionId)]);
+        expect(gateway.finished, [transactionId]);
+      });
+    }
+
+    test('409 다른 계정 → 끝내지 않는다(결제한 계정으로 로그인하면 StoreKit 이 다시 줘서 들어온다), 이번 로그인에서는 다시 보내지 않는다', () async {
+      await openStore();
+      repo.outcome = const FailureResult(ServerRejectedFailure('x', code: 'purchase_other_account'));
+
+      await emit([const StorePurchased('heart_100', transactionId)]);
+      gateway.unconsumed = const [StorePurchased('heart_100', transactionId)];
+      await vm().refresh();
+      await pumpEventQueue();
+
+      expect(state().banner, HeartPurchaseNotice.otherAccount);
+      expect(repo.appleVerified, hasLength(1));
+      expect(gateway.finished, isEmpty);
+    });
+
+    test('422 확인 실패 → 끝내지 않는다(서버를 고치면 다음 앱 시작 때 다시 확인된다), 이번 로그인에서는 다시 보내지 않는다', () async {
+      await openStore();
+      repo.outcome = const FailureResult(ServerRejectedFailure('x', code: 'purchase_invalid'));
+
+      await emit([const StorePurchased('heart_100', transactionId)]);
+      gateway.unconsumed = const [StorePurchased('heart_100', transactionId)];
+      await vm().refresh();
+      await pumpEventQueue();
+
+      expect(state().banner, HeartPurchaseNotice.invalid);
+      expect(repo.appleVerified, hasLength(1));
+      expect(gateway.finished, isEmpty);
+    });
+
+    test('409 이미 처리(purchase_token_used) → 하트가 이미 들어간 거래라 끝낸다(남겨 두면 같은 상품을 다시 못 산다)', () async {
+      await openStore();
+      repo.outcome = const FailureResult(ServerRejectedFailure('x', code: 'purchase_token_used'));
+
+      await emit([const StorePurchased('heart_100', transactionId)]);
+
+      expect((state().toast! as NoticeToast).notice, HeartPurchaseNotice.alreadyProcessed);
+      expect(gateway.finished, [transactionId]);
+    });
+  });
+
+  group('구매를 여는 기기(heartPurchaseSupportedProvider)', () {
+    bool supportedOn(TargetPlatform platform) {
+      debugDefaultTargetPlatformOverride = platform;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      final plain = ProviderContainer();
+      addTearDown(plain.dispose);
+      return plain.read(heartPurchaseSupportedProvider);
+    }
+
+    test('안드로이드(구글 플레이) · iOS(App Store)는 연다', () {
+      expect((supportedOn(TargetPlatform.android), supportedOn(TargetPlatform.iOS)), (true, true));
+    });
+
+    test('그 밖(데스크톱)은 숨긴다', () {
+      for (final platform in [TargetPlatform.windows, TargetPlatform.macOS, TargetPlatform.linux, TargetPlatform.fuchsia]) {
+        expect(supportedOn(platform), isFalse, reason: platform.name);
+      }
     });
   });
 
