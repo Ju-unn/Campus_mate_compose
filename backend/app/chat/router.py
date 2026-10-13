@@ -192,6 +192,8 @@ async def get_chat_room(match_id: str, wiring: _Wiring = Depends(_wire)) -> dict
         "created_at": match["created_at"],
         "chat_closed_at": match["chat_closed_at"],
         "my_last_read_at": mine["last_read_at"],
+        # 카톡식 읽음 '1' 용(사용자 결정 2026-10-13, 옛 "상대에게 보이는 읽음 표시 없음" 을 뒤집음).
+        "partner_last_read_at": partner["last_read_at"],
         "partner": {
             "profile_id": partner["profile_id"],
             "nickname": profile.get("nickname"),
@@ -236,7 +238,7 @@ async def get_messages(match_id: str, before: datetime | None = None,
     match = await wiring.repo.fetch_match(match_id, wiring.profile_id)
     if match is None:
         raise HTTPException(status_code=404, detail=errors.CHAT_NOT_FOUND)
-    mine, _ = _sides(match, wiring.profile_id)
+    mine, partner = _sides(match, wiring.profile_id)
     if mine["left_at"]:
         raise HTTPException(status_code=404, detail=errors.CHAT_NOT_FOUND)
 
@@ -244,7 +246,9 @@ async def get_messages(match_id: str, before: datetime | None = None,
     messages = await wiring.repo.fetch_messages(
         match_id, before=before, before_id=before_id, limit=page_size
     )
-    return {"messages": messages, "has_more": len(messages) == page_size}
+    # 앱이 limit=1 로 가볍게 불러 상대 읽음 변화를 알아챈다 — 그 호출에도 키가 와야 한다.
+    return {"messages": messages, "has_more": len(messages) == page_size,
+            "partner_last_read_at": partner["last_read_at"]}
 
 
 @router.post("/chat/matches/{match_id}/messages", status_code=201)
@@ -268,7 +272,7 @@ async def send_message(match_id: str, body: MessageRequest,
 
 @router.patch("/chat/matches/{match_id}/read")
 async def mark_read(match_id: str, wiring: _Wiring = Depends(_wire)) -> dict:
-    """방에 들어올 때와 나갈 때 한 번씩 부른다(ERD §4). 상대에게 보이는 읽음 표시는 없다."""
+    """방에 들어올 때와 나갈 때 한 번씩 부른다(ERD §4). 상대 화면의 읽음 '1' 이 이 시각으로 사라진다."""
     match = await wiring.repo.fetch_match(match_id, wiring.profile_id)
     if match is None:
         raise HTTPException(status_code=404, detail=errors.CHAT_NOT_FOUND)

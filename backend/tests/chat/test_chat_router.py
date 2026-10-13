@@ -215,6 +215,98 @@ def test_a_zero_page_is_refused():
     assert response.status_code == 422
 
 
+# 상대의 읽은 시각(카톡식 읽음 '1', 사용자 결정 2026-10-13) --------------------------------
+
+PARTNER_READ = "2026-09-22T13:30:00+09:00"
+MY_READ = "2026-09-22T13:00:00+09:00"
+
+
+def _read_match(mine: str | None, partner: str | None) -> dict:
+    return _match(participants=[
+        {"profile_id": PROFILE_ID, "trust_response": None, "left_at": None, "last_read_at": mine},
+        {"profile_id": PARTNER_ID, "trust_response": None, "left_at": None, "last_read_at": partner},
+    ])
+
+
+def test_room_carries_the_partner_last_read_at_beside_mine():
+    body = _wire(_handler(_Calls(), _read_match(MY_READ, PARTNER_READ))).get(
+        f"/chat/matches/{MATCH_ID}", headers=AUTH_HEADERS
+    ).json()
+
+    assert body["partner_last_read_at"] == PARTNER_READ
+    assert body["my_last_read_at"] == MY_READ  # 회귀: 두 값이 섞이지 않는다
+
+
+def test_room_partner_last_read_at_is_null_when_never_read():
+    body = _wire(_handler(_Calls(), _read_match(MY_READ, None))).get(
+        f"/chat/matches/{MATCH_ID}", headers=AUTH_HEADERS
+    ).json()
+
+    assert "partner_last_read_at" in body
+    assert body["partner_last_read_at"] is None
+
+
+def test_my_reading_does_not_move_the_partner_value():
+    # 내가 읽어 내 값이 바뀌어도 상대 값은 상대 행에서만 온다.
+    older = _wire(_handler(_Calls(), _read_match(MY_READ, PARTNER_READ))).get(
+        f"/chat/matches/{MATCH_ID}", headers=AUTH_HEADERS).json()
+    newer = _wire(_handler(_Calls(), _read_match(NOW.isoformat(), PARTNER_READ))).get(
+        f"/chat/matches/{MATCH_ID}", headers=AUTH_HEADERS).json()
+
+    assert newer["my_last_read_at"] != older["my_last_read_at"]
+    assert newer["partner_last_read_at"] == older["partner_last_read_at"] == PARTNER_READ
+
+
+def test_messages_list_carries_the_partner_last_read_at_even_with_limit_one():
+    line = {"id": "m1", "sender_id": PROFILE_ID, "kind": "text", "body": "안녕",
+            "created_at": "2026-09-22T13:10:00+09:00"}
+    response = _wire(_handler(_Calls(), _read_match(MY_READ, PARTNER_READ), messages=[line])).get(
+        f"/chat/matches/{MATCH_ID}/messages?limit=1", headers=AUTH_HEADERS
+    )
+
+    body = response.json()
+    assert response.status_code == 200
+    assert body["partner_last_read_at"] == PARTNER_READ
+    # 회귀: 기존 키는 그대로
+    assert body["messages"] == [line]
+    assert body["has_more"] is True
+
+
+def test_messages_list_partner_last_read_at_is_null_when_never_read():
+    body = _wire(_handler(_Calls(), _read_match(MY_READ, None))).get(
+        f"/chat/matches/{MATCH_ID}/messages", headers=AUTH_HEADERS
+    ).json()
+
+    assert "partner_last_read_at" in body
+    assert body["partner_last_read_at"] is None
+
+
+def test_left_partner_keeps_the_room_readable_with_their_last_read():
+    match = _match(participants=[
+        {"profile_id": PROFILE_ID, "trust_response": None, "left_at": None, "last_read_at": MY_READ},
+        {"profile_id": PARTNER_ID, "trust_response": None, "left_at": "2026-09-22T13:40:00+09:00",
+         "last_read_at": PARTNER_READ},
+    ])
+    client = _wire(_handler(_Calls(), match))
+
+    assert client.get(f"/chat/matches/{MATCH_ID}", headers=AUTH_HEADERS).json()[
+        "partner_last_read_at"] == PARTNER_READ
+    assert client.get(f"/chat/matches/{MATCH_ID}/messages", headers=AUTH_HEADERS).json()[
+        "partner_last_read_at"] == PARTNER_READ
+
+
+def test_a_participant_who_left_still_gets_404_not_the_partner_value():
+    match = _match(participants=[
+        {"profile_id": PROFILE_ID, "trust_response": None, "left_at": "2026-09-22T13:40:00+09:00",
+         "last_read_at": MY_READ},
+        {"profile_id": PARTNER_ID, "trust_response": None, "left_at": None, "last_read_at": PARTNER_READ},
+    ])
+    client = _wire(_handler(_Calls(), match))
+
+    assert client.get(f"/chat/matches/{MATCH_ID}", headers=AUTH_HEADERS).status_code == 404
+    assert client.get(f"/chat/matches/{MATCH_ID}/messages", headers=AUTH_HEADERS).status_code == 404
+
+
 # 보내기 ----------------------------------------------------------------------
 
 def test_sending_stores_the_message_and_pushes_once():
