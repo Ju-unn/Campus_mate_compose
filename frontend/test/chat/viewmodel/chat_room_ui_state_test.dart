@@ -79,4 +79,62 @@ void main() {
       expect(state.revealAnchorAt, isNull);
     });
   });
+
+  group('상대가 아직 안 읽은 내 줄(카톡식 1, pen RvjRp Qs5As)', () {
+    final readAt = DateTime(2026, 9, 22, 14, 12);
+    final before = readAt.subtract(const Duration(minutes: 1));
+    final after = readAt.add(const Duration(minutes: 1));
+    ChatRoomUiState readState(PartnerRead read, {bool partnerLeft = false}) =>
+        ChatRoomUiState(room: roomFixture(partnerLeft: partnerLeft), partnerRead: read);
+    Message mine(DateTime at, {MessageKind kind = MessageKind.text}) =>
+        messageFixture(senderId: myId, createdAt: at, kind: kind);
+
+    test('읽은 시각보다 늦게 보낸 내 줄만 안 읽음이다(같은 시각은 읽음)', () {
+      final state = readState(PartnerRead.known(readAt));
+
+      expect(
+        [state.isUnreadByPartner(mine(before)), state.isUnreadByPartner(mine(readAt)), state.isUnreadByPartner(mine(after))],
+        [false, false, true],
+      );
+    });
+
+    test('상대가 한 번도 안 읽었으면 내 줄 전부 안 읽음이다', () {
+      expect(readState(const PartnerRead.known(null)).isUnreadByPartner(mine(before)), isTrue);
+    });
+
+    test('상대가 보낸 줄에는 없다', () {
+      final state = readState(const PartnerRead.known(null));
+
+      expect(state.isUnreadByPartner(messageFixture(senderId: partnerId, createdAt: after)), isFalse);
+    });
+
+    test('시스템 줄(내 수락 줄 포함)에는 없다', () {
+      final state = readState(const PartnerRead.known(null));
+
+      expect(state.isUnreadByPartner(mine(after, kind: MessageKind.trustAccept)), isFalse);
+    });
+
+    test('상대가 나간 방에는 없다 — 읽을 사람이 없다(대장 결정)', () {
+      final state = readState(const PartnerRead.known(null), partnerLeft: true);
+
+      expect(state.isUnreadByPartner(mine(after)), isFalse);
+    });
+
+    test('서버가 읽음 시각을 모르면(옛 서버) 없다', () {
+      expect(readState(const PartnerRead.unknown()).isUnreadByPartner(mine(after)), isFalse);
+    });
+
+    test('방을 아직 못 읽었으면 없다', () {
+      const state = ChatRoomUiState(partnerRead: PartnerRead.known(null));
+
+      expect(state.isUnreadByPartner(mine(after)), isFalse);
+    });
+
+    test('copyWith 는 상대 읽음을 넘기지 않으면 그대로 둔다', () {
+      final state = readState(PartnerRead.known(readAt)).copyWith(isSending: true);
+
+      expect(state.isUnreadByPartner(mine(after)), isTrue);
+      expect(state.isUnreadByPartner(mine(before)), isFalse);
+    });
+  });
 }

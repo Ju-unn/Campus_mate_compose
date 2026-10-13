@@ -19,6 +19,14 @@ final chatRoomViewModelProvider =
 /// (`verifyCodeNowProvider` 와 같은 방식) — 24시간 경계를 실제 시계 없이 넘기려고(백로그 22).
 final chatRoomNowProvider = Provider<DateTime Function()>((ref) => DateTime.now);
 
+/// 방이 보이는 동안 상대가 내 줄을 읽었는지 묻는 주기(카톡식 '1', 사용자 결정 10-13).
+/// 실시간 통로로는 상대의 읽음이 오지 않아 이만큼 늦게 사라질 수 있다.
+/// ponytail: 5초 폴링이다. 즉시 사라지게 하려면 읽음 시각을 Realtime 으로 밀어 줘야 한다(서버 · 구독 변경).
+const Duration partnerReadPollInterval = Duration(seconds: 5);
+
+/// 방을 보는 동안 받은 상대 줄의 읽음을 묶는 간격. 첫 줄에 바로 찍고, 그 사이 온 줄은 끝에 한 번 더 찍는다.
+const Duration markReadThrottle = Duration(seconds: 3);
+
 /// 채팅방(화면 14)의 흐름. 게이트 수락·나가기도 여기서 맡는다 —
 /// 게이트 전용 ViewModel 을 따로 두면 같은 방 상태를 두 벌 들고 있어야 한다.
 class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
@@ -33,10 +41,20 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
   int _generation = 0;
   bool _alive = true;
 
+  /// 방이 화면에 보이는가. 화면이 앱 생명주기와 덮인 화면으로 알려 준다([setVisible]).
+  bool _visible = true;
+  Timer? _partnerReadPoll;
+  bool _checkingPartnerRead = false;
+  Timer? _markReadWindow;
+
+  /// 묶음 창이 열려 있거나 방이 안 보이는 동안 상대 줄이 와서, 다음 기회에 읽음을 찍어야 한다.
+  bool _markReadOwed = false;
+
   @override
   ChatRoomUiState build() {
     ref.onDispose(() {
       _alive = false;
+      _stopReadSync();
       unawaited(_subscription?.cancel());
     });
     Future.microtask(_open);
@@ -45,7 +63,8 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
 
   ChatRepository get _repository => ref.read(chatRepositoryProvider);
 
-  /// 들어올 때 하는 일. 읽음은 들어올 때와 나갈 때 한 번씩이다(ERD §4).
+  /// 들어올 때 하는 일. 읽음은 들어올 때와 나갈 때 찍고(ERD §4), 방을 보는 동안 받은 상대 줄은
+  /// [_markReadSoon] 이 묶어서 찍는다(카톡식 '1', 사용자 결정 10-13).
   Future<void> _open() async {
     // 방을 못 읽었으면 메시지도 읽지 않는다 — 머리말 없는 빈 방을 그리는 것보다 낫다.
     if (!await _loadRoom()) {
@@ -57,6 +76,9 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
     await _loadFirstPage();
     _refreshIfRoomChangedMeanwhile();
     await markRead();
+    if (_alive && _visible) {
+      _startPartnerReadPoll();
+    }
   }
 
   /// 머리말을 읽은 직후 상대가 두 번째로 수락하거나 나가면 그 줄은 구독이 아니라 첫 페이지로 들어와
@@ -91,13 +113,18 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
     }
     if (quiet) {
       result.when<void>(
-        onSuccess: (room) => state = state.copyWith(room: room, errorMessage: state.errorMessage),
+        onSuccess: (room) => state = state.copyWith(
+          room: room,
+          partnerRead: state.partnerRead.later(room.partnerRead),
+          errorMessage: state.errorMessage,
+        ),
         onFailure: (_) {},
       );
       return state.room != null;
     }
     state = result.when(
-      onSuccess: (room) => state.copyWith(room: room),
+      onSuccess: (room) =>
+          state.copyWith(room: room, partnerRead: state.partnerRead.later(room.partnerRead)),
       onFailure: (failure) =>
           state.copyWith(isLoading: false, errorMessage: chatFailureMessage(failure)),
     );
@@ -115,6 +142,7 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
         // 조회하는 동안 구독이 붙여 둔 줄은 조회 결과에 없을 수 있다 — 덮어쓰지 않고 합친다.
         messages: _merge(state.messages, page.messages),
         hasMore: page.hasMore,
+        partnerRead: state.partnerRead.later(page.partnerRead),
       ),
       onFailure: (failure) =>
           state.copyWith(isLoading: false, errorMessage: chatFailureMessage(failure)),
@@ -150,11 +178,17 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
   }
 
   void _mergeQuietly(MessagePage page) {
+    final held = state.messages.length;
     state = state.copyWith(
       messages: _merge(state.messages, page.messages),
+      partnerRead: state.partnerRead.later(page.partnerRead),
       errorMessage: state.errorMessage,
     );
     _refreshIfRoomChangedMeanwhile();
+    // 구독이 놓친 줄을 여기서 처음 봤다 — 상대 줄이면 읽음을 찍어야 상대 화면의 '1' 이 사라진다.
+    if (state.messages.length > held) {
+      _markReadSoon();
+    }
   }
 
   /// 구독은 **화면이 살아 있는 동안만**. 끊는 것은 [build] 의 `onDispose` 가 한다.
@@ -208,6 +242,8 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
     await _loadRoom();
     await _loadFirstPage();
     _refreshIfRoomChangedMeanwhile();
+    // 끊긴 동안 · 백그라운드에 있는 동안 온 상대 줄을 이제 본다.
+    _markReadSoon();
   }
 
   /// 내가 보낸 줄도 구독으로 한 번 더 돌아온다 — id 로 걸러 두 번 그리지 않는다.
@@ -218,10 +254,14 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
       return;
     }
     state = state.copyWith(messages: _merge(state.messages, [message]));
+    final room = state.room;
+    // 방을 보고 있는 동안 온 상대 줄 — 읽음을 찍어야 상대 화면의 내 '1' 이 사라진다.
+    if (room != null && message.senderId == room.partner.profileId) {
+      _markReadSoon();
+    }
     // 상대가 두 번째로 수락해 통과되면 구독으로는 수락 줄만 온다 — 통과 카드·카카오톡 아이디·
     // 실사진은 머리말을 다시 읽어야 내려온다. 내 수락은 [acceptTrust] 가 응답 뒤에 이미 읽는다.
     // 상대가 나가도 구독으로는 나감 줄만 온다 — 머리말을 다시 읽어야 입력창이 안내로 바뀐다(결정 7 · 결함 A12).
-    final room = state.room;
     if (room != null &&
         (!room.gate.passed && _isPartnerAccept(room, message) || _isUnseenLeft(room, message))) {
       unawaited(_loadRoom(quiet: true));
@@ -281,7 +321,7 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
     );
   }
 
-  /// 방에 들어올 때와 나갈 때. 실패해도 화면에 문구를 띄우지 않는다 —
+  /// 방에 들어올 때(목록 뱃지도 같이 내린다). 실패해도 화면에 문구를 띄우지 않는다 —
   /// 읽음 표시 하나가 안 찍힌 것으로 사용자가 할 수 있는 일이 없다.
   Future<void> markRead() async {
     await _repository.markRead(_matchId);
@@ -341,6 +381,85 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
     } finally {
       _acceptingTrust = false;
     }
+  }
+
+  /// 방이 화면에 보이는가 — 앱 복귀 · 덮었던 화면이 닫힘 = true, 백그라운드 · 다른 화면이 덮음 = false.
+  /// 안 보이는 동안에는 상대 읽음을 묻지 않고 **읽음도 찍지 않는다** — 보지 않은 줄을 읽었다고 알리면 안 된다.
+  /// 다시 보이면 바로 한 번 묻고 5초 주기를 이어 가며, 그사이 온 상대 줄의 읽음을 찍는다.
+  void setVisible(bool visible) {
+    if (visible == _visible) {
+      return;
+    }
+    _visible = visible;
+    if (!visible) {
+      _stopReadSync();
+      return;
+    }
+    _resumeReadSync();
+  }
+
+  void _resumeReadSync() {
+    if (!_alive || state.room == null) {
+      return;
+    }
+    unawaited(_checkPartnerRead());
+    _startPartnerReadPoll();
+    if (_markReadOwed) {
+      _markReadSoon();
+    }
+  }
+
+  void _stopReadSync() {
+    _partnerReadPoll?.cancel();
+    _partnerReadPoll = null;
+    _markReadWindow?.cancel();
+    _markReadWindow = null;
+  }
+
+  void _startPartnerReadPoll() {
+    _partnerReadPoll?.cancel();
+    _partnerReadPoll = Timer.periodic(partnerReadPollInterval, (_) => unawaited(_checkPartnerRead()));
+  }
+
+  /// 상대가 내 줄을 읽었는지 가볍게 묻는다(메시지 1건 조회). 메시지 목록은 건드리지 않는다.
+  /// 안 읽은 내 줄이 없으면 묻지 않고(상대가 나간 방 · 옛 서버도 여기서 걸린다), 앞 확인이 끝나기 전에는
+  /// 겹쳐 부르지 않는다. 실패는 조용히 넘긴다 — 다음 주기에 다시 묻는다.
+  Future<void> _checkPartnerRead() async {
+    if (_checkingPartnerRead || !state.messages.any(state.isUnreadByPartner)) {
+      return;
+    }
+    _checkingPartnerRead = true;
+    try {
+      final result = await _repository.fetchPartnerRead(_matchId);
+      if (_alive) {
+        result.when<void>(onSuccess: _takePartnerRead, onFailure: (_) {});
+      }
+    } finally {
+      _checkingPartnerRead = false;
+    }
+  }
+
+  /// 떠 있던 오류 줄은 그대로 둔다 — 사용자가 누른 일이 아니다.
+  void _takePartnerRead(PartnerRead read) => state =
+      state.copyWith(partnerRead: state.partnerRead.later(read), errorMessage: state.errorMessage);
+
+  /// 방을 보는 동안 받은 상대 줄을 읽음으로 찍는다 — 이게 있어야 상대 화면의 내 '1' 이 사라진다.
+  /// 줄마다 부르지 않고 [markReadThrottle] 에 한 번으로 묶는다: 창이 닫혀 있으면 바로 찍고 창을 연다,
+  /// 창이 열린 동안 온 줄은 창이 닫힐 때 한 번 더. 방이 안 보이면 찍지 않고 다시 보일 때로 미룬다.
+  /// 방을 열 때 · 나갈 때 찍는 [markRead] 와 서버 푸시 30초 규칙은 그대로다.
+  void _markReadSoon() {
+    if (!_alive || !_visible || _markReadWindow != null) {
+      _markReadOwed = true;
+      return;
+    }
+    _markReadOwed = false;
+    unawaited(_repository.markRead(_matchId));
+    _markReadWindow = Timer(markReadThrottle, () {
+      _markReadWindow = null;
+      if (_markReadOwed) {
+        _markReadSoon();
+      }
+    });
   }
 
   /// 시트를 스와이프로 닫았다. 강제가 아니라서 닫으면 14h 배너로 바뀐다.
