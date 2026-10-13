@@ -1,6 +1,8 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:campus_mate/common/university_logos.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/school_label.dart';
+import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/matching/model/card_profile.dart';
@@ -36,6 +38,45 @@ void main() {
     await _pump(tester);
 
     expect(_frame(tester).boxShadow, AppElevation.cardSoft);
+  });
+
+  testWidgets('사진 `JvMzE` — 96 원으로 자르고 흰 링 3px 은 그 위에 덧그린다(링이 사진을 정사각으로 밀지 않는다)', (tester) async {
+    const withAvatar = DailyCard(
+      cardId: 'c1',
+      source: CardSource.daily,
+      profile: CardProfile(
+        profileId: 't1',
+        nickname: '여우비',
+        age: 23,
+        university: '테스트대학교',
+        major: '컴퓨터공학과',
+        avatarUrl: 'https://example.invalid/a.webp',
+      ),
+    );
+    await _pump(tester, card: withAvatar);
+
+    final photo = find.byType(CachedNetworkImage);
+    final clip = find.ancestor(of: photo, matching: find.byType(ClipOval));
+    expect(clip, findsOneWidget);
+    // 원이 아니라 정사각으로 잘리던 원인: Container 의 border 가 사진을 90 정사각으로 안쪽에 밀어 넣고, 바깥 96 원으로만 잘랐다.
+    expect(tester.getSize(clip), const Size(96, 96));
+    expect(tester.getSize(photo), const Size(96, 96));
+    expect(tester.getCenter(photo), tester.getCenter(clip));
+
+    final box = find.ancestor(of: clip, matching: find.byType(Container)).first;
+    final ring = tester.widget<Container>(box).foregroundDecoration! as BoxDecoration;
+    expect(tester.getSize(box), const Size(96, 96));
+    expect(ring.shape, BoxShape.circle);
+    expect(ring.border, Border.all(color: AppColors.canvas, width: 3));
+  });
+
+  testWidgets('사진이 아직 없는 사람도 96 원 안에 회색 바탕과 아이콘이 앉는다', (tester) async {
+    await _pump(tester);
+
+    final clip = find.descendant(of: find.byType(DailyCardSummary), matching: find.byType(ClipOval));
+    expect(clip, findsOneWidget);
+    expect(tester.getSize(clip), const Size(96, 96));
+    expect(find.descendant(of: clip, matching: find.byIcon(AppIcons.userRound)), findsOneWidget);
   });
 
   testWidgets('링크 `t4484l` "프로필 자세히 보기" = 14/600 #C4224B', (tester) async {
