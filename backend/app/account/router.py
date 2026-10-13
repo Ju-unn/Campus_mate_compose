@@ -3,9 +3,10 @@ import logging
 
 import httpx
 from fastapi import APIRouter, Depends, Header, HTTPException
+from pydantic import BaseModel
 
 from app.account.repository import AccountRepository, SupabaseAdmin
-from app.account.social_unlink import unlink_kakao
+from app.account.social_unlink import exchange_apple_code, revoke_apple_token, unlink_kakao
 from app.chat.repository import ChatRepository
 from app.core import errors
 from app.core.deps import Caller, get_caller, get_verified_caller
@@ -16,8 +17,15 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+class WithdrawRequest(BaseModel):
+    # 애플로 가입한 사람만 앱이 탈퇴 직전 애플 창을 한 번 더 띄워 받아 온다(일회용 · 5분). 토큰 철회에만 쓰고 저장하지 않는다.
+    # 없으면(카카오 · 구글 · 애플 창을 닫은 사람 · 본문 없이 부르는 옛 앱과 하네스) 철회만 건너뛴다.
+    apple_authorization_code: str | None = None
+
+
 @router.post("/account/withdraw")
-async def withdraw(caller: Caller = Depends(get_caller),
+async def withdraw(body: WithdrawRequest | None = None,
+                   caller: Caller = Depends(get_caller),
                    authorization: str | None = Header(default=None)) -> dict:
     """탈퇴. 로그인만 본다 — 정지 · 학생증 미인증인 사람도 나갈 수 있어야 한다(정지 중 탈퇴 = 무기한 제한).
 
@@ -25,8 +33,9 @@ async def withdraw(caller: Caller = Depends(get_caller),
     해시는 auth 의 email 이 아니라 인증된 학교 메일의 것이다(카카오는 계정 메일이 없다). 기록이 없으면(학교 메일 인증 전)
     null 을 넘겨 재가입 제한을 남기지 않는다. 기록을 못 읽으면 503 으로 멈춘다 — null 로 탈퇴시키면 제한을 잃는다.
     ② 가 실패하면 500 이고 다시 부르면 된다.
-    ③ 뒤 넷은 각각 best-effort 다. 남은 것은 30일 정리 배치가 auth 사용자째 지운다.
-    카카오 연결 끊기는 로그아웃 앞이다 — 로그아웃 뒤에는 그 토큰으로 회원번호(/user)를 못 읽을 수 있다."""
+    ③ 뒤 정리 단계(steps)는 각각 best-effort 다. 남은 것은 30일 정리 배치가 auth 사용자째 지운다.
+    카카오 연결 끊기는 로그아웃 앞이다 — 로그아웃 뒤에는 그 토큰으로 회원번호(/user)를 못 읽을 수 있다.
+    애플 토큰 철회(App Store 5.1.1(v))도 같은 정책이다 — 실패하거나 코드가 없어도 탈퇴는 그대로 끝난다."""
     settings, client, profile_id = caller
     accounts = AccountRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
     admin = SupabaseAdmin(settings, client)
@@ -41,11 +50,20 @@ async def withdraw(caller: Caller = Depends(get_caller),
     else:
         await accounts.withdraw(profile_id, claim["school_email_hmac"], claim["key_version"])
 
+    # 애플은 두 단계다 — 코드 교환이 준 refresh_token 을 철회 단계가 쓴다. 교환이 실패하면 철회는 건너뛴다.
+    apple_refresh_token: str | None = None
+
+    async def exchange_apple() -> None:
+        nonlocal apple_refresh_token
+        apple_refresh_token = await exchange_apple_code(settings, client, body and body.apple_authorization_code)
+
     # 상태가 바뀐 뒤에는 다시 부르면 401 이라, 여기서 500 을 내 봐야 재시도가 안 된다 — 실패는 로그만 남긴다.
     steps = (
         ("push_tokens", lambda: accounts.delete_push_tokens(profile_id)),
         ("student_id_files", lambda: admin.empty_folder("student-id-temp", profile_id)),
         ("kakao_unlink", lambda: unlink_kakao(settings, client, authorization)),
+        ("apple_token_exchange", exchange_apple),
+        ("apple_revoke", lambda: revoke_apple_token(settings, client, apple_refresh_token)),
         ("logout", lambda: admin.logout_everywhere(authorization)),
     )
     for name, step in steps:
