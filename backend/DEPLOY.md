@@ -84,6 +84,7 @@ gcloud run deploy campus-mate-backend \
 셋 중 하나라도 비면 그 단계만 건너뛴다(경고 없이, 서버 시작은 막지 않는다). 앱이 탈퇴 본문에 `apple_authorization_code` 를 실어 보낸 애플 사용자만 철회한다 — 코드를 애플 `/auth/token` 으로 refresh_token 과 바꾼 뒤 `/auth/revoke` 로 바로 철회하고, 토큰은 저장하지 않는다. client_id 는 번들 ID(`io.github.juunn.campusmate`)다. 2026-10-13 기준 시크릿 등록 전이라 위 명령에는 아직 없다. 값은 이 문서에 적지 않는다.
 
 **2026-10-14 정정 — 위 전체 명령은 지금 서비스 설정과 같지 않다(그대로 다시 돌리지 않는다).** 위 명령에는 `APPLE_TEAM_ID` · `APPLE_KEY_ID`(env)와 `APPLE_PRIVATE_KEY=apple-sign-in-private-key:latest`(시크릿)가 빠져 있다. `--set-env-vars` · `--set-secrets` 는 **목록 전체를 갈아끼우므로**, 서비스에 APPLE_* 가 들어 있는 상태에서 위 명령을 그대로 돌리면 APPLE_* 가 지워져 애플 토큰 철회가 조용히 건너뛰어진다(셋 중 하나라도 비면 건너뛴다). `settings.py` 가 읽는 값은 지금 **env 9개 · 시크릿 10개**다(위 2026-10-09 대조 뒤 `APPLE_TEAM_ID` · `APPLE_KEY_ID` · `APPLE_PRIVATE_KEY` 가 더해졌다). 위 명령을 다시 써야 하면 두 목록에 APPLE_* 를 더한 뒤 쓴다 — 시크릿 `apple-sign-in-private-key` 가 Secret Manager 에 없으면 그 명령은 실패한다. **지금 운영 서비스에 APPLE_* 가 실제로 들어 있는지는 이 문서 담당이 확인하지 못했다**(클라우드 미조회).
+**2026-10-14 저녁 개정(애플 인앱결제 서버 PR #519, 종전 "env 9개 · 시크릿 10개")** — `settings.py` 가 읽는 값은 **env 11개 · 시크릿 11개**다. 아이폰 하트 구매용 `APPLE_IAP_KEY_ID` · `APPLE_IAP_ISSUER_ID`(env)와 `APPLE_IAP_PRIVATE_KEY=apple-iap-private-key:latest`(시크릿)가 더해졌다. 셋 다 비어도 서버는 뜬다. 넣는 법은 §4-10.
 
 **현행 배포 방식(2026-10-13 ~ 14 배포 기준, 대장 전달 값)** — 설정을 바꾸지 않는 코드 배포는 env · 시크릿 목록을 넘기지 않는다. 그러면 새 리비전이 **직전 리비전의 env · 시크릿을 그대로 이어받는다**:
 
@@ -725,7 +726,80 @@ select public.grant_hearts('<profile_id>', -<지급한 하트>, 'admin_adjust', 
 - **알려진 한계**: verify 요청 빈도 제한 없음(출시 전 백로그) · 구글 쪽 동작은 샌드박스 시험으로 확인 전 · 계정 표시 토큰은 sha256 방식 유지
 - **`/batch/billing-voided` 를 매시 부르는 Cloud Scheduler job 을 만들었는지는 이 문서 담당이 확인하지 못했다** — §5 2026-09-29 표 기준 job 은 무료 한도 3개가 찼다(대장 확인 필요). 만들 때는 §4-3 의 OIDC job 만들기 명령을 경로만 바꿔 쓴다
 
+## 4-10. 인앱결제 — 아이폰(애플) 하트 구매 서버 (2026-10-14, 서버 PR #519 · 후속 PR #521, 앱 PR #520)
+
+계획서는 사용자 폴더 `CampusMate_문서/출시준비/애플_인앱결제_구현계획_초안.md`(끝의 "구현 편차 기록"). 사용자 결정(10-14): 첫 출시에 포함 · `cryptography` 추가 승인 · 환불 알림은 서명 체인 직접 검증 · 가격은 안드로이드와 같게(화면은 스토어 가격 우선).
+**DB 마이그레이션은 없다** — §4-9 의 `purchases` 표와 두 함수를 `store = 'app_store'` 로 부른다(`docs/ERD.md` §6). **새 env 2개 · 새 시크릿 1개 · 새 서버 의존성 1개**(`cryptography>=50`, `pyproject.toml`). Scheduler job 은 없다 — 환불은 애플이 알림으로 보내 준다(구글은 우리가 매시 조회, §4-9).
+코드는 `app/billing/apple.py`(애플 API 조회 · 서명 검증) · `app/billing/apple_router.py`(두 경로). 경로 이름 규칙은 §4-9 와 같다(`refund` · `purchase` · `buy` 를 쓰지 않는다). 하네스 `e2e/area3_safe.py` `VERIFIED_ROUTES` 에 `POST /billing/apple/verify` 한 줄이 더해졌다(알림은 로그인 관문이 없어 목록 대상이 아니다).
+
+**배포 순서는 서버 → TestFlight(앱)** 다. 서버만 먼저 나가는 것은 무해하다(안드로이드 길은 그대로). 앱이 먼저 나가면 `/billing/status` 에 `apple_account_token` 이 없어 **iOS 는 결제 불가 배너만 보인다**(구글용 계정 표시로 대신 사지 않는다). **이 문서 담당은 이 서버의 운영 배포 · 리비전 · 키 등록 여부를 받지 못했다**(클라우드 미조회).
+
+### 키 · 설정
+
+- **앱 내 구입 키(In-App Purchase key, `.p8`)** 를 쓴다. App Store Connect 에서 발급한다. **Sign in with Apple 키(`apple-sign-in-private-key`, §2)나 APNs 키(§4-8)와 다른 키다 — 재사용할 수 없다.**
+- 키 ID · 발급자(Issuer) ID 는 비밀이 아니라 env, `.p8` 본문은 Secret Manager 시크릿 **`apple-iap-private-key`**. 기존 env · 시크릿은 그대로 두고 **더하기**(`--update-*`)로 넣는다 — `--set-*` 는 목록 전체를 갈아끼워 다른 값을 지운다(§2).
+
+```bash
+# .p8 PEM 본문을 그대로 넣는다(PEM 이라 줄바꿈이 남아도 읽힌다). 키 파일 내용은 이 문서 · 채팅 · 로그에 적지 않는다.
+gcloud secrets create apple-iap-private-key --data-file=<내려받은 .p8 파일>
+
+# 읽기 권한은 §1 에서 서비스 계정에 프로젝트 단위로 준 roles/secretmanager.secretAccessor 로 된다.
+cd backend
+gcloud run deploy campus-mate-backend --source . --project=<PROJECT_ID> --region=asia-northeast3 --allow-unauthenticated --quiet \
+  --update-env-vars APPLE_IAP_KEY_ID=<키 ID>,APPLE_IAP_ISSUER_ID=<발급자 ID> \
+  --update-secrets APPLE_IAP_PRIVATE_KEY=apple-iap-private-key:latest
+```
+
+- **키 없이도 서버는 정상으로 뜬다**(`settings.py` 빈 기본값). 셋 중 하나라도 비면 `POST /billing/apple/verify` 만 **503 `apple_not_configured`**(애플에 묻기 전) 이고 로그 `애플 인앱 구입 키 미설정 profile=… product=…` 가 남는다. **환불 알림은 키 없이 돈다**(애플에 다시 묻지 않고 서명만 본다)
+- 키 본문을 못 읽거나 애플이 401 · 403(키 ID · 발급자 ID 가 틀림)을 주면 503 `billing_unavailable` · 로그 `애플 거래 조회 실패 … status=key` 또는 `status=401` · `status=403`
+- **기동 로그로 `cryptography` 확인** — 서버는 시작할 때 INFO 한 줄 **`cryptography=<버전>`** 을 찍는다(`app/main.py` lifespan). 이 부품이 운영 이미지에 없으면 `import` 에서 서버가 아예 뜨지 않는다(탈퇴 때 애플 토큰 철회도 같은 부품을 쓴다). 배포 뒤 한 번 본다:
+
+```bash
+gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="campus-mate-backend" AND textPayload:"cryptography="' \
+  --freshness=30m --limit=5 --format='value(timestamp,textPayload)'
+```
+
+### 경로
+
+| 경로 | 뜻 |
+| --- | --- |
+| `GET /billing/status` | §4-9 의 두 키에 **`apple_account_token`** 을 더했다. profile_id 에서 고정 namespace 로 만든 **UUIDv5**(같은 사람이면 늘 같은 값, profile_id 를 그대로 애플에 보내지 않는다). iOS 결제 창의 `applicationUserName` → StoreKit `appAccountToken` 에 싣는다(애플은 UUID 만 받는다). **namespace 를 바꾸면 이미 산 거래가 전부 "다른 계정" 이 된다**(`apple.py` `_ACCOUNT_NAMESPACE`) |
+| `POST /billing/apple/verify` | 학생증 통과 가입자. 본문 **`{product_id, transaction_id}`**(상품은 §4-9 의 5종, 거래 번호는 숫자 1 ~ 64자 — 그 밖은 애플에 묻기 전에 422). 앱이 준 값을 믿지 않고 서버가 App Store Server API `GET /inApps/v1/transactions/{거래 번호}` 를 **운영 주소 → (404 면) 샌드박스 주소** 순서로 묻는다(TestFlight · 심사 거래는 샌드박스). 받은 `signedTransactionInfo` 는 **코드에 내장한 Apple Root CA G3 까지 인증서 체인을 검증**한 뒤에만 믿는다. 확인 칸: `environment`(Production / Sandbox → `is_test`) · 거래 번호 · 번들 ID(`io.github.juunn.campusmate`) · 상품 · 소모품 · 직접 구매 · 수량 1. 지급은 `grant_store_purchase`(`store = app_store`), 200 응답 모양은 구글과 같다. **대기(202)는 없다**(애플 거래 조회에는 대기 상태가 없다). **애플은 소비(consume) 호출이 없다** — 서버가 지급하면 앱이 거래를 끝낸다(아래 표) |
+| `POST /billing/apple/notifications` | **로그인 없는 공개 주소**(애플이 부른다). 본문 `{signedPayload}`(App Store Server Notifications **V2**). **서명 체인 검증만이 믿는 근거다.** 서명이 틀림 · 다른 앱(번들) · 알림과 거래의 `environment` 가 다름 → **400**(아무것도 바꾸지 않는다). 본문이 없으면 422. **`REFUND` · `REVOKE`** → `refund_store_purchase('app_store', …)` 로 회수하고 200 `{result: refunded \| already_refunded \| unknown}`(이미 회수했거나 우리가 지급한 적 없는 거래도 200 — 멱등). **`TEST` 와 그 밖 알림**은 로그만 남기고 200 `{result: ignored}`(소비 정보 요청 `CONSUMPTION_REQUEST` 도 답하지 않는다). **`REFUND_REVERSED`(환불 번복)는 하트를 되돌리지 않는다** — WARNING 로그만, 운영자가 App Store Connect 에서 확인한다(사용자 결정 A-6 미결). DB 실패는 500 이라 애플이 다시 보낸다 |
+
+**App Store Connect 알림 주소** — 앱의 App Store Server Notifications 설정에 **운영(Production) 주소와 샌드박스(Sandbox) 주소를 둘 다** `https://<서비스 URL>/billing/apple/notifications` 로, 버전은 **Version 2** 로 넣는다. 서버는 주소 하나로 둘 다 받는다(샌드박스 거래는 `is_test = true` 행이다). 둘 중 하나를 비우면 그쪽 환불은 하트가 회수되지 않는다. 애플의 시험 알림(`TEST`)이 오면 로그 `애플 알림 type=TEST … — 할 일 없음` 과 200 이 남는다. 설정 화면의 정확한 위치는 애플 쪽 UI 라 이 문서 담당이 직접 보지 않았다.
+
+### 에러 code 와 앱 동작 (앱 PR #520 · #521)
+
+문구는 서버 `detail` 이 아니라 앱 글자(pen)를 쓴다 — 화면은 DESIGN.md §8.10. **"끝낸다"(finish)** 는 앱이 StoreKit 거래를 끝내는 것이다. 끝내지 않은 거래는 다음 앱 시작 때 StoreKit 이 한 번 다시 주고, 끝내지 않은 채 두면 같은 Apple ID 가 같은 상품을 다시 사지 못한다. 애플에는 구글의 "3일 안에 확인 안 하면 자동 환불" 이 없다.
+
+| 상태 · code | 뜻 | 앱 |
+| --- | --- | --- |
+| 200 `granted` · `already_granted` | 하트가 들어갔다 · 이미 들어가 있다 | 성공 토스트, **끝낸다** |
+| 422 `purchase_invalid` | 애플이 모르는 거래, 또는 이 요청의 구매가 아님(번들 · 상품 · 종류 · 수량 · 환경) | 빨간 배너 "결제를 확인하지 못했어요". 끝내지 않는다 — 서버를 고친 뒤 다음 앱 시작 때 다시 확인된다. 이 로그인 동안은 다시 보내지 않는다 |
+| 422 `purchase_revoked` | **애플이 환불한 거래**(`revocationDate`) — 계정 대조보다 먼저 본다(PR #521) | 토스트(info) **"환불된 결제예요"**, **하트 없이 끝낸다** |
+| 409 `purchase_other_account` | 거래의 `appAccountToken` 이 이 계정 것이 아님 | 배너 "다른 계정으로 결제한 하트예요". 끝내지 않는다 — 결제한 계정으로 로그인하면 들어온다 |
+| 409 `purchase_token_used` | 다른 계정이 이미 받은 거래(같은 계정이 다시 보내면 200 `already_granted`) | 토스트 "이미 처리된 결제예요", **끝낸다** |
+| 503 `billing_unavailable` | 애플 조회 실패(5xx · 429 · 시간 초과 · 401/403 · 키를 못 읽음), 또는 **애플 답의 서명 검증 실패**(우리 쪽 문제일 가능성이 커서 422 가 아니다) | 배너 "하트 지급이 늦어지고 있어요". 끝내지 않고 앱 시작 · 앱 복귀 · 상점 진입 때 다시 보낸다 |
+| 503 `apple_not_configured` | 서버에 앱 내 구입 키가 없음(애플에 묻기 전) | 앱은 모르는 code 라 `billing_unavailable` 과 같게(지급 지연) |
+| 500 | DB 함수가 계약 밖 결과를 줌 · 그 밖 서버 오류 | 지급 지연과 같게, 끝내지 않는다 |
+
+### 로그 · 비밀
+
+- **거래 번호 · JWS · 키 · 우리가 만든 토큰(JWT)은 로그에 남기지 않는다.** 확인 경로 로그는 `profile_id` · 상품 · 결과 · 상태 코드만, 알림 로그는 알림 종류 · 거래 번호 **앞 6자**(`tx=`) · 환경 · 결과만이다(`profile_id` 도 없다). 거래 번호는 비밀은 아니어서 문의 · 환불 번복 처리 때 찾도록 `purchases.store_order_id` 에 평문으로 둔다
+- Cloud Run 로그에서 찾는 말: `애플 인앱 구입 키 미설정` · `애플 거래 조회 실패` · `애플 거래 서명 검증 실패`(ERROR) · `확인되지 않는 애플 거래` · `환불된 애플 거래` · `다른 계정의 애플 거래` · `다른 계정이 이미 받은 애플 거래` · `애플 알림 type=` · `애플 알림 거절 reason=` · `애플 환불 회수 부족`(이미 쓴 하트, 숫자만) · `애플 알림 REFUND_REVERSED`
+- **`.p8` 키 내용 · App Store Connect 비밀번호 · 샌드박스 테스터 비밀번호는 이 문서 · 채팅 · 로그 · PR 어디에도 적지 않는다.** 시크릿으로만 넣고, 명령에는 자리표시자를 쓴다
+
+### 알려진 한계 · 롤백
+
+- 환불 번복(`REFUND_REVERSED`)은 자동으로 되돌리지 않는다(위). 자주 생기면 DB 함수(`restore_store_purchase`)를 더한다 — 새 마이그레이션 + 별도 승인
+- 믿는 루트는 내장한 Apple Root CA G3 하나다(2039-04-30 만료). 애플이 루트를 바꾸면 확인은 503(앱은 거래를 끝내지 않고 기다린다) · 알림은 400(애플이 다시 보낸다)이 되므로 `apple.py` 의 루트를 바꿔 배포한다
+- 확인 요청 빈도 제한이 없다(구글 §4-9 과 같다, 출시 전 백로그). 실기기(TestFlight 샌드박스) 시험 결과는 이 문서 담당이 받지 못했다
+- **DB 변경이 없어 리비전만 되돌리면 된다.** 애플 경로가 없는 리비전으로 내리면 iOS 앱은 `apple_account_token` 이 없어 결제 불가 배너가 되고, 이미 결제한 거래는 끝내지 않은 채 남아 서버를 다시 올린 뒤 앱 시작 때 들어온다(추정). 이 기능이 든 앱 빌드가 나간 뒤에는 그 리비전 아래로 되돌리지 않는다
+
 ## 5. 현재 배포 상태 (2026-09-26 기준)
+
+**2026-10-14 저녁 추가.** 애플 인앱결제 서버(PR #519 · #521)가 main(`369a420e`)에 들어왔다. 새 env 2개 · 새 시크릿 1개(§4-10), 마이그레이션 없음. **운영 배포 여부 · 리비전 이름은 이 문서 담당이 받지 못했다** — 아래 10-14 줄의 `00070-jz7` 은 그 전 값이다.
 
 **2026-10-14 갱신(대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다).** 돌고 있는 리비전 **`campus-mate-backend-00070-jz7`**(채팅 실시간 서버 PR #508 포함). **되돌림 1순위는 `00069-p8f`**(읽음 시각 `partner_last_read_at` · 푸시 로그 · 인앱결제 서버까지, PR #499 · #500 · #501 — `00070` 은 실시간 쏘기만 더했다). **어떤 경우에도 `00063` 아래로 되돌리지 않는다**(M2 평문 열 삭제 뒤 `00062` 이하는 없는 열에 써서 깨진다, §4-4 "서버 롤백 주의"). `00064` · `00065` 아래로 가면 보낸 신청 · 친구 코드 리뷰가(§4-7) 서버 오류를 만나고, `00069` 아래로 가면 앱이 읽음 '1' 을 그리지 않고(`partner_last_read_at` 키가 없으면 옛 서버로 본다) 하트 구매 확인이 없는 경로를 만난다(추정). **`00070` 아래(`00069`)로 되돌리면 실시간 이벤트가 멈추는데, 앱은 채널이 붙어(SUBSCRIBED) 있으면 폴링을 30초로 늦춘 채라 목록 · '1' 이 최대 30초 늦어진다**(§4-8 — 폴링 안전망이 받친다). 배포는 §2 "현행 배포 방식"(env · 시크릿 이어받기)으로 했다. 운영 마이그레이션 **71개** — 마지막 `user_channel_realtime_policy`(원격 `20261013154505`, `docs/ERD.md` 상태줄). 새 env · 시크릿은 없다(인앱결제 구글 API 는 Cloud Run 서비스 계정 ADC — 플레이 콘솔에 그 서비스 계정을 초대해야 한다, §4-9). 실시간 쏘기는 기존 `SUPABASE_URL` · 서비스 키를 쓴다(§4-8)
 
