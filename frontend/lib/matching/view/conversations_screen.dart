@@ -5,6 +5,7 @@ import 'package:campus_mate/chat/view/chat_list_row.dart';
 import 'package:campus_mate/chat/view/swipe_to_leave.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_ui_state.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
+import 'package:campus_mate/chat/viewmodel/user_channel.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
@@ -25,21 +26,27 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-/// 대화 탭이 떠 있는 동안 대화 목록을 조용히 다시 읽는 간격(2026-10-13 대장 결정, 같은 날 사용자 요청으로 5초 → 3초).
+/// 대화 탭이 떠 있는 동안 대화 목록을 조용히 다시 읽는 간격(2026-10-13 대장 결정, 같은 날 사용자 요청으로 5초 → 3초) —
+/// 사용자 채널(`user:<내 id>`, 설계안 A)이 **안 붙었을 때**(정책 적용 전 입장 거부 · 끊김).
 /// 서버가 방에서 나온 뒤 30초 동안 새 메시지 푸시를 보내지 않아, 푸시만으로는 그 사이 온 답장이 목록에 안 뜬다.
 /// 한 번 읽을 때 서버가 대화 N개에 PostgREST 를 3N+3 번 부르는 무거운 요청이라 방 안 읽음 확인(2초)보다 길게 둔다.
-const Duration conversationsPollInterval = Duration(seconds: 3);
+const Duration conversationsPollFast = Duration(seconds: 3);
+
+/// 사용자 채널이 붙어 있을 때의 간격. 새 줄 · 새 방은 이벤트로 바로 오고 이것은 이벤트 유실을 메우는 안전망이다.
+const Duration conversationsPollSlow = Duration(seconds: 30);
 
 /// 대화(DESIGN.md 화면 13, pen `CeqVY`). **받은 신청**(위) + **보낸 신청**(가운데, 2026-10-13 사용자 결정 B · pen `ULllO`)
 /// + **대화 중**(아래) 세 섹션이고, 섹션은 각자 provider 를 보며 서로를 모른다. §8.6 의 "건수가 0이면 섹션을 그리지 않는다".
 ///
 /// 이 화면에 **들어올 때마다**(탭을 옮겨 돌아올 때 포함) 세 목록과 안 읽은 수를 **조용히** 다시 읽는다 —
 /// 실패해도 이미 보이는 줄은 그대로고 오류 줄을 새로 띄우지 않는다. 앱이 백그라운드에서 돌아올 때는 앱 루트가
-/// 읽는다(`core/lifecycle/resume_refresh.dart`). 실시간 구독은 쓰지 않는다 — 읽는 중이면 뷰모델 가드가 겹침을 막는다.
+/// 읽는다(`core/lifecycle/resume_refresh.dart`). 새 줄 · 새 방은 앱 루트가 듣는 사용자 채널이 바로 넣는다(`user_channel.dart`) —
+/// 읽는 중이면 뷰모델 가드가 겹침을 막는다.
 ///
-/// 화면이 맨 위에 보이고 앱이 앞에 있는 동안은 [conversationsPollInterval] 마다 **대화 목록만** 조용히 다시 읽는다 —
-/// 푸시가 안 오는 사이(방에서 나온 뒤 30초 등)의 새 메시지 · 새 방 · 안 읽은 수가 반영된다. 탭을 옮기거나 다른 화면이
-/// 덮거나 앱이 백그라운드로 가면 멈춘다. 받은 신청 · 보낸 신청은 폴링하지 않는다.
+/// 화면이 맨 위에 보이고 앱이 앞에 있는 동안은 **대화 목록만** 조용히 다시 읽는다 — 사용자 채널이 붙어 있으면
+/// [conversationsPollSlow], 아니면 [conversationsPollFast] 마다. 푸시도 이벤트도 없는 사이(방에서 나온 뒤 30초, 이벤트 유실)의
+/// 새 메시지 · 새 방 · 안 읽은 수가 반영된다. 탭을 옮기거나 다른 화면이 덮거나 앱이 백그라운드로 가면 멈춘다.
+/// 받은 신청 · 보낸 신청은 폴링하지 않는다.
 ///
 /// 10b 에서 대화 신청을 보내고 넘어오면(`SentRequestsViewModel.announceSent`) 토스트를 한 번 띄우고, 목록이 다 그려진 뒤
 /// 보낸 신청 헤더가 받은 신청 고정 헤더 바로 아래에 오도록 한 번 내린다(pen `Q1322I`). 새 줄을 따로 강조하지 않는다.
@@ -74,6 +81,12 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
         _syncPolling();
       },
     );
+    // 사용자 채널이 붙거나 끊기면 간격을 바꿔 다시 건다(붙음 30초 · 아니면 3초).
+    ref.listenManual<bool>(userChannelProvider, (_, _) {
+      _pollTimer?.cancel();
+      _pollTimer = null;
+      _syncPolling();
+    });
     _revealSent = ref.read(sentRequestsViewModelProvider.notifier).takeJustSent();
     if (_revealSent) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -107,7 +120,8 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
       _pollTimer = null;
       return;
     }
-    _pollTimer ??= Timer.periodic(conversationsPollInterval, (_) => _pollConversations());
+    final interval = ref.read(userChannelProvider) ? conversationsPollSlow : conversationsPollFast;
+    _pollTimer ??= Timer.periodic(interval, (_) => _pollConversations());
   }
 
   /// 조용히 읽는다 — 실패해도 있던 줄은 그대로고 오류 줄은 없다(다음 주기에 다시). 읽는 중이면 뷰모델 가드가 합쳐 겹치지 않는다.
