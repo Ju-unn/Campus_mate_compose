@@ -73,7 +73,8 @@ abstract final class AppRouter {
   static GoRouter create({
     required bool Function() isAuthenticated,
     required VerificationGate Function() verificationGate,
-    required OnboardingStep Function() onboardingStep,
+    // null 이면 아직 조회 중이라 스플래시에 둔다([AuthRedirect]).
+    required OnboardingStep? Function() onboardingStep,
     bool Function() isSplashHeld = _splashNotHeld,
     AccountStatus Function() accountStatus = _active,
     Listenable? refreshListenable,
