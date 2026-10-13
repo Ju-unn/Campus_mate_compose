@@ -1,3 +1,4 @@
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -78,10 +79,10 @@ class FriendReviewCard extends StatelessWidget {
 
   final FriendReview review;
 
-  /// 20c 만 넘긴다(P2 · 대장 Q2 09-29) — null 이면 깃발이 없다.
+  /// 20c 만 넘긴다(P2 · 대장 Q2 09-29) — null 이면 신고 버튼(사이렌 + "신고하기", pen `qRvp8`)이 없다.
   final VoidCallback? onReport;
 
-  /// 20e 만 넘긴다 — 깃발 자리(같은 누름칸)에 휴지통. [onReport] 와 함께 쓰지 않는다.
+  /// 20e 만 넘긴다 — 신고 버튼 자리(같은 누름칸)에 휴지통. [onReport] 와 함께 쓰지 않는다.
   final VoidCallback? onDelete;
 
   @override
@@ -104,9 +105,9 @@ class FriendReviewCard extends StatelessWidget {
           _Header(
             review: review,
             action: switch ((onReport, onDelete)) {
-              (final VoidCallback onPressed, _) => (icon: AppIcons.flag, label: '신고하기', onPressed: onPressed),
-              // pen 20e E1Qfy7 trash-2(20c 깃발 자리 override).
-              (_, final VoidCallback onPressed) => (icon: AppIcons.trash2, label: '리뷰 지우기', onPressed: onPressed),
+              (final VoidCallback onPressed, _) => _ReportButton(onPressed: onPressed),
+              // pen 20e E1Qfy7 trash-2(20c 신고 버튼 자리 override).
+              (_, final VoidCallback onPressed) => _DeleteButton(onPressed: onPressed),
               _ => null,
             },
           ),
@@ -132,12 +133,12 @@ class FriendReviewCard extends StatelessWidget {
   }
 }
 
-/// 머리 줄(pen `B095D`): 학교 배지 · 이니셜 · 이름 칸 · 신고 깃발(20c) 또는 휴지통(20e), 간격 10, 세로 가운데.
+/// 머리 줄(pen `B095D`): 학교 배지 · 이니셜 · 이름 칸 · 신고 버튼(20c) 또는 휴지통(20e), 간격 10, 세로 가운데.
 class _Header extends StatelessWidget {
   const _Header({required this.review, required this.action});
 
   final FriendReview review;
-  final ({IconData icon, String label, VoidCallback onPressed})? action;
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
@@ -161,19 +162,73 @@ class _Header extends StatelessWidget {
           ),
           const SizedBox(width: _headerGap),
           Expanded(child: _NameColumn(nickname: review.nickname)),
-          if (action case final action?) ...[
-            const SizedBox(width: _headerGap),
-            IconButton(
-              // 누름칸 48(pen qRvp8), 보이는 아이콘 20.
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-              tooltip: action.label,
-              icon: Icon(action.icon, size: 20, color: AppColors.muted),
-              onPressed: action.onPressed,
-            ),
-          ],
+          if (action case final action?) ...[const SizedBox(width: _headerGap), action],
         ],
       ),
+    );
+  }
+}
+
+/// 신고 버튼(pen `qRvp8` Report Review): 누름칸 48×48 · 세로 가운데 · 사이렌 22(`aXNKI`) → 간격 2 → "신고하기"(`o1niSD`).
+/// 글자를 키우면 칸이 48 보다 커진다 — 고정 48 이면 글자가 조용히 잘린다. 낭독은 글자("신고하기") 하나, 사이렌 그림은 읽지 않는다.
+/// 커뮤니티 투표 카드의 신고 버튼(pen `OaLnA`)과 같은 모양이다 — 공용 위젯으로 올릴지는 common/** 담당이 정한다.
+class _ReportButton extends StatelessWidget {
+  const _ReportButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      // 눌림 효과가 카드와 같이 움직이게 버튼 안에 Material 을 둔다(COMMON §4-2).
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkResponse(
+          onTap: onPressed,
+          radius: 24,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon3d(AppIcon3d.siren, size: 22),
+                const SizedBox(height: 2),
+                Text(
+                  '신고하기',
+                  // pen `o1niSD` 9/600 #6E5861 lh1, 렌더 34×9. 9px 는 접근성 최소(12)보다 작지만 pen 값이라 두고,
+                  // 글자 배율은 그대로 따라 커진다. 이 색은 투표 카드 신고 버튼과 이 버튼에만 있어 토큰으로 올리지 않는다.
+                  style: AppTypography.caption.copyWith(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w600,
+                    height: 1,
+                    color: const Color(0xFF6E5861),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 휴지통 버튼(20e, pen `E1Qfy7` trash-2): 누름칸 48, 보이는 아이콘 20.
+class _DeleteButton extends StatelessWidget {
+  const _DeleteButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+      tooltip: '리뷰 지우기',
+      icon: const Icon(AppIcons.trash2, size: 20, color: AppColors.muted),
+      onPressed: onPressed,
     );
   }
 }
