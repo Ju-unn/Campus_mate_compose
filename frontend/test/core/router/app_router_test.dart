@@ -17,6 +17,7 @@ import 'package:campus_mate/core/auth/account_status_listenable.dart';
 import 'package:campus_mate/core/back_exit/back_exit_view_model.dart';
 import 'package:campus_mate/core/router/app_router.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
+import 'package:campus_mate/core/router/onboarding_step_listenable.dart';
 import 'package:campus_mate/core/supabase/auth_session_listenable_provider.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
 import 'package:campus_mate/faq/model/faq_cache.dart';
@@ -37,7 +38,9 @@ import 'package:campus_mate/me/view/my_photos_screen.dart';
 import 'package:campus_mate/me/view/my_profile_screen.dart';
 import 'package:campus_mate/me/view/profile_edit_screen.dart';
 import 'package:campus_mate/me/view/profile_manage_screen.dart';
+import 'package:campus_mate/profile/model/onboarding_repository.dart';
 import 'package:campus_mate/profile/model/onboarding_step.dart';
+import 'package:campus_mate/profile/view/basic_info_screen.dart';
 import 'package:campus_mate/profile/view/ideal_conditions_screen.dart';
 import 'package:campus_mate/profile/view/tag_picker_screen.dart';
 import 'package:campus_mate/profile/viewmodel/tag_picker_kind.dart';
@@ -68,6 +71,16 @@ import '../../notifications/model/fake_notifications_repository.dart';
 /// 이 파일은 경로·화면 연결만 본다. 게이트별 이동 규칙은 auth_redirect_test 가 맡는다.
 VerificationGate _passedGate() => VerificationGate.complete;
 OnboardingStep _passedStep() => OnboardingStep.complete;
+
+/// 서버 next-step 이 늦게 오는 상황. [answer] 를 부를 때까지 답을 미룬다.
+class _SlowOnboardingRepository implements OnboardingRepository {
+  final _answer = Completer<Result<OnboardingStep>>();
+
+  void answer(OnboardingStep step) => _answer.complete(Success(step));
+
+  @override
+  Future<Result<OnboardingStep>> fetchNextStep() => _answer.future;
+}
 
 /// 나 탭 편집 화면이 읽는 내 프로필(지어낸 값).
 const _meProfile = MyProfile(
@@ -149,6 +162,48 @@ void main() {
     expect(find.byType(StartView), findsOneWidget);
     expect(find.text('카카오 로그인').hitTestable(), findsOneWidget);
     expect(find.text('Google 계정으로 로그인').hitTestable(), findsOneWidget);
+  });
+
+  // main.dart 는 관문과 온보딩 단계를 동시에 묻는다. 관문이 먼저 오면 예전에는 온보딩을 마친 사람에게
+  // 04-1 이 몇 초 보였다가 홈으로 갔다 — 단계를 알기 전에는 스플래시에 머물러야 한다.
+  testWidgets('관문이 먼저 통과돼도 온보딩 단계를 알기 전에는 04-1 을 띄우지 않고, 알면 홈으로 간다', (tester) async {
+    final steps = _SlowOnboardingRepository();
+    final stepCache = OnboardingStepListenable(steps);
+    addTearDown(stepCache.dispose);
+    final router = AppRouter.create(
+      isAuthenticated: () => true,
+      verificationGate: _passedGate,
+      onboardingStep: () => stepCache.value,
+      refreshListenable: stepCache,
+    );
+    addTearDown(router.dispose);
+    final visited = <String>[];
+    router.routerDelegate.addListener(() => visited.add(router.state.matchedLocation));
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authSessionListenableProvider.overrideWithValue(FakeAuthSession(signedIn: true).listenable),
+          socialLoginRepositoryProvider.overrideWithValue(FakeSocialLoginRepository()),
+          cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
+          chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
+          homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
+          notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
+        ],
+        child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+      ),
+    );
+    unawaited(stepCache.refresh());
+    await tester.pumpAndSettle();
+
+    expect(find.byType(StartView), findsOneWidget);
+    expect(find.byType(BasicInfoScreen), findsNothing);
+
+    steps.answer(OnboardingStep.complete);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(HomeScreen), findsOneWidget);
+    expect(visited, isNot(contains(AppRoutes.onboardingBasicInfo)));
   });
 
   // 홈은 09b 메인이다. 오늘의 카드는 하단 내비 "오늘" 탭(`/today`)에 있다.
