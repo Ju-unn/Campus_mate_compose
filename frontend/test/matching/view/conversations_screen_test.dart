@@ -6,6 +6,7 @@ import 'package:campus_mate/chat/model/http_chat_repository.dart';
 import 'package:campus_mate/chat/model/message.dart';
 import 'package:campus_mate/chat/view/chat_list_row.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
+import 'package:campus_mate/chat/viewmodel/user_channel.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
@@ -673,10 +674,14 @@ void main() {
         overrides: [
           cardRepositoryProvider.overrideWithValue(cards),
           chatRepositoryProvider.overrideWithValue(chat),
+          // 기본은 사용자 채널이 안 붙은 상태(정책 적용 전 · 끊김) — 지금처럼 3초다.
+          userChannelProvider.overrideWith(FakeUserChannel.new),
         ],
       );
       addTearDown(container.dispose);
     });
+
+    void setChannelLive(bool live) => (container.read(userChannelProvider.notifier) as FakeUserChannel).setLive(live);
 
     Future<void> openScreen(WidgetTester tester) async {
       await tester.pumpWidget(
@@ -701,20 +706,46 @@ void main() {
     }
 
     testWidgets('간격은 3초 하나다(사용자 요청 10-13, 5초 → 3초)', (tester) async {
-      expect(conversationsPollInterval, const Duration(seconds: 3));
+      expect(conversationsPollFast, const Duration(seconds: 3));
+      expect(conversationsPollSlow, const Duration(seconds: 30));
+    });
+
+    // 사용자 채널(설계안 A)이 실제로 붙었을 때만 느리게 — 정책 적용 전(입장 거부)에는 지금처럼 3초다.
+    testWidgets('사용자 채널이 붙어 있으면 30초마다만 읽는다', (tester) async {
+      setChannelLive(true);
+      await openScreen(tester);
+      expect(chat.conversationsFetchCount, 1);
+
+      await tester.pump(conversationsPollSlow - const Duration(milliseconds: 1));
+      expect(chat.conversationsFetchCount, 1);
+      await tester.pump(const Duration(milliseconds: 1));
+
+      expect(chat.conversationsFetchCount, 2);
+    });
+
+    testWidgets('보는 중에 채널이 붙으면 30초로, 끊기면 다시 3초로 바꾼다', (tester) async {
+      await openScreen(tester);
+
+      setChannelLive(true);
+      await tester.pump(conversationsPollFast * 3);
+      expect(chat.conversationsFetchCount, 1, reason: '붙은 뒤에는 3초마다 읽지 않는다');
+
+      setChannelLive(false);
+      await tester.pump(conversationsPollFast);
+      expect(chat.conversationsFetchCount, 2, reason: '끊기면 3초 안전망으로 돌아온다');
     });
 
     testWidgets('3초가 되기 전에는 다시 읽지 않고, 3초마다 한 번씩 읽는다', (tester) async {
       await openScreen(tester);
       expect(chat.conversationsFetchCount, 1);
 
-      await tester.pump(conversationsPollInterval - const Duration(milliseconds: 1));
+      await tester.pump(conversationsPollFast - const Duration(milliseconds: 1));
       expect(chat.conversationsFetchCount, 1);
 
       await tester.pump(const Duration(milliseconds: 1));
       expect(chat.conversationsFetchCount, 2);
 
-      await tester.pump(conversationsPollInterval);
+      await tester.pump(conversationsPollFast);
       expect(chat.conversationsFetchCount, 3);
     });
 
@@ -726,7 +757,7 @@ void main() {
         conversationFixture(matchId: 'm2', nickname: '새방', unreadCount: 1),
       ]);
 
-      await tester.pump(conversationsPollInterval);
+      await tester.pump(conversationsPollFast);
       await tester.pump();
 
       expect(find.text('답장 왔어요'), findsOneWidget);
@@ -738,7 +769,7 @@ void main() {
       await openScreen(tester);
       chat.holdConversations = Completer<void>();
 
-      await tester.pump(conversationsPollInterval);
+      await tester.pump(conversationsPollFast);
 
       expect(chat.conversationsFetchCount, 2);
       expect(find.text('여우비'), findsOneWidget);
@@ -750,13 +781,13 @@ void main() {
       await openScreen(tester);
       chat.holdConversations = Completer<void>();
 
-      await tester.pump(conversationsPollInterval * 3);
+      await tester.pump(conversationsPollFast * 3);
       expect(chat.conversationsFetchCount, 2);
 
       chat.holdConversations!.complete();
       chat.holdConversations = null;
       await tester.pump();
-      await tester.pump(conversationsPollInterval);
+      await tester.pump(conversationsPollFast);
       expect(chat.conversationsFetchCount, 3);
     });
 
@@ -764,7 +795,7 @@ void main() {
       await openScreen(tester);
       chat.conversations = const FailureResult(NetworkFailure());
 
-      await tester.pump(conversationsPollInterval);
+      await tester.pump(conversationsPollFast);
       await tester.pump();
 
       expect(chat.conversationsFetchCount, 2);
@@ -772,7 +803,7 @@ void main() {
       expect(find.text(const NetworkFailure().toDisplayMessage()), findsNothing);
 
       chat.conversations = Success([conversationFixture(lastMessage: '다시 연결됐어요')]);
-      await tester.pump(conversationsPollInterval);
+      await tester.pump(conversationsPollFast);
       await tester.pump();
 
       expect(chat.conversationsFetchCount, 3);
@@ -783,11 +814,11 @@ void main() {
       await openScreen(tester);
 
       background(tester);
-      await tester.pump(conversationsPollInterval * 6);
+      await tester.pump(conversationsPollFast * 6);
       expect(chat.conversationsFetchCount, 1);
 
       foreground(tester);
-      await tester.pump(conversationsPollInterval);
+      await tester.pump(conversationsPollFast);
       expect(chat.conversationsFetchCount, 2);
     });
 
@@ -804,7 +835,7 @@ void main() {
       }
       final before = chat.conversationsFetchCount;
 
-      await tester.pump(conversationsPollInterval);
+      await tester.pump(conversationsPollFast);
       expect(chat.conversationsFetchCount, before + 1);
     });
 
@@ -814,12 +845,12 @@ void main() {
       unawaited(navigatorKey.currentState!.push(MaterialPageRoute<void>(builder: (_) => const Text('방'))));
       await tester.pumpAndSettle();
       final before = chat.conversationsFetchCount;
-      await tester.pump(conversationsPollInterval * 6);
+      await tester.pump(conversationsPollFast * 6);
       expect(chat.conversationsFetchCount, before);
 
       navigatorKey.currentState!.pop();
       await tester.pumpAndSettle();
-      await tester.pump(conversationsPollInterval);
+      await tester.pump(conversationsPollFast);
       expect(chat.conversationsFetchCount, before + 1);
     });
 
@@ -828,7 +859,7 @@ void main() {
 
       await tester.pumpWidget(const SizedBox.shrink());
       final before = chat.conversationsFetchCount;
-      await tester.pump(conversationsPollInterval * 6);
+      await tester.pump(conversationsPollFast * 6);
 
       expect(chat.conversationsFetchCount, before);
     });
@@ -856,25 +887,25 @@ void main() {
       await tester.tap(find.text('대화'));
       await tester.pumpAndSettle();
       final entered = chat.conversationsFetchCount;
-      await tester.pump(conversationsPollInterval * 2);
+      await tester.pump(conversationsPollFast * 2);
       expect(chat.conversationsFetchCount, entered + 2, reason: '탭에 들어와 있는 동안');
 
       await tester.tap(find.text('여우비'));
       await tester.pumpAndSettle();
       final inRoom = chat.conversationsFetchCount;
-      await tester.pump(conversationsPollInterval * 3);
+      await tester.pump(conversationsPollFast * 3);
       expect(chat.conversationsFetchCount, inRoom, reason: '방이 덮은 동안');
 
       router.pop();
       await tester.pumpAndSettle();
       final back = chat.conversationsFetchCount;
-      await tester.pump(conversationsPollInterval * 2);
+      await tester.pump(conversationsPollFast * 2);
       expect(chat.conversationsFetchCount, back + 2, reason: '방을 닫고 돌아온 뒤');
 
       await tester.tap(find.text('메인'));
       await tester.pumpAndSettle();
       final left = chat.conversationsFetchCount;
-      await tester.pump(conversationsPollInterval * 3);
+      await tester.pump(conversationsPollFast * 3);
       expect(chat.conversationsFetchCount, left, reason: '다른 탭으로 옮긴 뒤');
     }, variant: const TargetPlatformVariant({TargetPlatform.android, TargetPlatform.iOS}));
   });
@@ -905,10 +936,10 @@ void main() {
     await tester.pump();
     expect(listCalls, 1);
 
-    await tester.pump(conversationsPollInterval);
+    await tester.pump(conversationsPollFast);
     expect(listCalls, 2, reason: '이 요청이 걸린다');
 
-    await tester.pump(readTimeout + conversationsPollInterval);
+    await tester.pump(readTimeout + conversationsPollFast);
     expect(listCalls, greaterThanOrEqualTo(3), reason: '걸린 요청이 끊긴 뒤 다음 주기');
   });
 }

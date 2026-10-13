@@ -5,8 +5,10 @@ import 'package:campus_mate/chat/model/chat_repository.dart';
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/chat/model/chat_room.dart';
 import 'package:campus_mate/chat/model/message.dart';
+import 'package:campus_mate/chat/model/user_event_stream.dart';
 import 'package:campus_mate/chat/viewmodel/chat_room_ui_state.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
+import 'package:campus_mate/chat/viewmodel/user_channel.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 방 하나당 하나. 화면을 닫으면 자동으로 버려지고 그때 실시간 구독도 함께 끊긴다.
@@ -19,10 +21,12 @@ final chatRoomViewModelProvider =
 /// (`verifyCodeNowProvider` 와 같은 방식) — 24시간 경계를 실제 시계 없이 넘기려고(백로그 22).
 final chatRoomNowProvider = Provider<DateTime Function()>((ref) => DateTime.now);
 
-/// 방이 보이는 동안 상대가 내 줄을 읽었는지 묻는 주기(카톡식 '1', 사용자 결정 10-13, 같은 날 사용자 요청으로 5초 → 2초).
-/// 실시간 통로로는 상대의 읽음이 오지 않아 이만큼 늦게 사라질 수 있다. 메시지 1건 조회라 가볍다.
-/// ponytail: 2초 폴링이다. 즉시 사라지게 하려면 읽음 시각을 Realtime 으로 밀어 줘야 한다(서버 · 구독 변경).
-const Duration partnerReadPollInterval = Duration(seconds: 2);
+/// 방이 보이는 동안 상대가 내 줄을 읽었는지 묻는 주기(카톡식 '1', 사용자 결정 10-13, 같은 날 사용자 요청으로 5초 → 2초) —
+/// 사용자 채널(`user:<내 id>`, 설계안 A)이 **안 붙었을 때**(정책 적용 전 입장 거부 · 끊김). 메시지 1건 조회라 가볍다.
+const Duration partnerReadPollFast = Duration(seconds: 2);
+
+/// 사용자 채널이 붙어 있을 때의 주기. 읽음은 `read` 이벤트로 바로 오고 이것은 이벤트 유실을 메우는 안전망이다.
+const Duration partnerReadPollSlow = Duration(seconds: 30);
 
 /// 방을 보는 동안 받은 상대 줄의 읽음을 묶는 간격. 첫 줄에 바로 찍고, 그 사이 온 줄은 끝에 한 번 더 찍는다.
 const Duration markReadThrottle = Duration(seconds: 3);
@@ -57,6 +61,11 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
       _stopReadSync();
       unawaited(_subscription?.cancel());
     });
+    // 사용자 채널이 붙거나 끊기면 상대 읽음 확인 간격을 바꾼다(붙음 30초 · 아니면 2초).
+    ref.listen<bool>(userChannelProvider, (_, _) => _onUserChannelChanged());
+    // 이 방에 온 `read` · `message` 이벤트를 채널이 바로 넘겨주게 건다. 버려질 때 뗀다(onDispose 안에서는 ref 를 못 쓴다).
+    final channel = ref.read(userChannelProvider.notifier)..attachRoom(_matchId, this);
+    ref.onDispose(() => channel.detachRoom(_matchId, this));
     Future.microtask(_open);
     return const ChatRoomUiState();
   }
@@ -385,7 +394,7 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
 
   /// 방이 화면에 보이는가 — 앱 복귀 · 덮었던 화면이 닫힘 = true, 백그라운드 · 다른 화면이 덮음 = false.
   /// 안 보이는 동안에는 상대 읽음을 묻지 않고 **읽음도 찍지 않는다** — 보지 않은 줄을 읽었다고 알리면 안 된다.
-  /// 다시 보이면 바로 한 번 묻고 [partnerReadPollInterval] 주기를 이어 가며, 그사이 온 상대 줄의 읽음을 찍는다.
+  /// 다시 보이면 바로 한 번 묻고 [partnerReadPollFast] · [partnerReadPollSlow] 주기를 이어 가며, 그사이 온 상대 줄의 읽음을 찍는다.
   void setVisible(bool visible) {
     if (visible == _visible) {
       return;
@@ -418,7 +427,34 @@ class ChatRoomViewModel extends Notifier<ChatRoomUiState> {
 
   void _startPartnerReadPoll() {
     _partnerReadPoll?.cancel();
-    _partnerReadPoll = Timer.periodic(partnerReadPollInterval, (_) => unawaited(_checkPartnerRead()));
+    final interval = ref.read(userChannelProvider) ? partnerReadPollSlow : partnerReadPollFast;
+    _partnerReadPoll = Timer.periodic(interval, (_) => unawaited(_checkPartnerRead()));
+  }
+
+  /// 확인이 돌고 있을 때만(방이 보이고 열렸다) 새 간격으로 다시 걸고 바로 한 번 묻는다 — 끊긴 동안 놓친 `read` 를 메운다.
+  void _onUserChannelChanged() {
+    if (_partnerReadPoll == null) {
+      return;
+    }
+    _startPartnerReadPoll();
+    unawaited(_checkPartnerRead());
+  }
+
+  /// 사용자 채널로 온 상대의 읽음(설계안 A) — 폴링을 기다리지 않고 '1' 을 지운다. 늦게 읽은 값이 이긴다([PartnerRead.later]).
+  /// 다른 방 · 상대가 아닌 사람의 읽음은 쓰지 않는다(서버는 상대 한 명에게만 쏘지만 내 읽음으로 '1' 을 지우면 거짓말이 된다).
+  void receivePartnerRead(ReadEvent event) {
+    final room = state.room;
+    if (!_alive || event.matchId != _matchId || room == null || event.readerId != room.partner.profileId) {
+      return;
+    }
+    _takePartnerRead(PartnerRead.known(event.readAt));
+  }
+
+  /// 사용자 채널로 온 이 방의 줄. 방 채널로도 오는 줄이라 id 로 걸러 한 번만 그린다 — 방 채널 복제가 늦을 때 먼저 보인다.
+  /// 사용자가 지금 이 방을 보고 있으면 true 다 — 목록이 안 읽은 수를 올리지 않는다.
+  bool receiveFromUserChannel(Message message) {
+    _receive(message);
+    return _alive && _visible;
   }
 
   /// 상대가 내 줄을 읽었는지 가볍게 묻는다(메시지 1건 조회). 메시지 목록은 건드리지 않는다.

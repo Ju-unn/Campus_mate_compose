@@ -7,7 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// **Realtime 을 이 뒤에 숨긴다** — 테스트는 가짜를 끼우고 Supabase 를 켜지 않는다
 /// (조각 4 의 `PushMessaging` 과 같은 경계).
 abstract interface class MessageStream {
-  /// 구독을 끊으면 채널도 닫힌다. 목록 화면은 구독하지 않는다(푸시 + 당겨서 새로고침).
+  /// 구독을 끊으면 채널도 닫힌다. 목록 · 배지 · 상대 읽음은 이 방 채널이 아니라 사용자 채널(`user_event_stream.dart`)이 맡는다.
   ///
   /// 통로가 끊기면 **스트림 오류**가 온다 — 받는 쪽은 그때 배너를 띄우고 다시 구독한다(백로그 19).
   /// 끊겼던 통로가 스스로 다시 붙으면 [onRejoined] — 끊긴 동안 온 줄은 구독으로 안 오니 다시 읽어야 한다(결함 A12).

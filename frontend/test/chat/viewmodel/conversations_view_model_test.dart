@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
+import 'package:campus_mate/chat/model/message.dart';
+import 'package:campus_mate/chat/model/user_event_stream.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_ui_state.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
 import 'package:campus_mate/common/failure.dart';
@@ -145,6 +147,127 @@ void main() {
 
       expect(chat.conversationsFetchCount, 1);
       expect(stateNow().isLoading, isFalse);
+    });
+  });
+
+  // 사용자 채널(설계안 A)의 message 이벤트를 목록에 바로 반영한다. 서버 값이 기준이라 다음 읽기가 덮어쓴다.
+  group('사용자 채널 message 로 목록을 바로 고친다', () {
+    final listAt = DateTime(2026, 10, 13, 14);
+
+    MessageEvent event({
+      String matchId = 'm1',
+      String id = 'msg-new',
+      String senderId = partnerId,
+      int minute = 1,
+      MessageKind kind = MessageKind.text,
+    }) =>
+        MessageEvent(
+          matchId,
+          messageFixture(id: id, senderId: senderId, kind: kind, body: '새 줄 $id', createdAt: listAt.add(Duration(minutes: minute))),
+        );
+
+    Future<void> readTwoRooms() async {
+      chat.conversations = Success([
+        conversationFixture(unreadCount: 1, lastMessageAt: listAt),
+        conversationFixture(matchId: 'm2', nickname: '두번째', unreadCount: 0, lastMessageAt: listAt.subtract(const Duration(hours: 1))),
+      ]);
+      await viewModel().refresh();
+    }
+
+    void apply(MessageEvent event, {bool seen = false}) => viewModel().applyMessage(event, myId: myId, seen: seen);
+
+    test('상대 줄은 마지막 줄 · 시각 · 안 읽은 수를 바꾸고 그 방을 맨 위로 올린다', () async {
+      await readTwoRooms();
+
+      apply(event(matchId: 'm2', minute: 5));
+
+      final rows = stateNow().conversations;
+      expect(rows.map((row) => row.matchId), ['m2', 'm1']);
+      expect((rows.first.lastMessage, rows.first.unreadCount, rows.first.lastMessageKind), ('새 줄 msg-new', 1, MessageKind.text));
+      expect(rows.first.lastMessageAt, listAt.add(const Duration(minutes: 5)));
+      expect(stateNow().unreadTotal, 2);
+    });
+
+    test('내가 보낸 줄은 안 읽은 수를 올리지 않는다', () async {
+      await readTwoRooms();
+
+      apply(event(senderId: myId));
+
+      expect((stateNow().conversations.first.lastMessage, stateNow().unreadTotal), ('새 줄 msg-new', 1));
+    });
+
+    test('같은 줄(같은 message.id)이 두 번 와도 한 번만 센다', () async {
+      await readTwoRooms();
+
+      apply(event());
+      apply(event());
+
+      expect(stateNow().conversations.first.unreadCount, 2);
+    });
+
+    test('서버 목록이 이미 반영한 줄(마지막 줄보다 늦지 않은 줄)은 다시 세지 않는다 — 뒤늦게 온 이벤트', () async {
+      await readTwoRooms();
+
+      apply(event(minute: 0));
+      apply(event(id: 'older', minute: -3));
+
+      expect((stateNow().conversations.first.unreadCount, stateNow().conversations.first.lastMessage), (1, '내일 시간 괜찮으세요?'));
+    });
+
+    test('지금 그 방을 보고 있으면 마지막 줄만 바꾸고 안 읽은 수는 올리지 않는다', () async {
+      await readTwoRooms();
+
+      apply(event(), seen: true);
+
+      expect((stateNow().conversations.first.lastMessage, stateNow().unreadTotal), ('새 줄 msg-new', 1));
+    });
+
+    test('나가기 · 차단 줄(left)도 마지막 줄로 보인다', () async {
+      await readTwoRooms();
+
+      apply(event(kind: MessageKind.left));
+
+      expect(stateNow().conversations.first.lastMessageKind, MessageKind.left);
+    });
+
+    test('목록에 없는 방이면 목록을 조용히 다시 읽는다', () async {
+      await readTwoRooms();
+      final before = chat.conversationsFetchCount;
+      chat.conversations = const FailureResult(NetworkFailure());
+
+      apply(event(matchId: 'm-unknown'));
+      await pumpEventQueue();
+
+      expect(chat.conversationsFetchCount, before + 1);
+      expect(stateNow().errorMessage, isNull);
+    });
+
+    test('떠 있던 오류 줄은 그대로 둔다 — 사용자가 누른 일이 아니다', () async {
+      await readTwoRooms();
+      chat.conversations = const FailureResult(NetworkFailure());
+      await viewModel().refresh();
+
+      apply(event());
+
+      expect(stateNow().errorMessage, const NetworkFailure().toDisplayMessage());
+    });
+
+    // 이벤트 직전에 출발한 읽기는 그 줄을 못 봤을 수 있다 — 그 결과가 이벤트를 덮으면 다음 읽기 전까지 한 줄이 빈다.
+    test('읽는 중에 온 이벤트는 그 읽기가 끝난 뒤 조용히 한 번 더 읽어 서버 값으로 맞춘다', () async {
+      await readTwoRooms();
+      chat.holdConversations = Completer<void>();
+      unawaited(viewModel().refresh(quiet: true));
+      await pumpEventQueue();
+      final before = chat.conversationsFetchCount;
+
+      apply(event());
+      chat.conversations = const FailureResult(NetworkFailure());
+      chat.holdConversations!.complete();
+      chat.holdConversations = null;
+      await pumpEventQueue();
+
+      expect(chat.conversationsFetchCount, before + 1);
+      expect(stateNow().errorMessage, isNull);
     });
   });
 }

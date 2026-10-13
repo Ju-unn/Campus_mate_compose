@@ -81,6 +81,8 @@ void main() {
         pushMessagingProvider.overrideWithValue(FakePushMessaging(token: 't', granted: false)),
         cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
         chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
+        // 관문이 열리면 앱이 사용자 채널을 연다 — 시험에서는 진짜 Realtime 소켓을 열지 않는다.
+        userEventStreamProvider.overrideWithValue(FakeUserEventStream()),
         homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
         notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
         signOutProvider.overrideWithValue(() async {}),

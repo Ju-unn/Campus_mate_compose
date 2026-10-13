@@ -58,6 +58,26 @@ class Conversation {
 
   bool get hasAccepted => myTrustResponse == 'accept';
 
+  /// 실시간으로 온 이 방의 새 줄을 미리보기 · 시각 · 안 읽은 수에 반영한 줄(설계안 A). [unread] 면 안 읽은 수를 하나 올린다.
+  /// **마지막 줄보다 늦지 않은 줄이면 그대로 돌려준다** — 같은 이벤트(같은 message.id)가 두 번 와도, 서버 목록이 이미 센
+  /// 줄이 뒤늦게 와도 두 번 세지 않는다(둘 다 시각이 마지막 줄 이하다). 서버 목록과 이벤트는 같은 `created_at` 을 싣는다.
+  Conversation receive(Message message, {required bool unread}) {
+    if (!message.createdAt.isAfter(lastMessageAt)) {
+      return this;
+    }
+    return Conversation(
+      matchId: matchId,
+      partner: partner,
+      lastMessageAt: message.createdAt,
+      unreadCount: unread ? unreadCount + 1 : unreadCount,
+      trustPassed: trustPassed,
+      remainingSeconds: remainingSeconds,
+      lastMessage: message.body,
+      lastMessageKind: message.kind,
+      myTrustResponse: myTrustResponse,
+    );
+  }
+
   factory Conversation.fromJson(Map<String, dynamic> json) {
     return Conversation(
       matchId: json['match_id'] as String,

@@ -517,7 +517,7 @@ void main() {
       expect(unreadMarks(), findsNWidgets(3));
 
       repository.partnerReadResult = Success(PartnerRead.known(at.add(const Duration(minutes: 1))));
-      await tester.pump(partnerReadPollInterval);
+      await tester.pump(partnerReadPollFast);
       await tester.pump();
 
       expect(unreadMarks(), findsNothing);
@@ -550,7 +550,7 @@ void main() {
       }
       final before = repository.partnerReadFetchCount;
 
-      await tester.pump(partnerReadPollInterval);
+      await tester.pump(partnerReadPollFast);
       expect(repository.partnerReadFetchCount, greaterThan(before));
     });
 
