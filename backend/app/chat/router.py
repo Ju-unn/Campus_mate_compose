@@ -272,7 +272,7 @@ async def send_message(match_id: str, body: MessageRequest,
 
 @router.patch("/chat/matches/{match_id}/read")
 async def mark_read(match_id: str, wiring: _Wiring = Depends(_wire)) -> dict:
-    """방에 들어올 때와 나갈 때 한 번씩 부른다(ERD §4). 상대에게 보이는 읽음 표시는 없다."""
+    """방에 들어올 때와 나갈 때 한 번씩 부른다(ERD §4). 상대 화면의 읽음 '1' 이 이 시각으로 사라진다."""
     match = await wiring.repo.fetch_match(match_id, wiring.profile_id)
     if match is None:
         raise HTTPException(status_code=404, detail=errors.CHAT_NOT_FOUND)

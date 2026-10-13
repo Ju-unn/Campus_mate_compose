@@ -143,7 +143,7 @@ class ChatRepository(PostgrestRepository):
     async def count_unread(self, match_id: UUID | str, profile_id: UUID | str,
                            last_read_at: str | None) -> int:
         """안 읽은 수는 내 last_read_at 기준이고 내가 보낸 것은 세지 않는다(ERD §4).
-        상대에게 보이는 읽음 표시는 없다 — 이 값은 내 화면의 뱃지에만 쓴다."""
+        이 값은 내 화면의 뱃지에만 쓴다(상대 읽음은 방 머리말·메시지 목록의 partner_last_read_at)."""
         params = {
             "match_id": f"eq.{match_id}",
             "sender_id": f"neq.{profile_id}",
