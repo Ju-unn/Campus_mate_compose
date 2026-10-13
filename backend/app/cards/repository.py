@@ -4,6 +4,7 @@ from uuid import UUID
 
 from fastapi import HTTPException
 
+from app.cards.push import PushToken
 from app.core import errors
 from app.core.http import error_code, raise_for_status
 from app.core.postgrest import PostgrestRepository
@@ -406,9 +407,9 @@ class CardRepository(PostgrestRepository):
         rows = await self._rows("profiles", {"id": f"eq.{profile_id}", "select": "status"})
         return rows[0].get("status") if rows else None
 
-    async def fetch_push_tokens(self, profile_id: UUID | str) -> list[str]:
-        rows = await self._rows("push_tokens", {"profile_id": f"eq.{profile_id}", "select": "token"})
-        return [row["token"] for row in rows]
+    async def fetch_push_tokens(self, profile_id: UUID | str) -> list[PushToken]:
+        rows = await self._rows("push_tokens", {"profile_id": f"eq.{profile_id}", "select": "token,platform"})
+        return [PushToken(row["token"], row.get("platform", "")) for row in rows]
 
     async def fetch_notification_settings(self, profile_id: UUID | str) -> dict:
         rows = await self._rows("notification_settings", {

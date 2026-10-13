@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import sys
 from datetime import datetime
 
 import google.auth
@@ -7,6 +8,52 @@ import httpx
 from google.auth.transport.requests import Request as GoogleAuthRequest
 
 logger = logging.getLogger(__name__)
+
+
+class _StderrHandler(logging.StreamHandler):
+    """그때그때의 sys.stderr 로 쓴다(테스트가 stderr 를 바꿔도 닫힌 파일에 쓰지 않는다)."""
+
+    def __init__(self):
+        super().__init__()
+
+    @property
+    def stream(self):
+        return sys.stderr
+
+    @stream.setter
+    def stream(self, _value):
+        pass
+
+
+# 운영(uvicorn)은 루트 로거에 핸들러가 없고 수준이 WARNING 이라, 이 로거만 INFO 를 내려면 수준과 핸들러가 둘 다 필요하다.
+# 전송 성공 INFO 한 줄이 Cloud Run 로그에 보이게 하는 최소 방법이다 — app 전체 수준은 건드리지 않는다.
+logger.setLevel(logging.INFO)
+_handler = _StderrHandler()
+_handler.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
+logger.addHandler(_handler)
+
+_DETAIL_MAX = 300
+_RAW_MAX = 200
+
+
+def _mask(token: str) -> str:
+    """토큰은 앞 6자와 길이만 로그에 남긴다 — 원문은 기기를 가리키는 비밀이다."""
+    return f"{token[:6]}…({len(token)})"
+
+
+def _failure_detail(response: httpx.Response, token: str) -> str:
+    """FCM 오류 JSON 에서 진단에 필요한 칸만 뽑는다(본문 통째로 남기지 않는다). JSON 이 아니면 앞 200자.
+    FCM 이 메시지에 토큰을 되돌려 줄 수 있어 마지막에 한 번 더 가린다."""
+    try:
+        error = response.json()["error"]
+        parts = [f"status={error.get('status')}", f"code={error.get('code')}", f"message={error.get('message')}"]
+        codes = [d["errorCode"] for d in error.get("details") or [] if isinstance(d, dict) and "errorCode" in d]
+        if codes:
+            parts.append(f"errorCode={','.join(codes)}")
+        detail = " ".join(parts)
+    except (ValueError, KeyError, TypeError, AttributeError):
+        detail = response.text[:_RAW_MAX]
+    return detail.replace(token, _mask(token))[:_DETAIL_MAX]
 
 _SCOPE = "https://www.googleapis.com/auth/firebase.messaging"
 # 조용한 시간(설계 화면 16d): 22시 ~ 다음날 8시.
@@ -41,6 +88,18 @@ _BUNDLES = {
 }
 
 
+class PushToken(str):
+    """FCM 등록 토큰 문자열에 기기 종류(android · ios)를 붙인 것 — 전송 로그가 어느 기기였는지 남기는 데만 쓴다.
+    그냥 str 처럼 비교 · 삭제 · 전송에 쓰인다."""
+
+    platform: str
+
+    def __new__(cls, token: str, platform: str = ""):
+        obj = super().__new__(cls, token)
+        obj.platform = platform
+        return obj
+
+
 class FcmSender:
     """FCM HTTP v1 에 알림 한 건을 보낸다. 자격증명은 Cloud Run 서비스 계정(ADC)이다 —
     Vision 과 같은 방식이고 서버 키를 따로 만들지 않는다(2026-09-20 준비 가이드)."""
@@ -58,11 +117,15 @@ class FcmSender:
             await asyncio.to_thread(self._credentials.refresh, GoogleAuthRequest())
         return self._credentials.token
 
-    async def send(self, token: str, title: str, body: str, data: dict[str, str]) -> str:
+    async def send(self, token: str, title: str, body: str, data: dict[str, str],
+                   kind: str = "", platform: str = "") -> str:
         """`"sent"` · `"dead"` · `"failed"` 중 하나. `"dead"` 일 때만 부른 쪽이 토큰을 지운다.
 
         400 은 죽은 토큰이 아니라 우리가 보낸 payload 가 잘못됐다는 뜻이다 — 예전에는 404 와
-        한데 묶여서 멀쩡한 사람의 토큰을 조용히 지웠다."""
+        한데 묶여서 멀쩡한 사람의 토큰을 조용히 지웠다.
+
+        `kind` · `platform` 은 로그에만 쓴다. 로그에는 토큰 앞 6자와 길이, 종류, 기기 종류, FCM 오류 코드만 남고
+        토큰 원문 · 제목 · 본문 · 사용자 이름은 남기지 않는다."""
         payload = {
             "message": {
                 "token": token,
@@ -83,8 +146,10 @@ class FcmSender:
             return "dead"
         if not response.is_success:
             # 푸시 실패가 카드 지급을 되돌리게 두지 않는다 — 로그만 남기고 넘어간다.
-            logger.warning("FCM 전송 실패 %s %s", response.status_code, response.text[:200])
+            logger.warning("FCM 전송 실패 %s kind=%s platform=%s token=%s | %s", response.status_code,
+                           kind or "?", platform or "?", _mask(token), _failure_detail(response, token))
             return "failed"
+        logger.info("FCM 전송 성공 kind=%s platform=%s token=%s", kind or "?", platform or "?", _mask(token))
         return "sent"
 
 
@@ -129,7 +194,7 @@ async def notify(repo, sender: FcmSender, profile_id, kind: str,
 
     sent = 0
     for token in await repo.fetch_push_tokens(profile_id):
-        result = await sender.send(token, title, body, data)
+        result = await sender.send(token, title, body, data, kind=kind, platform=getattr(token, "platform", ""))
         if result == "sent":
             sent += 1
         elif result == "dead":
