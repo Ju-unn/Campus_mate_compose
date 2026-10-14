@@ -140,8 +140,20 @@ class _SendButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 꺼진 버튼도 탭을 삼킨다 — 안 그러면 탭이 앱 전체를 감싼 KeyboardDismissOnTap 으로 넘어가 쓰던 키보드가 내려간다.
+    // 빈 탭은 화면 읽기에 알리지 않는다(excludeFromSemantics) — "보내기" 는 꺼진 버튼으로만 읽힌다.
+    return GestureDetector(
+      onTap: onPressed == null ? () {} : null,
+      behavior: HitTestBehavior.opaque,
+      excludeFromSemantics: true,
+      child: _circle(),
+    );
+  }
+
+  Widget _circle() {
     return Semantics(
       button: true,
+      enabled: onPressed != null,
       label: '보내기',
       // 원을 버튼 자신의 Material 이 칠해야 눌림 효과가 입력 바와 함께 움직인다(COMMON §4-2).
       child: Material(

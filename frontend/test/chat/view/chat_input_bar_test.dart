@@ -1,4 +1,5 @@
 import 'package:campus_mate/chat/view/chat_input_bar.dart';
+import 'package:campus_mate/common/widgets/keyboard_dismiss_on_tap.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -69,6 +70,83 @@ void main() {
     final painter = find.ancestor(of: button, matching: find.byType(Material)).first;
 
     expect(tester.getSize(painter), const Size(40, 40));
+  });
+
+  // 앱 전체를 감싼 KeyboardDismissOnTap(PR #523) 아래에서 — 꺼진 버튼이 탭을 안 받으면 탭이 바깥으로 넘어가 키보드가 내려간다.
+  group('꺼진 보내기 버튼', () {
+    var sent = 0;
+    Finder sendButton() => find.descendant(of: find.byType(ChatInputBar), matching: find.byType(InkWell));
+
+    Future<void> pump(WidgetTester tester) async {
+      sent = 0;
+      await tester.pumpWidget(MaterialApp(
+        builder: (context, child) => KeyboardDismissOnTap(child: child!),
+        home: Scaffold(
+          body: Column(
+            children: [
+              const Spacer(),
+              ChatInputBar(
+                onSend: (_) async {
+                  sent++;
+                  return true;
+                },
+                isSending: false,
+              ),
+            ],
+          ),
+        ),
+      ));
+    }
+
+    testWidgets('글이 비어 꺼진 보내기를 눌러도 입력칸 포커스(키보드)가 그대로고 보내지 않는다', (tester) async {
+      await pump(tester);
+      await tester.tap(find.byType(TextField));
+      await tester.pump();
+      final focus = tester.widget<EditableText>(find.byType(EditableText)).focusNode;
+      expect(focus.hasFocus, isTrue);
+
+      await tester.tap(sendButton());
+      await tester.pump();
+
+      expect(focus.hasFocus, isTrue);
+      expect(sent, 0);
+    });
+
+    testWidgets('화면 읽기에는 꺼진 "보내기" 버튼으로 남는다 — 누를 수 있는 동작이 없다', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await pump(tester);
+
+      expect(
+        tester.getSemantics(sendButton()),
+        matchesSemantics(label: '보내기', isButton: true, hasEnabledState: true, isEnabled: false),
+      );
+      semantics.dispose();
+    });
+
+    testWidgets('글을 쓰면 켜진 버튼이고 누르면 보낸다 — 포커스는 그대로다', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await pump(tester);
+      await tester.enterText(find.byType(TextField), '안녕');
+      await tester.pump();
+      final focus = tester.widget<EditableText>(find.byType(EditableText)).focusNode;
+
+      expect(
+        tester.getSemantics(sendButton()),
+        matchesSemantics(
+          label: '보내기',
+          isButton: true,
+          hasEnabledState: true,
+          isEnabled: true,
+          hasTapAction: true,
+        ),
+      );
+      await tester.tap(sendButton());
+      await tester.pump();
+
+      expect(sent, 1);
+      expect(focus.hasFocus, isTrue);
+      semantics.dispose();
+    });
   });
 
   group('pen JgryI 값', () {
