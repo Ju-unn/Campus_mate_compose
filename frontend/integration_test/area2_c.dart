@@ -32,17 +32,17 @@ const _detail = '프로필 자세히 보기';
 const _verified = '학생 인증';
 const _heartTasksRow = '무료로 하트 모으기';
 const _inviteRow = '친구 초대';
-const _pill = '다시 만들기 · 10'; // me/view/profile_hero.dart — 무료 차례에도 같은 글
+const _pill = '다시 만들기 · 20'; // me/view/profile_hero.dart — 무료 차례에도 같은 글
 const _generating = '아바타로 변환 중이에요'; // me/view/my_profile_screen.dart
 const _lowTitle = '하트가 모자라요';
-const _lowBody = '하트 10개가 필요해요. 지금 보유한 하트는 9개예요.';
+const _lowBody = '하트 20개가 필요해요. 지금 보유한 하트는 19개예요.'; // PC 가 하나 모자란 19 를 넣는다(area2_phone3 p_heart_44)
 const _lowCta = '하트 충전하기';
 const _storeTitle = '하트'; // billing/view/heart_store_screen.dart 앱바 제목 (18)
 const _storeSection = '구매하기'; // 18 하트 스토어의 섹션 제목
 const _regenTitle = '아바타를 다시 만들까요?';
 const _freeBody = '첫 번째 다시 만들기는 무료예요. 새 아바타는 바로 프로필에 반영돼요.';
 const _freeCta = '무료로 만들기';
-const _paidCta = '10 쓰고 만들기';
+const _paidCta = '20 쓰고 만들기';
 final _countdown = RegExp(r'^\d\d:\d\d:\d\d$');
 
 /// 앞 가설의 세션을 지우고([fresh] 가 false 면 그대로 둔다) 일감의 토큰으로 로그인한 뒤 [body] 를 돈다(area2.dart 와 같은 모양).
@@ -122,7 +122,7 @@ int? _seconds(WidgetTester tester) {
   return parts[0] * 3600 + parts[1] * 60 + parts[2];
 }
 
-/// 나 탭 → "다시 만들기 · 10" 알약 → 사진 고르기(15b-4 → 15b-5, PC 가 앱 캐시에 넣어 둔 사진 한 장) → 15b 시트가 뜰 때까지.
+/// 나 탭 → "다시 만들기 · 20" 알약 → 사진 고르기(15b-4 → 15b-5, PC 가 앱 캐시에 넣어 둔 사진 한 장) → 15b 시트가 뜰 때까지.
 /// 알약은 이제 시트가 아니라 사진 고르기를 먼저 연다 — 시트의 만들기를 누르면 그 사진이 지금 아바타 원본 칸을 대신한다.
 Future<void> _openRegen(WidgetTester tester, String title) async {
   await arrive(tester, 'home');
@@ -136,7 +136,7 @@ Future<void> _openRegen(WidgetTester tester, String title) async {
 Area1Case _regen() => _session((tester, job) async {
       final free = job['free'] == true;
       await _openRegen(tester, _regenTitle);
-      final body = free ? _freeBody : '하트 10개가 차감돼요. 지금 보유한 하트는 ${job['balance']}개예요. 새 아바타는 바로 프로필에 반영돼요.';
+      final body = free ? _freeBody : '하트 20개가 차감돼요. 지금 보유한 하트는 ${job['balance']}개예요. 새 아바타는 바로 프로필에 반영돼요.';
       must(_count(find.text(body)) == 1, '시트 글 "$body" ${_count(find.text(body))}개');
       await tap(tester, find.text(free ? _freeCta : _paidCta));
       // 만들기는 사진 교체(PUT /me/photos — 업로드 · SafeSearch)가 먼저라 "변환 중" 안내까지 예전(등록만)보다 오래 걸린다 — area5_photo 와 같이 60초.

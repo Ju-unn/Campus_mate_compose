@@ -194,14 +194,15 @@ class CaseBase(Base):
 
 class LowHeartsTest(CaseBase):
     RULES = [('GET', 'profile_avatars', lambda b, u: Reply(200, [{'id': 'a1', 'status': 'ready'}, {'id': 'a2', 'status': 'ready'}])),
-             ('GET', 'entitlements', lambda b, u: Reply(200, [{'heart_balance': 9}]))]
+             ('GET', 'entitlements', lambda b, u: Reply(200, [{'heart_balance': 19}]))]
 
-    def test_balance_nine_with_two_avatars_gets_402_and_no_new_attempt(self):
+    def test_balance_nineteen_with_two_avatars_gets_402_and_no_new_attempt(self):
+        # 다시 만들기 값 20(운영 00075) 에 하나 모자란 잔액 — 20 이면 402 가 아니라 202(유료 AI)다
         rules = [('POST', '/me/avatar/regenerate', lambda b, u: Reply(402, {'detail': '하트가 모자라요'})), *self.RULES]
         phone = FakePhone()
         result = self.go('E-HEART-44', phone, rules)
         self.assertEqual(result[0], 'pass', result)
-        self.assertEqual([b['p_amount'] for b in self.fake.bodies('POST', 'rpc/grant_hearts')], [9])
+        self.assertEqual([b['p_amount'] for b in self.fake.bodies('POST', 'rpc/grant_hearts')], [19])
         self.assertEqual(len(self.fake.bodies('POST', '/me/avatar/regenerate')), 1)
         self.assertIn('token_hash', phone.jobs[0])
 
@@ -216,9 +217,9 @@ class LowHeartsTest(CaseBase):
         sent = [o for m, path, o in self.fake.options if (m, path) == ('POST', '/me/avatar/regenerate')]
         self.assertEqual(sent, [{'retry': False}])  # 서버에 닿았는지 모호해도 다시 보내지 않는다 — 열려 있으면 유료 호출이다
 
-    def test_a_balance_other_than_nine_is_a_fail(self):
+    def test_a_balance_other_than_nineteen_is_a_fail(self):
         rules = [('POST', '/me/avatar/regenerate', lambda b, u: Reply(402, {'detail': '하트가 모자라요'})),
-                 self.RULES[0], ('GET', 'entitlements', lambda b, u: Reply(200, [{'heart_balance': 8}]))]
+                 self.RULES[0], ('GET', 'entitlements', lambda b, u: Reply(200, [{'heart_balance': 18}]))]
         self.assertEqual(self.go('E-HEART-44', FakePhone(), rules)[0], 'fail')
 
     def test_a_server_that_accepts_the_regeneration_is_a_fail(self):
@@ -472,15 +473,30 @@ class RealAiTest(CaseBase):
         two = [{'id': 'a1', 'status': 'ready'}, {'id': 'a2', 'status': 'ready'}]
         three = two + [{'id': 'a3', 'status': 'ready'}]
         states = iter([two, two + [{'id': 'a3', 'status': 'pending'}], three])
-        balances = iter([[{'heart_balance': 10}], [{'heart_balance': 10}], [{'heart_balance': 0}]])
+        balances = iter([[{'heart_balance': 20}], [{'heart_balance': 20}], [{'heart_balance': 0}]])
         rules = [('GET', 'profile_avatars', lambda b, u: Reply(200, next(states, three))),
                  ('GET', 'entitlements', lambda b, u: Reply(200, next(balances, [{'heart_balance': 0}]))),
-                 ('GET', 'heart_transactions', lambda b, u: Reply(200, [{'amount': -10, 'reason': 'avatar_regen', 'ref_id': 'a3'}]))]
+                 ('GET', 'heart_transactions', lambda b, u: Reply(200, [{'amount': -20, 'reason': 'avatar_regen', 'ref_id': 'a3'}]))]
         phone = FakePhone(midway_step={'step': 'started'})
         with mock.patch.dict(area2_phone3.os.environ, {'E2E_REAL_AI': '1'}):
             result = self.go('E-HEART-45', phone, rules)
         self.assertEqual(result[0], 'pass', result)
-        self.assertEqual(phone.jobs[0]['balance'], 10)
+        self.assertEqual(phone.jobs[0]['balance'], 20)  # 경계 — 다시 만들기 값(20) 과 딱 같은 잔액
+        self.assertEqual([b['p_amount'] for b in self.fake.bodies('POST', 'rpc/grant_hearts')], [20])
+
+    def test_the_second_paid_case_starts_at_thirty_and_ends_at_ten(self):
+        two = [{'id': 'a1', 'status': 'ready'}, {'id': 'a2', 'status': 'ready'}]
+        three = two + [{'id': 'a3', 'status': 'ready'}]
+        states = iter([two, two + [{'id': 'a3', 'status': 'pending'}], three])
+        balances = iter([[{'heart_balance': 30}], [{'heart_balance': 30}], [{'heart_balance': 10}]])
+        rules = [('GET', 'profile_avatars', lambda b, u: Reply(200, next(states, three))),
+                 ('GET', 'entitlements', lambda b, u: Reply(200, next(balances, [{'heart_balance': 10}]))),
+                 ('GET', 'heart_transactions', lambda b, u: Reply(200, [{'amount': -20, 'reason': 'avatar_regen', 'ref_id': 'a3'}]))]
+        phone = FakePhone(midway_step={'step': 'started'})
+        with mock.patch.dict(area2_phone3.os.environ, {'E2E_REAL_AI': '1'}):
+            result = self.go('E-HEART-43', phone, rules)
+        self.assertEqual(result[0], 'pass', result)  # 30 − 20 = 10, 원장 −20 한 줄
+        self.assertEqual(phone.jobs[0]['balance'], 30)
 
     def setUp(self):
         super().setUp()
@@ -500,29 +516,29 @@ class RealAiTest(CaseBase):
             return self.go(case, phone, rules), phone
 
     def test_a_balance_that_moves_while_it_is_being_made_is_a_fail(self):
-        (result, _) = self.charged([7, 7, 0], [{'amount': -10, 'reason': 'avatar_regen', 'ref_id': 'a3'}])
+        (result, _) = self.charged([7, 7, 0], [{'amount': -20, 'reason': 'avatar_regen', 'ref_id': 'a3'}])
         self.assertEqual(result[0], 'fail', result)
 
     def test_a_ledger_ref_that_is_not_the_new_attempt_is_a_fail(self):
-        (result, _) = self.charged([10, 10, 0], [{'amount': -10, 'reason': 'avatar_regen', 'ref_id': 'other'}])
+        (result, _) = self.charged([20, 20, 0], [{'amount': -20, 'reason': 'avatar_regen', 'ref_id': 'other'}])
         self.assertEqual(result[0], 'fail', result)
 
     def test_after_one_paid_start_the_same_case_is_never_called_again(self):
-        ledger = [{'amount': -10, 'reason': 'avatar_regen', 'ref_id': 'a3'}]
-        (first, _) = self.charged([10, 10, 0], ledger)
+        ledger = [{'amount': -20, 'reason': 'avatar_regen', 'ref_id': 'a3'}]
+        (first, _) = self.charged([20, 20, 0], ledger)
         self.assertEqual(first[0], 'pass', first)
-        (second, phone) = self.charged([10, 10, 0], ledger)
+        (second, phone) = self.charged([20, 20, 0], ledger)
         self.assertEqual(second[0], 'blocked')
         self.assertIn('재시도', second[1])
         self.assertEqual(phone.jobs, [])
 
     PENDING_ROW = {'id': 'a3', 'status': 'pending', 'created_at': '2026-10-05T01:00:00+00:00'}
-    LEDGER = [{'amount': -10, 'reason': 'avatar_regen', 'ref_id': 'a3', 'created_at': '2026-10-05T01:00:20+00:00'}]
+    LEDGER = [{'amount': -20, 'reason': 'avatar_regen', 'ref_id': 'a3', 'created_at': '2026-10-05T01:00:20+00:00'}]
     TWO = [{'id': 'a1', 'status': 'ready'}, {'id': 'a2', 'status': 'ready'}]
 
     def test_the_balance_is_read_before_the_attempt_row(self):
         # 행을 먼저 읽으면 방금 완성된 시도를 본 순간의 잔액이 이미 차감 뒤라 "만드는 중에 빠졌다" 고 틀리게 본다 — 잔액이 먼저다
-        self.charged([10, 10, 0], self.LEDGER)
+        self.charged([20, 20, 0], self.LEDGER)
         names = [p.rsplit('/', 1)[1] for m, p, b in self.fake.calls if m == 'GET' and p.rsplit('/', 1)[1] in ('profile_avatars', 'entitlements')]
         self.assertEqual(names[:3], ['profile_avatars', 'entitlements', 'profile_avatars'])  # 처음 한 번은 known 읽기
 
@@ -530,23 +546,23 @@ class RealAiTest(CaseBase):
         three = self.TWO + [{'id': 'a3', 'status': 'ready'}]
         (result, _) = self.charged([0, 0], self.LEDGER, states=[self.TWO, self.TWO + [self.PENDING_ROW], self.TWO + [self.PENDING_ROW], three])
         self.assertEqual(result[0], 'fail', result)
-        self.assertIn('만드는 중 잔액 0(기대 10', result[1])
+        self.assertIn('만드는 중 잔액 0(기대 20', result[1])
         self.assertIn('결함 후보', result[1])
         self.assertIn('pending', result[1])  # 그때 시도 행의 상태
         self.assertIn('2026-10-05T01:00:00+00:00', result[1])  # 시도 행 생성 시각
-        self.assertIn('2026-10-05T01:00:20+00:00', result[1])  # 원장 −10 의 시각
+        self.assertIn('2026-10-05T01:00:20+00:00', result[1])  # 원장 −20 의 시각
 
     def test_the_real_bug_scenario_pending_then_ready_with_the_charge_already_in_passes(self):
         # 거짓 fail 의 실제 모양: pending 을 보고(잔액 그대로) → 다음 읽기에서 행은 ready, 잔액은 이미 차감 — 이제 정상으로 본다
         three = self.TWO + [{'id': 'a3', 'status': 'ready'}]
-        (result, _) = self.charged([10, 0, 0], self.LEDGER, states=[self.TWO, self.TWO + [self.PENDING_ROW], three])
+        (result, _) = self.charged([20, 0, 0], self.LEDGER, states=[self.TWO, self.TWO + [self.PENDING_ROW], three])
         self.assertEqual(result[0], 'pass', result)
 
     def test_an_unreadable_evidence_does_not_hide_the_defect_fail(self):
         ledger_reads = []
         states = iter([self.TWO, self.TWO + [self.PENDING_ROW]])  # known → pending 한 번 → 그 뒤로는 완성
         rules = [('GET', 'profile_avatars', lambda b, u: Reply(200, next(states, self.TWO + [{'id': 'a3', 'status': 'ready'}]))),
-                 ('GET', 'entitlements', lambda b, u: Reply(200, [{'heart_balance': 0}])),  # 기대 10 인데 이미 0 — 결함 후보
+                 ('GET', 'entitlements', lambda b, u: Reply(200, [{'heart_balance': 0}])),  # 기대 20 인데 이미 0 — 결함 후보
                  ('GET', 'heart_transactions', lambda b, u: Reply(500, {'message': 'boom'}) if not ledger_reads.append(1) and len(ledger_reads) == 1 else Reply(200, self.LEDGER))]  # 증거용 첫 읽기만 실패
         with mock.patch.dict(area2_phone3.os.environ, {'E2E_REAL_AI': '1'}):
             result = self.go('E-HEART-45', FakePhone(midway_step={'step': 'started'}), rules)
@@ -563,7 +579,7 @@ class RealAiTest(CaseBase):
 
     def test_not_measurable_does_not_hide_a_wrong_ledger(self):
         three = self.TWO + [{'id': 'a3', 'status': 'ready'}]
-        wrong = [{'amount': -10, 'reason': 'avatar_regen', 'ref_id': 'other', 'created_at': 'x'}]
+        wrong = [{'amount': -20, 'reason': 'avatar_regen', 'ref_id': 'other', 'created_at': 'x'}]
         (result, _) = self.charged([0, 0], wrong, states=[self.TWO, three])
         self.assertEqual(result[0], 'fail', result)  # 완성 뒤 검사에서 어긋난 것은 측정 불가에 묻히지 않는다
         self.assertIn('ref_id', result[1])
@@ -584,20 +600,20 @@ class RealAiTest(CaseBase):
         return _state['n'] > 1
 
     def test_a_paid_fail_comes_back_as_that_same_fail_on_the_second_call_without_the_phone(self):
-        wrong = [{'amount': -10, 'reason': 'avatar_regen', 'ref_id': 'other'}]
-        (first, _) = self.charged([10, 10, 0], wrong)
+        wrong = [{'amount': -20, 'reason': 'avatar_regen', 'ref_id': 'other'}]
+        (first, _) = self.charged([20, 20, 0], wrong)
         self.assertEqual(first[0], 'fail', first)
-        (second, phone) = self.charged([10, 10, 0], wrong)
+        (second, phone) = self.charged([20, 20, 0], wrong)
         self.assertEqual(second[0], 'fail', second)  # 러너가 fail 을 한 번 더 돌려도 첫 시도의 이유가 사라지지 않는다
         self.assertIn('ref_id', second[1])
         self.assertIn('다시 하지 않음', second[1])
         self.assertEqual(phone.jobs, [])
 
     def test_the_note_counts_the_paid_calls_as_new_attempt_rows(self):
-        (passed, _) = self.charged([10, 10, 0], [{'amount': -10, 'reason': 'avatar_regen', 'ref_id': 'a3'}])
+        (passed, _) = self.charged([20, 20, 0], [{'amount': -20, 'reason': 'avatar_regen', 'ref_id': 'a3'}])
         self.assertIn('유료 호출 1번', passed[1])
         area2_phone3._PAID.clear()
-        (failed, _) = self.charged([7, 7, 0], [{'amount': -10, 'reason': 'avatar_regen', 'ref_id': 'a3'}])
+        (failed, _) = self.charged([7, 7, 0], [{'amount': -20, 'reason': 'avatar_regen', 'ref_id': 'a3'}])
         self.assertEqual(failed[0], 'fail')
         self.assertIn('유료 호출 1번', failed[1])
 
@@ -659,6 +675,16 @@ class AppRegenWaitTest(unittest.TestCase):
         seconds = re.search(r"pumpUntil\(tester, find\.text\(_generating\), timeout: const Duration\(seconds: (\d+)\)\)", body)
         self.assertIsNotNone(seconds)
         self.assertGreaterEqual(int(seconds.group(1)), 60)
+
+    def test_the_device_texts_use_the_regen_cost_of_twenty_and_the_balance_one_short(self):
+        # 앱 쪽 글자가 PC 의 잔액(E-HEART-44 는 19) · 서버 값(20, 운영 00075)과 같은지 — 다르면 기기에서 "못 찾음" 으로 fail 한다.
+        text = (tools.ROOT / 'frontend' / 'integration_test' / 'area2_c.dart').read_text(encoding='utf-8')
+        for line in ("const _pill = '다시 만들기 · 20';", "const _lowBody = '하트 20개가 필요해요. 지금 보유한 하트는 19개예요.';",
+                     "const _paidCta = '20 쓰고 만들기';", "'하트 20개가 차감돼요. 지금 보유한 하트는 ${job['balance']}개예요. 새 아바타는 바로 프로필에 반영돼요.'"):
+            with self.subTest(line):
+                self.assertIn(line, text)
+        hero = (tools.ROOT / 'frontend' / 'lib' / 'me' / 'view' / 'profile_hero.dart').read_text(encoding='utf-8')
+        self.assertIn("'다시 만들기 · 20'", hero)  # 알약 글자는 실제 히어로 코드 그대로
 
 
 class RegistryTest(unittest.TestCase):
