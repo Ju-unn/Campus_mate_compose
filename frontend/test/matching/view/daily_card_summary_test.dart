@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:campus_mate/common/university_logos.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/common/widgets/pressable.dart';
 import 'package:campus_mate/common/widgets/school_label.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_elevation.dart';
@@ -215,6 +216,26 @@ void main() {
         expect(pill.right, lessThanOrEqualTo(frame.right - 21));
       }
     });
+  });
+
+  testWidgets('카드 전체가 누름 칸 — 누르는 동안 투명도만 내려가고(press 120ms) 크기 · 자리는 그대로, 떼면 onTap', (tester) async {
+    var taps = 0;
+    await tester.pumpWidget(
+      _scope(MaterialApp(home: Scaffold(body: DailyCardSummary(card: _card, onTap: () => taps++)))),
+    );
+    final frame = tester.getRect(find.byType(DailyCardSummary));
+
+    final gesture = await tester.startGesture(tester.getCenter(find.text('여우비, 23')));
+    await tester.pump(const Duration(milliseconds: 200));
+    final pressable = find.descendant(of: find.byType(DailyCardSummary), matching: find.byType(Pressable));
+    expect(pressable, findsOneWidget);
+    expect(tester.widget<AnimatedOpacity>(find.descendant(of: pressable, matching: find.byType(AnimatedOpacity))).opacity,
+        Pressable.pressedOpacity);
+    expect(tester.getRect(find.byType(DailyCardSummary)), frame);
+
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(taps, 1);
   });
 
   testWidgets('링크 줄 — 화살표 `t4484l` 은 오른쪽 끝, 줄 사이 16', (tester) async {

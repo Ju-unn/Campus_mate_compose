@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/common/widgets/pressable.dart';
 import 'package:campus_mate/common/widgets/school_label.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_elevation.dart';
@@ -11,7 +12,7 @@ import 'package:campus_mate/matching/model/daily_card.dart';
 import 'package:flutter/material.dart';
 
 /// 요약 카드(DESIGN.md §8.1 `daily-card-summary`, pen `v26S7z`).
-/// 카드 전체가 탭 영역이고, 누르면 10b 상세로 이동한다 — 여기에 액션 바는 없다.
+/// 카드 전체가 탭 영역이고, 누르면 10b 상세로 이동한다 — 여기에 액션 바는 없다. 누르는 동안 투명도만 내려간다(DESIGN §7 press).
 class DailyCardSummary extends StatelessWidget {
   const DailyCardSummary({required this.card, required this.onTap, super.key});
 
@@ -20,7 +21,7 @@ class DailyCardSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(20),

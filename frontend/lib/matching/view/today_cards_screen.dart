@@ -3,10 +3,12 @@ import 'dart:ui' show ImageFilter;
 
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/entrance.dart';
 import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
@@ -97,6 +99,13 @@ class _SkeletonCards extends StatelessWidget {
   }
 }
 
+/// 이미 등장 효과를 보인 카드 id — 같은 카드는 한 번만 움직인다(DESIGN §7 emphasis 는 하루 두 번까지, 대장 지시 "하루 한 번").
+/// ponytail: 메모리에만 둔다 — 앱을 다시 켜면 그날 카드가 한 번 더 움직인다. 막아야 하면 shared_preferences 에 날짜 · id 를 남긴다.
+final _shownCardIdsProvider = Provider<Set<String>>((ref) => <String>{});
+
+/// 카드 사이 등장 간격(대장 지시 — 모션 기회 2, pen 에 없는 값)
+const Duration _cardStagger = Duration(milliseconds: 60);
+
 class _CardList extends ConsumerWidget {
   const _CardList({required this.cards, required this.paidCard});
 
@@ -116,13 +125,22 @@ class _CardList extends ConsumerWidget {
           return PaidCardSlot(paidCard: paidCard!);
         }
         final card = cards[index];
-        return DailyCardSummary(
-          card: card,
-          // 10b 에서 결정하고 돌아오면 목록을 다시 읽는다 — 결정한 카드가 남아 있으면 안 된다.
-          onTap: () async {
-            await context.push<void>('${AppRoutes.cardDetail}/${card.cardId}');
-            await ref.read(todayCardsViewModelProvider.notifier).markDecided();
-          },
+        // 처음 보는 카드만 투명 · 아래 16 에서 emphasis 로 올라온다(transform · opacity 만 — 움직이는 중에도 누를 수 있다).
+        return Entrance(
+          key: ValueKey(card.cardId),
+          rise: 16,
+          duration: AppMotion.emphasis,
+          curve: AppMotion.emphasisCurve,
+          delay: _cardStagger * index,
+          enabled: ref.read(_shownCardIdsProvider).add(card.cardId),
+          child: DailyCardSummary(
+            card: card,
+            // 10b 에서 결정하고 돌아오면 목록을 다시 읽는다 — 결정한 카드가 남아 있으면 안 된다.
+            onTap: () async {
+              await context.push<void>('${AppRoutes.cardDetail}/${card.cardId}');
+              await ref.read(todayCardsViewModelProvider.notifier).markDecided();
+            },
+          ),
         );
       },
     );

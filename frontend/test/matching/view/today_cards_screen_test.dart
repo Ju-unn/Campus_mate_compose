@@ -3,7 +3,9 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/entrance.dart';
 import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
+import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/home/model/cohort_wait.dart';
 import 'package:campus_mate/home/model/home_repository_provider.dart';
 import 'package:campus_mate/home/model/home_summary.dart';
@@ -200,6 +202,52 @@ void main() {
 
     expect(find.text('지금은 소개할 사람이 없어요'), findsOneWidget);
     expect(find.text('새로운 사람이 오면 알림을 보내드려요'), findsOneWidget);
+  });
+
+  group('카드 등장(DESIGN §7 emphasis — 하루 두 번 중 하나)', () {
+    final twoCards = FakeCardRepository()
+      ..today = const Success(
+        TodayCards(
+          cards: [
+            DailyCard(cardId: 'e1', source: CardSource.daily, profile: CardProfile(profileId: 't1', nickname: '여우비', age: 23, university: '테스트대학교', major: '컴퓨터공학과')),
+            DailyCard(cardId: 'e2', source: CardSource.purchased, profile: CardProfile(profileId: 't2', nickname: '토끼', age: 24, university: '테스트대학교', major: '경영학과')),
+          ],
+        ),
+      );
+
+    testWidgets('카드는 투명 · 아래 16 에서 emphasis(420ms) 로 올라오고, 카드 사이 60ms', (tester) async {
+      await pump(tester, twoCards);
+
+      final entrances = tester.widgetList<Entrance>(find.byType(Entrance)).toList();
+      expect(
+        entrances.map((e) => (e.rise, e.delay, e.duration, e.curve, e.enabled)),
+        [
+          (16.0, Duration.zero, AppMotion.emphasis, AppMotion.emphasisCurve, true),
+          (16.0, const Duration(milliseconds: 60), AppMotion.emphasis, AppMotion.emphasisCurve, true),
+        ],
+      );
+      expect(find.ancestor(of: find.byType(DailyCardSummary).first, matching: find.byType(Entrance)), findsOneWidget);
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('같은 카드는 한 번만 움직인다 — 탭을 나갔다 오면 제자리에 그대로 있다', (tester) async {
+      final container = ProviderContainer(
+        overrides: [
+          cardRepositoryProvider.overrideWithValue(twoCards),
+          chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
+          homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
+        ],
+      );
+      addTearDown(container.dispose);
+      Widget app(Widget home) => UncontrolledProviderScope(container: container, child: MaterialApp(home: home));
+      await tester.pumpWidget(app(const TodayCardsScreen()));
+      await tester.pumpAndSettle();
+
+      await tester.pumpWidget(app(const Text('다른 탭')));
+      await tester.pumpWidget(app(const TodayCardsScreen()));
+
+      expect(tester.widgetList<Entrance>(find.byType(Entrance)).map((e) => e.enabled), [false, false]);
+    });
   });
 
   testWidgets('오늘 몫이 끝나면 카운트다운과 "내일 만날 사람들" 띠를 보여준다', (tester) async {
