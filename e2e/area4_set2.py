@@ -15,7 +15,7 @@ from e2e.tools import Blocked
 # 21 의 탭 순서(frontend/lib/faq/model/faq_item.dart FaqCategory) — 표의 값과 화면 글자.
 TABS = (('card_matching', '카드·매칭'), ('heart_payment', '하트·결제'), ('photo_profile', '사진·프로필'),
         ('friend_review', '지인 리뷰'), ('safety', '안전·신고'), ('account', '계정'))
-MAIL = 'appmailerl4538@gmail.com'
+MAIL = 's26404538@gmail.com'
 TOKEN_WAIT = 30  # 로그인 뒤 기기 토큰이 서버에 올라오기를 기다리는 시간(초)
 GONE_WAIT = 10  # 로그아웃 뒤 토큰 행이 지워지기를 기다리는 시간(초)
 
