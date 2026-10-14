@@ -34,7 +34,7 @@ const _rejectedMessages = {
 
 /// [SchoolEmailRepository]를 임시 Supabase 연결 + FastAPI 로 구현한다.
 class SupabaseSchoolEmailRepository implements SchoolEmailRepository {
-  SupabaseSchoolEmailRepository(this._api, this._connection);
+  SupabaseSchoolEmailRepository(this._api, this._connection, this._auth);
 
   /// 메인(소셜) 연결의 토큰을 붙이는 서버 클라이언트.
   final ApiClient _api;
@@ -42,8 +42,17 @@ class SupabaseSchoolEmailRepository implements SchoolEmailRepository {
   /// 학교 메일 OTP 전용 임시 연결. 메인 연결이 아니다.
   final TemporaryAuthConnection _connection;
 
+  /// 메인(소셜) 연결. 로그인한 계정의 메일을 읽기만 한다.
+  final GoTrueClient _auth;
+
+  /// 로그인한 소셜 계정과 같은 메일이면 보내지 않는다 — GoTrue 가 그 계정으로 로그인시켜 서버가 403 NOT_CONFIRMED 로
+  /// 거절하기 때문이다(서버는 그대로 둔다). 비교는 [UniversityEmail] 정규화(앞뒤 공백 · 대소문자)를 따른다.
   @override
   Future<Result<void>> requestCode(UniversityEmail email) async {
+    // 메일 없는 계정(카카오 일부)은 tryParse('') 가 null 이라 통과한다.
+    if (UniversityEmail.tryParse(_auth.currentUser?.email ?? '') == email) {
+      return const FailureResult(SchoolEmailSameAsLoginFailure());
+    }
     try {
       await _connection.open().signInWithOtp(email: email.toRequestValue(), shouldCreateUser: true);
       return const Success(null);

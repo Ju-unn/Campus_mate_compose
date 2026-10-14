@@ -41,6 +41,14 @@ void main() {
     return SupabaseSchoolEmailRepository(
       ApiClient('https://api.test', client, main),
       TemporaryAuthConnection(() => temporary),
+      main,
+    );
+  }
+
+  /// 메인(소셜) 연결에 [email] 을 가진 사용자로 로그인해 둔다. 카카오는 메일 없이도 로그인된다(null).
+  void signedInAs(String? email) {
+    when(() => main.currentUser).thenReturn(
+      User(id: 'main-user', appMetadata: const {}, userMetadata: const {}, aud: 'authenticated', createdAt: '', email: email),
     );
   }
 
@@ -104,6 +112,42 @@ void main() {
 
         expect(failure, isA<CodeNotSentFailure>(), reason: '$error');
       }
+    });
+
+    // 로그인한 소셜 계정과 같은 메일이면 GoTrue 가 임시 계정 대신 그 계정으로 로그인시켜 서버가 403 NOT_CONFIRMED 로
+    // 거절한다 — 보내기 전에 막는다.
+    group('로그인한 소셜 계정의 메일과 견준다', () {
+      setUp(() {
+        when(
+          () => temporary.signInWithOtp(email: any(named: 'email'), shouldCreateUser: any(named: 'shouldCreateUser')),
+        ).thenAnswer((_) async {});
+      });
+
+      test('같으면(대소문자 · 앞뒤 공백 무시) 인증번호를 보내지 않고 SchoolEmailSameAsLoginFailure', () async {
+        signedInAs(' Hong@SNU.ac.kr ');
+
+        final failure = failureOf(await buildRepository().requestCode(email));
+
+        expect(failure, isA<SchoolEmailSameAsLoginFailure>());
+        expect(failure!.toDisplayMessage(), '로그인에 쓰는 구글·카카오 계정과 같은 메일은 쓸 수 없어요. 다른 학교 메일을 입력해 주세요');
+        verifyNever(
+          () => temporary.signInWithOtp(email: any(named: 'email'), shouldCreateUser: any(named: 'shouldCreateUser')),
+        );
+      });
+
+      test('다르면 그대로 보낸다', () async {
+        signedInAs('hong@gmail.com');
+
+        expect(failureOf(await buildRepository().requestCode(email)), isNull);
+        verify(() => temporary.signInWithOtp(email: 'hong@snu.ac.kr', shouldCreateUser: true)).called(1);
+      });
+
+      test('로그인 계정에 메일이 없으면(카카오 일부) 그대로 보낸다', () async {
+        signedInAs(null);
+
+        expect(failureOf(await buildRepository().requestCode(email)), isNull);
+        verify(() => temporary.signInWithOtp(email: 'hong@snu.ac.kr', shouldCreateUser: true)).called(1);
+      });
     });
   });
 
