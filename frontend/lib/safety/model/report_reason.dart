@@ -21,3 +21,6 @@ enum ReportReason {
 
 /// 기타 메모 상한. 코드포인트(runes) 기준으로 자르는 것은 화면 입력기의 몫이다.
 const int reportNoteMaxLength = 200;
+
+/// 기타 메모의 엔터 줄 상한(2026-10-14 사용자 결정 "추천대로").
+const int reportNoteMaxLines = 5;
