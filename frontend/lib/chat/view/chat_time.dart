@@ -45,10 +45,14 @@ String coarseRemainingLabel(Duration remaining) {
 /// 1초마다 남은 시간을 다시 그린다. **기준은 서버가 준 기한이고 계산은 기기 시계**로 한다
 /// (조각 4 PR #67 과 같은 방식 — 시간대는 기기 것을 따른다).
 class CountdownBuilder extends StatefulWidget {
-  const CountdownBuilder({required this.deadlineAt, required this.builder, super.key});
+  const CountdownBuilder({required this.deadlineAt, required this.builder, this.onDone, super.key});
 
   final DateTime deadlineAt;
   final Widget Function(BuildContext context, Duration remaining) builder;
+
+  /// 남은 시간이 0 이 되면 **기한 하나에 한 번** 부른다. 이미 지난 기한으로 시작해도 한 번 부른다.
+  /// 같은 기한으로 다시 그려도 다시 부르지 않고, 기한이 바뀌면 그 기한의 0 에서 한 번 더 부른다. 화면에서 빠지면 부르지 않는다.
+  final VoidCallback? onDone;
 
   @override
   State<CountdownBuilder> createState() => _CountdownBuilderState();
@@ -57,10 +61,33 @@ class CountdownBuilder extends StatefulWidget {
 class _CountdownBuilderState extends State<CountdownBuilder> {
   Timer? _timer;
 
+  /// 지금 기한의 0 을 이미 알렸다.
+  bool _doneNotified = false;
+
   @override
   void initState() {
     super.initState();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) => setState(() {}));
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      setState(() {});
+      _notifyIfDone();
+    });
+    // 지난 기한으로 시작한 경우 — build 도중에 부르지 않게 마이크로태스크로 미룬다.
+    scheduleMicrotask(_notifyIfDone);
+  }
+
+  @override
+  void didUpdateWidget(CountdownBuilder oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.deadlineAt == widget.deadlineAt) return;
+    _doneNotified = false;
+    scheduleMicrotask(_notifyIfDone);
+  }
+
+  void _notifyIfDone() {
+    final onDone = widget.onDone;
+    if (!mounted || _doneNotified || onDone == null || widget.deadlineAt.isAfter(DateTime.now())) return;
+    _doneNotified = true;
+    onDone();
   }
 
   @override

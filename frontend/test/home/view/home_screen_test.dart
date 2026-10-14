@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
@@ -89,10 +91,12 @@ void main() {
   late GoRouter router;
 
   /// [settle] 이 true 면 hero 전환 · 요약 블록 등장이 끝날 때까지 흘린다(레일은 계속 흘러 pumpAndSettle 은 못 쓴다).
+  /// [cards] 를 주면 오늘 카드는 그 저장소가 답한다([today] 는 무시) — 읽는 동안 멈추거나 읽은 횟수를 볼 때.
   Future<void> pump(
     WidgetTester tester, {
     Result<HomeSummary> result = const Success(summary),
     Result<TodayCards> today = _arrived,
+    FakeCardRepository? cards,
     Result<MyProfile> me = const FailureResult(NetworkFailure()),
     bool settle = true,
   }) async {
@@ -102,7 +106,7 @@ void main() {
         notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
         meRepositoryProvider.overrideWithValue(FakeMeRepository(me)),
         // 하단 내비 뱃지가 수락 대기·안 읽은 메시지를 읽는다(§8.8). hero 는 오늘 탭 상태를 읽는다.
-        cardRepositoryProvider.overrideWithValue(FakeCardRepository()..today = today),
+        cardRepositoryProvider.overrideWithValue(cards ?? (FakeCardRepository()..today = today)),
         chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
       ],
     );
@@ -133,6 +137,126 @@ void main() {
   }
 
   Finder heroOf(String line) => find.ancestor(of: find.text(line), matching: find.byType(Container)).last;
+
+  /// hero 안의 스켈레톤 막대(pen `TmUDw` Skeleton · Block, #EBEBEB).
+  Finder skeletonBars() => find.descendant(
+        of: find.byType(AnimatedSwitcher),
+        matching: find.byWidgetPredicate(
+          (w) => w is DecoratedBox && w.decoration is BoxDecoration && (w.decoration as BoxDecoration).color == const Color(0xFFEBEBEB),
+        ),
+      );
+
+  /// 지금 hero 틀(문구가 없는 불러오는 중에도 찾는다) — AnimatedSwitcher 아래 첫 Container.
+  Finder heroFrame() => find.descendant(of: find.byType(AnimatedSwitcher), matching: find.byType(Container)).first;
+
+  group('hero-today 불러오는 중(pen `PAtO3` 09b 메인 · 불러오는 중, hero `jHiXf`)', () {
+    /// 오늘 카드를 읽는 동안 멈춰 둔 저장소. `holdToday!.complete()` 로 그때의 `today` 를 돌려주며 끝낸다.
+    FakeCardRepository holding() => FakeCardRepository()..holdToday = Completer<void>();
+
+    testWidgets('읽는 동안 — #F7F7F7 r32 328×160 · 막대 3개 #EBEBEB r6 · 마스코트 그대로 · 문구와 버튼 없음 · 정적', (tester) async {
+      penFrame(tester);
+      final semantics = tester.ensureSemantics();
+      await pump(tester, cards: holding());
+
+      final hero = heroFrame();
+      final box = tester.widget<Container>(hero).decoration! as BoxDecoration;
+      expect((box.color, box.borderRadius), (const Color(0xFFF7F7F7), BorderRadius.circular(32)));
+      expect(tester.getSize(hero), const Size(328, 160));
+      // `dX7EM` x20 y20 세로 쌓기 — `BJJfw` 148×20 · 사이 8 · `YHQnE` 112×20 · 사이 22 · `nBNDt` 104×32.
+      final origin = tester.getTopLeft(hero);
+      expect([for (var i = 0; i < 3; i++) tester.getRect(skeletonBars().at(i)).shift(-origin)], const [
+        Rect.fromLTWH(20, 20, 148, 20),
+        Rect.fromLTWH(20, 48, 112, 20),
+        Rect.fromLTWH(20, 90, 104, 32),
+      ]);
+      for (final bar in tester.widgetList<DecoratedBox>(skeletonBars())) {
+        expect((bar.decoration as BoxDecoration).borderRadius, BorderRadius.circular(6));
+      }
+      // `ymdUS` = 다른 hero 의 커플 마스코트 그대로(x172 y-5 160×170).
+      final mascot = find.descendant(of: hero, matching: find.byType(Image));
+      expect((tester.widget<Image>(mascot).image as AssetImage).assetName, 'assets/images/home-top-mascot-couple.webp');
+      expect(tester.getRect(mascot).shift(-origin), const Rect.fromLTWH(172, -5, 160, 170));
+      for (final text in ['오늘의 카드가', '지금 확인하기', '결정 대기 카드가', '오늘 카드는']) {
+        expect(find.text(text), findsNothing, reason: text);
+      }
+      // 반짝임 없음(DESIGN §7 · pen context "애니메이션 없음").
+      expect(
+        find.descendant(of: hero, matching: find.byWidgetPredicate((w) => w is AnimatedWidget || w is ImplicitlyAnimatedWidget)),
+        findsNothing,
+      );
+      expect(find.bySemanticsLabel('오늘의 카드를 불러오는 중'), findsOneWidget);
+      semantics.dispose();
+    });
+
+    for (final (name, result, line) in [
+      ('① 도착', _arrived, '오늘의 카드가'),
+      (
+        '② 결정 대기',
+        const Success(TodayCards(cards: [DailyCard(cardId: 'paid', source: CardSource.purchased, profile: _cardProfile)])),
+        '결정 대기 카드가',
+      ),
+      ('③ 확인 완료', Success(TodayCards(cards: const [], nextIssueAt: DateTime.now().add(const Duration(hours: 5)))), '오늘 카드는'),
+    ]) {
+      testWidgets('읽기가 끝나면 standard(220ms) 로 $name 으로 겹쳐 바뀐다', (tester) async {
+        final cards = holding();
+        await pump(tester, cards: cards, settle: false);
+        expect(skeletonBars(), findsNWidgets(3));
+
+        cards.today = result;
+        cards.holdToday!.complete();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(skeletonBars(), findsNWidgets(3));
+        expect(find.text(line), findsOneWidget);
+        await tester.pump(AppMotion.standard);
+        expect(skeletonBars(), findsNothing);
+        expect(find.text(line), findsOneWidget);
+      });
+    }
+
+    testWidgets('기기 "동작 줄이기"면 읽기가 끝나는 프레임에 바로 바뀌고, 화면이 멈춘다(pumpAndSettle 이 끝난다)', (tester) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+      final cards = holding();
+      await pump(tester, cards: cards, settle: false);
+      await tester.pumpAndSettle();
+      expect(skeletonBars(), findsNWidgets(3));
+
+      cards.today = _arrived;
+      cards.holdToday!.complete();
+      await tester.pump();
+      await tester.pump();
+      expect(skeletonBars(), findsNothing);
+      expect(find.text('오늘의 카드가'), findsOneWidget);
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('320 폭 — 틀 288, 막대 자리 그대로, 마스코트는 오른쪽 끝 밖 4, 넘침 없음', (tester) async {
+      penFrame(tester, 320);
+      await pump(tester, cards: holding());
+
+      final hero = heroFrame();
+      expect(tester.getSize(hero), const Size(288, 160));
+      final origin = tester.getTopLeft(hero);
+      expect(tester.getRect(skeletonBars().first).shift(-origin), const Rect.fromLTWH(20, 20, 148, 20));
+      final mascot = tester.getRect(find.descendant(of: hero, matching: find.byType(Image)));
+      expect(mascot.right - tester.getRect(hero).right, 4);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('글자 배율 2.4 — 막대는 글자가 아니라 그대로, hero 160 · 넘침 없음', (tester) async {
+      penFrame(tester);
+      tester.platformDispatcher.textScaleFactorTestValue = 2.4;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await pump(tester, cards: holding());
+
+      expect(tester.getSize(heroFrame()), const Size(328, 160));
+      expect([for (var i = 0; i < 3; i++) tester.getSize(skeletonBars().at(i))],
+          const [Size(148, 20), Size(112, 20), Size(104, 32)]);
+      await tester.scrollUntilVisible(find.text('프로필 완성도 40%'), 200, scrollable: _mainList);
+      expect(tester.takeException(), isNull);
+    });
+  });
 
   group('hero-today 세 상태(DESIGN §8.9 · pen `U1k8ZK` · `fxlhV` · `HGxAR`)', () {
     testWidgets('① 도착 — "지금 확인하기"를 누르면 오늘 탭으로 간다', (tester) async {
@@ -218,11 +342,12 @@ void main() {
       expect(find.byType(CountdownText), findsNothing);
     });
 
-    testWidgets('읽는 동안 · 못 읽으면 지금까지의 문구(도착)를 둔다', (tester) async {
+    testWidgets('못 읽으면 지금까지의 문구(도착)를 둔다 — pen 에 실패 hero 가 없다', (tester) async {
       await pump(tester, today: const FailureResult(NetworkFailure()));
 
       expect(find.text('오늘의 카드가'), findsOneWidget);
       expect(find.text('지금 확인하기'), findsOneWidget);
+      expect(skeletonBars(), findsNothing);
     });
 
     testWidgets('상태가 바뀌면 AnimatedSwitcher 가 standard(220ms) 로 바꾼다', (tester) async {
@@ -230,12 +355,28 @@ void main() {
 
       final switcher = tester.widget<AnimatedSwitcher>(find.byType(AnimatedSwitcher));
       expect((switcher.duration, switcher.switchInCurve), (AppMotion.standard, AppMotion.standardCurve));
-      // 처음 읽는 동안의 도착 문구가 확인 완료로 바뀌는 중이다 — 둘이 겹쳐 있다가 220ms 뒤 하나만 남는다.
+      // 처음 읽는 동안의 스켈레톤이 확인 완료로 바뀌는 중이다 — 둘이 겹쳐 있다가 220ms 뒤 하나만 남는다.
+      // 도착 문구는 한 번도 보이지 않는다(읽는 동안 "도착했어요" 가 떴다가 바뀌던 버그).
       await tester.pump(const Duration(milliseconds: 100));
-      expect(find.text('오늘의 카드가'), findsOneWidget);
+      expect(skeletonBars(), findsNWidgets(3));
       expect(find.text('오늘 카드는'), findsOneWidget);
-      await tester.pump(AppMotion.standard);
       expect(find.text('오늘의 카드가'), findsNothing);
+      await tester.pump(AppMotion.standard);
+      expect(skeletonBars(), findsNothing);
+    });
+
+    testWidgets('③ 카운트다운이 0 이 되면 푸시를 기다리지 않고 다시 읽는다 — 20초 간격 3번까지, 그 뒤로는 멈춘다', (tester) async {
+      // 다음 지급 시각이 이미 지났는데 서버가 계속 대기를 준다(배치가 늦거나 기기 시계가 빠름) — 끝없이 돌면 안 된다.
+      final cards = FakeCardRepository()
+        ..today = Success(TodayCards(cards: const [], nextIssueAt: DateTime.now().subtract(const Duration(minutes: 1))));
+      await pump(tester, cards: cards);
+
+      expect(find.text('모두 확인했어요'), findsOneWidget);
+      expect(cards.fetchTodayCount, 2);
+      await tester.pump(const Duration(minutes: 1));
+      expect(cards.fetchTodayCount, 5);
+      await tester.pump(const Duration(minutes: 5));
+      expect(cards.fetchTodayCount, 5);
     });
 
     testWidgets('기기 "동작 줄이기"면 hero 는 바로 바뀐다(시간 0)', (tester) async {

@@ -27,6 +27,7 @@ import 'package:campus_mate/home/view/tag.dart';
 import 'package:campus_mate/home/viewmodel/hero_today.dart';
 import 'package:campus_mate/home/viewmodel/home_summary_provider.dart';
 import 'package:campus_mate/matching/view/countdown_text.dart';
+import 'package:campus_mate/matching/viewmodel/today_cards_view_model.dart';
 import 'package:campus_mate/me/view/me_toast.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:campus_mate/notifications/viewmodel/unread_count_provider.dart';
@@ -251,7 +252,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
       n.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => ',');
 }
 
-/// hero-today 세 상태(DESIGN §8.9). 모양은 [heroTodayProvider] 가 오늘 탭 상태로 고른다.
+/// hero-today 세 상태 + 불러오는 중(DESIGN §8.9 · pen `PAtO3`). 모양은 [heroTodayProvider] 가 오늘 탭 상태로 고른다.
 /// 상태가 바뀌면 `{motion.standard}` 로 겹쳐 바꾼다 — 기기 "동작 줄이기"면 바로 바꾼다.
 class _HeroToday extends ConsumerWidget {
   const _HeroToday();
@@ -263,6 +264,22 @@ class _HeroToday extends ConsumerWidget {
       switchInCurve: AppMotion.standardCurve,
       switchOutCurve: AppMotion.standardCurve,
       child: switch (ref.watch(heroTodayProvider)) {
+        // pen `jHiXf` — surface-soft 틀 · 마스코트 그대로, 문구 · 버튼 자리에 `dX7EM`(x20 y20 세로 쌓기) 막대 셋.
+        // 반짝임 없이 정적이다(DESIGN §7, pen context "애니메이션 없음").
+        HeroLoading() => Semantics(
+            key: const ValueKey('loading'),
+            label: '오늘의 카드를 불러오는 중',
+            child: const _HeroFrame(
+              color: AppColors.surfaceSoft,
+              children: [
+                _SkeletonBar(width: 148, height: 20), // `BJJfw`
+                SizedBox(height: AppSpacing.xs), // `GL4q4` 8
+                _SkeletonBar(width: 112, height: 20), // `YHQnE`
+                SizedBox(height: 22), // `izWX7` 22 — 간격 토큰(16 · 24) 사이 값
+                _SkeletonBar(width: 104, height: 32), // `nBNDt`
+              ],
+            ),
+          ),
         HeroArrived() => _HeroFrame(
             key: const ValueKey('arrived'),
             color: AppColors.primaryWash,
@@ -302,6 +319,8 @@ class _HeroToday extends ConsumerWidget {
                     target: nextIssueAt,
                     style: AppTypography.countdown
                         .copyWith(fontSize: 32, height: 44 / 32, letterSpacing: -0.96, color: AppColors.ink),
+                    // 0 이 되면 푸시를 기다리지 않고 다시 읽는다 — 00:00:00 에 멈춰 있지 않게(재시도 상한은 뷰모델).
+                    onDone: () => unawaited(ref.read(todayCardsViewModelProvider.notifier).refreshWhenDue()),
                   ),
                 ),
               ],
@@ -312,7 +331,7 @@ class _HeroToday extends ConsumerWidget {
   }
 }
 
-/// hero 한 장의 틀(pen `U1k8ZK` · `fxlhV` · `HGxAR`). 세 상태가 같은 틀이다 — 모서리 32, 최소 높이 160(DESIGN §8.9 · 미결 46,
+/// hero 한 장의 틀(pen `U1k8ZK` · `fxlhV` · `HGxAR` · 불러오는 중 `jHiXf`). 모든 상태가 같은 틀이다 — 모서리 32, 최소 높이 160(DESIGN §8.9 · 미결 46,
 /// 글자를 키우면 늘어난다 §11.2). 커플 마스코트(`S49nUs`)는 오른쪽 끝에서 -4 · 위 -5 · 160×170 — 왼쪽 x172 고정이면 320 폭에서
 /// 잘리고 430 폭에서 빈 곳이 생긴다(pen context). 위로 5 삐져나가 모서리에 잘리고, 글자를 키우면 글자가 그림 위로 온다.
 class _HeroFrame extends StatelessWidget {
@@ -418,6 +437,26 @@ class _PendingBadge extends StatelessWidget {
         alignment: Alignment.center,
         decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(AppRadius.pill)),
         child: Text('$count', style: AppTypography.badge.copyWith(color: AppColors.onPrimary)),
+      ),
+    );
+  }
+}
+
+/// hero 불러오는 중의 막대 하나(pen `TmUDw` Skeleton · Block — #EBEBEB · 모서리 6). 글자가 아니라 글자를 키워도 크기가 그대로다.
+/// 알림함 스켈레톤(`notifications_screen.dart` `_SkeletonRow._bar`)과 같은 값이지만 그쪽이 private 라 여기 따로 둔다.
+class _SkeletonBar extends StatelessWidget {
+  const _SkeletonBar({required this.width, required this.height});
+
+  final double width;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      height: height,
+      child: DecoratedBox(
+        decoration: BoxDecoration(color: AppColors.hairlineSoft, borderRadius: BorderRadius.circular(6)), // pen TmUDw 모서리 6, 토큰 밖
       ),
     );
   }

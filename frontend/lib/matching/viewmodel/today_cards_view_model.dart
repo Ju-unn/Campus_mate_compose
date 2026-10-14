@@ -9,9 +9,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 final todayCardsViewModelProvider =
     NotifierProvider<TodayCardsViewModel, TodayCardsUiState>(TodayCardsViewModel.new);
 
+/// 카운트다운이 0 이 된 뒤 아직 대기면 더 읽는 횟수와 간격([TodayCardsViewModel.refreshWhenDue]).
+/// 3번 × 20초 = 0 이후 1분. 07:00 배치가 이 사람 카드를 쓰는 데 걸리는 시간에 맞춘 눈대중이다.
+const int _dueRetryLimit = 3;
+const Duration _dueRetryGap = Duration(seconds: 20);
+
 /// 오늘 탭(DESIGN.md 화면 10·11·11b)의 흐름을 맡는다.
 class TodayCardsViewModel extends Notifier<TodayCardsUiState> {
   Future<void>? _inFlight;
+
+  /// [refreshWhenDue] 가 도는 중이다 — 홈 hero 와 오늘 탭이 같이 0 이 돼도 사슬은 하나다.
+  bool _dueRunning = false;
 
   @override
   TodayCardsUiState build() {
@@ -38,6 +46,27 @@ class TodayCardsViewModel extends Notifier<TodayCardsUiState> {
 
   /// 10b 에서 결정하고 돌아왔을 때. 결정한 카드가 그대로 남아 있으면 안 된다.
   Future<void> markDecided() => refresh();
+
+  /// 다음 카드 카운트다운이 0 이 됐다(홈 hero ③ · 오늘 탭 11) — 푸시를 기다리지 않고 바로 읽는다.
+  /// 0 은 07:00 배치가 시작하는 순간이라 첫 읽기는 대개 아직 대기다. 대기면 [_dueRetryGap] 간격으로 [_dueRetryLimit] 번까지만
+  /// 더 읽고, 카드가 오거나(대기가 아니면) provider 가 내려가면 멈춘다. 상한이 있어 기기 시계가 빨라 기한이 늘 지나 있어도
+  /// 끝없이 돌지 않는다. ponytail: 눈대중 1분 — 배치가 더 오래 걸리면 그 뒤는 지금처럼 푸시(`daily_card`)가 맡는다.
+  Future<void> refreshWhenDue() async {
+    if (_dueRunning) return;
+    _dueRunning = true;
+    try {
+      await refresh();
+      for (var retry = 0; retry < _dueRetryLimit && _stillWaiting; retry++) {
+        await Future<void>.delayed(_dueRetryGap);
+        if (!ref.mounted) return;
+        await refresh();
+      }
+    } finally {
+      _dueRunning = false;
+    }
+  }
+
+  bool get _stillWaiting => ref.mounted && state.phase == TodayCardsPhase.waiting;
 
   TodayCardsUiState _fromToday(TodayCards today) {
     // 열기 요청이 가 있는 중에 다시 읽혀도 "진행 중" 과 아직 안 읽힌 알림은 지우지 않는다.

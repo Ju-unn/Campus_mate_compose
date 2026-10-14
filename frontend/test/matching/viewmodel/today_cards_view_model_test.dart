@@ -87,6 +87,88 @@ void main() {
     expect(repository.fetchTodayCount, 2);
   });
 
+  // 카운트다운이 0 이 됐을 때(홈 hero ③ · 오늘 탭 11). 07:00 배치와 같은 순간이라 첫 읽기는 대개 아직 대기다.
+  // 시간을 흘려야 해서 testWidgets(가짜 시계)로 돈다.
+  group('refreshWhenDue — 0 이 된 뒤 다시 읽기', () {
+    final waiting = Success(TodayCards(cards: const [], nextIssueAt: DateTime(2026, 10, 15, 7)));
+    TodayCardsViewModel viewModel() => container.read(todayCardsViewModelProvider.notifier);
+
+    testWidgets('바로 한 번 읽고, 아직 대기면 20초 간격으로 3번까지만 더 읽는다', (tester) async {
+      repository.today = waiting;
+      await load();
+      expect(repository.fetchTodayCount, 1);
+
+      unawaited(viewModel().refreshWhenDue());
+      await tester.pump();
+      expect(repository.fetchTodayCount, 2);
+      await tester.pump(const Duration(seconds: 19));
+      expect(repository.fetchTodayCount, 2);
+      for (final expected in [3, 4, 5]) {
+        await tester.pump(const Duration(seconds: 20));
+        expect(repository.fetchTodayCount, expected);
+      }
+      await tester.pump(const Duration(minutes: 5));
+      expect(repository.fetchTodayCount, 5);
+    });
+
+    testWidgets('카드가 오면 거기서 멈춘다', (tester) async {
+      repository.today = waiting;
+      await load();
+
+      unawaited(viewModel().refreshWhenDue());
+      await tester.pump();
+      repository.today = const Success(TodayCards(cards: [_card]));
+      await tester.pump(const Duration(seconds: 20));
+      expect(repository.fetchTodayCount, 3);
+      expect(container.read(todayCardsViewModelProvider).phase, TodayCardsPhase.cards);
+
+      await tester.pump(const Duration(minutes: 5));
+      expect(repository.fetchTodayCount, 3);
+    });
+
+    testWidgets('도는 중에 또 불려도(홈 · 오늘 탭이 같이 0) 읽기 사슬은 하나다', (tester) async {
+      repository.today = waiting;
+      await load();
+
+      unawaited(viewModel().refreshWhenDue());
+      unawaited(viewModel().refreshWhenDue());
+      await tester.pump();
+      expect(repository.fetchTodayCount, 2);
+      await tester.pump(const Duration(seconds: 20));
+      expect(repository.fetchTodayCount, 3);
+      await tester.pump(const Duration(minutes: 5));
+      expect(repository.fetchTodayCount, 5);
+    });
+
+    testWidgets('사슬이 끝난 뒤 다음 0 에서는 다시 돈다', (tester) async {
+      repository.today = waiting;
+      await load();
+      unawaited(viewModel().refreshWhenDue());
+      await tester.pump();
+      await tester.pump(const Duration(minutes: 5));
+      expect(repository.fetchTodayCount, 5);
+
+      unawaited(viewModel().refreshWhenDue());
+      await tester.pump();
+      expect(repository.fetchTodayCount, 6);
+      await tester.pump(const Duration(minutes: 5));
+      expect(repository.fetchTodayCount, 9);
+    });
+
+    testWidgets('provider 가 내려가면 남은 재시도는 가지 않는다', (tester) async {
+      final own = FakeCardRepository()..today = waiting;
+      final short = ProviderContainer(overrides: [cardRepositoryProvider.overrideWithValue(own)]);
+      await short.read(todayCardsViewModelProvider.notifier).refresh();
+
+      unawaited(short.read(todayCardsViewModelProvider.notifier).refreshWhenDue());
+      await tester.pump();
+      expect(own.fetchTodayCount, 2);
+      short.dispose();
+      await tester.pump(const Duration(minutes: 5));
+      expect(own.fetchTodayCount, 2);
+    });
+  });
+
   group('결제 카드(지시문 23 A4)', () {
     TodayCardsViewModel viewModel() => container.read(todayCardsViewModelProvider.notifier);
 

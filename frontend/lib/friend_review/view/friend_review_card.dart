@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:campus_mate/common/university_logos.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -231,7 +232,8 @@ class _DeleteButton extends StatelessWidget {
 
 /// 학교 칸(pen `NUNSp` 36 r8 hairline 1). 로고가 있으면 흰 칸 가운데 로고 28 contain(`DHWAj`), 로고가 없는 학교거나
 /// 못 불러오면 검정(surfaceInk) 칸에 학교명 첫 글자(`qwQOK`, DESIGN §13-29 폴백). 로고 주소는 학교 줄(SchoolLabel)과
-/// 같은 표(universityLogosProvider — `universities.logo_path` → 공개 버킷)에서 찾는다. 오는 동안은 흰 빈칸(pen 기본 모양).
+/// 같은 표(universityLogosProvider — `universities.logo_path` → 공개 버킷)에서 찾는다. 표를 아직 읽는 동안은 주소를 몰라
+/// 검정 첫 글자 칸이고, 주소를 안 뒤 그림이 오는 동안만 흰 빈칸(pen 기본 모양)이다.
 /// 학교 이름은 카드 어디에도 글자로 없어 이 칸이 학교 이름으로 읽힌다(첫 글자 · 로고 그림은 읽지 않는다).
 class _SchoolBadge extends ConsumerWidget {
   const _SchoolBadge({required this.university});
@@ -295,7 +297,8 @@ class _BadgeBox extends StatelessWidget {
 /// 작성자 아바타(pen `dTmnd` 36 원 primaryWash clip, 안에 `f76zn` 36 cover). 아바타가 없거나 못 불러오면 닉네임
 /// 첫 글자 원([FriendReviewInitial], `e1cLm`). 오는 동안은 연분홍 빈 원(pen 칸 채움)이다.
 /// 주소는 서버 `avatar_url`(최신 ready 아바타의 공개 주소) — 서비스가 만든 일러스트뿐이고 실사 사진은 오지 않는다.
-/// 로고와 같은 Image.network 다(errorBuilder 로 폴백이 정해지고 시험에서 실패를 재현할 수 있다).
+/// 기기 캐시(CachedNetworkImage)에 둔다 — 앱을 다시 켜도 다시 받지 않는다(채팅 목록 · 수락함 · 오늘 카드 · 차단 목록과 같다).
+/// 학교 로고는 SchoolLabel 과 같은 Image.network 그대로다.
 class _ReviewerAvatar extends StatelessWidget {
   const _ReviewerAvatar({required this.nickname, required this.url});
 
@@ -316,15 +319,15 @@ class _ReviewerAvatar extends StatelessWidget {
       width: _avatarSize,
       height: _avatarSize,
       decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.primaryWash),
-      child: Image.network(
-        url,
+      child: CachedNetworkImage(
+        imageUrl: url,
         width: _avatarSize,
         height: _avatarSize,
-        fit: BoxFit.cover,
-        excludeFromSemantics: true,
         // 원으로 자르는 건 그림만 — 폴백 첫 글자는 자르지 않는다(배율 2.4 에서 글자 모서리가 원 밖으로 나간다).
-        frameBuilder: (context, child, frame, wasSynchronouslyLoaded) => ClipOval(child: child),
-        errorBuilder: (context, error, stackTrace) => initial,
+        imageBuilder: (context, image) => ClipOval(
+          child: Image(image: image, width: _avatarSize, height: _avatarSize, fit: BoxFit.cover, excludeFromSemantics: true),
+        ),
+        errorWidget: (context, url, error) => initial,
       ),
     );
   }
