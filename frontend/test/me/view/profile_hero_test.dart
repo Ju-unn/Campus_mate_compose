@@ -30,7 +30,7 @@ class _PendingHttpOverrides extends HttpOverrides {
 }
 
 const _avatarUrl = 'https://img.test/avatar.png';
-const _pillLabel = '다시 만들기 · 10';
+const _pillLabel = '다시 만들기 · 20'; // 2026-10-14 사용자 피드백 6 — 종전 · 10
 const _logoUrl = 'https://logo.test/gana.webp';
 
 /// 학교 줄 글자 — pen `NvYvt` "학교\n학과" 두 줄.
@@ -338,7 +338,7 @@ void main() {
       expectStyle(tester, _pillLabel, 13, FontWeight.w600, AppColors.primaryText, 1.5);
     });
 
-    testWidgets('글자 10 은 pen 고정이다 — 무료 차례(비용 0)에도 "· 10"(D6)', (tester) async {
+    testWidgets('글자 20 은 고정이다 — 무료 차례(비용 0)에도 "· 20"(D6)', (tester) async {
       await pump(tester, profile: _profile(avatarRegenCost: 0), onRegenerate: () {});
 
       expect(find.text(_pillLabel), findsOneWidget);
@@ -395,7 +395,7 @@ void main() {
       await pump(tester, onRegenerate: () {});
 
       final node = tester.getSemantics(find.text(_pillLabel));
-      // 재화 글리프는 Semantics(label: '하트')(CLAUDE.md §7) — 버튼 안에 합쳐 "하트 다시 만들기 · 10" 으로 한 번 읽는다.
+      // 재화 글리프는 Semantics(label: '하트')(CLAUDE.md §7) — 버튼 안에 합쳐 "하트 다시 만들기 · 20" 으로 한 번 읽는다.
       expect(node.label, '하트\n$_pillLabel');
       expect(node.flagsCollection.isButton, isTrue);
       expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);

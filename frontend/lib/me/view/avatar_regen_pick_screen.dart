@@ -15,7 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-/// 15b-4 / 15b-5 아바타 다시 만들기 · 사진 고르기(pen `nN9EC` 고르기 전 · `J4qtZj` 고른 뒤). 화면 15 히어로의 "다시 만들기 · 10"
+/// 15b-4 / 15b-5 아바타 다시 만들기 · 사진 고르기(pen `nN9EC` 고르기 전 · `J4qtZj` 고른 뒤). 화면 15 히어로의 "다시 만들기 · 20"
 /// (`R5Quru`)이 연다. 갤러리에서 새 사진 한 장을 먼저 고르면 그 사진이 지금 아바타 원본 사진을 **대신한다**(사용자 결정 2026-10-08).
 ///
 /// 순서: 사진 고르기 → "이 사진으로 아바타 만들기" → 하트 확인 시트(15b · 15b-2 · 15b-3, 문구는 그대로) → 사진 교체 → 아바타 등록 →

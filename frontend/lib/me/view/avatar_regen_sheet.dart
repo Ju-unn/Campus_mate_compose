@@ -9,7 +9,7 @@ enum AvatarRegenChoice { regenerate, chargeHearts }
 
 /// 15b(pen `aGaPA`) · 15b-2 무료(`N5lXcc`) · 15b-3 하트 모자람(`i8rkW`). 취소 · 바깥 누름이면 null.
 ///
-/// [cost] · [heartBalance] 는 서버 값(`avatar_regen_cost` · `heart_balance`)이다 — 앱에 10 을 박지 않는다.
+/// [cost] · [heartBalance] 는 서버 값(`avatar_regen_cost` · `heart_balance`)이다 — 앱에 값(지금 20)을 박지 않는다.
 /// 틀은 안전 시트와 같다(계획서 C4 — common 으로 빼지 않는다).
 Future<AvatarRegenChoice?> showAvatarRegenSheet(
   BuildContext context, {
@@ -92,7 +92,7 @@ class _ChoiceButton extends StatelessWidget {
 
 /// 주색 채움 위 재화 하트(pen `n3D3iC` 26×26, DESIGN §8.3 on-primary 변형).
 /// 화면 읽기에서는 뺀다 — 버튼 안에 두면 버튼과 따로 떨어진 노드가 되어 "…버튼", "하트" 로 두 번 멈춘다.
-/// 단위는 바로 위 설명("하트 10개가 차감돼요" · "하트 10개가 필요해요")이 이미 읽어 준다.
+/// 단위는 바로 위 설명("하트 20개가 차감돼요" · "하트 20개가 필요해요")이 이미 읽어 준다.
 class _HeartGlyph extends StatelessWidget {
   const _HeartGlyph();
 
