@@ -25,14 +25,15 @@ MAX_CONSECUTIVE_FAILURES = 5
 # 서버가 준 값을 그대로 쓰게 응답에도 같이 싣는다.
 FALLBACK_COMPENSATION_HEARTS = 10
 
-# 아바타 다시 만들기 값(spec 93줄 "아바타 재생성 10하트, 최초 1회 무료").
-AVATAR_REGEN_HEARTS = 10
+# 아바타 다시 만들기 값(최초 1회 무료). 2026-10-14 사용자 피드백 6 으로 20하트(종전 spec "아바타 재생성 10하트").
+# 위 5회 실패 보상 하트와는 따로 정한 값이다 — 하나를 바꿔도 다른 쪽은 그대로다.
+AVATAR_REGEN_HEARTS = 20
 
 
 def avatar_regen_cost(ready_count: int) -> int:
     """지금까지 완성된(ready) 아바타 수로 이번 한 장의 값을 정한다(ERD 12줄 — 무료 여부는 성공 건수로 센다).
 
-    0 은 온보딩 첫 생성이라 무료, 1 은 "최초 1회 무료" 다시 만들기, 그 뒤로 10하트. 기본 아바타(is_fallback)도
+    0 은 온보딩 첫 생성이라 무료, 1 은 "최초 1회 무료" 다시 만들기, 그 뒤로 AVATAR_REGEN_HEARTS. 기본 아바타(is_fallback)도
     한 장으로 센다 — 05-12d 가 "다시 만들 수 있어요" 라고 약속한 그 한 번이다. 실패는 세지 않으니 무료 차례에
     실패하면 다음에도 무료다. GET /me/profile · POST 다시 만들기 · 워커가 **이 함수 하나**를 본다."""
     return 0 if ready_count <= 1 else AVATAR_REGEN_HEARTS

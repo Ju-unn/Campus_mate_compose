@@ -197,7 +197,7 @@ async def test_generate_resets_failure_count_after_success():
     assert failure_counts["profile-id"] == 0
 
 
-@pytest.mark.parametrize(("ready_count", "cost"), [(0, 0), (1, 0), (2, 10), (5, 10)])
+@pytest.mark.parametrize(("ready_count", "cost"), [(0, 0), (1, 0), (2, 20), (5, 20)])
 def test_avatar_regen_cost_is_free_once_after_the_first_avatar(ready_count, cost):
-    # 0 = 온보딩 첫 생성, 1 = 다음 한 번 무료, 2 이상 = 10하트(ERD 12줄, spec 93줄).
+    # 0 = 온보딩 첫 생성, 1 = 다음 한 번 무료, 2 이상 = 20하트(2026-10-14 사용자 피드백 6, 종전 10 — ERD 12줄).
     assert avatar_regen_cost(ready_count) == cost

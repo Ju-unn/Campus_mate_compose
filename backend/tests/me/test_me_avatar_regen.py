@@ -41,7 +41,8 @@ def test_free_regeneration_is_queued_even_with_zero_hearts():
 
 
 def test_paid_regeneration_is_queued_when_the_balance_covers_it():
-    fake = _MeFake(balance=10, ready_rows=_ready(2))
+    # 잔액이 값(20하트)과 딱 같으면 된다.
+    fake = _MeFake(balance=20, ready_rows=_ready(2))
 
     assert _regen(fake).status_code == 202
     assert len(fake.enqueued) == 1
@@ -49,7 +50,8 @@ def test_paid_regeneration_is_queued_when_the_balance_covers_it():
 
 
 def test_paid_regeneration_is_refused_before_any_row_when_hearts_are_short():
-    fake = _MeFake(balance=9, ready_rows=_ready(2))
+    # 19 — 종전 값(10)이면 통과했을 잔액이다.
+    fake = _MeFake(balance=19, ready_rows=_ready(2))
 
     response = _regen(fake)
 

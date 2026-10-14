@@ -126,7 +126,7 @@ def test_profile_returns_my_fields():
             {"id": "p-c", "url": _signed("c.jpg"), "is_avatar_source": False},
         ],
         "heart_balance": 30,
-        "avatar_regen_cost": 10,   # FULL_PROFILE 은 ready 2장
+        "avatar_regen_cost": 20,   # FULL_PROFILE 은 ready 2장
         "nickname_changeable_at": "2026-10-20T14:00:00+09:00",
     }
 
@@ -275,7 +275,7 @@ def test_heart_balance_is_zero_without_an_entitlements_row(entitlements, balance
     assert _get({**FULL_PROFILE, "entitlements": entitlements}).json()["heart_balance"] == balance
 
 
-@pytest.mark.parametrize(("ready", "cost"), [(1, 0), (2, 10)])
+@pytest.mark.parametrize(("ready", "cost"), [(1, 0), (2, 20)])
 def test_regen_cost_follows_the_ready_count(ready, cost):
     avatars = [{"status": "ready", "storage_path": f"{PROFILE_ID}/{i}.png", "created_at": f"2026-09-2{i}T00:00:00+00:00"}
                for i in range(ready)]
