@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from pydantic import BaseModel, Field, StrictBool, field_validator, model_validator
 
 from app.matching.sentences import ANIMAL_LABELS, IMPRESSION_PHRASES
-from app.profile_onboarding.schemas import FREE_TEXT_MAX_LENGTH, NICKNAME_PATTERN, RELIGIONS
+from app.profile_onboarding.schemas import NICKNAME_PATTERN, RELIGIONS, FreeText
 
 # DB check profiles_mbti_format 과 같다. 온보딩 /basic-info 는 이 검사가 없다(DB 가 막는다).
 MBTI_PATTERN = r"^[EI][NS][TF][JP]$"
@@ -23,7 +23,7 @@ def nickname_changeable_at(changed_at: datetime | None, now: datetime) -> dateti
 class ProfileUpdateRequest(BaseModel):
     """15c(자기소개) · 15-6(닉네임 · 키 · MBTI · 종교 · 흡연 · 얼굴상 · 인상) 저장. **보낸 칸만** 고친다(model_fields_set) — 화면마다 따로 저장한다(U4)."""
 
-    bio: str | None = Field(default=None, max_length=FREE_TEXT_MAX_LENGTH)
+    bio: FreeText | None = None   # 온보딩 /bio 와 같은 1000자 · 40줄 · 줄 끝 \n 통일
     nickname: str | None = Field(default=None, pattern=NICKNAME_PATTERN)
     height_cm: int | None = None
     # mbti 만 null 이 뜻 있다 — "선택 안 함"(DB 컬럼도 null 허용). 나머지는 온보딩에서 전부 필수라 비울 수 없다.

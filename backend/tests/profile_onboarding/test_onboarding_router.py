@@ -585,6 +585,37 @@ def test_ideal_note_accepts_a_thousand_characters():
     assert patched[0]["ideal_note"] == "가" * 1000
 
 
+def test_ideal_note_line_endings_are_saved_as_newlines():
+    patched: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "/rest/v1/profiles" in str(request.url) and request.method == "PATCH":
+            patched.append(json.loads(request.content))
+        return httpx.Response(200, json=[])
+
+    response = _wire(handler).post(
+        "/profile-onboarding/ideal-note", headers=AUTH_HEADERS, json={"note": "말이 잘 통하는\r\n사람이 좋아요"}
+    )
+
+    assert response.status_code == 200
+    assert patched[0]["ideal_note"] == "말이 잘 통하는\n사람이 좋아요"
+
+
+@pytest.mark.parametrize(("path", "field"), [("/profile-onboarding/ideal-note", "note"), ("/profile-onboarding/bio", "bio")])
+def test_free_text_with_forty_one_lines_is_422_and_writes_nothing(path, field):
+    patched: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "/rest/v1/profiles" in str(request.url) and request.method == "PATCH":
+            patched.append(json.loads(request.content))
+        return httpx.Response(200, json=[])
+
+    response = _wire(handler).post(path, headers=AUTH_HEADERS, json={field: "\n".join(["가나다라마바사아자차"] * 41)})
+
+    assert response.status_code == 422
+    assert patched == []
+
+
 def test_ideal_conditions_rejects_empty_face_or_impression_choice():
     """선호 얼굴상·인상도 각 1개 이상 필수다."""
     patched: list[dict] = []

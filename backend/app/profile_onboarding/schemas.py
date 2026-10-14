@@ -1,7 +1,7 @@
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import AfterValidator, BaseModel, BeforeValidator, Field, field_validator, model_validator
 
 from app.core.time import SEOUL
 
@@ -83,13 +83,34 @@ class IdealConditionsRequest(BaseModel):
 
 
 IDEAL_NOTE_MIN_LENGTH = 10
-# 자유 글(자기소개 · 이상형 글) 상한. 앱 입력칸에는 상한이 없어 넉넉하게 채팅 한 통과 같은 1000자다 —
-# 상한이 없으면 아무 길이나 DB 와 임베딩(유료)으로 흘러간다(2026-10-12 보안 점검 #11). DB check 는 없다.
+# 자유 글(자기소개 · 이상형 글) 상한. 채팅 한 통과 같은 1000자다 — 상한이 없으면 아무 길이나 DB 와 임베딩(유료)으로
+# 흘러간다(2026-10-12 보안 점검 #11). DB check 는 없다. 앱은 2026-10-14 부터 300자로 막지만(사용자 결정 "추천대로")
+# 여기는 1000 그대로다 — 그 전에 쓴 긴 소개를 고쳐 저장할 때 막히지 않게.
 FREE_TEXT_MAX_LENGTH = 1000
+# 줄 수 상한(1000자 ÷ 25 = 40줄). 앱(06-3 · 15c 8줄, 06-2a 6줄)보다 훨씬 넉넉하다 — 옛 앱 · 직접 호출이
+# 줄 바꿈만 잔뜩 넣어 카드를 끝없이 늘이는 것만 막는다.
+FREE_TEXT_MAX_LINES = FREE_TEXT_MAX_LENGTH // 25
+
+
+def _unify_line_breaks(value: object) -> object:
+    """`\\r\\n` · `\\r` 을 `\\n` 으로 줄인다(앱 입력칸과 같은 규칙). 글자 수를 재기 전에 해야 Windows 줄 끝이 2자로 잡히지 않는다."""
+    return value.replace("\r\n", "\n").replace("\r", "\n") if isinstance(value, str) else value
+
+
+def _within_line_cap(value: str) -> str:
+    if value.count("\n") >= FREE_TEXT_MAX_LINES:
+        raise ValueError(f"줄 바꿈은 {FREE_TEXT_MAX_LINES}줄까지만 쓸 수 있어요")
+    return value
+
+
+# 자기소개(온보딩 /bio · PATCH /me/profile)와 이상형 글이 같이 쓴다.
+FreeText = Annotated[
+    str, BeforeValidator(_unify_line_breaks), Field(max_length=FREE_TEXT_MAX_LENGTH), AfterValidator(_within_line_cap)
+]
 
 
 class IdealNoteRequest(BaseModel):
-    note: str = Field(max_length=FREE_TEXT_MAX_LENGTH)
+    note: FreeText
 
     @field_validator("note")
     @classmethod
@@ -104,7 +125,7 @@ class IdealNoteRequest(BaseModel):
 
 
 class BioRequest(BaseModel):
-    bio: str = Field(max_length=FREE_TEXT_MAX_LENGTH)
+    bio: FreeText
 
 
 ACQUISITION_NOTE_MAX_LENGTH = 30  # pen 값이 다르면 여기와 앱 acquisitionNoteMaxLength 를 같이 바꾼다
