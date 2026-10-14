@@ -58,7 +58,11 @@ class TodayCardsScreen extends ConsumerWidget {
           child: switch (state.phase) {
             TodayCardsPhase.loading => const _SkeletonCards(),
             TodayCardsPhase.cards => _CardList(cards: state.cards, paidCard: state.paidCard),
-            TodayCardsPhase.waiting => _WaitingPanel(nextIssueAt: state.nextIssueAt, paidCard: state.paidCard),
+            TodayCardsPhase.waiting => _WaitingPanel(
+                nextIssueAt: state.nextIssueAt,
+                paidCard: state.paidCard,
+                onCountdownDone: () => unawaited(ref.read(todayCardsViewModelProvider.notifier).refreshWhenDue()),
+              ),
             TodayCardsPhase.noCandidates => const _NoCandidatesPanel(),
             TodayCardsPhase.failed => _FailedPanel(message: state.errorMessage),
           },
@@ -150,9 +154,12 @@ class _CardList extends ConsumerWidget {
 /// 화면 11 — 오늘 몫은 끝났고 다음 지급일을 기다린다.
 /// 세로 간격 6 · 22 · 24 · 14 는 pen `i4VFS` 실측값이라 간격 토큰과 맞지 않는다.
 class _WaitingPanel extends StatelessWidget {
-  const _WaitingPanel({required this.nextIssueAt, required this.paidCard});
+  const _WaitingPanel({required this.nextIssueAt, required this.paidCard, required this.onCountdownDone});
 
   final DateTime? nextIssueAt;
+
+  /// 카운트다운이 0 이 되면 한 번 — 푸시를 기다리지 않고 다음 카드를 다시 읽는다(00:00:00 에 멈춰 있지 않게).
+  final VoidCallback onCountdownDone;
 
   /// 오늘 카드를 이미 정했어도 결제 카드는 살 수 있다 — 띠 아래에 붙인다.
   /// 이 모양은 pen 에 없는 **추정 배치**다(지시문 23 "모호한 것" 1).
@@ -176,7 +183,12 @@ class _WaitingPanel extends StatelessWidget {
           style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
         ),
         const SizedBox(height: 22),
-        if (nextIssueAt != null) CountdownText(target: nextIssueAt!, style: AppTypography.countdown.copyWith(color: AppColors.ink)),
+        if (nextIssueAt != null)
+          CountdownText(
+            target: nextIssueAt!,
+            style: AppTypography.countdown.copyWith(color: AppColors.ink),
+            onDone: onCountdownDone,
+          ),
         const SizedBox(height: AppSpacing.lg),
         Image.asset('assets/images/mascot-male-waiting.png', width: 88),
         const SizedBox(height: 14),

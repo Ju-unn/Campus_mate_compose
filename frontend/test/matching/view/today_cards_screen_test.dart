@@ -269,6 +269,21 @@ void main() {
     expect(tester.widget<CountdownText>(countdown).style.fontSize, 48);
   });
 
+  testWidgets('대기 카운트다운이 0 이 되면 푸시를 기다리지 않고 다시 읽는다 — 20초 간격 3번까지', (tester) async {
+    final repository = FakeCardRepository()
+      ..today = Success(TodayCards(cards: const [], nextIssueAt: DateTime.now().subtract(const Duration(seconds: 1))));
+
+    await pump(tester, repository);
+    await tester.pump();
+
+    expect(find.text('오늘 카드는 확인했어요'), findsOneWidget);
+    expect(repository.fetchTodayCount, 2);
+    await tester.pump(const Duration(minutes: 1));
+    expect(repository.fetchTodayCount, 5);
+    await tester.pump(const Duration(minutes: 5));
+    expect(repository.fetchTodayCount, 5);
+  });
+
   group('대기 부제 — 다음 주면 "다음 주 O요일"(사용자 결정 10-04 (나), 주는 서울 월요일 시작)', () {
     // 서울 시각을 UTC 로 만든다 — 기기 시간대에 기대지 않는다. 2026-10-05 가 월요일.
     DateTime seoul(int day, int hour) => DateTime.utc(2026, 10, day, hour).subtract(const Duration(hours: 9));

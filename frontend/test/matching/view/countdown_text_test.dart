@@ -29,6 +29,16 @@ void main() {
     expect(find.text('00:00:00'), findsOneWidget);
   });
 
+  testWidgets('0 이 되면 onDone 을 한 번 부른다(다음 카드 다시 읽기 신호)', (tester) async {
+    var calls = 0;
+    await tester.pumpWidget(MaterialApp(
+      home: CountdownText(target: DateTime.now().subtract(const Duration(seconds: 1)), style: style, onDone: () => calls++),
+    ));
+    await tester.pump(const Duration(seconds: 3));
+
+    expect(calls, 1);
+  });
+
   testWidgets('숫자 폭이 같다(tabularFigures) — 받은 글자 모양에 없으면 덧붙인다', (tester) async {
     await pump(tester, DateTime.now().add(const Duration(hours: 1)));
 
