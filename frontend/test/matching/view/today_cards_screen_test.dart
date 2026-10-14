@@ -11,6 +11,7 @@ import 'package:campus_mate/home/view/cohort_wait_view.dart';
 import 'package:campus_mate/matching/model/card_profile.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:campus_mate/matching/model/daily_card.dart';
+import 'package:campus_mate/matching/view/countdown_text.dart';
 import 'package:campus_mate/matching/view/daily_card_summary.dart';
 import 'package:campus_mate/matching/view/today_cards_screen.dart';
 import 'package:flutter/material.dart';
@@ -213,6 +214,11 @@ void main() {
     expect(find.text('오늘 카드는 확인했어요'), findsOneWidget);
     expect(find.text('내일 만날 사람들'), findsOneWidget);
     expect(find.text('탭해도 열리지 않아요'), findsOneWidget);
+    // 카운트다운은 홈 hero 와 같은 CountdownText(48/700 · tabularFigures) — 시 자리는 기기 시계라 02 · 03 둘 다 받는다.
+    final countdown = find.byType(CountdownText);
+    expect(countdown, findsOneWidget);
+    expect(find.descendant(of: countdown, matching: find.textContaining(RegExp(r'^0[23]:\d\d:\d\d$'))), findsOneWidget);
+    expect(tester.widget<CountdownText>(countdown).style.fontSize, 48);
   });
 
   group('대기 부제 — 다음 주면 "다음 주 O요일"(사용자 결정 10-04 (나), 주는 서울 월요일 시작)', () {
