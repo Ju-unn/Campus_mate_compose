@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from datetime import datetime
 
 import httpx
 import pytest
@@ -6,7 +7,8 @@ from fastapi.testclient import TestClient
 
 import app.cards.router as router_module
 from app.cards.push import FcmSender
-from app.core.deps import get_client, get_settings
+from app.core.deps import get_client, get_now, get_settings
+from app.core.time import SEOUL
 from app.main import app
 from app.settings import Settings
 
@@ -126,6 +128,24 @@ def test_today_without_cards_tells_the_pool_is_empty():
     assert body["candidate_pool_empty"] is True
     # 다음 지급일은 지역 설정에서 읽는다(월·목 지급).
     assert body["next_issue_at"].endswith("+09:00")
+
+
+def test_today_next_issue_before_seven_on_an_issue_day_is_this_morning():
+    """월 05:00 · 월목 지급에 오늘 몫이 끝난 사람의 카운트다운은 목요일이 아니라 오늘 07:00 이다.
+    카드 만료 시각(issuing.py 의 next_issue_at)과 달리 오늘을 본다 — 응답 키 이름은 옛 앱 호환으로 그대로."""
+    app.dependency_overrides[get_now] = lambda: datetime(2026, 9, 21, 5, 0, tzinfo=SEOUL)  # 2026-09-21 은 월요일
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if "/rest/v1/region_group_settings" in url:
+            return httpx.Response(200, json=REGION_SETTINGS)
+        if "/rest/v1/profiles" in url:
+            return httpx.Response(200, json=[TARGET_PROFILE])
+        return httpx.Response(200, json=[])
+
+    body = _wire(handler).get("/cards/today", headers=AUTH_HEADERS).json()
+
+    assert body["next_issue_at"] == "2026-09-21T07:00:00+09:00"
 
 
 def test_card_detail_carries_the_nine_survey_axes():
