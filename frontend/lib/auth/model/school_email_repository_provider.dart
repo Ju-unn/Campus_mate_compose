@@ -14,10 +14,13 @@ final temporaryAuthFactoryProvider = Provider<GoTrueClient Function()>((ref) {
   return SupabaseConfig.fromEnvironment().openTemporaryAuth;
 });
 
+/// 메인(소셜) 연결. 학교 메일이 로그인한 계정의 메일과 같은지 볼 때 쓴다. 시험은 덮어써 `Supabase.initialize` 없이 돌린다.
+final mainAuthProvider = Provider<GoTrueClient>((ref) => Supabase.instance.client.auth);
+
 /// 02 에서 보낸 임시 연결로 03 에서 확인해야 하므로 앱 전체가 한 벌을 쓴다(autoDispose 아님).
 /// 로그아웃하면 SessionScope 가 ProviderScope 를 새로 만든다 — 그때 임시 연결도 비운다.
 final schoolEmailRepositoryProvider = Provider<SchoolEmailRepository>((ref) {
   final connection = TemporaryAuthConnection(ref.read(temporaryAuthFactoryProvider));
   ref.onDispose(() => unawaited(connection.close()));
-  return SupabaseSchoolEmailRepository(ref.read(apiClientProvider), connection);
+  return SupabaseSchoolEmailRepository(ref.read(apiClientProvider), connection, ref.read(mainAuthProvider));
 });

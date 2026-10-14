@@ -26,6 +26,7 @@ void main() {
           ApiClient('https://api.test', MockClient((_) async => http.Response('{}', 200)), MockGoTrueClient()),
         ),
         temporaryAuthFactoryProvider.overrideWithValue(() => temporary),
+        mainAuthProvider.overrideWithValue(MockGoTrueClient()),
       ],
     );
     await container.read(schoolEmailRepositoryProvider).requestCode(UniversityEmail.tryParse('hong@snu.ac.kr')!);

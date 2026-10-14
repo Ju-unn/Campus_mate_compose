@@ -126,6 +126,7 @@ void main() {
       TemporaryAuthConnection(
         () => const SupabaseConfig(url: _projectUrl, anonKey: _anonKey).openTemporaryAuth(httpClient: _gotrue),
       ),
+      mainAuth,
     );
     final email = UniversityEmail.tryParse('hong@snu.ac.kr')!;
 
