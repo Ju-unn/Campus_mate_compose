@@ -14,6 +14,7 @@ import 'package:campus_mate/community/model/community_repository_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/auth/account_status_listenable.dart';
+import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
 import 'package:campus_mate/core/back_exit/back_exit_view_model.dart';
 import 'package:campus_mate/core/router/app_router.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
@@ -49,6 +50,7 @@ import 'package:campus_mate/safety/view/block_list_screen.dart';
 import 'package:campus_mate/safety/view/partner_profile_screen.dart';
 import 'package:campus_mate/notifications/model/notifications_repository_provider.dart';
 import 'package:campus_mate/notifications/view/notifications_screen.dart';
+import 'package:flutter/cupertino.dart' show CupertinoRouteTransitionMixin;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -766,6 +768,133 @@ void main() {
       await tester.pump();
 
       expect(find.text(backExitMessage), findsNothing);
+    });
+  });
+
+  // go_router 18 은 `package:material_ui` 의 MaterialApp 을 찾아 전환을 고르는데 앱은 flutter 의 MaterialApp 을 써서
+  // 못 찾는다 — 그대로 두면 모든 화면이 NoTransitionPage(0ms)라 iOS 밀어서 뒤로가기도 없다.
+  group('화면 전환', () {
+    Future<GoRouter> pumpHome(WidgetTester tester) async {
+      final router = AppRouter.create(
+        isAuthenticated: () => true,
+        verificationGate: _passedGate,
+        onboardingStep: _passedStep,
+      );
+      addTearDown(router.dispose);
+      final container = ProviderContainer(
+        overrides: [
+          cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
+          chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
+          communityRepositoryProvider.overrideWithValue(FakeCommunityRepository()),
+          homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
+          meRepositoryProvider.overrideWithValue(FakeMeRepository(const FailureResult(NetworkFailure()))),
+          notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
+          faqRepositoryProvider.overrideWithValue(FakeFaqRepository(const Success(faqFixture))),
+          faqCacheProvider.overrideWithValue(FakeFaqCache()),
+        ],
+      );
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      return router;
+    }
+
+    ModalRoute<Object?> routeOf(WidgetTester tester, Finder finder) => ModalRoute.of(tester.element(finder))!;
+
+    Iterable<GoRoute> goRoutes(List<RouteBase> routes) sync* {
+      for (final route in routes) {
+        if (route is GoRoute) yield route;
+        yield* goRoutes(route.routes);
+      }
+    }
+
+    test('모든 경로가 페이지를 직접 만든다 — builder 만 두면 go_router 가 0ms 페이지로 떨어뜨린다', () {
+      final router = AppRouter.create(
+        isAuthenticated: () => true,
+        verificationGate: _passedGate,
+        onboardingStep: _passedStep,
+      );
+      addTearDown(router.dispose);
+
+      final bare = goRoutes(router.configuration.routes).where((route) => route.pageBuilder == null);
+
+      expect(bare.map((route) => route.path), isEmpty);
+    });
+
+    testWidgets('탭이 아닌 화면은 안드로이드 기본 전환(450ms · 예측 뒤로가기)으로 열린다', (tester) async {
+      final router = await pumpHome(tester);
+
+      unawaited(router.push(AppRoutes.faq));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      final route = routeOf(tester, find.byType(FaqScreen));
+      expect(route, isA<MaterialRouteTransitionMixin<Object?>>());
+      expect(route.transitionDuration, const Duration(milliseconds: FadeForwardsPageTransitionsBuilder.kTransitionMilliseconds));
+      expect(route.animation!.status, AnimationStatus.forward, reason: '100ms 에는 아직 들어오는 중이다');
+
+      await tester.pumpAndSettle();
+      expect(route.animation!.status, AnimationStatus.completed);
+      expect(route.popGestureEnabled, isTrue, reason: '예측 뒤로가기 · 밀어서 뒤로가기가 이 값을 본다');
+    });
+
+    const tabs = <(String, String)>[
+      (AppRoutes.home, '메인'),
+      (AppRoutes.today, '오늘'),
+      (AppRoutes.community, '커뮤니티'),
+      (AppRoutes.conversations, '대화'),
+      (AppRoutes.myProfile, '나'),
+    ];
+    for (final (path, name) in tabs) {
+      testWidgets('$name 탭은 전환 없이 바로 바뀐다(NoTransitionPage)', (tester) async {
+        final router = await pumpHome(tester);
+
+        router.go(path);
+        await tester.pumpAndSettle();
+
+        expect(routeOf(tester, find.byType(BackExitScope)).settings, isA<NoTransitionPage<Object?>>());
+      });
+    }
+
+    testWidgets(
+      'iOS 에서는 탭이 아닌 화면이 500ms 로 밀려 들어오고, 왼쪽 가장자리를 밀면 뒤로 간다',
+      variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+      (tester) async {
+        final router = await pumpHome(tester);
+        unawaited(router.push(AppRoutes.faq));
+        await tester.pumpAndSettle();
+
+        final route = routeOf(tester, find.byType(FaqScreen));
+        expect(route.transitionDuration, CupertinoRouteTransitionMixin.kTransitionDuration);
+        expect(route.popGestureEnabled, isTrue);
+
+        await tester.dragFrom(const Offset(5, 300), const Offset(500, 0));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(FaqScreen), findsNothing);
+        expect(find.byType(HomeScreen), findsOneWidget);
+      },
+    );
+
+    // Flutter 는 동작 줄이기면 전환 시간을 0 이 아니라 5% 로 줄인다(AnimationController · AnimationBehavior.normal).
+    testWidgets('동작 줄이기를 켜면 전환이 한두 프레임 안에 끝난다', (tester) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+      final router = await pumpHome(tester);
+
+      unawaited(router.push(AppRoutes.faq));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 30));
+
+      final faq = find.byType(FaqScreen);
+      expect(MediaQuery.disableAnimationsOf(tester.element(faq)), isTrue);
+      expect(routeOf(tester, faq).animation!.status, AnimationStatus.completed);
+      await tester.pumpAndSettle();
     });
   });
 }
