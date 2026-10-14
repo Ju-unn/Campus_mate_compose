@@ -8,6 +8,7 @@
 import base64
 import binascii
 import json
+import logging
 import uuid
 from datetime import datetime
 
@@ -32,6 +33,7 @@ _ACCOUNT_NAMESPACE = uuid.UUID("61ee9e9f-3540-4e02-b910-ed8e45e2a496")
 # 애플 전용 확장 — 중간(Apple WWDR) · leaf(App Store 서명). 애플 공식 app-store-server-library 가 보는 값과 같다.
 _INTERMEDIATE_OID = x509.ObjectIdentifier("1.2.840.113635.100.6.2.1")
 _LEAF_OID = x509.ObjectIdentifier("1.2.840.113635.100.6.11.1")
+logger = logging.getLogger(__name__)
 
 # Apple Root CA - G3. https://www.apple.com/certificateauthority/AppleRootCA-G3.cer 그대로(2039-04-30 만료).
 # SHA-256 지문 63:34:3A:BF:B8:9A:6A:03:EB:B5:7E:9B:3F:5F:A7:BE:7C:4F:5C:75:6F:30:17:B3:A8:C4:88:C3:65:3E:91:79 —
@@ -73,7 +75,8 @@ class AppleJwsInvalid(Exception):
 
 
 class AppleUnavailable(Exception):
-    """애플이 지금 답하지 못한다(5xx · 429 · 시간 초과 · 401/403 = 우리 키 설정 · 키를 못 읽음). 부르는 쪽은 503 — 앱이 다시 보낸다."""
+    """애플이 지금 답하지 못한다(5xx · 429 · 시간 초과 · 401/403 = 우리 키 설정 · 키를 못 읽음 · 운영 401 뒤 샌드박스에도 없음).
+    부르는 쪽은 503 — 앱이 다시 보낸다."""
 
 
 def _b64url(part: str) -> bytes:
@@ -168,26 +171,37 @@ class AppleApi:
         """그 거래의 signedTransactionInfo(애플이 서명한 JWS — 검증은 부르는 쪽이 verify_jws 로).
 
         운영 주소에 없으면(404) 샌드박스 주소에 한 번 더 묻는다(애플 권장 순서 — TestFlight · 심사 거래는 샌드박스).
-        둘 다 모르거나 애플이 거래 번호 꼴을 거절하면(400) None."""
+        운영이 401 이어도 샌드박스에 묻는다 — 같은 키로 운영만 401 을 준 적이 있다(2026-10-14 실측, 개발자 멤버십 비활성 중).
+        그때 샌드박스에도 없으면 운영 거래인지 모르는 채라 None 이 아니라 AppleUnavailable 이다.
+        운영 403 · 429 · 5xx · 시간 초과는 넘기지 않는다 — 일시 장애를 샌드박스 거래로 오인하지 않게.
+        둘 다 모르거나 애플이 거래 번호 꼴을 거절하면(400) None.
+        AppleUnavailable 문구는 물은 환경과 상태 코드뿐이다(예: "production:401 sandbox:404") — 부르는 쪽 로그로 간다."""
         headers = {"Authorization": f"Bearer {self._bearer(now)}"}
-        for base_url in (PRODUCTION_URL, SANDBOX_URL):
+        tried: list[str] = []
+        for name, base_url in (("production", PRODUCTION_URL), ("sandbox", SANDBOX_URL)):
             try:
                 response = await self._client.get(f"{base_url}/inApps/v1/transactions/{transaction_id}",
                                                   headers=headers, timeout=_TIMEOUT_SECONDS)
             except httpx.TransportError:
                 # from None — 원래 예외 문구에는 거래 번호가 든 주소가 있다. 트레이스백에 딸려 가지 않게 끊는다.
-                raise AppleUnavailable("transport") from None
+                raise AppleUnavailable(" ".join([*tried, f"{name}:transport"])) from None
+            tried.append(f"{name}:{response.status_code}")
             if response.status_code == 404:
+                continue
+            if response.status_code == 401 and base_url == PRODUCTION_URL:
+                logger.warning("애플 거래 조회 production:401 — 샌드박스에 한 번 더 묻는다")
                 continue
             if response.status_code == 400:
                 return None
             if not response.is_success:
-                raise AppleUnavailable(response.status_code)
+                raise AppleUnavailable(" ".join(tried))
             try:
                 signed = response.json().get("signedTransactionInfo")
             except (ValueError, AttributeError):
                 signed = None
             if not isinstance(signed, str):
-                raise AppleUnavailable("body")
+                raise AppleUnavailable(" ".join([*tried, "body"]))
             return signed
+        if tried[0] == "production:401":
+            raise AppleUnavailable(" ".join(tried))
         return None
