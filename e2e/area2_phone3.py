@@ -385,12 +385,12 @@ def p_heart_44(run, phone):
     regen_photo(run, phone)  # 알약은 사진 고르기를 먼저 연다(15b-4) — 앱이 갤러리에서 이 사진을 고르고 시트까지 간다. 시트에서 막혀 사진 교체는 부르지 않는다
     account, token = _signed_in(run, 'home')
     _add_avatar(run, account)
-    _give(run, account, 9)
+    _give(run, account, 19)  # 다시 만들기 값 20(운영 00075) 에 하나 모자람 — 20 이면 402 가 아니라 202(유료 AI)다
     _app(check, phone(token_hash=token))
     # 서버에 닿았는지 모호해도 다시 보내지 않는다 — 402 가 아니게 받아들여졌다면 그 요청이 곧 유료 AI 호출이다
     check.reply('API 다시 만들기', _api(run, 'POST', '/me/avatar/regenerate', account['token'], **_ONCE), 402, LOW_HEARTS)
     check.that(len(_avatars(run, account)) == 2, '생성 시도가 새로 생김(기대 0)')
-    check.that(_balance(run, account) == 9, '잔액이 9 가 아님')
+    check.that(_balance(run, account) == 19, '잔액이 19 가 아님')
     return check.result()
 
 
@@ -497,8 +497,9 @@ PHONE = {
     'E-REF-04': p_ref_04,
     'E-HEART-44': p_heart_44,
 }
-AI = {'E-HEART-42': _regen('E-HEART-42', False, 0, 0), 'E-HEART-43': _regen('E-HEART-43', True, 30, 10),
-      'E-HEART-45': _regen('E-HEART-45', True, 10, 10)}
+# 다시 만들기 값은 20(avatars.py AVATAR_REGEN_HEARTS, 운영 00075 부터) — 43 은 30 → 10, 45 는 경계(잔액 = 값) 20 → 0.
+AI = {'E-HEART-42': _regen('E-HEART-42', False, 0, 0), 'E-HEART-43': _regen('E-HEART-43', True, 30, 20),
+      'E-HEART-45': _regen('E-HEART-45', True, 20, 20)}
 
 area1.PHONE.update(PHONE)
 area1.PHONE.update(AI)

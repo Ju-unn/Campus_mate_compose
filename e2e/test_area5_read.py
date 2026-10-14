@@ -212,7 +212,7 @@ class ReadFake(PhoneFake):
             'preferred_mbti_flags': row['preferred_mbti_flags'], 'preferred_animal_types': row['preferred_animal_types'],
             'preferred_impression_types': row['preferred_impression_types'],
             'photos': [{'id': p['id'], 'url': url, 'is_avatar_source': p['is_avatar_source']} for p, url in zip(photos, urls)],
-            'heart_balance': balance, 'avatar_regen_cost': 0 if len(self._ready(who)) <= 1 else 10,
+            'heart_balance': balance, 'avatar_regen_cost': 0 if len(self._ready(who)) <= 1 else 20,
             'nickname_changeable_at': locked and locked.isoformat()})
 
     def _preview(self, sent):
@@ -485,7 +485,7 @@ class HeroTest(ReadBase):
                 'name_line': f"{row['nickname']}, {datetime.now(SEOUL).year - row['birth_year'] + 1}",
                 'school': f"{UNIVERSITY}\n{row['major']}", 'avatar_file': newest['storage_path'].rsplit('/', 1)[-1],
                 'badge': True, 'chip': True,
-                'heart_text': f'하트 10개가 차감돼요. 지금 보유한 하트는 {balance}개예요. 새 아바타는 바로 프로필에 반영돼요.',
+                'heart_text': f'하트 20개가 차감돼요. 지금 보유한 하트는 {balance}개예요. 새 아바타는 바로 프로필에 반영돼요.',
                 'sheet_closed': True, **over})
         return answer
 
@@ -545,7 +545,7 @@ class HeroTest(ReadBase):
 class NoHeartsTest(ReadBase):
     def good(self, **over):
         return said(**{'hero': True, 'load_error': False, 'sheet_closed': True,
-                       'heart_text': '하트 10개가 필요해요. 지금 보유한 하트는 0개예요.', **over})
+                       'heart_text': '하트 20개가 필요해요. 지금 보유한 하트는 0개예요.', **over})
 
     def test_02_without_an_entitlements_row_the_balance_reads_zero_and_the_screen_has_no_error(self):
         _, app = self.passes('E-ME-02', self.good())

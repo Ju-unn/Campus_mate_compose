@@ -131,7 +131,7 @@ class ApiFake(Fake):
                     continue
                 row['status'], row['storage_path'] = 'ready', f"{row['profile_id']}/made.png"
                 for _ in range(self.rules['charges']):
-                    self._move(row['profile_id'], -10, 'avatar_regen', 'other-attempt' if self.rules['wrong_ref'] else row['id'])
+                    self._move(row['profile_id'], -20, 'avatar_regen', 'other-attempt' if self.rules['wrong_ref'] else row['id'])
 
     # ── 온보딩 · 하트 · 저장소 ──
     def _basic(self, sent):
@@ -180,7 +180,7 @@ class ApiFake(Fake):
                 return Reply(409, {'detail': NOT_CREATED})
             if not has_source and self.rules['check_source']:
                 return Reply(409, {'detail': SOURCE_REQUIRED})
-            cost = 0 if len(ready) <= 1 else 10
+            cost = 0 if len(ready) <= 1 else 20  # avatars.py AVATAR_REGEN_HEARTS(운영 00075 부터)
             if cost and self.wallet(me)['heart_balance'] < cost:
                 return Reply(402, {'detail': LOW_HEARTS})
             duplicate = self.rules['one_pending'] and any(r['status'] == 'pending' for r in mine)  # 부분 유니크 인덱스(23505)
@@ -449,13 +449,13 @@ class Edge22Test(ApiBase):
     def test_two_at_once_are_two_202_one_pending_row_and_one_charge_after_it_is_made(self):
         with paid():
             note = self.passes('E-EDGE-22')
-        self.assertIn('−10', note)
+        self.assertIn('−20', note)
         calls = self.sent_to('POST', '/me/avatar/regenerate')
         self.assertEqual([c['auth'] for c in calls], ['tok-1', 'tok-1'])
         self.assertEqual(self.fake.enqueued, 1)  # 가짜 서버도 작업은 하나(유료 AI 호출은 가짜 서버에서 0)
         self.assertEqual(sorted(r['status'] for r in self.fake.rows('profile_avatars')), ['ready'] * 3)
-        self.assertEqual([r['amount'] for r in self.fake.rows('heart_transactions') if r['reason'] == 'avatar_regen'], [-10])
-        self.assertEqual(self.fake.wallet('id-1')['heart_balance'], 27)
+        self.assertEqual([r['amount'] for r in self.fake.rows('heart_transactions') if r['reason'] == 'avatar_regen'], [-20])
+        self.assertEqual(self.fake.wallet('id-1')['heart_balance'], 17)
         # 동시에 두 번이라 끊겨도 다시 보내지 않는다.
         self.assertEqual(self.regenerate_retries(), [False, False])
 
