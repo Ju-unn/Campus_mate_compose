@@ -1,3 +1,4 @@
+import 'package:campus_mate/common/university_logos.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -6,6 +7,7 @@ import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/friend_review/model/friend_review.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 카드 · 20b 머리의 관계 줄. DB · API 에 관계 칸이 없고 추천 · 친구 코드는 학교를 따지지 않는다 —
 /// pen 의 "같은 학교 친구" 등은 예시라 고정 문구 하나로 둔다(대장 Q3, 2026-09-29). 문구는 pen iFxLX "친구"(친구 코드로 쓰기, 10-13).
@@ -15,10 +17,12 @@ const String friendReviewRelationLabel = '친구';
 const double _headerHeight = 48; // pen B095D 높이
 const double _headerGap = 10; // pen B095D gap
 const double _avatarSize = 36; // pen NUNSp · dTmnd
+const double _logoSize = 28; // pen DHWAj
 const EdgeInsets _chipPadding = EdgeInsets.symmetric(vertical: 6, horizontal: 10); // pen wTma6 padding [6,10]
 
-/// 이니셜 원(pen `dTmnd` 36 · 20b `Tb6Fe` 44). 채움 primaryWash, 닉네임 첫 글자.
-/// avatar_url 은 그리지 않는다 — pen 이 이니셜이다(대장 09-29).
+/// 이니셜 원(pen `dTmnd` 의 폴백 글자 `e1cLm` 36 · 20b `Tb6Fe` 44). 채움 primaryWash, 닉네임 첫 글자.
+/// 카드에서는 아바타가 없거나 못 불러올 때의 폴백이다(pen `S0MR2b` 개정 — 종전 "avatar_url 은 그리지 않는다(대장 09-29)" 를
+/// 사용자 승인으로 뒤집었다, 10-14). 20b 머리(`Tb6Fe`)는 pen 이 아직 이니셜이라 그대로다.
 class FriendReviewInitial extends StatelessWidget {
   const FriendReviewInitial({required this.nickname, required this.size, required this.style, super.key});
 
@@ -133,7 +137,7 @@ class FriendReviewCard extends StatelessWidget {
   }
 }
 
-/// 머리 줄(pen `B095D`): 학교 배지 · 이니셜 · 이름 칸 · 신고 버튼(20c) 또는 휴지통(20e), 간격 10, 세로 가운데.
+/// 머리 줄(pen `B095D`): 학교 칸 · 아바타 · 이름 칸 · 신고 버튼(20c) 또는 휴지통(20e), 간격 10, 세로 가운데.
 class _Header extends StatelessWidget {
   const _Header({required this.review, required this.action});
 
@@ -148,18 +152,10 @@ class _Header extends StatelessWidget {
       constraints: const BoxConstraints(minHeight: _headerHeight),
       child: Row(
         children: [
-          // 학교가 없으면 배지 없이 이니셜이 맨 앞이다(대장 09-29).
+          // 학교가 없으면 학교 칸 없이 아바타가 맨 앞이다(대장 09-29).
           if (university != null) ...[_SchoolBadge(university: university), const SizedBox(width: _headerGap)],
-          FriendReviewInitial(
-            nickname: review.nickname,
-            size: _avatarSize,
-            // pen e1cLm 14/700 #C4224B.
-            style: AppTypography.labelSmall.copyWith(
-              color: AppColors.primaryText,
-              fontWeight: FontWeight.w700,
-              height: 1,
-            ),
-          ),
+          // 닉네임은 옆 이름 글자가 읽는다 — 아바타 · 첫 글자까지 읽으면 두 번 읽힌다.
+          ExcludeSemantics(child: _ReviewerAvatar(nickname: review.nickname, url: review.avatarUrl)),
           const SizedBox(width: _headerGap),
           Expanded(child: _NameColumn(nickname: review.nickname)),
           if (action case final action?) ...[const SizedBox(width: _headerGap), action],
@@ -233,24 +229,102 @@ class _DeleteButton extends StatelessWidget {
   }
 }
 
-/// 학교 배지(pen `NUNSp`): 36 surfaceInk r8, 학교명 첫 글자 12/700 흰색. 로고 파일이 오기 전 폴백(DESIGN §13-29).
-class _SchoolBadge extends StatelessWidget {
+/// 학교 칸(pen `NUNSp` 36 r8 hairline 1). 로고가 있으면 흰 칸 가운데 로고 28 contain(`DHWAj`), 로고가 없는 학교거나
+/// 못 불러오면 검정(surfaceInk) 칸에 학교명 첫 글자(`qwQOK`, DESIGN §13-29 폴백). 로고 주소는 학교 줄(SchoolLabel)과
+/// 같은 표(universityLogosProvider — `universities.logo_path` → 공개 버킷)에서 찾는다. 오는 동안은 흰 빈칸(pen 기본 모양).
+/// 학교 이름은 카드 어디에도 글자로 없어 이 칸이 학교 이름으로 읽힌다(첫 글자 · 로고 그림은 읽지 않는다).
+class _SchoolBadge extends ConsumerWidget {
   const _SchoolBadge({required this.university});
 
   final String university;
 
   @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final initial = _BadgeBox(
+      color: AppColors.surfaceInk,
+      child: Text(
+        university.characters.firstOrNull ?? '',
+        maxLines: 1,
+        // pen qwQOK 12/700. 줄높이 1 — 가운데 정렬이라 보이는 자리는 같고 배율 2.4 에서도 상자 안이다.
+        style: AppTypography.caption.copyWith(color: AppColors.onInk, fontWeight: FontWeight.w700, height: 1),
+      ),
+    );
+    final url = ref.watch(universityLogosProvider).value?[university];
+    return Semantics(
+      label: university,
+      excludeSemantics: true,
+      child: url == null
+          ? initial
+          : Image.network(
+              url,
+              width: _logoSize,
+              height: _logoSize,
+              fit: BoxFit.contain,
+              excludeFromSemantics: true,
+              // errorBuilder 는 frameBuilder 를 거치지 않는다 — 실패하면 흰 칸 대신 검정 첫 글자 칸이 통째로 온다.
+              frameBuilder: (context, child, frame, wasSynchronouslyLoaded) =>
+                  _BadgeBox(color: AppColors.canvas, child: child),
+              errorBuilder: (context, error, stackTrace) => initial,
+            ),
+    );
+  }
+}
+
+/// 학교 칸 틀(pen `NUNSp`): 36 r8, 안쪽 hairline 1(foregroundDecoration — 테두리가 36 을 늘리지 않는다), 가운데 정렬.
+/// 폴백 설명(pen context)은 채움만 #222222 로 바꾼다고 해 검정 칸에도 테두리를 둔다.
+class _BadgeBox extends StatelessWidget {
+  const _BadgeBox({required this.color, required this.child});
+
+  final Color color;
+  final Widget child;
+
+  @override
   Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(AppRadius.sm);
     return Container(
       width: _avatarSize,
       height: _avatarSize,
       alignment: Alignment.center,
-      decoration: BoxDecoration(color: AppColors.surfaceInk, borderRadius: BorderRadius.circular(AppRadius.sm)),
-      child: Text(
-        university.characters.firstOrNull ?? '',
-        maxLines: 1,
-        // pen qwQOK 12/700. 줄높이 1 — 가운데 정렬이라 보이는 자리는 같고 배율 2.0 에서도 상자 안이다.
-        style: AppTypography.caption.copyWith(color: AppColors.onInk, fontWeight: FontWeight.w700, height: 1),
+      decoration: BoxDecoration(color: color, borderRadius: radius),
+      foregroundDecoration: BoxDecoration(border: Border.all(color: AppColors.hairline), borderRadius: radius),
+      child: child,
+    );
+  }
+}
+
+/// 작성자 아바타(pen `dTmnd` 36 원 primaryWash clip, 안에 `f76zn` 36 cover). 아바타가 없거나 못 불러오면 닉네임
+/// 첫 글자 원([FriendReviewInitial], `e1cLm`). 오는 동안은 연분홍 빈 원(pen 칸 채움)이다.
+/// 주소는 서버 `avatar_url`(최신 ready 아바타의 공개 주소) — 서비스가 만든 일러스트뿐이고 실사 사진은 오지 않는다.
+/// 로고와 같은 Image.network 다(errorBuilder 로 폴백이 정해지고 시험에서 실패를 재현할 수 있다).
+class _ReviewerAvatar extends StatelessWidget {
+  const _ReviewerAvatar({required this.nickname, required this.url});
+
+  final String nickname;
+  final String? url;
+
+  @override
+  Widget build(BuildContext context) {
+    final initial = FriendReviewInitial(
+      nickname: nickname,
+      size: _avatarSize,
+      // pen e1cLm 14/700 #C4224B.
+      style: AppTypography.labelSmall.copyWith(color: AppColors.primaryText, fontWeight: FontWeight.w700, height: 1),
+    );
+    final url = this.url;
+    if (url == null) return initial;
+    return Container(
+      width: _avatarSize,
+      height: _avatarSize,
+      decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.primaryWash),
+      child: Image.network(
+        url,
+        width: _avatarSize,
+        height: _avatarSize,
+        fit: BoxFit.cover,
+        excludeFromSemantics: true,
+        // 원으로 자르는 건 그림만 — 폴백 첫 글자는 자르지 않는다(배율 2.4 에서 글자 모서리가 원 밖으로 나간다).
+        frameBuilder: (context, child, frame, wasSynchronouslyLoaded) => ClipOval(child: child),
+        errorBuilder: (context, error, stackTrace) => initial,
       ),
     );
   }
