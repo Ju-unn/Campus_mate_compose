@@ -186,6 +186,9 @@ void main() {
 
     testWidgets('게이지 글자를 눌러도 간다', (tester) async {
       await pump(tester);
+      // 블록 사이가 24 로 넓어져(pen 2026-10-14) 884 화면에서는 게이지 글자가 유리 내비 아래에 있다 — 끝까지 올려 알약 위로 꺼낸다.
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, -300));
+      await tester.pump(const Duration(seconds: 1));
 
       await tester.tap(find.text('프로필 완성도 40%'));
       await tester.pumpAndSettle();

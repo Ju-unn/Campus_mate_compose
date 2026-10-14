@@ -3,9 +3,12 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/common/widgets/entrance.dart';
 import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/common/widgets/pressable.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
+import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/home/model/cohort_wait.dart';
 import 'package:campus_mate/home/model/home_repository_provider.dart';
 import 'package:campus_mate/home/model/home_summary.dart';
@@ -16,8 +19,12 @@ import 'package:campus_mate/home/view/mosaic_rail.dart';
 import 'package:campus_mate/home/view/mosaic_tile.dart';
 import 'package:campus_mate/home/view/notify_icon_button.dart';
 import 'package:campus_mate/home/view/tag.dart';
+import 'package:campus_mate/matching/model/card_profile.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
+import 'package:campus_mate/matching/model/daily_card.dart';
+import 'package:campus_mate/matching/view/countdown_text.dart';
 import 'package:campus_mate/me/model/me_repository_provider.dart';
+import 'package:campus_mate/me/model/my_profile.dart';
 import 'package:campus_mate/notifications/model/notifications_repository_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -34,6 +41,28 @@ import '../../notifications/model/fake_notifications_repository.dart';
 /// mosaic-rail 도 가로 Scrollable 이라 세로 목록을 짚어 준다.
 final _mainList = find.byType(Scrollable).first;
 
+const _cardProfile = CardProfile(profileId: 'p', nickname: '여우비', age: 23, university: '가람대', major: '경영학과');
+
+/// pen 기본 09b(`bpA8x`)는 hero ① 도착이다 — 오늘 탭에 무료 카드가 한 장 있다.
+const Result<TodayCards> _arrived = Success(
+  TodayCards(cards: [DailyCard(cardId: 'free', source: CardSource.daily, profile: _cardProfile)]),
+);
+
+MyProfile _me(String university) => MyProfile(
+  nickname: '여우',
+  age: 23,
+  university: university,
+  major: '경영학과',
+  heightCm: 178,
+  mbti: 'ENFP',
+  avatarUrl: null,
+  preferredAgeMin: 22,
+  preferredAgeMax: 27,
+  preferredHeightMin: 165,
+  preferredHeightMax: 180,
+  bio: '',
+);
+
 void main() {
   const summary = HomeSummary(
     presentPeopleImages: ['assets/images/person-f1-blind-v1.png', 'assets/images/person-f4-blind-v1.png'],
@@ -46,30 +75,39 @@ void main() {
     profileCompletionPercent: 40,
   );
 
-  HomeSummary summaryWith({int? delivered, int? signups, int? conversations, int? percent}) => HomeSummary(
+  HomeSummary summaryWith({int? delivered, int? signups, int? conversations, int? percent, int? reviews}) => HomeSummary(
     presentPeopleImages: summary.presentPeopleImages,
     deliveredCards: delivered ?? summary.deliveredCards,
     signups: signups ?? summary.signups,
     conversationsStarted: conversations ?? summary.conversationsStarted,
     reviewRating: summary.reviewRating,
-    reviewCount: summary.reviewCount,
+    reviewCount: reviews ?? summary.reviewCount,
     campuses: summary.campuses,
     profileCompletionPercent: percent ?? summary.profileCompletionPercent,
   );
 
-  Future<void> pump(WidgetTester tester, [Result<HomeSummary> result = const Success(summary)]) async {
+  late GoRouter router;
+
+  /// [settle] 이 true 면 hero 전환 · 요약 블록 등장이 끝날 때까지 흘린다(레일은 계속 흘러 pumpAndSettle 은 못 쓴다).
+  Future<void> pump(
+    WidgetTester tester, {
+    Result<HomeSummary> result = const Success(summary),
+    Result<TodayCards> today = _arrived,
+    Result<MyProfile> me = const FailureResult(NetworkFailure()),
+    bool settle = true,
+  }) async {
     final container = ProviderContainer(
       overrides: [
         homeRepositoryProvider.overrideWithValue(FakeHomeRepository(result)),
         notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
-        meRepositoryProvider.overrideWithValue(FakeMeRepository(const FailureResult(NetworkFailure()))),
-        // 하단 내비 뱃지가 수락 대기·안 읽은 메시지를 읽는다(§8.8).
-        cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
+        meRepositoryProvider.overrideWithValue(FakeMeRepository(me)),
+        // 하단 내비 뱃지가 수락 대기·안 읽은 메시지를 읽는다(§8.8). hero 는 오늘 탭 상태를 읽는다.
+        cardRepositoryProvider.overrideWithValue(FakeCardRepository()..today = today),
         chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
       ],
     );
     addTearDown(container.dispose);
-    final router = GoRouter(
+    router = GoRouter(
       initialLocation: AppRoutes.home,
       routes: [
         GoRoute(path: AppRoutes.home, builder: (context, state) => const HomeScreen()),
@@ -84,17 +122,144 @@ void main() {
       ),
     );
     await tester.pump();
+    if (settle) await tester.pump(const Duration(seconds: 1));
   }
 
-  testWidgets('hero-today 의 "지금 확인하기"를 누르면 오늘 탭으로 간다', (tester) async {
-    await pump(tester);
+  /// 기본 테스트 화면(800×600)에선 리뷰 띠가 화면 밖이다 — pen 프레임으로 본다.
+  void penFrame(WidgetTester tester, [double width = 360]) {
+    tester.view.physicalSize = Size(width, 884);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+  }
 
-    expect(find.text('오늘의 카드가'), findsOneWidget);
-    expect(find.text('도착했어요'), findsOneWidget);
-    await tester.tap(find.text('지금 확인하기'));
-    await tester.pumpAndSettle();
+  Finder heroOf(String line) => find.ancestor(of: find.text(line), matching: find.byType(Container)).last;
 
-    expect(find.text('오늘 탭'), findsOneWidget);
+  group('hero-today 세 상태(DESIGN §8.9 · pen `U1k8ZK` · `fxlhV` · `HGxAR`)', () {
+    testWidgets('① 도착 — "지금 확인하기"를 누르면 오늘 탭으로 간다', (tester) async {
+      await pump(tester);
+
+      expect(find.text('오늘의 카드가'), findsOneWidget);
+      expect(find.text('도착했어요'), findsOneWidget);
+      await tester.tap(find.text('지금 확인하기'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('오늘 탭'), findsOneWidget);
+    });
+
+    testWidgets('② 결정 대기 — 산 카드만 남으면 "결정 대기 카드가 N장 남아 있어요" · "이어서 확인하기" → 오늘 탭', (tester) async {
+      penFrame(tester);
+      await pump(
+        tester,
+        today: const Success(TodayCards(cards: [
+          DailyCard(cardId: 'paid-1', source: CardSource.purchased, profile: _cardProfile),
+          DailyCard(cardId: 'paid-2', source: CardSource.purchased, profile: _cardProfile),
+        ])),
+      );
+
+      expect(find.text('결정 대기 카드가'), findsOneWidget);
+      expect(find.text('2장 남아 있어요'), findsOneWidget);
+      expect(find.text('지금 확인하기'), findsNothing);
+      final hero = heroOf('결정 대기 카드가');
+      expect((tester.widget<Container>(hero).decoration! as BoxDecoration).color, const Color(0xFFFFF0F2));
+      // 우상단 장수 배지 `Q4nCLG` — x280 y16 32×24 · #FF385C · 알약, 숫자 11/600 흰색.
+      final badge = find.ancestor(of: find.text('2'), matching: find.byType(Container)).first;
+      expect(tester.getRect(badge).shift(-tester.getTopLeft(hero)), const Rect.fromLTWH(280, 16, 32, 24));
+      final box = tester.widget<Container>(badge).decoration! as BoxDecoration;
+      expect((box.color, box.borderRadius), (const Color(0xFFFF385C), BorderRadius.circular(9999)));
+      final digit = tester.widget<Text>(find.text('2')).style!;
+      expect((digit.fontSize, digit.fontWeight, digit.color), (11, FontWeight.w600, const Color(0xFFFFFFFF)));
+
+      await tester.tap(find.text('이어서 확인하기'));
+      await tester.pumpAndSettle();
+      expect(find.text('오늘 탭'), findsOneWidget);
+    });
+
+    testWidgets('③ 확인 완료 — #F7F7F7 · "오늘 카드는 모두 확인했어요" · "다음 카드까지" + 카운트다운 32/700, 버튼 없음', (tester) async {
+      penFrame(tester);
+      await pump(
+        tester,
+        today: Success(TodayCards(cards: const [], nextIssueAt: DateTime.now().add(const Duration(hours: 3, seconds: 30)))),
+      );
+
+      expect(find.text('오늘 카드는'), findsOneWidget);
+      expect(find.text('모두 확인했어요'), findsOneWidget);
+      expect(find.text('지금 확인하기'), findsNothing);
+      expect(find.text('이어서 확인하기'), findsNothing);
+      final hero = heroOf('오늘 카드는');
+      expect((tester.widget<Container>(hero).decoration! as BoxDecoration).color, const Color(0xFFF7F7F7));
+      expect(tester.getSize(hero).height, 160);
+      final countdown = find.descendant(of: hero, matching: find.byType(CountdownText));
+      expect(countdown, findsOneWidget);
+      // 기기 시계로 센다 — 시험이 도는 사이 1초가 넘어가도 시 · 분은 같다.
+      expect(find.descendant(of: countdown, matching: find.textContaining('03:00:')), findsOneWidget);
+      final digits = tester.widget<Text>(find.descendant(of: countdown, matching: find.byType(Text))).style!;
+      expect((digits.fontSize, digits.fontWeight, digits.letterSpacing, digits.color), (32, FontWeight.w700, -0.96, const Color(0xFF222222)));
+      expect(digits.fontFeatures, contains(const FontFeature.tabularFigures()));
+      final label = tester.widget<Text>(find.text('다음 카드까지')).style!;
+      expect((label.fontSize, label.fontWeight, label.color), (14, FontWeight.w400, const Color(0xFF6A6A6A)));
+      // `xq5wi` y16 h128 가운데 정렬 — 렌더 글자 상자(lineHeight 속성 없음): 줄 27 · 27, 간격 8, 라벨 21(lh 1.5), 숫자 44.
+      final top = tester.getTopLeft(hero).dy;
+      for (final (finder, y, height) in [
+        (find.text('오늘 카드는'), 16.5, 27.0),
+        (find.text('모두 확인했어요'), 43.5, 27.0),
+        (find.text('다음 카드까지'), 78.5, 21.0),
+        (find.descendant(of: countdown, matching: find.byType(Text)), 99.5, 44.0),
+      ]) {
+        expect(tester.getTopLeft(finder).dy - top, y);
+        expect(tester.getSize(finder).height, height);
+      }
+    });
+
+    testWidgets('③ 다음 지급 시각을 모르면 카운트다운 없이 문구만', (tester) async {
+      await pump(tester, today: const Success(TodayCards(cards: [])));
+
+      expect(find.text('모두 확인했어요'), findsOneWidget);
+      expect(find.text('다음 카드까지'), findsNothing);
+      expect(find.byType(CountdownText), findsNothing);
+    });
+
+    testWidgets('읽는 동안 · 못 읽으면 지금까지의 문구(도착)를 둔다', (tester) async {
+      await pump(tester, today: const FailureResult(NetworkFailure()));
+
+      expect(find.text('오늘의 카드가'), findsOneWidget);
+      expect(find.text('지금 확인하기'), findsOneWidget);
+    });
+
+    testWidgets('상태가 바뀌면 AnimatedSwitcher 가 standard(220ms) 로 바꾼다', (tester) async {
+      await pump(tester, today: const Success(TodayCards(cards: [])), settle: false);
+
+      final switcher = tester.widget<AnimatedSwitcher>(find.byType(AnimatedSwitcher));
+      expect((switcher.duration, switcher.switchInCurve), (AppMotion.standard, AppMotion.standardCurve));
+      // 처음 읽는 동안의 도착 문구가 확인 완료로 바뀌는 중이다 — 둘이 겹쳐 있다가 220ms 뒤 하나만 남는다.
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.text('오늘의 카드가'), findsOneWidget);
+      expect(find.text('오늘 카드는'), findsOneWidget);
+      await tester.pump(AppMotion.standard);
+      expect(find.text('오늘의 카드가'), findsNothing);
+    });
+
+    testWidgets('기기 "동작 줄이기"면 hero 는 바로 바뀐다(시간 0)', (tester) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+      await pump(tester, today: const Success(TodayCards(cards: [])), settle: false);
+
+      expect(tester.widget<AnimatedSwitcher>(find.byType(AnimatedSwitcher)).duration, Duration.zero);
+    });
+
+    for (final width in [320.0, 360.0, 430.0]) {
+      testWidgets('마스코트 `S49nUs` 는 오른쪽 기준 — $width 폭에서 카드 오른쪽 끝 밖 4 · 위 -5 · 160×170', (tester) async {
+        penFrame(tester, width);
+        await pump(tester);
+
+        final hero = heroOf('오늘의 카드가');
+        final mascot = tester.getRect(find.descendant(of: hero, matching: find.byType(Image)));
+        final box = tester.getRect(hero);
+        expect(mascot.right - box.right, 4);
+        expect(mascot.top - box.top, -5);
+        expect(mascot.size, const Size(160, 170));
+        expect(tester.takeException(), isNull);
+      });
+    }
   });
 
   testWidgets('stat-panel 은 저장소 숫자를 세 자리 쉼표로 보여준다', (tester) async {
@@ -108,12 +273,16 @@ void main() {
     expect(find.text('시작된 대화'), findsOneWidget);
   });
 
-  /// 기본 테스트 화면(800×600)에선 리뷰 띠가 화면 밖이다 — pen 프레임으로 본다.
-  void penFrame(WidgetTester tester) {
-    tester.view.physicalSize = const Size(360, 884);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-  }
+  testWidgets('stat-panel — 0 인 칸은 숨기고 남은 칸이 폭을 나눈다(DESIGN §8.9 규칙 4)', (tester) async {
+    penFrame(tester);
+    await pump(tester, result: Success(summaryWith(delivered: 0)));
+
+    expect(find.text('전달된 카드'), findsNothing);
+    final join = find.ancestor(of: find.text('가입 수'), matching: find.byType(Container)).first;
+    final chat = find.ancestor(of: find.text('시작된 대화'), matching: find.byType(Container)).first;
+    expect(tester.getSize(join).width, 160);
+    expect(tester.getTopLeft(chat).dx - tester.getTopRight(join).dx, 8);
+  });
 
   testWidgets('review-strip 은 평점과 평가 수를 보여준다', (tester) async {
     penFrame(tester);
@@ -122,6 +291,17 @@ void main() {
     expect(find.text('4.6'), findsOneWidget);
     expect(find.text('(57명 평가)'), findsOneWidget);
     expect(find.text('리뷰 남기기'), findsOneWidget);
+  });
+
+  testWidgets('review-strip — 평가 수가 임계값 미만이면 위 여백까지 블록째 숨기고 숫자 칸 아래 24 에 참여 대학이 온다', (tester) async {
+    penFrame(tester);
+    // 서버에 아직 없는 값이라 저장소가 채우는 목값("5.0 (1명 평가)")이 이 경우다.
+    await pump(tester, result: Success(summaryWith(reviews: 1)));
+
+    expect(find.text('리뷰 남기기'), findsNothing);
+    expect(find.text('(1명 평가)'), findsNothing);
+    final tile = find.ancestor(of: find.text('전달된 카드'), matching: find.byType(Container)).first;
+    expect(tester.getTopLeft(find.text('참여 중인 대학')).dy - tester.getBottomLeft(tile).dy, 24);
   });
 
   testWidgets('버튼 글자 — 히어로 `YiLtq` 18/700 · 리뷰 `ifX9K` 16/700', (tester) async {
@@ -144,6 +324,42 @@ void main() {
     expect(tester.getTopLeft(find.text('새솔대')).dy, tester.getTopLeft(find.text('가람대')).dy);
   });
 
+  group('campus-strip 내 학교(pen `zOaUW` · `T2Pfi4`)', () {
+    testWidgets('내 학교 칩이 맨 앞 · primary-wash 채움 · primary-text 글자, 나머지는 surface-soft · body', (tester) async {
+      penFrame(tester);
+      await pump(tester, me: Success(_me('새솔대')));
+
+      final tags = tester.widgetList<Tag>(find.byType(Tag)).map((t) => t.label).toList();
+      expect(tags, ['새솔대', '가람대']);
+      Container chip(String label) =>
+          tester.widget<Container>(find.ancestor(of: find.text(label), matching: find.byType(Container)).first);
+      expect((chip('새솔대').decoration! as BoxDecoration).color, const Color(0xFFFFF0F2));
+      expect(tester.widget<Text>(find.text('새솔대')).style!.color, const Color(0xFFC4224B));
+      expect((chip('가람대').decoration! as BoxDecoration).color, const Color(0xFFF7F7F7));
+      expect(tester.widget<Text>(find.text('가람대')).style!.color, const Color(0xFF3F3F3F));
+    });
+
+    testWidgets('색만으로 가르지 않는다 — 스크린리더는 "내 학교" 를 같이 읽는다', (tester) async {
+      final handle = tester.ensureSemantics();
+      penFrame(tester);
+      await pump(tester, me: Success(_me('새솔대')));
+
+      // 목록 칸 글자는 한 의미 노드로 합쳐진다 — "내 학교" 가 한 번, 내 학교 이름 바로 앞에만 붙는다.
+      final label = tester.getSemantics(find.bySemanticsLabel(RegExp('내 학교'))).label;
+      handle.dispose();
+      expect('내 학교'.allMatches(label).length, 1);
+      expect(label, contains('내 학교\n새솔대'));
+      expect(label, isNot(contains('내 학교\n가람대')));
+    });
+
+    testWidgets('내 프로필을 못 읽었으면 저장소 순서 그대로, 강조 없음', (tester) async {
+      penFrame(tester);
+      await pump(tester);
+
+      expect(tester.widgetList<Tag>(find.byType(Tag)).map((t) => (t.label, t.mine)), [('가람대', false), ('새솔대', false)]);
+    });
+  });
+
   testWidgets('mosaic-rail 은 사람 수만큼 칸 뒤에 빈 칸 하나를 붙인 한 벌을 되풀이한다', (tester) async {
     await pump(tester);
 
@@ -161,6 +377,38 @@ void main() {
     expect(find.byIcon(AppIcons.pause), findsNothing);
   });
 
+  testWidgets('빈 칸은 바탕이 비어 있어도 칸 전체가 눌린다 — 누르면 레일이 멈춰야 한다', (tester) async {
+    await pump(tester);
+
+    // 화면 안에 든 빈 칸의 글자 밖(왼쪽 위 모서리 안쪽)을 누른다.
+    final rail = tester.getRect(find.byType(MosaicRail));
+    final empties = find.byType(MosaicEmptyTile);
+    final visible = [
+      for (var i = 0; i < empties.evaluate().length; i++) empties.at(i),
+    ].firstWhere((tile) => tester.getRect(tile).left >= rail.left && tester.getRect(tile).right <= rail.right);
+    final tilePaint = tester.renderObject(find.descendant(of: visible, matching: find.byType(CustomPaint)).first);
+    final path = tester.hitTestOnBinding(tester.getRect(visible).topLeft + const Offset(4, 4)).path;
+    expect(path.map((entry) => entry.target), contains(same(tilePaint)));
+  });
+
+  testWidgets('빈 칸 `FqMYC` — 마스코트 없음 · 바탕 없음 · 1px 점선 테두리 · "아직 비어 있어요" 12 #6A6A6A 가운데(x8 y62 96×16)', (tester) async {
+    await pump(tester);
+
+    final tile = find.byType(MosaicEmptyTile).first;
+    expect(find.descendant(of: tile, matching: find.byType(Image)), findsNothing);
+    final paint = tester.widget<CustomPaint>(find.descendant(of: tile, matching: find.byType(CustomPaint)).first);
+    expect(paint.foregroundPainter, isNotNull);
+    final text = find.descendant(of: tile, matching: find.text('아직 비어 있어요'));
+    // 테스트 글꼴은 한글 한 자가 1em 이라 96 폭에서 두 줄로 접힌다(Pretendard 는 한 줄 y62 높이 16) — 가로 자리 · 세로 가운데만 본다.
+    final rect = tester.getRect(text).shift(-tester.getTopLeft(tile));
+    expect((rect.left, rect.width, rect.center.dy), (8, 96, 70));
+    expect(tester.widget<Text>(text).style!.height! * 12, 16);
+    expect(tester.getSize(tile), const Size(112, 140));
+    final style = tester.widget<Text>(text).style!;
+    expect((style.fontSize, style.color), (12, const Color(0xFF6A6A6A)));
+    expect(tester.widget<Text>(text).textAlign, TextAlign.center);
+  });
+
   group('mosaic-rail 자동 흐름', () {
     double railX(WidgetTester tester) => tester.getTopLeft(find.byType(MosaicPersonTile).first).dx;
 
@@ -175,7 +423,13 @@ void main() {
 
     testWidgets('누르고 있으면 멈추고, 떼면 다시 흐른다', (tester) async {
       await pump(tester);
-      final gesture = await tester.startGesture(tester.getCenter(find.byType(MosaicRail)));
+      // 칸 위를 누른다 — 레일이 흘러 있어 가운데가 칸 사이 틈(10)일 수 있다.
+      final rail = tester.getRect(find.byType(MosaicRail));
+      final tile = [
+        for (var i = 0; i < find.byType(MosaicPersonTile).evaluate().length; i++)
+          tester.getRect(find.byType(MosaicPersonTile).at(i)),
+      ].firstWhere((rect) => rect.left >= rail.left && rect.right <= rail.right);
+      final gesture = await tester.startGesture(tile.center);
       await tester.pump(const Duration(milliseconds: 100));
       final held = railX(tester);
 
@@ -254,29 +508,32 @@ void main() {
     expect(find.text('나를 더 잘 보여 줄 수 있어요'), findsOneWidget);
   });
 
-  testWidgets('완성도 카드 글자 상자는 pen 과 같다 — y7.5·32.5·68.5, 높이 20·20·16(`usk5M`, lineHeight 속성 없음 렌더 결과)', (tester) async {
-    // 세로 좌표만 본다. 테스트 글꼴은 둘째 줄이 238 이라 pen 폭(360)의 글자 칸 192 에서 접힌다
-    // (Pretendard 는 pen `KjqWO` 폭 164) — 접히지 않게 화면만 넓힌다.
+  testWidgets('완성도 카드 `usk5M` — 마스코트 없음, 글자 상자 x14 · y8.5 · 32.5 · 67.5, 높이 19 · 19 · 16(% 12 #6A6A6A, 렌더 결과), 카드 92', (tester) async {
+    // 세로 좌표만 본다. 테스트 글꼴은 둘째 줄이 넓어 pen 폭(360)에서 접힌다 — 접히지 않게 화면만 넓힌다.
     tester.view.physicalSize = const Size(420, 884);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await pump(tester);
 
     final card = find.ancestor(of: find.text('프로필을 조금 더 채우면'), matching: find.byType(Container)).last;
-    final top = tester.getTopLeft(card).dy;
+    expect(find.descendant(of: card, matching: find.byType(Image)), findsNothing);
+    final origin = tester.getTopLeft(card);
     for (final (text, y, height) in [
-      ('프로필을 조금 더 채우면', 7.5, 20.0),
-      ('나를 더 잘 보여 줄 수 있어요', 32.5, 20.0),
-      ('프로필 완성도 40%', 68.5, 16.0),
+      ('프로필을 조금 더 채우면', 8.5, 19.0),
+      ('나를 더 잘 보여 줄 수 있어요', 32.5, 19.0),
+      ('프로필 완성도 40%', 67.5, 16.0),
     ]) {
-      expect(tester.getTopLeft(find.text(text)).dy - top, y, reason: text);
+      expect(tester.getTopLeft(find.text(text)).dy - origin.dy, y, reason: text);
+      expect(tester.getTopLeft(find.text(text)).dx - origin.dx, 14, reason: text);
       expect(tester.getSize(find.text(text)).height, height, reason: text);
     }
     expect(tester.getSize(card).height, 92);
+    final percent = tester.widget<Text>(find.text('프로필 완성도 40%')).style!;
+    expect((percent.fontSize, percent.color), (12, const Color(0xFF6A6A6A)));
   });
 
   testWidgets('완성도가 100 이면 완성도 카드를 숨긴다', (tester) async {
-    await pump(tester, Success(summaryWith(percent: 100)));
+    await pump(tester, result: Success(summaryWith(percent: 100)));
     await tester.scrollUntilVisible(find.text('참여 중인 대학'), 200, scrollable: _mainList);
     await tester.drag(_mainList, const Offset(0, -500));
     await tester.pump();
@@ -284,9 +541,65 @@ void main() {
     expect(find.textContaining('프로필 완성도'), findsNothing);
   });
 
+  group('카드형 누름 반응(DESIGN §7 press)', () {
+    testWidgets('완성도 카드 · "리뷰 남기기" 는 Pressable 이다 — 누르는 동안 투명도만 내려간다', (tester) async {
+      penFrame(tester);
+      await pump(tester);
+
+      for (final text in ['리뷰 남기기', '프로필을 조금 더 채우면']) {
+        final pressable = find.ancestor(of: find.text(text), matching: find.byType(Pressable));
+        expect(pressable, findsOneWidget, reason: text);
+        final rect = tester.getRect(find.text(text));
+        final gesture = await tester.startGesture(tester.getCenter(find.text(text)));
+        await tester.pump(const Duration(milliseconds: 200));
+        final opacity = tester.widget<AnimatedOpacity>(find.descendant(of: pressable, matching: find.byType(AnimatedOpacity)));
+        expect(opacity.opacity, Pressable.pressedOpacity, reason: text);
+        expect(tester.getRect(find.text(text)), rect, reason: text);
+        await gesture.cancel();
+        await tester.pump(const Duration(milliseconds: 200));
+      }
+    });
+  });
+
+  group('요약 블록 도착(DESIGN §7 standard)', () {
+    testWidgets('처음 받을 때 블록마다 투명 · 아래 8 에서 40ms 간격으로 올라온다', (tester) async {
+      penFrame(tester);
+      await pump(tester, settle: false);
+
+      final entrances = tester.widgetList<Entrance>(find.byType(Entrance)).toList();
+      // 레일 · 숫자 칸 · 리뷰 띠 · 참여 대학 · 완성도 카드 다섯 블록.
+      expect(
+        entrances.map((e) => (e.rise, e.delay, e.duration, e.curve, e.enabled)),
+        [
+          for (var i = 0; i < 5; i++)
+            (8.0, Duration(milliseconds: 40 * i), AppMotion.standard, AppMotion.standardCurve, true),
+        ],
+      );
+      final tile = find.ancestor(of: find.text('전달된 카드'), matching: find.byType(Container)).first;
+      final settledY = 445.0;
+      expect(tester.getTopLeft(tile).dy, settledY + 8);
+
+      await tester.pump(const Duration(seconds: 1));
+      expect(tester.getTopLeft(tile).dy, settledY);
+    });
+
+    testWidgets('이미 받아 둔 요약으로 홈에 다시 오면 움직이지 않는다', (tester) async {
+      penFrame(tester);
+      await pump(tester);
+
+      router.go(AppRoutes.today);
+      await tester.pumpAndSettle();
+      router.go(AppRoutes.home);
+      await tester.pump();
+      await tester.pump();
+
+      expect(tester.widgetList<Entrance>(find.byType(Entrance)).map((e) => e.enabled), everyElement(isFalse));
+    });
+  });
+
   group('세 숫자가 모두 0 이면 숫자 칸 대신 빈 상태 판(pen `Tklrw` · `AJVDS`)', () {
     testWidgets('세 숫자가 모두 0 이면 판이 보이고 숫자 칸은 없다', (tester) async {
-      await pump(tester, Success(summaryWith(delivered: 0, signups: 0, conversations: 0)));
+      await pump(tester, result: Success(summaryWith(delivered: 0, signups: 0, conversations: 0)));
 
       expect(find.text('첫 기록이 쌓이는 중이에요'), findsOneWidget);
       expect(find.text('전달된 카드'), findsNothing);
@@ -298,12 +611,14 @@ void main() {
       expect(find.text('리뷰 남기기'), findsOneWidget);
     });
 
-    for (final (delivered, signups, conversations) in [(1, 0, 0), (0, 1, 0), (0, 0, 1)]) {
-      testWidgets('하나라도 0 보다 크면 숫자 칸을 보여 준다 ($delivered, $signups, $conversations)', (tester) async {
-        await pump(tester, Success(summaryWith(delivered: delivered, signups: signups, conversations: conversations)));
+    for (final (delivered, signups, conversations, shown) in [(1, 0, 0, '전달된 카드'), (0, 1, 0, '가입 수'), (0, 0, 1, '시작된 대화')]) {
+      testWidgets('하나라도 0 보다 크면 그 칸만 보여 준다 ($delivered, $signups, $conversations)', (tester) async {
+        await pump(tester, result: Success(summaryWith(delivered: delivered, signups: signups, conversations: conversations)));
 
         expect(find.text('첫 기록이 쌓이는 중이에요'), findsNothing);
-        expect(find.text('전달된 카드'), findsOneWidget);
+        for (final label in ['전달된 카드', '가입 수', '시작된 대화']) {
+          expect(find.text(label), label == shown ? findsOneWidget : findsNothing, reason: label);
+        }
       });
     }
 
@@ -311,7 +626,7 @@ void main() {
       tester.view.physicalSize = const Size(360, 884);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
-      await pump(tester, Success(summaryWith(delivered: 0, signups: 0, conversations: 0)));
+      await pump(tester, result: Success(summaryWith(delivered: 0, signups: 0, conversations: 0)));
 
       final text = find.text('첫 기록이 쌓이는 중이에요');
       final panel = find.ancestor(of: text, matching: find.byType(DecoratedBox)).first;
@@ -334,9 +649,17 @@ void main() {
     });
   });
 
-  // DESIGN §11.2 — 시스템 글꼴 확대(최대 2.0)에서도 깨지지 않는다. 숫자 칸·빈 상태 판 둘 다 본다.
-  final layouts = {'숫자 칸': summary, '빈 상태 판': summaryWith(delivered: 0, signups: 0, conversations: 0)};
-  for (final MapEntry(key: layout, value: data) in layouts.entries) {
+  // DESIGN §11.2 — 시스템 글꼴 확대(최대 2.0)에서도 깨지지 않는다. 숫자 칸·빈 상태 판, hero 세 상태를 본다.
+  final layouts = <String, (HomeSummary, Result<TodayCards>)>{
+    '숫자 칸': (summary, _arrived),
+    '빈 상태 판': (summaryWith(delivered: 0, signups: 0, conversations: 0), _arrived),
+    'hero 결정 대기': (
+      summary,
+      const Success(TodayCards(cards: [DailyCard(cardId: 'paid', source: CardSource.purchased, profile: _cardProfile)])),
+    ),
+    'hero 확인 완료': (summary, Success(TodayCards(cards: const [], nextIssueAt: DateTime.now().add(const Duration(hours: 9))))),
+  };
+  for (final MapEntry(key: layout, value: (data, today)) in layouts.entries) {
   for (final scale in [1.0, 1.3, 1.5, 2.0]) {
     testWidgets('[$layout] pen 프레임 크기(360×884)·글자 배율 $scale 에서 어느 줄도 넘치지 않는다', (tester) async {
       // 테스트 글꼴은 한글이 Pretendard 보다 넓다 — 여기서 버티면 실제 폰에서도 버틴다.
@@ -346,7 +669,10 @@ void main() {
       tester.platformDispatcher.textScaleFactorTestValue = scale;
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
 
-      await pump(tester, Success(data));
+      await pump(tester, result: Success(data), today: today);
+      if (scale == 1.0) {
+        expect(tester.getSize(find.byType(AnimatedSwitcher)).height, 160);
+      }
       await tester.scrollUntilVisible(find.text('프로필 완성도 40%'), 200, scrollable: _mainList);
 
       expect(tester.takeException(), isNull);
@@ -371,7 +697,7 @@ void main() {
           p.text.toPlainText(),
     ];
 
-    await pump(tester, Success(data));
+    await pump(tester, result: Success(data), today: today);
     final clipped = clippedTexts();
     await tester.scrollUntilVisible(find.text('프로필 완성도 40%'), 200, scrollable: _mainList);
     clipped.addAll(clippedTexts());
@@ -382,27 +708,27 @@ void main() {
   });
   }
 
-  testWidgets('pen 좌표와 같다 — hero 버튼 y154 · 숫자 칸 y431 높이 96 · 리뷰 y543 · 태그 y659 · 카드 y703 · 빈 칸 글자 x14', (tester) async {
-    // pen `bpA8x` 값(앱바 56 포함). 글자 상자 높이 hero 29(`dIoz0`)·대학 제목 20(`YIoXQ`)은 렌더 결과(lineHeight 속성 없음), 빈 칸 글자 x14(`FqMYC`).
-    tester.view.physicalSize = const Size(360, 884);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-
+  testWidgets('pen 좌표와 같다 — hero 버튼 y150 · 숫자 칸 y445 높이 96 · 리뷰 y565 · 태그 y680 · 카드 y732(블록 사이 24)', (tester) async {
+    // pen `bpA8x` 렌더 값(앱바 56 포함, 2026-10-14 다시 잼). 블록 사이 24(`X4K49Y` · `vvDYo` · `gdS3k` · `sDLEb`+`o6qaj` · `yzF6g`),
+    // 글자 상자는 lineHeight 속성이 없어 렌더 결과 — hero 줄 27(`dIoz0`), 레일 제목 23(`h7wmcH`), 대학 제목 19(`YIoXQ`).
+    penFrame(tester);
     await pump(tester);
 
     final heroButton = find.ancestor(of: find.text('지금 확인하기'), matching: find.byType(InkWell));
-    expect(tester.getTopLeft(heroButton).dy, 154); // 앱바 56 + 위 여백 8(`aEtSx` [8,16,0,16]) 뒤 첫 카드, 버튼은 카드 안 y90
+    expect(tester.getTopLeft(heroButton).dy, 150); // 앱바 56 + 위 여백 8 + hero 안 y20 + 글자 54 + 12
+    expect(tester.getTopLeft(find.text('지금 함께 있는 사람들')).dy, 248);
+    expect(tester.getSize(find.text('지금 함께 있는 사람들')).height, 23);
+    expect(tester.getTopLeft(find.byType(MosaicRail)).dy, 281);
     final tile = find.ancestor(of: find.text('전달된 카드'), matching: find.byType(Container)).first;
-    expect(tester.getTopLeft(tile).dy, 431);
+    expect(tester.getTopLeft(tile).dy, 445);
     expect(tester.getSize(tile).height, 96);
     final review = find.ancestor(of: find.text('리뷰 남기기'), matching: find.byType(Container)).last;
-    expect(tester.getTopLeft(review).dy, 543);
-    expect(tester.getTopLeft(review).dy - (tester.getTopLeft(tile).dy + 96), 16); // 숫자 칸 ↔ 리뷰 띠 16(`gdS3k` 외)
-    expect(tester.getTopLeft(find.byType(Tag).first).dy, 659);
+    expect(tester.getTopLeft(review).dy, 565);
+    expect(tester.getTopLeft(find.text('참여 중인 대학')).dy, 653);
+    expect(tester.getSize(find.text('참여 중인 대학')).height, 19);
+    expect(tester.getTopLeft(find.byType(Tag).first).dy, 680);
     final nudge = find.ancestor(of: find.text('프로필을 조금 더 채우면'), matching: find.byType(Container)).last;
-    expect(tester.getTopLeft(nudge).dy, 703);
-    final emptyTile = tester.getTopLeft(find.byType(MosaicEmptyTile).first);
-    expect(tester.getTopLeft(find.text('아직 비어 있어요').first).dx - emptyTile.dx, 14);
+    expect(tester.getTopLeft(nudge).dy, 732);
   });
 
   testWidgets('review-strip `L7wKi` — 바탕 #FFF8EC, 별은 3D 15 다섯 개(`hN4Ow` 외)', (tester) async {
@@ -420,33 +746,39 @@ void main() {
     await pump(tester);
 
     final title = find.text('오늘의 카드가');
-    final hero = find.ancestor(of: title, matching: find.byType(Container)).last;
+    final hero = heroOf('오늘의 카드가');
     expect((tester.widget<Container>(hero).decoration! as BoxDecoration).color, const Color(0xFFFFF0F2));
+    expect(tester.getSize(hero), const Size(328, 160));
     expect(find.descendant(of: hero, matching: find.byIcon(AppIcons.heart)), findsNothing);
     final mascot = find.descendant(of: hero, matching: find.byType(Image));
     expect((tester.widget<Image>(mascot).image as AssetImage).assetName, 'assets/images/home-top-mascot-couple.webp');
     expect(tester.getRect(mascot).shift(-tester.getTopLeft(hero)), const Rect.fromLTWH(172, -5, 160, 170));
     expect(tester.widget<Text>(title).style!.color, const Color(0xFF222222));
+    expect(tester.getSize(title).height, 27);
     final button = find.ancestor(of: find.text('지금 확인하기'), matching: find.byType(Material)).first;
     expect(tester.widget<Material>(button).color, const Color(0xFFFF385C));
     expect(tester.widget<Text>(find.text('지금 확인하기')).style!.color, const Color(0xFFFFFFFF));
   });
 
-  testWidgets('stat-panel `krua8` — 칸 바탕 3색 · 3D 아이콘 36 · 숫자 18/700 #222 · 라벨 11 #6A6A6A', (tester) async {
+  testWidgets('stat-panel `krua8` — 칸 바탕 한 색 #F7F7F7 · 3D 아이콘 36 y6.5 · 숫자 18/700 #222 · 라벨 12 #6A6A6A(높이 16)', (tester) async {
     await pump(tester);
 
-    for (final (label, color, icon) in [
-      ('전달된 카드', const Color(0xFFFFF6F8), AppIcon3d.send),
-      ('가입 수', const Color(0xFFF8F5FF), AppIcon3d.join),
-      ('시작된 대화', const Color(0xFFF5F7FF), AppIcon3d.chat),
+    for (final (label, icon) in [
+      ('전달된 카드', AppIcon3d.send),
+      ('가입 수', AppIcon3d.join),
+      ('시작된 대화', AppIcon3d.chat),
     ]) {
       final tile = find.ancestor(of: find.text(label), matching: find.byType(Container)).first;
       final box = tester.widget<Container>(tile).decoration! as BoxDecoration;
-      expect((box.color, box.borderRadius), (color, BorderRadius.circular(14)), reason: label);
-      final icon3d = tester.widget<Icon3d>(find.descendant(of: tile, matching: find.byType(Icon3d)));
-      expect((icon3d.icon, icon3d.size), (icon, 36.0), reason: label);
+      expect((box.color, box.borderRadius), (const Color(0xFFF7F7F7), BorderRadius.circular(14)), reason: label);
+      final icon3d = find.descendant(of: tile, matching: find.byType(Icon3d));
+      expect((tester.widget<Icon3d>(icon3d).icon, tester.widget<Icon3d>(icon3d).size), (icon, 36.0), reason: label);
+      // 36 칸 자리(그림만 키우는 배율은 칸 밖으로 그린다 — pen 도 칸 y6.5 에 그림 transform).
+      final slot = find.ancestor(of: icon3d, matching: find.byType(Transform)).first;
+      expect(tester.getTopLeft(slot).dy - tester.getTopLeft(tile).dy, 6.5, reason: label);
       final labelStyle = tester.widget<Text>(find.text(label)).style!;
-      expect((labelStyle.fontSize, labelStyle.color), (11, const Color(0xFF6A6A6A)), reason: label);
+      expect((labelStyle.fontSize, labelStyle.color), (12, const Color(0xFF6A6A6A)), reason: label);
+      expect(tester.getSize(find.text(label)).height, 16, reason: label);
     }
     final number = tester.widget<Text>(find.text('862')).style!;
     expect((number.fontSize, number.fontWeight, number.color), (18, FontWeight.w700, const Color(0xFF222222)));
@@ -505,7 +837,7 @@ void main() {
   });
 
   testWidgets('요약을 못 받아도 hero-today 는 남는다', (tester) async {
-    await pump(tester, const FailureResult(NetworkFailure()));
+    await pump(tester, result: const FailureResult(NetworkFailure()));
 
     expect(find.text('지금 확인하기'), findsOneWidget);
     expect(find.text('전달된 카드'), findsNothing);
@@ -517,7 +849,7 @@ void main() {
     testWidgets('cohort 가 있으면 대기 화면이 있고 09b 는 없다. 앱바 · 하단 내비는 그대로', (tester) async {
       await pump(
         tester,
-        Success(HomeSummary(
+        result: Success(HomeSummary(
           presentPeopleImages: summary.presentPeopleImages,
           deliveredCards: summary.deliveredCards,
           signups: summary.signups,
