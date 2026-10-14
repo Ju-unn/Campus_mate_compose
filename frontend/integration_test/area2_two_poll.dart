@@ -1,7 +1,6 @@
 import 'package:campus_mate/community/view/community_feed_screen.dart';
-import 'package:campus_mate/community/view/poll_card.dart';
+import 'package:campus_mate/community/view/feed_poll_card.dart';
 import 'package:campus_mate/community/view/poll_detail_screen.dart';
-import 'package:campus_mate/community/view/poll_donut.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_ui_state.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -18,10 +17,10 @@ import 'support.dart';
 /// 앱이 `step(이름)` 에서 멈추면 PC 가 할 일을 하고 풀어 준다. step 이름은 PC 쪽 plan 키와 같아야 한다. 판정은 이 화면이 보이는 것만 한다.
 /// 화면 글자는 시나리오가 아니라 지금 화면 코드에서 옮겼다. 찾기는 Key 없이 글자 · 툴팁 · 위젯 종류로 한다.
 
-// 15d 피드 · 17c 상세 — frontend/lib/community/view/
-const _moreTooltip = '더보기'; // poll_card.dart:116 — 내 글에만
-const _reportLabel = '신고하기'; // poll_card.dart:153 — 남의 글에만(머리줄 오른쪽 끝)
-const _openDetail = '자세히 보기'; // poll_card.dart:317
+// 15d 피드(개선안 A 의 FeedPollCard) · 17c 상세 — frontend/lib/community/view/
+const _moreTooltip = '더보기'; // feed_poll_card.dart:178 — 내 글에만
+const _reportLabel = '신고하기'; // poll_card.dart:133 PollReportButton — 남의 글에만(머리줄 오른쪽 끝)
+const _openDetail = '자세히 보기'; // feed_poll_card.dart:483(아래 줄 오른쪽)
 const _detailTitle = '투표 상세'; // poll_detail_screen.dart:42
 const _notFound = '질문을 찾을 수 없어요'; // 서버 POLL_NOT_FOUND(토스트) · poll_detail_screen.dart:45(없는 글 자리)
 const _alreadyVoted = '이미 투표했어요'; // 서버 POLL_ALREADY_VOTED(토스트)
@@ -43,7 +42,7 @@ int _count(Finder finder) => finder.evaluate().length;
 
 Finder get _feed => find.byType(CommunityFeedScreen);
 
-Finder _cardOf(String question) => find.widgetWithText(PollCard, question);
+Finder _cardOf(String question) => find.widgetWithText(FeedPollCard, question);
 
 Finder _inCard(String question, Finder matching) => find.descendant(of: _cardOf(question), matching: matching);
 
@@ -99,15 +98,18 @@ void _mustBeOthers(String question) {
   must(report == 1, '남의 글 카드에 "$_reportLabel" $report개(기대 1)');
 }
 
-/// O 를 눌러 투표하고 그 카드가 도넛이 될 때까지.
+/// 투표를 마친 카드의 결과 막대(찬성 쪽) — 버튼 자리가 막대와 큰 퍼센트로 바뀐다.
+Finder _result(String question) => _inCard(question, find.byKey(FeedPollCard.agreeBarKey));
+
+/// O 를 눌러 투표하고 그 카드가 결과(막대)가 될 때까지.
 Future<void> _voteO(WidgetTester tester, String question) async {
   await tap(tester, _vote(question, AppIcons.circle));
-  await pumpUntil(tester, _inCard(question, find.byType(PollDonut)), timeout: const Duration(seconds: 20));
+  await pumpUntil(tester, _result(question), timeout: const Duration(seconds: 20));
 }
 
-/// 투표를 마친 카드: 도넛 하나, 투표 버튼 없음.
+/// 투표를 마친 카드: 결과 막대 하나, 투표 버튼 없음.
 Future<void> _mustBeVoted(WidgetTester tester, String question) async {
-  await pumpUntil(tester, _inCard(question, find.byType(PollDonut)), timeout: const Duration(seconds: 15));
+  await pumpUntil(tester, _result(question), timeout: const Duration(seconds: 15));
   final buttons = _count(_inCard(question, find.byType(FilledButton)));
   must(buttons == 0, '투표한 글에 투표 버튼 $buttons개가 남음(기대 0)');
 }
@@ -138,8 +140,8 @@ final Area1Case _authorSeesItVanish = _login((tester, job) async {
 });
 
 final Map<String, Area1Case> area2TwoPollCases = {
-  // ── E-POLL-11 같은 글에 다시 투표 못 한다 — B 는 O 를 눌러 도넛이 되고, PC 가 같은 계정으로 반대표(API)를 보내 409 를 본다.
-  // 화면: B 의 글은 도넛이고 투표 버튼이 없다. A(글쓴이)의 카드는 "1명 참여"(두 번째 표가 안 들어감).
+  // ── E-POLL-11 같은 글에 다시 투표 못 한다 — B 는 O 를 눌러 결과 막대가 되고, PC 가 같은 계정으로 반대표(API)를 보내 409 를 본다.
+  // 화면: B 의 글은 결과 막대이고 투표 버튼이 없다. A(글쓴이)의 카드는 "1명 참여"(두 번째 표가 안 들어감).
   'E-POLL-11/A': _login((tester, job) async {
     final question = job['question'] as String;
     await _openCommunity(tester);
@@ -161,7 +163,7 @@ final Map<String, Area1Case> area2TwoPollCases = {
     return null;
   }),
 
-  // ── E-POLL-12 같은 계정을 두 기기에 켜 두고 A 폰이 투표한 뒤 B 에뮬이(옛 화면에서) 투표 → 토스트 "이미 투표했어요" · 그 카드 도넛.
+  // ── E-POLL-12 같은 계정을 두 기기에 켜 두고 A 폰이 투표한 뒤 B 에뮬이(옛 화면에서) 투표 → 토스트 "이미 투표했어요" · 그 카드 결과 막대.
   // B 는 일감에 토큰이 없다 — 1회용 토큰은 새로 받으면 앞의 것이 죽어서, A 가 로그인을 마친 뒤 PC 가 같은 계정의 새 토큰을 `need-login` 에 실어 준다.
   'E-POLL-12/A': _login((tester, job) async {
     final question = job['question'] as String;
@@ -184,7 +186,7 @@ final Map<String, Area1Case> area2TwoPollCases = {
     await step('ready', timeout: _waitOther); // PC: A 가 투표한 뒤에 풀어 준다 — 이 화면은 옛 모습(버튼 있음)
     await tap(tester, _vote(question, AppIcons.x));
     await pumpUntil(tester, find.text(_alreadyVoted), timeout: const Duration(seconds: 15));
-    await _mustBeVoted(tester, question); // 서버 상태(A 의 O)로 도넛이 된다
+    await _mustBeVoted(tester, question); // 서버 상태(A 의 O)로 결과 막대가 된다
     return null;
   },
 

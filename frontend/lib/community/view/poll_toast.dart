@@ -8,14 +8,18 @@ import 'package:flutter/material.dart';
 /// 내 글을 지웠을 때 토스트(15d-5 `SKQgV` · 토스트 `VuCcc`).
 const String pollDeletedMessage = '삭제했어요';
 
+/// 띄운 토스트. `closed` 가 끝나면 화면에서 사라졌다.
+typedef PollToast = ScaffoldFeatureController<SnackBar, SnackBarClosedReason>;
+
 /// 15d · 17c 가 같이 쓰는 토스트(pen Toast `I8UOWm`). 뜨고 사라지는 시간은 SnackBar 에 맡긴다 — 두 화면에
 /// 타이머를 따로 두지 않는다. 보상(15d-3 `NDZnK`)은 글자만 — 재화 하트는 Lucide 로 그리지 않는다(DESIGN §8.10).
 /// "삭제했어요"(15d-5 `SKQgV` · 토스트 `VuCcc` 아이콘 끔)도 글자만. 나머지(오류)는 경고 아이콘.
-void showPollToast(BuildContext context, String message) {
+///
+/// 띄운 토스트를 돌려준다 — 15d 는 토스트가 떠 있는 동안 "질문하기" 알약을 숨긴다(17A-2 `O8hjge`).
+PollToast showPollToast(BuildContext context, String message) {
   final textOnly = message == pollRewardMessage || message == pollDeletedMessage;
-  ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(
+  final messenger = ScaffoldMessenger.of(context)..hideCurrentSnackBar();
+  return messenger.showSnackBar(SnackBar(
       behavior: SnackBarBehavior.floating,
       backgroundColor: Colors.transparent,
       elevation: 0,

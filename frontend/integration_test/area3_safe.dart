@@ -3,7 +3,7 @@ part of 'area3.dart';
 // 영역 3 안전 폰 한 대 — 신고 · 차단 · 정지에서 앱이 누르고 화면을 읽는 27개(02 · 03 · 04 · 06 · 22 · 25 · 32 · 53 · 55 는 시나리오의 두 기기 줄을 폰 한 대 + PC 가 상대 역할로 옮긴 것). PC 쪽은 e2e/area3_safe_phone.py 의 같은 번호(계정 · 매칭 ·
 // 메시지 · 차단 · 정지를 준비하고, 신고 · 차단 · 나감 행은 DB 에서 센다). 앱은 누른 뒤 화면에서 본 것을 Map 으로 돌려준다.
 // 화면 글자 · 위젯은 시나리오가 아니라 지금 화면 코드(chat_room_screen · chat_room_menu_sheet · bubble_report_menu · report_sheet ·
-// block_confirm_sheet · partner_profile_screen · block_list_screen · poll_card · account_suspended_screen)에서 옮겼다.
+// block_confirm_sheet · partner_profile_screen · block_list_screen · feed_poll_card · account_suspended_screen)에서 옮겼다.
 // 망 끊기는 PC 가 한다 — 앱은 step 에서 멈춰 PC 가 끝내고 go 를 넣기를 기다린다.
 
 const _reportAction = '신고하기'; // 방 ⋯ 줄 · 14c 링크 · 투표 카드 버튼 · 신고 시트 버튼이 같은 글자다
@@ -278,7 +278,8 @@ Future<void> _openBlockList(WidgetTester tester) async {
 
 // ── 투표 글 E-SAFE-11 ────────────────────────────────────────────────────────────────────────────────
 
-Finder _pollCard(String question) => find.byWidgetPredicate((w) => w is PollCard && w.poll.question == question);
+/// 15d 피드의 투표 카드(개선안 A 의 FeedPollCard).
+Finder _pollCard(String question) => find.byWidgetPredicate((w) => w is FeedPollCard && w.poll.question == question);
 
 final Map<String, Area1Case> area3CasesSafe = {
   'E-SAFE-01': _session((tester, job) async {
@@ -377,7 +378,7 @@ final Map<String, Area1Case> area3CasesSafe = {
   'E-SAFE-11': _session((tester, job) async {
     await arrive(tester, 'home');
     await tap(tester, navTab(_communityTab));
-    await pumpUntil(tester, find.byType(PollCard));
+    await pumpUntil(tester, find.byType(FeedPollCard));
     final mine = _pollCard(job['own'] as String);
     final theirs = _pollCard(job['question'] as String);
     final feed = find.byType(Scrollable).first;

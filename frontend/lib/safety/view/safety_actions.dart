@@ -20,8 +20,13 @@ import 'package:go_router/go_router.dart';
 ///
 /// 신고 · 차단이 끝나면 화면을 떠나 대화 목록으로 가므로 화면 안 상태가 아니라 앱 전체 ScaffoldMessenger 로 띄운다 —
 /// 그래야 목록 화면 위에 남는다. [messenger] 는 화면을 떠나기 전에 잡아 둔다.
-void showSafetyToast(ScaffoldMessengerState messenger, String message, {IconData icon = AppIcons.circleCheck}) {
-  messenger.showSnackBar(
+/// 띄운 토스트를 돌려준다(15d 커뮤니티는 떠 있는 동안 "질문하기" 알약을 숨긴다). 다른 화면은 버려도 된다.
+ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showSafetyToast(
+  ScaffoldMessengerState messenger,
+  String message, {
+  IconData icon = AppIcons.circleCheck,
+}) {
+  return messenger.showSnackBar(
     SnackBar(
       content: AppToast(leading: Icon(icon, size: 16, color: AppColors.onInk), label: message),
       // pen 토스트 폭 288(전시판 320 안 fill). 글자 칸 232 에서 두 줄로 내려간다.

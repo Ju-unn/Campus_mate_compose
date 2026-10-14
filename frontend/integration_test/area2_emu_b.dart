@@ -3,8 +3,7 @@ import 'package:campus_mate/billing/view/heart_task_row.dart';
 import 'package:campus_mate/billing/view/heart_tasks_screen.dart';
 import 'package:campus_mate/billing/viewmodel/heart_tasks_view_model.dart';
 import 'package:campus_mate/community/view/community_feed_screen.dart';
-import 'package:campus_mate/community/view/poll_card.dart';
-import 'package:campus_mate/community/view/poll_donut.dart';
+import 'package:campus_mate/community/view/feed_poll_card.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_ui_state.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -31,7 +30,7 @@ const _noChats = '아직 시작된 대화가 없어요'; // conversations_screen
 const _acceptanceNotFound = '수락을 찾을 수 없어요'; // backend core/errors.py ACCEPTANCE_NOT_FOUND — 오류 줄로 그대로 뜬다
 const _matchMade = '매칭됐어요!'; // match_made_screen.dart:32
 
-// 15d 피드 — frontend/lib/community/view/poll_card.dart · community_feed_view_model.dart
+// 15d 피드 — frontend/lib/community/view/feed_poll_card.dart(개선안 A) · community_feed_view_model.dart
 const _rewardToast = '하트 10개를 받았어요'; // community_feed_view_model.dart pollRewardMessage
 
 // 18a — frontend/lib/billing/view/heart_task_row.dart
@@ -148,16 +147,21 @@ Future<void> _openCommunity(WidgetTester tester) async {
   }
 }
 
-Finder _cardOf(String question) => find.widgetWithText(PollCard, question);
+Finder _cardOf(String question) => find.widgetWithText(FeedPollCard, question);
 
 /// [question] 카드의 O(찬성) 버튼.
 Finder _agree(String question) => find.descendant(of: _cardOf(question), matching: find.widgetWithIcon(FilledButton, AppIcons.circle));
 
-/// [question] 카드가 피드에 뜰 때까지 기다렸다 O 를 누르고 도넛이 뜰 때까지.
+/// [question] 카드의 결과 막대(찬성 쪽) — 투표하면 버튼 자리가 이 막대와 큰 퍼센트로 바뀐다.
+Finder _result(String question) => find.descendant(of: _cardOf(question), matching: find.byKey(FeedPollCard.agreeBarKey));
+
+/// [question] 카드가 피드에 뜰 때까지 기다렸다 O 를 누르고 결과 막대가 뜰 때까지. 방금 투표한 카드는 막대 · 숫자가
+/// 0 에서 차오르니(AppMotion.standard 220ms) 숫자를 읽기 전에 다 차오르게 둔다.
 Future<void> _voteAgree(WidgetTester tester, String question) async {
   await pumpUntil(tester, _cardOf(question), timeout: const Duration(seconds: 15));
   await tap(tester, _agree(question));
-  await pumpUntil(tester, find.descendant(of: _cardOf(question), matching: find.byType(PollDonut)), timeout: const Duration(seconds: 20));
+  await pumpUntil(tester, _result(question), timeout: const Duration(seconds: 20));
+  await wait(tester, const Duration(milliseconds: 500));
 }
 
 /// 카드 안 글자들 — 기대와 다를 때 메모에 실제 글을 남긴다.
@@ -187,17 +191,20 @@ final Map<String, Area1Case> _pollCases = {
     must(_count(_cardOf(question)) == 1, '당겨서 새로 고침을 3번 했는데 "$question" 카드 ${_count(_cardOf(question))}개(기대 1)');
     return null;
   }),
-  // V 가 찬성 1표 — 누르기 전 결과 한 줄, O 를 누르면 버튼 자리가 도넛 + "2명 참여". 두 표는 PC 가 DB 에서 본다.
+  // V 가 찬성 1표 — 누르기 전 결과 한 줄(버튼 아래 비율 · 아래 줄 참여자 수), O 를 누르면 버튼 자리가 결과(막대 · 큰 퍼센트 ·
+  // 내 선택) + "2명 참여". 두 표는 PC 가 DB 에서 본다.
   'E-POLL-04': _session((tester, job) async {
     final question = job['question'] as String;
-    const before = '찬성 100% · 반대 0% · 1명 참여';
+    const before = '찬성 100% · 반대 0%'; // feed_poll_card.dart 투표 전 한 줄(사용자 결정 4-1) — 참여자 수는 아래 줄로 갈라졌다
     await _openCommunity(tester);
     await pumpUntil(tester, _cardOf(question), timeout: const Duration(seconds: 15));
     final line = find.descendant(of: _cardOf(question), matching: find.text(before));
     must(_count(line) == 1, '누르기 전 "$before" ${_count(line)}개(기대 1) — 카드 글: ${_cardTexts(tester, question)}');
-    must(_count(find.descendant(of: _cardOf(question), matching: find.byType(PollDonut))) == 0, '누르기 전인데 도넛이 보임');
+    final voters = _count(find.descendant(of: _cardOf(question), matching: find.text('1명 참여')));
+    must(voters == 1, '누르기 전 "1명 참여" $voters개(기대 1) — 카드 글: ${_cardTexts(tester, question)}');
+    must(_count(_result(question)) == 0, '누르기 전인데 결과 막대가 보임');
     await _voteAgree(tester, question);
-    for (final text in ['2명 참여', '찬성 100% · 반대 0%']) {
+    for (final text in ['2명 참여', '100%', '0%', '내 선택']) {
       final seen = _count(find.descendant(of: _cardOf(question), matching: find.text(text)));
       must(seen == 1, '누른 뒤 "$text" $seen개(기대 1) — 카드 글: ${_cardTexts(tester, question)}');
     }
@@ -205,7 +212,7 @@ final Map<String, Area1Case> _pollCases = {
     must(_count(_agree(question)) == 0, '누른 뒤에도 O 버튼이 남음');
     return null;
   }),
-  // 오늘 첫 투표 — 도넛과 함께 토스트 "하트 10개를 받았어요" 1개. 원장 · 잔액은 PC.
+  // 오늘 첫 투표 — 결과 막대와 함께 토스트 "하트 10개를 받았어요" 1개. 원장 · 잔액은 PC.
   'E-POLL-05': _session((tester, job) async {
     await _openCommunity(tester);
     await _voteAgree(tester, job['question'] as String);

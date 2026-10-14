@@ -61,7 +61,7 @@ def _titled(text):
 
 
 def p_poll_01(run, phone):
-    """커뮤니티 → "질문 올리기" → 입력 → "익명으로 올리기". 앱이 올린 글이 DB 에 한 줄, 선택지는 기본값."""
+    """커뮤니티 → "질문하기" 알약 → 입력 → "익명으로 올리기". 앱이 올린 글이 DB 에 한 줄, 선택지는 기본값."""
     check = Check()
     account, token = _signed_in(run, 'home')
     question = _titled('첫 질문')
