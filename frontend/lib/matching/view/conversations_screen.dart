@@ -12,6 +12,7 @@ import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
@@ -131,11 +132,18 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
 
   /// 로딩이 끝난 첫 그림 뒤에 한 번. 보낸 신청 헤더가 없으면(읽기 실패 등) 내리지 않고 끝낸다.
   /// 고정 헤더(받은 신청) 높이는 [Scrollable.ensureVisible] 이 빼 준다 — 그 바로 아래에 헤더가 온다.
+  /// 건너뛰지 않고 standard 동안 미끄러져 내려간다 — 어디로 갔는지 보이게(DESIGN §7). 동작 줄이기면 바로 그 자리다.
   void _revealSentOnce() {
     if (!_revealSent) return;
     _revealSent = false;
     final header = _sentHeaderKey.currentContext;
-    if (header != null) unawaited(Scrollable.ensureVisible(header));
+    if (header == null) return;
+    final instant = MediaQuery.disableAnimationsOf(context);
+    unawaited(Scrollable.ensureVisible(
+      header,
+      duration: instant ? Duration.zero : AppMotion.standard,
+      curve: AppMotion.standardCurve,
+    ));
   }
 
   @override
