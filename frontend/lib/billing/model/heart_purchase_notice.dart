@@ -1,5 +1,6 @@
 import 'package:campus_mate/billing/model/payment_store.dart';
 import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/common/support_email.dart';
 
 /// 하트 구매 안내 · 오류(pen 15e-8 `JGoPI`, 계획서 7-2 표). [caption] 이 있으면 앱바 아래 배너(pen Alert `teNRJ`),
 /// 없으면 잠깐 뜨는 토스트(pen Toast `I8UOWm`)다. 배너는 다시 구매를 시도하거나 상점을 나가면 사라진다(닫기 버튼 없음).
@@ -25,7 +26,7 @@ enum HeartPurchaseNotice {
   failed('결제가 되지 않았어요', caption: '결제 수단을 확인하고 다시 시도해 주세요', isError: true),
 
   /// 빨간 배너 `F6cXu` — 서버 422 purchase_invalid.
-  invalid('결제를 확인하지 못했어요', caption: '문제가 계속되면 appmailerl4538@gmail.com 으로 알려 주세요', isError: true),
+  invalid('결제를 확인하지 못했어요', caption: '문제가 계속되면 $supportEmail 으로 알려 주세요', isError: true),
 
   /// 배너 `wvbOe`(info) — 서버 409 purchase_other_account.
   otherAccount('다른 계정으로 결제한 하트예요', caption: '결제한 계정으로 로그인하면 들어와요'),

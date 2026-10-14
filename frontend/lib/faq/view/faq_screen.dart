@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/common/support_email.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/consent/model/open_url.dart';
@@ -249,8 +250,6 @@ class _NoResults extends ConsumerStatefulWidget {
 }
 
 class _NoResultsState extends ConsumerState<_NoResults> {
-  static const _mail = 'appmailerl4538@gmail.com';
-
   /// 메일 앱을 못 연 안내(pen 에 없음). 가입 동의 화면(`consent_screen.dart`)과 같은 문구 · 모양 · 3초(대장 09-29).
   String? _notice;
   Timer? _noticeTimer;
@@ -264,7 +263,7 @@ class _NoResultsState extends ConsumerState<_NoResults> {
   Future<void> _openMail() async {
     bool opened;
     try {
-      opened = await ref.read(openUrlProvider)(Uri.parse('mailto:$_mail'));
+      opened = await ref.read(openUrlProvider)(Uri.parse('mailto:$supportEmail'));
     } catch (_) {
       opened = false;
     }
@@ -322,7 +321,7 @@ class _NoResultsState extends ConsumerState<_NoResults> {
                                 foregroundColor: AppColors.primaryText,
                                 textStyle: AppTypography.bodySmall.copyWith(fontWeight: FontWeight.w600),
                               ),
-                              child: const Text(_mail, textAlign: TextAlign.center),
+                              child: const Text(supportEmail, textAlign: TextAlign.center),
                             ),
                             Text('으로', style: description),
                           ],

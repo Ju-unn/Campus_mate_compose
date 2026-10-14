@@ -93,6 +93,6 @@ void main() {
     await pump(tester, HeartPurchaseNotice.invalid, textScale: 2);
 
     expect(tester.takeException(), isNull);
-    expect(tester.widget<Text>(find.textContaining('appmailerl4538@gmail.com')).maxLines, isNull);
+    expect(tester.widget<Text>(find.textContaining('s26404538@gmail.com')).maxLines, isNull);
   });
 }

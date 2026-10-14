@@ -4,7 +4,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(15);
+select plan(17);
 
 -- 1~3 표 · RLS · enum
 select has_table('public', 'faq', 'faq 표가 있다');
@@ -50,6 +50,13 @@ select ok((select answer like '%그다음부터 20하트예요%' from public.faq
 select ok((select answer like '%그다음부터는 20하트예요%' and answer like '%10하트를 드려요%'
            from public.faq where question = '아바타를 다시 만들 수 있나요?'),
   '아바타 다시 만들기 답변은 20하트이고, 5번 실패 보상 10하트 구절은 그대로다');
+
+-- 16~17 고객 문의 메일 교체(20261014130000, 앱 상수 frontend/lib/common/support_email.dart).
+select is_empty($$select id from public.faq where answer like '%appmailerl4538@gmail.com%'$$,
+  '옛 임시 문의 메일이 든 답변이 없다');
+select ok((select answer like '%s26404538@gmail.com 으로 가입한 학교 메일 주소와 함께%'
+           from public.faq where question = '이용이 제한됐다고 나와요.'),
+  '이용 제한 답변은 새 문의 메일을 안내한다');
 
 select * from finish();
 rollback;

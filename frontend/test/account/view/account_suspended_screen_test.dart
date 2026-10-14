@@ -2,6 +2,7 @@ import 'package:campus_mate/account/model/account_repository.dart';
 import 'package:campus_mate/account/model/apple_withdrawal_code.dart';
 import 'package:campus_mate/account/view/account_suspended_screen.dart';
 import 'package:campus_mate/account/view/withdraw_sheets.dart';
+import 'package:campus_mate/common/support_email.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/core/auth/account_status_listenable.dart';
@@ -54,8 +55,8 @@ void main() {
   testWidgets('문의 메일 주소가 보인다', (tester) async {
     await pump(tester);
 
-    expect(find.text('appmailerl4538@gmail.com'), findsOneWidget);
-    expect(supportEmail, 'appmailerl4538@gmail.com');
+    expect(find.text('s26404538@gmail.com'), findsOneWidget);
+    expect(supportEmail, 's26404538@gmail.com');
   });
 
   testWidgets('슬픈 마스코트 120(pen U7msJ)', (tester) async {
