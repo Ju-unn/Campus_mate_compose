@@ -323,6 +323,14 @@ class StartScreenContractTest(unittest.TestCase):
     def test_the_rejected_text_on_02_is_the_servers(self):
         self.assertIn(f"const _rejected = '{area1.REJECTED}';", self.read('integration_test', 'area1.dart'))
 
+    def test_tap_waits_past_the_longest_route_transition(self):
+        # 탭이 아닌 화면은 플랫폼 기본 전환(안드로이드 450ms · iOS 500ms, app_router.dart `_PlatformRoute`)으로 뜨고 닫힌다 —
+        # tap 뒤 대기가 그보다 짧으면 뒤로가기 직후 아직 닫히는 화면의 요소를 다음 tap 이 집는다(독립 검토 권고).
+        source = self.read('integration_test', 'area1.dart')
+        body = source[source.index('Future<void> tap('):source.index('Future<void> type(')]
+        waits = [int(ms) for ms in re.findall(r'milliseconds: (\d+)', body)]
+        self.assertTrue(waits and waits[-1] > 500, waits)
+
 
 if __name__ == '__main__':
     unittest.main()
