@@ -47,8 +47,8 @@ PURCHASE_WORDS = ('purchase', 'buy', 'unlock', 'heart_store', 'heart-store')
 # ── E-HEART-46 아바타 만드는 중 잔액이 모자라지면 무료 ─────────────────────────────────────────────────
 
 def heart_46(run):
-    """완성 2장 · 하트 10(다시 만들기 값 10) → 만들기 시작(202) → 만드는 중 하트를 5 로 낮춤(−5, 값 10 에 모자람) → 3번째 완성을 기다림 →
-    하트 5 그대로 · 음수 아님 · avatar_regen 원장 0(완성 뒤 차감이 모자라 무료로 처리됨). 실제 AI 라 E2E_REAL_AI=1 일 때만, 한 번만(비용 — area2_phone3._PAID)."""
+    """완성 2장 · 하트 20(다시 만들기 값 20, 운영 00075) → 만들기 시작(202) → 만드는 중 하트를 10 으로 낮춤(−10, 값 20 에 모자람) → 3번째 완성을 기다림 →
+    하트 10 그대로 · 음수 아님 · avatar_regen 원장 0(완성 뒤 차감이 모자라 무료로 처리됨). 실제 AI 라 E2E_REAL_AI=1 일 때만, 한 번만(비용 — area2_phone3._PAID)."""
     area2_phone3.real_ai_gate()
     case = 'E-HEART-46'
     if case in area2_phone3._PAID:
@@ -59,14 +59,14 @@ def heart_46(run):
     check = Check()
     account = area2._home(run)
     _two_ready(run, account)
-    _hearts_to(run, account, 2 * COST - COST)  # 10 — 값(10) 만큼 정확히
+    _hearts_to(run, account, 2 * COST - COST)  # 20 — 값(COST) 만큼 정확히(그보다 적으면 202 대신 402)
     reply = _api(run, 'POST', '/me/avatar/regenerate', account['token'], **_ONCE)
     check.reply('만들기 요청', reply, 202)
     if reply[0] != 202:
         raise Blocked(f'만들기 요청이 {reply[0]} — 비용은 안 나갔고 더 못 간다')
     area2_phone3._PAID[case] = ('blocked', '만들기를 누른 뒤 결과가 나오기 전에 멈춤')  # 202 부터는 비용이 나간다
     try:
-        _hearts_to(run, account, COST // 2)  # 만드는 중 5 로 — 서버가 완성 뒤 값(10)을 못 받게
+        _hearts_to(run, account, COST // 2)  # 만드는 중 10 으로 — 서버가 완성 뒤 값(20)을 못 받게
         during = area2._ledger(run, account, 'avatar_regen')
         check.that(not during, f'만드는 중 avatar_regen 원장 {during}(기대 0행 — 차감은 완성 뒤)')
         if not area2_phone3._wait_for(lambda: len(_ready_avatars(run, account)) >= 3, area2_phone3.AI_WAIT):
