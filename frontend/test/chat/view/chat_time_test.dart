@@ -1,4 +1,5 @@
 import 'package:campus_mate/chat/view/chat_time.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -33,5 +34,69 @@ void main() {
     // "0시간 뒤 종료돼요" 가 뜨면 안 된다.
     expect(coarseRemainingLabel(const Duration(minutes: 40)), '40분');
     expect(coarseRemainingLabel(const Duration(seconds: 20)), '1분');
+  });
+
+  // 기한이 0 이 되면 한 번만 알린다 — 홈 hero ③ · 오늘 탭 11 이 다음 카드를 다시 읽는 신호다.
+  // 남은 시간은 기기 시계(DateTime.now)로 세서, 실제 시간을 흘린 뒤(runAsync) 타이머를 돌린다.
+  group('CountdownBuilder.onDone', () {
+    Future<void> pump(WidgetTester tester, DateTime deadline, VoidCallback onDone) => tester.pumpWidget(
+          CountdownBuilder(
+            deadlineAt: deadline,
+            onDone: onDone,
+            builder: (context, remaining) => Text(countdownLabel(remaining), textDirection: TextDirection.ltr),
+          ),
+        );
+
+    /// 실제 시계를 [real] 만큼 흘리고 1초 타이머를 [ticks] 번 돌린다.
+    Future<void> elapse(WidgetTester tester, Duration real, {int ticks = 1}) async {
+      await tester.runAsync(() => Future<void>.delayed(real));
+      for (var i = 0; i < ticks; i++) {
+        await tester.pump(const Duration(seconds: 1));
+      }
+    }
+
+    testWidgets('0 이 되면 한 번 부르고, 그 뒤로 1초가 더 흘러도 다시 부르지 않는다', (tester) async {
+      var calls = 0;
+      await pump(tester, DateTime.now().add(const Duration(milliseconds: 300)), () => calls++);
+      expect(calls, 0);
+
+      await elapse(tester, const Duration(milliseconds: 500));
+      expect(calls, 1);
+      await elapse(tester, const Duration(milliseconds: 10), ticks: 3);
+      expect(calls, 1);
+    });
+
+    testWidgets('이미 지난 시각으로 시작해도 한 번만 부른다', (tester) async {
+      var calls = 0;
+      await pump(tester, DateTime.now().subtract(const Duration(minutes: 1)), () => calls++);
+      await tester.pump();
+      expect(calls, 1);
+
+      await elapse(tester, const Duration(milliseconds: 10), ticks: 3);
+      expect(calls, 1);
+    });
+
+    testWidgets('같은 기한으로 다시 그려도 다시 부르지 않고, 기한이 바뀌면 그 기한의 0 에서 한 번 더 부른다', (tester) async {
+      var calls = 0;
+      final past = DateTime.now().subtract(const Duration(minutes: 1));
+      await pump(tester, past, () => calls++);
+      await tester.pump();
+      await pump(tester, past, () => calls++);
+      await tester.pump();
+      expect(calls, 1);
+
+      await pump(tester, past.subtract(const Duration(days: 1)), () => calls++);
+      await tester.pump();
+      expect(calls, 2);
+    });
+
+    testWidgets('0 이 되기 전에 화면에서 빠지면 부르지 않는다', (tester) async {
+      var calls = 0;
+      await pump(tester, DateTime.now().add(const Duration(milliseconds: 300)), () => calls++);
+      await tester.pumpWidget(const SizedBox());
+
+      await elapse(tester, const Duration(milliseconds: 500), ticks: 2);
+      expect(calls, 0);
+    });
   });
 }
