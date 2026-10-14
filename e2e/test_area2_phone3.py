@@ -39,6 +39,20 @@ class SubtitleTest(unittest.TestCase):
     def test_issue_hour_comes_from_the_settings_row_and_afternoon_reads_pm(self):
         self.assertEqual(area2_phone3.expected_subtitle(WEEK['화'], [1, 4], hour=19), '목요일 오후 7시에 새로운 사람을 찾아볼게요')
 
+    def test_before_the_issue_time_on_an_issue_day_is_today(self):
+        # 서버 /cards/today 는 upcoming_issue_at — now 보다 엄격히 뒤인 첫 지급(오늘 포함)
+        today = '오늘 오전 7시에 새로운 한 명이 도착해요'
+        self.assertEqual(area2_phone3.expected_subtitle(WEEK['월'].replace(hour=5), [1, 4]), today)
+        self.assertEqual(area2_phone3.expected_subtitle(WEEK['월'].replace(hour=6, minute=59), [1]), today)
+        self.assertEqual(area2_phone3.expected_subtitle(WEEK['목'].replace(hour=3), [1, 4]), today)
+        self.assertEqual(area2_phone3.expected_subtitle(WEEK['월'].replace(hour=3), [1, 2, 3, 4, 5, 6, 7]), today)
+
+    def test_the_issue_time_itself_is_already_past(self):
+        self.assertEqual(area2_phone3.expected_subtitle(WEEK['월'].replace(hour=7), [1, 4]), '목요일 오전 7시에 새로운 사람을 찾아볼게요')
+
+    def test_an_afternoon_issue_time_still_ahead_today_is_today(self):
+        self.assertEqual(area2_phone3.expected_subtitle(WEEK['월'], [1, 4], hour=19), '오늘 오후 7시에 새로운 한 명이 도착해요')
+
 
 class GuardsTest(unittest.TestCase):
     def test_real_ai_gate_stays_shut_unless_the_flag_is_exactly_one(self):
@@ -243,7 +257,9 @@ class WaitingCardTest(CaseBase):
 
     def test_every_day_run_tells_the_app_the_tomorrow_text_and_puts_the_row_back(self):
         phone = FakePhone()
-        result = self.go('E-CARD-15', phone, self.rules())
+        # 시각을 고정한다 — 새벽(07시 전)에 돌면 매일 지급의 부제는 "오늘" 이다.
+        with mock.patch.object(area2_phone3, 'now_seoul', lambda: WEEK['화']):
+            result = self.go('E-CARD-15', phone, self.rules())
         self.assertEqual(result[0], 'pass', result)
         self.assertEqual(phone.jobs[0]['subtitle'], '내일 오전 7시에 새로운 한 명이 도착해요')
         self.assertEqual(self.fake.bodies('PATCH', 'region_group_settings'),

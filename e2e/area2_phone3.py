@@ -47,11 +47,14 @@ def _hour_label(hour):
 
 
 def expected_subtitle(now, weekdays, hour=7):
-    """화면 11 의 부제 — 서버 next_issue_at(오늘 다음 첫 지급 요일, 내일부터 찾는다)과 앱 waitingSubtitle 을 그대로 옮겼다.
-    [now] 는 서울 시각, [weekdays] 는 ISO 요일(1=월)."""
-    ahead = next(n for n in range(1, 8) if (now + timedelta(days=n)).isoweekday() in weekdays)
-    issue = now + timedelta(days=ahead)
-    if ahead <= 1:
+    """화면 11 의 부제 — 서버 /cards/today 의 next_issue_at(ladder.py upcoming_issue_at: now 보다 엄격히 뒤인 첫 지급,
+    오늘 포함)과 앱 waitingSubtitle 을 그대로 옮겼다. [now] 는 서울 시각, [weekdays] 는 ISO 요일(1=월).
+    카드 만료 시각(next_issue_at, 내일부터)은 area2_time_batch.expected_expiry 다 — 둘은 지급일의 지급 시각 전에만 갈린다."""
+    issues = [(now + timedelta(days=n)).replace(hour=hour, minute=0, second=0, microsecond=0) for n in range(0, 8)]
+    ahead, issue = next((n, at) for n, at in enumerate(issues) if at.isoweekday() in weekdays and at > now)
+    if ahead == 0:
+        return f'오늘 {_hour_label(hour)}에 새로운 한 명이 도착해요'
+    if ahead == 1:
         return f'내일 {_hour_label(hour)}에 새로운 한 명이 도착해요'
     next_week = '다음 주 ' if ahead > 7 - now.isoweekday() else ''  # 주는 월요일 시작
     return f'{next_week}{WEEKDAY_NAMES[issue.weekday()]}요일 {_hour_label(hour)}에 새로운 사람을 찾아볼게요'
