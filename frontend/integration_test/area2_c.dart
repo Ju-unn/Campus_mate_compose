@@ -1,4 +1,5 @@
 import 'package:campus_mate/billing/view/heart_task_row.dart';
+import 'package:campus_mate/community/view/community_feed_screen.dart';
 import 'package:campus_mate/home/view/home_screen.dart';
 import 'package:campus_mate/home/viewmodel/home_summary_provider.dart';
 import 'package:campus_mate/matching/view/daily_card_summary.dart';
@@ -182,7 +183,8 @@ final Map<String, Area1Case> area2cCases = {
     await arrive(tester, 'home');
     await _cut(tester);
     await tap(tester, navTab('커뮤니티'));
-    await _failedThenRecovered(tester, find.byTooltip('질문 올리기'));
+    // 옛 앱바 + 대신 "질문하기" 알약(15d 개선안 A). 복구 판정은 예전처럼 아래 _gone(오류 글)이 한다 — 알약도 + 처럼 실패 화면에 있다.
+    await _failedThenRecovered(tester, find.byKey(CommunityFeedScreen.askButtonKey));
     return null;
   }),
   'E-HEART-26': _session((tester, job) async {

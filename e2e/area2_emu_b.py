@@ -154,7 +154,7 @@ def p_poll_02(run, phone):
 
 
 def p_poll_04(run, phone):
-    """V 가 찬성 1표를 던진 글 → B: 누르기 전 "찬성 100% · 반대 0% · 1명 참여", O 를 누르면 도넛 + "2명 참여". 두 표는 DB 에서 본다."""
+    """V 가 찬성 1표를 던진 글 → B: 누르기 전 "찬성 100% · 반대 0%" + "1명 참여", O 를 누르면 결과 막대(100% · 0% · 내 선택) + "2명 참여". 두 표는 DB 에서 본다."""
     check = Check()
     author, voter = _home(run), _home(run)
     me, token = _signed_in(run, 'home')

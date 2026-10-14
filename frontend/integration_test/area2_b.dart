@@ -6,9 +6,9 @@ import 'package:campus_mate/billing/view/heart_tasks_screen.dart';
 import 'package:campus_mate/billing/viewmodel/heart_task_submit_view_model.dart';
 import 'package:campus_mate/common/widgets/trait_bar.dart';
 import 'package:campus_mate/community/view/community_feed_screen.dart';
+import 'package:campus_mate/community/view/feed_poll_card.dart';
 import 'package:campus_mate/community/view/poll_card.dart';
 import 'package:campus_mate/community/view/poll_composer_screen.dart';
-import 'package:campus_mate/community/view/poll_donut.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_ui_state.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -27,15 +27,16 @@ import 'support.dart';
 
 /// 영역 2 폰 A 한 대 2차 18(투표 9 · 하트 제출 흐름 8 · 카드 상세 1). PC 쪽은 e2e/area2_phone_b.py 의 같은 번호 — 계정을 만들어
 /// 1회용 토큰을 넘기고 DB 값을 본다. 화면 글자는 시나리오가 아니라 지금 화면 코드에서 옮겼다(줄 번호는 옮긴 때 기준).
-/// 찾기는 Key 없이 화면 글자 · 툴팁 · 공용/화면 위젯 종류로 한다(이미 있는 Key — poll-question 등 · heart-task-uploader — 만 쓴다).
+/// 찾기는 Key 없이 화면 글자 · 툴팁 · 공용/화면 위젯 종류로 한다(이미 있는 Key — poll-question 등 · heart-task-uploader ·
+/// 15d 개선안 A 의 질문하기 알약 `CommunityFeedScreen.askButtonKey` · 결과 막대 `FeedPollCard.agreeBarKey` — 만 쓴다).
 /// 인증샷은 18b 의 사진 고르기 훅(`HeartTaskSubmitViewModel.pickFromGallery`)을 앱에 든 그림으로 갈아 끼워 넣는다.
 
-// 15d 피드 · 17b 쓰기 · 17c 상세 — frontend/lib/community/view/
-const _newPollTooltip = '질문 올리기'; // community_feed_screen.dart:62
-const _anonymous = '익명'; // poll_card.dart:102
+// 15d 피드(개선안 A — 피드 카드는 FeedPollCard, 17c 상세 카드는 옛 PollCard) · 17b 쓰기 · 17c 상세 — frontend/lib/community/view/
+// 질문 올리기는 앱바 + 가 아니라 유리 내비 위 "질문하기" 알약(community_feed_screen.dart:33 askButtonKey)이다.
+const _anonymous = '익명'; // feed_poll_card.dart:166
 const _justNow = '방금 전'; // poll_time.dart:10 — 기기 시계가 서버보다 1분 넘게 앞서면 "1분 전" 이 되어 틀어진다
-const _noVotes = '0명 참여'; // poll_card.dart:205
-const _openDetail = '자세히 보기'; // poll_card.dart:266
+const _noVotes = '0명 참여'; // feed_poll_card.dart:467(아래 줄)
+const _openDetail = '자세히 보기'; // feed_poll_card.dart:483(아래 줄 오른쪽)
 const _detailTitle = '투표 상세'; // poll_detail_screen.dart:42
 const _commentsSoon = '댓글 기능은 아직 준비 중이에요'; // poll_detail_screen.dart:60
 const _post = '익명으로 올리기'; // poll_composer_screen.dart:135
@@ -123,9 +124,11 @@ Future<void> _openCommunity(WidgetTester tester) async {
   }
 }
 
-/// 피드 → "질문 올리기"(+) → 17b.
+/// 피드 → "질문하기" 알약 → 17b. 토스트가 떠 있는 동안 알약은 숨고 눌리지 않아(17A-2) 눌릴 수 있을 때까지 기다린다.
 Future<void> _openComposer(WidgetTester tester) async {
-  await tap(tester, find.byTooltip(_newPollTooltip));
+  final ask = find.byKey(CommunityFeedScreen.askButtonKey);
+  await pumpUntil(tester, ask.hitTestable(), timeout: const Duration(seconds: 10));
+  await tap(tester, ask);
   await pumpUntil(tester, _composer, timeout: const Duration(seconds: 5));
   await wait(tester, const Duration(milliseconds: 500)); // 넘김 애니메이션이 끝나게
 }
@@ -152,14 +155,18 @@ Future<void> _closed(WidgetTester tester) async {
 Future<void> _firstCardIs(WidgetTester tester, String question) async {
   final watch = Stopwatch()..start();
   while (true) {
-    final cards = find.byType(PollCard);
-    if (cards.evaluate().isNotEmpty && tester.widget<PollCard>(cards.first).poll.question == question) return;
+    final cards = find.byType(FeedPollCard);
+    if (cards.evaluate().isNotEmpty && tester.widget<FeedPollCard>(cards.first).poll.question == question) return;
     must(watch.elapsed < const Duration(seconds: 20), '20초 안에 피드 맨 위가 "$question" 이 안 됨');
     await tester.pump(const Duration(milliseconds: 200));
   }
 }
 
-Finder _cardOf(String question) => find.widgetWithText(PollCard, question);
+/// 15d 피드의 [question] 카드.
+Finder _cardOf(String question) => find.widgetWithText(FeedPollCard, question);
+
+/// 17c 상세의 [question] 카드 — 상세는 pen 이 그대로라 옛 PollCard(도넛)다.
+Finder _detailCardOf(String question) => find.widgetWithText(PollCard, question);
 
 /// 17b 를 열어 [question] 을 올리고 닫힐 때까지.
 Future<void> _postFromFeed(WidgetTester tester, String question) async {
@@ -175,7 +182,7 @@ final Map<String, Area1Case> _pollCases = {
     await _openCommunity(tester);
     await _postFromFeed(tester, question);
     await _firstCardIs(tester, question);
-    final card = find.byType(PollCard).first;
+    final card = find.byType(FeedPollCard).first;
     for (final text in [_anonymous, _justNow, _noVotes]) {
       final seen = _count(find.descendant(of: card, matching: find.text(text)));
       must(seen == 1, '첫 카드에 "$text" $seen개(기대 1)');
@@ -186,13 +193,13 @@ final Map<String, Area1Case> _pollCases = {
     }
     return null;
   }),
-  // PC 가 올려 둔 글에 글쓴이(이 계정)가 O 를 누른다 → 도넛. poll_votes 1행은 PC 가 본다.
+  // PC 가 올려 둔 글에 글쓴이(이 계정)가 O 를 누른다 → 결과(쪼개짐 막대). poll_votes 1행은 PC 가 본다.
   'E-POLL-13': _session((tester, job) async {
     final card = _cardOf(job['question'] as String);
     await _openCommunity(tester);
     await pumpUntil(tester, card, timeout: const Duration(seconds: 15));
     await tap(tester, find.descendant(of: card, matching: find.widgetWithIcon(FilledButton, AppIcons.circle)));
-    await pumpUntil(tester, find.descendant(of: card, matching: find.byType(PollDonut)), timeout: const Duration(seconds: 20));
+    await pumpUntil(tester, find.descendant(of: card, matching: find.byKey(FeedPollCard.agreeBarKey)), timeout: const Duration(seconds: 20));
     return null;
   }),
   // PC 가 오늘 글 9개를 채운 뒤 — 10번째는 17b 가 닫히고, 11번째는 17b 에 빨간 글 1개가 뜨고 안 닫힌다(429 · polls 10행은 PC).
@@ -270,7 +277,7 @@ final Map<String, Area1Case> _pollCases = {
     await pumpUntil(tester, find.text(_detailTitle), timeout: const Duration(seconds: 10));
     await wait(tester, const Duration(milliseconds: 500)); // 넘김 애니메이션이 끝나게
     must(_count(find.text(_commentsSoon)) == 1, '"$_commentsSoon" ${_count(find.text(_commentsSoon))}개(기대 1)');
-    must(_count(_cardOf(question)) == 1, '상세에 같은 카드(질문 "$question")가 ${_count(_cardOf(question))}개');
+    must(_count(_detailCardOf(question)) == 1, '상세에 같은 카드(질문 "$question")가 ${_count(_detailCardOf(question))}개');
     must(_count(find.text(_openDetail)) == 0, '상세 카드에 "$_openDetail" 줄이 남음(피드 카드 모양)');
     return null;
   }),

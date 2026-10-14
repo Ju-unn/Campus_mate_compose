@@ -72,14 +72,14 @@ def _vote(run, poll, who, choice):
 # ── 투표 글 ─────────────────────────────────────────────────────────────────────────────────────────
 
 def poll_11(run, two):
-    """B 가 투표한 글에 B 가 API 로 반대표 → 409 "이미 투표했어요", 표 1행 · 첫 선택(a) 그대로. 화면: B 의 글은 도넛이고 버튼이 없다."""
+    """B 가 투표한 글에 B 가 API 로 반대표 → 409 "이미 투표했어요", 표 1행 · 첫 선택(a) 그대로. 화면: B 의 글은 결과 막대이고 버튼이 없다."""
     check, seen = Check(), {}
     author, a_hash = _signed_in(run, 'home')
     voter, b_hash = _signed_in(run, 'home')
     with _cleaned(run, author):
         poll, question = _new_poll(run, author, '두 번 투표')
 
-        def again(said, sync):  # B 가 O 를 눌러 도넛을 본 뒤
+        def again(said, sync):  # B 가 O 를 눌러 결과 막대를 본 뒤
             seen['again'] = _vote(run, poll, voter, 'b')
             sync.set('again')
 
@@ -95,7 +95,7 @@ def poll_11(run, two):
 
 
 def poll_12(run, two):
-    """같은 계정을 두 기기에 켜 두고 A 가 투표한 뒤 B 가(옛 화면에서) 투표 → B 토스트 "이미 투표했어요" · 그 카드 도넛(앱 판정).
+    """같은 계정을 두 기기에 켜 두고 A 가 투표한 뒤 B 가(옛 화면에서) 투표 → B 토스트 "이미 투표했어요" · 그 카드 결과 막대(앱 판정).
     1회용 토큰은 새로 받으면 앞의 것이 죽는다 — A 가 로그인을 마친 뒤에 B 의 토큰을 받는다(`signed-in` 뒤 `need-login`)."""
     check = Check()
     voter, a_hash = _signed_in(run, 'home')  # 두 기기가 같이 쓰는 계정
