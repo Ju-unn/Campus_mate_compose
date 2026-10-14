@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:campus_mate/common/university_logos.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
@@ -18,7 +20,8 @@ import '../model/fake_friend_review_repository.dart';
 /// pen `S0MR2b` 마스터 본문(`kgCWd`) — 296 폭에서 두 줄.
 const _comment = '처음엔 조용해 보여도 친해지면 누구보다 세심하게 챙겨주는 친구예요.';
 
-/// 주소는 지어낸 값이다(로고 · 아바타 그림은 네트워크로 받지 않는다 — 아래 HttpClient 가 대신 답한다).
+/// 주소는 지어낸 값이다. 로고(Image.network)는 아래 HttpClient 가 대신 답한다. 아바타(CachedNetworkImage)는 시험에서
+/// 기기 캐시(path_provider)가 없어 오는 중으로 멈춰 있다 — 그림 · 실패 모양은 위젯이 가진 builder 를 직접 그려 본다.
 const _logoUrl = 'https://logo.test/snu.webp';
 const _avatarUrl = 'https://avatar.test/moon.webp';
 
@@ -45,6 +48,18 @@ Finder _networkImage(String url) =>
 
 /// 그림이 실제로 그려지는 상자. Image 위젯 크기는 frameBuilder 가 감싼 틀(36 칸 · 원)까지라 그림 크기는 이것으로 잰다.
 Finder _picture(String url) => find.descendant(of: _networkImage(url), matching: find.byType(RawImage));
+
+/// 작성자 아바타(pen `f76zn`) — 앱을 다시 켜도 다시 받지 않게 기기 캐시에 둔다(채팅 목록 · 오늘 카드와 같다).
+final _avatar = find.byWidgetPredicate((w) => w is CachedNetworkImage && w.imageUrl == _avatarUrl);
+
+/// 1×1 투명 PNG(photo_slider_test 와 같은 바이트) — imageBuilder 가 받는 그림 자리.
+final _png = Uint8List.fromList(const [
+  0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52, //
+  0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4, //
+  0x89, 0x00, 0x00, 0x00, 0x0A, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00, //
+  0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, //
+  0x42, 0x60, 0x82,
+]);
 
 /// FriendReviewCard(pen `S0MR2b`, 값표 B §3). 폭은 부모가 준다(20c · 14d 328, 14c 288).
 void main() {
@@ -224,25 +239,39 @@ void main() {
   });
 
   // pen S0MR2b/dTmnd 36 원 #FFF0F2 clip, 안에 f76zn 아바타 36×36 cover. 이니셜(e1cLm)은 꺼진다.
-  testWidgets('아바타가 있으면 36 원 안에 cover 로 그리고 닉네임 첫 글자는 없다', (tester) async {
-    await pump(tester, pen(avatarUrl: _avatarUrl), client: _pending());
+  testWidgets('아바타가 있으면 기기 캐시 그림(CachedNetworkImage) — 오는 동안은 36 연분홍 빈 원, 닉네임 첫 글자는 없다', (tester) async {
+    await pump(tester, pen(avatarUrl: _avatarUrl));
 
-    final avatar = _picture(_avatarUrl);
-    expect(avatar, findsOneWidget);
+    expect(_avatar, findsOneWidget);
+    expect(find.byWidgetPredicate((w) => w is Image && w.image is NetworkImage), findsNothing);
     expect(find.text('달'), findsNothing);
-    expect(tester.getSize(avatar), const Size(36, 36));
-    expect(tester.widget<Image>(_networkImage(_avatarUrl)).fit, BoxFit.cover);
-    final clip = find.ancestor(of: avatar, matching: find.byType(ClipOval));
-    expect(tester.getSize(clip), const Size(36, 36));
-    final circle = find.ancestor(of: avatar, matching: find.byType(Container)).first;
+    expect(tester.getSize(_avatar), const Size(36, 36));
+    final circle = find.ancestor(of: _avatar, matching: find.byType(Container)).first;
+    expect(tester.getSize(circle), const Size(36, 36));
     final decoration = tester.widget<Container>(circle).decoration! as BoxDecoration;
     expect((decoration.shape, decoration.color), (BoxShape.circle, AppColors.primaryWash));
     // 머리 줄 자리는 이니셜 때와 같다 — 배지 → 10 → 아바타 → 10 → 이름.
     final badge = box(tester, '서');
-    expect(tester.getRect(avatar).left - badge.right, 10);
-    expect(tester.getRect(find.text('달빛')).left - tester.getRect(avatar).right, 10);
-    expect(tester.getCenter(avatar).dy, badge.center.dy);
-    debugNetworkImageHttpClientProvider = null;
+    expect(tester.getRect(_avatar).left - badge.right, 10);
+    expect(tester.getRect(find.text('달빛')).left - tester.getRect(_avatar).right, 10);
+    expect(tester.getCenter(_avatar).dy, badge.center.dy);
+  });
+
+  testWidgets('그림이 오면 36 원(ClipOval)으로 잘라 cover 로 그린다 — 원으로 자르는 건 그림만이다', (tester) async {
+    await pump(tester, pen(avatarUrl: _avatarUrl));
+    final cached = tester.widget<CachedNetworkImage>(_avatar);
+
+    await tester.pumpWidget(MaterialApp(
+      home: Align(
+        alignment: Alignment.topLeft,
+        child: Builder(builder: (context) => cached.imageBuilder!(context, MemoryImage(_png))),
+      ),
+    ));
+
+    final clip = find.byType(ClipOval);
+    expect(tester.getSize(clip), const Size(36, 36));
+    final image = tester.widget<Image>(find.descendant(of: clip, matching: find.byType(Image)));
+    expect((image.fit, image.width, image.height, image.excludeFromSemantics), (BoxFit.cover, 36, 36, true));
   });
 
   testWidgets('아바타가 없으면 닉네임 첫 글자 — 연분홍 원 36 에 14/700 primaryText', (tester) async {
@@ -255,15 +284,26 @@ void main() {
     expect(box(tester, '달').size, const Size(36, 36));
   });
 
-  testWidgets('아바타를 못 불러오면 닉네임 첫 글자 원으로 바뀐다', (tester) async {
-    await pump(tester, pen(avatarUrl: _avatarUrl), client: _failing());
+  testWidgets('아바타를 못 불러오면(errorWidget) 닉네임 첫 글자 원 — 연분홍 36 에 14/700 primaryText', (tester) async {
+    await pump(tester, pen(avatarUrl: _avatarUrl));
+    final cached = tester.widget<CachedNetworkImage>(_avatar);
 
+    await tester.pumpWidget(MaterialApp(
+      home: Align(
+        alignment: Alignment.topLeft,
+        child: Builder(builder: (context) => cached.errorWidget!(context, _avatarUrl, const SocketException('없음'))),
+      ),
+    ));
+
+    expect(find.byType(ClipOval), findsNothing);
     expect(find.text('달'), findsOneWidget);
     expect(box(tester, '달').size, const Size(36, 36));
-    expect((tester.widget<Container>(find.ancestor(of: find.text('달'), matching: find.byType(Container)).first)
-            .decoration! as BoxDecoration)
-        .color, AppColors.primaryWash);
-    debugNetworkImageHttpClientProvider = null;
+    final decoration =
+        tester.widget<Container>(find.ancestor(of: find.text('달'), matching: find.byType(Container)).first).decoration!
+            as BoxDecoration;
+    expect((decoration.shape, decoration.color), (BoxShape.circle, AppColors.primaryWash));
+    final initial = tester.widget<Text>(find.text('달')).style!;
+    expect((initial.fontSize, initial.fontWeight, initial.color), (14, FontWeight.w700, AppColors.primaryText));
   });
 
   testWidgets('글자 배율 2.4 에서도 학교 칸 · 아바타는 36 그대로(첫 글자 상태)', (tester) async {
@@ -281,8 +321,7 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(tester.getSize(find.ancestor(of: _picture(_logoUrl), matching: find.byType(Container)).first),
         const Size(36, 36));
-    expect(tester.getSize(find.ancestor(of: _picture(_avatarUrl), matching: find.byType(ClipOval))),
-        const Size(36, 36));
+    expect(tester.getSize(_avatar), const Size(36, 36));
     debugNetworkImageHttpClientProvider = null;
   });
 
