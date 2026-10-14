@@ -1,4 +1,5 @@
 import 'package:campus_mate/auth/view/start_view.dart';
+import 'package:campus_mate/common/widgets/keyboard_dismiss_on_tap.dart';
 import 'package:campus_mate/main.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -39,5 +40,16 @@ void main() {
     expect(find.byType(StartView), findsOneWidget);
     expect(find.text('카카오 로그인').hitTestable(), findsOneWidget);
     expect(find.text('대학 이메일로 시작해요'), findsNothing);
+  });
+
+  // 사용자 피드백 9(2026-10-14): 입력칸 밖을 누르면 키보드가 내려가는 감싸개가 앱 맨 위에 한 번 붙는다.
+  testWidgets('앱 맨 위에 키보드 내리기 감싸개가 한 번 붙는다', (tester) async {
+    await tester.pumpWidget(const ProviderScope(child: CampusMateApp()));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(KeyboardDismissOnTap), findsOneWidget);
+
+    await tester.pump(_splashHoldDuration);
+    await tester.pumpAndSettle();
   });
 }
