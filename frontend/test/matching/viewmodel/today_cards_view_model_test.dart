@@ -140,7 +140,7 @@ void main() {
       expect(repository.fetchTodayCount, 5);
     });
 
-    testWidgets('사슬이 끝난 뒤 다음 0 에서는 다시 돈다', (tester) async {
+    testWidgets('같은 기한이면 사슬이 끝난 뒤 다시 불려도(탭을 오가며 카운트다운이 다시 붙음) 더 읽지 않는다', (tester) async {
       repository.today = waiting;
       await load();
       unawaited(viewModel().refreshWhenDue());
@@ -150,9 +150,26 @@ void main() {
 
       unawaited(viewModel().refreshWhenDue());
       await tester.pump();
-      expect(repository.fetchTodayCount, 6);
       await tester.pump(const Duration(minutes: 5));
-      expect(repository.fetchTodayCount, 9);
+      expect(repository.fetchTodayCount, 5);
+    });
+
+    testWidgets('새 기한의 0 에서는 다시 돈다', (tester) async {
+      repository.today = waiting;
+      await load();
+      unawaited(viewModel().refreshWhenDue());
+      await tester.pump();
+      await tester.pump(const Duration(minutes: 5));
+      expect(repository.fetchTodayCount, 5);
+
+      repository.today = Success(TodayCards(cards: const [], nextIssueAt: DateTime(2026, 10, 18, 7)));
+      await load();
+      expect(repository.fetchTodayCount, 6);
+      unawaited(viewModel().refreshWhenDue());
+      await tester.pump();
+      expect(repository.fetchTodayCount, 7);
+      await tester.pump(const Duration(minutes: 5));
+      expect(repository.fetchTodayCount, 10);
     });
 
     testWidgets('provider 가 내려가면 남은 재시도는 가지 않는다', (tester) async {

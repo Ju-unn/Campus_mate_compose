@@ -46,6 +46,16 @@ def next_issue_at(now: datetime, weekdays: Sequence[int], issue_time: time) -> d
     raise ValueError(f"지급 요일이 비어 있다: {weekdays!r}")
 
 
+def upcoming_issue_at(now: datetime, weekdays: Sequence[int], issue_time: time) -> datetime:
+    """now 보다 엄격히 뒤인 첫 지급 시각 — 화면 11 카운트다운(GET /cards/today 의 next_issue_at).
+
+    next_issue_at(만료 시각)과 달리 오늘도 본다: 지급일 06:59 면 1분 뒤다. 07:00 정각은 이미 나간 지급이라 다음 지급일이다."""
+    for issued in _issue_times(now, weekdays, issue_time, range(0, 8)):
+        if issued > now:
+            return issued
+    raise ValueError(f"지급 요일이 비어 있다: {weekdays!r}")
+
+
 def last_issue_at(now: datetime, weekdays: Sequence[int], issue_time: time) -> datetime:
     """now 이하인 가장 최근 지급 시각 — 유료 카드 제안의 "이번 주기"(paid_card_offers.cycle_started_at).
 

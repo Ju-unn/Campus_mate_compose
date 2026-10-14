@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, field_validator
 
-from app.cards.ladder import last_issue_at, next_issue_at
+from app.cards.ladder import last_issue_at, upcoming_issue_at
 from app.cards.paid_offer import PAID_CARD_COST, ensure_offer, target_eligible
 from app.cards.paid_preview import preview_of
 from app.cards.push import FcmSender, notify
@@ -245,8 +245,9 @@ async def get_today_cards(wiring: _Wiring = Depends(_wire), rng: random.Random =
 
     return {
         "cards": cards,
-        # 다음 지급 시각(화면 11 의 카운트다운 재료). 지역 설정 행이 없으면 알 수 없으니 null 이다.
-        "next_issue_at": next_issue_at(now, region["issue_weekdays"], issue_time).isoformat() if region else None,
+        # 다음 지급 시각(화면 11 의 카운트다운 재료) — 만료 시각과 달리 오늘 07:00 도 된다(upcoming_issue_at).
+        # 키 이름은 옛 앱 호환으로 그대로. 지역 설정 행이 없으면 알 수 없으니 null 이다.
+        "next_issue_at": upcoming_issue_at(now, region["issue_weekdays"], issue_time).isoformat() if region else None,
         "paid_card": paid_card,
         # 옛 앱 호환: paid_card 가 offered 일 때만 true.
         "locked_card_available": bool(paid_card and paid_card["state"] == "offered"),

@@ -254,8 +254,13 @@ class _TomorrowBand extends StatelessWidget {
   }
 }
 
+/// 오늘 · 내일 지급 부제의 꼬리(시안 `k1jPSY` 틀). 앞에 "오늘 오전 7시" · "내일 오전 7시" 가 붙는다 —
+/// "오늘 오전 7시" 는 학교 오픈 대기(home/view/cohort_wait_view.dart)와 같은 말이다.
+const String _arrivingSoonTail = '에 새로운 한 명이 도착해요';
+
 /// 화면 11 의 부제. 내일이면 시안 `k1jPSY`, 그 뒤면 `exnx7` 문구다. 다음 주(월요일 시작)면 요일 앞에
 /// "다음 주" 를 붙인다 — 주 1회는 월요일에 "월요일" 이 오늘처럼 읽혔다(사용자 결정 10-04 (나)).
+/// 지급일의 지급 시각 전이면 서버가 오늘 시각을 준다(ladder.py upcoming_issue_at) — 그때는 "오늘" 이다.
 /// 날짜 · 요일 · 시각은 서울 기준이다(한국은 서머타임이 없어 +9 고정).
 @visibleForTesting
 String waitingSubtitle(DateTime? nextIssueAt, DateTime now) {
@@ -268,8 +273,11 @@ String waitingSubtitle(DateTime? nextIssueAt, DateTime now) {
       .difference(DateTime.utc(seoulNow.year, seoulNow.month, seoulNow.day))
       .inDays;
   final time = hourLabel(issue);
+  if (days == 0) {
+    return '오늘 $time$_arrivingSoonTail';
+  }
   if (days <= 1) {
-    return '내일 $time에 새로운 한 명이 도착해요';
+    return '내일 $time$_arrivingSoonTail';
   }
   // 오늘이 weekday 면 이번 주 일요일까지 7 - weekday 일 남았다.
   final nextWeek = days > 7 - seoulNow.weekday ? '다음 주 ' : '';
