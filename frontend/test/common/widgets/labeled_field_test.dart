@@ -115,6 +115,21 @@ void main() {
     expect(tester.getTopLeft(find.text('숫자 4자리')).dy, closeTo(fieldBottom, 0.5));
   });
 
+  // 사용자 피드백 9(2026-10-14): 한 줄 칸의 키보드 '완료' 키는 키보드를 내린다(Flutter 기본 동작 — onEditingComplete 를
+  // 달면 이 기본이 꺼진다). 닉네임 · 출생연도 · 키 · 전화번호 · 카카오톡 아이디 · 추천 코드 칸이 이 칸을 쓴다.
+  testWidgets('한 줄 칸에서 키보드 "완료" 를 누르면 포커스가 풀린다', (tester) async {
+    await pump(tester);
+    await tester.tap(find.byType(TextField));
+    await tester.pump();
+    expect(tester.testTextInput.isVisible, isTrue);
+
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+
+    expect(tester.widget<EditableText>(find.byType(EditableText)).focusNode.hasFocus, isFalse);
+    expect(tester.testTextInput.isVisible, isFalse);
+  });
+
   // 도움말 간격이 바뀐 출생연도·전화번호 칸(04-1 MLJum·EKXNe)과 06-2a 쓰는 도중 안내.
   for (final scale in [1.0, 1.3, 1.5, 2.0]) {
     for (final (name, helper, guide) in [
