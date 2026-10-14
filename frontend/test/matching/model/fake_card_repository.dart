@@ -25,6 +25,9 @@ class FakeCardRepository implements CardRepository {
 
   int fetchTodayCount = 0;
 
+  /// 채워 두면 오늘 카드 조회가 이것이 끝날 때까지 멈춘다 — 읽는 동안(홈 hero 불러오는 중)을 볼 때.
+  Completer<void>? holdToday;
+
   /// 유료 카드 구매 결과. 성공이면 새 카드 번호다.
   Result<String> purchaseResult = const Success('card-new');
 
@@ -59,6 +62,9 @@ class FakeCardRepository implements CardRepository {
   @override
   Future<Result<TodayCards>> fetchToday() async {
     fetchTodayCount += 1;
+    // 비어 있으면 기다리지 않는다 — `await null` 한 번이 다른 시험의 마이크로태스크 순서를 바꾸지 않게.
+    final hold = holdToday;
+    if (hold != null) await hold.future;
     return purchasedOfferIds.isNotEmpty && todayAfterPurchase != null ? todayAfterPurchase! : today;
   }
 

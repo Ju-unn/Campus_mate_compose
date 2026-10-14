@@ -36,8 +36,12 @@ void main() {
     expect(HeroToday.from(state), isA<HeroDone>().having((h) => h.nextIssueAt, 'nextIssueAt', isNull));
   });
 
-  // 읽는 중 · 실패는 상태를 모른다. 후보가 빈 11b 는 pen 에 hero 모양이 없다 — 셋 다 지금까지의 문구(도착)로 둔다.
-  for (final phase in [TodayCardsPhase.loading, TodayCardsPhase.failed, TodayCardsPhase.noCandidates]) {
+  test('처음 읽는 동안은 불러오는 중 — 도착 문구를 먼저 보이지 않는다(pen `PAtO3` 스켈레톤)', () {
+    expect(HeroToday.from(const TodayCardsUiState()), isA<HeroLoading>());
+  });
+
+  // 실패 · 후보가 빈 11b 는 pen 에 hero 모양이 없다 — 지금까지의 문구(도착)로 둔다.
+  for (final phase in [TodayCardsPhase.failed, TodayCardsPhase.noCandidates]) {
     test('$phase 는 기존 문구(도착)로 둔다', () {
       expect(HeroToday.from(TodayCardsUiState(phase: phase)), isA<HeroArrived>());
     });
