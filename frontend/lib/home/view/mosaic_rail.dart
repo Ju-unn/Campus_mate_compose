@@ -8,7 +8,8 @@ const double _gap = 10;
 const double _pixelsPerSecond = 20;
 
 /// mosaic-rail(pen `P2sFxR`). 사람 칸 뒤에 빈 칸 하나를 붙인 한 벌을 끝없이 되풀이하며 오른쪽으로 흐른다.
-/// 누르고 있으면 멈추고 떼면 이어서 흐른다. 기기 "애니메이션 줄이기"가 켜져 있으면 pen 자리에 멈춰 있다.
+/// 누르고 있으면(칸 사이 틈 포함) 멈추고 떼면 이어서 흐른다. 기기 "애니메이션 줄이기"가 켜져 있으면 pen 자리에 멈춰 있고,
+/// 가로로 밀면 손이 간 만큼 움직인다(DESIGN §8.9 "손으로 밀 수는 있게 남긴다"). pause 아이콘은 없다(사용자 결정 2026-09-26).
 /// 높이는 칸 중 가장 높은 것을 따른다 — 배율 1.0 에서 140, 글자를 키우면 빈 칸 글자만큼 늘어난다.
 /// ponytail: 한 벌을 화면 폭만큼 복사해 Row 로 한 번에 그린다. 사람이 수십 명이 되면 높이를 배율로 계산해 ListView 로 바꾼다.
 class MosaicRail extends StatefulWidget {
@@ -69,39 +70,52 @@ class _MosaicRailState extends State<MosaicRail> with SingleTickerProviderStateM
     _sync();
   }
 
+  /// 손으로 민 거리만큼 옮긴다. 흐름과 같은 값(한 벌 = 0~1)을 쓰고 한 벌 길이로 나눈 나머지라 끝없이 되풀이된다.
+  void _drag(DragUpdateDetails details) {
+    _flow.value = (_flow.value + details.delta.dx / _cycleWidth) % 1.0;
+  }
+
   @override
   Widget build(BuildContext context) {
     final cycle = _cycleWidth;
     // 화면 폭을 덮고도 한 벌이 남게 복사한다 — 한 벌만큼 흘러가면 처음 자리로 돌아가도 이음매가 안 보인다.
     final copies = (MediaQuery.sizeOf(context).width / cycle).ceil() + 1;
-    return Listener(
-      onPointerDown: (_) => _press(1),
-      onPointerUp: (_) => _press(-1),
-      onPointerCancel: (_) => _press(-1),
-      child: UnconstrainedBox(
-        constrainedAxis: Axis.vertical,
-        alignment: Alignment.centerLeft,
-        clipBehavior: Clip.hardEdge,
-        child: AnimatedBuilder(
-          animation: _flow,
-          // 멈춰 있을 때(값 0) 둘째 벌이 x0 에 온다 — pen 과 같은 자리.
-          builder: (context, child) => Transform.translate(offset: Offset((_flow.value - 1) * cycle, 0), child: child),
-          // 칸 묶음을 한 번 그려 두고 매 프레임 옮기기만 한다 — 경계가 없으면 프레임마다 그림을 다시 그린다.
-          child: RepaintBoundary(
-            child: IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (var copy = 0; copy < copies; copy++)
-                    for (final image in [...widget.images, null]) ...[
-                      // 화면 읽기는 멈춰 있을 때 x0 에 오는 둘째 벌만 읽는다 — 복사본까지 읽으면 같은 말을 되풀이한다.
-                      ExcludeSemantics(
-                        excluding: copy != 1,
-                        child: image == null ? const MosaicEmptyTile() : MosaicPersonTile(image: image),
-                      ),
-                      const SizedBox(width: _gap),
-                    ],
-                ],
+    // 가로 밀기는 동작 줄이기에서만 받는다 — 흐르는 중에는 누르면 멈추는 것으로 충분하다(pen `P2sFxR` 메모).
+    // 세로 밀기는 받지 않아 홈 목록 스크롤은 그대로다.
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onHorizontalDragUpdate: _reduceMotion ? _drag : null,
+      child: Listener(
+        // 칸 사이 틈(10)에는 그림이 없어 자식이 맞지 않는다 — 레일 칸 전체가 누름을 받는다.
+        behavior: HitTestBehavior.opaque,
+        onPointerDown: (_) => _press(1),
+        onPointerUp: (_) => _press(-1),
+        onPointerCancel: (_) => _press(-1),
+        child: UnconstrainedBox(
+          constrainedAxis: Axis.vertical,
+          alignment: Alignment.centerLeft,
+          clipBehavior: Clip.hardEdge,
+          child: AnimatedBuilder(
+            animation: _flow,
+            // 멈춰 있을 때(값 0) 둘째 벌이 x0 에 온다 — pen 과 같은 자리.
+            builder: (context, child) => Transform.translate(offset: Offset((_flow.value - 1) * cycle, 0), child: child),
+            // 칸 묶음을 한 번 그려 두고 매 프레임 옮기기만 한다 — 경계가 없으면 프레임마다 그림을 다시 그린다.
+            child: RepaintBoundary(
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var copy = 0; copy < copies; copy++)
+                      for (final image in [...widget.images, null]) ...[
+                        // 화면 읽기는 멈춰 있을 때 x0 에 오는 둘째 벌만 읽는다 — 복사본까지 읽으면 같은 말을 되풀이한다.
+                        ExcludeSemantics(
+                          excluding: copy != 1,
+                          child: image == null ? const MosaicEmptyTile() : MosaicPersonTile(image: image),
+                        ),
+                        const SizedBox(width: _gap),
+                      ],
+                  ],
+                ),
               ),
             ),
           ),
