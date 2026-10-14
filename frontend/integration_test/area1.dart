@@ -158,7 +158,9 @@ Future<void> tap(WidgetTester tester, Finder finder) async {
   await tester.ensureVisible(finder.last);
   await tester.pump();
   await tester.tap(finder.last);
-  await tester.pump(const Duration(milliseconds: 300));
+  // 화면 전환(안드로이드 450ms · iOS 500ms, app_router.dart `_PlatformRoute`)이 끝나기 전에 다음 tap 이
+  // 아직 닫히는 화면의 요소를 집지 않게 전환보다 조금 더 기다린다.
+  await tester.pump(const Duration(milliseconds: 550));
 }
 
 Future<void> type(WidgetTester tester, Finder field, String text) async {

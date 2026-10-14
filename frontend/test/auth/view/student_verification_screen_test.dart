@@ -98,6 +98,9 @@ void main() {
       expect(find.text('졸업증명서'), findsOneWidget);
       expect(find.text('실명 · 필수'), findsOneWidget);
       expect(find.text('사진을 첨부해주세요'), findsOneWidget);
+      // 학생증 업로드 안내(pen KeC6D `J9fvt`) — 10-14 사용자 요청으로 '유효기간' 을 뺐다.
+      expect(find.text('이름·학교가 선명하게 보여야 해요'), findsOneWidget);
+      expect(find.textContaining('유효기간'), findsNothing);
       expect(find.text('학생증에 표기된 이름'), findsOneWidget); // 실명 입력칸 플레이스홀더 (pen Rg1VT)
       expect(find.text('인증 서류는 프로필에 공개되지 않아요.'), findsOneWidget);
       expect(find.text('확인 요청하기'), findsOneWidget);
