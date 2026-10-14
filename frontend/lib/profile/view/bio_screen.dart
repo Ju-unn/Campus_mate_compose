@@ -1,3 +1,5 @@
+import 'package:campus_mate/chat/view/chat_input_bar.dart';
+import 'package:campus_mate/common/line_break_limit_formatter.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/labeled_field.dart';
 import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
@@ -6,10 +8,15 @@ import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/profile/model/bio_repository.dart';
 import 'package:campus_mate/profile/viewmodel/bio_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+/// 자기소개 칸(06-3 · 15c)이 같이 쓰는 상한 — 8줄 · 300자. 줄 상한이 먼저다(넘친 줄 바꿈을 공백으로 바꿔도 글자 수는 같다).
+/// 카운터 · 상한 안내는 없다(pen `yxga9` · `zWMxM` 에 없다) — 채팅 1,000자처럼 끝에 닿으면 더 들어가지 않을 뿐이다.
+final bioInputFormatters = [lineBreakLimitFormatter(bioMaxLines), codePointLimitFormatter(bioMaxLength)];
 
 /// 자기소개 화면(DESIGN.md 화면 06-3, datingApp.pen `06-3 자기소개`).
 /// 06-2b 가 받아 온 초안이 placeholder 가 아니라 실제 입력값으로 들어와 있다(§13-71).
@@ -73,7 +80,8 @@ class _BioScreenState extends ConsumerState<BioScreen> {
                         controller: _controller,
                         onChanged: viewModel.changeBio,
                         errorText: state.errorMessage,
-                        maxLines: 8,
+                        inputFormatters: bioInputFormatters,
+                        maxLines: bioMaxLines,
                       ),
                     ],
                   ),
