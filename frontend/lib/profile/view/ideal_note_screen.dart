@@ -1,12 +1,21 @@
+import 'package:campus_mate/chat/view/chat_input_bar.dart';
+import 'package:campus_mate/common/line_break_limit_formatter.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/labeled_field.dart';
 import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/profile/model/ideal_note_repository.dart';
 import 'package:campus_mate/profile/viewmodel/ideal_note_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+/// 6줄 · 300자. 줄 상한이 먼저다. 카운터 · 상한 안내는 없다(pen `dIONW` · `vMxds` · `fGKgO` 에 없다).
+final _noteInputFormatters = [
+  lineBreakLimitFormatter(idealNoteMaxLines),
+  codePointLimitFormatter(idealNoteMaxLength),
+];
 
 /// "이런 사람이 좋아요" 자유 글 화면(DESIGN.md 화면 06-2a, datingApp.pen `06-2a 자유 입력`).
 /// 2026-09-19 매칭 공식 결정으로 되살아난 화면이다 — AI 는 쓰지 않고 문장 임베딩에만 쓴다.
@@ -49,7 +58,8 @@ class IdealNoteScreen extends ConsumerWidget {
                         // 오류(짧은 채로 "다음" 또는 서버 오류)가 있으면 같은 자리의 회색 안내 대신 오류가 나온다.
                         errorText: state.errorMessage,
                         guideText: state.lengthMessage,
-                        maxLines: 6,
+                        inputFormatters: _noteInputFormatters,
+                        maxLines: idealNoteMaxLines,
                       ),
                     ],
                   ),

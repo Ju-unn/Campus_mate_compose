@@ -116,6 +116,17 @@ void main() {
     expect(find.text('200 / 200'), findsOneWidget);
   });
 
+  testWidgets('기타 메모는 엔터로 5줄까지 — 붙여 넣은 넘는 줄 바꿈은 공백이 된다', (tester) async {
+    await open(tester);
+    await tester.tap(find.text('기타'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), '1\n2\n3\n4\n5\n6\n7');
+    await tester.pump();
+
+    expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, '1\n2\n3\n4\n5 6 7');
+  });
+
   testWidgets('실패하면 시트를 연 채 빨간 한 줄을 띄우고, 다시 누르면 같은 요청을 보낸다', (tester) async {
     repository.reportResult = const FailureResult(NetworkFailure());
     await open(tester);

@@ -105,6 +105,19 @@ def test_bio_of_a_thousand_characters_is_saved():
     assert _profile_patches(seen) == [{"bio": "가" * 1000}]
 
 
+def test_bio_line_endings_are_saved_as_newlines():
+    seen = []
+    assert _patch({"bio": "주말엔\r\n산책해요"}, seen=seen).status_code == 200
+    assert _profile_patches(seen) == [{"bio": "주말엔\n산책해요"}]
+
+
+def test_bio_with_forty_one_lines_is_422_and_writes_nothing():
+    # 앱은 8줄로 막는다. 서버는 옛 앱 · 직접 호출 방어용으로 40줄까지 받는다(1000자 ÷ 25).
+    seen = []
+    assert _patch({"bio": "\n".join(["가"] * 41)}, seen=seen).status_code == 422
+    assert _profile_patches(seen) == []
+
+
 def test_an_empty_body_is_422():
     # 고칠 칸이 없는 요청은 앱 버그다 — 아무것도 안 쓰고 200 을 주면 숨는다.
     assert _patch({}).status_code == 422

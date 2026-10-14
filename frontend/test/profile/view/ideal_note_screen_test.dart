@@ -59,4 +59,26 @@ void main() {
     expect(hint(), findsOneWidget);
     expect(find.byIcon(AppIcons.circleAlert), findsNothing);
   });
+
+  String fieldText(WidgetTester tester) => tester.widget<EditableText>(find.byType(EditableText)).controller.text;
+
+  // 2026-10-14 사용자 결정 "추천대로": 화면 상한 300자(서버는 1000 그대로), 엔터 줄은 칸 maxLines 와 같은 6줄.
+  testWidgets('300자(코드포인트)까지만 들어간다 — 카운터는 없다(pen dIONW)', (tester) async {
+    await pump(tester);
+
+    await tester.enterText(find.byType(TextField), '가' * 301);
+    await tester.pump();
+
+    expect(fieldText(tester).runes.length, 300);
+    expect(find.textContaining('/ 300'), findsNothing);
+  });
+
+  testWidgets('엔터 줄은 6줄까지 — 붙여 넣은 넘는 줄 바꿈은 공백이 된다', (tester) async {
+    await pump(tester);
+
+    await tester.enterText(find.byType(TextField), '1\n2\n3\n4\n5\n6\n7');
+    await tester.pump();
+
+    expect(fieldText(tester), '1\n2\n3\n4\n5\n6 7');
+  });
 }

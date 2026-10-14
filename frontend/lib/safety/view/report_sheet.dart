@@ -1,4 +1,5 @@
 import 'package:campus_mate/chat/view/chat_input_bar.dart';
+import 'package:campus_mate/common/line_break_limit_formatter.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -207,8 +208,11 @@ class _NoteBox extends StatelessWidget {
             controller: controller,
             onChanged: onChanged,
             maxLines: null,
-            // 200자는 코드포인트로 센다 — 서버 len() 이 그렇게 센다(입력 바와 같은 formatter).
-            inputFormatters: [codePointLimitFormatter(reportNoteMaxLength)],
+            // 200자는 코드포인트로 센다 — 서버 len() 이 그렇게 센다(입력 바와 같은 formatter). 줄 상한이 먼저다.
+            inputFormatters: [
+              lineBreakLimitFormatter(reportNoteMaxLines),
+              codePointLimitFormatter(reportNoteMaxLength),
+            ],
             style: AppTypography.bodySmall.copyWith(color: AppColors.ink, height: 1.5),
             decoration: InputDecoration.collapsed(
               hintText: '어떤 점이 불편했는지 알려주세요.',
