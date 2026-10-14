@@ -174,6 +174,8 @@ def test_a_sandbox_purchase_is_looked_up_after_production_says_not_found_and_is_
     # 400 = 애플이 거래 번호 꼴을 거절(InvalidTransactionId) — 샌드박스에 물어도 같다.
     (400, 404, [PRODUCTION]),
     (404, 400, [PRODUCTION, SANDBOX]),
+    # 거래 번호 꼴은 환경과 상관없다 — 운영이 401 이었어도 샌드박스의 400 은 '없는 거래'다.
+    (401, 400, [PRODUCTION, SANDBOX]),
 ])
 def test_a_transaction_apple_does_not_know_is_invalid(production, sandbox, asked):
     test_client, seen = _wire(production=production, sandbox=sandbox, rpc=GRANTED)
@@ -274,6 +276,75 @@ def test_apple_outage_is_503_and_nothing_is_granted(production, sandbox):
     assert _grants(seen) == []
 
 
+# 운영 401 → 샌드박스. 같은 키 · 발급자 · 번들로 운영 주소만 401 을 준 적이 있다(2026-10-14 실측 — 개발자 멤버십 비활성 중,
+# 샌드박스는 404 로 인증을 넘었다). 운영 401 은 샌드박스에 한 번 더 묻는다. 403 · 429 · 5xx · 시간 초과는 넘기지 않는다 —
+# 일시 장애를 샌드박스 거래로 오인하지 않게. 그 자리의 샌드박스 답은 진짜 거래(SANDBOX_TX)라 잘못 넘기면 200 이 되어 드러난다.
+SANDBOX_TX = sign(_transaction(environment="Sandbox"))
+
+
+def test_a_sandbox_purchase_is_granted_as_test_when_production_answers_401():
+    test_client, seen = _wire(production=401, sandbox=SANDBOX_TX, rpc=GRANTED)
+    response = _verify(test_client)
+
+    assert response.status_code == 200 and response.json() == GRANTED
+    assert [r.url.host for r in _apple(seen)] == [PRODUCTION, SANDBOX]
+    assert _apple(seen)[1].url.path == f"/inApps/v1/transactions/{TX}"
+    assert [g["p_is_test"] for g in _grants(seen)] == [True]
+
+
+@pytest.mark.parametrize("production, sandbox, asked", [
+    # 운영 401 뒤 샌드박스도 막히면 기존대로 503.
+    (401, 401, [PRODUCTION, SANDBOX]),
+    (401, 403, [PRODUCTION, SANDBOX]),
+    (401, 429, [PRODUCTION, SANDBOX]),
+    (401, 500, [PRODUCTION, SANDBOX]),
+    (401, httpx.ReadTimeout("slow"), [PRODUCTION, SANDBOX]),
+    # 운영 401 뒤 샌드박스에 없으면 운영 거래인지 모르는 채다 — '없는 거래'(422)가 아니라 503(앱이 나중에 다시 보낸다).
+    (401, 404, [PRODUCTION, SANDBOX]),
+    (403, SANDBOX_TX, [PRODUCTION]),
+    (429, SANDBOX_TX, [PRODUCTION]),
+    (500, SANDBOX_TX, [PRODUCTION]),
+    (503, SANDBOX_TX, [PRODUCTION]),
+    (httpx.ConnectTimeout("slow"), SANDBOX_TX, [PRODUCTION]),
+], ids=["401-401", "401-403", "401-429", "401-500", "401-timeout", "401-404",
+        "403-stop", "429-stop", "500-stop", "503-stop", "timeout-stop"])
+def test_only_a_production_401_or_404_moves_on_to_sandbox_and_an_outage_stays_503(production, sandbox, asked):
+    test_client, seen = _wire(production=production, sandbox=sandbox, rpc=GRANTED)
+    response = _verify(test_client)
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": errors.BILLING_UNAVAILABLE, "code": "billing_unavailable"}
+    assert [r.url.host for r in _apple(seen)] == asked
+    assert _grants(seen) == []
+
+
+@pytest.mark.parametrize("production, sandbox, trail", [
+    (401, 401, "production:401 sandbox:401"),
+    (401, 404, "production:401 sandbox:404"),
+    (404, 503, "production:404 sandbox:503"),
+    (403, SANDBOX_TX, "production:403"),
+    (httpx.ConnectTimeout("slow"), 404, "production:transport"),
+    (404, httpx.ReadTimeout("slow"), "production:404 sandbox:transport"),
+], ids=["401-401", "401-404", "404-503", "403-stop", "timeout", "404-timeout"])
+def test_an_outage_log_names_each_environment_asked_with_its_status_only(production, sandbox, trail, caplog):
+    caplog.set_level(logging.DEBUG)
+    test_client, _ = _wire(production=production, sandbox=sandbox, rpc=GRANTED)
+    _verify(test_client)
+
+    (line,) = [r.getMessage() for r in caplog.records if "애플 거래 조회 실패" in r.getMessage()]
+    assert line.endswith(f"status={trail}")
+
+
+def test_moving_on_from_a_production_401_is_warned_with_the_status_only(caplog):
+    # 멤버십이 돌아온 뒤에도 운영이 401 이면 실제 구매가 503 이 된다 — 샌드박스로 넘어간 것 자체를 경고로 남긴다.
+    caplog.set_level(logging.DEBUG)
+    test_client, _ = _wire(production=401, sandbox=SANDBOX_TX, rpc=GRANTED)
+
+    assert _verify(test_client).status_code == 200
+    assert [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING] == [
+        "애플 거래 조회 production:401 — 샌드박스에 한 번 더 묻는다"]
+
+
 @pytest.mark.parametrize("answer", [
     tamper_signature(sign(_transaction())),
     sign(_transaction(), make_chain()),
@@ -369,15 +440,19 @@ def test_a_grant_answer_outside_the_contract_is_500(rpc):
     (sign(_transaction()), 404, {"result": "token_used"}),
     (tamper_signature(sign(_transaction())), 404, None),
     (sign(_transaction(revocationDate=BOUGHT_AT_MS)), 404, None),
-], ids=["granted", "outage", "not_found", "other_account", "token_used", "tampered", "revoked"])
+    (401, SANDBOX_TX, GRANTED),
+    (401, 401, None),
+], ids=["granted", "outage", "not_found", "other_account", "token_used", "tampered", "revoked",
+        "production_401_then_sandbox", "both_401"])
 def test_verify_logs_never_contain_the_transaction_id_the_jws_or_our_token(production, sandbox, rpc, caplog):
     caplog.set_level(logging.DEBUG)
     test_client, seen = _wire(production=production, sandbox=sandbox, rpc=rpc)
     _verify(test_client)
 
     secrets = [TX, PEM_BODY, *(r.headers["Authorization"].split(" ")[1] for r in _apple(seen))]
-    if isinstance(production, str):
-        secrets += production.split(".")
+    for answer in (production, sandbox):
+        if isinstance(answer, str):
+            secrets += answer.split(".")
     for secret in secrets:
         assert secret not in caplog.text, secret
 
