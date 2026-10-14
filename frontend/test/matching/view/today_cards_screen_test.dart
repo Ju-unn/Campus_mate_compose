@@ -3,7 +3,9 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/entrance.dart';
 import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
+import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/home/model/cohort_wait.dart';
 import 'package:campus_mate/home/model/home_repository_provider.dart';
 import 'package:campus_mate/home/model/home_summary.dart';
@@ -11,6 +13,7 @@ import 'package:campus_mate/home/view/cohort_wait_view.dart';
 import 'package:campus_mate/matching/model/card_profile.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:campus_mate/matching/model/daily_card.dart';
+import 'package:campus_mate/matching/view/countdown_text.dart';
 import 'package:campus_mate/matching/view/daily_card_summary.dart';
 import 'package:campus_mate/matching/view/today_cards_screen.dart';
 import 'package:flutter/material.dart';
@@ -201,6 +204,52 @@ void main() {
     expect(find.text('새로운 사람이 오면 알림을 보내드려요'), findsOneWidget);
   });
 
+  group('카드 등장(DESIGN §7 emphasis — 하루 두 번 중 하나)', () {
+    final twoCards = FakeCardRepository()
+      ..today = const Success(
+        TodayCards(
+          cards: [
+            DailyCard(cardId: 'e1', source: CardSource.daily, profile: CardProfile(profileId: 't1', nickname: '여우비', age: 23, university: '테스트대학교', major: '컴퓨터공학과')),
+            DailyCard(cardId: 'e2', source: CardSource.purchased, profile: CardProfile(profileId: 't2', nickname: '토끼', age: 24, university: '테스트대학교', major: '경영학과')),
+          ],
+        ),
+      );
+
+    testWidgets('카드는 투명 · 아래 16 에서 emphasis(420ms) 로 올라오고, 카드 사이 60ms', (tester) async {
+      await pump(tester, twoCards);
+
+      final entrances = tester.widgetList<Entrance>(find.byType(Entrance)).toList();
+      expect(
+        entrances.map((e) => (e.rise, e.delay, e.duration, e.curve, e.enabled)),
+        [
+          (16.0, Duration.zero, AppMotion.emphasis, AppMotion.emphasisCurve, true),
+          (16.0, const Duration(milliseconds: 60), AppMotion.emphasis, AppMotion.emphasisCurve, true),
+        ],
+      );
+      expect(find.ancestor(of: find.byType(DailyCardSummary).first, matching: find.byType(Entrance)), findsOneWidget);
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('같은 카드는 한 번만 움직인다 — 탭을 나갔다 오면 제자리에 그대로 있다', (tester) async {
+      final container = ProviderContainer(
+        overrides: [
+          cardRepositoryProvider.overrideWithValue(twoCards),
+          chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
+          homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
+        ],
+      );
+      addTearDown(container.dispose);
+      Widget app(Widget home) => UncontrolledProviderScope(container: container, child: MaterialApp(home: home));
+      await tester.pumpWidget(app(const TodayCardsScreen()));
+      await tester.pumpAndSettle();
+
+      await tester.pumpWidget(app(const Text('다른 탭')));
+      await tester.pumpWidget(app(const TodayCardsScreen()));
+
+      expect(tester.widgetList<Entrance>(find.byType(Entrance)).map((e) => e.enabled), [false, false]);
+    });
+  });
+
   testWidgets('오늘 몫이 끝나면 카운트다운과 "내일 만날 사람들" 띠를 보여준다', (tester) async {
     // pen `i4VFS` — 띠는 눌러도 열리지 않는다는 말까지 같이 보여준다.
     final repository = FakeCardRepository()
@@ -213,6 +262,11 @@ void main() {
     expect(find.text('오늘 카드는 확인했어요'), findsOneWidget);
     expect(find.text('내일 만날 사람들'), findsOneWidget);
     expect(find.text('탭해도 열리지 않아요'), findsOneWidget);
+    // 카운트다운은 홈 hero 와 같은 CountdownText(48/700 · tabularFigures) — 시 자리는 기기 시계라 02 · 03 둘 다 받는다.
+    final countdown = find.byType(CountdownText);
+    expect(countdown, findsOneWidget);
+    expect(find.descendant(of: countdown, matching: find.textContaining(RegExp(r'^0[23]:\d\d:\d\d$'))), findsOneWidget);
+    expect(tester.widget<CountdownText>(countdown).style.fontSize, 48);
   });
 
   group('대기 부제 — 다음 주면 "다음 주 O요일"(사용자 결정 10-04 (나), 주는 서울 월요일 시작)', () {

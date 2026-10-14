@@ -6,11 +6,10 @@ import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 
-/// stat-panel 한 칸(pen `krua8` 의 `zUQMn` · `Rp7wY` · `iwSBr`).
+/// stat-panel 한 칸(pen `krua8` 의 `zUQMn` · `Rp7wY` · `iwSBr`). 세 칸 바탕은 한 색 surface-soft(2026-10-14 pen).
 class StatTile extends StatelessWidget {
   const StatTile({
     required this.icon,
-    required this.color,
     required this.value,
     required this.label,
     this.iconScale = 1,
@@ -18,7 +17,6 @@ class StatTile extends StatelessWidget {
   });
 
   final AppIcon3d icon;
-  final Color color;
   final String value;
   final String label;
 
@@ -32,7 +30,7 @@ class StatTile extends StatelessWidget {
       constraints: const BoxConstraints(minHeight: 96),
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxs, vertical: 6),
       decoration: BoxDecoration(
-        color: color,
+        color: AppColors.surfaceSoft,
         borderRadius: BorderRadius.circular(AppRadius.md),
       ),
       child: Column(
@@ -44,13 +42,19 @@ class StatTile extends StatelessWidget {
           FittedBox(
             fit: BoxFit.scaleDown,
             // softWrap 을 꺼야 줄 높이를 재는 IntrinsicHeight 가 두 줄로 세지 않는다.
-            child: Text(value, softWrap: false, style: AppTypography.label.copyWith(color: AppColors.ink)),
+            // pen 글자 상자 25(`zJXYN` 렌더, lineHeight 속성 없음) — label 토큰은 21.6 이라 맞춘다.
+            child: Text(
+              value,
+              softWrap: false,
+              style: AppTypography.label.copyWith(height: 25 / 18, color: AppColors.ink),
+            ),
           ),
           const SizedBox(height: 3),
+          // pen `LVTW1` 12 · 렌더 16(lineHeight 속성 없음) — caption 토큰은 16.8 이라 맞춘다.
           Text(
             label,
             textAlign: TextAlign.center,
-            style: AppTypography.caption.copyWith(fontSize: 11, color: AppColors.muted),
+            style: AppTypography.caption.copyWith(height: 16 / 12, color: AppColors.muted),
           ),
         ],
       ),

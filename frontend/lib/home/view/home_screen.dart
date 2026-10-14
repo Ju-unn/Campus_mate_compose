@@ -4,13 +4,16 @@ import 'package:campus_mate/billing/view/heart_balance_chip.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/common/widgets/entrance.dart';
 import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/common/widgets/pressable.dart';
 import 'package:campus_mate/consent/model/open_url.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
@@ -21,7 +24,9 @@ import 'package:campus_mate/home/view/mosaic_rail.dart';
 import 'package:campus_mate/home/view/notify_icon_button.dart';
 import 'package:campus_mate/home/view/stat_tile.dart';
 import 'package:campus_mate/home/view/tag.dart';
+import 'package:campus_mate/home/viewmodel/hero_today.dart';
 import 'package:campus_mate/home/viewmodel/home_summary_provider.dart';
+import 'package:campus_mate/matching/view/countdown_text.dart';
 import 'package:campus_mate/me/view/me_toast.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:campus_mate/notifications/viewmodel/unread_count_provider.dart';
@@ -29,7 +34,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-/// 09b 메인(pen `bpA8x`). hero-today · mosaic-rail · stat-panel · review-strip · campus-strip 순서.
+/// 숫자 칸 하나를 보이는 최소값(DESIGN §8.9 규칙 4 — 임계값 미만 칸은 숨긴다). 값은 §13 미결 9(베타 데이터를 보고 정함)라
+/// 지금은 "0 이면 숨김" 만 한다. 세 칸이 모두 미달이면 빈 상태 판(`Tklrw`)이다.
+const int _minStatValue = 1;
+
+/// 리뷰 띠를 보이는 최소 평가 수(DESIGN §8.9 review-strip · pen `L7wKi` context "출시 전 숨김"). 값은 DESIGN 에 없어 정한
+/// 임시값이다(§13 미결 9 와 같은 사고방식, 결정 대기) — 저장소가 채우는 출시 전 목값(1명 평가)은 이 아래라 숨는다.
+const int _minReviewCount = 10;
+
+/// 09b 메인(pen `bpA8x`). hero-today · mosaic-rail · stat-panel · review-strip · campus-strip 순서, 블록 사이 24.
 /// 요약을 못 받으면(조회 중·실패) hero-today 만 남긴다 — 카드로 가는 길은 요약과 상관없다.
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -43,6 +56,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
 
   /// 알림함이 열려 있는 동안 종을 또 눌러도 한 겹만 쌓는다.
   bool _openingInbox = false;
+
+  /// 요약 블록 도착 효과는 이 화면에서 요약을 **처음 받을 때만** 보인다 — 이미 받아 둔 요약으로 다시 들어오거나
+  /// 다시 읽을 때(프로필 편집에서 돌아옴)는 움직이지 않는다. 한 번 요약을 그리면 false 로 닫힌다.
+  late bool _summaryArriving = ref.read(homeSummaryProvider).value == null;
 
   @override
   void initState() {
@@ -117,6 +134,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
   Widget build(BuildContext context) {
     final summary = ref.watch(homeSummaryProvider).value;
     final cohort = summary?.cohort;
+    final animateSummary = _summaryArriving;
+    if (summary != null) _summaryArriving = false;
+    // 내 학교 — 앱바 하트 칩이 이미 읽는 내 프로필에서 꺼낸다(서버 요약에는 없다). 못 읽으면 강조 없이 둔다.
+    final mySchool = ref.watch(
+      myProfileProvider.select((profile) => profile.value?.when(onSuccess: (me) => me.university, onFailure: (_) => null)),
+    );
     return Scaffold(
       // 유리 내비(pen `xtj0K`) 뒤로 본문이 이어진다 — 아래 여백은 본문 MediaQuery padding.bottom(알약 + 띄움 + safe area).
       extendBody: true,
@@ -158,7 +181,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
                   ),
                   children: [
                     const _HeroToday(),
-                    if (summary != null) ..._summarySections(summary),
+                    if (summary != null) ..._summarySections(summary, animate: animateSummary, mySchool: mySchool),
                   ],
                 ),
               ),
@@ -166,159 +189,284 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
     );
   }
 
-  List<Widget> _summarySections(HomeSummary summary) {
-    return [
-      const SizedBox(height: AppSpacing.md),
-      const _RailHeader(),
-      const SizedBox(height: 10),
-      MosaicRail(images: summary.presentPeopleImages),
-      const SizedBox(height: AppSpacing.md),
-      // 세 숫자가 모두 0 이면 숫자 칸 줄(pen `krua8`) 대신 판 하나(`Tklrw` 의 `AJVDS`)를 둔다.
-      if (summary.deliveredCards == 0 && summary.signups == 0 && summary.conversationsStarted == 0)
-        const _StatEmptyPanel()
-      else
-      // 글자를 키워 한 칸이 늘어나면 세 칸 높이를 같이 맞춘다.
-      IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // 칸 바탕 · 그림 확대는 pen `zUQMn` · `Rp7wY` · `iwSBr` 값(토큰표 밖).
-            Expanded(
-              child: StatTile(
-                icon: AppIcon3d.send,
-                iconScale: 1.25,
-                color: const Color(0xFFFFF6F8),
-                value: _thousands(summary.deliveredCards),
-                label: '전달된 카드',
-              ),
-            ),
-            const SizedBox(width: AppSpacing.xs),
-            Expanded(
-              child: StatTile(
-                icon: AppIcon3d.join,
-                iconScale: 1.16,
-                color: const Color(0xFFF8F5FF),
-                value: _thousands(summary.signups),
-                label: '가입 수',
-              ),
-            ),
-            const SizedBox(width: AppSpacing.xs),
-            Expanded(
-              child: StatTile(
-                icon: AppIcon3d.chat,
-                color: const Color(0xFFF5F7FF),
-                value: _thousands(summary.conversationsStarted),
-                label: '시작된 대화',
-              ),
-            ),
-          ],
-        ),
+  /// 요약 블록 다섯(레일 · 숫자 칸 · 리뷰 띠 · 참여 대학 · 완성도 카드). 블록 사이는 모두 24(pen `X4K49Y` · `vvDYo` · `gdS3k` ·
+  /// `sDLEb`+`o6qaj` · `yzF6g`). 숨는 블록(리뷰 띠 임계값 미만, 완성도 100)은 위 여백째 빠진다.
+  /// [animate] 면 블록마다 투명 · 아래 8 에서 40ms 간격으로 올라온다(DESIGN §7 standard, 처음 받을 때만).
+  List<Widget> _summarySections(HomeSummary summary, {required bool animate, required String? mySchool}) {
+    final blocks = <Widget>[
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const _RailHeader(),
+          const SizedBox(height: 10),
+          MosaicRail(images: summary.presentPeopleImages),
+        ],
       ),
-      // pen 숫자 칸 ↔ 리뷰 띠 16(`gdS3k` 외 6곳, 종전 24 — 4px 넘쳐 내비를 덮어 줄였다).
-      const SizedBox(height: AppSpacing.md),
-      _ReviewStrip(rating: summary.reviewRating, count: summary.reviewCount, onReview: _openStoreReview),
-      // pen 은 여백 16 · 8(`sDLEb` · `o6qaj`)을 겹쳐 둔다.
-      const SizedBox(height: AppSpacing.lg),
-      // pen 글자 상자 높이 20(`YIoXQ` 렌더 결과, lineHeight 속성 없음) — bodySmall 토큰은 22 라 맞춘다.
-      Text(
-        '참여 중인 대학',
-        style: AppTypography.bodySmall.copyWith(fontWeight: FontWeight.w700, height: 20 / 14, color: AppColors.muted),
-      ),
-      const SizedBox(height: AppSpacing.xs),
-      Wrap(spacing: 6, runSpacing: 6, children: [for (final campus in summary.campuses) Tag(label: campus)]),
+      _statPanel(summary),
+      if (summary.reviewCount >= _minReviewCount)
+        _ReviewStrip(rating: summary.reviewRating, count: summary.reviewCount, onReview: _openStoreReview),
+      _CampusStrip(campuses: summary.campuses, mySchool: mySchool),
       // 다 채웠으면 권할 것이 없어 카드를 숨긴다(사용자 결정 2026-09-26).
-      if (summary.profileCompletionPercent < 100) ...[
-        const SizedBox(height: AppSpacing.md),
-        _ProfileNudge(
-          percent: summary.profileCompletionPercent,
-          onTap: _editProfile,
-        ),
+      if (summary.profileCompletionPercent < 100)
+        _ProfileNudge(percent: summary.profileCompletionPercent, onTap: _editProfile),
+    ];
+    return [
+      for (final (index, block) in blocks.indexed) ...[
+        const SizedBox(height: AppSpacing.lg),
+        Entrance(rise: 8, delay: _blockStagger * index, enabled: animate, child: block),
       ],
     ];
+  }
+
+  /// 요약 블록 도착 간격(대장 지시 — 모션 기회 4, pen 에 없는 값)
+  static const Duration _blockStagger = Duration(milliseconds: 40);
+
+  /// 숫자 칸 줄(pen `krua8`). 임계값 미만 칸은 숨기고 남은 칸이 폭을 나눈다(DESIGN §8.9 규칙 4).
+  /// 모두 미달이면 판 하나(`Tklrw` 의 `AJVDS`)를 둔다. 그림 확대 배율은 pen `zUQMn` · `Rp7wY` 값.
+  Widget _statPanel(HomeSummary summary) {
+    final tiles = [
+      if (summary.deliveredCards >= _minStatValue)
+        StatTile(icon: AppIcon3d.send, iconScale: 1.25, value: _thousands(summary.deliveredCards), label: '전달된 카드'),
+      if (summary.signups >= _minStatValue)
+        StatTile(icon: AppIcon3d.join, iconScale: 1.16, value: _thousands(summary.signups), label: '가입 수'),
+      if (summary.conversationsStarted >= _minStatValue)
+        StatTile(icon: AppIcon3d.chat, value: _thousands(summary.conversationsStarted), label: '시작된 대화'),
+    ];
+    if (tiles.isEmpty) return const _StatEmptyPanel();
+    // 글자를 키워 한 칸이 늘어나면 칸 높이를 같이 맞춘다.
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final (index, tile) in tiles.indexed) ...[
+            if (index > 0) const SizedBox(width: AppSpacing.xs),
+            Expanded(child: tile),
+          ],
+        ],
+      ),
+    );
   }
 
   static String _thousands(int n) =>
       n.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => ',');
 }
 
-/// hero-today(pen `U1k8ZK`). "지금 확인하기"는 오늘 탭으로 간다. 하트 장식 · "결정 대기" 문구는 `lvmAj` 에만 있다.
-class _HeroToday extends StatelessWidget {
+/// hero-today 세 상태(DESIGN §8.9). 모양은 [heroTodayProvider] 가 오늘 탭 상태로 고른다.
+/// 상태가 바뀌면 `{motion.standard}` 로 겹쳐 바꾼다 — 기기 "동작 줄이기"면 바로 바꾼다.
+class _HeroToday extends ConsumerWidget {
   const _HeroToday();
 
   @override
-  Widget build(BuildContext context) {
-    // pen 글자 상자 높이 29(`dIoz0` · `V2NIui` 렌더 결과, lineHeight 속성 없음) — title 토큰은 28 이라 맞춘다.
-    final lineStyle = AppTypography.title.copyWith(
-      fontWeight: FontWeight.w700,
-      height: 29 / 20,
-      color: AppColors.ink,
+  Widget build(BuildContext context, WidgetRef ref) {
+    return AnimatedSwitcher(
+      duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : AppMotion.standard,
+      switchInCurve: AppMotion.standardCurve,
+      switchOutCurve: AppMotion.standardCurve,
+      child: switch (ref.watch(heroTodayProvider)) {
+        HeroArrived() => _HeroFrame(
+            key: const ValueKey('arrived'),
+            color: AppColors.primaryWash,
+            children: [
+              ..._HeroFrame.lines('오늘의 카드가', '도착했어요'),
+              const SizedBox(height: AppSpacing.sm),
+              const _HeroButton('지금 확인하기'),
+            ],
+          ),
+        HeroPending(:final count) => _HeroFrame(
+            key: const ValueKey('pending'),
+            color: AppColors.primaryWash,
+            badge: _PendingBadge(count),
+            children: [
+              ..._HeroFrame.lines('결정 대기 카드가', '$count장 남아 있어요'),
+              const SizedBox(height: AppSpacing.sm),
+              const _HeroButton('이어서 확인하기'),
+            ],
+          ),
+        HeroDone(:final nextIssueAt) => _HeroFrame(
+            key: const ValueKey('done'),
+            color: AppColors.surfaceSoft,
+            // pen `xq5wi` — 위아래 16, 높이 128 안에서 가운데. 버튼이 없다(이미 확인했다).
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: AppSpacing.md),
+            centered: true,
+            children: [
+              ..._HeroFrame.lines('오늘 카드는', '모두 확인했어요'),
+              if (nextIssueAt != null) ...[
+                const SizedBox(height: AppSpacing.xs),
+                // `GC85E` 14/400 lh 1.5 muted · `FMjgB` 32/700 자간 -0.96 — 렌더 44(lineHeight 속성 없음).
+                Text('다음 카드까지', style: AppTypography.bodySmall.copyWith(height: 1.5, color: AppColors.muted)),
+                // 글자를 키워 숫자가 칸보다 넓어지면 자르지 않고 줄인다(한 덩어리라 줄을 바꿀 곳이 없다).
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: CountdownText(
+                    target: nextIssueAt,
+                    style: AppTypography.countdown
+                        .copyWith(fontSize: 32, height: 44 / 32, letterSpacing: -0.96, color: AppColors.ink),
+                  ),
+                ),
+              ],
+            ],
+          ),
+      },
     );
-    // pen 높이 160 은 최소 높이다 — 글자를 키우면 늘어난다(DESIGN §11.2).
+  }
+}
+
+/// hero 한 장의 틀(pen `U1k8ZK` · `fxlhV` · `HGxAR`). 세 상태가 같은 틀이다 — 모서리 32, 최소 높이 160(DESIGN §8.9 · 미결 46,
+/// 글자를 키우면 늘어난다 §11.2). 커플 마스코트(`S49nUs`)는 오른쪽 끝에서 -4 · 위 -5 · 160×170 — 왼쪽 x172 고정이면 320 폭에서
+/// 잘리고 430 폭에서 빈 곳이 생긴다(pen context). 위로 5 삐져나가 모서리에 잘리고, 글자를 키우면 글자가 그림 위로 온다.
+class _HeroFrame extends StatelessWidget {
+  const _HeroFrame({
+    required this.color,
+    required this.children,
+    this.padding = const EdgeInsets.all(20),
+    this.centered = false,
+    this.badge,
+    super.key,
+  });
+
+  final Color color;
+  final List<Widget> children;
+  final EdgeInsets padding;
+  final bool centered;
+  final Widget? badge;
+
+  /// 두 줄 제목 20/700 #222. pen 글자 상자 27(`dIoz0` · `P0SAU` · `fvepr` 렌더, lineHeight 속성 없음) — title 토큰은 28 이라 맞춘다.
+  static List<Widget> lines(String first, String second) {
+    final style = AppTypography.title.copyWith(fontWeight: FontWeight.w700, height: 27 / 20, color: AppColors.ink);
+    return [Text(first, style: style), Text(second, style: style)];
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
+      // AnimatedSwitcher 가 느슨한 폭을 줘도 줄 폭을 다 쓴다.
+      width: double.infinity,
       constraints: const BoxConstraints(minHeight: 160),
       clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: AppColors.primaryWash,
-        borderRadius: BorderRadius.circular(AppRadius.xl),
-      ),
+      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(AppRadius.xl)),
       child: Stack(
+        // 최소 높이를 글 칸까지 넘겨야 확인 완료가 가운데에 선다.
+        fit: StackFit.passthrough,
         children: [
-          // `S49nUs` 는 위로 5 삐져나가 카드 모서리에 잘린다. 글자를 키우면 글자가 그림 위로 온다.
           Positioned(
-            left: 172,
+            right: -4,
             top: -5,
             width: 160,
             height: 170,
             child: Image.asset('assets/images/home-top-mascot-couple.webp', excludeFromSemantics: true),
           ),
           Padding(
-            // 아래 22 는 배율 1.0 에서 20 + 글자 58 + 12 + 버튼 48 + 22 = 160 이 되게 한다.
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 22),
+            padding: padding,
             child: Column(
+              mainAxisAlignment: centered ? MainAxisAlignment.center : MainAxisAlignment.start,
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('오늘의 카드가', style: lineStyle),
-                Text('도착했어요', style: lineStyle),
-                const SizedBox(height: AppSpacing.sm),
-                Material(
-                  color: AppColors.primary,
-                  borderRadius: BorderRadius.circular(AppRadius.md),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(AppRadius.md),
-                    onTap: () => context.go(AppRoutes.today),
-                    // pen 150×48 은 최소 크기다 — 글자를 키우면 버튼이 늘어난다(DESIGN §11.2).
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(minWidth: 150, minHeight: 48),
-                      child: Center(
-                        widthFactor: 1,
-                        heightFactor: 1,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-                          child: Text('지금 확인하기', style: AppTypography.label.copyWith(color: AppColors.onPrimary)),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+              children: children,
             ),
           ),
+          if (badge case final badge?) Positioned(top: AppSpacing.md, right: AppSpacing.md, child: badge),
         ],
       ),
     );
   }
 }
 
-/// mosaic-rail 머리줄(pen `Ab3td` 328×25, 제목 `h7wmcH`). 오른쪽 "일시정지"(`gK0eT`)는 사용자 결정(2026-09-26)으로
+/// hero 버튼(pen `t0Un8s` · `yfRCy` 150×48 r14 #FF385C, 글자 18/700 흰색). 오늘 탭으로 간다 — 카드로 가는 유일한 유도 지점(§8.9).
+class _HeroButton extends StatelessWidget {
+  const _HeroButton(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.primary,
+      borderRadius: BorderRadius.circular(AppRadius.md),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        onTap: () => context.go(AppRoutes.today),
+        // pen 150×48 은 최소 크기다 — 글자를 키우면 버튼이 늘어난다(DESIGN §11.2).
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 150, minHeight: 48),
+          child: Center(
+            widthFactor: 1,
+            heightFactor: 1,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+              child: Text(label, style: AppTypography.label.copyWith(color: AppColors.onPrimary)),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 결정 대기 장수 배지(pen `Q4nCLG` — hero 우상단 16 · 32×24 · #FF385C 알약, 숫자 11/600 흰색). 0 이면 hero 가 결정 대기 상태가 아니라 안 뜬다.
+/// 같은 수를 hero 문구가 이미 말하므로 스크린리더에는 읽히지 않는다.
+class _PendingBadge extends StatelessWidget {
+  const _PendingBadge(this.count);
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return ExcludeSemantics(
+      child: Container(
+        constraints: const BoxConstraints(minWidth: 32, minHeight: 24),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(AppRadius.pill)),
+        child: Text('$count', style: AppTypography.badge.copyWith(color: AppColors.onPrimary)),
+      ),
+    );
+  }
+}
+
+/// campus-strip(pen `YIoXQ` 제목 + `zOaUW` 칩 줄). 내 학교 칩을 맨 앞에 두고 강조한다(pen `T2Pfi4`).
+class _CampusStrip extends StatelessWidget {
+  const _CampusStrip({required this.campuses, required this.mySchool});
+
+  final List<String> campuses;
+  final String? mySchool;
+
+  @override
+  Widget build(BuildContext context) {
+    final mine = campuses.contains(mySchool) ? mySchool : null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // pen 글자 상자 19(`YIoXQ` 렌더, lineHeight 속성 없음) — bodySmall 토큰은 21.7 이라 맞춘다.
+        Text(
+          '참여 중인 대학',
+          style: AppTypography.bodySmall.copyWith(fontWeight: FontWeight.w700, height: 19 / 14, color: AppColors.muted),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            if (mine != null) Tag(label: mine, mine: true),
+            for (final campus in campuses)
+              if (campus != mine) Tag(label: campus),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// mosaic-rail 머리줄(pen `Ab3td` 328×23, 제목 `h7wmcH`). 오른쪽 "일시정지"(`gK0eT`)는 사용자 결정(2026-09-26)으로
 /// pen 에서도 지웠다 — 레일은 저절로 흐르고 누르고 있으면 멈춘다([MosaicRail]).
 class _RailHeader extends StatelessWidget {
   const _RailHeader();
 
   @override
   Widget build(BuildContext context) {
+    // pen 글자 상자 23(`h7wmcH` 렌더, lineHeight 속성 없음) — subtitle 토큰은 24.65 라 맞춘다.
     return Text(
       '지금 함께 있는 사람들',
-      style: AppTypography.subtitle.copyWith(fontWeight: FontWeight.w700, color: AppColors.ink),
+      style: AppTypography.subtitle.copyWith(fontWeight: FontWeight.w700, height: 23 / 17, color: AppColors.ink),
     );
   }
 }
@@ -403,19 +551,15 @@ class _ReviewStrip extends StatelessWidget {
               ),
             ),
           ),
-          // 누름 칸은 pen 버튼 칸(높이 48) 그대로다 — 모양은 바꾸지 않았다.
-          Semantics(
-            button: true,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: onReview,
-              child: SizedBox(
-                height: 48,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                  child: Center(
-                    child: Text('리뷰 남기기', style: AppTypography.button.copyWith(color: AppColors.primaryText)),
-                  ),
+          // 누름 칸은 pen 버튼 칸(높이 48) 그대로다 — 모양은 바꾸지 않았고, 누르는 동안 투명도만 내려간다.
+          Pressable(
+            onTap: onReview,
+            child: SizedBox(
+              height: 48,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                child: Center(
+                  child: Text('리뷰 남기기', style: AppTypography.button.copyWith(color: AppColors.primaryText)),
                 ),
               ),
             ),
@@ -426,7 +570,7 @@ class _ReviewStrip extends StatelessWidget {
   }
 }
 
-/// 프로필 완성도 카드(pen `usk5M`). 카드 전체가 누름 칸이고 프로필 편집 허브(15-5)로 간다.
+/// 프로필 완성도 카드(pen `usk5M`, 2026-10-14 — 마스코트 없이 글 칸 + 화살표). 카드 전체가 누름 칸이고 프로필 편집 허브(15-5)로 간다.
 class _ProfileNudge extends StatelessWidget {
   const _ProfileNudge({required this.percent, required this.onTap});
 
@@ -435,16 +579,13 @@ class _ProfileNudge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // pen 글자 상자 높이 20(`tV9Oa` · `KjqWO`)·16(`a8UzQ`) — lineHeight 속성 없음, 렌더 결과. 토큰은 21.7·15.4 라 맞춘다.
+    // pen 글자 상자 높이 19(`tV9Oa` · `KjqWO`)·16(`a8UzQ`) — lineHeight 속성 없음, 렌더 결과. 토큰은 21.7·16.8 이라 맞춘다.
     final lineStyle =
-        AppTypography.bodySmall.copyWith(fontWeight: FontWeight.w700, height: 20 / 14, color: AppColors.ink);
+        AppTypography.bodySmall.copyWith(fontWeight: FontWeight.w700, height: 19 / 14, color: AppColors.ink);
     // pen 높이 92 는 최소 높이다 — 글자를 키우면 늘어난다(DESIGN §11.2).
-    return Semantics(
-      button: true,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: Container(
+    return Pressable(
+      onTap: onTap,
+      child: Container(
           constraints: const BoxConstraints(minHeight: 92),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: AppSpacing.xxs),
           decoration: BoxDecoration(
@@ -453,8 +594,6 @@ class _ProfileNudge extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Image.asset('assets/images/mascot-male.png', width: 64, height: 64),
-              const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -490,9 +629,10 @@ class _ProfileNudge extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 5),
+                    // pen `a8UzQ` 12(2026-10-14, 종전 11) · 렌더 16.
                     Text(
                       '프로필 완성도 $percent%',
-                      style: AppTypography.caption.copyWith(fontSize: 11, height: 16 / 11, color: AppColors.muted),
+                      style: AppTypography.caption.copyWith(height: 16 / 12, color: AppColors.muted),
                     ),
                   ],
                 ),
@@ -501,7 +641,6 @@ class _ProfileNudge extends StatelessWidget {
               const Icon(AppIcons.chevronRight, size: 20, color: AppColors.primaryText),
             ],
           ),
-        ),
       ),
     );
   }

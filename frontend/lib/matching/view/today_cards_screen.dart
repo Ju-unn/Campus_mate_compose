@@ -3,10 +3,12 @@ import 'dart:ui' show ImageFilter;
 
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/entrance.dart';
 import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
@@ -14,6 +16,7 @@ import 'package:campus_mate/home/view/cohort_wait_view.dart';
 import 'package:campus_mate/home/viewmodel/home_summary_provider.dart';
 import 'package:campus_mate/matching/model/daily_card.dart';
 import 'package:campus_mate/matching/model/paid_card.dart';
+import 'package:campus_mate/matching/view/countdown_text.dart';
 import 'package:campus_mate/matching/view/daily_card_summary.dart';
 import 'package:campus_mate/matching/view/paid_card_slot.dart';
 import 'package:campus_mate/matching/viewmodel/today_cards_ui_state.dart';
@@ -96,6 +99,13 @@ class _SkeletonCards extends StatelessWidget {
   }
 }
 
+/// 이미 등장 효과를 보인 카드 id — 같은 카드는 한 번만 움직인다(DESIGN §7 emphasis 는 하루 두 번까지, 대장 지시 "하루 한 번").
+/// ponytail: 메모리에만 둔다 — 앱을 다시 켜면 그날 카드가 한 번 더 움직인다. 막아야 하면 shared_preferences 에 날짜 · id 를 남긴다.
+final _shownCardIdsProvider = Provider<Set<String>>((ref) => <String>{});
+
+/// 카드 사이 등장 간격(대장 지시 — 모션 기회 2, pen 에 없는 값)
+const Duration _cardStagger = Duration(milliseconds: 60);
+
 class _CardList extends ConsumerWidget {
   const _CardList({required this.cards, required this.paidCard});
 
@@ -115,13 +125,22 @@ class _CardList extends ConsumerWidget {
           return PaidCardSlot(paidCard: paidCard!);
         }
         final card = cards[index];
-        return DailyCardSummary(
-          card: card,
-          // 10b 에서 결정하고 돌아오면 목록을 다시 읽는다 — 결정한 카드가 남아 있으면 안 된다.
-          onTap: () async {
-            await context.push<void>('${AppRoutes.cardDetail}/${card.cardId}');
-            await ref.read(todayCardsViewModelProvider.notifier).markDecided();
-          },
+        // 처음 보는 카드만 투명 · 아래 16 에서 emphasis 로 올라온다(transform · opacity 만 — 움직이는 중에도 누를 수 있다).
+        return Entrance(
+          key: ValueKey(card.cardId),
+          rise: 16,
+          duration: AppMotion.emphasis,
+          curve: AppMotion.emphasisCurve,
+          delay: _cardStagger * index,
+          enabled: ref.read(_shownCardIdsProvider).add(card.cardId),
+          child: DailyCardSummary(
+            card: card,
+            // 10b 에서 결정하고 돌아오면 목록을 다시 읽는다 — 결정한 카드가 남아 있으면 안 된다.
+            onTap: () async {
+              await context.push<void>('${AppRoutes.cardDetail}/${card.cardId}');
+              await ref.read(todayCardsViewModelProvider.notifier).markDecided();
+            },
+          ),
         );
       },
     );
@@ -157,7 +176,7 @@ class _WaitingPanel extends StatelessWidget {
           style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
         ),
         const SizedBox(height: 22),
-        if (nextIssueAt != null) _CountdownText(target: nextIssueAt!),
+        if (nextIssueAt != null) CountdownText(target: nextIssueAt!, style: AppTypography.countdown.copyWith(color: AppColors.ink)),
         const SizedBox(height: AppSpacing.lg),
         Image.asset('assets/images/mascot-male-waiting.png', width: 88),
         const SizedBox(height: 14),
@@ -243,43 +262,6 @@ String waitingSubtitle(DateTime? nextIssueAt, DateTime now) {
   // 오늘이 weekday 면 이번 주 일요일까지 7 - weekday 일 남았다.
   final nextWeek = days > 7 - seoulNow.weekday ? '다음 주 ' : '';
   return '$nextWeek${weekdayNames[issue.weekday - 1]}요일 $time에 새로운 사람을 찾아볼게요';
-}
-
-/// 남은 시간 `hh:mm:ss`. 1초마다 갱신하고 [dispose] 에서 타이머를 반드시 끈다.
-class _CountdownText extends StatefulWidget {
-  const _CountdownText({required this.target});
-
-  final DateTime target;
-
-  @override
-  State<_CountdownText> createState() => _CountdownTextState();
-}
-
-class _CountdownTextState extends State<_CountdownText> {
-  Timer? _timer;
-
-  @override
-  void initState() {
-    super.initState();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) => setState(() {}));
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final remaining = widget.target.difference(DateTime.now());
-    final seconds = remaining.isNegative ? 0 : remaining.inSeconds;
-    String two(int value) => value.toString().padLeft(2, '0');
-    return Text(
-      '${two(seconds ~/ 3600)}:${two(seconds ~/ 60 % 60)}:${two(seconds % 60)}',
-      style: AppTypography.countdown.copyWith(color: AppColors.ink),
-    );
-  }
 }
 
 /// 화면 11b(pen `iQZoa`) — 후보 풀 자체가 비었다.
