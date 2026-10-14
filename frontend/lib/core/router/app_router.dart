@@ -64,7 +64,7 @@ import 'package:campus_mate/safety/view/block_list_screen.dart';
 import 'package:campus_mate/safety/view/contact_block_list_screen.dart';
 import 'package:campus_mate/safety/view/contact_picker_screen.dart';
 import 'package:campus_mate/safety/view/partner_profile_screen.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 /// 앱의 라우터를 구성한다.
@@ -103,13 +103,13 @@ abstract final class AppRouter {
   /// 3b·3c 는 [AuthRedirect] 가 미인증·게이트 미충족을 이미 막아 화면 가드를 두지 않는다.
   static List<RouteBase> _routes() {
     return <RouteBase>[
-      GoRoute(path: AppRoutes.splash, builder: (context, state) => const StartView()),
-      GoRoute(path: AppRoutes.offline, builder: (context, state) => const OfflineScreen()),
-      GoRoute(path: AppRoutes.login, builder: (context, state) => const SignUpScreen()),
-      GoRoute(path: AppRoutes.verifyCode, redirect: _verifyCodeGuard, builder: _buildVerifyCode),
-      GoRoute(path: AppRoutes.consent, builder: (context, state) => const ConsentScreen()),
-      GoRoute(path: AppRoutes.studentVerification, builder: (context, state) => const StudentVerificationScreen()),
-      GoRoute(path: AppRoutes.schoolInfo, builder: (context, state) => const SchoolInfoScreen()),
+      _PlatformRoute(path: AppRoutes.splash, builder: (context, state) => const StartView()),
+      _PlatformRoute(path: AppRoutes.offline, builder: (context, state) => const OfflineScreen()),
+      _PlatformRoute(path: AppRoutes.login, builder: (context, state) => const SignUpScreen()),
+      _PlatformRoute(path: AppRoutes.verifyCode, redirect: _verifyCodeGuard, builder: _buildVerifyCode),
+      _PlatformRoute(path: AppRoutes.consent, builder: (context, state) => const ConsentScreen()),
+      _PlatformRoute(path: AppRoutes.studentVerification, builder: (context, state) => const StudentVerificationScreen()),
+      _PlatformRoute(path: AppRoutes.schoolInfo, builder: (context, state) => const SchoolInfoScreen()),
       ..._onboardingRoutes(),
       ..._slice4Routes(),
       ..._slice6Routes(),
@@ -121,23 +121,23 @@ abstract final class AppRouter {
   /// 화면 15 · 15c 에서 push 로 연다.
   static List<RouteBase> _meRoutes() {
     return <RouteBase>[
-      GoRoute(path: AppRoutes.myProfileEdit, builder: (context, state) => const ProfileEditScreen()),
-      GoRoute(
+      _PlatformRoute(path: AppRoutes.myProfileEdit, builder: (context, state) => const ProfileEditScreen()),
+      _PlatformRoute(
         path: AppRoutes.myIdealConditions,
         builder: (context, state) => const IdealConditionsScreen(isEditing: true),
       ),
-      GoRoute(
+      _PlatformRoute(
         path: '${AppRoutes.myTags}/:kind',
         // 모르는 종류면 15c 로 돌려보낸다 — 화면이 kind 없이는 뜰 수 없다.
         redirect: (context, state) => _tagKind(state) == null ? AppRoutes.myProfileEdit : null,
         builder: (context, state) => TagPickerScreen(kind: _tagKind(state)!, isEditing: true),
       ),
       // 화면 15 개편(계획서 2026-09-28-me-profile.md A10) — 15 입구에서 push 로 연다.
-      GoRoute(path: AppRoutes.myProfileManage, builder: (context, state) => const ProfileManageScreen()),
-      GoRoute(path: AppRoutes.myCardPreview, builder: (context, state) => const CardPreviewScreen()),
-      GoRoute(path: AppRoutes.myAvatarRegen, builder: (context, state) => const AvatarRegenPickScreen()),
-      GoRoute(path: AppRoutes.myPhotos, builder: (context, state) => const MyPhotosScreen()),
-      GoRoute(path: AppRoutes.myBasicInfo, builder: (context, state) => const BasicInfoEditScreen()),
+      _PlatformRoute(path: AppRoutes.myProfileManage, builder: (context, state) => const ProfileManageScreen()),
+      _PlatformRoute(path: AppRoutes.myCardPreview, builder: (context, state) => const CardPreviewScreen()),
+      _PlatformRoute(path: AppRoutes.myAvatarRegen, builder: (context, state) => const AvatarRegenPickScreen()),
+      _PlatformRoute(path: AppRoutes.myPhotos, builder: (context, state) => const MyPhotosScreen()),
+      _PlatformRoute(path: AppRoutes.myBasicInfo, builder: (context, state) => const BasicInfoEditScreen()),
     ];
   }
 
@@ -150,18 +150,18 @@ abstract final class AppRouter {
   /// 정지 안내, 16e-1 카카오톡 아이디 변경(16e 계정 · 14f "변경").
   static List<RouteBase> _slice6Routes() {
     return <RouteBase>[
-      GoRoute(path: AppRoutes.blockList, builder: (context, state) => const BlockListScreen()),
-      GoRoute(path: AppRoutes.contactBlocks, builder: (context, state) => const ContactBlockListScreen()),
-      GoRoute(path: AppRoutes.contactPicker, builder: (context, state) => const ContactPickerScreen()),
-      GoRoute(path: AppRoutes.accountSuspended, builder: (context, state) => const AccountSuspendedScreen()),
-      GoRoute(path: AppRoutes.kakaoIdSettings, builder: (context, state) => const KakaoIdSettingsScreen()),
-      GoRoute(
+      _PlatformRoute(path: AppRoutes.blockList, builder: (context, state) => const BlockListScreen()),
+      _PlatformRoute(path: AppRoutes.contactBlocks, builder: (context, state) => const ContactBlockListScreen()),
+      _PlatformRoute(path: AppRoutes.contactPicker, builder: (context, state) => const ContactPickerScreen()),
+      _PlatformRoute(path: AppRoutes.accountSuspended, builder: (context, state) => const AccountSuspendedScreen()),
+      _PlatformRoute(path: AppRoutes.kakaoIdSettings, builder: (context, state) => const KakaoIdSettingsScreen()),
+      _PlatformRoute(
         path: '${AppRoutes.partnerProfile}/:profileId',
         builder: (context, state) => PartnerProfileScreen(profileId: state.pathParameters['profileId']!),
       ),
-      GoRoute(path: AppRoutes.heartStore, builder: (context, state) => const HeartStoreScreen()),
-      GoRoute(path: AppRoutes.heartTasks, builder: (context, state) => const HeartTasksScreen()),
-      GoRoute(
+      _PlatformRoute(path: AppRoutes.heartStore, builder: (context, state) => const HeartStoreScreen()),
+      _PlatformRoute(path: AppRoutes.heartTasks, builder: (context, state) => const HeartTasksScreen()),
+      _PlatformRoute(
         path: '${AppRoutes.heartTaskSubmit}/:task',
         // 인증샷 항목이 아니면(투표 · 잘못된 값) 18a 로 돌려보낸다.
         redirect: (context, state) =>
@@ -171,10 +171,10 @@ abstract final class AppRouter {
           rejectReason: HeartTaskRejectReason.tryParse(state.uri.queryParameters['reason']),
         ),
       ),
-      GoRoute(path: AppRoutes.heartTaskPending, builder: (context, state) => const HeartTaskPendingScreen()),
-      GoRoute(path: AppRoutes.friendReviews, builder: (context, state) => const ReceivedReviewsScreen()),
-      GoRoute(path: AppRoutes.friendReviewsWritten, builder: (context, state) => const WrittenReviewsScreen()),
-      GoRoute(path: AppRoutes.friendReviewCode, builder: (context, state) => const FriendCodeScreen()),
+      _PlatformRoute(path: AppRoutes.heartTaskPending, builder: (context, state) => const HeartTaskPendingScreen()),
+      _PlatformRoute(path: AppRoutes.friendReviews, builder: (context, state) => const ReceivedReviewsScreen()),
+      _PlatformRoute(path: AppRoutes.friendReviewsWritten, builder: (context, state) => const WrittenReviewsScreen()),
+      _PlatformRoute(path: AppRoutes.friendReviewCode, builder: (context, state) => const FriendCodeScreen()),
     ];
   }
 
@@ -183,7 +183,7 @@ abstract final class AppRouter {
   /// `home` 은 09b 메인이고 서버 `/home/summary` 로 채운다 — 사람들 칸·리뷰 칸만 목값이다(`homeRepositoryProvider`).
   static List<RouteBase> _slice4Routes() {
     return <RouteBase>[
-      GoRoute(
+      _TabRoute(
         path: AppRoutes.home,
         builder: (context, state) => const BackExitScope(child: HomeScreen()),
         routes: [
@@ -195,44 +195,44 @@ abstract final class AppRouter {
           ),
         ],
       ),
-      GoRoute(path: AppRoutes.notifications, builder: (context, state) => const NotificationsScreen()),
-      GoRoute(path: AppRoutes.today, builder: (context, state) => const BackExitScope(child: TodayCardsScreen())),
-      GoRoute(
+      _PlatformRoute(path: AppRoutes.notifications, builder: (context, state) => const NotificationsScreen()),
+      _TabRoute(path: AppRoutes.today, builder: (context, state) => const BackExitScope(child: TodayCardsScreen())),
+      _PlatformRoute(
         path: '${AppRoutes.cardDetail}/:cardId',
         builder: (context, state) => CardDetailScreen(cardId: state.pathParameters['cardId']!),
       ),
-      GoRoute(
+      _TabRoute(
         path: AppRoutes.conversations,
         builder: (context, state) => const BackExitScope(child: ConversationsScreen()),
       ),
-      GoRoute(
+      _PlatformRoute(
         path: AppRoutes.matchMade,
         builder: (context, state) {
           final args = state.extra as MatchMadeArgs?;
           return MatchMadeScreen(nickname: args?.nickname ?? '상대', matchId: args?.matchId);
         },
       ),
-      GoRoute(
+      _PlatformRoute(
         path: '${AppRoutes.chatRoom}/:matchId',
         builder: (context, state) => ChatRoomScreen(matchId: state.pathParameters['matchId']!),
       ),
-      GoRoute(path: AppRoutes.settings, builder: (context, state) => const SettingsScreen()),
-      GoRoute(
+      _PlatformRoute(path: AppRoutes.settings, builder: (context, state) => const SettingsScreen()),
+      _PlatformRoute(
         path: AppRoutes.notificationSettings,
         builder: (context, state) => const NotificationSettingsScreen(),
       ),
-      GoRoute(path: AppRoutes.account, builder: (context, state) => const AccountScreen()),
-      GoRoute(path: AppRoutes.faq, builder: (context, state) => const FaqScreen()),
-      GoRoute(
+      _PlatformRoute(path: AppRoutes.account, builder: (context, state) => const AccountScreen()),
+      _PlatformRoute(path: AppRoutes.faq, builder: (context, state) => const FaqScreen()),
+      _TabRoute(
         path: AppRoutes.community,
         builder: (context, state) => const BackExitScope(child: CommunityFeedScreen()),
       ),
-      GoRoute(path: AppRoutes.communityNew, builder: (context, state) => const PollComposerScreen()),
-      GoRoute(
+      _PlatformRoute(path: AppRoutes.communityNew, builder: (context, state) => const PollComposerScreen()),
+      _PlatformRoute(
         path: '${AppRoutes.communityPoll}/:pollId',
         builder: (context, state) => PollDetailScreen(pollId: state.pathParameters['pollId']!),
       ),
-      GoRoute(
+      _TabRoute(
         path: AppRoutes.myProfile,
         builder: (context, state) => const BackExitScope(child: MyProfileScreen()),
       ),
@@ -244,38 +244,38 @@ abstract final class AppRouter {
   /// ([BioDraftLoadingScreen] 이 끝나면 스스로 06-3 으로 바뀐다).
   static List<RouteBase> _onboardingRoutes() {
     return <RouteBase>[
-      GoRoute(path: AppRoutes.onboardingBasicInfo, builder: (context, state) => const BasicInfoScreen()),
-      GoRoute(path: AppRoutes.onboardingKakaoId, builder: (context, state) => const KakaoIdScreen()),
-      GoRoute(path: AppRoutes.onboardingPhotos, builder: (context, state) => const PhotosScreen()),
-      GoRoute(path: AppRoutes.onboardingAvatarSource, builder: (context, state) => const AvatarSourceScreen()),
-      GoRoute(path: AppRoutes.onboardingAvatar, builder: (context, state) => const AvatarGenerationScreen()),
-      GoRoute(
+      _PlatformRoute(path: AppRoutes.onboardingBasicInfo, builder: (context, state) => const BasicInfoScreen()),
+      _PlatformRoute(path: AppRoutes.onboardingKakaoId, builder: (context, state) => const KakaoIdScreen()),
+      _PlatformRoute(path: AppRoutes.onboardingPhotos, builder: (context, state) => const PhotosScreen()),
+      _PlatformRoute(path: AppRoutes.onboardingAvatarSource, builder: (context, state) => const AvatarSourceScreen()),
+      _PlatformRoute(path: AppRoutes.onboardingAvatar, builder: (context, state) => const AvatarGenerationScreen()),
+      _PlatformRoute(
         path: AppRoutes.onboardingAppearanceType,
         builder: (context, state) => const AppearanceTypeScreen(),
       ),
-      GoRoute(
+      _PlatformRoute(
         path: AppRoutes.onboardingInterests,
         builder: (context, state) => const TagPickerScreen(kind: TagPickerKind.interests),
       ),
-      GoRoute(
+      _PlatformRoute(
         path: AppRoutes.onboardingMyTraits,
         builder: (context, state) => const TagPickerScreen(kind: TagPickerKind.myTraits),
       ),
-      GoRoute(path: AppRoutes.onboardingSurvey, builder: (context, state) => const SurveyScreen()),
-      GoRoute(
+      _PlatformRoute(path: AppRoutes.onboardingSurvey, builder: (context, state) => const SurveyScreen()),
+      _PlatformRoute(
         path: AppRoutes.onboardingIdealConditions,
         builder: (context, state) => const IdealConditionsScreen(),
       ),
-      GoRoute(
+      _PlatformRoute(
         path: AppRoutes.onboardingIdealTraits,
         builder: (context, state) => const TagPickerScreen(kind: TagPickerKind.idealTraits),
       ),
-      GoRoute(path: AppRoutes.onboardingIdealNote, builder: (context, state) => const IdealNoteScreen()),
-      GoRoute(path: AppRoutes.onboardingBio, builder: (context, state) => const BioDraftLoadingScreen()),
-      GoRoute(path: AppRoutes.onboardingReferral, builder: (context, state) => const ReferralCodeScreen()),
-      GoRoute(path: AppRoutes.onboardingAcquisition, builder: (context, state) => const AcquisitionScreen()),
-      GoRoute(path: AppRoutes.onboardingContactBlock, builder: (context, state) => const OnboardingContactBlockScreen()),
-      GoRoute(path: AppRoutes.onboardingContactPicker, builder: (context, state) => const ContactPickerScreen()),
+      _PlatformRoute(path: AppRoutes.onboardingIdealNote, builder: (context, state) => const IdealNoteScreen()),
+      _PlatformRoute(path: AppRoutes.onboardingBio, builder: (context, state) => const BioDraftLoadingScreen()),
+      _PlatformRoute(path: AppRoutes.onboardingReferral, builder: (context, state) => const ReferralCodeScreen()),
+      _PlatformRoute(path: AppRoutes.onboardingAcquisition, builder: (context, state) => const AcquisitionScreen()),
+      _PlatformRoute(path: AppRoutes.onboardingContactBlock, builder: (context, state) => const OnboardingContactBlockScreen()),
+      _PlatformRoute(path: AppRoutes.onboardingContactPicker, builder: (context, state) => const ContactPickerScreen()),
     ];
   }
 
@@ -287,4 +287,21 @@ abstract final class AppRouter {
   static Widget _buildVerifyCode(BuildContext context, GoRouterState state) {
     return VerifyCodeScreen(email: state.extra as UniversityEmail);
   }
+}
+
+/// 탭이 아닌 화면 — 플랫폼 기본 전환으로 뜬다(안드로이드 450ms · 예측 뒤로가기, iOS 500ms · 왼쪽 가장자리 밀어서 뒤로가기).
+/// go_router 18 은 `package:material_ui` 의 MaterialApp 을 조상에서 찾아 페이지를 고르는데 앱은 flutter 의 MaterialApp 을
+/// 써서 못 찾는다 — `builder` 만 주면 전환 0ms 인 NoTransitionPage 로 떨어지니 페이지를 여기서 직접 만든다.
+/// 전환 모양 · 시간은 테마의 PageTransitionsTheme(Flutter 기본값)이 플랫폼별로 고른다.
+/// ponytail: builder 는 페이지 바깥 context 로 불린다(go_router 의 builder 는 페이지 안쪽) — 지금 builder 는 모두
+/// state 만 읽는다. context 로 ModalRoute 등을 읽어야 하면 `Builder` 로 감싼다.
+class _PlatformRoute extends GoRoute {
+  _PlatformRoute({required super.path, required GoRouterWidgetBuilder builder, super.redirect})
+      : super(pageBuilder: (context, state) => MaterialPage<void>(key: state.pageKey, child: builder(context, state)));
+}
+
+/// 하단 내비 탭 5개 — 탭끼리는 미끄러지지 않고 바로 바뀐다(10-14 대장 지시). go_router 가 판별을 고쳐도 그대로다.
+class _TabRoute extends GoRoute {
+  _TabRoute({required super.path, required GoRouterWidgetBuilder builder, super.routes})
+      : super(pageBuilder: (context, state) => NoTransitionPage<void>(key: state.pageKey, child: builder(context, state)));
 }
