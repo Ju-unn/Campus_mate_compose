@@ -10,7 +10,7 @@ import 'package:campus_mate/community/model/community_repository.dart';
 import 'package:campus_mate/community/model/community_repository_provider.dart';
 import 'package:campus_mate/community/model/poll.dart';
 import 'package:campus_mate/community/view/community_feed_screen.dart';
-import 'package:campus_mate/community/view/poll_card.dart';
+import 'package:campus_mate/community/view/feed_poll_card.dart';
 import 'package:campus_mate/community/view/poll_donut.dart';
 import 'package:campus_mate/community/view/poll_time.dart';
 import 'package:campus_mate/community/view/poll_toast.dart';
@@ -79,7 +79,7 @@ void main() {
       addTearDown(tester.view.reset);
     }
 
-    testWidgets('피드는 알약 뒤로 이어지고, 끝까지 내리면 마지막 글 아래 8 에 알약', (tester) async {
+    testWidgets('피드는 알약 뒤로 이어지고, 끝까지 내리면 마지막 글이 질문하기 버튼 위 12 에 멈춘다(가리지 않게)', (tester) async {
       penFrame(tester);
       repository.page = Success(PollPage(polls: [for (var i = 0; i < 6; i++) pollFixture(id: 'p$i')], hasMore: false));
       await pump(tester);
@@ -90,8 +90,182 @@ void main() {
       await tester.drag(find.byType(Scrollable).first, const Offset(0, -5000));
       await tester.pumpAndSettle();
 
-      expect(tester.getRect(find.byType(GlassBottomNav)).top - tester.getBottomLeft(find.byType(PollCard).last).dy, 8);
+      final ask = tester.getRect(find.byKey(CommunityFeedScreen.askButtonKey));
+      expect(ask.top - tester.getBottomLeft(find.byType(FeedPollCard).last).dy, 12);
     });
+
+    testWidgets('질문하기 알약(dDWPl): 높이 52 · 오른쪽 16 · 유리 내비 위 12 · primary · 끝까지 둥글게 · plus 20 → 8 → "질문하기" 16/700 흰', (tester) async {
+      penFrame(tester);
+      repository.page = Success(PollPage(polls: [pollFixture()], hasMore: false));
+      await pump(tester);
+
+      final ask = find.byKey(CommunityFeedScreen.askButtonKey);
+      final rect = tester.getRect(ask);
+      expect(rect.height, 52);
+      expect(rect.right, 360 - 16);
+      expect(tester.getRect(find.byType(GlassBottomNav)).top - rect.bottom, 12);
+      final style = tester.widget<FilledButton>(ask).style!;
+      expect(style.backgroundColor!.resolve({}), AppColors.primary);
+      expect(style.backgroundColor!.resolve({WidgetState.pressed}), AppColors.primaryPressed);
+      expect(style.shape!.resolve({}), const StadiumBorder());
+      final plus = tester.widget<Icon>(find.descendant(of: ask, matching: find.byIcon(AppIcons.plus)));
+      expect((plus.size, plus.color), (20, AppColors.onPrimary));
+      final label = find.descendant(of: ask, matching: find.text('질문하기'));
+      final labelStyle = tester.widget<Text>(label).style!;
+      expect((labelStyle.fontSize, labelStyle.fontWeight, labelStyle.color), (16, FontWeight.w700, AppColors.onPrimary));
+      // padding [0,20] · gap 8 — 버튼 폭 = 20 + 20 + 8 + 글자 + 20.
+      expect(tester.getRect(label).left - tester.getRect(find.byIcon(AppIcons.plus)).right, 8);
+      expect(rect.width, closeTo(20 + 20 + 8 + tester.getSize(label).width + 20, 0.01));
+      // 그림자 #1A16192E (0,6) 16 — 떠 있는 것에만 그림자(DESIGN §6).
+      final shadow = tester.widget<DecoratedBox>(find.ancestor(of: ask, matching: find.byType(DecoratedBox)).first);
+      expect((shadow.decoration as ShapeDecoration).shadows, const [BoxShadow(color: Color(0x2E1A1619), offset: Offset(0, 6), blurRadius: 16)]);
+    });
+
+    testWidgets('스크롤을 내리면 동그라미 52 로 접히고(220ms), 올리면 다시 펼친다', (tester) async {
+      penFrame(tester);
+      repository.page = Success(PollPage(polls: [for (var i = 0; i < 6; i++) pollFixture(id: 'p$i')], hasMore: false));
+      await pump(tester);
+      final ask = find.byKey(CommunityFeedScreen.askButtonKey);
+
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, -300));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 110));
+      expect(tester.getSize(ask).width, inExclusiveRange(52, 127)); // 접히는 중
+      await tester.pumpAndSettle();
+      expect(tester.getSize(ask), const Size(52, 52));
+      expect(find.descendant(of: ask, matching: find.text('질문하기')), findsNothing);
+      expect(tester.getRect(ask).right, 360 - 16);
+
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, 100));
+      await tester.pumpAndSettle();
+      expect(find.descendant(of: ask, matching: find.text('질문하기')), findsOneWidget);
+      expect(tester.getSize(ask).width, greaterThan(52));
+    });
+
+    testWidgets('동작 줄이기면 접힘 · 펼침이 즉시다', (tester) async {
+      penFrame(tester);
+      tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+      repository.page = Success(PollPage(polls: [for (var i = 0; i < 6; i++) pollFixture(id: 'p$i')], hasMore: false));
+      await pump(tester);
+
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, -300));
+      await tester.pump();
+      await tester.pump();
+      // 시간이 흐르지 않은 첫 프레임에 이미 52 — 움직임이 있었다면 아직 127 근처다(스크롤 관성은 따로 돈다).
+      expect(tester.getSize(find.byKey(CommunityFeedScreen.askButtonKey)), const Size(52, 52));
+    });
+
+    testWidgets('접혀도 낭독기는 "질문하기" 버튼으로 읽고, 누르면 17b 로 간다', (tester) async {
+      penFrame(tester);
+      final semantics = tester.ensureSemantics();
+      repository.page = Success(PollPage(polls: [for (var i = 0; i < 6; i++) pollFixture(id: 'p$i')], hasMore: false));
+      await pump(tester);
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, -300));
+      await tester.pumpAndSettle();
+
+      final ask = find.byKey(CommunityFeedScreen.askButtonKey);
+      expect(tester.getSemantics(ask), matchesSemantics(label: '질문하기', isButton: true, hasTapAction: true, isEnabled: true, hasEnabledState: true, isFocusable: true, hasFocusAction: true));
+      await tester.tap(ask);
+      await tester.pumpAndSettle();
+      expect(find.text('쓰기'), findsOneWidget);
+      semantics.dispose();
+    });
+
+    testWidgets('토스트가 떠 있는 동안 알약은 숨고(17A-2 O8hjge), 토스트가 사라지면 다시 보인다', (tester) async {
+      penFrame(tester);
+      repository
+        ..page = Success(PollPage(polls: [pollFixture()], hasMore: false))
+        ..voteResult = Success(VoteOutcome(poll: pollFixture(myChoice: PollChoice.a), rewarded: true));
+      await pump(tester);
+      AnimatedOpacity fade() => tester.widget<AnimatedOpacity>(
+            find.ancestor(of: find.byKey(CommunityFeedScreen.askButtonKey), matching: find.byType(AnimatedOpacity)),
+          );
+      expect(fade().opacity, 1);
+
+      await tester.tap(find.bySemanticsLabel('찬성'));
+      await tester.pumpAndSettle();
+      expect(find.text(pollRewardMessage), findsOneWidget);
+      expect(fade().opacity, 0);
+      expect(find.byKey(CommunityFeedScreen.askButtonKey).hitTestable(), findsNothing);
+
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+      expect(find.text(pollRewardMessage), findsNothing);
+      expect(fade().opacity, 1);
+      expect(find.byKey(CommunityFeedScreen.askButtonKey).hitTestable(), findsOneWidget);
+    });
+
+    testWidgets('신고 · 삭제 토스트도 알약을 가린 채 두지 않는다', (tester) async {
+      penFrame(tester);
+      repository.page = Success(PollPage(polls: [pollFixture(id: 'mine', isMine: true), pollFixture(id: 'p2')], hasMore: false));
+      await pump(tester);
+      AnimatedOpacity fade() => tester.widget<AnimatedOpacity>(
+            find.ancestor(of: find.byKey(CommunityFeedScreen.askButtonKey), matching: find.byType(AnimatedOpacity)),
+          );
+
+      final siren = find.byWidgetPredicate((w) => w is Icon3d && w.icon == AppIcon3d.siren);
+      await tester.tap(find.ancestor(of: siren, matching: find.byType(InkResponse)).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('광고·스팸'));
+      await tester.pump();
+      await tester.tap(find.descendant(of: find.byType(ReportSheet), matching: find.text('신고하기')));
+      await tester.pumpAndSettle();
+      expect(find.text('신고했어요. 운영팀이 확인할게요'), findsOneWidget);
+      expect(fade().opacity, 0);
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+      expect(fade().opacity, 1);
+
+      await tester.tap(find.byTooltip('더보기'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('삭제하기'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ElevatedButton, '삭제하기'));
+      await tester.pumpAndSettle();
+      expect(find.text(pollDeletedMessage), findsOneWidget);
+      expect(fade().opacity, 0);
+    });
+
+  testWidgets('pen 피드(eFFQi): 회색 surface-soft 바탕 · 위 12 · 좌우 16 · 카드 사이 12 · 카드 폭 328', (tester) async {
+    tester.view.physicalSize = const Size(360, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    repository.page = Success(
+      PollPage(polls: [pollFixture(), pollFixture(id: 'p2', myChoice: PollChoice.a)], hasMore: false),
+    );
+    await pump(tester);
+
+    final first = tester.getRect(find.byType(FeedPollCard).at(0));
+    final second = tester.getRect(find.byType(FeedPollCard).at(1));
+    expect((first.left, first.width), (16, 328));
+    expect(first.top, 56 + 12); // 앱바 56 + 피드 위 12
+    expect(second.top - first.bottom, 12);
+    final ground = find.ancestor(of: find.byType(ListView), matching: find.byType(ColoredBox)).first;
+    expect(tester.widget<ColoredBox>(ground).color, AppColors.surfaceSoft);
+    expect(tester.getRect(ground), const Rect.fromLTWH(0, 56, 360, 1600 - 56));
+  });
+
+  testWidgets('방금 투표한 카드만 막대가 0 에서 차오른다 — 이미 투표한 다른 카드는 그대로', (tester) async {
+    tester.view.physicalSize = const Size(360, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    repository
+      ..page = Success(PollPage(polls: [
+        pollFixture(aCount: 4, bCount: 3),
+        pollFixture(id: 'p2', aCount: 5, bCount: 3, myChoice: PollChoice.b),
+      ], hasMore: false))
+      ..voteResult = Success(VoteOutcome(poll: pollFixture(aCount: 5, bCount: 3, myChoice: PollChoice.a), rewarded: false));
+    await pump(tester);
+
+    await tester.tap(find.bySemanticsLabel('찬성'));
+    await tester.pump();
+    final bars = find.byKey(FeedPollCard.agreeBarKey);
+    expect(tester.getSize(bars.at(0)).width, 0);
+    expect(tester.getSize(bars.at(1)).width, closeTo((296 - 4) * 0.63, 0.01));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(bars.at(0)).width, closeTo((296 - 4) * 0.63, 0.01));
+  });
 
     testWidgets('빈 상태는 앱바 아래 ~ 알약 위 사이 가운데에 선다', (tester) async {
       penFrame(tester);
@@ -129,15 +303,30 @@ void main() {
     repository.page = Success(PollPage(polls: [pollFixture()], hasMore: false));
     await tester.tap(find.text('다시 시도'));
     await tester.pumpAndSettle();
-    expect(find.byType(PollCard), findsOneWidget);
+    expect(find.byType(FeedPollCard), findsOneWidget);
   });
 
-  testWidgets('투표 전: O·X 버튼과 그 아래 결과 한 줄(사용자 결정 4-1)', (tester) async {
+  testWidgets('불러오기 실패 화면에도 질문하기 버튼이 있다(앱바 + 가 빠진 자리)', (tester) async {
+    repository.page = const FailureResult(ServerUnavailableFailure());
+    await pump(tester);
+    await tester.tap(find.byKey(CommunityFeedScreen.askButtonKey));
+    await tester.pumpAndSettle();
+    expect(find.text('쓰기'), findsOneWidget);
+  });
+
+  testWidgets('빈 상태에는 질문하기 알약이 없다 — 빈 상태 버튼이 같은 일을 한다', (tester) async {
+    await pump(tester);
+    expect(find.text('아직 질문이 없어요'), findsOneWidget);
+    expect(find.byKey(CommunityFeedScreen.askButtonKey), findsNothing);
+  });
+
+  testWidgets('투표 전: O·X 버튼과 그 아래 결과 한 줄(사용자 결정 4-1), 참여자 수는 아래 줄', (tester) async {
     repository.page = Success(PollPage(polls: [pollFixture(aCount: 5, bCount: 3)], hasMore: false));
     await pump(tester);
     expect(find.bySemanticsLabel('찬성'), findsOneWidget);
     expect(find.bySemanticsLabel('반대'), findsOneWidget);
-    expect(find.text('찬성 63% · 반대 37% · 8명 참여'), findsOneWidget);
+    expect(find.text('찬성 63% · 반대 37%'), findsOneWidget);
+    expect(find.text('8명 참여'), findsOneWidget);
   });
 
   testWidgets('커스텀 라벨이면 글자 버튼', (tester) async {
@@ -147,7 +336,7 @@ void main() {
     expect(find.widgetWithText(FilledButton, '짬뽕'), findsOneWidget);
   });
 
-  testWidgets('직접 적은 선택지 버튼은 pen 규격 — 폭 144 · 높이 72 · 좌우 안쪽 8 · 파랑/빨강 · 흰 20/700(ojrC5 · yigm0 · nxuT6)', (tester) async {
+  testWidgets('직접 적은 선택지 버튼은 pen 규격 — 폭 144 · 알약 56 · 좌우 안쪽 16 · 파랑/빨강 · 흰 20/700(a7GPE · A7b75P · j6Ukp)', (tester) async {
     tester.view.physicalSize = const Size(360, 780);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -157,12 +346,12 @@ void main() {
     await pump(tester);
     final buttonFinder = find.widgetWithText(FilledButton, '가나다라마바');
     final button = tester.getRect(buttonFinder);
-    expect(button.size, const Size(144, 72));
-    // 6자 20px(≈120)가 칸 안쪽(144 − 16 = 128)에 줄여지지 않고 한 줄로 들어간다. 안쪽 여백은 정확히 좌우 8.
+    expect(button.size, const Size(144, 56));
+    // 6자 20px(≈120)는 칸 안쪽(144 − 32 = 112)보다 넓어 한 줄 그대로 줄여 맞춘다.
     final label = tester.getRect(find.text('가나다라마바'));
-    expect(label.width, lessThanOrEqualTo(144 - 16));
+    expect(label.width, lessThanOrEqualTo(144 - 32 + 0.01));
     expect(label.height, lessThan(30));
-    expect(tester.widget<FilledButton>(buttonFinder).style!.padding!.resolve({}), const EdgeInsets.symmetric(horizontal: 8));
+    expect(tester.widget<FilledButton>(buttonFinder).style!.padding!.resolve({}), const EdgeInsets.symmetric(horizontal: 16));
     // 회색(#E5E5E5) 이 아니라 O/X 와 같은 파랑 · 빨강, 글자는 흰 20/700.
     Color? fill(Finder finder) => tester.widget<FilledButton>(finder).style!.backgroundColor!.resolve({});
     expect(fill(buttonFinder), pollAgreeBlue);
@@ -171,85 +360,40 @@ void main() {
     expect((style.fontSize, style.fontWeight, style.color), (20.0, FontWeight.w700, AppColors.onPrimary));
   });
 
-  testWidgets('O·X 칸은 직접 적은 칸과 같은 높이 72 · 같은 파랑/빨강(wHrXJ · tjZrc)', (tester) async {
+  testWidgets('O·X 칸은 직접 적은 칸과 같은 알약 56 · 같은 파랑/빨강(hvoFP · mrayI)', (tester) async {
     repository.page = Success(PollPage(polls: [pollFixture()], hasMore: false));
     await pump(tester);
     final blue = find.widgetWithIcon(FilledButton, AppIcons.circle);
     final red = find.widgetWithIcon(FilledButton, AppIcons.x);
-    expect(tester.getSize(blue).height, 72);
+    expect(tester.getSize(blue).height, 56);
     expect(tester.widget<FilledButton>(blue).style!.backgroundColor!.resolve({}), pollAgreeBlue);
     expect(tester.widget<FilledButton>(red).style!.backgroundColor!.resolve({}), AppColors.primary);
   });
 
-  testWidgets('투표 후: 도넛 · 비율 줄 · 참여자 수, 버튼은 없다. 가운데 % 는 우세한 쪽', (tester) async {
-    // A 3 · B 5 → A = round(37.5) = 38, B = 100 − 38 = 62. 호는 A(38%), 가운데는 우세한 B 의 62%(대장 예외).
+  testWidgets('투표 후: 큰 숫자 두 개 · 쪼개짐 막대 · 내 선택 칩 · 참여자 수, 버튼과 도넛은 없다(M3OFZ)', (tester) async {
+    // A 3 · B 5 → A = round(37.5) = 38, B = 100 − 38 = 62.
     repository.page = Success(
       PollPage(polls: [pollFixture(aCount: 3, bCount: 5, myChoice: PollChoice.a)], hasMore: false),
     );
     await pump(tester);
-    expect(find.byType(PollDonut), findsOneWidget);
+    expect(find.text('38%'), findsOneWidget);
     expect(find.text('62%'), findsOneWidget);
-    expect(find.text('찬성 38% · 반대 62%'), findsOneWidget);
+    expect(find.text('내 선택'), findsOneWidget);
+    expect(find.byKey(FeedPollCard.agreeBarKey), findsOneWidget);
     expect(find.text('8명 참여'), findsOneWidget);
+    expect(find.byType(PollDonut), findsNothing);
     expect(find.bySemanticsLabel('찬성'), findsNothing);
   });
 
-  testWidgets('결과 도넛은 버튼 색을 따른다: 회색 고리 위에 A 파랑, 이어서 B 분홍', (tester) async {
-    repository.page = Success(
-      PollPage(polls: [pollFixture(aCount: 3, bCount: 5, myChoice: PollChoice.a)], hasMore: false),
-    );
-    await pump(tester);
-    expect(
-      find.descendant(of: find.byType(PollDonut), matching: find.byType(CustomPaint)),
-      paints
-        ..arc(color: AppColors.surfaceStrong)
-        ..arc(color: pollAgreeBlue)
-        ..arc(color: AppColors.primary),
-    );
-  });
-
-  testWidgets('pen 카드 틀: 폭 328 · 목록 위 8, 높이 투표 전 258 · 투표 후 305(RpRBi — 신고 버튼 48 머리줄 · 글자 상자 렌더 차 2 안)', (tester) async {
-    tester.view.physicalSize = const Size(360, 1600);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    repository.page = Success(
-      PollPage(polls: [pollFixture(), pollFixture(id: 'p2', myChoice: PollChoice.a)], hasMore: false),
-    );
-    await pump(tester);
-
-    final before = tester.getRect(find.byType(PollCard).at(0));
-    final after = tester.getRect(find.byType(PollCard).at(1));
-    expect(before.left, 16);
-    expect(before.width, 328);
-    expect(before.top, 56 + 8); // 앱바 56 + 목록 위 8(FXyNI)
-    expect(after.top - before.bottom, 12); // 카드 사이 12(FXyNI)
-    expect(before.height, closeTo(258, 2));
-    expect(after.height, closeTo(305, 2));
-    // "익명" 칩 22(LHkpo · MpYr6 속성 없음, 렌더 16), 도넛 96(raSK1).
-    expect(tester.getSize(find.ancestor(of: find.text('익명').first, matching: find.byType(Container)).first).height, 22);
-    expect(tester.getSize(find.byType(PollDonut)), const Size(96, 96));
-    // 그림자 #00000010 (0,1) blur 6 · 모서리 14(RpRBi 값표 1004).
-    final frame = tester.widget<DecoratedBox>(
-      find.descendant(of: find.byType(PollCard).first, matching: find.byType(DecoratedBox)).first,
-    );
-    final decoration = frame.decoration as ShapeDecoration;
-    expect(decoration.shadows, const [BoxShadow(color: Color(0x10000000), offset: Offset(0, 1), blurRadius: 6)]);
-    expect((decoration.shape as RoundedRectangleBorder).borderRadius, BorderRadius.circular(14));
-  });
-
-  testWidgets('pen 앱바: 제목 x20, + 는 터치 48 · 원 32 primary · 흰 plus 18, 오른쪽 여백 8(Iblb3 · uhk6J · I7U2Jp · zuIJJ)', (tester) async {
+  testWidgets('pen 앱바(JJAzV · AppBar · Tab): 제목 x20 20/700, 오른쪽 + 는 없다 — 질문하기 알약이 대신한다', (tester) async {
     tester.view.physicalSize = const Size(360, 780);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
+    repository.page = Success(PollPage(polls: [pollFixture()], hasMore: false));
     await pump(tester);
     expect(tester.getTopLeft(find.text('커뮤니티').first).dx, 20);
-    final plus = find.byTooltip('질문 올리기');
-    expect(tester.getCenter(plus), const Offset(360 - 8 - 24, 28));
-    final circle = find.descendant(of: plus, matching: find.byType(Container)).first;
-    expect(tester.getSize(circle), const Size(32, 32));
-    expect((tester.widget<Container>(circle).decoration! as BoxDecoration).color, AppColors.primary);
-    final icon = tester.widget<Icon>(find.descendant(of: plus, matching: find.byIcon(AppIcons.plus)));
-    expect((icon.size, icon.color), (18.0, AppColors.onPrimary));
+    expect(tester.widget<AppBar>(find.byType(AppBar)).actions, isNull);
+    expect(find.byTooltip('질문 올리기'), findsNothing);
   });
 
   testWidgets('글이 한두 개라 화면을 못 채워도 아래로 당기면 새로 불러온다', (tester) async {
@@ -268,7 +412,7 @@ void main() {
     await pump(tester);
     await tester.drag(find.byType(ListView), const Offset(0, -20000));
     await tester.pumpAndSettle();
-    expect(find.byType(PollCard), findsWidgets);
+    expect(find.byType(FeedPollCard), findsWidgets);
     expect(find.text('다시 시도'), findsNothing);
   });
 
@@ -297,10 +441,10 @@ void main() {
     expect(toast.center.dx, 400); // 가운데(기본 테스트 화면 폭 800)
   });
 
-  testWidgets('+ 는 17b 로 간다', (tester) async {
+  testWidgets('질문하기 알약은 17b 로 간다', (tester) async {
     repository.page = Success(PollPage(polls: [pollFixture()], hasMore: false));
     await pump(tester);
-    await tester.tap(find.byTooltip('질문 올리기'));
+    await tester.tap(find.text('질문하기'));
     await tester.pumpAndSettle();
     expect(find.text('쓰기'), findsOneWidget);
   });
@@ -320,24 +464,12 @@ void main() {
     expect(tester.getSize(ink).height, greaterThanOrEqualTo(48));
   });
 
-  testWidgets('"자세히 보기" 글자 자리는 pen 과 같다 — 위 줄에서 12, 카드 아래에서 17 + 16 안(i5ugzn)', (tester) async {
-    repository.page = Success(PollPage(polls: [pollFixture()], hasMore: false));
-    await pump(tester);
-    final card = tester.getRect(find.byType(PollCard));
-    final above = tester.getRect(find.text('찬성 63% · 반대 37% · 8명 참여'));
-    final label = tester.getRect(find.text('자세히 보기'));
-    expect(label.top - above.bottom, 12);
-    // pen 은 카드 아래 안쪽 16. 누르는 영역 48 을 채우느라 3 까지 더 둔다.
-    expect(card.bottom - label.bottom, inInclusiveRange(16, 19.5));
-    expect(label.right, card.right - 16 - 2 - 14); // 오른쪽 정렬, 간격 2 + chevron 14
-  });
-
   testWidgets('"자세히 보기" 눌림 효과는 카드 안에 그려진다(COMMON §4-2)', (tester) async {
     repository.page = Success(PollPage(polls: [pollFixture()], hasMore: false));
     await pump(tester);
     final ink = find.ancestor(of: find.text('자세히 보기'), matching: find.byType(InkWell)).first;
     final material = find.ancestor(of: ink, matching: find.byType(Material)).first;
-    expect(tester.getSize(material), tester.getSize(find.byType(PollCard)));
+    expect(tester.getSize(material), tester.getSize(find.byType(FeedPollCard)));
   });
 
   testWidgets('폰 폭(360)에서 글자 2배 · 80자 질문 · 6자 라벨에도 넘치거나 잘리지 않는다', (tester) async {
@@ -390,11 +522,11 @@ void main() {
     await pump(tester);
     // 툴팁은 버튼 몸체(40)만 감싼다 — 누르는 영역(48)은 IconButton 전체다.
     final more = tester.getRect(find.ancestor(of: find.byTooltip('더보기'), matching: find.byType(IconButton)));
-    final time = tester.getRect(find.text('방금 전'));
-    final card = tester.getRect(find.byType(PollCard));
+    final avatar = tester.getRect(find.byKey(FeedPollCard.avatarKey));
+    final card = tester.getRect(find.byType(FeedPollCard));
     expect(more.size, const Size(48, 48));
     expect(more.right, card.right - 16);
-    expect(more.center.dy, time.center.dy);
+    expect(more.center.dy, avatar.center.dy);
     // 머리줄 48 → 질문은 카드 위 안쪽 16 + 48 + 12 아래.
     expect(tester.getRect(find.text('첫 데이트 더치페이')).top - card.top, 16 + 48 + 12);
   });
@@ -411,7 +543,7 @@ void main() {
     await tester.tap(find.widgetWithText(ElevatedButton, '삭제하기'));
     await tester.pumpAndSettle();
     expect(repository.deleted, ['p1']);
-    expect(find.byType(PollCard), findsNothing);
+    expect(find.byType(FeedPollCard), findsNothing);
     // 15d-5 `SKQgV`: "삭제했어요" 글자만(토스트 `VuCcc` 아이콘 끔).
     expect(find.text(pollDeletedMessage), findsOneWidget);
     expect(find.descendant(of: find.byType(AppToast), matching: find.byType(Icon)), findsNothing);
@@ -437,7 +569,7 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
 
     expect(find.text('이 질문을 삭제할까요?'), findsOneWidget);
-    expect(find.byType(PollCard), findsOneWidget);
+    expect(find.byType(FeedPollCard), findsOneWidget);
     final button = tester.widget<ElevatedButton>(deleteButton);
     expect(button.onPressed, isNull);
     // EIEFb: 채움 #E5E5E5 · 글자 #929292, 스피너 없음 — AppButton 의 꺼진 상태 그대로.
@@ -453,7 +585,7 @@ void main() {
     repository.holdDelete!.complete();
     await tester.pumpAndSettle();
     expect(find.text('이 질문을 삭제할까요?'), findsNothing);
-    expect(find.byType(PollCard), findsNothing);
+    expect(find.byType(FeedPollCard), findsNothing);
     expect(find.text(pollDeletedMessage), findsOneWidget);
   });
 
@@ -466,7 +598,7 @@ void main() {
     await tester.tap(find.widgetWithText(ElevatedButton, '삭제하기'));
     await tester.pumpAndSettle();
     expect(find.text('이 질문을 삭제할까요?'), findsNothing);
-    expect(find.byType(PollCard), findsOneWidget);
+    expect(find.byType(FeedPollCard), findsOneWidget);
     expect(find.text(const UnknownFailure().toDisplayMessage()), findsOneWidget);
     expect(find.text(pollDeletedMessage), findsNothing);
     final icon = tester.widget<Icon>(find.descendant(of: find.byType(AppToast), matching: find.byType(Icon)));
@@ -494,7 +626,7 @@ void main() {
     repository.holdDelete!.complete();
     await tester.pumpAndSettle();
     expect(repository.deleted, ['p1']);
-    expect(find.byType(PollCard), findsNothing);
+    expect(find.byType(FeedPollCard), findsNothing);
     expect(find.text(pollDeletedMessage), findsOneWidget);
   });
 
@@ -558,7 +690,7 @@ void main() {
     await tester.tap(find.text('취소'));
     await tester.pumpAndSettle();
     expect(repository.deleted, isEmpty);
-    expect(find.byType(PollCard), findsOneWidget);
+    expect(find.byType(FeedPollCard), findsOneWidget);
   });
 
   testWidgets('pen 시트 높이: 메뉴 157(15d-1 ofjwb) · 확인 260(15d-2 CCdBk — 버튼 52 로 4 줄어듦, HE8FZ 2026-10-01 개편), 행 52 · 버튼 52/48', (tester) async {
@@ -636,7 +768,7 @@ void main() {
       repository.page = Success(PollPage(polls: [pollFixture(isMine: true), pollFixture(id: 'p2')], hasMore: false));
       await pump(tester);
 
-      final cards = find.byType(PollCard);
+      final cards = find.byType(FeedPollCard);
       expect(find.descendant(of: cards.first, matching: siren), findsNothing);
       expect(find.descendant(of: cards.first, matching: find.byTooltip('더보기')), findsOneWidget);
       expect(find.descendant(of: cards.last, matching: siren), findsOneWidget);
@@ -647,15 +779,15 @@ void main() {
       repository.page = Success(PollPage(polls: [pollFixture()], hasMore: false));
       await pump(tester);
 
-      final card = tester.getRect(find.byType(PollCard));
+      final card = tester.getRect(find.byType(FeedPollCard));
       final button = tester.getRect(reportButton());
       expect(button.size, const Size(48, 48));
       expect(button.right, card.right - 16);
-      expect(button.center.dy, tester.getCenter(find.text('방금 전')).dy);
+      expect(button.center.dy, tester.getCenter(find.byKey(FeedPollCard.avatarKey)).dy);
       final icon = tester.getRect(siren);
       expect(icon.size, const Size(22, 22));
       expect(icon.center.dx, button.center.dx);
-      final label = find.descendant(of: find.byType(PollCard), matching: find.text('신고하기'));
+      final label = find.descendant(of: find.byType(FeedPollCard), matching: find.text('신고하기'));
       expect(tester.getRect(label).top - icon.bottom, 2);
       final style = tester.widget<Text>(label).style!;
       expect((style.fontSize, style.fontWeight, style.color), (9, FontWeight.w600, const Color(0xFF6E5861)));
@@ -681,7 +813,7 @@ void main() {
       expect(safety.reports.single.reason, ReportReason.spam);
       expect(find.byType(ReportSheet), findsNothing);
       expect(find.text('신고했어요. 운영팀이 확인할게요'), findsOneWidget);
-      expect(find.byType(PollCard), findsOneWidget);
+      expect(find.byType(FeedPollCard), findsOneWidget);
     });
 
     testWidgets('낭독기는 "신고하기" 버튼 하나로 읽는다', (tester) async {

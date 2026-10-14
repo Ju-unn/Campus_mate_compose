@@ -13,15 +13,14 @@ import 'package:flutter/material.dart';
 /// 카드 그림자(pen `RpRBi` #00000010 (0,1) blur 6, 값표 1004). AppElevation 토큰과 값이 달라 여기 둔다.
 const List<BoxShadow> _cardShadow = [BoxShadow(color: Color(0x10000000), offset: Offset(0, 1), blurRadius: 6)];
 
-/// `poll-card`(pen 마스터 `RpRBi`). 15d 목록과 17c 상세가 같이 쓴다.
+/// `poll-card`(pen 마스터 `RpRBi`) — **17c 상세 전용**(`BwL1G` > `v9Pmy0`). 15d 피드는 개선안 A 의
+/// `FeedPollCard`(`IFUWA`)로 옮겨 갔다. 17c 는 pen 이 바뀌지 않아 도넛 결과 · 질문 전문 그대로다.
 class PollCard extends StatelessWidget {
   const PollCard({
     required this.poll,
     required this.now,
     required this.isVoting,
     required this.onVote,
-    this.onOpen,
-    this.onMore,
     this.onReport,
     super.key,
   });
@@ -33,18 +32,11 @@ class PollCard extends StatelessWidget {
   final bool isVoting;
   final void Function(PollChoice choice) onVote;
 
-  /// 17c 로 가는 줄. 상세 화면 안에서는 null 이라 줄이 없고 질문도 전부 보인다.
-  final VoidCallback? onOpen;
-
-  /// 내 글에만 준다(… 메뉴, 사용자 결정 2).
-  final VoidCallback? onMore;
-
-  /// 남의 글에만 준다(신고 버튼 `uPUf3`, A16). pen `mc9mW` 규칙 — 내 글이면 신고 대신 … 가 같은 자리에 선다.
+  /// 남의 글에만 준다(신고 버튼 `uPUf3`, A16). 내 글이면 머리줄 오른쪽이 빈다(상세에는 … 메뉴가 없다).
   final VoidCallback? onReport;
 
   @override
   Widget build(BuildContext context) {
-    final inList = onOpen != null;
     final shape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md));
     // 색 · 그림자는 바깥 DecoratedBox, 눌림 효과는 안쪽 투명 Material 이 받는다 — InkWell 의 가장 가까운
     // Material 이 카드 자신이라 스크롤해도 효과가 카드와 같이 움직인다(COMMON §4-2).
@@ -55,26 +47,22 @@ class PollCard extends StatelessWidget {
         shape: shape,
         clipBehavior: Clip.antiAlias,
         child: Padding(
-          // 목록 카드의 아래 안쪽 16 은 "자세히 보기" 누르는 영역이 품는다(_OpenRow).
-          padding: EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, inList ? 0 : AppSpacing.md),
+          padding: const EdgeInsets.all(AppSpacing.md),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _Header(poll: poll, now: now, onMore: onMore, onReport: onReport),
+              _Header(poll: poll, now: now, onReport: onReport),
               const SizedBox(height: AppSpacing.sm),
               Text(
                 poll.question,
-                // pen `b5raym` 16/700 lh1.35. 목록에서는 2줄(DESIGN §8.11).
+                // pen `b5raym` 16/700 lh1.35. 상세라 질문 전문을 보인다(DESIGN §8.11).
                 style: AppTypography.body.copyWith(fontWeight: FontWeight.w700, height: 1.35, color: AppColors.ink),
-                maxLines: inList ? 2 : null,
-                overflow: inList ? TextOverflow.ellipsis : null,
               ),
               const SizedBox(height: AppSpacing.sm),
               if (poll.myChoice == null)
                 _BeforeVote(poll: poll, enabled: !isVoting, onVote: onVote)
               else
                 _Result(poll: poll),
-              if (inList) _OpenRow(onOpen: onOpen!),
             ],
           ),
         ),
@@ -84,11 +72,10 @@ class PollCard extends StatelessWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.poll, required this.now, required this.onMore, required this.onReport});
+  const _Header({required this.poll, required this.now, required this.onReport});
 
   final Poll poll;
   final DateTime now;
-  final VoidCallback? onMore;
   final VoidCallback? onReport;
 
   @override
@@ -109,18 +96,10 @@ class _Header extends StatelessWidget {
             style: AppTypography.caption.copyWith(fontWeight: FontWeight.w500, color: AppColors.muted),
           ),
         ),
-        // 신고 버튼 · "…" 는 머리줄 오른쪽 끝 한 자리(10-01 개편, 간격 8) — 둘 중 하나만 켜지고, 켜지면 머리줄이 48.
-        // "…" 는 pen `mc9mW`(터치 48 · ellipsis 20 muted).
-        if (onMore != null) ...[
+        // 신고 버튼은 머리줄 오른쪽 끝(10-01 개편, 간격 8) — 켜지면 머리줄이 48.
+        if (onReport != null) ...[
           const SizedBox(width: AppSpacing.xs),
-          IconButton(
-            tooltip: '더보기',
-            icon: const Icon(AppIcons.ellipsis, size: 20, color: AppColors.muted),
-            onPressed: onMore,
-          ),
-        ] else if (onReport != null) ...[
-          const SizedBox(width: AppSpacing.xs),
-          _ReportButton(onPressed: onReport!),
+          PollReportButton(onPressed: onReport!),
         ],
       ],
     );
@@ -128,9 +107,9 @@ class _Header extends StatelessWidget {
 }
 
 /// 신고 버튼(pen `uPUf3` = Report Button · 3D Siren Label `OaLnA`): 터치 48 · 세로 가운데 · 사이렌 22 → 2 → "신고하기".
-/// 글자를 키우면 48 보다 커진다 — 고정 48 이면 글자가 조용히 잘린다.
-class _ReportButton extends StatelessWidget {
-  const _ReportButton({required this.onPressed});
+/// 글자를 키우면 48 보다 커진다 — 고정 48 이면 글자가 조용히 잘린다. 17c [PollCard] 와 15d `FeedPollCard`(`U6b2tA`)가 같이 쓴다.
+class PollReportButton extends StatelessWidget {
+  const PollReportButton({required this.onPressed, super.key});
 
   final VoidCallback onPressed;
 
@@ -238,39 +217,6 @@ class _Result extends StatelessWidget {
           style: AppTypography.caption.copyWith(fontWeight: FontWeight.w500, color: AppColors.muted),
         ),
       ],
-    );
-  }
-}
-
-class _OpenRow extends StatelessWidget {
-  const _OpenRow({required this.onOpen});
-
-  final VoidCallback onOpen;
-
-  @override
-  Widget build(BuildContext context) {
-    final style = AppTypography.caption.copyWith(fontWeight: FontWeight.w600, color: AppColors.muted);
-    // pen `i5ugzn`: 위 줄에서 12 · 줄 높이 17 · 카드 아래 안쪽 16 = 45. 누르는 영역은 48(대장)이라
-    // 그 45 를 통째로 누르는 영역으로 쓰고 모자란 3 만 아래에 더한다 — 글자 자리는 pen 그대로, 카드는 3 길어진다.
-    return InkWell(
-      onTap: onOpen,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 48),
-        child: Padding(
-          padding: const EdgeInsets.only(top: AppSpacing.sm, bottom: AppSpacing.md),
-          child: Align(
-            alignment: Alignment.topRight,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('자세히 보기', style: style),
-                const SizedBox(width: 2),
-                const Icon(AppIcons.chevronRight, size: 14, color: AppColors.muted),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }
