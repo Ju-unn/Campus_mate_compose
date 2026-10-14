@@ -16,11 +16,13 @@ import 'package:campus_mate/billing/viewmodel/heart_purchase_view_model.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/common/widgets/entrance.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/consent/model/open_url.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/me/model/me_repository_provider.dart';
 import 'package:campus_mate/me/model/my_profile.dart';
 import 'package:flutter/material.dart';
@@ -592,6 +594,9 @@ void main() {
       expect(find.byType(BottomSheet), findsNothing);
       expect(find.widgetWithText(AppToast, '결제를 취소했어요'), findsOneWidget);
       expect(tester.widget<Icon>(find.descendant(of: find.byType(AppToast), matching: find.byType(Icon))).icon, AppIcons.info);
+      // 나타날 때 나 탭 · 홈 토스트와 같이 아래 8 에서 press 동안 올라온다(D4).
+      final entrance = tester.widget<Entrance>(find.ancestor(of: find.byType(AppToast), matching: find.byType(Entrance)));
+      expect((entrance.rise, entrance.duration, entrance.curve), (8, AppMotion.press, AppMotion.pressCurve));
       expect(buttonPaint(tester, inBar('100하트 받기 · 5,700원')), (AppColors.primary, AppColors.onPrimary));
       await tester.pump(const Duration(seconds: 2));
       expect(find.byType(AppToast), findsNothing);

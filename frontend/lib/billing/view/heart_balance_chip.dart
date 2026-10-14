@@ -1,5 +1,6 @@
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
@@ -61,11 +62,16 @@ class HeartBalanceChipView extends StatelessWidget {
   /// 숫자 줄 높이 25 × 배율이 칸 32 안에 드는 가장 큰 배율(25 × 1.2 = 30).
   static const double _maxTextScale = 1.2;
 
+  /// 잔액이 바뀔 때 새 숫자가 올라오기 시작하는 거리(대장 지시 10-14 — pen 에 모션 값은 없다).
+  /// 아래 패딩(6)과 같아 칩 밖으로 삐져나가지 않는다.
+  static const double _rise = 6;
+
   @override
   Widget build(BuildContext context) {
     final onPlus = this.onPlus;
+    final instant = MediaQuery.disableAnimationsOf(context);
     // 패딩 [6,12,6,8] · gap 6 · 하트 24 · 숫자 18/700(렌더 높이 25) · plus 16 — 마스터 `sysyz`(토큰 밖 pen 리터럴).
-    final content = Padding(
+    final padded = Padding(
       padding: const EdgeInsets.fromLTRB(8, 6, 12, 6),
       // 높이 44 가 고정이라 글자 배율은 숫자가 칸(44 − 위아래 12)에 들어가는 [_maxTextScale] 까지만 따른다 — 앱바 제목에 자리도 남긴다.
       child: MediaQuery.withClampedTextScaling(
@@ -80,11 +86,23 @@ class HeartBalanceChipView extends StatelessWidget {
               excludeFromSemantics: true,
             ),
             const SizedBox(width: 6),
-            Text(
-              _withCommas(balance),
-              style: AppTypography.subNavTitle.copyWith(
-                color: AppColors.ink,
-                height: 25 / 18,
+            // 잔액이 바뀌면 새 숫자만 올라오고 옛 숫자는 사라진다. 사이 숫자를 세며 올라가지 않는다(카운트업 금지).
+            // 처음 그릴 때(잔액을 읽은 직후)는 AnimatedSwitcher 가 효과 없이 그린다.
+            // 옛 숫자 사라짐은 대장 지시 150ms 대신 토큰 press(120ms) — 모션은 토큰만 쓴다(CLAUDE.md §1-2).
+            AnimatedSwitcher(
+              duration: instant ? Duration.zero : AppMotion.standard,
+              reverseDuration: instant ? Duration.zero : AppMotion.press,
+              switchInCurve: AppMotion.standardCurve,
+              switchOutCurve: AppMotion.pressCurve,
+              layoutBuilder: _overlapAtStart,
+              transitionBuilder: _riseIn,
+              child: Text(
+                _withCommas(balance),
+                key: ValueKey(balance),
+                style: AppTypography.subNavTitle.copyWith(
+                  color: AppColors.ink,
+                  height: 25 / 18,
+                ),
               ),
             ),
             if (showPlus) ...[
@@ -95,6 +113,11 @@ class HeartBalanceChipView extends StatelessWidget {
         ),
       ),
     );
+    // 숫자가 바뀌면 칩 폭이 press 동안 따라간다(대장 지시). 처음 그릴 때는 늘이지 않는다.
+    // 동작 줄이기면 AnimatedSize 를 아예 두지 않는다 — 시간 0 인 AnimatedSize 는 제 레이아웃 중에 다시 레이아웃을 걸어 오류가 난다.
+    final content = instant
+        ? padded
+        : AnimatedSize(duration: AppMotion.press, curve: AppMotion.pressCurve, alignment: Alignment.centerLeft, child: padded);
     final radius = BorderRadius.circular(AppRadius.pill);
     final tappable = showPlus && onPlus != null;
     // 높이 44 는 눈에 보이는 분홍 띠와 누름 칸 자체의 높이다(바깥 상자만 44 면 띠가 37 로 줄고 누름 칸도 44 미만이 된다).
@@ -129,6 +152,25 @@ class HeartBalanceChipView extends StatelessWidget {
           : shape,
     );
   }
+
+  /// 옛 숫자와 새 숫자를 하트 바로 뒤(왼쪽)에 겹친다 — 폭이 다른 두 숫자가 가운데로 모이지 않게.
+  static Widget _overlapAtStart(Widget? current, List<Widget> previous) => Stack(
+    alignment: Alignment.centerLeft,
+    children: [...previous, ?current],
+  );
+
+  /// 들어오는 숫자는 투명 · 아래 [_rise] 에서 제자리로, 나가는 숫자(되감기)는 제자리에서 투명해지기만 한다(transform · opacity 만).
+  static Widget _riseIn(Widget child, Animation<double> animation) => FadeTransition(
+    opacity: animation,
+    child: AnimatedBuilder(
+      animation: animation,
+      builder: (context, child) => Transform.translate(
+        offset: Offset(0, animation.status == AnimationStatus.reverse ? 0 : _rise * (1 - animation.value)),
+        child: child,
+      ),
+      child: child,
+    ),
+  );
 
   /// 1,250 처럼 천 단위마다 쉼표(pen 칩 예시는 "320" 뿐 — 쉼표는 대장 추천).
   static String _withCommas(int value) {

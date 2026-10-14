@@ -17,6 +17,7 @@ import 'package:campus_mate/core/http/http_send.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/matching/model/acceptance.dart';
 import 'package:campus_mate/matching/model/card_profile.dart';
 import 'package:campus_mate/matching/model/card_repository.dart';
@@ -546,9 +547,51 @@ void main() {
 
         await arrive(tester, repository, chat);
         await tester.pump();
+        // standard 동안 미끄러져 내려간다(아래). 움직이는 동안 목록은 줄 누름을 받지 않는다(Flutter 스크롤 공통) —
+        // 끝난(220ms 를 넘긴) 프레임 다음 프레임부터 눌린다.
+        await tester.pump(AppMotion.standard + const Duration(milliseconds: 1));
+        await tester.pump();
 
         expect(headerTop(tester, '보낸 신청'), headerBottom(tester, '받은 신청'));
         expect(find.text('보낸 신청').hitTestable(), findsOneWidget);
+      });
+
+      group('내려 주는 움직임(DESIGN §7 standard)', () {
+        Future<void> arriveLong(WidgetTester tester) => arrive(
+              tester,
+              FakeCardRepository()
+                ..acceptances = Success([
+                  for (var i = 0; i < 4; i++)
+                    Acceptance(cardId: 'a$i', profile: CardProfile(profileId: 'p$i', nickname: '사람a$i', age: 25)),
+                ])
+                ..sent = Success([_sent('s1')]),
+              FakeChatRepository()
+                ..conversations = Success([
+                  for (var i = 0; i < 15; i++) conversationFixture(matchId: 'm$i', nickname: '사람$i'),
+                ]),
+            );
+        double scrolled(WidgetTester tester) => tester.state<ScrollableState>(find.byType(Scrollable).first).position.pixels;
+
+        testWidgets('한 번에 건너뛰지 않고 standard(220ms) 동안 내려간다', (tester) async {
+          await arriveLong(tester);
+          await tester.pump(AppMotion.standard ~/ 2);
+          final halfway = scrolled(tester);
+
+          await tester.pump(AppMotion.standard);
+          final end = scrolled(tester);
+          expect(end, greaterThan(0));
+          expect(halfway, inExclusiveRange(0, end));
+          expect(headerTop(tester, '보낸 신청'), headerBottom(tester, '받은 신청'));
+        });
+
+        testWidgets('기기 "동작 줄이기" 면 바로 그 자리다', (tester) async {
+          tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
+          addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+          await arriveLong(tester);
+          await tester.pump();
+
+          expect(headerTop(tester, '보낸 신청'), headerBottom(tester, '받은 신청'));
+        });
       });
 
       testWidgets('그냥 탭으로 들어오면 토스트도 스크롤도 없다', (tester) async {

@@ -974,6 +974,7 @@ void main() {
 
     final toast = find.byType(AppToast);
     expect(toast, findsOneWidget);
+    await tester.pump(AppMotion.press); // 아래 8 에서 올라오는 움직임(D4, me_toast_test)이 끝난 자리
     expect(tester.getRect(find.byType(GlassBottomNav)).top - tester.getBottomLeft(toast).dy, 12);
   });
 

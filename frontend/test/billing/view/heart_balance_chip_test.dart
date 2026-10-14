@@ -3,6 +3,7 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/me/model/me_repository_provider.dart';
 import 'package:campus_mate/me/model/my_profile.dart';
@@ -147,6 +148,7 @@ void main() {
       await pumpView(tester, 320);
       final short = tester.getSize(chip).width;
       await pumpView(tester, 12480);
+      await tester.pumpAndSettle(); // 폭은 press 동안 늘어난다(아래 '잔액이 바뀔 때')
 
       expect(find.text('12,480'), findsOneWidget);
       expect(tester.getSize(chip).width, greaterThan(short));
@@ -200,6 +202,88 @@ void main() {
       expect(find.bySemanticsLabel('보유 하트 320개'), findsOneWidget);
       expect(find.bySemanticsLabel('320'), findsNothing);
       handle.dispose();
+    });
+  });
+
+  group('잔액이 바뀔 때(DESIGN §7 — 새 숫자만 아래 6 에서 올라오고, 카운트업은 하지 않는다)', () {
+    double numberTop(WidgetTester tester, String text) => tester.getTopLeft(find.text(text)).dy;
+    double numberOpacity(WidgetTester tester, String text) =>
+        tester.widget<FadeTransition>(find.ancestor(of: find.text(text), matching: find.byType(FadeTransition)).first).opacity.value;
+
+    testWidgets('처음 그릴 때(잔액을 읽은 직후)는 효과 없이 제자리에 있다', (tester) async {
+      await pumpView(tester, 320);
+
+      final top = numberTop(tester, '320');
+      await tester.pumpAndSettle();
+      expect(numberTop(tester, '320'), top);
+      expect(find.text('320'), findsOneWidget);
+    });
+
+    testWidgets('바뀌면 새 숫자는 투명 · 아래 6 에서 standard(220ms) 동안 올라오고, 옛 숫자는 press(120ms) 에 사라진다', (tester) async {
+      await pumpView(tester, 320);
+      final settled = numberTop(tester, '320');
+
+      await pumpView(tester, 370);
+      expect(numberTop(tester, '370'), settled + 6);
+      expect(numberOpacity(tester, '370'), 0);
+      expect(find.text('320'), findsOneWidget); // 옛 숫자는 아직 사라지는 중
+
+      await tester.pump(AppMotion.press);
+      expect(numberOpacity(tester, '320'), 0); // 눈에는 이미 없다 — 틀에서는 다음 프레임에 빠진다
+      expect(numberTop(tester, '320'), settled); // 나가는 숫자는 제자리에서 사라지기만 한다
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(find.text('320'), findsNothing);
+      expect(numberTop(tester, '370'), inExclusiveRange(settled, settled + 6)); // 아직 올라오는 중
+
+      await tester.pump(AppMotion.standard - AppMotion.press - const Duration(milliseconds: 1));
+      expect(numberTop(tester, '370'), settled);
+      expect(numberOpacity(tester, '370'), 1);
+    });
+
+    testWidgets('사이 숫자를 세며 올라가지 않는다 — 옛 숫자와 새 숫자 둘만 있다', (tester) async {
+      await pumpView(tester, 320);
+      await pumpView(tester, 1250);
+
+      for (var i = 0; i < 4; i++) {
+        final numbers = tester.widgetList<Text>(find.descendant(of: chip, matching: find.byType(Text))).map((t) => t.data);
+        expect(numbers.toSet().difference({'320', '1,250'}), isEmpty);
+        await tester.pump(const Duration(milliseconds: 60));
+      }
+    });
+
+    testWidgets('칩 폭은 press(120ms) 동안 새 숫자 폭으로 바뀐다', (tester) async {
+      await pumpView(tester, 320);
+      final short = tester.getSize(chip).width;
+
+      await pumpView(tester, 12480);
+      expect(tester.getSize(chip).width, short);
+
+      await tester.pump(AppMotion.press);
+      expect(tester.getSize(chip).width, _chipWidth(tester, '12,480', plus: false));
+    });
+
+    testWidgets('기기 "동작 줄이기" 면 바로 새 숫자 · 새 폭이다', (tester) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+      await pumpView(tester, 320);
+      final settled = numberTop(tester, '320');
+
+      await pumpView(tester, 12480);
+      await tester.pump();
+
+      expect(find.text('320'), findsNothing);
+      expect(numberTop(tester, '12,480'), settled);
+      expect(tester.getSize(chip).width, _chipWidth(tester, '12,480', plus: false));
+    });
+
+    testWidgets('숫자가 바뀌는 중에도 "+" 를 누르면 바로 불린다', (tester) async {
+      var taps = 0;
+      await pumpView(tester, 320, showPlus: true, onPlus: () => taps++);
+      await pumpView(tester, 370, showPlus: true, onPlus: () => taps++);
+
+      await tester.tap(chip);
+      expect(taps, 1);
+      await tester.pumpAndSettle();
     });
   });
 

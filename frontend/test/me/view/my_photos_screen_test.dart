@@ -8,6 +8,8 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/common/widgets/entrance.dart';
+import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -400,8 +402,12 @@ void main() {
 
     expect(find.text('얼굴이 보이는 사진을 골라 주세요'), findsOneWidget);
     expect(find.descendant(of: find.byType(AppToast), matching: find.byIcon(AppIcons.alertTriangle)), findsOneWidget);
+    // 나타날 때 나 탭 · 홈 토스트와 같이 아래 8 에서 press 동안 올라온다(D4) — 자리는 다 올라온 뒤에 잰다.
+    final entrance = tester.widget<Entrance>(find.ancestor(of: find.byType(AppToast), matching: find.byType(Entrance)));
+    expect((entrance.rise, entrance.duration, entrance.curve), (8, AppMotion.press, AppMotion.pressCurve));
+    await tester.pump(AppMotion.press);
     expect(tester.getTopLeft(find.byType(AppButton)).dy - tester.getBottomLeft(find.byType(AppToast)).dy, 12);
-    await tester.pump(const Duration(seconds: 2));
+    await tester.pump(const Duration(seconds: 2) - AppMotion.press);
     expect(find.byType(AppToast), findsNothing);
   });
 

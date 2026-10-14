@@ -24,6 +24,7 @@ import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/me/view/me_toast.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -118,13 +119,14 @@ class _HeartStoreScreenState extends ConsumerState<HeartStoreScreen> {
                     const _FreeSection(),
                   ],
                 ),
-                // 토스트 아래 끝은 바 위 12(pen `eZlLw`).
+                // 토스트 아래 끝은 바 위 12(pen `eZlLw`). 나타날 때 나 탭 · 홈 토스트와 같이 올라온다(D4) —
+                // "하트를 넣고 있어요" → "N하트가 들어왔어요" 처럼 바뀔 때는 제자리에서 글만 바뀐다.
                 if (toast != null)
                   Positioned(
                     left: AppSpacing.md,
                     right: AppSpacing.md,
                     bottom: AppSpacing.sm,
-                    child: Center(child: toast),
+                    child: Center(child: toastEntrance(toast)),
                   ),
               ],
             ),
