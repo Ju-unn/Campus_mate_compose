@@ -20,19 +20,21 @@ const String _pollReportedMessage = '신고했어요. 운영팀이 확인할게�
 
 /// 남의 글 신고(A16 · 신고 버튼 `uPUf3`). 받은 리뷰 신고(20c)와 같은 흐름 — 글쓴이는 익명이라 차단할 상대가 없어
 /// `reportThenLeave` 를 쓰지 않고, 어느 결과든 카드는 그대로 남는다(가림은 운영자가 한다, 서버 #191).
-Future<void> reportPoll(BuildContext context, String pollId) async {
+/// 띄운 토스트를 돌려준다(시트를 그냥 닫으면 null).
+Future<PollToast?> reportPoll(BuildContext context, String pollId) async {
   final messenger = ScaffoldMessenger.of(context);
   final result = await showReportSheet(context, ReportTarget.poll(pollId));
-  if (result == null) return;
-  showSafetyToast(messenger, result.outcome == ReportOutcome.reported ? _pollReportedMessage : result.message);
+  if (result == null) return null;
+  return showSafetyToast(messenger, result.outcome == ReportOutcome.reported ? _pollReportedMessage : result.message);
 }
 
 /// 내 글 "…"(15d-1 `RCNu0`) → "삭제하기" → 확인(15d-2 `K64Q8p`) → 지우기(사용자 결정 2).
 /// 지우는 동안 확인 시트는 열린 채 "삭제하기" 만 꺼지고(15d-2 삭제 중 `EIEFb`), 끝나면 닫고 "삭제했어요"(15d-5 `SKQgV`)
 /// 또는 오류 토스트. 도중에 시트를 닫아도 요청이 끝나면 결과를 알린다 — 서버에서는 이미 지워졌을 수 있다.
-Future<void> showPollMenu(BuildContext context, WidgetRef ref, String pollId) async {
+/// 띄운 토스트를 돌려준다(지우지 않았으면 null).
+Future<PollToast?> showPollMenu(BuildContext context, WidgetRef ref, String pollId) async {
   final wantsDelete = await _showSheet<bool>(context, const _PollMenuSheet());
-  if (wantsDelete != true || !context.mounted) return;
+  if (wantsDelete != true || !context.mounted) return null;
   Future<String?>? deleting;
   await _showSheet<void>(
     context,
@@ -42,9 +44,10 @@ Future<void> showPollMenu(BuildContext context, WidgetRef ref, String pollId) as
       },
     ),
   );
-  if (deleting == null) return; // "삭제하기" 를 누르지 않고 닫았다.
+  if (deleting == null) return null; // "삭제하기" 를 누르지 않고 닫았다.
   final error = await deleting;
-  if (context.mounted) showPollToast(context, error ?? pollDeletedMessage);
+  if (!context.mounted) return null;
+  return showPollToast(context, error ?? pollDeletedMessage);
 }
 
 Future<T?> _showSheet<T>(BuildContext context, Widget sheet) {
