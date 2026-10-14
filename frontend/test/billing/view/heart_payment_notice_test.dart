@@ -69,8 +69,8 @@ void main() {
     await tester.tap(find.text('유료 서비스 약관 ›'));
     await tester.pump();
 
+    // 주소 규칙(notion.site · 약관동의 페이지)은 consent_links_test.dart 가 본다.
     expect(opened, [paidServiceTermsLink]);
-    expect(paidServiceTermsLink.toString(), 'https://golden-leech-197.notion.site/3e9d998f0dee8082be84e126630b02a7');
   });
 
   testWidgets('못 열면 실패 토스트', (tester) async {
