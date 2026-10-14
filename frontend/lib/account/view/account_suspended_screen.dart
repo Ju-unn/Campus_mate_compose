@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:campus_mate/account/view/withdraw_sheets.dart';
+import 'package:campus_mate/common/support_email.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/core/auth/sign_out.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -10,9 +11,6 @@ import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-/// 문의 메일. 앱에 보이라고 사용자가 정한 값이라 상수로 둔다.
-const String supportEmail = 'appmailerl4538@gmail.com'; // 2026-09-26 사용자 확정
 
 /// pen 프레임 `e7QaDh` 의 요소 사이 간격 20. 간격 토큰(md 16 · lg 24) 사이 값이다.
 const double _gap = 20;
