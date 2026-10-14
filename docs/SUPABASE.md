@@ -16,6 +16,8 @@ Supabase **MCP 플러그인(`supabase`)이 설치·인증돼 있다.** 클라우
 
 **2026-10-14 갱신(대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다).** 저장소 · 운영 모두 **71개**다(위 M2 파일은 PR #476 merge 로 저장소에도 들어왔다). 그 뒤 세 파일: `20261013010000_add_heart_reason_first_purchase_bonus` · `20261013010100_billing_purchases`(인앱결제 `purchases` 표 · `grant_store_purchase` · `refund_store_purchase`, PR #498) · **`20261013152736_user_channel_realtime_policy`(마지막 적용, 원격 버전 `20261013154505`, PR #512)** — 채팅 실시간 사용자 채널의 `realtime.messages` 받기 정책 `user_channel_read_own` 하나다(테이블 · publication · grant 변경 없음, `docs/ERD.md` §2). Realtime 설정 "Allow public access" 는 끄지 않았다(방 채널 `messages:<match_id>` 가 public 이다). 적용 순서는 `backend/DEPLOY.md` §4-8 · §4-9.
 
+**2026-10-14 밤 갱신(대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다).** 저장소 · 운영 모두 **72개**다. 새 파일 **`20261014120000_faq_avatar_regen_cost_20`(마지막 적용, 원격 버전 `20261014080438`, PR #523)** — 스키마 변경 없이 `faq` 답변 두 곳의 아바타 다시 만들기 값 숫자만 10 → 20 으로 바꾸는 `update ... replace` 다(두 번 돌려도 같다. 5회 실패 보상 10하트 구절은 그대로). 원격 버전이 파일 이름 타임스탬프와 다른 것은 §4 관례(`apply_migration` 이 적용 시각을 버전으로 찍는다)대로 정상이다 — 이번에는 원격 버전(08:04 UTC)이 파일 이름(12:00)보다 **이른 시각**이지만, 앞 적용분(`20261013154505`)보다는 늦어 원격 순서는 맞다. 대조는 늘 `name` 으로 한다. 시험은 `supabase/tests/faq_test.sql` 14 · 15. 파일 머리말의 "초안 — 아직 어디에도 적용하지 않았다" 는 쓸 때의 문장이다(운영 적용은 위 대장 전달 값).
+
 ## 2. 시작할 때
 
 - 스키마·RLS·Storage·Auth 를 건드리기 전에 `supabase:supabase` 스킬(보안 체크리스트)과 `supabase:supabase-postgres-best-practices` 스킬을 로드한다

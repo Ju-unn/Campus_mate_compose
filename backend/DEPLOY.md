@@ -85,6 +85,7 @@ gcloud run deploy campus-mate-backend \
 
 **2026-10-14 정정 — 위 전체 명령은 지금 서비스 설정과 같지 않다(그대로 다시 돌리지 않는다).** 위 명령에는 `APPLE_TEAM_ID` · `APPLE_KEY_ID`(env)와 `APPLE_PRIVATE_KEY=apple-sign-in-private-key:latest`(시크릿)가 빠져 있다. `--set-env-vars` · `--set-secrets` 는 **목록 전체를 갈아끼우므로**, 서비스에 APPLE_* 가 들어 있는 상태에서 위 명령을 그대로 돌리면 APPLE_* 가 지워져 애플 토큰 철회가 조용히 건너뛰어진다(셋 중 하나라도 비면 건너뛴다). `settings.py` 가 읽는 값은 지금 **env 9개 · 시크릿 10개**다(위 2026-10-09 대조 뒤 `APPLE_TEAM_ID` · `APPLE_KEY_ID` · `APPLE_PRIVATE_KEY` 가 더해졌다). 위 명령을 다시 써야 하면 두 목록에 APPLE_* 를 더한 뒤 쓴다 — 시크릿 `apple-sign-in-private-key` 가 Secret Manager 에 없으면 그 명령은 실패한다. **지금 운영 서비스에 APPLE_* 가 실제로 들어 있는지는 이 문서 담당이 확인하지 못했다**(클라우드 미조회).
 **2026-10-14 저녁 개정(애플 인앱결제 서버 PR #519, 종전 "env 9개 · 시크릿 10개")** — `settings.py` 가 읽는 값은 **env 11개 · 시크릿 11개**다. 아이폰 하트 구매용 `APPLE_IAP_KEY_ID` · `APPLE_IAP_ISSUER_ID`(env)와 `APPLE_IAP_PRIVATE_KEY=apple-iap-private-key:latest`(시크릿)가 더해졌다. 셋 다 비어도 서버는 뜬다. 넣는 법은 §4-10.
+**2026-10-14 밤 갱신(대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다) — 위 "운영 서비스에 APPLE_* 가 실제로 들어 있는지는 확인하지 못했다" 를 고친다.** 운영 리비전 **`campus-mate-backend-00075-gbw`** 에 `settings.py` 가 읽는 **env 11개 · 시크릿 11개가 모두 들어 있다** — 애플 키(Sign in with Apple 토큰 철회용 `APPLE_TEAM_ID` · `APPLE_KEY_ID` · `APPLE_PRIVATE_KEY`, 아이폰 하트 구매용 `APPLE_IAP_KEY_ID` · `APPLE_IAP_ISSUER_ID` · `APPLE_IAP_PRIVATE_KEY`) 연결 완료. 그래서 위 `--set-*` 전체 명령은 여전히 그대로 다시 돌리지 않는다(APPLE_* 가 지워진다) — 배포는 아래 "현행 배포 방식"으로 한다.
 
 **현행 배포 방식(2026-10-13 ~ 14 배포 기준, 대장 전달 값)** — 설정을 바꾸지 않는 코드 배포는 env · 시크릿 목록을 넘기지 않는다. 그러면 새 리비전이 **직전 리비전의 env · 시크릿을 그대로 이어받는다**:
 
@@ -626,6 +627,7 @@ select public.grant_hearts('<profile_id>', -<지급한 하트>, 'admin_adjust', 
   전역 처리기가 메서드 · 상태 코드 · 예외 이름만 남기고 500 을 준다(예외 문구에 Supabase 호스트 · 사진 경로가 든다, `app/main.py` `upstream_call_failed`).
   암호문 복호화 실패는 `profile_id` · 상태 코드만 남긴다(`core/postgrest.py` `_read_private`).
 - **자유 글 서버 상한 1000자** — 자기소개 · 이상형 글(`profile_onboarding/schemas.py` `FREE_TEXT_MAX_LENGTH`). 앱 입력칸에는 아직 상한 표시가 없다.
+  **2026-10-14 개정(PR #526, 마이그레이션 · env 없음)**: 온보딩 `/bio` · `/ideal-note` 와 `PATCH /me/profile` 의 자기소개가 같은 `FreeText` 타입을 쓴다 — `\r\n` · `\r` 을 `\n` 으로 줄인 뒤 1000자를 세고, 줄 바꿈이 **40줄**(`FREE_TEXT_MAX_LINES = 1000 // 25`)을 넘으면 검증 오류로 거절한다(옛 앱 · 직접 호출이 줄 바꿈만 넣어 카드를 늘이는 것을 막는다). 앱은 300자 · 6~8줄로 조용히 막는다(DESIGN.md §8.5) — 서버 1000 은 옛 긴 글을 고쳐 저장할 수 있게 그대로 둔다. 서버를 배포하기 전에도 앱은 안전하다.
 - **학생증 업로드 뒤 시도 행을 쓰기 전에 실패하면 방금 올린 사진을 지운다**(PR #472) — 고아 사진이 버킷에 남지 않게.
 - **유료 카드 결제 전 응답에 원본 아바타 주소 · 상대 id 를 싣지 않는다**(PR #473, 리비전 `00062`) — 서버가 8×10 JPEG 미리보기를 만들어 준다(설계 문서 §6.8).
   Pillow(`pillow>=12.3`)가 서버 의존성에 들어갔다(이미지는 그대로 `--source .` 빌드).
@@ -732,7 +734,7 @@ select public.grant_hearts('<profile_id>', -<지급한 하트>, 'admin_adjust', 
 **DB 마이그레이션은 없다** — §4-9 의 `purchases` 표와 두 함수를 `store = 'app_store'` 로 부른다(`docs/ERD.md` §6). **새 env 2개 · 새 시크릿 1개 · 새 서버 의존성 1개**(`cryptography>=50`, `pyproject.toml`). Scheduler job 은 없다 — 환불은 애플이 알림으로 보내 준다(구글은 우리가 매시 조회, §4-9).
 코드는 `app/billing/apple.py`(애플 API 조회 · 서명 검증) · `app/billing/apple_router.py`(두 경로). 경로 이름 규칙은 §4-9 와 같다(`refund` · `purchase` · `buy` 를 쓰지 않는다). 하네스 `e2e/area3_safe.py` `VERIFIED_ROUTES` 에 `POST /billing/apple/verify` 한 줄이 더해졌다(알림은 로그인 관문이 없어 목록 대상이 아니다).
 
-**배포 순서는 서버 → TestFlight(앱)** 다. 서버만 먼저 나가는 것은 무해하다(안드로이드 길은 그대로). 앱이 먼저 나가면 `/billing/status` 에 `apple_account_token` 이 없어 **iOS 는 결제 불가 배너만 보인다**(구글용 계정 표시로 대신 사지 않는다). **이 문서 담당은 이 서버의 운영 배포 · 리비전 · 키 등록 여부를 받지 못했다**(클라우드 미조회).
+**배포 순서는 서버 → TestFlight(앱)** 다. 서버만 먼저 나가는 것은 무해하다(안드로이드 길은 그대로). 앱이 먼저 나가면 `/billing/status` 에 `apple_account_token` 이 없어 **iOS 는 결제 불가 배너만 보인다**(구글용 계정 표시로 대신 사지 않는다). **이 문서 담당은 이 서버의 운영 배포 · 리비전 · 키 등록 여부를 받지 못했다**(클라우드 미조회). **2026-10-14 밤 개정 — 배포됐다(대장 전달 값)**: 운영 리비전 `campus-mate-backend-00075-gbw`, 앱 내 구입 키 env 2개 · 시크릿 1개 연결 완료(§2 — env 11 · 시크릿 11). App Store Connect 알림 주소 설정과 TestFlight 샌드박스 시험 결과는 아직 받지 못했다.
 
 ### 키 · 설정
 
@@ -798,6 +800,8 @@ gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.serv
 - **DB 변경이 없어 리비전만 되돌리면 된다.** 애플 경로가 없는 리비전으로 내리면 iOS 앱은 `apple_account_token` 이 없어 결제 불가 배너가 되고, 이미 결제한 거래는 끝내지 않은 채 남아 서버를 다시 올린 뒤 앱 시작 때 들어온다(추정). 이 기능이 든 앱 빌드가 나간 뒤에는 그 리비전 아래로 되돌리지 않는다
 
 ## 5. 현재 배포 상태 (2026-09-26 기준)
+
+**2026-10-14 밤 갱신(대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다).** 돌고 있는 리비전 **`campus-mate-backend-00075-gbw`**. env 11개 · 시크릿 11개가 `settings.py` 목록과 같다(애플 키 연결 완료, §2 · §4-10). 운영 마이그레이션 **72개** — 마지막 `faq_avatar_regen_cost_20`(파일 `20261014120000`, 원격 버전 `20261014080438`, FAQ 문구만 바꾸는 데이터 갱신, `docs/SUPABASE.md` §1). 그 사이 main 에 들어온 서버 변경은 애플 인앱결제(PR #519 · #521), 아바타 모델 `gpt-image-2.5-flare` · 프롬프트 v2-8(PR #517), 아바타 다시 만들기 20하트(`AVATAR_REGEN_HEARTS`, PR #523), 자기소개 · 이상형 글 줄 끝 통일 · 40줄 상한(`FreeText`, PR #526) — 모두 새 job · 마이그레이션(위 FAQ 하나 말고) 없음. **`00075-gbw` 가 이 가운데 어디까지 담았는지와 `00071` ~ `00074` 의 내용은 받지 못했다.** 되돌림 하한은 아래 10-14 줄(`00063` 아래 금지)이 그대로이고, 애플 경로가 든 앱 빌드가 나간 뒤에는 애플 경로가 없는 리비전으로 내리지 않는다(§4-10 "알려진 한계 · 롤백").
 
 **2026-10-14 저녁 추가.** 애플 인앱결제 서버(PR #519 · #521)가 main(`369a420e`)에 들어왔다. 새 env 2개 · 새 시크릿 1개(§4-10), 마이그레이션 없음. **운영 배포 여부 · 리비전 이름은 이 문서 담당이 받지 못했다** — 아래 10-14 줄의 `00070-jz7` 은 그 전 값이다.
 
