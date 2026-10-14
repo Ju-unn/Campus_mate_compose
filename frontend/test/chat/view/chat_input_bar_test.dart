@@ -29,6 +29,26 @@ void main() {
     test('이미 가득 찬 글에 더 넣으면 입력을 무시한다', () {
       expect(apply(3, '가나다', '가나다라').text, '가나다');
     });
+
+    // 15c 자기소개: 앱 상한(300)보다 긴 옛 글(서버 1000자 시절)을 열었을 때. 지우면 앞 max 로 잘려 뒤가 사라지면 안 된다.
+    group('이미 상한을 넘긴 글', () {
+      test('한 글자를 지우면 그대로 지워진다 — 뒤를 잘라 내지 않는다', () {
+        expect(apply(3, '가나다라마', '가나다라').text, '가나다라');
+      });
+
+      test('더 치면 입력을 무시한다', () {
+        expect(apply(3, '가나다라마', '가나다라마바').text, '가나다라마');
+      });
+
+      test('고른 글을 더 긴 글로 바꿔 넣어도 막는다 — 뒤를 잘라 내지 않는다', () {
+        const old = TextEditingValue(text: '가나다라마', selection: TextSelection(baseOffset: 0, extentOffset: 1));
+        final result = codePointLimitFormatter(3).formatEditUpdate(
+          old,
+          const TextEditingValue(text: '바사나다라마', selection: TextSelection.collapsed(offset: 2)),
+        );
+        expect(result, old);
+      });
+    });
   });
 
   testWidgets('보내기 버튼의 눌림 효과는 화면이 아니라 버튼이 그린다(§4-2)', (tester) async {

@@ -108,17 +108,21 @@ class _ChatInputBarState extends State<ChatInputBar> {
 /// 입력 바의 1,000자 상한. 만들 때마다 새 formatter 를 짓지 않게 한 번만 만든다.
 final TextInputFormatter _messageLimit = codePointLimitFormatter(messageMaxLength);
 
-/// 넘치면 앞 [max] 코드포인트만 남긴다. 입력 바(1,000)와 신고 시트 기타 메모(200)가 같이 쓴다 —
-/// 둘 다 서버 len()·DB char_length 가 코드포인트로 센다.
+/// 넘치면 앞 [max] 코드포인트만 남긴다. 입력 바(1,000) · 신고 시트 기타 메모(200) · 자기소개와 "이런 사람이 좋아요"(300)가
+/// 같이 쓴다 — 모두 서버 len()·DB char_length 가 코드포인트로 센다.
 /// runes 로 자르니 서로게이트 쌍이 반으로 갈리지 않는다(합성 이모지의 ZWJ 사이는 갈릴 수 있다).
+/// `maxLength` 를 쓰지 않는 다른 이유: 상한보다 긴 옛 글(서버 1000자 시절 자기소개)에서 한 글자만 지워도
+/// 앞 [max] 자로 잘라 버린다(2026-10-14 확인). 여기서는 그런 글을 지우며 고칠 수 있고, 늘리지만 못한다.
 TextInputFormatter codePointLimitFormatter(int max) {
   return TextInputFormatter.withFunction((oldValue, newValue) {
-    if (newValue.text.runes.length <= max) {
+    final oldLength = oldValue.text.runes.length;
+    final newLength = newValue.text.runes.length;
+    if (newLength <= max || newLength <= oldLength) {
       return newValue;
     }
     // 이미 가득 찬 글에 한 글자 더 넣으면 입력을 무시한다 — 끝 글자를 밀어내지 않고 커서도 제자리다
-    // (옛 LengthLimitingTextInputFormatter 와 같은 동작).
-    if (oldValue.text.runes.length >= max && oldValue.selection.isCollapsed) {
+    // (옛 LengthLimitingTextInputFormatter 와 같은 동작). 상한을 넘긴 옛 글은 고른 글을 바꿔 넣어도 뒤를 자르지 않고 막는다.
+    if (oldLength > max || (oldLength == max && oldValue.selection.isCollapsed)) {
       return oldValue;
     }
     final text = String.fromCharCodes(newValue.text.runes.take(max));
