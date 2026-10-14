@@ -1,6 +1,7 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
@@ -60,7 +61,25 @@ class _AvatarGenerationScreenState extends ConsumerState<AvatarGenerationScreen>
     );
   }
 
+  /// 상태가 바뀌면 standard 동안 겹쳐 바꾼다(만드는 중 → 완성). 평생 한 번 순간이지만 emphasis 는
+  /// 하루 두 번(카드 등장 · 매칭 성사)만 쓰는 토큰이라 standard 다(DESIGN §7). 동작 줄이기면 바로 바뀐다.
   Widget _content(AvatarGenerationUiState state, AvatarGenerationViewModel viewModel) {
+    return AnimatedSwitcher(
+      duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : AppMotion.standard,
+      switchInCurve: AppMotion.standardCurve,
+      switchOutCurve: AppMotion.standardCurve,
+      // 같은 갈래(만드는 중 · 실패 · 완성) 안에서 바뀔 때는 겹치지 않는다 — 갈래 이름이 열쇠다.
+      child: KeyedSubtree(key: ValueKey(_branch(state.status)), child: _branchView(state, viewModel)),
+    );
+  }
+
+  static String _branch(AvatarGenerationStatus status) => switch (status) {
+    AvatarGenerationStatus.idle || AvatarGenerationStatus.generating => 'generating',
+    AvatarGenerationStatus.failed => 'failed',
+    AvatarGenerationStatus.ready || AvatarGenerationStatus.fallback => 'result',
+  };
+
+  Widget _branchView(AvatarGenerationUiState state, AvatarGenerationViewModel viewModel) {
     return switch (state.status) {
       // idle 은 아직 한 번도 못 물어본 자리다 — 깜빡이지 않게 만드는 중과 같은 표시를 둔다.
       AvatarGenerationStatus.idle ||
@@ -164,6 +183,7 @@ class _AvatarCard extends StatelessWidget {
                 width: 180,
                 height: 180,
                 fit: BoxFit.cover,
+                frameBuilder: _reveal,
                 // 그림만 못 받았다고 빈 화면을 두지 않는다 — 아바타는 서버에 이미 있고, 다음으로도 가야 한다.
                 // 대신 띄울 문구가 pen 에 없어 카드만 비워 둔다(대장 2026-09-26 결정).
                 errorBuilder: (context, error, stackTrace) =>
@@ -172,7 +192,29 @@ class _AvatarCard extends StatelessWidget {
             ),
     );
   }
+
+  /// 그림이 도착하면 투명 · 0.96 에서 standard 동안 제자리로(transform · opacity 만 — 자리 180×180 은 처음부터 그대로).
+  /// 캐시에 있어 바로 그려지면 효과 없이 둔다. 동작 줄이기면 시간 0.
+  static Widget _reveal(BuildContext context, Widget child, int? frame, bool wasSynchronouslyLoaded) {
+    if (wasSynchronouslyLoaded) return child;
+    final arrived = frame != null;
+    final duration = MediaQuery.disableAnimationsOf(context) ? Duration.zero : AppMotion.standard;
+    return AnimatedOpacity(
+      opacity: arrived ? 1 : 0,
+      duration: duration,
+      curve: AppMotion.standardCurve,
+      child: AnimatedScale(
+        scale: arrived ? 1 : _revealScaleFrom,
+        duration: duration,
+        curve: AppMotion.standardCurve,
+        child: child,
+      ),
+    );
+  }
 }
+
+/// 그림이 나타나기 시작하는 크기(대장 지시 10-14 — pen 에 모션 값은 없다).
+const double _revealScaleFrom = 0.96;
 
 /// 05-12d 기본 아바타 안내 시트(pen `Q7VmU`). 버튼은 "확인" 하나다 — pen 의 취소 버튼은 꺼져 있다.
 class _CompensationSheet extends StatelessWidget {

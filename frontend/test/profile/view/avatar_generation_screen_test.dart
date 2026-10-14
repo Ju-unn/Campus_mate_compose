@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/progress_dots.dart';
+import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/profile/model/avatar_generation_outcome.dart';
 import 'package:campus_mate/profile/model/avatar_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
@@ -94,6 +97,104 @@ void main() {
     // 시트 버튼은 "확인" 하나다(pen 의 취소 버튼은 꺼져 있다).
     expect(find.text('확인'), findsOneWidget);
     expect(find.text('취소'), findsNothing);
+  });
+
+  group('완성 공개(DESIGN §7 standard — emphasis 는 하루 두 번 규칙에 들지 않아 쓰지 않는다)', () {
+    void reduceMotion(WidgetTester tester) {
+      tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+    }
+
+    /// 만드는 중(첫 조회) → 다음 조회(5초 뒤)에 완성.
+    Future<void> pumpUntilReady(WidgetTester tester) async {
+      repository.statusResults.addAll([const Success(AvatarPending()), const Success(AvatarReady(_url))]);
+      await pump(tester);
+      expect(find.text('아바타를 만들고 있어요'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pump();
+    }
+
+    double opacityOf(WidgetTester tester, String text) =>
+        tester.widget<FadeTransition>(find.ancestor(of: find.text(text), matching: find.byType(FadeTransition)).first).opacity.value;
+
+    testWidgets('만드는 중 → 완성은 standard(220ms) 동안 겹쳐 바뀐다(바로 갈아끼우지 않는다)', (tester) async {
+      await pumpUntilReady(tester);
+
+      expect(find.text('아바타가 완성됐어요'), findsOneWidget);
+      expect(find.text('아바타를 만들고 있어요'), findsOneWidget); // 아직 사라지는 중
+      expect(opacityOf(tester, '아바타가 완성됐어요'), 0);
+
+      await tester.pump(AppMotion.standard + const Duration(milliseconds: 1));
+      expect(find.text('아바타를 만들고 있어요'), findsNothing);
+      expect(opacityOf(tester, '아바타가 완성됐어요'), 1);
+    });
+
+    testWidgets('바뀌는 중에도 "다음" 을 누를 수 있다', (tester) async {
+      await pumpUntilReady(tester);
+
+      await tester.tap(find.text('다음'));
+      await tester.pump();
+      expect(onboardingRepository.fetchCount, 1);
+    });
+
+    testWidgets('기기 "동작 줄이기" 면 바로 완성 화면이다', (tester) async {
+      reduceMotion(tester);
+      await pumpUntilReady(tester);
+      await tester.pump();
+
+      expect(find.text('아바타를 만들고 있어요'), findsNothing);
+      expect(find.text('아바타가 완성됐어요'), findsOneWidget);
+    });
+
+    group('그림이 도착하면', () {
+      late Completer<ImageInfo> arrived;
+
+      /// 테스트 환경의 이미지 요청은 늘 400 이라, 같은 주소의 그림을 캐시에 먼저 넣어 두고 원하는 때 도착시킨다.
+      /// 테스트 본문(가짜 시계 영역) 안에서 불러야 도착 처리가 pump 에 맞춰 돈다.
+      void holdImage() {
+        arrived = Completer<ImageInfo>();
+        imageCache.putIfAbsent(const NetworkImage(_url), () => OneFrameImageStreamCompleter(arrived.future));
+        addTearDown(imageCache.clear);
+      }
+
+      Future<void> arrive(WidgetTester tester) async {
+        final image = await tester.runAsync(() => createTestImage(width: 4, height: 4));
+        arrived.complete(ImageInfo(image: image!));
+        await tester.pump();
+      }
+
+      AnimatedOpacity reveal(WidgetTester tester) =>
+          tester.widget<AnimatedOpacity>(find.descendant(of: find.byType(Image), matching: find.byType(AnimatedOpacity)));
+      AnimatedScale grow(WidgetTester tester) =>
+          tester.widget<AnimatedScale>(find.descendant(of: find.byType(Image), matching: find.byType(AnimatedScale)));
+
+      testWidgets('오기 전에는 투명 · 0.96 이고, 오면 standard 동안 1 · 1 로 나타난다', (tester) async {
+        holdImage();
+        repository.nextResult = const Success(AvatarReady(_url));
+        await pump(tester);
+
+        expect((reveal(tester).opacity, grow(tester).scale), (0, 0.96));
+        await arrive(tester);
+
+        expect((reveal(tester).opacity, grow(tester).scale), (1, 1));
+        expect((reveal(tester).duration, reveal(tester).curve), (AppMotion.standard, AppMotion.standardCurve));
+        expect((grow(tester).duration, grow(tester).curve), (AppMotion.standard, AppMotion.standardCurve));
+        // 카드 · 그림 자리는 처음부터 180×180 — 커지는 것은 그림(transform)뿐이라 자리가 흔들리지 않는다.
+        expect(tester.getSize(find.byType(Image)), const Size(180, 180));
+        await tester.pumpAndSettle();
+      });
+
+      testWidgets('기기 "동작 줄이기" 면 시간 0 으로 바로 다 보인다', (tester) async {
+        reduceMotion(tester);
+        holdImage();
+        repository.nextResult = const Success(AvatarReady(_url));
+        await pump(tester);
+        await arrive(tester);
+
+        expect((reveal(tester).opacity, grow(tester).scale), (1, 1));
+        expect((reveal(tester).duration, grow(tester).duration), (Duration.zero, Duration.zero));
+      });
+    });
   });
 
   testWidgets('그림을 못 불러와도 카드 크기를 지키고 예외 없이 그린다', (tester) async {
