@@ -177,7 +177,7 @@ class _WaitingView extends StatelessWidget {
 /// 고른 값은 실명 칸 힌트와 업로드 안내 문구, 그리고 기기 안 얼굴 검사 여부만 바꾼다(2026-09-23 사용자 결정).
 /// 졸업증명서에는 얼굴 사진이 없어 검사를 건너뛴다 — 하면 졸업생이 제출하지 못한다(결함 A8).
 enum _DocumentType {
-  studentId('학생증', '학생증에 표기된 이름', '이름·학교·유효기간이 선명하게 보여야 해요', requiresFace: true),
+  studentId('학생증', '학생증에 표기된 이름', '이름·학교가 선명하게 보여야 해요', requiresFace: true),
   graduation('졸업증명서', '졸업증명서에 표기된 이름', '이름·학교·졸업 일자가 선명하게 보여야 해요', requiresFace: false);
 
   const _DocumentType(this.label, this.nameHint, this.photoHint, {required this.requiresFace});
@@ -386,7 +386,7 @@ class _PhotoZone extends StatelessWidget {
 
   final File? photo;
 
-  /// 고른 서류 종류에 맞는 안내(유효기간 / 졸업 일자).
+  /// 고른 서류 종류에 맞는 안내(학생증은 이름·학교 / 졸업증명서는 졸업 일자까지).
   final String hint;
   final Future<void> Function() onTap;
 
