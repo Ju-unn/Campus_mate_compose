@@ -1,18 +1,25 @@
-/// 노션 "약관동의" 한 페이지(1부 이용약관 · 2부 개인정보 처리방침). 비로그인 공개(대장 확인 2026-09-29).
-/// 실기기에서 로그인 요구가 뜨면 [_page] 를 notion.site 주소
-/// (https://golden-leech-197.notion.site/3e9d998f0dee8082be84e126630b02a7)로 바꾼다.
-/// 약관 페이지를 통째로 다시 쓰면 블록 id 가 바뀔 수 있다 — 앵커 재확인.
-const _page = 'https://app.notion.com/p/3e9d998f0dee8082be84e126630b02a7';
+/// 노션 공개 주소(notion.site). 옛 app.notion.com 주소는 기기 브라우저에서 로그인 요구가 뜰 수 있어
+/// 10-14 노션 재구성 때 모든 링크를 공개 주소로 통일했다(대장 지시). 페이지 id · 주소는 재구성 전과 같다.
+const _site = 'https://golden-leech-197.notion.site';
 
-/// 1부 이용약관.
-final Uri termsLink = Uri.parse('$_page#792b6855eaa04bf8a24c19c86702d62f');
+/// "약관동의" 페이지 — I. 서비스 이용약관 · II. 유료 서비스 약관. 개인정보 처리방침은 10-14 에 별도 페이지로 나갔다.
+const _termsPage = '$_site/3e9d998f0dee8082be84e126630b02a7';
 
-/// 2부 2항 "처리하는 개인정보 항목". 종교(민감정보) 문단도 이 항 끝에 있다 — 종교 동의도 이 줄이 받는다(09-29).
-final Uri privacyItemsLink = Uri.parse('$_page#efcc38385bef4185b6577d663ebd3bc8');
+/// "개인정보 처리방침" 페이지(방침의 단일 원본).
+const _privacyPage = '$_site/3ead998f0dee80d08709d6b75c79ddc0';
 
-/// 설정 16 "개인정보처리방침" 줄(A6). 2부 첫 블록 앵커를 받기 전까지 페이지 맨 위(1부 · 2부가 다 보인다, 대장 10-03 나).
-final Uri privacyPolicyLink = Uri.parse(_page);
+/// 이용약관(02-c "보기" · 설정 16 "이용약관" 줄). I 부가 페이지 맨 위라 앵커가 없다.
+final Uri termsLink = Uri.parse(_termsPage);
 
-/// 하트 구매 결제 안내(pen `bBjRD` "유료 서비스 약관 ›")가 여는 곳. **임시** — 유료 서비스 약관이 법률 검토로 확정되기 전이라
-/// 약관동의 페이지의 공개(notion.site) 주소를 그대로 둔다(대장 지시 10-13). 확정 약관 주소 · 앵커를 받으면 이 줄만 바꾼다.
-final Uri paidServiceTermsLink = Uri.parse('https://golden-leech-197.notion.site/3e9d998f0dee8082be84e126630b02a7');
+/// 02-c "개인정보 수집·이용" 보기. 종교(민감정보) 동의도 이 줄이 받는다(09-29).
+/// **한계**: 앵커가 없어 방침 맨 위가 열린다 — "처리하는 개인정보 항목"과 종교 문단은 사용자가 페이지 안에서 찾아 내려가야 한다.
+/// 그 항의 블록 링크를 받으면 `'$_privacyPage#<블록 id>'` 로 바꾼다.
+final Uri privacyItemsLink = Uri.parse(_privacyPage);
+
+/// 설정 16 "개인정보처리방침" 줄(A6). 방침 페이지 맨 위.
+final Uri privacyPolicyLink = Uri.parse(_privacyPage);
+
+/// 하트 구매 결제 안내(pen `bBjRD` "유료 서비스 약관 ›"). 유료 서비스 약관은 약관동의 페이지 II 부다.
+/// 앵커는 노션 블록 id 라 아직 모른다 — 지금은 페이지 맨 위(I 부)가 열린다.
+/// 노션 교체 뒤 II 부 블록 링크를 받으면 `'$_termsPage#<블록 id>'` 로 앵커를 더할 수 있다.
+final Uri paidServiceTermsLink = Uri.parse(_termsPage);

@@ -1,5 +1,6 @@
 """E-HEART-50 · E-SET-57(약관 두 가설)의 PC 쪽 시험 — 노션 · 폰 · 운영 없이 가짜 페이지 · 가짜 앱. 저장소 루트에서 `python -m unittest e2e.test_area4_terms`."""
 
+import json
 import unittest
 from unittest import mock
 
@@ -9,12 +10,13 @@ from e2e.test_area5_read import OURS, ReadBase, StepApp
 from e2e.tools import Blocked
 
 BROWSER = 'topResumedActivity=ActivityRecord{1 u0 com.android.chrome/org.chromium.chrome.browser.ChromeTabbedActivity t9}'
-PAGE, TERMS, PRIVACY = area4_terms.page_ids()
-SENTENCE = area4_terms.SENTENCE + '.'
+PAGE, POLICY = area4_terms.page_ids()
+SENTENCE = area4_terms.SENTENCE
+PART1, PART2 = area4_terms.PART1, area4_terms.PART2
 
 
 def page(order, titles):
-    """[order] 는 페이지의 블록 id 순서, [titles] 는 id → 글(없으면 안 받은 블록)."""
+    """[order] 는 약관동의 페이지의 블록 id 순서, [titles] 는 id → 글(없으면 안 받은 블록)."""
     blocks = {PAGE: {'value': {'value': {'content': order}}}}
     for key, title in titles.items():
         blocks[key] = {'value': {'value': {'properties': {'title': [[title]]}}}}
@@ -22,15 +24,15 @@ def page(order, titles):
 
 
 def good():
-    return page([TERMS, 'a', 'b', 'part2', PRIVACY], {TERMS: '1부. 이용약관', 'a': SENTENCE, 'b': '다른 조항', 'part2': '2부. 개인정보'})
+    return page(['h1', 'a', 'b', 'h2', 'c'], {'h1': PART1, 'a': SENTENCE, 'b': '다른 조항', 'h2': PART2, 'c': '청약철회와 환불'})
 
 
 class HeartTest(unittest.TestCase):
-    def run50(self, blocks):
-        with mock.patch.object(area4_terms, 'fetch_page', lambda page_id: blocks):
+    def run50(self, blocks, ids=(PAGE, POLICY)):
+        with mock.patch.object(area4_terms, 'fetch_page', lambda page_id: blocks), mock.patch.object(area4_terms, 'page_ids', lambda: ids):
             return area4_terms.heart_50(None)
 
-    def test_sentence_in_part_one_passes(self):
+    def test_heart_clause_between_part_one_and_part_two_passes(self):
         result, note = self.run50(good())
         self.assertEqual(result, 'pass', note)
 
@@ -41,17 +43,17 @@ class HeartTest(unittest.TestCase):
         self.assertEqual(result, 'fail', note)
 
     def test_sentence_only_in_part_two_fails(self):
-        blocks = page([TERMS, 'b', 'part2', 'a', PRIVACY], {TERMS: '1부', 'b': 'x', 'part2': '2부. 개인정보', 'a': SENTENCE})
+        blocks = page(['h1', 'b', 'h2', 'a'], {'h1': PART1, 'b': 'x', 'h2': PART2, 'a': SENTENCE})
         result, note = self.run50(blocks)
         self.assertEqual(result, 'fail', note)
-        self.assertIn('1부 안이 아님', note)
+        self.assertIn('I 부 안이 아님', note)
 
     def test_sentence_before_part_one_header_fails(self):
-        blocks = page(['a', TERMS, 'part2', PRIVACY], {'a': SENTENCE, TERMS: '1부', 'part2': '2부'})
+        blocks = page(['a', 'h1', 'h2'], {'a': SENTENCE, 'h1': PART1, 'h2': PART2})
         self.assertEqual(self.run50(blocks)[0], 'fail')
 
     def test_sentence_twice_fails(self):
-        blocks = page([TERMS, 'a', 'c', 'part2', PRIVACY], {TERMS: '1부', 'a': SENTENCE, 'c': SENTENCE, 'part2': '2부'})
+        blocks = page(['h1', 'a', 'c', 'h2'], {'h1': PART1, 'a': SENTENCE, 'c': SENTENCE, 'h2': PART2})
         self.assertEqual(self.run50(blocks)[0], 'fail')
 
     def test_extra_spaces_and_line_breaks_do_not_hide_the_sentence(self):
@@ -59,27 +61,72 @@ class HeartTest(unittest.TestCase):
         blocks['a']['value']['value']['properties']['title'] = [[SENTENCE.replace(' ', '  ', 2) + '\n']]
         self.assertEqual(self.run50(blocks)[0], 'pass')
 
-    def test_unreadable_page_is_blocked_not_fail(self):
-        for blocks in ({}, page([PRIVACY], {})):
+    def test_bold_word_split_into_parts_still_reads_as_one_sentence(self):
+        blocks = good()  # 노션은 굵은 "하트" 를 따로 떼어 [["하트", [["b"]]], ["는 …"]] 로 준다
+        blocks['a']['value']['value']['properties']['title'] = [['하트', [['b']]], [SENTENCE.removeprefix('하트')]]
+        self.assertEqual(self.run50(blocks)[0], 'pass')
+
+    def test_privacy_policy_on_the_same_page_as_the_terms_fails(self):
+        result, note = self.run50(good(), ids=(PAGE, PAGE))
+        self.assertEqual(result, 'fail', note)
+        self.assertIn('별도 페이지', note)
+
+    def test_page_without_the_part_headers_is_blocked_not_fail(self):
+        for blocks in ({}, page(['a'], {'a': SENTENCE}), page(['h1', 'a'], {'h1': PART1, 'a': SENTENCE})):
             with self.assertRaises(Blocked):
                 self.run50(blocks)
 
-    def test_download_failure_is_blocked(self):
-        with mock.patch.object(area4_terms.urllib.request, 'urlopen', side_effect=OSError('offline')), self.assertRaises(Blocked):
-            area4_terms.fetch_page(PAGE)
+    def test_old_part_two_header_is_not_taken_for_part_two(self):
+        blocks = page(['h1', 'a', 'old'], {'h1': PART1, 'a': SENTENCE, 'old': '2부. 개인정보 처리방침'})
+        with self.assertRaises(Blocked):
+            self.run50(blocks)
 
-    def test_block_in_the_order_but_not_received_is_blocked_not_fail(self):
+    def test_block_in_part_one_but_not_received_is_blocked_not_fail(self):
         blocks = good()
-        order = blocks[PAGE]['value']['value']['content']
-        order.insert(2, 'later-chunk')  # 순서엔 있고 블록 글은 첫 chunk 에 없음
+        blocks[PAGE]['value']['value']['content'].insert(2, 'later-chunk')  # 순서엔 있고 블록 글은 받은 chunk 에 없음
         with self.assertRaises(Blocked) as raised:
             self.run50(blocks)
         self.assertIn('모자람', str(raised.exception))
 
-    def test_part_two_is_found_by_its_header_not_only_by_the_far_anchor(self):
-        order = [TERMS, 'part2', 'a', 'z', PRIVACY]  # 문장이 2부 머리글 뒤 · 2부 항목 앵커 앞 — 앵커만 보면 헛통과한다
-        blocks = page(order, {TERMS: '1부', 'part2': '2부. 개인정보', 'a': SENTENCE})
-        self.assertEqual(self.run50(blocks)[0], 'fail')
+    def test_part_two_header_beyond_the_received_chunks_is_blocked(self):
+        blocks = page(['h1', 'a', 'b', 'h2'], {'h1': PART1, 'a': SENTENCE, 'b': 'x'})  # h2 는 순서에만 있다
+        with self.assertRaises(Blocked):
+            self.run50(blocks)
+
+
+class FetchTest(unittest.TestCase):
+    """loadCachedPageChunkV2 를 cursor 로 이어 받는다 — 첫 chunk(100블록)보다 I 부가 길다."""
+
+    def replies(self, *chunks):
+        sent = []
+
+        def urlopen(request, timeout):
+            sent.append(json.loads(request.data))
+            blocks, stack = chunks[len(sent) - 1]
+            reply = mock.MagicMock()
+            reply.__enter__.return_value.read.return_value = json.dumps({'recordMap': {'block': blocks}, 'cursor': {'stack': stack}}).encode()
+            return reply
+
+        return sent, mock.patch.object(area4_terms.urllib.request, 'urlopen', urlopen)
+
+    def test_follows_the_cursor_until_the_stack_is_empty(self):
+        more = [[{'table': 'block', 'id': 'x', 'index': 100}]]
+        sent, patch = self.replies(({'a': 1}, more), ({'b': 2}, []))
+        with patch:
+            blocks = area4_terms.fetch_page(PAGE)
+        self.assertEqual(blocks, {'a': 1, 'b': 2})
+        self.assertEqual([(body['chunkNumber'], body['cursor']['stack']) for body in sent], [(0, []), (1, more)])
+
+    def test_stops_after_the_chunk_limit(self):
+        more = [[{'table': 'block', 'id': 'x', 'index': 1}]]
+        sent, patch = self.replies(*[({str(i): i}, more) for i in range(area4_terms.CHUNKS + 1)])
+        with patch:
+            area4_terms.fetch_page(PAGE)
+        self.assertEqual(len(sent), area4_terms.CHUNKS)
+
+    def test_download_failure_is_blocked(self):
+        with mock.patch.object(area4_terms.urllib.request, 'urlopen', side_effect=OSError('offline')), self.assertRaises(Blocked):
+            area4_terms.fetch_page(PAGE)
 
 
 class TermsViewTest(ReadBase):
@@ -93,7 +140,7 @@ class TermsViewTest(ReadBase):
         return result, events
 
     def test_title_visible_without_login_passes_and_the_app_is_brought_back(self):
-        (result, note), events = self.run57(BROWSER, ['약관동의', '1부. 이용약관'])
+        (result, note), events = self.run57(BROWSER, ['약관동의', PART1])
         self.assertEqual(result, 'pass', note)
         self.assertIn('front', events)
 
@@ -147,10 +194,12 @@ class RegistryTest(unittest.TestCase):
         self.assertIn("part 'area1_terms.dart';", wiring)
         self.assertIn('..._termsCases,', wiring)
 
-    def test_the_page_and_sentence_come_from_the_app_not_a_copy(self):
+    def test_the_pages_and_site_come_from_the_app_not_a_copy(self):
         links = area4_terms.LINKS.read_text(encoding='utf-8')
-        self.assertIn(PAGE.replace('-', ''), links)
-        self.assertIn(TERMS.replace('-', ''), links)
+        self.assertIn(f"_site = '{area4_terms.SITE}'", links)
+        self.assertIn(f"_termsPage = '$_site/{PAGE.replace('-', '')}'", links)
+        self.assertIn(f"_privacyPage = '$_site/{POLICY.replace('-', '')}'", links)
+        self.assertNotEqual(PAGE, POLICY)
 
 
 if __name__ == '__main__':

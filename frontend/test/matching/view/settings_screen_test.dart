@@ -499,7 +499,7 @@ void main() {
     expect(divider(tester, '개인정보처리방침'), const BorderSide(color: AppColors.hairlineSoft));
   });
 
-  testWidgets('"이용약관" 은 약관 1부, "개인정보처리방침" 은 약관 페이지를 기기 브라우저로 연다(대장 10-03 나)', (tester) async {
+  testWidgets('"이용약관" 은 약관동의 페이지, "개인정보처리방침" 은 처리방침 페이지를 기기 브라우저로 연다(10-14 노션 재구성)', (tester) async {
     await pump(tester);
 
     await tester.tap(find.text('이용약관'));

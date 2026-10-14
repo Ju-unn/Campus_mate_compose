@@ -1,4 +1,5 @@
 import 'package:campus_mate/consent/model/consent_item.dart';
+import 'package:campus_mate/consent/model/consent_links.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -24,11 +25,10 @@ void main() {
     ]);
   });
 
-  test('보기는 노션 약관 페이지의 그 항으로 간다 — 마케팅은 보기가 없다', () {
-    const page = 'https://app.notion.com/p/3e9d998f0dee8082be84e126630b02a7';
-    expect(ConsentItem.terms.link, Uri.parse('$page#792b6855eaa04bf8a24c19c86702d62f'));
-    // 2부 2항 — 수집·이용 항목과 끝의 종교 문단(대장 확인 2026-09-29). 종교 동의도 이 줄이 받는다.
-    expect(ConsentItem.privacy.link, Uri.parse('$page#efcc38385bef4185b6577d663ebd3bc8'));
+  test('이용약관 보기는 약관동의 페이지, 개인정보 수집·이용 보기는 처리방침 페이지를 연다 — 마케팅은 보기가 없다', () {
+    // 주소 글자는 consent_links.dart 한 곳에만 있다(규칙은 consent_links_test.dart). 종교 동의도 privacy 줄이 받는다(09-29).
+    expect(ConsentItem.terms.link, termsLink);
+    expect(ConsentItem.privacy.link, privacyItemsLink);
     expect(ConsentItem.marketing.link, isNull);
   });
 }

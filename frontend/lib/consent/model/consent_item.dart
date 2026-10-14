@@ -19,7 +19,7 @@ enum ConsentItem {
 
   bool get isRequired => wireName != null;
 
-  /// "보기"로 여는 노션 항. 마케팅은 보기가 없다.
+  /// "보기"로 여는 노션 페이지(consent_links.dart). 마케팅은 보기가 없다.
   Uri? get link => switch (this) {
         ConsentItem.terms => termsLink,
         ConsentItem.privacy => privacyItemsLink,

@@ -1,7 +1,8 @@
 """영역 4 E-SET-56 — 설정 "지원" 카드의 이용약관 · 개인정보처리방침 줄(묶음 area4-set56). 앱 쪽은 frontend/integration_test/area4_set56.dart.
 자동으로 보는 것: 줄 순서("자주 묻는 질문" → "이용약관" → "개인정보처리방침" → "로그아웃")와 두 줄을 누르면 맨 앞이 우리 앱이 아닌 다른 앱(기기 브라우저)이 되는지(dumpsys),
-그리고 돌아왔을 때 설정 화면에 남아 있는지. 누르는 순간의 Intent 주소가 노션 약관 페이지인지는 dumpsys 에 남아 있으면 메모에 적는다(없어도 판정에 안 쓴다).
-사람이 봐야 하는 것(결과 메모에 "사람 필요"): 기기 브라우저가 실제로 그 노션 페이지를 로그인 없이 보여 주는지 · 이용약관은 1부 위치 · 처리방침은 맨 위(1부 · 2부가 다 보임) · 3D 아이콘 모양.
+그리고 돌아왔을 때 설정 화면에 남아 있는지. 누르는 순간의 Intent 주소가 그 줄의 노션 페이지인지는 dumpsys 에 남아 있으면 메모에 적는다(없어도 판정에 안 쓴다).
+사람이 봐야 하는 것(결과 메모에 "사람 필요"): 기기 브라우저가 실제로 그 노션 페이지를 로그인 없이 보여 주는지 · 이용약관은 약관동의 맨 위(I. 서비스 이용약관) ·
+처리방침은 별도 개인정보 처리방침 페이지 맨 위(10-14 노션 재구성) · 3D 아이콘 모양.
 """
 
 import time
@@ -11,9 +12,10 @@ from e2e.area1 import Check, _app, _signed_in
 from e2e.area4 import stepper
 from e2e.tools import Blocked
 
-PAGE = '3e9d998f0dee8082be84e126630b02a7'  # frontend/lib/consent/model/consent_links.dart 의 노션 페이지 id
+# 줄 → 그 줄이 여는 노션 페이지 id(frontend/lib/consent/model/consent_links.dart 의 _termsPage · _privacyPage — 시험이 맞춰 본다)
+PAGES = {'이용약관': '3e9d998f0dee8082be84e126630b02a7', '개인정보처리방침': '3ead998f0dee80d08709d6b75c79ddc0'}
 FRONT_WAIT = 10  # 줄을 누른 뒤 맨 앞 앱이 바뀌기를 기다리는 시간(초)
-HUMAN = '사람 필요: 기기 브라우저가 노션 약관 페이지를 로그인 없이 여는지 · 이용약관은 1부 위치 · 처리방침은 맨 위(1부 · 2부 모두 보임) · 3D 아이콘 모양은 눈으로'
+HUMAN = '사람 필요: 기기 브라우저가 노션 페이지를 로그인 없이 여는지 · 이용약관은 약관동의 맨 위(I. 서비스 이용약관) · 처리방침은 별도 처리방침 페이지 맨 위 · 3D 아이콘 모양은 눈으로'
 
 
 def _front(serial):
@@ -21,9 +23,9 @@ def _front(serial):
     tools.adb(serial, 'shell', 'monkey', '-p', tools.PACKAGE, '-c', 'android.intent.category.LAUNCHER', '1')
 
 
-def _intent_seen(serial):
-    """dumpsys 에 노션 약관 페이지 주소가 남아 있는지(남아 있으면 True)."""
-    return PAGE in (tools.adb(serial, 'shell', 'dumpsys', 'activity', 'activities', check=False) or '')
+def _intent_seen(serial, page):
+    """dumpsys 에 그 노션 페이지([page]) 주소가 남아 있는지(남아 있으면 True)."""
+    return page in (tools.adb(serial, 'shell', 'dumpsys', 'activity', 'activities', check=False) or '')
 
 
 def p_set_56(run, phone):
@@ -40,7 +42,7 @@ def p_set_56(run, phone):
                     break
                 time.sleep(1)
             check.that(bool(top) and tools.PACKAGE not in top, f'{label} 을 눌렀는데 맨 앞이 우리 앱 그대로(기기 브라우저가 안 뜸): {top or "못 읽음"}')
-            seen[label] = _intent_seen(phone.serial)
+            seen[label] = _intent_seen(phone.serial, PAGES[label])
             _front(phone.serial)
         return handler
 

@@ -102,7 +102,7 @@ class _Badge extends StatelessWidget {
   }
 }
 
-/// "보기 ›"(pen `y0U7f`). 높이 48 · 왼쪽 8 · 간격 2. 노션 약관의 그 항을 기기 브라우저로 연다.
+/// "보기 ›"(pen `y0U7f`). 높이 48 · 왼쪽 8 · 간격 2. 줄이 정한 노션 페이지를 기기 브라우저로 연다.
 class _ViewButton extends StatelessWidget {
   const _ViewButton({required this.label, required this.onPressed});
 
