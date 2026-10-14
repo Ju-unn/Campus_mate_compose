@@ -10,6 +10,7 @@ import 'package:campus_mate/me/view/edit_app_bar.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:campus_mate/me/viewmodel/profile_edit_view_model.dart';
 import 'package:campus_mate/me/viewmodel/tag_edit_view_model.dart';
+import 'package:campus_mate/profile/view/bio_screen.dart';
 import 'package:campus_mate/profile/viewmodel/tag_picker_kind.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -106,6 +107,8 @@ class _BioField extends StatelessWidget {
         TextField(
           controller: controller,
           onChanged: onChanged,
+          // 06-3 과 같은 8줄 · 300자. 그보다 긴 옛 소개(서버 1000자 시절)는 자르지 않는다 — 지우며 고칠 수 있고 늘리지만 못한다.
+          inputFormatters: bioInputFormatters,
           maxLines: null,
           textAlignVertical: TextAlignVertical.top,
           // C1 — 값 글자는 #222222. placeholder 는 muted(2026-10-01 개편 — 옛 #929292).

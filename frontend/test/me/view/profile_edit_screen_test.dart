@@ -53,8 +53,8 @@ void main() {
   }
 
   /// 화면 15 자리(내 프로필을 보고 있는 앞 화면) 위에 15c 를 올린다.
-  Future<void> pump(WidgetTester tester) async {
-    me = FakeMeRepository(const Success(_profile));
+  Future<void> pump(WidgetTester tester, {MyProfile profile = _profile}) async {
+    me = FakeMeRepository(Success(profile));
     container = ProviderContainer(overrides: [meRepositoryProvider.overrideWithValue(me)]);
     addTearDown(container.dispose);
     final router = GoRouter(
@@ -338,6 +338,64 @@ void main() {
     expect(me.updates, isEmpty);
   });
 
+  // 2026-10-14 사용자 결정 "추천대로": 화면 상한 300자(서버는 1000 그대로), 엔터 줄은 06-3 칸과 같은 8줄.
+  group('입력 상한', () {
+    String fieldText(WidgetTester tester) => tester.widget<TextField>(find.byType(TextField)).controller!.text;
+
+    testWidgets('300자(코드포인트)까지만 들어간다 — 카운터는 없다(pen zWMxM)', (tester) async {
+      await pump(tester);
+
+      await tester.enterText(find.byType(TextField), '가' * 301);
+      await tester.pump();
+
+      expect(fieldText(tester).runes.length, 300);
+      expect(find.textContaining('/ 300'), findsNothing);
+    });
+
+    testWidgets('엔터 줄은 8줄까지 — 붙여 넣은 넘는 줄 바꿈은 공백이 된다', (tester) async {
+      await pump(tester);
+
+      await tester.enterText(find.byType(TextField), '1\n2\n3\n4\n5\n6\n7\n8\n9');
+      await tester.pump();
+
+      expect(fieldText(tester), '1\n2\n3\n4\n5\n6\n7\n8 9');
+    });
+
+    // 서버가 1000자 · 줄 수 제한 없이 받던 때 쓴 소개(409자 · 10줄). 열 때 자르지 않고, 지우며 고칠 수 있고, 더 늘리지만 못한다.
+    group('상한보다 긴 옛 소개', () {
+      final legacy = List.filled(10, '가' * 40).join('\n');
+
+      testWidgets('열면 글이 한 글자도 잘리지 않는다', (tester) async {
+        await pump(tester, profile: _profileWithBio(legacy));
+
+        expect(fieldText(tester), legacy);
+      });
+
+      testWidgets('글자를 더 치면 막히고 글은 그대로다', (tester) async {
+        await pump(tester, profile: _profileWithBio(legacy));
+
+        await tester.enterText(find.byType(TextField), '$legacy나');
+        await tester.pump();
+
+        expect(fieldText(tester), legacy);
+      });
+
+      testWidgets('한 글자를 지우면 그 글자만 지워지고(앞 300자로 잘리지 않는다) 그대로 저장된다', (tester) async {
+        await pump(tester, profile: _profileWithBio(legacy));
+        final shorter = legacy.substring(0, legacy.length - 1);
+
+        await tester.enterText(find.byType(TextField), shorter);
+        await tester.pump();
+        await tapSave(tester);
+        await tester.pumpAndSettle();
+
+        expect(me.updates, [
+          {'bio': shorter},
+        ]);
+      });
+    });
+  });
+
   // DESIGN §11.2 — 시스템 글꼴 확대(최대 2.0)에서도 넘치거나 잘리지 않는다. 화면 15 테스트와 같은 잣대.
   for (final scale in [1.0, 1.3, 1.5, 2.0]) {
     testWidgets('15c — 폭 360 · 글자 배율 $scale 에서 넘침 · 잘림이 없다(스크롤 전 · 끝)', (tester) async {
@@ -360,6 +418,24 @@ void main() {
     });
   }
 }
+
+MyProfile _profileWithBio(String bio) => MyProfile(
+      nickname: _profile.nickname,
+      age: _profile.age,
+      university: _profile.university,
+      major: null,
+      heightCm: null,
+      mbti: null,
+      avatarUrl: null,
+      preferredAgeMin: _profile.preferredAgeMin,
+      preferredAgeMax: _profile.preferredAgeMax,
+      preferredHeightMin: null,
+      preferredHeightMax: null,
+      bio: bio,
+      interestTags: _profile.interestTags,
+      myTraits: _profile.myTraits,
+      idealTraits: _profile.idealTraits,
+    );
 
 Future<void> openEditor(WidgetTester tester) async {
   await tester.tap(find.text('화면 15'));
