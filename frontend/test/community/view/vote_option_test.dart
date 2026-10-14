@@ -2,6 +2,7 @@ import 'package:campus_mate/community/view/poll_donut.dart';
 import 'package:campus_mate/community/view/vote_option.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -128,6 +129,35 @@ void main() {
     expect(taps, 1);
     await pump(tester, const VoteOption.text(side: VoteSide.agree, label: '짜장'));
     expect(tester.widget<FilledButton>(find.byType(FilledButton)).onPressed, isNull);
+  });
+
+  group('알약 칸(피드 카드 IFUWA 의 인스턴스 덮어쓰기 hvoFP · mrayI · A7b75P · j6Ukp)', () {
+    testWidgets('O/X 알약: 높이 56 · 모서리 끝까지 둥글게(28) · 같은 파랑/빨강 · 흰 34', (tester) async {
+      await pump(tester, const VoteOption.mark(side: VoteSide.agree, semanticLabel: '찬성', pill: true));
+      expect(tester.getSize(find.byType(VoteOption)).height, 56);
+      expect(fill(tester), pollAgreeBlue);
+      final shape = tester.widget<FilledButton>(find.byType(FilledButton)).style!.shape!.resolve({}) as RoundedRectangleBorder;
+      expect(shape.borderRadius, BorderRadius.circular(AppRadius.pill));
+      final icon = tester.widget<Icon>(find.byIcon(AppIcons.circle));
+      expect((icon.size, icon.color), (34.0, const Color(0xFFFFFFFF)));
+
+      await pump(tester, const VoteOption.mark(side: VoteSide.disagree, semanticLabel: '반대', pill: true));
+      expect(fill(tester), AppColors.primary);
+    });
+
+    testWidgets('직접 적은 선택지 알약: 높이 56 · 좌우 안쪽 16(xlCc2 padding [0,16]) · 흰 20/700', (tester) async {
+      await pump(tester, VoteOption.text(side: VoteSide.agree, label: '치킨', onPressed: () {}, pill: true));
+      expect(tester.getSize(find.byType(VoteOption)).height, 56);
+      final button = tester.widget<FilledButton>(find.byType(FilledButton));
+      expect(button.style!.padding!.resolve({}), const EdgeInsets.symmetric(horizontal: 16));
+      final style = tester.widget<Text>(find.text('치킨')).style!;
+      expect((style.fontSize, style.fontWeight, style.color), (20.0, FontWeight.w700, const Color(0xFFFFFFFF)));
+    });
+
+    testWidgets('기본값은 그대로 72 · 모서리 8 — 질문 작성(17b)은 바뀌지 않는다', (tester) async {
+      await pump(tester, const VoteOption.mark(side: VoteSide.agree));
+      expect(tester.getSize(find.byType(VoteOption)).height, 72);
+    });
   });
 
   group('입력 칸(xlCc2 · k9Bdo8)', () {

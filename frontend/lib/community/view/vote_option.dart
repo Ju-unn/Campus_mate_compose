@@ -16,9 +16,18 @@ enum _VoteOptionKind { mark, text, input }
 /// - [VoteOption.mark]: 글자 없는 흰 원(O) · 흰 x(X) 34. 읽기는 [semanticLabel]("찬성" · "반대").
 /// - [VoteOption.text]: 직접 적은 보기 글자 — 흰 20/700, 밑줄 없음, 좌우 안쪽 8. 칸보다 길면 줄여서 한 줄에 맞춘다.
 /// - [VoteOption.input]: 질문 작성에서 보기 글자를 적는 칸 — 흰 20/700 글자 + 흰 2px 밑줄.
+///
+/// [pill] 은 15d 피드 카드(`IFUWA`)의 인스턴스 덮어쓰기다(`hvoFP` · `mrayI` · `A7b75P` · `j6Ukp`: 높이 56 · 모서리 28,
+/// 글자 칸 안쪽 16 은 `xlCc2` 마스터 값). 17b 질문 작성 · 17c 상세는 기본값(72 · 8)을 그대로 쓴다.
 class VoteOption extends StatelessWidget {
-  const VoteOption.mark({required this.side, this.semanticLabel, this.onPressed, this.interactive = true, super.key})
-      : _kind = _VoteOptionKind.mark,
+  const VoteOption.mark({
+    required this.side,
+    this.semanticLabel,
+    this.onPressed,
+    this.interactive = true,
+    this.pill = false,
+    super.key,
+  })  : _kind = _VoteOptionKind.mark,
         label = null,
         controller = null,
         hint = null,
@@ -26,7 +35,7 @@ class VoteOption extends StatelessWidget {
         inputFormatters = const [],
         onChanged = null;
 
-  const VoteOption.text({required this.side, required String this.label, this.onPressed, super.key})
+  const VoteOption.text({required this.side, required String this.label, this.onPressed, this.pill = false, super.key})
       : _kind = _VoteOptionKind.text,
         interactive = true,
         semanticLabel = null,
@@ -46,6 +55,7 @@ class VoteOption extends StatelessWidget {
     super.key,
   })  : _kind = _VoteOptionKind.input,
         interactive = false,
+        pill = false,
         semanticLabel = null,
         label = null,
         onPressed = null;
@@ -55,6 +65,9 @@ class VoteOption extends StatelessWidget {
 
   /// pen 값: 높이 72, 모서리 8([AppRadius.sm]), 글자 흰 20.
   static const double height = 72;
+
+  /// 피드 카드 알약 높이(pen `MfEEJ` 56).
+  static const double pillHeight = 56;
   static const double _markSize = 34;
   static const double _textPadding = 8; // 보기 글자 칸 padding [0,8] — 6자 20px(≈120)가 줄바꿈 없이 들어간다
   static const double _inputPadding = 16; // 입력 칸 padding [0,16]
@@ -69,6 +82,9 @@ class VoteOption extends StatelessWidget {
 
   /// false 면 누르는 버튼이 아니라 그냥 칸이다(질문 작성의 O/X 미리보기).
   final bool interactive;
+
+  /// 피드 카드의 알약 모양(높이 56 · 끝까지 둥글게 · 글자 칸 안쪽 16).
+  final bool pill;
   final TextEditingController? controller;
   final String? hint;
   final Key? fieldKey;
@@ -96,14 +112,15 @@ class VoteOption extends StatelessWidget {
       _VoteOptionKind.text => _frame(
           FittedBox(fit: BoxFit.scaleDown, child: Text(label!, maxLines: 1, style: _whiteText(FontWeight.w700))),
           interactive: true,
-          horizontalPadding: _textPadding,
+          horizontalPadding: pill ? _inputPadding : _textPadding,
         ),
       _VoteOptionKind.input => _frame(_inputBody(context), interactive: false, fillChild: true),
     };
   }
 
   Widget _frame(Widget child, {required bool interactive, double horizontalPadding = 0, bool fillChild = false}) {
-    final shape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm));
+    final shape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(pill ? AppRadius.pill : AppRadius.sm));
+    final boxHeight = pill ? pillHeight : height;
     if (interactive) {
       return FilledButton(
         onPressed: onPressed,
@@ -113,7 +130,7 @@ class VoteOption extends StatelessWidget {
           // 투표 중(onPressed null)에 칸이 흰색으로 비면 투표마다 깜빡인다 — 같은 색을 반투명으로 둔다.
           disabledBackgroundColor: _fill.withValues(alpha: 0.5),
           disabledForegroundColor: AppColors.onPrimary,
-          minimumSize: const Size.fromHeight(height),
+          minimumSize: Size.fromHeight(boxHeight),
           padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
           shape: shape,
         ),
