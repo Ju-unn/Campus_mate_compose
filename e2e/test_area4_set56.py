@@ -16,7 +16,7 @@ class TermsRowsTest(ReadBase):
         events = []
         app = StepApp(lambda job: said(), ['terms', 'privacy'], events, top=top)
         with mock.patch.object(area4_set56.time, 'sleep'), \
-                mock.patch.object(area4_set56, '_intent_seen', lambda serial: bool(dump)):
+                mock.patch.object(area4_set56, '_intent_seen', lambda serial, page: bool(dump)):
             result, app = self.case('E-SET-56', {}, app)
         return result, events
 
@@ -36,6 +36,15 @@ class TermsRowsTest(ReadBase):
         (result, note), _ = self.run56(BROWSER)
         self.assertEqual(result, 'pass', note)
         self.assertIn('판정에 안 씀', note)
+
+    def test_each_row_looks_for_its_own_notion_page_in_dumpsys(self):
+        asked = []
+        events = []
+        app = StepApp(lambda job: said(), ['terms', 'privacy'], events, top=BROWSER)
+        with mock.patch.object(area4_set56.time, 'sleep'), \
+                mock.patch.object(area4_set56, '_intent_seen', lambda serial, page: asked.append(page) or True):
+            self.case('E-SET-56', {}, app)
+        self.assertEqual(asked, [area4_set56.PAGES['이용약관'], area4_set56.PAGES['개인정보처리방침']])  # 처리방침은 10-14 부터 별도 페이지
 
     def test_the_app_is_brought_back_to_the_front_after_each_row(self):
         calls = []
@@ -62,9 +71,10 @@ class RegistryTest(unittest.TestCase):
         self.assertIn("part 'area4_set56.dart';", wiring)
         self.assertIn('..._set56Cases,', wiring)
 
-    def test_the_notion_page_id_is_the_one_the_app_opens(self):
+    def test_the_notion_page_ids_are_the_ones_the_app_opens(self):
         links = (tools.ROOT / 'frontend' / 'lib' / 'consent' / 'model' / 'consent_links.dart').read_text(encoding='utf-8')
-        self.assertIn(area4_set56.PAGE, links)
+        self.assertIn(f"_termsPage = '$_site/{area4_set56.PAGES['이용약관']}'", links)
+        self.assertIn(f"_privacyPage = '$_site/{area4_set56.PAGES['개인정보처리방침']}'", links)
 
 
 if __name__ == '__main__':
