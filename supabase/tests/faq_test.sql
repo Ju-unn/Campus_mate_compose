@@ -4,7 +4,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(13);
+select plan(15);
 
 -- 1~3 표 · RLS · enum
 select has_table('public', 'faq', 'faq 표가 있다');
@@ -43,6 +43,13 @@ select throws_ok($$delete from public.faq$$, '42501', null, 'authenticated 는 f
 set local role anon;
 select throws_ok($$select 1 from public.faq$$, '42501', null, 'anon 은 faq 를 읽을 수 없다');
 reset role;
+
+-- 14~15 아바타 다시 만들기 값 20하트(20261014120000, 사용자 피드백 6). 보상 하트 10 구절은 그대로다.
+select ok((select answer like '%그다음부터 20하트예요%' from public.faq where question = '하트는 어디에 쓰나요?'),
+  '하트 쓰는 곳 답변의 다시 만들기 값은 20하트다');
+select ok((select answer like '%그다음부터는 20하트예요%' and answer like '%10하트를 드려요%'
+           from public.faq where question = '아바타를 다시 만들 수 있나요?'),
+  '아바타 다시 만들기 답변은 20하트이고, 5번 실패 보상 10하트 구절은 그대로다');
 
 select * from finish();
 rollback;

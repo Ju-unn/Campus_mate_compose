@@ -666,13 +666,13 @@ def test_worker_charges_nothing_for_the_free_regeneration(monkeypatch):
     assert fake.granted_hearts == []
 
 
-def test_worker_charges_ten_hearts_once_the_paid_regeneration_is_ready(monkeypatch):
+def test_worker_charges_twenty_hearts_once_the_paid_regeneration_is_ready(monkeypatch):
     _verifies(monkeypatch, {"email": SERVICE_ACCOUNT, "email_verified": True})
     fake = _Fake(latest_attempt=_pending_attempt(), ready_rows=_ready(2))
 
     assert _worker(fake, _openai(True)).json() == {"status": "ready"}
     assert [json.loads(r.content) for r in fake.granted_hearts] == [{
-        "p_profile_id": str(PROFILE_ID), "p_amount": -10,
+        "p_profile_id": str(PROFILE_ID), "p_amount": -20,
         "p_reason": "avatar_regen", "p_ref_id": str(ATTEMPT_ID),
     }]
     # 완성을 적은 **뒤에** 뺀다(T2) — 기록 전에 빼면 기록이 0행일 때 돌려줄 길이 없다.

@@ -7,6 +7,7 @@ import 'package:campus_mate/billing/model/heart_store_gateway.dart';
 import 'package:campus_mate/billing/model/in_app_heart_store_gateway.dart';
 import 'package:campus_mate/billing/viewmodel/heart_purchase_view_model.dart';
 import 'package:campus_mate/chat/viewmodel/user_channel.dart';
+import 'package:campus_mate/common/widgets/keyboard_dismiss_on_tap.dart';
 import 'package:campus_mate/core/auth/account_status_listenable.dart';
 import 'package:campus_mate/core/auth/session_scope.dart';
 import 'package:campus_mate/core/auth/sign_out.dart';
@@ -313,6 +314,8 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
       // 시스템 다크에 끌려가지 않게 고정한다 (DESIGN.md §2.7 — 다크 모드는 MVP 범위 밖)
       themeMode: ThemeMode.light,
       routerConfig: _router,
+      // 입력칸 밖 빈 곳을 누르면 키보드를 내린다 — 화면 · 시트 · 대화상자가 모두 이 밑에 뜬다(사용자 피드백 9).
+      builder: (context, child) => KeyboardDismissOnTap(child: child!),
     );
   }
 }

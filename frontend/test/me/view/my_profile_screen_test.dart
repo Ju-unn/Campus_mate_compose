@@ -59,7 +59,7 @@ class _PendingHttpOverrides extends HttpOverrides {
 }
 
 const _bio = '주말엔 카페 투어와 등산을 즐겨요. 새로운 사람을 만나는 걸 좋아하고, 대화가 잘 통하는 사람을 찾고 있어요.';
-const _pillLabel = '다시 만들기 · 10';
+const _pillLabel = '다시 만들기 · 20';
 const _failedMessage = '아바타를 만들지 못했어요.\n하트는 차감되지 않았어요.';
 const _logoUrl = 'https://logo.test/gana.webp';
 

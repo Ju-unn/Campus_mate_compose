@@ -9,7 +9,7 @@ import 'package:campus_mate/me/model/my_profile.dart';
 import 'package:flutter/material.dart';
 
 /// 화면 15 히어로(pen 마스터 `l8p6X` "ProfileHero", 328×360) — 아바타 그림 위에 보기 칩 · 인증 배지(위)와 이름 묶음(아래).
-/// 이름 묶음 오른쪽 아래 "다시 만들기 · 10" 알약(`R5Quru`)이 15b 시트를 연다.
+/// 이름 묶음 오른쪽 아래 "다시 만들기 · 20" 알약(`R5Quru`)이 15b 시트를 연다.
 class ProfileHero extends StatelessWidget {
   const ProfileHero({required this.profile, required this.onRegenerate, super.key});
 
@@ -251,8 +251,9 @@ class _SchoolRow extends StatelessWidget {
   }
 }
 
-/// "다시 만들기 · 10" 알약 `R5Quru` — 높이 34 · 흰 알약 · 좌우 10 · 하트 16 → 4 → 13/600 primary-text.
-/// 글자의 10 은 서버 `avatarRegenCost` 가 아니라 pen 고정이다(D6 — 무료 차례에도 같다. 실제 값은 15b 시트가 읽는다).
+/// "다시 만들기 · 20" 알약 `R5Quru` — 높이 34 · 흰 알약 · 좌우 10 · 하트 16 → 4 → 13/600 primary-text.
+/// 글자의 20 은 서버 `avatarRegenCost` 가 아니라 고정이다(D6 — 무료 차례에도 같다. 실제 값은 15b 시트가 읽는다).
+/// 2026-10-14 사용자 피드백 6 으로 10 → 20(서버 `AVATAR_REGEN_HEARTS` 와 같이 바꾼다). pen `R5Quru` 글자는 아직 · 10 이다.
 ///
 /// 누름 칸은 44(N7)인데 pen 몸통은 34 다. **위아래로 5 씩** 늘려 몸통이 칸 가운데에 남게 한다 — 학교 줄의 가운데
 /// 맞춤이 깨지지 않는다. 몸통 밖 5 는 [GestureDetector] 가 받고, 몸통 안은 눌림 효과를 그리는 [InkWell] 이 받는다
@@ -278,7 +279,7 @@ class _RegeneratePill extends StatelessWidget {
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: _tapExtension),
-        // 하트 라벨과 글자를 버튼 하나로 합친다 — "하트, 다시 만들기 · 10, 버튼" 을 한 번에 읽는다(15b 검토 권고 1).
+        // 하트 라벨과 글자를 버튼 하나로 합친다 — "하트, 다시 만들기 · 20, 버튼" 을 한 번에 읽는다(15b 검토 권고 1).
         child: MergeSemantics(
           child: Semantics(
             button: true,
@@ -301,7 +302,7 @@ class _RegeneratePill extends StatelessWidget {
                         if (enabled) ...[const _HeartGlyph(), const SizedBox(width: AppSpacing.xxs)],
                         Flexible(
                           child: Text(
-                            '다시 만들기 · 10',
+                            '다시 만들기 · 20',
                             textAlign: TextAlign.center,
                             style: AppTypography.labelSmall.copyWith(
                               fontSize: 13,
