@@ -22,7 +22,7 @@ from pathlib import Path
 from unittest import mock
 from urllib.parse import urlsplit
 
-from e2e import area1, area2, area4, area5_act, area5_photo, tools
+from e2e import area1, area2, area4, area5_act, area5_api, area5_photo, tools
 from e2e.area2_phone3 import _PAID
 from e2e.test_area1 import CFG
 from e2e.test_area3_phone import App, said
@@ -37,7 +37,7 @@ PAID = ['E-ME-10', 'E-ME-11', 'E-ME-14', 'E-ME-16', 'E-ME-40']  # 앱이 다시 
 FREE_BODY = '첫 번째 다시 만들기는 무료예요. 새 아바타는 바로 프로필에 반영돼요.'
 TITLES = {'15-5': '프로필 편집', '15-7': '사진 수정'}
 LOW_TITLE = '하트가 모자라요'
-LOW_BODY = '하트 10개가 필요해요. 지금 보유한 하트는 5개예요.'
+LOW_BODY = '하트 20개가 필요해요. 지금 보유한 하트는 5개예요.'
 PAID_TITLE = '아바타를 다시 만들까요?'
 FAILED_TOAST = '아바타를 만들지 못했어요.\n하트는 차감되지 않았어요.'
 CHANGED = '사진이 바뀌었어요, 다시 열어 주세요'
@@ -51,7 +51,7 @@ ROOT = tools.ROOT / 'backend' / 'app'
 
 
 def paid_body(balance):
-    return f'하트 10개가 차감돼요. 지금 보유한 하트는 {balance}개예요. 새 아바타는 바로 프로필에 반영돼요.'
+    return f'하트 20개가 차감돼요. 지금 보유한 하트는 {balance}개예요. 새 아바타는 바로 프로필에 반영돼요.'
 
 
 def name_of(row):
@@ -187,7 +187,7 @@ class PhotoFake(ActFake):
             return Reply(409, {'detail': '아바타를 먼저 만들어 주세요'})
         if not any(p['is_avatar_source'] for p in self.rows('profile_photos') if p['profile_id'] == who):
             return Reply(409, {'detail': '아바타 원본 사진을 먼저 골라 주세요'})
-        cost = 0 if len(ready) <= 1 else 10
+        cost = 0 if len(ready) <= 1 else 20  # avatars.py AVATAR_REGEN_HEARTS — [PaidFactsTest] 가 맞대 본다
         if cost and self.checks_hearts and self.balance(who) < cost:
             return Reply(402, {'detail': LOW_TITLE})
         if not any(a['profile_id'] == who and a['status'] == 'pending' for a in self.rows('profile_avatars')):
@@ -299,7 +299,7 @@ class PhotoBase(ActBase):
         return [Path(call[-2]).name for call in self.adb_calls if len(call) > 2 and call[1] == 'push']
 
     def good_14(self, **over):
-        """앱이 "10 쓰고 만들기" 를 눌러 202 를 받고, PC 가 새 pending 행을 failed 로 바꾸기를 기다린 뒤 15-3 토스트를 본 것처럼."""
+        """앱이 "20 쓰고 만들기" 를 눌러 202 를 받고, PC 가 새 pending 행을 failed 로 바꾸기를 기다린 뒤 15-3 토스트를 본 것처럼."""
         def answer(job):
             self.app_replace_source()  # 사진 교체가 먼저
             self.regen_reply = self.call_regenerate()
@@ -403,16 +403,19 @@ class AppContractTest(unittest.TestCase):
 
     def test_the_literals_the_app_looks_for_are_in_the_real_screens(self):
         screens = '\n'.join(path.read_text(encoding='utf-8') for path in (tools.ROOT / 'frontend' / 'lib').rglob('*.dart'))
-        for literal in ('저장', '사진 수정', '실제 사진 교체', '다시 만들기 · 10', '하트 충전하기', '구매하기', '하트가 모자라요', '지금 보유한 하트는',
+        for literal in ('저장', '사진 수정', '실제 사진 교체', '다시 만들기 · 20', '하트 충전하기', '구매하기', '하트가 모자라요', '지금 보유한 하트는',
                         '사진은 최대 $_maxPhotos장까지 올릴 수 있어요', '얼굴이 보이는 사진을 골라 주세요', '$rejected장은 얼굴이 보이지 않아 빠졌어요',
                         '아바타로 변환 중이에요', '아바타를 다시 만들까요?', '프로필 편집'):
             with self.subTest(literal):
                 self.assertTrue(literal in screens, f'{literal!r} 가 frontend/lib 에 없다')
-        self.assertIn("'$cost 쓰고 만들기'", screens)  # 시트 CTA — 10 은 서버 값이라 템플릿이다
+        self.assertIn("'$cost 쓰고 만들기'", screens)  # 시트 CTA — 20 은 서버 값이라 템플릿이다
+        # 알약 글자는 히어로 코드의 글자 그대로여야 한다 — 위 묶음 검사는 주석에 남은 옛 글자("· 10", app_routes.dart)에도 걸려 통과했다.
+        self.assertIn("'다시 만들기 · 20'", lib('me', 'view', 'profile_hero.dart'))
+        self.assertIn("const _regenPill = '다시 만들기 · 20';", dart('area5.dart'))
         self.assertIn("'아바타를 만들지 못했어요.\\n하트는 차감되지 않았어요.'", screens)
         self.assertIn(f'PHOTOS_CHANGED = "{CHANGED}"', (ROOT / 'core' / 'errors.py').read_text(encoding='utf-8'))
         # 안내 두 개(NONE_KEPT · ONE_DROPPED)는 앱이 글자를 들고 찾지 않는다 — 뷰모델의 errorMessage 를 그대로 말하고 PC 가 견준다.
-        for literal in ('저장', '10 쓰고 만들기', '하트 충전하기', '구매하기', '하트', '하트가 모자라요', CHANGED, MAX_NOTICE, '아바타로 변환 중이에요', '사진 수정', '프로필 편집'):
+        for literal in ('저장', '20 쓰고 만들기', '하트 충전하기', '구매하기', '하트', '하트가 모자라요', CHANGED, MAX_NOTICE, '아바타로 변환 중이에요', '사진 수정', '프로필 편집'):
             with self.subTest('app ' + literal):
                 self.assertTrue(f"'{literal}'" in app_dart(), f'{literal!r} 가 area5_photo.dart 에 없다')
         self.assertTrue("'아바타를 만들지 못했어요.\\n하트는 차감되지 않았어요.'" in app_dart())
@@ -516,6 +519,14 @@ class PaidFactsTest(unittest.TestCase):
 
     def text(self, *parts):
         return (ROOT.joinpath(*parts)).read_text(encoding='utf-8')
+
+    def test_the_regen_cost_the_module_and_this_fake_use_is_the_servers(self):
+        # 운영 서버는 00075 부터 20. 하네스 값이 서버와 어긋나면 하트 경계 가설(정확히 값 · 하나 모자람)이 202 · 402 를 거꾸로 받는다.
+        server = re.search(r'^AVATAR_REGEN_HEARTS = (\d+)$', self.text('profile_onboarding', 'avatars.py'), re.M)
+        self.assertIsNotNone(server, 'avatars.py 에 AVATAR_REGEN_HEARTS 가 없다')
+        self.assertEqual(int(server.group(1)), 20)  # 이 파일 · 다른 시험의 글자(20 · 17 · 19)가 기대는 값 — 바뀌면 그 글자들도 같이 바꾼다
+        self.assertEqual(area5_photo.COST, 20)
+        self.assertEqual(area5_api.REGEN_COST, 20)
 
     def test_regenerate_ends_at_402_before_it_queues_anything(self):
         router = self.text('me', 'router.py').split('async def regenerate_avatar')[1].split('@router.put')[0]
@@ -676,7 +687,7 @@ class LowHeartsSheetTest(PhotoBase):
             return self.good()(job)
 
         def ledgered(job):
-            self.fake.rows('heart_transactions').append({'profile_id': 'id-1', 'amount': -10, 'reason': 'avatar_regen'})
+            self.fake.rows('heart_transactions').append({'profile_id': 'id-1', 'amount': -20, 'reason': 'avatar_regen'})
             return self.good()(job)
         for answer, word in ((queued, '아바타'), (spent, '하트'), (ledgered, '원장')):
             with self.subTest(word):
@@ -710,7 +721,7 @@ class StaleBalanceTest(PhotoBase):
     def good(self, **over):
         def answer(job):
             self.app_replace_source()  # 사진 교체가 먼저 성공하고
-            reply = self.call_regenerate()  # 앱의 "10 쓰고 만들기" — PC 가 하트를 낮춘 뒤에 눌렀다
+            reply = self.call_regenerate()  # 앱의 "20 쓰고 만들기" — PC 가 하트를 낮춘 뒤에 눌렀다
             self.status_seen = reply[0]
             return said(**{'sheet_title': PAID_TITLE, 'sheet_body': paid_body(37), 'caption_seen': True, 'on_pick_screen': True,
                            'regen_state': 'failed', 'regen_error': LOW_TITLE, **over})
@@ -788,7 +799,7 @@ class StaleBalanceTest(PhotoBase):
 
         def ledgers(job):
             answer = self.good()(job)
-            self.fake.rows('heart_transactions').append({'profile_id': 'id-1', 'amount': -10, 'reason': 'avatar_regen'})
+            self.fake.rows('heart_transactions').append({'profile_id': 'id-1', 'amount': -20, 'reason': 'avatar_regen'})
             return answer
         for answer, word in ((spends, '하트'), (ledgers, '원장')):
             with self.subTest(word):
@@ -865,12 +876,12 @@ class FailedRegenerateTest(PhotoBase):
     def test_14_fails_when_the_hearts_were_charged_or_the_ledger_has_an_avatar_regen_row(self):
         def charges(job):
             answer = self.good()(job)
-            self.fake.rows('entitlements')[0]['heart_balance'] = 27
+            self.fake.rows('entitlements')[0]['heart_balance'] = 17
             return answer
 
         def ledgers(job):
             answer = self.good()(job)
-            self.fake.rows('heart_transactions').append({'profile_id': 'id-1', 'amount': -10, 'reason': 'avatar_regen'})
+            self.fake.rows('heart_transactions').append({'profile_id': 'id-1', 'amount': -20, 'reason': 'avatar_regen'})
             return answer
         for answer, word in ((charges, '하트'), (ledgers, '원장')):
             with self.subTest(word):
@@ -938,7 +949,7 @@ class FailedRegenerateTest(PhotoBase):
 # ── E-ME-10 · 11 · 16 워커가 새 아바타를 만든다(유료 AI) ────────────────────────────────────────────
 
 class WorkerRegenTest(PhotoBase):
-    """앱이 누르면 서버가 큐에 넣고 워커가 새 아바타를 만든다 — 시험이 워커를 흉내 낸다(pending → ready, 값이 있으면 하트 원장 -10 도)."""
+    """앱이 누르면 서버가 큐에 넣고 워커가 새 아바타를 만든다 — 시험이 워커를 흉내 낸다(pending → ready, 값이 있으면 하트 원장 -20 도)."""
 
     def worker(self, charge=0):
         row = self.avatars(status='pending')[0]
@@ -952,7 +963,7 @@ class WorkerRegenTest(PhotoBase):
         def answer(job):
             self.app_replace_source()  # 사진 교체가 먼저(Vision 1번) — 지금 아바타 원본 칸만 새 사진으로
             self.assertEqual(self.call_regenerate()[0], 202)
-            self.charged_row = self.worker(10 if name == 'E-ME-11' else 0)
+            self.charged_row = self.worker(20 if name == 'E-ME-11' else 0)
             said_ = {'generating_seen': True, 'avatar_changed': True, 'generating_gone': True, 'regen_state': 'ready', 'waited_ms': 20000}
             if name == 'E-ME-10':
                 said_.update(sheet_title=PAID_TITLE, sheet_texts=[PAID_TITLE, FREE_BODY, '무료로 만들기', '취소'])
@@ -980,10 +991,10 @@ class WorkerRegenTest(PhotoBase):
     def test_10_fails_on_a_charge_a_missing_free_text_a_heart_line_or_an_unchanged_picture(self):
         def charged(job):
             answer = self.good('E-ME-10')(job)
-            self.fake.rows('entitlements')[0]['heart_balance'] -= 10
+            self.fake.rows('entitlements')[0]['heart_balance'] -= 20
             return answer
         for answer, word in ((charged, '하트'),
-                             (self.good('E-ME-10', sheet_texts=[PAID_TITLE, '하트 10개가 차감돼요. 지금 보유한 하트는 5개예요.', '10 쓰고 만들기', '취소']), '무료'),
+                             (self.good('E-ME-10', sheet_texts=[PAID_TITLE, '하트 20개가 차감돼요. 지금 보유한 하트는 5개예요.', '20 쓰고 만들기', '취소']), '무료'),
                              (self.good('E-ME-10', avatar_changed=False), '그림'),
                              (self.good('E-ME-10', generating_seen=False), '변환 중'),
                              (self.good('E-ME-10', regen_state='failed'), '상태'),
@@ -1011,12 +1022,12 @@ class WorkerRegenTest(PhotoBase):
         self.assertEqual(result, 'blocked', note)
         self.assertEqual(app.jobs, [])
 
-    # ── 11 두 번째부터 10개 ──
-    def test_11_the_second_regenerate_costs_ten_after_completion_with_a_ledger_row_that_points_at_the_new_avatar(self):
+    # ── 11 두 번째부터 20개 ──
+    def test_11_the_second_regenerate_costs_twenty_after_completion_with_a_ledger_row_that_points_at_the_new_avatar(self):
         (result, note), app = self.run_case('E-ME-11')
         self.assertEqual(result, 'pass', note)
-        self.assertEqual(self.fake.balance(), 27)
-        self.assertEqual(self.ledger('avatar_regen'), [-10])
+        self.assertEqual(self.fake.balance(), 17)
+        self.assertEqual(self.ledger('avatar_regen'), [-20])
         ref = self.rows('heart_transactions', reason='avatar_regen')[0]['ref_id']
         self.assertEqual(ref, self.charged_row['id'])
         self.assertEqual(sorted(a['status'] for a in self.avatars()), ['ready', 'ready', 'ready'])
@@ -1031,8 +1042,8 @@ class WorkerRegenTest(PhotoBase):
 
         def doubled(job):
             answer = self.good('E-ME-11')(job)
-            self.fake.rows('entitlements')[0]['heart_balance'] -= 10
-            self.fake.rows('heart_transactions').append({'profile_id': 'id-1', 'amount': -10, 'reason': 'avatar_regen', 'ref_id': 'other'})
+            self.fake.rows('entitlements')[0]['heart_balance'] -= 20
+            self.fake.rows('heart_transactions').append({'profile_id': 'id-1', 'amount': -20, 'reason': 'avatar_regen', 'ref_id': 'other'})
             return answer
 
         def no_ref(job):

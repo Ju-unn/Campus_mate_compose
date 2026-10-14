@@ -17,7 +17,7 @@ face1.jpg 한 장을 고른 뒤 시트에서 "만들기" 를 누르면 `PUT /me/
   ME-13  OpenAI 0 · Vision 1(만들기가 사진 교체를 먼저 부른다, me/router.py:166-171) · 게이트 없음(E-HEART-44 와 같은 402 가설). 교체가 성공한 뒤
          POST /me/avatar/regenerate 가 402 로 끝나 큐에 안 넣는다(me/router.py:133-137, 큐 등록은 139) — 새 사진은 이미 원본으로 남는다(서버가 둘로 나뉜 한계). 하트 계산이 어긋나 202 가 되면 그 요청이 곧 유료 호출이라, 새 아바타 행이 생기면 fail 메모에 "유료" 를 적는다.
   ME-14  OpenAI 최대 1 · Vision 1(사진 교체) · 게이트 E2E_REAL_AI=1 + _PAID(없으면 계정도 요청도 없이 blocked, 한 번 나간 뒤에는 다시 안 돎).
-         "10 쓰고 만들기" 는 큐에 등록하고(me/router.py:139 → profile_onboarding/router.py:243-249 Cloud Tasks) 워커(tasks_router.py:83 AvatarGenerator)가
+         "20 쓰고 만들기" 는 큐에 등록하고(me/router.py:139 → profile_onboarding/router.py:243-249 Cloud Tasks) 워커(tasks_router.py:83 AvatarGenerator)가
          OpenAI 이미지를 부른다. 워커는 행이 pending 이 아니면 부르기 전에 건너뛴다(:61-63). PC 가 새 pending 행을 FLIP_POLL 초마다 보다가 바로 failed 로
          바꾼다 — 워커가 그 전에 행을 읽었다면 1번 나가고(끝에 :93 에서 0행이라 skipped, 하트도 안 빼고 그림도 안 적는다), 워커가 끝까지 먼저면 ready 라 blocked.
   ME-38  OpenAI 0 · Vision 1(새 사진 1장에 한 번, me/router.py:166-171) · 게이트 없음(area1_b3 의 사진 가설도 Vision 에 게이트가 없다).
@@ -34,7 +34,7 @@ face1.jpg 한 장을 고른 뒤 시트에서 "만들기" 를 누르면 `PUT /me/
 시나리오와 다르게 도는 것(보고의 "확인 필요")
   E-ME-12 · 13 · 14  시나리오의 "ready 2장" 은 계정 공장의 1장에 DB 로 1장을 더한다(area2_phone3._add_avatar — 1장이면 무료 시트, avatar_regen_cost).
                 하트는 처음 있던 잔액을 읽어 목표 값(5 · 37)이 되도록 더하거나(free_task) 뺀다(admin_adjust — avatar_regen 원장 0행을 지켜야 해서 이유를 다르게 쓴다).
-  E-ME-13       "화면은 37" 은 앱이 나 탭을 연 뒤 `step` 에서 멈추면 PC 가 5로 낮춘다. 시트는 처음 읽은 37 을 들고 있어 "10 쓰고 만들기" 가 나온다.
+  E-ME-13       "화면은 37" 은 앱이 나 탭을 연 뒤 `step` 에서 멈추면 PC 가 5로 낮춘다. 시트는 처음 읽은 37 을 들고 있어 "20 쓰고 만들기" 가 나온다.
                 앱이 누르면 사진 교체(성공)가 먼저고 이어 등록이 402 로 끝난다 — 앱은 사진 고르기(15b-5) 칸 아래의 서버 문구 "하트가 모자라요" 와 뷰모델 상태
                 (failed · 서버 문구)를 말한다(15 의 토스트는 아래 화면이라 안 보인다). 이때 새 사진은 이미 원본으로 남는다 — PC 가 그 사실을 판정에 넣는다
                 (원본 칸만 새 파일, 장수 그대로, 아바타 행 · 하트 · 원장은 그대로).
@@ -68,7 +68,7 @@ from e2e.area5_act import _cut_settled, _paid_case
 from e2e.area5_read import TITLES, _avatar_rows, _home, _photos_to, _ready_avatars
 from e2e.tools import Blocked
 
-HEARTS, LOW, COST = 37, 5, 10  # 시나리오 ME-13 · 12 — 화면이 본 잔액 · 낮춘 잔액 · 다시 만들기 값
+HEARTS, LOW, COST = 37, 5, 20  # 시나리오 ME-13 · 12 — 화면이 본 잔액 · 낮춘 잔액 · 다시 만들기 값(avatars.py AVATAR_REGEN_HEARTS, 운영 00075 부터 20)
 FLIP_POLL = 0.2  # 새 pending 행을 보는 간격(초) — 워커가 행을 읽기 전에 바꾸려고 짧게
 LOW_TITLE = '하트가 모자라요'  # 시트 제목이자 서버 HEARTS_NOT_ENOUGH
 LOW_BODY = f'하트 {COST}개가 필요해요. 지금 보유한 하트는 {LOW}개예요.'
@@ -107,7 +107,7 @@ def _hearts_to(run, account, want):
 
 
 def _two_ready(run, account):
-    """ready 아바타 2장 — 1장이면 15b 가 무료 시트라 하트 줄도 "10 쓰고 만들기" 도 없다."""
+    """ready 아바타 2장 — 1장이면 15b 가 무료 시트라 하트 줄도 "20 쓰고 만들기" 도 없다."""
     _add_avatar(run, account)
     ready = _ready_avatars(run, account)
     if len(ready) != 2:
@@ -212,7 +212,7 @@ def _result(check, note):
 # ── 새 아바타 행 지켜보기(E-ME-14) ──────────────────────────────────────────────────────────────────
 
 class _Watcher:
-    """앱이 "10 쓰고 만들기" 를 누르면 생기는 새 아바타 행을 [FLIP_POLL] 초마다 보다가, pending 이면 바로 failed 로 바꾼다(백그라운드).
+    """앱이 "20 쓰고 만들기" 를 누르면 생기는 새 아바타 행을 [FLIP_POLL] 초마다 보다가, pending 이면 바로 failed 로 바꾼다(백그라운드).
     워커와의 경쟁이다 — 바꿀 때 `status=eq.pending` 조건을 걸어 이미 ready 가 된 행을 되돌려 쓰지 않고, 바꾼 뒤 다시 읽어 [seen] 에 남긴다
     (`first` = 처음 본 상태, `final` = 바꾼 뒤 읽은 상태). 앱이 끝나면 [finish] 로 한 번 더 보고 멈춘다."""
 
@@ -327,10 +327,10 @@ def p_me_14(run, phone, paid):
         raise Blocked(f"워커가 먼저 끝냈다(새 행 {seen['first']} → {seen['final']}) — 판정 못 함. 유료 호출(OpenAI 이미지 생성)이 1번 나갔고 하트가 빠졌을 수 있다")
     if seen and seen['final'] != 'failed':
         raise Blocked(f"새 행을 failed 로 바꾸지 못했다(처음 {seen['first']} → 읽은 상태 {seen['final']}) — pending 이 남았으면 워커가 곧 OpenAI 를 부른다")
-    check.that(bool(seen), '새 아바타 행이 안 생겼다 — 앱의 "10 쓰고 만들기" 요청이 큐에 등록되지 않았다')
+    check.that(bool(seen), '새 아바타 행이 안 생겼다 — 앱의 "20 쓰고 만들기" 요청이 큐에 등록되지 않았다')
     check.that(said.get('sheet_body', MISSING) == _paid_body(HEARTS), f"시트 글 {said.get('sheet_body', MISSING)!r}(기대 {_paid_body(HEARTS)!r})")
     check.that(said.get('toast_seen') is True, f"15-3 토스트 \"아바타를 만들지 못했어요.\\n하트는 차감되지 않았어요.\" {said.get('toast_seen', MISSING)}(기대 보임)")
-    check.that(said.get('pill_enabled') is True, f"알약 \"다시 만들기 · 10\" 켜짐 {said.get('pill_enabled', MISSING)}(기대 다시 켜짐)")
+    check.that(said.get('pill_enabled') is True, f"알약 \"다시 만들기 · 20\" 켜짐 {said.get('pill_enabled', MISSING)}(기대 다시 켜짐)")
     check.that(said.get('generating_gone') is True, f"\"아바타로 변환 중이에요\" 안내가 사라짐 {said.get('generating_gone', MISSING)}(기대 True)")
     check.that(said.get('regen_state', MISSING) == 'failed', f"다시 만들기 상태 {said.get('regen_state', MISSING)!r}(기대 failed)")
     check.that(said.get('regen_error', MISSING) is None,

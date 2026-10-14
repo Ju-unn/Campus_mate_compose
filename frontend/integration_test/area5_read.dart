@@ -23,8 +23,8 @@ String? _avatarFile(WidgetTester tester) {
 
 String? _textOf(WidgetTester tester, Finder finder) => _has(finder) ? tester.widget<Text>(finder.first).data : null;
 
-/// 히어로 알약("다시 만들기 · 10")을 눌러 15b 시트를 열고 보유 하트 줄을 읽은 뒤 "취소" 로 닫는다.
-/// 만들기 · 충전 버튼은 누르지 않는다 — "10 쓰고 만들기" 는 유료 AI 를 부른다. 무료 시트(아바타 1장)에는 그 줄이 없어 null.
+/// 히어로 알약("다시 만들기 · 20")을 눌러 15b 시트를 열고 보유 하트 줄을 읽은 뒤 "취소" 로 닫는다.
+/// 만들기 · 충전 버튼은 누르지 않는다 — "20 쓰고 만들기" 는 유료 AI 를 부른다. 무료 시트(아바타 1장)에는 그 줄이 없어 null.
 Future<Map<String, Object?>> _readHeartSheet(WidgetTester tester) async {
   await e2eRegenToSheet(tester, _regenPill); // 알약은 사진 고르기를 먼저 연다 — 시트는 그 사진을 고른 뒤 버튼에서 뜬다
   final text = _textOf(tester, find.textContaining(_heartLine));

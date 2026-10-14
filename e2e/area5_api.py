@@ -32,7 +32,7 @@ NULL_REASON = '빈 값으로는 바꿀 수 없어요'
 EMPTY_REASON = '고칠 칸이 없어요'
 PROFILE_FIELDS = ('nickname', 'height_cm', 'bio')
 WAIT = 600  # 아바타 한 장이 완성되기를 기다리는 시간(초) — 10분
-START_HEARTS, REGEN_COST = 37, 10  # 완성된 아바타가 2장이면 다시 만들기 값은 10하트
+START_HEARTS, REGEN_COST = 37, 20  # 완성된 아바타가 2장이면 다시 만들기 값은 20하트(avatars.py AVATAR_REGEN_HEARTS, 운영 00075 부터)
 EDGE_22 = 'E-EDGE-22'
 _FAILED = {}  # 유료 호출 뒤 fail 로 끝난 가설의 결과 — 다시 불려도 같은 비용을 두 번 내지 않고 이 값을 돌려준다
 

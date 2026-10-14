@@ -77,7 +77,7 @@ final Map<String, Area1Case> area5Cases = {...area5CasesRead, ...area5CasesAct, 
 
 const _manageEntry = '프로필 편집'; // my_profile_screen.dart 입구 줄(profile_entry_row.dart — InkWell 이 행 전체를 감싼다)
 const _previewEntry = '남이 보는 내 프로필 카드';
-const _regenPill = '다시 만들기 · 10'; // profile_hero.dart `_RegeneratePill`
+const _regenPill = '다시 만들기 · 20'; // profile_hero.dart `_RegeneratePill`
 const _heartLine = '지금 보유한 하트는'; // avatar_regen_sheet.dart 보유 하트 줄(무료 시트에는 없다)
 const _cancel = '취소';
 const _editLink = '수정 ›'; // profile_manage_screen.dart 기본 정보 "수정 ›"

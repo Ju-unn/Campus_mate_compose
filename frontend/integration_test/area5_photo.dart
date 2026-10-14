@@ -13,7 +13,7 @@ const _photoEditTitle = '사진 수정'; // my_photos_screen.dart 앱바(EditApp
 const _photoManageTitle = '프로필 편집'; // profile_manage_screen.dart 앱바
 const _photoLowTitle = '하트가 모자라요'; // 15b-3 시트 제목 · 서버 HEARTS_NOT_ENOUGH(402 문구)
 const _photoCharge = '하트 충전하기';
-const _photoPaidCta = '10 쓰고 만들기';
+const _photoPaidCta = '20 쓰고 만들기';
 const _photoStoreTitle = '하트'; // billing/view/heart_store_screen.dart 앱바 제목 (18)
 const _photoStoreSection = '구매하기'; // 18 하트 스토어의 섹션 제목
 const _photoGenerating = '아바타로 변환 중이에요'; // my_profile_screen.dart 변환 중 안내
@@ -74,7 +74,7 @@ Future<void> _photoPress(WidgetTester tester, Finder finder) async {
   await tester.tap(finder.last);
 }
 
-/// 15 → 히어로 알약 "다시 만들기 · 10" → 사진 고르기(15b-4 → 15b-5, PC 가 앱 캐시에 넣어 둔 사진 한 장) → 15b 시트가 올라올 때까지.
+/// 15 → 히어로 알약 "다시 만들기 · 20" → 사진 고르기(15b-4 → 15b-5, PC 가 앱 캐시에 넣어 둔 사진 한 장) → 15b 시트가 올라올 때까지.
 /// 알약은 이제 시트가 아니라 사진 고르기를 먼저 연다(regen_pick.dart). 시트의 만들기를 누르면 그 사진이 지금 아바타 원본 칸을 대신한다.
 Future<void> _photoOpenSheet(WidgetTester tester) => e2eRegenToSheet(tester, _regenPill);
 

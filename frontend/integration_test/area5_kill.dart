@@ -1,7 +1,7 @@
 part of 'area5.dart';
 
 // 영역 5 아바타를 만드는 중 앱을 죽이는 가설 둘(묶음 area5-kill — 폰 A: E-EDGE-17 · 18). PC 쪽은 e2e/area5_kill.py 의 같은 번호.
-// phase press: 15b 시트에서 "10 쓰고 만들기" 를 누르자마자 답을 안 기다리는 멈춤 말(`pressed`)을 보내면 PC 가 새 아바타 시도 행이 서버에 보인 뒤 0.3초에 프로세스를 죽인다(사진 교체가 먼저라 누른 직후가 아니다 — 안 죽으면 150초 뒤 끝난다).
+// phase press: 15b 시트에서 "20 쓰고 만들기" 를 누르자마자 답을 안 기다리는 멈춤 말(`pressed`)을 보내면 PC 가 새 아바타 시도 행이 서버에 보인 뒤 0.3초에 프로세스를 죽인다(사진 교체가 먼저라 누른 직후가 아니다 — 안 죽으면 150초 뒤 끝난다).
 // phase after: 저장된 세션 그대로 다시 켜 — 17 은 새 그림 · 줄어든 하트를 읽고, 18 은 15 를 연 채 멈춘 뒤(PC 가 첫 시도가 아직 만드는 중인지 본다) 다시 누르고 끝까지 기다린다.
 // 이 파일의 이름은 모두 `_kl` 로 시작한다. 이 파일은 기기에서 아직 안 돌려 봤다.
 
@@ -29,7 +29,7 @@ final Map<String, Area1Case> area5CasesKill = {
   },
 };
 
-/// 로그인 → 나 탭 → 15b → "10 쓰고 만들기" 를 누르고 바로 멈춤 말 — 여기서 죽는다.
+/// 로그인 → 나 탭 → 15b → "20 쓰고 만들기" 를 누르고 바로 멈춤 말 — 여기서 죽는다.
 Future<Map<String, Object?>?> _klPress(WidgetTester tester, Map<String, dynamic> job) =>
     _session((tester, job) async {
       await _openMe(tester);
