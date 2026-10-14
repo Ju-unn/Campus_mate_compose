@@ -2,7 +2,7 @@ from datetime import datetime, time
 
 import pytest
 
-from app.cards.ladder import bottleneck_count, last_issue_at, ladder_weekdays, next_issue_at
+from app.cards.ladder import bottleneck_count, last_issue_at, ladder_weekdays, next_issue_at, upcoming_issue_at
 from app.core.time import SEOUL
 
 
@@ -115,3 +115,61 @@ def test_cycle_start_and_next_issue_bracket_now():
 def test_empty_weekdays_is_an_error():
     with pytest.raises(ValueError):
         last_issue_at(_at(0, 7), [], time(7, 0))
+
+
+# 화면 11 카운트다운의 "다음 카드" — now 보다 엄격히 뒤인 첫 지급 시각(오늘 포함). -------------------------
+# next_issue_at(만료 시각)과 달리 지급일 0~7시면 오늘 07:00 이 나와야 한다.
+
+SEVEN = time(7, 0)
+
+
+def test_upcoming_issue_before_the_issue_time_on_an_issue_day_is_today():
+    """월 06:59 · 주 1회 — 7일 뒤가 아니라 1분 뒤다."""
+    assert upcoming_issue_at(_at(0, 6, 59), [1], SEVEN) == _at(0, 7)
+
+
+def test_upcoming_issue_at_the_issue_time_itself_is_the_next_issue_day():
+    """07:00 정각은 이미 나간 지급이다 — 오늘이 또 나오면 카운트다운이 0 에서 멈춘다."""
+    assert upcoming_issue_at(_at(0, 7), [1, 4], SEVEN) == _at(3, 7)
+
+
+def test_upcoming_issue_after_the_issue_time_is_the_next_issue_day():
+    assert upcoming_issue_at(_at(0, 12), [1, 4], SEVEN) == _at(3, 7)
+
+
+def test_upcoming_issue_early_morning_on_a_daily_ladder_is_today():
+    """월 03:00 · 매일 — "1일 4시간" 이 아니라 4시간 뒤다."""
+    assert upcoming_issue_at(_at(0, 3), [1, 2, 3, 4, 5, 6, 7], SEVEN) == _at(0, 7)
+
+
+def test_upcoming_issue_on_days_between_issue_days_is_the_next_issue_day():
+    assert upcoming_issue_at(_at(1, 12), [1, 4], SEVEN) == _at(3, 7)
+    assert upcoming_issue_at(_at(2, 3), [1, 4], SEVEN) == _at(3, 7)
+
+
+def test_upcoming_issue_early_on_the_second_issue_day_is_today():
+    assert upcoming_issue_at(_at(3, 3), [1, 4], SEVEN) == _at(3, 7)
+
+
+def test_upcoming_issue_crosses_the_week_boundary():
+    """일요일 밤 · 주 1회 → 다음 날(월) 07:00. 일요일이 지급일이면 일요일 새벽은 그날 07:00."""
+    assert upcoming_issue_at(datetime(2026, 9, 27, 23, 0, tzinfo=SEOUL), [1], SEVEN) == \
+        datetime(2026, 9, 28, 7, 0, tzinfo=SEOUL)
+    assert upcoming_issue_at(datetime(2026, 9, 27, 3, 0, tzinfo=SEOUL), [1, 3, 5, 7], SEVEN) == \
+        datetime(2026, 9, 27, 7, 0, tzinfo=SEOUL)
+
+
+def test_upcoming_issue_after_the_weekly_issue_is_a_full_week_ahead():
+    """월 12:00 · 주 1회 → 다음 월요일. 7일 뒤까지 봐야 한다."""
+    assert upcoming_issue_at(_at(0, 12), [1], SEVEN) == datetime(2026, 9, 28, 7, 0, tzinfo=SEOUL)
+
+
+def test_upcoming_issue_crosses_the_month_boundary():
+    """9/30(수) 정오 · 월목 → 10/1(목) 07:00."""
+    assert upcoming_issue_at(datetime(2026, 9, 30, 12, 0, tzinfo=SEOUL), [1, 4], SEVEN) == \
+        datetime(2026, 10, 1, 7, 0, tzinfo=SEOUL)
+
+
+def test_upcoming_issue_with_empty_weekdays_is_an_error():
+    with pytest.raises(ValueError):
+        upcoming_issue_at(_at(0, 7), [], SEVEN)
