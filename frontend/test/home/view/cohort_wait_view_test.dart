@@ -5,7 +5,9 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/common/widgets/entrance.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
+import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/home/model/cohort_wait.dart';
 import 'package:campus_mate/home/model/home_repository_provider.dart';
 import 'package:campus_mate/home/model/home_summary.dart';
@@ -158,6 +160,9 @@ void main() {
       expect(find.text(const NetworkFailure().toDisplayMessage()), findsOneWidget);
       expect(find.byType(AppToast), findsOneWidget);
       expect(find.text('친구에게 초대 링크 보내기'), findsOneWidget);
+      // 나타날 때 나 탭 · 홈 토스트와 같이 아래 8 에서 press 동안 올라온다(D4).
+      final entrance = tester.widget<Entrance>(find.ancestor(of: find.byType(AppToast), matching: find.byType(Entrance)));
+      expect((entrance.rise, entrance.duration, entrance.curve), (8, AppMotion.press, AppMotion.pressCurve));
     });
 
     testWidgets('코드를 기다리는 동안 한 번 더 눌러도 공유는 한 번', (tester) async {

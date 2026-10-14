@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/common/widgets/entrance.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:flutter/widgets.dart';
 
@@ -19,7 +21,7 @@ const savedToast = AppToast(
 );
 
 /// 나 탭 화면(15 · 15-5)이 잠깐 띄우는 안내 하나. 한 번에 하나 — 새 안내는 떠 있던 것을 바로 바꾸고 시간을 새로 잰다.
-/// 움직임 없이 나타나고 사라진다.
+/// 나타날 때만 [toastEntrance] 로 올라온다(바뀔 때는 제자리에서 글만 바뀐다). 사라질 때는 움직임 없이 사라진다.
 mixin MeToastHost<T extends StatefulWidget> on State<T> {
   /// 떠 있는 시간(사용자 결정 2026-09-27, 약 2초). 15-3 실패 안내도 같다(옛 A8 C7).
   static const Duration duration = Duration(seconds: 2);
@@ -67,9 +69,15 @@ class MeToastLayer extends StatelessWidget {
             left: 0,
             right: 0,
             bottom: AppSpacing.sm + MediaQuery.paddingOf(context).bottom,
-            child: Center(child: toast),
+            child: Center(child: toastEntrance(toast)),
           ),
       ],
     );
   }
 }
+
+/// 토스트가 나타날 때 투명 · 아래 8 에서 제자리로 온다 — 대화 탭 SnackBar 토스트(투명 + 아래에서 올라옴)와 느낌을 맞춘다(D4).
+/// 대장 지시는 150ms 지만 모션은 토큰만 쓴다(CLAUDE.md §1-2) — `{motion.press}` 120ms. 동작 줄이기면 처음부터 제자리.
+/// 나 탭 · 홈 · 코호트 대기 · 하트 상점 · 내 사진이 같이 쓴다.
+Widget toastEntrance(Widget toast) =>
+    Entrance(rise: AppSpacing.xs, duration: AppMotion.press, curve: AppMotion.pressCurve, child: toast);

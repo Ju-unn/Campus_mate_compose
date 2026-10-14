@@ -1,6 +1,7 @@
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/me/view/me_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -51,12 +52,56 @@ void main() {
 
     final toast = find.byType(AppToast);
     expect(toast, findsOneWidget);
+    await tester.pump(AppMotion.press); // 올라오는 움직임(아래 D4)이 끝난 자리
     expect(tester.getBottomLeft(toast).dy, 640 - 12);
     expect(tester.getCenter(toast).dx, 180);
-    await tester.pump(MeToastHost.duration - const Duration(milliseconds: 1));
+    await tester.pump(MeToastHost.duration - AppMotion.press - const Duration(milliseconds: 1));
     expect(toast, findsOneWidget);
     await tester.pump(const Duration(milliseconds: 1));
     expect(toast, findsNothing);
+  });
+
+  group('나타나는 움직임(D4 — 대화 탭 토스트처럼 투명 + 아래에서 올라온다)', () {
+    Finder toast() => find.byType(AppToast);
+    double opacity(WidgetTester tester) =>
+        tester.widget<Opacity>(find.ancestor(of: toast(), matching: find.byType(Opacity)).first).opacity;
+
+    testWidgets('투명 · 아래 8 에서 press(120ms) 동안 제자리로 온다', (tester) async {
+      await pump(tester);
+      await tester.tap(find.text('곧'));
+      await tester.pump();
+
+      expect(tester.getBottomLeft(toast()).dy, 640 - 12 + 8);
+      expect(opacity(tester), 0);
+
+      await tester.pump(AppMotion.press);
+      expect(tester.getBottomLeft(toast()).dy, 640 - 12);
+      expect(opacity(tester), 1);
+    });
+
+    testWidgets('떠 있는 안내가 다른 안내로 바뀔 때는 다시 올라오지 않는다(제자리에서 글만 바뀐다)', (tester) async {
+      await pump(tester);
+      await tester.tap(find.text('곧'));
+      await tester.pump(); // 첫 안내를 그려 올라오기 시작
+      await tester.pump(const Duration(seconds: 1));
+      await tester.tap(find.text('다른'));
+      await tester.pump();
+
+      expect(find.text('다른 안내'), findsOneWidget);
+      expect(tester.getBottomLeft(toast()).dy, 640 - 12);
+      expect(opacity(tester), 1);
+    });
+
+    testWidgets('기기 "동작 줄이기" 면 처음부터 제자리 · 다 보인다', (tester) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+      await pump(tester);
+      await tester.tap(find.text('곧'));
+      await tester.pump();
+
+      expect(tester.getBottomLeft(toast()).dy, 640 - 12);
+      expect(opacity(tester), 1);
+    });
   });
 
   testWidgets('한 번에 하나 — 새 안내가 떠 있던 것을 바로 바꾸고, 시간은 새로 잰다', (tester) async {
