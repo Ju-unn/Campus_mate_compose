@@ -148,6 +148,22 @@ void main() {
       expect(_exitCalls, 0);
     }, variant: android);
 
+    // 설문 이전 문항 · 20d · 06-4 의 앱바 화살표처럼 화면 안에 돌아갈 곳이 있을 때.
+    testWidgets('onBack 을 주면 안내 · 종료 대신 그것을 부른다', (tester) async {
+      var backs = 0;
+      await _pump(
+        tester,
+        home: BackExitScope(onBack: () => backs++, child: const Scaffold(body: Text('최상위'))),
+      );
+
+      await _back(tester);
+      await _back(tester);
+
+      expect(backs, 2);
+      expect(find.text(_hint), findsNothing);
+      expect(_exitCalls, 0);
+    }, variant: android);
+
     testWidgets('위에 다른 화면이 열려 있으면 가로채지 않고 한 단계만 뒤로 간다', (tester) async {
       await _pump(tester);
       final navigator = tester.state<NavigatorState>(find.byType(Navigator));
@@ -212,6 +228,16 @@ void main() {
 
         expect(find.text(_hint), findsNothing);
         // 가로채지 않으니 기본 동작이 그대로 나온다 — 맨 아래 화면에서 받아 줄 곳이 없어 앱 종료 요청이 간다.
+        expect(_exitCalls, 1);
+      }, variant: TargetPlatformVariant.only(platform));
+
+      testWidgets('$platform: onBack 을 줘도 가로채지 않는다', (tester) async {
+        var backs = 0;
+        await _pump(tester, home: BackExitScope(onBack: () => backs++, child: const Scaffold(body: Text('최상위'))));
+
+        await _back(tester);
+
+        expect(backs, 0);
         expect(_exitCalls, 1);
       }, variant: TargetPlatformVariant.only(platform));
     }
