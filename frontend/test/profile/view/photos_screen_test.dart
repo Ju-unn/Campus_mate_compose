@@ -6,8 +6,11 @@ import 'package:campus_mate/auth/model/face_detector_provider.dart';
 import 'package:campus_mate/auth/model/image_compressor_provider.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/profile/model/photos_repository_provider.dart';
+import 'package:campus_mate/profile/view/photo_example.dart';
 import 'package:campus_mate/profile/view/photo_tiles.dart';
 import 'package:campus_mate/profile/view/photos_screen.dart';
 import 'package:campus_mate/profile/viewmodel/photos_view_model.dart';
@@ -24,6 +27,13 @@ import '../model/fake_photos_repository.dart';
 /// 1×1 투명 PNG. `Image.file` 이 실제로 읽을 수 있는 파일이어야 화면이 그려진다.
 const _onePixelPng =
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+
+/// 사진 칸 안의 사진만 — 아래 안내 박스의 3D 아이콘 · 좋은 사진 예시도 `Image` 다.
+final _slotImages = find.descendant(of: find.byType(PhotoSlotGrid), matching: find.byType(Image));
+
+const _reorderGuide = '사진을 길게 눌러 끌면 순서를 바꿀 수 있어요. 첫 칸이 대표 사진이에요.';
+const _rulesTitle = '이런 사진은 올릴 수 없어요';
+const _rulesBody = '학생증·서류·화면 캡처 사진은 안 돼요. 나와 배경만 보이는, 얼굴이 또렷한 일상 사진을 올려 주세요.';
 
 void main() {
   late Directory tempDir;
@@ -102,6 +112,42 @@ void main() {
     expect(tester.widget<PhotoSlotGrid>(find.byType(PhotoSlotGrid)).columnGap, AppSpacing.sm);
   });
 
+  group('사진 칸 아래 안내 · 예시(사용자 요청 10-15, 대장 전달 값)', () {
+    Finder rulesBox() => find.ancestor(of: find.text(_rulesTitle), matching: find.byType(Container)).first;
+
+    testWidgets('순서 문구 → 24 → 안내 박스 → 24 → 좋은 사진 예시', (tester) async {
+      await pump(tester, photoCount: 2);
+
+      expect(find.text(_rulesTitle), findsOneWidget);
+      expect(find.text(_rulesBody), findsOneWidget);
+      final box = tester.getRect(rulesBox());
+      expect(box.top - tester.getBottomLeft(find.text(_reorderGuide)).dy, 24);
+      expect(tester.getTopLeft(find.byType(PhotoExample)).dy - box.bottom, 24);
+      expect(find.text('이런 사진이 좋아요'), findsOneWidget);
+    });
+
+    testWidgets('안내 박스 — 금지 3D 아이콘 18 · 본문 14', (tester) async {
+      await pump(tester, photoCount: 2);
+
+      final icon = tester.widget<Icon3d>(find.descendant(of: rulesBox(), matching: find.byType(Icon3d)));
+      expect((icon.icon, icon.size), (AppIcon3d.ban, 18));
+      expect(tester.widget<Text>(find.text(_rulesBody)).style!.fontSize, 14);
+    });
+
+    testWidgets('글이 길어져도 스크롤로 예시까지 내려가고 "다음" 은 바닥에 남는다', (tester) async {
+      tester.view.physicalSize = const Size(360, 780);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await pump(tester, photoCount: 4);
+
+      await tester.scrollUntilVisible(find.byType(PhotoExample), 200, scrollable: find.byType(Scrollable).first);
+
+      expect(tester.takeException(), isNull);
+      expect(tester.getRect(find.byType(PhotoExample)).bottom, lessThanOrEqualTo(tester.getTopLeft(find.byType(AppButton)).dy));
+      expectButtonOnScreen(tester);
+    });
+  });
+
   testWidgets('사진이 2장 미만이면 "다음" 이 꺼져 있다', (tester) async {
     await pump(tester, photoCount: 1);
 
@@ -110,13 +156,13 @@ void main() {
 
   /// 화면에 그려진 순서대로 사진 파일 이름을 읽는다.
   List<String> photoOrder(WidgetTester tester) => [
-        for (final image in tester.widgetList<Image>(find.byType(Image)))
+        for (final image in tester.widgetList<Image>(_slotImages))
           (image.image as FileImage).file.uri.pathSegments.last,
       ];
 
   /// 길게 눌러 [from] 칸을 [to] 칸으로 끌어다 놓는다.
   Future<void> dragTile(WidgetTester tester, {required int from, required Offset to}) async {
-    final gesture = await tester.startGesture(tester.getCenter(find.byType(Image).at(from)));
+    final gesture = await tester.startGesture(tester.getCenter(_slotImages.at(from)));
     await tester.pump(kLongPressTimeout + const Duration(milliseconds: 100));
     await gesture.moveTo(to);
     await tester.pump();
@@ -131,7 +177,7 @@ void main() {
     // 배지는 사진이 아니라 자리를 따라간다 — 첫 칸 위에 있어야 한다.
     expect(
       tester.getCenter(find.text('대표')).dx,
-      lessThan(tester.getCenter(find.byType(Image).at(1)).dx),
+      lessThan(tester.getCenter(_slotImages.at(1)).dx),
     );
   });
 
@@ -139,7 +185,7 @@ void main() {
     await pump(tester, photoCount: 3);
     expect(photoOrder(tester), ['photo-0.png', 'photo-1.png', 'photo-2.png']);
 
-    await dragTile(tester, from: 1, to: tester.getCenter(find.byType(Image).at(0)));
+    await dragTile(tester, from: 1, to: tester.getCenter(_slotImages.at(0)));
 
     // 대표 자리(첫 칸)에 있던 사진과 맞바꾼다 — 앞 사진을 지우지 않고 대표를 바꾼다.
     expect(photoOrder(tester), ['photo-1.png', 'photo-0.png', 'photo-2.png']);
@@ -159,7 +205,7 @@ void main() {
     final semantics = tester.ensureSemantics();
     await pump(tester, photoCount: 2);
 
-    final node = tester.getSemantics(find.byType(Image).first);
+    final node = tester.getSemantics(_slotImages.first);
 
     expect(node.label, contains('대표'));
     expect(node.getSemanticsData().customSemanticsActionIds ?? const <int>[], isEmpty);
@@ -170,7 +216,7 @@ void main() {
     final semantics = tester.ensureSemantics();
     await pump(tester, photoCount: 2);
 
-    final node = tester.getSemantics(find.byType(Image).at(1));
+    final node = tester.getSemantics(_slotImages.at(1));
     final actionIds = node.getSemanticsData().customSemanticsActionIds!;
     expect(
       actionIds.map((id) => CustomSemanticsAction.getAction(id)!.label),
@@ -246,7 +292,7 @@ void main() {
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
     // 두 장 다음 칸(아랫줄 왼쪽)에서 기다린다 — 엉뚱한 칸이 덮이면 고른 사진이 사라진 것처럼 보인다.
     final spinner = tester.getRect(find.byType(CircularProgressIndicator));
-    final firstPhoto = tester.getRect(find.byType(Image).first);
+    final firstPhoto = tester.getRect(_slotImages.first);
     expect(spinner.center.dy, greaterThan(firstPhoto.bottom));
     expect(spinner.center.dx, lessThan(firstPhoto.right));
 
@@ -255,7 +301,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(CircularProgressIndicator), findsNothing);
-    expect(find.byType(Image), findsNWidgets(3));
+    expect(_slotImages, findsNWidgets(3));
   });
 
   testWidgets('사진 추가 칸의 바탕은 화면이 아니라 칸이 칠한다', (tester) async {
