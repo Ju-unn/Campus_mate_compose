@@ -9,7 +9,7 @@ from datetime import datetime
 from app.cards.repository import PaidOfferConflict
 from app.cards.visibility import hidden_from_cards
 from app.matching.band import PAID_BAND_RATIO, band_size, pick_from_band
-from app.matching.scoring import mbti_coefficient, profile_age, range_coefficient
+from app.matching.scoring import mbti_coefficient, mbti_prefers_a_side, profile_age, range_coefficient
 
 # 유료 카드 한 장 값(하트). 실제 차감은 DB 함수가 한다 — 이 값은 화면에 보여 줄 가격이다(DB 와 같은 값이어야 한다).
 PAID_CARD_COST = 50
@@ -54,9 +54,10 @@ def _common_tags(owner: dict, target: dict) -> list[str]:
 
 def _strengths(owner: dict, target: dict, tags: list[str]) -> dict[str, float]:
     """요소마다 0~1. 점수형 둘(성향 · 이상형 글)은 final_score 의 점수 그대로, 태그는 공통 태그 개수로, 계수형
-    셋은 불이익 없이 맞고 말할 근거가 있을 때만 COEFFICIENT_STRENGTH 다 — MBTI 가 없거나 내 선호 MBTI 를 안
-    골랐거나(`{}` = 전부 상관없음) 범위를 아무도 두지 않았으면 계수가 1.0 이어도 "맞아요" 라고 하지 않는다."""
-    mbti_ok = bool(owner.get("mbti") and target.get("mbti") and owner.get("preferred_mbti_flags")) and (
+    셋은 불이익 없이 맞고 말할 근거가 있을 때만 COEFFICIENT_STRENGTH 다 — MBTI 가 없거나 내 선호 MBTI 에 한쪽만 고른
+    축이 없거나(`{}` · 8개 전부 = 전부 상관없음) 범위를 아무도 두지 않았으면 계수가 1.0 이어도 "맞아요" 라고 하지 않는다."""
+    mbti_ok = bool(owner.get("mbti") and target.get("mbti")) \
+        and mbti_prefers_a_side(owner.get("preferred_mbti_flags") or {}) and (
         mbti_coefficient(
             owner.get("preferred_mbti_flags") or {}, target["mbti"],
             target.get("preferred_mbti_flags") or {}, owner["mbti"],

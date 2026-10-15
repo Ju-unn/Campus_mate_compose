@@ -131,6 +131,20 @@ def test_mbti_reason_needs_the_owner_to_have_chosen_a_preference():
     assert [r["kind"] for r in build_reasons(chosen, target)] == ["mbti"]
 
 
+@pytest.mark.parametrize("flags", [
+    {letter: True for letter in "EINSTFJP"},  # 8개 전부 — 한 축도 거르지 않는다
+    {"E": True, "I": True, "N": True, "S": True},  # 고른 축이 모두 양쪽
+    {"E": False, "I": False},  # 둘 다 끔
+])
+def test_mbti_reason_needs_an_axis_with_only_one_side_chosen(flags):
+    """키가 있어도 축마다 양쪽이 같으면(전부 켬 · 전부 끔) scoring._fit 이 그 축을 안 보는 "상관없음" 이다."""
+    target = _target(mbti="ENFJ", religion="none")
+
+    assert build_reasons(owner_row(mbti="INFP", preferred_mbti_flags=flags, religion="christian"), target) == []
+    one_side = owner_row(mbti="INFP", preferred_mbti_flags={**flags, "E": True, "I": False}, religion="christian")
+    assert [r["kind"] for r in build_reasons(one_side, target)] == ["mbti"]
+
+
 def test_score_reasons_come_before_coefficient_reasons():
     """계수형(MBTI · 나이키 · 흡연종교)은 불이익이 없어도 0.6 이다 — 0.6 을 넘는 점수형이 앞선다."""
     owner = owner_row(mbti="INFP", preferred_mbti_flags={"E": True}, preferred_height_min=160,
