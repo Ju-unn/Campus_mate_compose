@@ -100,7 +100,7 @@ def test_basic_info_rejects_duplicate_nickname_with_409():
         headers=AUTH_HEADERS,
         json={
             "nickname": "가나", "birth_year": 2002, "height_cm": 170,
-            "phone_number": "01012345678", "gender": "male",
+            "phone_number": "01048217395", "gender": "male",
         },
     )
 
@@ -130,7 +130,7 @@ def test_basic_info_creates_private_row_before_saving_phone():
         headers=AUTH_HEADERS,
         json={
             "nickname": "가나", "birth_year": 2002, "height_cm": 170,
-            "phone_number": "01012345678", "gender": "male",
+            "phone_number": "01048217395", "gender": "male",
         },
     )
 
@@ -153,18 +153,26 @@ def test_basic_info_saves_the_phone_number_in_e164():
         headers=AUTH_HEADERS,
         json={
             "nickname": "가나", "birth_year": 2002, "height_cm": 170,
-            "phone_number": "010-1234-5678", "gender": "male",
+            "phone_number": "010-4821-7395", "gender": "male",
         },
     )
 
     assert response.status_code == 200
-    assert sent[0]["p_phone"] == "+821012345678"
+    assert sent[0]["p_phone"] == "+821048217395"
     # 지인 차단 해시도 같은 E.164 값에서, 설정의 신원 키로 뜬다(조각 6 B4).
-    assert sent[0]["p_phone_hmac"] == bytea_literal(hash_phone("identity-key-test", "+821012345678"))
+    assert sent[0]["p_phone_hmac"] == bytea_literal(hash_phone("identity-key-test", "+821048217395"))
 
 
-def test_basic_info_rejects_a_half_typed_phone_number():
-    """여기가 신뢰 경계다 — 앱이 막지 못한 값이 들어오면 아무것도 쓰지 않고 돌려보낸다."""
+@pytest.mark.parametrize("phone_number", [
+    "010-1",          # 덜 친 번호
+    "011-123-4567",   # 옛 10자리 — 가입은 010 만
+    "010-1234-5678",  # 한 줄 순서
+    "010-0000-0000",  # 같은 숫자
+    "010-1111-2222",  # 알려진 가짜
+])
+def test_basic_info_refuses_a_number_that_is_not_a_real_010_phone(phone_number):
+    """여기가 신뢰 경계다 — 앱이 막지 못한 값(옛 앱 · 직접 호출)이 들어오면 아무것도 쓰지 않고 돌려보낸다.
+    가짜 번호는 지인 차단을 비껴가고 같은 번호 검사(지인 리뷰 · 추천)를 엉뚱하게 건다(전화번호_인증 §2-3)."""
     writes: list[str] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -177,12 +185,12 @@ def test_basic_info_rejects_a_half_typed_phone_number():
         headers=AUTH_HEADERS,
         json={
             "nickname": "가나", "birth_year": 2002, "height_cm": 170,
-            "phone_number": "010-1", "gender": "male",
+            "phone_number": phone_number, "gender": "male",
         },
     )
 
-    assert response.status_code == 400
-    assert response.json()["detail"] == errors.PHONE_NUMBER_INVALID
+    assert response.status_code == 422
+    assert response.json() == {"detail": "올바른 휴대폰 번호를 입력해 주세요", "code": "phone_number_invalid"}
     assert writes == []
 
 
@@ -234,7 +242,7 @@ def test_onboarding_rejects_missing_school_info_with_403():
 def test_basic_info_rejects_under_nineteen_with_422():
     """가입 나이 자격은 Asia/Seoul 기준 올해 - birth_year >= 19 다(ERD.md). 경계값 19/18 을 같이 본다."""
     this_year = datetime.now(SEOUL).year
-    body = {"nickname": "가나", "height_cm": 170, "phone_number": "01012345678", "gender": "male"}
+    body = {"nickname": "가나", "height_cm": 170, "phone_number": "01048217395", "gender": "male"}
     client = _wire(lambda request: httpx.Response(200, json=[]))
 
     just_old_enough = client.post(
