@@ -9,6 +9,7 @@ import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/profile/view/hint_line.dart';
 import 'package:campus_mate/profile/view/photo_example.dart';
 import 'package:campus_mate/profile/view/photo_tiles.dart';
 import 'package:campus_mate/profile/viewmodel/photos_view_model.dart';
@@ -97,22 +98,16 @@ class _PhotosScreenState extends ConsumerState<PhotosScreen> {
                         '얼굴이 잘 보이는 사진을 2~4장 골라주세요.',
                         style: AppTypography.body.copyWith(color: AppColors.body, height: 1.6),
                       ),
+                      // pen 확정 순서(대장 10-15): 금지 안내 → 16 → 사진 칸 → 16 → 설명 줄 둘 → 24 → 좋은 사진 예시.
                       const SizedBox(height: AppSpacing.xl),
+                      const _PhotoRulesNotice(),
+                      const SizedBox(height: AppSpacing.md),
                       PhotoSlotGrid(state: state, viewModel: viewModel, columnGap: AppSpacing.sm),
                       const SizedBox(height: AppSpacing.md),
-                      Text(
-                        '갤러리에서 여러 장을 한 번에 고를 수 있어요. 최소 2장이 필요해요.',
-                        style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
-                      ),
+                      const HintLine('갤러리에서 여러 장을 한 번에 고를 수 있어요. 최소 2장이 필요해요.'),
                       // pen `hco2A` 실측 6. 간격 토큰 xxs(4)·xs(8) 사이 값이라 토큰으로 갈음하지 않는다.
                       const SizedBox(height: 6),
-                      Text(
-                        '사진을 길게 눌러 끌면 순서를 바꿀 수 있어요. 첫 칸이 대표 사진이에요.',
-                        style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
-                      ),
-                      // 올릴 수 없는 사진 안내 + 좋은 사진 예시(사용자 요청 10-15, 대장 전달 값 — 시안 높이 780 → 1070).
-                      const SizedBox(height: AppSpacing.lg),
-                      const _PhotoRulesNotice(),
+                      const HintLine('사진을 길게 눌러 끌면 순서를 바꿀 수 있어요. 첫 칸이 대표 사진이에요.'),
                       const SizedBox(height: AppSpacing.lg),
                       const PhotoExample.goodPhoto(),
                     ],

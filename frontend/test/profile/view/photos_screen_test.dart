@@ -10,6 +10,7 @@ import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/profile/model/photos_repository_provider.dart';
+import 'package:campus_mate/profile/view/hint_line.dart';
 import 'package:campus_mate/profile/view/photo_example.dart';
 import 'package:campus_mate/profile/view/photo_tiles.dart';
 import 'package:campus_mate/profile/view/photos_screen.dart';
@@ -31,6 +32,7 @@ const _onePixelPng =
 /// 사진 칸 안의 사진만 — 아래 안내 박스의 3D 아이콘 · 좋은 사진 예시도 `Image` 다.
 final _slotImages = find.descendant(of: find.byType(PhotoSlotGrid), matching: find.byType(Image));
 
+const _galleryGuide = '갤러리에서 여러 장을 한 번에 고를 수 있어요. 최소 2장이 필요해요.';
 const _reorderGuide = '사진을 길게 눌러 끌면 순서를 바꿀 수 있어요. 첫 칸이 대표 사진이에요.';
 const _rulesTitle = '이런 사진은 올릴 수 없어요';
 const _rulesBody = '학생증·서류·화면 캡처 사진은 안 돼요. 나와 배경만 보이는, 얼굴이 또렷한 일상 사진을 올려 주세요.';
@@ -115,14 +117,25 @@ void main() {
   group('사진 칸 아래 안내 · 예시(사용자 요청 10-15, 대장 전달 값)', () {
     Finder rulesBox() => find.ancestor(of: find.text(_rulesTitle), matching: find.byType(Container)).first;
 
-    testWidgets('순서 문구 → 24 → 안내 박스 → 24 → 좋은 사진 예시', (tester) async {
+    // pen 확정 순서(대장 10-15): 부제 → 32 → 안내 박스 → 16 → 사진 격자 → 16 → 설명 줄 둘(사이 6) → 24 → 좋은 사진 예시.
+    testWidgets('부제 → 32 → 안내 박스 → 16 → 사진 칸 → 16 → 설명 줄 둘(6) → 24 → 좋은 사진 예시', (tester) async {
       await pump(tester, photoCount: 2);
 
       expect(find.text(_rulesTitle), findsOneWidget);
       expect(find.text(_rulesBody), findsOneWidget);
+      final subtitle = tester.getRect(find.text('얼굴이 잘 보이는 사진을 2~4장 골라주세요.'));
       final box = tester.getRect(rulesBox());
-      expect(box.top - tester.getBottomLeft(find.text(_reorderGuide)).dy, 24);
-      expect(tester.getTopLeft(find.byType(PhotoExample)).dy - box.bottom, 24);
+      final grid = tester.getRect(find.byType(PhotoSlotGrid));
+      final hints = tester.widgetList<HintLine>(find.byType(HintLine)).toList();
+      final first = tester.getRect(find.byType(HintLine).at(0));
+      final second = tester.getRect(find.byType(HintLine).at(1));
+
+      expect(box.top, closeTo(subtitle.bottom + 32, 0.01));
+      expect(grid.top, closeTo(box.bottom + 16, 0.01));
+      expect(first.top, closeTo(grid.bottom + 16, 0.01));
+      expect(second.top, closeTo(first.bottom + 6, 0.01));
+      expect(tester.getTopLeft(find.byType(PhotoExample)).dy, closeTo(second.bottom + 24, 0.01));
+      expect([for (final hint in hints) hint.text], [_galleryGuide, _reorderGuide]);
       expect(find.text('이런 사진이 좋아요'), findsOneWidget);
     });
 
@@ -237,6 +250,8 @@ void main() {
         (limit) async => [photoFile('photo-new.png')];
     faceDetector.nextResult = false;
 
+    // 안내 박스가 칸 위로 올라가 아랫줄 칸은 스크롤해야 보인다(04-2 재배치 10-15).
+    await tester.ensureVisible(find.text('사진 추가').first);
     await tester.tap(find.text('사진 추가').first);
     await tester.pump();
     await tester.pump();
@@ -264,6 +279,8 @@ void main() {
     final gate = Completer<bool>();
     faceDetector.gate = gate;
 
+    // 안내 박스가 칸 위로 올라가 아랫줄 칸은 스크롤해야 보인다(04-2 재배치 10-15).
+    await tester.ensureVisible(find.text('사진 추가').first);
     await tester.tap(find.text('사진 추가').first);
     await tester.pump();
     await tester.pump();
@@ -285,6 +302,8 @@ void main() {
     final gate = Completer<bool>();
     faceDetector.gate = gate;
 
+    // 안내 박스가 칸 위로 올라가 아랫줄 칸은 스크롤해야 보인다(04-2 재배치 10-15).
+    await tester.ensureVisible(find.text('사진 추가').first);
     await tester.tap(find.text('사진 추가').first);
     await tester.pump();
     await tester.pump();
