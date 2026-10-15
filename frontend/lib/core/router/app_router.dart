@@ -105,11 +105,12 @@ abstract final class AppRouter {
     return <RouteBase>[
       _PlatformRoute(path: AppRoutes.splash, builder: (context, state) => const StartView()),
       _PlatformRoute(path: AppRoutes.offline, builder: (context, state) => const OfflineScreen()),
-      _PlatformRoute(path: AppRoutes.login, builder: (context, state) => const SignUpScreen()),
-      _PlatformRoute(path: AppRoutes.verifyCode, redirect: _verifyCodeGuard, builder: _buildVerifyCode),
+      _ExitGuardedRoute(path: AppRoutes.login, builder: (context, state) => const SignUpScreen()),
+      _ExitGuardedRoute(path: AppRoutes.verifyCode, redirect: _verifyCodeGuard, builder: _buildVerifyCode),
+      // 약관은 관문이라 뒤로가기를 막아 둔 채 둔다(화면의 PopScope, 나갈 길은 로그아웃뿐 — 대장 결정 pen ②).
       _PlatformRoute(path: AppRoutes.consent, builder: (context, state) => const ConsentScreen()),
-      _PlatformRoute(path: AppRoutes.studentVerification, builder: (context, state) => const StudentVerificationScreen()),
-      _PlatformRoute(path: AppRoutes.schoolInfo, builder: (context, state) => const SchoolInfoScreen()),
+      _ExitGuardedRoute(path: AppRoutes.studentVerification, builder: (context, state) => const StudentVerificationScreen()),
+      _ExitGuardedRoute(path: AppRoutes.schoolInfo, builder: (context, state) => const SchoolInfoScreen()),
       ..._onboardingRoutes(),
       ..._slice4Routes(),
       ..._slice6Routes(),
@@ -242,37 +243,39 @@ abstract final class AppRouter {
   /// 조각 2 온보딩 04-1~06-3. 순서는 [AppRoutes] 상수 순서이자 서버 `next-step` 응답 순서다.
   /// 06-2b(초안 생성)는 06-3 과 같은 `bio` 단계라 라우트를 따로 두지 않는다
   /// ([BioDraftLoadingScreen] 이 끝나면 스스로 06-3 으로 바뀐다).
+  /// 설문 · 20d · 06-4 는 화면 안에 돌아갈 곳이 있어 화면이 스스로 [BackExitScope] 를 두른다(여기서 또 두르면 두 겹이 된다).
+  /// 04-3 · 8d 는 push 로 올라와 시스템 뒤로가기가 평소대로 한 단계 돌아간다.
   static List<RouteBase> _onboardingRoutes() {
     return <RouteBase>[
-      _PlatformRoute(path: AppRoutes.onboardingBasicInfo, builder: (context, state) => const BasicInfoScreen()),
-      _PlatformRoute(path: AppRoutes.onboardingKakaoId, builder: (context, state) => const KakaoIdScreen()),
-      _PlatformRoute(path: AppRoutes.onboardingPhotos, builder: (context, state) => const PhotosScreen()),
+      _ExitGuardedRoute(path: AppRoutes.onboardingBasicInfo, builder: (context, state) => const BasicInfoScreen()),
+      _ExitGuardedRoute(path: AppRoutes.onboardingKakaoId, builder: (context, state) => const KakaoIdScreen()),
+      _ExitGuardedRoute(path: AppRoutes.onboardingPhotos, builder: (context, state) => const PhotosScreen()),
       _PlatformRoute(path: AppRoutes.onboardingAvatarSource, builder: (context, state) => const AvatarSourceScreen()),
-      _PlatformRoute(path: AppRoutes.onboardingAvatar, builder: (context, state) => const AvatarGenerationScreen()),
-      _PlatformRoute(
+      _ExitGuardedRoute(path: AppRoutes.onboardingAvatar, builder: (context, state) => const AvatarGenerationScreen()),
+      _ExitGuardedRoute(
         path: AppRoutes.onboardingAppearanceType,
         builder: (context, state) => const AppearanceTypeScreen(),
       ),
-      _PlatformRoute(
+      _ExitGuardedRoute(
         path: AppRoutes.onboardingInterests,
         builder: (context, state) => const TagPickerScreen(kind: TagPickerKind.interests),
       ),
-      _PlatformRoute(
+      _ExitGuardedRoute(
         path: AppRoutes.onboardingMyTraits,
         builder: (context, state) => const TagPickerScreen(kind: TagPickerKind.myTraits),
       ),
       _PlatformRoute(path: AppRoutes.onboardingSurvey, builder: (context, state) => const SurveyScreen()),
-      _PlatformRoute(
+      _ExitGuardedRoute(
         path: AppRoutes.onboardingIdealConditions,
         builder: (context, state) => const IdealConditionsScreen(),
       ),
-      _PlatformRoute(
+      _ExitGuardedRoute(
         path: AppRoutes.onboardingIdealTraits,
         builder: (context, state) => const TagPickerScreen(kind: TagPickerKind.idealTraits),
       ),
-      _PlatformRoute(path: AppRoutes.onboardingIdealNote, builder: (context, state) => const IdealNoteScreen()),
-      _PlatformRoute(path: AppRoutes.onboardingBio, builder: (context, state) => const BioDraftLoadingScreen()),
-      _PlatformRoute(path: AppRoutes.onboardingReferral, builder: (context, state) => const ReferralCodeScreen()),
+      _ExitGuardedRoute(path: AppRoutes.onboardingIdealNote, builder: (context, state) => const IdealNoteScreen()),
+      _ExitGuardedRoute(path: AppRoutes.onboardingBio, builder: (context, state) => const BioDraftLoadingScreen()),
+      _ExitGuardedRoute(path: AppRoutes.onboardingReferral, builder: (context, state) => const ReferralCodeScreen()),
       _PlatformRoute(path: AppRoutes.onboardingAcquisition, builder: (context, state) => const AcquisitionScreen()),
       _PlatformRoute(path: AppRoutes.onboardingContactBlock, builder: (context, state) => const OnboardingContactBlockScreen()),
       _PlatformRoute(path: AppRoutes.onboardingContactPicker, builder: (context, state) => const ContactPickerScreen()),
@@ -298,6 +301,13 @@ abstract final class AppRouter {
 class _PlatformRoute extends GoRoute {
   _PlatformRoute({required super.path, required GoRouterWidgetBuilder builder, super.redirect})
       : super(pageBuilder: (context, state) => MaterialPage<void>(key: state.pageKey, child: builder(context, state)));
+}
+
+/// 온보딩 · 관문 화면 — go 로만 들어와 맨 아래 한 장이라 안드로이드 시스템 뒤로가기가 곧바로 앱을 닫는다.
+/// 탭과 같이 [BackExitScope] 로 한 번 더 확인한다(2026-10-15 사용자 지적). 전환은 [_PlatformRoute] 그대로다.
+class _ExitGuardedRoute extends _PlatformRoute {
+  _ExitGuardedRoute({required super.path, required GoRouterWidgetBuilder builder, super.redirect})
+      : super(builder: (context, state) => BackExitScope(child: builder(context, state)));
 }
 
 /// 하단 내비 탭 5개 — 탭끼리는 미끄러지지 않고 바로 바뀐다(10-14 대장 지시). go_router 가 판별을 고쳐도 그대로다.

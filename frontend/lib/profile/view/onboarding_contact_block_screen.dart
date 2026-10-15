@@ -1,5 +1,6 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -25,6 +26,14 @@ class OnboardingContactBlockScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // 안드로이드 시스템 뒤로가기도 앱바 화살표처럼 20d 로 간다(라우터는 이 화면을 두르지 않는다 — 두 겹이면 안내까지 뜬다).
+    return BackExitScope(onBack: () => _goBack(context), child: _scaffold(context, ref));
+  }
+
+  /// 앱바 화살표와 시스템 뒤로가기가 같이 쓴다. go 로 들어와 쌓인 화면이 없어 pop 이 아니라 20d 로 간다.
+  static void _goBack(BuildContext context) => context.go(AppRoutes.onboardingAcquisition);
+
+  Widget _scaffold(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: const _AppBar(),
       body: SafeArea(
@@ -128,7 +137,7 @@ class _AppBar extends StatelessWidget implements PreferredSizeWidget {
           child: IconButton(
             tooltip: MaterialLocalizations.of(context).backButtonTooltip,
             constraints: const BoxConstraints.tightFor(width: 48, height: 48),
-            onPressed: () => context.go(AppRoutes.onboardingAcquisition),
+            onPressed: () => OnboardingContactBlockScreen._goBack(context),
             icon: const Icon(AppIcons.arrowLeft, size: 22, color: AppColors.ink),
           ),
         ),
