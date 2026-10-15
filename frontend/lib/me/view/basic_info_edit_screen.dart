@@ -64,8 +64,9 @@ class _BasicInfoEditScreenState extends ConsumerState<BasicInfoEditScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // "· 필수" 는 온보딩 04-1 · 3b · 3c 와 같은 표기다(사용자 요청 10-15). 아래 고르기 구역(MBTI 등)에는 붙이지 않는다.
                     _InputField(
-                      label: '닉네임',
+                      label: '닉네임 · 필수',
                       controller: _nickname,
                       onChanged: viewModel.changeNickname,
                       isLocked: state.isNicknameLocked,
@@ -76,7 +77,7 @@ class _BasicInfoEditScreenState extends ConsumerState<BasicInfoEditScreen> {
                     ),
                     const SizedBox(height: AppSpacing.md),
                     _InputField(
-                      label: '키 (cm)',
+                      label: '키 (cm) · 필수',
                       controller: _height,
                       onChanged: viewModel.changeHeight,
                       isSaving: state.isSubmitting,
