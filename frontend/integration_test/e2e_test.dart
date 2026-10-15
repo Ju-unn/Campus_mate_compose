@@ -75,7 +75,7 @@ void main() {
       return;
     }
     // 앱 투어 자동 시작을 끈다 — 하네스는 가설마다 새 계정을 만들어, 켜 두면 첫 홈마다 덮개가 떠 가설이 막힌다.
-    // 설정 "가이드 다시 보기" 는 그대로 된다. PC 쪽 E-HOME-30(e2e/area2_tour.py)이 이 줄을 본다.
+    // 설정 "가이드 다시 보기" 는 그대로 된다. PC 쪽 E-HOME-34(e2e/area2_tour.py)가 이 줄을 본다.
     AppTourViewModel.autoStartEnabled = false;
     await app.main();
     try {
