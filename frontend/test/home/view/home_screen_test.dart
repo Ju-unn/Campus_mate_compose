@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/common/failure.dart';
@@ -12,6 +13,7 @@ import 'package:campus_mate/common/widgets/pressable.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/home/model/cohort_wait.dart';
+import 'package:campus_mate/home/model/home_people.dart';
 import 'package:campus_mate/home/model/home_repository_provider.dart';
 import 'package:campus_mate/home/model/home_summary.dart';
 import 'package:campus_mate/home/view/auto_marquee.dart';
@@ -24,6 +26,8 @@ import 'package:campus_mate/home/view/mosaic_tile.dart';
 import 'package:campus_mate/home/view/notify_icon_button.dart';
 import 'package:campus_mate/home/view/stat_tile.dart';
 import 'package:campus_mate/home/view/tag.dart';
+import 'package:campus_mate/home/viewmodel/home_people_provider.dart';
+import 'package:campus_mate/home/viewmodel/home_summary_provider.dart';
 import 'package:campus_mate/matching/model/card_profile.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:campus_mate/matching/model/daily_card.dart';
@@ -70,7 +74,6 @@ MyProfile _me(String university) => MyProfile(
 
 void main() {
   const summary = HomeSummary(
-    presentPeopleImages: ['assets/images/person-f1-blind-v1.png', 'assets/images/person-f4-blind-v1.png'],
     deliveredCards: 1234567,
     signups: 862,
     conversationsStarted: 391,
@@ -81,7 +84,6 @@ void main() {
   );
 
   HomeSummary summaryWith({int? delivered, int? signups, int? conversations, int? percent, int? reviews}) => HomeSummary(
-    presentPeopleImages: summary.presentPeopleImages,
     deliveredCards: delivered ?? summary.deliveredCards,
     signups: signups ?? summary.signups,
     conversationsStarted: conversations ?? summary.conversationsStarted,
@@ -95,17 +97,19 @@ void main() {
 
   /// [settle] 이 true 면 hero 전환 · 요약 블록 등장이 끝날 때까지 흘린다(레일은 계속 흘러 pumpAndSettle 은 못 쓴다).
   /// [cards] 를 주면 오늘 카드는 그 저장소가 답한다([today] 는 무시) — 읽는 동안 멈추거나 읽은 횟수를 볼 때.
+  /// [home] 을 주면 요약 · 사람 칸은 그 저장소가 답한다([result] 는 무시).
   Future<void> pump(
     WidgetTester tester, {
     Result<HomeSummary> result = const Success(summary),
     Result<TodayCards> today = _arrived,
     FakeCardRepository? cards,
+    FakeHomeRepository? home,
     Result<MyProfile> me = const FailureResult(NetworkFailure()),
     bool settle = true,
   }) async {
     final container = ProviderContainer(
       overrides: [
-        homeRepositoryProvider.overrideWithValue(FakeHomeRepository(result)),
+        homeRepositoryProvider.overrideWithValue(home ?? FakeHomeRepository(result)),
         notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
         meRepositoryProvider.overrideWithValue(FakeMeRepository(me)),
         // 하단 내비 뱃지가 수락 대기·안 읽은 메시지를 읽는다(§8.8). hero 는 오늘 탭 상태를 읽는다.
@@ -507,7 +511,6 @@ void main() {
   group('campus-strip 자동 흐름(칩 5개 이상)', () {
     const five = ['가람대', '새솔대', '누리대', '한빛대', '다온대'];
     HomeSummary withCampuses(List<String> campuses) => HomeSummary(
-          presentPeopleImages: summary.presentPeopleImages,
           deliveredCards: summary.deliveredCards,
           signups: summary.signups,
           conversationsStarted: summary.conversationsStarted,
@@ -619,6 +622,112 @@ void main() {
     expect(people, 2 * empties);
   });
 
+  group('mosaic-rail 사람 칸은 요약과 따로 받는다(`GET /home/people`)', () {
+    List<Uint8List> drawn(WidgetTester tester) => [
+          for (final element in find.byType(MosaicPersonTile).evaluate()) (element.widget as MosaicPersonTile).image,
+        ];
+
+    testWidgets('서버가 준 흐린 그림을 사람 칸으로 그린다(한 벌 = 받은 그림 + 빈 칸)', (tester) async {
+      await pump(tester);
+
+      final copies = find.byType(MosaicEmptyTile).evaluate().length;
+      expect(drawn(tester), [for (var i = 0; i < copies; i++) ...twoPeople.map((image) => image)]);
+      expect(find.byType(MosaicDefaultTile), findsNothing);
+    });
+
+    testWidgets('서버가 빈 목록(인원 부족)이면 레일을 숨기지 않고 기본 그림 칸 2 + 빈 칸, 자리는 pen 그대로', (tester) async {
+      penFrame(tester);
+      await pump(tester, home: FakeHomeRepository(const Success(summary), people: const Success(HomePeople.none)));
+
+      expect(find.text('지금 함께 있는 사람들'), findsOneWidget);
+      expect(find.byType(MosaicPersonTile), findsNothing);
+      expect(find.byType(MosaicDefaultTile).evaluate().length, 2 * find.byType(MosaicEmptyTile).evaluate().length);
+      expect((tester.getRect(find.byType(MosaicRail)).top, tester.getRect(find.byType(MosaicRail)).bottom), (283, 423));
+      // 못 받았거나 빈 목록이면 5분 붙잡기 타이머가 걸린다 — 테스트가 끝나기 전에 흘려 보낸다.
+      await tester.pump(homePeopleRetryAfter);
+    });
+
+    testWidgets('사람 칸을 못 받아도 레일은 기본 그림 칸으로 서 있고, 다른 블록은 그대로다', (tester) async {
+      await pump(tester, home: FakeHomeRepository(const Success(summary), people: const FailureResult(NetworkFailure())));
+
+      expect(find.byType(MosaicDefaultTile), findsWidgets);
+      expect(find.byType(MosaicPersonTile), findsNothing);
+      expect(find.byType(HomeGrid), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('프로필 완성도 40%'), 200, scrollable: _mainList);
+      expect(find.text('참여 중인 대학'), findsOneWidget);
+      // 못 받았거나 빈 목록이면 5분 붙잡기 타이머가 걸린다 — 테스트가 끝나기 전에 흘려 보낸다.
+      await tester.pump(homePeopleRetryAfter);
+    });
+
+    testWidgets('받는 동안은 기본 그림 칸이고, 도착하면 서버 그림으로 바뀐다 — 요약은 기다리지 않는다', (tester) async {
+      final home = FakeHomeRepository(const Success(summary))..holdPeople = Completer<void>();
+      await pump(tester, home: home);
+
+      expect(find.byType(HomeGrid), findsOneWidget);
+      expect(find.byType(MosaicDefaultTile), findsWidgets);
+      expect(find.byType(MosaicPersonTile), findsNothing);
+
+      home.holdPeople!.complete();
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.byType(MosaicDefaultTile), findsNothing);
+      expect(drawn(tester), isNotEmpty);
+    });
+
+    testWidgets('요약을 못 받으면(학교가 열렸는지 모른다) 사람 칸도 아직 부르지 않고, 요약이 오면 그때 받아 그린다', (tester) async {
+      final home = FakeHomeRepository(const FailureResult(NetworkFailure()));
+      await pump(tester, home: home);
+      expect(find.byType(MosaicRail), findsNothing);
+      expect(home.peopleCalls, 0);
+
+      home.summary = const Success(summary);
+      ProviderScope.containerOf(tester.element(find.byType(HomeScreen))).invalidate(homeSummaryProvider);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      // 요약을 그린 프레임에서 사람 칸을 부르기 시작해 다음 프레임에 그린다.
+      await tester.pump();
+
+      expect(drawn(tester), isNotEmpty);
+      expect(home.peopleCalls, 1);
+    });
+
+    testWidgets('학교 대기(19 코호트) 사용자는 `/home/people` 을 부르지 않는다', (tester) async {
+      final home = FakeHomeRepository(Success(HomeSummary(
+        deliveredCards: summary.deliveredCards,
+        signups: summary.signups,
+        conversationsStarted: summary.conversationsStarted,
+        reviewRating: summary.reviewRating,
+        reviewCount: summary.reviewCount,
+        campuses: summary.campuses,
+        profileCompletionPercent: summary.profileCompletionPercent,
+        cohort: CohortWait(firstCardAt: DateTime.now().add(const Duration(days: 3)), recruitCount: 5),
+      )));
+      await pump(tester, home: home);
+
+      expect(find.byType(CohortWaitView), findsOneWidget);
+      expect(home.peopleCalls, 0);
+    });
+
+    testWidgets('못 받았으면 기본 그림 칸 — 5분 뒤 다른 탭에 갔다 홈에 돌아오면 다시 받아 서버 그림을 그린다', (tester) async {
+      final home = FakeHomeRepository(const Success(summary), people: const FailureResult(NetworkFailure()));
+      await pump(tester, home: home);
+      expect(find.byType(MosaicDefaultTile), findsWidgets);
+
+      router.go(AppRoutes.today);
+      await tester.pump();
+      home.people = Success(twoPeople);
+      await tester.pump(const Duration(minutes: 5));
+      router.go(AppRoutes.home);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(home.peopleCalls, 2);
+      expect(find.byType(MosaicDefaultTile), findsNothing);
+      expect(drawn(tester), isNotEmpty);
+    });
+  });
+
   testWidgets('mosaic-rail 머리줄에 "일시정지"(pen `Ab3td` 오른쪽)는 없다 — 사용자 결정 2026-09-26', (tester) async {
     await pump(tester);
 
@@ -695,7 +804,7 @@ void main() {
       // 레일만 띄운다. 홈 목록 안에서는 첫 손가락이 목록 끌기를 시작해 목록이 자식을 IgnorePointer 로
       // 막으므로 둘째 손가락이 레일에 닿지 않는다(Flutter DragScrollActivity.shouldIgnorePointer) — 위젯 약속으로 고정한다.
       await tester.pumpWidget(
-        const MaterialApp(home: Scaffold(body: MosaicRail(images: ['assets/images/person-f1-blind-v1.png']))),
+        MaterialApp(home: Scaffold(body: MosaicRail(people: twoPeople))),
       );
       final center = tester.getCenter(find.byType(MosaicRail));
       final first = await tester.startGesture(center);
@@ -1116,7 +1225,6 @@ void main() {
       await pump(
         tester,
         result: Success(HomeSummary(
-          presentPeopleImages: summary.presentPeopleImages,
           deliveredCards: summary.deliveredCards,
           signups: summary.signups,
           conversationsStarted: summary.conversationsStarted,

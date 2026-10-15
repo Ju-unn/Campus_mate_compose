@@ -10,7 +10,6 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 HomeSummary _summary({int delivered = 1234567, int signups = 862, int conversations = 391}) => HomeSummary(
-      presentPeopleImages: const [],
       deliveredCards: delivered,
       signups: signups,
       conversationsStarted: conversations,

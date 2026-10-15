@@ -26,7 +26,6 @@ import '../model/fake_home_repository.dart';
 /// 배지는 2026-09-26 에 알림함이 없어 숨겼다가(count: 0 고정) 알림함이 생겨 다시 켠다.
 void main() {
   const summary = HomeSummary(
-    presentPeopleImages: ['assets/images/person-f1-blind-v1.png', 'assets/images/person-f4-blind-v1.png'],
     deliveredCards: 10,
     signups: 20,
     conversationsStarted: 30,

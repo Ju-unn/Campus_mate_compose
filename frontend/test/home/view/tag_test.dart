@@ -215,7 +215,6 @@ void main() {
             FakeHomeRepository(
               Success(
                 HomeSummary(
-                  presentPeopleImages: const ['assets/images/person-f1-blind-v1.png'],
                   deliveredCards: 10,
                   signups: 20,
                   conversationsStarted: 30,

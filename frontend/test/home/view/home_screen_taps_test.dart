@@ -30,7 +30,6 @@ import '../../notifications/model/fake_notifications_repository.dart';
 /// 프로필 완성도 카드(→ 프로필 편집 허브).
 void main() {
   const summary = HomeSummary(
-    presentPeopleImages: ['assets/images/person-f1-blind-v1.png', 'assets/images/person-f4-blind-v1.png'],
     deliveredCards: 10,
     signups: 20,
     conversationsStarted: 30,

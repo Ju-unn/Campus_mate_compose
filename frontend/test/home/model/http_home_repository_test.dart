@@ -55,7 +55,7 @@ void main() {
     expect(summary.profileCompletionPercent, 70);
   });
 
-  test('서버에 아직 없는 사람 칸·리뷰 값은 목값으로 채운다(사용자 결정 2026-09-26)', () async {
+  test('서버에 아직 없는 리뷰 값은 목값으로 채운다(사용자 결정 2026-10-09)', () async {
     final client = MockClient((_) async => jsonResponse({
           'delivered_cards': 0,
           'signups': 0,
@@ -67,8 +67,7 @@ void main() {
     final result = await buildRepository(client).fetchSummary();
 
     final summary = result.when<HomeSummary?>(onSuccess: (s) => s, onFailure: (_) => null)!;
-    // pen `b9Rask` · `Ch4h6` 과 같은 그림 두 장. 리뷰 띠는 출시 전 임시 값 5.0 · 1(사용자 결정 2026-10-09).
-    expect(summary.presentPeopleImages, ['assets/images/person-f1-blind-v1.png', 'assets/images/person-f4-blind-v1.png']);
+    // 리뷰 띠는 출시 전 임시 값 5.0 · 1(사용자 결정 2026-10-09). 레일 사람 칸은 요약이 아니라 `/home/people` 이 준다.
     expect(summary.reviewRating, 5.0);
     expect(summary.reviewCount, 1);
   });

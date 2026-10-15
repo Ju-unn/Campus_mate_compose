@@ -50,7 +50,6 @@ void main() {
 
   group('19 코호트 — 모집 중이면 오늘 탭도 대기 화면(계획서 결정 6 · 11)', () {
     HomeSummary summaryWith(CohortWait? cohort) => HomeSummary(
-      presentPeopleImages: const [],
       deliveredCards: 0,
       signups: 0,
       conversationsStarted: 0,

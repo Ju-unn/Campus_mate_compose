@@ -49,7 +49,7 @@ def _neutral(**over):
 APP_SAYS = {
     'E-HOME-02': {'empty': True},
     'E-HOME-03': {'campuses': ['가대학', '테스트대학']},
-    'E-HOME-12': {'rail': ['assets/images/person-f1-blind-v1.png']},
+    'E-HOME-12': {'rail': ['memory']},
     'E-REF-01': {'code': CODE},
     'E-REF-02': {'codes': [CODE, CODE]},
     'E-REF-03': {'code': CODE, 'clipboard': CODE},
@@ -249,8 +249,14 @@ class CompletionTest(PhoneBase):
 
 class HomeMockValuesTest(PhoneBase):
     def test_home_12_visible_mock_review_is_pass_with_the_known_note(self):
-        said = {'result': 'pass', 'rail': ['assets/images/person-f1-blind-v1.png', 'assets/images/person-f4-blind-v1.png']}
+        # 레일 사람 칸은 서버가 흐려 준 바이트(memory) — 실제 가입자 아바타(서버 `/home/people`, 10-15).
+        said = {'result': 'pass', 'rail': ['memory']}
         self.assertEqual(self.attempt('E-HOME-12', FakePhone(said)), ('pass', '목값이 운영에 나가 있음(known A2)'))
+
+    def test_home_12_short_of_people_default_tiles_are_pass(self):
+        # 인원 부족(서버 빈 목록)이면 기본 그림 칸의 3D 아이콘 에셋만 보인다.
+        said = {'result': 'pass', 'rail': ['assets/icons/ui-3d-users.webp']}
+        self.assertEqual(self.attempt('E-HOME-12', FakePhone(said))[0], 'pass')
 
     def test_home_12_rail_from_the_network_fails(self):
         said = {'result': 'pass', 'rail': ['https://cdn.test/a.png']}
