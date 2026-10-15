@@ -85,7 +85,8 @@ class _PollComposerScreenState extends ConsumerState<PollComposerScreen> {
     if (!mounted) return;
     result.when(
       onSuccess: (_) {
-        ref.read(communityFeedViewModelProvider.notifier).refresh();
+        // 어느 탭에서 왔든 전체 탭으로 옮겨 새로 받는다 — 방금 올린 글이 맨 위에 보인다(사용자 결정).
+        ref.read(communityFeedViewModelProvider.notifier).showAllAfterPosting();
         context.pop();
       },
       onFailure: (failure) => setState(() {
