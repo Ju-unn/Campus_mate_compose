@@ -1,0 +1,46 @@
+"""앱 투어 소스 확인 가설(E-HOME-30 · 31)의 PC 쪽 시험 — 폰 · 운영 없이 지금 저장소 파일과 바꾼 글로 돈다.
+저장소 루트에서 `python -m unittest e2e.test_area2_tour`."""
+
+import unittest
+
+from e2e import area1, area2_tour
+
+ENTRY = """void main() {
+  testWidgets('e2e 가설 하나', (tester) async {
+    AppTourViewModel.autoStartEnabled = false;
+    await app.main();
+  });
+}"""
+
+
+class TourOff(unittest.TestCase):
+    def test_repo_entry_turns_auto_start_off(self):
+        self.assertEqual(area1.CASES['E-HOME-30'](None), ('pass', ''))
+
+    def test_off_before_main(self):
+        self.assertEqual(area2_tour.tour_off_problems(ENTRY), [])
+
+    def test_missing_switch_fails(self):
+        self.assertTrue(area2_tour.tour_off_problems(ENTRY.replace('AppTourViewModel.autoStartEnabled = false;', '')))
+
+    def test_switch_after_main_fails(self):
+        late = ENTRY.replace('    AppTourViewModel.autoStartEnabled = false;\n', '') + '\nAppTourViewModel.autoStartEnabled = false;'
+        self.assertTrue(area2_tour.tour_off_problems(late))
+
+
+class TourSteps(unittest.TestCase):
+    def test_repo_steps_match_confirmed_titles(self):
+        self.assertEqual(area1.CASES['E-HOME-31'](None), ('pass', ''))
+
+    def test_reordered_titles_fail(self):
+        titles = list(area2_tour.TITLES)
+        titles[0], titles[1] = titles[1], titles[0]
+        text = '\n'.join(f"    title: '{t}'," for t in titles)
+        self.assertTrue(area2_tour.steps_problems(text))
+
+    def test_bundle(self):
+        self.assertEqual(area1.BUNDLES['area2-tour'], ['E-HOME-30', 'E-HOME-31'])
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -33,6 +33,8 @@ import 'package:campus_mate/core/supabase/auth_session_listenable_provider.dart'
 import 'package:campus_mate/core/supabase/supabase_config.dart';
 import 'package:campus_mate/core/supabase/supabase_initializer.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
+import 'package:campus_mate/tour/view/app_tour_host.dart';
+import 'package:campus_mate/tour/viewmodel/app_tour_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -63,6 +65,8 @@ Future<void> main() async {
       // 로그아웃해도 버리지 않는다 — 플러그인 하나를 앱이 끝날 때까지 쓴다. iOS 창구는 여기서(앱 시작) 바로 거래를 듣기 시작한다.
       if (platformHeartStoreGateway(() => InAppPurchase.instance) case final gateway?)
         heartStoreGatewayProvider.overrideWithValue(gateway),
+      // 앱 투어를 "이 계정이 봤는지" 계정(프로필 id = 로그인 사용자 id)별로 센다. 그때그때 세션에서 읽는다.
+      tourAccountIdProvider.overrideWithValue(() => Supabase.instance.client.auth.currentUser?.id),
     ],
     child: const CampusMateApp(),
   ));
@@ -322,7 +326,8 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
       themeMode: ThemeMode.light,
       routerConfig: _router,
       // 입력칸 밖 빈 곳을 누르면 키보드를 내린다 — 화면 · 시트 · 대화상자가 모두 이 밑에 뜬다(사용자 피드백 9).
-      builder: (context, child) => KeyboardDismissOnTap(child: child!),
+      // 앱 투어 덮개도 라우터 바깥 여기에 둔다 — 화면을 옮겨 가며 단계를 이어도 덮개가 남는다(pen 섹션 24).
+      builder: (context, child) => KeyboardDismissOnTap(child: AppTourHost(router: _router, child: child!)),
     );
   }
 }

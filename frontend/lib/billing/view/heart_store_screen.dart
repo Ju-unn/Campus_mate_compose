@@ -26,6 +26,8 @@ import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/me/view/me_toast.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
+import 'package:campus_mate/tour/view/app_tour_steps.dart';
+import 'package:campus_mate/tour/view/tour_target.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -111,12 +113,13 @@ class _HeartStoreScreenState extends ConsumerState<HeartStoreScreen> {
                   // pen `eagSX` 안쪽 [8,16,32,16] · 칸 사이 24.
                   padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.xs, AppSpacing.md, AppSpacing.xl),
                   children: [
-                    const _Hero(),
+                    // 앱 투어 6단계: 무료로 모으기는 목록 끝이라 아직 안 만들어졌을 수 있다 — 늘 있는 맨 위 그림으로 목록을 민다.
+                    const TourTarget(id: TourTargetId.heartStoreTop, child: _Hero()),
                     const SizedBox(height: AppSpacing.lg),
                     const _BalanceBlock(),
                     const SizedBox(height: AppSpacing.lg),
                     if (state != null) ...[_PurchaseSection(state: state), const SizedBox(height: AppSpacing.lg)],
-                    const _FreeSection(),
+                    const TourTarget(id: TourTargetId.heartStoreFree, child: _FreeSection()),
                   ],
                 ),
                 // 토스트 아래 끝은 바 위 12(pen `eZlLw`). 나타날 때 나 탭 · 홈 토스트와 같이 올라온다(D4) —

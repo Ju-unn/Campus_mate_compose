@@ -13,10 +13,12 @@ import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/faq/viewmodel/faq_provider.dart';
+import 'package:campus_mate/home/viewmodel/home_summary_provider.dart';
 import 'package:campus_mate/matching/viewmodel/notification_settings_view_model.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:campus_mate/referral/view/invite_friends_sheet.dart';
 import 'package:campus_mate/safety/view/safety_actions.dart';
+import 'package:campus_mate/tour/viewmodel/app_tour_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -42,6 +44,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     } finally {
       _openingStore = false;
     }
+  }
+
+  /// 앱 투어를 처음부터 다시 띄운다 — 홈으로 옮기고 단계를 잇는 것은 앱 맨 위 투어 호스트(`AppTourHost`)다.
+  /// 학교 오픈 전(코호트 대기)이면 투어가 가리킬 화면(09b · 오늘의 카드)이 없어 막는다. 요약을 못 받았으면 열린 것으로 친다.
+  Future<void> _replayTour() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final summary = await ref.read(homeSummaryProvider.future);
+    if (!mounted) return;
+    if (summary?.cohort != null) {
+      showSafetyToast(messenger, '학교 오픈 후에 볼 수 있어요', icon: AppIcons.info);
+      return;
+    }
+    ref.read(appTourViewModelProvider.notifier).replay();
   }
 
   @override
@@ -121,6 +136,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   title: '자주 묻는 질문',
                   onTap: () => context.push(AppRoutes.faq),
                 ),
+              // pen 에 없는 줄(앱 투어 — 사용자 확정 지시). 줄 모양은 다른 줄과 같고 그림은 있는 3D 정보 아이콘을 쓴다.
+              _Row(icon: AppIcon3d.infoBlue, title: '가이드 다시 보기', onTap: _replayTour),
               _Row(icon: AppIcon3d.terms, title: '이용약관', onTap: () => _open(context, ref, termsLink)),
               _Row(
                 icon: AppIcon3d.privacy,

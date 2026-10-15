@@ -86,7 +86,7 @@ class HeartTaskRow extends StatelessWidget {
 
   String get _title => switch (task.kind) {
         HeartTaskKind.everytimePost => '에브리타임 홍보',
-        HeartTaskKind.kakaoShare => '학교 단톡방 공유',
+        HeartTaskKind.kakaoShare => '단톡방 공유',
         HeartTaskKind.pollVote => '커뮤니티 투표',
       };
 

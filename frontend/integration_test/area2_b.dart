@@ -50,7 +50,7 @@ const _thumb = '\u{1F44D}';
 // 설정 → 18a — frontend/lib/matching/view/settings_screen.dart:69 · billing/view/heart_task_row.dart · heart_task_submit_screen.dart
 const _heartTasksRow = '무료로 하트 모으기'; // settings_screen.dart:69
 const _everytime = '에브리타임 홍보'; // heart_task_row.dart:88
-const _kakao = '학교 단톡방 공유'; // :89
+const _kakao = '단톡방 공유'; // :89
 const _vote = '커뮤니티 투표'; // :90
 const _join = '참여'; // :101
 const _reviewing = '검수중'; // :108

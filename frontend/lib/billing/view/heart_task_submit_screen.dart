@@ -23,7 +23,7 @@ const String _guide = '스크린샷을 첨부하면 확인 후 하트를 드려�
 /// 승인은 운영자가 눈으로 본다 — 서버는 이 기준을 검사하지 않는다.
 String? _criteria(HeartTaskKind kind) => switch (kind) {
       HeartTaskKind.everytimePost => '앱 이름(CampusMate)이 들어간 홍보 글을 올리고, 올린 날짜가 보이게 찍어 주세요',
-      HeartTaskKind.kakaoShare => '5명 이상이 있는 학교 단톡방에 공유한 글과 단톡방 인원 수가 보이게 찍어 주세요',
+      HeartTaskKind.kakaoShare => '5명 이상이 있는 단톡방에 공유한 글과 단톡방 인원 수가 보이게 찍어 주세요',
       // 투표는 제출 화면이 없다(라우터가 18a 로 돌려보낸다).
       HeartTaskKind.pollVote => null,
     };

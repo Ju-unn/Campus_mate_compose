@@ -8,6 +8,19 @@ import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
 
+/// "이렇게 정밀하게 골랐어요" 의 이유 넷(pen 값표 §6). 앱 투어 5단계(`tour/view/tour_precision_points.dart`)도 같은 이름 · 그림을 쓴다 —
+/// 한쪽만 바뀌지 않게 여기 한 곳에 둔다.
+const List<({AppIcon3d icon, String title, String description})> paidCardReasons = [
+  (
+    icon: AppIcon3d.chat,
+    title: '성향 9가지 비교',
+    description: '집콕·밖으로부터 익숙한 것·새로운 것까지 설문 답을 하나하나 비교해요',
+  ),
+  (icon: AppIcon3d.tags, title: '관심사와 특징 태그', description: '겹치는 관심사가 많을수록 점수가 올라가요'),
+  (icon: AppIcon3d.sparkles, title: 'AI 글 분석', description: "자기소개와 '이런 사람이 좋아요' 글의 의미를 AI가 서로 비교해요"),
+  (icon: AppIcon3d.badgeCheck, title: '원하는 조건 반영', description: '나이·키·MBTI·흡연·종교 조건이 맞을수록 높게 쳐요'),
+];
+
 /// 결제 카드 물음표를 누르면 뜨는 "이렇게 정밀하게 골랐어요" 안내 시트(pen `EP8pA` → 시트 `sp1xa`, 값표 §6).
 /// 문구는 pen 값표 그대로이고, 점수 숫자 · 순위 · 비중(30/20/50%) · 학교 이름은 이 시트에 없다.
 Future<void> showPaidCardInfoSheet(BuildContext context) {
@@ -56,30 +69,10 @@ class PaidCardInfoSheet extends StatelessWidget {
                       '내 프로필과 상대 프로필을 네 가지로 나눠 비교해 점수를 매겼어요.',
                       style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
                     ),
-                    const SizedBox(height: _gap),
-                    const _ReasonRow(
-                      icon: AppIcon3d.chat,
-                      title: '성향 9가지 비교',
-                      description: '집콕·밖으로부터 익숙한 것·새로운 것까지 설문 답을 하나하나 비교해요',
-                    ),
-                    const SizedBox(height: _gap),
-                    const _ReasonRow(
-                      icon: AppIcon3d.tags,
-                      title: '관심사와 특징 태그',
-                      description: '겹치는 관심사가 많을수록 점수가 올라가요',
-                    ),
-                    const SizedBox(height: _gap),
-                    const _ReasonRow(
-                      icon: AppIcon3d.sparkles,
-                      title: 'AI 글 분석',
-                      description: "자기소개와 '이런 사람이 좋아요' 글의 의미를 AI가 서로 비교해요",
-                    ),
-                    const SizedBox(height: _gap),
-                    const _ReasonRow(
-                      icon: AppIcon3d.badgeCheck,
-                      title: '원하는 조건 반영',
-                      description: '나이·키·MBTI·흡연·종교 조건이 맞을수록 높게 쳐요',
-                    ),
+                    for (final reason in paidCardReasons) ...[
+                      const SizedBox(height: _gap),
+                      _ReasonRow(icon: reason.icon, title: reason.title, description: reason.description),
+                    ],
                     const SizedBox(height: _gap),
                     const _Highlight(),
                     const SizedBox(height: _gap),

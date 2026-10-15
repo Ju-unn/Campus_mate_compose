@@ -16,6 +16,8 @@ import 'package:campus_mate/matching/model/daily_card.dart';
 import 'package:campus_mate/matching/view/countdown_text.dart';
 import 'package:campus_mate/matching/view/daily_card_summary.dart';
 import 'package:campus_mate/matching/view/today_cards_screen.dart';
+import 'package:campus_mate/tour/view/app_tour_steps.dart';
+import 'package:campus_mate/tour/view/tour_target.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -317,6 +319,42 @@ void main() {
     test('지급일 07:00 전이면 서버가 오늘 07:00 을 준다 — "오늘"(학교 오픈 대기의 "오늘 오전 7시" 와 같은 말)', () {
       // 주 2회(월 · 목) · 서울 월요일 05:00. 서버 upcoming_issue_at 은 목요일이 아니라 오늘 07:00 이다.
       expect(waitingSubtitle(seoul(12, 7), seoul(12, 5)), '오늘 오전 7시에 새로운 한 명이 도착해요');
+    });
+  });
+
+  group('앱 투어 4단계 표식', () {
+    Finder target(TourTargetId id) => find.byWidgetPredicate((w) => w is TourTarget && w.id == id);
+
+    testWidgets('카드 대기 화면이면 "오늘 카드는 확인했어요" · 도착 시각 부제 · 카운트다운 한 덩어리를 가리킨다', (tester) async {
+      final repository = FakeCardRepository()
+        ..today = Success(TodayCards(cards: const [], nextIssueAt: DateTime.now().add(const Duration(hours: 3))));
+
+      await pump(tester, repository);
+
+      final arrival = target(TourTargetId.todayArrival);
+      expect(find.descendant(of: arrival, matching: find.text('오늘 카드는 확인했어요')), findsOneWidget);
+      expect(find.descendant(of: arrival, matching: find.byType(CountdownText)), findsOneWidget);
+      expect(find.descendant(of: arrival, matching: find.text('내일 만날 사람들')), findsNothing);
+    });
+
+    testWidgets('앱바 제목 "오늘의 카드" 는 늘 대신 자리(상단 영역) 표식이 있다 — 카드 목록 상태에는 도착 시각 안내가 없다', (tester) async {
+      final repository = FakeCardRepository()
+        ..today = const Success(
+          TodayCards(
+            cards: [
+              DailyCard(
+                cardId: 'card-1',
+                source: CardSource.daily,
+                profile: CardProfile(profileId: 't1', nickname: '여우비', age: 23, university: '테스트대학교', major: '컴퓨터공학과'),
+              ),
+            ],
+          ),
+        );
+
+      await pump(tester, repository);
+
+      expect(find.descendant(of: target(TourTargetId.todayHeader), matching: find.text('오늘의 카드')), findsOneWidget);
+      expect(target(TourTargetId.todayArrival), findsNothing);
     });
   });
 }

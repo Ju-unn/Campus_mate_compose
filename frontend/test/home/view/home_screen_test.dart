@@ -35,9 +35,14 @@ import 'package:campus_mate/matching/view/countdown_text.dart';
 import 'package:campus_mate/me/model/me_repository_provider.dart';
 import 'package:campus_mate/me/model/my_profile.dart';
 import 'package:campus_mate/notifications/model/notifications_repository_provider.dart';
+import 'package:campus_mate/tour/model/tour_seen_store.dart';
+import 'package:campus_mate/tour/view/app_tour_steps.dart';
+import 'package:campus_mate/tour/view/tour_target.dart';
+import 'package:campus_mate/tour/viewmodel/app_tour_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
@@ -46,6 +51,7 @@ import '../../matching/model/fake_card_repository.dart';
 import '../../me/model/fake_me_repository.dart';
 import '../model/fake_home_repository.dart';
 import '../../notifications/model/fake_notifications_repository.dart';
+import '../../tour/model/fake_tour_seen_store.dart';
 
 /// mosaic-rail 도 가로 Scrollable 이라 세로 목록을 짚어 준다.
 final _mainList = find.byType(Scrollable).first;
@@ -94,6 +100,7 @@ void main() {
   );
 
   late GoRouter router;
+  late ProviderContainer homeContainer;
 
   /// [settle] 이 true 면 hero 전환 · 요약 블록 등장이 끝날 때까지 흘린다(레일은 계속 흘러 pumpAndSettle 은 못 쓴다).
   /// [cards] 를 주면 오늘 카드는 그 저장소가 답한다([today] 는 무시) — 읽는 동안 멈추거나 읽은 횟수를 볼 때.
@@ -106,9 +113,11 @@ void main() {
     FakeHomeRepository? home,
     Result<MyProfile> me = const FailureResult(NetworkFailure()),
     bool settle = true,
+    List<Override> overrides = const [],
   }) async {
     final container = ProviderContainer(
       overrides: [
+        ...overrides,
         homeRepositoryProvider.overrideWithValue(home ?? FakeHomeRepository(result)),
         notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
         meRepositoryProvider.overrideWithValue(FakeMeRepository(me)),
@@ -126,6 +135,7 @@ void main() {
       ],
     );
     addTearDown(router.dispose);
+    homeContainer = container;
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
@@ -1249,6 +1259,67 @@ void main() {
 
       expect(find.byType(CohortWaitView), findsNothing);
       expect(find.text('지금 확인하기'), findsOneWidget);
+    });
+  });
+
+  group('앱 투어(pen 섹션 24 vfrto) — 학교가 열린 홈에 처음 왔을 때 계정마다 한 번', () {
+    late FakeTourSeenStore store;
+    setUp(() => store = FakeTourSeenStore());
+
+    List<Override> tour({String? profileId = 'profile-a'}) => [
+          tourSeenStoreProvider.overrideWithValue(store),
+          tourAccountIdProvider.overrideWithValue(() => profileId),
+        ];
+
+    HomeSummary waiting() => HomeSummary(
+          deliveredCards: summary.deliveredCards,
+          signups: summary.signups,
+          conversationsStarted: summary.conversationsStarted,
+          reviewRating: summary.reviewRating,
+          reviewCount: summary.reviewCount,
+          campuses: summary.campuses,
+          profileCompletionPercent: summary.profileCompletionPercent,
+          cohort: CohortWait(firstCardAt: DateTime.now().add(const Duration(days: 3)), recruitCount: 5),
+        );
+
+    testWidgets('학교가 열려 있고(코호트 없음) 이 계정이 본 적 없으면 시작하고, 시작하는 순간 본 것으로 저장한다', (tester) async {
+      await pump(tester, overrides: tour());
+
+      expect(homeContainer.read(appTourViewModelProvider).active, isTrue);
+      expect(store.marked, ['profile-a']);
+    });
+
+    testWidgets('이미 본 계정이면 시작하지 않는다', (tester) async {
+      store = FakeTourSeenStore(seen: {'profile-a'});
+      await pump(tester, overrides: tour());
+
+      expect(homeContainer.read(appTourViewModelProvider).active, isFalse);
+    });
+
+    testWidgets('학교 오픈 전(코호트 대기)에는 시작하지 않고 본 것으로도 남기지 않는다 — 오픈 뒤 첫 홈에서 본다', (tester) async {
+      await pump(tester, result: Success(waiting()), overrides: tour());
+
+      expect(homeContainer.read(appTourViewModelProvider).active, isFalse);
+      expect(store.marked, isEmpty);
+    });
+
+    testWidgets('요약을 못 받아 학교가 열렸는지 모르면 시작하지 않는다', (tester) async {
+      await pump(tester, result: const FailureResult(NetworkFailure()), overrides: tour());
+
+      expect(homeContainer.read(appTourViewModelProvider).active, isFalse);
+      expect(store.marked, isEmpty);
+    });
+
+    testWidgets('투어 대상 표식 — 히어로(1단계)와 프로필 완성도 카드(2단계)', (tester) async {
+      // 완성도 카드는 목록 끝이라 긴 화면에서 본다.
+      tester.view.physicalSize = const Size(360, 2000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await pump(tester);
+
+      Finder target(TourTargetId id) => find.byWidgetPredicate((w) => w is TourTarget && w.id == id);
+      expect(find.descendant(of: target(TourTargetId.homeHero), matching: find.text('지금 확인하기')), findsOneWidget);
+      expect(find.descendant(of: target(TourTargetId.homeProfileNudge), matching: find.text('프로필 완성도 40%')), findsOneWidget);
     });
   });
 }
