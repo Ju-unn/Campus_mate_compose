@@ -24,41 +24,50 @@ logger = logging.getLogger(__name__)
 PREVIEW_SIZE = (8, 10)
 _BLUR_RADIUS = 1
 _JPEG_QUALITY = 50
-# 경로 → base64 미리보기. 같은 아바타면 다시 받지 않는다. 한 칸이 수백 바이트라 256칸이면 100KB 안팎이다.
+# (경로, 크기, 강도) → base64 미리보기. 같은 아바타면 다시 받지 않는다. 유료 카드 한 칸은 수백 바이트, 홈 레일
+# 한 칸(112×140)은 2~3KB 라 256칸이 다 홈 것이어도 1MB 안팎이다.
 # ponytail: 프로세스마다 따로인 메모리 캐시다 — 인스턴스가 늘면 인스턴스마다 한 번씩 받는다. 그게 부담이 되면 공용 캐시로.
 _CACHE_SIZE = 256
-_cache: OrderedDict[str, str] = OrderedDict()
+_cache: OrderedDict[tuple[str, tuple[int, int], float], str] = OrderedDict()
 
 
-def blur_preview(original: bytes) -> bytes:
-    """원본 그림 → 8×10 JPEG. 가운데를 4:5 로 잘라 칸마다 평균을 낸 뒤(BOX) 이웃 칸과 한 번 더 섞는다."""
+def blur_preview(original: bytes, size: tuple[int, int] = PREVIEW_SIZE, radius: float = _BLUR_RADIUS) -> bytes:
+    """원본 그림 → size 크기 JPEG. 가운데를 size 비율로 잘라 칸마다 평균을 낸 뒤(BOX) 반경 radius 픽셀로 한 번 더
+    섞는다. 기본값이 유료 카드(8×10, 1)다. 홈 레일(home/router)은 크기 · 강도만 바꿔 쓴다."""
     with Image.open(io.BytesIO(original)) as image:
-        small = ImageOps.fit(image.convert("RGB"), PREVIEW_SIZE, Image.Resampling.BOX)
+        small = ImageOps.fit(image.convert("RGB"), size, Image.Resampling.BOX)
     out = io.BytesIO()
-    small.filter(ImageFilter.GaussianBlur(_BLUR_RADIUS)).save(out, "JPEG", quality=_JPEG_QUALITY, optimize=True)
+    small.filter(ImageFilter.GaussianBlur(radius)).save(out, "JPEG", quality=_JPEG_QUALITY, optimize=True)
     return out.getvalue()
 
 
+async def cached_preview(storage, path: str, size: tuple[int, int] = PREVIEW_SIZE,
+                         radius: float = _BLUR_RADIUS) -> str:
+    """아바타 경로 → base64 흐린 JPEG. 같은 (경로 · 크기 · 강도)면 다시 받지 않는다 — 유료 카드와 홈 레일이 같은
+    아바타를 다른 크기로 만들어도 서로 덮지 않는다. 받기 · 읽기 실패는 그대로 올린다(캐시하지 않아 다음 요청이 다시 해 본다)."""
+    key = (path, size, radius)
+    if key in _cache:
+        _cache.move_to_end(key)
+        return _cache[key]
+    original = await storage.download(path)
+    # 디코딩 · 축소는 CPU 일이다 — 이벤트 루프 위에서 돌면 그동안 다른 요청이 멈춘다.
+    preview = base64.b64encode(await asyncio.to_thread(blur_preview, original, size, radius)).decode("ascii")
+    _cache[key] = preview
+    if len(_cache) > _CACHE_SIZE:
+        _cache.popitem(last=False)
+    return preview
+
+
 async def preview_of(storage, path: str | None) -> str | None:
-    """아바타 경로 → base64 미리보기. 아바타가 없거나 받기 · 읽기에 실패하면 None(앱은 회색 원, 카드는 그대로 열린다).
-    실패는 캐시하지 않는다 — 다음 요청이 다시 해 본다."""
+    """유료 카드 미리보기. 아바타가 없거나 받기 · 읽기에 실패하면 None(앱은 회색 원, 카드는 그대로 열린다)."""
     if path is None:
         return None
-    if path in _cache:
-        _cache.move_to_end(path)
-        return _cache[path]
     try:
-        original = await storage.download(path)
-        # 디코딩 · 축소는 CPU 일이다 — 이벤트 루프 위에서 돌면 그동안 다른 요청이 멈춘다.
-        preview = base64.b64encode(await asyncio.to_thread(blur_preview, original)).decode("ascii")
+        return await cached_preview(storage, path)
     except Exception as error:
         # 예외 문구에는 저장소 주소(경로 = profile_id)가 들어 있어 종류 이름만 남긴다(COMMON §3).
         logger.warning("유료 카드 미리보기를 만들지 못했다 — 회색 원으로 둔다 (%s)", type(error).__name__)
         return None
-    _cache[path] = preview
-    if len(_cache) > _CACHE_SIZE:
-        _cache.popitem(last=False)
-    return preview
 
 
 def clear_cache() -> None:
