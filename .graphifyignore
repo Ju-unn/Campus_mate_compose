@@ -7,3 +7,5 @@
 *.webp
 # 이 PC 세션 전용 로컬 설정(커밋 대상 아님, git status 상 untracked) — 코드베이스가 아니다.
 .claude/
+.agents/
+skills-lock.json
