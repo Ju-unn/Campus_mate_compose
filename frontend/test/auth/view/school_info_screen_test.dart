@@ -1,14 +1,23 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:campus_mate/auth/model/school_info_repository_provider.dart';
 import 'package:campus_mate/auth/model/school_name_provider.dart';
 import 'package:campus_mate/auth/model/verification_gate_repository_provider.dart';
 import 'package:campus_mate/auth/view/school_info_screen.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/common/university_logos.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/common/widgets/school_label.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
+import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
 
 import '../model/fake_school_info_repository.dart';
 import '../model/fake_verification_gate_repository.dart';
@@ -16,19 +25,49 @@ import '../model/fake_verification_gate_repository.dart';
 /// 학교명 조회가 이미 끝난 기본 상태. 학교명은 인증(3b)으로 정해진 값이라 화면이 바꾸지 못한다.
 const AsyncValue<String> _loadedSchoolName = AsyncData<String>('서울대학교');
 
+const _logoUrl = 'https://logo.test/snu.webp';
+
+/// 학교 로고 그림(간격 Padding 을 뺀 자리).
+final _logo = find.descendant(
+  of: find.byWidgetPredicate((w) => w is Image && w.image == const NetworkImage(_logoUrl)),
+  matching: find.byType(RawImage),
+);
+
+/// 로고 요청을 받기만 하고 답하지 않는 HttpClient — 로고는 "아직 오는 중"이라 자리만 잡는다(계정 화면 테스트와 같은 방식).
+class _PendingHttpClient extends Mock implements HttpClient {}
+
+class _PendingHttpOverrides extends HttpOverrides {
+  _PendingHttpOverrides(this._client);
+
+  final HttpClient _client;
+
+  @override
+  HttpClient createHttpClient(SecurityContext? context) => _client;
+}
+
 void main() {
   late FakeSchoolInfoRepository repository;
+  final previousOverrides = HttpOverrides.current;
+  setUpAll(() {
+    registerFallbackValue(Uri());
+    final client = _PendingHttpClient();
+    when(() => client.getUrl(any())).thenAnswer((_) => Completer<HttpClientRequest>().future);
+    HttpOverrides.global = _PendingHttpOverrides(client);
+  });
+  tearDownAll(() => HttpOverrides.global = previousOverrides);
 
   setUp(() => repository = FakeSchoolInfoRepository());
 
   Future<void> pumpScreen(
     WidgetTester tester, {
     AsyncValue<String> schoolName = _loadedSchoolName,
+    Map<String, String> logos = const {},
   }) async {
     final container = ProviderContainer(
       overrides: [
         schoolInfoRepositoryProvider.overrideWithValue(repository),
         schoolNameProvider.overrideWithValue(schoolName),
+        universityLogosProvider.overrideWith((ref) => logos),
         // 제출에 성공하면 ViewModel 이 게이트를 다시 조회한다(A10)
         verificationGateRepositoryProvider.overrideWithValue(FakeVerificationGateRepository()),
       ],
@@ -88,6 +127,70 @@ void main() {
       expect(find.text('서울대학교'), findsOneWidget);
       expect(find.text('확인됨'), findsOneWidget);
       expect(find.byType(TextField), findsNWidgets(2)); // 학교명은 입력칸이 아니다
+    });
+
+    // pen 03c 화면 `B9Hu7` 학교 줄(대장 전달 값): [원 40 · 3D 졸업모 22 | 학교 로고 18 + 학교명 16/600 #222 | 확인됨 12/600 · 아이콘 14],
+    // 328×68 · 안쪽 14 · surfaceSoft · 모서리 14. pen 에 없는 "학교" 작은 글자 줄은 없다.
+    group('학교 줄(pen `B9Hu7`)', () {
+      Finder row() => find.ancestor(of: find.byType(SchoolLabel), matching: find.byType(Container)).last;
+
+      testWidgets('줄은 328×68 · 안쪽 14 · surfaceSoft · 모서리 14 이고 "학교" 작은 글자가 없다', (tester) async {
+        tester.view.physicalSize = const Size(376, 800);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await pumpScreen(tester, logos: const {'서울대학교': _logoUrl});
+        await tester.pump();
+
+        expect(tester.getSize(row()), const Size(328, 68));
+        final box = tester.widget<Container>(row());
+        expect(box.padding, const EdgeInsets.all(14));
+        expect(box.decoration, BoxDecoration(color: AppColors.surfaceSoft, borderRadius: BorderRadius.circular(AppRadius.md)));
+        expect(find.text('학교'), findsNothing);
+      });
+
+      testWidgets('왼쪽 원 40 안에 3D 졸업모 22', (tester) async {
+        await pumpScreen(tester);
+
+        final icon = tester.widget<Icon3d>(find.byType(Icon3d));
+        expect(icon.icon, AppIcon3d.graduationCap);
+        expect(tester.getSize(find.byType(Icon3d)), const Size(22, 22));
+        final circle = find.ancestor(of: find.byType(Icon3d), matching: find.byType(Container)).first;
+        expect(tester.getSize(circle), const Size(40, 40));
+      });
+
+      testWidgets('학교명은 SchoolLabel 16/600 ink 로 그리고 로고는 18', (tester) async {
+        await pumpScreen(tester, logos: const {'서울대학교': _logoUrl});
+        await tester.pump();
+
+        final label = tester.widget<SchoolLabel>(find.byType(SchoolLabel));
+        expect(label.university, '서울대학교');
+        expect(label.style, AppTypography.bodyStrong.copyWith(color: AppColors.ink));
+        expect(tester.getSize(_logo), const Size(18, 18));
+      });
+
+      testWidgets('로고가 없는 학교(logo_path null)는 학교 이름만 보인다', (tester) async {
+        await pumpScreen(tester);
+        await tester.pump();
+
+        expect(_logo, findsNothing);
+        expect(find.text('서울대학교'), findsOneWidget);
+      });
+
+      testWidgets('"확인됨" 은 12/600 primary-text, 아이콘 14', (tester) async {
+        await pumpScreen(tester);
+
+        final text = tester.widget<Text>(find.text('확인됨'));
+        expect(text.style!.fontSize, 12);
+        expect(text.style!.fontWeight, FontWeight.w600);
+        expect(text.style!.color, AppColors.primaryText);
+        final badge = find.ancestor(of: find.text('확인됨'), matching: find.byType(Row)).first;
+        final icon = tester.widget<Icon>(find.descendant(of: badge, matching: find.byType(Icon)));
+        expect(icon.icon, AppIcons.badgeCheck);
+        expect(icon.size, 14);
+        // pen 실측(B9Hu7 KzZH8) 안쪽 여백 가로 10 · 세로 6.
+        final pill = tester.widget<Container>(find.ancestor(of: badge, matching: find.byType(Container)).first);
+        expect(pill.padding, const EdgeInsets.symmetric(horizontal: 10, vertical: 6));
+      });
     });
 
     testWidgets('학과·학번 입력칸의 라벨과 플레이스홀더를 보여준다', (tester) async {

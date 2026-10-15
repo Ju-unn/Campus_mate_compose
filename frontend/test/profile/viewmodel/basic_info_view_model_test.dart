@@ -117,7 +117,7 @@ void main() {
 
     vm.changeBirthYear('2002');
     vm.changeHeight('175');
-    vm.changePhoneNumber('01012345678');
+    vm.changePhoneNumber('01048217395');
     vm.changeGender('male');
 
     final state = container.read(basicInfoViewModelProvider);
@@ -183,7 +183,7 @@ void main() {
     vm.changeNickname('가나다');
     await tester.pump(const Duration(milliseconds: 350));
     vm.changeHeight('175');
-    vm.changePhoneNumber('01012345678');
+    vm.changePhoneNumber('01048217395');
     vm.changeGender('male');
 
     vm.changeBirthYear('${_thisYear - 19}');
@@ -225,7 +225,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 350));
     vm.changeBirthYear('2002');
     vm.changeHeight('175');
-    vm.changePhoneNumber('01012345678');
+    vm.changePhoneNumber('01048217395');
     vm.changeGender('male');
 
     final state = container.read(basicInfoViewModelProvider);
@@ -239,13 +239,13 @@ void main() {
     await tester.pump(const Duration(milliseconds: 350));
     vm.changeBirthYear('2002');
     vm.changeHeight('175');
-    vm.changePhoneNumber('010-1234-5678');
+    vm.changePhoneNumber('010-4821-7395');
     vm.changeGender('male');
 
     await vm.submit();
 
-    expect(container.read(basicInfoViewModelProvider).phoneNumberInput, '010-1234-5678');
-    expect(repository.submitted?.phoneNumber, '01012345678');
+    expect(container.read(basicInfoViewModelProvider).phoneNumberInput, '010-4821-7395');
+    expect(repository.submitted?.phoneNumber, '01048217395');
   });
 
   testWidgets('전화번호가 11자리가 되기 전에는 제출할 수 없다', (tester) async {
@@ -256,11 +256,93 @@ void main() {
     vm.changeHeight('175');
     vm.changeGender('male');
 
-    vm.changePhoneNumber('010-1234-567');
+    vm.changePhoneNumber('010-4821-291');
     expect(container.read(basicInfoViewModelProvider).canSubmit, isFalse);
 
-    vm.changePhoneNumber('010-1234-5678');
+    vm.changePhoneNumber('010-4821-7395');
     expect(container.read(basicInfoViewModelProvider).canSubmit, isTrue);
+  });
+
+  // 가입용 엄격 규칙(SignupPhoneNumber) — 서버도 같은 규칙으로 다시 본다. 앱은 바로 알려 주고 "다음"을 끈다.
+  for (final fake in ['010-1234-5678', '010-0000-0000', '010-1234-1234', '011-4821-7395']) {
+    testWidgets('$fake 처럼 규칙에 걸리는 번호는 11자리를 채워도 제출할 수 없고 오류 한 줄을 띄운다', (tester) async {
+      final vm = container.read(basicInfoViewModelProvider.notifier);
+      vm.changeNickname('가나다');
+      await tester.pump(const Duration(milliseconds: 350));
+      vm.changeBirthYear('2002');
+      vm.changeHeight('175');
+      vm.changeGender('male');
+
+      vm.changePhoneNumber(fake);
+
+      final state = container.read(basicInfoViewModelProvider);
+      expect(state.canSubmit, isFalse);
+      expect(state.phoneNumberError, '올바른 휴대폰 번호를 입력해 주세요');
+    });
+  }
+
+  test('번호를 다 치기 전과 규칙을 통과한 번호에는 오류를 띄우지 않는다', () {
+    // 치는 도중에 띄우면 한 자 칠 때마다 문구가 깜빡인다(키 칸과 같은 방식).
+    final vm = container.read(basicInfoViewModelProvider.notifier);
+
+    vm.changePhoneNumber('010-1234-567');
+    expect(container.read(basicInfoViewModelProvider).phoneNumberError, isNull);
+
+    vm.changePhoneNumber('010-4821-7395');
+    expect(container.read(basicInfoViewModelProvider).phoneNumberError, isNull);
+  });
+
+  // 서버 422 `phone_number_invalid`(fix/onboarding-batch-server) — 앱 규칙을 지난 번호를 서버가 막으면 같은 자리 · 같은 문구.
+  group('서버가 번호를 거절하면(422 phone_number_invalid)', () {
+    Future<BasicInfoViewModel> submitRejected(WidgetTester tester) async {
+      repository.nextSubmitResult =
+          const FailureResult(ServerRejectedFailure('올바른 휴대폰 번호를 입력해 주세요', code: 'phone_number_invalid'));
+      final vm = container.read(basicInfoViewModelProvider.notifier);
+      vm.changeNickname('가나다');
+      await tester.pump(const Duration(milliseconds: 350));
+      vm.changeBirthYear('2002');
+      vm.changeHeight('175');
+      vm.changePhoneNumber('010-4821-7395');
+      vm.changeGender('male');
+      await vm.submit();
+      return vm;
+    }
+
+    testWidgets('버튼 위 오류가 아니라 번호 칸 아래 오류로 띄우고 "다음"을 끈다', (tester) async {
+      await submitRejected(tester);
+
+      final state = container.read(basicInfoViewModelProvider);
+      expect(state.phoneNumberError, '올바른 휴대폰 번호를 입력해 주세요');
+      expect(state.errorMessage, isNull);
+      expect(state.canSubmit, isFalse);
+    });
+
+    testWidgets('번호를 고치면 오류가 걷히고 다시 낼 수 있다', (tester) async {
+      final vm = await submitRejected(tester);
+
+      vm.changePhoneNumber('010-5932-8406');
+
+      final state = container.read(basicInfoViewModelProvider);
+      expect(state.phoneNumberError, isNull);
+      expect(state.canSubmit, isTrue);
+    });
+
+    testWidgets('다른 code 의 거절은 종전대로 버튼 위에 서버 문구를 띄운다', (tester) async {
+      repository.nextSubmitResult = const FailureResult(ServerRejectedFailure('이미 있는 닉네임이에요', code: 'nickname_taken'));
+      final vm = container.read(basicInfoViewModelProvider.notifier);
+      vm.changeNickname('가나다');
+      await tester.pump(const Duration(milliseconds: 350));
+      vm.changeBirthYear('2002');
+      vm.changeHeight('175');
+      vm.changePhoneNumber('010-4821-7395');
+      vm.changeGender('male');
+
+      await vm.submit();
+
+      final state = container.read(basicInfoViewModelProvider);
+      expect(state.errorMessage, '이미 있는 닉네임이에요');
+      expect(state.phoneNumberError, isNull);
+    });
   });
 
   testWidgets('제출에 성공하면 completed 가 켜지고 온보딩 단계를 다시 조회한다', (tester) async {
@@ -269,7 +351,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 350));
     vm.changeBirthYear('2002');
     vm.changeHeight('175');
-    vm.changePhoneNumber('01012345678');
+    vm.changePhoneNumber('01048217395');
     vm.changeGender('male');
 
     await vm.submit();
@@ -334,7 +416,7 @@ void main() {
       return opened;
     }
 
-    const phone = '010-1234-5678';
+    const phone = '010-4821-7395';
 
     void fillAll(BasicInfoViewModel vm) {
       vm.changeNickname('가나다');
@@ -368,7 +450,7 @@ void main() {
       fillAll(open().read(basicInfoViewModelProvider.notifier));
 
       expect(drafts.dump, contains('가나다'), reason: '나머지 값은 저장돼야 이 시험이 뜻이 있다');
-      for (final piece in ['1234', '5678', '01012345678', phone]) {
+      for (final piece in ['4821', '7395', '01048217395', phone]) {
         expect(drafts.dump, isNot(contains(piece)));
       }
     });
@@ -387,8 +469,8 @@ void main() {
 
       final disk = [for (final key in preferences.getKeys()) '$key=${preferences.get(key)}'].join('\n');
       expect(disk, contains('가나다'));
-      expect(disk, isNot(contains('1234')));
-      expect(disk, isNot(contains('5678')));
+      expect(disk, isNot(contains('4821')));
+      expect(disk, isNot(contains('7395')));
     });
 
     test('"다음" 이 성공하면 이 화면 값을 지운다', () async {

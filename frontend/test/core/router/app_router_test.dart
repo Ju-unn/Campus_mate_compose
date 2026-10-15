@@ -4,6 +4,7 @@ import 'package:campus_mate/account/model/account_repository.dart';
 import 'package:campus_mate/account/view/account_screen.dart';
 import 'package:campus_mate/account/view/account_suspended_screen.dart';
 import 'package:campus_mate/account/view/kakao_id_settings_screen.dart';
+import 'package:campus_mate/auth/model/school_name_provider.dart';
 import 'package:campus_mate/auth/model/social_login_repository_provider.dart';
 import 'package:campus_mate/auth/model/verification_gate.dart';
 import 'package:campus_mate/auth/view/start_view.dart';
@@ -13,6 +14,7 @@ import 'package:campus_mate/chat/view/chat_room_screen.dart';
 import 'package:campus_mate/community/model/community_repository_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/common/university_logos.dart';
 import 'package:campus_mate/core/auth/account_status_listenable.dart';
 import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
 import 'package:campus_mate/core/back_exit/back_exit_view_model.dart';
@@ -41,10 +43,12 @@ import 'package:campus_mate/me/view/profile_edit_screen.dart';
 import 'package:campus_mate/me/view/profile_manage_screen.dart';
 import 'package:campus_mate/profile/model/onboarding_repository.dart';
 import 'package:campus_mate/profile/model/onboarding_step.dart';
+import 'package:campus_mate/profile/view/acquisition_screen.dart';
 import 'package:campus_mate/profile/view/basic_info_screen.dart';
 import 'package:campus_mate/profile/view/ideal_conditions_screen.dart';
 import 'package:campus_mate/profile/view/tag_picker_screen.dart';
 import 'package:campus_mate/profile/viewmodel/tag_picker_kind.dart';
+import 'package:campus_mate/referral/view/referral_code_screen.dart';
 import 'package:campus_mate/safety/model/safety_repository_provider.dart';
 import 'package:campus_mate/safety/view/block_list_screen.dart';
 import 'package:campus_mate/safety/view/partner_profile_screen.dart';
@@ -670,7 +674,11 @@ void main() {
   group('최상위 탭의 뒤로가기 확인', () {
     late int exitCalls;
 
-    Future<GoRouter> pumpMember(WidgetTester tester, {OnboardingStep step = OnboardingStep.complete}) async {
+    Future<GoRouter> pumpMember(
+      WidgetTester tester, {
+      OnboardingStep step = OnboardingStep.complete,
+      VerificationGate gate = VerificationGate.complete,
+    }) async {
       exitCalls = 0;
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
         if (call.method == 'SystemNavigator.pop') exitCalls++;
@@ -679,12 +687,15 @@ void main() {
       addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
       final router = AppRouter.create(
         isAuthenticated: () => true,
-        verificationGate: _passedGate,
+        verificationGate: () => gate,
         onboardingStep: () => step,
       );
       addTearDown(router.dispose);
       final container = ProviderContainer(
         overrides: [
+          // 3c 관문 화면이 읽는 학교명 · 로고(지어낸 값, 로고 없음).
+          schoolNameProvider.overrideWithValue(const AsyncData('가나대학교')),
+          universityLogosProvider.overrideWith((ref) => const <String, String>{}),
           cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
           chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
           communityRepositoryProvider.overrideWithValue(FakeCommunityRepository()),
@@ -761,13 +772,83 @@ void main() {
       expect(exitCalls, 0);
     });
 
-    testWidgets('온보딩 도중의 뒤로가기는 건드리지 않는다', (tester) async {
-      await pumpMember(tester, step: OnboardingStep.kakaoId);
+    // 10-15 사용자 지적: 온보딩 · 관문도 go 로만 들어와 맨 아래 한 장이라 시스템 뒤로가기가 곧바로 앱을 닫았다.
+    // 탭과 같이 한 번 더 확인한다(종전 "온보딩 도중의 뒤로가기는 건드리지 않는다" 를 뒤집었다). 약관(02-c)은 종전대로 막아 둔다.
+    Future<void> expectHintThenExit(WidgetTester tester) async {
+      expect(find.byType(BackExitScope), findsOneWidget, reason: '두 겹이면 같은 뒤로가기에 둘 다 불린다');
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+
+      expect(find.text(backExitMessage), findsOneWidget);
+      expect(exitCalls, 0);
 
       await tester.binding.handlePopRoute();
       await tester.pump();
 
+      expect(exitCalls, 1);
+    }
+
+    for (final step in [OnboardingStep.kakaoId, OnboardingStep.survey]) {
+      testWidgets('온보딩(${step.name})에서도 첫 뒤로가기는 안내만, 한 번 더 누르면 앱을 닫는다', (tester) async {
+        await pumpMember(tester, step: step);
+
+        await expectHintThenExit(tester);
+      });
+    }
+
+    testWidgets('20 추천 코드에서도 첫 뒤로가기는 안내만, 한 번 더 누르면 앱을 닫는다', (tester) async {
+      final router = await pumpMember(tester);
+      router.go(AppRoutes.onboardingReferral);
+      await tester.pumpAndSettle();
+      expect(find.byType(ReferralCodeScreen), findsOneWidget);
+
+      await expectHintThenExit(tester);
+    });
+
+    testWidgets('3c 관문에서도 첫 뒤로가기는 안내만, 한 번 더 누르면 앱을 닫는다', (tester) async {
+      await pumpMember(tester, gate: VerificationGate.needsSchoolInfo);
+
+      await expectHintThenExit(tester);
+    });
+
+    testWidgets('설문 둘째 문항의 시스템 뒤로가기는 첫 문항으로 가고 안내는 뜨지 않는다', (tester) async {
+      await pumpMember(tester, step: OnboardingStep.survey);
+      await tester.tap(find.text('다음'));
+      await tester.pumpAndSettle();
+      expect(find.text('낯선 사람과 빨리\n친해지는 편인가요?'), findsOneWidget);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(find.text('밖에 나가서 활동하는 걸\n좋아하시나요?'), findsOneWidget);
       expect(find.text(backExitMessage), findsNothing);
+      expect(exitCalls, 0);
+    });
+
+    testWidgets('20d 의 시스템 뒤로가기는 앱바 화살표처럼 20 으로 간다', (tester) async {
+      final router = await pumpMember(tester);
+      router.go(AppRoutes.onboardingAcquisition);
+      await tester.pumpAndSettle();
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ReferralCodeScreen), findsOneWidget);
+      expect(find.text(backExitMessage), findsNothing);
+      expect(exitCalls, 0);
+    });
+
+    testWidgets('06-4 의 시스템 뒤로가기는 앱바 화살표처럼 20d 로 간다', (tester) async {
+      final router = await pumpMember(tester);
+      router.go(AppRoutes.onboardingContactBlock);
+      await tester.pumpAndSettle();
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AcquisitionScreen), findsOneWidget);
+      expect(find.text(backExitMessage), findsNothing);
+      expect(exitCalls, 0);
     });
   });
 

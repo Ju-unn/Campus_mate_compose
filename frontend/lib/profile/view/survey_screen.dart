@@ -1,6 +1,7 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/common/widgets/trait_slider.dart';
+import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
@@ -59,12 +60,22 @@ class _SurveyScreenState extends ConsumerState<SurveyScreen> {
     assert(_axes.length == SurveyUiState.axisCount, '축 문항 수와 페이지 번호 계산이 어긋났다');
     final state = ref.watch(surveyViewModelProvider);
     final viewModel = ref.read(surveyViewModelProvider.notifier);
+    final goBack = _page == 0 ? null : _goBack;
+    // 안드로이드 시스템 뒤로가기는 앱바 화살표와 같다(이전 문항). 첫 문항에서는 탭처럼 한 번 더 눌러야 앱이 닫힌다.
+    // 라우터는 이 화면을 두르지 않는다 — 두 겹이면 같은 뒤로가기에 안내까지 뜬다.
+    return BackExitScope(
+      onBack: goBack,
+      child: _scaffold(state, viewModel, goBack),
+    );
+  }
+
+  Widget _scaffold(SurveyUiState state, SurveyViewModel viewModel, VoidCallback? goBack) {
     return Scaffold(
       appBar: OnboardingAppBar(
         current: _page,
         total: _pageCount,
         isBar: true,
-        onBack: _page == 0 ? null : _goBack,
+        onBack: goBack,
       ),
       body: SafeArea(
         top: false,

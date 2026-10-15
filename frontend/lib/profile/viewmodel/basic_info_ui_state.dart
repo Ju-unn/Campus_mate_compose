@@ -1,5 +1,6 @@
 import 'package:campus_mate/common/phone_number_formatter.dart';
 import 'package:campus_mate/profile/model/mbti_poles.dart';
+import 'package:campus_mate/profile/model/signup_phone_number.dart';
 
 /// 닉네임 한 줄 안내의 상태(DESIGN.md §8.5 `nickname-field` "인라인 중복확인 상태").
 /// 입력이 바뀌면 [none] 으로 돌아가고, 디바운스가 끝난 뒤 형식·중복 확인 결과로 채워진다.
@@ -14,6 +15,7 @@ class BasicInfoUiState {
     this.birthYearInput = '',
     this.heightInput = '',
     this.phoneNumberInput = '',
+    this.rejectedPhoneDigits,
     this.gender,
     this.mbtiPoles = const {},
     this.isMbtiUnknown = false,
@@ -36,6 +38,10 @@ class BasicInfoUiState {
   final String birthYearInput;
   final String heightInput;
   final String phoneNumberInput;
+
+  /// 서버가 422 `phone_number_invalid` 로 거절한 번호(숫자만). 앱 규칙을 지났어도 서버가 막은 번호라 같은 번호로는
+  /// 다시 내지 않는다 — 번호를 고치면 저절로 걷힌다. 폰에 남기지 않는다([toDraft] 에 없다).
+  final String? rejectedPhoneDigits;
   final String? gender;
   /// 축마다 고른 극(E/I · N/S · T/F · J/P). 네 축을 다 골라야 서버로 보낼 값이 된다.
   final Set<String> mbtiPoles;
@@ -88,6 +94,16 @@ class BasicInfoUiState {
   String? get heightError =>
       heightInput.length == 3 && heightCm == null ? '숫자 3자리를 확인해 주세요' : null;
 
+  /// 가입용 번호 규칙([SignupPhoneNumber])에 걸리면 **11자리를 다 친 뒤에만** 오류를 띄운다(키 칸과 같은 방식).
+  /// 서버도 같은 규칙으로 다시 본다 — 앱은 바로 알려 주고 "다음"을 끈다.
+  /// 서버가 거절한 번호([rejectedPhoneDigits])도 같은 자리 · 같은 문구다(서버 422 본문 `detail` 과 같은 글자).
+  String? get phoneNumberError {
+    final isFilled = phoneDigits.length == PhoneNumberFormatter.maxDigits;
+    return isFilled && !_isPhoneAcceptable ? '올바른 휴대폰 번호를 입력해 주세요' : null;
+  }
+
+  bool get _isPhoneAcceptable => SignupPhoneNumber.accepts(phoneDigits) && phoneDigits != rejectedPhoneDigits;
+
   /// 출생연도는 **나이가 모자랄 때만** 오류를 띄운다(사용자 결정 2026-09-29). 치는 도중(3자리 이하)은 값이 작아
   /// 걸리지 않는다. 문구는 서버 422(schemas.py)와 같다 — 해가 바뀌면 연도도 따라 바뀐다. 1950 이전은 꺼지기만 한다.
   String? get birthYearError {
@@ -138,8 +154,8 @@ class BasicInfoUiState {
         _isNicknameValid &&
         birthYear != null &&
         heightCm != null &&
-        // 반만 친 번호로 넘어가면 서버가 400 을 돌려주고 04-1 에 다시 갇힌다.
-        phoneDigits.length == PhoneNumberFormatter.maxDigits &&
+        // 반만 친 번호 · 가짜 모양 번호로 넘어가면 서버가 400 을 돌려주고 04-1 에 다시 갇힌다.
+        _isPhoneAcceptable &&
         gender != null;
   }
 }

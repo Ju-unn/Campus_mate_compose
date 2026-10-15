@@ -1,5 +1,7 @@
+import 'package:campus_mate/common/widgets/trait_slider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/profile/view/survey_screen.dart';
+import 'package:campus_mate/profile/viewmodel/survey_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -46,6 +48,20 @@ void main() {
     await next(tester, 1);
 
     expect(find.text(_headlines[1]), findsOneWidget);
+  });
+
+  testWidgets('슬라이더를 가로로 끌면 답이 바뀌고, 쪽은 넘어가지 않는다(PageView 는 손으로 넘기지 않는다)', (tester) async {
+    await pump(tester);
+    final slider = find.byType(TraitSlider);
+    final left = tester.getTopLeft(slider);
+
+    // 가운데(0)에서 왼쪽 끝 칸까지 끈다.
+    await tester.dragFrom(tester.getCenter(slider) - const Offset(0, 14), Offset(left.dx - tester.getCenter(slider).dx, 0));
+    await tester.pumpAndSettle();
+
+    final container = ProviderScope.containerOf(tester.element(find.byType(SurveyScreen)));
+    expect(container.read(surveyViewModelProvider).answers[1], -1);
+    expect(find.text(_headlines[0]), findsOneWidget);
   });
 
   testWidgets('9개 질문은 pen 이 정한 자리에서 줄이 끊긴다', (tester) async {
