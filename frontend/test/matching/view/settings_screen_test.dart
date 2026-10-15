@@ -19,6 +19,9 @@ import 'package:campus_mate/faq/model/faq_cache.dart';
 import 'package:campus_mate/faq/model/faq_item.dart';
 import 'package:campus_mate/faq/model/faq_repository.dart';
 import 'package:campus_mate/faq/view/faq_screen.dart';
+import 'package:campus_mate/home/model/cohort_wait.dart';
+import 'package:campus_mate/home/model/home_repository_provider.dart';
+import 'package:campus_mate/home/model/home_summary.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:campus_mate/me/model/me_repository_provider.dart';
 import 'package:campus_mate/me/model/my_profile.dart';
@@ -35,6 +38,7 @@ import 'package:campus_mate/safety/view/contact_block_list_screen.dart';
 import 'package:campus_mate/safety/view/contact_picker_screen.dart';
 import 'package:campus_mate/safety/view/contact_row.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
+import 'package:campus_mate/tour/viewmodel/app_tour_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -43,6 +47,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../account/model/fake_account_repository.dart';
 import '../../faq/model/fake_faq.dart';
+import '../../home/model/fake_home_repository.dart';
 import '../../me/model/fake_me_repository.dart';
 import '../../referral/model/fake_referral_repository.dart';
 import '../../safety/model/fake_contact_blocks.dart';
@@ -82,6 +87,7 @@ class _SlowMeRepository extends FakeMeRepository {
 
 void main() {
   var signOutCalls = 0;
+  late ProviderContainer settingsContainer;
   late List<Uri> opened;
   late Future<bool> Function(Uri) openUrl;
 
@@ -93,6 +99,7 @@ void main() {
     Future<void>? faqGate,
     Result<MyProfile>? profile,
     Future<void>? profileGate,
+    CohortWait? cohort,
   }) async {
     signOutCalls = 0;
     opened = [];
@@ -123,9 +130,21 @@ void main() {
         faqRepositoryProvider.overrideWithValue(FakeFaqRepository(Success(faq), gate: faqGate)),
         faqCacheProvider.overrideWithValue(FakeFaqCache()),
         openUrlProvider.overrideWithValue((uri) => openUrl(uri)),
+        // "가이드 다시 보기" 가 우리 학교가 열렸는지 홈 요약으로 본다. 기본은 열린 학교.
+        homeRepositoryProvider.overrideWithValue(FakeHomeRepository(Success(HomeSummary(
+          deliveredCards: 0,
+          signups: 0,
+          conversationsStarted: 0,
+          reviewRating: 0,
+          reviewCount: 0,
+          campuses: const [],
+          profileCompletionPercent: 60,
+          cohort: cohort,
+        )))),
       ],
     );
     addTearDown(container.dispose);
+    settingsContainer = container;
     // 줄을 누르면 push 로 다음 화면이 열린다 — 라우터 안에서 띄운다.
     final router = GoRouter(
       initialLocation: AppRoutes.settings,
@@ -309,7 +328,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('자주 묻는 질문'), findsNothing);
-    expect(tester.getRect(tile('이용약관')).top, tester.getRect(find.text('지원')).bottom + 8);
+    expect(tester.getRect(tile('가이드 다시 보기')).top, tester.getRect(find.text('지원')).bottom + 8);
   });
 
   testWidgets('모든 줄의 눌림 효과는 그 줄 안에서 그려진다', (tester) async {
@@ -492,7 +511,7 @@ void main() {
   testWidgets('"이용약관" · "개인정보처리방침" 은 FAQ 와 로그아웃 사이, 3D 약관 · 개인정보 아이콘이다(A6, pen F4pb9 · yEBjk)', (tester) async {
     await pump(tester);
 
-    expect(tester.getRect(tile('이용약관')).top, tester.getRect(tile('자주 묻는 질문')).bottom);
+    expect(tester.getRect(tile('이용약관')).top, tester.getRect(tile('가이드 다시 보기')).bottom);
     expect(tester.getRect(tile('개인정보처리방침')).top, tester.getRect(tile('이용약관')).bottom);
     expect(icon3d(tester, '이용약관').icon, AppIcon3d.terms);
     expect(icon3d(tester, '개인정보처리방침').icon, AppIcon3d.privacy);
@@ -750,5 +769,41 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
+  });
+
+  group('가이드 다시 보기(앱 투어)', () {
+    testWidgets('지원 카드의 자주 묻는 질문 바로 아래 52 줄, 3D 정보 아이콘 24 와 셰브런이다', (tester) async {
+      await pump(tester);
+
+      expect(tester.getRect(tile('가이드 다시 보기')).top, tester.getRect(tile('자주 묻는 질문')).bottom);
+      expect(tester.getSize(tile('가이드 다시 보기')).height, 52);
+      expect(icon3d(tester, '가이드 다시 보기').icon, AppIcon3d.infoBlue);
+      expect(icon3d(tester, '가이드 다시 보기').size, 24);
+      expect(find.descendant(of: tile('가이드 다시 보기'), matching: find.byIcon(AppIcons.chevronRight)), findsOneWidget);
+      expect(divider(tester, '가이드 다시 보기'), const BorderSide(color: AppColors.hairlineSoft));
+    });
+
+    testWidgets('학교가 열려 있으면 누르면 투어를 처음부터 다시 시작한다(홈으로 옮기는 것은 앱 맨 위 투어 호스트)', (tester) async {
+      await pump(tester);
+
+      await tester.tap(find.text('가이드 다시 보기'));
+      await tester.pumpAndSettle();
+
+      final tour = settingsContainer.read(appTourViewModelProvider);
+      expect(tour.active, isTrue);
+      expect(tour.index, 0);
+    });
+
+    testWidgets('학교 오픈 전(코호트 대기)이면 시작하지 않고 "학교 오픈 후에 볼 수 있어요" 토스트만 띄운다', (tester) async {
+      await pump(tester, cohort: CohortWait(firstCardAt: DateTime.now().add(const Duration(days: 3)), recruitCount: 5));
+
+      await tester.tap(find.text('가이드 다시 보기'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(settingsContainer.read(appTourViewModelProvider).active, isFalse);
+      expect(find.widgetWithText(AppToast, '학교 오픈 후에 볼 수 있어요'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 4));
+    });
   });
 }
