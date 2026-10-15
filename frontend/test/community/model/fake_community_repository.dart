@@ -33,6 +33,13 @@ class FakeCommunityRepository implements CommunityRepository {
 
   /// 채워 두면 커서가 있는 요청(다음 쪽)에 이것을 돌려준다.
   Result<PollPage>? nextPage;
+
+  /// 탭별 첫 쪽. 없는 탭은 [page] 를 돌려준다.
+  final Map<PollFeedTab, Result<PollPage>> pageByTab = {};
+
+  /// 채워 두면 목록 응답(첫 쪽 · 다음 쪽)이 이것이 끝날 때까지 멈춘다 — 늦게 도착한 응답 상황용.
+  /// 부른 순간의 값을 잡으니, 요청 하나를 붙잡아 두고 비운 뒤 다음 요청은 바로 돌려줄 수 있다.
+  Completer<void>? holdPage;
   Result<Poll>? poll;
   Result<void> createResult = const Success(null);
   Result<VoteOutcome>? voteResult;
@@ -47,16 +54,17 @@ class FakeCommunityRepository implements CommunityRepository {
   /// 채워 두면 올리기 응답이 이것이 끝날 때까지 멈춘다 — 올리는 중(17b `UqasS`) 상태용.
   Completer<void>? holdCreate;
 
-  final List<({DateTime? before, String? beforeId})> pageRequests = [];
+  final List<({PollFeedTab tab, DateTime? before, String? beforeId})> pageRequests = [];
   final List<({String question, String optionA, String optionB})> created = [];
   final List<({String pollId, PollChoice choice})> votes = [];
   final List<String> fetchedPollIds = [];
   final List<String> deleted = [];
 
   @override
-  Future<Result<PollPage>> fetchPolls({DateTime? before, String? beforeId}) async {
-    pageRequests.add((before: before, beforeId: beforeId));
-    return before == null ? page : (nextPage ?? page);
+  Future<Result<PollPage>> fetchPolls({PollFeedTab tab = PollFeedTab.all, DateTime? before, String? beforeId}) async {
+    pageRequests.add((tab: tab, before: before, beforeId: beforeId));
+    if (holdPage case final hold?) await hold.future;
+    return before == null ? (pageByTab[tab] ?? page) : (nextPage ?? page);
   }
 
   @override

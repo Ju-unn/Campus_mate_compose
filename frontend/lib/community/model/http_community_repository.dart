@@ -11,13 +11,20 @@ class HttpCommunityRepository implements CommunityRepository {
   final ApiClient _api;
 
   @override
-  Future<Result<PollPage>> fetchPolls({DateTime? before, String? beforeId}) => _api.send(
-        'GET',
-        '/community/polls',
-        (body) => PollPage.fromJson(body as Map<String, dynamic>),
-        // 첫 쪽에는 커서가 없다. 빈 맵을 주면 URL 끝에 '?' 가 붙는다.
-        query: before == null ? null : {'before': before.toUtc().toIso8601String(), 'before_id': ?beforeId},
-      );
+  Future<Result<PollPage>> fetchPolls({PollFeedTab tab = PollFeedTab.all, DateTime? before, String? beforeId}) {
+    final query = {
+      // 전체는 보내지 않는다 — 서버 기본값이 all 이고, 탭 전 앱과 같은 URL 이 된다.
+      if (tab != PollFeedTab.all) 'tab': tab.name,
+      if (before != null) ...{'before': before.toUtc().toIso8601String(), 'before_id': ?beforeId},
+    };
+    return _api.send(
+      'GET',
+      '/community/polls',
+      (body) => PollPage.fromJson(body as Map<String, dynamic>),
+      // 전체 첫 쪽에는 쿼리가 없다. 빈 맵을 주면 URL 끝에 '?' 가 붙는다.
+      query: query.isEmpty ? null : query,
+    );
+  }
 
   @override
   Future<Result<Poll>> fetchPoll(String pollId) => _api.send(
