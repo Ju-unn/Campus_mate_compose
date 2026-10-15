@@ -194,6 +194,29 @@ def test_basic_info_refuses_a_number_that_is_not_a_real_010_phone(phone_number):
     assert writes == []
 
 
+@pytest.mark.parametrize("gender", ["other", "Male", ""])
+def test_basic_info_takes_only_male_or_female_before_writing(gender):
+    """DB enum gender 와 같은 두 값만 받는다 — DB 에 맡기면 프로필 PATCH 에서야 22P02 로 떨어진다."""
+    writes: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method in ("PATCH", "POST"):
+            writes.append(str(request.url))
+        return httpx.Response(200, json=[])
+
+    response = _wire(handler).post(
+        "/profile-onboarding/basic-info",
+        headers=AUTH_HEADERS,
+        json={
+            "nickname": "가나", "birth_year": 2002, "height_cm": 170,
+            "phone_number": "010-4821-7395", "gender": gender,
+        },
+    )
+
+    assert response.status_code == 422
+    assert writes == []
+
+
 def test_nickname_availability_ignores_callers_own_nickname():
     """04-1 을 다시 채울 때 방금 저장된 자기 닉네임이 '이미 있는 닉네임' 으로 막히면 안 된다."""
     seen_params: list[httpx.QueryParams] = []

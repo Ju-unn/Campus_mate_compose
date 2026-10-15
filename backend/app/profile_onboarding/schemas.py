@@ -20,7 +20,7 @@ class BasicInfoRequest(BaseModel):
     birth_year: int
     height_cm: int
     phone_number: str
-    gender: str
+    gender: Literal["male", "female"]  # DB enum gender 와 같다
     mbti: str | None = None
 
     @field_validator("birth_year")
