@@ -312,13 +312,13 @@ def test_shrinking_the_image_runs_off_the_event_loop(wire, monkeypatch):
     where = []
     shrink = paid_preview.blur_preview
 
-    def spy(original: bytes) -> bytes:
+    def spy(*args) -> bytes:
         try:
             asyncio.get_running_loop()
             where.append("event loop")
         except RuntimeError:
             where.append("worker thread")
-        return shrink(original)
+        return shrink(*args)
 
     monkeypatch.setattr(paid_preview, "blur_preview", spy)
     world = _World(offers=[_offer()], avatars={"c03/a.png": _png()})
