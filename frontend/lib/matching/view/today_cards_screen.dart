@@ -21,6 +21,8 @@ import 'package:campus_mate/matching/view/daily_card_summary.dart';
 import 'package:campus_mate/matching/view/paid_card_slot.dart';
 import 'package:campus_mate/matching/viewmodel/today_cards_ui_state.dart';
 import 'package:campus_mate/matching/viewmodel/today_cards_view_model.dart';
+import 'package:campus_mate/tour/view/app_tour_steps.dart';
+import 'package:campus_mate/tour/view/tour_target.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -47,7 +49,8 @@ class TodayCardsScreen extends ConsumerWidget {
       // 알림 종은 "메인" 탭에만 두기로 했고(2026-09-23 사용자 결정), 설정 진입점은 따로 정해진다.
       appBar: AppBar(
         titleSpacing: 20,
-        title: Text('오늘의 카드', style: AppTypography.navTitle),
+        // 앱 투어 4단계 — 도착 시각 안내가 없는 상태(카드 목록 등)면 이 제목(상단 영역)을 가리킨다.
+        title: TourTarget(id: TourTargetId.todayHeader, child: Text('오늘의 카드', style: AppTypography.navTitle)),
       ),
       bottomNavigationBar: const GlassBottomNav(current: AppTab.today),
       // 아래는 비우지 않는다 — 각 상태가 알약 자리를 직접 피한다(목록은 알약 뒤로 이어진다).
@@ -172,23 +175,32 @@ class _WaitingPanel extends StatelessWidget {
       // 가운데로 모으면 시안보다 아래로 내려간다 — 앱바 아래 28 에서 시작하고 남는 공간은 아래에 둔다.
       topPadding: 28,
       children: [
-        Text(
-          '오늘 카드는 확인했어요',
-          style: AppTypography.title.copyWith(color: AppColors.ink, fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          waitingSubtitle(nextIssueAt, DateTime.now()),
-          textAlign: TextAlign.center,
-          style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
-        ),
-        const SizedBox(height: 22),
-        if (nextIssueAt != null)
-          CountdownText(
-            target: nextIssueAt!,
-            style: AppTypography.countdown.copyWith(color: AppColors.ink),
-            onDone: onCountdownDone,
+        // 앱 투어 4단계(카드 도착 시각)가 제목 · 부제 · 카운트다운을 한 덩어리로 가리킨다. 가운데 정렬은 그대로다.
+        TourTarget(
+          id: TourTargetId.todayArrival,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '오늘 카드는 확인했어요',
+                style: AppTypography.title.copyWith(color: AppColors.ink, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                waitingSubtitle(nextIssueAt, DateTime.now()),
+                textAlign: TextAlign.center,
+                style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+              ),
+              const SizedBox(height: 22),
+              if (nextIssueAt != null)
+                CountdownText(
+                  target: nextIssueAt!,
+                  style: AppTypography.countdown.copyWith(color: AppColors.ink),
+                  onDone: onCountdownDone,
+                ),
+            ],
           ),
+        ),
         const SizedBox(height: AppSpacing.lg),
         Image.asset('assets/images/mascot-male-waiting.png', width: 88),
         const SizedBox(height: 14),

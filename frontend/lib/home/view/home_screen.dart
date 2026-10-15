@@ -35,6 +35,9 @@ import 'package:campus_mate/matching/viewmodel/today_cards_view_model.dart';
 import 'package:campus_mate/me/view/me_toast.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:campus_mate/notifications/viewmodel/unread_count_provider.dart';
+import 'package:campus_mate/tour/view/app_tour_steps.dart';
+import 'package:campus_mate/tour/view/tour_target.dart';
+import 'package:campus_mate/tour/viewmodel/app_tour_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -61,6 +64,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
   /// 요약 블록 도착 효과는 이 화면에서 요약을 **처음 받을 때만** 보인다 — 이미 받아 둔 요약으로 다시 들어오거나
   /// 다시 읽을 때(프로필 편집에서 돌아옴)는 움직이지 않는다. 한 번 요약을 그리면 false 로 닫힌다.
   late bool _summaryArriving = ref.read(homeSummaryProvider).value == null;
+
+  /// 앱 투어 자동 시작을 이 화면에서 한 번만 묻는다(본 적이 있는지는 뷰모델이 계정별로 본다).
+  bool _tourAsked = false;
+
+  /// 학교가 열린 홈(요약을 받았고 코호트 대기가 아님)에 왔을 때만 — 오픈 전 계정은 오픈 뒤 첫 홈에서 본다.
+  void _askTourOnce() {
+    if (_tourAsked) return;
+    _tourAsked = true;
+    // 그리는 도중에 provider 를 바꾸지 않게 다음 차례로 미룬다.
+    Future.microtask(() {
+      if (mounted) unawaited(ref.read(appTourViewModelProvider.notifier).autoStart());
+    });
+  }
 
   @override
   void initState() {
@@ -140,6 +156,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
   Widget build(BuildContext context) {
     final summary = ref.watch(homeSummaryProvider).value;
     final cohort = summary?.cohort;
+    if (summary != null && cohort == null) _askTourOnce();
     final animateSummary = _summaryArriving;
     if (summary != null) _summaryArriving = false;
     // 레일 사람 칸 — 요약과 따로 받는다. 09b 를 그릴 때(요약이 왔고 학교가 열렸을 때)만 부른다 — 학교 대기(코호트) 사용자와
@@ -191,7 +208,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
                     20 + MediaQuery.paddingOf(bodyContext).bottom,
                   ),
                   children: [
-                    const _HeroToday(),
+                    const TourTarget(id: TourTargetId.homeHero, child: _HeroToday()),
                     if (summary != null)
                       ..._summarySections(summary, people: people, animate: animateSummary, mySchool: mySchool),
                   ],
@@ -229,7 +246,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
       _CampusStrip(campuses: summary.campuses, mySchool: mySchool),
       // 다 채웠으면 권할 것이 없어 카드를 숨긴다(사용자 결정 2026-09-26). 10-15 에 잠깐 뺐다가 사용자 요청으로 되살렸다(pen `xEpOD`).
       if (summary.profileCompletionPercent < 100)
-        _ProfileNudge(percent: summary.profileCompletionPercent, onTap: _editProfile),
+        TourTarget(
+          id: TourTargetId.homeProfileNudge,
+          child: _ProfileNudge(percent: summary.profileCompletionPercent, onTap: _editProfile),
+        ),
     ];
     return [
       for (final (index, block) in blocks.indexed) ...[

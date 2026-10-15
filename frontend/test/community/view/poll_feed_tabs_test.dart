@@ -3,6 +3,8 @@ import 'package:campus_mate/community/model/community_repository.dart';
 import 'package:campus_mate/community/view/poll_feed_tabs.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/tour/view/app_tour_steps.dart';
+import 'package:campus_mate/tour/view/tour_target.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -183,5 +185,17 @@ void main() {
     final scrollable = find.descendant(of: find.byType(PollFeedTabs), matching: find.byType(Scrollable));
     expect(tester.state<ScrollableState>(scrollable).position.maxScrollExtent, 0);
     expect(tester.getRect(tab(PollFeedTab.voted)).right, 411 - 16);
+  });
+
+  testWidgets('앱 투어 3단계 표식은 탭 4개 줄(안쪽 여백 밖, 첫 탭 왼쪽 ~ 끝 탭 오른쪽)에 붙는다', (tester) async {
+    await pump(tester);
+
+    final target = find.byWidgetPredicate((w) => w is TourTarget && w.id == TourTargetId.communityTabs);
+    expect(target, findsOneWidget);
+    final row = tester.getRect(target);
+    expect(row.left, tester.getRect(tab(PollFeedTab.all)).left);
+    expect(row.right, tester.getRect(tab(PollFeedTab.voted)).right);
+    expect(row.top, tester.getRect(tab(PollFeedTab.all)).top);
+    expect(row.bottom, tester.getRect(tab(PollFeedTab.all)).bottom);
   });
 }

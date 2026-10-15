@@ -1,7 +1,9 @@
 import 'package:campus_mate/auth/view/start_view.dart';
 import 'package:campus_mate/common/widgets/keyboard_dismiss_on_tap.dart';
 import 'package:campus_mate/main.dart';
+import 'package:campus_mate/tour/view/app_tour_host.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart' show Navigator;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -48,6 +50,18 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(KeyboardDismissOnTap), findsOneWidget);
+
+    await tester.pump(_splashHoldDuration);
+    await tester.pumpAndSettle();
+  });
+
+  // 앱 투어(pen 섹션 24): 덮개가 화면 전환 중에도 남도록 라우터 바깥, 앱 맨 위에 한 번 붙는다.
+  testWidgets('앱 맨 위에 앱 투어 호스트가 한 번 붙고, 라우터(화면들)는 그 안에 있다', (tester) async {
+    await tester.pumpWidget(const ProviderScope(child: CampusMateApp()));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AppTourHost), findsOneWidget);
+    expect(find.descendant(of: find.byType(AppTourHost), matching: find.byType(Navigator)), findsWidgets);
 
     await tester.pump(_splashHoldDuration);
     await tester.pumpAndSettle();

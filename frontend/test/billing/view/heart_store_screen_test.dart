@@ -11,6 +11,8 @@ import 'package:campus_mate/billing/view/heart_payment_notice.dart';
 import 'package:campus_mate/billing/view/heart_purchase_banner.dart';
 import 'package:campus_mate/billing/view/heart_purchase_bar.dart';
 import 'package:campus_mate/billing/view/heart_store_screen.dart';
+import 'package:campus_mate/tour/view/app_tour_steps.dart';
+import 'package:campus_mate/tour/view/tour_target.dart';
 import 'package:campus_mate/billing/view/heart_task_row.dart';
 import 'package:campus_mate/billing/viewmodel/heart_purchase_view_model.dart';
 import 'package:campus_mate/common/failure.dart';
@@ -1017,4 +1019,15 @@ void main() {
       expect(inBar('800하트 받기 · 38,400원'), findsOneWidget, reason: '긴 버튼 글자는 줄여 넣지 자르지 않는다');
     });
   }
+
+  testWidgets('앱 투어 6단계 표식 — "무료로 모으기" 제목 · 안내 · 작업 줄 3개 전체, 스크롤 손잡이는 맨 위 그림', (tester) async {
+    await pump(tester);
+    await tester.pumpAndSettle();
+
+    final free = find.byWidgetPredicate((w) => w is TourTarget && w.id == TourTargetId.heartStoreFree, skipOffstage: false);
+    expect(find.descendant(of: free, matching: find.text('무료로 모으기', skipOffstage: false)), findsOneWidget);
+    expect(find.descendant(of: free, matching: find.byType(HeartTaskRow, skipOffstage: false)), findsNWidgets(3));
+    final top = find.byWidgetPredicate((w) => w is TourTarget && w.id == TourTargetId.heartStoreTop);
+    expect(find.descendant(of: top, matching: find.byType(Image)), findsOneWidget);
+  });
 }

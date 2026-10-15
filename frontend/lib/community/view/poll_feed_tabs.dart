@@ -4,6 +4,8 @@ import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/tour/view/app_tour_steps.dart';
+import 'package:campus_mate/tour/view/tour_target.dart';
 import 'package:flutter/material.dart';
 
 /// 15d 탭 줄(pen `VEZ2l` StoryStrip): 폭 꽉 · 안쪽 [4,16,12,16] · 탭 4개(`XfcKQ` 72×86) 양끝 맞춤(space_between) ·
@@ -39,19 +41,23 @@ class PollFeedTabs extends StatelessWidget {
         child: ConstrainedBox(
           // 넓으면 남는 폭을 탭 사이에 똑같이 나누고(space_between), 모자라면 그대로 이어 붙여 가로로 민다.
           constraints: BoxConstraints(minWidth: constraints.maxWidth - _padding.horizontal),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            spacing: _minGap,
-            children: [
-              for (final tab in PollFeedTab.values)
-                _Tab(
-                  tapKey: tabKey(tab),
-                  ringKey: ringKey(tab),
-                  tab: tab,
-                  selected: tab == selected,
-                  onTap: () => onSelected(tab),
-                ),
-            ],
+          // 앱 투어 3단계가 이 줄(탭 4개)을 가리킨다 — 표식은 자리 · 크기를 바꾸지 않는다.
+          child: TourTarget(
+            id: TourTargetId.communityTabs,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              spacing: _minGap,
+              children: [
+                for (final tab in PollFeedTab.values)
+                  _Tab(
+                    tapKey: tabKey(tab),
+                    ringKey: ringKey(tab),
+                    tab: tab,
+                    selected: tab == selected,
+                    onTap: () => onSelected(tab),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
