@@ -80,6 +80,46 @@ async def test_send_asks_apns_to_deliver_a_visible_alert_now():
     assert message["android"] == {"priority": "high"}
 
 
+# 학생 인증 결과는 같은 종류끼리 한 장으로 합친다 — 앱이 관문을 지나면 tag 로 그 한 장을 지운다(core/push/foreground_push.dart).
+_VERIFICATION_ANDROID = {"priority": "high", "notification": {"tag": "verification_result"}}
+_VERIFICATION_APNS = {"headers": {"apns-priority": "10", "apns-collapse-id": "verification_result"},
+                      "payload": {"aps": {"sound": "default"}}}
+
+
+async def test_a_verification_result_carries_one_tag_so_the_next_one_replaces_it():
+    """안드로이드는 notification.tag, iOS 는 apns-collapse-id 가 같으면 알림 줄의 앞 알림을 덮어쓴다."""
+    sender, pushes = _recording_sender()
+
+    await sender.send("tok", "학생 인증이 끝났어요", "본문", {"route": "verification"}, kind="verification_result")
+
+    assert pushes[0]["android"] == _VERIFICATION_ANDROID
+    assert pushes[0]["apns"] == _VERIFICATION_APNS
+
+
+async def test_other_kinds_keep_their_android_and_apns_blocks():
+    """매칭 · 채팅 · 카드 알림은 건마다 따로 쌓여야 한다 — tag 가 붙으면 앞 알림이 사라진다."""
+    sender, pushes = _recording_sender()
+
+    for kind in ("card_arrived", "acceptance_received", "match_made", "new_friend_review", "new_message",
+                 "trust_reminder", ""):
+        await sender.send("tok", "제목", "본문", {"route": "chat"}, kind=kind)
+
+    assert {json.dumps(p["android"]) for p in pushes} == {json.dumps({"priority": "high"})}
+    assert {json.dumps(p["apns"]) for p in pushes} == {
+        json.dumps({"headers": {"apns-priority": "10"}, "payload": {"aps": {"sound": "default"}}})}
+
+
+async def test_a_night_verification_result_sent_in_the_morning_keeps_its_tag():
+    """22~8시에 보류한 학생 인증 결과도 아침 묶음 경로(send_pending → notify)로 같은 tag 를 달고 간다."""
+    repo = _FakeRepo(["tok"], {}, pending=[_row("v1", "p1", "verification_result", "verification")])
+    sender, pushes = _recording_sender()
+
+    assert await send_pending(repo, sender, MORNING) == 1
+
+    assert pushes[0]["android"] == _VERIFICATION_ANDROID
+    assert pushes[0]["apns"] == _VERIFICATION_APNS
+
+
 async def test_dead_token_is_reported_as_dead():
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(404, json={"error": {"status": "NOT_FOUND"}})
