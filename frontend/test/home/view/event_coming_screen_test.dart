@@ -17,7 +17,7 @@ const _description = '새로운 이벤트가 준비되는 대로 여기서 알�
 const _buttonLabel = '인스타그램 보러 가기';
 final _instagram = Uri.parse('https://www.instagram.com/campusmate_official');
 
-/// pen 21 이벤트(출시 예정) `q2mpPW`(대장 전달 값 10-15).
+/// 9b-1 이벤트(출시 예정, pen `q2mpPW`, 대장 전달 값 10-15).
 void main() {
   late List<Uri> opened;
   late Future<bool> Function(Uri) open;

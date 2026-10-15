@@ -222,7 +222,7 @@ void main() {
       }
     });
 
-    testWidgets('이벤트 칸을 누르면 앱 안의 21 이벤트(출시 예정) 화면으로 간다 — 밖으로 열지 않는다', (tester) async {
+    testWidgets('이벤트 칸을 누르면 앱 안의 9b-1 이벤트(출시 예정) 화면으로 간다 — 밖으로 열지 않는다', (tester) async {
       final opened = await pump(tester);
 
       await tester.tap(tile('이벤트'));
