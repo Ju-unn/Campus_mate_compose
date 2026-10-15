@@ -204,7 +204,7 @@ def test_each_person_is_a_blurred_jpeg_the_size_of_the_tile(wire):
         assert image_bytes[:3] == b"\xff\xd8\xff"
         assert image_bytes != AVATAR
         with Image.open(io.BytesIO(image_bytes)) as image:
-            # 레일 사람 칸(pen `b9Rask`)이 112×140 이다.
+            # 레일 사람 칸(pen `O5FCD9`)이 112×140 이다.
             assert image.size == (112, 140)
 
 
