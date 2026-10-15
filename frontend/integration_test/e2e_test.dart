@@ -1,4 +1,5 @@
 import 'package:campus_mate/main.dart' as app;
+import 'package:campus_mate/tour/viewmodel/app_tour_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
@@ -73,6 +74,9 @@ void main() {
       await say({'case': name, 'result': 'blocked', 'note': '앱에 없는 가설'});
       return;
     }
+    // 앱 투어 자동 시작을 끈다 — 하네스는 가설마다 새 계정을 만들어, 켜 두면 첫 홈마다 덮개가 떠 가설이 막힌다.
+    // 설정 "가이드 다시 보기" 는 그대로 된다. PC 쪽 E-HOME-30(e2e/area2_tour.py)이 이 줄을 본다.
+    AppTourViewModel.autoStartEnabled = false;
     await app.main();
     try {
       final extra = await run(tester, job);
