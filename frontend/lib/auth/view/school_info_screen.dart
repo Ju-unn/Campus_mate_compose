@@ -4,6 +4,8 @@ import 'package:campus_mate/auth/viewmodel/school_info_ui_state.dart';
 import 'package:campus_mate/auth/viewmodel/school_info_view_model.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/common/widgets/school_label.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -12,7 +14,7 @@ import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// 학과·학번을 직접 입력받는 화면 (DESIGN.md 화면 3c, pen `B9Hu7`).
+/// 학과·학번을 직접 입력받는 화면 (DESIGN.md 화면 3c, pen 03c 화면 `B9Hu7`).
 ///
 /// 학교명은 3b 학생증 인증으로 이미 확정돼 읽기 전용으로만 보여준다.
 /// 학과·학번은 OCR 대조가 없는 자기 입력값이다(§9 3c, 검증 수단 부재는 §13 미결66).
@@ -154,7 +156,8 @@ class _SchoolInfoForm extends StatelessWidget {
   }
 }
 
-/// 읽기 전용 학교 확인 행 — `graduation-cap` + 학교명 + "확인됨" 뱃지 (§9 3c, pen `G4PVWE`).
+/// 읽기 전용 학교 확인 행 — [원 40 · 3D 졸업모 22 | 학교 로고 + 학교명 | "확인됨" 뱃지] (§9 3c, pen 03c 화면 `B9Hu7` 학교 줄
+/// 328×68 · 안쪽 14 · surface-soft · 모서리 14, 대장 전달 값). 종전의 "학교" 작은 글자 줄은 pen 에 없어 뺐다.
 /// 입력칸이 아니라는 것이 한눈에 보이도록 `surface-soft` 카드에 얹어 필드 앞에 둔다.
 class _SchoolConfirmedRow extends StatelessWidget {
   const _SchoolConfirmedRow({required this.schoolName});
@@ -179,7 +182,8 @@ class _SchoolConfirmedRow extends StatelessWidget {
       children: [
         _icon(),
         const SizedBox(width: AppSpacing.sm),
-        Expanded(child: _labels()),
+        // 로고는 학교명 글자(16)보다 2 큰 18 — SchoolLabel 이 글자 크기로 정한다. 로고가 없으면 이름만.
+        Expanded(child: SchoolLabel(schoolName, style: AppTypography.bodyStrong.copyWith(color: AppColors.ink))),
         const _VerifiedBadge(),
       ],
     );
@@ -193,30 +197,21 @@ class _SchoolConfirmedRow extends StatelessWidget {
       height: 40,
       alignment: Alignment.center,
       decoration: const BoxDecoration(color: AppColors.canvas, shape: BoxShape.circle),
-      child: const Icon(AppIcons.graduationCap, size: 20, color: AppColors.muted),
-    );
-  }
-
-  Widget _labels() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('학교', style: AppTypography.bodySmall.copyWith(color: AppColors.muted)),
-        Text(schoolName, style: AppTypography.bodyStrong.copyWith(color: AppColors.ink)),
-      ],
+      child: const Icon3d(AppIcon3d.graduationCap, size: 22),
     );
   }
 }
 
-/// "확인됨" 뱃지 — `primary-wash` 채움 pill 에 `primary-text` 아이콘·글자 (pen `B9Hu7` 실측).
-/// 글자는 인증 뱃지 전용 토큰 `AppTypography.badge`(11/600)를 그대로 쓴다.
+/// "확인됨" 뱃지 — `primary-wash` 채움 pill 에 `primary-text` 아이콘 14 · 글자 12/600 · 안쪽 10×6(pen 실측(B9Hu7 KzZH8)).
+/// 종전 주석은 이 값의 출처를 `B9Hu7` 실측이라 적고 11/600(`AppTypography.badge`)을 썼다 — pen 값은 12/600 이다.
 class _VerifiedBadge extends StatelessWidget {
   const _VerifiedBadge();
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: AppSpacing.xxs),
+      // pen 실측(B9Hu7 KzZH8) 가로 10 · 세로 6. 간격 토큰(xs 8 · sm 12, xxs 4 · xs 8) 사이 값이라 토큰으로 갈음하지 않는다.
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: AppColors.primaryWash,
         borderRadius: BorderRadius.circular(AppRadius.pill),
@@ -231,7 +226,7 @@ class _VerifiedBadge extends StatelessWidget {
       children: [
         const Icon(AppIcons.badgeCheck, size: 14, color: AppColors.primaryText),
         const SizedBox(width: AppSpacing.xxs),
-        Text('확인됨', style: AppTypography.badge.copyWith(color: AppColors.primaryText)),
+        Text('확인됨', style: AppTypography.caption.copyWith(fontWeight: FontWeight.w600, color: AppColors.primaryText)),
       ],
     );
   }
