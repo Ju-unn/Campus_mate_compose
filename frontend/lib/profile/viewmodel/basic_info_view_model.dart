@@ -148,9 +148,21 @@ class BasicInfoViewModel extends Notifier<BasicInfoUiState> {
   BasicInfoUiState _stateFromResult(Result<void> result) {
     return result.when(
       onSuccess: (_) => _copyWith(isSubmitting: false, completed: true),
-      onFailure: (failure) => _copyWith(isSubmitting: false, errorMessage: failure.toDisplayMessage()),
+      onFailure: _stateFromFailure,
     );
   }
+
+  /// 서버 422 `phone_number_invalid` 는 버튼 위가 아니라 번호 칸 아래에 띄운다(앱 규칙에 걸린 것과 같은 자리 · 문구).
+  /// 문구가 아니라 code 로 가른다 — 서버가 문구를 고쳐도 자리가 바뀌지 않게.
+  BasicInfoUiState _stateFromFailure(Failure failure) {
+    if (failure is ServerRejectedFailure && failure.hasCode(_phoneNumberInvalidCode)) {
+      return _copyWith(isSubmitting: false, rejectedPhoneDigits: state.phoneDigits);
+    }
+    return _copyWith(isSubmitting: false, errorMessage: failure.toDisplayMessage());
+  }
+
+  /// 서버 `POST /profile-onboarding/basic-info` 422 본문의 `code`(가입용 번호 규칙에 걸림).
+  static const String _phoneNumberInvalidCode = 'phone_number_invalid';
 
   void _refreshOnboardingStepIfCompleted() {
     if (!state.completed) {
@@ -165,6 +177,7 @@ class BasicInfoViewModel extends Notifier<BasicInfoUiState> {
     String? birthYearInput,
     String? heightInput,
     String? phoneNumberInput,
+    Object? rejectedPhoneDigits = _keep,
     String? gender,
     Set<String>? mbtiPoles,
     bool? isMbtiUnknown,
@@ -179,6 +192,8 @@ class BasicInfoViewModel extends Notifier<BasicInfoUiState> {
       birthYearInput: birthYearInput ?? state.birthYearInput,
       heightInput: heightInput ?? state.heightInput,
       phoneNumberInput: phoneNumberInput ?? state.phoneNumberInput,
+      rejectedPhoneDigits:
+          identical(rejectedPhoneDigits, _keep) ? state.rejectedPhoneDigits : rejectedPhoneDigits as String?,
       gender: gender ?? state.gender,
       mbtiPoles: mbtiPoles ?? state.mbtiPoles,
       isMbtiUnknown: isMbtiUnknown ?? state.isMbtiUnknown,
