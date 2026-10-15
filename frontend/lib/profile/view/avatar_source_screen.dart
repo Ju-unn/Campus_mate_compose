@@ -7,6 +7,7 @@ import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/profile/view/avatar_source_tile.dart';
+import 'package:campus_mate/profile/view/photo_example.dart';
 import 'package:campus_mate/profile/viewmodel/photos_ui_state.dart';
 import 'package:campus_mate/profile/viewmodel/photos_view_model.dart';
 import 'package:flutter/material.dart';
@@ -62,6 +63,10 @@ class AvatarSourceScreen extends ConsumerWidget {
                         Text(state.errorMessage!,
                             style: AppTypography.caption.copyWith(color: AppColors.error)),
                       ],
+                      // 아바타 변환 예시 2장(pen `q7Rp0G`, 사용자 결정 10-14) — 안내 아래 24. 오류 문구는 안내 바로 아래에 두고
+                      // 예시는 그 뒤다(15b-4/5 와 같은 순서).
+                      const SizedBox(height: AppSpacing.lg),
+                      const PhotoExample.avatar(),
                     ],
                   ),
                 ),

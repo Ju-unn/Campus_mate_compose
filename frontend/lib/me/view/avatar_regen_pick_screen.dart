@@ -10,6 +10,7 @@ import 'package:campus_mate/me/view/edit_app_bar.dart';
 import 'package:campus_mate/me/viewmodel/avatar_regen_pick_view_model.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:campus_mate/profile/view/avatar_source_tile.dart';
+import 'package:campus_mate/profile/view/photo_example.dart';
 import 'package:campus_mate/profile/view/photo_tiles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -55,34 +56,48 @@ class _AvatarRegenPickScreenState extends ConsumerState<AvatarRegenPickScreen> {
               // 사진 칸이 158 고정이라 작은 기기 · 큰 글씨에서는 위쪽이 넘친다 — 넘치는 쪽을 스크롤로 내주고 버튼은 늘 바닥에 남긴다
               // (04-3 과 같은 얼개).
               Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: AppSpacing.lg),
-                      Text('아바타로 만들 사진을 골라주세요', style: AppTypography.headline.copyWith(color: AppColors.ink)),
-                      const SizedBox(height: AppSpacing.xs),
-                      Text(
-                        '고른 사진 한 장이 새 아바타로 변환돼요.',
-                        style: AppTypography.body.copyWith(color: AppColors.body, height: 1.6),
+                child: CustomScrollView(
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: AppSpacing.lg),
+                          Text('아바타로 만들 사진을 골라주세요', style: AppTypography.headline.copyWith(color: AppColors.ink)),
+                          const SizedBox(height: AppSpacing.xs),
+                          Text(
+                            '고른 사진 한 장이 새 아바타로 변환돼요.',
+                            style: AppTypography.body.copyWith(color: AppColors.body, height: 1.6),
+                          ),
+                          const SizedBox(height: AppSpacing.xl),
+                          SizedBox.square(dimension: _tileSize, child: _tile(state, viewModel)),
+                          const SizedBox(height: AppSpacing.md),
+                          const NoticeCard(
+                            icon: AppIcons.lock,
+                            title: '상호 수락 전에는 아바타만 보여요',
+                            body: '올린 실제 사진은 서로 수락하고 신뢰 확인을 마친 뒤에 공개돼요.',
+                          ),
+                          if (state.errorMessage != null) ...[
+                            const SizedBox(height: AppSpacing.xs),
+                            Text(
+                              state.errorMessage!,
+                              style: AppTypography.caption.copyWith(color: AppColors.error),
+                            ),
+                          ],
+                        ],
                       ),
-                      const SizedBox(height: AppSpacing.xl),
-                      SizedBox.square(dimension: _tileSize, child: _tile(state, viewModel)),
-                      const SizedBox(height: AppSpacing.md),
-                      const NoticeCard(
-                        icon: AppIcons.lock,
-                        title: '상호 수락 전에는 아바타만 보여요',
-                        body: '올린 실제 사진은 서로 수락하고 신뢰 확인을 마친 뒤에 공개돼요.',
+                    ),
+                    // 아바타 변환 예시(pen `wznui` · `M3beY`, 04-3 `q7Rp0G` 사본) — 안내 아래 빈 자리의 바닥, 버튼 위 12(대장 전달 값).
+                    // 자리가 모자란 작은 화면 · 큰 글씨에서는 안내 아래 24 로 붙고 함께 스크롤된다.
+                    const SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [SizedBox(height: AppSpacing.lg), PhotoExample.avatar()],
                       ),
-                      if (state.errorMessage != null) ...[
-                        const SizedBox(height: AppSpacing.xs),
-                        Text(
-                          state.errorMessage!,
-                          style: AppTypography.caption.copyWith(color: AppColors.error),
-                        ),
-                      ],
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),

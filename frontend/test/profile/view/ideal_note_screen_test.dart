@@ -1,8 +1,10 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/labeled_field.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/profile/model/ideal_note_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
 import 'package:campus_mate/profile/view/ideal_note_screen.dart';
+import 'package:campus_mate/profile/view/writing_example.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -32,6 +34,35 @@ void main() {
   }
 
   Finder hint() => find.text('10자 이상 입력해 주세요');
+
+  // 사용자 요청 10-15 — 무엇을 쓸지 막막하지 않게 입력칸 아래 예시 두 문장(대장 전달 값: 입력칸 아래 32).
+  group('작성 예시 "이렇게 적어요"', () {
+    testWidgets('입력칸 아래 32 에 예시 두 문장', (tester) async {
+      await pump(tester);
+
+      final example = tester.widget<WritingExample>(find.byType(WritingExample));
+      expect(example.sentences, [
+        '말이 잘 통하고 주말에 같이 산책하거나 맛집 가는 걸 좋아하는 사람이면 좋겠어요',
+        '연락을 자주 하고 약속을 잘 지키는 사람이 좋아요',
+      ]);
+      expect(tester.getTopLeft(find.byType(WritingExample)).dy - tester.getBottomLeft(find.byType(LabeledField)).dy, 32);
+    });
+
+    testWidgets('키보드가 올라와도 넘치지 않고 쓰는 칸이 키보드 위에 보인다', (tester) async {
+      tester.view.physicalSize = const Size(360, 780);
+      tester.view.devicePixelRatio = 1;
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      addTearDown(tester.view.reset);
+      await pump(tester);
+
+      await tester.showKeyboard(find.byType(TextField));
+      await tester.enterText(find.byType(TextField), '말이 잘 통하는 사람이 좋아요');
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(tester.getRect(find.byType(EditableText)).bottom, lessThanOrEqualTo(780 - 300));
+    });
+  });
 
   testWidgets('처음엔 안내가 없고 "다음"은 눌린다', (tester) async {
     await pump(tester);

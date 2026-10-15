@@ -8,6 +8,7 @@ import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/home/model/home_repository_provider.dart';
 import 'package:campus_mate/home/model/home_summary.dart';
 import 'package:campus_mate/home/model/store_review_url.dart';
+import 'package:campus_mate/home/view/home_banner.dart';
 import 'package:campus_mate/home/view/home_screen.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:campus_mate/me/model/me_repository_provider.dart';
@@ -174,9 +175,72 @@ void main() {
     });
   });
 
+  // 사용자 요청 10-15(대장 전달 값 pen `HomeBanner`) — 참여 대학 칩 줄 아래 · 완성도 카드 위, 블록 사이 24.
+  group('인스타그램 배너', () {
+    final instagram = Uri.parse('https://www.instagram.com/campusmate_official');
+    final bannerFinder = find.byType(HomeBanner);
+
+    Future<void> bringBannerUp(WidgetTester tester) async {
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, -300));
+      await tester.pump(const Duration(seconds: 1));
+    }
+
+    testWidgets('참여 대학 칩 줄 아래 24 · 완성도 카드 위 24', (tester) async {
+      await pump(tester);
+
+      expect(find.text('CampusMate 인스타그램'), findsOneWidget);
+      expect(find.text('캠퍼스 소식과 이벤트를 먼저 만나 보세요'), findsOneWidget);
+      final campus = find.ancestor(of: find.text('참여 중인 대학'), matching: find.byType(Column)).first;
+      final banner = tester.getRect(bannerFinder);
+      expect(banner.top - tester.getRect(campus).bottom, 24);
+      final nudge = find.ancestor(of: find.text('프로필을 조금 더 채우면'), matching: find.byType(Container)).last;
+      expect(tester.getRect(nudge).top - banner.bottom, 24);
+    });
+
+    testWidgets('누르면 CampusMate 공식 인스타그램을 기기 앱 · 브라우저로 연다', (tester) async {
+      final opened = await pump(tester);
+      await bringBannerUp(tester);
+
+      await tester.tap(bannerFinder);
+      await tester.pump();
+
+      expect(opened, [instagram]);
+      expect(find.text(const UnknownFailure().toDisplayMessage()), findsNothing);
+    });
+
+    testWidgets('열지 못하면(false · 예외) 실패 안내를 띄운다', (tester) async {
+      for (final throws in [false, true]) {
+        final opened = await pump(tester, opens: false, throws: throws);
+        await bringBannerUp(tester);
+
+        await tester.tap(bannerFinder);
+        await tester.pump();
+
+        expect(opened, [instagram]);
+        expect(find.text(const UnknownFailure().toDisplayMessage()), findsOneWidget);
+        await tester.pump(const Duration(seconds: 3));
+      }
+    });
+
+    testWidgets('낭독기는 "CampusMate 인스타그램 열기" 버튼으로 읽는다', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pump(tester);
+
+      expect(tester.getSemantics(bannerFinder).getSemanticsData().label, 'CampusMate 인스타그램 열기');
+      handle.dispose();
+    });
+  });
+
   group('프로필 완성도 카드', () {
+    // 인스타그램 배너(84 + 24)가 위에 들어와(10-15) 884 화면에서는 카드가 유리 내비 아래에 있다 — 끝까지 올려 알약 위로 꺼낸다.
+    Future<void> bringNudgeUp(WidgetTester tester) async {
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, -300));
+      await tester.pump(const Duration(seconds: 1));
+    }
+
     testWidgets('글자를 눌러도 프로필 편집 허브로 간다', (tester) async {
       await pump(tester);
+      await bringNudgeUp(tester);
 
       await tester.tap(find.text('프로필을 조금 더 채우면'));
       await tester.pumpAndSettle();
@@ -186,9 +250,7 @@ void main() {
 
     testWidgets('게이지 글자를 눌러도 간다', (tester) async {
       await pump(tester);
-      // 블록 사이가 24 로 넓어져(pen 2026-10-14) 884 화면에서는 게이지 글자가 유리 내비 아래에 있다 — 끝까지 올려 알약 위로 꺼낸다.
-      await tester.drag(find.byType(Scrollable).first, const Offset(0, -300));
-      await tester.pump(const Duration(seconds: 1));
+      await bringNudgeUp(tester);
 
       await tester.tap(find.text('프로필 완성도 40%'));
       await tester.pumpAndSettle();
@@ -198,6 +260,7 @@ void main() {
 
     testWidgets('오른쪽 끝 화살표 자리를 눌러도 간다 — 카드 전체가 누름 칸이다', (tester) async {
       await pump(tester);
+      await bringNudgeUp(tester);
       final card = find.ancestor(of: find.text('프로필을 조금 더 채우면'), matching: find.byType(Container)).last;
       final rect = tester.getRect(card);
 
@@ -210,6 +273,7 @@ void main() {
     testWidgets('편집 허브에서 돌아오면 홈 요약을 다시 읽어 완성도를 맞춘다', (tester) async {
       await pump(tester);
       expect(home.calls, 1);
+      await bringNudgeUp(tester);
 
       await tester.tap(find.text('프로필을 조금 더 채우면'));
       await tester.pumpAndSettle();
@@ -225,6 +289,7 @@ void main() {
     testWidgets('스크린리더에는 버튼으로 읽힌다', (tester) async {
       final handle = tester.ensureSemantics();
       await pump(tester);
+      await bringNudgeUp(tester);
 
       final node = tester.getSemantics(find.text('프로필을 조금 더 채우면'));
       expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);

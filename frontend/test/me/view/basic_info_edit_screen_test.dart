@@ -65,6 +65,10 @@ MyProfile _profile({
 Rect _rectOf(WidgetTester tester, String label) =>
     tester.getRect(find.ancestor(of: find.text(label), matching: find.byType(Ink)).first);
 
+/// 15d 두 칸은 고칠 수 있는 필수 칸이다 — 온보딩 04-1 · 3b · 3c 와 같은 "· 필수" 표기(사용자 요청 10-15).
+const _nicknameLabel = '닉네임 · 필수';
+const _heightLabel = '키 (cm) · 필수';
+
 final _nicknameField = find.byType(TextField).at(0);
 final _heightField = find.byType(TextField).at(1);
 
@@ -168,14 +172,14 @@ void main() {
       await pump(tester);
 
       // 닉네임 `G1tl8` (24, 32) — 앱바 56 아래라 화면 y88. 라벨 렌더 20 → 8 → 상자 `TDM1r` 52(2026-10-01 개편, 옛 56) → 8 → helper 17.
-      expect(tester.getTopLeft(find.text('닉네임')), const Offset(24, 88));
-      expect(tester.getSize(find.text('닉네임')).height, 20);
+      expect(tester.getTopLeft(find.text(_nicknameLabel)), const Offset(24, 88));
+      expect(tester.getSize(find.text(_nicknameLabel)).height, 20);
       expect(tester.getRect(_nicknameField), const Rect.fromLTWH(24, 116, 312, 52));
       final helper = find.text('30일에 한 번 바꿀 수 있어요');
       expect(tester.getTopLeft(helper).dy, 176);
       expect(tester.getSize(helper).height, 17);
       // 키 줄 `Z7OpEp` — 닉네임 칸 끝(y193) 16 아래.
-      expect(tester.getTopLeft(find.text('키 (cm)')), const Offset(24, 209));
+      expect(tester.getTopLeft(find.text(_heightLabel)), const Offset(24, 209));
       expect(tester.getRect(_heightField), const Rect.fromLTWH(24, 237, 312, 52));
     });
 
@@ -183,7 +187,7 @@ void main() {
       usePenFrame(tester);
       await pump(tester);
 
-      for (final (label, field) in [('닉네임', _nicknameField), ('키 (cm)', _heightField)]) {
+      for (final (label, field) in [(_nicknameLabel, _nicknameField), (_heightLabel, _heightField)]) {
         final style = tester.widget<Text>(find.text(label)).style!;
         expect((style.fontSize, style.fontWeight, style.color), (14, FontWeight.w600, AppColors.body));
         final decoration = tester.widget<TextField>(field).decoration!;
@@ -436,7 +440,7 @@ void main() {
 
       await typeNickname(tester, '호랑이');
 
-      expectErrorHelper(tester, '이미 있는 닉네임이에요', under: _nicknameField, above: find.text('키 (cm)'));
+      expectErrorHelper(tester, '이미 있는 닉네임이에요', under: _nicknameField, above: find.text(_heightLabel));
       final outline = border(tester, _nicknameField);
       expect((outline.borderSide.color, outline.borderSide.width), (AppColors.error, 2));
       expect(find.byIcon(AppIcons.info), findsNothing);
@@ -449,7 +453,7 @@ void main() {
 
       await typeNickname(tester, '호');
 
-      expectErrorHelper(tester, '한글 또는 영문 2~5자로 입력해 주세요', under: _nicknameField, above: find.text('키 (cm)'));
+      expectErrorHelper(tester, '한글 또는 영문 2~5자로 입력해 주세요', under: _nicknameField, above: find.text(_heightLabel));
       expect(saveButton(tester).onPressed, isNull);
     });
 
@@ -463,7 +467,7 @@ void main() {
         await tapSave(tester);
         await tester.pumpAndSettle();
 
-        expectErrorHelper(tester, message, under: _nicknameField, above: find.text('키 (cm)'));
+        expectErrorHelper(tester, message, under: _nicknameField, above: find.text(_heightLabel));
         expect(find.byType(BasicInfoEditScreen), findsOneWidget);
         expect(saveButton(tester).onPressed, isNull);
       });

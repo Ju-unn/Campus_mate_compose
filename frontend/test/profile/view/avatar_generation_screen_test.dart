@@ -65,6 +65,40 @@ void main() {
     );
   });
 
+  // 사용자 요청 10-15 — 5b 아바타 공개 안내(pen `FXQlf`)를 따로 두지 않고 05-12c 에 설명 한 줄로 합친다. 비교 카드 둘은 넣지 않는다.
+  group('매칭 전 공개 안내 한 줄', () {
+    const notice = '매칭 전에는 AI가 그려준 아바타만 보여요. 상호 수락 후 신뢰 확인을 마치면 실제 사진이 공개돼요.';
+    const lead = '마음에 들면 다음 단계로 넘어가요. 나중에 설정에서 다시 만들 수 있어요.';
+
+    testWidgets('기존 부제 아래에 pen `FXQlf` 설명 문구가 붙고 버튼은 그 아래다', (tester) async {
+      repository.nextResult = const Success(AvatarReady(_url));
+
+      await pump(tester);
+
+      expect(find.text('아바타가 완성됐어요'), findsOneWidget);
+      expect(find.text(notice), findsOneWidget);
+      expect(tester.getTopLeft(find.text(notice)).dy, greaterThan(tester.getBottomLeft(find.text(lead)).dy));
+      expect(tester.getBottomLeft(find.text(notice)).dy, lessThan(tester.getTopLeft(find.text('다음')).dy));
+    });
+
+    for (final scale in [1.0, 1.3]) {
+      testWidgets('작은 화면(360×640) · 글자 배율 $scale 에서도 넘치지 않고 "다음" 이 화면 안에 있다', (tester) async {
+        tester.view.physicalSize = const Size(360, 640);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        repository.nextResult = const Success(AvatarReady(_url));
+
+        await pump(tester);
+
+        expect(tester.takeException(), isNull);
+        expect(find.text(notice), findsOneWidget);
+        expect(tester.getBottomLeft(find.text('다음')).dy, lessThanOrEqualTo(640));
+      });
+    }
+  });
+
   testWidgets('다음을 누르기 전에는 다음 단계를 묻지 않는다', (tester) async {
     // 받자마자 다음 단계를 물으면 라우터가 06-1 로 화면을 바꿔 버려서,
     // 애써 만든 아바타도 05-12d 의 보상 안내도 사람이 못 본다. 넘어가는 시점은 사람이 고른다.

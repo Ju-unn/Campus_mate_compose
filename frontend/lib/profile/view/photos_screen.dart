@@ -2,12 +2,14 @@ import 'dart:async';
 
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/profile/view/photo_example.dart';
 import 'package:campus_mate/profile/view/photo_tiles.dart';
 import 'package:campus_mate/profile/viewmodel/photos_view_model.dart';
 import 'package:flutter/material.dart';
@@ -108,6 +110,11 @@ class _PhotosScreenState extends ConsumerState<PhotosScreen> {
                         '사진을 길게 눌러 끌면 순서를 바꿀 수 있어요. 첫 칸이 대표 사진이에요.',
                         style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
                       ),
+                      // 올릴 수 없는 사진 안내 + 좋은 사진 예시(사용자 요청 10-15, 대장 전달 값 — 시안 높이 780 → 1070).
+                      const SizedBox(height: AppSpacing.lg),
+                      const _PhotoRulesNotice(),
+                      const SizedBox(height: AppSpacing.lg),
+                      const PhotoExample.goodPhoto(),
                     ],
                   ),
                 ),
@@ -134,6 +141,41 @@ class _PhotosScreenState extends ConsumerState<PhotosScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// "이런 사진은 올릴 수 없어요" 안내 박스(대장 전달 값: 본문 14 · 금지 3D 아이콘 18).
+/// 바탕 · 모서리 · 안쪽 · 제목 글자는 대장 값에 없어 04-3 안내 카드 기본형(`NoticeCard`)과 같게 둔다(pen 확인 대상).
+/// 공용 `NoticeCard` 는 Lucide 아이콘 · 본문 12 라 넓히지 않고 이 화면 안에 둔다.
+class _PhotoRulesNotice extends StatelessWidget {
+  const _PhotoRulesNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 14),
+      decoration: BoxDecoration(color: AppColors.surfaceSoft, borderRadius: BorderRadius.circular(12)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon3d(AppIcon3d.ban, size: 18),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text('이런 사진은 올릴 수 없어요', style: AppTypography.labelSmall.copyWith(color: AppColors.ink)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '학생증·서류·화면 캡처 사진은 안 돼요. 나와 배경만 보이는, 얼굴이 또렷한 일상 사진을 올려 주세요.',
+            style: AppTypography.bodySmall.copyWith(color: AppColors.body),
+          ),
+        ],
       ),
     );
   }
