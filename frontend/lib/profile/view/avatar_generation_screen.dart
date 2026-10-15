@@ -137,20 +137,32 @@ class _AvatarResult extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bodyStyle = AppTypography.body.copyWith(color: AppColors.body, height: 1.6);
     return Column(
       children: [
-        const SizedBox(height: AppSpacing.xl),
-        _AvatarCard(avatarUrl: avatarUrl),
-        const SizedBox(height: AppSpacing.lg),
-        Text('아바타가 완성됐어요', style: AppTypography.headline.copyWith(color: AppColors.ink)),
-        const SizedBox(height: AppSpacing.xs),
-        Text(
-          '마음에 들면 다음 단계로 넘어가요. 나중에 설정에서 다시 만들 수 있어요.',
-          textAlign: TextAlign.center,
-          style: AppTypography.body.copyWith(color: AppColors.body, height: 1.6),
+        // 글이 길어져도 버튼은 바닥에 남는다(pen 은 하단 고정 328×56) — 작은 화면 · 큰 글씨에서는 위쪽을 스크롤로 내준다.
+        Expanded(
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                const SizedBox(height: AppSpacing.xl),
+                _AvatarCard(avatarUrl: avatarUrl),
+                const SizedBox(height: AppSpacing.lg),
+                Text('아바타가 완성됐어요', style: AppTypography.headline.copyWith(color: AppColors.ink)),
+                const SizedBox(height: AppSpacing.xs),
+                Text('마음에 들면 다음 단계로 넘어가요. 나중에 설정에서 다시 만들 수 있어요.', textAlign: TextAlign.center, style: bodyStyle),
+                // 5b 아바타 공개 안내(pen `FXQlf` 설명 문구)를 따로 된 화면 없이 한 줄로 합쳤다(사용자 요청 10-15). 제목 "짜잔, …" 과
+                // 실사진 · 흐림 비교 카드 둘은 넣지 않는다. 글자 · 간격은 위 부제와 같게 둔다(pen 확인 대상).
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  '매칭 전에는 AI가 그려준 아바타만 보여요. 상호 수락 후 신뢰 확인을 마치면 실제 사진이 공개돼요.',
+                  textAlign: TextAlign.center,
+                  style: bodyStyle,
+                ),
+              ],
+            ),
+          ),
         ),
-        // 글이 길어져도 버튼은 바닥에 남는다(pen 은 하단 고정 328×56).
-        const Spacer(),
         AppButton(label: '다음', onPressed: onNext),
       ],
     );
