@@ -1,10 +1,11 @@
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/http/api_client.dart';
 import 'package:campus_mate/home/model/cohort_wait.dart';
+import 'package:campus_mate/home/model/home_people.dart';
 import 'package:campus_mate/home/model/home_repository.dart';
 import 'package:campus_mate/home/model/home_summary.dart';
 
-/// [HomeRepository] 를 FastAPI `GET /home/summary` 로 구현한다.
+/// [HomeRepository] 를 FastAPI `GET /home/summary` · `GET /home/people` 로 구현한다.
 class HttpHomeRepository implements HomeRepository {
   const HttpHomeRepository(this._api);
 
@@ -34,4 +35,7 @@ class HttpHomeRepository implements HomeRepository {
                 ),
         );
       });
+
+  @override
+  Future<Result<HomePeople>> fetchPeople() => _api.send('GET', '/home/people', HomePeople.fromJson);
 }

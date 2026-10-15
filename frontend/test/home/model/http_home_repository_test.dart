@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/core/http/api_client.dart';
+import 'package:campus_mate/home/model/home_people.dart';
 import 'package:campus_mate/home/model/home_summary.dart';
 import 'package:campus_mate/home/model/http_home_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -121,5 +122,48 @@ void main() {
     final result = await buildRepository(client).fetchSummary();
 
     expect(result.when(onSuccess: (_) => null, onFailure: (f) => f), isA<UnknownFailure>());
+  });
+
+  group('GET /home/people — 레일 사람 칸(요약과 따로 읽는다)', () {
+    test('서버가 흐린 그림 base64 목록을 주면 풀어서 돌려준다', () async {
+      final image = [0xFF, 0xD8, 0xFF, 0xE0];
+      final client = MockClient((request) async {
+        expect(request.method, 'GET');
+        expect(request.url.toString(), 'https://api.test/home/people');
+        expect(request.headers['Authorization'], 'Bearer token-abc');
+        return jsonResponse({
+          'people': [base64Encode(image)],
+        });
+      });
+
+      final result = await buildRepository(client).fetchPeople();
+
+      final people = result.when<HomePeople?>(onSuccess: (p) => p, onFailure: (_) => null)!;
+      expect(people.map((bytes) => bytes.toList()), [image]);
+    });
+
+    test('후보가 모자라 빈 목록이면 비어 있는 성공이다', () async {
+      final client = MockClient((_) async => jsonResponse({'people': <String>[]}));
+
+      final result = await buildRepository(client).fetchPeople();
+
+      expect(result.when(onSuccess: (p) => p.isEmpty, onFailure: (_) => null), isTrue);
+    });
+
+    test('서버 오류면 실패를 돌려준다', () async {
+      final client = MockClient((_) async => jsonResponse({'detail': 'boom'}, 500));
+
+      final result = await buildRepository(client).fetchPeople();
+
+      expect(result.when(onSuccess: (_) => null, onFailure: (f) => f), isA<Failure>());
+    });
+
+    test('약속과 다른 모양이면 실패를 돌려준다', () async {
+      final client = MockClient((_) async => jsonResponse({'people': 'oops'}));
+
+      final result = await buildRepository(client).fetchPeople();
+
+      expect(result.when(onSuccess: (_) => null, onFailure: (f) => f), isA<UnknownFailure>());
+    });
   });
 }
