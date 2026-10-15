@@ -104,6 +104,46 @@ void main() {
     }
   });
 
+  // 홈 레일이 실제 가입자 아바타를 흐리게 보여 준다(서버 `/home/people`, 10-15) — 완성 화면에서 미리 알린다.
+  group('홈 레일 노출 안내 한 줄', () {
+    const homeNotice = '흐리게 처리한 내 아바타가 홈 화면에서 다른 회원에게 보일 수 있어요';
+    const notice = '매칭 전에는 AI가 그려준 아바타만 보여요. 상호 수락 후 신뢰 확인을 마치면 실제 사진이 공개돼요.';
+
+    testWidgets('공개 안내 아래 8 에 14/400 #6A6A6A 가운데 정렬로 붙고, 버튼은 그 아래다', (tester) async {
+      repository.nextResult = const Success(AvatarReady(_url));
+
+      await pump(tester);
+      // 기본 테스트 화면(800×600)에서는 버튼 위 스크롤 칸 아래쪽에 있다 — 끌어올려 본다.
+      await tester.ensureVisible(find.text(homeNotice));
+      await tester.pump();
+
+      expect(find.text(homeNotice), findsOneWidget);
+      expect(tester.getTopLeft(find.text(homeNotice)).dy - tester.getBottomLeft(find.text(notice)).dy, 8);
+      expect(tester.getBottomLeft(find.text(homeNotice)).dy, lessThan(tester.getTopLeft(find.text('다음')).dy));
+      final text = tester.widget<Text>(find.text(homeNotice));
+      expect((text.style!.fontSize, text.style!.fontWeight, text.style!.color), (14, FontWeight.w400, const Color(0xFF6A6A6A)));
+      expect(text.textAlign, TextAlign.center);
+    });
+
+    for (final scale in [1.0, 1.3]) {
+      testWidgets('작은 화면(360×640) · 글자 배율 $scale 에서도 넘치지 않고 "다음" 이 화면 안에 있다', (tester) async {
+        tester.view.physicalSize = const Size(360, 640);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        repository.nextResult = const Success(AvatarReady(_url));
+
+        await pump(tester);
+        await tester.ensureVisible(find.text(homeNotice));
+        await tester.pump();
+
+        expect(tester.takeException(), isNull);
+        expect(find.text(homeNotice), findsOneWidget);
+        expect(tester.getBottomLeft(find.text('다음')).dy, lessThanOrEqualTo(640));
+      });
+    }
+  });
   testWidgets('다음을 누르기 전에는 다음 단계를 묻지 않는다', (tester) async {
     // 받자마자 다음 단계를 물으면 라우터가 06-1 로 화면을 바꿔 버려서,
     // 애써 만든 아바타도 05-12d 의 보상 안내도 사람이 못 본다. 넘어가는 시점은 사람이 고른다.
