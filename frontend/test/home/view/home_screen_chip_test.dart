@@ -46,7 +46,6 @@ MyProfile _profile(int hearts) => MyProfile(
 
 void main() {
   const summary = HomeSummary(
-    presentPeopleImages: ['assets/images/person-f1-blind-v1.png', 'assets/images/person-f4-blind-v1.png'],
     deliveredCards: 10,
     signups: 20,
     conversationsStarted: 30,
@@ -105,7 +104,6 @@ void main() {
 
   HomeSummary withSummary({int? percent, int? delivered, int? signups, int? conversations, CohortWait? cohort}) =>
       HomeSummary(
-        presentPeopleImages: summary.presentPeopleImages,
         deliveredCards: delivered ?? summary.deliveredCards,
         signups: signups ?? summary.signups,
         conversationsStarted: conversations ?? summary.conversationsStarted,

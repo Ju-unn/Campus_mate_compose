@@ -17,6 +17,7 @@ import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/home/model/home_people.dart';
 import 'package:campus_mate/home/model/home_summary.dart';
 import 'package:campus_mate/home/model/instagram_link.dart';
 import 'package:campus_mate/home/model/store_review_url.dart';
@@ -27,6 +28,7 @@ import 'package:campus_mate/home/view/mosaic_rail.dart';
 import 'package:campus_mate/home/view/notify_icon_button.dart';
 import 'package:campus_mate/home/view/tag.dart';
 import 'package:campus_mate/home/viewmodel/hero_today.dart';
+import 'package:campus_mate/home/viewmodel/home_people_provider.dart';
 import 'package:campus_mate/home/viewmodel/home_summary_provider.dart';
 import 'package:campus_mate/matching/view/countdown_text.dart';
 import 'package:campus_mate/matching/viewmodel/today_cards_view_model.dart';
@@ -140,6 +142,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
     final cohort = summary?.cohort;
     final animateSummary = _summaryArriving;
     if (summary != null) _summaryArriving = false;
+    // 레일 사람 칸 — 요약과 따로 받는다. 09b 를 그릴 때(요약이 왔고 학교가 열렸을 때)만 부른다 — 학교 대기(코호트) 사용자와
+    // 요약을 못 받아 학교가 열렸는지 모를 때는 부르지 않는다. 받는 중 · 못 받음 · 인원 부족이면 기본 그림 칸이다.
+    final people = summary != null && cohort == null
+        ? ref.watch(homePeopleProvider).value ?? HomePeople.none
+        : HomePeople.none;
     // 내 학교 — 앱바 하트 칩이 이미 읽는 내 프로필에서 꺼낸다(서버 요약에는 없다). 못 읽으면 강조 없이 둔다.
     final mySchool = ref.watch(
       myProfileProvider.select((profile) => profile.value?.when(onSuccess: (me) => me.university, onFailure: (_) => null)),
@@ -185,7 +192,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
                   ),
                   children: [
                     const _HeroToday(),
-                    if (summary != null) ..._summarySections(summary, animate: animateSummary, mySchool: mySchool),
+                    if (summary != null)
+                      ..._summarySections(summary, people: people, animate: animateSummary, mySchool: mySchool),
                   ],
                 ),
               ),
@@ -196,14 +204,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
   /// 요약 블록 다섯(레일 · 6칸 그리드 · 리뷰 띠 · 참여 대학 · 완성도 카드, 10-15). 블록 사이는 모두 24. 숨는 블록(리뷰 띠 임계값 미만,
   /// 완성도 100)은 위 여백째 빠진다. 인스타그램은 그리드 링크 칸으로 들어갔다(옛 배너).
   /// [animate] 면 블록마다 투명 · 아래 8 에서 40ms 간격으로 올라온다(DESIGN §7 standard, 처음 받을 때만).
-  List<Widget> _summarySections(HomeSummary summary, {required bool animate, required String? mySchool}) {
+  List<Widget> _summarySections(
+    HomeSummary summary, {
+    required HomePeople people,
+    required bool animate,
+    required String? mySchool,
+  }) {
     final blocks = <Widget>[
       Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const _RailHeader(),
           const SizedBox(height: 10),
-          MosaicRail(images: summary.presentPeopleImages),
+          MosaicRail(people: people),
         ],
       ),
       HomeGrid(

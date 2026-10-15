@@ -1,29 +1,57 @@
+import 'dart:typed_data';
+
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 
-/// 사람 칸·빈 칸 폭(pen `b9Rask` · `FqMYC`). 글자를 키워도 늘지 않아 레일이 한 벌 폭을 계산한다.
+/// 사람 칸 · 기본 그림 칸 · 빈 칸 폭(pen `O5FCD9` · `HYaRA` · `FqMYC`). 글자를 키워도 늘지 않아 레일이 한 벌 폭을 계산한다.
 const double mosaicTileWidth = 112;
 const double _height = 140;
 
-/// mosaic-rail 사람 칸(pen `b9Rask` · `Ch4h6`). Z54et 에 마스터가 없다. 실제 사람 사진은 넣지 않는다.
+/// mosaic-rail 사람 칸(pen `O5FCD9` Home Rail Tile · Blur Avatar). 서버가 실제 가입자 아바타를 **이미 흐리게** 줄여 준 그림을
+/// 그대로 그린다 — 앱에서 다시 흐리지 않는다. 이름 · 학교 · 배지 · 누름이 없는 장식이라 화면 읽기에서 뺀다.
 class MosaicPersonTile extends StatelessWidget {
   const MosaicPersonTile({required this.image, super.key});
 
-  final String image;
+  final Uint8List image;
 
   @override
   Widget build(BuildContext context) {
-    // 그림을 decoration 으로 깐다 — Image 위젯은 그림 비율로 제 높이를 주장해 rail 높이를 흔든다.
+    // 그림 크기를 칸(112×140)으로 박아 둔다 — 그림 비율로 제 높이를 주장하면 레일 높이가 흔들린다. 높이 140 은 최소다(빈 칸 글자를 키우면 같이 늘어난다).
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppRadius.md),
+      child: Image.memory(
+        image,
+        width: mosaicTileWidth,
+        height: _height,
+        fit: BoxFit.cover,
+        // 레일이 다시 그려져도(같은 그림) 빈칸으로 깜빡이지 않는다.
+        gaplessPlayback: true,
+        excludeFromSemantics: true,
+        // 그림을 못 풀면 기본 그림 칸 모양으로 둔다 — 레일에 구멍을 내지 않는다.
+        errorBuilder: (context, error, stackTrace) => const MosaicDefaultTile(),
+      ),
+    );
+  }
+}
+
+/// 사람 칸 자리의 기본 그림(pen `HYaRA` Home Rail Tile · 기본 그림) — 인원이 모자라(서버 빈 목록) · 못 받았거나 · 받는 중일 때.
+/// primary-wash 바탕 가운데 3D 사용자 아이콘(`U17hk`) 56 만 둔다. 실제 가입자가 아니라 사람 그림(선명한 일러스트)을 넣지 않는다 — 가짜 사람으로 보이지 않게.
+class MosaicDefaultTile extends StatelessWidget {
+  const MosaicDefaultTile({super.key});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       width: mosaicTileWidth,
       constraints: const BoxConstraints(minHeight: _height),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        image: DecorationImage(image: AssetImage(image), fit: BoxFit.cover),
-      ),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(color: AppColors.primaryWash, borderRadius: BorderRadius.circular(AppRadius.md)),
+      child: const Icon3d(AppIcon3d.users, size: 56),
     );
   }
 }

@@ -219,6 +219,14 @@ class _AvatarResult extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: bodyStyle,
                 ),
+                // 홈 레일(서버 `/home/people`)이 실제 가입자 아바타를 흐리게 보여 준다 — 여기서 미리 알린다.
+                // pen `mzmNv`(글 14/400 muted) · 간격 `Hj0I4` 8.
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  '흐리게 처리한 내 아바타가 홈 화면에서 다른 회원에게 보일 수 있어요',
+                  textAlign: TextAlign.center,
+                  style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+                ),
               ],
             ),
           ),

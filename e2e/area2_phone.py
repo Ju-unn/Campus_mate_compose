@@ -138,13 +138,15 @@ def p_home_06(run, phone):
 
 
 def p_home_12(run, phone):
-    """리뷰 띠 "4.8" · "(143명 평가)" 는 앱이 본다. 레일 그림은 앱이 말한 경로가 앱 안 에셋인지 여기서 본다."""
+    """리뷰 띠 "4.8" · "(143명 평가)" 는 앱이 본다. 레일 그림은 앱이 말한 출처가 서버가 흐려 준 바이트(`memory`, `/home/people`)이거나
+    앱 안 에셋(인원 부족 기본 그림 칸)인지 여기서 본다 — 네트워크 주소(원본 아바타)면 fail."""
     check = Check()
     _, token = _signed_in(run, 'home')
     said = _app(check, phone(token_hash=token))
     if said.get('result') == 'pass':
         rail = said.get('rail') or []
-        check.that(rail and all(str(p).startswith('assets/') for p in rail), f'레일 그림이 앱 에셋이 아님 {rail}')
+        check.that(rail and all(p == 'memory' or str(p).startswith('assets/') for p in rail),
+                   f'레일 그림이 서버 흐린 그림 · 앱 에셋이 아님 {rail}')
     return check.result(KNOWN_MOCK)
 
 

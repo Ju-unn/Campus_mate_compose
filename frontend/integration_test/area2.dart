@@ -157,6 +157,14 @@ String _asset(ImageProvider image) => switch (image) {
       _ => '',
     };
 
+/// 레일 그림 출처 — 사람 칸은 서버가 흐려 준 바이트(`memory`), 인원 부족이면 기본 그림 칸의 3D 아이콘(에셋 경로).
+/// 그 밖(네트워크 주소 등)은 그대로 적어 PC 가 fail 로 본다.
+String _railSource(ImageProvider image) => switch (image) {
+      MemoryImage() => 'memory',
+      _ when _asset(image).isNotEmpty => _asset(image),
+      _ => '$image',
+    };
+
 /// 메인 → 나 → 톱니(설정). 설정은 나 탭 위에 쌓인다.
 Future<void> _openSettings(WidgetTester tester) async {
   await arrive(tester, 'home');
@@ -269,11 +277,12 @@ final Map<String, Area1Case> area2Cases = {
     must(seen['image'] == 0, '하트 재화 그림 ${seen['image']}개');
     return null;
   }),
-  // 리뷰 띠 목값이 보이면 pass(사용자 결정 10-01 (가) — 심사 때 숨김, 지금은 정상). 레일 그림 경로는 PC 가 본다.
+  // 리뷰 띠 목값이 보이면 pass(사용자 결정 10-01 (가) — 심사 때 숨김, 지금은 정상). 레일 그림 출처는 PC 가 본다.
   'E-HOME-12': _session((tester, job) async {
     await _summary(tester);
     // 레일은 맨 위 — 목록을 내리면 안 만들어지므로 내리기 전에 읽는다.
-    final rail = tester.widget<MosaicRail>(_inHome(find.byType(MosaicRail))).images;
+    final images = tester.widgetList<Image>(find.descendant(of: _inHome(find.byType(MosaicRail)), matching: find.byType(Image)));
+    final rail = {for (final image in images) _railSource(image.image)}.toList();
     final seen = await _sweep(tester, {_reviewRating: _inHome(find.text(_reviewRating)), _reviewCount: _inHome(find.text(_reviewCount))});
     must(seen[_reviewRating] == 1 && seen[_reviewCount] == 1, '리뷰 띠 "$_reviewRating" ${seen[_reviewRating]}개 · "$_reviewCount" ${seen[_reviewCount]}개');
     return {'rail': rail};

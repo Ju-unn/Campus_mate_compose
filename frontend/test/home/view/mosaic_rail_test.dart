@@ -1,5 +1,9 @@
+import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/home/model/home_people.dart';
 import 'package:campus_mate/home/view/mosaic_rail.dart';
 import 'package:campus_mate/home/view/mosaic_tile.dart';
 import 'package:flutter/material.dart';
@@ -8,10 +12,13 @@ import 'package:flutter_test/flutter_test.dart';
 /// mosaic-rail(pen `P2sFxR`) 손 조작 — 누르는 동안 멈춤 · 동작 줄이기에서 정지 + 손으로 밀기 · pause 아이콘 없음(D3 · 점검 U5).
 /// 홈 화면 안 모양 · 흐름 기본은 home_screen_test 의 'mosaic-rail' 묶음이 본다. 여기서는 레일만 띄운다.
 void main() {
-  const image = 'assets/images/person-f1-blind-v1.png';
+  /// 서로 다른 그림 [count] 장(바이트 4개짜리 — 그리지 못해도 칸 크기는 그대로다).
+  HomePeople people(int count) => HomePeople.fromJson({
+        'people': [for (var i = 0; i < count; i++) base64Encode([0xFF, 0xD8, 0xFF, i])],
+      });
 
-  Future<void> pumpRail(WidgetTester tester) =>
-      tester.pumpWidget(const MaterialApp(home: Scaffold(body: MosaicRail(images: [image]))));
+  Future<void> pumpRail(WidgetTester tester, [HomePeople? shown]) =>
+      tester.pumpWidget(MaterialApp(home: Scaffold(body: MosaicRail(people: shown ?? people(1)))));
 
   void reduceMotion(WidgetTester tester) {
     tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
@@ -25,6 +32,106 @@ void main() {
         for (final type in [MosaicPersonTile, MosaicEmptyTile])
           for (var i = 0; i < find.byType(type).evaluate().length; i++) tester.getRect(find.byType(type).at(i)),
       ]..sort((a, b) => a.left.compareTo(b.left));
+
+  group('사람 칸 `O5FCD9`(Home Rail Tile · Blur Avatar) — 서버가 흐린 실제 가입자 아바타', () {
+    testWidgets('서버 바이트를 Image.memory 로 그대로 그린다 — 덮어 채움 · 다시 받아도 깜빡이지 않음 · 앱에서 다시 흐리지 않음', (tester) async {
+      final shown = people(1);
+      await pumpRail(tester, shown);
+
+      final tile = find.byType(MosaicPersonTile).first;
+      final image = tester.widget<Image>(find.descendant(of: tile, matching: find.byType(Image)));
+      expect((image.image as MemoryImage).bytes, shown.map((bytes) => bytes).single);
+      expect((image.fit, image.gaplessPlayback), (BoxFit.cover, true));
+      expect(find.descendant(of: find.byType(MosaicRail), matching: find.byType(ImageFiltered)), findsNothing);
+      expect(find.descendant(of: find.byType(MosaicRail), matching: find.byType(BackdropFilter)), findsNothing);
+    });
+
+    testWidgets('112×140 · 모서리 14 · 칸 사이 10 · 이름 · 학교 · 배지 글자 없음', (tester) async {
+      await pumpRail(tester, people(2));
+
+      final tile = find.byType(MosaicPersonTile).first;
+      expect(tester.getSize(tile), const Size(112, 140));
+      final clip = tester.widget<ClipRRect>(find.descendant(of: tile, matching: find.byType(ClipRRect)));
+      expect(clip.borderRadius, BorderRadius.circular(14));
+      expect(find.descendant(of: tile, matching: find.byType(Text)), findsNothing);
+      final first = tester.getRect(find.byType(MosaicPersonTile).at(0));
+      final second = tester.getRect(find.byType(MosaicPersonTile).at(1));
+      expect(second.left - first.right, 10);
+    });
+
+    testWidgets('받은 만큼만 칸을 둔다 — 12장보다 적어도 채우려고 같은 그림을 한 벌에 되풀이하지 않는다', (tester) async {
+      final shown = people(3);
+      await pumpRail(tester, shown);
+
+      final copies = find.byType(MosaicEmptyTile).evaluate().length;
+      final drawn = [
+        for (final element in find.byType(MosaicPersonTile).evaluate()) (element.widget as MosaicPersonTile).image,
+      ];
+      expect(drawn.length, 3 * copies);
+      for (final bytes in shown.map((bytes) => bytes)) {
+        expect(drawn.where((image) => identical(image, bytes)).length, copies);
+      }
+    });
+
+
+    testWidgets('그림을 못 풀면(깨진 바이트) 그 칸은 기본 그림 칸 모양으로 둔다 — 레일에 구멍 · 오류가 없다', (tester) async {
+      await pumpRail(tester, people(1));
+      // 그림 풀기는 엔진에서 실제 시간으로 끝난다.
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+      await tester.pump();
+
+      final tile = find.byType(MosaicPersonTile).first;
+      expect(find.descendant(of: tile, matching: find.byType(MosaicDefaultTile)), findsOneWidget);
+      expect(tester.getSize(tile), const Size(112, 140));
+      expect(tester.takeException(), isNull);
+    });
+    testWidgets('화면 읽기는 그림 칸을 읽지 않고 끝 빈 칸 문구만 한 번 읽는다', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await pumpRail(tester, people(2));
+
+      expect(find.bySemanticsLabel(RegExp('아직 비어 있어요')), findsOneWidget);
+      final images = find.descendant(of: find.byType(MosaicRail), matching: find.byType(Image));
+      expect(tester.widgetList<Image>(images).every((image) => image.excludeFromSemantics), isTrue);
+      semantics.dispose();
+    });
+  });
+
+  group('인원 부족 `HhKIR`(Home Mosaic Rail · 인원 부족) — 서버가 빈 목록', () {
+    testWidgets('레일을 숨기지 않고 기본 그림 칸 2 + 끝 빈 칸을 한 벌로 되풀이한다 · 사람 칸 없음', (tester) async {
+      await pumpRail(tester, HomePeople.none);
+
+      expect(find.byType(MosaicRail), findsOneWidget);
+      expect(find.byType(MosaicPersonTile), findsNothing);
+      final copies = find.byType(MosaicEmptyTile).evaluate().length;
+      expect(copies, greaterThanOrEqualTo(2));
+      expect(find.byType(MosaicDefaultTile).evaluate().length, 2 * copies);
+      expect(tester.getSize(find.byType(MosaicRail)).height, 140);
+    });
+
+    testWidgets('기본 그림 칸 `HYaRA` — 112×140 · 모서리 14 · primary-wash · 가운데 3D 사용자(`U17hk`) 56 · 글자 없음', (tester) async {
+      await pumpRail(tester, HomePeople.none);
+
+      final tile = find.byType(MosaicDefaultTile).first;
+      expect(tester.getSize(tile), const Size(112, 140));
+      final box = tester.widget<Container>(find.descendant(of: tile, matching: find.byType(Container)).first).decoration!
+          as BoxDecoration;
+      expect((box.color, box.borderRadius), (const Color(0xFFFFF0F2), BorderRadius.circular(14)));
+      final icon = find.descendant(of: tile, matching: find.byType(Icon3d));
+      expect((tester.widget<Icon3d>(icon).icon, tester.widget<Icon3d>(icon).size), (AppIcon3d.users, 56.0));
+      expect(tester.getCenter(icon), tester.getCenter(tile));
+      expect(find.descendant(of: tile, matching: find.byType(Text)), findsNothing);
+    });
+
+    testWidgets('사람 그림(선명한 일러스트 · 네트워크 그림)을 쓰지 않는다 — 그림은 3D 아이콘뿐', (tester) async {
+      await pumpRail(tester, HomePeople.none);
+
+      final images = tester.widgetList<Image>(find.descendant(of: find.byType(MosaicRail), matching: find.byType(Image)));
+      expect(images, isNotEmpty);
+      for (final image in images) {
+        expect((image.image as ResizeImage).imageProvider, const AssetImage('assets/icons/ui-3d-users.webp'));
+      }
+    });
+  });
 
   testWidgets('자동으로 흐르는 방향은 오른쪽이다', (tester) async {
     await pumpRail(tester);
