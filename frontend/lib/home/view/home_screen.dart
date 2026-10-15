@@ -18,8 +18,10 @@ import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/home/model/home_summary.dart';
+import 'package:campus_mate/home/model/instagram_link.dart';
 import 'package:campus_mate/home/model/store_review_url.dart';
 import 'package:campus_mate/home/view/cohort_wait_view.dart';
+import 'package:campus_mate/home/view/home_banner.dart';
 import 'package:campus_mate/home/view/mosaic_rail.dart';
 import 'package:campus_mate/home/view/notify_icon_button.dart';
 import 'package:campus_mate/home/view/stat_tile.dart';
@@ -104,14 +106,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
   }
 
   /// "리뷰 남기기" — 스토어 주소([Env.storeReviewUrl])가 비어 있거나 http(s) 가 아니면 "곧 열려요" 만 띄운다.
-  /// 채워져 있으면 기기에서 연다(DESIGN §8.9 — 스토어 리뷰 페이지로 딥링크). 열지 못하면 조용히 끝내지 않고 실패 안내를 띄운다.
+  /// 채워져 있으면 기기에서 연다(DESIGN §8.9 — 스토어 리뷰 페이지로 딥링크).
   Future<void> _openStoreReview() async {
     final uri = Uri.tryParse(ref.read(storeReviewUrlProvider).trim());
     if (uri == null || !(uri.scheme == 'http' || uri.scheme == 'https') || uri.host.isEmpty) {
       showTimedToast(comingSoonToast);
       return;
     }
-    if (_opening) return; // 여는 호출이 끝나기 전에 다시 눌러도 스토어를 두 번 열지 않는다
+    await _openExternal(uri);
+  }
+
+  /// 기기 앱 · 브라우저로 연다(리뷰 남기기 · 인스타그램 배너). 열지 못하면 조용히 끝내지 않고 실패 안내를 띄운다.
+  Future<void> _openExternal(Uri uri) async {
+    if (_opening) return; // 여는 호출이 끝나기 전에 다시 눌러도 두 번 열지 않는다
     _opening = true;
     var opened = false;
     try {
@@ -190,7 +197,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
     );
   }
 
-  /// 요약 블록 다섯(레일 · 숫자 칸 · 리뷰 띠 · 참여 대학 · 완성도 카드). 블록 사이는 모두 24(pen `X4K49Y` · `vvDYo` · `gdS3k` ·
+  /// 요약 블록 여섯(레일 · 숫자 칸 · 리뷰 띠 · 참여 대학 · 인스타그램 배너 · 완성도 카드). 블록 사이는 모두 24(pen `X4K49Y` · `vvDYo` · `gdS3k` ·
   /// `sDLEb`+`o6qaj` · `yzF6g`). 숨는 블록(리뷰 띠 임계값 미만, 완성도 100)은 위 여백째 빠진다.
   /// [animate] 면 블록마다 투명 · 아래 8 에서 40ms 간격으로 올라온다(DESIGN §7 standard, 처음 받을 때만).
   List<Widget> _summarySections(HomeSummary summary, {required bool animate, required String? mySchool}) {
@@ -207,6 +214,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
       if (summary.reviewCount >= _minReviewCount)
         _ReviewStrip(rating: summary.reviewRating, count: summary.reviewCount, onReview: _openStoreReview),
       _CampusStrip(campuses: summary.campuses, mySchool: mySchool),
+      // 인스타그램 배너(사용자 요청 10-15, pen `HomeBanner` 대장 전달 값). pen 은 instagram 아이콘인데 lucide_icons_flutter 3.1.20 에는
+      // 그 글리프가 없다(브랜드 아이콘 삭제 — codepoints.json 에만 이름이 남고 lucide.ttf 에는 없다). 새 의존성 없이 카메라로 대신한다.
+      HomeBanner(
+        icon: AppIcons.camera,
+        title: 'CampusMate 인스타그램',
+        subtitle: '캠퍼스 소식과 이벤트를 먼저 만나 보세요',
+        semanticLabel: 'CampusMate 인스타그램 열기',
+        onTap: () => _openExternal(instagramLink),
+      ),
       // 다 채웠으면 권할 것이 없어 카드를 숨긴다(사용자 결정 2026-09-26).
       if (summary.profileCompletionPercent < 100)
         _ProfileNudge(percent: summary.profileCompletionPercent, onTap: _editProfile),

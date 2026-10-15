@@ -16,6 +16,7 @@ import 'package:campus_mate/home/model/home_repository_provider.dart';
 import 'package:campus_mate/home/model/home_summary.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/home/view/cohort_wait_view.dart';
+import 'package:campus_mate/home/view/home_banner.dart';
 import 'package:campus_mate/home/view/home_screen.dart';
 import 'package:campus_mate/home/view/mosaic_rail.dart';
 import 'package:campus_mate/home/view/mosaic_tile.dart';
@@ -686,6 +687,9 @@ void main() {
     testWidgets('완성도 카드 · "리뷰 남기기" 는 Pressable 이다 — 누르는 동안 투명도만 내려간다', (tester) async {
       penFrame(tester);
       await pump(tester);
+      // 인스타그램 배너(84 + 24, 10-15)가 위에 들어와 완성도 카드가 유리 내비 아래에 있다 — 두 칸이 다 보이게 조금 올린다.
+      await tester.drag(_mainList, const Offset(0, -150));
+      await tester.pump(const Duration(seconds: 1));
 
       for (final text in ['리뷰 남기기', '프로필을 조금 더 채우면']) {
         final pressable = find.ancestor(of: find.text(text), matching: find.byType(Pressable));
@@ -708,11 +712,11 @@ void main() {
       await pump(tester, settle: false);
 
       final entrances = tester.widgetList<Entrance>(find.byType(Entrance)).toList();
-      // 레일 · 숫자 칸 · 리뷰 띠 · 참여 대학 · 완성도 카드 다섯 블록.
+      // 레일 · 숫자 칸 · 리뷰 띠 · 참여 대학 · 인스타그램 배너(10-15) · 완성도 카드 여섯 블록.
       expect(
         entrances.map((e) => (e.rise, e.delay, e.duration, e.curve, e.enabled)),
         [
-          for (var i = 0; i < 5; i++)
+          for (var i = 0; i < 6; i++)
             (8.0, Duration(milliseconds: 40 * i), AppMotion.standard, AppMotion.standardCurve, true),
         ],
       );
@@ -849,7 +853,9 @@ void main() {
   });
   }
 
-  testWidgets('pen 좌표와 같다 — hero 버튼 y150 · 숫자 칸 y445 높이 96 · 리뷰 y565 · 태그 y680 · 카드 y732(블록 사이 24)', (tester) async {
+  // 10-15: 인스타그램 배너(pen `HomeBanner` 84, 대장 전달 값)가 태그 줄 아래 · 카드 위에 들어와 배너가 옛 카드 자리 y732,
+  // 카드는 84 + 24 아래 y840 이다(pen `bpA8x` 새 좌표는 대장에게서 받지 못했다 — pen 확인 대상).
+  testWidgets('pen 좌표와 같다 — hero 버튼 y150 · 숫자 칸 y445 높이 96 · 리뷰 y565 · 태그 y680 · 배너 y732 · 카드 y840(블록 사이 24)', (tester) async {
     // pen `bpA8x` 렌더 값(앱바 56 포함, 2026-10-14 다시 잼). 블록 사이 24(`X4K49Y` · `vvDYo` · `gdS3k` · `sDLEb`+`o6qaj` · `yzF6g`),
     // 글자 상자는 lineHeight 속성이 없어 렌더 결과 — hero 줄 27(`dIoz0`), 레일 제목 23(`h7wmcH`), 대학 제목 19(`YIoXQ`).
     penFrame(tester);
@@ -868,8 +874,9 @@ void main() {
     expect(tester.getTopLeft(find.text('참여 중인 대학')).dy, 653);
     expect(tester.getSize(find.text('참여 중인 대학')).height, 19);
     expect(tester.getTopLeft(find.byType(Tag).first).dy, 680);
+    expect(tester.getRect(find.byType(HomeBanner)), const Rect.fromLTWH(16, 732, 328, 84));
     final nudge = find.ancestor(of: find.text('프로필을 조금 더 채우면'), matching: find.byType(Container)).last;
-    expect(tester.getTopLeft(nudge).dy, 732);
+    expect(tester.getTopLeft(nudge).dy, 840);
   });
 
   testWidgets('review-strip `L7wKi` — 바탕 #FFF8EC, 별은 3D 15 다섯 개(`hN4Ow` 외)', (tester) async {
