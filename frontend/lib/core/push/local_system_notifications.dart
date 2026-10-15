@@ -56,6 +56,10 @@ class LocalSystemNotifications implements SystemNotifications {
   }) =>
       _plugin.show(id: id, title: title, body: body, notificationDetails: _details, payload: jsonEncode(data));
 
+  /// [initialize] 전에 불러도 된다 — 안드로이드 쪽은 엔진에 붙을 때 받은 context 로 지운다.
+  @override
+  Future<void> cancel({required int id, String? tag}) => _plugin.cancel(id: id, tag: tag);
+
   @override
   Stream<Map<String, dynamic>> get onTap => _taps.stream;
 

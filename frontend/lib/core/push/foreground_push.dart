@@ -18,6 +18,9 @@ abstract interface class SystemNotifications {
     required Map<String, dynamic> data,
   });
 
+  /// 알림 줄에서 지운다. FCM SDK 가 띄운 알림(앱이 뒤에 있을 때)은 [tag] 로 가려진다 — 이 앱이 띄운 알림은 tag 가 없다.
+  Future<void> cancel({required int id, String? tag});
+
   /// 앱이 살아 있을 때 이 창구가 띄운 알림을 누르면 그 알림의 data 가 온다.
   Stream<Map<String, dynamic>> get onTap;
 }
@@ -37,6 +40,9 @@ class NoSystemNotifications implements SystemNotifications {
     required String body,
     required Map<String, dynamic> data,
   }) async {}
+
+  @override
+  Future<void> cancel({required int id, String? tag}) async {}
 
   @override
   Stream<Map<String, dynamic>> get onTap => const Stream<Map<String, dynamic>>.empty();
