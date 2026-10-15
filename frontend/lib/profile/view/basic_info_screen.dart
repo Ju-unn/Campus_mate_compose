@@ -108,7 +108,8 @@ class _Form extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.xl),
         LabeledField(
-          label: '닉네임',
+          // "· 필수" 는 3b 실명 · 3c 학과 · 학번과 같은 표기다. 선택 항목인 내 MBTI 에는 붙이지 않는다.
+          label: '닉네임 · 필수',
           initialValue: state.nicknameInput,
           onChanged: viewModel.changeNickname,
           helper: '2~5자, 한글 또는 영문',
@@ -123,7 +124,7 @@ class _Form extends StatelessWidget {
           children: [
             Expanded(
               child: LabeledField(
-                label: '출생연도',
+                label: '출생연도 · 필수',
                 placeholder: '예: 2003',
                 initialValue: state.birthYearInput,
                 onChanged: viewModel.changeBirthYear,
@@ -136,7 +137,7 @@ class _Form extends StatelessWidget {
             const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: LabeledField(
-                label: '키 (cm)',
+                label: '키 (cm) · 필수',
                 placeholder: '예: 170',
                 initialValue: state.heightInput,
                 onChanged: viewModel.changeHeight,
@@ -149,16 +150,17 @@ class _Form extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.xs),
         LabeledField(
-          label: '전화번호',
+          label: '전화번호 · 필수',
           placeholder: '010-0000-0000',
           initialValue: state.phoneNumberInput,
           onChanged: (value) => _changePhoneNumber(context, value),
           keyboardType: TextInputType.phone,
           inputFormatters: const [PhoneNumberFormatter()],
           helper: '다른 사람이 나를 지인으로 등록했을 때만 사용돼요',
+          errorText: state.phoneNumberError,
         ),
         const SizedBox(height: AppSpacing.sm),
-        Text('성별', style: AppTypography.labelSmall.copyWith(color: AppColors.body)),
+        Text('성별 · 필수', style: AppTypography.labelSmall.copyWith(color: AppColors.body)),
         const SizedBox(height: AppSpacing.xs),
         _GenderRow(state: state, viewModel: viewModel),
         const SizedBox(height: 20),
