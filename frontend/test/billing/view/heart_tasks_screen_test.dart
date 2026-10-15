@@ -61,7 +61,7 @@ void main() {
     expect(find.text('에브리타임 홍보'), findsOneWidget);
     expect(find.text('50 · 월 1회'), findsOneWidget);
     expect(find.text('검수중'), findsOneWidget);
-    expect(find.text('학교 단톡방 공유'), findsOneWidget);
+    expect(find.text('단톡방 공유'), findsOneWidget);
     expect(find.text('25 · 월 3회'), findsOneWidget);
     expect(find.text('완료'), findsOneWidget);
     expect(find.text('커뮤니티 투표'), findsOneWidget);
@@ -165,7 +165,7 @@ void main() {
   testWidgets('검수중 · 완료 줄은 누를 수 없다', (tester) async {
     await pump(tester);
 
-    for (final title in ['에브리타임 홍보', '학교 단톡방 공유']) {
+    for (final title in ['에브리타임 홍보', '단톡방 공유']) {
       expect(find.ancestor(of: find.text(title), matching: find.byType(InkWell)), findsNothing);
     }
   });

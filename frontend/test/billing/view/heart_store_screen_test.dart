@@ -908,7 +908,7 @@ void main() {
       final rows = find.byType(HeartTaskRow);
       expect(rows, findsNWidgets(3));
       expect(find.text('에브리타임 홍보'), findsOneWidget);
-      expect(find.text('학교 단톡방 공유'), findsOneWidget);
+      expect(find.text('단톡방 공유'), findsOneWidget);
       expect(find.text('커뮤니티 투표'), findsOneWidget);
       expect(tester.getSize(rows.at(0)), const Size(328, 64));
       expect(tester.getTopLeft(rows.at(1)).dy - tester.getBottomLeft(rows.at(0)).dy, 4);
