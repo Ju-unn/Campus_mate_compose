@@ -3,9 +3,13 @@ import 'dart:io';
 
 import 'package:campus_mate/auth/model/face_detector_provider.dart';
 import 'package:campus_mate/auth/model/image_compressor_provider.dart';
+import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/notice_card.dart';
 import 'package:campus_mate/profile/model/photos_repository_provider.dart';
 import 'package:campus_mate/profile/view/avatar_source_screen.dart';
+import 'package:campus_mate/profile/view/photo_example.dart';
 import 'package:campus_mate/profile/viewmodel/photos_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -35,10 +39,11 @@ void main() {
     WidgetTester tester, {
     required int photoCount,
     double textScale = 1.0,
+    FakePhotosRepository? photos,
   }) async {
     final container = ProviderContainer(
       overrides: [
-        photosRepositoryProvider.overrideWithValue(FakePhotosRepository()),
+        photosRepositoryProvider.overrideWithValue(photos ?? FakePhotosRepository()),
         imageCompressorProvider.overrideWithValue(FakeImageCompressor()),
         faceDetectorProvider.overrideWithValue(FakeFaceDetector()),
       ],
@@ -87,6 +92,38 @@ void main() {
     await pump(tester, photoCount: 4, textScale: 2.0);
 
     expectButtonOnScreen(tester);
+  });
+
+  // pen `q7Rp0G`(2026-10-14 시안, 사용자 결정 10-14 · 대장 전달 값) — 안내 아래 24, 버튼 줄 위.
+  testWidgets('안내 카드 아래 24 에 아바타 변환 예시, 그 아래에 버튼', (tester) async {
+    tester.view.physicalSize = const Size(360, 780);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await pump(tester, photoCount: 4);
+    await tester.scrollUntilVisible(find.byType(PhotoExample), 200, scrollable: find.byType(Scrollable).first);
+
+    expect(find.text('내 사진이 이런 일러스트 아바타로 바뀌어요'), findsOneWidget);
+    final example = tester.getRect(find.byType(PhotoExample));
+    expect(example.top - tester.getRect(find.byType(NoticeCard)).bottom, 24);
+    expect(example.bottom, lessThanOrEqualTo(tester.getTopLeft(find.byType(AppButton)).dy));
+  });
+
+  // 올리기 오류는 안내 카드 바로 아래 8 — 예시 그림은 그 뒤다(15b-4/5 와 같은 순서, 대장 검토 10-15).
+  testWidgets('올리기가 실패하면 오류 문구가 안내 카드 바로 아래에 오고 예시는 그 아래다', (tester) async {
+    tester.view.physicalSize = const Size(360, 780);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final photos = FakePhotosRepository()..nextResult = const FailureResult(NetworkFailure());
+    await pump(tester, photoCount: 2, photos: photos);
+
+    await tester.tap(find.text('이 사진으로 아바타 만들기'));
+    await tester.pump();
+    await tester.pump();
+
+    final error = find.text(const NetworkFailure().toDisplayMessage());
+    expect(error, findsOneWidget);
+    expect(tester.getTopLeft(error).dy - tester.getRect(find.byType(NoticeCard)).bottom, 8);
+    expect(tester.getRect(find.byType(PhotoExample)).top - tester.getBottomLeft(error).dy, 24);
   });
 
   testWidgets('고른 한 장에만 "아바타로 선택" 배지가 붙는다', (tester) async {

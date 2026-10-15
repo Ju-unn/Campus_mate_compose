@@ -21,6 +21,7 @@ import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:campus_mate/profile/model/avatar_generation_outcome.dart';
 import 'package:campus_mate/profile/model/avatar_repository_provider.dart';
 import 'package:campus_mate/profile/view/avatar_source_tile.dart';
+import 'package:campus_mate/profile/view/photo_example.dart';
 import 'package:campus_mate/profile/view/photo_tiles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -194,6 +195,31 @@ void main() {
       final fill = tester.widget<Ink>(find.descendant(of: find.byType(AddPhotoTile), matching: find.byType(Ink)));
       final decoration = fill.decoration! as BoxDecoration;
       expect((decoration.color, decoration.borderRadius), (AppColors.primaryWash, BorderRadius.circular(14)));
+    });
+
+    // pen `wznui`(15b-4) · `M3beY`(15b-5) — `q7Rp0G` 사본, 안내 아래 빈 자리에서 버튼 위 12(대장 전달 값).
+    testWidgets('아바타 변환 예시는 안내 아래 빈 자리, 버튼 위 12 에 놓인다', (tester) async {
+      usePenFrame(tester);
+      await pump(tester);
+
+      expect(find.text('내 사진이 이런 일러스트 아바타로 바뀌어요'), findsOneWidget);
+      final example = tester.getRect(find.byType(PhotoExample));
+      expect(tester.getTopLeft(cta).dy - example.bottom, 12);
+      expect(example.top, greaterThan(tester.getRect(find.byType(NoticeCard)).bottom));
+      expect(example.left, 16);
+    });
+
+    testWidgets('작은 화면(640)에서는 예시가 안내 바로 아래로 붙고 스크롤로 내려가며 넘치지 않는다', (tester) async {
+      usePenFrame(tester, height: 640);
+      await pump(tester);
+
+      expect(tester.takeException(), isNull);
+      // 끝까지 올리면 예시 바닥이 버튼 위 12 에 닿는다 — 버튼 뒤로 숨지 않는다.
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, -400));
+      await tester.pumpAndSettle();
+      expect(tester.getRect(find.byType(PhotoExample)).top - tester.getRect(find.byType(NoticeCard)).bottom, 24);
+      expect(tester.getRect(find.byType(PhotoExample)).bottom, tester.getTopLeft(cta).dy - 12);
+      expect(tester.getBottomLeft(cta).dy, 640 - 28);
     });
 
     testWidgets('버튼은 꺼져 있다(#E5E5E5) — 사진을 고르기 전엔 누를 수 없다', (tester) async {
