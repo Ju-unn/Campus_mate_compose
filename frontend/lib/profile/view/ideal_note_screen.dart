@@ -7,6 +7,7 @@ import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/profile/model/ideal_note_repository.dart';
+import 'package:campus_mate/profile/view/writing_example.dart';
 import 'package:campus_mate/profile/viewmodel/ideal_note_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -60,6 +61,15 @@ class IdealNoteScreen extends ConsumerWidget {
                         guideText: state.lengthMessage,
                         inputFormatters: _noteInputFormatters,
                         maxLines: idealNoteMaxLines,
+                      ),
+                      // 작성 예시(사용자 요청 10-15, 대장 전달 값 — 입력칸 아래 32). 키보드가 올라오면 Scaffold 가 본문을 줄이고
+                      // 이 스크롤이 쓰는 칸을 키보드 위로 올린다 — 예시는 그 아래로 밀린다.
+                      const SizedBox(height: AppSpacing.xl),
+                      const WritingExample(
+                        sentences: [
+                          '말이 잘 통하고 주말에 같이 산책하거나 맛집 가는 걸 좋아하는 사람이면 좋겠어요',
+                          '연락을 자주 하고 약속을 잘 지키는 사람이 좋아요',
+                        ],
                       ),
                     ],
                   ),

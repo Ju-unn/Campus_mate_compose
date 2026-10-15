@@ -14,7 +14,9 @@ import 'package:campus_mate/profile/model/bio_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_repository.dart';
 import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_step.dart';
+import 'package:campus_mate/common/widgets/labeled_field.dart';
 import 'package:campus_mate/profile/view/bio_screen.dart';
+import 'package:campus_mate/profile/view/writing_example.dart';
 import 'package:campus_mate/referral/model/referral_repository_provider.dart';
 import 'package:campus_mate/referral/view/referral_code_screen.dart';
 import 'package:campus_mate/notifications/model/notifications_repository_provider.dart';
@@ -118,6 +120,32 @@ void main() {
 
     expect(find.byType(BioScreen), findsOneWidget);
     expect(find.byType(ReferralCodeScreen), findsNothing);
+  });
+
+  // 사용자 요청 10-15 — 입력칸 아래 예시 한 문장(문구는 사용자 승인 후보, 자리는 06-2a 와 같은 32).
+  group('작성 예시 "이렇게 적어요"', () {
+    testWidgets('입력칸 아래 32 에 예시 한 문장', (tester) async {
+      await _pumpAtBio(tester, _StepRepository());
+
+      final example = tester.widget<WritingExample>(find.byType(WritingExample));
+      expect(example.sentences, ['같은 학교 친구들과 카페에서 공부하는 걸 좋아해요. 주말엔 운동하거나 영화 봐요.']);
+      expect(tester.getTopLeft(find.byType(WritingExample)).dy - tester.getBottomLeft(find.byType(LabeledField)).dy, 32);
+    });
+
+    testWidgets('키보드가 올라와도 넘치지 않고 쓰는 칸이 키보드 위에 보인다', (tester) async {
+      tester.view.physicalSize = const Size(360, 780);
+      tester.view.devicePixelRatio = 1;
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      addTearDown(tester.view.reset);
+      await _pumpAtBio(tester, _StepRepository());
+
+      await tester.showKeyboard(find.byType(TextField));
+      await tester.enterText(find.byType(TextField), '주말엔 카페에서 책을 읽어요');
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(tester.getRect(find.byType(EditableText)).bottom, lessThanOrEqualTo(780 - 300));
+    });
   });
 
   // 2026-10-14 사용자 결정 "추천대로": 화면 상한 300자(서버는 1000 그대로), 엔터 줄은 칸 maxLines 와 같은 8줄.

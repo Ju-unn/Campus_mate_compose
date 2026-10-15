@@ -9,6 +9,7 @@ import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/profile/model/bio_repository.dart';
+import 'package:campus_mate/profile/view/writing_example.dart';
 import 'package:campus_mate/profile/viewmodel/bio_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -82,6 +83,11 @@ class _BioScreenState extends ConsumerState<BioScreen> {
                         errorText: state.errorMessage,
                         inputFormatters: bioInputFormatters,
                         maxLines: bioMaxLines,
+                      ),
+                      // 작성 예시(사용자 요청 10-15, 문구는 사용자 승인 후보). 자리는 06-2a 와 같은 입력칸 아래 32(pen 확인 대상).
+                      const SizedBox(height: AppSpacing.xl),
+                      const WritingExample(
+                        sentences: ['같은 학교 친구들과 카페에서 공부하는 걸 좋아해요. 주말엔 운동하거나 영화 봐요.'],
                       ),
                     ],
                   ),
