@@ -1,8 +1,12 @@
 import 'dart:async';
 
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/progress_dots.dart';
+import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_motion.dart';
+import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/profile/model/avatar_generation_outcome.dart';
 import 'package:campus_mate/profile/model/avatar_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
@@ -11,6 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../billing/view/pretendard.dart';
 import '../model/fake_avatar_repository.dart';
 import '../model/fake_onboarding_repository.dart';
 
@@ -197,10 +202,12 @@ void main() {
         await tester.pump();
       }
 
+      // 만드는 중 화면의 마스코트(에셋 그림)가 겹쳐 사라지는 동안에도 아바타 그림(주소 그림)만 집는다.
+      final avatarImage = find.byWidgetPredicate((widget) => widget is Image && widget.image is NetworkImage);
       AnimatedOpacity reveal(WidgetTester tester) =>
-          tester.widget<AnimatedOpacity>(find.descendant(of: find.byType(Image), matching: find.byType(AnimatedOpacity)));
+          tester.widget<AnimatedOpacity>(find.descendant(of: avatarImage, matching: find.byType(AnimatedOpacity)));
       AnimatedScale grow(WidgetTester tester) =>
-          tester.widget<AnimatedScale>(find.descendant(of: find.byType(Image), matching: find.byType(AnimatedScale)));
+          tester.widget<AnimatedScale>(find.descendant(of: avatarImage, matching: find.byType(AnimatedScale)));
 
       testWidgets('오기 전에는 투명 · 0.96 이고, 오면 standard 동안 1 · 1 로 나타난다', (tester) async {
         holdImage();
@@ -214,7 +221,7 @@ void main() {
         expect((reveal(tester).duration, reveal(tester).curve), (AppMotion.standard, AppMotion.standardCurve));
         expect((grow(tester).duration, grow(tester).curve), (AppMotion.standard, AppMotion.standardCurve));
         // 카드 · 그림 자리는 처음부터 180×180 — 커지는 것은 그림(transform)뿐이라 자리가 흔들리지 않는다.
-        expect(tester.getSize(find.byType(Image)), const Size(180, 180));
+        expect(tester.getSize(avatarImage), const Size(180, 180));
         await tester.pumpAndSettle();
       });
 
@@ -229,6 +236,161 @@ void main() {
         expect((reveal(tester).duration, grow(tester).duration), (Duration.zero, Duration.zero));
       });
     });
+  });
+
+  // pen 05-12 `OgHRY` · 05-12b `c7QuSm` 얼개(대장 전달 값 10-15) — 앱바 56 → 24 → 제목 → (8 → 부제) → 32 →
+  // 상태 틀(328 · 최소 340 · 위 45 · 안 간격 12: 마스코트 220 → 스피너 28 / 힌트 13).
+  group('만드는 중 · 실패 얼개(pen 05-12 · 05-12b)', () {
+    const failedTitle = '아바타 생성에 실패했어요';
+    const freeHint = '5번까지는 무료로 다시 시도할 수 있어요';
+    // pen 원문(대장 전달 10-15, 유저플로우 사본도 같은 글). 05-12b 의 "시도해주세요" 는 원문 그대로 붙여 쓴다.
+    const generatingSubtitle = '선택한 사진으로 아바타를 만드는 중이에요. 잠시만 기다려 주세요.';
+    const failedSubtitle = '사진이 흐릿하거나 서버가 혼잡했을 수 있어요. 다른 사진으로 다시 시도해주세요.';
+    const retryLabel = '다시 시도';
+    final subtitleStyle = AppTypography.body.copyWith(color: AppColors.body);
+
+    void penSize(WidgetTester tester) {
+      tester.view.physicalSize = const Size(360, 780);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+    }
+
+    Finder mascot(String asset) => find.byWidgetPredicate(
+          (widget) => widget is Image && widget.image is AssetImage && (widget.image as AssetImage).assetName == asset,
+        );
+
+    testWidgets('05-12 — 제목 24/700 ink · 파란 목도리 마스코트 220 · 그 아래 12 에 스피너 28 muted · 버튼 없음', (tester) async {
+      penSize(tester);
+      repository.nextResult = const Success(AvatarPending());
+      await pump(tester);
+
+      final title = find.text('아바타를 만들고 있어요');
+      expect(tester.widget<Text>(title).style, AppTypography.headline.copyWith(color: AppColors.ink));
+      expect(tester.getRect(title).top, 56 + 24);
+      expect(tester.getRect(title).left, 16);
+
+      final male = mascot('assets/images/mascot-male-waiting.png');
+      expect(male, findsOneWidget);
+      expect(tester.widget<Image>(male).fit, BoxFit.contain);
+      final mascotRect = tester.getRect(male);
+      expect(mascotRect.size, const Size(220, 220));
+      expect(mascotRect.center.dx, 180);
+      final subtitle = find.text(generatingSubtitle);
+      expect(tester.widget<Text>(subtitle).style, subtitleStyle);
+      expect(tester.getRect(subtitle).top, closeTo(tester.getRect(title).bottom + 8, 0.01));
+      expect(tester.getRect(subtitle).width, lessThanOrEqualTo(328));
+      expect(mascotRect.top, closeTo(tester.getRect(subtitle).bottom + 32 + 45, 0.01));
+
+      final spinner = find.byType(CircularProgressIndicator);
+      expect(tester.getRect(spinner).size, const Size(28, 28));
+      expect(tester.getRect(spinner).top, mascotRect.bottom + 12);
+      expect(tester.getRect(spinner).center.dx, 180);
+      expect(tester.widget<CircularProgressIndicator>(spinner).color, AppColors.muted);
+      expect(find.byType(AppButton), findsNothing);
+      // 한 화면 마스코트 한 마리.
+      expect(find.byType(Image), findsOneWidget);
+    });
+
+    testWidgets('05-12b — 제목 · 부제 · 분홍 목도리 마스코트 · 힌트 13/400 muted · 다시 시도 52 바닥 28 위', (tester) async {
+      penSize(tester);
+      repository.nextResult = const Success(AvatarFailed());
+      await pump(tester);
+      await tester.pump(AppMotion.standard + const Duration(milliseconds: 1));
+
+      final title = find.text(failedTitle);
+      expect(tester.widget<Text>(title).style, AppTypography.headline.copyWith(color: AppColors.ink));
+      expect(tester.getRect(title).top, 56 + 24);
+      final subtitle = find.text(failedSubtitle);
+      expect(tester.widget<Text>(subtitle).style, subtitleStyle);
+      expect(tester.getRect(subtitle).top, closeTo(tester.getRect(title).bottom + 8, 0.01));
+
+      final sad = mascot('assets/images/mascot-female-sad.png');
+      expect(sad, findsOneWidget);
+      final mascotRect = tester.getRect(sad);
+      expect(mascotRect.size, const Size(220, 220));
+      expect(mascotRect.top, closeTo(tester.getRect(subtitle).bottom + 32 + 45, 0.01));
+
+      final hint = find.text(freeHint);
+      expect(tester.widget<Text>(hint).style, AppTypography.bodySmall.copyWith(fontSize: 13, color: AppColors.muted));
+      expect(tester.getRect(hint).top, mascotRect.bottom + 12);
+      expect(tester.getRect(hint).center.dx, 180);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+
+      final button = tester.getRect(find.byType(AppButton));
+      expect(find.widgetWithText(AppButton, retryLabel), findsOneWidget);
+      expect(button.height, 52);
+      expect(button.width, 328);
+      expect(button.bottom, 780 - 28);
+      expect(find.byType(Image), findsOneWidget);
+    });
+
+    testWidgets('05-12b 다시 시도는 새 작업을 한 번 등록한다', (tester) async {
+      repository.nextResult = const Success(AvatarFailed());
+      await pump(tester);
+      await tester.pump(AppMotion.standard + const Duration(milliseconds: 1));
+
+      await tester.tap(find.text(retryLabel));
+      await tester.pump();
+
+      expect(repository.generateCount, 1);
+    });
+
+    testWidgets('서버 문구가 있으면 힌트 자리에 같은 글꼴로 그 문구를 둔다', (tester) async {
+      repository.nextResult = const Success(AvatarFailed());
+      await pump(tester);
+      await tester.pump(AppMotion.standard + const Duration(milliseconds: 1));
+      repository.nextResult = const FailureResult(ServerRejectedFailure('원본 사진을 다시 골라 주세요'));
+
+      await tester.tap(find.text(retryLabel));
+      await tester.pump();
+      await tester.pump(AppMotion.standard + const Duration(milliseconds: 1));
+
+      final message = find.text('원본 사진을 다시 골라 주세요');
+      expect(message, findsOneWidget);
+      expect(tester.widget<Text>(message).style, AppTypography.bodySmall.copyWith(fontSize: 13, color: AppColors.muted));
+      expect(find.text(freeHint), findsNothing);
+    });
+
+    // pen 은 부제가 328 폭에서 두 줄로 접혀 마스코트가 y249 다(56 + 24 + 32.4 + 8 + 25.6 × 2 + 32 + 45 = 248.6).
+    // 시험 기본 글꼴(Ahem)은 글자 폭이 실제와 달라 줄 수를 못 믿는다 — 실제 글꼴 Pretendard 로 잰다.
+    group('실제 글꼴(Pretendard)로 잰 pen 자리', () {
+      setUpAll(loadPretendard);
+
+      for (final (status, subtitleText, asset) in [
+        (const AvatarPending() as AvatarGenerationOutcome, generatingSubtitle, 'assets/images/mascot-male-waiting.png'),
+        (const AvatarFailed() as AvatarGenerationOutcome, failedSubtitle, 'assets/images/mascot-female-sad.png'),
+      ]) {
+        testWidgets('부제 두 줄(51.2) · 마스코트 y249 — ${status.runtimeType}', (tester) async {
+          penSize(tester);
+          repository.nextResult = Success(status);
+          await pump(tester);
+          await tester.pump(AppMotion.standard + const Duration(milliseconds: 1));
+
+          // 두 줄 = 25.6 × 2. Pretendard 는 줄마다 26 으로 맞춰 그려 1 안쪽 차이가 난다(세 줄이면 77 이라 걸린다).
+          expect(tester.getRect(find.text(subtitleText)).height, closeTo(16 * 1.6 * 2, 1));
+          expect(tester.getRect(mascot(asset)).top, closeTo(249, 1));
+        });
+      }
+    });
+
+    for (final status in [const AvatarPending(), const AvatarFailed()]) {
+      testWidgets('작은 화면(360×640) · 글자 2배에서도 넘치지 않는다 — ${status.runtimeType}', (tester) async {
+        tester.view.physicalSize = const Size(360, 640);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        tester.platformDispatcher.textScaleFactorTestValue = 2;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        repository.nextResult = Success(status);
+
+        await pump(tester);
+        await tester.pump(AppMotion.standard + const Duration(milliseconds: 1));
+
+        expect(tester.takeException(), isNull);
+        if (status is AvatarFailed) {
+          expect(tester.getRect(find.byType(AppButton)).bottom, lessThanOrEqualTo(640));
+        }
+      });
+    }
   });
 
   testWidgets('그림을 못 불러와도 카드 크기를 지키고 예외 없이 그린다', (tester) async {

@@ -5,11 +5,11 @@ part of 'area1.dart';
 // 실제 생성(운영 비용)은 E-ONB-24 · 41 뿐이다. E-ONB-25 는 아래에서 작업 등록을 막아 두고, 나머지는 05-12 에서 시작한다.
 
 const _making = '아바타를 만들고 있어요';
-const _couldNot = '아바타를 만들지 못했어요';
+const _couldNot = '아바타 생성에 실패했어요'; // 05-12b 제목(pen c7QuSm, 10-15 개편 — 종전 "아바타를 만들지 못했어요")
 const _complete = '아바타가 완성됐어요';
 const _fallbackTitle = '기본 아바타로 대신했어요';
 const _fallbackBody = '서버 오류로 하트 10개 드렸어요';
-const _retryLabel = '다시 만들기';
+const _retryLabel = '다시 시도'; // 05-12b 버튼(pen c7QuSm, 10-15 — 종전 "다시 만들기")
 const _makeAvatarLabel = '이 사진으로 아바타 만들기';
 
 /// 작업 등록까지 두 장 업로드(SafeSearch 포함)가 걸리는 시간을 넉넉히 본다 — 생성은 1분쯤 걸리니 그 전에 넘어가면 "기다리지 않는" 것이다.
@@ -41,7 +41,7 @@ Future<Duration> _makeAvatar(WidgetTester tester) async {
   return watch.elapsed;
 }
 
-/// 05-12 에서 "만들지 못했어요" + "다시 만들기" 가 뜰 때까지.
+/// 05-12b 에서 "생성에 실패했어요" + "다시 시도" 가 뜰 때까지.
 Future<void> _failedScreen(WidgetTester tester) async {
   await arrive(tester, '05-12');
   await pumpUntil(tester, find.text(_couldNot), timeout: const Duration(seconds: 20));
@@ -103,7 +103,7 @@ final Map<String, Area1Case> _b4Cases = {
     must(find.text(_making).evaluate().isEmpty, '실패 화면에 "$_making" 가 같이 보임');
     return null;
   }),
-  // 아바타 행이 없던 사람 — 실패 화면에서 다시 만들기 → 만드는 중.
+  // 아바타 행이 없던 사람 — 실패 화면에서 다시 시도 → 만드는 중.
   'E-ONB-36': _session((tester, job) async {
     await _failedScreen(tester);
     await tap(tester, button(_retryLabel));
@@ -126,14 +126,14 @@ final Map<String, Area1Case> _b4Cases = {
     await _confirmFallback(tester);
     return null;
   }),
-  // 실패 4행 — 누른 바로 뒤에 PC 가 DB 를 본다. "다시 만들기" 버튼이 부르는 retry() 를 직접 불러 서버 응답까지 기다린 뒤 멈춘다
+  // 실패 4행 — 누른 바로 뒤에 PC 가 DB 를 본다. "다시 시도" 버튼이 부르는 retry() 를 직접 불러 서버 응답까지 기다린 뒤 멈춘다
   // (버튼 누름은 응답을 기다릴 수 없어 PC 가 너무 일찍 볼 수 있다).
   'E-ONB-39': _session((tester, job) async {
     await _failedScreen(tester);
     must(find.widgetWithText(AppButton, _retryLabel).evaluate().isNotEmpty, '"$_retryLabel" 버튼이 없음');
     await _avatarViewModel(tester).retry();
     await tester.pump(const Duration(milliseconds: 300));
-    must(find.text(_making).evaluate().isNotEmpty, '다시 만들기 뒤 "$_making" 가 아님');
+    must(find.text(_making).evaluate().isNotEmpty, '다시 시도 뒤 "$_making" 가 아님');
     await step('registered');
     return null;
   }),
