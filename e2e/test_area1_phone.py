@@ -258,18 +258,25 @@ class OnboardingTest(Base):
         self.assertEqual(area1.attempt_phone(self.run, 'E-ONB-11', FakePhone())[0], 'pass')
 
     def test_onb_11_plain_number_or_missing_hmac_fails(self):
-        with mock.patch.object(area1, '_phone_number', lambda: '010-1234-5678'):
-            for row in ({'phone_number': '+821012345678', 'phone_hmac': '\\x01'}, {'phone_number': '\\x9f3a', 'phone_hmac': None}):
+        with mock.patch.object(area1, '_phone_number', lambda: '010-4821-7395'):
+            for row in ({'phone_number': '+821048217395', 'phone_hmac': '\\x01'}, {'phone_number': '\\x9f3a', 'phone_hmac': None}):
                 self.serve({('GET', '/rest/v1/profile_private'): Reply(200, [row])})
                 phone = FakePhone()
                 self.assertEqual(area1.attempt_phone(self.run, 'E-ONB-11', phone)[0], 'fail', row)
-                self.assertEqual(phone.jobs[0]['phone'], '010-1234-5678')
+                self.assertEqual(phone.jobs[0]['phone'], '010-4821-7395')
 
-    def test_onb_13_api_takes_the_old_ten_digit_number(self):
-        fake = self.serve({('GET', '/rest/v1/profile_private'): Reply(200, [{'phone_number': '\\x9f', 'phone_hmac': '\\x01'}])})
+    def test_onb_13_api_refuses_the_old_ten_digit_number_and_stores_nothing(self):
+        """가입 번호는 010 + 8자리만(2026-10-15 대장 지시 — 전화번호_인증 §8 결정 1 추천안). 옛 011 10자리는 422 다."""
+        refused = {('POST', '/profile-onboarding/basic-info'): Reply(422, {'detail': '올바른 휴대폰 번호를 입력해 주세요'}),
+                   ('GET', '/rest/v1/profile_private'): Reply(200, [{'phone_number': None, 'phone_hmac': None}])}
+        fake = self.serve(refused)
         self.assertEqual(area1.attempt_phone(self.run, 'E-ONB-13', FakePhone())[0], 'pass')
         sent = [b['phone_number'] for m, p, b in fake.calls if p == '/profile-onboarding/basic-info']
         self.assertIn('011-123-4567', sent)
+        for wrong in ({**refused, ('POST', '/profile-onboarding/basic-info'): Reply(200, {'ok': True})},
+                      {**refused, ('GET', '/rest/v1/profile_private'): Reply(200, [{'phone_number': '\\x9f', 'phone_hmac': '\\x01'}])}):
+            self.serve(wrong)
+            self.assertEqual(area1.attempt_phone(self.run, 'E-ONB-13', FakePhone())[0], 'fail', wrong)
 
     def test_onb_16_and_17_need_an_empty_mbti(self):
         for case in ('E-ONB-16', 'E-ONB-17'):

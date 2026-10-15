@@ -25,6 +25,7 @@ REJECTED = '등록되지 않은 학교 메일이에요'  # 서버 errors.SCHOOL_
 SV_REQUIRED = '학생증 인증을 먼저 끝내 주세요'
 CONSENT_REQUIRED = '약관 동의를 먼저 해 주세요'
 INVALID_INPUT = '입력한 값을 다시 확인해 주세요'
+PHONE_INVALID = '올바른 휴대폰 번호를 입력해 주세요'  # 서버 errors.PHONE_NUMBER_INVALID(422)
 CONSENT_VERSION = '2026-09-29'  # backend/app/consents/policy.py CONSENT_VERSION
 TINY_JPEG = b'\xff\xd8\xff\xe0' + bytes(16) + b'\xff\xd9'  # 동의 확인이 사진보다 먼저라 내용은 상관없다
 
@@ -300,7 +301,7 @@ def onb_14(run):
     check = Check()
     account = run.account('gate_done')
     check.reply('유선 번호', _api(run, 'POST', '/profile-onboarding/basic-info', account['token'],
-                                {**tools.basic_info(), 'phone_number': '02-123-4567'}), 400, '전화번호를 다시 확인해 주세요')
+                                {**tools.basic_info(), 'phone_number': '02-123-4567'}), 422, PHONE_INVALID)
     phone = tools.basic_info()['phone_number'].replace('010-', '+82 10-')
     check.reply('+82 번호', _api(run, 'POST', '/profile-onboarding/basic-info', account['token'],
                                {**tools.basic_info(), 'phone_number': phone}), 200)
@@ -660,10 +661,12 @@ def p_onb_13(run, phone):
     check = Check()
     _, token = _signed_in(run, 'gate_done')
     _app(check, phone(token_hash=token), '앱')
+    # 가입 번호는 010 + 8자리만이다(2026-10-15 대장 지시, 전화번호_인증 §8 결정 1 추천안) — 옛 10자리는 API 로 넣어도 막힌다.
     account = run.account('gate_done')
     check.reply('API 10자리', _api(run, 'POST', '/profile-onboarding/basic-info', account['token'],
-                                  {**tools.basic_info(), 'phone_number': '011-123-4567'}), 200)
-    _phone_stored(run, account['id'], '011-123-4567', check)
+                                  {**tools.basic_info(), 'phone_number': '011-123-4567'}), 422, PHONE_INVALID)
+    row = _one(run, f"profile_private?profile_id=eq.{account['id']}&select=phone_number,phone_hmac")
+    check.that(not row.get('phone_number') and not row.get('phone_hmac'), f'막힌 번호가 저장됨 {row!r}')
     return check.result()
 
 
