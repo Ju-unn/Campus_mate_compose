@@ -410,13 +410,14 @@ async def generate_bio_draft_endpoint(
         return {"draft": saved_draft}
 
     snapshot = await repo.fetch_onboarding_snapshot(profile_id)
-    summary = survey_summary(
-        snapshot["survey_answers"], snapshot["mbti"], snapshot["religion"], snapshot["is_smoker"]
-    )
     draft = await generate_bio_draft(
-        openai_client,
-        summary, snapshot["interest_tags"], snapshot["my_traits"],
+        openai_client, snapshot["mbti"], survey_summary(snapshot["survey_answers"]),
+        snapshot["interest_tags"], snapshot["my_traits"],
     )
+    if not draft:
+        # OpenAI 가 두 번 다 빈 답이면 생성 실패(OpenAI 오류 5xx)와 같게 둔다 — 앱은 "직접 써 주세요" 를 띄운다.
+        # 빈 값을 저장하면 저장본이 있어 다음에 열어도 다시 만들지 않는다.
+        raise HTTPException(status_code=502)
     await repo.save_bio_draft(profile_id, draft)
     return {"draft": draft}
 

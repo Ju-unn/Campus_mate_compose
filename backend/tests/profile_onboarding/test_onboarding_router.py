@@ -451,8 +451,43 @@ def test_bio_draft_returns_the_saved_draft_without_calling_openai():
     openai_client.chat.completions.create.assert_not_called()
 
 
-def test_bio_draft_feeds_survey_mbti_religion_smoking_in_korean():
-    """초안 재료는 설문 문장·MBTI·종교·흡연 한국어다 — 영어 코드값(religion=none)을 넘기지 않는다(2026-09-26 실기기 e)."""
+def test_bio_draft_that_stays_empty_is_a_failure_and_is_not_saved():
+    """OpenAI 가 두 번 다 빈 답(거부 등, content=None)이면 생성 실패와 같다 — 5xx 로 앱이 "직접 써 주세요" 를 띄우고,
+    빈 초안을 저장하지 않아 다음에 열면 다시 만든다(빈 값을 저장하면 저장본이 있어 다시는 안 만든다)."""
+    openai_client = AsyncMock()
+    openai_client.chat.completions.create.return_value = SimpleNamespace(
+        choices=[SimpleNamespace(message=SimpleNamespace(content=None))]
+    )
+    app.dependency_overrides[router_module.get_openai] = lambda: openai_client
+    patches: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        path, select = request.url.path, request.url.params.get("select", "")
+        if request.method == "PATCH":
+            patches.append(json.loads(request.content))
+            return httpx.Response(204)
+        if path.endswith("/profiles") and select == "bio_draft":
+            return httpx.Response(200, json=[{"bio_draft": None}])
+        if path.endswith("/profiles"):
+            return httpx.Response(200, json=[{
+                "nickname": "하늘", "gender": "male", "mbti": None, "animal_type": "dog",
+                "impression_type": "kind", "interest_tags": ["여행"], "my_traits": ["다정한"],
+                "religion": "none", "is_smoker": False, "preferred_age_min": 20,
+                "preferred_animal_types": ["cat"], "preferred_impression_types": ["chic"],
+                "ideal_traits": [], "ideal_note": "", "bio": None,
+            }])
+        return httpx.Response(200, json=[])
+
+    response = _wire(handler).post("/profile-onboarding/bio-draft", headers=AUTH_HEADERS)
+
+    assert response.status_code == 502
+    assert openai_client.chat.completions.create.await_count == 2
+    assert patches == []
+
+
+def test_bio_draft_feeds_mbti_and_survey_in_korean_without_religion_or_smoking():
+    """초안 재료는 MBTI · 설문 문장 한국어다 — 영어 코드값(religion=none)을 넘기지 않는다(2026-09-26 실기기 e).
+    종교 · 흡연은 뺀다 — 민감정보이고 상세 화면 정보 칸에 이미 보인다(2026-10-15 대장 지시, GPT_소개글_프롬프트 §7-1 A)."""
     openai_client = AsyncMock()
     openai_client.chat.completions.create.return_value.choices = [SimpleNamespace(message=SimpleNamespace(content="초안"))]
     app.dependency_overrides[router_module.get_openai] = lambda: openai_client
@@ -481,8 +516,9 @@ def test_bio_draft_feeds_survey_mbti_religion_smoking_in_korean():
 
     assert response.status_code == 200
     prompt = openai_client.chat.completions.create.call_args.kwargs["messages"][1]["content"]
-    assert "성향: 밖이 좋아요, 낯을 많이 가려요, MBTI ENFP, 종교 무교, 비흡연" in prompt
-    assert "religion=" not in prompt
+    assert prompt.startswith("MBTI: ENFP\n성향: 밖이 좋아요, 낯을 많이 가려요\n")
+    for left_out in ("religion=", "종교", "무교", "흡연"):
+        assert left_out not in prompt, left_out
 
 
 _NINE_ANSWERS = {str(axis): 0.5 for axis in range(1, 10)}
