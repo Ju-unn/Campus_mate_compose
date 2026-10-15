@@ -182,7 +182,7 @@ abstract final class AppRouter {
 
   /// 조각 4 — 오늘의 카드와 그 주변. 하단 내비 탭 5개(`home` · `today` · `community` · `conversations` · `myProfile`)는
   /// 셸 없이 각자 최상위 경로라, 안드로이드 뒤로가기 확인([BackExitScope])을 탭마다 한 겹씩 두른다.
-  /// `home` 은 09b 메인이고 서버 `/home/summary` 로 채운다 — 사람들 칸·리뷰 칸만 목값이다(`homeRepositoryProvider`).
+  /// `home` 은 09b 메인이고 서버 `/home/summary` · `/home/people`(레일 사람 칸)로 채운다 — 리뷰 칸만 출시 전 고정값이다(`homeRepositoryProvider`).
   static List<RouteBase> _slice4Routes() {
     return <RouteBase>[
       _TabRoute(

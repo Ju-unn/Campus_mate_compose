@@ -12,7 +12,7 @@ import 'package:campus_mate/me/view/me_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// 21 이벤트(출시 예정, pen `q2mpPW`, 대장 전달 값 10-15). 홈 6칸 그리드의 이벤트 칸이 push 로 연다 — 하단 내비 없음.
+/// 9b-1 이벤트(출시 예정, pen `q2mpPW`, 대장 전달 값 10-15). 홈 6칸 그리드의 이벤트 칸이 push 로 연다 — 하단 내비 없음.
 /// 마스코트 · 제목 · 설명 · 인스타그램 버튼을 묶어 앱바 아래 칸 가운데에 두고 아래로 48 치우친다(03b 와 같은 규칙).
 /// 이벤트가 생기면 본문을 카드 목록으로 넓힌다(지금은 만들지 않는다).
 class EventComingScreen extends ConsumerStatefulWidget {

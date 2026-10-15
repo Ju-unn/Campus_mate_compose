@@ -438,7 +438,7 @@ void main() {
       expect(find.byType(HeartStoreScreen), findsOneWidget);
     });
 
-    testWidgets('/events 는 21 이벤트(출시 예정)다', (tester) async {
+    testWidgets('/events 는 9b-1 이벤트(출시 예정)다', (tester) async {
       final router = await pumpRouter(tester);
 
       router.go(AppRoutes.events);
