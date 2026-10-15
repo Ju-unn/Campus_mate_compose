@@ -100,7 +100,7 @@ def test_basic_info_rejects_duplicate_nickname_with_409():
         headers=AUTH_HEADERS,
         json={
             "nickname": "가나", "birth_year": 2002, "height_cm": 170,
-            "phone_number": "01012345678", "gender": "male",
+            "phone_number": "01048217395", "gender": "male",
         },
     )
 
@@ -130,7 +130,7 @@ def test_basic_info_creates_private_row_before_saving_phone():
         headers=AUTH_HEADERS,
         json={
             "nickname": "가나", "birth_year": 2002, "height_cm": 170,
-            "phone_number": "01012345678", "gender": "male",
+            "phone_number": "01048217395", "gender": "male",
         },
     )
 
@@ -153,18 +153,26 @@ def test_basic_info_saves_the_phone_number_in_e164():
         headers=AUTH_HEADERS,
         json={
             "nickname": "가나", "birth_year": 2002, "height_cm": 170,
-            "phone_number": "010-1234-5678", "gender": "male",
+            "phone_number": "010-4821-7395", "gender": "male",
         },
     )
 
     assert response.status_code == 200
-    assert sent[0]["p_phone"] == "+821012345678"
+    assert sent[0]["p_phone"] == "+821048217395"
     # 지인 차단 해시도 같은 E.164 값에서, 설정의 신원 키로 뜬다(조각 6 B4).
-    assert sent[0]["p_phone_hmac"] == bytea_literal(hash_phone("identity-key-test", "+821012345678"))
+    assert sent[0]["p_phone_hmac"] == bytea_literal(hash_phone("identity-key-test", "+821048217395"))
 
 
-def test_basic_info_rejects_a_half_typed_phone_number():
-    """여기가 신뢰 경계다 — 앱이 막지 못한 값이 들어오면 아무것도 쓰지 않고 돌려보낸다."""
+@pytest.mark.parametrize("phone_number", [
+    "010-1",          # 덜 친 번호
+    "011-123-4567",   # 옛 10자리 — 가입은 010 만
+    "010-1234-5678",  # 한 줄 순서
+    "010-0000-0000",  # 같은 숫자
+    "010-1111-2222",  # 알려진 가짜
+])
+def test_basic_info_refuses_a_number_that_is_not_a_real_010_phone(phone_number):
+    """여기가 신뢰 경계다 — 앱이 막지 못한 값(옛 앱 · 직접 호출)이 들어오면 아무것도 쓰지 않고 돌려보낸다.
+    가짜 번호는 지인 차단을 비껴가고 같은 번호 검사(지인 리뷰 · 추천)를 엉뚱하게 건다(전화번호_인증 §2-3)."""
     writes: list[str] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -177,12 +185,35 @@ def test_basic_info_rejects_a_half_typed_phone_number():
         headers=AUTH_HEADERS,
         json={
             "nickname": "가나", "birth_year": 2002, "height_cm": 170,
-            "phone_number": "010-1", "gender": "male",
+            "phone_number": phone_number, "gender": "male",
         },
     )
 
-    assert response.status_code == 400
-    assert response.json()["detail"] == errors.PHONE_NUMBER_INVALID
+    assert response.status_code == 422
+    assert response.json() == {"detail": "올바른 휴대폰 번호를 입력해 주세요", "code": "phone_number_invalid"}
+    assert writes == []
+
+
+@pytest.mark.parametrize("gender", ["other", "Male", ""])
+def test_basic_info_takes_only_male_or_female_before_writing(gender):
+    """DB enum gender 와 같은 두 값만 받는다 — DB 에 맡기면 프로필 PATCH 에서야 22P02 로 떨어진다."""
+    writes: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method in ("PATCH", "POST"):
+            writes.append(str(request.url))
+        return httpx.Response(200, json=[])
+
+    response = _wire(handler).post(
+        "/profile-onboarding/basic-info",
+        headers=AUTH_HEADERS,
+        json={
+            "nickname": "가나", "birth_year": 2002, "height_cm": 170,
+            "phone_number": "010-4821-7395", "gender": gender,
+        },
+    )
+
+    assert response.status_code == 422
     assert writes == []
 
 
@@ -234,7 +265,7 @@ def test_onboarding_rejects_missing_school_info_with_403():
 def test_basic_info_rejects_under_nineteen_with_422():
     """가입 나이 자격은 Asia/Seoul 기준 올해 - birth_year >= 19 다(ERD.md). 경계값 19/18 을 같이 본다."""
     this_year = datetime.now(SEOUL).year
-    body = {"nickname": "가나", "height_cm": 170, "phone_number": "01012345678", "gender": "male"}
+    body = {"nickname": "가나", "height_cm": 170, "phone_number": "01048217395", "gender": "male"}
     client = _wire(lambda request: httpx.Response(200, json=[]))
 
     just_old_enough = client.post(
@@ -420,8 +451,43 @@ def test_bio_draft_returns_the_saved_draft_without_calling_openai():
     openai_client.chat.completions.create.assert_not_called()
 
 
-def test_bio_draft_feeds_survey_mbti_religion_smoking_in_korean():
-    """초안 재료는 설문 문장·MBTI·종교·흡연 한국어다 — 영어 코드값(religion=none)을 넘기지 않는다(2026-09-26 실기기 e)."""
+def test_bio_draft_that_stays_empty_is_a_failure_and_is_not_saved():
+    """OpenAI 가 두 번 다 빈 답(거부 등, content=None)이면 생성 실패와 같다 — 5xx 로 앱이 "직접 써 주세요" 를 띄우고,
+    빈 초안을 저장하지 않아 다음에 열면 다시 만든다(빈 값을 저장하면 저장본이 있어 다시는 안 만든다)."""
+    openai_client = AsyncMock()
+    openai_client.chat.completions.create.return_value = SimpleNamespace(
+        choices=[SimpleNamespace(message=SimpleNamespace(content=None))]
+    )
+    app.dependency_overrides[router_module.get_openai] = lambda: openai_client
+    patches: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        path, select = request.url.path, request.url.params.get("select", "")
+        if request.method == "PATCH":
+            patches.append(json.loads(request.content))
+            return httpx.Response(204)
+        if path.endswith("/profiles") and select == "bio_draft":
+            return httpx.Response(200, json=[{"bio_draft": None}])
+        if path.endswith("/profiles"):
+            return httpx.Response(200, json=[{
+                "nickname": "하늘", "gender": "male", "mbti": None, "animal_type": "dog",
+                "impression_type": "kind", "interest_tags": ["여행"], "my_traits": ["다정한"],
+                "religion": "none", "is_smoker": False, "preferred_age_min": 20,
+                "preferred_animal_types": ["cat"], "preferred_impression_types": ["chic"],
+                "ideal_traits": [], "ideal_note": "", "bio": None,
+            }])
+        return httpx.Response(200, json=[])
+
+    response = _wire(handler).post("/profile-onboarding/bio-draft", headers=AUTH_HEADERS)
+
+    assert response.status_code == 502
+    assert openai_client.chat.completions.create.await_count == 2
+    assert patches == []
+
+
+def test_bio_draft_feeds_mbti_and_survey_in_korean_without_religion_or_smoking():
+    """초안 재료는 MBTI · 설문 문장 한국어다 — 영어 코드값(religion=none)을 넘기지 않는다(2026-09-26 실기기 e).
+    종교 · 흡연은 뺀다 — 민감정보이고 상세 화면 정보 칸에 이미 보인다(2026-10-15 대장 지시, GPT_소개글_프롬프트 §7-1 A)."""
     openai_client = AsyncMock()
     openai_client.chat.completions.create.return_value.choices = [SimpleNamespace(message=SimpleNamespace(content="초안"))]
     app.dependency_overrides[router_module.get_openai] = lambda: openai_client
@@ -450,8 +516,9 @@ def test_bio_draft_feeds_survey_mbti_religion_smoking_in_korean():
 
     assert response.status_code == 200
     prompt = openai_client.chat.completions.create.call_args.kwargs["messages"][1]["content"]
-    assert "성향: 밖이 좋아요, 낯을 많이 가려요, MBTI ENFP, 종교 무교, 비흡연" in prompt
-    assert "religion=" not in prompt
+    assert prompt.startswith("MBTI: ENFP\n성향: 밖이 좋아요, 낯을 많이 가려요\n")
+    for left_out in ("religion=", "종교", "무교", "흡연"):
+        assert left_out not in prompt, left_out
 
 
 _NINE_ANSWERS = {str(axis): 0.5 for axis in range(1, 10)}

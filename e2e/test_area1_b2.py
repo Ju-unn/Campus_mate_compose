@@ -63,9 +63,9 @@ class HomeFactoryTest(Base):
 
     def test_basic_info_can_be_pinned(self):
         fake = self.serve()
-        self.run.account('basic', phone_number='010-1111-2222')
+        self.run.account('basic', phone_number='010-4821-7395')
         sent = [b for m, p, b in fake.calls if p == '/profile-onboarding/basic-info'][0]
-        self.assertEqual(sent['phone_number'], '010-1111-2222')
+        self.assertEqual(sent['phone_number'], '010-4821-7395')
 
     def test_screen_names_follow_the_server_steps(self):
         self.assertEqual(area1_b2.SCREEN_AFTER['basic'], '04-1b')

@@ -25,6 +25,11 @@ def _fit(flags: dict, mbti: str) -> float:
     return ok / 4
 
 
+def mbti_prefers_a_side(flags: dict) -> bool:
+    """한쪽만 고른 축이 하나라도 있는가. 없으면(`{}` · 8개 전부 · 축마다 양쪽 같음) _fit 이 늘 1 인 "상관없음" 이다."""
+    return any(flags.get(left, False) != flags.get(right, False) for left, right in _AXES)
+
+
 def mbti_coefficient(
     my_flags: dict, partner_mbti: str | None, partner_flags: dict, my_mbti: str | None
 ) -> float:

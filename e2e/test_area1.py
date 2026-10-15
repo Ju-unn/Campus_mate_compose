@@ -16,6 +16,7 @@ CFG = {'SUPABASE_URL': 'https://sb.test', 'SUPABASE_ANON_KEY': 'anon', 'API_BASE
        'E2E_MAIL_BASE': 'base@gmail.com'}
 SV = '학생증 인증을 먼저 끝내 주세요'
 INVALID = '입력한 값을 다시 확인해 주세요'
+PHONE_INVALID = {'detail': '올바른 휴대폰 번호를 입력해 주세요', 'code': 'phone_number_invalid'}  # 서버 errors.PHONE_NUMBER_INVALID · CODE_PHONE_NUMBER_INVALID
 REJECT = {'msg': '등록되지 않은 학교 메일이에요'}  # 서버 errors.SCHOOL_EMAIL_UNKNOWN_DOMAIN
 
 
@@ -436,9 +437,9 @@ CASES = {
                   {('POST', '/school-info'): Reply(403, {'detail': SV}), ('GET', '/rest/v1/profiles'): Reply(200, [{'major': '컴공'}])}),
     'E-GATE-55': ({('GET', '/cards/today'): Reply(403, {'detail': '학과 정보를 먼저 입력해 주세요'})},
                   {('GET', '/cards/today'): Reply(403, {'detail': SV})}),
-    'E-ONB-14': ({('POST', '/profile-onboarding/basic-info'): [Reply(400, {'detail': '전화번호를 다시 확인해 주세요'}), Reply(200, {'ok': True})],
+    'E-ONB-14': ({('POST', '/profile-onboarding/basic-info'): [Reply(422, PHONE_INVALID), Reply(200, {'ok': True})],
                   ('GET', '/rest/v1/profile_private'): Reply(200, [{'phone_number': '\\xdeadbeef'}])},
-                 {('POST', '/profile-onboarding/basic-info'): [Reply(400, {'detail': '전화번호를 다시 확인해 주세요'}), Reply(200, {'ok': True})],
+                 {('POST', '/profile-onboarding/basic-info'): [Reply(422, PHONE_INVALID), Reply(200, {'ok': True})],
                   ('GET', '/rest/v1/profile_private'): Reply(200, [{'phone_number': None}])}),
     'E-ONB-29': ({('POST', '/profile-onboarding/interests'): [
                       Reply(422, {'detail': "목록에 없는 태그: ['없는태그']"}), Reply(422, {'detail': '같은 태그를 두 번 고를 수 없어요'}),

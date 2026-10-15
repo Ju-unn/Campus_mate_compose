@@ -4,6 +4,7 @@ from uuid import UUID
 
 import httpx
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile
+from fastapi.responses import JSONResponse
 from google.cloud import vision
 from openai import AsyncOpenAI
 
@@ -22,7 +23,7 @@ from app.profile_onboarding.avatars import (
 )
 from app.profile_onboarding.encryption import set_encrypted_kakao_id, set_encrypted_phone_number
 from app.profile_onboarding.onboarding_progress import next_step
-from app.profile_onboarding.phone_number import to_e164
+from app.profile_onboarding.phone_number import to_signup_e164
 from app.profile_onboarding.photos import check_safe_search
 from app.profile_onboarding.repository import ProfileOnboardingRepository
 from app.profile_onboarding.schemas import (
@@ -83,19 +84,21 @@ async def check_nickname_availability(
     return NicknameAvailabilityResponse(available=available)
 
 
-@router.post("/profile-onboarding/basic-info")
+@router.post("/profile-onboarding/basic-info", response_model=None)
 async def submit_basic_info(
     body: BasicInfoRequest,
     caller: Caller = Depends(get_verified_caller),
     openai_client: AsyncOpenAI = Depends(get_openai),
-) -> dict[str, bool]:
+) -> dict[str, bool] | JSONResponse:
     settings, client, profile_id = caller
     repo = _repo(settings, client)
 
-    # 앱이 하이픈을 붙여 보내도 저장은 한 모양(E.164)이어야 한다 — 여기가 신뢰 경계다.
-    phone_number = to_e164(body.phone_number)
+    # 앱이 하이픈을 붙여 보내도 저장은 한 모양(E.164)이어야 한다 — 여기가 신뢰 경계다. 가짜 번호 규칙도 여기서 최종으로 본다.
+    phone_number = to_signup_e164(body.phone_number)
     if phone_number is None:
-        raise HTTPException(status_code=400, detail=errors.PHONE_NUMBER_INVALID)
+        return JSONResponse(
+            status_code=422, content={"detail": errors.PHONE_NUMBER_INVALID, "code": errors.CODE_PHONE_NUMBER_INVALID}
+        )
 
     # 닉네임 중복(23505)은 repository 의 공통 변환이 409 로 바꿔 준다.
     await repo.update_basic_info(
@@ -407,13 +410,14 @@ async def generate_bio_draft_endpoint(
         return {"draft": saved_draft}
 
     snapshot = await repo.fetch_onboarding_snapshot(profile_id)
-    summary = survey_summary(
-        snapshot["survey_answers"], snapshot["mbti"], snapshot["religion"], snapshot["is_smoker"]
-    )
     draft = await generate_bio_draft(
-        openai_client,
-        summary, snapshot["interest_tags"], snapshot["my_traits"],
+        openai_client, snapshot["mbti"], survey_summary(snapshot["survey_answers"]),
+        snapshot["interest_tags"], snapshot["my_traits"],
     )
+    if not draft:
+        # OpenAI 가 두 번 다 빈 답이면 생성 실패(OpenAI 오류 5xx)와 같게 둔다 — 앱은 "직접 써 주세요" 를 띄운다.
+        # 빈 값을 저장하면 저장본이 있어 다음에 열어도 다시 만들지 않는다.
+        raise HTTPException(status_code=502)
     await repo.save_bio_draft(profile_id, draft)
     return {"draft": draft}
 
