@@ -66,6 +66,10 @@ _BUNDLES = {
     ("match_made", "chat"): ("카카오톡 아이디를 주고받았어요", "밤사이 {n}명과 프로필이 공개됐어요"),
     ("new_friend_review", "friend_reviews"): ("새 지인 리뷰가 도착했어요", "밤사이 리뷰 {n}개가 도착했어요"),
 }
+# 알림 줄에 한 장만 남기는 kind. kind 이름을 안드로이드 notification.tag · iOS apns-collapse-id 로 써서 새 알림이 앞 알림을 덮는다.
+# 앱은 학생 인증 관문을 지나면 이 tag 로 알림을 지운다(frontend core/push/foreground_push.dart) — 이름을 바꾸면 앱도 같이 바꾼다.
+# 다른 kind 는 건마다 따로 쌓여야 해서(사람 · 방마다 다른 알림) 넣지 않는다.
+_COLLAPSED_KINDS = {"verification_result"}
 
 
 class PushToken(str):
@@ -104,17 +108,22 @@ class FcmSender:
         400 은 죽은 토큰이 아니라 우리가 보낸 payload 가 잘못됐다는 뜻이다 — 예전에는 404 와
         한데 묶여서 멀쩡한 사람의 토큰을 조용히 지웠다.
 
-        `kind` · `platform` 은 로그에만 쓴다. 로그에는 토큰 앞 6자와 길이, 종류, 기기 종류, FCM 오류 코드만 남고
-        토큰 원문 · 제목 · 본문 · 사용자 이름은 남기지 않는다."""
+        `platform` 은 로그에만 쓴다. `kind` 는 로그와, 한 장으로 합칠 알림인지([_COLLAPSED_KINDS])를 고르는 데 쓴다.
+        로그에는 토큰 앞 6자와 길이, 종류, 기기 종류, FCM 오류 코드만 남고 토큰 원문 · 제목 · 본문 · 사용자 이름은 남기지 않는다."""
+        android: dict = {"priority": "high"}
+        # iOS: 조용한 알림이 아니라 소리 있는 일반 알림, 즉시 전달(우선순위 10). 제목·본문은 notification 이 채운다.
+        apns_headers = {"apns-priority": "10"}
+        if kind in _COLLAPSED_KINDS:
+            android["notification"] = {"tag": kind}
+            apns_headers["apns-collapse-id"] = kind
         payload = {
             "message": {
                 "token": token,
                 "notification": {"title": title, "body": body},
                 # data 값은 문자열만 허용된다. 앱은 route 로 어느 화면을 열지 고른다(Task A7).
                 "data": {key: str(value) for key, value in data.items()},
-                "android": {"priority": "high"},
-                # iOS: 조용한 알림이 아니라 소리 있는 일반 알림, 즉시 전달(우선순위 10). 제목·본문은 notification 이 채운다.
-                "apns": {"headers": {"apns-priority": "10"}, "payload": {"aps": {"sound": "default"}}},
+                "android": android,
+                "apns": {"headers": apns_headers, "payload": {"aps": {"sound": "default"}}},
             }
         }
         response = await self._client.post(

@@ -101,6 +101,16 @@ def test_verified_sends_pass_notification():
                                         {"route": "verification"})
 
 
+def test_the_result_push_carries_the_tag_the_app_clears_after_the_gate():
+    """반려 뒤 통과처럼 두 번 와도 알림 줄에는 한 장만 남고, 앱은 3c 로 넘어가며 그 tag 로 지운다."""
+    pushes: list[dict] = []
+    _wire("verified", pushes).post(URL, json={"profile_id": ME}, headers={"x-webhook-secret": SECRET})
+
+    message = pushes[0]["message"]
+    assert message["android"]["notification"] == {"tag": "verification_result"}
+    assert message["apns"]["headers"]["apns-collapse-id"] == "verification_result"
+
+
 def test_rejected_sends_retry_notification_without_reason():
     pushes: list[dict] = []
     response = _wire("rejected", pushes).post(URL, json={"profile_id": ME}, headers={"x-webhook-secret": SECRET})

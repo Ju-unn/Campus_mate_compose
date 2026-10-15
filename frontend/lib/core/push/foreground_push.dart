@@ -1,3 +1,4 @@
+import 'package:campus_mate/auth/model/verification_gate.dart';
 import 'package:campus_mate/core/push/push_messaging.dart';
 import 'package:campus_mate/core/push/push_route.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
@@ -18,6 +19,9 @@ abstract interface class SystemNotifications {
     required Map<String, dynamic> data,
   });
 
+  /// 알림 줄에서 지운다. FCM SDK 가 띄운 알림(앱이 뒤에 있을 때)은 [tag] 로 가려진다 — 이 앱이 띄운 알림은 tag 가 없다.
+  Future<void> cancel({required int id, String? tag});
+
   /// 앱이 살아 있을 때 이 창구가 띄운 알림을 누르면 그 알림의 data 가 온다.
   Stream<Map<String, dynamic>> get onTap;
 }
@@ -37,6 +41,9 @@ class NoSystemNotifications implements SystemNotifications {
     required String body,
     required Map<String, dynamic> data,
   }) async {}
+
+  @override
+  Future<void> cancel({required int id, String? tag}) async {}
 
   @override
   Stream<Map<String, dynamic>> get onTap => const Stream<Map<String, dynamic>>.empty();
@@ -60,6 +67,18 @@ class ForegroundPush {
   /// 안드로이드 알림 id 는 32비트 양의 정수여야 한다.
   static const int _maxNotificationId = 0x7fffffff;
 
+  /// 학생 인증 결과 알림(서버 kind `verification_result`)의 data. 이 앱이 띄울 때 id 를 이 data 로 정한다([_idFor]).
+  static const Map<String, dynamic> _verificationResultData = {'route': 'verification'};
+
+  /// 서버가 학생 인증 결과 알림에 붙이는 안드로이드 notification.tag(`backend/app/cards/push.py` _COLLAPSED_KINDS).
+  static const String _verificationResultTag = 'verification_result';
+
+  /// FCM SDK 가 띄운 알림의 id 는 늘 0 이다 — tag 로만 서로 갈린다.
+  static const int _fcmNotificationId = 0;
+
+  /// 학생 인증 관문을 이미 지났는가. 지나는 순간 한 번만 지우려고 앞 값을 기억한다([gateChanged]).
+  bool _pastStudentVerification = false;
+
   /// 로그인 뒤 푸시를 켤 때 부른다. 안드로이드에서 꺼진 앱을 이 알림으로 켰으면 그 data 를 돌려준다.
   Future<Map<String, dynamic>?> start() async {
     if (!_drawsItself) {
@@ -80,6 +99,21 @@ class ForegroundPush {
       return;
     }
     await _notifications.show(id: _idFor(message.data), title: title, body: message.body ?? '', data: message.data);
+  }
+
+  /// 관문이 바뀔 때마다 부른다. 학생 인증 관문을 지나는 순간(3c · 홈이 되는 순간) 학생 인증 결과 알림을 알림 줄에서 지운다 —
+  /// 그 내용("학과 정보를 입력하고 시작해 보세요")은 화면이 이미 보여 준다. 앱이 뒤에 있을 때 FCM 이 띄운 것(tag)과
+  /// 앞에 있을 때 앱이 띄운 것(id) 둘 다. 앱을 켜서 관문을 처음 알아낸 때(모름 → 홈)도 한 번 지운다 — 없으면 아무 일도 없다.
+  /// iOS 는 로컬 알림 창구를 안드로이드 설정으로만 준비해 지우지 못한다 — 서버 `apns-collapse-id` 로 한 장으로 합치기만 한다.
+  Future<void> gateChanged(VerificationGate gate) async {
+    final past = gate == VerificationGate.needsSchoolInfo || gate == VerificationGate.complete;
+    final justPassed = past && !_pastStudentVerification;
+    _pastStudentVerification = past;
+    if (!_drawsItself || !justPassed) {
+      return;
+    }
+    await _notifications.cancel(id: _fcmNotificationId, tag: _verificationResultTag);
+    await _notifications.cancel(id: _idFor(_verificationResultData));
   }
 
   /// 그 방은 Realtime 으로 이미 보고 있다. 채팅방만 본다 — 대화 목록 같은 다른 화면에서는 띄운다.

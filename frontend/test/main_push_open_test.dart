@@ -124,6 +124,8 @@ void main() {
   // 사용자 채널(`user:<내 id>`, 설계안 A) 자리의 가짜와 앱 컨테이너 — 두 pump 도우미가 채운다.
   late FakeUserEventStream appEvents;
   late ProviderContainer appContainer;
+  // 앱이 떠 있을 때 받은 푸시를 안드로이드가 띄우는 시스템 알림 창구. 두 pump 도우미가 채운다.
+  late FakeSystemNotifications appSystemNotifications;
 
   Future<void> pumpPendingVerification(WidgetTester tester) async {
     gate = FakeVerificationGateRepository()..nextResult = const Success(VerificationGate.needsStudentVerification);
@@ -134,12 +136,14 @@ void main() {
     appCards = FakeCardRepository();
     appNotifications = FakeNotificationsRepository();
     appEvents = FakeUserEventStream();
+    appSystemNotifications = FakeSystemNotifications();
     final container = ProviderContainer(
       overrides: [
         verificationGateRepositoryProvider.overrideWithValue(gate),
         studentVerificationRepositoryProvider.overrideWithValue(verification),
         onboardingRepositoryProvider.overrideWithValue(FakeOnboardingRepository()),
         pushMessagingProvider.overrideWithValue(messaging),
+        systemNotificationsProvider.overrideWithValue(appSystemNotifications),
         cardRepositoryProvider.overrideWithValue(appCards),
         chatRepositoryProvider.overrideWithValue(appChat),
         userEventStreamProvider.overrideWithValue(appEvents),
@@ -166,6 +170,22 @@ void main() {
     expect(find.byType(StudentVerificationScreen), findsNothing);
   });
 
+  // 사용자 보고: "학생 인증이 끝났어요" 알림이 3c 에서 뒤로 갔다 다시 들어와도 알림 줄에 남았다.
+  testWidgets('통과 알림으로 3c 에 넘어가면 그 알림을 알림 줄에서 지운다', (tester) async {
+    await pumpPendingVerification(tester);
+    expect(appSystemNotifications.cancelled, isEmpty);
+
+    verification.nextFetchStatusResult = const Success(VerificationOutcome(status: 'verified'));
+    gate.nextResult = const Success(VerificationGate.needsSchoolInfo);
+    messaging.emitMessage({'route': 'verification'}, title: '학생 인증이 끝났어요', body: '학과 정보를 입력하고 시작해 보세요');
+    await tester.pumpAndSettle();
+
+    expect(appSystemNotifications.cancelled, [
+      (id: 0, tag: 'verification_result'),
+      (id: appSystemNotifications.shown.single.id, tag: null),
+    ]);
+  });
+
   // 관문만 다시 물으면 거절은 그대로 needsStudentVerification 이라 화면이 안 바뀐다 — 3b 상태까지 다시 읽어야 한다.
   testWidgets('검토 중 화면에서 거절 알림이 오면 바로 거절 배너를 보여준다', (tester) async {
     await pumpPendingVerification(tester);
@@ -177,9 +197,6 @@ void main() {
 
     expect(find.text('인증이 거절됐어요'), findsOneWidget);
   });
-
-  // 앱이 떠 있을 때 받은 푸시를 안드로이드가 띄우는 시스템 알림 창구. pumpHome 이 채운다.
-  late FakeSystemNotifications appSystemNotifications;
 
   // 알림을 눌러 열면 화면만 옮기고 목록은 낡은 채로 남았다 — 대화 탭은 들어갈 때 다시 읽지 않는다.
   // [launch] 는 꺼진 앱을 앱이 직접 띄운 알림으로 켰다고 흉내 낸다.

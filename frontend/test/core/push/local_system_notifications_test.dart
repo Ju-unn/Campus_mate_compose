@@ -81,6 +81,13 @@ void main() {
     expect(android['priority'], Priority.high.value);
   });
 
+  // FCM 이 띄운 알림은 id 가 늘 0 이고 tag 로만 가려진다. 관문 갱신이 준비보다 먼저 와도 지워져야 한다(준비 없이 부른다).
+  test('지울 때 id 와 tag 를 플러그인에 그대로 넘긴다', () async {
+    await create().cancel(id: 0, tag: 'verification_result');
+
+    expect(callsNamed('cancel').single.arguments, {'id': 0, 'tag': 'verification_result'});
+  });
+
   test('앱이 살아 있을 때 알림을 누르면 payload 의 data 를 넘긴다', () async {
     final notifications = create();
     await notifications.initialize();
