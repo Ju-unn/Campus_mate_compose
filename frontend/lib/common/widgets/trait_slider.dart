@@ -109,11 +109,14 @@ class TraitSlider extends StatelessWidget {
   Widget _dot({required bool isSelected}) {
     // pen `mkf89` 값(2026-09-26 erd3 수정). 종전 12/18 은 실기기에서 어디를 골랐는지 잘 안 보였다.
     final size = isSelected ? 28.0 : 18.0;
+    // 안 고른 점은 흰 속 + outline 테두리(2026-10-15) — hairline 채움은 흰 바탕에서 1.3:1 이라 비텍스트 대비 3:1 미달.
+    // 선 두께 1.5 는 AppCheckbox 꺼짐 테두리와 같은 값(pen 확인 필요: 1.5~2).
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: isSelected ? AppColors.primary : AppColors.hairline,
+        color: isSelected ? AppColors.primary : AppColors.canvas,
+        border: isSelected ? null : Border.all(color: AppColors.outline, width: 1.5),
         shape: BoxShape.circle,
       ),
     );

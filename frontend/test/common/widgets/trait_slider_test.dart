@@ -1,4 +1,5 @@
 import 'package:campus_mate/common/widgets/trait_slider.dart';
+import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -39,6 +40,29 @@ void main() {
     expect(tester.getSize(dots().at(2)), const Size(28, 28));
     expect(tester.getSize(dots().at(0)), const Size(18, 18));
     expect(tester.getSize(dots().at(4)), const Size(18, 18));
+  });
+
+  testWidgets('안 고른 점은 흰 속 + outline 테두리, 고른 점은 primary 채움이다', (tester) async {
+    // 비텍스트 대비 3:1 — 종전 hairline(#DDDDDD) 채움은 흰 바탕에서 1.3:1 로 안 보였다. outline(#767676)은 4.54:1.
+    await pump(tester, 0);
+    BoxDecoration decoration(int index) => tester.widget<Container>(dots().at(index)).decoration! as BoxDecoration;
+
+    for (final index in [0, 1, 3, 4]) {
+      expect(decoration(index).color, AppColors.canvas, reason: '$index');
+      expect(decoration(index).border, Border.all(color: AppColors.outline, width: 1.5), reason: '$index');
+    }
+    expect(decoration(2).color, AppColors.primary);
+    expect(decoration(2).border, isNull);
+  });
+
+  testWidgets('트랙은 장식이라 hairline 그대로다', (tester) async {
+    await pump(tester, 0);
+
+    final track = find.descendant(
+      of: find.byType(TraitSlider),
+      matching: find.byWidgetPredicate((widget) => widget is Container && widget.color == AppColors.hairline),
+    );
+    expect(track, findsOneWidget);
   });
 
   testWidgets('점을 누르면 그 칸을 고른다', (tester) async {
