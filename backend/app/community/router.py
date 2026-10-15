@@ -5,7 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from app.community.repository import POLL_PAGE_SIZE, CommunityRepository
+from app.community.repository import POLL_PAGE_SIZE, CommunityRepository, PollTab
 from app.core import errors
 from app.core.deps import Caller, get_verified_caller
 
@@ -25,15 +25,20 @@ def _repo(caller: Caller) -> CommunityRepository:
 
 
 @router.get("/community/polls")
-async def list_polls(before: datetime | None = None, before_id: UUID | None = None,
+async def list_polls(before: datetime | None = None, before_id: UUID | None = None, tab: PollTab = "all",
                      caller: Caller = Depends(get_verified_caller)) -> dict:
     """15d 피드. 최신 글부터 20개, 전체 학교(사용자 결정 1). 더 내리면 화면 맨 아래 글의
-    `created_at` · `id` 를 그대로 보낸다 — 채팅 메시지와 같은 커서다."""
+    `created_at` · `id` 를 그대로 보낸다 — 채팅 메시지와 같은 커서다.
+    `tab` 은 전체 · 인기 · 내 질문 · 내 투표. 인기는 참여 수 순 한 쪽뿐이라 커서가 없고 "더 없음" 으로 답한다."""
     if (before is None) != (before_id is None):
         # 하나만 오면 DB 의 (created_at, id) 비교가 null 이 돼 빈 페이지가 "끝" 으로 읽힌다.
         raise HTTPException(status_code=422, detail=errors.INVALID_INPUT)
-    rows = await _repo(caller).fetch_polls(caller.profile_id, before=before, before_id=before_id)
-    return {"polls": [_card(row) for row in rows], "has_more": len(rows) == POLL_PAGE_SIZE}
+    if tab == "popular" and before is not None:
+        # 시각 커서로 참여 수 순서를 자르면 엉뚱한 글이 섞인다.
+        raise HTTPException(status_code=422, detail=errors.INVALID_INPUT)
+    rows = await _repo(caller).fetch_polls(caller.profile_id, before=before, before_id=before_id, tab=tab)
+    has_more = tab != "popular" and len(rows) == POLL_PAGE_SIZE
+    return {"polls": [_card(row) for row in rows], "has_more": has_more}
 
 
 @router.get("/community/polls/{poll_id}")

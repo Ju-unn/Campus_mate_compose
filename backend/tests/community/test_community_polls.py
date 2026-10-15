@@ -82,6 +82,52 @@ def test_feed_sends_viewer_cursor_and_page_size():
     assert body["p_before"] == "2026-09-27T05:00:00+00:00"
     assert body["p_before_id"] == POLL_ID
     assert body["p_limit"] == 20
+    assert body["p_tab"] == "all"
+
+
+@pytest.mark.parametrize("tab", ["all", "popular", "mine", "voted"])
+def test_feed_passes_tab_to_db(tab):
+    seen: list[httpx.Request] = []
+    response = _wire(_rpc("poll_feed", httpx.Response(200, json=[])), seen).get(
+        "/community/polls", params={"tab": tab}, headers=AUTH_HEADERS)
+    assert response.status_code == 200
+    assert json.loads(seen[0].content)["p_tab"] == tab
+
+
+@pytest.mark.parametrize("tab", ["hot", "ALL", ""])
+def test_feed_rejects_unknown_tab_before_db(tab):
+    seen: list[httpx.Request] = []
+    response = _wire(_rpc("poll_feed", httpx.Response(200, json=[])), seen).get(
+        "/community/polls", params={"tab": tab}, headers=AUTH_HEADERS)
+    assert response.status_code == 422
+    assert seen == []
+
+
+def test_popular_tab_is_one_page_even_when_full():
+    # 인기는 참여 수 순이라 시각 커서로 다음 쪽을 부르면 엉뚱한 글이 섞인다 — 꽉 차도 "더 없음".
+    rows = [_row(id=f"{i:08d}-2222-2222-2222-222222222222") for i in range(20)]
+    response = _wire(_rpc("poll_feed", httpx.Response(200, json=rows))).get(
+        "/community/polls", params={"tab": "popular"}, headers=AUTH_HEADERS)
+    assert len(response.json()["polls"]) == 20
+    assert response.json()["has_more"] is False
+
+
+@pytest.mark.parametrize("tab", ["mine", "voted"])
+def test_mine_and_voted_tabs_page_like_all(tab):
+    rows = [_row(id=f"{i:08d}-2222-2222-2222-222222222222") for i in range(20)]
+    response = _wire(_rpc("poll_feed", httpx.Response(200, json=rows))).get(
+        "/community/polls", params={"tab": tab}, headers=AUTH_HEADERS)
+    assert response.json()["has_more"] is True
+
+
+def test_popular_tab_rejects_cursor_before_db():
+    # 인기에는 다음 쪽이 없다. 커서를 받아 주면 참여 수 순서가 시각 경계로 잘린 글이 나간다.
+    seen: list[httpx.Request] = []
+    response = _wire(_rpc("poll_feed", httpx.Response(200, json=[])), seen).get(
+        "/community/polls", params={"tab": "popular", "before": "2026-09-27T05:00:00+00:00", "before_id": POLL_ID},
+        headers=AUTH_HEADERS)
+    assert response.status_code == 422
+    assert seen == []
 
 
 @pytest.mark.parametrize("params", [{"before": "2026-09-27T05:00:00+00:00"}, {"before_id": POLL_ID}])
@@ -111,6 +157,8 @@ def test_detail_returns_one_poll():
     body = json.loads(seen[0].content)
     assert body["p_poll_id"] == POLL_ID
     assert body["p_limit"] == 1
+    # 상세는 탭과 상관없다 — 내 글 · 내가 투표한 글이 아니어도 열린다.
+    assert body["p_tab"] == "all"
 
 
 def test_detail_404_when_hidden_or_missing():
@@ -181,6 +229,7 @@ def test_vote_returns_fresh_poll_and_reward():
     assert set(response.json()["poll"]) == POLL_KEYS
     assert response.json()["poll"]["a_count"] == 6
     assert json.loads(seen[0].content) == {"p_poll_id": POLL_ID, "p_voter": PROFILE_ID, "p_choice": "a"}
+    assert json.loads(seen[1].content)["p_tab"] == "all"
 
 
 def test_vote_twice_is_409():

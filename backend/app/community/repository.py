@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -10,6 +11,9 @@ from app.core.postgrest import PostgrestRepository
 # 한 번에 내려주는 질문 수. 앱 pollPageSize 와 같은 값이다.
 POLL_PAGE_SIZE = 20
 
+# 15d 탭 줄. 전체 · 인기(최근 7일 참여 수 순, 한 쪽) · 내 질문 · 내 투표. DB poll_feed 의 p_tab 과 같은 값이다.
+PollTab = Literal["all", "popular", "mine", "voted"]
+
 
 class CommunityRepository(PostgrestRepository):
     """커뮤니티 질문 · 투표. 읽기와 쓰기가 DB 함수(RPC)를 거친다 — 집계 · 작성자 숨기기 · 하루 한도 ·
@@ -17,13 +21,14 @@ class CommunityRepository(PostgrestRepository):
 
     async def fetch_polls(self, viewer: UUID, *, poll_id: UUID | None = None,
                           before: datetime | None = None, before_id: UUID | None = None,
-                          limit: int = POLL_PAGE_SIZE) -> list[dict]:
+                          limit: int = POLL_PAGE_SIZE, tab: PollTab = "all") -> list[dict]:
         response = await self._post("rpc/poll_feed", json={
             "p_viewer": str(viewer),
             "p_poll_id": str(poll_id) if poll_id else None,
             "p_before": before.isoformat() if before else None,
             "p_before_id": str(before_id) if before_id else None,
             "p_limit": limit,
+            "p_tab": tab,
         })
         raise_for_status(response)
         return response.json()
