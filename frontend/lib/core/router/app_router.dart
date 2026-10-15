@@ -28,6 +28,7 @@ import 'package:campus_mate/friend_review/view/friend_code_screen.dart';
 import 'package:campus_mate/friend_review/view/friend_review_compose_sheet.dart';
 import 'package:campus_mate/friend_review/view/received_reviews_screen.dart';
 import 'package:campus_mate/friend_review/view/written_reviews_screen.dart';
+import 'package:campus_mate/home/view/event_coming_screen.dart';
 import 'package:campus_mate/home/view/home_screen.dart';
 import 'package:campus_mate/matching/model/acceptance.dart';
 import 'package:campus_mate/matching/view/card_detail_screen.dart';
@@ -197,6 +198,7 @@ abstract final class AppRouter {
         ],
       ),
       _PlatformRoute(path: AppRoutes.notifications, builder: (context, state) => const NotificationsScreen()),
+      _PlatformRoute(path: AppRoutes.events, builder: (context, state) => const EventComingScreen()),
       _TabRoute(path: AppRoutes.today, builder: (context, state) => const BackExitScope(child: TodayCardsScreen())),
       _PlatformRoute(
         path: '${AppRoutes.cardDetail}/:cardId',

@@ -84,9 +84,9 @@ class _AvatarGenerationScreenState extends ConsumerState<AvatarGenerationScreen>
       // idle 은 아직 한 번도 못 물어본 자리다 — 깜빡이지 않게 만드는 중과 같은 표시를 둔다.
       AvatarGenerationStatus.idle ||
       AvatarGenerationStatus.generating =>
-        const Center(child: _GeneratingIndicator()),
+        const _GeneratingIndicator(),
       AvatarGenerationStatus.failed =>
-        Center(child: _RetryPrompt(state: state, onRetry: viewModel.retry)),
+        _RetryPrompt(state: state, onRetry: viewModel.retry),
       // 05-12d 는 따로 된 화면이 아니라 05-12c 위에 얹는 시트다(pen) —
       // 기본 아바타도 완성된 아바타와 같은 자리에 같은 문구로 보여 주고, 사정은 시트가 말한다.
       AvatarGenerationStatus.ready ||
@@ -110,17 +110,77 @@ class _AvatarGenerationScreenState extends ConsumerState<AvatarGenerationScreen>
   }
 }
 
+/// 05-12(pen `OgHRY`) — 파란 목도리 마스코트 아래 도는 표시 28(lucide loader-circle 자리, muted).
 class _GeneratingIndicator extends StatelessWidget {
   const _GeneratingIndicator();
 
   @override
   Widget build(BuildContext context) {
+    return const _StatusView(
+      title: '아바타를 만들고 있어요',
+      subtitle: '선택한 사진으로 아바타를 만드는 중이에요. 잠시만 기다려 주세요.',
+      mascotAsset: 'assets/images/mascot-male-waiting.png',
+      below: SizedBox.square(
+        dimension: 28,
+        child: CircularProgressIndicator(strokeWidth: 2.5, color: AppColors.muted),
+      ),
+    );
+  }
+}
+
+/// 05-12 · 05-12b 공통 얼개(대장 전달 pen 값 10-15). 위 24 → 제목 24/700 → 8 → 부제 16/400 body lh1.6 → 32 → 상태 틀
+/// (위 45 · 안 간격 12: 마스코트 220 → [below]) → 바닥 [action](05-12b 만). pen 부제는 328 폭에서 두 줄이라 마스코트가
+/// y249 다(56 + 24 + 32.4 + 8 + 51.2 + 32 + 45 ≈ 249) — 글자를 키우거나 좁은 폰이면 그만큼 내려간다.
+/// 글이 길어져도 버튼은 바닥에 남고 위쪽만 스크롤한다(05-12c 와 같은 얼개). 한 화면 마스코트 한 마리.
+class _StatusView extends StatelessWidget {
+  const _StatusView({
+    required this.title,
+    required this.subtitle,
+    required this.mascotAsset,
+    required this.below,
+    this.action,
+  });
+
+  final String title;
+  final String subtitle;
+  final String mascotAsset;
+  final Widget below;
+  final Widget? action;
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
-      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const CircularProgressIndicator(),
-        const SizedBox(height: AppSpacing.md),
-        Text('아바타를 만들고 있어요', style: AppTypography.body.copyWith(color: AppColors.body)),
+        Expanded(
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: AppSpacing.lg),
+                Text(title, style: AppTypography.headline.copyWith(color: AppColors.ink)),
+                const SizedBox(height: AppSpacing.xs),
+                Text(subtitle, style: AppTypography.body.copyWith(color: AppColors.body)),
+                const SizedBox(height: AppSpacing.xl),
+                // 상태 틀 328 × 340 — 글자를 키우면 넘치지 않게 340 은 최소 높이로 둔다.
+                ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 340),
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 45),
+                    child: Column(
+                      children: [
+                        Image.asset(mascotAsset, width: 220, height: 220, fit: BoxFit.contain, excludeFromSemantics: true),
+                        const SizedBox(height: AppSpacing.sm),
+                        below,
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        ?action,
       ],
     );
   }
@@ -285,25 +345,30 @@ class _CompensationSheet extends StatelessWidget {
   }
 }
 
+/// 05-12b(pen `c7QuSm`) — 분홍 목도리 마스코트 아래 힌트 한 줄 13/400 muted. 서버 문구가 있으면 같은 자리 · 같은 글꼴로
+/// 그 문구를 둔다. 부제 · 버튼 "다시 시도" 는 pen 원문 그대로다(대장 전달 10-15 — "시도해주세요" 붙여 쓰기도 원문).
 class _RetryPrompt extends StatelessWidget {
   const _RetryPrompt({required this.state, required this.onRetry});
 
   final AvatarGenerationUiState state;
   final Future<void> Function() onRetry;
 
+  /// 서버 규칙(`MAX_CONSECUTIVE_FAILURES` 5 — 연속 실패 5번까지 무료, 5번째에 기본 아바타 + 하트)과 같은 숫자다.
+  /// 종전 pen 원문 "3번까지" 는 서버와 달라 사용자 결정(10-15 "추천")으로 고쳤다(pen 도 함께 정정).
+  static const String _freeRetryHint = '5번까지는 무료로 다시 시도할 수 있어요';
+
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text('아바타를 만들지 못했어요', style: AppTypography.body.copyWith(color: AppColors.body)),
-        if (state.errorMessage != null) ...[
-          const SizedBox(height: AppSpacing.xs),
-          Text(state.errorMessage!, style: AppTypography.caption.copyWith(color: AppColors.error)),
-        ],
-        const SizedBox(height: AppSpacing.md),
-        AppButton(label: '다시 만들기', onPressed: onRetry),
-      ],
+    return _StatusView(
+      title: '아바타 생성에 실패했어요',
+      subtitle: '사진이 흐릿하거나 서버가 혼잡했을 수 있어요. 다른 사진으로 다시 시도해주세요.',
+      mascotAsset: 'assets/images/mascot-female-sad.png',
+      below: Text(
+        state.errorMessage ?? _freeRetryHint,
+        textAlign: TextAlign.center,
+        style: AppTypography.bodySmall.copyWith(fontSize: 13, color: AppColors.muted),
+      ),
+      action: AppButton(label: '다시 시도', onPressed: onRetry),
     );
   }
 }

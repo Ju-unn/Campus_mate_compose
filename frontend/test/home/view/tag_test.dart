@@ -243,7 +243,8 @@ void main() {
       await tester.pumpWidget(UncontrolledProviderScope(container: container, child: MaterialApp.router(routerConfig: router)));
       await tester.pump();
       await tester.pump(const Duration(seconds: 1));
-      await tester.scrollUntilVisible(find.text(campuses.last), 200, scrollable: mainList);
+      // 칩 줄 바로 아래 완성도 카드까지 내린다 — 흐르는 칩 줄(5개 이상)은 같은 이름이 복사본마다 있어 이름으로는 못 짚는다.
+      await tester.scrollUntilVisible(find.text('프로필 완성도 40%'), 200, scrollable: mainList);
     }
 
     /// 칩이 화면 좌우 여백 16 안에 들어가는지.
@@ -274,32 +275,50 @@ void main() {
       debugNetworkImageHttpClientProvider = null;
     });
 
-    testWidgets('"…대학교" 이름은 한 줄에 다 안 들어가면 다음 줄로 흐른다 · 줄 사이 6 · 넘침 없음', (tester) async {
-      await pumpHome(tester, campuses: _fullNames);
+    // 칩이 5개 이상이면 줄바꿈 대신 한 줄로 흐른다(사용자 지시 10-15, home_screen_test 'campus-strip 자동 흐름') — 줄바꿈은 4개 이하에서 본다.
+    final fourFull = _fullNames.take(4).toList();
 
-      final rects = [for (final name in _fullNames) tester.getRect(_chipOf(name))];
+    testWidgets('"…대학교" 이름 4개는 한 줄에 다 안 들어가면 다음 줄로 흐른다 · 줄 사이 6 · 넘침 없음', (tester) async {
+      await pumpHome(tester, campuses: fourFull);
+
+      final rects = [for (final name in fourFull) tester.getRect(_chipOf(name))];
       final rows = rects.map((r) => r.top).toSet().toList()..sort();
       expect(rows.length, greaterThan(1));
       expect(rows[1] - rows[0], 28 + 6);
-      expectInsideMargins(tester, _fullNames, 320);
+      expectInsideMargins(tester, fourFull, 320);
       expect(tester.takeException(), isNull);
       debugNetworkImageHttpClientProvider = null;
     });
 
-    testWidgets('글자 240% · 320 폭 — 로고 칩 줄이 넘치지도 잘리지도 않는다', (tester) async {
-      tester.platformDispatcher.textScaleFactorTestValue = 2.4;
-      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    testWidgets('"…대학교" 이름 6개(5개 이상)는 줄을 바꾸지 않고 한 줄 · 칩 사이 6 · 넘침 없음', (tester) async {
       await pumpHome(tester, campuses: _fullNames);
 
-      expectInsideMargins(tester, _fullNames, 320);
-      for (final name in _fullNames) {
-        final p = tester.renderObject<RenderParagraph>(find.text(name));
-        expect(p.getMaxIntrinsicHeight(p.size.width), lessThanOrEqualTo(p.size.height + 0.5), reason: name);
-        expect(p.getMinIntrinsicWidth(double.infinity), lessThanOrEqualTo(p.size.width + 0.5), reason: name);
-        expect(tester.getSize(_logoOf(name)), const Size(14, 14), reason: name);
+      final rects = [for (final name in _fullNames) tester.getRect(_chipOf(name))];
+      expect(rects.map((r) => r.top).toSet(), hasLength(1));
+      for (var i = 1; i < rects.length; i++) {
+        expect(rects[i].left - rects[i - 1].right, 6, reason: _fullNames[i]);
       }
       expect(tester.takeException(), isNull);
       debugNetworkImageHttpClientProvider = null;
     });
+
+    for (final campuses in [fourFull, _fullNames]) {
+      testWidgets('글자 240% · 320 폭 — 로고 칩 줄이 넘치지도 잘리지도 않는다(칩 ${campuses.length}개)', (tester) async {
+        tester.platformDispatcher.textScaleFactorTestValue = 2.4;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await pumpHome(tester, campuses: campuses);
+
+        // 흐르는 줄(5개 이상)은 화면 밖까지 이어 붙여 좌우 여백 안에 들지 않는다 — 여백은 줄바꿈 줄에서만 본다.
+        if (campuses.length < 5) expectInsideMargins(tester, campuses, 320);
+        for (final name in campuses) {
+          final p = tester.renderObject<RenderParagraph>(find.text(name).first);
+          expect(p.getMaxIntrinsicHeight(p.size.width), lessThanOrEqualTo(p.size.height + 0.5), reason: name);
+          expect(p.getMinIntrinsicWidth(double.infinity), lessThanOrEqualTo(p.size.width + 0.5), reason: name);
+          expect(tester.getSize(_logoOf(name)), const Size(14, 14), reason: name);
+        }
+        expect(tester.takeException(), isNull);
+        debugNetworkImageHttpClientProvider = null;
+      });
+    }
   });
 }

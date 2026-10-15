@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 
 /// 나 탭 편집 화면 앱바(pen 15c `iq3jl` — 15-7 · 15-6 도 같은 틀, 계획서 D5). 태그 3종 · 06-1 을 편집 모드로 띄울 때도 쓴다.
 /// 높이 56, 안쪽 [0,12] · 간격 4, 뒤로 48(arrow-left 22 ink), 제목 18/700 ink — AppBar · Sub `KH1hX` 2026-10-01 개편(옛 [0,8] · 20).
-/// 나 탭 전용이라 common 에 두지 않는다.
+/// 나 탭 전용이라 common 에 두지 않는다 — 같은 AppBar · Sub 틀인 21 이벤트(출시 예정, home/view/event_coming_screen.dart)도 빌려 쓴다.
 class EditAppBar extends StatelessWidget implements PreferredSizeWidget {
   const EditAppBar({required this.title, super.key});
 

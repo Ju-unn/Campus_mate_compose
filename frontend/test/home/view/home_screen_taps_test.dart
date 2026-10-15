@@ -3,12 +3,13 @@ import 'dart:async';
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/consent/model/open_url.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/home/model/home_repository_provider.dart';
 import 'package:campus_mate/home/model/home_summary.dart';
 import 'package:campus_mate/home/model/store_review_url.dart';
-import 'package:campus_mate/home/view/home_banner.dart';
+import 'package:campus_mate/home/view/home_grid.dart';
 import 'package:campus_mate/home/view/home_screen.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:campus_mate/me/model/me_repository_provider.dart';
@@ -25,7 +26,8 @@ import '../../me/model/fake_me_repository.dart';
 import '../model/fake_home_repository.dart';
 import '../../notifications/model/fake_notifications_repository.dart';
 
-/// 홈의 두 누를 곳 — "리뷰 남기기"(스토어 주소가 비어 있는 동안은 "곧 열려요")와 프로필 완성도 카드(→ 프로필 편집 허브).
+/// 홈의 누를 곳 — "리뷰 남기기"(스토어 주소가 비어 있는 동안은 "곧 열려요"), 6칸 그리드의 인스타 · 이벤트 칸(10-15),
+/// 프로필 완성도 카드(→ 프로필 편집 허브).
 void main() {
   const summary = HomeSummary(
     presentPeopleImages: ['assets/images/person-f1-blind-v1.png', 'assets/images/person-f4-blind-v1.png'],
@@ -39,6 +41,9 @@ void main() {
   );
 
   late FakeHomeRepository home;
+
+  /// 리뷰 남기기의 "곧 열려요" 안내 — 6칸 그리드 자리표시 칸(10-15)도 같은 글이라 토스트 안에서만 찾는다.
+  Finder comingSoonToast() => find.descendant(of: find.byType(AppToast), matching: find.text('곧 열려요'));
 
   /// 홈을 띄우고 openUrlProvider 가 받은 주소들을 돌려준다. [opens] 는 그 호출이 돌려줄 값, [throws] 면 예외.
   Future<List<Uri>> pump(
@@ -77,6 +82,7 @@ void main() {
       routes: [
         GoRoute(path: AppRoutes.home, builder: (context, state) => const HomeScreen()),
         GoRoute(path: AppRoutes.myProfileManage, builder: (context, state) => const Text('프로필 편집 허브')),
+        GoRoute(path: AppRoutes.events, builder: (context, state) => const Text('이벤트 화면')),
       ],
     );
     addTearDown(router.dispose);
@@ -87,53 +93,64 @@ void main() {
     return opened;
   }
 
+  /// 6칸 그리드(10-15)가 들어와 884 화면에서 리뷰 띠가 유리 내비에 걸린다 — 띠가 알약 위로 오게 올린다.
+  Future<void> bringReviewUp(WidgetTester tester) async {
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -200));
+    await tester.pump(const Duration(seconds: 1));
+  }
+
   group('리뷰 남기기', () {
     testWidgets('스토어 주소가 비어 있으면 어디도 안 열고 "곧 열려요" 를 잠깐 보여 준다', (tester) async {
       final opened = await pump(tester);
-      expect(find.text('곧 열려요'), findsNothing);
+      await bringReviewUp(tester);
+      expect(comingSoonToast(), findsNothing);
 
       await tester.tap(find.text('리뷰 남기기'));
       await tester.pump();
 
-      expect(find.text('곧 열려요'), findsOneWidget);
+      expect(comingSoonToast(), findsOneWidget);
       expect(opened, isEmpty);
       await tester.pump(const Duration(seconds: 2));
-      expect(find.text('곧 열려요'), findsNothing); // 약 2초 뒤 사라진다(나 탭 안내와 같다)
+      expect(comingSoonToast(), findsNothing); // 약 2초 뒤 사라진다(나 탭 안내와 같다)
     });
 
     testWidgets('주소가 채워져 있으면 그 주소를 열고 안내는 띄우지 않는다', (tester) async {
       final opened = await pump(tester, storeUrl: 'https://play.example.test/store/apps/details?id=app');
+      await bringReviewUp(tester);
 
       await tester.tap(find.text('리뷰 남기기'));
       await tester.pump();
 
       expect(opened, [Uri.parse('https://play.example.test/store/apps/details?id=app')]);
-      expect(find.text('곧 열려요'), findsNothing);
+      expect(comingSoonToast(), findsNothing);
     });
 
     testWidgets('주소가 http(s) 가 아니면 열지 않고 "곧 열려요"', (tester) async {
       final opened = await pump(tester, storeUrl: 'not a url');
+      await bringReviewUp(tester);
 
       await tester.tap(find.text('리뷰 남기기'));
       await tester.pump();
 
       expect(opened, isEmpty);
-      expect(find.text('곧 열려요'), findsOneWidget);
+      expect(comingSoonToast(), findsOneWidget);
     });
 
     testWidgets('열기가 false 를 돌려주면 조용히 끝내지 않고 실패 안내를 보여 준다', (tester) async {
       final opened = await pump(tester, storeUrl: 'https://play.example.test/x', opens: false);
+      await bringReviewUp(tester);
 
       await tester.tap(find.text('리뷰 남기기'));
       await tester.pump();
 
       expect(opened, hasLength(1));
       expect(find.text(const UnknownFailure().toDisplayMessage()), findsOneWidget);
-      expect(find.text('곧 열려요'), findsNothing);
+      expect(comingSoonToast(), findsNothing);
     });
 
     testWidgets('열기가 예외를 던져도 실패 안내를 보여 준다', (tester) async {
       final opened = await pump(tester, storeUrl: 'https://play.example.test/x', throws: true);
+      await bringReviewUp(tester);
 
       await tester.tap(find.text('리뷰 남기기'));
       await tester.pump();
@@ -151,6 +168,7 @@ void main() {
         calls.add(uri);
         return gate.future;
       });
+      await bringReviewUp(tester);
 
       await tester.tap(find.text('리뷰 남기기'));
       await tester.tap(find.text('리뷰 남기기'));
@@ -167,6 +185,7 @@ void main() {
     testWidgets('스크린리더에는 버튼으로 읽힌다', (tester) async {
       final handle = tester.ensureSemantics();
       await pump(tester);
+      await bringReviewUp(tester);
 
       final data = tester.getSemantics(find.text('리뷰 남기기')).getSemanticsData();
       expect(data.hasAction(SemanticsAction.tap), isTrue);
@@ -175,45 +194,27 @@ void main() {
     });
   });
 
-  // 사용자 요청 10-15(대장 전달 값 pen `HomeBanner`) — 참여 대학 칩 줄 아래 · 완성도 카드 위, 블록 사이 24.
-  group('인스타그램 배너', () {
+
+  // 6칸 그리드 아래 행(pen `M5hpo7`, 대장 10-15). 인스타 칸은 옛 배너(HomeBanner)를 흡수했다.
+  group('6칸 그리드 링크 칸', () {
     final instagram = Uri.parse('https://www.instagram.com/campusmate_official');
-    final bannerFinder = find.byType(HomeBanner);
+    Finder tile(String label) => find.descendant(of: find.byType(HomeGrid), matching: find.text(label));
 
-    Future<void> bringBannerUp(WidgetTester tester) async {
-      await tester.drag(find.byType(Scrollable).first, const Offset(0, -300));
-      await tester.pump(const Duration(seconds: 1));
-    }
-
-    testWidgets('참여 대학 칩 줄 아래 24 · 완성도 카드 위 24', (tester) async {
-      await pump(tester);
-
-      expect(find.text('CampusMate 인스타그램'), findsOneWidget);
-      expect(find.text('캠퍼스 소식과 이벤트를 먼저 만나 보세요'), findsOneWidget);
-      final campus = find.ancestor(of: find.text('참여 중인 대학'), matching: find.byType(Column)).first;
-      final banner = tester.getRect(bannerFinder);
-      expect(banner.top - tester.getRect(campus).bottom, 24);
-      final nudge = find.ancestor(of: find.text('프로필을 조금 더 채우면'), matching: find.byType(Container)).last;
-      expect(tester.getRect(nudge).top - banner.bottom, 24);
-    });
-
-    testWidgets('누르면 CampusMate 공식 인스타그램을 기기 앱 · 브라우저로 연다', (tester) async {
+    testWidgets('인스타 칸을 누르면 CampusMate 공식 인스타그램을 기기 앱 · 브라우저로 연다', (tester) async {
       final opened = await pump(tester);
-      await bringBannerUp(tester);
 
-      await tester.tap(bannerFinder);
+      await tester.tap(tile('인스타그램'));
       await tester.pump();
 
       expect(opened, [instagram]);
       expect(find.text(const UnknownFailure().toDisplayMessage()), findsNothing);
     });
 
-    testWidgets('열지 못하면(false · 예외) 실패 안내를 띄운다', (tester) async {
+    testWidgets('인스타를 열지 못하면(false · 예외) 실패 안내를 띄운다', (tester) async {
       for (final throws in [false, true]) {
         final opened = await pump(tester, opens: false, throws: throws);
-        await bringBannerUp(tester);
 
-        await tester.tap(bannerFinder);
+        await tester.tap(tile('인스타그램'));
         await tester.pump();
 
         expect(opened, [instagram]);
@@ -222,17 +223,30 @@ void main() {
       }
     });
 
-    testWidgets('낭독기는 "CampusMate 인스타그램 열기" 버튼으로 읽는다', (tester) async {
-      final handle = tester.ensureSemantics();
-      await pump(tester);
+    testWidgets('이벤트 칸을 누르면 앱 안의 21 이벤트(출시 예정) 화면으로 간다 — 밖으로 열지 않는다', (tester) async {
+      final opened = await pump(tester);
 
-      expect(tester.getSemantics(bannerFinder).getSemanticsData().label, 'CampusMate 인스타그램 열기');
-      handle.dispose();
+      await tester.tap(tile('이벤트'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('이벤트 화면'), findsOneWidget);
+      expect(opened, isEmpty);
+    });
+
+    testWidgets('자리표시 칸은 눌러도 아무 데도 가지 않는다', (tester) async {
+      final opened = await pump(tester);
+
+      await tester.tap(tile('곧 열려요'), warnIfMissed: false);
+      await tester.pump();
+
+      expect(find.byType(HomeScreen), findsOneWidget);
+      expect(opened, isEmpty);
     });
   });
 
+  // 10-15 에 잠깐 뺐다가 사용자 요청으로 되살린 완성도 카드(pen `xEpOD`) — 참여 대학 칩 아래.
   group('프로필 완성도 카드', () {
-    // 인스타그램 배너(84 + 24)가 위에 들어와(10-15) 884 화면에서는 카드가 유리 내비 아래에 있다 — 끝까지 올려 알약 위로 꺼낸다.
+    // 884 화면에서는 카드가 유리 내비 아래에 있다 — 알약 위로 꺼낸다.
     Future<void> bringNudgeUp(WidgetTester tester) async {
       await tester.drag(find.byType(Scrollable).first, const Offset(0, -300));
       await tester.pump(const Duration(seconds: 1));
