@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/community/model/community_repository.dart';
 import 'package:campus_mate/community/model/http_community_repository.dart';
 import 'package:campus_mate/community/model/poll.dart';
 import 'package:campus_mate/core/http/api_client.dart';
@@ -42,6 +43,25 @@ void main() {
 
     expect(urls[0], 'https://api.test/community/polls');
     expect(Uri.parse(urls[1]).queryParameters, {'before': '2026-09-27T05:00:00.000Z', 'before_id': 'p9'});
+  });
+
+  test('전체 말고 다른 탭은 tab 을 서버 값(popular · mine · voted)으로 보내고, 다음 쪽이면 커서도 같이 보낸다', () async {
+    final urls = <Uri>[];
+    final repository = buildRepository(MockClient((request) async {
+      urls.add(request.url);
+      return jsonResponse({'polls': [], 'has_more': false});
+    }));
+
+    await repository.fetchPolls(tab: PollFeedTab.all);
+    await repository.fetchPolls(tab: PollFeedTab.popular);
+    await repository.fetchPolls(tab: PollFeedTab.mine);
+    await repository.fetchPolls(tab: PollFeedTab.voted, before: DateTime.utc(2026, 9, 27, 5), beforeId: 'p9');
+
+    // 전체는 지금처럼 쿼리가 없다 — 서버 기본값이 all 이다.
+    expect(urls[0].toString(), 'https://api.test/community/polls');
+    expect(urls[1].queryParameters, {'tab': 'popular'});
+    expect(urls[2].queryParameters, {'tab': 'mine'});
+    expect(urls[3].queryParameters, {'tab': 'voted', 'before': '2026-09-27T05:00:00.000Z', 'before_id': 'p9'});
   });
 
   test('투표는 choice 를 보내고 새 글과 보상 여부를 읽는다', () async {

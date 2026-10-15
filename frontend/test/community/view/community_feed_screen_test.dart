@@ -12,6 +12,7 @@ import 'package:campus_mate/community/model/poll.dart';
 import 'package:campus_mate/community/view/community_feed_screen.dart';
 import 'package:campus_mate/community/view/feed_poll_card.dart';
 import 'package:campus_mate/community/view/poll_donut.dart';
+import 'package:campus_mate/community/view/poll_feed_tabs.dart';
 import 'package:campus_mate/community/view/poll_time.dart';
 import 'package:campus_mate/community/view/poll_toast.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
@@ -239,11 +240,11 @@ void main() {
     final first = tester.getRect(find.byType(FeedPollCard).at(0));
     final second = tester.getRect(find.byType(FeedPollCard).at(1));
     expect((first.left, first.width), (16, 328));
-    expect(first.top, 56 + 12); // 앱바 56 + 피드 위 12
+    expect(first.top, 56 + 102 + 12); // 앱바 56 + 탭 줄 102(VEZ2l) + 피드 위 12 — 탭 줄 아래 12 와 합쳐 탭에서 카드까지 24
     expect(second.top - first.bottom, 12);
     final ground = find.ancestor(of: find.byType(ListView), matching: find.byType(ColoredBox)).first;
     expect(tester.widget<ColoredBox>(ground).color, AppColors.surfaceSoft);
-    expect(tester.getRect(ground), const Rect.fromLTWH(0, 56, 360, 1600 - 56));
+    expect(tester.getRect(ground), const Rect.fromLTWH(0, 56 + 102, 360, 1600 - 56 - 102));
   });
 
   testWidgets('방금 투표한 카드만 막대가 0 에서 차오른다 — 이미 투표한 다른 카드는 그대로', (tester) async {
@@ -267,13 +268,159 @@ void main() {
     expect(tester.getSize(bars.at(0)).width, closeTo((296 - 4) * 0.63, 0.01));
   });
 
-    testWidgets('빈 상태는 앱바 아래 ~ 알약 위 사이 가운데에 선다', (tester) async {
+    testWidgets('빈 상태는 탭 줄 아래 ~ 알약 위 사이 가운데에 선다', (tester) async {
       penFrame(tester);
       await pump(tester);
 
       final empty = find.ancestor(of: find.text('아직 질문이 없어요'), matching: find.byType(Center)).first;
       final pillTop = tester.getRect(find.byType(GlassBottomNav)).top;
-      expect(tester.getCenter(empty).dy, closeTo((56 + pillTop) / 2, 0.5));
+      expect(tester.getCenter(empty).dy, closeTo((56 + 102 + pillTop) / 2, 0.5));
+    });
+  });
+
+  group('탭 줄(pen VEZ2l · 탭 XfcKQ)', () {
+    Finder tab(PollFeedTab value) => find.byKey(PollFeedTabs.tabKey(value));
+    PollFeedTab selectedTab(WidgetTester tester) => tester.widget<PollFeedTabs>(find.byType(PollFeedTabs)).selected;
+
+    void phone(WidgetTester tester) {
+      tester.view.physicalSize = const Size(360, 780);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+    }
+
+    testWidgets('앱바 아래 56 에 고정 — 목록을 내려도 따라 올라가지 않는다', (tester) async {
+      phone(tester);
+      repository.page = Success(PollPage(polls: [for (var i = 0; i < 6; i++) pollFixture(id: 'p$i')], hasMore: false));
+      await pump(tester);
+
+      expect(tester.getRect(find.byType(PollFeedTabs)), const Rect.fromLTWH(0, 56, 360, 102));
+      final cardTop = tester.getRect(find.byType(FeedPollCard).first).top;
+      await tester.drag(find.byType(ListView), const Offset(0, -300));
+      await tester.pumpAndSettle();
+
+      expect(tester.getRect(find.byType(FeedPollCard).first).top, lessThan(cardTop));
+      expect(tester.getRect(find.byType(PollFeedTabs)).top, 56);
+    });
+
+    testWidgets('처음은 전체 탭이 선택돼 있고, 다른 탭을 누르면 그 탭을 새로 받고 선택이 옮겨 간다', (tester) async {
+      repository
+        ..page = Success(PollPage(polls: [pollFixture()], hasMore: false))
+        ..pageByTab[PollFeedTab.popular] = Success(PollPage(polls: [pollFixture(id: 'hot', question: '인기 글')], hasMore: false));
+      await pump(tester);
+      expect(selectedTab(tester), PollFeedTab.all);
+
+      await tester.tap(tab(PollFeedTab.popular));
+      await tester.pumpAndSettle();
+
+      expect(repository.pageRequests.last.tab, PollFeedTab.popular);
+      expect(selectedTab(tester), PollFeedTab.popular);
+      expect(find.text('인기 글'), findsOneWidget);
+      expect(find.text('첫 데이트 더치페이'), findsNothing);
+    });
+
+    testWidgets('아래로 내린 뒤 탭을 바꾸면 새 탭 목록은 맨 위부터 보인다', (tester) async {
+      phone(tester);
+      repository
+        ..page = Success(PollPage(polls: [for (var i = 0; i < 6; i++) pollFixture(id: 'p$i')], hasMore: false))
+        ..pageByTab[PollFeedTab.mine] = Success(PollPage(polls: [for (var i = 0; i < 6; i++) pollFixture(id: 'm$i', isMine: true)], hasMore: false));
+      await pump(tester);
+      await tester.drag(find.byType(ListView), const Offset(0, -600));
+      await tester.pumpAndSettle();
+
+      await tester.tap(tab(PollFeedTab.mine));
+      await tester.pumpAndSettle();
+
+      expect(tester.getRect(find.byType(FeedPollCard).first).top, 56 + 102 + 12);
+    });
+
+    testWidgets('불러오는 중 · 실패 · 빈 상태로 바뀌어도 탭 줄은 그대로 있다', (tester) async {
+      repository
+        ..page = Success(PollPage(polls: [pollFixture()], hasMore: false))
+        ..pageByTab[PollFeedTab.voted] = const Success(PollPage(polls: [], hasMore: false))
+        ..pageByTab[PollFeedTab.mine] = const FailureResult(ServerUnavailableFailure());
+      await pump(tester);
+
+      repository.holdPage = Completer<void>();
+      await tester.tap(tab(PollFeedTab.voted));
+      await tester.pump();
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.byType(PollFeedTabs), findsOneWidget);
+      repository.holdPage!.complete();
+      repository.holdPage = null;
+      await tester.pumpAndSettle();
+      expect(find.text('아직 투표한 질문이 없어요'), findsOneWidget);
+      expect(find.byType(PollFeedTabs), findsOneWidget);
+
+      await tester.tap(tab(PollFeedTab.mine));
+      await tester.pumpAndSettle();
+      expect(find.text('잠시 뒤 다시 시도해 주세요'), findsOneWidget);
+      expect(selectedTab(tester), PollFeedTab.mine);
+    });
+
+    testWidgets('인기 빈 상태: "최근 7일 동안 인기 있는 질문이 아직 없어요" 제목만 — 설명 · 버튼 없음, 올릴 길이 없으니 질문하기 알약은 보인다(사용자 결정)', (tester) async {
+      await pump(tester);
+      await tester.tap(tab(PollFeedTab.popular));
+      await tester.pumpAndSettle();
+
+      expect(find.text('최근 7일 동안 인기 있는 질문이 아직 없어요'), findsOneWidget);
+      expect(find.text('아직 질문이 없어요'), findsNothing);
+      expect(find.text('궁금한 걸 익명으로 물어보고\n캠퍼스 사람들의 생각을 들어보세요.'), findsNothing);
+      expect(find.text('질문 올리기'), findsNothing);
+      expect(find.byKey(CommunityFeedScreen.askButtonKey), findsOneWidget);
+    });
+
+    testWidgets('내 투표 빈 상태: "아직 투표한 질문이 없어요" 제목만 — 설명 · 버튼 없음, 올릴 길이 없으니 질문하기 알약은 보인다(사용자 결정)', (tester) async {
+      await pump(tester);
+      await tester.tap(tab(PollFeedTab.voted));
+      await tester.pumpAndSettle();
+
+      expect(find.text('아직 투표한 질문이 없어요'), findsOneWidget);
+      expect(find.text('궁금한 걸 익명으로 물어보고\n캠퍼스 사람들의 생각을 들어보세요.'), findsNothing);
+      expect(find.text('질문 올리기'), findsNothing);
+      expect(find.byKey(CommunityFeedScreen.askButtonKey), findsOneWidget);
+    });
+
+    testWidgets('내 질문 빈 상태: "아직 올린 질문이 없어요" + 질문 올리기 버튼(전체 빈 상태와 같은 버튼) → 17b, 알약은 없다', (tester) async {
+      await pump(tester);
+      await tester.tap(tab(PollFeedTab.mine));
+      await tester.pumpAndSettle();
+
+      expect(find.text('아직 올린 질문이 없어요'), findsOneWidget);
+      expect(find.byKey(CommunityFeedScreen.askButtonKey), findsNothing);
+      final button = tester.getRect(find.widgetWithText(ElevatedButton, '질문 올리기'));
+      expect(button.width, closeTo(tester.getRect(find.text('질문 올리기')).width + 40, 0.5));
+      expect(button.height, 52);
+      await tester.tap(find.text('질문 올리기'));
+      await tester.pumpAndSettle();
+      expect(find.text('쓰기'), findsOneWidget);
+    });
+
+    testWidgets('폰 폭(360) · 글자 2배: 탭 줄 · 탭별 빈 상태가 넘치거나 잘리지 않는다', (tester) async {
+      phone(tester);
+      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await pump(tester);
+
+      // 일부러 말줄임한 글자(내비 "커뮤니티")는 뺀다.
+      List<String> clipped() => [
+            for (final element in find.byType(RichText).evaluate())
+              if (element.renderObject case final RenderParagraph p
+                  when p.overflow != TextOverflow.ellipsis &&
+                      (p.getMaxIntrinsicHeight(p.size.width) > p.size.height + 0.5 ||
+                          p.getMinIntrinsicWidth(double.infinity) > p.size.width + 0.5))
+                p.text.toPlainText(),
+          ];
+      final found = <String>[...clipped()];
+      for (final value in [PollFeedTab.popular, PollFeedTab.mine, PollFeedTab.voted]) {
+        // 2배면 탭 줄이 화면보다 넓다 — 가로로 밀어 보이게 한 뒤 누른다.
+        await tester.ensureVisible(tab(value));
+        await tester.pumpAndSettle();
+        await tester.tap(tab(value));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull, reason: value.name);
+        found.addAll(clipped());
+      }
+      expect(found, isEmpty);
     });
   });
 

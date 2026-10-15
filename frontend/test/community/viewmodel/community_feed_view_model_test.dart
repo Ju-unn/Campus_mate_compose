@@ -71,7 +71,7 @@ void main() {
 
     await viewModel(container).loadMore();
 
-    expect(repository.pageRequests.last, (before: last.createdAt, beforeId: 'p2'));
+    expect(repository.pageRequests.last, (tab: PollFeedTab.all, before: last.createdAt, beforeId: 'p2'));
     expect(container.read(communityFeedViewModelProvider).polls.map((p) => p.id), ['p1', 'p2', 'p3']);
     expect(container.read(communityFeedViewModelProvider).hasMore, isFalse);
   });
@@ -197,6 +197,162 @@ void main() {
     await first;
 
     expect(repository.votes, hasLength(1));
+  });
+
+  group('탭(전체 · 인기 · 내 질문 · 내 투표) — 탭별로 쌓아 두지 않고 바꿀 때마다 새로 받는다', () {
+    final all = pollFixture(id: 'all-1');
+    final popular = pollFixture(id: 'popular-1');
+    final mine = pollFixture(id: 'mine-1', isMine: true);
+
+    List<PollFeedTab> requestedTabs() => [for (final request in repository.pageRequests) request.tab];
+    List<String> shownIds(ProviderContainer c) => [for (final poll in c.read(communityFeedViewModelProvider).polls) poll.id];
+
+    setUp(() {
+      repository
+        ..page = Success(PollPage(polls: [all], hasMore: true))
+        ..pageByTab[PollFeedTab.popular] = Success(PollPage(polls: [popular], hasMore: false))
+        ..pageByTab[PollFeedTab.mine] = Success(PollPage(polls: [mine], hasMore: false));
+    });
+
+    test('처음은 전체 탭이다', () async {
+      final container = await start();
+      expect(container.read(communityFeedViewModelProvider).tab, PollFeedTab.all);
+      expect(requestedTabs(), [PollFeedTab.all]);
+    });
+
+    test('탭을 바꾸면 그 탭 첫 쪽을 새로 받아 목록을 갈아 끼운다', () async {
+      final container = await start();
+
+      await viewModel(container).selectTab(PollFeedTab.popular);
+
+      expect(repository.pageRequests.last, (tab: PollFeedTab.popular, before: null, beforeId: null));
+      expect(container.read(communityFeedViewModelProvider).tab, PollFeedTab.popular);
+      expect(shownIds(container), ['popular-1']);
+      expect(container.read(communityFeedViewModelProvider).hasMore, isFalse);
+    });
+
+    test('받는 동안에는 불러오는 중이고, 앞 탭 목록을 보이지 않는다', () async {
+      final container = await start();
+      repository.holdPage = Completer<void>();
+
+      final switching = viewModel(container).selectTab(PollFeedTab.mine);
+
+      final state = container.read(communityFeedViewModelProvider);
+      expect(state.tab, PollFeedTab.mine);
+      expect(state.isLoading, isTrue);
+      expect(state.polls, isEmpty);
+      repository.holdPage!.complete();
+      await switching;
+      expect(shownIds(container), ['mine-1']);
+    });
+
+    test('지금 탭을 다시 누르면 다시 받지 않는다', () async {
+      final container = await start();
+      await viewModel(container).selectTab(PollFeedTab.all);
+      expect(requestedTabs(), [PollFeedTab.all]);
+    });
+
+    test('탭 첫 쪽이 실패하면 그 탭의 실패 문구만 둔다 — 앞 탭 글을 남기지 않는다', () async {
+      repository.pageByTab[PollFeedTab.voted] = const FailureResult(NetworkFailure());
+      final container = await start();
+
+      await viewModel(container).selectTab(PollFeedTab.voted);
+
+      final state = container.read(communityFeedViewModelProvider);
+      expect(state.polls, isEmpty);
+      expect(state.errorMessage, '네트워크 연결을 확인해 주세요');
+      await viewModel(container).selectTab(PollFeedTab.all);
+      expect(container.read(communityFeedViewModelProvider).errorMessage, isNull);
+    });
+
+    test('늦게 도착한 앞 탭 응답은 버린다 — 지금 탭 목록에 섞이지 않는다', () async {
+      final container = await start();
+      final slowHold = repository.holdPage = Completer<void>();
+      final slow = viewModel(container).selectTab(PollFeedTab.popular);
+      repository.holdPage = null;
+
+      await viewModel(container).selectTab(PollFeedTab.mine);
+      slowHold.complete();
+      await slow;
+
+      expect(container.read(communityFeedViewModelProvider).tab, PollFeedTab.mine);
+      expect(shownIds(container), ['mine-1']);
+    });
+
+    test('늦게 도착한 앞 탭의 다음 쪽도 지금 탭 목록에 붙이지 않는다', () async {
+      repository.nextPage = Success(PollPage(polls: [pollFixture(id: 'all-2')], hasMore: false));
+      final container = await start();
+      final slowHold = repository.holdPage = Completer<void>();
+      final more = viewModel(container).loadMore();
+      repository.holdPage = null;
+
+      await viewModel(container).selectTab(PollFeedTab.mine);
+      slowHold.complete();
+      await more;
+
+      expect(shownIds(container), ['mine-1']);
+      expect(container.read(communityFeedViewModelProvider).isLoadingMore, isFalse);
+    });
+
+    test('진행 중 요청 합치기는 같은 탭끼리만 — 다른 탭 요청을 돌려주지 않는다', () async {
+      final container = await start();
+      final allHold = repository.holdPage = Completer<void>();
+      final first = viewModel(container).refresh();
+      final second = viewModel(container).refresh();
+      expect(requestedTabs(), [PollFeedTab.all, PollFeedTab.all], reason: '같은 탭은 한 번만 간다');
+
+      final popularHold = repository.holdPage = Completer<void>();
+      final switching = viewModel(container).selectTab(PollFeedTab.popular);
+      expect(requestedTabs().last, PollFeedTab.popular, reason: '전체 요청이 진행 중이어도 인기는 따로 받는다');
+
+      allHold.complete();
+      await Future.wait([first, second]);
+      // 앞 탭 요청이 끝나며 지금 탭의 진행 중 표시를 지우면 안 된다 — 지우면 같은 탭 요청이 겹쳐 간다.
+      final again = viewModel(container).refresh();
+      expect(requestedTabs().where((tab) => tab == PollFeedTab.popular), hasLength(1));
+
+      popularHold.complete();
+      await Future.wait([switching, again]);
+      expect(shownIds(container), ['popular-1']);
+    });
+
+    test('인기 탭은 한 쪽뿐이라 끝까지 내려도 더 부르지 않는다', () async {
+      repository.pageByTab[PollFeedTab.popular] = Success(PollPage(polls: [popular], hasMore: true));
+      final container = await start();
+      await viewModel(container).selectTab(PollFeedTab.popular);
+
+      await viewModel(container).loadMore();
+
+      expect(requestedTabs(), [PollFeedTab.all, PollFeedTab.popular]);
+    });
+
+    test('내 질문 · 내 투표 탭은 같은 커서로 다음 쪽을 부른다', () async {
+      final last = pollFixture(id: 'mine-1', createdAt: DateTime(2026, 9, 27, 13), isMine: true);
+      repository.pageByTab[PollFeedTab.mine] = Success(PollPage(polls: [last], hasMore: true));
+      final container = await start();
+      await viewModel(container).selectTab(PollFeedTab.mine);
+
+      await viewModel(container).loadMore();
+
+      expect(repository.pageRequests.last, (tab: PollFeedTab.mine, before: last.createdAt, beforeId: 'mine-1'));
+    });
+
+    test('글을 올린 뒤에는 전체 탭으로 옮겨 새로 받는다', () async {
+      final container = await start();
+      await viewModel(container).selectTab(PollFeedTab.mine);
+
+      await viewModel(container).showAllAfterPosting();
+
+      expect(container.read(communityFeedViewModelProvider).tab, PollFeedTab.all);
+      expect(requestedTabs(), [PollFeedTab.all, PollFeedTab.mine, PollFeedTab.all]);
+      expect(shownIds(container), ['all-1']);
+    });
+
+    test('전체 탭에서 올렸어도 전체를 다시 받는다 — 방금 올린 글이 맨 위에 오게', () async {
+      final container = await start();
+      await viewModel(container).showAllAfterPosting();
+      expect(requestedTabs(), [PollFeedTab.all, PollFeedTab.all]);
+    });
   });
 
   test('내 글을 지우면 목록에서 빠지고, 실패하면 문구를 주고 남긴다', () async {

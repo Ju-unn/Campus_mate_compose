@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/community/model/community_repository.dart';
 import 'package:campus_mate/community/model/community_repository_provider.dart';
 import 'package:campus_mate/community/view/poll_composer_screen.dart';
+import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
 import 'package:campus_mate/community/view/poll_donut.dart';
 import 'package:campus_mate/community/view/vote_option.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -213,6 +215,20 @@ void main() {
     expect(repository.created.single, (question: '짜장 vs 짬뽕', optionA: '짜장', optionB: '짬뽕'));
     expect(find.text('피드'), findsOneWidget);
     expect(repository.pageRequests, isNotEmpty);
+  });
+
+  testWidgets('내 질문 탭에서 왔어도 올리면 피드는 전체 탭으로 옮겨 새로 받는다(사용자 결정)', (tester) async {
+    await pump(tester);
+    final container = ProviderScope.containerOf(tester.element(find.byType(PollComposerScreen)));
+    await container.read(communityFeedViewModelProvider.notifier).selectTab(PollFeedTab.mine);
+    await tester.enterText(find.byKey(PollComposerScreen.questionKey), '짜장 vs 짬뽕');
+    await tester.pump();
+
+    await tester.tap(find.text('익명으로 올리기'));
+    await tester.pumpAndSettle();
+
+    expect(container.read(communityFeedViewModelProvider).tab, PollFeedTab.all);
+    expect(repository.pageRequests.last.tab, PollFeedTab.all);
   });
 
   testWidgets('올리는 중(17b UqasS): 버튼이 꺼지고 스피너는 없다', (tester) async {

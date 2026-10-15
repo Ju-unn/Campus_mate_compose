@@ -4,6 +4,10 @@ import 'package:campus_mate/community/model/poll.dart';
 /// 한 번에 받아 오는 질문 수. 서버 `POLL_PAGE_SIZE` 와 같은 값이다.
 const int pollPageSize = 20;
 
+/// 15d 탭 줄(pen `XfcKQ`). 이름이 서버 `tab` 쿼리 값(`PollTab`)과 같다.
+/// 인기는 최근 7일 참여 수 순 상위 20개 한 쪽뿐이라 서버가 늘 "더 없음" 으로 답한다. 나머지는 올린 시각 순 · 같은 커서.
+enum PollFeedTab { all, popular, mine, voted }
+
 class PollPage {
   const PollPage({required this.polls, required this.hasMore});
 
@@ -39,7 +43,7 @@ class VoteOutcome {
 abstract interface class CommunityRepository {
   /// [before] · [beforeId] 는 화면 맨 아래 글의 값을 그대로 보낸다 —
   /// 시각만 보내면 같은 시각에 올라간 두 글이 쪽 경계에서 하나 빠진다.
-  Future<Result<PollPage>> fetchPolls({DateTime? before, String? beforeId});
+  Future<Result<PollPage>> fetchPolls({PollFeedTab tab = PollFeedTab.all, DateTime? before, String? beforeId});
   Future<Result<Poll>> fetchPoll(String pollId);
   Future<Result<void>> createPoll({required String question, required String optionA, required String optionB});
 
