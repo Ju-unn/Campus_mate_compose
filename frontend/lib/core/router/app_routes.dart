@@ -64,6 +64,9 @@ abstract final class AppRoutes {
   /// 09c 홈 종 알림함(pen `WiGM2`) — 홈 앱바의 종이 push 로 연다. 하단 내비가 없는 하위 화면이다.
   static const String notifications = '/notifications';
 
+  /// 21 이벤트(출시 예정, pen `q2mpPW`) — 홈 6칸 그리드의 이벤트 칸이 push 로 연다. 하단 내비가 없는 하위 화면이다.
+  static const String events = '/events';
+
   /// 조각 5 — 채팅방(화면 14). `/chat/:matchId`
   static const String chatRoom = '/chat';
 

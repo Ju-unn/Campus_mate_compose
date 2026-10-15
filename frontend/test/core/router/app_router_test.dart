@@ -26,6 +26,7 @@ import 'package:campus_mate/core/theme/app_theme.dart';
 import 'package:campus_mate/faq/model/faq_cache.dart';
 import 'package:campus_mate/faq/model/faq_repository.dart';
 import 'package:campus_mate/faq/view/faq_screen.dart';
+import 'package:campus_mate/home/view/event_coming_screen.dart';
 import 'package:campus_mate/friend_review/view/friend_code_screen.dart';
 import 'package:campus_mate/friend_review/model/friend_review_repository_provider.dart';
 import 'package:campus_mate/home/model/home_repository_provider.dart';
@@ -435,6 +436,15 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(HeartStoreScreen), findsOneWidget);
+    });
+
+    testWidgets('/events 는 21 이벤트(출시 예정)다', (tester) async {
+      final router = await pumpRouter(tester);
+
+      router.go(AppRoutes.events);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(EventComingScreen), findsOneWidget);
     });
 
     testWidgets('/notifications 는 09c 홈 종 알림함이다', (tester) async {
