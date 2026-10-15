@@ -1,8 +1,10 @@
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
+import 'package:campus_mate/community/model/community_repository.dart';
 import 'package:campus_mate/community/model/poll.dart';
 import 'package:campus_mate/community/view/feed_poll_card.dart';
+import 'package:campus_mate/community/view/poll_feed_tabs.dart';
 import 'package:campus_mate/community/view/poll_sheets.dart';
 import 'package:campus_mate/community/view/poll_time.dart';
 import 'package:campus_mate/community/view/poll_toast.dart';
@@ -23,9 +25,10 @@ import 'package:go_router/go_router.dart';
 const double _askHeight = 52;
 const double _askLift = AppSpacing.sm;
 
-/// 15d 커뮤니티 피드 — 개선안 A(pen `IzG2p` > 17A `FBT9K` · 17A-2 `O8hjge`). 전체 학교 한 목록(사용자 결정 1), 최신순, 무한 스크롤.
+/// 15d 커뮤니티 피드 — 개선안 A(pen `IzG2p` > 17A `FBT9K` · 17A-2 `O8hjge`). 전체 학교 한 목록(사용자 결정 1), 무한 스크롤.
 /// 회색 바탕 위 흰 큰 카드([FeedPollCard]), 앱바 오른쪽 + 대신 유리 내비 위에 뜬 "질문하기" 알약.
-/// 빠른 보기 탭(`XfcKQ` 전체 · 인기 · 내 질문 · 내 투표)은 서버 정렬 · 필터가 없어 넣지 않았다(사용자 결정).
+/// 앱바 아래 탭 줄([PollFeedTabs], `VEZ2l` · `XfcKQ`): 전체(최신순, 기본) · 인기(최근 7일 참여순 상위 20개 한 쪽) ·
+/// 내 질문 · 내 투표(둘 다 올린 시각 순). 서버가 `tab` 으로 거르고 줄 세운다 — 앱은 탭을 바꿀 때마다 새로 받는다.
 class CommunityFeedScreen extends ConsumerStatefulWidget {
   const CommunityFeedScreen({super.key});
 
@@ -89,8 +92,12 @@ class _CommunityFeedScreenState extends ConsumerState<CommunityFeedScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(communityFeedViewModelProvider);
-    // 빈 상태는 자기 "질문 올리기" 버튼이 있어 알약을 두지 않는다. 불러오는 중 · 실패에도 질문은 올릴 수 있게 둔다.
-    final showAsk = state.isLoading || state.polls.isNotEmpty || state.errorMessage != null;
+    // 알약은 빈 상태에 자기 "질문 올리기" 버튼이 있을 때(전체 · 내 질문)만 숨긴다. 인기 · 내 투표 빈 상태는 제목만이라
+    // 알약이 질문 올리는 유일한 길이다(사용자 결정). 불러오는 중 · 실패에도 질문을 올릴 수 있게 둔다.
+    final showAsk = state.isLoading ||
+        state.polls.isNotEmpty ||
+        state.errorMessage != null ||
+        !_EmptyFeed.offersAsk(state.tab);
     return Scaffold(
       // 유리 내비(pen `xtj0K`) 뒤로 본문이 이어진다 — 아래 여백은 본문 MediaQuery padding.bottom(알약 + 띄움 + safe area).
       extendBody: true,
@@ -99,6 +106,15 @@ class _CommunityFeedScreenState extends ConsumerState<CommunityFeedScreen> {
       appBar: AppBar(
         titleSpacing: 20,
         title: Text('커뮤니티', style: AppTypography.navTitle.copyWith(color: AppColors.ink)),
+        // 탭 줄(pen `VEZ2l`)은 앱바 아래 고정 — 목록과 같이 스크롤되지 않고, 아래 본문이 불러오는 중 · 실패 · 빈 상태로
+        // 바뀌어도 남는다. 본문 밖(앱바)에 두니 본문의 첫 Scrollable 은 여전히 목록이다(하네스가 그것을 민다).
+        bottom: PreferredSize(
+          preferredSize: Size.fromHeight(PollFeedTabs.heightFor(MediaQuery.textScalerOf(context))),
+          child: PollFeedTabs(
+            selected: state.tab,
+            onSelected: ref.read(communityFeedViewModelProvider.notifier).selectTab,
+          ),
+        ),
       ),
       // 알약 자리는 Scaffold 가 **본문** MediaQuery 에 넣는다 — 화면 context(Scaffold 위)에서는 safe area 뿐이라 본문 안에서 읽는다.
       body: Builder(builder: (bodyContext) {
@@ -133,9 +149,9 @@ class _CommunityFeedScreenState extends ConsumerState<CommunityFeedScreen> {
     if (state.polls.isEmpty && state.errorMessage != null) {
       return aboveNav(_LoadError(message: state.errorMessage!, onRetry: viewModel.refresh));
     }
-    if (state.polls.isEmpty) return aboveNav(const _EmptyFeed());
+    if (state.polls.isEmpty) return aboveNav(_EmptyFeed(tab: state.tab));
     final now = ref.read(communityNowProvider)();
-    // pen `eFFQi`: surface-soft 바탕, 위 12 · 좌우 16, 카드 사이 12.
+    // pen `eFFQi`: surface-soft 바탕, 위 12 · 좌우 16, 카드 사이 12. 탭 줄 아래 12 와 합쳐 탭에서 첫 카드까지 24.
     return ColoredBox(
       color: AppColors.surfaceSoft,
       child: NotificationListener<UserScrollNotification>(
@@ -143,11 +159,13 @@ class _CommunityFeedScreenState extends ConsumerState<CommunityFeedScreen> {
         child: RefreshIndicator(
           onRefresh: viewModel.refresh,
           child: ListView.separated(
+            // 탭마다 새 목록 — 응답이 다음 화면 그리기보다 빨리 오면 같은 목록이 남아 앞 탭에서 내린 자리를 이어받는다.
+            key: ValueKey(state.tab),
             controller: _scroll,
             // 글이 한두 개라 화면을 못 채워도 아래로 당겨 새로 고칠 수 있게 — 기본 물리는 짧은 목록의 당김을 막는다.
             physics: const AlwaysScrollableScrollPhysics(),
             // 아래는 유리 내비 + 띄움 12 + 질문하기 52 + 12 — 끝까지 내려도 마지막 글의 "자세히 보기" 가 알약에 가리지 않는다.
-            // (pen `eFFQi` 아래 98 은 유리 내비 자리뿐이라 마지막 카드가 알약 밑에 깔린다 — 보고의 pen 수정 제안.)
+            // (pen Feed 아래 174 = 유리 내비 자리 98 + 12 + 52 + 12 와 같은 셈이다.)
             padding: EdgeInsets.fromLTRB(
               AppSpacing.md,
               AppSpacing.sm,
@@ -258,11 +276,25 @@ class _AskButton extends StatelessWidget {
   }
 }
 
-/// 빈 상태(pen `n2tqZ` · Empty 마스터 `TVc8b`).
+/// 빈 상태(pen `n2tqZ` · Empty 마스터 `TVc8b`). 전체는 그대로, 다른 탭은 대장 전달 pen 문구 —
+/// 인기 · 내 투표는 제목만(대신 질문하기 알약이 뜬다), 내 질문은 제목 + 전체와 같은 "질문 올리기" 버튼.
 class _EmptyFeed extends StatelessWidget {
-  const _EmptyFeed();
+  const _EmptyFeed({required this.tab});
+
+  final PollFeedTab tab;
 
   static const _emptyAction = '질문 올리기';
+
+  /// 이 탭의 빈 상태에 "질문 올리기" 버튼이 있는지. 화면은 버튼이 없을 때만 알약을 띄운다.
+  static bool offersAsk(PollFeedTab tab) => tab == PollFeedTab.all || tab == PollFeedTab.mine;
+
+  /// (제목, 설명)
+  (String, String?) get _copy => switch (tab) {
+        PollFeedTab.all => ('아직 질문이 없어요', '궁금한 걸 익명으로 물어보고\n캠퍼스 사람들의 생각을 들어보세요.'),
+        PollFeedTab.popular => ('최근 7일 동안 인기 있는 질문이 아직 없어요', null),
+        PollFeedTab.mine => ('아직 올린 질문이 없어요', null),
+        PollFeedTab.voted => ('아직 투표한 질문이 없어요', null),
+      };
 
   /// AppButton 라벨(16/700, HE8FZ 2026-10-01 개편)이 이 기기 글자 배율로 차지하는 폭.
   static double _labelWidth(BuildContext context, String label) {
@@ -279,6 +311,7 @@ class _EmptyFeed extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final (title, description) = _copy;
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.xxl),
@@ -287,33 +320,35 @@ class _EmptyFeed extends StatelessWidget {
           children: [
             Image.asset('assets/images/mascot-male.png', width: 120, height: 120),
             const SizedBox(height: AppSpacing.lg),
-            Text(
-              '아직 질문이 없어요',
-              textAlign: TextAlign.center,
-              style: AppTypography.subtitle.copyWith(color: AppColors.ink),
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              '궁금한 걸 익명으로 물어보고\n캠퍼스 사람들의 생각을 들어보세요.',
-              textAlign: TextAlign.center,
-              style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
-            ),
-            const SizedBox(height: AppSpacing.xl),
-            // pen 은 연분홍 채움 — button-secondary 로 바꾼다(대장 예외). 폭은 글자 + 좌우 20(`l8vOF` = Button `HE8FZ`
-            // padding [0,20], 렌더 128). AppButton 은 안쪽 여백이 0 이라 IntrinsicWidth 로는 글자 폭만 남아 글자를 재서 더한다.
-            SizedBox(
-              width: _labelWidth(context, _emptyAction) + 2 * 20,
-              child: AppButton(
-                label: _emptyAction,
-                variant: AppButtonVariant.secondary,
-                onPressed: () => context.push(AppRoutes.communityNew),
+            Text(title, textAlign: TextAlign.center, style: AppTypography.subtitle.copyWith(color: AppColors.ink)),
+            if (description != null) ...[
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                description,
+                textAlign: TextAlign.center,
+                style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
               ),
-            ),
+            ],
+            if (offersAsk(tab)) ...[
+              const SizedBox(height: AppSpacing.xl),
+              _askButton(context),
+            ],
           ],
         ),
       ),
     );
   }
+
+  /// pen 은 연분홍 채움 — button-secondary 로 바꾼다(대장 예외). 폭은 글자 + 좌우 20(`l8vOF` = Button `HE8FZ`
+  /// padding [0,20], 렌더 128). AppButton 은 안쪽 여백이 0 이라 IntrinsicWidth 로는 글자 폭만 남아 글자를 재서 더한다.
+  Widget _askButton(BuildContext context) => SizedBox(
+        width: _labelWidth(context, _emptyAction) + 2 * 20,
+        child: AppButton(
+          label: _emptyAction,
+          variant: AppButtonVariant.secondary,
+          onPressed: () => context.push(AppRoutes.communityNew),
+        ),
+      );
 }
 
 /// 첫 쪽을 못 불러왔을 때. 문구는 `Failure` 종류별 문구 그대로(502/503 → "잠시 뒤 다시 시도해 주세요" 등),
