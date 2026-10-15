@@ -29,9 +29,10 @@ const _heroLines = ['오늘의 카드가', '도착했어요']; // _HeroToday :16
 const _heroCta = '지금 확인하기'; // :179
 const _railTitle = '지금 함께 있는 사람들'; // _RailHeader :202 — 요약을 받아야 그려지는 첫 줄
 const _campusTitle = '참여 중인 대학'; // :109
-const _statLabels = ['전달된 카드', '가입 수', '시작된 대화']; // StatTile label :78 · 88 · 97
-const _statEmpty = '첫 기록이 쌓이는 중이에요'; // _StatEmptyPanel :232
-const _completionLead = '프로필 완성도'; // _ProfileNudge :361 '프로필 완성도 $percent%'
+// 10-15 새 홈(pen `M5hpo7`): 숫자 칸 자리는 6칸 그리드. 옛 빈 상태 판 · 인스타 배너는 없다(완성도 카드는 그대로 있다).
+const _statLabels = ['전달된 카드', '가입 수', '시작된 대화']; // home_grid.dart 위 행 StatTile label — 0 인 칸은 숨고, 셋 다 0 이면 위 행만 빠진다
+const _linkTiles = ['인스타그램', '이벤트', '곧 열려요']; // home_grid.dart 아래 행 — 요약을 받으면 늘 있다
+const _completionLead = '프로필 완성도'; // home_screen.dart _ProfileNudge '프로필 완성도 $percent%'
 const _reviewRating = '4.8'; // _ReviewStrip :270 rating.toStringAsFixed(1) — 목값 http_home_repository.dart:21
 const _reviewCount = '(143명 평가)'; // :280 '($count명 평가)' — 목값 :22
 const _cohortLead = '우리 학교 첫 카드까지'; // cohort_wait_view.dart:203 '우리 학교 첫 카드까지 · $dayLabel'
@@ -214,34 +215,37 @@ Future<void> _openSubmit(WidgetTester tester, String row) async {
 int _count(Finder finder) => finder.evaluate().length;
 
 final Map<String, Area1Case> area2Cases = {
-  // 네 글 · 통계(세 칸 또는 전부 0 판) 각 하나, 19 대기 화면 글 0.
+  // hero 글 · 참여 대학 · 그리드 링크 칸 셋 각 하나, 통계 칸은 각 하나 이하(0 인 칸은 숨는다), 19 대기 화면 글 0.
   'E-HOME-01': _session((tester, job) async {
     must(!await _homeLoaded(tester), '학교가 열렸는데 19 대기 화면이 보임');
-    final words = {for (final text in [..._heroLines, _heroCta, _campusTitle, ..._statLabels, _statEmpty]) text: _inHome(find.text(text))};
+    final always = [..._heroLines, _heroCta, _campusTitle, ..._linkTiles];
+    final words = {for (final text in [...always, ..._statLabels]) text: _inHome(find.text(text))};
     final seen = await _sweep(tester, {...words, 'cohort': find.textContaining(_cohortLead, skipOffstage: false)});
-    for (final text in [..._heroLines, _heroCta, _campusTitle]) {
+    for (final text in always) {
       must(seen[text] == 1, '"$text" ${seen[text]}개');
     }
-    final stats = _statLabels.every((label) => seen[label] == 1);
-    must(stats != (seen[_statEmpty] == 1), '통계 세 칸 ${[for (final l in _statLabels) seen[l]]} · 전부 0 판 ${seen[_statEmpty]}');
+    // 셋 다 0 이면 위 행만 빠지고 링크 칸은 남는다 — 숫자 맞추기는 E-HOME-02(PC 가 DB 와 본다).
+    must(_statLabels.every((label) => seen[label]! <= 1), '통계 칸 ${[for (final l in _statLabels) seen[l]]}');
     must(seen['cohort'] == 0, '"$_cohortLead" 가 보임');
     return null;
   }),
-  // 화면 세 숫자(쉼표 그대로)를 말한다 — DB · /home/summary 와 맞추기는 PC.
+  // 화면 세 숫자(쉼표 그대로)를 말한다 — DB · /home/summary 와 맞추기는 PC. 통계 칸이 하나도 없고 그리드 링크 칸만 보이면
+  // 'empty'(셋 다 0 이라 위 행이 빠진 그리드)다 — 옛 "첫 기록이 쌓이는 중이에요" 판과 같은 뜻으로 PC 에 돌려준다.
   'E-HOME-02': _session((tester, job) async {
     await _summary(tester);
     final stats = <String, String>{};
-    final seen = await _sweep(tester, {'empty': _inHome(find.text(_statEmpty))},
+    final seen = await _sweep(tester, {'links': _inHome(find.text(_linkTiles.first))},
         each: () => stats.addAll({for (final t in tester.widgetList<StatTile>(_inHome(find.byType(StatTile)))) t.label: t.value}));
-    must(stats.isNotEmpty || seen['empty'] == 1, '통계 칸도 전부 0 판도 안 보임');
-    return seen['empty'] == 1 ? {'empty': true, 'stats': stats} : {'stats': stats};
+    must(seen['links'] == 1, '6칸 그리드 링크 칸("${_linkTiles.first}")이 안 보임');
+    return stats.isEmpty ? {'empty': true, 'stats': stats} : {'stats': stats};
   }),
   // 칩 순서를 말한다 — DB 순서와 맞추기는 PC.
   'E-HOME-03': _session((tester, job) async {
     await _summary(tester);
     var campuses = <String>[];
     await _sweep(tester, {}, each: () {
-      final tags = tester.widgetList<Tag>(_inHome(find.byType(Tag))).map((t) => t.label).toList();
+      // 칩이 5개 이상이면 줄이 흐르며 한 벌을 복사해 그린다(auto_marquee.dart) — 처음 본 순서대로 한 번씩만 센다(Set 은 넣은 순서를 지킨다).
+      final tags = tester.widgetList<Tag>(_inHome(find.byType(Tag))).map((t) => t.label).toSet().toList();
       if (tags.isNotEmpty) campuses = tags;
     });
     must(campuses.isNotEmpty, '"$_campusTitle" 칩이 하나도 없음');

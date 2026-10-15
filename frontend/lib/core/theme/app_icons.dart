@@ -47,6 +47,9 @@ abstract final class AppIcons {
   static const IconData star = LucideIcons.star;
   static const IconData check = LucideIcons.check;
   static const IconData arrowRight = LucideIcons.arrowRight;
+
+  /// 09b 6칸 그리드 링크 칸 오른쪽 위 "밖으로 / 다른 화면으로" 표시(pen `M5hpo7` arrow-up-right 14, 10-15)
+  static const IconData arrowUpRight = LucideIcons.arrowUpRight;
   static const IconData imagePlus = LucideIcons.imagePlus;
   static const IconData plus = LucideIcons.plus;
   static const IconData timer = LucideIcons.timer;

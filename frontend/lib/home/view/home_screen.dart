@@ -20,11 +20,11 @@ import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/home/model/home_summary.dart';
 import 'package:campus_mate/home/model/instagram_link.dart';
 import 'package:campus_mate/home/model/store_review_url.dart';
+import 'package:campus_mate/home/view/auto_marquee.dart';
 import 'package:campus_mate/home/view/cohort_wait_view.dart';
-import 'package:campus_mate/home/view/home_banner.dart';
+import 'package:campus_mate/home/view/home_grid.dart';
 import 'package:campus_mate/home/view/mosaic_rail.dart';
 import 'package:campus_mate/home/view/notify_icon_button.dart';
-import 'package:campus_mate/home/view/stat_tile.dart';
 import 'package:campus_mate/home/view/tag.dart';
 import 'package:campus_mate/home/viewmodel/hero_today.dart';
 import 'package:campus_mate/home/viewmodel/home_summary_provider.dart';
@@ -37,16 +37,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-/// 숫자 칸 하나를 보이는 최소값(DESIGN §8.9 규칙 4 — 임계값 미만 칸은 숨긴다). 값은 §13 미결 9(베타 데이터를 보고 정함)라
-/// 지금은 "0 이면 숨김" 만 한다. 세 칸이 모두 미달이면 빈 상태 판(`Tklrw`)이다.
-const int _minStatValue = 1;
-
 /// 리뷰 띠를 보이는 최소 평가 수(DESIGN §8.9 review-strip · pen `L7wKi` context "출시 전 숨김"). 값은 DESIGN 에 없어 정한
 /// 임시값이다(§13 미결 9 와 같은 사고방식, 결정 대기) — 저장소가 채우는 출시 전 목값(1명 평가)은 이 아래라 숨는다.
 const int _minReviewCount = 10;
 
-/// 09b 메인(pen `bpA8x`). hero-today · mosaic-rail · stat-panel · review-strip · campus-strip 순서, 블록 사이 24.
-/// 요약을 못 받으면(조회 중·실패) hero-today 만 남긴다 — 카드로 가는 길은 요약과 상관없다.
+/// 09b 메인(pen `bpA8x` → 새 시안 `M5hpo7` 10-15). hero-today → 24 → mosaic-rail → 24 → 6칸 그리드 → 24 → review-strip → 24 →
+/// campus-strip → 24 → 완성도 카드. 요약을 못 받으면(조회 중·실패) hero-today 만 남긴다 — 카드로 가는 길은 요약과 상관없다.
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -116,7 +112,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
     await _openExternal(uri);
   }
 
-  /// 기기 앱 · 브라우저로 연다(리뷰 남기기 · 인스타그램 배너). 열지 못하면 조용히 끝내지 않고 실패 안내를 띄운다.
+  /// 기기 앱 · 브라우저로 연다(리뷰 남기기 · 6칸 그리드 인스타 칸). 열지 못하면 조용히 끝내지 않고 실패 안내를 띄운다.
   Future<void> _openExternal(Uri uri) async {
     if (_opening) return; // 여는 호출이 끝나기 전에 다시 눌러도 두 번 열지 않는다
     _opening = true;
@@ -197,8 +193,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
     );
   }
 
-  /// 요약 블록 여섯(레일 · 숫자 칸 · 리뷰 띠 · 참여 대학 · 인스타그램 배너 · 완성도 카드). 블록 사이는 모두 24(pen `X4K49Y` · `vvDYo` · `gdS3k` ·
-  /// `sDLEb`+`o6qaj` · `yzF6g`). 숨는 블록(리뷰 띠 임계값 미만, 완성도 100)은 위 여백째 빠진다.
+  /// 요약 블록 다섯(레일 · 6칸 그리드 · 리뷰 띠 · 참여 대학 · 완성도 카드, 10-15). 블록 사이는 모두 24. 숨는 블록(리뷰 띠 임계값 미만,
+  /// 완성도 100)은 위 여백째 빠진다. 인스타그램은 그리드 링크 칸으로 들어갔다(옛 배너).
   /// [animate] 면 블록마다 투명 · 아래 8 에서 40ms 간격으로 올라온다(DESIGN §7 standard, 처음 받을 때만).
   List<Widget> _summarySections(HomeSummary summary, {required bool animate, required String? mySchool}) {
     final blocks = <Widget>[
@@ -210,20 +206,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
           MosaicRail(images: summary.presentPeopleImages),
         ],
       ),
-      _statPanel(summary),
+      HomeGrid(
+        summary: summary,
+        onInstagram: () => _openExternal(instagramLink),
+        onEvent: () => context.push(AppRoutes.events),
+      ),
       if (summary.reviewCount >= _minReviewCount)
         _ReviewStrip(rating: summary.reviewRating, count: summary.reviewCount, onReview: _openStoreReview),
       _CampusStrip(campuses: summary.campuses, mySchool: mySchool),
-      // 인스타그램 배너(사용자 요청 10-15, pen `HomeBanner` 대장 전달 값). pen 은 instagram 아이콘인데 lucide_icons_flutter 3.1.20 에는
-      // 그 글리프가 없다(브랜드 아이콘 삭제 — codepoints.json 에만 이름이 남고 lucide.ttf 에는 없다). 새 의존성 없이 카메라로 대신한다.
-      HomeBanner(
-        icon: AppIcons.camera,
-        title: 'CampusMate 인스타그램',
-        subtitle: '캠퍼스 소식과 이벤트를 먼저 만나 보세요',
-        semanticLabel: 'CampusMate 인스타그램 열기',
-        onTap: () => _openExternal(instagramLink),
-      ),
-      // 다 채웠으면 권할 것이 없어 카드를 숨긴다(사용자 결정 2026-09-26).
+      // 다 채웠으면 권할 것이 없어 카드를 숨긴다(사용자 결정 2026-09-26). 10-15 에 잠깐 뺐다가 사용자 요청으로 되살렸다(pen `xEpOD`).
       if (summary.profileCompletionPercent < 100)
         _ProfileNudge(percent: summary.profileCompletionPercent, onTap: _editProfile),
     ];
@@ -238,34 +229,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
   /// 요약 블록 도착 간격(대장 지시 — 모션 기회 4, pen 에 없는 값)
   static const Duration _blockStagger = Duration(milliseconds: 40);
 
-  /// 숫자 칸 줄(pen `krua8`). 임계값 미만 칸은 숨기고 남은 칸이 폭을 나눈다(DESIGN §8.9 규칙 4).
-  /// 모두 미달이면 판 하나(`Tklrw` 의 `AJVDS`)를 둔다. 그림 확대 배율은 pen `zUQMn` · `Rp7wY` 값.
-  Widget _statPanel(HomeSummary summary) {
-    final tiles = [
-      if (summary.deliveredCards >= _minStatValue)
-        StatTile(icon: AppIcon3d.send, iconScale: 1.25, value: _thousands(summary.deliveredCards), label: '전달된 카드'),
-      if (summary.signups >= _minStatValue)
-        StatTile(icon: AppIcon3d.join, iconScale: 1.16, value: _thousands(summary.signups), label: '가입 수'),
-      if (summary.conversationsStarted >= _minStatValue)
-        StatTile(icon: AppIcon3d.chat, value: _thousands(summary.conversationsStarted), label: '시작된 대화'),
-    ];
-    if (tiles.isEmpty) return const _StatEmptyPanel();
-    // 글자를 키워 한 칸이 늘어나면 칸 높이를 같이 맞춘다.
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (final (index, tile) in tiles.indexed) ...[
-            if (index > 0) const SizedBox(width: AppSpacing.xs),
-            Expanded(child: tile),
-          ],
-        ],
-      ),
-    );
-  }
-
-  static String _thousands(int n) =>
-      n.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => ',');
 }
 
 /// hero-today 세 상태 + 불러오는 중(DESIGN §8.9 · pen `PAtO3`). 모양은 [heroTodayProvider] 가 오늘 탭 상태로 고른다.
@@ -485,79 +448,53 @@ class _CampusStrip extends StatelessWidget {
   final List<String> campuses;
   final String? mySchool;
 
+  /// 칩 사이(pen `zOaUW` gap 6).
+  static const double _chipGap = 6;
+
+  /// 이 수부터 칩 줄이 사람 레일처럼 흐른다(사용자 지시 10-15). 그보다 적으면 줄바꿈 칩 줄 그대로 멈춰 있다.
+  static const int _flowFrom = 5;
+
   @override
   Widget build(BuildContext context) {
     final mine = campuses.contains(mySchool) ? mySchool : null;
+    final tags = [
+      if (mine != null) Tag(label: mine, mine: true),
+      for (final campus in campuses)
+        if (campus != mine) Tag(label: campus),
+    ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // pen 글자 상자 19(`YIoXQ` 렌더, lineHeight 속성 없음) — bodySmall 토큰은 21.7 이라 맞춘다.
-        Text(
-          '참여 중인 대학',
-          style: AppTypography.bodySmall.copyWith(fontWeight: FontWeight.w700, height: 19 / 14, color: AppColors.muted),
-        ),
+        // 섹션 제목 18/700 ink(대장 10-15 — 종전 14/700 muted). 줄높이는 레일 제목과 같다.
+        Text('참여 중인 대학', style: _sectionTitleStyle),
         const SizedBox(height: AppSpacing.xs),
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: [
-            if (mine != null) Tag(label: mine, mine: true),
-            for (final campus in campuses)
-              if (campus != mine) Tag(label: campus),
-          ],
-        ),
+        if (tags.length < _flowFrom) Wrap(spacing: _chipGap, runSpacing: _chipGap, children: tags),
+        if (tags.length >= _flowFrom)
+          // 한 줄(높이 28)로 이어 붙여 사람 레일과 같은 규칙(오른쪽 · 20px/초 · 누르면 멈춤 · 동작 줄이기면 손으로)으로 흐른다.
+          AutoMarquee(
+            cycle: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final tag in tags) ...[tag, const SizedBox(width: _chipGap)],
+              ],
+            ),
+          ),
       ],
     );
   }
 }
 
-/// mosaic-rail 머리줄(pen `Ab3td` 328×23, 제목 `h7wmcH`). 오른쪽 "일시정지"(`gK0eT`)는 사용자 결정(2026-09-26)으로
+/// 홈 섹션 제목(지금 함께 있는 사람들 · 참여 중인 대학) 18/700 ink, 글자 상자 25(pen `M5hpo7` 좌표표 10-15 — subNavTitle 토큰은 27).
+final TextStyle _sectionTitleStyle = AppTypography.subNavTitle.copyWith(height: 25 / 18, color: AppColors.ink);
+
+/// mosaic-rail 머리줄(pen `Ab3td` 328 폭, 제목 `h7wmcH`). 오른쪽 "일시정지"(`gK0eT`)는 사용자 결정(2026-09-26)으로
 /// pen 에서도 지웠다 — 레일은 저절로 흐르고 누르고 있으면 멈춘다([MosaicRail]).
 class _RailHeader extends StatelessWidget {
   const _RailHeader();
 
   @override
   Widget build(BuildContext context) {
-    // pen 글자 상자 23(`h7wmcH` 렌더, lineHeight 속성 없음) — subtitle 토큰은 24.65 라 맞춘다.
-    return Text(
-      '지금 함께 있는 사람들',
-      style: AppTypography.subtitle.copyWith(fontWeight: FontWeight.w700, height: 23 / 17, color: AppColors.ink),
-    );
-  }
-}
-
-/// 세 숫자가 모두 0 일 때의 판(pen `Tklrw` 안 `AJVDS`). 폭은 숫자 칸 줄 자리 그대로, 높이는 내용만큼.
-/// 배율 1.0 에서 12 + 마스코트 72 + 8 + 문구 20 + 12 = 124.
-class _StatEmptyPanel extends StatelessWidget {
-  const _StatEmptyPanel();
-
-  @override
-  Widget build(BuildContext context) {
-    // 테두리가 안쪽 여백을 먹지 않게 Container 대신 DecoratedBox — Container 는 테두리 폭만큼 여백을 더한다.
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppColors.canvas,
-        // 리터럴: `AJVDS` 테두리 #E9E9E9 · 모서리 12 와 같은 토큰이 없다(hairlineSoft #EBEBEB, AppRadius.sm 8 · md 14).
-        border: Border.all(color: const Color(0xFFE9E9E9)), // pen AJVDS 값, 토큰표 밖
-        borderRadius: BorderRadius.circular(12), // pen AJVDS 값, 토큰표 밖
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.sm),
-        child: Column(
-          children: [
-            // `U3fkT0` = 마스터 `J2kzx` "Mascot Male · Blue Scarf".
-            Image.asset('assets/images/mascot-male.png', width: 72, height: 72),
-            const SizedBox(height: AppSpacing.xs),
-            // `zcHB6` 14/600 — lineHeight 속성 없음, 렌더 20 이라 height 20/14.
-            Text(
-              '첫 기록이 쌓이는 중이에요',
-              textAlign: TextAlign.center,
-              style: AppTypography.bodySmall.copyWith(fontWeight: FontWeight.w600, height: 20 / 14, color: AppColors.ink),
-            ),
-          ],
-        ),
-      ),
-    );
+    return Text('지금 함께 있는 사람들', style: _sectionTitleStyle);
   }
 }
 
@@ -625,7 +562,8 @@ class _ReviewStrip extends StatelessWidget {
   }
 }
 
-/// 프로필 완성도 카드(pen `usk5M`, 2026-10-14 — 마스코트 없이 글 칸 + 화살표). 카드 전체가 누름 칸이고 프로필 편집 허브(15-5)로 간다.
+/// 프로필 완성도 카드(pen `usk5M` → `xEpOD` / `e26o6` Profile Completion Banner 10-15 — 328×92 · primary-wash · 모서리 24 · 오른쪽 chevron,
+/// 마스코트 없음). 카드 전체가 누름 칸이고 프로필 편집 허브(15-5)로 간다. main 80e7b8b0 의 구현을 그대로 되살렸다.
 class _ProfileNudge extends StatelessWidget {
   const _ProfileNudge({required this.percent, required this.onTap});
 

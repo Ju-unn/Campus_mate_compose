@@ -29,6 +29,7 @@ void main() {
     expect(AppIcons.chevronRight, LucideIcons.chevronRight);
     expect(AppIcons.check, LucideIcons.check);
     expect(AppIcons.arrowRight, LucideIcons.arrowRight);
+    expect(AppIcons.arrowUpRight, LucideIcons.arrowUpRight);
     expect(AppIcons.imagePlus, LucideIcons.imagePlus);
     expect(AppIcons.timer, LucideIcons.timer);
     expect(AppIcons.timerOff, LucideIcons.timerOff);
