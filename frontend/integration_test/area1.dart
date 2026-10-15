@@ -16,6 +16,7 @@ import 'package:campus_mate/common/widgets/trait_slider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/home/viewmodel/home_summary_provider.dart';
+import 'package:campus_mate/profile/model/signup_phone_number.dart';
 import 'package:campus_mate/profile/view/avatar_generation_screen.dart';
 import 'package:campus_mate/profile/viewmodel/avatar_generation_ui_state.dart';
 import 'package:campus_mate/profile/viewmodel/avatar_generation_view_model.dart';
@@ -251,12 +252,23 @@ Future<void> _realName(WidgetTester tester, String name, {required bool on}) asy
 
 final _random = Random();
 
+/// 04-1 닉네임 칸 라벨(basic_info_screen.dart — 필수 항목에 "· 필수" 를 붙인다).
+const _nicknameLabel = '닉네임 · 필수';
+
+/// 가입용 번호 규칙(앱 [SignupPhoneNumber] · 서버 같은 규칙)을 지나는 무작위 번호. 걸리면(1234-1234 등) 다시 뽑는다.
+String _randomPhone() {
+  while (true) {
+    final digits = '010${1000 + _random.nextInt(9000)}${1000 + _random.nextInt(9000)}';
+    if (SignupPhoneNumber.accepts(digits)) return digits;
+  }
+}
+
 String _englishNickname() => String.fromCharCodes(List.generate(5, (_) => 97 + _random.nextInt(26)));
 
 String _koreanNickname() => String.fromCharCodes(List.generate(3, (_) => 0xAC00 + _random.nextInt(11172)));
 
 Future<void> _nickname(WidgetTester tester, String nickname, String message) async {
-  await type(tester, labeled('닉네임'), nickname);
+  await type(tester, labeled(_nicknameLabel), nickname);
   await pumpUntil(tester, find.text(message), timeout: const Duration(seconds: 5));
 }
 
@@ -272,7 +284,7 @@ Future<void> _fillBasics(
   await _nickname(tester, nickname ?? _englishNickname(), _nicknameOk);
   await type(tester, input('예: 2003'), year);
   await type(tester, input('예: 170'), height);
-  final digits = phone ?? '010${1000 + _random.nextInt(9000)}${1000 + _random.nextInt(9000)}';
+  final digits = phone ?? _randomPhone();
   await type(tester, input('010-0000-0000'), digits.replaceAll('-', ''));
   if (!skip.contains('gender')) await tap(tester, find.widgetWithText(SelectChip, '남성'));
 }
@@ -493,7 +505,7 @@ final Map<String, Area1Case> area1Cases = {
     await arrive(tester, '04-1');
     final took = <int>[];
     for (final nickname in [_koreanNickname(), _englishNickname()]) {
-      await type(tester, labeled('닉네임'), nickname);
+      await type(tester, labeled(_nicknameLabel), nickname);
       final at = await appears(tester, find.text(_nicknameOk), const Duration(seconds: 5));
       must(at != null, '"$nickname" 에 초록 문구 없음');
       took.add(at!.inMilliseconds);
@@ -507,7 +519,7 @@ final Map<String, Area1Case> area1Cases = {
     // 앞 값과 걸러진 글자가 같으면 onChanged 가 안 돈다 — '가 '(→ '가')는 'ㄱㄴ' 뒤에 둔다.
     for (final nickname in ['가', '가나다라마바', '가1', 'ㄱㄴ', '가 ']) {
       await _nickname(tester, nickname, _nicknameBad);
-      must(!RegExp(r'[0-9 ]').hasMatch(fieldText(tester, labeled('닉네임'))), '"$nickname" 의 숫자 · 띄어쓰기가 들어감');
+      must(!RegExp(r'[0-9 ]').hasMatch(fieldText(tester, labeled(_nicknameLabel))), '"$nickname" 의 숫자 · 띄어쓰기가 들어감');
       must(!enabled(tester, '다음'), '"$nickname" 에 다음이 켜짐');
     }
     return null;

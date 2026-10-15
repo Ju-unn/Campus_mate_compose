@@ -64,7 +64,13 @@ Future<void> _tapChip(WidgetTester tester, int index) => tap(tester, find.byType
 /// 05-01 ~ 05-11 의 [count] 문항에 답한다(문항마다 다른 칸).
 Future<void> _answer(WidgetTester tester, int count) async {
   for (var i = 0; i < count; i++) {
-    final dots = find.descendant(of: find.byType(TraitSlider), matching: find.byType(GestureDetector)).hitTestable();
+    // 점마다 누르기 GestureDetector 가 있고, 트랙 전체를 덮는 끌기용 GestureDetector(onTap 없음)는 뺀다.
+    final dots = find
+        .descendant(
+          of: find.byType(TraitSlider),
+          matching: find.byWidgetPredicate((w) => w is GestureDetector && w.onTap != null),
+        )
+        .hitTestable();
     await tester.tap(dots.at(i % 5));
     await tester.pump(const Duration(milliseconds: 300));
     await tap(tester, button('다음'));
