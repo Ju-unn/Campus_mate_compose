@@ -9,19 +9,14 @@ import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/matching/model/acceptance.dart';
 import 'package:flutter/material.dart';
 
-/// 수락 대기 행(DESIGN.md §8.6 `acceptance-row`, pen `XCN1f`).
+/// 수락 대기 행(DESIGN.md §8.6 `acceptance-row`, pen `XCN1f` → 2026-10-16 `wwfFX`).
 /// 버튼을 이름과 한 줄에 두지 않는다 — 학과명이 길면 어긋난다(시안에서 확인된 실제 문제).
+/// 결정(거절 · 수락하기)은 행에서 하지 않는다 — "프로필 보기" 로 상대를 본 뒤 그 화면에서 한다(사용자 결정 10-16).
 class AcceptanceRow extends StatelessWidget {
-  const AcceptanceRow({
-    required this.acceptance,
-    required this.onReject,
-    required this.onAccept,
-    super.key,
-  });
+  const AcceptanceRow({required this.acceptance, required this.onViewProfile, super.key});
 
   final Acceptance acceptance;
-  final VoidCallback? onReject;
-  final VoidCallback? onAccept;
+  final VoidCallback? onViewProfile;
 
   @override
   Widget build(BuildContext context) {
@@ -57,23 +52,8 @@ class AcceptanceRow extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.xs),
-          Row(
-            children: [
-              SizedBox(
-                width: 104,
-                child: AppButton(
-                  label: '거절',
-                  onPressed: onReject,
-                  variant: AppButtonVariant.secondary,
-                  height: 44,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.xs),
-              Expanded(
-                child: AppButton(label: '수락하기', onPressed: onAccept, height: 44),
-              ),
-            ],
-          ),
+          // 행 안쪽 폭 전체 × 44(§8.3 카드 안 인라인 버튼 "View Profile").
+          AppButton(label: '프로필 보기', onPressed: onViewProfile, height: 44),
         ],
       ),
     );

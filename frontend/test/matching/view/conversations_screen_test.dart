@@ -20,7 +20,6 @@ import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/matching/model/acceptance.dart';
 import 'package:campus_mate/matching/model/card_profile.dart';
-import 'package:campus_mate/matching/model/card_repository.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:campus_mate/matching/model/sent_request.dart';
 import 'package:campus_mate/matching/view/acceptance_row.dart';
@@ -128,7 +127,10 @@ void main() {
     expect(find.text('받은 신청'), findsOneWidget);
     expect(find.text('1명'), findsOneWidget);
     expect(find.text('초코라떼, 25'), findsOneWidget);
-    expect(find.text('수락하기'), findsOneWidget);
+    // 결정은 프로필을 본 뒤에 한다(사용자 결정 10-16, pen `wwfFX`) — 행에는 "프로필 보기" 하나뿐이다.
+    expect(find.text('프로필 보기'), findsOneWidget);
+    expect(find.text('수락하기'), findsNothing);
+    expect(find.text('거절'), findsNothing);
   });
 
   for (final scale in [1.0, 1.75, 2.0]) {
@@ -191,14 +193,37 @@ void main() {
     expect(find.text('받은 신청'), findsNothing);
   });
 
-  testWidgets('거절을 누르면 거절이 서버로 간다', (tester) async {
+  testWidgets('"프로필 보기" 를 누르면 그 신청의 프로필 보기(`/acceptances/card-1`)로 가고, 결정은 아직 서버로 가지 않는다', (tester) async {
     final repository = FakeCardRepository()..acceptances = const Success([_acceptance]);
-    await pump(tester, repository);
+    final container = ProviderContainer(overrides: [
+      cardRepositoryProvider.overrideWithValue(repository),
+      chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
+    ]);
+    addTearDown(container.dispose);
+    final router = GoRouter(
+      initialLocation: AppRoutes.conversations,
+      routes: [
+        GoRoute(path: AppRoutes.conversations, builder: (context, state) => const ConversationsScreen()),
+        GoRoute(
+          path: '${AppRoutes.acceptanceDetail}/:cardId',
+          builder: (context, state) => Text('프로필 ${state.pathParameters['cardId']}'),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp.router(routerConfig: router),
+    ));
+    await tester.pumpAndSettle();
 
-    await tester.tap(find.text('거절'));
-    await tester.pump();
+    await tester.tap(find.text('프로필 보기'));
+    await tester.pumpAndSettle();
 
-    expect(repository.decisions.single.decision, CardDecision.reject);
+    expect(find.text('프로필 card-1'), findsOneWidget);
+    // push 라 뒤로 가면 대화 탭이다.
+    expect(router.canPop(), isTrue);
+    expect(repository.decisions, isEmpty);
   });
 
   testWidgets('대화 중 섹션에 건수와 행을 보여준다', (tester) async {
