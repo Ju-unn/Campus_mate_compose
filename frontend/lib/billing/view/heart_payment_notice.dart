@@ -14,13 +14,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// 두 줄 12/400 muted + 링크 "유료 서비스 약관 ›" 12/600 primaryText, 모두 줄높이 1.5 · 줄 사이 4.
 /// 두 줄은 이 기기 스토어의 글자다([PaymentStore] — App Store 판은 pen 후속).
 /// 청약철회 · 환불 문구는 법률 검토 전까지 이 한 줄로 둔다(계획서 결정 I-4).
-class HeartPaymentNotice extends ConsumerWidget {
+class HeartPaymentNotice extends ConsumerStatefulWidget {
   const HeartPaymentNotice({super.key});
 
   static const String termsLabel = '유료 서비스 약관 ›';
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HeartPaymentNotice> createState() => _HeartPaymentNoticeState();
+}
+
+class _HeartPaymentNoticeState extends ConsumerState<HeartPaymentNotice> {
+  bool _opening = false;
+
+  @override
+  Widget build(BuildContext context) {
     final muted = AppTypography.caption.copyWith(color: AppColors.muted, height: 1.5);
     final store = ref.watch(paymentStoreProvider);
     return Column(
@@ -36,11 +43,11 @@ class HeartPaymentNotice extends ConsumerWidget {
           child: Material(
             type: MaterialType.transparency,
             child: InkWell(
-              onTap: () => _openTerms(context, ref),
+              onTap: _openTerms,
               child: Semantics(
                 link: true,
                 child: Text(
-                  termsLabel,
+                  HeartPaymentNotice.termsLabel,
                   style: AppTypography.caption.copyWith(
                     color: AppColors.primaryText,
                     fontWeight: FontWeight.w600,
@@ -55,14 +62,18 @@ class HeartPaymentNotice extends ConsumerWidget {
     );
   }
 
-  /// 설정(16)의 약관 줄과 같은 방식 — 기기 브라우저로 열고, 못 열면 실패 토스트.
-  Future<void> _openTerms(BuildContext context, WidgetRef ref) async {
+  /// 설정(16)의 약관 줄과 같은 방식 — 앱 안 브라우저로 열고, 못 열면 실패 토스트.
+  Future<void> _openTerms() async {
+    if (_opening) return; // 여는 호출이 끝나기 전에 다시 눌러도 두 번 열지 않는다
+    _opening = true;
     final messenger = ScaffoldMessenger.of(context);
     bool opened;
     try {
       opened = await ref.read(openUrlProvider)(paidServiceTermsLink);
     } catch (_) {
       opened = false;
+    } finally {
+      _opening = false;
     }
     if (!opened) {
       showSafetyToast(messenger, const UnknownFailure().toDisplayMessage(), icon: AppIcons.alertTriangle);

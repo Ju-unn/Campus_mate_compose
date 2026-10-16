@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:campus_mate/billing/view/heart_payment_notice.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/consent/model/consent_links.dart';
@@ -10,10 +12,12 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   late List<Uri> opened;
   late bool opens;
+  Completer<bool>? pending; // 있으면 여는 호출이 이것이 끝날 때까지 기다린다(연타 시험)
 
   setUp(() {
     opened = [];
     opens = true;
+    pending = null;
   });
 
   Future<void> pump(WidgetTester tester) async {
@@ -22,6 +26,7 @@ void main() {
         overrides: [
           openUrlProvider.overrideWithValue((uri) async {
             opened.add(uri);
+            if (pending case final slow?) return slow.future;
             return opens;
           }),
         ],
@@ -63,7 +68,23 @@ void main() {
     }
   });
 
-  testWidgets('약관 링크는 노션 유료 서비스 약관(공개 주소)을 기기 브라우저로 연다', (tester) async {
+  testWidgets('여는 중에 링크를 또 눌러도 한 번만 연다', (tester) async {
+    pending = Completer<bool>();
+    await pump(tester);
+
+    await tester.tap(find.text('유료 서비스 약관 ›'));
+    await tester.tap(find.text('유료 서비스 약관 ›'));
+    await tester.pump();
+    expect(opened, [paidServiceTermsLink]);
+
+    pending!.complete(true);
+    await tester.pump();
+    await tester.tap(find.text('유료 서비스 약관 ›'));
+    await tester.pump();
+    expect(opened, hasLength(2)); // 끝나면 다시 열 수 있다 — 막는 표시가 풀린다
+  });
+
+  testWidgets('약관 링크는 노션 유료 서비스 약관(공개 주소)을 앱 안 브라우저로 연다', (tester) async {
     await pump(tester);
 
     await tester.tap(find.text('유료 서비스 약관 ›'));

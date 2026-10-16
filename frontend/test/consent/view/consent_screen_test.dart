@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:campus_mate/auth/model/verification_gate.dart';
 import 'package:campus_mate/auth/model/verification_gate_repository_provider.dart';
 import 'package:campus_mate/common/failure.dart';
@@ -200,6 +202,30 @@ void main() {
     expect(opened, [for (final item in ConsentItem.values) ?item.link]);
     expect(ConsentItem.values.where((item) => checkedIn(itemRow(item))), isEmpty);
     expect(viewIn(itemRow(ConsentItem.marketing)), findsNothing);
+  });
+
+  testWidgets('여는 중에 "보기"를 또 눌러도 한 번만 연다 — 끝나면 다시 열 수 있다', (tester) async {
+    final pending = Completer<bool>();
+    openUrl = (uri) {
+      opened.add(uri);
+      return pending.future;
+    };
+    await pump(tester);
+
+    await tester.tap(viewIn(itemRow(ConsentItem.terms)));
+    await tester.tap(viewIn(itemRow(ConsentItem.terms)));
+    await tester.pump();
+    expect(opened, [ConsentItem.terms.link]);
+
+    pending.complete(true);
+    await tester.pump();
+    openUrl = (uri) async {
+      opened.add(uri);
+      return true;
+    };
+    await tester.tap(viewIn(itemRow(ConsentItem.terms)));
+    await tester.pump();
+    expect(opened, [ConsentItem.terms.link, ConsentItem.terms.link]);
   });
 
   testWidgets('브라우저를 못 열면 안내를 띄우고 화면에 남는다', (tester) async {
