@@ -168,7 +168,7 @@ def p_poll_04(run, phone):
 
 
 def p_poll_05(run, phone):
-    """B 의 오늘 poll_vote 원장 0(새 계정) → 아무 글에 투표 → 토스트 1(앱), 원장 +10(reason=poll_vote · ref=글 id) · 잔액 +10(여기)."""
+    """B 의 오늘 poll_vote 원장 0(새 계정) → 아무 글에 투표 → 토스트 1(앱), 원장 +5(reason=poll_vote · ref=글 id) · 잔액 +5(여기)."""
     check = Check()
     author = _home(run)
     me, token = _signed_in(run, 'home')
@@ -177,8 +177,8 @@ def p_poll_05(run, phone):
         before = _balance(run, me)
         _app(check, phone(token_hash=token, question=question))
         got = _vote_hearts(run, me)
-        check.that(got == [(10, poll)], f'poll_vote 원장 {got}(기대 [(10, 글 id)])')
-        check.that(_balance(run, me) == before + 10, f'잔액 {before} → {_balance(run, me)}(기대 +10)')
+        check.that(got == [(5, poll)], f'poll_vote 원장 {got}(기대 [(5, 글 id)])')
+        check.that(_balance(run, me) == before + 5, f'잔액 {before} → {_balance(run, me)}(기대 +5)')
     return check.result()
 
 
@@ -210,7 +210,7 @@ def p_poll_28(run, phone):
     check = Check()
     me, token = _signed_in(run, 'home')
     for _ in range(2):
-        status, body = _grant(run, me, 10, 'poll_vote')
+        status, body = _grant(run, me, 5, 'poll_vote')
         if status >= 300:
             raise Blocked(f'투표 적립 준비 {status} {body}')
     ledger = _ledger(run, me, 'poll_vote')

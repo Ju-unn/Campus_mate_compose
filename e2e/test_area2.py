@@ -500,7 +500,7 @@ class PollTest(Base):
         fake = Fake([
             ('POST', '/votes', lambda b, u: Reply(200, {'poll': {}, 'rewarded': next(rewarded)})),
             ('POST', '/community/polls', lambda b, u: Reply(201, {'id': 'p1'})),
-            ('GET', 'heart_transactions', lambda b, u: Reply(200, [{'amount': 10}])),
+            ('GET', 'heart_transactions', lambda b, u: Reply(200, [{'amount': 5}])),
         ])
         patcher = mock.patch.object(tools, 'call', fake)
         patcher.start()
@@ -511,7 +511,7 @@ class PollTest(Base):
         fake = Fake([
             ('POST', '/votes', lambda b, u: Reply(200, {'poll': {}, 'rewarded': True})),
             ('POST', '/community/polls', lambda b, u: Reply(201, {'id': 'p1'})),
-            ('GET', 'heart_transactions', lambda b, u: Reply(200, [{'amount': 10}, {'amount': 10}])),
+            ('GET', 'heart_transactions', lambda b, u: Reply(200, [{'amount': 5}, {'amount': 5}])),
         ])
         patcher = mock.patch.object(tools, 'call', fake)
         patcher.start()
@@ -527,7 +527,7 @@ class PollLedgerTest(Base):
         fake = Fake([
             ('POST', '/votes', lambda b, u: Reply(200, {'poll': {}, 'rewarded': next(rewarded)})),
             ('POST', '/community/polls', lambda b, u: Reply(201, {'id': 'p1'})),
-            ('GET', 'heart_transactions', lambda b, u: Reply(200, [{'amount': 10}, {'amount': 10}])),
+            ('GET', 'heart_transactions', lambda b, u: Reply(200, [{'amount': 5}, {'amount': 5}])),
         ])
         patcher = mock.patch.object(tools, 'call', fake)
         patcher.start()

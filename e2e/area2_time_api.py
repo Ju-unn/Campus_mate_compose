@@ -97,7 +97,7 @@ def vote_slots_last_week(now):
 
 
 def reward_check_time(now):
-    """지난주 수요일 낮(서울) — poll_vote_reward_due 의 p_now. 이 시각 "오늘" 에는 적립이 없고 그 주(월~)에는 30 이 쌓여 있다."""
+    """지난주 수요일 낮(서울) — poll_vote_reward_due 의 p_now. 이 시각 "오늘" 에는 적립이 없고 그 주(월~)에는 15(5 × 3)가 쌓여 있다."""
     return seoul_week_start(now) - timedelta(days=7) + timedelta(days=2, hours=12)
 
 
@@ -139,9 +139,9 @@ def _pair(run):
 
 
 def _seed_votes(run, account, count):
-    """투표 하트 원장 [count] 줄 — 원장만 넣으면 잔액 캐시와 어긋나(E-HEART-40) grant_hearts 로 둘 다 쓴다."""
+    """투표 하트 원장 [count] 줄(한 줄 5 — 진짜 투표 한 번 값, 10-16 확정 · 종전 10) — 원장만 넣으면 잔액 캐시와 어긋나(E-HEART-40) grant_hearts 로 둘 다 쓴다."""
     for _ in range(count):
-        status, body = _grant(run, account, 10, 'poll_vote')
+        status, body = _grant(run, account, 5, 'poll_vote')
         if status >= 300:
             raise Blocked(f'투표 하트 지급 {status} {body}')
 
@@ -367,7 +367,7 @@ def poll_07(run):
 
 
 def _poll_07(run, author, voter):
-    """create_poll_functions.sql:90-97 — 하루는 서울 0시. 오늘 받은 원장 줄을 어제 23:59 로 옮기면 오늘 첫 투표가 다시 10하트."""
+    """create_poll_functions.sql:90-97 — 하루는 서울 0시. 오늘 받은 원장 줄을 어제 23:59 로 옮기면 오늘 첫 투표가 다시 5하트."""
     check = Check()
     first, second, third = (_poll(run, author, f'자정 {i}') for i in (1, 2, 3))
     check.that(_vote(run, voter, first)[1] is True, '오늘 첫 투표가 하트를 안 줌(준비가 틀림)')
@@ -376,7 +376,7 @@ def _poll_07(run, author, voter):
     reply, rewarded = _vote(run, voter, third)
     check.reply('자정 뒤 투표', reply, 200)
     check.that(rewarded is True, f'rewarded={rewarded}(기대 true — 어제 23:59 적립은 오늘 몫이 아니다)')
-    check.that(_ledger(run, voter, 'poll_vote') == [10, 10], f'원장 {_ledger(run, voter, "poll_vote")}(기대 [10, 10])')
+    check.that(_ledger(run, voter, 'poll_vote') == [5, 5], f'원장 {_ledger(run, voter, "poll_vote")}(기대 [5, 5])')
     return check.result()
 
 
@@ -393,7 +393,7 @@ def poll_08(run):
 
 def _poll_08_monday(run):
     """월요일에는 API 투표로 주간 한도만 따로 못 본다(이번 주 앞 날이 없다). 대신 원장 3줄을 지난주 월 · 월 · 화로 옮기고
-    poll_vote_reward_due(p_voter, p_now)(20260927020100, service_role)를 지난주 수요일 낮 p_now 로 불러 false(주 한도 30)여야 한다.
+    poll_vote_reward_due(p_voter, p_now)(20260927020100 → 20261016144525 다시 만듦, service_role)를 지난주 수요일 낮 p_now 로 불러 false(주 한도 15)여야 한다.
     API 경로(투표 · 18a 줄)는 안 거치므로 서버 시계가 아니라 SQL 규칙만 본다."""
     check = Check()
     voter = _home(run)
@@ -403,13 +403,13 @@ def _poll_08_monday(run):
     status, got = tools.rest(run.cfg, run.key, 'POST', 'rpc/poll_vote_reward_due', {'p_voter': voter['id'], 'p_now': asked.isoformat()})
     if status >= 300:
         raise Blocked(f'poll_vote_reward_due {status} {got}')
-    check.that(got is False, f'rewarded 판정(poll_vote_reward_due)={got}(기대 false — {asked:%m-%d %H:%M} 기준 그 주 이미 30)')
-    check.that(_ledger(run, voter, 'poll_vote') == [10, 10, 10], f'원장 {_ledger(run, voter, "poll_vote")}(기대 3줄 그대로)')
+    check.that(got is False, f'rewarded 판정(poll_vote_reward_due)={got}(기대 false — {asked:%m-%d %H:%M} 기준 그 주 이미 15)')
+    check.that(_ledger(run, voter, 'poll_vote') == [5, 5, 5], f'원장 {_ledger(run, voter, "poll_vote")}(기대 3줄 그대로)')
     return check.result('월요일이라 API 투표 대신 RPC 에 p_now = 지난주 수요일 낮을 줌 — 투표 API · 18a 줄은 안 봄')
 
 
 def _poll_08(run, author, voter, slots):
-    """:98-101 — 이번 주(월 0시 서울~) poll_vote 합이 30 이면 오늘 첫 투표라도 보상 없음. 18a 투표 줄의 used 도 같은 세기로 3."""
+    """:98-101 — 이번 주(월 0시 서울~) poll_vote 합이 15 면 오늘 첫 투표라도 보상 없음. 18a 투표 줄의 used 도 같은 세기로 3."""
     check = Check()
     _seed_votes(run, voter, 3)
     _move_votes(run, voter, slots)
@@ -417,8 +417,8 @@ def _poll_08(run, author, voter, slots):
     check.that(task['used'] == 3, f'18a 투표 줄 used {task["used"]}(기대 3)')
     reply, rewarded = _vote(run, voter, _poll(run, author, '주간 한도'))
     check.reply('투표', reply, 200)
-    check.that(rewarded is False, f'rewarded={rewarded}(기대 false — 이번 주 이미 30)')
-    check.that(_ledger(run, voter, 'poll_vote') == [10, 10, 10], f'원장 {_ledger(run, voter, "poll_vote")}(기대 3줄 그대로)')
+    check.that(rewarded is False, f'rewarded={rewarded}(기대 false — 이번 주 이미 15)')
+    check.that(_ledger(run, voter, 'poll_vote') == [5, 5, 5], f'원장 {_ledger(run, voter, "poll_vote")}(기대 3줄 그대로)')
     return check.result()
 
 
@@ -442,7 +442,7 @@ def _poll_09(run, author, voter):
     reply, rewarded = _vote(run, voter, _poll(run, author, '일요일 경계'))
     check.reply('투표', reply, 200)
     check.that(rewarded is True, f'rewarded={rewarded}(기대 true — 지난주 일요일 적립은 이번 주에 안 센다)')
-    check.that(_ledger(run, voter, 'poll_vote') == [10, 10, 10, 10], f'원장 {_ledger(run, voter, "poll_vote")}(기대 4줄)')
+    check.that(_ledger(run, voter, 'poll_vote') == [5, 5, 5, 5], f'원장 {_ledger(run, voter, "poll_vote")}(기대 4줄)')
     return check.result('월요일이라 이번 주 적립 0줄로 본 날' if this_week == 0 else '')
 
 

@@ -266,7 +266,7 @@ def p_heart_04(run, phone):
         check.that(len(rows) == 1, f'제출 {len(rows)}행(기대 1)')
         row = rows[0] if rows else {}
         got = (row.get('status'), row.get('task'), row.get('reward_hearts'))
-        check.that(got == ('submitted', 'everytime_post', 50), f'제출 줄 {got}(기대 submitted · everytime_post · 50)')
+        check.that(got == ('submitted', 'everytime_post', 40), f'제출 줄 {got}(기대 submitted · everytime_post · 40)')
         path = f"{account['id']}/{row.get('id')}.jpg"
         check.that(row.get('storage_path') == path, f"storage_path {row.get('storage_path')!r}(기대 {path})")
         files = set(tools.storage_paths(run.cfg, run.key, 'heart-task-proofs', account['id']))
@@ -286,7 +286,7 @@ def p_heart_05(run, phone):
 
 def p_heart_09(run, phone):
     """검수 중 줄을 만들어 두고, 앱이 18a 에서 "검수중" 을 본 뒤 멈춘 사이에 승인한다 — 앱은 18a 를 다시 열어 "완료" 를 본다.
-    원장 +50 한 줄(ref = 제출 id) · 잔액 +50 · 승인 뒤 60초 동안 우리 앱 알림이 새로 생기지 않는다."""
+    원장 +40 한 줄(ref = 제출 id) · 잔액 +40(에브리타임, 10-16 확정 · 종전 50) · 승인 뒤 60초 동안 우리 앱 알림이 새로 생기지 않는다."""
     check = Check()
     account, token = _signed_in(run, 'home')
     sid = _reviewing(run, account)
@@ -305,8 +305,8 @@ def p_heart_09(run, phone):
     fresh = Counter(_notices(phone)) - Counter(seen['notices'])
     check.that(not fresh, f'승인 뒤 {NOTICE_SECONDS}초 안에 새 알림: {sorted(fresh)}')
     ledger = [(r['amount'], r['ref_id']) for r in _rows(run, f"heart_transactions?profile_id=eq.{account['id']}&reason=eq.free_task&select=amount,ref_id")]
-    check.that(ledger == [(50, sid)], f'원장 {ledger}(기대 [(50, {sid})])')
-    check.that(_balance(run, account) == before + 50, f'잔액 {before} → {_balance(run, account)}(기대 +50)')
+    check.that(ledger == [(40, sid)], f'원장 {ledger}(기대 [(40, {sid})])')
+    check.that(_balance(run, account) == before + 40, f'잔액 {before} → {_balance(run, account)}(기대 +40)')
     return check.result()
 
 
@@ -371,7 +371,7 @@ def p_heart_21(run, phone):
     account, token = _signed_in(run, 'home')
     for n, (count, expect) in enumerate(((2, 'open'), (3, 'done'))):
         while len(_ledger(run, account, 'poll_vote')) < count:
-            status, body = _grant(run, account, 10, 'poll_vote')
+            status, body = _grant(run, account, 5, 'poll_vote')
             if status >= 300:
                 raise Blocked(f'투표 적립 준비 {status} {_detail(body)}')
         _app(check, phone(**({'token_hash': token} if n == 0 else {'fresh': False}), expect=expect), f'{count}건')
