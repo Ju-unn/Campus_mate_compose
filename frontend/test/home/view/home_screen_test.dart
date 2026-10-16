@@ -995,7 +995,8 @@ void main() {
       expect(find.byType(StatTile), findsNothing);
       expect(find.text('첫 기록이 쌓이는 중이에요'), findsNothing);
       expect(find.text('인스타그램'), findsOneWidget);
-      expect(tester.getSize(find.byType(HomeGrid)), const Size(328, 96));
+      // 링크 행 80(pen v2 `blOdR`, 10-16 초안 A — 종전 96)
+      expect(tester.getSize(find.byType(HomeGrid)), const Size(328, 80));
       expect(find.text('지금 함께 있는 사람들'), findsOneWidget);
       expect(find.text('리뷰 남기기'), findsOneWidget);
     });

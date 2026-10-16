@@ -48,6 +48,21 @@ abstract final class AppElevation {
     BoxShadow(color: Color(0x1A6F4055), offset: Offset(0, 2), blurRadius: 10),
   ];
 
+  /// 홈 6칸 그리드 통계 칸(pen HomeTileGrid v2 `R62HQ` 의 통계 칸 마스터 `BeClX`, 10-16 초안 A) — #00000014 (0,1) blur 8.
+  /// DESIGN §6 "그림자는 요약 카드만" 의 예외로 사용자가 승인했다("1번 A로 가자", 대장 전달).
+  static const List<BoxShadow> homeTileLow = <BoxShadow>[
+    BoxShadow(color: Color(0x14000000), offset: Offset(0, 1), blurRadius: 8),
+  ];
+
+  /// 홈 6칸 그리드 링크 칸(인스타그램 · 이벤트, 마스터 `F4rC8g`) — #1A16190F (0,2) blur 8. 누르는 칸이라 통계 칸보다 조금 더 뜬다.
+  static const List<BoxShadow> homeTileRaised = <BoxShadow>[
+    BoxShadow(color: Color(0x0F1A1619), offset: Offset(0, 2), blurRadius: 8),
+  ];
+
+  /// 홈 6칸 그리드 곧 열려요 칸(마스터 `BoTMl`)의 **안쪽** 그림자 — inner #0000000F (0,1) blur 4.
+  /// Flutter `BoxShadow` 는 바깥에만 그리므로 `BoxDecoration.boxShadow` 에 넣지 않는다 — 위젯이 이 값으로 안쪽에 그린다(`home_grid.dart`).
+  static const BoxShadow homeTileInset = BoxShadow(color: Color(0x0F000000), offset: Offset(0, 1), blurRadius: 4);
+
   /// 화면 아래에 붙은 시트 · 바가 위로 드리우는 그림자 — #00000026 (0,-2) blur 16.
   /// 투표 · 지인 리뷰 시트, 친구 초대 시트가 같은 리터럴을 따로 갖고 있던 것을 모았다(백로그 76).
   static const List<BoxShadow> top = <BoxShadow>[
