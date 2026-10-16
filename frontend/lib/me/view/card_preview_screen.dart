@@ -6,6 +6,7 @@ import 'package:campus_mate/friend_review/view/partner_reviews_section.dart';
 import 'package:campus_mate/friend_review/viewmodel/friend_review_list_view_model.dart';
 import 'package:campus_mate/matching/model/card_detail.dart';
 import 'package:campus_mate/matching/view/card_detail_screen.dart';
+import 'package:campus_mate/matching/view/profile_avatar_header.dart';
 import 'package:campus_mate/me/view/edit_app_bar.dart';
 import 'package:campus_mate/me/view/me_load_error.dart';
 import 'package:campus_mate/me/view/me_tab_bar.dart';
@@ -99,6 +100,7 @@ const EdgeInsets _bodyPadding = EdgeInsets.fromLTRB(
 );
 
 /// 15-4 수락 전: 안내(`Ocmk4`) + 실사진 · 카카오 카드가 없는 카드(지인 리뷰는 있다).
+/// 카드 맨 위는 내 아바타 칸(pen `WjVmJ`, 2026-10-16 사용자 결정) — 상대가 10b · 받은 신청에서 보는 그림과 같다.
 class _BeforeAccept extends StatelessWidget {
   const _BeforeAccept({required this.detail, required this.hasReviews});
 
@@ -112,7 +114,11 @@ class _BeforeAccept extends StatelessWidget {
       children: [
         const _PreviewNotice(text: '대화 상대가 보는 내 프로필이에요. 실제 사진과 카카오톡 아이디는 둘 다 수락한 뒤에 공개돼요.'),
         const SizedBox(height: AppSpacing.xl),
-        ProfileCard(detail: detail, footer: _footer(detail, hasReviews: hasReviews)),
+        ProfileCard(
+          detail: detail,
+          header: ProfileAvatarHeader(url: detail.profile.avatarUrl),
+          footer: _footer(detail, hasReviews: hasReviews),
+        ),
       ],
     );
   }
