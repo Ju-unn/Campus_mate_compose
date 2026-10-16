@@ -21,7 +21,8 @@ const _sections = <({String title, List<_Row> rows})>[
       (
         key: 'card_arrived',
         title: '오늘의 카드 도착',
-        note: '매일 아침 7시 지급 알림',
+        // 지급 주기는 학교 인원에 따라 주 1회 ~ 매일이라(출시 때 주 1회 월요일) 요일 · 빈도를 박지 않는다(사용자 결정 10-16).
+        note: '새 카드가 도착하면 알려 드려요',
         icon: AppIcon3d.layers,
       ),
       (
