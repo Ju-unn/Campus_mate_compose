@@ -24,7 +24,7 @@ from app.profile_onboarding.avatars import (
 from app.profile_onboarding.encryption import set_encrypted_kakao_id, set_encrypted_phone_number
 from app.profile_onboarding.onboarding_progress import next_step
 from app.profile_onboarding.phone_number import to_signup_e164
-from app.profile_onboarding.photos import check_safe_search
+from app.profile_onboarding.photos import REJECTION_BODIES, PhotoVerdict, check_photo
 from app.profile_onboarding.repository import ProfileOnboardingRepository
 from app.profile_onboarding.schemas import (
     NICKNAME_PATTERN,
@@ -130,7 +130,7 @@ async def submit_kakao_id(
     return {"ok": True}
 
 
-@router.post("/profile-onboarding/photos")
+@router.post("/profile-onboarding/photos", response_model=None)
 async def upload_photo(
     photo: UploadFile = File(),
     # 자리는 0~3 이다(profile_photos_position_range). 여기서 막아야 체크 제약 위반이 500 으로 새지 않는다.
@@ -138,7 +138,7 @@ async def upload_photo(
     is_avatar_source: bool = Form(default=False),
     caller: Caller = Depends(get_verified_caller),
     vision_client: vision.ImageAnnotatorAsyncClient = Depends(get_vision_client),
-) -> dict[str, bool]:
+) -> dict[str, bool] | JSONResponse:
     settings, client, profile_id = caller
 
     data = await photo.read()
@@ -146,9 +146,9 @@ async def upload_photo(
     if content_type is None:
         raise HTTPException(status_code=400, detail=errors.PHOTO_UNREADABLE)
 
-    is_safe = await check_safe_search(vision_client, data)
-    if not is_safe:
-        raise HTTPException(status_code=422, detail=errors.PHOTO_NOT_SAFE)
+    verdict = await check_photo(vision_client, data, source="onboarding")
+    if verdict is not PhotoVerdict.SAFE:
+        return JSONResponse(status_code=422, content=REJECTION_BODIES[verdict])
 
     storage = ProfilePhotoStorage(settings.storage_url, settings.supabase_service_role_key, client)
     storage_path = await storage.upload(profile_id, data, content_type)

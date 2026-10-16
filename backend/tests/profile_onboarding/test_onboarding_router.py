@@ -74,18 +74,23 @@ def _wire(
     return TestClient(app)
 
 
-def _safe_vision() -> AsyncMock:
+def _vision(adult: int = 1, text: str = "") -> AsyncMock:
     # spec 없는 목은 비동기 클라이언트에 없는 메서드까지 받아 준다 — 그래서 500 이 테스트를 빠져나갔다.
     vision_client = AsyncMock(spec=vision.ImageAnnotatorAsyncClient)
     vision_client.batch_annotate_images.return_value = SimpleNamespace(
         responses=[
             SimpleNamespace(
                 error=SimpleNamespace(message=""),
-                safe_search_annotation=SimpleNamespace(adult=1, violence=1),
+                safe_search_annotation=SimpleNamespace(adult=adult, violence=1),
+                text_annotations=[SimpleNamespace(description=text)] if text else [],
             )
         ]
     )
     return vision_client
+
+
+def _safe_vision() -> AsyncMock:
+    return _vision()
 
 
 def test_basic_info_rejects_duplicate_nickname_with_409():
@@ -356,6 +361,58 @@ def test_photo_upload_turns_unique_violation_into_409():
     )
 
     assert response.status_code == 409
+
+
+def _upload_photo_with(vision_client: AsyncMock, seen: list[httpx.Request]):
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        if "/rest/v1/profile_photos" in str(request.url) and request.method == "GET":
+            return httpx.Response(200, json=[])
+        return httpx.Response(201, json=[])
+
+    app.dependency_overrides[get_vision_client] = lambda: vision_client
+    return _wire(handler).post(
+        "/profile-onboarding/photos",
+        headers=AUTH_HEADERS,
+        files={"photo": ("a.png", _PNG_BYTES, "image/png")},
+        data={"position": "0", "is_avatar_source": "true"},
+    )
+
+
+def _writes(seen: list[httpx.Request]) -> list[str]:
+    # 가드(인증 · 학생 인증 조회)는 _wire 가 먼저 받아 seen 에 안 들어온다 — 남는 건 사진 저장 쪽 요청뿐이다.
+    return [f"{r.method} {r.url.path}" for r in seen if r.method != "GET"]
+
+
+def test_photo_upload_rejects_a_document_like_photo_and_saves_nothing(caplog):
+    """학생증 · 신분증을 아바타 원본으로 올리면 아바타가 이상하게 나온다(사용자 결정 10-16 — 안내 + 서버 검사)."""
+    seen: list[httpx.Request] = []
+    with caplog.at_level("WARNING", logger="app.profile_onboarding.photos"):
+        response = _upload_photo_with(_vision(text="학생증 홍길동 2024 컴퓨터공학과"), seen)
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": errors.PHOTO_LOOKS_LIKE_DOCUMENT, "code": "photo_looks_like_document"}
+    assert _writes(seen) == []
+    # 거절 로그는 경로 이름만 — 프로필 id · 글자 원문은 없다.
+    assert "verdict=document" in caplog.text and "source=onboarding" in caplog.text
+    assert str(PROFILE_ID) not in caplog.text and "홍길동" not in caplog.text
+
+
+def test_photo_upload_rejects_an_unsafe_photo_with_the_old_message():
+    seen: list[httpx.Request] = []
+    response = _upload_photo_with(_vision(adult=5), seen)
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "부적절한 사진은 올릴 수 없어요"}
+    assert _writes(seen) == []
+
+
+def test_photo_upload_lets_a_photo_with_short_text_through():
+    seen: list[httpx.Request] = []
+    response = _upload_photo_with(_vision(text="NIKE"), seen)
+
+    assert response.status_code == 200
+    assert any("/storage/v1/object/profile-photos/" in w for w in _writes(seen))
 
 
 def test_photo_upload_builds_vision_client_on_the_event_loop_thread(monkeypatch):

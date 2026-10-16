@@ -541,10 +541,10 @@ class PaidFactsTest(unittest.TestCase):
 
     def test_the_photo_save_calls_vision_once_per_new_file_and_never_before_the_layout_and_owner_checks(self):
         save = self.text('me', 'router.py').split('async def save_photos')[1].split('@router.patch')[0]
-        self.assertEqual(save.count('check_safe_search('), 1)
+        self.assertEqual(save.count('check_photo('), 1)
         self.assertLess(save.index('parse_layout('), save.index('errors.PHOTOS_CHANGED'))
         self.assertLess(save.index('errors.PHOTOS_CHANGED'), save.index('for photo in photos:'))
-        self.assertLess(save.index('for photo in photos:'), save.index('check_safe_search('))
+        self.assertLess(save.index('for photo in photos:'), save.index('check_photo('))
 
     def test_these_paths_never_reach_the_discord_channels(self):
         for parts in (('me', 'router.py'), ('profile_onboarding', 'tasks_router.py'), ('profile_onboarding', 'router.py'), ('profile_onboarding', 'avatars.py'),
