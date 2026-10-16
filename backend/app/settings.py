@@ -51,6 +51,10 @@ class Settings(BaseSettings):
     apple_iap_key_id: str = ""
     apple_iap_issuer_id: str = ""
     apple_iap_private_key: str = ""
+    # 홈 리뷰 띠(home/router.py `GET /home/summary`)에 보일 실제 스토어 평점 · 평가 수. 사람이 Cloud Run 에 손으로 넣는 값이라
+    # 글자로 받는다 — 숫자 타입이면 잘못 넣는 순간 Settings() 가 실패해 서버 전체가 멈춘다. 검사는 홈 요약이 한다(어긋나면 0).
+    store_rating: str = "0"
+    store_rating_count: str = "0"
 
     @property
     def postgrest_url(self) -> str:
