@@ -25,18 +25,6 @@ void main() {
     ]);
   });
 
-  test('개인정보 수집·이용 줄만 아래 설명 3줄을 갖는다(02-c 안 B) — 다른 줄은 비어 있다', () {
-    expect(ConsentItem.privacy.details, [
-      '수집: 프로필·사진·종교(민감정보) 등',
-      '이용: 매칭, AI 아바타(사진 1장을 미국 OpenAI로 전송, 학습 미사용)',
-      '보관: 탈퇴 후 30일 · 동의하지 않으면 가입할 수 없어요',
-    ]);
-    expect(ConsentItem.terms.details, isEmpty);
-    expect(ConsentItem.marketing.details, isEmpty);
-    // 굵게 보일 말은 설명 줄 안에 그대로 있어야 한다.
-    expect(ConsentItem.privacy.details.where((line) => line.contains(consentDetailEmphasis)), hasLength(1));
-  });
-
   test('이용약관 보기는 약관동의 페이지, 개인정보 수집·이용 보기는 처리방침 페이지를 연다 — 마케팅은 보기가 없다', () {
     // 주소 글자는 consent_links.dart 한 곳에만 있다(규칙은 consent_links_test.dart). 종교 동의도 privacy 줄이 받는다(09-29).
     expect(ConsentItem.terms.link, termsLink);

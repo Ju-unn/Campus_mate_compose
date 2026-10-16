@@ -113,12 +113,9 @@ void main() {
     expect(find.text('선택'), findsOneWidget);
     expect(find.text('보기'), findsNWidgets(2));
     expect(find.text('동의하고 계속하기'), findsOneWidget);
-    // 09-29 최종 4칸은 그대로 — 종교 · 국외 이전은 따로 줄이 아니라 개인정보 줄 아래 설명으로 보인다(10-15 안 B).
-    for (final line in ConsentItem.privacy.details) {
-      expect(find.text(line), findsOneWidget, reason: line);
-    }
-    expect(find.textContaining('종교(민감정보)'), findsOneWidget);
-    expect(find.textContaining('미국 OpenAI로 전송'), findsOneWidget);
+    // 09-29 최종 4칸 — 종교 · 국외 이전은 줄도, 개인정보 줄 아래 설명도 없다(10-15 안 B 설명은 10-16 에 뺐다).
+    expect(find.textContaining('종교'), findsNothing);
+    expect(find.textContaining('국외 이전'), findsNothing);
     expect(find.text('로그아웃'), findsOneWidget);
   });
 
@@ -130,34 +127,14 @@ void main() {
     expect(find.text(_title), findsNothing);
     expect(find.text('약관 동의'), findsOneWidget);
     expect(find.text('보기'), findsNWidgets(2));
-    // 재동의(dxe7K)에도 같은 설명이 보인다.
-    for (final line in ConsentItem.privacy.details) {
-      expect(find.descendant(of: itemRow(ConsentItem.privacy), matching: find.text(line)), findsOneWidget);
-    }
   });
 
-  testWidgets('개인정보 설명을 눌러도 그 줄이 켜진다 — 설명은 체크 누름 영역 안이다', (tester) async {
+  testWidgets('통합 시험(area1)처럼 개인정보 줄 한가운데를 누르면 그 줄이 켜진다', (tester) async {
     await pump(tester);
 
-    // 통합 시험(area1)은 ConsentRow 한가운데를 누른다 — 줄이 길어져 가운데가 설명이어도 켜져야 한다.
     await tester.tap(itemRow(ConsentItem.privacy));
     await tester.pump();
     expect(checkedIn(itemRow(ConsentItem.privacy)), isTrue);
-
-    await tester.tap(find.text(ConsentItem.privacy.details.last));
-    await tester.pump();
-    expect(checkedIn(itemRow(ConsentItem.privacy)), isFalse);
-  });
-
-  testWidgets('화면 읽기는 개인정보 체크와 설명을 한 덩어리로 읽는다', (tester) async {
-    final semantics = tester.ensureSemantics();
-    await pump(tester);
-
-    final node = tester.getSemantics(find.text(ConsentItem.privacy.label));
-    expect(node.label, contains(ConsentItem.privacy.label));
-    expect(node.label, contains('종교(민감정보)'));
-    expect(node.label, contains('보관: 탈퇴 후 30일'));
-    semantics.dispose();
   });
 
   testWidgets('줄을 누르면 체크가 바뀌고, 필수를 다 켜야 버튼이 켜진다', (tester) async {
@@ -369,40 +346,20 @@ void main() {
       expect(view.height, 48);
     });
 
-    testWidgets('개인정보 설명(안 B) — 14/400 body lh1.5 · 줄 사이 4 · 들여쓰기 36 · 보기 앞까지 · 종교(민감정보)만 700', (tester) async {
+    testWidgets('개인정보 줄도 설명 없이 한 줄 50 이다(10-16 pen f4cAN · wPx6Q 숨김) — 보기는 줄 가운데', (tester) async {
       await pump(tester);
-      final privacy = itemRow(ConsentItem.privacy);
-      final checkbox = tester.getRect(find.descendant(of: privacy, matching: find.byType(AppCheckbox)));
-      final toggle =
-          tester.getRect(find.ancestor(of: find.text(ConsentItem.privacy.label), matching: find.byType(InkWell)).first);
-      final lines = [for (final line in ConsentItem.privacy.details) tester.getRect(find.text(line))];
 
-      expect(lines.first.left, checkbox.left + 36);
-      for (final line in lines) {
-        expect(line.left, checkbox.left + 36);
-        expect(line.right, toggle.right);
+      for (final item in ConsentItem.values) {
+        expect(tester.getRect(itemRow(item)).height, closeTo(50, 0.5), reason: item.name);
       }
-      expect(lines[1].top, closeTo(lines[0].bottom + 4, 0.01));
-      expect(lines[2].top, closeTo(lines[1].bottom + 4, 0.01));
-
-      final first = tester.widget<Text>(find.text(ConsentItem.privacy.details.first));
-      expect(first.textSpan!.style, AppTypography.bodySmall.copyWith(color: AppColors.body, height: 1.5));
-      final spans = <TextSpan>[];
-      first.textSpan!.visitChildren((span) {
-        if (span is TextSpan && span.text != null) spans.add(span);
-        return true;
-      });
-      final bold = spans.where((span) => span.style?.fontWeight == FontWeight.w700).map((span) => span.text);
-      expect(bold, ['종교(민감정보)']);
-      expect(spans.map((span) => span.text).join(), ConsentItem.privacy.details.first);
-    });
-
-    testWidgets('설명이 없는 줄(이용약관 · 마케팅)은 높이 50 그대로다', (tester) async {
-      await pump(tester);
-
-      expect(tester.getRect(itemRow(ConsentItem.terms)).height, closeTo(50, 0.5));
-      expect(tester.getRect(itemRow(ConsentItem.marketing)).height, closeTo(50, 0.5));
-      expect(find.descendant(of: row('전체 동의'), matching: find.textContaining('수집:')), findsNothing);
+      for (final text in ['수집:', '이용:', '보관:', 'OpenAI']) {
+        expect(find.textContaining(text), findsNothing, reason: text);
+      }
+      final privacy = tester.getRect(itemRow(ConsentItem.privacy));
+      final view = tester.getRect(find.ancestor(of: viewIn(itemRow(ConsentItem.privacy)), matching: find.byType(InkWell)).first);
+      expect(view.size.height, 48);
+      expect(view.center.dy, closeTo(privacy.center.dy, 0.01));
+      expect(view.right, 360 - 16);
     });
 
     testWidgets('글은 16/400 lh 1.6 ink', (tester) async {

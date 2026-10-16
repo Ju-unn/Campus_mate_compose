@@ -160,7 +160,6 @@ class _Body extends StatelessWidget {
             checked: state.checked.contains(item),
             onToggle: () => viewModel.toggle(item),
             isRequired: item.isRequired,
-            details: item.details,
             onView: switch (item.link) {
               final link? => () => onView(link),
               null => null,
