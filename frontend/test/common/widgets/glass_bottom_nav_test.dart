@@ -93,6 +93,34 @@ Rect _bubbleInPill(WidgetTester tester, [AppTab? current]) =>
 
 Finder _label(String text) => find.descendant(of: find.byType(GlassBottomNav), matching: find.text(text));
 
+const _primary = Color(0xFFFF385C);
+const _body = Color(0xFF3F3F3F);
+
+Color? _iconColor(WidgetTester tester, IconData icon) =>
+    tester.widget<Icon>(find.descendant(of: _nav(), matching: find.byIcon(icon))).color;
+
+/// 알약 기준 x · 알약 세로 가운데의 화면 좌표.
+Offset _onPill(WidgetTester tester, double x) {
+  final pill = _pill(tester);
+  return pill.topLeft + Offset(x, pill.height / 2);
+}
+
+/// 알약 x 에서 누르고 오른쪽으로 20 밀어(터치 기준 18 을 넘겨) 끌기를 시작한 뒤, 손가락 밑으로 건너오기가 끝날 때까지 기다린다.
+Future<TestGesture> _startDrag(WidgetTester tester, double x) async {
+  final gesture = await tester.startGesture(_onPill(tester, x));
+  await gesture.moveBy(const Offset(20, 0));
+  // 첫 프레임이 움직임의 시작 시각이다 — 빈 pump 없이 200ms 를 한 번에 넘기면 경과 0 으로 남는다.
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 200));
+  return gesture;
+}
+
+/// 손가락을 알약 x 로 옮기고 한 프레임 그린다.
+Future<void> _dragTo(WidgetTester tester, TestGesture gesture, double x) async {
+  await gesture.moveTo(_onPill(tester, x));
+  await tester.pump();
+}
+
 void main() {
   group('알약 자리와 모양(pen `xtj0K`)', () {
     testWidgets('328×66 알약이 좌우 16 · 바닥 safe area 20 + 띄움 12 위에 뜬다(y = 780 − 98 = 682, `hseoX` 의 `kk3Oc`)', (
@@ -292,6 +320,268 @@ void main() {
 
       expect(_bubbleInPill(tester, AppTab.today).left, 62);
     });
+  });
+
+  // 알약 위에서 끌면 방울이 손가락을 따르고, 놓으면 손가락 밑 탭이 열린다(2026-10-16 사용자 요청 "드래그해서 움직이고 멈추면
+  // 그 탭 열리는거" · "1번 A로 진행해줘", 대장 결정 Q1=B · Q2=A · Q3=A · Q4=A). 360 폭: 칸 64, 칸 경계 x 68 · 132 · 196 · 260,
+  // 방울 가운데 = 손가락 x 라 방울 x = 손가락 − 38(0 ~ 252 로 자른다).
+  group('끌어서 옮기기', () {
+    testWidgets('끌다 놓으면 손가락 밑 탭이 한 번 열리고, 새 화면 방울은 놓은 자리 x172 에서 120ms 에 x190 으로 간다 · 진동 1회', (tester) async {
+      final haptics = await _pump(tester);
+      final gesture = await _startDrag(tester, 36);
+      await _dragTo(tester, gesture, 210);
+
+      await gesture.up();
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('chat 화면'), findsOneWidget);
+      expect(_bubbleInPill(tester, AppTab.chat).left, closeTo(172, 0.001));
+      await tester.pump(const Duration(milliseconds: 120));
+      expect(_bubbleInPill(tester, AppTab.chat).left, closeTo(190, 0.001));
+      expect(haptics.selectionClicks, 1);
+    });
+
+    testWidgets('끄는 동안에는 화면이 그대로고 방울 가운데가 손가락을 1:1 로 따른다(크기 76×54 · y6 그대로)', (tester) async {
+      await _pump(tester);
+      final gesture = await _startDrag(tester, 36);
+
+      for (final x in [90.0, 150.0, 240.0]) {
+        await _dragTo(tester, gesture, x);
+        final bubble = _bubbleInPill(tester);
+        expect(bubble.left, closeTo(x - 38, 0.001), reason: '손가락 $x');
+        expect((bubble.top, bubble.size), (6, const Size(76, 54)), reason: '손가락 $x');
+      }
+      expect(find.text('main 화면'), findsOneWidget);
+
+      await gesture.up();
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('방울 밖(나 칸)에서 끌기 시작하면 방울이 지금 자리에서 손가락 밑으로 120ms 에 건너오고 그 탭이 강조된다', (tester) async {
+      await _pump(tester);
+      final gesture = await tester.startGesture(_onPill(tester, 292));
+      await gesture.moveBy(const Offset(-20, 0)); // x 272 에서 끌기가 시작된다.
+
+      await tester.pump();
+      expect(_bubbleInPill(tester).left, 0);
+      await tester.pump(const Duration(milliseconds: 60));
+      expect(_bubbleInPill(tester).left, inExclusiveRange(0, 234));
+      await tester.pump(const Duration(milliseconds: 60));
+      expect(_bubbleInPill(tester).left, closeTo(234, 0.001));
+      expect(_iconColor(tester, AppIcons.userRound), _primary);
+      expect(_iconColor(tester, AppIcons.house), _body);
+
+      await gesture.up();
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('끄는 동안 손가락 밑 탭만 색이 바뀌고, 화면 읽기의 선택은 지금 탭 그대로다', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await _pump(tester);
+      final gesture = await _startDrag(tester, 36);
+
+      await _dragTo(tester, gesture, 164);
+
+      expect(_iconColor(tester, AppIcons.users), _primary);
+      expect(tester.widget<Text>(_label('커뮤니티')).style!.color, const Color(0xFFC4224B));
+      expect(_iconColor(tester, AppIcons.house), _body);
+      expect(tester.widget<Text>(_label('메인')).style!.color, _body);
+      expect(tester.getSemantics(_label('메인')), isSemantics(hasSelectedState: true, isSelected: true));
+      expect(tester.getSemantics(_label('커뮤니티')), isSemantics(hasSelectedState: true, isSelected: false));
+
+      await gesture.up();
+      await tester.pumpAndSettle();
+      semantics.dispose();
+    });
+
+    testWidgets('경계(68)를 4 넘게 지나야 강조가 바뀐다 — 떨어도 깜빡이지 않고, 끄는 중에는 진동하지 않는다', (tester) async {
+      final haptics = await _pump(tester);
+      final gesture = await _startDrag(tester, 36);
+
+      Future<Color?> houseAt(double x) async {
+        await _dragTo(tester, gesture, x);
+        return _iconColor(tester, AppIcons.house);
+      }
+
+      expect(await houseAt(71), _primary, reason: '68 + 3 — 아직 메인');
+      expect(await houseAt(73), _body, reason: '68 + 5 — 오늘로');
+      expect(await houseAt(65), _body, reason: '68 − 3 — 아직 오늘');
+      expect(await houseAt(63), _primary, reason: '68 − 5 — 메인으로');
+      expect(haptics.selectionClicks, 0);
+
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(find.text('main 화면'), findsOneWidget);
+      expect(haptics.selectionClicks, 0);
+    });
+
+    // pen 견본: 손가락 136(경계 132 + 4) · 방울 x98 → 커뮤니티. 정확히 4 지난 자리에서 바뀌고, 3 은 그대로다(돌아올 때도 같다).
+    testWidgets('경계를 정확히 4 지나면 강조가 바뀌고 3 이면 그대로다 — 손가락 136 · 방울 x98 은 커뮤니티(pen 견본)', (tester) async {
+      await _pump(tester);
+      final gesture = await _startDrag(tester, 36);
+      const icons = [AppIcons.house, AppIcons.heart, AppIcons.users, AppIcons.messageCircle, AppIcons.userRound];
+
+      Future<String> highlightAt(double x) async {
+        await _dragTo(tester, gesture, x);
+        return _labels[icons.indexWhere((icon) => _iconColor(tester, icon) == _primary)];
+      }
+
+      expect(await highlightAt(72), '오늘', reason: '68 + 4');
+      expect(await highlightAt(65), '오늘', reason: '68 − 3');
+      expect(await highlightAt(64), '메인', reason: '68 − 4');
+      expect(await highlightAt(72), '오늘', reason: '68 + 4');
+      expect(await highlightAt(135), '오늘', reason: '132 + 3');
+      expect(await highlightAt(136), '커뮤니티', reason: '132 + 4');
+      expect(_bubbleInPill(tester).left, closeTo(98, 0.001));
+      expect(await highlightAt(129), '커뮤니티', reason: '132 − 3');
+      expect(await highlightAt(128), '오늘', reason: '132 − 4');
+
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(find.text('today 화면'), findsOneWidget);
+    });
+
+    testWidgets('처음 탭으로 돌아와 놓으면 화면 이동 · 진동이 없고 방울이 놓은 자리에서 120ms 에 제자리로 간다', (tester) async {
+      final haptics = await _pump(tester);
+      final gesture = await _startDrag(tester, 36);
+      await _dragTo(tester, gesture, 150);
+      await _dragTo(tester, gesture, 50);
+
+      await gesture.up();
+      await tester.pump();
+
+      expect(find.text('main 화면'), findsOneWidget);
+      expect(_bubbleInPill(tester).left, closeTo(12, 0.001));
+      await tester.pump(const Duration(milliseconds: 120));
+      expect(_bubbleInPill(tester).left, closeTo(0, 0.001));
+      expect(haptics.selectionClicks, 0);
+    });
+
+    // Flutter 는 끌기가 시작된 뒤 시스템이 터치를 빼앗아도(전화 · 알림창 · 홈 제스처) onEnd 를 부른다 — 탭이 바뀌면 안 된다.
+    testWidgets('끄는 중 시스템이 터치를 취소하면 이동 · 진동 없이 방울과 강조가 지금 탭으로 돌아간다', (tester) async {
+      final haptics = await _pump(tester);
+      final gesture = await _startDrag(tester, 36);
+      await _dragTo(tester, gesture, 228);
+
+      await gesture.cancel();
+      await tester.pumpAndSettle();
+
+      expect(find.text('main 화면'), findsOneWidget);
+      expect(find.text('chat 화면'), findsNothing);
+      expect(_bubbleInPill(tester).left, closeTo(0, 0.001));
+      expect(_iconColor(tester, AppIcons.house), _primary);
+      expect(haptics.selectionClicks, 0);
+    });
+
+    testWidgets('손가락이 알약 밖으로 나가도 따라간다 — 좌우 끝은 x0 · x252 에서 멈추고, 위로 벗어나도 x 를 따라 놓은 탭이 열린다', (tester) async {
+      await _pump(tester);
+      final gesture = await _startDrag(tester, 36);
+
+      await _dragTo(tester, gesture, -60);
+      expect(_bubbleInPill(tester).left, 0);
+      await _dragTo(tester, gesture, 420);
+      expect(_bubbleInPill(tester).left, 252);
+      await gesture.moveTo(_onPill(tester, 164) - const Offset(0, 200));
+      await tester.pump();
+      expect(_bubbleInPill(tester).left, closeTo(126, 0.001));
+
+      await gesture.up();
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('community 화면'), findsOneWidget);
+    });
+
+    testWidgets('끄는 중 두 번째 손가락은 탭을 열지 않고, 방울은 그 손가락 쪽으로 튀지 않고 움직인 만큼만 간다', (tester) async {
+      final haptics = await _pump(tester);
+      final first = await _startDrag(tester, 36);
+      await _dragTo(tester, first, 100);
+
+      final second = await tester.startGesture(_onPill(tester, 292));
+      await second.moveBy(const Offset(10, 0));
+      await tester.pump();
+      expect(_bubbleInPill(tester).left, closeTo(72, 0.001), reason: '손가락 100 + 10');
+      await second.up();
+      await tester.pump();
+      expect(find.text('main 화면'), findsOneWidget);
+
+      await first.up();
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('today 화면'), findsOneWidget);
+      expect(haptics.selectionClicks, 1);
+    });
+
+    testWidgets('놓은 직후 방울이 움직이는 중에 다시 끌어도 지금 자리에서 이어진다', (tester) async {
+      await _pump(tester);
+      final gesture = await _startDrag(tester, 36);
+      await _dragTo(tester, gesture, 210);
+      await gesture.up();
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 60));
+      final before = _bubbleInPill(tester, AppTab.chat).left;
+      expect(before, inExclusiveRange(172, 190));
+
+      final again = await tester.startGesture(_onPill(tester, 228));
+      await again.moveBy(const Offset(-20, 0)); // x 208 에서 다시 끌기.
+      await tester.pump();
+      expect(_bubbleInPill(tester, AppTab.chat).left, closeTo(before, 0.001));
+      await tester.pump(const Duration(milliseconds: 120));
+      expect(_bubbleInPill(tester, AppTab.chat).left, closeTo(170, 0.001));
+
+      await again.up();
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('모션 줄이기면 건너오기 · 제자리 찾기는 바로, 끌면 그대로 따라가고 진동 1회 · pumpAndSettle 이 끝난다', (tester) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+      final haptics = await _pump(tester);
+      final gesture = await tester.startGesture(_onPill(tester, 292));
+      await gesture.moveBy(const Offset(-20, 0));
+      await tester.pump();
+      expect(_bubbleInPill(tester).left, closeTo(234, 0.001), reason: '건너오기 없이 바로 손가락 밑');
+
+      await _dragTo(tester, gesture, 210);
+      expect(_bubbleInPill(tester).left, closeTo(172, 0.001), reason: '끌면 그대로 따라간다');
+      await gesture.up();
+      await tester.pump();
+      await tester.pump();
+
+      expect(_bubbleInPill(tester, AppTab.chat).left, closeTo(190, 0.001));
+      expect(haptics.selectionClicks, 1);
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('화면 읽기 트리에 가로 스크롤 동작이 생기지 않는다 — 낭독기 사용자는 탭 방식 그대로', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await _pump(tester);
+
+      expect(find.semantics.byAction(SemanticsAction.scrollLeft), findsNothing);
+      expect(find.semantics.byAction(SemanticsAction.scrollRight), findsNothing);
+      semantics.dispose();
+    });
+
+    for (final (screen, scale) in [(const Size(412, 780), 1.0), (_screen, 2.0)]) {
+      testWidgets('폭 ${screen.width.toInt()} · 글자 배율 $scale — 대화 칸 가운데에서 놓으면 대화가 열리고 넘침이 없다', (tester) async {
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await _pump(tester, screen: screen);
+        final cell = (screen.width - 32 - 8) / 5;
+        final chatCenter = 4 + cell * 3.5;
+        final gesture = await _startDrag(tester, 4 + cell / 2);
+
+        await _dragTo(tester, gesture, chatCenter);
+        expect(_bubbleInPill(tester).left, closeTo(chatCenter - (cell + 12) / 2, 0.001));
+        await gesture.up();
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        expect(find.text('chat 화면'), findsOneWidget);
+        expect(_bubbleInPill(tester, AppTab.chat).left, closeTo(4 + 3 * cell - 6, 0.001));
+      });
+    }
   });
 
   group('대화 탭 배지(pen `A6Xn1I`, DESIGN §8.8)', () {
