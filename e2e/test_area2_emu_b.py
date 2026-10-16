@@ -17,6 +17,7 @@ from e2e import area1, area2_emu_b, area2_phone3, notify, tools
 from e2e.test_area1 import Base as FakeBase
 from e2e.test_area1_phone import FakePhone
 from e2e.test_area2_phone_b import PhoneBase, World
+from e2e.test_area2_two_accept import case_body, opens_profile_then_decides, unbacked_labels
 from e2e.tools import Blocked, Reply
 
 BUNDLE = ('E-CARD-41 E-CARD-45 E-CARD-86 E-POLL-02 E-POLL-04 E-POLL-05 E-POLL-06 E-POLL-28 E-REF-07 E-REF-08 E-REF-17').split()
@@ -157,6 +158,30 @@ class RegistryTest(unittest.TestCase):
         probe = 'from e2e import __main__ as m; print(m.BUNDLES.get("area2-emu-b"))'
         out = subprocess.run([sys.executable, '-c', probe], cwd=tools.ROOT, capture_output=True, text=True, check=True).stdout
         self.assertEqual(out.strip(), str(BUNDLE))
+
+
+class AppSideTest(unittest.TestCase):
+    """앱 쪽(integration_test/area2_emu_b.dart)이 지금 화면 흐름을 따르는지 — PR #568 부터 받은 신청 줄에는 "프로필 보기" 하나뿐이고
+    거절 · 수락하기는 "받은 신청 · 프로필 보기" 화면(acceptance_detail_screen.dart) 하단 바에 있다."""
+
+    def dart(self):
+        return (tools.ROOT / 'frontend' / 'integration_test' / 'area2_emu_b.dart').read_text(encoding='utf-8')
+
+    def test_every_label_the_app_side_looks_for_is_a_string_in_the_lib_file_it_cites(self):
+        self.assertEqual(unbacked_labels('area2_emu_b.dart'), [])
+
+    def test_45_opens_the_profile_from_the_row_and_accepts_on_that_screen(self):
+        self.assertTrue(opens_profile_then_decides(case_body(self.dart(), 'E-CARD-45'), '_accept'))
+
+    def test_86_suspends_the_sender_only_after_the_profile_is_open_then_accepts(self):
+        # 정지가 먼저면 프로필 읽기부터 404 라 하단 바가 안 생긴다 — PC 의 midway(정지)는 화면이 열린 뒤여야 수락 응답의 404 를 본다
+        self.assertTrue(opens_profile_then_decides(case_body(self.dart(), 'E-CARD-86'), '_accept', "step('suspended')"))
+
+    def test_the_pc_descriptions_follow_the_same_path(self):
+        self.assertNotIn('두 버튼', area2_emu_b.p_card_41.__doc__)
+        self.assertIn('프로필 보기', area2_emu_b.p_card_41.__doc__)
+        for hypothesis in (area2_emu_b.p_card_45, area2_emu_b.p_card_86):
+            self.assertIn('프로필 보기', hypothesis.__doc__, hypothesis.__name__)
 
 
 class EveryCaseTest(EmuBase):

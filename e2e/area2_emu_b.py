@@ -11,6 +11,8 @@
   E-POLL-06          "E-POLL-05 직후" 상태 = B 가 API 로 먼저 한 번 투표해 하트를 받은 날. 앱의 첫 투표 토스트에 기대지 않는다.
   E-POLL-28          "이번 주 원장 2건" 은 grant_hearts(poll_vote)로 넣는다(하루 한 번이라 진짜 투표로는 2건을 못 만든다 — E-HEART-21 과 같다).
   E-CARD-41          알림이 안 오는 에뮬(FCM 토큰 · 알림 없음)이면 blocked. 알림 도착 자체는 E-CARD-40 이 판정한다.
+  E-CARD-41 · 45 · 86 받은 신청 줄에는 "프로필 보기" 하나뿐이다(PR #568, 10-16) — 시나리오의 "줄에서 수락하기" 는 줄의 "프로필 보기" →
+                     "받은 신청 · 프로필 보기" 하단 바 "수락하기"(확인 창 없음)다. 86 은 그 화면이 열린 뒤에 정지한다(먼저 정지하면 화면 읽기부터 404).
   E-REF-07 · 08 · 17 영역 1 의 E-ONB-62 · 64 · 70 · 71 과 같은 화면 동작이라 그 앱 쪽을 그대로 쓴다(에뮬에서만 돈다는 점만 다르다).
 """
 
@@ -66,7 +68,7 @@ def _matches(run, a, b):
 
 
 def p_card_41(run, phone):
-    """B 앱을 홈에 켜 둔 채 HOME → A 가 카드를 수락 → B 의 알림을 눌러 대화 탭이 열린다(앱이 "받은 신청 1명" · A 줄 · 두 버튼을 본다).
+    """B 앱을 홈에 켜 둔 채 HOME → A 가 카드를 수락 → B 의 알림을 눌러 대화 탭이 열린다(앱이 "받은 신청 1명" · A 줄 · 줄의 "프로필 보기" 버튼 하나를 본다).
     acceptance_received 는 조용한 시간에 아침으로 보류되므로(push.py _DEFERRED) 낮 08~22시에만."""
     notify.require_daytime()
     check = Check()
@@ -92,7 +94,8 @@ def p_card_41(run, phone):
 
 
 def p_card_45(run, phone):
-    """B 가 대화 탭의 수락함에서 "수락하기" → 12 화면. 매칭 1행 · 당사자 2행은 여기서 본다(앱은 푸시를 안 쓴다 — A 의 수락은 앱을 켜기 전에 이미 있다)."""
+    """B 가 대화 탭 받은 신청 줄의 "프로필 보기" → 프로필 보기 하단 바 "수락하기" → 12 화면. 매칭 1행 · 당사자 2행은 여기서 본다
+    (앱은 푸시를 안 쓴다 — A 의 수락은 앱을 켜기 전에 이미 있다)."""
     check = Check()
     a, b, nickname, token, card = _senders_card(run)
     _accept(run, a, card)
@@ -106,7 +109,8 @@ def p_card_45(run, phone):
 
 
 def p_card_86(run, phone):
-    """수락 대기를 띄운 뒤 A 를 정지 → "수락하기" → "수락을 찾을 수 없어요". 차단 · 자동 가림도 서버는 같은 판정(_hidden_from_cards)이라 정지만 본다."""
+    """B 가 받은 신청 줄의 "프로필 보기" 로 화면을 연 뒤(앱의 midway) A 를 정지 → 하단 바 "수락하기" → 그 화면에 "수락을 찾을 수 없어요".
+    차단 · 자동 가림도 서버는 같은 판정(_hidden_from_cards)이라 정지만 본다."""
     check = Check()
     a, b, nickname, token, card = _senders_card(run)
     _accept(run, a, card)
