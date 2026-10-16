@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/notice_card.dart';
@@ -23,6 +25,10 @@ class AvatarSourceScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(photosViewModelProvider);
     final viewModel = ref.read(photosViewModelProvider.notifier);
+    // 글자 많은 사진 거절이면 그 사진은 빠졌다 — 다른 사진을 넣을 수 있는 04-2 로 돌아가 칸 아래 문구를 보인다.
+    ref.listen(photosViewModelProvider.select((s) => s.documentRejected), (previous, rejected) {
+      if (rejected && previous != true) unawaited(Navigator.of(context).maybePop());
+    });
     return Scaffold(
       appBar: const OnboardingAppBar(current: 2, total: 6),
       body: SafeArea(

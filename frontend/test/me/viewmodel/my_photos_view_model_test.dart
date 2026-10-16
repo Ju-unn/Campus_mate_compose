@@ -11,6 +11,7 @@ import 'package:campus_mate/me/model/photo_slot.dart';
 import 'package:campus_mate/me/viewmodel/my_photos_view_model.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:campus_mate/profile/viewmodel/photos_ui_state.dart';
+import 'package:campus_mate/profile/viewmodel/photos_view_model.dart' show photoLooksLikeDocumentCode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:campus_mate/core/draft/draft_store.dart';
@@ -189,6 +190,19 @@ void main() {
     expect([for (final photo in state().photos) photo.key], ['p-a', 'p-b']);
     // 계획서 2-2 — 실패해도 서버가 일부를 바꿨을 수 있다(⑤~⑦). 15-5 와 다음 15-7 이 지금 서버 값을 보게 한다.
     expect(me.calls, 2);
+  });
+
+  test('글자 많은 사진 거절(`photo_looks_like_document`)이면 문서 사진 표시만 켜고 서버 문구 · 칸은 그대로, 사진을 빼면 꺼진다', () async {
+    await open(_profile());
+    me.savePhotosResult = const FailureResult(ServerRejectedFailure('서버 임시 문구', code: photoLooksLikeDocumentCode));
+
+    await viewModel().save();
+
+    expect(state().documentRejected, isTrue);
+    expect(state().errorMessage, isNull);
+    expect([for (final photo in state().photos) photo.key], ['p-a', 'p-b', 'p-c']);
+    viewModel().removePhoto(2);
+    expect(state().documentRejected, isFalse);
   });
 
   test('저장 중에 화면을 떠나도(autoDispose) 끝난 저장이 오류를 내지 않고 15-5 는 다시 읽힌다', () async {

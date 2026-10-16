@@ -359,6 +359,53 @@ void main() {
     expect(find.byType(DraggablePhotoTile), findsNWidgets(3));
   });
 
+  group('서버가 글자 많은 사진을 거절(422 `photo_looks_like_document`)', () {
+    const document = '학생증·신분증처럼 글자가 많은 사진은 올릴 수 없어요. 얼굴이 잘 나온 일반 사진을 올려 주세요';
+
+    Future<void> rejectedSave(WidgetTester tester, {String? code = 'photo_looks_like_document'}) async {
+      usePenFrame(tester);
+      await pump(tester);
+      me.savePhotosResult = FailureResult(ServerRejectedFailure('서버 임시 문구', code: code));
+      await tapSave(tester);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('사진 칸 바로 아래 8 에 앱 고정 문구(circle-alert 14 · 12/normal error) — 버튼 위 오류 글 · 칸 테두리 없이, 칸은 그대로', (tester) async {
+      await rejectedSave(tester);
+
+      expect(find.text('서버 임시 문구'), findsNothing);
+      final note = find.byType(PhotoDocumentNote);
+      expect(find.descendant(of: note, matching: find.text(document)), findsOneWidget);
+      expect(tester.getTopLeft(note).dy, closeTo(tester.getRect(find.byType(PhotoSlotGrid)).bottom + 8, 0.01));
+      final style = tester.widget<Text>(find.text(document)).style!;
+      expect((style.fontSize, style.fontWeight, style.color), (12, FontWeight.w400, AppColors.error));
+      final icon = tester.widget<Icon>(find.descendant(of: note, matching: find.byIcon(AppIcons.circleAlert)));
+      expect((icon.size, icon.color), (14, AppColors.error));
+      expect(find.byType(DraggablePhotoTile), findsNWidgets(3));
+      final face = tester.widget<Ink>(find.descendant(of: find.byType(AddPhotoTile), matching: find.byType(Ink))).decoration!
+          as BoxDecoration;
+      expect(face.border, isNull, reason: '15-7 은 여러 장을 한 번에 바꿔 어느 칸인지 모른다');
+      // 캡션은 문구 아래 16 으로 밀린다.
+      expect(tester.getTopLeft(find.text(_guide)).dy, closeTo(tester.getRect(note).bottom + 16, 0.01));
+    });
+
+    testWidgets('사진을 빼면 문구가 사라진다', (tester) async {
+      await rejectedSave(tester);
+
+      await tester.tap(_removeButtons.first);
+      await tester.pump();
+
+      expect(find.byType(PhotoDocumentNote), findsNothing);
+    });
+
+    testWidgets('모르는 code 는 지금처럼 버튼 위 오류 글', (tester) async {
+      await rejectedSave(tester, code: 'photo_unsafe');
+
+      expect(find.byType(PhotoDocumentNote), findsNothing);
+      expect(tester.getBottomLeft(find.text('서버 임시 문구')).dy, lessThan(tester.getTopLeft(find.byType(AppButton)).dy));
+    });
+  });
+
   testWidgets('저장 중에는 버튼이 흰 스피너로 바뀐다(D8)', (tester) async {
     await pump(tester);
     me.holdSavePhotos = Completer<void>();

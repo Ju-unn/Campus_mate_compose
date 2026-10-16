@@ -18,11 +18,21 @@ import 'package:flutter/services.dart';
 /// 칸 그리기는 아래 칸 위젯이 맡고, 이 위젯은 어느 자리에 어느 칸을 놓을지만 정한다 — 04-2 · 15-7 이 같이 쓰도록 화면 값은
 /// 열 간격만 받는다(04-2 는 12, 15-7 은 16).
 class PhotoSlotGrid extends StatelessWidget {
-  const PhotoSlotGrid({required this.state, required this.viewModel, required this.columnGap, super.key});
+  const PhotoSlotGrid({
+    required this.state,
+    required this.viewModel,
+    required this.columnGap,
+    this.markRejectedSlot = false,
+    super.key,
+  });
 
   final PhotosUiState state;
   final PhotosViewModel viewModel;
   final double columnGap;
+
+  /// 글자 많은 사진 거절([PhotosUiState.documentRejected]) 뒤 빠진 사진 자리(첫 빈 칸)에 오류 테두리를 둔다 — 04-2 만.
+  /// 15-7 은 여러 장을 한 번에 바꿔 어느 칸인지 몰라 끈다.
+  final bool markRejectedSlot;
 
   static const int _columns = 2;
   static const int _rows = 2;
@@ -61,7 +71,32 @@ class PhotoSlotGrid extends StatelessWidget {
     if (state.isCheckingPhotos && index == state.photos.length) {
       return const CheckingTile();
     }
-    return AddPhotoTile(onTap: viewModel.addPhoto);
+    final rejected = markRejectedSlot && state.documentRejected && index == state.photos.length;
+    return AddPhotoTile(onTap: viewModel.addPhoto, hasError: rejected);
+  }
+}
+
+/// 서버가 글자 많은 사진을 거절했을 때(422 `photo_looks_like_document`) 사진 칸 바로 아래에 두는 앱 고정 문구 — 서버 임시 문구 대신.
+const String photoDocumentRejectedMessage = '학생증·신분증처럼 글자가 많은 사진은 올릴 수 없어요. 얼굴이 잘 나온 일반 사진을 올려 주세요';
+
+/// 04-2 · 15-7 사진 칸 아래 오류 한 덩어리 — 입력칸 오류 줄(`LabeledField`)과 같은 모양(circle-alert 14 · 4 · 12/normal error), 두 줄까지 내려간다.
+/// 칸과의 간격 8 은 놓는 쪽이 둔다.
+class PhotoDocumentNote extends StatelessWidget {
+  const PhotoDocumentNote({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      // 두 줄이면 표식은 첫 줄 옆에 둔다.
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Icon(AppIcons.circleAlert, size: 14, color: AppColors.error),
+        const SizedBox(width: AppSpacing.xxs),
+        Expanded(
+          child: Text(photoDocumentRejectedMessage, style: AppTypography.caption.copyWith(color: AppColors.error)),
+        ),
+      ],
+    );
   }
 }
 
@@ -253,9 +288,12 @@ class CheckingTile extends StatelessWidget {
 /// 빈 "사진 추가" 칸. 글자가 칸에 안 들어가면(15-7 보조 칸 66×88 에 큰 글씨) 더하기 아이콘만 두고, 낭독 이름은
 /// "사진 추가" 그대로 아이콘에 단다(대장 결정 (가), 2026-09-29 — 잘림 · 넘침은 안 된다, DESIGN §11.2).
 class AddPhotoTile extends StatelessWidget {
-  const AddPhotoTile({required this.onTap, super.key});
+  const AddPhotoTile({required this.onTap, this.hasError = false, super.key});
 
   final Future<void> Function() onTap;
+
+  /// 방금 거절된 사진 자리 — error 2 안쪽 테두리.
+  final bool hasError;
 
   static const String _label = '사진 추가';
   static const double _iconSize = 24;
@@ -286,6 +324,7 @@ class AddPhotoTile extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppColors.primaryWash,
             borderRadius: BorderRadius.circular(AppRadius.md),
+            border: hasError ? Border.all(color: AppColors.error, width: 2) : null,
           ),
           child: LayoutBuilder(
             builder: (context, constraints) {

@@ -39,6 +39,7 @@ class PhotosUiState {
     this.isSubmitting = false,
     this.errorMessage,
     this.completed = false,
+    this.documentRejected = false,
   });
 
   /// 한 번에 올릴 수 있는 최대 장수.
@@ -53,6 +54,10 @@ class PhotosUiState {
   final String? errorMessage;
   final bool completed;
 
+  /// 서버가 방금 올리려던 사진을 글자 많은 사진(학생증 · 신분증 등, 422 `photo_looks_like_document`)으로 거절했다.
+  /// 화면은 사진 칸 아래에 앱 고정 문구를 보인다. 사진을 빼거나 새로 고르거나 다시 올리면 꺼진다.
+  final bool documentRejected;
+
   /// 넘긴 것만 바꿌 새 상태를 만든다. 사진을 고르는 동안 04-3 에서 제출이 같이 돌 수 있어,
   /// 한쪽이 손대지 않은 표시(특히 [isSubmitting])를 지우면 같은 사진을 두 번 올릴 수 있다.
   PhotosUiState copyWith({
@@ -61,6 +66,7 @@ class PhotosUiState {
     bool? isSubmitting,
     Object? errorMessage = _keep,
     bool? completed,
+    bool? documentRejected,
   }) {
     return PhotosUiState(
       photos: photos ?? this.photos,
@@ -68,6 +74,7 @@ class PhotosUiState {
       isSubmitting: isSubmitting ?? this.isSubmitting,
       errorMessage: identical(errorMessage, _keep) ? this.errorMessage : errorMessage as String?,
       completed: completed ?? this.completed,
+      documentRejected: documentRejected ?? this.documentRejected,
     );
   }
 

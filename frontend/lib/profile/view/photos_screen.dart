@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
-import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -83,7 +82,7 @@ class _PhotosScreenState extends ConsumerState<PhotosScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 사진 칸이 158 고정이라 작은 기기·큰 글씨에서는 위쪽이 넘친다.
+              // 사진 칸이 158 고정이라 작은 기기·큰 글씨에서는 위쪽이 넘친다. 남는 세로(Fill)는 이 칸이 먹는다.
               // 넘치는 쪽을 스크롤로 내주고 버튼은 늘 바닥에 남긴다(3b 와 같은 얼개).
               Expanded(
                 child: SingleChildScrollView(
@@ -98,18 +97,28 @@ class _PhotosScreenState extends ConsumerState<PhotosScreen> {
                         '얼굴이 잘 보이는 사진을 2~4장 골라주세요.',
                         style: AppTypography.body.copyWith(color: AppColors.body, height: 1.6),
                       ),
-                      // pen 확정 순서(대장 10-15): 금지 안내 → 16 → 사진 칸 → 16 → 설명 줄 둘 → 24 → 좋은 사진 예시.
+                      // pen 재배치(campus-pen 10-16): 좋은 사진 예시 → 16 → 안내 한 줄 → 16 → 사진 칸 → 16 → 설명 줄 둘 — 예시가 첫 화면에 온다.
+                      // 부제 ↔ 예시 32 는 종전 부제 ↔ 첫 덩어리 값 그대로(이번 값표에 없음).
                       const SizedBox(height: AppSpacing.xl),
+                      const PhotoExample.goodPhoto(),
+                      const SizedBox(height: AppSpacing.md),
                       const _PhotoRulesNotice(),
                       const SizedBox(height: AppSpacing.md),
-                      PhotoSlotGrid(state: state, viewModel: viewModel, columnGap: AppSpacing.sm),
+                      PhotoSlotGrid(
+                        state: state,
+                        viewModel: viewModel,
+                        columnGap: AppSpacing.sm,
+                        markRejectedSlot: true,
+                      ),
+                      if (state.documentRejected) ...[
+                        const SizedBox(height: AppSpacing.xs),
+                        const PhotoDocumentNote(),
+                      ],
                       const SizedBox(height: AppSpacing.md),
                       const HintLine('갤러리에서 여러 장을 한 번에 고를 수 있어요. 최소 2장이 필요해요.'),
                       // pen `hco2A` 실측 6. 간격 토큰 xxs(4)·xs(8) 사이 값이라 토큰으로 갈음하지 않는다.
                       const SizedBox(height: 6),
                       const HintLine('사진을 길게 눌러 끌면 순서를 바꿀 수 있어요. 첫 칸이 대표 사진이에요.'),
-                      const SizedBox(height: AppSpacing.lg),
-                      const PhotoExample.goodPhoto(),
                     ],
                   ),
                 ),
@@ -141,9 +150,8 @@ class _PhotosScreenState extends ConsumerState<PhotosScreen> {
   }
 }
 
-/// "이런 사진은 올릴 수 없어요" 안내 박스(대장 전달 값: 본문 14 · 금지 3D 아이콘 18).
-/// 바탕 · 모서리 · 안쪽 · 제목 글자는 대장 값에 없어 04-3 안내 카드 기본형(`NoticeCard`)과 같게 둔다(pen 확인 대상).
-/// 공용 `NoticeCard` 는 Lucide 아이콘 · 본문 12 라 넓히지 않고 이 화면 안에 둔다.
+/// 안내 한 줄(pen 04-2 Notice, campus-pen 10-16): 아이콘 · 머리 없이 본문 한 줄 12/normal, 안쪽 14 · 높이 46(글자를 키우면 늘어난다).
+/// 바탕 · 모서리 · 본문 색과 줄높이 1.5 는 안내 카드 기본형(`NoticeCard`)과 같다 — 공용 카드는 아이콘 · 제목이 필수라 이 화면 안에 둔다.
 class _PhotoRulesNotice extends StatelessWidget {
   const _PhotoRulesNotice();
 
@@ -151,26 +159,11 @@ class _PhotoRulesNotice extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 14),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(color: AppColors.surfaceSoft, borderRadius: BorderRadius.circular(12)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon3d(AppIcon3d.ban, size: 18),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text('이런 사진은 올릴 수 없어요', style: AppTypography.labelSmall.copyWith(color: AppColors.ink)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            '학생증·서류·화면 캡처 사진은 안 돼요. 나와 배경만 보이는, 얼굴이 또렷한 일상 사진을 올려 주세요.',
-            style: AppTypography.bodySmall.copyWith(color: AppColors.body),
-          ),
-        ],
+      child: Text(
+        '글자 많은 사진·얼굴 가린 사진은 올릴 수 없어요',
+        style: AppTypography.caption.copyWith(color: AppColors.body, height: 1.5),
       ),
     );
   }
