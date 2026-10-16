@@ -23,6 +23,7 @@ class PhotoSlotGrid extends StatelessWidget {
     required this.viewModel,
     required this.columnGap,
     this.markRejectedSlot = false,
+    this.onOpenPhoto,
     super.key,
   });
 
@@ -33,6 +34,10 @@ class PhotoSlotGrid extends StatelessWidget {
   /// 글자 많은 사진 거절([PhotosUiState.documentRejected]) 뒤 빠진 사진 자리(첫 빈 칸)에 오류 테두리를 둔다 — 04-2 만.
   /// 15-7 은 여러 장을 한 번에 바꿔 어느 칸인지 몰라 끈다.
   final bool markRejectedSlot;
+
+  /// 사진 칸을 누르면 그 칸 번호로 부른다(크게 보기). null 이면 꺼짐 — 15-7 내 사진 수정만 켠다
+  /// (사용자 결정 2026-10-16 "다른 사람이 내 사진 확대하는거는 싫은데 … 실제사진 교체 페이지에서 클릭시 확대가능하게").
+  final ValueChanged<int>? onOpenPhoto;
 
   static const int _columns = 2;
   static const int _rows = 2;
@@ -66,7 +71,13 @@ class PhotoSlotGrid extends StatelessWidget {
   /// 사진이 있으면 사진 칸, 살펴보는 중이면 들어올 자리에 기다리는 표시, 나머지는 빈 칸.
   Widget _slot(int index) {
     if (index < state.photos.length) {
-      return DraggablePhotoTile(index: index, state: state, viewModel: viewModel);
+      final open = onOpenPhoto;
+      return DraggablePhotoTile(
+        index: index,
+        state: state,
+        viewModel: viewModel,
+        onOpen: open == null ? null : () => open(index),
+      );
     }
     if (state.isCheckingPhotos && index == state.photos.length) {
       return const CheckingTile();
@@ -103,11 +114,18 @@ class PhotoDocumentNote extends StatelessWidget {
 /// 길게 눌러 끌면 두 칸이 자리를 바꾼다(15-7 과 같은 방식, 2026-09-24 사용자 결정).
 /// 빈 "사진 추가" 칸은 받는 쪽이 아니다 — 사진을 빈 자리로 밀면 순서에 구멍이 생긴다.
 class DraggablePhotoTile extends StatelessWidget {
-  const DraggablePhotoTile({required this.index, required this.state, required this.viewModel, super.key});
+  const DraggablePhotoTile({required this.index, required this.state, required this.viewModel, this.onOpen, super.key});
 
   final int index;
   final PhotosUiState state;
   final PhotosViewModel viewModel;
+
+  /// 칸 본체를 누르면 부른다(크게 보기, [PhotoSlotGrid.onOpenPhoto]). null 이면 칸 탭은 아무 일도 없다.
+  /// x(사진 빼기)는 더 안쪽 누름이라 먼저 받고, 길게 눌러 끌기가 시작되면 이 탭은 취소된다.
+  final VoidCallback? onOpen;
+
+  /// 화면 읽기가 칸 탭 동작을 읽는 말 — "두 번 탭하여 사진 크게 보기".
+  static const String _openHint = '사진 크게 보기';
 
   @override
   Widget build(BuildContext context) {
@@ -117,6 +135,8 @@ class DraggablePhotoTile extends StatelessWidget {
     final photoPath = state.photos[index].key;
     return Semantics(
       label: index == 0 ? '사진 1, 대표' : '사진 ${index + 1}',
+      onTap: onOpen,
+      onTapHint: onOpen == null ? null : _openHint,
       // 끌지 못하는 사람도 대표를 바꿀 수 있어야 한다 — 토크백 메뉴에 액션으로 둔다.
       // 첫 칸은 이미 대표라 액션이 없다(빈 맵을 주면 빈 메뉴가 생긴다).
       customSemanticsActions: index == 0
@@ -133,7 +153,12 @@ class DraggablePhotoTile extends StatelessWidget {
             onDragStarted: HapticFeedback.selectionClick,
             feedback: _LiftedTile(size: constraints.biggest, child: tile),
             childWhenDragging: Opacity(opacity: 0.4, child: tile),
-            child: candidates.isEmpty ? tile : _DropOutline(child: tile),
+            // 낭독 탭 동작은 위 Semantics 가 단다 — 여기서 또 달면 같은 칸에 두 번 붙는다.
+            child: GestureDetector(
+              onTap: onOpen,
+              excludeFromSemantics: true,
+              child: candidates.isEmpty ? tile : _DropOutline(child: tile),
+            ),
           ),
         ),
       ),
@@ -229,6 +254,8 @@ class _PhotoTile extends StatelessWidget {
             right: 0,
             top: 0,
             child: Semantics(
+              // 칸과 다른 낭독 칸으로 떼어 둔다 — 합쳐지면 칸을 두 번 탭할 때 사진이 빠졌다(칸 탭 = 크게 보기와도 부딪힌다).
+              container: true,
               button: true,
               label: '사진 빼기',
               child: GestureDetector(

@@ -248,6 +248,22 @@ void main() {
     });
   });
 
+  // 사진 크게 보기는 15-7 내 사진 수정에서만(사용자 결정 2026-10-16) — 가입 중 04-2 는 칸을 눌러도 아무 화면도 안 뜬다.
+  testWidgets('사진 칸을 눌러도 확대가 열리지 않고, 화면 읽기에도 탭 동작이 없다', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await pump(tester, photoCount: 2);
+    await tester.ensureVisible(find.byType(PhotoSlotGrid));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(DraggablePhotoTile).at(1));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(InteractiveViewer), findsNothing);
+    expect(find.byType(PhotosScreen), findsOneWidget);
+    expect(tester.getSemantics(find.byType(DraggablePhotoTile).at(1)), isSemantics(label: '사진 2', hasTapAction: false));
+    semantics.dispose();
+  });
+
   testWidgets('사진이 2장 미만이면 "다음" 이 꺼져 있다', (tester) async {
     await pump(tester, photoCount: 1);
 

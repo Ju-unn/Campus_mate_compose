@@ -19,6 +19,7 @@ import 'package:campus_mate/me/model/my_profile.dart';
 import 'package:campus_mate/me/model/photo_slot.dart';
 import 'package:campus_mate/me/view/edit_app_bar.dart';
 import 'package:campus_mate/me/view/my_photos_screen.dart';
+import 'package:campus_mate/me/view/photo_zoom_viewer.dart';
 import 'package:campus_mate/me/viewmodel/my_photos_view_model.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:campus_mate/profile/view/photo_tiles.dart';
@@ -490,6 +491,123 @@ void main() {
 
     expect(photoOrder(tester), ['p-a.png', 'p-b.png', 'p-c.png']);
     expect(me.photoSaves, isEmpty);
+  });
+
+  // 사용자 결정 2026-10-16 "내 프로필에서 실제사진 교체 페이지에서 클릭시 확대가능하게" — 15-7 에서만 연다(04-2 · 10b · 14c · 15-4 는 안 연다).
+  group('사진 칸을 누르면 크게 보기(pen `ZExxs`)', () {
+    Finder viewerImage() => find.descendant(of: find.byType(PhotoZoomViewer), matching: find.byType(Image));
+
+    testWidgets('올려 둔 사진 칸을 누르면 그 사진(서버 주소)으로 열린다', (tester) async {
+      usePenFrame(tester);
+      await pump(tester);
+
+      await tester.tap(find.byType(DraggablePhotoTile).at(1));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PhotoZoomViewer), findsOneWidget);
+      expect(tester.widget<Image>(viewerImage()).image, const NetworkImage('https://img.test/p-b.png'));
+    });
+
+    testWidgets('이번에 새로 고른 사진 칸을 누르면 그 파일로 열린다', (tester) async {
+      usePenFrame(tester);
+      await pump(tester);
+      container.read(myPhotosViewModelProvider.notifier).pickFromGallery = (limit) async => [photoFile('new.png')];
+      await tester.tap(find.text('사진 추가'));
+      await tester.pumpAndSettle();
+      expect(photoOrder(tester), ['p-a.png', 'p-b.png', 'p-c.png', 'new.png']);
+
+      await tester.tap(find.byType(DraggablePhotoTile).at(3));
+      await tester.pumpAndSettle();
+
+      final image = tester.widget<Image>(viewerImage()).image as FileImage;
+      expect(image.file.uri.pathSegments.last, 'new.png');
+    });
+
+    testWidgets('닫기 · 시스템 뒤로가기로 닫히면 사진 수정 화면 그대로 — 칸 · 순서가 안 바뀐다', (tester) async {
+      usePenFrame(tester);
+      await pump(tester);
+
+      await tester.tap(find.byType(DraggablePhotoTile).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('닫기'));
+      await tester.pumpAndSettle();
+      expect(find.byType(PhotoZoomViewer), findsNothing);
+
+      await tester.tap(find.byType(DraggablePhotoTile).first);
+      await tester.pumpAndSettle();
+      expect(await tester.binding.handlePopRoute(), isTrue);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PhotoZoomViewer), findsNothing);
+      expect(find.byType(MyPhotosScreen), findsOneWidget);
+      expect(photoOrder(tester), ['p-a.png', 'p-b.png', 'p-c.png']);
+      expect(me.photoSaves, isEmpty);
+    });
+
+    testWidgets('x(사진 빼기)를 누르면 확대가 열리지 않고 사진만 빠진다', (tester) async {
+      usePenFrame(tester);
+      await pump(tester);
+
+      await tester.tap(_removeButtons.at(1));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PhotoZoomViewer), findsNothing);
+      expect(photoOrder(tester), ['p-a.png', 'p-c.png']);
+    });
+
+    testWidgets('길게 눌러 끌면 확대가 열리지 않고 순서만 바뀐다', (tester) async {
+      usePenFrame(tester);
+      await pump(tester);
+
+      await dragPhoto(tester, from: 2, to: tester.getCenter(find.byType(Image).first));
+
+      expect(find.byType(PhotoZoomViewer), findsNothing);
+      expect(photoOrder(tester), ['p-c.png', 'p-b.png', 'p-a.png']);
+    });
+
+    testWidgets('길게 누르기만 하고 제자리에서 떼도 확대가 열리지 않는다', (tester) async {
+      usePenFrame(tester);
+      await pump(tester);
+
+      final gesture = await tester.startGesture(tester.getCenter(find.byType(DraggablePhotoTile).first));
+      await tester.pump(kLongPressTimeout + const Duration(milliseconds: 100));
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PhotoZoomViewer), findsNothing);
+    });
+
+    testWidgets('빈 "사진 추가" 칸을 누르면 확대가 아니라 사진 고르기가 열린다', (tester) async {
+      usePenFrame(tester);
+      await pump(tester);
+      var picked = 0;
+      container.read(myPhotosViewModelProvider.notifier).pickFromGallery = (limit) async {
+        picked++;
+        return [];
+      };
+
+      await tester.tap(find.byType(AddPhotoTile));
+      await tester.pumpAndSettle();
+
+      expect(picked, 1);
+      expect(find.byType(PhotoZoomViewer), findsNothing);
+    });
+
+    testWidgets('화면 읽기 — 사진 칸은 "사진 N" 에 탭 동작 "사진 크게 보기" 가 붙는다(대표 지정 동작은 그대로)', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await pump(tester);
+
+      expect(
+        tester.getSemantics(find.byType(DraggablePhotoTile).at(1)),
+        isSemantics(
+          label: '사진 2',
+          hasTapAction: true,
+          onTapHint: '사진 크게 보기',
+          customActions: const [CustomSemanticsAction(label: '대표로 지정')],
+        ),
+      );
+      semantics.dispose();
+    });
   });
 
   // DESIGN §11.2 — 시스템 글꼴 확대(최대 2.0)에서도 넘치거나 잘리지 않는다. 15c · 15-5 테스트와 같은 잣대.
