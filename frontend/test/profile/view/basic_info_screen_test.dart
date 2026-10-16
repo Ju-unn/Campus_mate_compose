@@ -111,7 +111,7 @@ void main() {
 
     expect(find.text('올바른 휴대폰 번호를 입력해 주세요'), findsOneWidget);
 
-    await tester.enterText(phone, '01048217395');
+    await tester.enterText(phone, '01001352468');
     await tester.pump();
 
     expect(find.text('올바른 휴대폰 번호를 입력해 주세요'), findsNothing);
@@ -135,7 +135,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300)); // 닉네임 중복 확인(입력 뒤 300ms)
     await tester.enterText(field('출생연도 · 필수'), '2003');
     await tester.enterText(field('키 (cm) · 필수'), '170');
-    await tester.enterText(field('전화번호 · 필수'), '01048217395');
+    await tester.enterText(field('전화번호 · 필수'), '01001352468');
     await tester.tap(find.text('남성'));
     await tester.pump();
     await tester.showKeyboard(field('닉네임 · 필수'));
