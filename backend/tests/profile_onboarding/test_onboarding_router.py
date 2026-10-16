@@ -106,7 +106,7 @@ def test_basic_info_rejects_duplicate_nickname_with_409():
         headers=AUTH_HEADERS,
         json={
             "nickname": "가나", "birth_year": 2002, "height_cm": 170,
-            "phone_number": "01048217395", "gender": "male",
+            "phone_number": "01001352468", "gender": "male",
         },
     )
 
@@ -136,7 +136,7 @@ def test_basic_info_creates_private_row_before_saving_phone():
         headers=AUTH_HEADERS,
         json={
             "nickname": "가나", "birth_year": 2002, "height_cm": 170,
-            "phone_number": "01048217395", "gender": "male",
+            "phone_number": "01001352468", "gender": "male",
         },
     )
 
@@ -159,14 +159,14 @@ def test_basic_info_saves_the_phone_number_in_e164():
         headers=AUTH_HEADERS,
         json={
             "nickname": "가나", "birth_year": 2002, "height_cm": 170,
-            "phone_number": "010-4821-7395", "gender": "male",
+            "phone_number": "010-0135-2468", "gender": "male",
         },
     )
 
     assert response.status_code == 200
-    assert sent[0]["p_phone"] == "+821048217395"
+    assert sent[0]["p_phone"] == "+821001352468"
     # 지인 차단 해시도 같은 E.164 값에서, 설정의 신원 키로 뜬다(조각 6 B4).
-    assert sent[0]["p_phone_hmac"] == bytea_literal(hash_phone("identity-key-test", "+821048217395"))
+    assert sent[0]["p_phone_hmac"] == bytea_literal(hash_phone("identity-key-test", "+821001352468"))
 
 
 @pytest.mark.parametrize("phone_number", [
@@ -215,7 +215,7 @@ def test_basic_info_takes_only_male_or_female_before_writing(gender):
         headers=AUTH_HEADERS,
         json={
             "nickname": "가나", "birth_year": 2002, "height_cm": 170,
-            "phone_number": "010-4821-7395", "gender": gender,
+            "phone_number": "010-0135-2468", "gender": gender,
         },
     )
 
@@ -271,7 +271,7 @@ def test_onboarding_rejects_missing_school_info_with_403():
 def test_basic_info_rejects_under_nineteen_with_422():
     """가입 나이 자격은 Asia/Seoul 기준 올해 - birth_year >= 19 다(ERD.md). 경계값 19/18 을 같이 본다."""
     this_year = datetime.now(SEOUL).year
-    body = {"nickname": "가나", "height_cm": 170, "phone_number": "01048217395", "gender": "male"}
+    body = {"nickname": "가나", "height_cm": 170, "phone_number": "01001352468", "gender": "male"}
     client = _wire(lambda request: httpx.Response(200, json=[]))
 
     just_old_enough = client.post(
