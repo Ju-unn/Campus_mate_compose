@@ -2,6 +2,7 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/community/model/community_repository_provider.dart';
 import 'package:campus_mate/community/model/poll.dart';
+import 'package:campus_mate/community/view/poll_feed_tabs.dart';
 import 'package:campus_mate/community/view/vote_option.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -26,7 +27,7 @@ TextInputFormatter _maxCodePoints(int max) => TextInputFormatter.withFunction((o
       return TextEditingValue(text: text, selection: TextSelection.collapsed(offset: text.length));
     });
 
-/// 투표 방식 탭(pen StoryTab 줄 `XfcKQ` 의 두 칸). O/X 는 "찬성"/"반대" 를 보내 카드가 O·X 아이콘을 그린다.
+/// 투표 방식 탭(pen 링 탭 줄 `CgYsy` 의 두 칸). O/X 는 "찬성"/"반대" 를 보내 카드가 O·X 아이콘을 그린다.
 enum _VoteMode { ox, custom }
 
 /// 17b `poll-composer`(pen `tKjGJ` O/X · `Xe28J` 직접 적기). 입력 상태가 이 화면 안에서 끝나 ViewModel 을 두지 않는다.
@@ -39,8 +40,8 @@ class PollComposerScreen extends ConsumerStatefulWidget {
   static const modeTabsKey = Key('poll-mode-tabs');
   static const oxTabKey = Key('poll-mode-tab-ox');
   static const customTabKey = Key('poll-mode-tab-custom');
-  static const oxUnderlineKey = Key('poll-mode-underline-ox');
-  static const customUnderlineKey = Key('poll-mode-underline-custom');
+  static const oxRingKey = Key('poll-mode-ring-ox');
+  static const customRingKey = Key('poll-mode-ring-custom');
 
   @override
   ConsumerState<PollComposerScreen> createState() => _PollComposerScreenState();
@@ -140,7 +141,7 @@ class _PollComposerScreenState extends ConsumerState<PollComposerScreen> {
     );
   }
 
-  /// pen `VoteSection`: 세로 간격 12 — 라벨 14/600 #3F3F3F → 2칸 탭 → 보기 줄(칸 사이 12) → 안내 글 12 muted lh1.5.
+  /// pen `VoteSection`: 세로 간격 12 — 라벨 14/600 #3F3F3F → 2칸 링 탭 줄(94) → 보기 줄(칸 사이 12) → 안내 글 12 muted lh1.5.
   Widget _voteSection() {
     final custom = _mode == _VoteMode.custom;
     return Column(
@@ -182,7 +183,7 @@ class _PollComposerScreenState extends ConsumerState<PollComposerScreen> {
   }
 }
 
-/// pen `XC6KK`: #F7F7F7, radius 10(토큰 밖), 안쪽 12, lock 16 + 12/600 muted.
+/// pen `XC6KK`(17b 올리기 실패 `c9ch1w` 328×40): #F7F7F7, radius 10(토큰 밖), 안쪽 12, lock 16 + 12/600 muted.
 class _AnonymityNotice extends StatelessWidget {
   const _AnonymityNotice();
 
@@ -198,7 +199,8 @@ class _AnonymityNotice extends StatelessWidget {
           Expanded(
             child: Text(
               '작성자 정보는 절대 공개되지 않아요',
-              style: AppTypography.caption.copyWith(fontWeight: FontWeight.w600, color: AppColors.muted),
+              // 글자 상자 16(자물쇠와 같은 높이) — caption 토큰 16.8 이면 상자가 pen 40 보다 커진다.
+              style: AppTypography.caption.copyWith(fontWeight: FontWeight.w600, height: 16 / 12, color: AppColors.muted),
             ),
           ),
         ],
@@ -254,99 +256,43 @@ class _QuestionBox extends StatelessWidget {
   }
 }
 
-/// pen StoryTab 줄(`XfcKQ`; 17b 작성 화면 `SxBUz`·`AorD3`·`DDKQW` 등)의 두 칸: 높이 44(글자를 키우면 따라 자란다), 아래 선 #EBEBEB 1.
+/// 투표 방식 탭 줄(pen 17b `u4UOb` · `tKjGJ` 의 KindTabs · StoryTab `CgYsy`): 폭 꽉 · 높이 94(위아래 4) · 탭 사이 12 · 왼쪽 정렬 ·
+/// 아래 선 없음. 탭은 15d 피드와 같은 링 탭([PollRingTab], StoryTab `XfcKQ` 72×86) — O/X 는 3D 투표 · 직접 적기는 3D 편집.
 class _ModeTabs extends StatelessWidget {
   const _ModeTabs({required this.mode, required this.onSelected});
 
   final _VoteMode mode;
   final ValueChanged<_VoteMode> onSelected;
 
+  /// pen `CgYsy` 탭 사이 12 = [AppSpacing.sm].
+  static const double _gap = AppSpacing.sm;
+
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
+    return Padding(
       key: PollComposerScreen.modeTabsKey,
-      decoration: const BoxDecoration(
-        color: AppColors.canvas,
-        border: Border(bottom: BorderSide(color: AppColors.hairlineSoft)),
-      ),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: _ModeTab(
-              tabKey: PollComposerScreen.oxTabKey,
-              underlineKey: PollComposerScreen.oxUnderlineKey,
-              label: 'O/X',
-              selected: mode == _VoteMode.ox,
-              onTap: () => onSelected(_VoteMode.ox),
-            ),
+          PollRingTab(
+            tapKey: PollComposerScreen.oxTabKey,
+            ringKey: PollComposerScreen.oxRingKey,
+            label: 'O/X',
+            icon: AppIcon3d.vote, // 3D 투표 `x5QLa`
+            selected: mode == _VoteMode.ox,
+            onTap: () => onSelected(_VoteMode.ox),
           ),
-          Expanded(
-            child: _ModeTab(
-              tabKey: PollComposerScreen.customTabKey,
-              underlineKey: PollComposerScreen.customUnderlineKey,
-              label: '직접 적기',
-              selected: mode == _VoteMode.custom,
-              onTap: () => onSelected(_VoteMode.custom),
-            ),
+          const SizedBox(width: _gap),
+          PollRingTab(
+            tapKey: PollComposerScreen.customTabKey,
+            ringKey: PollComposerScreen.customRingKey,
+            label: '직접 적기',
+            icon: AppIcon3d.pencil, // 3D 편집 `DAILv`
+            selected: mode == _VoteMode.custom,
+            onTap: () => onSelected(_VoteMode.custom),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// 탭 칸(pen `Tab` `H2Qyx`): 위 안쪽 12, 선택 = #C4224B 700 + 밑줄 2 / 비선택 = #6A6A6A 500 + 밑줄 투명.
-class _ModeTab extends StatelessWidget {
-  const _ModeTab({
-    required this.tabKey,
-    required this.underlineKey,
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final Key tabKey;
-  final Key underlineKey;
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  static const double _barHeight = 44;
-  static const double _underline = 2;
-
-  @override
-  Widget build(BuildContext context) {
-    final style = AppTypography.labelSmall.copyWith(
-      color: selected ? AppColors.primaryText : AppColors.muted,
-      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-      height: 20 / 14,
-    );
-    // 투명 Material 이 눌림 효과를 받는다 — 없으면 가장 가까운 Material 이 화면 전체 Scaffold 라 효과가 화면에 번진다(COMMON §4-2).
-    return Material(
-      type: MaterialType.transparency,
-      child: Semantics(
-        button: true,
-        selected: selected,
-        child: InkWell(
-          key: tabKey,
-          onTap: onTap,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: _barHeight - _underline),
-                child: Padding(
-                  padding: const EdgeInsets.only(top: AppSpacing.sm),
-                  child: Align(alignment: Alignment.topCenter, heightFactor: 1, child: Text(label, style: style)),
-                ),
-              ),
-              SizedBox(
-                height: _underline,
-                child: ColoredBox(key: underlineKey, color: selected ? AppColors.primaryText : Colors.transparent),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
