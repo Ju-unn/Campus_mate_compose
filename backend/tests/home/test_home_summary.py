@@ -30,14 +30,19 @@ FULL_PROFILE = {
 }
 
 
-@pytest.fixture(autouse=True)
-def overrides():
-    app.dependency_overrides[get_settings] = lambda: Settings(
+def _settings(**extra: str) -> Settings:
+    return Settings(
         supabase_url="https://x.supabase.co", supabase_service_role_key="service-key",
         auth_hook_signing_secret="whsec_test", discord_webhook_url="https://discord.com/api/webhooks/t",
         google_cloud_project="campus-mate-test", openai_api_key="sk-test",
         phone_encryption_key="phone-key-test", identity_hmac_key="identity-key-test",
+        **extra,
     )
+
+
+@pytest.fixture(autouse=True)
+def overrides():
+    app.dependency_overrides[get_settings] = lambda: _settings()
     yield
     app.dependency_overrides.clear()
 
@@ -84,7 +89,37 @@ def test_summary_returns_service_stats_and_my_completion():
         "campuses": ["고려대학교", "서울대학교", "연세대학교"],
         "profile_completion_percent": 100,
         "cohort": None,
+        "store_rating": 0.0, "store_rating_count": 0,
     }
+
+
+# 스토어 평점(review-strip): 사람이 env 로 넣은 실제 값만 싣는다. 넣지 않았거나 잘못 넣었으면 0 — 앱이 띠를 숨긴다 ----
+
+def _store_rating(**extra: str) -> tuple:
+    app.dependency_overrides[get_settings] = lambda: _settings(**extra)
+    response = _wire(_handler(FULL_PROFILE)).get("/home/summary", headers=AUTH_HEADERS)
+    assert response.status_code == 200
+    body = response.json()
+    return body["store_rating"], body["store_rating_count"]
+
+
+def test_store_rating_is_zero_when_not_configured():
+    assert _store_rating() == (0.0, 0)
+
+
+def test_store_rating_reports_the_configured_values():
+    assert _store_rating(store_rating="5.0", store_rating_count="1") == (5.0, 1)
+    assert _store_rating(store_rating=" 4.3 ", store_rating_count="27") == (4.3, 27)
+
+
+@pytest.mark.parametrize(("rating", "count"), [
+    ("five", "1"), ("5.0", "many"), ("", "1"), ("5.0", ""),  # 숫자가 아니다
+    ("5.1", "1"), ("-0.5", "1"), ("nan", "1"), ("inf", "1"),  # 평점은 0~5
+    ("4.5", "-1"), ("4.5", "1.5"),  # 평가 수는 0 이상 정수
+    ("0", "1"), ("0.9", "3"),  # 평가가 있는데 1점 미만 — 스토어 별점은 1~5 라 평점을 빠뜨린 설정이다
+])
+def test_a_bad_store_rating_setting_falls_back_to_zero_instead_of_failing(rating, count):
+    assert _store_rating(store_rating=rating, store_rating_count=count) == (0.0, 0)
 
 
 def test_summary_reads_my_profile_and_photo_count_in_one_request():
