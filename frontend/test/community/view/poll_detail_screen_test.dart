@@ -10,6 +10,7 @@ import 'package:campus_mate/community/view/poll_time.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -51,14 +52,14 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('17c: 제목 "투표 상세", 피드 카드와 같은 크기, 질문 전문, 댓글 안내', (tester) async {
+  testWidgets('17c: 제목 "투표 상세", 피드 카드와 같은 크기, 질문 전문, 댓글 안내는 없다(10-16 사용자 결정)', (tester) async {
     repository.page = Success(PollPage(polls: [pollFixture(question: '가' * 80, myChoice: PollChoice.a)], hasMore: false));
     await pumpDetail(tester, 'p1');
     expect(find.text('투표 상세'), findsOneWidget);
     expect(tester.getSize(find.byType(PollDonut)), const Size(96, 96));
     expect(find.text('자세히 보기'), findsNothing);
     expect(tester.widget<Text>(find.text('가' * 80)).maxLines, isNull);
-    expect(find.text('댓글 기능은 아직 준비 중이에요'), findsOneWidget);
+    expect(find.textContaining('댓글'), findsNothing);
   });
 
   testWidgets('상세에서도 투표 전이면 투표할 수 있다(사용자 결정 4)', (tester) async {
@@ -77,7 +78,7 @@ void main() {
     expect(find.text('질문을 찾을 수 없어요'), findsOneWidget);
   });
 
-  testWidgets('pen 17c: 제목 x60 · 뒤로 arrow-left 22, 본문 안쪽 16, 카드 276(신고 버튼 48 머리줄), 댓글 안내는 카드 아래 16(bcnJx · ZR52B · y0uSd4 · LyR5Y)', (tester) async {
+  testWidgets('pen 17c: 제목 x60 · 뒤로 arrow-left 22, 본문 안쪽 16, 카드 276(신고 버튼 48 머리줄), 카드 아래는 안쪽 16 뿐(bcnJx · ZR52B · y0uSd4)', (tester) async {
     tester.view.physicalSize = const Size(360, 780);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -90,7 +91,11 @@ void main() {
     expect(card.topLeft, const Offset(16, 56 + 16));
     expect(card.width, 328);
     expect(card.height, closeTo(276, 2));
-    expect(tester.getRect(find.text('댓글 기능은 아직 준비 중이에요')).top - card.bottom, 16);
+    // 댓글 안내(pen `LyR5Y`)를 뺀 뒤 카드 밑에 간격이 겹쳐 남지 않는다 — 본문 높이 = 위 16 + 카드 + 아래 16.
+    final body = tester.renderObject<RenderSliver>(
+      find.descendant(of: find.byType(PollDetailScreen), matching: find.byType(SliverPadding)),
+    );
+    expect(body.geometry!.scrollExtent, closeTo(16 + card.height + 16, 0.01));
   });
 
   testWidgets('17c 도 남의 글이면 머리줄 오른쪽 끝에 신고 버튼, 내 글이면 없다(A16 · uPUf3)', (tester) async {

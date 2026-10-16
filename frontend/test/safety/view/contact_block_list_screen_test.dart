@@ -162,6 +162,25 @@ void main() {
 
     expect(find.text('김지은'), findsOneWidget);
     expect(tester.widget<Text>(find.text('잠시 뒤 다시 시도해 주세요')).style?.color, AppColors.error);
+    // 빨간 줄은 마지막 줄 아래 12, 목록 안쪽 [0,24] 안에 선다.
+    final error = tester.getRect(find.text('잠시 뒤 다시 시도해 주세요'));
+    expect(error.top - tester.getRect(find.byType(ContactRow).last).bottom, 12);
+    expect(error.left, greaterThanOrEqualTo(24));
+    expect(error.right, lessThanOrEqualTo(336));
+  });
+
+  testWidgets('차단이 500건이어도 화면 근처 줄만 만든다 · 끝까지 내리면 마지막 줄이 보인다', (tester) async {
+    final built = <String>{};
+    repository.blocks = Success([for (var i = 0; i < 500; i++) contactBlockFixture('b$i')]);
+    nameStore = FakeContactNameStore({for (var i = 0; i < 500; i++) 'b$i': _CountingLabel('b$i', built)});
+    await pump(tester);
+
+    // 줄을 만들 때 이름을 읽는다 — 이름을 읽힌 줄 수가 만든 줄 수다.
+    expect(built, isNotEmpty);
+    expect(built.length, lessThan(100));
+    final list = find.descendant(of: find.byType(ListView), matching: find.byType(Scrollable)).first;
+    await tester.scrollUntilVisible(find.text('친구b499'), 600, scrollable: list, maxScrolls: 100);
+    expect(find.text('친구b499'), findsOneWidget);
   });
 
   testWidgets('16b empty state', (tester) async {
@@ -296,4 +315,18 @@ void main() {
       expect(find.text('다시 시도'), findsOneWidget);
     });
   });
+}
+
+/// 이름을 읽힐 때마다 차단 id 를 남긴다 — 화면이 줄을 몇 개 만들었는지 센다.
+class _CountingLabel extends ContactLabel {
+  _CountingLabel(this.blockId, this.reads) : super(name: '친구$blockId', maskedNumber: '010-****-0000');
+
+  final String blockId;
+  final Set<String> reads;
+
+  @override
+  String get name {
+    reads.add(blockId);
+    return super.name;
+  }
 }
