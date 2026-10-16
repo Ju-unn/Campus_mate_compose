@@ -55,6 +55,9 @@ abstract final class AppRoutes {
   static const String cardDetail = '/cards'; // `/cards/:cardId`
   static const String matchMade = '/match-made';
   static const String conversations = '/conversations';
+
+  /// 받은 신청 · 프로필 보기(pen `o4QqYR`, 2026-10-16) — 대화 탭 받은 신청 행의 "프로필 보기" 가 push 로 연다. `/acceptances/:cardId`
+  static const String acceptanceDetail = '/acceptances';
   static const String settings = '/settings';
   static const String notificationSettings = '/settings/notifications';
 

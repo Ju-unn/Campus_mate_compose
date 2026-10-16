@@ -32,6 +32,7 @@ import 'package:campus_mate/friend_review/model/friend_review_repository_provide
 import 'package:campus_mate/home/model/home_repository_provider.dart';
 import 'package:campus_mate/home/view/home_screen.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
+import 'package:campus_mate/matching/view/acceptance_detail_screen.dart';
 import 'package:campus_mate/matching/view/conversations_screen.dart';
 import 'package:campus_mate/me/model/me_repository_provider.dart';
 import 'package:campus_mate/me/model/my_profile.dart';
@@ -499,6 +500,15 @@ void main() {
       expect(find.text('어떤 장점이 있나요?'), findsNothing);
       expect(find.byType(HomeScreen), findsOneWidget);
       expect(router.state.matchedLocation, AppRoutes.home);
+    });
+
+    testWidgets('/acceptances/:cardId 는 그 받은 신청의 프로필 보기(pen `o4QqYR`)다', (tester) async {
+      final router = await pumpRouter(tester);
+
+      router.go('${AppRoutes.acceptanceDetail}/card-7');
+      await tester.pumpAndSettle();
+
+      expect(tester.widget<AcceptanceDetailScreen>(find.byType(AcceptanceDetailScreen)).cardId, 'card-7');
     });
 
     testWidgets('/profiles/:profileId 는 그 사람의 14c 상대 프로필이다', (tester) async {
