@@ -14,11 +14,11 @@ from app.student_verification.image_validation import student_id_content_type
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-# 제출 때 약속하는 하트(DESIGN §8.10 "초기(~100명)" 값, 계획서 D5). 100명 이후 값(30 · 20)으로 바꾸는 날 이 줄만
-# 고친다 — 이미 낸 제출은 줄에 적힌 금액으로 승인된다.
-REWARD_HEARTS = {"everytime_post": 50, "kakao_share": 25}
-# 투표 보상은 여기서 주지 않는다(DB cast_poll_vote). 18a 에 보여 주기만 한다.
-POLL_VOTE_REWARD = 10
+# 제출 때 약속하는 하트(DESIGN §8.10, 2026-10-16 사용자 확정 — 에브리타임 50 → 40, 단톡방 25 그대로). 값을 바꾸는 날
+# 이 줄만 고친다 — 이미 낸 제출은 줄에 적힌 금액으로 승인된다.
+REWARD_HEARTS = {"everytime_post": 40, "kakao_share": 25}
+# 투표 보상은 여기서 주지 않는다(DB cast_poll_vote 5하트 · 주 15, 20261016144525). 18a 에 보여 주기만 한다.
+POLL_VOTE_REWARD = 5
 # 18a 줄 순서(DESIGN §8.10 표).
 TASK_ORDER = ("everytime_post", "kakao_share", "poll_vote")
 

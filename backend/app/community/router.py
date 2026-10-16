@@ -89,7 +89,7 @@ async def create_poll(body: PollRequest, caller: Caller = Depends(get_verified_c
 
 @router.post("/community/polls/{poll_id}/votes")
 async def vote(poll_id: UUID, body: VoteRequest, caller: Caller = Depends(get_verified_caller)) -> dict:
-    """투표는 되돌릴 수 없다. 하루 첫 투표면 10하트(주 30 상한) — `rewarded` 로 알려 앱이 토스트를 띄운다."""
+    """투표는 되돌릴 수 없다. 하루 첫 투표면 5하트(주 15 상한) — `rewarded` 로 알려 앱이 토스트를 띄운다."""
     repo = _repo(caller)
     rewarded = await repo.cast_vote(poll_id, caller.profile_id, body.choice)
     rows = await repo.fetch_polls(caller.profile_id, poll_id=poll_id, limit=1)

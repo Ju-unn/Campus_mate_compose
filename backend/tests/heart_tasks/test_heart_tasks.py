@@ -95,7 +95,7 @@ def test_list_gives_three_rows_in_fixed_order_with_six_keys():
     assert [t["task"] for t in tasks] == ["everytime_post", "kakao_share", "poll_vote"]
     assert all(set(t) == TASK_KEYS for t in tasks)
     assert [t["state"] for t in tasks] == ["reviewing", "done", "open"]
-    assert [t["reward_hearts"] for t in tasks] == [50, 25, 10]
+    assert [t["reward_hearts"] for t in tasks] == [40, 25, 5]
     assert [(t["used"], t["limit"]) for t in tasks] == [(1, 1), (3, 3), (1, 3)]
 
 
@@ -156,7 +156,7 @@ def test_submit_uploads_records_and_alerts_with_ids_only():
     rpc = next(r for r in seen if r.url.path.endswith("/rpc/submit_heart_task"))
     body = json.loads(rpc.content)
     assert body == {"p_id": match.group(1), "p_profile": PROFILE_ID, "p_task": "everytime_post",
-                    "p_path": path, "p_reward": 50}
+                    "p_path": path, "p_reward": 40}
 
     alert = json.loads(next(r for r in seen if r.url.host == "discord.com").content)["content"]
     assert match.group(1) in alert and PROFILE_ID in alert and "everytime_post" in alert
