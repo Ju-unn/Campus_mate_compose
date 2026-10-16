@@ -26,13 +26,13 @@ async def test_set_encrypted_phone_number_calls_rpc_with_plaintext_key_in_json_b
     async with _client(handler) as client:
         await set_encrypted_phone_number(
             "https://x.supabase.co/rest/v1", "service-key", client,
-            PROFILE_ID, "01048217395", "phone-key", identity_key="identity-key",
+            PROFILE_ID, "01001352468", "phone-key", identity_key="identity-key",
         )
 
     assert captured["url"] == "https://x.supabase.co/rest/v1/rpc/set_phone_number"
     # 키는 URL 쿼리스트링이 아니라 JSON 바디로만 넘긴다(접근 로그에 안 남게, 2026-09-20 사용자 승인 조건).
     assert b"phone-key" in captured["json"]
-    assert b"01048217395" in captured["json"]
+    assert b"01001352468" in captured["json"]
     assert "phone-key" not in captured["url"]
     assert captured["headers"]["apikey"] == "service-key"
 
@@ -48,10 +48,10 @@ async def test_the_rpc_also_stores_the_contact_block_hmac_of_the_saved_e164_valu
     async with _client(handler) as client:
         await set_encrypted_phone_number(
             "https://x.supabase.co/rest/v1", "service-key", client,
-            PROFILE_ID, "+821048217395", "phone-key", identity_key="identity-key",
+            PROFILE_ID, "+821001352468", "phone-key", identity_key="identity-key",
         )
 
-    assert sent[0]["p_phone_hmac"] == bytea_literal(hash_phone("identity-key", "+821048217395"))
+    assert sent[0]["p_phone_hmac"] == bytea_literal(hash_phone("identity-key", "+821001352468"))
     assert sent[0]["p_phone_hmac_key_version"] == IDENTITY_KEY_VERSION
 
 
@@ -63,7 +63,7 @@ async def test_set_encrypted_phone_number_raises_on_http_error():
         with pytest.raises(httpx.HTTPStatusError):
             await set_encrypted_phone_number(
                 "https://x.supabase.co/rest/v1", "service-key", client,
-                PROFILE_ID, "01048217395", "phone-key", identity_key="identity-key",
+                PROFILE_ID, "01001352468", "phone-key", identity_key="identity-key",
             )
 
 

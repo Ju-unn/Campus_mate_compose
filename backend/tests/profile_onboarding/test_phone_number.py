@@ -17,14 +17,14 @@ def test_contact_numbers_keep_the_loose_rule():
     assert to_e164("011-123-4567") == "+82111234567"
 
 
-@pytest.mark.parametrize("raw", ["010-4821-7395", "01048217395", "+82 10-4821-7395", "+82 010-4821-7395"])
+@pytest.mark.parametrize("raw", ["010-0135-2468", "01001352468", "+82 10-0135-2468", "+82 010-0135-2468"])
 def test_signup_takes_a_plain_010_number_in_every_shape(raw):
-    assert to_signup_e164(raw) == "+821048217395"
+    assert to_signup_e164(raw) == "+821001352468"
 
 
 @pytest.mark.parametrize("raw", [
-    "011-123-4567", "016-1234-5678", "019-4821-7395",  # 옛 번호(011 · 016~019)
-    "010-482-7395", "010-4821-73951", "02-123-4567", "010-1", "",  # 010 + 8자리가 아님
+    "011-123-4567", "016-1234-5678", "019-0000-0000",  # 옛 번호(011 · 016~019)
+    "010-000-0000", "010-0000-00001", "02-123-4567", "010-1", "",  # 010 + 8자리가 아님
 ])
 def test_signup_takes_only_010_with_eight_digits(raw):
     assert to_signup_e164(raw) is None

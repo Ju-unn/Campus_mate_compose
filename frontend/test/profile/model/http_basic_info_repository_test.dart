@@ -40,7 +40,7 @@ void main() {
     nickname: '가나다',
     birthYear: 2002,
     heightCm: 175,
-    phoneNumber: '01048217395',
+    phoneNumber: '01001352468',
     gender: 'male',
   );
 
@@ -48,7 +48,7 @@ void main() {
     await repository.submit(submission);
 
     expect(requests.single.url.path, '/profile-onboarding/basic-info');
-    expect((jsonDecode(requests.single.body) as Map<String, dynamic>)['phone_number'], '01048217395');
+    expect((jsonDecode(requests.single.body) as Map<String, dynamic>)['phone_number'], '01001352468');
   });
 
   test('422 phone_number_invalid 는 code 를 든 ServerRejectedFailure 다', () async {
