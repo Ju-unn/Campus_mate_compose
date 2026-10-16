@@ -83,7 +83,7 @@ const List<TourStep> appTourSteps = [
     holeRadius: 34,
     holePadding: EdgeInsets.all(2),
     title: '여기가 캠퍼스메이트의 시작이에요',
-    body: '오늘의 카드와 학교 소식을 홈에서 한눈에 봐요.',
+    body: '오늘의 카드와 소중한 인연을 만나봐요.',
   ),
   TourStep(
     location: AppRoutes.home,
