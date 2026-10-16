@@ -37,7 +37,7 @@ void main() {
         overrides: [
           faqRepositoryProvider.overrideWithValue(FakeFaqRepository(const Success(faqFixture), gate: gate)),
           faqCacheProvider.overrideWithValue(FakeFaqCache()),
-          openUrlProvider.overrideWithValue((uri) => openUrl(uri)),
+          openExternalUrlProvider.overrideWithValue((uri) => openUrl(uri)),
         ],
         child: MaterialApp(
           builder: (context, child) => MediaQuery(

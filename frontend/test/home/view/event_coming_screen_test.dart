@@ -47,7 +47,7 @@ void main() {
     addTearDown(router.dispose);
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [openUrlProvider.overrideWithValue((uri) => open(uri))],
+        overrides: [openExternalUrlProvider.overrideWithValue((uri) => open(uri))],
         child: MaterialApp.router(routerConfig: router),
       ),
     );
