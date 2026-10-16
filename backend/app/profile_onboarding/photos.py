@@ -23,6 +23,13 @@ DOCUMENT_KEYWORDS = (
     "학생증", "신분증", "주민등록", "운전면허", "여권", "외국인등록",
     "STUDENT", "IDCARD", "DRIVER", "PASSPORT",
 )
+# Vision 이미지 라벨 — 글자가 적게 잡힌 신분증(흐림 · 반사 · 기울기)도 그림 모양으로 잡는다(사용자 질문 10-16 "학생증 · 신분증을 거르면").
+# 10-16 실측: 학생증풍 시험 사진이 "Identity document" 0.82 를 받았다. 0.5 는 시작값 — 잘못 막힌 신고가 오면 올린다.
+# "Document" · "Paper" · "Paper Product" 는 포스터 · 메뉴판 · 벽지 · 책에도 붙어 넣지 않는다.
+DOCUMENT_LABELS = ("Identity document",)
+DOCUMENT_LABEL_MIN_SCORE = 0.5
+# 라벨은 점수 순으로 잘려 온다(기본 10개) — 얼굴 · 머리 라벨이 많은 사진에서 문서 라벨이 밀려나지 않게 넉넉히 받는다.
+_LABEL_MAX_RESULTS = 15
 
 
 class PhotoVerdict(Enum):
@@ -41,7 +48,7 @@ REJECTION_BODIES = {
 async def check_photo(
     vision_client: vision.ImageAnnotatorAsyncClient, image_bytes: bytes, *, source: str
 ) -> PhotoVerdict:
-    """부적절(성인 · 폭력)과 문서형을 Vision 한 요청으로 같이 본다. 기능마다 1건으로 과금된다(글자 인식이 사진당 1건 더).
+    """부적절(성인 · 폭력)과 문서형을 Vision 한 요청으로 같이 본다. 기능마다 1건으로 과금된다(글자 인식 · 라벨이 사진당 1건씩 더).
     source 는 거절 로그에 남길 경로 이름(onboarding · me)이다."""
     # 비동기 클라이언트에는 safe_search_detection 편의 메서드가 없다(동기 클라이언트 전용) — 원본 RPC 를 직접 부른다.
     response = await vision_client.batch_annotate_images(
@@ -51,6 +58,7 @@ async def check_photo(
                 "features": [
                     {"type_": vision.Feature.Type.SAFE_SEARCH_DETECTION},
                     {"type_": vision.Feature.Type.TEXT_DETECTION},
+                    {"type_": vision.Feature.Type.LABEL_DETECTION, "max_results": _LABEL_MAX_RESULTS},
                 ],
             }
         ]
@@ -62,14 +70,17 @@ async def check_photo(
     texts = result.text_annotations
     compact = "".join(texts[0].description.split()).upper() if texts else ""
     keyword_rule = len(compact) >= DOCUMENT_KEYWORD_MIN_CHARS and any(word in compact for word in DOCUMENT_KEYWORDS)
+    label_rule = any(
+        label.description in DOCUMENT_LABELS and label.score >= DOCUMENT_LABEL_MIN_SCORE for label in result.label_annotations
+    )
     annotation = result.safe_search_annotation
     if annotation.adult >= _REJECT_THRESHOLD or annotation.violence >= _REJECT_THRESHOLD:
         verdict = PhotoVerdict.NOT_SAFE
-    elif len(compact) >= DOCUMENT_TEXT_MIN_CHARS or keyword_rule:
+    elif len(compact) >= DOCUMENT_TEXT_MIN_CHARS or keyword_rule or label_rule:
         verdict = PhotoVerdict.DOCUMENT
     else:
         return PhotoVerdict.SAFE
-    # 배포 뒤 임계값을 다듬을 재료. 글자 원문 · 이미지 · 프로필 id 는 남기지 않는다(COMMON §3) — 수와 참거짓만.
-    _logger.warning("사진 거절 verdict=%s chars=%d keyword_rule=%s source=%s",
-                    verdict.value, len(compact), keyword_rule, source)
+    # 배포 뒤 임계값을 다듬을 재료. 글자 원문 · 라벨 이름 · 점수 · 이미지 · 프로필 id 는 남기지 않는다(COMMON §3) — 수와 참거짓만.
+    _logger.warning("사진 거절 verdict=%s chars=%d keyword_rule=%s source=%s label_rule=%s",
+                    verdict.value, len(compact), keyword_rule, source, label_rule)
     return verdict
