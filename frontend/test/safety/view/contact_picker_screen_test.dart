@@ -220,6 +220,19 @@ void main() {
     }
   });
 
+  testWidgets('연락처가 500명이어도 화면 근처 줄만 만든다 · 끝까지 내리면 마지막 사람이 보인다', (tester) async {
+    final built = <String>{};
+    source.contacts = [for (var i = 0; i < 500; i++) _CountingContact(i, built)];
+    await pump(tester);
+
+    // 줄을 만들 때 첫 번호를 읽는다 — 번호를 읽힌 사람 수가 만든 줄 수다.
+    expect(built, isNotEmpty);
+    expect(built.length, lessThan(100));
+    final list = find.descendant(of: find.byType(ListView), matching: find.byType(Scrollable)).first;
+    await tester.scrollUntilVisible(find.text('친구499'), 600, scrollable: list, maxScrolls: 100);
+    expect(find.text('친구499'), findsOneWidget);
+  });
+
   for (final scale in [1.0, 1.3, 1.5, 2.0]) {
     testWidgets('글자 배율 $scale 에서 넘치거나 잘리는 글자가 없다', (tester) async {
       await pump(tester, scale: scale);
@@ -241,5 +254,18 @@ void main() {
       ];
       expect(clipped, isEmpty);
     });
+  }
+}
+
+/// 첫 번호를 읽힐 때마다 id 를 남긴다 — 화면이 줄을 몇 개 만들었는지 센다.
+class _CountingContact extends DeviceContact {
+  _CountingContact(int i, this.reads) : super(id: 'c$i', name: '친구$i', numbers: ['010-1234-${i.toString().padLeft(4, '0')}']);
+
+  final Set<String> reads;
+
+  @override
+  List<String> get numbers {
+    reads.add(id);
+    return super.numbers;
   }
 }

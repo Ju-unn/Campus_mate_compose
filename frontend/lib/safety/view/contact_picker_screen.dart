@@ -47,18 +47,21 @@ class ContactPickerScreen extends ConsumerWidget {
 
   Widget _body(ContactPickerUiState state, ContactPickerViewModel viewModel) {
     if (state.isLoading) return const Center(child: CircularProgressIndicator());
-    return ListView(
+    // 연락처가 수백 명일 수 있다 — 화면 근처 줄만 만든다. visible 은 부를 때마다 새로 거르므로 한 번만 꺼낸다.
+    final visible = state.visible;
+    return ListView.builder(
       // pen `rpkaB` 여백 [0,24].
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      children: [
-        for (final contact in state.visible)
-          ContactRow(
-            name: contact.name,
-            number: _firstNumber(contact),
-            selected: state.selectedIds.contains(contact.id),
-            onTap: () => viewModel.toggle(contact.id),
-          ),
-      ],
+      itemCount: visible.length,
+      itemBuilder: (context, index) {
+        final contact = visible[index];
+        return ContactRow(
+          name: contact.name,
+          number: _firstNumber(contact),
+          selected: state.selectedIds.contains(contact.id),
+          onTap: () => viewModel.toggle(contact.id),
+        );
+      },
     );
   }
 
