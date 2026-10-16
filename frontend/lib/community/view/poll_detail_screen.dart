@@ -43,7 +43,8 @@ class PollDetailScreen extends ConsumerWidget {
       ),
       body: poll == null
           ? Center(child: Text('질문을 찾을 수 없어요', style: AppTypography.body.copyWith(color: AppColors.body)))
-          // pen `ZR52B`: 세로 간격 16, 안쪽 16.
+          // pen `ZR52B`: 안쪽 16.
+          // 댓글은 추후 — 10-16 사용자 결정으로 안내 문구 제거(pen `LyR5Y` 와 그 위 간격 16).
           : ListView(
               padding: const EdgeInsets.all(AppSpacing.md),
               children: [
@@ -53,13 +54,6 @@ class PollDetailScreen extends ConsumerWidget {
                   isVoting: isVoting,
                   onVote: (choice) => _vote(context, ref, choice),
                   onReport: poll.isMine ? null : () => reportPoll(context, poll.id),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                // pen `LyR5Y` 12/500 #929292 → muted(대장 예외, 대비 4.5:1).
-                Text(
-                  '댓글 기능은 아직 준비 중이에요',
-                  textAlign: TextAlign.center,
-                  style: AppTypography.caption.copyWith(fontWeight: FontWeight.w500, color: AppColors.muted),
                 ),
               ],
             ),
