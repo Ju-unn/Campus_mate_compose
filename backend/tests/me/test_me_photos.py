@@ -29,6 +29,7 @@ def _vision(safe: bool, text: str = "") -> AsyncMock:
         error=SimpleNamespace(message=""),
         safe_search_annotation=SimpleNamespace(adult=level, violence=1),
         text_annotations=[SimpleNamespace(description=text)] if text else [],
+        label_annotations=[],
     )])
     return client
 
