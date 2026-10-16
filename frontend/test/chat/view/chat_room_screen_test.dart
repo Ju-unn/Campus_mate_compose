@@ -4,10 +4,13 @@ import 'package:campus_mate/chat/model/chat_repository.dart';
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/chat/model/chat_room.dart';
 import 'package:campus_mate/chat/model/message.dart';
+import 'package:campus_mate/chat/view/chat_input_bar.dart';
+import 'package:campus_mate/chat/view/chat_intro_card.dart';
 import 'package:campus_mate/chat/view/chat_room_screen.dart';
 import 'package:campus_mate/chat/view/date_divider.dart';
 import 'package:campus_mate/chat/view/message_bubble.dart';
 import 'package:campus_mate/chat/view/system_message.dart';
+import 'package:campus_mate/chat/view/trust_banner.dart';
 import 'package:campus_mate/chat/view/trust_reveal_bubble.dart';
 import 'package:campus_mate/chat/viewmodel/chat_room_view_model.dart';
 import 'package:campus_mate/common/failure.dart';
@@ -567,5 +570,236 @@ void main() {
       await tester.pumpAndSettle();
       expect(repository.partnerReadFetchCount, 1);
     });
+  });
+
+  // 매칭 직후 첫 입장 안내 카드(pen 화면 PI7Kg 접힘 · U6x9nV 펼침, 마스터 cinKv · TfPlG). DB · 서버 변경 없이
+  // 앱이 메시지 목록 맨 위에 끼운다. 24시간 전 · 내가 수락 전(preAccept) · 공개 전 · 상대 있음 · 기한 전일 때만 보인다
+  // (대장 결정 10-17, 규칙 자체는 chat_room_ui_state_test). 카드가 보이는 방은 목록을 위로 붙인다(대장 결정 B) —
+  // 목록 안쪽 사방 16 · 카드 아래 간격 14 · 빈 방 문구 16/400 1.6 muted 가운데 폭 = 카드(pen PI7Kg · U6x9nV).
+  group('첫 입장 안내 카드', () {
+    const hint = '먼저 인사를 건네 보세요';
+    final introItem = "지금부터 48시간이 '신뢰 확인' 시간이에요. 서로 카카오톡 아이디와 실제 사진을 공개해도 좋은지 정하는 시간이에요.";
+
+    Future<void> pumpRoom(
+      WidgetTester tester, {
+      List<Message> messages = const [],
+      bool hasMore = false,
+      double scale = 1,
+      double height = 780,
+    }) async {
+      tester.view.physicalSize = Size(360, height);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      tester.platformDispatcher.textScaleFactorTestValue = scale;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      repository.messages = Success(MessagePage(messages: messages, hasMore: hasMore));
+      await pump(tester);
+    }
+
+    List<Message> conversation(int count) => [
+          for (var index = 0; index < count; index++)
+            messageFixture(
+              id: 'm$index',
+              senderId: index.isEven ? partnerId : myId,
+              body: '메시지 $index',
+              createdAt: DateTime(2026, 10, 17, 9).add(Duration(minutes: index)),
+            ),
+        ];
+
+    testWidgets('빈 방 — 카드는 목록 안 배너 아래, 폭 328 · 왼쪽 16, 접힌 채로 시작한다', (tester) async {
+      await pumpRoom(tester);
+
+      expect(find.byType(ChatIntroCard), findsOneWidget);
+      expect(find.ancestor(of: find.byType(ChatIntroCard), matching: find.byType(ListView)), findsOneWidget);
+      final card = tester.getRect(find.byType(ChatIntroCard));
+      expect((card.width, card.left), (328, 16));
+      // 위 정렬(대장 결정 B): 배너 아래 끝 → 카드 위 끝 16(pen PI7Kg 목록 안쪽 16).
+      expect(card.top - tester.getRect(find.byType(TrustBanner)).bottom, 16);
+      expect(tester.widget<ChatIntroCard>(find.byType(ChatIntroCard)).expanded, isFalse);
+      expect(find.text('자세히 보기'), findsOneWidget);
+    });
+
+    testWidgets('빈 방 문구는 카드 아래, 입력창 위에 겹치지 않게 놓인다', (tester) async {
+      await pumpRoom(tester);
+
+      final card = tester.getRect(find.byType(ChatIntroCard));
+      final text = tester.getRect(find.text(hint));
+      // pen PI7Kg: 카드 → 문구 14, 문구 폭 = 카드 폭 · 가운데 정렬 · 16/400 1.6 muted.
+      expect(text.top - card.bottom, 14);
+      expect((text.left, text.width), (card.left, card.width));
+      final textWidget = tester.widget<Text>(find.text(hint));
+      final style = textWidget.style!;
+      expect((style.fontSize, style.fontWeight, style.height, style.color), (16, FontWeight.w400, 1.6, AppColors.muted));
+      expect(textWidget.textAlign, TextAlign.center);
+      expect(text.bottom, lessThanOrEqualTo(tester.getRect(find.byType(ChatInputBar)).top));
+    });
+
+    testWidgets('메시지가 있으면 빈 방 문구가 없고, 카드는 첫 줄(날짜 구분선)보다 위다', (tester) async {
+      await pumpRoom(tester, messages: conversation(2));
+
+      expect(find.text(hint), findsNothing);
+      final card = tester.getRect(find.byType(ChatIntroCard));
+      // 짧은 대화도 위로 붙는다 — 배너 아래 16, 카드 → 첫 줄(날짜 구분선) 14.
+      expect(card.top - tester.getRect(find.byType(TrustBanner)).bottom, 16);
+      expect(tester.getRect(find.byType(DateDivider)).top - card.bottom, 14);
+      expect(card.bottom, lessThanOrEqualTo(tester.getRect(find.text('메시지 0')).top));
+    });
+
+    testWidgets('첫 메시지가 오면 빈 방 문구가 사라지고 카드는 남는다', (tester) async {
+      await pumpRoom(tester);
+
+      stream.push(messageFixture(id: 'first', body: '안녕하세요'));
+      await tester.pumpAndSettle();
+
+      expect(find.text(hint), findsNothing);
+      expect(find.byType(ChatIntroCard), findsOneWidget);
+    });
+
+    testWidgets('통과(공개)한 방에는 카드가 없다', (tester) async {
+      repository.room = Success(roomFixture(passed: true, kakaoId: 'fox_rain'));
+      await pumpRoom(tester, messages: conversation(2));
+
+      expect(find.byType(ChatIntroCard), findsNothing);
+    });
+
+    testWidgets('내가 먼저 수락한 방(14g)에는 카드가 없고, 빈 방 문구는 예전처럼 목록 자리 가운데다', (tester) async {
+      repository.room = Success(roomFixture(myResponse: 'accept'));
+      await pumpRoom(tester);
+
+      expect(find.byType(ChatIntroCard), findsNothing);
+      // 목록 자리 = 14g 배너 아래 끝 ~ 입력창 위 끝.
+      final top = tester.getRect(find.byType(TrustBanner)).bottom;
+      final bottom = tester.getRect(find.byType(ChatInputBar)).top;
+      expect(tester.getCenter(find.text(hint)).dy, moreOrLessEquals((top + bottom) / 2, epsilon: 1));
+    });
+
+    testWidgets('매칭 24시간이 지난 방(14f 시트 · 14h)에는 카드가 없다', (tester) async {
+      repository.room = Success(roomFixture(createdAt: DateTime.now().subtract(const Duration(hours: 25))));
+      await pumpRoom(tester, messages: conversation(2));
+
+      expect(find.byType(ChatIntroCard), findsNothing);
+    });
+
+    testWidgets('상대가 나간 방에는 카드가 없다', (tester) async {
+      repository.room = Success(roomFixture(partnerLeft: true));
+      await pumpRoom(tester);
+
+      expect(find.byType(ChatIntroCard), findsNothing);
+    });
+
+    testWidgets('방에 있는 동안 공개되면(방을 다시 읽음) 카드가 사라진다', (tester) async {
+      await pumpRoom(tester);
+      expect(find.byType(ChatIntroCard), findsOneWidget);
+
+      repository.room = Success(roomFixture(passed: true, kakaoId: 'fox_rain'));
+      stream.pushError();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('다시 시도'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ChatIntroCard), findsNothing);
+    });
+
+    testWidgets('맨 앞 줄을 아직 안 읽었으면(이전 페이지가 남음) 카드를 그리지 않는다 — 첫 메시지보다 위가 아니다', (tester) async {
+      await pumpRoom(tester, messages: conversation(3), hasMore: true);
+
+      expect(find.byType(ChatIntroCard), findsNothing);
+    });
+
+    testWidgets('"자세히 보기" → 5항목 펼침 → 새 메시지가 와도 펼친 채 → "접기" → 접힘', (tester) async {
+      await pumpRoom(tester);
+
+      await tester.tap(find.text('자세히 보기'));
+      await tester.pumpAndSettle();
+      expect(find.text(introItem), findsOneWidget);
+      expect(find.text('5.'), findsOneWidget);
+
+      // 접힘 상태는 화면 상태에 둔다 — 목록이 다시 그려져도(새 줄) 펼친 채다.
+      stream.push(messageFixture(id: 'first', body: '안녕하세요'));
+      await tester.pumpAndSettle();
+      expect(tester.widget<ChatIntroCard>(find.byType(ChatIntroCard)).expanded, isTrue);
+
+      await tester.tap(find.text('접기'));
+      await tester.pumpAndSettle();
+      expect(find.text(introItem), findsNothing);
+      expect(find.text('자세히 보기'), findsOneWidget);
+    });
+
+    testWidgets('짧은 방에서 펼치면 카드 위 끝(제목)이 제자리이고 아래로 늘어난다', (tester) async {
+      // 펼친 카드가 다 들어가는 키 큰 화면. 넘치는 화면은 그대로 스크롤로 본다(대장 결정 — C 는 넣지 않음).
+      await pumpRoom(tester, height: 1100);
+      final card = tester.getRect(find.byType(ChatIntroCard));
+
+      await tester.tap(find.text('자세히 보기'));
+      await tester.pumpAndSettle();
+
+      final expanded = tester.getRect(find.byType(ChatIntroCard));
+      expect(expanded.top, card.top);
+      expect(expanded.bottom, greaterThan(card.bottom));
+      expect(tester.getRect(find.text(hint)).top - expanded.bottom, 14);
+    });
+
+    testWidgets('긴 방에서 펼쳐도 스크롤 위치가 튀지 않는다 — 누른 토글이 손가락 아래에 그대로 있다', (tester) async {
+      await pumpRoom(tester, messages: conversation(40));
+      final list = find.byType(Scrollable).first;
+      await tester.scrollUntilVisible(find.text('자세히 보기'), 300, scrollable: list);
+      await tester.pumpAndSettle();
+      final scrollable = tester.state<ScrollableState>(list);
+      final pixels = scrollable.position.pixels;
+      final before = tester.getRect(find.widgetWithText(TextButton, '자세히 보기'));
+      final oldest = tester.getRect(find.text('메시지 0')).top;
+
+      await tester.tap(find.text('자세히 보기'));
+      await tester.pumpAndSettle();
+
+      expect(scrollable.position.pixels, pixels);
+      expect(tester.getRect(find.widgetWithText(TextButton, '접기')).top, before.top);
+      expect(tester.getRect(find.text('메시지 0')).top, oldest);
+    });
+
+    testWidgets('펼친 카드가 화면을 넘으면 스크롤로 다 볼 수 있다(제목 · 접기)', (tester) async {
+      await pumpRoom(tester);
+      final list = find.byType(Scrollable).first;
+
+      await tester.tap(find.text('자세히 보기'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.text('접기').hitTestable(), findsOneWidget);
+
+      await tester.scrollUntilVisible(find.text('대화를 시작하기 전에 알아 두세요'), 100, scrollable: list);
+      // scrollUntilVisible 은 마지막에 ensureVisible 로 옮기기만 하고 프레임을 그리지 않는다.
+      await tester.pumpAndSettle();
+      expect(find.text('대화를 시작하기 전에 알아 두세요').hitTestable(), findsOneWidget);
+    });
+
+    testWidgets('메시지가 쌓이면 카드는 목록 맨 위에서 메시지와 함께 스크롤된다', (tester) async {
+      await pumpRoom(tester, messages: conversation(40));
+      final list = find.byType(Scrollable).first;
+
+      // 아래(최신)가 먼저 보인다 — 카드는 화면 밖 맨 위다.
+      expect(find.byType(ChatIntroCard).hitTestable(), findsNothing);
+      await tester.scrollUntilVisible(find.byType(ChatIntroCard), 300, scrollable: list);
+      await tester.pumpAndSettle();
+
+      final card = tester.getRect(find.byType(ChatIntroCard));
+      expect(card.bottom, lessThanOrEqualTo(tester.getRect(find.text('메시지 0')).top));
+      final oldest = tester.getRect(find.text('메시지 0')).top;
+      await tester.drag(list, const Offset(0, -100));
+      await tester.pumpAndSettle();
+      expect(tester.getRect(find.byType(ChatIntroCard)).top - card.top, tester.getRect(find.text('메시지 0')).top - oldest);
+      expect(tester.getRect(find.byType(ChatIntroCard)).top, lessThan(card.top));
+    });
+
+    for (final scale in [1.3, 2.0]) {
+      testWidgets('글자 배율 $scale — 빈 방 접힘 · 펼침 모두 넘치지 않는다', (tester) async {
+        await pumpRoom(tester, scale: scale);
+        expect(tester.takeException(), isNull);
+
+        await tester.tap(find.text('자세히 보기'));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        expect(find.text('접기'), findsOneWidget);
+      });
+    }
   });
 }

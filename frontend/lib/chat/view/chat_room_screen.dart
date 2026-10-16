@@ -9,6 +9,7 @@ import 'package:campus_mate/chat/model/message.dart';
 import 'package:campus_mate/chat/view/bubble_report_menu.dart';
 import 'package:campus_mate/chat/view/chat_dialogs.dart';
 import 'package:campus_mate/chat/view/chat_input_bar.dart';
+import 'package:campus_mate/chat/view/chat_intro_card.dart';
 import 'package:campus_mate/chat/view/chat_room_menu_sheet.dart';
 import 'package:campus_mate/chat/view/chat_time.dart';
 import 'package:campus_mate/chat/view/date_divider.dart';
@@ -64,6 +65,10 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
   /// 안 보이는 동안 상대 읽음을 묻지 않고 읽음도 찍지 않는다(카톡식 '1', [ChatRoomViewModel.setVisible]).
   bool _appShown = true;
   bool _routeOnTop = true;
+
+  /// 첫 입장 안내 카드를 펼쳤는가. 목록 칸은 화면 밖으로 나가면 버려지니 화면이 들고 있다 —
+  /// 방을 나갔다 들어오면 다시 접힌 채로 시작한다(영속 저장 안 함, 대장 결정 10-17).
+  bool _introExpanded = false;
 
   @override
   void initState() {
@@ -196,6 +201,12 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
               child: _MessageList(
                 state: state,
                 controller: _scroll,
+                intro: state.showsIntroCardAt(_now())
+                    ? ChatIntroCard(
+                        expanded: _introExpanded,
+                        onToggle: () => setState(() => _introExpanded = !_introExpanded),
+                      )
+                    : null,
                 onBubbleLongPress: _openBubbleMenu,
                 onViewProfile: room == null
                     ? () {}
@@ -444,12 +455,16 @@ class _MessageList extends StatelessWidget {
   const _MessageList({
     required this.state,
     required this.controller,
+    required this.intro,
     required this.onBubbleLongPress,
     required this.onViewProfile,
   });
 
   final ChatRoomUiState state;
   final ScrollController controller;
+
+  /// 첫 입장 안내 카드. 보일 조건이 아니면 null([ChatRoomUiState.showsIntroCardAt]).
+  final Widget? intro;
 
   /// 상대 텍스트 말풍선을 길게 눌렀을 때. 말풍선 자리를 잴 수 있게 그 말풍선의 context 를 넘긴다.
   final void Function(BuildContext bubbleContext, Message message) onBubbleLongPress;
@@ -468,28 +483,41 @@ class _MessageList extends StatelessWidget {
     }
     final items = _items(room);
     if (items.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Text(
-            '먼저 인사를 건네 보세요',
-            style: AppTypography.body.copyWith(color: AppColors.muted),
-          ),
-        ),
-      );
+      return const Center(child: Padding(padding: EdgeInsets.all(AppSpacing.lg), child: _EmptyHint()));
     }
-    return ListView.separated(
-      controller: controller,
-      // 아래가 최신이다. 새 줄이 와도 스크롤을 붙잡고 있을 필요가 없다.
-      reverse: true,
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-      itemCount: items.length,
-      // index 번 줄(아래) 과 그 위 줄 사이. 같은 분 묶음 안은 4(pen `mmtWq` gap 4).
-      separatorBuilder: (context, index) =>
-          SizedBox(height: items[index].joinsAbove ? AppSpacing.xxs : AppSpacing.xs),
-      itemBuilder: (context, index) => items[index].child,
+    final showsIntro = _showsIntro;
+    // 카드가 보이는 방은 짧을 때 목록을 위로 붙인다(대장 결정 B, pen PI7Kg) — 안 보이는 방은 shrinkWrap 이 꺼져
+    // 목록이 자리를 다 차지하므로 예전처럼 아래(최신)부터 쌓인다. 화면을 넘으면 어느 쪽이든 아래부터 보인다.
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ListView.separated(
+        controller: controller,
+        // 아래가 최신이다. 새 줄이 와도 스크롤을 붙잡고 있을 필요가 없다.
+        reverse: true,
+        shrinkWrap: showsIntro,
+        // pen PI7Kg 목록 안쪽 사방 16. 카드가 없는 방은 종전 값 그대로(세로 12).
+        padding: showsIntro
+            ? const EdgeInsets.all(AppSpacing.md)
+            : const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+        itemCount: items.length,
+        // index 번 줄(아래) 과 그 위 줄 사이. 같은 분 묶음 안은 4(pen `mmtWq` gap 4). 맨 위 카드 바로 아래는 pen 14.
+        separatorBuilder: (context, index) => SizedBox(
+          height: showsIntro && index == items.length - 2
+              ? _introGap
+              : (items[index].joinsAbove ? AppSpacing.xxs : AppSpacing.xs),
+        ),
+        itemBuilder: (context, index) => items[index].child,
+      ),
     );
   }
+
+  /// pen PI7Kg 목록 항목 사이 14(카드 ↔ 빈 방 문구 · 첫 줄). 간격 토큰(12 · 16) 사이 값이다.
+  /// 메시지 줄 사이는 종전 8 그대로다(pen 14 와의 차이는 DESIGN §8.6 의 후속 항목).
+  static const double _introGap = 14;
+
+  /// 안내 카드를 실제로 끼우는가 — 대화의 맨 처음(첫 메시지보다 위)이라 맨 앞 줄까지 읽었을 때만.
+  /// 이때 카드는 늘 목록의 마지막(맨 위) 칸이다 — 이전 페이지가 없으니 더 읽기 스피너도 없다.
+  bool get _showsIntro => intro != null && !state.hasMore;
 
   /// 오래된 것부터 쌓고 마지막에 뒤집는다 — `reverse: true` 리스트는 0번이 맨 아래다.
   List<_ListItem> _items(ChatRoom room) {
@@ -505,6 +533,13 @@ class _MessageList extends StatelessWidget {
     // 카드가 끼면 묶음이 끊긴다 — 카드 앞 줄도 자기 시각을 보인다.
     bool joinsAbove(int index) =>
         index > 0 && index < messages.length && index != revealIndex && _sameMinuteRun(messages[index - 1], messages[index]);
+    // 안내 카드는 대화의 맨 처음(첫 메시지보다 위)이다. 빈 방 문구는 그 아래(폭 = 카드 폭, 가운데 정렬).
+    if (_showsIntro) {
+      items.add((child: intro!, joinsAbove: false));
+      if (messages.isEmpty) {
+        items.add((child: const _EmptyHint(), joinsAbove: false));
+      }
+    }
     DateTime? lastDay;
     for (var index = 0; index < messages.length; index++) {
       final message = messages[index];
@@ -574,6 +609,21 @@ class _MessageList extends StatelessWidget {
 
 /// 목록 한 칸. [joinsAbove] 면 바로 위 줄과 같은 분 묶음이라 간격이 4로 좁다.
 typedef _ListItem = ({Widget child, bool joinsAbove});
+
+/// 빈 방 문구(pen PI7Kg: 16/400 1.6 muted · 가운데 정렬). 안내 카드가 있으면 목록 안 카드 아래(폭 = 카드 폭),
+/// 없으면 목록 자리 가운데에 안쪽 24 를 두고 놓인다(종전 그대로).
+class _EmptyHint extends StatelessWidget {
+  const _EmptyHint();
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      '먼저 인사를 건네 보세요',
+      textAlign: TextAlign.center,
+      style: AppTypography.body.copyWith(color: AppColors.muted),
+    );
+  }
+}
 
 /// 상대가 나간 방의 입력 바 자리(결정 7 · 10, pen 14g `z5ULI` `EyXt8`): 안내 위, "채팅방 나가기" 아래.
 /// **비활성 입력칸을 남겨 두지 않는다.** 눌러도 아무 일 없는 칸이 제일 나쁘다. 나가기는 ⋯ 메뉴와 같은 길이다.
