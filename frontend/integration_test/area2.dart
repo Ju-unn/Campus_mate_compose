@@ -72,9 +72,9 @@ const _removedRewardNotice = '초기 보상 기준';
 const _taskOrder = 'everytime_post,kakao_share,poll_vote'; // 서버 TASK_ORDER(heart_tasks/router.py:23)
 // 줄마다 보여야 할 글(heart_task_row.dart _title :87-91 · _rewardText :94-96 · "하루 1번" :165 · 버튼 :101).
 const _taskRows = [
-  ['에브리타임 홍보', '50 · 월 1회', '인증하기'],
+  ['에브리타임 홍보', '40 · 월 1회', '인증하기'],
   ['단톡방 공유', '25 · 월 3회', '인증하기'],
-  ['커뮤니티 투표', '하루 1번', '10 · 주 최대 30', '참여'],
+  ['커뮤니티 투표', '하루 1번', '5 · 주 최대 15', '참여'],
 ];
 
 // 18b — frontend/lib/billing/view/heart_task_submit_screen.dart
@@ -82,7 +82,7 @@ const _submitTitle = '인증샷 제출'; // :103
 const _submitGuide = '스크린샷을 첨부하면 확인 후 하트를 드려요'; // :19
 // _criteria :24-29 — 항목마다 한 줄. 에브리타임 줄에 옛 날짜 안내("날짜가 보이게 찍어 주세요")가 합쳐졌다(10-12).
 const _everytimeCriteria = '앱 이름(CampusMate)이 들어간 홍보 글을 올리고, 올린 날짜가 보이게 찍어 주세요';
-const _kakaoCriteria = '5명 이상이 있는 단톡방에 공유한 글과 단톡방 인원 수가 보이게 찍어 주세요';
+const _kakaoCriteria = '3명 이상이 있는 단톡방에 공유한 글과 단톡방 인원 수가 보이게 찍어 주세요';
 const _submit = '제출하기'; // :131
 
 /// 앞 가설의 세션을 지우고([fresh] 가 false 면 그대로 둔다) 일감의 토큰으로 로그인한 뒤 [body] 를 돈다(area1.dart 와 같은 모양).
