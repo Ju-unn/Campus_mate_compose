@@ -358,6 +358,60 @@ void main() {
     expect(result.when(onSuccess: (value) => value, onFailure: (_) => null), isEmpty);
   });
 
+  group('받은 신청 · 프로필 보기(GET /cards/acceptances/{card_id}, pen `o4QqYR`)', () {
+    test('카드 상세와 같은 몸통을 읽는다 — 아바타 주소까지', () async {
+      final client = MockClient((request) async {
+        expect(request.method, 'GET');
+        expect(request.url.toString(), 'https://api.test/cards/acceptances/card-1');
+        expect(request.headers['Authorization'], 'Bearer token-abc');
+        return jsonResponse({
+          'card_id': 'card-1',
+          'profile': {
+            'profile_id': 'p1',
+            'nickname': '여우비',
+            'age': 23,
+            'university': '테스트대학교',
+            'major': '컴퓨터공학과',
+            'avatar_url': 'https://img.test/a.png',
+          },
+          'survey': [0.5, 0, 0, 0, 0, 0, 0, 0, 0],
+          'animal_type': 'cat',
+          'impression_type': 'chic',
+          'religion': 'none',
+          'is_smoker': false,
+          'interests': ['등산'],
+          'my_traits': <String>[],
+          'ideal_traits': <String>[],
+          'height_cm': 170,
+          'mbti': 'ENFP',
+          'student_number': '22',
+          'bio': '주말엔 산책해요',
+          'ideal_note': null,
+        });
+      });
+
+      final result = await buildRepository(client).fetchAcceptanceDetail('card-1');
+
+      final detail = result.when(onSuccess: (value) => value, onFailure: (_) => null)!;
+      expect(detail.cardId, 'card-1');
+      expect(detail.profile.nickname, '여우비');
+      expect(detail.profile.avatarUrl, 'https://img.test/a.png');
+      expect(detail.bio, '주말엔 산책해요');
+    });
+
+    test('옛 서버(경로 없음 404)는 실패로 돌아온다 — 화면이 오류 문구를 그린다', () async {
+      final client = MockClient((request) async => http.Response(
+            jsonEncode({'detail': 'Not Found'}),
+            404,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          ));
+
+      final result = await buildRepository(client).fetchAcceptanceDetail('card-1');
+
+      expect(result.when(onSuccess: (_) => null, onFailure: (f) => f.toDisplayMessage()), isNotNull);
+    });
+  });
+
   test('기한이 지난 수락(410)은 서버 문구를 그대로 보여준다', () async {
     final client = MockClient((request) async => http.Response(
           jsonEncode({'detail': '기한이 지났어요'}),

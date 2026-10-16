@@ -16,7 +16,6 @@ import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
-import 'package:campus_mate/matching/model/card_repository.dart';
 import 'package:campus_mate/matching/view/acceptance_row.dart';
 import 'package:campus_mate/matching/view/sent_request_row.dart';
 import 'package:campus_mate/matching/viewmodel/acceptances_ui_state.dart';
@@ -146,20 +145,10 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
     ));
   }
 
+  // 매칭 성사(12)로 보내는 일은 받은 신청 · 프로필 보기(`acceptance_detail_screen.dart`)가 한다 — 2026-10-16 부터
+  // 결정은 그 화면에서만 보낸다(행에는 "프로필 보기" 하나뿐). 여기 두면 그 화면 위에 12 가 한 장 더 쌓인다.
   @override
   Widget build(BuildContext context) {
-    ref.listen(acceptancesViewModelProvider, (previous, next) {
-      final nickname = next.matchedNickname;
-      if (nickname != null && previous?.matchedNickname != nickname) {
-        ref.read(acceptancesViewModelProvider.notifier).consumeMatched();
-        // 방으로 바로 들어가려면 닉네임만으로는 모자라다 — 매칭 id 를 같이 넘긴다.
-        context.push(
-          AppRoutes.matchMade,
-          extra: (nickname: nickname, matchId: next.matchedMatchId),
-        );
-      }
-    });
-
     return Scaffold(
       // 유리 내비(pen `xtj0K`) 뒤로 본문이 이어진다 — 아래 여백은 본문 MediaQuery padding.bottom(알약 + 띄움 + safe area).
       extendBody: true,
@@ -233,7 +222,7 @@ class _Body extends ConsumerWidget {
       child: CustomScrollView(
         slivers: [
           if (errorMessage != null) SliverToBoxAdapter(child: _ErrorLine(message: errorMessage)),
-          ..._acceptanceSlivers(ref, acceptances),
+          ..._acceptanceSlivers(context, acceptances),
           ..._sentSlivers(
             context,
             sent,
@@ -285,12 +274,11 @@ class _Body extends ConsumerWidget {
   }
 
   /// 수락 대기. 대화 목록이 길어져도 **상단에 sticky 로 고정**한다(§8.6).
-  List<Widget> _acceptanceSlivers(WidgetRef ref, AcceptancesUiState state) {
+  /// 행의 "프로필 보기" 는 받은 신청 · 프로필 보기(pen `o4QqYR`)를 push 로 연다 — 결정은 거기서 한다(사용자 결정 10-16).
+  List<Widget> _acceptanceSlivers(BuildContext context, AcceptancesUiState state) {
     if (state.acceptances.isEmpty) {
       return const [];
     }
-    final viewModel = ref.read(acceptancesViewModelProvider.notifier);
-    final isBusy = state.respondingCardId != null;
     return [
       PinnedHeaderSliver(
         child: _SectionHeader(title: '받은 신청', count: state.acceptances.length),
@@ -304,10 +292,7 @@ class _Body extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
             child: AcceptanceRow(
               acceptance: acceptance,
-              onReject:
-                  isBusy ? null : () => viewModel.respond(acceptance.cardId, CardDecision.reject),
-              onAccept:
-                  isBusy ? null : () => viewModel.respond(acceptance.cardId, CardDecision.accept),
+              onViewProfile: () => context.push('${AppRoutes.acceptanceDetail}/${acceptance.cardId}'),
             ),
           );
         },

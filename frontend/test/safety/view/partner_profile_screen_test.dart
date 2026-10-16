@@ -13,6 +13,7 @@ import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/friend_review/model/friend_review_repository_provider.dart';
 import 'package:campus_mate/friend_review/view/friend_review_card.dart';
 import 'package:campus_mate/matching/view/card_detail_screen.dart';
+import 'package:campus_mate/matching/view/profile_avatar_header.dart';
 import 'package:campus_mate/safety/model/safety_repository_provider.dart';
 import 'package:campus_mate/safety/view/partner_profile_screen.dart';
 import 'package:campus_mate/safety/view/report_sheet.dart';
@@ -243,6 +244,16 @@ void main() {
       expect(find.byType(PhotoSlider), findsNothing);
       expect(find.text('신뢰 확인 완료'), findsOneWidget);
     });
+
+    // 10b · 15-4 수락 전 · 받은 신청 프로필 보기에는 아바타 칸이 있지만 14c(신뢰 뒤)는 넣지 않는다(사용자 결정 10-16).
+    for (final photos in [twoPhotos, const <String>[]]) {
+      testWidgets('14c 에는 아바타 칸이 없다(사진 ${photos.length}장)', (tester) async {
+        safety.partnerProfile = Success(partnerProfileFixture(kakaoId: 'fox_rain', photoUrls: photos));
+        await pump(tester);
+
+        expect(find.byType(ProfileAvatarHeader), findsNothing);
+      });
+    }
 
     // 카드 안쪽 폭은 360 화면에서 286(328 - 테두리 2 - 여백 40)이라 pen 안쪽 288 보다 2 좁다.
     for (final scale in [1.0, 2.0]) {

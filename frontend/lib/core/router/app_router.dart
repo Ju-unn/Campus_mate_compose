@@ -31,6 +31,7 @@ import 'package:campus_mate/friend_review/view/written_reviews_screen.dart';
 import 'package:campus_mate/home/view/event_coming_screen.dart';
 import 'package:campus_mate/home/view/home_screen.dart';
 import 'package:campus_mate/matching/model/acceptance.dart';
+import 'package:campus_mate/matching/view/acceptance_detail_screen.dart';
 import 'package:campus_mate/matching/view/card_detail_screen.dart';
 import 'package:campus_mate/matching/view/conversations_screen.dart';
 import 'package:campus_mate/matching/view/match_made_screen.dart';
@@ -207,6 +208,11 @@ abstract final class AppRouter {
       _TabRoute(
         path: AppRoutes.conversations,
         builder: (context, state) => const BackExitScope(child: ConversationsScreen()),
+      ),
+      // 받은 신청 · 프로필 보기(pen `o4QqYR`) — 대화 탭 받은 신청 행의 "프로필 보기" 가 push 로 연다.
+      _PlatformRoute(
+        path: '${AppRoutes.acceptanceDetail}/:cardId',
+        builder: (context, state) => AcceptanceDetailScreen(cardId: state.pathParameters['cardId']!),
       ),
       _PlatformRoute(
         path: AppRoutes.matchMade,

@@ -19,6 +19,7 @@ import 'package:campus_mate/friend_review/viewmodel/friend_review_list_view_mode
 import 'package:campus_mate/matching/model/card_detail.dart';
 import 'package:campus_mate/matching/model/card_profile.dart';
 import 'package:campus_mate/matching/view/card_detail_screen.dart';
+import 'package:campus_mate/matching/view/profile_avatar_header.dart';
 import 'package:campus_mate/me/model/me_repository_provider.dart';
 import 'package:campus_mate/me/view/card_preview_screen.dart';
 import 'package:campus_mate/me/model/my_profile.dart';
@@ -305,11 +306,13 @@ void main() {
       expect(find.text('대화가 잘 통하는 사람이 좋아요.'), findsOneWidget);
     });
 
-    testWidgets('슬롯 셋 다 비었다 — 이름 줄 오른쪽 "신뢰 확인 완료"(`CTtPd`) 꺼짐', (tester) async {
+    testWidgets('맨 위는 내 아바타 칸(pen `gnEwq` 의 `WjVmJ`, 사용자 결정 10-16), 이름 줄 오른쪽 · 맨 아래 슬롯은 비었다', (tester) async {
       await pump(tester);
 
       final card = tester.widget<ProfileCard>(find.byType(ProfileCard));
-      expect((card.header, card.nameTrailing, card.footer), (null, null, null));
+      expect(card.header, isA<ProfileAvatarHeader>());
+      expect((card.header! as ProfileAvatarHeader).url, 'https://img.test/avatar.png');
+      expect((card.nameTrailing, card.footer), (null, null));
       expect(find.text('신뢰 확인 완료'), findsNothing);
     });
 
@@ -331,6 +334,8 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(find.text('하늘, 24'), findsOneWidget);
+      // 아바타 칸은 남고 회색 면 + 사람 아이콘이 대신한다.
+      expect((tester.widget<ProfileCard>(find.byType(ProfileCard)).header! as ProfileAvatarHeader).url, isNull);
     });
   });
 
@@ -515,6 +520,8 @@ void main() {
       expect(slider.photos.length, 2);
       expect(slider.photoSize, const Size(288, 260));
       expect(slider.bordered, isTrue);
+      // 수락 후(`vn8R2`)는 실사진이 그 자리다 — 아바타 칸은 수락 전에만 있다.
+      expect(find.byType(ProfileAvatarHeader), findsNothing);
     });
 
     testWidgets('카카오톡 아이디 카드 — 내 계정의 아이디, 복사 버튼', (tester) async {

@@ -49,6 +49,10 @@ class HttpCardRepository implements CardRepository {
       );
 
   @override
+  Future<Result<CardDetail>> fetchAcceptanceDetail(String cardId) => _api.send(
+      'GET', '/cards/acceptances/$cardId', (body) => CardDetail.fromJson(body as Map<String, dynamic>));
+
+  @override
   Future<Result<AcceptanceOutcome>> respondToAcceptance(String cardId, CardDecision decision) =>
       _api.send(
         'POST',
