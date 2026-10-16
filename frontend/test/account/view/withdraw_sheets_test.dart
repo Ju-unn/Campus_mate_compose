@@ -25,9 +25,13 @@ void main() {
   late FakeAccountRepository account;
   late ProviderContainer container;
 
-  /// 설정 화면 대신 버튼 하나로 16c 를 연다. pen 프레임과 같은 360×780.
-  Future<void> openSheets(WidgetTester tester, {Future<void> Function(BuildContext) open = showWithdrawSheets}) async {
-    tester.view.physicalSize = const Size(360, 780);
+  /// 설정 화면 대신 버튼 하나로 16c 를 연다. 기본은 pen 프레임과 같은 360×780.
+  Future<void> openSheets(
+    WidgetTester tester, {
+    Future<void> Function(BuildContext) open = showWithdrawSheets,
+    Size size = const Size(360, 780),
+  }) async {
+    tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     cards = FakeCardRepository();
@@ -111,6 +115,7 @@ void main() {
         '프로필과 인증 정보',
         '신청·매칭 기록',
         '모든 대화 내용',
+        '남은 하트도 사라져요',
         '삭제한 내용은 되돌릴 수 없고, 재가입은 2개월 뒤에 가능해요.',
         '영구 삭제',
         '취소',
@@ -123,6 +128,52 @@ void main() {
         expect(found, findsOneWidget, reason: '$icon');
         expect(tester.getSize(found), const Size(20, 20));
       }
+    });
+
+    // 사용자 결정 10-15 "탈퇴 시 하트 소멸 유지" — 남은 하트가 사라진다는 걸 삭제 목록 끝 줄로 알린다(환불 약속은 넣지 않는다).
+    Finder deletedItemsBox() => find.ancestor(
+          of: inFirst(find.text('프로필과 인증 정보')),
+          matching: find.byWidgetPredicate(
+            (widget) => widget is Container && (widget.decoration as BoxDecoration?)?.color == AppColors.surfaceSoft,
+          ),
+        );
+
+    testWidgets('삭제 항목은 4줄 — 순서와 문구가 정확하고 줄 높이는 모두 44다', (tester) async {
+      await openSheets(tester);
+
+      final labels = [
+        for (final text in tester.widgetList<Text>(find.descendant(of: deletedItemsBox(), matching: find.byType(Text))))
+          text.data,
+      ];
+      expect(labels, ['프로필과 인증 정보', '신청·매칭 기록', '모든 대화 내용', '남은 하트도 사라져요']);
+      final tops = [for (final label in labels) tester.getRect(inFirst(find.text(label!))).top];
+      for (var i = 1; i < tops.length; i++) {
+        expect(tops[i] - tops[i - 1], 44, reason: '${labels[i - 1]} → ${labels[i]}');
+      }
+      expect(tester.getSize(deletedItemsBox()).height, 4 * 44 + 8); // 줄 4 × 44 + 위아래 4(pen J8iid padding [4,14])
+    });
+
+    testWidgets('남은 하트 줄 아이콘은 재화 하트 글리프 20×20(DESIGN §8.10)이고 같은 줄에 놓인다', (tester) async {
+      await openSheets(tester);
+
+      final glyph = inFirst(find.byWidgetPredicate(
+        (w) => w is Image && w.image is AssetImage && (w.image as AssetImage).assetName == 'assets/images/heart-flat-vector-v3.png',
+      ));
+      expect(glyph, findsOneWidget);
+      expect(tester.getSize(glyph), const Size(20, 20));
+      final label = inFirst(find.text('남은 하트도 사라져요'));
+      expect(tester.getCenter(glyph).dy, closeTo(tester.getCenter(label).dy, 0.5));
+      expect(tester.getRect(label).left - tester.getRect(glyph).right, 10); // 다른 줄과 같은 아이콘 ↔ 글 간격
+    });
+
+    testWidgets('남은 하트 줄은 낭독기에 문구 그대로 한 번만 읽힌다', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await openSheets(tester);
+
+      expect(find.bySemanticsLabel('남은 하트도 사라져요'), findsOneWidget);
+      // 글리프는 장식이다 — 문구에 이미 "하트"가 있어 "하트, 남은 하트도…"로 겹쳐 읽히지 않게 한다.
+      expect(find.bySemanticsLabel('하트'), findsNothing);
+      semantics.dispose(); // 테스트 끝 검사보다 먼저 닫아야 한다(addTearDown 은 그 뒤에 돈다)
     });
 
     testWidgets('요소 사이 간격 14(pen t4KbA gap)', (tester) async {
@@ -204,7 +255,7 @@ void main() {
 
       for (final text in [
         '정말 삭제할까요?',
-        '프로필, 매칭 기록, 대화를 모두 영구적으로 삭제합니다. 이 작업은 취소할 수 없어요.',
+        '프로필, 매칭 기록, 대화, 남은 하트를 모두 영구적으로 삭제합니다. 이 작업은 취소할 수 없어요.',
         '재가입은 탈퇴 후 2개월이 지나야 가능해요.',
         '정말 영구 삭제',
         '취소',
@@ -279,7 +330,7 @@ void main() {
 
       for (final text in [
         '정지 중에 탈퇴할까요?',
-        '프로필, 매칭 기록, 대화를 모두 영구적으로 삭제합니다. 이 작업은 취소할 수 없어요.',
+        '프로필, 매칭 기록, 대화, 남은 하트를 모두 영구적으로 삭제합니다. 이 작업은 취소할 수 없어요.',
         '정지 중에 탈퇴하면 다시 가입할 수 없어요',
         '정말 영구 삭제',
         '취소',
@@ -360,6 +411,32 @@ void main() {
 
         expect(tester.takeException(), isNull);
         expect(clippedTexts(), isEmpty);
+      });
+    }
+
+    // 4번째 줄(남은 하트)로 시트가 44 길어졌다 — 높이 600 화면에서도 넘치지 않고 스크롤로 끝까지 닿는지 본다.
+    for (final scale in [1.0, 2.0]) {
+      testWidgets('높이 600 화면 · 배율 $scale 에서 1차 시트가 넘치지 않고 남은 하트 줄과 버튼까지 스크롤된다', (tester) async {
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await openSheets(tester, size: const Size(360, 600));
+
+        expect(tester.takeException(), isNull);
+        expect(clippedTexts(), isEmpty);
+        final hearts = find.descendant(of: find.byType(WithdrawFirstSheet), matching: find.text('남은 하트도 사라져요'));
+        await tester.ensureVisible(hearts);
+        await tester.pumpAndSettle();
+        expect(tester.getRect(hearts).bottom, lessThanOrEqualTo(600));
+
+        final delete = find.descendant(of: find.byType(WithdrawFirstSheet), matching: find.text('영구 삭제'));
+        await tester.ensureVisible(delete);
+        await tester.pumpAndSettle();
+        expect(tester.getRect(delete).bottom, lessThanOrEqualTo(600));
+        await tester.tap(delete);
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        expect(find.byType(WithdrawFinalSheet), findsOneWidget);
       });
     }
   });

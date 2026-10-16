@@ -86,7 +86,7 @@ class WithdrawFinalSheet extends ConsumerWidget {
       children: [
         Text(_title, style: AppTypography.headline.copyWith(color: AppColors.ink, height: 1.5)),
         Text(
-          '프로필, 매칭 기록, 대화를 모두 영구적으로 삭제합니다. 이 작업은 취소할 수 없어요.',
+          '프로필, 매칭 기록, 대화, 남은 하트를 모두 영구적으로 삭제합니다. 이 작업은 취소할 수 없어요.',
           style: AppTypography.body.copyWith(color: AppColors.body, height: 1.5),
         ),
         _RejoinWarning(_warning),
@@ -220,15 +220,27 @@ class _PauseOffer extends StatelessWidget {
   }
 }
 
-/// 삭제되는 항목(pen `J8iid`). padding [4,14], 모서리 14, surface-soft, 줄 높이 44((140 − 8) ÷ 3).
+/// 삭제되는 항목(pen `J8iid`). padding [4,14], 모서리 14, surface-soft, 줄 높이 44((184 − 8) ÷ 4).
+/// 4번째 줄 "남은 하트"는 사용자 결정 10-15(탈퇴 시 하트 소멸 유지)로 더했다 — 줄 모양은 위 세 줄을 그대로 따른다.
 class _DeletedItems extends StatelessWidget {
   const _DeletedItems();
 
   /// pen 줄의 3D 아이콘 인스턴스 `PkqpC`(프로필) · `zxXQG`(하트) · `Lua1H`(대화).
-  static const _items = <(AppIcon3d, String)>[
-    (AppIcon3d.userRound, '프로필과 인증 정보'),
-    (AppIcon3d.heart, '신청·매칭 기록'),
-    (AppIcon3d.chat, '모든 대화 내용'),
+  /// 남은 하트는 재화라 재화 글리프(DESIGN §8.10)를 쓴다 — 문구에 "하트"가 있어 글리프는 낭독하지 않는다.
+  static const _items = <(Widget, String)>[
+    (Icon3d(AppIcon3d.userRound, size: _iconSize), '프로필과 인증 정보'),
+    (Icon3d(AppIcon3d.heart, size: _iconSize), '신청·매칭 기록'),
+    (Icon3d(AppIcon3d.chat, size: _iconSize), '모든 대화 내용'),
+    (
+      Image(
+        image: AssetImage('assets/images/heart-flat-vector-v3.png'),
+        width: _iconSize,
+        height: _iconSize,
+        fit: BoxFit.contain,
+        excludeFromSemantics: true,
+      ),
+      '남은 하트도 사라져요',
+    ),
   ];
 
   /// pen 아이콘 인스턴스 `UJN6X` · `u0hZwa` · `uZeTa` 20×20 · 아이콘과 글 사이 10.
@@ -249,7 +261,7 @@ class _DeletedItems extends StatelessWidget {
               constraints: const BoxConstraints(minHeight: 44),
               child: Row(
                 children: [
-                  Icon3d(icon, size: _iconSize),
+                  icon,
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(label, style: AppTypography.bodySmall.copyWith(color: AppColors.body, height: 1.5)),
