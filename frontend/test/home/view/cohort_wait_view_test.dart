@@ -195,7 +195,7 @@ void main() {
     await pump(tester);
 
     expect(find.byType(CohortWaitView), findsOneWidget);
-    expect(find.text('우리 학교 첫 카드까지 · D-14'), findsOneWidget);
+    expect(find.text('첫 카드까지 · D-14'), findsOneWidget);
     expect(find.text('9월 21일'), findsOneWidget);
     expect(find.text('같은 날, 같은 설렘으로 시작해요'), findsOneWidget);
     expect(find.text('현재 모집 인원'), findsOneWidget);
@@ -264,12 +264,12 @@ void main() {
   testWidgets('자정을 넘기면 껐다 켜지 않아도 D-숫자가 바뀐다', (tester) async {
     now = DateTime(2099, 9, 12, 23, 59, 50);
     await pump(tester);
-    expect(find.text('우리 학교 첫 카드까지 · D-9'), findsOneWidget);
+    expect(find.text('첫 카드까지 · D-9'), findsOneWidget);
 
     now = DateTime(2099, 9, 13);
     await tester.pump(const Duration(seconds: 10));
 
-    expect(find.text('우리 학교 첫 카드까지 · D-8'), findsOneWidget);
+    expect(find.text('첫 카드까지 · D-8'), findsOneWidget);
     expect(repository.calls, 1, reason: '자정에는 요약을 다시 읽지 않는다');
   });
 
@@ -293,12 +293,12 @@ void main() {
     testWidgets('자정을 넘겨 돌아오면 D-숫자가 바뀌고 요약은 다시 읽지 않는다', (tester) async {
       now = DateTime(2099, 9, 20, 23);
       await pump(tester);
-      expect(find.text('우리 학교 첫 카드까지 · D-1'), findsOneWidget);
+      expect(find.text('첫 카드까지 · D-1'), findsOneWidget);
 
       now = DateTime(2099, 9, 21, 6, 30);
       await sleepAndResume(tester);
 
-      expect(find.text('우리 학교 첫 카드까지 · D-day'), findsOneWidget);
+      expect(find.text('첫 카드까지 · D-day'), findsOneWidget);
       expect(find.text('오늘 오전 7시'), findsOneWidget);
       expect(repository.calls, 1);
     });

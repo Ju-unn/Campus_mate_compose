@@ -19,7 +19,7 @@ import 'support.dart';
 /// lib/ 는 바꾸지 않는다 — E-HOME-26 은 앱 시계 자리(homeNowProvider)를 바꿔 끼운 앱을 다시 띄운다.
 /// 이 파일은 `flutter analyze` 만 돌렸고 기기에서는 아직 안 돌려 봤다.
 
-const _cohortLine = '우리 학교 첫 카드까지'; // cohort_wait_view.dart _Hero — "우리 학교 첫 카드까지 · D-5"
+const _cohortLine = '첫 카드까지'; // cohort_wait_view.dart _Hero — "첫 카드까지 · D-5"
 const _heroLines = ['오늘의 카드가', '도착했어요']; // home_screen.dart _HeroToday
 const _noCandidates = '지금은 소개할 사람이 없어요'; // today_cards_screen.dart _NoCandidatesPanel
 const _todayTitle = '오늘의 카드';
