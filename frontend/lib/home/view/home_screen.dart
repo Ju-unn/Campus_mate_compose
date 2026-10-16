@@ -522,7 +522,7 @@ final TextStyle _sectionTitleStyle = AppTypography.subNavTitle.copyWith(height: 
 
 /// mosaic-rail 머리줄(pen `Ab3td` 328 폭, 제목 `h7wmcH`). 오른쪽 "일시정지"(`gK0eT`)는 사용자 결정(2026-09-26)으로
 /// pen 에서도 지웠다 — 레일은 저절로 흐르고 누르고 있으면 멈춘다([MosaicRail]).
-/// 레일이 기본 예시 상태(서버 빈 목록 · 받는 중 · 못 받음)면 제목을 바꾼다 — 흐린 예시 사진을 지금 있는 가입자로 오해하지 않게
+/// 레일이 기본 예시 상태(서버 빈 목록 · 받는 중 · 못 받음)면 제목을 바꾼다 — 예시 그림을 지금 있는 가입자로 오해하지 않게
 /// (사용자 "알아서 진행" — 추천안 채택, 10-16). 실제 사람 칸이 나오면 원래 제목이다.
 class _RailHeader extends StatelessWidget {
   const _RailHeader({required this.examples});

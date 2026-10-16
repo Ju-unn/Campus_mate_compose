@@ -83,6 +83,9 @@ void main() {
       expect(find.descendant(of: tile, matching: find.byType(MosaicDefaultTile)), findsOneWidget);
       expect(tester.getSize(tile), const Size(112, 140));
       expect(tester.takeException(), isNull);
+      // 실제 가입자 자리라 대신 넣은 예시 그림도 흐린 채 둔다 — 흐린 사람 칸 사이에 선명한 얼굴이 끼지 않게(인원 부족 예시만 선명).
+      final blur = tester.widget<ImageFiltered>(find.descendant(of: tile, matching: find.byType(ImageFiltered)));
+      expect(blur.imageFilter, ImageFilter.blur(sigmaX: 10, sigmaY: 10, tileMode: TileMode.clamp));
     });
     testWidgets('화면 읽기는 그림 칸을 읽지 않고 끝 빈 칸 문구만 한 번 읽는다', (tester) async {
       final semantics = tester.ensureSemantics();
@@ -96,10 +99,11 @@ void main() {
   });
 
   group('인원 부족 `HhKIR`(Home Mosaic Rail · 인원 부족) — 서버가 빈 목록 · 못 받음 · 받는 중', () {
-    const park = 'assets/images/example-photo-park-v1.webp';
-    const cafe = 'assets/images/example-photo-cafe-v1.webp';
+    // 아바타 변환 예시(사용자 10-16 "Node ID: jReRU 실사진이 아니라 아바타 변환이야") — 첫 칸 단발머리 여학생, 둘째 칸 안경 쓴 남학생.
+    const girl = 'assets/images/example-illust-b-v1.webp';
+    const boy = 'assets/images/example-illust-a-v1.webp';
 
-    testWidgets('레일을 숨기지 않고 흐린 예시 사진 칸 2(공원 · 카페) + 토끼 마스코트 칸을 한 벌로 되풀이한다 · 사람 칸 · 빈 칸 없음', (tester) async {
+    testWidgets('레일을 숨기지 않고 아바타 예시 칸 2(단발 여학생 · 안경 남학생) + 토끼 마스코트 칸을 한 벌로 되풀이한다 · 사람 칸 · 빈 칸 없음', (tester) async {
       await pumpRail(tester, HomePeople.none);
 
       expect(find.byType(MosaicRail), findsOneWidget);
@@ -108,7 +112,7 @@ void main() {
       final copies = find.byType(MosaicMascotTile).evaluate().length;
       expect(copies, greaterThanOrEqualTo(2));
       expect(find.byType(MosaicDefaultTile).evaluate().length, 2 * copies);
-      // 한 벌 순서: 공원 → 카페 → 마스코트(왼쪽부터 되풀이).
+      // 한 벌 순서: 여학생 → 남학생 → 마스코트(왼쪽부터 되풀이).
       final tiles = [
         for (final type in [MosaicDefaultTile, MosaicMascotTile])
           for (var i = 0; i < find.byType(type).evaluate().length; i++)
@@ -119,15 +123,15 @@ void main() {
       ]..sort((a, b) => a.$1.compareTo(b.$1));
       final order = [for (final (_, kind) in tiles) kind];
       for (var i = 1; i < order.length; i++) {
-        expect(order[i], switch (order[i - 1]) { park => cafe, cafe => 'mascot', _ => park }, reason: '$i');
+        expect(order[i], switch (order[i - 1]) { girl => boy, boy => 'mascot', _ => girl }, reason: '$i');
       }
       expect(tester.getSize(find.byType(MosaicRail)).height, 140);
     });
 
-    testWidgets('예시 사진 칸 — 112×140 · 모서리 14 로 자른 AI 가상 인물 사진 136×170 을 blur 10 으로 흐림(번짐은 칸 밖이라 잘림) · 글자 없음', (tester) async {
+    testWidgets('아바타 예시 칸 — 112×140 · 모서리 14 로 자른 아바타 일러스트 136×170, 흐리지 않는다(사용자 10-16) · 글자 없음', (tester) async {
       await pumpRail(tester, HomePeople.none);
 
-      for (final asset in [park, cafe]) {
+      for (final asset in [girl, boy]) {
         final tile = find.byWidgetPredicate((w) => w is MosaicDefaultTile && w.asset == asset).first;
         expect(tester.getSize(tile), const Size(112, 140), reason: asset);
         final clip = tester.widget<ClipRRect>(find.descendant(of: tile, matching: find.byType(ClipRRect)).first);
@@ -137,8 +141,8 @@ void main() {
         expect(tester.widget<Image>(image).fit, BoxFit.cover);
         expect(tester.getSize(image), const Size(136, 170), reason: asset);
         expect(tester.getCenter(image), tester.getCenter(tile), reason: asset);
-        final blur = tester.widget<ImageFiltered>(find.descendant(of: tile, matching: find.byType(ImageFiltered)));
-        expect(blur.imageFilter, ImageFilter.blur(sigmaX: 10, sigmaY: 10, tileMode: TileMode.clamp), reason: asset);
+        expect(find.descendant(of: tile, matching: find.byType(ImageFiltered)), findsNothing, reason: asset);
+        expect(find.descendant(of: tile, matching: find.byType(BackdropFilter)), findsNothing, reason: asset);
         expect(find.descendant(of: tile, matching: find.byType(Text)), findsNothing);
       }
     });
