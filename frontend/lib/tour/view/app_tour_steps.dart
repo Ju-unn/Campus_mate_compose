@@ -22,7 +22,7 @@ enum TourTargetId {
   /// 하트 스토어 맨 위 그림 — 늘 그려져 있어 목록을 스크롤할 손잡이로 쓴다
   heartStoreTop,
 
-  /// 하트 스토어 "무료로 모으기" 제목 + 안내 + 작업 줄 3개(pen 구멍이 셋 다 감싼다)
+  /// 하트 스토어 "무료로 모으기" 제목 + 작업 줄 3개(pen 구멍이 둘 다 감싼다 — 제목 아래 안내는 10-16 에 지웠다)
   heartStoreFree,
 }
 
@@ -83,7 +83,7 @@ const List<TourStep> appTourSteps = [
     holeRadius: 34,
     holePadding: EdgeInsets.all(2),
     title: '여기가 캠퍼스메이트의 시작이에요',
-    body: '오늘의 카드와 학교 소식을 홈에서 한눈에 봐요.',
+    body: '오늘의 카드와 소중한 인연을 만나봐요.',
   ),
   TourStep(
     location: AppRoutes.home,

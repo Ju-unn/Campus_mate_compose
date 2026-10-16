@@ -30,7 +30,14 @@ class PollFeedTabs extends StatelessWidget {
   static const double _minGap = AppSpacing.xs;
 
   /// 앱바 `bottom` 높이 — 위 4 + 탭(고리 + 6 + 글자 한 줄) + 아래 12. 1배면 102(pen `VEZ2l`).
-  static double heightFor(TextScaler textScaler) => _padding.vertical + _Tab.heightFor(textScaler);
+  static double heightFor(TextScaler textScaler) => _padding.vertical + PollRingTab.heightFor(textScaler);
+
+  static (String, AppIcon3d) _look(PollFeedTab tab) => switch (tab) {
+        PollFeedTab.all => ('전체', AppIcon3d.vote), // 3D 투표 `x5QLa`
+        PollFeedTab.popular => ('인기', AppIcon3d.sparkles), // 3D 반짝임 `ulHL7`
+        PollFeedTab.mine => ('내 질문', AppIcon3d.userRound), // 3D 프로필 `PkqpC`
+        PollFeedTab.voted => ('내 투표', AppIcon3d.badgeCheck), // 3D 인증 `Trtii`
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -49,10 +56,11 @@ class PollFeedTabs extends StatelessWidget {
               spacing: _minGap,
               children: [
                 for (final tab in PollFeedTab.values)
-                  _Tab(
+                  PollRingTab(
                     tapKey: tabKey(tab),
                     ringKey: ringKey(tab),
-                    tab: tab,
+                    label: _look(tab).$1,
+                    icon: _look(tab).$2,
                     selected: tab == selected,
                     onTap: () => onSelected(tab),
                   ),
@@ -65,21 +73,25 @@ class PollFeedTabs extends StatelessWidget {
   }
 }
 
-/// 탭 하나(pen `XfcKQ`): 72×86 · 세로 가운데 · 간격 6. 고리 64(테두리 2 · 안쪽 5 · 흰 바탕) 안에 원판 54(`primary-wash`)
+/// 링 탭 하나(pen StoryTab `XfcKQ`): 72×86 · 세로 가운데 · 간격 6. 고리 64(테두리 2 · 안쪽 5 · 흰 바탕) 안에 원판 54(`primary-wash`)
 /// 안에 3D 그림 28 가운데, 아래 글자 12. 선택 = 고리 `primary-rausch` + 글자 `primary-text` 700,
-/// 나머지 = 고리 `hairline` + 글자 `body` 600.
-class _Tab extends StatelessWidget {
-  const _Tab({
-    required this.tapKey,
-    required this.ringKey,
-    required this.tab,
+/// 나머지 = 고리 `hairline` + 글자 `body` 600. 15d 탭 줄과 17b 투표 방식 탭(pen `CgYsy`)이 같이 쓴다.
+class PollRingTab extends StatelessWidget {
+  const PollRingTab({
+    required this.label,
+    required this.icon,
     required this.selected,
     required this.onTap,
+    this.tapKey,
+    this.ringKey,
+    super.key,
   });
 
-  final Key tapKey;
-  final Key ringKey;
-  final PollFeedTab tab;
+  /// 누름 영역(72×86 전체) · 고리(64) — 시험이 자리 · 선택 테두리를 본다.
+  final Key? tapKey;
+  final Key? ringKey;
+  final String label;
+  final AppIcon3d icon;
   final bool selected;
   final VoidCallback onTap;
 
@@ -96,19 +108,12 @@ class _Tab extends StatelessWidget {
   /// 글자 줄 높이 16 — pen 탭 86 − 고리 64 − 간격 6 에서 나온 값(pen 은 글자 12 만 적었다).
   static const double _lineHeight = 16;
 
+  /// 탭 높이 — 고리 + 6 + 글자 한 줄. 1배면 86.
   static double heightFor(TextScaler textScaler) =>
       _ring + _gap + textScaler.scale(_fontSize) * (_lineHeight / _fontSize);
 
-  (String, AppIcon3d) get _look => switch (tab) {
-        PollFeedTab.all => ('전체', AppIcon3d.vote), // 3D 투표 `x5QLa`
-        PollFeedTab.popular => ('인기', AppIcon3d.sparkles), // 3D 반짝임 `ulHL7`
-        PollFeedTab.mine => ('내 질문', AppIcon3d.userRound), // 3D 프로필 `PkqpC`
-        PollFeedTab.voted => ('내 투표', AppIcon3d.badgeCheck), // 3D 인증 `Trtii`
-      };
-
   @override
   Widget build(BuildContext context) {
-    final (label, icon) = _look;
     final style = AppTypography.caption.copyWith(
       fontSize: _fontSize,
       height: _lineHeight / _fontSize,

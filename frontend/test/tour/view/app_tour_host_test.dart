@@ -226,7 +226,7 @@ void main() {
     expect(overlay(tester).radius, 34);
     expect(inBubble('1 / 6'), findsOneWidget);
     expect(inBubble('여기가 캠퍼스메이트의 시작이에요'), findsOneWidget);
-    expect(inBubble('오늘의 카드와 학교 소식을 홈에서 한눈에 봐요.'), findsOneWidget);
+    expect(inBubble('오늘의 카드와 소중한 인연을 만나봐요.'), findsOneWidget);
     final bubble = tester.getRect(find.byType(CoachBubble));
     expect(bubble.width, 312);
     expect(bubble.left, (360 - 312) / 2);

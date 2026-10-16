@@ -108,7 +108,8 @@ abstract final class AppRouter {
       _PlatformRoute(path: AppRoutes.splash, builder: (context, state) => const StartView()),
       _PlatformRoute(path: AppRoutes.offline, builder: (context, state) => const OfflineScreen()),
       _ExitGuardedRoute(path: AppRoutes.login, builder: (context, state) => const SignUpScreen()),
-      _ExitGuardedRoute(path: AppRoutes.verifyCode, redirect: _verifyCodeGuard, builder: _buildVerifyCode),
+      // 03 은 화면 안에 돌아갈 곳(02)이 있어 화면이 스스로 [BackExitScope] 를 두른다(여기서 또 두르면 두 겹이 된다).
+      _PlatformRoute(path: AppRoutes.verifyCode, redirect: _verifyCodeGuard, builder: _buildVerifyCode),
       // 약관은 관문이라 뒤로가기를 막아 둔 채 둔다(화면의 PopScope, 나갈 길은 로그아웃뿐 — 대장 결정 pen ②).
       _PlatformRoute(path: AppRoutes.consent, builder: (context, state) => const ConsentScreen()),
       _ExitGuardedRoute(path: AppRoutes.studentVerification, builder: (context, state) => const StudentVerificationScreen()),
@@ -314,7 +315,7 @@ class _PlatformRoute extends GoRoute {
 /// 온보딩 · 관문 화면 — go 로만 들어와 맨 아래 한 장이라 안드로이드 시스템 뒤로가기가 곧바로 앱을 닫는다.
 /// 탭과 같이 [BackExitScope] 로 한 번 더 확인한다(2026-10-15 사용자 지적). 전환은 [_PlatformRoute] 그대로다.
 class _ExitGuardedRoute extends _PlatformRoute {
-  _ExitGuardedRoute({required super.path, required GoRouterWidgetBuilder builder, super.redirect})
+  _ExitGuardedRoute({required super.path, required GoRouterWidgetBuilder builder})
       : super(builder: (context, state) => BackExitScope(child: builder(context, state)));
 }
 

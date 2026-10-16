@@ -63,10 +63,7 @@ class HeartTasksScreen extends ConsumerWidget {
     return ListView(
       padding: _listPadding,
       children: [
-        // pen `EJDsZ`.
-        Text(heartRewardNotice, style: AppTypography.caption.copyWith(color: AppColors.muted)),
-        // pen 섹션 간격 8 + 빈칸 `vlmhj` 8 + 간격 8.
-        const SizedBox(height: AppSpacing.lg),
+        // 맨 위 보상 기준 안내(`EJDsZ`)와 그 아래 간격 24 는 지웠다 — 내부용 글이다(사용자 10-16 "우리만 아는거야").
         for (final (index, task) in state.tasks.indexed) ...[
           if (index > 0) const SizedBox(height: AppSpacing.xs),
           HeartTaskRow(task: task, onTap: heartTaskOnTap(context, task)),

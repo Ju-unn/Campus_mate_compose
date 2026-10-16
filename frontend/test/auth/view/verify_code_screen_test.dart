@@ -1,15 +1,21 @@
+import 'dart:async';
+
 import 'package:campus_mate/auth/model/school_email_repository_provider.dart';
 import 'package:campus_mate/auth/model/verification_gate_repository_provider.dart';
 import 'package:campus_mate/auth/model/university_email.dart';
+import 'package:campus_mate/auth/model/verification_code.dart';
 import 'package:campus_mate/auth/view/verify_code_screen.dart';
 import 'package:campus_mate/auth/viewmodel/verify_code_view_model.dart';
+import 'package:campus_mate/core/back_exit/back_exit_view_model.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/profile/view/hint_line.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -148,10 +154,92 @@ void main() {
     expect(errorBoxes.length, 6);
   });
 
-  testWidgets('앱바가 없다', (tester) async {
-    await pumpScreen(tester);
+  // 사용자 10-16 "최초 가입시 온보딩화면에 뒤로가기 버튼이 없는게 있는거 같아" — pen VuiDi · Vn6w4 앱바(AppBar · Sub `KH1hX`, 제목 없음).
+  group('03 뒤로가기 → 02', () {
+    Finder back() => find.widgetWithIcon(IconButton, AppIcons.arrowLeft);
 
-    expect(find.byType(AppBar), findsNothing);
+    Future<FakeSchoolEmailRepository> pumpRouted(WidgetTester tester, {FakeSchoolEmailRepository? repository}) async {
+      final fake = repository ?? FakeSchoolEmailRepository();
+      final container = ProviderContainer(
+        overrides: [
+          schoolEmailRepositoryProvider.overrideWithValue(fake),
+          verificationGateRepositoryProvider.overrideWithValue(FakeVerificationGateRepository()),
+        ],
+      );
+      addTearDown(container.dispose);
+      final router = GoRouter(
+        initialLocation: AppRoutes.verifyCode,
+        routes: [
+          GoRoute(path: AppRoutes.login, builder: (context, state) => const Scaffold(body: Text('02 학교 메일 입력'))),
+          GoRoute(path: AppRoutes.verifyCode, builder: (context, state) => VerifyCodeScreen(email: email)),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(UncontrolledProviderScope(container: container, child: MaterialApp.router(routerConfig: router)));
+      return fake;
+    }
+
+    testWidgets('앱바 56 에 뒤로 48×48(x12 · arrow-left 22 ink · 라벨 "뒤로")만 있고 제목은 없다', (tester) async {
+      await pumpScreen(tester);
+
+      expect(tester.getSize(find.byType(AppBar)).height, 56);
+      expect(tester.getRect(back()), const Rect.fromLTWH(12, 4, 48, 48));
+      final icon = tester.widget<Icon>(find.descendant(of: back(), matching: find.byType(Icon)));
+      expect((icon.icon, icon.size, icon.color), (AppIcons.arrowLeft, 22.0, AppColors.ink));
+      expect(find.byTooltip('뒤로'), findsOneWidget);
+      expect(find.descendant(of: find.byType(AppBar), matching: find.byType(Text)), findsNothing);
+    });
+
+    testWidgets('누르면 임시 연결을 비우고(startOver) 02 로 간다', (tester) async {
+      final repository = await pumpRouted(tester);
+
+      await tester.tap(back());
+      await tester.pumpAndSettle();
+
+      expect(repository.calls, ['discard']);
+      expect(find.text('02 학교 메일 입력'), findsOneWidget);
+    });
+
+    testWidgets('안드로이드 시스템 뒤로가기도 02 로 가고 "한 번 더 누르면 종료" 안내는 뜨지 않는다', (tester) async {
+      final repository = await pumpRouted(tester);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(repository.calls, ['discard']);
+      expect(find.text('02 학교 메일 입력'), findsOneWidget);
+      expect(find.text(backExitMessage), findsNothing);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
+    testWidgets('연타해도 정리 · 이동은 한 번이다', (tester) async {
+      final repository = await pumpRouted(tester);
+
+      await tester.tap(back());
+      await tester.tap(back(), warnIfMissed: false);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(repository.calls, ['discard']);
+      expect(find.text('02 학교 메일 입력'), findsOneWidget);
+    });
+
+    testWidgets('코드를 확인하는 중에는 화살표가 꺼지고 시스템 뒤로가기도 아무 일도 하지 않는다', (tester) async {
+      final repository = _HeldVerifyRepository();
+      await pumpRouted(tester, repository: repository);
+      await tester.enterText(find.byType(TextField), '123456');
+      await tester.pump();
+      await tester.tap(find.text('확인'));
+      await tester.pump(); // 서버 답을 붙잡아 둔다 — 아직 확인 중
+
+      expect(tester.widget<IconButton>(back()).onPressed, isNull);
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      expect(repository.calls, ['verifyCode']);
+      expect(find.byType(VerifyCodeScreen), findsOneWidget);
+      expect(find.text(backExitMessage), findsNothing);
+      repository.answer.complete(const FailureResult(WrongCodeFailure()));
+      await tester.pump(const Duration(milliseconds: 1));
+    });
   });
 
   testWidgets('6자리를 모두 입력하기 전에는 CTA 가 비활성이다', (tester) async {
@@ -223,6 +311,69 @@ void main() {
 
     expect(find.text('학교 메일 인증을 마치지 못했어요. 잠시 뒤 다시 시도해 주세요'), findsOneWidget);
   });
+  // 사용자 10-16 "Node ID: VuiDi 여기 인증코드 아래에 안내문 하나 넣어줘 스팸함도 확인 해달라고" — pen HintLine `MOmaZ`(04-2 설명 줄과 같은 부품).
+  group('스팸함 안내 줄(pen VuiDi · 오류 Vn6w4)', () {
+    void phone(WidgetTester tester, [Size size = const Size(360, 740)]) {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+    }
+
+    Rect expiryRow(WidgetTester tester) =>
+        tester.getRect(find.ancestor(of: find.textContaining('뒤에 만료돼요'), matching: find.byType(Row)).first);
+
+    testWidgets('입력칸 바로 아래 8 에 파란 안내 아이콘 줄, 그 아래 16 에 만료 줄 → 메일 다시 받기 · 확인 버튼은 아래 고정', (tester) async {
+      phone(tester);
+      await pumpScreen(tester);
+
+      final hint = find.byType(HintLine);
+      expect(tester.widget<HintLine>(hint).text, verifyCodeSpamHint);
+      expect(verifyCodeSpamHint, '메일이 보이지 않으면 스팸함도 확인해 주세요.');
+      expect(tester.getRect(hint).top, tester.getRect(find.byType(TextField)).bottom + 8);
+      expect(expiryRow(tester).top, tester.getRect(hint).bottom + 16);
+      expect(tester.getRect(hint).left, 24);
+      expect(tester.getRect(find.widgetWithText(ElevatedButton, '확인')).bottom, 740 - 28);
+    });
+
+    testWidgets('코드가 틀리면 입력칸 → 오류 문구 → 8 → 안내 → 만료 줄', (tester) async {
+      phone(tester);
+      final repository = FakeSchoolEmailRepository()..nextVerifyCodeResult = const FailureResult(WrongCodeFailure());
+      await pumpScreen(tester, repository: repository);
+      await tester.enterText(find.byType(TextField), '000000');
+      await tester.pump();
+      await tester.tap(find.text('확인'));
+      await tester.pump(const Duration(milliseconds: 1));
+
+      final error = tester.getRect(
+        find.ancestor(of: find.text('코드가 맞지 않아요. 다시 확인해 주세요.'), matching: find.byType(Row)).first,
+      );
+      final hint = tester.getRect(find.byType(HintLine));
+      expect(error.top, greaterThan(tester.getRect(find.byType(TextField)).bottom));
+      expect(hint.top, error.bottom + 8);
+      expect(expiryRow(tester).top, hint.bottom + 16);
+      expect(tester.getRect(find.widgetWithText(ElevatedButton, '확인')).bottom, 740 - 28);
+    });
+
+    for (final scale in [1.5, 2.0]) {
+      for (final size in [const Size(360, 740), const Size(320, 568)]) {
+        testWidgets('글자 $scale배 · ${size.width.toInt()}×${size.height.toInt()} 에서 넘치지 않고 안내 글이 잘리지 않는다', (tester) async {
+          phone(tester, size);
+          tester.platformDispatcher.textScaleFactorTestValue = scale;
+          addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+          await pumpScreen(tester);
+
+          expect(tester.takeException(), isNull);
+          final paragraph = tester.renderObject<RenderParagraph>(find.text(verifyCodeSpamHint));
+          expect(paragraph.getMaxIntrinsicHeight(paragraph.size.width), lessThanOrEqualTo(paragraph.size.height + 0.5));
+          // 확인 버튼은 글자를 키워도 화면 안에서 눌린다(넘치면 같이 스크롤된다).
+          await tester.ensureVisible(find.widgetWithText(ElevatedButton, '확인'));
+          await tester.pump();
+          expect(find.widgetWithText(ElevatedButton, '확인').hitTestable(), findsOneWidget);
+        });
+      }
+    }
+  });
+
   group('다른 학교 메일 입력(지시문 13 A-4)', () {
     Future<FakeSchoolEmailRepository> pumpWithRouter(WidgetTester tester, Failure failure) async {
       final repository = FakeSchoolEmailRepository()..nextCompleteResult = FailureResult(failure);
@@ -290,4 +441,15 @@ void main() {
       expect(find.text('02 학교 메일 입력'), findsOneWidget);
     });
   });
+}
+
+/// 코드 확인 답을 [answer] 가 끝날 때까지 붙잡는다 — "확인 중" 상태를 시험한다.
+class _HeldVerifyRepository extends FakeSchoolEmailRepository {
+  final answer = Completer<Result<String>>();
+
+  @override
+  Future<Result<String>> verifyCode(UniversityEmail email, VerificationCode code) {
+    calls.add('verifyCode');
+    return answer.future;
+  }
 }

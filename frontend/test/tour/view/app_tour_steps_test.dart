@@ -1,18 +1,55 @@
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/tour/view/app_tour_steps.dart';
-import 'package:flutter/painting.dart';
+import 'package:campus_mate/tour/view/coach_bubble.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../billing/view/pretendard.dart';
+
 void main() {
+  // 줄 수는 실제 글꼴로 잰다 — 시험 기본 글꼴(Ahem)은 글자마다 1em 네모라 한글 폭이 실제와 다르다.
+  setUpAll(loadPretendard);
+
   test('6단계 — 화면 · 문구는 사용자 확정본 그대로(pen 섹션 24 vfrto)', () {
     expect([for (final step in appTourSteps) (step.location, step.title, step.body)], [
-      (AppRoutes.home, '여기가 캠퍼스메이트의 시작이에요', '오늘의 카드와 학교 소식을 홈에서 한눈에 봐요.'),
+      // 1단계 설명은 사용자 지시(10-16 "우리 학교 소식 없잖아")로 바꿨다 — pen `O6FER/YoOxK`.
+      (AppRoutes.home, '여기가 캠퍼스메이트의 시작이에요', '오늘의 카드와 소중한 인연을 만나봐요.'),
       (AppRoutes.home, '프로필부터 채워 보세요', '사진, 소개, 이상형을 채우면 더 잘 맞아요.'),
       (AppRoutes.community, '사람들과 이야기해요', '전체, 인기, 내 질문, 내 투표로 골라 볼 수 있어요.'),
       (AppRoutes.today, '매주 월요일 오전 7시에 열려요', '월요일 아침 7시에 새로운 한 명이 도착해요.'),
       (AppRoutes.today, '하트로 여는 카드는 더 정밀해요', '서로의 성향, 관심사, 이상형을 함께 비교해 골라 드려요.'),
       (AppRoutes.heartStore, '하트는 무료로도 모아요', '무료로 모으기에서 미션을 인증하면 받아요.'),
     ]);
+  });
+
+  testWidgets('1단계 설명은 말풍선(폭 312, 글자 칸 280)에서 실제 글꼴 14/400 한 줄이다 — pen `O6FER/YoOxK`', (tester) async {
+    final body = appTourSteps.first.body;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Center(
+          child: SizedBox(
+            width: 312,
+            child: CoachBubble(
+              number: 1,
+              total: appTourSteps.length,
+              title: appTourSteps.first.title,
+              body: body,
+              isLast: false,
+              onNext: () {},
+              onSkip: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final paragraph = tester.renderObject<RenderParagraph>(find.text(body));
+    expect(paragraph.constraints.maxWidth, 280);
+    final painter = TextPainter(text: paragraph.text, textDirection: TextDirection.ltr)
+      ..layout(maxWidth: paragraph.constraints.maxWidth);
+    expect(painter.computeLineMetrics().length, 1);
+    painter.dispose();
   });
 
   test('가리키는 대상과 구멍 반경 — 히어로 34 · 완성도 26 · 탭 줄 16 · 도착 시각 16 · 무료로 모으기 16, 5단계는 구멍 없음', () {

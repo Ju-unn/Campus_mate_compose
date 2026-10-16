@@ -2,11 +2,13 @@ import 'dart:async';
 
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/community/model/community_repository.dart';
 import 'package:campus_mate/community/model/community_repository_provider.dart';
 import 'package:campus_mate/community/view/poll_composer_screen.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
 import 'package:campus_mate/community/view/poll_donut.dart';
+import 'package:campus_mate/community/view/poll_feed_tabs.dart';
 import 'package:campus_mate/community/view/vote_option.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -54,6 +56,9 @@ void main() {
 
   /// 17b 직접 적기 탭(pen `Xe28J`)을 연다 — 기본은 O/X 탭이다.
   Future<void> openCustom(WidgetTester tester) async {
+    // 글자를 키우면 링 탭(높이 86 → 102)이 첫 화면 아래로 밀린다 — 보이게 민 뒤 누른다.
+    await tester.ensureVisible(find.text('직접 적기'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('직접 적기'));
     await tester.pumpAndSettle();
   }
@@ -96,30 +101,59 @@ void main() {
     expect(submit(tester).onPressed, isNull);
   });
 
-  testWidgets('탭 2칸(O/X · 직접 적기): 찬성/반대 탭은 없다, 폭 164 · 높이 44, 선택은 #C4224B 700 + 밑줄 2', (tester) async {
+  // pen 17b `u4UOb` 탭 줄 `CgYsy`(KindTabs · StoryTab) — 사용자 10-16 "u4UOb 이거 아직 미반영" · 대장 결정 가).
+  testWidgets('탭 2칸(O/X · 직접 적기)은 15d 와 같은 링 탭 72×86, 왼쪽부터 사이 12 · 줄 높이 94(위아래 4) · 아래 선 없음', (tester) async {
     phone(tester);
     await pump(tester);
     expect(find.text('찬성/반대'), findsNothing);
+    final row = tester.getRect(find.byKey(PollComposerScreen.modeTabsKey));
     final ox = tester.getRect(find.byKey(PollComposerScreen.oxTabKey));
     final custom = tester.getRect(find.byKey(PollComposerScreen.customTabKey));
-    expect((ox.size, custom.size), (const Size(164, 44), const Size(164, 44)));
-    expect(ox.left, 16);
-    expect(custom.left, ox.right);
+    expect(row.size, const Size(328, 94));
+    expect((ox.size, custom.size), (const Size(72, 86), const Size(72, 86)));
+    expect((ox.left, ox.top), (16, row.top + 4));
+    expect(custom.left, ox.right + 12);
+    expect(find.byType(PollRingTab), findsNWidgets(2));
+    // 옛 밑줄 탭의 아래 선(#EBEBEB 1)은 없다.
+    final underline = find.byWidgetPredicate((widget) =>
+        widget is DecoratedBox && (widget.decoration as BoxDecoration?)?.border?.bottom.color == AppColors.hairlineSoft);
+    expect(find.descendant(of: find.byKey(PollComposerScreen.modeTabsKey), matching: underline), findsNothing);
+    expect(tester.widget(find.byKey(PollComposerScreen.modeTabsKey)), isNot(isA<DecoratedBox>()));
+  });
 
+  testWidgets('선택 = 고리 primary-rausch 2 + 글자 12/700 primary-text, 나머지 = 고리 hairline 2 + 12/600 body · 그림 O/X 투표 · 직접 적기 편집', (tester) async {
+    phone(tester);
+    await pump(tester);
+
+    Border ring(Key key) => (tester.widget<Container>(find.byKey(key)).decoration! as BoxDecoration).border! as Border;
     TextStyle style(String label) => tester.widget<Text>(find.text(label)).style!;
-    expect((style('O/X').color, style('O/X').fontWeight, style('O/X').fontSize), (AppColors.primaryText, FontWeight.w700, 14.0));
-    expect((style('직접 적기').color, style('직접 적기').fontWeight), (AppColors.muted, FontWeight.w500));
-    ColoredBox underline(Key key) => tester.widget<ColoredBox>(find.byKey(key));
-    expect(underline(PollComposerScreen.oxUnderlineKey).color, AppColors.primaryText);
-    expect(tester.getSize(find.byKey(PollComposerScreen.oxUnderlineKey)).height, 2);
-    expect(underline(PollComposerScreen.customUnderlineKey).color, Colors.transparent);
+    expect((ring(PollComposerScreen.oxRingKey).top.color, ring(PollComposerScreen.oxRingKey).top.width), (AppColors.primary, 2.0));
+    expect(ring(PollComposerScreen.customRingKey).top.color, AppColors.hairline);
+    expect((style('O/X').fontSize, style('O/X').fontWeight, style('O/X').color), (12.0, FontWeight.w700, AppColors.primaryText));
+    expect((style('직접 적기').fontWeight, style('직접 적기').color), (FontWeight.w600, AppColors.body));
+    final icons = [for (final icon in tester.widgetList<Icon3d>(find.descendant(of: find.byKey(PollComposerScreen.modeTabsKey), matching: find.byType(Icon3d)))) (icon.icon, icon.size)];
+    expect(icons, [(AppIcon3d.vote, 28.0), (AppIcon3d.pencil, 28.0)]);
 
     await openCustom(tester);
-    expect(style('직접 적기').color, AppColors.primaryText);
-    expect(style('직접 적기').fontWeight, FontWeight.w700);
-    expect(style('O/X').color, AppColors.muted);
-    expect(underline(PollComposerScreen.customUnderlineKey).color, AppColors.primaryText);
-    expect(underline(PollComposerScreen.oxUnderlineKey).color, Colors.transparent);
+    expect(ring(PollComposerScreen.customRingKey).top.color, AppColors.primary);
+    expect(ring(PollComposerScreen.oxRingKey).top.color, AppColors.hairline);
+    expect((style('직접 적기').fontWeight, style('직접 적기').color), (FontWeight.w700, AppColors.primaryText));
+    expect((style('O/X').fontWeight, style('O/X').color), (FontWeight.w600, AppColors.body));
+  });
+
+  testWidgets('화면 읽기 — 탭은 라벨을 읽는 버튼이고 고른 탭은 선택됨', (tester) async {
+    final handle = tester.ensureSemantics();
+    await pump(tester);
+
+    expect(
+      tester.getSemantics(find.byKey(PollComposerScreen.oxTabKey)),
+      isSemantics(label: 'O/X', isButton: true, isSelected: true, hasSelectedState: true),
+    );
+    expect(
+      tester.getSemantics(find.byKey(PollComposerScreen.customTabKey)),
+      isSemantics(label: '직접 적기', isButton: true, isSelected: false, hasSelectedState: true),
+    );
+    handle.dispose();
   });
 
   testWidgets('탭의 눌림 효과는 화면이 아니라 탭 칸에 그려진다(COMMON §4-2)', (tester) async {
@@ -271,6 +305,32 @@ void main() {
     expect(button.height, 52); // HE8FZ 2026-10-01 개편
   });
 
+  testWidgets('pen 17b 올리기 실패 `u4UOb` — 적은 질문 · "22 / 80" 은 그대로, 안내 상자 328×40, 오류 글 14 error · 버튼 위 8, 버튼 328×52 켜짐', (tester) async {
+    phone(tester);
+    repository.createResult = const FailureResult(RateLimitedFailure());
+    await pump(tester);
+    const question = '깻잎을 먼저 집으면 안 되는 거 아니야?'; // pen `nPZJM` 본문
+    await tester.enterText(find.byKey(PollComposerScreen.questionKey), question);
+    await tester.pump();
+    await tester.tap(find.text('익명으로 올리기'));
+    await tester.pumpAndSettle();
+
+    // 오류는 토스트가 아니라 버튼 위 한 줄(`ZbV4R`)이고, 적은 글은 지우지 않는다.
+    expect(tester.widget<TextField>(find.byKey(PollComposerScreen.questionKey)).controller!.text, question);
+    expect(find.text('22 / 80'), findsOneWidget);
+    expect(find.byType(SnackBar), findsNothing);
+    // 안내 `c9ch1w` 328×40 = 안쪽 12 + 자물쇠 16 + 12.
+    final notice = tester.getRect(find.ancestor(of: find.byIcon(AppIcons.lock), matching: find.byType(Container)).first);
+    expect(notice.size, const Size(328, 40));
+    final error = find.text(pollDailyLimitMessage);
+    final style = tester.widget<Text>(error).style!;
+    expect((style.fontSize, style.color), (14.0, AppColors.error));
+    final button = tester.getRect(find.widgetWithText(ElevatedButton, '익명으로 올리기'));
+    expect(button.top - tester.getRect(error).bottom, 8); // 제출 영역 `u6h0K` gap 8
+    expect(button.size, const Size(328, 52)); // `OwxXL`
+    expect(submit(tester).onPressed, isNotNull);
+  });
+
   testWidgets('입력칸은 80자 · 6자에서 더 받지 않는다', (tester) async {
     await pump(tester);
     await openCustom(tester);
@@ -362,11 +422,11 @@ void main() {
     // 테두리 1 + 안쪽 12(Container 는 테두리 두께를 안쪽 여백에 더한다).
     expect(box.bottom - counter.bottom, 12 + 1);
     expect(counter.left - box.left, 12 + 1);
-    // VoteSection: 세로 간격 12 — 라벨 → 3칸이 아니라 2칸 탭 → 보기 줄 → 안내 글.
+    // VoteSection: 세로 간격 12 — 라벨 → 2칸 링 탭 줄 → 보기 줄 → 안내 글.
     expect(voteLabel.top - box.bottom, 20);
     expect(voteLabel.height, 20); // 14/600, 줄 높이 속성 없음 · 렌더 20
     expect(tabs.top - voteLabel.bottom, 12);
-    expect(tabs.size, const Size(328, 44));
+    expect(tabs.size, const Size(328, 94)); // 탭 줄 `CgYsy` 94 = 위아래 4 + 탭 86
     expect(tester.getTopLeft(options.at(0)).dy - tabs.bottom, 12);
     expect(tester.getSize(options.at(0)).height, 72);
     expect(guide.top - tester.getBottomLeft(options.at(0)).dy, 12);

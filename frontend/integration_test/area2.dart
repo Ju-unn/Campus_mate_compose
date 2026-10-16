@@ -66,8 +66,9 @@ const _notificationDefaults = {
 };
 
 // 18a — frontend/lib/billing/view/heart_tasks_screen.dart · heart_task_row.dart
-// heart_task_actions.dart heartRewardNotice(18a · 하트 스토어 공용, 10-12 투표 기준 셋째 줄 추가)
-const _rewardNotice = '초기 보상 기준 · 인증 후 지급\n100명 이후 홍보 30 / 단톡방 20 하트\n커뮤니티 투표 하루 첫 투표 1번만 10 · 한 주 최대 30 하트';
+// 옛 heart_task_actions.dart heartRewardNotice(18a · 하트 스토어 공용)는 10-16 사용자 지시로 지웠다.
+/// 지운 내부용 보상 기준 글(사용자 10-16 "eAKKO 이거지워 우리만 아는거야") — 18a 에 보이면 fail.
+const _removedRewardNotice = '초기 보상 기준';
 const _taskOrder = 'everytime_post,kakao_share,poll_vote'; // 서버 TASK_ORDER(heart_tasks/router.py:23)
 // 줄마다 보여야 할 글(heart_task_row.dart _title :87-91 · _rewardText :94-96 · "하루 1번" :165 · 버튼 :101).
 const _taskRows = [
@@ -348,7 +349,7 @@ final Map<String, Area1Case> area2Cases = {
   }),
   'E-HEART-01': _session((tester, job) async {
     await _openHeartTasks(tester);
-    must(_count(find.text(_rewardNotice)) == 1, '위 안내 "$_rewardNotice" 없음');
+    must(_count(find.textContaining(_removedRewardNotice)) == 0, '지운 내부용 안내 "$_removedRewardNotice" 가 보인다');
     final rows = find.byType(HeartTaskRow);
     final order = tester.widgetList<HeartTaskRow>(rows).map((r) => r.task.kind.code).join(',');
     must(order == _taskOrder, '줄 순서 $order');

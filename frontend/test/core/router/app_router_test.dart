@@ -4,10 +4,14 @@ import 'package:campus_mate/account/model/account_repository.dart';
 import 'package:campus_mate/account/view/account_screen.dart';
 import 'package:campus_mate/account/view/account_suspended_screen.dart';
 import 'package:campus_mate/account/view/kakao_id_settings_screen.dart';
+import 'package:campus_mate/auth/model/school_email_repository_provider.dart';
 import 'package:campus_mate/auth/model/school_name_provider.dart';
 import 'package:campus_mate/auth/model/social_login_repository_provider.dart';
+import 'package:campus_mate/auth/model/university_email.dart';
 import 'package:campus_mate/auth/model/verification_gate.dart';
+import 'package:campus_mate/auth/view/sign_up_screen.dart';
 import 'package:campus_mate/auth/view/start_view.dart';
+import 'package:campus_mate/auth/view/verify_code_screen.dart';
 import 'package:campus_mate/billing/view/heart_store_screen.dart';
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/chat/view/chat_room_screen.dart';
@@ -64,6 +68,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../account/model/fake_account_repository.dart';
+import '../../auth/model/fake_school_email_repository.dart';
 import '../../auth/model/fake_social_login_repository.dart';
 import '../../chat/model/fake_chat_repository.dart';
 import '../../community/model/fake_community_repository.dart';
@@ -693,6 +698,7 @@ void main() {
   // 안드로이드에서 하단 내비 탭(최상위 화면)의 시스템 뒤로가기는 앱이 닫히려는 순간뿐이다 — 거기서만 한 번 더 확인한다.
   group('최상위 탭의 뒤로가기 확인', () {
     late int exitCalls;
+    late FakeSchoolEmailRepository schoolEmail;
 
     Future<GoRouter> pumpMember(
       WidgetTester tester, {
@@ -700,6 +706,7 @@ void main() {
       VerificationGate gate = VerificationGate.complete,
     }) async {
       exitCalls = 0;
+      schoolEmail = FakeSchoolEmailRepository();
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
         if (call.method == 'SystemNavigator.pop') exitCalls++;
         return null;
@@ -713,6 +720,8 @@ void main() {
       addTearDown(router.dispose);
       final container = ProviderContainer(
         overrides: [
+          // 03 뒤로가기가 임시 연결을 비운다.
+          schoolEmailRepositoryProvider.overrideWithValue(schoolEmail),
           // 3c 관문 화면이 읽는 학교명 · 로고(지어낸 값, 로고 없음).
           schoolNameProvider.overrideWithValue(const AsyncData('가나대학교')),
           universityLogosProvider.overrideWith((ref) => const <String, String>{}),
@@ -869,6 +878,36 @@ void main() {
       expect(find.byType(AcquisitionScreen), findsOneWidget);
       expect(find.text(backExitMessage), findsNothing);
       expect(exitCalls, 0);
+    });
+
+    // 사용자 10-16 — 03 은 앱바 뒤로가 생겼다. 화면이 스스로 BackExitScope(onBack) 를 둘러 라우터 쪽 한 겹을 뺐다.
+    testWidgets('03 인증코드의 시스템 뒤로가기는 앱바 화살표처럼 임시 연결을 비우고 02 로 간다 · 안내 없음 · 한 겹', (tester) async {
+      final router = await pumpMember(tester, gate: VerificationGate.needsSchoolEmail);
+      router.go(AppRoutes.verifyCode, extra: UniversityEmail.tryParse('hong@snu.ac.kr'));
+      // 03 은 만료 타이머가 1초마다 다시 그려 pumpAndSettle 이 끝나지 않는다 — 전환 시간만큼 민다.
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.byType(VerifyCodeScreen), findsOneWidget);
+      expect(find.byType(BackExitScope), findsOneWidget, reason: '두 겹이면 같은 뒤로가기에 둘 다 불린다');
+
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(schoolEmail.calls, ['discard']);
+      expect(find.byType(SignUpScreen), findsOneWidget);
+      expect(find.byType(VerifyCodeScreen), findsNothing);
+      expect(find.text(backExitMessage), findsNothing);
+      expect(exitCalls, 0);
+    });
+
+    testWidgets('메일(extra) 없이 03 으로 가면 02 로 돌려보낸다(_verifyCodeGuard)', (tester) async {
+      final router = await pumpMember(tester, gate: VerificationGate.needsSchoolEmail);
+      router.go(AppRoutes.verifyCode);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SignUpScreen), findsOneWidget);
+      expect(find.byType(VerifyCodeScreen), findsNothing);
     });
   });
 
