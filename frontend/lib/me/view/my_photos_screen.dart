@@ -6,6 +6,7 @@ import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/me/view/edit_app_bar.dart';
 import 'package:campus_mate/me/view/me_toast.dart';
+import 'package:campus_mate/me/view/photo_zoom_viewer.dart';
 import 'package:campus_mate/me/viewmodel/my_photos_view_model.dart';
 import 'package:campus_mate/profile/view/photo_tiles.dart';
 import 'package:campus_mate/profile/viewmodel/photos_ui_state.dart';
@@ -69,7 +70,14 @@ class _MyPhotosScreenState extends ConsumerState<MyPhotosScreen> with MeToastHos
                   // 보내는 동안 칸을 바꾸면 성공 뒤 버려지고, 고르기 안내가 저장 오류 자리로 샌다 — 저장 중엔 막는다.
                   IgnorePointer(
                     ignoring: state.isSubmitting,
-                    child: PhotoSlotGrid(state: state, viewModel: viewModel, columnGap: _columnGap),
+                    // 사진 칸을 누르면 크게 보기 — 이 화면에서만 켠다(사용자 결정 2026-10-16, pen `ZExxs`).
+                    child: PhotoSlotGrid(
+                      state: state,
+                      viewModel: viewModel,
+                      columnGap: _columnGap,
+                      onOpenPhoto: (index) =>
+                          showPhotoZoomViewer(context, image: state.photos[index].image, index: index),
+                    ),
                   ),
                   // 글자 많은 사진 거절 — 칸 아래 8 에 앱 고정 문구(여러 장을 한 번에 바꿔 칸 테두리는 없다).
                   if (state.documentRejected) ...[
