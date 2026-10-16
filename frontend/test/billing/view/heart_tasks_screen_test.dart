@@ -60,7 +60,7 @@ void main() {
     expect(find.textContaining('100명 이후'), findsNothing);
     expect(find.text('무료로 모으기'), findsNothing);
     expect(find.text('에브리타임 홍보'), findsOneWidget);
-    expect(find.text('50 · 월 1회'), findsOneWidget);
+    expect(find.text('40 · 월 1회'), findsOneWidget);
     expect(find.text('검수중'), findsOneWidget);
     expect(find.text('단톡방 공유'), findsOneWidget);
     expect(find.text('25 · 월 3회'), findsOneWidget);
@@ -71,7 +71,7 @@ void main() {
     expect(find.text('매일'), findsNothing);
     // pen `Uaex2` 알약 높이 20(글자 칸 16 + 위아래 2) — 글자가 길어져도 한 줄.
     expect(tester.getSize(find.ancestor(of: find.text('하루 1번'), matching: find.byType(Container)).first).height, 20);
-    expect(find.text('10 · 주 최대 30'), findsOneWidget);
+    expect(find.text('5 · 주 최대 15'), findsOneWidget);
     expect(find.text('참여'), findsOneWidget);
     expect(find.image(const AssetImage('assets/images/heart-flat-vector-v3.png')), findsNWidgets(3));
   });

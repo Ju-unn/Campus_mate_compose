@@ -540,7 +540,7 @@ def _poll_10(run, author, voter):
         check.reply(f'투표 {i}', reply, 200)
     rewarded = [r[1].get('rewarded') for r in replies if r[0] == 200 and isinstance(r[1], dict)]
     check.that(rewarded.count(True) == 1, f'rewarded {rewarded} — true 가 정확히 1건이어야 한다')
-    check.that(_ledger(run, voter, 'poll_vote') == [10], f'원장 {_ledger(run, voter, "poll_vote")}')
+    check.that(_ledger(run, voter, 'poll_vote') == [5], f'원장 {_ledger(run, voter, "poll_vote")}')
     return check.result()
 
 
@@ -640,9 +640,9 @@ def heart_10(run):
     sid = _submission_rows(run, account)[0]['id']
     status, body = _review(run, account, sid, status='approved')
     check.that(status < 300, f'승인 저장 {status} {_detail(body)}')
-    check.that(_ledger(run, account, 'free_task') == [50], f'승인 뒤 원장 {_ledger(run, account, "free_task")}(기대 [50])')
+    check.that(_ledger(run, account, 'free_task') == [40], f'승인 뒤 원장 {_ledger(run, account, "free_task")}(기대 [40])')
     _review(run, account, sid, status='approved')  # 같은 값으로 한 번 더 — 거절돼도 되고, 하트만 다시 안 나가면 된다
-    check.that(_ledger(run, account, 'free_task') == [50], f'다시 저장 뒤 원장 {_ledger(run, account, "free_task")}(기대 [50])')
+    check.that(_ledger(run, account, 'free_task') == [40], f'다시 저장 뒤 원장 {_ledger(run, account, "free_task")}(기대 [40])')
     return check.result()
 
 
@@ -659,7 +659,7 @@ def heart_11(run):
     to_approved = _review(run, account, rejected, status='approved', reject_reason=None)
     check.that(to_rejected[0] >= 400, f'승인 → 반려가 {to_rejected[0]} 로 받아들여짐')
     check.that(to_approved[0] >= 400, f'반려 → 승인이 {to_approved[0]} 로 받아들여짐')
-    check.that(_ledger(run, account, 'free_task') == [50], f'원장 {_ledger(run, account, "free_task")}(기대 [50] — 변화 0)')
+    check.that(_ledger(run, account, 'free_task') == [40], f'원장 {_ledger(run, account, "free_task")}(기대 [40] — 변화 0)')
     return check.result(f'거절 코드 {_detail(to_rejected[1])} / {_detail(to_approved[1])}')
 
 

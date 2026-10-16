@@ -35,7 +35,7 @@ class World(Fake):
     """표 저장소 + 투표 · 하트 제출 · 온보딩 서버. 규칙은 가설이 기대하는 서버(시나리오)대로 흉내 낸다."""
 
     LIMIT = {'everytime_post': 1, 'kakao_share': 3}
-    REWARD = {'everytime_post': 50, 'kakao_share': 25}
+    REWARD = {'everytime_post': 40, 'kakao_share': 25}
     STEP_COLUMNS = {'interests': ('interest_tags', 'tags'), 'my-traits': ('my_traits', 'tags'),
                     'ideal-traits': ('ideal_traits', 'tags'), 'ideal-note': ('ideal_note', 'note'), 'bio': ('bio', 'bio')}
 
@@ -559,9 +559,9 @@ class SubmitFlowTest(PhoneBase):
     def rows(self):
         return self.world.rows('heart_task_submissions')
 
-    def test_heart_04_one_submitted_row_50_hearts_and_a_proof_file_at_the_documented_path(self):
+    def test_heart_04_one_submitted_row_40_hearts_and_a_proof_file_at_the_documented_path(self):
         self.assertEqual(self.attempt('E-HEART-04')[0], 'pass')
-        self.assertEqual([(r['status'], r['task'], r['reward_hearts']) for r in self.rows()], [('submitted', 'everytime_post', 50)])
+        self.assertEqual([(r['status'], r['task'], r['reward_hearts']) for r in self.rows()], [('submitted', 'everytime_post', 40)])
         self.assertEqual(self.world.files, [f"id-1/{self.rows()[0]['id']}.jpg"])
 
     def test_heart_04_wrong_row_or_missing_file_fails(self):
@@ -585,11 +585,11 @@ class SubmitFlowTest(PhoneBase):
         result, note = self.attempt('E-HEART-05', App(self.world, lambda w, job: w.add_submission('id-1', 'everytime_post', 'approved')))
         self.assertEqual(result, 'fail')
 
-    def test_heart_09_approval_happens_while_the_app_is_stopped_and_gives_50_once(self):
+    def test_heart_09_approval_happens_while_the_app_is_stopped_and_gives_40_once(self):
         app = self.app('E-HEART-09')
         self.assertEqual(self.attempt('E-HEART-09', app)[0], 'pass')
         ledger = self.world.rows('heart_transactions')
-        self.assertEqual([(r['amount'], r['reason'], r['ref_id']) for r in ledger], [(50, 'free_task', self.rows()[0]['id'])])
+        self.assertEqual([(r['amount'], r['reason'], r['ref_id']) for r in ledger], [(40, 'free_task', self.rows()[0]['id'])])
         self.assertEqual(self.rows()[0]['status'], 'approved')
         self.assertEqual(app.jobs[0]['token_hash'], 'h')
 
@@ -619,7 +619,7 @@ class SubmitFlowTest(PhoneBase):
 
     def test_heart_09_ledger_with_two_rows_or_a_wrong_balance_fails(self):
         def twice(world, job):
-            world.rows('heart_transactions').append({'profile_id': 'id-1', 'amount': 50, 'reason': 'free_task', 'ref_id': 'zzz'})
+            world.rows('heart_transactions').append({'profile_id': 'id-1', 'amount': 40, 'reason': 'free_task', 'ref_id': 'zzz'})
         result, note = self.attempt('E-HEART-09', App(self.world, twice))
         self.assertEqual(result, 'fail')
         self.assertIn('원장', note)
@@ -720,7 +720,7 @@ class SubmitFlowTest(PhoneBase):
         self.assertEqual(self.attempt('E-HEART-21', app)[0], 'pass')
         self.assertEqual(seen, [('open', 2), ('done', 3)])
         self.assertEqual([j.get('fresh') for j in app.jobs], [None, False])
-        self.assertEqual([r['amount'] for r in self.world.rows('heart_transactions')], [10, 10, 10])
+        self.assertEqual([r['amount'] for r in self.world.rows('heart_transactions')], [5, 5, 5])
 
     def test_heart_21_a_refused_ledger_credit_is_blocked(self):
         self.world.handlers.insert(0, ('POST', re.compile(r'/rest/v1/rpc/grant_hearts'), Reply(400, {'code': '22023'})))

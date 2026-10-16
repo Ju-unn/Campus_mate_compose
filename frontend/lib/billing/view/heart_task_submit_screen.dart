@@ -20,10 +20,10 @@ const String _guide = '스크린샷을 첨부하면 확인 후 하트를 드려�
 
 /// 안내 아래 인증 기준 캡션(12/400 muted). 종전엔 에브리타임만 "날짜가 보이게 찍어 주세요"(대장 09-28 (가), 계획서 편차 6) —
 /// 사용자 결정 10-12 로 항목마다 기준을 적고, 날짜 안내는 에브리타임 기준에 합쳤다. pen 은 아직 옛 글자다(동기화 대기).
-/// 승인은 운영자가 눈으로 본다 — 서버는 이 기준을 검사하지 않는다.
+/// 승인은 운영자가 눈으로 본다 — 서버는 이 기준을 검사하지 않는다. 단톡방 인원은 10-16 사용자 확정으로 5명 → 3명.
 String? _criteria(HeartTaskKind kind) => switch (kind) {
       HeartTaskKind.everytimePost => '앱 이름(CampusMate)이 들어간 홍보 글을 올리고, 올린 날짜가 보이게 찍어 주세요',
-      HeartTaskKind.kakaoShare => '5명 이상이 있는 단톡방에 공유한 글과 단톡방 인원 수가 보이게 찍어 주세요',
+      HeartTaskKind.kakaoShare => '3명 이상이 있는 단톡방에 공유한 글과 단톡방 인원 수가 보이게 찍어 주세요',
       // 투표는 제출 화면이 없다(라우터가 18a 로 돌려보낸다).
       HeartTaskKind.pollVote => null,
     };

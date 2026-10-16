@@ -126,7 +126,7 @@ def poll_12(run, two):
 
 
 def poll_19(run, two):
-    """A 가 "…" → 삭제하기 → 확인 → "삭제했어요"(앱). 투표도 같이 지워지고(poll_votes 0행) 이미 받은 B 하트 +10 은 그대로."""
+    """A 가 "…" → 삭제하기 → 확인 → "삭제했어요"(앱). 투표도 같이 지워지고(poll_votes 0행) 이미 받은 B 하트 +5 는 그대로."""
     check, seen = Check(), {}
     author, a_hash = _signed_in(run, 'home')
     voter, b_hash = _signed_in(run, 'home')
@@ -144,7 +144,7 @@ def poll_19(run, two):
                            a_job={'token_hash': a_hash, 'question': question}, b_job={'token_hash': b_hash, 'question': question},
                            deadline=DEADLINE)
         if result == 'pass':
-            check.that(seen.get('balance') == before + 10, f'B 투표 직후 잔액 {before} → {seen.get("balance")}(기대 +10)')
+            check.that(seen.get('balance') == before + 5, f'B 투표 직후 잔액 {before} → {seen.get("balance")}(기대 +5)')
             check.that(not _rows(run, f'poll_votes?poll_id=eq.{poll}&select=voter_id'), 'poll_votes 가 남음(글이 지워졌는데)')
             check.that(not _rows(run, f'polls?id=eq.{poll}&select=id'), '지웠는데 글이 남음')
             after = _balance(run, voter)

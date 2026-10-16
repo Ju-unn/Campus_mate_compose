@@ -4,7 +4,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(17);
+select plan(19);
 
 -- 1~3 표 · RLS · enum
 select has_table('public', 'faq', 'faq 표가 있다');
@@ -57,6 +57,18 @@ select is_empty($$select id from public.faq where answer like '%appmailerl4538@g
 select ok((select answer like '%s26404538@gmail.com 으로 가입한 학교 메일 주소와 함께%'
            from public.faq where question = '이용이 제한됐다고 나와요.'),
   '이용 제한 답변은 새 문의 메일을 안내한다');
+
+-- 18~19 무료 하트 값(2026-10-16 사용자 확정 "무료하트조정 확정"): 에브리타임 40 · 투표 5 / 주 15, 단톡방 25 · 친구 50 은 그대로.
+select is((select answer from public.faq where question = '하트를 무료로 얻는 방법이 있나요?'),
+  '네. 설정 → 무료로 하트 모으기에서 받을 수 있어요. 친구의 추천 코드를 넣으면 나와 친구가 각각 50하트를 받고, '
+  || '에브리타임 홍보 글 인증은 월 1회 40하트, 단톡방 공유 인증은 월 3회 25하트씩이에요. '
+  || '커뮤니티 투표에 참여하면 하루 한 번 5하트, 한 주에 최대 15하트를 받아요.',
+  '무료 하트 답변은 에브리타임 40 · 단톡방 25 · 투표 하루 5 / 주 15 · 친구 50 이고 "학교 단톡방" 이 아니다');
+select is_empty(
+  $$select id from public.faq
+     where answer like '%월 1회 50하트%' or answer like '%하루 한 번 10하트%' or answer like '%최대 30하트%'
+        or answer like '%학교 단톡방%'$$,
+  '옛 무료 하트 값(에브리타임 50 · 투표 10 / 30) · "학교 단톡방" 이 든 답변이 없다');
 
 select * from finish();
 rollback;

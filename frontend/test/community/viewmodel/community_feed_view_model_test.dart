@@ -91,7 +91,7 @@ void main() {
 
     final message = await viewModel(container).vote('p1', PollChoice.a);
 
-    expect(message, pollRewardMessage);
+    expect(message, '하트 5개를 받았어요'); // 하루 첫 투표 5하트(2026-10-16 사용자 확정, 종전 10)
     expect(container.read(communityFeedViewModelProvider).polls.single.myChoice, PollChoice.a);
   });
 

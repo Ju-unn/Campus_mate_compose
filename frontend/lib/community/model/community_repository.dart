@@ -24,7 +24,7 @@ class PollPage {
   }
 }
 
-/// 투표 결과. [rewarded] 면 하루 첫 투표 하트 10개가 들어갔다.
+/// 투표 결과. [rewarded] 면 하루 첫 투표 하트 5개가 들어갔다(2026-10-16 개정, 종전 10).
 class VoteOutcome {
   const VoteOutcome({required this.poll, required this.rewarded});
 

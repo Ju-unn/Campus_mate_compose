@@ -5,7 +5,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(55);
+select plan(56);
 
 -- 준비 --------------------------------------------------------------------
 -- A = ...90(주 사용자), B = ...91(남 — RLS), M = ...92(달 경계), K = ...93(단톡방 3회 · 반려),
@@ -56,7 +56,7 @@ select results_eq(
 -- 제약 확인용 줄 E1(A 의 에브리타임, 검수 중). 이 절 끝에서 비운다.
 insert into public.heart_task_submissions (id, profile_id, task, storage_path, reward_hearts)
 values ('00000000-0000-0000-0000-0000000000e1', '00000000-0000-0000-0000-000000000090', 'everytime_post',
-        'a/e1.jpg', 50);
+        'a/e1.jpg', 40);
 
 select results_eq(
   $$select status::text, reviewed_at is null, reject_reason is null from public.heart_task_submissions
@@ -76,7 +76,7 @@ select throws_ok(
 );                                                                                                           -- 13
 select throws_ok(
   $$insert into public.heart_task_submissions (profile_id, task, storage_path, reward_hearts)
-    values ('00000000-0000-0000-0000-000000000090', 'everytime_post', 'a/e9.jpg', 50)$$,
+    values ('00000000-0000-0000-0000-000000000090', 'everytime_post', 'a/e9.jpg', 40)$$,
   '23505', null, '한 항목에 검수 중인 줄은 하나뿐이다 — 거의 동시에 낸 두 번째도 여기서 막힌다'
 );                                                                                                           -- 14
 select throws_ok(
@@ -141,12 +141,12 @@ delete from public.heart_task_submissions;
 -- A: 에브리타임 제출 → 검수 중 막힘 → 고정 칸 막힘 → 승인 한 번 → 끝 상태
 select lives_ok(
   $$select public.submit_heart_task('00000000-0000-0000-0000-0000000000f1', '00000000-0000-0000-0000-000000000090',
-      'everytime_post', 'a/f1.jpg', 50, '2026-09-15 12:00:00+09')$$,
+      'everytime_post', 'a/f1.jpg', 40, '2026-09-15 12:00:00+09')$$,
   '처음 제출은 들어간다'
 );                                                                                                           -- 23
 select throws_ok(
   $$select public.submit_heart_task('00000000-0000-0000-0000-0000000000f2', '00000000-0000-0000-0000-000000000090',
-      'everytime_post', 'a/f2.jpg', 50, '2026-09-15 12:00:01+09')$$,
+      'everytime_post', 'a/f2.jpg', 40, '2026-09-15 12:00:01+09')$$,
   'CM409', null, '검수 중인 항목은 다시 낼 수 없다(서버 409)'
 );                                                                                                           -- 24
 select throws_ok(
@@ -171,12 +171,12 @@ update public.heart_task_submissions set status = 'approved'
 select results_eq(
   $$select amount, reason::text, ref_id from public.heart_transactions
      where profile_id = '00000000-0000-0000-0000-000000000090'$$,
-  $$values (50, 'free_task', '00000000-0000-0000-0000-0000000000f1'::uuid)$$,
-  '승인하면 원장에 free_task 50 이 제출 id 로 한 줄 생긴다'
+  $$values (40, 'free_task', '00000000-0000-0000-0000-0000000000f1'::uuid)$$,
+  '승인하면 원장에 free_task 40 이 제출 id 로 한 줄 생긴다'
 );                                                                                                           -- 28
 select is(
   (select heart_balance from public.entitlements where profile_id = '00000000-0000-0000-0000-000000000090'),
-  50, '잔액도 50 이다'
+  40, '잔액도 40 이다'
 );                                                                                                           -- 29
 select ok(
   (select reviewed_at is not null from public.heart_task_submissions
@@ -198,8 +198,8 @@ select results_eq(
              where profile_id = '00000000-0000-0000-0000-000000000090'),
            (select heart_balance from public.entitlements
              where profile_id = '00000000-0000-0000-0000-000000000090')$$,
-  $$values (1::bigint, 50)$$,
-  '다시 저장 · 반려 시도 뒤에도 원장 1줄 · 잔액 50 — 두 번 주지도 회수하지도 않는다'
+  $$values (1::bigint, 40)$$,
+  '다시 저장 · 반려 시도 뒤에도 원장 1줄 · 잔액 40 — 두 번 주지도 회수하지도 않는다'
 );                                                                                                           -- 33
 select throws_ok(
   $$update public.heart_task_submissions set storage_path = 'a/other.jpg'
@@ -213,7 +213,7 @@ select lives_ok(
 );                                                                                                           -- 35
 select throws_ok(
   $$select public.submit_heart_task('00000000-0000-0000-0000-0000000000f3', '00000000-0000-0000-0000-000000000090',
-      'everytime_post', 'a/f3.jpg', 50, '2026-09-20 12:00:00+09')$$,
+      'everytime_post', 'a/f3.jpg', 40, '2026-09-20 12:00:00+09')$$,
   'CM429', null, '에브리타임은 한 달 1회 — 승인된 달에는 더 못 낸다(서버 429)'
 );                                                                                                           -- 36
 
@@ -222,19 +222,19 @@ select throws_ok(
 do $$
 begin
   perform public.submit_heart_task('00000000-0000-0000-0000-0000000000f4', '00000000-0000-0000-0000-000000000092',
-    'everytime_post', 'm/f4.jpg', 50, '2026-09-30 23:59:59+09');
+    'everytime_post', 'm/f4.jpg', 40, '2026-09-30 23:59:59+09');
   update public.heart_task_submissions set status = 'approved'
    where id = '00000000-0000-0000-0000-0000000000f4';
 end $$;
 
 select throws_ok(
   $$select public.submit_heart_task('00000000-0000-0000-0000-0000000000f5', '00000000-0000-0000-0000-000000000092',
-      'everytime_post', 'm/f5.jpg', 50, '2026-09-30 23:59:59.9+09')$$,
+      'everytime_post', 'm/f5.jpg', 40, '2026-09-30 23:59:59.9+09')$$,
   'CM429', null, '9월 30일 23:59:59.9(한국)는 아직 9월이다'
 );                                                                                                           -- 37
 select lives_ok(
   $$select public.submit_heart_task('00000000-0000-0000-0000-0000000000f6', '00000000-0000-0000-0000-000000000092',
-      'everytime_post', 'm/f6.jpg', 50, '2026-10-01 00:00:00+09')$$,
+      'everytime_post', 'm/f6.jpg', 40, '2026-10-01 00:00:00+09')$$,
   '10월 1일 0시(한국)부터 새 달이다 — UTC 로는 아직 9월 30일이어도'
 );                                                                                                           -- 38
 
@@ -299,12 +299,12 @@ select is(
 do $$
 begin
   perform public.submit_heart_task('00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-000000000094',
-    'everytime_post', 'p/b1.jpg', 50, '2026-09-15 12:00:00+09');
+    'everytime_post', 'p/b1.jpg', 40, '2026-09-15 12:00:00+09');
 end $$;
 insert into public.heart_transactions (profile_id, amount, reason, created_at) values
-  ('00000000-0000-0000-0000-000000000094', 10, 'poll_vote', '2026-09-13 10:00:00+09'),
-  ('00000000-0000-0000-0000-000000000094', 10, 'poll_vote', '2026-09-14 05:00:00+09'),
-  ('00000000-0000-0000-0000-000000000094', 10, 'poll_vote', '2026-09-15 10:00:00+09');
+  ('00000000-0000-0000-0000-000000000094', 5, 'poll_vote', '2026-09-13 10:00:00+09'),
+  ('00000000-0000-0000-0000-000000000094', 5, 'poll_vote', '2026-09-14 05:00:00+09'),
+  ('00000000-0000-0000-0000-000000000094', 5, 'poll_vote', '2026-09-15 10:00:00+09');
 
 select results_eq(
   $$select used, task_limit, reviewing, last_status::text
@@ -390,6 +390,18 @@ select throws_ok(
      where id = '00000000-0000-0000-0000-0000000000a1'$$,
   'CM409', null, '검수 시각도 검수 뒤에는 고칠 수 없다'
 );                                                                                                           -- 55
+
+-- P 의 투표 줄: 한도 3 과 보상 상한이 같은 날 끝나야 한다 — 5하트 × 3 = 주 15(2026-10-16 사용자 확정, 종전 10 × 3 = 30).
+-- 46 번이 본 이번 주 두 줄(09-14 · 09-15)에 한 줄을 더한다(heart_task_status 는 p_now 뒤 줄도 그 주면 센다 — 그래서 여기서 넣는다).
+insert into public.heart_transactions (profile_id, amount, reason, created_at)
+values ('00000000-0000-0000-0000-000000000094', 5, 'poll_vote', '2026-09-16 10:00:00+09');
+select results_eq(
+  $$select s.used, s.task_limit, public.poll_vote_reward_due('00000000-0000-0000-0000-000000000094', '2026-09-17 12:00:00+09')
+      from public.heart_task_status('00000000-0000-0000-0000-000000000094', '2026-09-17 12:00:00+09') s
+     where s.task = 'poll_vote'$$,
+  $$values (3, 3, false)$$,
+  '투표 줄이 3/3 이면 그 주 보상도 끝났다(5 × 3 = 15 — poll_vote_reward_due 와 같은 상한)'
+);                                                                                                           -- 56
 
 select * from finish();
 rollback;

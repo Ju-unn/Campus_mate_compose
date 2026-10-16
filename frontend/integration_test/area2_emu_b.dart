@@ -31,7 +31,7 @@ const _acceptanceNotFound = '수락을 찾을 수 없어요'; // backend core/er
 const _matchMade = '매칭됐어요!'; // match_made_screen.dart:32
 
 // 15d 피드 — frontend/lib/community/view/feed_poll_card.dart(개선안 A) · community_feed_view_model.dart
-const _rewardToast = '하트 10개를 받았어요'; // community_feed_view_model.dart pollRewardMessage
+const _rewardToast = '하트 5개를 받았어요'; // community_feed_view_model.dart pollRewardMessage(10-16 확정, 종전 10)
 
 // 18a — frontend/lib/billing/view/heart_task_row.dart
 const _heartTasksRow = '무료로 하트 모으기'; // settings_screen.dart
@@ -212,7 +212,7 @@ final Map<String, Area1Case> _pollCases = {
     must(_count(_agree(question)) == 0, '누른 뒤에도 O 버튼이 남음');
     return null;
   }),
-  // 오늘 첫 투표 — 결과 막대와 함께 토스트 "하트 10개를 받았어요" 1개. 원장 · 잔액은 PC.
+  // 오늘 첫 투표 — 결과 막대와 함께 토스트 "하트 5개를 받았어요" 1개. 원장 · 잔액은 PC.
   'E-POLL-05': _session((tester, job) async {
     await _openCommunity(tester);
     await _voteAgree(tester, job['question'] as String);

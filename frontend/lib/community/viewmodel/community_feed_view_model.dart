@@ -9,8 +9,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 final communityFeedViewModelProvider =
     NotifierProvider<CommunityFeedViewModel, CommunityFeedUiState>(CommunityFeedViewModel.new);
 
-/// 하루 첫 투표 보상 토스트(DESIGN §8.10 — 하루 한 번 10하트). pen 에 문구가 있으면 그것으로 바꾼다.
-const String pollRewardMessage = '하트 10개를 받았어요';
+/// 하루 첫 투표 보상 토스트(DESIGN §8.10 — 하루 한 번 5하트, 2026-10-16 사용자 확정 · 종전 10). pen 에 문구가 있으면 그것으로 바꾼다.
+const String pollRewardMessage = '하트 5개를 받았어요';
 
 /// 15d 피드. **실시간 구독은 쓰지 않는다** — 당겨서 새로 고침과 투표 응답으로 충분하다.
 class CommunityFeedViewModel extends Notifier<CommunityFeedUiState> {

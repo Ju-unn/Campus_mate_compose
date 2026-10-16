@@ -71,7 +71,7 @@ class Server(TableFake):
         self.options = []  # (메서드, 경로, call 에 더 넘긴 키워드 — retry=False 등)
         self.rules = {'candidate_days': 15, 'active_days': 14, 'decided_days': 90, 'expired_days': 14, 'ar_days': 90,
                       'matches_block': True, 'ar_clause': True, 'count_paused': False, 'ttl_days': 7, 'ttl_check': True,
-                      'expiry_check': True, 'coef': {3: 1.0, 7: 0.7}, 'touch_minutes': 60, 'weekly_cap': 30,
+                      'expiry_check': True, 'coef': {3: 1.0, 7: 0.7}, 'touch_minutes': 60, 'weekly_cap': 15,
                       'day_window': 'seoul', 'week_window': 'seoul', 'month_window': 'seoul', 'poll_limit': 10,
                       'reviewing_any_month': True, 'poll_day_limit_window': 'seoul', 'gender_check': True, 'rpc_ignores_p_now': False}
         self.rules.update(rules)
@@ -270,7 +270,7 @@ class Server(TableFake):
         wlo, whi = self._window(self.rules['week_window'], week_start, now, timedelta(days=7))
         today = any(lo <= at(t['created_at']) < hi for t in mine)
         week = sum(t['amount'] for t in mine if wlo <= at(t['created_at']) < whi)
-        return not today and week + 10 <= self.rules['weekly_cap']
+        return not today and week + 5 <= self.rules['weekly_cap']
 
     def _reward_due(self, sent):
         """poll_vote_reward_due(p_voter uuid, p_now timestamptz) — 인자 이름이 다르면 PostgREST 처럼 404 PGRST202."""
@@ -285,7 +285,7 @@ class Server(TableFake):
         due = self._due(voter, now)
         self.rows('poll_votes').append({'poll_id': poll_id, 'voter_id': voter})
         if due:
-            self._grant({'body': {'p_profile_id': voter, 'p_amount': 10, 'p_reason': 'poll_vote', 'p_ref_id': None}})
+            self._grant({'body': {'p_profile_id': voter, 'p_amount': 5, 'p_reason': 'poll_vote', 'p_ref_id': None}})
         return Reply(200, {'poll': {}, 'rewarded': due})
 
     def _new_poll(self, sent):
@@ -688,7 +688,7 @@ class AcceptanceTtlTest(TimeBase):
 # ── 투표 하트 ───────────────────────────────────────────────────────────────────────────────────────
 
 class PollTimeTest(TimeBase):
-    def test_07_a_vote_after_seoul_midnight_pays_10_again(self):
+    def test_07_a_vote_after_seoul_midnight_pays_5_again(self):
         self.passes('E-POLL-07')
 
     def test_07_fails_when_the_day_is_a_rolling_24_hours(self):
@@ -715,17 +715,18 @@ class PollTimeTest(TimeBase):
         self.case('E-POLL-07')
         self.assertEqual(fake.rows('polls'), [])
 
-    def test_08_a_full_week_of_30_pays_nothing_even_on_the_first_vote_of_the_day(self):
+    def test_08_a_full_week_of_15_pays_nothing_even_on_the_first_vote_of_the_day(self):
         self.passes('E-POLL-08')
 
-    def test_08_fails_when_the_weekly_cap_is_40(self):
-        self.fails('E-POLL-08', 'rewarded', weekly_cap=40)
+    def test_08_fails_when_the_weekly_cap_is_20(self):
+        self.fails('E-POLL-08', 'rewarded', weekly_cap=20)
 
     def test_08_seeds_three_ledger_rows_on_this_weeks_monday_through_the_ledger_function(self):
         fake = self.server()
         self.case('E-POLL-08')
         grants = [s for s in fake.sent if s['path'] == '/rest/v1/rpc/grant_hearts']
         self.assertEqual([g['body']['p_reason'] for g in grants], ['poll_vote'] * 3)  # 원장만이 아니라 잔액 캐시도 같이 간다
+        self.assertEqual([g['body']['p_amount'] for g in grants], [5] * 3)  # 진짜 투표 한 번 값(10-16 확정 5) — 10 이면 2줄로 주 15 를 넘는다
         moved = sorted(at(s['body']['created_at']) for s in fake.by('PATCH', '/rest/v1/heart_transactions'))
         self.assertEqual(moved, [datetime(2026, 10, 5, 0, 0, 10, tzinfo=SEOUL), datetime(2026, 10, 5, 0, 10, tzinfo=SEOUL),
                                  datetime(2026, 10, 5, 0, 20, tzinfo=SEOUL)])
@@ -734,9 +735,9 @@ class PollTimeTest(TimeBase):
         self.freeze(MONDAY)
         self.passes('E-POLL-08')
 
-    def test_08_on_monday_fails_when_the_weekly_cap_is_40(self):
+    def test_08_on_monday_fails_when_the_weekly_cap_is_20(self):
         self.freeze(MONDAY)
-        self.fails('E-POLL-08', 'poll_vote_reward_due', weekly_cap=40)
+        self.fails('E-POLL-08', 'poll_vote_reward_due', weekly_cap=20)
 
     def test_08_on_monday_fails_when_the_server_function_ignores_p_now(self):
         self.freeze(MONDAY)  # p_now 를 무시하면 월요일 기준이라 지난주 줄이 안 세어져 true — 이 가설이 p_now 를 실제로 보낸다는 증거

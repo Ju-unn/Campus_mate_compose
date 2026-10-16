@@ -5,7 +5,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(64);
+select plan(68);
 
 -- 준비 --------------------------------------------------------------------
 -- AU = ...80(글쓴이), V1 = ...81 · V2 = ...82(투표자), GONE = ...83(탈퇴할 글쓴이),
@@ -287,18 +287,18 @@ select lives_ok(
   '어제(한국 시간) 올린 10개는 오늘 한도에 들지 않는다'
 );
 
--- 보상 판정: 고정 시각(2026-09-28 월 ~ 10-04 일 한 주) --
+-- 보상 판정: 고정 시각(2026-09-28 월 ~ 10-04 일 한 주). 하루 5하트 · 주 15하트(2026-10-16 사용자 확정, 종전 10 · 30) --
 insert into public.heart_transactions (profile_id, amount, reason, created_at) values
-  ('00000000-0000-0000-0000-000000000085', 10, 'poll_vote', '2026-09-28 10:00+09'),
-  ('00000000-0000-0000-0000-000000000085', 10, 'poll_vote', '2026-09-29 10:00+09');
+  ('00000000-0000-0000-0000-000000000085', 5, 'poll_vote', '2026-09-28 10:00+09'),
+  ('00000000-0000-0000-0000-000000000085', 5, 'poll_vote', '2026-09-29 10:00+09');
 select is(public.poll_vote_reward_due('00000000-0000-0000-0000-000000000085', '2026-09-29 12:00+09'),
   false, '오늘 이미 받았으면 다시 주지 않는다');
 select is(public.poll_vote_reward_due('00000000-0000-0000-0000-000000000085', '2026-09-30 12:00+09'),
-  true, '이번 주 20하트면 새 날에 또 준다');
+  true, '이번 주 10하트면 새 날에 또 준다');
 insert into public.heart_transactions (profile_id, amount, reason, created_at)
-values ('00000000-0000-0000-0000-000000000085', 10, 'poll_vote', '2026-09-30 10:00+09');
+values ('00000000-0000-0000-0000-000000000085', 5, 'poll_vote', '2026-09-30 10:00+09');
 select is(public.poll_vote_reward_due('00000000-0000-0000-0000-000000000085', '2026-10-04 23:59+09'),
-  false, '이번 주 30하트를 채웠으면 일요일 밤까지 주지 않는다');
+  false, '이번 주 15하트(5 × 3)를 채웠으면 일요일 밤까지 주지 않는다');
 select is(public.poll_vote_reward_due('00000000-0000-0000-0000-000000000085', '2026-10-05 00:00+09'),
   true, '월요일 0시(한국 시간)에 새 주가 시작된다');
 insert into public.heart_transactions (profile_id, amount, reason, created_at)
@@ -306,21 +306,37 @@ values ('00000000-0000-0000-0000-000000000085', 10, 'admin_adjust', '2026-10-06 
 select is(public.poll_vote_reward_due('00000000-0000-0000-0000-000000000085', '2026-10-06 12:00+09'),
   true, 'poll_vote 가 아닌 적립은 셈하지 않는다');
 
+-- 전환 주: 바꾸기 전에 받은 10하트 줄이 같은 주에 남아 있을 때. 상한은 합(15)으로 본다 — 10 하나면 5 한 번 더(=15),
+-- 10 + 5 · 10 + 10 이면 그 주는 끝. 다음 월요일 0시부터는 5 · 15 그대로다(위 10-05 시험).
+insert into public.heart_transactions (profile_id, amount, reason, created_at)
+values ('00000000-0000-0000-0000-000000000085', 10, 'poll_vote', '2026-10-12 10:00+09');
+select is(public.poll_vote_reward_due('00000000-0000-0000-0000-000000000085', '2026-10-13 12:00+09'),
+  true, '전환 주 — 옛 10하트 하나면 5하트를 한 번 더 받아 15 가 된다');
+insert into public.heart_transactions (profile_id, amount, reason, created_at)
+values ('00000000-0000-0000-0000-000000000085', 5, 'poll_vote', '2026-10-13 10:00+09');
+select is(public.poll_vote_reward_due('00000000-0000-0000-0000-000000000085', '2026-10-14 12:00+09'),
+  false, '전환 주 — 옛 10 + 새 5 = 15 면 그 주는 더 주지 않는다');
+insert into public.heart_transactions (profile_id, amount, reason, created_at) values
+  ('00000000-0000-0000-0000-000000000085', 10, 'poll_vote', '2026-10-19 10:00+09'),
+  ('00000000-0000-0000-0000-000000000085', 10, 'poll_vote', '2026-10-20 10:00+09');
+select is(public.poll_vote_reward_due('00000000-0000-0000-0000-000000000085', '2026-10-21 12:00+09'),
+  false, '전환 주 — 옛 10하트를 두 번(20) 받았으면 그 주는 더 주지 않는다');
+
 -- 투표 (진짜 now()) --
 select is(public.cast_poll_vote('00000000-0000-0000-0000-0000000000a2', '00000000-0000-0000-0000-000000000082', 'a'),
   true, '오늘 첫 투표면 하트를 준다');
 select results_eq(
   $$select amount, reason::text, ref_id from public.heart_transactions
      where profile_id = '00000000-0000-0000-0000-000000000082'$$,
-  $$values (10, 'poll_vote', '00000000-0000-0000-0000-0000000000a2'::uuid)$$,
-  '원장에 10 · poll_vote · ref_id = 글 id 로 남는다'
+  $$values (5, 'poll_vote', '00000000-0000-0000-0000-0000000000a2'::uuid)$$,
+  '원장에 5 · poll_vote · ref_id = 글 id 로 남는다'
 );
 select is((select heart_balance from public.entitlements where profile_id = '00000000-0000-0000-0000-000000000082'),
-  10, '잔액 캐시도 같은 트랜잭션에서 오른다');
+  5, '잔액 캐시도 같은 트랜잭션에서 오른다');
 select is(public.cast_poll_vote('00000000-0000-0000-0000-0000000000a3', '00000000-0000-0000-0000-000000000082', 'b'),
   false, '같은 날 두 번째 투표는 하트가 없다(투표 자체는 된다)');
 select is((select heart_balance from public.entitlements where profile_id = '00000000-0000-0000-0000-000000000082'),
-  10, '두 번째 투표 뒤에도 잔액은 그대로');
+  5, '두 번째 투표 뒤에도 잔액은 그대로');
 select throws_ok(
   $$select public.cast_poll_vote('00000000-0000-0000-0000-0000000000a2', '00000000-0000-0000-0000-000000000082', 'b')$$,
   '23505', null, '같은 글에 다시 투표할 수 없다'
@@ -343,6 +359,14 @@ select ok(
   -- 줄 머리가 perform 이어야 한다. like '%…%' 는 잠금 줄을 -- 로 주석 처리해도 글자가 남아 통과했다(가짜 GREEN).
   pg_get_functiondef('public.cast_poll_vote(uuid,uuid,public.poll_choice)'::regprocedure) ~ '\n\s*perform pg_advisory_xact_lock',
   'cast_poll_vote 는 사람 단위 잠금을 건다(동시 투표 두 개에 하트 한 번) — 경합 스크립트는 계획서 C2 Step 5'
+);
+select results_eq(
+  -- 5 · 15 로 다시 만들어도(create or replace) 모양은 처음 그대로여야 한다: invoker · volatile · search_path '' · 반환 boolean.
+  $$select count(*), count(*) filter (where not prosecdef and provolatile = 'v'
+                                            and proconfig = array['search_path=""'] and prorettype = 'boolean'::regtype)
+      from pg_proc where pronamespace = 'public'::regnamespace and proname in ('poll_vote_reward_due', 'cast_poll_vote')$$,
+  $$values (2::bigint, 2::bigint)$$,
+  '두 투표 함수는 하나씩이고 security invoker · volatile · search_path 고정 · boolean 반환이다'
 );
 
 -- 탈퇴 cascade --

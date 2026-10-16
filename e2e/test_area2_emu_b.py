@@ -80,11 +80,11 @@ class EmuWorld(World):
 
     # 투표 · 18a ------------------------------------------------------------------------------
     def vote_as(self, voter, poll_id, choice='a'):
-        """투표 한 표 + 하루 첫 투표면 원장 +10(cast_poll_vote) → 하트를 줬는가."""
+        """투표 한 표 + 하루 첫 투표면 원장 +5(cast_poll_vote) → 하트를 줬는가."""
         self.rows('poll_votes').append({'poll_id': poll_id, 'voter_id': voter, 'choice': choice})
         due = not any(t['profile_id'] == voter and t['reason'] == 'poll_vote' for t in self.rows('heart_transactions'))
         if due:
-            self.rows('heart_transactions').append({'profile_id': voter, 'amount': 10, 'reason': 'poll_vote', 'ref_id': poll_id})
+            self.rows('heart_transactions').append({'profile_id': voter, 'amount': 5, 'reason': 'poll_vote', 'ref_id': poll_id})
         return due
 
     def cast_vote(self, sent):
@@ -98,7 +98,7 @@ class EmuWorld(World):
 
     def heart_tasks(self, sent):
         used = self.used(self.caller(sent))
-        row = {'task': 'poll_vote', 'reward_hearts': 10, 'state': 'done' if used >= 3 else 'open', 'used': used, 'limit': 3,
+        row = {'task': 'poll_vote', 'reward_hearts': 5, 'state': 'done' if used >= 3 else 'open', 'used': used, 'limit': 3,
                'reject_reason': None}
         return Reply(200, {'tasks': [row]})
 
@@ -434,7 +434,7 @@ class PollTest(EmuBase):
         self.assertEqual(self.attempt('E-POLL-04', Phone())[0], 'blocked')
 
     # E-POLL-05 ---------------------------------------------------------------------------------
-    def test_poll_05_the_first_vote_of_the_day_pays_ten_hearts_with_the_poll_as_reference(self):
+    def test_poll_05_the_first_vote_of_the_day_pays_five_hearts_with_the_poll_as_reference(self):
         seen = []
         phone = Phone(start=lambda job: seen.append(self.ledger('id-2')),
                       effect=lambda job: self.world.vote_as('id-2', self.poll_id(job['question'])))
@@ -447,7 +447,7 @@ class PollTest(EmuBase):
         def double(job):
             pid = self.poll_id(job['question'])
             self.world.vote_as('id-2', pid)
-            self.world.rows('heart_transactions').append({'profile_id': 'id-2', 'amount': 10, 'reason': 'poll_vote', 'ref_id': pid})
+            self.world.rows('heart_transactions').append({'profile_id': 'id-2', 'amount': 5, 'reason': 'poll_vote', 'ref_id': pid})
 
         def other_ref(job):
             self.world.vote_as('id-2', self.poll_id(job['question']))
@@ -474,13 +474,13 @@ class PollTest(EmuBase):
         result, note = self.attempt('E-POLL-06', phone)
         self.assertEqual(result, 'pass', note)
         (first,), second = seen[0]
-        self.assertEqual(first[0], 10)
+        self.assertEqual(first[0], 5)
         self.assertNotEqual(first[1], second)  # 앱이 누르는 글은 먼저 투표한 글과 다른 글이다
 
     def test_poll_06_a_second_reward_fails(self):
         def paid_again(job):
             self.second_vote(job)
-            self.world.rows('heart_transactions').append({'profile_id': 'id-2', 'amount': 10, 'reason': 'poll_vote', 'ref_id': 'y'})
+            self.world.rows('heart_transactions').append({'profile_id': 'id-2', 'amount': 5, 'reason': 'poll_vote', 'ref_id': 'y'})
         result, note = self.attempt('E-POLL-06', Phone(effect=paid_again))
         self.assertEqual(result, 'fail')
         self.assertIn('원장', note)
@@ -509,11 +509,11 @@ class PollTest(EmuBase):
         result, note = self.attempt('E-POLL-28', phone)
         self.assertEqual(result, 'pass', note)
         self.assertEqual((phone.jobs[0]['used'], phone.jobs[0]['limit']), (2, 3))
-        self.assertEqual(self.ledger('id-1'), [(10, None), (10, None)])
+        self.assertEqual(self.ledger('id-1'), [(5, None), (5, None)])
 
     def test_poll_28_a_server_count_that_differs_from_the_ledger_fails(self):
         self.world.handlers.insert(0, ('GET', re.compile(r'/heart-tasks'), Reply(200, {'tasks': [
-            {'task': 'poll_vote', 'reward_hearts': 10, 'state': 'open', 'used': 1, 'limit': 3, 'reject_reason': None}]})))
+            {'task': 'poll_vote', 'reward_hearts': 5, 'state': 'open', 'used': 1, 'limit': 3, 'reject_reason': None}]})))
         result, note = self.attempt('E-POLL-28', Phone())
         self.assertEqual(result, 'fail')
         self.assertIn('used', note)

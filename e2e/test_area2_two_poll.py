@@ -91,7 +91,7 @@ class World(PollWorld):
         self.rows('poll_votes').append({'poll_id': pid, 'voter_id': voter, 'choice': sent['body']['choice']})
         rewarded = not any(t['profile_id'] == voter and t['reason'] == 'poll_vote' for t in self.rows('heart_transactions'))
         if rewarded:
-            self.rows('heart_transactions').append({'profile_id': voter, 'amount': 10, 'reason': 'poll_vote', 'ref_id': pid})
+            self.rows('heart_transactions').append({'profile_id': voter, 'amount': 5, 'reason': 'poll_vote', 'ref_id': pid})
         return Reply(200, {'poll': {'id': pid}, 'rewarded': rewarded})
 
     def read_poll(self, sent):
@@ -414,7 +414,7 @@ class Poll19Test(Base):
         self.answer(outcome, 'pass')
         self.assertLess(self.world.log.index('B-vote'), self.world.log.index('A-delete'))
         self.assertEqual(self.votes(), [])
-        self.assertEqual([(t['profile_id'], t['amount']) for t in self.world.rows('heart_transactions')], [('id-2', 10)])
+        self.assertEqual([(t['profile_id'], t['amount']) for t in self.world.rows('heart_transactions')], [('id-2', 5)])
         self.assertEqual(a.job['question'], b.job['question'])
 
     def test_votes_that_survive_the_delete_are_a_fail(self):
@@ -438,7 +438,7 @@ class Poll19Test(Base):
             self.world.tables['heart_transactions'] = []
         outcome, a, b = self.run19(voted=vote_without_reward)
         self.assertEqual(outcome[0], 'fail')
-        self.assertIn('+10', outcome[1])
+        self.assertIn('+5', outcome[1])
 
 
 class Poll20Test(Base):
@@ -498,7 +498,7 @@ class Poll21Test(Base):
 
     def test_hearts_given_for_a_vote_on_the_deleted_poll_are_a_fail(self):
         def paid(job):
-            self.world.rows('heart_transactions').append({'profile_id': 'id-2', 'amount': 10, 'reason': 'poll_vote', 'ref_id': 'x'})
+            self.world.rows('heart_transactions').append({'profile_id': 'id-2', 'amount': 5, 'reason': 'poll_vote', 'ref_id': 'x'})
         outcome, a, b = self.run21(b_finish=paid)
         self.assertEqual(outcome[0], 'fail')
         self.assertIn('원장', outcome[1])
