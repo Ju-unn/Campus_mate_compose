@@ -377,30 +377,30 @@ def test_fewer_than_twelve_candidates_are_all_shown(wire):
     assert len(_people_of(wire(world))) == 11
 
 
-def test_under_ten_candidates_gives_an_empty_list_without_downloading(wire):
-    """사람이 적으면 흐린 얼굴도 누구인지 짐작된다 — 10명이 안 되면 빈 목록이고 앱이 마스코트 칸으로 대신한다."""
-    world = _World(_people(home_router.HOME_PEOPLE_MIN - 1))
+def test_four_candidates_give_an_empty_list_without_downloading(wire):
+    """사람이 적으면 흐린 얼굴도 누구인지 짐작된다 — 5명이 안 되면 빈 목록이고 앱이 마스코트 칸으로 대신한다(사용자 결정 10-16)."""
+    world = _World(_people(4))
 
     assert _people_of(wire(world)) == []
     assert world.downloads == []
 
 
-def test_exactly_ten_candidates_are_shown(wire):
-    world = _World(_people(home_router.HOME_PEOPLE_MIN))
+def test_exactly_five_candidates_are_shown(wire):
+    world = _World(_people(5))
 
-    assert len(_people_of(wire(world))) == home_router.HOME_PEOPLE_MIN
+    assert len(_people_of(wire(world))) == 5
 
 
 def test_the_minimum_counts_people_after_blocks_are_taken_out(wire):
-    people = _people(home_router.HOME_PEOPLE_MIN)
+    people = _people(5)
     world = _World(people, blocks=[(ME, people[0]["id"])])
 
     assert _people_of(wire(world)) == []
     assert world.downloads == []
 
 
-def test_the_minimum_is_ten():
-    assert home_router.HOME_PEOPLE_MIN == 10
+def test_the_minimum_is_five():
+    assert home_router.HOME_PEOPLE_MIN == 5
 
 
 # 실패 · 캐시 ----------------------------------------------------------------------------------

@@ -4,6 +4,7 @@ from uuid import uuid4
 
 import httpx
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
+from fastapi.responses import JSONResponse
 from google.cloud import vision
 from openai import AsyncOpenAI
 
@@ -17,7 +18,7 @@ from app.me.photo_layout import parse_layout
 from app.me.repository import MeRepository
 from app.me.schemas import ProfileUpdateRequest, nickname_changeable_at
 from app.profile_onboarding.avatars import STALE_PENDING_AFTER, avatar_regen_cost
-from app.profile_onboarding.photos import check_safe_search
+from app.profile_onboarding.photos import REJECTION_BODIES, PhotoVerdict, check_photo
 from app.profile_onboarding.repository import ProfileOnboardingRepository
 from app.profile_onboarding.router import avatar_url, enqueue_avatar_attempt, get_openai
 from app.profile_onboarding.storage import ProfilePhotoStorage
@@ -150,14 +151,14 @@ async def regenerate_avatar(
     return await enqueue_avatar_attempt(repo, settings, client, profile_id, response)
 
 
-@router.put("/me/photos")
+@router.put("/me/photos", response_model=None)
 async def save_photos(
     layout: str = Form(),
     avatar_source: int = Form(),
     photos: list[UploadFile] = File(default=[]),
     caller: Caller = Depends(get_verified_caller),
     vision_client: vision.ImageAnnotatorAsyncClient = Depends(get_vision_client),
-) -> dict[str, bool]:
+) -> dict[str, bool] | JSONResponse:
     """실제 사진 교체(U2) — 남길 사진은 id, 새 사진은 파일. 순서는 계획서 2-2 ①~⑧, ④ 앞에서 막히면 아무것도 안 바뀐다."""
     settings, client, profile_id = caller
     # ① 배치부터 본다 — 틀린 요청에 DB 도 Vision 도 부르지 않는다.
@@ -172,15 +173,16 @@ async def save_photos(
     if any(isinstance(slot, str) and slot not in current for slot in slots):
         raise HTTPException(status_code=409, detail=errors.PHOTOS_CHANGED)
 
-    # ③ 전부 먼저 본다 — 셋째 장이 부적절하면 첫째 장도 올리지 않는다.
+    # ③ 전부 먼저 본다 — 셋째 장이 부적절하거나 학생증 같은 문서면 첫째 장도 올리지 않는다.
     checked: list[tuple[bytes, str]] = []
     for photo in photos:
         data = await photo.read()
         content_type = student_id_content_type(data)
         if content_type is None:
             raise HTTPException(status_code=400, detail=errors.PHOTO_UNREADABLE)
-        if not await check_safe_search(vision_client, data):
-            raise HTTPException(status_code=422, detail=errors.PHOTO_NOT_SAFE)
+        verdict = await check_photo(vision_client, data, source="me")
+        if verdict is not PhotoVerdict.SAFE:
+            return JSONResponse(status_code=422, content=REJECTION_BODIES[verdict])
         checked.append((data, content_type))
 
     # ④ 업로드. 여기서 실패하면 행은 그대로라 올라간 파일만 주인 없이 남는다(행을 바꾸기 전이다).

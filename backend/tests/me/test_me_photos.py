@@ -7,6 +7,7 @@ import httpx
 from google.cloud import vision
 
 from tests.me.test_me_profile import AUTH_HEADERS, PROFILE_ID, _wire, overrides  # noqa: F401 — autouse 픽스처
+from app.core import errors
 from app.core.deps import get_vision_client
 from app.main import app
 
@@ -17,18 +18,22 @@ JPEG = b"\xff\xd8\xff\xe0" + b"0" * 32
 _PHOTO_FILES = "/storage/v1/object/profile-photos/"
 
 
-def _vision(safe: bool) -> AsyncMock:
+DOCUMENT_TEXT = "학생증 홍길동 2024 컴퓨터공학과"
+
+
+def _vision(safe: bool, text: str = "") -> AsyncMock:
     # spec 을 준다 — 비동기 클라이언트에 없는 메서드를 부르면 테스트가 잡아야 한다(test_photos.py 와 같은 이유).
     client = AsyncMock(spec=vision.ImageAnnotatorAsyncClient)
     level = 1 if safe else 5  # VERY_UNLIKELY / VERY_LIKELY
     client.batch_annotate_images.return_value = SimpleNamespace(responses=[SimpleNamespace(
         error=SimpleNamespace(message=""),
         safe_search_annotation=SimpleNamespace(adult=level, violence=1),
+        text_annotations=[SimpleNamespace(description=text)] if text else [],
     )])
     return client
 
 
-def _put(rows, layout, avatar_source=0, files=(), safe=True, seen=None):
+def _put(rows, layout, avatar_source=0, files=(), safe=True, seen=None, text=""):
     """layout 은 파이썬 목록으로 받아 JSON 문자열로 보낸다. seen 에 가드 뒤 요청을 쌓는다."""
     seen = [] if seen is None else seen
 
@@ -43,7 +48,7 @@ def _put(rows, layout, avatar_source=0, files=(), safe=True, seen=None):
             return httpx.Response(200, json={"Key": "profile-photos/x"})
         return httpx.Response(404, json={"message": f"unexpected {request.method} {request.url}"})
 
-    vision_client = _vision(safe)
+    vision_client = _vision(safe, text)
     app.dependency_overrides[get_vision_client] = lambda: vision_client
     return _wire(handler).put(
         "/me/photos",
@@ -179,6 +184,54 @@ def test_a_later_unsafe_photo_stops_the_earlier_one_from_uploading():
 
     assert response.status_code == 422
     assert _storage_writes(seen) == [] and _db_writes(seen) == []
+
+
+def test_a_document_like_new_photo_changes_nothing(caplog):
+    """학생증 · 신분증을 아바타 원본으로 올리면 아바타가 이상하게 나온다(사용자 결정 10-16 — 안내 + 서버 검사)."""
+    seen = []
+    with caplog.at_level("WARNING", logger="app.profile_onboarding.photos"):
+        response = _put([KEPT_A, KEPT_B], [{"keep": KEPT_A["id"]}, {"new": 0}], files=[JPEG], text=DOCUMENT_TEXT, seen=seen)
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": errors.PHOTO_LOOKS_LIKE_DOCUMENT, "code": "photo_looks_like_document"}
+    assert _storage_writes(seen) == [] and _db_writes(seen) == []
+    # 거절 로그는 경로 이름만 — 프로필 id · 글자 원문은 없다.
+    assert "verdict=document" in caplog.text and "source=me" in caplog.text
+    assert PROFILE_ID not in caplog.text and "홍길동" not in caplog.text
+
+
+def test_one_document_like_photo_among_several_stops_all_of_them():
+    # 첫째 장은 멀쩡하고 둘째 장만 학생증이어도 아무것도 올리지 않는다(부적절 사진과 같은 ③ 규칙).
+    seen = []
+    vision_client = _vision(safe=True)
+    document = _vision(safe=True, text=DOCUMENT_TEXT).batch_annotate_images.return_value
+    vision_client.batch_annotate_images.side_effect = [vision_client.batch_annotate_images.return_value, document]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        if request.url.path.endswith("/rest/v1/profile_photos") and request.method == "GET":
+            return httpx.Response(200, json=[KEPT_A, KEPT_B])
+        return httpx.Response(200, json={})
+
+    app.dependency_overrides[get_vision_client] = lambda: vision_client
+    response = _wire(handler).put(
+        "/me/photos", headers=AUTH_HEADERS,
+        data={"layout": json.dumps([{"new": 0}, {"new": 1}]), "avatar_source": "0"},
+        files=[("photos", ("p0.jpg", JPEG, "image/jpeg")), ("photos", ("p1.jpg", JPEG, "image/jpeg"))],
+    )
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "photo_looks_like_document"
+    assert vision_client.batch_annotate_images.await_count == 2
+    assert _storage_writes(seen) == [] and _db_writes(seen) == []
+
+
+def test_a_new_photo_with_short_text_is_saved():
+    seen = []
+    response = _put([KEPT_A], [{"keep": KEPT_A["id"]}, {"new": 0}], files=[JPEG], text="NIKE", seen=seen)
+
+    assert response.status_code == 200
+    assert len([r for r in _storage_writes(seen) if r.method == "POST"]) == 1
 
 
 def test_an_unreadable_new_photo_changes_nothing():

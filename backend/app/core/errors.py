@@ -73,6 +73,10 @@ CODE_PHONE_NUMBER_INVALID = "phone_number_invalid"
 # 읽을 수 없는 사진(학생증 제출·프로필 사진 업로드가 같은 문구를 쓴다).
 PHOTO_UNREADABLE = "사진을 다시 확인해 주세요"
 PHOTO_NOT_SAFE = "부적절한 사진은 올릴 수 없어요"
+# 프로필 사진에 학생증 · 신분증처럼 글자가 많다(422, profile_onboarding/photos.py). 임시 문구 — 앱 연결 때 최종 문구를 정한다.
+# 응답 {"detail": <문구>, "code": CODE_PHOTO_LOOKS_LIKE_DOCUMENT} — 앱은 code 로 가른다.
+PHOTO_LOOKS_LIKE_DOCUMENT = "학생증 · 신분증처럼 글자가 많은 사진은 올릴 수 없어요"
+CODE_PHOTO_LOOKS_LIKE_DOCUMENT = "photo_looks_like_document"
 PHOTO_NOT_FOUND = "지울 사진이 없어요"
 PHOTOS_CHANGED = "사진이 바뀌었어요, 다시 열어 주세요"
 AVATAR_ALREADY_CREATED = "아바타는 한 번만 만들 수 있어요"
