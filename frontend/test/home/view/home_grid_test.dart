@@ -72,7 +72,7 @@ void main() {
     expect(tester.getRect(placeholder).right, 16 + 328);
   });
 
-  testWidgets('위 행 통계 `gyzyR` — 한 색 primaryWash · 테두리 없음 · 모서리 14 · 그림 칸 40 → 숫자 24/700 ink(33) → 라벨 12/600 muted(17), 세로 가운데', (tester) async {
+  testWidgets('위 행 통계 `gyzyR` — 한 색 primaryWash · 테두리 없음 · 모서리 14 · 그림 자리 40(흰 원 없이 그림 32 × 배율 가운데 — 40 을 넘지 않음) → 숫자 24/700 ink(33) → 라벨 12/600 muted(17), 세로 가운데', (tester) async {
     // 칸 폭에 드는 숫자로 본다 — 넓은 숫자는 줄을 바꾸지 않고 칸 안에서 줄어든다(아래 테스트).
     await pump(tester, _summary(delivered: 123));
 
@@ -85,17 +85,23 @@ void main() {
       final box = tester.widget<Container>(find.descendant(of: tile, matching: find.byType(Container)).first).decoration!
           as BoxDecoration;
       expect((box.color, box.borderRadius, box.border), (AppColors.primaryWash, BorderRadius.circular(14), null), reason: label);
-      final plate = tester.getRect(plateIn(tile));
+      // 흰 원 그림 칸(IconPlate)은 통계 칸에서 빠졌다(대장 10-16) — 자리 40 은 그대로라 숫자 · 라벨 위치가 같다.
+      expect(plateIn(tile), findsNothing, reason: label);
+      final art = find.descendant(of: tile, matching: find.byType(Icon3d));
+      final slot = tester.getRect(
+        find.ancestor(of: art, matching: find.byWidgetPredicate((w) => w is SizedBox && w.width == 40 && w.height == 40)),
+      );
       final number = tester.getRect(find.text(value));
       final caption = tester.getRect(find.text(label));
-      expect(plate.size, const Size(40, 40), reason: label);
-      expect(plate.top - tester.getRect(tile).top, 3, reason: label); // (96 − 90) / 2
-      expect(number.top, plate.bottom, reason: label);
+      expect(slot.top - tester.getRect(tile).top, 3, reason: label); // (96 − 90) / 2
+      expect(tester.getCenter(art), slot.center, reason: label);
+      expect(number.top, slot.bottom, reason: label);
       expect(number.height, 33, reason: label);
       expect(caption.top, number.bottom, reason: label);
       expect(caption.height, 17, reason: label);
       final icon3d = tester.widget<Icon3d>(find.descendant(of: tile, matching: find.byType(Icon3d)));
-      expect((icon3d.icon, icon3d.size), (icon, 30.0), reason: label);
+      expect((icon3d.icon, icon3d.size), (icon, 32.0), reason: label);
+      expect(32 * scale, lessThanOrEqualTo(40), reason: '$label 보이는 그림이 자리 40 안');
       final transform = find.ancestor(of: find.byWidget(icon3d), matching: find.byType(Transform)).first;
       expect(tester.widget<Transform>(transform).transform.getMaxScaleOnAxis(), closeTo(scale, 0.001), reason: label);
       expect(tester.widget<Text>(find.text(value)).style!.fontSize, 24, reason: label);
@@ -119,11 +125,11 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('그림 칸 5개 — 40 원 · 흰 채움 · 테두리 1 hairlineSoft(안쪽) · 그림자 없음', (tester) async {
+  testWidgets('흰 원 그림 칸은 링크 칸 2개(인스타 · 이벤트)에만 — 40 원 · 흰 채움 · 테두리 1 hairlineSoft(안쪽) · 그림자 없음', (tester) async {
     await pump(tester, _summary());
 
-
-    expect(find.byType(IconPlate), findsNWidgets(5));
+    expect(find.byType(IconPlate), findsNWidgets(2));
+    expect(find.descendant(of: find.byType(StatTile), matching: find.byType(IconPlate)), findsNothing);
     for (final plate in tester.widgetList<IconPlate>(find.byType(IconPlate))) {
       final box = tester.widget<Container>(find.descendant(of: find.byWidget(plate), matching: find.byType(Container)).first)
           .decoration! as BoxDecoration;
