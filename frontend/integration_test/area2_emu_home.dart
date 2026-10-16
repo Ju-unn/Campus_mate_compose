@@ -132,7 +132,7 @@ final Map<String, Area1Case> area2EmuHomeCases = {
     must(_count(toast) == 1, '토스트 ${_count(toast)}개(기대 1)');
     final label = tester.widget<Text>(find.descendant(of: toast, matching: find.byType(Text))).data;
     must(label == _networkDown, '토스트 글 "$label"(기대 "$_networkDown")');
-    // 토스트가 뜬 때부터 센다 — 프레임 하나가 느린 만큼 "사라짐" 을 늦게 본다(area1_emu E-GATE-12 와 같은 허용).
+    // 토스트가 뜬 때부터 센다 — 프레임 하나가 느린 만큼 "사라짐" 을 늦게 본다(옛 area1_emu E-GATE-12 토스트 시험에서 가져온 허용, 그 시험은 10-16 에 웹뷰 확인으로 바뀌었다).
     final watch = Stopwatch()..start();
     var slowest = Duration.zero;
     var last = Duration.zero;

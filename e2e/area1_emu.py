@@ -8,9 +8,13 @@
 """
 
 import contextlib
+import time
 
-from e2e import area1, area1_b3, emu, notify
+from e2e import area1, area1_b3, emu, notify, tools
 from e2e.area1 import Check, _app, _signed_in
+
+WEB_VIEW = 'urllauncher.WebViewActivity'  # 커스텀 탭을 받는 브라우저가 없을 때 url_launcher 가 여는 앱 안 웹뷰(open_url.dart)
+WEB_VIEW_WAIT = 10  # "보기" 를 누른 뒤 웹뷰가 맨 앞에 오기를 기다리는 시간(초)
 
 # 시나리오와 다른 점: E-GATE-47 은 "제출 누르자마자" 끊는 대신 제출 직전(사진 · 실명을 다 넣은 뒤)에 끊는다 — 누른 뒤에 끊으면
 # 요청이 이미 나갔는지가 매번 달라 판정이 흔들린다. 문구와 버튼 복귀는 같은 코드 경로(NetworkFailure)로 본다.
@@ -68,12 +72,26 @@ def p_auth_19(run, phone):
 
 
 def p_gate_12(run, phone):
-    """https 를 받는 앱을 모두 끈 에뮬에서 약관 "보기" → 토스트 3초."""
+    """https 를 받는 앱을 모두 끈 에뮬에서 약관 "보기" → 앱 안 웹뷰로 열린다(10-16 앱 안 브라우저 전환 — 실패 토스트는 더 안 뜬다).
+    앱은 누르자마자 멈추고(step), PC 가 맨 앞이 웹뷰인지 1초 간격으로 [WEB_VIEW_WAIT] 번까지 본 뒤 뒤로가기로 닫아 02-c 로 돌려보낸다."""
     serial = _emulator(phone)
     check = Check()
     _, token = _signed_in(run, 'new')
+
+    def opened(said):
+        top = ''
+        for _ in range(WEB_VIEW_WAIT):
+            top = phone.top()
+            if WEB_VIEW in top:
+                break
+            time.sleep(1)
+        if WEB_VIEW not in top:
+            check.problems.append(f'"보기" 를 눌렀는데 앱 안 웹뷰가 안 뜸 — 맨 앞: {top or "못 읽음"}')
+            return
+        tools.adb(serial, 'shell', 'input', 'keyevent', 'KEYCODE_BACK')  # 웹뷰만 닫는다 — 02-c 는 그 아래에 남아 있다
+
     with emu.browsers_disabled(serial):
-        _app(check, phone(token_hash=token))
+        _app(check, phone(midway=opened, token_hash=token))
     return check.result()
 
 
