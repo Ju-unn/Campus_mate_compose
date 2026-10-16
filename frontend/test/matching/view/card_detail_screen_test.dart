@@ -14,6 +14,7 @@ import 'package:campus_mate/matching/model/card_profile.dart';
 import 'package:campus_mate/matching/model/card_repository.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:campus_mate/matching/view/card_detail_screen.dart';
+import 'package:campus_mate/matching/view/profile_avatar_header.dart';
 import 'package:campus_mate/profile/model/profile_enums.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -73,6 +74,19 @@ void main() {
     expect(find.byType(TraitBar), findsNWidgets(9));
     expect(find.text('거절'), findsOneWidget);
     expect(find.text('대화 신청하기'), findsOneWidget);
+  });
+
+  testWidgets('카드 맨 위(이름 줄 위)에 상대 아바타 칸이 있다(pen `TORAs` 의 `md2PT`, 사용자 결정 10-16)', (tester) async {
+    await pump(tester);
+
+    final header = tester.widget<ProfileCard>(find.byType(ProfileCard)).header;
+    expect(header, isA<ProfileAvatarHeader>());
+    expect((header! as ProfileAvatarHeader).url, _detail.profile.avatarUrl);
+    expect(
+      tester.getTopLeft(find.text('여우비, 23')).dy - tester.getBottomLeft(find.byType(ProfileAvatarHeader)).dy,
+      0,
+      reason: '아래 13 은 아바타 칸이 가진다',
+    );
   });
 
   testWidgets('태그 칩은 줄 폭을 먹지 않아 같은 줄에 나란히 선다', (tester) async {

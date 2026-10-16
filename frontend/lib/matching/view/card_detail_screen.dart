@@ -13,6 +13,7 @@ import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/matching/model/card_detail.dart';
 import 'package:campus_mate/matching/model/card_repository.dart';
+import 'package:campus_mate/matching/view/profile_avatar_header.dart';
 import 'package:campus_mate/matching/viewmodel/card_detail_view_model.dart';
 import 'package:campus_mate/matching/viewmodel/sent_requests_view_model.dart';
 import 'package:campus_mate/matching/viewmodel/today_cards_view_model.dart';
@@ -25,7 +26,7 @@ import 'package:go_router/go_router.dart';
 /// 그건 신뢰 확인(조각 5) 뒤다. 신고·차단 진입점은 조각 6 이 붙인다.
 ///
 /// 2026-09-23 pen 대조: 앱바·하단 내비가 "오늘" 탭과 같고, 본문은 카드 한 장 안에 들어간다.
-/// 맨 위 큰 원형 아바타는 시안에 없어 뺐다 — 카드 앞면(10)에서 이미 본 그림이다.
+/// 2026-10-16 사용자 결정: 카드 맨 위에 아바타 칸([ProfileAvatarHeader], pen `md2PT`)을 둔다 — 종전 "맨 위 아바타는 시안에 없어 뺐다" 를 고친다.
 class CardDetailScreen extends ConsumerWidget {
   const CardDetailScreen({required this.cardId, super.key});
 
@@ -69,7 +70,7 @@ class CardDetailScreen extends ConsumerWidget {
       bottomNavigationBar: const AppBottomNav(current: AppTab.today),
       body: SafeArea(
         child: switch (detail) {
-          null when state.errorMessage != null => _Message(text: state.errorMessage!),
+          null when state.errorMessage != null => DetailMessage(text: state.errorMessage!),
           null => const Center(child: CircularProgressIndicator()),
           _ => _DetailBody(
             detail: detail,
@@ -96,8 +97,9 @@ void _goToSentRequests(WidgetRef ref, GoRouter router) {
   router.go(AppRoutes.conversations);
 }
 
-class _Message extends StatelessWidget {
-  const _Message({required this.text});
+/// 상세를 못 읽었을 때 가운데 회색 문구(pen 에 없는 상태). 10b 와 받은 신청 · 프로필 보기가 같이 쓴다.
+class DetailMessage extends StatelessWidget {
+  const DetailMessage({required this.text, super.key});
 
   final String text;
 
@@ -154,7 +156,7 @@ class _DetailBody extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          ProfileCard(detail: detail),
+          ProfileCard(detail: detail, header: ProfileAvatarHeader(url: detail.profile.avatarUrl)),
           // 버튼은 카드 밖 14 아래에 붙어 함께 스크롤한다(pen `TORAs`).
           const SizedBox(height: 14),
           CardActionBar(onReject: onReject, onAccept: onAccept),
