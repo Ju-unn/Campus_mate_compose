@@ -306,7 +306,8 @@ class _PurchaseSection extends ConsumerWidget {
   }
 }
 
-/// 무료로 모으기 `EsnDC`: 제목 20/600 → 4 → 안내 12 → 줄 3개(사이 4). 줄은 18a 의 [HeartTaskRow] 와 서버 목록을 그대로 쓴다.
+/// 무료로 모으기 `EsnDC`: 제목 20/600 → 12 → 줄 3개(사이 4). 줄은 18a 의 [HeartTaskRow] 와 서버 목록을 그대로 쓴다.
+/// 제목 아래 보상 기준 안내(`eAKKO`)는 내부용이라 지웠다(사용자 10-16 "우리만 아는거야") — pen 은 Spacer 8 만 남았다(섹션 간격 4 + 8).
 /// 읽는 중 · 실패는 pen 에 없다 — 도는 표시 / 문구 + "다시 시도".
 class _FreeSection extends ConsumerWidget {
   const _FreeSection();
@@ -318,9 +319,6 @@ class _FreeSection extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text('무료로 모으기', style: AppTypography.title.copyWith(color: AppColors.ink)),
-        const SizedBox(height: AppSpacing.xxs),
-        // pen `cVVgB`.
-        Text(heartRewardNotice, style: AppTypography.caption.copyWith(color: AppColors.muted)),
         const SizedBox(height: AppSpacing.xs + AppSpacing.xxs),
         if (state.isLoading)
           const Padding(
