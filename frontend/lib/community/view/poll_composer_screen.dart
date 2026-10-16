@@ -26,7 +26,7 @@ TextInputFormatter _maxCodePoints(int max) => TextInputFormatter.withFunction((o
       return TextEditingValue(text: text, selection: TextSelection.collapsed(offset: text.length));
     });
 
-/// 투표 방식 탭(pen `O0ZJi` 의 두 칸). O/X 는 "찬성"/"반대" 를 보내 카드가 O·X 아이콘을 그린다.
+/// 투표 방식 탭(pen StoryTab 줄 `XfcKQ` 의 두 칸). O/X 는 "찬성"/"반대" 를 보내 카드가 O·X 아이콘을 그린다.
 enum _VoteMode { ox, custom }
 
 /// 17b `poll-composer`(pen `tKjGJ` O/X · `Xe28J` 직접 적기). 입력 상태가 이 화면 안에서 끝나 ViewModel 을 두지 않는다.
@@ -254,7 +254,7 @@ class _QuestionBox extends StatelessWidget {
   }
 }
 
-/// pen Tab Bar `O0ZJi` 의 두 칸: 높이 44(글자를 키우면 따라 자란다), 아래 선 #EBEBEB 1.
+/// pen StoryTab 줄(`XfcKQ`; 17b 작성 화면 `SxBUz`·`AorD3`·`DDKQW` 등)의 두 칸: 높이 44(글자를 키우면 따라 자란다), 아래 선 #EBEBEB 1.
 class _ModeTabs extends StatelessWidget {
   const _ModeTabs({required this.mode, required this.onSelected});
 

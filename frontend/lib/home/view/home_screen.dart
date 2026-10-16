@@ -264,7 +264,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
 
 }
 
-/// hero-today 세 상태 + 불러오는 중(DESIGN §8.9 · pen `PAtO3`). 모양은 [heroTodayProvider] 가 오늘 탭 상태로 고른다.
+/// hero-today 세 상태 + 불러오는 중(DESIGN §8.9 · pen `VdvmY`). 모양은 [heroTodayProvider] 가 오늘 탭 상태로 고른다.
 /// 상태가 바뀌면 `{motion.standard}` 로 겹쳐 바꾼다 — 기기 "동작 줄이기"면 바로 바꾼다.
 class _HeroToday extends ConsumerWidget {
   const _HeroToday();

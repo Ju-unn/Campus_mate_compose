@@ -205,7 +205,7 @@ class _Hero extends StatelessWidget {
           const SizedBox(height: 8),
           // `BBGsm` 14/600 #C4224B lh1.5. " · D-14" 는 Q1 (가) — 48 한 줄에 넣으면 폭이 모자란다.
           Text(
-            '우리 학교 첫 카드까지 · $dayLabel',
+            '첫 카드까지 · $dayLabel',
             textAlign: TextAlign.center,
             style: AppTypography.labelSmall.copyWith(color: AppColors.primaryText, height: 1.5),
           ),

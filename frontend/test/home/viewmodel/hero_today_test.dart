@@ -36,7 +36,7 @@ void main() {
     expect(HeroToday.from(state), isA<HeroDone>().having((h) => h.nextIssueAt, 'nextIssueAt', isNull));
   });
 
-  test('처음 읽는 동안은 불러오는 중 — 도착 문구를 먼저 보이지 않는다(pen `PAtO3` 스켈레톤)', () {
+  test('처음 읽는 동안은 불러오는 중 — 도착 문구를 먼저 보이지 않는다(pen `VdvmY` 스켈레톤)', () {
     expect(HeroToday.from(const TodayCardsUiState()), isA<HeroLoading>());
   });
 

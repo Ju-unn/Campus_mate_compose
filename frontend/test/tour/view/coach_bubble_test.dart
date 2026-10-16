@@ -1,6 +1,7 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
+import 'package:campus_mate/tour/view/app_tour_steps.dart';
 import 'package:campus_mate/tour/view/coach_bubble.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -10,7 +11,13 @@ void main() {
   late int nexts;
   late int skips;
 
-  Future<void> pump(WidgetTester tester, {bool isLast = false, double textScale = 1, Widget? detail}) async {
+  Future<void> pump(
+    WidgetTester tester, {
+    bool isLast = false,
+    double textScale = 1,
+    Widget? detail,
+    String body = '사진, 소개, 이상형을 채우면 더 잘 맞아요.',
+  }) async {
     nexts = 0;
     skips = 0;
     await tester.pumpWidget(
@@ -26,7 +33,7 @@ void main() {
                   number: 2,
                   total: 6,
                   title: '프로필부터 채워 보세요',
-                  body: '사진, 소개, 이상형을 채우면 더 잘 맞아요.',
+                  body: body,
                   isLast: isLast,
                   detail: detail,
                   onNext: () => nexts++,
@@ -132,6 +139,18 @@ void main() {
     expect(find.bySemanticsLabel('6단계 중 2단계'), findsOneWidget);
     expect(tester.getSemantics(find.text('프로필부터 채워 보세요')), isSemantics(isHeader: true));
     handle.dispose();
+  });
+
+  testWidgets('단계마다 설명은 말풍선 폭(312)에서 두 줄 이내다', (tester) async {
+    for (final step in appTourSteps) {
+      await pump(tester, body: step.body);
+
+      final paragraph = tester.renderObject<RenderParagraph>(find.text(step.body));
+      final painter = TextPainter(text: paragraph.text, textDirection: TextDirection.ltr)
+        ..layout(maxWidth: paragraph.constraints.maxWidth);
+      expect(painter.computeLineMetrics().length, lessThanOrEqualTo(2), reason: step.body);
+      painter.dispose();
+    }
   });
 
   for (final scale in [1.3, 2.0]) {

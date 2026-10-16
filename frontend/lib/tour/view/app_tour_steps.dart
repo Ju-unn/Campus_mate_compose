@@ -112,7 +112,7 @@ const List<TourStep> appTourSteps = [
   TourStep(
     location: AppRoutes.today,
     title: '하트로 여는 카드는 더 정밀해요',
-    body: '성향, 관심사, 글, 조건을 비교해 골라 드려요.',
+    body: '서로의 성향, 관심사, 이상형을 함께 비교해 골라 드려요.',
     detail: _precisionPoints,
     lineLength: 32,
   ),

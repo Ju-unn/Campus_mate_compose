@@ -497,7 +497,7 @@ class RegistryTest(unittest.TestCase):
 
     def test_the_app_side_changes_no_lib_code_and_uses_the_texts_of_the_screen(self):
         dart = self.dart('area2_emu_home.dart')
-        for text in ('우리 학교 첫 카드까지', '현재 모집 인원', '친구에게 초대 링크 보내기', '네트워크 연결을 확인해 주세요'):
+        for text in ('첫 카드까지', '현재 모집 인원', '친구에게 초대 링크 보내기', '네트워크 연결을 확인해 주세요'):
             self.assertIn(text, dart)
             self.assertIn(text, (tools.ROOT / 'frontend' / 'lib').joinpath('home/view/cohort_wait_view.dart').read_text(encoding='utf-8')
                           + (tools.ROOT / 'frontend' / 'lib' / 'common' / 'failure.dart').read_text(encoding='utf-8'))

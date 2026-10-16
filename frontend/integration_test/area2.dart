@@ -36,7 +36,7 @@ const _linkTiles = ['인스타그램', '이벤트', '곧 열려요']; // home_gr
 const _completionLead = '프로필 완성도'; // home_screen.dart _ProfileNudge '프로필 완성도 $percent%'
 const _reviewRating = '4.8'; // _ReviewStrip :270 rating.toStringAsFixed(1) — 목값 http_home_repository.dart:21
 const _reviewCount = '(143명 평가)'; // :280 '($count명 평가)' — 목값 :22
-const _cohortLead = '우리 학교 첫 카드까지'; // cohort_wait_view.dart:203 '우리 학교 첫 카드까지 · $dayLabel'
+const _cohortLead = '첫 카드까지'; // cohort_wait_view.dart:208 '첫 카드까지 · $dayLabel'
 const _todayTitle = '오늘의 카드'; // today_cards_screen.dart:36 앱바
 // 하트 재화 그림(DESIGN §5.4 — Lucide 가 아니라 이미지). heart_task_row.dart:11 · avatar_regen_sheet.dart:102 · 묶음 · 단계 그림.
 final _currencyAsset = RegExp(r'heart-(flat|tier|bundle)');

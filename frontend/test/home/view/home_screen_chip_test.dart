@@ -24,7 +24,7 @@ import '../../me/model/fake_me_repository.dart';
 import '../model/fake_home_repository.dart';
 import '../../notifications/model/fake_notifications_repository.dart';
 
-/// 홈 앱바의 하트 잔액 칩 — pen `Trailing`(홈 6곳: `bpA8x` · `lvmAj` · `l1120` · `fATGt` · `U9fmK` · `BZ9WY`) = 칩(`sysyz` 인스턴스, "+" 켬, 높이 44) · gap 4 · 종.
+/// 홈 앱바의 하트 잔액 칩 — pen `Trailing`(홈 6곳: `k13Z5C` · `rCKcm` · `l1120` · `fATGt` · `U9fmK` · `BZ9WY`) = 칩(`sysyz` 인스턴스, "+" 켬, 높이 44) · gap 4 · 종.
 /// 앱바는 어느 상태에서나 같은 한 줄이다 — 요약 읽는 중 · 보통 · 숫자 0 빈 판 · 완성도 100 · 코호트 대기에서 자리가 같은지 본다(pen 은 6곳이 같은 값).
 MyProfile _profile(int hearts) => MyProfile(
   nickname: '여우',

@@ -18,7 +18,7 @@ import 'support.dart';
 /// 화면 글자는 시나리오가 아니라 지금 화면 코드(home/view/cohort_wait_view.dart · common/failure.dart)에서 옮겼다. lib/ 는 바꾸지 않는다.
 /// 이 파일은 `flutter analyze` 만 돌렸고 기기에서는 아직 안 돌려 봤다.
 
-const _cohortLine = '우리 학교 첫 카드까지'; // cohort_wait_view.dart _Hero — "우리 학교 첫 카드까지 · D-5"
+const _cohortLine = '첫 카드까지'; // cohort_wait_view.dart _Hero — "첫 카드까지 · D-5"
 const _recruitLabel = '현재 모집 인원'; // _RecruitPanel
 const _inviteLabel = '친구에게 초대 링크 보내기'; // _InviteButton
 const _networkDown = '네트워크 연결을 확인해 주세요'; // common/failure.dart NetworkFailure — 코드를 못 받았을 때 토스트 글
@@ -92,7 +92,7 @@ final Map<String, Area1Case> area2EmuHomeCases = {
     must(_count(_invite) == 1, '"$_inviteLabel" ${_count(_invite)}개(기대 1)');
     return null;
   }),
-  // 오늘 탭도 같은 대기 화면 — "우리 학교 첫 카드까지" 1개, 카드 목록 0.
+  // 오늘 탭도 같은 대기 화면 — "첫 카드까지" 1개, 카드 목록 0.
   'E-HOME-21': _session((tester, job) async {
     await _waitScreen(tester);
     await tap(tester, navTab('오늘'));
