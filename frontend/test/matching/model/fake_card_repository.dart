@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/matching/model/acceptance.dart';
 import 'package:campus_mate/matching/model/card_detail.dart';
@@ -91,6 +92,21 @@ class FakeCardRepository implements CardRepository {
     final snapshot = acceptances;
     await holdAcceptances?.future;
     return snapshot;
+  }
+
+  /// 받은 신청 · 프로필 보기(`GET /cards/acceptances/{card_id}`)가 돌려줄 값과 읽은 카드 번호들.
+  /// [holdAcceptanceDetail] 을 채우면 그 조회가 멈춘다(읽는 중 화면을 볼 때).
+  Result<CardDetail>? acceptanceDetail;
+  final List<String> acceptanceDetailReads = [];
+  Completer<void>? holdAcceptanceDetail;
+
+  @override
+  Future<Result<CardDetail>> fetchAcceptanceDetail(String cardId) async {
+    acceptanceDetailReads.add(cardId);
+    final hold = holdAcceptanceDetail;
+    if (hold != null) await hold.future;
+    // 채우지 않은 시험(라우터 등)은 화면만 연다 — 없는 신청으로 본다.
+    return acceptanceDetail ?? const FailureResult(NotFoundFailure());
   }
 
   @override

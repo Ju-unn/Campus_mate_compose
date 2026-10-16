@@ -21,6 +21,10 @@ abstract interface class CardRepository {
   Future<Result<String>> purchasePaidCard(String offerId);
   Future<Result<void>> decide(String cardId, CardDecision decision);
   Future<Result<List<Acceptance>>> fetchAcceptances();
+
+  /// 받은 신청 한 건의 상대 프로필(pen `o4QqYR`) — 10b 와 같은 몸통이고 실사진 · 카카오톡 아이디는 없다.
+  /// 남의 것 · 숨김 · 이미 매칭 404, 이미 답함 409, 7일 지남 410 은 서버 문구 그대로 실패로 온다.
+  Future<Result<CardDetail>> fetchAcceptanceDetail(String cardId);
   Future<Result<AcceptanceOutcome>> respondToAcceptance(String cardId, CardDecision decision);
 
   /// 내가 대화 신청한 카드들(대화 탭 "보낸 신청"). 최신 신청 먼저, 최대 50건 — 서버 순서 그대로다.
