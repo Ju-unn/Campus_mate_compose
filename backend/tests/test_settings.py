@@ -31,6 +31,17 @@ def test_a_leftover_card_batch_secret_env_does_not_stop_boot(monkeypatch):
     assert "card_batch_secret" not in Settings().model_dump()
 
 
+def test_a_bad_store_rating_env_does_not_stop_boot(monkeypatch):
+    """홈 리뷰 띠 평점 두 값은 사람이 Cloud Run 에 손으로 넣는다. 숫자가 아니어도 `Settings()` 가 죽으면 서버가
+    아예 안 뜬다 — 부팅은 그대로 하고, 값 검사는 홈 요약이 한다(어긋나면 0 이라 띠가 숨는다)."""
+    monkeypatch.setenv("STORE_RATING", "five")
+    monkeypatch.setenv("STORE_RATING_COUNT", "1.5")
+
+    settings = Settings()
+
+    assert (settings.store_rating, settings.store_rating_count) == ("five", "1.5")
+
+
 def test_settings_requires_all_values(monkeypatch):
     monkeypatch.delenv("SUPABASE_URL", raising=False)
     with pytest.raises(Exception):

@@ -42,9 +42,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-/// 리뷰 띠를 보이는 최소 평가 수(DESIGN §8.9 review-strip · pen `L7wKi` context "출시 전 숨김"). 값은 DESIGN 에 없어 정한
-/// 임시값이다(§13 미결 9 와 같은 사고방식, 결정 대기) — 저장소가 채우는 출시 전 목값(1명 평가)은 이 아래라 숨는다.
-const int _minReviewCount = 10;
+/// 리뷰 띠를 보이는 최소 평가 수(DESIGN §8.9 review-strip · pen `IQUAc`). 서버가 실제 스토어 값만 주므로 한 명이라도 있으면
+/// 보이고, 0 명(서버에 값을 안 넣음 · 잘못 넣음 · 옛 서버)이면 숨긴다(사용자 결정 2026-10-16, 종전 10).
+const int _minReviewCount = 1;
 
 /// 09b 메인(pen `bpA8x` → 새 시안 `M5hpo7` 10-15). hero-today → 24 → mosaic-rail → 24 → 6칸 그리드 → 24 → review-strip → 24 →
 /// campus-strip → 24 → 완성도 카드. 요약을 못 받으면(조회 중·실패) hero-today 만 남긴다 — 카드로 가는 길은 요약과 상관없다.

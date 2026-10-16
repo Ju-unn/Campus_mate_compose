@@ -55,7 +55,43 @@ void main() {
     expect(summary.profileCompletionPercent, 70);
   });
 
-  test('서버에 아직 없는 리뷰 값은 목값으로 채운다(사용자 결정 2026-10-09)', () async {
+  test('리뷰 띠 값은 서버의 실제 스토어 평점 · 평가 수(store_rating · store_rating_count)를 그대로 읽는다', () async {
+    final client = MockClient((_) async => jsonResponse({
+          'delivered_cards': 0,
+          'signups': 0,
+          'conversations_started': 0,
+          'campuses': <String>[],
+          'profile_completion_percent': 0,
+          'store_rating': 4.3,
+          'store_rating_count': 27,
+        }));
+
+    final result = await buildRepository(client).fetchSummary();
+
+    final summary = result.when<HomeSummary?>(onSuccess: (s) => s, onFailure: (_) => null)!;
+    expect(summary.reviewRating, 4.3);
+    expect(summary.reviewCount, 27);
+  });
+
+  test('평점이 정수 JSON(5)이어도 소수로 읽는다', () async {
+    final client = MockClient((_) async => jsonResponse({
+          'delivered_cards': 0,
+          'signups': 0,
+          'conversations_started': 0,
+          'campuses': <String>[],
+          'profile_completion_percent': 0,
+          'store_rating': 5,
+          'store_rating_count': 1,
+        }));
+
+    final result = await buildRepository(client).fetchSummary();
+
+    final summary = result.when<HomeSummary?>(onSuccess: (s) => s, onFailure: (_) => null)!;
+    expect(summary.reviewRating, 5.0);
+    expect(summary.reviewCount, 1);
+  });
+
+  test('옛 서버(리뷰 칸 없음)면 0 · 0 이다 — 지어낸 값을 채우지 않고, 화면은 띠를 숨긴다', () async {
     final client = MockClient((_) async => jsonResponse({
           'delivered_cards': 0,
           'signups': 0,
@@ -67,9 +103,8 @@ void main() {
     final result = await buildRepository(client).fetchSummary();
 
     final summary = result.when<HomeSummary?>(onSuccess: (s) => s, onFailure: (_) => null)!;
-    // 리뷰 띠는 출시 전 임시 값 5.0 · 1(사용자 결정 2026-10-09). 레일 사람 칸은 요약이 아니라 `/home/people` 이 준다.
-    expect(summary.reviewRating, 5.0);
-    expect(summary.reviewCount, 1);
+    expect(summary.reviewRating, 0);
+    expect(summary.reviewCount, 0);
   });
 
   test('cohort 가 null 이면 대기 없음이다(이미 열린 학교)', () async {

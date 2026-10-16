@@ -11,6 +11,7 @@ from app.core.deps import Caller, get_verified_caller
 from app.home.completion import completion_percent
 from app.home.repository import HomeRepository
 from app.profile_onboarding.storage import AvatarStorage
+from app.settings import Settings
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,20 @@ HOME_PEOPLE_COUNT = 12
 # 5명(사용자 결정 2026-10-16, 종전 10명). 후보 수로 센다 — 후보가 5명이 넘어도 사진 몇 장을 못 만들면 5장보다 적게 나갈 수
 # 있다(남은 사진은 그대로 준다).
 HOME_PEOPLE_MIN = 5
+
+
+def _store_rating(settings: Settings) -> dict:
+    """review-strip 의 실제 스토어 평점 · 평가 수(env `STORE_RATING` · `STORE_RATING_COUNT`). 하나라도 어긋나면 둘 다 0 —
+    앱은 평가 수 0 이면 띠를 숨긴다(가짜 숫자를 보이지 않는다)."""
+    none = {"store_rating": 0.0, "store_rating_count": 0}
+    try:
+        rating, count = float(settings.store_rating), int(settings.store_rating_count)
+    except ValueError:
+        return none
+    # `0 <= rating` 이 NaN 도 거른다. 스토어 별점은 1~5 라 평가가 있는데 1 미만이면 평점을 빠뜨린 설정이다.
+    if count < 0 or not 0 <= rating <= 5 or (count > 0 and rating < 1):
+        return none
+    return {"store_rating": rating, "store_rating_count": count}
 
 
 def get_rng() -> random.Random:
@@ -118,4 +133,5 @@ async def get_home_summary(caller: Caller = Depends(get_verified_caller)) -> dic
             interest_tags=me["interest_tags"],
         ),
         "cohort": cohort,
+        **_store_rating(settings),
     }

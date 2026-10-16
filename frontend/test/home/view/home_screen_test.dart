@@ -89,11 +89,18 @@ void main() {
     profileCompletionPercent: 40,
   );
 
-  HomeSummary summaryWith({int? delivered, int? signups, int? conversations, int? percent, int? reviews}) => HomeSummary(
+  HomeSummary summaryWith({
+    int? delivered,
+    int? signups,
+    int? conversations,
+    int? percent,
+    double? rating,
+    int? reviews,
+  }) => HomeSummary(
     deliveredCards: delivered ?? summary.deliveredCards,
     signups: signups ?? summary.signups,
     conversationsStarted: conversations ?? summary.conversationsStarted,
-    reviewRating: summary.reviewRating,
+    reviewRating: rating ?? summary.reviewRating,
     reviewCount: reviews ?? summary.reviewCount,
     campuses: summary.campuses,
     profileCompletionPercent: percent ?? summary.profileCompletionPercent,
@@ -451,14 +458,24 @@ void main() {
     expect(find.text('리뷰 남기기'), findsOneWidget);
   });
 
-  testWidgets('review-strip — 평가 수가 임계값 미만이면 위 여백까지 블록째 숨기고 그리드 아래 24 에 참여 대학이 온다', (tester) async {
+  testWidgets('review-strip — 평가가 0명이면 위 여백까지 블록째 숨기고 그리드 아래 24 에 참여 대학이 온다', (tester) async {
     penFrame(tester);
-    // 서버에 아직 없는 값이라 저장소가 채우는 목값("5.0 (1명 평가)")이 이 경우다.
-    await pump(tester, result: Success(summaryWith(reviews: 1)));
+    // 서버 env 를 넣지 않았거나 잘못 넣었을 때 · 옛 서버(칸 없음)가 이 경우다 — 0 · 0.
+    await pump(tester, result: Success(summaryWith(rating: 0, reviews: 0)));
 
     expect(find.text('리뷰 남기기'), findsNothing);
-    expect(find.text('(1명 평가)'), findsNothing);
+    expect(find.text('(0명 평가)'), findsNothing);
     expect(tester.getTopLeft(find.text('참여 중인 대학')).dy - tester.getBottomLeft(find.byType(HomeGrid)).dy, 24);
+  });
+
+  testWidgets('review-strip — 실제 평가가 1명이라도 있으면 보인다: "5.0" · "(1명 평가)"(pen `IQUAc`), 그리드 아래 24', (tester) async {
+    penFrame(tester);
+    await pump(tester, result: Success(summaryWith(rating: 5, reviews: 1)));
+
+    expect(find.text('5.0'), findsOneWidget);
+    expect(find.text('(1명 평가)'), findsOneWidget);
+    final review = tester.getRect(find.ancestor(of: find.text('리뷰 남기기'), matching: find.byType(Container)).last);
+    expect(review.top - tester.getRect(find.byType(HomeGrid)).bottom, 24);
   });
 
   testWidgets('버튼 글자 — 히어로 `YiLtq` 18/700 · 리뷰 `ifX9K` 16/700', (tester) async {

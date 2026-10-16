@@ -16,9 +16,9 @@ class HttpHomeRepository implements HomeRepository {
         final json = body as Map<String, dynamic>;
         final cohort = json['cohort'] as Map<String, dynamic>?;
         return HomeSummary(
-          // ponytail: 출시 전 임시 값(개발자 본인 평가 1건, 사용자 결정 2026-10-09). 실제 스토어 평점·서버 집계가 생기면 서버 값으로 교체한다.
-          reviewRating: 5.0,
-          reviewCount: 1,
+          // 실제 스토어 평점 · 평가 수(서버 env, 사용자 결정 2026-10-16). 옛 서버는 칸이 없어 0 — 화면이 띠를 숨긴다.
+          reviewRating: (json['store_rating'] as num?)?.toDouble() ?? 0,
+          reviewCount: json['store_rating_count'] as int? ?? 0,
           deliveredCards: json['delivered_cards'] as int,
           signups: json['signups'] as int,
           conversationsStarted: json['conversations_started'] as int,
