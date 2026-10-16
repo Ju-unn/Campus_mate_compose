@@ -310,6 +310,32 @@ async def get_acceptances(wiring: _Wiring = Depends(_wire)) -> dict:
     return {"acceptances": acceptances}
 
 
+@router.get("/cards/acceptances/{card_id}")
+async def get_acceptance_detail(card_id: str, wiring: _Wiring = Depends(_wire)) -> dict:
+    """받은 신청 · 프로필 보기(pen `o4QqYR`). 받는 사람이 수락하기 전에 상대를 10b 카드 상세와 같은 몸통으로 본다 —
+    실사진 · 카카오톡 아이디는 여전히 없다(신뢰 확인 뒤 14c). 보기만 하고 아무것도 쓰지 않는다.
+    거부 판정은 수락 응답(respond_to_acceptance)과 같은 순서 · 같은 코드다: 남의 것 · 수락 아님 · 숨김 404,
+    이미 답함 409, 7일 지남 410. 받은 신청 목록처럼 이미 매칭된 상대도 404 다(목록에 없는 줄은 열리지도 않는다)."""
+    now = wiring.now
+
+    card = await wiring.repo.fetch_card(card_id)
+    accepted = (card or {}).get("card_decisions") or {}
+    if card is None or card["target_id"] != wiring.profile_id or accepted.get("decision") != "accept":
+        raise HTTPException(status_code=404, detail=errors.ACCEPTANCE_NOT_FOUND)
+    accepter_id = card["owner_id"]
+    profile = await wiring.repo.fetch_card_detail_profile(accepter_id)
+    # 행이 없으면(지워진 계정) 그릴 몸통이 없다 — 숨김과 똑같이 404.
+    if not profile or _hidden_from_cards(accepter_id, profile, await _blocked_among(wiring, [accepter_id])):
+        raise HTTPException(status_code=404, detail=errors.ACCEPTANCE_NOT_FOUND)
+    if card["acceptance_responses"]:
+        raise HTTPException(status_code=409, detail=errors.ACCEPTANCE_ALREADY_ANSWERED)
+    if datetime.fromisoformat(accepted["decided_at"]) <= now - timedelta(days=ACCEPTANCE_TTL_DAYS):
+        raise HTTPException(status_code=410, detail=errors.ACCEPTANCE_EXPIRED)
+    if accepter_id in await wiring.repo.fetch_match_partner_ids(wiring.profile_id):
+        raise HTTPException(status_code=404, detail=errors.ACCEPTANCE_NOT_FOUND)
+    return {"card_id": card["id"], **await profile_detail(wiring.repo, profile, wiring.settings.supabase_url, now)}
+
+
 def _sent_state(response: dict | None, match: dict | None, expires_at: datetime,
                 now: datetime) -> tuple[str, datetime | None]:
     """(상태, 끝난 시각). 매칭 > 상대 응답 > 기한 순으로 본다. 매칭은 상대 카드로 생겼어도 친다(결정 11) —
