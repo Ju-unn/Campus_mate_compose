@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/labeled_field.dart';
 import 'package:campus_mate/profile/model/basic_info_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
@@ -45,12 +48,12 @@ void main() {
     expect(typed(heightInputFormatters, '1750'), '175');
   });
 
-  Future<void> pumpScreen(WidgetTester tester) async {
+  Future<void> pumpScreen(WidgetTester tester, {FakeBasicInfoRepository? repository}) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           basicInfoNowProvider.overrideWithValue(() => DateTime(2026, 6, 1)),
-          basicInfoRepositoryProvider.overrideWithValue(FakeBasicInfoRepository()),
+          basicInfoRepositoryProvider.overrideWithValue(repository ?? FakeBasicInfoRepository()),
           onboardingRepositoryProvider.overrideWithValue(FakeOnboardingRepository()),
         ],
         child: const MaterialApp(home: BasicInfoScreen()),
@@ -112,5 +115,68 @@ void main() {
     await tester.pump();
 
     expect(find.text('올바른 휴대폰 번호를 입력해 주세요'), findsNothing);
+  });
+
+  testWidgets('"다음" 을 누르면 보내는 동안 버튼에 도는 표시가 돌고, 두 번 눌러도 한 번만 가며 입력칸 · 성별이 잠긴다', (tester) async {
+    tester.view.physicalSize = const Size(360, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final repository = FakeBasicInfoRepository()..submitGate = Completer<void>();
+    await pumpScreen(tester, repository: repository);
+    Finder field(String label) =>
+        find.descendant(of: find.widgetWithText(LabeledField, label), matching: find.byType(TextField));
+    String? gender() => ProviderScope.containerOf(tester.element(find.byType(BasicInfoScreen)))
+        .read(basicInfoViewModelProvider)
+        .gender;
+    final button = find.byType(AppButton);
+    final spinner = find.descendant(of: button, matching: find.byType(CircularProgressIndicator));
+
+    await tester.enterText(field('닉네임 · 필수'), '홍길동');
+    await tester.pump(const Duration(milliseconds: 300)); // 닉네임 중복 확인(입력 뒤 300ms)
+    await tester.enterText(field('출생연도 · 필수'), '2003');
+    await tester.enterText(field('키 (cm) · 필수'), '170');
+    await tester.enterText(field('전화번호 · 필수'), '01048217395');
+    await tester.tap(find.text('남성'));
+    await tester.pump();
+    await tester.showKeyboard(field('닉네임 · 필수'));
+    expect(spinner, findsNothing);
+
+    await tester.tap(button);
+    await tester.pump();
+
+    expect(repository.submitCount, 1);
+    expect(spinner, findsOneWidget);
+    expect(find.descendant(of: button, matching: find.text('다음')), findsNothing);
+    // pen 04-1 저장 중(`g0K1T2`): Button · Loading — 흰 스피너 20 · 글자 없음 · 높이 52, 입력칸 투명도 0.5.
+    expect(tester.getSize(spinner), const Size(20, 20));
+    expect(tester.widget<CircularProgressIndicator>(spinner).color, const Color(0xFFFFFFFF));
+    expect(tester.getSize(button).height, 52);
+    double opacityOf(Finder finder) =>
+        tester.widgetList<Opacity>(find.ancestor(of: finder, matching: find.byType(Opacity))).fold(1.0, (a, o) => a * o.opacity);
+    for (final label in ['닉네임 · 필수', '출생연도 · 필수', '키 (cm) · 필수', '전화번호 · 필수']) {
+      expect(opacityOf(field(label)), 0.5, reason: label);
+    }
+    expect(opacityOf(find.text('남성')), 0.5);
+    expect(opacityOf(find.text('정확한 정보일수록 더 잘 맞는 상대를 만나요.')), 1, reason: '제목 · 부제는 흐리지 않는다');
+    // 보내는 중에는 입력칸에 초점이 없고(키보드가 내려간다) 다시 눌러도 잡히지 않는다.
+    for (final editable in tester.stateList<EditableTextState>(find.byType(EditableText))) {
+      expect(editable.widget.focusNode.hasFocus, isFalse);
+    }
+
+    await tester.tap(button, warnIfMissed: false);
+    await tester.tap(find.text('여성'), warnIfMissed: false);
+    await tester.tap(field('출생연도 · 필수'), warnIfMissed: false);
+    await tester.pump();
+
+    expect(repository.submitCount, 1, reason: '두 번 눌러도 한 번만 보낸다');
+    expect(gender(), 'male', reason: '보내는 중에는 성별을 못 바꾼다');
+    for (final editable in tester.stateList<EditableTextState>(find.byType(EditableText))) {
+      expect(editable.widget.focusNode.hasFocus, isFalse);
+    }
+
+    repository.submitGate!.complete();
+    await tester.pumpAndSettle();
+    expect(spinner, findsNothing);
+    expect(opacityOf(field('닉네임 · 필수')), 1);
   });
 }
