@@ -1029,5 +1029,10 @@ void main() {
     expect(find.descendant(of: free, matching: find.byType(HeartTaskRow, skipOffstage: false)), findsNWidgets(3));
     final top = find.byWidgetPredicate((w) => w is TourTarget && w.id == TourTargetId.heartStoreTop);
     expect(find.descendant(of: top, matching: find.byType(Image)), findsOneWidget);
+    // 6단계가 무료로 모으기를 앱바 아래로 올릴 수 있게 목록 맨 끝에 빈자리를 둔다 — 투어가 없으면 높이 0(화면 그대로).
+    final list = tester.widget<ListView>(find.byType(ListView));
+    final last = (list.childrenDelegate as SliverChildListDelegate).children.last;
+    expect(last, isA<TourScrollRoom>().having((room) => room.id, 'id', TourTargetId.heartStoreFree));
+    expect(tester.getSize(find.byType(TourScrollRoom, skipOffstage: false)).height, 0);
   });
 }

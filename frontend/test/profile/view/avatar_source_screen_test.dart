@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -137,5 +138,56 @@ void main() {
     await pump(tester, photoCount: 4);
 
     expect(find.text('대표'), findsNothing);
+  });
+
+  group('서버가 글자 많은 사진을 거절(422 `photo_looks_like_document`)', () {
+    /// 04-2 자리 위에 04-3 을 올린 뒤 "이 사진으로 아바타 만들기" 를 누른다.
+    Future<void> submitOnTopOf04_2(WidgetTester tester, {String? code}) async {
+      final photos = FakePhotosRepository()
+        ..resultAt[1] = FailureResult(ServerRejectedFailure('서버 임시 문구', code: code));
+      final container = ProviderContainer(
+        overrides: [
+          photosRepositoryProvider.overrideWithValue(photos),
+          imageCompressorProvider.overrideWithValue(FakeImageCompressor()),
+          faceDetectorProvider.overrideWithValue(FakeFaceDetector()),
+        ],
+      );
+      addTearDown(container.dispose);
+      final files = [for (var i = 0; i < 3; i++) photoFile('photo-$i.png')];
+      var index = 0;
+      final viewModel = container.read(photosViewModelProvider.notifier)
+        ..pickFromGallery = (limit) async => [files[index++]];
+      for (var i = 0; i < 3; i++) {
+        await viewModel.addPhoto();
+      }
+      viewModel.prepareAvatarSource();
+      final navigator = GlobalKey<NavigatorState>();
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(navigatorKey: navigator, home: const Text('04-2 자리')),
+        ),
+      );
+      unawaited(navigator.currentState!.push(MaterialPageRoute<void>(builder: (_) => const AvatarSourceScreen())));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(AppButton));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('사진을 고칠 수 있는 04-2 로 돌아간다 — 서버 문구는 04-3 에 띄우지 않는다', (tester) async {
+      await submitOnTopOf04_2(tester, code: 'photo_looks_like_document');
+
+      expect(find.byType(AvatarSourceScreen), findsNothing);
+      expect(find.text('04-2 자리'), findsOneWidget);
+      expect(find.text('서버 임시 문구'), findsNothing);
+    });
+
+    testWidgets('모르는 code 는 지금처럼 04-3 에 머물며 서버 문구를 안내 카드 아래에 보인다', (tester) async {
+      await submitOnTopOf04_2(tester, code: 'photo_unsafe');
+
+      expect(find.byType(AvatarSourceScreen), findsOneWidget);
+      expect(find.text('서버 임시 문구'), findsOneWidget);
+    });
   });
 }

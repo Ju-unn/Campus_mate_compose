@@ -361,6 +361,107 @@ void main() {
     expect(container.read(photosViewModelProvider).errorMessage, isNotNull);
   });
 
+  group('서버가 글자 많은 사진을 거절(422 `photo_looks_like_document`)', () {
+    const document = FailureResult<void>(ServerRejectedFailure('서버 임시 문구', code: photoLooksLikeDocumentCode));
+
+    Future<PhotosViewModel> threePhotos() async {
+      final viewModel = buildViewModel([File('a.jpg'), File('b.jpg'), File('c.jpg')]);
+      for (var i = 0; i < 3; i++) {
+        await viewModel.addPhoto();
+      }
+      viewModel.setAvatarSource(0);
+      return viewModel;
+    }
+
+    List<String> paths() => [for (final photo in container.read(photosViewModelProvider).photos) photo.file!.path];
+
+    test('거절된 그 사진만 칸에서 빼고 문서 사진 표시를 켠다 — 서버 문구는 쓰지 않고 아바타 작업도 등록하지 않는다', () async {
+      final viewModel = await threePhotos();
+      repository.resultAt[1] = document;
+
+      await viewModel.submit();
+
+      final state = container.read(photosViewModelProvider);
+      expect(state.documentRejected, isTrue);
+      expect(state.errorMessage, isNull);
+      expect(paths(), ['a.jpg', 'c.jpg']);
+      expect((state.isSubmitting, state.completed), (false, false));
+      expect(avatarRepository.generateCount, 0);
+    });
+
+    for (final (name, clear) in <(String, Future<void> Function(PhotosViewModel))>[
+      ('사진을 빼면', (viewModel) async => viewModel.removePhoto(0)),
+      ('새로 고르면', (viewModel) async {
+        viewModel.pickFromGallery = (limit) async => [File('d.jpg')];
+        await viewModel.addPhoto();
+      }),
+      ('다시 올리면', (viewModel) async {
+        repository.resultAt.clear();
+        viewModel.setAvatarSource(0);
+        await viewModel.submit();
+      }),
+    ]) {
+      test('$name 표시가 꺼진다', () async {
+        final viewModel = await threePhotos();
+        repository.resultAt[1] = document;
+        await viewModel.submit();
+        expect(container.read(photosViewModelProvider).documentRejected, isTrue);
+
+        await clear(viewModel);
+
+        expect(container.read(photosViewModelProvider).documentRejected, isFalse);
+      });
+    }
+
+    test('올리는 동안 목록이 바뀌어도 거절된 그 사진만 뺀다 — 자리 번호가 아니라 사진으로 찾는다', () async {
+      final viewModel = await threePhotos();
+      repository
+        ..holdAt[1] = Completer<void>()
+        ..resultAt[1] = document;
+
+      final submitting = viewModel.submit();
+      await Future<void>.delayed(Duration.zero);
+      viewModel.removePhoto(0); // 올리는 중에 앞 사진이 빠진다 → [b, c]
+      repository.holdAt[1]!.complete();
+      await submitting;
+
+      expect(paths(), ['c.jpg'], reason: '거절된 b 만 빠지고 c 는 남는다');
+      expect(container.read(photosViewModelProvider).documentRejected, isTrue);
+    });
+
+    test('올리는 동안 목록이 짧아져도 RangeError 없이 거절된 사진만 뺀다', () async {
+      final viewModel = await threePhotos();
+      repository
+        ..holdAt[2] = Completer<void>()
+        ..resultAt[2] = document;
+
+      final submitting = viewModel.submit();
+      await Future<void>.delayed(Duration.zero);
+      viewModel
+        ..removePhoto(0)
+        ..removePhoto(0); // → [c] — 거절된 칸 번호 2 는 이제 없다
+      repository.holdAt[2]!.complete();
+      await submitting;
+
+      final state = container.read(photosViewModelProvider);
+      expect(paths(), isEmpty);
+      expect(state.documentRejected, isTrue);
+      expect(state.errorMessage, isNull, reason: '알 수 없는 오류로 떨어지지 않는다');
+    });
+
+    test('모르는 code 는 지금처럼 서버 문구를 그대로 보이고 사진은 그대로다', () async {
+      final viewModel = await threePhotos();
+      repository.resultAt[1] = const FailureResult(ServerRejectedFailure('부적절한 사진이에요', code: 'photo_unsafe'));
+
+      await viewModel.submit();
+
+      final state = container.read(photosViewModelProvider);
+      expect(state.documentRejected, isFalse);
+      expect(state.errorMessage, '부적절한 사진이에요');
+      expect(paths(), ['a.jpg', 'b.jpg', 'c.jpg']);
+    });
+  });
+
   group('임시 저장', () {
     late FakeDraftStore drafts;
     late Directory dir;

@@ -1,8 +1,7 @@
 import 'dart:convert';
 import 'dart:math' as math;
+import 'dart:ui' show ImageFilter, TileMode;
 
-import 'package:campus_mate/common/widgets/icon_3d.dart';
-import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/home/model/home_people.dart';
 import 'package:campus_mate/home/view/mosaic_rail.dart';
 import 'package:campus_mate/home/view/mosaic_tile.dart';
@@ -96,40 +95,78 @@ void main() {
     });
   });
 
-  group('인원 부족 `HhKIR`(Home Mosaic Rail · 인원 부족) — 서버가 빈 목록', () {
-    testWidgets('레일을 숨기지 않고 기본 그림 칸 2 + 끝 빈 칸을 한 벌로 되풀이한다 · 사람 칸 없음', (tester) async {
+  group('인원 부족 `HhKIR`(Home Mosaic Rail · 인원 부족) — 서버가 빈 목록 · 못 받음 · 받는 중', () {
+    const park = 'assets/images/example-photo-park-v1.webp';
+    const cafe = 'assets/images/example-photo-cafe-v1.webp';
+
+    testWidgets('레일을 숨기지 않고 흐린 예시 사진 칸 2(공원 · 카페) + 토끼 마스코트 칸을 한 벌로 되풀이한다 · 사람 칸 · 빈 칸 없음', (tester) async {
       await pumpRail(tester, HomePeople.none);
 
       expect(find.byType(MosaicRail), findsOneWidget);
       expect(find.byType(MosaicPersonTile), findsNothing);
-      final copies = find.byType(MosaicEmptyTile).evaluate().length;
+      expect(find.byType(MosaicEmptyTile), findsNothing);
+      final copies = find.byType(MosaicMascotTile).evaluate().length;
       expect(copies, greaterThanOrEqualTo(2));
       expect(find.byType(MosaicDefaultTile).evaluate().length, 2 * copies);
+      // 한 벌 순서: 공원 → 카페 → 마스코트(왼쪽부터 되풀이).
+      final tiles = [
+        for (final type in [MosaicDefaultTile, MosaicMascotTile])
+          for (var i = 0; i < find.byType(type).evaluate().length; i++)
+            (
+              tester.getRect(find.byType(type).at(i)).left,
+              switch (tester.widget(find.byType(type).at(i))) { MosaicDefaultTile(:final asset) => asset, _ => 'mascot' },
+            ),
+      ]..sort((a, b) => a.$1.compareTo(b.$1));
+      final order = [for (final (_, kind) in tiles) kind];
+      for (var i = 1; i < order.length; i++) {
+        expect(order[i], switch (order[i - 1]) { park => cafe, cafe => 'mascot', _ => park }, reason: '$i');
+      }
       expect(tester.getSize(find.byType(MosaicRail)).height, 140);
     });
 
-    testWidgets('기본 그림 칸 `HYaRA` — 112×140 · 모서리 14 · primary-wash · 가운데 3D 사용자(`U17hk`) 56 · 글자 없음', (tester) async {
+    testWidgets('예시 사진 칸 — 112×140 · 모서리 14 로 자른 AI 가상 인물 사진 136×170 을 blur 10 으로 흐림(번짐은 칸 밖이라 잘림) · 글자 없음', (tester) async {
       await pumpRail(tester, HomePeople.none);
 
-      final tile = find.byType(MosaicDefaultTile).first;
+      for (final asset in [park, cafe]) {
+        final tile = find.byWidgetPredicate((w) => w is MosaicDefaultTile && w.asset == asset).first;
+        expect(tester.getSize(tile), const Size(112, 140), reason: asset);
+        final clip = tester.widget<ClipRRect>(find.descendant(of: tile, matching: find.byType(ClipRRect)).first);
+        expect(clip.borderRadius, BorderRadius.circular(14), reason: asset);
+        final image = find.descendant(of: tile, matching: find.byType(Image));
+        expect((tester.widget<Image>(image).image as AssetImage).assetName, asset);
+        expect(tester.widget<Image>(image).fit, BoxFit.cover);
+        expect(tester.getSize(image), const Size(136, 170), reason: asset);
+        expect(tester.getCenter(image), tester.getCenter(tile), reason: asset);
+        final blur = tester.widget<ImageFiltered>(find.descendant(of: tile, matching: find.byType(ImageFiltered)));
+        expect(blur.imageFilter, ImageFilter.blur(sigmaX: 10, sigmaY: 10, tileMode: TileMode.clamp), reason: asset);
+        expect(find.descendant(of: tile, matching: find.byType(Text)), findsNothing);
+      }
+    });
+
+    testWidgets('마스코트 칸 — 112×140 · 모서리 14 · primary-wash · 기다리는 토끼(`mascot-male-waiting`) 88×88 가운데', (tester) async {
+      await pumpRail(tester, HomePeople.none);
+
+      final tile = find.byType(MosaicMascotTile).first;
       expect(tester.getSize(tile), const Size(112, 140));
       final box = tester.widget<Container>(find.descendant(of: tile, matching: find.byType(Container)).first).decoration!
           as BoxDecoration;
       expect((box.color, box.borderRadius), (const Color(0xFFFFF0F2), BorderRadius.circular(14)));
-      final icon = find.descendant(of: tile, matching: find.byType(Icon3d));
-      expect((tester.widget<Icon3d>(icon).icon, tester.widget<Icon3d>(icon).size), (AppIcon3d.users, 56.0));
-      expect(tester.getCenter(icon), tester.getCenter(tile));
+      final mascot = find.descendant(of: tile, matching: find.byType(Image));
+      expect((tester.widget<Image>(mascot).image as AssetImage).assetName, 'assets/images/mascot-male-waiting.png');
+      expect(tester.getSize(mascot), const Size(88, 88));
+      expect(tester.getCenter(mascot), tester.getCenter(tile));
       expect(find.descendant(of: tile, matching: find.byType(Text)), findsNothing);
     });
 
-    testWidgets('사람 그림(선명한 일러스트 · 네트워크 그림)을 쓰지 않는다 — 그림은 3D 아이콘뿐', (tester) async {
+    testWidgets('기본 상태 그림은 모두 장식이다 — 화면 읽기에 아무것도 읽히지 않는다', (tester) async {
+      final semantics = tester.ensureSemantics();
       await pumpRail(tester, HomePeople.none);
 
       final images = tester.widgetList<Image>(find.descendant(of: find.byType(MosaicRail), matching: find.byType(Image)));
       expect(images, isNotEmpty);
-      for (final image in images) {
-        expect((image.image as ResizeImage).imageProvider, const AssetImage('assets/icons/ui-3d-users.webp'));
-      }
+      expect(images.every((image) => image.excludeFromSemantics), isTrue);
+      expect(find.descendant(of: find.byType(MosaicRail), matching: find.byType(Text)), findsNothing);
+      semantics.dispose();
     });
   });
 

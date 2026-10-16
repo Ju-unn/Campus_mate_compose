@@ -19,9 +19,17 @@ class FakeBasicInfoRepository implements BasicInfoRepository {
     return nextAvailabilityResult;
   }
 
+  /// 보낸 횟수 — 두 번 눌러도 한 번만 가는지 본다.
+  int submitCount = 0;
+
+  /// 채워 두면 보내기가 여기서 멈춘다 — "보내는 중" 화면을 테스트가 볼 때만 쓴다.
+  Completer<void>? submitGate;
+
   @override
   Future<Result<void>> submit(BasicInfoSubmission submission) async {
+    submitCount++;
     submitted = submission;
+    await submitGate?.future;
     return nextSubmitResult;
   }
 }

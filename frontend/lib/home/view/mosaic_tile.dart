@@ -1,8 +1,7 @@
 import 'dart:typed_data';
+import 'dart:ui' show ImageFilter, TileMode;
 
-import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
-import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
@@ -11,6 +10,18 @@ import 'package:flutter/material.dart';
 /// 사람 칸 · 기본 그림 칸 · 빈 칸 폭(pen `O5FCD9` · `HYaRA` · `FqMYC`). 글자를 키워도 늘지 않아 레일이 한 벌 폭을 계산한다.
 const double mosaicTileWidth = 112;
 const double _height = 140;
+
+/// 기본 상태 예시 사진 — 04-2 "이런 사진이 좋아요" 와 같은 AI 가상 인물 그림(실존 인물 아님, `photo_example.dart`). 한 벌에 이 순서로 둔다.
+const List<String> mosaicExamplePhotos = [
+  'assets/images/example-photo-park-v1.webp',
+  'assets/images/example-photo-cafe-v1.webp',
+];
+
+/// 예시 사진을 칸보다 사방으로 더 크게 그리는 거리(음수) — 112×140 칸이면 pen 그림 136×170. 칸 틀이 흐린 가장자리를 잘라 낸다.
+const Offset _exampleBleed = Offset((mosaicTileWidth - 136) / 2, (_height - 170) / 2);
+
+/// pen blur 10.
+const double _exampleBlur = 10;
 
 /// mosaic-rail 사람 칸(pen `O5FCD9` Home Rail Tile · Blur Avatar). 서버가 실제 가입자 아바타를 **이미 흐리게** 줄여 준 그림을
 /// 그대로 그린다 — 앱에서 다시 흐리지 않는다. 이름 · 학교 · 배지 · 누름이 없는 장식이라 화면 읽기에서 뺀다.
@@ -32,17 +43,56 @@ class MosaicPersonTile extends StatelessWidget {
         // 레일이 다시 그려져도(같은 그림) 빈칸으로 깜빡이지 않는다.
         gaplessPlayback: true,
         excludeFromSemantics: true,
-        // 그림을 못 풀면 기본 그림 칸 모양으로 둔다 — 레일에 구멍을 내지 않는다.
+        // 그림을 못 풀면 기본 상태 예시 칸 모양으로 둔다 — 레일에 구멍을 내지 않는다.
         errorBuilder: (context, error, stackTrace) => const MosaicDefaultTile(),
       ),
     );
   }
 }
 
-/// 사람 칸 자리의 기본 그림(pen `HYaRA` Home Rail Tile · 기본 그림) — 인원이 모자라(서버 빈 목록) · 못 받았거나 · 받는 중일 때.
-/// primary-wash 바탕 가운데 3D 사용자 아이콘(`U17hk`) 56 만 둔다. 실제 가입자가 아니라 사람 그림(선명한 일러스트)을 넣지 않는다 — 가짜 사람으로 보이지 않게.
+/// 사람 칸 자리의 기본 상태 칸(pen 10-16 campus-pen 확정) — 인원이 모자라(서버 빈 목록) · 못 받았거나 · 받는 중일 때.
+/// AI 가상 인물 예시 사진([mosaicExamplePhotos])을 흐려 112×140 · 모서리 14 로 잘라 둔다. 실제 가입자가 아니다 — 장식이라 화면 읽기에서 뺀다.
 class MosaicDefaultTile extends StatelessWidget {
-  const MosaicDefaultTile({super.key});
+  const MosaicDefaultTile({this.asset = 'assets/images/example-photo-park-v1.webp', super.key});
+
+  /// 그릴 예시 사진(에셋 경로).
+  final String asset;
+
+  @override
+  Widget build(BuildContext context) {
+    // 칸 틀(폭 112 · 높이 140 이상)은 빈 상자가 정하고, 그림은 사방으로 더 크게(pen 136×170) 깔아 흐린 가장자리를 틀 밖으로 보낸다.
+    // 레일은 IntrinsicHeight 로 칸 높이를 재므로 그림 크기가 높이에 끼어들지 않게 Positioned 로 둔다.
+    return SizedBox(
+      width: mosaicTileWidth,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        child: Stack(
+          children: [
+            const SizedBox(width: mosaicTileWidth, height: _height),
+            Positioned(
+              left: _exampleBleed.dx,
+              right: _exampleBleed.dx,
+              top: _exampleBleed.dy,
+              bottom: _exampleBleed.dy,
+              child: ImageFiltered(
+                // clamp — 가장자리를 투명하게 바래지 않고 끝 색으로 채운다(틀 안에 흐린 테두리가 비치지 않게).
+                imageFilter: ImageFilter.blur(sigmaX: _exampleBlur, sigmaY: _exampleBlur, tileMode: TileMode.clamp),
+                child: Image.asset(asset, fit: BoxFit.cover, excludeFromSemantics: true),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 기본 상태 한 벌 끝의 마스코트 칸(pen 10-16 campus-pen 확정) — primary-wash 바탕 가운데 기다리는 토끼(`mascot-male-waiting`) 88.
+/// 사람 칸이 있을 때 끝에 붙는 [MosaicEmptyTile] 자리를 기본 상태에서는 이 칸이 맡는다. 장식이라 화면 읽기에서 뺀다.
+class MosaicMascotTile extends StatelessWidget {
+  const MosaicMascotTile({super.key});
+
+  static const double _mascotSize = 88;
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +101,13 @@ class MosaicDefaultTile extends StatelessWidget {
       constraints: const BoxConstraints(minHeight: _height),
       alignment: Alignment.center,
       decoration: BoxDecoration(color: AppColors.primaryWash, borderRadius: BorderRadius.circular(AppRadius.md)),
-      child: const Icon3d(AppIcon3d.users, size: 56),
+      child: Image.asset(
+        'assets/images/mascot-male-waiting.png',
+        width: _mascotSize,
+        height: _mascotSize,
+        fit: BoxFit.contain,
+        excludeFromSemantics: true,
+      ),
     );
   }
 }

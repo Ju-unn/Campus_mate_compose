@@ -645,13 +645,16 @@ void main() {
       expect(find.byType(MosaicDefaultTile), findsNothing);
     });
 
-    testWidgets('서버가 빈 목록(인원 부족)이면 레일을 숨기지 않고 기본 그림 칸 2 + 빈 칸, 자리는 pen 그대로', (tester) async {
+    testWidgets('서버가 빈 목록(인원 부족)이면 레일을 숨기지 않고 흐린 예시 사진 칸 2 + 토끼 마스코트 칸, 자리는 pen 그대로', (tester) async {
       penFrame(tester);
       await pump(tester, home: FakeHomeRepository(const Success(summary), people: const Success(HomePeople.none)));
 
-      expect(find.text('지금 함께 있는 사람들'), findsOneWidget);
+      // 예시 사진을 실제 가입자로 오해하지 않게 제목도 바꾼다(사용자 "알아서 진행" — 추천안).
+      expect(find.text('곧 더 많은 사람들이 모여요'), findsOneWidget);
+      expect(find.text('지금 함께 있는 사람들'), findsNothing);
       expect(find.byType(MosaicPersonTile), findsNothing);
-      expect(find.byType(MosaicDefaultTile).evaluate().length, 2 * find.byType(MosaicEmptyTile).evaluate().length);
+      expect(find.byType(MosaicEmptyTile), findsNothing);
+      expect(find.byType(MosaicDefaultTile).evaluate().length, 2 * find.byType(MosaicMascotTile).evaluate().length);
       expect((tester.getRect(find.byType(MosaicRail)).top, tester.getRect(find.byType(MosaicRail)).bottom), (283, 423));
       // 못 받았거나 빈 목록이면 5분 붙잡기 타이머가 걸린다 — 테스트가 끝나기 전에 흘려 보낸다.
       await tester.pump(homePeopleRetryAfter);
@@ -662,6 +665,7 @@ void main() {
 
       expect(find.byType(MosaicDefaultTile), findsWidgets);
       expect(find.byType(MosaicPersonTile), findsNothing);
+      expect(find.text('곧 더 많은 사람들이 모여요'), findsOneWidget);
       expect(find.byType(HomeGrid), findsOneWidget);
       await tester.scrollUntilVisible(find.text('프로필 완성도 40%'), 200, scrollable: _mainList);
       expect(find.text('참여 중인 대학'), findsOneWidget);
@@ -676,12 +680,15 @@ void main() {
       expect(find.byType(HomeGrid), findsOneWidget);
       expect(find.byType(MosaicDefaultTile), findsWidgets);
       expect(find.byType(MosaicPersonTile), findsNothing);
+      expect(find.text('곧 더 많은 사람들이 모여요'), findsOneWidget);
 
       home.holdPeople!.complete();
       await tester.pump();
       await tester.pump();
 
       expect(find.byType(MosaicDefaultTile), findsNothing);
+      expect(find.text('지금 함께 있는 사람들'), findsOneWidget, reason: '실제 사람 칸이 나오면 원래 제목');
+      expect(find.text('곧 더 많은 사람들이 모여요'), findsNothing);
       expect(drawn(tester), isNotEmpty);
     });
 

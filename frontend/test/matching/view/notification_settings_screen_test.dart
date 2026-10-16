@@ -106,7 +106,7 @@ void main() {
     }
     final title = tester.widget<Text>(find.text('오늘의 카드 도착')).style!;
     expect((title.fontSize, title.fontWeight, title.color), (16.0, FontWeight.w400, const Color(0xFF222222)));
-    final note = tester.widget<Text>(find.text('매일 아침 7시 지급 알림')).style!;
+    final note = tester.widget<Text>(find.text('새 카드가 도착하면 알려 드려요')).style!;
     expect((note.fontSize, note.fontWeight, note.color, note.height), (12.0, FontWeight.w400, const Color(0xFF6A6A6A), 1.4));
     // 아이콘 오른쪽 끝 → 글 왼쪽 = 12
     final icon = tester.getRect(find.byType(Icon3d).first);

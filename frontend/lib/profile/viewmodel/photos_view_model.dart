@@ -19,6 +19,13 @@ final photosViewModelProvider = NotifierProvider<PhotosViewModel, PhotosUiState>
 
 const _maxPhotos = PhotosUiState.maxPhotos;
 
+/// 서버가 글자 많은 사진(학생증 · 신분증 등)을 거절할 때의 code(422). 문구는 서버 임시 문구 대신 앱 고정 문구를 쓴다.
+const String photoLooksLikeDocumentCode = 'photo_looks_like_document';
+
+/// 04-2 · 15-7 이 같이 쓰는 판정 — 다른 거절(부적절 사진 등)은 서버 문구 그대로다.
+bool isPhotoDocumentRejection(Failure failure) =>
+    failure is ServerRejectedFailure && failure.hasCode(photoLooksLikeDocumentCode);
+
 /// 갤러리에서 남은 칸 수([limit])만큼 고른다 — 화면 안내대로 여러 장을 한 번에 고를 수 있다.
 /// image_picker 는 플랫폼 플러그인이라 단위 테스트에서 부를 수 없어
 /// [PhotosViewModel.pickFromGallery] 훅으로 갈아끼운다(조각1b StudentVerificationViewModel 과 같은 패턴).
@@ -79,7 +86,7 @@ class PhotosViewModel extends Notifier<PhotosUiState> {
     if (picked.isEmpty) {
       return;
     }
-    state = state.copyWith(isCheckingPhotos: true, errorMessage: null);
+    state = state.copyWith(isCheckingPhotos: true, errorMessage: null, documentRejected: false);
     final accepted = <SelectedPhoto>[];
     var rejected = 0;
     try {
@@ -142,7 +149,7 @@ class PhotosViewModel extends Notifier<PhotosUiState> {
 
   void removePhoto(int index) {
     final photos = [...state.photos]..removeAt(index);
-    state = state.copyWith(photos: photos, errorMessage: null);
+    state = state.copyWith(photos: photos, errorMessage: null, documentRejected: false);
   }
 
   /// 길게 눌러 끌어다 놓으면 두 칸이 자리를 맞바꾼다(04-2, 2026-09-24 사용자 결정).
@@ -181,7 +188,7 @@ class PhotosViewModel extends Notifier<PhotosUiState> {
     if (!state.canSubmit) {
       return;
     }
-    state = state.copyWith(isSubmitting: true, errorMessage: null);
+    state = state.copyWith(isSubmitting: true, errorMessage: null, documentRejected: false);
     // 여기서 바로 state 에 넣지 않는다 — 넣는 순간 isSubmitting 이 내려가 토스트가 꺼지고,
     // 작업을 등록하는 동안 화면에 아무 표시도 없다. 한 번에 갱신해야 둘 다 덮인다.
     var next = await _submittedState();
@@ -219,19 +226,31 @@ class PhotosViewModel extends Notifier<PhotosUiState> {
   Future<PhotosUiState> _submittedState() async {
     try {
       final repository = ref.read(photosRepositoryProvider);
-      for (var position = 0; position < state.photos.length; position++) {
-        final photo = state.photos[position];
+      // 올리기 시작한 목록 그대로 올린다 — 올리는 동안 칸이 바뀌어도 순서 · 장수가 흔들리지 않는다.
+      final photos = state.photos;
+      for (final (position, photo) in photos.indexed) {
         // 온보딩은 늘 이번에 고른 사진뿐이다 — 이미 올려 둔 사진([SelectedPhoto.saved])은 15-7 에만 있다.
         final result = await repository.uploadPhoto(photo.file!, position, photo.isAvatarSource);
         final failure = result.when(onSuccess: (_) => null, onFailure: (failure) => failure);
         if (failure != null) {
-          return state.copyWith(isSubmitting: false, errorMessage: failure.toDisplayMessage());
+          return _failedState(failure, photo);
         }
       }
       return state.copyWith(isSubmitting: false, completed: true);
     } catch (_) {
       return state.copyWith(isSubmitting: false, errorMessage: const UnknownFailure().toDisplayMessage());
     }
+  }
+
+  /// 글자 많은 사진 거절이면 그 사진을 칸에서 빼고 표시만 켠다(문구는 화면의 앱 고정 문구) — 그대로 두면 다시 올려도 또 거절된다.
+  /// 그 밖의 거절은 서버 문구 그대로다.
+  /// 뺄 사진은 자리 번호가 아니라 사진(열쇠)으로 찾는다 — 올리는 동안 칸이 바뀌었으면 번호가 다른 사진을 가리킨다.
+  PhotosUiState _failedState(Failure failure, SelectedPhoto rejected) {
+    if (!isPhotoDocumentRejection(failure)) {
+      return state.copyWith(isSubmitting: false, errorMessage: failure.toDisplayMessage());
+    }
+    final photos = [for (final photo in state.photos) if (photo.key != rejected.key) photo];
+    return state.copyWith(isSubmitting: false, photos: photos, documentRejected: true);
   }
 
   void _refreshOnboardingStepIfCompleted() {

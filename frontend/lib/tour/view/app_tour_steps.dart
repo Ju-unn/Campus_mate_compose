@@ -22,7 +22,7 @@ enum TourTargetId {
   /// 하트 스토어 맨 위 그림 — 늘 그려져 있어 목록을 스크롤할 손잡이로 쓴다
   heartStoreTop,
 
-  /// 하트 스토어 "무료로 모으기" 제목 + 안내 + 작업 줄 3개
+  /// 하트 스토어 "무료로 모으기" 제목 + 안내 + 작업 줄 3개(pen 구멍이 셋 다 감싼다)
   heartStoreFree,
 }
 
@@ -39,6 +39,7 @@ class TourStep {
     this.push = false,
     this.scrollAnchor,
     this.detail,
+    this.alignTop,
   });
 
   /// 이 단계의 화면 경로. 지금 화면이 아니면 옮긴다 — 탭은 `go`(하단 내비와 같은 방식), [push] 면 위에 올린다.
@@ -65,6 +66,11 @@ class TourStep {
 
   /// 설명 아래에 붙일 내용(5단계 정밀 분석 항목).
   final WidgetBuilder? detail;
+
+  /// 값이 있으면 대상을 찾은 뒤 목록을 밀어 **구멍 위쪽을 보이는 영역 맨 위(앱바 바로 아래)에서 이만큼 아래**에 둔다(목록 끝이라
+  /// 더 못 밀면 그 목록의 `TourScrollRoom` 이 잠깐 빈자리를 낸다). 이때 구멍이 아래 말풍선 · 선 자리까지 먹으면 구멍 아래쪽을
+  /// 잘라 말풍선이 보이는 영역(하단 바 위) 안에 다 들어오게 한다. null 이면 대상을 가운데로 민다(화면 밖일 때만).
+  final double? alignTop;
 }
 
 Widget _precisionPoints(BuildContext context) => const TourPrecisionPoints();
@@ -116,6 +122,8 @@ const List<TourStep> appTourSteps = [
     targets: [TourTargetId.heartStoreFree],
     holePadding: EdgeInsets.all(4),
     scrollAnchor: TourTargetId.heartStoreTop,
+    // pen(campus-pen 10-16, 360×780): 무료로 모으기를 앱바 아래 12 로 올린 모습 — 구멍 x12 · y68 · 336×306, 말풍선 x24 · y426.
+    alignTop: 12,
     title: '하트는 무료로도 모아요',
     body: '무료로 모으기에서 미션을 인증하면 받아요.',
   ),

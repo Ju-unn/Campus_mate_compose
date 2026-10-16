@@ -38,14 +38,17 @@ class MyPhotosViewModel extends PhotosViewModel {
     }
     final sourceIndex = state.photos.indexWhere((p) => p.isAvatarSource);
     final slots = [for (final p in state.photos) p.id != null ? KeptPhoto(p.id!) : NewPhoto(p.file!)];
-    state = state.copyWith(isSubmitting: true, errorMessage: null);
+    state = state.copyWith(isSubmitting: true, errorMessage: null, documentRejected: false);
     // 저장 중에 뒤로 나가도 끝까지 저장하고 15-5 를 다시 읽게 한다 — 그동안 autoDispose 가 버리지 않게 붙잡는다.
     final keepAlive = ref.keepAlive();
     try {
       final result = await ref.read(meRepositoryProvider).savePhotos(slots, sourceIndex < 0 ? 0 : sourceIndex);
       state = result.when(
         onSuccess: (_) => state.copyWith(isSubmitting: false, completed: true),
-        onFailure: (failure) => state.copyWith(isSubmitting: false, errorMessage: failure.toDisplayMessage()),
+        // 글자 많은 사진 거절은 여러 장 중 어느 것인지 몰라 칸은 그대로 두고 표시만 켠다(문구는 화면의 앱 고정 문구).
+        onFailure: (failure) => isPhotoDocumentRejection(failure)
+            ? state.copyWith(isSubmitting: false, documentRejected: true)
+            : state.copyWith(isSubmitting: false, errorMessage: failure.toDisplayMessage()),
       );
       // 실패해도 다시 읽는다 — 서버는 여러 요청으로 나눠 바꿔 중간에 멈출 수 있고(계획서 2-2 ⑤~⑦), 409 "다시 열어 주세요"
       // 뒤에 다시 열면 지금 서버 값으로 채워져야 한다. 칸은 그대로 둔다(build 는 read 라 다시 읽혀도 안 바뀐다).

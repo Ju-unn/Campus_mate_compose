@@ -4,9 +4,12 @@ import 'dart:io';
 
 import 'package:campus_mate/auth/model/face_detector_provider.dart';
 import 'package:campus_mate/auth/model/image_compressor_provider.dart';
+import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/profile/model/photos_repository_provider.dart';
@@ -34,8 +37,9 @@ final _slotImages = find.descendant(of: find.byType(PhotoSlotGrid), matching: fi
 
 const _galleryGuide = '갤러리에서 여러 장을 한 번에 고를 수 있어요. 최소 2장이 필요해요.';
 const _reorderGuide = '사진을 길게 눌러 끌면 순서를 바꿀 수 있어요. 첫 칸이 대표 사진이에요.';
-const _rulesTitle = '이런 사진은 올릴 수 없어요';
-const _rulesBody = '학생증·서류·화면 캡처 사진은 안 돼요. 나와 배경만 보이는, 얼굴이 또렷한 일상 사진을 올려 주세요.';
+const _oldRulesTitle = '이런 사진은 올릴 수 없어요';
+const _notice = '글자 많은 사진·얼굴 가린 사진은 올릴 수 없어요';
+const _document = '학생증·신분증처럼 글자가 많은 사진은 올릴 수 없어요. 얼굴이 잘 나온 일반 사진을 올려 주세요';
 
 void main() {
   late Directory tempDir;
@@ -55,10 +59,11 @@ void main() {
     WidgetTester tester, {
     required int photoCount,
     double textScale = 1.0,
+    FakePhotosRepository? photos,
   }) async {
     final container = ProviderContainer(
       overrides: [
-        photosRepositoryProvider.overrideWithValue(FakePhotosRepository()),
+        photosRepositoryProvider.overrideWithValue(photos ?? FakePhotosRepository()),
         imageCompressorProvider.overrideWithValue(FakeImageCompressor()),
         faceDetectorProvider.overrideWithValue(faceDetector),
       ],
@@ -114,50 +119,132 @@ void main() {
     expect(tester.widget<PhotoSlotGrid>(find.byType(PhotoSlotGrid)).columnGap, AppSpacing.sm);
   });
 
-  group('사진 칸 아래 안내 · 예시(사용자 요청 10-15, 대장 전달 값)', () {
-    Finder rulesBox() => find.ancestor(of: find.text(_rulesTitle), matching: find.byType(Container)).first;
+  group('pen 04-2 재배치(campus-pen 10-16) — 예시가 첫 화면에', () {
+    Finder noticeBox() => find.ancestor(of: find.text(_notice), matching: find.byType(Container)).first;
 
-    // pen 확정 순서(대장 10-15): 부제 → 32 → 안내 박스 → 16 → 사진 격자 → 16 → 설명 줄 둘(사이 6) → 24 → 좋은 사진 예시.
-    testWidgets('부제 → 32 → 안내 박스 → 16 → 사진 칸 → 16 → 설명 줄 둘(6) → 24 → 좋은 사진 예시', (tester) async {
+    testWidgets('제목 → 부제 → 32 → 좋은 사진 예시(188) → 16 → 안내 한 줄 → 16 → 사진 칸 → 16 → 설명 줄 둘(6)', (tester) async {
+      tester.view.physicalSize = const Size(360, 780);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
       await pump(tester, photoCount: 2);
 
-      expect(find.text(_rulesTitle), findsOneWidget);
-      expect(find.text(_rulesBody), findsOneWidget);
       final subtitle = tester.getRect(find.text('얼굴이 잘 보이는 사진을 2~4장 골라주세요.'));
-      final box = tester.getRect(rulesBox());
+      final example = tester.getRect(find.byType(PhotoExample));
+      final notice = tester.getRect(noticeBox());
       final grid = tester.getRect(find.byType(PhotoSlotGrid));
       final hints = tester.widgetList<HintLine>(find.byType(HintLine)).toList();
       final first = tester.getRect(find.byType(HintLine).at(0));
       final second = tester.getRect(find.byType(HintLine).at(1));
 
-      expect(box.top, closeTo(subtitle.bottom + 32, 0.01));
-      expect(grid.top, closeTo(box.bottom + 16, 0.01));
+      expect(example.top, closeTo(subtitle.bottom + 32, 0.01));
+      expect(example.height, closeTo(188, 0.5));
+      expect(notice.top, closeTo(example.bottom + 16, 0.01));
+      // 안내 높이는 글 줄 수를 따른다(아래 시험이 한 줄 46 을 본다 — 시험 글꼴은 글자마다 1em 이라 360 폭에서는 두 줄로 접힌다).
+      expect(notice.height, closeTo(tester.getSize(find.text(_notice)).height + 28, 0.01));
+      expect(grid.top, closeTo(notice.bottom + 16, 0.01));
       expect(first.top, closeTo(grid.bottom + 16, 0.01));
       expect(second.top, closeTo(first.bottom + 6, 0.01));
-      expect(tester.getTopLeft(find.byType(PhotoExample)).dy, closeTo(second.bottom + 24, 0.01));
       expect([for (final hint in hints) hint.text], [_galleryGuide, _reorderGuide]);
       expect(find.text('이런 사진이 좋아요'), findsOneWidget);
+      expect(find.text(_oldRulesTitle), findsNothing);
     });
 
-    testWidgets('안내 박스 — 금지 3D 아이콘 18 · 본문 14', (tester) async {
-      await pump(tester, photoCount: 2);
-
-      final icon = tester.widget<Icon3d>(find.descendant(of: rulesBox(), matching: find.byType(Icon3d)));
-      expect((icon.icon, icon.size), (AppIcon3d.ban, 18));
-      expect(tester.widget<Text>(find.text(_rulesBody)).style!.fontSize, 14);
-    });
-
-    testWidgets('글이 길어져도 스크롤로 예시까지 내려가고 "다음" 은 바닥에 남는다', (tester) async {
-      tester.view.physicalSize = const Size(360, 780);
+    testWidgets('안내 한 줄 — 아이콘 · 머리 없이 본문 12/normal, 안쪽 14 · 한 줄이면 높이 46', (tester) async {
+      // 시험 글꼴은 글자마다 1em(26자 × 12 = 312)이라 글이 한 줄에 드는 폭(420)에서 잰다. 기기 글꼴은 360 폭에서도 한 줄이다.
+      tester.view.physicalSize = const Size(420, 780);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
-      await pump(tester, photoCount: 4);
+      await pump(tester, photoCount: 2);
 
-      await tester.scrollUntilVisible(find.byType(PhotoExample), 200, scrollable: find.byType(Scrollable).first);
+      final box = noticeBox();
+      expect(find.descendant(of: box, matching: find.byType(Icon3d)), findsNothing);
+      expect(find.descendant(of: box, matching: find.byType(Icon)), findsNothing);
+      expect(find.descendant(of: box, matching: find.byType(Text)), findsOneWidget);
+      final style = tester.widget<Text>(find.text(_notice)).style!;
+      expect((style.fontSize, style.fontWeight), (12, FontWeight.w400));
+      final text = tester.getRect(find.text(_notice));
+      expect(text.topLeft - tester.getTopLeft(box), const Offset(14, 14));
+      expect(text.height, closeTo(18, 0.01), reason: '한 줄');
+      expect(tester.getSize(box).height, 46);
+    });
 
-      expect(tester.takeException(), isNull);
-      expect(tester.getRect(find.byType(PhotoExample)).bottom, lessThanOrEqualTo(tester.getTopLeft(find.byType(AppButton)).dy));
-      expectButtonOnScreen(tester);
+    for (final height in [780.0, 600.0]) {
+      testWidgets('좋은 사진 예시가 첫 화면(360×$height)에 스크롤 없이 다 보이고, 아래는 스크롤로 내려간다', (tester) async {
+        tester.view.physicalSize = Size(360, height);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await pump(tester, photoCount: 4);
+
+        final scroll = find.byType(Scrollable).first;
+        final viewport = tester.getRect(scroll);
+        final example = tester.getRect(find.byType(PhotoExample));
+        expect(tester.state<ScrollableState>(scroll).position.pixels, 0);
+        expect(example.top, greaterThanOrEqualTo(viewport.top));
+        expect(example.bottom, lessThanOrEqualTo(viewport.bottom));
+        expect(tester.state<ScrollableState>(scroll).position.maxScrollExtent, greaterThan(0));
+
+        await tester.scrollUntilVisible(find.text(_reorderGuide), 200, scrollable: scroll);
+        expect(tester.takeException(), isNull);
+        expectButtonOnScreen(tester);
+      });
+    }
+  });
+
+  group('서버가 글자 많은 사진을 거절(422 `photo_looks_like_document`)', () {
+    Future<ProviderContainer> rejected(WidgetTester tester, {String? code = 'photo_looks_like_document'}) async {
+      tester.view.physicalSize = const Size(360, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final photos = FakePhotosRepository()
+        ..resultAt[1] = FailureResult(ServerRejectedFailure('서버 임시 문구', code: code));
+      final container = await pump(tester, photoCount: 3, photos: photos);
+      final viewModel = container.read(photosViewModelProvider.notifier)..prepareAvatarSource();
+      await viewModel.submit();
+      await tester.pump();
+      return container;
+    }
+
+    Finder addTiles() => find.byType(AddPhotoTile);
+    BoxDecoration addTileFace(WidgetTester tester, int index) =>
+        tester.widget<Ink>(find.descendant(of: addTiles().at(index), matching: find.byType(Ink))).decoration! as BoxDecoration;
+
+    testWidgets('사진 칸 바로 아래 8 에 앱 고정 문구(circle-alert 14 · 12/normal error), 그 사진은 빠지고 빈 칸에 오류 테두리 2', (tester) async {
+      await rejected(tester);
+
+      expect(find.text('서버 임시 문구'), findsNothing);
+      expect(find.byType(AppToast), findsNothing, reason: '토스트가 아니라 칸 아래 글');
+      final note = find.byType(PhotoDocumentNote);
+      expect(find.descendant(of: note, matching: find.text(_document)), findsOneWidget);
+      expect(tester.getTopLeft(note).dy, closeTo(tester.getRect(find.byType(PhotoSlotGrid)).bottom + 8, 0.01));
+      final style = tester.widget<Text>(find.text(_document)).style!;
+      expect((style.fontSize, style.fontWeight, style.color), (12, FontWeight.w400, AppColors.error));
+      expect(tester.widget<Text>(find.text(_document)).maxLines, isNull, reason: '두 줄로 내려간다');
+      final icon = tester.widget<Icon>(find.descendant(of: note, matching: find.byIcon(AppIcons.circleAlert)));
+      expect((icon.size, icon.color), (14, AppColors.error));
+      expect(find.byType(DraggablePhotoTile), findsNWidgets(2));
+      expect(addTileFace(tester, 0).border, Border.all(color: AppColors.error, width: 2));
+      expect(addTileFace(tester, 1).border, isNull);
+      // 문구 아래로 설명 줄이 16 띄워 이어진다.
+      expect(tester.getTopLeft(find.byType(HintLine).first).dy, closeTo(tester.getRect(note).bottom + 16, 0.01));
+    });
+
+    testWidgets('사진을 빼면 문구 · 테두리가 사라진다', (tester) async {
+      await rejected(tester);
+
+      await tester.tap(find.byIcon(AppIcons.x).first);
+      await tester.pump();
+
+      expect(find.byType(PhotoDocumentNote), findsNothing);
+      expect(addTileFace(tester, 0).border, isNull);
+    });
+
+    testWidgets('모르는 code 는 지금처럼 서버 문구 토스트, 사진 · 칸 모양은 그대로', (tester) async {
+      await rejected(tester, code: 'photo_unsafe');
+
+      expect(find.byType(PhotoDocumentNote), findsNothing);
+      expect(find.widgetWithText(AppToast, '서버 임시 문구'), findsOneWidget);
+      expect(find.byType(DraggablePhotoTile), findsNWidgets(3));
+      expect(addTileFace(tester, 0).border, isNull);
     });
   });
 
@@ -173,11 +260,14 @@ void main() {
           (image.image as FileImage).file.uri.pathSegments.last,
       ];
 
-  /// 길게 눌러 [from] 칸을 [to] 칸으로 끌어다 놓는다.
-  Future<void> dragTile(WidgetTester tester, {required int from, required Offset to}) async {
+  /// 길게 눌러 [from] 칸을 [to] 자리로 끌어다 놓는다. [to] 는 칸을 보이게 민 뒤에 잰다.
+  Future<void> dragTile(WidgetTester tester, {required int from, required Finder to}) async {
+    // 좋은 사진 예시가 칸 위로 올라와(pen 10-16) 칸이 첫 화면 아래에 걸칠 수 있다 — 사람처럼 칸을 보이게 한 뒤 끈다.
+    await tester.ensureVisible(find.byType(PhotoSlotGrid));
+    await tester.pumpAndSettle();
     final gesture = await tester.startGesture(tester.getCenter(_slotImages.at(from)));
     await tester.pump(kLongPressTimeout + const Duration(milliseconds: 100));
-    await gesture.moveTo(to);
+    await gesture.moveTo(tester.getCenter(to));
     await tester.pump();
     await gesture.up();
     await tester.pumpAndSettle();
@@ -198,7 +288,7 @@ void main() {
     await pump(tester, photoCount: 3);
     expect(photoOrder(tester), ['photo-0.png', 'photo-1.png', 'photo-2.png']);
 
-    await dragTile(tester, from: 1, to: tester.getCenter(_slotImages.at(0)));
+    await dragTile(tester, from: 1, to: _slotImages.at(0));
 
     // 대표 자리(첫 칸)에 있던 사진과 맞바꾼다 — 앞 사진을 지우지 않고 대표를 바꾼다.
     expect(photoOrder(tester), ['photo-1.png', 'photo-0.png', 'photo-2.png']);
@@ -206,9 +296,7 @@ void main() {
 
   testWidgets('빈 칸으로는 끌어다 놓을 수 없다', (tester) async {
     await pump(tester, photoCount: 2);
-    final emptySlot = tester.getCenter(find.text('사진 추가').first);
-
-    await dragTile(tester, from: 0, to: emptySlot);
+    await dragTile(tester, from: 0, to: find.text('사진 추가').first);
 
     expect(photoOrder(tester), ['photo-0.png', 'photo-1.png']);
   });

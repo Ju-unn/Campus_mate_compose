@@ -71,6 +71,11 @@ class _MyPhotosScreenState extends ConsumerState<MyPhotosScreen> with MeToastHos
                     ignoring: state.isSubmitting,
                     child: PhotoSlotGrid(state: state, viewModel: viewModel, columnGap: _columnGap),
                   ),
+                  // 글자 많은 사진 거절 — 칸 아래 8 에 앱 고정 문구(여러 장을 한 번에 바꿔 칸 테두리는 없다).
+                  if (state.documentRejected) ...[
+                    const SizedBox(height: AppSpacing.xs),
+                    const PhotoDocumentNote(),
+                  ],
                   const SizedBox(height: AppSpacing.md),
                   Text(
                     '사진을 길게 눌러 끌면 순서를 바꿀 수 있어요. 첫 칸이 대표 사진이에요.',

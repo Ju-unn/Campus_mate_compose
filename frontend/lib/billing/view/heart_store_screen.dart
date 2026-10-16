@@ -120,6 +120,8 @@ class _HeartStoreScreenState extends ConsumerState<HeartStoreScreen> {
                     const SizedBox(height: AppSpacing.lg),
                     if (state != null) ...[_PurchaseSection(state: state), const SizedBox(height: AppSpacing.lg)],
                     const TourTarget(id: TourTargetId.heartStoreFree, child: _FreeSection()),
+                    // 6단계가 무료로 모으기를 앱바 아래 12 로 올릴 때만 늘어나는 빈자리 — 평소엔 높이 0.
+                    const TourScrollRoom(id: TourTargetId.heartStoreFree),
                   ],
                 ),
                 // 토스트 아래 끝은 바 위 12(pen `eZlLw`). 나타날 때 나 탭 · 홈 토스트와 같이 올라온다(D4) —

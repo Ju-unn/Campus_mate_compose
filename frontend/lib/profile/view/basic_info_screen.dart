@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:campus_mate/common/phone_number_formatter.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/labeled_field.dart';
@@ -57,7 +59,11 @@ class BasicInfoScreen extends ConsumerWidget {
                   child: SingleChildScrollView(
                     // 스크롤을 끌기만 해도 내려간다.
                     keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                    child: _Form(state: state, viewModel: viewModel),
+                    // 보내는 동안 입력칸 · 칩을 잠근다 — 보낸 값과 화면 값이 어긋나지 않게.
+                    child: IgnorePointer(
+                      ignoring: state.isSubmitting,
+                      child: _Form(state: state, viewModel: viewModel),
+                    ),
                   ),
                 ),
                 // 오류는 **스크롤 밖**, 누른 버튼 바로 위다 — 스크롤 맨 아래에 두면 "다음"을 눌러도
@@ -67,7 +73,18 @@ class BasicInfoScreen extends ConsumerWidget {
                   Text(state.errorMessage!, style: AppTypography.caption.copyWith(color: AppColors.error)),
                 ],
                 const SizedBox(height: AppSpacing.md),
-                AppButton(label: '다음', onPressed: state.canSubmit ? viewModel.submit : null),
+                // 보내는 중(pen 04-1 Button · Loading 추가 예정)에는 글자 자리에 도는 표시 · 누름 막음. 잡혀 있던 입력칸은
+                // 먼저 놓는다 — 잠금(IgnorePointer)은 이미 열린 키보드의 입력까지는 못 막는다.
+                AppButton(
+                  label: '다음',
+                  isLoading: state.isSubmitting,
+                  onPressed: state.canSubmit
+                      ? () {
+                          FocusScope.of(context).unfocus();
+                          unawaited(viewModel.submit());
+                        }
+                      : null,
+                ),
               ],
             ),
           ),
@@ -107,6 +124,17 @@ class _Form extends StatelessWidget {
           style: AppTypography.body.copyWith(color: AppColors.body),
         ),
         const SizedBox(height: AppSpacing.xl),
+        // 보내는 동안 입력칸을 흐리게 둔다(pen 04-1 저장 중 `g0K1T2` 투명도 0.5) — 누름 막음은 화면의 IgnorePointer 가 한다.
+        Opacity(opacity: state.isSubmitting ? 0.5 : 1, child: _inputs(context)),
+      ],
+    );
+  }
+
+  /// 입력칸 · 성별 · MBTI — 보내는 동안 같이 흐려진다.
+  Widget _inputs(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
         LabeledField(
           // "· 필수" 는 3b 실명 · 3c 학과 · 학번과 같은 표기다. 선택 항목인 내 MBTI 에는 붙이지 않는다.
           label: '닉네임 · 필수',
