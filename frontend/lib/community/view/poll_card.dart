@@ -13,7 +13,7 @@ import 'package:flutter/material.dart';
 /// 카드 그림자(pen `RpRBi` #00000010 (0,1) blur 6, 값표 1004). AppElevation 토큰과 값이 달라 여기 둔다.
 const List<BoxShadow> _cardShadow = [BoxShadow(color: Color(0x10000000), offset: Offset(0, 1), blurRadius: 6)];
 
-/// `poll-card`(pen 마스터 `RpRBi`) — **17c 상세 전용**(`BwL1G` > `v9Pmy0`). 15d 피드는 개선안 A 의
+/// `poll-card`(pen 마스터 `RpRBi`) — **17c 상세 전용**(`BwL1G` > `y0uSd4`). 15d 피드는 개선안 A 의
 /// `FeedPollCard`(`IFUWA`)로 옮겨 갔다. 17c 는 pen 이 바뀌지 않아 도넛 결과 · 질문 전문 그대로다.
 class PollCard extends StatelessWidget {
   const PollCard({

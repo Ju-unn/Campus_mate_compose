@@ -77,7 +77,7 @@ void main() {
     expect(find.text('질문을 찾을 수 없어요'), findsOneWidget);
   });
 
-  testWidgets('pen 17c: 제목 x60 · 뒤로 arrow-left 22, 본문 안쪽 16, 카드 276(신고 버튼 48 머리줄), 댓글 안내는 카드 아래 16(bcnJx · ZR52B · v9Pmy0 · LyR5Y)', (tester) async {
+  testWidgets('pen 17c: 제목 x60 · 뒤로 arrow-left 22, 본문 안쪽 16, 카드 276(신고 버튼 48 머리줄), 댓글 안내는 카드 아래 16(bcnJx · ZR52B · y0uSd4 · LyR5Y)', (tester) async {
     tester.view.physicalSize = const Size(360, 780);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
