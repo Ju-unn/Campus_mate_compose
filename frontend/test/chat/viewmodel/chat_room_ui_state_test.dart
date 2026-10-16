@@ -49,6 +49,52 @@ void main() {
     expect(state.isPartnerGone, isTrue);
   });
 
+  // 첫 입장 안내 카드(pen cinKv). 24시간 전 · 내가 수락 전(preAccept) · 공개 전 · 상대 있음 · 기한 전일 때만(대장 결정 10-17) —
+  // 요약과 3번 항목의 "위쪽의 '수락하기'"가 맞는 단계가 이것뿐이다(미리 수락 배너에만 그 버튼이 있다).
+  group('첫 입장 안내 카드를 보이는가', () {
+    test('막 매칭된 방(아무도 수락 안 함, 24시간 전)에는 보인다', () {
+      expect(stateOf(roomFixture(createdAt: justMatched)).showsIntroCardAt(now), isTrue);
+    });
+
+    test('내가 먼저 수락했으면(14g 기다림) 없다', () {
+      expect(stateOf(roomFixture(createdAt: justMatched, myResponse: 'accept')).showsIntroCardAt(now), isFalse);
+    });
+
+    test('24시간이 지나 시트 · 종료 예정 배너 단계면 없다', () {
+      expect(stateOf(roomFixture(createdAt: aDayAgo)).showsIntroCardAt(now), isFalse);
+      expect(stateOf(roomFixture(createdAt: aDayAgo), sheetDismissed: true).showsIntroCardAt(now), isFalse);
+    });
+
+    test('24시간 경계 그 순간부터 없다', () {
+      final created = now.subtract(trustGateReminderAfter);
+      expect(stateOf(roomFixture(createdAt: created)).showsIntroCardAt(now), isFalse);
+      expect(stateOf(roomFixture(createdAt: created)).showsIntroCardAt(now.subtract(const Duration(seconds: 1))), isTrue);
+    });
+
+    test('통과(공개)한 방에는 없다', () {
+      expect(stateOf(roomFixture(createdAt: justMatched, passed: true)).showsIntroCardAt(now), isFalse);
+    });
+
+    test('상대가 나간 방에는 없다', () {
+      expect(stateOf(roomFixture(createdAt: justMatched, partnerLeft: true)).showsIntroCardAt(now), isFalse);
+    });
+
+    test('서버 기한이 이미 지났으면(닫힌 방) 24시간 전이어도 없다', () {
+      final room = roomFixture(createdAt: justMatched);
+      final closed = ChatRoom(
+        matchId: room.matchId,
+        partner: room.partner,
+        createdAt: room.createdAt,
+        gate: TrustGate(passed: false, partnerLeft: false, deadlineAt: now),
+      );
+      expect(stateOf(closed).showsIntroCardAt(now), isFalse);
+    });
+
+    test('방을 아직 못 읽었으면 없다', () {
+      expect(const ChatRoomUiState().showsIntroCardAt(now), isFalse);
+    });
+  });
+
   group('14b 카드 자리 시각(백로그 20)', () {
     final passedAt = DateTime(2026, 9, 22, 12, 30);
     Message accept(String id, DateTime at) =>
