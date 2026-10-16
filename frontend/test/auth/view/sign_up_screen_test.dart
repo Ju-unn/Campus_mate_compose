@@ -1,18 +1,25 @@
 import 'package:campus_mate/account/model/login_notice.dart';
 import 'package:campus_mate/auth/model/school_email_repository_provider.dart';
+import 'package:campus_mate/auth/model/university_email.dart';
+import 'package:campus_mate/auth/model/verification_gate_repository_provider.dart';
 import 'package:campus_mate/auth/view/sign_up_screen.dart';
+import 'package:campus_mate/auth/view/verify_code_screen.dart';
+import 'package:campus_mate/auth/viewmodel/verify_code_view_model.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/core/auth/sign_out.dart';
+import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
 import '../model/fake_school_email_repository.dart';
+import '../model/fake_verification_gate_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 void main() {
   Future<void> pumpScreen(WidgetTester tester) async {
@@ -259,6 +266,91 @@ void main() {
       await pumpScreen(tester);
 
       expect(find.byType(AppToast), findsNothing);
+    });
+  });
+
+  // 검토 권고(10-17): 03 에서 뒤로 왔다가 같은 메일로 다시 보내면 03 은 같은 family 인자라 옛 상태(떠난 시각 기준 타이머)를 다시 썼다 —
+  // 들어가자마자 "메일 다시 받기" 가 켜져 서버 429 가 나거나, 오래 머물면 새 코드가 "만료" 로 보였다.
+  group('02 → 03 → 뒤로 → 02 → 같은 메일로 다시 보내기', () {
+    late DateTime now;
+    late FakeSchoolEmailRepository repository;
+    final hong = UniversityEmail.tryParse('hong@snu.ac.kr')!;
+
+    Future<ProviderContainer> pumpFlow(WidgetTester tester) async {
+      now = DateTime.now();
+      repository = FakeSchoolEmailRepository();
+      final container = ProviderContainer(
+        overrides: [
+          schoolEmailRepositoryProvider.overrideWithValue(repository),
+          verificationGateRepositoryProvider.overrideWithValue(FakeVerificationGateRepository()),
+          verifyCodeNowProvider.overrideWithValue(() => now),
+        ],
+      );
+      addTearDown(container.dispose);
+      final router = GoRouter(
+        initialLocation: AppRoutes.login,
+        routes: [
+          GoRoute(path: AppRoutes.login, builder: (context, state) => const SignUpScreen()),
+          GoRoute(
+            path: AppRoutes.verifyCode,
+            builder: (context, state) => VerifyCodeScreen(email: state.extra! as UniversityEmail),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(UncontrolledProviderScope(container: container, child: MaterialApp.router(routerConfig: router)));
+      return container;
+    }
+
+    /// 02 에서 메일을 적고 보낸다 — 03 이 뜰 때까지(만료 타이머가 1초마다 다시 그려 pumpAndSettle 은 쓰지 않는다).
+    Future<void> send(WidgetTester tester, String address) async {
+      await tester.enterText(find.byType(TextField), address);
+      await tester.pump();
+      await tester.tap(find.text('인증 메일 받기'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+    }
+
+    Future<void> backTo02(WidgetTester tester) async {
+      await tester.tap(find.byTooltip('뒤로'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.text('대학 이메일로 시작해요'), findsOneWidget);
+    }
+
+    testWidgets('02 에 60초 넘게 머문 뒤 같은 메일로 다시 보내면, 03 은 다시 보낸 때부터 센다 — 다시 받기는 잠기고 만료는 5분 뒤', (tester) async {
+      final container = await pumpFlow(tester);
+      await send(tester, 'hong@snu.ac.kr');
+      expect(find.byType(VerifyCodeScreen), findsOneWidget);
+      await backTo02(tester);
+
+      now = now.add(const Duration(minutes: 6)); // 다시 받기 쿨다운(60초) · 코드 유효 시간(5분)을 다 넘긴다
+      final resentAt = now;
+      await send(tester, 'hong@snu.ac.kr');
+
+      expect(find.byType(VerifyCodeScreen), findsOneWidget);
+      final state = container.read(verifyCodeViewModelProvider(hong));
+      expect(state.canResend(now), isFalse, reason: '들어오자마자 다시 받기가 켜지면 서버가 429 를 낸다');
+      expect(state.resendAvailableAt, resentAt.add(const Duration(seconds: 60)));
+      expect(state.codeExpiresAt, resentAt.add(codeLifetime));
+      expect(state.isExpired(now), isFalse);
+      expect(state.codeInput, isEmpty);
+      expect(repository.requestedEmails, [hong, hong]);
+    });
+
+    testWidgets('다른 메일로 다시 보내면 그 메일의 03 이 뜨고 처음부터 센다(회귀 없음)', (tester) async {
+      final container = await pumpFlow(tester);
+      await send(tester, 'hong@snu.ac.kr');
+      await backTo02(tester);
+
+      now = now.add(const Duration(minutes: 2));
+      final resentAt = now;
+      await send(tester, 'kim@snu.ac.kr');
+
+      expect(find.text('kim@snu.ac.kr 로 6자리 숫자를 보냈어요'), findsOneWidget);
+      final state = container.read(verifyCodeViewModelProvider(UniversityEmail.tryParse('kim@snu.ac.kr')!));
+      expect(state.resendAvailableAt, resentAt.add(const Duration(seconds: 60)));
+      expect(state.codeExpiresAt, resentAt.add(codeLifetime));
     });
   });
 }

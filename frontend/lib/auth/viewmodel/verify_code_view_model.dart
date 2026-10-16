@@ -111,11 +111,13 @@ class VerifyCodeViewModel extends Notifier<VerifyCodeUiState> {
     return result;
   }
 
-  /// "다른 학교 메일 입력" — 임시 연결과 토큰을 버리고 02 의 입력값을 비운다. 화면 이동은 화면이 한다.
+  /// "다른 학교 메일 입력" · 앱바 뒤로 — 임시 연결과 토큰을 버리고 02 의 입력값을 비운다. 화면 이동은 화면이 한다.
+  /// 이 화면 상태(적던 코드 · 오류 · 만료 시각)도 처음으로 돌린다 — 02 에서 같은 메일로 다시 오면 옛 상태가 남아 있었다.
   Future<void> startOver() async {
     _temporaryToken = null;
     ref.invalidate(signUpViewModelProvider);
     await ref.read(schoolEmailRepositoryProvider).discard();
+    ref.invalidateSelf();
   }
 
   /// 이 메일로는 끝낼 수 없는 실패 — 02 로 돌아가는 길을 보인다.

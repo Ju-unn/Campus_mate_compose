@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:campus_mate/account/model/login_notice.dart';
 import 'package:campus_mate/auth/viewmodel/sign_up_ui_state.dart';
 import 'package:campus_mate/auth/viewmodel/sign_up_view_model.dart';
+import 'package:campus_mate/auth/viewmodel/verify_code_view_model.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/core/auth/logout_text_button.dart';
@@ -124,6 +125,9 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
       return;
     }
     ref.read(signUpViewModelProvider.notifier).acknowledgeNavigation();
+    // 03 상태는 메일마다 하나라, 03 에서 돌아와 같은 메일로 다시 보내면 옛 타이머(떠난 때 기준)가 남는다 — 방금 보냈으니
+    // 03 이 열릴 때 새로 시작하게 비운다(03 은 지금 떠 있지 않아 다음에 읽을 때 새로 만든다).
+    ref.invalidate(verifyCodeViewModelProvider(email));
     context.go(AppRoutes.verifyCode, extra: email);
   }
 }

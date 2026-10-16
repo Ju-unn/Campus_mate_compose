@@ -308,5 +308,24 @@ void main() {
       expect(container.read(signUpViewModelProvider).emailInput, isEmpty);
       expect(container.read(signUpViewModelProvider).canSubmit, isFalse);
     });
+
+    // 03 뒤로가기(사용자 10-16) — 02 에서 같은 메일로 다시 오면 적던 코드 · 오류 · 옛 만료 시각이 남아 있으면 안 된다.
+    test('startOver 뒤에는 적던 코드 · 오류가 비고, 만료 · 다시 받기 시각은 처음부터 다시 센다', () async {
+      var now = DateTime(2026, 10, 16, 9);
+      final repository = FakeSchoolEmailRepository()..nextVerifyCodeResult = const FailureResult(WrongCodeFailure());
+      final container = buildContainer(repository, now: () => now);
+      final viewModel = container.read(verifyCodeViewModelProvider(email).notifier);
+      viewModel.changeCode('000000');
+      await viewModel.submit();
+      expect(container.read(verifyCodeViewModelProvider(email)).errorMessage, isNotNull);
+      now = now.add(const Duration(minutes: 3));
+
+      await viewModel.startOver();
+
+      final state = container.read(verifyCodeViewModelProvider(email));
+      expect((state.codeInput, state.errorMessage, state.isCodeRejected), ('', null, false));
+      expect(state.codeExpiresAt, now.add(codeLifetime));
+      expect(state.resendAvailableAt, now.add(const Duration(seconds: 60)));
+    });
   });
 }
