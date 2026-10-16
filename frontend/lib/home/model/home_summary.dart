@@ -1,6 +1,6 @@
 import 'package:campus_mate/home/model/cohort_wait.dart';
 
-/// 09b 메인(pen `bpA8x`)이 그리는 값 한 벌. hero-today 문구는 고정이라 여기에 없다. 레일 사람 칸은 따로 받는다(`HomePeople`).
+/// 09b 메인(pen `k13Z5C`)이 그리는 값 한 벌. hero-today 문구는 고정이라 여기에 없다. 레일 사람 칸은 따로 받는다(`HomePeople`).
 class HomeSummary {
   const HomeSummary({
     required this.deliveredCards,

@@ -58,7 +58,7 @@ final _mainList = find.byType(Scrollable).first;
 
 const _cardProfile = CardProfile(profileId: 'p', nickname: '여우비', age: 23, university: '가람대', major: '경영학과');
 
-/// pen 기본 09b(`bpA8x`)는 hero ① 도착이다 — 오늘 탭에 무료 카드가 한 장 있다.
+/// pen 기본 09b(`k13Z5C`)는 hero ① 도착이다 — 오늘 탭에 무료 카드가 한 장 있다.
 const Result<TodayCards> _arrived = Success(
   TodayCards(cards: [DailyCard(cardId: 'free', source: CardSource.daily, profile: _cardProfile)]),
 );
@@ -166,7 +166,7 @@ void main() {
   /// 지금 hero 틀(문구가 없는 불러오는 중에도 찾는다) — AnimatedSwitcher 아래 첫 Container.
   Finder heroFrame() => find.descendant(of: find.byType(AnimatedSwitcher), matching: find.byType(Container)).first;
 
-  group('hero-today 불러오는 중(pen `PAtO3` 09b 메인 · 불러오는 중, hero `jHiXf`)', () {
+  group('hero-today 불러오는 중(pen `VdvmY` 09b 메인 · 불러오는 중, hero `jHiXf`)', () {
     /// 오늘 카드를 읽는 동안 멈춰 둔 저장소. `holdToday!.complete()` 로 그때의 `today` 를 돌려주며 끝낸다.
     FakeCardRepository holding() => FakeCardRepository()..holdToday = Completer<void>();
 

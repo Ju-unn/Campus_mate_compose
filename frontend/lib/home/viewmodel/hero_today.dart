@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// 홈 hero-today 가 그릴 모양. 오늘 탭이 이미 읽은 상태를 그대로 쓴다 — 홈이 따로 조회하지 않는다.
 final heroTodayProvider = Provider<HeroToday>((ref) => HeroToday.from(ref.watch(todayCardsViewModelProvider)));
 
-/// hero-today 모양(DESIGN §8.9 · pen `U1k8ZK` 도착 · `fxlhV` 결정 대기 · `HGxAR` 확인 완료 · `PAtO3` 불러오는 중).
+/// hero-today 모양(DESIGN §8.9 · pen `U1k8ZK` 도착 · `fxlhV` 결정 대기 · `HGxAR` 확인 완료 · `VdvmY` 불러오는 중).
 sealed class HeroToday {
   const HeroToday();
 
@@ -24,7 +24,7 @@ sealed class HeroToday {
       };
 }
 
-/// ⓪ 오늘 카드를 읽는 중 — 문구 · 버튼 자리에 정적 스켈레톤 막대(pen `PAtO3` 의 hero `jHiXf`)
+/// ⓪ 오늘 카드를 읽는 중 — 문구 · 버튼 자리에 정적 스켈레톤 막대(pen `VdvmY` 의 hero `jHiXf`)
 final class HeroLoading extends HeroToday {
   const HeroLoading();
 }
