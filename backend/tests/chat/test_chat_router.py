@@ -231,6 +231,38 @@ def test_a_zero_page_is_refused():
     assert response.status_code == 422
 
 
+OLDEST_MESSAGE_ID = "44444444-4444-4444-4444-444444444444"
+CURSOR_AT = "2026-09-22T10:00:00+09:00"
+
+
+def test_an_older_page_cursor_with_a_message_id_reaches_the_or_filter():
+    seen: list[httpx.QueryParams] = []
+    base = _handler(_Calls(), _match())
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/rest/v1/messages" and request.method == "GET":
+            seen.append(request.url.params)
+        return base(request)
+
+    response = _wire(handler).get(
+        f"/chat/matches/{MATCH_ID}/messages",
+        params={"before": CURSOR_AT, "before_id": OLDEST_MESSAGE_ID}, headers=AUTH_HEADERS,
+    )
+
+    assert response.status_code == 200
+    assert seen[0]["or"].endswith(f"id.lt.{OLDEST_MESSAGE_ID}))")
+
+
+@pytest.mark.parametrize("before_id", ["1,or(id.eq.x)", "x))", "msg-9"])
+def test_a_cursor_id_that_is_not_a_message_id_is_refused(before_id):
+    """before_id 는 PostgREST `or=(…)` 문법 안에 들어간다 — 쉼표·괄호를 그대로 받으면 조건이 바뀐다(보안 점검 10-16 #14)."""
+    response = _wire(_handler(_Calls(), _match())).get(
+        f"/chat/matches/{MATCH_ID}/messages",
+        params={"before": CURSOR_AT, "before_id": before_id}, headers=AUTH_HEADERS,
+    )
+    assert response.status_code == 422
+
+
 # 상대의 읽은 시각(카톡식 읽음 '1', 사용자 결정 2026-10-13) --------------------------------
 
 PARTNER_READ = "2026-09-22T13:30:00+09:00"

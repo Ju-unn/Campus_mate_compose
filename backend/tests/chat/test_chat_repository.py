@@ -12,6 +12,8 @@ from private_columns import plaintext_gone
 URL = "https://x.supabase.co/rest/v1"
 ME = "11111111-1111-1111-1111-111111111111"
 MATCH = "22222222-2222-2222-2222-222222222222"
+# messages.id 는 uuid 다 — 커서 id 도 그 모양이어야 한다.
+OLDEST = "44444444-4444-4444-4444-444444444444"
 
 
 def _repo(handler) -> ChatRepository:
@@ -76,10 +78,24 @@ async def test_the_cursor_keeps_ties_from_being_skipped():
         return httpx.Response(200, json=[])
 
     before = datetime(2026, 9, 22, 10, 0, tzinfo=SEOUL)
-    await _repo(handler).fetch_messages(MATCH, before=before, before_id="msg-9")
+    await _repo(handler).fetch_messages(MATCH, before=before, before_id=OLDEST)
 
     cursor = before.isoformat()
-    assert seen[0]["or"] == f"(created_at.lt.{cursor},and(created_at.eq.{cursor},id.lt.msg-9))"
+    assert seen[0]["or"] == f"(created_at.lt.{cursor},and(created_at.eq.{cursor},id.lt.{OLDEST}))"
+
+
+async def test_a_cursor_id_that_is_not_a_uuid_never_reaches_the_or_filter():
+    """라우터가 422 로 막지만, 필터 문법 안에 넣기 전에 저장소도 한 번 더 본다(보안 점검 10-16 #14)."""
+    seen: list[httpx.QueryParams] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url.params)
+        return httpx.Response(200, json=[])
+
+    before = datetime(2026, 9, 22, 10, 0, tzinfo=SEOUL)
+    with pytest.raises(ValueError):
+        await _repo(handler).fetch_messages(MATCH, before=before, before_id="1,or(id.eq.x)")
+    assert seen == []
 
 
 async def test_unread_count_skips_my_own_messages():

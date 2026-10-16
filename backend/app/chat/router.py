@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from uuid import UUID
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -227,7 +228,8 @@ async def revealed_contact(repo: ChatRepository, photos: ProfilePhotoStorage, pa
 
 @router.get("/chat/matches/{match_id}/messages")
 async def get_messages(match_id: str, before: datetime | None = None,
-                       before_id: str | None = None,
+                       # PostgREST `or=(…)` 문법 안에 들어간다 — uuid 가 아니면 문 앞에서 422.
+                       before_id: UUID | None = None,
                        # 0 이나 음수를 그대로 PostgREST 에 넘기면 빈 페이지가 돌아와
                        # 앱이 "더 없음" 으로 읽는다. 문 앞에서 막는다.
                        limit: int = Query(default=MESSAGE_PAGE_SIZE, ge=1),

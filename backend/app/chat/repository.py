@@ -138,8 +138,10 @@ class ChatRepository(PostgrestRepository):
         if before is not None:
             cursor = before.isoformat()
             if before_id:
+                # 필터 문법 안에 들어가는 값이라 쉼표·괄호가 섞이면 조건이 바뀐다 — uuid 가 아니면 ValueError.
+                cursor_id = UUID(str(before_id))
                 params["or"] = (
-                    f"(created_at.lt.{cursor},and(created_at.eq.{cursor},id.lt.{before_id}))"
+                    f"(created_at.lt.{cursor},and(created_at.eq.{cursor},id.lt.{cursor_id}))"
                 )
             else:
                 # id 가 없으면 고를 것이 하나뿐이라 or 로 감쌀 이유가 없다.
