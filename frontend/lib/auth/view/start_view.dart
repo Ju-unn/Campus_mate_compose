@@ -147,7 +147,7 @@ class _Brand extends StatelessWidget {
         Text('CampusMate', style: AppTypography.display.copyWith(color: AppColors.primary)),
         const SizedBox(height: AppSpacing.md),
         Text(
-          '하루 한 사람, 같은 캠퍼스에서',
+          '인증된 대학생과의 소중한 인연', // 사용자 결정 10-16 "스플래시 1번"
           textAlign: TextAlign.center,
           style: AppTypography.body.copyWith(color: AppColors.muted),
         ),

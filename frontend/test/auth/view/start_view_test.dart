@@ -12,14 +12,19 @@ import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../billing/view/pretendard.dart';
 import '../../core/supabase/fake_auth_session.dart';
 import '../model/fake_social_login_repository.dart';
 
 const _notice = '학교 메일 인증은 가입할 때 한 번만 해요';
+
+/// 스플래시 부제(사용자 결정 10-16 "스플래시 1번").
+const _subtitle = '인증된 대학생과의 소중한 인연';
 
 /// 휴대폰 크기(360×740)에 시작 화면을 띄운다.
 Future<(FakeAuthSession, FakeSocialLoginRepository)> _pump(
@@ -71,7 +76,7 @@ void main() {
       await _pump(tester, signedIn: true);
 
       expect(find.byKey(StartView.mascotKey), findsOneWidget);
-      expect(find.text('하루 한 사람, 같은 캠퍼스에서'), findsOneWidget);
+      expect(find.text(_subtitle), findsOneWidget);
       expect(find.byType(CircularProgressIndicator), findsNothing);
       final title = tester.widget<Text>(find.text('CampusMate'));
       expect(title.style?.fontSize, AppTypography.display.fontSize);
@@ -401,5 +406,40 @@ void main() {
 
       expect(find.text(backExitMessage), findsNothing);
     }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+  });
+
+  // 반드시 파일 맨 끝 — 여기서 실제 글꼴(Pretendard)을 불러오면 그 뒤 시험 글꼴이 바뀐다(앞 시험들은 Ahem 폭을 가정한다).
+  group('부제 "$_subtitle" — 실제 글꼴로 잰다', () {
+    int lines(WidgetTester tester) {
+      final paragraph = tester.renderObject<RenderParagraph>(find.text(_subtitle));
+      final painter = TextPainter(text: paragraph.text, textDirection: TextDirection.ltr, textScaler: paragraph.textScaler)
+        ..layout(maxWidth: paragraph.constraints.maxWidth);
+      final count = painter.computeLineMetrics().length;
+      painter.dispose();
+      return count;
+    }
+
+    for (final size in [const Size(360, 740), const Size(320, 568)]) {
+      testWidgets('16/400 muted, ${size.width.toInt()} 폭(좌우 24 를 뺀 칸)에서 한 줄', (tester) async {
+        await tester.runAsync(loadPretendard);
+        await _pump(tester, signedIn: true, size: size);
+
+        final style = tester.widget<Text>(find.text(_subtitle)).style!;
+        expect((style.fontSize, style.fontWeight, style.color), (16.0, FontWeight.w400, AppColors.muted));
+        expect(lines(tester), 1);
+      });
+    }
+
+    for (final scale in [1.3, 1.5, 2.0]) {
+      testWidgets('글자 $scale배 · 320 폭에서도 넘치거나 잘리지 않는다(모자라면 줄을 바꾼다)', (tester) async {
+        await tester.runAsync(loadPretendard);
+        await _pump(tester, signedIn: true, textScale: scale, size: const Size(320, 568));
+
+        expect(tester.takeException(), isNull);
+        final paragraph = tester.renderObject<RenderParagraph>(find.text(_subtitle));
+        expect(paragraph.getMaxIntrinsicHeight(paragraph.size.width), lessThanOrEqualTo(paragraph.size.height + 0.5));
+        expect(paragraph.size.width, lessThanOrEqualTo(320 - 48));
+      });
+    }
   });
 }
