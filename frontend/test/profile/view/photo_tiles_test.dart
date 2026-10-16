@@ -67,7 +67,12 @@ void main() {
     // 파일은 읽지 않는다 — 배치만 본다(그림은 아직 오는 중이어도 칸 크기는 같다).
     SelectedPhoto photo(String name) => SelectedPhoto(File('missing/$name.png'));
 
-    Future<void> pumpGrid(WidgetTester tester, PhotosUiState state, {double columnGap = 16}) async {
+    Future<void> pumpGrid(
+      WidgetTester tester,
+      PhotosUiState state, {
+      double columnGap = 16,
+      ValueChanged<int>? onOpenPhoto,
+    }) async {
       tester.view.physicalSize = const Size(328, 400);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
@@ -81,11 +86,31 @@ void main() {
               state: state,
               viewModel: container.read(photosViewModelProvider.notifier),
               columnGap: columnGap,
+              onOpenPhoto: onOpenPhoto,
             ),
           ),
         ),
       );
     }
+
+    // 사진 크게 보기는 옵션이다 — 04-2 와 같이 쓰는 칸이라 기본은 꺼짐, 15-7 만 켠다(사용자 결정 2026-10-16).
+    testWidgets('크게 보기는 기본 꺼짐 — 칸을 눌러도 부를 곳이 없다', (tester) async {
+      await pumpGrid(tester, PhotosUiState(photos: [photo('a'), photo('b')]));
+
+      expect(tester.widget<PhotoSlotGrid>(find.byType(PhotoSlotGrid)).onOpenPhoto, isNull);
+      expect(tester.widget<DraggablePhotoTile>(find.byType(DraggablePhotoTile).first).onOpen, isNull);
+    });
+
+    // 빈 칸 · x · 끌기와 안 섞이는지는 15-7 화면 시험(my_photos_screen_test)이 본다 — 빈 칸은 실제 갤러리를 부른다.
+    testWidgets('켜면 사진 칸을 누를 때 그 칸 번호로 부른다', (tester) async {
+      final opened = <int>[];
+      await pumpGrid(tester, PhotosUiState(photos: [photo('a'), photo('b')]), onOpenPhoto: opened.add);
+
+      await tester.tap(find.byType(DraggablePhotoTile).at(1));
+      await tester.pump();
+
+      expect(opened, [1]);
+    });
 
     testWidgets('사진 → 사진 칸, 나머지 → "사진 추가" 칸, 칸 순서는 왼쪽 위부터 가로로', (tester) async {
       await pumpGrid(tester, PhotosUiState(photos: [photo('a'), photo('b')]));
