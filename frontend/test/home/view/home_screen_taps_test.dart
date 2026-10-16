@@ -44,7 +44,7 @@ void main() {
   /// 리뷰 남기기의 "곧 열려요" 안내 — 6칸 그리드 자리표시 칸(10-15)도 같은 글이라 토스트 안에서만 찾는다.
   Finder comingSoonToast() => find.descendant(of: find.byType(AppToast), matching: find.text('곧 열려요'));
 
-  /// 홈을 띄우고 openUrlProvider 가 받은 주소들을 돌려준다. [opens] 는 그 호출이 돌려줄 값, [throws] 면 예외.
+  /// 홈을 띄우고 openExternalUrlProvider 가 받은 주소들을 돌려준다. [opens] 는 그 호출이 돌려줄 값, [throws] 면 예외.
   Future<List<Uri>> pump(
     WidgetTester tester, {
     String storeUrl = '',
@@ -65,7 +65,7 @@ void main() {
         cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
         chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
         storeReviewUrlProvider.overrideWithValue(storeUrl),
-        openUrlProvider.overrideWithValue(
+        openExternalUrlProvider.overrideWithValue(
           open ??
               (uri) async {
                 opened.add(uri);

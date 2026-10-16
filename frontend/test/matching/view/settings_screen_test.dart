@@ -518,7 +518,27 @@ void main() {
     expect(divider(tester, '개인정보처리방침'), const BorderSide(color: AppColors.hairlineSoft));
   });
 
-  testWidgets('"이용약관" 은 약관동의 페이지, "개인정보처리방침" 은 처리방침 페이지를 기기 브라우저로 연다(10-14 노션 재구성)', (tester) async {
+  testWidgets('약관을 여는 중에 또 눌러도 한 번만 연다', (tester) async {
+    await pump(tester);
+    final pending = Completer<bool>();
+    openUrl = (uri) {
+      opened.add(uri);
+      return pending.future;
+    };
+
+    await tester.tap(find.text('이용약관'));
+    await tester.tap(find.text('이용약관'));
+    await tester.pump();
+    expect(opened, [termsLink]);
+
+    pending.complete(true);
+    await tester.pump();
+    await tester.tap(find.text('이용약관'));
+    await tester.pump();
+    expect(opened, hasLength(2)); // 끝나면 다시 열 수 있다 — 막는 표시가 풀린다
+  });
+
+  testWidgets('"이용약관" 은 약관동의 페이지, "개인정보처리방침" 은 처리방침 페이지를 앱 안 브라우저로 연다(10-14 노션 재구성)', (tester) async {
     await pump(tester);
 
     await tester.tap(find.text('이용약관'));

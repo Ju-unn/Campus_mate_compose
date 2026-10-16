@@ -263,7 +263,7 @@ class _NoResultsState extends ConsumerState<_NoResults> {
   Future<void> _openMail() async {
     bool opened;
     try {
-      opened = await ref.read(openUrlProvider)(Uri.parse('mailto:$supportEmail'));
+      opened = await ref.read(openExternalUrlProvider)(Uri.parse('mailto:$supportEmail'));
     } catch (_) {
       opened = false;
     }

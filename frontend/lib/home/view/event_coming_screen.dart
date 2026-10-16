@@ -31,7 +31,7 @@ class _EventComingScreenState extends ConsumerState<EventComingScreen> with MeTo
     _opening = true;
     var opened = false;
     try {
-      opened = await ref.read(openUrlProvider)(instagramLink);
+      opened = await ref.read(openExternalUrlProvider)(instagramLink);
     } catch (_) {
       // 기기 쪽 오류 — 아래에서 안내한다.
     } finally {

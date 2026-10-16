@@ -7,9 +7,11 @@ from unittest import mock
 
 from e2e import area1, area1_emu, emu, tools
 from e2e.test_area1 import Base, Reply
-from e2e.test_area1_phone import FakePhone
+from e2e.test_area1_phone import OURS, FakePhone
 
 S = 'emulator-5554'
+# 브라우저가 없을 때 url_launcher 가 여는 앱 안 웹뷰(우리 앱 작업 안의 다른 화면)
+WEB_VIEW = 'topResumedActivity=ActivityRecord{2 u0 io.github.juunn.campusmate/io.flutter.plugins.urllauncher.WebViewActivity t9}'
 
 
 class FakeAdb:
@@ -538,7 +540,7 @@ class CaseTest(Base):
         self.assertEqual(phone.jobs[1]['expect'], 'home')
         self.assertEqual(phone.jobs[1]['limit'], 30)  # 느린 에뮬에서 5초가 모자라 스플래시에서 FAIL 이었다(E-AUTH-22 와 같다)
 
-    def test_gate_12_opens_the_app_with_browsers_disabled(self):
+    def test_gate_12_with_browsers_disabled_the_terms_open_in_the_in_app_web_view(self):
         self.serve()
         state = []
 
@@ -547,9 +549,23 @@ class CaseTest(Base):
             state.append('off')
             yield
             state.append('on')
-        with mock.patch.object(emu, 'browsers_disabled', browsers):
-            self.assertEqual(area1.attempt_phone(self.run, 'E-GATE-12', self.phone())[0], 'pass')
+        phone = self.phone(top=WEB_VIEW, midway_step={'step': 'opened'})
+        adb = FakeAdb()
+        with mock.patch.object(emu, 'browsers_disabled', browsers), patched(adb):
+            self.assertEqual(area1.attempt_phone(self.run, 'E-GATE-12', phone)[0], 'pass')
         self.assertEqual(state, ['off', 'on'])
+        self.assertEqual(phone.acted, ['opened'])
+        self.assertEqual(len(adb.ran('KEYCODE_BACK')), 1)  # 웹뷰를 닫고 02-c 로 돌려보낸다
+
+    def test_gate_12_fails_when_no_in_app_web_view_comes_to_the_front(self):
+        self.serve()
+        adb = FakeAdb()
+        with mock.patch.object(emu, 'browsers_disabled', lambda serial: contextlib.nullcontext()), patched(adb), \
+                mock.patch.object(area1_emu.time, 'sleep'):
+            result, note = area1.attempt_phone(self.run, 'E-GATE-12', self.phone(top=OURS, midway_step={'step': 'opened'}))
+        self.assertEqual(result, 'fail')
+        self.assertIn('앱 안 웹뷰가 안 뜸', note)
+        self.assertFalse(adb.ran('KEYCODE_BACK'))  # 앱이 맨 앞인데 뒤로가기를 누르면 02-c 를 건드린다
 
     def test_gate_47_cuts_the_network_while_the_app_waits_and_the_server_never_saw_a_submit(self):
         self.serve({('GET', '/rest/v1/student_verification_attempts'): Reply(200, [])})

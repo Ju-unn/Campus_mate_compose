@@ -136,7 +136,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
     _opening = true;
     var opened = false;
     try {
-      opened = await ref.read(openUrlProvider)(uri);
+      opened = await ref.read(openExternalUrlProvider)(uri);
     } catch (_) {
       // 기기 쪽 오류 — 아래에서 안내한다.
     } finally {

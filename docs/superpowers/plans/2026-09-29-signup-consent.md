@@ -488,3 +488,10 @@ final openUrlProvider = Provider<Future<bool> Function(Uri)>(
 **리뷰(2026-09-29, campus-reviewer) PASS — 필수 0 · 권고 1 · 사소 3.** pytest 734 · test 1598 · analyze 0 재실행 일치, pgTAP 는 인용(차례 없음). Review Focus 1~5 전부 PASS, 1번 RED 재현(순서 뒤집기 → VM 테스트 실패, `AuthRedirect(complete, basicInfo)` 로 04-1 경로 실증).
 - 권고 1(보류 · 대장 백로그 후보): 재동의 뒤 온보딩 조회가 **네트워크로** 실패하면 캐시가 basicInfo 인 채 게이트가 complete 로 바뀌어 04-1 로 샌다. 앱을 다시 켜면 풀린다. 리뷰 제안("온보딩 조회 실패면 게이트 조회를 건너뛴다")은 **새 사용자를 02-c 에 가둔다** — 새 사용자는 학생증 전이라 next-step 이 늘 403(실패)이다. 고치려면 403(관문)과 네트워크 실패를 가려야 한다. 판이 처음 올라가기 전(약관 개정 전)에는 재동의 계정이 없어 지금은 생기지 않는다.
 - 사소 2: 위 줄로 반영. 사소 3(next-step 200 정상 경로 테스트 없음): 관문 호출은 변형 ①로 증명돼 넣지 않았다. 사소 4(ERD.md §2 검증 목록 service_role 문장): 예외 한 줄 반영.
+
+## 구현 편차 기록
+
+- **2026-10-16 · Q6 바뀜(사용자 결정, 대장 전달):** "보기"는 기기 브라우저가 아니라 **앱 안 브라우저**(안드로이드 커스텀 탭 · iOS SFSafariViewController, `LaunchMode.inAppBrowserView`)로 연다. 앱 안 열기가 예외면 기기 브라우저로 다시 열지 않고 실패로 돌려 부르는 쪽이 안내한다(`open_url.dart` `openInApp`) — iOS 첫 로드 실패는 앱 안 화면을 이미 띄운 채 예외라 다시 열면 이중 열기가 된다(검토 필수 1). 세 문서 호출부는 여는 중 연타를 한 번으로 막는다(검토 권고 1). 같은 `openUrlProvider` 를 쓰는 설정 16 약관 줄 · 유료 서비스 약관(하트 결제 안내)도 같이 앱 안으로 간다. 다른 앱으로 넘기는 주소(홈 리뷰 남기기 · 인스타그램, 이벤트 예정 인스타그램, FAQ mailto)는 새 `openExternalUrlProvider` 로 기기 앱 · 브라우저 그대로다.
+  - 안드로이드는 커스텀 탭을 받는 브라우저가 없으면 url_launcher 가 앱 안 웹뷰(WebViewActivity)로 연다 — 그 기기에서는 "보기" 실패 토스트가 안 뜬다. E2E E-GATE-12 기대값을 "앱 안 웹뷰로 열림" 으로 바꿨다(대장 결정 ①, `e2e/area1_emu.py` · `integration_test/area1_emu.dart`). `<queries>` 는 그대로 안 바꿨다(Global Constraints).
+  - iOS 에서 첫 로드 전에 사용자가 닫으면 url_launcher 가 false 를 준다 — 실패가 아니라 연 것으로 친다(다시 열지도, 안내하지도 않는다).
+- **2026-10-16 · 02-c 개인정보 줄 설명(10-15 안 B) 삭제(사용자 결정, pen `f4cAN` · `wPx6Q` 숨김 — enabled:false):** 개인정보 수집·이용 줄은 이용약관 · 마케팅 줄과 같은 한 줄(50)로 돌아갔다. 동의 항목 · 서버 `CONSENT_VERSION` · `user_consents` 항목은 그대로다.

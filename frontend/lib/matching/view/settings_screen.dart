@@ -35,6 +35,7 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   /// 스토어가 열려 있는 동안 입구를 또 눌러도(같은 프레임의 연타 포함) 스토어를 한 겹만 쌓는다.
   bool _openingStore = false;
+  bool _openingTerms = false;
 
   Future<void> _openHeartStore() async {
     if (_openingStore) return;
@@ -162,14 +163,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  /// 약관은 기기 브라우저로 연다(약관 동의 02-c 와 같은 길). 못 열면 화면에 남고 안내만 띄운다.
-  static Future<void> _open(BuildContext context, WidgetRef ref, Uri link) async {
+  /// 약관은 앱 안 브라우저로 연다(약관 동의 02-c 와 같은 길, open_url.dart). 못 열면 화면에 남고 안내만 띄운다.
+  Future<void> _open(BuildContext context, WidgetRef ref, Uri link) async {
+    if (_openingTerms) return; // 여는 호출이 끝나기 전에 다시 눌러도 두 번 열지 않는다
+    _openingTerms = true;
     final messenger = ScaffoldMessenger.of(context);
     bool opened;
     try {
       opened = await ref.read(openUrlProvider)(link);
     } catch (_) {
       opened = false;
+    } finally {
+      _openingTerms = false;
     }
     if (!opened) {
       showSafetyToast(messenger, const UnknownFailure().toDisplayMessage(), icon: AppIcons.alertTriangle);

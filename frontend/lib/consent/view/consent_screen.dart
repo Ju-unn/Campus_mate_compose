@@ -31,6 +31,7 @@ class _ConsentScreenState extends ConsumerState<ConsentScreen> {
   /// 저장 실패 · 브라우저 못 엶 안내(pen 에 없음 — 계획서 편차 2). 가입 화면 안내와 같은 자리 · 3초.
   String? _notice;
   Timer? _noticeTimer;
+  bool _opening = false;
 
   void _showNotice(String message) {
     _noticeTimer?.cancel();
@@ -47,11 +48,15 @@ class _ConsentScreenState extends ConsumerState<ConsentScreen> {
   }
 
   Future<void> _view(Uri link) async {
+    if (_opening) return; // 여는 호출이 끝나기 전에 다시 눌러도 두 번 열지 않는다(홈 _openExternal 과 같은 규칙)
+    _opening = true;
     bool opened;
     try {
       opened = await ref.read(openUrlProvider)(link);
     } catch (_) {
       opened = false;
+    } finally {
+      _opening = false;
     }
     if (!opened && mounted) _showNotice(const UnknownFailure().toDisplayMessage());
   }
@@ -155,7 +160,6 @@ class _Body extends StatelessWidget {
             checked: state.checked.contains(item),
             onToggle: () => viewModel.toggle(item),
             isRequired: item.isRequired,
-            details: item.details,
             onView: switch (item.link) {
               final link? => () => onView(link),
               null => null,
