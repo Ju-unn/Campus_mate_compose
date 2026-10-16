@@ -41,6 +41,10 @@ void main() {
     expect([for (final step in appTourSteps) step.lineLength], [52, 52, 52, 52, 32, 52]);
   });
 
+  test('6단계만 대상 위쪽을 앱바 바로 아래 12 로 밀어 올린다(pen campus-pen 10-16) — 나머지는 가운데로', () {
+    expect([for (final step in appTourSteps) step.alignTop], [null, null, null, null, null, 12]);
+  });
+
   test('하트 스토어는 오늘 탭 위에 올려(push) 열고, 무료로 모으기가 목록 끝이라 스크롤해 찾는다', () {
     expect([for (final step in appTourSteps) step.push], [false, false, false, false, false, true]);
     expect(appTourSteps[5].scrollAnchor, TourTargetId.heartStoreTop);

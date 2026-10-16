@@ -12,6 +12,7 @@ import 'package:campus_mate/tour/view/coach_line.dart';
 import 'package:campus_mate/tour/view/coach_overlay.dart';
 import 'package:campus_mate/tour/view/tour_target.dart';
 import 'package:campus_mate/tour/viewmodel/app_tour_view_model.dart';
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart' show PredictiveBackEvent;
@@ -30,6 +31,12 @@ const int _seekFrames = 60;
 
 /// 앞 후보가 이만큼 프레임이 지나도 안 보이면 뒤 후보(대신 자리)를 쓴다 — 화면이 그려질 틈을 준다.
 const int _fallbackAfterFrames = 5;
+
+/// 말풍선 자리가 모자랄 때 선을 줄여도 남기는 길이(점 10 + 선 14). pen 에 없는 값 — 작은 화면 · 큰 글자에서만 닿는다.
+const double _minLine = AppSpacing.lg;
+
+/// [TourStep.alignTop] 단계에서 구멍 아래를 잘라도 남기는 높이. pen 에 없는 값 — 작은 화면 · 큰 글자에서만 닿는다.
+const double _minHole = AppSpacing.xxl;
 
 /// 앱 투어 호스트. 앱 맨 위(`MaterialApp.builder`, 라우터 바깥)에 한 번 놓여 화면이 바뀌어도 덮개가 남는다.
 /// 단계([appTourSteps])마다 그 화면으로 옮기고, [TourTarget] 으로 등록된 요소의 그려진 자리를 재서 구멍을 뚫는다.
@@ -51,6 +58,16 @@ class _AppTourHostState extends ConsumerState<AppTourHost>
     with TickerProviderStateMixin, WidgetsBindingObserver
     implements TourTargetRegistry {
   final Map<TourTargetId, BuildContext> _targets = {};
+
+  /// 목록 끝 빈자리([TourScrollRoom])를 낼 대상 — [TourStep.alignTop] 단계에서만 찬다.
+  final ValueNotifier<TourTargetId?> _scrollRoom = ValueNotifier(null);
+
+  /// 빈자리를 붙인 목록 — 투어가 끝날 때 빈자리를 거두기 전에 목록 끝으로 되돌린다.
+  ScrollPosition? _roomList;
+
+  /// 말풍선의 잘리지 않은 높이. 매 프레임 끝에 재 말풍선 자리 · 구멍 자르기에 쓴다(처음엔 모른다).
+  final GlobalKey _bubbleKey = GlobalKey();
+  double? _bubbleHeight;
 
   /// 덮개 첫 등장 · 끝날 때 사라짐.
   late final AnimationController _appear = AnimationController(vsync: this, duration: AppMotion.standard)
@@ -90,6 +107,7 @@ class _AppTourHostState extends ConsumerState<AppTourHost>
     _tour.close();
     _appear.dispose();
     _travel.dispose();
+    _scrollRoom.dispose();
     super.dispose();
   }
 
@@ -100,6 +118,9 @@ class _AppTourHostState extends ConsumerState<AppTourHost>
   void unregister(TourTargetId id, BuildContext context) {
     if (identical(_targets[id], context)) _targets.remove(id);
   }
+
+  @override
+  ValueListenable<TourTargetId?> get scrollRoom => _scrollRoom;
 
   bool get _reduced => MediaQuery.disableAnimationsOf(context);
 
@@ -124,11 +145,35 @@ class _AppTourHostState extends ConsumerState<AppTourHost>
 
   void _close() {
     _seek++;
+    _releaseRoom();
     setState(() {
       _step = null;
       _pointed = null;
     });
     _reduced ? _appear.value = 0 : _appear.reverse();
+  }
+
+  /// 6단계 빈자리를 거둔다. 목록이 빈자리 안까지 내려가 있으면 먼저 목록 끝으로 부드럽게 올린 뒤 거둔다 —
+  /// 바로 거두면 목록이 끝으로 한 프레임에 튄다(건너뛰기 · 시스템 뒤로가기). 동작 줄이기면 바로 거둔다.
+  void _releaseRoom() {
+    final list = _roomList;
+    _roomList = null;
+    final room = _scrollRoom.value;
+    // 목록 화면이 이미 닫혔으면(다른 길로 벗어남 · 시작하기 뒤) 밀 목록이 없다.
+    if (_reduced || room == null || list == null || !list.context.storageContext.mounted || !list.hasContentDimensions) {
+      _scrollRoom.value = null;
+      return;
+    }
+    // 빈자리 높이 = 화면 높이(TourScrollRoom).
+    final end = math.max(list.minScrollExtent, list.maxScrollExtent - MediaQuery.sizeOf(context).height);
+    if (list.pixels <= end) {
+      _scrollRoom.value = null;
+      return;
+    }
+    unawaited(list.animateTo(end, duration: _travelDuration, curve: AppMotion.standardCurve).whenComplete(() {
+      // 그사이 투어를 다시 시작했으면 그쪽이 빈자리를 맡는다.
+      if (mounted && !_active && _scrollRoom.value == room) _scrollRoom.value = null;
+    }));
   }
 
   void _onAppearStatus(AnimationStatus status) {
@@ -140,6 +185,8 @@ class _AppTourHostState extends ConsumerState<AppTourHost>
   Future<void> _seekStep(AppTourUiState tour) async {
     final token = ++_seek;
     final step = appTourSteps[tour.index];
+    _scrollRoom.value = null;
+    _roomList = null;
     setState(() {
       _step = null;
       _pointed = null;
@@ -179,7 +226,7 @@ class _AppTourHostState extends ConsumerState<AppTourHost>
     for (final (index, id) in step.targets.indexed) {
       if (index > 0 && frame < _fallbackAfterFrames) return null;
       final target = _targets[id];
-      if (target != null && _rectOf(target, step) != null) return id;
+      if (target != null && _boxRect(target) != null) return id;
     }
     return null;
   }
@@ -194,14 +241,48 @@ class _AppTourHostState extends ConsumerState<AppTourHost>
     return true;
   }
 
-  /// 대상의 그려진 상자를 호스트 좌표로(변환 · 화면 전환 중 확대까지 반영) 재고 [TourStep.holePadding] 만큼 띄운다.
-  Rect? _rectOf(BuildContext target, TourStep step) {
+  /// 그려진 상자를 호스트 좌표로(변환 · 화면 전환 중 확대까지 반영). 아직 안 그려졌으면 null.
+  Rect? _boxRect(BuildContext target) {
     if (!target.mounted) return null;
     final box = target.findRenderObject();
     final host = context.findRenderObject();
     if (box is! RenderBox || host is! RenderBox || !box.attached || !box.hasSize || !host.hasSize) return null;
-    return step.holePadding.inflateRect(MatrixUtils.transformRect(box.getTransformTo(host), Offset.zero & box.size));
+    return MatrixUtils.transformRect(box.getTransformTo(host), Offset.zero & box.size);
   }
+
+  /// 구멍 — 대상 상자를 [TourStep.holePadding] 만큼 띄우고 위아래를 보이는 영역([_visibleArea]) 안으로 줄인다(모든 단계가 같다).
+  /// [TourStep.alignTop] 단계는 아래 말풍선 · 선이 보이는 영역 안에 다 들어오게 구멍 아래쪽을 더 자른다(최소 [_minHole]).
+  Rect? _rectOf(BuildContext target, TourStep step) {
+    final box = _boxRect(target);
+    if (box == null) return null;
+    final raw = step.holePadding.inflateRect(box);
+    final area = _visibleArea(target);
+    final top = _within(raw.top, area.top, area.bottom);
+    var bottom = _within(raw.bottom, area.top, area.bottom);
+    final bubble = _bubbleHeight;
+    if (step.alignTop != null && bubble != null) {
+      final limit = area.bottom - AppSpacing.md - step.lineLength - bubble;
+      bottom = math.max(math.min(bottom, top + _minHole), math.min(bottom, limit));
+    }
+    return Rect.fromLTRB(raw.left, top, raw.right, bottom);
+  }
+
+  /// 대상이 보일 수 있는 위아래 범위(호스트 좌표): 안전 영역 안이고, 대상을 품은 세로 목록마다 그 목록 칸 안 —
+  /// 앱바 · 배너 · 하단 고정 바(하트 구매 바)는 목록 칸 밖이라 빠진다. 가로는 줄이지 않는다(pen 가로 띄움 그대로).
+  Rect _visibleArea(BuildContext target) {
+    var area = MediaQuery.paddingOf(context).deflateRect(Offset.zero & (context.size ?? Size.zero));
+    for (var list = Scrollable.maybeOf(target, axis: Axis.vertical);
+        list != null;
+        list = Scrollable.maybeOf(list.context, axis: Axis.vertical)) {
+      final view = _boxRect(list.context);
+      if (view == null) continue;
+      area = Rect.fromLTRB(area.left, math.max(area.top, view.top), area.right, math.min(area.bottom, view.bottom));
+    }
+    return area;
+  }
+
+  /// [value] 를 [low]~[high] 안으로. 범위가 뒤집혀도(화면 전환 중 목록이 화면 밖) 던지지 않는다.
+  static double _within(double value, double low, double high) => math.min(math.max(value, low), high);
 
   /// 찾았다 — 구멍을 지금 자리(움직이는 중이면 그 중간)에서 새 대상으로 옮기고 말풍선을 띄운다. 대상이 화면 밖이면 보이게 민다.
   void _arrive(TourStep step, TourTargetId? id) {
@@ -219,12 +300,35 @@ class _AppTourHostState extends ConsumerState<AppTourHost>
     });
     _reduced ? _travel.value = 1 : _travel.forward(from: 0);
     if (target == null) return;
+    if (step.alignTop case final gap?) {
+      unawaited(_raise(id!, target, step, gap));
+      return;
+    }
     unawaited(Scrollable.ensureVisible(
       target,
       alignment: 0.5,
       duration: _reduced ? Duration.zero : _travelDuration,
       curve: AppMotion.standardCurve,
     ));
+  }
+
+  /// [TourStep.alignTop] — 목록 끝 빈자리를 내고(다음 프레임에 목록이 길어진다) 구멍 위쪽이 보이는 영역 맨 위에서 [gap] 아래에 오게 민다.
+  /// 목록이 그만큼 못 가면 갈 수 있는 데까지만.
+  Future<void> _raise(TourTargetId id, BuildContext target, TourStep step, double gap) async {
+    final token = _seek;
+    _scrollRoom.value = id;
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted || token != _seek) return;
+    if (!target.mounted) return;
+    final list = Scrollable.maybeOf(target, axis: Axis.vertical);
+    final box = _boxRect(target);
+    if (list == null || box == null) return;
+    final position = list.position;
+    _roomList = position;
+    final offset = position.pixels + step.holePadding.inflateRect(box).top - (_visibleArea(target).top + gap);
+    final to = offset.clamp(position.minScrollExtent, position.maxScrollExtent);
+    if (_reduced) return position.jumpTo(to);
+    await position.animateTo(to, duration: _travelDuration, curve: AppMotion.standardCurve);
   }
 
   void _missing(AppTourUiState tour) {
@@ -289,12 +393,17 @@ class _AppTourHostState extends ConsumerState<AppTourHost>
       if (widget.router.state.matchedLocation != step.location) _skip();
       return;
     }
+    // 말풍선 높이를 먼저 잰다 — 6단계 구멍 자르기와 말풍선 자리가 쓴다(말풍선 높이는 자리와 상관없어 되먹임이 없다).
+    final measured = _bubbleKey.currentContext?.size?.height;
+    final resized = measured != null && measured != _bubbleHeight;
+    if (resized) _bubbleHeight = measured;
     final rect = _rectOf(target, step);
     if (rect == null) {
       _skip();
       return;
     }
-    if (_to case final to? when _near(to, rect)) return;
+    final to = _to;
+    if (!resized && to != null && _near(to, rect)) return;
     setState(() => _to = rect);
   }
 
@@ -358,8 +467,8 @@ class _AppTourHostState extends ConsumerState<AppTourHost>
     );
   }
 
-  /// 말풍선은 구멍 위아래 중 넓은 쪽에, 선 길이만큼 떨어져 놓인다(가로는 가운데). 대상이 없으면 화면 가운데.
-  /// 자리가 모자라면(글자 확대 · 가로 화면) 말풍선 안이 스크롤된다.
+  /// 말풍선은 구멍 아래(안 들어가면 위)에 선 길이만큼 떨어져 놓인다(가로는 가운데). 대상이 없으면 화면 가운데.
+  /// 자리가 모자라면 선을 줄이고, 그래도 모자라면 화면 안으로 당겨 구멍에 겹친다 — 화면보다 크면(글자 확대 · 가로 화면) 안이 스크롤된다.
   List<Widget> _bubble(BuildContext context, Size size, AppTourUiState tour, TourStep step) {
     final padding = MediaQuery.paddingOf(context);
     final width = math.min(_bubbleWidth, size.width - AppSpacing.md * 2);
@@ -369,6 +478,7 @@ class _AppTourHostState extends ConsumerState<AppTourHost>
       key: key,
       rise: 8,
       child: CoachBubble(
+        key: _bubbleKey,
         number: tour.index - tour.skipped + 1,
         total: appTourSteps.length - tour.skipped,
         title: step.title,
@@ -391,33 +501,52 @@ class _AppTourHostState extends ConsumerState<AppTourHost>
         ),
       ];
     }
-    final below = size.height - padding.bottom - hole.bottom >= hole.top - padding.top;
-    final line = step.lineLength;
-    final room = below
-        ? size.height - padding.bottom - AppSpacing.md - hole.bottom - line
-        : hole.top - line - padding.top - AppSpacing.md;
+    final top = padding.top + AppSpacing.md;
+    final bottom = size.height - padding.bottom - AppSpacing.md;
+    final height = math.min(_bubbleHeight ?? 0, math.max(0.0, bottom - top));
+    final below = _bubbleBelow(hole, top, bottom, height);
+    final space = below ? bottom - hole.bottom : hole.top - top;
+    // 자리가 모자라면 선부터 줄인다(최소 _minLine). 그래도 모자라면 말풍선을 화면 안으로 당겨 구멍에 겹치고 선은 감춘다.
+    final line = (space - height).clamp(math.min(_minLine, step.lineLength), step.lineLength).toDouble();
+    final overlap = space < height + _minLine;
+    // 말풍선의 구멍 쪽 끝 — 아래면 위 끝, 위면 아래 끝.
+    final edge = switch ((below, overlap)) {
+      (true, false) => hole.bottom + line,
+      (true, true) => math.max(top, bottom - height),
+      (false, false) => hole.top - line,
+      (false, true) => math.min(bottom, top + height),
+    };
     final card = ConstrainedBox(
-      constraints: BoxConstraints(maxHeight: math.max(0, room)),
+      constraints: BoxConstraints(maxHeight: math.max(0, below ? bottom - edge : edge - top)),
       child: SingleChildScrollView(child: bubble),
     );
     // 선은 대상 가운데 아래(위)로, 말풍선 모서리 둥근 곳은 피한다.
     final lineX = hole.center.dx.clamp(left + AppSpacing.lg, left + width - AppSpacing.lg);
     return [
-      Positioned(
-        left: lineX - CoachLine.dotDiameter / 2,
-        top: below ? hole.bottom : hole.top - line,
-        child: TweenAnimationBuilder<double>(
-          key: key,
-          tween: Tween(begin: _reduced ? 1 : 0, end: 1),
-          duration: AppMotion.standard,
-          curve: AppMotion.standardCurve,
-          builder: (context, progress, _) => CoachLine(length: line, dotAtTop: below, progress: progress),
+      if (!overlap)
+        Positioned(
+          left: lineX - CoachLine.dotDiameter / 2,
+          top: below ? hole.bottom : hole.top - line,
+          child: TweenAnimationBuilder<double>(
+            key: key,
+            tween: Tween(begin: _reduced ? 1 : 0, end: 1),
+            duration: AppMotion.standard,
+            curve: AppMotion.standardCurve,
+            builder: (context, progress, _) => CoachLine(length: line, dotAtTop: below, progress: progress),
+          ),
         ),
-      ),
       if (below)
-        Positioned(left: left, width: width, top: hole.bottom + line, child: card)
+        Positioned(left: left, width: width, top: edge, child: card)
       else
-        Positioned(left: left, width: width, bottom: size.height - hole.top + line, child: card),
+        Positioned(left: left, width: width, bottom: size.height - edge, child: card),
     ];
+  }
+
+  /// 구멍 아래가 먼저(pen), 아래에 안 들어가면 위, 둘 다 안 들어가면 넓은 쪽. [height] 는 말풍선 높이(모르면 0).
+  static bool _bubbleBelow(Rect hole, double top, double bottom, double height) {
+    final below = bottom - hole.bottom;
+    final above = hole.top - top;
+    final need = height + _minLine;
+    return below >= need || (above < need && below >= above);
   }
 }

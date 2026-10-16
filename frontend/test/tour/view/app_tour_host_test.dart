@@ -23,6 +23,7 @@ const _tabs = ValueKey('tabs');
 const _arrival = ValueKey('arrival');
 const _header = ValueKey('header');
 const _free = ValueKey('free');
+const _bar = ValueKey('bar');
 
 /// pen 구멍 띄움(campus-pen 확인) — 탭 줄 묶음 · 글자 영역.
 Rect _tabsHole(Rect rect) => const EdgeInsets.fromLTRB(8, 4, 8, 6).inflateRect(rect);
@@ -52,10 +53,14 @@ class _CountingPosition extends ScrollPositionWithSingleContext {
 /// 진짜 화면 대신 같은 대상 id 를 단 가벼운 화면들 — 호스트의 이동 · 찾기 · 그리기만 본다(진짜 화면에 단 자리는 각 화면 시험).
 /// 홈의 완성도 카드는 목록 끝(화면 밖, 아직 안 만들어짐)이라 2단계가 스크롤해 찾아야 한다.
 class _Pages {
-  _Pages({this.nudge = true, this.arrival = true, this.longHome = false});
+  _Pages({this.nudge = true, this.arrival = true, this.longHome = false, this.freeHeight = 200, this.heartBar = 0});
 
   final bool nudge;
   final bool arrival;
+
+  /// 하트 스토어 "무료로 모으기" 묶음 높이와 하단 구매 바 높이(0 이면 바 없음).
+  final double freeHeight;
+  final double heartBar;
 
   /// 홈 목록이 아직 길어지는 중(늦게 받는 내용)이고 맨 위 손잡이가 계속 만들어져 있는 경우 — 완성도 카드는 없다.
   final bool longHome;
@@ -95,13 +100,17 @@ class _Pages {
         ),
         GoRoute(
           path: AppRoutes.heartStore,
+          // 진짜 상점처럼 앱바 56 · 목록 안쪽 [8,16,32,16] · (있으면) 하단 구매 바 · 목록 끝 빈자리(TourScrollRoom).
           builder: (context, state) => Scaffold(
             appBar: AppBar(title: const Text('하트')),
+            bottomNavigationBar: heartBar > 0 ? SizedBox(key: _bar, height: heartBar) : null,
             body: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
               children: [
                 const TourTarget(id: TourTargetId.heartStoreTop, child: SizedBox(height: 180)),
                 for (var i = 0; i < 8; i++) const SizedBox(height: 120),
-                const TourTarget(id: TourTargetId.heartStoreFree, child: SizedBox(key: _free, height: 200)),
+                TourTarget(id: TourTargetId.heartStoreFree, child: SizedBox(key: _free, height: freeHeight)),
+                const TourScrollRoom(id: TourTargetId.heartStoreFree),
               ],
             ),
           ),
@@ -162,11 +171,14 @@ void main() {
     bool arrival = true,
     bool longHome = false,
     String initial = AppRoutes.home,
+    Size size = const Size(360, 740),
+    double freeHeight = 200,
+    double heartBar = 0,
   }) async {
-    tester.view.physicalSize = const Size(360, 740);
+    tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    pages = _Pages(nudge: nudge, arrival: arrival, longHome: longHome);
+    pages = _Pages(nudge: nudge, arrival: arrival, longHome: longHome, freeHeight: freeHeight, heartBar: heartBar);
     addTearDown(pages.scroll.dispose);
     container = ProviderContainer(
       overrides: [
@@ -437,6 +449,163 @@ void main() {
       }
     });
   }
+
+  group('긴 대상 · 작은 화면 — 구멍은 보이는 영역 안, 말풍선은 화면 안', () {
+    Future<void> toLastStep(WidgetTester tester) async {
+      await start(tester);
+      for (var i = 0; i < 5; i++) {
+        await next(tester);
+      }
+    }
+
+    /// 말풍선이 잘리지 않았다 — 말풍선을 품은 스크롤이 더 밀리지 않는다.
+    bool bubbleWhole(WidgetTester tester) {
+      final scroll = find.ancestor(of: find.byType(CoachBubble), matching: find.byType(Scrollable)).first;
+      return tester.state<ScrollableState>(scroll).position.maxScrollExtent == 0;
+    }
+
+    testWidgets('6단계 pen 값(360×780) — 무료로 모으기를 앱바 아래 12 로 올려 구멍 x12 · y68 · 336×306 · 반경 16, 아래 선 52 · 말풍선 x24 · y426', (tester) async {
+      // 묶음 298 = pen 구멍 306 − 사방 4 × 2.
+      await pump(tester, size: const Size(360, 780), freeHeight: 298, heartBar: 88);
+      await toLastStep(tester);
+
+      expect(inBubble('6 / 6'), findsOneWidget);
+      expect(overlay(tester).hole, const Rect.fromLTWH(12, 68, 336, 306));
+      expect(overlay(tester).radius, 16);
+      final bubble = tester.getRect(find.byType(CoachBubble));
+      expect((bubble.left, bubble.top, bubble.width), (24.0, 426.0, 312.0));
+      final line = tester.getRect(find.byType(CoachLine));
+      expect((line.top, line.bottom), (374.0, 426.0));
+      expect(tester.widget<CoachLine>(find.byType(CoachLine)).dotAtTop, isTrue);
+      expect(bubbleWhole(tester), isTrue);
+    });
+
+    testWidgets('6단계 대상이 화면보다 길면(360×600 · 묶음 900) 위쪽을 앱바 아래 12 에 두고, 구멍 아래를 하단 바 위 말풍선 · 선 자리만큼 자른다', (tester) async {
+      await pump(tester, size: const Size(360, 600), freeHeight: 900, heartBar: 88);
+      await toLastStep(tester);
+
+      final hole = overlay(tester).hole!;
+      final bar = tester.getRect(find.byKey(_bar));
+      expect(hole.top, 56 + 12);
+      expect(tester.getTopLeft(find.byKey(_free)).dy, hole.top + 4);
+      final bubble = tester.getRect(find.byType(CoachBubble));
+      expect(bubbleWhole(tester), isTrue);
+      // 선은 줄이지 않는다 — 구멍을 잘라 자리를 냈다.
+      expect(bubble.top, hole.bottom + 52);
+      expect(bubble.bottom, closeTo(bar.top - 16, 0.01));
+    });
+
+    testWidgets('말풍선 자리가 선 길이만큼 모자라면 선부터 줄인다 — 말풍선은 잘리지 않고 화면 아래 여백 16 을 지킨다', (tester) async {
+      await pump(tester);
+      await start(tester);
+      final natural = tester.getSize(find.byType(CoachBubble)).height;
+
+      // 히어로 위 16 · 구멍 띄움 2 · 화면 아래 여백 16 — 구멍 아래 자리가 말풍선 + 30 이 되게 히어로를 키운다.
+      pages.heroHeight.value = 740 - 16 - (16 + 2) - natural - 30;
+      await tester.pumpAndSettle();
+
+      final hole = overlay(tester).hole!;
+      final bubble = tester.getRect(find.byType(CoachBubble));
+      expect(bubble.height, natural);
+      expect(bubbleWhole(tester), isTrue);
+      expect(bubble.top - hole.bottom, closeTo(30, 0.01));
+      expect(tester.getSize(find.byType(CoachLine)).height, closeTo(30, 0.01));
+      expect(bubble.bottom, closeTo(740 - 16, 0.01));
+    });
+
+    for (final scale in [1.3, 2.0]) {
+      testWidgets('작은 화면(360×600) · 글자 $scale · 긴 6단계 묶음(900)으로 다 돌아도 구멍 · 말풍선이 화면 안이고, 6단계 구멍은 앱바와 하단 바 사이', (tester) async {
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await pump(tester, size: const Size(360, 600), freeHeight: 900, heartBar: 88);
+        await start(tester);
+
+        for (var step = 1; step <= 6; step++) {
+          expect(tester.takeException(), isNull, reason: '$step단계');
+          // 보이는 말풍선 틀(말풍선을 품은 스크롤 칸) — 5단계처럼 화면보다 길면 틀 안이 스크롤된다.
+          final bubble = tester.getRect(
+            find.ancestor(of: find.byType(CoachBubble).hitTestable(), matching: find.byType(Scrollable)).first,
+          );
+          expect(bubble.top, greaterThanOrEqualTo(0), reason: '$step단계');
+          expect(bubble.bottom, lessThanOrEqualTo(600), reason: '$step단계');
+          final hole = overlay(tester).hole;
+          if (hole != null) {
+            expect(hole.top, greaterThanOrEqualTo(0), reason: '$step단계');
+            expect(hole.bottom, lessThanOrEqualTo(600), reason: '$step단계');
+          }
+          if (step == 6) break;
+          // 말풍선이 틀보다 길면(5단계 · 글자 2.0) "다음" 이 틀 밖이라 사람처럼 말풍선 안을 밀어 보이게 한 뒤 누른다.
+          await tester.ensureVisible(find.descendant(of: find.byType(CoachBubble), matching: find.byType(AppButton)));
+          await next(tester);
+        }
+        expect(inBubble('6 / 6'), findsOneWidget);
+        final hole = overlay(tester).hole!;
+        expect(hole.top, greaterThanOrEqualTo(56));
+        expect(hole.bottom, lessThanOrEqualTo(tester.getRect(find.byKey(_bar)).top));
+      });
+    }
+
+    ScrollPosition storeList(WidgetTester tester) =>
+        tester.state<ScrollableState>(find.ancestor(of: find.byKey(_free), matching: find.byType(Scrollable)).first).position;
+
+    testWidgets('6단계를 뒤로가기로 끝내면 빈자리를 바로 빼지 않고 목록 끝까지 부드럽게 내린 뒤 뺀다 — 한 프레임에 튀지 않는다', (tester) async {
+      await pump(tester);
+      await toLastStep(tester);
+      final list = storeList(tester);
+      final start = list.pixels;
+      final end = list.maxScrollExtent - 740; // 빈자리(화면 높이)를 뺀 목록 끝
+      expect(start, greaterThan(end));
+
+      await tester.binding.handlePopRoute();
+      final seen = [start];
+      for (var i = 0; i < 30; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        seen.add(list.pixels);
+      }
+      await tester.pumpAndSettle();
+
+      for (var i = 1; i < seen.length; i++) {
+        expect(seen[i], lessThanOrEqualTo(seen[i - 1] + 0.01), reason: '$i 프레임 — 한 방향으로만');
+        expect(seen[i - 1] - seen[i], lessThan((start - end) / 2), reason: '$i 프레임 — 급점프 없음');
+      }
+      expect(list.pixels, closeTo(end, 0.01));
+      expect(list.pixels, closeTo(list.maxScrollExtent, 0.01));
+      expect(tester.getSize(find.byType(TourScrollRoom, skipOffstage: false)).height, 0);
+      expect(find.byType(CoachOverlay), findsNothing);
+    });
+
+    testWidgets('동작 줄이기면 6단계를 끝낼 때 빈자리를 바로 빼고 목록은 바로 끝에 있다', (tester) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+      await pump(tester);
+      await toLastStep(tester);
+      final list = storeList(tester);
+      final end = list.maxScrollExtent - 740;
+
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      await tester.pump();
+
+      expect(tester.getSize(find.byType(TourScrollRoom, skipOffstage: false)).height, 0);
+      expect(list.pixels, closeTo(end, 0.01));
+    });
+
+    testWidgets('목록 끝 빈자리(TourScrollRoom)는 6단계 동안만 화면 높이만큼 늘고 투어가 끝나면 0 — 호스트가 없으면 늘 0', (tester) async {
+      await pump(tester);
+      Size room() => tester.getSize(find.byType(TourScrollRoom, skipOffstage: false));
+      await toLastStep(tester);
+      expect(room().height, 740);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(room().height, 0);
+
+      await tester.pumpWidget(
+        const MaterialApp(home: Column(children: [TourScrollRoom(id: TourTargetId.heartStoreFree)])),
+      );
+      expect(tester.getSize(find.byType(TourScrollRoom)).height, 0);
+    });
+  });
 
   group('모션', () {
     testWidgets('처음엔 덮개가 투명에서 나타나고, 다음 단계로 갈 때 구멍이 앞 대상에서 이어 움직인다', (tester) async {
