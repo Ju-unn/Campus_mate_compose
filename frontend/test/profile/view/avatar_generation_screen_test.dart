@@ -70,12 +70,12 @@ void main() {
     );
   });
 
-  // 사용자 요청 10-15 — 5b 아바타 공개 안내(pen `FXQlf`)를 따로 두지 않고 05-12c 에 설명 한 줄로 합친다. 비교 카드 둘은 넣지 않는다.
+  // 05-12c(`tzqhO`) 한 줄 안내(옛 5b 화면 합침, 10-15) — 따로 된 화면 없이 설명 한 줄로 둔다. 비교 카드 둘은 넣지 않는다.
   group('매칭 전 공개 안내 한 줄', () {
     const notice = '매칭 전에는 AI가 그려준 아바타만 보여요. 상호 수락 후 신뢰 확인을 마치면 실제 사진이 공개돼요.';
     const lead = '마음에 들면 다음 단계로 넘어가요. 나중에 설정에서 다시 만들 수 있어요.';
 
-    testWidgets('기존 부제 아래에 pen `FXQlf` 설명 문구가 붙고 버튼은 그 아래다', (tester) async {
+    testWidgets('기존 부제 아래에 05-12c(`tzqhO`) 한 줄 안내가 붙고 버튼은 그 아래다', (tester) async {
       repository.nextResult = const Success(AvatarReady(_url));
 
       await pump(tester);

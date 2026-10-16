@@ -211,7 +211,7 @@ class _AvatarResult extends StatelessWidget {
                 Text('아바타가 완성됐어요', style: AppTypography.headline.copyWith(color: AppColors.ink)),
                 const SizedBox(height: AppSpacing.xs),
                 Text('마음에 들면 다음 단계로 넘어가요. 나중에 설정에서 다시 만들 수 있어요.', textAlign: TextAlign.center, style: bodyStyle),
-                // 5b 아바타 공개 안내(pen `FXQlf` 설명 문구)를 따로 된 화면 없이 한 줄로 합쳤다(사용자 요청 10-15). 제목 "짜잔, …" 과
+                // 05-12c(`tzqhO`) 한 줄 안내(옛 5b 화면 합침, 10-15) — 따로 된 화면 없이 이 한 줄로 둔다. 제목 "짜잔, …" 과
                 // 실사진 · 흐림 비교 카드 둘은 넣지 않는다. 글자 · 간격은 위 부제와 같게 둔다(pen 확인 대상).
                 const SizedBox(height: AppSpacing.xs),
                 Text(
