@@ -48,6 +48,16 @@ void main() {
     ]);
   });
 
+  test('홈 6칸 그리드 v2 — 통계 칸 `BeClX` · 링크 칸 `F4rC8g` 바깥 한 겹, 곧 열려요 칸 `BoTMl` 안쪽 한 겹(10-16 초안 A)', () {
+    expect(AppElevation.homeTileLow, const <BoxShadow>[
+      BoxShadow(color: Color(0x14000000), offset: Offset(0, 1), blurRadius: 8),
+    ]);
+    expect(AppElevation.homeTileRaised, const <BoxShadow>[
+      BoxShadow(color: Color(0x0F1A1619), offset: Offset(0, 2), blurRadius: 8),
+    ]);
+    expect(AppElevation.homeTileInset, const BoxShadow(color: Color(0x0F000000), offset: Offset(0, 1), blurRadius: 4));
+  });
+
   test('아래에 붙은 시트 · 바의 위쪽 그림자는 한 겹이다(백로그 76)', () {
     expect(AppElevation.top, const <BoxShadow>[
       BoxShadow(color: Color(0x26000000), offset: Offset(0, -2), blurRadius: 16),

@@ -48,8 +48,11 @@ abstract final class AppIcons {
   static const IconData check = LucideIcons.check;
   static const IconData arrowRight = LucideIcons.arrowRight;
 
-  /// 09b 6칸 그리드 링크 칸 오른쪽 위 "밖으로 / 다른 화면으로" 표시(pen `M5hpo7` arrow-up-right 14, 10-15)
+  /// 09b 6칸 그리드 링크 칸 오른쪽 위 "밖으로 / 다른 화면으로" 표시(pen 링크 칸 `F4rC8g` 화살표 칩 안 arrow-up-right 12, 10-16 초안 A)
   static const IconData arrowUpRight = LucideIcons.arrowUpRight;
+
+  /// 09b 6칸 그리드 곧 열려요 칸 그림(pen 곧 열려요 칸 `BoTMl` hourglass 20, 10-16 초안 A)
+  static const IconData hourglass = LucideIcons.hourglass;
   static const IconData imagePlus = LucideIcons.imagePlus;
   static const IconData plus = LucideIcons.plus;
   static const IconData timer = LucideIcons.timer;
