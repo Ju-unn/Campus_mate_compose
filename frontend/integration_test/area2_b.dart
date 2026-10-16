@@ -38,7 +38,7 @@ const _justNow = '방금 전'; // poll_time.dart:10 — 기기 시계가 서버�
 const _noVotes = '0명 참여'; // feed_poll_card.dart:467(아래 줄)
 const _openDetail = '자세히 보기'; // feed_poll_card.dart:483(아래 줄 오른쪽)
 const _detailTitle = '투표 상세'; // poll_detail_screen.dart:42
-const _commentsSoon = '댓글 기능은 아직 준비 중이에요'; // poll_detail_screen.dart:60
+const _commentsSoon = '댓글 기능은 아직 준비 중이에요'; // 10-16 사용자 결정으로 화면에서 뺐다 — 다시 나오면 안 된다
 const _post = '익명으로 올리기'; // poll_composer_screen.dart:135
 const _dailyLimit = '오늘은 질문을 더 올릴 수 없어요'; // poll_composer_screen.dart:19
 const _pageSize = 20; // backend POLL_PAGE_SIZE(community/repository.py:11) — 처음 읽는 개수
@@ -276,7 +276,7 @@ final Map<String, Area1Case> _pollCases = {
     await tap(tester, find.descendant(of: _cardOf(question), matching: find.text(_openDetail)));
     await pumpUntil(tester, find.text(_detailTitle), timeout: const Duration(seconds: 10));
     await wait(tester, const Duration(milliseconds: 500)); // 넘김 애니메이션이 끝나게
-    must(_count(find.text(_commentsSoon)) == 1, '"$_commentsSoon" ${_count(find.text(_commentsSoon))}개(기대 1)');
+    must(_count(find.text(_commentsSoon)) == 0, '"$_commentsSoon" ${_count(find.text(_commentsSoon))}개(기대 0, 10-16 제거)');
     must(_count(_detailCardOf(question)) == 1, '상세에 같은 카드(질문 "$question")가 ${_count(_detailCardOf(question))}개');
     must(_count(find.text(_openDetail)) == 0, '상세 카드에 "$_openDetail" 줄이 남음(피드 카드 모양)');
     return null;
