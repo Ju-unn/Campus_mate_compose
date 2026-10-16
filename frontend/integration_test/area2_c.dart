@@ -23,7 +23,7 @@ const _retry = '다시 시도';
 const _heroLines = ['오늘의 카드가', '도착했어요']; // home_screen.dart _HeroToday
 const _heroCta = '지금 확인하기';
 // 요약이 있어야 그려지는 글. 10-15: 6칸 그리드(통계 · 인스타 칸)도 요약과 함께 숨는다.
-const _homeOnly = ['전달된 카드', '가입 수', '시작된 대화', '지금 함께 있는 사람들', '참여 중인 대학', '프로필 완성도', '인스타그램'];
+const _homeOnly = ['전달된 카드', '가입 수', '시작된 대화', '지금 함께 있는 사람들', '곧 더 많은 사람들이 모여요', '참여 중인 대학', '프로필 완성도', '인스타그램'];
 const _waitingTitle = '오늘 카드는 확인했어요'; // today_cards_screen.dart _WaitingPanel
 const _noCandidates = '지금은 소개할 사람이 없어요';
 const _todayTitle = '오늘의 카드';

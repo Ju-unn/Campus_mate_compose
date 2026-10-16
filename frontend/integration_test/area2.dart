@@ -27,7 +27,8 @@ import 'support.dart';
 // 09b 메인 — frontend/lib/home/view/home_screen.dart
 const _heroLines = ['오늘의 카드가', '도착했어요']; // _HeroToday :162-163
 const _heroCta = '지금 확인하기'; // :179
-const _railTitle = '지금 함께 있는 사람들'; // _RailHeader :202 — 요약을 받아야 그려지는 첫 줄
+/// 레일 제목(_RailHeader) — 요약을 받아야 그려지는 첫 줄. 사람 칸이 없으면(인원 부족 · 받는 중) 둘째 제목이다.
+const _railTitles = ['지금 함께 있는 사람들', '곧 더 많은 사람들이 모여요'];
 const _campusTitle = '참여 중인 대학'; // :109
 // 10-15 새 홈(pen `M5hpo7`): 숫자 칸 자리는 6칸 그리드. 옛 빈 상태 판 · 인스타 배너는 없다(완성도 카드는 그대로 있다).
 const _statLabels = ['전달된 카드', '가입 수', '시작된 대화']; // home_grid.dart 위 행 StatTile label — 0 인 칸은 숨고, 셋 다 0 이면 위 행만 빠진다
@@ -101,7 +102,7 @@ Finder get _homeList =>
 /// 메인에 닿아 요약이 그려질 때까지(레일 제목 또는 19 대기 화면). 대기 화면이면 true.
 Future<bool> _homeLoaded(WidgetTester tester) async {
   await arrive(tester, 'home');
-  final rail = _inHome(find.text(_railTitle));
+  final rail = _inHome(find.byWidgetPredicate((w) => w is Text && _railTitles.contains(w.data)));
   final cohort = _inHome(find.byType(CohortWaitView));
   final watch = Stopwatch()..start();
   while (rail.evaluate().isEmpty && cohort.evaluate().isEmpty) {
