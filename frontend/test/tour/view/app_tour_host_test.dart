@@ -441,10 +441,25 @@ void main() {
       await start(tester);
 
       for (var step = 1; step <= 6; step++) {
+        expect(inBubble('$step / 6'), findsOneWidget, reason: '$step단계');
         expect(tester.takeException(), isNull, reason: '$step단계');
         final bubble = tester.getRect(find.byType(CoachBubble).hitTestable());
         expect(bubble.top, greaterThanOrEqualTo(0), reason: '$step단계');
-        expect(bubble.bottom, lessThanOrEqualTo(740), reason: '$step단계');
+        if (step == 5) {
+          // 5단계(가운데 카드)는 글자 2배면 화면보다 길다 — 스크롤 칸은 화면 안이고, 내리면 "다음" 이 보이고 눌린다.
+          final room = tester.getRect(
+            find.ancestor(of: find.byType(CoachBubble), matching: find.byType(SingleChildScrollView)),
+          );
+          expect(room.top, greaterThanOrEqualTo(0), reason: '$step단계');
+          expect(room.bottom, lessThanOrEqualTo(740), reason: '$step단계');
+          final nextButton = find.descendant(of: find.byType(CoachBubble), matching: find.byType(AppButton));
+          await tester.ensureVisible(nextButton);
+          await tester.pumpAndSettle();
+          expect(nextButton.hitTestable(), findsOneWidget, reason: '$step단계');
+          expect(tester.getRect(nextButton).bottom, lessThanOrEqualTo(room.bottom), reason: '$step단계');
+        } else {
+          expect(bubble.bottom, lessThanOrEqualTo(740), reason: '$step단계');
+        }
         if (step < 6) await next(tester);
       }
     });
