@@ -74,21 +74,14 @@ class ContactBlockListBody extends ConsumerWidget {
       );
     }
     if (state.rows.isEmpty) return const _Empty();
-    return ListView(
+    final rows = state.rows;
+    final error = state.errorMessage;
+    // 줄이 수백 개일 수 있다 — 화면 근처 줄만 만든다. 해제 실패 문구는 마지막 줄 다음 한 칸이다.
+    return ListView.builder(
       // pen `ZwbzQ` 여백 [0,24].
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      children: [
-        for (final row in state.rows) _row(context, ref, row),
-        if (state.errorMessage != null) ...[
-          const SizedBox(height: AppSpacing.sm),
-          // 해제 실패는 pen 에 없다 — 16f 와 같은 빨간 한 줄.
-          Text(
-            state.errorMessage!,
-            textAlign: TextAlign.center,
-            style: AppTypography.bodySmall.copyWith(color: AppColors.error),
-          ),
-        ],
-      ],
+      itemCount: rows.length + (error == null ? 0 : 1),
+      itemBuilder: (context, index) => index < rows.length ? _row(context, ref, rows[index]) : _RemoveError(message: error!),
     );
   }
 
@@ -194,6 +187,25 @@ class _Empty extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// 해제 실패는 pen 에 없다 — 16f 와 같은 빨간 한 줄, 마지막 줄 아래 12.
+class _RemoveError extends StatelessWidget {
+  const _RemoveError({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.sm),
+      child: Text(
+        message,
+        textAlign: TextAlign.center,
+        style: AppTypography.bodySmall.copyWith(color: AppColors.error),
       ),
     );
   }
