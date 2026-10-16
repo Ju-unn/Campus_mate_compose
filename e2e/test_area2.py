@@ -568,10 +568,10 @@ class CleanupTest(Base):
 class PhoneTest(Base):
     def test_a_chosen_phone_goes_into_the_one_basic_info_save_of_the_factory(self):
         fake = self.serve()
-        account = area2._home(self.run, 'female', phone='010-4821-7395')
+        account = area2._home(self.run, 'female', phone='010-0135-2468')
         saves = [b for m, p, b in fake.calls if m == 'POST' and p == '/profile-onboarding/basic-info']
-        self.assertEqual([b['phone_number'] for b in saves], ['010-4821-7395'])  # 다시 저장하지 않는다
-        self.assertEqual(account['phone'], '010-4821-7395')
+        self.assertEqual([b['phone_number'] for b in saves], ['010-0135-2468'])  # 다시 저장하지 않는다
+        self.assertEqual(account['phone'], '010-0135-2468')
 
 
 class ReviewGuardTest(Base):

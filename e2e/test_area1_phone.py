@@ -258,12 +258,12 @@ class OnboardingTest(Base):
         self.assertEqual(area1.attempt_phone(self.run, 'E-ONB-11', FakePhone())[0], 'pass')
 
     def test_onb_11_plain_number_or_missing_hmac_fails(self):
-        with mock.patch.object(area1, '_phone_number', lambda: '010-4821-7395'):
-            for row in ({'phone_number': '+821048217395', 'phone_hmac': '\\x01'}, {'phone_number': '\\x9f3a', 'phone_hmac': None}):
+        with mock.patch.object(area1, '_phone_number', lambda: '010-0135-2468'):
+            for row in ({'phone_number': '+821001352468', 'phone_hmac': '\\x01'}, {'phone_number': '\\x9f3a', 'phone_hmac': None}):
                 self.serve({('GET', '/rest/v1/profile_private'): Reply(200, [row])})
                 phone = FakePhone()
                 self.assertEqual(area1.attempt_phone(self.run, 'E-ONB-11', phone)[0], 'fail', row)
-                self.assertEqual(phone.jobs[0]['phone'], '010-4821-7395')
+                self.assertEqual(phone.jobs[0]['phone'], '010-0135-2468')
 
     def test_onb_13_api_refuses_the_old_ten_digit_number_and_stores_nothing(self):
         """가입 번호는 010 + 8자리만(2026-10-15 대장 지시 — 전화번호_인증 §8 결정 1 추천안). 옛 011 10자리는 422 다."""
