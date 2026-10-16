@@ -52,8 +52,7 @@ app.*.map.json
 *.env
 !.env.example
 **/secrets.dart
-**/*.keystore
-**/*.jks
+# *.keystore · *.jks 는 루트 .gitignore 가 저장소 전체에서 막는다.
 key.properties
 android/key.properties
 # iOS 소셜 로그인 키(카카오 네이티브 앱 키 · 구글 클라이언트 ID). 예시는 Secrets.xcconfig.example

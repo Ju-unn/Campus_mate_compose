@@ -14,10 +14,30 @@ backend/**/__pycache__/
 backend/**/*.pyc
 backend/.pytest_cache/
 backend/*.egg-info/
-backend/.env
 # 그 밖의 파이썬 캐시(.github/scripts 검사 스크립트 등)
 __pycache__/
 
 # Firebase 앱 설정 파일 — 프로젝트 식별자가 들어 있어 저장소에 올리지 않는다(조각 4).
 **/google-services.json
 **/GoogleService-Info.plist
+
+# 비밀 파일 — 공개 저장소라 어느 폴더에 있든 막는다(보안 점검 10-16 #1). backend/.env · .env.local · .env.prod 도 여기서 걸린다.
+.env
+.env.*
+*.p8
+*.p12
+*.pem
+*.pfx
+*.ppk
+*.jks
+*.keystore
+*service-account*.json
+*serviceAccount*.json
+credentials.json
+# 예시 파일은 값이 비어 있어 올린다(backend/.env.example, Secrets.xcconfig.example).
+!*.example
+
+# 이 PC 의 로컬 도구 폴더 · 잠금 파일 — 설정 · 로그가 들어 있다(보안 점검 10-16 #2).
+.claude/
+.agents/
+skills-lock.json
