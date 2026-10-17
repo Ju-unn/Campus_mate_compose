@@ -1,6 +1,4 @@
 import 'package:campus_mate/auth/model/verification_gate.dart';
-import 'package:campus_mate/auth/viewmodel/student_verification_ui_state.dart';
-import 'package:campus_mate/auth/viewmodel/student_verification_view_model.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_ui_state.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
 import 'package:campus_mate/core/push/push_refresh.dart';
@@ -52,14 +50,6 @@ class _Sent extends SentRequestsViewModel {
   Future<void> refresh({bool quiet = false}) async => _refreshed.add('sent');
 }
 
-class _Verification extends StudentVerificationViewModel {
-  @override
-  StudentVerificationUiState build() => const StudentVerificationUiState();
-
-  @override
-  Future<void> refreshStatus() async => _refreshed.add('verification');
-}
-
 void main() {
   late ProviderContainer container;
 
@@ -70,7 +60,6 @@ void main() {
       acceptancesViewModelProvider.overrideWith(_Acceptances.new),
       conversationsViewModelProvider.overrideWith(_Conversations.new),
       sentRequestsViewModelProvider.overrideWith(_Sent.new),
-      studentVerificationViewModelProvider.overrideWith(_Verification.new),
     ]);
     addTearDown(container.dispose);
   });
@@ -97,12 +86,10 @@ void main() {
     expect(refreshedBy({'route': 'chat', 'match_id': 'm1'}), ['conversations']);
   });
 
-  test('학생증 검토 결과 알림은 3b 상태만 다시 읽는다', () {
-    expect(refreshedBy({'route': 'verification'}), ['verification']);
-  });
-
   test('모르는 route 와 route 없는 알림은 아무 목록도 읽지 않는다', () {
     expect(refreshedBy({'route': 'sticker'}), isEmpty);
+    // 옛 학생증 검토 결과 알림(10-17 학생증 제거)도 모르는 값이다.
+    expect(refreshedBy({'route': 'verification'}), isEmpty);
     expect(refreshedBy(const {}), isEmpty);
   });
 

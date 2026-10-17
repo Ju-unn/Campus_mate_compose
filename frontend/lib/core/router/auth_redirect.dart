@@ -37,7 +37,7 @@ class AuthRedirect {
     if (_accountStatus == AccountStatus.withdrawn || _accountStatus == AccountStatus.expired) {
       return null;
     }
-    // 정지가 가장 먼저다 — 정지면 게이트·온보딩 조회가 403 이라 기본값(3b · 04-1)에 머물러 있다.
+    // 정지가 가장 먼저다 — 정지면 게이트·온보딩 조회가 403 이라 기본값(02-c · 04-1)에 머물러 있다.
     if (_accountStatus == AccountStatus.suspended) {
       return location == AppRoutes.accountSuspended ? null : AppRoutes.accountSuspended;
     }
@@ -65,7 +65,6 @@ class AuthRedirect {
       VerificationGate.needsConsent || VerificationGate.needsConsentRenewal => AppRoutes.consent,
       // 02(학교 메일 입력). 03(인증번호)도 같은 관문이다 — [_isOnGate].
       VerificationGate.needsSchoolEmail => AppRoutes.login,
-      VerificationGate.needsStudentVerification => AppRoutes.studentVerification,
       VerificationGate.needsSchoolInfo => AppRoutes.schoolInfo,
       VerificationGate.complete => null,
     };
@@ -109,7 +108,6 @@ class AuthRedirect {
         location == AppRoutes.splash ||
         location == AppRoutes.offline ||
         location == AppRoutes.consent ||
-        location == AppRoutes.studentVerification ||
         location == AppRoutes.schoolInfo ||
         _isOnboardingRoute(location);
   }

@@ -4,13 +4,11 @@ import 'package:campus_mate/auth/model/image_compressor_provider.dart';
 import 'package:campus_mate/auth/model/school_info_repository_provider.dart';
 import 'package:campus_mate/auth/model/school_name_provider.dart';
 import 'package:campus_mate/auth/model/social_login_repository_provider.dart';
-import 'package:campus_mate/auth/model/student_verification_repository_provider.dart';
 import 'package:campus_mate/auth/model/university_email.dart';
 import 'package:campus_mate/auth/model/verification_gate_repository_provider.dart';
 import 'package:campus_mate/auth/view/school_info_screen.dart';
 import 'package:campus_mate/auth/view/sign_up_screen.dart';
 import 'package:campus_mate/auth/view/start_view.dart';
-import 'package:campus_mate/auth/view/student_verification_screen.dart';
 import 'package:campus_mate/auth/view/verify_code_screen.dart';
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/common/result.dart';
@@ -55,7 +53,6 @@ import '../auth/model/fake_face_detector.dart';
 import '../auth/model/fake_image_compressor.dart';
 import '../auth/model/fake_school_info_repository.dart';
 import '../auth/model/fake_social_login_repository.dart';
-import '../auth/model/fake_student_verification_repository.dart';
 import '../auth/model/fake_verification_gate_repository.dart';
 import '../chat/model/fake_chat_repository.dart';
 import '../core/supabase/fake_auth_session.dart';
@@ -175,7 +172,6 @@ final List<_Screen> _screens = [
   _Screen('StartView', () => const StartView()),
   _Screen('SignUpScreen', () => const SignUpScreen()),
   _Screen('VerifyCodeScreen', () => VerifyCodeScreen(email: _email)),
-  _Screen('StudentVerificationScreen', () => const StudentVerificationScreen(), settle: 2),
   _Screen('SchoolInfoScreen', () => const SchoolInfoScreen()),
   _Screen('BasicInfoScreen', () => const BasicInfoScreen()),
   _Screen('KakaoIdScreen', () => const KakaoIdScreen()),
@@ -229,7 +225,6 @@ Future<void> _pumpScreen(WidgetTester tester, _Screen screen) async {
       schoolEmailRepositoryProvider.overrideWithValue(FakeSchoolEmailRepository()),
       authSessionListenableProvider.overrideWithValue(session.listenable),
       socialLoginRepositoryProvider.overrideWithValue(FakeSocialLoginRepository()),
-      studentVerificationRepositoryProvider.overrideWithValue(FakeStudentVerificationRepository()),
       faceDetectorProvider.overrideWithValue(FakeFaceDetector()),
       imageCompressorProvider.overrideWithValue(FakeImageCompressor()),
       schoolInfoRepositoryProvider.overrideWithValue(FakeSchoolInfoRepository()),

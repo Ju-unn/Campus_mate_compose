@@ -92,23 +92,7 @@ final class WrongCodeFailure extends Failure {
   String toDisplayMessage() => '코드가 맞지 않아요. 다시 확인해 주세요.';
 }
 
-/// 학생증 사진에서 얼굴을 찾지 못한 경우(기기 안 ML Kit 판단, 설계 §7.3).
-final class NoFaceDetectedFailure extends Failure {
-  const NoFaceDetectedFailure();
-
-  @override
-  String toDisplayMessage() => '얼굴이 보이는 사진으로 다시 올려주세요';
-}
-
-/// 고른 사진을 기기에서 읽지(압축하지) 못한 경우. 얼굴 검사를 하지 않는 졸업증명서에만 쓴다(결함 A8, 대장 10-03 문구).
-final class PhotoUnreadableFailure extends Failure {
-  const PhotoUnreadableFailure();
-
-  @override
-  String toDisplayMessage() => '사진을 읽을 수 없어요. 다른 사진으로 다시 올려주세요';
-}
-
-/// 학생증 인증 서버가 거부한 경우(예: 검토 중 재제출). 서버 메시지를 그대로 보여준다.
+/// 서버가 4xx 로 거부한 경우(예: 관문 미통과 403). 서버 메시지를 그대로 보여준다.
 /// 서버가 기계용 `code` 를 함께 주면(POST /school-email/verify 등) 그것도 들고 있다 — 문구 대신 code 로 가를 수 있게.
 final class ServerRejectedFailure extends Failure {
   // Dart 3.13 private named parameter: 호출부는 code: 로 넘긴다

@@ -18,7 +18,7 @@ void main() {
   late FakeVerificationGateRepository gateRepository;
 
   setUp(() => gateRepository = FakeVerificationGateRepository()
-    ..nextResult = const Success(VerificationGate.needsStudentVerification));
+    ..nextResult = const Success(VerificationGate.needsSchoolInfo));
 
   ProviderContainer buildContainer(FakeSchoolEmailRepository repository, {DateTime Function()? now}) {
     final container = ProviderContainer(
@@ -52,9 +52,9 @@ void main() {
 
     expect(repository.calls, ['verifyCode', 'complete']);
     expect(repository.completedTokens, ['temporary-token']);
-    // 기존 refresh gate 경로 — 게이트가 다음 단계(학생증)로 보낸다.
+    // 기존 refresh gate 경로 — 게이트가 다음 단계(학과 · 학번 3c)로 보낸다(10-17 학생증 제거).
     expect(gateRepository.fetchCount, 1);
-    expect(container.read(verificationGateListenableProvider).value, VerificationGate.needsStudentVerification);
+    expect(container.read(verificationGateListenableProvider).value, VerificationGate.needsSchoolInfo);
   });
 
   test('코드가 틀리면 complete 를 부르지 않고 여섯 칸을 거부 상태로 둔다', () async {

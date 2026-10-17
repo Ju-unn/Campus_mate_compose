@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:campus_mate/auth/model/student_verification_repository.dart';
-import 'package:campus_mate/auth/model/student_verification_repository_provider.dart';
+import 'package:campus_mate/auth/model/school_name_provider.dart';
 import 'package:campus_mate/auth/model/verification_gate.dart';
-import 'package:campus_mate/auth/view/student_verification_screen.dart';
+import 'package:campus_mate/common/university_logos.dart';
+import 'package:campus_mate/auth/view/school_info_screen.dart';
 import 'package:campus_mate/auth/model/verification_gate_repository.dart';
 import 'package:campus_mate/auth/model/verification_gate_repository_provider.dart';
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
@@ -31,7 +31,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'auth/model/fake_student_verification_repository.dart';
 import 'auth/model/fake_verification_gate_repository.dart';
 import 'chat/model/fake_chat_repository.dart';
 import 'core/push/fake_push_messaging.dart';
@@ -112,9 +111,7 @@ void main() {
     expect(find.byType(ConversationsScreen), findsOneWidget);
   });
 
-  // A7 — 앱이 켜져 있으면 검토 결과 알림은 배너 대신 화면을 갱신한다. 없으면 30초 폴링까지 검토 중 화면에 남는다.
   late FakeVerificationGateRepository gate;
-  late FakeStudentVerificationRepository verification;
   late FakePushMessaging messaging;
   // 앱 복귀 때 읽는 두 목록의 가짜 저장소 — 읽은 횟수를 본다. 두 pump 도우미가 채운다.
   late FakeChatRepository appChat;
@@ -127,10 +124,9 @@ void main() {
   // 앱이 떠 있을 때 받은 푸시를 안드로이드가 띄우는 시스템 알림 창구. 두 pump 도우미가 채운다.
   late FakeSystemNotifications appSystemNotifications;
 
-  Future<void> pumpPendingVerification(WidgetTester tester) async {
-    gate = FakeVerificationGateRepository()..nextResult = const Success(VerificationGate.needsStudentVerification);
-    verification = FakeStudentVerificationRepository()
-      ..nextFetchStatusResult = const Success(VerificationOutcome(status: 'pending'));
+  /// 관문이 아직 끝나지 않은 앱(학교 메일은 인증했고 학과 · 학번 3c 가 남았다).
+  Future<void> pumpGatedApp(WidgetTester tester) async {
+    gate = FakeVerificationGateRepository()..nextResult = const Success(VerificationGate.needsSchoolInfo);
     messaging = FakePushMessaging(token: 't', granted: false);
     appChat = FakeChatRepository();
     appCards = FakeCardRepository();
@@ -140,7 +136,9 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         verificationGateRepositoryProvider.overrideWithValue(gate),
-        studentVerificationRepositoryProvider.overrideWithValue(verification),
+        schoolNameProvider.overrideWithValue(const AsyncData<String>('서울대학교')),
+        // 3c 학교 줄(SchoolLabel)이 로고 표를 읽는다 — 진짜 Supabase 조회가 실패해 재시도 타이머가 남지 않게.
+        universityLogosProvider.overrideWith((ref) => const <String, String>{}),
         onboardingRepositoryProvider.overrideWithValue(FakeOnboardingRepository()),
         pushMessagingProvider.overrideWithValue(messaging),
         systemNotificationsProvider.overrideWithValue(appSystemNotifications),
@@ -156,46 +154,18 @@ void main() {
     await tester.pumpWidget(UncontrolledProviderScope(container: container, child: const CampusMateApp()));
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
-    expect(find.byType(StudentVerificationScreen), findsOneWidget);
+    expect(find.byType(SchoolInfoScreen), findsOneWidget);
   }
 
-  testWidgets('검토 중 화면에서 검토 결과 알림이 오면 바로 다음 화면으로 넘어간다', (tester) async {
-    await pumpPendingVerification(tester);
+  // 10-17 학생증 제거: 옛 학생증 결과 알림(route verification)이 와도 앱은 아무 일도 하지 않는다 — 화면도 알림 줄도 그대로.
+  testWidgets('옛 학생증 결과 알림이 와도 화면을 옮기거나 알림 줄을 지우지 않는다', (tester) async {
+    await pumpGatedApp(tester);
 
-    verification.nextFetchStatusResult = const Success(VerificationOutcome(status: 'verified'));
-    gate.nextResult = const Success(VerificationGate.complete);
-    messaging.emitMessage({'route': 'verification'});
-    await tester.pumpAndSettle();
-
-    expect(find.byType(StudentVerificationScreen), findsNothing);
-  });
-
-  // 사용자 보고: "학생 인증이 끝났어요" 알림이 3c 에서 뒤로 갔다 다시 들어와도 알림 줄에 남았다.
-  testWidgets('통과 알림으로 3c 에 넘어가면 그 알림을 알림 줄에서 지운다', (tester) async {
-    await pumpPendingVerification(tester);
-    expect(appSystemNotifications.cancelled, isEmpty);
-
-    verification.nextFetchStatusResult = const Success(VerificationOutcome(status: 'verified'));
-    gate.nextResult = const Success(VerificationGate.needsSchoolInfo);
     messaging.emitMessage({'route': 'verification'}, title: '학생 인증이 끝났어요', body: '학과 정보를 입력하고 시작해 보세요');
     await tester.pumpAndSettle();
 
-    expect(appSystemNotifications.cancelled, [
-      (id: 0, tag: 'verification_result'),
-      (id: appSystemNotifications.shown.single.id, tag: null),
-    ]);
-  });
-
-  // 관문만 다시 물으면 거절은 그대로 needsStudentVerification 이라 화면이 안 바뀐다 — 3b 상태까지 다시 읽어야 한다.
-  testWidgets('검토 중 화면에서 거절 알림이 오면 바로 거절 배너를 보여준다', (tester) async {
-    await pumpPendingVerification(tester);
-
-    verification.nextFetchStatusResult =
-        const Success(VerificationOutcome(status: 'rejected', rejectReason: '사진이 흐려요'));
-    messaging.emitMessage({'route': 'verification'});
-    await tester.pumpAndSettle();
-
-    expect(find.text('인증이 거절됐어요'), findsOneWidget);
+    expect(find.byType(SchoolInfoScreen), findsOneWidget);
+    expect(appSystemNotifications.cancelled, isEmpty);
   });
 
   // 알림을 눌러 열면 화면만 옮기고 목록은 낡은 채로 남았다 — 대화 탭은 들어갈 때 다시 읽지 않는다.
@@ -288,7 +258,7 @@ void main() {
 
   // 관문이 끝나지 않은 계정은 대화 조회가 403 일 수 있다 — 앱 루트가 현재 관문 값을 넘기는지 본다.
   testWidgets('관문이 끝나지 않은 화면에서 앱이 돌아오면 대화 목록과 수락 대기를 읽지 않는다', (tester) async {
-    await pumpPendingVerification(tester);
+    await pumpGatedApp(tester);
     expect(appChat.conversationsFetchCount, 0);
     expect(appCards.fetchAcceptancesCount, 0);
 
@@ -431,7 +401,7 @@ void main() {
     });
 
     testWidgets('관문이 안 끝난 사람은 채널을 열지 않는다', (tester) async {
-      await pumpPendingVerification(tester);
+      await pumpGatedApp(tester);
 
       expect(appEvents.subscribed, isEmpty);
     });

@@ -21,13 +21,6 @@ Future<(bool, bool)> _arriveWatching(WidgetTester tester, String name, Duration 
   return (false, leaked);
 }
 
-/// 3b 제출 폼이 안 나오면 지금 어느 화면인지를 알려 준다(에뮬 첫 실행 E-GATE-47: 30초 동안 폼이 안 나왔는데 이유를 몰랐다).
-/// 버튼 종류 · 스크롤 문제가 아니다 — 폼의 AppButton 은 스크롤 영역 밖 하단에 고정이라 폼이 있으면 늘 트리에 있다.
-Future<void> _proofFormOrWhere(WidgetTester tester) async {
-  if (await appears(tester, _proofForm, const Duration(seconds: 30)) != null) return;
-  throw TestFailure('30초 안에 3b 제출 폼이 안 나옴 — 지금 보이는 것: ${_whereNow()}');
-}
-
 final Map<String, Area1Case> _emuCases = {
   // 로그인 → (PC 가 네트워크를 끔) 끈 채 켬 → 01-1 → 켜고 "다시 시도" → 홈 → (따로) 다시 실행해도 홈.
   'E-AUTH-22': _session((tester, job) async {
@@ -89,29 +82,5 @@ final Map<String, Area1Case> _emuCases = {
     await step('opened');
     await arrive(tester, 'consent');
     return null;
-  }),
-  // 사진 · 실명을 다 넣고 멈춤 → PC 가 네트워크를 끊음 → 제출 → 문구가 뜨고 버튼이 다시 켜진다(스피너 굳음 0).
-  'E-GATE-47': _session((tester, job) async {
-    await _proofFormOrWhere(tester);
-    final container = await _fillProof(tester, job);
-    await step('filled');
-    await tap(tester, _proofForm);
-    final watch = Stopwatch()..start();
-    String? outcome;
-    while (watch.elapsed < const Duration(seconds: 40) && outcome == null) {
-      if (screen('3c').evaluate().isNotEmpty) outcome = '3c';
-      if (find.text(_held).evaluate().isNotEmpty) outcome = 'held';
-      final state = container.read(studentVerificationViewModelProvider);
-      if (!state.isSubmitting && state.errorMessage != null) outcome = state.errorMessage;
-      if (outcome == null) await tester.pump(const Duration(milliseconds: 100));
-    }
-    must(outcome != null, '제출 뒤 40초 안에 결과가 안 나옴(스피너가 굳음)');
-    _faceFound(outcome!, job);
-    must(outcome == _networkDown, '네트워크가 끊겼는데 결과가 "$outcome"');
-    await tester.pump();
-    must(find.text(_networkDown).evaluate().isNotEmpty, '상태엔 문구가 있는데 화면에 안 그려짐');
-    must(!container.read(studentVerificationViewModelProvider).isSubmitting, '문구는 떴는데 제출 중 상태가 남음');
-    must(enabled(tester, _submitProof), '문구는 떴는데 "$_submitProof" 버튼이 다시 안 켜짐');
-    return {'note': '문구까지 ${watch.elapsedMilliseconds}ms'};
   }),
 };

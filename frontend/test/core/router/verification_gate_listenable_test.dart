@@ -37,10 +37,10 @@ void main() {
     repository.nextResult = const FailureResult(NetworkFailure());
     await listenable.refresh();
 
-    repository.nextResult = const Success(VerificationGate.needsStudentVerification);
+    repository.nextResult = const Success(VerificationGate.needsSchoolInfo);
     await listenable.refresh();
 
-    expect(listenable.value, VerificationGate.needsStudentVerification);
+    expect(listenable.value, VerificationGate.needsSchoolInfo);
     expect(notifyCount, 2);
   });
 

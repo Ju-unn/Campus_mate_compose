@@ -40,16 +40,6 @@ void main() {
     expect(failure.toDisplayMessage(), '잠시 뒤 다시 시도해 주세요');
   });
 
-  test('얼굴이 없으면 재촬영을 안내한다', () {
-    const failure = NoFaceDetectedFailure();
-    expect(failure.toDisplayMessage(), '얼굴이 보이는 사진으로 다시 올려주세요');
-  });
-
-  test('사진을 읽지 못하면 다른 사진을 고르라고 안내한다', () {
-    const failure = PhotoUnreadableFailure();
-    expect(failure.toDisplayMessage(), '사진을 읽을 수 없어요. 다른 사진으로 다시 올려주세요');
-  });
-
   test('서버 거부 사유를 그대로 보여준다', () {
     const failure = ServerRejectedFailure('이미 검토 중이에요');
     expect(failure.toDisplayMessage(), '이미 검토 중이에요');

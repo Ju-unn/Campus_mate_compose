@@ -113,7 +113,7 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
     super.dispose();
   }
 
-  /// 화면이 보이고 앱이 앞에 있을 때만 타이머를 돌린다(`student_verification_screen.dart` 의 폴링과 같은 방식).
+  /// 화면이 보이고 앱이 앞에 있을 때만 타이머를 돌린다.
   void _syncPolling() {
     if (!_appInForeground || !_onTop) {
       _pollTimer?.cancel();

@@ -1,8 +1,8 @@
 import 'dart:convert';
 
-import 'package:campus_mate/auth/model/student_verification_repository.dart';
-import 'package:campus_mate/auth/model/student_verification_repository_provider.dart';
+import 'package:campus_mate/auth/model/school_name_provider.dart';
 import 'package:campus_mate/auth/model/verification_gate.dart';
+import 'package:campus_mate/common/university_logos.dart';
 import 'package:campus_mate/auth/model/verification_gate_repository_provider.dart';
 import 'package:campus_mate/billing/model/billing_repository_provider.dart';
 import 'package:campus_mate/billing/model/heart_store_gateway.dart';
@@ -23,7 +23,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'auth/model/fake_student_verification_repository.dart';
 import 'auth/model/fake_verification_gate_repository.dart';
 import 'billing/model/fake_billing_repository.dart';
 import 'billing/model/fake_heart_store_gateway.dart';
@@ -80,9 +79,10 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         verificationGateRepositoryProvider.overrideWithValue(FakeVerificationGateRepository()..nextResult = Success(gate)),
-        studentVerificationRepositoryProvider.overrideWithValue(
-          FakeStudentVerificationRepository()..nextFetchStatusResult = const Success(VerificationOutcome(status: 'pending')),
-        ),
+        // 관문이 남은 계정은 3c 에 선다 — 학교 이름을 Supabase 에서 읽지 않게 덮는다.
+        schoolNameProvider.overrideWithValue(const AsyncData<String>('서울대학교')),
+        // 3c 학교 줄(SchoolLabel)이 로고 표를 읽는다 — 진짜 Supabase 조회가 실패해 재시도 타이머가 남지 않게.
+        universityLogosProvider.overrideWith((ref) => const <String, String>{}),
         onboardingRepositoryProvider.overrideWithValue(FakeOnboardingRepository()),
         pushMessagingProvider.overrideWithValue(FakePushMessaging(token: 't', granted: false)),
         cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
@@ -136,8 +136,8 @@ void main() {
     expect(billing.appleVerified, isEmpty);
   }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
-  testWidgets('관문이 열리기 전(학생증 검토 중)에는 하트 결제를 건드리지 않는다 — 서버 확인은 관문 뒤', (tester) async {
-    await pumpApp(tester, gate: VerificationGate.needsStudentVerification);
+  testWidgets('관문이 열리기 전(학과 입력 전)에는 하트 결제를 건드리지 않는다 — 서버 확인은 관문 뒤', (tester) async {
+    await pumpApp(tester, gate: VerificationGate.needsSchoolInfo);
 
     expect((store.availableCount, store.recoverCount, billing.verified.length), (0, 0, 0));
   });

@@ -19,7 +19,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 약관 동의(화면 02-c `woJzd` · 재동의 02-c-4 `dxe7K`). 로그인 직후 첫 관문이다 — 동의 전에는
-/// 실명 · 학생증(3b)을 받지 않는다. 동의를 마치면 게이트가 바뀌어 라우터가 다음 화면으로 보낸다.
+/// 학교 메일(02)을 받지 않는다. 동의를 마치면 게이트가 바뀌어 라우터가 다음 화면으로 보낸다.
 class ConsentScreen extends ConsumerStatefulWidget {
   const ConsentScreen({super.key});
 
