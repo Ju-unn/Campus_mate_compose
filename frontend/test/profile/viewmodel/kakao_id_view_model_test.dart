@@ -61,6 +61,21 @@ void main() {
     expect(steps.isRevisiting, isFalse);
   });
 
+  // 뷰모델은 앱이 켜진 동안 살아 있어 첫 저장의 completed 가 남는다 — 다시 저장이 실패하면 그대로 머물러야 한다.
+  test('같은 세션에서 다시 저장이 실패하면 다음 화면으로 넘어가지 않는다', () async {
+    final vm = container.read(kakaoIdViewModelProvider.notifier);
+    vm.changeKakaoId('my_kakao_id');
+    await vm.submit();
+    await revisit(container, onboardingRepository, server: OnboardingStep.photos, visiting: OnboardingStep.kakaoId);
+    repository.nextResult = const FailureResult(NetworkFailure());
+
+    await vm.submit();
+
+    expect(container.read(onboardingStepListenableProvider).value, OnboardingStep.kakaoId);
+    expect(container.read(kakaoIdViewModelProvider).errorMessage, isNotNull);
+    expect(onboardingRepository.fetchCount, 0);
+  });
+
 
   test('제출에 실패하면 errorMessage 가 채워진다', () async {
     repository.nextResult = const FailureResult(UnknownFailure());

@@ -26,7 +26,8 @@ class KakaoIdViewModel extends Notifier<KakaoIdUiState> {
     if (!state.canSubmit) {
       return;
     }
-    state = _copyWith(isSubmitting: true, errorMessage: null);
+    // 지난 저장의 completed 를 내린다 — 되돌아와 다시 저장하다 실패하면 다음 화면으로 넘어가면 안 된다.
+    state = _copyWith(isSubmitting: true, errorMessage: null, completed: false);
     state = await _submittedState();
     _refreshOnboardingStepIfCompleted();
   }

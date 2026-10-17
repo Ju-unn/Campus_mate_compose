@@ -1,3 +1,4 @@
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
@@ -92,6 +93,23 @@ void main() {
     final steps = container.read(onboardingStepListenableProvider);
     expect(steps.value, OnboardingStep.myTraits);
     expect(steps.isRevisiting, isFalse);
+  });
+
+  // 뷰모델은 앱이 켜진 동안 살아 있어 첫 저장의 completed 가 남는다 — 다시 저장이 실패하면 그대로 머물러야 한다.
+  test('같은 세션에서 다시 저장이 실패하면 다음 화면으로 넘어가지 않는다', () async {
+    final vm = container.read(tagPickerViewModelProvider(TagPickerKind.interests).notifier);
+    for (final tag in interestTags.take(3)) {
+      vm.toggle(tag);
+    }
+    await vm.submit();
+    await revisit(container, onboardingRepository, server: OnboardingStep.myTraits, visiting: OnboardingStep.interests);
+    repository.nextResult = const FailureResult(NetworkFailure());
+
+    await vm.submit();
+
+    expect(container.read(onboardingStepListenableProvider).value, OnboardingStep.interests);
+    expect(container.read(tagPickerViewModelProvider(TagPickerKind.interests)).errorMessage, isNotNull);
+    expect(onboardingRepository.fetchCount, 0);
   });
 
   test('kind 마다 다른 풀을 쓴다', () {

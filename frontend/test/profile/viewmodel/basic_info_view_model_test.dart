@@ -380,6 +380,26 @@ void main() {
     expect(container.read(onboardingStepListenableProvider).value, OnboardingStep.kakaoId);
   });
 
+  // 뷰모델은 앱이 켜진 동안 살아 있어 첫 저장의 completed 가 남는다 — 다시 저장이 실패하면 그대로 머물러야 한다.
+  testWidgets('같은 세션에서 다시 저장이 실패하면 다음 화면으로 넘어가지 않는다', (tester) async {
+    final vm = container.read(basicInfoViewModelProvider.notifier);
+    vm.changeNickname('가나다');
+    await tester.pump(const Duration(milliseconds: 350));
+    vm.changeBirthYear('2002');
+    vm.changeHeight('175');
+    vm.changePhoneNumber('01001352468');
+    vm.changeGender('male');
+    await vm.submit();
+    await revisit(container, onboardingRepository, server: OnboardingStep.photos, visiting: OnboardingStep.basicInfo);
+    repository.nextSubmitResult = const FailureResult(NetworkFailure());
+
+    await vm.submit();
+
+    expect(container.read(onboardingStepListenableProvider).value, OnboardingStep.basicInfo);
+    expect(container.read(basicInfoViewModelProvider).errorMessage, isNotNull);
+    expect(onboardingRepository.fetchCount, 0);
+  });
+
   test('MBTI 는 축마다 하나만 켜지고, 네 축을 다 골라야 글자가 완성된다', () {
     final vm = container.read(basicInfoViewModelProvider.notifier);
     vm.toggleMbtiPole('E');
