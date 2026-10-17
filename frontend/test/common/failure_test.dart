@@ -56,21 +56,41 @@ void main() {
       );
     });
 
-    test('다른 소셜 계정이 쓰는 메일이면 그 수단의 한국어 이름으로 말하고, 그 계정으로 로그인하라고 덧붙인다', () {
+    // 설계 5-4 문구 1 · 2 · 3(10-17 학생증 제거 B안): 내 소셜과 다른 소셜이 쥔 메일 → 그 소셜로 다시 로그인.
+    test('다른 소셜이 쥔 메일이면 "이미 {X}로 가입된 학교 메일이에요" / "{X}로 로그인해 주세요" 와 다시 로그인 길', () {
       const cases = {'kakao': '카카오', 'google': '구글', 'apple': '애플'};
       for (final MapEntry(key: provider, value: label) in cases.entries) {
-        final failure = SchoolEmailTakenFailure('서버 문구', provider);
+        final mine = provider == 'kakao' ? 'google' : 'kakao';
+        final failure = SchoolEmailTakenFailure('서버 문구', provider, myProvider: mine);
 
-        expect(failure.toDisplayMessage(), '이 메일은 $label로 가입돼 있어요', reason: provider);
-        expect(failure.toHintMessage(), '$label 계정으로 로그인해 주세요', reason: provider);
+        expect(failure.toDisplayMessage(), '이미 $label로 가입된 학교 메일이에요', reason: provider);
+        expect(failure.toHintMessage(), '$label로 로그인해 주세요', reason: provider);
+        expect(failure.reloginLabel(), '$label로 다시 로그인', reason: provider);
+        expect(failure.reloginNotice(), '이 학교 메일은 $label로 가입돼 있어요. $label로 로그인해 주세요', reason: provider);
+        expect(failure.isTakenBySocial(), isTrue, reason: provider);
+      }
+    });
+
+    // 설계 5-4 문구 4: 이미 그 소셜로 로그인 중이다 — "그 소셜로 로그인하라" 는 잘못된 안내다(빌려 쓰기 의심).
+    test('내 소셜과 같은 소셜이 쥔 다른 계정이면 "이미 가입된 학교 메일이에요" / "한 학교 메일로는 계정 하나만…", 다시 로그인 없음', () {
+      for (final provider in ['kakao', 'google', 'apple']) {
+        final failure = SchoolEmailTakenFailure('서버 문구', provider, myProvider: provider);
+
+        expect(failure.toDisplayMessage(), '이미 가입된 학교 메일이에요', reason: provider);
+        expect(failure.toHintMessage(), '한 학교 메일로는 계정 하나만 만들 수 있어요', reason: provider);
+        expect(failure.reloginLabel(), isNull, reason: provider);
+        expect(failure.reloginNotice(), isNull, reason: provider);
+        expect(failure.isTakenBySocial(), isTrue, reason: provider);
       }
     });
 
     test('provider 가 email 이면 앱 상수 "이 학교 메일로 이미 가입된 계정이 있어요. 문의해 주세요", 보조 문구 없음', () {
-      const failure = SchoolEmailTakenFailure('서버 문구', 'email');
+      const failure = SchoolEmailTakenFailure('서버 문구', 'email', myProvider: 'kakao');
 
       expect(failure.toDisplayMessage(), '이 학교 메일로 이미 가입된 계정이 있어요. 문의해 주세요');
       expect(failure.toHintMessage(), isNull);
+      expect(failure.reloginLabel(), isNull);
+      expect(failure.isTakenBySocial(), isFalse);
     });
 
     test('모르는 수단이면 서버 문구를 그대로 쓰고 보조 문구는 없다', () {
@@ -78,6 +98,8 @@ void main() {
 
       expect(failure.toDisplayMessage(), '이 메일은 다른 수단으로 가입돼 있어요');
       expect(failure.toHintMessage(), isNull);
+      expect(failure.reloginLabel(), isNull);
+      expect(failure.isTakenBySocial(), isFalse);
     });
 
     test('서버가 임시 토큰을 못 읽었으면(미확인) 다시 하라는 임시 문구', () {

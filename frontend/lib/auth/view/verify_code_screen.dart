@@ -57,7 +57,6 @@ class _VerifyCodeScreenState extends ConsumerState<VerifyCodeScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(verifyCodeViewModelProvider(email));
     final viewModel = ref.read(verifyCodeViewModelProvider(email).notifier);
-    final expiresAt = state.codeExpiresAt;
 
     // 안드로이드 시스템 뒤로가기도 앱바 화살표처럼 02 로 간다(라우터는 이 화면을 두르지 않는다 — 두 겹이면 안내까지 뜬다).
     return BackExitScope(
@@ -82,61 +81,10 @@ class _VerifyCodeScreenState extends ConsumerState<VerifyCodeScreen> {
                         '${email.toRequestValue()} 로 6자리 숫자를 보냈어요',
                         style: AppTypography.body.copyWith(color: AppColors.body),
                       ),
-                      const SizedBox(height: AppSpacing.xl),
-                      _CodeBoxes(
-                        code: state.codeInput,
-                        isRejected: state.isCodeRejected,
-                        onChanged: viewModel.changeCode,
-                      ),
-                      if (state.errorMessage != null) ...[
-                        const SizedBox(height: AppSpacing.xs),
-                        Row(
-                          children: [
-                            const Icon(AppIcons.circleAlert, size: 14, color: AppColors.error),
-                            const SizedBox(width: AppSpacing.xxs),
-                            Expanded(
-                              child: Text(
-                                state.errorMessage!,
-                                style: AppTypography.caption.copyWith(color: AppColors.error),
-                              ),
-                            ),
-                          ],
-                        ),
-                        // 둘째 줄(다른 소셜 계정이 쓰는 메일). 첫 줄 글자 시작에 맞춘다(아이콘 14 + 간격).
-                        if (state.errorHint != null)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 14 + AppSpacing.xxs),
-                            child: Text(state.errorHint!, style: AppTypography.caption.copyWith(color: AppColors.error)),
-                          ),
-                        // 이 메일로는 끝낼 수 없다(409 · 422 · 미확인) — 02 로 돌아가 다른 학교 메일을 넣는다(입력값은 비운다).
-                        if (state.canChooseAnotherEmail)
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: MutedTextButton(label: '다른 학교 메일 입력', onPressed: _backToEmail),
-                          ),
-                      ],
-                      // 입력칸(오류가 있으면 오류 문구) → 8 → 스팸함 안내 → 16 → 만료 줄(pen VuiDi · Vn6w4).
-                      const SizedBox(height: AppSpacing.xs),
-                      const HintLine(verifyCodeSpamHint),
-                      const SizedBox(height: AppSpacing.md),
-                      if (expiresAt != null) _ExpiryTimer(expiresAt: expiresAt),
-                      const SizedBox(height: 2),
-                      _ResendButton(availableAt: state.resendAvailableAt, onResend: viewModel.resend),
-                      const Spacer(),
-                      // 기한이 지나는 순간 버튼이 꺼져야 해서 타이머와 같은 박자로 다시 그린다.
-                      if (expiresAt == null)
-                        AppButton(
-                          label: '확인',
-                          onPressed: state.canSubmit(DateTime.now()) ? viewModel.submit : null,
-                        )
+                      if (state.isTakenBySocial)
+                        ..._takenBySocial(state, viewModel)
                       else
-                        CountdownBuilder(
-                          deadlineAt: expiresAt,
-                          builder: (context, remaining) => AppButton(
-                            label: '확인',
-                            onPressed: state.canSubmit(DateTime.now()) ? viewModel.submit : null,
-                          ),
-                        ),
+                        ..._codeEntry(state, viewModel),
                     ],
                   ),
                 ),
@@ -146,6 +94,99 @@ class _VerifyCodeScreenState extends ConsumerState<VerifyCodeScreen> {
         ),
       ),
     );
+  }
+
+  /// 코드를 넣는 평소 03(pen `VuiDi` / 틀린 코드 `Vn6w4`) — 옛 이메일 방식 계정이 쥔 메일(409 email)도 이 배치 그대로다.
+  List<Widget> _codeEntry(VerifyCodeUiState state, VerifyCodeViewModel viewModel) {
+    final expiresAt = state.codeExpiresAt;
+    return [
+      const SizedBox(height: AppSpacing.xl),
+      _CodeBoxes(
+        code: state.codeInput,
+        isRejected: state.isCodeRejected,
+        onChanged: viewModel.changeCode,
+      ),
+      if (state.errorMessage != null) ...[
+        const SizedBox(height: AppSpacing.xs),
+        Row(
+          children: [
+            const Icon(AppIcons.circleAlert, size: 14, color: AppColors.error),
+            const SizedBox(width: AppSpacing.xxs),
+            Expanded(
+              child: Text(
+                state.errorMessage!,
+                style: AppTypography.caption.copyWith(color: AppColors.error),
+              ),
+            ),
+          ],
+        ),
+        // 둘째 줄(errorHint)은 소셜 계정이 쥔 메일에만 있다 — 그때는 아래 [_takenBySocial] 배치다.
+        // 이 메일로는 끝낼 수 없다(409 · 422 · 미확인) — 02 로 돌아가 다른 학교 메일을 넣는다(입력값은 비운다).
+        if (state.canChooseAnotherEmail)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: MutedTextButton(label: '다른 학교 메일 입력', onPressed: _backToEmail),
+          ),
+      ],
+      // 입력칸(오류가 있으면 오류 문구) → 8 → 스팸함 안내 → 16 → 만료 줄(pen VuiDi · Vn6w4).
+      const SizedBox(height: AppSpacing.xs),
+      const HintLine(verifyCodeSpamHint),
+      const SizedBox(height: AppSpacing.md),
+      if (expiresAt != null) _ExpiryTimer(expiresAt: expiresAt),
+      const SizedBox(height: 2),
+      _ResendButton(availableAt: state.resendAvailableAt, onResend: viewModel.resend),
+      const Spacer(),
+      // 기한이 지나는 순간 버튼이 꺼져야 해서 타이머와 같은 박자로 다시 그린다.
+      if (expiresAt == null)
+        AppButton(
+          label: '확인',
+          onPressed: state.canSubmit(DateTime.now()) ? viewModel.submit : null,
+        )
+      else
+        CountdownBuilder(
+          deadlineAt: expiresAt,
+          builder: (context, remaining) => AppButton(
+            label: '확인',
+            onPressed: state.canSubmit(DateTime.now()) ? viewModel.submit : null,
+          ),
+        ),
+    ];
+  }
+
+  /// 03 오류 변형(pen, 소셜 계정이 이미 쥔 학교 메일 — 설계 5-3 B안, 10-17). 이 메일로는 시도가 끝나 임시 연결도 비웠다 —
+  /// 코드 칸 · 만료 줄 · 다시 받기 · 스팸함 안내 · 확인 없이 안내 두 줄과 단추만 둔다.
+  /// 다른 소셜이면 주 단추 "카카오로 다시 로그인"(누를 때만 로그아웃) 아래 8 에 "다른 학교 메일 입력", 같은 소셜이면 뒤의 것만.
+  List<Widget> _takenBySocial(VerifyCodeUiState state, VerifyCodeViewModel viewModel) {
+    final relogin = state.reloginLabel;
+    final hint = state.errorHint;
+    return [
+      // 부제 → 첫 줄 간격은 pen 값을 받지 못했다 — 평소 03 의 코드 칸 자리(부제 아래 32)를 그대로 쓴다.
+      const SizedBox(height: AppSpacing.xl),
+      Row(
+        children: [
+          const Icon(AppIcons.circleAlert, size: 14, color: AppColors.error),
+          const SizedBox(width: AppSpacing.xxs),
+          Expanded(
+            child: Text(state.errorMessage ?? '', style: AppTypography.labelSmall.copyWith(color: AppColors.error)),
+          ),
+        ],
+      ),
+      if (hint != null)
+        // pen 둘째 줄: 폭 312 · padding [4,0,0,18](첫 줄 글자 시작 = 아이콘 14 + 간격 4) · 14/400 body · 줄높이 1.5.
+        SizedBox(
+          width: double.infinity,
+          child: Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.xxs, left: 14 + AppSpacing.xxs),
+            child: Text(hint, style: AppTypography.bodySmall.copyWith(color: AppColors.body, height: 1.5)),
+          ),
+        ),
+      const Spacer(),
+      if (relogin != null) ...[
+        AppButton(label: relogin, onPressed: viewModel.relogin),
+        const SizedBox(height: AppSpacing.xs),
+      ],
+      MutedTextButton(label: '다른 학교 메일 입력', onPressed: _backToEmail),
+    ];
   }
 }
 

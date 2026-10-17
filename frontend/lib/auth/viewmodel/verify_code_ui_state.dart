@@ -6,6 +6,8 @@ class VerifyCodeUiState {
     this.errorMessage,
     this.errorHint,
     this.canChooseAnotherEmail = false,
+    this.isTakenBySocial = false,
+    this.reloginLabel,
     this.resendAvailableAt,
     this.codeExpiresAt,
     this.isCodeRejected = false,
@@ -16,11 +18,17 @@ class VerifyCodeUiState {
   final bool isSubmitting;
   final String? errorMessage;
 
-  /// [errorMessage] 아래 둘째 줄(다른 소셜 계정이 쓰는 메일일 때 "카카오 계정으로 로그인해 주세요"). 없으면 한 줄.
+  /// [errorMessage] 아래 둘째 줄(소셜 계정이 쥔 메일일 때 "카카오로 로그인해 주세요" 등). 없으면 한 줄.
   final String? errorHint;
 
   /// 이 메일로는 끝낼 수 없다(409 · 422 · 미확인) — 오류 문구 아래에 "다른 학교 메일 입력"(02 로)을 보인다.
   final bool canChooseAnotherEmail;
+
+  /// 소셜 계정이 이 학교 메일을 이미 쥐었다(409) — 03 오류 변형(코드 칸 · 타이머 · 다시 받기 없이 안내 두 줄 + 단추)을 그린다.
+  final bool isTakenBySocial;
+
+  /// 다른 소셜이 쥐었을 때의 주 단추 글자("카카오로 다시 로그인"). 누르면 로그아웃하고 시작 화면으로 간다. 없으면 단추도 없다.
+  final String? reloginLabel;
 
   /// 이 시각 전에는 재전송 버튼을 눌러도 요청을 보내지 않는다(60초 쿨다운, spec §13-38).
   final DateTime? resendAvailableAt;

@@ -1,3 +1,4 @@
+import 'package:campus_mate/account/model/login_notice.dart';
 import 'package:campus_mate/auth/model/school_email_repository.dart';
 import 'package:campus_mate/auth/model/school_email_repository_provider.dart';
 import 'package:campus_mate/auth/model/university_email.dart';
@@ -6,6 +7,7 @@ import 'package:campus_mate/auth/viewmodel/sign_up_view_model.dart';
 import 'package:campus_mate/auth/viewmodel/verify_code_ui_state.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/core/auth/sign_out.dart';
 import 'package:campus_mate/core/router/verification_gate_listenable_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -35,6 +37,9 @@ class VerifyCodeViewModel extends Notifier<VerifyCodeUiState> {
   /// 다음 "확인" 은 verifyCode 를 건너뛰고 complete 만 부른다 — 이미 쓴 코드를 다시 확인하면 "코드가 맞지 않아요" 가 된다.
   /// 메모리에만 있다(앱을 끄면 02 부터).
   String? _temporaryToken;
+
+  /// 다른 소셜이 쥔 메일(409)일 때 "다시 로그인" 뒤 시작 화면 토스트에 남길 문구. 그 밖에는 null.
+  String? _reloginNotice;
 
   /// 테스트에서 시각을 고정하기 위한 훅. 기본은 실제 현재 시각.
   DateTime now() => ref.read(verifyCodeNowProvider)();
@@ -77,7 +82,7 @@ class VerifyCodeViewModel extends Notifier<VerifyCodeUiState> {
       return;
     }
     state = VerifyCodeUiState(codeInput: state.codeInput, verified: true);
-    // 기존 refresh gate 경로 — 게이트가 다음 관문(학생증)으로 보낸다(02-c 동의 화면과 같이 기다린다).
+    // 기존 refresh gate 경로 — 게이트가 다음 관문(학과 · 학번 3c)으로 보낸다(02-c 동의 화면과 같이 기다린다).
     await ref.read(verificationGateListenableProvider).refresh();
   }
 
@@ -115,6 +120,7 @@ class VerifyCodeViewModel extends Notifier<VerifyCodeUiState> {
   /// 이 화면 상태(적던 코드 · 오류 · 만료 시각)도 처음으로 돌린다 — 02 에서 같은 메일로 다시 오면 옛 상태가 남아 있었다.
   Future<void> startOver() async {
     _temporaryToken = null;
+    _reloginNotice = null;
     ref.invalidate(signUpViewModelProvider);
     await ref.read(schoolEmailRepositoryProvider).discard();
     ref.invalidateSelf();
@@ -124,13 +130,29 @@ class VerifyCodeViewModel extends Notifier<VerifyCodeUiState> {
   static bool _needsAnotherEmail(Failure failure) =>
       endsSchoolEmailAttempt(failure) || failure is SchoolEmailNotConfirmedFailure;
 
-  /// 오류는 입력칸 아래 문구로만 보인다(팝업 없음). 다른 소셜 계정이 쓰는 메일이면 둘째 줄을 단다.
+  /// "카카오로 다시 로그인" — 시작 화면에 안내를 남기고 로그아웃한다(설계 5-3 B안). 자동 로그아웃이 아니라 누를 때만이다 —
+  /// 남의 메일을 잘못 넣은 사람이 갑자기 쫓겨나지 않게. 로그아웃하면 SessionScope 가 화면을 시작 화면으로 바꾼다.
+  Future<void> relogin() async {
+    final notice = _reloginNotice;
+    if (notice == null) {
+      return;
+    }
+    _reloginNotice = null; // 연타해도 로그아웃은 한 번
+    LoginNotice.post(notice, isInfo: true);
+    await ref.read(signOutProvider)();
+  }
+
+  /// 오류는 입력칸 아래 문구로만 보인다(팝업 없음). 소셜 계정이 쥔 메일이면 둘째 줄과 단추를 단다.
   VerifyCodeUiState _failed(Failure failure) {
+    final taken = failure is SchoolEmailTakenFailure ? failure : null;
+    _reloginNotice = taken?.reloginNotice();
     return VerifyCodeUiState(
       codeInput: state.codeInput,
       errorMessage: failure.toDisplayMessage(),
-      errorHint: failure is SchoolEmailTakenFailure ? failure.toHintMessage() : null,
+      errorHint: taken?.toHintMessage(),
       canChooseAnotherEmail: _needsAnotherEmail(failure),
+      isTakenBySocial: taken?.isTakenBySocial() ?? false,
+      reloginLabel: taken?.reloginLabel(),
       resendAvailableAt: state.resendAvailableAt,
       codeExpiresAt: state.codeExpiresAt,
       isCodeRejected: failure is WrongCodeFailure,

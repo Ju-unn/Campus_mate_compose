@@ -46,9 +46,16 @@ void main() {
   }
 
   /// 메인(소셜) 연결에 [email] 을 가진 사용자로 로그인해 둔다. 카카오는 메일 없이도 로그인된다(null).
-  void signedInAs(String? email) {
+  void signedInAs(String? email, {String? provider}) {
     when(() => main.currentUser).thenReturn(
-      User(id: 'main-user', appMetadata: const {}, userMetadata: const {}, aud: 'authenticated', createdAt: '', email: email),
+      User(
+        id: 'main-user',
+        appMetadata: {'provider': ?provider},
+        userMetadata: const {},
+        aud: 'authenticated',
+        createdAt: '',
+        email: email,
+      ),
     );
   }
 
@@ -261,13 +268,26 @@ void main() {
         }
       });
 
-      test('SCHOOL_EMAIL_TAKEN + provider 는 SchoolEmailTakenFailure', () async {
+      // 내 소셜은 메인 연결(`appMetadata['provider']`, account_repository 와 같은 방식)에서 읽어 덧붙인다 — 서버는 그대로.
+      test('SCHOOL_EMAIL_TAKEN + provider 는 내 소셜(구글)과 견준 SchoolEmailTakenFailure — 다른 소셜이면 그 소셜로 다시 로그인', () async {
+        signedInAs(null, provider: 'google');
         respond = (_) => json(409, {'detail': '이 메일은 카카오로 가입돼 있어요', 'code': 'SCHOOL_EMAIL_TAKEN', 'provider': 'kakao'});
 
         final failure = failureOf(await buildRepository().complete('temp-token'));
 
         expect(failure, isA<SchoolEmailTakenFailure>());
-        expect((failure! as SchoolEmailTakenFailure).toHintMessage(), '카카오 계정으로 로그인해 주세요');
+        expect((failure! as SchoolEmailTakenFailure).toHintMessage(), '카카오로 로그인해 주세요');
+        expect((failure as SchoolEmailTakenFailure).reloginLabel(), '카카오로 다시 로그인');
+      });
+
+      test('쥔 소셜이 내 소셜과 같으면(카카오 = 카카오) 빌려 쓰기 문구, 다시 로그인 없음', () async {
+        signedInAs(null, provider: 'kakao');
+        respond = (_) => json(409, {'detail': '이 메일은 카카오로 가입돼 있어요', 'code': 'SCHOOL_EMAIL_TAKEN', 'provider': 'kakao'});
+
+        final failure = failureOf(await buildRepository().complete('temp-token'))! as SchoolEmailTakenFailure;
+
+        expect(failure.toDisplayMessage(), '이미 가입된 학교 메일이에요');
+        expect(failure.reloginLabel(), isNull);
       });
 
       test('AUTH_UNAVAILABLE(503) 는 다시 하라는 문구', () async {
@@ -322,12 +342,13 @@ void main() {
       });
 
       test('409 provider 는 code 없이도 SchoolEmailTakenFailure', () async {
+        signedInAs(null, provider: 'google');
         respond = (_) => json(409, {'detail': '이 메일은 카카오로 가입돼 있어요', 'provider': 'kakao'});
 
         final failure = failureOf(await buildRepository().complete('temp-token'));
 
         expect(failure, isA<SchoolEmailTakenFailure>());
-        expect(failure!.toDisplayMessage(), '이 메일은 카카오로 가입돼 있어요');
+        expect(failure!.toDisplayMessage(), '이미 카카오로 가입된 학교 메일이에요');
       });
     });
 

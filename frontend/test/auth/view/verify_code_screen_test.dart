@@ -1,11 +1,13 @@
 import 'dart:async';
 
+import 'package:campus_mate/account/model/login_notice.dart';
 import 'package:campus_mate/auth/model/school_email_repository_provider.dart';
 import 'package:campus_mate/auth/model/verification_gate_repository_provider.dart';
 import 'package:campus_mate/auth/model/university_email.dart';
 import 'package:campus_mate/auth/model/verification_code.dart';
 import 'package:campus_mate/auth/view/verify_code_screen.dart';
 import 'package:campus_mate/auth/viewmodel/verify_code_view_model.dart';
+import 'package:campus_mate/core/auth/sign_out.dart';
 import 'package:campus_mate/core/back_exit/back_exit_view_model.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -275,27 +277,141 @@ void main() {
 
     expect(find.text('알 수 없는 오류가 발생했습니다'), findsOneWidget);
   });
-  testWidgets('다른 소셜 계정이 쓰는 메일이면 입력칸 아래에 두 줄로 알려 준다(팝업 없음)', (tester) async {
-    final repository = FakeSchoolEmailRepository()
-      ..nextCompleteResult = const FailureResult(SchoolEmailTakenFailure('서버 문구', 'kakao'));
-    await pumpScreen(tester, repository: repository);
-    await tester.enterText(find.byType(TextField), '123456');
-    await tester.pump();
+  // 03 학교 메일 충돌(설계 5-3 B안, 10-17 학생증 제거). pen 값은 대장이 pen 담당에게서 받은 03 오류 변형(360×780, 노드 id 미전달):
+  // 제목 24 ink · 부제 16 body · 첫 줄 14/600 error + circle-alert 14 · 둘째 줄 14/400 body 줄높이 1.5 폭 312 padding [4,0,0,18] ·
+  // 주 단추 AppButton primary 312×52 · 보조 TextButton 312×48 위 간격 8 · 본문 padding [0,24,28,24] · 코드 칸 · 타이머 · 다시 받기 없음.
+  group('03 학교 메일 충돌(409)', () {
+    const first = '이미 카카오로 가입된 학교 메일이에요';
+    const second = '카카오로 로그인해 주세요';
+    late List<String> signedOut;
 
-    await tester.tap(find.text('확인'));
-    // verifyCode · complete 가 차례로 가짜 지연을 하나씩 갖는다.
-    await tester.pump(const Duration(milliseconds: 1));
-    await tester.pump(const Duration(milliseconds: 1));
+    setUp(() => signedOut = []);
+    tearDown(LoginNotice.take);
 
-    expect(find.text('이 메일은 카카오로 가입돼 있어요'), findsOneWidget);
-    expect(find.text('카카오 계정으로 로그인해 주세요'), findsOneWidget);
-    expect(find.byType(Dialog), findsNothing);
-    expect(find.byType(BottomSheet), findsNothing);
-    // 입력칸(여섯 칸) 아래에 있다.
-    expect(tester.getTopLeft(find.text('이 메일은 카카오로 가입돼 있어요')).dy,
-        greaterThan(tester.getBottomLeft(find.byType(TextField)).dy));
-    expect(tester.getTopLeft(find.text('카카오 계정으로 로그인해 주세요')).dy,
-        greaterThan(tester.getTopLeft(find.text('이 메일은 카카오로 가입돼 있어요')).dy));
+    Future<void> pumpTaken(WidgetTester tester, String owner, {String? mine, double textScale = 1}) async {
+      tester.view.physicalSize = const Size(360, 780);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      tester.platformDispatcher.textScaleFactorTestValue = textScale;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final repository = FakeSchoolEmailRepository()
+        ..nextCompleteResult = FailureResult(SchoolEmailTakenFailure('서버 문구', owner, myProvider: mine));
+      final container = ProviderContainer(
+        overrides: [
+          schoolEmailRepositoryProvider.overrideWithValue(repository),
+          verificationGateRepositoryProvider.overrideWithValue(FakeVerificationGateRepository()),
+          signOutProvider.overrideWithValue(() async => signedOut.add('signOut')),
+        ],
+      );
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(container: container, child: MaterialApp(home: VerifyCodeScreen(email: email))),
+      );
+      await tester.enterText(find.byType(TextField), '123456');
+      await tester.pump();
+      // 글자를 키우면 확인 버튼이 화면 밖으로 밀린다(같이 스크롤된다).
+      await tester.ensureVisible(find.text('확인'));
+      await tester.pump();
+      await tester.tap(find.text('확인'));
+      // verifyCode · complete 가 차례로 가짜 지연을 하나씩 갖는다.
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pump(const Duration(milliseconds: 1));
+    }
+
+    testWidgets('다른 소셜이 쥐면 두 줄 안내 + "카카오로 다시 로그인" + "다른 학교 메일 입력"(팝업 없음)', (tester) async {
+      await pumpTaken(tester, 'kakao', mine: 'google');
+
+      expect(find.text(first), findsOneWidget);
+      expect(find.text(second), findsOneWidget);
+      expect(find.widgetWithText(ElevatedButton, '카카오로 다시 로그인'), findsOneWidget);
+      expect(find.text('다른 학교 메일 입력'), findsOneWidget);
+      expect(find.byType(Dialog), findsNothing);
+      expect(find.byType(BottomSheet), findsNothing);
+      // 오류 변형에는 코드 칸 · 만료 줄 · 다시 받기 · 스팸함 안내 · 확인이 없다.
+      expect(find.byType(TextField), findsNothing);
+      expect(find.textContaining('뒤에 만료돼요'), findsNothing);
+      expect(find.textContaining('메일 다시 받기'), findsNothing);
+      expect(find.byType(HintLine), findsNothing);
+      expect(find.text('확인'), findsNothing);
+      // 제목 · 부제는 그대로.
+      expect(find.text('인증 코드를 입력해요'), findsOneWidget);
+    });
+
+    testWidgets('첫 줄 14/600 error + circle-alert 14, 둘째 줄 14/400 body 줄높이 1.5 · 폭 312 · 위 4 · 왼쪽 18', (tester) async {
+      await pumpTaken(tester, 'kakao', mine: 'google');
+
+      final firstStyle = tester.widget<Text>(find.text(first)).style!;
+      expect((firstStyle.fontSize, firstStyle.fontWeight, firstStyle.color), (14, FontWeight.w600, AppColors.error));
+      final alert = tester.widget<Icon>(find.byIcon(AppIcons.circleAlert));
+      expect((alert.size, alert.color), (14, AppColors.error));
+      final secondStyle = tester.widget<Text>(find.text(second)).style!;
+      expect((secondStyle.fontSize, secondStyle.fontWeight, secondStyle.color, secondStyle.height),
+          (14, FontWeight.w400, AppColors.body, 1.5));
+      final firstRow = tester.getRect(find.ancestor(of: find.text(first), matching: find.byType(Row)).first);
+      final secondBox = tester.getRect(find.ancestor(of: find.text(second), matching: find.byType(Padding)).first);
+      expect((secondBox.left, secondBox.width), (24, 312));
+      expect(secondBox.top, firstRow.bottom);
+      expect(tester.getTopLeft(find.text(second)), Offset(24 + 18, firstRow.bottom + 4));
+    });
+
+    testWidgets('주 단추 312×52 는 아래에 붙고, 보조 단추 312×48 이 8 아래, 그 밑 28', (tester) async {
+      await pumpTaken(tester, 'kakao', mine: 'google');
+
+      final primary = tester.getRect(find.widgetWithText(ElevatedButton, '카카오로 다시 로그인'));
+      final secondary = tester.getRect(find.widgetWithText(InkWell, '다른 학교 메일 입력'));
+      expect((primary.left, primary.width, primary.height), (24, 312, 52));
+      expect((secondary.left, secondary.width, secondary.height), (24, 312, 48));
+      expect(secondary.top, primary.bottom + 8);
+      expect(secondary.bottom, 780 - 28);
+    });
+
+    testWidgets('"카카오로 다시 로그인" 을 누르면 안내를 남기고 로그아웃한다 — 409 만으로는 로그아웃하지 않는다', (tester) async {
+      await pumpTaken(tester, 'kakao', mine: 'google');
+      expect(signedOut, isEmpty);
+
+      await tester.tap(find.text('카카오로 다시 로그인'));
+      await tester.pump();
+
+      expect(signedOut, ['signOut']);
+      expect(LoginNotice.take()?.message, '이 학교 메일은 카카오로 가입돼 있어요. 카카오로 로그인해 주세요');
+    });
+
+    testWidgets('같은 소셜이 쥔 다른 계정이면 빌려 쓰기 두 줄 + "다른 학교 메일 입력" 만(다시 로그인 없음)', (tester) async {
+      await pumpTaken(tester, 'kakao', mine: 'kakao');
+
+      expect(find.text('이미 가입된 학교 메일이에요'), findsOneWidget);
+      expect(find.text('한 학교 메일로는 계정 하나만 만들 수 있어요'), findsOneWidget);
+      expect(find.textContaining('다시 로그인'), findsNothing);
+      expect(find.text('다른 학교 메일 입력'), findsOneWidget);
+      expect(find.byType(TextField), findsNothing);
+      expect(find.text('확인'), findsNothing);
+      expect(tester.getRect(find.widgetWithText(InkWell, '다른 학교 메일 입력')).bottom, 780 - 28);
+    });
+
+    testWidgets('옛 이메일 가입자가 쥐면 지금 문구 · 배치 그대로(코드 칸 · 확인 · 다른 학교 메일 입력)', (tester) async {
+      await pumpTaken(tester, 'email', mine: 'kakao');
+
+      expect(find.text(SchoolEmailTakenFailure.takenByEmailAccountMessage), findsOneWidget);
+      expect(find.byType(TextField), findsOneWidget);
+      expect(find.text('확인'), findsOneWidget);
+      expect(find.text('다른 학교 메일 입력'), findsOneWidget);
+      expect(find.textContaining('다시 로그인'), findsNothing);
+    });
+
+    for (final scale in [1.5, 2.0]) {
+      testWidgets('글자 $scale배에서도 넘치지 않고 두 단추를 누를 수 있다', (tester) async {
+        await pumpTaken(tester, 'kakao', mine: 'google', textScale: scale);
+
+        expect(tester.takeException(), isNull);
+        for (final label in ['카카오로 다시 로그인', '다른 학교 메일 입력']) {
+          await tester.ensureVisible(find.text(label));
+          await tester.pump();
+          expect(find.text(label).hitTestable(), findsOneWidget, reason: label);
+        }
+        final paragraph = tester.renderObject<RenderParagraph>(find.text(second));
+        expect(paragraph.getMaxIntrinsicHeight(paragraph.size.width), lessThanOrEqualTo(paragraph.size.height + 0.5));
+      });
+    }
   });
 
   testWidgets('서버가 인증을 못 마치면 다시 하라는 임시 문구를 보여준다', (tester) async {
@@ -409,7 +525,7 @@ void main() {
       final button = find.widgetWithText(InkWell, '다른 학교 메일 입력');
       expect(button, findsOneWidget);
       expect(tester.getSize(button).height, 48);
-      expect(tester.getTopLeft(button).dy, greaterThanOrEqualTo(tester.getBottomLeft(find.text('카카오 계정으로 로그인해 주세요')).dy));
+      expect(tester.getTopLeft(button).dy, greaterThanOrEqualTo(tester.getBottomLeft(find.text('카카오로 로그인해 주세요')).dy));
       final label = tester.widget<Text>(find.text('다른 학교 메일 입력'));
       expect(label.style!.fontSize, 14);
       expect(label.style!.fontWeight, FontWeight.w600);

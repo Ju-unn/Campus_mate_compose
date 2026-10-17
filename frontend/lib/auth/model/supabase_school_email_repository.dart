@@ -98,6 +98,12 @@ class SupabaseSchoolEmailRepository implements SchoolEmailRepository {
   @override
   Future<void> discard() => _connection.close();
 
+  /// 지금 로그인한 소셜(`account_repository.dart` 와 같은 방식). 모르면 null — 다른 소셜로 보고 다시 로그인 길을 연다.
+  String? _myProvider() {
+    final provider = _auth.currentUser?.appMetadata['provider'];
+    return provider is String ? provider : null;
+  }
+
   /// 429 는 보내기 한도(같은 메일에 60초 안에 다시 보내기 포함), 422 는 가입 직전 훅의 거절(등록되지 않은 학교 ·
   /// 재가입 제한 — 서버 문구를 그대로)이다(backend `auth_hooks/schemas.py` 의 422). 나머지는 가르지 않는다.
   Failure _toRequestFailure(AuthException error) {
@@ -129,8 +135,12 @@ class SupabaseSchoolEmailRepository implements SchoolEmailRepository {
   }
 
   /// 서버가 잠깐 못 받음 · 네트워크 → 다시 하라는 문구. 서버 거절은 code(없으면 문구)로 가른다.
-  /// 409(다른 소셜 계정, http_send 가 이미 가름) · 세션 · 정지 같은 나머지는 그대로 올린다.
+  /// 409(이미 쥔 계정, http_send 가 이미 가름)는 내 소셜을 덧붙여 올린다 — 같은 소셜이면 안내가 달라진다(설계 5-3).
+  /// 세션 · 정지 같은 나머지는 그대로 올린다.
   Failure? _toCompleteFailure(Failure failure) {
+    if (failure is SchoolEmailTakenFailure) {
+      return failure.withMyProvider(_myProvider());
+    }
     if (failure is ServerRejectedFailure) {
       return failure.hasAnyCode() ? _byCode(failure) : _byMessage(failure);
     }

@@ -1,3 +1,4 @@
+import 'package:campus_mate/account/model/login_notice.dart';
 import 'package:campus_mate/auth/model/school_email_repository_provider.dart';
 import 'package:campus_mate/auth/model/verification_gate.dart';
 import 'package:campus_mate/auth/model/verification_gate_repository_provider.dart';
@@ -6,6 +7,7 @@ import 'package:campus_mate/auth/viewmodel/sign_up_view_model.dart';
 import 'package:campus_mate/auth/viewmodel/verify_code_view_model.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/core/auth/sign_out.dart';
 import 'package:campus_mate/core/router/verification_gate_listenable_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -72,21 +74,105 @@ void main() {
     expect(gateRepository.fetchCount, 0);
   });
 
-  test('다른 소셜 계정이 쓰는 메일이면(409) 두 줄 문구를 채우고 게이트는 그대로', () async {
+  /// 409 로 끝난 03 상태. [mine] 은 지금 로그인한 소셜(저장소가 덧붙인다).
+  Future<(ProviderContainer, VerifyCodeViewModel)> takenBy(String owner, {String? mine}) async {
     final repository = FakeSchoolEmailRepository()
-      ..nextCompleteResult = const FailureResult(SchoolEmailTakenFailure('서버 문구', 'google'));
+      ..nextCompleteResult = FailureResult(SchoolEmailTakenFailure('서버 문구', owner, myProvider: mine));
     final container = buildContainer(repository);
     final viewModel = container.read(verifyCodeViewModelProvider(email).notifier);
     viewModel.changeCode('123456');
-
     await viewModel.submit();
+    return (container, viewModel);
+  }
+
+  // 설계 5-3 B안 세 줄(10-17 학생증 제거).
+  test('다른 소셜이 쥔 메일이면(409) 두 줄 문구 · 다시 로그인 단추 · 다른 학교 메일 입력을 채우고 게이트는 그대로', () async {
+    final (container, _) = await takenBy('google', mine: 'kakao');
 
     final state = container.read(verifyCodeViewModelProvider(email));
-    expect(state.errorMessage, '이 메일은 구글로 가입돼 있어요');
-    expect(state.errorHint, '구글 계정으로 로그인해 주세요');
+    expect(state.errorMessage, '이미 구글로 가입된 학교 메일이에요');
+    expect(state.errorHint, '구글로 로그인해 주세요');
+    expect(state.reloginLabel, '구글로 다시 로그인');
+    expect(state.isTakenBySocial, isTrue);
+    expect(state.canChooseAnotherEmail, isTrue);
     expect(state.isCodeRejected, isFalse);
     expect(state.verified, isFalse);
     expect(gateRepository.fetchCount, 0);
+  });
+
+  test('같은 소셜이 쥔 다른 계정이면 빌려 쓰기 문구, 다시 로그인 단추는 없다', () async {
+    final (container, _) = await takenBy('kakao', mine: 'kakao');
+
+    final state = container.read(verifyCodeViewModelProvider(email));
+    expect(state.errorMessage, '이미 가입된 학교 메일이에요');
+    expect(state.errorHint, '한 학교 메일로는 계정 하나만 만들 수 있어요');
+    expect(state.reloginLabel, isNull);
+    expect(state.isTakenBySocial, isTrue);
+    expect(state.canChooseAnotherEmail, isTrue);
+  });
+
+  test('옛 이메일 가입자가 쥔 메일이면 지금 문구 그대로(한 줄 · 03 배치 그대로)', () async {
+    final (container, _) = await takenBy('email', mine: 'kakao');
+
+    final state = container.read(verifyCodeViewModelProvider(email));
+    expect(state.errorMessage, SchoolEmailTakenFailure.takenByEmailAccountMessage);
+    expect(state.errorHint, isNull);
+    expect(state.reloginLabel, isNull);
+    expect(state.isTakenBySocial, isFalse);
+    expect(state.canChooseAnotherEmail, isTrue);
+  });
+
+  group('다시 로그인(relogin)', () {
+    late List<String> signedOut;
+
+    setUp(() => signedOut = []);
+    tearDown(LoginNotice.take);
+
+    test('누르면 시작 화면 토스트 문구(info)를 남기고 로그아웃한다 — 자동 로그아웃은 없다', () async {
+      final repository = FakeSchoolEmailRepository()
+        ..nextCompleteResult = const FailureResult(SchoolEmailTakenFailure('서버 문구', 'kakao', myProvider: 'google'));
+      final container = ProviderContainer(
+        overrides: [
+          schoolEmailRepositoryProvider.overrideWithValue(repository),
+          verificationGateRepositoryProvider.overrideWithValue(gateRepository),
+          signOutProvider.overrideWithValue(() async => signedOut.add('signOut')),
+        ],
+      );
+      addTearDown(container.dispose);
+      final viewModel = container.read(verifyCodeViewModelProvider(email).notifier);
+      viewModel.changeCode('123456');
+      await viewModel.submit();
+      expect(signedOut, isEmpty, reason: '409 만으로는 로그아웃하지 않는다');
+
+      await viewModel.relogin();
+      await viewModel.relogin(); // 연타 — 로그아웃은 한 번만
+
+      expect(signedOut, ['signOut']);
+      final notice = LoginNotice.take();
+      expect(notice?.message, '이 학교 메일은 카카오로 가입돼 있어요. 카카오로 로그인해 주세요');
+      expect(notice?.isInfo, isTrue);
+    });
+
+    test('다시 로그인할 소셜이 없으면(같은 소셜 · 이메일 방식) 아무 일도 하지 않는다', () async {
+      final repository = FakeSchoolEmailRepository()
+        ..nextCompleteResult = const FailureResult(SchoolEmailTakenFailure('서버 문구', 'kakao', myProvider: 'kakao'));
+      final container = ProviderContainer(
+        overrides: [
+          schoolEmailRepositoryProvider.overrideWithValue(repository),
+          verificationGateRepositoryProvider.overrideWithValue(gateRepository),
+          signOutProvider.overrideWithValue(() async => signedOut.add('signOut')),
+        ],
+      );
+      addTearDown(container.dispose);
+      final viewModel = container.read(verifyCodeViewModelProvider(email).notifier);
+      viewModel.changeCode('123456');
+      await viewModel.submit();
+
+      await viewModel.relogin();
+
+      expect(signedOut, isEmpty);
+      expect(LoginNotice.take(), isNull);
+    });
   });
 
   test('서버가 인증을 못 마치면(403 미확인 · 503 · 네트워크) 다시 하라는 문구', () async {
