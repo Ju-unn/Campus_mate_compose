@@ -1,6 +1,19 @@
 import 'dart:async';
 
 import 'package:campus_mate/account/model/account_repository.dart';
+import 'package:campus_mate/common/widgets/labeled_field.dart';
+import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
+import 'package:campus_mate/common/widgets/select_chip.dart';
+import 'package:campus_mate/profile/model/profile_enums.dart';
+import 'package:campus_mate/profile/view/appearance_pickers.dart';
+import 'package:campus_mate/profile/view/appearance_type_screen.dart';
+import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
+import 'package:campus_mate/profile/model/basic_info_repository_provider.dart';
+import 'package:campus_mate/profile/model/kakao_id_repository_provider.dart';
+import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
+import 'package:campus_mate/profile/view/kakao_id_screen.dart';
+import 'package:campus_mate/profile/view/photos_screen.dart';
+import 'package:campus_mate/profile/viewmodel/basic_info_view_model.dart';
 import 'package:campus_mate/account/view/account_screen.dart';
 import 'package:campus_mate/account/view/account_suspended_screen.dart';
 import 'package:campus_mate/account/view/kakao_id_settings_screen.dart';
@@ -77,6 +90,9 @@ import '../../friend_review/model/fake_friend_review_repository.dart';
 import '../../home/model/fake_home_repository.dart';
 import '../../matching/model/fake_card_repository.dart';
 import '../../me/model/fake_me_repository.dart';
+import '../../profile/model/fake_basic_info_repository.dart';
+import '../../profile/model/fake_kakao_id_repository.dart';
+import '../../profile/model/fake_onboarding_repository.dart';
 import '../../safety/model/fake_safety_repository.dart';
 import '../supabase/fake_auth_session.dart';
 import '../../notifications/model/fake_notifications_repository.dart';
@@ -722,6 +738,8 @@ void main() {
         overrides: [
           // 03 뒤로가기가 임시 연결을 비운다.
           schoolEmailRepositoryProvider.overrideWithValue(schoolEmail),
+          // 온보딩 화면 뷰모델이 "다시 보는 중" 인지 단계 캐시에 묻는다(라우터 단계는 위 고정값).
+          onboardingRepositoryProvider.overrideWithValue(FakeOnboardingRepository()),
           // 3c 관문 화면이 읽는 학교명 · 로고(지어낸 값, 로고 없음).
           schoolNameProvider.overrideWithValue(const AsyncData('가나대학교')),
           universityLogosProvider.overrideWith((ref) => const <String, String>{}),
@@ -817,19 +835,208 @@ void main() {
       expect(exitCalls, 1);
     }
 
-    for (final step in [OnboardingStep.kakaoId, OnboardingStep.survey]) {
+    // 04-1 · 04-4 는 뒤로가 없다(사용자 결정 ⑦ · ①). 설문 첫 문항은 조각 3 전까지 그대로다.
+    // 04-1b 는 이제 04-1 로 간다 — 아래 '온보딩 뒤로가기' 묶음이 본다(종전엔 이 줄에 kakaoId 가 있었다).
+    for (final step in [OnboardingStep.basicInfo, OnboardingStep.appearanceType, OnboardingStep.survey]) {
       testWidgets('온보딩(${step.name})에서도 첫 뒤로가기는 안내만, 한 번 더 누르면 앱을 닫는다', (tester) async {
         await pumpMember(tester, step: step);
+        expect(find.byTooltip(onboardingBackLabel), findsNothing, reason: '뒤로 갈 앞 화면이 없다');
 
         await expectHintThenExit(tester);
       });
     }
+
+    group('온보딩 뒤로가기(조각 0~2)', () {
+      late FakeOnboardingRepository onboarding;
+      late OnboardingStepListenable steps;
+
+      /// 화면들이 부르는 것과 같은 단계 캐시를 라우터에 건다(main.dart 와 같은 연결).
+      Future<GoRouter> pumpOnboarding(WidgetTester tester, OnboardingStep server) async {
+        exitCalls = 0;
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+          if (call.method == 'SystemNavigator.pop') exitCalls++;
+          return null;
+        });
+        addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
+        onboarding = FakeOnboardingRepository()..nextResult = Success(server);
+        final container = ProviderContainer(
+          overrides: [
+            onboardingRepositoryProvider.overrideWithValue(onboarding),
+            meRepositoryProvider.overrideWithValue(FakeMeRepository(const Success(savedOnboardingProfile))),
+            accountRepositoryProvider.overrideWithValue(FakeAccountRepository()),
+            basicInfoRepositoryProvider.overrideWithValue(FakeBasicInfoRepository()),
+            basicInfoNowProvider.overrideWithValue(() => DateTime(2026, 6, 1)),
+            kakaoIdRepositoryProvider.overrideWithValue(FakeKakaoIdRepository()),
+          ],
+        );
+        addTearDown(container.dispose);
+        steps = container.read(onboardingStepListenableProvider);
+        await steps.refresh();
+        final router = AppRouter.create(
+          isAuthenticated: () => true,
+          verificationGate: () => VerificationGate.complete,
+          onboardingStep: () => steps.value,
+          refreshListenable: steps,
+        );
+        addTearDown(router.dispose);
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+          ),
+        );
+        await tester.pumpAndSettle();
+        return router;
+      }
+
+      Finder backArrow() => find.byTooltip(onboardingBackLabel);
+
+      testWidgets('04-1b 의 시스템 뒤로는 04-1 로 가고 종료 안내는 뜨지 않는다', (tester) async {
+        await pumpOnboarding(tester, OnboardingStep.kakaoId);
+        expect(find.byType(KakaoIdScreen), findsOneWidget);
+        expect(find.byType(BackExitScope), findsOneWidget, reason: '두 겹이면 같은 뒤로가기에 둘 다 불린다');
+
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+
+        expect(find.byType(BasicInfoScreen), findsOneWidget);
+        expect(find.text(backExitMessage), findsNothing);
+        expect(exitCalls, 0);
+      });
+
+      testWidgets('04-2 의 시스템 뒤로는 04-1b 로 가고 종료 안내는 뜨지 않는다', (tester) async {
+        await pumpOnboarding(tester, OnboardingStep.photos);
+        expect(find.byType(BackExitScope), findsOneWidget, reason: '두 겹이면 같은 뒤로가기에 둘 다 불린다');
+
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+
+        expect(find.byType(KakaoIdScreen), findsOneWidget);
+        expect(find.text(backExitMessage), findsNothing);
+      });
+
+      testWidgets('04-1b 앱바 뒤로 → 04-1 이 서버 값으로 채워지고, 전화번호를 넣어 다시 저장하면 04-1b 로 돌아온다', (tester) async {
+        await pumpOnboarding(tester, OnboardingStep.kakaoId);
+
+        await tester.tap(backArrow());
+        await tester.pumpAndSettle();
+
+        expect(find.byType(BasicInfoScreen), findsOneWidget);
+        expect(backArrow(), findsNothing, reason: '04-1 앞은 관문이라 화살표가 없다(사용자 결정 ⑦)');
+        expect(find.text('여우비'), findsOneWidget);
+        expect(find.text('2002'), findsOneWidget);
+        expect(find.text('172'), findsOneWidget);
+
+        final phone = find.descendant(
+          of: find.widgetWithText(LabeledField, '전화번호 · 필수'),
+          matching: find.byType(TextField),
+        );
+        await tester.ensureVisible(phone);
+        await tester.enterText(phone, '01001352468');
+        await tester.pump(const Duration(milliseconds: 350));
+        await tester.tap(find.text('다음'));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(KakaoIdScreen), findsOneWidget);
+        expect(steps.isRevisiting, isFalse);
+      });
+
+      // 앞으로 건너뛰기 금지: 다시 보는 중에는 서버 단계(가장 멀리 간 곳)로도 바로 갈 수 없다.
+      testWidgets('다시 보는 중에는 주소로 앞 화면에 가려 해도 다시 보는 화면에 묶인다', (tester) async {
+        final router = await pumpOnboarding(tester, OnboardingStep.photos);
+        steps
+          ..goBack()
+          ..goBack();
+        await tester.pumpAndSettle();
+        expect(find.byType(BasicInfoScreen), findsOneWidget);
+
+        for (final ahead in [AppRoutes.onboardingKakaoId, AppRoutes.onboardingPhotos, AppRoutes.onboardingInterests]) {
+          router.go(ahead);
+          await tester.pumpAndSettle();
+
+          expect(find.byType(BasicInfoScreen), findsOneWidget, reason: ahead);
+        }
+      });
+
+      // 사진 경계(사용자 결정 ①): 04-5 에서 돌아온 04-4 에는 화살표가 없고 시스템 뒤로는 종료 안내다.
+      testWidgets('04-5 시스템 뒤로 → 04-4: 얼굴상 · 인상이 채워져 있고, 화살표 없이 시스템 뒤로는 안내다', (tester) async {
+        await pumpOnboarding(tester, OnboardingStep.interests);
+        expect(find.byType(BackExitScope), findsOneWidget, reason: '두 겹이면 같은 뒤로가기에 둘 다 불린다');
+
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+
+        expect(find.byType(AppearanceTypeScreen), findsOneWidget);
+        expect(find.text(backExitMessage), findsNothing);
+        expect(backArrow(), findsNothing);
+        expect(steps.isRevisiting, isTrue);
+        expect(tester.widget<AnimalTypePicker>(find.byType(AnimalTypePicker)).selected, {AnimalType.fox});
+        expect(tester.widget<ImpressionTypePicker>(find.byType(ImpressionTypePicker)).selected, {ImpressionType.innocent});
+
+        await tester.binding.handlePopRoute();
+        await tester.pump();
+        expect(find.text(backExitMessage), findsOneWidget);
+        expect(find.byType(AppearanceTypeScreen), findsOneWidget);
+      });
+
+      testWidgets('06-2 시스템 뒤로 → 06-1 은 이상형 조건이 채워져 있다', (tester) async {
+        await pumpOnboarding(tester, OnboardingStep.idealTraits);
+        expect(find.byType(BackExitScope), findsOneWidget, reason: '두 겹이면 같은 뒤로가기에 둘 다 불린다');
+
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+
+        expect(find.byType(IdealConditionsScreen), findsOneWidget);
+        expect(find.text(backExitMessage), findsNothing);
+        expect(find.text('24세 ~ 30세'), findsOneWidget);
+      });
+
+      testWidgets('04-6 시스템 뒤로 → 04-5 는 저장해 둔 관심사 칩이 켜져 있다', (tester) async {
+        await pumpOnboarding(tester, OnboardingStep.myTraits);
+        expect(find.byType(BackExitScope), findsOneWidget, reason: '두 겹이면 같은 뒤로가기에 둘 다 불린다');
+
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+
+        final screen = tester.widget<TagPickerScreen>(find.byType(TagPickerScreen));
+        expect(screen.kind, TagPickerKind.interests);
+        final picked = tester.widgetList<SelectChip>(find.byType(SelectChip)).where((chip) => chip.isSelected);
+        expect([for (final chip in picked) chip.label], unorderedEquals(['카페가기', '전시회관람', '등산']));
+      });
+
+      // 04-2 가 스스로 BackExitScope 를 둘러도 위에 push 로 올라온 04-3 이 먼저 닫힌다 — 04-1b 로 튀지 않는다.
+      testWidgets('04-2 위에 올라온 04-3 의 시스템 뒤로는 04-2 로 한 장만 돌아간다', (tester) async {
+        final router = await pumpOnboarding(tester, OnboardingStep.photos);
+        unawaited(router.push(AppRoutes.onboardingAvatarSource));
+        await tester.pumpAndSettle();
+
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+
+        expect(find.byType(PhotosScreen), findsOneWidget);
+        expect(steps.value, OnboardingStep.photos);
+        expect(steps.isRevisiting, isFalse);
+      });
+
+      testWidgets('토큰 갱신처럼 단계를 다시 물어도 다시 보는 화면에 그대로 있다', (tester) async {
+        await pumpOnboarding(tester, OnboardingStep.photos);
+        steps.goBack();
+        await tester.pumpAndSettle();
+
+        await steps.refresh();
+        await tester.pumpAndSettle();
+
+        expect(find.byType(KakaoIdScreen), findsOneWidget);
+      });
+    });
 
     testWidgets('20 추천 코드에서도 첫 뒤로가기는 안내만, 한 번 더 누르면 앱을 닫는다', (tester) async {
       final router = await pumpMember(tester);
       router.go(AppRoutes.onboardingReferral);
       await tester.pumpAndSettle();
       expect(find.byType(ReferralCodeScreen), findsOneWidget);
+      // 06-3 저장 순간 가입이 끝난다 — 20 → 06-3 뒤로는 없다(사용자 결정 ⑥).
+      expect(find.byTooltip(onboardingBackLabel), findsNothing);
 
       await expectHintThenExit(tester);
     });
