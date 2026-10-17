@@ -21,7 +21,7 @@ def test_next_step_moves_to_kakao_id_after_basic_info():
 
 
 def test_next_step_moves_from_photos_straight_to_appearance():
-    """아바타는 만드는 동안 다음 질문을 이어 가므로(2026-09-25 사용자 결정) 결과 확인이 성향 질문 뒤로 갔다.
+    """아바타는 만드는 동안 다음 질문을 이어 가므로 결과 확인이 가입 맨 끝(06-3 뒤)으로 갔다(2026-10-17 사용자 결정).
     원본 사진 지정은 여전히 photos 단계 조건이다 — 작업 등록은 04-3(photos 의 마지막 화면)에서 한다."""
     profile = {**_EMPTY_PROFILE, "nickname": "가나", "phone_set": True, "kakao_id_set": True}
     assert next_step(profile) == "photos"
@@ -30,19 +30,30 @@ def test_next_step_moves_from_photos_straight_to_appearance():
     assert next_step(profile) == "appearance_type"
 
 
-def test_next_step_asks_for_the_avatar_after_the_survey():
-    profile = {
-        **_EMPTY_PROFILE, "nickname": "가나", "phone_set": True, "kakao_id_set": True,
-        "photo_count": 2, "has_avatar_source": True,
-        "animal_type": "dog", "impression_type": "kind",
-        "interest_tags": ["a", "b", "c"], "my_traits": ["a", "b", "c"],
-        "survey_answer_count": 9, "religion": "none", "is_smoker": False,
-    }
-    # 아직 만드는 중(avatar_ready=False)이면 결과 화면에서 기다린다.
-    assert next_step(profile) == "avatar"
+_THROUGH_SURVEY = {
+    **_EMPTY_PROFILE, "nickname": "가나", "phone_set": True, "kakao_id_set": True,
+    "photo_count": 2, "has_avatar_source": True,
+    "animal_type": "dog", "impression_type": "kind",
+    "interest_tags": ["a", "b", "c"], "my_traits": ["a", "b", "c"],
+    "survey_answer_count": 9, "religion": "none", "is_smoker": False,
+}
+_THROUGH_BIO = {
+    **_THROUGH_SURVEY,
+    "preferred_age_min": 20, "preferred_animal_types": ["cat"], "preferred_impression_types": ["kind"],
+    "ideal_traits": ["a", "b", "c"], "ideal_note": "말 잘 통하는 사람", "bio": "안녕하세요",
+}
 
-    # 이미 아바타가 있는 사람은 이 단계를 지나칠 뿐이다 — 데이터 이관이 없다.
-    assert next_step({**profile, "avatar_ready": True}) == "ideal_conditions"
+
+def test_next_step_does_not_wait_for_the_avatar_after_the_survey():
+    """설문 직후에는 아무것도 막지 않는다 — 만드는 중이어도 06-1 로 간다(2026-10-17 사용자 결정)."""
+    assert next_step({**_THROUGH_SURVEY, "avatar_ready": False}) == "ideal_conditions"
+
+
+def test_next_step_asks_for_the_avatar_after_the_bio():
+    """아바타 확인은 가입 맨 끝(06-3 뒤)이다. ready 행이 없으면 거기서 기다리고,
+    ready 행(5회 실패 보상의 기본 아바타도 ready 행이다)이 생기면 가입이 끝난다."""
+    assert next_step({**_THROUGH_BIO, "avatar_ready": False}) == "avatar"
+    assert next_step({**_THROUGH_BIO, "avatar_ready": True}) == "complete"
 
 
 def test_next_step_is_complete_when_everything_filled():
