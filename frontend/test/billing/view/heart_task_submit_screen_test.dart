@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:campus_mate/auth/model/image_compressor_provider.dart';
+import 'package:campus_mate/billing/model/everytime_form_link.dart';
 import 'package:campus_mate/billing/model/heart_task.dart';
 import 'package:campus_mate/billing/model/heart_task_repository_provider.dart';
 import 'package:campus_mate/billing/view/heart_task_submit_screen.dart';
@@ -9,6 +10,8 @@ import 'package:campus_mate/billing/viewmodel/heart_task_submit_view_model.dart'
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/common/widgets/muted_text_button.dart';
+import 'package:campus_mate/consent/model/open_url.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -26,20 +29,33 @@ import '../model/fake_heart_task_repository.dart';
 const _everytimeCriteria = '앱 이름(CampusMate)이 들어간 홍보 글을 올리고, 올린 날짜가 보이게 찍어 주세요';
 const _kakaoCriteria = '3명 이상이 있는 단톡방에 공유한 글과 단톡방 인원 수가 보이게 찍어 주세요';
 
+/// 에브리타임 18b · 18b-2 의 보조 버튼(pen 18b `F15q0W` · 18b-2 `DMrAI` TextButton, 대장 전달 값 10-17).
+const _formLabel = '에브리타임 양식 보기 →';
+
 void main() {
   late FakeHeartTaskRepository repository;
   // 없는 파일이어도 된다 — 위젯 테스트의 가짜 시계에서는 파일을 실제로 읽지 않는다.
   final photo = File('proof.jpg');
+  // 앱 안 브라우저로 연 주소(openUrlProvider — [open] 이 결과를 정한다)와 기기 브라우저로 연 주소(openExternalUrlProvider).
+  late List<Uri> openedInApp;
+  late List<Uri> openedExternal;
+  late Future<bool> Function(Uri) open;
 
-  setUp(() => repository = FakeHeartTaskRepository());
+  setUp(() {
+    repository = FakeHeartTaskRepository();
+    openedInApp = [];
+    openedExternal = [];
+    open = (uri) async => true;
+  });
 
   /// 18a 에서 들어온 것처럼 push 한다. 18c 는 글자만 있는 자리 화면.
   Future<GoRouter> pump(
     WidgetTester tester, {
     HeartTaskKind kind = HeartTaskKind.kakaoShare,
     HeartTaskRejectReason? reason,
+    Size size = const Size(360, 780),
   }) async {
-    tester.view.physicalSize = const Size(360, 780);
+    tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final router = GoRouter(
@@ -59,6 +75,14 @@ void main() {
         overrides: [
           heartTaskRepositoryProvider.overrideWithValue(repository),
           imageCompressorProvider.overrideWithValue(FakeImageCompressor()),
+          openUrlProvider.overrideWithValue((uri) {
+            openedInApp.add(uri);
+            return open(uri);
+          }),
+          openExternalUrlProvider.overrideWithValue((uri) async {
+            openedExternal.add(uri);
+            return true;
+          }),
         ],
         child: MaterialApp.router(routerConfig: router),
       ),
@@ -211,4 +235,124 @@ void main() {
       expect(tester.getRect(find.byKey(heartTaskUploaderKey)).top - tester.getRect(find.text(criteria)).bottom, 16);
     });
   }
+
+  group('에브리타임 양식 보기(pen `F15q0W` · `DMrAI` TextButton)', () {
+    Finder formButton() => find.widgetWithText(MutedTextButton, _formLabel);
+
+    testWidgets('에브리타임 18b 에만 있다 — 단톡방 18b 에는 없다', (tester) async {
+      await pump(tester, kind: HeartTaskKind.everytimePost);
+      expect(formButton(), findsOneWidget);
+
+      await pump(tester);
+      expect(find.text(_formLabel), findsNothing);
+    });
+
+    testWidgets('반려 뒤 다시 내는 에브리타임 18b-2 에도 있다', (tester) async {
+      await pump(tester, kind: HeartTaskKind.everytimePost, reason: HeartTaskRejectReason.dateMissing);
+
+      expect(find.text('반려 사유: 날짜가 안 보여요'), findsOneWidget);
+      expect(formButton(), findsOneWidget);
+    });
+
+    for (final reason in [null, HeartTaskRejectReason.dateMissing]) {
+      testWidgets('업로더 → 16 → 버튼 328×48(본문 폭) → 16 → 제출 버튼, 14/600 muted 가운데(반려 $reason)', (tester) async {
+        await pump(tester, kind: HeartTaskKind.everytimePost, reason: reason);
+
+        final uploader = tester.getRect(find.byKey(heartTaskUploaderKey));
+        final button = tester.getRect(formButton());
+        final submit = tester.getRect(find.byType(ElevatedButton));
+        expect(button.top - uploader.bottom, 16);
+        expect(submit.top - button.bottom, 16);
+        expect(button.size, const Size(328, 48));
+        expect(button.left, uploader.left);
+        expect(tester.getCenter(find.text(_formLabel)).dx, closeTo(button.center.dx, 0.01));
+        final style = tester.widget<Text>(find.text(_formLabel)).style!;
+        expect((style.fontSize, style.fontWeight, style.color), (14, FontWeight.w600, AppColors.muted));
+      });
+    }
+
+    testWidgets('누르면 양식 노션 주소를 앱 안 브라우저(openUrlProvider)로 연다 — 기기 브라우저는 0번(10-16 사용자 결정)', (tester) async {
+      await pump(tester, kind: HeartTaskKind.everytimePost);
+
+      await tester.tap(formButton());
+      await tester.pump();
+
+      expect(openedInApp, [everytimeFormLink]);
+      expect(openedExternal, isEmpty);
+      expect(find.text(const UnknownFailure().toDisplayMessage()), findsNothing);
+    });
+
+    testWidgets('여는 호출이 끝나기 전에 다시 눌러도 한 번만 연다', (tester) async {
+      final pending = Completer<bool>();
+      open = (uri) => pending.future;
+      await pump(tester, kind: HeartTaskKind.everytimePost);
+
+      await tester.tap(formButton());
+      await tester.tap(formButton());
+      await tester.pump();
+      expect(openedInApp, [everytimeFormLink]);
+
+      pending.complete(true);
+      await tester.pump();
+      await tester.tap(formButton());
+      await tester.pump();
+      expect(openedInApp, [everytimeFormLink, everytimeFormLink]);
+    });
+
+    // openInApp 은 연 것 · 사용자가 닫은 것을 true, 예외를 false 로 돌려준다(open_url.dart:18-30) — false 가 "못 열었다".
+    // 예외는 provider 를 바꿔 끼울 때를 위한 방어다(설정 16 · 결제 안내와 같다).
+    testWidgets('열지 못하면(false · 예외) 실패 토스트를 3초 띄운다', (tester) async {
+      for (final throws in [false, true]) {
+        open = (uri) async {
+          if (throws) throw StateError('기기 쪽 오류');
+          return false;
+        };
+        await pump(tester, kind: HeartTaskKind.everytimePost);
+
+        await tester.tap(formButton());
+        await tester.pump();
+
+        expect(find.text(const UnknownFailure().toDisplayMessage()), findsOneWidget, reason: 'throws=$throws');
+        await tester.pump(const Duration(seconds: 3));
+        expect(find.text(const UnknownFailure().toDisplayMessage()), findsNothing, reason: 'throws=$throws');
+      }
+    });
+
+    testWidgets('낭독기 — "에브리타임 양식 보기, 브라우저로 열려요" 버튼으로 읽고(화살표는 읽지 않는다) 누를 수 있다', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pump(tester, kind: HeartTaskKind.everytimePost);
+
+      final data = tester.getSemantics(formButton()).getSemanticsData();
+      expect(data.label, '에브리타임 양식 보기, 브라우저로 열려요');
+      expect(data.flagsCollection.isButton, isTrue);
+      expect(data.hasAction(SemanticsAction.tap), isTrue);
+      handle.dispose();
+    });
+
+    for (final reason in [null, HeartTaskRejectReason.notVerified]) {
+      testWidgets('작은 화면 360×640 · 글자 2배 — 넘침 · 말줄임 없고, 스크롤하면 제출 버튼이 다 보인다(반려 $reason)', (tester) async {
+        tester.platformDispatcher.textScaleFactorTestValue = 2;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await pump(tester, kind: HeartTaskKind.everytimePost, reason: reason, size: const Size(360, 640));
+
+        expect(tester.takeException(), isNull);
+        for (final paragraph in tester.renderObjectList<RenderParagraph>(find.byType(RichText))) {
+          expect(paragraph.didExceedMaxLines, isFalse, reason: paragraph.text.toPlainText());
+        }
+        // ListView 는 화면 밖 칸을 아직 만들지 않는다 — 제출 버튼까지 내린 뒤 잰다.
+        final submit = find.byType(ElevatedButton);
+        await tester.scrollUntilVisible(submit, 100, scrollable: find.byType(Scrollable).first);
+        await tester.pumpAndSettle();
+        final viewport = tester.getRect(find.byType(Scrollable).first);
+        final rect = tester.getRect(submit);
+        expect(rect.top, greaterThanOrEqualTo(viewport.top));
+        expect(rect.bottom, lessThanOrEqualTo(viewport.bottom));
+        // 글자를 키우면 버튼도 따라 커지고(최소 48) 제출 버튼을 덮지 않는다.
+        final button = tester.getRect(formButton());
+        expect(button.height, greaterThanOrEqualTo(48));
+        expect(rect.top - button.bottom, 16);
+        expect(tester.takeException(), isNull);
+      });
+    }
+  });
 }
