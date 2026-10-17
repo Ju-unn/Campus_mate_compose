@@ -13,13 +13,18 @@ import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
+import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
+import '../../billing/view/pretendard.dart';
 import '../model/fake_school_email_repository.dart';
 import '../model/fake_verification_gate_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+
+/// 입력칸 아래 학교 메일 안내. 학교는 앱 업데이트 없이 DB 에 늘어나서(10-17 21곳 → 65곳) 학교 수를 쓰지 않는다(대장 결정 10-17).
+const domainHint = '@snu.ac.kr · @yonsei.ac.kr · @korea.ac.kr 외 여러 곳';
 
 void main() {
   Future<void> pumpScreen(WidgetTester tester) async {
@@ -36,10 +41,18 @@ void main() {
       expect(find.text('학교 이메일 주소만 가입할 수 있어요.'), findsOneWidget);
       expect(find.text('인증이 끝나면 이메일은 어디에도 공개되지 않아요.'), findsOneWidget);
       expect(find.text('대학 이메일'), findsOneWidget);
-      expect(find.text('@snu.ac.kr · @yonsei.ac.kr · @korea.ac.kr 외 17곳'), findsOneWidget);
+      expect(find.text(domainHint), findsOneWidget);
       expect(find.text('인증 메일 받기'), findsOneWidget);
       // 묵시 동의 줄은 지웠다 — 동의는 로그인 뒤 02-c 에서 항목별로 받는다(사용자 결정 2026-09-29, pen KGo76 삭제).
       expect(find.textContaining('동의하게 돼요'), findsNothing);
+    });
+
+    testWidgets('학교 메일 안내에 학교 수(숫자)가 없다 — 학교가 늘어도 틀리지 않는다', (tester) async {
+      await pumpScreen(tester);
+
+      final hintRow = find.ancestor(of: find.byIcon(AppIcons.badgeCheck), matching: find.byType(Row)).first;
+      final hint = tester.widget<Text>(find.descendant(of: hintRow, matching: find.byType(Text)));
+      expect(hint.data, isNot(matches(RegExp(r'\d'))));
     });
 
     testWidgets('앱바가 없다', (tester) async {
@@ -351,6 +364,42 @@ void main() {
       final state = container.read(verifyCodeViewModelProvider(UniversityEmail.tryParse('kim@snu.ac.kr')!));
       expect(state.resendAvailableAt, resentAt.add(const Duration(seconds: 60)));
       expect(state.codeExpiresAt, resentAt.add(codeLifetime));
+    });
+  });
+
+  // 실제 글꼴로 잰다(시험 기본 Ahem 은 글자 폭이 실제와 다르다). 불러온 글꼴은 이 파일의 뒤 시험에도 남아 맨 끝에 둔다.
+  group('학교 메일 안내 줄(실제 글꼴)', () {
+    setUpAll(loadPretendard);
+
+    void phone360(WidgetTester tester) {
+      tester.view.physicalSize = const Size(360, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+    }
+
+    // 기준 설계 폭 360(DESIGN §11.1)에서 옛 문구처럼 한 줄이다 — 줄이 늘면 아래 칸이 밀린다.
+    testWidgets('360 폭에서 안내는 한 줄이다', (tester) async {
+      phone360(tester);
+      await pumpScreen(tester);
+
+      // 렌더 높이는 한 줄 17 · 두 줄 34 다(12 × 1.4 = 16.8 이 반올림된다) — 두 줄 높이보다 낮으면 한 줄이다.
+      const caption = AppTypography.caption;
+      expect(tester.getSize(find.text(domainHint)).height, lessThan(caption.fontSize! * caption.height! * 2));
+    });
+
+    testWidgets('360x640 · 글자 배율 2.0 에서 넘치지 않고 안내 전체가 보인다', (tester) async {
+      phone360(tester);
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await pumpScreen(tester);
+
+      expect(tester.takeException(), isNull);
+      // 안내 줄이 제 글자 높이보다 낮으면 잘린 것이다.
+      final hint = tester.renderObject<RenderBox>(find.text(domainHint));
+      expect(hint.size.height, greaterThanOrEqualTo(hint.getMinIntrinsicHeight(hint.size.width)));
+      await tester.ensureVisible(find.text('인증 메일 받기'));
+      await tester.pump();
+      expect(find.text('인증 메일 받기').hitTestable(), findsOneWidget);
     });
   });
 }

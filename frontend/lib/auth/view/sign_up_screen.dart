@@ -191,8 +191,10 @@ class _DomainHint extends StatelessWidget {
         const Icon(AppIcons.badgeCheck, size: 14, color: AppColors.muted),
         const SizedBox(width: 6),
         Expanded(
+          // 학교는 앱 업데이트 없이 DB 에 늘어나서 학교 수를 쓰지 않는다(대장 결정 10-17, 종전 pen 문구 "외 17곳").
+          // "외 여러 학교" 는 360 폭에서 두 줄이 돼 pen 처럼 한 줄인 "외 여러 곳" 으로 둔다.
           child: Text(
-            '@snu.ac.kr · @yonsei.ac.kr · @korea.ac.kr 외 17곳',
+            '@snu.ac.kr · @yonsei.ac.kr · @korea.ac.kr 외 여러 곳',
             style: AppTypography.caption.copyWith(color: AppColors.muted),
           ),
         ),
