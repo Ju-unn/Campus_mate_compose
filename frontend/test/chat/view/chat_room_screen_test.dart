@@ -791,8 +791,8 @@ void main() {
     });
 
     for (final scale in [1.3, 2.0]) {
-      testWidgets('글자 배율 $scale — 빈 방 접힘 · 펼침 모두 넘치지 않는다', (tester) async {
-        await pumpRoom(tester, scale: scale);
+      testWidgets('글자 배율 $scale · 360×640 — 빈 방 접힘 · 펼침 모두 넘치지 않는다', (tester) async {
+        await pumpRoom(tester, scale: scale, height: 640);
         expect(tester.takeException(), isNull);
 
         await tester.tap(find.text('자세히 보기'));

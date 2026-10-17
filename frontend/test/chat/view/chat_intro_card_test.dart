@@ -1,4 +1,5 @@
 import 'package:campus_mate/chat/view/chat_intro_card.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_motion.dart';
@@ -23,6 +24,15 @@ void main() {
     '공개된 뒤의 만남과 연락은 두 분의 선택이에요. 만나기 전에는 꼭 상대를 직접 확인하고 안전에 유의해 주세요. '
         '불편하면 신고·차단·나가기를 쓸 수 있어요.',
   ];
+  // 굵게 할 구절(사용자 지시 10-17, pen 은 rich text 를 못 담아 대장이 목록으로 전달). 5번 항목은 없다.
+  final bold = <String, List<String>>{
+    summary: ['48시간', '수락'],
+    items[0]: ['48시간', '카카오톡 아이디'],
+    items[1]: ['24시간', '카카오톡 아이디'],
+    items[2]: ['수락하기', '수락은 취소할 수 없어요'],
+    items[3]: ['48시간', '종료'],
+    items[4]: [],
+  };
 
   setUpAll(loadPretendard);
 
@@ -32,8 +42,9 @@ void main() {
     bool expanded = false,
     double scale = 1,
     bool disableAnimations = false,
+    Size screen = const Size(360, 780),
   }) async {
-    tester.view.physicalSize = const Size(360, 780);
+    tester.view.physicalSize = screen;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     var isExpanded = expanded;
@@ -41,7 +52,7 @@ void main() {
       theme: ThemeData(fontFamily: 'Pretendard'),
       home: MediaQuery(
         data: MediaQueryData(
-          size: const Size(360, 780),
+          size: screen,
           textScaler: TextScaler.linear(scale),
           disableAnimations: disableAnimations,
         ),
@@ -69,6 +80,70 @@ void main() {
   Finder toggle() => find.byType(TextButton);
 
   TextStyle styleOf(WidgetTester tester, String text) => tester.widget<Text>(find.text(text)).style!;
+
+  Finder icon() => find.descendant(of: find.byType(ChatIntroCard), matching: find.byType(Icon3d));
+
+  /// 글자 조각마다 실제로 그려지는 스타일 — 바깥 글자 스타일에 조각 스타일을 차례로 얹는다.
+  List<(String, TextStyle)> runsOf(WidgetTester tester, String text) {
+    final runs = <(String, TextStyle)>[];
+    void walk(InlineSpan span, TextStyle inherited) {
+      final style = inherited.merge(span.style);
+      if (span is! TextSpan) {
+        return;
+      }
+      if ((span.text ?? '').isNotEmpty) {
+        runs.add((span.text!, style));
+      }
+      for (final child in span.children ?? const <InlineSpan>[]) {
+        walk(child, style);
+      }
+    }
+
+    walk(tester.renderObject<RenderParagraph>(find.text(text)).text, const TextStyle());
+    return runs;
+  }
+
+  group('제목 줄(Title Row, pen z83bi · cinKv)', () {
+    for (final expanded in [false, true]) {
+      testWidgets('${expanded ? '펼침' : '접힘'} — 파란 안내 3D 아이콘 20×20 contain → 6 → 제목(폭 270 · 한 줄), 세로 가운데', (tester) async {
+        final card = await pump(tester, expanded: expanded);
+
+        expect(icon(), findsOneWidget);
+        final icon3d = tester.widget<Icon3d>(icon());
+        expect((icon3d.icon, icon3d.size), (AppIcon3d.infoBlue, 20));
+        expect(tester.widget<Image>(find.descendant(of: icon(), matching: find.byType(Image))).fit, BoxFit.contain);
+        final iconRect = rectOf(tester, icon(), card);
+        final titleRect = rectOf(tester, find.text(title), card);
+        expect(iconRect.size, const Size(20, 20));
+        expect(iconRect.left, 16);
+        expect(titleRect.left - iconRect.right, 6);
+        // 296 − 20 − 6 = 270.
+        expect(titleRect.width, 270);
+        // 제목 줄(21)이 아이콘(20)보다 커서 제목이 위 여백 16 에 붙는다.
+        expect(titleRect.top, 16);
+        expect(iconRect.center.dy, moreOrLessEquals(titleRect.center.dy, epsilon: 0.5));
+        expect(titleRect.height, lessThan(2 * 14 * 1.5), reason: '한 줄');
+      });
+    }
+  });
+
+  group('굵게(사용자 지시 10-17)', () {
+    for (final expanded in [false, true]) {
+      testWidgets('${expanded ? '펼침 항목' : '접힘 요약'} — 표의 구절만 700, 나머지는 400 · 색 · 크기 · 줄높이는 본문 그대로', (tester) async {
+        await pump(tester, expanded: expanded);
+
+        for (final text in expanded ? items : [summary]) {
+          final runs = runsOf(tester, text);
+          expect(runs.map((run) => run.$1).join(), text);
+          expect([for (final run in runs) if (run.$2.fontWeight == FontWeight.w700) run.$1], bold[text], reason: text);
+          for (final (part, style) in runs) {
+            expect(style.fontWeight, anyOf(FontWeight.w400, FontWeight.w700), reason: part);
+            expect((style.fontSize, style.color, style.height), (14, AppColors.body, 1.55), reason: part);
+          }
+        }
+      });
+    }
+  });
 
   group('접힘(cinKv)', () {
     testWidgets('기본은 접힘 — 제목 · 요약 · "자세히 보기" 만 있고 항목은 없다', (tester) async {
@@ -104,7 +179,8 @@ void main() {
       final titleRect = rectOf(tester, find.text(title), card);
       final summaryRect = rectOf(tester, find.text(summary), card);
       final toggleRect = rectOf(tester, toggle(), card);
-      expect(titleRect.topLeft, const Offset(16, 16));
+      // 제목 줄은 아이콘(왼쪽 16)부터 시작한다 — 제목 글자 자리는 '제목 줄' 시험이 본다.
+      expect((rectOf(tester, icon(), card).left, titleRect.top), (16, 16));
       expect(summaryRect.left, 16);
       expect(summaryRect.right, lessThanOrEqualTo(328 - 16));
       expect(summaryRect.top - titleRect.bottom, 8);
@@ -256,12 +332,47 @@ void main() {
       semantics.dispose();
     });
 
+    for (final expanded in [false, true]) {
+      testWidgets('${expanded ? '펼침' : '접힘'} — 아이콘은 읽히지 않고, 굵은 구절이 있어도 문장은 끊기지 않고 한 번에 읽힌다', (tester) async {
+        final semantics = tester.ensureSemantics();
+        await pump(tester, expanded: expanded);
+
+        // 아이콘은 장식이다 — 그림 노드가 없고 이미지도 낭독에서 빠져 있다.
+        expect(tester.widget<Image>(find.descendant(of: icon(), matching: find.byType(Image))).excludeFromSemantics, isTrue);
+        final group = tester.getSemantics(find.byType(ChatIntroCard));
+        final labels = <String>[];
+        void collect(SemanticsNode node) {
+          expect(node.flagsCollection.isImage, isFalse, reason: node.label);
+          labels.add(node.label);
+          node.visitChildren((child) {
+            collect(child);
+            return true;
+          });
+        }
+
+        collect(group);
+        final spoken = labels.join('\n');
+        // 굵은 조각이 따로 노드가 되면 문장이 "48시간" / "안에 …" 처럼 끊겨 읽힌다 — 문장 전체가 한 덩어리로, 한 번만 있다.
+        for (final text in [title, ...expanded ? items : [summary]]) {
+          expect(spoken.split(text).length - 1, 1, reason: text);
+        }
+        for (final phrase in {for (final list in bold.values) ...list}) {
+          expect(labels, isNot(contains(phrase)), reason: phrase);
+        }
+        semantics.dispose();
+      });
+    }
+
     for (final scale in [1.3, 2.0]) {
       for (final expanded in [false, true]) {
-        testWidgets('글자 배율 $scale · ${expanded ? '펼침' : '접힘'} — 넘치거나 잘리는 글자가 없고 토글 줄은 48 이상', (tester) async {
-          await pump(tester, scale: scale, expanded: expanded);
+        testWidgets('글자 배율 $scale · ${expanded ? '펼침' : '접힘'} · 360×640 — 넘치거나 잘리는 글자가 없고 토글 줄은 48 이상', (tester) async {
+          final card = await pump(tester, scale: scale, expanded: expanded, screen: const Size(360, 640));
 
           expect(tester.takeException(), isNull);
+          // 아이콘은 고정 20 이고 제목은 글자가 커지면 아이콘 옆에서 줄바꿈한다(겹치지 않는다).
+          final iconRect = rectOf(tester, icon(), card);
+          expect(iconRect.size, const Size(20, 20));
+          expect(rectOf(tester, find.text(title), card).left - iconRect.right, 6);
           for (final paragraph in tester.renderObjectList<RenderParagraph>(
               find.descendant(of: find.byType(ChatIntroCard), matching: find.byType(RichText)))) {
             expect(paragraph.didExceedMaxLines, isFalse, reason: paragraph.text.toPlainText());
