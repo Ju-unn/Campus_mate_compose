@@ -1,4 +1,14 @@
+import 'package:campus_mate/me/model/my_profile.dart';
 import 'package:campus_mate/profile/viewmodel/tag_picker_kind.dart';
+
+/// 종류마다 서버가 준 내 태그. 15c 칩 · 태그 편집 · 온보딩 뒤로가기 채우기가 같이 쓴다.
+extension MyProfileTags on MyProfile {
+  List<String> tagsOf(TagPickerKind kind) => switch (kind) {
+        TagPickerKind.interests => interestTags,
+        TagPickerKind.myTraits => myTraits,
+        TagPickerKind.idealTraits => idealTraits,
+      };
+}
 
 /// 태그 선택 화면(04-5·04-6·06-2 공용)의 상태.
 class TagPickerUiState {
@@ -25,6 +35,11 @@ class TagPickerUiState {
   static TagPickerUiState fromDraft(Map<String, Object?> data, TagPickerKind kind) {
     final saved = (data['selected'] as List).cast<String>();
     return TagPickerUiState(selected: saved.where(kind.pool.contains).take(TagPickerKind.maxCount).toSet());
+  }
+
+  /// 서버에 저장해 둔 이 종류의 태그로 처음 상태를 만든다(나 탭 편집 · 온보딩 뒤로가기).
+  static TagPickerUiState fromProfile(MyProfile profile, TagPickerKind kind) {
+    return TagPickerUiState(selected: {...profile.tagsOf(kind)});
   }
 
   TagPickerUiState copyWith({

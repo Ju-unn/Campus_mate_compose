@@ -24,7 +24,7 @@ class TagEditViewModel extends TagPickerViewModel {
   @override
   TagPickerUiState build() {
     final profile = ref.read(myProfileProvider).value?.when<MyProfile?>(onSuccess: (p) => p, onFailure: (_) => null);
-    return TagPickerUiState(selected: {...?profile?.tagsOf(_editKind)});
+    return profile == null ? const TagPickerUiState() : TagPickerUiState.fromProfile(profile, _editKind);
   }
 
   /// 저장 중에 뒤로 나가도 끝까지 저장하고 화면 15 를 다시 읽게 한다 — 그동안 autoDispose 가 버리지 않게 붙잡는다.
@@ -40,13 +40,4 @@ class TagEditViewModel extends TagPickerViewModel {
 
   @override
   void onSaved() => ref.invalidate(myProfileProvider);
-}
-
-/// 종류마다 서버가 준 내 태그. 15c 칩과 태그 편집 채우기가 같이 쓴다.
-extension MyProfileTags on MyProfile {
-  List<String> tagsOf(TagPickerKind kind) => switch (kind) {
-        TagPickerKind.interests => interestTags,
-        TagPickerKind.myTraits => myTraits,
-        TagPickerKind.idealTraits => idealTraits,
-      };
 }
