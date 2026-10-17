@@ -16,10 +16,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 학과·학번을 직접 입력받는 화면 (DESIGN.md 화면 3c, pen 03c 화면 `B9Hu7`).
 ///
-/// 학교명은 3b 학생증 인증으로 이미 확정돼 읽기 전용으로만 보여준다.
+/// 학교명은 학교 메일 인증(03)으로 이미 확정돼 읽기 전용으로만 보여준다.
 /// 학과·학번은 OCR 대조가 없는 자기 입력값이다(§9 3c, 검증 수단 부재는 §13 미결66).
 ///
-/// 앱바 제목은 §9 대로 두되 뒤로가기는 두지 않는다 — 3b 를 통과해야 들어오는 화면이라
+/// 앱바 제목(pen `Tn7yn` "학교 정보")만 두고 뒤로가기는 두지 않는다 — 03 을 통과해야 들어오는 화면이라
 /// 돌아갈 곳이 없다(화면 02·03 에서 앱바를 통째로 뺀 것과 같은 이유).
 class SchoolInfoScreen extends ConsumerWidget {
   const SchoolInfoScreen({super.key});
@@ -46,7 +46,7 @@ class SchoolInfoScreen extends ConsumerWidget {
       elevation: 0,
       scrolledUnderElevation: 0,
       automaticallyImplyLeading: false,
-      title: Text('학생 인증', style: AppTypography.navTitle.copyWith(color: AppColors.ink)),
+      title: Text('학교 정보', style: AppTypography.navTitle.copyWith(color: AppColors.ink)),
     );
   }
 
@@ -235,7 +235,7 @@ class _VerifiedBadge extends StatelessWidget {
 /// 라벨 + `text-field` (§8.5) — surface-soft 채움, outline 1px, radius sm, 높이 56, 패딩 16×14.
 ///
 /// 제출이 실패해 폼이 다시 만들어져도 입력칸이 비어 보이는데 CTA 만 켜져 있는 일이 없게
-/// [initialValue] 로 상태를 되살린다(3b 실명 필드와 같은 이유).
+/// [initialValue] 로 상태를 되살린다.
 class _LabeledTextField extends StatelessWidget {
   const _LabeledTextField({
     required this.label,
