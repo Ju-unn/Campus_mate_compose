@@ -925,22 +925,23 @@ void main() {
       expect(tester.getSize(badge).height, 20);
     });
 
-    // pen 15e-9 `eAKKO` 를 지운 뒤: 제목 바로 아래 Spacer 8 만 남는다(섹션 298 → 243 = 안내 51 + 간격 4) — 제목에서 첫 줄까지 12.
-    testWidgets('내부용 보상 기준 안내는 없다 — 제목 → 12 → 첫 줄', (tester) async {
+    // pen FreeSection(투어 6/6 · 제목 켜짐, 대장 전달 값 10-17): 328×243 · 간격 4 — 제목 27 → 4 → 투명 여백 8 → 4 → 줄 3개(사이 4).
+    // 제목에서 첫 줄까지 4 + 8 + 4 = 16(종전 12 는 여백 뒤 간격 4 를 빠뜨린 값).
+    testWidgets('내부용 보상 기준 안내는 없다 — 제목 → 16 → 첫 줄', (tester) async {
       await pump(tester);
 
       expect(find.textContaining(_removedNotice), findsNothing);
       expect(find.textContaining('100명 이후'), findsNothing);
       final title = tester.getRect(find.text('무료로 모으기'));
-      expect(tester.getRect(find.byType(HeartTaskRow).first).top - title.bottom, 12);
+      expect(tester.getRect(find.byType(HeartTaskRow).first).top - title.bottom, 16);
     });
 
     for (final scale in [1.3, 2.0]) {
-      testWidgets('글자 배율 $scale — 제목 → 12 → 첫 줄 그대로, 넘치지 않는다', (tester) async {
+      testWidgets('글자 배율 $scale — 제목 → 16 → 첫 줄 그대로, 넘치지 않는다', (tester) async {
         await pump(tester, textScale: scale, height: 3200);
 
         final title = tester.getRect(find.text('무료로 모으기'));
-        expect(tester.getRect(find.byType(HeartTaskRow).first).top - title.bottom, closeTo(12, 0.5));
+        expect(tester.getRect(find.byType(HeartTaskRow).first).top - title.bottom, closeTo(16, 0.5));
         expect(tester.takeException(), isNull);
       });
     }
