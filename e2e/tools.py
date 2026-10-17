@@ -318,11 +318,15 @@ class Blocked(Exception):
 BUCKETS = ('avatars', 'profile-photos', 'student-id-temp', 'heart-task-proofs')
 BLOCKS_SNAPSHOT = 'signup_blocks_시작.json'  # E2E_결과/ 안 — 이 밖의 재가입 제한만 시험이 만든 것이다
 KEEP_FILE = 'KEEP.txt'  # E2E_결과/ 안 — 적힌 id 는 무슨 일이 있어도 지우지 않는다
-# 계정 단계 = "여기까지 끝냈다". basic 뒤는 서버 온보딩 순서(onboarding_progress._STEPS) 그대로, home = bio 까지.
-# 곁가지 둘은 줄 밖이다: pending = 동의 → 학생증 검토 중, needs_school_email = 동의만 하고 학교 메일 인증 전(앱이 02 로 보낸다).
+# 계정 단계 = "여기까지 끝냈다". basic 뒤 이름은 서버 온보딩 단계(onboarding_progress._STEPS), home = 끝(complete)까지.
+# 서버는 아바타 확인(avatar)을 06-3 뒤 맨 끝에 보지만(2026-10-17), 공장은 완성 행을 설문 바로 뒤에 넣는다 — 실제로도 04-3 에서
+# 등록한 그림은 06-3 전에 다 된다. 그래야 ideal_note 계정이 06-3 → 리빌 → 20 을 지나고, home 의 06-3 저장이 서버에서 바로 가입을 끝낸다.
+# 곁가지 셋은 줄 밖이다: pending = 동의 → 학생증 검토 중, needs_school_email = 동의만 하고 학교 메일 인증 전(앱이 02 로 보낸다),
+# bio = 완성 아바타 없이 자기소개까지(서버 다음 단계 avatar → 앱이 05-12 에서 기다린다).
 STAGES = ('new', 'consented', 'needs_school_email', 'pending', 'verified', 'gate_done', 'basic', 'kakao', 'photos', 'appearance',
-          'interests', 'my_traits', 'survey', 'avatar', 'ideal_conditions', 'ideal_traits', 'ideal_note', 'home')
+          'interests', 'my_traits', 'survey', 'avatar', 'ideal_conditions', 'ideal_traits', 'ideal_note', 'bio', 'home')
 SIDE_STAGES = {'pending': ('consented', 'pending'), 'needs_school_email': ('consented',)}
+SIDE_STAGES['bio'] = tuple(s for s in STAGES[1:STAGES.index('bio')] if s not in SIDE_STAGES and s != 'avatar') + ('bio',)
 OLD_CONSENT_VERSION = '2026-09-01'  # 서버 상수(consents/policy.py)보다 옛 판 — 재동의 가설이 데이터로 흉내 낸다
 PHOTO = ROOT / 'frontend' / 'assets' / 'images' / 'mascot-male.png'  # 실제 사람 사진 대신 앱에 든 그림(SafeSearch 통과)
 REFERRAL_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'  # generate_referral_code() 와 같은 32글자(0 · O · 1 · I 뺌, 20260928010000)
@@ -734,7 +738,7 @@ class Run:
             reply = on('ideal-traits', {'tags': ['연상', '연하', '동갑']})
         elif step == 'ideal_note':
             reply = on('ideal-note', {'note': '대화가 잘 통하는 사람이면 좋겠어요'})
-        else:
+        else:  # bio · home — 같은 06-3 저장, 완성 아바타가 있느냐(home)만 다르다
             reply = on('bio', {'bio': '주말엔 카페에서 책을 읽어요.'})
         if reply[0] >= 300:
             raise Blocked(f'{step} {reply[0]} {reply[1]}')

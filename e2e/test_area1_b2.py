@@ -19,6 +19,23 @@ ACCOUNT_DONE = ['/me/consents', '/school-info', '/profile-onboarding/basic-info'
                 '/profile-onboarding/interests', '/profile-onboarding/my-traits', '/profile-onboarding/survey',
                 '/profile-onboarding/ideal-conditions', '/profile-onboarding/ideal-traits',
                 '/profile-onboarding/ideal-note', '/profile-onboarding/bio']
+# 서버 단계 → 앱이 보내는 화면(frontend auth_redirect.dart _onboardingTarget · e2e 화면 이름).
+APP_SCREEN = {'basic_info': '04-1', 'kakao_id': '04-1b', 'photos': '04-2', 'appearance_type': '04-4', 'interests': '04-5',
+              'my_traits': '04-6', 'survey': '05-01', 'ideal_conditions': '06-1', 'ideal_traits': '06-2', 'ideal_note': '06-2a',
+              'bio': '06-3', 'avatar': '05-12', 'complete': 'home'}
+# 공장의 쓰기 → 그 쓰기가 채우는 서버 단계(아바타는 완성 행만).
+FILLS = {'/profile-onboarding/basic-info': 'basic_info', '/profile-onboarding/kakao-id': 'kakao_id',
+         '/profile-onboarding/photos': 'photos', '/profile-onboarding/appearance-type': 'appearance_type',
+         '/profile-onboarding/interests': 'interests', '/profile-onboarding/my-traits': 'my_traits',
+         '/profile-onboarding/survey': 'survey', '/profile-onboarding/ideal-conditions': 'ideal_conditions',
+         '/profile-onboarding/ideal-traits': 'ideal_traits', '/profile-onboarding/ideal-note': 'ideal_note',
+         '/profile-onboarding/bio': 'bio', '/rest/v1/profile_avatars': 'avatar'}
+
+
+def server_steps():
+    """서버 온보딩 순서 — onboarding_progress._STEPS 를 글자로 읽는다(백엔드를 불러오지 않는다)."""
+    source = (tools.ROOT / 'backend' / 'app' / 'profile_onboarding' / 'onboarding_progress.py').read_text(encoding='utf-8')
+    return re.findall(r'^\s*\("(\w+)", lambda', source, re.M)
 
 
 def _iso(moment):
@@ -72,6 +89,36 @@ class HomeFactoryTest(Base):
         self.assertEqual(area1_b2.SCREEN_AFTER['my_traits'], '05-01')
         self.assertEqual(area1_b2.SCREEN_AFTER['home'], 'home')
         self.assertEqual(list(area1_b2.SCREEN_AFTER), list(tools.STAGES[tools.STAGES.index('gate_done'):]))
+
+    def test_each_stage_lands_where_the_servers_next_step_sends_the_app(self):
+        # 서버 순서(아바타 확인은 06-3 뒤 맨 끝, 2026-10-17)를 서버 파일에서 읽어, 공장이 실제로 쓴 것으로 다음 단계를 셈한다.
+        order = server_steps()
+        self.assertEqual(set(order), set(APP_SCREEN) - {'complete'})  # 서버에 단계가 늘면 이 표부터 고친다
+        for stage, screen in area1_b2.SCREEN_AFTER.items():
+            with self.subTest(stage):
+                fake = self.serve()
+                self.run.account(stage)
+                filled = {FILLS[p] for m, p, b in fake.calls
+                          if m == 'POST' and p in FILLS and (p != '/rest/v1/profile_avatars' or b['status'] == 'ready')}
+                self.assertEqual(APP_SCREEN[next((s for s in order if s not in filled), 'complete')], screen)
+        # E-ONB-53 은 서버 단계마다(+ 끝) 한 번씩 다시 켠다 — 빠진 화면이 없어야 한다.
+        self.assertEqual(set(APP_SCREEN.values()) - set(area1_b2.SCREEN_AFTER.values()), set())
+
+    def test_bio_account_saves_the_bio_without_a_finished_avatar(self):
+        fake = self.serve()
+        account = self.run.account('bio')
+        self.assertEqual(account['stage'], 'bio')
+        api = [p for p in fake.paths('POST') if not p.startswith(('/auth/', '/rest/', '/storage/'))]
+        self.assertEqual(api, ACCOUNT_DONE)
+        self.assertNotIn('/rest/v1/profile_avatars', fake.paths('POST'))
+        self.assertFalse([p for p in fake.paths('POST') if p.startswith('/storage/v1/object/avatars/')])
+
+    def test_home_account_has_the_finished_avatar_before_the_bio_so_saving_the_bio_finishes_signup(self):
+        # 서버는 06-3 저장 때 아바타가 이미 완성이면 그 자리에서 active 로 바꾼다 — 순서가 뒤집히면 홈 계정이 pending 에 남는다.
+        fake = self.serve()
+        self.run.account('home')
+        posts = fake.paths('POST')
+        self.assertLess(posts.index('/rest/v1/profile_avatars'), posts.index('/profile-onboarding/bio'))
 
 
 class BatchTest(unittest.TestCase):
@@ -324,14 +371,22 @@ class OnboardingTest(Base):
         self.assertEqual(area1.attempt_phone(self.run, 'E-ONB-30', FakePhone())[0], 'fail')
 
     def test_onb_33_avatar_row_is_added_while_the_app_waits_on_05_12(self):
-        fake = self.serve()
+        fake = self.serve({('GET', '/rest/v1/profiles'): Reply(200, [{'status': 'active'}])})
         phone = FakePhone(midway_step={'step': '05-12'})
         self.assertEqual(area1.attempt_phone(self.run, 'E-ONB-33', phone)[0], 'pass')
         self.assertEqual(phone.acted, ['05-12'])
+        # 아바타 확인은 06-3 뒤다 — 자기소개까지 낸 계정이어야 앱이 05-12 에서 시작한다
+        self.assertIn('/profile-onboarding/bio', fake.paths('POST'))
         # 행이 없으면 05-12 가 실패 화면이 돼 폴링이 끊긴다 — 켜기 전에 pending 을 넣고 중간에 ready 로 바꾼다
         inserted = [b['status'] for m, p, b in fake.calls if m == 'POST' and p == '/rest/v1/profile_avatars']
         self.assertEqual(inserted, ['pending'])
         self.assertIn({'status': 'ready'}, [b for m, p, b in fake.calls if m == 'PATCH' and p == '/rest/v1/profile_avatars'])
+
+    def test_onb_33_signup_left_pending_after_the_reveal_fails(self):
+        # "확인했어요" 가 단계를 다시 물을 때 서버가 가입을 확정한다(PR #574) — 20 에 닿았어도 pending 이면 실패
+        self.serve({('GET', '/rest/v1/profiles'): Reply(200, [{'status': 'pending'}])})
+        phone = FakePhone(midway_step={'step': '05-12'})
+        self.assertEqual(area1.attempt_phone(self.run, 'E-ONB-33', phone)[0], 'fail')
 
     def test_onb_31_no_answers_saved_after_restart(self):
         self.serve({('GET', '/rest/v1/survey_answers'): Reply(200, [])})
@@ -375,8 +430,10 @@ class OnboardingTest(Base):
         self.serve()
         phone = FakePhone()
         self.assertEqual(area1.attempt_phone(self.run, 'E-ONB-53', phone)[0], 'pass')
+        # 설문 뒤는 06-1(아바타가 이미 완성이어도), 05-12 는 자기소개까지 낸 계정(bio)에서 — 아바타 확인이 맨 끝이다
         self.assertEqual([j['expect'] for j in phone.jobs],
-                         ['04-1', '04-1b', '04-2', '04-4', '04-5', '04-6', '05-01', '05-12', '06-1', '06-2', '06-2a', '06-3', 'home'])
+                         ['04-1', '04-1b', '04-2', '04-4', '04-5', '04-6', '05-01', '06-1', '06-1', '06-2', '06-2a', '06-3', '05-12',
+                          'home'])
 
     def test_onb_55_no_photo_rows_after_restart(self):
         self.put_faces()

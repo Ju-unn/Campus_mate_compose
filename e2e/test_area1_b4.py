@@ -107,7 +107,7 @@ class RegisterTest(Base4):
             self.assertIn(path, fake.paths('POST'))
         self.assertEqual(len(phone.jobs), 2)
         self.assertIs(phone.jobs[1].get('fresh'), False)  # 다시 켠다 — 로그인은 앱에 남아 있다
-        self.assertEqual(phone.jobs[1].get('expect'), '06-1')  # 완성 행이 있으면 서버 다음 단계가 이상형(06-1)이라 05-12 는 건너뛴다
+        self.assertEqual(phone.jobs[1].get('expect'), '06-1')  # 설문 다음은 이상형(06-1) — 아바타 확인은 06-3 뒤 맨 끝이다
         self.assertGreaterEqual(nap.call_count, 1)
 
     def test_onb_41_fails_when_the_job_ends_failed_and_does_not_relaunch_the_app(self):
@@ -169,11 +169,20 @@ class OrderTest(Base4):
 
 
 class ResultScreenTest(Base4):
-    """05-12 에서 시작하는 가설 — 계정은 설문까지, 아바타 기록은 가설마다 DB 로 만든다."""
+    """05-12 에서 시작하는 가설 — 계정은 자기소개까지(아바타 완성 행 없이), 아바타 기록은 가설마다 DB 로 만든다."""
 
     def serve(self, routes=None):
         # 운영 avatars 버킷에 기본 아바타 원본(defaults/fallback-avatar.png)이 있는 보통의 경우.
         return super().serve({DEFAULTS: HAS_FALLBACK_SOURCE, **(routes or {})})
+
+    def test_result_screen_cases_start_from_an_account_that_saved_the_bio(self):
+        # 아바타 확인은 06-3 뒤 맨 끝(2026-10-17) — 설문까지만 낸 계정은 05-12 가 아니라 06-1 로 간다
+        for case in ('E-ONB-34', 'E-ONB-35', 'E-ONB-36', 'E-ONB-37', 'E-ONB-38', 'E-ONB-39'):
+            with self.subTest(case):
+                fake = self.serve({PHOTOS: SOURCE, AVATARS: Reply(200, [PENDING])})
+                area1.attempt_phone(self.run, case, self.phone())
+                self.assertIn('/profile-onboarding/bio', fake.paths('POST'))
+                self.assertNotIn('ready', [b.get('status') for b in self.seeded(fake) if isinstance(b, dict)])
 
     def test_onb_34_waits_with_a_pending_row_then_marks_only_this_accounts_row_ready(self):
         fake = self.serve()

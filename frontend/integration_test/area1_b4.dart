@@ -3,10 +3,13 @@ part of 'area1.dart';
 // 영역 1 묶음 4 — 아바타(04-3 작업 등록 · 05-12 결과 화면 · 5회 실패 보상).
 // PC 쪽은 e2e/area1_b4.py 의 같은 번호 — 계정과 아바타 행을 만들고, 앱이 끝난 뒤(또는 멈춘 사이) DB 를 본다.
 // 실제 생성(운영 비용)은 E-ONB-24 · 41 뿐이다. E-ONB-25 는 아래에서 작업 등록을 막아 두고, 나머지는 05-12 에서 시작한다.
+// 05-12 는 가입 맨 끝(06-3 뒤 · 20 앞, 2026-10-17)이다 — 05-12 에서 시작하는 계정은 자기소개까지 낸 계정(bio)이다.
 
 const _making = '아바타를 만들고 있어요';
 const _couldNot = '아바타 생성에 실패했어요'; // 05-12b 제목(pen c7QuSm, 10-15 개편 — 종전 "아바타를 만들지 못했어요")
-const _complete = '아바타가 완성됐어요';
+// 5b 리빌 제목(pen F84Alv, 두 줄 고정) · 버튼 — 기본 아바타(05-12d)도 같은 화면이다. 옛 05-12c "아바타가 완성됐어요" · "다음" 은 없어졌다.
+const _revealTitle = '짜잔, 매칭 전에는\n이렇게 보여요';
+const _revealConfirm = '확인했어요';
 const _fallbackTitle = '기본 아바타로 대신했어요';
 const _fallbackBody = '서버 오류로 하트 10개 드렸어요';
 const _retryLabel = '다시 시도'; // 05-12b 버튼(pen c7QuSm, 10-15 — 종전 "다시 만들기")
@@ -50,13 +53,18 @@ Future<void> _failedScreen(WidgetTester tester) async {
 AvatarGenerationViewModel _avatarViewModel(WidgetTester tester) =>
     ProviderScope.containerOf(tester.element(screen('05-12'))).read(avatarGenerationViewModelProvider.notifier);
 
-/// 보상 시트 확인 → 완성 화면의 "다음" → 06-1. (코드: 시트는 "확인" 으로 닫히고, 06-1 로는 그 아래 "다음" 이 보낸다.)
+/// 05-12d 보상 시트(리빌 위에 얹힘)의 "확인" → 20. (코드: "확인" 은 시트를 닫고 단계를 다시 물은 뒤 곧바로 20 으로 보낸다.)
 Future<void> _confirmFallback(WidgetTester tester) async {
   must(find.textContaining(_fallbackBody).evaluate().isNotEmpty, '보상 안내에 "$_fallbackBody" 가 없음');
   await tap(tester, button('확인'));
-  await pumpUntil(tester, find.text(_complete), timeout: const Duration(seconds: 5));
-  await tap(tester, button('다음'));
-  await arrive(tester, '06-1', timeout: const Duration(seconds: 10));
+  await arrive(tester, '20', timeout: const Duration(seconds: 10));
+}
+
+/// 05-12 리빌이 뜨면 "확인했어요" → 20. 단계를 다시 묻는 그 조회에서 서버가 가입을 확정한다(PR #574).
+Future<void> _confirmReveal(WidgetTester tester) async {
+  await pumpUntil(tester, find.text(_revealTitle), timeout: const Duration(seconds: 20));
+  await tap(tester, button(_revealConfirm));
+  await arrive(tester, '20', timeout: const Duration(seconds: 10));
 }
 
 final Map<String, Area1Case> _b4Cases = {
@@ -87,13 +95,13 @@ final Map<String, Area1Case> _b4Cases = {
     await _makeAvatar(tester);
     return {'before': before, 'hashes': after};
   }),
-  // 만드는 중 행 → PC 가 완성으로 바꾼 뒤 10초 안에 완성 화면(상태 조회는 5초 간격: avatar_generation_view_model.dart _pollInterval).
+  // 만드는 중 행 → PC 가 완성으로 바꾼 뒤 10초 안에 리빌(상태 조회는 5초 간격: avatar_generation_view_model.dart _pollInterval).
   'E-ONB-34': _session((tester, job) async {
     await arrive(tester, '05-12');
     await pumpUntil(tester, find.text(_making), timeout: const Duration(seconds: 20));
     await step('ready');
-    final took = await appears(tester, find.text(_complete), const Duration(seconds: 10));
-    must(took != null, '완성 기록 뒤 10초 안에 "$_complete" 가 안 뜸');
+    final took = await appears(tester, find.text(_revealTitle), const Duration(seconds: 10));
+    must(took != null, '완성 기록 뒤 10초 안에 리빌 "$_revealTitle" 가 안 뜸');
     return {'note': '완성 기록 뒤 ${took!.inMilliseconds}ms'};
   }),
   // 11분 전에 만들기 시작한 행 — 서버가 failed 로 보여 준다.
@@ -137,8 +145,8 @@ final Map<String, Area1Case> _b4Cases = {
     await step('registered');
     return null;
   }),
-  // 첫 켬: 작업 등록 뒤 04-4 에서 끝(PC 가 설문까지 API 로 하고 완성을 기다린다). 다시 켬: 완성 행이 있어 서버 다음 단계가 06-1 —
-  // 05-12 를 건너뛰고 06-1 로 바로 간다(onboarding_progress.py 'avatar' = avatar_ready).
+  // 첫 켬: 작업 등록 뒤 04-4 에서 끝(PC 가 설문까지 API 로 하고 완성을 기다린다). 다시 켬: 설문 다음 단계 06-1 로 간다
+  // — 아바타 확인은 06-3 뒤 맨 끝이다(onboarding_progress.py, 2026-10-17).
   'E-ONB-41': _session((tester, job) async {
     if (!_fresh(job)) return _arriveAt(tester, job);
     await _toAvatarSource(tester, _photoNames(job));

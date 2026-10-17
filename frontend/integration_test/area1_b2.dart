@@ -24,7 +24,8 @@ Future<void> _closeReviewSheet(WidgetTester tester) async {
   await arrive(tester, '20d', timeout: const Duration(seconds: 10));
 }
 
-/// 06-3 에서 자기소개를 내고 화면 20 에 닿는다(초안이 비었으면 한 줄 적는다).
+/// 06-3 에서 자기소개를 내고 아바타 확인(05-12 리빌)의 "확인했어요" 를 지나 화면 20 에 닿는다(초안이 비었으면 한 줄 적는다).
+/// 공장 계정은 완성 아바타가 이미 있어(e2e/tools.py STAGES) 리빌이 바로 뜬다.
 Future<void> _toReferral(WidgetTester tester) async {
   await arrive(tester, '06-3');
   final bio = find.byType(TextFormField);
@@ -32,7 +33,8 @@ Future<void> _toReferral(WidgetTester tester) async {
     await type(tester, find.descendant(of: bio, matching: find.byType(TextField)), '주말엔 카페에서 책을 읽어요.');
   }
   await tap(tester, button('다음'));
-  await arrive(tester, '20', timeout: const Duration(seconds: 10));
+  await arrive(tester, '05-12', timeout: const Duration(seconds: 10));
+  await _confirmReveal(tester);
 }
 
 Finder get _codeField => labeled('추천 코드');
@@ -165,7 +167,8 @@ final Map<String, Area1Case> _b2Cases = {
     await wait(tester, const Duration(milliseconds: 400));
     await tap(tester, find.text('안 한다'));
     await tap(tester, button('다음'));
-    await arrive(tester, '05-12', timeout: const Duration(seconds: 20));
+    // 설문 다음은 이상형(06-1) — 아바타 확인은 06-3 뒤 맨 끝이다(2026-10-17, 종전 설문 뒤 05-12).
+    await arrive(tester, '06-1', timeout: const Duration(seconds: 20));
     return null;
   }),
   // 첫 켬: 5문항 답하고 끝(PC 가 앱을 죽인다). 다시 켬은 PC 가 expect=05-01 로 본다.
@@ -175,12 +178,11 @@ final Map<String, Area1Case> _b2Cases = {
     await _answer(tester, 5);
     return null;
   }),
+  // 자기소개까지 낸 계정(bio) — 05-12 에서 시작한다.
   'E-ONB-33': _session((tester, job) async {
     await arrive(tester, '05-12');
-    await step('05-12'); // PC 가 pending 행을 ready 로 바꾼다 — 만드는 중 화면이 5초 간격으로 물어 '완성됐어요' 로 바뀐다
-    await pumpUntil(tester, find.text('아바타가 완성됐어요'), timeout: const Duration(seconds: 20));
-    await tap(tester, button('다음'));
-    await arrive(tester, '06-1', timeout: const Duration(seconds: 10));
+    await step('05-12'); // PC 가 pending 행을 ready 로 바꾼다 — 만드는 중 화면이 5초 간격으로 물어 리빌로 바뀐다
+    await _confirmReveal(tester);
     return null;
   }),
   'E-ONB-43': _session((tester, job) async {
