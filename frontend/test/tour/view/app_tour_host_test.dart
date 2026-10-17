@@ -479,18 +479,23 @@ void main() {
       return tester.state<ScrollableState>(scroll).position.maxScrollExtent == 0;
     }
 
-    testWidgets('6단계 pen 값(360×780) — 무료로 모으기를 앱바 아래 12 로 올려 구멍 x12 · y68 · 336×306 · 반경 16, 아래 선 52 · 말풍선 x24 · y426', (tester) async {
-      // 묶음 298 = pen 구멍 306 − 사방 4 × 2.
-      await pump(tester, size: const Size(360, 780), freeHeight: 298, heartBar: 88);
+    // pen 6/6(대장 결정 10-17, 안내를 지운 뒤 섹션에 맞춘 값): 링 x12 · y68 · 336×251(FreeSection 243 + 사방 4) · 선 y319 → 말풍선 y371.
+    // 묶음은 하트 스토어의 실제 무료로 모으기 높이 244(heart_store_screen_test 가 고정, 제목 앱 28 · pen 27)라 앱은 252 · 372 — pen 과 1 이내.
+    testWidgets('6단계 pen 값(360×780) — 무료로 모으기를 앱바 아래 12 로 올려 구멍 x12 · y68 · 336×251 · 반경 16, 아래 선 52 · 말풍선 x24 · y371', (tester) async {
+      await pump(tester, size: const Size(360, 780), freeHeight: 244, heartBar: 88);
       await toLastStep(tester);
 
       expect(inBubble('6 / 6'), findsOneWidget);
-      expect(overlay(tester).hole, const Rect.fromLTWH(12, 68, 336, 306));
+      final hole = overlay(tester).hole!;
+      expect((hole.left, hole.top, hole.width), (12.0, 68.0, 336.0));
+      expect(hole.height, closeTo(251, 1));
       expect(overlay(tester).radius, 16);
       final bubble = tester.getRect(find.byType(CoachBubble));
-      expect((bubble.left, bubble.top, bubble.width), (24.0, 426.0, 312.0));
+      expect((bubble.left, bubble.width), (24.0, 312.0));
+      expect(bubble.top, closeTo(371, 1));
       final line = tester.getRect(find.byType(CoachLine));
-      expect((line.top, line.bottom), (374.0, 426.0));
+      expect(line.top, closeTo(319, 1));
+      expect((line.top, line.bottom), (hole.bottom, bubble.top));
       expect(tester.widget<CoachLine>(find.byType(CoachLine)).dotAtTop, isTrue);
       expect(bubbleWhole(tester), isTrue);
     });

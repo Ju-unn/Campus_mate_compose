@@ -1024,6 +1024,8 @@ void main() {
     final free = find.byWidgetPredicate((w) => w is TourTarget && w.id == TourTargetId.heartStoreFree, skipOffstage: false);
     expect(find.descendant(of: free, matching: find.text('무료로 모으기', skipOffstage: false)), findsOneWidget);
     expect(find.descendant(of: free, matching: find.byType(HeartTaskRow, skipOffstage: false)), findsNWidgets(3));
+    // 투어가 감싸는 묶음 = pen FreeSection 328×243(제목 27). 앱은 제목 28 이라 244 — app_tour_host_test 6단계가 이 높이로 잰다.
+    expect(tester.getSize(free), const Size(328, 244));
     final top = find.byWidgetPredicate((w) => w is TourTarget && w.id == TourTargetId.heartStoreTop);
     expect(find.descendant(of: top, matching: find.byType(Image)), findsOneWidget);
     // 6단계가 무료로 모으기를 앱바 아래로 올릴 수 있게 목록 맨 끝에 빈자리를 둔다 — 투어가 없으면 높이 0(화면 그대로).
