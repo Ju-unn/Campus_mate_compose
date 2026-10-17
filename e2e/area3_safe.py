@@ -20,7 +20,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from e2e import tools
-from e2e.area1 import TINY_JPEG, Check, _api, _find_user, _form, _patch, _rows
+from e2e.area1 import Check, _api, _find_user, _patch, _rows
 from e2e.area2 import _candidates, _card, _contact_block, _now, _person, _phone
 from e2e.area2_phone3 import _wait_for
 from e2e.area3 import PROFILE_GONE, _as_user, _count, _insert, _link, _match, _messages, _pair, _review
@@ -29,7 +29,7 @@ from e2e.tools import Blocked
 
 SUSPENDED = '이용이 제한된 계정이에요'
 COUNT_NOTE = '신고자 수는 디스코드 대신 DB 로 셈(열린 신고의 서로 다른 신고자)'
-# get_verified_caller(학생증 · 학과 · 정지 관문)를 거치는 경로 전부 — test_area3_safe 가 서버 코드와 대조한다.
+# get_verified_caller(학교 메일 · 학과 · 정지 관문 — 학생증은 10-17 에 빠졌다)를 거치는 경로 전부 — test_area3_safe 가 서버 코드와 대조한다.
 VERIFIED_ROUTES = [
     'GET /profile-onboarding/nickname-availability', 'POST /profile-onboarding/basic-info',
     'POST /profile-onboarding/kakao-id', 'POST /profile-onboarding/photos', 'DELETE /profile-onboarding/photos/{position}',
@@ -417,7 +417,7 @@ def _concrete(route):
 def safe_51(run):
     """본문은 보내지 않는다 — 관문이 열려 있으면 본문 검사(422)에서 멈춰 아무것도 쓰지 않는다."""
     check = Check()
-    a = run.account('basic')  # 학생증 · 학과까지 끝 — 정지 말고는 관문을 다 통과한다
+    a = run.account('basic')  # 학교 메일 · 학과까지 끝 — 정지 말고는 관문을 다 통과한다
     _suspend(run, a)
     before = _snapshot(run, a)
     for route in VERIFIED_ROUTES:
@@ -428,15 +428,14 @@ def safe_51(run):
 
 
 def safe_52(run):
+    """문 4개 — 학생증 제출(옛 ④ POST /student-verification)은 학생증 제거(10-17)로 서버 경로가 없어져 뺐다(옛 앱은 404)."""
     check = Check()
     a = run.account('basic')
     _suspend(run, a)
     before = _snapshot(run, a)
-    _suspended_reply(check, '④ POST /student-verification',
-                     _form(run, '/student-verification', a['token'], {'real_name': '홍길동'}, ('photo', 'id.jpg', TINY_JPEG)))
-    _suspended_reply(check, '⑤ POST /school-info',
+    _suspended_reply(check, '④ POST /school-info',
                      _api(run, 'POST', '/school-info', a['token'], {'department': '경영학과', 'student_number': f"e2e{a['n']}x"}))
-    check.that(not (changed := _changed(before, _snapshot(run, a))), f'④⑤ 뒤 DB 가 바뀜: {changed}')
+    check.that(not (changed := _changed(before, _snapshot(run, a))), f'④ 뒤 DB 가 바뀜: {changed}')
     for label, method, path, body in (('① GET /me/verification-status', 'GET', '/me/verification-status', None),
                                       ('② POST /me/consents', 'POST', '/me/consents', {'agreed': ['terms', 'privacy']}),
                                       ('③ POST /account/withdraw', 'POST', '/account/withdraw', None)):  # 탈퇴는 마지막

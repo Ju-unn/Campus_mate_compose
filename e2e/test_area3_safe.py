@@ -596,14 +596,15 @@ class SuspendedTest(SafeBase):
         server = {f'{m} {r.path}' for r in flat(app.routes) if gated(r.dependant) for m in r.methods}
         self.assertEqual(set(area3_safe.VERIFIED_ROUTES), server)
 
-    def test_52_three_doors_open_and_two_closed(self):
+    def test_52_three_doors_open_and_one_closed(self):
+        # 문 4개 — 학생증 제출(옛 ④)은 학생증 제거(10-17)로 서버 경로가 없어져 뺐다.
         note = self.passes('E-SAFE-52')
         self.assertIn('설계 확인', note)
         order = [s['path'] for s in self.fake.sent if s['auth'] == 'tok-1' and not s['path'].startswith(('/rest/', '/auth/', '/storage/'))
-                 and s['path'] in ('/student-verification', '/school-info', '/me/verification-status', '/me/consents', '/account/withdraw')][-5:]  # 앞은 계정 공장의 동의 · 학과 저장
+                 and s['path'] in ('/school-info', '/me/verification-status', '/me/consents', '/account/withdraw')][-4:]  # 앞은 계정 공장의 동의 · 학과 저장
         self.assertEqual(order[-1], '/account/withdraw')  # 탈퇴는 마지막 — 그 뒤로는 토큰이 401
-        self.assertEqual(sorted(order), sorted(['/student-verification', '/school-info', '/me/verification-status',
-                                                '/me/consents', '/account/withdraw']))
+        self.assertEqual(sorted(order), sorted(['/school-info', '/me/verification-status', '/me/consents', '/account/withdraw']))
+        self.assertNotIn('/student-verification', [s['path'] for s in self.fake.sent])
 
     def test_52_fails_when_school_info_lets_a_suspended_account_in(self):
         self.fake.rules['gate_open'] |= {'/school-info'}
