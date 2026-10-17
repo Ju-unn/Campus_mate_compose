@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from unittest import mock
 
 from e2e import area1, area1_emu, emu, tools
-from e2e.test_area1 import Base, Reply
+from e2e.test_area1 import Base
 from e2e.test_area1_phone import OURS, FakePhone
 
 S = 'emulator-5554'
@@ -407,14 +407,6 @@ class CaseTest(Base):
                 area1.attempt_phone(self.run, 'E-AUTH-22', phone)
         self.assertTrue(online)
 
-    def test_gate_47_crash_still_turns_the_network_on(self):
-        self.serve()
-        online = []
-        with mock.patch.object(area1_emu.area1_b3, '_submit', side_effect=ZeroDivisionError),                 mock.patch.object(emu, 'go_online', side_effect=lambda s: online.append(s) or True):
-            with self.assertRaises(ZeroDivisionError):
-                area1.attempt_phone(self.run, 'E-GATE-47', self.phone())
-        self.assertTrue(online)
-
     def test_network_that_stays_down_after_the_case_is_blocked_not_silent(self):
         self.serve()
         phone = self.phone(midway_step={'step': 'online'})
@@ -435,8 +427,10 @@ class CaseTest(Base):
 
     def test_every_emulator_case_pre_grants_the_notification_permission(self):
         # 첫 로그인의 알림 권한 창이 가설 도중 앱 앞을 가리지 않게(영역 4 SET 도 같은 이유로 미리 준다) — 에뮬 시리얼에만
-        self.serve({('GET', '/rest/v1/student_verification_attempts'): Reply(200, [])})
-        with mock.patch.object(emu, 'go_offline'), mock.patch.object(emu, 'go_online', return_value=True),                 mock.patch.object(emu, 'root'), mock.patch.object(emu, 'browsers_disabled', side_effect=tools.Blocked('x')),                 mock.patch.object(emu, 'clock_shifted', side_effect=tools.Blocked('x')),                 mock.patch.object(area1_emu.area1_b3, '_push'), mock.patch.object(area1_emu.area1_b3, '_photos'):
+        self.serve()
+        with mock.patch.object(emu, 'go_offline'), mock.patch.object(emu, 'go_online', return_value=True), \
+                mock.patch.object(emu, 'root'), mock.patch.object(emu, 'browsers_disabled', side_effect=tools.Blocked('x')), \
+                mock.patch.object(emu, 'clock_shifted', side_effect=tools.Blocked('x')):
             for case in area1_emu.PHONE:
                 self.grant.reset_mock()
                 area1.attempt_phone(self.run, case, self.phone())
@@ -456,9 +450,11 @@ class CaseTest(Base):
         with mock.patch.object(emu, 'go_online', return_value=True), mock.patch.object(emu, 'go_offline'):
             self.assertEqual(area1.attempt_phone(self.run, 'E-AUTH-22', self.phone(midway_step={'step': 'online'}))[0], 'pass')
 
-    def test_bundle_is_the_four_emulator_hypotheses(self):
-        self.assertEqual(sorted(area1.BUNDLES['area1-emu']), ['E-AUTH-19', 'E-AUTH-22', 'E-GATE-12', 'E-GATE-47'])
+    def test_bundle_is_the_three_emulator_hypotheses(self):
+        # E-GATE-47(3b 학생증 제출 중 네트워크 끊김)은 학생증 제거(10-17)로 앱 화면과 함께 뺐다.
+        self.assertEqual(sorted(area1.BUNDLES['area1-emu']), ['E-AUTH-19', 'E-AUTH-22', 'E-GATE-12'])
         self.assertTrue(set(area1_emu.PHONE) <= set(area1.PHONE))
+        self.assertNotIn('E-GATE-47', area1.PHONE)
 
     def test_auth_22_runs_login_offline_restart_and_always_turns_the_network_back_on(self):
         self.serve()
@@ -500,13 +496,6 @@ class CaseTest(Base):
         phone = self.phone(midway_step={'step': 'online'})
         with mock.patch.object(emu, 'go_offline'), mock.patch.object(emu, 'go_online', side_effect=[True, False]):
             result, note = area1.attempt_phone(self.run, 'E-AUTH-22', phone)
-        self.assertEqual(result, 'blocked')
-        self.assertIn('네트워크', note)
-
-    def test_gate_47_network_that_is_still_down_at_the_end_is_blocked(self):
-        self.serve({('GET', '/rest/v1/student_verification_attempts'): Reply(200, [])})
-        with mock.patch.object(area1_emu.area1_b3, '_push'), mock.patch.object(area1_emu.area1_b3, '_photos'),                 mock.patch.object(emu, 'go_offline'), mock.patch.object(emu, 'go_online', return_value=False):
-            result, note = area1.attempt_phone(self.run, 'E-GATE-47', self.phone(midway_step={'step': 'filled'}))
         self.assertEqual(result, 'blocked')
         self.assertIn('네트워크', note)
 
@@ -566,23 +555,6 @@ class CaseTest(Base):
         self.assertEqual(result, 'fail')
         self.assertIn('앱 안 웹뷰가 안 뜸', note)
         self.assertFalse(adb.ran('KEYCODE_BACK'))  # 앱이 맨 앞인데 뒤로가기를 누르면 02-c 를 건드린다
-
-    def test_gate_47_cuts_the_network_while_the_app_waits_and_the_server_never_saw_a_submit(self):
-        self.serve({('GET', '/rest/v1/student_verification_attempts'): Reply(200, [])})
-        phone = self.phone(midway_step={'step': 'filled'})
-        cut, back = [], []
-        with mock.patch.object(area1_emu.area1_b3, '_push'), mock.patch.object(area1_emu.area1_b3, '_photos'), \
-                mock.patch.object(emu, 'go_offline', side_effect=lambda s: cut.append(s)), \
-                mock.patch.object(emu, 'go_online', side_effect=lambda s: back.append(s) or True):
-            self.assertEqual(area1.attempt_phone(self.run, 'E-GATE-47', phone)[0], 'pass')
-        self.assertEqual((len(cut), len(back)), (1, 1))
-        self.assertEqual(phone.jobs[0]['photo'], 'id_ok.jpg')
-
-    def test_gate_47_a_submit_row_on_the_server_fails(self):
-        self.serve({('GET', '/rest/v1/student_verification_attempts'): Reply(200, [{'result': 'verified'}])})
-        with mock.patch.object(area1_emu.area1_b3, '_push'), mock.patch.object(area1_emu.area1_b3, '_photos'), \
-                mock.patch.object(emu, 'go_offline'), mock.patch.object(emu, 'go_online', return_value=True):
-            self.assertEqual(area1.attempt_phone(self.run, 'E-GATE-47', self.phone(midway_step={'step': 'filled'}))[0], 'fail')
 
 
 if __name__ == '__main__':
