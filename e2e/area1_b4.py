@@ -26,7 +26,7 @@ WAIT_TURNS, WAIT_SECONDS = 30, 10  # 실제 생성은 1분쯤 — 5분까지 기
 
 # 시나리오에 있지만 이 묶음에 안 넣은 것.
 LEFT_OUT = {
-    'E-ONB-33': '묶음 2 에 이미 있다(만드는 중 행을 완성으로 바꿔 "아바타가 완성됐어요" → 06-1)',
+    'E-ONB-33': '묶음 2 에 이미 있다(만드는 중 행을 완성으로 바꿔 리빌 "확인했어요" → 20)',
     'E-ONB-42': '사람 필요 — OpenAI 장애는 운영에서 못 낸다(E-ONB-38 의 깨진 파일 방식으로 대신 확인)',
 }
 
@@ -145,8 +145,9 @@ def _wait_ready(run, account_id, check):
 
 def p_onb_41(run, phone):
     """만드는 도중 앱이 꺼져도 서버는 계속 만든다 — 앱이 04-4 에 닿은 뒤 PC 가 설문까지 API 로 끝내고 완성을 기다린 다음 앱을 다시 켠다.
-    완성 행이 있으면 서버의 다음 단계가 이상형(06-1)이라(onboarding_progress.py 'avatar' 조건 = avatar_ready) 다시 켠 앱은 05-12 가 아니라
-    06-1 로 바로 간다 — 시나리오의 "05-12 에서 바로 완성 화면" 과 어긋나는 자리다(PR 본문에 적음)."""
+    아바타 확인은 06-3 뒤 맨 끝이라(onboarding_progress.py, 2026-10-17) 설문 다음 단계는 이상형(06-1)이다 — 다시 켠 앱은 06-1 로 간다.
+    시나리오의 "05-12 에서 바로 완성 화면" 은 옛 순서 기준이다: 지금은 06-3 까지 내야 05-12 인데, 그때 완성 행이 있으면 가입이 끝나(complete)
+    다시 켠 앱은 홈으로 간다(E-ONB-71 과 같은 대우)."""
     check = Check()
     account, _ = _register(run, phone, check, ['face1.jpg', 'face2.jpg'])
     rows = _avatars(run, account['id'])
@@ -164,11 +165,12 @@ def p_onb_41(run, phone):
 
 
 def _at_result(prepare, judge=None, step=None):
-    """설문까지 끝낸 계정에 [prepare](run, account) 로 아바타 기록을 만들고 앱을 켠다 — 앱은 05-12 에서 시작한다.
-    [step] 이 있으면 앱이 멈춘 사이 PC 가 그것을 부른다. [judge](run, account, check) 는 앱이 끝난 뒤 DB 를 본다."""
+    """자기소개까지 낸(완성 아바타 없는) 계정에 [prepare](run, account) 로 아바타 기록을 만들고 앱을 켠다 — 앱은 05-12 에서 시작한다
+    (아바타 확인은 06-3 뒤 맨 끝, 2026-10-17). [step] 이 있으면 앱이 멈춘 사이 PC 가 그것을 부른다. [judge](run, account, check) 는
+    앱이 끝난 뒤 DB 를 본다."""
     def case(run, phone):
         check = Check()
-        account, token = _signed_in(run, 'survey')
+        account, token = _signed_in(run, 'bio')
         _allow_notifications(phone)
         prepare(run, account)
         midway = (lambda said: step(run, account, check)) if step else None
