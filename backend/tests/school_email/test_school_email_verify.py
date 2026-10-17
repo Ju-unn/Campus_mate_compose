@@ -227,6 +227,65 @@ def test_an_unregistered_domain_is_422_and_the_temp_account_goes(client, world):
     assert world.deleted_users == [TEMP]
 
 
+def test_an_unregistered_domain_is_recorded_once_by_its_domain_only(client, world):
+    world.tokens[TEMP_TOKEN] = temp_email_user("  Secret.Person@Unknown.AC.kr ")
+
+    _verify(client)
+
+    assert world.record_bodies == [{"p_domain": "unknown.ac.kr"}]
+    # 메일 앞부분은 어떤 PostgREST 요청에도 실리지 않는다(임시 계정 읽기 · 삭제는 auth 로 간다).
+    assert all(b"secret" not in r.content.lower() and "secret" not in str(r.url).lower()
+               for r in world.requests if r.url.path.startswith("/rest/v1/"))
+
+
+def test_a_temp_email_without_an_at_sign_never_sends_its_local_part(client, world):
+    """'@' 가 없으면 도메인은 빈 값이다(가입 직전 훅의 email_domain 과 같다) — 메일 앞부분을 도메인으로 읽지 않는다."""
+    world.tokens[TEMP_TOKEN] = temp_email_user("secret.person")
+
+    response = _verify(client)
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "등록되지 않은 학교 메일이에요", "code": "SCHOOL_EMAIL_DOMAIN_NOT_ALLOWED"}
+    assert all(b"secret" not in r.content.lower() and "secret" not in str(r.url).lower()
+               for r in world.requests if r.url.path.startswith("/rest/v1/"))
+
+
+@pytest.mark.parametrize("blocked", [False, True], ids=["verified", "rejoin-blocked"])
+def test_a_registered_domain_is_never_recorded(client, world, blocked):
+    if blocked:
+        world.blocked_hmacs.add(HMAC)
+
+    _verify(client)
+
+    assert world.record_bodies == []
+
+
+@pytest.mark.parametrize("trouble", [500, 503, 404, httpx.ReadTimeout, httpx.ConnectError],
+                         ids=["500", "503", "404", "timeout", "unreachable"])
+def test_a_failed_record_keeps_the_same_422_and_still_deletes_the_temp_account(client, world, trouble):
+    world.tokens[TEMP_TOKEN] = temp_email_user("hong@unknown.ac.kr")
+    world.record_trouble = trouble
+
+    response = _verify(client)
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "등록되지 않은 학교 메일이에요", "code": "SCHOOL_EMAIL_DOMAIN_NOT_ALLOWED"}
+    assert len(world.record_bodies) == 1
+    assert world.deleted_users == [TEMP]
+
+
+def test_a_failed_record_logs_the_domain_but_never_the_email(client, world, caplog):
+    world.tokens[TEMP_TOKEN] = temp_email_user("secret.person@unknown.ac.kr")
+    world.record_trouble = 500
+
+    with caplog.at_level(logging.DEBUG):
+        _verify(client)
+
+    assert any(r.levelno == logging.WARNING and "unknown.ac.kr" in r.getMessage() for r in caplog.records)
+    assert "secret" not in caplog.text.lower()
+    assert TEMP_TOKEN not in caplog.text
+
+
 def test_a_blocked_email_is_422_and_the_temp_account_goes(client, world):
     world.blocked_hmacs.add(HMAC)
 
