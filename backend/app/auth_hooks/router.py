@@ -33,9 +33,13 @@ async def before_user_created(
     if provider != "email" or not payload.email:
         return HookDecision.reject(errors.HOOK_UNKNOWN_PROVIDER)
 
+    if not payload.email_domain:  # '@' 가 없거나 뒤가 비었다 — DB 에 묻지도 기록하지도 않는다
+        return HookDecision.reject(errors.SCHOOL_EMAIL_UNKNOWN_DOMAIN)
+
     policy = SignupPolicy(settings.postgrest_url, settings.supabase_service_role_key, client)
     university_id = await policy.find_university_id(payload.email_domain)
     if university_id is None:
+        await policy.record_unknown_domain(payload.email_domain)  # 최선만 — 실패해도 거절은 그대로
         return HookDecision.reject(errors.SCHOOL_EMAIL_UNKNOWN_DOMAIN)
 
     email_hmac = hash_email(settings.identity_hmac_key, payload.email)
