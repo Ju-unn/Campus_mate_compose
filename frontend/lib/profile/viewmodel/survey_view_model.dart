@@ -7,6 +7,7 @@ import 'package:campus_mate/core/draft/draft_store.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/profile/model/profile_enums.dart';
 import 'package:campus_mate/profile/model/survey_repository_provider.dart';
+import 'package:campus_mate/profile/viewmodel/revisit_profile.dart';
 import 'package:campus_mate/profile/viewmodel/survey_ui_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -24,10 +25,19 @@ class SurveyViewModel extends Notifier<SurveyUiState> {
     return _initialState(drafts);
   }
 
-  /// 처음 상태를 정하는 단 한 곳이다. 지금은 폰에 남긴 값 또는 빈 값(9축 가운데) — 나중에 서버 값을 끼울 자리다.
+  /// 처음 상태를 정하는 단 한 곳이다. 폰에 남긴 값 > (뒤로가기로 돌아왔으면) 서버 값 > 빈 값(9축 가운데).
+  /// 돌아왔는데 서버 답을 못 읽었으면(옛 서버 · 인터넷 없음) 가운데를 미리 고르지 않는다 — 이미 저장한 실제 답을
+  /// "다음" 만 눌러 0 으로 덮어쓰지 않게, 사람이 9축을 다 직접 골라야 보낸다.
   SurveyUiState _initialState(DraftStore drafts) {
     final restored = drafts.read(DraftScreen.survey, SurveyUiState.fromDraft);
-    return restored ?? SurveyUiState(answers: {for (var axis = 1; axis <= SurveyUiState.axisCount; axis++) axis: 0});
+    if (restored != null) {
+      return restored;
+    }
+    if (ref.read(onboardingStepListenableProvider).isRevisiting) {
+      final saved = revisitProfile(ref);
+      return saved == null ? const SurveyUiState() : SurveyUiState.fromProfile(saved);
+    }
+    return SurveyUiState(answers: {for (var axis = 1; axis <= SurveyUiState.axisCount; axis++) axis: 0});
   }
 
   /// 값이 바뀔 때마다 남긴다(저장소가 디바운스한다). 처음 상태(복원한 값 그대로)는 다시 쓰지 않고,

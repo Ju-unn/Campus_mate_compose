@@ -2,11 +2,13 @@ import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/common/widgets/trait_slider.dart';
 import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
+import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/profile/model/profile_enums.dart';
 import 'package:campus_mate/profile/view/choice_pickers.dart';
+import 'package:campus_mate/profile/view/onboarding_back.dart';
 import 'package:campus_mate/profile/viewmodel/survey_ui_state.dart';
 import 'package:campus_mate/profile/viewmodel/survey_view_model.dart';
 import 'package:flutter/material.dart';
@@ -46,8 +48,15 @@ class SurveyScreen extends ConsumerStatefulWidget {
 }
 
 class _SurveyScreenState extends ConsumerState<SurveyScreen> {
-  final PageController _controller = PageController();
-  int _page = 0;
+  late int _page = _openingPage();
+  late final PageController _controller = PageController(initialPage: _page);
+
+  /// 06-1 에서 돌아왔고 11문항이 다 골라져 있으면 마지막(흡연) 문항에서 연다 — "다음" 한 번이면 다시 저장된다.
+  /// 고칠 문항은 앱바 뒤로로 한 문항씩 찾아간다. 처음 설문이거나 빈 답이 있으면 첫 문항이다.
+  int _openingPage() {
+    final revisiting = ref.read(onboardingStepListenableProvider).isRevisiting;
+    return revisiting && ref.read(surveyViewModelProvider).isFilled ? _smokePage : 0;
+  }
 
   @override
   void dispose() {
@@ -60,9 +69,12 @@ class _SurveyScreenState extends ConsumerState<SurveyScreen> {
     assert(_axes.length == SurveyUiState.axisCount, '축 문항 수와 페이지 번호 계산이 어긋났다');
     final state = ref.watch(surveyViewModelProvider);
     final viewModel = ref.read(surveyViewModelProvider.notifier);
-    final goBack = _page == 0 ? null : _goBack;
-    // 안드로이드 시스템 뒤로가기는 앱바 화살표와 같다(이전 문항). 첫 문항에서는 탭처럼 한 번 더 눌러야 앱이 닫힌다.
-    // 라우터는 이 화면을 두르지 않는다 — 두 겹이면 같은 뒤로가기에 안내까지 뜬다.
+    // 첫 문항은 앞 단계(04-6)로, 나머지는 이전 문항으로 간다. 저장 중에는 눌러도 아무 일이 없다
+    // (화살표는 숨기지 않는다 — 숨기면 깜빡인다).
+    final goBack = _page == 0
+        ? onboardingBack(ref, isBusy: state.isSubmitting)
+        : (state.isSubmitting ? () {} : _goBack);
+    // 안드로이드 시스템 뒤로가기는 앱바 화살표와 같다. 라우터는 이 화면을 두르지 않는다 — 두 겹이면 같은 뒤로가기에 안내까지 뜬다.
     return BackExitScope(
       onBack: goBack,
       child: _scaffold(state, viewModel, goBack),

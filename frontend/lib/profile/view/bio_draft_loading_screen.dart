@@ -1,9 +1,11 @@
 import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/common/widgets/step_marker.dart';
+import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/profile/view/bio_screen.dart';
+import 'package:campus_mate/profile/view/onboarding_back.dart';
 import 'package:campus_mate/profile/viewmodel/bio_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -30,8 +32,15 @@ class _BioDraftLoadingScreenState extends ConsumerState<BioDraftLoadingScreen> {
       return const BioScreen();
     }
     final viewModel = ref.read(bioViewModelProvider.notifier);
+    // 06-2a 로 돌아간다(06-3 과 같은 bio 단계). 만들던 초안은 서버가 저장해 두었다가 다시 오면 그대로 준다 —
+    // 저장하는 화면이 아니라 막을 일이 없다. 초안이 오면 [BioScreen] 이 스스로 두르니 여기 한 겹만 둔다.
+    final back = onboardingBack(ref, isBusy: false);
+    return BackExitScope(onBack: back, child: _scaffold(viewModel, back));
+  }
+
+  Widget _scaffold(BioViewModel viewModel, VoidCallback? back) {
     return Scaffold(
-      appBar: const OnboardingAppBar(current: 2, total: 3),
+      appBar: OnboardingAppBar(current: 2, total: 3, onBack: back),
       body: SafeArea(
         top: false,
         child: Padding(

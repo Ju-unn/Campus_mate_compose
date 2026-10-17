@@ -1,3 +1,4 @@
+import 'package:campus_mate/me/model/my_profile.dart';
 import 'package:campus_mate/profile/model/profile_enums.dart';
 
 /// 성향 설문 화면(DESIGN.md 화면 05-01~11)의 상태. 9축 + 종교 + 흡연.
@@ -21,8 +22,10 @@ class SurveyUiState {
   final String? errorMessage;
   final bool completed;
 
-  bool get canSubmit =>
-      answers.length == axisCount && religion != null && isSmoker != null && !isSubmitting;
+  /// 11문항(9축 · 종교 · 흡연)이 다 골라져 있다 — 06-1 에서 돌아왔을 때 마지막(흡연) 문항에서 열지 정한다.
+  bool get isFilled => answers.length == axisCount && religion != null && isSmoker != null;
+
+  bool get canSubmit => isFilled && !isSubmitting;
 
   /// 슬라이더 양 끝 값. 이 밖의 값은 저장한 적이 없는 값이다.
   static const double _answerLimit = 1;
@@ -45,6 +48,11 @@ class SurveyUiState {
       isSmoker: data['isSmoker'] as bool?,
     );
   }
+
+  /// 뒤로가기로 돌아왔을 때 이미 저장한 답으로 채운다. 서버에 없는 축은 비워 둔다 — 가운데(0)로 채우면
+  /// 고르지 않은 축이 "다음" 한 번에 실제 답을 덮어쓴다.
+  static SurveyUiState fromProfile(MyProfile profile) =>
+      SurveyUiState(answers: profile.surveyAnswers, religion: profile.religion, isSmoker: profile.isSmoker);
 
   /// 남긴 축 값(글자 키 → 숫자). 축 번호나 값이 범위를 벗어나면 던진다.
   static Map<int, double> _answersFromDraft(Object? raw) {

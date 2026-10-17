@@ -252,8 +252,9 @@ abstract final class AppRouter {
   /// 조각 2 온보딩 04-1~06-3. 순서는 [AppRoutes] 상수 순서이자 서버 `next-step` 응답 순서다.
   /// 06-2b(초안 생성)는 06-3 과 같은 `bio` 단계라 라우트를 따로 두지 않는다
   /// ([BioDraftLoadingScreen] 이 끝나면 스스로 06-3 으로 바뀐다).
-  /// 설문 · 20d · 06-4 와 온보딩 뒤로가기가 있는 화면(04-1b · 04-2 · 04-5 · 04-6 · 06-2)은 화면 안에 돌아갈 곳이 있어
-  /// 화면이 스스로 [BackExitScope] 를 두른다(여기서 또 두르면 두 겹이 된다). 뒤로가 없는 04-1 · 04-4 는 여기서 종료 확인을 두른다.
+  /// 설문 · 20d · 06-4 와 온보딩 뒤로가기가 있는 화면(04-1b · 04-2 · 04-5 · 04-6 · 06-1 · 06-2 · 06-2a · 06-2b · 06-3)은
+  /// 화면 안에 돌아갈 곳이 있어 화면이 스스로 [BackExitScope] 를 두른다(여기서 또 두르면 두 겹이 된다).
+  /// 뒤로가 없는 04-1(앞이 관문) · 04-4(사진 경계) · 05-12(가입 맨 끝 아바타 확인) · 20(06-3 저장 순간 가입 끝)은 여기서 종료 확인을 두른다.
   /// 04-3 · 8d 는 push 로 올라와 시스템 뒤로가기가 평소대로 한 단계 돌아간다.
   static List<RouteBase> _onboardingRoutes() {
     return <RouteBase>[
@@ -275,7 +276,7 @@ abstract final class AppRouter {
         builder: (context, state) => const TagPickerScreen(kind: TagPickerKind.myTraits),
       ),
       _PlatformRoute(path: AppRoutes.onboardingSurvey, builder: (context, state) => const SurveyScreen()),
-      _ExitGuardedRoute(
+      _PlatformRoute(
         path: AppRoutes.onboardingIdealConditions,
         builder: (context, state) => const IdealConditionsScreen(),
       ),
@@ -283,8 +284,8 @@ abstract final class AppRouter {
         path: AppRoutes.onboardingIdealTraits,
         builder: (context, state) => const TagPickerScreen(kind: TagPickerKind.idealTraits),
       ),
-      _ExitGuardedRoute(path: AppRoutes.onboardingIdealNote, builder: (context, state) => const IdealNoteScreen()),
-      _ExitGuardedRoute(path: AppRoutes.onboardingBio, builder: (context, state) => const BioDraftLoadingScreen()),
+      _PlatformRoute(path: AppRoutes.onboardingIdealNote, builder: (context, state) => const IdealNoteScreen()),
+      _PlatformRoute(path: AppRoutes.onboardingBio, builder: (context, state) => const BioDraftLoadingScreen()),
       _ExitGuardedRoute(path: AppRoutes.onboardingReferral, builder: (context, state) => const ReferralCodeScreen()),
       _PlatformRoute(path: AppRoutes.onboardingAcquisition, builder: (context, state) => const AcquisitionScreen()),
       _PlatformRoute(path: AppRoutes.onboardingContactBlock, builder: (context, state) => const OnboardingContactBlockScreen()),

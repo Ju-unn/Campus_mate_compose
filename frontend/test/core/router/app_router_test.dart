@@ -66,7 +66,13 @@ import 'package:campus_mate/profile/model/onboarding_repository.dart';
 import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:campus_mate/profile/view/acquisition_screen.dart';
 import 'package:campus_mate/profile/view/basic_info_screen.dart';
+import 'package:campus_mate/profile/model/bio_repository_provider.dart';
+import 'package:campus_mate/profile/model/ideal_note_repository_provider.dart';
+import 'package:campus_mate/profile/model/survey_repository_provider.dart';
+import 'package:campus_mate/profile/view/bio_screen.dart';
 import 'package:campus_mate/profile/view/ideal_conditions_screen.dart';
+import 'package:campus_mate/profile/view/ideal_note_screen.dart';
+import 'package:campus_mate/profile/view/survey_screen.dart';
 import 'package:campus_mate/profile/view/tag_picker_screen.dart';
 import 'package:campus_mate/profile/viewmodel/tag_picker_kind.dart';
 import 'package:campus_mate/referral/view/referral_code_screen.dart';
@@ -95,7 +101,10 @@ import '../../me/model/fake_me_repository.dart';
 import '../../profile/model/fake_avatar_repository.dart';
 import '../../profile/model/fake_basic_info_repository.dart';
 import '../../profile/model/fake_kakao_id_repository.dart';
+import '../../profile/model/fake_bio_repository.dart';
+import '../../profile/model/fake_ideal_note_repository.dart';
 import '../../profile/model/fake_onboarding_repository.dart';
+import '../../profile/model/fake_survey_repository.dart';
 import '../../safety/model/fake_safety_repository.dart';
 import '../supabase/fake_auth_session.dart';
 import '../../notifications/model/fake_notifications_repository.dart';
@@ -842,13 +851,12 @@ void main() {
       expect(exitCalls, 1);
     }
 
-    // 04-1 · 04-4 는 뒤로가 없다(사용자 결정 ⑦ · ①). 설문 첫 문항은 조각 3 전까지 그대로다.
-    // 04-1b 는 이제 04-1 로 간다 — 아래 '온보딩 뒤로가기' 묶음이 본다(종전엔 이 줄에 kakaoId 가 있었다).
+    // 04-1 · 04-4 는 뒤로가 없다(사용자 결정 ⑦ · ①).
+    // 04-1b 와 설문 첫 문항은 이제 앞 단계로 간다 — 아래 '온보딩 뒤로가기' 묶음이 본다(종전엔 이 줄에 kakaoId · survey 가 있었다).
     // 아바타 확인(리빌 · 05-12)은 가입 맨 끝이라 뒤로가 없다(10-17, 결정 G4 추천안) — 시스템 뒤로는 종료 안내다.
     for (final step in [
       OnboardingStep.basicInfo,
       OnboardingStep.appearanceType,
-      OnboardingStep.survey,
       OnboardingStep.avatar,
     ]) {
       testWidgets('온보딩(${step.name})에서도 첫 뒤로가기는 안내만, 한 번 더 누르면 앱을 닫는다', (tester) async {
@@ -859,12 +867,14 @@ void main() {
       });
     }
 
-    group('온보딩 뒤로가기(조각 0~2)', () {
+    group('온보딩 뒤로가기(조각 0~4)', () {
       late FakeOnboardingRepository onboarding;
+      late FakeSurveyRepository survey;
+      late FakeBioRepository bio;
       late OnboardingStepListenable steps;
 
       /// 화면들이 부르는 것과 같은 단계 캐시를 라우터에 건다(main.dart 와 같은 연결).
-      Future<GoRouter> pumpOnboarding(WidgetTester tester, OnboardingStep server) async {
+      Future<GoRouter> pumpOnboarding(WidgetTester tester, OnboardingStep server, {Completer<void>? holdDraft}) async {
         exitCalls = 0;
         tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
           if (call.method == 'SystemNavigator.pop') exitCalls++;
@@ -872,9 +882,18 @@ void main() {
         });
         addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
         onboarding = FakeOnboardingRepository()..nextResult = Success(server);
+        survey = FakeSurveyRepository();
+        bio = FakeBioRepository()..holdDraft = holdDraft;
         final container = ProviderContainer(
           overrides: [
             onboardingRepositoryProvider.overrideWithValue(onboarding),
+            surveyRepositoryProvider.overrideWithValue(survey),
+            bioRepositoryProvider.overrideWithValue(bio),
+            idealNoteRepositoryProvider.overrideWithValue(FakeIdealNoteRepository()),
+            // 06-3 저장 뒤 아바타 확인 화면 — 완성으로 둔다(만드는 중이면 도는 표시 때문에 화면이 멈추지 않는다).
+            avatarRepositoryProvider.overrideWithValue(
+              FakeAvatarRepository()..nextResult = const Success(AvatarReady('https://example.com/avatar.png')),
+            ),
             meRepositoryProvider.overrideWithValue(FakeMeRepository(const Success(savedOnboardingProfile))),
             accountRepositoryProvider.overrideWithValue(FakeAccountRepository()),
             basicInfoRepositoryProvider.overrideWithValue(FakeBasicInfoRepository()),
@@ -1002,6 +1021,138 @@ void main() {
         expect(find.byType(IdealConditionsScreen), findsOneWidget);
         expect(find.text(backExitMessage), findsNothing);
         expect(find.text('24세 ~ 30세'), findsOneWidget);
+      });
+
+      // 06-1 화살표를 미룬 이유(조각 0~2 편차 2)가 풀렸는지: 서버 답으로 채워 흡연 문항에서 열고, "다음" 한 번은 같은 답을 보낸다.
+      testWidgets('06-1 시스템 뒤로 → 설문 흡연 문항에서 열리고, "다음" 한 번이면 같은 답을 다시 저장하고 06-1 로 돌아온다', (tester) async {
+        await pumpOnboarding(tester, OnboardingStep.idealConditions);
+        expect(find.byType(BackExitScope), findsOneWidget, reason: '두 겹이면 같은 뒤로가기에 둘 다 불린다');
+        expect(backArrow(), findsOneWidget);
+
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+
+        expect(find.byType(SurveyScreen), findsOneWidget);
+        expect(find.text('담배를 피우시나요?'), findsOneWidget);
+        expect(find.text(backExitMessage), findsNothing);
+        expect(exitCalls, 0);
+
+        await tester.tap(find.text('다음'));
+        await tester.pumpAndSettle();
+
+        expect(survey.submittedAnswers, savedOnboardingProfile.surveyAnswers);
+        expect(find.byType(IdealConditionsScreen), findsOneWidget);
+        expect(steps.isRevisiting, isFalse);
+      });
+
+      // 계획서 조각 3(269-270줄): 설문 첫 문항의 앱바 · 시스템 뒤로 → 04-6, 종료 안내 없음.
+      testWidgets('설문 첫 문항의 시스템 뒤로 → 04-6, 저장해 둔 특징 칩이 켜져 있고 안내는 뜨지 않는다', (tester) async {
+        await pumpOnboarding(tester, OnboardingStep.survey);
+        expect(find.text('밖에 나가서 활동하는 걸\n좋아하시나요?'), findsOneWidget);
+        expect(find.byType(BackExitScope), findsOneWidget, reason: '두 겹이면 같은 뒤로가기에 둘 다 불린다');
+
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+
+        expect(tester.widget<TagPickerScreen>(find.byType(TagPickerScreen)).kind, TagPickerKind.myTraits);
+        expect(find.text(backExitMessage), findsNothing);
+        expect(exitCalls, 0);
+        final picked = tester.widgetList<SelectChip>(find.byType(SelectChip)).where((chip) => chip.isSelected);
+        expect([for (final chip in picked) chip.label], unorderedEquals(savedOnboardingProfile.myTraits));
+      });
+
+      testWidgets('설문 첫 문항의 앱바 뒤로를 읽는 중에 두 번 눌러도 04-6 까지 한 단계만 간다', (tester) async {
+        await pumpOnboarding(tester, OnboardingStep.survey);
+
+        await tester.tap(backArrow());
+        await tester.tap(backArrow());
+        await tester.pumpAndSettle();
+
+        expect(steps.value, OnboardingStep.myTraits);
+        expect(tester.widget<TagPickerScreen>(find.byType(TagPickerScreen)).kind, TagPickerKind.myTraits);
+      });
+
+      testWidgets('06-1 앱바 뒤로를 읽는 중에 두 번 눌러도 설문까지 한 단계만 간다', (tester) async {
+        await pumpOnboarding(tester, OnboardingStep.idealConditions);
+
+        await tester.tap(backArrow());
+        await tester.tap(backArrow());
+        await tester.pumpAndSettle();
+
+        expect(steps.value, OnboardingStep.survey);
+        expect(find.byType(SurveyScreen), findsOneWidget);
+      });
+
+      String fieldText(WidgetTester tester) => tester.widget<TextField>(find.byType(TextField)).controller!.text;
+
+      testWidgets('06-2a 시스템 뒤로 → 06-2 는 이상형 특징 칩이 켜져 있다', (tester) async {
+        await pumpOnboarding(tester, OnboardingStep.idealNote);
+        expect(find.byType(BackExitScope), findsOneWidget, reason: '두 겹이면 같은 뒤로가기에 둘 다 불린다');
+
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+
+        expect(tester.widget<TagPickerScreen>(find.byType(TagPickerScreen)).kind, TagPickerKind.idealTraits);
+        expect(find.text(backExitMessage), findsNothing);
+        expect(exitCalls, 0);
+        final picked = tester.widgetList<SelectChip>(find.byType(SelectChip)).where((chip) => chip.isSelected);
+        expect([for (final chip in picked) chip.label], unorderedEquals(savedOnboardingProfile.idealTraits));
+      });
+
+      testWidgets('06-2b(초안 만드는 중) 앱바 뒤로 → 06-2a 는 저장해 둔 이상형 글이 채워져 있다', (tester) async {
+        await pumpOnboarding(tester, OnboardingStep.bio, holdDraft: Completer<void>());
+        expect(find.text('설문을 읽고 있어요'), findsOneWidget);
+        expect(find.byType(BackExitScope), findsOneWidget, reason: '두 겹이면 같은 뒤로가기에 둘 다 불린다');
+
+        await tester.tap(backArrow());
+        await tester.pumpAndSettle();
+
+        expect(find.byType(IdealNoteScreen), findsOneWidget);
+        expect(fieldText(tester), savedOnboardingProfile.idealNote);
+        bio.holdDraft!.complete();
+        await tester.pumpAndSettle();
+      });
+
+      testWidgets('06-3 시스템 뒤로 → 06-2a, 다시 저장하면 06-3 으로 돌아오고 쓰던 글이 그대로다', (tester) async {
+        await pumpOnboarding(tester, OnboardingStep.bio);
+        expect(find.byType(BioScreen), findsOneWidget);
+        expect(find.byType(BackExitScope), findsOneWidget, reason: '두 겹이면 같은 뒤로가기에 둘 다 불린다');
+        await tester.enterText(find.byType(TextField), '고쳐 쓰던 자기소개예요');
+        await tester.pump();
+
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+
+        expect(find.byType(IdealNoteScreen), findsOneWidget);
+        expect(find.text(backExitMessage), findsNothing);
+        expect(fieldText(tester), savedOnboardingProfile.idealNote);
+
+        await tester.tap(find.text('다음'));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(BioScreen), findsOneWidget);
+        expect(fieldText(tester), '고쳐 쓰던 자기소개예요');
+        expect(bio.draftCount, 1, reason: '초안은 한 번만 만든다(결정 ⑨)');
+        expect(steps.isRevisiting, isFalse);
+      });
+
+      // 06-3 저장 순간 가입이 끝날 수 있다(위험 8). 아바타 화면으로 옮기기 전 틈에 뒤로를 누르면 가입을 마친 채 06-2a 에 묶인다.
+      // 서버 단계 조회를 bio 로 붙잡아 그 틈을 늘린다.
+      testWidgets('06-3 저장이 끝난 뒤에는 뒤로를 눌러도 06-2a 로 가지 않는다', (tester) async {
+        await pumpOnboarding(tester, OnboardingStep.bio);
+        onboarding.holdFetch = Completer<void>();
+
+        await tester.tap(find.text('다음'));
+        await tester.pump();
+        expect(bio.submittedBio, isNotNull);
+        await tester.binding.handlePopRoute();
+        await tester.pump();
+        onboarding.nextResult = const Success(OnboardingStep.complete);
+        onboarding.holdFetch!.complete();
+        await tester.pumpAndSettle();
+
+        expect(find.byType(IdealNoteScreen), findsNothing);
+        expect(steps.isRevisiting, isFalse);
       });
 
       testWidgets('04-6 시스템 뒤로 → 04-5 는 저장해 둔 관심사 칩이 켜져 있다', (tester) async {

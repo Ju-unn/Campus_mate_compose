@@ -53,6 +53,12 @@ class HttpMeRepository implements MeRepository {
           impressionType: _enumOrNull(ImpressionType.values, json['impression_type']),
           birthYear: json['birth_year'] as int?,
           gender: json['gender'] as String?,
+          // 옛 서버는 두 키가 없다 — null 과 같게 읽는다. 값은 JSON 정수(0 · 1)로도 와서 num 으로 받는다.
+          surveyAnswers: {
+            for (final MapEntry(:key, :value) in (json['survey_answers'] as Map<String, dynamic>? ?? const {}).entries)
+              int.parse(key): (value as num).toDouble(),
+          },
+          idealNote: json['ideal_note'] as String?,
         );
       });
 
