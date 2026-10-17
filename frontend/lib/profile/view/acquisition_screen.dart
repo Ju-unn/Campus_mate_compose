@@ -24,7 +24,8 @@ const _otherLabel = '어디서 알게 되셨나요?'; // pen s8u4Y (힌트 · �
 
 // 토큰에 없는 pen 값.
 const _skipPadding = EdgeInsets.symmetric(horizontal: 12); // pen k8Mb37 76×48 padding [0,12]
-const _skipHeight = 48.0; // pen k8Mb37
+// pen k8Mb37 76×48. 글자 폭(pen 렌더 52)이 앱 Pretendard 렌더로는 47.7 이라 최소 폭으로 상자를 지킨다 — 글자는 가운데.
+const _skipSize = Size(76, 48);
 const _chipHeight = 36.0; // pen lVe24 · 마스터 WzXvK
 const _chipPadding = EdgeInsets.symmetric(horizontal: 12); // pen WzXvK padding [8,12]
 
@@ -53,7 +54,7 @@ class AcquisitionScreen extends ConsumerWidget {
         onBack: goBack,
         action: TextButton(
           onPressed: () => context.go(AppRoutes.onboardingContactBlock),
-          style: TextButton.styleFrom(padding: _skipPadding, minimumSize: const Size(0, _skipHeight)),
+          style: TextButton.styleFrom(padding: _skipPadding, minimumSize: _skipSize),
           child: Text(_skipLabel, style: AppTypography.labelSmall.copyWith(color: AppColors.primaryText)),
         ),
       ),

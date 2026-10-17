@@ -9,7 +9,7 @@ import 'package:flutter/material.dart';
 /// `MaterialLocalizations.backButtonTooltip` 을 쓰면 "Back" 으로 읽힌다 — flutter 한국어 값과 같은 글자를 둔다.
 const String onboardingBackLabel = '뒤로';
 
-/// 온보딩 공용 앱바(datingApp.pen `AppBar · Onboarding` · `AppBar · Survey`).
+/// 온보딩 공용 앱바(datingApp.pen `AppBar · Onboarding` LTFQg · `AppBar · Survey` GCEmW).
 /// 높이 56, 왼쪽 48×48 뒤로가기, 가운데는 진행 표시뿐이다 — 글자 제목은 두지 않는다.
 class OnboardingAppBar extends StatelessWidget implements PreferredSizeWidget {
   const OnboardingAppBar({
@@ -51,8 +51,10 @@ class OnboardingAppBar extends StatelessWidget implements PreferredSizeWidget {
       leadingWidth: _sideWidth,
       leading: canGoBack ? _backButton(context) : const SizedBox(width: _sideWidth, height: 48),
       title: isBar ? _bar() : ProgressDots(current: current, total: total),
-      // 오른쪽 빈 칸도 안쪽 8 을 더해 왼쪽과 같은 56 — 진행 점이 화면 가운데(360 폭이면 180)에 온다.
-      actions: [action ?? const SizedBox(width: _sideWidth, height: 48)],
+      // 점형(LTFQg)은 오른쪽 빈 칸 48 + 안쪽 8 = 왼쪽과 같은 56 — 진행 점이 화면 가운데(360 폭이면 180)에 온다.
+      // 막대형(GCEmW)은 오른쪽 빈 칸이 없고 안쪽 24 뿐이다. 20d 건너뛰기(qcQvZ)도 오른쪽 안쪽 8.
+      actionsPadding: EdgeInsets.only(right: isBar ? AppSpacing.lg : AppSpacing.xs),
+      actions: [action ?? SizedBox(width: isBar ? 0 : 48, height: 48)],
     );
   }
 
@@ -73,14 +75,18 @@ class OnboardingAppBar extends StatelessWidget implements PreferredSizeWidget {
     );
   }
 
+  /// pen IHitX: 뒤로 칸 다음 간격 4 → x60 ~ 336(폭 fill), 높이 5, 바탕 #DDDDDD · 채움 #FF385C · pill.
   Widget _bar() {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(AppRadius.pill),
-      child: LinearProgressIndicator(
-        value: (current + 1) / total,
-        minHeight: 5,
-        backgroundColor: AppColors.hairlineSoft,
-        color: AppColors.primary,
+    return Padding(
+      padding: const EdgeInsets.only(left: AppSpacing.xxs),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+        child: LinearProgressIndicator(
+          value: (current + 1) / total,
+          minHeight: 5,
+          backgroundColor: AppColors.hairline,
+          color: AppColors.primary,
+        ),
       ),
     );
   }
