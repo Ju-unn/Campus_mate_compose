@@ -78,6 +78,20 @@ def test_every_verified_api_is_403_before_the_school_email(wire, method, path):
     assert "x-account-status" not in response.headers
 
 
+@pytest.mark.parametrize("student_id", ["none", "pending", "rejected"])
+@pytest.mark.parametrize("method, path", VERIFIED_ROUTES)
+def test_every_verified_api_skips_the_student_id_and_asks_for_the_department(wire, method, path, student_id):
+    """학생증 제거(10-17): 학교 메일 다음 관문은 학과다. 학생증 상태가 무엇이든 STUDENT_VERIFICATION_REQUIRED 는 없다."""
+    client = wire(student_verification=student_id, department=None,
+                  school_email_verified_at="2026-10-01T00:00:00+00:00")
+    url = re.sub(r"\{[^}]+\}", "55555555-5555-5555-5555-555555555555", path)
+
+    response = client.request(method, url, headers=AUTH, json={})
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == errors.DEPARTMENT_REQUIRED
+
+
 def test_a_suspended_account_still_gets_the_suspension_answer_first(wire):
     response = wire(status="suspended").get("/home/summary", headers=AUTH)
 
