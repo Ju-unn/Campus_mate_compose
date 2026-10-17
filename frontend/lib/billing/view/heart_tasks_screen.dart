@@ -64,6 +64,8 @@ class HeartTasksScreen extends ConsumerWidget {
       padding: _listPadding,
       children: [
         // 맨 위 보상 기준 안내(`EJDsZ`)와 그 아래 간격 24 는 지웠다 — 내부용 글이다(사용자 10-16 "우리만 아는거야").
+        // pen FreeSection(제목 꺼짐)의 투명 여백 8 + 간격 8 — 첫 줄은 섹션 시작 +16(대장 전달 값 10-17).
+        const SizedBox(height: AppSpacing.xs + AppSpacing.xs),
         for (final (index, task) in state.tasks.indexed) ...[
           if (index > 0) const SizedBox(height: AppSpacing.xs),
           HeartTaskRow(task: task, onTap: heartTaskOnTap(context, task)),
