@@ -8,6 +8,7 @@ import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart
 import 'package:campus_mate/profile/model/appearance_type_repository_provider.dart';
 import 'package:campus_mate/profile/model/profile_enums.dart';
 import 'package:campus_mate/profile/viewmodel/appearance_type_ui_state.dart';
+import 'package:campus_mate/profile/viewmodel/revisit_profile.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final appearanceTypeViewModelProvider =
@@ -22,9 +23,11 @@ class AppearanceTypeViewModel extends Notifier<AppearanceTypeUiState> {
     return _initialState(drafts);
   }
 
-  /// 처음 상태를 정하는 단 한 곳이다. 지금은 폰에 남긴 값 또는 빈 값 — 나중에 서버 값을 끼울 자리다.
+  /// 처음 상태를 정하는 단 한 곳이다. 폰에 남긴 값 > (04-5 에서 뒤로 돌아왔으면) 서버 값 > 빈 값.
   AppearanceTypeUiState _initialState(DraftStore drafts) {
-    return drafts.read(DraftScreen.appearanceType, AppearanceTypeUiState.fromDraft) ?? const AppearanceTypeUiState();
+    final restored = drafts.read(DraftScreen.appearanceType, AppearanceTypeUiState.fromDraft);
+    final saved = revisitProfile(ref);
+    return restored ?? (saved == null ? const AppearanceTypeUiState() : AppearanceTypeUiState.fromProfile(saved));
   }
 
   /// 값이 바뀔 때마다 남긴다(저장소가 디바운스한다). 처음 상태(복원한 값 그대로)는 다시 쓰지 않고,
@@ -99,6 +102,6 @@ class AppearanceTypeViewModel extends Notifier<AppearanceTypeUiState> {
     if (!state.completed) {
       return;
     }
-    unawaited(ref.read(onboardingStepListenableProvider).refresh());
+    unawaited(ref.read(onboardingStepListenableProvider).stepSaved());
   }
 }

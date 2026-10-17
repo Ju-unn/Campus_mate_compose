@@ -3,12 +3,14 @@ import 'dart:async';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
+import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/profile/view/hint_line.dart';
+import 'package:campus_mate/profile/view/onboarding_back.dart';
 import 'package:campus_mate/profile/view/photo_example.dart';
 import 'package:campus_mate/profile/view/photo_tiles.dart';
 import 'package:campus_mate/profile/viewmodel/photos_view_model.dart';
@@ -73,8 +75,11 @@ class _PhotosScreenState extends ConsumerState<PhotosScreen> {
         _showToast(next.errorMessage!);
       }
     });
-    return Scaffold(
-      appBar: const OnboardingAppBar(current: 1, total: 6),
+    // 04-1b 로 돌아간다(04-2 는 아직 지금 단계라 고른 사진은 메모리 · 임시 저장에 남는다). 저장 중(04-3 올리기)엔 무시한다.
+    // 시스템 뒤로도 같다 — 라우터는 이 화면을 두르지 않는다(두 겹이면 안내까지 뜬다). 04-3 이 위에 있으면 04-3 이 먼저 닫힌다.
+    final back = onboardingBack(ref, isBusy: state.isSubmitting);
+    return BackExitScope(onBack: back, child: Scaffold(
+      appBar: OnboardingAppBar(current: 1, total: 6, onBack: back),
       body: SafeArea(
         top: false,
         child: Padding(
@@ -146,7 +151,7 @@ class _PhotosScreenState extends ConsumerState<PhotosScreen> {
           ),
         ),
       ),
-    );
+    ));
   }
 }
 

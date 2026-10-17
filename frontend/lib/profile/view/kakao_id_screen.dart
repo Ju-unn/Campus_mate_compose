@@ -2,11 +2,13 @@ import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/labeled_field.dart';
 import 'package:campus_mate/common/widgets/notice_card.dart';
 import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
+import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/profile/view/onboarding_back.dart';
 import 'package:campus_mate/profile/viewmodel/kakao_id_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -26,9 +28,11 @@ class KakaoIdScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(kakaoIdViewModelProvider);
     final viewModel = ref.read(kakaoIdViewModelProvider.notifier);
-    return Scaffold(
+    final back = onboardingBack(ref, isBusy: state.isSubmitting);
+    // 시스템 뒤로도 화살표처럼 04-1 로 간다. 라우터는 이 화면을 두르지 않는다 — 두 겹이면 안내까지 뜬다.
+    return BackExitScope(onBack: back, child: Scaffold(
       // pen `sN9Il` 은 04-1 과 같은 첫째 점을 켠다 — 04-1b 는 04-1 에 딸린 화면이다.
-      appBar: const OnboardingAppBar(current: 0, total: 6),
+      appBar: OnboardingAppBar(current: 0, total: 6, onBack: back),
       body: SafeArea(
         top: false,
         child: Padding(
@@ -79,7 +83,7 @@ class KakaoIdScreen extends ConsumerWidget {
           ),
         ),
       ),
-    );
+    ));
   }
 }
 

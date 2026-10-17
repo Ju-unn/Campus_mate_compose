@@ -115,6 +115,6 @@ class SurveyViewModel extends Notifier<SurveyUiState> {
     if (!state.completed) {
       return;
     }
-    unawaited(ref.read(onboardingStepListenableProvider).refresh());
+    unawaited(ref.read(onboardingStepListenableProvider).stepSaved());
   }
 }

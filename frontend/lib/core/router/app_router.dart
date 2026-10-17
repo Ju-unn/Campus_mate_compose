@@ -252,24 +252,25 @@ abstract final class AppRouter {
   /// 조각 2 온보딩 04-1~06-3. 순서는 [AppRoutes] 상수 순서이자 서버 `next-step` 응답 순서다.
   /// 06-2b(초안 생성)는 06-3 과 같은 `bio` 단계라 라우트를 따로 두지 않는다
   /// ([BioDraftLoadingScreen] 이 끝나면 스스로 06-3 으로 바뀐다).
-  /// 설문 · 20d · 06-4 는 화면 안에 돌아갈 곳이 있어 화면이 스스로 [BackExitScope] 를 두른다(여기서 또 두르면 두 겹이 된다).
+  /// 설문 · 20d · 06-4 와 온보딩 뒤로가기가 있는 화면(04-1b · 04-2 · 04-5 · 04-6 · 06-2)은 화면 안에 돌아갈 곳이 있어
+  /// 화면이 스스로 [BackExitScope] 를 두른다(여기서 또 두르면 두 겹이 된다). 뒤로가 없는 04-1 · 04-4 는 여기서 종료 확인을 두른다.
   /// 04-3 · 8d 는 push 로 올라와 시스템 뒤로가기가 평소대로 한 단계 돌아간다.
   static List<RouteBase> _onboardingRoutes() {
     return <RouteBase>[
       _ExitGuardedRoute(path: AppRoutes.onboardingBasicInfo, builder: (context, state) => const BasicInfoScreen()),
-      _ExitGuardedRoute(path: AppRoutes.onboardingKakaoId, builder: (context, state) => const KakaoIdScreen()),
-      _ExitGuardedRoute(path: AppRoutes.onboardingPhotos, builder: (context, state) => const PhotosScreen()),
+      _PlatformRoute(path: AppRoutes.onboardingKakaoId, builder: (context, state) => const KakaoIdScreen()),
+      _PlatformRoute(path: AppRoutes.onboardingPhotos, builder: (context, state) => const PhotosScreen()),
       _PlatformRoute(path: AppRoutes.onboardingAvatarSource, builder: (context, state) => const AvatarSourceScreen()),
       _ExitGuardedRoute(path: AppRoutes.onboardingAvatar, builder: (context, state) => const AvatarGenerationScreen()),
       _ExitGuardedRoute(
         path: AppRoutes.onboardingAppearanceType,
         builder: (context, state) => const AppearanceTypeScreen(),
       ),
-      _ExitGuardedRoute(
+      _PlatformRoute(
         path: AppRoutes.onboardingInterests,
         builder: (context, state) => const TagPickerScreen(kind: TagPickerKind.interests),
       ),
-      _ExitGuardedRoute(
+      _PlatformRoute(
         path: AppRoutes.onboardingMyTraits,
         builder: (context, state) => const TagPickerScreen(kind: TagPickerKind.myTraits),
       ),
@@ -278,7 +279,7 @@ abstract final class AppRouter {
         path: AppRoutes.onboardingIdealConditions,
         builder: (context, state) => const IdealConditionsScreen(),
       ),
-      _ExitGuardedRoute(
+      _PlatformRoute(
         path: AppRoutes.onboardingIdealTraits,
         builder: (context, state) => const TagPickerScreen(kind: TagPickerKind.idealTraits),
       ),

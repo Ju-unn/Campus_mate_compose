@@ -1,3 +1,4 @@
+import 'package:campus_mate/me/model/my_profile.dart';
 import 'package:campus_mate/profile/model/profile_enums.dart';
 
 /// 이상형 조건 화면(DESIGN.md 화면 06-1)의 상태.
@@ -85,6 +86,28 @@ class IdealConditionsUiState {
       throw const FormatException('이상형 조건이 프리셋 범위를 벗어남');
     }
     return restored;
+  }
+
+  /// 서버에 저장해 둔 값으로 처음 상태를 만든다(나 탭 편집 · 온보딩 뒤로가기 — 둘이 같은 규칙이어야 한다).
+  /// "상관없어요" 는 저장 규칙의 거꾸로다 — 나이는 전 구간(19~35), 키는 null 로 저장된다(화면 15 결정 3 과 같은 뜻).
+  /// 켜진 쪽 슬라이더는 06-1 기본값(22~27 · 165~180)으로 둔다 — 끄면 거기서 시작한다.
+  static IdealConditionsUiState fromProfile(MyProfile profile) {
+    const defaults = IdealConditionsUiState();
+    final (ageMin, ageMax) = (profile.preferredAgeMin, profile.preferredAgeMax);
+    final (heightMin, heightMax) = (profile.preferredHeightMin, profile.preferredHeightMax);
+    final ageIgnored = ageMin == null || ageMax == null || (ageMin == ageFloor && ageMax == ageCeiling);
+    final heightIgnored = heightMin == null || heightMax == null;
+    return IdealConditionsUiState(
+      preferredAgeMin: ageIgnored ? defaults.preferredAgeMin : ageMin,
+      preferredAgeMax: ageIgnored ? defaults.preferredAgeMax : ageMax,
+      ageIgnored: ageIgnored,
+      preferredHeightMin: heightMin ?? defaults.preferredHeightMin,
+      preferredHeightMax: heightMax ?? defaults.preferredHeightMax,
+      heightIgnored: heightIgnored,
+      preferredMbtiFlags: profile.preferredMbtiFlags,
+      preferredAnimalTypes: profile.preferredAnimalTypes,
+      preferredImpressionTypes: profile.preferredImpressionTypes,
+    );
   }
 
   /// 나이 · 키 범위와 "상관없어요" 표시만 읽는다. 나머지는 기본값이다.

@@ -257,6 +257,6 @@ class PhotosViewModel extends Notifier<PhotosUiState> {
     if (!state.completed) {
       return;
     }
-    unawaited(ref.read(onboardingStepListenableProvider).refresh());
+    unawaited(ref.read(onboardingStepListenableProvider).stepSaved());
   }
 }

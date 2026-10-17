@@ -11,21 +11,57 @@ const OnboardingStep _defaultStep = OnboardingStep.basicInfo;
 /// 조회가 한 번도 끝나기 전에는 `null`(아직 모름)이라 라우터가 스플래시에 둔다. 예전에는 처음부터 04-1 이라,
 /// 관문 조회가 먼저 끝나면 온보딩을 마친 사람에게도 04-1 이 몇 초 보였다가 홈으로 갔다.
 ///
-/// 각 온보딩 화면의 ViewModel 이 저장에 성공한 순간 [refresh] 를 불러야 다음 화면으로 넘어간다.
+/// 각 온보딩 화면의 ViewModel 이 저장에 성공한 순간 [stepSaved] 를 불러야 다음 화면으로 넘어간다.
+///
+/// 온보딩 뒤로가기(계획서 가-2): 서버 단계(가장 멀리 간 곳)는 그대로 두고 "다시 보는 단계" 하나를 앞에 얹는다.
+/// 라우터는 [value] 화면에 사람을 묶으니 앞 화면으로만 갈 수 있고, 서버 단계 너머로는 못 간다.
+/// 다시 보는 단계는 메모리에만 있다 — 앱을 다시 켜면 서버 단계에서 시작한다.
 class OnboardingStepListenable extends ChangeNotifier {
   OnboardingStepListenable(this._repository);
 
   final OnboardingRepository _repository;
   OnboardingStep? _cached;
 
-  /// 아직 모르면 null.
-  OnboardingStep? get value => _cached;
+  /// 뒤로가기로 돌아가 다시 보고 있는 앞 단계. 늘 [_cached] 보다 앞이다. 다시 보는 중이 아니면 null.
+  OnboardingStep? _visiting;
 
-  /// 로그아웃 등으로 조회할 근거가 사라지면 다시 "모름" 으로 되돌린다.
+  /// 라우터가 묶는 단계. 아직 모르면 null.
+  OnboardingStep? get value => _visiting ?? _cached;
+
+  /// 서버 단계보다 앞 화면을 다시 보고 있는가 — 화면이 서버 값으로 칸을 채울지 정한다.
+  bool get isRevisiting => _visiting != null;
+
+  /// 지금 화면에서 뒤로 갈 앞 단계가 있는가(04-1 · 04-4 는 없다, [OnboardingStep.stepBack]).
+  bool get canGoBack => value?.stepBack() != null;
+
+  /// 한 단계 앞 화면으로 돌아간다. 갈 곳이 없으면 아무것도 하지 않는다.
+  void goBack() {
+    final back = value?.stepBack();
+    if (back == null) {
+      return;
+    }
+    _visiting = back;
+    notifyListeners();
+  }
+
+  /// 화면이 저장에 성공했을 때 부른다. 다시 보는 중이면 바로 다음 화면으로 한 칸 가고(사용자 결정 ③),
+  /// 그 칸이 서버 단계에 닿으면 다시 보기를 끝낸다. 그다음 서버 단계를 다시 묻는다.
+  /// [refresh] 와 따로 두는 이유: refresh 는 토큰 갱신 때마다 돈다(main.dart) — 거기서 한 칸씩 가면 화면이 혼자 넘어간다.
+  Future<void> stepSaved() async {
+    if (_visiting case final visiting?) {
+      _visiting = _visibleBeforeServer(visiting.stepAfter());
+      notifyListeners();
+    }
+    await refresh();
+  }
+
+  /// 로그아웃 등으로 조회할 근거가 사라지면 다시 "모름" 으로 되돌린다. 다음 계정이 다시 보기를 물려받지 않게 함께 지운다.
   void reset() {
+    _visiting = null;
     _cache(null);
   }
 
+  /// 서버 단계를 다시 묻는다. 다시 보는 단계는 건드리지 않는다(서버 단계에 닿았을 때만 끝난다, [_cache]).
   Future<void> refresh() async {
     final result = await _repository.fetchNextStep();
     result.when(
@@ -45,6 +81,17 @@ class OnboardingStepListenable extends ChangeNotifier {
       return;
     }
     _cached = step;
+    // 서버 단계가 다시 보는 단계와 같거나 앞으로 바뀌면 다시 보기를 끝낸다 — 서버 단계 너머 화면에 머물지 않게.
+    _visiting = _visibleBeforeServer(_visiting);
     notifyListeners();
+  }
+
+  /// 서버 단계보다 앞일 때만 다시 보는 단계로 남긴다.
+  OnboardingStep? _visibleBeforeServer(OnboardingStep? step) {
+    final server = _cached;
+    if (step == null || server == null || !step.isBefore(server)) {
+      return null;
+    }
+    return step;
   }
 }

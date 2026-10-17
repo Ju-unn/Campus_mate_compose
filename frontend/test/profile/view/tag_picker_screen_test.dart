@@ -1,20 +1,88 @@
+import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/common/widgets/select_chip.dart';
 import 'package:campus_mate/common/widgets/select_count_bar.dart';
+import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
+import 'package:campus_mate/core/back_exit/back_exit_view_model.dart';
+import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/me/model/me_repository_provider.dart';
+import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
+import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:campus_mate/profile/view/tag_picker_screen.dart';
 import 'package:campus_mate/profile/viewmodel/tag_picker_kind.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../me/model/fake_me_repository.dart';
+import '../model/fake_onboarding_repository.dart';
+
 void main() {
-  Future<void> pump(WidgetTester tester, {TagPickerKind kind = TagPickerKind.interests}) async {
+  late FakeOnboardingRepository onboarding;
+
+  /// [server] 는 서버 단계 — 뷰모델이 "다시 보는 중" 인지 단계 캐시에 묻는다.
+  Future<ProviderContainer> pump(
+    WidgetTester tester, {
+    TagPickerKind kind = TagPickerKind.interests,
+    OnboardingStep server = OnboardingStep.interests,
+    bool isEditing = false,
+  }) async {
+    onboarding = FakeOnboardingRepository()..nextResult = Success(server);
+    final container = ProviderContainer(
+      overrides: [
+        onboardingRepositoryProvider.overrideWithValue(onboarding),
+        meRepositoryProvider.overrideWithValue(FakeMeRepository(const Success(savedOnboardingProfile))),
+      ],
+    );
+    addTearDown(container.dispose);
+    await container.read(onboardingStepListenableProvider).refresh();
     await tester.pumpWidget(
-      ProviderScope(
-        child: MaterialApp(home: TagPickerScreen(kind: kind)),
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(home: TagPickerScreen(kind: kind, isEditing: isEditing)),
       ),
     );
+    return container;
   }
+
+  group('온보딩 뒤로가기', () {
+    const cases = <(TagPickerKind, OnboardingStep, OnboardingStep)>[
+      (TagPickerKind.interests, OnboardingStep.interests, OnboardingStep.appearanceType),
+      (TagPickerKind.myTraits, OnboardingStep.myTraits, OnboardingStep.interests),
+      (TagPickerKind.idealTraits, OnboardingStep.idealTraits, OnboardingStep.idealConditions),
+    ];
+    for (final (kind, server, back) in cases) {
+      testWidgets('${kind.name}: 앱바 뒤로는 ${back.name} 로 간다', (tester) async {
+        final container = await pump(tester, kind: kind, server: server);
+
+        await tester.tap(find.byTooltip(onboardingBackLabel));
+        await tester.pumpAndSettle();
+
+        expect(container.read(onboardingStepListenableProvider).value, back);
+      });
+
+      testWidgets('${kind.name}: 시스템 뒤로도 ${back.name} 로 가고 종료 안내는 없다', (tester) async {
+        final container = await pump(tester, kind: kind, server: server);
+        expect(find.byType(BackExitScope), findsOneWidget, reason: '라우터와 두 겹이면 같은 뒤로가기에 안내까지 뜬다');
+
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+
+        expect(container.read(onboardingStepListenableProvider).value, back);
+        expect(find.text(backExitMessage), findsNothing);
+      });
+    }
+
+    // 편집 모드(15c "수정 ›")는 push 로 올라와 편집 앱바가 평소대로 한 장 닫는다 — 온보딩 단계를 건드리지 않는다.
+    testWidgets('나 탭 편집 모드에는 온보딩 뒤로가 붙지 않는다', (tester) async {
+      final container = await pump(tester, server: OnboardingStep.complete, isEditing: true);
+
+      expect(find.byTooltip(onboardingBackLabel), findsNothing);
+      expect(find.byType(BackExitScope), findsNothing);
+      expect(container.read(onboardingStepListenableProvider).value, OnboardingStep.complete);
+    });
+  });
 
   Future<void> pick(WidgetTester tester, int count) async {
     for (var i = 0; i < count; i++) {

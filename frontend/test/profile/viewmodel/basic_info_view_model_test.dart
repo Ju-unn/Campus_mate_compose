@@ -1,8 +1,14 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
+import 'package:campus_mate/me/model/me_repository_provider.dart';
+import 'package:campus_mate/me/model/my_profile.dart';
+import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:campus_mate/profile/model/basic_info_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
+import 'package:campus_mate/profile/model/onboarding_step.dart';
+import 'package:campus_mate/profile/viewmodel/basic_info_ui_state.dart';
 import 'package:campus_mate/profile/viewmodel/basic_info_view_model.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
@@ -13,6 +19,7 @@ import 'package:campus_mate/core/draft/draft_store.dart';
 import 'package:campus_mate/core/draft/shared_preferences_draft_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../me/model/fake_me_repository.dart';
 import '../model/fake_basic_info_repository.dart';
 import '../model/fake_onboarding_repository.dart';
 import '../../core/draft/fake_draft_store.dart';
@@ -360,6 +367,138 @@ void main() {
     expect(state.completed, isTrue);
     expect(repository.submitted?.nickname, '가나다');
     expect(onboardingRepository.fetchCount, 1);
+  });
+
+  // 온보딩 뒤로가기: 04-1b 에서 돌아와 다시 저장하면 바로 다음 화면(04-1b)으로 간다(사용자 결정 ③).
+  testWidgets('다시 보는 04-1 을 저장하면 04-1b 로 한 칸 간다', (tester) async {
+    await revisit(container, onboardingRepository, server: OnboardingStep.photos, visiting: OnboardingStep.basicInfo);
+    final vm = container.read(basicInfoViewModelProvider.notifier);
+    vm.changeNickname('가나다');
+    await tester.pump(const Duration(milliseconds: 350));
+    vm.changeBirthYear('2002');
+    vm.changeHeight('175');
+    vm.changePhoneNumber('01001352468');
+    vm.changeGender('male');
+
+    await vm.submit();
+
+    expect(container.read(onboardingStepListenableProvider).value, OnboardingStep.kakaoId);
+  });
+
+  // 뷰모델은 앱이 켜진 동안 살아 있어 첫 저장의 completed 가 남는다 — 다시 저장이 실패하면 그대로 머물러야 한다.
+  testWidgets('같은 세션에서 다시 저장이 실패하면 다음 화면으로 넘어가지 않는다', (tester) async {
+    final vm = container.read(basicInfoViewModelProvider.notifier);
+    vm.changeNickname('가나다');
+    await tester.pump(const Duration(milliseconds: 350));
+    vm.changeBirthYear('2002');
+    vm.changeHeight('175');
+    vm.changePhoneNumber('01001352468');
+    vm.changeGender('male');
+    await vm.submit();
+    await revisit(container, onboardingRepository, server: OnboardingStep.photos, visiting: OnboardingStep.basicInfo);
+    repository.nextSubmitResult = const FailureResult(NetworkFailure());
+
+    await vm.submit();
+
+    expect(container.read(onboardingStepListenableProvider).value, OnboardingStep.basicInfo);
+    expect(container.read(basicInfoViewModelProvider).errorMessage, isNotNull);
+    expect(onboardingRepository.fetchCount, 0);
+  });
+
+  // 앱을 다시 켠 뒤(뷰모델이 처음 만들어질 때) 04-1b 에서 돌아오면 저장해 둔 값으로 채운다.
+  group('되돌아온 04-1 채우기', () {
+    late FakeMeRepository me;
+    late FakeDraftStore drafts;
+    late ProviderContainer revisiting;
+
+    setUp(() async {
+      me = FakeMeRepository(const Success(savedOnboardingProfile));
+      drafts = FakeDraftStore();
+      revisiting = ProviderContainer(
+        overrides: [
+          basicInfoNowProvider.overrideWithValue(() => DateTime(_thisYear, 6, 1)),
+          basicInfoRepositoryProvider.overrideWithValue(repository),
+          onboardingRepositoryProvider.overrideWithValue(onboardingRepository),
+          meRepositoryProvider.overrideWithValue(me),
+          draftStoreProvider.overrideWithValue(drafts),
+        ],
+      );
+      addTearDown(revisiting.dispose);
+      await revisiting.read(myProfileProvider.future);
+    });
+
+    test('닉네임 · 출생연도 · 키 · 성별 · MBTI 가 서버 값으로 채워지고 전화번호 칸은 비어 있다', () async {
+      await revisit(revisiting, onboardingRepository, server: OnboardingStep.kakaoId, visiting: OnboardingStep.basicInfo);
+
+      final state = revisiting.read(basicInfoViewModelProvider);
+
+      expect(state.nicknameInput, '여우비');
+      expect(state.birthYearInput, '2002');
+      expect(state.heightInput, '172');
+      expect(state.gender, 'female');
+      expect(state.mbtiPoles, {'E', 'N', 'F', 'P'});
+      expect(state.isMbtiUnknown, isFalse);
+      expect(state.phoneNumberInput, isEmpty, reason: '전화번호는 앱이 읽을 수 없어 다시 입력한다(사용자 결정 ④)');
+      expect(state.canSubmit, isFalse, reason: '전화번호를 넣어야 다시 저장할 수 있다');
+    });
+
+    test('MBTI 를 고르지 않고 저장했으면(null) "모름" 으로 연다 — 15-6 편집과 같은 규칙', () async {
+      me.profile = const Success(MyProfile(
+        nickname: '여우비', age: 25, university: '가나대학교', major: null, heightCm: 172, mbti: null, avatarUrl: null,
+        preferredAgeMin: null, preferredAgeMax: null, preferredHeightMin: null, preferredHeightMax: null, bio: null,
+        birthYear: 2002, gender: 'female',
+      ));
+      revisiting.invalidate(myProfileProvider);
+      await revisiting.read(myProfileProvider.future);
+      await revisit(revisiting, onboardingRepository, server: OnboardingStep.kakaoId, visiting: OnboardingStep.basicInfo);
+
+      expect(revisiting.read(basicInfoViewModelProvider).isMbtiUnknown, isTrue);
+    });
+
+    test('폰에 임시 저장한 값이 있으면 서버 값보다 먼저 쓴다', () async {
+      drafts.write(DraftScreen.basicInfo, const BasicInfoUiState(thisYear: _thisYear, nicknameInput: '고친닉').toDraft());
+      await revisit(revisiting, onboardingRepository, server: OnboardingStep.kakaoId, visiting: OnboardingStep.basicInfo);
+
+      expect(revisiting.read(basicInfoViewModelProvider).nicknameInput, '고친닉');
+    });
+
+    test('미리 읽어 둔 프로필이 없으면 뷰모델이 서버를 부르지 않고 빈 칸으로 연다', () async {
+      revisiting.invalidate(myProfileProvider);
+      final callsBefore = me.calls;
+      await revisit(revisiting, onboardingRepository, server: OnboardingStep.kakaoId, visiting: OnboardingStep.basicInfo);
+      final fresh = ProviderContainer(
+        overrides: [
+          basicInfoNowProvider.overrideWithValue(() => DateTime(_thisYear, 6, 1)),
+          basicInfoRepositoryProvider.overrideWithValue(repository),
+          onboardingRepositoryProvider.overrideWithValue(onboardingRepository),
+          meRepositoryProvider.overrideWithValue(me),
+        ],
+      );
+      addTearDown(fresh.dispose);
+      await revisit(fresh, onboardingRepository, server: OnboardingStep.kakaoId, visiting: OnboardingStep.basicInfo);
+
+      expect(fresh.read(basicInfoViewModelProvider).nicknameInput, isEmpty);
+      expect(me.calls, callsBefore);
+    });
+
+    test('다시 보는 중이 아니면(지금 단계가 04-1) 서버 값을 쓰지 않는다', () async {
+      onboardingRepository.nextResult = const Success(OnboardingStep.basicInfo);
+      await revisiting.read(onboardingStepListenableProvider).refresh();
+
+      expect(revisiting.read(basicInfoViewModelProvider).nicknameInput, isEmpty);
+    });
+
+    // Review Focus 3: 같은 세션에서는 뷰모델이 살아 있어 고치던 값이 그대로다 — 서버 값으로 덮지 않는다.
+    test('같은 세션에서 되돌아온 04-1 은 메모리 값 그대로다', () async {
+      revisiting.read(basicInfoViewModelProvider.notifier)
+        ..changeNickname('메모리')
+        ..changePhoneNumber('01001352468');
+      await revisit(revisiting, onboardingRepository, server: OnboardingStep.kakaoId, visiting: OnboardingStep.basicInfo);
+
+      final state = revisiting.read(basicInfoViewModelProvider);
+      expect(state.nicknameInput, '메모리');
+      expect(state.phoneNumberInput, '01001352468');
+    });
   });
 
   test('MBTI 는 축마다 하나만 켜지고, 네 축을 다 골라야 글자가 완성된다', () {

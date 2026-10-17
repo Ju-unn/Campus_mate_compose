@@ -1,5 +1,11 @@
+import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
+import 'package:campus_mate/me/model/me_repository_provider.dart';
+import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:campus_mate/profile/model/ideal_conditions_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
+import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:campus_mate/profile/model/profile_enums.dart';
 import 'package:campus_mate/profile/viewmodel/ideal_conditions_ui_state.dart';
 import 'package:campus_mate/profile/viewmodel/ideal_conditions_view_model.dart';
@@ -8,6 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:campus_mate/core/draft/draft_screen.dart';
 import 'package:campus_mate/core/draft/draft_store.dart';
 
+import '../../me/model/fake_me_repository.dart';
 import '../model/fake_ideal_conditions_repository.dart';
 import '../model/fake_onboarding_repository.dart';
 import '../../core/draft/fake_draft_store.dart';
@@ -47,6 +54,70 @@ void main() {
     expect(repository.submitted!.preferredHeightMax, 180);
     expect(container.read(idealConditionsViewModelProvider).completed, isTrue);
     expect(onboardingRepository.fetchCount, 1);
+  });
+
+  test('06-2 에서 돌아온 06-1 을 저장하면 06-2 로 돌아가 다시 보기가 끝난다', () async {
+    await revisit(
+      container,
+      onboardingRepository,
+      server: OnboardingStep.idealTraits,
+      visiting: OnboardingStep.idealConditions,
+    );
+    final vm = container.read(idealConditionsViewModelProvider.notifier);
+    pickRequiredAppearance(vm);
+
+    await vm.submit();
+
+    final steps = container.read(onboardingStepListenableProvider);
+    expect(steps.value, OnboardingStep.idealTraits);
+    expect(steps.isRevisiting, isFalse);
+  });
+
+  // 뷰모델은 앱이 켜진 동안 살아 있어 첫 저장의 completed 가 남는다 — 다시 저장이 실패하면 그대로 머물러야 한다.
+  test('같은 세션에서 다시 저장이 실패하면 다음 화면으로 넘어가지 않는다', () async {
+    final vm = container.read(idealConditionsViewModelProvider.notifier);
+    pickRequiredAppearance(vm);
+    await vm.submit();
+    await revisit(
+      container,
+      onboardingRepository,
+      server: OnboardingStep.idealTraits,
+      visiting: OnboardingStep.idealConditions,
+    );
+    repository.nextResult = const FailureResult(NetworkFailure());
+
+    await vm.submit();
+
+    expect(container.read(onboardingStepListenableProvider).value, OnboardingStep.idealConditions);
+    expect(container.read(idealConditionsViewModelProvider).errorMessage, isNotNull);
+    expect(onboardingRepository.fetchCount, 0);
+  });
+
+  test('06-2 에서 돌아온 06-1 은 저장해 둔 이상형 조건으로 채워진다', () async {
+    final revisiting = ProviderContainer(
+      overrides: [
+        idealConditionsRepositoryProvider.overrideWithValue(repository),
+        onboardingRepositoryProvider.overrideWithValue(onboardingRepository),
+        meRepositoryProvider.overrideWithValue(FakeMeRepository(const Success(savedOnboardingProfile))),
+      ],
+    );
+    addTearDown(revisiting.dispose);
+    await revisiting.read(myProfileProvider.future);
+    await revisit(
+      revisiting,
+      onboardingRepository,
+      server: OnboardingStep.idealTraits,
+      visiting: OnboardingStep.idealConditions,
+    );
+
+    final state = revisiting.read(idealConditionsViewModelProvider);
+
+    expect((state.preferredAgeMin, state.preferredAgeMax, state.ageIgnored), (24, 30, false));
+    expect((state.preferredHeightMin, state.preferredHeightMax, state.heightIgnored), (160, 175, false));
+    expect(state.preferredMbtiFlags, {'E': true, 'N': true});
+    expect(state.preferredAnimalTypes, [AnimalType.dog, AnimalType.cat]);
+    expect(state.preferredImpressionTypes, [ImpressionType.kind]);
+    expect(state.canSubmit, isTrue);
   });
 
   test('얼굴상·인상은 3개까지만 담기고 다시 누르면 빠진다', () {

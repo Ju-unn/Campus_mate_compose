@@ -1,7 +1,11 @@
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
+import 'package:campus_mate/me/model/me_repository_provider.dart';
+import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:campus_mate/profile/model/appearance_type_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
+import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:campus_mate/profile/model/profile_enums.dart';
 import 'package:campus_mate/profile/viewmodel/appearance_type_view_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:campus_mate/core/draft/draft_screen.dart';
 import 'package:campus_mate/core/draft/draft_store.dart';
 
+import '../../me/model/fake_me_repository.dart';
 import '../model/fake_appearance_type_repository.dart';
 import '../model/fake_onboarding_repository.dart';
 import '../../core/draft/fake_draft_store.dart';
@@ -54,6 +59,53 @@ void main() {
     expect(repository.submittedAnimalType, AnimalType.fox);
     expect(repository.submittedImpressionType, ImpressionType.innocent);
     expect(onboardingRepository.fetchCount, 1);
+  });
+
+  test('04-5 에서 돌아온 04-4 를 저장하면 04-5 로 돌아가 다시 보기가 끝난다', () async {
+    await revisit(
+      container,
+      onboardingRepository,
+      server: OnboardingStep.interests,
+      visiting: OnboardingStep.appearanceType,
+    );
+    final vm = container.read(appearanceTypeViewModelProvider.notifier);
+    vm.changeAnimalType(AnimalType.fox);
+    vm.changeImpressionType(ImpressionType.innocent);
+
+    await vm.submit();
+
+    final steps = container.read(onboardingStepListenableProvider);
+    expect(steps.value, OnboardingStep.interests);
+    expect(steps.isRevisiting, isFalse);
+  });
+
+  test('04-5 에서 돌아오면 얼굴상 · 인상이 서버 값으로 채워진다(폰 임시 저장이 있으면 그쪽이 먼저)', () async {
+    final drafts = FakeDraftStore();
+    ProviderContainer open() {
+      final opened = ProviderContainer(
+        overrides: [
+          appearanceTypeRepositoryProvider.overrideWithValue(repository),
+          onboardingRepositoryProvider.overrideWithValue(onboardingRepository),
+          meRepositoryProvider.overrideWithValue(FakeMeRepository(const Success(savedOnboardingProfile))),
+          draftStoreProvider.overrideWithValue(drafts),
+        ],
+      );
+      addTearDown(opened.dispose);
+      return opened;
+    }
+
+    final revisiting = open();
+    await revisiting.read(myProfileProvider.future);
+    await revisit(revisiting, onboardingRepository, server: OnboardingStep.interests, visiting: OnboardingStep.appearanceType);
+    final state = revisiting.read(appearanceTypeViewModelProvider);
+    expect((state.animalType, state.impressionType), (AnimalType.fox, ImpressionType.innocent));
+    expect(state.canSubmit, isTrue);
+
+    drafts.write(DraftScreen.appearanceType, const {'animalType': 'bear', 'impressionType': 'chic'});
+    final withDraft = open();
+    await withDraft.read(myProfileProvider.future);
+    await revisit(withDraft, onboardingRepository, server: OnboardingStep.interests, visiting: OnboardingStep.appearanceType);
+    expect(withDraft.read(appearanceTypeViewModelProvider).animalType, AnimalType.bear);
   });
 
   test('제출에 실패하면 오류 문구가 남고 온보딩 단계를 다시 조회하지 않는다', () async {

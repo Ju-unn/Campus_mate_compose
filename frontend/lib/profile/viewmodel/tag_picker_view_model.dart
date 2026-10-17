@@ -4,6 +4,7 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/core/draft/draft_store.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/profile/model/tag_picker_repository_provider.dart';
+import 'package:campus_mate/profile/viewmodel/revisit_profile.dart';
 import 'package:campus_mate/profile/viewmodel/tag_picker_kind.dart';
 import 'package:campus_mate/profile/viewmodel/tag_picker_ui_state.dart';
 import 'package:flutter/foundation.dart' show protected;
@@ -31,10 +32,11 @@ class TagPickerViewModel extends Notifier<TagPickerUiState> {
     return _initialState(drafts);
   }
 
-  /// 처음 상태를 정하는 단 한 곳이다. 지금은 폰에 남긴 값 또는 빈 값 — 나중에 서버 값을 끼울 자리다.
+  /// 처음 상태를 정하는 단 한 곳이다. 폰에 남긴 값 > (뒤로가기로 돌아왔으면) 서버 값 > 빈 값.
   TagPickerUiState _initialState(DraftStore drafts) {
     final restored = drafts.read(_kind.draftScreen, (data) => TagPickerUiState.fromDraft(data, _kind));
-    return restored ?? const TagPickerUiState();
+    final saved = revisitProfile(ref);
+    return restored ?? (saved == null ? const TagPickerUiState() : TagPickerUiState.fromProfile(saved, _kind));
   }
 
   /// 값이 바뀔 때마다 남긴다(저장소가 디바운스한다). 처음 상태(복원한 값 그대로)는 다시 쓰지 않고,
@@ -60,7 +62,8 @@ class TagPickerViewModel extends Notifier<TagPickerUiState> {
     if (!state.canSubmit) {
       return;
     }
-    state = state.copyWith(isSubmitting: true, errorMessage: null);
+    // 지난 저장의 completed 를 내린다 — 되돌아와 다시 저장하다 실패하면 다음 화면으로 넘어가면 안 된다.
+    state = state.copyWith(isSubmitting: true, errorMessage: null, completed: false);
     try {
       final repository = ref.read(tagPickerRepositoryProvider);
       final result = await repository.submit(_kind.endpoint, state.selected.toList());
@@ -96,6 +99,6 @@ class TagPickerViewModel extends Notifier<TagPickerUiState> {
   /// 나 탭 편집 모드(`TagEditViewModel`)는 이것 대신 화면 15 값을 다시 읽게 한다 — 온보딩 단계는 조회하지 않는다.
   @protected
   void onSaved() {
-    unawaited(ref.read(onboardingStepListenableProvider).refresh());
+    unawaited(ref.read(onboardingStepListenableProvider).stepSaved());
   }
 }

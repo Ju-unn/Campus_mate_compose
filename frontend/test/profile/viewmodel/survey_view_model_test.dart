@@ -1,4 +1,6 @@
+import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
+import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:campus_mate/profile/model/profile_enums.dart';
 import 'package:campus_mate/profile/model/survey_repository_provider.dart';
 import 'package:campus_mate/profile/viewmodel/survey_ui_state.dart';
@@ -74,6 +76,25 @@ void main() {
     expect(repository.submittedIsSmoker, isTrue);
     expect(repository.submittedAnswers, hasLength(9));
     expect(onboardingRepository.fetchCount, 1);
+  });
+
+  // 10-17 아바타 리빌 맨 끝: 05-12 를 다시 보이지 않고 06-1 로 간다(서버가 옛 순서여도 같다).
+  test('06-1 에서 돌아온 설문을 마치면 06-1 로 돌아가 다시 보기가 끝난다', () async {
+    await revisit(
+      container,
+      onboardingRepository,
+      server: OnboardingStep.idealConditions,
+      visiting: OnboardingStep.survey,
+    );
+    final vm = container.read(surveyViewModelProvider.notifier);
+    vm.changeReligion(Religion.none);
+    vm.changeIsSmoker(false);
+
+    await vm.submit();
+
+    final steps = container.read(onboardingStepListenableProvider);
+    expect(steps.value, OnboardingStep.idealConditions);
+    expect(steps.isRevisiting, isFalse);
   });
 
   group('임시 저장', () {

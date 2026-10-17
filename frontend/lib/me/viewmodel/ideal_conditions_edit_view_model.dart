@@ -17,33 +17,7 @@ class IdealConditionsEditViewModel extends IdealConditionsViewModel {
   @override
   IdealConditionsUiState build() {
     final profile = ref.read(myProfileProvider).value?.when<MyProfile?>(onSuccess: (p) => p, onFailure: (_) => null);
-    if (profile == null) {
-      return const IdealConditionsUiState();
-    }
-    return _fromServer(profile);
-  }
-
-  /// "상관없어요" 는 저장 규칙의 거꾸로다 — 나이는 전 구간(19~35), 키는 null 로 저장된다(화면 15 결정 3 과 같은 뜻).
-  /// 켜진 쪽 슬라이더는 06-1 기본값(22~27 · 165~180)으로 둔다 — 끄면 거기서 시작한다.
-  IdealConditionsUiState _fromServer(MyProfile profile) {
-    const defaults = IdealConditionsUiState();
-    final (ageMin, ageMax) = (profile.preferredAgeMin, profile.preferredAgeMax);
-    final (heightMin, heightMax) = (profile.preferredHeightMin, profile.preferredHeightMax);
-    final ageIgnored = ageMin == null ||
-        ageMax == null ||
-        (ageMin == IdealConditionsUiState.ageFloor && ageMax == IdealConditionsUiState.ageCeiling);
-    final heightIgnored = heightMin == null || heightMax == null;
-    return IdealConditionsUiState(
-      preferredAgeMin: ageIgnored ? defaults.preferredAgeMin : ageMin,
-      preferredAgeMax: ageIgnored ? defaults.preferredAgeMax : ageMax,
-      ageIgnored: ageIgnored,
-      preferredHeightMin: heightMin ?? defaults.preferredHeightMin,
-      preferredHeightMax: heightMax ?? defaults.preferredHeightMax,
-      heightIgnored: heightIgnored,
-      preferredMbtiFlags: profile.preferredMbtiFlags,
-      preferredAnimalTypes: profile.preferredAnimalTypes,
-      preferredImpressionTypes: profile.preferredImpressionTypes,
-    );
+    return profile == null ? const IdealConditionsUiState() : IdealConditionsUiState.fromProfile(profile);
   }
 
   /// 저장 중에 뒤로 나가도 끝까지 저장하고 15-5 를 다시 읽게 한다 — 그동안 autoDispose 가 버리지 않게 붙잡는다.

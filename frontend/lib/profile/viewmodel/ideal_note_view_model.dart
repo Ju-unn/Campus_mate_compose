@@ -80,6 +80,6 @@ class IdealNoteViewModel extends Notifier<IdealNoteUiState> {
     if (!state.completed) {
       return;
     }
-    unawaited(ref.read(onboardingStepListenableProvider).refresh());
+    unawaited(ref.read(onboardingStepListenableProvider).stepSaved());
   }
 }

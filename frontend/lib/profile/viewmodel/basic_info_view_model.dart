@@ -9,6 +9,7 @@ import 'package:campus_mate/profile/model/basic_info_repository.dart';
 import 'package:campus_mate/profile/model/basic_info_repository_provider.dart';
 import 'package:campus_mate/profile/model/mbti_poles.dart';
 import 'package:campus_mate/profile/viewmodel/basic_info_ui_state.dart';
+import 'package:campus_mate/profile/viewmodel/revisit_profile.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final basicInfoViewModelProvider = NotifierProvider<BasicInfoViewModel, BasicInfoUiState>(
@@ -45,10 +46,12 @@ class BasicInfoViewModel extends Notifier<BasicInfoUiState> {
     _scheduleNicknameCheck(nickname);
   }
 
-  /// 처음 상태를 정하는 단 한 곳이다. 지금은 폰에 남긴 값 또는 빈 값 — 나중에 서버 값을 끼울 자리다.
+  /// 처음 상태를 정하는 단 한 곳이다. 폰에 남긴 값 > (뒤로가기로 돌아왔으면) 서버 값 > 빈 값.
   BasicInfoUiState _initialState(DraftStore drafts, int thisYear) {
     final restored = drafts.read(DraftScreen.basicInfo, (data) => BasicInfoUiState.fromDraft(data, thisYear: thisYear));
-    return restored ?? BasicInfoUiState(thisYear: thisYear);
+    final saved = revisitProfile(ref);
+    return restored ??
+        (saved == null ? BasicInfoUiState(thisYear: thisYear) : BasicInfoUiState.fromProfile(saved, thisYear: thisYear));
   }
 
   /// 값이 바뀔 때마다 남긴다(저장소가 디바운스한다). 처음 상태(복원한 값 그대로)는 다시 쓰지 않고,
@@ -113,7 +116,8 @@ class BasicInfoViewModel extends Notifier<BasicInfoUiState> {
     if (!state.canSubmit) {
       return;
     }
-    state = _copyWith(isSubmitting: true, errorMessage: null);
+    // 지난 저장의 completed 를 내린다 — 되돌아와 다시 저장하다 실패하면 다음 화면으로 넘어가면 안 된다.
+    state = _copyWith(isSubmitting: true, errorMessage: null, completed: false);
     state = await _submittedState();
     _discardDraftIfCompleted();
     _refreshOnboardingStepIfCompleted();
@@ -168,7 +172,7 @@ class BasicInfoViewModel extends Notifier<BasicInfoUiState> {
     if (!state.completed) {
       return;
     }
-    unawaited(ref.read(onboardingStepListenableProvider).refresh());
+    unawaited(ref.read(onboardingStepListenableProvider).stepSaved());
   }
 
   BasicInfoUiState _copyWith({
