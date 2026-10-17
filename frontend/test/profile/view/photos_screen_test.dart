@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:campus_mate/account/model/account_repository.dart';
 import 'package:campus_mate/auth/model/face_detector_provider.dart';
 import 'package:campus_mate/auth/model/image_compressor_provider.dart';
 import 'package:campus_mate/common/failure.dart';
@@ -9,10 +10,19 @@ import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
+import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
+import 'package:campus_mate/core/back_exit/back_exit_view_model.dart';
+import 'package:campus_mate/core/draft/draft_store.dart';
+import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
+import 'package:campus_mate/me/model/me_repository_provider.dart';
+import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
+import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:campus_mate/profile/model/photos_repository_provider.dart';
+import 'package:campus_mate/profile/viewmodel/kakao_id_view_model.dart';
 import 'package:campus_mate/profile/view/hint_line.dart';
 import 'package:campus_mate/profile/view/photo_example.dart';
 import 'package:campus_mate/profile/view/photo_tiles.dart';
@@ -25,7 +35,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../auth/model/fake_face_detector.dart';
+import '../../account/model/fake_account_repository.dart';
 import '../../auth/model/fake_image_compressor.dart';
+import '../../core/draft/fake_draft_store.dart';
+import '../../me/model/fake_me_repository.dart';
+import '../model/fake_onboarding_repository.dart';
 import '../model/fake_photos_repository.dart';
 
 /// 1×1 투명 PNG. `Image.file` 이 실제로 읽을 수 있는 파일이어야 화면이 그려진다.
@@ -44,6 +58,9 @@ const _document = '학생증·신분증처럼 글자가 많은 사진은 올릴 
 void main() {
   late Directory tempDir;
   late FakeFaceDetector faceDetector;
+  late FakeOnboardingRepository onboarding;
+  late FakeMeRepository me;
+  late FakeAccountRepository account;
 
   setUp(() {
     tempDir = Directory.systemTemp.createTempSync('photos_screen_test');
@@ -60,15 +77,24 @@ void main() {
     required int photoCount,
     double textScale = 1.0,
     FakePhotosRepository? photos,
+    FakeDraftStore? drafts,
   }) async {
+    onboarding = FakeOnboardingRepository()..nextResult = const Success(OnboardingStep.photos);
+    me = FakeMeRepository(const Success(savedOnboardingProfile));
+    account = FakeAccountRepository()..kakaoIdResult = const Success('fox_rain_22');
     final container = ProviderContainer(
       overrides: [
         photosRepositoryProvider.overrideWithValue(photos ?? FakePhotosRepository()),
         imageCompressorProvider.overrideWithValue(FakeImageCompressor()),
         faceDetectorProvider.overrideWithValue(faceDetector),
+        onboardingRepositoryProvider.overrideWithValue(onboarding),
+        meRepositoryProvider.overrideWithValue(me),
+        accountRepositoryProvider.overrideWithValue(account),
+        if (drafts != null) draftStoreProvider.overrideWithValue(drafts),
       ],
     );
     addTearDown(container.dispose);
+    await container.read(onboardingStepListenableProvider).refresh();
 
     final files = [for (var i = 0; i < photoCount; i++) photoFile('photo-$i.png')];
     var index = 0;
@@ -110,6 +136,35 @@ void main() {
     await pump(tester, photoCount: 4, textScale: 2.0);
 
     expectButtonOnScreen(tester);
+  });
+
+  group('뒤로가기', () {
+    testWidgets('앱바 뒤로를 누르면 카카오톡 아이디를 읽은 뒤 04-1b 로 가고, 아이디는 폰에 남기지 않는다', (tester) async {
+      final drafts = FakeDraftStore();
+      final container = await pump(tester, photoCount: 2, drafts: drafts);
+
+      await tester.tap(find.byTooltip(onboardingBackLabel));
+      await tester.pumpAndSettle();
+
+      final steps = container.read(onboardingStepListenableProvider);
+      expect(steps.value, OnboardingStep.kakaoId);
+      expect(account.kakaoIdFetches, 1);
+      expect(container.read(kakaoIdViewModelProvider).kakaoIdInput, 'fox_rain_22');
+      expect(drafts.dump, isNot(contains('fox_rain')));
+      // 04-2 는 아직 지금 단계라 고른 사진은 메모리에 그대로 있다 — 04-1b 를 저장하면 다시 보인다.
+      expect(container.read(photosViewModelProvider).photos, hasLength(2));
+    });
+
+    testWidgets('안드로이드 시스템 뒤로는 앱바 화살표와 같고 종료 안내는 뜨지 않는다', (tester) async {
+      final container = await pump(tester, photoCount: 2);
+      expect(find.byType(BackExitScope), findsOneWidget, reason: '라우터와 두 겹이면 같은 뒤로가기에 안내까지 뜬다');
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(container.read(onboardingStepListenableProvider).value, OnboardingStep.kakaoId);
+      expect(find.text(backExitMessage), findsNothing);
+    });
   });
 
   // 2×2 배치는 15-7 과 같은 PhotoSlotGrid 를 쓴다 — 두 벌이면 한쪽만 고쳐진다. 04-2 열 간격은 12(pen F5DPI).

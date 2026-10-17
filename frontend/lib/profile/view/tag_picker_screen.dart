@@ -2,11 +2,13 @@ import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/common/widgets/select_chip.dart';
 import 'package:campus_mate/common/widgets/select_count_bar.dart';
+import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/me/view/edit_app_bar.dart';
 import 'package:campus_mate/me/viewmodel/tag_edit_view_model.dart';
+import 'package:campus_mate/profile/view/onboarding_back.dart';
 import 'package:campus_mate/profile/viewmodel/tag_picker_kind.dart';
 import 'package:campus_mate/profile/viewmodel/tag_picker_ui_state.dart';
 import 'package:campus_mate/profile/viewmodel/tag_picker_view_model.dart';
@@ -33,11 +35,20 @@ class TagPickerScreen extends ConsumerWidget {
       ref.listen(provider, (previous, next) {
         if (next.completed && !(previous?.completed ?? false)) context.pop();
       });
+      return _scaffold(EditAppBar(title: _editTitle()), state, viewModel);
     }
+    // 온보딩 모드만 앞 단계(04-5 → 04-4 · 04-6 → 04-5 · 06-2 → 06-1)로 돌아간다. 시스템 뒤로도 같다 —
+    // 라우터는 이 화면을 두르지 않는다(두 겹이면 안내까지 뜬다). 편집 모드는 push 라 편집 앱바가 평소대로 닫는다.
+    final back = onboardingBack(ref, isBusy: state.isSubmitting);
+    return BackExitScope(
+      onBack: back,
+      child: _scaffold(OnboardingAppBar(current: kind.dotIndex, total: kind.dotTotal, onBack: back), state, viewModel),
+    );
+  }
+
+  Widget _scaffold(PreferredSizeWidget appBar, TagPickerUiState state, TagPickerViewModel viewModel) {
     return Scaffold(
-      appBar: isEditing
-          ? EditAppBar(title: _editTitle())
-          : OnboardingAppBar(current: kind.dotIndex, total: kind.dotTotal),
+      appBar: appBar,
       body: SafeArea(
         top: false,
         child: Column(
