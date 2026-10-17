@@ -76,7 +76,9 @@ void main() {
     expect(find.image(const AssetImage('assets/images/heart-flat-vector-v3.png')), findsNWidgets(3));
   });
 
-  testWidgets('pen 치수 — 줄 328×64 · 줄 사이 8 · 첫 줄은 목록 맨 위(앱바 56 + 8) · 칩 72×28', (tester) async {
+  // pen 18a FreeSection(대장 전달 값 10-17): 제목은 꺼졌고 투명 여백 8 은 켜져 있다 — 섹션 시작 +16(여백 8 + 간격 8) · +88 · +160.
+  // 본문 안쪽 위 8 이라 첫 줄은 y 56 + 8 + 16 = 80.
+  testWidgets('pen 치수 — 줄 328×64 · 줄 사이 8 · 첫 줄 y80(앱바 56 + 위 8 + 여백 8 + 간격 8) · 칩 72×28', (tester) async {
     await pump(tester);
 
     final rows = find.byType(HeartTaskRow);
@@ -85,18 +87,17 @@ void main() {
     expect(first.left, 16);
     expect(first.size, const Size(328, 64));
     expect(second.top - first.bottom, 8);
-    // 안내를 지우며 안내와 첫 줄 사이(섹션 간격 8 + 빈칸 `vlmhj` 8 + 간격 8)도 같이 걷었다 — 18a 의 지운 뒤 pen 값은 받지 못했다.
-    expect(first.top, 56 + 8);
+    expect([for (var i = 0; i < 3; i++) tester.getTopLeft(rows.at(i)).dy - (56 + 8)], [16, 88, 160]);
     // 시계 칩은 시험 글꼴 글자가 Pretendard 보다 넓어 72 를 넘는다 — 폭은 완료 칩으로 잰다.
     final chip = find.ancestor(of: find.text('완료'), matching: find.byType(ConstrainedBox)).first;
     expect(tester.getSize(chip), const Size(72, 28));
   });
 
   for (final scale in [1.3, 2.0]) {
-    testWidgets('글자 배율 $scale — 첫 줄은 목록 맨 위(앱바 56 + 8) 그대로, 넘치지 않는다', (tester) async {
+    testWidgets('글자 배율 $scale — 첫 줄은 y80 그대로, 넘치지 않는다', (tester) async {
       await pump(tester, textScale: scale);
 
-      expect(tester.getRect(find.byType(HeartTaskRow).first).top, 56 + 8);
+      expect(tester.getRect(find.byType(HeartTaskRow).first).top, 56 + 8 + 16);
       expect(tester.takeException(), isNull);
     });
   }

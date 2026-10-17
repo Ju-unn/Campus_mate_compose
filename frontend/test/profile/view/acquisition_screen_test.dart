@@ -4,6 +4,7 @@ import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/progress_dots.dart';
 import 'package:campus_mate/common/widgets/select_chip.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
+import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
 import 'package:campus_mate/profile/model/acquisition_repository_provider.dart';
 import 'package:campus_mate/profile/model/profile_enums.dart';
@@ -14,6 +15,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../billing/view/pretendard.dart';
 import '../model/fake_acquisition_repository.dart';
 
 /// 20 · 20d · 06-4 세 경로만 둔 라우터. 20 과 06-4 자리는 글자 하나다.
@@ -35,6 +37,8 @@ Widget _app(FakeAcquisitionRepository repository) {
 Finder _start() => find.widgetWithText(AppButton, '시작하기');
 
 void main() {
+  setUpAll(loadPretendard);
+
   testWidgets('헤드라인과 칩 다섯 개가 보이고, 처음엔 시작하기가 꺼져 있다', (tester) async {
     await tester.pumpWidget(_app(FakeAcquisitionRepository()));
 
@@ -59,6 +63,25 @@ void main() {
     await tester.tap(find.text('기타'));
     await tester.pump();
     expect(find.text('어디서 알게 되셨나요?'), findsOneWidget);
+  });
+
+  // pen 20d qcQvZ(앱바를 직접 짠 프레임): 건너뛰기 k8Mb37 x276 y4 76×48 · 안쪽 [0,12],
+  // 글자 "건너뛰기" 14/600 #C4224B 52×19(버튼 안 x12 · y14.5 = 버튼 가운데). 글자 폭은 Pretendard 로 잰다 —
+  // 같은 글꼴이어도 앱 렌더는 47.7 이라 pen 의 52 와 다르다. 그래서 버튼 상자를 76 으로 두고 글자 가운데를 맞춘다.
+  testWidgets('pen k8Mb37: 건너뛰기는 (276,4) 76×48, 글자 14/600 primary-text 가 버튼 가운데', (tester) async {
+    tester.view
+      ..physicalSize = const Size(360, 780)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(_app(FakeAcquisitionRepository()));
+
+    final skip = tester.getRect(find.widgetWithText(TextButton, '건너뛰기'));
+    expect(skip, const Rect.fromLTWH(276, 4, 76, 48));
+    final label = tester.getRect(find.text('건너뛰기'));
+    expect(label.center.dx, closeTo(skip.left + 12 + 52 / 2, 0.01));
+    expect(label.center.dy, closeTo(skip.top + 14.5 + 19 / 2, 0.01));
+    final style = tester.widget<Text>(find.text('건너뛰기')).style!;
+    expect((style.fontSize, style.fontWeight, style.color), (14.0, FontWeight.w600, AppColors.primaryText));
   });
 
   testWidgets('pen LoyFK: 뒤로가기는 20 추천 코드로 간다', (tester) async {

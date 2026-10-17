@@ -7,7 +7,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../billing/view/pretendard.dart';
+
 void main() {
+  setUpAll(loadPretendard);
   late int nexts;
   late int skips;
 
@@ -151,6 +154,37 @@ void main() {
       expect(painter.computeLineMetrics().length, lessThanOrEqualTo(2), reason: step.body);
       painter.dispose();
     }
+  });
+
+  // pen 6/6 말풍선 글자 상자(대장 전달 값 10-17): 단계 12/600 높이 16 · 제목 16/700 280×22 · 설명 14/normal lineHeight 1.5 280×21, 말풍선 높이 159
+  // (16 + 16 + 8 + 22 + 8 + 21 + 8 + 48 + 12). 설명이 한 줄인지는 실제 글꼴(setUpAll 의 Pretendard)로 잰다.
+  testWidgets('pen 6/6 — 글자 상자 단계 16 · 제목 22 · 설명 21(한 줄), 말풍선 312×159', (tester) async {
+    final last = appTourSteps.last;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 312,
+              child: CoachBubble(
+                number: 6,
+                total: 6,
+                title: last.title,
+                body: last.body,
+                isLast: true,
+                onNext: () {},
+                onSkip: () {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(tester.getSize(find.text('6 / 6')).height, 16);
+    expect(tester.getSize(find.text(last.title)), const Size(280, 22));
+    expect(tester.getSize(find.text(last.body)), const Size(280, 21));
+    expect(tester.getSize(find.byType(CoachBubble)), const Size(312, 159));
   });
 
   for (final scale in [1.3, 2.0]) {

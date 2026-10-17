@@ -57,11 +57,18 @@ class PhotoExample extends StatelessWidget {
   }
 
   Widget _tile(ExampleImage image) {
+    final height = _tileHeight;
     final picture = ClipRRect(
       borderRadius: BorderRadius.circular(AppRadius.md),
-      child: Image.asset(image.asset, fit: BoxFit.cover, semanticLabel: image.label),
+      child: Image.asset(
+        image.asset,
+        fit: BoxFit.cover,
+        // pen 아바타 예시는 세로 원본(1024×1536)을 158×130 에 가운데 cover 로 담는다. 앱 그림은 그 원본의 158~1182 줄 정사각이라
+        // 아래에 맞춰야 pen 과 같은 부분(원본 347~1189 줄, 1 이내)이 보인다. 정사각 칸(04-2)은 잘리지 않아 가운데 그대로.
+        alignment: height == null ? Alignment.center : Alignment.bottomCenter,
+        semanticLabel: image.label,
+      ),
     );
-    final height = _tileHeight;
     if (height == null) {
       return Expanded(child: AspectRatio(aspectRatio: 1, child: picture));
     }

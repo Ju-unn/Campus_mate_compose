@@ -925,22 +925,23 @@ void main() {
       expect(tester.getSize(badge).height, 20);
     });
 
-    // pen 15e-9 `eAKKO` 를 지운 뒤: 제목 바로 아래 Spacer 8 만 남는다(섹션 298 → 243 = 안내 51 + 간격 4) — 제목에서 첫 줄까지 12.
-    testWidgets('내부용 보상 기준 안내는 없다 — 제목 → 12 → 첫 줄', (tester) async {
+    // pen FreeSection(투어 6/6 · 제목 켜짐, 대장 전달 값 10-17): 328×243 · 간격 4 — 제목 27 → 4 → 투명 여백 8 → 4 → 줄 3개(사이 4).
+    // 제목에서 첫 줄까지 4 + 8 + 4 = 16(종전 12 는 여백 뒤 간격 4 를 빠뜨린 값).
+    testWidgets('내부용 보상 기준 안내는 없다 — 제목 → 16 → 첫 줄', (tester) async {
       await pump(tester);
 
       expect(find.textContaining(_removedNotice), findsNothing);
       expect(find.textContaining('100명 이후'), findsNothing);
       final title = tester.getRect(find.text('무료로 모으기'));
-      expect(tester.getRect(find.byType(HeartTaskRow).first).top - title.bottom, 12);
+      expect(tester.getRect(find.byType(HeartTaskRow).first).top - title.bottom, 16);
     });
 
     for (final scale in [1.3, 2.0]) {
-      testWidgets('글자 배율 $scale — 제목 → 12 → 첫 줄 그대로, 넘치지 않는다', (tester) async {
+      testWidgets('글자 배율 $scale — 제목 → 16 → 첫 줄 그대로, 넘치지 않는다', (tester) async {
         await pump(tester, textScale: scale, height: 3200);
 
         final title = tester.getRect(find.text('무료로 모으기'));
-        expect(tester.getRect(find.byType(HeartTaskRow).first).top - title.bottom, closeTo(12, 0.5));
+        expect(tester.getRect(find.byType(HeartTaskRow).first).top - title.bottom, closeTo(16, 0.5));
         expect(tester.takeException(), isNull);
       });
     }
@@ -1023,6 +1024,8 @@ void main() {
     final free = find.byWidgetPredicate((w) => w is TourTarget && w.id == TourTargetId.heartStoreFree, skipOffstage: false);
     expect(find.descendant(of: free, matching: find.text('무료로 모으기', skipOffstage: false)), findsOneWidget);
     expect(find.descendant(of: free, matching: find.byType(HeartTaskRow, skipOffstage: false)), findsNWidgets(3));
+    // 투어가 감싸는 묶음 = pen FreeSection 328×243(제목 27). 앱은 제목 28 이라 244 — app_tour_host_test 6단계가 이 높이로 잰다.
+    expect(tester.getSize(free), const Size(328, 244));
     final top = find.byWidgetPredicate((w) => w is TourTarget && w.id == TourTargetId.heartStoreTop);
     expect(find.descendant(of: top, matching: find.byType(Image)), findsOneWidget);
     // 6단계가 무료로 모으기를 앱바 아래로 올릴 수 있게 목록 맨 끝에 빈자리를 둔다 — 투어가 없으면 높이 0(화면 그대로).

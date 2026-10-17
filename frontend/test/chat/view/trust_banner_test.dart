@@ -1,5 +1,6 @@
 import 'package:campus_mate/chat/view/trust_banner.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:flutter/material.dart';
@@ -16,7 +17,16 @@ void main() {
 
   setUpAll(loadPretendard);
 
-  Future<Rect> pump(WidgetTester tester, {double scale = 1, VoidCallback? onAction, bool withAction = true}) async {
+  Future<Rect> pump(
+    WidgetTester tester, {
+    double scale = 1,
+    VoidCallback? onAction,
+    bool withAction = true,
+    String title = title,
+    String caption = caption,
+    bool isMuted = false,
+    IconData? icon,
+  }) async {
     tester.view.physicalSize = const Size(360, 780);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -30,6 +40,8 @@ void main() {
             TrustBanner(
               title: title,
               caption: caption,
+              isMuted: isMuted,
+              icon: icon,
               actionLabel: withAction ? '수락하기' : null,
               onAction: withAction ? (onAction ?? () {}) : null,
             ),
@@ -101,6 +113,47 @@ void main() {
     expect(find.byType(AppButton), findsNothing);
     final captionRect = rectOf(tester, find.text(caption), banner);
     expect(banner.height - captionRect.bottom, 12);
+  });
+
+  group('14g 대기(A1g5lB) · 14h 종료 예정(bAZox) — 안쪽 [12,16] · 아이콘 → 글자 10', () {
+    const waitingTitle = '수락했어요. 상대의 응답을 기다리고 있어요';
+    const waitingCaption = '응답 기한까지 21:34:10 · 둘 다 수락하면 카카오톡 아이디와 실제 사진이 공개돼요';
+    const endingTitle = '이 대화는 21시간 뒤 종료돼요';
+    const endingCaption = '응답 기한이 지나면 대화 목록에서 사라져요';
+
+    testWidgets('14g — 360×83 #FFF0F2, shield-check 20 primary-text, 설명 두 줄 298×36', (tester) async {
+      final banner = await pump(tester, withAction: false, title: waitingTitle, caption: waitingCaption);
+
+      expect(banner.size, const Size(360, 83));
+      final box = find.descendant(of: find.byType(TrustBanner), matching: find.byType(ColoredBox)).first;
+      expect(tester.widget<ColoredBox>(box).color, AppColors.primaryWash);
+      expect(rectOf(tester, find.byIcon(AppIcons.shieldCheck), banner), const Rect.fromLTWH(16, 12, 20, 20));
+      final captionRect = rectOf(tester, find.text(waitingCaption), banner);
+      expect((captionRect.left, captionRect.height), (46.0, 36.0));
+      expect(captionRect.width, lessThanOrEqualTo(298));
+    });
+
+    testWidgets('14h — 360×65 #F7F7F7, 3D 시계 20×20(contain) · Lucide 아이콘 없음, 설명 한 줄', (tester) async {
+      final banner = await pump(tester, withAction: false, isMuted: true, title: endingTitle, caption: endingCaption);
+
+      expect(banner.size, const Size(360, 65));
+      final box = find.descendant(of: find.byType(TrustBanner), matching: find.byType(ColoredBox)).first;
+      expect(tester.widget<ColoredBox>(box).color, AppColors.surfaceSoft);
+      final clock = find.byWidgetPredicate((w) => w is Icon3d && w.icon == AppIcon3d.clock && w.size == 20);
+      expect(clock, findsOneWidget);
+      expect(rectOf(tester, clock, banner), const Rect.fromLTWH(16, 12, 20, 20));
+      expect(find.descendant(of: find.byType(TrustBanner), matching: find.byType(Icon)), findsNothing);
+      expect(rectOf(tester, find.text(endingTitle), banner).left, 46);
+      expect(rectOf(tester, find.text(endingCaption), banner).height, 18);
+    });
+
+    testWidgets('연결 끊김처럼 아이콘을 넘기면 3D 시계가 아니라 그 Lucide 아이콘(muted)', (tester) async {
+      await pump(tester, withAction: false, isMuted: true, icon: AppIcons.circleAlert);
+
+      expect(find.byType(Icon3d), findsNothing);
+      final icon = tester.widget<Icon>(find.byIcon(AppIcons.circleAlert));
+      expect((icon.size, icon.color), (20.0, AppColors.muted));
+    });
   });
 
   for (final scale in [1.3, 2.0]) {
