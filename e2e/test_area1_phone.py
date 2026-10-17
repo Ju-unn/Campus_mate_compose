@@ -39,15 +39,18 @@ class FakePhone:
 
 
 class PhoneBundleTest(Base):
-    def test_bundle_is_the_37_phone_hypotheses_but_the_two_device_one(self):
-        plan = ('E-AUTH-05 16 17 20 21 E-GATE-01 02 03 07 08 09 10 11 13 14 30 31 32 52 53 54 56 '
+    def test_bundle_is_the_34_phone_hypotheses_but_the_two_device_one(self):
+        # E-GATE-30 · 31 · 32(3b 실명 칸)는 학생증 제거(10-17)로 앱 화면과 함께 빠졌다.
+        plan = ('E-AUTH-05 16 17 20 21 E-GATE-01 02 03 07 08 09 10 11 13 14 52 53 54 56 '
                 'E-ONB-01 02 03 04 05 06 07 10 11 12 13 15 16 17 18').split()
         cases, prefix = [], None
         for word in plan:
             if word.startswith('E-'):
                 prefix, word = word.rsplit('-', 1)
             cases.append(f'{prefix}-{word}')
-        self.assertEqual(len(cases), 37)
+        self.assertEqual(len(cases), 34)
+        for gone in ('E-GATE-30', 'E-GATE-31', 'E-GATE-32'):
+            self.assertNotIn(gone, area1.PHONE)
         # 소셜 로그인 전환으로 더한 E-AUTH-23(로그아웃 뒤 시작 화면 · 소셜 버튼)이 끝에 붙는다
         self.assertEqual(area1.BUNDLES['area1-b1-phone'], [c for c in cases if c != 'E-ONB-05'] + ['E-AUTH-23'])
         self.assertLessEqual(set(area1.BUNDLES['area1-b1-phone']), set(area1.PHONE))
@@ -79,7 +82,7 @@ class PhoneAnswerTest(Base):
     def test_account_setup_failure_is_blocked_before_the_app_runs(self):
         self.serve({('POST', '/me/consents'): Reply(500, None)})
         phone = FakePhone()
-        self.assertEqual(area1.attempt_phone(self.run, 'E-GATE-30', phone)[0], 'blocked')
+        self.assertEqual(area1.attempt_phone(self.run, 'E-GATE-53', phone)[0], 'blocked')
         self.assertEqual(phone.jobs, [])
 
 
@@ -175,6 +178,10 @@ class SessionTest(Base):
         self.assertEqual(area1.attempt_phone(self.run, 'E-AUTH-17', phone)[0], 'pass')
         self.assertEqual([(j.get('fresh', True), 'token_hash' in j) for j in phone.jobs], [(True, True), (False, False)] * 3)
         self.assertEqual([j['expect'] for j in phone.jobs[::2]], ['consent', '3c', '04-1b'])
+        self.assertEqual(self.stages(), ['new', 'consented', 'basic'])  # 3c 계정 = 동의까지(학생증 단계는 없다)
+
+    def stages(self):
+        return [a['stage'] for a in json.loads((self.run.out / 'accounts.json').read_text(encoding='utf-8'))]
 
     def test_auth_20_logs_out_everywhere_between_the_two_runs(self):
         fake = self.serve()
@@ -182,6 +189,7 @@ class SessionTest(Base):
         self.assertEqual(area1.attempt_phone(self.run, 'E-AUTH-20', phone)[0], 'pass')
         self.assertIn('/auth/v1/logout', fake.paths('POST'))
         self.assertEqual([j.get('fresh', True) for j in phone.jobs], [True, False])
+        self.assertEqual(phone.jobs[0]['expect'], '3c')  # 동의까지 한 계정의 다음 화면(10-17 학생증 제거로 3b 가 없다)
         self.assertEqual(phone.jobs[1]['expect'], 'start')  # 로그아웃 상태의 첫 화면(소셜 로그인 전환)
 
     def test_auth_20_logout_failure_is_blocked(self):
@@ -204,6 +212,22 @@ class SessionTest(Base):
 
 
 class GateTest(Base):
+    def test_gate_02_consented_goes_to_3c_and_gate_done_to_04_1(self):
+        self.serve()
+        phone = FakePhone()
+        self.assertEqual(area1.attempt_phone(self.run, 'E-GATE-02', phone)[0], 'pass')
+        self.assertEqual([j['expect'] for j in phone.jobs], ['3c', '04-1'])
+
+    def test_3c_cases_use_an_account_that_only_consented(self):
+        # 3c 앞의 학생증 단계가 없어져(10-17) 3c 계정은 동의까지 한 계정이다.
+        for case in ('E-GATE-52', 'E-GATE-53', 'E-GATE-54', 'E-GATE-56'):
+            with self.subTest(case=case):
+                self.setUp()
+                self.serve()
+                area1.attempt_phone(self.run, case, FakePhone())
+                written = json.loads((self.run.out / 'accounts.json').read_text(encoding='utf-8'))
+                self.assertEqual([a['stage'] for a in written], ['consented'])
+
     def test_gate_52_tells_the_app_the_school_name(self):
         self.serve({('GET', '/rest/v1/universities'): Reply(200, [{'name': '테스트대학교'}])})
         phone = FakePhone()

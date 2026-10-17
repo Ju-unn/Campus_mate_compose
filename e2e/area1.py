@@ -1,4 +1,4 @@
-"""영역 1 묶음 1 — API 가설 19(진행만, 폰 없음, 묶음 area1-b1)와 폰 가설 36(아래 PHONE, 묶음 area1-b1-phone).
+"""영역 1 묶음 1 — API 가설 19(진행만, 폰 없음, 묶음 area1-b1)와 폰 가설 33(아래 PHONE, 묶음 area1-b1-phone).
 기대값은 바탕화면 E2E_최종테스트_시나리오.md 영역 1 의 그 줄이다.
 
 가설 하나 = 함수 하나 `(run) -> (결과, 메모)`. 계정은 [Run.account] 로 그때그때 새로 만든다(별칭 번호는 다시 안 쓴다).
@@ -382,7 +382,7 @@ def attempt(run, case):
         return 'blocked', str(e)
 
 
-# ── 폰 가설 37 중 36(E-ONB-05 는 두 기기라 묶음 6) ─────────────────────────────────────────────────────────────────────────────────
+# ── 폰 가설 34 중 33(E-ONB-05 는 두 기기라 묶음 6 · E-GATE-30~32 는 학생증 제거 10-17 로 뺌) ─────────────────────────────────────────────────────────────────────────────────
 # 함수 하나 `(run, phone) -> (결과, 메모)`. phone(**일감) 은 앱을 한 번 새로 켜 같은 번호의 앱 쪽
 # (frontend/integration_test/area1.dart)을 돌리고 앱이 한 말(dict, 답이 없으면 None)을 돌려준다. 일감 키:
 #   token_hash  관리자 generate_link 1회용 토큰 — 앱이 이것으로 로그인한다(없으면 로그아웃 상태 = 시작 화면 'start' 로 시작)
@@ -486,7 +486,7 @@ def p_auth_16(run, phone):
 def p_auth_17(run, phone):
     """시나리오는 기기 둘 · force-stop — A폰 한 대, run-as kill 로 끈다(force-stop 은 FCM 을 멈춘다)."""
     check = Check()
-    for stage, screen in (('new', 'consent'), ('verified', '3c'), ('basic', '04-1b')):
+    for stage, screen in (('new', 'consent'), ('consented', '3c'), ('basic', '04-1b')):
         _, token = _signed_in(run, stage)
         _app(check, phone(token_hash=token, expect=screen), f'{stage} 첫 로그인')
         _app(check, phone(fresh=False, expect=screen), f'{stage} 다시 켬')
@@ -496,7 +496,7 @@ def p_auth_17(run, phone):
 def p_auth_20(run, phone):
     check = Check()
     account, token = _signed_in(run, 'consented')
-    _app(check, phone(token_hash=token, expect='3b'), '로그인')
+    _app(check, phone(token_hash=token, expect='3c'), '로그인')  # 동의 다음은 3c(10-17 학생증 제거로 3b 가 없다)
     out = tools.call('POST', f"{run.cfg['SUPABASE_URL']}/auth/v1/logout?scope=global",
                      {'apikey': run.cfg['SUPABASE_ANON_KEY'], 'Authorization': f"Bearer {account['token']}"})
     if out[0] >= 300:
@@ -516,14 +516,14 @@ def p_auth_21(run, phone):
 
 def p_gate_02(run, phone):
     check = Check()
-    for stage, screen in (('consented', '3b'), ('verified', '3c'), ('gate_done', '04-1')):
+    for stage, screen in (('consented', '3c'), ('gate_done', '04-1')):  # 학생증 단계(3b)는 10-17 에 없어졌다
         _, token = _signed_in(run, stage)
         _app(check, phone(token_hash=token, expect=screen), stage)
     return check.result()
 
 
 def p_gate_03(run, phone):
-    """동의 전 · 학생증 전 · 온보딩 중 · 홈 계정 넷(홈은 묶음 2 의 계정 공장 home 단계)."""
+    """동의 전 · 학과 전 · 온보딩 중 · 홈 계정 넷(홈은 묶음 2 의 계정 공장 home 단계)."""
     check = Check()
     for stage in ('new', 'consented', 'basic', 'home'):
         account, token = _signed_in(run, stage)
@@ -589,7 +589,7 @@ def p_gate_13(run, phone):
 
 def p_gate_52(run, phone):
     check = Check()
-    account, token = _signed_in(run, 'verified')
+    account, token = _signed_in(run, 'consented')  # 3c 계정 — 동의 다음이 바로 3c 다(학생증 제거 10-17)
     university = _one(run, f"profiles?id=eq.{account['id']}&select=university_id").get('university_id') or _test_university(run)
     name = _one(run, f'universities?id=eq.{university}&select=name').get('name')
     if not name:
@@ -600,7 +600,7 @@ def p_gate_52(run, phone):
 
 def p_gate_54(run, phone):
     check = Check()
-    account, token = _signed_in(run, 'verified')
+    account, token = _signed_in(run, 'consented')  # 3c 계정 — 동의 다음이 바로 3c 다(학생증 제거 10-17)
     _app(check, phone(token_hash=token))
     saved = _one(run, f"profiles?id=eq.{account['id']}&select=major,student_number")
     check.that(saved.get('major') == '컴퓨터공학과' and saved.get('student_number') == '21', f'profiles {saved}')
@@ -610,7 +610,7 @@ def p_gate_54(run, phone):
 def p_gate_56(run, phone):
     """관문 앞 등록(A7) — 3c 에서 10초 기다린 뒤 1행, 저장해 관문이 열린 뒤 다시 켜도 같은 1행."""
     check = Check()
-    account, token = _signed_in(run, 'verified')
+    account, token = _signed_in(run, 'consented')  # 3c 계정 — 동의 다음이 바로 3c 다(학생증 제거 10-17)
     tokens = f"push_tokens?profile_id=eq.{account['id']}&select=token"
     _app(check, phone(token_hash=token), '3c 도착')
     before = _rows(run, tokens)
@@ -696,9 +696,8 @@ PHONE = {
     'E-AUTH-05': p_auth_05, 'E-AUTH-16': p_auth_16, 'E-AUTH-17': p_auth_17, 'E-AUTH-20': p_auth_20, 'E-AUTH-21': p_auth_21,
     'E-GATE-01': _on_phone('new'), 'E-GATE-02': p_gate_02, 'E-GATE-03': p_gate_03, 'E-GATE-07': _on_phone('new'),
     'E-GATE-08': p_gate_08, 'E-GATE-09': p_gate_09, 'E-GATE-10': _on_phone('new'), 'E-GATE-11': p_gate_11,
-    'E-GATE-13': p_gate_13, 'E-GATE-14': _on_phone('new'), 'E-GATE-30': _on_phone('consented'),
-    'E-GATE-31': _on_phone('consented'), 'E-GATE-32': _on_phone('consented'), 'E-GATE-52': p_gate_52,
-    'E-GATE-53': _on_phone('verified'), 'E-GATE-54': p_gate_54, 'E-GATE-56': p_gate_56,
+    'E-GATE-13': p_gate_13, 'E-GATE-14': _on_phone('new'), 'E-GATE-52': p_gate_52,  # E-GATE-30~32(3b 실명 칸)는 10-17 에 뺐다
+    'E-GATE-53': _on_phone('consented'), 'E-GATE-54': p_gate_54, 'E-GATE-56': p_gate_56,
     'E-ONB-01': _on_phone('gate_done'), 'E-ONB-02': _on_phone('gate_done'), 'E-ONB-03': p_onb_03, 'E-ONB-04': p_onb_04,
     'E-ONB-06': p_onb_06, 'E-ONB-07': _on_phone('gate_done'), 'E-ONB-10': _on_phone('gate_done'), 'E-ONB-11': p_onb_11,
     'E-ONB-12': _on_phone('gate_done'), 'E-ONB-13': p_onb_13, 'E-ONB-15': _on_phone('gate_done'), 'E-ONB-16': _mbti_empty,
