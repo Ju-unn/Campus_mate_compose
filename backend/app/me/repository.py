@@ -15,11 +15,13 @@ class MeRepository(PostgrestRepository):
             "select": "nickname,nickname_changed_at,bio,birth_year,gender,height_cm,mbti,religion,is_smoker,animal_type,impression_type,major,universities(name),"
                       "preferred_age_min,preferred_age_max,"
                       "preferred_height_min,preferred_height_max,"
-                      "interest_tags,my_traits,ideal_traits,"
+                      "interest_tags,my_traits,ideal_traits,ideal_note,"
                       "preferred_mbti_flags,preferred_animal_types,preferred_impression_types,"
                       "entitlements(heart_balance),"
                       "profile_avatars(status,storage_path,created_at),"
-                      "profile_photos(id,storage_path,position,is_avatar_source)",
+                      "profile_photos(id,storage_path,position,is_avatar_source),"
+                      # 내 행 아래 embed 라 남의 답은 닿지 않는다(FK profile_id → profiles.id).
+                      "survey_answers(axis,value)",
         })
         raise_for_status(response)
         return response.json()[0]

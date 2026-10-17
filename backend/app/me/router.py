@@ -101,6 +101,9 @@ async def get_my_profile(
         "avatar_regen_cost": avatar_regen_cost(ready_count),
         # 앱 시계를 믿지 않는다 — PATCH 409 와 같은 함수로 판정해 15-6-2 "M월 D일부터" 에 쓴다(C6).
         "nickname_changeable_at": changeable_at and changeable_at.isoformat(),
+        # 온보딩 뒤로가기(조각 S)가 06-2b · 설문을 다시 채운다. 설문 전이면 {} — 키는 POST survey 의 answers 와 같다.
+        "ideal_note": profile["ideal_note"],
+        "survey_answers": {a["axis"]: float(a["value"]) for a in profile["survey_answers"]},
     }
 
 
