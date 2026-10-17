@@ -96,6 +96,6 @@ class TagPickerViewModel extends Notifier<TagPickerUiState> {
   /// 나 탭 편집 모드(`TagEditViewModel`)는 이것 대신 화면 15 값을 다시 읽게 한다 — 온보딩 단계는 조회하지 않는다.
   @protected
   void onSaved() {
-    unawaited(ref.read(onboardingStepListenableProvider).refresh());
+    unawaited(ref.read(onboardingStepListenableProvider).stepSaved());
   }
 }

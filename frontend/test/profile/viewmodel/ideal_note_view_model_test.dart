@@ -1,5 +1,7 @@
+import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/profile/model/ideal_note_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
+import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:campus_mate/profile/viewmodel/ideal_note_view_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -35,6 +37,18 @@ void main() {
     await vm.submit();
 
     expect(repository.submittedNote, '대화가 잘 통하는 사람');
+  });
+
+  test('06-2b 에서 돌아온 06-2a 를 저장하면 06-2b 로 돌아가 다시 보기가 끝난다', () async {
+    await revisit(container, onboardingRepository, server: OnboardingStep.bio, visiting: OnboardingStep.idealNote);
+    final vm = container.read(idealNoteViewModelProvider.notifier);
+    vm.changeNote('대화가 잘 통하는 사람이면 좋겠어요');
+
+    await vm.submit();
+
+    final steps = container.read(onboardingStepListenableProvider);
+    expect(steps.value, OnboardingStep.bio);
+    expect(steps.isRevisiting, isFalse);
   });
 
   test('아무것도 쓰지 않으면 저장하지 않는다 — 건너뛰는 길은 없다', () async {

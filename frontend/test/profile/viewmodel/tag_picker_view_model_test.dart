@@ -1,5 +1,7 @@
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
+import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:campus_mate/profile/model/tag_picker_repository.dart';
 import 'package:campus_mate/profile/model/tag_picker_repository_provider.dart';
 import 'package:campus_mate/profile/model/tags.dart';
@@ -76,6 +78,20 @@ void main() {
     final state = container.read(tagPickerViewModelProvider(TagPickerKind.interests));
     expect(state.completed, isTrue);
     expect(repository.submittedTags, hasLength(3));
+  });
+
+  test('04-6 에서 돌아온 04-5 를 저장하면 04-6 으로 돌아가 다시 보기가 끝난다', () async {
+    await revisit(container, onboardingRepository, server: OnboardingStep.myTraits, visiting: OnboardingStep.interests);
+    final vm = container.read(tagPickerViewModelProvider(TagPickerKind.interests).notifier);
+    for (final tag in interestTags.take(3)) {
+      vm.toggle(tag);
+    }
+
+    await vm.submit();
+
+    final steps = container.read(onboardingStepListenableProvider);
+    expect(steps.value, OnboardingStep.myTraits);
+    expect(steps.isRevisiting, isFalse);
   });
 
   test('kind 마다 다른 풀을 쓴다', () {

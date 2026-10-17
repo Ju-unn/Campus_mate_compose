@@ -52,7 +52,7 @@ class KakaoIdViewModel extends Notifier<KakaoIdUiState> {
     if (!state.completed) {
       return;
     }
-    unawaited(ref.read(onboardingStepListenableProvider).refresh());
+    unawaited(ref.read(onboardingStepListenableProvider).stepSaved());
   }
 
   KakaoIdUiState _copyWith({

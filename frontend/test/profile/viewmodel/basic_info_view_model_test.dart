@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/profile/model/basic_info_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
+import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:campus_mate/profile/viewmodel/basic_info_view_model.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
@@ -360,6 +362,22 @@ void main() {
     expect(state.completed, isTrue);
     expect(repository.submitted?.nickname, '가나다');
     expect(onboardingRepository.fetchCount, 1);
+  });
+
+  // 온보딩 뒤로가기: 04-1b 에서 돌아와 다시 저장하면 바로 다음 화면(04-1b)으로 간다(사용자 결정 ③).
+  testWidgets('다시 보는 04-1 을 저장하면 04-1b 로 한 칸 간다', (tester) async {
+    await revisit(container, onboardingRepository, server: OnboardingStep.photos, visiting: OnboardingStep.basicInfo);
+    final vm = container.read(basicInfoViewModelProvider.notifier);
+    vm.changeNickname('가나다');
+    await tester.pump(const Duration(milliseconds: 350));
+    vm.changeBirthYear('2002');
+    vm.changeHeight('175');
+    vm.changePhoneNumber('01001352468');
+    vm.changeGender('male');
+
+    await vm.submit();
+
+    expect(container.read(onboardingStepListenableProvider).value, OnboardingStep.kakaoId);
   });
 
   test('MBTI 는 축마다 하나만 켜지고, 네 축을 다 골라야 글자가 완성된다', () {

@@ -1,7 +1,9 @@
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/profile/model/appearance_type_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
+import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:campus_mate/profile/model/profile_enums.dart';
 import 'package:campus_mate/profile/viewmodel/appearance_type_view_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -55,6 +57,24 @@ void main() {
     expect(repository.submittedImpressionType, ImpressionType.innocent);
     expect(onboardingRepository.fetchCount, 1);
   });
+  test('04-5 에서 돌아온 04-4 를 저장하면 04-5 로 돌아가 다시 보기가 끝난다', () async {
+    await revisit(
+      container,
+      onboardingRepository,
+      server: OnboardingStep.interests,
+      visiting: OnboardingStep.appearanceType,
+    );
+    final vm = container.read(appearanceTypeViewModelProvider.notifier);
+    vm.changeAnimalType(AnimalType.fox);
+    vm.changeImpressionType(ImpressionType.innocent);
+
+    await vm.submit();
+
+    final steps = container.read(onboardingStepListenableProvider);
+    expect(steps.value, OnboardingStep.interests);
+    expect(steps.isRevisiting, isFalse);
+  });
+
 
   test('제출에 실패하면 오류 문구가 남고 온보딩 단계를 다시 조회하지 않는다', () async {
     repository.nextResult = const FailureResult<void>(UnknownFailure());

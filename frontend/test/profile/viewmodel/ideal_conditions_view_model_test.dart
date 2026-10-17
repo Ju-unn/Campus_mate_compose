@@ -1,5 +1,7 @@
+import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/profile/model/ideal_conditions_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
+import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:campus_mate/profile/model/profile_enums.dart';
 import 'package:campus_mate/profile/viewmodel/ideal_conditions_ui_state.dart';
 import 'package:campus_mate/profile/viewmodel/ideal_conditions_view_model.dart';
@@ -48,6 +50,23 @@ void main() {
     expect(container.read(idealConditionsViewModelProvider).completed, isTrue);
     expect(onboardingRepository.fetchCount, 1);
   });
+  test('06-2 에서 돌아온 06-1 을 저장하면 06-2 로 돌아가 다시 보기가 끝난다', () async {
+    await revisit(
+      container,
+      onboardingRepository,
+      server: OnboardingStep.idealTraits,
+      visiting: OnboardingStep.idealConditions,
+    );
+    final vm = container.read(idealConditionsViewModelProvider.notifier);
+    pickRequiredAppearance(vm);
+
+    await vm.submit();
+
+    final steps = container.read(onboardingStepListenableProvider);
+    expect(steps.value, OnboardingStep.idealTraits);
+    expect(steps.isRevisiting, isFalse);
+  });
+
 
   test('얼굴상·인상은 3개까지만 담기고 다시 누르면 빠진다', () {
     final vm = container.read(idealConditionsViewModelProvider.notifier);

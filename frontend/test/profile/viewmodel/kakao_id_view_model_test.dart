@@ -2,8 +2,10 @@ import 'dart:io';
 
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/profile/model/kakao_id_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
+import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:campus_mate/profile/viewmodel/kakao_id_view_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -47,6 +49,18 @@ void main() {
     expect(container.read(kakaoIdViewModelProvider).completed, isTrue);
     expect(onboardingRepository.fetchCount, 1);
   });
+  test('다시 보는 04-1b 를 저장하면 서버 단계(04-2)에 닿아 다시 보기가 끝난다', () async {
+    await revisit(container, onboardingRepository, server: OnboardingStep.photos, visiting: OnboardingStep.kakaoId);
+    final vm = container.read(kakaoIdViewModelProvider.notifier);
+    vm.changeKakaoId('my_kakao_id');
+
+    await vm.submit();
+
+    final steps = container.read(onboardingStepListenableProvider);
+    expect(steps.value, OnboardingStep.photos);
+    expect(steps.isRevisiting, isFalse);
+  });
+
 
   test('제출에 실패하면 errorMessage 가 채워진다', () async {
     repository.nextResult = const FailureResult(UnknownFailure());

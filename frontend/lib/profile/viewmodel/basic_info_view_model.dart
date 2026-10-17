@@ -168,7 +168,7 @@ class BasicInfoViewModel extends Notifier<BasicInfoUiState> {
     if (!state.completed) {
       return;
     }
-    unawaited(ref.read(onboardingStepListenableProvider).refresh());
+    unawaited(ref.read(onboardingStepListenableProvider).stepSaved());
   }
 
   BasicInfoUiState _copyWith({
