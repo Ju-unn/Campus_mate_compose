@@ -302,7 +302,7 @@ final Map<String, Area1Case> area4Cases = {
   'E-SET-14': _session((tester, job) async {
     await _openAccount(tester);
     await _seeAll(tester, (job['texts'] as List).cast<String>());
-    await _seeAll(tester, ['실명과 출생연도는 학생증 대조와 운영 확인에만 쓰여요. 다른 사용자에게는 닉네임만 보여요.']);
+    await _seeAll(tester, ['출생연도는 운영 확인에만 쓰여요. 다른 사용자에게는 닉네임만 보여요.']); // 10-17 학생증 제거로 바뀐 안내문
     // 다 그려진 뒤 — 이메일은 6200647e 부터 16e 에 없고, email 방식 공장 계정은 "로그인 수단" 줄도 없다(PC 가 [absent] 로 준다).
     _seeNone((job['absent'] as List).cast<String>(), '16e');
     return null;

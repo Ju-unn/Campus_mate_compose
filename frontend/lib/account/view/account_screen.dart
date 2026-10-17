@@ -17,8 +17,8 @@ import 'package:go_router/go_router.dart';
 class AccountScreen extends ConsumerWidget {
   const AccountScreen({super.key});
 
-  /// DESIGN §9 16e 확정 문구(pen `FLwiN`).
-  static const privacyNote = '실명과 출생연도는 학생증 대조와 운영 확인에만 쓰여요. 다른 사용자에게는 닉네임만 보여요.';
+  /// 안내문(pen `FLwiN`). 2026-10-17 학생증 제거로 실명을 받지 않아 문구를 바꿨다(설계 2장 4번 · 7장 조각 3, pen 수정 필요).
+  static const privacyNote = '출생연도는 운영 확인에만 쓰여요. 다른 사용자에게는 닉네임만 보여요.';
 
   /// 값이 아직 없을 때(pen 에 없는 상태, 대장 결정 2026-09-28).
   static const emptyValue = '—';
@@ -109,7 +109,6 @@ class _AccountContent extends StatelessWidget {
           const _SectionHeader('본인 확인 정보'),
           const SizedBox(height: AppSpacing.xs),
           _InfoCard(rows: [
-            _InfoRow(icon: AppIcon3d.userRound, label: '실명', value: info.realName ?? AccountScreen.emptyValue),
             _InfoRow(
               icon: AppIcon3d.calendar,
               label: '출생연도',

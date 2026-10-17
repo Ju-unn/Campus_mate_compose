@@ -47,7 +47,8 @@ void main() {
     );
   }
 
-  test('GET /account 값과 세션의 로그인 수단을 AccountInfo 로 읽는다', () async {
+  // 서버가 옛 앱 호환으로 real_name 칸을 계속 내려 줘도(10-17 학생증 제거) 새 앱은 읽지 않는다 — 칸이 있어도 깨지지 않는다.
+  test('GET /account 값과 세션의 로그인 수단을 AccountInfo 로 읽는다(real_name 칸은 무시)', () async {
     final result = await repositoryReturning(json({
       'real_name': '홍길동', 'birth_year': 2003, 'university': '서울대학교',
       'joined_at': '2026-09-01T10:00:00+00:00', 'kakao_id': 'fox_rain',
@@ -57,7 +58,6 @@ void main() {
     expect(seen.single.method, 'GET');
     expect(seen.single.url.toString(), 'https://api.test/account');
     expect(info.loginProvider, 'kakao');
-    expect(info.realName, '홍길동');
     expect(info.birthYear, 2003);
     expect(info.university, '서울대학교');
     expect(info.joinedAt, DateTime.utc(2026, 9, 1, 10));
@@ -78,14 +78,13 @@ void main() {
     expect(result.when<AccountInfo?>(onSuccess: (i) => i, onFailure: (_) => null)!.loginProvider, isNull);
   });
 
-  test('빈 칸은 null 로 받는다', () async {
+  test('빈 칸은 null 로 받는다(real_name 칸이 없는 새 서버 응답)', () async {
     final result = await repositoryReturning(json({
-      'real_name': null, 'birth_year': null, 'university': '서울대학교',
+      'birth_year': null, 'university': '서울대학교',
       'joined_at': '2026-09-01T10:00:00+00:00', 'kakao_id': null,
     })).fetchAccount();
     final info = result.when<AccountInfo?>(onSuccess: (i) => i, onFailure: (_) => null)!;
 
-    expect(info.realName, isNull);
     expect(info.birthYear, isNull);
     expect(info.kakaoId, isNull);
   });

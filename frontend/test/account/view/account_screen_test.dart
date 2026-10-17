@@ -70,9 +70,9 @@ void main() {
     return fake;
   }
 
-  AccountInfo info({String? realName, int? birthYear, String? kakaoId, DateTime? joinedAt, String? loginProvider = 'kakao'}) =>
+  AccountInfo info({int? birthYear, String? kakaoId, DateTime? joinedAt, String? loginProvider = 'kakao'}) =>
       AccountInfo(
-        loginProvider: loginProvider, realName: realName, birthYear: birthYear, university: '서울대학교',
+        loginProvider: loginProvider, birthYear: birthYear, university: '서울대학교',
         joinedAt: joinedAt ?? DateTime.utc(2026, 9, 1, 10), kakaoId: kakaoId,
       );
 
@@ -82,12 +82,22 @@ void main() {
     expect(find.text('카카오 로그인'), findsOneWidget);
     expect(find.text('서울대학교 · 학교 메일 인증 완료'), findsOneWidget);
     expect(find.text('인증 완료'), findsOneWidget);
-    expect(find.text('홍길동'), findsOneWidget);
     expect(find.text('2003'), findsOneWidget); // pen EYBxA — 숫자만
     expect(find.text('서울대학교'), findsOneWidget);
     expect(find.text('2026.09.01'), findsOneWidget); // pen nntyt
     expect(find.text('fox_rain'), findsOneWidget);
     expect(find.text(AccountScreen.privacyNote), findsOneWidget);
+  });
+
+  // 10-17 학생증 제거(설계 2장 4번 확정): 실명은 받지 않는다 — 계정 화면에 실명 줄이 없고 안내문도 학생증 대조를 말하지 않는다.
+  testWidgets('실명 줄이 없고, 안내문은 "출생연도는 운영 확인에만 쓰여요. 다른 사용자에게는 닉네임만 보여요."', (tester) async {
+    await pump(tester);
+
+    expect(find.text('실명'), findsNothing);
+    expect(find.text('출생연도는 운영 확인에만 쓰여요. 다른 사용자에게는 닉네임만 보여요.'), findsOneWidget);
+    expect(find.textContaining('학생증'), findsNothing);
+    // "학생 인증 / 인증 완료" 줄은 이름 그대로 둔다(설계 2장 14번).
+    expect(find.text('학생 인증'), findsOneWidget);
   });
 
   // 지시문 13 A-7 — 소셜 로그인 뒤라 이메일 대신 로그인 수단과 학교 메일 인증 여부를 보인다.
@@ -113,7 +123,7 @@ void main() {
         await pump(tester, repository: FakeAccountRepository()..accountResult = Success(info(loginProvider: provider)));
 
         expect(find.text('로그인 수단'), findsNothing, reason: '$provider');
-        expect(find.text(AccountScreen.emptyValue), findsNWidgets(3), reason: '실명 · 출생연도 · 카톡만 "—"');
+        expect(find.text(AccountScreen.emptyValue), findsNWidgets(2), reason: '출생연도 · 카톡만 "—"');
         expect(find.text('서울대학교 · 학교 메일 인증 완료'), findsOneWidget);
       }
     });
@@ -127,7 +137,6 @@ void main() {
       AppIcon3d.privacy,
       AppIcon3d.mail,
       AppIcon3d.badgeCheck,
-      AppIcon3d.userRound,
       AppIcon3d.calendar,
       AppIcon3d.graduationCap,
       AppIcon3d.chat,
@@ -160,7 +169,7 @@ void main() {
 
     expect(tester.takeException(), isNull);
     // 상수가 아니라 글자로 찾는다 — 상수를 '' 로 바꿔도 통과하던 검토 R0 권고 1.
-    expect(find.text('—'), findsNWidgets(3));
+    expect(find.text('—'), findsNWidgets(2));
   });
 
   testWidgets('구역 틀이 pen 값표 그대로 — 카드 328 · 높이 · 머리 20 + 8 · 구역 사이 20 · 안내 상자 72(pen `n8lZI` 목록)', (tester) async {
@@ -176,11 +185,12 @@ void main() {
 
     // 로그인 정보 `w8eLx5` 132 = 머리 28 + 줄 52×2 · 본인 확인 `P59fF` 184 = 28 + 52×3 · 연락처 `irepB` 80 · 가입 `tZMom` 80 = 28 + 52.
     // 지시문 13 A-7: 소셜 로그인 뒤 로그인 정보에 "로그인 수단" 줄이 더해져 줄 3개(52×3)다 — pen 은 아직 2줄(디자인 확인 대기).
+    // 10-17 학생증 제거: 본인 확인에서 "실명" 줄이 빠져 줄 2개(52×2)다 — pen `P59fF` 은 아직 3줄(pen 수정 필요).
     final login = card('로그인 정보');
     final identity = card('본인 확인 정보');
     final contact = card('연락처 공개 정보');
     final joined = card('가입 정보');
-    for (final (rect, height) in [(login, 156.0), (identity, 156.0), (contact, 52.0), (joined, 52.0)]) {
+    for (final (rect, height) in [(login, 156.0), (identity, 104.0), (contact, 52.0), (joined, 52.0)]) {
       expect(rect.width, 328);
       expect(rect.height, height);
       expect(rect.left, 16);
@@ -190,8 +200,9 @@ void main() {
     final notice = tester.getRect(find.ancestor(of: find.text(AccountScreen.privacyNote), matching: find.byType(Container)).first);
     expect(notice.top - identity.bottom, 20); // 안내 `o1G2A` 가 본인 확인 카드 아래 20
     expect(notice.width, 328);
-    // pen o1G2A 328×72 = 14 + 글 2줄 44 + 14. 시험 글꼴(Ahem)은 한글이 넓어 3줄로 꺾이므로 높이는 "이상" 으로 본다 — 안쪽 여백 14 는 아래서 고정.
-    expect(notice.height, greaterThanOrEqualTo(72));
+    // pen o1G2A 328×72 = 14 + 글 2줄 44 + 14. 10-17 새 안내문은 시험 글꼴(Ahem)로도 2줄이라 위아래 여백 14 + 글 높이로 본다
+    // (Ahem 줄높이는 21 이라 70 — 실제 글꼴 21.7 × 2 면 pen 72 에 맞다).
+    expect(notice.height, tester.getSize(find.text(AccountScreen.privacyNote)).height + 14 + 14);
     expect(tester.getTopLeft(find.text(AccountScreen.privacyNote)).dy - notice.top, 14);
     expect(tester.getTopLeft(find.text('연락처 공개 정보')).dy - notice.bottom, 20);
     expect(tester.getTopLeft(find.text('가입 정보')).dy - contact.bottom, 20);
@@ -209,7 +220,7 @@ void main() {
       return p.localToGlobal(Offset(last.right, 0)).dx;
     }
 
-    for (final value in ['카카오 로그인', '서울대학교 · 학교 메일 인증 완료', '인증 완료', '홍길동', '2003', '서울대학교', '2026.09.01']) {
+    for (final value in ['카카오 로그인', '서울대학교 · 학교 메일 인증 완료', '인증 완료', '2003', '서울대학교', '2026.09.01']) {
       expect(lastGlyphRight(value), closeTo(cardInnerRight, 0.5), reason: value);
     }
     // 카톡 줄은 셰브런(18)이 끝에 붙고, 값은 줄 간격 12 앞에서 끝난다.
@@ -240,7 +251,7 @@ void main() {
       // 지어낸 긴 학교 이름 — 값 칸에서 두 줄로 접힌다.
       const school = '가나다라마바사대학교 아자차카타파하캠퍼스';
       final account = AccountInfo(
-        loginProvider: 'kakao', realName: null, birthYear: null, university: school,
+        loginProvider: 'kakao', birthYear: null, university: school,
         joinedAt: DateTime.utc(2026, 9, 1, 10), kakaoId: null,
       );
       await pump(
@@ -338,7 +349,7 @@ void main() {
       expect(fake.accountFetches, 2);
     });
 
-    testWidgets('저장하지 않고 돌아오면 다시 읽지 않는다 — 실명이 든 GET 을 한 번 덜 부른다', (tester) async {
+    testWidgets('저장하지 않고 돌아오면 다시 읽지 않는다 — 출생연도가 든 GET 을 한 번 덜 부른다', (tester) async {
       await openKakaoIdSettings(tester);
 
       router.pop();
@@ -358,7 +369,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(fake.accountFetches, 2);
-    expect(find.text('홍길동'), findsOneWidget);
+    expect(find.text('fox_rain'), findsOneWidget);
   });
 
   // DESIGN §11.2 — 넘침(Flex 오류)과 잘림(오류 없이 글자가 상자 밖)을 따로 본다. 기본 800 폭에선 안 보여 pen 폭 360 으로 본다.

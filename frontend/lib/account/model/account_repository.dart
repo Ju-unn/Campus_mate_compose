@@ -30,7 +30,6 @@ class HttpAccountRepository implements AccountRepository {
         final json = body as Map<String, dynamic>;
         return AccountInfo(
           loginProvider: _loginProvider(),
-          realName: json['real_name'] as String?,
           birthYear: json['birth_year'] as int?,
           university: json['university'] as String,
           joinedAt: DateTime.parse(json['joined_at'] as String),
