@@ -29,7 +29,7 @@ void main() {
   test('LoginNotice.take returns the posted message once, then null', () {
     LoginNotice.post('탈퇴한 계정이에요');
 
-    expect(LoginNotice.take(), '탈퇴한 계정이에요');
+    expect(LoginNotice.take()?.message, '탈퇴한 계정이에요');
     expect(LoginNotice.take(), isNull);
   });
 
@@ -48,7 +48,7 @@ void main() {
 
     signOutWhenWithdrawn(AccountStatus.expired, () async => signOutCalls++);
 
-    expect(LoginNotice.take(), '세션이 만료됐어요, 다시 로그인해 주세요');
+    expect(LoginNotice.take()?.message, '세션이 만료됐어요, 다시 로그인해 주세요');
     expect(signOutCalls, 1);
   });
 
@@ -107,7 +107,7 @@ void main() {
     test('direct withdraw: WithdrawViewModel success → notice posted and signOut once', () async {
       await container.read(withdrawViewModelProvider.notifier).withdraw();
 
-      expect(LoginNotice.take(), '탈퇴한 계정이에요');
+      expect(LoginNotice.take()?.message, '탈퇴한 계정이에요');
       expect(signOutCalls, 1);
     });
 
@@ -118,7 +118,7 @@ void main() {
       await container.read(withdrawViewModelProvider.notifier).withdraw();
 
       expect(container.read(withdrawViewModelProvider).errorMessage, isNull);
-      expect(LoginNotice.take(), '탈퇴한 계정이에요');
+      expect(LoginNotice.take()?.message, '탈퇴한 계정이에요');
       expect(signOutCalls, 1);
     });
 
@@ -131,7 +131,7 @@ void main() {
         api.send('GET', '/cards/today', (_) {}),
       ]);
 
-      expect(LoginNotice.take(), '탈퇴한 계정이에요');
+      expect(LoginNotice.take()?.message, '탈퇴한 계정이에요');
       expect(signOutCalls, 1);
     });
 
@@ -157,7 +157,7 @@ void main() {
           .send('DELETE', '/cards/push-tokens/tok', (_) {});
 
       expect(listenable.value, AccountStatus.withdrawn);
-      expect(LoginNotice.take(), '탈퇴한 계정이에요');
+      expect(LoginNotice.take()?.message, '탈퇴한 계정이에요');
       expect(signOutCalls, 1);
     });
 
@@ -171,7 +171,7 @@ void main() {
       ]);
 
       expect(listenable.value, AccountStatus.expired);
-      expect(LoginNotice.take(), '세션이 만료됐어요, 다시 로그인해 주세요');
+      expect(LoginNotice.take()?.message, '세션이 만료됐어요, 다시 로그인해 주세요');
       expect(signOutCalls, 1);
     });
   });

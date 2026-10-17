@@ -39,7 +39,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   @override
   void initState() {
     super.initState();
-    _notice = LoginNotice.take();
+    _notice = LoginNotice.take()?.message;
     if (_notice != null) {
       _noticeTimer = Timer(const Duration(seconds: 3), () => setState(() => _notice = null));
     }

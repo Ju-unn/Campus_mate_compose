@@ -103,5 +103,14 @@ void main() {
 
     expect(state().toast?.message, '탈퇴한 계정이에요');
     expect(state().toast?.isCancellation, isFalse);
+    expect(state().toast?.isInfo, isFalse);
+  });
+
+  // 03 학교 메일 충돌 "카카오로 다시 로그인" 뒤의 안내는 오류가 아니다 — info 아이콘(10-17 학생증 제거 B안).
+  test('안내(info) 알림은 버튼 폭 그대로 info 로 띄운다', () {
+    viewModel().showNotice('이 학교 메일은 카카오로 가입돼 있어요. 카카오로 로그인해 주세요', isInfo: true);
+
+    expect(state().toast?.isInfo, isTrue);
+    expect(state().toast?.isCancellation, isFalse);
   });
 }

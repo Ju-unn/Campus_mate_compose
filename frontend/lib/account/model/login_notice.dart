@@ -8,16 +8,17 @@ import 'package:campus_mate/core/auth/account_status_listenable.dart';
 /// 로그아웃하면 `SessionScope` 가 ProviderScope 를 통째로 새로 만들고(라우터 · ScaffoldMessenger 포함)
 /// 스플래시도 다시 뜬다 — 로그아웃 전에 띄운 토스트는 함께 사라지고, provider 도 새로 시작해 값을 넘기지 못한다.
 /// 그래서 로그아웃 직전에 여기 남기고, 시작 화면(`StartView`)이 [take] 로 꺼낸다(Ruling 36).
+/// [isInfo] 면 오류가 아닌 안내다 — 시작 화면이 경고 대신 info 아이콘을 단다(03 학교 메일 충돌 "카카오로 다시 로그인", 10-17).
 abstract final class LoginNotice {
-  static String? _message;
+  static ({String message, bool isInfo})? _notice;
 
-  static void post(String message) => _message = message;
+  static void post(String message, {bool isInfo = false}) => _notice = (message: message, isInfo: isInfo);
 
   /// 한 번만 값을 주고 비운다 — 로그인 화면에 다시 들어와도 또 뜨지 않는다.
-  static String? take() {
-    final message = _message;
-    _message = null;
-    return message;
+  static ({String message, bool isInfo})? take() {
+    final notice = _notice;
+    _notice = null;
+    return notice;
   }
 }
 

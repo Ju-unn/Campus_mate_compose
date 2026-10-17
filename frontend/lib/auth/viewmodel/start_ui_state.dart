@@ -21,8 +21,9 @@ class StartUiState {
 
 /// 시작 화면 토스트 한 장(후속 지시문 13 B-3).
 /// 취소는 폭을 내용에 맞추고 `info` 아이콘(높이 40), 실패 · 로그아웃 알림은 버튼 폭에 `triangle-alert`(두 줄이면 높이 60).
+/// 안내([isInfo], 03 학교 메일 충돌 뒤 "카카오로 로그인해 주세요")는 버튼 폭에 `info` 다.
 class StartToast {
-  const StartToast({required this.message, required this.isCancellation});
+  const StartToast({required this.message, required this.isCancellation, this.isInfo = false});
 
   factory StartToast.fromFailure(Failure failure) {
     return StartToast(message: failure.toDisplayMessage(), isCancellation: failure is LoginCancelledFailure);
@@ -30,4 +31,7 @@ class StartToast {
 
   final String message;
   final bool isCancellation;
+
+  /// 오류가 아닌 안내 — 버튼 폭은 그대로, 아이콘만 `info`.
+  final bool isInfo;
 }
