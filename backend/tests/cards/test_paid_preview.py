@@ -104,11 +104,11 @@ def fresh_cache():
 
 
 async def test_the_paid_card_never_gets_the_rails_cached_picture(fresh_cache):
-    """홈 레일(112×140, 반경 8)이 먼저 같은 아바타를 만들어도 유료 카드는 제 8×10 을 받는다. 캐시 키가 경로뿐이면
-    유료 카드가 홈의 덜 흐린 큰 그림을 그대로 내려준다 — 결제 전에 얼굴이 더 보인다."""
+    """홈 레일(224×280, 블러 없음)이 먼저 같은 아바타를 만들어도 유료 카드는 제 8×10 을 받는다. 캐시 키가 경로뿐이면
+    유료 카드가 홈의 흐리지 않은 큰 그림을 그대로 내려준다 — 결제 전에 얼굴이 보인다."""
     storage = _Storage(patterned_png())
 
-    rail = await cached_preview(storage, "p/a.png", (112, 140), 8)
+    rail = await cached_preview(storage, "p/a.png", (224, 280), 0)
     paid = await preview_of(storage, "p/a.png")
 
     assert paid != rail
