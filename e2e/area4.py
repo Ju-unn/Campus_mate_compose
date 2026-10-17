@@ -147,10 +147,12 @@ def p_set_14(run, phone):
     # 16e 는 소셜 로그인 전환 뒤 이메일을 보이지 않는다(6200647e — user.email 은 개인 메일이거나 비어 있다). 대신 "학교 메일" 줄
     # "{학교} · 학교 메일 인증 완료" 와 "로그인 수단" 줄(카카오 · Google · Apple)이다(account_screen.dart _AccountContent).
     # 공장 계정은 관리자 API 로 만든 email 방식이라 로그인 수단 이름이 없어 그 줄을 아예 그리지 않는다(_loginLabel → null).
-    texts = [f'{school} · 학교 메일 인증 완료', '인증 완료', private.get('real_name') or EMPTY,
+    # 실명 줄은 학생증 제거(10-17)로 없어졌다(GET /account 도 real_name 을 안 준다) — DB 에 옛 실명이 남아 있으면 그 글자도 없어야 한다.
+    texts = [f'{school} · 학교 메일 인증 완료', '인증 완료',
              str(profile['birth_year']) if profile.get('birth_year') else EMPTY, school,
              private.get('kakao_id') or EMPTY, _korean_date(profile['created_at'])]
-    _app(check, phone(token_hash=token, texts=texts, absent=[account['email'], '로그인 수단']))
+    absent = [account['email'], '로그인 수단', '실명'] + ([private['real_name']] if private.get('real_name') else [])
+    _app(check, phone(token_hash=token, texts=texts, absent=absent))
     return check.result()
 
 
@@ -166,11 +168,10 @@ def p_set_15(run, phone):
 def p_set_16(run, phone):
     check = Check()
     account, token = _signed_in(run, 'home')
-    # 활성 계정은 출생연도가 비면 DB 제약(profiles_active_requires_onboarding)이 막고, 카톡 아이디가 비면 서버 온보딩 판정
-    # (onboarding_progress.py 의 kakao_id 단계)이 앱을 온보딩으로 보내 계정 화면에 못 간다(폰 10-04) — 실명만 비워 "—" 1개.
-    # 공장 계정은 학생증 제출을 안 거쳐 평문 실명도 비어 있다 — 서버가 평문으로 폴백하는 이중 쓰기 기간에도 "—" 다.
-    run.seed_private(account['id'], real_name='')
-    _app(check, phone(token_hash=token, dashes=1))
+    # 비울 수 있던 칸은 실명뿐이었는데 학생증 제거(10-17)로 실명 줄이 없어졌다. 활성 계정은 출생연도가 비면 DB 제약
+    # (profiles_active_requires_onboarding)이 막고, 카톡 아이디가 비면 서버 온보딩 판정(onboarding_progress.py 의 kakao_id 단계)이
+    # 앱을 온보딩으로 보내 계정 화면에 못 간다(폰 10-04) — 다 채운 계정의 16e 에는 "—" 가 0개다.
+    _app(check, phone(token_hash=token, dashes=0))
     return check.result()
 
 

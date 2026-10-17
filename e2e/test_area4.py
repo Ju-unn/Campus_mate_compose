@@ -233,22 +233,25 @@ class PhoneCaseTest(Base):
         self.assertEqual(result, 'fail')
         self.assertIn('notification_settings', note)
 
-    def test_set_14_expected_seven_cells_come_from_the_db(self):
+    def test_set_14_expected_six_cells_come_from_the_db(self):
         when = datetime(2026, 3, 14, 15, 30, tzinfo=timezone.utc).isoformat()
         profiles = {'id-1': {'birth_year': 2004, 'created_at': when, 'universities': {'name': '테스트대'}}}
-        private = {'id-1': {'real_name': None, 'kakao_id': 'e2e1001'}}
+        # DB 에 실명이 남아 있어도(옛 가입자) 16e 는 실명 줄이 없다(학생증 제거 10-17 — GET /account 가 real_name 을 안 준다).
+        private = {'id-1': {'real_name': '홍길동', 'kakao_id': 'e2e1001'}}
         (result, _), phone, _, _ = self.attempt('E-SET-14', profiles=profiles, private=private)
         self.assertEqual(result, 'pass')
         # 6200647e 뒤 16e 는 이메일 대신 "학교 메일" 줄({학교} · 학교 메일 인증 완료)을 보인다.
         self.assertEqual(phone.jobs[0]['texts'],
-                         ['테스트대 · 학교 메일 인증 완료', '인증 완료', '—', '2004', '테스트대', 'e2e1001', '2026.03.15'])
+                         ['테스트대 · 학교 메일 인증 완료', '인증 완료', '2004', '테스트대', 'e2e1001', '2026.03.15'])
+        self.assertIn('홍길동', phone.jobs[0]['absent'])
 
-    def test_set_14_the_email_and_the_login_method_row_must_not_be_on_the_screen(self):
+    def test_set_14_the_email_the_login_method_and_the_real_name_rows_must_not_be_on_the_screen(self):
         # 이메일은 소셜 로그인 뒤 개인 메일이거나 비어 있어 뺐다(6200647e). 공장 계정은 email 방식이라 로그인 수단을 몰라 그 줄이 없다.
+        # 실명 줄은 학생증 제거(10-17)로 없어졌다.
         profiles = {'id-1': {'birth_year': 2004, 'created_at': '2026-03-14T15:30:00+00:00', 'universities': {'name': '테스트대'}}}
         (result, _), phone, _, _ = self.attempt('E-SET-14', profiles=profiles, private={'id-1': {'kakao_id': 'k'}})
         self.assertEqual(result, 'pass')
-        self.assertEqual(phone.jobs[0]['absent'], ['base+e2e1001@gmail.com', '로그인 수단'])
+        self.assertEqual(phone.jobs[0]['absent'], ['base+e2e1001@gmail.com', '로그인 수단', '실명'])
         self.assertNotIn('base+e2e1001@gmail.com', phone.jobs[0]['texts'])
 
     def test_set_15_sets_created_at_to_korean_00_30(self):
@@ -259,15 +262,15 @@ class PhoneCaseTest(Base):
         self.assertEqual((moment.hour, moment.minute), (0, 30))
         self.assertEqual(phone.jobs[0]['date'], moment.strftime('%Y.%m.%d'))
 
-    def test_set_16_empties_only_the_real_name_so_the_account_screen_still_opens(self):
+    def test_set_16_a_finished_account_has_no_empty_cell_and_nothing_is_emptied(self):
         (result, _), phone, db, _ = self.attempt('E-SET-16')
         self.assertEqual(result, 'pass')
-        self.assertEqual(phone.jobs[0]['dashes'], 1)
-        # 활성 계정은 출생연도가 비면 DB 제약(profiles_active_requires_onboarding)이 막고, 카톡 아이디가 비면 서버 온보딩 판정
-        # (onboarding_progress.py 의 kakao_id 단계)이 앱을 온보딩으로 보내 계정 화면에 못 간다(폰 10-04) — 실명만 비운다.
+        # 비울 수 있던 칸은 실명뿐이었는데 학생증 제거(10-17)로 실명 줄이 없어졌다. 활성 계정은 출생연도가 비면 DB 제약
+        # (profiles_active_requires_onboarding)이 막고, 카톡 아이디가 비면 서버 온보딩 판정이 앱을 온보딩으로 보낸다 — "—" 0개.
+        self.assertEqual(phone.jobs[0]['dashes'], 0)
         self.assertNotIn(('PATCH', '/rest/v1/profiles', {'birth_year': None}), db.calls)
         writes = [(p, b) for m, p, b in db.calls if (m, p) == ('PATCH', '/rest/v1/profile_private') or p.startswith('/rest/v1/rpc/set_')]
-        self.assertEqual(writes, [('/rest/v1/rpc/set_real_name', {'p_profile': 'id-1', 'p_real_name': '', 'p_key': 'k'})])
+        self.assertEqual(writes, [])
 
     def test_set_19_new_kakao_id_must_land_in_the_db(self):
         db = serve_db(self)
