@@ -308,7 +308,11 @@ class ProfileOnboardingRepository(PostgrestRepository):
         await self._patch_profile(profile_id, {"acquisition_channel": channel, "acquisition_note": note})
 
     async def activate_profile(self, profile_id: UUID) -> None:
-        await self._patch_profile(profile_id, {"status": "active"})
+        # pending 행만 고친다 — 정지 · 탈퇴를 되살리지 않고, 06-3 저장과 단계 조회가 겹쳐도 한 번만 바뀐다.
+        response = await self._patch(
+            "profiles", params={"id": f"eq.{profile_id}", "status": "eq.pending"}, json={"status": "active"}
+        )
+        raise_for_status(response)
 
     async def fetch_onboarding_snapshot(self, profile_id: UUID) -> dict:
         profile_response = await self._get(
@@ -317,7 +321,7 @@ class ProfileOnboardingRepository(PostgrestRepository):
                 "id": f"eq.{profile_id}",
                 "select": "nickname,gender,mbti,animal_type,impression_type,interest_tags,my_traits,religion,"
                           "is_smoker,preferred_age_min,preferred_animal_types,preferred_impression_types,"
-                          "ideal_traits,ideal_note,bio",
+                          "ideal_traits,ideal_note,bio,status",
             },
         )
         raise_for_status(profile_response)
@@ -376,6 +380,7 @@ class ProfileOnboardingRepository(PostgrestRepository):
             "ideal_note": (profile["ideal_note"] or "").strip(),
             "bio": profile["bio"],
             "_gender": profile["gender"],
+            "_status": profile["status"],
         }
 
     async def _patch_profile(self, profile_id: UUID, fields: dict) -> None:

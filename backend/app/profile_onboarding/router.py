@@ -458,4 +458,8 @@ async def get_next_step(caller: Caller = Depends(get_verified_caller)) -> NextSt
     await require_current_consent(settings, client, profile_id)
     repo = _repo(settings, client)
     snapshot = await repo.fetch_onboarding_snapshot(profile_id)
-    return NextStepResponse(step=next_step(snapshot))
+    step = next_step(snapshot)
+    # 06-3 저장 때 아바타가 아직이던 사람은 여기서 가입이 끝난다. 토큰 갱신마다 도는 조회라 pending 일 때만 쓴다.
+    if step == "complete" and snapshot["_status"] == "pending":
+        await repo.activate_profile(profile_id)
+    return NextStepResponse(step=step)
