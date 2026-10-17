@@ -62,7 +62,7 @@ def _reject_withdrawn(status: str | None) -> None:
 
 
 def reject_suspended(status: str | None) -> None:
-    """정지 계정은 403. 403 은 학생증 · 학과 관문도 쓰고 있어서 앱(정지 안내 화면)이 문구를 비교하지 않고
+    """정지 계정은 403. 403 은 학교 메일 · 학과 관문도 쓰고 있어서 앱(정지 안내 화면)이 문구를 비교하지 않고
     가를 수 있게 헤더를 싣는다(Ruling 8). 로그인 자체는 살려 둔다 — 안내를 띄워야 한다."""
     if status == "suspended":
         raise HTTPException(status_code=403, detail=errors.ACCOUNT_SUSPENDED,
@@ -97,21 +97,20 @@ async def get_verified_user_id(
     client: httpx.AsyncClient,
     authorization: str | None = None,
 ) -> UUID:
-    """학생증 인증을 마친 사용자만 통과시킨다. 온보딩 엔드포인트가 공통으로 쓰는 관문이라
+    """학교 메일 확인과 학과 입력을 마친 사용자만 통과시킨다. 온보딩 엔드포인트가 공통으로 쓰는 관문이라
     조각1 의 `fetch_gate_status` 를 그대로 재사용한다(2026-09-20 리뷰 필수 1).
 
-    순서: 탈퇴(401) → 정지 → 학교 메일 → 학생증 → 학과. 동의는 학생증 제출(3b)이 앞에서 막는다 —
-    전체 관문 순서는 정지 → 동의 → 학교 메일 → 학생증 → 학과와 학번 이다(GET /me/verification-status)."""
+    순서: 탈퇴(401) → 정지 → 학교 메일 → 학과. 동의는 학교 메일 인증(school_email/router._gate)이 앞에서 막는다 —
+    전체 관문 순서는 정지 → 동의 → 학교 메일 → 학과와 학번 이다(GET /me/verification-status).
+    학생증은 관문이 아니다(학생증 제거 10-17) — 조회 칸은 review_hook 이 아직 읽어서 남아 있을 뿐이다."""
     profile_id = await get_current_user_id(settings, client, authorization)
     repo = StudentVerificationRepository(
         settings.postgrest_url, settings.supabase_service_role_key, client
     )
     gate = await repo.fetch_gate_status(profile_id)
     _reject_withdrawn(gate.get("status"))
-    reject_suspended(gate.get("status"))  # 학생증 · 학과보다 먼저 본다.
+    reject_suspended(gate.get("status"))  # 학교 메일 · 학과보다 먼저 본다.
     require_school_email(gate)
-    if gate["student_verification"] != "verified":
-        raise HTTPException(status_code=403, detail=errors.STUDENT_VERIFICATION_REQUIRED)
     if gate["department"] is None:
         raise HTTPException(status_code=403, detail=errors.DEPARTMENT_REQUIRED)
     return profile_id

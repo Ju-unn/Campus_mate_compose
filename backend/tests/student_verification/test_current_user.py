@@ -172,7 +172,7 @@ async def test_an_active_or_unknown_status_passes_the_gate():
                                           authorization="Bearer valid-token") == UUID(USER_ID)
 
 
-# 학교 메일 관문(소셜 로그인 전환) — 순서: 정지 → 동의 → 학교 메일 → 학생증 → 학과와 학번 ------------------
+# 학교 메일 관문(소셜 로그인 전환) — 순서: 정지 → 동의 → 학교 메일 → 학과와 학번 ------------------
 
 async def test_before_the_school_email_is_403_without_a_status_header():
     client = _gate_client({"student_verification": "verified", "department": "컴공", "status": "active",
@@ -216,14 +216,43 @@ async def test_the_school_email_is_checked_before_the_student_id_and_the_departm
     assert exc_info.value.detail == errors.SCHOOL_EMAIL_REQUIRED
 
 
-async def test_after_the_school_email_the_student_id_gate_answers():
-    client = _gate_client({"student_verification": "pending", "department": None, "status": "active",
+# 학생증 제거(10-17): 학생증 상태는 관문이 아니다 — 학교 메일 다음은 바로 학과다 ----------------------------
+
+@pytest.mark.parametrize("student_id", ["none", "pending", "rejected"])
+async def test_any_student_id_state_passes_once_the_school_email_and_the_department_are_in(student_id):
+    client = _gate_client({"student_verification": student_id, "department": "컴공", "status": "active",
+                           "school_email_verified_at": VERIFIED_AT})
+
+    assert await get_verified_user_id(_settings(), client, authorization="Bearer valid-token") == UUID(USER_ID)
+
+
+@pytest.mark.parametrize("student_id", ["none", "pending", "rejected"])
+async def test_after_the_school_email_the_department_gate_answers(student_id):
+    client = _gate_client({"student_verification": student_id, "department": None, "status": "active",
                            "school_email_verified_at": VERIFIED_AT})
 
     with pytest.raises(HTTPException) as exc_info:
         await get_verified_user_id(_settings(), client, authorization="Bearer valid-token")
 
-    assert exc_info.value.detail == errors.STUDENT_VERIFICATION_REQUIRED
+    assert exc_info.value.detail == errors.DEPARTMENT_REQUIRED
+
+
+async def test_the_gate_no_longer_needs_the_student_id_column():
+    """칸 제거(출시후 1-4) 전에 관문이 이 칸에 기대지 않는다 — 칸이 안 와도 KeyError 가 아니라 통과한다."""
+    client = _gate_client({"department": "컴공", "status": "active", "school_email_verified_at": VERIFIED_AT})
+
+    assert await get_verified_user_id(_settings(), client, authorization="Bearer valid-token") == UUID(USER_ID)
+
+
+async def test_a_withdrawn_account_is_401_before_anything_else():
+    client = _gate_client({"student_verification": "pending", "department": None, "status": "withdrawn",
+                           "school_email_verified_at": None})
+
+    with pytest.raises(HTTPException) as exc_info:
+        await get_verified_user_id(_settings(), client, authorization="Bearer valid-token")
+
+    assert exc_info.value.status_code == 401
+    assert exc_info.value.headers == {"X-Account-Status": "withdrawn"}
 
 
 # fetch_auth_user(카카오 연결 끊기 · 학교 메일 verify 가 씀) — 인증 서비스 장애는 500 이 아니라 503 ---------------

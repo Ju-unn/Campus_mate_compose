@@ -18,7 +18,6 @@ from PIL import Image
 
 import app.cards.paid_preview as paid_preview
 import app.home.router as home_router
-from app.core import errors
 from app.core.deps import get_client, get_settings
 from app.main import app
 from app.settings import Settings
@@ -440,15 +439,15 @@ def test_each_avatar_is_downloaded_only_once(wire):
 
 # 관문 ----------------------------------------------------------------------------------------
 
-def test_an_unverified_student_is_turned_away(wire):
-    world = _World(_people(12), verification="pending")
+@pytest.mark.parametrize("student_id", ["none", "pending", "rejected"])
+def test_the_student_id_state_does_not_turn_anyone_away(wire, student_id):
+    # 학생증 제거(10-17): 학교 메일 + 학과면 들어온다.
+    world = _World(_people(12), verification=student_id)
 
     response = wire(world).get("/home/people", headers=AUTH)
 
-    assert response.status_code == 403
-    assert response.json()["detail"] == errors.STUDENT_VERIFICATION_REQUIRED
-    assert world.people_queries == []
-    assert world.downloads == []
+    assert response.status_code == 200
+    assert world.people_queries != []
 
 
 def test_without_login_it_is_401(wire):

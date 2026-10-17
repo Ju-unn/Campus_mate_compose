@@ -74,10 +74,11 @@ def test_my_code_returns_own_code():
     assert seen["params"]["select"] == "referral_code"
 
 
-def test_my_code_requires_verified_student():
-    response = _wire(lambda r: httpx.Response(200, json=[]), verification="pending").get(
+def test_my_code_lets_a_pending_student_id_in():
+    # 학생증 제거(10-17): 학교 메일 + 학과면 들어온다.
+    response = _wire(lambda r: httpx.Response(200, json=[{"referral_code": "K7QMX2"}]), verification="pending").get(
         "/referral/my-code", headers=AUTH_HEADERS)
-    assert response.status_code == 403
+    assert response.status_code == 200
 
 
 def test_redeem_passes_raw_code_and_returns_referrer():

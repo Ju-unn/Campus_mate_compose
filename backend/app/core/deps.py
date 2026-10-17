@@ -93,5 +93,6 @@ async def get_verified_caller(
     settings: Settings = Depends(get_settings),
     client: httpx.AsyncClient = Depends(get_client),
 ) -> Caller:
-    """학생증 인증과 학과 입력까지 끝낸 사용자만 통과시킨다(관문은 current_user.py 에 그대로 있다)."""
+    """학교 메일 확인과 학과 입력까지 끝낸 사용자만 통과시킨다(관문은 current_user.py 에 그대로 있다).
+    이름은 E2E 경로 목록(e2e/test_area3_safe.py)이 세므로 바꾸지 않는다 — 학생증은 보지 않는다(10-17)."""
     return Caller(settings, client, await get_verified_user_id(settings, client, authorization))

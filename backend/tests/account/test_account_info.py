@@ -25,8 +25,15 @@ def test_missing_private_values_are_null_not_500(client, world):
     assert response.json()["kakao_id"] is None
 
 
-def test_unverified_caller_is_403(client, world):
+def test_a_pending_student_id_caller_gets_the_account(client, world):
+    # 학생증 제거(10-17): 학교 메일 + 학과면 들어온다.
     world.profiles[ME]["student_verification"] = "pending"
+
+    assert client.get("/account", headers=AUTH).status_code == 200
+
+
+def test_a_caller_without_a_department_is_403(client, world):
+    world.profiles[ME]["department"] = None
 
     assert client.get("/account", headers=AUTH).status_code == 403
 

@@ -252,12 +252,14 @@ def test_interests_rejects_fewer_than_three_tags_with_422():
     assert "최소 3개" in response.json()["detail"]
 
 
-def test_onboarding_rejects_unverified_student_with_403():
-    client = _wire(lambda request: httpx.Response(200, json=[]), verification="pending")
+@pytest.mark.parametrize("student_id", ["none", "pending", "rejected"])
+def test_onboarding_lets_any_student_id_state_in(student_id):
+    # 학생증 제거(10-17): 학교 메일 + 학과면 온보딩을 이어 간다.
+    client = _wire(_next_step_handler(decrypted_kakao_id="fox_enc"), verification=student_id)
     response = client.get("/profile-onboarding/next-step", headers=AUTH_HEADERS)
 
-    assert response.status_code == 403
-    assert "학생증" in response.json()["detail"]
+    assert response.status_code == 200
+    assert response.json()["step"] == "photos"
 
 
 def test_onboarding_rejects_missing_school_info_with_403():
