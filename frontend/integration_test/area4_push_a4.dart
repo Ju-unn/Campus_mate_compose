@@ -7,7 +7,6 @@ part of 'area4.dart';
 const _pcWork = Duration(minutes: 6);
 const _deviceOffNotice = '기기 알림이 꺼져 있어요. 알림을 받으려면 기기 설정에서 알림을 눌러 켜 주세요'; // notification_settings_screen.dart
 const _deviceOffButton = '기기 알림 설정 열기';
-const _reviewHeld = '조금 더 확인이 필요해요'; // 3b 대기 화면(status=pending) 제목 — area1_b3.dart 의 _held 와 같다
 
 /// 알림 권한을 거부해도 앱은 그대로 쓴다 — 홈에 닿고 하단 탭이 보이고 "오늘" 탭을 누르면 오늘 화면이 열린다.
 Future<void> _homeUsable(WidgetTester tester) async {
@@ -91,19 +90,20 @@ final Map<String, Area1Case> _pushA4Cases = {
     }
     return {'note': '돌아온 뒤 안내 상자가 ${watch.elapsedMilliseconds}ms 만에 사라짐'};
   }),
-  // 인증 전 계정(대기 화면)에서 멈춤 → PC 가 토큰 행 확인 · 통과 처리 → 3c(30초 폴링) → 학과 · 학번을 저장해 게이트가 열림(04-1) →
+  // 관문 전 계정(3c)에서 멈춤 → PC 가 토큰 행 확인 → 학과 · 학번을 저장해 게이트가 열림(04-1) →
   // 멈춤 → PC 가 같은 토큰 1행인지(게이트가 열릴 때 등록을 다시 부르는 길 — main.dart `_startPushWhenGateOpens`).
+  // 10-17 학생증 제거: 예전엔 3b 대기 화면에서 PC 가 통과 처리한 뒤 3c 로 넘어갔다 — 이제 학교 메일 다음이 곧장 3c 다.
   'E-PUSH-63': _session((tester, job) async {
-    await pumpUntil(tester, find.text(_reviewHeld), timeout: const Duration(seconds: 30));
+    final watch = Stopwatch()..start();
+    await arrive(tester, '3c', timeout: const Duration(seconds: 30));
+    final took = watch.elapsed;
     await step('waiting');
-    final took = await appears(tester, screen('3c'), const Duration(seconds: 40));
-    must(took != null, '통과 처리 뒤 40초 안에 3c 로 안 넘어감');
     await type(tester, input('예: 컴퓨터공학과'), '컴퓨터공학과');
     await type(tester, input('예: 21'), '21');
     await tap(tester, button('다음'));
     await arrive(tester, '04-1', timeout: const Duration(seconds: 10));
     await step('gate_open');
-    return {'note': '통과 처리 뒤 3c 까지 ${took!.inMilliseconds}ms'};
+    return {'note': '켜서 3c 까지 ${took.inMilliseconds}ms'};
   }),
   // 로그인 중(PC 가 알림이 오는지 봄) → 로그아웃 → 로그인 화면.
   'E-PUSH-66': _session((tester, job) async {

@@ -92,23 +92,7 @@ final class WrongCodeFailure extends Failure {
   String toDisplayMessage() => '코드가 맞지 않아요. 다시 확인해 주세요.';
 }
 
-/// 학생증 사진에서 얼굴을 찾지 못한 경우(기기 안 ML Kit 판단, 설계 §7.3).
-final class NoFaceDetectedFailure extends Failure {
-  const NoFaceDetectedFailure();
-
-  @override
-  String toDisplayMessage() => '얼굴이 보이는 사진으로 다시 올려주세요';
-}
-
-/// 고른 사진을 기기에서 읽지(압축하지) 못한 경우. 얼굴 검사를 하지 않는 졸업증명서에만 쓴다(결함 A8, 대장 10-03 문구).
-final class PhotoUnreadableFailure extends Failure {
-  const PhotoUnreadableFailure();
-
-  @override
-  String toDisplayMessage() => '사진을 읽을 수 없어요. 다른 사진으로 다시 올려주세요';
-}
-
-/// 학생증 인증 서버가 거부한 경우(예: 검토 중 재제출). 서버 메시지를 그대로 보여준다.
+/// 서버가 4xx 로 거부한 경우(예: 관문 미통과 403). 서버 메시지를 그대로 보여준다.
 /// 서버가 기계용 `code` 를 함께 주면(POST /school-email/verify 등) 그것도 들고 있다 — 문구 대신 code 로 가를 수 있게.
 final class ServerRejectedFailure extends Failure {
   // Dart 3.13 private named parameter: 호출부는 code: 로 넘긴다
@@ -192,13 +176,18 @@ final class SchoolEmailRejectedFailure extends Failure {
   String toDisplayMessage() => _serverMessage;
 }
 
-/// 이 학교 메일을 다른 소셜 계정이 이미 인증했다(POST /school-email/verify 409).
-/// 문구가 아니라 서버가 함께 주는 기계용 `provider` 로 가른다. 모르는 값이면 서버 문구를 그대로 쓴다.
+/// 이 학교 메일을 다른 계정이 이미 인증했다(POST /school-email/verify 409).
+/// 문구가 아니라 서버가 함께 주는 기계용 `provider`(쥔 계정의 가입 방식)로 가른다. 모르는 값이면 서버 문구를 그대로 쓴다.
+/// [myProvider] 는 지금 로그인한 소셜(`auth.currentUser.appMetadata['provider']`)이다 — 같으면 "그 소셜로 로그인하라" 가
+/// 틀린 안내라(이미 그 소셜로 로그인 중) 빌려 쓰기 문구로 바꾼다(설계 5-3 · 5-4, 10-17 학생증 제거 B안).
+/// 서버 문구(`errors.py` "이 메일은 {provider}로 가입돼 있어요")는 옛 앱이 읽으므로 바꾸지 않고 앱이 새 문구를 정한다.
 final class SchoolEmailTakenFailure extends Failure {
-  const SchoolEmailTakenFailure(this._serverMessage, this._provider);
+  // Dart 3.13 private named parameter: 호출부는 myProvider: 로 넘긴다
+  const SchoolEmailTakenFailure(this._serverMessage, this._provider, {this._myProvider});
 
   final String _serverMessage;
   final String _provider;
+  final String? _myProvider;
 
   static const _providerLabels = <String, String>{'kakao': '카카오', 'google': '구글', 'apple': '애플'};
 
@@ -206,21 +195,49 @@ final class SchoolEmailTakenFailure extends Failure {
   static const _emailAccountProvider = 'email';
   static const takenByEmailAccountMessage = '이 학교 메일로 이미 가입된 계정이 있어요. 문의해 주세요';
 
-  // 임시 문구, 디자인 확정 대기
+  /// [myProvider] 를 붙인 사본 — 서버 응답(http_send)에는 내 소셜이 없어 저장소가 덧붙인다.
+  SchoolEmailTakenFailure withMyProvider(String? myProvider) =>
+      SchoolEmailTakenFailure(_serverMessage, _provider, myProvider: myProvider);
+
+  /// 소셜(카카오 · 구글 · 애플) 계정이 쥐었는가 — 03 오류 변형(코드 칸 없이 안내 두 줄 + 단추)을 그린다.
+  bool isTakenBySocial() => _providerLabels.containsKey(_provider);
+
+  bool get _isMine => _provider == _myProvider;
+
+  /// 다른 소셜이 쥐었을 때만 그 소셜 이름. 같은 소셜 · 이메일 방식 · 모르는 수단이면 null.
+  String? get _otherSocialLabel => _isMine ? null : _providerLabels[_provider];
+
   @override
   String toDisplayMessage() {
     if (_provider == _emailAccountProvider) {
       return takenByEmailAccountMessage;
     }
-    final label = _providerLabels[_provider];
-    return label == null ? _serverMessage : '이 메일은 $label로 가입돼 있어요';
+    if (!isTakenBySocial()) {
+      return _serverMessage;
+    }
+    final label = _otherSocialLabel;
+    return label == null ? '이미 가입된 학교 메일이에요' : '이미 $label로 가입된 학교 메일이에요';
   }
 
-  /// 입력칸 아래 둘째 줄. 모르는 수단이면 없다.
-  // 임시 문구, 디자인 확정 대기
+  /// 오류 첫 줄 아래 둘째 줄. 소셜이 쥔 메일이 아니면 없다.
   String? toHintMessage() {
-    final label = _providerLabels[_provider];
-    return label == null ? null : '$label 계정으로 로그인해 주세요';
+    if (!isTakenBySocial()) {
+      return null;
+    }
+    final label = _otherSocialLabel;
+    return label == null ? '한 학교 메일로는 계정 하나만 만들 수 있어요' : '$label로 로그인해 주세요';
+  }
+
+  /// 03 주 단추 글자("카카오로 다시 로그인"). 다른 소셜이 쥐었을 때만 있다.
+  String? reloginLabel() {
+    final label = _otherSocialLabel;
+    return label == null ? null : '$label로 다시 로그인';
+  }
+
+  /// 다시 로그인 단추를 눌러 로그아웃한 뒤 시작 화면 토스트(`LoginNotice`)에 남길 문구.
+  String? reloginNotice() {
+    final label = _otherSocialLabel;
+    return label == null ? null : '이 학교 메일은 $label로 가입돼 있어요. $label로 로그인해 주세요';
   }
 }
 

@@ -68,7 +68,7 @@ class ApiClient {
     );
   }
 
-  /// 사진을 올리는 두 곳(학생증 3b · 프로필 사진 04-2)이 쓴다. 둘 다 파일 칸 이름이 `photo` 다.
+  /// 사진을 올리는 곳(프로필 사진 04-2 등)이 쓴다. 파일 칸 이름은 `photo` 다.
   /// 예전에는 저장소가 각자 `Authorization` 을 달았다 — 그 한 줄을 여기로 모았다(조각 4 리뷰 권고 4번).
   Future<Result<http.Response>> sendMultipart(
     String path,

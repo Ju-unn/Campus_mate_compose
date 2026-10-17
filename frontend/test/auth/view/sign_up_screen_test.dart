@@ -61,7 +61,7 @@ void main() {
       expect(tester.widget<TextField>(field).decoration!.hintStyle!.color, AppColors.muted);
     });
 
-    // pen `TDM1r` padding [0,16] — school_info · student_verification 상자(AppSpacing.md)와 같다.
+    // pen `TDM1r` padding [0,16] — school_info 상자(AppSpacing.md)와 같다.
     testWidgets('이메일 상자 안쪽 가로 여백은 16 이다', (tester) async {
       await pumpScreen(tester);
 

@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart' as mlkit;
 
-/// 학생증 사진에 얼굴이 보이는지 기기 안에서 판단한다(설계 §7.3, 서버로 보내기 전 1차 필터).
+/// 사진에 얼굴이 보이는지 기기 안에서 판단한다(프로필 사진 · 아바타 다시 만들기, 서버로 보내기 전 1차 필터).
 abstract interface class FaceDetector {
   Future<bool> hasFace(File image);
 }

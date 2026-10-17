@@ -114,7 +114,6 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
     _verificationGate.addListener(_startHeartPurchasesWhenGateOpens);
     _verificationGate.addListener(_openPendingPushRoute);
     _verificationGate.addListener(_syncUserChannel);
-    _verificationGate.addListener(_clearVerificationNoticeWhenPassed);
     _onboardingStep.addListener(_openPendingPushRoute);
     _accountStatus.addListener(_signOutWhenWithdrawn);
     _router = _createRouter();
@@ -205,7 +204,7 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
     }
   }
 
-  /// 새로 가입한 사용자는 학생 인증·학과 입력 전이라 토큰 등록이 403 으로 막힌다 —
+  /// 새로 가입한 사용자는 학교 메일·학과 입력 전이라 토큰 등록이 403 으로 막힌다 —
   /// 로그인 때 한 번만 시도하면 앱을 다시 켜기 전까지 알림을 못 받는다.
   /// 게이트가 열리는 순간 다시 등록한다.
   void _startPushWhenGateOpens() {
@@ -214,13 +213,8 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
     }
   }
 
-  /// "학생 인증이 끝났어요" 알림은 3c 로 넘어가면 할 일을 다 했다 — 알림 줄에 남기지 않는다(사용자 보고 10-15).
-  /// 지나는 순간 한 번만 지우는 판단은 [ForegroundPush.gateChanged] 가 한다.
-  void _clearVerificationNoticeWhenPassed() =>
-      unawaited(ref.read(foregroundPushProvider).gateChanged(_verificationGate.value));
-
   /// 하트 결제 구독은 상점이 아니라 여기서 연다 — 상점이 닫혀 있어도 늦게 온 결제를 받고, 결제 직후 앱이 꺼졌던 결제를 복구한다
-  /// (계획서 6-1 ①). 서버 확인은 학생증 관문 뒤라 관문이 열린 다음에만. 뷰모델은 앱 수명 동안 하나이고, 로그아웃하면
+  /// (계획서 6-1 ①). 서버 확인은 가입 관문 뒤라 관문이 열린 다음에만. 뷰모델은 앱 수명 동안 하나이고, 로그아웃하면
   /// SessionScope 가 컨테이너째 버린다 — 다음 사람이 로그인해 관문이 열리면 새 뷰모델이 다시 구독한다.
   void _startHeartPurchasesWhenGateOpens() {
     if (_verificationGate.value == VerificationGate.complete) {
@@ -309,7 +303,6 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
     _verificationGate.removeListener(_startHeartPurchasesWhenGateOpens);
     _verificationGate.removeListener(_openPendingPushRoute);
     _verificationGate.removeListener(_syncUserChannel);
-    _verificationGate.removeListener(_clearVerificationNoticeWhenPassed);
     _onboardingStep.removeListener(_openPendingPushRoute);
     _accountStatus.removeListener(_signOutWhenWithdrawn);
     _authSession.removeListener(_refreshVerificationGate);

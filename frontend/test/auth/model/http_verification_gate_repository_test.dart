@@ -30,8 +30,9 @@ void main() {
 
   /// [consent] 를 null 로 두면 칸 자체가 없는 응답(동의 관문 전의 옛 서버)이다.
   /// [schoolEmailVerified] 도 null 이면 칸이 없다(학교 메일 관문 전의 옛 서버).
+  /// [status] 는 옛 앱 호환으로 서버가 계속 내려 주는 학생증 칸이다(10-17 학생증 제거 뒤 늘 "verified") — 새 앱은 읽지 않는다.
   Future<VerificationGate?> fetchGateWith(
-    String status,
+    String? status,
     bool hasSchoolInfo, {
     String? consent = 'current',
     bool? schoolEmailVerified,
@@ -42,7 +43,7 @@ void main() {
       expect(request.headers['Authorization'], 'Bearer token-abc');
       return http.Response(
         jsonEncode({
-          'status': status,
+          'status': ?status,
           'has_school_info': hasSchoolInfo,
           'consent': ?consent,
           'school_email_verified': ?schoolEmailVerified,
@@ -74,10 +75,12 @@ void main() {
     expect(gate, VerificationGate.complete);
   });
 
-  test('학생증 인증 전이면 needsStudentVerification', () async {
-    final gate = await fetchGateWith('pending', false);
-
-    expect(gate, VerificationGate.needsStudentVerification);
+  // 10-17 학생증 제거: 학교 메일 다음은 바로 학과(3c)다. 학생증 칸(status)은 무엇이든, 없어도 관문이 같다.
+  test('학생증 상태와 무관하게 학교 메일 · 학과만 본다', () async {
+    for (final status in ['none', 'pending', 'rejected', 'verified', null]) {
+      expect(await fetchGateWith(status, false), VerificationGate.needsSchoolInfo, reason: '$status');
+      expect(await fetchGateWith(status, true), VerificationGate.complete, reason: '$status');
+    }
   });
 
   test('인증은 됐지만 학교 정보가 없으면 needsSchoolInfo', () async {
@@ -92,17 +95,19 @@ void main() {
     expect(gate, VerificationGate.complete);
   });
 
-  // 순서: 정지(헤더 · AuthRedirect) → 동의 → 학교 메일 → 학생증 → 학과와 학번. 한 줄이 응답 하나다.
-  group('관문 순서(동의 > 학교 메일 > 학생증 > 학과)', () {
+  // 순서: 정지(헤더 · AuthRedirect) → 동의 → 학교 메일 → 학과와 학번. 한 줄이 응답 하나다.
+  group('관문 순서(동의 > 학교 메일 > 학과)', () {
     const rows = <(String, bool?, String, bool, VerificationGate)>[
       // (consent, school_email_verified, status, has_school_info) → 관문
       ('none', false, 'none', false, VerificationGate.needsConsent),
       ('outdated', false, 'none', false, VerificationGate.needsConsentRenewal),
       ('current', false, 'none', false, VerificationGate.needsSchoolEmail),
       ('current', false, 'pending', false, VerificationGate.needsSchoolEmail),
-      // 학생증까지 끝난 계정이어도 학교 메일이 없으면 학교 메일이 먼저다.
+      // 학과까지 끝난 계정이어도 학교 메일이 없으면 학교 메일이 먼저다.
       ('current', false, 'verified', true, VerificationGate.needsSchoolEmail),
-      ('current', true, 'none', false, VerificationGate.needsStudentVerification),
+      // 03 을 통과하면 학생증 상태가 none 이어도 곧장 3c 다.
+      ('current', true, 'none', false, VerificationGate.needsSchoolInfo),
+      ('current', true, 'pending', true, VerificationGate.complete),
       ('current', true, 'verified', false, VerificationGate.needsSchoolInfo),
       ('current', true, 'verified', true, VerificationGate.complete),
     ];
@@ -116,11 +121,11 @@ void main() {
     }
   });
 
-  test('school_email_verified 칸이 없는 옛 서버면 인증된 것으로 보고 학생증 관문으로', () async {
+  test('school_email_verified 칸이 없는 옛 서버면 인증된 것으로 보고 학과 관문으로', () async {
     // 칸이 없는데 미인증으로 보면 옛 서버에는 POST /school-email/verify 가 없어 02 에 갇힌다.
     final gate = await fetchGateWith('pending', false, schoolEmailVerified: null);
 
-    expect(gate, VerificationGate.needsStudentVerification);
+    expect(gate, VerificationGate.needsSchoolInfo);
   });
 
   test('네트워크 연결이 끊기면 예외가 새지 않고 NetworkFailure', () async {

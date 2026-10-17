@@ -1,14 +1,10 @@
 part of 'area1.dart';
 
-// 영역 1 묶음 3 — 사진 세트(3b 학생증 제출 · 04-2 사진 고르기 · 04-3 거절용 사진).
+// 영역 1 묶음 3 — 사진 세트(04-2 사진 고르기 · 04-3 거절용 사진). 3b 학생증 제출 시나리오는 2026-10-17 학생증 제거로 뺐다.
 // PC 쪽은 e2e/area1_b3.py 의 같은 번호 — 계정을 만들고 사진 파일을 앱 캐시(e2e-photos/)에 넣은 뒤 DB · 버킷을 본다.
 // 갤러리는 뷰모델의 pickFromGallery 훅을 그 파일로 갈아끼운다(E-ONB-55 와 같은 방식).
 // 아바타 작업 등록(avatar/generate, 유료)은 이 묶음에서 나가면 안 된다 — 04-3 까지 가는 건 E-ONB-23 하나이고 거기엔 막이를 건다.
 
-const _noFace = '얼굴이 보이는 사진으로 다시 올려주세요'; // NoFaceDetectedFailure
-const _unreadable = '사진을 읽을 수 없어요. 다른 사진으로 다시 올려주세요'; // PhotoUnreadableFailure(졸업증명서만)
-const _held = '조금 더 확인이 필요해요'; // 3b 대기 화면(status=pending) 제목
-const _rejectReason = '사진이 흐려요'; // e2e/area1_b3.py REJECT_REASON — PC 가 반려하며 적는 사유
 const _maxPhotosNotice = '사진은 최대 4장까지 올릴 수 있어요';
 const _noneKept = '얼굴이 보이는 사진을 골라 주세요';
 const _oneDropped = '1장은 얼굴이 보이지 않아 빠졌어요';
@@ -22,78 +18,6 @@ Future<File> _photo(String name) async {
 }
 
 List<String> _photoNames(Map<String, dynamic> job) => (job['photos'] as List).cast<String>();
-
-// ── 3b 학생증 ───────────────────────────────────────────────────────────────────────────────────
-
-/// 3b 제출 폼. 처음엔 히어로, 반려 뒤엔 배너가 제목 자리에 오므로 둘 다에 있는 제출 버튼으로 찾는다.
-Finder get _proofForm => button(_submitProof);
-
-/// 3b 의 입력칸은 실명 하나뿐이다(힌트는 고른 탭마다 다르다).
-Finder get _realNameField => find.descendant(of: find.byType(TextFormField), matching: find.byType(TextField));
-
-/// 폼에 일감의 탭 · 사진 · 실명을 넣고 버튼이 켜졌는지 본다(누르지는 않는다).
-Future<ProviderContainer> _fillProof(WidgetTester tester, Map<String, dynamic> job) async {
-  await pumpUntil(tester, _proofForm);
-  final file = await _photo(job['photo'] as String);
-  if (job['tab'] case final String tab) await tap(tester, find.text(tab));
-  final container = ProviderScope.containerOf(tester.element(_proofForm));
-  container.read(studentVerificationViewModelProvider.notifier).pickFromGallery = () async => file;
-  await tap(tester, find.text('사진을 첨부해주세요'));
-  await type(tester, _realNameField, job['real_name'] as String);
-  must(enabled(tester, _submitProof), '사진 · 실명을 넣었는데 "$_submitProof" 가 꺼짐');
-  return container;
-}
-
-/// 채워서 제출 → ('3c' | 'held' | 폼에 뜬 문구, 누른 뒤 걸린 시간).
-Future<(String, Duration)> _sendProof(WidgetTester tester, Map<String, dynamic> job,
-    {Duration within = const Duration(seconds: 40)}) async {
-  final container = await _fillProof(tester, job);
-  final watch = Stopwatch()..start();
-  await tap(tester, _proofForm);
-  while (watch.elapsed < within) {
-    if (screen('3c').evaluate().isNotEmpty) return ('3c', watch.elapsed);
-    if (find.text(_held).evaluate().isNotEmpty) return ('held', watch.elapsed);
-    // submit 은 누르는 순간 isSubmitting 을 세우고 지난 문구를 지운다 — 여기 걸리면 이번 제출의 문구다.
-    final state = container.read(studentVerificationViewModelProvider);
-    if (!state.isSubmitting && state.errorMessage != null) return (state.errorMessage!, watch.elapsed);
-    await tester.pump(const Duration(milliseconds: 100));
-  }
-  throw TestFailure('제출 뒤 ${within.inSeconds}초 안에 결과가 안 나옴');
-}
-
-/// 학생증 탭(얼굴 검사함)의 사진이 얼굴 검사에서 막혔으면 사진 세트 탓이다 — 판정하지 않는다.
-void _faceFound(String outcome, Map<String, dynamic> job) {
-  if (outcome == _noFace) throw E2eBlocked('${job['photo']} 에서 기기가 얼굴을 못 찾음 — 사진 세트 확인');
-}
-
-/// E-GATE-37 · 38 — 사람 검토로 넘어가 대기 화면, 제출 폼은 안 보인다.
-Future<Map<String, Object?>?> _toReview(WidgetTester tester, Map<String, dynamic> job) async {
-  final (outcome, _) = await _sendProof(tester, job);
-  _faceFound(outcome, job);
-  must(outcome == 'held', '"$_held" 화면이 아님: $outcome');
-  must(_realNameField.evaluate().isEmpty, '대기 화면에 실명 칸이 남음');
-  return null;
-}
-
-/// 제출 → 대기 화면 → step('pending') 에서 PC 가 반려 → 폼이 배너와 함께 돌아오기까지(step 이 끝난 때부터 잼).
-///
-/// 35초 근거(코드): 대기 화면은 status=pending 이 그려지는 build 에서 30초 주기 타이머를 건다
-/// (student_verification_screen.dart:19 `_pollInterval` · :81-88 `_syncPolling`). 첫 조회는 대기 화면이 뜬 지 30초 뒤이고,
-/// step 왕복(PC 의 반려 PATCH 2번)만큼 이미 지났으므로 step 뒤로는 30초 안쪽 + 상태 조회 한 번이다.
-/// 조회가 rejected 를 받으면 VM 이 사유를 실어(_stateFromOutcome) 폼 + 배너가 된다.
-/// 더 빠른 길: profiles 를 바꾸면 DB 트리거 → /hooks/verification-reviewed → FCM(route=verification) →
-/// main.dart `_refreshForRoute` 가 refreshStatus 를 부른다. 조용한 시간엔 서버가 알림을 버리므로 폴링만 믿는다.
-/// PC 의 반려가 30초를 넘기면 첫 조회가 pending 을 받아 다음 조회(60초)로 밀린다 — 그때는 35초를 못 맞춘다.
-Future<Duration> _heldThenRejected(WidgetTester tester, Map<String, dynamic> job) async {
-  final (outcome, _) = await _sendProof(tester, job);
-  _faceFound(outcome, job);
-  must(outcome == 'held', '"$_held" 화면이 아님: $outcome');
-  await step('pending');
-  final back = await appears(tester, find.textContaining(_rejectReason), const Duration(seconds: 35));
-  must(back != null, '반려 뒤 35초 안에 배너 "$_rejectReason" 가 안 나옴');
-  must(_proofForm.evaluate().isNotEmpty, '배너는 떴는데 제출 폼이 없음');
-  return back!;
-}
 
 // ── 04-2 사진 고르기 ────────────────────────────────────────────────────────────────────────────
 
@@ -130,44 +54,6 @@ void _notice(WidgetTester tester, PhotosUiState state, String message) {
 }
 
 final Map<String, Area1Case> _b3Cases = {
-  // 얼굴 검사에서 막혀 서버를 안 부른다(attempts 0행 · 버킷 0개는 PC 가 본다).
-  'E-GATE-34': _session((tester, job) async {
-    final (outcome, _) = await _sendProof(tester, job);
-    must(outcome == _noFace, '얼굴 없는 사진인데 결과가 "$outcome"');
-    must(find.text(_noFace).evaluate().isNotEmpty, '"$_noFace" 가 화면에 없음');
-    return null;
-  }),
-  // 졸업증명서 탭은 requiresFace=false(student_verification_screen.dart:181,217) → VM 이 압축만 하고 얼굴 검사를 건너뛴다
-  // (student_verification_view_model.dart:137-139). 압축이 던지면 null → "사진을 읽을 수 없어요"(:152) — 그것도 fail.
-  'E-GATE-35': _session((tester, job) async {
-    final (outcome, _) = await _sendProof(tester, job);
-    must(outcome != _noFace, '졸업증명서인데 얼굴 검사에 막힘');
-    must(outcome != _unreadable, '기기가 사진을 못 읽음: $outcome');
-    must(outcome == '3c' || outcome == 'held', '서버 결과 화면(3c · 대기)이 아님: $outcome');
-    return {'note': outcome == '3c' ? '통과 → 3c' : '사람 검토 대기'};
-  }),
-  'E-GATE-36': _session((tester, job) async {
-    final (outcome, took) = await _sendProof(tester, job, within: const Duration(seconds: 10));
-    _faceFound(outcome, job);
-    must(outcome == '3c', '제출 결과가 3c 가 아님: $outcome');
-    return {'note': '3c 까지 ${took.inMilliseconds}ms'};
-  }),
-  'E-GATE-37': _session(_toReview),
-  // 학교 다른 학생증 · 글자 없는 사진 — PC 가 계정 · 사진을 바꿔 앱을 두 번 켠다.
-  'E-GATE-38': _session(_toReview),
-  'E-GATE-44': _session((tester, job) async {
-    final back = await _heldThenRejected(tester, job);
-    // 돌아온 폼은 입력을 비운다(VM _stateFromOutcome) — 버튼은 사진 · 실명을 다시 넣어야 켜진다.
-    // 다시 넣어 켜지는지까지 보고 누르지는 않는다(PC 가 마지막 행이 rejected 인지 본다).
-    final offAtFirst = !enabled(tester, _submitProof);
-    await _fillProof(tester, job);
-    return {'note': '반려 뒤 폼까지 ${back.inMilliseconds}ms · 돌아온 직후 버튼 ${offAtFirst ? '꺼짐(입력 비움)' : '켜짐'} → 다시 넣어 켜짐'};
-  }),
-  // 한 번 켤 때 제출 1번 — PC 가 같은 계정으로 앱을 3번 켜며 turn 을 올린다.
-  'E-GATE-45': _session((tester, job) async {
-    final back = await _heldThenRejected(tester, job);
-    return {'note': '${(job['turn'] as int? ?? 0) + 1}번째 · 반려 뒤 폼까지 ${back.inMilliseconds}ms'};
-  }),
   'E-ONB-20': _session((tester, job) async {
     await arrive(tester, '04-2');
     final names = _photoNames(job);

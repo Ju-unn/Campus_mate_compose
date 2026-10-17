@@ -345,6 +345,29 @@ void main() {
     expect(find.text('탈퇴한 계정이에요'), findsNothing);
   });
 
+  // 03 학교 메일 충돌에서 "카카오로 다시 로그인" 을 누르면 로그아웃하며 남긴 안내(10-17 학생증 제거 B안).
+  // pen 값(대장 전달, 노드 id 미전달): 312×58 두 줄 알약 · #222222 · info 16 흰색 · 14/600 흰색 · 화면 안 (24,482).
+  testWidgets('다시 로그인 안내(info)는 버튼 폭 두 줄 알약에 info 아이콘으로 한 번 뜬다(360×780 에서 x24)', (tester) async {
+    const message = '이 학교 메일은 카카오로 가입돼 있어요. 카카오로 로그인해 주세요';
+    LoginNotice.post(message, isInfo: true);
+
+    await _pump(tester, size: const Size(360, 780));
+    await tester.pump();
+
+    final toast = tester.getRect(find.byKey(StartView.toastKey));
+    expect(find.text(message), findsOneWidget);
+    expect(find.descendant(of: find.byKey(StartView.toastKey), matching: find.byIcon(AppIcons.info)), findsOneWidget);
+    expect(find.descendant(of: find.byKey(StartView.toastKey), matching: find.byIcon(AppIcons.alertTriangle)), findsNothing);
+    final icon = tester.widget<Icon>(find.byIcon(AppIcons.info));
+    expect((icon.size, icon.color), (16, AppColors.onInk));
+    final text = tester.widget<Text>(find.text(message));
+    expect((text.style?.fontSize, text.style?.fontWeight, text.style?.color), (14, FontWeight.w600, AppColors.onInk));
+    expect((toast.left, toast.width), (24, 312));
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pump();
+    expect(find.text(message), findsNothing);
+  });
+
   group('글자 배율', () {
     for (final scale in [1.0, 1.5, 2.0]) {
       for (final size in [const Size(360, 740), const Size(320, 568)]) {
@@ -407,6 +430,27 @@ void main() {
       expect(find.text(backExitMessage), findsNothing);
     }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
   });
+
+  // 실제 글꼴이라야 줄 수가 pen 과 같다 — 아래 부제 묶음과 같이 파일 끝에 둔다.
+  testWidgets('다시 로그인 안내는 실제 글꼴로 두 줄 · 알약 312 폭, 360×780 화면 안 (24, 482)', (tester) async {
+    await tester.runAsync(loadPretendard);
+    const message = '이 학교 메일은 카카오로 가입돼 있어요. 카카오로 로그인해 주세요';
+    LoginNotice.post(message, isInfo: true);
+
+    await _pump(tester, size: const Size(360, 780));
+    await tester.pump();
+
+    final toast = tester.getRect(find.byKey(StartView.toastKey));
+    final paragraph = tester.renderObject<RenderParagraph>(find.text(message));
+    final painter = TextPainter(text: paragraph.text, textDirection: TextDirection.ltr, textScaler: paragraph.textScaler)
+      ..layout(maxWidth: paragraph.constraints.maxWidth);
+    expect(painter.computeLineMetrics().length, 2);
+    painter.dispose();
+    expect((toast.left, toast.top, toast.width), (24, 482, 312));
+    // pen 높이 58 · 앱 60 — 공용 AppToast 줄높이 20(마스터 `I8UOWm` 렌더 값)을 그대로 쓴다. 차이는 보고에 남겼다.
+    expect(toast.height, 60);
+    await tester.pump(const Duration(seconds: 3));
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 
   // 반드시 파일 맨 끝 — 여기서 실제 글꼴(Pretendard)을 불러오면 그 뒤 시험 글꼴이 바뀐다(앞 시험들은 Ahem 폭을 가정한다).
   group('부제 "$_subtitle" — 실제 글꼴로 잰다', () {

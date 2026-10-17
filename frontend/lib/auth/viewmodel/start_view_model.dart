@@ -25,9 +25,12 @@ class StartViewModel extends Notifier<StartUiState> {
     );
   }
 
-  /// 로그아웃하며 남긴 알림(탈퇴 · 로그인 만료 — `LoginNotice`)을 같은 토스트 자리에 띄운다.
-  void showNotice(String message) {
-    state = StartUiState(inProgress: state.inProgress, toast: StartToast(message: message, isCancellation: false));
+  /// 로그아웃하며 남긴 알림(탈퇴 · 로그인 만료 · 03 학교 메일 충돌 — `LoginNotice`)을 같은 토스트 자리에 띄운다.
+  void showNotice(String message, {bool isInfo = false}) {
+    state = StartUiState(
+      inProgress: state.inProgress,
+      toast: StartToast(message: message, isCancellation: false, isInfo: isInfo),
+    );
   }
 
   /// 안드로이드 뒤로가기로 앱이 닫히려 할 때 "한 번 더 누르면 종료돼요" 를 같은 토스트 자리에 띄운다(info 아이콘, 취소 토스트와 같은 모양).

@@ -28,7 +28,7 @@ bool isPhotoDocumentRejection(Failure failure) =>
 
 /// 갤러리에서 남은 칸 수([limit])만큼 고른다 — 화면 안내대로 여러 장을 한 번에 고를 수 있다.
 /// image_picker 는 플랫폼 플러그인이라 단위 테스트에서 부를 수 없어
-/// [PhotosViewModel.pickFromGallery] 훅으로 갈아끼운다(조각1b StudentVerificationViewModel 과 같은 패턴).
+/// [PhotosViewModel.pickFromGallery] 훅으로 갈아끼운다.
 Future<List<File>> _pickFromGallery(int limit) async {
   final picked = await ImagePicker().pickMultiImage(limit: limit);
   return [for (final image in picked) File(image.path)];

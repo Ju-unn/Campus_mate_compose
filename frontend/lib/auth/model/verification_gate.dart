@@ -1,5 +1,5 @@
 /// go_router 가 다음 화면을 정할 때만 쓰는 굵은 단위 상태.
-/// 3b 화면 안의 세부 상태(검토중 사유 등)는 VerificationOutcome 이 따로 다룬다.
+/// 학생증(3b) 관문은 2026-10-17 에 없앴다 — 학교 메일 다음이 바로 학과(3c)다.
 enum VerificationGate {
   /// 아직 묻는 중이다(앱을 켠 직후 · 로그아웃 뒤). 스플래시에 머문다 — 동의 화면이 깜빡이지 않게(결정 13).
   unknown,
@@ -8,16 +8,15 @@ enum VerificationGate {
   /// 한 번이라도 알아낸 뒤의 실패는 이 값이 되지 않는다 — 아는 관문을 그대로 쓴다.
   unreachable,
 
-  /// 약관 동의(02-c)가 첫 관문이다 — 동의 전에는 실명 · 학생증(3b)을 받지 않는다.
+  /// 약관 동의(02-c)가 첫 관문이다 — 동의 전에는 학교 메일을 받지 않는다.
   needsConsent,
 
   /// 약관이 바뀌어 다시 동의해야 한다(02-c-4). 온보딩을 마친 계정도 여기로 온다.
   needsConsentRenewal,
 
-  /// 학교 메일을 아직 인증하지 않았다(02 · 03). 동의 다음, 학생증 앞이다 — 가입 때 한 번만 받는다.
+  /// 학교 메일을 아직 인증하지 않았다(02 · 03). 동의 다음, 학과 앞이다 — 가입 때 한 번만 받는다.
   /// 소셜 로그인 계정의 이메일과는 별개다. 판단은 서버 `school_email_verified` 만 본다.
   needsSchoolEmail,
-  needsStudentVerification,
   needsSchoolInfo,
   complete,
 }

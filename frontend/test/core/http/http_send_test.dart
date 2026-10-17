@@ -66,8 +66,9 @@ void main() {
 
     final failure = result.when(onSuccess: (_) => null, onFailure: (f) => f);
     expect(failure, isA<SchoolEmailTakenFailure>());
-    expect(failure!.toDisplayMessage(), '이 메일은 구글로 가입돼 있어요');
-    expect((failure as SchoolEmailTakenFailure).toHintMessage(), '구글 계정으로 로그인해 주세요');
+    // 서버 문구 대신 앱 문구(설계 5-4) — 내 소셜은 아직 모른다(저장소가 덧붙인다), 그래서 다른 소셜로 본다.
+    expect(failure!.toDisplayMessage(), '이미 구글로 가입된 학교 메일이에요');
+    expect((failure as SchoolEmailTakenFailure).toHintMessage(), '구글로 로그인해 주세요');
   });
 
   test('4xx 에 code 가 있으면 ServerRejectedFailure 가 그 code 를 들고 있다', () async {

@@ -558,7 +558,6 @@ void main() {
         ..accountResult = Success(
           AccountInfo(
             loginProvider: 'kakao',
-            realName: null,
             birthYear: null,
             university: '가나대학교',
             joinedAt: DateTime.utc(2026),
@@ -587,7 +586,6 @@ void main() {
         ..accountResult = Success(
           AccountInfo(
             loginProvider: 'kakao',
-            realName: null,
             birthYear: null,
             university: '가나대학교',
             joinedAt: DateTime.utc(2026),
@@ -656,7 +654,6 @@ void main() {
         ..accountResult = Success(
           AccountInfo(
             loginProvider: 'kakao',
-            realName: null,
             birthYear: null,
             university: '가나대학교',
             joinedAt: DateTime.utc(2026),
@@ -737,7 +734,6 @@ void main() {
   group('지인 리뷰 섹션(이상형 메모 뒤 · 카카오 카드 앞)', () {
     final noKakao = AccountInfo(
       loginProvider: 'kakao',
-      realName: null,
       birthYear: null,
       university: '가나대학교',
       joinedAt: DateTime.utc(2026),

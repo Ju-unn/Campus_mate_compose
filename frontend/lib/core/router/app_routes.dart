@@ -16,9 +16,6 @@ abstract final class AppRoutes {
   /// 약관 동의 화면(화면 02-c · 재동의 02-c-4). 로그인 직후 첫 관문이다.
   static const String consent = '/consent';
 
-  /// 학생증 사진·실명 제출 화면 (화면 3b)
-  static const String studentVerification = '/student-verification';
-
   /// 학과·학번 입력 화면 (화면 3c)
   static const String schoolInfo = '/school-info';
 

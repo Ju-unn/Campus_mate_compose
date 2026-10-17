@@ -6,7 +6,6 @@ import 'package:campus_mate/common/result.dart';
 
 final sampleAccount = AccountInfo(
   loginProvider: 'kakao',
-  realName: '홍길동',
   birthYear: 2003,
   university: '서울대학교',
   joinedAt: DateTime.utc(2026, 9, 1, 10),

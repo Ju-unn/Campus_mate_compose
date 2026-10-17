@@ -6,7 +6,6 @@ import 'package:campus_mate/auth/model/verification_gate.dart';
 import 'package:campus_mate/auth/view/school_info_screen.dart';
 import 'package:campus_mate/auth/view/sign_up_screen.dart';
 import 'package:campus_mate/auth/view/start_view.dart';
-import 'package:campus_mate/auth/view/student_verification_screen.dart';
 import 'package:campus_mate/auth/view/verify_code_screen.dart';
 import 'package:campus_mate/billing/model/heart_task.dart';
 import 'package:campus_mate/consent/view/consent_screen.dart';
@@ -102,7 +101,7 @@ abstract final class AppRouter {
   /// 계정 상태를 넘기지 않으면 정상 계정으로 본다 — 기존 테스트가 그대로 돈다.
   static AccountStatus _active() => AccountStatus.active;
 
-  /// 3b·3c 는 [AuthRedirect] 가 미인증·게이트 미충족을 이미 막아 화면 가드를 두지 않는다.
+  /// 3c 는 [AuthRedirect] 가 미인증·게이트 미충족을 이미 막아 화면 가드를 두지 않는다.
   static List<RouteBase> _routes() {
     return <RouteBase>[
       _PlatformRoute(path: AppRoutes.splash, builder: (context, state) => const StartView()),
@@ -112,7 +111,6 @@ abstract final class AppRouter {
       _PlatformRoute(path: AppRoutes.verifyCode, redirect: _verifyCodeGuard, builder: _buildVerifyCode),
       // 약관은 관문이라 뒤로가기를 막아 둔 채 둔다(화면의 PopScope, 나갈 길은 로그아웃뿐 — 대장 결정 pen ②).
       _PlatformRoute(path: AppRoutes.consent, builder: (context, state) => const ConsentScreen()),
-      _ExitGuardedRoute(path: AppRoutes.studentVerification, builder: (context, state) => const StudentVerificationScreen()),
       _ExitGuardedRoute(path: AppRoutes.schoolInfo, builder: (context, state) => const SchoolInfoScreen()),
       ..._onboardingRoutes(),
       ..._slice4Routes(),

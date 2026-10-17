@@ -1,4 +1,3 @@
-import 'package:campus_mate/auth/model/verification_gate.dart';
 import 'package:campus_mate/core/push/foreground_push.dart';
 import 'package:campus_mate/core/push/push_messaging.dart';
 import 'package:flutter/foundation.dart';
@@ -146,72 +145,6 @@ void main() {
       final foreground = foregroundOn(TargetPlatform.iOS);
 
       expect(await foreground.onTap.isEmpty, isTrue);
-    });
-  });
-
-  // 학생 인증 결과 알림("학생 인증이 끝났어요")은 3c 로 넘어가면 할 일을 다 했다 — 알림 줄에 남기지 않는다.
-  group('gateChanged', () {
-    const fcmTagged = (id: 0, tag: 'verification_result');
-
-    Future<void> walk(ForegroundPush foreground, List<VerificationGate> gates) async {
-      for (final gate in gates) {
-        await foreground.gateChanged(gate);
-      }
-    }
-
-    test('안드로이드는 학생 인증 관문을 지나는 순간 FCM 이 띄운 결과 알림(tag)과 앱이 띄운 결과 알림(id)을 지운다', () async {
-      final foreground = foregroundOn(TargetPlatform.android);
-      // 앱이 앞에 있을 때 받은 결과 알림 — 앱이 직접 띄운 그 id 를 지워야 한다.
-      await foreground.present(_message({'route': 'verification'}), currentLocation: '/student-verification');
-
-      await walk(foreground, [VerificationGate.needsStudentVerification, VerificationGate.needsSchoolInfo]);
-
-      expect(notifications.cancelled, [fcmTagged, (id: notifications.shown.single.id, tag: null)]);
-    });
-
-    test('3c 에서 홈으로 넘어갈 때는 다시 지우지 않는다', () async {
-      final foreground = foregroundOn(TargetPlatform.android);
-
-      await walk(foreground, [
-        VerificationGate.needsStudentVerification,
-        VerificationGate.needsSchoolInfo,
-        VerificationGate.complete,
-      ]);
-
-      expect(notifications.cancelled, hasLength(2));
-    });
-
-    // 반려 알림("다시 해 주세요")은 아직 할 일이 남았다 — 관문 앞에 머무는 동안은 그대로 둔다.
-    test('학생 인증 앞 단계끼리 옮겨 가거나 3b 에 머물면 지우지 않는다', () async {
-      final foreground = foregroundOn(TargetPlatform.android);
-
-      await walk(foreground, [
-        VerificationGate.unknown,
-        VerificationGate.unreachable,
-        VerificationGate.needsConsent,
-        VerificationGate.needsSchoolEmail,
-        VerificationGate.needsStudentVerification,
-      ]);
-
-      expect(notifications.cancelled, isEmpty);
-    });
-
-    // 앱이 꺼져 있을 때 통과됐으면 FCM 이 띄운 알림이 남아 있다 — 앱을 켜서 관문을 알아낸 순간 지운다.
-    test('앱을 켜서 관문을 처음 알아냈는데 이미 지났으면 한 번 지운다', () async {
-      final foreground = foregroundOn(TargetPlatform.android);
-
-      await walk(foreground, [VerificationGate.unknown, VerificationGate.complete]);
-
-      expect(notifications.cancelled.first, fcmTagged);
-    });
-
-    // iOS 는 로컬 알림 창구를 안드로이드 설정으로만 준비해 지울 수 없다 — 서버 apns-collapse-id 로 한 장으로만 합친다.
-    test('iOS 는 지우지 않는다', () async {
-      final foreground = foregroundOn(TargetPlatform.iOS);
-
-      await walk(foreground, [VerificationGate.needsStudentVerification, VerificationGate.needsSchoolInfo]);
-
-      expect(notifications.cancelled, isEmpty);
     });
   });
 

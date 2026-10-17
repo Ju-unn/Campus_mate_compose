@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:campus_mate/auth/model/verification_gate.dart';
-import 'package:campus_mate/auth/viewmodel/student_verification_view_model.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
 import 'package:campus_mate/matching/viewmodel/acceptances_view_model.dart';
 import 'package:campus_mate/matching/viewmodel/sent_requests_view_model.dart';
@@ -26,9 +25,6 @@ void refreshForPush(T Function<T>(ProviderListenable<T>) read, Map<String, dynam
     // 방을 열어 두고 있으면 Realtime 이 이미 줄을 붙였다 — 여기서는 목록만 맞춘다.
     case 'chat':
       unawaited(read(conversationsViewModelProvider.notifier).refresh());
-    // 통과면 관문까지 다시 물어 다음 화면으로, 거절이면 3b 에 사유 배너를 띄운다.
-    case 'verification':
-      unawaited(read(studentVerificationViewModelProvider.notifier).refreshStatus());
   }
 }
 

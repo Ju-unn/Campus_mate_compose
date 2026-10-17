@@ -50,7 +50,7 @@ Result<http.Response> _classify(http.Response response) {
   return FailureResult(_toRejection(response));
 }
 
-/// 정지·탈퇴는 문구 비교 대신 헤더로 가른다(Ruling 8 · 22) — 403 은 학생증·학과 관문에도 쓰여
+/// 정지·탈퇴는 문구 비교 대신 헤더로 가른다(Ruling 8 · 22) — 403 은 학교 메일·학과 관문에도 쓰여
 /// 상태코드만으로는 못 가른다. `http` 패키지는 헤더 이름을 소문자로 준다. 모르는 값은 계정 상태가 아니다.
 Failure? _accountStatusFailure(String? header) {
   return switch (header) {

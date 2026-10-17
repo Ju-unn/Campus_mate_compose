@@ -50,7 +50,7 @@ class _StartViewState extends ConsumerState<StartView> {
     final notice = LoginNotice.take();
     if (notice != null) {
       // build 중에는 provider 를 바꿀 수 없어 첫 프레임 뒤에 띄운다.
-      WidgetsBinding.instance.addPostFrameCallback((_) => _viewModel().showNotice(notice));
+      WidgetsBinding.instance.addPostFrameCallback((_) => _viewModel().showNotice(notice.message, isInfo: notice.isInfo));
     }
   }
 
@@ -158,7 +158,7 @@ class _Brand extends StatelessWidget {
 
 /// 기존 [AppToast](짙은 #222222 알약, 흰 글씨 14/600, 위아래 10)를 쓴다(후속 지시문 13 B-3).
 /// 취소는 폭을 내용에 맞춰 가운데 · `info` 아이콘(한 줄 높이 40), 실패 · 로그아웃 알림은 버튼 폭 · `triangle-alert`
-/// (긴 글은 두 줄, 높이 60).
+/// (긴 글은 두 줄, 높이 60). 03 학교 메일 충돌 뒤 안내는 버튼 폭 · `info`(pen 312×58, 앱은 AppToast 줄높이 20 이라 60).
 class _Toast extends StatelessWidget {
   const _Toast({required this.toast});
 
@@ -166,7 +166,7 @@ class _Toast extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final icon = toast.isCancellation ? AppIcons.info : AppIcons.alertTriangle;
+    final icon = toast.isCancellation || toast.isInfo ? AppIcons.info : AppIcons.alertTriangle;
     final pill = AppToast(label: toast.message, leading: Icon(icon, size: 16, color: AppColors.onInk));
     if (toast.isCancellation) {
       return Center(key: StartView.toastKey, widthFactor: 1, heightFactor: 1, child: pill);

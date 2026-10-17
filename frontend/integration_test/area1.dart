@@ -2,7 +2,6 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:campus_mate/auth/view/start_view.dart';
-import 'package:campus_mate/auth/viewmodel/student_verification_view_model.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/app_checkbox.dart';
@@ -25,7 +24,6 @@ import 'package:campus_mate/profile/viewmodel/photos_ui_state.dart';
 import 'package:campus_mate/profile/viewmodel/photos_view_model.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -56,7 +54,6 @@ const screens = {
   'schoolEmail': '대학 이메일로 시작해요', // 02 sign_up_screen — 로그인한 계정의 학교 메일 인증
   'code': '인증 코드를 입력해요', // 3 verify_code_screen
   'consent': '서비스 이용을 위해 동의해 주세요', // 02-c consent_screen
-  '3b': '학교와 재학 상태를 확인해요', // student_verification_screen _Hero
   '3c': '학과와 학번을 알려주세요', // school_info_screen
   '04-1': '닉네임과 기본 정보를\n알려주세요', // basic_info_screen
   '04-1b': '카카오톡 아이디를 알려주세요', // kakao_id_screen
@@ -209,11 +206,9 @@ String _whereNow() {
     '시작 화면': screen('start'),
     '동의': screen('consent'),
     '02 학교 메일': screen('schoolEmail'),
-    '3b 폼': screen('3b'),
     '3c': screen('3c'),
     '홈': screen('home'),
     '인터넷 없음 01-1': screen('01-1'),
-    '대기("$_held")': find.text(_held),
     '확인 중("확인하고 있어요")': find.text('확인하고 있어요'),
     '상태 조회 스피너': find.byType(CircularProgressIndicator),
   };
@@ -229,26 +224,6 @@ int _checkedBoxes(WidgetTester tester) =>
 bool _allAgreeChecked(WidgetTester tester) => tester
     .widget<AppCheckbox>(find.descendant(of: find.widgetWithText(ConsentRow, '전체 동의'), matching: find.byType(AppCheckbox)))
     .checked;
-
-/// 3b 갤러리 대신 앱에 든 마스코트 그림을 고르게 한다(제출은 안 한다).
-Future<void> _fakeGallery(WidgetTester tester) async {
-  final data = await rootBundle.load('assets/images/mascot-male.png');
-  final file = File('${(await getTemporaryDirectory()).path}/e2e-mascot.png');
-  await file.writeAsBytes(data.buffer.asUint8List());
-  ProviderScope.containerOf(tester.element(screen('3b')))
-      .read(studentVerificationViewModelProvider.notifier)
-      .pickFromGallery = () async => file;
-  await tap(tester, find.text('사진을 첨부해주세요'));
-}
-
-const _realNameHint = '학생증에 표기된 이름';
-const _submitProof = '확인 요청하기';
-
-/// 실명 [name] 을 넣으면 제출 버튼이 [on] 인지.
-Future<void> _realName(WidgetTester tester, String name, {required bool on}) async {
-  await type(tester, input(_realNameHint), name);
-  must(enabled(tester, _submitProof) == on, '실명 "$name" 에 버튼이 ${on ? '꺼짐' : '켜짐'}');
-}
 
 final _random = Random();
 
@@ -377,7 +352,8 @@ final Map<String, Area1Case> area1Cases = {
     await _consentRow(tester, '이용약관');
     await _consentRow(tester, '개인정보 수집·이용');
     await tap(tester, button(_consentCta));
-    await arrive(tester, '3b', timeout: const Duration(seconds: 5));
+    // 공장 'new' 계정은 학교 메일까지 인증돼 있다 — 동의 다음은 3c(10-17 학생증 제거로 3b 가 없어졌다).
+    await arrive(tester, '3c', timeout: const Duration(seconds: 5));
     return null;
   }),
   'E-GATE-09': _session((tester, job) async {
@@ -386,7 +362,7 @@ final Map<String, Area1Case> area1Cases = {
     must(_checkedBoxes(tester) == 4, '전체 동의 뒤 켜진 칸 ${_checkedBoxes(tester)}');
     final tappedAt = DateTime.now().toUtc().toIso8601String();
     await tap(tester, button(_consentCta));
-    await arrive(tester, '3b', timeout: const Duration(seconds: 10));
+    await arrive(tester, '3c', timeout: const Duration(seconds: 10)); // 동의 다음 관문(E-GATE-08 과 같다)
     return {'tapped_at': tappedAt};
   }),
   'E-GATE-10': _session((tester, job) async {
@@ -419,7 +395,7 @@ final Map<String, Area1Case> area1Cases = {
     final cta = button(_consentCta).last;
     await tester.tap(cta);
     await tester.tap(cta, warnIfMissed: false); // 첫 누름의 프레임이 돌기 전에 한 번 더
-    await arrive(tester, '3b', timeout: const Duration(seconds: 10));
+    await arrive(tester, '3c', timeout: const Duration(seconds: 10)); // 동의 다음 관문(E-GATE-08 과 같다)
     return null;
   }),
   'E-GATE-14': _session((tester, job) async {
@@ -431,30 +407,6 @@ final Map<String, Area1Case> area1Cases = {
     await tap(tester, find.widgetWithText(SafetySheetButton, '로그아웃'));
     await arrive(tester, 'start', timeout: const Duration(seconds: 10));
     must(Supabase.instance.client.auth.currentSession == null, '세션이 남아 있음');
-    return null;
-  }),
-  'E-GATE-30': _session((tester, job) async {
-    await arrive(tester, '3b');
-    await _fakeGallery(tester);
-    await _realName(tester, '김', on: false);
-    await _realName(tester, '김철', on: true);
-    return null;
-  }),
-  'E-GATE-31': _session((tester, job) async {
-    await arrive(tester, '3b');
-    await _fakeGallery(tester);
-    for (final name in ['김1', '김ㄱ']) {
-      await _realName(tester, name, on: false);
-      must(find.text(realNameRuleMessage).evaluate().isNotEmpty, '"$name" 에 안내 문구 없음');
-    }
-    return null;
-  }),
-  'E-GATE-32': _session((tester, job) async {
-    await arrive(tester, '3b');
-    await _fakeGallery(tester);
-    await _realName(tester, '가' * 30, on: true);
-    await _realName(tester, '가' * 31, on: false);
-    await _realName(tester, 'Jun seok', on: true);
     return null;
   }),
   'E-GATE-52': _session((tester, job) async {

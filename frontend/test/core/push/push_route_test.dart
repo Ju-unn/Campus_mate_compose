@@ -38,8 +38,9 @@ void main() {
     expect(PushRoute.resolve({'route': 'friend_review_write', 'profile_id': ''}), isNull);
   });
 
-  test('학생증 검토 결과 알림은 3b 로 간다 — 통과면 관문이 다음 화면으로 넘긴다', () {
-    expect(PushRoute.resolve({'route': 'verification'}), AppRoutes.studentVerification);
+  // 10-17 학생증 제거: 알림함에 남은 옛 "학생증 결과" 줄(route verification)은 모르는 값처럼 아무 데도 보내지 않는다.
+  test('옛 학생증 검토 결과 알림(verification)은 아무 데도 보내지 않는다', () {
+    expect(PushRoute.resolve({'route': 'verification'}), isNull);
   });
 
   test('모르는 route 는 아무 데도 보내지 않는다', () {

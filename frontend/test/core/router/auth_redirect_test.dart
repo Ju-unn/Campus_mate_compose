@@ -10,7 +10,7 @@ void main() {
   // 예전에는 로그인(학교 메일 입력) 화면으로 보냈다. 그 화면은 지시문 08 에서 로그인 뒤 단계가 된다.
   group('로그인하지 않은 사용자', () {
     // 게이트가 미통과여도 로그인이 먼저다 — 게이트 화면이 로그인보다 앞설 수 없다.
-    const redirect = AuthRedirect(false, VerificationGate.needsStudentVerification, OnboardingStep.basicInfo);
+    const redirect = AuthRedirect(false, VerificationGate.needsSchoolInfo, OnboardingStep.basicInfo);
 
     test('시작 화면(스플래시)에 머문다', () {
       expect(redirect.resolve(AppRoutes.splash), isNull);
@@ -25,8 +25,8 @@ void main() {
       expect(redirect.resolve(AppRoutes.verifyCode), AppRoutes.splash);
     });
 
-    test('학생증 화면으로 가려 해도 시작 화면으로 보낸다', () {
-      expect(redirect.resolve(AppRoutes.studentVerification), AppRoutes.splash);
+    test('3c 로 가려 해도 시작 화면으로 보낸다', () {
+      expect(redirect.resolve(AppRoutes.schoolInfo), AppRoutes.splash);
     });
 
     test('관문을 아직 모를 때(로그아웃하면 게이트가 unknown 으로 돌아간다)에도 시작 화면에 머문다', () {
@@ -52,8 +52,7 @@ void main() {
       expect(redirect.resolve(AppRoutes.home), isNull);
     });
 
-    test('3b·3c 에 머물지 않는다', () {
-      expect(redirect.resolve(AppRoutes.studentVerification), AppRoutes.home);
+    test('3c 에 머물지 않는다', () {
       expect(redirect.resolve(AppRoutes.schoolInfo), AppRoutes.home);
     });
 
@@ -99,11 +98,12 @@ void main() {
   });
 
   group('약관 동의 전(02-c, 첫 관문)', () {
-    test('동의 전이면 3b 보다 먼저 02-c 로 보낸다', () {
+    test('동의 전이면 02 · 3c 보다 먼저 02-c 로 보낸다', () {
       const redirect = AuthRedirect(true, VerificationGate.needsConsent, OnboardingStep.basicInfo);
 
       expect(redirect.resolve(AppRoutes.splash), AppRoutes.consent);
-      expect(redirect.resolve(AppRoutes.studentVerification), AppRoutes.consent);
+      expect(redirect.resolve(AppRoutes.login), AppRoutes.consent);
+      expect(redirect.resolve(AppRoutes.schoolInfo), AppRoutes.consent);
       expect(redirect.resolve(AppRoutes.home), AppRoutes.consent);
     });
 
@@ -122,9 +122,8 @@ void main() {
 
     test('동의를 마치면 02-c 에서 다음 관문으로 보낸다', () {
       expect(
-        const AuthRedirect(true, VerificationGate.needsStudentVerification, OnboardingStep.basicInfo)
-            .resolve(AppRoutes.consent),
-        AppRoutes.studentVerification,
+        const AuthRedirect(true, VerificationGate.needsSchoolEmail, OnboardingStep.basicInfo).resolve(AppRoutes.consent),
+        AppRoutes.login,
       );
       expect(
         const AuthRedirect(true, VerificationGate.complete, OnboardingStep.complete).resolve(AppRoutes.consent),
@@ -153,7 +152,6 @@ void main() {
       for (final path in [
         AppRoutes.splash,
         AppRoutes.consent,
-        AppRoutes.studentVerification,
         AppRoutes.schoolInfo,
         AppRoutes.onboardingBasicInfo,
         AppRoutes.home,
@@ -167,11 +165,13 @@ void main() {
       expect(redirect.resolve(AppRoutes.verifyCode), isNull);
     });
 
-    test('인증을 마치면 02 · 03 에서 학생증(3b)으로 보내고 다시 돌아오지 못한다', () {
-      const verified = AuthRedirect(true, VerificationGate.needsStudentVerification, OnboardingStep.basicInfo);
+    // 10-17 학생증 제거: 03 다음은 학생증(3b)이 아니라 곧장 학과 · 학번(3c)이다.
+    test('인증을 마치면 02 · 03 에서 학과(3c)로 보내고 다시 돌아오지 못한다', () {
+      const verified = AuthRedirect(true, VerificationGate.needsSchoolInfo, OnboardingStep.basicInfo);
 
-      expect(verified.resolve(AppRoutes.login), AppRoutes.studentVerification);
-      expect(verified.resolve(AppRoutes.verifyCode), AppRoutes.studentVerification);
+      expect(verified.resolve(AppRoutes.login), AppRoutes.schoolInfo);
+      expect(verified.resolve(AppRoutes.verifyCode), AppRoutes.schoolInfo);
+      expect(verified.resolve(AppRoutes.schoolInfo), isNull);
     });
 
     test('모두 끝난 계정은 03 에 머물지 않고 홈으로 간다', () {
@@ -193,7 +193,7 @@ void main() {
     });
   });
 
-  // 순서 고정: 정지 > 동의 > 학교 메일 > 학생증 > 학과와 학번 > 온보딩. 한 줄이 (계정 상태, 관문) 하나다.
+  // 순서 고정: 정지 > 동의 > 학교 메일 > 학과와 학번 > 온보딩. 한 줄이 (계정 상태, 관문) 하나다.
   group('관문 순서 표', () {
     const rows = <(AccountStatus, VerificationGate, String)>[
       (AccountStatus.suspended, VerificationGate.needsConsent, AppRoutes.accountSuspended),
@@ -201,7 +201,6 @@ void main() {
       (AccountStatus.active, VerificationGate.needsConsent, AppRoutes.consent),
       (AccountStatus.active, VerificationGate.needsConsentRenewal, AppRoutes.consent),
       (AccountStatus.active, VerificationGate.needsSchoolEmail, AppRoutes.login),
-      (AccountStatus.active, VerificationGate.needsStudentVerification, AppRoutes.studentVerification),
       (AccountStatus.active, VerificationGate.needsSchoolInfo, AppRoutes.schoolInfo),
       (AccountStatus.active, VerificationGate.complete, AppRoutes.onboardingBasicInfo),
     ];
@@ -257,28 +256,22 @@ void main() {
   });
 
   group('게이트를 통과하지 못한 사용자', () {
-    test('학생증 미인증이면 3b 로 보낸다', () {
-      const redirect = AuthRedirect(true, VerificationGate.needsStudentVerification, OnboardingStep.basicInfo);
-
-      expect(redirect.resolve(AppRoutes.home), AppRoutes.studentVerification);
-    });
-
-    test('학생증은 통과했지만 학과 정보가 없으면 3c 로 보낸다', () {
+    test('학교 메일은 인증했지만 학과 정보가 없으면 3c 로 보낸다', () {
       const redirect = AuthRedirect(true, VerificationGate.needsSchoolInfo, OnboardingStep.basicInfo);
 
       expect(redirect.resolve(AppRoutes.home), AppRoutes.schoolInfo);
     });
 
     test('이미 목적지에 있으면 리다이렉트하지 않는다', () {
-      const redirect = AuthRedirect(true, VerificationGate.needsStudentVerification, OnboardingStep.basicInfo);
+      const redirect = AuthRedirect(true, VerificationGate.needsSchoolInfo, OnboardingStep.basicInfo);
 
-      expect(redirect.resolve(AppRoutes.studentVerification), isNull);
+      expect(redirect.resolve(AppRoutes.schoolInfo), isNull);
     });
 
-    test('앞 단계를 건너뛰고 3c 에 들어와도 3b 로 되돌린다', () {
-      const redirect = AuthRedirect(true, VerificationGate.needsStudentVerification, OnboardingStep.basicInfo);
+    test('앞 단계를 건너뛰고 3c 에 들어와도 02 로 되돌린다', () {
+      const redirect = AuthRedirect(true, VerificationGate.needsSchoolEmail, OnboardingStep.basicInfo);
 
-      expect(redirect.resolve(AppRoutes.schoolInfo), AppRoutes.studentVerification);
+      expect(redirect.resolve(AppRoutes.schoolInfo), AppRoutes.login);
     });
   });
 
@@ -363,15 +356,15 @@ void main() {
     });
 
     test('다른 곳에 있으면 온보딩 화면이 아니라 스플래시로 보낸다', () {
-      for (final path in [AppRoutes.login, AppRoutes.studentVerification, AppRoutes.schoolInfo, AppRoutes.home]) {
+      for (final path in [AppRoutes.login, AppRoutes.schoolInfo, AppRoutes.home]) {
         expect(redirect.resolve(path), AppRoutes.splash, reason: path);
       }
     });
 
     test('관문이 남았으면 단계를 몰라도 관문이 먼저다', () {
-      const gated = AuthRedirect(true, VerificationGate.needsStudentVerification, null);
+      const gated = AuthRedirect(true, VerificationGate.needsSchoolInfo, null);
 
-      expect(gated.resolve(AppRoutes.splash), AppRoutes.studentVerification);
+      expect(gated.resolve(AppRoutes.splash), AppRoutes.schoolInfo);
     });
 
     test('정지가 단계 모름보다 먼저다', () {
@@ -399,8 +392,8 @@ void main() {
       );
     });
 
-    test('게이트 기본값(학생증 미통과)보다도 앞선다', () {
-      const redirect = AuthRedirect(true, VerificationGate.needsStudentVerification, OnboardingStep.basicInfo,
+    test('관문 미통과(학과 미입력)보다도 앞선다', () {
+      const redirect = AuthRedirect(true, VerificationGate.needsSchoolInfo, OnboardingStep.basicInfo,
           accountStatus: AccountStatus.suspended);
 
       expect(redirect.resolve(AppRoutes.splash), AppRoutes.accountSuspended);

@@ -65,7 +65,7 @@ void main() {
     status.observe(const WithdrawnFailure());
 
     expect(signOutCalls, 1);
-    expect(LoginNotice.take(), '탈퇴한 계정이에요');
+    expect(LoginNotice.take()?.message, '탈퇴한 계정이에요');
   });
 
   group('로그인한 사용자', () {
