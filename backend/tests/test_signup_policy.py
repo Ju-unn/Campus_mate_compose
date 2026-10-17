@@ -1,5 +1,7 @@
 import hashlib
 import hmac
+import json
+import logging
 
 import httpx
 import pytest
@@ -73,3 +75,63 @@ async def test_is_blocked_false_when_no_row(transport_factory):
     policy = SignupPolicy("https://x.supabase.co/rest/v1", "service-key", transport_factory(handler))
 
     assert await policy.is_blocked(b"\x01\x02") is False
+
+
+# 등록되지 않은 학교 메일 도메인 기록(최선만) — 도메인 문자열만 보낸다 ---------------------------------------
+
+async def test_record_unknown_domain_sends_only_the_domain_to_the_db_function(transport_factory):
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(204)
+
+    policy = SignupPolicy("https://x.supabase.co/rest/v1", "service-key", transport_factory(handler))
+
+    await policy.record_unknown_domain("unknown.ac.kr")
+
+    [request] = seen
+    assert request.method == "POST"
+    assert request.url.path == "/rest/v1/rpc/record_unknown_email_domain"
+    assert json.loads(request.content) == {"p_domain": "unknown.ac.kr"}
+    assert request.headers["authorization"] == "Bearer service-key"
+
+
+async def test_record_unknown_domain_waits_only_a_short_time(transport_factory):
+    """거절 응답 안에서 기다리는 호출이다 — 훅 전체가 Supabase Auth HTTP 훅 제한(5초) 안에 들도록 1초로 끊는다."""
+    timeouts: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        timeouts.append(request.extensions["timeout"])
+        return httpx.Response(204)
+
+    policy = SignupPolicy("https://x.supabase.co/rest/v1", "service-key", transport_factory(handler))
+
+    await policy.record_unknown_domain("unknown.ac.kr")
+
+    assert all(0 < seconds <= 1.0 for seconds in timeouts[0].values())
+
+
+def _raise(exc_type):
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise exc_type("boom", request=request)
+    return handler
+
+
+@pytest.mark.parametrize("handler", [
+    lambda request: httpx.Response(500, json={"message": "boom"}),
+    lambda request: httpx.Response(404, json={"message": "function not found"}),
+    _raise(httpx.ReadTimeout),
+    _raise(httpx.ConnectError),
+], ids=["500", "404", "timeout", "unreachable"])
+async def test_record_unknown_domain_never_raises_and_logs_only_the_domain(transport_factory, handler, caplog):
+    policy = SignupPolicy("https://x.supabase.co/rest/v1", "service-key", transport_factory(handler))
+
+    with caplog.at_level(logging.DEBUG):
+        await policy.record_unknown_domain("unknown.ac.kr")
+
+    [warning] = [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert "unknown.ac.kr" in warning.getMessage()
+    # 주소(프로젝트 ref) · 서비스 키는 남기지 않는다(httpx 자체의 요청 줄은 이 경고가 아니다).
+    assert "x.supabase.co" not in warning.getMessage()
+    assert "service-key" not in caplog.text
