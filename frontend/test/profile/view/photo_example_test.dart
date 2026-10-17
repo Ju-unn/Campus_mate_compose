@@ -39,6 +39,8 @@ void main() {
         expect(clip.borderRadius, BorderRadius.circular(14));
       }
       expect(tester.widgetList<Image>(find.byType(Image)).map((image) => image.fit), [BoxFit.cover, BoxFit.cover]);
+      // 정사각 칸이라 잘리는 곳이 없다 — 가운데 그대로.
+      expect(tester.widgetList<Image>(find.byType(Image)).map((image) => image.alignment), [Alignment.center, Alignment.center]);
     });
 
     testWidgets('공원 · 카페 예시 사진을 쓰고, 낭독기는 "올바른 사진 예시" 로 읽는다', (tester) async {
@@ -70,6 +72,16 @@ void main() {
       expect(rects[0].left, 16);
       expect(rects[1].left - rects[0].right, 12);
       expect(tester.widgetList<Image>(find.byType(Image)).map((image) => image.fit), [BoxFit.cover, BoxFit.cover]);
+    });
+
+    // pen 04-3 예시는 세로 원본(결과_v28_flare_2 · 결과_s3_f2, 1024×1536)을 158×130 에 cover(가운데)로 담아 원본 세로 347~1189 줄이 보인다.
+    // 앱 그림은 그 원본의 158~1182 줄을 자른 정사각(390)이라, 가운데로 담으면 248~1091 줄이 보여 얼굴이 pen 보다 15 아래에 온다.
+    // 아래 맞춤이면 339~1182 줄 — pen 과 1 이내.
+    testWidgets('정사각 일러스트를 아래에 맞춰 담는다 — pen 세로 원본 cover 와 같은 부분이 보인다', (tester) async {
+      await pump(tester, const PhotoExample.avatar());
+
+      expect(tester.widgetList<Image>(find.byType(Image)).map((image) => image.alignment),
+          [Alignment.bottomCenter, Alignment.bottomCenter]);
     });
 
     testWidgets('일러스트 두 장(avatar-* 이름이 아니다)이고 낭독기는 "아바타 일러스트 예시" 로 읽는다', (tester) async {
