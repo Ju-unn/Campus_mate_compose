@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 
 from e2e import area1, area4, notify, notify_factory, tools
 from e2e.area3_contacts import APK
-from e2e.area1 import Check, _api, _app, _one, _patch, _rows, _signed_in
+from e2e.area1 import Check, _api, _app, _one, _rows, _signed_in
 from e2e.area4 import stepper
 from e2e.tools import Blocked
 
@@ -317,15 +317,16 @@ def p_push_61(run, phone):
 
 
 def p_push_63(run, phone):
+    """관문 앞(3c) 계정 — 학생증 제거(10-17)로 동의까지 한 계정이 바로 3c 에 선다. 앱이 3c 에서 멈추면(waiting) 토큰 1행,
+    앱이 학과 · 학번을 저장해 관문을 연 뒤(gate_open) 같은 토큰 1행 그대로. PC 는 DB 를 고치지 않는다."""
     check = Check()
-    account, token = _signed_in(run, 'pending')
+    account, token = _signed_in(run, 'consented')
     seen = {}
 
     def before_gate(said):
         _wait(lambda: _tokens(run, account['id']), TOKEN_WAIT)
         seen['rows'] = _tokens(run, account['id'])
-        check.that(len(seen['rows']) == 1, f'인증 전(3b)인데 {TOKEN_WAIT}초 안 push_tokens {seen["rows"]} — 1행이어야 함')
-        _patch(run, f"profiles?id=eq.{account['id']}", {'student_verification': 'verified'})  # 사람 검토가 끝난 것과 같다
+        check.that(len(seen['rows']) == 1, f'관문 앞(3c)인데 {TOKEN_WAIT}초 안 push_tokens {seen["rows"]} — 1행이어야 함')
 
     def after_gate(said):
         rows = _tokens(run, account['id'])

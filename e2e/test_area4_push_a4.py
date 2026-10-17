@@ -1,6 +1,7 @@
 """영역 4 알림(PUSH) A4 — 토큰 · 권한 · 로그인/로그아웃 PC 쪽 시험. 폰 · 운영 없이 가짜 앱 · 가짜 DB · 가짜 알림 헬퍼로 돈다.
 저장소 루트에서 `python -m unittest e2e.test_area4_push_a4`."""
 
+import json
 import subprocess
 import tempfile
 import unittest
@@ -483,9 +484,11 @@ class Push63Test(PushBase):
     def test_the_token_registers_before_the_gate_and_stays_one_row_after_the_gate_opens(self):
         app = self.stage([dict(TOKEN)], [dict(TOKEN)])
         self.assertEqual(self.go('E-PUSH-63', app)[0], 'pass')
+        # 학생증 제거(10-17): 동의까지 한 계정이 바로 3c 에 서고, 앱이 학과를 저장해 관문을 연다 — PC 가 학생증 상태를 고치지 않는다.
         patches = [(u, b) for (m, u), (_, _, b) in zip(self.db.urls, self.db.calls) if m == 'PATCH']
-        self.assertEqual(len(patches), 2)  # pending 계정 만들기 · 통과 처리
-        self.assertTrue(patches[-1][0].endswith('id=eq.id-1') and patches[-1][1] == {'student_verification': 'verified'})
+        self.assertEqual(patches, [])
+        written = json.loads((self.run.out / 'accounts.json').read_text(encoding='utf-8'))
+        self.assertEqual([a['stage'] for a in written], ['consented'])
 
     def test_fails_when_no_row_before_the_gate_or_more_rows_or_another_token_after(self):
         for first, second in (([], [dict(TOKEN)]), ([dict(TOKEN)], [dict(TOKEN), {'token': 'T2', 'platform': 'android'}]),
