@@ -1,4 +1,5 @@
-"""홈 "지금 함께 있는 사람들" 레일(GET /home/people): 실제 가입자 아바타를 서버가 흐리게 줄인 JPEG 만 준다.
+"""홈 "지금 함께 있는 사람들" 레일(GET /home/people): 실제 가입자 아바타를 서버가 줄이기만 한 JPEG 만 준다(블러 없음,
+사용자 결정 10-17 — 아바타는 실사진이 아닌 AI 일러스트이고 카드에서도 공개된다).
 
 가짜 PostgREST 는 경로와 쿼리 키로만 가른다(URL 문자열 일부로 가르지 않는다). 사람 목록 조회는 PostgREST 처럼
 status · auto_hidden_at · id(neq) 필터와 last_active_at 내림차순 · limit 을 실제로 적용한다 — 서버가 필터를 빠뜨리면
@@ -14,7 +15,7 @@ from datetime import datetime, timedelta, timezone
 import httpx
 import pytest
 from fastapi.testclient import TestClient
-from PIL import Image
+from PIL import Image, ImageOps
 
 import app.cards.paid_preview as paid_preview
 import app.home.router as home_router
@@ -31,8 +32,8 @@ DB_MAX_ROWS = 1000
 
 
 def _png() -> bytes:
-    """아바타 원본 대신 쓰는 작은 무늬 그림(모두 같은 그림). 크기는 결과(112×140)와 상관없다."""
-    gradient = Image.linear_gradient("L").resize((224, 280))
+    """아바타 원본 대신 쓰는 작은 무늬 그림(모두 같은 그림). 결과(224×280)보다 커서 실제로 줄어든다."""
+    gradient = Image.linear_gradient("L").resize((448, 560))
     image = Image.merge("RGB", [gradient, gradient.rotate(90), gradient.rotate(180)])
     out = io.BytesIO()
     image.save(out, "PNG")
@@ -192,7 +193,7 @@ def _people_of(client: TestClient) -> list[str]:
 
 # 응답 모양 ------------------------------------------------------------------------------------
 
-def test_each_person_is_a_blurred_jpeg_the_size_of_the_tile(wire):
+def test_each_person_is_a_jpeg_twice_the_size_of_the_tile(wire):
     world = _World(_people(12))
 
     people = _people_of(wire(world))
@@ -203,12 +204,28 @@ def test_each_person_is_a_blurred_jpeg_the_size_of_the_tile(wire):
         assert image_bytes[:3] == b"\xff\xd8\xff"
         assert image_bytes != AVATAR
         with Image.open(io.BytesIO(image_bytes)) as image:
-            # 레일 사람 칸(pen `O5FCD9`)이 112×140 이다.
-            assert image.size == (112, 140)
+            # 레일 사람 칸(pen `O5FCD9`)은 112×140 이다. 블러가 없어 기기 배율에서 뭉개지지 않게 2배로 준다(앱은 칸에 덮어 그린다).
+            assert image.size == (224, 280)
 
 
-def test_the_rail_blur_is_pinned_because_it_decides_how_much_of_a_face_shows(wire, monkeypatch):
-    """반경을 줄이면 얼굴이 드러난다 — 값(8)과 실제로 넘기는 크기 · 반경을 둘 다 못 박는다."""
+def _shrunk_only(original: bytes) -> bytes:
+    """가운데를 4:5 로 잘라 224×280 으로 줄이기만 한 JPEG(품질 50) — 섞기(블러)가 없다."""
+    with Image.open(io.BytesIO(original)) as image:
+        small = ImageOps.fit(image.convert("RGB"), (224, 280), Image.Resampling.BOX)
+    out = io.BytesIO()
+    small.save(out, "JPEG", quality=50, optimize=True)
+    return out.getvalue()
+
+
+def test_the_rail_picture_is_the_avatar_only_shrunk_not_blurred(wire):
+    """블러를 없앴다(사용자 결정 10-17) — 받은 그림은 원본을 줄이기만 한 것과 바이트까지 같다."""
+    people = _people_of(wire(_World(_people(12))))
+
+    assert {base64.b64decode(preview) for preview in people} == {_shrunk_only(AVATAR)}
+
+
+def test_the_rail_size_and_no_blur_are_pinned(wire, monkeypatch):
+    """반경 0(블러 없음)과 실제로 넘기는 크기 · 반경을 둘 다 못 박는다."""
     calls = []
     real = home_router.cached_preview
 
@@ -220,8 +237,8 @@ def test_the_rail_blur_is_pinned_because_it_decides_how_much_of_a_face_shows(wir
 
     _people_of(wire(_World(_people(12))))
 
-    assert home_router.HOME_PEOPLE_BLUR_RADIUS == 8
-    assert calls == [((112, 140), 8)] * 12
+    assert home_router.HOME_PEOPLE_BLUR_RADIUS == 0
+    assert calls == [((224, 280), 0)] * 12
 
 
 def test_the_response_has_only_pictures_and_nothing_points_at_anyone(wire):
@@ -326,7 +343,7 @@ def test_a_block_after_a_thousand_others_still_leaves_the_person_out(wire, block
 @pytest.mark.parametrize("contact_blocks", [[(ME, "phone-99")], [(_id(99), "phone-me")]],
                          ids=["i_blocked_their_number", "they_blocked_my_number"])
 def test_contact_blocked_people_either_way_are_left_out(wire, contact_blocks):
-    """지인을 막아 둔 사람의 얼굴이 그 지인 홈에 (흐리게라도) 떠서는 안 된다 — 반대 방향도 같다."""
+    """지인을 막아 둔 사람의 얼굴이 그 지인 홈에 떠서는 안 된다 — 반대 방향도 같다."""
     fillers = _people(FILLERS)
     world = _World([*fillers, _person(99)], phones={ME: "phone-me", _id(99): "phone-99"},
                    contact_blocks=contact_blocks)
@@ -377,7 +394,7 @@ def test_fewer_than_twelve_candidates_are_all_shown(wire):
 
 
 def test_four_candidates_give_an_empty_list_without_downloading(wire):
-    """사람이 적으면 흐린 얼굴도 누구인지 짐작된다 — 5명이 안 되면 빈 목록이고 앱이 마스코트 칸으로 대신한다(사용자 결정 10-16)."""
+    """5명이 안 되면 빈 목록이고 앱이 예시 칸(아바타 일러스트 · 마스코트)으로 대신한다(사용자 결정 10-16)."""
     world = _World(_people(4))
 
     assert _people_of(wire(world)) == []
