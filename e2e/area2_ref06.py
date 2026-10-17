@@ -22,7 +22,7 @@ def _ledger(run, account_id):
 def p_ref_06(run, phone):
     check = Check()
     owner, code = _referrer(run)  # A — 코드 주인(활성 계정)
-    newcomer, token = _signed_in(run, 'ideal_note')  # B — 학생증 verified · 학과 입력 뒤 06-3 직후(가입 마지막)
+    newcomer, token = _signed_in(run, 'ideal_note')  # B — 학교 메일 · 학과 입력 뒤 06-3 직후(가입 마지막)
     _app(check, phone(token_hash=token, code=code))
     rows = _rows(run, f"referrals?referee_id=eq.{newcomer['id']}&select=referrer_id")
     check.that(rows == [{'referrer_id': owner['id']}], f'referrals(B 가 받은 쪽) {rows}(기대 A 한 줄)')

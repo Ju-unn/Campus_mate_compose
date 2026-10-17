@@ -47,7 +47,7 @@ class Fake(t1.FakeServer):
 class Base(t1.Base):
     @staticmethod
     def seeded(fake):
-        """가설이 프로필에 넣은 값(gender 가 든 PATCH) — 계정 공장이 student_verification 을 쓰는 PATCH 는 뺀다."""
+        """가설이 프로필에 넣은 값(gender 가 든 PATCH) — 다른 PATCH(정지 · 시각 등)는 뺀다."""
         return [b for b in fake.bodies('PATCH', '/rest/v1/profiles') if 'gender' in b]
 
     """계정은 진짜 계정 공장(`Run.account('home')`, 나탭2 #243)이 가짜 서버 위에서 만든다 — 만든 순서대로 id-1, id-2 …."""

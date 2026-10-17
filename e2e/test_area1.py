@@ -119,7 +119,11 @@ class AccountTest(Base):
         self.assertEqual(fake.paths('POST'), ['/auth/v1/admin/users', '/rest/v1/profiles', '/rest/v1/school_email_claims',
                                               '/auth/v1/admin/generate_link',
                                               '/auth/v1/verify', '/me/consents', '/school-info', '/profile-onboarding/basic-info'])
-        self.assertEqual([b for m, p, b in fake.calls if (m, p) == ('PATCH', '/rest/v1/profiles')], [{'student_verification': 'verified'}])
+        # 학생증 단계는 없다(학생증 제거 10-17) — 학교 메일 인증 시각(프로필 행) + 학과(/school-info)면 관문을 지난다.
+        self.assertEqual([b for m, p, b in fake.calls if (m, p) == ('PATCH', '/rest/v1/profiles')], [])
+        profile = [b for m, p, b in fake.calls if (m, p) == ('POST', '/rest/v1/profiles')][0]
+        self.assertTrue(profile['school_email_verified_at'])
+        self.assertEqual([b['department'] for m, p, b in fake.calls if p == '/school-info'], ['컴퓨터공학과'])
         nickname = [b for m, p, b in fake.calls if p == '/profile-onboarding/basic-info'][0]['nickname']
         self.assertRegex(nickname, r'^[A-Za-z]{5}$')
         written = json.loads((self.run.out / 'accounts.json').read_text(encoding='utf-8'))
@@ -127,10 +131,19 @@ class AccountTest(Base):
                                     'at': written[0]['at']}])
         self.assertNotIn('tok', json.dumps(written))
 
-    def test_pending_account_stops_at_pending(self):
+    def test_there_is_no_student_id_stage_any_more(self):
+        # 학생증 제거(10-17): 동의(consented) 다음이 바로 학과(gate_done)다. 옛 단계 이름은 계정을 만들기 전에 막는다.
+        self.assertEqual(tools.STAGES[tools.STAGES.index('consented') + 2], 'gate_done')  # 사이는 곁가지 needs_school_email 뿐
         fake = self.serve()
-        self.assertEqual(self.run.account('pending')['stage'], 'pending')
-        self.assertEqual([b for m, p, b in fake.calls if (m, p) == ('PATCH', '/rest/v1/profiles')], [{'student_verification': 'pending'}])
+        for gone in ('pending', 'verified'):
+            with self.subTest(stage=gone), self.assertRaises(ValueError):
+                self.run.account(gone)
+        self.assertEqual(fake.users, [])
+
+    def test_consented_account_stops_before_the_department(self):
+        fake = self.serve()
+        self.assertEqual(self.run.account('consented')['stage'], 'consented')
+        self.assertEqual([b for m, p, b in fake.calls if (m, p) == ('PATCH', '/rest/v1/profiles')], [])
         self.assertNotIn('/school-info', fake.paths())
 
     # 소셜 로그인 전환(20261008010000 ⑤): 가입 트리거는 email 방식 계정에 프로필을 만들지 않는다 — 공장이 서비스 키로 대신 만든다.
