@@ -17,18 +17,17 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# 레일 사람 칸(pen `O5FCD9`) 크기 그대로. 흐린 그림이라 기기 배율만큼 키워 그려도 잃는 것이 없다.
-HOME_PEOPLE_SIZE = (112, 140)
-# 블러 반경(픽셀, 가우스 표준편차). 머리색 · 옷 색 · 몸 형태는 남고 눈 · 코 · 입 · 안경과 얼굴 윤곽은 뭉개져 누구인지
-# 알아보기 어려운 "중간" 강도다. 유료 카드는 8×10 칸에 반경 1칸이라 이 크기로 치면 약 14px — 그 절반 남짓이다.
-# 2026-10-15 그림 예시(example-illust-a)로 3 · 5 · 6 · 8 · 10 을 견줘 골랐다: 6 이하는 얼굴 생김이 어렴풋이 남고,
-# 10 은 머리와 얼굴의 경계까지 사라진다. 서버 배포만으로 바꿀 수 있게 이 한 곳에만 둔다.
-HOME_PEOPLE_BLUR_RADIUS = 8
+# 레일 사람 칸(pen `O5FCD9`) 112×140 의 2배. 블러가 없어 칸 크기 그대로면 기기 배율(2~3배)에서 뭉개져 보인다.
+# 앱은 112×140 칸에 덮어(cover) 그리므로 레이아웃은 그대로다.
+HOME_PEOPLE_SIZE = (224, 280)
+# 블러 없음(사용자 결정 2026-10-17 "실제 가입자도 블러 없이 보여준다") — 아바타는 실사진이 아니라 AI 일러스트이고 카드에서도
+# 공개된다. 반경 0 이면 줄이기만 한다(Pillow 가 섞지 않고 복사한다). 종전 8. 서버 배포만으로 바꿀 수 있게 이 한 곳에만 둔다.
+HOME_PEOPLE_BLUR_RADIUS = 0
 # 최근 활동 상위 몇 명 안에서(모든 학교 · 성별 섞어서) 몇 명을 무작위로 보이나.
 HOME_PEOPLE_POOL = 60
 HOME_PEOPLE_COUNT = 12
-# 이보다 적으면 빈 목록이다 — 사람이 적으면 흐린 얼굴도 누구인지 짐작된다. 앱은 레일을 숨기지 않고 마스코트 칸으로 대신한다.
-# 5명(사용자 결정 2026-10-16, 종전 10명). 후보 수로 센다 — 후보가 5명이 넘어도 사진 몇 장을 못 만들면 5장보다 적게 나갈 수
+# 이보다 적으면 빈 목록이다 — 몇 사람만 되풀이되는 레일 대신 앱이 예시 칸(아바타 일러스트 · 마스코트)을 보이는 기준이다.
+# 레일을 숨기지는 않는다. 5명(사용자 결정 2026-10-16, 종전 10명 · 블러를 없앤 10-17 뒤에도 그대로). 후보 수로 센다 — 후보가 5명이 넘어도 사진 몇 장을 못 만들면 5장보다 적게 나갈 수
 # 있다(남은 사진은 그대로 준다).
 HOME_PEOPLE_MIN = 5
 
@@ -63,9 +62,9 @@ def _shown_avatar_path(profile: dict) -> str | None:
 @router.get("/home/people")
 async def get_home_people(caller: Caller = Depends(get_verified_caller),
                           rng: random.Random = Depends(get_rng)) -> dict:
-    """mosaic-rail 사람 칸. 실제 가입자 아바타를 서버가 받아 흐리게 줄인 JPEG(base64)만 싣는다 — id · 경로 · 공개 주소 ·
-    닉네임 · 학교 · 성별은 싣지 않는다(공개 저장소 주소에 profile_id 가 있다). summary 와 따로 둔다: 캐시가 빈 인스턴스가
-    원본을 받아 흐리는 동안 summary 가 늦어지지 않고, 여기가 실패해도 다른 블록은 그려진다."""
+    """mosaic-rail 사람 칸. 실제 가입자 아바타를 서버가 받아 줄이기만 한 JPEG(base64, 블러 없음)만 싣는다 — id · 경로 ·
+    공개 주소 · 닉네임 · 학교 · 성별은 싣지 않는다(공개 저장소 주소에 profile_id 가 있다). summary 와 따로 둔다: 캐시가 빈
+    인스턴스가 원본을 받아 줄이는 동안 summary 가 늦어지지 않고, 여기가 실패해도 다른 블록은 그려진다."""
     settings, client, profile_id = caller
     me = str(profile_id)
     key = settings.supabase_service_role_key
@@ -92,7 +91,7 @@ async def get_home_people(caller: Caller = Depends(get_verified_caller),
     people = [result for result in results if isinstance(result, str)]
     if len(people) < len(picked):
         # 개수만 남긴다 — 예외 문구에는 저장소 주소(경로 = profile_id)가 들어 있다(COMMON §3).
-        logger.warning("홈 레일 흐린 사진 %d/%d 장을 못 만들어 건너뛰었다", len(picked) - len(people), len(picked))
+        logger.warning("홈 레일 사진 %d/%d 장을 못 만들어 건너뛰었다", len(picked) - len(people), len(picked))
     return {"people": people}
 
 

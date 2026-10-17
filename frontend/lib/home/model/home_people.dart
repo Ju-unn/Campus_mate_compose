@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-/// mosaic-rail 사람 칸 그림(`GET /home/people`). 서버가 실제 가입자 아바타를 이미 흐리게 줄여(112×140 JPEG) base64 로 준다 —
-/// 누구인지 알 만한 값(id · 닉네임 · 학교)은 오지 않는다. 여기서 한 번만 풀고, 화면은 다시 흐리지 않고 그대로 그린다.
+/// mosaic-rail 사람 칸 그림(`GET /home/people`). 서버가 실제 가입자 아바타를 줄이기만 해(224×280 JPEG, 블러 없음 10-17) base64 로
+/// 준다 — 누구인지 알 만한 값(id · 닉네임 · 학교)은 오지 않는다. 여기서 한 번만 풀고, 화면은 흐리지 않고 그대로 그린다.
 /// 후보가 모자라면 서버가 빈 목록을 주고, 그때 레일은 기본 그림 칸으로 대신한다.
 class HomePeople {
   const HomePeople._(this._images);

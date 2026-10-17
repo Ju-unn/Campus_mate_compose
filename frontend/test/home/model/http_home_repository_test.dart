@@ -159,7 +159,7 @@ void main() {
   });
 
   group('GET /home/people — 레일 사람 칸(요약과 따로 읽는다)', () {
-    test('서버가 흐린 그림 base64 목록을 주면 풀어서 돌려준다', () async {
+    test('서버가 줄인 그림 base64 목록을 주면 풀어서 돌려준다', () async {
       final image = [0xFF, 0xD8, 0xFF, 0xE0];
       final client = MockClient((request) async {
         expect(request.method, 'GET');

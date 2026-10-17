@@ -1,5 +1,4 @@
 import 'dart:typed_data';
-import 'dart:ui' show ImageFilter, TileMode;
 
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -21,11 +20,8 @@ const List<String> mosaicExampleAvatars = [
 /// 예시 그림을 칸보다 사방으로 더 크게 그리는 거리(음수) — 112×140 칸이면 pen 그림 136×170. 칸 틀이 가장자리를 잘라 낸다.
 const Offset _exampleBleed = Offset((mosaicTileWidth - 136) / 2, (_height - 170) / 2);
 
-/// 사람 칸 대신 그릴 때만 흐리는 정도(옛 pen blur 10) — 인원 부족 예시는 흐리지 않는다(pen 레이어 블러 끔, 사용자 10-16).
-const double _exampleBlur = 10;
-
-/// mosaic-rail 사람 칸(pen `O5FCD9` Home Rail Tile · Blur Avatar). 서버가 실제 가입자 아바타를 **이미 흐리게** 줄여 준 그림을
-/// 그대로 그린다 — 앱에서 다시 흐리지 않는다. 이름 · 학교 · 배지 · 누름이 없는 장식이라 화면 읽기에서 뺀다.
+/// mosaic-rail 사람 칸(pen `O5FCD9` Home Rail Tile · Blur Avatar). 서버가 실제 가입자 아바타를 줄이기만 한 그림(224×280,
+/// 블러 없음 — 사용자 10-17)을 칸에 덮어 그린다 — 앱도 흐리지 않는다. 이름 · 학교 · 배지 · 누름이 없는 장식이라 화면 읽기에서 뺀다.
 class MosaicPersonTile extends StatelessWidget {
   const MosaicPersonTile({required this.image, super.key});
 
@@ -44,8 +40,8 @@ class MosaicPersonTile extends StatelessWidget {
         // 레일이 다시 그려져도(같은 그림) 빈칸으로 깜빡이지 않는다.
         gaplessPlayback: true,
         excludeFromSemantics: true,
-        // 그림을 못 풀면 예시 칸으로 둔다 — 레일에 구멍을 내지 않는다. 흐린 사람 칸 사이라 이 예시는 흐린 채 둔다.
-        errorBuilder: (context, error, stackTrace) => const MosaicDefaultTile(blurred: true),
+        // 그림을 못 풀면 예시 칸으로 둔다 — 레일에 구멍을 내지 않는다.
+        errorBuilder: (context, error, stackTrace) => const MosaicDefaultTile(),
       ),
     );
   }
@@ -55,19 +51,15 @@ class MosaicPersonTile extends StatelessWidget {
 /// 아바타 변환 예시 그림([mosaicExampleAvatars])을 112×140 · 모서리 14 로 잘라 흐리지 않고 둔다(사용자 10-16 "블러 처리 빼줘").
 /// 실제 가입자가 아니다 — 장식이라 화면 읽기에서 뺀다.
 class MosaicDefaultTile extends StatelessWidget {
-  const MosaicDefaultTile({this.asset = 'assets/images/example-illust-b-v1.webp', this.blurred = false, super.key});
+  const MosaicDefaultTile({this.asset = 'assets/images/example-illust-b-v1.webp', super.key});
 
   /// 그릴 예시 그림(에셋 경로).
   final String asset;
-
-  /// 흐리게 그린다 — 실제 가입자 칸([MosaicPersonTile])의 그림을 못 풀어 대신 둘 때만 켠다.
-  final bool blurred;
 
   @override
   Widget build(BuildContext context) {
     // 칸 틀(폭 112 · 높이 140 이상)은 빈 상자가 정하고, 그림은 사방으로 더 크게(pen 136×170) 깔아 가장자리를 틀 밖으로 보낸다.
     // 레일은 IntrinsicHeight 로 칸 높이를 재므로 그림 크기가 높이에 끼어들지 않게 Positioned 로 둔다.
-    final image = Image.asset(asset, fit: BoxFit.cover, excludeFromSemantics: true);
     return SizedBox(
       width: mosaicTileWidth,
       child: ClipRRect(
@@ -80,13 +72,7 @@ class MosaicDefaultTile extends StatelessWidget {
               right: _exampleBleed.dx,
               top: _exampleBleed.dy,
               bottom: _exampleBleed.dy,
-              child: blurred
-                  ? ImageFiltered(
-                      // clamp — 가장자리를 투명하게 바래지 않고 끝 색으로 채운다(틀 안에 흐린 테두리가 비치지 않게).
-                      imageFilter: ImageFilter.blur(sigmaX: _exampleBlur, sigmaY: _exampleBlur, tileMode: TileMode.clamp),
-                      child: image,
-                    )
-                  : image,
+              child: Image.asset(asset, fit: BoxFit.cover, excludeFromSemantics: true),
             ),
           ],
         ),

@@ -654,7 +654,7 @@ void main() {
           for (final element in find.byType(MosaicPersonTile).evaluate()) (element.widget as MosaicPersonTile).image,
         ];
 
-    testWidgets('서버가 준 흐린 그림을 사람 칸으로 그린다(한 벌 = 받은 그림 + 빈 칸)', (tester) async {
+    testWidgets('서버가 준 그림을 사람 칸으로 그린다(한 벌 = 받은 그림 + 빈 칸)', (tester) async {
       await pump(tester);
 
       final copies = find.byType(MosaicEmptyTile).evaluate().length;

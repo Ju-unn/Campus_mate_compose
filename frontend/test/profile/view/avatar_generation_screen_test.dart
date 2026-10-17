@@ -75,7 +75,7 @@ const _avatarLabel = '상대에게 보이는 모습';
 const _revealBody = '매칭 전에는 AI가 그려준 아바타만 보여요. 상호 수락 후 신뢰 확인을 마치면 실제 사진이 공개돼요.';
 const _confirmLabel = '확인했어요';
 const _lockedPhotoSemantics = '나만 보는 실제 사진, 가려져 있어요';
-const _homeNotice = '흐리게 처리한 내 아바타가 홈 화면에서 다른 회원에게 보일 수 있어요';
+const _homeNotice = '내 아바타가 홈 화면에서 다른 회원에게 보일 수 있어요';
 
 /// 20(추천 코드) 자리 — 화면 시험은 이동만 본다(실제 20 은 아래 '실제 라우터' 묶음).
 const _referralStub = '20 추천 코드';
@@ -295,7 +295,7 @@ void main() {
       semantics.dispose();
     });
 
-    // 홈 레일이 실제 가입자 아바타를 흐리게 보여 준다(서버 `/home/people`, PR #550) — 개인정보 안내라 리빌 설명 아래에 남긴다.
+    // 홈 레일이 실제 가입자 아바타를 블러 없이 보여 준다(서버 `/home/people`, PR #550 · 블러 제거 10-17) — 개인정보 안내라 리빌 설명 아래에 남긴다.
     // pen F84Alv 에는 아직 없다(결정 G2 — pen 수정 필요).
     // pen 에 방금 추가된 값(대장 전달 10-17): 설명 바로 아래 8 · 14/400 #6A6A6A · 가운데 · 폭 312 · 줄높이 1.5.
     testWidgets('홈 노출 안내 한 줄은 설명 아래 8 에 14/400 muted 가운데 · 폭 312 · 줄높이 1.5 로 남고 버튼 자리는 그대로다', (tester) async {
@@ -381,7 +381,7 @@ void main() {
       setUpAll(loadPretendard);
 
       // 제목은 줄바꿈 문자로 두 줄(64.8) — 비교 줄이 pen 자리 y153(64 + 64.8 + 24 = 152.8)에 온다.
-      testWidgets('제목 두 줄(64.8) · 비교 줄 y153 · 설명 두 줄(42) · 홈 노출 안내 두 줄(42) · 버튼 y696', (tester) async {
+      testWidgets('제목 두 줄(64.8) · 비교 줄 y153 · 설명 두 줄(42) · 홈 노출 안내 한 줄(21) · 버튼 y696', (tester) async {
         penSize(tester);
         repository.nextResult = const Success(AvatarReady(_url));
         await pump(tester);
@@ -390,7 +390,8 @@ void main() {
         expect(title.height, closeTo(24 * 1.35 * 2, 1));
         expect(tester.getRect(cells.at(0)).top, closeTo(64 + 24 * 1.35 * 2 + 24, 1));
         expect(tester.getRect(find.text(_revealBody)).height, closeTo(14 * 1.5 * 2, 1));
-        expect(tester.getRect(find.text(_homeNotice)).height, closeTo(42, 1));
+        // "흐리게 처리한" 을 뺀 새 문구(10-17)는 312 폭에 한 줄로 들어간다(종전 두 줄 42).
+        expect(tester.getRect(find.text(_homeNotice)).height, closeTo(14 * 1.5, 1));
         expect(tester.getRect(find.byType(AppButton)), const Rect.fromLTWH(24, 696, 312, 52));
       });
     });

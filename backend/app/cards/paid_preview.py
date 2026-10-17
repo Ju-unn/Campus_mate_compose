@@ -25,7 +25,7 @@ PREVIEW_SIZE = (8, 10)
 _BLUR_RADIUS = 1
 _JPEG_QUALITY = 50
 # (경로, 크기, 강도) → base64 미리보기. 같은 아바타면 다시 받지 않는다. 유료 카드 한 칸은 수백 바이트, 홈 레일
-# 한 칸(112×140)은 2~3KB 라 256칸이 다 홈 것이어도 1MB 안팎이다.
+# 한 칸(224×280 · 블러 없음)은 base64 로 10~14KB(10-17 예시 일러스트로 잼)라 256칸이 다 홈 것이어도 4MB 안팎이다.
 # ponytail: 프로세스마다 따로인 메모리 캐시다 — 인스턴스가 늘면 인스턴스마다 한 번씩 받는다. 그게 부담이 되면 공용 캐시로.
 _CACHE_SIZE = 256
 _cache: OrderedDict[tuple[str, tuple[int, int], float], str] = OrderedDict()
@@ -33,7 +33,8 @@ _cache: OrderedDict[tuple[str, tuple[int, int], float], str] = OrderedDict()
 
 def blur_preview(original: bytes, size: tuple[int, int] = PREVIEW_SIZE, radius: float = _BLUR_RADIUS) -> bytes:
     """원본 그림 → size 크기 JPEG. 가운데를 size 비율로 잘라 칸마다 평균을 낸 뒤(BOX) 반경 radius 픽셀로 한 번 더
-    섞는다. 기본값이 유료 카드(8×10, 1)다. 홈 레일(home/router)은 크기 · 강도만 바꿔 쓴다."""
+    섞는다. 기본값이 유료 카드(8×10, 1)다. 홈 레일(home/router)은 크기 · 강도만 바꿔 쓴다 — 반경 0 이면 섞지 않고
+    줄이기만 한다(Pillow 가 GaussianBlur(0) 을 복사로 처리한다. 홈 시험이 바이트로 못 박는다)."""
     with Image.open(io.BytesIO(original)) as image:
         small = ImageOps.fit(image.convert("RGB"), size, Image.Resampling.BOX)
     out = io.BytesIO()
@@ -43,8 +44,8 @@ def blur_preview(original: bytes, size: tuple[int, int] = PREVIEW_SIZE, radius: 
 
 async def cached_preview(storage, path: str, size: tuple[int, int] = PREVIEW_SIZE,
                          radius: float = _BLUR_RADIUS) -> str:
-    """아바타 경로 → base64 흐린 JPEG. 같은 (경로 · 크기 · 강도)면 다시 받지 않는다 — 유료 카드와 홈 레일이 같은
-    아바타를 다른 크기로 만들어도 서로 덮지 않는다. 받기 · 읽기 실패는 그대로 올린다(캐시하지 않아 다음 요청이 다시 해 본다)."""
+    """아바타 경로 → base64 JPEG(반경만큼 흐린). 같은 (경로 · 크기 · 강도)면 다시 받지 않는다 — 유료 카드와 홈 레일이 같은
+    아바타를 다른 크기 · 강도로 만들어도 서로 덮지 않는다. 받기 · 읽기 실패는 그대로 올린다(캐시하지 않아 다음 요청이 다시 해 본다)."""
     key = (path, size, radius)
     if key in _cache:
         _cache.move_to_end(key)

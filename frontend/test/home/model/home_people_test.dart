@@ -4,7 +4,7 @@ import 'dart:typed_data';
 import 'package:campus_mate/home/model/home_people.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// 홈 레일 사람 칸(`GET /home/people`) — 서버가 흐리게 줄인 JPEG 를 base64 로 준다. 앱은 한 번 풀어 그대로 그린다.
+/// 홈 레일 사람 칸(`GET /home/people`) — 서버가 줄이기만 한 JPEG(블러 없음)를 base64 로 준다. 앱은 한 번 풀어 그대로 그린다.
 void main() {
   final first = Uint8List.fromList([0xFF, 0xD8, 0xFF, 0xE0]);
   final second = Uint8List.fromList([0xFF, 0xD8, 0xFF, 0xE1]);

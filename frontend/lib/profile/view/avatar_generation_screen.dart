@@ -204,7 +204,7 @@ class _StatusView extends StatelessWidget {
 const double _cellWidth = 140;
 const double _cellHeight = 175;
 
-/// 실사진 흐림(pen "blur 14"). 홈 레일 예시 칸(`mosaic_tile.dart`, 옛 pen blur 10 → sigma 10)과 같게 sigma 로 읽는다.
+/// 실사진 흐림(pen "blur 14"). pen blur 값을 sigma 로 그대로 읽는다(유료 카드 잠금 미리보기와 같은 방식).
 const double _photoBlur = 14;
 
 /// 5b 아바타 리빌(pen `F84Alv`, 대장 전달 pen 값 10-17) — 기본 아바타(05-12d)도 같은 화면이다.
@@ -259,12 +259,12 @@ class _AvatarReveal extends ConsumerWidget {
                     textAlign: TextAlign.center,
                     style: AppTypography.bodySmall.copyWith(fontWeight: FontWeight.w500, height: 1.5, color: AppColors.body),
                   ),
-                  // 홈 레일(서버 `/home/people`)이 실제 가입자 아바타를 흐리게 보여 준다 — 여기서 미리 알린다(PR #550 개인정보 안내).
+                  // 홈 레일(서버 `/home/people`)이 실제 가입자 아바타를 블러 없이 보여 준다(10-17) — 여기서 미리 알린다(PR #550 개인정보 안내).
                   // 옛 05-12c 에서 옮겼다. pen `F84Alv` 에도 같은 줄이 들어갔다(대장 전달 10-17): 설명 바로 아래 8 · 14/400 #6A6A6A ·
                   // 가운데 · 폭 312 · 줄높이 1.5(312 폭 두 줄 42).
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    '흐리게 처리한 내 아바타가 홈 화면에서 다른 회원에게 보일 수 있어요',
+                    '내 아바타가 홈 화면에서 다른 회원에게 보일 수 있어요',
                     textAlign: TextAlign.center,
                     style: AppTypography.bodySmall.copyWith(height: 1.5, color: AppColors.muted),
                   ),
