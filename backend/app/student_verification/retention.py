@@ -17,7 +17,7 @@ EXPIRE_LIMIT = 100
 
 async def purge_student_id_photos(repo: StudentVerificationRepository, storage: StudentIdStorage,
                                   now: datetime) -> dict[str, int]:
-    """① 30일 지난 검토 대기를 반려(사유: 기한 만료)로 닫고 사진을 지운다 ② 검토가 끝났는데 버킷에 남은 사진을 지운다.
+    """① 30일 지난 검토 대기 시도를 반려(사유: 기한 만료)로 닫고 사진을 지운다 ② 검토가 끝났는데 버킷에 남은 사진을 지운다.
     멱등이고 절대 예외를 내지 않는다 — 한 사람 · 한 단계가 실패해도 나머지를 계속하고 다음 시각이 다시 고른다.
 
     ①이 ②보다 먼저다. 상태를 먼저 닫고 사진을 나중에 지우므로, 삭제가 실패해도 ②가 다음에 치운다
@@ -30,7 +30,9 @@ async def purge_student_id_photos(repo: StudentVerificationRepository, storage: 
         due = []
     for attempt in due:
         try:
-            await _close_attempt_and_profile(repo, attempt, now)
+            # 시도 행만 닫는다. 학생증 제거(10-17) 뒤로는 프로필(student_verification)을 바꾸지 않는다 — 바꾸는 순간
+            # DB 트리거가 "학생 인증을 다시 해 주세요" 푸시를 보낸다. 학생증은 더 이상 관문이 아니다.
+            await repo.close_attempt(attempt["id"], EXPIRED_REASON, now)
         except Exception as exc:
             logger.warning("학생증 기한 만료 건너뜀 attempt=%s %s", attempt["id"], type(exc).__name__)
             continue
@@ -52,23 +54,6 @@ async def purge_student_id_photos(repo: StudentVerificationRepository, storage: 
         if attempt is not None and attempt["result"] in ("verified", "rejected"):
             photos_deleted += await _delete_photo(storage, attempt["id"], path)
     return {"photos_deleted": photos_deleted, "pending_expired": expired}
-
-
-async def _close_attempt_and_profile(repo: StudentVerificationRepository, attempt: dict, now: datetime) -> None:
-    """시도를 먼저 닫고 프로필을 나중에 바꾼다 — 프로필이 바뀌는 순간 DB 트리거가 검토 결과 훅을 불러
-    훅이 시도의 만료 사유를 읽어 알림 문구를 고른다. 프로필을 못 바꾸거나 최근 시도를 못 읽으면 시도를 되돌려 대기에 갇히지 않게 한다."""
-    await repo.close_attempt(attempt["id"], EXPIRED_REASON, now)
-    try:
-        # 프로필은 가장 최근 시도를 따라간다 — 새로 낸 시도가 심사를 기다리면 옛 시도만 닫고 프로필은 둔다.
-        latest = await repo.fetch_latest_attempt(attempt["profile_id"])
-        if latest is None or latest["id"] == attempt["id"]:
-            await repo.reject_profile_if_pending(attempt["profile_id"])
-    except Exception:
-        try:
-            await repo.reopen_attempt(attempt["id"])
-        except Exception as exc:
-            logger.error("학생증 기한 만료 되돌리기 실패 attempt=%s %s", attempt["id"], type(exc).__name__)
-        raise
 
 
 async def _delete_photo(storage: StudentIdStorage, attempt_id: int, path: str) -> int:
