@@ -1,176 +1,37 @@
-import asyncio
-import logging
-import re
-from collections.abc import Callable
-from uuid import UUID
-
-import httpx
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from google.api_core.exceptions import GoogleAPIError
-from google.auth.exceptions import GoogleAuthError
-from google.cloud import vision
+from fastapi import APIRouter, Depends
 
 from app.consents.policy import consent_state
-from app.consents.repository import ConsentRepository, require_current_consent
-from app.core import errors
-from app.core.deps import Caller, get_caller, get_vision_client_factory
-from app.profile_onboarding.encryption import set_encrypted_real_name
-from app.settings import Settings
+from app.consents.repository import ConsentRepository
+from app.core.deps import Caller, get_caller
 from app.student_verification.current_user import reject_suspended, require_school_email
-from app.student_verification.discord_notifier import DiscordNotifier
-from app.student_verification.image_validation import student_id_content_type
-from app.student_verification.matching import ReviewReason, missing_from_student_id
-from app.student_verification.ocr import VisionOcr
 from app.student_verification.repository import StudentVerificationRepository
 from app.student_verification.schemas import SchoolInfoRequest, VerificationStatusResponse
-from app.student_verification.storage import StudentIdStorage
 
 router = APIRouter()
-_logger = logging.getLogger(__name__)
 
-# 한글 완성형·영문·띄어쓰기만 받는다(2026-09-24 사용자 결정, 앱 RealName 과 같은 규칙).
-# 숫자·기호·자모(ㄱ, ㅏ)가 섞인 이름은 학생증에 그대로 적혀 있지 않아 OCR 대조가 어긋난다.
-_REAL_NAME = re.compile(r"[가-힣a-zA-Z ]+")
-
-
-@router.post("/student-verification")
-async def submit_student_verification(
-    # 1글자 실명은 matching.py 의 부분문자열 대조를 사실상 무력화한다(2026-09-20 분석담당 리뷰) — 최소 2자.
-    # 상한은 frontend RealName 값 객체(frontend/lib/auth/model/real_name.dart)와 맞춘다.
-    real_name: str = Form(min_length=2, max_length=30),
-    photo: UploadFile = File(),
-    caller: Caller = Depends(get_caller),
-    make_vision_client: Callable[[], vision.ImageAnnotatorAsyncClient] = Depends(get_vision_client_factory),
-) -> dict[str, str]:
-    settings, client, profile_id = caller
-    repo = StudentVerificationRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
-
-    # 관문 순서: 정지 → 동의 → 학교 메일 → 학생증(fetch_verification_status docstring).
-    gate = await repo.fetch_gate_status(profile_id)
-    # 결정 9: 정지 계정은 학생증을 다시 내지 못한다 — 사진 업로드 · OCR 비용 · 디스코드 알림이 열릴 이유가 없다.
-    # 동의 403 은 헤더가 없어서 정지보다 먼저 나가면 앱이 정지 안내 화면으로 못 간다.
-    reject_suspended(gate.get("status"))
-    await require_current_consent(settings, client, profile_id)
-    require_school_email(gate)
-    status = gate["student_verification"]
-    if status == "pending":
-        raise HTTPException(status_code=409, detail=errors.VERIFICATION_IN_REVIEW)
-    # 끝난 인증을 다시 제출하면 pending 으로 되돌아가 검토 결과 트리거(pending → verified/rejected 때 훅을 불러
-    # 알림을 보내고 사진을 지운다)가 꼬인다.
-    if status == "verified":
-        raise HTTPException(status_code=409, detail=errors.VERIFICATION_ALREADY_DONE)
-
-    # 앱의 RealName 이 이미 막지만 여기가 신뢰 경계다 — 빈 실명은 OCR 대조에서 무조건 통과해 버린다.
-    # Form(min_length=2) 는 공백까지 세므로 " 김 " 이 통과한다 — 자르고 난 길이로 다시 본다.
-    name = real_name.strip()
-    if len(name) < 2:
-        raise HTTPException(status_code=400, detail=errors.REAL_NAME_REQUIRED)
-    if not _REAL_NAME.fullmatch(name):
-        raise HTTPException(status_code=400, detail=errors.REAL_NAME_INVALID)
-
-    data = await photo.read()
-    # 클라이언트가 보낸 Content-Type 은 믿지 않는다 — 실제 Flutter 앱은 application/octet-stream 을 보내는데
-    # 버킷의 mime 허용목록은 jpeg·png 뿐이다. 매직바이트가 진짜 타입이고, 검증과 판정을 한 번에 한다.
-    content_type = student_id_content_type(data)
-    if content_type is None:
-        raise HTTPException(status_code=400, detail=errors.PHOTO_UNREADABLE)
-
-    storage = StudentIdStorage(settings.storage_url, settings.supabase_service_role_key, client)
-    file_path = await storage.upload(profile_id, data, content_type)
-
-    try:
-        # 실명은 암호문 열에만 산다(M2) — 이 쓰기가 실패하면 제출도 실패다(실명 없이 심사 대기로 넘기지 않는다).
-        # DB 함수가 profile_private 행이 없으면 만든다(upsert).
-        await set_encrypted_real_name(
-            settings.postgrest_url, settings.supabase_service_role_key, client,
-            profile_id, name, settings.phone_encryption_key,
-        )
-        # 결과가 어느 쪽이든 먼저 pending 시도 행으로 남긴다 — 사람 검토 대기열이고, 검토 결과 훅과 매시 배치
-        # (retention.py)가 이 행을 보고 사진을 지운다.
-        await repo.record_attempt(profile_id, file_path, "pending")
-    except Exception:
-        # 시도 행이 없으면 매시 배치가 이 사진을 영영 고르지 않는다(30일 보관 약속이 깨진다) — 지금 지우고 원래 오류를 낸다.
-        await _delete_or_report_orphan(settings, client, storage, profile_id, file_path)
-        raise
-    await repo.update_verification_status(profile_id, "pending")
-
-    reason: ReviewReason | None = None
-    try:
-        ocr_text = await VisionOcr(make_vision_client()).extract_text(data)
-    except (GoogleAPIError, RuntimeError, asyncio.TimeoutError, GoogleAuthError):
-        # Vision 장애·할당량 초과로 500 을 내면 상태가 pending 에 갇혀 재제출이 409 로 막힌다.
-        # 자동 대조 실패로 보고 사람 재검토로 넘긴다(그게 pending 의 뜻이다).
-        # 잡는 범위는 진짜 Vision 장애로 한정한다 — 넓게 잡으면 우리 코드 버그까지 "대조 실패"로 묻힌다.
-        _logger.exception("Vision OCR 실패 — 사람 재검토로 넘긴다")
-        ocr_text = ""
-        reason = "vision_error"
-
-    school_name = gate["universities"]["name"]
-    if reason is None:
-        reason = missing_from_student_id(ocr_text, school_name, name)
-
-    if reason is None:
-        try:
-            # 시도 행을 먼저 확정하고(2026-09-20 분석담당 리뷰 — 제안3, 종전엔 profiles 가 먼저였다),
-            # 남에게 보이는 최종 상태인 profiles 를 나중에 바꾼다.
-            # **확정 쓰기 두 줄만** try 에 둔다 — 뒷정리까지 넣으면 이미 verified 인데 사유가
-            # confirm_failed 로 찍힌다(2026-09-26 분석 권고1).
-            await repo.update_attempt_result(profile_id, file_path, "verified")
-            await repo.update_verification_status(profile_id, "verified")
-        except httpx.HTTPError as exc:
-            # 확정을 못 쓰면 상태가 pending 에 갇혀 재제출이 409 로 막힌다 — OCR 실패와 같게 사람 재검토로 넘긴다.
-            # 예외 문구는 남기지 않는다 — 시도 행 PATCH 주소에 사진 경로(file_path)가 붙어 있다(COMMON §3).
-            _logger.error("학생증 인증 확정 실패 — 사람 재검토로 넘긴다 profile_id=%s %s", profile_id, type(exc).__name__)
-            reason = "confirm_failed"
-        else:
-            # 여기부터는 인증이 이미 끝난 뒤의 뒷정리다 — 무엇이 실패해도 결과는 verified 다.
-            # SQL 트리거가 아니라 여기서 직접 지운다 — `delete from storage.objects`는 메타 행만 지우고
-            # 실제 파일은 고아로 남는다(Supabase storage/management 문서, 2026-09-20 분석담당 리뷰).
-            # 삭제 실패는 인증 결과를 실패시키지 않고 디스코드로만 알린다(고아 파일 수동 정리용).
-            await _delete_or_report_orphan(settings, client, storage, profile_id, file_path)
-            return {"status": "verified"}
-
-    # 사람이 왜 봐야 하는지 한 줄로 남긴다(2026-09-26 사용자 결정). **이 줄에는** 실명·OCR 원문·사진 경로를
-    # 넣지 않는다 — 학교 이름은 공개 데이터라 남기고, OCR 은 내용 대신 글자 수만 남겨 "아예 못 읽었는지"를
-    # 구분한다.
-    _logger.warning(
-        "학생증 자동 판정 실패 — 사람 재검토로 넘긴다: reason=%s profile_id=%s school=%s ocr_chars=%d",
-        reason,
-        profile_id,
-        school_name,
-        len(ocr_text),
-    )
-    await DiscordNotifier(settings.discord_webhook_url, client).notify_pending_review(reason, profile_id)
-    return {"status": "pending"}
-
-
-async def _delete_or_report_orphan(settings: Settings, client: httpx.AsyncClient, storage: StudentIdStorage,
-                                   profile_id: UUID, file_path: str) -> None:
-    """방금 올린 사진을 지운다. 삭제 실패는 부른 쪽 결과를 바꾸지 않고 디스코드로만 알린다(고아 파일 수동 정리용).
-    404 는 이미 없는 것이라 성공이다(storage.delete). 로그 · 알림에는 계정 id 만 — 사진 경로는 남기지 않는다(COMMON §3).
-    알림은 실패해도 삼킨다(discord_notifier)."""
-    if not await storage.delete(file_path):
-        _logger.error("학생증 사진 삭제 실패 — 고아 파일, profile_id=%s", profile_id)
-        await DiscordNotifier(settings.discord_webhook_url, client).notify_orphaned_file(profile_id)
+# 학생증 제출(POST /student-verification)은 없앴다(학생증 제거 10-17, 설계 결정 9). 옛 앱이 부르면 404 다.
+# OCR · 대조 · 사진 저장 모듈은 출시 후 정리(출시후_할일 1-1)까지 그대로 둔다.
 
 
 @router.get("/me/verification-status")
 async def fetch_verification_status(caller: Caller = Depends(get_caller)) -> VerificationStatusResponse:
-    """앱이 다음 화면을 고르는 응답. 관문 순서는 정지 → 동의 → 학교 메일 → 학생증 → 학과와 학번 이다.
+    """앱이 다음 화면을 고르는 응답. 관문 순서는 정지 → 동의 → 학교 메일 → 학과와 학번 이다.
 
-    정지(X-Account-Status 헤더)는 다른 API 가 알려 주고, 나머지 넷은 이 응답의 consent ·
-    school_email_verified · status · has_school_info 가 그 순서로 맡는다. 로그인만 보는 문이라
-    정지 · 동의 전 · 학교 메일 전에도 닿는다(그래야 안내 화면으로 간다)."""
+    정지(X-Account-Status 헤더)는 다른 API 가 알려 주고, 나머지 셋은 이 응답의 consent ·
+    school_email_verified · has_school_info 가 그 순서로 맡는다. 로그인만 보는 문이라
+    정지 · 동의 전 · 학교 메일 전에도 닿는다(그래야 안내 화면으로 간다).
+
+    status 는 늘 "verified", reject_reason 은 늘 null 이다 — 옛 앱(빌드 15 · TF 16 · vc8)이 status 가 verified 가
+    아니면 학생증 화면으로 보내기 때문이다. DB 값은 읽지도 바꾸지도 않는다. 옛 앱이 사라지면 두 칸을 지운다(출시후 1-7)."""
     settings, client, profile_id = caller
     repo = StudentVerificationRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
 
     gate = await repo.fetch_gate_status(profile_id)
-    status = gate["student_verification"]
     consents = ConsentRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
     return VerificationStatusResponse(
-        status=status,
+        status="verified",
         has_school_info=gate["department"] is not None,
-        reject_reason=await repo.fetch_reject_reason(profile_id) if status == "rejected" else None,
+        reject_reason=None,
         consent=consent_state(await consents.fetch_rows(profile_id)),
         school_email_verified=gate.get("school_email_verified_at") is not None,
     )
@@ -185,8 +46,6 @@ async def save_school_info(body: SchoolInfoRequest, caller: Caller = Depends(get
     # 결정 9(B6, 10-01): 정지 계정은 학과 · 학번을 바꾸지 못한다. 인증 상태 조회 · 동의 · 탈퇴는 열어 둔다.
     reject_suspended(gate.get("status"))
     require_school_email(gate)
-    if gate["student_verification"] != "verified":
-        raise HTTPException(status_code=403, detail=errors.STUDENT_VERIFICATION_REQUIRED)
 
     await repo.save_school_info(profile_id, body.department, body.student_number)
     return {"ok": True}

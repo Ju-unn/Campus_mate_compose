@@ -151,24 +151,6 @@ def test_verification_status_reports_consent_state(rows: list[dict], expected: s
     assert response.json()["consent"] == expected
 
 
-def test_student_verification_upload_is_403_before_consent():
-    # 동의 전에는 실명 · 학생증 사진을 받지 않는다 — Storage · Vision 까지 가면 안 된다.
-    sent, client = _wire([])
-
-    response = client.post(
-        "/student-verification",
-        headers=AUTH_HEADERS,
-        data={"real_name": "홍길동"},
-        files={"photo": ("id.jpg", b"\xff\xd8\xff" + b"x" * 16, "image/jpeg")},
-    )
-
-    assert response.status_code == 403
-    assert response.json()["detail"] == errors.CONSENT_REQUIRED
-    # 정지 안내 화면으로 오인되지 않게 계정 상태 헤더를 싣지 않는다.
-    assert "x-account-status" not in response.headers
-    assert not any("/storage/v1/" in str(r.url) for r in sent)
-
-
 def test_next_step_is_403_before_consent():
     _, client = _wire([], gate_row={"student_verification": "verified", "department": "컴퓨터공학과",
                                     "universities": {"name": "서울대학교"}, "status": "active",
