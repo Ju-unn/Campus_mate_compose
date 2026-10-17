@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:math' as math;
-import 'dart:ui' show ImageFilter, TileMode;
 
 import 'package:campus_mate/home/model/home_people.dart';
 import 'package:campus_mate/home/view/mosaic_rail.dart';
@@ -32,8 +31,8 @@ void main() {
           for (var i = 0; i < find.byType(type).evaluate().length; i++) tester.getRect(find.byType(type).at(i)),
       ]..sort((a, b) => a.left.compareTo(b.left));
 
-  group('사람 칸 `O5FCD9`(Home Rail Tile · Blur Avatar) — 서버가 흐린 실제 가입자 아바타', () {
-    testWidgets('서버 바이트를 Image.memory 로 그대로 그린다 — 덮어 채움 · 다시 받아도 깜빡이지 않음 · 앱에서 다시 흐리지 않음', (tester) async {
+  group('사람 칸 `O5FCD9`(Home Rail Tile · Blur Avatar) — 서버가 줄인 실제 가입자 아바타(블러 없음, 10-17)', () {
+    testWidgets('서버 바이트를 Image.memory 로 그대로 그린다 — 덮어 채움 · 다시 받아도 깜빡이지 않음 · 앱에서 흐리지 않음', (tester) async {
       final shown = people(1);
       await pumpRail(tester, shown);
 
@@ -83,9 +82,9 @@ void main() {
       expect(find.descendant(of: tile, matching: find.byType(MosaicDefaultTile)), findsOneWidget);
       expect(tester.getSize(tile), const Size(112, 140));
       expect(tester.takeException(), isNull);
-      // 실제 가입자 자리라 대신 넣은 예시 그림도 흐린 채 둔다 — 흐린 사람 칸 사이에 선명한 얼굴이 끼지 않게(인원 부족 예시만 선명).
-      final blur = tester.widget<ImageFiltered>(find.descendant(of: tile, matching: find.byType(ImageFiltered)));
-      expect(blur.imageFilter, ImageFilter.blur(sigmaX: 10, sigmaY: 10, tileMode: TileMode.clamp));
+      // 사람 칸이 흐리지 않으므로(10-17) 대신 넣은 예시 그림도 흐리지 않는다.
+      expect(find.descendant(of: tile, matching: find.byType(ImageFiltered)), findsNothing);
+      expect(find.descendant(of: tile, matching: find.byType(BackdropFilter)), findsNothing);
     });
     testWidgets('화면 읽기는 그림 칸을 읽지 않고 끝 빈 칸 문구만 한 번 읽는다', (tester) async {
       final semantics = tester.ensureSemantics();
