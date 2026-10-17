@@ -68,8 +68,8 @@ const screens = {
   '04-5': '주로 관심 있는 게 뭐예요?', // tag_picker_kind interests
   '04-6': '어떤 특징을 가지고 계신가요?', // tag_picker_kind myTraits
   '05-01': '밖에 나가서 활동하는 걸\n좋아하시나요?', // survey_screen 첫 문항
-  // 05-12 는 완성 행이 없으면 실패 화면이라 글자로 못 찾는다 — screen() 이 화면 종류로 찾는다.
-  '05-12': '아바타 만들기', // avatar_generation_screen(완성)
+  // 05-12 는 만드는 중 · 실패 · 리빌을 한 화면이 그려 글자로 못 찾는다 — screen() 이 화면 종류로 찾는다. 06-3 뒤 · 20 앞(2026-10-17).
+  '05-12': _revealTitle, // avatar_generation_screen 리빌(pen F84Alv) — 앱바 · 진행 막대 없음
   '06-1': '어떤 사람이 좋아요?', // ideal_conditions_screen
   '06-2': '어떤 분을 만나고 싶나요?', // tag_picker_kind idealTraits
   '06-2a': '이런 사람이 좋아요를\n자유롭게 적어주세요', // ideal_note_screen
