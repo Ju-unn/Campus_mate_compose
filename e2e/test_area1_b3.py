@@ -4,19 +4,18 @@
 import contextlib
 import io
 import unittest
-from datetime import datetime, timezone
 from unittest import mock
 
 from e2e import area1, area1_b3
 from e2e.test_area1 import Base
-from e2e.test_area1_phone import APP_PASS, FakePhone
+from e2e.test_area1_phone import FakePhone
 from e2e.tools import Reply
 
 CASES = ['E-ONB-26']
-PHONE = ['E-GATE-34', 'E-GATE-35', 'E-GATE-36', 'E-GATE-37', 'E-GATE-38', 'E-GATE-44', 'E-GATE-45',
-         'E-ONB-20', 'E-ONB-21', 'E-ONB-22', 'E-ONB-23']
+PHONE = ['E-ONB-20', 'E-ONB-21', 'E-ONB-22', 'E-ONB-23']
+# 3b 학생증 제출 가설 — 학생증 제거(10-17)로 앱 화면 · 서버 경로와 함께 뺐다. 앱이 이 번호를 모르면 "모르는 가설" 로 실패한다.
+GONE = ['E-GATE-34', 'E-GATE-35', 'E-GATE-36', 'E-GATE-37', 'E-GATE-38', 'E-GATE-44', 'E-GATE-45']
 INVALID = '사진을 다시 확인해 주세요'
-NOW = datetime.now(timezone.utc).isoformat()
 
 
 class PhotoBase(Base):
@@ -41,8 +40,13 @@ class BundleTest(unittest.TestCase):
         self.assertLessEqual(set(CASES), set(area1.CASES))
         self.assertLessEqual(set(PHONE), set(area1.PHONE))
 
+    def test_student_id_cases_are_registered_nowhere(self):
+        for case in GONE:
+            self.assertNotIn(case, area1.PHONE)
+            self.assertNotIn(case, area1_b3.LEFT_OUT)
+
     def test_cases_already_in_other_bundles_are_not_repeated(self):
-        for case in ('E-GATE-30', 'E-ONB-33', 'E-ONB-55'):
+        for case in ('E-ONB-33', 'E-ONB-55'):
             self.assertNotIn(case, area1.BUNDLES['area1-b3'])
         self.assertIn('E-ONB-25', area1_b3.LEFT_OUT)  # 04-3 "다음" 이 아바타 작업까지 등록한다 — 묶음 4
         self.assertIn('E-ONB-24', area1_b3.LEFT_OUT)
@@ -52,10 +56,14 @@ class PhotoSetTest(PhotoBase):
     def test_missing_files_block_with_every_missing_name(self):
         self.put('face1.jpg')
         with self.assertRaises(area1_b3.Blocked) as caught:
-            area1_b3._photos(self.run, 'face1.jpg', 'scenery.jpg', 'id_ok.jpg')
+            area1_b3._photos(self.run, 'face1.jpg', 'scenery.jpg', 'unsafe.jpg')
         self.assertIn('scenery.jpg', str(caught.exception))
-        self.assertIn('id_ok.jpg', str(caught.exception))
+        self.assertIn('unsafe.jpg', str(caught.exception))
         self.assertNotIn('face1.jpg', str(caught.exception))
+
+    def test_the_set_asks_for_no_student_id_or_certificate_photo(self):
+        # 학생증 · 졸업증명서 사진은 3b 가설만 썼다(학생증 제거 10-17) — 대장이 더 준비하지 않게 목록에서 뺀다.
+        self.assertEqual([n for n in area1_b3.PHOTO_SET if n.startswith(('id_', 'cert_'))], [])
 
     def test_push_copies_each_file_once_into_the_app_cache(self):
         self.put('face1.jpg', 'face2.jpg')
@@ -139,122 +147,6 @@ class PhotoApiTest(PhotoBase):
         result, note = area1.attempt(self.run, 'E-ONB-26')
         self.assertEqual(result, 'fail')
         self.assertIn('profile_photos', note)
-
-
-class VerificationPhoneTest(PhotoBase):
-    def attempts(self, *rows):
-        return {('GET', '/rest/v1/student_verification_attempts'): Reply(200, list(rows))}
-
-    def run_phone(self, case, routes=None, phone=None):
-        self.serve(routes)
-        phone = phone or FakePhone()
-        phone.serial = 'S1'
-        return area1.attempt_phone(self.run, case, phone), phone
-
-    def test_missing_photo_blocks_before_any_account_is_made(self):
-        fake = self.serve()
-        result, note = area1.attempt_phone(self.run, 'E-GATE-34', FakePhone())
-        self.assertEqual(result, 'blocked')
-        self.assertIn('scenery.jpg', note)
-        self.assertEqual(fake.users, [])
-
-    def test_gate_34_sends_the_scenery_and_wants_no_attempt_row(self):
-        self.put('scenery.jpg')
-        (result, _), phone = self.run_phone('E-GATE-34', self.attempts())
-        self.assertEqual(result, 'pass')
-        self.assertEqual(phone.jobs[0]['photo'], 'scenery.jpg')
-        self.assertEqual(phone.jobs[0]['real_name'], area1_b3.REAL_NAME)
-        self.assertIn('token_hash', phone.jobs[0])
-
-    def test_gate_34_fails_when_the_server_was_called(self):
-        self.put('scenery.jpg')
-        (result, note), _ = self.run_phone('E-GATE-34', self.attempts({'result': 'pending'}))
-        self.assertEqual(result, 'fail')
-        self.assertIn('attempts', note)
-
-    def test_gate_35_wants_one_attempt_row(self):
-        self.put('cert_noface.jpg')
-        (result, _), phone = self.run_phone('E-GATE-35', self.attempts({'result': 'verified'}))
-        self.assertEqual(result, 'pass')
-        self.assertEqual(phone.jobs[0]['tab'], '졸업증명서')
-        (result, _), _ = self.run_phone('E-GATE-35', self.attempts())
-        self.assertEqual(result, 'fail')
-
-    def test_gate_36_wants_verified_row_profile_and_no_file_left(self):
-        self.put('id_ok.jpg')
-        row = {'result': 'verified', 'reviewed_at': NOW}
-        self.serve({**self.attempts(row), ('GET', '/rest/v1/profiles'): Reply(200, [{'student_verification': 'verified'}])})
-        self.assertEqual(area1.attempt_phone(self.run, 'E-GATE-36', FakePhone())[0], 'pass')
-
-    def test_gate_36_fails_when_the_photo_is_still_in_the_bucket(self):
-        self.put('id_ok.jpg')
-        self.serve({**self.attempts({'result': 'verified', 'reviewed_at': NOW}),
-                    ('GET', '/rest/v1/profiles'): Reply(200, [{'student_verification': 'verified'}]),
-                    ('POST', '/storage/v1/object/list/student-id-temp'): Reply(200, [{'name': 'a.jpg', 'id': 'x'}])})
-        result, note = area1.attempt_phone(self.run, 'E-GATE-36', FakePhone())
-        self.assertEqual(result, 'fail')
-        self.assertIn('student-id-temp', note)
-
-    def test_gate_37_wants_pending_and_one_file_kept(self):
-        self.put('id_name.jpg')
-        self.serve({**self.attempts({'result': 'pending'}),
-                    ('GET', '/rest/v1/profiles'): Reply(200, [{'student_verification': 'pending'}]),
-                    ('POST', '/storage/v1/object/list/student-id-temp'): Reply(200, [{'name': 'a.jpg', 'id': 'x'}])})
-        self.assertEqual(area1.attempt_phone(self.run, 'E-GATE-37', FakePhone())[0], 'pass')
-
-    def test_gate_38_runs_two_accounts_one_per_photo(self):
-        self.put('id_school.jpg', 'id_blank.jpg')
-        self.serve({**self.attempts({'result': 'pending'}),
-                    ('GET', '/rest/v1/profiles'): Reply(200, [{'student_verification': 'pending'}]),
-                    ('POST', '/storage/v1/object/list/student-id-temp'): Reply(200, [{'name': 'a.jpg', 'id': 'x'}])})
-        phone = FakePhone()
-        self.assertEqual(area1.attempt_phone(self.run, 'E-GATE-38', phone)[0], 'pass')
-        self.assertEqual([j['photo'] for j in phone.jobs], ['id_school.jpg', 'id_blank.jpg'])
-
-    def test_gate_44_rejects_only_this_accounts_pending_attempt_while_the_app_waits(self):
-        self.put('id_name.jpg')
-        fake = self.serve(self.attempts({'result': 'rejected', 'reject_reason': area1_b3.REJECT_REASON}))
-        phone = FakePhone(midway_step={'step': 'pending'})
-        self.assertEqual(area1.attempt_phone(self.run, 'E-GATE-44', phone)[0], 'pass')
-        patches = [(u, b) for (m, u), (_, _, b) in zip(fake.urls, fake.calls) if m == 'PATCH']
-        urls = [u for u, _ in patches]
-        self.assertTrue(any('student_verification_attempts?profile_id=eq.id-1' in u and 'result=eq.pending' in u for u in urls), urls)
-        bodies = [b for _, b in patches]
-        self.assertIn({'result': 'rejected', 'reject_reason': area1_b3.REJECT_REASON, 'reviewed_at': mock.ANY}, bodies)
-        self.assertIn({'student_verification': 'rejected'}, bodies)
-        self.assertTrue(all('id-1' in u for u in urls), urls)  # 다른 계정은 건드리지 않는다
-        self.assertEqual(phone.acted, ['pending'])
-
-    def test_gate_44_fails_when_no_attempt_could_be_rejected(self):
-        self.put('id_name.jpg')
-        self.serve(self.attempts())
-        phone = FakePhone(midway_step={'step': 'pending'})
-        self.assertEqual(area1.attempt_phone(self.run, 'E-GATE-44', phone)[0], 'fail')
-
-    def test_gate_45_submits_three_times_and_rejects_each_time(self):
-        self.put('id_name.jpg')
-        self.serve(self.attempts({'result': 'rejected'}, {'result': 'rejected'}, {'result': 'rejected'}))
-        phone = FakePhone(midway_step={'step': 'pending'})
-        self.assertEqual(area1.attempt_phone(self.run, 'E-GATE-45', phone)[0], 'pass')
-        self.assertEqual(len(phone.jobs), 3)
-        self.assertEqual(phone.acted, ['pending'] * 3)
-
-    def test_gate_45_fails_when_a_row_is_still_pending(self):
-        self.put('id_name.jpg')
-        self.serve(self.attempts({'result': 'rejected'}, {'result': 'rejected'}, {'result': 'pending'}))
-        self.assertEqual(area1.attempt_phone(self.run, 'E-GATE-45', FakePhone(midway_step={'step': 'pending'}))[0], 'fail')
-
-    def test_gate_44_names_the_cause_when_there_was_nothing_to_reject(self):
-        self.put('id_name.jpg')
-        self.serve(self.attempts())
-        result, note = area1.attempt_phone(self.run, 'E-GATE-44', FakePhone(midway_step={'step': 'pending'}))
-        self.assertEqual(result, 'fail')
-        self.assertIn('반려할 대기', note)
-
-    def test_gate_45_fails_with_fewer_than_three_rows(self):
-        self.put('id_name.jpg')
-        self.serve(self.attempts({'result': 'rejected'}, {'result': 'rejected'}))
-        self.assertEqual(area1.attempt_phone(self.run, 'E-GATE-45', FakePhone(midway_step={'step': 'pending'}))[0], 'fail')
 
 
 class ProfilePhotoPhoneTest(PhotoBase):

@@ -276,7 +276,7 @@ def call(method, url, headers=None, body=None, raw=None, tries=4, retry=True):
 
 def _send(method, url, headers, body, raw):
     """요청 한 번 → [Reply]. 본문 JSON · JSON 아니면 글자 · 없으면 None — 4xx · 5xx 도 예외 없이 돌려준다(가설이 상태 코드를 본다).
-    [raw] = (바이트, Content-Type) 면 JSON 대신 그대로 보낸다(학생증 multipart)."""
+    [raw] = (바이트, Content-Type) 면 JSON 대신 그대로 보낸다(사진 multipart · Storage 올리기)."""
     data, kind = raw if raw else (None if body is None else json.dumps(body).encode(), 'application/json')
     req = urllib.request.Request(url, data=data, method=method, headers={'Content-Type': kind, **(headers or {})})
     try:
@@ -321,11 +321,13 @@ KEEP_FILE = 'KEEP.txt'  # E2E_결과/ 안 — 적힌 id 는 무슨 일이 있어
 # 계정 단계 = "여기까지 끝냈다". basic 뒤 이름은 서버 온보딩 단계(onboarding_progress._STEPS), home = 끝(complete)까지.
 # 서버는 아바타 확인(avatar)을 06-3 뒤 맨 끝에 보지만(2026-10-17), 공장은 완성 행을 설문 바로 뒤에 넣는다 — 실제로도 04-3 에서
 # 등록한 그림은 06-3 전에 다 된다. 그래야 ideal_note 계정이 06-3 → 리빌 → 20 을 지나고, home 의 06-3 저장이 서버에서 바로 가입을 끝낸다.
-# 곁가지 셋은 줄 밖이다: pending = 동의 → 학생증 검토 중, needs_school_email = 동의만 하고 학교 메일 인증 전(앱이 02 로 보낸다),
+# 학생증 단계(pending · verified)는 학생증 제거(10-17)로 없앴다 — 관문은 학교 메일 인증 시각([_profile]) + 학과(gate_done)뿐이라
+# consented 계정은 앱이 곧장 3c 로 보낸다.
+# 곁가지 둘은 줄 밖이다: needs_school_email = 동의만 하고 학교 메일 인증 전(앱이 02 로 보낸다),
 # bio = 완성 아바타 없이 자기소개까지(서버 다음 단계 avatar → 앱이 05-12 에서 기다린다).
-STAGES = ('new', 'consented', 'needs_school_email', 'pending', 'verified', 'gate_done', 'basic', 'kakao', 'photos', 'appearance',
+STAGES = ('new', 'consented', 'needs_school_email', 'gate_done', 'basic', 'kakao', 'photos', 'appearance',
           'interests', 'my_traits', 'survey', 'avatar', 'ideal_conditions', 'ideal_traits', 'ideal_note', 'bio', 'home')
-SIDE_STAGES = {'pending': ('consented', 'pending'), 'needs_school_email': ('consented',)}
+SIDE_STAGES = {'needs_school_email': ('consented',)}
 SIDE_STAGES['bio'] = tuple(s for s in STAGES[1:STAGES.index('bio')] if s not in SIDE_STAGES and s != 'avatar') + ('bio',)
 OLD_CONSENT_VERSION = '2026-09-01'  # 서버 상수(consents/policy.py)보다 옛 판 — 재동의 가설이 데이터로 흉내 낸다
 PHOTO = ROOT / 'frontend' / 'assets' / 'images' / 'mascot-male.png'  # 실제 사람 사진 대신 앱에 든 그림(SafeSearch 통과)
@@ -711,8 +713,6 @@ class Run:
         on = lambda path, body: api(self.cfg, 'POST', f'/profile-onboarding/{path}', token, body)
         if step == 'consented':
             reply = api(self.cfg, 'POST', '/me/consents', token, {'agreed': ['terms', 'privacy']})
-        elif step in ('pending', 'verified'):  # 검토는 사람이 하는 일이라 DB 로 바로 둔다
-            reply = rest(self.cfg, self.key, 'PATCH', f"profiles?id=eq.{account['id']}", {'student_verification': step})
         elif step == 'gate_done':
             reply = api(self.cfg, 'POST', '/school-info', token, {'department': '컴퓨터공학과', 'student_number': f"e2e{account['n']}"})
         elif step == 'basic':

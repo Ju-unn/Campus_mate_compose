@@ -47,7 +47,7 @@ class Fake(t1.FakeServer):
 class Base(t1.Base):
     @staticmethod
     def seeded(fake):
-        """가설이 프로필에 넣은 값(gender 가 든 PATCH) — 계정 공장이 student_verification 을 쓰는 PATCH 는 뺀다."""
+        """가설이 프로필에 넣은 값(gender 가 든 PATCH) — 다른 PATCH(정지 · 시각 등)는 뺀다."""
         return [b for b in fake.bodies('PATCH', '/rest/v1/profiles') if 'gender' in b]
 
     """계정은 진짜 계정 공장(`Run.account('home')`, 나탭2 #243)이 가짜 서버 위에서 만든다 — 만든 순서대로 id-1, id-2 …."""
@@ -296,6 +296,14 @@ class ReferralTest(Base):
         result, memo = area2.attempt(self.run, 'E-REF-09')
         self.assertEqual(result, 'fail')
         self.assertIn('422', memo)
+
+    def test_ref_16_before_the_department_gets_the_department_gate(self):
+        # 학생증 관문이 빠져(학생증 제거 10-17) 동의 · 학교 메일까지 한 계정은 학과 관문(DEPARTMENT_REQUIRED)에 막힌다.
+        for detail, result in (('학과 정보를 먼저 입력해 주세요', 'pass'), ('학생증 인증을 먼저 끝내 주세요', 'fail')):
+            with self.subTest(detail=detail):
+                fake = Fake([('POST', '/referral/redeem', lambda b, u, d=detail: Reply(403, {'detail': d}))])
+                with mock.patch.object(tools, 'call', fake):
+                    self.assertEqual(area2.attempt(self.run, 'E-REF-16')[0], result)
 
 
 class HeartTest(Base):

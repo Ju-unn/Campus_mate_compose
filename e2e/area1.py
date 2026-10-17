@@ -1,4 +1,4 @@
-"""영역 1 묶음 1 — API 가설 19(진행만, 폰 없음, 묶음 area1-b1)와 폰 가설 36(아래 PHONE, 묶음 area1-b1-phone).
+"""영역 1 묶음 1 — API 가설 19(진행만, 폰 없음, 묶음 area1-b1)와 폰 가설 33(아래 PHONE, 묶음 area1-b1-phone).
 기대값은 바탕화면 E2E_최종테스트_시나리오.md 영역 1 의 그 줄이다.
 
 가설 하나 = 함수 하나 `(run) -> (결과, 메모)`. 계정은 [Run.account] 로 그때그때 새로 만든다(별칭 번호는 다시 안 쓴다).
@@ -22,12 +22,12 @@ from e2e.tools import Blocked
 SEOUL = timezone(timedelta(hours=9))  # 서버 나이 계산(core/time.py)과 같은 날짜
 
 REJECTED = '등록되지 않은 학교 메일이에요'  # 서버 errors.SCHOOL_EMAIL_UNKNOWN_DOMAIN(훅 · verify 가 같은 문구)
-SV_REQUIRED = '학생증 인증을 먼저 끝내 주세요'
+DEPARTMENT_REQUIRED = '학과 정보를 먼저 입력해 주세요'  # 서버 errors.DEPARTMENT_REQUIRED — 학생증 관문은 없어졌다(학생증 제거 10-17)
 CONSENT_REQUIRED = '약관 동의를 먼저 해 주세요'
 INVALID_INPUT = '입력한 값을 다시 확인해 주세요'
 PHONE_INVALID = '올바른 휴대폰 번호를 입력해 주세요'  # 서버 errors.PHONE_NUMBER_INVALID(422)
 CONSENT_VERSION = '2026-09-29'  # backend/app/consents/policy.py CONSENT_VERSION
-TINY_JPEG = b'\xff\xd8\xff\xe0' + bytes(16) + b'\xff\xd9'  # 동의 확인이 사진보다 먼저라 내용은 상관없다
+TINY_JPEG = b'\xff\xd8\xff\xe0' + bytes(16) + b'\xff\xd9'  # 사진 검사 전에 막히는 요청에 싣는 사진이라 내용은 상관없다
 
 
 def _detail(body):
@@ -217,11 +217,11 @@ def _form(run, path, token, fields, file, **options):
 
 
 def gate_16(run):
+    """학생증 제출 경로는 없어졌다(학생증 제거 10-17) — 옛 앱이 보내는 요청 그대로 404, 파일 · 시도 행도 안 생긴다."""
     check = Check()
     account = run.account('new')
     reply = _form(run, '/student-verification', account['token'], {'real_name': '홍길동'}, ('photo', 'id.jpg', TINY_JPEG))
-    check.reply('학생증 제출', reply, 403, CONSENT_REQUIRED)
-    check.that('x-account-status' not in reply.headers, f"X-Account-Status {reply.headers.get('x-account-status')}")
+    check.reply('옛 학생증 제출', reply, 404)
     files = list(tools.storage_paths(run.cfg, run.key, 'student-id-temp', account['id']))
     check.that(not files, f'student-id-temp 파일 {len(files)}개')
     rows = _rows(run, f"student_verification_attempts?profile_id=eq.{account['id']}&select=id")
@@ -232,14 +232,13 @@ def gate_16(run):
 def gate_20(run):
     """E-GATE-17 계정(온보딩 끝, 옛 판 동의만)은 홈 계정이라 묶음 2다 — 학과까지 마친 계정으로 대신한다.
     user_consents 는 고치지 않는 기록이라 서비스 키도 update 권한이 없다(20260929010000:22-23).
-    그래서 판을 바꾸지 않고 옛 판 행을 처음부터 넣는다. /school-info 는 동의를 안 보므로(get_caller) 그다음에 학과를 넣는다."""
+    그래서 판을 바꾸지 않고 옛 판 행을 처음부터 넣는다. /school-info 는 동의 · 학생증을 안 보므로(get_caller) 그다음에 학과를 넣는다."""
     check = Check()
     account = run.account('new')
     status, body = tools.rest(run.cfg, run.key, 'POST', 'user_consents',
                               [{'profile_id': account['id'], 'kind': k, 'version': '2026-09-01'} for k in ('privacy', 'terms')])
     if status >= 300:
         raise Blocked(f'옛 판 동의 넣기 {status} {body}')
-    _patch(run, f"profiles?id=eq.{account['id']}", {'student_verification': 'verified'})
     reply = _api(run, 'POST', '/school-info', account['token'],
                  {'department': '컴퓨터공학과', 'student_number': f"e2e{account['n']}"})
     if reply[0] >= 300:
@@ -250,11 +249,15 @@ def gate_20(run):
 
 
 def gate_50(run):
+    """학생증은 관문이 아니다(학생증 제거 10-17) — 학생증 상태가 none 이든 옛 대기(pending) 행이 남았든 학과 전이면 학과 관문에 막힌다.
+    대기 행은 공장 단계가 없어져 가설이 그 칸만 직접 쓴다(운영에 남은 옛 계정과 같은 모양)."""
     check = Check()
-    for label, stage in (('none', 'consented'), ('pending', 'pending')):
-        account = run.account(stage)
+    for label, state in (('none', None), ('pending', 'pending')):
+        account = run.account('consented')
+        if state:
+            _patch(run, f"profiles?id=eq.{account['id']}", {'student_verification': state})
         for path in ('/cards/today', '/home/summary', '/profile-onboarding/next-step'):
-            check.reply(f'{label} {path}', _api(run, 'GET', path, account['token']), 403, SV_REQUIRED)
+            check.reply(f'{label} {path}', _api(run, 'GET', path, account['token']), 403, DEPARTMENT_REQUIRED)
         token = f"e2e-fake-{account['n']}"
         try:
             reply = _api(run, 'POST', '/cards/push-tokens', account['token'], {'token': token, 'platform': 'android'})
@@ -267,19 +270,20 @@ def gate_50(run):
 
 
 def gate_51(run):
+    """학생증 없이 학교 메일 인증만 한 계정도 학과를 저장할 수 있다(학생증 제거 10-17 — /school-info 의 학생증 검사가 빠졌다)."""
     check = Check()
     account = run.account('consented')
     check.reply('학과 저장', _api(run, 'POST', '/school-info', account['token'],
-                                {'department': '컴퓨터공학과', 'student_number': f"e2e{account['n']}"}), 403, SV_REQUIRED)
+                                {'department': '컴퓨터공학과', 'student_number': f"e2e{account['n']}"}), 200)
     rows = _rows(run, f"profiles?id=eq.{account['id']}&select=major")
-    check.that(rows and rows[0]['major'] is None, f'major {rows}')
+    check.that(rows and rows[0]['major'] == '컴퓨터공학과', f'major {rows}')
     return check.result()
 
 
 def gate_55(run):
     check = Check()
-    account = run.account('verified')
-    check.reply('카드', _api(run, 'GET', '/cards/today', account['token']), 403, '학과 정보를 먼저 입력해 주세요')
+    account = run.account('consented')  # 학교 메일 인증 · 동의까지 — 이제 바로 다음 관문이 학과다
+    check.reply('카드', _api(run, 'GET', '/cards/today', account['token']), 403, DEPARTMENT_REQUIRED)
     return check.result()
 
 
@@ -356,8 +360,8 @@ def onb_45(run):
 
 def onb_69(run):
     check = Check()
-    account = run.account('pending')
-    check.reply('추천 코드', _api(run, 'POST', '/referral/redeem', account['token'], {'code': 'ABCDEF'}), 403, SV_REQUIRED)
+    account = run.account('consented')  # 학과 전 — 추천 코드도 관문(get_verified_caller) 뒤다
+    check.reply('추천 코드', _api(run, 'POST', '/referral/redeem', account['token'], {'code': 'ABCDEF'}), 403, DEPARTMENT_REQUIRED)
     return check.result()
 
 
@@ -378,7 +382,7 @@ def attempt(run, case):
         return 'blocked', str(e)
 
 
-# ── 폰 가설 37 중 36(E-ONB-05 는 두 기기라 묶음 6) ─────────────────────────────────────────────────────────────────────────────────
+# ── 폰 가설 34 중 33(E-ONB-05 는 두 기기라 묶음 6 · E-GATE-30~32 는 학생증 제거 10-17 로 뺌) ─────────────────────────────────────────────────────────────────────────────────
 # 함수 하나 `(run, phone) -> (결과, 메모)`. phone(**일감) 은 앱을 한 번 새로 켜 같은 번호의 앱 쪽
 # (frontend/integration_test/area1.dart)을 돌리고 앱이 한 말(dict, 답이 없으면 None)을 돌려준다. 일감 키:
 #   token_hash  관리자 generate_link 1회용 토큰 — 앱이 이것으로 로그인한다(없으면 로그아웃 상태 = 시작 화면 'start' 로 시작)
@@ -482,7 +486,7 @@ def p_auth_16(run, phone):
 def p_auth_17(run, phone):
     """시나리오는 기기 둘 · force-stop — A폰 한 대, run-as kill 로 끈다(force-stop 은 FCM 을 멈춘다)."""
     check = Check()
-    for stage, screen in (('new', 'consent'), ('verified', '3c'), ('basic', '04-1b')):
+    for stage, screen in (('new', 'consent'), ('consented', '3c'), ('basic', '04-1b')):
         _, token = _signed_in(run, stage)
         _app(check, phone(token_hash=token, expect=screen), f'{stage} 첫 로그인')
         _app(check, phone(fresh=False, expect=screen), f'{stage} 다시 켬')
@@ -492,7 +496,7 @@ def p_auth_17(run, phone):
 def p_auth_20(run, phone):
     check = Check()
     account, token = _signed_in(run, 'consented')
-    _app(check, phone(token_hash=token, expect='3b'), '로그인')
+    _app(check, phone(token_hash=token, expect='3c'), '로그인')  # 동의 다음은 3c(10-17 학생증 제거로 3b 가 없다)
     out = tools.call('POST', f"{run.cfg['SUPABASE_URL']}/auth/v1/logout?scope=global",
                      {'apikey': run.cfg['SUPABASE_ANON_KEY'], 'Authorization': f"Bearer {account['token']}"})
     if out[0] >= 300:
@@ -512,14 +516,14 @@ def p_auth_21(run, phone):
 
 def p_gate_02(run, phone):
     check = Check()
-    for stage, screen in (('consented', '3b'), ('verified', '3c'), ('gate_done', '04-1')):
+    for stage, screen in (('consented', '3c'), ('gate_done', '04-1')):  # 학생증 단계(3b)는 10-17 에 없어졌다
         _, token = _signed_in(run, stage)
         _app(check, phone(token_hash=token, expect=screen), stage)
     return check.result()
 
 
 def p_gate_03(run, phone):
-    """동의 전 · 학생증 전 · 온보딩 중 · 홈 계정 넷(홈은 묶음 2 의 계정 공장 home 단계)."""
+    """동의 전 · 학과 전 · 온보딩 중 · 홈 계정 넷(홈은 묶음 2 의 계정 공장 home 단계)."""
     check = Check()
     for stage in ('new', 'consented', 'basic', 'home'):
         account, token = _signed_in(run, stage)
@@ -585,7 +589,7 @@ def p_gate_13(run, phone):
 
 def p_gate_52(run, phone):
     check = Check()
-    account, token = _signed_in(run, 'verified')
+    account, token = _signed_in(run, 'consented')  # 3c 계정 — 동의 다음이 바로 3c 다(학생증 제거 10-17)
     university = _one(run, f"profiles?id=eq.{account['id']}&select=university_id").get('university_id') or _test_university(run)
     name = _one(run, f'universities?id=eq.{university}&select=name').get('name')
     if not name:
@@ -596,7 +600,7 @@ def p_gate_52(run, phone):
 
 def p_gate_54(run, phone):
     check = Check()
-    account, token = _signed_in(run, 'verified')
+    account, token = _signed_in(run, 'consented')  # 3c 계정 — 동의 다음이 바로 3c 다(학생증 제거 10-17)
     _app(check, phone(token_hash=token))
     saved = _one(run, f"profiles?id=eq.{account['id']}&select=major,student_number")
     check.that(saved.get('major') == '컴퓨터공학과' and saved.get('student_number') == '21', f'profiles {saved}')
@@ -606,7 +610,7 @@ def p_gate_54(run, phone):
 def p_gate_56(run, phone):
     """관문 앞 등록(A7) — 3c 에서 10초 기다린 뒤 1행, 저장해 관문이 열린 뒤 다시 켜도 같은 1행."""
     check = Check()
-    account, token = _signed_in(run, 'verified')
+    account, token = _signed_in(run, 'consented')  # 3c 계정 — 동의 다음이 바로 3c 다(학생증 제거 10-17)
     tokens = f"push_tokens?profile_id=eq.{account['id']}&select=token"
     _app(check, phone(token_hash=token), '3c 도착')
     before = _rows(run, tokens)
@@ -692,9 +696,8 @@ PHONE = {
     'E-AUTH-05': p_auth_05, 'E-AUTH-16': p_auth_16, 'E-AUTH-17': p_auth_17, 'E-AUTH-20': p_auth_20, 'E-AUTH-21': p_auth_21,
     'E-GATE-01': _on_phone('new'), 'E-GATE-02': p_gate_02, 'E-GATE-03': p_gate_03, 'E-GATE-07': _on_phone('new'),
     'E-GATE-08': p_gate_08, 'E-GATE-09': p_gate_09, 'E-GATE-10': _on_phone('new'), 'E-GATE-11': p_gate_11,
-    'E-GATE-13': p_gate_13, 'E-GATE-14': _on_phone('new'), 'E-GATE-30': _on_phone('consented'),
-    'E-GATE-31': _on_phone('consented'), 'E-GATE-32': _on_phone('consented'), 'E-GATE-52': p_gate_52,
-    'E-GATE-53': _on_phone('verified'), 'E-GATE-54': p_gate_54, 'E-GATE-56': p_gate_56,
+    'E-GATE-13': p_gate_13, 'E-GATE-14': _on_phone('new'), 'E-GATE-52': p_gate_52,  # E-GATE-30~32(3b 실명 칸)는 10-17 에 뺐다
+    'E-GATE-53': _on_phone('consented'), 'E-GATE-54': p_gate_54, 'E-GATE-56': p_gate_56,
     'E-ONB-01': _on_phone('gate_done'), 'E-ONB-02': _on_phone('gate_done'), 'E-ONB-03': p_onb_03, 'E-ONB-04': p_onb_04,
     'E-ONB-06': p_onb_06, 'E-ONB-07': _on_phone('gate_done'), 'E-ONB-10': _on_phone('gate_done'), 'E-ONB-11': p_onb_11,
     'E-ONB-12': _on_phone('gate_done'), 'E-ONB-13': p_onb_13, 'E-ONB-15': _on_phone('gate_done'), 'E-ONB-16': _mbti_empty,

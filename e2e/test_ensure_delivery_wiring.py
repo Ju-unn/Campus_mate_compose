@@ -1,4 +1,4 @@
-"""알림을 읽는 폰 가설(E-CHAT-32 · E-GATE-43 · E-REF-18 · E-ONB-61 · E-CARD-02 · PUSH A1 의 _Scene)이 시작할 때 푸시 연결을 점검하는지 — 폰 · 운영 없이.
+"""알림을 읽는 폰 가설(E-CHAT-32 · E-REF-18 · E-ONB-61 · E-CARD-02 · PUSH A1 의 _Scene)이 시작할 때 푸시 연결을 점검하는지 — 폰 · 운영 없이.
 저장소 루트에서 `python -m unittest e2e.test_ensure_delivery_wiring`.
 
 점검이 막히면(`notify.ensure_delivery` 가 Blocked) 계정도 만들지 않고 앱도 켜지 않은 채 blocked 로 끝나야 한다 —
@@ -13,7 +13,7 @@ from e2e.test_area1 import Base
 from e2e.test_area1_phone import FakePhone
 from e2e.tools import Blocked
 
-CASES = ('E-CHAT-32', 'E-GATE-43', 'E-REF-18', 'E-ONB-61', 'E-CARD-02', 'E-PUSH-10', 'E-PUSH-74')  # PUSH A1 은 한 도구(_Scene)로 시작해 대표 둘이면 충분
+CASES = ('E-CHAT-32', 'E-REF-18', 'E-ONB-61', 'E-CARD-02', 'E-PUSH-10', 'E-PUSH-74')  # PUSH A1 은 한 도구(_Scene)로 시작해 대표 둘이면 충분
 REASON = '푸시 연결 점검이 막힘(시험용)'
 
 

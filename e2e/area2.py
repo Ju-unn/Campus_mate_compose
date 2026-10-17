@@ -16,7 +16,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
 from e2e import batch_gate, tools
-from e2e.area1 import SEOUL, SV_REQUIRED, TINY_JPEG, Check, _api, _detail, _form, _patch, _rows, _test_university
+from e2e.area1 import DEPARTMENT_REQUIRED, SEOUL, TINY_JPEG, Check, _api, _detail, _form, _patch, _rows, _test_university
 from e2e.tools import Blocked
 
 PHOTO_UNREADABLE = '사진을 다시 확인해 주세요'
@@ -877,8 +877,8 @@ def ref_15(run):
 
 def ref_16(run):
     check = Check()
-    account = run.account('consented')  # 학생증 인증 · 학과 입력 전
-    check.reply('추천 코드 입력', _redeem(run, account, 'ABCDEF'), 403, SV_REQUIRED)
+    account = run.account('consented')  # 학과 입력 전 — 학생증은 관문이 아니다(학생증 제거 10-17)
+    check.reply('추천 코드 입력', _redeem(run, account, 'ABCDEF'), 403, DEPARTMENT_REQUIRED)
     return check.result()
 
 

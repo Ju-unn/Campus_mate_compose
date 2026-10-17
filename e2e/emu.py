@@ -54,7 +54,7 @@ def check(serial, wait=0, sleep=time.sleep):
     add('시계 조작(E-AUTH-19)', debuggable,
         'ro.debuggable=1 — adb root 가 될 수 있다' if debuggable else 'ro.debuggable=0 — adb root 가 막혀 E-AUTH-19 는 blocked 예상', hard=False)
     svc = tools.adb(serial, 'shell', 'which', 'svc', check=False).strip()
-    add('네트워크 끄기(E-AUTH-22 · E-GATE-47)', bool(svc), svc or 'svc 없음', hard=False)
+    add('네트워크 끄기(E-AUTH-22 · E-ONB-74)', bool(svc), svc or 'svc 없음', hard=False)
     found = browsers(serial)
     add('브라우저(E-GATE-12)', bool(found), ', '.join(found) or 'https 를 받는 앱 없음 — 끌 것이 없다', hard=False)
     return rows
