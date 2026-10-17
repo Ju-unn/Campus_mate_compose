@@ -1,4 +1,5 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -35,7 +36,7 @@ class TrustBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // pen `IhqF4`(360×125): 안내 영역 [12,16,12,16] → 버튼 영역 [0,16,16,16]. 안내 영역 아래 12 가 곧 버튼 위 간격이다.
-    // 버튼 없는 배너(14g · 14h · 연결 끊김)는 같은 안내 영역만 쓴다 — 그 pen 값(`A1g5lB` · `bAZox`)은 따로 대조하지 않았다.
+    // 버튼 없는 배너(14g · 14h · 연결 끊김)는 같은 안내 영역만 쓴다 — 14g `A1g5lB` 360×83 · 14h `bAZox` 360×65(대장 전달 값 10-17).
     return Container(
       width: double.infinity,
       color: isMuted ? AppColors.surfaceSoft : AppColors.primaryWash,
@@ -46,11 +47,7 @@ class TrustBanner extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                icon ?? (isMuted ? AppIcons.timer : AppIcons.shieldCheck),
-                size: 20,
-                color: isMuted ? AppColors.muted : AppColors.primaryText,
-              ),
+              _icon(),
               const SizedBox(width: 10), // pen 아이콘 → 글자 10 — 간격 토큰(8 · 12) 사이 값
               Expanded(
                 child: Column(
@@ -85,5 +82,14 @@ class TrustBanner extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  /// 14g · 미리 수락은 shield-check 20 primary-text, 14h 종료 예정은 3D 시계 20(pen `bAZox`, ui-3d-clock contain).
+  /// 넘겨받은 아이콘(연결 끊김)은 Lucide 그대로다.
+  Widget _icon() {
+    final icon = this.icon;
+    if (icon != null) return Icon(icon, size: 20, color: isMuted ? AppColors.muted : AppColors.primaryText);
+    if (isMuted) return const Icon3d(AppIcon3d.clock, size: 20);
+    return const Icon(AppIcons.shieldCheck, size: 20, color: AppColors.primaryText);
   }
 }
