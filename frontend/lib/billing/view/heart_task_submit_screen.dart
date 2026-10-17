@@ -1,11 +1,15 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:campus_mate/billing/model/everytime_form_link.dart';
 import 'package:campus_mate/billing/model/heart_task.dart';
 import 'package:campus_mate/billing/viewmodel/heart_task_submit_view_model.dart';
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/common/widgets/muted_text_button.dart';
+import 'package:campus_mate/consent/model/open_url.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -29,6 +33,12 @@ String? _criteria(HeartTaskKind kind) => switch (kind) {
     };
 const String _uploaderLabel = '스크린샷 첨부하기';
 const String _retryCaption = '다시 찍어 올려 주세요';
+
+/// 에브리타임 18b · 18b-2 보조 버튼(pen `F15q0W` · `DMrAI` TextButton, 대장 전달 값 10-17). 화살표는 아이콘이 아니라 글자다.
+const String _formLabel = '에브리타임 양식 보기 →';
+
+/// 낭독기는 화살표 대신 어디로 열리는지 읽는다.
+const String _formSemanticsLabel = '에브리타임 양식 보기, 브라우저로 열려요';
 
 /// 테스트가 업로더를 찾는 표식.
 const Key heartTaskUploaderKey = ValueKey('heart-task-uploader');
@@ -58,6 +68,23 @@ class _HeartTaskSubmitScreenState extends ConsumerState<HeartTaskSubmitScreen> {
 
   String? _toast;
   Timer? _toastTimer;
+  bool _openingForm = false;
+
+  /// 노션 양식은 앱 안 브라우저로 연다(설정 16 약관 줄과 같은 길, 10-16 사용자 결정 — open_url.dart).
+  /// openInApp 은 예외만 false 로 돌려준다 — false 면 실패 토스트.
+  Future<void> _openForm() async {
+    if (_openingForm) return; // 여는 호출이 끝나기 전에 다시 눌러도 두 번 열지 않는다
+    _openingForm = true;
+    var opened = false;
+    try {
+      opened = await ref.read(openUrlProvider)(everytimeFormLink);
+    } catch (_) {
+      // 기기 쪽 오류 — 아래에서 안내한다.
+    } finally {
+      _openingForm = false;
+    }
+    if (!opened && mounted) _showToast(const UnknownFailure().toDisplayMessage());
+  }
 
   void _showToast(String message) {
     _toastTimer?.cancel();
@@ -124,6 +151,17 @@ class _HeartTaskSubmitScreenState extends ConsumerState<HeartTaskSubmitScreen> {
             const SizedBox(height: AppSpacing.md),
             _ProofUploader(photo: state.photo, onTap: state.isSubmitting ? null : viewModel.pickPhoto),
             const SizedBox(height: AppSpacing.md),
+            // 단톡방에는 양식이 없다. 버튼 높이 48 은 MutedTextButton 최소값 — 글자를 키우면 늘어난다.
+            if (widget.kind == HeartTaskKind.everytimePost) ...[
+              Semantics(
+                button: true,
+                label: _formSemanticsLabel,
+                excludeSemantics: true,
+                onTap: _openForm,
+                child: MutedTextButton(label: _formLabel, onPressed: _openForm),
+              ),
+              const SizedBox(height: AppSpacing.md),
+            ],
             if (toast != null) ...[
               Center(
                 child: AppToast(
