@@ -46,6 +46,9 @@ FULL_PROFILE = {
     "preferred_impression_types": ["kind"],
     # 1:1 embed 라 객체(없으면 null)로 온다.
     "entitlements": {"heart_balance": 30},
+    "ideal_note": "다정하고 연락 잘하는 사람이 좋아요",
+    # 1:N embed — 순서 보장 없음. numeric 은 정수 모양(1)으로도 온다.
+    "survey_answers": [{"axis": 2, "value": -0.5}, {"axis": 1, "value": 1}, {"axis": 9, "value": 0}],
 }
 
 
@@ -128,7 +131,28 @@ def test_profile_returns_my_fields():
         "heart_balance": 30,
         "avatar_regen_cost": 20,   # FULL_PROFILE 은 ready 2장
         "nickname_changeable_at": "2026-10-20T14:00:00+09:00",
+        "ideal_note": "다정하고 연락 잘하는 사람이 좋아요",
+        # 설문 저장(POST survey 의 answers)과 같은 모양 — JSON 이라 축 번호는 문자열 키다.
+        "survey_answers": {"1": 1.0, "2": -0.5, "9": 0.0},
     }
+
+
+def test_profile_asks_the_db_for_ideal_note_and_my_survey_answers_in_the_same_read():
+    # 설문 답은 내 행 아래 embed 로 읽는다 — 따로 survey_answers 를 읽는 요청(남의 행에 닿을 수 있는 길)이 없다.
+    seen: list[httpx.Request] = []
+    _get(FULL_PROFILE, seen)
+
+    select = seen[0].url.params["select"]
+    assert "ideal_note" in select.split(",")
+    assert "survey_answers(axis,value)" in select
+    assert not [r for r in seen if r.url.path.endswith("/survey_answers")]
+
+
+def test_survey_values_are_floats_even_when_the_db_sends_integers():
+    # 앱은 값을 double 로 읽는다 — numeric 1 이 정수 1 로 오면 그대로 넘기지 않는다.
+    answers = _get(FULL_PROFILE).json()["survey_answers"]
+
+    assert all(isinstance(value, float) for value in answers.values())
 
 
 def test_profile_asks_the_db_for_the_four_edit_fields():
@@ -197,6 +221,8 @@ def test_empty_profile_gives_nulls_and_no_photos():
         "interest_tags": [], "my_traits": [], "ideal_traits": [],
         "preferred_mbti_flags": {}, "preferred_animal_types": [], "preferred_impression_types": [],
         "entitlements": None,
+        # 06-2b · 설문 전이면 글은 null, 답 행은 없다.
+        "ideal_note": None, "survey_answers": [],
     }
     seen: list[httpx.Request] = []
 
@@ -204,6 +230,7 @@ def test_empty_profile_gives_nulls_and_no_photos():
 
     assert body["photo_urls"] == []
     assert body["photos"] == []
+    assert (body["ideal_note"], body["survey_answers"]) == (None, {})
     assert (body["heart_balance"], body["avatar_regen_cost"], body["nickname_changeable_at"]) == (0, 0, None)
     for key in ("bio", "age", "birth_year", "gender", "height_cm", "mbti", "religion", "is_smoker", "animal_type", "impression_type", "major",
                 "preferred_age_min", "preferred_age_max", "preferred_height_min", "preferred_height_max"):
