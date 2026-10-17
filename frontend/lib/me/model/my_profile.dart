@@ -32,6 +32,8 @@ class MyProfile {
     this.impressionType,
     this.birthYear,
     this.gender,
+    this.surveyAnswers = const {},
+    this.idealNote,
   });
 
   final String nickname;
@@ -85,6 +87,12 @@ class MyProfile {
   /// [gender] 는 서버 값 그대로(`male` · `female`).
   final int? birthYear;
   final String? gender;
+
+  /// 온보딩 뒤로가기로 돌아온 설문(05-01~09)을 채운다. 축 번호(1~9) → 값(-1~1). 설문 전이거나 옛 서버면 비어 있다.
+  final Map<int, double> surveyAnswers;
+
+  /// 온보딩 뒤로가기로 돌아온 06-2a 를 채운다. 쓰기 전이거나 옛 서버면 null.
+  final String? idealNote;
 
   /// 실사진 서명 URL. 대표 사진(0번)부터 순서대로 — 화면 15 슬라이더가 읽는다.
   List<String> get photoUrls => [for (final photo in photos) photo.url];

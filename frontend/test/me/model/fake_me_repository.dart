@@ -32,6 +32,11 @@ const savedOnboardingProfile = MyProfile(
   preferredMbtiFlags: {'E': true, 'N': true},
   preferredAnimalTypes: [AnimalType.dog, AnimalType.cat],
   preferredImpressionTypes: [ImpressionType.kind],
+  // 가운데(0)가 아닌 값을 섞어 둔다 — 기본값(가운데)으로 열렸는지 서버 값으로 열렸는지 구분되게.
+  surveyAnswers: {1: -1, 2: -0.5, 3: 1, 4: 0.5, 5: 1, 6: -1, 7: 0.5, 8: 0, 9: -0.5},
+  religion: Religion.buddhist,
+  isSmoker: false,
+  idealNote: '말이 잘 통하고 주말에 같이 산책하는 사람이요',
 );
 
 /// 테스트가 돌려줄 값을 직접 정하는 가짜 저장소. 몇 번 불렸는지도 센다("다시 시도" 확인용).

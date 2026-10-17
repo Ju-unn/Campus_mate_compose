@@ -135,6 +135,64 @@ void main() {
     expect(profile.photoUrls, isEmpty);
   });
 
+  // 온보딩 뒤로가기 조각 S(#577): 설문 9축 · 이상형 글을 되돌아온 화면에 채운다. 키는 축 번호 글자다.
+  test('이상형 글과 설문 답을 읽는다 — 축 번호는 숫자로, 정수 값도 실수로', () async {
+    final client = MockClient((_) async => jsonResponse({
+          'nickname': '여우',
+          'age': 23,
+          'university': '가나대학교',
+          'major': null,
+          'height_cm': null,
+          'mbti': null,
+          'avatar_url': null,
+          'preferred_age_min': null,
+          'preferred_age_max': null,
+          'preferred_height_min': null,
+          'preferred_height_max': null,
+          'bio': null,
+          ..._editKeys,
+          'ideal_note': '말이 잘 통하는 사람이 좋아요',
+          'survey_answers': {'1': -1, '2': 0.5, '9': 0},
+        }));
+
+    final profile = profileOf(await buildRepository(client).fetchProfile())!;
+
+    expect(profile.idealNote, '말이 잘 통하는 사람이 좋아요');
+    expect(profile.surveyAnswers, {1: -1.0, 2: 0.5, 9: 0.0});
+    expect(profile.surveyAnswers.values, everyElement(isA<double>()));
+  });
+
+  test('옛 서버 응답(두 칸 없음)이나 null 이면 빈 답 · 글 없음으로 읽는다', () async {
+    Map<String, Object?> body(Map<String, Object?> extra) => {
+          'nickname': '여우',
+          'age': 23,
+          'university': '가나대학교',
+          'major': null,
+          'height_cm': null,
+          'mbti': null,
+          'avatar_url': null,
+          'preferred_age_min': null,
+          'preferred_age_max': null,
+          'preferred_height_min': null,
+          'preferred_height_max': null,
+          'bio': null,
+          ..._editKeys,
+          ...extra,
+        };
+    for (final extra in [
+      <String, Object?>{},
+      {'ideal_note': null, 'survey_answers': null},
+      {'ideal_note': null, 'survey_answers': <String, Object?>{}},
+    ]) {
+      final client = MockClient((_) async => jsonResponse(body(extra)));
+
+      final profile = profileOf(await buildRepository(client).fetchProfile())!;
+
+      expect(profile.idealNote, isNull, reason: '$extra');
+      expect(profile.surveyAnswers, isEmpty, reason: '$extra');
+    }
+  });
+
   test('편집 화면이 쓰는 새 키를 읽는다 — 태그 3종 · 06-1 선호 · 사진 행 · 하트 · 닉네임 풀리는 때', () async {
     final client = MockClient((_) async => jsonResponse({
           'nickname': '여우',
