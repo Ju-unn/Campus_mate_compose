@@ -168,10 +168,11 @@ def test_detail_404_when_hidden_or_missing():
     assert response.json()["detail"] == errors.POLL_NOT_FOUND
 
 
-def test_feed_requires_student_verification():
+def test_feed_lets_a_pending_student_id_in():
+    # 학생증 제거(10-17): 학교 메일 + 학과면 들어온다.
     response = _wire(_rpc("poll_feed", httpx.Response(200, json=[])), verification="pending").get(
         "/community/polls", headers=AUTH_HEADERS)
-    assert response.status_code == 403
+    assert response.status_code == 200
 
 
 def _routes(**responses: httpx.Response) -> Callable[[httpx.Request], httpx.Response]:

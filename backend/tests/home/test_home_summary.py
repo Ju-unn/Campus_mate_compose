@@ -221,10 +221,11 @@ def test_summary_rejects_missing_login():
     assert response.status_code == 401
 
 
-def test_summary_rejects_unverified_student():
+def test_summary_lets_a_pending_student_id_in():
+    # 학생증 제거(10-17): 학교 메일 + 학과면 들어온다.
     response = _wire(_handler(FULL_PROFILE), verification="pending").get("/home/summary", headers=AUTH_HEADERS)
 
-    assert response.status_code == 403
+    assert response.status_code == 200
 
 
 # 완성도: 60 + (사진 3장 이상 · MBTI · 선호 키 한쪽 이상 · 관심 태그 5개) 각 10 ----------------

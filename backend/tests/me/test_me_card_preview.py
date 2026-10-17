@@ -84,5 +84,6 @@ def test_preview_never_carries_what_opens_only_after_both_accept():
     assert "kakao" not in select and "profile_photos" not in select and "profile_private" not in select
 
 
-def test_preview_rejects_unverified_student():
-    assert _get(verification="pending").status_code == 403
+def test_preview_lets_a_pending_student_id_in():
+    # 학생증 제거(10-17): 학교 메일 + 학과면 들어온다.
+    assert _get(verification="pending").status_code == 200

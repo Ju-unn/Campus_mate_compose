@@ -179,10 +179,11 @@ def test_profile_rejects_missing_login():
     assert response.status_code == 401
 
 
-def test_profile_rejects_unverified_student():
+def test_profile_lets_a_pending_student_id_in():
+    # 학생증 제거(10-17): 학교 메일 + 학과면 들어온다.
     response = _wire(_handler(FULL_PROFILE), verification="pending").get("/me/profile", headers=AUTH_HEADERS)
 
-    assert response.status_code == 403
+    assert response.status_code == 200
 
 
 def test_photos_are_signed_in_position_order_for_one_hour():

@@ -1,5 +1,6 @@
 """학생증 사진 정리 배치(사용자 결정 2026-10-11): 사람이 재검토한 시도의 남은 사진을 치우고,
-검토 대기 30일이 지난 시도는 사진을 지운 뒤 반려(사유: 기한 만료)로 닫는다. 매시 chat-gate 배치가 부른다."""
+검토 대기 30일이 지난 시도는 사진을 지운 뒤 반려(사유: 기한 만료)로 닫는다. 매시 chat-gate 배치가 부른다.
+학생증 제거(10-17) 뒤로는 시도 행만 닫고 프로필(student_verification)은 건드리지 않는다."""
 import logging
 from datetime import datetime, timedelta
 
@@ -151,7 +152,8 @@ async def test_pending_for_29_days_is_kept():
     assert (world.attempt(1)["result"], world.profiles[P1]) == ("pending", "pending")
 
 
-async def test_pending_for_30_days_is_rejected_with_the_expiry_reason_and_its_photo_deleted():
+async def test_pending_for_30_days_closes_the_attempt_and_deletes_its_photo_but_leaves_the_profile():
+    # 학생증 제거(10-17): 프로필을 rejected 로 바꾸면 DB 트리거가 "학생 인증을 다시 해 주세요" 푸시를 보낸다 — 시도만 닫는다.
     world = World([attempt(1, P1, age={"days": 30})])
 
     assert await run(world) == {"photos_deleted": 1, "pending_expired": 1}
@@ -159,7 +161,7 @@ async def test_pending_for_30_days_is_rejected_with_the_expiry_reason_and_its_ph
     expired = world.attempt(1)
     assert (expired["result"], expired["reject_reason"]) == ("rejected", EXPIRED_REASON)
     assert expired["reviewed_at"] == NOW.isoformat()
-    assert world.profiles[P1] == "rejected"
+    assert world.profiles[P1] == "pending"
 
 
 async def test_an_old_attempt_that_is_not_pending_is_not_expired():
@@ -194,14 +196,15 @@ async def test_an_old_pending_attempt_is_closed_but_the_profile_follows_the_newe
     assert world.photos == {f"{P1}/photo-2.jpg"}
 
 
-async def test_the_attempt_is_closed_before_the_profile_changes():
-    # 프로필이 바뀌는 순간 DB 트리거가 훅을 부른다 — 훅이 만료 사유를 읽으려면 시도가 먼저 닫혀 있어야 한다.
-    world = World([attempt(1, P1, age={"days": 31})])
+async def test_expiry_never_writes_the_profile_so_the_review_push_trigger_never_fires():
+    # profiles.student_verification 을 바꾸는 쓰기가 곧 검토 결과 푸시(on_student_verification_reviewed)다 — 하나도 없어야 한다.
+    world = World([attempt(1, P1, age={"days": 31}), attempt(2, P2, age={"days": 45})])
 
     await run(world)
 
     writes = [(r.url.path.rsplit("/", 1)[-1], r.method) for r in world.requests if r.method == "PATCH"]
-    assert writes == [("student_verification_attempts", "PATCH"), ("profiles", "PATCH")]
+    assert writes == [("student_verification_attempts", "PATCH")] * 2
+    assert world.profiles == {P1: "pending", P2: "pending"}
 
 
 # 저장소의 조건: 이미 확정된 행은 건드리지 않는다 ---------------------------------------------
@@ -257,18 +260,14 @@ async def test_expired_whose_photo_delete_failed_is_cleaned_up_as_a_reviewed_lef
     assert world.photos == set()
 
 
-async def test_a_failed_profile_write_puts_the_attempt_back_and_keeps_the_photo_and_goes_on():
+async def test_a_broken_profile_table_does_not_stop_expiry():
+    # 프로필을 쓰지 않으니 프로필 쓰기 장애와 상관없이 둘 다 닫히고 사진도 지워진다.
     world = World([attempt(1, P1, age={"days": 31}), attempt(2, P2, age={"days": 32})],
-                  fail_profile_patch={P1})
+                  fail_profile_patch={P1, P2})
 
-    assert await run(world) == {"photos_deleted": 1, "pending_expired": 1}
-    first = world.attempt(1)
-    assert (first["result"], first["reject_reason"], first["reviewed_at"]) == ("pending", None, None)
-    assert world.photos == {f"{P1}/photo-1.jpg"}
-    assert world.profiles == {P1: "pending", P2: "rejected"}
-
-    world.fail_profile_patch.clear()  # 내일 다시 시도해서 닫힌다
-    assert await run(world) == {"photos_deleted": 1, "pending_expired": 1}
+    assert await run(world) == {"photos_deleted": 2, "pending_expired": 2}
+    assert (world.attempt(1)["result"], world.attempt(2)["result"]) == ("rejected", "rejected")
+    assert world.photos == set()
 
 
 async def test_a_failing_bucket_listing_does_not_block_expiry():
