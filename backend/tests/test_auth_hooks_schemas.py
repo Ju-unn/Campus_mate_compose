@@ -9,6 +9,13 @@ def test_payload_parses_email_from_real_supabase_body():
     assert payload.email_domain == "snu.ac.kr"
 
 
+def test_an_email_without_an_at_sign_has_no_domain():
+    """'@' 가 없으면 도메인은 빈 값이다 — 메일 앞부분이 도메인 자리로 새어 기록되지 않게."""
+    payload = BeforeUserCreatedPayload.model_validate({"user": {"email": "secret.person"}})
+
+    assert payload.email_domain == ""
+
+
 def test_reject_decision_serializes_as_gotrue_error():
     decision = HookDecision.reject("허용되지 않은 학교 이메일이에요")
 

@@ -30,7 +30,9 @@ class BeforeUserCreatedPayload(BaseModel):
 
     @property
     def email_domain(self) -> str:
-        return self.email.rsplit("@", 1)[-1]
+        """'@' 가 없으면 빈 값 — 메일 앞부분을 도메인으로 읽어 미등록 도메인 기록에 남기지 않는다."""
+        _, at, domain = self.email.rpartition("@")
+        return domain if at else ""
 
 
 class _HookError(BaseModel):
