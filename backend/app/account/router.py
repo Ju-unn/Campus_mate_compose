@@ -76,7 +76,8 @@ async def withdraw(body: WithdrawRequest | None = None,
 
 @router.get("/account")
 async def get_my_account(caller: Caller = Depends(get_verified_caller)) -> dict:
-    """16e 계정 화면. 실명은 본인에게 가는 이 응답에만 싣고 로그에 찍지 않는다(DESIGN §9 16e · ERD §11-2).
+    """16e 계정 화면. 실명은 싣지 않는다(학생증 제거 10-17) — 옛 계정에 암호문이 남아 있어도 읽지 않는다.
+    옛 앱은 real_name 을 `as String?` 로 읽어 칸이 없으면 null 로 본다(frontend account_repository.dart).
     이메일은 앱이 자기 세션에서 읽는다. 인증 상태는 싣지 않는다 — 관문을 지난 사람만 닿으니 늘 '인증 완료'다."""
     settings, client, profile_id = caller
     accounts = AccountRepository(
@@ -85,7 +86,6 @@ async def get_my_account(caller: Caller = Depends(get_verified_caller)) -> dict:
     profile = await accounts.fetch_account(profile_id)
     private = await accounts.fetch_private(profile_id)
     return {
-        "real_name": private.get("real_name"),
         "birth_year": profile["birth_year"],
         "university": profile["universities"]["name"],
         "joined_at": profile["created_at"],

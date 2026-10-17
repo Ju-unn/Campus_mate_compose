@@ -1,10 +1,11 @@
-"""`GET /account`(16e 계정 화면). 실명은 본인에게 가는 이 응답에만 있고 로그에는 없다."""
+"""`GET /account`(16e 계정 화면). 학생증 제거(10-17) 뒤로 실명은 싣지 않는다 — 옛 계정에 암호문이 남아 있어도."""
 import logging
 
 from account_world import AUTH, ME
 
 
-def test_my_account_rows_come_back(client, world):
+def test_my_account_rows_come_back_without_the_real_name(client, world):
+    # 옛 앱은 real_name 을 `as String?` 로 읽어 칸이 없으면 null 로 본다(account_repository.dart).
     world.real_names[ME] = "홍길동"
     world.kakao_ids[ME] = "fox_rain"
 
@@ -12,16 +13,17 @@ def test_my_account_rows_come_back(client, world):
 
     assert response.status_code == 200
     assert response.json() == {
-        "real_name": "홍길동", "birth_year": 2003, "university": "서울대학교",
+        "birth_year": 2003, "university": "서울대학교",
         "joined_at": "2026-09-01T10:00:00+00:00", "kakao_id": "fox_rain",
     }
+    assert "홍길동" not in response.text
 
 
 def test_missing_private_values_are_null_not_500(client, world):
     response = client.get("/account", headers=AUTH)
 
     assert response.status_code == 200
-    assert response.json()["real_name"] is None
+    assert "real_name" not in response.json()
     assert response.json()["kakao_id"] is None
 
 
@@ -48,14 +50,14 @@ def test_real_name_never_reaches_logs(client, world, caplog):
     assert "홍길동" not in caplog.text
 
 
-# 실명 · 카톡 아이디는 암호문 열을 복호화해서만 읽는다(M2 — 평문 열은 없다).
+# 카톡 아이디는 암호문 열을 복호화해서만 읽는다(M2 — 평문 열은 없다).
 def test_account_reads_the_private_values_only_through_the_decrypt_rpc(client, world):
     world.real_names[ME] = "홍길동"
     world.kakao_ids[ME] = "fox_enc"
 
     body = client.get("/account", headers=AUTH).json()
 
-    assert body["real_name"] == "홍길동" and body["kakao_id"] == "fox_enc"
+    assert body["kakao_id"] == "fox_enc" and "real_name" not in body
     # 키는 JSON 바디로만 간다.
     assert world.decrypt_bodies == [{"p_profile": ME, "p_key": "phone-key-test"}]
     assert all("phone-key-test" not in str(r.url) for r in world.requests)
