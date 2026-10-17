@@ -3,13 +3,16 @@ import 'package:campus_mate/common/line_break_limit_formatter.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/labeled_field.dart';
 import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
+import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/profile/model/bio_repository.dart';
+import 'package:campus_mate/profile/view/onboarding_back.dart';
 import 'package:campus_mate/profile/view/writing_example.dart';
+import 'package:campus_mate/profile/viewmodel/bio_ui_state.dart';
 import 'package:campus_mate/profile/viewmodel/bio_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -53,8 +56,15 @@ class _BioScreenState extends ConsumerState<BioScreen> {
     });
     final state = ref.watch(bioViewModelProvider);
     final viewModel = ref.read(bioViewModelProvider.notifier);
+    // 06-2a 로 돌아간다(06-2b 와 같은 bio 단계). 시스템 뒤로도 같다 — 라우터는 이 화면을 두르지 않는다.
+    // 저장이 끝난 뒤(completed)도 막는다 — 위 리스너가 아바타 화면으로 옮기기 전 틈에 누르면 가입을 마친 채 06-2a 에 묶인다.
+    final back = onboardingBack(ref, isBusy: state.isSubmitting || state.completed);
+    return BackExitScope(onBack: back, child: _scaffold(state, viewModel, back));
+  }
+
+  Widget _scaffold(BioUiState state, BioViewModel viewModel, VoidCallback? back) {
     return Scaffold(
-      appBar: const OnboardingAppBar(current: 2, total: 3),
+      appBar: OnboardingAppBar(current: 2, total: 3, onBack: back),
       body: SafeArea(
         top: false,
         child: Padding(

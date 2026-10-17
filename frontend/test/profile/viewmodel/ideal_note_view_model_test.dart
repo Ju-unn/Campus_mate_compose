@@ -1,4 +1,9 @@
+import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
+import 'package:campus_mate/me/model/me_repository_provider.dart';
+import 'package:campus_mate/me/model/my_profile.dart';
+import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:campus_mate/profile/model/ideal_note_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_step.dart';
@@ -8,6 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:campus_mate/core/draft/draft_screen.dart';
 import 'package:campus_mate/core/draft/draft_store.dart';
 
+import '../../me/model/fake_me_repository.dart';
 import '../model/fake_ideal_note_repository.dart';
 import '../model/fake_onboarding_repository.dart';
 import '../../core/draft/fake_draft_store.dart';
@@ -49,6 +55,72 @@ void main() {
     final steps = container.read(onboardingStepListenableProvider);
     expect(steps.value, OnboardingStep.bio);
     expect(steps.isRevisiting, isFalse);
+  });
+
+  // 뷰모델은 앱이 켜진 동안 살아 있어 첫 저장의 completed 가 남는다 — 다시 저장이 실패하면 그대로 머물러야 한다.
+  test('같은 세션에서 다시 저장이 실패하면 다음 화면으로 넘어가지 않는다', () async {
+    final vm = container.read(idealNoteViewModelProvider.notifier);
+    vm.changeNote('대화가 잘 통하는 사람이면 좋겠어요');
+    await vm.submit();
+    await revisit(container, onboardingRepository, server: OnboardingStep.bio, visiting: OnboardingStep.idealNote);
+    repository.nextResult = const FailureResult(NetworkFailure());
+
+    await vm.submit();
+
+    expect(container.read(onboardingStepListenableProvider).value, OnboardingStep.idealNote);
+    expect(container.read(idealNoteViewModelProvider).completed, isFalse);
+    expect(container.read(idealNoteViewModelProvider).errorMessage, isNotNull);
+    expect(onboardingRepository.fetchCount, 0);
+  });
+
+  group('되돌아온 06-2a 채우기', () {
+    ProviderContainer open({FakeDraftStore? drafts, Result<MyProfile> profile = const Success(savedOnboardingProfile)}) {
+      final opened = ProviderContainer(
+        overrides: [
+          idealNoteRepositoryProvider.overrideWithValue(repository),
+          onboardingRepositoryProvider.overrideWithValue(onboardingRepository),
+          meRepositoryProvider.overrideWithValue(FakeMeRepository(profile)),
+          if (drafts != null) draftStoreProvider.overrideWithValue(drafts),
+        ],
+      );
+      addTearDown(opened.dispose);
+      return opened;
+    }
+
+    test('06-2b 에서 돌아온 06-2a 는 저장해 둔 이상형 글로 채워진다', () async {
+      final revisiting = open();
+      await revisiting.read(myProfileProvider.future);
+      await revisit(revisiting, onboardingRepository, server: OnboardingStep.bio, visiting: OnboardingStep.idealNote);
+
+      expect(revisiting.read(idealNoteViewModelProvider).note, savedOnboardingProfile.idealNote);
+    });
+
+    test('같은 세션에서 돌아온 06-2a 는 메모리 값 그대로다', () async {
+      final revisiting = open();
+      revisiting.read(idealNoteViewModelProvider.notifier).changeNote('쓰던 글');
+      await revisiting.read(myProfileProvider.future);
+      await revisit(revisiting, onboardingRepository, server: OnboardingStep.bio, visiting: OnboardingStep.idealNote);
+
+      expect(revisiting.read(idealNoteViewModelProvider).note, '쓰던 글');
+    });
+
+    test('폰 임시 저장이 서버 값보다 먼저다', () async {
+      final drafts = FakeDraftStore();
+      drafts.saved['account-a/${DraftScreen.idealNote.key}'] = '{"note": "폰에 남긴 글"}';
+      final revisiting = open(drafts: drafts);
+      await revisiting.read(myProfileProvider.future);
+      await revisit(revisiting, onboardingRepository, server: OnboardingStep.bio, visiting: OnboardingStep.idealNote);
+
+      expect(revisiting.read(idealNoteViewModelProvider).note, '폰에 남긴 글');
+    });
+
+    test('서버 글을 못 읽었으면 빈 칸이다', () async {
+      final revisiting = open(profile: const FailureResult(NetworkFailure()));
+      await revisiting.read(myProfileProvider.future);
+      await revisit(revisiting, onboardingRepository, server: OnboardingStep.bio, visiting: OnboardingStep.idealNote);
+
+      expect(revisiting.read(idealNoteViewModelProvider).note, isEmpty);
+    });
   });
 
   test('아무것도 쓰지 않으면 저장하지 않는다 — 건너뛰는 길은 없다', () async {

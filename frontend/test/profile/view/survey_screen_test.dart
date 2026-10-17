@@ -1,10 +1,27 @@
+import 'dart:async';
+
+import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/common/widgets/trait_slider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
+import 'package:campus_mate/me/model/me_repository_provider.dart';
+import 'package:campus_mate/me/model/my_profile.dart';
+import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
+import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
+import 'package:campus_mate/profile/model/onboarding_step.dart';
+import 'package:campus_mate/profile/model/profile_enums.dart';
+import 'package:campus_mate/profile/model/survey_repository_provider.dart';
 import 'package:campus_mate/profile/view/survey_screen.dart';
 import 'package:campus_mate/profile/viewmodel/survey_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../../me/model/fake_me_repository.dart';
+import '../model/fake_onboarding_repository.dart';
+import '../model/fake_survey_repository.dart';
 
 /// pen 05-01~05-09 의 질문과 줄바꿈 자리(erd3 2026-09-26).
 const List<String> _headlines = [
@@ -20,11 +37,103 @@ const List<String> _headlines = [
 ];
 
 void main() {
+  late FakeOnboardingRepository onboarding;
+  late FakeSurveyRepository survey;
+
+  setUp(() {
+    onboarding = FakeOnboardingRepository();
+    survey = FakeSurveyRepository();
+  });
+
   Future<void> pump(WidgetTester tester) async {
     await tester.pumpWidget(
-      const ProviderScope(child: MaterialApp(home: SurveyScreen())),
+      ProviderScope(
+        overrides: [
+          onboardingRepositoryProvider.overrideWithValue(onboarding),
+          surveyRepositoryProvider.overrideWithValue(survey),
+        ],
+        child: const MaterialApp(home: SurveyScreen()),
+      ),
     );
   }
+
+  /// 뒤로가기([OnboardingBackViewModel])처럼 프로필을 먼저 읽고 06-1 → 설문으로 돌아온 화면을 그린다.
+  Future<ProviderContainer> pumpRevisit(WidgetTester tester, Result<MyProfile> profile) async {
+    final container = ProviderContainer(
+      overrides: [
+        onboardingRepositoryProvider.overrideWithValue(onboarding),
+        surveyRepositoryProvider.overrideWithValue(survey),
+        meRepositoryProvider.overrideWithValue(FakeMeRepository(profile)),
+      ],
+    );
+    addTearDown(container.dispose);
+    await container.read(myProfileProvider.future);
+    await revisit(container, onboarding, server: OnboardingStep.idealConditions, visiting: OnboardingStep.survey);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(container: container, child: const MaterialApp(home: SurveyScreen())),
+    );
+    await tester.pumpAndSettle();
+    return container;
+  }
+
+  AppButton nextButton(WidgetTester tester) => tester.widget<AppButton>(find.widgetWithText(AppButton, '다음'));
+
+  group('06-1 에서 돌아온 설문', () {
+    testWidgets('답이 다 차 있으면 마지막(흡연) 문항에서 열고, "다음" 한 번이면 같은 답을 다시 보낸다', (tester) async {
+      await pumpRevisit(tester, const Success(savedOnboardingProfile));
+
+      expect(find.text('담배를 피우시나요?'), findsOneWidget);
+
+      await tester.tap(find.text('다음'));
+      await tester.pumpAndSettle();
+
+      expect(survey.submittedAnswers, savedOnboardingProfile.surveyAnswers);
+      expect(survey.submittedReligion, Religion.buddhist);
+      expect(survey.submittedIsSmoker, isFalse);
+    });
+
+    testWidgets('앞 문항으로 돌아가 보면 저장해 둔 답이 골라져 있다', (tester) async {
+      await pumpRevisit(tester, const Success(savedOnboardingProfile));
+
+      for (var i = 0; i < 10; i++) {
+        await tester.tap(find.byTooltip(onboardingBackLabel));
+        await tester.pumpAndSettle();
+      }
+
+      expect(find.text(_headlines[0]), findsOneWidget);
+      expect(tester.widget<TraitSlider>(find.byType(TraitSlider)).value, -1);
+      expect(find.byTooltip(onboardingBackLabel), findsOneWidget, reason: '첫 문항은 04-6 으로 간다(계획서 조각 3)');
+    });
+
+    testWidgets('서버 답을 못 읽었으면 첫 문항에서 열고, 슬라이더를 고르기 전에는 "다음" 이 꺼져 있다', (tester) async {
+      await pumpRevisit(tester, const FailureResult(NetworkFailure()));
+
+      expect(find.text(_headlines[0]), findsOneWidget);
+      expect(tester.widget<TraitSlider>(find.byType(TraitSlider)).value, isNull);
+      expect(nextButton(tester).onPressed, isNull);
+
+      // 왼쪽 끝 점(칸 다섯 개 중 첫 칸)을 누른다.
+      await tester.tapAt(tester.getTopLeft(find.byType(TraitSlider)) + const Offset(8, 22));
+      await tester.pumpAndSettle();
+
+      expect(nextButton(tester).onPressed, isNotNull);
+    });
+
+    testWidgets('저장 중에는 앱바 · 시스템 뒤로를 눌러도 흡연 문항에 그대로 있다', (tester) async {
+      await pumpRevisit(tester, const Success(savedOnboardingProfile));
+      survey.hold = Completer<void>();
+      await tester.tap(find.text('다음'));
+      await tester.pump();
+
+      await tester.tap(find.byTooltip(onboardingBackLabel));
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(find.text('담배를 피우시나요?'), findsOneWidget);
+      survey.hold!.complete();
+      await tester.pumpAndSettle();
+    });
+  });
 
   Future<void> next(WidgetTester tester, int times) async {
     for (var i = 0; i < times; i++) {

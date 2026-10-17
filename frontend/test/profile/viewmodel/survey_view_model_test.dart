@@ -1,4 +1,9 @@
+import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
+import 'package:campus_mate/me/model/me_repository_provider.dart';
+import 'package:campus_mate/me/model/my_profile.dart';
+import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:campus_mate/profile/model/profile_enums.dart';
@@ -10,6 +15,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:campus_mate/core/draft/draft_screen.dart';
 import 'package:campus_mate/core/draft/draft_store.dart';
 
+import '../../me/model/fake_me_repository.dart';
 import '../model/fake_onboarding_repository.dart';
 import '../model/fake_survey_repository.dart';
 import '../../core/draft/fake_draft_store.dart';
@@ -87,6 +93,10 @@ void main() {
       visiting: OnboardingStep.survey,
     );
     final vm = container.read(surveyViewModelProvider.notifier);
+    // 서버 답을 미리 읽지 않았으니 9축을 다 직접 골라야 한다(아래 '되돌아온 설문 채우기').
+    for (var axis = 1; axis <= 9; axis++) {
+      vm.answer(axis, 0.5);
+    }
     vm.changeReligion(Religion.none);
     vm.changeIsSmoker(false);
 
@@ -95,6 +105,113 @@ void main() {
     final steps = container.read(onboardingStepListenableProvider);
     expect(steps.value, OnboardingStep.idealConditions);
     expect(steps.isRevisiting, isFalse);
+  });
+
+  group('되돌아온 설문 채우기', () {
+    /// 뒤로가기([OnboardingBackViewModel])처럼 프로필을 먼저 읽고 06-1 → 설문으로 돌아간다.
+    Future<ProviderContainer> revisitSurvey(Result<MyProfile> profile, {FakeDraftStore? drafts}) async {
+      final opened = ProviderContainer(
+        overrides: [
+          surveyRepositoryProvider.overrideWithValue(repository),
+          onboardingRepositoryProvider.overrideWithValue(onboardingRepository),
+          meRepositoryProvider.overrideWithValue(FakeMeRepository(profile)),
+          if (drafts != null) draftStoreProvider.overrideWithValue(drafts),
+        ],
+      );
+      addTearDown(opened.dispose);
+      await opened.read(myProfileProvider.future);
+      await revisit(opened, onboardingRepository, server: OnboardingStep.idealConditions, visiting: OnboardingStep.survey);
+      return opened;
+    }
+
+    test('06-1 에서 돌아온 설문은 저장해 둔 9축 · 종교 · 흡연으로 채워진다', () async {
+      final opened = await revisitSurvey(const Success(savedOnboardingProfile));
+
+      final state = opened.read(surveyViewModelProvider);
+
+      expect(state.answers, savedOnboardingProfile.surveyAnswers);
+      expect(state.religion, Religion.buddhist);
+      expect(state.isSmoker, isFalse);
+      expect(state.isFilled, isTrue);
+    });
+
+    test('같은 세션에서 돌아온 설문은 메모리 값 그대로다(서버 값으로 덮지 않는다)', () async {
+      final opened = ProviderContainer(
+        overrides: [
+          surveyRepositoryProvider.overrideWithValue(repository),
+          onboardingRepositoryProvider.overrideWithValue(onboardingRepository),
+          meRepositoryProvider.overrideWithValue(FakeMeRepository(const Success(savedOnboardingProfile))),
+        ],
+      );
+      addTearDown(opened.dispose);
+      opened.read(surveyViewModelProvider.notifier).answer(1, 1);
+      await opened.read(myProfileProvider.future);
+      await revisit(opened, onboardingRepository, server: OnboardingStep.idealConditions, visiting: OnboardingStep.survey);
+
+      final state = opened.read(surveyViewModelProvider);
+
+      expect(state.answers[1], 1);
+      expect(state.religion, isNull);
+    });
+
+    test('폰 임시 저장이 서버 값보다 먼저다', () async {
+      final drafts = FakeDraftStore();
+      drafts.saved['account-a/${DraftScreen.survey.key}'] =
+          '{"answers": {"1": 0.5}, "religion": "catholic", "isSmoker": true}';
+
+      final state = (await revisitSurvey(const Success(savedOnboardingProfile), drafts: drafts))
+          .read(surveyViewModelProvider);
+
+      expect(state.answers[1], 0.5);
+      expect(state.religion, Religion.catholic);
+      expect(state.isSmoker, isTrue);
+    });
+
+    // 06-1 화살표를 미룬 이유(조각 0~2 편차 2): 가운데 값으로 열리면 "다음" 만 눌러도 실제 매칭 답을 0 으로 덮어쓴다.
+    // 서버 답을 못 읽었으면 가운데를 미리 고르지 않는다 — 사람이 9축을 다 직접 골라야 보낸다.
+    for (final (name, profile) in [
+      ('옛 서버(설문 답 칸 없음)', const Success<MyProfile>(MyProfile(
+        nickname: '여우비',
+        age: 25,
+        university: '가나대학교',
+        major: null,
+        heightCm: 172,
+        mbti: null,
+        avatarUrl: null,
+        preferredAgeMin: 24,
+        preferredAgeMax: 30,
+        preferredHeightMin: null,
+        preferredHeightMax: null,
+        bio: null,
+        religion: Religion.buddhist,
+        isSmoker: false,
+      ))),
+      ('읽기 실패(인터넷 없음)', const FailureResult<MyProfile>(NetworkFailure())),
+    ]) {
+      test('$name 로 돌아온 설문은 가운데 값을 미리 고르지 않아 "다음" 만으로는 덮어쓰지 않는다', () async {
+        final opened = await revisitSurvey(profile);
+        final vm = opened.read(surveyViewModelProvider.notifier);
+        vm.changeReligion(Religion.buddhist);
+        vm.changeIsSmoker(false);
+
+        await vm.submit();
+
+        expect(opened.read(surveyViewModelProvider).answers, isEmpty);
+        expect(repository.submittedAnswers, isNull, reason: '고르지 않은 축을 보내면 실제 답을 덮어쓴다');
+      });
+    }
+
+    test('처음 설문(돌아온 것이 아님)은 지금처럼 9축 가운데가 골라져 있다', () {
+      final opened = ProviderContainer(
+        overrides: [
+          onboardingRepositoryProvider.overrideWithValue(onboardingRepository),
+          meRepositoryProvider.overrideWithValue(FakeMeRepository(const Success(savedOnboardingProfile))),
+        ],
+      );
+      addTearDown(opened.dispose);
+
+      expect(opened.read(surveyViewModelProvider).answers, {for (var axis = 1; axis <= 9; axis++) axis: 0});
+    });
   });
 
   group('임시 저장', () {

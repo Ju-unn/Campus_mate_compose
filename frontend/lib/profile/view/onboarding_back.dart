@@ -10,11 +10,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// [isBusy](저장 중)면 눌러도 아무 일이 없다 — 저장 뒤 한 칸 넘김이 엉뚱한 단계에서 일어나지 않게.
 /// 화살표는 숨기지 않는다(숨기면 깜빡인다).
 VoidCallback? onboardingBack(WidgetRef ref, {required bool isBusy}) {
-  if (!ref.read(onboardingStepListenableProvider).canGoBack) {
+  final steps = ref.read(onboardingStepListenableProvider);
+  if (!steps.canGoBack) {
     return null;
   }
   if (isBusy) {
     return () {};
   }
-  return () => unawaited(ref.read(onboardingBackViewModelProvider.notifier).goBack());
+  final shown = steps.value;
+  return () {
+    // 읽기가 끝나 단계는 이미 앞으로 바뀌었는데 화면은 다음 프레임에 바뀐다 — 그 틈에 또 누르면 한 칸 더 가지 않게.
+    if (steps.value != shown) {
+      return;
+    }
+    unawaited(ref.read(onboardingBackViewModelProvider.notifier).goBack());
+  };
 }

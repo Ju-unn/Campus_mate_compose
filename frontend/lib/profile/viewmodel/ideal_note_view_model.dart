@@ -6,6 +6,7 @@ import 'package:campus_mate/core/draft/draft_store.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/profile/model/ideal_note_repository_provider.dart';
 import 'package:campus_mate/profile/viewmodel/ideal_note_ui_state.dart';
+import 'package:campus_mate/profile/viewmodel/revisit_profile.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final idealNoteViewModelProvider =
@@ -20,9 +21,10 @@ class IdealNoteViewModel extends Notifier<IdealNoteUiState> {
     return _initialState(drafts);
   }
 
-  /// 처음 상태를 정하는 단 한 곳이다. 지금은 폰에 남긴 값 또는 빈 값 — 나중에 서버 값을 끼울 자리다.
+  /// 처음 상태를 정하는 단 한 곳이다. 폰에 남긴 값 > (뒤로가기로 돌아왔으면) 서버 글 > 빈 값.
   IdealNoteUiState _initialState(DraftStore drafts) {
-    return drafts.read(DraftScreen.idealNote, IdealNoteUiState.fromDraft) ?? const IdealNoteUiState();
+    final restored = drafts.read(DraftScreen.idealNote, IdealNoteUiState.fromDraft);
+    return restored ?? IdealNoteUiState(note: revisitProfile(ref)?.idealNote ?? '');
   }
 
   /// 값이 바뀔 때마다 남긴다(저장소가 디바운스한다). 처음 상태(복원한 값 그대로)는 다시 쓰지 않고,
@@ -51,7 +53,8 @@ class IdealNoteViewModel extends Notifier<IdealNoteUiState> {
   }
 
   Future<void> _send(String note) async {
-    state = state.copyWith(isSubmitting: true, errorMessage: null);
+    // 같은 세션에서 다시 저장하면 지난 저장의 completed 가 남아 있다 — 내리지 않으면 실패해도 다음 화면으로 넘어간다.
+    state = state.copyWith(isSubmitting: true, errorMessage: null, completed: false);
     try {
       final repository = ref.read(idealNoteRepositoryProvider);
       final result = await repository.submit(note);

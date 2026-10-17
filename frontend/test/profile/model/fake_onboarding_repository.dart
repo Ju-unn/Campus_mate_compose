@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_repository.dart';
@@ -12,9 +14,13 @@ class FakeOnboardingRepository implements OnboardingRepository {
   /// 라우터에 재평가를 알리려고 실제로 조회했는지 확인하는 용도.
   int fetchCount = 0;
 
+  /// 채워 두면 조회가 이 Completer 가 끝날 때까지 기다린다(느린 네트워크 흉내). 끝난 뒤의 [nextResult] 를 준다.
+  Completer<void>? holdFetch;
+
   @override
   Future<Result<OnboardingStep>> fetchNextStep() async {
     fetchCount++;
+    await holdFetch?.future;
     return nextResult;
   }
 }

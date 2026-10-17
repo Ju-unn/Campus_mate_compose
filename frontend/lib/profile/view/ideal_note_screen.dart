@@ -3,11 +3,14 @@ import 'package:campus_mate/common/line_break_limit_formatter.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/labeled_field.dart';
 import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
+import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/profile/model/ideal_note_repository.dart';
+import 'package:campus_mate/profile/view/onboarding_back.dart';
 import 'package:campus_mate/profile/view/writing_example.dart';
+import 'package:campus_mate/profile/viewmodel/ideal_note_ui_state.dart';
 import 'package:campus_mate/profile/viewmodel/ideal_note_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,8 +30,14 @@ class IdealNoteScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(idealNoteViewModelProvider);
     final viewModel = ref.read(idealNoteViewModelProvider.notifier);
+    // 06-2 로 돌아간다. 시스템 뒤로도 같다 — 라우터는 이 화면을 두르지 않는다(두 겹이면 안내까지 뜬다).
+    final back = onboardingBack(ref, isBusy: state.isSubmitting);
+    return BackExitScope(onBack: back, child: _scaffold(state, viewModel, back));
+  }
+
+  Widget _scaffold(IdealNoteUiState state, IdealNoteViewModel viewModel, VoidCallback? back) {
     return Scaffold(
-      appBar: const OnboardingAppBar(current: 1, total: 3),
+      appBar: OnboardingAppBar(current: 1, total: 3, onBack: back),
       body: SafeArea(
         top: false,
         child: Padding(

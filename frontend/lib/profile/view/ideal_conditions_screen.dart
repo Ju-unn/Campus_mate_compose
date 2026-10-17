@@ -1,12 +1,14 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/mbti_pole_toggle.dart';
 import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
+import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/me/view/edit_app_bar.dart';
 import 'package:campus_mate/me/viewmodel/ideal_conditions_edit_view_model.dart';
 import 'package:campus_mate/profile/view/appearance_pickers.dart';
+import 'package:campus_mate/profile/view/onboarding_back.dart';
 import 'package:campus_mate/profile/viewmodel/ideal_conditions_ui_state.dart';
 import 'package:campus_mate/profile/viewmodel/ideal_conditions_view_model.dart';
 import 'package:flutter/material.dart';
@@ -33,8 +35,13 @@ class IdealConditionsScreen extends ConsumerWidget {
         if (next.completed && !(previous?.completed ?? false)) context.pop();
       });
     }
-    return Scaffold(
-      appBar: isEditing ? const EditAppBar(title: '이상형 조건 수정') : const OnboardingAppBar(current: 0, total: 3),
+    // 온보딩 모드만 설문(흡연 문항)으로 돌아간다. 시스템 뒤로도 같다 — 라우터는 이 화면을 두르지 않는다(두 겹이면 안내까지 뜬다).
+    // 편집 모드는 push 라 편집 앱바가 평소대로 닫는다.
+    final back = isEditing ? null : onboardingBack(ref, isBusy: state.isSubmitting);
+    final scaffold = Scaffold(
+      appBar: isEditing
+          ? const EditAppBar(title: '이상형 조건 수정')
+          : OnboardingAppBar(current: 0, total: 3, onBack: back),
       body: SafeArea(
         top: false,
         child: Column(
@@ -148,6 +155,7 @@ class IdealConditionsScreen extends ConsumerWidget {
         ),
       ),
     );
+    return isEditing ? scaffold : BackExitScope(onBack: back, child: scaffold);
   }
 
   /// 위 끝값은 "이상", 아래 끝값은 "이하"로 읽어준다(DESIGN.md §8.5 프리셋 표기).
