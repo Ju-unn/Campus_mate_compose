@@ -532,7 +532,7 @@ def test_bio_draft_that_stays_empty_is_a_failure_and_is_not_saved():
                 "impression_type": "kind", "interest_tags": ["여행"], "my_traits": ["다정한"],
                 "religion": "none", "is_smoker": False, "preferred_age_min": 20,
                 "preferred_animal_types": ["cat"], "preferred_impression_types": ["chic"],
-                "ideal_traits": [], "ideal_note": "", "bio": None,
+                "ideal_traits": [], "ideal_note": "", "bio": None, "status": "pending",
             }])
         return httpx.Response(200, json=[])
 
@@ -562,7 +562,7 @@ def test_bio_draft_feeds_mbti_and_survey_in_korean_without_religion_or_smoking()
                 "impression_type": "kind", "interest_tags": ["여행"], "my_traits": ["다정한"],
                 "religion": "none", "is_smoker": False, "preferred_age_min": 20,
                 "preferred_animal_types": ["cat"], "preferred_impression_types": ["chic"],
-                "ideal_traits": [], "ideal_note": "", "bio": None,
+                "ideal_traits": [], "ideal_note": "", "bio": None, "status": "pending",
             }])
         if path.endswith("/survey_answers"):
             return httpx.Response(200, json=[
@@ -888,7 +888,7 @@ def _next_step_handler(decrypted_kakao_id: str | None, decrypt_status: int = 200
                 "nickname": "가나", "gender": "male", "mbti": None, "animal_type": None, "impression_type": None,
                 "interest_tags": [], "my_traits": [], "religion": None, "is_smoker": None,
                 "preferred_age_min": None, "preferred_animal_types": [], "preferred_impression_types": [],
-                "ideal_traits": [], "ideal_note": None, "bio": None,
+                "ideal_traits": [], "ideal_note": None, "bio": None, "status": "pending",
             }])
         return httpx.Response(200, json=[])
 
@@ -919,3 +919,124 @@ def test_progress_fails_instead_of_asking_again_when_decrypt_fails():
 
     assert _next_step(handler).status_code == 500
     assert "/rest/v1/rpc/decrypt_profile_private" in seen  # 500 은 복호화에서 났다
+
+
+# --- 가입 확정: 아바타 확인이 맨 끝(06-3 뒤)이 되어 06-3 저장 뒤에도 가입이 끝날 수 있다 (2026-10-17) ---------------
+
+
+_DONE_PROFILE_ROW = {
+    "nickname": "가나", "gender": "male", "mbti": "ENFP", "animal_type": "dog", "impression_type": "kind",
+    "interest_tags": ["a", "b", "c"], "my_traits": ["a", "b", "c"], "religion": "none", "is_smoker": False,
+    "preferred_age_min": 20, "preferred_animal_types": ["cat"], "preferred_impression_types": ["kind"],
+    "ideal_traits": ["a", "b", "c"], "ideal_note": "말 잘 통하는 사람이요", "bio": "안녕하세요",
+}
+
+
+class _DoneWorld:
+    """06-3 까지 다 낸 사람의 가짜 DB. 아바타 ready 행 유무와 프로필 상태를 시험이 바꾼다.
+    상태를 바꾸는 PATCH 만 따로 모은다(자기소개 저장 PATCH 는 본문에 status 가 없다)."""
+
+    def __init__(self, status: str = "pending", avatar_ready: bool = True):
+        self.status, self.avatar_ready = status, avatar_ready
+        self.activations: list[tuple[dict, dict]] = []
+
+    def __call__(self, request: httpx.Request) -> httpx.Response:
+        return plaintext_gone(request) or self._handle(request)
+
+    def _handle(self, request: httpx.Request) -> httpx.Response:
+        from app.consents.policy import CONSENT_VERSION, REQUIRED_KINDS
+
+        path, params = request.url.path, request.url.params
+        if request.method == "PATCH":
+            body = json.loads(request.content)
+            if path.endswith("/profiles") and "status" in body:
+                self.activations.append((dict(params), body))
+            return httpx.Response(204)
+        if path.endswith("/user_consents"):
+            return httpx.Response(200, json=[{"kind": k, "version": CONSENT_VERSION} for k in sorted(REQUIRED_KINDS)])
+        if path.endswith("/rpc/decrypt_profile_private"):
+            return httpx.Response(200, json=[{"real_name": None, "kakao_id": "fox_rain"}])
+        if path.endswith("/profile_private"):
+            return httpx.Response(200, json=[{"phone_number": "\\x01"}])
+        if path.endswith("/profile_photos"):
+            return httpx.Response(200, json=[{"is_avatar_source": True}, {"is_avatar_source": False}])
+        if path.endswith("/profile_avatars") and params.get("status") == "eq.ready":
+            return httpx.Response(200, json=[{"id": "a1"}] if self.avatar_ready else [])
+        if path.endswith("/survey_answers"):
+            return httpx.Response(200, json=[{"axis": axis, "value": 0.5} for axis in range(1, 10)])
+        if path.endswith("/profiles") and request.method == "GET":
+            return httpx.Response(200, json=[{**_DONE_PROFILE_ROW, "status": self.status}])
+        return httpx.Response(200, json=[])
+
+
+_ACTIVATION = ({"id": f"eq.{PROFILE_ID}", "status": "eq.pending"}, {"status": "active"})
+
+
+def test_next_step_activates_a_pending_profile_when_everything_is_done():
+    """06-3 저장 때 아바타가 아직이던 사람은 아바타가 생긴 뒤의 단계 조회가 가입을 끝낸다.
+    pending 행만 고친다 — 정지 · 탈퇴를 되살리지 않고, 동시에 두 번 불려도 한 번만 바뀐다."""
+    world = _DoneWorld(status="pending")
+
+    response = _next_step(world)
+
+    assert response.json()["step"] == "complete"
+    assert world.activations == [_ACTIVATION]
+
+
+@pytest.mark.parametrize("status", ["active", "suspended", "withdrawn"])
+def test_next_step_does_not_write_for_a_profile_that_is_not_pending(status):
+    """단계 조회는 토큰 갱신 때마다 돈다 — 이미 가입한 사람에게 매번 쓰지 않는다. 정지 · 탈퇴도 건드리지 않는다."""
+    world = _DoneWorld(status=status)
+
+    response = _next_step(world)
+
+    assert response.json()["step"] == "complete"
+    assert world.activations == []
+
+
+def test_next_step_does_not_activate_while_the_avatar_is_not_ready():
+    world = _DoneWorld(status="pending", avatar_ready=False)
+
+    response = _next_step(world)
+
+    assert response.json()["step"] == "avatar"
+    assert world.activations == []
+
+
+def _post_bio(world: _DoneWorld):
+    return _wire(world).post("/profile-onboarding/bio", headers=AUTH_HEADERS, json={"bio": "안녕하세요"})
+
+
+def test_bio_does_not_activate_while_the_avatar_is_not_ready():
+    world = _DoneWorld(status="pending", avatar_ready=False)
+
+    response = _post_bio(world)
+
+    assert response.status_code == 200
+    assert response.json() == {"ok": True}
+    assert world.activations == []
+
+
+def test_bio_activates_when_the_avatar_is_ready():
+    """06-3 저장 때 아바타가 이미 있으면 그 자리에서 가입이 끝난다(종전과 같다). 조건부 쓰기 한 번."""
+    world = _DoneWorld(status="pending", avatar_ready=True)
+
+    response = _post_bio(world)
+
+    assert response.json() == {"ok": True}
+    assert world.activations == [_ACTIVATION]
+
+
+def test_a_bio_saved_before_the_avatar_finishes_is_activated_by_a_later_next_step():
+    """옛 앱(빌드 15 · 16 · vc8) + 새 서버: 06-3 저장 → 05-12 에서 기다림 → 완성 → "다음" 의 단계 조회로 가입이 끝난다.
+    이 줄이 없으면 그 사람은 영영 pending 이라 카드 후보에 안 잡힌다."""
+    world = _DoneWorld(status="pending", avatar_ready=False)
+
+    assert _post_bio(world).json() == {"ok": True}
+    assert _next_step(world).json()["step"] == "avatar"  # 옛 앱은 05-12 로 간다
+    world.avatar_ready = True
+    assert _next_step(world).json()["step"] == "complete"
+    world.status = "active"  # 위 PATCH 가 바꾼 상태 — 다음 조회(토큰 갱신)는 쓰지 않는다
+    assert _next_step(world).json()["step"] == "complete"
+
+    assert world.activations == [_ACTIVATION]
