@@ -1,4 +1,5 @@
 import 'package:campus_mate/common/phone_number_formatter.dart';
+import 'package:campus_mate/me/model/my_profile.dart';
 import 'package:campus_mate/profile/model/mbti_poles.dart';
 import 'package:campus_mate/profile/model/signup_phone_number.dart';
 
@@ -132,6 +133,20 @@ class BasicInfoUiState {
       gender: data['gender'] as String?,
       mbtiPoles: _mbtiPolesFromDraft(data['mbtiPoles']),
       isMbtiUnknown: data['mbtiUnknown'] as bool,
+    );
+  }
+
+  /// 뒤로가기로 돌아왔을 때 이미 저장한 값으로 처음 상태를 만든다. **전화번호는 비운다** — 서버가 암호문으로만 들고 있어
+  /// 앱이 읽을 수 없다(사용자 결정 ④, 다시 입력). MBTI 가 없으면 "모름" 이다(15-6 편집과 같은 규칙).
+  static BasicInfoUiState fromProfile(MyProfile profile, {required int thisYear}) {
+    return BasicInfoUiState(
+      thisYear: thisYear,
+      nicknameInput: profile.nickname,
+      birthYearInput: profile.birthYear?.toString() ?? '',
+      heightInput: profile.heightCm?.toString() ?? '',
+      gender: profile.gender,
+      mbtiPoles: MbtiPoles.fromCode(profile.mbti),
+      isMbtiUnknown: profile.mbti == null,
     );
   }
 

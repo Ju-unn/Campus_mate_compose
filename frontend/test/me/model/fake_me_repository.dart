@@ -8,6 +8,32 @@ import 'package:campus_mate/me/model/my_profile.dart';
 import 'package:campus_mate/me/model/photo_slot.dart';
 import 'package:campus_mate/profile/model/profile_enums.dart';
 
+/// 온보딩 앞 단계를 이미 저장한 사람의 서버 값(지어낸 값) — 뒤로가기로 돌아간 화면이 이 값으로 채워지는지 본다.
+const savedOnboardingProfile = MyProfile(
+  nickname: '여우비',
+  age: 25,
+  university: '가나대학교',
+  major: null,
+  heightCm: 172,
+  mbti: 'ENFP',
+  avatarUrl: null,
+  preferredAgeMin: 24,
+  preferredAgeMax: 30,
+  preferredHeightMin: 160,
+  preferredHeightMax: 175,
+  bio: null,
+  birthYear: 2002,
+  gender: 'female',
+  animalType: AnimalType.fox,
+  impressionType: ImpressionType.innocent,
+  interestTags: ['카페가기', '전시회관람', '등산'],
+  myTraits: ['유머러스', '계획적', '차분한'],
+  idealTraits: ['다정한', '연락 잘하는', '대화가 잘 통하는'],
+  preferredMbtiFlags: {'E': true, 'N': true},
+  preferredAnimalTypes: [AnimalType.dog, AnimalType.cat],
+  preferredImpressionTypes: [ImpressionType.kind],
+);
+
 /// 테스트가 돌려줄 값을 직접 정하는 가짜 저장소. 몇 번 불렸는지도 센다("다시 시도" 확인용).
 class FakeMeRepository implements MeRepository {
   FakeMeRepository(this.profile);

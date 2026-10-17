@@ -8,6 +8,7 @@ import 'package:campus_mate/profile/model/ideal_conditions_repository.dart';
 import 'package:campus_mate/profile/model/ideal_conditions_repository_provider.dart';
 import 'package:campus_mate/profile/model/profile_enums.dart';
 import 'package:campus_mate/profile/viewmodel/ideal_conditions_ui_state.dart';
+import 'package:campus_mate/profile/viewmodel/revisit_profile.dart';
 import 'package:flutter/foundation.dart' show protected;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -28,9 +29,11 @@ class IdealConditionsViewModel extends Notifier<IdealConditionsUiState> {
     return _initialState(drafts);
   }
 
-  /// 처음 상태를 정하는 단 한 곳이다. 지금은 폰에 남긴 값 또는 기본값 — 나중에 서버 값을 끼울 자리다.
+  /// 처음 상태를 정하는 단 한 곳이다. 폰에 남긴 값 > (뒤로가기로 돌아왔으면) 서버 값 > 기본값.
   IdealConditionsUiState _initialState(DraftStore drafts) {
-    return drafts.read(DraftScreen.idealConditions, IdealConditionsUiState.fromDraft) ?? const IdealConditionsUiState();
+    final restored = drafts.read(DraftScreen.idealConditions, IdealConditionsUiState.fromDraft);
+    final saved = revisitProfile(ref);
+    return restored ?? (saved == null ? const IdealConditionsUiState() : IdealConditionsUiState.fromProfile(saved));
   }
 
   /// 값이 바뀔 때마다 남긴다(저장소가 디바운스한다). 처음 상태(복원한 값 그대로)는 다시 쓰지 않고,

@@ -1,6 +1,8 @@
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
+import 'package:campus_mate/me/model/me_repository_provider.dart';
+import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:campus_mate/profile/model/ideal_conditions_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_step.dart';
@@ -12,6 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:campus_mate/core/draft/draft_screen.dart';
 import 'package:campus_mate/core/draft/draft_store.dart';
 
+import '../../me/model/fake_me_repository.dart';
 import '../model/fake_ideal_conditions_repository.dart';
 import '../model/fake_onboarding_repository.dart';
 import '../../core/draft/fake_draft_store.dart';
@@ -52,6 +55,7 @@ void main() {
     expect(container.read(idealConditionsViewModelProvider).completed, isTrue);
     expect(onboardingRepository.fetchCount, 1);
   });
+
   test('06-2 에서 돌아온 06-1 을 저장하면 06-2 로 돌아가 다시 보기가 끝난다', () async {
     await revisit(
       container,
@@ -89,6 +93,32 @@ void main() {
     expect(onboardingRepository.fetchCount, 0);
   });
 
+  test('06-2 에서 돌아온 06-1 은 저장해 둔 이상형 조건으로 채워진다', () async {
+    final revisiting = ProviderContainer(
+      overrides: [
+        idealConditionsRepositoryProvider.overrideWithValue(repository),
+        onboardingRepositoryProvider.overrideWithValue(onboardingRepository),
+        meRepositoryProvider.overrideWithValue(FakeMeRepository(const Success(savedOnboardingProfile))),
+      ],
+    );
+    addTearDown(revisiting.dispose);
+    await revisiting.read(myProfileProvider.future);
+    await revisit(
+      revisiting,
+      onboardingRepository,
+      server: OnboardingStep.idealTraits,
+      visiting: OnboardingStep.idealConditions,
+    );
+
+    final state = revisiting.read(idealConditionsViewModelProvider);
+
+    expect((state.preferredAgeMin, state.preferredAgeMax, state.ageIgnored), (24, 30, false));
+    expect((state.preferredHeightMin, state.preferredHeightMax, state.heightIgnored), (160, 175, false));
+    expect(state.preferredMbtiFlags, {'E': true, 'N': true});
+    expect(state.preferredAnimalTypes, [AnimalType.dog, AnimalType.cat]);
+    expect(state.preferredImpressionTypes, [ImpressionType.kind]);
+    expect(state.canSubmit, isTrue);
+  });
 
   test('얼굴상·인상은 3개까지만 담기고 다시 누르면 빠진다', () {
     final vm = container.read(idealConditionsViewModelProvider.notifier);

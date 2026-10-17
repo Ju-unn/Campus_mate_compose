@@ -1,6 +1,8 @@
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
+import 'package:campus_mate/me/model/me_repository_provider.dart';
+import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:campus_mate/profile/model/tag_picker_repository.dart';
@@ -13,6 +15,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:campus_mate/core/draft/draft_screen.dart';
 import 'package:campus_mate/core/draft/draft_store.dart';
 
+import '../../me/model/fake_me_repository.dart';
 import '../model/fake_onboarding_repository.dart';
 import '../../core/draft/fake_draft_store.dart';
 
@@ -110,6 +113,41 @@ void main() {
     expect(container.read(onboardingStepListenableProvider).value, OnboardingStep.interests);
     expect(container.read(tagPickerViewModelProvider(TagPickerKind.interests)).errorMessage, isNotNull);
     expect(onboardingRepository.fetchCount, 0);
+  });
+
+  group('되돌아온 태그 화면 채우기', () {
+    ProviderContainer open() {
+      final opened = ProviderContainer(
+        overrides: [
+          tagPickerRepositoryProvider.overrideWithValue(repository),
+          onboardingRepositoryProvider.overrideWithValue(onboardingRepository),
+          meRepositoryProvider.overrideWithValue(FakeMeRepository(const Success(savedOnboardingProfile))),
+        ],
+      );
+      addTearDown(opened.dispose);
+      return opened;
+    }
+
+    test('04-6 에서 돌아온 04-5 는 저장해 둔 관심사 칩이 켜져 있다', () async {
+      final revisiting = open();
+      await revisiting.read(myProfileProvider.future);
+      await revisit(revisiting, onboardingRepository, server: OnboardingStep.myTraits, visiting: OnboardingStep.interests);
+
+      final state = revisiting.read(tagPickerViewModelProvider(TagPickerKind.interests));
+
+      expect(state.selected, {'카페가기', '전시회관람', '등산'});
+      expect(state.canSubmit, isTrue);
+    });
+
+    // Review Focus 3: 같은 세션에서는 고르던 값이 그대로다.
+    test('같은 세션에서 되돌아온 04-5 는 메모리 값 그대로다', () async {
+      final revisiting = open();
+      revisiting.read(tagPickerViewModelProvider(TagPickerKind.interests).notifier).toggle('요리');
+      await revisiting.read(myProfileProvider.future);
+      await revisit(revisiting, onboardingRepository, server: OnboardingStep.myTraits, visiting: OnboardingStep.interests);
+
+      expect(revisiting.read(tagPickerViewModelProvider(TagPickerKind.interests)).selected, {'요리'});
+    });
   });
 
   test('kind 마다 다른 풀을 쓴다', () {
