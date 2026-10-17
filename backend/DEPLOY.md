@@ -85,6 +85,7 @@ gcloud run deploy campus-mate-backend \
 
 **2026-10-14 정정 — 위 전체 명령은 지금 서비스 설정과 같지 않다(그대로 다시 돌리지 않는다).** 위 명령에는 `APPLE_TEAM_ID` · `APPLE_KEY_ID`(env)와 `APPLE_PRIVATE_KEY=apple-sign-in-private-key:latest`(시크릿)가 빠져 있다. `--set-env-vars` · `--set-secrets` 는 **목록 전체를 갈아끼우므로**, 서비스에 APPLE_* 가 들어 있는 상태에서 위 명령을 그대로 돌리면 APPLE_* 가 지워져 애플 토큰 철회가 조용히 건너뛰어진다(셋 중 하나라도 비면 건너뛴다). `settings.py` 가 읽는 값은 지금 **env 9개 · 시크릿 10개**다(위 2026-10-09 대조 뒤 `APPLE_TEAM_ID` · `APPLE_KEY_ID` · `APPLE_PRIVATE_KEY` 가 더해졌다). 위 명령을 다시 써야 하면 두 목록에 APPLE_* 를 더한 뒤 쓴다 — 시크릿 `apple-sign-in-private-key` 가 Secret Manager 에 없으면 그 명령은 실패한다. **지금 운영 서비스에 APPLE_* 가 실제로 들어 있는지는 이 문서 담당이 확인하지 못했다**(클라우드 미조회).
 **2026-10-14 저녁 개정(애플 인앱결제 서버 PR #519, 종전 "env 9개 · 시크릿 10개")** — `settings.py` 가 읽는 값은 **env 11개 · 시크릿 11개**다. 아이폰 하트 구매용 `APPLE_IAP_KEY_ID` · `APPLE_IAP_ISSUER_ID`(env)와 `APPLE_IAP_PRIVATE_KEY=apple-iap-private-key:latest`(시크릿)가 더해졌다. 셋 다 비어도 서버는 뜬다. 넣는 법은 §4-10.
+**2026-10-17 개정(서버 PR #565, 2026-10-17 배포 — 리비전 `00083-pwx`) — `settings.py` 가 읽는 값은 env 13개 · 시크릿 11개다**(종전 env 11개). 홈 리뷰 띠용 `STORE_RATING` · `STORE_RATING_COUNT`(글자로 받고 기본 `"0"`, 비어도 서버는 뜬다)가 더해졌다. 운영 서비스도 **24개(그중 시크릿 11)** 로 이 목록과 같다(대장 전달 값). 넣는 법 · 검증은 §4-13.
 **2026-10-14 밤 갱신(대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다) — 위 "운영 서비스에 APPLE_* 가 실제로 들어 있는지는 확인하지 못했다" 를 고친다.** 운영 리비전 **`campus-mate-backend-00075-gbw`** 에 `settings.py` 가 읽는 **env 11개 · 시크릿 11개가 모두 들어 있다** — 애플 키(Sign in with Apple 토큰 철회용 `APPLE_TEAM_ID` · `APPLE_KEY_ID` · `APPLE_PRIVATE_KEY`, 아이폰 하트 구매용 `APPLE_IAP_KEY_ID` · `APPLE_IAP_ISSUER_ID` · `APPLE_IAP_PRIVATE_KEY`) 연결 완료. 그래서 위 `--set-*` 전체 명령은 여전히 그대로 다시 돌리지 않는다(APPLE_* 가 지워진다) — 배포는 아래 "현행 배포 방식"으로 한다.
 
 **현행 배포 방식(2026-10-13 ~ 14 배포 기준, 대장 전달 값)** — 설정을 바꾸지 않는 코드 배포는 env · 시크릿 목록을 넘기지 않는다. 그러면 새 리비전이 **직전 리비전의 env · 시크릿을 그대로 이어받는다**:
@@ -610,6 +611,7 @@ select public.grant_hearts('<profile_id>', -<지급한 하트>, 'admin_adjust', 
 **확인할 것**: 운영 첫 검수 때 Edit row 로 반려 저장이 되는지 한 번 본다(대시보드가 `created_at` 까지 다시 보내면 위 SQL 한 줄로). 배포 뒤 첫 04:00 정리 배치 응답에서 `skipped_accounts` 0 과 `deleted_heart_proofs` 칸을 본다.
 
 **2026-10-12 추가(대장 전달 값)**: 하트 수는 그대로다 — 에브리타임 50 · 월 1회, 단톡방 25 · 월 3회, 커뮤니티 투표 10 · 하루 첫 투표 1번만 · 한 주 최대 30.
+**2026-10-16 사용자 확정으로 개정(PR #570 — DB 2026-10-16 운영 적용 · 서버 2026-10-17 배포, §4-13)**: 에브리타임 **40** · 월 1회, 단톡방 25 · 월 3회(인증 캡션 "3명 이상"), 커뮤니티 투표 **5** · 하루 첫 투표 1번만 · 한 주 최대 **15**, 친구 코드 양쪽 50 그대로. 승인 절차(위 3번)는 그대로 — 트리거는 제출 행에 적힌 `reward_hearts` 를 주므로 서버 배포(2026-10-17) 전에 낸 에브리타임 제출은 50 으로 승인된다.
 승인은 위 3번처럼 `heart_task_submissions.status` 를 `approved` 로 저장하면 트리거가 `grant_hearts` 를 한 번 부른다. **운영에서 이 지급 트리거(`free_task`)는
 아직 한 번도 돌아 본 적이 없다** — 첫 실제 제출을 승인할 때 원장(`heart_transactions` 의 `free_task` 한 줄)과 잔액이 늘었는지 꼭 본다.
 결과 푸시는 없다(사용자는 18a 상태와 잔액으로 안다).
@@ -805,7 +807,7 @@ gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.serv
 
 ## 4-11. 홈 레일 흐린 아바타 `GET /home/people` (2026-10-15, 서버 PR #549 · 앱 PR #550)
 
-사용자 결정(10-15): 홈 레일(mosaic-rail)에 **모든 학교의 활성 가입자를 성별 섞어 흐린 아바타로** 보여 준다. 블러는 "중간", 후보가 모자라면 서버가 빈 목록을 주고 앱이 기본 그림 칸으로 대신한다. 본인 옵트아웃은 없고 개인정보 처리방침 한 줄과 05-12c 안내 한 줄로 알린다. **DB 마이그레이션 · 새 env · 새 시크릿 · 새 job 은 없다**(코드만). 운영 리비전 **`00078-nxv`**(2026-10-16 배포, 대장 전달 값 — 무인증 호출이 401 인 것까지 확인). 화면은 `frontend/docs/DESIGN.md` §8.9 `mosaic-rail`.
+사용자 결정(10-15): 홈 레일(mosaic-rail)에 **모든 학교의 활성 가입자를 성별 섞어 흐린 아바타로** 보여 준다. 블러는 "중간", 후보가 모자라면 서버가 빈 목록을 주고 앱이 기본 그림 칸으로 대신한다. 본인 옵트아웃은 없고 개인정보 처리방침 한 줄과 05-12c 안내 한 줄로 알린다(**2026-10-17: 05-12c 폐기로 이 안내 줄은 가입 맨 끝 5b 리빌 설명 아래로 옮겼다**, 앱 PR #576 · DESIGN §9 5b). **DB 마이그레이션 · 새 env · 새 시크릿 · 새 job 은 없다**(코드만). 운영 리비전 **`00078-nxv`**(2026-10-16 배포, 대장 전달 값 — 무인증 호출이 401 인 것까지 확인). 화면은 `frontend/docs/DESIGN.md` §8.9 `mosaic-rail`.
 
 | 항목 | 값 (`app/home/router.py`) |
 | --- | --- |
@@ -841,7 +843,94 @@ gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.serv
   - 초안은 사람마다 한 번 만들어 저장하므로 **이미 초안을 받은 사람은 그대로다** — 고친 뒤 새로 초안을 받는 사람부터 적용. 실제 OpenAI 호출 결과(한국어만 · 줄바꿈)는 PR 시점에 확인하지 못했다(배포 뒤 한 번 만들어 보기)
 - **롤백**: DB 변경이 없어 리비전만 되돌리면 된다. 다만 `00078` 아래로 가면 가입 번호 규칙이 서버에서 풀리고(앱 vc6 의 즉시 안내만 남는다) 422 대신 옛 400 이 돌아온다(추정)
 
+## 4-13. 2026-10-17 배포 묶음 — 받은 신청 프로필 · 리뷰 띠 env · 무료 하트 · 아바타 확인 맨 끝 · 내 프로필 두 칸 (**2026-10-17 배포 완료**, 리비전 `00083-pwx`)
+
+**상태: 2026-10-17 배포 완료(대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다).** 사용자 결정(10-16) "서버 배포는 모든 작업이 끝난 뒤 한 번에" 대로 한 번에 나갔다. 순서: 코드를 §2 "현행 배포 방식"(env · 시크릿 이어받기)으로 배포해 `campus-mate-backend-00082-9lk` → 이어 `STORE_RATING=5.0` · `STORE_RATING_COUNT=1` 을 `--update-env-vars` 로 **더해**(`--set-*` 금지, §2) 지금 리비전 **`campus-mate-backend-00083-pwx`** 가 돈다. 직전 리비전은 `00081-md2`, 되돌림 하한 `00063` 은 그대로다(§5). 점검 결과는 아래 "배포 후 점검 목록". **아직 안 한 것: 새 앱 빌드(안드로이드 vc9 · TestFlight)** — 아래 "새 앱 빌드는 서버 배포 뒤" 원칙대로 이제 낸다.
+
+묶음에 든 서버 PR(main `fccc5e2d` 기준 — 다섯 개 모두 `00082-9lk` · `00083-pwx` 에 들어 있다, 대장 전달 값):
+
+| PR | 무엇 | 파일 |
+| --- | --- | --- |
+| #565 | 홈 리뷰 띠 스토어 평점 env 두 개 · `/home/summary` 두 칸 | `app/settings.py` · `app/home/router.py` |
+| #568 | `GET /cards/acceptances/{card_id}` 받은 신청 한 건의 상대 프로필 | `app/cards/router.py` |
+| #570 | 무료 하트 서버 상수(에브리타임 40 · 투표 표시 5) + DB 마이그레이션 2개 | `app/heart_tasks/router.py` · `app/community/router.py`(독스트링) · `supabase/migrations/20261016144525` · `20261016144530` |
+| #574 | 아바타 확인 단계를 가입 맨 끝(자기소개 뒤)으로 · 다음 단계 조회가 가입 확정 | `app/profile_onboarding/onboarding_progress.py` · `repository.py` · `router.py` |
+| #577 | `GET /me/profile` 에 `ideal_note` · `survey_answers` | `app/me/repository.py` · `app/me/router.py` |
+
+**새 시크릿 · 새 Scheduler job · 테이블 · 열 변경은 없다.** DB 쪽은 #570 의 함수 재정의 하나 · FAQ 문구 갱신 하나뿐이다(아래).
+
+### `GET /cards/acceptances/{card_id}` — 받은 신청 · 프로필 보기 (PR #568)
+
+- **받는 사람 전용 · 읽기 전용**(아무것도 쓰지 않는다). 대화 탭 받은 신청 행의 "프로필 보기"(앱 13-4, `frontend/docs/DESIGN.md` §8.6 `acceptance-detail`)가 부른다. 인증은 다른 카드 경로와 같다(로그인 + 학생증 통과, 토큰 없으면 401)
+- **판정 순서는 수락 응답(`respond_to_acceptance`)과 같고 코드도 같다**: 카드가 없음 · 내가 받는 사람(`target_id`)이 아님 · 그 카드의 결정이 수락이 아님 → **404** · 보낸 사람 프로필 행이 없음(지운 계정) · 카드에서 숨는 사람(차단 · 정지 등 `_hidden_from_cards`) → **404** · 이미 답함(`acceptance_responses` 있음) → **409** · 수락한 지 7일(`ACCEPTANCE_TTL_DAYS`)이 지남 → **410** · 이미 매칭된 상대 → **404**(받은 신청 목록에 없는 줄은 열리지도 않는다). 오류 문구는 기존 `ACCEPTANCE_NOT_FOUND` · `ACCEPTANCE_ALREADY_ANSWERED` · `ACCEPTANCE_EXPIRED`
+- **응답**: `{"card_id": …, …}` + 10b 카드 상세와 **같은 몸통**(`profile_detail` — 아바타 공개 주소 · 성향 · 태그 · 소개글 등). **실사진 · 카카오톡 아이디 · 실명 · 전화번호는 싣지 않는다**(신뢰 확인 뒤 14c 몫). 시험 `backend/tests/cards/test_acceptance_detail.py`
+- 옛 앱(빌드 15 · TestFlight 16 · AAB vc8)은 이 경로를 부르지 않는다 — 받은 신청 행의 거절 · 수락 버튼이 기존 `POST` 그대로라 영향이 없다
+
+### 홈 리뷰 띠 환경변수 `STORE_RATING` · `STORE_RATING_COUNT` (PR #565)
+
+- `settings.py` 의 `store_rating` · `store_rating_count` — **글자(str)로 받고 기본값 `"0"`**. 사람이 Cloud Run 에 손으로 넣는 값이라, 숫자 타입이면 잘못 넣는 순간 `Settings()` 가 실패해 서버 전체가 뜨지 않는다. 그래서 글자로 받고 검사는 홈 요약이 한다
+- `GET /home/summary` 응답에 `store_rating`(0 또는 1 ~ 5 소수) · `store_rating_count`(0 이상 정수) 두 칸이 더해진다(`app/home/router.py` `_store_rating`). **검증: 숫자로 못 읽음 · 평가 수 음수 · 별점이 0 ~ 5 밖(NaN 포함) · 평가가 있는데 별점 1 미만이면 둘 다 0 으로 내린다** → 앱은 평가 수 0 이면 띠를 숨긴다(가짜 숫자를 보이지 않는다). 시험 `backend/tests/home/test_home_summary.py` · `backend/tests/test_settings.py`
+- **넣은 값(사용자 결정 10-16 "현재는 별점5에 1명으로 고정")**: `STORE_RATING=5.0` · `STORE_RATING_COUNT=1` — 2026-10-17 리비전 `00083-pwx` 에 넣었다. 스토어에 실제 별점이 생기면 같은 두 값을 고친다(코드 배포 없이 env 갱신만, 새 리비전이 생긴다)
+
+```bash
+# 2026-10-17 이렇게 더했다(00082-9lk → 00083-pwx). 값을 바꿀 때도 같은 명령이다 — 목록에 더하기만 한다. 값은 사용자 승인 뒤에.
+gcloud run services update campus-mate-backend --project=<PROJECT_ID> --region=asia-northeast3 \
+  --update-env-vars STORE_RATING=5.0,STORE_RATING_COUNT=1
+```
+
+- `settings.py` 가 읽는 값은 이제 **env 13개 · 시크릿 11개**다(§2 의 env 11개에 이 둘이 더해졌다). 둘 다 비어도 서버는 뜬다(띠만 숨는다). 운영 `00083-pwx` 도 24개(그중 시크릿 11)다
+
+### 무료 하트 값 (PR #570, 사용자 확정 10-16 "무료하트조정 확정")
+
+| 항목 | 값 | 어디 |
+| --- | --- | --- |
+| 에브리타임 홍보 | **40하트**(종전 50) · 월 1회 | 서버 `REWARD_HEARTS["everytime_post"]` — 제출할 때 금액을 행에 적고, 승인 트리거가 그 금액을 준다(이미 낸 제출은 적힌 금액으로 승인) |
+| 단톡방 공유 | **25하트**(그대로) · 월 3회 | 서버 `REWARD_HEARTS["kakao_share"]`. 앱 18b 캡션은 "3명 이상이 있는 단톡방에 …"(종전 5명) |
+| 커뮤니티 투표 | **하루 첫 투표 5하트**(종전 10) · **주 최대 15**(종전 30, 한국 시간 월요일 0시) | 지급은 DB `cast_poll_vote` · `poll_vote_reward_due`(마이그레이션 `20261016144525`). 서버 `POLL_VOTE_REWARD` 5 는 18a 표시용이다 |
+| 친구 코드(추천) | **양쪽 50하트**(그대로) | DB `redeem_referral` |
+
+- **DB 마이그레이션 2개**: `20261016144525_poll_vote_reward_5_cap_15`(두 함수 안 숫자만 바꾸는 `create or replace` — 이름 · 인자 · 반환형 · 권한 그대로) · `20261016144530_faq_free_heart_amounts`(FAQ "하트를 무료로 얻는 방법이 있나요?" 답의 숫자와 "학교 단톡방" → "단톡방", `update … replace` 라 두 번 돌려도 같다)
+- **운영 적용 상태**: **두 파일 모두 운영에 적용됐다 — 운영 76개 = 저장소 76개**(대장 전달 값: 2026-10-16 사용자 승인 문장 뒤 `apply_migration`). FAQ 는 PR #573 이 운영 실제 문구 "하루 첫 투표에 10하트" 까지 바꾸게 고친 SQL 그대로다. 투표 함수 파일 머리말의 "초안 — 아직 어디에도 적용하지 않았다" 와 FAQ 파일 머리말의 "2026-10-17 운영에 적용했다"(대장 값과 하루 다르다)는 쓸 때의 문장이다 — SQL 파일은 고치지 않는다(`docs/SUPABASE.md` §1)
+- **순서**: 투표 함수(DB)와 서버 상수(18a 표시)는 같이 간다. DB 를 먼저 올리면 옛 서버의 18a 가 "10 · 주 최대 30" 을 보이는데 실제로는 5 가 들어오고, 서버를 먼저 올리면 "5 · 주 최대 15" 를 보이는데 DB 가 10 을 준다 — **어느 쪽이든 짧게 겹치는 동안 글자만 어긋난다**(돈 · 데이터는 깨지지 않는다). 권하는 순서: DB(투표 함수) → 서버 → 확인 — **실제로 이 순서였다(DB 2026-10-16 → 서버 2026-10-17)**
+- **전환 주**: 적용한 날이 든 주에 옛 10하트를 한 번 받았으면 5하트를 한 번 더 받아 15 에서 멈추고, 두 번 이상 받았으면 그 주는 더 받지 못한다(이미 받은 하트는 회수하지 않는다, 마이그레이션 머리말)
+- **옛 앱 주의**: 옛 앱(빌드 15 · 16 · vc8)은 투표 토스트가 앱 상수 "하트 10개를 받았어요" 이고 18a · 15e 맨 위에 옛 내부 안내 세 줄(`heartRewardNotice`)이 남아 있다 — 서버가 아니라 앱 글자라 새 빌드로만 바뀐다. 18a 줄 글(보상 · 한도)은 서버 값이라 서버 배포(2026-10-17)로 바뀌었다
+
+### 아바타 확인을 가입 맨 끝으로 · 다음 단계 조회의 가입 확정 (PR #574)
+
+- **단계 순서**(`onboarding_progress.py` `_STEPS`): basic_info → kakao_id → photos → appearance_type → interests → my_traits → survey → ideal_conditions → ideal_traits → ideal_note → bio → **avatar** → complete. 종전에는 avatar 가 survey 바로 뒤였다(2026-09-25 결정). **설문을 마치면 아바타가 아직이어도 06-1 로 간다.** 조건식(`avatar_ready` = ready 행이 하나라도 있음, 5회 실패 보상의 기본 아바타 포함)은 그대로이고 작업 등록은 여전히 04-3 이다
+- **가입 확정(`profiles.status` `pending` → `active`)이 두 곳**: ① 종전대로 `POST /profile-onboarding/bio` 저장 때 다음 단계가 complete 면(= 아바타가 이미 ready) 그 자리에서 ② **새로** `GET /profile-onboarding/next-step` 이 complete 를 계산했고 스냅샷 `_status` 가 `pending` 이면 `activate_profile` 을 부른 뒤 응답한다 — 06-3 저장 때 아바타가 아직이던 사람은 아바타가 끝난 뒤 앱이 단계를 다시 물을 때(리빌 "확인했어요", 앱 다시 켜기, 토큰 갱신) 가입이 끝난다
+- **`activate_profile` 은 조건부 PATCH**(`status=eq.pending` 인 행만 → `active`) — 정지 · 탈퇴를 되살리지 않고, 06-3 저장과 단계 조회가 겹쳐도 한 번만 바뀐다. 이미 active 인 사람의 조회는 쓰기 0번이다(토큰 갱신마다 도는 조회라 사람마다 평생 한 번만 쓴다)
+- 시험 `backend/tests/profile_onboarding/test_onboarding_progress.py` · `test_onboarding_router.py`(pending 활성화 · active · suspended · withdrawn 은 안 씀 · 아바타 미완성이면 안 씀 · 옛 앱 순서)
+- **옛 앱 + 새 서버**(아바타 리빌 맨 끝 계획 §A 호환 표 — 시험으로 고정한 것은 서버 쪽): 설문 끝 · 아바타 만드는 중 → 서버가 06-1 을 줘 막힘이 풀린다 / 06-3 저장 · 아바타 완성 → 그 자리에서 활성화 → 20(리빌 없음, 지금과 같다) / 06-3 저장 · 아바타 아직 → 라우터가 05-12 로 보냄 → 완성 → "다음" → 단계 조회가 활성화 → 홈(20 · 20d 만 건너뛴다). **옛 앱이 새 서버에서 멈추지 않는다**
+- **새 앱 + 옛 서버(서버를 이 묶음 아래 리비전으로 되돌렸을 때)는 피한다**: 옛 서버는 설문 뒤에 avatar 를 돌려줘 새 앱에서 아바타 확인 화면이 설문 뒤 · 06-3 뒤 두 번 뜰 수 있고(계획서 §C), 06-3 뒤에 아바타가 아직이던 사람은 단계 조회로 활성화되지 않는다(추정 — 이 문서 담당이 시험하지 않았다)
+
+### `GET /me/profile` 두 칸 — `ideal_note` · `survey_answers` (PR #577)
+
+- `ideal_note`: 문자열 또는 `null`(06-2a 이상형 글). `survey_answers`: `{"1": 0.5, …, "9": -1.0}` — 축 번호(1 ~ 9, `POST survey` 의 `answers` 와 같은 키) → 값(−1 ~ 1, numeric 이 정수 모양으로 와도 float 로 내린다). **설문 전이면 `{}`**
+- 같은 읽기 요청의 `select` 에 `ideal_note` 와 `survey_answers(axis,value)` embed 를 넣었다 — 요청 수 1회 그대로, 내 행 아래 embed 라 남의 답은 닿지 않는다(FK `profile_id` → `profiles.id`). DB · 스키마 변경 없음. 시험 `backend/tests/me/test_me_profile.py`
+- 쓰는 곳: 새 앱의 온보딩 뒤로가기(설문 · 06-2a 로 돌아갔을 때 저장한 값 채우기, 앱 PR #579). 옛 앱은 모르는 키를 무시한다. **새 앱 + 옛 서버**면 두 칸이 없어 앱이 빈 값으로 읽는다 — 돌아간 설문에서 9축을 미리 고르지 않아 직접 다시 골라야 보낼 수 있다(저장한 답을 0 으로 덮어쓰지 못하게 앱이 막는다)
+
+### 배포 순서 · 롤백 주의
+
+1. **DB — 끝(2026-10-16)**: `20261016144525` · `20261016144530` 을 사용자 원문 승인 뒤 `apply_migration`(운영 76개 = 저장소 76개, 대장 전달 값)
+2. **서버 — 끝(2026-10-17)**: §2 "현행 배포 방식"으로 한 번에 배포(`00082-9lk`, 이 묶음 다섯 PR 이 한 리비전에 든다) → `--update-env-vars STORE_RATING=5.0,STORE_RATING_COUNT=1` → `00083-pwx`
+3. **배포 뒤 점검 — 끝**(아래 목록의 결과)
+4. **앱 — 아직(안드로이드 vc9 · TestFlight)**: **새 앱 빌드(안드로이드 AAB · 아이폰 TestFlight · 스토어 심사)는 서버 배포 뒤에** 시험자 · 스토어에 낸다 — 새 앱은 받은 신청 행에 "프로필 보기" 하나뿐이라 옛 서버(경로 없음 → 404)에서는 **받은 신청에 답할 수 없다**. 아바타 확인 화면 · 리빌 · 설문 채우기도 새 서버를 전제로 한다(위)
+
+**롤백**: 테이블 · 열 변경이 없어 서버는 리비전만 되돌리면 된다(하한은 §5 의 `00063` 아래 금지 그대로). 단 **새 앱 빌드가 시험자 · 스토어에 나간 뒤에는 이 묶음이 든 리비전 아래로 되돌리지 않는다** — 새 앱의 받은 신청 답하기가 404 로 막힌다. 되돌린 사이 06-3 을 냈는데 아바타가 아직이던 사람은 서버를 다시 올린 뒤 단계 조회 때 가입이 끝난다(추정). 투표 함수는 되돌리지 않는다(되돌리려면 옛 값 10 · 30 으로 새 마이그레이션 + 승인).
+
+### 배포 후 점검 목록 (2026-10-17 결과 — 대장 전달 값. 다음 배포에도 같은 목록을 쓴다)
+
+- [x] `curl https://<서비스 URL>/health` → `{"status":"ok"}`(§3) — **200**
+- [x] **무인증 401**: `curl -s -o /dev/null -w '%{http_code}' https://<서비스 URL>/profile-onboarding/next-step` → **`401`**. 같은 방법으로 `/cards/acceptances/<아무 id>` → `401` 은 결과를 받지 못했다(토큰 없음이 판정보다 먼저다, 설계 문서 §4.6)
+- [x] **env** — **24개(그중 시크릿 11)**, `STORE_RATING=5.0` · `STORE_RATING_COUNT=1` 추가: `gcloud run services describe campus-mate-backend --region=asia-northeast3 --format='value(spec.template.spec.containers[0].env)'` 에 `STORE_RATING` · `STORE_RATING_COUNT` 가 있고 이전 env 11 · 시크릿 11 이 그대로인지(이름만 본다 — 값을 보고서 · 채팅에 적지 않는다)
+- [ ] **로그**(결과를 받지 못했다): 배포 뒤 30분 동안 Cloud Run 로그에 5xx · `upstream_call_failed` · Traceback 이 새로 늘지 않는지. 실명 · 사진 경로 · 웹훅 주소가 찍히지 않는지(§4-6)
+- [ ] **기능 한 번씩**(결과를 받지 못했다 — 보호 계정 · E2E 자율 허락 범위에서): 받은 신청 프로필 보기 200 · 이미 답한 건 409 / `GET /home/summary` 의 `store_rating` · `store_rating_count` 가 넣은 값 / 18a 줄 "40 · 월 1회" · "5 · 주 최대 15" / 설문만 낸 계정의 next-step 이 `ideal_conditions` · 다 낸 pending 계정이 next-step 한 번에 `active`(E2E E-ONB-33 은 서버 배포 뒤 통과 — PR #578) / `GET /me/profile` 에 `ideal_note` · `survey_answers`
+- [x] 리비전 이름을 §5 에 적는다(이 문서 담당은 대장 전달 값으로 적는다) — `00083-pwx`
+
 ## 5. 현재 배포 상태 (2026-09-26 기준)
+
+**2026-10-17 갱신(대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다).** **2026-10-17 배포 완료** — 돌고 있는 리비전 **`campus-mate-backend-00083-pwx`**(안전 하한 `00063` 그대로). 코드 배포 `00082-9lk` 뒤에 `STORE_RATING=5.0` · `STORE_RATING_COUNT=1` 을 더한 리비전이다. 담은 서버 변경: PR #565(리뷰 띠 env) · #568(받은 신청 프로필 API) · #570(무료 하트 값) · #574(아바타 확인 맨 끝 · 가입 확정) · #577(`/me/profile` 두 칸) — §4-13. env 24개(그중 시크릿 11), `/health` 200, 무인증 next-step 401 확인. 새 시크릿 · job 없음. 직전 `00081-md2` 와 `00079` ~ `00080` 이 담은 PR 목록은 받지 못했다. **운영 마이그레이션 76개 = 저장소 76개**(무료 하트 두 파일은 2026-10-16 적용). **아직 안 한 것: 새 앱 빌드(안드로이드 vc9 · TestFlight)** — 서버 배포 뒤에 낸다는 원칙대로 이제 낸다. **되돌림**: 새 앱 빌드가 나간 뒤에는 `00082` 아래로 내리지 않는다(새 앱의 받은 신청 답하기가 404 로 막힌다, §4-13 "배포 순서 · 롤백 주의").
 
 **2026-10-16 갱신(대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다).** 돌고 있는 리비전 **`campus-mate-backend-00078-nxv`**(2026-10-16 배포). 담은 서버 변경: 온보딩 서버 묶음 PR #544(가입 번호 422 · 성별 · MBTI 이유 · 소개글, §4-12) · 인증 결과 푸시 tag · collapse-id PR #546(§4-8) · 홈 레일 `GET /home/people` PR #549(§4-11). **DB 변경 · 새 env · 새 시크릿 · 새 job 은 없다** — env · 시크릿은 `settings.py` 목록 그대로 22개(env 11 · 시크릿 11, §2). 배포 뒤 `/health` 200, `/home/people` 무인증 호출 401 을 확인했다. 운영 마이그레이션 **74개**(마지막 `20261015120000_poll_feed_tabs`). 배포 순서는 서버 → 앱이고, 세 PR 의 앱 짝(#543 · #546 앱 쪽 · #547 · #548 · #550)은 **안드로이드 vc6 · 아이폰 다음 빌드에 들어간다**(이 문서 정리 시점에 vc6 미빌드). **되돌림**: 세 PR 모두 DB 를 건드리지 않아 리비전만 내리면 된다 — `00077` 로 내리면 가입 번호 규칙 · 레일 사람 칸 · 푸시 합치기가 빠진다(레일은 기본 칸이 된다, 추정). 하한은 아래 10-14 줄(`00063` 아래 금지)이 그대로다.
 
