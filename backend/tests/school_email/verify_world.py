@@ -79,6 +79,9 @@ class VerifyWorld:
         self.unreadable_profiles: set[str] = set()
         # DB 함수를 부른 뒤 이 id 의 프로필이 막 생긴 것처럼 만든다(삭제 직전 재확인 경쟁)
         self.profile_appears_on_rpc: str | None = None
+        # 미등록 도메인 기록 함수에 온 본문, 그리고 그 함수가 돌려줄 상태 코드 또는 던질 httpx 예외
+        self.record_bodies: list[dict] = []
+        self.record_trouble: int | type[Exception] | None = None
 
     # ------------------------------------------------------------------
     def handle(self, request: httpx.Request) -> httpx.Response:
@@ -120,6 +123,11 @@ class VerifyWorld:
             return httpx.Response(200, json=[{"blocked_until": "2099-01-01T00:00:00Z"}] if blocked else [])
         if path == "/rest/v1/rpc/complete_school_email_verification":
             return self._complete(body)
+        if path == "/rest/v1/rpc/record_unknown_email_domain":
+            self.record_bodies.append(body)
+            if isinstance(self.record_trouble, type):
+                raise self.record_trouble("boom", request=request)
+            return httpx.Response(self.record_trouble or 204)
         raise AssertionError(f"예상하지 못한 요청 {request.method} {request.url}")
 
     def _auth_user(self, request: httpx.Request) -> httpx.Response:

@@ -213,8 +213,11 @@ async def _decide(caller: Caller, email: str, provider: str):
     DB 함수 자체가 실패하면 예외로 올린다 — 결과가 안 정해졌으니 임시 계정을 남겨 앱이 다시 부를 수 있게 한다."""
     settings, client, profile_id = caller
     policy = SignupPolicy(settings.postgrest_url, settings.supabase_service_role_key, client)
-    university_id = await policy.find_university_id(email.rsplit("@", 1)[-1])
+    _, at, domain = email.rpartition("@")
+    domain = domain if at else ""  # '@' 가 없으면 빈 값 — 메일 앞부분을 도메인으로 읽지 않는다(훅 email_domain 과 같다)
+    university_id = await policy.find_university_id(domain)
     if university_id is None:
+        await policy.record_unknown_domain(domain)  # 최선만 — 실패해도 422 는 그대로
         return _error(422, errors.SCHOOL_EMAIL_UNKNOWN_DOMAIN, errors.CODE_SCHOOL_EMAIL_DOMAIN_NOT_ALLOWED)
     email_hmac = hash_email(settings.identity_hmac_key, email)
     if await policy.is_blocked(email_hmac):
