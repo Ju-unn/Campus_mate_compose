@@ -14,7 +14,8 @@ from e2e.tools import Blocked, Reply, Run
 
 CFG = {'SUPABASE_URL': 'https://sb.test', 'SUPABASE_ANON_KEY': 'anon', 'API_BASE_URL': 'https://api.test',
        'E2E_MAIL_BASE': 'base@gmail.com'}
-SV = '학생증 인증을 먼저 끝내 주세요'
+SV = '학생증 인증을 먼저 끝내 주세요'  # 옛 서버(학생증 제거 10-17 전) 문구 — 이제 이 답이 오면 fail 이다
+DEPT = '학과 정보를 먼저 입력해 주세요'  # 서버 errors.DEPARTMENT_REQUIRED — 학생증 관문이 빠져 학과 관문이 먼저 막는다
 INVALID = '입력한 값을 다시 확인해 주세요'
 PHONE_INVALID = {'detail': '올바른 휴대폰 번호를 입력해 주세요', 'code': 'phone_number_invalid'}  # 서버 errors.PHONE_NUMBER_INVALID · CODE_PHONE_NUMBER_INVALID
 REJECT = {'msg': '등록되지 않은 학교 메일이에요'}  # 서버 errors.SCHOOL_EMAIL_UNKNOWN_DOMAIN
@@ -425,16 +426,17 @@ CASES = {
                   {('GET', '/cards/today'): Reply(403, {'detail': '이용이 제한된 계정이에요'})}),
     'E-GATE-15': ({('POST', '/me/consents'): [Reply(400, {'detail': '필수 항목에 모두 동의해 주세요'}), Reply(422, {'detail': []})]},
                   {('POST', '/me/consents'): [Reply(400, {'detail': '필수 항목에 모두 동의해 주세요'}), Reply(200, {'ok': True})]}),
-    'E-GATE-16': ({('POST', '/student-verification'): Reply(403, {'detail': '약관 동의를 먼저 해 주세요'})},
-                  {('POST', '/student-verification'): Reply(403, {'detail': '약관 동의를 먼저 해 주세요'}, {'X-Account-Status': 'pending'})}),
+    # 학생증 제출 경로는 없어졌다(학생증 제거 10-17) — 옛 앱이 불러도 404. 옛 서버의 동의 403 이 오면 fail.
+    'E-GATE-16': ({('POST', '/student-verification'): Reply(404, {'detail': 'Not Found'})},
+                  {('POST', '/student-verification'): Reply(403, {'detail': '약관 동의를 먼저 해 주세요'})}),
     'E-GATE-20': ({('GET', '/profile-onboarding/next-step'): Reply(403, {'detail': '약관 동의를 먼저 해 주세요'})},
                   {('GET', '/profile-onboarding/next-step'): Reply(200, {})}),
-    'E-GATE-50': ({('GET', p): Reply(403, {'detail': SV}) for p in ('/cards/today', '/home/summary', '/profile-onboarding/next-step')}
+    'E-GATE-50': ({('GET', p): Reply(403, {'detail': DEPT}) for p in ('/cards/today', '/home/summary', '/profile-onboarding/next-step')}
                   | {('POST', '/cards/push-tokens'): Reply(200, {'ok': True})},
-                  {('GET', p): Reply(403, {'detail': SV}) for p in ('/cards/today', '/profile-onboarding/next-step')}
+                  {('GET', p): Reply(403, {'detail': SV}) for p in ('/cards/today', '/home/summary', '/profile-onboarding/next-step')}
                   | {('POST', '/cards/push-tokens'): Reply(200, {'ok': True})}),
-    'E-GATE-51': ({('POST', '/school-info'): Reply(403, {'detail': SV}), ('GET', '/rest/v1/profiles'): Reply(200, [{'major': None}])},
-                  {('POST', '/school-info'): Reply(403, {'detail': SV}), ('GET', '/rest/v1/profiles'): Reply(200, [{'major': '컴공'}])}),
+    'E-GATE-51': ({('POST', '/school-info'): Reply(200, {'ok': True}), ('GET', '/rest/v1/profiles'): Reply(200, [{'major': '컴퓨터공학과'}])},
+                  {('POST', '/school-info'): Reply(403, {'detail': SV}), ('GET', '/rest/v1/profiles'): Reply(200, [{'major': None}])}),
     'E-GATE-55': ({('GET', '/cards/today'): Reply(403, {'detail': '학과 정보를 먼저 입력해 주세요'})},
                   {('GET', '/cards/today'): Reply(403, {'detail': SV})}),
     'E-ONB-14': ({('POST', '/profile-onboarding/basic-info'): [Reply(422, PHONE_INVALID), Reply(200, {'ok': True})],
@@ -456,8 +458,8 @@ CASES = {
                   ('GET', '/rest/v1/profiles'): Reply(200, [{'preferred_age_min': None}])},
                  {('POST', '/profile-onboarding/ideal-conditions'): [Reply(200, {'ok': True}), Reply(422, {'detail': []})],
                   ('GET', '/rest/v1/profiles'): Reply(200, [{'preferred_age_min': None}])}),
-    'E-ONB-69': ({('POST', '/referral/redeem'): Reply(403, {'detail': SV})},
-                 {('POST', '/referral/redeem'): Reply(404, {'detail': '없는 코드예요, 다시 확인해 주세요'})}),
+    'E-ONB-69': ({('POST', '/referral/redeem'): Reply(403, {'detail': DEPT})},
+                 {('POST', '/referral/redeem'): Reply(403, {'detail': SV})}),
 }
 # E-ONB-08 은 올해에 따라 문구가 바뀌어 위 표 밖에서 만든다.
 CASES['E-ONB-08'] = (
@@ -546,6 +548,26 @@ class HypothesisTest(Base):
         self.assertEqual(inserted, [[{'profile_id': 'id-1', 'kind': k, 'version': '2026-09-01'} for k in ('privacy', 'terms')]])
         self.assertNotIn('/me/consents', fake.paths())
         self.assertLess(fake.paths().index('/rest/v1/user_consents'), fake.paths().index('/school-info'))
+        # 학과 저장은 학생증을 안 본다(학생증 제거 10-17) — 학생증 상태를 미리 고쳐 두지 않는다.
+        self.assertEqual([b for m, p, b in fake.calls if (m, p) == ('PATCH', '/rest/v1/profiles')], [])
+
+    def test_no_case_asks_the_factory_for_a_student_id_stage(self):
+        # 학생증 단계(pending · verified)는 계정 공장에서 빠진다 — 관문 가설은 동의까지 한 계정(consented)으로 본다.
+        for case in ('E-GATE-50', 'E-GATE-55', 'E-ONB-69'):
+            with self.subTest(case=case):
+                self.setUp()
+                self.serve(CASES[case][0])
+                area1.CASES[case](self.run)
+                written = json.loads((self.run.out / 'accounts.json').read_text(encoding='utf-8'))
+                self.assertEqual({a['stage'] for a in written}, {'consented'})
+
+    def test_gate_50_also_looks_at_an_old_pending_row(self):
+        # 운영에는 학생증 대기(pending) 행이 남은 옛 계정이 있다 — 가설이 그 칸만 직접 써서 같은 학과 관문을 받는지 본다.
+        fake = self.serve(CASES['E-GATE-50'][0])
+        area1.CASES['E-GATE-50'](self.run)
+        patches = [(u, b) for (m, u), (_, p, b) in zip(fake.urls, fake.calls) if (m, p) == ('PATCH', '/rest/v1/profiles')]
+        self.assertEqual([b for _, b in patches], [{'student_verification': 'pending'}])
+        self.assertIn('id=eq.id-2', patches[0][0])  # 둘째 계정만
 
     def test_wrongly_created_account_on_the_keep_list_is_not_deleted(self):
         fake = self.serve()

@@ -297,6 +297,14 @@ class ReferralTest(Base):
         self.assertEqual(result, 'fail')
         self.assertIn('422', memo)
 
+    def test_ref_16_before_the_department_gets_the_department_gate(self):
+        # 학생증 관문이 빠져(학생증 제거 10-17) 동의 · 학교 메일까지 한 계정은 학과 관문(DEPARTMENT_REQUIRED)에 막힌다.
+        for detail, result in (('학과 정보를 먼저 입력해 주세요', 'pass'), ('학생증 인증을 먼저 끝내 주세요', 'fail')):
+            with self.subTest(detail=detail):
+                fake = Fake([('POST', '/referral/redeem', lambda b, u, d=detail: Reply(403, {'detail': d}))])
+                with mock.patch.object(tools, 'call', fake):
+                    self.assertEqual(area2.attempt(self.run, 'E-REF-16')[0], result)
+
 
 class HeartTest(Base):
     def test_overdraft_is_refused_by_the_database_and_ledger_stays(self):
