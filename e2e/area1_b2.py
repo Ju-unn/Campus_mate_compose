@@ -25,10 +25,11 @@ LEFT_OUT = {
 }
 
 # 계정 단계(여기까지 끝냄) → 앱이 다시 켜졌을 때 가야 할 화면(앱 쪽 `screens` 의 키).
+# 아바타 확인(05-12)은 06-3 뒤 맨 끝이다(2026-10-17) — 설문 뒤는 아바타가 이미 완성이어도(avatar) 06-1, 05-12 는 bio 계정에서.
 SCREEN_AFTER = {
     'gate_done': '04-1', 'basic': '04-1b', 'kakao': '04-2', 'photos': '04-4', 'appearance': '04-5', 'interests': '04-6',
-    'my_traits': '05-01', 'survey': '05-12', 'avatar': '06-1', 'ideal_conditions': '06-2', 'ideal_traits': '06-2a',
-    'ideal_note': '06-3', 'home': 'home',
+    'my_traits': '05-01', 'survey': '06-1', 'avatar': '06-1', 'ideal_conditions': '06-2', 'ideal_traits': '06-2a',
+    'ideal_note': '06-3', 'bio': '05-12', 'home': 'home',
 }
 REJOIN_BLOCKED = '재가입이 제한된 메일이에요'  # 서버 errors.SCHOOL_EMAIL_BLOCKED(훅 · verify 가 같은 문구)
 NOT_FOUND = '없는 코드예요, 다시 확인해 주세요'
@@ -275,9 +276,10 @@ def p_onb_31(run, phone):
 
 
 def p_onb_33(run, phone):
-    """05-12 는 완성 행이 없거나 만드는 중일 때 보인다 — 만드는 중 행으로 켜서, 앱이 멈춘 사이 PC 가 ready 로 바꿔 '완성됐어요' 로 바뀌게 한다."""
+    """05-12 는 06-3 뒤, 완성 행이 없거나 만드는 중일 때 보인다 — 자기소개까지 낸 계정을 만드는 중 행으로 켜서, 앱이 멈춘 사이
+    PC 가 ready 로 바꿔 리빌로 바뀌게 한다. 앱은 "확인했어요" → 20. 그 단계 조회에서 서버가 가입을 확정한다(PR #574)."""
     check = Check()
-    account, token = _signed_in(run, 'survey')
+    account, token = _signed_in(run, 'bio')
     # 행이 없으면 화면이 실패로 굳어 다시 안 묻는다 — 만드는 중(pending) 행을 먼저 둬 5초 폴링을 살려 둔다
     status, body = run._avatar(account, 'pending')
     if status >= 300:
@@ -286,6 +288,7 @@ def p_onb_33(run, phone):
     def finish(said):
         _patch(run, f"profile_avatars?profile_id=eq.{account['id']}", {'status': 'ready'})
     _app(check, phone(token_hash=token, midway=finish))
+    check.that(_status(run, account['id']) == 'active', '리빌 "확인했어요" 뒤에도 status 가 active 가 아님')
     return check.result()
 
 
@@ -340,7 +343,7 @@ def p_onb_52(run, phone):
 
 
 def p_onb_53(run, phone):
-    """시나리오는 기기 둘 — A폰 한 대로 13계정(basic_info ~ bio 12 + complete)."""
+    """시나리오는 기기 둘 — A폰 한 대로 14계정(basic_info ~ avatar 12 + 아바타가 이미 완성된 설문 끝 + complete)."""
     check = Check()
     for stage, screen in SCREEN_AFTER.items():
         _, token = _signed_in(run, stage)
