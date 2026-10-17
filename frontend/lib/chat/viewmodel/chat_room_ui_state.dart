@@ -96,6 +96,12 @@ class ChatRoomUiState {
         .fold<DateTime>(passedAt, (latest, at) => at.isAfter(latest) ? at : latest);
   }
 
+  /// 첫 입장 안내 카드(pen `cinKv`)를 대화 목록 맨 위에 끼우는가. **미리 수락 단계([TrustGateStage.preAccept] =
+  /// 24시간 전 · 내가 아직 수락 전 · 공개 전 · 상대 있음) · 기한 전일 때만**(대장 결정 10-17). 카드 요약과 3번 항목이
+  /// "위쪽의 '수락하기'"를 가리키는데 그 버튼은 미리 수락 배너에만 있다 — 14g · 시트 · 14h 단계에서는 숨긴다.
+  bool showsIntroCardAt(DateTime now) =>
+      stageAt(now) == TrustGateStage.preAccept && now.isBefore(room!.gate.deadlineAt);
+
   TrustGateStage stageAt(DateTime now) {
     final room = this.room;
     if (room == null) {
