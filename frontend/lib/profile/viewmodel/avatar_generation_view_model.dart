@@ -112,9 +112,9 @@ class AvatarGenerationViewModel extends Notifier<AvatarGenerationUiState> {
     _stopPolling();
   }
 
-  /// 결과(05-12c·05-12d)를 다 본 사람이 "다음"을 눌렀을 때. **여기서만** 다음 단계를 다시 묻는다 —
-  /// 결과를 받은 순간 자동으로 부르면 라우터가 06-1 로 화면을 바꿔 버려서,
-  /// 애써 만든 아바타도 기본 아바타 보상 안내도 사람이 못 본다.
+  /// 리빌(5b · 05-12d 시트)을 다 본 사람이 "확인했어요" · "확인" 을 눌렀을 때. **여기서만** 다음 단계를 다시 묻는다 —
+  /// 서버는 이 조회 때 다 끝낸 사람의 가입을 확정한다(PR #574). 이동(20)은 화면이 맡는다.
+  /// 결과를 받은 순간 자동으로 부르지 않는다 — 리빌도 기본 아바타 보상 안내도 사람이 보고 스스로 넘어간다.
   Future<void> goToNextStep() => ref.read(onboardingStepListenableProvider).refresh();
 
   void _scheduleNextPoll() {

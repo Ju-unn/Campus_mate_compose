@@ -10,6 +10,8 @@ import 'package:campus_mate/profile/view/appearance_type_screen.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/profile/model/basic_info_repository_provider.dart';
 import 'package:campus_mate/profile/model/kakao_id_repository_provider.dart';
+import 'package:campus_mate/profile/model/avatar_generation_outcome.dart';
+import 'package:campus_mate/profile/model/avatar_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
 import 'package:campus_mate/profile/view/kakao_id_screen.dart';
 import 'package:campus_mate/profile/view/photos_screen.dart';
@@ -90,6 +92,7 @@ import '../../friend_review/model/fake_friend_review_repository.dart';
 import '../../home/model/fake_home_repository.dart';
 import '../../matching/model/fake_card_repository.dart';
 import '../../me/model/fake_me_repository.dart';
+import '../../profile/model/fake_avatar_repository.dart';
 import '../../profile/model/fake_basic_info_repository.dart';
 import '../../profile/model/fake_kakao_id_repository.dart';
 import '../../profile/model/fake_onboarding_repository.dart';
@@ -748,6 +751,10 @@ void main() {
           communityRepositoryProvider.overrideWithValue(FakeCommunityRepository()),
           homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
           meRepositoryProvider.overrideWithValue(FakeMeRepository(const FailureResult(NetworkFailure()))),
+          // 아바타 확인 화면(06-3 뒤)은 완성으로 둔다 — 만드는 중이면 도는 표시 때문에 화면이 멈추지 않는다.
+          avatarRepositoryProvider.overrideWithValue(
+            FakeAvatarRepository()..nextResult = const Success(AvatarReady('https://example.com/avatar.png')),
+          ),
           notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
           faqRepositoryProvider.overrideWithValue(FakeFaqRepository(const Success(faqFixture))),
           faqCacheProvider.overrideWithValue(FakeFaqCache()),
@@ -837,7 +844,13 @@ void main() {
 
     // 04-1 · 04-4 는 뒤로가 없다(사용자 결정 ⑦ · ①). 설문 첫 문항은 조각 3 전까지 그대로다.
     // 04-1b 는 이제 04-1 로 간다 — 아래 '온보딩 뒤로가기' 묶음이 본다(종전엔 이 줄에 kakaoId 가 있었다).
-    for (final step in [OnboardingStep.basicInfo, OnboardingStep.appearanceType, OnboardingStep.survey]) {
+    // 아바타 확인(리빌 · 05-12)은 가입 맨 끝이라 뒤로가 없다(10-17, 결정 G4 추천안) — 시스템 뒤로는 종료 안내다.
+    for (final step in [
+      OnboardingStep.basicInfo,
+      OnboardingStep.appearanceType,
+      OnboardingStep.survey,
+      OnboardingStep.avatar,
+    ]) {
       testWidgets('온보딩(${step.name})에서도 첫 뒤로가기는 안내만, 한 번 더 누르면 앱을 닫는다', (tester) async {
         await pumpMember(tester, step: step);
         expect(find.byTooltip(onboardingBackLabel), findsNothing, reason: '뒤로 갈 앞 화면이 없다');
