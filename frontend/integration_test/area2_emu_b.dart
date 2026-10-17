@@ -7,7 +7,9 @@ import 'package:campus_mate/community/view/feed_poll_card.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_ui_state.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/matching/view/acceptance_detail_screen.dart';
 import 'package:campus_mate/matching/view/acceptance_row.dart';
+import 'package:campus_mate/matching/view/card_detail_screen.dart';
 import 'package:campus_mate/matching/view/conversations_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,10 +24,12 @@ import 'support.dart';
 /// 비공개 도우미(_session · _tab 등)는 area2_b.dart · area2_c.dart 의 것을 복사했다. lib/ 는 바꾸지 않았다.
 /// 이 파일은 `flutter analyze` 만 돌렸고 기기에서는 아직 안 돌려 봤다 — 특히 당겨서 새로 고침(E-POLL-02)의 제스처 크기.
 
-// 13 대화 — frontend/lib/matching/view/conversations_screen.dart · acceptance_row.dart · match_made_screen.dart
-const _acceptWaiting = '받은 신청'; // conversations_screen.dart:88
-const _reject = '거절'; // acceptance_row.dart:65
-const _accept = '수락하기'; // acceptance_row.dart:73
+// 13 대화 — frontend/lib/matching/view/conversations_screen.dart · acceptance_row.dart · acceptance_detail_screen.dart · match_made_screen.dart
+// PR #568(10-16): 받은 신청 줄에는 "프로필 보기" 하나뿐이고, 거절 · 수락하기는 그 버튼이 여는 "받은 신청 · 프로필 보기" 하단 바에 있다(확인 창 없음).
+const _acceptWaiting = '받은 신청'; // conversations_screen.dart _acceptanceSlivers · acceptance_detail_screen.dart _title(앱바)
+const _viewProfile = '프로필 보기'; // acceptance_row.dart — 줄의 버튼 하나
+const _reject = '거절'; // acceptance_detail_screen.dart _rejectLabel — 하단 바
+const _accept = '수락하기'; // acceptance_detail_screen.dart _acceptLabel — 하단 바
 const _noChats = '아직 시작된 대화가 없어요'; // conversations_screen.dart _EmptyState
 const _acceptanceNotFound = '수락을 찾을 수 없어요'; // backend core/errors.py ACCEPTANCE_NOT_FOUND — 오류 줄로 그대로 뜬다
 const _matchMade = '매칭됐어요!'; // match_made_screen.dart:32
@@ -68,7 +72,7 @@ Future<void> _openConversations(WidgetTester tester) async {
   await pumpUntil(tester, find.byType(ConversationsScreen), timeout: const Duration(seconds: 10));
 }
 
-/// 수락 대기 섹션이 "받은 신청 1명" 에 [nickname] 줄 하나와 두 버튼(거절 · 수락하기)뿐인지.
+/// 수락 대기 섹션이 "받은 신청 1명" 에 [nickname] 줄 하나이고, 그 줄의 버튼은 "프로필 보기" 하나뿐인지(거절 · 수락하기는 줄에 없다).
 Future<void> _oneWaiting(WidgetTester tester, String nickname) async {
   final row = _acceptanceOf(nickname);
   final shown = await appears(tester, row, const Duration(seconds: 15));
@@ -78,14 +82,45 @@ Future<void> _oneWaiting(WidgetTester tester, String nickname) async {
   must(_count(find.byType(AcceptanceRow)) == 1, '수락 대기 줄 ${_count(find.byType(AcceptanceRow))}개(기대 1)');
   must(_count(find.text(_acceptWaiting)) == 1, '"$_acceptWaiting" 제목 ${_count(find.text(_acceptWaiting))}개(기대 1)');
   must(_count(find.text('1명')) == 1, '"1명" ${_count(find.text('1명'))}개(기대 1)');
+  final viewProfile = _count(find.descendant(of: row, matching: button(_viewProfile)));
+  must(viewProfile == 1, '"$nickname" 줄에 "$_viewProfile" 버튼 $viewProfile개(기대 1)');
   for (final label in [_reject, _accept]) {
-    final seen = _count(find.descendant(of: row, matching: button(label)));
-    must(seen == 1, '"$nickname" 줄에 "$label" 버튼 $seen개(기대 1)');
+    final seen = _count(find.descendant(of: row, matching: find.text(label)));
+    must(seen == 0, '"$nickname" 줄에 "$label" $seen개(기대 0 — 결정은 프로필 보기 화면에서 한다)');
   }
 }
 
-Future<void> _tapAccept(WidgetTester tester, String nickname) =>
-    tap(tester, find.descendant(of: _acceptanceOf(nickname), matching: button(_accept)));
+/// [finder] 가 [within] 안에 사라지면 true(area2_two_accept.dart 와 같다).
+Future<bool> _gone(WidgetTester tester, Finder finder, Duration within) async {
+  final watch = Stopwatch()..start();
+  while (finder.evaluate().isNotEmpty) {
+    if (watch.elapsed > within) return false;
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+  return true;
+}
+
+/// 받은 신청 · 프로필 보기(acceptance_detail_screen.dart) — 줄의 "프로필 보기" 가 push 로 연다.
+Finder get _profileScreen => find.byType(AcceptanceDetailScreen);
+
+/// 그 화면 하단 바의 결정 버튼([label] = 거절 · 수락하기). AppButton 이 아니라 그 화면의 ElevatedButton 이라 [button] 으로는 안 잡힌다.
+Finder _decision(String label) => find.descendant(of: _profileScreen, matching: find.widgetWithText(ElevatedButton, label));
+
+/// [nickname] 줄의 "프로필 보기" → 새 화면(앱바 "받은 신청")이 열리고 상대를 다 읽어 하단 바(거절 · 수락하기)가 뜰 때까지.
+Future<void> _openProfile(WidgetTester tester, String nickname) async {
+  await tap(tester, find.descendant(of: _acceptanceOf(nickname), matching: button(_viewProfile)));
+  must(await appears(tester, _profileScreen, const Duration(seconds: 10)) != null, '"$_viewProfile" 을 눌렀는데 10초 안에 프로필 보기 화면이 안 열림');
+  final title = find.descendant(of: find.descendant(of: _profileScreen, matching: find.byType(AppBar)), matching: find.text(_acceptWaiting));
+  must(_count(title) == 1, '프로필 보기 화면 앱바에 "$_acceptWaiting" ${_count(title)}개(기대 1)');
+  // 읽기가 실패하면(404 · 409 · 410 · 연결) 바 대신 가운데 회색 문구(DetailMessage)만 뜬다 — 그 글을 메모에 남긴다.
+  final ready = await appears(tester, _decision(_accept), const Duration(seconds: 20));
+  final said = tester.widgetList<DetailMessage>(find.descendant(of: _profileScreen, matching: find.byType(DetailMessage))).map((m) => m.text);
+  must(ready != null, '프로필 보기 화면에 하단 바("$_accept")가 20초 안에 안 뜸${said.isEmpty ? '' : ' — 화면 문구 ${said.join(' | ')}'}');
+  must(_count(_decision(_reject)) == 1, '프로필 보기 하단 바에 "$_reject" ${_count(_decision(_reject))}개(기대 1)');
+}
+
+/// 프로필 보기 하단 바의 [label] 을 누른다 — 확인 창 없이 바로 보낸다.
+Future<void> _decide(WidgetTester tester, String label) => tap(tester, _decision(label));
 
 final Map<String, Area1Case> _acceptanceCases = {
   // 홈에서 멈춰 PC 가 HOME → B 의 기기 토큰 확인 → A 가 카드 수락 → 알림 → 알림 누르기를 한 뒤: 앱이 앞으로 와 13 의 수락 대기 1명(A).
@@ -99,12 +134,14 @@ final Map<String, Area1Case> _acceptanceCases = {
     await _oneWaiting(tester, nickname);
     return null;
   }),
-  // PC 가 A 의 수락을 앱 켜기 전에 넣어 두었다 — 대화 탭의 수락함에서 "수락하기" → 12 "매칭됐어요!" · "{A닉} 님과 매칭됐어요.".
+  // PC 가 A 의 수락을 앱 켜기 전에 넣어 두었다 — 대화 탭 받은 신청 줄의 "프로필 보기" → 프로필 보기 하단 바 "수락하기"
+  // → 12 "매칭됐어요!" · "{A닉} 님과 매칭됐어요."(12 가 프로필 보기 화면 자리에 들어온다).
   'E-CARD-45': _session((tester, job) async {
     final nickname = job['nickname'] as String;
     await _openConversations(tester);
     await _oneWaiting(tester, nickname);
-    await _tapAccept(tester, nickname);
+    await _openProfile(tester, nickname);
+    await _decide(tester, _accept);
     await pumpUntil(tester, find.text(_matchMade), timeout: const Duration(seconds: 20));
     await wait(tester, const Duration(milliseconds: 500)); // 넘김 애니메이션이 끝나게
     must(_count(find.text(_matchMade)) == 1, '"$_matchMade" ${_count(find.text(_matchMade))}개(기대 1)');
@@ -112,18 +149,24 @@ final Map<String, Area1Case> _acceptanceCases = {
     must(_count(sentence) == 1, '"$nickname 님과 매칭됐어요." ${_count(sentence)}개(기대 1)');
     return null;
   }),
-  // 수락 대기를 띄운 뒤 PC 가 A 를 정지 → "수락하기" → 오류 줄 "수락을 찾을 수 없어요", 줄이 사라지고 12 는 안 뜬다.
+  // 받은 신청 줄의 "프로필 보기" 로 화면을 열어 하단 바가 뜬 뒤 PC 가 A 를 정지 → "수락하기" → 그 화면 바 위에 "수락을 찾을 수 없어요",
+  // 12 는 안 뜨고 화면에 남는다 → 뒤로 → 목록에서 그 줄이 사라졌다. 정지가 먼저면 프로필 읽기부터 404 라 하단 바가 없다(그건 이 가설이 아니다).
   'E-CARD-86': _session((tester, job) async {
     final nickname = job['nickname'] as String;
     await _openConversations(tester);
     await _oneWaiting(tester, nickname);
+    await _openProfile(tester, nickname);
     await step('suspended');
-    await _tapAccept(tester, nickname);
-    await pumpUntil(tester, find.text(_acceptanceNotFound), timeout: const Duration(seconds: 20));
-    await wait(tester, const Duration(seconds: 1)); // 응답 뒤 목록을 다시 읽는 것까지
-    must(_count(find.text(_acceptanceNotFound)) == 1, '"$_acceptanceNotFound" ${_count(find.text(_acceptanceNotFound))}개(기대 1)');
-    must(_count(find.byType(AcceptanceRow)) == 0, '정지한 사람의 수락 줄이 목록에 남음');
+    await _decide(tester, _accept);
+    final error = find.descendant(of: _profileScreen, matching: find.text(_acceptanceNotFound));
+    await pumpUntil(tester, error, timeout: const Duration(seconds: 20));
+    await wait(tester, const Duration(seconds: 1)); // 응답 뒤 목록을 다시 읽는 것까지(읽기가 끝나면 문구가 다시 올라온다)
+    must(_count(error) == 1, '프로필 보기 화면에 "$_acceptanceNotFound" ${_count(error)}개(기대 1)');
     must(_count(find.text(_matchMade)) == 0, '정지한 사람의 수락으로 12 "$_matchMade" 가 뜸');
+    must(_count(_profileScreen) == 1, '수락이 실패했는데 프로필 보기 화면이 닫힘(실패면 화면에 남아 문구를 보여야 한다)');
+    await tap(tester, find.descendant(of: _profileScreen, matching: find.byType(BackButton)));
+    must(await _gone(tester, _profileScreen, const Duration(seconds: 5)), '뒤로를 눌렀는데 프로필 보기 화면이 안 닫힘');
+    must(await _gone(tester, find.byType(AcceptanceRow), const Duration(seconds: 10)), '정지한 사람의 수락 줄이 목록에 남음');
     return null;
   }),
 };

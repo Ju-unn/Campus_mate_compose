@@ -28,6 +28,33 @@ A, B = 'id-1', 'id-2'
 UNIQUE = {'retry': False}  # 두 번 가면 안 되는 요청 — tools.call 이 한 번만 보낸다
 
 
+def unbacked_labels(dart_name):
+    """integration_test/[dart_name] 의 `const _x = '글자'; // 경로.dart …` 줄 중, 주석에 적은 lib 파일에 그 글자가 문자열로 없는 것 → [(상수, 글자, 경로)].
+    줄 번호가 아니라 글자 자체로 본다 — 화면이 바뀌어 글자가 다른 파일로 옮겨 가면(PR #568: 받은 신청 줄의 거절 · 수락하기가 새 화면으로) 여기서 먼저 깨진다."""
+    lib = tools.ROOT / 'frontend' / 'lib'
+    source = (tools.ROOT / 'frontend' / 'integration_test' / dart_name).read_text(encoding='utf-8')
+    missing = []
+    for const, label, comment in re.findall(r"^const (_\w+) = '([^']+)'; //(.*)$", source, re.M):
+        for cited in re.findall(r'[\w/]+\.dart', comment):
+            files = [p for p in lib.rglob(Path(cited).name) if p.as_posix().endswith('/' + cited)]
+            if not any(f"'{label}'" in p.read_text(encoding='utf-8') for p in files):
+                missing.append((const, label, cited))
+    return missing
+
+
+def case_body(dart, case):
+    """앱 쪽 가설 표에서 [case] 한 칸의 본문(다음 열쇠 또는 표 끝 `};` 앞까지)."""
+    found = re.search(rf"(?ms)^  '{case}':(.*?)(?=^  '|^\}};)", dart)
+    return found.group(1) if found else None
+
+
+def opens_profile_then_decides(body, decision, *between):
+    """[body] 가 받은 신청 줄의 "프로필 보기"(_openProfile) → [between](순서대로) → 그 화면 하단 바의 [decision](_decide) 순서인가."""
+    marks = ['_openProfile(', *between, f'_decide(tester, {decision})']
+    at = [body.find(mark) for mark in marks]
+    return -1 not in at and at == sorted(at)
+
+
 class World(SafeFake):
     """SafeFake + 일시중지(후보 · 카드 대상에서 빠짐) · 수락 응답(POST /cards/acceptances/{card}) · 매칭 · 수락함에서 매칭된 사람 빼기."""
 
@@ -213,6 +240,30 @@ class RegistryTest(unittest.TestCase):
         main = self.dart('e2e_test.dart')
         self.assertIn("import 'area2_two_accept.dart';", main)
         self.assertIn('...area2TwoAcceptCases', main)
+
+    def test_every_label_the_app_side_looks_for_is_a_string_in_the_lib_file_it_cites(self):
+        self.assertEqual(unbacked_labels('area2_two_accept.dart'), [])
+
+    def test_inbox_answers_open_the_profile_from_the_row_and_decide_on_that_screen_before_telling_the_pc(self):
+        # PR #568: 받은 신청 줄에는 "프로필 보기" 하나뿐 — 거절 · 수락하기는 "받은 신청 · 프로필 보기" 화면 하단 바에 있다
+        dart = self.dart('area2_two_accept.dart')
+        for case, decision, step in (('E-CARD-47/B', '_acceptStart', 'matched'), ('E-CARD-49/B', '_reject', 'rejected'),
+                                     ('E-CARD-87/A', '_acceptStart', 'matched')):
+            with self.subTest(case):
+                body = case_body(dart, case)
+                self.assertIsNotNone(body)
+                self.assertTrue(opens_profile_then_decides(body, decision), body)
+                self.assertLess(body.index(f'_decide(tester, {decision})'), body.index(f"step('{step}')"))
+        self.assertIn('Future<void> _decide(', dart)
+        decide = dart[dart.index('Future<void> _decide('):].split('\n\n', 1)[0]
+        self.assertIn('_decision(', decide)  # 결정 버튼은 그 화면 안에서만 찾는다
+        decision = dart[dart.index('Finder _decision('):].split('\n\n', 1)[0]
+        self.assertIn('of: _profileScreen', decision)
+        self.assertIn('Finder get _profileScreen => find.byType(AcceptanceDetailScreen);', dart)
+
+    def test_the_pc_descriptions_of_the_inbox_answers_go_through_the_profile_screen(self):
+        for hypothesis in (area2_two_accept.two_47, area2_two_accept.two_49, area2_two_accept.two_87):
+            self.assertIn('프로필 보기', hypothesis.__doc__, hypothesis.__name__)
 
     def test_no_notification_is_read_here_that_is_the_last_bundle(self):
         self.assertFalse(hasattr(area2_two_accept, 'notify'))
