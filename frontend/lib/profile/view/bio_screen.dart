@@ -42,11 +42,13 @@ class _BioScreenState extends ConsumerState<BioScreen> {
   @override
   Widget build(BuildContext context) {
     ref.listen(bioViewModelProvider.select((s) => s.completed), (previous, completed) {
-      // 06-3 뒤에는 앱에서만 20 → 20d → 홈으로 잇는다(2026-09-28 대장 D2). 단계 캐시가 bio 인 동안 20 으로 가면
-      // redirect 가 06-3 으로 되돌리고, 뒤늦게 complete 가 되면 06-3 에서 홈으로 튕긴다 — 캐시가 바뀐 뒤(같은 프레임 안) 옮긴다.
+      // 06-3 뒤에는 아바타 확인(만드는 중 · 실패 · 리빌)을 거쳐 20 → 20d → 홈으로 잇는다(2026-10-17 리빌 맨 끝, 종전 곧바로 20).
+      // 서버 단계는 avatar(아직) 또는 complete(아바타가 이미 있어 저장 순간 가입 확정)다 — 둘 다 같은 화면이 상태를 보고 그린다.
+      // 단계 캐시가 bio 인 동안 옮기면 redirect 가 06-3 으로 되돌리고, 뒤늦게 complete 가 되면 06-3 에서 홈으로 튕긴다
+      // — 캐시가 바뀐 뒤(같은 프레임 안) 옮긴다.
       if (!completed) return;
       ref.read(onboardingStepListenableProvider).refresh().then((_) {
-        if (context.mounted) context.go(AppRoutes.onboardingReferral);
+        if (context.mounted) context.go(AppRoutes.onboardingAvatar);
       });
     });
     final state = ref.watch(bioViewModelProvider);

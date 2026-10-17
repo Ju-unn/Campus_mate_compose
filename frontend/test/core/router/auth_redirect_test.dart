@@ -74,6 +74,12 @@ void main() {
       expect(redirect.resolve(AppRoutes.onboardingAcquisition), isNull);
     });
 
+    // 10-17 아바타 리빌 맨 끝: 06-3 저장 순간(아바타가 이미 있으면) 가입이 끝난다 — 그래도 리빌(F84Alv)을 보고 20 으로 간다.
+    // 기다리는 사이 토큰 갱신으로 단계가 complete 가 돼도 리빌에서 홈으로 튕기지 않는다(계획서 Review Focus 1).
+    test('가입을 마친 사람도 아바타 확인 화면(리빌)에 머문다', () {
+      expect(redirect.resolve(AppRoutes.onboardingAvatar), isNull);
+    });
+
     // 06-4 도 20d 뒤 앱에서만 잇는다(결정 8 ①). 거기서 여는 8d 도 같다 — 설정의 8d 로 가면 뒤로가 16 쪽으로 샌다.
     test('온보딩을 끝낸 사람은 06-4 와 거기서 연 8d 에 머문다', () {
       expect(redirect.resolve(AppRoutes.onboardingContactBlock), isNull);
@@ -310,9 +316,29 @@ void main() {
     });
 
     test('photos 가 끝났으면 04-3 에서 다음 단계로 보낸다', () {
+      // 서버 순서(10-17): photos 다음은 외모 유형이다 — 아바타 확인은 06-3 뒤로 갔다.
+      const redirect = AuthRedirect(true, VerificationGate.complete, OnboardingStep.appearanceType);
+
+      expect(redirect.resolve(AppRoutes.onboardingAvatarSource), AppRoutes.onboardingAppearanceType);
+    });
+
+    test('아바타 단계면 20 으로 가려 해도 아바타 확인 화면으로 보낸다', () {
       const redirect = AuthRedirect(true, VerificationGate.complete, OnboardingStep.avatar);
 
-      expect(redirect.resolve(AppRoutes.onboardingAvatarSource), AppRoutes.onboardingAvatar);
+      expect(redirect.resolve(AppRoutes.onboardingReferral), AppRoutes.onboardingAvatar);
+      expect(redirect.resolve(AppRoutes.onboardingAvatar), isNull);
+    });
+
+    test('아바타 단계 앞 사람(설문 · 06-3 · 다시 보는 06-2)은 주소로 아바타 화면에 가지 못한다', () {
+      for (final (step, target) in [
+        (OnboardingStep.survey, AppRoutes.onboardingSurvey),
+        (OnboardingStep.bio, AppRoutes.onboardingBio),
+        // 다시 보는 중이면 라우터가 받는 단계는 다시 보는 단계다(OnboardingStepListenable.value).
+        (OnboardingStep.idealTraits, AppRoutes.onboardingIdealTraits),
+      ]) {
+        final redirect = AuthRedirect(true, VerificationGate.complete, step);
+        expect(redirect.resolve(AppRoutes.onboardingAvatar), target, reason: step.name);
+      }
     });
 
     test('온보딩을 마쳤으면 04-3 에서 홈으로 보낸다', () {

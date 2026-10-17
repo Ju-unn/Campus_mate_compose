@@ -110,7 +110,7 @@ class BioViewModel extends Notifier<BioUiState> {
     unawaited(ref.read(draftStoreProvider).clear(DraftScreen.bio));
   }
 
-  /// 저장이 끝나면 화면이 단계 캐시(complete)를 확인한 뒤 20 으로 옮긴다 — 20 · 20d 는 온보딩 목록 밖이라 머문다.
+  /// 저장이 끝나면 화면이 단계 캐시(avatar · complete)를 확인한 뒤 아바타 확인 화면으로 옮긴다 — 그 화면 · 20 · 20d 는 온보딩 목록 밖이라 머문다.
   void _refreshOnboardingStepIfCompleted() {
     if (!state.completed) {
       return;

@@ -122,12 +122,13 @@ class AuthRedirect {
     );
   }
 
+  /// 아바타 확인(`onboardingAvatar`)은 이 목록 밖이다(20 과 같은 대우, 2026-10-17 리빌 맨 끝) — 06-3 저장 순간이나 기다리는 사이
+  /// 가입이 끝나도(complete) 리빌을 보고 20 으로 간다. 앞 단계 사람은 위 [_onboardingTarget] 규칙이 그 단계로 돌려보낸다.
   static const _onboardingRoutes = <String>{
     AppRoutes.onboardingBasicInfo,
     AppRoutes.onboardingKakaoId,
     AppRoutes.onboardingPhotos,
     AppRoutes.onboardingAvatarSource,
-    AppRoutes.onboardingAvatar,
     AppRoutes.onboardingAppearanceType,
     AppRoutes.onboardingInterests,
     AppRoutes.onboardingMyTraits,

@@ -10,7 +10,11 @@ import 'package:campus_mate/core/theme/app_theme.dart';
 import 'package:campus_mate/home/model/home_repository_provider.dart';
 import 'package:campus_mate/home/view/home_screen.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
+import 'package:campus_mate/me/model/me_repository_provider.dart';
+import 'package:campus_mate/profile/model/avatar_generation_outcome.dart';
+import 'package:campus_mate/profile/model/avatar_repository_provider.dart';
 import 'package:campus_mate/profile/model/bio_repository_provider.dart';
+import 'package:campus_mate/profile/view/avatar_generation_screen.dart';
 import 'package:campus_mate/profile/model/onboarding_repository.dart';
 import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_step.dart';
@@ -28,6 +32,8 @@ import '../../chat/model/fake_chat_repository.dart';
 import '../../home/model/fake_home_repository.dart';
 import '../../matching/model/fake_card_repository.dart';
 import '../../referral/model/fake_referral_repository.dart';
+import '../../me/model/fake_me_repository.dart';
+import '../model/fake_avatar_repository.dart';
 import '../model/fake_bio_repository.dart';
 import '../../notifications/model/fake_notifications_repository.dart';
 
@@ -44,11 +50,21 @@ class _StepRepository implements OnboardingRepository {
 }
 
 /// main.dart 와 같은 모양으로 실제 라우터(redirect · refreshListenable)를 세우고 06-3 에서 시작한다.
-Future<void> _pumpAtBio(WidgetTester tester, _StepRepository steps, {FakeBioRepository? bio}) async {
+Future<void> _pumpAtBio(
+  WidgetTester tester,
+  _StepRepository steps, {
+  FakeBioRepository? bio,
+  FakeAvatarRepository? avatar,
+}) async {
   final container = ProviderContainer(
     overrides: [
       onboardingRepositoryProvider.overrideWithValue(steps),
       bioRepositoryProvider.overrideWithValue(bio ?? FakeBioRepository()),
+      // 저장 뒤 아바타 확인 화면이 상태와 내 사진(리빌 왼쪽 칸)을 묻는다.
+      avatarRepositoryProvider.overrideWithValue(
+        avatar ?? (FakeAvatarRepository()..nextResult = const Success(AvatarReady('https://example.com/avatar.png'))),
+      ),
+      meRepositoryProvider.overrideWithValue(FakeMeRepository(const FailureResult(NetworkFailure()))),
       referralRepositoryProvider.overrideWithValue(FakeReferralRepository()),
       // 홈으로 잘못 튕겼을 때 홈이 오류 없이 그려져야 "홈에 갔다" 로 떨어진다.
       cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
@@ -77,8 +93,9 @@ Future<void> _pumpAtBio(WidgetTester tester, _StepRepository steps, {FakeBioRepo
 }
 
 void main() {
-  // Review Focus 5: 06-3 저장 뒤 단계 캐시가 complete 로 바뀌며 홈으로 튕기면 20 이 한 번도 안 보인다.
-  testWidgets('06-3 을 저장하면 단계가 곧바로 complete 가 돼도 20 추천 코드 화면에 도착한다', (tester) async {
+  // 10-17 아바타 리빌 맨 끝: 06-3 뒤에는 20 이 아니라 아바타 확인(리빌 F84Alv · 만드는 중 · 실패)을 먼저 거친다.
+  // Review Focus 2: 아바타가 이미 있으면 저장 순간 단계가 complete 가 된다 — 그래도 홈으로 튕기지 않고 리빌에 닿는다.
+  testWidgets('06-3 을 저장하면 단계가 곧바로 complete 가 돼도 아바타 확인 화면에 도착한다', (tester) async {
     final steps = _StepRepository();
     await _pumpAtBio(tester, steps);
     expect(find.byType(BioScreen), findsOneWidget);
@@ -87,11 +104,26 @@ void main() {
     await tester.tap(find.text('다음'));
     await tester.pumpAndSettle();
 
-    expect(find.byType(ReferralCodeScreen), findsOneWidget);
+    expect(find.byType(AvatarGenerationScreen), findsOneWidget);
+    expect(find.byType(ReferralCodeScreen), findsNothing);
     expect(find.byType(HomeScreen), findsNothing);
   });
 
-  testWidgets('단계 조회가 화면이 몇 번 그려진 뒤에 도착해도(느린 네트워크) 20 에 도착한다', (tester) async {
+  testWidgets('06-3 저장 때 아바타가 아직이면(서버 단계 avatar) 같은 아바타 확인 화면에 도착한다', (tester) async {
+    final steps = _StepRepository();
+    await _pumpAtBio(tester, steps, avatar: FakeAvatarRepository()..nextResult = const Success(AvatarPending()));
+
+    steps.step = OnboardingStep.avatar;
+    await tester.tap(find.text('다음'));
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(find.byType(AvatarGenerationScreen), findsOneWidget);
+    expect(find.byType(ReferralCodeScreen), findsNothing);
+  });
+
+  testWidgets('단계 조회가 화면이 몇 번 그려진 뒤에 도착해도(느린 네트워크) 아바타 확인 화면에 도착한다', (tester) async {
     final steps = _StepRepository();
     await _pumpAtBio(tester, steps);
 
@@ -103,7 +135,7 @@ void main() {
     steps.hold!.complete();
     await tester.pumpAndSettle();
 
-    expect(find.byType(ReferralCodeScreen), findsOneWidget);
+    expect(find.byType(AvatarGenerationScreen), findsOneWidget);
     expect(find.byType(HomeScreen), findsNothing);
   });
 
