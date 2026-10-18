@@ -76,6 +76,9 @@ class Settings(BaseSettings):
     # 글자로 받는다 — 숫자 타입이면 잘못 넣는 순간 Settings() 가 실패해 서버 전체가 멈춘다. 검사는 홈 요약이 한다(어긋나면 0).
     store_rating: str = "0"
     store_rating_count: str = "0"
+    # 관리자 웹 주소(예: https://admin.campus-mates.com, 설계 10-18 §8-1). 있으면 인증샷 디스코드 알림에 그 건의 검수 링크를 싣는다.
+    # 비면 지금처럼 "Supabase 대시보드에서 확인" 안내다. 끝의 '/' 는 붙이는 쪽(heart_tasks/router.py)이 뗀다.
+    admin_base_url: str = ""
 
     @property
     def postgrest_url(self) -> str:

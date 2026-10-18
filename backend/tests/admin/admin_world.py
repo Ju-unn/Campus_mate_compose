@@ -12,6 +12,18 @@ from app.settings import Settings
 
 ADMIN = "aaaaaaaa-0000-0000-0000-000000000001"
 STRANGER = "bbbbbbbb-0000-0000-0000-000000000002"
+SIGN_PREFIX = "/storage/v1/object/sign/heart-task-proofs/"
+
+
+def submission(sid: str, profile_id: str = "cccccccc-0000-0000-0000-00000000000a", *, task: str = "everytime_post",
+               path: str | None = "default", created_at: str = "2026-10-18T01:00:00+00:00") -> dict:
+    """heart_task_submissions 한 줄 — 서버가 고르는 select(프로필 · 학교 임베드)를 PostgREST 가 돌려주는 모양."""
+    return {
+        "id": sid, "task": task, "status": "submitted", "reject_reason": None, "reward_hearts": 40,
+        "created_at": created_at, "reviewed_at": None,
+        "storage_path": f"{profile_id}/{sid}.jpg" if path == "default" else path,
+        "profiles": {"id": profile_id, "nickname": "하늘", "universities": {"name": "테스트대학교"}},
+    }
 
 
 def settings(**overrides) -> Settings:
@@ -45,6 +57,31 @@ class AdminWorld:
         self.action_insert_status = 201
         self.action_insert_code: str | None = None
         self.actions: list[dict] = []
+        # 인증샷 검수(D1). submissions 는 id → 줄, previous 는 제출자 id → 지난 제출 줄들(PostgREST 가 거른 뒤의 모양).
+        self.submissions: dict[str, dict] = {}
+        self.previous: dict[str, list[dict]] = {}
+        self.unsignable: set[str] = set()
+        # 경로 → Storage 서명 응답을 통째로 바꾼다(200 인데 signedURL 이 없거나 JSON 이 아닌 응답 같은 것).
+        self.sign_replies: dict[str, httpx.Response] = {}
+        self.review_error_code: str | None = None
+
+    def _heart_task_submissions(self, params) -> httpx.Response:
+        # 세 조회를 params 키로 가른다 — 지난 제출(profile_id) · 목록(status) · 한 건(id=eq.).
+        if "profile_id" in params:
+            return httpx.Response(200, json=self.previous.get(params["profile_id"].removeprefix("eq."), []))
+        if "status" in params:
+            return httpx.Response(200, json=list(self.submissions.values()))
+        row = self.submissions.get(params["id"].removeprefix("eq."))
+        return httpx.Response(200, json=[row] if row else [])
+
+    def _review(self, body: dict) -> httpx.Response:
+        # DB 함수와 같은 약속: 없으면 CM404, 검수 중이 아니면 CM409. PostgREST 는 모르는 코드를 400 으로 보낸다.
+        row = self.submissions.get(body["p_submission"])
+        code = self.review_error_code or ("CM404" if row is None else "CM409" if row["status"] != "submitted" else None)
+        if code:
+            return httpx.Response(400, json={"code": code, "message": "x"})
+        row.update(status=body["p_status"], reject_reason=body["p_reject_reason"], reviewed_at="2026-10-18T02:00:00+00:00")
+        return httpx.Response(200, json={key: row[key] for key in ("id", "status", "reject_reason", "reward_hearts", "reviewed_at")})
 
     def handle(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
@@ -62,6 +99,17 @@ class AdminWorld:
                 return httpx.Response(self.action_insert_status, json=payload)
             self.actions.append(json.loads(request.content))
             return httpx.Response(201)
+        if path == "/rest/v1/heart_task_submissions" and request.method == "GET":
+            return self._heart_task_submissions(params)
+        if path == "/rest/v1/rpc/admin_review_heart_task" and request.method == "POST":
+            return self._review(json.loads(request.content))
+        if path.startswith(SIGN_PREFIX) and request.method == "POST":
+            object_path = path.removeprefix(SIGN_PREFIX)
+            if object_path in self.sign_replies:
+                return self.sign_replies[object_path]
+            if object_path in self.unsignable:
+                return httpx.Response(400, json={"error": "not_found"})
+            return httpx.Response(200, json={"signedURL": f"/object/sign/heart-task-proofs/{object_path}?token=t"})
         raise AssertionError(f"관리자 가짜가 모르는 요청 {request.method} {path}")
 
     def calls(self, method: str, path: str) -> list[httpx.Request]:
