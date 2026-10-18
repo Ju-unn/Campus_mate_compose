@@ -74,7 +74,8 @@ class _CohortWaitViewState extends ConsumerState<CohortWaitView> {
       final result = await ref.read(referralRepositoryProvider).myCode();
       if (!mounted) return;
       await result.when<Future<void>>(
-        onSuccess: (code) => ref.read(shareTextProvider)(inviteShareText(code)),
+        // 16i "카카오톡으로 보내기"와 같은 함수 — 카카오톡 공유 카드 먼저, 못 보내면 기기 공유 창.
+        onSuccess: (code) => ref.read(shareInviteProvider)(code),
         onFailure: (failure) async => _showToast(failure.toDisplayMessage()),
       );
     } catch (_) {

@@ -276,8 +276,9 @@ final Map<String, Area1Case> _set2Cases = {
   }),
   'E-SET-60': _session((tester, job) async {
     await _openInvite(tester, code: job['code'] as String);
-    final share = _inSheet('공유하기');
-    must(share.evaluate().isNotEmpty, '못 찾음: 공유하기');
+    // PC 가 기기 공유 창을 본다 — 카카오를 거치지 않는 "다른 앱으로 보내기"(16i wNqk2)를 누른다.
+    final share = _inSheet('다른 앱으로 보내기');
+    must(share.evaluate().isNotEmpty, '못 찾음: 다른 앱으로 보내기');
     await tester.ensureVisible(share.last);
     await tester.pump();
     await tester.tap(share.last); // 누른 뒤 pump 하지 않는다 — 공유 창이 뜨면 프레임이 멎을 수 있다
@@ -304,9 +305,11 @@ final Map<String, Area1Case> _set2Cases = {
   }),
   'E-SET-62': _session((tester, job) async {
     await _openInvite(tester, code: job['code'] as String);
-    await tap(tester, _inSheet('닫기'));
+    // 16i 에는 닫기 단추가 없다(pen wNqk2) — 시트 위 딤(바깥)을 눌러 닫는다.
+    final sheet = tester.getRect(_inviteSheet);
+    await tester.tapAt(Offset(sheet.center.dx, sheet.top / 2));
     await wait(tester, const Duration(seconds: 1));
-    must(_inviteSheet.evaluate().isEmpty, '닫기를 눌렀는데 시트가 남음');
+    must(_inviteSheet.evaluate().isEmpty, '바깥을 눌렀는데 시트가 남음');
     must(screen('settings').evaluate().isNotEmpty, '설정 화면으로 돌아오지 않음');
     return null;
   }),

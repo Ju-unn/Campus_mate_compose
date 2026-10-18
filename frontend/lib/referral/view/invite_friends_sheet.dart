@@ -61,11 +61,26 @@ class _InviteFriendsSheetState extends ConsumerState<InviteFriendsSheet> {
     if (mounted) _showToast('코드를 복사했어요', icon: AppIcons.check);
   }
 
-  Future<void> _share(String code) async {
+  /// "카카오톡으로 보내기" 를 누른 뒤 카카오톡이 열리거나 기기 공유 창으로 넘어갈 때까지 그 단추에 스피너(pen `sMuCd`)를 돌린다.
+  bool _sendingToKakao = false;
+
+  /// "카카오톡으로 보내기" — 카카오톡 공유 카드 먼저, 못 보내면 기기 공유 창(19 와 같은 함수).
+  /// 카카오 서버에 템플릿을 묻는 동안 반응이 없어 보이지 않게 스피너를 켠다. 실패해도 [_share] 가 삼켜 여기서 끈다.
+  Future<void> _shareToKakao(String code) async {
+    if (_sharing) return;
+    setState(() => _sendingToKakao = true);
+    await _share(() => ref.read(shareInviteProvider)(code));
+    if (mounted) setState(() => _sendingToKakao = false);
+  }
+
+  /// "다른 앱으로 보내기" — 카카오를 거치지 않고 기기 공유 창을 바로 연다.
+  Future<void> _shareToOtherApps(String code) => _share(() => ref.read(shareTextProvider)(inviteShareText(code)));
+
+  Future<void> _share(Future<void> Function() send) async {
     if (_sharing) return;
     _sharing = true;
     try {
-      await ref.read(shareTextProvider)(inviteShareText(code));
+      await send();
     } catch (_) {
       // 공유 창을 못 열었다(기기 쪽 오류). 조용히 끝내지 않는다.
       if (mounted) _showToast(const UnknownFailure().toDisplayMessage());
@@ -130,17 +145,22 @@ class _InviteFriendsSheetState extends ConsumerState<InviteFriendsSheet> {
                               onFailure: (failure) => _loadError(failure.toDisplayMessage(), retry),
                             ),
                           ),
-                          const SizedBox(height: AppSpacing.md),
-                          // 버튼 묶음 `KMbP4` 간격 8. 코드가 없으면 보낼 것도 없다 — 공유하기를 뺀다.
+                          // 버튼 묶음 `KMbP4` 간격 8 — pen 변형 `wNqk2` 는 원본과 글자만 다르다. 닫기 단추가 없어
+                          // 시트는 바깥 누름 · 뒤로 가기로 닫는다. 코드가 없으면 보낼 것도 없다 — 두 단추를 뺀다.
                           if (code != null) ...[
-                            AppButton(label: '공유하기', onPressed: () => _share(code)),
+                            const SizedBox(height: AppSpacing.md),
+                            AppButton(
+                              label: '카카오톡으로 보내기',
+                              isLoading: _sendingToKakao,
+                              onPressed: () => _shareToKakao(code),
+                            ),
                             const SizedBox(height: AppSpacing.xs),
+                            AppButton(
+                              label: '다른 앱으로 보내기',
+                              variant: AppButtonVariant.text,
+                              onPressed: () => _shareToOtherApps(code),
+                            ),
                           ],
-                          AppButton(
-                            label: '닫기',
-                            variant: AppButtonVariant.text,
-                            onPressed: () => Navigator.of(context).pop(),
-                          ),
                         ],
                       ),
                     ),
