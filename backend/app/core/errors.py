@@ -22,6 +22,8 @@ CONSENT_INCOMPLETE = "필수 항목에 모두 동의해 주세요"
 # 학교 메일 확인(school_email, 소셜 로그인 전환). 최종 문구는 디자인에서 정한다 — 지금은 임시 문구.
 SCHOOL_EMAIL_UNKNOWN_DOMAIN = "등록되지 않은 학교 메일이에요"
 SCHOOL_EMAIL_BLOCKED = "재가입이 제한된 메일이에요"
+# 메일 앞부분의 + 별칭(hong+2@…) — 한 메일함으로 계정을 여럿 만드는 길이라 막는다(10-18 보안 점검). 훅 · verify 가 같은 문구다.
+SCHOOL_EMAIL_ALIAS = "학교 메일 원래 주소로 인증해 주세요"
 # {provider} 에는 SCHOOL_EMAIL_PROVIDER_LABELS 의 이름이 들어간다. 앱은 문구가 아니라 응답의 provider 로 가른다.
 SCHOOL_EMAIL_TAKEN = "이 메일은 {provider}로 가입돼 있어요"
 SCHOOL_EMAIL_PROVIDER_LABELS = {"kakao": "카카오", "google": "구글", "apple": "애플"}
@@ -45,6 +47,7 @@ CODE_SCHOOL_EMAIL_ALREADY_VERIFIED = "SCHOOL_EMAIL_ALREADY_VERIFIED"
 CODE_SCHOOL_EMAIL_SOCIAL_ONLY = "SCHOOL_EMAIL_SOCIAL_ONLY"
 CODE_SCHOOL_EMAIL_DOMAIN_NOT_ALLOWED = "SCHOOL_EMAIL_DOMAIN_NOT_ALLOWED"
 CODE_SCHOOL_EMAIL_REJOIN_BLOCKED = "SCHOOL_EMAIL_REJOIN_BLOCKED"
+CODE_SCHOOL_EMAIL_ALIAS_NOT_ALLOWED = "SCHOOL_EMAIL_ALIAS_NOT_ALLOWED"
 CODE_SCHOOL_EMAIL_TAKEN = "SCHOOL_EMAIL_TAKEN"
 CODE_PROFILE_NOT_FOUND = "PROFILE_NOT_FOUND"
 CODE_AUTH_UNAVAILABLE = "AUTH_UNAVAILABLE"

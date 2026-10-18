@@ -141,6 +141,34 @@ def test_blocked_email_hash_uses_identity_key():
     assert hash_email(SECRET, "hong@snu.ac.kr") != expected
 
 
+@pytest.mark.parametrize("email", ["hong+2@snu.ac.kr", " Hong+X@SNU.ac.kr", "+@snu.ac.kr"])
+def test_a_plus_alias_of_a_school_domain_gets_no_code(email):
+    """+ 별칭은 한 메일함으로 계정을 여럿 만드는 길이다 — 번호 메일 자체가 나가지 않게 훅에서 거절한다."""
+    seen: list[httpx.Request] = []
+
+    response = _post_hook(TestClient(app), _user(email), _db(seen))
+
+    assert response.status_code == 200
+    assert response.json() == {"error": {"http_code": 422, "message": "학교 메일 원래 주소로 인증해 주세요"}}
+    assert [r.url.path for r in seen] == ["/rest/v1/university_email_domains"]
+
+
+def test_a_plus_alias_of_an_unknown_domain_still_says_unknown_domain():
+    """도메인이 먼저다 — 등록 안 된 학교면 별칭이어도 예전 그대로 '등록되지 않은 학교 메일'(기록도 그대로)."""
+    seen: list[httpx.Request] = []
+
+    response = _post_hook(TestClient(app), _user("hong+2@unknown.ac.kr"), _db(seen))
+
+    assert response.json() == UNKNOWN_DOMAIN_REJECTION
+    assert _record_bodies(seen) == [{"p_domain": "unknown.ac.kr"}]
+
+
+def test_a_plus_in_the_domain_part_is_just_an_unknown_domain():
+    response = _post_hook(TestClient(app), _user("hong@snu+ac.kr"), _db([]))
+
+    assert response.json() == {"error": {"http_code": 422, "message": "등록되지 않은 학교 메일이에요"}}
+
+
 def test_an_email_signup_without_an_email_is_rejected():
     response = _post_hook(TestClient(app), _user(email=None), _db([]))
 

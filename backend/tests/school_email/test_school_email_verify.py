@@ -212,6 +212,40 @@ def test_a_temp_account_that_is_not_exactly_a_confirmed_email_account_is_refused
     assert world.rpc_bodies == []
 
 
+# 6-c: 메일 앞부분의 + 별칭 — 한 메일함으로 계정을 여럿 만드는 길을 막는다 -------------------------------------
+
+@pytest.mark.parametrize("email", ["hong+2@snu.ac.kr", " Hong+Second@SNU.ac.kr ", "+@snu.ac.kr"])
+def test_a_plus_alias_school_email_is_422_and_the_temp_account_goes(client, world, email):
+    world.tokens[TEMP_TOKEN] = temp_email_user(email)
+
+    response = _verify(client)
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "학교 메일 원래 주소로 인증해 주세요", "code": "SCHOOL_EMAIL_ALIAS_NOT_ALLOWED"}
+    # 도메인 다음, 재가입 제한 · DB 함수 전에 멈춘다(훅과 같은 순서). 결과가 정해졌으니 임시 계정은 지운다.
+    assert len(world.calls("GET", "/rest/v1/university_email_domains")) == 1
+    assert world.calls("GET", "/rest/v1/signup_blocks") == []
+    assert world.rpc_bodies == []
+    assert world.deleted_users == [TEMP]
+
+
+def test_a_plus_alias_of_an_unknown_domain_still_says_unknown_domain(client, world):
+    world.tokens[TEMP_TOKEN] = temp_email_user("hong+2@unknown.ac.kr")
+
+    response = _verify(client)
+
+    assert response.json() == {"detail": "등록되지 않은 학교 메일이에요", "code": "SCHOOL_EMAIL_DOMAIN_NOT_ALLOWED"}
+
+
+def test_a_plus_in_the_domain_part_is_not_an_alias(client, world):
+    """+ 는 앞부분(로컬 파트)에서만 본다 — 뒷부분이면 그냥 등록 안 된 도메인이다."""
+    world.tokens[TEMP_TOKEN] = temp_email_user("hong@snu+ac.kr")
+
+    response = _verify(client)
+
+    assert response.json()["code"] == "SCHOOL_EMAIL_DOMAIN_NOT_ALLOWED"
+
+
 # 7~8: 도메인 · 재가입 제한(옛 훅 → check 에서 옮겨 온 검사) — 결과가 정해졌으니 임시 계정은 지운다 ---------
 
 def test_an_unregistered_domain_is_422_and_the_temp_account_goes(client, world):

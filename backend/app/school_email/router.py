@@ -18,7 +18,7 @@ from app.core import errors
 from app.core.deps import Caller, get_caller, get_now
 from app.school_email.repository import SchoolEmailRepository
 from app.settings import Settings
-from app.signup_policy import SignupPolicy, hash_email
+from app.signup_policy import SignupPolicy, has_plus_alias, hash_email
 from app.student_verification.current_user import fetch_auth_user, reject_suspended
 
 router = APIRouter()
@@ -219,6 +219,8 @@ async def _decide(caller: Caller, email: str, provider: str):
     if university_id is None:
         await policy.record_unknown_domain(domain)  # 최선만 — 실패해도 422 는 그대로
         return _error(422, errors.SCHOOL_EMAIL_UNKNOWN_DOMAIN, errors.CODE_SCHOOL_EMAIL_DOMAIN_NOT_ALLOWED)
+    if has_plus_alias(email):  # 훅이 먼저 막는다 — 훅을 거치지 않은 임시 계정(옛 훅 · 설정 사고)에 대한 두 번째 문
+        return _error(422, errors.SCHOOL_EMAIL_ALIAS, errors.CODE_SCHOOL_EMAIL_ALIAS_NOT_ALLOWED)
     email_hmac = hash_email(settings.identity_hmac_key, email)
     if await policy.is_blocked(email_hmac):
         return _error(422, errors.SCHOOL_EMAIL_BLOCKED, errors.CODE_SCHOOL_EMAIL_REJOIN_BLOCKED)
