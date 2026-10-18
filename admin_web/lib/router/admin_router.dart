@@ -22,8 +22,9 @@ abstract final class GatePaths {
   static const String forbidden = '/forbidden';
   static const String unavailable = '/unavailable';
 
-  /// 로그인 화면에 "구글 로그인을 마치지 못했어요" 를 띄우라는 표시
-  static const String loginFailedQuery = 'failed=1';
+  /// 로그인 화면에 "구글 로그인을 마치지 못했어요" 를 띄우라는 표시(`failed=1`). 화면은 값까지 정확히 비교한다.
+  static const String loginFailedParam = 'failed';
+  static const String loginFailedQuery = '$loginFailedParam=1';
 }
 
 /// 관문 단계에 맞는 주소로 보낸다. 판정 전(null)은 불러오는 중, 준비가 끝나면 메뉴 화면만 연다.
@@ -68,7 +69,13 @@ class GateRedirector {
   String? redirect(GateStage? stage, Uri uri) {
     final path = uri.path;
     final clean = _withoutAuth(uri).toString();
-    if (_isAuthFailure(uri)) _authFailed = true;
+    if (stage == null || stage is SignedOut) {
+      if (_isAuthFailure(uri)) _authFailed = true;
+    } else {
+      // 로그인 밖 단계(2단계 · 권한 없음 · 셸 …)로 판정됐다 — 실패 표시는 그 로그인 시도 몫이라 버린다.
+      // 남겨 두면 나중에 로그아웃했을 때 로그인 화면에 실패 줄이 잘못 뜬다.
+      _authFailed = false;
+    }
     final target = switch (stage) {
       null => GatePaths.loading,
       ConfigMissing() => GatePaths.setup,
@@ -90,7 +97,6 @@ class GateRedirector {
       }
       return target;
     }
-    _authFailed = false;
     final wanted = _wanted;
     _wanted = null;
     if (wanted != null && wanted != uri.toString()) return wanted;

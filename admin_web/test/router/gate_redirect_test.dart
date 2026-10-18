@@ -115,6 +115,22 @@ void main() {
     expect(go(r, const SignedOut(), GatePaths.loading), '/login?failed=1');
   });
 
+  test('로그인 화면이 아닌 단계에서 본 ?error= 는 나중 로그인 화면에 실패 줄을 남기지 않는다', () {
+    final r = GateRedirector();
+
+    expect(go(r, const VerifyMfa('f'), '/?error=access_denied'), GatePaths.verify);
+    // 2단계 입력에서 로그아웃 — 구글 로그인이 실패한 게 아니다
+    expect(go(r, const SignedOut(), GatePaths.verify), GatePaths.login);
+  });
+
+  test('판정 중에 본 ?error= 도 로그인 밖 단계로 판정되면 버린다', () {
+    final r = GateRedirector();
+
+    expect(go(r, null, '/?error=access_denied'), GatePaths.loading);
+    expect(go(r, const VerifyMfa('f'), GatePaths.loading), GatePaths.verify);
+    expect(go(r, const SignedOut(), GatePaths.verify), GatePaths.login);
+  });
+
   test('주소가 속한 메뉴: 정확히 같거나 그 아래, 홈은 / 하나만', () {
     expect(AdminSection.ownerOf('/reports'), AdminSection.reports);
     expect(AdminSection.ownerOf('/reports/123'), AdminSection.reports);

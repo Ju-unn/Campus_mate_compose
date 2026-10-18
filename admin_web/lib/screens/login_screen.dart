@@ -39,7 +39,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   bool _returnedWithError(BuildContext context) {
-    return GoRouterState.of(context).uri.query.contains(GatePaths.loginFailedQuery);
+    return GoRouterState.of(context).uri.queryParameters[GatePaths.loginFailedParam] == '1';
   }
 
   @override
