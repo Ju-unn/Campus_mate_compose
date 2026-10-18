@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 /// pen Web/StatCard(FP6Ml): 폭 280 · 높이 146(A5 · A8 PNG 측정 — 글자를 키우면 이보다 커진다) · web-surface · web-outline 1 · 모서리 14 · 안쪽 24 ·
 /// 라벨 14/600 web-muted → 12 → 값 32/700 web-ink → (있으면) 8 → [footer]. 값은 일반 Text 로만 그린다.
 class StatCard extends StatelessWidget {
-  const StatCard({super.key, required this.label, required this.value, this.footer});
+  const StatCard({super.key, required this.label, required this.value, this.footer, this.fill = false});
 
   static const double width = 280;
   static const double height = 146;
@@ -15,12 +15,15 @@ class StatCard extends StatelessWidget {
   final String value;
   final Widget? footer;
 
+  /// 켜면 폭 280 고정 대신 부모(Expanded)가 준 폭을 채운다(A9 네 장 — 272)
+  final bool fill;
+
   @override
   Widget build(BuildContext context) {
     final shape = BorderRadius.circular(AdminRadius.md);
     final footer = this.footer;
     return Container(
-      width: width,
+      width: fill ? null : width,
       constraints: const BoxConstraints(minHeight: height),
       padding: const EdgeInsets.all(AdminSpacing.lg),
       decoration: BoxDecoration(color: AdminColors.surface, borderRadius: shape),
