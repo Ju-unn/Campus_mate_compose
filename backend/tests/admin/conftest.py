@@ -15,7 +15,7 @@ def world() -> AdminWorld:
 @pytest.fixture
 def client(world: AdminWorld):
     http = httpx.AsyncClient(transport=httpx.MockTransport(world.handle))
-    app.dependency_overrides[get_settings] = lambda: settings()
+    app.dependency_overrides[get_settings] = lambda: settings(**world.settings_overrides)
     app.dependency_overrides[get_client] = lambda: http
     yield TestClient(app)
     app.dependency_overrides.clear()

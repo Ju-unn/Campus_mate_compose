@@ -81,6 +81,33 @@ def bearer(**claims) -> dict[str, str]:
     return {"Authorization": f"Bearer {_b64url({'alg': 'ES256', 'typ': 'JWT'})}.{_b64url(claims)}.signature"}
 
 
+def user_profile(uid: str, nickname: str | None = "하늘", *, status: str = "active", university: str | None = "테스트대학교",
+                 created_at: str = "2026-09-30T00:00:00+00:00", avatar: str | None = None, **overrides) -> dict:
+    """profiles 한 줄 — 서버가 고르는 select(학교 · 아바타 임베드 포함)를 PostgREST 가 돌려주는 모양."""
+    return {
+        "id": uid, "nickname": nickname, "status": status, "created_at": created_at,
+        "last_active_at": "2026-10-18T00:00:00+00:00", "auto_hidden_at": None, "school_email_verified_at": created_at,
+        "universities": None if university is None else {"name": university},
+        "profile_avatars": [] if avatar is None else [{"storage_path": avatar, "status": "ready", "created_at": created_at}],
+        **overrides,
+    }
+
+
+def _project(row: dict, select: str) -> dict:
+    """PostgREST select 문자열("a,b,rel(c,d)")이 고르는 칸만 남긴다. 임베드 rel(...) 은 행에 같은 이름 칸이 있으면 통째로 싣는다."""
+    names, depth, current = [], 0, ""
+    for ch in select:
+        depth += ch == "("
+        depth -= ch == ")"
+        if ch == "," and depth == 0:
+            names.append(current)
+            current = ""
+        else:
+            current += ch
+    names.append(current)
+    return {name.split("(")[0]: row[name.split("(")[0]] for name in names if name.split("(")[0] in row}
+
+
 class AdminWorld:
     """ADMIN 한 명이 admin_users 에 있는 세상. 로그인한 사람은 caller 로 바꾼다."""
 
@@ -114,6 +141,28 @@ class AdminWorld:
         self.rpcs: list[tuple[str, dict]] = []
         self.rpc_error_code: str | None = None
         self.rpc_error_message = "x"
+        # 사용자 · 결제 · 작업 기록(D3). user_profiles 는 id → profiles 한 줄(PostgREST 가 고르는 모양), claims 는 school_email_claims 줄들,
+        # report_targets 는 신고 한 건마다 신고당한 사람 id, balances / ledger / purchases / action_rows / contact_blocks 는 표 줄들,
+        # auth_users 는 auth 관리자 API 의 사용자(identities), rpc_results 는 새 DB 함수 이름 → 돌려줄 JSON,
+        # table_status 는 경로 → 그 경로를 통째로 실패시키는 상태 코드.
+        self.user_profiles: dict[str, dict] = {}
+        self.claims: list[dict] = []
+        self.report_targets: list[str] = []
+        self.balances: dict[str, int] = {}
+        self.ledger: dict[str, list[dict]] = {}
+        self.purchases: list[dict] = []
+        self.action_rows: list[dict] = []
+        self.contact_blocks: dict[str, int] = {}
+        self.auth_users: dict[str, dict] = {}
+        self.auth_user_status = 200
+        self.rpc_results: dict[str, object] = {}
+        self.table_status: dict[str, int] = {}
+        # 열람(D3 Task 4): 복호화한 전화 · 카톡 아이디. 탈퇴 대행(Task 5): 푸시 토큰 삭제 · Storage 목록 · 카카오 연결 끊기의 응답 상태.
+        self.phone: str | None = None
+        self.kakao_id: str | None = None
+        self.kakao_unlinks: list[httpx.Request] = []
+        # get_settings 를 시험마다 바꾸는 값(예: {"kakao_admin_key": "..."}). conftest 의 람다가 요청마다 읽는다.
+        self.settings_overrides: dict = {}
 
     def _act(self, name: str, body: dict) -> httpx.Response:
         """DB 함수와 같은 약속: 없으면 CM404, 이미 그 상태면 CM409. PostgREST 는 모르는 코드를 400 으로 보낸다."""
@@ -150,6 +199,12 @@ class AdminWorld:
 
     def _reports(self, params) -> httpx.Response:
         # 네 조회를 params 키로 가른다 — 신고자 세기(select=reporter_id) · 같은 대상(target_profile_id) · 한 건(id) · 목록.
+        if params.get("select") == "id" and "target_profile_id" in params:  # 한 사람이 받은 신고 수(count=exact)
+            target = params["target_profile_id"].removeprefix("eq.")
+            return httpx.Response(200, json=[], headers={"Content-Range": f"*/{self.report_targets.count(target)}"})
+        if params.get("target_profile_id", "").startswith("in."):  # 목록의 신고 수를 한 번에
+            wanted = params["target_profile_id"].removeprefix("in.(").removesuffix(")").split(",")
+            return httpx.Response(200, json=[{"target_profile_id": t} for t in self.report_targets if t in wanted])
         if params.get("select") == "reporter_id":
             target = params["target_profile_id"].removeprefix("eq.")
             return httpx.Response(200, json=[{"reporter_id": r} for r in self.open_reporters.get(target, [])])
@@ -192,6 +247,48 @@ class AdminWorld:
         row.update(status=body["p_status"], reject_reason=body["p_reject_reason"], reviewed_at="2026-10-18T02:00:00+00:00")
         return httpx.Response(200, json={key: row[key] for key in ("id", "status", "reject_reason", "reward_hearts", "reviewed_at")})
 
+    def _profiles(self, params) -> httpx.Response:
+        rows = list(self.user_profiles.values())
+        if params.get("id", "").startswith("eq."):
+            rows = [r for r in rows if r["id"] == params["id"].removeprefix("eq.")]
+        if params.get("id", "").startswith("in."):
+            wanted = params["id"].removeprefix("in.(").removesuffix(")").split(",")
+            rows = [r for r in rows if r["id"] in wanted]
+        if params.get("id", "").startswith("not.in."):
+            blocked = params["id"].removeprefix("not.in.(").removesuffix(")").split(",")
+            rows = [r for r in rows if r["id"] not in blocked]
+        if "nickname" in params:  # ilike.*패턴* — 이스케이프(백슬래시)를 풀어 부분 일치로 본다
+            needle = params["nickname"].removeprefix("ilike.*").removesuffix("*").replace("\\", "")
+            rows = [r for r in rows if r["nickname"] and needle.lower() in r["nickname"].lower()]
+        if params.get("order") == "created_at.desc":
+            rows.sort(key=lambda r: r["created_at"], reverse=True)
+        if "limit" in params:
+            rows = rows[:int(params["limit"])]
+        if params.get("select") == "status":
+            rows = [{"status": r["status"]} for r in rows]
+        return httpx.Response(200, json=rows)
+
+    def _admin_actions_get(self, params) -> httpx.Response:
+        rows = list(self.action_rows)
+        for column in ("action", "target_type", "target_id", "admin_user_id"):
+            if column in params:
+                rows = [r for r in rows if r[column] == params[column].removeprefix("eq.")]
+        rows.sort(key=lambda r: (r["created_at"], r["id"]), reverse=True)
+        if "or" in params:  # or=(created_at.lt.X,and(created_at.eq.X,id.lt.Y))
+            first, rest = params["or"][1:-1].split(",and(", 1)
+            at, last_id = first.removeprefix("created_at.lt."), rest.removesuffix(")").split(",id.lt.")[1]
+            rows = [r for r in rows if r["created_at"] < at or (r["created_at"] == at and r["id"] < last_id)]
+        if "limit" in params:
+            rows = rows[:int(params["limit"])]
+        return httpx.Response(200, json=rows)
+
+    def _new_rpc(self, name: str, body: dict) -> httpx.Response:
+        """D3 의 DB 함수들. 돌려줄 값은 rpc_results[name], 오류는 rpc_error_code(D2 와 같은 약속)."""
+        self.rpcs.append((name, body))
+        if self.rpc_error_code:
+            return httpx.Response(400, json={"code": self.rpc_error_code, "message": self.rpc_error_message})
+        return httpx.Response(200, json=self.rpc_results.get(name, [] if name.startswith("admin_billing_") else {}))
+
     def handle(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
         path, params = request.url.path, request.url.params
@@ -200,6 +297,8 @@ class AdminWorld:
         if path == "/rest/v1/admin_users" and request.method == "GET":
             if self.admin_lookup_status >= 400:
                 return httpx.Response(self.admin_lookup_status, json={})
+            if "user_id" not in params:  # 명단 전체(사용자 목록에서 관리자를 뺄 때)
+                return httpx.Response(200, json=[{"user_id": a} for a in sorted(self.admins)])
             user_id = params["user_id"].removeprefix("eq.")
             return httpx.Response(200, json=[{"user_id": user_id}] if user_id in self.admins else [])
         if path == "/rest/v1/admin_actions" and request.method == "POST":
@@ -219,6 +318,9 @@ class AdminWorld:
             if object_path in self.unsignable:
                 return httpx.Response(400, json={"error": "not_found"})
             return httpx.Response(200, json={"signedURL": f"/object/sign/heart-task-proofs/{object_path}?token=t"})
+        d3 = self._d3(request, path, params)
+        if d3 is not None:
+            return d3
         if path.startswith("/rest/v1/rpc/admin_") and request.method == "POST":
             name, body = path.removeprefix("/rest/v1/rpc/"), json.loads(request.content)
             self.rpcs.append((name, body))
@@ -236,6 +338,55 @@ class AdminWorld:
                 return httpx.Response(400, json={"error": "not_found"})
             return httpx.Response(200, json={"signedURL": f"/object/sign/profile-photos/{object_path}?token=t"})
         raise AssertionError(f"관리자 가짜가 모르는 요청 {request.method} {path}")
+
+    def _d3(self, request: httpx.Request, path: str, params) -> httpx.Response | None:
+        """D3(사용자 · 결제 · 작업 기록)가 부르는 곳. 모르는 요청은 None 이라 D2 분기와 마지막 AssertionError 로 간다."""
+        method = request.method
+        if path in self.table_status:  # 경로 하나를 통째로 실패시킨다
+            return httpx.Response(self.table_status[path], json={})
+        if path == "/rest/v1/profiles" and method == "GET":
+            return self._profiles(params)
+        if path == "/rest/v1/school_email_claims" and method == "GET":
+            key, value = next((k, v) for k, v in params.items() if k in ("school_email_hmac", "profile_id"))
+            rows = [c for c in self.claims if c[key] == value.removeprefix("eq.")]
+            return httpx.Response(200, json=[{k: c[k] for k in ("profile_id", "school_email_hmac", "key_version")} for c in rows])
+        if path == "/rest/v1/entitlements" and method == "GET":
+            uid = params["profile_id"].removeprefix("eq.")
+            return httpx.Response(200, json=[{"heart_balance": self.balances[uid]}] if uid in self.balances else [])
+        if path == "/rest/v1/heart_transactions" and method == "GET":
+            return httpx.Response(200, json=self.ledger.get(params["profile_id"].removeprefix("eq."), []))
+        if path == "/rest/v1/contact_blocks" and method == "GET":
+            count = self.contact_blocks.get(params["owner_id"].removeprefix("eq."), 0)
+            return httpx.Response(200, json=[], headers={"Content-Range": f"*/{count}"})
+        if path == "/rest/v1/purchases" and method == "GET":
+            key = "profile_id" if "profile_id" in params else "store_order_id"
+            rows = [r for r in self.purchases if r[key] == params[key].removeprefix("eq.")]
+            if "limit" in params:
+                rows = rows[:int(params["limit"])]
+            # PostgREST 는 select 에 적은 칸만 돌려준다 — 서버가 주문 번호 · 토큰 해시를 고르지 않았는지 시험이 볼 수 있게 같이 자른다.
+            return httpx.Response(200, json=[_project(r, params["select"]) for r in rows])
+        if path == "/rest/v1/admin_actions" and method == "GET":
+            return self._admin_actions_get(params)
+        if path.startswith("/auth/v1/admin/users/") and method == "GET":
+            user = self.auth_users.get(path.removeprefix("/auth/v1/admin/users/"))
+            if self.auth_user_status >= 400 or user is None:
+                return httpx.Response(self.auth_user_status if self.auth_user_status >= 400 else 404, json={})
+            return httpx.Response(200, json=user)
+        if path == "/rest/v1/push_tokens" and method == "DELETE":
+            return httpx.Response(204)
+        if path == "/storage/v1/object/list/student-id-temp" and method == "POST":
+            return httpx.Response(200, json=[])
+        if path == "/v1/user/unlink" and method == "POST":  # 카카오(kapi.kakao.com) 연결 끊기
+            self.kakao_unlinks.append(request)
+            return httpx.Response(200, json={"id": 1})
+        if path == "/rest/v1/rpc/decrypt_phone_number" and method == "POST":
+            return httpx.Response(200, content=json.dumps(self.phone), headers={"content-type": "application/json"})
+        if path == "/rest/v1/rpc/decrypt_profile_private" and method == "POST":
+            return httpx.Response(200, json=[{"real_name": None, "kakao_id": self.kakao_id}])
+        if path in ("/rest/v1/rpc/admin_adjust_hearts", "/rest/v1/rpc/admin_close_account", "/rest/v1/rpc/admin_billing_daily",
+                    "/rest/v1/rpc/admin_billing_shortfall") and method == "POST":
+            return self._new_rpc(path.removeprefix("/rest/v1/rpc/"), json.loads(request.content))
+        return None
 
     def calls(self, method: str, path: str) -> list[httpx.Request]:
         return [r for r in self.requests if r.method == method and r.url.path == path]

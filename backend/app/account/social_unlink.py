@@ -6,9 +6,11 @@
 회원번호 · 코드 · 토큰 · 키는 어디에도 남기지 않는다 — 실패는 부르는 쪽(account/router.py)이 단계 이름만 경고로 남긴다.
 """
 import time
+from uuid import UUID
 
 import httpx
 
+from app.account.repository import SupabaseAdmin
 from app.settings import Settings
 from app.student_verification.current_user import fetch_auth_user
 
@@ -32,6 +34,15 @@ def kakao_member_id(auth_user: dict) -> str | None:
     return None
 
 
+async def _unlink_member(settings: Settings, client: httpx.AsyncClient, member_id: str) -> None:
+    response = await client.post(
+        KAKAO_UNLINK_URL,
+        headers={"Authorization": f"KakaoAK {settings.kakao_admin_key}"},
+        data={"target_id_type": "user_id", "target_id": member_id},
+    )
+    response.raise_for_status()
+
+
 async def unlink_kakao(settings: Settings, client: httpx.AsyncClient, authorization: str) -> None:
     """키(kakao_admin_key)가 비었거나 카카오 계정이 아니면 아무것도 하지 않는다. 실패하면 예외다."""
     if not settings.kakao_admin_key:
@@ -39,12 +50,19 @@ async def unlink_kakao(settings: Settings, client: httpx.AsyncClient, authorizat
     member_id = kakao_member_id(await fetch_auth_user(settings, client, authorization))
     if member_id is None:
         return
-    response = await client.post(
-        KAKAO_UNLINK_URL,
-        headers={"Authorization": f"KakaoAK {settings.kakao_admin_key}"},
-        data={"target_id_type": "user_id", "target_id": member_id},
-    )
-    response.raise_for_status()
+    await _unlink_member(settings, client, member_id)
+
+
+async def unlink_kakao_for_user(settings: Settings, client: httpx.AsyncClient, user_id: UUID | str) -> bool:
+    """관리자 탈퇴 대행용. 본인 토큰이 없으니 auth 관리자 API 의 identities 에서 회원번호를 읽는다.
+    키가 비었거나 카카오 계정이 아니면 False(할 일 없음), 끊었으면 True, 실패하면 예외다. 회원번호는 어디에도 남기지 않는다."""
+    if not settings.kakao_admin_key:
+        return False
+    member_id = kakao_member_id(await SupabaseAdmin(settings, client).fetch_user(user_id))
+    if member_id is None:
+        return False
+    await _unlink_member(settings, client, member_id)
+    return True
 
 
 def apple_client_secret(settings: Settings, now: float) -> str:
