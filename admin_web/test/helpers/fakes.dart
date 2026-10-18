@@ -9,6 +9,7 @@ import 'package:campus_mate_admin/providers.dart';
 import 'package:campus_mate_admin/router/admin_router.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -102,10 +103,13 @@ class FakeServer {
 
 /// pen 기준 화면(1440×900)으로 앱 전체를 띄운다. 필요하면 [size] 로 좁히고,
 /// [initialPath] 로 브라우저 주소창에 친 주소처럼 시작한다. [settle] 이 거짓이면 첫 장면만 그린다(불러오는 중 확인용).
+/// [api] 를 주면 [server] 대신 그것을 쓰고(경로마다 답하는 가짜), [overrides] 는 그 밖의 갈아 끼울 것(시계 · 사진).
 Future<void> pumpAdminApp(
   WidgetTester tester, {
   required FakeAdminAuth auth,
   FakeServer? server,
+  AdminApi? api,
+  List<Override> overrides = const [],
   AdminConfig config = completeConfig,
   Size size = const Size(1440, 900),
   String? initialPath,
@@ -124,8 +128,9 @@ Future<void> pumpAdminApp(
       overrides: [
         adminConfigProvider.overrideWithValue(config),
         adminAuthProvider.overrideWithValue(auth),
-        adminApiProvider.overrideWithValue((server ?? FakeServer(200)).api()),
+        adminApiProvider.overrideWithValue(api ?? (server ?? FakeServer(200)).api()),
         pageReloaderProvider.overrideWithValue(onReload ?? () {}),
+        ...overrides,
       ],
       child: const AdminApp(),
     ),

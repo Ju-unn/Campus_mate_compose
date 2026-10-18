@@ -1,5 +1,6 @@
 import 'package:campus_mate_admin/gate/gate_controller.dart';
 import 'package:campus_mate_admin/gate/gate_stage.dart';
+import 'package:campus_mate_admin/heart_tasks/heart_task_review_screen.dart';
 import 'package:campus_mate_admin/screens/login_screen.dart';
 import 'package:campus_mate_admin/screens/mfa_enroll_screen.dart';
 import 'package:campus_mate_admin/screens/mfa_verify_screen.dart';
@@ -141,14 +142,27 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
   return router;
 });
 
-/// 메뉴 화면과 그 아래 상세 자리(`/reports/123` — 디스코드 알림 링크가 다음 조각에서 쓴다). 홈은 아래 자리가 없다.
-/// 상세는 목록 안에 겹치지(nested) 않고 나란히 둔다 — 겹치면 밑에 깔린 목록 페이지가 그려지지 않은 채
-/// SelectionArea 가 그 글자를 재려다 멈춘다(10-18 시험에서 확인).
+/// 메뉴 화면과 그 아래 상세 자리(`/heart-tasks/{id}` — 디스코드 알림 링크). 홈은 아래 자리가 없다.
+/// 상세 주소는 목록 안에 겹치지(nested) 않고 나란히 둔다 — 겹치면 밑에 깔린 목록 페이지가 그려지지 않은 채
+/// SelectionArea 가 그 글자를 재려다 멈춘다(10-18 시험에서 확인). 상세 주소도 같은 화면을 열고 그 건을 고른다.
 List<GoRoute> _sectionRoutes(AdminSection section) {
-  // 글자 끌어 복사는 페이지마다(셸 전체가 아니라 — admin_shell.dart 주석)
-  final page = SelectionArea(child: PlaceholderScreen(section: section));
-  GoRoute route(String path) => GoRoute(path: path, pageBuilder: (context, state) => NoTransitionPage<void>(child: page));
+  GoRoute route(String path) => GoRoute(
+    path: path,
+    pageBuilder: (context, state) => NoTransitionPage<void>(
+      key: state.pageKey,
+      // 글자 끌어 복사는 페이지마다(셸 전체가 아니라 — admin_shell.dart 주석)
+      child: SelectionArea(child: _sectionScreen(section, state.pathParameters['id'])),
+    ),
+  );
   return [route(section.path), if (section != AdminSection.home) route('${section.path}/:id')];
+}
+
+/// 메뉴마다 화면. 아직 만들지 않은 메뉴는 자리 표시.
+Widget _sectionScreen(AdminSection section, String? id) {
+  return switch (section) {
+    AdminSection.heartTasks => HeartTaskReviewScreen(initialId: id),
+    _ => PlaceholderScreen(section: section),
+  };
 }
 
 /// 메뉴는 하루에도 수십 번 오간다 — 화면 전환 움직임 없이 바로 바꾼다.
