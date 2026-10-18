@@ -102,14 +102,15 @@ class AdminWorld:
         self.profiles: dict[str, dict] = {}
         self.rpcs: list[tuple[str, dict]] = []
         self.rpc_error_code: str | None = None
+        self.rpc_error_message = "x"
 
     def _act(self, name: str, body: dict) -> httpx.Response:
         """DB 함수와 같은 약속: 없으면 CM404, 이미 그 상태면 CM409. PostgREST 는 모르는 코드를 400 으로 보낸다."""
-        def refuse(code: str) -> httpx.Response:
-            return httpx.Response(400, json={"code": code, "message": "x"})
+        def refuse(code: str, message: str = "x") -> httpx.Response:
+            return httpx.Response(400, json={"code": code, "message": message})
 
         if self.rpc_error_code:
-            return refuse(self.rpc_error_code)
+            return refuse(self.rpc_error_code, self.rpc_error_message)
         if name == "admin_resolve_report":
             row = self.reports.get(body["p_report"])
             if row is None or row["status"] != "open":
