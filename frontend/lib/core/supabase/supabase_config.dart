@@ -27,11 +27,16 @@ class SupabaseConfig {
     return _url.trim().isNotEmpty && _anonKey.trim().isNotEmpty;
   }
 
+  /// 메인(소셜) 연결의 인증 설정. 앱 로그인은 `signInWithIdToken` 뿐이고 학교 메일은 임시 연결의 코드 입력이라
+  /// 주소(딥링크)로 세션을 받을 일이 없다 — 켜 두면 밖에서 만든 `?code=` · `#access_token=` 링크가 세션을 바꾼다.
+  /// 나머지 값(PKCE · 자동 갱신 · 저장)은 기본값 그대로다.
+  static const FlutterAuthClientOptions mainAuthOptions = FlutterAuthClientOptions(detectSessionInUri: false);
+
   /// Supabase 클라이언트를 실제로 초기화한다.
   Future<void> connect() {
     // supabase_flutter 2.13 부터 anonKey 매개변수는 deprecated 다.
     // publishableKey 와 같은 자리라서 legacy anon 키를 넣어도 똑같이 동작한다.
-    return Supabase.initialize(url: _url, publishableKey: _anonKey);
+    return Supabase.initialize(url: _url, publishableKey: _anonKey, authOptions: mainAuthOptions);
   }
 
   /// 학교 메일 인증용 **임시 연결**(메인 소셜 연결과 별개의 GoTrueClient)을 새로 만든다.
