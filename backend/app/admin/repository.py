@@ -24,8 +24,9 @@ SEEN_REPORTS_REQUIRED = "seen_reports_required"
 _SUBMISSION_SELECT = ("id,task,status,reject_reason,reward_hearts,created_at,reviewed_at,storage_path,"
                       "profiles(id,nickname,universities(name))")
 # 신고 목록 한 줄. reports 는 profiles 를 두 번 가리켜서(reporter_id · target_profile_id) 신고당한 쪽을 FK 칸 이름으로 짚는다.
-# 신고자는 싣지 않는다. 사본(target_snapshot)은 한 건을 고를 때만 읽는다.
+# 신고자는 싣지 않는다. 사본(target_snapshot)은 한 건을 고를 때만 읽는다 — 목록 줄의 투표 질문 앞부분만 별칭 한 칸(preview_question)으로 고른다.
 _REPORT_SELECT = ("id,target_type,target_id,reason,reason_note,status,created_at,resolved_at,"
+                  "preview_question:target_snapshot->>question,"
                   "target_profile:profiles!target_profile_id(id,nickname,status,auto_hidden_at,universities(name))")
 # 신고 대상 종류(report_target) → 글 표. 둘 다 status 가 content_status(visible · blinded)다.
 CONTENT_TABLES = {"poll": "polls", "friend_review": "friend_reviews"}
@@ -101,6 +102,21 @@ class AdminRepository(PostgrestRepository):
         if target_type:
             params["target_type"] = f"eq.{target_type}"
         return await self._rows("reports", params)
+
+    async def count_open_reporters_by_target(self, profile_ids: list[str]) -> dict[str, int]:
+        """목록 줄마다 그 사람의 열린 신고의 서로 다른 신고자 수 — 한 번에 묶어 센다. 자동 가림이 세는 기준
+        (safety/repository.py count_open_reporters)과 같아 탈퇴해 비게 된 신고자(reporter_id null)는 세지 않는다.
+        shortcut: PostgREST 응답 상한(기본 1000줄)을 넘으면 세던 값이 잘린다 — 목록 100줄에 열린 신고가 1000건 넘을 일이 없다, 넘으면 count 함수로."""
+        if not profile_ids:
+            return {}
+        rows = await self._rows("reports", {
+            "select": "target_profile_id,reporter_id", "status": "eq.open", "target_profile_id": f"in.({','.join(profile_ids)})",
+        })
+        reporters: dict[str, set[str]] = {}
+        for row in rows:
+            if row["reporter_id"]:
+                reporters.setdefault(row["target_profile_id"], set()).add(row["reporter_id"])
+        return {target: len(ids) for target, ids in reporters.items()}
 
     async def fetch_report(self, report_id: UUID) -> dict | None:
         rows = await self._rows("reports", {"select": f"{_REPORT_SELECT},target_snapshot", "id": f"eq.{report_id}"})
