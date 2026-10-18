@@ -99,4 +99,29 @@ void main() {
 
     expect(count, 3); // signedIn · signedOut · mfaChallengeVerified
   });
+
+  group('구글 로그인 복귀 주소 판정(보안 검토 낮음 7)', () {
+    bool handles(String url) => isPkceAuthCallback(Uri.parse('https://admin.test$url'));
+
+    test('PKCE 복귀(?code=) · 실패 복귀(?error=)만 세션 교환으로 넘긴다', () {
+      expect(handles('/?code=abc'), isTrue);
+      expect(handles('/?error=access_denied&error_code=403&error_description=x'), isTrue);
+    });
+
+    test('#access_token= 조각(implicit)은 넘기지 않는다 — 링크로 남의 세션을 심지 못한다', () {
+      expect(handles('/#access_token=evil&refresh_token=r&expires_in=3600&token_type=bearer'), isFalse);
+      expect(handles('/heart-tasks/1#access_token=evil&refresh_token=r&expires_in=3600&token_type=bearer'), isFalse);
+      expect(handles('/?access_token=evil&refresh_token=r&expires_in=3600&token_type=bearer'), isFalse);
+    });
+
+    test('조각에만 code · error 가 있어도 넘기지 않는다', () {
+      expect(handles('/#code=abc'), isFalse);
+      expect(handles('/#error=x'), isFalse);
+    });
+
+    test('보통 화면 주소 · 다른 쿼리는 넘기지 않는다', () {
+      expect(handles('/heart-tasks/abc'), isFalse);
+      expect(handles('/reports?status=open'), isFalse);
+    });
+  });
 }
