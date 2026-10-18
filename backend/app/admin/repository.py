@@ -15,6 +15,9 @@ NOT_FOUND = "not_found"
 ALREADY_REVIEWED = "already_reviewed"
 # 신고 닫기 · 정지 · 해제 · 가림 해제 · 글 가림에서 "이미 그 상태" (두 관리자가 같은 건을 누른 두 번째).
 ALREADY_DONE = "already_done"
+# 하트 조정 · 탈퇴 대행 · 열람의 막힘. DB 함수가 CM409 의 message 로 이유를 알려 준다(20261018120000).
+INSUFFICIENT_HEARTS = "insufficient_hearts"
+ACCOUNT_WITHDRAWN = "account_withdrawn"
 # 검수 화면 한 줄에 필요한 칸. storage_path 는 서명 URL 을 만드는 데만 쓰고 응답에는 싣지 않는다.
 _SUBMISSION_SELECT = ("id,task,status,reject_reason,reward_hearts,created_at,reviewed_at,storage_path,"
                       "profiles(id,nickname,universities(name))")
@@ -157,8 +160,9 @@ class AdminRepository(PostgrestRepository):
             "p_reason": reason, "p_ip": ip,
         })
 
-    async def _rpc(self, name: str, body: dict, already: str = ALREADY_DONE) -> dict:
-        """조치 DB 함수들의 오류 약속(42501 · CM404 · CM409 · 22023)을 HTTP 로 바꾼다. 그 밖의 check 위반(기록 사유 500자 등)은 422."""
+    async def _rpc(self, name: str, body: dict, already: str = ALREADY_DONE, conflicts: dict[str, str] | None = None) -> dict:
+        """조치 DB 함수들의 오류 약속(42501 · CM404 · CM409 · 22023)을 HTTP 로 바꾼다. 그 밖의 check 위반(기록 사유 500자 등)은 422.
+        CM409 는 conflicts 에 DB 오류 message 가 있으면 그 이유 코드로, 아니면 already 로 보낸다."""
         response = await self._post(f"rpc/{name}", json=body)
         match error_code(response):
             # admin_assert 가 낸 것만(p_admin 이 명단에 없다 — 관문을 지난 뒤 명단에서 빠졌다). 다른 42501(권한 설정 실수)은 500 이다.
@@ -168,7 +172,7 @@ class AdminRepository(PostgrestRepository):
             case "CM404":
                 raise HTTPException(status_code=404, detail=NOT_FOUND)
             case "CM409":
-                raise HTTPException(status_code=409, detail=already)
+                raise HTTPException(status_code=409, detail=(conflicts or {}).get(response.json().get("message"), already))
             case "22023":
                 raise HTTPException(status_code=422, detail=errors.INVALID_INPUT)
         raise_for_status(response)
