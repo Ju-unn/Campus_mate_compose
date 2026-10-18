@@ -3,7 +3,7 @@ import logging
 import base64
 import json
 from collections.abc import Callable
-from datetime import datetime
+from datetime import datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from uuid import UUID
@@ -21,6 +21,7 @@ from app.core.time import SEOUL
 from app.main import app
 from app.settings import Settings
 from app.signup_policy import bytea_literal, hash_phone
+from app.student_verification.image_validation import MAX_IMAGE_BYTES
 from private_columns import plaintext_gone
 
 PROFILE_ID = UUID("11111111-1111-1111-1111-111111111111")
@@ -94,6 +95,50 @@ def _safe_vision() -> AsyncMock:
     return _vision()
 
 
+def _pending_profile_patch(request: httpx.Request) -> httpx.Response | None:
+    """basic-info 의 프로필 PATCH 는 pending 행만 고친다 — 가입 중(pending)인 사람이면 고친 행 하나를 돌려준다."""
+    if request.url.path == "/rest/v1/profiles" and request.method == "PATCH":
+        return httpx.Response(200, json=[{"id": str(PROFILE_ID)}])
+    return None
+
+
+BASIC_INFO = {"nickname": "가나", "birth_year": 2002, "height_cm": 170, "phone_number": "01001352468", "gender": "male"}
+
+
+def test_basic_info_only_changes_a_profile_that_is_still_signing_up():
+    """온보딩을 마친(active) 사람이 basic-info 를 다시 부르면 성별 · 출생연도 잠금과 닉네임 30일 규칙을 건너뛴다(10-18 보안 점검).
+    PATCH 를 status=eq.pending 으로 묶어 한 번에 판정한다 — 따로 읽고 쓰면 그 사이에 활성화될 수 있다."""
+    patches: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/rest/v1/profiles" and request.method == "PATCH":
+            patches.append(request)
+        return _pending_profile_patch(request) or httpx.Response(200, json=[])
+
+    response = _wire(handler).post("/profile-onboarding/basic-info", headers=AUTH_HEADERS, json=BASIC_INFO)
+
+    assert response.status_code == 200
+    assert patches[0].url.params["id"] == f"eq.{PROFILE_ID}"
+    assert patches[0].url.params["status"] == "eq.pending"
+
+
+def test_basic_info_after_onboarding_is_409_and_saves_nothing_else():
+    writes: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method in ("PATCH", "POST"):
+            writes.append(request.url.path)
+        # status=eq.pending 에 걸리는 행이 없다 — PostgREST 는 고친 행 0개 [] 를 돌려준다.
+        return httpx.Response(200, json=[])
+
+    response = _wire(handler).post("/profile-onboarding/basic-info", headers=AUTH_HEADERS, json=BASIC_INFO)
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": "가입을 마친 뒤에는 내 프로필에서 고쳐 주세요"}
+    # 전화번호(암호화 RPC)도 행 보장도 하지 않는다 — 프로필 PATCH 하나만 나갔다.
+    assert writes == ["/rest/v1/profiles"]
+
+
 def test_basic_info_rejects_duplicate_nickname_with_409():
     def handler(request: httpx.Request) -> httpx.Response:
         if "/rest/v1/profiles" in str(request.url) and request.method == "PATCH":
@@ -129,7 +174,7 @@ def test_basic_info_creates_private_row_before_saving_phone():
             return httpx.Response(201)
         if "/rest/v1/rpc/set_phone_number" in url:
             calls.append("set_phone_number")
-        return httpx.Response(200, json=[])
+        return _pending_profile_patch(request) or httpx.Response(200, json=[])
 
     response = _wire(handler).post(
         "/profile-onboarding/basic-info",
@@ -152,7 +197,7 @@ def test_basic_info_saves_the_phone_number_in_e164():
     def handler(request: httpx.Request) -> httpx.Response:
         if "/rest/v1/rpc/set_phone_number" in str(request.url):
             sent.append(json.loads(request.content))
-        return httpx.Response(200, json=[])
+        return _pending_profile_patch(request) or httpx.Response(200, json=[])
 
     response = _wire(handler).post(
         "/profile-onboarding/basic-info",
@@ -274,7 +319,7 @@ def test_basic_info_rejects_under_nineteen_with_422():
     """가입 나이 자격은 Asia/Seoul 기준 올해 - birth_year >= 19 다(ERD.md). 경계값 19/18 을 같이 본다."""
     this_year = datetime.now(SEOUL).year
     body = {"nickname": "가나", "height_cm": 170, "phone_number": "01001352468", "gender": "male"}
-    client = _wire(lambda request: httpx.Response(200, json=[]))
+    client = _wire(lambda request: _pending_profile_patch(request) or httpx.Response(200, json=[]))
 
     just_old_enough = client.post(
         "/profile-onboarding/basic-info", headers=AUTH_HEADERS, json=body | {"birth_year": this_year - 19}
@@ -399,6 +444,43 @@ def test_photo_upload_rejects_a_document_like_photo_and_saves_nothing(caplog):
     # 거절 로그는 경로 이름만 — 프로필 id · 글자 원문은 없다.
     assert "verdict=document" in caplog.text and "source=onboarding" in caplog.text
     assert str(PROFILE_ID) not in caplog.text and "홍길동" not in caplog.text
+
+
+def test_photo_upload_reads_at_most_one_byte_past_the_size_limit(upload_read_sizes):
+    """10MB 를 넘는 사진을 끝까지 메모리로 읽지 않는다 — 한도 + 1 바이트만 읽어 넘었는지만 안다(10-18 보안 점검)."""
+    seen: list[httpx.Request] = []
+    app.dependency_overrides[get_vision_client] = _safe_vision
+    response = _wire(lambda request: seen.append(request) or httpx.Response(200, json=[])).post(
+        "/profile-onboarding/photos", headers=AUTH_HEADERS,
+        files={"photo": ("a.png", _PNG_BYTES + b"0" * MAX_IMAGE_BYTES, "image/png")}, data={"position": "0"},
+    )
+
+    assert response.status_code == 400
+    assert upload_read_sizes == [MAX_IMAGE_BYTES + 1]
+    assert _writes(seen) == []
+
+
+PHOTO_CHECK_TIME = datetime(2026, 10, 18, 12, 0, tzinfo=SEOUL)
+
+
+def test_photo_checks_stop_at_thirty_a_day_before_vision_is_called():
+    """Vision 은 사진마다 과금된다 — 사람당 하루(24시간) 30번에서 멈춘다(10-18 보안 점검). 막힌 요청은 Vision 도 저장도 없다."""
+    app.dependency_overrides[deps.get_now] = lambda: PHOTO_CHECK_TIME
+    vision_client = _vision()
+    for _ in range(30):
+        assert _upload_photo_with(vision_client, []).status_code == 200
+
+    seen: list[httpx.Request] = []
+    response = _upload_photo_with(vision_client, seen)
+
+    assert response.status_code == 429
+    assert response.json() == {"detail": "오늘은 사진을 더 올릴 수 없어요, 내일 다시 시도해 주세요"}
+    assert vision_client.batch_annotate_images.await_count == 30
+    assert _writes(seen) == []
+
+    # 첫 검사에서 24시간이 지나면 다시 된다(창이 밀린다).
+    app.dependency_overrides[deps.get_now] = lambda: PHOTO_CHECK_TIME + timedelta(hours=24, seconds=1)
+    assert _upload_photo_with(vision_client, []).status_code == 200
 
 
 def test_photo_upload_rejects_an_unsafe_photo_with_the_old_message():
@@ -741,6 +823,44 @@ def test_free_text_with_forty_one_lines_is_422_and_writes_nothing(path, field):
 
     assert response.status_code == 422
     assert patched == []
+
+
+def _post_ideal_conditions(flags: dict) -> tuple[httpx.Response, list[dict]]:
+    patched: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/rest/v1/profiles" and request.method == "PATCH":
+            patched.append(json.loads(request.content))
+        return httpx.Response(200, json=[])
+
+    response = _wire(handler).post("/profile-onboarding/ideal-conditions", headers=AUTH_HEADERS, json={
+        "preferred_age_min": 20, "preferred_age_max": 26, "preferred_mbti_flags": flags,
+        "preferred_animal_types": ["dog"], "preferred_impression_types": ["kind"],
+    })
+    return response, patched
+
+
+@pytest.mark.parametrize("flags", [
+    {"X": True},
+    {"e": True},                                    # 소문자도 다른 키다 — 앱(mbtiPoles)은 대문자 여덟 개만 보낸다
+    {f"k{i}": True for i in range(5000)},           # 큰 dict 가 jsonb 로 그대로 가지 않게
+], ids=["unknown-key", "lower-case", "huge"])
+def test_ideal_conditions_take_only_the_eight_mbti_poles(flags):
+    response, patched = _post_ideal_conditions(flags)
+
+    assert response.status_code == 422
+    # 큰 dict 도 오류는 한 줄이다 — 키마다 한 줄씩 수천 줄짜리 422 를 돌려주지 않는다.
+    assert len(response.json()["detail"]) == 1
+    assert patched == []
+
+
+def test_ideal_conditions_save_the_eight_mbti_poles():
+    flags = {pole: pole in "ENTJ" for pole in "EINSTFJP"}
+
+    response, patched = _post_ideal_conditions(flags)
+
+    assert response.status_code == 200
+    assert patched[0]["preferred_mbti_flags"] == flags
 
 
 def test_ideal_conditions_rejects_empty_face_or_impression_choice():

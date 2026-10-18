@@ -479,7 +479,8 @@ def p_edge_20(run, phone):
 # 소셜 로그인 전환(20261008)으로 14 · 15 의 전제가 둘 다 깨졌다 — 지우지 않고 막아 둔다(번호 그대로, 판정은 남겨 둔다).
 REJOIN_ON_02_BLOCKED = ('소셜 로그인 전환으로 의미 변경, 대체 가설 필요 — 02 는 이제 로그인한 계정의 학교 메일 인증이라 로그아웃 상태에서 '
                         '탈퇴한 메일을 넣을 수 없고, 시험 계정의 학교 메일 해시가 임의값이라 같은 메일 재가입 거절을 확인할 수 없음'
-                        '(school_email_claims — tools.Run._claim)')
+                        '(school_email_claims — tools.Run._claim) — 푸는 날 기대를 바꿔야 함: 이제 훅은 재가입 제한을 보지 않고'
+                        '(verify 422), 공장 메일은 + 별칭이라 별칭 문구가 먼저 남')
 REJOIN_ON_02 = False  # 대체 가설(claims 있는 계정 · 02 로 보내는 needs_school_email 계정)이 생기면 켠다
 
 

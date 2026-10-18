@@ -10,8 +10,8 @@ import pytest
 
 from app.core import errors
 from app.signup_policy import bytea_literal, hash_email
-from verify_world import (AUTH, IDENTITY_KEY, ME, NOW, OTHER, OTHER_TOKEN, SNU, TEMP, TEMP_TOKEN, VerifyWorld, settings,
-                          temp_email_user)
+from verify_world import (AUTH, IDENTITY_KEY, ME, NOW, OTHER, OTHER_TOKEN, SNU, TEMP, TEMP_TOKEN, VerifyWorld, jwt,
+                          settings, temp_email_user)
 
 HMAC = bytea_literal(hash_email(IDENTITY_KEY, "hong@snu.ac.kr"))
 
@@ -210,6 +210,68 @@ def test_a_temp_account_that_is_not_exactly_a_confirmed_email_account_is_refused
     assert response.json()["detail"] == errors.SCHOOL_EMAIL_NOT_CONFIRMED
     assert world.deleted_users == []
     assert world.rpc_bodies == []
+
+
+# 6-a: 임시 토큰의 로그인 방식(amr) — 학교 메일 OTP 로 받은 토큰만. 비밀번호 로그인 토큰은 메일 주인 증거가 아니다 ----------
+
+PASSWORD_TOKEN = jwt({"sub": TEMP, "amr": [{"method": "password", "timestamp": 1791428280}]})
+
+
+@pytest.mark.parametrize("token", [
+    PASSWORD_TOKEN,
+    jwt({"sub": TEMP}),                                                     # amr 없음
+    jwt({"sub": TEMP, "amr": "otp"}),                                       # 모양이 다름
+    jwt({"sub": TEMP, "amr": [{"method": "otp"}, {"method": "password"}]}),  # 비밀번호가 섞임
+    "not-a-jwt",
+    f"{TEMP_TOKEN} {TEMP_TOKEN}",                                           # 토막이 여럿
+], ids=["password", "no-amr", "amr-not-a-list", "otp-and-password", "not-a-jwt", "two-tokens"])
+def test_a_temp_token_not_signed_in_by_otp_is_refused_and_not_deleted(client, world, token):
+    world.tokens[token] = temp_email_user()  # /user 는 확인된 임시 계정이라고 답한다 — 로그인 방식만 다르다
+
+    response = _verify(client, token)
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": errors.SCHOOL_EMAIL_NOT_CONFIRMED, "code": "SCHOOL_EMAIL_NOT_CONFIRMED"}
+    assert world.rpc_bodies == []
+    assert world.deleted_users == []
+
+
+def test_an_otp_token_still_verifies(client, world):
+    assert _verify(client, TEMP_TOKEN).status_code == 200
+
+
+# 6-c: 메일 앞부분의 + 별칭 — 한 메일함으로 계정을 여럿 만드는 길을 막는다 -------------------------------------
+
+@pytest.mark.parametrize("email", ["hong+2@snu.ac.kr", " Hong+Second@SNU.ac.kr ", "+@snu.ac.kr"])
+def test_a_plus_alias_school_email_is_422_and_the_temp_account_goes(client, world, email):
+    world.tokens[TEMP_TOKEN] = temp_email_user(email)
+
+    response = _verify(client)
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "학교 메일 원래 주소로 인증해 주세요", "code": "SCHOOL_EMAIL_ALIAS_NOT_ALLOWED"}
+    # 도메인 다음, 재가입 제한 · DB 함수 전에 멈춘다(훅과 같은 순서). 결과가 정해졌으니 임시 계정은 지운다.
+    assert len(world.calls("GET", "/rest/v1/university_email_domains")) == 1
+    assert world.calls("GET", "/rest/v1/signup_blocks") == []
+    assert world.rpc_bodies == []
+    assert world.deleted_users == [TEMP]
+
+
+def test_a_plus_alias_of_an_unknown_domain_still_says_unknown_domain(client, world):
+    world.tokens[TEMP_TOKEN] = temp_email_user("hong+2@unknown.ac.kr")
+
+    response = _verify(client)
+
+    assert response.json() == {"detail": "등록되지 않은 학교 메일이에요", "code": "SCHOOL_EMAIL_DOMAIN_NOT_ALLOWED"}
+
+
+def test_a_plus_in_the_domain_part_is_not_an_alias(client, world):
+    """+ 는 앞부분(로컬 파트)에서만 본다 — 뒷부분이면 그냥 등록 안 된 도메인이다."""
+    world.tokens[TEMP_TOKEN] = temp_email_user("hong@snu+ac.kr")
+
+    response = _verify(client)
+
+    assert response.json()["code"] == "SCHOOL_EMAIL_DOMAIN_NOT_ALLOWED"
 
 
 # 7~8: 도메인 · 재가입 제한(옛 훅 → check 에서 옮겨 온 검사) — 결과가 정해졌으니 임시 계정은 지운다 ---------
@@ -473,7 +535,8 @@ async def test_the_delete_helper_does_not_delete_when_a_recheck_cannot_be_read(t
 # 서버가 여기서 막지 않으면 호출자가 남의 학교 메일로 인증되고, 그 실제 계정까지 지워진다.
 
 OLD_EMAIL_USER = "99999999-9999-9999-9999-999999999999"
-OLD_TOKEN = "old-email-account-token"
+# 옛 계정 메일로 OTP 를 받아도 GoTrue POST /verify 는 amr "otp" 를 적는다 — 로그인 방식 검사를 지나 6-b 에서 막혀야 한다.
+OLD_TOKEN = jwt({"sub": "99999999-9999-9999-9999-999999999999", "amr": [{"method": "otp", "timestamp": 1791428280}]})
 
 
 def _old_email_account(world: VerifyWorld, created_at: str = "2026-03-02T00:00:00Z", with_profile: bool = True) -> None:

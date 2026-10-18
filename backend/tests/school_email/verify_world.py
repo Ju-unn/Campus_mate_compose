@@ -5,6 +5,7 @@
 
 요청은 경로 + params **키**로 가른다(`"id=eq." in url` 은 `profile_id=eq.` 에도 걸린다).
 """
+import base64
 import json
 from datetime import datetime
 
@@ -19,7 +20,17 @@ OTHER = "44444444-4444-4444-4444-444444444444"
 TEMP = "77777777-7777-7777-7777-777777777777"
 SNU = "22222222-2222-2222-2222-222222222222"
 AUTH = {"Authorization": "Bearer user-token"}
-TEMP_TOKEN = "temp-token"
+
+
+def jwt(claims: dict) -> str:
+    """서명 자리만 가짜인 JWT 모양(header.payload.sig). 서버는 페이로드만 읽는다 — 서명은 가짜 /user 가 대신 확인한다."""
+    def part(value: dict) -> str:
+        return base64.urlsafe_b64encode(json.dumps(value).encode()).rstrip(b"=").decode()
+    return f"{part({'alg': 'HS256', 'typ': 'JWT'})}.{part(claims)}.c2ln"
+
+
+# 앱이 verifyOTP(type: email) 로 받은 임시 토큰. GoTrue POST /verify 는 늘 amr method "otp" 를 적는다.
+TEMP_TOKEN = jwt({"sub": "77777777-7777-7777-7777-777777777777", "amr": [{"method": "otp", "timestamp": 1791428280}]})
 OTHER_TOKEN = "other-social-token"
 IDENTITY_KEY = "identity-key-test"
 NOW = datetime(2026, 10, 8, 12, 0, tzinfo=SEOUL)

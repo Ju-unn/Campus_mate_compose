@@ -298,6 +298,29 @@ def test_post_still_reports_the_fallback_when_the_hearts_grant_fails():
     assert [row["is_fallback"] for row in fake.inserted_avatars] == [True]
 
 
+class _FallbackAlreadyIn(_Fake):
+    """다른 요청(워커의 5번째 실패 · 겹친 POST)이 먼저 기본 아바타 행을 넣었다 — 부분 유일 인덱스
+    profile_avatars_one_fallback 이 두 번째 insert 를 23505 로 튕긴다."""
+
+    def __call__(self, request):
+        if (request.method == "POST" and "/rest/v1/profile_avatars" in str(request.url)
+                and json.loads(request.content).get("is_fallback")):
+            self.requests.append(request)
+            return httpx.Response(409, json={"code": "23505", "message": "duplicate key value violates unique constraint"})
+        return super().__call__(request)
+
+
+def test_post_does_not_pay_twice_when_the_fallback_row_is_already_there():
+    """보상 경쟁(10-18 보안 점검): 두 길이 동시에 5회를 보고 보상해도 하트 10 은 한 번만 — 먼저 넣은 쪽이 이미 줬다."""
+    fake = _FallbackAlreadyIn(attempt_rows=_failed(5))
+
+    response = _post(fake)
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "fallback"
+    assert fake.granted_hearts == []
+
+
 def test_post_counts_the_just_cleaned_pending_row_toward_five():
     """failed 4 + 방금 정리된 pending 1 = 5 다. 정리가 카운트보다 먼저라 이 줄이 성립한다."""
     fake = _Fake(attempt_rows=_failed(4) + [{"status": "failed"}], stale_rows=[{"id": str(uuid4())}])
@@ -552,6 +575,18 @@ def test_worker_pays_the_compensation_on_the_fifth_failure(monkeypatch):
             "is_fallback": True,
         }
     ]
+
+
+def test_worker_does_not_pay_twice_when_the_fallback_row_is_already_there(monkeypatch):
+    """워커의 5번째 실패와 POST 의 5회 보상이 겹쳐도 하트는 한 번 — 두 번째 기본 아바타 insert 는 23505 다."""
+    _verifies(monkeypatch, {"email": SERVICE_ACCOUNT, "email_verified": True})
+    fake = _FallbackAlreadyIn(latest_attempt=_pending_attempt(), attempt_rows=[{"status": "pending"}] + _failed(4))
+
+    response = _worker(fake, _openai(False))
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "fallback"}
+    assert fake.granted_hearts == []
 
 
 def test_worker_skips_a_row_that_is_no_longer_pending(monkeypatch):

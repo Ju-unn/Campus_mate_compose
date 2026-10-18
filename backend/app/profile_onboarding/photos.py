@@ -1,11 +1,19 @@
 import logging
+from datetime import timedelta
 from enum import Enum
 
 from google.cloud import vision
 
 from app.core import errors
+from app.core.rate_window import SlidingWindow
 
 _logger = logging.getLogger(__name__)
+
+# 사진 검사(Vision) 사람당 24시간 상한 — 온보딩 올리기 · 15-7 교체가 한 몫을 같이 쓴다(새 사진 한 장 = 한 번). 사진을 계속
+# 올려 Vision 비용을 키우는 길을 막는다(10-18 보안 점검). 온보딩은 4장이라 다시 고르기를 여러 번 해도 넉넉하다.
+# Vision 을 부르기 **직전에** 잡는다 — 부적절 · 문서로 막힌 장도 이미 과금됐으니 센다. 창의 한계(인스턴스별)는 core/rate_window.
+PHOTO_CHECK_DAILY_LIMIT = 30
+PHOTO_CHECKS = SlidingWindow(PHOTO_CHECK_DAILY_LIMIT, timedelta(hours=24), errors.PHOTO_CHECK_DAILY_LIMIT)
 
 # Vision Likelihood enum: UNKNOWN=0 VERY_UNLIKELY=1 UNLIKELY=2 POSSIBLE=3 LIKELY=4 VERY_LIKELY=5
 _REJECT_THRESHOLD = 4  # LIKELY 이상이면 거부(사전 결정, project_slice2_decisions_2026-09-19)

@@ -10,7 +10,7 @@ import re
 import time
 
 from e2e import area1, tools
-from e2e.area1 import Check, _app, _otp, _signed_in, _signed_up
+from e2e.area1 import Check, _alias_otp, _app, _otp, _signed_in, _signed_up
 from e2e.area1_b3 import _allow_notifications
 from e2e.tools import Blocked
 
@@ -95,7 +95,7 @@ def p_auth_18(run, phone):
 tools.CASE_LIMITS.update({'E-AUTH-18': CASE_LIMIT_SLOW})
 
 
-CASES = {'E-AUTH-14': auth_14}
+CASES = {'E-AUTH-14': _alias_otp(auth_14)}  # 별칭으로 번호를 요청한다 — 학교 메일 + 별칭 금지(10-18 보안)로 막힘
 PHONE = {'E-AUTH-18': p_auth_18}
 
 area1.CASES.update(CASES)

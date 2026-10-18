@@ -141,6 +141,39 @@ async def test_bad_request_is_our_fault_not_a_dead_token():
     assert repo.deleted == []
 
 
+# FCM v1 이 "등록 토큰이 아니다" 로 답하는 400 — BadRequest 의 fieldViolations 가 message.token 을 가리킨다.
+_INVALID_TOKEN_400 = {"error": {
+    "code": 400, "message": "The registration token is not a valid FCM registration token", "status": "INVALID_ARGUMENT",
+    "details": [
+        {"@type": "type.googleapis.com/google.firebase.fcm.v1.FcmError", "errorCode": "INVALID_ARGUMENT"},
+        {"@type": "type.googleapis.com/google.rpc.BadRequest", "fieldViolations": [
+            {"field": "message.token", "description": "The registration token is not a valid FCM registration token"}]},
+    ],
+}}
+
+
+async def test_a_400_that_names_the_token_field_deletes_that_token():
+    """앱이 아무 문자열이나 토큰으로 등록할 수 있다 — FCM 이 토큰 칸을 집어 거절하면 그 토큰은 다시는 안 된다(10-18 보안 점검).
+    payload 문제(다른 칸 · 칸 정보 없음)인 400 은 위 시험처럼 그대로 둔다."""
+    repo = _FakeRepo(["엉터리-토큰"], {"acceptance_received": True, "quiet_hours": False})
+
+    sent = await notify(repo, _sender(lambda request: httpx.Response(400, json=_INVALID_TOKEN_400)), "p1",
+                        "acceptance_received", "제목", "본문", {}, now=datetime(2026, 9, 21, 12, 0, tzinfo=SEOUL))
+
+    assert sent == 0
+    assert repo.deleted == ["엉터리-토큰"]
+
+
+async def test_a_400_about_another_field_keeps_the_token():
+    other_field = {"error": {"code": 400, "status": "INVALID_ARGUMENT", "details": [
+        {"@type": "type.googleapis.com/google.rpc.BadRequest",
+         "fieldViolations": [{"field": "message.data[0].value", "description": "Invalid value"}]}]}}
+
+    result = await _sender(lambda request: httpx.Response(400, json=other_field)).send("tok", "제목", "본문", {})
+
+    assert result == "failed"
+
+
 async def test_notify_deletes_tokens_that_came_back_dead():
     repo = _FakeRepo(["dead"], {"acceptance_received": True, "quiet_hours": False})
 

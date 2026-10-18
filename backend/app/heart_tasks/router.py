@@ -9,7 +9,7 @@ from app.core import errors
 from app.core.deps import Caller, get_verified_caller
 from app.heart_tasks.repository import HeartTaskRepository
 from app.heart_tasks.storage import HeartProofStorage
-from app.student_verification.image_validation import student_id_content_type
+from app.student_verification.image_validation import MAX_IMAGE_BYTES, student_id_content_type
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -83,7 +83,7 @@ async def submit_heart_task(
 ) -> dict:
     """18b 제출. 검수 중이면 409, 이번 달 한도면 429 — 둘 다 사진을 올리기 전에 먼저 본다(고아 파일을 줄이려고).
     최종 판정은 DB 함수가 다시 한다. 그 판정에서 막히면 방금 올린 파일을 지운다."""
-    data = await photo.read()
+    data = await photo.read(MAX_IMAGE_BYTES + 1)  # 한도를 넘었는지만 알면 된다 — 끝까지 읽지 않는다
     # 앱이 보낸 Content-Type 은 믿지 않는다 — 학생증과 같은 판정(10MB 초과 · jpeg/png 아님 → None).
     content_type = student_id_content_type(data)
     if content_type is None:
