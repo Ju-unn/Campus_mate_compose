@@ -170,7 +170,8 @@ class WdFake(ReadFake):
         return Reply(200, {'id': who})
 
     def _otp(self, sent):
-        """앱의 인증코드 요청 — 없는 사람이면 before-user-created 훅이 재가입 제한을 본다(blocked_until > now 만)."""
+        """앱의 인증코드 요청 — 옛 훅(10-18 전)처럼 없는 사람이면 재가입 제한을 본다(blocked_until > now 만). 막혀 있는 E-WD-14 · 15 의
+        판정용으로 남긴 흉내다 — 이제 훅은 재가입 제한을 보지 않는다(POST /school-email/verify 가 422)."""
         email = sent['body']['email']
         if any(u['email'].lower() == email.lower() for u in self.users):
             return Reply(200, {})
@@ -1045,6 +1046,7 @@ class RejoinBlockedTest(WdBase):
                 self.assertEqual(result, 'blocked', note)
                 self.assertIn('소셜 로그인 전환으로 의미 변경, 대체 가설 필요', note)
                 self.assertIn('시험 계정의 학교 메일 해시가 임의값이라 같은 메일 재가입 거절을 확인할 수 없음', note)
+                self.assertIn('푸는 날 기대를 바꿔야 함', note)
                 self.assertEqual((self.fake.users, self.batches, app.jobs), ([], [], []))
 
     def test_the_app_side_is_blocked_with_the_same_words_and_keeps_the_02_check_for_later(self):

@@ -19,6 +19,7 @@ DEPT = '학과 정보를 먼저 입력해 주세요'  # 서버 errors.DEPARTMENT
 INVALID = '입력한 값을 다시 확인해 주세요'
 PHONE_INVALID = {'detail': '올바른 휴대폰 번호를 입력해 주세요', 'code': 'phone_number_invalid'}  # 서버 errors.PHONE_NUMBER_INVALID · CODE_PHONE_NUMBER_INVALID
 REJECT = {'msg': '등록되지 않은 학교 메일이에요'}  # 서버 errors.SCHOOL_EMAIL_UNKNOWN_DOMAIN
+ALIAS_REJECT = {'msg': '학교 메일 원래 주소로 인증해 주세요'}  # 서버 errors.SCHOOL_EMAIL_ALIAS
 
 
 def with_private_key(case):
@@ -84,6 +85,10 @@ class Base(unittest.TestCase):
         (self.root / 'KEEP.txt').write_text(f'MANUAL {self.KEPT}\n', encoding='utf-8')
         self.run = Run(self.root / 'area1-b1', 'b', cfg=CFG, key='svc')
         with_private_key(self)
+        # E-AUTH-01 · 02 · 14 · 16 은 막혀 있다(AliasOtpBlockedTest) — 남겨 둔 판정은 켜고 본다
+        alias_otp = mock.patch.object(area1, 'ALIAS_OTP', True)
+        alias_otp.start()
+        self.addCleanup(alias_otp.stop)
 
     def serve(self, routes=None):
         fake = FakeServer(routes)
@@ -430,6 +435,8 @@ CASES = {
     'E-AUTH-01': ({('GET', '/rest/v1/profiles'): Reply(200, [])}, {('GET', '/rest/v1/profiles'): PROFILE_ROW}),
     'E-AUTH-02': ({('GET', '/rest/v1/profiles'): Reply(200, [])}, {('GET', '/rest/v1/profiles'): PROFILE_ROW}),
     'E-AUTH-03': ({('POST', '/auth/v1/otp'): Reply(422, REJECT)}, {}),
+    # 등록된 시험 도메인의 + 별칭은 훅이 별칭 문구로 거절한다 — 다른 거절 문구(미등록 도메인)면 fail.
+    'E-AUTH-24': ({('POST', '/auth/v1/otp'): Reply(422, ALIAS_REJECT)}, {('POST', '/auth/v1/otp'): Reply(422, REJECT)}),
     'E-AUTH-04': ({('POST', '/auth/v1/otp'): Reply(422, REJECT)},
                   {('POST', '/auth/v1/otp'): Reply(422, {'msg': '재가입이 제한된 메일이에요'})}),
     'E-AUTH-06': ({('POST', '/hooks/before-user-created'): Reply(401, {'detail': 'invalid signature'})},
@@ -486,11 +493,12 @@ CASES['E-ONB-08'] = (
 
 
 class HypothesisTest(Base):
-    def test_bundle_is_the_19_api_hypotheses_of_the_plan(self):
+    def test_bundle_is_the_19_api_hypotheses_of_the_plan_and_the_alias_one(self):
         self.assertEqual(area1.BUNDLES['area1-b1'], [
             'E-AUTH-01', 'E-AUTH-02', 'E-AUTH-03', 'E-AUTH-04', 'E-AUTH-06', 'E-AUTH-13',
             'E-GATE-06', 'E-GATE-15', 'E-GATE-16', 'E-GATE-20', 'E-GATE-50', 'E-GATE-51', 'E-GATE-55',
-            'E-ONB-08', 'E-ONB-14', 'E-ONB-29', 'E-ONB-32', 'E-ONB-45', 'E-ONB-69'])
+            'E-ONB-08', 'E-ONB-14', 'E-ONB-29', 'E-ONB-32', 'E-ONB-45', 'E-ONB-69',
+            'E-AUTH-24'])  # 학교 메일 + 별칭 금지(10-18 보안)
         self.assertLessEqual(set(CASES), set(area1.CASES))  # 묶음 2(area1_b2)가 더한 것은 빼고
 
     def test_expected_answers_pass_and_one_changed_answer_fails(self):
@@ -548,6 +556,57 @@ class HypothesisTest(Base):
         errors = (tools.ROOT / 'backend' / 'app' / 'core' / 'errors.py').read_text(encoding='utf-8')
         server = re.search(r'^SCHOOL_EMAIL_UNKNOWN_DOMAIN = "([^"]+)"', errors, re.M).group(1)
         self.assertEqual(area1.REJECTED, server)
+
+    def test_the_alias_text_is_the_servers_alias_text_and_the_hook_says_it(self):
+        errors = (tools.ROOT / 'backend' / 'app' / 'core' / 'errors.py').read_text(encoding='utf-8')
+        server = re.search(r'^SCHOOL_EMAIL_ALIAS = "([^"]+)"', errors, re.M).group(1)
+        self.assertEqual(area1.ALIAS_REJECTED, server)
+        self.assertEqual(ALIAS_REJECT['msg'], server)
+        hook = (tools.ROOT / 'backend' / 'app' / 'auth_hooks' / 'router.py').read_text(encoding='utf-8')
+        self.assertIn('return HookDecision.reject(errors.SCHOOL_EMAIL_ALIAS)', hook)
+
+    def test_auth_24_asks_with_a_plus_alias_of_the_test_school_domain(self):
+        fake = self.serve({('POST', '/auth/v1/otp'): Reply(422, ALIAS_REJECT)})
+        self.assertEqual(area1.CASES['E-AUTH-24'](self.run), ('pass', ''))
+        [sent] = [b for m, p, b in fake.calls if (m, p) == ('POST', '/auth/v1/otp')]
+        self.assertRegex(sent['email'], r'^base\+e2e\d+@gmail\.com$')  # 등록된 시험 메일 도메인 + 별칭
+
+    def test_auth_24_deletes_an_account_the_hook_let_through(self):
+        fake = self.serve()  # 훅이 막지 않아 가짜가 계정을 만든다
+        result, note = area1.CASES['E-AUTH-24'](self.run)
+        self.assertEqual(result, 'fail')
+        self.assertIn('/auth/v1/admin/users/id-1', fake.paths('DELETE'))
+
+
+class AliasOtpBlockedTest(Base):
+    """학교 메일 + 별칭 금지(10-18 보안) — 시험 메일함 하나로는 별칭 없이 새 학교 메일을 만들 수 없어, 별칭으로 번호를 요청하는
+    01 · 02 · 14 · 16 은 번호 요청 · 계정 · 앱 전에 blocked."""
+
+    def setUp(self):
+        super().setUp()
+        closed = mock.patch.object(area1, 'ALIAS_OTP', False)
+        closed.start()
+        self.addCleanup(closed.stop)
+
+    def test_the_four_alias_cases_are_blocked_before_anything_is_sent(self):
+        from e2e import area1_b5  # noqa: F401 — E-AUTH-14 를 등록한다
+        fake = self.serve()
+        phone = mock.Mock()
+        for case in ('E-AUTH-01', 'E-AUTH-02', 'E-AUTH-14', 'E-AUTH-16'):
+            with self.subTest(case):
+                if case in area1.PHONE:
+                    result, note = area1.attempt_phone(self.run, case, phone)
+                else:
+                    result, note = area1.attempt(self.run, case)
+                self.assertEqual(result, 'blocked', note)
+                self.assertIn('학교 메일 + 별칭 금지(10-18 보안)로 이 방식은 확인 불가', note)
+        self.assertEqual(fake.calls, [])
+        phone.assert_not_called()
+
+    def test_the_alias_rejection_case_and_the_unknown_domain_cases_stay_open(self):
+        for case, name in (('E-AUTH-24', 'auth_24'), ('E-AUTH-03', 'auth_03'), ('E-AUTH-04', 'auth_04'), ('E-AUTH-13', 'auth_13')):
+            self.assertIs(area1.CASES[case], getattr(area1, name))
+        self.assertIs(area1.PHONE['E-AUTH-05'], area1.p_auth_05)
 
     def test_setup_failure_is_blocked(self):
         self.serve({('POST', '/me/consents'): Reply(503, None)})

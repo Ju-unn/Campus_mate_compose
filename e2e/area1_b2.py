@@ -31,7 +31,7 @@ SCREEN_AFTER = {
     'my_traits': '05-01', 'survey': '06-1', 'avatar': '06-1', 'ideal_conditions': '06-2', 'ideal_traits': '06-2a',
     'ideal_note': '06-3', 'bio': '05-12', 'home': 'home',
 }
-REJOIN_BLOCKED = '재가입이 제한된 메일이에요'  # 서버 errors.SCHOOL_EMAIL_BLOCKED(훅 · verify 가 같은 문구)
+REJOIN_BLOCKED = '재가입이 제한된 메일이에요'  # 서버 errors.SCHOOL_EMAIL_BLOCKED(10-18 부터 verify 만 — 훅은 재가입 제한을 보지 않는다)
 NOT_FOUND = '없는 코드예요, 다시 확인해 주세요'
 NOT_ALLOWED = '이 코드는 쓸 수 없어요'
 ONCE = '추천 코드는 한 번만 입력할 수 있어요'
@@ -545,9 +545,11 @@ PHONE = {
     'E-ONB-72': _acquisition('other', 30), 'E-ONB-73': _acquisition('everytime', 0),
 }
 # 공장 계정의 school_email_claims 해시는 임의값이다(tools.Run._claim — 진짜 HMAC 키는 FastAPI 에만). 탈퇴는 그 해시로 제한 행을 남기므로
-# "새 행 · 기한 · 정리 배치"(07 · 08 · 12)는 볼 수 있지만, 가입 직전 훅은 실제 메일의 HMAC 으로 대조하므로 같은 메일 재가입을 보는
+# "새 행 · 기한 · 정리 배치"(07 · 08 · 12)는 볼 수 있지만, 재가입 제한은 실제 메일의 HMAC 으로 대조하므로 같은 메일 재가입을 보는
 # 10(`_otp(... account['email'])` 422 REJOIN_BLOCKED) · 11(같은 메일 200 — 임의 해시라 제한이 끝났는지와 상관없이 늘 200)은 확인할 수 없다.
-SAME_MAIL_REJOIN_BLOCKED = '시험 계정의 학교 메일 해시가 임의값이라 같은 메일 재가입 거절을 확인할 수 없음'
+# 10-18 보안 점검부터 그 대조는 가입 직전 훅이 아니라 메일 주인 확인(OTP) 뒤 POST /school-email/verify 에서만 한다.
+SAME_MAIL_REJOIN_BLOCKED = ('시험 계정의 학교 메일 해시가 임의값이라 같은 메일 재가입 거절을 확인할 수 없음 — 푸는 날 기대를 바꿔야 함: '
+                            '이제 훅은 재가입 제한을 보지 않고(verify 422), 공장 메일은 + 별칭이라 별칭 문구가 먼저 남')
 SAME_MAIL_REJOIN = False  # 진짜 해시를 가진 시험 계정(서버 백필 등)이 생기면 켠다 — 판정은 그대로 남겨 둔다
 
 
