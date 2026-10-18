@@ -24,7 +24,7 @@ from app.profile_onboarding.avatars import (
 from app.profile_onboarding.encryption import set_encrypted_kakao_id, set_encrypted_phone_number
 from app.profile_onboarding.onboarding_progress import next_step
 from app.profile_onboarding.phone_number import to_signup_e164
-from app.profile_onboarding.photos import REJECTION_BODIES, PhotoVerdict, check_photo
+from app.profile_onboarding.photos import PHOTO_CHECKS, REJECTION_BODIES, PhotoVerdict, check_photo
 from app.profile_onboarding.repository import ProfileOnboardingRepository
 from app.profile_onboarding.schemas import (
     NICKNAME_PATTERN,
@@ -139,6 +139,7 @@ async def upload_photo(
     is_avatar_source: bool = Form(default=False),
     caller: Caller = Depends(get_verified_caller),
     vision_client: vision.ImageAnnotatorAsyncClient = Depends(get_vision_client),
+    now: datetime = Depends(get_now),
 ) -> dict[str, bool] | JSONResponse:
     settings, client, profile_id = caller
 
@@ -147,6 +148,7 @@ async def upload_photo(
     if content_type is None:
         raise HTTPException(status_code=400, detail=errors.PHOTO_UNREADABLE)
 
+    PHOTO_CHECKS.hold(str(profile_id), now)  # 하루 상한이면 429 — Vision 을 부르기 전
     verdict = await check_photo(vision_client, data, source="onboarding")
     if verdict is not PhotoVerdict.SAFE:
         return JSONResponse(status_code=422, content=REJECTION_BODIES[verdict])

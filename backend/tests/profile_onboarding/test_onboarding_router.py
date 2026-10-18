@@ -3,7 +3,7 @@ import logging
 import base64
 import json
 from collections.abc import Callable
-from datetime import datetime
+from datetime import datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from uuid import UUID
@@ -443,6 +443,29 @@ def test_photo_upload_rejects_a_document_like_photo_and_saves_nothing(caplog):
     # 거절 로그는 경로 이름만 — 프로필 id · 글자 원문은 없다.
     assert "verdict=document" in caplog.text and "source=onboarding" in caplog.text
     assert str(PROFILE_ID) not in caplog.text and "홍길동" not in caplog.text
+
+
+PHOTO_CHECK_TIME = datetime(2026, 10, 18, 12, 0, tzinfo=SEOUL)
+
+
+def test_photo_checks_stop_at_thirty_a_day_before_vision_is_called():
+    """Vision 은 사진마다 과금된다 — 사람당 하루(24시간) 30번에서 멈춘다(10-18 보안 점검). 막힌 요청은 Vision 도 저장도 없다."""
+    app.dependency_overrides[deps.get_now] = lambda: PHOTO_CHECK_TIME
+    vision_client = _vision()
+    for _ in range(30):
+        assert _upload_photo_with(vision_client, []).status_code == 200
+
+    seen: list[httpx.Request] = []
+    response = _upload_photo_with(vision_client, seen)
+
+    assert response.status_code == 429
+    assert response.json() == {"detail": "오늘은 사진을 더 올릴 수 없어요, 내일 다시 시도해 주세요"}
+    assert vision_client.batch_annotate_images.await_count == 30
+    assert _writes(seen) == []
+
+    # 첫 검사에서 24시간이 지나면 다시 된다(창이 밀린다).
+    app.dependency_overrides[deps.get_now] = lambda: PHOTO_CHECK_TIME + timedelta(hours=24, seconds=1)
+    assert _upload_photo_with(vision_client, []).status_code == 200
 
 
 def test_photo_upload_rejects_an_unsafe_photo_with_the_old_message():

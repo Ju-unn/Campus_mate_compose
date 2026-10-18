@@ -292,3 +292,18 @@ def test_new_rows_get_fresh_ids():
 
 def test_rejects_missing_login():
     assert _wire(lambda r: httpx.Response(404)).put("/me/photos").status_code == 401
+
+
+def test_each_new_photo_counts_toward_the_daily_photo_check_limit():
+    """사진 검사(Vision) 하루 30번은 사람 하나의 몫이다 — 온보딩 올리기와 15-7 교체가 같이 센다. 새 사진 한 장 = 한 번.
+    30번째를 넘는 장에서 429 로 멈추고, 앞에서 본 장도 올리지 않는다(③ 전부 먼저 본다)."""
+    for _ in range(7):  # 4장씩 7번 = 28번
+        assert _put([], [{"new": i} for i in range(4)], files=[JPEG] * 4).status_code == 200
+
+    seen = []
+    response = _put([], [{"new": i} for i in range(3)], files=[JPEG] * 3, seen=seen)
+
+    assert response.status_code == 429
+    assert response.json() == {"detail": errors.PHOTO_CHECK_DAILY_LIMIT}
+    assert _storage_writes(seen) == []
+    assert _db_writes(seen) == []

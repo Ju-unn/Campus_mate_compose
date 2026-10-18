@@ -36,3 +36,12 @@ def no_fallback_avatar_check(monkeypatch):
         return None
 
     monkeypatch.setattr("app.main.warn_if_fallback_avatar_missing", skip)
+
+
+@pytest.fixture(autouse=True)
+def fresh_photo_check_counts():
+    """사진 검사 하루 상한(프로세스 안 dict, photos.PHOTO_CHECKS)은 테스트 사이에 남는다 — 여러 파일이 같은 PROFILE_ID 로
+    사진을 올려도 순서에 따라 30번에 걸리지 않게 테스트마다 비운다."""
+    from app.profile_onboarding.photos import PHOTO_CHECKS
+
+    PHOTO_CHECKS.times.clear()

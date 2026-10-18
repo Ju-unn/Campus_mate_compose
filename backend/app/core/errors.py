@@ -82,6 +82,8 @@ PHOTO_NOT_SAFE = "부적절한 사진은 올릴 수 없어요"
 # 응답 {"detail": <문구>, "code": CODE_PHOTO_LOOKS_LIKE_DOCUMENT} — 앱은 code 로 가른다.
 PHOTO_LOOKS_LIKE_DOCUMENT = "학생증 · 신분증처럼 글자가 많은 사진은 올릴 수 없어요"
 CODE_PHOTO_LOOKS_LIKE_DOCUMENT = "photo_looks_like_document"
+# 사진 검사(Vision) 사람당 하루 상한(429, profile_onboarding/photos.py PHOTO_CHECKS). 앱은 429 에 detail 문자열이 있으면 그 문구를 보인다.
+PHOTO_CHECK_DAILY_LIMIT = "오늘은 사진을 더 올릴 수 없어요, 내일 다시 시도해 주세요"
 PHOTO_NOT_FOUND = "지울 사진이 없어요"
 PHOTOS_CHANGED = "사진이 바뀌었어요, 다시 열어 주세요"
 AVATAR_ALREADY_CREATED = "아바타는 한 번만 만들 수 있어요"
