@@ -19,6 +19,7 @@ class TapBox extends StatefulWidget {
     this.overlayColor = AdminColors.ink,
     this.cursor,
     this.selected,
+    this.checked,
     this.semanticLabel,
     this.focusNode,
     this.width,
@@ -37,6 +38,9 @@ class TapBox extends StatefulWidget {
 
   /// 고를 수 있는 것(칩 · 목록 줄)은 고른 상태를 화면 읽기에 알린다. 그 밖은 null.
   final bool? selected;
+
+  /// 체크박스(켬 · 끔)는 체크 상태로 읽힌다. 그 밖은 null.
+  final bool? checked;
   final String? semanticLabel;
   final FocusNode? focusNode;
   final double? width;
@@ -59,8 +63,10 @@ class _TapBoxState extends State<TapBox> {
     );
     return MergeSemantics(
       child: Semantics(
-        button: widget.onTap != null,
+        // 체크박스는 단추가 아니라 체크 상태로 읽힌다
+        button: widget.onTap != null && widget.checked == null,
         selected: widget.selected,
+        checked: widget.checked,
         label: widget.semanticLabel,
         child: Material(
           color: widget.color,
