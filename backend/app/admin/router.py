@@ -1,6 +1,7 @@
 """관리자 웹 대시보드 API(설계 10-18 §8). 모든 경로는 get_admin_caller 를 거친다(tests/admin/test_admin_caller.py 가 센다)."""
 from fastapi import APIRouter, Depends
 
+from app.admin.billing import router as billing_router
 from app.admin.caller import AdminCaller, get_admin_caller
 from app.admin.heart_task_review import router as heart_task_review_router
 from app.admin.moderation import router as moderation_router
@@ -15,6 +16,7 @@ router.include_router(report_review_router)
 router.include_router(moderation_router)
 router.include_router(users_router)
 router.include_router(user_actions_router)
+router.include_router(billing_router)
 
 
 @router.get("/me")
