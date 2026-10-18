@@ -5,6 +5,7 @@
 """
 import base64
 import json
+import time
 
 import httpx
 
@@ -65,8 +66,18 @@ def _b64url(obj) -> str:
     return base64.urlsafe_b64encode(json.dumps(obj).encode()).rstrip(b"=").decode()
 
 
+def amr(hours_ago: float = 0, method: str = "totp") -> list[dict]:
+    """Supabase 가 싣는 amr 모양 — 최근 순, 항목마다 방법과 그 방법을 마친 유닉스 초(supabase/auth models/sessions.go AMREntry)."""
+    at = int(time.time() - hours_ago * 3600)
+    return [{"method": method, "timestamp": at}, {"method": "oauth", "timestamp": at - 60}]
+
+
 def bearer(**claims) -> dict[str, str]:
-    """Supabase 접근 토큰 모양(헤더.페이로드.서명)의 Authorization 헤더. 서명은 가짜 — 확인은 /auth/v1/user 가 한다."""
+    """Supabase 접근 토큰 모양(헤더.페이로드.서명)의 Authorization 헤더. 서명은 가짜 — 확인은 /auth/v1/user 가 한다.
+    aal2 면 방금 2단계(totp)를 마친 amr 을 기본으로 싣는다. 값이 None 인 클레임은 뺀다(amr=None = amr 칸 없음)."""
+    if claims.get("aal") == "aal2":
+        claims.setdefault("amr", amr())
+    claims = {key: value for key, value in claims.items() if value is not None}
     return {"Authorization": f"Bearer {_b64url({'alg': 'ES256', 'typ': 'JWT'})}.{_b64url(claims)}.signature"}
 
 
@@ -102,14 +113,15 @@ class AdminWorld:
         self.profiles: dict[str, dict] = {}
         self.rpcs: list[tuple[str, dict]] = []
         self.rpc_error_code: str | None = None
+        self.rpc_error_message = "x"
 
     def _act(self, name: str, body: dict) -> httpx.Response:
         """DB 함수와 같은 약속: 없으면 CM404, 이미 그 상태면 CM409. PostgREST 는 모르는 코드를 400 으로 보낸다."""
-        def refuse(code: str) -> httpx.Response:
-            return httpx.Response(400, json={"code": code, "message": "x"})
+        def refuse(code: str, message: str = "x") -> httpx.Response:
+            return httpx.Response(400, json={"code": code, "message": message})
 
         if self.rpc_error_code:
-            return refuse(self.rpc_error_code)
+            return refuse(self.rpc_error_code, self.rpc_error_message)
         if name == "admin_resolve_report":
             row = self.reports.get(body["p_report"])
             if row is None or row["status"] != "open":

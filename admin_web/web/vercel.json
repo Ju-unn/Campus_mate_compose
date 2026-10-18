@@ -10,7 +10,11 @@
         { "key": "X-Robots-Tag", "value": "noindex, nofollow" },
         { "key": "X-Frame-Options", "value": "DENY" },
         { "key": "Referrer-Policy", "value": "no-referrer" },
-        { "key": "X-Content-Type-Options", "value": "nosniff" }
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Strict-Transport-Security", "value": "max-age=63072000" },
+        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=()" },
+        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" },
+        { "key": "Content-Security-Policy-Report-Only", "value": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' __SUPABASE_ORIGIN__ __API_ORIGIN__; img-src 'self' data: blob: __SUPABASE_ORIGIN__; font-src 'self' data:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'none'" }
       ]
     }
   ]

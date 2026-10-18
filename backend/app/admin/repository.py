@@ -9,7 +9,8 @@ from app.core import errors
 from app.core.http import error_code, raise_for_status
 from app.core.postgrest import PostgrestRepository
 
-# 관리자 웹이 읽는 기계용 이유 코드(caller.py 의 mfa_required · not_admin 과 같은 결).
+# 관리자 웹이 읽는 기계용 이유 코드. not_admin 은 관문(caller.py)과 DB 함수의 명단 확인(admin_assert)이 같이 쓴다.
+NOT_ADMIN = "not_admin"
 NOT_FOUND = "not_found"
 ALREADY_REVIEWED = "already_reviewed"
 # 신고 닫기 · 정지 · 해제 · 가림 해제 · 글 가림에서 "이미 그 상태" (두 관리자가 같은 건을 누른 두 번째).
@@ -157,9 +158,13 @@ class AdminRepository(PostgrestRepository):
         })
 
     async def _rpc(self, name: str, body: dict, already: str = ALREADY_DONE) -> dict:
-        """조치 DB 함수들의 오류 약속(CM404 · CM409 · 22023)을 HTTP 로 바꾼다. 그 밖의 check 위반(기록 사유 500자 등)은 422."""
+        """조치 DB 함수들의 오류 약속(42501 · CM404 · CM409 · 22023)을 HTTP 로 바꾼다. 그 밖의 check 위반(기록 사유 500자 등)은 422."""
         response = await self._post(f"rpc/{name}", json=body)
         match error_code(response):
+            # admin_assert 가 낸 것만(p_admin 이 명단에 없다 — 관문을 지난 뒤 명단에서 빠졌다). 다른 42501(권한 설정 실수)은 500 이다.
+            # 코드가 읽혔으면 본문은 dict 다(error_code).
+            case "42501" if response.json().get("message") == "not admin":
+                raise HTTPException(status_code=403, detail=NOT_ADMIN)
             case "CM404":
                 raise HTTPException(status_code=404, detail=NOT_FOUND)
             case "CM409":

@@ -144,6 +144,26 @@ def test_a_change_the_db_function_calls_invalid_is_422(client, world):
     assert response.status_code == 422
 
 
+def test_a_db_function_that_finds_the_caller_off_the_admin_list_is_403_not_admin(client, world):
+    # DB 함수 맨 앞의 admin_assert 가 명단에 없는 p_admin 을 42501 로 막는다 — 관문을 지난 뒤 명단에서 빠진 경우.
+    _ready(world)
+    world.rpc_error_code, world.rpc_error_message = "42501", "not admin"
+
+    response = client.post(f"/admin/profiles/{TARGET}/suspend", headers=ADMIN_HEADERS, json=REASON)
+
+    assert (response.status_code, response.json()) == (403, {"detail": "not_admin"})
+
+
+def test_another_42501_from_a_db_function_stays_a_server_error(client, world):
+    # 권한 설정 실수(예: 기록 표 insert 권한이 빠짐)는 "관리자 아님" 화면으로 숨기지 않는다 — 500 으로 드러낸다.
+    _ready(world)
+    world.rpc_error_code, world.rpc_error_message = "42501", "permission denied for table admin_actions"
+
+    response = client.post(f"/admin/profiles/{TARGET}/suspend", headers=ADMIN_HEADERS, json=REASON)
+
+    assert response.status_code == 500
+
+
 def test_a_malformed_id_is_422_before_any_db_function(client, world):
     response = client.post("/admin/profiles/not-a-uuid/suspend", headers=ADMIN_HEADERS, json=REASON)
 
