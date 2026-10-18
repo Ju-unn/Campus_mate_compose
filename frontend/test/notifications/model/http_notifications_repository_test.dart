@@ -104,6 +104,22 @@ void main() {
       expect(n.data, isEmpty);
     });
 
+    test('인증샷 결과 kind 둘은 각자의 종류로 읽고, 비슷한 모르는 값은 other 다', () async {
+      final client = MockClient((_) async => json({
+            'items': [
+              item('a', kind: 'heart_task_approved'),
+              item('b', kind: 'heart_task_rejected'),
+              item('c', kind: 'heart_task_zzz'),
+            ],
+            'unread_count': 3,
+            'next_before': null,
+          }));
+
+      final kinds = pageOf(await build(client).fetchPage()).items.map((n) => n.kind).toList();
+
+      expect(kinds, [NotificationKind.heartTaskApproved, NotificationKind.heartTaskRejected, NotificationKind.other]);
+    });
+
     test('서버가 실패하면 Failure 로 돌려준다', () async {
       final client = MockClient((_) async => http.Response('', 500));
 

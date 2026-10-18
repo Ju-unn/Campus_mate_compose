@@ -105,6 +105,12 @@ void main() {
         GoRoute(path: AppRoutes.today, builder: (context, state) => const Scaffold(body: Text('오늘 탭'))),
         GoRoute(path: AppRoutes.conversations, builder: (context, state) => const Scaffold(body: Text('대화 화면'))),
         GoRoute(path: '${AppRoutes.chatRoom}/:matchId', builder: (context, state) => Text('방 ${state.pathParameters['matchId']}')),
+        GoRoute(path: AppRoutes.heartTasks, builder: (context, state) => const Scaffold(body: Text('무료로 하트 모으기 화면'))),
+        GoRoute(
+          path: '${AppRoutes.heartTaskSubmit}/:task',
+          builder: (context, state) =>
+              Scaffold(body: Text('다시 제출 ${state.pathParameters['task']} ${state.uri.queryParameters['reason']}')),
+        ),
       ],
     );
     addTearDown(router.dispose);
@@ -317,6 +323,73 @@ void main() {
       expect(assetOf('6'), 'assets/icons/ui-3d-bell.webp'); // WyOg1
     });
 
+    // 10-18 인증샷 결과 알림. pen `알림함_인증_결과_행.png`: 승인 = 분홍 하트 `zxXQG`, 반려 = 금지 표시 `eUCJv`(값 확정).
+    testWidgets('인증샷 승인 줄은 heart · 반려 줄은 ban 그림이고, 모르는 종류는 종(bell)이다', (tester) async {
+      await pump(
+        tester,
+        repository: FakeNotificationsRepository(pages: [
+          NotificationsPage(items: [
+            fakeNotification('ok', kind: NotificationKind.heartTaskApproved, title: '에브리타임 홍보 인증이 승인됐어요', body: '하트 40개를 받았어요'),
+            fakeNotification('no', kind: NotificationKind.heartTaskRejected, title: '단톡방 공유 인증이 반려됐어요', body: '날짜가 안 보여요 · 다시 제출해 주세요'),
+            fakeNotification('new', kind: NotificationKind.other, title: '새 종류'),
+          ], unreadCount: 3),
+        ]),
+      );
+
+      String assetOf(String id) {
+        final image = tester.widget<Image>(find.descendant(of: row(id), matching: find.byType(Image)));
+        return (((image.image) as ResizeImage).imageProvider as AssetImage).assetName;
+      }
+
+      expect(assetOf('ok'), 'assets/icons/ui-3d-heart.webp');
+      expect(assetOf('no'), 'assets/icons/ui-3d-ban.webp');
+      expect(assetOf('new'), 'assets/icons/ui-3d-bell.webp');
+      expect(find.text('하트 40개를 받았어요'), findsOneWidget);
+      expect(find.text('날짜가 안 보여요 · 다시 제출해 주세요'), findsOneWidget);
+    });
+
+    // pen 화면 `I7TTvT` "09c 알림함 · 인증 결과": 승인 `T42lI` · 반려 `b2Ugz` 는 기존 안 읽음 마스터 `VAzRr` 인스턴스 —
+    // 글자 셋과 3D 그림만 바꾸고 크기 · 색 · 간격은 그대로다(값표 2장). 시험 글꼴은 Pretendard 보다 넓어 줄 높이는 재지 않는다.
+    testWidgets('인증샷 승인 · 반려 줄은 안 읽음 마스터 그대로 — 제목 15/700 ink · 본문 14 muted · 시간 12 muted · 원 44 · 그림 28 · 점 8', (tester) async {
+      await pump(
+        tester,
+        repository: FakeNotificationsRepository(pages: [
+          NotificationsPage(items: [
+            fakeNotification('ok',
+                kind: NotificationKind.heartTaskApproved,
+                title: '에브리타임 홍보 인증이 승인됐어요',
+                body: '하트 40개를 받았어요',
+                createdAt: now.subtract(const Duration(seconds: 20))),
+            fakeNotification('no',
+                kind: NotificationKind.heartTaskRejected,
+                title: '단톡방 공유 인증이 반려됐어요',
+                body: '날짜가 안 보여요 · 다시 제출해 주세요',
+                createdAt: now.subtract(const Duration(minutes: 3))),
+          ], unreadCount: 2),
+        ]),
+      );
+
+      for (final (id, title, body, time) in [
+        ('ok', '에브리타임 홍보 인증이 승인됐어요', '하트 40개를 받았어요', '방금 전'), // T42lI
+        ('no', '단톡방 공유 인증이 반려됐어요', '날짜가 안 보여요 · 다시 제출해 주세요', '3분 전'), // b2Ugz
+      ]) {
+        final t = find.descendant(of: row(id), matching: find.text(title));
+        final b = find.descendant(of: row(id), matching: find.text(body));
+        final m = find.descendant(of: row(id), matching: find.text(time));
+        expect((styleOf(tester, t).fontSize, styleOf(tester, t).fontWeight, styleOf(tester, t).color), (15.0, FontWeight.w700, AppColors.ink), reason: id);
+        expect((styleOf(tester, b).fontSize, styleOf(tester, b).color), (14.0, AppColors.muted), reason: id);
+        expect((styleOf(tester, m).fontSize, styleOf(tester, m).color), (12.0, AppColors.muted), reason: id);
+        final circle = find.descendant(of: row(id), matching: find.byKey(notificationIconCircleKey));
+        expect(tester.getSize(circle), const Size(44, 44));
+        expect(tester.getSize(find.descendant(of: circle, matching: find.byType(Image))), const Size(28, 28));
+        expect(tester.getSize(find.descendant(of: row(id), matching: find.byKey(notificationUnreadDotKey))), const Size(8, 8));
+        expect(tester.getTopLeft(t).dx - tester.getTopLeft(row(id)).dx, 70);
+      }
+      // 본문은 기존 알림 행 규칙(최대 두 줄 · 말줄임)을 그대로 따른다 — pen 은 줄바꿈 · 말줄임 없음(행이 자람)이라 보고 사항.
+      final body = tester.widget<Text>(find.text('날짜가 안 보여요 · 다시 제출해 주세요'));
+      expect((body.maxLines, body.overflow), (2, TextOverflow.ellipsis));
+    });
+
     testWidgets('"모두 읽음" 은 오른쪽 위, 높이 48, 14/600 primary-text(`q7PN8` · `CkuaM`), 오른쪽 끝 x348', (tester) async {
       await pump(tester);
 
@@ -371,6 +444,22 @@ void main() {
       await tester.tap(row('a'));
       await tester.pumpAndSettle();
     }
+
+    testWidgets('인증샷 승인 줄을 누르면 18a 가 알림함 위에 열리고 뒤로가기가 알림함으로 돌아온다', (tester) async {
+      await tapOnly(tester, {'route': 'heart_tasks', 'task': 'everytime_post'});
+      expect(find.text('무료로 하트 모으기 화면'), findsOneWidget);
+
+      router.pop();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(NotificationsScreen), findsOneWidget);
+    });
+
+    testWidgets('인증샷 반려 줄을 누르면 사유를 실은 18b-2 가 열린다', (tester) async {
+      await tapOnly(tester, {'route': 'heart_task_retry', 'task': 'kakao_share', 'reason': 'reused'});
+
+      expect(find.text('다시 제출 kakao_share reused'), findsOneWidget);
+    });
 
     testWidgets('오늘의 카드 · 대화 목록 알림은 탭 이동(go)이라 알림함이 닫힌다', (tester) async {
       await tapOnly(tester, {'route': 'daily_card'});
