@@ -19,8 +19,15 @@ enum AdminSection {
   final String label;
   final IconData icon;
 
-  /// TopBar · 탭 제목. 신고 아래 주소(`/reports/{id}`)는 "신고 상세"(pen A4 상세 TopBar), 그 밖은 메뉴 이름.
-  String titleOf(String path) => this == reports && path != this.path ? '신고 상세' : label;
+  /// TopBar · 탭 제목. 신고 아래 주소(`/reports/{id}`)는 "신고 상세"(pen A4 상세 TopBar), 사용자 아래 주소는 "사용자 상세"(A5),
+  String titleOf(String path) {
+    final detail = path != this.path;
+    return switch (this) {
+      reports when detail => '신고 상세',
+      users when detail => '사용자 상세',
+      _ => label,
+    };
+  }
 
   /// 주소가 속한 메뉴. 메뉴 경로와 같거나 그 아래(`/reports/123` → 신고)면 그 메뉴, 홈은 `/` 하나만.
   static AdminSection? ownerOf(String path) {
