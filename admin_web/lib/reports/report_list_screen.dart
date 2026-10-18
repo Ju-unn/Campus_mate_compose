@@ -169,8 +169,8 @@ class _Table extends StatelessWidget {
                   for (final text in [
                     item.type.listLabel,
                     reportReasonLabel(item.reason),
-                    // 목록 응답에 신고자 수가 없다(서버 _summary) — 상세에서만 보인다(대장 보고)
-                    missingValue,
+                    // 같은 대상의 열린 신고자 수(서버 open_reporters). 대상 계정이 지워졌거나 옛 응답이면 "—"
+                    item.target == null ? missingValue : (item.openReporters == null ? missingValue : '${item.openReporters}명'),
                     item.targetSummary,
                     formatSubmittedAt(item.createdAt),
                     formatElapsed(item.createdAt, now),

@@ -485,8 +485,42 @@ void main() {
       await tester.tap(confirm('가림 해제'));
       await tester.pumpAndSettle();
 
-      expect(server.actions, ['/admin/content/polls/poll1/blind {"reason":"욕설"}', '/admin/profiles/p1/unhide {"reason":"오신고"}']);
+      expect(server.actions, ['/admin/content/polls/poll1/blind {"reason":"욕설"}', '/admin/profiles/p1/unhide {"reason":"오신고","seen_report_ids":["r1"]}']);
       expect(actionButton('글 가림 해제'), findsOneWidget);
+      await letToastGo(tester);
+    });
+
+    testWidgets('[가림 해제] 대화상자 본문은 "이 화면에서 본 열린 신고만 기각돼요(그 뒤 들어온 신고는 남아요)"', (tester) async {
+      await openDetail(tester, server: messageReport(target: targetProfile(autoHiddenAt: '2026-10-18T03:00:00+00:00')));
+
+      await tester.tap(actionButton('가림 해제'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.descendant(
+          of: dialog(),
+          matching: find.text('닉네임B 의 자동 가림을 풀고, 이 화면에서 본 열린 신고만 기각돼요(그 뒤 들어온 신고는 남아요). 작업 기록에 사유가 남고, 사유는 필수예요.'),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('[가림 해제] 단추는 이 신고(열려 있으면)와 같은 사람의 열린 신고들을 본 신고로 보낸다', (tester) async {
+      final server = messageReport(target: targetProfile(autoHiddenAt: '2026-10-18T03:00:00+00:00'));
+      server.others['p1']!.add(otherReport('o0', status: 'actioned', createdAt: '2026-10-10T00:00:00+00:00'));
+      await openDetail(tester, server: server);
+      // 운영자가 상세를 연 뒤에 들어온 새 신고는 본 신고가 아니다
+      server.others['p1']!.add(otherReport('o3', createdAt: '2026-10-18T05:00:00+00:00'));
+
+      await tester.tap(actionButton('가림 해제'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.descendant(of: dialog(), matching: find.byType(TextField)), '오신고');
+      await tester.pump();
+      await tester.tap(confirm('가림 해제'));
+      await tester.pumpAndSettle();
+
+      expect(server.lastBody('/unhide'), {'reason': '오신고', 'seen_report_ids': ['r1', 'o1', 'o2']});
+      expect(server.others['p1']!.where((o) => o['status'] == 'open').map((o) => o['id']), ['o3']);
       await letToastGo(tester);
     });
   });
@@ -523,7 +557,7 @@ void main() {
       await tester.tap(confirm('조치 완료'));
       await tester.pumpAndSettle();
 
-      expect(server.lastBody('/resolve'), {'outcome': 'actioned', 'note': '경고', 'same_target': true});
+      expect(server.lastBody('/resolve'), {'outcome': 'actioned', 'note': '경고', 'same_target': true, 'seen_report_ids': ['o1', 'o2']});
       expect(find.widgetWithText(AdminToast, '처리했어요'), findsOneWidget);
       expect(inCard('actions', find.text('처리됨 · 2026-10-18 14:30')), findsOneWidget);
       await letToastGo(tester);
@@ -537,7 +571,7 @@ void main() {
       await tester.testTextInput.receiveAction(TextInputAction.done);
       await tester.pumpAndSettle();
 
-      expect(server.lastBody('/resolve'), {'outcome': 'actioned', 'note': '경고', 'same_target': true});
+      expect(server.lastBody('/resolve'), {'outcome': 'actioned', 'note': '경고', 'same_target': true, 'seen_report_ids': ['o1', 'o2']});
       expect(dialog(), findsNothing);
       await letToastGo(tester);
     });
@@ -579,8 +613,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(server.actions, [
-        '/admin/reports/r1/resolve {"outcome":"dismissed","note":"오신고","same_target":true}',
-        '/admin/profiles/p1/unhide {"reason":"오신고"}',
+        '/admin/reports/r1/resolve {"outcome":"dismissed","note":"오신고","same_target":true,"seen_report_ids":["o1","o2"]}',
+        '/admin/profiles/p1/unhide {"reason":"오신고","seen_report_ids":["o1","o2"]}',
       ]);
       expect(find.widgetWithText(AdminToast, '처리했어요'), findsOneWidget);
       expect(actionButton('가림 해제'), findsNothing);
@@ -595,7 +629,7 @@ void main() {
       await tester.tap(confirm('기각'));
       await tester.pumpAndSettle();
 
-      expect(server.lastBody('/unhide'), {'reason': '신고 기각'});
+      expect(server.lastBody('/unhide'), {'reason': '신고 기각', 'seen_report_ids': ['o1', 'o2']});
       await letToastGo(tester);
     });
 
@@ -634,7 +668,7 @@ void main() {
     testWidgets('"가림도 함께 해제하기" 바로 아래 안내 12 web-muted 줄 1.5 — 체크 글자 시작에 맞춤, 이 체크가 보일 때만', (tester) async {
       await openHiddenDismiss(tester);
 
-      final hint = find.descendant(of: dialog(), matching: find.text('가림을 풀면 이 사람의 열린 신고도 모두 기각돼요'));
+      final hint = find.descendant(of: dialog(), matching: find.text('가림을 풀면 이 화면에서 본 열린 신고도 함께 기각돼요'));
       final style = styleOf(tester, hint);
       expect((style.fontSize, style.color, style.height), (12, AdminColors.muted, 1.5));
       final label = find.descendant(of: check('가림도 함께 해제하기'), matching: find.text('가림도 함께 해제하기'));
@@ -646,7 +680,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(actionButton('조치 완료'));
       await tester.pumpAndSettle();
-      expect(find.text('가림을 풀면 이 사람의 열린 신고도 모두 기각돼요'), findsNothing);
+      expect(find.text('가림을 풀면 이 화면에서 본 열린 신고도 함께 기각돼요'), findsNothing);
     });
 
     testWidgets('요청 순서: 닫기(same_target true) → 가림 해제 → 상세 새로 받기', (tester) async {
@@ -692,6 +726,49 @@ void main() {
       expect(find.descendant(of: error, matching: find.text('신고는 기각했지만 가림은 해제하지 못했어요. [가림 해제]로 다시 시도해 주세요.')), findsOneWidget);
       expect(actionButton('가림 해제'), findsOneWidget);
       expect(inCard('actions', find.textContaining('처리됨 · ')), findsOneWidget);
+    });
+
+    testWidgets('본 신고만 닫는다 — 보내는 id 는 대화상자의 "2건"과 같은 열린 신고들이고, 닫힌 신고 · 열고 난 뒤 들어온 새 신고는 없다', (tester) async {
+      final server = messageReport();
+      server.others['p1']!.add(otherReport('o0', status: 'dismissed', createdAt: '2026-10-10T00:00:00+00:00'));
+      await openDetail(tester, server: server);
+      // 운영자가 상세를 연 뒤에 들어온 새 신고
+      server.others['p1']!.add(otherReport('o3', createdAt: '2026-10-18T05:00:00+00:00'));
+
+      await tester.tap(actionButton('조치 완료'));
+      await tester.pumpAndSettle();
+      expect(check('같은 대상의 열린 신고 2건도 함께 닫기'), findsOneWidget);
+      await tester.tap(confirm('조치 완료'));
+      await tester.pumpAndSettle();
+
+      expect(server.lastBody('/resolve')['seen_report_ids'], ['o1', 'o2']);
+      expect(server.others['p1']!.where((o) => o['status'] == 'open').map((o) => o['id']), ['o3']);
+      await letToastGo(tester);
+    });
+
+    testWidgets('함께 닫기를 끄면 본 신고 목록을 보내지 않는다 · 다른 열린 신고가 없어도 마찬가지', (tester) async {
+      final server = await openDetail(tester);
+      await tester.tap(actionButton('기각'));
+      await tester.pumpAndSettle();
+      await tester.tap(check('같은 대상의 열린 신고 2건도 함께 닫기'));
+      await tester.pump();
+      await tester.tap(confirm('기각'));
+      await tester.pumpAndSettle();
+
+      expect(server.lastBody('/resolve').containsKey('seen_report_ids'), isFalse);
+      await letToastGo(tester);
+    });
+
+    testWidgets('서버가 422 seen_reports_required 로 돌리면 일반 오류 줄 "처리하지 못했어요"', (tester) async {
+      final server = await openDetail(tester);
+      server.actionFailure = 422;
+      await tester.tap(actionButton('조치 완료'));
+      await tester.pumpAndSettle();
+      await tester.tap(confirm('조치 완료'));
+      await tester.pumpAndSettle();
+
+      expect(dialog(), findsOneWidget);
+      expect(find.descendant(of: dialog(), matching: find.text('처리하지 못했어요. 다시 시도해 주세요.')), findsOneWidget);
     });
 
     testWidgets('닫기 실패는 대화상자 안 오류 줄, 409 는 이미 처리됨', (tester) async {

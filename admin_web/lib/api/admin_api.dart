@@ -70,7 +70,7 @@ class AdminApi {
 
   // 신고 검수(A4) — 409 already_done 도 [AlreadyReviewed](이미 처리됨)로 던진다. 사유 · 메모는 앞뒤 공백만 떼고 그대로 보낸다.
 
-  /// 오래된 순 · 최대 50(서버 기본). 사본 · 사진 · 신고자 수는 없다 — 줄을 고르면 [getReport].
+  /// 오래된 순 · 최대 50(서버 기본). 사본 · 사진은 없다(신고자 수 · 투표 질문 앞부분은 있다) — 줄을 고르면 [getReport].
   Future<List<ReportSummary>> listReports({ReportStatus status = ReportStatus.open, ReportTargetType? type}) {
     final query = {'status': status.code, if (type != null) 'type': type.code};
     return _read(send('GET', '/admin/reports', query: query), (body) {
@@ -85,9 +85,21 @@ class AdminApi {
   }
 
   /// 조치 완료 / 기각. [sameTarget] 이면 같은 사람의 다른 열린 신고도 같은 결과로 닫는다. 응답 본문은 읽지 않는다(W1 과 같은 이유).
-  Future<void> resolveReport(String id, ReportStatus outcome, {String? note, bool sameTarget = false}) async {
+  /// [sameTarget] 일 때만 [seenReportIds](운영자가 본 열린 신고 id)를 보낸다 — 서버가 그 신고만 함께 닫는다(없으면 422).
+  Future<void> resolveReport(
+    String id,
+    ReportStatus outcome, {
+    String? note,
+    bool sameTarget = false,
+    List<String> seenReportIds = const [],
+  }) async {
     final memo = note?.trim();
-    final body = {'outcome': outcome.code, 'note': memo == null || memo.isEmpty ? null : memo, 'same_target': sameTarget};
+    final body = {
+      'outcome': outcome.code,
+      'note': memo == null || memo.isEmpty ? null : memo,
+      'same_target': sameTarget,
+      if (sameTarget) 'seen_report_ids': seenReportIds,
+    };
     return _read(send('POST', '${_idPath('/admin/reports', id)}/resolve', body: body), (_) {});
   }
 
@@ -100,9 +112,11 @@ class AdminApi {
   }
 
   /// 정지 · 정지 해제 · 자동 가림 해제(그 사람의 열린 신고도 서버가 기각한다)
-  Future<void> actOnProfile(String profileId, ProfileAction action, String reason) async {
+  /// 가림 해제만 [seenReportIds](운영자가 본 열린 신고 id)를 보낸다 — 서버가 그 신고만 기각한다(없으면 422).
+  Future<void> actOnProfile(String profileId, ProfileAction action, String reason, {List<String> seenReportIds = const []}) async {
     final path = '${_idPath('/admin/profiles', profileId)}/${action.name}';
-    return _read(send('POST', path, body: {'reason': reason.trim()}), (_) {});
+    final body = {'reason': reason.trim(), if (action == ProfileAction.unhide) 'seen_report_ids': seenReportIds};
+    return _read(send('POST', path, body: body), (_) {});
   }
 
   /// 투표 글 · 지인 리뷰 가림([blind]) / 해제

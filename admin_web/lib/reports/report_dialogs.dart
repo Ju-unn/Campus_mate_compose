@@ -285,7 +285,7 @@ class _ResolveDialogState extends State<ResolveDialog> {
             Padding(
               // 체크 글자 시작(상자 18 + 10)에 맞춘다
               padding: const EdgeInsets.only(left: AdminCheckbox.labelInset),
-              child: Text('가림을 풀면 이 사람의 열린 신고도 모두 기각돼요', style: AdminTypography.xs.copyWith(color: AdminColors.muted)),
+              child: Text('가림을 풀면 이 화면에서 본 열린 신고도 함께 기각돼요', style: AdminTypography.xs.copyWith(color: AdminColors.muted)),
             ),
           ],
           if (_failed) ...[const SizedBox(height: AdminSpacing.xs), const ErrorRow(dialogFailedText)],

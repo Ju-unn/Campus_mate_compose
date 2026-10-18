@@ -124,7 +124,7 @@ class ReportTarget {
   }
 }
 
-/// 목록 한 줄(_summary). 사본 · 사진 · 신고자 수는 없다 — 줄을 고르면 [ReportDetail].
+/// 목록 한 줄(_summary). 사본 · 사진은 없다(신고자 수 · 투표 질문 앞부분은 있다) — 줄을 고르면 [ReportDetail].
 class ReportSummary {
   const ReportSummary({
     required this.id,
@@ -136,6 +136,8 @@ class ReportSummary {
     required this.createdAt,
     required this.resolvedAt,
     required this.target,
+    this.openReporters,
+    this.preview,
   });
 
   final String id;
@@ -150,10 +152,18 @@ class ReportSummary {
   final DateTime? resolvedAt;
   final ReportTarget? target;
 
+  /// 같은 대상의 열린 신고의 서로 다른 신고자 수(서버 open_reporters). 칸이 없는 옛 응답이면 null.
+  final int? openReporters;
+
+  /// 투표 글 신고의 질문 앞부분(서버 preview). 다른 종류는 서버가 보내지 않는다.
+  final String? preview;
+
   bool get isOpen => status == ReportStatus.open;
 
-  /// 표의 "대상 요약". pen 예시의 투표 질문은 목록 응답에 사본이 없어 닉네임으로 쓴다(대장 보고).
+  /// 표의 "대상 요약". 투표 글은 질문 앞부분(preview)이 먼저, 없으면 닉네임으로 쓴다.
   String get targetSummary {
+    final preview = this.preview?.trim();
+    if (type == ReportTargetType.poll && preview != null && preview.isNotEmpty) return preview;
     final target = this.target;
     if (target == null) return missingValue;
     final name = target.displayName;
@@ -190,6 +200,8 @@ class ReportSummary {
           createdAt: at,
           resolvedAt: resolved == null ? null : DateTime.tryParse(resolved),
           target: ReportTarget.fromJson(json['target_profile']),
+          openReporters: json['open_reporters'] is int ? json['open_reporters'] as int : null,
+          preview: json['preview'] is String ? json['preview'] as String : null,
         );
       }
     }
@@ -266,7 +278,10 @@ class ReportDetail {
 
   /// "같은 대상의 열린 신고 n건도 함께 닫기" 의 n.
   /// shortcut: 서버가 다른 신고를 20건까지만 싣는다 — 넘으면 실제로 닫히는 수보다 적게 보인다(계획서 편차 기록). 많아지면 서버에 수를 싣는다.
-  int get openOthers => otherReports.where((o) => o.status == ReportStatus.open).length;
+  int get openOthers => openOtherIds.length;
+
+  /// 함께 닫기 · 가림 해제에 서버로 보내는 "운영자가 본 열린 신고" id — 대화상자의 n 과 같은 목록이다.
+  List<String> get openOtherIds => [for (final o in otherReports) if (o.status == ReportStatus.open) o.id];
 
   static ReportDetail fromJson(Object? json) {
     if (json case {

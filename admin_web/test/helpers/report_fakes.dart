@@ -27,6 +27,8 @@ Map<String, Object?> reportRow(
   String? resolvedAt,
   Object? target = const _Default(),
   String? targetId,
+  int openReporters = 1,
+  String? preview,
 }) {
   return {
     'id': id,
@@ -38,6 +40,9 @@ Map<String, Object?> reportRow(
     'created_at': createdAt,
     'resolved_at': resolvedAt,
     'target_profile': target is _Default ? targetProfile() : target,
+    // 목록 줄에도 오는 칸(서버 D2b) — 대상 계정이 지워진 줄은 서버가 0 을 준다
+    'open_reporters': openReporters,
+    'preview': preview,
   };
 }
 
@@ -146,9 +151,12 @@ class FakeReportServer {
     final failure = _fail(isUnhide ? (unhideFailure ?? actionFailure) : actionFailure);
     if (failure != null) return failure;
     final body = jsonDecode(request.body) as Map<String, Object?>;
+    // 서버 약속(D2b): 함께 닫기 · 가림 해제는 운영자가 본 신고 id 목록이 꼭 있어야 한다
+    final needsSeen = (path[1] == 'reports' && path[3] == 'resolve' && body['same_target'] == true) || isUnhide;
+    if (needsSeen && body['seen_report_ids'] == null) return _json(422, const {'detail': 'seen_reports_required'});
     if (path[1] == 'reports' && path[3] == 'chat-context') return _json(200, {'messages': chat});
     if (path[1] == 'reports' && path[3] == 'resolve') return _json(200, _resolve(path[2], body));
-    if (path[1] == 'profiles') return _json(200, _actOnProfile(path[2], path[3]));
+    if (path[1] == 'profiles') return _json(200, _actOnProfile(path[2], path[3], body));
     if (path[1] == 'content') {
       final status = path[4] == 'blind' ? 'blinded' : 'visible';
       contentStatus[path[3]] = status;
@@ -182,14 +190,16 @@ class FakeReportServer {
 
     close(row);
     if (body['same_target'] == true && target != null) {
+      final seen = (body['seen_report_ids']! as List<Object?>).toSet();
       for (final other in others[target] ?? const <Map<String, Object?>>[]) {
-        if (other['status'] == 'open') other['status'] = body['outcome'];
+        // 서버처럼 본 신고만 닫는다 — 상세를 연 뒤 들어온 새 신고는 열린 채
+        if (other['status'] == 'open' && seen.contains(other['id'])) other['status'] = body['outcome'];
       }
     }
     return _detail(row);
   }
 
-  Map<String, Object?> _actOnProfile(String profileId, String action) {
+  Map<String, Object?> _actOnProfile(String profileId, String action, Map<String, Object?> body) {
     for (final row in reports.values) {
       final target = row['target_profile'] as Map<String, Object?>?;
       if (target?['id'] != profileId) continue;
@@ -200,7 +210,11 @@ class FakeReportServer {
           target!['status'] = 'active';
         case 'unhide':
           target!['auto_hidden_at'] = null;
-          if (row['status'] == 'open') row['status'] = 'dismissed';
+          final seen = (body['seen_report_ids']! as List<Object?>).toSet();
+          if (row['status'] == 'open' && seen.contains(row['id'])) row['status'] = 'dismissed';
+          for (final other in others[profileId] ?? const <Map<String, Object?>>[]) {
+            if (other['status'] == 'open' && seen.contains(other['id'])) other['status'] = 'dismissed';
+          }
       }
     }
     return {'id': profileId};

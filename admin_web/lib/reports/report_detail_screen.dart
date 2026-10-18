@@ -82,14 +82,16 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
 
   Future<void> _resolve(ReportDetail detail, ReportStatus outcome) async {
     setState(() => _unhideFailed = false);
+    // 대화상자의 "열린 신고 n건" 과 서버로 보내는 id 를 같은 목록에서 만든다
+    final seen = detail.openOtherIds;
     final result = await showAdminDialog<DialogOutcome<void>>(
       context,
       (_) => ResolveDialog(
         outcome: outcome,
-        openOthers: detail.openOthers,
+        openOthers: seen.length,
         canUnhide: detail.summary.target?.isAutoHidden ?? false,
         onSubmit: (note, sameTarget, unhide) =>
-            _controller.resolve(outcome, note: note, sameTarget: sameTarget, unhide: unhide),
+            _controller.resolve(outcome, note: note, sameTarget: sameTarget, unhide: unhide, seenReportIds: seen),
       ),
     );
     await _after(result?.$1);
@@ -132,7 +134,7 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
           variant: AdminButtonVariant.secondary,
           onPressed: () => _withReason(
             title: '가림을 해제할까요?',
-            body: '$name 의 자동 가림을 풀고, 이 사람의 열린 신고는 모두 기각돼요. 작업 기록에 사유가 남고, 사유는 필수예요.',
+            body: '$name 의 자동 가림을 풀고, 이 화면에서 본 열린 신고만 기각돼요(그 뒤 들어온 신고는 남아요). 작업 기록에 사유가 남고, 사유는 필수예요.',
             confirm: '가림 해제',
             action: (reason) => _controller.actOnProfile(ProfileAction.unhide, reason),
           ),
