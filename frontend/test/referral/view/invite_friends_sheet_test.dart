@@ -21,7 +21,12 @@ void main() {
   late FakeReferralRepository repository;
   late List<String> shared;
   late Future<void> Function(String) share;
+  late List<String> kakaoShared;
+  late Future<void> Function(String) kakaoShare;
   late List<String> copied;
+
+  /// 보내는 동안 글자가 스피너로 바뀌어도 찾히게 라벨 값으로 찾는다.
+  Finder kakaoButton() => find.byWidgetPredicate((w) => w is AppButton && w.label == '카카오톡으로 보내기');
 
   Future<void> pump(WidgetTester tester) async {
     // pen 판 360×780(`eoJOg`).
@@ -38,6 +43,7 @@ void main() {
         overrides: [
           referralRepositoryProvider.overrideWithValue(repository),
           shareTextProvider.overrideWithValue((text) => share(text)),
+          shareInviteProvider.overrideWithValue((code) => kakaoShare(code)),
         ],
         child: MaterialApp(
           home: Builder(
@@ -55,8 +61,10 @@ void main() {
   setUp(() {
     repository = FakeReferralRepository();
     shared = [];
+    kakaoShared = [];
     copied = [];
     share = (text) async => shared.add(text);
+    kakaoShare = (code) async => kakaoShared.add(code);
   });
 
   testWidgets('내 코드와 설명을 보여 준다', (tester) async {
@@ -75,45 +83,117 @@ void main() {
     expect(find.text('코드를 복사했어요'), findsNothing);
   });
 
-  testWidgets('공유하기는 19 와 같은 공유 글을 보낸다', (tester) async {
+  testWidgets('카카오톡으로 보내기는 카카오 먼저 공유(19 와 같은 함수)에 내 코드를 넘긴다', (tester) async {
     await pump(tester);
-    await tester.tap(find.text('공유하기'));
+    await tester.tap(find.text('카카오톡으로 보내기'));
     await tester.pump();
-    expect(shared, ['CampusMate 에서 같이 해요! 가입할 때 추천 코드 K7QMX2 를 넣어 줘.']);
+    expect(kakaoShared, ['K7QMX2']);
+    expect(shared, isEmpty);
   });
 
-  testWidgets('공유하기를 두 번 눌러도 한 번만 공유한다', (tester) async {
+  testWidgets('다른 앱으로 보내기는 카카오를 거치지 않고 19 와 같은 공유 글로 기기 공유 창을 연다', (tester) async {
+    await pump(tester);
+    await tester.tap(find.text('다른 앱으로 보내기'));
+    await tester.pump();
+    expect(shared, ['CampusMate 에서 같이 해요! 가입할 때 추천 코드 K7QMX2 를 넣어 줘.']);
+    expect(kakaoShared, isEmpty);
+  });
+
+  testWidgets('보내는 중에는 두 단추 어느 쪽을 다시 눌러도 한 번만 공유한다', (tester) async {
     final gate = Completer<void>();
-    share = (text) async {
-      shared.add(text);
+    kakaoShare = (code) async {
+      kakaoShared.add(code);
       await gate.future;
     };
     await pump(tester);
-    await tester.tap(find.text('공유하기'));
+    await tester.tap(find.text('카카오톡으로 보내기'));
     await tester.pump();
-    await tester.tap(find.text('공유하기'));
+    // 보내는 동안은 글자 자리에 스피너가 돈다 — 단추 자체를 다시 누른다.
+    await tester.tap(kakaoButton());
     await tester.pump();
-    expect(shared, hasLength(1));
+    await tester.tap(find.text('다른 앱으로 보내기'));
+    await tester.pump();
+    expect(kakaoShared, hasLength(1));
+    expect(shared, isEmpty);
     gate.complete();
     await tester.pumpAndSettle();
   });
 
-  testWidgets('공유 창을 못 열면 안내하고 시트는 남는다', (tester) async {
-    share = (text) async => throw PlatformException(code: 'share');
-    await pump(tester);
-    await tester.tap(find.text('공유하기'));
-    await tester.pump();
-    expect(find.text(const UnknownFailure().toDisplayMessage()), findsOneWidget);
-    expect(find.byType(InviteFriendsSheet), findsOneWidget);
-    await tester.pump(const Duration(seconds: 3));
+  group('카카오톡으로 보내기 스피너(pen sMuCd — 06-1 과 같은 AppButton isLoading)', () {
+    bool loading(WidgetTester tester) => tester.widget<AppButton>(kakaoButton()).isLoading;
+
+    testWidgets('카카오톡이 열리거나 기기 공유 창으로 넘어갈 때까지 20 스피너, 끝나면 글자로 돌아온다', (tester) async {
+      final gate = Completer<void>();
+      kakaoShare = (code) => gate.future;
+      await pump(tester);
+      await tester.tap(find.text('카카오톡으로 보내기'));
+      await tester.pump();
+      expect(loading(tester), isTrue);
+      expect(find.text('카카오톡으로 보내기'), findsNothing);
+      final spinner = find.descendant(of: kakaoButton(), matching: find.byType(CircularProgressIndicator));
+      expect(tester.getSize(spinner), const Size(20, 20));
+
+      gate.complete();
+      await tester.pump();
+      expect(loading(tester), isFalse);
+      expect(find.text('카카오톡으로 보내기'), findsOneWidget);
+    });
+
+    testWidgets('실패해도 스피너가 사라지고 안내가 뜬다', (tester) async {
+      final gate = Completer<void>();
+      kakaoShare = (code) async {
+        await gate.future;
+        throw PlatformException(code: 'share');
+      };
+      await pump(tester);
+      await tester.tap(find.text('카카오톡으로 보내기'));
+      await tester.pump();
+      expect(loading(tester), isTrue);
+
+      gate.complete();
+      await tester.pump();
+      expect(loading(tester), isFalse);
+      expect(find.text(const UnknownFailure().toDisplayMessage()), findsOneWidget);
+      await tester.pump(const Duration(seconds: 3));
+    });
+
+    testWidgets('다른 앱으로 보내기는 스피너 없이 기기 공유 창을 연다', (tester) async {
+      final gate = Completer<void>();
+      share = (text) async {
+        shared.add(text);
+        await gate.future;
+      };
+      await pump(tester);
+      await tester.tap(find.text('다른 앱으로 보내기'));
+      await tester.pump();
+      expect(shared, hasLength(1));
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(loading(tester), isFalse);
+      gate.complete();
+      await tester.pumpAndSettle();
+    });
   });
+
+  for (final label in ['카카오톡으로 보내기', '다른 앱으로 보내기']) {
+    testWidgets('$label: 공유 창을 못 열면 안내하고 시트는 남는다', (tester) async {
+      share = (text) async => throw PlatformException(code: 'share');
+      kakaoShare = (code) async => throw PlatformException(code: 'share');
+      await pump(tester);
+      await tester.tap(find.text(label));
+      await tester.pump();
+      expect(find.text(const UnknownFailure().toDisplayMessage()), findsOneWidget);
+      expect(find.byType(InviteFriendsSheet), findsOneWidget);
+      await tester.pump(const Duration(seconds: 3));
+    });
+  }
 
   testWidgets('못 읽으면 문구와 다시 시도, 누르면 코드가 뜬다', (tester) async {
     repository.nextMyCode = const FailureResult(NetworkFailure());
     await pump(tester);
     expect(find.text(const NetworkFailure().toDisplayMessage()), findsOneWidget);
     expect(find.text('복사'), findsNothing);
-    expect(find.text('공유하기'), findsNothing);
+    expect(find.text('카카오톡으로 보내기'), findsNothing);
+    expect(find.text('다른 앱으로 보내기'), findsNothing);
 
     repository.nextMyCode = const Success('K7QMX2');
     await tester.tap(find.text('다시 시도'));
@@ -122,9 +202,22 @@ void main() {
     expect(repository.myCodeCalls, 2);
   });
 
-  testWidgets('닫기를 누르면 시트가 닫힌다', (tester) async {
+  // pen wNqk2 에는 닫기 단추가 없다(보조 단추 자리가 "다른 앱으로 보내기") — 바깥 누름 · 뒤로 가기로 닫는다.
+  testWidgets('닫기 단추는 없다', (tester) async {
     await pump(tester);
-    await tester.tap(find.text('닫기'));
+    expect(find.text('닫기'), findsNothing);
+  });
+
+  testWidgets('시트 바깥(딤)을 누르면 시트가 닫힌다', (tester) async {
+    await pump(tester);
+    await tester.tapAt(const Offset(180, 20));
+    await tester.pumpAndSettle();
+    expect(find.byType(InviteFriendsSheet), findsNothing);
+  });
+
+  testWidgets('뒤로 가기를 누르면 시트가 닫힌다', (tester) async {
+    await pump(tester);
+    expect(await tester.binding.handlePopRoute(), isTrue);
     await tester.pumpAndSettle();
     expect(find.byType(InviteFriendsSheet), findsNothing);
   });
@@ -133,7 +226,7 @@ void main() {
     await pump(tester);
     await tester.tap(find.text('복사'));
     await tester.pump();
-    await tester.tap(find.text('닫기'));
+    await tester.tapAt(const Offset(180, 20));
     await tester.pumpAndSettle();
     expect(find.byType(InviteFriendsSheet), findsNothing);
     // 끝날 때 도는 타이머가 남아 있으면 flutter_test 가 실패로 잡는다.
@@ -169,15 +262,17 @@ void main() {
       final title = rect(tester, find.text('친구 초대'));
       final description = rect(tester, find.text('친구가 가입할 때 이 코드를 넣으면 둘 다 하트 50개를 받아요.'));
       final box = rect(tester, codeBox());
-      final shareButton = rect(tester, find.widgetWithText(AppButton, '공유하기'));
-      final close = rect(tester, find.widgetWithText(AppButton, '닫기'));
+      final kakaoButton = rect(tester, find.widgetWithText(AppButton, '카카오톡으로 보내기'));
+      final otherApps = rect(tester, find.widgetWithText(AppButton, '다른 앱으로 보내기'));
 
       expect(title.top - handle.bottom, 12 + 8);
       expect(description.top - title.bottom, 16);
       expect(box.top - description.bottom, 16);
-      expect(shareButton.top - box.bottom, 16);
-      expect(close.top - shareButton.bottom, 8);
-      expect(780 - close.bottom, 32);
+      expect(kakaoButton.top - box.bottom, 16);
+      expect(otherApps.top - kakaoButton.bottom, 8);
+      expect(780 - otherApps.bottom, 32);
+      // 주 단추 폭 328(pen wNqk2 — 원본 vBZjk 와 같은 자리).
+      expect(kakaoButton.width, 328);
       // 좌우 여백 16 → 폭 328.
       expect(box.left, 16);
       expect(box.width, 328);
@@ -236,12 +331,14 @@ void main() {
       expect(tester.getSize(find.text('복사')).height, 20);
     });
 
-    testWidgets('공유하기는 기본 주 버튼(52, HE8FZ 2026-10-01 개편), 닫기는 글자 버튼(48)', (tester) async {
+    testWidgets('wNqk2: 카카오톡으로 보내기는 기본 주 버튼(52, HE8FZ 2026-10-01 개편), 다른 앱으로 보내기는 글자 버튼(48)', (tester) async {
       await pump(tester);
-      expect(tester.widget<AppButton>(find.widgetWithText(AppButton, '공유하기')).variant, AppButtonVariant.primary);
-      expect(tester.getSize(find.widgetWithText(AppButton, '공유하기')).height, 52);
-      expect(tester.widget<AppButton>(find.widgetWithText(AppButton, '닫기')).variant, AppButtonVariant.text);
-      expect(tester.getSize(find.widgetWithText(AppButton, '닫기')).height, 48);
+      final kakao = find.widgetWithText(AppButton, '카카오톡으로 보내기');
+      final otherApps = find.widgetWithText(AppButton, '다른 앱으로 보내기');
+      expect(tester.widget<AppButton>(kakao).variant, AppButtonVariant.primary);
+      expect(tester.getSize(kakao).height, 52);
+      expect(tester.widget<AppButton>(otherApps).variant, AppButtonVariant.text);
+      expect(tester.getSize(otherApps).height, 48);
     });
 
     testWidgets('복사 토스트 CuNVR: check 16 흰색, 시트 윗변 16 위 · 가운데', (tester) async {
@@ -261,7 +358,7 @@ void main() {
     testWidgets('공유 창 실패 안내에는 체크 아이콘을 달지 않는다', (tester) async {
       share = (text) async => throw PlatformException(code: 'share');
       await pump(tester);
-      await tester.tap(find.text('공유하기'));
+      await tester.tap(find.text('다른 앱으로 보내기'));
       await tester.pump();
       expect(find.descendant(of: find.byType(AppToast), matching: find.byType(Icon)), findsNothing);
       await tester.pump(const Duration(seconds: 3));
