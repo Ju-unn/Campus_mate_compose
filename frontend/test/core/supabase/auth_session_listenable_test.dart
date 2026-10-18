@@ -54,4 +54,25 @@ void main() {
 
     expect(notified, isTrue);
   });
+
+  // gotrue 는 토큰 갱신 실패 등을 이 스트림에 오류로도 흘린다. 받을 곳이 없으면 앱 전체의 처리 안 된 오류가 된다 —
+  // 삼키고 상태는 그대로 둔다(세션 판단은 currentSession 이 한다, 2026-10-18 보안 검사 낮음 4).
+  test('인증 스트림 오류는 삼키고, 그 뒤 이벤트도 계속 알린다', () async {
+    when(() => auth.currentSession).thenReturn(MockSession());
+    final listenable = AuthSessionListenable(client);
+    addTearDown(listenable.dispose);
+    var notified = 0;
+    listenable.addListener(() => notified++);
+
+    authStateController.addError(AuthException('refresh failed'));
+    await Future<void>.delayed(Duration.zero);
+
+    expect(notified, 0);
+    expect(listenable.isAuthenticated, isTrue);
+
+    authStateController.add(AuthState(AuthChangeEvent.tokenRefreshed, MockSession()));
+    await Future<void>.delayed(Duration.zero);
+
+    expect(notified, 1);
+  });
 }
