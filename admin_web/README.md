@@ -37,3 +37,5 @@ GitHub 저장소 변수 `ADMIN_SUPABASE_URL` · `ADMIN_API_BASE_URL`, 비밀값 
 | `lib/heart_tasks/` | A3 인증샷 검수(`/heart-tasks`, 디스코드 링크 `/heart-tasks/{id}`) — 모델 · 컨트롤러 · 화면 · 사진 보기 |
 | `lib/home/` · `lib/matching/` · `lib/unknown_domains/` · `lib/actions/` | A2 홈(통계 카드 · 그래프 셋 · 학교별 표 · 운영 상태판) · A9 매칭 현황 · A6 미등록 학교 메일 · A7 작업 기록 — 모두 읽기 전용(서버 D4 · D3) |
 | `lib/charts/` · `lib/state/` | 직접 그린 그래프(선 · 묶음 막대 · 가로 막대 — 새 부품 없이 CustomPaint, 결제 그래프와 같은 눈금 계산) · 커서 쪽 나누기 목록 틀 |
+
+첫 운영 배포: 2026-10-18(서버 DB 마이그레이션 11개 · 서버 `00086` 적용 뒤, GitHub 자동 배포가 Vercel 프로젝트 `campusmate-admin` 과 주소 `admin.campus-mates.com` 을 만든다).
