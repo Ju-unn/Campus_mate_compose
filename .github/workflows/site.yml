@@ -1,0 +1,205 @@
+name: Site
+
+# 공식 홈페이지(site/ · campus-mates.com)만 본다. 앱 · 관리자 웹 CI 와 따로 돈다.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - '.github/workflows/site.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - '.github/workflows/site.yml'
+
+# 받아서 검사만 한다. Vercel 업로드는 Vercel 토큰으로 하므로 저장소 쓰기 권한이 필요 없다.
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      # 새 도구를 설치하지 않는다. 러너에 있는 python3 · jq 로 정적 파일만 본다.
+      - name: 정적 파일 검사
+        run: |
+          jq empty site/vercel.json
+          python3 - <<'PY'
+          import os, re, sys
+          import xml.etree.ElementTree as ET
+          from html.parser import HTMLParser
+
+          ET.parse('site/sitemap.xml')
+          src = open('site/index.html', encoding='utf-8').read()
+          VOID = {'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr'}
+          errors, stack, refs, attrs_seen = [], [], [], []
+
+          class Check(HTMLParser):
+              def handle_starttag(self, tag, attrs):
+                  a = dict(attrs)
+                  attrs_seen.append((tag, a))
+                  if 'style' in a or tag in ('style', 'script'):
+                      errors.append(f'{self.getpos()[0]}행: 인라인 style/script 는 CSP 에 막힌다 ({tag})')
+                  for k in ('href', 'src'):
+                      if a.get(k):
+                          refs.append(a[k])
+                  # SVG 의 path · circle 은 자기 닫힘(<path/>)으로 쓴다.
+                  if tag not in VOID and tag not in ('path', 'circle'):
+                      stack.append((tag, self.getpos()[0]))
+              def handle_endtag(self, tag):
+                  if tag in VOID or tag in ('path', 'circle'):
+                      return
+                  if not stack or stack[-1][0] != tag:
+                      errors.append(f'{self.getpos()[0]}행: </{tag}> 짝이 맞지 않음 (열린 태그: {stack[-1] if stack else "없음"})')
+                      return
+                  stack.pop()
+
+          Check().feed(src)
+          if stack:
+              errors.append(f'닫히지 않은 태그: {stack}')
+          if not re.search(r'<html lang="ko">', src):
+              errors.append('<html lang="ko"> 가 없음')
+          for need in ('<title>', 'name="description"', 'property="og:title"', 'property="og:description"', 'property="og:image"'):
+              if need not in src:
+                  errors.append(f'{need} 가 없음')
+          for tag, a in attrs_seen:
+              if tag == 'img' and not a.get('alt'):
+                  errors.append(f'대체 글자(alt) 없는 그림: {a.get("src")}')
+          # 바닥글 링크 4개(개인정보처리방침 · 이용약관 · 계정 삭제 안내 · 문의 메일)가 자리에 있는지 본다.
+          for need in ('3ead998f0dee80d08709d6b75c79ddc0', '3e9d998f0dee8082be84e126630b02a7', '3f7d998f0dee80148368f486cff7606a', 'mailto:s26404538@gmail.com'):
+              if not any(need in r for r in refs):
+                  errors.append(f'바닥글 링크가 없음: {need}')
+          # 이 페이지가 가리키는 우리 파일이 실제로 있는지 본다(외부 주소 · 메일은 빼고).
+          for r in refs:
+              if re.match(r'^(https?:|mailto:|#)', r):
+                  continue
+              if not os.path.exists(os.path.join('site', r.split('#')[0].split('?')[0].lstrip('/'))):
+                  errors.append(f'없는 파일을 가리킴: {r}')
+          css = open('site/styles.css', encoding='utf-8').read()
+          for u in re.findall(r'url\("?([^")]+)"?\)', css):
+              if not os.path.exists(os.path.join('site', u)):
+                  errors.append(f'styles.css 가 없는 파일을 가리킴: {u}')
+          for e in errors:
+              print(f'::error file=site/index.html::{e}')
+          if errors:
+              sys.exit(1)
+          print(f'index.html 검사 통과 (링크 · 그림 {len(refs)}개 확인)')
+          PY
+
+  deploy:
+    needs: check
+    # main 에 반영될 때만. PR 에서는 배포하지 않는다.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    # 비밀값(VERCEL_TOKEN · VERCEL_ORG_ID)은 관리자 웹과 같은 production 환경에 둔다.
+    environment: production
+    # 올리는 도중 끊기지 않게 앞 실행을 취소하지 않고 줄을 세운다.
+    concurrency:
+      group: site-deploy
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+      # 전자상거래법 표시 의무: 사업자 정보가 아직 "○" 자리 표시면 알리기만 한다(배포는 막지 않음).
+      - name: 사업자 정보 확인
+        run: |
+          if grep -q '○' site/index.html; then
+            echo "::warning file=site/index.html::사업자 정보(상호 · 대표자 · 사업자등록번호 · 통신판매업 신고번호 · 주소)가 아직 자리 표시(○)예요 — 출시 전에 실제 값으로 바꿔 주세요"
+          else
+            echo "사업자 정보 자리 표시 없음"
+          fi
+      # 사용자가 Vercel 토큰을 넣기 전에도 CI 가 빨개지지 않게 건너뛰고 성공한다.
+      # 프로젝트 · 도메인은 Vercel REST API 로 여기서 준비한다(관리자 웹 admin-web.yml 과 같은 방식).
+      - name: Vercel 배포
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "Vercel 미설정 — 건너뜀"
+            exit 0
+          fi
+          if [ -z "$VERCEL_ORG_ID" ]; then
+            echo "::error::VERCEL_ORG_ID 값이 비어 있어 배포하지 않았어요(GitHub 비밀값을 확인해 주세요)"
+            exit 1
+          fi
+
+          project=campusmate-site
+          apex=campus-mates.com
+          www=www.campus-mates.com
+          api=https://api.vercel.com
+          team="teamId=$VERCEL_ORG_ID"
+          reply="$RUNNER_TEMP/vercel-reply.json"
+          # 응답 본문은 파일로만 받고 id · 상태만 꺼내 찍는다. 토큰은 헤더로만 보낸다. 출력은 HTTP 상태 코드(실패도 이어서 가른다).
+          call() { curl --fail-with-body -sS -o "$reply" -w '%{http_code}' -H "Authorization: Bearer $VERCEL_TOKEN" "$@" || true; }
+          failure() { echo "HTTP $1 $(jq -r '.error.code // empty' "$reply" 2>/dev/null)"; }
+
+          # ① 프로젝트: 없으면 만든다(framework 없음 — site/ 정적 파일을 그대로 올린다). 이미 있으면 409 → 이름으로 찾는다.
+          code=$(call -X POST "$api/v11/projects?$team" -H 'Content-Type: application/json' \
+            -d "{\"name\":\"$project\",\"framework\":null}")
+          if [ "$code" = 409 ]; then
+            code=$(call "$api/v9/projects/$project?$team")
+          fi
+          if [ "$code" != 200 ]; then
+            echo "::error::Vercel 프로젝트 $project 를 준비하지 못했어요($(failure "$code"))"
+            exit 1
+          fi
+          project_id=$(jq -r .id "$reply")
+          echo "Vercel 프로젝트 $project: $project_id"
+
+          # ② 올리기. CLI 는 VERCEL_ORG_ID · VERCEL_PROJECT_ID 환경 변수가 있으면 연결(link) 없이 그 프로젝트에 올린다.
+          VERCEL_PROJECT_ID="$project_id" npx --yes vercel@64.5.0 deploy site --prod --yes --token "$VERCEL_TOKEN"
+
+          # ③ 도메인: 이 프로젝트에 이미 있으면 통과, 없으면(404) 붙인다.
+          #    다른 프로젝트(옛 matching)에 붙어 있으면 409 — 배포는 끝났으니 실패 대신 경고만 남긴다.
+          # attach <도메인> [POST 본문]: 결과 코드를 돌려준다(200 = 이 프로젝트에 있음).
+          attach() {
+            local c body="$2"
+            [ -n "$body" ] || body="{\"name\":\"$1\"}"
+            c=$(call "$api/v9/projects/$project_id/domains/$1?$team")
+            if [ "$c" = 404 ]; then
+              c=$(call -X POST "$api/v10/projects/$project_id/domains?$team" -H 'Content-Type: application/json' -d "$body")
+            fi
+            echo "$c"
+          }
+          report() {
+            case "$2" in
+              200)
+                verified=$(jq -r .verified "$reply")
+                echo "도메인 $1: 이 프로젝트에 연결됨(확인됨=$verified)"
+                if [ "$verified" != true ]; then
+                  echo "::warning::도메인 $1 이 아직 확인 전이에요 — Vercel 의 Domains 에서 DNS 안내를 확인해 주세요"
+                fi
+                ;;
+              409)
+                echo "::warning::도메인 $1 이 다른 Vercel 프로젝트에 붙어 있어요($(failure "$2")) — 옛 matching 프로젝트에서 $1 을 먼저 Remove 하세요. 떼고 나면 다음 배포가 붙여요"
+                ;;
+              *)
+                echo "::error::도메인 $1 을 붙이지 못했어요($(failure "$2"))"
+                exit 1
+                ;;
+            esac
+          }
+
+          code=$(attach "$apex")
+          report "$apex" "$code"
+          if [ "$code" != 200 ]; then
+            echo "::warning::$www 는 $apex 가 이 프로젝트에 붙은 뒤에 붙여요(www → 루트 보내기 설정 포함)"
+            exit 0
+          fi
+
+          # www 는 루트로 보낸다(308). 새로 붙일 때 보내기 설정을 함께 넣고, 이미 있는데 설정이 다르면 고친다.
+          code=$(attach "$www" "{\"name\":\"$www\",\"redirect\":\"$apex\",\"redirectStatusCode\":308}")
+          report "$www" "$code"
+          if [ "$code" = 200 ] && [ "$(jq -r '.redirect // empty' "$reply")" != "$apex" ]; then
+            code=$(call -X PATCH "$api/v9/projects/$project_id/domains/$www?$team" -H 'Content-Type: application/json' \
+              -d "{\"redirect\":\"$apex\",\"redirectStatusCode\":308}")
+            if [ "$code" = 200 ]; then
+              echo "도메인 $www: $apex 로 보내기(308) 설정함"
+            else
+              echo "::warning::$www → $apex 보내기를 설정하지 못했어요($(failure "$code")) — Vercel 의 Domains 에서 www 를 Redirect to $apex 로 바꿔 주세요"
+            fi
+          elif [ "$code" = 200 ]; then
+            echo "도메인 $www: $apex 로 보내는 중"
+          fi
