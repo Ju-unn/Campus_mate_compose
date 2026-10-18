@@ -825,6 +825,44 @@ def test_free_text_with_forty_one_lines_is_422_and_writes_nothing(path, field):
     assert patched == []
 
 
+def _post_ideal_conditions(flags: dict) -> tuple[httpx.Response, list[dict]]:
+    patched: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/rest/v1/profiles" and request.method == "PATCH":
+            patched.append(json.loads(request.content))
+        return httpx.Response(200, json=[])
+
+    response = _wire(handler).post("/profile-onboarding/ideal-conditions", headers=AUTH_HEADERS, json={
+        "preferred_age_min": 20, "preferred_age_max": 26, "preferred_mbti_flags": flags,
+        "preferred_animal_types": ["dog"], "preferred_impression_types": ["kind"],
+    })
+    return response, patched
+
+
+@pytest.mark.parametrize("flags", [
+    {"X": True},
+    {"e": True},                                    # 소문자도 다른 키다 — 앱(mbtiPoles)은 대문자 여덟 개만 보낸다
+    {f"k{i}": True for i in range(5000)},           # 큰 dict 가 jsonb 로 그대로 가지 않게
+], ids=["unknown-key", "lower-case", "huge"])
+def test_ideal_conditions_take_only_the_eight_mbti_poles(flags):
+    response, patched = _post_ideal_conditions(flags)
+
+    assert response.status_code == 422
+    # 큰 dict 도 오류는 한 줄이다 — 키마다 한 줄씩 수천 줄짜리 422 를 돌려주지 않는다.
+    assert len(response.json()["detail"]) == 1
+    assert patched == []
+
+
+def test_ideal_conditions_save_the_eight_mbti_poles():
+    flags = {pole: pole in "ENTJ" for pole in "EINSTFJP"}
+
+    response, patched = _post_ideal_conditions(flags)
+
+    assert response.status_code == 200
+    assert patched[0]["preferred_mbti_flags"] == flags
+
+
 def test_ideal_conditions_rejects_empty_face_or_impression_choice():
     """선호 얼굴상·인상도 각 1개 이상 필수다."""
     patched: list[dict] = []
