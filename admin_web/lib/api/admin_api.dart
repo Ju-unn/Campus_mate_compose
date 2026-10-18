@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:campus_mate_admin/billing/billing_item.dart';
 import 'package:campus_mate_admin/heart_tasks/heart_task_item.dart';
 import 'package:campus_mate_admin/reports/report_item.dart';
+import 'package:campus_mate_admin/users/user_item.dart';
 import 'package:http/http.dart' as http;
 
 /// 서버 403 본문의 이유(설계서 §6-3). D0 확정 모양(대장 전달 10-18): `{"detail": "not_admin"}` · `{"detail": "mfa_required"}`
@@ -110,6 +112,74 @@ class AdminApi {
     return _read(send('POST', path, body: {'reason': reason.trim()}), (_) {});
   }
 
+  // 사용자(A5) · 결제(A8) — 서버 계약은 D3 계획서 표 그대로. 학교 메일 · 주문 번호는 POST 본문으로만 보낸다(주소 · 쿼리에 남기지 않음).
+
+  /// 가입 최근 순 · 최대 50(서버 기본). [q] 는 닉네임 일부 또는 프로필 id.
+  Future<List<UserSummary>> listUsers({String? q}) {
+    final text = q?.trim();
+    return _read(send('GET', '/admin/users', query: text == null || text.isEmpty ? null : {'q': text}), _userRows);
+  }
+
+  /// 학교 메일 정확히 일치(0 또는 1줄). 메일은 본문에만 — 서버도 기록하지 않는다.
+  Future<List<UserSummary>> searchUsersBySchoolEmail(String email) {
+    return _read(send('POST', '/admin/users/search', body: {'school_email': email.trim()}), _userRows);
+  }
+
+  static List<UserSummary> _userRows(Object? body) {
+    if (body case {'items': final List<Object?> items}) return [for (final row in items) UserSummary.fromJson(row)];
+    throw const FormatException('사용자 목록의 모양이 아니에요');
+  }
+
+  Future<UserDetail> getUser(String id) async {
+    return _read(send('GET', _idPath('/admin/users', id)), UserDetail.fromJson);
+  }
+
+  /// 메모(작업 기록 한 줄). 응답 본문은 읽지 않는다 — 저장은 됐는데 모양이 틀려 실패로 보이면 두 번 남는다.
+  Future<void> addUserNote(String id, String text) async {
+    return _read(send('POST', '${_idPath('/admin/users', id)}/notes', body: {'text': text.trim()}), (_) {});
+  }
+
+  /// 하트 조정(+ 더하기 · − 빼기). 잔액이 모자라면 409 `insufficient_hearts`, 탈퇴 계정은 409 `account_withdrawn`.
+  Future<void> adjustHearts(String id, int amount, String reason) async {
+    return _read(send('POST', '${_idPath('/admin/users', id)}/hearts', body: {'amount': amount, 'reason': reason.trim()}), (_) {});
+  }
+
+  /// 전화 · 카톡 열람 — 서버가 열람을 먼저 기록한다. 쓰기처럼 시간 제한이 없다. 결과는 돌려주기만 하고 어디에도 두지 않는다.
+  Future<PrivateContact> viewPrivate(String id, String reason) async {
+    return _read(send('POST', '${_idPath('/admin/users', id)}/private', body: {'reason': reason.trim()}), PrivateContact.fromJson);
+  }
+
+  /// 앱 밖 탈퇴 대행. [verifiedBy] 에 "@" 가 있으면 서버가 422 로 거절한다.
+  Future<CloseAccountResult> closeAccount(String id, {required String reason, required String verifiedBy}) async {
+    final body = {'reason': reason.trim(), 'verified_by': verifiedBy.trim()};
+    return _read(send('POST', '${_idPath('/admin/users', id)}/close-account', body: body), CloseAccountResult.fromJson);
+  }
+
+  /// 주문 번호(구글) · 거래 번호(애플) 정확히 일치. 번호는 본문에만.
+  Future<List<BillingOrder>> findOrders(String order) {
+    return _read(send('POST', '/admin/billing/orders/search', body: {'order': order.trim()}), (body) {
+      if (body case {'items': final List<Object?> items}) return [for (final row in items) BillingOrder.fromJson(row)];
+      throw const FormatException('주문 목록의 모양이 아니에요');
+    });
+  }
+
+  Future<BillingSummary> billingSummary() => _read(send('GET', '/admin/billing/summary'), BillingSummary.fromJson);
+
+  /// 오래된 순 · 정확히 [days] 줄(없는 날은 0)
+  Future<List<DailyRevenue>> billingDaily({int days = 30}) {
+    return _read(send('GET', '/admin/billing/daily', query: {'days': '$days'}), (body) {
+      if (body case {'days': final List<Object?> rows}) return [for (final row in rows) DailyRevenue.fromJson(row)];
+      throw const FormatException('일 매출의 모양이 아니에요');
+    });
+  }
+
+  Future<List<ShortfallRow>> billingShortfall() {
+    return _read(send('GET', '/admin/billing/shortfall'), (body) {
+      if (body case {'items': final List<Object?> items}) return [for (final row in items) ShortfallRow.fromJson(row)];
+      throw const FormatException('못 거둔 하트 목록의 모양이 아니에요');
+    });
+  }
+
   /// 경로에 넣는 번호로 받는 글자: 영숫자와 하이픈(서버 번호는 UUID). 주소창 링크의 `..%2Fme` 를 go_router 가 `../me` 로
   /// 풀어 넘겨도 `/` · `.` · `%` 가 경로에 들어가 다른 관리자 API(`/admin/me` 등)를 부르지 못하게 한다(검토 10-18).
   /// UUID 꼴 자체(8-4-4-4-12)는 서버가 422 로 거른다. 신고 · 사람 · 글 번호도 같은 규칙이다.
@@ -130,7 +200,7 @@ class AdminApi {
     final response = await pending;
     final already = response.reason == alreadyReviewedReason || response.reason == alreadyDoneReason;
     if (response.statusCode == 409 && already) throw const AlreadyReviewed();
-    if (!response.isSuccess) throw AdminApiFailure(response.statusCode);
+    if (!response.isSuccess) throw AdminApiFailure(response.statusCode, response.reason);
     try {
       return parse(response.body);
     } on FormatException {
@@ -197,9 +267,12 @@ class AdminApi {
 
 /// 관리자 서버가 실패로 답했다. [statusCode] 가 null 이면 연결 실패 · 시간 초과다.
 class AdminApiFailure implements Exception {
-  const AdminApiFailure(this.statusCode);
+  const AdminApiFailure(this.statusCode, [this.reason]);
 
   final int? statusCode;
+
+  /// 본문 `detail` 이 문자열이면 그 값(409 `insufficient_hearts` · `account_withdrawn` 을 가르는 데 쓴다)
+  final String? reason;
 
   /// 토큰 거절 · 관리자 해제 · 2단계 풀림 — 관문이 다시 판정해야 한다
   bool get isGateProblem => statusCode == 401 || statusCode == 403;
