@@ -583,7 +583,10 @@ class ServerFactsTest(unittest.TestCase):
 
     def test_the_hook_blocks_only_until_the_end_and_says_the_rejoin_text(self):
         self.assertIn('"blocked_until": "gt.now()"', backend('signup_policy.py'))
-        self.assertIn('return HookDecision.reject(errors.SCHOOL_EMAIL_BLOCKED)', backend('auth_hooks', 'router.py'))
+        # 10-18 보안 점검: 재가입 제한은 훅이 아니라 메일 주인 확인(OTP) 뒤 POST /school-email/verify 가 본다(이력 캐기 차단).
+        self.assertNotIn('SCHOOL_EMAIL_BLOCKED', backend('auth_hooks', 'router.py'))
+        self.assertIn('return _error(422, errors.SCHOOL_EMAIL_BLOCKED, errors.CODE_SCHOOL_EMAIL_REJOIN_BLOCKED)',
+                      backend('school_email', 'router.py'))
         self.assertIn(f'SCHOOL_EMAIL_BLOCKED = "{REJOIN}"', backend('core', 'errors.py'))
         # 02 의 번호 요청은 소셜 로그인 전환 뒤 학교 메일 저장소(임시 연결)가 한다 — 422 문구를 그대로 띄운다
         self.assertIn("'422' => SignUpRejectedFailure(error.message),", lib('auth', 'model', 'supabase_school_email_repository.dart'))

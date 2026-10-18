@@ -209,8 +209,9 @@ async def verify(
 
 
 async def _decide(caller: Caller, email: str, provider: str):
-    """7 도메인 → 8 재가입 제한 → 9 DB 함수. 결과가 정해지면 응답을 **돌려준다**(부르는 쪽이 임시 계정을 지운다).
-    DB 함수 자체가 실패하면 예외로 올린다 — 결과가 안 정해졌으니 임시 계정을 남겨 앱이 다시 부를 수 있게 한다."""
+    """7 도메인 → 7-b + 별칭 → 8 재가입 제한 → 9 DB 함수. 결과가 정해지면 응답을 **돌려준다**(부르는 쪽이 임시 계정을 지운다).
+    DB 함수 자체가 실패하면 예외로 올린다 — 결과가 안 정해졌으니 임시 계정을 남겨 앱이 다시 부를 수 있게 한다.
+    재가입 제한(8)은 가입 훅이 아니라 여기서만 본다 — 메일 주인임을 OTP 로 보인 사람에게만 알려 준다."""
     settings, client, profile_id = caller
     policy = SignupPolicy(settings.postgrest_url, settings.supabase_service_role_key, client)
     _, at, domain = email.rpartition("@")

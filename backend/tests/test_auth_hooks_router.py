@@ -12,7 +12,6 @@ from fastapi.testclient import TestClient
 from app.core.deps import get_client, get_settings
 from app.main import app
 from app.settings import Settings
-from app.signup_policy import hash_email
 
 
 SECRET = "whsec_" + base64.b64encode(b"test-secret-key-32-bytes-long!!").decode()
@@ -105,7 +104,7 @@ def test_allows_known_domain():
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("application/json")
     assert response.json() == {}
-    assert [r.url.path for r in seen] == ["/rest/v1/university_email_domains", "/rest/v1/signup_blocks"]
+    assert [r.url.path for r in seen] == ["/rest/v1/university_email_domains"]
 
 
 def test_rejects_unknown_domain():
@@ -118,27 +117,16 @@ def test_rejects_unknown_domain():
     assert response.json() == {"error": {"http_code": 422, "message": "등록되지 않은 학교 메일이에요"}}
 
 
-def test_rejects_blocked_email():
-    response = _post_hook(TestClient(app), _user("hong@snu.ac.kr"), _db([], blocked=True))
-
-    assert response.status_code == 200
-    # 문구는 서버 전체에서 하나다(지시문 14-2) — /school-email/verify 와 같다. 앱이 글자 그대로 비교하는 길이 있다.
-    assert response.json() == {"error": {"http_code": 422, "message": "재가입이 제한된 메일이에요"}}
-
-
-def test_blocked_email_hash_uses_identity_key():
-    """재가입 차단 해시는 **신원 키**로 만든다(미결 41①).
-
-    서명 키로 만들면 서명 키를 바꾸는 순간 저장된 해시가 전부 안 맞아 차단이 풀린다.
-    """
+def test_a_rejoin_blocked_email_still_gets_its_code_so_the_hook_tells_nothing():
+    """훅은 재가입 제한을 보지 않는다(10-18 보안 점검) — 보면 남의 학교 메일을 넣어 보는 것만으로 그 사람의 탈퇴 · 정지
+    이력을 캘 수 있다. 제한은 메일 주인임을 OTP 로 보인 뒤 POST /school-email/verify 가 같은 해시로 본다."""
     seen: list[httpx.Request] = []
 
-    _post_hook(TestClient(app), _user("Hong@SNU.ac.kr"), _db(seen))
+    response = _post_hook(TestClient(app), _user("hong@snu.ac.kr"), _db(seen, blocked=True))
 
-    expected = hash_email(IDENTITY_KEY, "hong@snu.ac.kr")
-    asked = [r.url.params["email_hmac"] for r in seen if r.url.path == "/rest/v1/signup_blocks"]
-    assert asked == [f"eq.\\x{expected.hex()}"]
-    assert hash_email(SECRET, "hong@snu.ac.kr") != expected
+    assert response.status_code == 200
+    assert response.json() == {}
+    assert all(r.url.path != "/rest/v1/signup_blocks" for r in seen)
 
 
 @pytest.mark.parametrize("email", ["hong+2@snu.ac.kr", " Hong+X@SNU.ac.kr", "+@snu.ac.kr"])
