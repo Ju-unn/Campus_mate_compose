@@ -3,6 +3,7 @@ import 'package:campus_mate_admin/gate/gate_controller.dart';
 import 'package:campus_mate_admin/gate/gate_stage.dart';
 import 'package:campus_mate_admin/heart_tasks/heart_task_review_screen.dart';
 import 'package:campus_mate_admin/home/home_screen.dart';
+import 'package:campus_mate_admin/matching/matching_screen.dart';
 import 'package:campus_mate_admin/reports/report_detail_screen.dart';
 import 'package:campus_mate_admin/reports/report_item.dart';
 import 'package:campus_mate_admin/reports/report_list_screen.dart';
@@ -177,6 +178,7 @@ Widget _sectionScreen(AdminSection section, String? id, Object? extra) {
     // 결제 아래 주소는 따로 없다(주문 번호를 주소에 싣지 않는다) — 어떤 주소로 와도 이 한 화면
     AdminSection.billing => const BillingScreen(),
     AdminSection.home => const HomeScreen(),
+    AdminSection.matching => const MatchingScreen(),
     _ => PlaceholderScreen(section: section),
   };
 }
