@@ -33,6 +33,14 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- 카카오톡 공유 카드의 "가입하러 가기"로 앱을 연다(kakao{키}://kakaolink). 코드 자동 입력은 하지 않고 앱만 연다.
+                 kakaoKey 는 build.gradle.kts 가 넣는다. kakao_flutter_sdk_common 플러그인이 이 host 만 골라 받는다. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="kakao${kakaoKey}" android:host="kakaolink" />
+            </intent-filter>
         </activity>
         <!-- 카카오 로그인(카카오 계정 · 카카오톡)이 끝나고 앱으로 돌아오는 화면. 클래스 이름은 kakao_flutter_sdk_auth 2.0.1 의
              것 그대로여야 한다(다르면 로그인 뒤 앱이 죽는다). kakaoKey 는 build.gradle.kts 가 넣는다(키는 저장소에 없음).
