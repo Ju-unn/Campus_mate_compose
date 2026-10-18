@@ -4,7 +4,10 @@
 받아 provider=email 인 임시 계정을 만들고, 서버(POST /school-email/verify)는 그 임시 토큰을 검사한 뒤 지운다.
 옛 check · confirm(소셜 계정에 updateUser(email) 로 이메일을 붙이는 방식)은 폐기했다(지시문 05).
 """
+import base64
+import json
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 
 import httpx
@@ -91,11 +94,34 @@ def _caller_provider(auth_user: dict) -> str | None:
     return provider if provider in SOCIAL_PROVIDERS else None
 
 
-def confirmed_temp_email(temp_user: dict, caller_id: str) -> str | None:
+# 정확히 JWT 한 개(header.payload.signature). 공백 · 토막이 섞이면 /user 가 확인한 토큰과 여기서 읽는 토큰이 같다고 할 수 없다.
+_JWT = re.compile(r"[A-Za-z0-9_-]+\.([A-Za-z0-9_-]+)\.[A-Za-z0-9_-]+")
+
+
+def signed_in_by_otp(token: str) -> bool:
+    """임시 토큰 페이로드의 amr 에 otp 가 있고 password 가 없는가. GoTrue POST /verify(앱의 verifyOTP)는 늘 models.OTP 를
+    적는다(supabase/auth internal/api/verify.go). 서명은 보지 않는다 — 같은 토큰을 바로 앞에서 /user 가 확인했다.
+    읽을 수 없으면 False — 막는 쪽으로 넘어진다."""
+    match = _JWT.fullmatch(token)
+    if match is None:
+        return False
+    payload = match[1]
+    try:
+        claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
+    except ValueError:  # binascii.Error · JSONDecodeError · UnicodeDecodeError 는 모두 ValueError 다.
+        return False
+    amr = claims.get("amr") if isinstance(claims, dict) else None
+    methods = {entry.get("method") for entry in amr if isinstance(entry, dict)} if isinstance(amr, list) else set()
+    return "otp" in methods and "password" not in methods
+
+
+def confirmed_temp_email(temp_user: dict, caller_id: str, temp_token: str) -> str | None:
     """임시 이메일 계정이면 그 이메일(소문자 · 공백 제거), 아니면 None.
 
-    identities 가 정확히 email 하나, email_confirmed_at 있음, email 있음, id 가 호출한 사람과 다름 —
-    소셜 토큰(남의 것이든 본인 것이든)을 임시 자리에 넣는 공격을 여기서 막는다."""
+    OTP 로 받은 토큰(amr), identities 가 정확히 email 하나, email_confirmed_at 있음, email 있음, id 가 호출한 사람과 다름 —
+    소셜 토큰(남의 것이든 본인 것이든)이나 비밀번호로 로그인한 토큰을 임시 자리에 넣는 공격을 여기서 막는다."""
+    if not signed_in_by_otp(temp_token):
+        return None
     identities = temp_user.get("identities") or []
     if [identity.get("provider") for identity in identities] != ["email"]:
         return None
@@ -169,7 +195,8 @@ async def verify(
     authorization: str | None = Header(default=None),
     now: datetime = Depends(get_now),
 ) -> dict[str, bool]:
-    """정지 → 동의 → 이미 인증 → 소셜 계정만 → 임시 토큰 읽기 → 임시 계정 검사 → 도메인 → 재가입 제한 → DB 함수.
+    """정지 → 동의 → 이미 인증 → 소셜 계정만 → 임시 토큰 읽기 → 임시 계정 검사(로그인 방식 포함) → 도메인 → + 별칭
+    → 재가입 제한 → DB 함수.
 
     앞에서 걸리면 거기서 끝이다. 도메인 검사까지 와서 결과가 정해지면 임시 계정을 지운다(422 · 409 포함).
     같은 요청을 두 번 보내면 두 번째는 '이미 인증'(3번)이 임시 토큰 거절(5번)보다 먼저 걸린다."""
@@ -196,7 +223,7 @@ async def verify(
         return _error(403, errors.SCHOOL_EMAIL_NOT_CONFIRMED, errors.CODE_SCHOOL_EMAIL_NOT_CONFIRMED)
     if temp_user is None:
         return _auth_unavailable()
-    email = confirmed_temp_email(temp_user, caller_id)
+    email = confirmed_temp_email(temp_user, caller_id, body.temp_access_token)
     if email is None:  # 6 — 남의 계정일 수 있어 지우지 않는다
         return _error(403, errors.SCHOOL_EMAIL_NOT_CONFIRMED, errors.CODE_SCHOOL_EMAIL_NOT_CONFIRMED)
     repo = SchoolEmailRepository(settings.postgrest_url, settings.supabase_service_role_key, client)
