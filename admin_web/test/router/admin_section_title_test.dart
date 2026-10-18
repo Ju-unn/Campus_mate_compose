@@ -8,10 +8,13 @@ void main() {
     expect(AdminSection.reports.titleOf('/reports/r1'), '신고 상세');
     expect(AdminSection.users.titleOf('/users'), '사용자');
     expect(AdminSection.users.titleOf('/users/u1'), '사용자 상세');
+    expect(AdminSection.billing.titleOf('/billing'), '결제 조회');
+    expect(AdminSection.billing.label, '결제'); // 메뉴 글자는 그대로
     expect(AdminSection.home.titleOf('/'), '홈');
   });
 
   test('사용자 · 결제 아래 주소도 그 메뉴 소속', () {
     expect(AdminSection.ownerOf('/users/8f3a'), AdminSection.users);
+    expect(AdminSection.ownerOf('/billing'), AdminSection.billing);
   });
 }

@@ -20,11 +20,13 @@ enum AdminSection {
   final IconData icon;
 
   /// TopBar · 탭 제목. 신고 아래 주소(`/reports/{id}`)는 "신고 상세"(pen A4 상세 TopBar), 사용자 아래 주소는 "사용자 상세"(A5),
+  /// 결제는 "결제 조회"(A8 TopBar — 메뉴 이름은 "결제"), 그 밖은 메뉴 이름.
   String titleOf(String path) {
     final detail = path != this.path;
     return switch (this) {
       reports when detail => '신고 상세',
       users when detail => '사용자 상세',
+      billing => '결제 조회',
       _ => label,
     };
   }
