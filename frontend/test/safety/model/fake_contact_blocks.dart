@@ -101,6 +101,9 @@ class FakeContactNameStore implements ContactNameStore {
     if (failRemove) throw const FileSystemException('disk full');
     labels.remove(blockId);
   }
+
+  @override
+  Future<void> clear() async => labels.clear();
 }
 
 ContactBlock contactBlockFixture(String id) => ContactBlock(id: id, createdAt: DateTime(2026, 9, 27, 14));

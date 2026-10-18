@@ -64,12 +64,15 @@ final class ServerUnavailableFailure extends Failure {
 }
 
 /// 시간당 재전송·요청 한도에 걸린 경우.
+/// 서버가 문구를 주면(사진 검사 하루 상한의 "내일 다시" 등) 그것을, 없으면 공용 문구를 보인다.
 final class RateLimitedFailure extends Failure {
-  const RateLimitedFailure();
+  const RateLimitedFailure([this._serverMessage]);
+
+  final String? _serverMessage;
 
   @override
   String toDisplayMessage() {
-    return '너무 많이 시도했어요. 잠시 후 다시 시도해 주세요';
+    return _serverMessage ?? '너무 많이 시도했어요. 잠시 후 다시 시도해 주세요';
   }
 }
 

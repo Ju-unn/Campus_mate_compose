@@ -64,6 +64,17 @@ void main() {
     expect(labels.keys, ['b2']);
   });
 
+  // 로그아웃 · 탈퇴 때(2026-10-18 보안 검사 낮음 6) — 다음에 이 폰으로 로그인하는 사람이 앞사람이 차단한 지인 이름을 보지 않는다.
+  test('clear deletes the label file, and is fine when there is none', () async {
+    await store().saveAll({'b1': const ContactLabel(name: '엄마', maskedNumber: '010-****-2841')});
+
+    await store().clear();
+
+    expect(File('${dir.path}/contact_block_names.json').existsSync(), isFalse);
+    expect(await store().load(), isEmpty);
+    await expectLater(store().clear(), completes);
+  });
+
   test('maskPhoneNumber', () {
     expect(maskPhoneNumber('010-1234-2841'), '010-****-2841');
     expect(maskPhoneNumber('+82 10-1234-2841'), '010-****-2841');

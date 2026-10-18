@@ -39,7 +39,7 @@ Result<http.Response> _classify(http.Response response) {
     return const FailureResult(SessionRejectedFailure());
   }
   if (response.statusCode == 429) {
-    return const FailureResult(RateLimitedFailure());
+    return FailureResult(RateLimitedFailure(_detailOrNull(response)));
   }
   if (response.statusCode == 502 || response.statusCode == 503) {
     return const FailureResult(ServerUnavailableFailure());
@@ -48,6 +48,16 @@ Result<http.Response> _classify(http.Response response) {
     return const FailureResult(UnknownFailure());
   }
   return FailureResult(_toRejection(response));
+}
+
+/// 429 의 서버 문구. 몸통이 비었거나 JSON 이 아니면(게이트웨이 HTML 등) null — 공용 문구를 쓴다.
+String? _detailOrNull(http.Response response) {
+  try {
+    final body = jsonDecode(response.body);
+    return body is Map<String, dynamic> && body['detail'] is String ? body['detail'] as String : null;
+  } on FormatException {
+    return null;
+  }
 }
 
 /// 정지·탈퇴는 문구 비교 대신 헤더로 가른다(Ruling 8 · 22) — 403 은 학교 메일·학과 관문에도 쓰여

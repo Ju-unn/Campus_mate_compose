@@ -50,6 +50,10 @@ class _SlowGateRepository implements VerificationGateRepository {
   Future<Result<VerificationGate>> fetchGate() => _answer.future;
 }
 
+/// 방 id(지어낸 UUID). 라우터는 UUID 모양이 아닌 방 id 를 대화 목록으로 돌려보낸다(2026-10-18 경로 id 검사).
+const _roomId = '11111111-1111-4111-8111-111111111111';
+const _otherRoomId = '22222222-2222-4222-8222-222222222222';
+
 /// 꺼진 앱에서 알림을 눌러 켰을 때(A10). 알림 경로는 관문 조회가 끝난 뒤에 열린다 —
 /// 먼저 열면 조회 전 기본값(약관 동의)에 끌려갔다가 조회가 오면 홈으로 가서 목표 화면을 놓쳤다.
 void main() {
@@ -200,7 +204,7 @@ void main() {
   }
 
   Conversation conversationWith(String nickname) => Conversation(
-        matchId: 'm1',
+        matchId: _roomId,
         partner: ChatPartner(profileId: 'p1', nickname: nickname),
         lastMessageAt: DateTime(2026, 10, 5),
         unreadCount: 0,
@@ -213,7 +217,7 @@ void main() {
     final before = chat.conversationsFetchCount;
     chat.conversations = Success([conversationWith('새연결')]);
 
-    push.emitOpened({'route': 'match', 'match_id': 'm1'});
+    push.emitOpened({'route': 'match', 'match_id': _roomId});
     await tester.pumpAndSettle();
 
     expect(find.byType(ConversationsScreen), findsOneWidget);
@@ -330,13 +334,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(ChatRoomScreen), findsOneWidget);
 
-    push.emitMessage({'route': 'chat', 'match_id': 'm1'}, title: '새연결', body: '안녕하세요');
+    push.emitMessage({'route': 'chat', 'match_id': _roomId}, title: '새연결', body: '안녕하세요');
     await tester.pumpAndSettle();
     expect(appSystemNotifications.shown, isEmpty);
 
-    push.emitMessage({'route': 'chat', 'match_id': 'm2'}, title: '다른사람', body: '반가워요');
+    push.emitMessage({'route': 'chat', 'match_id': _otherRoomId}, title: '다른사람', body: '반가워요');
     await tester.pumpAndSettle();
-    expect(appSystemNotifications.shown.single.data['match_id'], 'm2');
+    expect(appSystemNotifications.shown.single.data['match_id'], _otherRoomId);
   });
 
   testWidgets('앱이 직접 띄운 알림을 누르면 FCM 알림을 누른 것과 같은 화면으로 간다', (tester) async {
@@ -344,7 +348,7 @@ void main() {
     final before = chat.conversationsFetchCount;
     chat.conversations = Success([conversationWith('새연결')]);
 
-    appSystemNotifications.emitTap({'route': 'match', 'match_id': 'm1'});
+    appSystemNotifications.emitTap({'route': 'match', 'match_id': _roomId});
     await tester.pumpAndSettle();
 
     expect(find.byType(ConversationsScreen), findsOneWidget);
@@ -415,7 +419,7 @@ void main() {
       expect(appContainer.read(chatBadgeCountProvider), 0);
 
       appEvents.push(MessageEvent(
-        'm1',
+        _roomId,
         Message(id: 'msg-rt', senderId: 'p1', body: '지금 왔어요', kind: MessageKind.text, createdAt: DateTime(2026, 10, 6)),
       ));
       await tester.pumpAndSettle();

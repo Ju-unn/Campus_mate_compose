@@ -19,4 +19,12 @@ void main() {
       '이름과 연락처 목록은 서버로 보내지 않아요.',
     );
   });
+
+  // 앱은 주소로 화면을 열 일이 없다(2026-10-18 보안 검사 중간 2). 꺼도 카카오 복귀 스킴은 플러그인이 먼저 받는다
+  // (엔진 FlutterSceneLifeCycle: 플러그인이 안 받은 주소만 이 값을 보고 라우터로 넘긴다).
+  test('FlutterDeepLinkingEnabled 는 false 다', () {
+    final plist = File('ios/Runner/Info.plist').readAsStringSync();
+
+    expect(plist, matches(RegExp(r'<key>FlutterDeepLinkingEnabled</key>\s*<false/>')));
+  });
 }

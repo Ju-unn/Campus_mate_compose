@@ -143,6 +143,14 @@ abstract final class AppRouter {
     ];
   }
 
+  /// 경로 id 는 전부 DB uuid 다(matches · daily_cards · profiles · polls, 2026-10-18 보안 검사).
+  static final RegExp _uuid = RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', caseSensitive: false);
+
+  /// [parameter] 칸이 UUID 모양이 아니면 [fallback](그 목록 · 홈)으로 돌려보낸다 — 푸시 값 · 바깥에서 만든 주소의
+  /// 엉뚱한 값이 화면을 거쳐 서버 요청 경로에 실리지 않게 한다.
+  static GoRouterRedirect _uuidOr(String parameter, String fallback) =>
+      (context, state) => _uuid.hasMatch(state.pathParameters[parameter] ?? '') ? null : fallback;
+
   static TagPickerKind? _tagKind(GoRouterState state) {
     final endpoint = state.pathParameters['kind'];
     return TagPickerKind.values.where((kind) => kind.endpoint == endpoint).firstOrNull;
@@ -159,6 +167,7 @@ abstract final class AppRouter {
       _PlatformRoute(path: AppRoutes.kakaoIdSettings, builder: (context, state) => const KakaoIdSettingsScreen()),
       _PlatformRoute(
         path: '${AppRoutes.partnerProfile}/:profileId',
+        redirect: _uuidOr('profileId', AppRoutes.home),
         builder: (context, state) => PartnerProfileScreen(profileId: state.pathParameters['profileId']!),
       ),
       _PlatformRoute(path: AppRoutes.heartStore, builder: (context, state) => const HeartStoreScreen()),
@@ -192,6 +201,7 @@ abstract final class AppRouter {
           // 20b — AppRoutes.friendReviewWrite/:profileId. 홈이 밑에 깔리고 그 위에 시트가 뜬다(추천 가입 푸시).
           GoRoute(
             path: 'friend-reviews/write/:profileId',
+            redirect: _uuidOr('profileId', AppRoutes.home),
             pageBuilder: (context, state) =>
                 FriendReviewComposePage(key: state.pageKey, revieweeId: state.pathParameters['profileId']!),
           ),
@@ -202,6 +212,7 @@ abstract final class AppRouter {
       _TabRoute(path: AppRoutes.today, builder: (context, state) => const BackExitScope(child: TodayCardsScreen())),
       _PlatformRoute(
         path: '${AppRoutes.cardDetail}/:cardId',
+        redirect: _uuidOr('cardId', AppRoutes.today),
         builder: (context, state) => CardDetailScreen(cardId: state.pathParameters['cardId']!),
       ),
       _TabRoute(
@@ -211,6 +222,7 @@ abstract final class AppRouter {
       // 받은 신청 · 프로필 보기(pen `o4QqYR`) — 대화 탭 받은 신청 행의 "프로필 보기" 가 push 로 연다.
       _PlatformRoute(
         path: '${AppRoutes.acceptanceDetail}/:cardId',
+        redirect: _uuidOr('cardId', AppRoutes.conversations),
         builder: (context, state) => AcceptanceDetailScreen(cardId: state.pathParameters['cardId']!),
       ),
       _PlatformRoute(
@@ -222,6 +234,7 @@ abstract final class AppRouter {
       ),
       _PlatformRoute(
         path: '${AppRoutes.chatRoom}/:matchId',
+        redirect: _uuidOr('matchId', AppRoutes.conversations),
         builder: (context, state) => ChatRoomScreen(matchId: state.pathParameters['matchId']!),
       ),
       _PlatformRoute(path: AppRoutes.settings, builder: (context, state) => const SettingsScreen()),
@@ -238,6 +251,7 @@ abstract final class AppRouter {
       _PlatformRoute(path: AppRoutes.communityNew, builder: (context, state) => const PollComposerScreen()),
       _PlatformRoute(
         path: '${AppRoutes.communityPoll}/:pollId',
+        redirect: _uuidOr('pollId', AppRoutes.community),
         builder: (context, state) => PollDetailScreen(pollId: state.pathParameters['pollId']!),
       ),
       _TabRoute(

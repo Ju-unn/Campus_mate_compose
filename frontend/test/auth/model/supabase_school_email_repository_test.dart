@@ -254,10 +254,12 @@ void main() {
         expect(failure!.toDisplayMessage(), '학교 메일 인증을 마치지 못했어요. 잠시 뒤 다시 시도해 주세요');
       });
 
-      test('DOMAIN_NOT_ALLOWED · REJOIN_BLOCKED 는 서버 문구를 그대로 담은 SchoolEmailRejectedFailure', () async {
+      // ALIAS_NOT_ALLOWED: 학교 메일 `+` 별칭 거절(서버 fix/api-security-hardening, 422 SCHOOL_EMAIL_ALIAS).
+      test('DOMAIN_NOT_ALLOWED · REJOIN_BLOCKED · ALIAS_NOT_ALLOWED 는 서버 문구를 그대로 담은 SchoolEmailRejectedFailure', () async {
         for (final (code, message) in [
           ('SCHOOL_EMAIL_DOMAIN_NOT_ALLOWED', '등록되지 않은 학교 메일이에요'),
           ('SCHOOL_EMAIL_REJOIN_BLOCKED', '재가입이 제한된 메일이에요'),
+          ('SCHOOL_EMAIL_ALIAS_NOT_ALLOWED', '학교 메일 원래 주소로 인증해 주세요'),
         ]) {
           respond = (_) => json(422, {'detail': message, 'code': code});
 
@@ -373,6 +375,7 @@ void main() {
         '이미 인증': () => json(403, {'detail': '이미 학교 메일 인증이 끝났어요', 'code': 'SCHOOL_EMAIL_ALREADY_VERIFIED'}),
         '409': () => json(409, {'detail': '이 메일은 구글로 가입돼 있어요', 'code': 'SCHOOL_EMAIL_TAKEN', 'provider': 'google'}),
         '422': () => json(422, {'detail': '등록되지 않은 학교 메일이에요', 'code': 'SCHOOL_EMAIL_DOMAIN_NOT_ALLOWED'}),
+        '422 별칭': () => json(422, {'detail': '학교 메일 원래 주소로 인증해 주세요', 'code': 'SCHOOL_EMAIL_ALIAS_NOT_ALLOWED'}),
       };
       for (final MapEntry(key: name, value: response) in ends.entries) {
         test('$name 이면 이 기기에서만 로그아웃해 비운다', () async {

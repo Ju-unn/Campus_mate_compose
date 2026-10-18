@@ -12,6 +12,9 @@ class FakeImageCompressor implements ImageCompressor {
   /// 어떤 파일을 압축하라고 받았는지 — 사용자가 고른 원본이어야 한다.
   final List<File> compressedSources = [];
 
+  /// 다 썼다고 지우라고 받은 파일 경로.
+  final List<String> discardedPaths = [];
+
   @override
   Future<File> compressToJpeg(File source) async {
     compressedSources.add(source);
@@ -21,4 +24,11 @@ class FakeImageCompressor implements ImageCompressor {
     }
     return nextResult ?? source;
   }
+
+  // 시험 파일을 지우지 않는다 — 받은 경로만 남긴다.
+  @override
+  Future<void> discard(File compressed) async => discardedPaths.add(compressed.path);
+
+  @override
+  Future<void> discardAll() async {}
 }
