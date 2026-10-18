@@ -2,6 +2,7 @@ import 'package:campus_mate_admin/theme/admin_colors.dart';
 import 'package:campus_mate_admin/theme/admin_spacing.dart';
 import 'package:campus_mate_admin/theme/admin_typography.dart';
 import 'package:campus_mate_admin/widgets/admin_button.dart';
+import 'package:campus_mate_admin/widgets/status_badge.dart';
 import 'package:flutter/material.dart';
 
 /// pen Web/TopBar(보드 UUkLx · A2 PNG): 높이 64, 흰 바탕, 아래 web-hairline 1, 좌우 32.
@@ -32,38 +33,6 @@ class TopBar extends StatelessWidget {
           const StatusBadge('2단계 인증됨'),
           const SizedBox(width: AdminSpacing.md),
           AdminButton(label: '로그아웃', variant: AdminButtonVariant.text, onPressed: onSignOut),
-        ],
-      ),
-    );
-  }
-}
-
-/// pen Web/StatusBadge 의 초록(성공) 서식: 높이 26 · 좌우 10 · 점 8 + 간격 8 · 글자 12/600 (A2 PNG 측정).
-/// 다른 상태색(대기 · 반려 · 정지 …)은 목록 화면 조각에서 더한다.
-class StatusBadge extends StatelessWidget {
-  const StatusBadge(this.label, {super.key});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 26,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        color: AdminColors.successWash,
-        borderRadius: BorderRadius.circular(AdminRadius.pill),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: AdminSizes.badgeDot,
-            height: AdminSizes.badgeDot,
-            decoration: const BoxDecoration(color: AdminColors.success, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: AdminSpacing.xs),
-          Text(label, style: AdminTypography.xsStrong.copyWith(color: AdminColors.success)),
         ],
       ),
     );

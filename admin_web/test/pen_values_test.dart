@@ -7,6 +7,7 @@ import 'package:campus_mate_admin/widgets/admin_toast.dart';
 import 'package:campus_mate_admin/widgets/code_input.dart';
 import 'package:campus_mate_admin/widgets/gate_card.dart';
 import 'package:campus_mate_admin/widgets/side_nav.dart';
+import 'package:campus_mate_admin/widgets/status_badge.dart';
 import 'package:campus_mate_admin/widgets/top_bar.dart';
 import 'dart:async';
 
@@ -134,6 +135,29 @@ void main() {
     expect(topBar, const Rect.fromLTWH(240, 0, 1200, 64));
     final title = find.descendant(of: find.byType(TopBar), matching: find.text('홈'));
     expect(rectOf(tester, title).left, 272);
+  });
+
+  testWidgets('SideNav(O78dY · lJF8t · k5h02V): "관리자" 12/600, 고른 메뉴 글자 14/700 · 나머지 14/600', (tester) async {
+    await pumpAdminApp(tester, auth: FakeAdminAuth(mfa: const MfaState(aal2: true, factorId: 'f')));
+
+    TextStyle styleIn(String key, String text) =>
+        tester.widget<Text>(find.descendant(of: find.byKey(ValueKey(key)), matching: find.text(text))).style!;
+    final sub = tester.widget<Text>(find.descendant(of: find.byType(SideNav), matching: find.text('관리자'))).style!;
+    expect((sub.fontSize, sub.fontWeight), (12, FontWeight.w600));
+    expect(styleIn('nav-home', '홈').fontWeight, FontWeight.w700);
+    expect(styleIn('nav-reports', '신고').fontWeight, FontWeight.w600);
+  });
+
+  testWidgets('TopBar "2단계 인증됨" 배지(IKoKe): 점 8 · 왼쪽 10 · 점과 글자 사이 6 · 12/700', (tester) async {
+    await pumpAdminApp(tester, auth: FakeAdminAuth(mfa: const MfaState(aal2: true, factorId: 'f')));
+
+    final badge = find.descendant(of: find.byType(TopBar), matching: find.byType(StatusBadge));
+    final dot = rectOf(tester, find.descendant(of: badge, matching: find.byKey(const ValueKey('status-badge-dot'))));
+    final label = find.descendant(of: badge, matching: find.text('2단계 인증됨'));
+    expect(dot.left - rectOf(tester, badge).left, 10);
+    expect(rectOf(tester, label).left - dot.right, 6);
+    final style = tester.widget<Text>(label).style!;
+    expect((style.fontWeight, style.color), (FontWeight.w700, AdminColors.success));
   });
 
   testWidgets('선택된 메뉴는 primary-wash 바탕, 눌림 효과는 그 칸의 Material 에 그린다', (tester) async {
