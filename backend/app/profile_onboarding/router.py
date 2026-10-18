@@ -100,10 +100,11 @@ async def submit_basic_info(
             status_code=422, content={"detail": errors.PHONE_NUMBER_INVALID, "code": errors.CODE_PHONE_NUMBER_INVALID}
         )
 
-    # 닉네임 중복(23505)은 repository 의 공통 변환이 409 로 바꿔 준다.
-    await repo.update_basic_info(
+    # 닉네임 중복(23505)은 repository 의 공통 변환이 409 로 바꿔 준다. 가입을 마친 사람(pending 아님)도 409 — 15-6 으로 고친다.
+    if not await repo.update_basic_info(
         profile_id, body.nickname, body.birth_year, body.height_cm, body.gender, body.mbti
-    )
+    ):
+        raise HTTPException(status_code=409, detail=errors.BASIC_INFO_LOCKED)
 
     await repo.ensure_private_row(profile_id)
     await set_encrypted_phone_number(

@@ -30,16 +30,20 @@ class ProfileOnboardingRepository(PostgrestRepository):
 
     async def update_basic_info(
         self, profile_id: UUID, nickname: str, birth_year: int, height_cm: int, gender: str, mbti: str | None
-    ) -> None:
+    ) -> bool:
+        """가입 중(pending)인 프로필만 고친다. 고친 행이 없으면 False — 온보딩을 마친 사람이 다시 불러 성별 · 출생연도
+        잠금과 닉네임 30일 규칙(PATCH /me/profile)을 건너뛰지 못하게 한다. 조건을 PATCH 에 실어 읽기와 쓰기 사이 틈이 없다."""
         response = await self._patch(
             "profiles",
-            params={"id": f"eq.{profile_id}"},
+            params={"id": f"eq.{profile_id}", "status": "eq.pending", "select": "id"},
             json={
                 "nickname": nickname, "birth_year": birth_year, "height_cm": height_cm,
                 "gender": gender, "mbti": mbti, "nickname_changed_at": "now()",
             },
+            prefer="return=representation",
         )
         raise_for_status(response, conflict_detail=errors.NICKNAME_TAKEN)
+        return bool(response.json())
 
     async def save_photo(
         self, profile_id: UUID, storage_path: str, position: int, is_avatar_source: bool

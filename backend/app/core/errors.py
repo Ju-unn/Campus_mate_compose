@@ -71,6 +71,8 @@ PROFILE_NOT_FOUND = "프로필을 찾을 수 없어요"
 PROFILE_INCOMPLETE = "프로필을 먼저 완성해 주세요"
 NICKNAME_TAKEN = "이미 있는 닉네임이에요"
 NICKNAME_CHANGE_TOO_SOON = "닉네임은 30일에 한 번 바꿀 수 있어요"
+# 온보딩을 마친 뒤 POST /profile-onboarding/basic-info 를 다시 부름(409) — 성별 · 출생연도 잠금 · 닉네임 30일 규칙 우회 차단.
+BASIC_INFO_LOCKED = "가입을 마친 뒤에는 내 프로필에서 고쳐 주세요"
 PHONE_NUMBER_INVALID = "올바른 휴대폰 번호를 입력해 주세요"
 CODE_PHONE_NUMBER_INVALID = "phone_number_invalid"
 # 읽을 수 없는 사진(학생증 제출·프로필 사진 업로드가 같은 문구를 쓴다).

@@ -94,6 +94,50 @@ def _safe_vision() -> AsyncMock:
     return _vision()
 
 
+def _pending_profile_patch(request: httpx.Request) -> httpx.Response | None:
+    """basic-info 의 프로필 PATCH 는 pending 행만 고친다 — 가입 중(pending)인 사람이면 고친 행 하나를 돌려준다."""
+    if request.url.path == "/rest/v1/profiles" and request.method == "PATCH":
+        return httpx.Response(200, json=[{"id": str(PROFILE_ID)}])
+    return None
+
+
+BASIC_INFO = {"nickname": "가나", "birth_year": 2002, "height_cm": 170, "phone_number": "01001352468", "gender": "male"}
+
+
+def test_basic_info_only_changes_a_profile_that_is_still_signing_up():
+    """온보딩을 마친(active) 사람이 basic-info 를 다시 부르면 성별 · 출생연도 잠금과 닉네임 30일 규칙을 건너뛴다(10-18 보안 점검).
+    PATCH 를 status=eq.pending 으로 묶어 한 번에 판정한다 — 따로 읽고 쓰면 그 사이에 활성화될 수 있다."""
+    patches: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/rest/v1/profiles" and request.method == "PATCH":
+            patches.append(request)
+        return _pending_profile_patch(request) or httpx.Response(200, json=[])
+
+    response = _wire(handler).post("/profile-onboarding/basic-info", headers=AUTH_HEADERS, json=BASIC_INFO)
+
+    assert response.status_code == 200
+    assert patches[0].url.params["id"] == f"eq.{PROFILE_ID}"
+    assert patches[0].url.params["status"] == "eq.pending"
+
+
+def test_basic_info_after_onboarding_is_409_and_saves_nothing_else():
+    writes: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method in ("PATCH", "POST"):
+            writes.append(request.url.path)
+        # status=eq.pending 에 걸리는 행이 없다 — PostgREST 는 고친 행 0개 [] 를 돌려준다.
+        return httpx.Response(200, json=[])
+
+    response = _wire(handler).post("/profile-onboarding/basic-info", headers=AUTH_HEADERS, json=BASIC_INFO)
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": "가입을 마친 뒤에는 내 프로필에서 고쳐 주세요"}
+    # 전화번호(암호화 RPC)도 행 보장도 하지 않는다 — 프로필 PATCH 하나만 나갔다.
+    assert writes == ["/rest/v1/profiles"]
+
+
 def test_basic_info_rejects_duplicate_nickname_with_409():
     def handler(request: httpx.Request) -> httpx.Response:
         if "/rest/v1/profiles" in str(request.url) and request.method == "PATCH":
@@ -129,7 +173,7 @@ def test_basic_info_creates_private_row_before_saving_phone():
             return httpx.Response(201)
         if "/rest/v1/rpc/set_phone_number" in url:
             calls.append("set_phone_number")
-        return httpx.Response(200, json=[])
+        return _pending_profile_patch(request) or httpx.Response(200, json=[])
 
     response = _wire(handler).post(
         "/profile-onboarding/basic-info",
@@ -152,7 +196,7 @@ def test_basic_info_saves_the_phone_number_in_e164():
     def handler(request: httpx.Request) -> httpx.Response:
         if "/rest/v1/rpc/set_phone_number" in str(request.url):
             sent.append(json.loads(request.content))
-        return httpx.Response(200, json=[])
+        return _pending_profile_patch(request) or httpx.Response(200, json=[])
 
     response = _wire(handler).post(
         "/profile-onboarding/basic-info",
@@ -274,7 +318,7 @@ def test_basic_info_rejects_under_nineteen_with_422():
     """가입 나이 자격은 Asia/Seoul 기준 올해 - birth_year >= 19 다(ERD.md). 경계값 19/18 을 같이 본다."""
     this_year = datetime.now(SEOUL).year
     body = {"nickname": "가나", "height_cm": 170, "phone_number": "01001352468", "gender": "male"}
-    client = _wire(lambda request: httpx.Response(200, json=[]))
+    client = _wire(lambda request: _pending_profile_patch(request) or httpx.Response(200, json=[]))
 
     just_old_enough = client.post(
         "/profile-onboarding/basic-info", headers=AUTH_HEADERS, json=body | {"birth_year": this_year - 19}
