@@ -12,6 +12,7 @@ import 'package:campus_mate_admin/widgets/admin_button.dart';
 import 'package:campus_mate_admin/widgets/admin_loader.dart';
 import 'package:campus_mate_admin/widgets/admin_search_field.dart';
 import 'package:campus_mate_admin/widgets/admin_table.dart';
+import 'package:campus_mate_admin/widgets/chart_card.dart';
 import 'package:campus_mate_admin/widgets/error_row.dart';
 import 'package:campus_mate_admin/widgets/stat_card.dart';
 import 'package:campus_mate_admin/widgets/status_badge.dart';
@@ -190,7 +191,7 @@ class _SearchCard extends StatelessWidget {
   }
 }
 
-/// 최근 30일 매출 카드(feZAY): 안쪽 20 · 세로 12 — 제목 16/700 + 알약(12/600 web-muted · web-surface-strong · 높이 24, 오른쪽 끝) → 그래프 240
+/// 최근 30일 매출 카드(feZAY): 공용 [ChartCard] — 제목 16/700 + 알약(오른쪽 끝) → 그래프 240
 class _ChartCard extends StatelessWidget {
   const _ChartCard({required this.days});
 
@@ -198,36 +199,12 @@ class _ChartCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return ChartCard(
       key: const ValueKey('revenue-card'),
-      padding: const EdgeInsets.all(20), // pen feZAY 안쪽 20 — 간격 표에 없는 값
-      decoration: _cardBox(),
-      foregroundDecoration: _cardBorder(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Semantics(
-                  header: true,
-                  child: Text('최근 30일 매출 (원)', style: AdminTypography.md.copyWith(fontWeight: FontWeight.w700, height: AdminTypography.mdBox, color: AdminColors.ink)),
-                ),
-              ),
-              Container(
-                key: const ValueKey('revenue-pill'),
-                height: 24,
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(color: AdminColors.surfaceStrong, borderRadius: BorderRadius.circular(AdminRadius.pill)),
-                child: Text('최근 30일 · 시험 결제 제외', style: AdminTypography.xsStrong.copyWith(height: AdminTypography.xsBox, color: AdminColors.muted)),
-              ),
-            ],
-          ),
-          const SizedBox(height: AdminSpacing.sm),
-          RevenueChart(days: days),
-        ],
-      ),
+      pillKey: const ValueKey('revenue-pill'),
+      title: '최근 30일 매출 (원)',
+      pill: '최근 30일 · 시험 결제 제외',
+      child: RevenueChart(days: days),
     );
   }
 }

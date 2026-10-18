@@ -73,6 +73,23 @@ abstract final class AdminColors {
   /// chart-revenue — 결제 그래프 막대(pen A8, 값은 web-success 와 같다)
   static const Color chartRevenue = Color(0xFF25795A);
 
+  /// chart-male · chart-female — 가입 추이 · 학교별 활성(pen A2, 값표 w4)
+  static const Color chartMale = Color(0xFF1F4E9C);
+  static const Color chartFemale = Color(0xFFFF385C);
+
+  /// chart-report · chart-proof — 접수량 막대(pen A2)
+  static const Color chartReport = Color(0xFF9C1B3F);
+  static const Color chartProof = Color(0xFFD17A00);
+
+  /// chart-accept · chart-match · chart-kakao — 매칭 추이 선(pen A9)
+  static const Color chartAccept = Color(0xFF23909F);
+  static const Color chartMatch = Color(0xFF5B2A86);
+  static const Color chartKakao = Color(0xFFA87D00);
+
+  /// chart-grid · chart-axis — 새 그래프의 격자 선 · 눈금 · 범례 글자(pen A2 · A9)
+  static const Color chartGrid = Color(0xFFE6E6E6);
+  static const Color chartAxis = Color(0xFF6A6A6A);
+
   /// web-scrim (#00000080)
   static const Color scrim = Color(0x80000000);
 }
