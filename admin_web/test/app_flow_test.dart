@@ -1,12 +1,15 @@
 import 'dart:async';
 
 import 'package:campus_mate_admin/api/admin_api.dart';
+import 'package:campus_mate_admin/app.dart';
 import 'package:campus_mate_admin/auth/admin_auth.dart';
 import 'package:campus_mate_admin/config/admin_config.dart';
+import 'package:campus_mate_admin/router/admin_router.dart';
 import 'package:campus_mate_admin/widgets/admin_loader.dart';
 import 'package:campus_mate_admin/widgets/side_nav.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/fakes.dart';
@@ -41,6 +44,24 @@ void main() {
     await pumpAdminApp(tester, auth: FakeAdminAuth(session: false), initialPath: '/?error=access_denied');
 
     expect(find.text('관리자 로그인'), findsOneWidget);
+    expect(find.text('구글 로그인을 마치지 못했어요. 다시 시도해 주세요.'), findsOneWidget);
+  });
+
+  testWidgets('실패 표시는 failed=1 하나만 — 비슷한 글자(failed=10 · xfailed=1)로는 오류 줄을 띄우지 않는다', (tester) async {
+    await pumpAdminApp(tester, auth: FakeAdminAuth(session: false));
+    final router = ProviderScope.containerOf(tester.element(find.byType(AdminApp))).read(adminRouterProvider);
+
+    // 첫 진입은 판정 중(/loading)을 거쳐 쿼리가 지워진다 — 로그아웃 상태에서 주소만 바뀌는 경우(브라우저 앞뒤 이동)를 본다.
+    for (final path in ['/login?failed=10', '/login?xfailed=1']) {
+      router.go(path);
+      await tester.pumpAndSettle();
+
+      expect(locationOf(tester), path);
+      expect(find.text('관리자 로그인'), findsOneWidget, reason: path);
+      expect(find.text('구글 로그인을 마치지 못했어요. 다시 시도해 주세요.'), findsNothing, reason: path);
+    }
+    router.go('/login?failed=1');
+    await tester.pumpAndSettle();
     expect(find.text('구글 로그인을 마치지 못했어요. 다시 시도해 주세요.'), findsOneWidget);
   });
 

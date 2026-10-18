@@ -3,6 +3,7 @@ import 'package:campus_mate_admin/auth/admin_auth.dart';
 import 'package:campus_mate_admin/auth/supabase_admin_auth.dart';
 import 'package:campus_mate_admin/config/admin_config.dart';
 import 'package:campus_mate_admin/platform/page_reload.dart';
+import 'package:flutter/painting.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -20,6 +21,12 @@ final adminAuthProvider = Provider<AdminAuth>((ref) {
   ref.onDispose(auth.dispose);
   return auth;
 });
+
+/// 지금 시각(목록 줄의 "n분 전"). 시험은 고정 시각으로 갈아 끼운다.
+final clockProvider = Provider<DateTime Function()>((ref) => DateTime.now);
+
+/// 인증샷 서명 주소 → 그림. 시험은 깨진 주소를 흉내 내는 그림으로 갈아 끼운다.
+final proofImageProvider = Provider<ImageProvider Function(String url)>((ref) => NetworkImage.new);
 
 final adminApiProvider = Provider<AdminApi>((ref) {
   final auth = ref.watch(adminAuthProvider);

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:campus_mate_admin/heart_tasks/heart_task_item.dart';
 import 'package:http/http.dart' as http;
 
 /// 서버 403 본문의 이유(설계서 §6-3). D0 확정 모양(대장 전달 10-18): `{"detail": "not_admin"}` · `{"detail": "mfa_required"}`
@@ -39,6 +40,57 @@ class AdminApi {
   static const Duration readTimeout = Duration(seconds: 15);
 
   Future<AdminApiResponse> me() => send('GET', '/admin/me');
+
+  // 인증샷 검수(A3) — 실패는 [AdminApiFailure] 로 던진다(409 는 [AlreadyReviewed]). 화면 상태는 컨트롤러가 정한다.
+
+  /// 대기 건 요약(오래된 순 · 최대 50). 사진 · 지난 제출은 없다 — 줄을 고르면 [getHeartTask].
+  Future<List<HeartTaskItem>> listHeartTasks({HeartTaskKind? task}) {
+    return _read(send('GET', '/admin/heart-tasks', query: task == null ? null : {'task': task.code}), (body) {
+      if (body case {'items': final List<Object?> items}) return [for (final row in items) HeartTaskItem.fromJson(row)];
+      throw const FormatException('인증샷 목록의 모양이 아니에요');
+    });
+  }
+
+  /// 한 건 — 5분 서명 사진 · 지난 제출. 디스코드 링크로 열 때와 서명이 만료돼 사진을 다시 받을 때도 쓴다.
+  Future<HeartTaskDetail> getHeartTask(String id) async {
+    return _read(send('GET', _heartTaskPath(id)), HeartTaskDetail.fromJson);
+  }
+
+  /// 응답 본문(처리 뒤 한 건)은 읽지 않는다 — 처리는 이미 됐는데 모양이 틀려 실패로 보이면 다시 누르게 된다.
+  Future<void> approveHeartTask(String id) async {
+    return _read(send('POST', '${_heartTaskPath(id)}/approve'), (_) {});
+  }
+
+  Future<void> rejectHeartTask(String id, HeartTaskRejectReason reason) async {
+    return _read(send('POST', '${_heartTaskPath(id)}/reject', body: {'reason': reason.code}), (_) {});
+  }
+
+  /// 제출 번호로 받는 글자: 영숫자와 하이픈(서버 번호는 UUID). 주소창 링크의 `..%2Fme` 를 go_router 가 `../me` 로
+  /// 풀어 넘겨도 `/` · `.` · `%` 가 경로에 들어가 다른 관리자 API(`/admin/me` 등)를 부르지 못하게 한다(검토 10-18).
+  /// UUID 꼴 자체(8-4-4-4-12)는 서버가 422 로 거른다.
+  static bool isTaskId(String id) => _taskId.hasMatch(id);
+  static final RegExp _taskId = RegExp(r'^[0-9A-Za-z-]+$');
+
+  /// 꼴이 틀린 번호는 보내지 않고 없는 건(404)과 같이 실패한다.
+  static String _heartTaskPath(String id) {
+    if (!isTaskId(id)) throw const AdminApiFailure(404);
+    return '/admin/heart-tasks/$id';
+  }
+
+  /// 성공이면 본문을 [parse] 로 읽고, 아니면 실패 예외를 낸다. 본문 모양이 틀린 것([FormatException])도
+  /// 그 상태코드의 실패로 바꾼다 — 화면은 실패 한 가지만 다룬다.
+  static Future<T> _read<T>(Future<AdminApiResponse> pending, T Function(Object? body) parse) async {
+    final response = await pending;
+    if (response.statusCode == 409 && response.reason == alreadyReviewedReason) throw const AlreadyReviewed();
+    if (!response.isSuccess) throw AdminApiFailure(response.statusCode);
+    try {
+      return parse(response.body);
+    } on FormatException {
+      throw AdminApiFailure(response.statusCode);
+    }
+  }
+
+  static const String alreadyReviewedReason = 'already_reviewed';
 
   Future<AdminApiResponse> send(
     String method,
@@ -90,4 +142,19 @@ class AdminApi {
     final detail = body['detail'];
     return detail is String ? detail : null;
   }
+}
+
+/// 관리자 서버가 실패로 답했다. [statusCode] 가 null 이면 연결 실패 · 시간 초과다.
+class AdminApiFailure implements Exception {
+  const AdminApiFailure(this.statusCode);
+
+  final int? statusCode;
+
+  /// 토큰 거절 · 관리자 해제 · 2단계 풀림 — 관문이 다시 판정해야 한다
+  bool get isGateProblem => statusCode == 401 || statusCode == 403;
+}
+
+/// 다른 관리자가 먼저 처리했다(409 `{"detail": "already_reviewed"}`)
+class AlreadyReviewed extends AdminApiFailure {
+  const AlreadyReviewed() : super(409);
 }

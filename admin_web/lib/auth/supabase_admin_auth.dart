@@ -98,3 +98,13 @@ class SupabaseAdminAuth implements AdminAuth {
     _changes.close();
   }
 }
+
+/// 처음 연 주소를 Supabase 가 로그인 복귀로 보고 세션으로 바꿀지 정한다(main.dart 의 detectSessionInUriPredicate).
+/// 우리 웹은 PKCE 만 쓴다 — 쿼리의 `?code=`(성공) · `?error=`(실패 · 취소)만 넘긴다. 기본 판정은 `#access_token=` 조각도
+/// 받아들여, 남이 만든 링크를 누르면 세션이 그 사람 계정으로 바뀔 수 있다(보안 검토 10-18 낮음 7).
+/// `?code=x#access_token=…` 처럼 섞여도 gotrue getSessionFromUrl 이 error → code 순으로 먼저 처리해
+/// access_token 갈래까지 가지 않는다(gotrue 2.27.3 gotrue_client.dart getSessionFromUrl).
+bool isPkceAuthCallback(Uri uri) {
+  final query = uri.queryParameters;
+  return query.containsKey('code') || query.containsKey('error');
+}

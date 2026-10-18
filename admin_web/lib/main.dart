@@ -1,4 +1,5 @@
 import 'package:campus_mate_admin/app.dart';
+import 'package:campus_mate_admin/auth/supabase_admin_auth.dart';
 import 'package:campus_mate_admin/config/admin_config.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,7 +15,12 @@ Future<void> main() async {
   // 웹 기본 흐름은 PKCE: 구글에서 돌아온 /?code= 를 initialize 가 기다려 세션으로 바꾸고 주소에서 지운 뒤(replaceState)
   // runApp 한다 — 라우터는 지워진 주소로 시작한다. 실패(?error=)하면 남는 매개변수는 GateRedirector 가 지운다.
   if (config.isComplete) {
-    await Supabase.initialize(url: config.supabaseUrl, publishableKey: config.supabaseAnonKey);
+    await Supabase.initialize(
+      url: config.supabaseUrl,
+      publishableKey: config.supabaseAnonKey,
+      // PKCE 복귀(?code= · ?error=)만 세션으로 바꾼다 — #access_token= 조각으로 남의 세션을 심는 링크를 막는다.
+      authOptions: const FlutterAuthClientOptions(detectSessionInUriPredicate: isPkceAuthCallback),
+    );
   }
   runApp(const ProviderScope(child: AdminApp()));
 }

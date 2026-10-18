@@ -59,7 +59,8 @@ class _Logo extends StatelessWidget {
             softWrap: false,
             style: AdminTypography.lg.copyWith(height: 1.5, color: AdminColors.primary),
           ),
-          Text('관리자', maxLines: 1, style: AdminTypography.xs.copyWith(color: AdminColors.muted)),
+          // pen Brand Sub(h1Zx1) 12/600
+          Text('관리자', maxLines: 1, style: AdminTypography.xsStrong.copyWith(color: AdminColors.muted)),
         ],
       ),
     );
@@ -115,7 +116,14 @@ class _NavItemState extends State<_NavItem> {
                 children: [
                   Icon(section.icon, size: AdminSizes.navIcon, color: selected ? foreground : AdminColors.muted),
                   const SizedBox(width: AdminSpacing.sm),
-                  Text(section.label, style: AdminTypography.smStrong.copyWith(color: foreground)),
+                  // pen SideNav Item: 켜짐(lJF8t) 14/700 · 꺼짐(k5h02V) 14/600
+                  Text(
+                    section.label,
+                    style: AdminTypography.smStrong.copyWith(
+                      color: foreground,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                    ),
+                  ),
                 ],
               ),
             ),

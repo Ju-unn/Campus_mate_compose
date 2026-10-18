@@ -7,6 +7,12 @@ import 'package:flutter/painting.dart';
 /// sm 14 → 21, lg 20 → 27, xl 28 → 38. SideNav 로고만 PNG 측정 30(side_nav.dart).
 abstract final class AdminTypography {
   static const String family = 'Pretendard';
+
+  /// 줄 높이 속성이 없는 pen 글자의 렌더 상자 높이(A3 GX3T8 노드 — 목록 줄 Meta 12 → 16 · 정보 줄 14 → 19 ·
+  /// 정보 제목 16 → 22). 상자 높이로 자리가 정해지는 화면(A3 목록 줄 80 · 정보 카드)에서 `copyWith(height:)` 로 쓴다.
+  static const double xsBox = 16 / 12;
+  static const double smBox = 19 / 14;
+  static const double mdBox = 22 / 16;
   static const List<String> _fallback = <String>['Apple SD Gothic Neo', 'Noto Sans KR', 'sans-serif'];
 
   /// 오류 줄 · 배지 · 보조 글자
