@@ -20,6 +20,9 @@ abstract interface class ContactNameStore {
   Future<void> saveAll(Map<String, ContactLabel> labelsByBlockId);
 
   Future<void> remove(String blockId);
+
+  /// 이름표를 전부 지운다 — 로그아웃 · 탈퇴 때. 다음에 이 폰으로 로그인하는 사람이 앞사람이 차단한 지인 이름을 보지 않는다.
+  Future<void> clear();
 }
 
 /// 16b 가 보여줄 이름을 **기기에만** 둔다(ERD §5). 서버는 id 와 등록일만 안다.
@@ -56,6 +59,12 @@ class FileContactNameStore implements ContactNameStore {
     final labels = await load()
       ..remove(blockId);
     await _write(labels);
+  }
+
+  @override
+  Future<void> clear() async {
+    final file = await _file();
+    if (await file.exists()) await file.delete();
   }
 
   Future<File> _file() async => File('${(await _directory()).path}/$_fileName');
