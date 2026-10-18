@@ -5,7 +5,7 @@ from datetime import datetime, time, timedelta, timezone
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from app.cards.ladder import last_issue_at, upcoming_issue_at
 from app.cards.paid_offer import PAID_CARD_COST, ensure_offer, target_eligible
@@ -45,7 +45,8 @@ class DecisionRequest(BaseModel):
 
 
 class PushTokenRequest(BaseModel):
-    token: str
+    # FCM 등록 토큰은 수백 자다 — 상한이 없으면 아무 길이나 기본 키(text)로 들어간다(10-18 보안 점검).
+    token: str = Field(max_length=4096)
     platform: str
 
     @field_validator("platform")

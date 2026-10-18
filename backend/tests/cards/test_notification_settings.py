@@ -76,6 +76,46 @@ def test_unknown_platform_is_refused():
     assert response.status_code == 422
 
 
+def test_a_token_longer_than_4096_is_refused_before_the_db():
+    """FCM 등록 토큰은 수백 자다. 상한이 없으면 아무 길이나 기본 키(text)로 들어간다(10-18 보안 점검)."""
+    handler, seen = _recorder()
+    response = _wire(handler).post("/cards/push-tokens", headers=AUTH_HEADERS,
+                                   json={"token": "t" * 4097, "platform": "android"})
+
+    assert response.status_code == 422
+    assert [r for r in seen if r.url.path == "/rest/v1/push_tokens"] == []
+    assert _wire(handler).post("/cards/push-tokens", headers=AUTH_HEADERS,
+                               json={"token": "t" * 4096, "platform": "android"}).status_code == 200
+
+
+def test_registering_keeps_only_the_newest_five_tokens_per_person():
+    """기기 · 재설치마다 토큰이 쌓이면 알림 한 건이 그만큼 FCM 호출이 된다 — 새 토큰 + 최근 4개만 남긴다(10-18 보안 점검).
+    지우는 것은 내 것만(profile_id), 새로 등록하는 토큰은 빼고 센다."""
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        if request.method == "GET" and request.url.path == "/rest/v1/push_tokens":
+            return httpx.Response(200, json=[{"token": "old-5"}, {"token": "old-6"}])
+        return httpx.Response(200, json=[])
+
+    response = _wire(handler).post("/cards/push-tokens", headers=AUTH_HEADERS,
+                                   json={"token": "new-tok", "platform": "ios"})
+
+    assert response.status_code == 200
+    [older] = [r for r in seen if r.method == "GET" and r.url.path == "/rest/v1/push_tokens"]
+    assert older.url.params["profile_id"] == f"eq.{PROFILE_ID}"
+    assert older.url.params["token"] == "neq.new-tok"
+    assert older.url.params["order"] == "updated_at.desc"
+    assert older.url.params["offset"] == "4"
+    deleted = [r for r in seen if r.method == "DELETE"]
+    assert [(r.url.params["token"], r.url.params["profile_id"]) for r in deleted] == [
+        ("eq.old-5", f"eq.{PROFILE_ID}"), ("eq.old-6", f"eq.{PROFILE_ID}")]
+    # 등록(upsert)은 그대로 마지막에 나간다.
+    assert seen[-1].method == "POST"
+    assert json.loads(seen[-1].content)["token"] == "new-tok"
+
+
 @pytest.mark.parametrize("method, path", [("POST", "/cards/push-tokens"), ("DELETE", "/cards/push-tokens/tok-1")])
 def test_push_token_works_before_student_verification(method, path):
     """검토를 기다리는 사람도 토큰이 있어야 검토 결과 알림(A7)을 받는다 — 학생증 관문을 보지 않는다."""

@@ -35,6 +35,18 @@ def _failure_detail(response: httpx.Response, token: str) -> str:
         detail = response.text[:_RAW_MAX]
     return detail.replace(token, _mask(token))[:_DETAIL_MAX]
 
+
+def _rejects_the_token(response: httpx.Response) -> bool:
+    """400 중 FCM 이 토큰 칸(BadRequest fieldViolations 의 message.token)을 집어 거절한 것인가 — 그 토큰은 다시는 안 된다.
+    칸 정보가 없거나 다른 칸이면 우리 payload 탓이라 False(Firebase 문서: INVALID_ARGUMENT 는 payload 가 멀쩡할 때만 토큰 문제)."""
+    try:
+        details = response.json()["error"].get("details") or []
+        return any(violation.get("field") == "message.token"
+                   for detail in details if isinstance(detail, dict)
+                   for violation in detail.get("fieldViolations") or [] if isinstance(violation, dict))
+    except (ValueError, KeyError, TypeError, AttributeError):
+        return False
+
 _SCOPE = "https://www.googleapis.com/auth/firebase.messaging"
 # 조용한 시간(설계 화면 16d): 22시 ~ 다음날 8시.
 _QUIET_START_HOUR = 22
@@ -105,8 +117,8 @@ class FcmSender:
                    kind: str = "", platform: str = "") -> str:
         """`"sent"` · `"dead"` · `"failed"` 중 하나. `"dead"` 일 때만 부른 쪽이 토큰을 지운다.
 
-        400 은 죽은 토큰이 아니라 우리가 보낸 payload 가 잘못됐다는 뜻이다 — 예전에는 404 와
-        한데 묶여서 멀쩡한 사람의 토큰을 조용히 지웠다.
+        400 은 대개 죽은 토큰이 아니라 우리가 보낸 payload 가 잘못됐다는 뜻이다 — 예전에는 404 와
+        한데 묶여서 멀쩡한 사람의 토큰을 조용히 지웠다. 토큰 칸을 집은 400 만 dead 다(_rejects_the_token).
 
         `platform` 은 로그에만 쓴다. `kind` 는 로그와, 한 장으로 합칠 알림인지([_COLLAPSED_KINDS])를 고르는 데 쓴다.
         로그에는 토큰 앞 6자와 길이, 종류, 기기 종류, FCM 오류 코드만 남고 토큰 원문 · 제목 · 본문 · 사용자 이름은 남기지 않는다."""
@@ -131,7 +143,7 @@ class FcmSender:
             json=payload,
             headers={"Authorization": f"Bearer {await self._access_token()}"},
         )
-        if response.status_code == 404:
+        if response.status_code == 404 or (response.status_code == 400 and _rejects_the_token(response)):
             return "dead"
         if not response.is_success:
             # 푸시 실패가 카드 지급을 되돌리게 두지 않는다 — 로그만 남기고 넘어간다.
