@@ -58,7 +58,9 @@ _QUIET_END_HOUR = 8
 _QUIET_HOURS_EXEMPT = {"card_arrived", "new_message"}
 # 조용한 시간에 걸리면 버리지 않고 pending_pushes 에 넣어 아침에 묶어 보낸다(결정 4, 2026-10-01 사용자).
 # 학생증 검토 결과(A7)도 예외가 아니라 보관함으로 간다 — 예외는 채팅 · 카드 도착뿐이다(사용자 규칙).
-_DEFERRED = {"acceptance_received", "match_made", "new_friend_review", "verification_result"}
+# 인증샷 결과(사용자 결정 10-18 "가")도 학생증 결과처럼 보관함이다 — 알림함 줄은 즉시, 푸시는 아침에 한 건씩(_BUNDLES 에 없다).
+_DEFERRED = {"acceptance_received", "match_made", "new_friend_review", "verification_result",
+             "heart_task_approved", "heart_task_rejected"}
 # 알림함(설계 §7·§8-4)에 남기는 푸시 kind -> notifications.kind. 여기 없는 kind(채팅 new_message ·
 # 게이트 trust_reminder)는 알림함에 쌓지 않는다.
 _INBOX_KINDS = {
@@ -67,6 +69,8 @@ _INBOX_KINDS = {
     "match_made": "match_made",
     "new_friend_review": "friend_review",
     "verification_result": "verification_result",
+    "heart_task_approved": "heart_task_approved",
+    "heart_task_rejected": "heart_task_rejected",
 }
 # 아침 묶음 문구. 사람 × (kind, 가는 화면 data.route)로 묶는다 — 같은 kind 라도 가는 화면이 달라서다.
 # 여기 없는 짝(친구 가입 → 리뷰 쓰기, 학생증 검토 결과)은 알림마다 내용 · 갈 곳이 달라 묶지 않고 한 건씩 보낸다.
