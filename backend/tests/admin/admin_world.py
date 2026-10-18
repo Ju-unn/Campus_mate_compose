@@ -6,9 +6,11 @@
 import base64
 import json
 import time
+from datetime import datetime
 
 import httpx
 
+from app.core.time import SEOUL
 from app.settings import Settings
 
 ADMIN = "aaaaaaaa-0000-0000-0000-000000000001"
@@ -163,6 +165,21 @@ class AdminWorld:
         self.kakao_unlinks: list[httpx.Request] = []
         # get_settings 를 시험마다 바꾸는 값(예: {"kakao_admin_key": "..."}). conftest 의 람다가 요청마다 읽는다.
         self.settings_overrides: dict = {}
+        # 인증샷 결과 알림(10-18). 승인 · 반려 직후 서버가 notify() 로 부르는 표 · FCM 을 받는 가짜.
+        # now 는 get_now 를 덮는 "지금"(기본 한낮 — 조용한 시간 22~08시 밖). 밤 시험은 23시로 바꾼다.
+        self.now = datetime(2026, 10, 18, 12, 0, tzinfo=SEOUL)
+        self.profile_status = "active"
+        self.profile_status_http = 200
+        self.push_tokens = [{"token": "tok-1", "platform": "android"}]
+        self.notifications: list[dict] = []
+        self.notifications_status = 201
+        self.pending: list[dict] = []
+        self.pushes: list[dict] = []
+        self.fcm_status = 200
+        self.fcm_raises: Exception | None = None
+        # 첫 heart_task_submissions 읽기 이후의 읽기를 500 으로(승인 뒤 응답 만들기 실패 흉내).
+        self.fail_submission_reads_after = 0
+        self._submission_reads = 0
 
     def _act(self, name: str, body: dict) -> httpx.Response:
         """DB 함수와 같은 약속: 없으면 CM404, 이미 그 상태면 CM409. PostgREST 는 모르는 코드를 400 으로 보낸다."""
@@ -308,6 +325,9 @@ class AdminWorld:
             self.actions.append(json.loads(request.content))
             return httpx.Response(201)
         if path == "/rest/v1/heart_task_submissions" and request.method == "GET":
+            self._submission_reads += 1
+            if self.fail_submission_reads_after and self._submission_reads > self.fail_submission_reads_after:
+                return httpx.Response(500, json={})
             return self._heart_task_submissions(params)
         if path == "/rest/v1/rpc/admin_review_heart_task" and request.method == "POST":
             return self._review(json.loads(request.content))
@@ -337,6 +357,8 @@ class AdminWorld:
             if object_path in self.unsignable_photos:
                 return httpx.Response(400, json={"error": "not_found"})
             return httpx.Response(200, json={"signedURL": f"/object/sign/profile-photos/{object_path}?token=t"})
+        if (response := self._notification_side(request, path)) is not None:
+            return response
         raise AssertionError(f"관리자 가짜가 모르는 요청 {request.method} {path}")
 
     def _d3(self, request: httpx.Request, path: str, params) -> httpx.Response | None:
@@ -345,6 +367,12 @@ class AdminWorld:
         if path in self.table_status:  # 경로 하나를 통째로 실패시킨다
             return httpx.Response(self.table_status[path], json={})
         if path == "/rest/v1/profiles" and method == "GET":
+            # 관리자 조치(D3)와 푸시 관문(push.notify)이 둘 다 `select=status&id=eq.<id>` 로 같은 모양을 보낸다 — 요청 모양으로는
+            # 갈라지지 않는다. 인증샷을 낸 사람(submissions)이면서 D3 가 만든 사람(user_profiles)이 아니면 알림 쪽 가짜(profile_status)가 답한다.
+            asked = params.get("id", "").removeprefix("eq.")
+            submitters = {r["profiles"]["id"] for r in self.submissions.values()}
+            if params.get("select") == "status" and asked in submitters and asked not in self.user_profiles:
+                return None
             return self._profiles(params)
         if path == "/rest/v1/school_email_claims" and method == "GET":
             key, value = next((k, v) for k, v in params.items() if k in ("school_email_hmac", "profile_id"))
@@ -386,6 +414,32 @@ class AdminWorld:
         if path in ("/rest/v1/rpc/admin_adjust_hearts", "/rest/v1/rpc/admin_close_account", "/rest/v1/rpc/admin_billing_daily",
                     "/rest/v1/rpc/admin_billing_shortfall") and method == "POST":
             return self._new_rpc(path.removeprefix("/rest/v1/rpc/"), json.loads(request.content))
+        return None
+
+    def _notification_side(self, request: httpx.Request, path: str) -> httpx.Response | None:
+        """push.notify() 가 부르는 표와 FCM. 해당 없는 요청이면 None."""
+        if request.method == "GET":
+            if path == "/rest/v1/profiles":
+                return httpx.Response(self.profile_status_http, json=[{"status": self.profile_status}])
+            if path == "/rest/v1/notification_settings":
+                return httpx.Response(200, json=[])
+            if path == "/rest/v1/push_tokens":
+                return httpx.Response(200, json=self.push_tokens)
+        if request.method == "POST":
+            if path == "/rest/v1/notifications":
+                if self.notifications_status >= 400:
+                    return httpx.Response(self.notifications_status, json={})
+                self.notifications.append(json.loads(request.content))
+                return httpx.Response(201)
+            if path == "/rest/v1/pending_pushes":
+                self.pending.append(json.loads(request.content))
+                return httpx.Response(201)
+            if path.startswith("/v1/projects/") and path.endswith("/messages:send"):
+                if self.fcm_raises:
+                    raise self.fcm_raises
+                if self.fcm_status < 400:
+                    self.pushes.append(json.loads(request.content)["message"])
+                return httpx.Response(self.fcm_status, json={})
         return None
 
     def calls(self, method: str, path: str) -> list[httpx.Request]:

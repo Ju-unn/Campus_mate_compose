@@ -7,13 +7,19 @@ import logging
 from typing import Literal
 from uuid import UUID
 
+from datetime import datetime
+
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from app.admin.caller import AdminCaller, get_admin_caller
+from app.admin.heart_task_notice import result_notice, send_result_notice
 from app.admin.repository import NOT_FOUND, AdminRepository
 from app.admin.request_ip import request_ip
+from app.cards.push import FcmSender
+from app.cards.router import get_sender
+from app.core.deps import get_now
 from app.heart_tasks.storage import HeartProofStorage
 
 router = APIRouter(prefix="/heart-tasks")
@@ -81,9 +87,17 @@ async def _one(caller: AdminCaller, submission_id: UUID) -> dict:
     return await _item(repo, _storage(caller), row)
 
 
-async def _review(caller: AdminCaller, request: Request, submission_id: UUID,
-                  status: str, reject_reason: str | None) -> dict:
-    await _repo(caller).review_heart_task(caller.admin_user_id, submission_id, status, reject_reason, request_ip(request))
+async def _review(caller: AdminCaller, request: Request, submission_id: UUID, status: str, reject_reason: str | None,
+                  sender: FcmSender, now: datetime) -> dict:
+    """검수 → 곧바로 결과 알림 → 응답. 줄은 검수 전에 읽어 둔다(없으면 404) — 검수 뒤 읽기가 실패해도 알림은 이미 갔다.
+    알림은 DB 함수가 성공한 뒤에만 가고(409 · 404 · 422 는 위에서 올라온다), 실패해도 응답을 뒤집지 않는다."""
+    repo = _repo(caller)
+    row = await repo.fetch_heart_submission(submission_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail=NOT_FOUND)
+    result = await repo.review_heart_task(caller.admin_user_id, submission_id, status, reject_reason, request_ip(request))
+    notice = result_notice(row["task"], result["status"], result["reward_hearts"], result["reject_reason"])
+    await send_result_notice(caller, sender, now, row["profiles"]["id"], notice)
     return await _one(caller, submission_id)
 
 
@@ -107,13 +121,15 @@ async def get_heart_task(submission_id: UUID, caller: AdminCaller = Depends(get_
 @router.post("/{submission_id}/approve")
 async def approve_heart_task(
     submission_id: UUID, request: Request, caller: AdminCaller = Depends(get_admin_caller),
+    sender: FcmSender = Depends(get_sender), now: datetime = Depends(get_now),
 ) -> dict:
     """본문은 읽지 않는다 — 승인에는 사유가 없다."""
-    return await _review(caller, request, submission_id, "approved", None)
+    return await _review(caller, request, submission_id, "approved", None, sender, now)
 
 
 @router.post("/{submission_id}/reject")
 async def reject_heart_task(
     submission_id: UUID, body: RejectBody, request: Request, caller: AdminCaller = Depends(get_admin_caller),
+    sender: FcmSender = Depends(get_sender), now: datetime = Depends(get_now),
 ) -> dict:
-    return await _review(caller, request, submission_id, "rejected", body.reason)
+    return await _review(caller, request, submission_id, "rejected", body.reason, sender, now)

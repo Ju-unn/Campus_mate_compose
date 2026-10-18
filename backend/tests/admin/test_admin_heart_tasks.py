@@ -1,12 +1,21 @@
 """관리자 인증샷 검수 API(설계 10-18 §8-1, 계획서 2026-10-18-admin-heart-task-review Task 2)."""
+import asyncio
 import json
+import logging
+import time
+from datetime import datetime
 
 import httpx
 import pytest
 from starlette.requests import Request
 
 from admin_world import ADMIN, SIGN_PREFIX, STRANGER, bearer, submission
+from app.admin import heart_task_notice
 from app.admin.request_ip import request_ip
+from app.cards.push import FcmSender
+from app.cards.router import get_sender
+from app.core.time import SEOUL
+from app.main import app
 
 S1 = "11111111-0000-0000-0000-000000000001"
 S2 = "11111111-0000-0000-0000-000000000002"
@@ -278,3 +287,174 @@ def _request(forwarded: str | None = None, client_host: str | None = None) -> Re
 ])
 def test_request_ip(forwarded, client_host, expected):
     assert request_ip(_request(forwarded, client_host)) == expected
+
+
+# 결과 알림(10-18 사용자 결정 "가") -----------------------------------------------------
+
+REASON_TEXT = {"date_missing": "날짜가 안 보여요", "not_verified": "게시글·공유가 확인되지 않아요", "reused": "이미 쓴 캡처예요"}
+NIGHT = datetime(2026, 10, 18, 23, 0, tzinfo=SEOUL)
+
+
+class _Hanging(FcmSender):
+    """FCM 이 안 끝나는 상황 — 보내기가 영원히 걸린다."""
+
+    async def send(self, *args, **kwargs):
+        await asyncio.sleep(30)
+
+
+def test_approve_records_the_inbox_line_and_pushes_with_the_rpc_reward(client, world):
+    world.submissions[S1] = submission(S1)
+
+    response = client.post(f"/admin/heart-tasks/{S1}/approve", headers=ADMIN_HEADERS)
+
+    assert response.status_code == 200
+    data = {"route": "heart_tasks", "task": "everytime_post"}
+    assert world.notifications == [{
+        "profile_id": PROFILE, "kind": "heart_task_approved", "title": "에브리타임 홍보 인증이 승인됐어요",
+        "body": "하트 40개를 받았어요", "data": data}]
+    (push,) = world.pushes
+    assert push["notification"] == {"title": "에브리타임 홍보 인증이 승인됐어요", "body": "하트 40개를 받았어요"}
+    assert push["data"] == data and push["token"] == "tok-1"
+
+
+def test_the_hearts_in_the_notice_come_from_the_review_result(client, world):
+    world.submissions[S1] = submission(S1, task="kakao_share")
+    world.submissions[S1]["reward_hearts"] = 25
+
+    client.post(f"/admin/heart-tasks/{S1}/approve", headers=ADMIN_HEADERS)
+
+    assert world.notifications[0]["title"] == "단톡방 공유 인증이 승인됐어요"
+    assert world.notifications[0]["body"] == "하트 25개를 받았어요"
+
+
+@pytest.mark.parametrize("reason", REASON_TEXT)
+def test_reject_pushes_the_chosen_reason_and_the_retry_route(client, world, reason):
+    world.submissions[S1] = submission(S1, task="kakao_share")
+
+    response = client.post(f"/admin/heart-tasks/{S1}/reject", headers=ADMIN_HEADERS, json={"reason": reason})
+
+    assert response.status_code == 200
+    (line,) = world.notifications
+    assert (line["kind"], line["title"], line["body"]) == (
+        "heart_task_rejected", "단톡방 공유 인증이 반려됐어요", f"{REASON_TEXT[reason]} · 다시 제출해 주세요")
+    assert line["data"] == {"route": "heart_task_retry", "task": "kakao_share", "reason": reason}
+    assert world.pushes[0]["data"] == line["data"]
+
+
+def test_the_notice_never_carries_photo_admin_ip_or_nickname(client, world):
+    world.submissions[S1] = submission(S1)
+
+    client.post(f"/admin/heart-tasks/{S1}/reject", headers={**ADMIN_HEADERS, "X-Forwarded-For": "203.0.113.7"},
+                json={"reason": "reused"})
+
+    sent = json.dumps([world.notifications, world.pushes], ensure_ascii=False)
+    assert world.notifications and world.pushes
+    for secret in (f"{PROFILE}/{S1}.jpg", ADMIN, "203.0.113.7", "하늘", "테스트대학교", "storage_path"):
+        assert secret not in sent
+
+
+@pytest.mark.parametrize("failure", [
+    {"fcm_status": 500},
+    {"fcm_raises": httpx.ConnectError("down")},
+    {"notifications_status": 500},
+    {"profile_status_http": 500},
+])
+def test_a_notice_failure_never_flips_the_review(client, world, failure):
+    world.submissions[S1] = submission(S1)
+    for name, value in failure.items():
+        setattr(world, name, value)
+
+    response = client.post(f"/admin/heart-tasks/{S1}/approve", headers=ADMIN_HEADERS)
+
+    assert response.status_code == 200
+    assert (response.json()["status"], world.submissions[S1]["status"]) == ("approved", "approved")
+
+
+def test_an_inbox_write_failure_still_lets_the_push_go(client, world):
+    world.submissions[S1] = submission(S1)
+    world.notifications_status = 500
+
+    client.post(f"/admin/heart-tasks/{S1}/approve", headers=ADMIN_HEADERS)
+
+    assert world.notifications == [] and len(world.pushes) == 1
+
+
+def test_a_slow_push_is_cut_off_and_the_review_still_answers_200(client, world, monkeypatch):
+    monkeypatch.setattr(heart_task_notice, "NOTICE_TIMEOUT_SECONDS", 0.05)
+    app.dependency_overrides[get_sender] = lambda: _Hanging("campus-mate-test", None)
+    world.submissions[S1] = submission(S1)
+
+    started = time.monotonic()
+    response = client.post(f"/admin/heart-tasks/{S1}/approve", headers=ADMIN_HEADERS)
+
+    assert response.status_code == 200 and response.json()["status"] == "approved"
+    assert time.monotonic() - started < 5
+
+
+def test_a_timeout_logs_the_profile_and_kind_but_never_the_words(client, world, monkeypatch, caplog):
+    monkeypatch.setattr(heart_task_notice, "NOTICE_TIMEOUT_SECONDS", 0.05)
+    app.dependency_overrides[get_sender] = lambda: _Hanging("campus-mate-test", None)
+    world.submissions[S1] = submission(S1)
+
+    with caplog.at_level(logging.WARNING):
+        client.post(f"/admin/heart-tasks/{S1}/approve", headers=ADMIN_HEADERS)
+
+    assert PROFILE in caplog.text and "heart_task_approved" in caplog.text
+    assert "승인됐어요" not in caplog.text and "하트 40개" not in caplog.text
+
+
+@pytest.mark.parametrize("first", ["approve", "reject"])
+def test_a_second_review_sends_nothing_more(client, world, first):
+    world.submissions[S1] = submission(S1)
+    body = {"reason": "reused"} if first == "reject" else None
+    assert client.post(f"/admin/heart-tasks/{S1}/{first}", headers=ADMIN_HEADERS, json=body).status_code == 200
+
+    again = client.post(f"/admin/heart-tasks/{S1}/approve", headers=ADMIN_HEADERS)
+    reject = client.post(f"/admin/heart-tasks/{S1}/reject", headers=ADMIN_HEADERS, json={"reason": "reused"})
+
+    assert (again.status_code, reject.status_code) == (409, 409)
+    assert len(world.notifications) == 1 and len(world.pushes) == 1
+
+
+def test_unknown_submission_and_invalid_reason_send_nothing(client, world):
+    world.submissions[S1] = submission(S1)
+
+    missing = client.post(f"/admin/heart-tasks/{OTHER}/approve", headers=ADMIN_HEADERS)
+    invalid = client.post(f"/admin/heart-tasks/{S1}/reject", headers=ADMIN_HEADERS, json={"reason": "blurry"})
+    world.review_error_code = "22023"
+    refused = client.post(f"/admin/heart-tasks/{S1}/approve", headers=ADMIN_HEADERS)
+
+    assert (missing.status_code, invalid.status_code, refused.status_code) == (404, 422, 422)
+    assert world.notifications == [] and world.pushes == [] and world.pending == []
+
+
+@pytest.mark.parametrize("status", ["suspended", "withdrawn"])
+def test_a_suspended_or_withdrawn_person_gets_no_line_and_no_push_but_the_review_stands(client, world, status):
+    world.submissions[S1] = submission(S1)
+    world.profile_status = status
+
+    response = client.post(f"/admin/heart-tasks/{S1}/approve", headers=ADMIN_HEADERS)
+
+    assert response.status_code == 200 and response.json()["status"] == "approved"
+    assert world.notifications == [] and world.pushes == [] and world.pending == []
+
+
+def test_at_night_the_push_waits_in_pending_but_the_inbox_line_is_immediate(client, world):
+    world.submissions[S1] = submission(S1)
+    world.now = NIGHT
+
+    client.post(f"/admin/heart-tasks/{S1}/approve", headers=ADMIN_HEADERS)
+
+    assert len(world.notifications) == 1 and world.pushes == []
+    assert [p["kind"] for p in world.pending] == ["heart_task_approved"]
+
+
+def test_the_notice_goes_out_right_after_the_db_function_even_if_the_follow_up_read_fails(client, world):
+    world.submissions[S1] = submission(S1)
+    world.fail_submission_reads_after = 1  # 첫 읽기(검수 전 줄)만 되고, 응답을 만드는 읽기는 500
+
+    response = client.post(f"/admin/heart-tasks/{S1}/approve", headers=ADMIN_HEADERS)
+
+    assert response.status_code == 500
+    assert world.submissions[S1]["status"] == "approved"
+    assert len(world.notifications) == 1 and len(world.pushes) == 1
