@@ -224,12 +224,14 @@ async def report(body: ReportRequest, wiring: _Wiring = Depends(_wire)) -> dict:
         logger.exception("신고자 세기 실패 report=%s target=%s", report_id, target)
         reporters = None
     notifier = ReportNotifier(wiring.settings.discord_report_webhook_url, wiring.client)
-    await notifier.send(report_line(report_id, target, body.reason, "?" if reporters is None else reporters))
+    admin_base_url = wiring.settings.admin_base_url
+    await notifier.send(report_line(report_id, target, body.reason, "?" if reporters is None else reporters,
+                                    admin_base_url))
 
     # ⑦ 서로 다른 신고자 3명이면 자동 가림. 조건부라 이번에 실제로 찍혔을 때만 한 줄 더 보낸다.
     if match is not None and reporters is not None and reporters >= AUTO_HIDE_REPORTERS \
             and await wiring.repo.auto_hide(target, wiring.now):
-        await notifier.send(auto_hidden_line(target))
+        await notifier.send(auto_hidden_line(target, report_id, admin_base_url))
     return {"ok": True}
 
 

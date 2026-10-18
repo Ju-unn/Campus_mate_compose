@@ -252,14 +252,34 @@ def test_the_third_open_reporter_hides_the_target_and_says_so(client, world, web
     assert world.profiles[PARTNER]["auto_hidden_at"] == NOW.isoformat()
     assert len(world.discord) == 2
     assert "누적 신고자: 3명" in world.discord[0]
+    # 관리자 웹이 없는 배포의 안내. 시각만 지우면 열린 신고 셋이 그대로라 다음 신고 한 건에 다시 가려진다(설계 10-18 §8-2 C).
     assert world.discord[1] == (
         f"신고자 3명 도달 · 검토 필요 (대상: {PARTNER}). 카드에서 자동으로 가렸어요. "
-        "정지하거나 auto_hidden_at 을 지워 주세요."
+        "정지하거나, 풀려면 auto_hidden_at 을 비우고 열린 신고를 dismissed 로 닫아 주세요."
     )
     count = world.calls("GET", "reports")[-1].url.params
     assert count["target_profile_id"] == f"eq.{PARTNER}"
     # 운영자가 dismissed 로 닫은 신고는 세지 않는다 — 해제 뒤 한 건에 바로 다시 가려지지 않게.
     assert count["status"] == "eq.open"
+
+
+def test_alerts_link_the_admin_dashboard_when_its_address_is_set(client, world):
+    app.dependency_overrides[get_settings] = lambda: settings(
+        discord_report_webhook_url=REPORT_WEBHOOK, admin_base_url="https://admin.example.com/")
+    world.open_reporters = [OTHER_A, OTHER_B]
+
+    client.post("/reports", json=_message_report(), headers=AUTH)
+
+    # 끝의 '/' 는 떼고 붙인다 — 관리자 웹 /reports/{id} 가 그 신고를 연다(로그인 · 2단계 뒤에만). 주소에는 번호만.
+    assert world.discord == [
+        f"신고 1건 (신고: {REPORT_ID}, 대상: {PARTNER}, 사유: sexual, 누적 신고자: 3명). "
+        f"대시보드: https://admin.example.com/reports/{REPORT_ID}",
+        f"신고자 3명 도달 · 검토 필요 (대상: {PARTNER}). 카드에서 자동으로 가렸어요. "
+        f"대시보드에서 정지하거나 가림 해제해 주세요: https://admin.example.com/reports/{REPORT_ID}",
+    ]
+    sent = "\n".join(world.discord)
+    for secret in ("Supabase", "auto_hidden_at", "기분 나쁜 말", "여우비", "p2/"):
+        assert secret not in sent
 
 
 def test_the_second_reporter_does_not_hide(client, world, webhook):
