@@ -11,6 +11,8 @@ import 'package:campus_mate_admin/screens/placeholder_screen.dart';
 import 'package:campus_mate_admin/screens/status_screens.dart';
 import 'package:campus_mate_admin/shell/admin_section.dart';
 import 'package:campus_mate_admin/shell/admin_shell.dart';
+import 'package:campus_mate_admin/users/user_detail_screen.dart';
+import 'package:campus_mate_admin/users/user_list_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -167,6 +169,9 @@ Widget _sectionScreen(AdminSection section, String? id, Object? extra) {
     AdminSection.heartTasks => HeartTaskReviewScreen(initialId: id),
     AdminSection.reports when id == null => const ReportListScreen(),
     AdminSection.reports => ReportDetailScreen(id: id!, summary: extra is ReportSummary && extra.id == id ? extra : null),
+    // 사용자는 목록(찾기)과 상세가 다른 화면이다(pen A5). 주소에는 사람 번호뿐 — 학교 메일 · 검색어는 주소 · extra 에 싣지 않는다.
+    AdminSection.users when id == null => const UserListScreen(),
+    AdminSection.users => UserDetailScreen(id: id!),
     _ => PlaceholderScreen(section: section),
   };
 }
