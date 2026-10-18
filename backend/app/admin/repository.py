@@ -177,3 +177,30 @@ class AdminRepository(PostgrestRepository):
                 raise HTTPException(status_code=422, detail=errors.INVALID_INPUT)
         raise_for_status(response)
         return response.json()
+
+    async def list_actions(
+        self, *, admin: str | None, target: str | None, target_type: str | None, before: tuple[str, str] | None, limit: int,
+    ) -> list[dict]:
+        """작업 기록, 최근 순(created_at, id). before = (created_at, id) 커서 — 같은 트랜잭션 줄은 created_at 이 같아 id 로도 가른다.
+        limit 줄을 그대로 요청한다(부르는 쪽이 다음 쪽 여부를 알려고 한 줄 더 달라고 한다)."""
+        params = {
+            "select": "id,created_at,admin_user_id,action,target_type,target_id,before,after,reason,ip",
+            "order": "created_at.desc,id.desc", "limit": str(limit),
+        }
+        if admin:
+            params["admin_user_id"] = f"eq.{admin}"
+        if target:
+            params["target_id"] = f"eq.{target}"
+        if target_type:
+            params["target_type"] = f"eq.{target_type}"
+        if before:
+            at, last_id = before
+            params["or"] = f"(created_at.lt.{at},and(created_at.eq.{at},id.lt.{last_id}))"
+        return await self._rows("admin_actions", params)
+
+    async def profile_nicknames(self, profile_ids: list[str]) -> dict[str, str | None]:
+        """프로필 id → 닉네임(한 번에 묶어 조회). 없는(지워진) 사람은 빠진다."""
+        if not profile_ids:
+            return {}
+        rows = await self._rows("profiles", {"select": "id,nickname", "id": f"in.({','.join(profile_ids)})"})
+        return {row["id"]: row["nickname"] for row in rows}
