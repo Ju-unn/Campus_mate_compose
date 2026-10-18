@@ -236,8 +236,9 @@ final Map<String, Area1Case> area2cCases = {
     await tap(tester, find.text(_inviteRow));
     await pumpUntil(tester, _sheetCode, timeout: const Duration(seconds: 15));
     final code = tester.widget<Text>(_sheetCode).data!;
-    final share = find.descendant(of: _sheet, matching: find.text('공유하기'));
-    must(share.evaluate().isNotEmpty, '못 찾음: 공유하기');
+    // PC 가 기기 공유 창의 "복사" 를 누른다 — 카카오를 거치지 않는 "다른 앱으로 보내기"(16i wNqk2)를 누른다.
+    final share = find.descendant(of: _sheet, matching: find.text('다른 앱으로 보내기'));
+    must(share.evaluate().isNotEmpty, '못 찾음: 다른 앱으로 보내기');
     await tester.ensureVisible(share.last);
     await tester.pump();
     await tester.tap(share.last); // 누른 뒤 pump 하지 않는다 — 공유 창이 뜨면 프레임이 멎을 수 있다
