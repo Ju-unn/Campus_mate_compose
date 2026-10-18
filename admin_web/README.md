@@ -33,5 +33,7 @@ GitHub 저장소 변수 `ADMIN_SUPABASE_URL` · `ADMIN_API_BASE_URL`, 비밀값 
 | `lib/widgets/` | pen `Web/` 컴포넌트와 1:1 부품(단추 · 코드 칸 · SideNav · TopBar · 관문 카드 · 칩 · 상태 배지 · 빈 목록 틀 · 대화상자) |
 | `lib/auth/` · `lib/gate/` · `lib/router/` | 구글 로그인 → 2단계(TOTP) → `GET /admin/me` 관문과 go_router 가드 |
 | `lib/api/` | 관리자 서버 클라이언트(Bearer 토큰 · JSON · 403 이유) |
-| `lib/screens/` · `lib/shell/` | 관문 화면들 · 메뉴 틀과 자리 표시 화면 |
+| `lib/screens/` · `lib/shell/` | 관문 화면들 · 메뉴 틀(메뉴 8개 모두 실제 화면에 연결) |
 | `lib/heart_tasks/` | A3 인증샷 검수(`/heart-tasks`, 디스코드 링크 `/heart-tasks/{id}`) — 모델 · 컨트롤러 · 화면 · 사진 보기 |
+| `lib/home/` · `lib/matching/` · `lib/unknown_domains/` · `lib/actions/` | A2 홈(통계 카드 · 그래프 셋 · 학교별 표 · 운영 상태판) · A9 매칭 현황 · A6 미등록 학교 메일 · A7 작업 기록 — 모두 읽기 전용(서버 D4 · D3) |
+| `lib/charts/` · `lib/state/` | 직접 그린 그래프(선 · 묶음 막대 · 가로 막대 — 새 부품 없이 CustomPaint, 결제 그래프와 같은 눈금 계산) · 커서 쪽 나누기 목록 틀 |
