@@ -1,3 +1,4 @@
+import 'package:campus_mate/billing/model/heart_task.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 
 /// 푸시 `data.route`(Task B3)를 앱 경로로 바꾼다.
@@ -16,9 +17,25 @@ abstract final class PushRoute {
             final String id when id.isNotEmpty => '${AppRoutes.friendReviewWrite}/$id',
             _ => null,
           },
+        // 인증샷 결과(2026-10-18 "가") — 승인은 18a 목록, 반려는 사유 알림이 뜨는 18b-2 다시 제출.
+        'heart_tasks' => AppRoutes.heartTasks,
+        'heart_task_retry' => _heartTaskRetry(data),
         // 옛 학생증 검토 결과(`verification`, 2026-10-17 학생증 제거)도 여기로 온다 — 알림함에 남은 줄을 눌러도 무동작.
         _ => null,
       };
+
+  /// 18b-2 경로(`heartTaskSubmitLocation` 과 같은 모양 — 시험이 같음을 못박는다). data 의 task · reason 은 enum 으로 거른 코드만
+  /// 경로에 싣는다(#599 경로 id 검사와 같은 원칙). 인증샷 항목이 아니면 18a 로, 사유를 모르면 사유 알림 없는 18b 로 보낸다.
+  static String _heartTaskRetry(Map<String, dynamic> data) {
+    final task = data['task'];
+    final kind = task is String ? HeartTaskKind.tryParse(task) : null;
+    if (kind == null || !kind.needsProof) return AppRoutes.heartTasks;
+    final reason = data['reason'];
+    return Uri(
+      path: '${AppRoutes.heartTaskSubmit}/${kind.code}',
+      queryParameters: reason is String && HeartTaskRejectReason.tryParse(reason) != null ? {'reason': reason} : null,
+    ).toString();
+  }
 
   /// 방 id 가 없거나 모양이 이상하면 목록으로 보낸다 — 엉뚱한 방을 여는 것보다 낫다.
   static String _chatRoom(Map<String, dynamic> data) {

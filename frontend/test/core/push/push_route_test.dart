@@ -1,3 +1,5 @@
+import 'package:campus_mate/billing/model/heart_task.dart';
+import 'package:campus_mate/billing/view/heart_task_submit_screen.dart';
 import 'package:campus_mate/core/push/push_route.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -41,6 +43,38 @@ void main() {
   // 10-17 학생증 제거: 알림함에 남은 옛 "학생증 결과" 줄(route verification)은 모르는 값처럼 아무 데도 보내지 않는다.
   test('옛 학생증 검토 결과 알림(verification)은 아무 데도 보내지 않는다', () {
     expect(PushRoute.resolve({'route': 'verification'}), isNull);
+  });
+
+  // 10-18 인증샷 결과 알림: 승인 → 18a, 반려 → 18b-2(사유 알림이 뜨는 다시 제출).
+  group('인증샷 결과 알림', () {
+    test('승인(heart_tasks)은 무료로 하트 모으기 18a 로 간다', () {
+      expect(PushRoute.resolve({'route': 'heart_tasks', 'task': 'kakao_share'}), AppRoutes.heartTasks);
+    });
+
+    test('반려(heart_task_retry)는 사유를 실은 18b-2 로 간다 — 18a 줄을 눌렀을 때와 같은 경로', () {
+      final path = PushRoute.resolve({'route': 'heart_task_retry', 'task': 'everytime_post', 'reason': 'date_missing'});
+
+      expect(path, '/heart-tasks/submit/everytime_post?reason=date_missing');
+      expect(path, heartTaskSubmitLocation(HeartTaskKind.everytimePost, HeartTaskRejectReason.dateMissing));
+    });
+
+    test('사유가 없거나 모르는 값이면 사유 알림 없는 18b 로 간다', () {
+      for (final reason in <Object?>[null, 'blurry', '', 7]) {
+        expect(
+          PushRoute.resolve({'route': 'heart_task_retry', 'task': 'kakao_share', 'reason': reason}),
+          '/heart-tasks/submit/kakao_share',
+        );
+      }
+      expect(PushRoute.resolve({'route': 'heart_task_retry', 'task': 'kakao_share'}), '/heart-tasks/submit/kakao_share');
+    });
+
+    test('항목(task)이 없거나 인증샷 항목이 아니면 18a 로 보낸다 — 알 수 없는 값을 경로에 싣지 않는다', () {
+      for (final task in <Object?>[null, '', 'poll_vote', '../x', 'everytime_post/../../me', 3]) {
+        final path = PushRoute.resolve({'route': 'heart_task_retry', 'task': task, 'reason': 'reused'});
+
+        expect(path, AppRoutes.heartTasks, reason: '$task');
+      }
+    });
   });
 
   test('모르는 route 는 아무 데도 보내지 않는다', () {

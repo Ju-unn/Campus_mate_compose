@@ -155,8 +155,8 @@ void main() {
     final before = chat.conversationsFetchCount;
 
     // 읽는 중에 도착한 푸시는 이미 시작된 읽기가 못 본 변화를 알리는 것일 수 있다.
-    refreshForPush(container.read, {'route': 'chat'});
-    refreshForPush(container.read, {'route': 'chat'});
+    refreshForPush(container.read, {'route': 'chat'}, invalidate: container.invalidate);
+    refreshForPush(container.read, {'route': 'chat'}, invalidate: container.invalidate);
     await pumpEventQueue();
     expect(chat.conversationsFetchCount, before);
     chat.holdConversations!.complete();

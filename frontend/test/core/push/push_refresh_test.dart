@@ -1,4 +1,9 @@
+import 'dart:async';
+
 import 'package:campus_mate/auth/model/verification_gate.dart';
+import 'package:campus_mate/billing/model/heart_task_repository_provider.dart';
+import 'package:campus_mate/billing/viewmodel/heart_tasks_view_model.dart';
+import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_ui_state.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
 import 'package:campus_mate/core/push/push_refresh.dart';
@@ -8,11 +13,14 @@ import 'package:campus_mate/matching/viewmodel/sent_requests_ui_state.dart';
 import 'package:campus_mate/matching/viewmodel/sent_requests_view_model.dart';
 import 'package:campus_mate/matching/viewmodel/today_cards_ui_state.dart';
 import 'package:campus_mate/matching/viewmodel/today_cards_view_model.dart';
+import 'package:campus_mate/me/model/my_profile.dart';
+import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:campus_mate/notifications/model/notifications_repository_provider.dart';
 import 'package:campus_mate/notifications/viewmodel/unread_count_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../billing/model/fake_heart_task_repository.dart';
 import '../../notifications/model/fake_notifications_repository.dart';
 
 /// 어느 목록이 다시 읽혔는지만 적는 장부. 저장소를 거치지 않으니 build() 의 첫 조회가 섞이지 않는다.
@@ -65,7 +73,7 @@ void main() {
   });
 
   List<String> refreshedBy(Map<String, dynamic> data) {
-    refreshForPush(container.read, data);
+    refreshForPush(container.read, data, invalidate: container.invalidate);
     return List.of(_refreshed);
   }
 
@@ -84,6 +92,63 @@ void main() {
 
   test('새 메시지 알림은 대화 목록만 다시 읽는다', () {
     expect(refreshedBy({'route': 'chat', 'match_id': 'm1'}), ['conversations']);
+  });
+
+  // 10-18 인증샷 결과 알림: 18a 를 이미 보고 있을 때 도착하면 목록과 하트 잔액이 새로 읽힌다.
+  group('인증샷 결과 알림', () {
+    late FakeHeartTaskRepository heartTasks;
+    late int profileReads;
+    late ProviderContainer heartContainer;
+
+    setUp(() {
+      heartTasks = FakeHeartTaskRepository();
+      profileReads = 0;
+      heartContainer = ProviderContainer(overrides: [
+        heartTaskRepositoryProvider.overrideWithValue(heartTasks),
+        myProfileProvider.overrideWith((ref) {
+          profileReads++;
+          return Completer<Result<MyProfile>>().future;
+        }),
+      ]);
+      addTearDown(heartContainer.dispose);
+    });
+
+    /// 18a 가 열려 있는 것처럼 두 provider 를 듣고 있게 한다(첫 읽기까지 마친 상태).
+    Future<void> openHeartTasksScreen() async {
+      heartContainer.listen(heartTasksViewModelProvider, (_, _) {});
+      heartContainer.listen(myProfileProvider, (_, _) {});
+      await pumpEventQueue();
+      expect((heartTasks.fetchCount, profileReads), (1, 1));
+    }
+
+    for (final route in ['heart_tasks', 'heart_task_retry']) {
+      test('$route 알림이 오면 열려 있는 18a 목록과 하트 잔액을 다시 읽는다', () async {
+        await openHeartTasksScreen();
+
+        refreshForPush(heartContainer.read, {'route': route, 'task': 'everytime_post'},
+            invalidate: heartContainer.invalidate);
+        await pumpEventQueue();
+
+        expect(heartTasks.fetchCount, 2);
+        expect(profileReads, 2);
+      });
+    }
+
+    test('18a 가 열려 있지 않으면 목록을 읽으러 가지 않는다 — 들어올 때 어차피 새로 읽는다', () async {
+      refreshForPush(heartContainer.read, {'route': 'heart_tasks'}, invalidate: heartContainer.invalidate);
+      await pumpEventQueue();
+
+      expect(heartTasks.fetchCount, 0);
+    });
+
+    test('다른 알림은 18a 목록 · 하트 잔액을 건드리지 않는다', () async {
+      await openHeartTasksScreen();
+
+      refreshForPush(heartContainer.read, {'route': 'friend_reviews'}, invalidate: heartContainer.invalidate);
+      await pumpEventQueue();
+
+      expect((heartTasks.fetchCount, profileReads), (1, 1));
+    });
   });
 
   test('모르는 route 와 route 없는 알림은 아무 목록도 읽지 않는다', () {
