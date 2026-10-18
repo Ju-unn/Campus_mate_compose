@@ -10,6 +10,7 @@ from app.core import errors
 from app.core.deps import get_client, get_settings
 from app.main import app
 from app.settings import Settings
+from app.student_verification.image_validation import MAX_IMAGE_BYTES
 
 PROFILE_ID = "11111111-1111-1111-1111-111111111111"
 AUTH_HEADERS = {"Authorization": "Bearer valid-token"}
@@ -125,6 +126,16 @@ def test_submit_rejects_non_image_before_touching_anything():
     response = _post(_wire(_backend([_status()]), seen), data=b"GIF89a" + b"0" * 64)
     assert response.status_code == 400
     assert response.json()["detail"] == errors.PHOTO_UNREADABLE
+    assert seen == []
+
+
+def test_submit_reads_at_most_one_byte_past_the_size_limit(upload_read_sizes):
+    """10MB 를 넘는 인증샷을 끝까지 메모리로 읽지 않는다 — 한도 + 1 바이트만 읽어 넘었는지만 안다(10-18 보안 점검)."""
+    seen: list[httpx.Request] = []
+    response = _post(_wire(_backend([_status()]), seen), data=JPEG + b"0" * MAX_IMAGE_BYTES)
+
+    assert response.status_code == 400
+    assert upload_read_sizes == [MAX_IMAGE_BYTES + 1]
     assert seen == []
 
 

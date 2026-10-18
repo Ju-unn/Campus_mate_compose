@@ -43,7 +43,7 @@ from app.profile_onboarding.schemas import (
 from app.profile_onboarding.storage import AvatarStorage, ProfilePhotoStorage
 from app.profile_onboarding.tags import IDEAL_TRAITS, INTEREST_TAGS, MY_TRAITS, validate_tag_selection
 from app.settings import Settings
-from app.student_verification.image_validation import student_id_content_type
+from app.student_verification.image_validation import MAX_IMAGE_BYTES, student_id_content_type
 
 router = APIRouter()
 _logger = logging.getLogger(__name__)
@@ -143,7 +143,7 @@ async def upload_photo(
 ) -> dict[str, bool] | JSONResponse:
     settings, client, profile_id = caller
 
-    data = await photo.read()
+    data = await photo.read(MAX_IMAGE_BYTES + 1)  # 한도를 넘었는지만 알면 된다 — 끝까지 읽지 않는다
     content_type = student_id_content_type(data)
     if content_type is None:
         raise HTTPException(status_code=400, detail=errors.PHOTO_UNREADABLE)

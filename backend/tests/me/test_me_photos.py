@@ -10,6 +10,7 @@ from tests.me.test_me_profile import AUTH_HEADERS, PROFILE_ID, _wire, overrides 
 from app.core import errors
 from app.core.deps import get_vision_client
 from app.main import app
+from app.student_verification.image_validation import MAX_IMAGE_BYTES
 
 KEPT_A = {"id": "aaaaaaaa-0000-0000-0000-000000000001", "storage_path": f"{PROFILE_ID}/a.jpg", "position": 0}
 KEPT_B = {"id": "aaaaaaaa-0000-0000-0000-000000000002", "storage_path": f"{PROFILE_ID}/b.jpg", "position": 1}
@@ -307,3 +308,13 @@ def test_each_new_photo_counts_toward_the_daily_photo_check_limit():
     assert response.json() == {"detail": errors.PHOTO_CHECK_DAILY_LIMIT}
     assert _storage_writes(seen) == []
     assert _db_writes(seen) == []
+
+
+def test_each_new_photo_is_read_at_most_one_byte_past_the_size_limit(upload_read_sizes):
+    """10MB 를 넘는 사진을 끝까지 메모리로 읽지 않는다 — 장마다 한도 + 1 바이트만 읽는다(10-18 보안 점검)."""
+    seen = []
+    response = _put([], [{"new": 0}, {"new": 1}], files=[JPEG, JPEG + b"0" * MAX_IMAGE_BYTES], seen=seen)
+
+    assert response.status_code == 400
+    assert upload_read_sizes == [MAX_IMAGE_BYTES + 1, MAX_IMAGE_BYTES + 1]
+    assert _storage_writes(seen) == []

@@ -21,6 +21,7 @@ from app.core.time import SEOUL
 from app.main import app
 from app.settings import Settings
 from app.signup_policy import bytea_literal, hash_phone
+from app.student_verification.image_validation import MAX_IMAGE_BYTES
 from private_columns import plaintext_gone
 
 PROFILE_ID = UUID("11111111-1111-1111-1111-111111111111")
@@ -443,6 +444,20 @@ def test_photo_upload_rejects_a_document_like_photo_and_saves_nothing(caplog):
     # 거절 로그는 경로 이름만 — 프로필 id · 글자 원문은 없다.
     assert "verdict=document" in caplog.text and "source=onboarding" in caplog.text
     assert str(PROFILE_ID) not in caplog.text and "홍길동" not in caplog.text
+
+
+def test_photo_upload_reads_at_most_one_byte_past_the_size_limit(upload_read_sizes):
+    """10MB 를 넘는 사진을 끝까지 메모리로 읽지 않는다 — 한도 + 1 바이트만 읽어 넘었는지만 안다(10-18 보안 점검)."""
+    seen: list[httpx.Request] = []
+    app.dependency_overrides[get_vision_client] = _safe_vision
+    response = _wire(lambda request: seen.append(request) or httpx.Response(200, json=[])).post(
+        "/profile-onboarding/photos", headers=AUTH_HEADERS,
+        files={"photo": ("a.png", _PNG_BYTES + b"0" * MAX_IMAGE_BYTES, "image/png")}, data={"position": "0"},
+    )
+
+    assert response.status_code == 400
+    assert upload_read_sizes == [MAX_IMAGE_BYTES + 1]
+    assert _writes(seen) == []
 
 
 PHOTO_CHECK_TIME = datetime(2026, 10, 18, 12, 0, tzinfo=SEOUL)

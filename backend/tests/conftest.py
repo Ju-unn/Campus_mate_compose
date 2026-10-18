@@ -45,3 +45,19 @@ def fresh_photo_check_counts():
     from app.profile_onboarding.photos import PHOTO_CHECKS
 
     PHOTO_CHECKS.times.clear()
+
+
+@pytest.fixture
+def upload_read_sizes(monkeypatch) -> list[int]:
+    """업로드 라우터가 UploadFile.read 에 넘긴 크기들. 크기 없이 읽으면 -1 이 남는다(끝까지 읽음)."""
+    from starlette.datastructures import UploadFile
+
+    sizes: list[int] = []
+    original = UploadFile.read
+
+    async def read(self, size: int = -1) -> bytes:
+        sizes.append(size)
+        return await original(self, size)
+
+    monkeypatch.setattr(UploadFile, "read", read)
+    return sizes

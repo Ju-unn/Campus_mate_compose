@@ -22,7 +22,7 @@ from app.profile_onboarding.photos import PHOTO_CHECKS, REJECTION_BODIES, PhotoV
 from app.profile_onboarding.repository import ProfileOnboardingRepository
 from app.profile_onboarding.router import avatar_url, enqueue_avatar_attempt, get_openai
 from app.profile_onboarding.storage import ProfilePhotoStorage
-from app.student_verification.image_validation import student_id_content_type
+from app.student_verification.image_validation import MAX_IMAGE_BYTES, student_id_content_type
 
 router = APIRouter()
 _logger = logging.getLogger(__name__)
@@ -180,7 +180,7 @@ async def save_photos(
     # ③ 전부 먼저 본다 — 셋째 장이 부적절하거나 학생증 같은 문서면 첫째 장도 올리지 않는다.
     checked: list[tuple[bytes, str]] = []
     for photo in photos:
-        data = await photo.read()
+        data = await photo.read(MAX_IMAGE_BYTES + 1)  # 한도를 넘었는지만 알면 된다 — 끝까지 읽지 않는다
         content_type = student_id_content_type(data)
         if content_type is None:
             raise HTTPException(status_code=400, detail=errors.PHOTO_UNREADABLE)
