@@ -1,3 +1,4 @@
+import 'package:campus_mate_admin/actions/action_log_screen.dart';
 import 'package:campus_mate_admin/billing/billing_screen.dart';
 import 'package:campus_mate_admin/gate/gate_controller.dart';
 import 'package:campus_mate_admin/gate/gate_stage.dart';
@@ -10,10 +11,10 @@ import 'package:campus_mate_admin/reports/report_list_screen.dart';
 import 'package:campus_mate_admin/screens/login_screen.dart';
 import 'package:campus_mate_admin/screens/mfa_enroll_screen.dart';
 import 'package:campus_mate_admin/screens/mfa_verify_screen.dart';
-import 'package:campus_mate_admin/screens/placeholder_screen.dart';
 import 'package:campus_mate_admin/screens/status_screens.dart';
 import 'package:campus_mate_admin/shell/admin_section.dart';
 import 'package:campus_mate_admin/shell/admin_shell.dart';
+import 'package:campus_mate_admin/unknown_domains/unknown_domains_screen.dart';
 import 'package:campus_mate_admin/users/user_detail_screen.dart';
 import 'package:campus_mate_admin/users/user_list_screen.dart';
 import 'package:flutter/material.dart';
@@ -123,7 +124,7 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
     refreshListenable: refresh,
     // 다시 판정하는 동안에도 앞 단계(value)를 그대로 써서 화면이 불러오는 중으로 깜빡이지 않게 한다.
     redirect: (context, state) => redirector.redirect(ref.read(gateProvider).value, state.uri),
-    // 메뉴 아래 주소인데 아직 화면이 없으면(다음 조각에서 상세 화면을 더하기 전) 홈으로.
+    // 모르는 주소는 홈으로.
     onException: (context, state, router) => router.go(AdminSection.home.path),
     routes: [
       _page(GatePaths.loading, const LoadingScreen()),
@@ -165,7 +166,7 @@ List<GoRoute> _sectionRoutes(AdminSection section) {
   return [route(section.path), if (section != AdminSection.home) route('${section.path}/:id')];
 }
 
-/// 메뉴마다 화면. 아직 만들지 않은 메뉴는 자리 표시.
+/// 메뉴마다 화면(여덟 메뉴 모두 실제 화면 — W4 에서 자리 표시가 없어졌다).
 /// 신고는 목록과 상세가 다른 화면이다(pen A4 — 상세는 목록 옆이 아니라 따로). [extra] 는 목록에서 고른 줄(머리줄을 먼저 그린다).
 Widget _sectionScreen(AdminSection section, String? id, Object? extra) {
   return switch (section) {
@@ -178,8 +179,10 @@ Widget _sectionScreen(AdminSection section, String? id, Object? extra) {
     // 결제 아래 주소는 따로 없다(주문 번호를 주소에 싣지 않는다) — 어떤 주소로 와도 이 한 화면
     AdminSection.billing => const BillingScreen(),
     AdminSection.home => const HomeScreen(),
+    // 매칭 · 미등록 학교 메일 · 작업 기록은 아래 주소가 따로 없다(검색어 · 필터를 주소에 싣지 않는다) — 어떤 주소로 와도 이 한 화면
     AdminSection.matching => const MatchingScreen(),
-    _ => PlaceholderScreen(section: section),
+    AdminSection.unknownDomains => const UnknownDomainsScreen(),
+    AdminSection.actions => const ActionLogScreen(),
   };
 }
 
