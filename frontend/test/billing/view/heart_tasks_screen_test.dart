@@ -157,6 +157,153 @@ void main() {
     expect(find.text('제출 /heart-tasks/submit/everytime_post?reason=date_missing'), findsOneWidget);
   });
 
+  // 10-18 인증샷 결과 알림 — pen 18a 반려 줄 사유(마스터 TW2ki 안 ReasonRow `ydq0k` · 아이콘 `RiCqn` · 글자 `QiLmA`,
+  // 화면 `x8OCS4` 날짜 · 게시글 / `Yo8h1` 이미 쓴 캡처, 값표 1장).
+  group('반려 줄 사유 한 줄', () {
+    const rewardOf = {HeartTaskKind.everytimePost: '40 · 월 1회', HeartTaskKind.kakaoShare: '25 · 월 3회'};
+
+    /// 반려 줄 하나만 둔다(나머지는 pen 목록 그대로 검수중 · 완료 · 투표).
+    void reject(HeartTaskKind kind, HeartTaskRejectReason? reason) {
+      repository.tasks = Success([
+        HeartTask(
+          kind: kind,
+          rewardHearts: kind == HeartTaskKind.everytimePost ? 40 : 25,
+          state: HeartTaskState.rejected,
+          used: 0,
+          limit: kind == HeartTaskKind.everytimePost ? 1 : 3,
+          rejectReason: reason,
+        ),
+        const HeartTask(kind: HeartTaskKind.pollVote, rewardHearts: 5, state: HeartTaskState.open, used: 0, limit: 3),
+      ]);
+    }
+
+    for (final (reason, text) in [
+      (HeartTaskRejectReason.dateMissing, '반려 · 날짜가 안 보여요'),
+      (HeartTaskRejectReason.notVerified, '반려 · 게시글·공유가 확인되지 않아요'),
+      (HeartTaskRejectReason.reused, '반려 · 이미 쓴 캡처예요'),
+    ]) {
+      testWidgets('에브리타임 반려 줄에 "$text" 가 보이고, 18b-2 의 사유 글자와 같은 문구다', (tester) async {
+        reject(HeartTaskKind.everytimePost, reason);
+        await pump(tester);
+
+        expect(find.text(text), findsOneWidget);
+        expect(text, '반려 · ${reason.label}');
+      });
+    }
+
+    testWidgets('단톡방 반려 줄에도 사유가 붙는다(pen `x8OCS4` 두 번째 줄)', (tester) async {
+      reject(HeartTaskKind.kakaoShare, HeartTaskRejectReason.notVerified);
+      await pump(tester);
+
+      final row = find.byType(HeartTaskRow).first;
+      expect(find.descendant(of: row, matching: find.text('단톡방 공유')), findsOneWidget);
+      expect(find.descendant(of: row, matching: find.text('반려 · 게시글·공유가 확인되지 않아요')), findsOneWidget);
+    });
+
+    testWidgets('사유 줄은 반려 줄에만 있다 — 미완료 · 검수중 · 완료 · 사유 없는 반려에는 없다', (tester) async {
+      await pump(tester);
+      expect(find.textContaining('반려 ·'), findsNothing);
+      expect(find.byKey(heartTaskRejectLineKey), findsNothing);
+
+      repository.tasks = Success(sampleHeartTasks(everytime: HeartTaskState.open));
+      await pump(tester);
+      expect(find.textContaining('반려 ·'), findsNothing);
+
+      reject(HeartTaskKind.everytimePost, null);
+      await pump(tester);
+      expect(find.textContaining('반려 ·'), findsNothing);
+      expect(find.byKey(heartTaskRejectLineKey), findsNothing);
+      expect(find.text('다시 제출'), findsOneWidget);
+    });
+
+    testWidgets('pen 높이 — 사유 있는 줄 328×72, 사유 없는 반려 줄 328×64', (tester) async {
+      reject(HeartTaskKind.everytimePost, HeartTaskRejectReason.dateMissing);
+      await pump(tester);
+      expect(tester.getSize(find.byType(HeartTaskRow).first), const Size(328, 72)); // TW2ki 인스턴스 X4X2C · Ckrfi · Q6Olj
+
+      reject(HeartTaskKind.everytimePost, null);
+      await pump(tester);
+      expect(tester.getSize(find.byType(HeartTaskRow).first), const Size(328, 64)); // 일반 줄
+    });
+
+    testWidgets('pen 사유 줄 — 아이콘 triangle-alert 12 error · 사이 4 · 글자 12/600 줄높이 1.3 error · 보상 줄 아래 2', (tester) async {
+      reject(HeartTaskKind.everytimePost, HeartTaskRejectReason.dateMissing);
+      await pump(tester);
+
+      final line = find.byKey(heartTaskRejectLineKey);
+      final icon = find.descendant(of: line, matching: find.byIcon(AppIcons.alertTriangle));
+      final icon0 = tester.widget<Icon>(icon);
+      expect((icon0.size, icon0.color), (12.0, AppColors.error)); // RiCqn
+      expect(tester.getSize(icon), const Size(12, 12));
+
+      final text = find.descendant(of: line, matching: find.text('반려 · 날짜가 안 보여요'));
+      final style = tester.widget<Text>(text).style!;
+      expect((style.fontSize, style.fontWeight, style.height, style.color), (12.0, FontWeight.w600, 1.3, AppColors.error)); // QiLmA
+      expect(tester.getTopLeft(text).dx - tester.getTopRight(icon).dx, 4);
+      expect(tester.getSize(text).height, closeTo(12 * 1.3, 0.5)); // 글자 상자는 올림되어 16
+      // 1줄 폭 약 210 은 Pretendard 기준이라 시험 글꼴로는 재지 않는다 — 1줄에 들어가는지만 본다.
+      expect(tester.getSize(text).height, lessThan(12 * 1.3 * 1.5));
+
+      final title = find.descendant(of: find.byType(HeartTaskRow).first, matching: find.text('에브리타임 홍보'));
+      expect(tester.getTopLeft(icon).dx, tester.getTopLeft(title).dx); // 같은 글 칸 왼쪽(MidCol)
+      final reward = find.ancestor(of: find.text(rewardOf[HeartTaskKind.everytimePost]!), matching: find.byType(Row)).first;
+      expect(tester.getTopLeft(line).dy - tester.getBottomLeft(reward).dy, 2);
+    });
+
+    for (final scale in [1.3, 2.0]) {
+      testWidgets('글자 배율 $scale — 긴 사유는 말줄임 없이 줄바꿈하고 줄이 자라며 넘치지 않는다', (tester) async {
+        reject(HeartTaskKind.kakaoShare, HeartTaskRejectReason.notVerified);
+        await pump(tester, textScale: scale);
+
+        final text = find.text('반려 · 게시글·공유가 확인되지 않아요');
+        final widget = tester.widget<Text>(text);
+        expect((widget.maxLines, widget.overflow), (null, null));
+        if (scale == 2.0) {
+          expect(tester.getSize(text).height, greaterThan(12 * 1.3 * 2 * 1.5)); // 두 줄 이상
+        }
+        final row = tester.getRect(find.byType(HeartTaskRow).first);
+        expect(tester.getRect(text).bottom, lessThanOrEqualTo(row.bottom));
+        expect(row.height, greaterThanOrEqualTo(72));
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    // 글자가 두 줄이 돼도 아이콘은 첫 줄 옆에 붙어 있다(가운데로 내려가지 않는다). 1.0 배에서는 pen 처럼 첫 줄 가운데다.
+    testWidgets('글자 배율 2.0 — 두 줄이 돼도 아이콘은 글자 첫 줄 위쪽에 붙는다', (tester) async {
+      reject(HeartTaskKind.kakaoShare, HeartTaskRejectReason.notVerified);
+      await pump(tester, textScale: 2);
+
+      final line = find.byKey(heartTaskRejectLineKey);
+      final icon = find.descendant(of: line, matching: find.byIcon(AppIcons.alertTriangle));
+      final text = find.descendant(of: line, matching: find.text('반려 · 게시글·공유가 확인되지 않아요'));
+
+      expect(tester.getSize(text).height, greaterThan(12 * 1.3 * 2 * 1.5)); // 두 줄 이상이어야 이 시험이 뜻이 있다
+      expect(tester.getTopLeft(icon).dy - tester.getTopLeft(text).dy, closeTo(0, 2.5));
+    });
+
+    testWidgets('글자 배율 1.0 — 아이콘은 한 줄 글자의 세로 가운데(pen 그대로)', (tester) async {
+      reject(HeartTaskKind.everytimePost, HeartTaskRejectReason.dateMissing);
+      await pump(tester);
+
+      final line = find.byKey(heartTaskRejectLineKey);
+      final icon = find.descendant(of: line, matching: find.byIcon(AppIcons.alertTriangle));
+      final text = find.descendant(of: line, matching: find.text('반려 · 날짜가 안 보여요'));
+
+      expect(tester.getCenter(icon).dy, closeTo(tester.getCenter(text).dy, 0.6));
+    });
+
+    testWidgets('낭독 — 사유 글자가 읽히고 경고 아이콘이 따로 읽히지 않는다', (tester) async {
+      final handle = tester.ensureSemantics();
+      reject(HeartTaskKind.everytimePost, HeartTaskRejectReason.reused);
+      await pump(tester);
+
+      expect(find.bySemanticsLabel(RegExp('반려 · 이미 쓴 캡처예요')), findsOneWidget);
+      final line = find.byKey(heartTaskRejectLineKey);
+      expect(tester.widget<Icon>(find.descendant(of: line, matching: find.byIcon(AppIcons.alertTriangle))).semanticLabel, isNull);
+      handle.dispose();
+    });
+  });
+
   testWidgets('검수중 · 완료 줄은 누를 수 없다', (tester) async {
     await pump(tester);
 
