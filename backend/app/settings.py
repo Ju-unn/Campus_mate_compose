@@ -79,6 +79,9 @@ class Settings(BaseSettings):
     # 관리자 웹 주소(예: https://admin.campus-mates.com, 설계 10-18 §8-1). 있으면 인증샷 디스코드 알림에 그 건의 검수 링크를 싣는다.
     # 비면 지금처럼 "Supabase 대시보드에서 확인" 안내다. 끝의 '/' 는 붙이는 쪽(heart_tasks/router.py)이 뗀다.
     admin_base_url: str = ""
+    # 관리자 관문(admin/caller.py)이 받는 2단계 인증 나이(시간). 토큰 amr 의 totp 시각이 이보다 오래면 403 mfa_required —
+    # 토큰을 새로 고쳐도 aal2 는 그대로 남아서, 2단계를 마친 시각으로 관리자 세션 수명을 끊는다.
+    admin_mfa_max_age_hours: int = 12
 
     @property
     def postgrest_url(self) -> str:

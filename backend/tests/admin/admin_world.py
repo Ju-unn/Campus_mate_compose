@@ -5,6 +5,7 @@
 """
 import base64
 import json
+import time
 
 import httpx
 
@@ -65,8 +66,18 @@ def _b64url(obj) -> str:
     return base64.urlsafe_b64encode(json.dumps(obj).encode()).rstrip(b"=").decode()
 
 
+def amr(hours_ago: float = 0, method: str = "totp") -> list[dict]:
+    """Supabase 가 싣는 amr 모양 — 최근 순, 항목마다 방법과 그 방법을 마친 유닉스 초(supabase/auth models/sessions.go AMREntry)."""
+    at = int(time.time() - hours_ago * 3600)
+    return [{"method": method, "timestamp": at}, {"method": "oauth", "timestamp": at - 60}]
+
+
 def bearer(**claims) -> dict[str, str]:
-    """Supabase 접근 토큰 모양(헤더.페이로드.서명)의 Authorization 헤더. 서명은 가짜 — 확인은 /auth/v1/user 가 한다."""
+    """Supabase 접근 토큰 모양(헤더.페이로드.서명)의 Authorization 헤더. 서명은 가짜 — 확인은 /auth/v1/user 가 한다.
+    aal2 면 방금 2단계(totp)를 마친 amr 을 기본으로 싣는다. 값이 None 인 클레임은 뺀다(amr=None = amr 칸 없음)."""
+    if claims.get("aal") == "aal2":
+        claims.setdefault("amr", amr())
+    claims = {key: value for key, value in claims.items() if value is not None}
     return {"Authorization": f"Bearer {_b64url({'alg': 'ES256', 'typ': 'JWT'})}.{_b64url(claims)}.signature"}
 
 
