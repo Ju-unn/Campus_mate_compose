@@ -32,14 +32,17 @@ def report(rid: str, *, target_type: str = "profile", target_id: str = TARGET, s
            profile: dict | None | str = "default", status: str = "open",
            created_at: str = "2026-10-18T01:00:00+00:00") -> dict:
     """reports 한 줄 — 서버가 고르는 select(사본 + 대상 프로필 임베드)를 PostgREST 가 돌려주는 모양."""
+    snapshot = snapshot if snapshot is not None else {
+        "nickname": "여우비", "bio": "안녕하세요", "avatar_path": f"{TARGET}/a.png",
+        "photo_paths": [f"{TARGET}/1.jpg", f"{TARGET}/2.jpg"],
+    }
     return {
         "id": rid, "target_type": target_type, "target_id": target_id, "reason": "abuse", "reason_note": None,
         "status": status, "created_at": created_at, "resolved_at": None,
         "target_profile": target_profile() if profile == "default" else profile,
-        "target_snapshot": snapshot if snapshot is not None else {
-            "nickname": "여우비", "bio": "안녕하세요", "avatar_path": f"{TARGET}/a.png",
-            "photo_paths": [f"{TARGET}/1.jpg", f"{TARGET}/2.jpg"],
-        },
+        # 서버 select 의 별칭 preview_question:target_snapshot->>question — PostgREST 는 그 칸이 없는 사본이면 null 을 돌려준다.
+        "preview_question": snapshot.get("question"),
+        "target_snapshot": snapshot,
     }
 
 
@@ -219,6 +222,10 @@ class AdminWorld:
         if params.get("select") == "id" and "target_profile_id" in params:  # 한 사람이 받은 신고 수(count=exact)
             target = params["target_profile_id"].removeprefix("eq.")
             return httpx.Response(200, json=[], headers={"Content-Range": f"*/{self.report_targets.count(target)}"})
+        if params.get("select") == "target_profile_id,reporter_id":  # 신고 목록의 줄마다 열린 신고자(status=eq.open 으로 이미 거른 모양)
+            wanted = params["target_profile_id"].removeprefix("in.(").removesuffix(")").split(",")
+            return httpx.Response(200, json=[{"target_profile_id": t, "reporter_id": r}
+                                             for t in wanted for r in self.open_reporters.get(t, [])])
         if params.get("target_profile_id", "").startswith("in."):  # 목록의 신고 수를 한 번에
             wanted = params["target_profile_id"].removeprefix("in.(").removesuffix(")").split(",")
             return httpx.Response(200, json=[{"target_profile_id": t} for t in self.report_targets if t in wanted])

@@ -168,7 +168,8 @@ select throws_ok(
 
 select is(
   (public.admin_resolve_report('00000000-0000-0000-0000-00000000ad02', '00000000-0000-0000-0000-00000000ea02',
-      'dismissed', null, true, null))->'closed_ids',
+      'dismissed', null, true, null,
+      array['00000000-0000-0000-0000-00000000ea03']::uuid[]))->'closed_ids',
   '["00000000-0000-0000-0000-00000000ea02", "00000000-0000-0000-0000-00000000ea03"]'::jsonb,
   '같은 대상 함께 닫기는 같은 사람(E0)의 열린 신고 둘을 닫았다고 돌려준다'
 );                                                                                                   -- 10
@@ -189,7 +190,7 @@ select is(
 );                                                                                                   -- 12
 select is(
   (public.admin_resolve_report('00000000-0000-0000-0000-00000000ad02', '00000000-0000-0000-0000-00000000ea09',
-      'actioned', null, true, null))->'closed_ids',
+      'actioned', null, true, null, '{}'::uuid[]))->'closed_ids',
   '["00000000-0000-0000-0000-00000000ea09"]'::jsonb,
   '대상 계정이 지워진 신고(target_profile_id null)는 함께 닫기여도 그 건만 닫는다'
 );                                                                                                   -- 13
@@ -297,7 +298,9 @@ select results_eq(
 select results_eq(
   $$select r->'auto_hidden_at', r->'dismissed_ids'
       from (select public.admin_unhide_profile('00000000-0000-0000-0000-00000000ad02',
-              '00000000-0000-0000-0000-0000000000e8', '오신고 확인', '203.0.113.9') as r) as call$$,
+              '00000000-0000-0000-0000-0000000000e8', '오신고 확인', '203.0.113.9',
+              array['00000000-0000-0000-0000-00000000ea05', '00000000-0000-0000-0000-00000000ea06',
+                    '00000000-0000-0000-0000-00000000ea07']::uuid[]) as r) as call$$,
   $$values ('null'::jsonb, '["00000000-0000-0000-0000-00000000ea05", "00000000-0000-0000-0000-00000000ea06",
                               "00000000-0000-0000-0000-00000000ea07"]'::jsonb)$$,
   '가림 해제는 시각을 비우고 그 사람의 열린 신고 셋을 기각했다고 돌려준다'
@@ -339,17 +342,17 @@ select results_eq(
 );                                                                                                   -- 36
 select throws_ok(
   $$select public.admin_unhide_profile('00000000-0000-0000-0000-00000000ad02', '00000000-0000-0000-0000-0000000000e8',
-      '다시', null)$$,
+      '다시', null, '{}'::uuid[])$$,
   'CM409', null, '가려지지 않은 사람의 가림 해제는 CM409'
 );                                                                                                   -- 37
 select throws_ok(
   $$select public.admin_unhide_profile('00000000-0000-0000-0000-00000000ad02', '00000000-0000-0000-0000-00000000eeee',
-      '없는 사람', null)$$,
+      '없는 사람', null, '{}'::uuid[])$$,
   'CM404', null, '없는 계정은 CM404'
 );                                                                                                   -- 38
 select throws_ok(
   $$select public.admin_unhide_profile('00000000-0000-0000-0000-00000000ad02', '00000000-0000-0000-0000-0000000000e3',
-      '', null)$$,
+      '', null, '{}'::uuid[])$$,
   '22023', null, '빈 사유로는 가림을 풀지 않는다 — 22023'
 );                                                                                                   -- 39
 
@@ -413,7 +416,7 @@ select throws_ok(
 
 select throws_ok(
   $$select public.admin_resolve_report('00000000-0000-0000-0000-00000000ad02', '00000000-0000-0000-0000-00000000ea04',
-      'actioned', repeat('가', 501), true, null)$$,
+      'actioned', repeat('가', 501), true, null, '{}'::uuid[])$$,
   '23514', null, '기록을 남기지 못하면 신고를 닫을 수 없다'
 );                                                                                                   -- 49
 select throws_ok(
@@ -423,7 +426,7 @@ select throws_ok(
 );                                                                                                   -- 50
 select throws_ok(
   $$select public.admin_unhide_profile('00000000-0000-0000-0000-00000000ad02', '00000000-0000-0000-0000-0000000000e3',
-      repeat('가', 501), null)$$,
+      repeat('가', 501), null, '{}'::uuid[])$$,
   '23514', null, '기록을 남기지 못하면 가림을 풀 수 없다'
 );                                                                                                   -- 51
 select results_eq(
@@ -446,7 +449,7 @@ update public.profiles set status = 'suspended' where id = '00000000-0000-0000-0
 
 select throws_ok(
   $$select public.admin_resolve_report('00000000-0000-0000-0000-0000000000e1', '00000000-0000-0000-0000-00000000ea04',
-      'actioned', null, true, null)$$,
+      'actioned', null, true, null, '{}'::uuid[])$$,
   '42501', 'not admin', '명단에 없는 id 는 신고를 닫지 못한다'
 );                                                                                                   -- 54
 select throws_ok(
@@ -461,7 +464,7 @@ select throws_ok(
 );                                                                                                   -- 56
 select throws_ok(
   $$select public.admin_unhide_profile('00000000-0000-0000-0000-0000000000e1', '00000000-0000-0000-0000-0000000000e3',
-      '사유', null)$$,
+      '사유', null, '{}'::uuid[])$$,
   '42501', 'not admin', '명단에 없는 id 는 가림을 풀지 못한다'
 );                                                                                                   -- 57
 select throws_ok(
@@ -496,7 +499,7 @@ select throws_ok(
 );                                                                                                   -- 61
 select throws_ok(
   $$select public.admin_unhide_profile('00000000-0000-0000-0000-0000000000e0', '00000000-0000-0000-0000-0000000000e3',
-      '내가 푼다', null)$$,
+      '내가 푼다', null, '{}'::uuid[])$$,
   '42501', null, 'authenticated 는 가림을 푸는 함수를 부를 수 없다'
 );                                                                                                   -- 62
 

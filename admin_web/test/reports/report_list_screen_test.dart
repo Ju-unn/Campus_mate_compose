@@ -32,11 +32,11 @@ void main() {
   /// pen 예시 다섯 줄과 같은 꼴(사유 · 대상만 서버 값으로)
   FakeReportServer fiveOpen() {
     return FakeReportServer([
-      reportRow('r1', type: 'profile', reason: 'spam', createdAt: '2026-10-16T00:30:00+00:00', target: targetProfile(nickname: '닉네임E', university: '고려대학교')),
-      reportRow('r2', type: 'friend_review', reason: 'fake', createdAt: '2026-10-17T10:03:00+00:00', target: targetProfile(id: 'p2', nickname: '닉네임D')),
-      reportRow('r3', type: 'poll', reason: 'abuse', createdAt: '2026-10-17T13:15:00+00:00', target: targetProfile(id: 'p3', nickname: '닉네임F')),
-      reportRow('r4', type: 'message', reason: 'abuse', createdAt: '2026-10-18T02:40:00+00:00', target: targetProfile(id: 'p4', nickname: '닉네임C')),
-      reportRow('r5', type: 'profile', reason: 'sexual', createdAt: '2026-10-18T04:02:00+00:00'),
+      reportRow('r1', type: 'profile', reason: 'spam', createdAt: '2026-10-16T00:30:00+00:00', target: targetProfile(nickname: '닉네임E', university: '고려대학교'), openReporters: 3),
+      reportRow('r2', type: 'friend_review', reason: 'fake', createdAt: '2026-10-17T10:03:00+00:00', target: targetProfile(id: 'p2', nickname: '닉네임D'), openReporters: 2),
+      reportRow('r3', type: 'poll', reason: 'abuse', createdAt: '2026-10-17T13:15:00+00:00', target: targetProfile(id: 'p3', nickname: '닉네임F'), openReporters: 1, preview: '학식 어때요?'),
+      reportRow('r4', type: 'message', reason: 'abuse', createdAt: '2026-10-18T02:40:00+00:00', target: targetProfile(id: 'p4', nickname: '닉네임C'), openReporters: 4),
+      reportRow('r5', type: 'profile', reason: 'sexual', createdAt: '2026-10-18T04:02:00+00:00', openReporters: 5),
     ]);
   }
 
@@ -129,7 +129,7 @@ void main() {
 
       expect(tester.getRect(row('r1')), const Rect.fromLTWH(272, 200, 1136, 52));
       expect(tester.getRect(row('r2')).top, 252);
-      for (final cell in ['프로필', '광고·스팸', '—', '닉네임E · 고려대학교', '2026-10-16 09:30', '2일 4시간']) {
+      for (final cell in ['프로필', '광고·스팸', '3명', '닉네임E · 고려대학교', '2026-10-16 09:30', '2일 4시간']) {
         expect(inRow('r1', cell), findsOneWidget, reason: cell);
       }
       final cellStyle = styleOf(tester, inRow('r1', '닉네임E · 고려대학교'));
@@ -140,19 +140,35 @@ void main() {
       expect((line.decoration as BoxDecoration).border, const Border(bottom: BorderSide(color: AdminColors.hairline)));
     });
 
-    testWidgets('신고자 수는 목록 응답에 없어 "—", 대상 요약은 종류마다(메시지 "닉네임 의 메시지" 등)', (tester) async {
+    testWidgets('신고자 수 칸은 목록 응답의 open_reporters, 대상 요약은 종류마다(메시지 "닉네임 의 메시지" 등) · 투표 글은 질문 앞부분', (tester) async {
       await openList(tester);
 
       expect(inRow('r2', '닉네임D 의 리뷰'), findsOneWidget);
-      expect(inRow('r3', '닉네임F 의 투표 글'), findsOneWidget);
+      expect(inRow('r3', '학식 어때요?'), findsOneWidget);
+      expect(inRow('r3', '닉네임F 의 투표 글'), findsNothing);
       expect(inRow('r4', '닉네임C 의 메시지'), findsOneWidget);
-      for (final id in ['r1', 'r2', 'r3', 'r4', 'r5']) {
-        expect(inRow(id, '—'), findsOneWidget, reason: id);
+      for (final (id, count) in [('r1', '3명'), ('r2', '2명'), ('r3', '1명'), ('r4', '4명'), ('r5', '5명')]) {
+        expect(inRow(id, count), findsOneWidget, reason: id);
+        expect(inRow(id, '—'), findsNothing, reason: id);
       }
       // 오래된 순(서버 순서 그대로)
       expect(tester.getRect(row('r1')).top, lessThan(tester.getRect(row('r5')).top));
       expect(inRow('r5', '1시간'), findsOneWidget);
       expect(inRow('r3', '16시간'), findsOneWidget);
+    });
+
+    testWidgets('대상 계정이 지워진 줄의 신고자 수는 "—"(서버 0 을 그대로 쓰지 않는다), 신고자 수 칸이 없는 옛 응답도 "—"', (tester) async {
+      final server = FakeReportServer([
+        reportRow('r1', target: null, openReporters: 0),
+        {...reportRow('r2')}..remove('open_reporters'),
+      ]);
+      await openList(tester, server: server);
+
+      expect(inRow('r1', '—'), findsNWidgets(2)); // 신고자 수 + 대상 요약
+      expect(inRow('r1', '0'), findsNothing);
+      expect(inRow('r1', '0명'), findsNothing);
+      expect(inRow('r2', '—'), findsOneWidget);
+      expect(inRow('r2', '닉네임B 의 메시지'), findsOneWidget);
     });
   });
 

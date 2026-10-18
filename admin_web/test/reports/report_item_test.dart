@@ -34,6 +34,24 @@ void main() {
       expect(ReportSummary.fromJson(reportRow('r', type: 'profile', target: targetProfile(nickname: null))).targetSummary, '— · 연세대학교');
     });
 
+    test('목록 줄의 신고자 수(open_reporters)를 읽는다 — 옛 응답처럼 칸이 없으면 null', () {
+      expect(ReportSummary.fromJson(reportRow('r', openReporters: 3)).openReporters, 3);
+      expect(ReportSummary.fromJson(reportRow('r', openReporters: 0)).openReporters, 0);
+      expect(ReportSummary.fromJson({...reportRow('r')}..remove('open_reporters')).openReporters, isNull);
+    });
+
+    test('투표 글의 대상 요약은 질문 앞부분(preview)이 먼저, 없으면 "닉네임 의 투표 글"', () {
+      String summary(String type, {String? preview}) =>
+          ReportSummary.fromJson(reportRow('r', type: type, preview: preview)).targetSummary;
+
+      expect(summary('poll', preview: '점심 뭐 먹을까요…'), '점심 뭐 먹을까요…');
+      expect(summary('poll'), '닉네임B 의 투표 글');
+      expect(summary('poll', preview: '  '), '닉네임B 의 투표 글');
+      // 투표 글이 아닌 줄은 preview 가 와도 쓰지 않는다(서버는 보내지 않지만, 채팅 글자가 표에 오르지 않게)
+      expect(summary('message', preview: '남의 글'), '닉네임B 의 메시지');
+      expect(ReportSummary.fromJson({...reportRow('r', type: 'poll')}..remove('preview')).targetSummary, '닉네임B 의 투표 글');
+    });
+
     test('사유 다섯 개는 앱 신고 시트와 같은 글자(pen yl8gX), 모르는 코드는 그대로', () {
       expect(
         ['abuse', 'sexual', 'spam', 'fake', 'other', 'new_code'].map(reportReasonLabel),
@@ -63,6 +81,8 @@ void main() {
       expect(detail.openReporters, 2);
       expect(detail.otherReports.map((o) => o.status), [ReportStatus.open, ReportStatus.dismissed]);
       expect(detail.openOthers, 1);
+      // 함께 닫기 · 가림 해제에 보내는 "본 신고" 와 대화상자의 n 은 같은 목록에서 나온다
+      expect(detail.openOtherIds, ['o1']);
     });
 
     test('프로필 사본: 공개 아바타 URL · 실사진 서명 URL 들, 없으면 null · 빈 목록', () {

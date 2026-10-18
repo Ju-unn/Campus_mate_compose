@@ -6,11 +6,12 @@
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.admin.caller import AdminCaller, get_admin_caller
 from app.admin.reason import ReasonBody
-from app.admin.repository import AdminRepository
+from app.admin.report_review import SeenReportIds
+from app.admin.repository import SEEN_REPORTS_REQUIRED, AdminRepository
 from app.admin.request_ip import request_ip
 
 router = APIRouter()
@@ -20,17 +21,25 @@ _CONTENT_KINDS = {"polls": "poll", "friend-reviews": "friend_review"}
 _CONTENT_STATUS = {"blind": "blinded", "unblind": "visible"}
 
 
+class ProfileActionBody(ReasonBody):
+    # 가림 해제만 쓴다 — 운영자가 본 열린 신고 id 들(없으면 422, [] 는 "기각할 신고 없음"). 정지 · 정지 해제는 보내도 쓰지 않는다.
+    seen_report_ids: SeenReportIds | None = None
+
+
 def _repo(caller: AdminCaller) -> AdminRepository:
     return AdminRepository(caller.settings.postgrest_url, caller.settings.supabase_service_role_key, caller.client)
 
 
 @router.post("/profiles/{profile_id}/{action}")
 async def act_on_profile(
-    profile_id: UUID, action: Literal["suspend", "unsuspend", "unhide"], body: ReasonBody, request: Request,
+    profile_id: UUID, action: Literal["suspend", "unsuspend", "unhide"], body: ProfileActionBody, request: Request,
     caller: AdminCaller = Depends(get_admin_caller),
 ) -> dict:
-    """정지(직전 상태를 기록) · 해제(직전 상태로, 기록이 없으면 온보딩 체크로) · 가림 해제(그 사람의 열린 신고도 기각)."""
-    return await _repo(caller).act_on_profile(action, caller.admin_user_id, profile_id, body.reason, request_ip(request))
+    """정지(직전 상태를 기록) · 해제(직전 상태로, 기록이 없으면 온보딩 체크로) · 가림 해제(운영자가 본 열린 신고도 기각)."""
+    if action == "unhide" and body.seen_report_ids is None:
+        raise HTTPException(status_code=422, detail=SEEN_REPORTS_REQUIRED)
+    return await _repo(caller).act_on_profile(action, caller.admin_user_id, profile_id, body.reason, request_ip(request),
+                                              body.seen_report_ids)
 
 
 @router.post("/content/{kind}/{content_id}/{action}")

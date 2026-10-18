@@ -16,8 +16,9 @@ REPORTER = "55555555-0000-0000-0000-000000000001"
 STORAGE = "https://x.supabase.co/storage/v1"
 ADMIN_HEADERS = bearer(sub=ADMIN, aal="aal2")
 SUMMARY_KEYS = {"id", "target_type", "target_id", "reason", "reason_note", "status", "created_at", "resolved_at",
-                "target_profile"}
+                "target_profile", "preview"}
 DETAIL_KEYS = SUMMARY_KEYS | {"snapshot", "content_status", "open_reporters", "other_reports"}
+LIST_KEYS = SUMMARY_KEYS | {"open_reporters"}
 REASON = {"reason": "신고 내용 확인"}
 ROUTES = [
     ("GET", "/admin/reports", None),
@@ -81,16 +82,16 @@ def test_list_asks_for_open_reports_oldest_first_with_the_reported_person(client
     response = client.get("/admin/reports", headers=ADMIN_HEADERS)
 
     assert response.status_code == 200
-    (query,) = world.calls("GET", "/rest/v1/reports")
-    params = query.url.params
+    params = world.calls("GET", "/rest/v1/reports")[0].url.params
     assert params["status"] == "eq.open"
     assert params["order"] == "created_at.asc"
     assert params["limit"] == "50"
     assert "target_type" not in params
     # reports 는 profiles 를 두 번 가리킨다(reporter_id · target_profile_id) — 어느 쪽인지 짚어야 임베드가 된다.
     assert "target_profile:profiles!target_profile_id(id,nickname,status,auto_hidden_at,universities(name))" in params["select"]
-    # 목록에는 사본을 싣지 않는다 — 고른 건만 상세로 받는다.
-    assert "target_snapshot" not in params["select"]
+    # 목록에는 사본을 통째로 싣지 않는다(사진 경로 · 채팅 본문 포함) — 고른 건만 상세로 받고, 투표 질문 한 칸만 별칭으로 고른다.
+    assert "preview_question:target_snapshot->>question" in params["select"]
+    assert "target_snapshot" not in params["select"].replace("preview_question:target_snapshot->>question", "")
 
 
 def test_list_filters_by_type_and_status_and_takes_a_limit(client, world):
@@ -115,11 +116,81 @@ def test_list_is_one_read_with_a_summary_per_row(client, world):
 
     items = client.get("/admin/reports", headers=ADMIN_HEADERS).json()["items"]
 
-    assert [set(i) for i in items] == [SUMMARY_KEYS, SUMMARY_KEYS]
+    assert [set(i) for i in items] == [LIST_KEYS, LIST_KEYS]
     assert items[0]["target_profile"] == {"id": TARGET, "nickname": "여우비", "university": "테스트대학교",
                                           "status": "active", "auto_hidden_at": None}
     assert (items[1]["id"], items[1]["target_type"], items[1]["target_id"]) == (R2, "message", MESSAGE)
-    # 서명 · 같은 대상 · 신고자 세기 조회는 하나도 없다.
+    # 서명 · 같은 대상 조회는 없다. 읽기는 목록 하나 + 신고자 세기 하나(아래 시험이 모양을 본다) — 줄마다 따로 부르지 않는다.
+    assert _data_requests(world) == [("GET", "/rest/v1/reports")] * 2
+
+
+def test_list_rows_carry_the_open_reporter_count_of_their_target(client, world):
+    # 같은 사람의 두 줄은 같은 수. 같은 신고자의 중복과 탈퇴한 신고자(null)는 세지 않는다 — 상세의 open_reporters · 자동 가림과 같은 정의.
+    other_target = "dddddddd-0000-0000-0000-0000000000ee"
+    world.reports[R1] = report(R1)
+    world.reports[R2] = _message_report(R2)
+    world.reports[OTHER] = report(OTHER, profile=target_profile(id=other_target))
+    world.reports[POLL] = report(POLL, profile=None)  # 대상 계정이 지워진 줄
+    world.open_reporters[TARGET] = [REPORTER, REPORTER, STRANGER, None]
+    world.open_reporters[other_target] = [REPORTER]
+
+    items = client.get("/admin/reports", headers=ADMIN_HEADERS).json()["items"]
+
+    assert [(i["id"], i["open_reporters"]) for i in items] == [(R1, 2), (R2, 2), (OTHER, 1), (POLL, 0)]
+    # 줄이 몇 개든 신고자 묶음은 한 번 — 열린 신고만, 대상은 중복 없이 목록 순서로, 신고자 id 만 고른다(응답에는 숫자만).
+    (count,) = [r for r in world.calls("GET", "/rest/v1/reports") if r.url.params.get("select") == "target_profile_id,reporter_id"]
+    assert (count.url.params["status"], count.url.params["target_profile_id"]) == ("eq.open", f"in.({TARGET},{other_target})")
+    assert REPORTER not in str(items) and STRANGER not in str(items)
+
+
+POLL_SNAPSHOT = {"poll_id": POLL, "option_a_label": "찬성", "option_b_label": "반대", "created_at": "2026-10-17T10:00:00+00:00"}
+
+
+@pytest.mark.parametrize(("question", "preview"), [
+    ("점심 뭐 먹을까요", "점심 뭐 먹을까요"),
+    ("가" * 40, "가" * 40),  # 딱 40자는 그대로
+    ("가" * 41, "가" * 40 + "…"),  # 넘으면 40자 + …
+    ("  앞뒤 공백 질문  ", "앞뒤 공백 질문"),
+    ("", None),
+    ("   ", None),
+    (None, None),
+], ids=["짧음", "40자", "41자", "공백", "빈 글자", "공백뿐", "null"])
+def test_a_poll_report_row_previews_the_start_of_the_question(client, world, question, preview):
+    world.reports[R1] = report(R1, target_type="poll", target_id=POLL, snapshot={**POLL_SNAPSHOT, "question": question})
+
+    (item,) = client.get("/admin/reports", headers=ADMIN_HEADERS).json()["items"]
+
+    assert item["preview"] == preview
+
+
+@pytest.mark.parametrize("target_type", ["profile", "message", "friend_review"])
+def test_only_poll_reports_carry_a_preview(client, world, target_type):
+    # 메시지 본문은 목록에 오지 않는다(열람은 사유를 적는 chat-context 로만). 지인 리뷰 한마디도 싣지 않는다.
+    world.reports[R1] = report(R1, target_type=target_type, target_id=POLL,
+                               snapshot={"body": "기분 나쁜 말", "comment": "별로", "nickname": "여우비", "question": "남의 질문"})
+    world.reports[R1]["preview_question"] = "남의 질문"  # 종류가 투표가 아니면 사본에 question 칸이 있어도 싣지 않는다
+
+    (item,) = client.get("/admin/reports", headers=ADMIN_HEADERS).json()["items"]
+
+    assert item["preview"] is None
+    assert "기분 나쁜 말" not in str(item) and "별로" not in str(item)
+
+
+def test_the_detail_of_a_poll_report_also_carries_the_preview(client, world):
+    world.reports[R1] = report(R1, target_type="poll", target_id=POLL, snapshot={**POLL_SNAPSHOT, "question": "찬반 질문"})
+    world.content[POLL] = "visible"
+
+    body = client.get(f"/admin/reports/{R1}", headers=ADMIN_HEADERS).json()
+
+    assert (body["preview"], body["snapshot"]["question"]) == ("찬반 질문", "찬반 질문")
+
+
+def test_list_without_any_target_account_asks_no_reporter_count(client, world):
+    world.reports[R1] = report(R1, profile=None)
+
+    items = client.get("/admin/reports", headers=ADMIN_HEADERS).json()["items"]
+
+    assert [i["open_reporters"] for i in items] == [0]
     assert _data_requests(world) == [("GET", "/rest/v1/reports")]
 
 
@@ -368,7 +439,7 @@ def test_resolve_sends_the_admin_note_and_ip_and_returns_the_detail(client, worl
     assert response.status_code == 200
     # 같은 대상 함께 닫기는 고른 때만(기본 false). 메모는 앞뒤 공백을 뗀다.
     assert _resolves(world) == [{"p_admin": ADMIN, "p_report": R1, "p_outcome": "actioned", "p_note": "욕설 확인",
-                                 "p_same_target": False, "p_ip": "203.0.113.7"}]
+                                 "p_same_target": False, "p_ip": "203.0.113.7", "p_seen": None}]
     body = response.json()
     assert set(body) == DETAIL_KEYS
     assert (body["status"], body["resolved_at"]) == ("actioned", "2026-10-18T02:00:00+00:00")
@@ -379,11 +450,68 @@ def test_resolve_can_close_the_same_persons_open_reports_without_a_note(client, 
     world.reports[R1] = report(R1)
 
     response = client.post(f"/admin/reports/{R1}/resolve", headers=ADMIN_HEADERS,
-                           json={"outcome": "dismissed", "note": note, "same_target": True})
+                           json={"outcome": "dismissed", "note": note, "same_target": True, "seen_report_ids": [R2]})
 
     assert response.status_code == 200
     (body,) = _resolves(world)
     assert (body["p_outcome"], body["p_note"], body["p_same_target"]) == ("dismissed", sent, True)
+
+
+def test_resolve_with_same_target_sends_only_the_reports_the_operator_saw(client, world):
+    # 상세를 연 뒤에 들어온 새 신고까지 닫지 않게 — 본 신고 id 만 DB 함수로 간다(보안 검토 낮음 8).
+    world.reports[R1] = report(R1)
+
+    client.post(f"/admin/reports/{R1}/resolve", headers=ADMIN_HEADERS,
+                json={"outcome": "dismissed", "same_target": True, "seen_report_ids": [R2, OTHER.upper()]})
+
+    (body,) = _resolves(world)
+    assert body["p_seen"] == [R2, OTHER]  # 표준 소문자 꼴로 고쳐 보낸다
+
+
+def test_resolve_of_one_report_needs_no_seen_list_and_sends_none(client, world):
+    world.reports[R1] = report(R1)
+
+    response = client.post(f"/admin/reports/{R1}/resolve", headers=ADMIN_HEADERS, json={"outcome": "actioned"})
+
+    assert response.status_code == 200
+    (body,) = _resolves(world)
+    assert body["p_seen"] is None
+
+
+@pytest.mark.parametrize("seen", [None, "missing"], ids=["null", "칸 없음"])
+def test_same_target_without_the_seen_list_is_refused_before_the_db_function(client, world, seen):
+    # 옛 웹이 목록 없이 보내면 "같은 사람의 열린 신고 전부" 가 되살아나지 않게 거절한다. 빈 목록([])은 "본 신고 없음" 이라 통과한다.
+    world.reports[R1] = report(R1)
+    body = {"outcome": "dismissed", "same_target": True}
+    if seen != "missing":
+        body["seen_report_ids"] = seen
+
+    response = client.post(f"/admin/reports/{R1}/resolve", headers=ADMIN_HEADERS, json=body)
+
+    assert (response.status_code, response.json()) == (422, {"detail": "seen_reports_required"})
+    assert world.rpcs == []
+
+
+def test_same_target_with_an_empty_seen_list_closes_just_this_report(client, world):
+    world.reports[R1] = report(R1)
+
+    response = client.post(f"/admin/reports/{R1}/resolve", headers=ADMIN_HEADERS,
+                           json={"outcome": "dismissed", "same_target": True, "seen_report_ids": []})
+
+    assert response.status_code == 200
+    (body,) = _resolves(world)
+    assert (body["p_same_target"], body["p_seen"]) == (True, [])
+
+
+@pytest.mark.parametrize("seen", ["x", [1], ["not-a-uuid"], [R2] * 101], ids=["글자", "숫자", "UUID 아님", "101개"])
+def test_resolve_rejects_a_malformed_seen_list(client, world, seen):
+    world.reports[R1] = report(R1)
+
+    response = client.post(f"/admin/reports/{R1}/resolve", headers=ADMIN_HEADERS,
+                           json={"outcome": "dismissed", "same_target": True, "seen_report_ids": seen})
+
+    assert response.status_code == 422
+    assert world.rpcs == []
 
 
 @pytest.mark.parametrize("body", [None, {}, {"outcome": "open"}, {"outcome": "closed"},

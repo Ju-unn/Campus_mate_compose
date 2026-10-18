@@ -10,12 +10,12 @@ from uuid import UUID
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints
 
 from app.admin.caller import AdminCaller, get_admin_caller
 from app.admin.heart_task_review import PHOTO_URL_TTL_SECONDS
 from app.admin.reason import REASON_MAX, ReasonBody
-from app.admin.repository import NOT_FOUND, AdminRepository
+from app.admin.repository import NOT_FOUND, SEEN_REPORTS_REQUIRED, AdminRepository
 from app.admin.request_ip import request_ip
 from app.profile_onboarding.storage import ProfilePhotoStorage
 from app.safety.repository import SafetyRepository
@@ -26,6 +26,11 @@ logger = logging.getLogger(__name__)
 # 신고된 줄 앞뒤로 보여 줄 줄 수(설계 §8-2 D — 사적 대화라 좁게).
 CHAT_CONTEXT_EACH_SIDE = 5
 NOT_MESSAGE_REPORT = "not_message_report"
+# 목록 줄의 "대상 요약"(투표 질문 앞부분) 글자 수 — 열 폭에 맞춰 웹이 한 번 더 줄임표를 단다.
+PREVIEW_CHARS = 40
+# 운영자가 상세에서 본 신고 id 들. 한 사람에게 쌓인 열린 신고가 이보다 많으면 못 본 것은 열린 채 남는다(안전한 쪽).
+SEEN_REPORTS_MAX = 100
+SeenReportIds = Annotated[list[UUID], Field(max_length=SEEN_REPORTS_MAX)]
 ReportStatus = Literal["open", "actioned", "dismissed"]
 TargetType = Literal["profile", "message", "friend_review", "poll"]
 
@@ -34,8 +39,10 @@ class ResolveBody(BaseModel):
     outcome: Literal["actioned", "dismissed"]
     # 메모는 선택이다(작업 기록 reason 칸). 공백뿐이면 없는 것으로 보낸다.
     note: Annotated[str, StringConstraints(strip_whitespace=True, max_length=REASON_MAX)] | None = None
-    # 같은 사람(target_profile_id)을 향한 다른 열린 신고도 같은 결과로 닫는다 — 상세의 other_reports 중 열린 것들이다.
+    # 같은 사람(target_profile_id)을 향한 다른 열린 신고도 같은 결과로 닫는다 — 단 seen_report_ids(상세의 other_reports 중
+    # 운영자가 본 열린 것들)에 든 것만. 상세를 연 뒤 들어온 새 신고는 열린 채 남는다. same_target 이면 이 칸이 꼭 있어야 한다([] 가능).
     same_target: bool = False
+    seen_report_ids: SeenReportIds | None = None
 
 
 def _repo(caller: AdminCaller) -> AdminRepository:
@@ -47,13 +54,21 @@ def _target_id(row: dict) -> str | None:
     return (row["target_profile"] or {}).get("id")
 
 
+def _preview(row: dict) -> str | None:
+    """투표 글 신고만 질문 앞 PREVIEW_CHARS 자(넘으면 …). 메시지 본문 · 리뷰 한마디는 목록에 오지 않는다."""
+    question = (row["preview_question"] or "").strip() if row["target_type"] == "poll" else ""
+    if not question:
+        return None
+    return question if len(question) <= PREVIEW_CHARS else question[:PREVIEW_CHARS] + "…"
+
+
 def _summary(row: dict) -> dict:
     """목록 한 줄. 접수 뒤 지난 시간은 웹이 created_at 으로 그린다."""
     profile = row["target_profile"]
     return {
         "id": row["id"], "target_type": row["target_type"], "target_id": row["target_id"],
         "reason": row["reason"], "reason_note": row["reason_note"], "status": row["status"],
-        "created_at": row["created_at"], "resolved_at": row["resolved_at"],
+        "created_at": row["created_at"], "resolved_at": row["resolved_at"], "preview": _preview(row),
         "target_profile": None if profile is None else {
             "id": profile["id"], "nickname": profile["nickname"], "university": profile["universities"]["name"],
             "status": profile["status"], "auto_hidden_at": profile["auto_hidden_at"],
@@ -122,8 +137,13 @@ async def list_reports(
     limit: int = Query(50, ge=1, le=100),
     caller: AdminCaller = Depends(get_admin_caller),
 ) -> dict:
-    """PostgREST 한 번으로 끝난다 — 사본 · 사진 · 다른 신고는 웹이 줄을 골라 한 건을 받을 때(GET /{id})."""
-    return {"items": [_summary(row) for row in await _repo(caller).list_reports(status, target_type, limit)]}
+    """PostgREST 두 번으로 끝난다(목록 + 줄마다 열린 신고자 수 묶음) — 사본 · 사진 · 다른 신고는 웹이 줄을 골라 한 건을 받을 때(GET /{id}).
+    open_reporters 는 상세의 같은 이름 칸과 같은 정의(그 사람의 열린 신고를 낸 서로 다른 신고자 수)다."""
+    repo = _repo(caller)
+    rows = await repo.list_reports(status, target_type, limit)
+    targets = list(dict.fromkeys(t for t in map(_target_id, rows) if t))
+    counts = await repo.count_open_reporters_by_target(targets)
+    return {"items": [{**_summary(row), "open_reporters": counts.get(_target_id(row), 0)} for row in rows]}
 
 
 @router.get("/{report_id}")
@@ -161,7 +181,10 @@ async def chat_context(
 async def resolve_report(
     report_id: UUID, body: ResolveBody, request: Request, caller: AdminCaller = Depends(get_admin_caller),
 ) -> dict:
-    """조치 완료 / 기각. 닫기와 기록은 DB 함수 한 번(이미 닫힌 신고는 409 already_done). 응답은 처리 뒤 한 건."""
+    """조치 완료 / 기각. 닫기와 기록은 DB 함수 한 번(이미 닫힌 신고는 409 already_done). 응답은 처리 뒤 한 건.
+    함께 닫기인데 본 신고 목록이 없으면(옛 웹) 422 seen_reports_required — "전부 닫기"로 되돌아가지 않는다."""
+    if body.same_target and body.seen_report_ids is None:
+        raise HTTPException(status_code=422, detail=SEEN_REPORTS_REQUIRED)
     await _repo(caller).resolve_report(caller.admin_user_id, report_id, body.outcome, body.note or None,
-                                       body.same_target, request_ip(request))
+                                       body.same_target, request_ip(request), body.seen_report_ids)
     return await detail(caller, report_id)

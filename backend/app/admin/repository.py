@@ -18,16 +18,23 @@ ALREADY_DONE = "already_done"
 # 하트 조정 · 탈퇴 대행 · 열람의 막힘. DB 함수가 CM409 의 message 로 이유를 알려 준다(20261018120000).
 INSUFFICIENT_HEARTS = "insufficient_hearts"
 ACCOUNT_WITHDRAWN = "account_withdrawn"
+# 같은 대상 함께 닫기 · 가림 해제는 운영자가 본 신고 id 목록(seen_report_ids)이 있어야 한다 — 없으면 상세를 연 뒤 들어온 새 신고까지 닫는다.
+SEEN_REPORTS_REQUIRED = "seen_reports_required"
 # 검수 화면 한 줄에 필요한 칸. storage_path 는 서명 URL 을 만드는 데만 쓰고 응답에는 싣지 않는다.
 _SUBMISSION_SELECT = ("id,task,status,reject_reason,reward_hearts,created_at,reviewed_at,storage_path,"
                       "profiles(id,nickname,universities(name))")
 # 신고 목록 한 줄. reports 는 profiles 를 두 번 가리켜서(reporter_id · target_profile_id) 신고당한 쪽을 FK 칸 이름으로 짚는다.
-# 신고자는 싣지 않는다. 사본(target_snapshot)은 한 건을 고를 때만 읽는다.
+# 신고자는 싣지 않는다. 사본(target_snapshot)은 한 건을 고를 때만 읽는다 — 목록 줄의 투표 질문 앞부분만 별칭 한 칸(preview_question)으로 고른다.
 _REPORT_SELECT = ("id,target_type,target_id,reason,reason_note,status,created_at,resolved_at,"
+                  "preview_question:target_snapshot->>question,"
                   "target_profile:profiles!target_profile_id(id,nickname,status,auto_hidden_at,universities(name))")
 # 신고 대상 종류(report_target) → 글 표. 둘 다 status 가 content_status(visible · blinded)다.
 CONTENT_TABLES = {"poll": "polls", "friend_review": "friend_reviews"}
 _MESSAGE_SELECT = "id,sender_id,kind,body,created_at"
+
+
+def _ids(ids: list[UUID] | None) -> list[str] | None:
+    return None if ids is None else [str(i) for i in ids]
 
 
 class AdminRepository(PostgrestRepository):
@@ -96,6 +103,21 @@ class AdminRepository(PostgrestRepository):
             params["target_type"] = f"eq.{target_type}"
         return await self._rows("reports", params)
 
+    async def count_open_reporters_by_target(self, profile_ids: list[str]) -> dict[str, int]:
+        """목록 줄마다 그 사람의 열린 신고의 서로 다른 신고자 수 — 한 번에 묶어 센다. 자동 가림이 세는 기준
+        (safety/repository.py count_open_reporters)과 같아 탈퇴해 비게 된 신고자(reporter_id null)는 세지 않는다.
+        shortcut: PostgREST 응답 상한(기본 1000줄)을 넘으면 세던 값이 잘린다 — 목록 100줄에 열린 신고가 1000건 넘을 일이 없다, 넘으면 count 함수로."""
+        if not profile_ids:
+            return {}
+        rows = await self._rows("reports", {
+            "select": "target_profile_id,reporter_id", "status": "eq.open", "target_profile_id": f"in.({','.join(profile_ids)})",
+        })
+        reporters: dict[str, set[str]] = {}
+        for row in rows:
+            if row["reporter_id"]:
+                reporters.setdefault(row["target_profile_id"], set()).add(row["reporter_id"])
+        return {target: len(ids) for target, ids in reporters.items()}
+
     async def fetch_report(self, report_id: UUID) -> dict | None:
         rows = await self._rows("reports", {"select": f"{_REPORT_SELECT},target_snapshot", "id": f"eq.{report_id}"})
         return rows[0] if rows else None
@@ -138,18 +160,25 @@ class AdminRepository(PostgrestRepository):
 
     async def resolve_report(
         self, admin_user_id: UUID, report_id: UUID, outcome: str, note: str | None, same_target: bool, ip: str | None,
+        seen_report_ids: list[UUID] | None = None,
     ) -> dict:
-        """조치 완료 / 기각과 작업 기록(닫힌 신고마다 한 줄)을 DB 함수 하나로. same_target 이면 같은 사람의 열린 신고도 닫는다."""
+        """조치 완료 / 기각과 작업 기록(닫힌 신고마다 한 줄)을 DB 함수 하나로. same_target 이면 같은 사람의 열린 신고 중
+        seen_report_ids(운영자가 본 것)에 든 것만 함께 닫는다."""
         return await self._rpc("admin_resolve_report", {
             "p_admin": str(admin_user_id), "p_report": str(report_id), "p_outcome": outcome, "p_note": note,
-            "p_same_target": same_target, "p_ip": ip,
+            "p_same_target": same_target, "p_ip": ip, "p_seen": _ids(seen_report_ids),
         })
 
-    async def act_on_profile(self, action: str, admin_user_id: UUID, profile_id: UUID, reason: str, ip: str | None) -> dict:
-        """action = suspend · unsuspend · unhide → DB 함수 admin_{action}_profile. 가림 해제는 그 사람의 열린 신고 기각까지 함께 한다."""
-        return await self._rpc(f"admin_{action}_profile", {
-            "p_admin": str(admin_user_id), "p_profile": str(profile_id), "p_reason": reason, "p_ip": ip,
-        })
+    async def act_on_profile(
+        self, action: str, admin_user_id: UUID, profile_id: UUID, reason: str, ip: str | None,
+        seen_report_ids: list[UUID] | None = None,
+    ) -> dict:
+        """action = suspend · unsuspend · unhide → DB 함수 admin_{action}_profile. 가림 해제는 그 사람의 열린 신고 중
+        seen_report_ids(운영자가 본 것)에 든 것의 기각까지 함께 한다 — 그 목록은 가림 해제 함수만 받는다."""
+        body = {"p_admin": str(admin_user_id), "p_profile": str(profile_id), "p_reason": reason, "p_ip": ip}
+        if action == "unhide":
+            body["p_seen"] = _ids(seen_report_ids)
+        return await self._rpc(f"admin_{action}_profile", body)
 
     async def set_content_status(
         self, admin_user_id: UUID, target_type: str, content_id: UUID, status: str, reason: str, ip: str | None,

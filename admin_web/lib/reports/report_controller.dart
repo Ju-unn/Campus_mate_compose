@@ -121,9 +121,12 @@ class ReportDetailController extends Notifier<AsyncValue<ReportDetail>> {
   Future<void> refresh() => _load();
 
   Future<ActionResult> actOnProfile(ProfileAction action, String reason) {
-    final target = state.value?.summary.target;
-    if (target == null) return Future.value(ActionResult.failed);
-    return _act(() => _api.actOnProfile(target.id, action, reason));
+    final detail = state.value;
+    final target = detail?.summary.target;
+    if (detail == null || target == null) return Future.value(ActionResult.failed);
+    // 가림 해제가 기각하는 신고 = 운영자가 이 화면에서 본 열린 신고(이 신고가 열려 있으면 포함) — 그 뒤 들어온 새 신고는 빠진다
+    final seen = [if (detail.summary.isOpen) detail.summary.id, ...detail.openOtherIds];
+    return _act(() => _api.actOnProfile(target.id, action, reason, seenReportIds: seen));
   }
 
   Future<ActionResult> setContent({required bool blind, required String reason}) {
@@ -134,15 +137,25 @@ class ReportDetailController extends Notifier<AsyncValue<ReportDetail>> {
 
   /// 조치 완료 / 기각. [unhide] 면 기각이 된 뒤 가림 해제를 같은 글로 이어 부른다(먼저 부르면 가림 해제가 이 신고까지
   /// 기각해 닫기가 409 가 된다). 가림이 이미 풀렸으면(409) 성공과 같다.
-  Future<ActionResult> resolve(ReportStatus outcome, {required String note, required bool sameTarget, required bool unhide}) async {
+  /// [seenReportIds] 는 대화상자가 보여 준 "열린 신고 n건"의 id — 함께 닫기와 이어 부르는 가림 해제가 같은 목록을 보낸다.
+  Future<ActionResult> resolve(
+    ReportStatus outcome, {
+    required String note,
+    required bool sameTarget,
+    required bool unhide,
+    List<String> seenReportIds = const [],
+  }) async {
     final target = state.value?.summary.target;
-    final closed = await _act(() => _api.resolveReport(id, outcome, note: note, sameTarget: sameTarget), refreshAfter: false);
+    final closed = await _act(
+      () => _api.resolveReport(id, outcome, note: note, sameTarget: sameTarget, seenReportIds: seenReportIds),
+      refreshAfter: false,
+    );
     if (closed != ActionResult.done) return closed;
     var result = ActionResult.done;
     if (unhide && target != null) {
       final reason = note.trim().isEmpty ? dismissUnhideReason : note;
       try {
-        await _api.actOnProfile(target.id, ProfileAction.unhide, reason);
+        await _api.actOnProfile(target.id, ProfileAction.unhide, reason, seenReportIds: seenReportIds);
       } on AlreadyReviewed {
         // 다른 관리자가 먼저 풀었다 — 바라던 상태다
       } on AdminApiFailure catch (failure) {

@@ -204,12 +204,26 @@ void main() {
     test('닫기: POST /resolve {outcome, note, same_target} — 메모는 앞뒤 공백만 떼고, 비면 null', () async {
       final api = apiWith((_) => json(200, detail('r1')));
 
-      await api.resolveReport('r1', ReportStatus.actioned, note: '  사진 확인  ', sameTarget: true);
+      await api.resolveReport('r1', ReportStatus.actioned, note: '  사진 확인  ', sameTarget: true, seenReportIds: ['o1', 'o2']);
       await api.resolveReport('r1', ReportStatus.dismissed, note: '   ');
 
       expect(requests.map((r) => r.url.path), everyElement('/admin/reports/r1/resolve'));
-      expect(jsonDecode(requests.first.body), {'outcome': 'actioned', 'note': '사진 확인', 'same_target': true});
+      expect(jsonDecode(requests.first.body), {
+        'outcome': 'actioned',
+        'note': '사진 확인',
+        'same_target': true,
+        'seen_report_ids': ['o1', 'o2'],
+      });
+      // 함께 닫기가 아니면 본 신고 목록은 보내지 않는다(서버는 이 신고 한 건만 닫는다)
       expect(jsonDecode(requests.last.body), {'outcome': 'dismissed', 'note': null, 'same_target': false});
+    });
+
+    test('함께 닫기인데 본 신고 목록을 안 주면 빈 목록([])을 보낸다 — 서버가 422 로 돌리는 "칸 없음" 이 되지 않게(이 신고만 닫힌다)', () async {
+      final api = apiWith((_) => json(200, detail('r1')));
+
+      await api.resolveReport('r1', ReportStatus.actioned, sameTarget: true);
+
+      expect(jsonDecode(requests.single.body), {'outcome': 'actioned', 'note': null, 'same_target': true, 'seen_report_ids': <Object?>[]});
     });
 
     test('채팅 앞뒤: POST /chat-context {reason} → 줄 목록(글자는 그대로, 앞뒤 공백만 뗌)', () async {
@@ -232,7 +246,7 @@ void main() {
       final api = apiWith((_) => json(200, {'id': 'p1', 'status': 'suspended'}));
 
       for (final action in ProfileAction.values) {
-        await api.actOnProfile('p1', action, '사유');
+        await api.actOnProfile('p1', action, '사유', seenReportIds: ['r1', 'o1']);
       }
 
       expect(requests.map((r) => r.url.path), [
@@ -240,7 +254,29 @@ void main() {
         '/admin/profiles/p1/unsuspend',
         '/admin/profiles/p1/unhide',
       ]);
-      expect(requests.map((r) => jsonDecode(r.body)), everyElement({'reason': '사유'}));
+      // 본 신고 목록은 가림 해제만 보낸다 — 정지 · 정지 해제 함수는 그 칸을 쓰지 않는다
+      expect(requests.map((r) => jsonDecode(r.body)), [
+        {'reason': '사유'},
+        {'reason': '사유'},
+        {'reason': '사유', 'seen_report_ids': ['r1', 'o1']},
+      ]);
+    });
+
+    test('가림 해제인데 본 신고 목록을 안 주면 빈 목록([])을 보낸다', () async {
+      final api = apiWith((_) => json(200, {'id': 'p1'}));
+
+      await api.actOnProfile('p1', ProfileAction.unhide, '사유');
+
+      expect(jsonDecode(requests.single.body), {'reason': '사유', 'seen_report_ids': <Object?>[]});
+    });
+
+    test('서버가 422 seen_reports_required 로 돌리면 일반 실패다(AdminApiFailure 422)', () async {
+      final api = apiWith((_) => json(422, {'detail': 'seen_reports_required'}));
+
+      await expectLater(
+        api.resolveReport('r1', ReportStatus.dismissed, sameTarget: true, seenReportIds: const []),
+        throwsA(isA<AdminApiFailure>().having((f) => f.statusCode, 'statusCode', 422)),
+      );
     });
 
     test('글 가림: POST /admin/content/polls|friend-reviews/{id}/blind|unblind {reason}', () async {
