@@ -1,15 +1,17 @@
 -- 관리자 웹 대시보드 D1(설계 바탕화면 관리자_대시보드_설계_10-18.md §8 머리 · §8-1) 검증:
--- 인증샷 검수와 작업 기록을 한 번에 하는 admin_review_heart_task. 마이그레이션 20261018011200_admin_review_heart_task.
+-- 인증샷 검수와 작업 기록을 한 번에 하는 admin_review_heart_task. 마이그레이션 20261018011200_admin_review_heart_task ·
+-- 20261018035204_admin_security_hardening(맨 앞 명단 확인 admin_assert).
 -- 기대값 기준: docs/superpowers/plans/2026-10-18-admin-heart-task-review.md Task 1.
 -- 로컬 스택에서 `supabase test db` 로 돌린다. 트랜잭션 안에서만 돌고 rollback 으로 흔적을 남기지 않는다.
 begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(27);
+select plan(29);
 
 -- 준비 (postgres) -------------------------------------------------------------
--- AD = 관리자(auth 계정 없이 id 만 — admin_actions 에는 FK 가 없다). 제출자 A = ...d0, B = ...d1, C = ...d2.
+-- AD = 관리자(…ad01). 함수가 맨 앞에서 명단을 보므로(admin_assert) auth 계정을 만들고 admin_users 에 넣는다.
+-- 제출자 A = ...d0, B = ...d1, C = ...d2.
 -- S1 = A 에브리타임(승인할 것), S2 = B 단톡방(반려할 것), S3 = C 에브리타임(규칙 위반 · 되돌림 확인용 — 끝까지 검수 중).
 insert into public.universities (id, name, region_group)
 values ('00000000-0000-0000-0000-00000000000d', '테스트대학교D', 'seoul');
@@ -31,6 +33,10 @@ insert into public.heart_task_submissions (id, profile_id, task, storage_path, r
   ('00000000-0000-0000-0000-0000000000f1', '00000000-0000-0000-0000-0000000000d0', 'everytime_post', 'd0/f1.jpg', 40),
   ('00000000-0000-0000-0000-0000000000f2', '00000000-0000-0000-0000-0000000000d1', 'kakao_share', 'd1/f2.jpg', 25),
   ('00000000-0000-0000-0000-0000000000f3', '00000000-0000-0000-0000-0000000000d2', 'everytime_post', 'd2/f3.jpg', 40);
+
+insert into auth.users (id, email, raw_app_meta_data)
+values ('00000000-0000-0000-0000-00000000ad01', 'operator-d1@example.com', '{"provider": "google", "providers": ["google"]}');
+insert into public.admin_users (user_id) values ('00000000-0000-0000-0000-00000000ad01');
 
 -- 1. 함수 모양 · 권한 (postgres) --------------------------------------------------
 
@@ -165,27 +171,43 @@ select throws_ok(
   '22023', null, '상태가 비면 22023'
 );                                                                                                   -- 21
 
--- 6. 기록이 실패하면 조치도 없던 일 (service_role) ----------------------------------------
--- 누가 했는지(admin_user_id not null)를 비우면 update · 지급 트리거까지 간 뒤 기록 insert 에서 23502 로 멈춘다.
+-- 6. 기록이 실패하면 · 명단에 없으면 조치도 없던 일 (service_role) -------------------------------
+-- 기록 insert 권한을 이 트랜잭션 안에서만 잠깐 뺀다 — 명단 확인 · update · 지급 트리거까지 간 뒤 기록 insert 에서 42501 로 멈춘다.
+-- (예전에는 p_admin 을 비워 23502 를 냈지만 이제 맨 앞 admin_assert 가 먼저 막는다 — 오류 글자로 둘을 가른다.)
 -- 함수 하나 = 한 트랜잭션이라 승인 · 하트도 함께 되돌아가야 한다(설계 §8 머리 "기록 없는 조치 금지").
-
+reset role;
+revoke insert on public.admin_actions from service_role;
+set local role service_role;
+select throws_ok(
+  $$select public.admin_review_heart_task('00000000-0000-0000-0000-00000000ad01', '00000000-0000-0000-0000-0000000000f3',
+      'approved', null, null)$$,
+  '42501', 'permission denied for table admin_actions', '기록을 남기지 못하면 검수할 수 없다(기록 insert 가 막는다)'
+);                                                                                                   -- 22
+reset role;
+grant insert on public.admin_actions to service_role;
+set local role service_role;
+select throws_ok(
+  $$select public.admin_review_heart_task('00000000-0000-0000-0000-0000000000d2', '00000000-0000-0000-0000-0000000000f3',
+      'approved', null, null)$$,
+  '42501', 'not admin', '명단에 없는 id(제출자 본인)로는 검수하지 않는다 — admin_assert 가 42501'
+);                                                                                                   -- 23
 select throws_ok(
   $$select public.admin_review_heart_task(null, '00000000-0000-0000-0000-0000000000f3', 'approved', null, null)$$,
-  '23502', null, '누가 했는지 없이는 검수할 수 없다(기록 insert 가 막는다)'
-);                                                                                                   -- 22
+  '42501', 'not admin', '누가 했는지 없이는 검수할 수 없다 — admin_assert 가 먼저 막는다'
+);                                                                                                   -- 24
 select results_eq(
   $$select s.status::text, s.reviewed_at is null,
            (select count(*) from public.heart_transactions h where h.profile_id = s.profile_id)
       from public.heart_task_submissions s where s.id = '00000000-0000-0000-0000-0000000000f3'$$,
   $$values ('submitted', true, 0::bigint)$$,
-  '기록이 실패한 승인은 상태 · 검수 시각 · 하트가 모두 그대로다'
-);                                                                                                   -- 23
+  '기록이 실패한 승인 · 명단에 없는 id 의 승인은 상태 · 검수 시각 · 하트가 모두 그대로다'
+);                                                                                                   -- 25
 select is(
   (select count(*) from public.admin_actions
     where target_id in ('00000000-0000-0000-0000-0000000000f1', '00000000-0000-0000-0000-0000000000f2',
                         '00000000-0000-0000-0000-0000000000f3', '00000000-0000-0000-0000-0000000000ee')),
-  2::bigint, '실패한 호출(13~22)은 작업 기록을 한 줄도 늘리지 않는다 — 성공한 승인 · 반려 두 줄뿐'
-);                                                                                                   -- 24
+  2::bigint, '실패한 호출(13~24)은 작업 기록을 한 줄도 늘리지 않는다 — 성공한 승인 · 반려 두 줄뿐'
+);                                                                                                   -- 26
 
 -- 7. 앱 역할로 직접 ---------------------------------------------------------------
 
@@ -196,7 +218,7 @@ select throws_ok(
   $$select public.admin_review_heart_task('00000000-0000-0000-0000-0000000000d2', '00000000-0000-0000-0000-0000000000f3',
       'approved', null, null)$$,
   '42501', null, 'authenticated 는 자기 제출을 승인하는 함수를 부를 수 없다'
-);                                                                                                   -- 25
+);                                                                                                   -- 27
 
 set local role anon;
 set local request.jwt.claims to '{"role": "anon"}';
@@ -205,7 +227,7 @@ select throws_ok(
   $$select public.admin_review_heart_task('00000000-0000-0000-0000-00000000ad01', '00000000-0000-0000-0000-0000000000f3',
       'approved', null, null)$$,
   '42501', null, 'anon 은 부를 수 없다'
-);                                                                                                   -- 26
+);                                                                                                   -- 28
 
 reset role;
 reset request.jwt.claims;
@@ -216,7 +238,7 @@ select ok(
   and not has_function_privilege('anon',
         'public.admin_review_heart_task(uuid, uuid, public.submission_status, public.heart_task_reject_reason, inet)', 'execute'),
   '앱 역할에는 실행 권한 자체가 없다'
-);                                                                                                   -- 27
+);                                                                                                   -- 29
 
 select * from finish();
 rollback;

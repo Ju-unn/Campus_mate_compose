@@ -1,15 +1,17 @@
 -- 관리자 웹 대시보드 D2(설계 바탕화면 관리자_대시보드_설계_10-18.md §8 머리 · §8-2) 검증:
--- 신고 닫기 · 정지 · 해제 · 가림 해제 · 글 가림과 작업 기록을 한 번에 하는 함수 다섯. 마이그레이션 20261018030000_admin_report_review.
+-- 신고 닫기 · 정지 · 해제 · 가림 해제 · 글 가림과 작업 기록을 한 번에 하는 함수 다섯. 마이그레이션 20261018030000_admin_report_review ·
+-- 20261018035204_admin_security_hardening(맨 앞 명단 확인 admin_assert).
 -- 기대값 기준: docs/superpowers/plans/2026-10-18-admin-report-review.md Task 1.
 -- 로컬 스택에서 `supabase test db` 로 돌린다. 트랜잭션 안에서만 돌고 rollback 으로 흔적을 남기지 않는다.
 begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(56);
+select plan(63);
 
 -- 준비 (postgres) -------------------------------------------------------------
--- AD = 관리자(…ad02, auth 계정 없이 id 만). 사람: E0 = 신고당한 active(온보딩 끝), E1 · E2 · E3 = 신고자,
+-- AD = 관리자(…ad02). 함수가 맨 앞에서 명단을 보므로(admin_assert) 준비 끝에서 auth 계정을 만들고 admin_users 에 넣는다.
+-- 사람: E0 = 신고당한 active(온보딩 끝), E1 · E2 · E3 = 신고자,
 -- E4 = 온보딩 전에 SQL 로 정지, E5 = 온보딩 끝내고 SQL 로 정지, E6 = 온보딩은 끝났지만 아직 pending, E7 = 탈퇴,
 -- E8 = 자동 가림된 사람(열린 신고 셋 + 닫힌 신고 하나), E9 = 투표 글 · 지인 리뷰 작성자.
 -- 신고: EA01 · EA02 · EA03 = E0 대상(열림), EA04 = E9 투표 글(열림), EA05~07 = E8 대상(열림), EA08 = E8 대상(이미 조치),
@@ -84,6 +86,10 @@ insert into public.reports (id, reporter_id, target_type, target_id, target_prof
   ('00000000-0000-0000-0000-00000000ea08', '00000000-0000-0000-0000-0000000000e9', 'profile',
    '00000000-0000-0000-0000-0000000000e8', '00000000-0000-0000-0000-0000000000e8', '{}', 'abuse',
    'actioned', '2026-10-01 00:00:00+00');
+
+insert into auth.users (id, email, raw_app_meta_data)
+values ('00000000-0000-0000-0000-00000000ad02', 'operator-d2@example.com', '{"provider": "google", "providers": ["google"]}');
+insert into public.admin_users (user_id) values ('00000000-0000-0000-0000-00000000ad02');
 
 -- 1. 함수 모양 · 권한 (postgres) --------------------------------------------------
 
@@ -401,20 +407,24 @@ select throws_ok(
 );                                                                                                   -- 48
 
 -- 7. 기록이 실패하면 조치도 없던 일 (service_role) ----------------------------------------
--- 누가 했는지(admin_actions.admin_user_id not null)를 비우면 바꾼 뒤 기록 insert 에서 23502 로 멈춘다.
+-- 기록 사유가 500자를 넘으면(admin_actions_reason_length) 바꾼 뒤 기록 insert 에서 23514 로 멈춘다.
+-- (예전에는 p_admin 을 비워 23502 를 냈지만 이제 맨 앞 admin_assert 가 먼저 막는다 — 아래 7-1.)
 -- 함수 하나 = 한 트랜잭션이라 바꾼 것도 함께 되돌아가야 한다(설계 §8 머리 "기록 없는 조치 금지").
 
 select throws_ok(
-  $$select public.admin_resolve_report(null, '00000000-0000-0000-0000-00000000ea04', 'actioned', null, true, null)$$,
-  '23502', null, '누가 했는지 없이는 신고를 닫을 수 없다'
+  $$select public.admin_resolve_report('00000000-0000-0000-0000-00000000ad02', '00000000-0000-0000-0000-00000000ea04',
+      'actioned', repeat('가', 501), true, null)$$,
+  '23514', null, '기록을 남기지 못하면 신고를 닫을 수 없다'
 );                                                                                                   -- 49
 select throws_ok(
-  $$select public.admin_suspend_profile(null, '00000000-0000-0000-0000-0000000000e1', '사유', null)$$,
-  '23502', null, '누가 했는지 없이는 정지할 수 없다'
+  $$select public.admin_suspend_profile('00000000-0000-0000-0000-00000000ad02', '00000000-0000-0000-0000-0000000000e1',
+      repeat('가', 501), null)$$,
+  '23514', null, '기록을 남기지 못하면 정지할 수 없다'
 );                                                                                                   -- 50
 select throws_ok(
-  $$select public.admin_unhide_profile(null, '00000000-0000-0000-0000-0000000000e3', '사유', null)$$,
-  '23502', null, '누가 했는지 없이는 가림을 풀 수 없다'
+  $$select public.admin_unhide_profile('00000000-0000-0000-0000-00000000ad02', '00000000-0000-0000-0000-0000000000e3',
+      repeat('가', 501), null)$$,
+  '23514', null, '기록을 남기지 못하면 가림을 풀 수 없다'
 );                                                                                                   -- 51
 select results_eq(
   $$select (select status::text from public.reports where id = '00000000-0000-0000-0000-00000000ea04'),
@@ -429,6 +439,51 @@ select is(
   17::bigint, '성공한 조치의 기록만 남았다 — 닫기 4 · 정지 2 · 해제 4 · 가림 해제 4 · 글 3'
 );                                                                                                   -- 53
 
+-- 7-1. 명단에 없는 id 는 아무것도 바꾸지 못한다 (service_role) ---------------------------------
+-- 서버 버그로 관리자 아닌 id(여기서는 신고자 E1)가 넘어와도 맨 앞 admin_assert 가 42501 로 막는다(서버 403 not_admin).
+-- 모두 관리자라면 통했을 대상에 댄다 — E4 는 SQL 로 다시 정지해 둔다(해제 대상).
+update public.profiles set status = 'suspended' where id = '00000000-0000-0000-0000-0000000000e4';
+
+select throws_ok(
+  $$select public.admin_resolve_report('00000000-0000-0000-0000-0000000000e1', '00000000-0000-0000-0000-00000000ea04',
+      'actioned', null, true, null)$$,
+  '42501', 'not admin', '명단에 없는 id 는 신고를 닫지 못한다'
+);                                                                                                   -- 54
+select throws_ok(
+  $$select public.admin_suspend_profile('00000000-0000-0000-0000-0000000000e1', '00000000-0000-0000-0000-0000000000e1',
+      '사유', null)$$,
+  '42501', 'not admin', '명단에 없는 id 는 정지하지 못한다'
+);                                                                                                   -- 55
+select throws_ok(
+  $$select public.admin_unsuspend_profile('00000000-0000-0000-0000-0000000000e1', '00000000-0000-0000-0000-0000000000e4',
+      '사유', null)$$,
+  '42501', 'not admin', '명단에 없는 id 는 정지를 풀지 못한다'
+);                                                                                                   -- 56
+select throws_ok(
+  $$select public.admin_unhide_profile('00000000-0000-0000-0000-0000000000e1', '00000000-0000-0000-0000-0000000000e3',
+      '사유', null)$$,
+  '42501', 'not admin', '명단에 없는 id 는 가림을 풀지 못한다'
+);                                                                                                   -- 57
+select throws_ok(
+  $$select public.admin_set_content_status('00000000-0000-0000-0000-0000000000e1', 'poll',
+      '00000000-0000-0000-0000-00000000eb01', 'blinded', '사유', null)$$,
+  '42501', 'not admin', '명단에 없는 id 는 글을 가리지 못한다'
+);                                                                                                   -- 58
+select results_eq(
+  $$select (select status::text from public.reports where id = '00000000-0000-0000-0000-00000000ea04'),
+           (select status::text from public.profiles where id = '00000000-0000-0000-0000-0000000000e1'),
+           (select status::text from public.profiles where id = '00000000-0000-0000-0000-0000000000e4'),
+           (select auto_hidden_at is not null from public.profiles where id = '00000000-0000-0000-0000-0000000000e3'),
+           (select status::text from public.reports where id = '00000000-0000-0000-0000-00000000ea0a'),
+           (select status::text from public.polls where id = '00000000-0000-0000-0000-00000000eb01')$$,
+  $$values ('open', 'pending', 'suspended', true, 'open', 'visible')$$,
+  '명단에 없는 id 의 호출 뒤에도 신고 · 정지 · 가림 · 글 상태가 모두 그대로다'
+);                                                                                                   -- 59
+select is(
+  (select count(*) from public.admin_actions where admin_user_id = '00000000-0000-0000-0000-0000000000e1'),
+  0::bigint, '명단에 없는 id 의 작업 기록은 한 줄도 없다'
+);                                                                                                   -- 60
+
 -- 8. 앱 역할로 직접 ---------------------------------------------------------------
 
 set local role authenticated;
@@ -438,12 +493,12 @@ select throws_ok(
   $$select public.admin_unsuspend_profile('00000000-0000-0000-0000-0000000000e0', '00000000-0000-0000-0000-0000000000e0',
       '내가 나를', null)$$,
   '42501', null, 'authenticated 는 정지를 푸는 함수를 부를 수 없다'
-);                                                                                                   -- 54
+);                                                                                                   -- 61
 select throws_ok(
   $$select public.admin_unhide_profile('00000000-0000-0000-0000-0000000000e0', '00000000-0000-0000-0000-0000000000e3',
       '내가 푼다', null)$$,
   '42501', null, 'authenticated 는 가림을 푸는 함수를 부를 수 없다'
-);                                                                                                   -- 55
+);                                                                                                   -- 62
 
 set local role anon;
 set local request.jwt.claims to '{"role": "anon"}';
@@ -452,7 +507,7 @@ select throws_ok(
   $$select public.admin_resolve_report('00000000-0000-0000-0000-00000000ad02', '00000000-0000-0000-0000-00000000ea04',
       'dismissed', null, false, null)$$,
   '42501', null, 'anon 은 신고를 닫는 함수를 부를 수 없다'
-);                                                                                                   -- 56
+);                                                                                                   -- 63
 
 reset role;
 reset request.jwt.claims;
