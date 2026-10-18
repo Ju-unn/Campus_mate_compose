@@ -29,14 +29,19 @@ def _status(**overrides: dict) -> list[dict]:
     return [{"task": name, **rows[name]} for name in ("poll_vote", "kakao_share", "everytime_post")]
 
 
-@pytest.fixture(autouse=True)
-def overrides():
-    app.dependency_overrides[get_settings] = lambda: Settings(
+def _settings(**overrides) -> Settings:
+    return Settings(
         supabase_url="https://x.supabase.co", supabase_service_role_key="service-key",
         auth_hook_signing_secret="whsec_test", discord_webhook_url="https://discord.com/api/webhooks/t",
         google_cloud_project="campus-mate-test", openai_api_key="sk-test",
-        phone_encryption_key="phone-key-test", identity_hmac_key="identity-key-test",
+        phone_encryption_key="phone-key-test", identity_hmac_key="identity-key-test", **overrides,
     )
+
+
+@pytest.fixture(autouse=True)
+def overrides():
+    # 람다로 감싼다 — **kwargs 함수를 그대로 넣으면 FastAPI 가 쿼리 인자로 읽는다(reference_backend_test_mock_traps ②).
+    app.dependency_overrides[get_settings] = lambda: _settings()
     yield
     app.dependency_overrides.clear()
 
@@ -161,6 +166,23 @@ def test_submit_uploads_records_and_alerts_with_ids_only():
     alert = json.loads(next(r for r in seen if r.url.host == "discord.com").content)["content"]
     assert match.group(1) in alert and PROFILE_ID in alert and "everytime_post" in alert
     # 경로 · 파일 이름은 싣지 않는다(Global Constraint 6).
+    assert ".jpg" not in alert and "heart-task-proofs" not in alert
+    # ADMIN_BASE_URL 이 없으면 관리자 웹이 없는 배포다 — 지금처럼 Supabase 대시보드로 안내한다.
+    assert alert.endswith("Supabase 대시보드 heart_task_submissions 에서 확인해 주세요.")
+
+
+def test_alert_links_the_admin_dashboard_when_its_address_is_set():
+    app.dependency_overrides[get_settings] = lambda: _settings(admin_base_url="https://admin.example.com/")
+    seen: list[httpx.Request] = []
+    after = _status(everytime_post={"reviewing": True, "used": 1, "last_status": "submitted"})
+    _post(_wire(_backend([_status(), after]), seen))
+
+    alert = json.loads(next(r for r in seen if r.url.host == "discord.com").content)["content"]
+    submission_id = json.loads(next(r for r in seen if r.url.path.endswith("/rpc/submit_heart_task")).content)["p_id"]
+    # 끝의 '/' 는 떼고 붙인다 — 관리자 웹 /heart-tasks/{id} 가 그 건을 연다.
+    assert alert.endswith(f"대시보드: https://admin.example.com/heart-tasks/{submission_id}")
+    assert "Supabase" not in alert
+    assert PROFILE_ID in alert and "everytime_post" in alert
     assert ".jpg" not in alert and "heart-task-proofs" not in alert
 
 
