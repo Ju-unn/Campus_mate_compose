@@ -203,8 +203,10 @@ void main() {
     await tester.tap(find.text('결제'));
     await tester.pumpAndSettle();
 
-    // 메뉴 · TopBar 제목 · 자리 표시 제목
-    expect(find.text('결제'), findsNWidgets(3));
+    // 메뉴 "결제" 는 그대로, TopBar 제목은 "결제 조회"(pen A8) — 자리 표시는 사라지고 결제 화면이 열린다
+    expect(find.text('결제'), findsOneWidget);
+    expect(find.text('결제 조회'), findsOneWidget);
+    expect(find.text('다음 조각에서 채움'), findsNothing);
   });
 
   testWidgets('셸에서 로그아웃하면 A0', (tester) async {

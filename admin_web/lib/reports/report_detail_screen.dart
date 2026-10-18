@@ -53,7 +53,7 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
           context,
           (_) => const AdminDialog(title: '이미 처리된 항목이에요', body: '다른 관리자가 먼저 처리했어요. 목록을 새로 불러올게요.'),
         );
-      case ActionResult.failed:
+      case ActionResult.failed || ActionResult.insufficientHearts || ActionResult.withdrawn:
         break;
     }
   }

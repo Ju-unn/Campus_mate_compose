@@ -70,6 +70,9 @@ abstract final class AdminColors {
   /// web-warning-wash
   static const Color warningWash = Color(0xFFFFF4D6);
 
+  /// chart-revenue — 결제 그래프 막대(pen A8, 값은 web-success 와 같다)
+  static const Color chartRevenue = Color(0xFF25795A);
+
   /// web-scrim (#00000080)
   static const Color scrim = Color(0x80000000);
 }

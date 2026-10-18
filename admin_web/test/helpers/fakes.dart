@@ -115,6 +115,7 @@ Future<void> pumpAdminApp(
   String? initialPath,
   bool settle = true,
   VoidCallback? onReload,
+  List<ProviderObserver> observers = const [],
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -125,6 +126,7 @@ Future<void> pumpAdminApp(
   }
   await tester.pumpWidget(
     ProviderScope(
+      observers: observers,
       overrides: [
         adminConfigProvider.overrideWithValue(config),
         adminAuthProvider.overrideWithValue(auth),

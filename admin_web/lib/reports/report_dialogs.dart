@@ -13,11 +13,11 @@ import 'package:flutter/material.dart';
 /// 대화상자가 처리 실패 말고는 닫히며 돌려주는 것 — 결과와 덤(채팅 앞뒤 줄들)
 typedef DialogOutcome<T> = (ActionResult, T?);
 
-const String _failedText = '처리하지 못했어요. 다시 시도해 주세요.';
+const String dialogFailedText = '처리하지 못했어요. 다시 시도해 주세요.';
 
 /// pen Web/Dialog(p8OOG) 틀: 가운데 · web-surface · 모서리 14 · 안쪽 24. 처리 중이면 Esc · 바깥 누름으로 닫히지 않는다.
-class _DialogFrame extends StatelessWidget {
-  const _DialogFrame({required this.dialogKey, required this.width, required this.busy, required this.child});
+class DialogFrame extends StatelessWidget {
+  const DialogFrame({super.key, required this.dialogKey, required this.width, required this.busy, required this.child});
 
   /// 시험이 찾는 대화상자 상자(Material)의 열쇠
   final Key dialogKey;
@@ -30,23 +30,32 @@ class _DialogFrame extends StatelessWidget {
     return PopScope(
       canPop: !busy,
       child: Center(
-        child: Material(
-          key: dialogKey,
-          color: AdminColors.surface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AdminRadius.md)),
-          child: SizedBox(width: width, child: Padding(padding: const EdgeInsets.all(AdminSpacing.lg), child: child)),
+        child: ConstrainedBox(
+          // 글자를 키우거나 창이 낮아 대화상자가 화면보다 길어지면 화면 90% 까지만 늘고 안이 스크롤된다(맞으면 pen 크기 그대로)
+          constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.9),
+          child: Material(
+            key: dialogKey,
+            color: AdminColors.surface,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AdminRadius.md)),
+            child: SizedBox(
+              width: width,
+              child: SingleChildScrollView(child: Padding(padding: const EdgeInsets.all(AdminSpacing.lg), child: child)),
+            ),
+          ),
         ),
       ),
     );
   }
 }
 
-Widget _title(String text) => Semantics(header: true, child: Text(text, style: AdminTypography.lg.copyWith(color: AdminColors.ink)));
+/// 대화상자 제목 20/700 web-ink(화면 읽기 제목)
+Widget dialogTitle(String text) => Semantics(header: true, child: Text(text, style: AdminTypography.lg.copyWith(color: AdminColors.ink)));
 
-Widget _body(String text) => Text(text, style: AdminTypography.sm.copyWith(color: AdminColors.muted));
+/// 설명 14 web-muted(줄 1.5)
+Widget dialogBody(String text) => Text(text, style: AdminTypography.sm.copyWith(color: AdminColors.muted));
 
 /// 오른쪽 끝 [취소](보조) + 확인, 사이 8(pen eRiZZ)
-Widget _buttons({required VoidCallback? onCancel, required Widget confirm}) {
+Widget dialogButtons({required VoidCallback? onCancel, required Widget confirm}) {
   return Align(
     alignment: Alignment.centerRight,
     child: Wrap(
@@ -69,11 +78,19 @@ class ReasonDialog<T> extends StatefulWidget {
     required this.onSubmit,
     this.danger = false,
     this.onDone,
+    this.hint = '사유 (필수)',
+    this.withdrawnText,
   });
 
   final String title;
   final String body;
   final String confirmLabel;
+
+  /// 입력 칸 자리 글자(사유 · 메모마다 다르다 — pen 메모 "메모 내용 (글자 수 제한 있음)")
+  final String hint;
+
+  /// 탈퇴 계정 409([ActionResult.withdrawn])일 때 오류 줄 글자. 없으면 일반 실패 글자.
+  final String? withdrawnText;
   final bool danger;
   final Future<DialogOutcome<T>> Function(String reason) onSubmit;
 
@@ -87,7 +104,7 @@ class ReasonDialog<T> extends StatefulWidget {
 class _ReasonDialogState<T> extends State<ReasonDialog<T>> {
   final TextEditingController _reason = TextEditingController();
   bool _busy = false;
-  bool _failed = false;
+  String? _error;
 
   @override
   void dispose() {
@@ -98,14 +115,14 @@ class _ReasonDialogState<T> extends State<ReasonDialog<T>> {
   Future<void> _submit() async {
     setState(() {
       _busy = true;
-      _failed = false;
+      _error = null;
     });
     final outcome = await widget.onSubmit(_reason.text);
     if (!mounted) return;
-    if (outcome.$1 == ActionResult.failed) {
+    if (outcome.$1 == ActionResult.failed || outcome.$1 == ActionResult.withdrawn) {
       setState(() {
         _busy = false;
-        _failed = true;
+        _error = outcome.$1 == ActionResult.withdrawn ? widget.withdrawnText ?? dialogFailedText : dialogFailedText;
       });
       return;
     }
@@ -117,7 +134,7 @@ class _ReasonDialogState<T> extends State<ReasonDialog<T>> {
   @override
   Widget build(BuildContext context) {
     final ready = _reason.text.trim().isNotEmpty;
-    return _DialogFrame(
+    return DialogFrame(
       dialogKey: const ValueKey('reason-dialog'),
       width: 480,
       busy: _busy,
@@ -125,20 +142,20 @@ class _ReasonDialogState<T> extends State<ReasonDialog<T>> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _title(widget.title),
+          dialogTitle(widget.title),
           const SizedBox(height: AdminSpacing.md),
-          _body(widget.body),
+          dialogBody(widget.body),
           const SizedBox(height: AdminSpacing.md),
           AdminTextField(
             controller: _reason,
-            hint: '사유 (필수)',
+            hint: widget.hint,
             multiline: true,
             enabled: !_busy,
             onChanged: (_) => setState(() {}),
           ),
-          if (_failed) ...[const SizedBox(height: AdminSpacing.xs), const ErrorRow(_failedText)],
+          if (_error != null) ...[const SizedBox(height: AdminSpacing.xs), ErrorRow(_error!)],
           const SizedBox(height: AdminSpacing.md),
-          _buttons(
+          dialogButtons(
             onCancel: _busy ? null : () => Navigator.of(context).pop(),
             confirm: AdminButton(
               label: widget.confirmLabel,
@@ -237,7 +254,7 @@ class _ResolveDialogState extends State<ResolveDialog> {
         AdminCheckbox(label: '가림도 함께 해제하기', value: _unhide, onChanged: _busy ? null : (v) => setState(() => _unhide = v)),
     ];
     final confirmLabel = _dismiss ? '기각' : '조치 완료';
-    return _DialogFrame(
+    return DialogFrame(
       dialogKey: const ValueKey('resolve-dialog'),
       width: 480,
       busy: _busy,
@@ -245,9 +262,9 @@ class _ResolveDialogState extends State<ResolveDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _title(_dismiss ? '신고를 기각할까요?' : '조치를 완료할까요?'),
+          dialogTitle(_dismiss ? '신고를 기각할까요?' : '조치를 완료할까요?'),
           const SizedBox(height: AdminSpacing.md),
-          _body(body),
+          dialogBody(body),
           const SizedBox(height: AdminSpacing.md),
           Text('메모 (선택)', style: AdminTypography.xsStrong.copyWith(height: AdminTypography.xsBox, color: AdminColors.body)),
           const SizedBox(height: 6), // PNG 측정 — 간격 표에 없는 값
@@ -271,9 +288,9 @@ class _ResolveDialogState extends State<ResolveDialog> {
               child: Text('가림을 풀면 이 사람의 열린 신고도 모두 기각돼요', style: AdminTypography.xs.copyWith(color: AdminColors.muted)),
             ),
           ],
-          if (_failed) ...[const SizedBox(height: AdminSpacing.xs), const ErrorRow(_failedText)],
+          if (_failed) ...[const SizedBox(height: AdminSpacing.xs), const ErrorRow(dialogFailedText)],
           const SizedBox(height: AdminSpacing.md),
-          _buttons(
+          dialogButtons(
             onCancel: _busy ? null : () => Navigator.of(context).pop(),
             confirm: AdminButton(label: confirmLabel, loading: _busy, onPressed: _submit),
           ),
@@ -346,7 +363,7 @@ class _ChatContextDialogState extends State<ChatContextDialog> {
     const title = '신고된 채팅 앞뒤 보기';
     final close = AdminButton(label: '닫기', onPressed: () => Navigator.of(context).pop());
     if (widget.lines.isEmpty) {
-      return _DialogFrame(
+      return DialogFrame(
         dialogKey: const ValueKey('chat-dialog-empty'),
         width: 480,
         busy: false,
@@ -354,9 +371,9 @@ class _ChatContextDialogState extends State<ChatContextDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _title(title),
+            dialogTitle(title),
             const SizedBox(height: AdminSpacing.md),
-            _body('대화가 지워져 볼 수 없어요'),
+            dialogBody('대화가 지워져 볼 수 없어요'),
             const SizedBox(height: AdminSpacing.md),
             Align(alignment: Alignment.centerRight, child: close),
           ],
@@ -382,11 +399,11 @@ class _ChatContextDialogState extends State<ChatContextDialog> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Padding(padding: const EdgeInsets.only(right: barGap), child: _title(title)),
+                    Padding(padding: const EdgeInsets.only(right: barGap), child: dialogTitle(title)),
                     const SizedBox(height: AdminSpacing.sm),
                     Padding(
                       padding: const EdgeInsets.only(right: barGap),
-                      child: _body("신고된 줄 앞뒤 5개씩, 글자만 보여요. 저장되지 않아요. 작업 기록에는 '열람'만 남아요."),
+                      child: dialogBody("신고된 줄 앞뒤 5개씩, 글자만 보여요. 저장되지 않아요. 작업 기록에는 '열람'만 남아요."),
                     ),
                     const SizedBox(height: AdminSpacing.sm),
                     Flexible(

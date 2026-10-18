@@ -82,6 +82,12 @@ enum ActionResult {
 
   /// 기각은 됐는데 이어 부른 가림 해제가 실패했다 — 조치 카드에 오류 줄
   unhideFailed,
+
+  /// 하트를 빼려는데 잔액이 모자라다(409 insufficient_hearts, 사용자 A5) — 대화상자 오류 줄
+  insufficientHearts,
+
+  /// 이미 탈퇴한 계정이다(409 account_withdrawn, 사용자 A5) — 대화상자 오류 줄, 상세는 새로 받는다
+  withdrawn,
 }
 
 /// 메모 없이 "가림도 함께 해제하기" 를 켰을 때 가림 해제 사유(서버는 사유 필수). 대장 결정 필요 항목으로 보고.
