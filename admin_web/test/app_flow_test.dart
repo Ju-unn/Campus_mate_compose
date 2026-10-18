@@ -221,8 +221,9 @@ void main() {
   testWidgets('세션이 있는 채로 /reports 를 열면 판정 뒤에도 /reports 에 남는다', (tester) async {
     await pumpAdminApp(tester, auth: FakeAdminAuth(mfa: _aal2), initialPath: '/reports');
 
-    // 메뉴 · TopBar 제목 · 자리 표시 제목
-    expect(find.text('신고'), findsNWidgets(3));
+    // 메뉴 · TopBar 제목(W2 부터 신고 화면 — 자리 표시 없음)
+    expect(locationOf(tester), '/reports');
+    expect(find.text('신고'), findsNWidgets(2));
   });
 
   testWidgets('/reports 를 열고 2단계 입력을 거쳐도 /reports 로 돌아간다', (tester) async {
@@ -233,7 +234,8 @@ void main() {
     await tester.enterText(find.byType(EditableText), '123456');
     await tester.pumpAndSettle();
 
-    expect(find.text('신고'), findsNWidgets(3));
+    expect(locationOf(tester), '/reports');
+    expect(find.text('신고'), findsNWidgets(2));
   });
 
   testWidgets('판정이 끝나기 전에는 /reports 를 열어도 불러오는 중이고 셸은 안 보인다', (tester) async {
@@ -252,14 +254,15 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(SideNav), findsOneWidget);
-    expect(find.text('신고'), findsNWidgets(3));
+    expect(find.text('신고'), findsNWidgets(2));
   });
 
-  testWidgets('해시 없는 주소: /reports/123 을 바로 열어도 신고 화면에 남는다(다음 조각의 상세 자리)', (tester) async {
+  testWidgets('해시 없는 주소: /reports/123 을 바로 열어도 신고 상세에 남는다(메뉴는 신고, TopBar 는 "신고 상세")', (tester) async {
     await pumpAdminApp(tester, auth: FakeAdminAuth(mfa: _aal2), initialPath: '/reports/123');
 
     expect(locationOf(tester), '/reports/123');
-    expect(find.text('신고'), findsNWidgets(3));
+    expect(find.text('신고'), findsOneWidget);
+    expect(find.text('신고 상세'), findsOneWidget);
   });
 
   testWidgets('구글 로그인 복귀 주소(/?code=)는 판정 뒤 매개변수를 지운 홈이 된다', (tester) async {

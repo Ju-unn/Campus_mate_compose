@@ -17,14 +17,18 @@ import 'package:go_router/go_router.dart';
 /// 셸 전체(Navigator 포함)에 하나만 걸면, 상세 화면(/reports/123) 밑에 깔린 목록 페이지(그려지지 않음)의 글자까지
 /// 재려다 멈춘다(10-18 시험에서 확인).
 class AdminShell extends ConsumerWidget {
-  const AdminShell({super.key, required this.section, required this.child});
+  const AdminShell({super.key, required this.section, required this.child, this.title});
 
   final AdminSection section;
+
+  /// TopBar · 탭 제목. null 이면 메뉴 이름(상세 주소는 [AdminSection.titleOf]).
+  final String? title;
   final Widget child;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final stage = ref.watch(gateProvider).value;
+    final title = this.title ?? section.label;
     final email = stage is Ready ? stage.email : '';
     final shell = Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -35,7 +39,7 @@ class AdminShell extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               SelectionArea(
-                child: TopBar(title: section.label, email: email, onSignOut: () => ref.read(adminAuthProvider).signOut()),
+                child: TopBar(title: title, email: email, onSignOut: () => ref.read(adminAuthProvider).signOut()),
               ),
               Expanded(child: child),
             ],
@@ -55,6 +59,6 @@ class AdminShell extends ConsumerWidget {
         },
       ),
     );
-    return Title(title: '${section.label} · $appTitle', color: AdminColors.primary, child: page);
+    return Title(title: '$title · $appTitle', color: AdminColors.primary, child: page);
   }
 }

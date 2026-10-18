@@ -3,13 +3,19 @@ import 'package:campus_mate_admin/theme/admin_spacing.dart';
 import 'package:campus_mate_admin/theme/admin_typography.dart';
 import 'package:flutter/material.dart';
 
-/// 배지 색. 다른 상태(반려 · 정지 …)는 그 목록 화면 조각에서 더한다.
+/// 배지 색(pen ⑤ DZhY4). 다른 상태는 그 목록 화면 조각에서 더한다.
 enum StatusTone {
-  /// "2단계 인증됨"(TopBar IKoKe)
+  /// "2단계 인증됨"(TopBar IKoKe) · 신고 "조치" · 글 "보임"
   success(AdminColors.success, AdminColors.successWash),
 
-  /// "대기"(A3 목록 줄)
-  warning(AdminColors.warning, AdminColors.warningWash);
+  /// "대기"(A3 목록 줄 · A4 열린 신고)
+  warning(AdminColors.warning, AdminColors.warningWash),
+
+  /// 신고 "기각"
+  neutral(AdminColors.muted, AdminColors.surfaceStrong),
+
+  /// "정지" · 글 "가려짐"
+  danger(AdminColors.danger, AdminColors.dangerWash);
 
   const StatusTone(this.ink, this.wash);
 

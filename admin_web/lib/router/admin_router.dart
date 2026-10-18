@@ -1,6 +1,9 @@
 import 'package:campus_mate_admin/gate/gate_controller.dart';
 import 'package:campus_mate_admin/gate/gate_stage.dart';
 import 'package:campus_mate_admin/heart_tasks/heart_task_review_screen.dart';
+import 'package:campus_mate_admin/reports/report_detail_screen.dart';
+import 'package:campus_mate_admin/reports/report_item.dart';
+import 'package:campus_mate_admin/reports/report_list_screen.dart';
 import 'package:campus_mate_admin/screens/login_screen.dart';
 import 'package:campus_mate_admin/screens/mfa_enroll_screen.dart';
 import 'package:campus_mate_admin/screens/mfa_verify_screen.dart';
@@ -127,10 +130,10 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
       _page(GatePaths.forbidden, const ForbiddenScreen()),
       _page(GatePaths.unavailable, const UnavailableScreen()),
       ShellRoute(
-        builder: (context, state, child) => AdminShell(
-          section: AdminSection.ownerOf(state.uri.path) ?? AdminSection.home,
-          child: child,
-        ),
+        builder: (context, state, child) {
+          final section = AdminSection.ownerOf(state.uri.path) ?? AdminSection.home;
+          return AdminShell(section: section, title: section.titleOf(state.uri.path), child: child);
+        },
         routes: [for (final section in AdminSection.values) ..._sectionRoutes(section)],
       ),
     ],
@@ -151,16 +154,19 @@ List<GoRoute> _sectionRoutes(AdminSection section) {
     pageBuilder: (context, state) => NoTransitionPage<void>(
       key: state.pageKey,
       // 글자 끌어 복사는 페이지마다(셸 전체가 아니라 — admin_shell.dart 주석)
-      child: SelectionArea(child: _sectionScreen(section, state.pathParameters['id'])),
+      child: SelectionArea(child: _sectionScreen(section, state.pathParameters['id'], state.extra)),
     ),
   );
   return [route(section.path), if (section != AdminSection.home) route('${section.path}/:id')];
 }
 
 /// 메뉴마다 화면. 아직 만들지 않은 메뉴는 자리 표시.
-Widget _sectionScreen(AdminSection section, String? id) {
+/// 신고는 목록과 상세가 다른 화면이다(pen A4 — 상세는 목록 옆이 아니라 따로). [extra] 는 목록에서 고른 줄(머리줄을 먼저 그린다).
+Widget _sectionScreen(AdminSection section, String? id, Object? extra) {
   return switch (section) {
     AdminSection.heartTasks => HeartTaskReviewScreen(initialId: id),
+    AdminSection.reports when id == null => const ReportListScreen(),
+    AdminSection.reports => ReportDetailScreen(id: id!, summary: extra is ReportSummary && extra.id == id ? extra : null),
     _ => PlaceholderScreen(section: section),
   };
 }

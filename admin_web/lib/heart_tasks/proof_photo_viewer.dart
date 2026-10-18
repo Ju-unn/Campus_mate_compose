@@ -208,6 +208,19 @@ Future<void> showProofZoom(BuildContext context, {required String? initialId, re
   return showAdminDialog<void>(context, (_) => ProofZoom(initialId: initialId, photoId: photoId));
 }
 
+/// 주소 하나를 같은 크게 보기로 띄운다(A4 신고 사본의 아바타 · 실사진). 이미 썸네일로 받은 그림이라 대개 바로 그려지고,
+/// 서명이 만료돼 못 그리면 "사진 없음" — 상세를 다시 받으면 새 주소가 온다.
+Future<void> showPhotoZoom(BuildContext context, String url) {
+  const waiting = _ZoomFrame(child: Center(child: AdminLoader(color: AdminColors.muted)));
+  const missing = _ZoomFrame(child: _Placeholder(icon: LucideIcons.imageOff, label: '사진 없음', iconSize: 48));
+  return showAdminDialog<void>(
+    context,
+    (_) => PhotoZoomOverlay(
+      photo: ProofImage(url: url, fit: BoxFit.contain, onError: (_) {}, loading: waiting, fallback: missing),
+    ),
+  );
+}
+
 /// pen A3 사진 크게 보기(gpMkm): 전체 web-scrim 위 사진(화면 90% 안 contain), 오른쪽 위 닫기 44(✕ 24 흰색),
 /// 아래 web-ink 알약 "Esc 또는 바깥을 누르면 닫혀요" 12 흰 글자. 다운로드는 없다.
 /// 사진 · 빈자리 어디를 눌러도 닫힌다(사진은 누를 것이 아니라 눌림을 아래 막(barrier)으로 흘린다).
@@ -237,7 +250,6 @@ class _ProofZoomState extends ConsumerState<ProofZoom> {
   Widget build(BuildContext context) {
     final detail = ref.watch(heartTaskReviewProvider(widget.initialId).select((s) => s.detail));
     final loaded = detail?.value;
-    final screen = MediaQuery.sizeOf(context);
     final String? url;
     if (loaded == null || detail!.isLoading) {
       url = null;
@@ -262,6 +274,20 @@ class _ProofZoomState extends ConsumerState<ProofZoom> {
         fallback: missing,
       );
     }
+    return PhotoZoomOverlay(photo: photo);
+  }
+}
+
+/// 크게 보기 틀(pen gpMkm): 사진(화면 90% 안) · 오른쪽 위 닫기 44 · 아래 안내 알약. 사진은 누를 것이 아니라 눌림을
+/// 아래 막(barrier)으로 흘려 어디를 눌러도 닫힌다.
+class PhotoZoomOverlay extends StatelessWidget {
+  const PhotoZoomOverlay({super.key, required this.photo});
+
+  final Widget photo;
+
+  @override
+  Widget build(BuildContext context) {
+    final screen = MediaQuery.sizeOf(context);
     return Stack(
       key: const ValueKey('proof-zoom'),
       children: [

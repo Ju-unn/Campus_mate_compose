@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:campus_mate_admin/heart_tasks/heart_task_item.dart';
+import 'package:campus_mate_admin/reports/report_item.dart';
 import 'package:http/http.dart' as http;
 
 /// 서버 403 본문의 이유(설계서 §6-3). D0 확정 모양(대장 전달 10-18): `{"detail": "not_admin"}` · `{"detail": "mfa_required"}`
@@ -65,23 +66,70 @@ class AdminApi {
     return _read(send('POST', '${_heartTaskPath(id)}/reject', body: {'reason': reason.code}), (_) {});
   }
 
-  /// 제출 번호로 받는 글자: 영숫자와 하이픈(서버 번호는 UUID). 주소창 링크의 `..%2Fme` 를 go_router 가 `../me` 로
+  // 신고 검수(A4) — 409 already_done 도 [AlreadyReviewed](이미 처리됨)로 던진다. 사유 · 메모는 앞뒤 공백만 떼고 그대로 보낸다.
+
+  /// 오래된 순 · 최대 50(서버 기본). 사본 · 사진 · 신고자 수는 없다 — 줄을 고르면 [getReport].
+  Future<List<ReportSummary>> listReports({ReportStatus status = ReportStatus.open, ReportTargetType? type}) {
+    final query = {'status': status.code, if (type != null) 'type': type.code};
+    return _read(send('GET', '/admin/reports', query: query), (body) {
+      if (body case {'items': final List<Object?> items}) return [for (final row in items) ReportSummary.fromJson(row)];
+      throw const FormatException('신고 목록의 모양이 아니에요');
+    });
+  }
+
+  /// 한 건 — 사본(실사진은 5분 서명) · 글 상태 · 신고자 수 · 같은 대상의 다른 신고. 디스코드 링크로 열 때도 쓴다.
+  Future<ReportDetail> getReport(String id) async {
+    return _read(send('GET', _idPath('/admin/reports', id)), ReportDetail.fromJson);
+  }
+
+  /// 조치 완료 / 기각. [sameTarget] 이면 같은 사람의 다른 열린 신고도 같은 결과로 닫는다. 응답 본문은 읽지 않는다(W1 과 같은 이유).
+  Future<void> resolveReport(String id, ReportStatus outcome, {String? note, bool sameTarget = false}) async {
+    final memo = note?.trim();
+    final body = {'outcome': outcome.code, 'note': memo == null || memo.isEmpty ? null : memo, 'same_target': sameTarget};
+    return _read(send('POST', '${_idPath('/admin/reports', id)}/resolve', body: body), (_) {});
+  }
+
+  /// 신고된 채팅 앞뒤(메시지 신고만, 사유 필수). 서버가 열람을 먼저 기록한다 — 끊었다 다시 보내지 않게 쓰기처럼 시간 제한이 없다.
+  Future<List<ChatLine>> chatContext(String id, String reason) async {
+    return _read(send('POST', '${_idPath('/admin/reports', id)}/chat-context', body: {'reason': reason.trim()}), (body) {
+      if (body case {'messages': final List<Object?> lines}) return [for (final line in lines) ChatLine.fromJson(line)];
+      throw const FormatException('채팅 앞뒤의 모양이 아니에요');
+    });
+  }
+
+  /// 정지 · 정지 해제 · 자동 가림 해제(그 사람의 열린 신고도 서버가 기각한다)
+  Future<void> actOnProfile(String profileId, ProfileAction action, String reason) async {
+    final path = '${_idPath('/admin/profiles', profileId)}/${action.name}';
+    return _read(send('POST', path, body: {'reason': reason.trim()}), (_) {});
+  }
+
+  /// 투표 글 · 지인 리뷰 가림([blind]) / 해제
+  Future<void> setContentStatus(ReportTargetType kind, String contentId, {required bool blind, required String reason}) async {
+    final segment = kind == ReportTargetType.poll ? 'polls' : 'friend-reviews';
+    final path = '${_idPath('/admin/content/$segment', contentId)}/${blind ? 'blind' : 'unblind'}';
+    return _read(send('POST', path, body: {'reason': reason.trim()}), (_) {});
+  }
+
+  /// 경로에 넣는 번호로 받는 글자: 영숫자와 하이픈(서버 번호는 UUID). 주소창 링크의 `..%2Fme` 를 go_router 가 `../me` 로
   /// 풀어 넘겨도 `/` · `.` · `%` 가 경로에 들어가 다른 관리자 API(`/admin/me` 등)를 부르지 못하게 한다(검토 10-18).
-  /// UUID 꼴 자체(8-4-4-4-12)는 서버가 422 로 거른다.
+  /// UUID 꼴 자체(8-4-4-4-12)는 서버가 422 로 거른다. 신고 · 사람 · 글 번호도 같은 규칙이다.
   static bool isTaskId(String id) => _taskId.hasMatch(id);
   static final RegExp _taskId = RegExp(r'^[0-9A-Za-z-]+$');
 
   /// 꼴이 틀린 번호는 보내지 않고 없는 건(404)과 같이 실패한다.
-  static String _heartTaskPath(String id) {
+  static String _heartTaskPath(String id) => _idPath('/admin/heart-tasks', id);
+
+  static String _idPath(String prefix, String id) {
     if (!isTaskId(id)) throw const AdminApiFailure(404);
-    return '/admin/heart-tasks/$id';
+    return '$prefix/$id';
   }
 
   /// 성공이면 본문을 [parse] 로 읽고, 아니면 실패 예외를 낸다. 본문 모양이 틀린 것([FormatException])도
   /// 그 상태코드의 실패로 바꾼다 — 화면은 실패 한 가지만 다룬다.
   static Future<T> _read<T>(Future<AdminApiResponse> pending, T Function(Object? body) parse) async {
     final response = await pending;
-    if (response.statusCode == 409 && response.reason == alreadyReviewedReason) throw const AlreadyReviewed();
+    final already = response.reason == alreadyReviewedReason || response.reason == alreadyDoneReason;
+    if (response.statusCode == 409 && already) throw const AlreadyReviewed();
     if (!response.isSuccess) throw AdminApiFailure(response.statusCode);
     try {
       return parse(response.body);
@@ -91,6 +139,9 @@ class AdminApi {
   }
 
   static const String alreadyReviewedReason = 'already_reviewed';
+
+  /// D2 조치(신고 닫기 · 정지 · 가림 · 글)의 409 — 이미 그 상태다
+  static const String alreadyDoneReason = 'already_done';
 
   Future<AdminApiResponse> send(
     String method,
@@ -154,7 +205,7 @@ class AdminApiFailure implements Exception {
   bool get isGateProblem => statusCode == 401 || statusCode == 403;
 }
 
-/// 다른 관리자가 먼저 처리했다(409 `{"detail": "already_reviewed"}`)
+/// 다른 관리자가 먼저 처리했다(409 `{"detail": "already_reviewed"}` · D2 조치는 `already_done`)
 class AlreadyReviewed extends AdminApiFailure {
   const AlreadyReviewed() : super(409);
 }

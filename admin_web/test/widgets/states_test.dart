@@ -5,6 +5,7 @@ import 'package:campus_mate_admin/widgets/admin_loader.dart';
 import 'package:campus_mate_admin/widgets/admin_toast.dart';
 import 'package:campus_mate_admin/widgets/enter_motion.dart';
 import 'package:campus_mate_admin/widgets/gate_card.dart';
+import 'package:campus_mate_admin/widgets/table_empty.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -228,6 +229,49 @@ void main() {
       expect(find.descendant(of: find.byType(AdminLoader), matching: find.byType(RotationTransition)), findsNothing);
       await tester.pump(const Duration(seconds: 1));
       expect(tester.hasRunningAnimations, isFalse);
+    });
+  });
+
+  group('빈 목록 · 받는 중 · 못 받음 틀(Table Empty kSwZk)', () {
+    Future<void> pumpFrame(WidgetTester tester, {required bool framed}) {
+      return tester.pumpWidget(
+        MaterialApp(
+          home: Material(
+            // 화면처럼 세로로 열린 칸(Column) 안에 둔다
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 800,
+                  child: AdminTableEmpty(
+                    framed: framed,
+                    leading: const SizedBox(width: 32, height: 32),
+                    title: '목록을 불러오지 못했어요',
+                    body: '인터넷 연결을 확인하고 다시 시도해 주세요.',
+                    action: AdminButton(label: '다시 시도', variant: AdminButtonVariant.secondary, onPressed: () {}),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    testWidgets('설명은 줄 1.5, 단추는 설명 아래 24(A3 · A4 못 받음 PNG 측정)', (tester) async {
+      await pumpFrame(tester, framed: true);
+
+      final body = find.text('인터넷 연결을 확인하고 다시 시도해 주세요.');
+      expect(tester.widget<Text>(body).style!.height, 1.5);
+      expect(tester.getRect(find.byType(AdminButton)).top - tester.getRect(body).bottom, 24);
+    });
+
+    testWidgets('틀을 끄면(받는 중 · 못 받음) 바탕 · 테두리 없이 같은 자리 · 크기', (tester) async {
+      await pumpFrame(tester, framed: false);
+
+      final box = tester.widget<Container>(find.descendant(of: find.byType(AdminTableEmpty), matching: find.byType(Container)).first);
+      expect((box.decoration, box.foregroundDecoration), (null, null));
+      expect(tester.getSize(find.byType(AdminTableEmpty)).height, 240);
     });
   });
 }
