@@ -15,7 +15,10 @@ enum StatusTone {
   neutral(AdminColors.muted, AdminColors.surfaceStrong),
 
   /// "정지" · 글 "가려짐"
-  danger(AdminColors.danger, AdminColors.dangerWash);
+  danger(AdminColors.danger, AdminColors.dangerWash),
+
+  /// 사용자 상세 머리의 "카카오 로그인"(pen A5 — 점 · 글자 web-ink, 바탕 web-surface-strong)
+  plain(AdminColors.ink, AdminColors.surfaceStrong);
 
   const StatusTone(this.ink, this.wash);
 
