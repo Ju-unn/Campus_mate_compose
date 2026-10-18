@@ -1,5 +1,26 @@
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
+
+
+class AdminWebSettings(BaseSettings):
+    """관리자 웹 대시보드(설계 10-18 §6-6)가 쓰는 CORS 허용 주소. 아래 Settings 와 따로 둔 이유: CORS 미들웨어는 앱이 돌기
+    전에만 붙일 수 있어 main.py 가 import 될 때 읽는데, 그때는 Settings 의 필수값이 없을 수 있다(시험 · e2e 가 app.main 을 import)."""
+
+    # 쉼표 목록(예: https://admin.campus-mates.com). 비면 CORS 미들웨어를 붙이지 않는다 — 지금 배포와 똑같다.
+    admin_allowed_origins: str = ""
+
+    @field_validator("admin_allowed_origins")
+    @classmethod
+    def _no_wildcard(cls, value: str) -> str:
+        # '*' 는 아무 사이트나 관리자 API 를 부르게 연다. 서버를 띄우지 않는다(main.py import 에서 멈춘다).
+        if "*" in value:
+            raise ValueError("ADMIN_ALLOWED_ORIGINS 에 '*' 는 쓸 수 없다 — 관리자 웹 주소만 적는다")
+        return value
+
+    @property
+    def admin_origins(self) -> list[str]:
+        # 끝의 '/' 는 뗀다 — 브라우저가 보내는 Origin 에는 붙지 않아 그대로 두면 조용히 안 맞는다.
+        return [o.strip().rstrip("/") for o in self.admin_allowed_origins.split(",") if o.strip()]
 
 
 class Settings(BaseSettings):
