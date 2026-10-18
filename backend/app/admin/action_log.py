@@ -5,16 +5,15 @@
 import asyncio
 import logging
 import re
-from datetime import datetime
 from uuid import UUID
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 
 from app.account.repository import SupabaseAdmin
+from app.admin import cursor
 from app.admin.caller import AdminCaller, get_admin_caller
 from app.admin.repository import AdminRepository
-from app.core import errors
 
 router = APIRouter(prefix="/actions")
 logger = logging.getLogger(__name__)
@@ -27,24 +26,6 @@ _TYPE = re.compile(r"[a-z_]{1,32}")
 
 def _repo(caller: AdminCaller) -> AdminRepository:
     return AdminRepository(caller.settings.postgrest_url, caller.settings.supabase_service_role_key, caller.client)
-
-
-def _bad() -> HTTPException:
-    return HTTPException(status_code=422, detail=errors.INVALID_INPUT)
-
-
-def _cursor(value: str) -> tuple[str, str]:
-    """`{created_at}|{id}` → (created_at, id). 시각 · UUID 로 읽히는 것만 받는다(필터 문법이 끼어들 수 없게)."""
-    at, _, last_id = value.partition("|")
-    try:
-        datetime.fromisoformat(at)
-        # UUID() 는 {…} · urn:uuid: · 하이픈 없는 꼴도 받는다 — 필터에는 표준 하이픈 꼴로 다시 써서 넣는다.
-        normalised = str(UUID(last_id))
-    except ValueError:
-        raise _bad()
-    if any(ch in at for ch in ",()"):
-        raise _bad()
-    return at, normalised
 
 
 async def _admin_email(caller: AdminCaller, admin_id: str) -> str | None:
@@ -67,10 +48,10 @@ async def list_actions(
 ) -> dict:
     target = None if target is None else target.strip()
     if (target is not None and not _TARGET.fullmatch(target)) or (type is not None and not _TYPE.fullmatch(type)):
-        raise _bad()
+        raise cursor.bad()
     repo = _repo(caller)
     rows = await repo.list_actions(admin=None if admin is None else str(admin), target=target, target_type=type,
-                                   before=None if before is None else _cursor(before), limit=limit + 1)
+                                   before=None if before is None else cursor.parse(before), limit=limit + 1)
     more = len(rows) > limit
     rows = rows[:limit]
     admin_ids = sorted({row["admin_user_id"] for row in rows})

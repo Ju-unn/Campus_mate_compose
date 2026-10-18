@@ -80,6 +80,28 @@ def test_malformed_filters_are_422_without_touching_the_db(client, world, params
     assert world.calls("GET", "/rest/v1/admin_actions") == []
 
 
+# fromisoformat 은 ISO 주차 · 날짜만 · 기본 꼴도 받아 주지만 PostgREST 는 이걸 시각으로 못 읽어 500 이 났다(D4 검토).
+# 표준 YYYY-MM-DDTHH:MM:SS(.ffffff)(±HH:MM|Z) 꼴만 받는다.
+NON_STANDARD_TIMES = ["2026-W42-1T00:00:00", "2026-W42-1T00:00:00+00:00", "2026-10-18", "20261018T000000+00:00",
+                      "2026-10-18 10:00:00+00:00", "2026-10-18T10:00:00", "2026-10-18T10:00+00:00",
+                      "2026-10-18T10:00:00+0000", "2026-10-18T10:00:00.1234567+00:00", " 2026-10-18T10:00:00+00:00"]
+
+
+@pytest.mark.parametrize("at", NON_STANDARD_TIMES)
+def test_a_cursor_time_that_is_not_the_standard_shape_is_422(client, world, at):
+    response = client.get("/admin/actions", params={"before": f"{at}|{U1}"}, headers=ADMIN_HEADERS)
+
+    assert response.status_code == 422
+    assert world.calls("GET", "/rest/v1/admin_actions") == []
+
+
+@pytest.mark.parametrize("at", ["2026-10-18T10:00:00+00:00", "2026-10-18T10:00:00.123456+09:00", "2026-10-18T10:00:00Z"])
+def test_a_cursor_time_in_the_standard_shape_is_accepted(client, world, at):
+    response = client.get("/admin/actions", params={"before": f"{at}|{U1}"}, headers=ADMIN_HEADERS)
+
+    assert response.status_code == 200
+
+
 def test_cursor_does_not_skip_rows_sharing_a_timestamp(client, world):
     # 같은 트랜잭션에서 쓴 줄들은 created_at 이 같다(now()) — 시각만으로 자르면 줄을 놓친다.
     a1, a2, a3 = (f"00000000-0000-0000-0000-00000000000{n}" for n in (1, 2, 3))

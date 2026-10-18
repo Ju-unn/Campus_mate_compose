@@ -1,4 +1,5 @@
 """관리자 관문 get_admin_caller(설계 10-18 §6-3): 로그인 → aal2 → admin_users. 하나라도 아니면 막는다."""
+import re
 import time
 
 import pytest
@@ -169,21 +170,57 @@ def test_token_claims_reads_payloads_of_every_padding_length(pad):
     assert token_claims(authorization)["aal"] == "aal2"
 
 
-def _routes(routes):
+def _routes(routes, prefix=""):
+    """(전체 경로, 라우트). FastAPI 0.141 은 include_router 한 라우터를 접두사 없이 중첩 객체로 들고 있어 접두사를 직접 이어 붙인다 —
+    이전에는 하위 라우터 경로를 `/admin` 없이 보아 `/admin/me` 하나만 검사했다(D1~D4 경로 전부 맹점이었다)."""
     for route in routes:
         if isinstance(route, APIRoute):
-            yield route
+            yield prefix + route.path, route
         else:
-            yield from _routes(getattr(route, "routes", None) or getattr(getattr(route, "original_router", None), "routes", []))
+            nested = getattr(route, "original_router", None)
+            if nested is not None:
+                yield from _routes(nested.routes, prefix + (getattr(getattr(route, "include_context", None), "prefix", "") or ""))
 
 
 def _uses(dependant, dependency) -> bool:
     return any(sub.call is dependency or _uses(sub, dependency) for sub in dependant.dependencies)
 
 
+def _admin_routes() -> list[tuple[str, APIRoute]]:
+    return [(path, route) for path, route in _routes(app.routes) if path.startswith("/admin")]
+
+
+def _openapi_operations() -> set[tuple[str, str]]:
+    return {(method.upper(), path) for path, item in app.openapi()["paths"].items() if path.startswith("/admin")
+            for method in item if method in {"get", "post", "put", "patch", "delete"}}
+
+
+def test_the_central_gate_test_sees_every_admin_route():
+    # 걸린 경로 수가 실제 admin 경로 수(openapi 가 아는 것)와 같다 — 이 수가 1(/admin/me)에 머물면 하위 라우터가 안 보이는 것이다.
+    walked = {(method, path) for path, route in _admin_routes() for method in route.methods}
+
+    assert len(walked) > 1
+    assert walked == _openapi_operations()
+    assert "/admin/me" in {path for path, _ in _admin_routes()}
+    assert {"/admin/stats", "/admin/health", "/admin/matching/pairs", "/admin/actions"} <= {path for path, _ in _admin_routes()}
+
+
 def test_every_admin_route_goes_through_the_admin_gate():
     # 다음 조각이 /admin 경로를 늘려도 관문을 빠뜨린 경로가 생기면 여기서 걸린다.
-    admin_routes = [r for r in _routes(app.routes) if r.path.startswith("/admin")]
+    assert [path for path, route in _admin_routes() if not _uses(route.dependant, get_admin_caller)] == []
 
-    assert "/admin/me" in {r.path for r in admin_routes}
-    assert [r.path for r in admin_routes if not _uses(r.dependant, get_admin_caller)] == []
+
+def _call_every_admin_route(client, headers):
+    for method, path in sorted(_openapi_operations()):
+        concrete = re.sub(r"\{[^}]+\}", "11111111-0000-0000-0000-000000000001", path)
+        yield method, path, client.request(method, concrete, headers=headers, **({"json": {}} if method in ("POST", "PUT", "PATCH") else {}))
+
+
+def test_every_admin_route_answers_401_without_a_login_and_403_not_admin_for_a_stranger(client, world):
+    # 구조 검사(위)와 별개로 실제로 불러 본다 — 관문이 아닌 다른 의존성만 단 경로는 구조 검사를 속일 수 있다.
+    for method, path, response in _call_every_admin_route(client, {}):
+        assert response.status_code == 401, (method, path)
+
+    world.caller = STRANGER
+    for method, path, response in _call_every_admin_route(client, bearer(sub=STRANGER, aal="aal2")):
+        assert (response.status_code, response.json()["detail"]) == (403, "not_admin"), (method, path)
