@@ -113,6 +113,11 @@ import '../../notifications/model/fake_notifications_repository.dart';
 VerificationGate _passedGate() => VerificationGate.complete;
 OnboardingStep _passedStep() => OnboardingStep.complete;
 
+/// 경로 id 칸에 넣는 값(지어낸 UUID). 라우터는 UUID 모양이 아닌 id 를 그 목록 · 홈으로 돌려보낸다.
+const _matchId = '11111111-1111-4111-8111-111111111111';
+const _profileId = '22222222-2222-4222-8222-222222222222';
+const _cardId = '33333333-3333-4333-8333-333333333333';
+
 /// 서버 next-step 이 늦게 오는 상황. [answer] 를 부를 때까지 답을 미룬다.
 class _SlowOnboardingRepository implements OnboardingRepository {
   final _answer = Completer<Result<OnboardingStep>>();
@@ -336,7 +341,7 @@ void main() {
         child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
       ),
     );
-    router.go('${AppRoutes.chatRoom}/m1');
+    router.go('${AppRoutes.chatRoom}/$_matchId');
     await tester.pumpAndSettle();
     expect(find.byType(ChatRoomScreen), findsOneWidget);
 
@@ -366,7 +371,7 @@ void main() {
         child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
       ),
     );
-    router.go('${AppRoutes.chatRoom}/m1');
+    router.go('${AppRoutes.chatRoom}/$_matchId');
     await tester.pumpAndSettle();
 
     // false 면 안드로이드가 뒤로가기를 "앱 종료" 로 처리한다.
@@ -393,11 +398,14 @@ void main() {
       // 컨테이너는 위젯 트리를 걷어 낸 뒤에 닫는다.
       final container = ProviderContainer(
         overrides: [
-          cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
+          // 10b 가 열리면 카드를 읽는다 — 화면이 뜨는지만 보므로 실패로 둔다.
+          cardRepositoryProvider.overrideWithValue(FakeCardRepository()..card = const FailureResult(NetworkFailure())),
           homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
           notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
-          chatRepositoryProvider.overrideWithValue(
-              FakeChatRepository()..room = Success(roomFixture(passed: passedRoom, kakaoId: 'fox_rain'))),
+          // id 를 고쳐 쓴 주소가 열리는지 보는 시험이 커뮤니티 탭으로 돌아간다.
+          communityRepositoryProvider.overrideWithValue(FakeCommunityRepository()),
+          chatRepositoryProvider.overrideWithValue(FakeChatRepository()
+            ..room = Success(roomFixture(passed: passedRoom, kakaoId: 'fox_rain', partnerProfileId: _profileId))),
           messageStreamProvider.overrideWithValue(FakeMessageStream()),
           safetyRepositoryProvider.overrideWithValue(FakeSafetyRepository()),
           // 16e 가 열리면 계정 정보를, 16e-1 이 열리면 저장된 아이디를 읽는다.
@@ -519,10 +527,10 @@ void main() {
     });
 
     // 추천 가입 푸시(`friend_review_write`)가 가는 곳 — 홈이 밑에 깔리고 그 위에 20b 시트(대장 Q1).
-    testWidgets('/home/friend-reviews/write/p2 는 09b 홈 위에 20b 시트를 띄우고, 닫으면 홈이다', (tester) async {
+    testWidgets('/home/friend-reviews/write/:profileId 는 09b 홈 위에 20b 시트를 띄우고, 닫으면 홈이다', (tester) async {
       final router = await pumpRouter(tester);
 
-      router.go('${AppRoutes.friendReviewWrite}/p2');
+      router.go('${AppRoutes.friendReviewWrite}/$_profileId');
       await tester.pumpAndSettle();
       expect(find.byType(HomeScreen), findsOneWidget);
       expect(find.text('어떤 장점이 있나요?'), findsOneWidget);
@@ -538,25 +546,60 @@ void main() {
     testWidgets('/acceptances/:cardId 는 그 받은 신청의 프로필 보기(pen `o4QqYR`)다', (tester) async {
       final router = await pumpRouter(tester);
 
-      router.go('${AppRoutes.acceptanceDetail}/card-7');
+      router.go('${AppRoutes.acceptanceDetail}/$_cardId');
       await tester.pumpAndSettle();
 
-      expect(tester.widget<AcceptanceDetailScreen>(find.byType(AcceptanceDetailScreen)).cardId, 'card-7');
+      expect(tester.widget<AcceptanceDetailScreen>(find.byType(AcceptanceDetailScreen)).cardId, _cardId);
     });
 
     testWidgets('/profiles/:profileId 는 그 사람의 14c 상대 프로필이다', (tester) async {
       final router = await pumpRouter(tester);
 
-      router.go('${AppRoutes.partnerProfile}/p2');
+      router.go('${AppRoutes.partnerProfile}/$_profileId');
       await tester.pumpAndSettle();
 
-      expect(tester.widget<PartnerProfileScreen>(find.byType(PartnerProfileScreen)).profileId, 'p2');
+      expect(tester.widget<PartnerProfileScreen>(find.byType(PartnerProfileScreen)).profileId, _profileId);
     });
+
+    // 2026-10-18 보안 검사: 경로 id 는 전부 DB uuid 다(matches · daily_cards · profiles · polls). 모양이 아니면 화면을 열지 않고
+    // 그 목록 · 홈으로 돌려보낸다 — 푸시 `match_id` · 바깥에서 만든 주소의 엉뚱한 값이 화면을 거쳐 서버 경로에 실리지 않는다.
+    for (final (path, fallback) in <(String, String)>[
+      ('${AppRoutes.chatRoom}/m1', AppRoutes.conversations),
+      ('${AppRoutes.cardDetail}/card-1', AppRoutes.today),
+      ('${AppRoutes.acceptanceDetail}/card-7', AppRoutes.conversations),
+      ('${AppRoutes.partnerProfile}/p2', AppRoutes.home),
+      ('${AppRoutes.partnerProfile}/${_profileId}x', AppRoutes.home),
+      ('${AppRoutes.communityPoll}/p1', AppRoutes.community),
+      ('${AppRoutes.friendReviewWrite}/p2', AppRoutes.home),
+    ]) {
+      testWidgets('UUID 가 아닌 id 의 $path 는 $fallback 로 보낸다', (tester) async {
+        final router = await pumpRouter(tester);
+
+        router.go(path);
+        await tester.pumpAndSettle();
+
+        expect(router.state.matchedLocation, fallback);
+      });
+    }
+
+    for (final path in [
+      '${AppRoutes.cardDetail}/$_cardId',
+      '${AppRoutes.communityPoll}/${_cardId.toUpperCase()}',
+    ]) {
+      testWidgets('UUID id 의 $path 는 그대로 연다', (tester) async {
+        final router = await pumpRouter(tester);
+
+        router.go(path);
+        await tester.pumpAndSettle();
+
+        expect(router.state.matchedLocation, path);
+      });
+    }
 
     // 경로가 없을 때는 14b 버튼이 go_router 오류 화면으로 떨어졌다.
     testWidgets('채팅방 14b "상대 프로필 보기" 를 누르면 14c 가 열리고, 뒤로가면 방으로 돌아온다', (tester) async {
       final router = await pumpRouter(tester, passedRoom: true);
-      router.go('${AppRoutes.chatRoom}/m1');
+      router.go('${AppRoutes.chatRoom}/$_matchId');
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('상대 프로필 보기'));
