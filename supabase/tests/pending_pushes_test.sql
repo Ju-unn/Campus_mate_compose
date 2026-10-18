@@ -4,7 +4,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(13);
+select plan(14);
 
 -- 준비: auth.users 를 넣으면 handle_new_user_profile 트리거가 profiles 행을 만든다(consents_test.sql 과 같은 방식).
 insert into public.universities (id, name, region_group)
@@ -31,11 +31,16 @@ select lives_ok(
   $$insert into public.pending_pushes (profile_id, kind, title, body)
     values ('00000000-0000-0000-0000-0000000000d1', 'verification_result', '학생증 검토가 끝났어요', 'b')$$,
   '학생증 검토 결과(A7)도 보류한다 — 조용한 시간 예외는 채팅 · 카드 도착뿐');
+select lives_ok(
+  $$insert into public.pending_pushes (profile_id, kind, title, body, data)
+    select '00000000-0000-0000-0000-0000000000d1', k, 't', 'b', '{"route": "heart_tasks"}'
+    from unnest(array['heart_task_approved', 'heart_task_rejected']) k$$,
+  '인증샷 승인 · 반려 결과(10-18)도 보류한다');
 -- 채팅 · 카드 도착은 조용한 시간 예외라 바로 간다 — 여기 쌓이면 코드가 잘못된 것이다.
 select throws_ok(
   $$insert into public.pending_pushes (profile_id, kind, title, body)
     values ('00000000-0000-0000-0000-0000000000d1', 'new_message', 't', 'b')$$,
-  '23514', null, '보류하는 4종 말고는 안 받는다');
+  '23514', null, '보류하는 6종 말고는 안 받는다');
 select is(
   (select data from public.pending_pushes where profile_id = '00000000-0000-0000-0000-0000000000d1' and kind = 'acceptance_received'),
   '{"route": "acceptances"}'::jsonb, '가는 화면(data)을 그대로 담는다');

@@ -37,8 +37,9 @@ select lives_ok(
 select lives_ok(
   $$insert into public.notifications (profile_id, kind, title, body)
     select '00000000-0000-0000-0000-0000000041a1', k, 't', 'b'
-    from unnest(array['chat_request', 'match_made', 'friend_review', 'verification_result', 'night_digest']) k$$,
-  '나머지 다섯 종류도 모두 받는다'
+    from unnest(array['chat_request', 'match_made', 'friend_review', 'verification_result', 'night_digest',
+                    'heart_task_approved', 'heart_task_rejected']) k$$,
+  '나머지 일곱 종류(인증샷 승인 · 반려 포함)도 모두 받는다'
 );
 
 select throws_ok(
