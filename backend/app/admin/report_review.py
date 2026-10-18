@@ -10,12 +10,12 @@ from uuid import UUID
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints
 
 from app.admin.caller import AdminCaller, get_admin_caller
 from app.admin.heart_task_review import PHOTO_URL_TTL_SECONDS
 from app.admin.reason import REASON_MAX, ReasonBody
-from app.admin.repository import NOT_FOUND, AdminRepository
+from app.admin.repository import NOT_FOUND, SEEN_REPORTS_REQUIRED, AdminRepository
 from app.admin.request_ip import request_ip
 from app.profile_onboarding.storage import ProfilePhotoStorage
 from app.safety.repository import SafetyRepository
@@ -26,6 +26,9 @@ logger = logging.getLogger(__name__)
 # 신고된 줄 앞뒤로 보여 줄 줄 수(설계 §8-2 D — 사적 대화라 좁게).
 CHAT_CONTEXT_EACH_SIDE = 5
 NOT_MESSAGE_REPORT = "not_message_report"
+# 운영자가 상세에서 본 신고 id 들. 한 사람에게 쌓인 열린 신고가 이보다 많으면 못 본 것은 열린 채 남는다(안전한 쪽).
+SEEN_REPORTS_MAX = 100
+SeenReportIds = Annotated[list[UUID], Field(max_length=SEEN_REPORTS_MAX)]
 ReportStatus = Literal["open", "actioned", "dismissed"]
 TargetType = Literal["profile", "message", "friend_review", "poll"]
 
@@ -34,8 +37,10 @@ class ResolveBody(BaseModel):
     outcome: Literal["actioned", "dismissed"]
     # 메모는 선택이다(작업 기록 reason 칸). 공백뿐이면 없는 것으로 보낸다.
     note: Annotated[str, StringConstraints(strip_whitespace=True, max_length=REASON_MAX)] | None = None
-    # 같은 사람(target_profile_id)을 향한 다른 열린 신고도 같은 결과로 닫는다 — 상세의 other_reports 중 열린 것들이다.
+    # 같은 사람(target_profile_id)을 향한 다른 열린 신고도 같은 결과로 닫는다 — 단 seen_report_ids(상세의 other_reports 중
+    # 운영자가 본 열린 것들)에 든 것만. 상세를 연 뒤 들어온 새 신고는 열린 채 남는다. same_target 이면 이 칸이 꼭 있어야 한다([] 가능).
     same_target: bool = False
+    seen_report_ids: SeenReportIds | None = None
 
 
 def _repo(caller: AdminCaller) -> AdminRepository:
@@ -161,7 +166,10 @@ async def chat_context(
 async def resolve_report(
     report_id: UUID, body: ResolveBody, request: Request, caller: AdminCaller = Depends(get_admin_caller),
 ) -> dict:
-    """조치 완료 / 기각. 닫기와 기록은 DB 함수 한 번(이미 닫힌 신고는 409 already_done). 응답은 처리 뒤 한 건."""
+    """조치 완료 / 기각. 닫기와 기록은 DB 함수 한 번(이미 닫힌 신고는 409 already_done). 응답은 처리 뒤 한 건.
+    함께 닫기인데 본 신고 목록이 없으면(옛 웹) 422 seen_reports_required — "전부 닫기"로 되돌아가지 않는다."""
+    if body.same_target and body.seen_report_ids is None:
+        raise HTTPException(status_code=422, detail=SEEN_REPORTS_REQUIRED)
     await _repo(caller).resolve_report(caller.admin_user_id, report_id, body.outcome, body.note or None,
-                                       body.same_target, request_ip(request))
+                                       body.same_target, request_ip(request), body.seen_report_ids)
     return await detail(caller, report_id)

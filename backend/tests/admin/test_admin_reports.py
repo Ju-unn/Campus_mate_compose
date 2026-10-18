@@ -368,7 +368,7 @@ def test_resolve_sends_the_admin_note_and_ip_and_returns_the_detail(client, worl
     assert response.status_code == 200
     # 같은 대상 함께 닫기는 고른 때만(기본 false). 메모는 앞뒤 공백을 뗀다.
     assert _resolves(world) == [{"p_admin": ADMIN, "p_report": R1, "p_outcome": "actioned", "p_note": "욕설 확인",
-                                 "p_same_target": False, "p_ip": "203.0.113.7"}]
+                                 "p_same_target": False, "p_ip": "203.0.113.7", "p_seen": None}]
     body = response.json()
     assert set(body) == DETAIL_KEYS
     assert (body["status"], body["resolved_at"]) == ("actioned", "2026-10-18T02:00:00+00:00")
@@ -379,11 +379,68 @@ def test_resolve_can_close_the_same_persons_open_reports_without_a_note(client, 
     world.reports[R1] = report(R1)
 
     response = client.post(f"/admin/reports/{R1}/resolve", headers=ADMIN_HEADERS,
-                           json={"outcome": "dismissed", "note": note, "same_target": True})
+                           json={"outcome": "dismissed", "note": note, "same_target": True, "seen_report_ids": [R2]})
 
     assert response.status_code == 200
     (body,) = _resolves(world)
     assert (body["p_outcome"], body["p_note"], body["p_same_target"]) == ("dismissed", sent, True)
+
+
+def test_resolve_with_same_target_sends_only_the_reports_the_operator_saw(client, world):
+    # 상세를 연 뒤에 들어온 새 신고까지 닫지 않게 — 본 신고 id 만 DB 함수로 간다(보안 검토 낮음 8).
+    world.reports[R1] = report(R1)
+
+    client.post(f"/admin/reports/{R1}/resolve", headers=ADMIN_HEADERS,
+                json={"outcome": "dismissed", "same_target": True, "seen_report_ids": [R2, OTHER.upper()]})
+
+    (body,) = _resolves(world)
+    assert body["p_seen"] == [R2, OTHER]  # 표준 소문자 꼴로 고쳐 보낸다
+
+
+def test_resolve_of_one_report_needs_no_seen_list_and_sends_none(client, world):
+    world.reports[R1] = report(R1)
+
+    response = client.post(f"/admin/reports/{R1}/resolve", headers=ADMIN_HEADERS, json={"outcome": "actioned"})
+
+    assert response.status_code == 200
+    (body,) = _resolves(world)
+    assert body["p_seen"] is None
+
+
+@pytest.mark.parametrize("seen", [None, "missing"], ids=["null", "칸 없음"])
+def test_same_target_without_the_seen_list_is_refused_before_the_db_function(client, world, seen):
+    # 옛 웹이 목록 없이 보내면 "같은 사람의 열린 신고 전부" 가 되살아나지 않게 거절한다. 빈 목록([])은 "본 신고 없음" 이라 통과한다.
+    world.reports[R1] = report(R1)
+    body = {"outcome": "dismissed", "same_target": True}
+    if seen != "missing":
+        body["seen_report_ids"] = seen
+
+    response = client.post(f"/admin/reports/{R1}/resolve", headers=ADMIN_HEADERS, json=body)
+
+    assert (response.status_code, response.json()) == (422, {"detail": "seen_reports_required"})
+    assert world.rpcs == []
+
+
+def test_same_target_with_an_empty_seen_list_closes_just_this_report(client, world):
+    world.reports[R1] = report(R1)
+
+    response = client.post(f"/admin/reports/{R1}/resolve", headers=ADMIN_HEADERS,
+                           json={"outcome": "dismissed", "same_target": True, "seen_report_ids": []})
+
+    assert response.status_code == 200
+    (body,) = _resolves(world)
+    assert (body["p_same_target"], body["p_seen"]) == (True, [])
+
+
+@pytest.mark.parametrize("seen", ["x", [1], ["not-a-uuid"], [R2] * 101], ids=["글자", "숫자", "UUID 아님", "101개"])
+def test_resolve_rejects_a_malformed_seen_list(client, world, seen):
+    world.reports[R1] = report(R1)
+
+    response = client.post(f"/admin/reports/{R1}/resolve", headers=ADMIN_HEADERS,
+                           json={"outcome": "dismissed", "same_target": True, "seen_report_ids": seen})
+
+    assert response.status_code == 422
+    assert world.rpcs == []
 
 
 @pytest.mark.parametrize("body", [None, {}, {"outcome": "open"}, {"outcome": "closed"},
