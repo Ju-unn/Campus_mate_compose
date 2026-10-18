@@ -49,6 +49,9 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<!-- 앱은 주소로 화면을 열 일이 없다(2026-10-18 보안 검사). 카카오 · 구글 복귀 스킴은 플러그인이 먼저 받고, 이 값은 플러그인이 안 받은 주소를 라우터로 넘길지만 정한다. -->
+	<key>FlutterDeepLinkingEnabled</key>
+	<false/>
 	<!-- 구글 로그인 iOS 클라이언트 ID. 서버(웹) 클라이언트 ID 는 앱 코드가 dart-define 의 GOOGLE_WEB_CLIENT_ID 로 따로 넘긴다. -->
 	<key>GIDClientID</key>
 	<string>$(GOOGLE_IOS_CLIENT_ID)</string>
