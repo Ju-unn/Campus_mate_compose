@@ -39,16 +39,25 @@ class HomeRepository(PostgrestRepository):
         # Content-Range: 0-0/37 (없으면 */0) — 전체 건수는 / 뒤다.
         return int(response.headers["content-range"].rsplit("/", 1)[1])
 
-    async def fetch_recent_people(self, profile_id: UUID, limit: int) -> list[dict]:
-        """홈 레일 후보 — 최근에 활동한 순으로 limit 명(모든 학교 · 성별 섞어서, 나는 빼고). 보여 줄 수 있는 사람
+    async def fetch_my_gender(self, profile_id: UUID) -> str | None:
+        """내 성별('male' | 'female'). 비어 있거나 행이 없으면 None — 부른 쪽이 빈 레일로 처리한다."""
+        response = await self._get("profiles", params={"id": f"eq.{profile_id}", "select": "gender"})
+        raise_for_status(response)
+        rows = response.json()
+        return rows[0]["gender"] if rows else None
+
+    async def fetch_recent_people(self, profile_id: UUID, limit: int, gender: str) -> list[dict]:
+        """홈 레일 후보 — 최근에 활동한 순으로 limit 명(모든 학교, gender 로 준 성별만, 나는 빼고). 보여 줄 수 있는 사람
         (가입을 마쳤고 자동 가림이 아니고 매칭을 멈추지 않은)만 DB 가 거르고, 아바타 고르기 · 차단은 부른 쪽이 한다.
+        성별도 DB 가 걸러 풀(limit)이 그 성별 사람으로 채워진다 — 나중에 거르면 풀이 줄어 레일이 자주 빈다. gender 는
+        'male' | 'female' 중 하나여야 한다(필터 문자열에 그대로 들어가므로 부른 쪽이 내 성별에서 뽑은 값만 넘긴다).
         매칭을 멈춘 사람은 지금 사람을 만나지 않겠다는 뜻이라 홈에도 얼굴을 내보내지 않는다(안전한 쪽, 2026-10-15 검토).
         id 와 아바타 행 말고는 읽지 않는다 — 응답에 실을 칸이 없다.
         ponytail: last_active_at 인덱스가 없어 profiles 를 훑고 상위 limit 개를 정렬한다. 가입자가 수만 명이 되면
         `(last_active_at desc) where status='active' and auto_hidden_at is null and not matching_paused` 부분 인덱스로."""
         response = await self._get("profiles", params={
             "status": "eq.active", "auto_hidden_at": "is.null", "matching_paused": "is.false",
-            "id": f"neq.{profile_id}",
+            "gender": f"eq.{gender}", "id": f"neq.{profile_id}",
             "select": "id,profile_avatars(storage_path,status,is_fallback,created_at)",
             "order": "last_active_at.desc", "limit": limit,
         })
