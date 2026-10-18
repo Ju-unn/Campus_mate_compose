@@ -59,6 +59,8 @@ dependencies:
   crypto: ^3.0.6
   google_sign_in: ^7.2.0
   kakao_flutter_sdk_user: ^2.0.1
+  # 추천 코드 카카오톡 공유 카드(2026-10-18 사용자 승인). 로그인 부품과 같은 2.0.1 로 맞춘다.
+  kakao_flutter_sdk_share: ^2.0.1
   # 애플 로그인(iOS 만, 2026-10-12 승인). nonce 해시는 위 crypto 를 같이 쓴다.
   sign_in_with_apple: ^8.2.0
   # 온보딩 입력 임시 저장(2026-10-08 승인). 전화번호 · 카카오톡 아이디는 넣지 않는다(lib/core/draft/).
