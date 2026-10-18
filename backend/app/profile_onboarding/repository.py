@@ -104,23 +104,21 @@ class ProfileOnboardingRepository(PostgrestRepository):
         rows = response.json()
         return rows[0]["storage_path"] if rows else None
 
-    async def insert_avatar_attempt(
-        self, profile_id: UUID, status: str, storage_path: str | None, is_fallback: bool = False
-    ) -> UUID:
-        """끝난 이력 한 줄을 남기고 그 id 를 돌려준다.
+    async def insert_fallback_avatar(self, profile_id: UUID, storage_path: str) -> bool:
+        """5회 실패 보상으로 복사해 넣은 기본 아바타 행(ready, is_fallback). 넣었으면 True.
 
-        `is_fallback` 은 5회 실패 보상으로 복사해 넣은 기본 아바타 행에만 켠다 — 결과 화면이
-        "하트를 드렸어요" 안내를 띄울지 이 칸으로 고른다(ERD §3, 마이그레이션 C1)."""
+        `is_fallback` 으로 결과 화면이 "하트를 드렸어요" 안내를 띄울지 고른다(ERD §3, 마이그레이션 C1).
+        이미 있으면(부분 유일 인덱스 profile_avatars_one_fallback 의 23505) False — 워커의 5번째 실패와 POST 의
+        5회 보상이 겹친 것이고, 먼저 넣은 쪽이 하트도 줬다. 다른 제약 위반은 raise_for_status 에 맡긴다."""
         response = await self._post(
             "profile_avatars",
-            json={
-                "profile_id": str(profile_id), "status": status,
-                "storage_path": storage_path, "is_fallback": is_fallback,
-            },
-            prefer="return=representation",
+            json={"profile_id": str(profile_id), "status": "ready", "storage_path": storage_path, "is_fallback": True},
+            prefer="return=minimal",
         )
+        if error_code(response) == "23505":
+            return False
         raise_for_status(response)
-        return UUID(response.json()[0]["id"])
+        return True
 
     async def insert_pending_avatar_attempt(self, profile_id: UUID) -> UUID | None:
         """"만드는 중" 행을 넣고 id 를 돌려준다. **이미 만드는 중이면 `None`** 이다.
