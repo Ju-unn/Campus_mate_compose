@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <!-- flutter build 의 --base-href 값으로 바뀐다. 루트(/)에 올리므로 기본값 그대로 둔다. -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- 운영자 전용 화면 — 검색에 나오지 않게 한다(vercel.json 의 X-Robots-Tag 와 같은 뜻). -->
+  <meta name="robots" content="noindex">
+  <meta name="description" content="CampusMate 관리자">
+
+  <!-- 앱 런처 아이콘(frontend/android … ic_launcher.png)에서 귀 모양만 32 로 잘랐다. 192 는 로고 전체(홈 화면 추가용). -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <title>CampusMate 관리자</title>
+</head>
+<!-- Flutter 가 뜨기 전 빈 화면을 web-canvas(#F7F7F7)로 칠해 흰 번쩍임 없이 판정 화면으로 이어지게 한다. -->
+<body style="margin:0;background:#F7F7F7">
+
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>
