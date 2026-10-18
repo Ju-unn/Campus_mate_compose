@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:campus_mate_admin/api/admin_api.dart';
 import 'package:campus_mate_admin/heart_tasks/heart_task_item.dart';
+import 'package:campus_mate_admin/reports/report_item.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -155,6 +156,124 @@ void main() {
         apiWith((_) => json(500, {})).approveHeartTask('s1'),
         throwsA(isA<AdminApiFailure>().having((e) => e is AlreadyReviewed, 'is AlreadyReviewed', isFalse)),
       );
+    });
+  });
+
+  group('신고 검수(D2 · A4)', () {
+    Map<String, Object?> summary(String id, [String type = 'message']) => {
+      'id': id,
+      'target_type': type,
+      'target_id': 'c-$id',
+      'reason': 'abuse',
+      'reason_note': null,
+      'status': 'open',
+      'created_at': '2026-10-18T02:20:00+00:00',
+      'resolved_at': null,
+      'target_profile': {'id': 'p1', 'nickname': '하늘', 'university': '테스트대학교', 'status': 'active', 'auto_hidden_at': null},
+    };
+    Map<String, Object?> detail(String id) => {
+      ...summary(id),
+      'snapshot': {'message_id': 'm', 'match_id': 'room', 'body': '글', 'created_at': '2026-10-18T02:00:00+00:00'},
+      'content_status': null,
+      'open_reporters': 1,
+      'other_reports': <Object?>[],
+    };
+
+    test('목록: GET /admin/reports?status= — 종류를 고르면 type 을 단다', () async {
+      final api = apiWith((_) => json(200, {'items': [summary('r1'), summary('r2', 'poll')]}));
+
+      final open = await api.listReports();
+      await api.listReports(status: ReportStatus.dismissed, type: ReportTargetType.friendReview);
+
+      expect(open.map((i) => i.id), ['r1', 'r2']);
+      expect(requests.map((r) => '${r.method} ${r.url}'), [
+        'GET https://api.test/admin/reports?status=open',
+        'GET https://api.test/admin/reports?status=dismissed&type=friend_review',
+      ]);
+    });
+
+    test('한 건: GET /admin/reports/{id}', () async {
+      final api = apiWith((_) => json(200, detail('r1')));
+
+      final got = await api.getReport('r1');
+
+      expect(requests.single.url.path, '/admin/reports/r1');
+      expect(got.openReporters, 1);
+    });
+
+    test('닫기: POST /resolve {outcome, note, same_target} — 메모는 앞뒤 공백만 떼고, 비면 null', () async {
+      final api = apiWith((_) => json(200, detail('r1')));
+
+      await api.resolveReport('r1', ReportStatus.actioned, note: '  사진 확인  ', sameTarget: true);
+      await api.resolveReport('r1', ReportStatus.dismissed, note: '   ');
+
+      expect(requests.map((r) => r.url.path), everyElement('/admin/reports/r1/resolve'));
+      expect(jsonDecode(requests.first.body), {'outcome': 'actioned', 'note': '사진 확인', 'same_target': true});
+      expect(jsonDecode(requests.last.body), {'outcome': 'dismissed', 'note': null, 'same_target': false});
+    });
+
+    test('채팅 앞뒤: POST /chat-context {reason} → 줄 목록(글자는 그대로, 앞뒤 공백만 뗌)', () async {
+      final api = apiWith(
+        (_) => json(200, {
+          'messages': [
+            {'id': 'm1', 'kind': 'text', 'body': '<b>안녕</b>', 'created_at': '2026-10-18T02:00:00+00:00', 'from_target': true, 'reported': false},
+          ],
+        }),
+      );
+
+      final lines = await api.chatContext('r1', ' 신고 확인 ');
+
+      expect(requests.single.url.path, '/admin/reports/r1/chat-context');
+      expect(jsonDecode(requests.single.body), {'reason': '신고 확인'});
+      expect(lines.single.body, '<b>안녕</b>');
+    });
+
+    test('사람 조치: POST /admin/profiles/{id}/suspend · unsuspend · unhide {reason}', () async {
+      final api = apiWith((_) => json(200, {'id': 'p1', 'status': 'suspended'}));
+
+      for (final action in ProfileAction.values) {
+        await api.actOnProfile('p1', action, '사유');
+      }
+
+      expect(requests.map((r) => r.url.path), [
+        '/admin/profiles/p1/suspend',
+        '/admin/profiles/p1/unsuspend',
+        '/admin/profiles/p1/unhide',
+      ]);
+      expect(requests.map((r) => jsonDecode(r.body)), everyElement({'reason': '사유'}));
+    });
+
+    test('글 가림: POST /admin/content/polls|friend-reviews/{id}/blind|unblind {reason}', () async {
+      final api = apiWith((_) => json(200, {'id': 'c', 'status': 'blinded'}));
+
+      await api.setContentStatus(ReportTargetType.poll, 'c1', blind: true, reason: '사유');
+      await api.setContentStatus(ReportTargetType.friendReview, 'c2', blind: false, reason: '사유');
+
+      expect(requests.map((r) => r.url.path), ['/admin/content/polls/c1/blind', '/admin/content/friend-reviews/c2/unblind']);
+    });
+
+    test('번호에 / · . · % 가 있으면 요청을 보내지 않고 실패 — 다른 관리자 API 를 부르지 못한다', () async {
+      final api = apiWith((_) => json(200, {}));
+
+      for (final id in ['../me', '..%2Fme', 'a/b', '%2e%2e', 'x y', '']) {
+        await expectLater(api.getReport(id), throwsA(isA<AdminApiFailure>()), reason: id);
+        await expectLater(api.resolveReport(id, ReportStatus.actioned), throwsA(isA<AdminApiFailure>()), reason: id);
+        await expectLater(api.chatContext(id, '사유'), throwsA(isA<AdminApiFailure>()), reason: id);
+        await expectLater(api.actOnProfile(id, ProfileAction.suspend, '사유'), throwsA(isA<AdminApiFailure>()), reason: id);
+        await expectLater(
+          api.setContentStatus(ReportTargetType.poll, id, blind: true, reason: '사유'),
+          throwsA(isA<AdminApiFailure>()),
+          reason: id,
+        );
+      }
+      expect(requests, isEmpty);
+    });
+
+    test('409 already_done 은 이미 처리됨(AlreadyReviewed) 예외', () async {
+      final api = apiWith((_) => json(409, {'detail': 'already_done'}));
+
+      await expectLater(api.resolveReport('r1', ReportStatus.actioned), throwsA(isA<AlreadyReviewed>()));
+      await expectLater(api.actOnProfile('p1', ProfileAction.unhide, '사유'), throwsA(isA<AlreadyReviewed>()));
     });
   });
 
