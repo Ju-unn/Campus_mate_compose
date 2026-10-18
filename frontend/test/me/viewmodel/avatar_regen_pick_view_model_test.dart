@@ -47,6 +47,7 @@ void main() {
   late FakeMeRepository me;
   late FakeAvatarRepository avatars;
   late ProviderContainer container;
+  late FakeImageCompressor compressor;
 
   /// 뷰모델을 듣는 쪽(화면 하나). 닫으면 화면이 떠난 것과 같다.
   late ProviderSubscription<AvatarRegenPickUiState> listener;
@@ -56,12 +57,13 @@ void main() {
   Future<AvatarRegenPickViewModel> prepare(WidgetTester tester, {MyProfile? profile}) async {
     me = FakeMeRepository(Success(profile ?? _profile()));
     avatars = FakeAvatarRepository();
+    compressor = FakeImageCompressor();
     container = ProviderContainer(
       overrides: [
         meRepositoryProvider.overrideWithValue(me),
         avatarRepositoryProvider.overrideWithValue(avatars),
         faceDetectorProvider.overrideWithValue(FakeFaceDetector()),
-        imageCompressorProvider.overrideWithValue(FakeImageCompressor()),
+        imageCompressorProvider.overrideWithValue(compressor),
       ],
     );
     addTearDown(container.dispose);
@@ -185,6 +187,29 @@ void main() {
 
       expect(avatars.regenerateCount, 1);
       expect(container.exists(avatarRegenPickViewModelProvider), isFalse); // 끝났으니 놓였다
+    });
+  });
+
+  // 압축본(아바타 원본 사본)을 폰에 남기지 않는다(2026-10-18 보안 검사). 등록이 막히면 다시 누를 때 화면이 그 사진을 계속 보여 주니 남긴다.
+  group('압축본 정리', () {
+    testWidgets('사진 교체와 등록이 끝나면 압축본을 지운다', (tester) async {
+      final viewModel = await prepare(tester);
+      avatars.statusResults.add(const Success(AvatarFailed()));
+
+      await viewModel.submit();
+
+      expect(container.read(avatarRegenPickViewModelProvider).completed, isTrue);
+      expect(compressor.discardedPaths, [photo.path]);
+    });
+
+    testWidgets('등록이 막히면 압축본을 남긴다', (tester) async {
+      final viewModel = await prepare(tester);
+      me.savePhotosResult = const FailureResult(ServerRejectedFailure('사진을 다시 확인해 주세요'));
+
+      await viewModel.submit();
+
+      expect(container.read(avatarRegenPickViewModelProvider).completed, isFalse);
+      expect(compressor.discardedPaths, isEmpty);
     });
   });
 
