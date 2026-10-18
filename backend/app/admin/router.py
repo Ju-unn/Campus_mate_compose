@@ -7,6 +7,7 @@ from app.admin.caller import AdminCaller, get_admin_caller
 from app.admin.heart_task_review import router as heart_task_review_router
 from app.admin.moderation import router as moderation_router
 from app.admin.report_review import router as report_review_router
+from app.admin.stats import router as stats_router
 from app.admin.user_actions import router as user_actions_router
 from app.admin.users import router as users_router
 
@@ -19,6 +20,7 @@ router.include_router(users_router)
 router.include_router(user_actions_router)
 router.include_router(billing_router)
 router.include_router(action_log_router)
+router.include_router(stats_router)
 
 
 @router.get("/me")
