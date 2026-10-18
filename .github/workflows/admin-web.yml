@@ -1,0 +1,86 @@
+name: Admin Web
+
+# 관리자 웹(admin_web/)만 본다 — 앱(frontend/) CI 와 따로 돈다(관리자 대시보드 설계서 §5 · §10).
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'admin_web/**'
+      - '.github/workflows/admin-web.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'admin_web/**'
+      - '.github/workflows/admin-web.yml'
+
+# 받아서 분석 · 시험 · 빌드만 한다. Vercel 업로드는 Vercel 토큰으로 하므로 저장소 쓰기 권한이 필요 없다.
+permissions:
+  contents: read
+
+jobs:
+  analyze-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: admin_web
+    steps:
+      - uses: actions/checkout@v5
+      # 외부(제3자) 액션이라 태그 대신 커밋으로 고정한다(flutter.yml 과 같은 커밋 · 같은 Flutter).
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version: 3.47.3
+          channel: stable
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+
+  deploy:
+    needs: analyze-test
+    # main 에 반영될 때만. PR 에서는 배포하지 않는다.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    # 올리는 도중 끊기지 않게 앞 실행을 취소하지 않고 줄을 세운다.
+    concurrency:
+      group: admin-web-deploy
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: admin_web
+    env:
+      # 브라우저로 내려가도 되는 값만 넣는다(anon 키 · 주소). service_role 키는 여기 두지 않는다.
+      SUPABASE_URL: ${{ vars.ADMIN_SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.ADMIN_SUPABASE_ANON_KEY }}
+      API_BASE_URL: ${{ vars.ADMIN_API_BASE_URL }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version: 3.47.3
+          channel: stable
+      - run: flutter pub get
+      # 값은 명령줄에 직접 쓰지 않고 환경 변수로 넘긴다(값에 따옴표 · 특수문자가 있어도 셸이 깨지지 않게).
+      - name: 웹 빌드
+        run: |
+          flutter build web --release \
+            --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+            --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
+            --dart-define=API_BASE_URL="$API_BASE_URL"
+          du -sh build/web
+      # 사용자가 Vercel 을 만들기 전(토큰 없음)에도 CI 가 빨개지지 않게 건너뛰고 성공한다(설계서 §10).
+      - name: Vercel 배포
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "Vercel 미설정 — 건너뜀"
+            exit 0
+          fi
+          # 토큰은 있는데 접속 값이 비면 "설정 누락" 화면이 운영 주소를 덮는다 — 올리지 않고 실패로 알린다.
+          for name in SUPABASE_URL SUPABASE_ANON_KEY API_BASE_URL VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+            if [ -z "${!name}" ]; then
+              echo "::error::$name 값이 비어 있어 배포하지 않았어요(GitHub 저장소 변수 · 비밀값을 확인해 주세요)"
+              exit 1
+            fi
+          done
+          npx --yes vercel@64.5.0 deploy build/web --prod --yes --token "$VERCEL_TOKEN"
