@@ -1,22 +1,17 @@
 import 'dart:math' as math;
 
 import 'package:campus_mate_admin/billing/billing_item.dart';
+import 'package:campus_mate_admin/charts/chart_scale.dart';
 import 'package:campus_mate_admin/theme/admin_colors.dart';
 import 'package:campus_mate_admin/theme/admin_spacing.dart';
 import 'package:campus_mate_admin/theme/admin_typography.dart';
 import 'package:flutter/material.dart';
 
 /// 그래프 세로 눈금 한 칸의 크기: 눈금 3칸이 가장 큰 날을 덮는 1 · 2 · 5 × 10^k (최소 1,000). 매출이 모두 0 이면 10만(pen 0 · 10만 · 20만 · 30만).
+/// 계산은 홈 · 매칭 그래프와 같은 [niceStep] 이다.
 int niceTickStep(int maxValue) {
   if (maxValue <= 0) return 100000;
-  final need = (maxValue / 3).ceil();
-  var unit = 1000;
-  while (true) {
-    for (final m in const [1, 2, 5]) {
-      if (m * unit >= need) return m * unit;
-    }
-    unit *= 10;
-  }
+  return niceStep(maxValue, intervals: 3, minMax: 0, minStep: 1000);
 }
 
 /// 눈금 글자: 0 · 5천 · 10만 · 1.5만
