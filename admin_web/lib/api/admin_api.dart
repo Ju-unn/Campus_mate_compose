@@ -1,9 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:campus_mate_admin/actions/action_item.dart';
+import 'package:campus_mate_admin/api/cursor_page.dart';
 import 'package:campus_mate_admin/billing/billing_item.dart';
 import 'package:campus_mate_admin/heart_tasks/heart_task_item.dart';
+import 'package:campus_mate_admin/home/home_item.dart';
+import 'package:campus_mate_admin/matching/matching_item.dart';
 import 'package:campus_mate_admin/reports/report_item.dart';
+import 'package:campus_mate_admin/unknown_domains/unknown_domain_item.dart';
 import 'package:campus_mate_admin/users/user_item.dart';
 import 'package:http/http.dart' as http;
 
@@ -192,6 +197,58 @@ class AdminApi {
       if (body case {'items': final List<Object?> items}) return [for (final row in items) ShortfallRow.fromJson(row)];
       throw const FormatException('못 거둔 하트 목록의 모양이 아니에요');
     });
+  }
+
+  // 홈(A2) · 미등록 학교 메일(A6) · 매칭(A9) · 작업 기록(A7) — 읽기만. 서버 계약은 D4 계획서 표 · D3 action_log.py 그대로.
+
+  Future<HomeStats> homeStats() => _read(send('GET', '/admin/stats'), HomeStats.fromJson);
+
+  /// 오래된 순 · 정확히 [days] 줄. 접수량 막대는 이 응답의 마지막 14줄을 화면이 잘라 쓴다.
+  Future<List<DailyStat>> statsDaily({int days = 30}) {
+    return _read(send('GET', '/admin/stats/daily', query: {'days': '$days'}), (body) {
+      if (body case {'days': final List<Object?> rows}) return [for (final row in rows) DailyStat.fromJson(row)];
+      throw const FormatException('일별 통계의 모양이 아니에요');
+    });
+  }
+
+  /// 활성 많은 순. [includeEmpty] 면 활성 0 인 학교도(매칭 학교 고르기).
+  Future<List<UniversityStatus>> universities({bool includeEmpty = false}) {
+    return _read(send('GET', '/admin/universities', query: {'include_empty': '$includeEmpty'}), (body) {
+      if (body case {'items': final List<Object?> rows}) return [for (final row in rows) UniversityStatus.fromJson(row)];
+      throw const FormatException('학교 목록의 모양이 아니에요');
+    });
+  }
+
+  Future<HealthReport> health() => _read(send('GET', '/admin/health'), HealthReport.fromJson);
+
+  /// 많은 순(서버 기본 200곳)
+  Future<List<UnknownDomain>> unknownDomains() {
+    return _read(send('GET', '/admin/unknown-domains'), (body) {
+      if (body case {'items': final List<Object?> rows}) return [for (final row in rows) UnknownDomain.fromJson(row)];
+      throw const FormatException('미등록 학교 메일 목록의 모양이 아니에요');
+    });
+  }
+
+  Future<MatchingSummary> matchingSummary() => _read(send('GET', '/admin/matching/summary'), MatchingSummary.fromJson);
+
+  Future<List<DailyMatching>> matchingDaily({int days = 30}) {
+    return _read(send('GET', '/admin/matching/daily', query: {'days': '$days'}), (body) {
+      if (body case {'days': final List<Object?> rows}) return [for (final row in rows) DailyMatching.fromJson(row)];
+      throw const FormatException('매칭 일별의 모양이 아니에요');
+    });
+  }
+
+  /// 최근 순 · 쪽당 50(서버 기본). [status] `chatting` · `shared` · `closed`, [university] 학교 id, [before] 앞 쪽의 `next_before`.
+  /// 쿼리는 Uri 가 퍼센트 인코딩한다(`|` · `+`).
+  Future<CursorPage<MatchPair>> matchingPairs({String? status, String? university, String? before}) {
+    final query = {'status': ?status, 'university': ?university, 'before': ?before};
+    return _read(send('GET', '/admin/matching/pairs', query: query), (body) => CursorPage.fromJson(body, MatchPair.fromJson, '매칭 목록'));
+  }
+
+  /// 작업 기록 최근 순 · 쪽당 50. [target] 은 대상 id 정확 일치(UUID 모양 검사는 화면이 먼저 한다).
+  Future<CursorPage<ActionRow>> listActions({String? target, String? before}) {
+    final query = {'target': ?target, 'before': ?before};
+    return _read(send('GET', '/admin/actions', query: query), (body) => CursorPage.fromJson(body, ActionRow.fromJson, '작업 기록'));
   }
 
   /// 경로에 넣는 번호로 받는 글자: 영숫자와 하이픈(서버 번호는 UUID). 주소창 링크의 `..%2Fme` 를 go_router 가 `../me` 로
