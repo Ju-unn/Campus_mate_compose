@@ -16,7 +16,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 /// 하루 10개를 넘겼을 때(서버 `POLL_DAILY_LIMIT` 과 같은 문구, 사용자 결정 3).
-/// 429 는 공용 분류가 "너무 많이 시도했어요" 로 바꾸므로 이 화면이 문구를 바꿔 낀다.
+/// 429 는 [RateLimitedFailure] 로 오고, 이 화면이 그 형을 보고 문구를 앱 값으로 바꿔 낀다(서버 문구가 실려 와도 같다).
 const String pollDailyLimitMessage = '오늘은 질문을 더 올릴 수 없어요';
 
 /// 글자 수는 서버(`len`) · DB(`char_length`)와 같은 **유니코드 코드 포인트** 로 센다.
