@@ -197,3 +197,5 @@ flutter_launcher_icons:
 | 연결 | `AndroidManifest.xml` 의 `com.google.firebase.messaging.default_notification_icon` = `@drawable/ic_stat_campusmate` | FCM 이 띄우는 알림(앱이 뒤에 있을 때)과 앱이 직접 띄우는 앞 화면 알림이 같은 그림을 쓴다 |
 
 **만든 방법**: iOS 1024 앱 아이콘(`AppIcon.appiconset` 의 1024)에서 **분홍 심볼이 덮인 정도를 알파로 뽑아 흰색으로 칠했다**(글자 · 흰 바탕은 버린다). 24dp 캔버스에 **사방 1dp 여백**을 두고 밀도별로 줄였다. 앱 아이콘을 바꾸면 이 아이콘도 같이 다시 만든다. iOS 는 알림에 앱 아이콘을 그대로 쓰므로 따로 만들 것이 없다.
+
+**2026-10-19 추가(PR #618): 작은 아이콘 뒤 원 색.** 색을 안 주면 폰이 파란 원을 골랐다. `android/app/src/main/res/values/colors.xml` 의 `notification_accent`(`#FF385C`, `AppColors.primary` 와 같은 값)를 `AndroidManifest.xml` 의 `com.google.firebase.messaging.default_notification_color` 에 연결했고(앱이 꺼져 있을 때 FCM 알림), 앱이 떠 있을 때 띄우는 알림(`LocalSystemNotifications`)도 `AppColors.primary` 를 준다. `AppColors.primary` 를 바꾸면 `colors.xml` 도 같이 바꾼다(시험이 세 값이 같은지 본다). 앱 아이콘 전체를 알림 큰 그림으로 쓰는 방식은 출시 후 과제다.
