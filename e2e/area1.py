@@ -35,7 +35,7 @@ DEPARTMENT_REQUIRED = '학과 정보를 먼저 입력해 주세요'  # 서버 er
 CONSENT_REQUIRED = '약관 동의를 먼저 해 주세요'
 INVALID_INPUT = '입력한 값을 다시 확인해 주세요'
 PHONE_INVALID = '올바른 휴대폰 번호를 입력해 주세요'  # 서버 errors.PHONE_NUMBER_INVALID(422)
-CONSENT_VERSION = '2026-09-29'  # backend/app/consents/policy.py CONSENT_VERSION
+CONSENT_VERSION = '2026-10-19'  # backend/app/consents/policy.py CONSENT_VERSION
 TINY_JPEG = b'\xff\xd8\xff\xe0' + bytes(16) + b'\xff\xd9'  # 사진 검사 전에 막히는 요청에 싣는 사진이라 내용은 상관없다
 
 

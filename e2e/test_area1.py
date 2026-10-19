@@ -565,6 +565,11 @@ class HypothesisTest(Base):
         hook = (tools.ROOT / 'backend' / 'app' / 'auth_hooks' / 'router.py').read_text(encoding='utf-8')
         self.assertIn('return HookDecision.reject(errors.SCHOOL_EMAIL_ALIAS)', hook)
 
+    def test_the_consent_version_is_the_servers_consent_version(self):
+        policy = (tools.ROOT / 'backend' / 'app' / 'consents' / 'policy.py').read_text(encoding='utf-8')
+        server = re.search(r'^CONSENT_VERSION = "([^"]+)"', policy, re.M).group(1)
+        self.assertEqual(area1.CONSENT_VERSION, server)
+
     def test_auth_24_asks_with_a_plus_alias_of_the_test_school_domain(self):
         fake = self.serve({('POST', '/auth/v1/otp'): Reply(422, ALIAS_REJECT)})
         self.assertEqual(area1.CASES['E-AUTH-24'](self.run), ('pass', ''))
