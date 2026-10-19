@@ -10,6 +10,7 @@ class ContactPickerUiState {
     this.isSubmitting = false,
     this.errorMessage,
     this.completed = false,
+    this.isLimited = false,
   });
 
   /// 기기에서 읽은 전체(번호 있는 사람만). 검색은 [visible] 이 거른다.
@@ -24,6 +25,9 @@ class ContactPickerUiState {
 
   /// 서버 저장과 이름표 저장이 끝났다 — 화면이 닫힌다.
   final bool completed;
+
+  /// iOS 18 에서 일부 연락처만 허용한 상태 — 목록 위에 안내 카드를 보인다(pen 8d `KvQom`). 못 읽으면 false.
+  final bool isLimited;
 
   /// 이름에 검색어가 들어간 사람만(초성 검색 없음).
   List<DeviceContact> get visible {
@@ -44,6 +48,7 @@ class ContactPickerUiState {
     bool? isSubmitting,
     String? errorMessage,
     bool? completed,
+    bool? isLimited,
   }) {
     return ContactPickerUiState(
       contacts: contacts ?? this.contacts,
@@ -53,6 +58,7 @@ class ContactPickerUiState {
       isSubmitting: isSubmitting ?? this.isSubmitting,
       errorMessage: errorMessage,
       completed: completed ?? this.completed,
+      isLimited: isLimited ?? this.isLimited,
     );
   }
 }

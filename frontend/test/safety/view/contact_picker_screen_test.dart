@@ -10,6 +10,7 @@ import 'package:campus_mate/safety/model/contact_name_store.dart';
 import 'package:campus_mate/safety/model/device_contacts.dart';
 import 'package:campus_mate/safety/view/contact_picker_screen.dart';
 import 'package:campus_mate/safety/view/contact_row.dart';
+import 'package:campus_mate/safety/view/limited_contacts_notice.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -255,6 +256,103 @@ void main() {
       expect(clipped, isEmpty);
     });
   }
+
+  // 8d "일부 연락처만 허용"(pen `KvQom` — 원본 `bWKuJ`): iOS 18 에서 일부만 허용한 사람에게만 목록 위에 안내 카드가 뜬다.
+  group('일부 연락처만 허용 안내 카드', () {
+    Finder notice() => find.byType(LimitedContactsNotice);
+
+    testWidgets('limited 이면 앱바 아래 8, 검색칸 위 12 에 카드가 선다', (tester) async {
+      source.limited = true;
+      await pump(tester);
+
+      expect(find.text('일부 연락처만 허용돼 있어요'), findsOneWidget);
+      expect(find.text('목록에 보이지 않는 지인이 있다면 기기 설정에서 전체로 바꿔 주세요.'), findsOneWidget);
+      expect(find.text('기기 설정 열기'), findsOneWidget);
+      final card = tester.getRect(find.byKey(limitedContactsNoticeCardKey));
+      expect(card.top, 56 + 8);
+      expect(tester.getRect(find.byType(TextField)).top - card.bottom, 12);
+    });
+
+    testWidgets('전체 허용(granted)이면 카드가 없다', (tester) async {
+      await pump(tester);
+
+      expect(notice(), findsNothing);
+      expect(find.text('기기 설정 열기'), findsNothing);
+    });
+
+    testWidgets('권한 상태를 읽다 예외가 나면 카드를 안 보이고 목록은 그대로 뜬다', (tester) async {
+      source.limited = true;
+      source.limitedError = Exception('channel down');
+      await pump(tester);
+
+      expect(notice(), findsNothing);
+      expect(find.byType(ContactRow), findsNWidgets(2));
+    });
+
+    testWidgets('"기기 설정 열기"를 누르면 설정을 연다', (tester) async {
+      source.limited = true;
+      await pump(tester);
+
+      await tester.tap(find.text('기기 설정 열기'));
+      await tester.pump();
+
+      expect(source.openSettingsCount, 1);
+    });
+
+    testWidgets('설정에서 앱으로 돌아오면(resumed) 상태와 목록을 다시 읽어 카드가 사라지고 전체 목록이 보인다', (tester) async {
+      source.limited = true;
+      source.contacts = const [momContact];
+      await pump(tester);
+      expect(notice(), findsOneWidget);
+      expect(find.byType(ContactRow), findsNWidgets(1));
+
+      // 사용자가 설정에서 "전체 허용"으로 바꾼 것처럼.
+      source.limited = false;
+      source.contacts = const [momContact, siblingContact];
+      for (final state in [AppLifecycleState.inactive, AppLifecycleState.hidden, AppLifecycleState.paused]) {
+        tester.binding.handleAppLifecycleStateChanged(state);
+      }
+      for (final state in [AppLifecycleState.hidden, AppLifecycleState.inactive, AppLifecycleState.resumed]) {
+        tester.binding.handleAppLifecycleStateChanged(state);
+      }
+      await tester.pumpAndSettle();
+
+      expect(notice(), findsNothing);
+      expect(find.byType(ContactRow), findsNWidgets(2));
+      expect(find.text('동생'), findsOneWidget);
+    });
+
+    testWidgets('앱이 백그라운드로만 갔다 오지 않았으면(resumed 없음) 다시 읽지 않는다', (tester) async {
+      source.limited = true;
+      await pump(tester);
+
+      source.limited = false;
+      await tester.pumpAndSettle();
+
+      expect(notice(), findsOneWidget);
+    });
+
+    for (final scale in [1.3, 2.0]) {
+      testWidgets('글자 배율 $scale 에서도 카드 · 단추가 넘치지 않는다', (tester) async {
+        source.limited = true;
+        await pump(tester, scale: scale);
+
+        expect(tester.takeException(), isNull);
+        expect(tester.getSize(find.widgetWithText(OutlinedButton, '기기 설정 열기')).height, greaterThanOrEqualTo(44));
+        // 카드 안 글자는 잘리지 않는다(하단 AppButton 은 위 반복문과 같은 이유로 뺀다).
+        final clipped = [
+          for (final element in find
+              .descendant(of: notice(), matching: find.byType(RichText))
+              .evaluate())
+            if (element.renderObject case final RenderParagraph p
+                when p.getMaxIntrinsicHeight(p.size.width) > p.size.height + 0.5 ||
+                    p.getMinIntrinsicWidth(double.infinity) > p.size.width + 0.5)
+              p.text.toPlainText(),
+        ];
+        expect(clipped, isEmpty);
+      });
+    }
+  });
 }
 
 /// 첫 번호를 읽힐 때마다 id 를 남긴다 — 화면이 줄을 몇 개 만들었는지 센다.

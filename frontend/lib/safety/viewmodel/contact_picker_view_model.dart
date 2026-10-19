@@ -5,7 +5,7 @@ import 'package:campus_mate/safety/model/device_contacts.dart';
 import 'package:campus_mate/safety/viewmodel/contact_picker_ui_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// 8d 에 들어올 때마다 기기 연락처를 새로 읽는다.
+/// 8d 에 들어올 때마다 기기 연락처를 새로 읽는다. 설정에서 돌아올 때도 [ContactPickerViewModel.load] 를 다시 부른다.
 final contactPickerViewModelProvider =
     NotifierProvider.autoDispose<ContactPickerViewModel, ContactPickerUiState>(ContactPickerViewModel.new);
 
@@ -23,13 +23,35 @@ class ContactPickerViewModel extends Notifier<ContactPickerUiState> {
     return const ContactPickerUiState();
   }
 
+  /// 읽기를 시작할 때마다 올린다 — 먼저 시작한 읽기가 나중에 끝나도 최신 결과를 덮지 못하게 한다.
+  int _generation = 0;
+
+  /// 처음 열 때와 설정에서 돌아올 때 쓴다. 돌아왔을 때 사라진 사람의 선택은 뺀다.
   Future<void> load() async {
+    final mine = ++_generation;
     final contacts = await _readContacts();
-    if (!ref.mounted) return;
+    final isLimited = await _readIsLimited();
+    if (!ref.mounted || _generation != mine) return;
     state = contacts == null
-        ? state.copyWith(isLoading: false, errorMessage: const UnknownFailure().toDisplayMessage())
-        : state.copyWith(isLoading: false, contacts: contacts);
+        ? state.copyWith(isLoading: false, isLimited: isLimited, errorMessage: const UnknownFailure().toDisplayMessage())
+        : state.copyWith(
+            isLoading: false,
+            isLimited: isLimited,
+            contacts: contacts,
+            selectedIds: state.selectedIds.intersection({for (final contact in contacts) contact.id}),
+          );
   }
+
+  /// 상태를 못 읽으면 카드를 안 보이는 쪽(false)이 안전하다 — 목록은 그대로 쓴다.
+  Future<bool> _readIsLimited() async {
+    try {
+      return await ref.read(deviceContactSourceProvider).isLimited();
+    } on Exception {
+      return false;
+    }
+  }
+
+  Future<void> openSettings() => ref.read(deviceContactSourceProvider).openSettings();
 
   /// 권한이 도중에 꺼지면 패키지가 예외를 던진다 — 로딩에 멈춰 있지 않게 null 로 바꾼다.
   Future<List<DeviceContact>?> _readContacts() async {

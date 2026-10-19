@@ -17,6 +17,9 @@ abstract interface class DeviceContactSource {
   /// OS 권한 창을 띄운다. "다시 묻지 않음"이면 창 없이 곧바로 false 가 온다.
   Future<bool> requestPermission();
 
+  /// iOS 18 "일부 연락처만 허용"인가. 안드로이드 · 이전 iOS 는 이 상태가 없어 늘 false 다.
+  Future<bool> isLimited();
+
   Future<void> openSettings();
 
   /// 번호가 하나라도 있는 연락처만, 기기가 주는 순서대로.
@@ -36,6 +39,10 @@ class FlutterContactsSource implements DeviceContactSource {
         PermissionStatus.granted || PermissionStatus.limited => true,
         _ => false,
       };
+
+  /// 패키지 `check` 는 대화창 없이 지금 상태만 읽는다. iOS 18 에서만 `limited` 가 온다.
+  @override
+  Future<bool> isLimited() async => await FlutterContacts.permissions.check(PermissionType.read) == PermissionStatus.limited;
 
   @override
   Future<void> openSettings() => FlutterContacts.permissions.openSettings();
