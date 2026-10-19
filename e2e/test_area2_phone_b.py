@@ -95,9 +95,9 @@ class World(Fake):
     def add_submission(self, who, task, status='submitted', created_at=None):
         sid = self.next_id('sub')
         row = {'id': sid, 'profile_id': who, 'task': task, 'status': status, 'reward_hearts': self.REWARD[task],
-               'storage_path': f'{who}/{sid}.jpg', 'reject_reason': None, 'created_at': created_at}
+               'storage_paths': [f'{who}/{sid}-1.jpg'], 'reject_reason': None, 'created_at': created_at}
         self.rows('heart_task_submissions').append(row)
-        self.files.append(row['storage_path'])
+        self.files.extend(row['storage_paths'])
         return row
 
     # 투표 ------------------------------------------------------------------------------------
@@ -562,7 +562,7 @@ class SubmitFlowTest(PhoneBase):
     def test_heart_04_one_submitted_row_40_hearts_and_a_proof_file_at_the_documented_path(self):
         self.assertEqual(self.attempt('E-HEART-04')[0], 'pass')
         self.assertEqual([(r['status'], r['task'], r['reward_hearts']) for r in self.rows()], [('submitted', 'everytime_post', 40)])
-        self.assertEqual(self.world.files, [f"id-1/{self.rows()[0]['id']}.jpg"])
+        self.assertEqual(self.world.files, [f"id-1/{self.rows()[0]['id']}-1.jpg"])
 
     def test_heart_04_wrong_row_or_missing_file_fails(self):
         for label, effect in (
@@ -571,7 +571,7 @@ class SubmitFlowTest(PhoneBase):
             ('이미 승인', lambda w, job: w.add_submission('id-1', 'everytime_post', 'approved')),
             ('행 없음', lambda w, job: None),
             ('파일 없음', lambda w, job: (w.add_submission('id-1', 'everytime_post'), w.files.clear())),
-            ('경로 다름', lambda w, job: w.add_submission('id-1', 'everytime_post').update(storage_path='id-1/x.png')),
+            ('경로 다름', lambda w, job: w.add_submission('id-1', 'everytime_post').update(storage_paths=['id-1/x.png'])),
         ):
             with self.subTest(label):
                 self.setUp()

@@ -498,7 +498,7 @@ def heart_18(run):
     account = _home(run)
     sid = area2._new_id()
     when = seoul_month_start(_now()) - timedelta(days=1)
-    _past_submission(run, account, 'everytime_post', when, 'submitted', storage_path=f"{account['id']}/{sid}.jpg")
+    _past_submission(run, account, 'everytime_post', when, 'submitted', storage_paths=[f"{account['id']}/{sid}-1.jpg"])
     task = _heart_task(run, account, 'everytime_post')
     check.that((task['state'], task['used']) == ('reviewing', 0), f'state {task["state"]} used {task["used"]}(기대 reviewing · 0)')
     check.reply('새 제출', _submit(run, account), 409, IN_REVIEW)

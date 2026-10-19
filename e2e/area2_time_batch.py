@@ -509,7 +509,7 @@ def _seed_reviewing(run, account, task, days):
                           {'apikey': key, 'Authorization': f'Bearer {key}'}, raw=(TINY_JPEG, 'image/jpeg'))
     if uploaded[0] >= 300:
         raise Blocked(f'인증샷 파일 올리기 {uploaded[0]}')
-    _insert(run, 'heart_task_submissions', [{'id': sid, 'profile_id': account['id'], 'task': task, 'storage_path': path, 'status': 'submitted',
+    _insert(run, 'heart_task_submissions', [{'id': sid, 'profile_id': account['id'], 'task': task, 'storage_paths': [path], 'status': 'submitted',
                                             'reward_hearts': 50, 'created_at': (area2._now() - timedelta(days=days)).isoformat()}],
             account['id'])
     return sid, path
