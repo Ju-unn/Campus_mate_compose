@@ -20,6 +20,20 @@ void main() {
     );
   });
 
+  // 학생증 인증은 2026-10-17 에 없앴다. 사진은 프로필 · 하트 인증샷 · 졸업생 졸업증명서(10-19 되살림)에만 쓴다.
+  test('NSPhotoLibraryUsageDescription 은 지금 사진을 쓰는 곳만 말하고 학생증을 말하지 않는다', () {
+    final plist = File('ios/Runner/Info.plist').readAsStringSync();
+    final usage = RegExp(r'<key>NSPhotoLibraryUsageDescription</key>\s*<string>([^<]*)</string>').firstMatch(plist);
+
+    expect(usage, isNotNull, reason: 'Info.plist 에서 NSPhotoLibraryUsageDescription 을 찾지 못했다');
+    expect(
+      usage!.group(1),
+      '프로필 사진, 하트 무료로 모으기 인증 사진, 졸업생 인증용 졸업증명서 사진을 고르기 위해 사진 보관함에 접근해요. '
+      '고른 사진만 쓰고 다른 사진은 보지 않아요.',
+    );
+    expect(plist, isNot(contains('학생증')));
+  });
+
   // 앱은 주소로 화면을 열 일이 없다(2026-10-18 보안 검사 중간 2). 꺼도 카카오 복귀 스킴은 플러그인이 먼저 받는다
   // (엔진 FlutterSceneLifeCycle: 플러그인이 안 받은 주소만 이 값을 보고 라우터로 넘긴다).
   test('FlutterDeepLinkingEnabled 는 false 다', () {

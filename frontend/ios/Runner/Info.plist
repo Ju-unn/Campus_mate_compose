@@ -105,7 +105,7 @@
 		<string>UIInterfaceOrientationPortrait</string>
 	</array>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>프로필 사진, 학생증·졸업증명서 사진, 인증 사진을 고르기 위해 사진 보관함에 접근해요. 고른 사진만 쓰고 다른 사진은 보지 않아요.</string>
+	<string>프로필 사진, 하트 무료로 모으기 인증 사진, 졸업생 인증용 졸업증명서 사진을 고르기 위해 사진 보관함에 접근해요. 고른 사진만 쓰고 다른 사진은 보지 않아요.</string>
 	<key>NSContactsUsageDescription</key>
 	<string>차단할 지인을 연락처에서 고르기 위해 사용해요. 고른 분의 전화번호만 원래 번호로 되돌릴 수 없는 형태로 바꿔 서버에 저장해요. 이름과 연락처 목록은 서버로 보내지 않아요.</string>
 </dict>

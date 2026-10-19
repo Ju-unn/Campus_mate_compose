@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:campus_mate/billing/model/heart_bundles.dart';
-import 'package:campus_mate/billing/model/heart_price_diag.dart'; // 임시 진단
 import 'package:campus_mate/billing/model/heart_purchase_notice.dart';
 import 'package:campus_mate/billing/model/payment_store.dart';
 import 'package:campus_mate/billing/view/heart_bundle_card.dart';
@@ -121,16 +120,6 @@ class _HeartStoreScreenState extends ConsumerState<HeartStoreScreen> {
                     const SizedBox(height: AppSpacing.lg),
                     if (state != null) ...[_PurchaseSection(state: state), const SizedBox(height: AppSpacing.lg)],
                     const TourTarget(id: TourTargetId.heartStoreFree, child: _FreeSection()),
-                    // 임시 진단 — 스토어가 준 가격 정보. 비어 있으면 아무것도 그리지 않는다. 투어 빈자리가 맨 끝이어야 해 그 앞에 둔다.
-                    ValueListenableBuilder<String>(
-                      valueListenable: heartPriceDiag,
-                      builder: (_, text, _) => text.isEmpty
-                          ? const SizedBox.shrink()
-                          : Padding(
-                              padding: const EdgeInsets.only(top: AppSpacing.lg),
-                              child: SelectableText(text, style: AppTypography.caption.copyWith(color: AppColors.muted)),
-                            ),
-                    ),
                     // 6단계가 무료로 모으기를 앱바 아래 12 로 올릴 때만 늘어나는 빈자리 — 평소엔 높이 0.
                     const TourScrollRoom(id: TourTargetId.heartStoreFree),
                   ],
