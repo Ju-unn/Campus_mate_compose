@@ -6,7 +6,10 @@ from typing import NamedTuple
 from app.graduate_verification.hashing import normalize_document_number
 
 # 라벨 뒤 같은 줄 또는 바로 다음 줄의 영숫자 덩어리(공백 · 하이픈으로 이어진 2자 이상 토막들).
-_LABEL = r"(?:문서\s*확인\s*번호|확인\s*번호|발급\s*번호)"
+# 한국 대학 · 정부24 양식의 번호 라벨. 서울대학교 양식은 "원본대조번호"다(제 ○○ 호 · 학위등록번호는 문서확인번호가 아니라 넣지 않는다).
+# 라벨 글자 사이 공백은 허용한다(양식이 글자를 벌려 찍으면 OCR 이 그대로 읽는다).
+_LABEL_WORDS = ("원본대조번호", "문서확인번호", "문서번호", "확인번호", "발급번호")
+_LABEL = "(?:" + "|".join(r"\s*".join(word) for word in _LABEL_WORDS) + ")"
 _NUMBER_AFTER_LABEL = re.compile(
     _LABEL + r"[ \t]*[:：]?[ \t]*\n?[ \t]*([A-Za-z0-9]{2,}(?:[ \t-][A-Za-z0-9]{2,})*)"
 )
