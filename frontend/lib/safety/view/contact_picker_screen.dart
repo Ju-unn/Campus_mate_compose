@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -9,6 +11,7 @@ import 'package:campus_mate/safety/model/contact_name_store.dart';
 import 'package:campus_mate/safety/model/device_contacts.dart';
 import 'package:campus_mate/safety/view/contact_privacy_copy.dart';
 import 'package:campus_mate/safety/view/contact_row.dart';
+import 'package:campus_mate/safety/view/limited_contacts_notice.dart';
 import 'package:campus_mate/safety/viewmodel/contact_picker_ui_state.dart';
 import 'package:campus_mate/safety/viewmodel/contact_picker_view_model.dart';
 import 'package:flutter/material.dart';
@@ -17,11 +20,33 @@ import 'package:go_router/go_router.dart';
 
 /// 8d 차단할 연락처 선택(pen `bWKuJ`). 권한은 들어오기 전에 받았다(`openContactPicker`).
 /// 차단을 마치면 `true` 를 돌려주며 닫힌다 — 여는 쪽이 16b 로 가거나 목록을 다시 읽는다.
-class ContactPickerScreen extends ConsumerWidget {
+class ContactPickerScreen extends ConsumerStatefulWidget {
   const ContactPickerScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ContactPickerScreen> createState() => _ContactPickerScreenState();
+}
+
+class _ContactPickerScreenState extends ConsumerState<ContactPickerScreen> {
+  /// 기기 설정에서 "전체 허용"으로 바꾸고 돌아오면 권한 상태와 목록을 다시 읽는다(앱 복귀 때 읽는 다른 화면과 같은 모양).
+  late final AppLifecycleListener _lifecycle;
+
+  @override
+  void initState() {
+    super.initState();
+    _lifecycle = AppLifecycleListener(
+      onResume: () => unawaited(ref.read(contactPickerViewModelProvider.notifier).load()),
+    );
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     ref.listen(contactPickerViewModelProvider.select((state) => state.completed), (_, completed) {
       if (completed) context.pop(true);
     });
@@ -37,6 +62,8 @@ class ContactPickerScreen extends ConsumerWidget {
       ),
       body: Column(
         children: [
+          // 일부 연락처만 허용했을 때만(iOS 18) — 앱바 아래 · 검색칸 위(pen 8d `KvQom`).
+          if (state.isLimited) LimitedContactsNotice(onOpenSettings: viewModel.openSettings),
           _SearchField(onChanged: viewModel.search),
           Expanded(child: _body(state, viewModel)),
         ],
