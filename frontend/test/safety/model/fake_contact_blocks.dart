@@ -21,6 +21,12 @@ class FakeDeviceContactSource implements DeviceContactSource {
   /// 채우면 fetchAll 이 이것을 던진다 — 읽는 도중 권한이 꺼진 경우.
   Exception? fetchError;
 
+  /// 참이면 iOS 18 "일부 연락처만 허용" 상태다. 안드로이드 · 전체 허용은 false.
+  bool limited = false;
+
+  /// 채우면 isLimited 가 이것을 던진다 — 권한 상태를 읽지 못한 경우.
+  Exception? limitedError;
+
   int requestCount = 0;
   int openSettingsCount = 0;
 
@@ -32,6 +38,12 @@ class FakeDeviceContactSource implements DeviceContactSource {
     requestCount += 1;
     granted = grantOnRequest;
     return granted;
+  }
+
+  @override
+  Future<bool> isLimited() async {
+    if (limitedError case final error?) throw error;
+    return limited;
   }
 
   @override
