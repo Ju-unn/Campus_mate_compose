@@ -5,11 +5,11 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(56);
+select plan(78);
 
 -- 준비 --------------------------------------------------------------------
 -- A = ...90(주 사용자), B = ...91(남 — RLS), M = ...92(달 경계), K = ...93(단톡방 3회 · 반려),
--- P = ...94(검수 중 · 투표 줄), G = ...95(탈퇴 cascade)
+-- P = ...94(검수 중 · 투표 줄), G = ...95(탈퇴 cascade), Q = ...96(단톡방 이어서 제출 · 여러 장 · 락)
 insert into public.universities (id, name, region_group)
 values ('00000000-0000-0000-0000-000000000009', '테스트대학교9', 'seoul');
 
@@ -22,11 +22,12 @@ insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-000000000092', 'h-m@test9.ac.kr'),
   ('00000000-0000-0000-0000-000000000093', 'h-k@test9.ac.kr'),
   ('00000000-0000-0000-0000-000000000094', 'h-p@test9.ac.kr'),
-  ('00000000-0000-0000-0000-000000000095', 'h-g@test9.ac.kr');
+  ('00000000-0000-0000-0000-000000000095', 'h-g@test9.ac.kr'),
+  ('00000000-0000-0000-0000-000000000096', 'h-q@test9.ac.kr');
 
 insert into public.profiles (id, university_id)
 select id, '00000000-0000-0000-0000-000000000009' from auth.users
-where id between '00000000-0000-0000-0000-000000000090' and '00000000-0000-0000-0000-000000000095'
+where id between '00000000-0000-0000-0000-000000000090' and '00000000-0000-0000-0000-000000000096'
 on conflict (id) do nothing;
 
 -- C1: 표 · enum · 권한 · 버킷 ---------------------------------------------
@@ -54,9 +55,9 @@ select results_eq(
 );                                                                                                           -- 10
 
 -- 제약 확인용 줄 E1(A 의 에브리타임, 검수 중). 이 절 끝에서 비운다.
-insert into public.heart_task_submissions (id, profile_id, task, storage_path, reward_hearts)
+insert into public.heart_task_submissions (id, profile_id, task, storage_paths, reward_hearts)
 values ('00000000-0000-0000-0000-0000000000e1', '00000000-0000-0000-0000-000000000090', 'everytime_post',
-        'a/e1.jpg', 40);
+        array['a/e1.jpg'], 40);
 
 select results_eq(
   $$select status::text, reviewed_at is null, reject_reason is null from public.heart_task_submissions
@@ -65,36 +66,36 @@ select results_eq(
   '새 줄은 검수 중 · 검수 시각 없음 · 사유 없음이다'
 );                                                                                                           -- 11
 select throws_ok(
-  $$insert into public.heart_task_submissions (profile_id, task, storage_path, reward_hearts)
-    values ('00000000-0000-0000-0000-000000000090', 'kakao_share', 'a/x.jpg', 0)$$,
+  $$insert into public.heart_task_submissions (profile_id, task, storage_paths, reward_hearts)
+    values ('00000000-0000-0000-0000-000000000090', 'kakao_share', array['a/x.jpg'], 0)$$,
   '23514', null, '약속 하트는 0보다 커야 한다'
 );                                                                                                           -- 12
 select throws_ok(
-  $$insert into public.heart_task_submissions (profile_id, task, storage_path, reward_hearts)
-    values ('00000000-0000-0000-0000-000000000090', 'kakao_share', null, 25)$$,
-  '23514', null, '검수 중인 줄에는 인증샷 경로가 반드시 있다'
+  $$insert into public.heart_task_submissions (profile_id, task, storage_paths, reward_hearts)
+    values ('00000000-0000-0000-0000-000000000090', 'kakao_share', '{}', 25)$$,
+  '23514', null, '검수 중인 줄에는 인증샷 경로가 1~3개 있다'
 );                                                                                                           -- 13
 select throws_ok(
-  $$insert into public.heart_task_submissions (profile_id, task, storage_path, reward_hearts)
-    values ('00000000-0000-0000-0000-000000000090', 'everytime_post', 'a/e9.jpg', 40)$$,
-  '23505', null, '한 항목에 검수 중인 줄은 하나뿐이다 — 거의 동시에 낸 두 번째도 여기서 막힌다'
+  $$insert into public.heart_task_submissions (profile_id, task, storage_paths, reward_hearts)
+    values ('00000000-0000-0000-0000-000000000090', 'everytime_post', array['a/e9.jpg', 'a/e9b.jpg', 'a/e9c.jpg', 'a/e9d.jpg'], 40)$$,
+  '23514', null, '인증샷은 한 줄에 최대 3장이다'
 );                                                                                                           -- 14
 select throws_ok(
-  $$insert into public.heart_task_submissions (profile_id, task, storage_path, reward_hearts, reject_reason)
-    values ('00000000-0000-0000-0000-000000000090', 'kakao_share', 'a/x.jpg', 25, 'reused')$$,
+  $$insert into public.heart_task_submissions (profile_id, task, storage_paths, reward_hearts, reject_reason)
+    values ('00000000-0000-0000-0000-000000000090', 'kakao_share', array['a/x.jpg'], 25, 'reused')$$,
   '23514', null, '반려가 아닌 줄에는 반려 사유가 없다'
 );                                                                                                           -- 15
 select lives_ok(
-  $$insert into public.heart_task_submissions (id, profile_id, task, storage_path, reward_hearts)
+  $$insert into public.heart_task_submissions (id, profile_id, task, storage_paths, reward_hearts)
     values ('00000000-0000-0000-0000-0000000000e2', '00000000-0000-0000-0000-000000000090', 'kakao_share',
-            'a/e2.jpg', 25)$$,
+            array['a/e2.jpg'], 25)$$,
   '다른 항목은 동시에 검수 중일 수 있다'
 );                                                                                                           -- 16
 
 -- B 의 줄 E3 — A 가 못 봐야 한다.
-insert into public.heart_task_submissions (id, profile_id, task, storage_path, reward_hearts)
+insert into public.heart_task_submissions (id, profile_id, task, storage_paths, reward_hearts)
 values ('00000000-0000-0000-0000-0000000000e3', '00000000-0000-0000-0000-000000000091', 'kakao_share',
-        'b/e3.jpg', 25);
+        array['b/e3.jpg'], 25);
 
 set local role authenticated;
 set local request.jwt.claims to '{"sub": "00000000-0000-0000-0000-000000000090", "role": "authenticated"}';
@@ -109,8 +110,8 @@ select is_empty(
   'A 는 B 의 줄을 볼 수 없다'
 );                                                                                                           -- 18
 select throws_ok(
-  $$insert into public.heart_task_submissions (profile_id, task, storage_path, reward_hearts)
-    values ('00000000-0000-0000-0000-000000000090', 'kakao_share', 'a/y.jpg', 25)$$,
+  $$insert into public.heart_task_submissions (profile_id, task, storage_paths, reward_hearts)
+    values ('00000000-0000-0000-0000-000000000090', 'kakao_share', array['a/y.jpg'], 25)$$,
   '42501', null, 'A 는 직접 insert 할 수 없다'
 );                                                                                                           -- 19
 select throws_ok(
@@ -141,12 +142,12 @@ delete from public.heart_task_submissions;
 -- A: 에브리타임 제출 → 검수 중 막힘 → 고정 칸 막힘 → 승인 한 번 → 끝 상태
 select lives_ok(
   $$select public.submit_heart_task('00000000-0000-0000-0000-0000000000f1', '00000000-0000-0000-0000-000000000090',
-      'everytime_post', 'a/f1.jpg', 40, '2026-09-15 12:00:00+09')$$,
+      'everytime_post', array['a/f1.jpg'], 40, '2026-09-15 12:00:00+09')$$,
   '처음 제출은 들어간다'
 );                                                                                                           -- 23
 select throws_ok(
   $$select public.submit_heart_task('00000000-0000-0000-0000-0000000000f2', '00000000-0000-0000-0000-000000000090',
-      'everytime_post', 'a/f2.jpg', 40, '2026-09-15 12:00:01+09')$$,
+      'everytime_post', array['a/f2.jpg'], 40, '2026-09-15 12:00:01+09')$$,
   'CM409', null, '검수 중인 항목은 다시 낼 수 없다(서버 409)'
 );                                                                                                           -- 24
 select throws_ok(
@@ -155,7 +156,7 @@ select throws_ok(
   'CM409', null, '약속 하트는 운영자도 못 바꾼다'
 );                                                                                                           -- 25
 select throws_ok(
-  $$update public.heart_task_submissions set storage_path = null
+  $$update public.heart_task_submissions set storage_paths = '{}'
      where id = '00000000-0000-0000-0000-0000000000f1'$$,
   'CM409', null, '검수 중에는 인증샷 경로를 바꿀 수 없다'
 );                                                                                                           -- 26
@@ -202,18 +203,18 @@ select results_eq(
   '다시 저장 · 반려 시도 뒤에도 원장 1줄 · 잔액 40 — 두 번 주지도 회수하지도 않는다'
 );                                                                                                           -- 33
 select throws_ok(
-  $$update public.heart_task_submissions set storage_path = 'a/other.jpg'
+  $$update public.heart_task_submissions set storage_paths = array['a/other.jpg']
      where id = '00000000-0000-0000-0000-0000000000f1'$$,
   'CM409', null, '검수 뒤 인증샷 경로를 다른 값으로 바꿀 수 없다'
 );                                                                                                           -- 34
 select lives_ok(
-  $$update public.heart_task_submissions set storage_path = null
+  $$update public.heart_task_submissions set storage_paths = '{}'
      where id = '00000000-0000-0000-0000-0000000000f1'$$,
   '검수 뒤 인증샷 경로 비우기(60일 정리)는 된다'
 );                                                                                                           -- 35
 select throws_ok(
   $$select public.submit_heart_task('00000000-0000-0000-0000-0000000000f3', '00000000-0000-0000-0000-000000000090',
-      'everytime_post', 'a/f3.jpg', 40, '2026-09-20 12:00:00+09')$$,
+      'everytime_post', array['a/f3.jpg'], 40, '2026-09-20 12:00:00+09')$$,
   'CM429', null, '에브리타임은 한 달 1회 — 승인된 달에는 더 못 낸다(서버 429)'
 );                                                                                                           -- 36
 
@@ -222,19 +223,19 @@ select throws_ok(
 do $$
 begin
   perform public.submit_heart_task('00000000-0000-0000-0000-0000000000f4', '00000000-0000-0000-0000-000000000092',
-    'everytime_post', 'm/f4.jpg', 40, '2026-09-30 23:59:59+09');
+    'everytime_post', array['m/f4.jpg'], 40, '2026-09-30 23:59:59+09');
   update public.heart_task_submissions set status = 'approved'
    where id = '00000000-0000-0000-0000-0000000000f4';
 end $$;
 
 select throws_ok(
   $$select public.submit_heart_task('00000000-0000-0000-0000-0000000000f5', '00000000-0000-0000-0000-000000000092',
-      'everytime_post', 'm/f5.jpg', 40, '2026-09-30 23:59:59.9+09')$$,
+      'everytime_post', array['m/f5.jpg'], 40, '2026-09-30 23:59:59.9+09')$$,
   'CM429', null, '9월 30일 23:59:59.9(한국)는 아직 9월이다'
 );                                                                                                           -- 37
 select lives_ok(
   $$select public.submit_heart_task('00000000-0000-0000-0000-0000000000f6', '00000000-0000-0000-0000-000000000092',
-      'everytime_post', 'm/f6.jpg', 40, '2026-10-01 00:00:00+09')$$,
+      'everytime_post', array['m/f6.jpg'], 40, '2026-10-01 00:00:00+09')$$,
   '10월 1일 0시(한국)부터 새 달이다 — UTC 로는 아직 9월 30일이어도'
 );                                                                                                           -- 38
 
@@ -242,7 +243,7 @@ select lives_ok(
 do $$
 begin
   perform public.submit_heart_task('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-000000000093',
-    'kakao_share', 'k/a1.jpg', 25, '2026-09-10 12:00:00+09');
+    'kakao_share', array['k/a1.jpg'], 25, '2026-09-10 12:00:00+09');
   update public.heart_task_submissions set status = 'rejected', reject_reason = 'date_missing'
    where id = '00000000-0000-0000-0000-0000000000a1';
 end $$;
@@ -267,13 +268,13 @@ select is(
 do $$
 begin
   perform public.submit_heart_task('00000000-0000-0000-0000-0000000000a2', '00000000-0000-0000-0000-000000000093',
-    'kakao_share', 'k/a2.jpg', 25, '2026-09-11 12:00:00+09');
+    'kakao_share', array['k/a2.jpg'], 25, '2026-09-11 12:00:00+09');
   update public.heart_task_submissions set status = 'approved' where id = '00000000-0000-0000-0000-0000000000a2';
   perform public.submit_heart_task('00000000-0000-0000-0000-0000000000a3', '00000000-0000-0000-0000-000000000093',
-    'kakao_share', 'k/a3.jpg', 25, '2026-09-12 12:00:00+09');
+    'kakao_share', array['k/a3.jpg'], 25, '2026-09-12 12:00:00+09');
   update public.heart_task_submissions set status = 'approved' where id = '00000000-0000-0000-0000-0000000000a3';
   perform public.submit_heart_task('00000000-0000-0000-0000-0000000000a4', '00000000-0000-0000-0000-000000000093',
-    'kakao_share', 'k/a4.jpg', 25, '2026-09-13 12:00:00+09');
+    'kakao_share', array['k/a4.jpg'], 25, '2026-09-13 12:00:00+09');
   update public.heart_task_submissions set status = 'approved' where id = '00000000-0000-0000-0000-0000000000a4';
 end $$;
 
@@ -286,7 +287,7 @@ select results_eq(
 );                                                                                                           -- 42
 select throws_ok(
   $$select public.submit_heart_task('00000000-0000-0000-0000-0000000000a5', '00000000-0000-0000-0000-000000000093',
-      'kakao_share', 'k/a5.jpg', 25, '2026-09-15 12:00:00+09')$$,
+      'kakao_share', array['k/a5.jpg'], 25, '2026-09-15 12:00:00+09')$$,
   'CM429', null, '단톡방은 한 달 3회까지다'
 );                                                                                                           -- 43
 select is(
@@ -299,7 +300,7 @@ select is(
 do $$
 begin
   perform public.submit_heart_task('00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-000000000094',
-    'everytime_post', 'p/b1.jpg', 40, '2026-09-15 12:00:00+09');
+    'everytime_post', array['p/b1.jpg'], 40, '2026-09-15 12:00:00+09');
 end $$;
 insert into public.heart_transactions (profile_id, amount, reason, created_at) values
   ('00000000-0000-0000-0000-000000000094', 5, 'poll_vote', '2026-09-13 10:00:00+09'),
@@ -331,9 +332,9 @@ select results_eq(
 -- 함수 권한
 select ok(
   not has_function_privilege('authenticated',
-        'public.submit_heart_task(uuid, uuid, public.heart_task, text, integer, timestamptz)', 'execute')
+        'public.submit_heart_task(uuid, uuid, public.heart_task, text[], integer, timestamptz)', 'execute')
   and not has_function_privilege('anon',
-        'public.submit_heart_task(uuid, uuid, public.heart_task, text, integer, timestamptz)', 'execute'),
+        'public.submit_heart_task(uuid, uuid, public.heart_task, text[], integer, timestamptz)', 'execute'),
   '앱 역할은 제출 함수를 부를 수 없다'
 );                                                                                                           -- 48
 select ok(
@@ -345,7 +346,7 @@ select ok(
 );                                                                                                           -- 49
 select ok(
   has_function_privilege('service_role',
-    'public.submit_heart_task(uuid, uuid, public.heart_task, text, integer, timestamptz)', 'execute')
+    'public.submit_heart_task(uuid, uuid, public.heart_task, text[], integer, timestamptz)', 'execute')
   and has_function_privilege('service_role', 'public.heart_task_status(uuid, timestamptz)', 'execute'),
   'service_role 은 두 함수를 부를 수 있다'
 );                                                                                                           -- 50
@@ -361,7 +362,7 @@ select ok(
 do $$
 begin
   perform public.submit_heart_task('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-000000000095',
-    'kakao_share', 'g/c1.jpg', 25, '2026-09-15 12:00:00+09');
+    'kakao_share', array['g/c1.jpg'], 25, '2026-09-15 12:00:00+09');
 end $$;
 delete from auth.users where id = '00000000-0000-0000-0000-000000000095';
 
@@ -402,6 +403,93 @@ select results_eq(
   $$values (3, 3, false)$$,
   '투표 줄이 3/3 이면 그 주 보상도 끝났다(5 × 3 = 15 — poll_vote_reward_due 와 같은 상한)'
 );                                                                                                           -- 56
+
+-- 인증샷 여러 장 · 단톡방 이어서 제출(계획서 2026-10-19-heart-task-multiphoto Task 1) ---------------
+-- Q = ...96 : 단톡방 한도 3 안에서 검수 중이어도 이어서 낸다.
+select has_column('public', 'heart_task_submissions', 'storage_paths', '인증샷 경로는 배열 한 칸이다');
+select hasnt_column('public', 'heart_task_submissions', 'storage_path', '옛 단일 경로 칸은 없다');
+select hasnt_index('public', 'heart_task_submissions', 'heart_task_submissions_one_reviewing',
+  '항목당 검수 중 한 줄 인덱스는 없다 — 단톡방은 검수 중에도 이어서 낼 수 있다');
+select hasnt_function('public', 'submit_heart_task',
+  array['uuid', 'uuid', 'heart_task', 'text', 'integer', 'timestamp with time zone'],
+  '옛 단일 경로 제출 함수는 없다');
+
+select lives_ok($$select public.submit_heart_task('00000000-0000-0000-0000-0000000000d1', '00000000-0000-0000-0000-000000000096', 'kakao_share', array['q/d1-1.jpg', 'q/d1-2.jpg', 'q/d1-3.jpg'], 25, '2026-09-15 12:00:00+09')$$, '사진 3장을 한 번에 제출한다');
+select lives_ok($$select public.submit_heart_task('00000000-0000-0000-0000-0000000000d2', '00000000-0000-0000-0000-000000000096', 'kakao_share', array['q/d2-1.jpg'], 25, '2026-09-15 12:00:00+09')$$, '단톡방은 검수 중이어도 이어서 낼 수 있다');
+select results_eq(
+  $$select used, task_limit, reviewing from public.heart_task_status('00000000-0000-0000-0000-000000000096', '2026-09-15 12:00:00+09')
+     where task = 'kakao_share'$$,
+  $$values (2, 3, true)$$,
+  '검수 중 둘은 쓴 횟수 2 이고 reviewing 이다'
+);
+select is(
+  (select storage_paths from public.heart_task_submissions where id = '00000000-0000-0000-0000-0000000000d1'),
+  array['q/d1-1.jpg', 'q/d1-2.jpg', 'q/d1-3.jpg'], '경로는 낸 순서대로 저장된다'
+);
+select lives_ok($$select public.submit_heart_task('00000000-0000-0000-0000-0000000000d3', '00000000-0000-0000-0000-000000000096', 'kakao_share', array['q/d3-1.jpg'], 25, '2026-09-15 12:00:00+09')$$, '세 번째도 들어간다(검수 중 3 = 한도)');
+select throws_ok($$select public.submit_heart_task('00000000-0000-0000-0000-0000000000d4', '00000000-0000-0000-0000-000000000096', 'kakao_share', array['q/d4-1.jpg'], 25, '2026-09-15 12:00:00+09')$$, 'CM409', null,
+  '한도에 찼고 검수 중이 있으면 CM409 — 결과를 기다려 달라는 뜻(서버 409)');
+
+update public.heart_task_submissions set status = 'rejected', reject_reason = 'date_missing'
+ where id = '00000000-0000-0000-0000-0000000000d3';
+select results_eq(
+  $$select used, reviewing from public.heart_task_status('00000000-0000-0000-0000-000000000096', '2026-09-15 12:00:00+09') where task = 'kakao_share'$$,
+  $$values (2, true)$$,
+  '반려하면 칸이 하나 돌아온다(쓴 횟수 2)'
+);
+select lives_ok($$select public.submit_heart_task('00000000-0000-0000-0000-0000000000d4', '00000000-0000-0000-0000-000000000096', 'kakao_share', array['q/d4-1.jpg', 'q/d4-2.jpg'], 25, '2026-09-15 12:00:00+09')$$, '돌아온 칸에 다시 낼 수 있다');
+select throws_ok($$select public.submit_heart_task('00000000-0000-0000-0000-0000000000d5', '00000000-0000-0000-0000-000000000096', 'kakao_share', array['q/d5-1.jpg'], 25, '2026-09-15 12:00:00+09')$$, 'CM409', null, '다시 3/3(검수 중 포함)이면 CM409');
+
+update public.heart_task_submissions set status = 'approved'
+ where id in ('00000000-0000-0000-0000-0000000000d1', '00000000-0000-0000-0000-0000000000d2',
+              '00000000-0000-0000-0000-0000000000d4');
+select throws_ok($$select public.submit_heart_task('00000000-0000-0000-0000-0000000000d5', '00000000-0000-0000-0000-000000000096', 'kakao_share', array['q/d5-1.jpg'], 25, '2026-09-15 12:00:00+09')$$, 'CM429', null,
+  '3/3 이 전부 승인이고 검수 중이 없으면 CM429 — 이번 달은 끝(서버 429)');
+
+select throws_ok(
+  $$select public.submit_heart_task('00000000-0000-0000-0000-0000000000d6', '00000000-0000-0000-0000-000000000096', 'everytime_post',
+      array[]::text[], 40, '2026-09-15 12:00:00+09')$$,
+  '22023', null, '경로가 비어 있으면 거절한다');
+select throws_ok(
+  $$select public.submit_heart_task('00000000-0000-0000-0000-0000000000d6', '00000000-0000-0000-0000-000000000096', 'everytime_post',
+      array['q/1.jpg', 'q/2.jpg', 'q/3.jpg', 'q/4.jpg'], 40, '2026-09-15 12:00:00+09')$$,
+  '22023', null, '경로가 4개 이상이면 거절한다');
+select throws_ok(
+  $$select public.submit_heart_task('00000000-0000-0000-0000-0000000000d6', '00000000-0000-0000-0000-000000000096', 'everytime_post',
+      null, 40, '2026-09-15 12:00:00+09')$$,
+  '22023', null, '경로가 null 이면 거절한다');
+
+select throws_ok(
+  $$update public.heart_task_submissions set storage_paths = array['x/other.jpg']
+     where id = '00000000-0000-0000-0000-0000000000d1'$$,
+  'CM409', null, '검수 뒤 경로를 다른 값으로 바꿀 수 없다');
+select throws_ok(
+  $$update public.heart_task_submissions set storage_paths = array['q/d1-1.jpg']
+     where id = '00000000-0000-0000-0000-0000000000d1'$$,
+  'CM409', null, '검수 뒤 일부만 남길 수도 없다 — 비우기만 된다');
+select lives_ok(
+  $$update public.heart_task_submissions set storage_paths = '{}'
+     where id = '00000000-0000-0000-0000-0000000000d1'$$,
+  '검수 뒤 경로를 모두 비우는 것(60일 정리)은 된다');
+
+-- 제출은 사람·항목 락을 잡는다(트랜잭션이 끝날 때까지 남는다). 같은 트랜잭션의 다른 제출도 락을 남기므로
+-- 개수가 아니라 이 키의 락이 있는지로 본다. bigint 키 하나는 pg_locks 에서 classid(위 32비트) · objid(아래 32비트) · objsubid = 1 이다.
+select ok(
+  exists (
+    select 1 from pg_locks l, (select hashtextextended('heart_task:00000000-0000-0000-0000-000000000096:kakao_share', 0) as k) h
+     where l.locktype = 'advisory' and l.pid = pg_backend_pid() and l.granted and l.objsubid = 1
+       and l.classid::bigint = ((h.k >> 32) & 4294967295) and l.objid::bigint = (h.k & 4294967295)
+  ),
+  'submit takes a per-person-per-task advisory lock'
+);
+select ok(
+  not exists (
+    select 1 from pg_locks l, (select hashtextextended('heart_task:00000000-0000-0000-0000-000000000096:everytime_post', 0) as k) h
+     where l.locktype = 'advisory' and l.pid = pg_backend_pid() and l.granted and l.objsubid = 1
+       and l.classid::bigint = ((h.k >> 32) & 4294967295) and l.objid::bigint = (h.k & 4294967295)
+  ),
+  '제출한 적 없는 항목의 락은 잡히지 않는다 — 다른 항목끼리는 서로 막지 않는다'
+);
 
 select * from finish();
 rollback;
