@@ -67,25 +67,48 @@ void main() {
     expect(tasks.map((task) => task.state), [HeartTaskState.reviewing, HeartTaskState.done, HeartTaskState.open]);
   });
 
-  test('제출은 항목 경로로 photo 칸 multipart 를 보내고 새 줄을 돌려준다', () async {
+  test('사진 한 장은 옛 서버도 읽는 photo 칸 하나로 보내고 새 줄을 돌려준다', () async {
     final client = MockClient((request) async {
       expect(request.method, 'POST');
       expect(request.url.toString(), 'https://api.test/heart-tasks/kakao_share/submissions');
       expect(request.headers['content-type'], startsWith('multipart/form-data'));
       // 본문에 JPEG 바이트(0xFF)가 섞여 utf8 로는 못 읽는다.
-      expect(latin1.decode(request.bodyBytes), contains('name="photo"'));
+      final body = latin1.decode(request.bodyBytes);
+      expect('name="photo"'.allMatches(body).length, 1);
+      expect(body, isNot(contains('name="photos"')));
       return json({'task': _task('kakao_share', 'reviewing')}, 201);
     });
 
-    final result = await build(client).submit(HeartTaskKind.kakaoShare, photo);
+    final result = await build(client).submit(HeartTaskKind.kakaoShare, [photo]);
 
     expect(result.when(onSuccess: (task) => task.state, onFailure: (_) => null), HeartTaskState.reviewing);
+  });
+
+  test('사진 여러 장은 모두 photos 칸으로, 고른 순서대로 한 요청에 담는다', () async {
+    final second = File('${tempDir.path}/second.jpg')..writeAsBytesSync([0xFF, 0xD8, 0xFF, 0x01]);
+    final third = File('${tempDir.path}/third.jpg')..writeAsBytesSync([0xFF, 0xD8, 0xFF, 0x02]);
+    var calls = 0;
+    final client = MockClient((request) async {
+      calls++;
+      final body = latin1.decode(request.bodyBytes);
+      expect('name="photos"'.allMatches(body).length, 3);
+      expect(body, isNot(contains('name="photo"')));
+      expect(['proof.jpg', 'second.jpg', 'third.jpg'].map(body.indexOf).toList(), isNot(contains(-1)));
+      expect(body.indexOf('proof.jpg'), lessThan(body.indexOf('second.jpg')));
+      expect(body.indexOf('second.jpg'), lessThan(body.indexOf('third.jpg')));
+      return json({'task': _task('kakao_share', 'reviewing')}, 201);
+    });
+
+    final result = await build(client).submit(HeartTaskKind.kakaoShare, [photo, second, third]);
+
+    expect(calls, 1);
+    expect(result.when(onSuccess: (task) => task.kind, onFailure: (_) => null), HeartTaskKind.kakaoShare);
   });
 
   test('월 한도 429 는 RateLimitedFailure 로 온다 — 문구는 ViewModel 이 바꾼다', () async {
     final client = MockClient((request) async => json({'detail': '이번 달에는 더 인증할 수 없어요'}, 429));
 
-    final result = await build(client).submit(HeartTaskKind.everytimePost, photo);
+    final result = await build(client).submit(HeartTaskKind.everytimePost, [photo]);
 
     expect(result.when(onSuccess: (_) => null, onFailure: (failure) => failure), isA<RateLimitedFailure>());
   });
@@ -93,7 +116,7 @@ void main() {
   test('검수 중 409 는 서버 문구를 그대로 보여 준다', () async {
     final client = MockClient((request) async => json({'detail': '이미 확인 중이에요, 결과를 기다려 주세요'}, 409));
 
-    final result = await build(client).submit(HeartTaskKind.everytimePost, photo);
+    final result = await build(client).submit(HeartTaskKind.everytimePost, [photo]);
 
     expect(
       result.when(onSuccess: (_) => '', onFailure: (failure) => failure.toDisplayMessage()),
@@ -104,7 +127,7 @@ void main() {
   test('201 인데 본문 모양이 다르면 알 수 없는 오류다(예외가 Result 밖으로 튀지 않는다)', () async {
     final client = MockClient((request) async => json({'unexpected': true}, 201));
 
-    final result = await build(client).submit(HeartTaskKind.kakaoShare, photo);
+    final result = await build(client).submit(HeartTaskKind.kakaoShare, [photo]);
 
     expect(result.when(onSuccess: (_) => null, onFailure: (failure) => failure), isA<UnknownFailure>());
   });

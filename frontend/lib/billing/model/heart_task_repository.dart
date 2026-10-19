@@ -8,6 +8,6 @@ abstract interface class HeartTaskRepository {
   /// 늘 세 줄 — 에브리타임 · 단톡방 · 투표 순.
   Future<Result<List<HeartTask>>> fetchTasks();
 
-  /// [photo] 는 압축한 JPEG. 성공하면 그 항목의 새 줄(보통 검수 중)을 돌려준다.
-  Future<Result<HeartTask>> submit(HeartTaskKind kind, File photo);
+  /// [photos] 는 압축한 JPEG 1~3장(고른 순서). 한 요청으로 보낸다. 성공하면 그 항목의 새 줄(보통 검수 중)을 돌려준다.
+  Future<Result<HeartTask>> submit(HeartTaskKind kind, List<File> photos);
 }
