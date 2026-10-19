@@ -35,7 +35,7 @@
 | [`docs/SUPABASE.md`](docs/SUPABASE.md) | **Supabase 작업 규칙** — 키 · 식별자 취급, 마이그레이션 파일, 클라우드 적용 절차, RLS · grant 체크리스트. Supabase 작업 전 필독 |
 | [`docs/SETUP.md`](docs/SETUP.md) | 새 PC 준비 — 스킬 · Pencil · 폰트 · SDK · graphify · IDE |
 | [`docs/superpowers/specs/`](docs/superpowers/specs/) | 제품·아키텍처·매칭·보안 전체 설계. 모든 결정의 기준 |
-| [`docs/superpowers/plans/`](docs/superpowers/plans/) | 조각별 실행 계획 |
+| [`docs/superpowers/plans/`](docs/superpowers/plans/) | 조각별 실행 계획 — 목록과 상태는 [`README.md`](docs/superpowers/plans/README.md) |
 | [`docs/decisions/`](docs/decisions/) | **기술 결정 기록** — 한 결정에 한 파일(`날짜-주제-decision.md`). 계기 → 대안 → 선택과 이유 → 흐름 → 남은 위험. 첫 문서: 졸업생 인증 |
 | [`backend/DEPLOY.md`](backend/DEPLOY.md) | **서버 배포 · 운영 상태** — 현재 리비전, 환경변수, 배치, 롤백 하한 |
 | [`docs/ERD.md`](docs/ERD.md) | DB ERD — 테이블 · 컬럼 · RLS · 권한 기준 |
