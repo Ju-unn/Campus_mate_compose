@@ -1,6 +1,6 @@
 """관리자 결제 조회(설계 10-18 §8-5, 화면 A8). 읽기만 한다 — 하트를 주는 일은 사용자 상세의 하트 조정이다.
 
-경로 이름은 e2e/area4_extra.py 의 하트 환급 · 구매 금지어에 걸리지 않게 지었다(orders · shortfall · summary · daily).
+경로 이름은 e2e/area4_extra.py 의 하트 환급 · 구매 금지어에 걸리지 않게 지었다(orders · shortfall · frequent-returns · summary · daily).
 시험 결제(is_test)는 매출 · 그래프 · 못 거둔 하트에서 빠지고(DB 함수), 주문 번호로 직접 찾을 때만 보인다.
 주문 번호는 GET 쿼리가 아니라 본문으로 받는다(요청 로그에 남지 않게 — 설계 §14-3 과 같은 이유).
 """
@@ -67,6 +67,12 @@ async def search_orders(body: OrderSearchBody, caller: AdminCaller = Depends(get
 @router.get("/shortfall")
 async def get_shortfall(limit: int = Query(100, ge=1, le=500), caller: AdminCaller = Depends(get_admin_caller)) -> dict:
     return {"items": await _repo(caller).billing_shortfall(limit)}
+
+
+@router.get("/frequent-returns")
+async def get_frequent_returns(limit: int = Query(100, ge=1, le=500), caller: AdminCaller = Depends(get_admin_caller)) -> dict:
+    """환불이 잦은 계정(경로 이름은 금지어 'refund' 를 피했다)."""
+    return {"items": await _repo(caller).billing_returned_accounts(limit)}
 
 
 @router.get("/daily")

@@ -22,3 +22,7 @@ class AdminBillingRepository(AdminRepository):
     async def billing_shortfall(self, limit: int) -> list[dict]:
         """환불됐는데 하트를 다 못 거둔 실제 구매, 최근 환불 순(DB 함수 admin_billing_shortfall)."""
         return await self._rpc("admin_billing_shortfall", {"p_limit": limit})
+
+    async def billing_returned_accounts(self, limit: int) -> list[dict]:
+        """환불한 실제 구매를 계정별로 묶은 줄, 환불 건수 많은 순(DB 함수 admin_billing_returned_accounts)."""
+        return await self._rpc("admin_billing_returned_accounts", {"p_limit": limit})
