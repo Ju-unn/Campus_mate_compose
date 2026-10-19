@@ -27,6 +27,9 @@ import 'package:campus_mate/friend_review/view/friend_code_screen.dart';
 import 'package:campus_mate/friend_review/view/friend_review_compose_sheet.dart';
 import 'package:campus_mate/friend_review/view/received_reviews_screen.dart';
 import 'package:campus_mate/friend_review/view/written_reviews_screen.dart';
+import 'package:campus_mate/graduate/view/graduate_application_screen.dart';
+import 'package:campus_mate/graduate/view/graduate_waiting_screen.dart';
+import 'package:campus_mate/graduate/view/verification_method_screen.dart';
 import 'package:campus_mate/home/view/event_coming_screen.dart';
 import 'package:campus_mate/home/view/home_screen.dart';
 import 'package:campus_mate/matching/model/acceptance.dart';
@@ -91,7 +94,7 @@ abstract final class AppRouter {
         return AuthRedirect(isAuthenticated(), verificationGate(), onboardingStep(), accountStatus: accountStatus())
             .resolve(state.matchedLocation);
       },
-      routes: _routes(),
+      routes: _routes(verificationGate, refreshListenable),
     );
   }
 
@@ -102,11 +105,25 @@ abstract final class AppRouter {
   static AccountStatus _active() => AccountStatus.active;
 
   /// 3c 는 [AuthRedirect] 가 미인증·게이트 미충족을 이미 막아 화면 가드를 두지 않는다.
-  static List<RouteBase> _routes() {
+  static List<RouteBase> _routes(VerificationGate Function() verificationGate, Listenable? refreshListenable) {
     return <RouteBase>[
       _PlatformRoute(path: AppRoutes.splash, builder: (context, state) => const StartView()),
       _PlatformRoute(path: AppRoutes.offline, builder: (context, state) => const OfflineScreen()),
-      _ExitGuardedRoute(path: AppRoutes.login, builder: (context, state) => const SignUpScreen()),
+      // 02 · 방법 고르기 · 신청 폼 · 대기는 화면이 스스로 [BackExitScope] 를 한 겹 두른다(03 과 같다 — 02 는 방법 고르기를 거쳐 온
+      // 경우 시스템 뒤로가 화살표와 같은 함수라 안내 · 종료와 섞이지 않는다). 여기서 또 두르면 두 겹이 된다.
+      _PlatformRoute(
+        path: AppRoutes.login,
+        // 02 에 머무는 동안 관문이 바뀌어도(서버 플래그가 꺼짐 등) 화살표 변형이 따라가도록 관문 알림마다 다시 정한다.
+        builder: (context, state) => ListenableBuilder(
+          listenable: refreshListenable ?? const _NeverChanges(),
+          builder: (context, _) =>
+              SignUpScreen(hasMethodPicker: verificationGate() == VerificationGate.needsSchoolEmailChosen),
+        ),
+      ),
+      // 졸업생 인증 관문 세 화면(서버 플래그가 켜져 있을 때만 [AuthRedirect] 가 보낸다).
+      _PlatformRoute(path: AppRoutes.verificationMethod, builder: (context, state) => const VerificationMethodScreen()),
+      _PlatformRoute(path: AppRoutes.graduateApplication, builder: (context, state) => const GraduateApplicationScreen()),
+      _PlatformRoute(path: AppRoutes.graduateWaiting, builder: (context, state) => const GraduateWaitingScreen()),
       // 03 은 화면 안에 돌아갈 곳(02)이 있어 화면이 스스로 [BackExitScope] 를 두른다(여기서 또 두르면 두 겹이 된다).
       _PlatformRoute(path: AppRoutes.verifyCode, redirect: _verifyCodeGuard, builder: _buildVerifyCode),
       // 약관은 관문이라 뒤로가기를 막아 둔 채 둔다(화면의 PopScope, 나갈 길은 로그아웃뿐 — 대장 결정 pen ②).
@@ -313,6 +330,17 @@ abstract final class AppRouter {
   static Widget _buildVerifyCode(BuildContext context, GoRouterState state) {
     return VerifyCodeScreen(email: state.extra as UniversityEmail);
   }
+}
+
+/// [refreshListenable] 이 없을 때(시험)의 알리지 않는 Listenable.
+class _NeverChanges implements Listenable {
+  const _NeverChanges();
+
+  @override
+  void addListener(VoidCallback listener) {}
+
+  @override
+  void removeListener(VoidCallback listener) {}
 }
 
 /// 탭이 아닌 화면 — 플랫폼 기본 전환으로 뜬다(안드로이드 450ms · 예측 뒤로가기, iOS 500ms · 왼쪽 가장자리 밀어서 뒤로가기).

@@ -11,6 +11,10 @@ import 'package:campus_mate/auth/view/sign_up_screen.dart';
 import 'package:campus_mate/auth/view/start_view.dart';
 import 'package:campus_mate/auth/view/verify_code_screen.dart';
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
+import 'package:campus_mate/graduate/model/graduate_verification_repository_provider.dart';
+import 'package:campus_mate/graduate/view/graduate_application_screen.dart';
+import 'package:campus_mate/graduate/view/graduate_waiting_screen.dart';
+import 'package:campus_mate/graduate/view/verification_method_screen.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/core/router/placeholder_screens.dart';
@@ -56,6 +60,7 @@ import '../auth/model/fake_social_login_repository.dart';
 import '../auth/model/fake_verification_gate_repository.dart';
 import '../chat/model/fake_chat_repository.dart';
 import '../core/supabase/fake_auth_session.dart';
+import '../graduate/model/fake_graduate_verification_repository.dart';
 import '../matching/model/fake_card_repository.dart';
 import '../profile/model/fake_acquisition_repository.dart';
 import '../profile/model/fake_appearance_type_repository.dart';
@@ -172,6 +177,11 @@ final List<_Screen> _screens = [
   _Screen('StartView', () => const StartView()),
   _Screen('SignUpScreen', () => const SignUpScreen()),
   _Screen('VerifyCodeScreen', () => VerifyCodeScreen(email: _email)),
+  // 졸업생 인증 관문(계획서 2026-10-19-graduate-verification.md Task 7) — 카드 · 사진 칸 · 뒤로가기가 잉크를 쓴다.
+  _Screen('VerificationMethodScreen', () => const VerificationMethodScreen()),
+  _Screen('SignUpScreen(방법 고르기 뒤)', () => const SignUpScreen(hasMethodPicker: true)),
+  _Screen('GraduateApplicationScreen', () => const GraduateApplicationScreen()),
+  _Screen('GraduateWaitingScreen', () => const GraduateWaitingScreen(), hasInk: false),
   _Screen('SchoolInfoScreen', () => const SchoolInfoScreen()),
   _Screen('BasicInfoScreen', () => const BasicInfoScreen()),
   _Screen('KakaoIdScreen', () => const KakaoIdScreen()),
@@ -223,6 +233,7 @@ Future<void> _pumpScreen(WidgetTester tester, _Screen screen) async {
   final container = ProviderContainer(
     overrides: [
       schoolEmailRepositoryProvider.overrideWithValue(FakeSchoolEmailRepository()),
+      graduateVerificationRepositoryProvider.overrideWithValue(FakeGraduateVerificationRepository()),
       authSessionListenableProvider.overrideWithValue(session.listenable),
       socialLoginRepositoryProvider.overrideWithValue(FakeSocialLoginRepository()),
       faceDetectorProvider.overrideWithValue(FakeFaceDetector()),
