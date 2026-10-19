@@ -105,7 +105,7 @@ class _HeartStoreScreenState extends ConsumerState<HeartStoreScreen> {
       body: Column(
         children: [
           // 배너는 앱바 바로 아래, 본문을 밀어 내린다(pen 15e-6 `xJ0HR` y56 · 본문 y123).
-          if (banner != null) HeartPurchaseBanner(notice: banner, store: ref.watch(paymentStoreProvider)),
+          if (banner != null) HeartPurchaseBanner(notice: banner, store: ref.watch(paymentStoreProvider), unavailable: state?.unavailable),
           Expanded(
             child: Stack(
               children: [

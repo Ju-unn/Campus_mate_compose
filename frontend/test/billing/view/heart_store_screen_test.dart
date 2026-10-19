@@ -852,7 +852,7 @@ void main() {
       await pump(tester);
 
       expect(find.text('지금은 하트를 살 수 없어요'), findsOneWidget);
-      expect(find.text('이 기기에서 App Store 결제를 쓸 수 없거나 상품을 불러오지 못했어요'), findsOneWidget);
+      expect(find.text('상품 정보를 불러오지 못했어요 · App Store 상품이 아직 준비 중일 수 있어요 (못 찾은 상품 5개)'), findsOneWidget);
       expect(inBar('구매할 수 없어요'), findsOneWidget);
     }, variant: ios);
 
@@ -863,7 +863,7 @@ void main() {
 
       expect(find.textContaining('구글'), findsNothing);
       expect(find.text('지금은 하트를 살 수 없어요'), findsOneWidget);
-      expect(find.text('이 기기에서 App Store 결제를 쓸 수 없거나 상품을 불러오지 못했어요'), findsOneWidget);
+      expect(find.text('서버에서 상태를 읽지 못했어요 · 잠시 뒤 다시 시도해 주세요'), findsOneWidget);
     }, variant: ios);
 
     testWidgets('환불된 거래(422 purchase_revoked) → "환불된 결제예요" 토스트(info) — 성공 표시(circle-check)가 아니다', (tester) async {
