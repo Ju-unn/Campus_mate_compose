@@ -215,5 +215,21 @@ void main() {
       expect(short.single.productName, '하트 100개');
       expect(short.single.refundedAt, DateTime.utc(2026, 10, 10, 9, 20));
     });
+
+    test('환불이 잦은 계정: 경로 frequent-returns(금지어 refund 없음) · 쿼리 없음 · 줄 차례 그대로', () async {
+      final api = apiWith((request) => json(200, {'items': [returnedRow(), returnedRow(id: 'u7', nickname: null, count: 1)]}));
+
+      final rows = await api.billingReturnedAccounts();
+
+      expect(requests.single.url.path, '/admin/billing/frequent-returns');
+      expect(requests.single.url.queryParameters, isEmpty);
+      expect(rows.map((r) => (r.profileId, r.nickname, r.refundCount)), [('u1', '닉네임A', 3), ('u7', null, 1)]);
+    });
+
+    test('환불이 잦은 계정 응답 모양이 틀리면 실패로 다룬다', () async {
+      final api = apiWith((request) => json(200, {'rows': []}));
+
+      await expectLater(api.billingReturnedAccounts(), throwsA(isA<AdminApiFailure>()));
+    });
   });
 }

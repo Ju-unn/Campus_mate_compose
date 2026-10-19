@@ -13,6 +13,7 @@ ORDER = "GPA.1234-5678-9012-34567"
 ROUTES = [
     ("post", "/admin/billing/orders/search", {"order": ORDER}),
     ("get", "/admin/billing/shortfall", None),
+    ("get", "/admin/billing/frequent-returns", None),
     ("get", "/admin/billing/summary", None),
     ("get", "/admin/billing/daily", None),
 ]
@@ -115,6 +116,39 @@ def test_shortfall_passes_the_db_rows_through(client, world):
 @pytest.mark.parametrize("limit", [0, 501])
 def test_shortfall_limit_is_bounded(client, world, limit):
     assert client.get(f"/admin/billing/shortfall?limit={limit}", headers=ADMIN_HEADERS).status_code == 422
+    assert world.rpcs == []
+
+
+# 환불이 잦은 계정 --------------------------------------------------------------------
+
+def test_frequent_returns_passes_the_db_rows_through(client, world):
+    # 한 계정이 50 · 100(보너스 50) · 800하트를 환불: 전부 회수 50 · 일부 60 · 하나도 0
+    row = {"profile_id": U1, "nickname": "닉네임A", "refund_count": 3, "refunded_krw": 47100, "granted_hearts": 1000,
+           "clawed_back_hearts": 110, "shortfall_hearts": 890, "last_refunded_at": "2026-10-11T00:00:00+00:00"}
+    world.rpc_results["admin_billing_returned_accounts"] = [row]
+
+    response = client.get("/admin/billing/frequent-returns?limit=7", headers=ADMIN_HEADERS)
+
+    assert response.status_code == 200
+    assert response.json() == {"items": [row]}
+    assert world.rpcs == [("admin_billing_returned_accounts", {"p_limit": 7})]
+
+
+def test_frequent_returns_defaults_to_a_hundred_accounts(client, world):
+    client.get("/admin/billing/frequent-returns", headers=ADMIN_HEADERS)
+
+    assert world.rpcs == [("admin_billing_returned_accounts", {"p_limit": 100})]
+
+
+@pytest.mark.parametrize("limit", [1, 500])
+def test_frequent_returns_limit_edges_are_allowed(client, world, limit):
+    assert client.get(f"/admin/billing/frequent-returns?limit={limit}", headers=ADMIN_HEADERS).status_code == 200
+    assert world.rpcs == [("admin_billing_returned_accounts", {"p_limit": limit})]
+
+
+@pytest.mark.parametrize("limit", [0, 501])
+def test_frequent_returns_limit_is_bounded(client, world, limit):
+    assert client.get(f"/admin/billing/frequent-returns?limit={limit}", headers=ADMIN_HEADERS).status_code == 422
     assert world.rpcs == []
 
 

@@ -8,13 +8,15 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(67);
+select plan(80);
 
 -- 준비 --------------------------------------------------------------------
 -- A = …b0a1, B = …b0a2, C = …b0a3, 대학 = …b001. 토큰 해시는 64자 리터럴(repeat)로 둔다.
 --   'a' A heart_100 첫 구매(보너스) → 환불     'b' A heart_200 두 번째(시험 결제)
 --   'c' B heart_100 첫 구매(보너스) → 쓴 뒤 환불  'd' B 환불 뒤 heart_100(보너스 없음)
 --   'e' C heart_50 → 잔액 0 에서 환불           'f' C heart_100(50 먼저 사서 보너스 없음) → 계정 삭제 뒤 환불
+--   D = …b0a4, E = …b0a5 (23절 하트 규모별 환불): '2' D heart_50 → 30 쓰고 환불  '3' D heart_800(보너스 없음) → 다 쓰고 환불
+--                                               '4' E heart_100 첫 구매(150 지급) → 다 쓰고 환불
 insert into public.universities (id, name, region_group)
 values ('00000000-0000-0000-0000-00000000b001', '결제테스트대학교', 'seoul');
 
@@ -24,12 +26,16 @@ values ('billing.ac.kr', '00000000-0000-0000-0000-00000000b001');
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-00000000b0a1', 'pay-a@billing.ac.kr'),
   ('00000000-0000-0000-0000-00000000b0a2', 'pay-b@billing.ac.kr'),
-  ('00000000-0000-0000-0000-00000000b0a3', 'pay-c@billing.ac.kr');
+  ('00000000-0000-0000-0000-00000000b0a3', 'pay-c@billing.ac.kr'),
+  ('00000000-0000-0000-0000-00000000b0a4', 'pay-d@billing.ac.kr'),
+  ('00000000-0000-0000-0000-00000000b0a5', 'pay-e@billing.ac.kr');
 
 insert into public.profiles (id, university_id) values
   ('00000000-0000-0000-0000-00000000b0a1', '00000000-0000-0000-0000-00000000b001'),
   ('00000000-0000-0000-0000-00000000b0a2', '00000000-0000-0000-0000-00000000b001'),
-  ('00000000-0000-0000-0000-00000000b0a3', '00000000-0000-0000-0000-00000000b001')
+  ('00000000-0000-0000-0000-00000000b0a3', '00000000-0000-0000-0000-00000000b001'),
+  ('00000000-0000-0000-0000-00000000b0a4', '00000000-0000-0000-0000-00000000b001'),
+  ('00000000-0000-0000-0000-00000000b0a5', '00000000-0000-0000-0000-00000000b001')
 on conflict (id) do nothing;
 
 -- 1. 표 · RLS ----------------------------------------------------------------
@@ -207,6 +213,19 @@ select is(
   (select count(*)::int from public.heart_transactions
     where profile_id = '00000000-0000-0000-0000-00000000b0a1' and reason = 'refund'),
   1, '원장 refund 는 한 줄 그대로');
+select is((select heart_balance from public.entitlements where profile_id = '00000000-0000-0000-0000-00000000b0a1'),
+  200, '두 번째 환불 호출은 잔액도 그대로(350 − 150 = 200)');
+
+-- 13-1. 환불된 영수증을 다시 보내도 하트를 다시 주지 않는다(같은 사람 → already_granted, 상태는 refunded 그대로) --------------
+select is(
+  public.grant_store_purchase('00000000-0000-0000-0000-00000000b0a1', 'play_store', 'heart_100', repeat('a', 64),
+                              'GPA.test-a', now() - interval '1 minute', false) ->> 'result',
+  'already_granted', 'refunded receipt cannot be granted again — 환불된 영수증 재전송은 already_granted');
+select is((select heart_balance from public.entitlements where profile_id = '00000000-0000-0000-0000-00000000b0a1'),
+  200, '환불된 영수증 재전송 뒤에도 A 잔액 200 그대로');
+select ok(
+  (select count(*) = 1 and bool_and(status = 'refunded') from public.purchases where token_hash = repeat('a', 64)),
+  '그 영수증의 구매 행은 하나이고 여전히 refunded');
 
 -- 14. 쓴 뒤 환불: B 첫 구매 150 → 120 씀 → 잔액 30 에서 150 회수 -----------------------------------
 select is(
@@ -246,6 +265,49 @@ select is(public.refund_store_purchase('play_store', repeat('0', 64)), '{"result
   '지급한 적 없는 토큰(확인 전 자동 환불 등)은 unknown');
 select is(public.refund_store_purchase('app_store', repeat('b', 64)), '{"result": "unknown"}'::jsonb,
   '같은 해시라도 스토어가 다르면 다른 구매다');
+
+-- 23. 하트 규모별 환불(남은 만큼만 회수, 나머지는 모자람으로 기록) -----------------------------------------
+-- D: 50하트 → 30 씀 → 잔액 20 에서 환불 = 20 회수 · 모자람 30
+select public.grant_store_purchase('00000000-0000-0000-0000-00000000b0a4', 'play_store', 'heart_50', repeat('2', 64),
+                                   'GPA.test-2', now(), false);
+select public.grant_hearts('00000000-0000-0000-0000-00000000b0a4', -30, 'extra_card');
+select is(
+  public.refund_store_purchase('play_store', repeat('2', 64)),
+  '{"result": "refunded", "profile_id": "00000000-0000-0000-0000-00000000b0a4", "clawed_back": 20, "shortfall": 30}'::jsonb,
+  'refund 50 after spending 30 claws back 20 — 모자람 30');
+select is((select heart_balance from public.entitlements where profile_id = '00000000-0000-0000-0000-00000000b0a4'),
+  0, 'D 잔액 0');
+-- D: 800하트(첫 구매가 아니라 보너스 없음) → 800 다 씀 → 잔액 0 에서 환불 = 0 회수 · 모자람 800
+select is(
+  public.grant_store_purchase('00000000-0000-0000-0000-00000000b0a4', 'play_store', 'heart_800', repeat('3', 64),
+                              'GPA.test-3', now(), false) ->> 'bonus_hearts',
+  '0', '800하트는 첫 구매가 아니면 보너스가 없다');
+select public.grant_hearts('00000000-0000-0000-0000-00000000b0a4', -800, 'extra_card');
+select is(
+  public.refund_store_purchase('play_store', repeat('3', 64)),
+  '{"result": "refunded", "profile_id": "00000000-0000-0000-0000-00000000b0a4", "clawed_back": 0, "shortfall": 800}'::jsonb,
+  'refund 800 after spending all claws back 0 — 모자람 800');
+select is(
+  (select count(*)::int from public.heart_transactions
+    where profile_id = '00000000-0000-0000-0000-00000000b0a4' and reason = 'refund'),
+  1, 'D 원장 refund 는 20 회수 한 줄뿐(0 회수는 줄이 없다)');
+select is(
+  (select sum(amount)::int from public.heart_transactions where profile_id = '00000000-0000-0000-0000-00000000b0a4'),
+  (select heart_balance from public.entitlements where profile_id = '00000000-0000-0000-0000-00000000b0a4'),
+  'D 원장 합 = 잔액(50 − 30 − 20 + 800 − 800)');
+-- E: 첫 구매 100하트(보너스 50 → 150 지급) → 150 다 씀 → 환불 = 0 회수 · 모자람 150
+select is(
+  public.grant_store_purchase('00000000-0000-0000-0000-00000000b0a5', 'play_store', 'heart_100', repeat('4', 64),
+                              'GPA.test-4', now(), false) ->> 'bonus_hearts',
+  '50', 'E 첫 구매 100하트에 보너스 50');
+select public.grant_hearts('00000000-0000-0000-0000-00000000b0a5', -150, 'extra_card');
+select is(
+  public.refund_store_purchase('play_store', repeat('4', 64)),
+  '{"result": "refunded", "profile_id": "00000000-0000-0000-0000-00000000b0a5", "clawed_back": 0, "shortfall": 150}'::jsonb,
+  'refund bonus purchase after spending all claws back 0 — 모자람 150(보너스 포함)');
+select ok(
+  (select status = 'refunded' and clawed_back_hearts = 0 from public.purchases where token_hash = repeat('4', 64)),
+  'E 구매 행: refunded · 회수량 0');
 
 -- 21. 원장 합 = 잔액(ERD §6) ------------------------------------------------------------------
 select is(

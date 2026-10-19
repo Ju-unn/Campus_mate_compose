@@ -1,13 +1,14 @@
 -- 관리자 웹 대시보드 D3(설계 바탕화면 관리자_대시보드_설계_10-18.md §8-3 · §8-4b · §8-5) 검증:
 -- 하트 조정 · 탈퇴 대행과 작업 기록을 한 번에 하는 함수 둘, 결제 읽기 함수 둘(30일 그래프 · 못 거둔 하트), 주문 번호 인덱스.
--- 마이그레이션 20261018120000_admin_users_billing(맨 앞 명단 확인 admin_assert 는 20261018035204).
+-- 마이그레이션 20261018120000_admin_users_billing(맨 앞 명단 확인 admin_assert 는 20261018035204),
+-- 7절 환불이 잦은 계정은 20261019220000_admin_billing_returned_accounts.
 -- 기대값 기준: docs/superpowers/plans/2026-10-18-admin-users-billing.md Task 1.
 -- 로컬 스택에서 `supabase test db` 로 돌린다. 트랜잭션 안에서만 돌고 rollback 으로 흔적을 남기지 않는다.
 begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(56);
+select plan(70);
 
 -- 준비 (postgres) -------------------------------------------------------------
 -- AD = 관리자(…ad03), AD2 = 다른 관리자(…ad04). 둘 다 프로필이 있다(관리자 대상 CM404 가 "프로필 없음" 으로 통과하지 않게).
@@ -375,6 +376,143 @@ set local role anon;
 select throws_ok(
   $$select public.admin_adjust_hearts('00000000-0000-0000-0000-00000000ad03', '00000000-0000-0000-0000-0000000000f2', 5, '앱', null)$$,
   '42501', null, 'anon 은 admin_adjust_hearts 를 부를 수 없다');
+reset role;
+
+-- 7. 환불이 잦은 계정 admin_billing_returned_accounts (마이그레이션 20261019220000) ----------------------------
+-- 위 시험들이 끝난 뒤에 구매를 더한다(그래프 · 못 거둔 하트 시험의 기대값을 흔들지 않게). 이미 있는 환불: F1 = '5'(150 중 60) · '6'(50 중 50),
+-- F2 = 'a'(50, 회수 null), 그리고 빼야 할 것 — '8' 시험 환불 · '4' · '9' 계정이 지워진 환불(profile_id null).
+-- 새 사람: G(…f8) = 50 · 100(+보너스 50) · 800하트를 각각 환불(전부 회수 50 / 일부 60 / 하나도 0) + 시험 환불 + 환불 안 된 구매,
+-- H(…f9) = 50하트 두 건 환불(하나도 못 거둠) — 건수가 F1 과 같아 못 거둔 하트로 순서가 갈린다.
+insert into auth.users (id, email) values
+  ('00000000-0000-0000-0000-0000000000f8', 'ub-8@testf.ac.kr'),
+  ('00000000-0000-0000-0000-0000000000f9', 'ub-9@testf.ac.kr');
+insert into public.profiles (id, university_id)
+values ('00000000-0000-0000-0000-0000000000f8', '00000000-0000-0000-0000-00000000000f'),
+       ('00000000-0000-0000-0000-0000000000f9', '00000000-0000-0000-0000-00000000000f')
+on conflict (id) do nothing;
+update public.profiles set nickname = '환불셋' where id = '00000000-0000-0000-0000-0000000000f8';
+update public.profiles set nickname = '환불둘' where id = '00000000-0000-0000-0000-0000000000f9';
+
+insert into public.purchases
+  (profile_id, store, product_id, store_order_id, token_hash, heart_amount, bonus_hearts, price_krw, status, is_test,
+   clawed_back_hearts, purchased_at, refunded_at)
+select p, 'play_store', pid, 'GPA.r' || n, repeat('2', 62) || n, h, b, price, st::public.purchase_status, t, c,
+       now() - interval '10 days', ref
+from (values
+  ('00000000-0000-0000-0000-0000000000f8'::uuid, 'heart_50', '01', 50, 0, 3000, 'refunded', false, 50, now() - interval '3 days'),
+  ('00000000-0000-0000-0000-0000000000f8', 'heart_100', '02', 100, 50, 5700, 'refunded', false, 60, now() - interval '2 days'),
+  ('00000000-0000-0000-0000-0000000000f8', 'heart_800', '03', 800, 0, 38400, 'refunded', false, 0, now() - interval '1 day'),
+  ('00000000-0000-0000-0000-0000000000f8', 'heart_200', '04', 200, 0, 10800, 'refunded', true, 0, now()),
+  ('00000000-0000-0000-0000-0000000000f8', 'heart_400', '05', 400, 0, 20400, 'granted', false, null::integer, null::timestamptz),
+  ('00000000-0000-0000-0000-0000000000f9', 'heart_50', '06', 50, 0, 3000, 'refunded', false, 0, now() - interval '5 days'),
+  ('00000000-0000-0000-0000-0000000000f9', 'heart_50', '07', 50, 0, 3000, 'refunded', false, 0, now() - interval '5 days')
+) as v(p, pid, n, h, b, price, st, t, c, ref);
+
+select is(
+  (select count(*) from pg_proc p
+    where p.pronamespace = 'public'::regnamespace and p.proname = 'admin_billing_returned_accounts'
+      and not p.prosecdef and p.proconfig = array['search_path=""']),
+  1::bigint, 'returned accounts 함수가 있고 security invoker · search_path 빈 값이다'
+);
+select is(
+  (select count(*) from pg_proc p
+    where p.pronamespace = 'public'::regnamespace and p.proname = 'admin_billing_returned_accounts'
+      and has_function_privilege('service_role', p.oid, 'execute')
+      and not has_function_privilege('authenticated', p.oid, 'execute')
+      and not has_function_privilege('anon', p.oid, 'execute')),
+  1::bigint, 'returned accounts 는 service_role 만 부를 수 있다'
+);
+
+set local role service_role;
+select results_eq(
+  $$select nickname, refund_count, refunded_krw, granted_hearts, clawed_back_hearts, shortfall_hearts
+      from public.admin_billing_returned_accounts(100)$$,
+  $$values ('환불셋', 3, 47100::bigint, 1000, 110, 890),
+           ('환불둘', 2, 6000::bigint, 100, 0, 100),
+           ('유저a', 2, 8700::bigint, 200, 110, 90),
+           ('유저b', 1, 3000::bigint, 50, 0, 50)$$,
+  'returned accounts groups real refunds per account — 50 · 100(+50) · 800 환불은 건수 3 · 3000+5700+38400원 · 지급 1000 · 회수 50+60+0 · 못 거둠 890, '
+  || '건수 많은 순 → 같으면 못 거둔 하트 많은 순, 회수 null 은 0, 시험 환불 · 환불 안 된 구매는 세지 않는다'
+);
+select is(
+  (select last_refunded_at from public.admin_billing_returned_accounts(100) where nickname = '환불셋'),
+  now() - interval '1 day', '마지막 환불 시각은 실제 환불 중 가장 늦은 것(오늘 시험 환불이 아니다)'
+);
+select is(
+  (select count(*) from public.admin_billing_returned_accounts(100) where profile_id is null),
+  0::bigint, 'returned accounts excludes deleted accounts — 계정이 지워진 환불(주문 4 · 9)은 줄이 없다'
+);
+select results_eq(
+  $$select nickname from public.admin_billing_returned_accounts(1)$$,
+  $$values ('환불셋'::text)$$,
+  'returned accounts p_limit 1 이면 맨 앞 한 줄'
+);
+select is((select count(*) from public.admin_billing_returned_accounts(500)), 4::bigint, 'returned accounts p_limit 500(상한)은 통과');
+select throws_ok($$select * from public.admin_billing_returned_accounts(0)$$, '22023', null, 'returned accounts rejects limit 0');
+select throws_ok($$select * from public.admin_billing_returned_accounts(501)$$, '22023', null, 'returned accounts rejects limit 501');
+select throws_ok($$select * from public.admin_billing_returned_accounts(null)$$, '22023', null, 'returned accounts rejects null limit');
+reset role;
+
+-- 7-1. 정렬 키가 서로 반대인 계정 · 3키 · 탈퇴 상태(프로필은 남음). 위 기대값을 흔들지 않게 여기서 더한다.
+-- J(…fa) = 1건 환불에 못 거둠 800 → 2건(못 거둠 90 · 100)보다 뒤, 1건 못 거둠 50 보다 앞(건수가 1키, 못 거둔 하트는 2키).
+-- K(…fb) · L(…fc) = 유저b 와 똑같이 1건 · 못 거둠 50, 마지막 환불만 다름(유저b 1일 전 → K 7일 전 → L 8일 전, 3키 최근 순).
+-- 유저c(…f3, 탈퇴 상태 · 프로필 남음) = 100하트 1건 환불 중 70 회수 → 목록에 나온다(대장 결정 A: 탈퇴 상태도 포함).
+insert into auth.users (id, email) values
+  ('00000000-0000-0000-0000-0000000000fa', 'ub-10@testf.ac.kr'),
+  ('00000000-0000-0000-0000-0000000000fb', 'ub-11@testf.ac.kr'),
+  ('00000000-0000-0000-0000-0000000000fc', 'ub-12@testf.ac.kr');
+insert into public.profiles (id, university_id)
+values ('00000000-0000-0000-0000-0000000000fa', '00000000-0000-0000-0000-00000000000f'),
+       ('00000000-0000-0000-0000-0000000000fb', '00000000-0000-0000-0000-00000000000f'),
+       ('00000000-0000-0000-0000-0000000000fc', '00000000-0000-0000-0000-00000000000f')
+on conflict (id) do nothing;
+update public.profiles set nickname = '환불큼' where id = '00000000-0000-0000-0000-0000000000fa';
+update public.profiles set nickname = '최근환불' where id = '00000000-0000-0000-0000-0000000000fb';
+update public.profiles set nickname = '예전환불' where id = '00000000-0000-0000-0000-0000000000fc';
+
+insert into public.purchases
+  (profile_id, store, product_id, store_order_id, token_hash, heart_amount, bonus_hearts, price_krw, status, is_test,
+   clawed_back_hearts, purchased_at, refunded_at)
+select p, 'play_store', pid, 'GPA.r' || n, repeat('2', 62) || n, h, 0, price, 'refunded'::public.purchase_status, false, c,
+       now() - interval '10 days', ref
+from (values
+  ('00000000-0000-0000-0000-0000000000fa'::uuid, 'heart_800', '08', 800, 38400, 0, now() - interval '6 days'),
+  ('00000000-0000-0000-0000-0000000000fb', 'heart_50', '09', 50, 3000, 0, now() - interval '7 days'),
+  ('00000000-0000-0000-0000-0000000000fc', 'heart_50', '0a', 50, 3000, 0, now() - interval '8 days'),
+  ('00000000-0000-0000-0000-0000000000f3', 'heart_100', '0b', 100, 5700, 70, now() - interval '2 days')
+) as v(p, pid, n, h, price, c, ref);
+
+set local role service_role;
+select results_eq(
+  $$select nickname, refund_count, refunded_krw, granted_hearts, clawed_back_hearts, shortfall_hearts
+      from public.admin_billing_returned_accounts(100)$$,
+  $$values ('환불셋', 3, 47100::bigint, 1000, 110, 890),
+           ('환불둘', 2, 6000::bigint, 100, 0, 100),
+           ('유저a', 2, 8700::bigint, 200, 110, 90),
+           ('환불큼', 1, 38400::bigint, 800, 0, 800),
+           ('유저b', 1, 3000::bigint, 50, 0, 50),
+           ('최근환불', 1, 3000::bigint, 50, 0, 50),
+           ('예전환불', 1, 3000::bigint, 50, 0, 50),
+           ('유저c', 1, 5700::bigint, 100, 70, 30)$$,
+  'returned accounts order — 건수(1키)가 못 거둔 하트(2키)를 이긴다: 1건 · 800 은 2건 · 90 뒤, 1건 · 50 앞. '
+  || '건수 · 못 거둔 하트가 같으면 마지막 환불 최근 순(3키)'
+);
+select results_eq(
+  $$select r.refund_count, r.shortfall_hearts, pr.status::text
+      from public.admin_billing_returned_accounts(100) r
+      join public.profiles pr on pr.id = r.profile_id
+     where r.profile_id = '00000000-0000-0000-0000-0000000000f3'$$,
+  $$values (1, 30, 'withdrawn')$$,
+  'returned accounts includes withdrawn-status profiles — 탈퇴 상태라도 프로필이 남아 있으면 목록에 나온다'
+);
+reset role;
+set local role authenticated;
+select throws_ok($$select * from public.admin_billing_returned_accounts(10)$$, '42501', null,
+  'authenticated 는 admin_billing_returned_accounts 를 부를 수 없다');
+reset role;
+set local role anon;
+select throws_ok($$select * from public.admin_billing_returned_accounts(10)$$, '42501', null,
+  'anon 은 admin_billing_returned_accounts 를 부를 수 없다');
 reset role;
 
 select * from finish();

@@ -420,7 +420,7 @@ class AdminWorld:
         if path == "/rest/v1/rpc/decrypt_profile_private" and method == "POST":
             return httpx.Response(200, json=[{"real_name": None, "kakao_id": self.kakao_id}])
         if path in ("/rest/v1/rpc/admin_adjust_hearts", "/rest/v1/rpc/admin_close_account", "/rest/v1/rpc/admin_billing_daily",
-                    "/rest/v1/rpc/admin_billing_shortfall") and method == "POST":
+                    "/rest/v1/rpc/admin_billing_shortfall", "/rest/v1/rpc/admin_billing_returned_accounts") and method == "POST":
             return self._new_rpc(path.removeprefix("/rest/v1/rpc/"), json.loads(request.content))
         return None
 

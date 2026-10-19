@@ -6,16 +6,17 @@ import 'package:campus_mate_admin/gate/gate_controller.dart';
 import 'package:campus_mate_admin/providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// 결제 조회 화면의 읽기 세 가지(이번 달 매출 · 30일 일 매출 · 못 거둔 목록)
+/// 결제 조회 화면의 읽기 네 가지(이번 달 매출 · 30일 일 매출 · 못 거둔 목록 · 환불이 잦은 계정)
 class BillingOverview {
-  const BillingOverview({required this.summary, required this.days, required this.shortfall});
+  const BillingOverview({required this.summary, required this.days, required this.shortfall, required this.returned});
 
   final BillingSummary summary;
   final List<DailyRevenue> days;
   final List<ShortfallRow> shortfall;
+  final List<ReturnedAccountRow> returned;
 }
 
-/// A8 첫 화면. 화면에 들어올 때마다 새로 받는다. 한 가지라도 못 받으면 오류 한 가지로 다룬다(다시 시도 한 번으로 셋 다).
+/// A8 첫 화면. 화면에 들어올 때마다 새로 받는다. 한 가지라도 못 받으면 오류 한 가지로 다룬다(다시 시도 한 번으로 넷 다).
 final billingOverviewProvider = NotifierProvider.autoDispose<BillingOverviewController, AsyncValue<BillingOverview>>(
   BillingOverviewController.new,
 );
@@ -41,11 +42,12 @@ class BillingOverviewController extends Notifier<AsyncValue<BillingOverview>> {
     final BillingOverview overview;
     try {
       // 하나라도 실패하면 그 실패를 던진다(나머지 실패는 Future.wait 가 삼킨다)
-      final parts = await Future.wait<Object>([_api.billingSummary(), _api.billingDaily(), _api.billingShortfall()]);
+      final parts = await Future.wait<Object>([_api.billingSummary(), _api.billingDaily(), _api.billingShortfall(), _api.billingReturnedAccounts()]);
       overview = BillingOverview(
         summary: parts[0] as BillingSummary,
         days: parts[1] as List<DailyRevenue>,
         shortfall: parts[2] as List<ShortfallRow>,
+        returned: parts[3] as List<ReturnedAccountRow>,
       );
     } on AdminApiFailure catch (failure) {
       if (!_isLatest(request)) return;
