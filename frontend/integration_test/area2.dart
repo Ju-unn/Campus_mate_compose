@@ -51,7 +51,6 @@ const _notificationsRow = '알림'; // :84
 const _inviteBody = '친구가 가입할 때 이 코드를 넣으면 둘 다 하트 50개를 받아요.'; // :35
 const _copy = '복사'; // _CopyButton :223
 const _copied = '코드를 복사했어요'; // :61
-const _close = '닫기'; // :140
 
 // 16d — frontend/lib/matching/view/notification_settings_screen.dart _sections :16-75. 기본값 = cards/repository.py NOTIFICATION_DEFAULTS.
 const _notificationDefaults = {
@@ -192,9 +191,11 @@ Future<String> _openInvite(WidgetTester tester) async {
   return tester.widget<Text>(_code).data!;
 }
 
+/// 16i 에는 닫기 단추가 없다(pen wNqk2) — 시트 위 딤(바깥)을 눌러 닫는다.
 Future<void> _closeInvite(WidgetTester tester) async {
-  await tap(tester, find.descendant(of: _sheet, matching: button(_close)));
-  must(await _gone(tester, _sheet, const Duration(seconds: 5)), '"닫기" 뒤에도 시트가 남음');
+  final sheet = tester.getRect(_sheet);
+  await tester.tapAt(Offset(sheet.center.dx, sheet.top / 2));
+  must(await _gone(tester, _sheet, const Duration(seconds: 5)), '바깥을 누른 뒤에도 시트가 남음');
 }
 
 /// [finder] 가 [within] 안에 사라지면 true.

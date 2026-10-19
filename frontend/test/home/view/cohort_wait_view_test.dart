@@ -110,7 +110,8 @@ void main() {
         notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
         homeNowProvider.overrideWithValue(() => now),
         referralRepositoryProvider.overrideWithValue(referral),
-        shareTextProvider.overrideWithValue((text) => share(text)),
+        // 19 단추는 16i "카카오톡으로 보내기"와 같은 카카오 먼저 공유를 쓴다 — 넘긴 코드를 모은다.
+        shareInviteProvider.overrideWithValue((code) => share(code)),
         // 하단 내비 뱃지가 수락 대기·안 읽은 메시지를 읽는다(§8.8).
         cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
         chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
@@ -139,13 +140,13 @@ void main() {
       await tester.pump();
     }
 
-    testWidgets('누르면 내 추천 코드를 넣은 글로 휴대폰 공유 창을 연다', (tester) async {
+    testWidgets('누르면 내 추천 코드를 카카오 먼저 공유(없으면 기기 공유 창)에 넘긴다', (tester) async {
       now = DateTime(2099, 9, 7, 12);
       await pump(tester);
 
       await tapInvite(tester);
 
-      expect(shared, ['CampusMate 에서 같이 해요! 가입할 때 추천 코드 K7QMX2 를 넣어 줘.']);
+      expect(shared, ['K7QMX2']);
     });
 
     testWidgets('코드를 못 받으면 공유하지 않고 실패 문구를 토스트로 보인다. 화면은 그대로', (tester) async {
