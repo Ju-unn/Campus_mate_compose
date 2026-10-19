@@ -327,7 +327,7 @@ class CleanupBatchTest(Base):
 
 
 class ConsentRenewalTest(Base):
-    NEW = [{'kind': 'terms', 'version': '2026-09-29'}, {'kind': 'privacy', 'version': '2026-09-29'}]
+    NEW = [{'kind': 'terms', 'version': '2026-10-19'}, {'kind': 'privacy', 'version': '2026-10-19'}]
     OLD = [{'kind': 'terms', 'version': '2026-09-01'}, {'kind': 'privacy', 'version': '2026-09-01'}]
 
     def test_gate_18_new_version_rows_are_added(self):
