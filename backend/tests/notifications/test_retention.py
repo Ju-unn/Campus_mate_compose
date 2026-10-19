@@ -95,4 +95,5 @@ def test_a_failing_purge_does_not_fail_the_batch(batch_client):
 
     assert response.status_code == 200
     assert response.json() == {"reminded": 0, "closed": 0, "passed": 0, "deferred_sent": 0, "notifications_purged": 0,
-                                 "photos_deleted": 0, "pending_expired": 0}
+                                 "photos_deleted": 0, "pending_expired": 0, "graduate_photos_deleted": 0,
+                                 "graduate_pending_expired": 0, "graduate_verified_cancelled": 0}

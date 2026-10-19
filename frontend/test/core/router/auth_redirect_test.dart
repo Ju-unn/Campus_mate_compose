@@ -425,4 +425,92 @@ void main() {
       expect(redirect.resolve(AppRoutes.home), isNull, reason: '$status');
     }
   });
+
+  // 졸업생 인증(졸업증명서) 관문 — 동의 다음, 학교 메일 자리에 방법 고르기 · 신청 · 대기가 끼어든다.
+  // 서버 플래그가 꺼져 있으면 이 관문은 하나도 나오지 않는다(VerificationGate.fromStatus).
+  group('졸업생 인증 관문(방법 고르기 · 신청 · 대기)', () {
+    AuthRedirect member(VerificationGate gate) => AuthRedirect(true, gate, OnboardingStep.basicInfo);
+
+    test('각 관문은 자기 화면으로 보낸다 — 홈으로 가려 해도', () {
+      const rows = <(VerificationGate, String)>[
+        (VerificationGate.needsVerificationMethod, AppRoutes.verificationMethod),
+        (VerificationGate.needsSchoolEmailChosen, AppRoutes.login),
+        (VerificationGate.needsGraduateApplication, AppRoutes.graduateApplication),
+        (VerificationGate.graduateReviewing, AppRoutes.graduateWaiting),
+      ];
+      for (final (gate, target) in rows) {
+        expect(member(gate).resolve(AppRoutes.home), target, reason: '$gate');
+        expect(member(gate).resolve(AppRoutes.splash), target, reason: '$gate');
+        expect(member(gate).resolve(AppRoutes.schoolInfo), target, reason: '$gate');
+      }
+    });
+
+    test('자기 화면에 있으면 이동시키지 않는다', () {
+      expect(member(VerificationGate.needsVerificationMethod).resolve(AppRoutes.verificationMethod), isNull);
+      expect(member(VerificationGate.needsSchoolEmailChosen).resolve(AppRoutes.login), isNull);
+      expect(member(VerificationGate.needsGraduateApplication).resolve(AppRoutes.graduateApplication), isNull);
+      expect(member(VerificationGate.graduateReviewing).resolve(AppRoutes.graduateWaiting), isNull);
+    });
+
+    test('방법 고르기를 거쳐 온 02 도 03(인증번호)에 머문다 — 옛 방식 02 와 같다', () {
+      expect(member(VerificationGate.needsSchoolEmailChosen).resolve(AppRoutes.verifyCode), isNull);
+      expect(member(VerificationGate.needsSchoolEmail).resolve(AppRoutes.verifyCode), isNull);
+    });
+
+    test('졸업생 길의 03 은 없다 — 신청 · 대기 관문에서 03 으로 가면 자기 화면으로 밀려난다', () {
+      expect(member(VerificationGate.needsGraduateApplication).resolve(AppRoutes.verifyCode), AppRoutes.graduateApplication);
+      expect(member(VerificationGate.graduateReviewing).resolve(AppRoutes.verifyCode), AppRoutes.graduateWaiting);
+      expect(member(VerificationGate.needsVerificationMethod).resolve(AppRoutes.verifyCode), AppRoutes.verificationMethod);
+    });
+
+    test('관문 값이 바뀌면 지나간 관문 화면은 서로 밀려난다 — 신청 → 대기 → 반려 → 다시 신청', () {
+      expect(member(VerificationGate.graduateReviewing).resolve(AppRoutes.graduateApplication), AppRoutes.graduateWaiting);
+      expect(member(VerificationGate.needsGraduateApplication).resolve(AppRoutes.graduateWaiting), AppRoutes.graduateApplication);
+      expect(member(VerificationGate.needsVerificationMethod).resolve(AppRoutes.graduateApplication), AppRoutes.verificationMethod);
+      expect(member(VerificationGate.needsVerificationMethod).resolve(AppRoutes.login), AppRoutes.verificationMethod);
+      expect(member(VerificationGate.needsGraduateApplication).resolve(AppRoutes.verificationMethod), AppRoutes.graduateApplication);
+      expect(member(VerificationGate.needsSchoolEmailChosen).resolve(AppRoutes.verificationMethod), AppRoutes.login);
+    });
+
+    test('승인(졸업생 관문 → 3c)되면 세 화면 모두 3c 로 밀려난다 — 되돌아오지 못한다', () {
+      const approved = AuthRedirect(true, VerificationGate.needsSchoolInfo, OnboardingStep.basicInfo);
+
+      for (final path in [AppRoutes.verificationMethod, AppRoutes.graduateApplication, AppRoutes.graduateWaiting]) {
+        expect(approved.resolve(path), AppRoutes.schoolInfo, reason: path);
+      }
+    });
+
+    test('모두 끝난 계정은 세 화면에 머물지 않고 홈으로 간다', () {
+      const done = AuthRedirect(true, VerificationGate.complete, OnboardingStep.complete);
+
+      for (final path in [AppRoutes.verificationMethod, AppRoutes.graduateApplication, AppRoutes.graduateWaiting]) {
+        expect(done.resolve(path), AppRoutes.home, reason: path);
+      }
+    });
+
+    test('앞 단계(동의)가 아직이면 동의가 먼저다', () {
+      for (final path in [AppRoutes.verificationMethod, AppRoutes.graduateApplication, AppRoutes.graduateWaiting]) {
+        expect(
+          const AuthRedirect(true, VerificationGate.needsConsent, OnboardingStep.basicInfo).resolve(path),
+          AppRoutes.consent,
+          reason: path,
+        );
+      }
+    });
+
+    test('정지가 먼저다', () {
+      const suspended = AuthRedirect(true, VerificationGate.graduateReviewing, OnboardingStep.basicInfo,
+          accountStatus: AccountStatus.suspended);
+
+      expect(suspended.resolve(AppRoutes.graduateWaiting), AppRoutes.accountSuspended);
+    });
+
+    test('로그인 전에는 세 화면 모두 시작 화면으로 보낸다', () {
+      const guest = AuthRedirect(false, VerificationGate.needsVerificationMethod, OnboardingStep.basicInfo);
+
+      for (final path in [AppRoutes.verificationMethod, AppRoutes.graduateApplication, AppRoutes.graduateWaiting]) {
+        expect(guest.resolve(path), AppRoutes.splash, reason: path);
+      }
+    });
+  });
 }

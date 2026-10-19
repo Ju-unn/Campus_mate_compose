@@ -10,7 +10,15 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 /// 누르면 바로 아래 4 에 펼친다 — 폭 200 · 항목 36 · 모서리 8 · web-outline-strong 1 · 높이는 320 에서 끊고 스크롤(펼친 모양은 pen 에 없어
 /// 반려 사유 메뉴(krcn9)와 같은 결로 정했다). 고르면 닫히고, Esc · 바깥 누름으로도 닫힌다. 항목 키는 `${key}-option-N`, 메뉴 키는 `${key}-menu`.
 class AdminSelect<T> extends StatefulWidget {
-  const AdminSelect({super.key, required this.options, required this.value, required this.onChanged, required this.semanticLabel});
+  const AdminSelect({
+    super.key,
+    required this.options,
+    required this.value,
+    required this.onChanged,
+    required this.semanticLabel,
+    this.boxWidth = width,
+    this.boxHeight = height,
+  });
 
   static const double width = 200;
   static const double height = 36;
@@ -21,6 +29,10 @@ class AdminSelect<T> extends StatefulWidget {
   final T value;
   final ValueChanged<T> onChanged;
   final String semanticLabel;
+
+  /// 칸 크기. 기본은 A9 의 200×36, 졸업생 검수(A10 MuZJ5)는 카드 폭 가득(280) × 44 — 펼친 메뉴 폭도 같이 따라간다.
+  final double boxWidth;
+  final double boxHeight;
 
   @override
   State<AdminSelect<T>> createState() => _AdminSelectState<T>();
@@ -74,8 +86,8 @@ class _AdminSelectState<T> extends State<AdminSelect<T>> {
             child: TapBox(
               onTap: _toggle,
               semanticLabel: '${widget.semanticLabel}: $current',
-              width: AdminSelect.width,
-              height: AdminSelect.height,
+              width: widget.boxWidth,
+              height: widget.boxHeight,
               color: AdminColors.surface,
               side: const BorderSide(color: AdminColors.outlineStrong),
               padding: const EdgeInsets.symmetric(horizontal: AdminSpacing.sm),
@@ -105,7 +117,7 @@ class _AdminSelectState<T> extends State<AdminSelect<T>> {
       ),
       clipBehavior: Clip.antiAlias,
       child: SizedBox(
-        width: AdminSelect.width,
+        width: widget.boxWidth,
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxHeight: AdminSelect.maxMenuHeight),
           child: ListView(

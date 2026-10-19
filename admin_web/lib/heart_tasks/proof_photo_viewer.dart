@@ -121,19 +121,19 @@ class ProofPhotoViewer extends StatelessWidget {
   Widget _bigPhoto(String? url) {
     if (detail.isLoading) return const Center(child: AdminLoader(color: AdminColors.muted));
     if (detail.hasError) {
-      return _Placeholder(
+      return PhotoPlaceholder(
         icon: LucideIcons.circleAlert,
         label: '사진을 불러오지 못했어요',
         action: AdminButton(label: '다시 시도', variant: AdminButtonVariant.text, onPressed: onRetry),
       );
     }
-    if (url == null) return const _Placeholder(icon: LucideIcons.imageOff, label: '사진 없음');
+    if (url == null) return const PhotoPlaceholder(icon: LucideIcons.imageOff, label: '사진 없음');
     return ProofImage(
       url: url,
       fit: BoxFit.contain,
       onError: onPhotoError,
       loading: const Center(child: AdminLoader(color: AdminColors.muted)),
-      fallback: const _Placeholder(icon: LucideIcons.imageOff, label: '사진 없음'),
+      fallback: const PhotoPlaceholder(icon: LucideIcons.imageOff, label: '사진 없음'),
     );
   }
 
@@ -263,8 +263,8 @@ class _PhotoThumb extends StatelessWidget {
 }
 
 /// 큰 칸 · 크게 보기의 안내 그림(pen vyryA · Cpr6U): 아이콘(web-disabled) → 8 → 글자 14/600 web-muted.
-class _Placeholder extends StatelessWidget {
-  const _Placeholder({required this.icon, required this.label, this.iconSize = 40, this.action});
+class PhotoPlaceholder extends StatelessWidget {
+  const PhotoPlaceholder({super.key, required this.icon, required this.label, this.iconSize = 40, this.action});
 
   final IconData icon;
   final String label;
@@ -333,7 +333,7 @@ Future<void> showProofZoom(BuildContext context, {required String? initialId, re
 /// 서명이 만료돼 못 그리면 "사진 없음" — 상세를 다시 받으면 새 주소가 온다.
 Future<void> showPhotoZoom(BuildContext context, String url) {
   const waiting = _ZoomFrame(child: Center(child: AdminLoader(color: AdminColors.muted)));
-  const missing = _ZoomFrame(child: _Placeholder(icon: LucideIcons.imageOff, label: '사진 없음', iconSize: 48));
+  const missing = _ZoomFrame(child: PhotoPlaceholder(icon: LucideIcons.imageOff, label: '사진 없음', iconSize: 48));
   return showAdminDialog<void>(
     context,
     (_) => PhotoZoomOverlay(
@@ -386,7 +386,7 @@ class _ProofZoomState extends ConsumerState<ProofZoom> {
       url = loaded.previous.where((p) => p.id == widget.photoId).firstOrNull?.photoUrls.elementAtOrNull(widget.photoIndex);
     }
     const waiting = _ZoomFrame(child: Center(child: AdminLoader(color: AdminColors.muted)));
-    const missing = _ZoomFrame(child: _Placeholder(icon: LucideIcons.imageOff, label: '사진 없음', iconSize: 48));
+    const missing = _ZoomFrame(child: PhotoPlaceholder(icon: LucideIcons.imageOff, label: '사진 없음', iconSize: 48));
     final Widget photo;
     if (loaded == null || detail!.isLoading) {
       photo = waiting;

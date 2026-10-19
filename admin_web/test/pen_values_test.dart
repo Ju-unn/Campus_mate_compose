@@ -13,6 +13,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'helpers/fakes.dart';
 
@@ -135,6 +136,25 @@ void main() {
     expect(topBar, const Rect.fromLTWH(240, 0, 1200, 64));
     final title = find.descendant(of: find.byType(TopBar), matching: find.text('홈'));
     expect(rectOf(tester, title).left, 272);
+  });
+
+  testWidgets('SideNav A10(b9Bp4r): 졸업생은 3번째 · 항목 44 · 간격 4 · graduation-cap 20 · 고르면 primary-wash + primary-text 14/700', (tester) async {
+    await pumpAdminApp(tester, auth: FakeAdminAuth(mfa: const MfaState(aal2: true, factorId: 'f')), initialPath: '/graduates');
+
+    final proofs = rectOf(tester, find.byKey(const ValueKey('nav-heartTasks')));
+    final graduates = rectOf(tester, find.byKey(const ValueKey('nav-graduates')));
+    final reports = rectOf(tester, find.byKey(const ValueKey('nav-reports')));
+    expect(graduates.size, const Size(208, 44));
+    expect(graduates.top - proofs.bottom, 4);
+    expect(reports.top - graduates.bottom, 4);
+    final item = find.byKey(const ValueKey('nav-graduates'));
+    final icon = tester.widget<Icon>(find.descendant(of: item, matching: find.byType(Icon)));
+    expect((icon.icon, icon.size, icon.color), (LucideIcons.graduationCap, 20, AdminColors.primaryText));
+    final label = tester.widget<Text>(find.descendant(of: item, matching: find.text('졸업생'))).style!;
+    expect((label.fontSize, label.fontWeight, label.color), (14, FontWeight.w700, AdminColors.primaryText));
+    final material = find.ancestor(of: find.descendant(of: item, matching: find.byType(InkWell)), matching: find.byType(Material)).first;
+    expect(tester.widget<Material>(material).color, AdminColors.primaryWash);
+    expect(find.descendant(of: find.byType(TopBar), matching: find.text('졸업생 검수')), findsOneWidget);
   });
 
   testWidgets('SideNav(O78dY · lJF8t · k5h02V): "관리자" 12/600, 고른 메뉴 글자 14/700 · 나머지 14/600', (tester) async {

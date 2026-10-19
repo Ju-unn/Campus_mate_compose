@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:campus_mate_admin/actions/action_item.dart';
 import 'package:campus_mate_admin/api/cursor_page.dart';
 import 'package:campus_mate_admin/billing/billing_item.dart';
+import 'package:campus_mate_admin/graduate/graduate_item.dart';
 import 'package:campus_mate_admin/heart_tasks/heart_task_item.dart';
 import 'package:campus_mate_admin/home/home_item.dart';
 import 'package:campus_mate_admin/matching/matching_item.dart';
@@ -71,6 +72,39 @@ class AdminApi {
 
   Future<void> rejectHeartTask(String id, HeartTaskRejectReason reason) async {
     return _read(send('POST', '${_heartTaskPath(id)}/reject', body: {'reason': reason.code}), (_) {});
+  }
+
+  // 졸업생 검수(A10) — 서버 계약은 backend/app/admin/graduate_review.py. 실패는 [AdminApiFailure](409 already_reviewed 만 [AlreadyReviewed]).
+  // 번호 · 학번은 POST 본문으로만 보내고 어디에도 남기지 않는다(예외에도 싣지 않는다).
+
+  /// 오래된 순(먼저 낸 사람부터). 사진 · 글자 인식 · 이메일은 없다 — 줄을 고르면 [fetchGraduateRequest].
+  Future<List<GraduateItem>> listGraduateRequests({GraduateStatus status = GraduateStatus.pending, int? limit}) {
+    final query = {'status': status.code, if (limit != null) 'limit': '$limit'};
+    return _read(send('GET', '/admin/graduate-requests', query: query), (body) {
+      if (body case {'items': final List<Object?> items}) return [for (final row in items) GraduateItem.fromJson(row)];
+      throw const FormatException('졸업생 신청 목록의 모양이 아니에요');
+    });
+  }
+
+  /// 한 건 — 5분 서명 사진 · 글자 인식 · 이전 학교 메일 · 중복 경고 · 지난 신청. 서명이 만료돼 사진을 다시 받을 때도 쓴다.
+  Future<GraduateDetail> fetchGraduateRequest(String id) async {
+    return _read(send('GET', _idPath('/admin/graduate-requests', id)), GraduateDetail.fromJson);
+  }
+
+  /// 승인. 학교 · 문서확인번호는 필수, 학번은 서류에 있을 때만(비면 칸을 보내지 않는다). 응답 본문(결정된 한 건)은 읽지 않는다 —
+  /// 승인은 됐는데 모양이 틀려 실패로 보이면 다시 누르게 된다.
+  Future<void> approveGraduate(String id, {required String universityId, required String documentNumber, String? studentNumber}) async {
+    final student = studentNumber?.trim();
+    final body = {
+      'university_id': universityId,
+      'document_number': documentNumber.trim(),
+      if (student != null && student.isNotEmpty) 'student_number': student,
+    };
+    return _read(send('POST', '${_idPath('/admin/graduate-requests', id)}/approve', body: body), (_) {});
+  }
+
+  Future<void> rejectGraduate(String id, GraduateRejectReason reason) async {
+    return _read(send('POST', '${_idPath('/admin/graduate-requests', id)}/reject', body: {'reason': reason.code}), (_) {});
   }
 
   // 신고 검수(A4) — 409 already_done 도 [AlreadyReviewed](이미 처리됨)로 던진다. 사유 · 메모는 앞뒤 공백만 떼고 그대로 보낸다.

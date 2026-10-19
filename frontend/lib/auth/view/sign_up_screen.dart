@@ -7,12 +7,17 @@ import 'package:campus_mate/auth/viewmodel/verify_code_view_model.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/core/auth/logout_text_button.dart';
+import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/graduate/view/gate_toast.dart';
+import 'package:campus_mate/graduate/view/method_back.dart';
+import 'package:campus_mate/graduate/view/method_back_app_bar.dart';
+import 'package:campus_mate/graduate/viewmodel/method_back_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -22,8 +27,16 @@ import 'package:go_router/go_router.dart';
 /// 앞 화면이 약관 동의라 돌아갈 곳이 없어 앱바(뒤로가기)를 두지 않는다
 /// (pen 원본에는 앱바가 있으나 2026-09-15 사용자 결정으로 뺐다). 대신 맨 아래에 02-c 와 같은 로그아웃을 둔다 —
 /// 소셜로 잘못 들어온 사람의 탈출구다.
+///
+/// 졸업생 인증이 켜진 서버에서 방법 고르기(02-0)를 거쳐 왔으면([hasMethodPicker], 관문 `needsSchoolEmailChosen`) pen `dM4P7` 변형이다:
+/// 앱바(높이 56) 뒤로 화살표가 더해지고 본문이 56 내려간다. 화살표와 안드로이드 시스템 뒤로는 같은 `methodBack` 한 함수로
+/// 방법 고르기로 돌아간다. 그렇지 않으면(`needsSchoolEmail` — 서버 플래그 꺼짐 · 옛 서버) 지금과 같다: 앱바 없음, 시스템 뒤로 = 종료 안내.
+/// 화면이 스스로 [BackExitScope] 를 한 겹 두른다(라우터가 또 두르면 같은 뒤로에 안내까지 뜬다).
 class SignUpScreen extends ConsumerStatefulWidget {
-  const SignUpScreen({super.key});
+  const SignUpScreen({this.hasMethodPicker = false, super.key});
+
+  /// 방법 고르기를 거쳐 와서 돌아갈 곳이 있다. 라우터가 관문 값으로 정한다.
+  final bool hasMethodPicker;
 
   @override
   ConsumerState<SignUpScreen> createState() => _SignUpScreenState();
@@ -57,8 +70,13 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     final state = ref.watch(signUpViewModelProvider);
     final viewModel = ref.read(signUpViewModelProvider.notifier);
     ref.listen(signUpViewModelProvider, _onStateChanged);
+    ref.listen(methodBackViewModelProvider.select((state) => state.errorMessage), (_, message) {
+      if (message != null) showGateToast(context, message);
+    });
+    final goBack = widget.hasMethodPicker ? methodBack(ref, isBusy: false) : null;
 
-    return Scaffold(
+    final scaffold = Scaffold(
+      appBar: goBack == null ? null : MethodBackAppBar(onBack: goBack),
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
@@ -117,6 +135,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         ),
       ),
     );
+    return BackExitScope(onBack: goBack, child: scaffold);
   }
 
   void _onStateChanged(SignUpUiState? previous, SignUpUiState next) {

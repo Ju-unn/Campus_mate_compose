@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:campus_mate/auth/model/verification_gate.dart';
 import 'package:campus_mate/billing/viewmodel/heart_tasks_view_model.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
+import 'package:campus_mate/core/router/verification_gate_listenable_provider.dart';
 import 'package:campus_mate/matching/viewmodel/acceptances_view_model.dart';
 import 'package:campus_mate/matching/viewmodel/sent_requests_view_model.dart';
 import 'package:campus_mate/matching/viewmodel/today_cards_view_model.dart';
@@ -37,6 +38,10 @@ void refreshForPush(
     case 'heart_tasks' || 'heart_task_retry':
       invalidate(heartTasksViewModelProvider);
       invalidate(myProfileProvider);
+    // 졸업생 인증 결과(승인 · 반려) — 화면은 옮기지 않는다([PushRoute] 는 null). 관문만 다시 물으면 AuthRedirect 가
+    // 승인이면 3c 로, 반려면 신청 폼으로 옮긴다.
+    case 'graduate_verification':
+      unawaited(read(verificationGateListenableProvider).refresh());
   }
 }
 

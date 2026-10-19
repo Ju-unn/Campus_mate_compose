@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:campus_mate/auth/model/verification_gate.dart';
+import 'package:campus_mate/auth/model/verification_gate_repository_provider.dart';
 import 'package:campus_mate/billing/model/heart_task_repository_provider.dart';
 import 'package:campus_mate/billing/viewmodel/heart_tasks_view_model.dart';
 import 'package:campus_mate/common/result.dart';
@@ -20,6 +21,7 @@ import 'package:campus_mate/notifications/viewmodel/unread_count_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../auth/model/fake_verification_gate_repository.dart';
 import '../../billing/model/fake_heart_task_repository.dart';
 import '../../notifications/model/fake_notifications_repository.dart';
 
@@ -60,10 +62,13 @@ class _Sent extends SentRequestsViewModel {
 
 void main() {
   late ProviderContainer container;
+  late FakeVerificationGateRepository gateRepository;
 
   setUp(() {
     _refreshed.clear();
+    gateRepository = FakeVerificationGateRepository();
     container = ProviderContainer(overrides: [
+      verificationGateRepositoryProvider.overrideWithValue(gateRepository),
       todayCardsViewModelProvider.overrideWith(_Today.new),
       acceptancesViewModelProvider.overrideWith(_Acceptances.new),
       conversationsViewModelProvider.overrideWith(_Conversations.new),
@@ -191,5 +196,25 @@ void main() {
 
       expect(notifications.countCalls, 0);
     });
+  });
+
+  // 졸업생 인증 결과(승인 · 반려) — 앱은 화면을 옮기지 않고 관문만 다시 묻는다. 옮기는 일은 AuthRedirect 몫이다.
+  test('졸업생 인증 결과 알림은 관문만 다시 묻고 다른 목록은 건드리지 않는다', () async {
+    for (final data in [
+      {'route': 'graduate_verification', 'state': 'approved'},
+      {'route': 'graduate_verification', 'state': 'rejected', 'reason': 'unreadable'},
+    ]) {
+      expect(refreshedBy(data), isEmpty, reason: '$data');
+    }
+    await pumpEventQueue();
+
+    expect(gateRepository.fetchCount, 2);
+  });
+
+  test('졸업생 인증이 아닌 알림은 관문을 다시 묻지 않는다', () async {
+    refreshedBy({'route': 'daily_card'});
+    await pumpEventQueue();
+
+    expect(gateRepository.fetchCount, 0);
   });
 }

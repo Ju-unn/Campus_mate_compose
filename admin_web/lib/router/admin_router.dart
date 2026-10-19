@@ -2,6 +2,7 @@ import 'package:campus_mate_admin/actions/action_log_screen.dart';
 import 'package:campus_mate_admin/billing/billing_screen.dart';
 import 'package:campus_mate_admin/gate/gate_controller.dart';
 import 'package:campus_mate_admin/gate/gate_stage.dart';
+import 'package:campus_mate_admin/graduate/graduate_review_screen.dart';
 import 'package:campus_mate_admin/heart_tasks/heart_task_review_screen.dart';
 import 'package:campus_mate_admin/home/home_screen.dart';
 import 'package:campus_mate_admin/matching/matching_screen.dart';
@@ -151,7 +152,7 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
   return router;
 });
 
-/// 메뉴 화면과 그 아래 상세 자리(`/heart-tasks/{id}` — 디스코드 알림 링크). 홈은 아래 자리가 없다.
+/// 메뉴 화면과 그 아래 상세 자리(`/heart-tasks/{id}` — 디스코드 알림 링크 · `/graduates/{id}`). 홈은 아래 자리가 없다.
 /// 상세 주소는 목록 안에 겹치지(nested) 않고 나란히 둔다 — 겹치면 밑에 깔린 목록 페이지가 그려지지 않은 채
 /// SelectionArea 가 그 글자를 재려다 멈춘다(10-18 시험에서 확인). 상세 주소도 같은 화면을 열고 그 건을 고른다.
 List<GoRoute> _sectionRoutes(AdminSection section) {
@@ -166,11 +167,13 @@ List<GoRoute> _sectionRoutes(AdminSection section) {
   return [route(section.path), if (section != AdminSection.home) route('${section.path}/:id')];
 }
 
-/// 메뉴마다 화면(여덟 메뉴 모두 실제 화면 — W4 에서 자리 표시가 없어졌다).
+/// 메뉴마다 화면(아홉 메뉴 모두 실제 화면 — W4 에서 자리 표시가 없어졌다).
 /// 신고는 목록과 상세가 다른 화면이다(pen A4 — 상세는 목록 옆이 아니라 따로). [extra] 는 목록에서 고른 줄(머리줄을 먼저 그린다).
 Widget _sectionScreen(AdminSection section, String? id, Object? extra) {
   return switch (section) {
     AdminSection.heartTasks => HeartTaskReviewScreen(initialId: id),
+    // 졸업생 검수도 인증샷처럼 목록 옆에 상세를 두는 한 화면 — `/graduates/{id}` 는 그 건을 고른다
+    AdminSection.graduates => GraduateReviewScreen(initialId: id),
     AdminSection.reports when id == null => const ReportListScreen(),
     AdminSection.reports => ReportDetailScreen(id: id!, summary: extra is ReportSummary && extra.id == id ? extra : null),
     // 사용자는 목록(찾기)과 상세가 다른 화면이다(pen A5). 주소에는 사람 번호뿐 — 학교 메일 · 검색어는 주소 · extra 에 싣지 않는다.

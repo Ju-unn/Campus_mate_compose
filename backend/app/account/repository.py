@@ -24,6 +24,25 @@ class AccountRepository(PostgrestRepository):
         rows = response.json()
         return rows[0] if rows else None
 
+    async def fetch_graduate_claim(self, profile_id: UUID | str) -> dict | None:
+        """졸업생 인증으로 통과한 사람의 학번 해시(bytea 리터럴)와 키 버전 — 학교 메일 claims 가 없는 졸업생의 탈퇴 재가입 제한 해시.
+        학번을 넣지 않고 승인된 사람은 해시가 없어 None 이다. 읽기 실패는 예외로 올린다."""
+        response = await self._get("graduate_verification_requests", params={
+            "profile_id": f"eq.{profile_id}", "status": "eq.approved", "student_hmac": "not.is.null",
+            "select": "student_hmac,key_version", "limit": "1",
+        })
+        raise_for_status(response)
+        rows = response.json()
+        return rows[0] if rows else None
+
+    async def has_open_graduate_request(self, profile_id: UUID | str) -> bool:
+        """심사 중인 졸업생 신청이 있는가. 읽기 실패는 예외로 올린다(부르는 쪽이 지우지 않고 건너뛴다)."""
+        response = await self._get("graduate_verification_requests", params={
+            "profile_id": f"eq.{profile_id}", "status": "eq.pending", "select": "id", "limit": "1",
+        })
+        raise_for_status(response)
+        return bool(response.json())
+
     async def withdraw(self, profile_id: UUID | str, email_hmac: str | None, key_version: int) -> None:
         """상태 · withdrawn_at · 재가입 제한을 한 트랜잭션에서(SQL `withdraw_account`, 멱등).
 
@@ -58,12 +77,15 @@ class AccountRepository(PostgrestRepository):
         return [row["id"] for row in response.json()]
 
     async def is_still_unverified(self, profile_id: str) -> bool:
-        """지우기 직전 재확인. 프로필이 있고 school_email_verified_at 이 NULL 일 때만 True.
-        행이 없어도 False 다(확인할 수 없으면 지우지 않는다). 읽기 실패는 예외로 올린다."""
+        """지우기 직전 재확인. 프로필이 있고 school_email_verified_at 이 NULL 이며 심사 중인 졸업생 신청이 없을 때만 True.
+        행이 없어도 False 다(확인할 수 없으면 지우지 않는다). 읽기 실패는 예외로 올린다.
+        신청 중인 졸업생은 학교 메일이 없어 승인 전까지 이 조건에 걸린다 — 후보 목록(SQL)이 이미 거르지만 그 뒤에 신청이 들어오는 경쟁을 막는다."""
         response = await self._get("profiles", params={"id": f"eq.{profile_id}", "select": "school_email_verified_at"})
         raise_for_status(response)
         rows = response.json()
-        return bool(rows) and rows[0].get("school_email_verified_at") is None
+        if not rows or rows[0].get("school_email_verified_at") is not None:
+            return False
+        return not await self.has_open_graduate_request(profile_id)
 
     async def has_profile(self, profile_id: str) -> bool:
         """임시 이메일 계정 잔여물을 지우기 직전 재확인. 읽기 실패는 예외로 올린다(부르는 쪽이 건너뛴다)."""

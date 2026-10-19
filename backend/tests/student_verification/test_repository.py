@@ -38,7 +38,9 @@ async def test_fetch_gate_status_returns_first_row():
         # 실제 컬럼은 major, 응답 키는 별칭 department 로 돌아온다.
         # status 는 조각 6 정지 관문이 본다(current_user.get_verified_user_id).
         # school_email_verified_at 은 학교 메일 관문(소셜 로그인 전환)이 본다 — NULL 이면 확인 전.
-        "select": "student_verification,department:major,universities(name),status,school_email_verified_at",
+        # verification_method · graduate_verified_at 은 졸업생 인증 길(verification-status 의 새 칸)이 본다.
+        "select": "student_verification,department:major,universities(name),status,school_email_verified_at,"
+                  "verification_method,graduate_verified_at",
     }
     assert captured["headers"]["apikey"] == "service-key"
     assert captured["headers"]["authorization"] == "Bearer service-key"

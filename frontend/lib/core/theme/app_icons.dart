@@ -54,6 +54,9 @@ abstract final class AppIcons {
   /// 09b 6칸 그리드 곧 열려요 칸 그림(pen 곧 열려요 칸 `BoTMl` hourglass 20, 10-16 초안 A)
   static const IconData hourglass = LucideIcons.hourglass;
   static const IconData imagePlus = LucideIcons.imagePlus;
+
+  /// 02-g 졸업증명서 사진 칸의 빈 그림(pen `gCJ2p` 안 `image` 28 #929292)
+  static const IconData image = LucideIcons.image;
   static const IconData plus = LucideIcons.plus;
   static const IconData timer = LucideIcons.timer;
 

@@ -20,6 +20,13 @@ void main() {
     expect(AdminSection.actions.titleOf('/actions'), '작업 기록');
   });
 
+  test('졸업생 메뉴는 TopBar 에 "졸업생 검수"(pen A10), 메뉴 글자는 "졸업생"', () {
+    expect(AdminSection.graduates.titleOf('/graduates'), '졸업생 검수');
+    expect(AdminSection.graduates.titleOf('/graduates/g1'), '졸업생 검수');
+    expect(AdminSection.graduates.label, '졸업생');
+    expect(AdminSection.ownerOf('/graduates/g1'), AdminSection.graduates);
+  });
+
   test('사용자 · 결제 아래 주소도 그 메뉴 소속', () {
     expect(AdminSection.ownerOf('/users/8f3a'), AdminSection.users);
     expect(AdminSection.ownerOf('/billing'), AdminSection.billing);

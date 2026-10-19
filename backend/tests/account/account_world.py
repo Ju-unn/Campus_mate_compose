@@ -19,7 +19,7 @@ RECENT = "33333333-3333-3333-3333-333333333333"  # 29일 전 탈퇴
 AUTH = {"Authorization": "Bearer user-token"}
 EMAIL = "Hong@SNU.ac.kr"
 NOW = datetime(2026, 9, 27, 4, 0, tzinfo=SEOUL)
-BUCKETS = ("avatars", "profile-photos", "student-id-temp", "heart-task-proofs")
+BUCKETS = ("avatars", "profile-photos", "student-id-temp", "heart-task-proofs", "graduate-cert-temp")
 INFINITY = datetime.max.replace(tzinfo=SEOUL)
 APPLE_ACCESS_TOKEN = "apple-access-token-test"
 APPLE_REFRESH_TOKEN = "apple-refresh-token-test"
@@ -68,6 +68,9 @@ class AccountWorld:
             ME: {"school_email_hmac": bytea_literal(hash_email("identity-key-test", EMAIL)), "key_version": 1},
         }
         self.claims_unreachable = False
+        # 졸업생 인증 신청 줄(graduate_verification_requests). 승인된 줄의 student_hmac 이 탈퇴 재가입 제한 해시가 된다.
+        # {id, profile_id, status, reason, student_hmac(bytea 리터럴) | None, key_version, photo_path, 평문 칸...}
+        self.graduate_requests: list[dict] = []
         self.unverified_lookups: list[dict] = []
         # RPC 가 고른 뒤 그 사이 인증을 마친 사람처럼, 조건과 상관없이 RPC 결과에 끼워 넣을 id
         self.stale_unverified: list[str] = []
@@ -247,6 +250,24 @@ class AccountWorld:
         if row is None:
             return httpx.Response(200, json=[])
         return httpx.Response(200, json=[{c: row[c] for c in params["select"].split(",")}])
+
+    def _graduate_verification_requests(self, method, params, body):
+        """졸업생 신청 표 흉내: 탈퇴가 읽는 승인 줄의 학번 해시 · 정리 배치가 묻는 대기 여부 · 탈퇴 때 대기 취소."""
+        profile_id = self._eq(params, "profile_id")
+        if method == "GET" and params["select"] == "student_hmac,key_version":
+            assert params["status"] == "eq.approved" and params["student_hmac"] == "not.is.null"
+            hit = [r for r in self.graduate_requests
+                   if r["profile_id"] == profile_id and r["status"] == "approved" and r["student_hmac"]]
+            return httpx.Response(200, json=[{c: r[c] for c in ("student_hmac", "key_version")} for r in hit[:1]])
+        if method == "GET":
+            assert params["select"] == "id" and params["status"] == "eq.pending"
+            hit = [r for r in self.graduate_requests if r["profile_id"] == profile_id and r["status"] == "pending"]
+            return httpx.Response(200, json=[{"id": r["id"]} for r in hit[:1]])
+        assert method == "PATCH" and params["status"] == "eq.pending"
+        hit = [r for r in self.graduate_requests if r["profile_id"] == profile_id and r["status"] == "pending"]
+        for r in hit:
+            r.update(body)
+        return httpx.Response(200, json=[{"id": r["id"], "photo_path": r["photo_path"]} for r in hit])
 
     def _heart_task_submissions(self, method, params, body):
         return httpx.Response(200, json=[])
