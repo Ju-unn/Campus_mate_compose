@@ -131,6 +131,28 @@ Map<String, Object?> shortfallRow({
   };
 }
 
+/// 환불이 잦은 계정 한 줄(서버 `/admin/billing/frequent-returns` 모양) — 기본은 50 · 100(+보너스 50) · 800하트 세 건 환불
+Map<String, Object?> returnedRow({
+  String id = 'u1',
+  String? nickname = '닉네임A',
+  int count = 3,
+  int krw = 47100,
+  int granted = 1000,
+  int clawed = 110,
+  String lastAt = '2026-10-11T00:00:00+00:00',
+}) {
+  return {
+    'profile_id': id,
+    'nickname': nickname,
+    'refund_count': count,
+    'refunded_krw': krw,
+    'granted_hearts': granted,
+    'clawed_back_hearts': clawed,
+    'shortfall_hearts': granted - clawed,
+    'last_refunded_at': lastAt,
+  };
+}
+
 /// 30일치 일 매출 — 마지막 날이 [lastDay]. [amounts] 가 30개보다 적으면 앞을 0 으로 채운다.
 List<Map<String, Object?>> thirtyDays(List<int> amounts, {DateTime? lastDay}) {
   final end = lastDay ?? DateTime.utc(2026, 10, 18);
@@ -173,11 +195,16 @@ class FakeUserServer {
     shortfallRow(),
     shortfallRow(id: 'pu9', nickname: '닉네임F', store: 'app_store', heart: 50, clawed: 0, refundedAt: '2026-10-04T00:12:00+00:00'),
   ];
+  List<Map<String, Object?>> returned = [
+    returnedRow(),
+    returnedRow(id: 'u7', nickname: null, count: 1, krw: 3000, granted: 50, clawed: 0, lastAt: '2026-10-04T00:12:00+00:00'),
+  ];
   List<Map<String, Object?>> orders = [orderRow()];
 
   int? listFailure;
   int? detailFailure;
   int? billingFailure;
+  int? returnedFailure;
   int? searchFailure;
   int? actionFailure;
   String? actionReason;
@@ -252,6 +279,7 @@ class FakeUserServer {
       return _json(200, {'items': [for (final o in orders) if (o['store_order_id'] == order) o]});
     }
     if (failure != null) return failure;
+    if (path == '/admin/billing/frequent-returns') return _fail(returnedFailure) ?? _json(200, {'items': returned});
     return switch (path) {
       '/admin/billing/summary' => _json(200, summary),
       '/admin/billing/daily' => _json(200, {'days': days}),

@@ -160,6 +160,80 @@ void main() {
     });
   });
 
+  group('환불이 잦은 계정(pen 시안 없음 — 못 거둔 표와 같은 모양)', () {
+    testWidgets('못 거둔 안내 아래 20 에 제목 16/700, 그 아래 20 에 표 — 열 7개와 서버 순서 그대로의 줄', (tester) async {
+      await openBilling(tester);
+
+      final shortfallNote = find.text('이미 써서 다 거두지 못한 구매예요. 손으로 줄지 판단할 때 참고해요.');
+      final title = find.text('환불이 잦은 계정');
+      expect(tester.getTopLeft(title).dy, tester.getBottomLeft(shortfallNote).dy + 20);
+      expect(tester.getTopLeft(title).dx, 272);
+      expect((styleOf(tester, title).fontSize, styleOf(tester, title).fontWeight, styleOf(tester, title).color), (16, FontWeight.w700, AdminColors.ink));
+      final table = key('returned-table');
+      expect(tester.getRect(table), Rect.fromLTWH(272, tester.getBottomLeft(title).dy + 20, 1136, 44 + 52 * 2));
+      for (final head in ['닉네임', '환불 건수', '환불 금액', '지급 하트', '회수', '못 거둠', '마지막 환불']) {
+        expect(find.descendant(of: table, matching: find.text(head)), findsOneWidget, reason: head);
+      }
+      final first = key('returned-row-u1');
+      for (final text in ['닉네임A', '3', '₩47,100', '1000', '110', '890', '2026-10-11 09:00']) {
+        expect(find.descendant(of: first, matching: find.text(text)), findsOneWidget, reason: text);
+      }
+      // 서버가 건수 순으로 준 차례 그대로 — 닉네임이 없으면 "—"
+      final second = key('returned-row-u7');
+      expect(tester.getTopLeft(second).dy, greaterThan(tester.getTopLeft(first).dy));
+      for (final text in ['—', '1', '₩3,000', '50', '0', '2026-10-04 09:12']) {
+        expect(find.descendant(of: second, matching: find.text(text)), findsWidgets, reason: text);
+      }
+    });
+
+    testWidgets('환불이 잦은 표 열: 닉네임 288 · 환불 건수 458 · 환불 금액 568 · 지급 하트 718 · 회수 828 · 못 거둠 918 · 마지막 환불 1008, 첫 줄 칸은 제 머리글과 같은 x', (tester) async {
+      await openBilling(tester);
+
+      final table = key('returned-table');
+      final first = key('returned-row-u1');
+      for (final (head, x, cell) in [
+        ('닉네임', 288.0, '닉네임A'),
+        ('환불 건수', 458.0, '3'),
+        ('환불 금액', 568.0, '₩47,100'),
+        ('지급 하트', 718.0, '1000'),
+        ('회수', 828.0, '110'),
+        ('못 거둠', 918.0, '890'),
+        ('마지막 환불', 1008.0, '2026-10-11 09:00'),
+      ]) {
+        final headLeft = tester.getRect(find.descendant(of: table, matching: find.text(head))).left;
+        expect(headLeft, x, reason: head);
+        expect(tester.getRect(find.descendant(of: first, matching: find.text(cell))).left, headLeft, reason: '$head 칸 $cell');
+      }
+    });
+
+    testWidgets('환불한 계정이 없으면 표 대신 "환불한 계정이 없어요" 14 web-muted(제목 아래 20)', (tester) async {
+      await openBilling(tester, server: FakeUserServer()..returned = []);
+
+      expect(key('returned-table'), findsNothing);
+      final none = find.text('환불한 계정이 없어요');
+      expect(tester.getTopLeft(none).dy, tester.getBottomLeft(find.text('환불이 잦은 계정')).dy + 20);
+      expect((styleOf(tester, none).fontSize, styleOf(tester, none).color), (14, AdminColors.muted));
+    });
+
+    testWidgets('못 거둔 목록이 비어도 환불이 잦은 계정 표는 나온다', (tester) async {
+      await openBilling(tester, server: FakeUserServer()..shortfall = []);
+
+      expect(find.text('다 거두지 못한 구매가 없어요'), findsOneWidget);
+      expect(key('returned-table'), findsOneWidget);
+    });
+
+    testWidgets('이 목록을 못 받으면 결제 화면 전체가 오류 한 가지로 — 다시 시도로 함께 받는다', (tester) async {
+      final server = FakeUserServer()..returnedFailure = 500;
+      await openBilling(tester, server: server);
+
+      expect(find.text('결제 정보를 불러오지 못했어요'), findsOneWidget);
+      server.returnedFailure = null;
+      await tester.tap(button('다시 시도'));
+      await tester.pumpAndSettle();
+      expect(key('returned-table'), findsOneWidget);
+    });
+  });
+
   group('주문 · 거래 번호 조회(KF9lR)', () {
     testWidgets('환불된 구매: 카드 (272,598) 높이 96 · 안쪽 24 · 칸 6개 가로 32 — 이름 12/600 web-muted → 6 → 값 16/700, 상태 "환불됨" danger 배지', (tester) async {
       await openBilling(tester);

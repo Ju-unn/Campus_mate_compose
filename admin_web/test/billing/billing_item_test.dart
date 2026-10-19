@@ -89,6 +89,17 @@ void main() {
       expect(purchase.grantedHearts, 110);
     });
 
+    test('환불이 잦은 계정 한 줄: 서버 값 그대로, 닉네임은 없을 수 있다', () {
+      final row = ReturnedAccountRow.fromJson(returnedRow());
+      expect(
+        (row.profileId, row.nickname, row.refundCount, row.refundedKrw, row.grantedHearts, row.clawedBackHearts, row.shortfallHearts, row.lastRefundedAt),
+        ('u1', '닉네임A', 3, 47100, 1000, 110, 890, DateTime.utc(2026, 10, 11)),
+      );
+      expect(ReturnedAccountRow.fromJson(returnedRow(nickname: null)).nickname, isNull);
+      expect(() => ReturnedAccountRow.fromJson({'profile_id': 'u1'}), throwsFormatException);
+      expect(() => ReturnedAccountRow.fromJson({...returnedRow(), 'last_refunded_at': null}), throwsFormatException);
+    });
+
     test('모양이 틀린 응답은 FormatException', () {
       expect(() => UserSummary.fromJson({'id': 'u'}), throwsFormatException);
       expect(() => UserDetail.fromJson({}), throwsFormatException);
