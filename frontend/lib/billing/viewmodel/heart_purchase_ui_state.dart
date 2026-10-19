@@ -1,6 +1,7 @@
 import 'package:campus_mate/billing/model/billing_repository.dart';
 import 'package:campus_mate/billing/model/heart_bundles.dart';
 import 'package:campus_mate/billing/model/heart_purchase_notice.dart';
+import 'package:campus_mate/billing/model/heart_unavailable.dart';
 import 'package:campus_mate/billing/model/store_purchase.dart';
 
 /// 구매 진행 단계. [purchasing] 결제 창 대기(18d-3) · [verifying] 서버 확인 중(15e-3) · [delayed] 지급 지연(15e-6).
@@ -52,6 +53,7 @@ class HeartPurchaseUiState {
     this.phase = HeartPurchasePhase.idle,
     this.banner,
     this.toast,
+    this.unavailable,
   });
 
   final HeartStoreAvailability availability;
@@ -71,6 +73,9 @@ class HeartPurchaseUiState {
   /// 앱바 아래 배너. 다시 구매하거나 상점을 나가면 사라진다.
   final HeartPurchaseNotice? banner;
   final HeartPurchaseToast? toast;
+
+  /// 결제 불가 배너의 원인(설명 글자 · 로그). 불가가 아니면 null.
+  final HeartUnavailable? unavailable;
 
   bool canBuy(String productId) =>
       availability == HeartStoreAvailability.available &&
@@ -98,6 +103,7 @@ class HeartPurchaseUiState {
     HeartPurchasePhase? phase,
     Object? banner = _keep,
     Object? toast = _keep,
+    Object? unavailable = _keep,
   }) {
     return HeartPurchaseUiState(
       availability: availability ?? this.availability,
@@ -108,6 +114,7 @@ class HeartPurchaseUiState {
       phase: phase ?? this.phase,
       banner: identical(banner, _keep) ? this.banner : banner as HeartPurchaseNotice?,
       toast: identical(toast, _keep) ? this.toast : toast as HeartPurchaseToast?,
+      unavailable: identical(unavailable, _keep) ? this.unavailable : unavailable as HeartUnavailable?,
     );
   }
 }
