@@ -3,14 +3,18 @@
 대학생 대상 큐레이션 매칭 앱. 학교 이메일로 학생 인증을 하고, 주기적으로 소수의 큐레이션 카드를 받아
 상호 수락으로 매칭된다.
 
-> **현재 상태: 조각 0(기반 공사) 진행 중.** 계획서 Task 1·2·3·5·7·8·9 완료 — Flutter 골격·의존성·Supabase 설정에 이어 조각 0 DB(테이블·RLS·Storage 버킷·대학 시드)가 클라우드에 적용됐다. 디자인은 확정됐고, 다음은 Task 4(디자인 토큰·테마) → Task 6(라우팅 골격)이다.
+> **현재 상태(2026-10-19): 출시 준비 중.** 조각 0 ~ 7(가입 · 온보딩 · 매칭 · 카드 · 채팅 · 안전 · 하트 · 인앱결제)과 관리자 웹이 main 에 들어와 있고, 운영 서버(Cloud Run)와 Supabase(마이그레이션 93개)가 돈다. 스토어 출시는 10월 28일쯤, 카드 오픈은 11월 2일(월) 오전 7시 예정이다. 졸업생 인증(졸업증명서 + 관리자 검수)은 코드 · DB 가 배포됐고 **서버 스위치가 꺼져 있다**(`backend/DEPLOY.md` §4-14). 이 줄은 문서 정리 라운드마다 고친다(옛 문장: "조각 0(기반 공사) 진행 중").
 
 ## 저장소 구조
 
 | 경로 | 내용 |
 | --- | --- |
 | `frontend/` | Flutter 앱 (Android + iOS). MVVM + Riverpod |
-| `backend/` | FastAPI 비즈니스 로직 서버 — 조각 1에서 시작 (현재 자리만) |
+| `backend/` | FastAPI 비즈니스 로직 서버(Cloud Run, 서울). 배포 절차 · 운영 상태는 `backend/DEPLOY.md` |
+| `admin_web/` | 운영자 전용 관리자 웹(Flutter 웹, Vercel). 앱과 따로 빌드하고 서로 import 하지 않는다 |
+| `supabase/` | 마이그레이션 · 시드 · pgTAP 시험 |
+| `e2e/` | 출시 전 통합 시험 하네스(파이썬) |
+| `site/` | 소개 페이지(홈페이지) |
 | `docs/` | 앱·서버가 공통으로 참조하는 설계 문서 |
 
 ## 기술 스택
@@ -32,6 +36,8 @@
 | [`docs/SETUP.md`](docs/SETUP.md) | 새 PC 준비 — 스킬 · Pencil · 폰트 · SDK · graphify · IDE |
 | [`docs/superpowers/specs/`](docs/superpowers/specs/) | 제품·아키텍처·매칭·보안 전체 설계. 모든 결정의 기준 |
 | [`docs/superpowers/plans/`](docs/superpowers/plans/) | 조각별 실행 계획 |
+| [`docs/decisions/`](docs/decisions/) | **기술 결정 기록** — 한 결정에 한 파일(`날짜-주제-decision.md`). 계기 → 대안 → 선택과 이유 → 흐름 → 남은 위험. 첫 문서: 졸업생 인증 |
+| [`backend/DEPLOY.md`](backend/DEPLOY.md) | **서버 배포 · 운영 상태** — 현재 리비전, 환경변수, 배치, 롤백 하한 |
 | [`docs/ERD.md`](docs/ERD.md) | DB ERD — 테이블 · 컬럼 · RLS · 권한 기준 |
 | [`docs/ERD_DECISIONS.md`](docs/ERD_DECISIONS.md) | ERD 결정 기록 · 끝난 검토 · 조각 0 적용 범위 |
 | [`frontend/CLAUDE.md`](frontend/CLAUDE.md) | 코딩 규칙 (아키텍처·네이밍·테스트) |

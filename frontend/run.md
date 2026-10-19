@@ -34,9 +34,19 @@ flutter run \
 flutter build appbundle --release --build-number=<N> --dart-define-from-file=<dart-define 파일>
 ```
 
-- **versionCode(`--build-number`)는 업로드마다 +1** 한다 — 플레이는 이미 올린 번호를 다시 받지 않는다. `pubspec.yaml` 의 `version`(`1.0.0+1`)은 건드리지 않고 명령의 `--build-number` 로만 올린다. 2026-10-14 기준 **2 까지** 올렸다(다음은 3)
+- **versionCode(`--build-number`)는 업로드마다 +1** 한다 — 플레이는 이미 올린 번호를 다시 받지 않는다. `pubspec.yaml` 의 `version`(`1.0.0+1`)은 건드리지 않고 명령의 `--build-number` 로만 올린다. 2026-10-14 기준 **2 까지** 올렸다(다음은 3) — **2026-10-19 갱신: versionCode 13 은 플레이에서 이미 사용돼 14 로 다시 만드는 중이다**(Desktop `CampusMate_AAB\` 에 vc 별 파일이 있다). iOS TestFlight 는 빌드 21 이다. 번호는 `--build-number` 로만 올리고 `pubspec.yaml` 의 `version` 은 건드리지 않는다
 - `--dart-define-from-file` 의 파일(키 · 주소가 든 JSON)은 저장소 밖에 둔다. 값 · 파일 내용은 이 문서에 적지 않는다
 - 결과물 `build/app/outputs/bundle/release/app-release.aab` 를 플레이 콘솔 내부 테스트에 올린다(올리기는 사용자가 한다)
+
+## 가입 흐름을 시험할 때 (2026-10-19 갱신)
+
+새로 가입하는 계정은 **소셜 로그인 → 약관 동의(02-c) → (인증 방법 고르기 02-0) → 학교 메일 02 · 인증번호 03 → 학과·학번 3c → 온보딩** 순서다. 학생증 단계(3b)는 2026-10-17 에 없어졌다.
+
+- **인증 방법 고르기(02-0)는 서버 스위치 `GRADUATE_VERIFICATION_ENABLED` 가 켜진 서버에서만 나온다.** 운영 서비스에는 아직 스위치가 없어서(= 꺼짐) **지금 운영 서버에 붙은 앱은 약관 동의 다음에 바로 02 학교 메일 입력이 나온다.** 스위치가 켜진 서버(시험용 로컬 서버 등)에서는 동의 다음에 카드 두 개("학교 메일로 인증" / "졸업증명서로 인증") 중 하나를 고르고 [다음] 을 한 번 눌러야 한다 — 학교 메일 길로 가면 02 가 앱바 뒤로가기 화살표와 함께 열린다.
+- 졸업생 길("졸업증명서로 인증")은 신청 폼 → 대기 화면으로 이어지고 결과는 관리자 웹 "졸업생" 화면에서 승인 · 반려해야 난다. 시험 계정으로 켜는 절차 · 점검은 `backend/DEPLOY.md` §4-14, 화면 규칙은 `frontend/docs/DESIGN.md` §9 02-0 ~ 02-g-4, 결정 배경은 `docs/decisions/2026-10-19-graduate-verification-decision.md`.
+- 자동 E2E 하네스(`e2e/`)는 스위치가 꺼진 서버에서는 02 를 바로 만나 고칠 것이 없다고 본다(**추정** — 이 문서 담당이 하네스를 돌리지 않았다). 스위치를 켠 서버를 시험할 때는 계정 공장과 E-GATE 계열 가설에 "방법 고르기 한 번"을 더해야 한다(계획서 `2026-10-19-graduate-verification.md` 6장).
+- 저녁 알림 제한(방해 금지 22~08시)은 **새 가입자부터 꺼진 채** 시작한다 — 밤 알림 시험(보류 → 아침 묶음 발송)을 하려면 시험 계정의 설정(16d)에서 먼저 켠다.
+- 알림을 눌러 들어간 화면에서 뒤로가기를 누르면 홈으로 간다(§8.8). 알림 이동 시험은 `test/core/push/push_route_open_test.dart` · `test/main_push_open_test.dart`.
 
 ## 테스트
 
