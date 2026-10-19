@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:ui' show Tristate;
 
 import 'package:campus_mate/billing/model/heart_task.dart';
+import 'package:campus_mate/billing/model/heart_task_pending.dart';
 import 'package:campus_mate/billing/model/heart_task_repository_provider.dart';
+import 'package:campus_mate/billing/view/heart_task_pending_list.dart';
 import 'package:campus_mate/billing/view/heart_task_row.dart';
 import 'package:campus_mate/billing/view/heart_tasks_screen.dart';
 import 'package:campus_mate/common/failure.dart';
@@ -11,6 +14,7 @@ import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -159,6 +163,38 @@ void main() {
 
   // 10-18 인증샷 결과 알림 — pen 18a 반려 줄 사유(마스터 TW2ki 안 ReasonRow `ydq0k` · 아이콘 `RiCqn` · 글자 `QiLmA`,
   // 화면 `x8OCS4` 날짜 · 게시글 / `Yo8h1` 이미 쓴 캡처, 값표 1장).
+  group('누를 수 있는 줄은 서버의 can_submit 이 정한다', () {
+    HeartTask kakao({required HeartTaskState state, required bool canSubmit, int used = 1}) => HeartTask(
+          kind: HeartTaskKind.kakaoShare,
+          rewardHearts: 25,
+          state: state,
+          used: used,
+          limit: 3,
+          canSubmit: canSubmit,
+          maxPhotos: 3,
+        );
+
+    testWidgets('검수 중이어도 한도가 남았으면(can_submit) 단톡방 줄을 눌러 이어서 낸다', (tester) async {
+      repository.tasks = Success([kakao(state: HeartTaskState.reviewing, canSubmit: true)]);
+      await pump(tester);
+
+      await tester.tap(find.byWidgetPredicate((w) => w is Icon3d && w.icon == AppIcon3d.share));
+      await tester.pumpAndSettle();
+
+      expect(find.text('제출 /heart-tasks/submit/kakao_share'), findsOneWidget);
+    });
+
+    testWidgets('한도에 찬 줄(can_submit 아님)은 검수 중이어도 눌러지지 않는다', (tester) async {
+      repository.tasks = Success([kakao(state: HeartTaskState.reviewing, canSubmit: false, used: 3)]);
+      await pump(tester);
+
+      await tester.tap(find.byWidgetPredicate((w) => w is Icon3d && w.icon == AppIcon3d.share));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('제출 /heart-tasks/submit'), findsNothing);
+    });
+  });
+
   group('반려 줄 사유 한 줄', () {
     const rewardOf = {HeartTaskKind.everytimePost: '40 · 월 1회', HeartTaskKind.kakaoShare: '25 · 월 3회'};
 
@@ -362,5 +398,185 @@ void main() {
     expect(find.bySemanticsLabel(RegExp('하루 1번')), findsOneWidget);
     expect(find.bySemanticsLabel(RegExp('매일')), findsNothing);
     handle.dispose();
+  });
+
+  // 인증샷 여러 장(2026-10-19) — 18a 줄 아래 "검수 대기" 블록(pen pVxvl 대기 1건 제출 가능 · tYwTB 한도 찬 상태).
+  // 단톡방은 검수 중이어도 월 3회 한도까지 이어 낸다: 줄 문구 "… · 이번 달 n회 남음" + [제출하기] 활성 / "… · 이번 달 한도 도달" + 비활성.
+  group('검수 대기 블록과 단톡방 이어 제출(pen pVxvl · tYwTB)', () {
+    final today = DateTime.now();
+    DateTime at(int hour, int minute) => DateTime(today.year, today.month, today.day, hour, minute);
+    HeartTaskPending queued(String id, DateTime createdAt, int photos) => HeartTaskPending(
+          id: id,
+          createdAt: createdAt,
+          photoUrls: [for (var i = 0; i < photos; i++) 'https://signed.test/$id-$i'],
+        );
+    final everytimeWaiting = HeartTask(
+      kind: HeartTaskKind.everytimePost,
+      rewardHearts: 40,
+      state: HeartTaskState.reviewing,
+      used: 1,
+      limit: 1,
+      maxPhotos: 3,
+      pending: [queued('e', at(14, 20), 3)],
+    );
+    // pen pVxvl: 대기 1 + 승인 1 → 이번 달 1회 남음.
+    final kakaoOpen = HeartTask(
+      kind: HeartTaskKind.kakaoShare,
+      rewardHearts: 25,
+      state: HeartTaskState.reviewing,
+      used: 2,
+      limit: 3,
+      canSubmit: true,
+      maxPhotos: 3,
+      pending: [queued('k', at(14, 35), 2)],
+    );
+    // pen tYwTB: 승인 1 + 검수 2 → 한도 도달.
+    final kakaoFull = HeartTask(
+      kind: HeartTaskKind.kakaoShare,
+      rewardHearts: 25,
+      state: HeartTaskState.reviewing,
+      used: 3,
+      limit: 3,
+      maxPhotos: 3,
+      pending: [queued('k1', at(14, 35), 2), queued('k2', at(16, 2), 1)],
+    );
+    const poll = HeartTask(kind: HeartTaskKind.pollVote, rewardHearts: 5, state: HeartTaskState.open, used: 0, limit: 3);
+
+    Finder chipOf(String label) => find.ancestor(of: find.text(label), matching: find.byType(ConstrainedBox)).first;
+    BoxDecoration decorationOf(WidgetTester tester, String label) =>
+        tester.widget<DecoratedBox>(find.ancestor(of: find.text(label), matching: find.byType(DecoratedBox)).first).decoration as BoxDecoration;
+
+    testWidgets('대기 1건 · 제출 가능 — 줄마다 "검수 대기 1건", 단톡방 문구 "이번 달 1회 남음", 칩은 "제출하기"(검수중 아님)', (tester) async {
+      repository.tasks = Success([everytimeWaiting, kakaoOpen, poll]);
+      await pump(tester);
+
+      expect(find.text('검수 대기 1건'), findsNWidgets(2));
+      expect(find.text('40 · 월 1회'), findsOneWidget);
+      expect(find.text('25 · 월 3회 · 이번 달 1회 남음'), findsOneWidget);
+      expect(find.text('제출하기'), findsOneWidget);
+      expect(find.text('완료'), findsNothing);
+      expect(find.text('인증하기'), findsNothing);
+      // 검수중: 에브리타임 줄 칩 1 + 대기 블록 배지 2.
+      expect(find.text('검수중'), findsNWidgets(3));
+      expect(find.text('오늘 14:20 제출'), findsOneWidget);
+      expect(find.text('오늘 14:35 제출'), findsOneWidget);
+    });
+
+    testWidgets('"제출하기" 칩은 84×28 · 14/600 ink · 바탕 E5E5E5(Action 인스턴스, 값표 pVxvl)', (tester) async {
+      repository.tasks = Success([kakaoOpen]);
+      await pump(tester);
+
+      expect(tester.getSize(chipOf('제출하기')), const Size(84, 28));
+      final style = tester.widget<Text>(find.text('제출하기')).style!;
+      expect((style.fontSize, style.fontWeight, style.color), (14, FontWeight.w600, AppColors.ink));
+      expect(decorationOf(tester, '제출하기').color, AppColors.primaryDisabled);
+    });
+
+    testWidgets('검수 중이어도 한도가 남은 단톡방 줄을 누르면 18b 로 간다', (tester) async {
+      repository.tasks = Success([everytimeWaiting, kakaoOpen, poll]);
+      await pump(tester);
+
+      await tester.tap(find.byWidgetPredicate((w) => w is Icon3d && w.icon == AppIcon3d.share));
+      await tester.pumpAndSettle();
+
+      expect(find.text('제출 /heart-tasks/submit/kakao_share'), findsOneWidget);
+    });
+
+    testWidgets('에브리타임 대기 1건은 지금처럼 검수중 칩(누를 수 없음) + 대기 블록 1줄 — "제출하기" · "남음" 은 없다', (tester) async {
+      repository.tasks = Success([everytimeWaiting]);
+      await pump(tester);
+
+      expect(find.text('검수중'), findsNWidgets(2));
+      expect(find.text('제출하기'), findsNothing);
+      expect(find.textContaining('이번 달'), findsNothing);
+      expect(find.ancestor(of: find.text('에브리타임 홍보'), matching: find.byType(InkWell)), findsNothing);
+    });
+
+    testWidgets('블록은 줄 아래 8(줄 64 → 간격 8 → 블록), 왼쪽 40 안쪽, 다음 줄과 사이 8', (tester) async {
+      repository.tasks = Success([everytimeWaiting, kakaoOpen, poll]);
+      await pump(tester);
+
+      final rows = find.byType(HeartTaskRow);
+      final first = tester.getRect(rows.at(0));
+      final block = tester.getRect(find.byType(HeartTaskPendingList).first);
+      // 줄과 블록 사이 8 은 pen 이미지 실측(18a 줄 선 → 썸네일 위 ≈ 41 = 간격 8 + 블록 위 8 + 제목 17 + 8).
+      expect(block.top - first.top, 64 + 8);
+      expect(block.left - first.left, 0);
+      expect(block.width, 328);
+      expect(first.bottom, block.bottom);
+      expect(tester.getRect(find.text('검수 대기 1건').first).left - first.left, 40);
+      expect(tester.getTopLeft(rows.at(1)).dy - first.bottom, 8);
+    });
+
+    testWidgets('한도 도달 — "한도 도달" 문구 · 비활성 "제출하기"(F2F2F2 · 929292) · 대기 2건 · 안내 문구, 줄은 눌러지지 않는다', (tester) async {
+      repository.tasks = Success([everytimeWaiting, kakaoFull, poll]);
+      await pump(tester);
+
+      expect(find.text('25 · 월 3회 · 이번 달 한도 도달'), findsOneWidget);
+      expect(find.text('검수 대기 2건'), findsOneWidget);
+      expect(find.text('이번 달 제출 3회를 모두 썼어요(승인 1건 · 검수 중 2건).'), findsOneWidget);
+      expect(find.text('완료'), findsNothing);
+      expect(tester.getSize(chipOf('제출하기')), const Size(84, 28));
+      expect(decorationOf(tester, '제출하기').color, AppColors.surfaceStrong);
+      expect(tester.widget<Text>(find.text('제출하기')).style!.color, AppColors.disabled);
+      expect(find.ancestor(of: find.text('단톡방 공유'), matching: find.byType(InkWell)), findsNothing);
+
+      await tester.tap(find.byWidgetPredicate((w) => w is Icon3d && w.icon == AppIcon3d.share));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('제출 /heart-tasks/submit'), findsNothing);
+    });
+
+    testWidgets('낭독 — 한도 도달의 "제출하기" 는 비활성 버튼으로 읽힌다(눌러지는 척하지 않는다)', (tester) async {
+      final handle = tester.ensureSemantics();
+      repository.tasks = Success([kakaoFull]);
+      await pump(tester);
+
+      final data = tester.getSemantics(find.text('제출하기')).getSemanticsData();
+      expect(data.label, '제출하기');
+      expect(data.flagsCollection.isButton, isTrue);
+      expect(data.flagsCollection.isEnabled, Tristate.isFalse);
+      expect(data.hasAction(SemanticsAction.tap), isFalse);
+      handle.dispose();
+    });
+
+    testWidgets('한도가 남아도 대기가 없으면(승인만) 줄 문구는 지금 그대로 — "남음" 은 대기가 있을 때만', (tester) async {
+      repository.tasks = const Success([
+        HeartTask(kind: HeartTaskKind.kakaoShare, rewardHearts: 25, state: HeartTaskState.open, used: 1, limit: 3, canSubmit: true, maxPhotos: 3),
+      ]);
+      await pump(tester);
+
+      expect(find.text('25 · 월 3회'), findsOneWidget);
+      expect(find.text('인증하기'), findsOneWidget);
+      expect(find.byType(HeartTaskPendingList), findsNothing);
+    });
+
+    for (final scale in [1.3, 2.0]) {
+      testWidgets('글자 배율 $scale — 대기 1건 · 한도 도달 모두 넘침 · 말줄임 없다', (tester) async {
+        for (final tasks in [
+          [everytimeWaiting, kakaoOpen, poll],
+          [everytimeWaiting, kakaoFull, poll],
+        ]) {
+          repository.tasks = Success(tasks);
+          await pump(tester, textScale: scale);
+
+          expect(tester.takeException(), isNull);
+          // 앱바 제목은 한 줄 말줄임이 원래 규칙이라 줄(HeartTaskRow)만 본다.
+          final inRows = find.descendant(of: find.byType(HeartTaskRow), matching: find.byType(RichText));
+          for (final paragraph in tester.renderObjectList<RenderParagraph>(inRows)) {
+            expect(paragraph.didExceedMaxLines, isFalse, reason: paragraph.text.toPlainText());
+          }
+        }
+      });
+    }
+
+    testWidgets('낭독 — 단톡방 줄이 "문구 + 제출하기" 로 읽히고, 대기 줄은 시각 · 장수 · 검수중이 한 덩어리다', (tester) async {
+      final handle = tester.ensureSemantics();
+      repository.tasks = Success([kakaoOpen]);
+      await pump(tester);
+
+      expect(find.bySemanticsLabel(RegExp('이번 달 1회 남음')), findsOneWidget);
+      expect(find.bySemanticsLabel('오늘 14:35 제출, 사진 2장, 검수중'), findsOneWidget);
+      handle.dispose();
+    });
   });
 }

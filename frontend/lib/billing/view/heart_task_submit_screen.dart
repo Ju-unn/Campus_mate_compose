@@ -1,19 +1,19 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:campus_mate/billing/model/everytime_form_link.dart';
 import 'package:campus_mate/billing/model/heart_task.dart';
+import 'package:campus_mate/billing/view/heart_task_photo_slots.dart';
+import 'package:campus_mate/billing/viewmodel/heart_task_submit_ui_state.dart';
+import 'package:campus_mate/billing/viewmodel/heart_tasks_view_model.dart';
 import 'package:campus_mate/billing/viewmodel/heart_task_submit_view_model.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
-import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/muted_text_button.dart';
 import 'package:campus_mate/consent/model/open_url.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
-import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
@@ -31,7 +31,6 @@ String? _criteria(HeartTaskKind kind) => switch (kind) {
       // 투표는 제출 화면이 없다(라우터가 18a 로 돌려보낸다).
       HeartTaskKind.pollVote => null,
     };
-const String _uploaderLabel = '스크린샷 첨부하기';
 const String _retryCaption = '다시 찍어 올려 주세요';
 
 /// 에브리타임 18b · 18b-2 보조 버튼(pen `F15q0W` · `DMrAI` TextButton, 대장 전달 값 10-17). 화살표는 아이콘이 아니라 글자다.
@@ -39,9 +38,6 @@ const String _formLabel = '에브리타임 양식 보기 →';
 
 /// 낭독기는 화살표 대신 어디로 열리는지 읽는다.
 const String _formSemanticsLabel = '에브리타임 양식 보기, 브라우저로 열려요';
-
-/// 테스트가 업로더를 찾는 표식.
-const Key heartTaskUploaderKey = ValueKey('heart-task-uploader');
 
 /// 18b 경로. 반려 뒤 다시 낼 때는 사유를 `reason` 으로 실어 18b-2 알림을 띄운다.
 String heartTaskSubmitLocation(HeartTaskKind kind, [HeartTaskRejectReason? reason]) => Uri(
@@ -69,6 +65,16 @@ class _HeartTaskSubmitScreenState extends ConsumerState<HeartTaskSubmitScreen> {
   String? _toast;
   Timer? _toastTimer;
   bool _openingForm = false;
+
+  /// 한 번에 낼 수 있는 사진 수. 18a 가 읽어 둔 항목의 서버 값을 따르고(옛 서버는 1), 아직 못 읽었으면 3 이다.
+  /// 처음에 한 번만 읽는다 — 제출이 실패해 18a 목록을 다시 읽는 동안 칸 수가 3 으로 튀지 않게.
+  late final int _maxPhotos = _serverMaxPhotos();
+
+  int _serverMaxPhotos() {
+    final tasks = ref.read(heartTasksViewModelProvider).tasks;
+    final max = tasks.where((task) => task.kind == widget.kind).map((task) => task.maxPhotos).firstOrNull ?? 0;
+    return max > 0 ? max : HeartTaskSubmitUiState.defaultMaxPhotos;
+  }
 
   /// 노션 양식은 앱 안 브라우저로 연다(설정 16 약관 줄과 같은 길, 10-16 사용자 결정 — open_url.dart).
   /// openInApp 은 예외만 false 로 돌려준다 — false 면 실패 토스트.
@@ -149,7 +155,13 @@ class _HeartTaskSubmitScreenState extends ConsumerState<HeartTaskSubmitScreen> {
               Text(criteria, style: AppTypography.caption.copyWith(color: AppColors.muted)),
             ],
             const SizedBox(height: AppSpacing.md),
-            _ProofUploader(photo: state.photo, onTap: state.isSubmitting ? null : viewModel.pickPhoto),
+            // pen `uvkY2`(3장) · `r7wOTV`(1장) — 안내 묶음과 [제출하기] 사이, 옛 업로더 `moNIO` 자리.
+            HeartTaskPhotoSlots(
+              photos: state.photos,
+              maxPhotos: _maxPhotos,
+              onAdd: () => viewModel.addPhotos(maxPhotos: _maxPhotos),
+              onRemove: viewModel.removePhoto,
+            ),
             const SizedBox(height: AppSpacing.md),
             // 단톡방에는 양식이 없다. 버튼 높이 48 은 MutedTextButton 최소값 — 글자를 키우면 늘어난다.
             if (widget.kind == HeartTaskKind.everytimePost) ...[
@@ -215,52 +227,6 @@ class _RejectReasonAlert extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// 업로더(pen `moNIO` 인스턴스 `u7vbr`). 고른 뒤에는 같은 칸에 사진을 통째로 보여 준다(DESIGN §8.10 "fit",
-/// pen 에 채운 상태 없음 — 편차 3). 잉크는 업로더 자신의 Material 에 그린다(COMMON §4-2).
-class _ProofUploader extends StatelessWidget {
-  const _ProofUploader({required this.photo, required this.onTap});
-
-  final File? photo;
-  final Future<void> Function()? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final photo = this.photo;
-    final onTap = this.onTap;
-    return Material(
-      key: heartTaskUploaderKey,
-      color: AppColors.surfaceSoft,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        side: const BorderSide(color: AppColors.hairline),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap == null ? null : () => unawaited(onTap()),
-        child: SizedBox(
-          height: 220,
-          width: double.infinity,
-          child: photo == null
-              ? Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // pen `C1BBE` 3D 업로드 70(ref `CR3C7`, 값표 1004).
-                    const Icon3d(AppIcon3d.upload, size: 70),
-                    const SizedBox(height: AppSpacing.xs),
-                    // pen WmkOO 14/600 muted, 줄높이 속성 없음 · 렌더 20.
-                    Text(
-                      _uploaderLabel,
-                      style: AppTypography.labelSmall.copyWith(color: AppColors.muted, height: 20 / 14),
-                    ),
-                  ],
-                )
-              : Image.file(photo, fit: BoxFit.contain, semanticLabel: _uploaderLabel),
-        ),
       ),
     );
   }

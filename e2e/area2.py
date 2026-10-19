@@ -708,17 +708,18 @@ def _seed_proof(run, account, task, days):
     if uploaded[0] >= 300:
         raise Blocked(f'인증샷 파일 올리기 {uploaded[0]} {_detail(uploaded[1])}')
     past = (_now() - timedelta(days=days)).isoformat()
-    _insert(run, 'heart_task_submissions', [{'id': sid, 'profile_id': account['id'], 'task': task, 'storage_path': path,
+    _insert(run, 'heart_task_submissions', [{'id': sid, 'profile_id': account['id'], 'task': task, 'storage_paths': [path],
                                             'status': 'approved', 'reward_hearts': 50, 'created_at': past,
                                             'reviewed_at': past}], account['id'])
     return sid, path
 
 
 def _proof_state(run, account, sid, path):
-    """(DB 경로 칸, 파일이 버킷에 남았는지)."""
-    row = _rows(run, f'heart_task_submissions?id=eq.{sid}&select=storage_path')
+    """(DB 경로 칸의 첫 경로 — 비었으면 None, 파일이 버킷에 남았는지). 인증샷 경로는 배열(storage_paths)이다."""
+    row = _rows(run, f'heart_task_submissions?id=eq.{sid}&select=storage_paths')
     files = set(tools.storage_paths(run.cfg, run.key, 'heart-task-proofs', account['id']))
-    return (row[0]['storage_path'] if row else 'ROW-GONE'), path in files
+    paths = row[0]['storage_paths'] if row else None
+    return ('ROW-GONE' if paths is None else (paths[0] if paths else None)), path in files
 
 
 def heart_24(run):

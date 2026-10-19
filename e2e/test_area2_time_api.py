@@ -39,7 +39,7 @@ SCHEMA = {
     'polls': {'id', 'author_id', 'question', 'option_a_label', 'option_b_label', 'status', 'created_at'},
     'heart_transactions': {'id', 'profile_id', 'amount', 'reason', 'ref_id', 'created_at'},
     'entitlements': {'profile_id', 'heart_balance', 'updated_at'},
-    'heart_task_submissions': {'id', 'profile_id', 'task', 'storage_path', 'status', 'reward_hearts', 'reject_reason', 'created_at',
+    'heart_task_submissions': {'id', 'profile_id', 'task', 'storage_paths', 'status', 'reward_hearts', 'reject_reason', 'created_at',
                                'reviewed_at'},
 }
 
@@ -817,7 +817,7 @@ class MonthTest(TimeBase):
         for row in rows:
             self.assertEqual((row['status'], row['reward_hearts']), ('approved', 50))
             self.assertIsNotNone(row['reviewed_at'])  # heart_task_submissions_reviewed_at check
-            self.assertIsNone(row.get('storage_path'))  # 승인 줄은 파일 칸이 null 이어도 된다(60일 정리 뒤 모양)
+            self.assertIsNone(row.get('storage_paths'))  # 승인 줄은 파일 칸이 null 이어도 된다(60일 정리 뒤 모양)
 
     def test_18_a_submitted_row_from_last_month_still_reads_reviewing_and_blocks_a_new_one(self):
         self.passes('E-HEART-18')
@@ -832,7 +832,7 @@ class MonthTest(TimeBase):
         self.assertEqual(len(rows), 1)
         self.assertEqual((rows[0]['status'], rows[0].get('reviewed_at')), ('submitted', None))
         self.assertLess(at(rows[0]['created_at']), T.seoul_month_start(FROZEN))
-        self.assertTrue(rows[0]['storage_path'].startswith('id-1/'))
+        self.assertTrue(rows[0]['storage_paths'][0].startswith('id-1/'))
 
     def test_18_is_blocked_when_the_row_cannot_be_inserted(self):
         fake = self.server()

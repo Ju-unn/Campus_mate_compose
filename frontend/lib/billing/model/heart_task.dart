@@ -1,3 +1,5 @@
+import 'package:campus_mate/billing/model/heart_task_pending.dart';
+
 /// 18a 한 줄의 항목. [code] 는 서버 값 그대로다.
 enum HeartTaskKind {
   everytimePost('everytime_post'),
@@ -50,6 +52,9 @@ class HeartTask {
     required this.used,
     required this.limit,
     this.rejectReason,
+    this.canSubmit = false,
+    this.maxPhotos = 0,
+    this.pending = const [],
   });
 
   final HeartTaskKind kind;
@@ -63,15 +68,35 @@ class HeartTask {
   /// `state == rejected` 일 때만 있다.
   final HeartTaskRejectReason? rejectReason;
 
+  /// 지금 낼 수 있나(인증 항목이고 한도가 남았다). 단톡방은 검수 중이어도 한도 안이면 true — [state] 가 reviewing 이어도 눌러서 이어 낸다.
+  final bool canSubmit;
+
+  /// 한 번에 낼 수 있는 사진 수(인증 항목 3, 투표 0). 옛 서버는 한 장까지라 1 로 읽는다.
+  final int maxPhotos;
+
+  /// 검수 중인 제출들(오래된 순). 18a 줄 아래 "검수 대기" 목록이 된다.
+  final List<HeartTaskPending> pending;
+
   /// 모르는 항목 · 상태면 던진다 — `ApiClient.send` 가 받아서 알 수 없는 오류로 바꾼다.
+  ///
+  /// `can_submit` · `max_photos` · `pending` 은 2026-10-19 서버부터 온다. 없으면(옛 서버) 종전 규칙 —
+  /// 인증 항목의 미완료 · 반려만 낼 수 있고, 사진은 한 장까지, 대기 목록은 없다.
   factory HeartTask.fromJson(Map<String, dynamic> json) {
+    final kind = HeartTaskKind.tryParse(json['task'] as String) ?? (throw FormatException('heart task ${json['task']}'));
+    final state = HeartTaskState.values.byName(json['state'] as String);
+    final submittableByState = state == HeartTaskState.open || state == HeartTaskState.rejected;
     return HeartTask(
-      kind: HeartTaskKind.tryParse(json['task'] as String) ?? (throw FormatException('heart task ${json['task']}')),
+      kind: kind,
       rewardHearts: json['reward_hearts'] as int,
-      state: HeartTaskState.values.byName(json['state'] as String),
+      state: state,
       used: json['used'] as int,
       limit: json['limit'] as int,
       rejectReason: HeartTaskRejectReason.tryParse(json['reject_reason'] as String?),
+      canSubmit: json['can_submit'] as bool? ?? (kind.needsProof && submittableByState),
+      maxPhotos: json['max_photos'] as int? ?? (kind.needsProof ? 1 : 0),
+      pending: [
+        for (final item in json['pending'] as List<dynamic>? ?? const []) HeartTaskPending.fromJson(item as Map<String, dynamic>),
+      ],
     );
   }
 }

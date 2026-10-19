@@ -181,6 +181,86 @@ void main() {
     expect(server.reviews, isEmpty);
   });
 
+  test('고른 장은 처음에 0 이고, selectPhoto 가 바꾼다', () async {
+    server.photoCounts['e1'] = 3;
+    final (c, controller) = await open();
+
+    expect(stateOf(c).selectedPhotoIndex, 0);
+    controller.selectPhoto(2);
+    expect(stateOf(c).selectedPhotoIndex, 2);
+    expect(stateOf(c).detail!.value!.photoUrls, hasLength(3));
+  });
+
+  test('selectPhoto ignores an index out of range', () async {
+    server.photoCounts['e1'] = 3;
+    final (c, controller) = await open();
+
+    controller.selectPhoto(1);
+    controller.selectPhoto(3);
+    controller.selectPhoto(-1);
+
+    expect(stateOf(c).selectedPhotoIndex, 1);
+  });
+
+  test('selectPhoto does nothing while the detail is loading or absent', () async {
+    final (c, controller) = await open();
+    server.holdDetail = Completer<void>();
+    unawaited(controller.select('k1'));
+    await pumpEventQueue();
+
+    controller.selectPhoto(0);
+    expect(stateOf(c).detail?.isLoading, isTrue);
+    expect(stateOf(c).selectedPhotoIndex, 0);
+    server.holdDetail!.complete();
+    await pumpEventQueue();
+  });
+
+  test('selecting another submission resets the selected photo to the first', () async {
+    server.photoCounts['e1'] = 3;
+    server.photoCounts['k1'] = 2;
+    final (c, controller) = await open();
+    controller.selectPhoto(2);
+
+    await controller.select('k1');
+    expect(stateOf(c).selectedPhotoIndex, 0);
+
+    controller.selectPhoto(1);
+    await controller.select('e1');
+    expect(stateOf(c).selectedPhotoIndex, 0);
+  });
+
+  test('필터를 바꾸거나 승인해 다음 건으로 넘어가도 첫 장부터 본다', () async {
+    server.photoCounts['e1'] = 3;
+    server.photoCounts['k1'] = 3;
+    final (c, controller) = await open();
+    controller.selectPhoto(2);
+
+    expect(await controller.approve(), isTrue);
+    await pumpEventQueue();
+    expect(stateOf(c).selectedId, 'k1');
+    expect(stateOf(c).selectedPhotoIndex, 0);
+
+    controller.selectPhoto(2);
+    controller.setFilter(HeartTaskKind.everytimePost);
+    await pumpEventQueue();
+    expect(stateOf(c).selectedPhotoIndex, 0);
+  });
+
+  test('같은 건을 다시 받아도(사진 오류 · 같은 줄 다시 누름) 고른 장은 그대로, 장수가 줄었으면 첫 장', () async {
+    server.photoCounts['e1'] = 3;
+    final (c, controller) = await open();
+    controller.selectPhoto(2);
+
+    controller.photoFailed('e1');
+    await pumpEventQueue();
+    expect(server.detailFetches('e1'), 2);
+    expect(stateOf(c).selectedPhotoIndex, 2);
+
+    server.photoCounts['e1'] = 1; // 그 사이 정리로 장수가 줄었다
+    await controller.select('e1');
+    expect(stateOf(c).selectedPhotoIndex, 0);
+  });
+
   test('photo error refetches the item — 사진 오류면 그 건만 다시 받고, 다시 받은 주소도 깨지면 더 받지 않는다', () async {
     final (c, controller) = await open();
     final firstUrl = stateOf(c).detail!.value!.photoUrl;

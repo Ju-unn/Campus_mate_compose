@@ -11,16 +11,19 @@ List<HeartTask> sampleHeartTasks({
   HeartTaskState everytime = HeartTaskState.reviewing,
   HeartTaskRejectReason? everytimeReason,
 }) {
+  final canSubmit = everytime == HeartTaskState.rejected || everytime == HeartTaskState.open;
   return [
     HeartTask(
       kind: HeartTaskKind.everytimePost,
       rewardHearts: 40,
       state: everytime,
-      used: everytime == HeartTaskState.rejected || everytime == HeartTaskState.open ? 0 : 1,
+      used: canSubmit ? 0 : 1,
       limit: 1,
       rejectReason: everytimeReason,
+      canSubmit: canSubmit,
+      maxPhotos: 3,
     ),
-    const HeartTask(kind: HeartTaskKind.kakaoShare, rewardHearts: 25, state: HeartTaskState.done, used: 3, limit: 3),
+    const HeartTask(kind: HeartTaskKind.kakaoShare, rewardHearts: 25, state: HeartTaskState.done, used: 3, limit: 3, maxPhotos: 3),
     const HeartTask(kind: HeartTaskKind.pollVote, rewardHearts: 5, state: HeartTaskState.open, used: 0, limit: 3),
   ];
 }
@@ -45,8 +48,9 @@ class FakeHeartTaskRepository implements HeartTaskRepository {
   }
 
   @override
-  Future<Result<HeartTask>> submit(HeartTaskKind kind, File photo) async {
-    submitted.add((kind, photo.path));
+  Future<Result<HeartTask>> submit(HeartTaskKind kind, List<File> photos) async {
+    // 기록은 쉼표로 이은 경로 문자열 — 레코드 비교가 리스트를 값으로 보지 않아서다.
+    submitted.add((kind, photos.map((photo) => photo.path).join(',')));
     await holdSubmit?.future;
     return submitResult;
   }

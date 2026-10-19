@@ -331,7 +331,7 @@ class _FreeSection extends ConsumerWidget {
         else
           for (final (index, task) in state.tasks.indexed) ...[
             if (index > 0) const SizedBox(height: AppSpacing.xxs),
-            HeartTaskRow(task: task, onTap: heartTaskOnTap(context, task)),
+            HeartTaskRow(task: task, onTap: heartTaskOnTap(context, task), pendingGap: AppSpacing.xxs),
           ],
       ],
     );

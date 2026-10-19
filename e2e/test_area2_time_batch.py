@@ -379,12 +379,13 @@ class World(Store):
     def cleanup(self):
         """heart_tasks/cleanup.py — 검수 끝나고 60일 지난 줄의 파일을 지우고 경로를 비운다(하루 100장까지)."""
         edge = area2._now() - timedelta(days=self.rules['cleanup_days'])
-        hits = [r for r in self.rows('heart_task_submissions') if r['storage_path']
+        hits = [r for r in self.rows('heart_task_submissions') if r['storage_paths']
                 and ((r.get('reviewed_at') and self.when(r['reviewed_at']) < edge)
                      or (self.rules['cleanup_unreviewed'] and self.when(r['created_at']) < edge))][:100]
         for r in hits:
-            self.files.discard(r['storage_path'])
-            r['storage_path'] = None
+            for path in r['storage_paths']:
+                self.files.discard(path)
+            r['storage_paths'] = []
 
 
 # ── 시험 바탕 ───────────────────────────────────────────────────────────────────────────────────────
@@ -912,7 +913,7 @@ class CleanupTest(Base):
         self.passes('E-HEART-22')
         rows = self.world.rows('heart_task_submissions')
         age = lambda r: (area2._now() - self.world.when(r['created_at'])).days  # noqa: E731
-        self.assertEqual(sorted((age(r), r['status'], r['storage_path'] is None) for r in rows),
+        self.assertEqual(sorted((age(r), r['status'], not r['storage_paths']) for r in rows),
                          [(59, 'approved', False), (61, 'approved', True), (61, 'submitted', False)])
         self.assertEqual(len(self.world.files), 2)  # 지운 파일 하나만 사라졌다
 

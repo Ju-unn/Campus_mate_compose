@@ -4,12 +4,14 @@ import 'package:campus_mate/billing/model/billing_repository.dart';
 import 'package:campus_mate/billing/model/billing_repository_provider.dart';
 import 'package:campus_mate/billing/model/heart_store_gateway.dart';
 import 'package:campus_mate/billing/model/heart_task.dart';
+import 'package:campus_mate/billing/model/heart_task_pending.dart';
 import 'package:campus_mate/billing/model/heart_task_repository_provider.dart';
 import 'package:campus_mate/billing/model/store_purchase.dart';
 import 'package:campus_mate/billing/view/heart_bundle_card.dart';
 import 'package:campus_mate/billing/view/heart_payment_notice.dart';
 import 'package:campus_mate/billing/view/heart_purchase_banner.dart';
 import 'package:campus_mate/billing/view/heart_purchase_bar.dart';
+import 'package:campus_mate/billing/view/heart_task_pending_list.dart';
 import 'package:campus_mate/billing/view/heart_store_screen.dart';
 import 'package:campus_mate/tour/view/app_tour_steps.dart';
 import 'package:campus_mate/tour/view/tour_target.dart';
@@ -913,6 +915,34 @@ void main() {
       expect(find.text('커뮤니티 투표'), findsOneWidget);
       expect(tester.getSize(rows.at(0)), const Size(328, 64));
       expect(tester.getTopLeft(rows.at(1)).dy - tester.getBottomLeft(rows.at(0)).dy, 4);
+    });
+
+    // 18a 와 같은 HeartTaskRow 라 대기 블록도 함께 나온다(pen 에 스토어 18 의 대기 상태 시안은 없다 — 보고).
+    testWidgets('검수 대기가 있으면 18a 와 같은 대기 블록이 줄 아래에 붙는다', (tester) async {
+      final now = DateTime.now();
+      tasks.tasks = Success([
+        HeartTask(
+          kind: HeartTaskKind.kakaoShare,
+          rewardHearts: 25,
+          state: HeartTaskState.reviewing,
+          used: 2,
+          limit: 3,
+          canSubmit: true,
+          maxPhotos: 3,
+          pending: [
+            HeartTaskPending(id: 'k', createdAt: DateTime(now.year, now.month, now.day, 14, 35), photoUrls: ['https://signed.test/k-0']),
+          ],
+        ),
+      ]);
+      await pump(tester);
+
+      expect(find.text('검수 대기 1건'), findsOneWidget);
+      // 스토어는 줄 사이가 4 라 줄과 블록 사이도 4.
+      final row = find.byType(HeartTaskRow);
+      expect(tester.getTopLeft(find.byType(HeartTaskPendingList)).dy - tester.getTopLeft(row).dy, 64 + 4);
+      expect(find.text('오늘 14:35 제출'), findsOneWidget);
+      expect(find.text('25 · 월 3회 · 이번 달 1회 남음'), findsOneWidget);
+      expect(find.text('제출하기'), findsOneWidget);
     });
 
     testWidgets('투표 줄 — "하루 1번" 배지가 길어져도(Pretendard) 줄은 328×64, 제목 · 배지 모두 한 줄', (tester) async {

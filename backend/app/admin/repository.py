@@ -20,8 +20,8 @@ INSUFFICIENT_HEARTS = "insufficient_hearts"
 ACCOUNT_WITHDRAWN = "account_withdrawn"
 # 같은 대상 함께 닫기 · 가림 해제는 운영자가 본 신고 id 목록(seen_report_ids)이 있어야 한다 — 없으면 상세를 연 뒤 들어온 새 신고까지 닫는다.
 SEEN_REPORTS_REQUIRED = "seen_reports_required"
-# 검수 화면 한 줄에 필요한 칸. storage_path 는 서명 URL 을 만드는 데만 쓰고 응답에는 싣지 않는다.
-_SUBMISSION_SELECT = ("id,task,status,reject_reason,reward_hearts,created_at,reviewed_at,storage_path,"
+# 검수 화면 한 줄에 필요한 칸. storage_paths(사진 1~3장)는 서명 URL 을 만드는 데만 쓰고 응답에는 싣지 않는다.
+_SUBMISSION_SELECT = ("id,task,status,reject_reason,reward_hearts,created_at,reviewed_at,storage_paths,"
                       "profiles(id,nickname,universities(name))")
 # 신고 목록 한 줄. reports 는 profiles 를 두 번 가리켜서(reporter_id · target_profile_id) 신고당한 쪽을 FK 칸 이름으로 짚는다.
 # 신고자는 싣지 않는다. 사본(target_snapshot)은 한 건을 고를 때만 읽는다 — 목록 줄의 투표 질문 앞부분만 별칭 한 칸(preview_question)으로 고른다.
@@ -82,11 +82,11 @@ class AdminRepository(PostgrestRepository):
     async def fetch_previous_heart_submissions(
         self, profile_id: str, task: str, exclude_id: str, limit: int = 5,
     ) -> list[dict]:
-        """같은 사람 · 같은 항목의 다른 제출 중 사진이 남은 것, 최근 순 — "이미 쓴 캡처예요" 판단용."""
+        """같은 사람 · 같은 항목의 다른 제출 중 사진이 남은 것(60일 정리로 비운 `{}` 는 뺀다), 최근 순 — "이미 쓴 캡처예요" 판단용."""
         response = await self._get("heart_task_submissions", params={
-            "select": "id,status,created_at,storage_path",
+            "select": "id,status,created_at,storage_paths",
             "profile_id": f"eq.{profile_id}", "task": f"eq.{task}", "id": f"neq.{exclude_id}",
-            "storage_path": "not.is.null", "order": "created_at.desc", "limit": str(limit),
+            "storage_paths": "not.eq.{}", "order": "created_at.desc", "limit": str(limit),
         })
         raise_for_status(response)
         return response.json()

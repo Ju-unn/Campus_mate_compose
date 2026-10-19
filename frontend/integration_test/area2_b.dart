@@ -362,10 +362,10 @@ Future<void> _attachProof(WidgetTester tester) async {
   final file = File('${(await getTemporaryDirectory()).path}/e2e-proof.png');
   await file.writeAsBytes(data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes));
   final container = ProviderScope.containerOf(tester.element(find.byType(HeartTaskSubmitScreen)));
-  container.read(heartTaskSubmitViewModelProvider.notifier).pickFromGallery = () async => file;
-  await tap(tester, find.byKey(heartTaskUploaderKey));
+  container.read(heartTaskSubmitViewModelProvider.notifier).pickFromGallery = (remaining) async => [file];
+  await tap(tester, find.text('사진 추가').first);
   final watch = Stopwatch()..start();
-  while (container.read(heartTaskSubmitViewModelProvider).photo == null) {
+  while (container.read(heartTaskSubmitViewModelProvider).photos.isEmpty) {
     must(watch.elapsed < const Duration(seconds: 5), '업로더를 눌렀는데 5초 안에 사진이 안 들어감');
     await tester.pump(const Duration(milliseconds: 200));
   }

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Literal
 from uuid import UUID, uuid4
@@ -21,6 +22,12 @@ REWARD_HEARTS = {"everytime_post": 40, "kakao_share": 25}
 POLL_VOTE_REWARD = 5
 # 18a 줄 순서(DESIGN §8.10 표).
 TASK_ORDER = ("everytime_post", "kakao_share", "poll_vote")
+# 인증샷을 내는 항목(투표는 커뮤니티 탭에서 저절로 쌓인다).
+PROOF_TASKS = ("everytime_post", "kakao_share")
+# 제출 1건당 인증샷 1~3장(대장 결정 2026-10-19). DB check(`heart_task_submissions_paths_max`)와 같은 수.
+MAX_PHOTOS = 3
+# 18a 검수 대기 목록의 썸네일 서명 URL 유효 시간. 18a 에 들어올 때마다 새로 받는다.
+PENDING_URL_TTL_SECONDS = 600
 
 
 def _state(row: dict) -> str:
@@ -33,8 +40,11 @@ def _state(row: dict) -> str:
     return "open"
 
 
-def _task(name: str, row: dict) -> dict:
+def _task(name: str, row: dict, pending: list[dict] | None = None) -> dict:
+    """18a 한 줄. 위 여섯 칸은 옛 앱이 읽는다 — 이름 · 뜻을 바꾸지 않는다(`state` 는 검수 중이 있으면 늘 reviewing).
+    아래 세 칸은 새 앱이 읽는다: can_submit(지금 낼 수 있나) · max_photos(한 번에 낼 수 있는 사진 수) · pending(검수 대기 줄)."""
     state = _state(row)
+    proof = name in PROOF_TASKS
     return {
         "task": name,
         "reward_hearts": REWARD_HEARTS.get(name, POLL_VOTE_REWARD),
@@ -43,11 +53,76 @@ def _task(name: str, row: dict) -> dict:
         "limit": row["task_limit"],
         # 반려 줄에만 싣는다. 다시 내서 검수 중이 되면 지난 사유는 보이지 않는다.
         "reject_reason": row["last_reject_reason"] if state == "rejected" else None,
+        "can_submit": proof and row["used"] < row["task_limit"],
+        "max_photos": MAX_PHOTOS if proof else 0,
+        "pending": pending or [],
     }
 
 
 def _repo(caller: Caller) -> HeartTaskRepository:
     return HeartTaskRepository(caller.settings.postgrest_url, caller.settings.supabase_service_role_key, caller.client)
+
+
+def _storage(caller: Caller) -> HeartProofStorage:
+    return HeartProofStorage(caller.settings.storage_url, caller.settings.supabase_service_role_key, caller.client)
+
+
+async def _signed_url(storage: HeartProofStorage, path: str) -> str | None:
+    """서명에 실패한 사진은 None — 그 한 장만 비고 목록은 그대로 간다. 경로는 로그에 남기지 않는다."""
+    try:
+        return await storage.create_signed_url(path, PENDING_URL_TTL_SECONDS)
+    except (httpx.HTTPError, KeyError, ValueError):
+        logger.warning("무료 하트 대기 사진 서명 실패")
+        return None
+
+
+async def _pending_by_task(storage: HeartProofStorage, rows: list[dict]) -> dict[str, list[dict]]:
+    """검수 중 줄을 항목별로 묶는다. 사진마다 10분 서명 URL(순서 유지, 실패한 장은 None). 경로 원문은 싣지 않는다."""
+    signed = await asyncio.gather(*(
+        asyncio.gather(*(_signed_url(storage, path) for path in row["storage_paths"])) for row in rows
+    ))
+    view: dict[str, list[dict]] = {}
+    for row, urls in zip(rows, signed):
+        view.setdefault(row["task"], []).append(
+            {"id": row["id"], "created_at": row["created_at"], "photo_urls": list(urls)})
+    return view
+
+
+async def _read_proofs(uploads: list[UploadFile]) -> list[tuple[bytes, str]]:
+    """사진 1~3장을 읽어 (바이트, Content-Type) 목록으로. 어느 한 장이라도 틀리면 아무것도 올리기 전에 거절한다."""
+    if not 1 <= len(uploads) <= MAX_PHOTOS:
+        raise HTTPException(status_code=422, detail=errors.INVALID_INPUT)
+    proofs = []
+    for upload in uploads:
+        data = await upload.read(MAX_IMAGE_BYTES + 1)  # 한도를 넘었는지만 알면 된다 — 끝까지 읽지 않는다
+        # 앱이 보낸 Content-Type 은 믿지 않는다 — 학생증과 같은 판정(10MB 초과 · jpeg/png 아님 → None).
+        content_type = student_id_content_type(data)
+        if content_type is None:
+            raise HTTPException(status_code=400, detail=errors.PHOTO_UNREADABLE)
+        proofs.append((data, content_type))
+    return proofs
+
+
+async def _remove_quietly(storage: HeartProofStorage, paths: list[str], profile_id: UUID, submission_id: UUID) -> None:
+    try:
+        await storage.delete(paths)
+    except httpx.HTTPError:
+        # 경로는 남기지 않는다(Global Constraint 6) — 두 id 로 대시보드에서 찾는다.
+        logger.warning("무료 하트 인증샷 되돌리기 실패(고아 파일) profile=%s submission=%s", profile_id, submission_id)
+
+
+async def _upload_all(storage: HeartProofStorage, profile_id: UUID, submission_id: UUID,
+                      paths: list[str], proofs: list[tuple[bytes, str]]) -> None:
+    """모든 장을 함께 올린다. 하나라도 실패하면 시도한 경로 전부를 지우고(없는 파일 삭제는 오류가 아니다) 그 예외를 올린다."""
+    results = await asyncio.gather(
+        *(storage.upload(profile_id, submission_id, index, data, content_type)
+          for index, (data, content_type) in enumerate(proofs, start=1)),
+        return_exceptions=True,
+    )
+    failures = [result for result in results if isinstance(result, Exception)]
+    if failures:
+        await _remove_quietly(storage, paths, profile_id, submission_id)
+        raise failures[0]
 
 
 async def _notify_review(webhook_url: str, client: httpx.AsyncClient,
@@ -70,54 +145,53 @@ async def _notify_review(webhook_url: str, client: httpx.AsyncClient,
 
 @router.get("/heart-tasks")
 async def list_heart_tasks(caller: Caller = Depends(get_verified_caller)) -> dict:
-    """18a 목록. 세 줄을 늘 같은 순서로."""
-    rows = await _repo(caller).fetch_status(caller.profile_id)
-    return {"tasks": [_task(name, rows[name]) for name in TASK_ORDER]}
+    """18a 목록. 세 줄을 늘 같은 순서로. 검수 중인 제출은 항목별 `pending` 에 사진 서명 URL 과 함께 싣는다."""
+    repo = _repo(caller)
+    rows, pending_rows = await asyncio.gather(repo.fetch_status(caller.profile_id), repo.fetch_pending(caller.profile_id))
+    pending = await _pending_by_task(_storage(caller), pending_rows)
+    return {"tasks": [_task(name, rows[name], pending.get(name)) for name in TASK_ORDER]}
 
 
 @router.post("/heart-tasks/{task}/submissions", status_code=201)
 async def submit_heart_task(
     task: Literal["everytime_post", "kakao_share"],
-    photo: UploadFile = File(),
+    photo: UploadFile | None = File(default=None),
+    photos: list[UploadFile] = File(default=[]),
     caller: Caller = Depends(get_verified_caller),
 ) -> dict:
-    """18b 제출. 검수 중이면 409, 이번 달 한도면 429 — 둘 다 사진을 올리기 전에 먼저 본다(고아 파일을 줄이려고).
-    최종 판정은 DB 함수가 다시 한다. 그 판정에서 막히면 방금 올린 파일을 지운다."""
-    data = await photo.read(MAX_IMAGE_BYTES + 1)  # 한도를 넘었는지만 알면 된다 — 끝까지 읽지 않는다
-    # 앱이 보낸 Content-Type 은 믿지 않는다 — 학생증과 같은 판정(10MB 초과 · jpeg/png 아님 → None).
-    content_type = student_id_content_type(data)
-    if content_type is None:
-        raise HTTPException(status_code=400, detail=errors.PHOTO_UNREADABLE)
+    """18b 제출. 사진은 `photos` 1~3장(새 앱) 또는 `photo` 한 장(옛 앱) — 둘 다 오면 합쳐 센다(0장 · 4장 이상은 422).
+    한도에 찼으면 검수 중이 있을 때 409, 없을 때 429 — 사진을 올리기 전에 먼저 본다(고아 파일을 줄이려고).
+    검수 중이어도 한도가 남았으면 낼 수 있다(단톡방은 이어서 제출). 최종 판정은 DB 함수가 사람·항목 락 아래에서
+    다시 한다. 그 판정에서 막히면 방금 올린 파일을 전부 지운다."""
+    proofs = await _read_proofs([*([photo] if photo else []), *photos])
 
     repo = _repo(caller)
     before = (await repo.fetch_status(caller.profile_id))[task]
-    if before["reviewing"]:
-        raise HTTPException(status_code=409, detail=errors.HEART_TASK_IN_REVIEW)
     if before["used"] >= before["task_limit"]:
+        if before["reviewing"]:
+            raise HTTPException(status_code=409, detail=errors.HEART_TASK_IN_REVIEW)
         raise HTTPException(status_code=429, detail=errors.HEART_TASK_MONTHLY_LIMIT)
 
     settings = caller.settings
-    storage = HeartProofStorage(settings.storage_url, settings.supabase_service_role_key, caller.client)
+    storage = _storage(caller)
     submission_id = uuid4()
-    path = await storage.upload(caller.profile_id, submission_id, data, content_type)
+    paths = [storage.proof_path(caller.profile_id, submission_id, index, content_type)
+             for index, (_, content_type) in enumerate(proofs, start=1)]
+    await _upload_all(storage, caller.profile_id, submission_id, paths, proofs)
     try:
-        await repo.submit(submission_id, caller.profile_id, task, path, REWARD_HEARTS[task])
+        await repo.submit(submission_id, caller.profile_id, task, paths, REWARD_HEARTS[task])
     except httpx.TransportError:
         # 답을 못 받았다 — 줄이 이미 생겼을 수 있어 파일을 둔다(지우면 사진 없는 "검수 중" 줄에 막힌다).
-        # ponytail: 줄이 안 생겼으면 고아 파일 — 탈퇴 정리가 폴더째 지운다. 잦아지면 id 로 줄을 확인하고 지운다.
+        # ponytail: 줄이 안 생겼으면 고아 파일(최대 3장) — 탈퇴 정리가 폴더째 지운다. 잦아지면 id 로 줄을 확인하고 지운다.
         logger.warning("무료 하트 제출 응답 없음, 파일 둠 profile=%s submission=%s", caller.profile_id, submission_id)
         raise
     except (HTTPException, httpx.HTTPStatusError):
-        # DB 가 답하고 거절했다 = 롤백됐다. 방금 올린 파일을 지운다.
-        try:
-            await storage.delete([path])
-        except httpx.HTTPError:
-            # 경로는 남기지 않는다(Global Constraint 6) — 두 id 로 대시보드에서 찾는다.
-            logger.warning("무료 하트 인증샷 되돌리기 실패(고아 파일) profile=%s submission=%s",
-                           caller.profile_id, submission_id)
+        # DB 가 답하고 거절했다 = 롤백됐다. 방금 올린 파일을 전부 지운다.
+        await _remove_quietly(storage, paths, caller.profile_id, submission_id)
         raise
 
     await _notify_review(settings.discord_webhook_url, caller.client, submission_id, caller.profile_id, task,
                          settings.admin_base_url)
-    after = await repo.fetch_status(caller.profile_id)
-    return {"task": _task(task, after[task])}
+    after, pending_rows = await asyncio.gather(repo.fetch_status(caller.profile_id), repo.fetch_pending(caller.profile_id))
+    pending = await _pending_by_task(storage, pending_rows)
+    return {"task": _task(task, after[task], pending.get(task))}

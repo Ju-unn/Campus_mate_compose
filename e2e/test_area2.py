@@ -349,7 +349,7 @@ class HeartTest(Base):
             after_batch(len(calls), state)
 
         def row(path_key):
-            return lambda b, u: Reply(200, [{'storage_path': state[path_key], 'status': 'approved'}])
+            return lambda b, u: Reply(200, [{'storage_paths': [state[path_key]] if state[path_key] else [], 'status': 'approved'}])
 
         fake = Fake([
             ('GET', 'heart_task_submissions?id=eq.OLD', row('old_path')),

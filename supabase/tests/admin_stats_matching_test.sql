@@ -91,15 +91,15 @@ values
    (select t0 - interval '2 days' + interval '6 hours' from k));
 
 -- 인증샷: s1 m1 오늘(검수 대기) · s2 관리자 오늘(검수 대기) · s3 f1 어제(검수 대기) · s4 m2 2일 전(반려됨).
-insert into public.heart_task_submissions (profile_id, task, storage_path, status, reward_hearts, reject_reason, created_at, reviewed_at)
+insert into public.heart_task_submissions (profile_id, task, storage_paths, status, reward_hearts, reject_reason, created_at, reviewed_at)
 values
-  ('00000000-0000-0000-0000-d40000000001', 'everytime_post', 'd4/s1.jpg', 'submitted', 40, null,
+  ('00000000-0000-0000-0000-d40000000001', 'everytime_post', array['d4/s1.jpg'], 'submitted', 40, null,
    (select t0 + interval '3 hours' from k), null),
-  ('00000000-0000-0000-0000-d40000000013', 'everytime_post', 'd4/s2.jpg', 'submitted', 40, null,
+  ('00000000-0000-0000-0000-d40000000013', 'everytime_post', array['d4/s2.jpg'], 'submitted', 40, null,
    (select t0 + interval '3 hours' from k), null),
-  ('00000000-0000-0000-0000-d40000000003', 'kakao_share', 'd4/s3.jpg', 'submitted', 40, null,
+  ('00000000-0000-0000-0000-d40000000003', 'kakao_share', array['d4/s3.jpg'], 'submitted', 40, null,
    (select t0 - interval '1 day' + interval '4 hours' from k), null),
-  ('00000000-0000-0000-0000-d40000000002', 'everytime_post', null, 'rejected', 40, 'reused',
+  ('00000000-0000-0000-0000-d40000000002', 'everytime_post', '{}', 'rejected', 40, 'reused',
    (select t0 - interval '2 days' + interval '4 hours' from k), (select t0 - interval '2 days' + interval '5 hours' from k));
 
 -- 미등록 도메인: a · b 는 5회(b 가 더 최근), c 는 2회, reg 는 99회지만 이미 등록된 도메인이다.

@@ -18,11 +18,16 @@ class HeartProofStorage:
         self._headers = {"apikey": service_role_key, "Authorization": f"Bearer {service_role_key}"}
         self._client = client
 
-    async def upload(self, profile_id: UUID, submission_id: UUID, data: bytes, content_type: str) -> str:
+    @staticmethod
+    def proof_path(profile_id: UUID, submission_id: UUID, index: int, content_type: str) -> str:
+        """한 제출의 index(1부터)번째 사진 경로. 업로드가 실패해도 지울 경로를 알 수 있게 올리기 전에 정해 둔다."""
         # 운영자가 대시보드에서 내려받아 여는 파일이라 확장자가 실제 형식과 맞아야 한다.
         extension = "png" if content_type == "image/png" else "jpg"
         # `{profile_id}/` 한 층 — 탈퇴 정리 배치가 폴더째 지운다(account/batch_router.py STORAGE_BUCKETS).
-        path = f"{profile_id}/{submission_id}.{extension}"
+        return f"{profile_id}/{submission_id}-{index}.{extension}"
+
+    async def upload(self, profile_id: UUID, submission_id: UUID, index: int, data: bytes, content_type: str) -> str:
+        path = self.proof_path(profile_id, submission_id, index, content_type)
         response = await self._client.post(
             f"{self._storage_url}/object/{BUCKET}/{path}",
             content=data,

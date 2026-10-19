@@ -29,10 +29,10 @@ select id, '00000000-0000-0000-0000-00000000000d' from auth.users
 where id between '00000000-0000-0000-0000-0000000000d0' and '00000000-0000-0000-0000-0000000000d2'
 on conflict (id) do nothing;
 
-insert into public.heart_task_submissions (id, profile_id, task, storage_path, reward_hearts) values
-  ('00000000-0000-0000-0000-0000000000f1', '00000000-0000-0000-0000-0000000000d0', 'everytime_post', 'd0/f1.jpg', 40),
-  ('00000000-0000-0000-0000-0000000000f2', '00000000-0000-0000-0000-0000000000d1', 'kakao_share', 'd1/f2.jpg', 25),
-  ('00000000-0000-0000-0000-0000000000f3', '00000000-0000-0000-0000-0000000000d2', 'everytime_post', 'd2/f3.jpg', 40);
+insert into public.heart_task_submissions (id, profile_id, task, storage_paths, reward_hearts) values
+  ('00000000-0000-0000-0000-0000000000f1', '00000000-0000-0000-0000-0000000000d0', 'everytime_post', array['d0/f1.jpg'], 40),
+  ('00000000-0000-0000-0000-0000000000f2', '00000000-0000-0000-0000-0000000000d1', 'kakao_share', array['d1/f2.jpg'], 25),
+  ('00000000-0000-0000-0000-0000000000f3', '00000000-0000-0000-0000-0000000000d2', 'everytime_post', array['d2/f3.jpg'], 40);
 
 insert into auth.users (id, email, raw_app_meta_data)
 values ('00000000-0000-0000-0000-00000000ad01', 'operator-d1@example.com', '{"provider": "google", "providers": ["google"]}');

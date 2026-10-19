@@ -262,13 +262,13 @@ def p_heart_04(run, phone):
     account, token = _signed_in(run, 'home')
     said = _app(check, phone(token_hash=token))
     if _passed(said):
-        rows = _rows(run, f"heart_task_submissions?profile_id=eq.{account['id']}&select=id,status,task,reward_hearts,storage_path")
+        rows = _rows(run, f"heart_task_submissions?profile_id=eq.{account['id']}&select=id,status,task,reward_hearts,storage_paths")
         check.that(len(rows) == 1, f'제출 {len(rows)}행(기대 1)')
         row = rows[0] if rows else {}
         got = (row.get('status'), row.get('task'), row.get('reward_hearts'))
         check.that(got == ('submitted', 'everytime_post', 40), f'제출 줄 {got}(기대 submitted · everytime_post · 40)')
-        path = f"{account['id']}/{row.get('id')}.jpg"
-        check.that(row.get('storage_path') == path, f"storage_path {row.get('storage_path')!r}(기대 {path})")
+        path = f"{account['id']}/{row.get('id')}-1.jpg"
+        check.that(row.get('storage_paths') == [path], f"storage_paths {row.get('storage_paths')!r}(기대 {[path]})")
         files = set(tools.storage_paths(run.cfg, run.key, 'heart-task-proofs', account['id']))
         check.that(path in files, f'버킷에 heart-task-proofs/{path} 없음')
     return check.result()
@@ -349,7 +349,7 @@ def _seed_approved(run, account, task, count, reward):
         created = max(now - timedelta(hours=count - i), month_start + timedelta(seconds=i + 1))
         sid = _new_id()
         _insert(run, 'heart_task_submissions', [{'id': sid, 'profile_id': account['id'], 'task': task,
-                                                'storage_path': f"{account['id']}/{sid}.jpg", 'status': 'submitted',
+                                                'storage_paths': [f"{account['id']}/{sid}-1.jpg"], 'status': 'submitted',
                                                 'reward_hearts': reward, 'created_at': created.isoformat()}], account['id'])
         _decide(run, account, sid, status='approved')
 

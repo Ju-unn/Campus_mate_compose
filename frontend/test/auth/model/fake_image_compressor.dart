@@ -9,6 +9,9 @@ class FakeImageCompressor implements ImageCompressor {
   /// 지정하면 [compressToJpeg] 가 이 예외를 던진다 — 실제 플러그인은 읽지 못하는 사진에 `PlatformException` 을 던진다.
   Exception? nextError;
 
+  /// 지정하면 그 번째(1부터) [compressToJpeg] 호출에서만 실패한다 — 여러 장 중 하나만 못 읽는 경우.
+  int? failOnCall;
+
   /// 어떤 파일을 압축하라고 받았는지 — 사용자가 고른 원본이어야 한다.
   final List<File> compressedSources = [];
 
@@ -18,6 +21,9 @@ class FakeImageCompressor implements ImageCompressor {
   @override
   Future<File> compressToJpeg(File source) async {
     compressedSources.add(source);
+    if (failOnCall == compressedSources.length) {
+      throw Exception('unreadable');
+    }
     final error = nextError;
     if (error != null) {
       throw error;

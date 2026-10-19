@@ -16,6 +16,7 @@ class HeartTaskReviewState {
     this.items = const AsyncLoading(),
     this.selectedId,
     this.detail,
+    this.selectedPhotoIndex = 0,
     this.busy,
     this.reviewFailed = false,
     this.alreadyReviewed = false,
@@ -28,6 +29,9 @@ class HeartTaskReviewState {
 
   /// 고른 건의 사진 · 지난 제출. 고른 건이 없으면 null.
   final AsyncValue<HeartTaskDetail>? detail;
+
+  /// 큰 사진으로 보는 장(0부터). 다른 건을 고르면 0 으로 돌아간다.
+  final int selectedPhotoIndex;
   final ReviewAction? busy;
 
   /// 승인 · 반려 요청이 실패했다(연결 · 5xx) — 카드 안 오류 줄
@@ -55,6 +59,7 @@ class HeartTaskReviewState {
     AsyncValue<List<HeartTaskItem>>? items,
     Object? selectedId = _keep,
     Object? detail = _keep,
+    int? selectedPhotoIndex,
     Object? busy = _keep,
     bool? reviewFailed,
     bool? alreadyReviewed,
@@ -64,6 +69,7 @@ class HeartTaskReviewState {
       items: items ?? this.items,
       selectedId: identical(selectedId, _keep) ? this.selectedId : selectedId as String?,
       detail: identical(detail, _keep) ? this.detail : detail as AsyncValue<HeartTaskDetail>?,
+      selectedPhotoIndex: selectedPhotoIndex ?? this.selectedPhotoIndex,
       busy: identical(busy, _keep) ? this.busy : busy as ReviewAction?,
       reviewFailed: reviewFailed ?? this.reviewFailed,
       alreadyReviewed: alreadyReviewed ?? this.alreadyReviewed,
@@ -100,7 +106,14 @@ class HeartTaskReviewController extends Notifier<HeartTaskReviewState> {
 
   /// 칩. 같은 칩을 다시 눌러도 새로 받는다(새 제출 확인).
   void setFilter(HeartTaskKind? kind) {
-    state = state.copyWith(filter: kind, items: const AsyncLoading(), selectedId: null, detail: null, reviewFailed: false);
+    state = state.copyWith(
+      filter: kind,
+      items: const AsyncLoading(),
+      selectedId: null,
+      detail: null,
+      selectedPhotoIndex: 0,
+      reviewFailed: false,
+    );
     unawaited(_loadList(filter: kind));
   }
 
@@ -120,6 +133,13 @@ class HeartTaskReviewController extends Notifier<HeartTaskReviewState> {
   Future<bool> approve() => _review(ReviewAction.approve, _api.approveHeartTask);
 
   Future<bool> reject(HeartTaskRejectReason reason) => _review(ReviewAction.reject, (id) => _api.rejectHeartTask(id, reason));
+
+  /// 썸네일을 눌러 그 장을 큰 사진으로 본다. 받은 장 수 밖이면 무시한다.
+  void selectPhoto(int index) {
+    final count = state.detail?.value?.photoUrls.length ?? 0;
+    if (index < 0 || index >= count) return;
+    state = state.copyWith(selectedPhotoIndex: index);
+  }
 
   /// 사진이 그려지지 않았다(서명 만료 · 깨진 파일) — 그 건만 한 번 다시 받는다.
   void photoFailed(String id) {
@@ -164,7 +184,13 @@ class HeartTaskReviewController extends Notifier<HeartTaskReviewState> {
   }
 
   Future<void> _fetchDetail(String id) async {
-    state = state.copyWith(selectedId: id, detail: const AsyncLoading<HeartTaskDetail>(), reviewFailed: false);
+    // 같은 건을 다시 받는 것(사진 오류 · 같은 줄 다시 누름)이면 고른 장을 두고, 다른 건이면 첫 장부터
+    state = state.copyWith(
+      selectedId: id,
+      detail: const AsyncLoading<HeartTaskDetail>(),
+      selectedPhotoIndex: id == state.selectedId ? null : 0,
+      reviewFailed: false,
+    );
     final HeartTaskDetail detail;
     try {
       detail = await _api.getHeartTask(id);
@@ -183,7 +209,9 @@ class HeartTaskReviewController extends Notifier<HeartTaskReviewState> {
       state = state.copyWith(alreadyReviewed: true, selectedId: null, detail: null);
       return _reload();
     }
-    state = state.copyWith(detail: AsyncData<HeartTaskDetail>(detail));
+    // 그 사이 정리로 장수가 줄었으면 첫 장
+    final keep = state.selectedPhotoIndex < detail.photoUrls.length ? null : 0;
+    state = state.copyWith(detail: AsyncData<HeartTaskDetail>(detail), selectedPhotoIndex: keep);
   }
 
   Future<bool> _review(ReviewAction action, Future<void> Function(String id) send) async {
@@ -215,7 +243,7 @@ class HeartTaskReviewController extends Notifier<HeartTaskReviewState> {
     // 같은 필터 안의 다음 건: 처리한 줄 자리에 올라온 줄, 맨 아래였으면 맨 위(가장 오래 기다린 건)
     final index = items?.indexWhere((i) => i.id == id) ?? -1;
     final next = rest.isEmpty ? null : rest[index >= 0 && index < rest.length ? index : 0];
-    state = state.copyWith(items: AsyncData(rest), busy: null, selectedId: next?.id, detail: null);
+    state = state.copyWith(items: AsyncData(rest), busy: null, selectedId: next?.id, detail: null, selectedPhotoIndex: 0);
     if (next != null) unawaited(select(next.id));
     return true;
   }
