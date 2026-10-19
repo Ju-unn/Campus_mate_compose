@@ -2,4 +2,6 @@
 <resources>
     <!-- 적응형 아이콘 배경. 흰색, 원본 google-play-logo-128.png 배경과 같은 값. -->
     <color name="ic_launcher_background">#FFFFFF</color>
+    <!-- 알림 줄 작은 아이콘(흰 실루엣) 뒤 원 색. AppColors.primary 와 같은 값 — 안 주면 폰이 파란 원을 고른다. -->
+    <color name="notification_accent">#FF385C</color>
 </resources>

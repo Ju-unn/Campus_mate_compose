@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:campus_mate/core/push/foreground_push.dart';
+import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 /// 안드로이드 시스템 알림 창구 — flutter_local_notifications 를 감싼다. iOS 에서는 쓰지 않는다([ForegroundPush]).
@@ -19,7 +20,7 @@ class LocalSystemNotifications implements SystemNotifications {
   static const String _smallIcon = 'ic_stat_campusmate';
 
   /// MainActivity.kt 가 앱을 켤 때 만드는 채널과 id · 이름 · 설명이 같아야 한다 — 이미 있으면 플러그인은 그대로 쓴다.
-  static const NotificationDetails _details = NotificationDetails(
+  static final NotificationDetails _details = NotificationDetails(
     android: AndroidNotificationDetails(
       'campus_mate_default',
       'CampusMate 알림',
@@ -27,6 +28,8 @@ class LocalSystemNotifications implements SystemNotifications {
       // 화면 위에 잠깐 내려오는 헤드업 알림이 되게 한다(안드로이드 7 이하는 priority, 8+ 는 채널 중요도).
       importance: Importance.high,
       priority: Priority.high,
+      // 작은 아이콘(흰 실루엣) 뒤 원 색. AndroidManifest 의 default_notification_color 와 같은 대표 색이다.
+      color: AppColors.primary,
     ),
   );
 
