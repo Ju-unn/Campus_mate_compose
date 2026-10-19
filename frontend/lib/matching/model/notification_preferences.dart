@@ -1,4 +1,4 @@
-/// 알림 스위치(화면 16d `NMgCa`). 서버에 행이 없으면 전부 켜짐 + 마케팅만 꺼짐이다(Task C4 기본값).
+/// 알림 스위치(화면 16d `NMgCa`). 서버에 행이 없으면 전부 켜짐 + 마케팅 · 방해 금지 시간만 꺼짐이다(Task C4 기본값, 방해 금지는 2026-10-19 사용자 결정).
 class NotificationPreferences {
   const NotificationPreferences({
     this.cardArrived = true,
@@ -8,7 +8,7 @@ class NotificationPreferences {
     this.trustReminder = true,
     this.newFriendReview = true,
     this.marketing = false,
-    this.quietHours = true,
+    this.quietHours = false,
   });
 
   final bool cardArrived;
@@ -30,7 +30,7 @@ class NotificationPreferences {
       trustReminder: read('trust_reminder'),
       newFriendReview: read('new_friend_review'),
       marketing: read('marketing', fallback: false),
-      quietHours: read('quiet_hours'),
+      quietHours: read('quiet_hours', fallback: false),
     );
   }
 
