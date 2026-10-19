@@ -14,7 +14,7 @@ from e2e.test_area1_phone import APP_PASS, FakePhone
 from e2e.tools import Blocked, Reply
 
 DEFAULTS = {'card_arrived': True, 'acceptance_received': True, 'match_made': True, 'new_message': True,
-            'trust_reminder': True, 'new_friend_review': True, 'marketing': False, 'quiet_hours': True}
+            'trust_reminder': True, 'new_friend_review': True, 'marketing': False, 'quiet_hours': False}
 SEOUL = timezone(timedelta(hours=9))
 
 

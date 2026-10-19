@@ -10,6 +10,7 @@
 import inspect
 import itertools
 import json
+import re
 import tempfile
 import time
 import unittest
@@ -565,7 +566,8 @@ class MorningBehaviourTest(TwoStageBase):
         self.after_night('84')
         result, phone = self.morning('84')
         self.assertEqual(result[0], 'pass', result)
-        flip = next(i for i, s in enumerate(self.world.sent) if s['method'] == 'PATCH' and s['path'] == '/cards/notification-settings')
+        flip = next(i for i, s in enumerate(self.world.sent)
+                    if s['method'] == 'PATCH' and s['path'] == '/cards/notification-settings' and s['body'] != {'quiet_hours': True})
         plant = next(i for i, s in enumerate(self.world.sent) if s['method'] == 'POST' and s['path'] == '/rest/v1/pending_pushes')
         self.assertLess(flip, plant)
         self.assertEqual(self.world.sent[flip]['body'], {'acceptance_received': False})
@@ -820,7 +822,8 @@ class PlantGateTest(TwoStageBase):
         phone = self.phone()
         result, note = self.go(f'E-PUSH-{number}', phone)
         planted = [s for s in self.world.sent if s['method'] == 'POST' and s['path'] == '/rest/v1/pending_pushes']
-        flipped = self.world.by('PATCH', '/cards/notification-settings')
+        # 밤 단계가 먼저 켠 방해 금지(quiet_hours=True)는 빼고 본다 — 꺼 보는 쪽(스위치 끄기)이 한 건도 없어야 한다.
+        flipped = [s for s in self.world.by('PATCH', '/cards/notification-settings') if s['body'] != {'quiet_hours': True}]
         self.assertEqual((result, planted, flipped, self.batches), ('blocked', [], [], []))
         self.assertIn('지금은 실행 금지 시간', note)
         self.assertFalse(self.state(number).get('done'))
@@ -915,8 +918,9 @@ class SingleNightTest(NightBase):
         gets = self.world.by('GET', '/cards/notification-settings')
         self.assertEqual(len(gets), 1, 'quiet_hours 가 정말 켜져 있는지 먼저 본다')
 
-    def test_33_with_quiet_hours_already_off_the_exception_proves_nothing_and_is_blocked(self):
+    def test_33_with_quiet_hours_the_server_cannot_turn_on_the_exception_proves_nothing_and_is_blocked(self):
         self.world.settings['id-1'] = {'quiet_hours': False}
+        self.world.handlers.insert(0, ('PATCH', re.compile(r'/cards/notification-settings'), Reply(200, {'ok': True})))  # 켜 달라는 저장을 무시한다
         (result, note), _ = self.case('33')
         self.assertEqual(result, 'blocked')
         self.assertIn('quiet_hours', note)
@@ -1092,8 +1096,9 @@ class EdgeTest(NightBase):
         self.assertEqual(result, 'blocked')
         self.assertEqual(self.accept_times(), [])
 
-    def test_72_with_quiet_hours_off_it_is_blocked(self):
+    def test_72_with_quiet_hours_the_server_cannot_turn_on_it_is_blocked(self):
         self.world.settings['id-1'] = {'quiet_hours': False}
+        self.world.handlers.insert(0, ('PATCH', re.compile(r'/cards/notification-settings'), Reply(200, {'ok': True})))  # 켜 달라는 저장을 무시한다
         self.assertEqual(self.case('72')[0][0], 'blocked')
 
     def test_73_the_07_59_accept_is_held_and_the_08_00_accept_arrives_at_once(self):

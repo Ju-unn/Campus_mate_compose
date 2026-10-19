@@ -1,10 +1,33 @@
+import 'dart:async';
+
 import 'package:campus_mate/billing/model/heart_task.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
+import 'package:go_router/go_router.dart';
 
 /// 푸시 `data.route`(Task B3)를 앱 경로로 바꾼다.
 /// 모르는 값이면 null 을 돌려주고 **아무 데도 보내지 않는다** — 알림 하나 때문에
 /// 사용자가 보던 화면을 빼앗지 않는다.
 abstract final class PushRoute {
+  /// 알림을 눌러 [path](=[resolve] 결과)로 간다. 꺼진 앱 · 백그라운드 · 앱이 떠 있을 때 누름이 모두 `main.dart` 에서 여기로 온다
+  /// (알림함 줄은 알림함 위에 쌓는 별도 규칙).
+  /// 탭 · 채팅방(스스로 대화 목록으로 돌아간다) · 홈 위 시트는 그대로 `go` 하고, 나머지는 **홈을 깔고 그 위에 쌓는다** —
+  /// `go` 만 하면 스택이 그 화면 한 장뿐이라 뒤로가기가 사라진다(2026-10-19 사용자: 인증샷 승인 알림).
+  static void open(GoRouter router, String path) {
+    if (_staysAlone(path)) {
+      router.go(path);
+      return;
+    }
+    router.go(AppRoutes.home);
+    unawaited(router.push<void>(path));
+  }
+
+  static bool _staysAlone(String path) =>
+      path == AppRoutes.home ||
+      path == AppRoutes.today ||
+      path == AppRoutes.conversations ||
+      path.startsWith('${AppRoutes.chatRoom}/') ||
+      path.startsWith('${AppRoutes.friendReviewWrite}/');
+
   static String? resolve(Map<String, dynamic> data) => switch (data['route']) {
         'daily_card' => AppRoutes.today,
         // 받은 수락도 매칭 성사도 대화 목록(13)이 종착지다 — 방은 목록에서 골라 들어간다.

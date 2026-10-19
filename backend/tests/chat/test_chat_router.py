@@ -133,7 +133,8 @@ def _handler(calls: _Calls, match: dict, *, messages: list[dict] | None = None,
         if "/rest/v1/profiles" in url:
             return httpx.Response(200, json=[PARTNER_PROFILE if "nickname" not in url else PARTNER_PROFILE])
         if "/rest/v1/notification_settings" in url:
-            return httpx.Response(200, json=[])
+            # 방해 금지 시간을 켠 사용자 — 새 가입자 기본값은 꺼짐(2026-10-19)이라 밤 보류 시험은 켠 사람으로 본다.
+            return httpx.Response(200, json=[{"quiet_hours": True}])
         if "/rest/v1/pending_pushes" in url:
             calls.kept.append(json.loads(request.content)["profile_id"])
             return httpx.Response(201)

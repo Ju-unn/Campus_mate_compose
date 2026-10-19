@@ -156,11 +156,12 @@ def test_deleting_a_push_token_is_scoped_to_the_owner():
 
 
 def test_settings_row_missing_returns_defaults():
-    """한 번도 저장한 적 없는 사람은 전부 켜짐(마케팅만 꺼짐)으로 본다 — 화면이 빈 스위치를 그리지 않는다."""
+    """한 번도 저장한 적 없는 사람은 전부 켜짐(마케팅 · 방해 금지 시간만 꺼짐)으로 본다 — 화면이 빈 스위치를 그리지 않는다.
+    방해 금지 시간은 2026-10-19 사용자 결정으로 처음에 꺼 둔다(기존 사용자는 마이그레이션이 행을 채워 켜진 채 둔다)."""
     body = _wire(_recorder()[0]).get("/cards/notification-settings", headers=AUTH_HEADERS).json()
 
     assert body["card_arrived"] is True
-    assert body["quiet_hours"] is True
+    assert body["quiet_hours"] is False
     assert body["marketing"] is False
 
 

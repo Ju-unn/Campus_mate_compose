@@ -158,6 +158,12 @@ class FcmSender:
         return "sent"
 
 
+def _quiet_hours_default() -> bool:
+    # repository.py 가 이 모듈의 PushToken 을 가져오므로 위에서 import 하면 순환이다 — 부를 때 가져온다.
+    from app.cards.repository import NOTIFICATION_DEFAULTS
+    return NOTIFICATION_DEFAULTS["quiet_hours"]
+
+
 def _is_quiet(now: datetime) -> bool:
     return now.hour >= _QUIET_START_HOUR or now.hour < _QUIET_END_HOUR
 
@@ -192,7 +198,7 @@ async def notify(repo, sender: FcmSender, profile_id, kind: str,
     settings = await repo.fetch_notification_settings(profile_id)
     if not settings.get(kind, True):
         return 0
-    if settings.get("quiet_hours", True) and kind not in _QUIET_HOURS_EXEMPT and _is_quiet(now):
+    if settings.get("quiet_hours", _quiet_hours_default()) and kind not in _QUIET_HOURS_EXEMPT and _is_quiet(now):
         if defer and kind in _DEFERRED:
             await repo.insert_pending_push(profile_id, kind, title, body, data)
         return 0

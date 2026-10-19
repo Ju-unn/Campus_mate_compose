@@ -278,7 +278,7 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
       return;
     }
     _pendingPushPath = null;
-    _router.go(path);
+    PushRoute.open(_router, path);
   }
 
   GoRouter _createRouter() {

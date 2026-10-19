@@ -300,8 +300,16 @@ def p_card_01(run, phone):
     return check.result('응답의 issued 개수는 스케줄러 호출이라 못 읽음 — A 의 daily_cards 행으로 확인')
 
 
+def quiet_hours_on(run, account):
+    """방해 금지 시간을 켠다 — 새 계정은 처음에 꺼져 있다(2026-10-19). 서버가 켜 주지 않으면 밤 보관 · 예외를 볼 수 없어 blocked."""
+    saved = _api(run, 'PATCH', '/cards/notification-settings', account['token'], {'quiet_hours': True})
+    status, body = _api(run, 'GET', '/cards/notification-settings', account['token'])
+    if saved[0] != 200 or status != 200 or (body or {}).get('quiet_hours') is not True:
+        raise Blocked(f'방해 금지(quiet_hours)를 켤 수 없다 — 저장 {saved[0]}, 지금 {status} {body}')
+
+
 def p_card_17(run, phone):
-    """방해 금지 켠 채(기본) 22:00~23:59 에 배치 → 카드 도착 알림은 방해 금지 예외라 그래도 온다(push.py _QUIET_HOURS_EXEMPT)."""
+    """방해 금지를 먼저 켜고 22:00~23:59 에 배치 → 카드 도착 알림은 방해 금지 예외라 그래도 온다(push.py _QUIET_HOURS_EXEMPT)."""
     said = night_refusal(now_seoul(), skip_monday=True)
     if said:
         raise Blocked(said)
@@ -309,9 +317,7 @@ def p_card_17(run, phone):
     check = Check()
     a, b = _pair(run)
     control = _control(run, 'male')
-    settings = _api(run, 'GET', '/cards/notification-settings', a['token'])
-    if settings[0] != 200 or settings[1].get('quiet_hours') is not True:
-        raise Blocked(f'방해 금지(quiet_hours)가 켜져 있어야 예외를 볼 수 있다 — 지금 {settings[0]} {settings[1]}')
+    quiet_hours_on(run, a)
     with _permitted(phone.serial), _every_day(run, a):
         _app(check, phone(token_hash=run.link(a['email'])))
         before = _ready(run, phone, a)
@@ -602,6 +608,7 @@ def _card44_night(run, phone):
     start = now_seoul()
     a1, a2, b = _person(run, 'male'), _person(run, 'male'), _person(run, 'female')
     c1, c2 = _card(run, a1, b), _card(run, a2, b)
+    quiet_hours_on(run, b)  # 새 계정은 방해 금지가 꺼져 있다 — 밤 보관을 보려면 먼저 켠다
     # 성공하면 알림 권한을 **빼지 않는다** — 권한이 빠진 폰은 08시 예약 chat-gate 가 FCM 을 보내도 알림창에 안 떠서 아침 단계가 거짓 fail 이 난다.
     notify.grant_notifications(phone.serial)
     kept = False

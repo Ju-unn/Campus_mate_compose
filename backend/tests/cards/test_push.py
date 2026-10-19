@@ -8,7 +8,7 @@ from datetime import datetime
 import httpx
 
 from app.cards.push import FcmSender, PushToken, notify, send_pending
-from app.cards.repository import CardRepository
+from app.cards.repository import NOTIFICATION_DEFAULTS, CardRepository
 from app.core.time import SEOUL
 
 
@@ -203,6 +203,26 @@ async def test_quiet_hours_block_everything_except_the_card_alarm():
 
     assert await notify(repo, _sender(handler), "p1", "acceptance_received", "제", "본", {}, now=night) == 0
     assert await notify(repo, _sender(handler), "p1", "card_arrived", "제", "본", {}, now=night) == 1
+
+
+async def test_a_new_user_with_default_settings_gets_night_pushes():
+    """2026-10-19 사용자: 처음에는 방해 금지 시간을 꺼 둔다 — 설정을 한 번도 안 만진(행이 없는) 사람은 밤에도 받는다."""
+    night = datetime(2026, 9, 21, 23, 0, tzinfo=SEOUL)
+    repo = _FakeRepo(["tok"], {"profile_id": "p1", **NOTIFICATION_DEFAULTS})
+    handler = lambda request: httpx.Response(200, json={})
+
+    assert await notify(repo, _sender(handler), "p1", "acceptance_received", "제", "본", {}, now=night) == 1
+    assert repo.pending == []
+
+
+async def test_a_settings_row_without_the_quiet_hours_key_follows_the_new_default():
+    """quiet_hours 칸이 빠진 설정이 와도 NOTIFICATION_DEFAULTS(꺼짐)로 판정한다 — 코드 안의 숨은 기본값(켜짐)과 갈라지지 않게."""
+    night = datetime(2026, 9, 21, 23, 0, tzinfo=SEOUL)
+    repo = _FakeRepo(["tok"], {"acceptance_received": True})
+    handler = lambda request: httpx.Response(200, json={})
+
+    assert await notify(repo, _sender(handler), "p1", "acceptance_received", "제", "본", {}, now=night) == 1
+    assert repo.pending == []
 
 
 async def test_chat_messages_ignore_quiet_hours_but_gate_reminders_do_not():

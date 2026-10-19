@@ -7,6 +7,8 @@ import 'package:campus_mate/common/university_logos.dart';
 import 'package:campus_mate/auth/view/school_info_screen.dart';
 import 'package:campus_mate/auth/model/verification_gate_repository.dart';
 import 'package:campus_mate/auth/model/verification_gate_repository_provider.dart';
+import 'package:campus_mate/billing/model/heart_task_repository_provider.dart';
+import 'package:campus_mate/billing/view/heart_tasks_screen.dart';
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/chat/model/conversation.dart';
 import 'package:campus_mate/chat/model/message.dart';
@@ -21,6 +23,7 @@ import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/auth/sign_out.dart';
 import 'package:campus_mate/core/push/push_provider.dart';
 import 'package:campus_mate/home/model/home_repository_provider.dart';
+import 'package:campus_mate/home/view/home_screen.dart';
 import 'package:campus_mate/main.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
@@ -32,6 +35,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'auth/model/fake_verification_gate_repository.dart';
+import 'billing/model/fake_heart_task_repository.dart';
 import 'chat/model/fake_chat_repository.dart';
 import 'core/push/fake_push_messaging.dart';
 import 'core/push/fake_system_notifications.dart';
@@ -187,6 +191,7 @@ void main() {
         onboardingRepositoryProvider.overrideWithValue(FakeOnboardingRepository()),
         pushMessagingProvider.overrideWithValue(push),
         systemNotificationsProvider.overrideWithValue(appSystemNotifications),
+        heartTaskRepositoryProvider.overrideWithValue(FakeHeartTaskRepository()),
         cardRepositoryProvider.overrideWithValue(appCards),
         chatRepositoryProvider.overrideWithValue(chat),
         messageStreamProvider.overrideWithValue(FakeMessageStream()),
@@ -360,6 +365,31 @@ void main() {
     await pumpHome(tester, launch: {'route': 'acceptances'});
 
     expect(find.byType(ConversationsScreen), findsOneWidget);
+  });
+
+  // 2026-10-19 사용자: 인증샷 승인 알림을 눌러 들어가면 뒤로가기가 없었다 — 알림 → 화면 → 뒤로가기 → 홈.
+  Future<void> expectBackGoesHome(WidgetTester tester) async {
+    expect(find.byType(HeartTasksScreen), findsOneWidget);
+    expect(find.byTooltip('Back'), findsOneWidget);
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+    expect(find.byType(HeartTasksScreen), findsNothing);
+    expect(find.byType(HomeScreen), findsOneWidget);
+  }
+
+  testWidgets('인증샷 승인 알림을 눌러 열면 뒤로가기가 있고 홈으로 돌아간다(앱이 떠 있거나 백그라운드)', (tester) async {
+    final (_, push) = await pumpHome(tester);
+
+    push.emitOpened({'route': 'heart_tasks', 'task': 'everytime_post'});
+    await tester.pumpAndSettle();
+
+    await expectBackGoesHome(tester);
+  });
+
+  testWidgets('인증샷 승인 알림으로 꺼진 앱을 켜도 뒤로가기가 홈으로 간다', (tester) async {
+    await pumpHome(tester, launch: {'route': 'heart_tasks', 'task': 'everytime_post'});
+
+    await expectBackGoesHome(tester);
   });
 
   // iOS 는 FCM 표시 옵션이 시스템 배너를 띄운다 — 앱이 또 띄우면 같은 알림이 두 번 뜬다.
