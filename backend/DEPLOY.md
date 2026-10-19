@@ -86,6 +86,7 @@ gcloud run deploy campus-mate-backend \
 **2026-10-14 정정 — 위 전체 명령은 지금 서비스 설정과 같지 않다(그대로 다시 돌리지 않는다).** 위 명령에는 `APPLE_TEAM_ID` · `APPLE_KEY_ID`(env)와 `APPLE_PRIVATE_KEY=apple-sign-in-private-key:latest`(시크릿)가 빠져 있다. `--set-env-vars` · `--set-secrets` 는 **목록 전체를 갈아끼우므로**, 서비스에 APPLE_* 가 들어 있는 상태에서 위 명령을 그대로 돌리면 APPLE_* 가 지워져 애플 토큰 철회가 조용히 건너뛰어진다(셋 중 하나라도 비면 건너뛴다). `settings.py` 가 읽는 값은 지금 **env 9개 · 시크릿 10개**다(위 2026-10-09 대조 뒤 `APPLE_TEAM_ID` · `APPLE_KEY_ID` · `APPLE_PRIVATE_KEY` 가 더해졌다). 위 명령을 다시 써야 하면 두 목록에 APPLE_* 를 더한 뒤 쓴다 — 시크릿 `apple-sign-in-private-key` 가 Secret Manager 에 없으면 그 명령은 실패한다. **지금 운영 서비스에 APPLE_* 가 실제로 들어 있는지는 이 문서 담당이 확인하지 못했다**(클라우드 미조회).
 **2026-10-14 저녁 개정(애플 인앱결제 서버 PR #519, 종전 "env 9개 · 시크릿 10개")** — `settings.py` 가 읽는 값은 **env 11개 · 시크릿 11개**다. 아이폰 하트 구매용 `APPLE_IAP_KEY_ID` · `APPLE_IAP_ISSUER_ID`(env)와 `APPLE_IAP_PRIVATE_KEY=apple-iap-private-key:latest`(시크릿)가 더해졌다. 셋 다 비어도 서버는 뜬다. 넣는 법은 §4-10.
 **2026-10-17 개정(서버 PR #565, 2026-10-17 배포 — 리비전 `00083-pwx`) — `settings.py` 가 읽는 값은 env 13개 · 시크릿 11개다**(종전 env 11개). 홈 리뷰 띠용 `STORE_RATING` · `STORE_RATING_COUNT`(글자로 받고 기본 `"0"`, 비어도 서버는 뜬다)가 더해졌다. 운영 서비스도 **24개(그중 시크릿 11)** 로 이 목록과 같다(대장 전달 값). 넣는 법 · 검증은 §4-13.
+**2026-10-19 개정(관리자 웹 `ADMIN_*` 두 env 와 졸업생 스위치 — 대장 전달 값, 이 문서 담당이 클라우드를 조회하지 않았다) — 운영 서비스는 env 26개(그중 시크릿 11)다.** 2026-10-18 밤 리비전 `00086-7zf` 에서 관리자 웹용 **`ADMIN_ALLOWED_ORIGINS`**(CORS 허용 주소) · **`ADMIN_BASE_URL`**(디스코드 인증샷 알림에 싣는 검수 링크) 두 env 가 더해져 24 → 26 이 됐고, 2026-10-19 리비전 `00087-9qj` 도 26 그대로다(새 env · 새 시크릿 없음). 값과 뜻은 §4-14 "관리자 웹 환경변수". **졸업생 인증 스위치 `GRADUATE_VERIFICATION_ENABLED` 는 서비스에 아직 없다 = 꺼짐**이다 — `settings.py` 가 아니라 `app/graduate_verification/settings.py` 의 `GraduateSettings` 가 요청마다 읽고 기본값이 `false` 라 없어도 서버는 뜬다. 켜는 순간 env 가 27개가 된다(켜는 법 · 선행 조건은 §4-14).
 **2026-10-14 밤 갱신(대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다) — 위 "운영 서비스에 APPLE_* 가 실제로 들어 있는지는 확인하지 못했다" 를 고친다.** 운영 리비전 **`campus-mate-backend-00075-gbw`** 에 `settings.py` 가 읽는 **env 11개 · 시크릿 11개가 모두 들어 있다** — 애플 키(Sign in with Apple 토큰 철회용 `APPLE_TEAM_ID` · `APPLE_KEY_ID` · `APPLE_PRIVATE_KEY`, 아이폰 하트 구매용 `APPLE_IAP_KEY_ID` · `APPLE_IAP_ISSUER_ID` · `APPLE_IAP_PRIVATE_KEY`) 연결 완료. 그래서 위 `--set-*` 전체 명령은 여전히 그대로 다시 돌리지 않는다(APPLE_* 가 지워진다) — 배포는 아래 "현행 배포 방식"으로 한다.
 
 **현행 배포 방식(2026-10-13 ~ 14 배포 기준, 대장 전달 값)** — 설정을 바꾸지 않는 코드 배포는 env · 시크릿 목록을 넘기지 않는다. 그러면 새 리비전이 **직전 리비전의 env · 시크릿을 그대로 이어받는다**:
@@ -590,7 +591,7 @@ gcloud scheduler jobs create http campus-mate-cleanup \
 **검수(운영자)**
 
 1. 디스코드 "무료 하트 인증 1건 (제출: `<id>`, 계정: `<profile_id>`, 항목: `everytime_post`)" 을 본다. 사진 · 경로 · 이름은 싣지 않는다.
-2. Supabase 대시보드 → Table editor → `heart_task_submissions` 에서 `id` 로 줄을 찾고, `storage_path` 로 Storage → `heart-task-proofs` 의 파일을 연다.
+2. Supabase 대시보드 → Table editor → `heart_task_submissions` 에서 `id` 로 줄을 찾고, `storage_path` 로 Storage → `heart-task-proofs` 의 파일을 연다. **2026-10-19 개정(PR #613, §4-14): 칸 이름이 `storage_paths`(경로 1~3개 배열)로 바뀌었다 — 대시보드로 열 때는 배열의 경로를 하나씩 연다. 운영 검수의 기본 길은 이제 관리자 웹의 인증샷 검수(사진 여러 장을 넘겨 본다)다.**
 3. **승인**: 그 줄의 `status` 를 `approved` 로 저장한다 — 하트는 DB 트리거가 한 번만 준다(`reward_hearts` 만큼, 사유 `free_task`).
    **반려**: **"Edit row" 패널에서 `status` = `rejected` 와 `reject_reason`(`date_missing` · `not_verified` · `reused`) 을 한 번에 저장**한다 — 한 칸씩 저장하면 check 23514 로 막힌다.
    Edit row 가 바꾸지 않은 칸(`created_at` 등)까지 다시 보내 `CM409` 로 막히면 SQL Editor 에서 한 줄로 한다:
@@ -928,7 +929,87 @@ gcloud run services update campus-mate-backend --project=<PROJECT_ID> --region=a
 - [ ] **기능 한 번씩**(결과를 받지 못했다 — 보호 계정 · E2E 자율 허락 범위에서): 받은 신청 프로필 보기 200 · 이미 답한 건 409 / `GET /home/summary` 의 `store_rating` · `store_rating_count` 가 넣은 값 / 18a 줄 "40 · 월 1회" · "5 · 주 최대 15" / 설문만 낸 계정의 next-step 이 `ideal_conditions` · 다 낸 pending 계정이 next-step 한 번에 `active`(E2E E-ONB-33 은 서버 배포 뒤 통과 — PR #578) / `GET /me/profile` 에 `ideal_note` · `survey_answers`
 - [x] 리비전 이름을 §5 에 적는다(이 문서 담당은 대장 전달 값으로 적는다) — `00083-pwx`
 
+## 4-14. 2026-10-19 배포 묶음 — 인증샷 여러 장 · 졸업생 인증(스위치 꺼짐) · 저녁 알림 기본값 · 관리자 웹 env (**2026-10-19 배포 완료**, 리비전 `00087-9qj`)
+
+**상태: 2026-10-19 배포 완료(대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다).** 직전 리비전은 `00086-7zf`(2026-10-18 밤, 관리자 웹 서버 · 보안 보강 · 인증샷 결과 알림까지)이고 지금 돌고 있는 것은 **`campus-mate-backend-00087-9qj`** 다. env **26개(그중 시크릿 11)** — 새 env · 새 시크릿 · 새 Scheduler job · 새 Cloud Tasks 큐는 **없다**(§2 2026-10-19 개정). 졸업생 인증 스위치는 **꺼짐**이다(아래 "졸업생 인증 서버").
+
+묶음에 든 서버 · DB 변경(앱만 바뀐 PR #591 카카오 초대 코드 공유 · #611 사진 안내문 · #612 연락처 제한 안내문은 서버가 없다):
+
+| PR | 무엇 | 서버 파일 | DB 마이그레이션 |
+| --- | --- | --- | --- |
+| #613 | 인증샷 1~3장 + 단톡방 검수 중에도 월 3회까지 이어 제출 + 관리자 사진 여러 장 | `app/heart_tasks/*` · `app/admin/heart_task_review.py` · `app/admin/repository.py` | `20261019100000_heart_task_multi_photos` |
+| #614 | 저녁 알림 제한(방해 금지) 기본값 꺼짐 | `app/cards/*`(알림 설정 `NOTIFICATION_DEFAULTS` · `push.notify`) | `20261019210000_notification_quiet_hours_default_off` |
+| #615 | 졸업생 인증(신청 · 관리자 검수 · 정리 · 탈퇴 연동) | `app/graduate_verification/*` · `app/admin/graduate_*.py` · `app/account/*` · `app/chat/batch_router.py` · `app/student_verification/router.py` | `20261019200000_graduate_verification_tables` · `20261019200100_graduate_verification_functions` |
+
+**운영 DB 마이그레이션 4개 추가 적용 → 운영 93개 = 저장소 93개**(대장 전달 값). 원격 기록 버전은 파일 이름이 아니라 **적용 시각**이다(`docs/SUPABASE.md` §4 관례): `20261019055736` · `20261019055756` · `20261019055818` · `20261019055824`. 파일 번호 순서대로 적용했다면 이 순서로 위 네 파일과 짝이 되지만 짝은 이 문서 담당이 확인하지 못했다.
+
+### 인증샷 여러 장 · 이어서 제출 (PR #613, 계획서 `2026-10-19-heart-task-multiphoto.md`)
+
+- `heart_task_submissions.storage_path`(한 장) → **`storage_paths text[]`**(1~3개, check)로 바뀌었다. 옛 칸은 지웠고 옛 줄은 사진 1장짜리로 채웠다. "항목당 검수 중 한 줄" 부분 유일 인덱스도 지웠다. `submit_heart_task` 는 인자가 `p_path text` → `p_paths text[]` 로 바뀌어 **옛 함수를 지우고 새로 만들었고**, 사람 · 항목마다 advisory lock 아래에서 월 한도를 센다(동시 제출이 한도를 넘지 못한다).
+- `POST /heart-tasks/{task}/submissions` 는 multipart 파트 `photos`(1~3장) 또는 옛 `photo`(1장)를 받는다. 오류: 400 사진 형식 · 크기, 422 0장 · 4장 이상, 409 한도에 찼고 검수 중(`HEART_TASK_IN_REVIEW`), 429 한도에 찼고 검수 중 없음(`HEART_TASK_MONTHLY_LIMIT`). 파일 이름은 `{profile_id}/{submission_id}-{n}.{jpg|png}`.
+- `GET /heart-tasks` 줄은 **옛 여섯 칸을 그대로 두고** `can_submit` · `max_photos` · `pending[]`(`id` · `created_at` · `photo_urls` 600초 서명) 세 칸을 더했다. 옛 앱은 모르는 칸을 무시한다. 관리자 `GET/POST /admin/heart-tasks/{id}` 에는 `photo_urls`(5분 서명, 장수 유지) 가 더해지고 옛 `photo_url`(= 첫 장)은 남는다. 60일 정리와 탈퇴 정리는 장 수만큼 파일을 지운다.
+- **배포 틈 · 되돌림 하한(대장 확정 D5)**: 옛 칸을 없앴으므로 마이그레이션 적용 **직후 곧바로 서버를 배포**해야 했다(그 사이 제출 · 관리자 사진 보기 오류). **서버만 `00086-7zf` 이전으로 되돌리면 인증샷 제출 · 관리자 사진 보기가 깨진다**(옛 서버는 `storage_path` 와 `p_path` 를 쓴다). 되돌림이 필요하면 **고친 서버의 새 리비전**으로 한다 — 이 묶음 이후 서버 안전 하한은 **`00087`** 이다.
+
+### 저녁 알림 제한 기본값 (PR #614)
+
+- `notification_settings.quiet_hours`(22~08시 방해 금지) 기본값을 **앱 · 서버 `NOTIFICATION_DEFAULTS` · DB 컬럼 모두 `false`** 로 바꿨다. 새 가입자부터 꺼진 채 시작한다.
+- **기존 사용자 값은 지킨다**: 서버가 "설정 행이 없으면 켜짐"으로 읽고 있어서, 마이그레이션이 **행이 없는 기존 사용자에게 `quiet_hours = true` 행을 먼저 채우고** 그다음 컬럼 기본값을 `false` 로 바꾼다. 이미 행이 있는 사용자는 건드리지 않는다.
+- **순서: 마이그레이션 → 서버 → 앱.** 서버가 마이그레이션보다 먼저 나가면 행 없는 기존 사용자의 제한이 꺼진다.
+
+### 졸업생 인증 서버 (PR #615, 계획서 `2026-10-19-graduate-verification.md`, 결정 기록 `docs/decisions/2026-10-19-graduate-verification-decision.md`)
+
+**스위치: `GRADUATE_VERIFICATION_ENABLED`(기본 `false`, 운영 서비스에는 아직 없다 = 꺼짐).** 꺼진 서버는 `GET /me/verification-status` 의 `graduate_enabled` 가 `false` 이고, 새 앱도 지금과 똑같은 관문(학교 메일)을 만나며, `PUT /me/verification-method` 의 졸업증명서 값과 `POST /graduate-verification` 은 403 `graduate_disabled` 다. 관리자 웹의 "졸업생" 화면은 배포됐지만 쓸 신청이 없다.
+
+**켜기(별도 사용자 승인 필요 — 다음 세 가지가 먼저 끝나야 한다)**
+
+1. **처리방침 변경 반영**: 수집 항목(졸업증명서 사진 · 이전 학교 이메일 · 문서확인번호), 목적, 보유 기간(사진 = 결정 즉시 · 최대 14일, 평문 = 결정 즉시, 해시 = 계정 존속 + 재가입 제한 기간), 처리 위탁 · 국외 이전(Google Cloud Vision), 관리자 열람 기록, 동의 방식.
+2. **스토어 개인정보 양식 변경**(구글 데이터 보안 · 애플 앱 개인정보). 칸 이름은 스토어 현재 화면을 보고 확정한다. 새 앱 빌드를 **제출하기 전에** 반영한다.
+3. **법률 확인 + 실제 졸업증명서 샘플 판독 검증**(계획서 0-5 · 11장).
+
+```bash
+# 켜기 — 사용자 승인 문장 뒤에만. 목록에 더하기만 한다(--set-env-vars 금지, §2). 새 리비전이 생긴다.
+gcloud run services update campus-mate-backend --project=<PROJECT_ID> --region=asia-northeast3 \
+  --update-env-vars GRADUATE_VERIFICATION_ENABLED=true
+# 끄기(되돌리기): 같은 명령에 =false, 또는 --remove-env-vars GRADUATE_VERIFICATION_ENABLED. 코드 배포 없이 끝나고 새 앱도 옛 관문으로 돌아간다.
+```
+
+- **켠 뒤 점검**: `GET /me/verification-status`(시험 계정 토큰)의 `graduate_enabled` 가 `true` → 시험 계정으로 신청 → 관리자 웹 "졸업생" 목록에 뜸 → 승인 또는 반려 → **버킷 `graduate-cert-temp` 가 비어 있음**(결정 즉시 삭제 확인) → 신청 행의 평문 3칸(`ocr_document_number` · `ocr_school_text` · `previous_school_email`)이 null. 켠 뒤 서버 안전 하한은 `00087` 이다(그 아래는 `PUT /me/verification-method` 가 404).
+- **새 시크릿 · env 없음 확인(2026-10-19)**: 스위치는 `GraduateSettings`(별도 클래스, 기본 `false`)가 요청마다 읽는다. 번호 · 학번 해시는 기존 **`IDENTITY_HMAC_KEY`** 를 같은 키로 쓰되 입력 앞에 `graduate-document|` · `graduate-student|` 접두사를 붙여 학교 메일 해시와 겹치지 않는다(키를 바꾸면 졸업생 해시도 모두 무효가 된다 — `key_version` 칸). 글자 인식은 기존 Vision 클라이언트 팩토리(`get_vision_client_factory`)를 그대로 쓴다 — 새 API 사용 설정 없음. 신청 알림은 학생증 때와 같은 디스코드 채널(`DISCORD_WEBHOOK_URL`)로 가며 **신청 id 와 profile_id 만** 싣는다.
+- **버킷 `graduate-cert-temp`**: 마이그레이션이 만든 비공개 버킷(10MB, `image/jpeg` · `image/png`, 클라이언트 정책 없음). 경로 `{profile_id}/{request_id}.jpg|png`. 옛 `student-id-temp` 와 섞지 않았다(그 안의 옛 학생증 삭제는 사용자 승인 대기, 출시후_할일 1-1).
+- **정리 배치**: 새 job 이 아니라 **기존 매시 `/batch/chat-gate`** 가 한다(§4-1). ① 14일 지난 대기 신청 → `cancelled(expired)` + 평문 비움 + 사진 삭제 ② 학교 메일로 따로 인증을 마친 사람의 대기 신청 닫기(`verified_otherwise`) ③ 결정이 났는데 `photo_path` 가 남은 줄의 사진 삭제. 응답에 키 `graduate_photos_deleted` · `graduate_pending_expired` · `graduate_verified_cancelled` 가 더해졌다(옛 학생증 키는 그대로). 졸업생 정리가 터져도 응답은 200 이고 앞 결과는 유지된다. 미인증 14일 계정 정리(`/batch/cleanup`)는 **대기 신청이 있거나 14일 안에 결정된 졸업생을 지우지 않는다**(DB 함수 `list_unverified_accounts` 교체 + 지우기 직전 재확인).
+- **탈퇴**: 대기 신청을 `cancelled(account_withdrawn)` 으로 닫고 사진 폴더를 비운다(`withdraw` 단계 `graduate_request` · `graduate_files`). 재가입 제한 해시는 학교 메일 claims 가 먼저, 없으면 졸업생 학번 해시, 둘 다 없으면 없음(null)이다. 읽기가 실패하면 둘 다 503 으로 멈춘다(null 로 탈퇴시켜 제한을 잃지 않는다).
+- **경로**: 신청자(로그인 + 정지 · 동의 확인) `PUT /me/verification-method` · `POST /graduate-verification`(multipart `photo` · `agreed` · 선택 `previous_school_email`, 201 `{"state":"pending","attempts_left":n}`) · `GET /me/verification-status` 새 칸 `graduate_enabled` · `verification_method` · `graduate`. 관리자(`get_admin_caller` — 로그인 → 2단계 aal2 → 명단) `GET /admin/graduate-requests` · `GET /admin/graduate-requests/{id}` · `POST .../approve` · `POST .../reject`. 오류 응답은 `{"detail": 문구, "code": 코드}`(인앱결제와 같은 모양). 반려 사유 코드 4개 `unreadable` · `not_certificate` · `unverifiable` · `school_unsupported`. 신청은 사람당 **3회**(만료로 닫힌 것은 세지 않는다), 대기는 **14일**을 넘기지 못한다.
+- **푸시**: 종류 `verification_result` 를 재사용(알림 종류 check 변경 없음), `data` = `route: graduate_verification` · `state` · `reason`. 앱은 화면을 옮기지 않고 인증 관문만 다시 묻는다.
+- **로그**: 사진 경로 · 문서확인번호 · 학번 · 이메일 · OCR 글자를 로그와 디스코드에 쓰지 않는다 — 신청 id 와 profile_id 만. 배포 뒤 30분 동안 로그에서 이를 확인한다(§4-6).
+
+### 관리자 웹 환경변수 `ADMIN_ALLOWED_ORIGINS` · `ADMIN_BASE_URL` (리비전 `00086-7zf` 에서 더해짐)
+
+- **`ADMIN_ALLOWED_ORIGINS`**: 쉼표 목록(관리자 웹 주소). **비어 있으면 CORS 를 붙이지 않는다**(관리자 웹 배포 전과 같다). `*` 를 넣으면 서버가 **기동하지 않는다**(`AdminWebSettings` 검사). 끝의 `/` 는 서버가 뗀다. `Settings` 가 아니라 별도 클래스가 `main.py` import 때 읽는다.
+- **`ADMIN_BASE_URL`**: 관리자 웹 주소. 있으면 디스코드 인증샷 · 신고 알림에 그 건의 검수 링크를 싣는다(없으면 "Supabase 대시보드에서 확인").
+- `ADMIN_MFA_MAX_AGE_HOURS`(기본 12, 관리자 2단계 인증 나이 상한)는 env 개수(24 → 26)로 보아 서비스에 넣지 않은 것으로 **추정**한다 — 이 문서 담당이 서비스를 조회하지 않았다.
+- 값은 이 문서에 적지 않는다. 관리자 웹은 Vercel 에서 main 반영 때 자동 배포된다. 인증샷 여러 장 보기는 `photo_urls` 가 없는 옛 서버 응답도 읽어서 서버보다 먼저 나가도 죽지 않는다(사진은 첫 장만).
+- **`admin_actions` 는 SQL 창에서 손대지 않는다**: 관리자 쓰기 경로의 작업 기록이고(보관 2년) 서버가 같은 요청 안에서 쓴다. `admin_users`(관리자 명단)는 서버가 읽기만 한다 — 등록은 사용자 승인 뒤 대장이 SQL 한 줄로 한다.
+
+### 배포 순서 · 롤백 주의
+
+1. **DB**(사용자 승인 뒤 `apply_migration`, 파일 번호 순서) → `20261019100000` 을 적용한 직후 **곧바로 서버**(인증샷 틈) → 관리자 웹(Vercel 자동) → **앱**(AAB · TestFlight). 앱은 서버 뒤에 나간다.
+2. 서버 배포는 §2 "현행 배포 방식"(env · 시크릿 이어받기). 04:00 KST 정리 시각 전후는 피한다.
+3. **롤백 하한**: 어떤 경우에도 `00063` 아래로 가지 않는다(§4-4). 이 묶음 이후에는 **`00087` 아래(`00086`)로 내리지 않는다** — `storage_paths` 마이그레이션 때문에 인증샷 제출 · 관리자 사진 보기가 깨진다. 되돌림은 "고친 서버의 새 리비전"으로 한다. 졸업생 스위치를 켠 뒤에는 `00087` 아래가 `PUT /me/verification-method` 404 로 새 앱의 방법 고르기를 막는다. 마이그레이션은 되돌리지 않는다.
+4. **앱 빌드(2026-10-19 현재)**: 안드로이드 versionCode **13 은 플레이에서 이미 사용돼 14 로 다시 만드는 중**이고, iOS TestFlight 는 빌드 21 이다. 새 앱 빌드를 낸 뒤에는 위 하한을 지킨다. `ITSAppUsesNonExemptEncryption = false` 는 이미 설정돼 있다(앱 안 암호화는 로그인 nonce 해시뿐이고 나머지 통신은 OS 의 HTTPS 다).
+
+### 배포 후 점검 목록 (2026-10-19 — 대장 전달 값은 리비전 · env 개수뿐이다)
+
+- [x] 리비전 `campus-mate-backend-00087-9qj` (직전 `00086-7zf`), env 26개(그중 시크릿 11), 졸업생 스위치 서비스에 없음(= 꺼짐)
+- [ ] `curl https://<서비스 URL>/health` → `{"status":"ok"}` (결과를 받지 못했다)
+- [ ] 무인증 호출이 401: `/heart-tasks`, `/me/verification-status`, `/admin/graduate-requests`(결과를 받지 못했다)
+- [ ] `GET /me/verification-status`(시험 계정) 의 `graduate_enabled` 가 `false` 이고 옛 칸이 그대로 (결과를 받지 못했다)
+- [ ] 매시 `/batch/chat-gate` 응답에 `graduate_*` 세 키 (다음 정각 실행 로그, 결과를 받지 못했다)
+- [ ] 인증샷 제출 한 번(시험 계정) + 관리자 상세에서 사진 여러 장 보기, `NOTIFY pgrst, 'reload schema'` 가 필요했는지 (결과를 받지 못했다)
+- [ ] 배포 뒤 30분 로그에서 5xx · Traceback · 사진 경로 · 번호 · 이메일이 찍히지 않는지 (결과를 받지 못했다)
+
 ## 5. 현재 배포 상태 (2026-09-26 기준)
+
+**2026-10-19 갱신(대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다).** **2026-10-19 배포 완료** — 돌고 있는 리비전 **`campus-mate-backend-00087-9qj`**(직전 `00086-7zf`, 2026-10-18 밤). 담은 서버 변경: PR #613(인증샷 여러 장 · 이어서 제출) · #614(저녁 알림 기본값) · #615(졸업생 인증, **스위치 꺼짐**) — §4-14. env **26개(그중 시크릿 11)**(`00086-7zf` 에서 `ADMIN_ALLOWED_ORIGINS` · `ADMIN_BASE_URL` 이 더해져 24 → 26, `00087` 은 그대로). 새 시크릿 · job 없음. **운영 마이그레이션 93개 = 저장소 93개**(10-19 네 파일 추가 적용, 원격 버전은 적용 시각 `20261019055736` · `055756` · `055818` · `055824`). **되돌림**: `00063` 아래 금지는 그대로이고 이 묶음 이후에는 **`00087` 아래로 내리지 않는다**(`storage_paths` 마이그레이션 — 인증샷 제출 · 관리자 사진 보기가 깨진다, §4-14). 직전 `00084` ~ `00086` 이 담은 PR(학생증 제거 서버 · 관리자 웹 서버 #592 ~ #608 · 인증샷 결과 알림 · 서버 보안 보강)은 대장 전달 값으로 정확한 리비전별 경계를 받지 못했다(`00083 → 00085` 가 10-17 ~ 18 학생증 제거 서버 묶음, `00086` 이 관리자 웹 서버 + 보안 보강 — 10-18 밤). `00086` 아래로 내리면 관리자 · 신고 함수 시그니처가 안 맞고(관리자만 영향), 학생증 제거 서버(`00084`/`00085`) 아래로 새 앱이 나간 뒤 내리면 가입이 막힌다. **새 앱 빌드**: 안드로이드 vc13 은 이미 사용돼 vc14 로 다시 만드는 중, TestFlight 빌드 21.
 
 **2026-10-17 갱신(대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다).** **2026-10-17 배포 완료** — 돌고 있는 리비전 **`campus-mate-backend-00083-pwx`**(안전 하한 `00063` 그대로). 코드 배포 `00082-9lk` 뒤에 `STORE_RATING=5.0` · `STORE_RATING_COUNT=1` 을 더한 리비전이다. 담은 서버 변경: PR #565(리뷰 띠 env) · #568(받은 신청 프로필 API) · #570(무료 하트 값) · #574(아바타 확인 맨 끝 · 가입 확정) · #577(`/me/profile` 두 칸) — §4-13. env 24개(그중 시크릿 11), `/health` 200, 무인증 next-step 401 확인. 새 시크릿 · job 없음. 직전 `00081-md2` 와 `00079` ~ `00080` 이 담은 PR 목록은 받지 못했다. **운영 마이그레이션 76개 = 저장소 76개**(무료 하트 두 파일은 2026-10-16 적용). **아직 안 한 것: 새 앱 빌드(안드로이드 vc9 · TestFlight)** — 서버 배포 뒤에 낸다는 원칙대로 이제 낸다. **되돌림**: 새 앱 빌드가 나간 뒤에는 `00082` 아래로 내리지 않는다(새 앱의 받은 신청 답하기가 404 로 막힌다, §4-13 "배포 순서 · 롤백 주의").
 
