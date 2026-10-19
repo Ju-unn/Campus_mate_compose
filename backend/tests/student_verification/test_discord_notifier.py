@@ -122,3 +122,28 @@ async def test_a_malformed_webhook_address_is_swallowed_and_never_logged(webhook
     assert "InvalidURL" in caplog.text
     assert "SECRET-TOKEN" not in caplog.text
     assert "webhooks" not in caplog.text
+
+
+async def test_graduate_orphan_notice_names_the_graduate_bucket_and_carries_only_the_account_id():
+    client, captured = _mock_client()
+
+    await DiscordNotifier(WEBHOOK_URL, client).notify_graduate_orphaned_file(PROFILE_ID)
+
+    assert json.loads(captured["body"]) == {
+        "content": (
+            f"졸업생 인증 사진 삭제가 실패해 고아 파일이 남았어요 (계정: {PROFILE_ID}). "
+            "Storage graduate-cert-temp 에서 그 계정 폴더를 손으로 지워 주세요."
+        )
+    }
+
+
+async def test_notify_graduate_request_carries_ids_only():
+    client, captured = _mock_client()
+    request_id = UUID("22222222-2222-2222-2222-222222222222")
+
+    await DiscordNotifier(WEBHOOK_URL, client).notify_graduate_request(request_id, PROFILE_ID)
+
+    body = captured["body"].decode("utf-8")
+    assert captured["url"] == WEBHOOK_URL
+    assert "졸업생 인증 신청" in body
+    assert str(request_id) in body and str(PROFILE_ID) in body

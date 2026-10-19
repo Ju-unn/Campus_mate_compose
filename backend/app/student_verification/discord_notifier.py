@@ -25,6 +25,19 @@ class DiscordNotifier:
             "Supabase 대시보드에서 확인해 주세요."
         )
 
+    async def notify_graduate_request(self, request_id: UUID, profile_id: UUID) -> None:
+        # 사진 · 번호 · 이메일 · 학교 글자는 보내지 않는다(COMMON §3) — 신청 id 와 계정 id 만. 관리자 웹에서 그 신청을 연다.
+        await self._send(
+            f"졸업생 인증 신청이 1건 들어왔어요 (신청: {request_id}, 계정: {profile_id}). 관리자 웹에서 확인해 주세요."
+        )
+
+    async def notify_graduate_orphaned_file(self, profile_id: UUID) -> None:
+        # 신청 줄을 못 쓰고 방금 올린 사진도 못 지웠다. 사진 경로는 싣지 않는다(COMMON §3) — 계정 id 가 곧 폴더 이름이다.
+        await self._send(
+            f"졸업생 인증 사진 삭제가 실패해 고아 파일이 남았어요 (계정: {profile_id}). "
+            "Storage graduate-cert-temp 에서 그 계정 폴더를 손으로 지워 주세요."
+        )
+
     async def notify_orphaned_file(self, profile_id: UUID) -> None:
         # 사진 경로는 싣지 않는다(COMMON §3) — 계정 id 가 곧 Storage 폴더 이름이다.
         await self._send(

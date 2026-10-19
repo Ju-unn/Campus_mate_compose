@@ -65,6 +65,17 @@ def _gate_row(status: str = "none", department: str | None = None,
             "school_email_verified_at": school_email_verified_at}
 
 
+# 졸업생 인증(졸업증명서)이 더한 새 칸. 옛 앱은 읽지 않는다 — 플래그 꺼짐 · 방법 미선택이면 아래 기본값이다.
+_GRADUATE_FIELDS = {"graduate_enabled": False, "verification_method": None, "graduate": None}
+
+
+def _old_app_fields(response) -> dict:
+    """옛 앱이 읽는 다섯 칸. 새 칸은 기본값으로 따로 확인한다(값 · 이름이 옛 서버와 같아야 옛 앱이 안 깨진다)."""
+    body = response.json()
+    assert {key: body[key] for key in _GRADUATE_FIELDS} == _GRADUATE_FIELDS
+    return {key: value for key, value in body.items() if key not in _GRADUATE_FIELDS}
+
+
 def _calls(sent: list[httpx.Request], method: str, fragment: str) -> list[httpx.Request]:
     return [r for r in sent if r.method == method and fragment in str(r.url)]
 
@@ -98,8 +109,8 @@ def test_status_verified_with_school_info():
     response = _fetch_status()
 
     assert response.status_code == 200
-    assert response.json() == {"status": "verified", "has_school_info": True, "reject_reason": None,
-                               "consent": "current", "school_email_verified": True}
+    assert _old_app_fields(response) == {"status": "verified", "has_school_info": True, "reject_reason": None,
+                                         "consent": "current", "school_email_verified": True}
     assert _calls(sent, "GET", "/student_verification_attempts") == []
 
 
@@ -108,8 +119,8 @@ def test_status_verified_without_school_info():
 
     response = _fetch_status()
 
-    assert response.json() == {"status": "verified", "has_school_info": False, "reject_reason": None,
-                               "consent": "current", "school_email_verified": True}
+    assert _old_app_fields(response) == {"status": "verified", "has_school_info": False, "reject_reason": None,
+                                         "consent": "current", "school_email_verified": True}
 
 
 @pytest.mark.parametrize("student_id", ["none", "pending", "verified", "rejected"])
@@ -121,8 +132,8 @@ def test_old_app_contract_five_fields_and_the_status_is_always_verified(student_
     response = _fetch_status()
 
     assert response.status_code == 200
-    assert response.json() == {"status": "verified", "has_school_info": False, "reject_reason": None,
-                               "consent": "current", "school_email_verified": True}
+    assert _old_app_fields(response) == {"status": "verified", "has_school_info": False, "reject_reason": None,
+                                         "consent": "current", "school_email_verified": True}
     assert _calls(sent, "GET", "/student_verification_attempts") == []
 
 
