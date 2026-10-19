@@ -104,10 +104,21 @@ void main() {
   });
 
   group('기본값', () {
-    test('템플릿 번호는 이 파일의 상수를 쓴다', () {
+    test('템플릿 번호가 138148(카카오 빌더의 추천 코드 템플릿)로 카카오 공유에 간다', () async {
       final container = ProviderContainer();
       addTearDown(container.dispose);
-      expect(container.read(kakaoInviteTemplateIdProvider), kakaoInviteTemplateId);
+      expect(container.read(kakaoInviteTemplateIdProvider), 138148);
+
+      final kakao = _FakeKakaoShareClient();
+      final c2 = ProviderContainer(
+        overrides: [
+          kakaoShareClientProvider.overrideWithValue(kakao),
+          shareTextProvider.overrideWithValue((_) async {}),
+        ],
+      );
+      addTearDown(c2.dispose);
+      await c2.read(shareInviteProvider)('K7QMX2');
+      expect(kakao.templateIds, [138148]);
     });
 
     test('실제 SDK 층은 네이티브 앱 키가 있어야 카카오를 부른다 — 시험 빌드는 키가 없다', () {

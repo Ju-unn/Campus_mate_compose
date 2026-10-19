@@ -15,8 +15,9 @@ final shareTextProvider = Provider<Future<void> Function(String)>(
 String inviteShareText(String code) => 'CampusMate 에서 같이 해요! 가입할 때 추천 코드 $code 를 넣어 줘.';
 
 /// 카카오톡 공유 카드의 사용자 정의 템플릿 번호(카카오 디벨로퍼스 [도구] > [메시지 템플릿], 계획서 3-8).
-/// 번호를 받으면 null 을 그 숫자로 바꾸기만 하면 된다. null 인 동안은 카카오를 부르지 않고 기기 공유 창으로 간다.
-const int? kakaoInviteTemplateId = null;
+/// 138148 = 카카오 빌더에서 만든 추천 코드 공유 템플릿(사용자 확인 10-19). 제목 `CampusMate 추천 코드 ${code}`, 버튼 앱 실행 파라미터 `ref=${code}` 전제.
+/// 시험이 null 로 갈아 끼우면 카카오를 부르지 않고 기기 공유 창으로 간다.
+const int kakaoInviteTemplateId = 138148;
 
 /// 시험이 번호를 갈아 끼운다.
 final kakaoInviteTemplateIdProvider = Provider<int?>((ref) => kakaoInviteTemplateId);
