@@ -221,7 +221,7 @@ class _HeartTaskReviewScreenState extends ConsumerState<HeartTaskReviewScreen> {
               chips,
               const SizedBox(height: AdminSpacing.sm),
               Expanded(
-                child: _Queue(
+                child: ReviewQueue(
                   controller: _queueScroll,
                   children: [
                     for (final item in items)
@@ -310,8 +310,8 @@ class _FilterChips extends StatelessWidget {
 
 /// 목록 칸만 스크롤(pen zMTVl): 스크롤바 6 · 트랙 web-outline · 썸 web-outline-strong · 알약 모서리 · 오른쪽 2 안쪽.
 /// 브라우저 기본 스크롤바는 끈다(두 개가 겹치지 않게).
-class _Queue extends StatelessWidget {
-  const _Queue({required this.controller, required this.children});
+class ReviewQueue extends StatelessWidget {
+  const ReviewQueue({super.key, required this.controller, required this.children});
 
   final ScrollController controller;
   final List<Widget> children;
@@ -450,7 +450,7 @@ class _SubmitInfo extends StatelessWidget {
               style: AdminTypography.md.copyWith(fontWeight: FontWeight.w700, height: AdminTypography.mdBox, color: AdminColors.ink),
             ),
           ),
-          for (final (name, value) in rows) ...[const SizedBox(height: AdminSpacing.md), _InfoRow(name: name, value: value)],
+          for (final (name, value) in rows) ...[const SizedBox(height: AdminSpacing.md), ReviewInfoRow(name: name, value: value)],
           const SizedBox(height: AdminSpacing.md),
           // 펼친 사유 바깥을 누르면 접는다(Select · 사유 목록은 한 덩어리)
           TapRegion(
@@ -468,7 +468,7 @@ class _SubmitInfo extends StatelessWidget {
                     const SizedBox(width: AdminSpacing.sm),
                     // pen 은 66 + 12 + 200 = 278(칸 280). 글자를 키우면 승인 단추가 커지니 Select 가 그만큼 양보한다.
                     Flexible(
-                      child: _RejectSelect(
+                      child: RejectSelect(
                         focusNode: selectFocus,
                         enabled: state.canReview,
                         busy: state.busy == ReviewAction.reject,
@@ -480,7 +480,11 @@ class _SubmitInfo extends StatelessWidget {
                 ),
                 if (menuOpen) ...[
                   const SizedBox(height: AdminSpacing.md),
-                  _RejectMenu(firstFocus: firstReasonFocus, onReject: onReject),
+                  RejectMenu<HeartTaskRejectReason>(
+                    firstFocus: firstReasonFocus,
+                    options: [for (final reason in HeartTaskRejectReason.values) (reason, reason.label)],
+                    onReject: onReject,
+                  ),
                 ],
               ],
             ),
@@ -500,8 +504,8 @@ class _SubmitInfo extends StatelessWidget {
   }
 }
 
-class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.name, required this.value});
+class ReviewInfoRow extends StatelessWidget {
+  const ReviewInfoRow({super.key, required this.name, required this.value});
 
   final String name;
   final String value;
@@ -528,8 +532,9 @@ class _InfoRow extends StatelessWidget {
 /// pen Web/Select(MuZJ5 · A3 EHrY2): 200×44 · 좌우 12 · 사이 8 · web-surface · web-outline-strong 1 · 모서리 8,
 /// 글자 "반려" 14 web-ink + chevron-down 18 web-muted(▾ 글자는 아이콘과 겹쳐 뺐다 — 대장 결정 10-18, pen 도 같이 고침). 반려 요청 중에는 chevron 자리에 도는 아이콘.
 /// 잠김(사진을 받는 중 · 승인 중)은 pen 에 없는 상태 — 보조 단추의 비활성과 같은 색.
-class _RejectSelect extends StatelessWidget {
-  const _RejectSelect({
+class RejectSelect extends StatelessWidget {
+  const RejectSelect({
+    super.key,
     required this.focusNode,
     required this.enabled,
     required this.busy,
@@ -580,11 +585,14 @@ class _RejectSelect extends StatelessWidget {
 
 /// 펼친 반려 사유(pen krcn9): 폭 280 · web-surface · web-outline-strong 1 · 모서리 8, 사유 3개 각 44 · 좌우 16 · 14 web-ink · 선 없음.
 /// 고르면 바로 반려 요청. 위아래 화살표로 사유 사이를 옮긴다(웹 기본은 화살표가 스크롤이라 여기서 초점 이동으로 묶는다).
-class _RejectMenu extends StatelessWidget {
-  const _RejectMenu({required this.firstFocus, required this.onReject});
+class RejectMenu<T> extends StatelessWidget {
+  const RejectMenu({super.key, required this.firstFocus, required this.options, required this.onReject});
 
   final FocusNode firstFocus;
-  final ValueChanged<HeartTaskRejectReason> onReject;
+
+  /// (사유, 줄에 보일 글자) — 인증샷은 3개, 졸업생은 4개
+  final List<(T, String)> options;
+  final ValueChanged<T> onReject;
 
   @override
   Widget build(BuildContext context) {
@@ -606,7 +614,7 @@ class _RejectMenu extends StatelessWidget {
             width: 280,
             child: Column(
               children: [
-                for (final (i, reason) in HeartTaskRejectReason.values.indexed)
+                for (final (i, (reason, label)) in options.indexed)
                   TapBox(
                     key: ValueKey('reject-option-$i'),
                     onTap: () => onReject(reason),
@@ -618,7 +626,7 @@ class _RejectMenu extends StatelessWidget {
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        reason.label,
+                        label,
                         style: AdminTypography.sm.copyWith(height: AdminTypography.smBox, color: AdminColors.ink),
                       ),
                     ),
