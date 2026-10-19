@@ -41,6 +41,89 @@ void main() {
     expect(detail.previous.first.createdAt, DateTime.utc(2026, 10, 11, 5));
   });
 
+  test('HeartTaskDetail parses photo_urls in order and keeps nulls', () {
+    final detail = HeartTaskDetail.fromJson({
+      ...taskRow('s1'),
+      'photo_url': 'https://storage.test/a.jpg',
+      'photo_urls': ['https://storage.test/a.jpg', null, 'https://storage.test/c.jpg'],
+      'previous': <Object?>[],
+    });
+
+    expect(detail.photoUrls, ['https://storage.test/a.jpg', null, 'https://storage.test/c.jpg']);
+    expect(detail.photoUrl, 'https://storage.test/a.jpg', reason: '옛 getter 는 첫 장');
+  });
+
+  test('photo_urls wins over the legacy photo_url, and a null first photo stays null', () {
+    final detail = HeartTaskDetail.fromJson({
+      ...taskRow('s1'),
+      'photo_url': 'https://storage.test/old.jpg',
+      'photo_urls': [null, 'https://storage.test/b.jpg'],
+      'previous': <Object?>[],
+    });
+
+    expect(detail.photoUrls, [null, 'https://storage.test/b.jpg']);
+    expect(detail.photoUrl, isNull);
+  });
+
+  test('falls back to a one-item list from the legacy photo_url (옛 서버)', () {
+    final detail = HeartTaskDetail.fromJson({
+      ...taskRow('s1'),
+      'photo_url': 'https://storage.test/a.jpg',
+      'previous': <Object?>[],
+    });
+
+    expect(detail.photoUrls, ['https://storage.test/a.jpg']);
+  });
+
+  test('photo_url null and photo_urls absent gives an empty list; an empty photo_urls stays empty', () {
+    final legacy = HeartTaskDetail.fromJson({...taskRow('s1'), 'photo_url': null, 'previous': <Object?>[]});
+    final cleaned = HeartTaskDetail.fromJson({...taskRow('s1'), 'photo_url': null, 'photo_urls': <Object?>[], 'previous': <Object?>[]});
+
+    expect(legacy.photoUrls, isEmpty);
+    expect(cleaned.photoUrls, isEmpty);
+    expect(cleaned.photoUrl, isNull);
+  });
+
+  test('photo_urls must be a list of strings or nulls; with neither photo field the row is malformed', () {
+    expect(() => HeartTaskDetail.fromJson({...taskRow('s1'), 'photo_urls': 'x', 'previous': <Object?>[]}), throwsFormatException);
+    expect(() => HeartTaskDetail.fromJson({...taskRow('s1'), 'photo_urls': [1], 'previous': <Object?>[]}), throwsFormatException);
+    expect(() => HeartTaskDetail.fromJson({...taskRow('s1'), 'previous': <Object?>[]}), throwsFormatException);
+  });
+
+  test('지난 제출도 photo_urls 를 읽고, 없으면 옛 photo_url 하나짜리 목록', () {
+    final detail = HeartTaskDetail.fromJson({
+      ...taskRow('s1'),
+      'photo_url': null,
+      'previous': [
+        {...previousPhoto('n1'), 'photo_urls': ['https://storage.test/n1.jpg', null]},
+        previousPhoto('l1', legacy: true),
+        previousPhoto('l2', legacy: true, photo: false),
+      ],
+    });
+
+    expect(detail.previous.map((p) => p.photoUrls), [
+      ['https://storage.test/n1.jpg', null],
+      ['https://storage.test/l1.jpg?token=t'],
+      isEmpty,
+    ]);
+    expect(detail.previous.map((p) => p.photoUrl), ['https://storage.test/n1.jpg', 'https://storage.test/l1.jpg?token=t', isNull]);
+  });
+
+  test('지난 제출 줄의 사진은 비어 있지 않은 첫 장 — 첫 장 서명이 실패해도 다른 장이 있으면 그것, 모두 없을 때만 null', () {
+    final detail = HeartTaskDetail.fromJson({
+      ...taskRow('s1'),
+      'photo_url': null,
+      'previous': [
+        {...previousPhoto('p1'), 'photo_urls': [null, 'https://storage.test/p1b.jpg', 'https://storage.test/p1c.jpg']},
+        {...previousPhoto('p2'), 'photo_urls': [null, null]},
+      ],
+    });
+
+    expect(detail.previous.map((p) => p.photoUrl), ['https://storage.test/p1b.jpg', isNull]);
+    expect(detail.previous.first.photoIndex, 1);
+    expect(detail.previous.last.photoIndex, isNull);
+  });
+
   test('모르는 항목 · 빠진 칸 · 틀린 시각이면 FormatException', () {
     expect(() => HeartTaskItem.fromJson(taskRow('s1', task: 'instagram')), throwsFormatException);
     expect(() => HeartTaskItem.fromJson({...taskRow('s1')}..remove('profile')), throwsFormatException);

@@ -76,26 +76,53 @@ class HeartTaskItem {
   }
 }
 
+/// 사진 주소 목록 읽기. 새 서버는 `photo_urls`(사진 순서, 서명에 실패한 장은 null)를, 옛 서버는 첫 장 `photo_url` 하나만 준다.
+/// `photo_urls` 가 있으면 그것을, 없으면 `photo_url` 하나짜리 목록(null 이면 빈 목록)을 쓴다 — 웹이 서버보다 먼저 나가도 죽지 않는다.
+/// 둘 다 없거나 모양이 틀리면 null(호출한 쪽이 FormatException).
+List<String?>? _readPhotoUrls(Map<Object?, Object?> json) {
+  final urls = json['photo_urls'];
+  if (urls != null) {
+    if (urls is List<Object?> && urls.every((u) => u == null || u is String)) return [for (final u in urls) u as String?];
+    return null;
+  }
+  if (json.containsKey('photo_url')) {
+    return switch (json['photo_url']) {
+      null => const <String?>[],
+      final String url => [url],
+      _ => null,
+    };
+  }
+  return null;
+}
+
 /// 같은 사람 · 같은 항목의 지난 제출 하나(사진이 남은 것만, 최근 순 최대 5)
 class HeartTaskPrevious {
-  const HeartTaskPrevious({required this.id, required this.status, required this.createdAt, required this.photoUrl});
+  const HeartTaskPrevious({required this.id, required this.status, required this.createdAt, required this.photoUrls});
 
   final String id;
   final String status;
   final DateTime createdAt;
 
-  /// 5분 서명 주소. 서명에 실패했으면 null.
-  final String? photoUrl;
+  /// 5분 서명 주소들(사진 순서). 서명에 실패한 장은 null.
+  final List<String?> photoUrls;
+
+  /// 지난 제출 줄은 1장씩 보인다(pen A3 "지난 제출 (사진 1장씩)") — 서명에 실패해 비어 있는 장은 건너뛴 첫 장의 자리(0부터).
+  /// 모두 없으면 null("사진 없음").
+  int? get photoIndex {
+    final index = photoUrls.indexWhere((url) => url != null);
+    return index < 0 ? null : index;
+  }
+
+  /// [photoIndex] 장의 5분 서명 주소
+  String? get photoUrl => photoUrls.nonNulls.firstOrNull;
 
   static HeartTaskPrevious fromJson(Object? json) {
-    if (json case {
-      'id': final String id,
-      'status': final String status,
-      'created_at': final String createdAt,
-      'photo_url': final String? photoUrl,
-    }) {
-      final at = DateTime.tryParse(createdAt);
-      if (at != null) return HeartTaskPrevious(id: id, status: status, createdAt: at, photoUrl: photoUrl);
+    if (json is Map<Object?, Object?>) {
+      final photoUrls = _readPhotoUrls(json);
+      if (json case {'id': final String id, 'status': final String status, 'created_at': final String createdAt} when photoUrls != null) {
+        final at = DateTime.tryParse(createdAt);
+        if (at != null) return HeartTaskPrevious(id: id, status: status, createdAt: at, photoUrls: photoUrls);
+      }
     }
     throw const FormatException('지난 제출의 모양이 아니에요');
   }
@@ -103,24 +130,28 @@ class HeartTaskPrevious {
 
 /// 한 건(고른 줄 · 디스코드 링크) — 요약 + 지금 상태 + 5분 서명 사진 + 지난 제출.
 class HeartTaskDetail {
-  const HeartTaskDetail({required this.item, required this.status, required this.photoUrl, required this.previous});
+  const HeartTaskDetail({required this.item, required this.status, required this.photoUrls, required this.previous});
 
   final HeartTaskItem item;
   final String status;
 
-  /// 60일 정리로 경로가 비었거나 서명에 실패하면 null("사진 없음")
-  final String? photoUrl;
+  /// 사진 순서대로 5분 서명 주소. 서명에 실패한 장은 null("사진 없음"), 60일 정리로 경로가 비면 빈 목록.
+  final List<String?> photoUrls;
   final List<HeartTaskPrevious> previous;
+
+  /// 첫 장(옛 호출부용)
+  String? get photoUrl => photoUrls.firstOrNull;
 
   /// 아직 아무도 처리하지 않았다
   bool get isWaiting => status == 'submitted';
 
   static HeartTaskDetail fromJson(Object? json) {
-    if (json case {'status': final String status, 'photo_url': final String? photoUrl, 'previous': final List<Object?> previous}) {
+    final photoUrls = json is Map<Object?, Object?> ? _readPhotoUrls(json) : null;
+    if (json case {'status': final String status, 'previous': final List<Object?> previous} when photoUrls != null) {
       return HeartTaskDetail(
         item: HeartTaskItem.fromJson(json),
         status: status,
-        photoUrl: photoUrl,
+        photoUrls: photoUrls,
         previous: [for (final p in previous) HeartTaskPrevious.fromJson(p)],
       );
     }

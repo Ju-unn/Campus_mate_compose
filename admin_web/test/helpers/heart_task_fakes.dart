@@ -33,13 +33,15 @@ Map<String, Object?> taskRow(
   };
 }
 
-/// 지난 제출 한 칸(서버 `_item` 의 previous 모양)
-Map<String, Object?> previousPhoto(String id, {String status = 'approved', bool photo = true}) {
+/// 지난 제출 한 칸(서버 `_item` 의 previous 모양). [legacy] 면 `photo_urls` 가 없는 옛 서버 모양.
+Map<String, Object?> previousPhoto(String id, {String status = 'approved', bool photo = true, bool legacy = false}) {
+  final url = photo ? 'https://storage.test/$id.jpg?token=t' : null;
   return {
     'id': id,
     'status': status,
     'created_at': '2026-10-11T05:00:00+00:00',
-    'photo_url': photo ? 'https://storage.test/$id.jpg?token=t' : null,
+    'photo_url': url,
+    if (!legacy) 'photo_urls': [url],
   };
 }
 
@@ -54,6 +56,15 @@ class FakeHeartTaskServer {
   final Map<String, Map<String, Object?>> others = {};
   final Map<String, List<Map<String, Object?>>> previous = {};
   final Set<String> noPhoto = {};
+
+  /// 한 건의 사진 장수(기본 1). 둘째 장부터 주소는 `{id}-{번호}.jpg`.
+  final Map<String, int> photoCounts = {};
+
+  /// 서명에 실패한 장(주소 null) — 건 번호 → 장 번호들
+  final Map<String, Set<int>> unsigned = {};
+
+  /// `photo_urls` 없이 옛 `photo_url` 만 답하는 서버(웹이 서버보다 먼저 나갔을 때)
+  final Set<String> legacyShape = {};
 
   /// 첫 조회의 사진 주소가 깨진다(서명 만료) — 다시 받으면 멀쩡한 주소
   final Set<String> brokenOnce = {};
@@ -130,10 +141,18 @@ class FakeHeartTaskServer {
     final id = row['id']! as String;
     final fetch = detailFetches(id);
     final broken = alwaysBroken.contains(id) || (brokenOnce.contains(id) && fetch == 1);
+    final count = noPhoto.contains(id) ? 0 : photoCounts[id] ?? 1;
+    final urls = <String?>[
+      for (var i = 0; i < count; i++)
+        (unsigned[id]?.contains(i) ?? false)
+            ? null
+            : 'https://storage.test/$id${i == 0 ? '' : '-$i'}.jpg?v=$fetch${broken ? '&broken' : ''}',
+    ];
     return {
       'status': 'submitted',
       ...row,
-      'photo_url': noPhoto.contains(id) ? null : 'https://storage.test/$id.jpg?v=$fetch${broken ? '&broken' : ''}',
+      'photo_url': urls.firstOrNull,
+      if (!legacyShape.contains(id)) 'photo_urls': urls,
       'previous': previous[id] ?? const <Object?>[],
     };
   }

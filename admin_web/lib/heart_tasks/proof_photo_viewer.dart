@@ -16,14 +16,23 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 /// 사진이 그려지지 않았다(서명 만료 · 깨진 파일) — 그 주소를 알린다.
 typedef PhotoErrorCallback = void Function(String url);
 
-/// pen Web/PhotoViewer(DKRDo · A3 xTCUl): 큰 사진 380 높이(폭은 칸 — 1440 에서 440) → 12 → "지난 제출" + 썸네일 64(사이 12).
+/// 사진 하나를 크게 본다 — 그 사진의 제출 번호(고른 건 또는 지난 제출)와 그 건 안의 장 번호(0부터)
+typedef OpenPhotoCallback = void Function(String id, int index);
+
+/// pen Multi Photo Viewer(A3 s1xG8 · D4KeG · 폭 440, 세로 gap 12):
+/// 머리줄(24: "이 제출의 인증샷" 16/700 + "n장" 알약) → 큰 사진 380 → 썸네일 줄(2장 이상일 때만: "k/n 선택됨" + 64 썸네일, 사이 12) →
+/// 구분선 1 → "같은 사람의 지난 제출" 16/700 → 지난 제출 구역(`eStrb`: 세로 gap 8, 캡션 "지난 제출 (사진 1장씩)" 12/600 아래 썸네일 64 줄, 사이 12).
+/// 큰 사진: web-surface-strong · web-outline 1 · 모서리 14, 캡처 전체가 보이게 contain(대장 결정 10-18), 누르면 고른 장을 크게 본다.
+/// 고른 썸네일은 web-primary 2 테두리 + web-primary-wash, 나머지는 web-surface-strong + web-outline 1(모서리 8).
+/// 지난 제출은 항목마다 비어 있지 않은 첫 장만 보인다(pen "사진 1장씩" — 여러 장 지난 제출의 나머지 장은 시안 없음).
+/// 사진 없음(RmiFS): image-off 40 + "사진 없음" — 썸네일은 image-off 20. 받는 중 · 못 받음 · 1장 · 0장은 pen 에 없는 상태(대장 보고표).
 /// 썸네일은 시안 72 였으나 서버 최대 5개가 440 한 줄에 들어가게 64 로 줄였다(대장 결정 10-18, pen 도 같이 고침).
-/// 큰 사진: web-surface-strong · web-outline 1 · 모서리 14, 캡처 전체가 보이게 contain(대장 결정 10-18), 누르면 크게 보기.
-/// 사진 없음(RmiFS): image-off 40 + "사진 없음" — 썸네일은 image-off 20. 받는 중 · 못 받음은 pen 에 없는 상태(대장 보고표).
 class ProofPhotoViewer extends StatelessWidget {
   const ProofPhotoViewer({
     super.key,
     required this.detail,
+    required this.selectedIndex,
+    required this.onSelectPhoto,
     required this.onOpen,
     required this.onPhotoError,
     required this.onRetry,
@@ -31,25 +40,43 @@ class ProofPhotoViewer extends StatelessWidget {
 
   final AsyncValue<HeartTaskDetail> detail;
 
-  /// 사진 하나를 크게 본다 — 인자는 그 사진의 제출 번호(고른 건 또는 지난 제출)
-  final ValueChanged<String> onOpen;
+  /// 큰 사진으로 보는 장(0부터). 받은 장 수 밖이면 마지막 장으로 본다.
+  final int selectedIndex;
+  final ValueChanged<int> onSelectPhoto;
+  final OpenPhotoCallback onOpen;
   final PhotoErrorCallback onPhotoError;
   final VoidCallback onRetry;
 
   static const double photoHeight = 380;
   static const double thumbSize = 64;
+  static const double headHeight = 24;
 
   @override
   Widget build(BuildContext context) {
-    final loaded = detail.value;
-    final url = detail.isLoading ? null : loaded?.photoUrl;
+    final loaded = detail.isLoading ? null : detail.value;
+    final urls = loaded?.photoUrls ?? const <String?>[];
+    final index = urls.isEmpty ? 0 : selectedIndex.clamp(0, urls.length - 1);
+    final url = urls.isEmpty ? null : urls[index];
+    final title = AdminTypography.md.copyWith(fontWeight: FontWeight.w700, height: AdminTypography.mdBox, color: AdminColors.ink);
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: headHeight),
+          child: Row(
+            children: [
+              Expanded(
+                child: Semantics(header: true, child: Text('이 제출의 인증샷', style: title)),
+              ),
+              if (urls.isNotEmpty) _CountPill(count: urls.length),
+            ],
+          ),
+        ),
+        const SizedBox(height: AdminSpacing.sm),
         TapBox(
           key: const ValueKey('proof-photo'),
-          onTap: url == null ? null : () => onOpen(loaded!.item.id),
+          onTap: url == null ? null : () => onOpen(loaded!.item.id, index),
           cursor: SystemMouseCursors.zoomIn,
           semanticLabel: url == null ? null : '인증샷 크게 보기',
           color: AdminColors.surfaceStrong,
@@ -59,8 +86,34 @@ class ProofPhotoViewer extends StatelessWidget {
           height: photoHeight,
           child: _bigPhoto(url),
         ),
+        if (urls.length > 1) ...[
+          const SizedBox(height: AdminSpacing.sm),
+          _ThumbRow(
+            caption: '${index + 1}/${urls.length} 선택됨',
+            thumbs: [
+              for (final (i, photoUrl) in urls.indexed)
+                _PhotoThumb(
+                  key: ValueKey('proof-photo-thumb-$i'),
+                  url: photoUrl,
+                  selected: i == index,
+                  semanticLabel: '인증샷 ${i + 1}번 사진 보기',
+                  onTap: () => onSelectPhoto(i),
+                  onError: onPhotoError,
+                ),
+            ],
+          ),
+        ],
         const SizedBox(height: AdminSpacing.sm),
-        SizedBox(height: thumbSize, child: _history(context)),
+        const SizedBox(
+          key: ValueKey('proof-divider'),
+          width: double.infinity,
+          height: 1,
+          child: ColoredBox(color: AdminColors.outline),
+        ),
+        const SizedBox(height: AdminSpacing.sm),
+        Semantics(header: true, child: Text('같은 사람의 지난 제출', style: title)),
+        const SizedBox(height: AdminSpacing.sm),
+        _history(context),
       ],
     );
   }
@@ -86,55 +139,122 @@ class ProofPhotoViewer extends StatelessWidget {
 
   Widget _history(BuildContext context) {
     final previous = detail.isLoading ? null : detail.value?.previous;
-    final caption = AdminTypography.xsStrong.copyWith(height: AdminTypography.xsBox, color: AdminColors.muted);
-    return Row(
+    final empty = previous != null && previous.isEmpty ? '없어요' : null;
+    // pen eStrb: 세로 gap 8, 왼쪽 정렬 — 캡션 한 줄 아래에 썸네일 줄(가로 gap 12, 세로 가운데). 5개면 368 이라 440 안에 든다.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('지난 제출', style: caption),
-        const SizedBox(width: AdminSpacing.sm),
-        if (previous != null && previous.isEmpty)
-          Text('없어요', style: AdminTypography.xs.copyWith(height: AdminTypography.xsBox, color: AdminColors.muted)),
-        if (previous != null && previous.isNotEmpty)
+        Text('지난 제출 (사진 1장씩)', style: AdminTypography.xsStrong.copyWith(height: AdminTypography.xsBox, color: AdminColors.muted)),
+        const SizedBox(height: AdminSpacing.xs),
+        SizedBox(
+          height: ProofPhotoViewer.thumbSize,
+          // 최소 창(1280)처럼 칸이 368 보다 좁을 때만 이 줄이 가로로 밀린다.
+          child: ScrollConfiguration(
+            behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false, dragDevices: PointerDeviceKind.values.toSet()),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  if (empty != null) Text(empty, style: AdminTypography.xs.copyWith(height: AdminTypography.xsBox, color: AdminColors.muted)),
+                  for (final (i, photo) in (previous ?? const <HeartTaskPrevious>[]).indexed) ...[
+                    if (i > 0) const SizedBox(width: AdminSpacing.sm),
+                    _PhotoThumb(
+                      key: ValueKey('proof-thumb-${photo.id}'),
+                      url: photo.photoUrl,
+                      semanticLabel: photo.photoUrl == null ? null : '지난 제출 ${formatSubmittedAt(photo.createdAt)} 크게 보기',
+                      onTap: photo.photoUrl == null ? null : () => onOpen(photo.id, photo.photoIndex ?? 0),
+                      onError: onPhotoError,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 머리줄의 "n장" 알약(pen ffHGh): web-surface-strong · 알약 · 안쪽 [4, 10] · 12/600 web-muted
+class _CountPill extends StatelessWidget {
+  const _CountPill({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey('photo-count'),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: AdminSpacing.xxs),
+      decoration: BoxDecoration(color: AdminColors.surfaceStrong, borderRadius: BorderRadius.circular(AdminRadius.pill)),
+      child: Text('$count장', style: AdminTypography.xsStrong.copyWith(height: AdminTypography.xsBox, color: AdminColors.muted)),
+    );
+  }
+}
+
+/// 캡션(12/600 web-muted) → 12 → 썸네일들(사이 12). 최소 창(1280)처럼 칸이 좁을 때만 넘치지 않고 이 줄만 가로로 밀린다.
+/// 이 제출의 썸네일 줄(pen `kCS9V`) 전용 — 지난 제출은 캡션이 썸네일 위에 놓여 따로 그린다([ProofPhotoViewer._history]).
+class _ThumbRow extends StatelessWidget {
+  const _ThumbRow({required this.caption, required this.thumbs});
+
+  final String caption;
+  final List<Widget> thumbs;
+
+  @override
+  Widget build(BuildContext context) {
+    final captionStyle = AdminTypography.xsStrong.copyWith(height: AdminTypography.xsBox, color: AdminColors.muted);
+    return SizedBox(
+      height: ProofPhotoViewer.thumbSize,
+      child: Row(
+        children: [
+          Text(caption, style: captionStyle),
+          const SizedBox(width: AdminSpacing.sm),
           Expanded(
-            // 5개(서버 최대)는 440 칸 한 줄에 들어간다(글자 약 48 + 12 + 64×5 + 12×4). 최소 창(1280)처럼 칸이 좁을 때만
-            // 넘치지 않고 이 줄만 가로로 밀린다.
             child: ScrollConfiguration(
               behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false, dragDevices: PointerDeviceKind.values.toSet()),
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
                   children: [
-                    for (final (i, photo) in previous.indexed) ...[
-                      if (i > 0) const SizedBox(width: AdminSpacing.sm),
-                      _Thumb(photo: photo, onOpen: onOpen, onError: onPhotoError),
-                    ],
+                    for (final (i, thumb) in thumbs.indexed) ...[if (i > 0) const SizedBox(width: AdminSpacing.sm), thumb],
                   ],
                 ),
               ),
             ),
           ),
-      ],
+        ],
+      ),
     );
   }
 }
 
-class _Thumb extends StatelessWidget {
-  const _Thumb({required this.photo, required this.onOpen, required this.onError});
+/// 썸네일 64(모서리 8). 고른 것은 web-primary-wash 바탕 + web-primary 2 테두리, 나머지는 web-surface-strong + web-outline 1.
+/// [url] 이 null(서명 실패)이면 image-off 20. [onTap] 이 null 이면 눌리지 않는다.
+class _PhotoThumb extends StatelessWidget {
+  const _PhotoThumb({super.key, required this.url, required this.onError, this.onTap, this.selected, this.semanticLabel});
 
-  final HeartTaskPrevious photo;
-  final ValueChanged<String> onOpen;
+  final String? url;
+  final VoidCallback? onTap;
   final PhotoErrorCallback onError;
+
+  /// 고를 수 있는 썸네일이면 고른 상태. 지난 제출 썸네일은 null.
+  final bool? selected;
+  final String? semanticLabel;
 
   @override
   Widget build(BuildContext context) {
-    final url = photo.photoUrl;
+    final url = this.url;
+    final picked = selected ?? false;
     const missing = Center(child: Icon(LucideIcons.imageOff, size: 20, color: AdminColors.disabled));
     return TapBox(
-      key: ValueKey('proof-thumb-${photo.id}'),
-      onTap: url == null ? null : () => onOpen(photo.id),
-      cursor: SystemMouseCursors.zoomIn,
-      semanticLabel: url == null ? null : '지난 제출 ${formatSubmittedAt(photo.createdAt)} 크게 보기',
-      color: AdminColors.surfaceStrong,
-      side: const BorderSide(color: AdminColors.outline),
+      onTap: onTap,
+      cursor: selected == null ? SystemMouseCursors.zoomIn : SystemMouseCursors.click,
+      selected: selected,
+      semanticLabel: semanticLabel,
+      color: picked ? AdminColors.primaryWash : AdminColors.surfaceStrong,
+      side: picked ? const BorderSide(color: AdminColors.primary, width: 2) : const BorderSide(color: AdminColors.outline),
       width: ProofPhotoViewer.thumbSize,
       height: ProofPhotoViewer.thumbSize,
       child: url == null ? missing : ProofImage(url: url, fit: BoxFit.cover, onError: onError, fallback: missing),
@@ -204,8 +324,9 @@ class ProofImage extends ConsumerWidget {
 }
 
 /// 크게 보기를 띄운다(pen gpMkm). 나타남 · 사라짐은 관리자 대화상자와 같다(200ms · 150ms, 동작 줄이기면 바로).
-Future<void> showProofZoom(BuildContext context, {required String? initialId, required String photoId}) {
-  return showAdminDialog<void>(context, (_) => ProofZoom(initialId: initialId, photoId: photoId));
+/// [photoId] 는 제출 번호(고른 건 또는 지난 제출), [photoIndex] 는 그 건 안의 장 번호(0부터).
+Future<void> showProofZoom(BuildContext context, {required String? initialId, required String photoId, int photoIndex = 0}) {
+  return showAdminDialog<void>(context, (_) => ProofZoom(initialId: initialId, photoId: photoId, photoIndex: photoIndex));
 }
 
 /// 주소 하나를 같은 크게 보기로 띄운다(A4 신고 사본의 아바타 · 실사진). 이미 썸네일로 받은 그림이라 대개 바로 그려지고,
@@ -222,14 +343,20 @@ Future<void> showPhotoZoom(BuildContext context, String url) {
 }
 
 /// pen A3 사진 크게 보기(gpMkm): 전체 web-scrim 위 사진(화면 90% 안 contain), 오른쪽 위 닫기 44(✕ 24 흰색),
-/// 아래 web-ink 알약 "Esc 또는 바깥을 누르면 닫혀요" 12 흰 글자. 다운로드는 없다.
+/// 아래 web-ink 알약 "Esc 또는 바깥을 누르면 닫혀요" 12 흰 글자. 다운로드는 없다. 여러 장 사이 이동(이전 · 다음)도 pen 에 없다 —
+/// 닫고 썸네일에서 다른 장을 고른다.
 /// 사진 · 빈자리 어디를 눌러도 닫힌다(사진은 누를 것이 아니라 눌림을 아래 막(barrier)으로 흘린다).
 /// 서명이 만료돼 못 그리면 그 건을 다시 받아(화면과 같은 길) 새 주소로 다시 그린다.
 class ProofZoom extends ConsumerStatefulWidget {
-  const ProofZoom({super.key, required this.initialId, required this.photoId});
+  const ProofZoom({super.key, required this.initialId, required this.photoId, this.photoIndex = 0});
 
   final String? initialId;
+
+  /// 제출 번호(고른 건 또는 지난 제출)
   final String photoId;
+
+  /// 그 건 안의 장 번호(0부터)
+  final int photoIndex;
 
   @override
   ConsumerState<ProofZoom> createState() => _ProofZoomState();
@@ -254,9 +381,9 @@ class _ProofZoomState extends ConsumerState<ProofZoom> {
     if (loaded == null || detail!.isLoading) {
       url = null;
     } else if (loaded.item.id == widget.photoId) {
-      url = loaded.photoUrl;
+      url = loaded.photoUrls.elementAtOrNull(widget.photoIndex);
     } else {
-      url = loaded.previous.where((p) => p.id == widget.photoId).firstOrNull?.photoUrl;
+      url = loaded.previous.where((p) => p.id == widget.photoId).firstOrNull?.photoUrls.elementAtOrNull(widget.photoIndex);
     }
     const waiting = _ZoomFrame(child: Center(child: AdminLoader(color: AdminColors.muted)));
     const missing = _ZoomFrame(child: _Placeholder(icon: LucideIcons.imageOff, label: '사진 없음', iconSize: 48));

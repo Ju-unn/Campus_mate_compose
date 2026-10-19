@@ -88,14 +88,14 @@ void main() {
   }
 
   group('pen 배치(GX3T8)', () {
-    testWidgets('내용 32 안쪽: 칩 줄 y96 · 목록 칸 320(줄 80, 사이 12) · 사진 440×380 · 정보 카드 328×337', (tester) async {
+    testWidgets('내용 32 안쪽: 칩 줄 y96 · 목록 칸 320(줄 80, 사이 12) · 사진 440×380(머리줄 아래) · 정보 카드 328×372(사진 행 포함)', (tester) async {
       await openA3(tester);
 
       expect(rectOf(tester, find.widgetWithText(AdminChip, '전체')).topLeft, const Offset(272, 96));
       expect(rectOf(tester, row('e1')), const Rect.fromLTWH(272, 144, 320, 80));
       expect(rectOf(tester, row('k1')), const Rect.fromLTWH(272, 236, 320, 80));
-      expect(rectOf(tester, find.byKey(const ValueKey('proof-photo'))), const Rect.fromLTWH(616, 96, 440, 380));
-      expect(rectOf(tester, find.byKey(const ValueKey('submit-info'))), const Rect.fromLTWH(1080, 96, 328, 337));
+      expect(rectOf(tester, find.byKey(const ValueKey('proof-photo'))), const Rect.fromLTWH(616, 132, 440, 380));
+      expect(rectOf(tester, find.byKey(const ValueKey('submit-info'))), const Rect.fromLTWH(1080, 96, 328, 372));
     });
 
     testWidgets('칩 3개(xL1CC · wEkG9): 높이 36 · 사이 8 · 좌우 14 · 14/600 · 켜짐 web-ink 바탕, 꺼짐 web-surface + web-outline 1', (tester) async {
@@ -169,7 +169,7 @@ void main() {
       expect((box.decoration! as BoxDecoration).color, AdminColors.warningWash);
     });
 
-    testWidgets('정보 카드(SuzHP): 제목 16/700 → 16 → 5줄(이름 88 · 사이 12 · 줄 19 · 사이 16) → 단추 44 → 단축키 줄', (tester) async {
+    testWidgets('정보 카드(SuzHP): 제목 16/700 → 16 → 6줄(제출자·학교·항목·사진·제출 시각·보상, 이름 88 · 사이 12 · 줄 19 · 사이 16) → 단추 44 → 단축키 줄', (tester) async {
       await openA3(tester);
 
       final card = rectOf(tester, find.byKey(const ValueKey('submit-info')));
@@ -182,6 +182,7 @@ void main() {
         '제출자': '닉네임A',
         '학교': '서울대학교',
         '항목': '에브리타임 홍보',
+        '사진': '1장',
         '제출 시각': '2026-10-18 14:08',
         '보상': '하트 40개',
       };
@@ -199,12 +200,12 @@ void main() {
 
       final approve = rectOf(tester, find.widgetWithText(AdminButton, '승인'));
       final select = rectOf(tester, find.byKey(const ValueKey('reject-select')));
-      expect(approve.top - card.top, 237);
+      expect(approve.top - card.top, 272);
       expect(approve.height, 44);
       expect(select.left - approve.right, 12);
       expect(select.size, const Size(200, 44));
       final hint = inCard(find.text('단축키: 승인 A · 반려 R'));
-      expect(rectOf(tester, hint).top - card.top, 297);
+      expect(rectOf(tester, hint).top - card.top, 332);
       expect((styleOf(tester, hint).fontSize, styleOf(tester, hint).color), (12, AdminColors.muted));
     });
 
@@ -225,8 +226,10 @@ void main() {
       expect(tester.widget<Icon>(chevron).color, AdminColors.muted);
     });
 
-    testWidgets('사진 칸(DKRDo): 큰 사진 web-surface-strong · 모서리 14 · contain, 아래 12 에 "지난 제출" + 썸네일 64(사이 12, 대장 결정 10-18)', (tester) async {
-      final server = fiveWaiting()..previous['e1'] = [previousPhoto('o1'), previousPhoto('o2'), previousPhoto('o3')];
+    testWidgets('사진 칸(D4KeG): 큰 사진 web-surface-strong · 모서리 14 · contain, 썸네일 줄 아래 구분선 · "지난 제출 (사진 1장씩)" + 썸네일 64(사이 12)', (tester) async {
+      final server = fiveWaiting()
+        ..photoCounts['e1'] = 3
+        ..previous['e1'] = [previousPhoto('o1'), previousPhoto('o2'), previousPhoto('o3')];
       await openA3(tester, server: server);
 
       final photo = find.byKey(const ValueKey('proof-photo'));
@@ -236,13 +239,13 @@ void main() {
       expect(tester.widget<Image>(find.descendant(of: photo, matching: find.byType(Image))).fit, BoxFit.contain);
       expect(photoUrlShown(tester), contains('e1.jpg'));
 
-      final caption = rectOf(tester, find.text('지난 제출'));
+      // pen eStrb: 세로 gap 8, 캡션(16) 아래에 썸네일 줄(가로 gap 12). 썸네일이 캡션 옆이 아니라 아래다.
+      final caption = rectOf(tester, find.text('지난 제출 (사진 1장씩)'));
       final first = rectOf(tester, find.byKey(const ValueKey('proof-thumb-o1')));
       final second = rectOf(tester, find.byKey(const ValueKey('proof-thumb-o2')));
-      expect(first, Rect.fromLTWH(caption.right + 12, 488, 64, 64));
+      expect(caption, Rect.fromLTWH(616, 647, caption.width, 16));
+      expect(first, const Rect.fromLTWH(616, 647 + 16 + 8, 64, 64));
       expect(second.left - first.right, 12);
-      expect(caption.left, 616);
-      expect(caption.center.dy, first.center.dy);
       expect(shapeOf(tester, find.byKey(const ValueKey('proof-thumb-o1'))).borderRadius, BorderRadius.circular(8));
     });
   });
@@ -255,15 +258,15 @@ void main() {
 
       final card = rectOf(tester, find.byKey(const ValueKey('submit-info')));
       final menu = rectOf(tester, find.byKey(const ValueKey('reject-menu')));
-      expect(menu, Rect.fromLTWH(card.left + 24, card.top + 297, 280, 132));
+      expect(menu, Rect.fromLTWH(card.left + 24, card.top + 332, 280, 132));
       const reasons = ['날짜가 안 보여요', '게시글·공유가 확인되지 않아요', '이미 쓴 캡처예요'];
       for (final (i, reason) in reasons.indexed) {
         final option = rectOf(tester, find.byKey(ValueKey('reject-option-$i')));
         expect(option, Rect.fromLTWH(menu.left, menu.top + 44.0 * i, 280, 44), reason: reason);
         expect(rectOf(tester, find.text(reason)).left - option.left, 16, reason: reason);
       }
-      expect(rectOf(tester, inCard(find.text('단축키: 승인 A · 반려 R'))).top - card.top, 445);
-      expect(card.height, 485);
+      expect(rectOf(tester, inCard(find.text('단축키: 승인 A · 반려 R'))).top - card.top, 480);
+      expect(card.height, 520);
       final box = find.byKey(const ValueKey('reject-menu'));
       expect(shapeOf(tester, box).side, const BorderSide(color: AdminColors.outlineStrong));
       expect(materialOf(tester, box).color, AdminColors.surface);
@@ -587,18 +590,23 @@ void main() {
       expect(zoom, findsNothing);
     });
 
-    testWidgets('지난 제출 최대 5개가 사진 칸 440 안 한 줄에 다 들어가고(밀림 없음), 누르면 그 사진을 크게 본다', (tester) async {
+    testWidgets('지난 제출 최대 5개는 캡션 아래 한 줄(폭 368)에 모두 놓이고, 누르면 그 사진을 크게 본다', (tester) async {
       final server = fiveWaiting()..previous['e1'] = [for (var i = 1; i <= 5; i++) previousPhoto('o$i')];
       await openA3(tester, server: server);
 
       final photo = rectOf(tester, find.byKey(const ValueKey('proof-photo')));
+      final caption = rectOf(tester, find.text('지난 제출 (사진 1장씩)'));
       final first = rectOf(tester, find.byKey(const ValueKey('proof-thumb-o1')));
       final last = rectOf(tester, find.byKey(const ValueKey('proof-thumb-o5')));
       expect(last.size, const Size(64, 64));
       expect(last.left - first.left, 4 * (64 + 12));
+      expect(last.right - first.left, 368);
       expect(last.right, lessThanOrEqualTo(photo.right));
-      expect(find.byKey(const ValueKey('proof-thumb-o5')).hitTestable(), findsOneWidget);
+      expect(first.top, greaterThanOrEqualTo(caption.bottom + 8));
       expect(tester.takeException(), isNull);
+      for (var i = 1; i <= 5; i++) {
+        expect(find.byKey(ValueKey('proof-thumb-o$i')).hitTestable(), findsOneWidget);
+      }
       await tester.tap(find.byKey(const ValueKey('proof-thumb-o2')));
       await tester.pumpAndSettle();
 
@@ -606,10 +614,254 @@ void main() {
       expect((tester.widget<Image>(image).image as TestProofImage).url, contains('o2.jpg'));
     });
 
-    testWidgets('지난 제출이 없으면 "지난 제출" 옆에 "없어요"', (tester) async {
+    testWidgets('지난 제출의 첫 장 서명이 실패해도 다른 장이 있으면 그 장이 보이고, 누르면 그 장을 크게 본다', (tester) async {
+      final server = fiveWaiting()
+        ..previous['e1'] = [
+          {...previousPhoto('o1'), 'photo_urls': [null, 'https://storage.test/o1b.jpg?token=t']},
+        ];
+      await openA3(tester, server: server);
+
+      final thumb = find.byKey(const ValueKey('proof-thumb-o1'));
+      expect(find.descendant(of: thumb, matching: find.byIcon(LucideIcons.imageOff)), findsNothing);
+      await tester.tap(thumb);
+      await tester.pumpAndSettle();
+
+      final image = find.descendant(of: find.byKey(const ValueKey('proof-zoom')), matching: find.byType(Image));
+      expect((tester.widget<Image>(image).image as TestProofImage).url, contains('o1b.jpg'));
+    });
+
+    testWidgets('지난 제출이 없으면 "지난 제출 (사진 1장씩)" 옆에 "없어요"', (tester) async {
       await openA3(tester);
 
       expect(find.text('없어요'), findsOneWidget);
+    });
+  });
+
+  group('사진 여러 장(pen A3 D4KeG · s1xG8)', () {
+    FakeHeartTaskServer threePhotos() => fiveWaiting()
+      ..photoCounts['e1'] = 3
+      ..previous['e1'] = [for (var i = 1; i <= 5; i++) previousPhoto('o$i')];
+    Finder thumb(int i) => find.byKey(ValueKey('proof-photo-thumb-$i'));
+
+    testWidgets('사진 3장: 머리줄 "이 제출의 인증샷" 16/700 + "3장" 알약, 큰 사진 380, 썸네일 줄(캡션 + 64 셋, 사이 12), 구분선, "같은 사람의 지난 제출" 16/700, 지난 제출 줄', (tester) async {
+      await openA3(tester, server: threePhotos());
+
+      final title = find.text('이 제출의 인증샷');
+      expect(rectOf(tester, title).left, 616);
+      expect(rectOf(tester, title).top, 96 + 1, reason: '머리줄 24 안 가운데: (24 - 22) / 2');
+      expect((styleOf(tester, title).fontSize, styleOf(tester, title).fontWeight, styleOf(tester, title).color), (16, FontWeight.w700, AdminColors.ink));
+      final pill = find.byKey(const ValueKey('photo-count'));
+      expect(rectOf(tester, pill), Rect.fromLTRB(1056 - rectOf(tester, pill).width, 96, 1056, 120));
+      final pillBox = tester.widget<Container>(pill).decoration! as BoxDecoration;
+      expect((pillBox.color, pillBox.borderRadius), (AdminColors.surfaceStrong, BorderRadius.circular(9999)));
+      final count = find.descendant(of: pill, matching: find.text('3장'));
+      expect((styleOf(tester, count).fontSize, styleOf(tester, count).fontWeight, styleOf(tester, count).color), (12, FontWeight.w600, AdminColors.muted));
+      expect(rectOf(tester, count).left - rectOf(tester, pill).left, 10);
+
+      expect(rectOf(tester, find.byKey(const ValueKey('proof-photo'))), const Rect.fromLTWH(616, 132, 440, 380));
+      final caption = find.text('1/3 선택됨');
+      expect((styleOf(tester, caption).fontSize, styleOf(tester, caption).fontWeight, styleOf(tester, caption).color), (12, FontWeight.w600, AdminColors.muted));
+      final first = rectOf(tester, thumb(0));
+      expect(first, Rect.fromLTWH(rectOf(tester, caption).right + 12, 524, 64, 64));
+      expect(rectOf(tester, thumb(1)).left - first.right, 12);
+      expect(rectOf(tester, thumb(2)).left - rectOf(tester, thumb(1)).right, 12);
+      expect(rectOf(tester, caption).left, 616);
+
+      expect(rectOf(tester, find.byKey(const ValueKey('proof-divider'))), const Rect.fromLTWH(616, 600, 440, 1));
+      final past = find.text('같은 사람의 지난 제출');
+      expect(rectOf(tester, past).top, 613);
+      expect((styleOf(tester, past).fontSize, styleOf(tester, past).fontWeight), (16, FontWeight.w700));
+      expect(rectOf(tester, find.text('지난 제출 (사진 1장씩)')).top, 647, reason: '지난 제출 캡션, 썸네일은 그 아래 16 + 8');
+      expect(rectOf(tester, find.byKey(const ValueKey('proof-thumb-o1'))).top, 671);
+    });
+
+    testWidgets('썸네일: 고른 장은 web-primary 2 테두리 + web-primary-wash, 나머지는 web-surface-strong + web-outline 1 · 모서리 8', (tester) async {
+      await openA3(tester, server: threePhotos());
+
+      expect(materialOf(tester, thumb(0)).color, AdminColors.primaryWash);
+      expect(shapeOf(tester, thumb(0)).side, const BorderSide(color: AdminColors.primary, width: 2));
+      expect(shapeOf(tester, thumb(0)).borderRadius, BorderRadius.circular(8));
+      for (final i in [1, 2]) {
+        expect(materialOf(tester, thumb(i)).color, AdminColors.surfaceStrong);
+        expect(shapeOf(tester, thumb(i)).side, const BorderSide(color: AdminColors.outline));
+      }
+    });
+
+    testWidgets('tapping a thumbnail changes the big view; 캡션 · 테두리도 따라간다', (tester) async {
+      await openA3(tester, server: threePhotos());
+      expect(photoUrlShown(tester), contains('e1.jpg'));
+
+      await tester.tap(thumb(1));
+      await tester.pumpAndSettle();
+      expect(photoUrlShown(tester), contains('e1-1.jpg'));
+      expect(find.text('2/3 선택됨'), findsOneWidget);
+      expect(shapeOf(tester, thumb(1)).side, const BorderSide(color: AdminColors.primary, width: 2));
+      expect(shapeOf(tester, thumb(0)).side, const BorderSide(color: AdminColors.outline));
+
+      await tester.tap(thumb(2));
+      await tester.pumpAndSettle();
+      expect(photoUrlShown(tester), contains('e1-2.jpg'));
+      expect(find.text('3/3 선택됨'), findsOneWidget);
+    });
+
+    testWidgets('다른 건을 고르면 첫 장으로 돌아간다', (tester) async {
+      final server = threePhotos()..photoCounts['k1'] = 2;
+      await openA3(tester, server: server);
+      await tester.tap(thumb(2));
+      await tester.pumpAndSettle();
+
+      await tester.tap(row('k1'));
+      await tester.pumpAndSettle();
+
+      expect(photoUrlShown(tester), contains('k1.jpg'));
+      expect(find.text('1/2 선택됨'), findsOneWidget);
+    });
+
+    testWidgets('zoom opens the selected photo of the selected submission', (tester) async {
+      await openA3(tester, server: threePhotos());
+      await tester.tap(thumb(2));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('proof-photo')));
+      await tester.pumpAndSettle();
+
+      final image = find.descendant(of: find.byKey(const ValueKey('proof-zoom')), matching: find.byType(Image));
+      expect((tester.widget<Image>(image).image as TestProofImage).url, contains('e1-2.jpg'));
+    });
+
+    testWidgets('지난 제출 썸네일은 첫 장을 크게 본다(고른 장과 상관없이)', (tester) async {
+      await openA3(tester, server: threePhotos());
+      await tester.tap(thumb(2));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('proof-thumb-o3')));
+      await tester.pumpAndSettle();
+
+      final image = find.descendant(of: find.byKey(const ValueKey('proof-zoom')), matching: find.byType(Image));
+      expect((tester.widget<Image>(image).image as TestProofImage).url, contains('o3.jpg'));
+    });
+
+    testWidgets('with one photo no strip is shown: "1장" 알약만, 구분선은 큰 사진 아래 12', (tester) async {
+      await openA3(tester);
+
+      expect(find.descendant(of: find.byKey(const ValueKey('photo-count')), matching: find.text('1장')), findsOneWidget);
+      expect(thumb(0), findsNothing);
+      expect(find.textContaining('선택됨'), findsNothing);
+      expect(rectOf(tester, find.byKey(const ValueKey('proof-divider'))).top, 524);
+    });
+
+    testWidgets('옛 서버 모양(photo_urls 없음)이면 1장으로 보인다 — 웹이 서버보다 먼저 나가도 죽지 않는다', (tester) async {
+      final server = fiveWaiting()
+        ..legacyShape.add('e1')
+        ..previous['e1'] = [previousPhoto('o1', legacy: true)];
+      await openA3(tester, server: server);
+
+      expect(tester.takeException(), isNull);
+      expect(photoUrlShown(tester), contains('e1.jpg'));
+      expect(thumb(0), findsNothing);
+      expect(find.byKey(const ValueKey('proof-thumb-o1')), findsOneWidget);
+      expect(inCard(find.text('1장')), findsOneWidget);
+    });
+
+    testWidgets('서명에 실패한 장(null): 썸네일은 image-off 20, 고르면 큰 칸이 기존 "사진 없음" 모양이고 크게 보기는 열리지 않는다', (tester) async {
+      final server = threePhotos()..unsigned['e1'] = {1};
+      await openA3(tester, server: server);
+
+      final icon = find.descendant(of: thumb(1), matching: find.byIcon(LucideIcons.imageOff));
+      expect(rectOf(tester, icon).size, const Size(20, 20));
+      await tester.tap(thumb(1));
+      await tester.pumpAndSettle();
+
+      final photo = find.byKey(const ValueKey('proof-photo'));
+      expect(find.descendant(of: photo, matching: find.text('사진 없음')), findsOneWidget);
+      expect(find.descendant(of: photo, matching: find.byIcon(LucideIcons.imageOff)), findsOneWidget);
+      await tester.tap(photo);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('proof-zoom')), findsNothing);
+      // 다른 장은 그대로 본다
+      await tester.tap(thumb(2));
+      await tester.pumpAndSettle();
+      expect(photoUrlShown(tester), contains('e1-2.jpg'));
+    });
+
+    testWidgets('사진이 한 장도 없으면(정리됨) 알약 · 썸네일 줄 없이 "사진 없음", 정보 카드는 "없음"', (tester) async {
+      final server = fiveWaiting()..noPhoto.add('e1');
+      await openA3(tester, server: server);
+
+      expect(find.byKey(const ValueKey('photo-count')), findsNothing);
+      expect(thumb(0), findsNothing);
+      expect(find.descendant(of: find.byKey(const ValueKey('proof-photo')), matching: find.text('사진 없음')), findsOneWidget);
+      expect(inCard(find.text('없음')), findsOneWidget);
+    });
+
+    testWidgets('사진 오류로 다시 받아도 고른 장이 유지된다', (tester) async {
+      final server = threePhotos()..brokenOnce.add('e1');
+      await openA3(tester, server: server);
+      expect(server.detailFetches('e1'), 2);
+
+      await tester.tap(thumb(1));
+      await tester.pumpAndSettle();
+      expect(photoUrlShown(tester), 'https://storage.test/e1-1.jpg?v=2');
+    });
+
+    testWidgets('제출 정보 카드에 "사진 / 3장" 행: 이름 88 14 web-muted + 값 14/600 web-ink, 항목 다음 · 제출 시각 앞', (tester) async {
+      await openA3(tester, server: threePhotos());
+
+      final name = inCard(find.text('사진'));
+      final value = inCard(find.text('3장'));
+      expect(rectOf(tester, value).left - rectOf(tester, name).left, 88 + 12);
+      expect((styleOf(tester, name).fontSize, styleOf(tester, name).color), (14, AdminColors.muted));
+      expect((styleOf(tester, value).fontWeight, styleOf(tester, value).color), (FontWeight.w600, AdminColors.ink));
+      final kind = rectOf(tester, inCard(find.text('에브리타임 홍보')));
+      final time = rectOf(tester, inCard(find.text('2026-10-18 14:08')));
+      expect(rectOf(tester, name).top, kind.bottom + 16);
+      expect(time.top, rectOf(tester, name).bottom + 16);
+    });
+
+    testWidgets('사진을 받는 동안 정보 카드의 사진 행은 "—", 카드 높이는 그대로(단추가 밀리지 않는다)', (tester) async {
+      final server = threePhotos()..holdDetail = Completer<void>();
+      await openA3(tester, server: server, settle: false);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(inCard(find.text('—')), findsOneWidget);
+      final loadingCard = rectOf(tester, find.byKey(const ValueKey('submit-info')));
+      server.holdDetail!.complete();
+      await tester.pumpAndSettle();
+      expect(rectOf(tester, find.byKey(const ValueKey('submit-info'))), loadingCard);
+    });
+
+    testWidgets('승인하면 다음 건으로 자동 이동하고 첫 장부터 보인다(동작은 그대로)', (tester) async {
+      final server = threePhotos()..photoCounts['k1'] = 2;
+      await openA3(tester, server: server);
+      await tester.tap(thumb(2));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.widgetWithText(AdminButton, '승인'));
+      await tester.pumpAndSettle();
+      await letToastGo(tester);
+
+      expect(server.reviews, ['approve:e1']);
+      expect(photoUrlShown(tester), contains('k1.jpg'));
+      expect(find.text('1/2 선택됨'), findsOneWidget);
+    });
+
+    testWidgets('1280 폭(최소 창)에서도, 글자 1.3배여도 넘치지 않는다', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await openA3(tester, server: threePhotos(), size: const Size(1280, 800));
+
+      expect(tester.takeException(), isNull);
+      expect(rectOf(tester, find.byKey(const ValueKey('proof-photo'))).width, 280);
+    });
+
+    testWidgets('화면 읽기: 썸네일은 "인증샷 n번 사진 보기" 단추, 고른 장은 selected', (tester) async {
+      final handle = tester.ensureSemantics();
+      await openA3(tester, server: threePhotos());
+
+      expect(tester.getSemantics(thumb(0)), isSemantics(label: '인증샷 1번 사진 보기', isButton: true, isSelected: true));
+      expect(tester.getSemantics(thumb(1)), isSemantics(label: '인증샷 2번 사진 보기', isButton: true, isSelected: false));
+      handle.dispose();
     });
   });
 

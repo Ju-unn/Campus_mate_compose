@@ -120,8 +120,8 @@ class _HeartTaskReviewScreenState extends ConsumerState<HeartTaskReviewScreen> {
     if (await _controller.reject(reason) && mounted) AdminToast.show(context, '처리했어요');
   }
 
-  void _openZoom(String photoId) {
-    showProofZoom(context, initialId: widget.initialId, photoId: photoId);
+  void _openZoom(String photoId, int photoIndex) {
+    showProofZoom(context, initialId: widget.initialId, photoId: photoId, photoIndex: photoIndex);
   }
 
   void _onPhotoError(String detailId, String url) {
@@ -254,6 +254,8 @@ class _HeartTaskReviewScreenState extends ConsumerState<HeartTaskReviewScreen> {
                   ? const SizedBox.shrink()
                   : ProofPhotoViewer(
                       detail: detail,
+                      selectedIndex: state.selectedPhotoIndex,
+                      onSelectPhoto: _controller.selectPhoto,
                       onOpen: _openZoom,
                       onPhotoError: (url) => _onPhotoError(selectedId, url),
                       onRetry: _controller.retryDetail,
@@ -399,7 +401,7 @@ class _QueueRow extends StatelessWidget {
 }
 
 /// 정보 카드(pen SuzHP): 폭 328 · 안쪽 24 · 세로 16 · web-surface · web-outline 1 · 모서리 14.
-/// 제목 "제출 정보" 16/700 → 5줄(이름 88 14 web-muted · 사이 12 · 값 14/600) → [승인] + [반려 ▾](Select 200×44) →
+/// 제목 "제출 정보" 16/700 → 6줄(제출자 · 학교 · 항목 · 사진 · 제출 시각 · 보상, 이름 88 14 web-muted · 사이 12 · 값 14/600) → [승인] + [반려 ▾](Select 200×44) →
 /// (펼침 Rrwiu: 사유 3개 280 · 44씩) → "단축키: 승인 A · 반려 R" 12 web-muted.
 class _SubmitInfo extends StatelessWidget {
   const _SubmitInfo({
@@ -427,10 +429,14 @@ class _SubmitInfo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final shape = BorderRadius.circular(AdminRadius.md);
+    // 사진 장수는 사진을 받은 뒤에야 안다 — 받는 동안 · 못 받으면 "—"(행을 두어 카드 높이가 변하지 않게). 정리로 비면 "없음".
+    final loaded = state.detail?.value;
+    final photos = loaded != null && loaded.item.id == item.id ? loaded.photoUrls.length : null;
     final rows = <(String, String)>[
       ('제출자', item.nickname),
       ('학교', item.university),
       ('항목', item.kind.infoLabel),
+      ('사진', photos == null ? '—' : (photos == 0 ? '없음' : '$photos장')),
       ('제출 시각', formatSubmittedAt(item.createdAt)),
       ('보상', formatReward(item.rewardHearts)),
     ];
