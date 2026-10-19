@@ -29,12 +29,12 @@ ADMIN_USERS_PER_PAGE = 100
 # ponytail: 한 번에 100명. 남은 사람은 다음 날 이어서 지운다 — 하루 탈퇴가 이보다 많아지면 올리거나 여러 번 돈다.
 CLEANUP_ACCOUNT_LIMIT = 100
 # 사람마다 `{profile_id}/` 폴더가 있는 버킷 전부.
-STORAGE_BUCKETS = ("avatars", "profile-photos", "student-id-temp", "heart-task-proofs")
+STORAGE_BUCKETS = ("avatars", "profile-photos", "student-id-temp", "heart-task-proofs", "graduate-cert-temp")
 
 
 async def _delete_accounts(admin: SupabaseAdmin, profile_ids: list[str], label: str,
                            still_due=None) -> tuple[int, int]:
-    """버킷 넷(STORAGE_BUCKETS)의 파일 → auth 사용자(profiles 는 cascade). (지운 수, 건너뛴 수).
+    """버킷 다섯(STORAGE_BUCKETS)의 파일 → auth 사용자(profiles 는 cascade). (지운 수, 건너뛴 수).
 
     still_due 를 주면 사람마다 지우기 **직전에** 다시 묻는다 — False 이거나 묻다 실패하면 건너뛴다."""
     deleted = skipped = 0
@@ -60,7 +60,7 @@ async def _delete_accounts(admin: SupabaseAdmin, profile_ids: list[str], label: 
 async def run_cleanup(accounts: AccountRepository, admin: SupabaseAdmin, now: datetime) -> dict:
     """매일 04:00(Asia/Seoul). 다섯 가지를 하고 전부 멱등이다 — 다시 돌리면 0건이다.
 
-    ① 탈퇴 30일 지난 계정: 버킷 넷(STORAGE_BUCKETS)의 파일 → auth 사용자(profiles 는 cascade)
+    ① 탈퇴 30일 지난 계정: 버킷 다섯(STORAGE_BUCKETS)의 파일 → auth 사용자(profiles 는 cascade)
     ①-b 가입 14일이 지나도록 학교 메일 확인을 안 한 계정: ① 과 같은 길, 지우기 직전 재확인(deleted_unverified)
     ①-c 학교 메일 verify 가 못 지운 임시 이메일 계정 24시간 뒤(deleted_temp_email_accounts)
     ② 처리 끝나고 1년 지난 신고(열린 신고는 남는다) ③ 만료된 재가입 제한 ④ 옛 키 버전 지인 차단 세기(경고)
