@@ -32,11 +32,12 @@ _NOTIFICATION_COLUMNS = (
     "profile_id,card_arrived,acceptance_received,match_made,new_message,"
     "trust_reminder,new_friend_review,marketing,quiet_hours"
 )
-# 행이 없는 사람은 전부 켜진 것으로 본다(마케팅만 꺼짐) — C4 기본값과 같은 값이다.
+# 행이 없는 사람(새 가입자)은 전부 켜진 것으로 본다(마케팅 · 방해 금지 시간만 꺼짐) — 마이그레이션 20261019210000 의 컬럼 기본값과 같은 값이다.
+# 방해 금지 시간은 2026-10-19 사용자 결정으로 처음에 꺼 둔다. 기존 사용자는 같은 마이그레이션이 행을 채워 켜진 채 둔다.
 NOTIFICATION_DEFAULTS = {
     "card_arrived": True, "acceptance_received": True, "match_made": True,
     "new_message": True, "trust_reminder": True, "new_friend_review": True,
-    "marketing": False, "quiet_hours": True,
+    "marketing": False, "quiet_hours": False,
 }
 
 

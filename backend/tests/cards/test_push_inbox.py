@@ -23,7 +23,8 @@ class _Credentials:
 
 class _Repo:
     def __init__(self, settings=None, status="active", pending=None, insert_error=None):
-        self._settings, self._status = settings or {}, status
+        # 방해 금지 시간을 켠 사용자가 기본 — 새 가입자 기본값은 꺼짐(2026-10-19)이라 밤 보류 시험은 켠 사람으로 본다.
+        self._settings, self._status = settings or {"quiet_hours": True}, status
         self.pending = list(pending or [])
         self.pending_deleted: list[str] = []
         self.inbox: list[tuple] = []

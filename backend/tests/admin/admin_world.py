@@ -429,7 +429,8 @@ class AdminWorld:
             if path == "/rest/v1/profiles":
                 return httpx.Response(self.profile_status_http, json=[{"status": self.profile_status}])
             if path == "/rest/v1/notification_settings":
-                return httpx.Response(200, json=[])
+                # 방해 금지 시간을 켠 사용자 — 새 가입자 기본값은 꺼짐(2026-10-19)이라 밤 보류 시험은 켠 사람으로 본다.
+                return httpx.Response(200, json=[{"quiet_hours": True}])
             if path == "/rest/v1/push_tokens":
                 return httpx.Response(200, json=self.push_tokens)
         if request.method == "POST":
