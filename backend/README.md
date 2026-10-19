@@ -1,7 +1,7 @@
 # backend
 
-FastAPI 비즈니스 로직 서버 자리. 2026-09-12 확정(설계 문서 §1·§7)이지만
-아직 시작하지 않았다 — 조각 1(이메일 인증 직후 `profiles` 생성 · 학생증 검증)부터 필요하다(`docs/ERD_DECISIONS.md` §11-8).
+FastAPI 비즈니스 로직 서버. 2026-09-12 확정(설계 문서 §1·§7)이고 지금은 Cloud Run(서울)에서 운영 중이다
+(2026-10-19 갱신, 옛 문장: "아직 시작하지 않았다"). 배포 · 환경변수 · 배치 · 롤백 하한은 `DEPLOY.md`, 모듈은 `app/` 아래 기능 폴더(`student_verification` · `graduate_verification` · `cards` · `chat` · `heart_tasks` · `admin` …)다.
 
 담당 범위는 Supabase JWT 검증 후의 비즈니스 로직이다. Auth·DB·RLS·Storage 는 Supabase 가 계속 맡는다.
 

@@ -25,6 +25,11 @@ Supabase **MCP 플러그인(`supabase`)이 설치·인증돼 있다.** 클라우
 - `20261016144530_faq_free_heart_amounts` — `faq` "하트를 무료로 얻는 방법이 있나요?" 답의 숫자(에브리타임 40 · 투표 5 · 주 15)와 "학교 단톡방" → "단톡방" 을 `update … replace` 로 바꾼다(두 번 돌려도 같다). 저장소 시드는 "하루 한 번 10하트" 인데 운영 실제 문구는 "하루 첫 투표에 10하트" 라 두 표기를 모두 바꾸게 PR #573 이 고쳤다. **운영에 적용됐다**(사용자 승인 "db적용부터 승인할게" 뒤 `apply_migration`). 대장 전달 값은 2026-10-16 적용이고 파일 머리말은 "2026-10-17 운영에 적용했다" 라 날짜가 하루 다르다(파일은 고치지 않는다). 원격 버전 값은 받지 못했다. 시험 `supabase/tests/faq_test.sql` 18 · 19
 - 그래서 **운영 76개 = 저장소 76개, 모두 적용**이다(대장 전달 값, 2026-10-17 확인). 이 두 파일과 짝인 서버(에브리타임 40 · 투표 표시 5)는 2026-10-17 리비전 `00083-pwx` 로 배포됐다(`backend/DEPLOY.md` §4-13)
 
+**2026-10-19 갱신(이 문서 담당이 저장소를 셌다 · 운영 값은 대장 전달 값 — 클라우드를 조회하지 않았다).** **저장소 `supabase/migrations/` 93개**(main `fc430713`)이고 **운영도 93개 = 모두 적용**이다. 76번째 뒤 17개의 내용은 `docs/ERD.md` 상태줄(2026-10-19)에 있다. 적용 묶음은 둘이다:
+- **2026-10-17 ~ 18 밤(운영 76 → 89)**: `20261017120000_create_unknown_email_domain_attempts` · `20261017130000_faq_student_id_removal`(FAQ 5문항, 데이터만) · 관리자 웹 11개(`20261018002858` ~ `20261018150000`, `admin_users` · `admin_actions` · 관리자 조치 함수 · 통계 함수 · 기본 아바타 유일 인덱스 · 알림 종류 check). 서버 `00086-7zf` 와 같이 나갔다(`backend/DEPLOY.md` §5).
+- **2026-10-19(운영 89 → 93)**: `20261019100000_heart_task_multi_photos`(인증샷 여러 장) · `20261019200000_graduate_verification_tables` · `20261019200100_graduate_verification_functions`(졸업생 인증) · `20261019210000_notification_quiet_hours_default_off`(저녁 알림 기본값). **원격 기록 버전은 파일 이름이 아니라 적용 시각이다 — `20261019055736` · `20261019055756` · `20261019055818` · `20261019055824`**(§4 관례대로 정상, 파일과의 짝은 받지 못했다). 서버 `00087-9qj`(이후 `00088-gh5` 스위치 켬, `00089-fpm`)와 같이 나갔고 순서는 DB → 서버 → 관리자 웹 → 앱이다(`backend/DEPLOY.md` §4-14). **되돌릴 수 없는 변경**: `20261019100000` 이 `heart_task_submissions.storage_path` 를 지우고 `submit_heart_task` 인자를 바꿔 서버를 `00087` 아래로 내리면 인증샷 제출 · 관리자 사진 보기가 깨진다.
+- 졸업생 인증 마이그레이션의 SQL 은 `security definer` 를 쓰지 않고(§5) 함수마다 `public · anon · authenticated` 실행을 걷고 `service_role` 에만 준다. 새 비공개 버킷 `graduate-cert-temp` 가 `storage.buckets` insert 로 만들어졌다(§7 학생증 사진 보관 규칙과 같은 관례 — 클라이언트 Storage 정책 없음).
+
 ## 2. 시작할 때
 
 - 스키마·RLS·Storage·Auth 를 건드리기 전에 `supabase:supabase` 스킬(보안 체크리스트)과 `supabase:supabase-postgres-best-practices` 스킬을 로드한다
@@ -69,6 +74,8 @@ Supabase **MCP 플러그인(`supabase`)이 설치·인증돼 있다.** 클라우
 - 조각 0 첫 마이그레이션(`20260913054542`) 맨 앞에서 `create extension if not exists vector with schema extensions;` 로 켰고, 2026-09-14 클라우드에 적용됐다. 대시보드에서 손으로 켜지 않는다. 조각 3 벡터 컬럼의 타입 주의는 `docs/ERD.md` §3
 
 ## 7. 학생증 재검토 — 대시보드 수동 확정
+
+> **2026-10-19 표시: 이 절은 더는 쓰지 않는다(기록으로 남긴다).** 학생증 단계가 2026-10-17 사용자 결정으로 없어져(서버 PR #582 · 앱 PR #583) 새 학생증 재검토는 생기지 않는다. 졸업생 인증의 검수는 대시보드가 아니라 **관리자 웹 "졸업생" 화면**에서 하고(결정 즉시 사진 삭제 — 손으로 지울 일이 없다), 절차는 `backend/DEPLOY.md` §4-14 · `docs/decisions/2026-10-19-graduate-verification-decision.md` 에 있다. 옛 `student-id-temp` 파일 삭제는 사용자 승인 대기다.
 
 자동 대조(OCR)가 애매하거나 실패하면 담당자가 Supabase 대시보드에서 학생증 사진을 직접 열어 육안으로 재검토한다(설계 §7.3). 자동 확정과 다르게 이 경로는 FastAPI를 거치지 않으므로, 사람이 손으로 아래 순서를 그대로 따라야 한다 — 순서를 바꾸면 안 되는 이유는 자동 경로와 같다: `student_verification_attempts` 를 먼저 확정하고 남에게 보이는 `profiles` 를 나중에 바꾼다(§11-27, 2026-09-20 결정).
 
