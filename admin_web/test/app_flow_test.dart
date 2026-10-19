@@ -191,10 +191,10 @@ void main() {
     expect(find.text('2단계 인증됨'), findsOneWidget);
   });
 
-  testWidgets('200 → 셸: 메뉴 8개 · 관리자 메일 · 배지, 첫 화면은 홈, 메뉴를 누르면 그 화면', (tester) async {
+  testWidgets('200 → 셸: 메뉴 9개 · 관리자 메일 · 배지, 첫 화면은 홈, 메뉴를 누르면 그 화면', (tester) async {
     await pumpAdminApp(tester, auth: FakeAdminAuth(mfa: _aal2));
 
-    for (final label in ['인증샷 검수', '신고', '매칭', '사용자', '결제', '미등록 학교 메일', '작업 기록']) {
+    for (final label in ['인증샷 검수', '졸업생', '신고', '매칭', '사용자', '결제', '미등록 학교 메일', '작업 기록']) {
       expect(find.text(label), findsOneWidget, reason: label);
     }
     expect(find.text('admin@example.com'), findsOneWidget);

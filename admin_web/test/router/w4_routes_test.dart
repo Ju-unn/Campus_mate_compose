@@ -7,7 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import '../helpers/fakes.dart';
 import '../helpers/stats_fakes.dart';
 
-/// 사이드 메뉴 8개가 모두 실제 화면에 연결된다(자리 표시 없음). 메뉴 순서는 설계서 §8-4c.
+/// 사이드 메뉴 9개가 모두 실제 화면에 연결된다(자리 표시 없음). 메뉴 순서는 설계서 §8-4c.
 void main() {
   const aal2 = MfaState(aal2: true, factorId: 'f');
 
@@ -24,12 +24,13 @@ void main() {
     return pumpAdminApp(tester, auth: FakeAdminAuth(mfa: aal2), api: FakeStatsServer().api(), initialPath: path, size: size);
   }
 
-  testWidgets('메뉴 순서: 홈 · 인증샷 검수 · 신고 · 매칭 · 사용자 · 결제 · 미등록 학교 메일 · 작업 기록(위에서 아래)', (tester) async {
+  testWidgets('메뉴 순서: 홈 · 인증샷 검수 · 졸업생 · 신고 · 매칭 · 사용자 · 결제 · 미등록 학교 메일 · 작업 기록(위에서 아래)', (tester) async {
     await open(tester, '/');
 
     const order = [
       AdminSection.home,
       AdminSection.heartTasks,
+      AdminSection.graduates,
       AdminSection.reports,
       AdminSection.matching,
       AdminSection.users,
@@ -40,7 +41,7 @@ void main() {
     expect(AdminSection.values, order);
     final ys = [for (final section in order) tester.getTopLeft(find.byKey(ValueKey('nav-${section.name}'))).dy];
     expect(ys, [...ys]..sort());
-    expect([for (final section in order) section.label], ['홈', '인증샷 검수', '신고', '매칭', '사용자', '결제', '미등록 학교 메일', '작업 기록']);
+    expect([for (final section in order) section.label], ['홈', '인증샷 검수', '졸업생', '신고', '매칭', '사용자', '결제', '미등록 학교 메일', '작업 기록']);
   });
 
   testWidgets('"자리 표시"는 더 이상 없다 — 메뉴를 하나씩 눌러도 "다음 조각에서 채움"이 나오지 않는다', (tester) async {
