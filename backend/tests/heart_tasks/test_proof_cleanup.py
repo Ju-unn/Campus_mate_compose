@@ -9,7 +9,8 @@ from app.heart_tasks.repository import HeartTaskRepository
 from app.heart_tasks.storage import HeartProofStorage
 
 NOW = datetime(2026, 12, 1, 4, 0, tzinfo=SEOUL)
-ROWS = [{"id": "a1", "storage_path": "p1/a1.jpg"}, {"id": "a2", "storage_path": "p2/a2.png"}]
+ROWS = [{"id": "a1", "storage_paths": ["p1/a1-1.jpg", "p1/a1-2.jpg", "p1/a1-3.png"]},
+        {"id": "a2", "storage_paths": ["p2/a2.png"]}]
 
 
 def _parts(handler, seen: list[httpx.Request]):
@@ -33,24 +34,24 @@ def _handler(rows: list[dict], delete_status: int = 200):
     return handler
 
 
-async def test_deletes_files_first_then_clears_paths():
+async def test_deletes_every_file_of_each_row_then_clears_the_paths():
     seen: list[httpx.Request] = []
     assert await purge_reviewed_proofs(*_parts(_handler(ROWS), seen), NOW) == 2
 
     methods = [r.method for r in seen]
     assert methods == ["GET", "DELETE", "PATCH"]
-    assert json.loads(seen[1].content) == {"prefixes": ["p1/a1.jpg", "p2/a2.png"]}
+    assert json.loads(seen[1].content) == {"prefixes": ["p1/a1-1.jpg", "p1/a1-2.jpg", "p1/a1-3.png", "p2/a2.png"]}
     assert seen[2].url.params["id"] == "in.(a1,a2)"
-    assert json.loads(seen[2].content) == {"storage_path": None}
+    assert json.loads(seen[2].content) == {"storage_paths": []}
 
 
-async def test_asks_only_for_rows_reviewed_60_days_ago_with_a_file():
+async def test_asks_only_for_rows_reviewed_60_days_ago_that_still_have_files():
     seen: list[httpx.Request] = []
     await purge_reviewed_proofs(*_parts(_handler([]), seen), NOW)
     params = seen[0].url.params
     assert params["reviewed_at"] == f"lt.{(NOW - timedelta(days=60)).isoformat()}"
-    assert params["storage_path"] == "not.is.null"
-    assert params["select"] == "id,storage_path"
+    assert params["storage_paths"] == "not.eq.{}"  # 이미 비운 줄을 매일 다시 뽑지 않는다(100개 한도를 채우지 않게)
+    assert params["select"] == "id,storage_paths"
     # 오래된 것부터 100개씩 — 한도가 빠지면 경로 비우기 주소가 한도 없이 길어진다.
     assert (params["order"], params["limit"]) == ("reviewed_at", "100")
 

@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 # 검수가 끝나고 이만큼 지나면 인증샷을 지운다(계획서 D6). 단톡방 캡처에는 다른 학생 이름 · 대화가 찍힌다 —
 # 60일이면 운영자가 지난달 캡처와 비교할 수 있다.
 PROOF_RETENTION = timedelta(days=60)
-# ponytail: 하루 100장(계정 정리 CLEANUP_ACCOUNT_LIMIT 와 같다). 남은 것은 다음 날 이어서 지운다. 경로 비우기가
+# ponytail: 하루 100줄(줄마다 1~3장, 계정 정리 CLEANUP_ACCOUNT_LIMIT 와 같다). 남은 것은 다음 날 이어서 지운다. 경로 비우기가
 # id 를 주소(`in.(...)`)에 싣기 때문에 100개 ≈ 3.9KB — 500개면 19KB 로 게이트웨이 주소 한도(8~16KB)를 넘어 같은
 # 줄에서 매일 막힌다. 올려야 하면 clear_proof_paths 를 100개씩 나눠 PATCH 한다.
 PROOF_CLEANUP_LIMIT = 100
@@ -24,7 +24,8 @@ async def purge_reviewed_proofs(repo: HeartTaskRepository, storage: HeartProofSt
         rows = await repo.fetch_expired_proofs(now - PROOF_RETENTION, PROOF_CLEANUP_LIMIT)
         if not rows:
             return 0
-        await storage.delete([row["storage_path"] for row in rows])
+        # 줄마다 1~3장 — 100줄이면 최대 300경로. 삭제는 본문으로 보내 주소 길이 걱정이 없다(비우기 PATCH 의 id 100개만 주소에 실린다).
+        await storage.delete([path for row in rows for path in row["storage_paths"]])
         await repo.clear_proof_paths([row["id"] for row in rows])
     except Exception as exc:
         # 계정 · 신고 정리를 멈추지 않는다. 내일 다시 고른다. 경로는 로그에 남기지 않는다 — 예외 종류만.
