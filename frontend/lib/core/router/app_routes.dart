@@ -16,6 +16,12 @@ abstract final class AppRoutes {
   /// 약관 동의 화면(화면 02-c · 재동의 02-c-4). 로그인 직후 첫 관문이다.
   static const String consent = '/consent';
 
+  /// 졸업생 인증(졸업증명서) 관문 세 화면 — 서버 플래그가 켜져 있을 때만 나온다. 동의 다음, 학교 메일(02) 앞이다.
+  /// 인증 방법 고르기 · 졸업증명서 신청 폼(반려 뒤 다시 신청 포함) · 심사 대기. 계획서 2026-10-19-graduate-verification.md.
+  static const String verificationMethod = '/verification-method';
+  static const String graduateApplication = '/graduate/application';
+  static const String graduateWaiting = '/graduate/waiting';
+
   /// 학과·학번 입력 화면 (화면 3c)
   static const String schoolInfo = '/school-info';
 

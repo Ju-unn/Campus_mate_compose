@@ -26,15 +26,21 @@ class VerificationGateListenable extends ChangeNotifier {
     _cache(_defaultGate);
   }
 
-  Future<void> refresh() async {
+  /// 서버에 다시 물어 캐시를 맞춘다. 물어서 답을 받았으면 true, 실패했으면 false(캐시는 위 규칙대로 둔다).
+  /// 반환값을 안 쓰는 호출(대부분)은 그대로다 — 졸업생 뒤로가기만 실패를 안내하려고 읽는다.
+  Future<bool> refresh() async {
     final result = await _repository.fetchGate();
-    result.when(
-      onSuccess: _cache,
+    return result.when(
+      onSuccess: (gate) {
+        _cache(gate);
+        return true;
+      },
       // 아는 관문이 있으면 그대로 둔다 — 다음 세션 변화 때 다시 시도. 모르는데 실패했으면 01-1 로.
       onFailure: (_) {
         if (_cached == VerificationGate.unknown) {
           _cache(VerificationGate.unreachable);
         }
+        return false;
       },
     );
   }

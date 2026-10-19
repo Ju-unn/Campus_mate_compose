@@ -63,8 +63,11 @@ class AuthRedirect {
       VerificationGate.unknown => AppRoutes.splash,
       VerificationGate.unreachable => AppRoutes.offline,
       VerificationGate.needsConsent || VerificationGate.needsConsentRenewal => AppRoutes.consent,
-      // 02(학교 메일 입력). 03(인증번호)도 같은 관문이다 — [_isOnGate].
-      VerificationGate.needsSchoolEmail => AppRoutes.login,
+      // 02(학교 메일 입력). 03(인증번호)도 같은 관문이다 — [_isOnGate]. 방법 고르기를 거쳐 온 02 도 같은 화면이다.
+      VerificationGate.needsSchoolEmail || VerificationGate.needsSchoolEmailChosen => AppRoutes.login,
+      VerificationGate.needsVerificationMethod => AppRoutes.verificationMethod,
+      VerificationGate.needsGraduateApplication => AppRoutes.graduateApplication,
+      VerificationGate.graduateReviewing => AppRoutes.graduateWaiting,
       VerificationGate.needsSchoolInfo => AppRoutes.schoolInfo,
       VerificationGate.complete => null,
     };
@@ -76,7 +79,8 @@ class AuthRedirect {
     if (location == gateTarget) {
       return true;
     }
-    return _gate == VerificationGate.needsSchoolEmail && location == AppRoutes.verifyCode;
+    final isEmailGate = _gate == VerificationGate.needsSchoolEmail || _gate == VerificationGate.needsSchoolEmailChosen;
+    return isEmailGate && location == AppRoutes.verifyCode;
   }
 
   /// 아직 끝내지 못한 온보딩 화면. 모두 끝냈으면 null.
@@ -105,6 +109,9 @@ class AuthRedirect {
   bool _isBeforeHome(String location) {
     return location == AppRoutes.login ||
         location == AppRoutes.verifyCode ||
+        location == AppRoutes.verificationMethod ||
+        location == AppRoutes.graduateApplication ||
+        location == AppRoutes.graduateWaiting ||
         location == AppRoutes.splash ||
         location == AppRoutes.offline ||
         location == AppRoutes.consent ||

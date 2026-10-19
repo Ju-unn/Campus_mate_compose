@@ -21,6 +21,7 @@ abstract final class PushRoute {
         'heart_tasks' => AppRoutes.heartTasks,
         'heart_task_retry' => _heartTaskRetry(data),
         // 옛 학생증 검토 결과(`verification`, 2026-10-17 학생증 제거)도 여기로 온다 — 알림함에 남은 줄을 눌러도 무동작.
+        // 졸업생 인증 결과(`graduate_verification`)도 여기로 온다 — 화면은 옮기지 않는다. `refreshForPush` 가 관문만 다시 물으면 AuthRedirect 가 옮긴다.
         _ => null,
       };
 

@@ -81,4 +81,9 @@ void main() {
     expect(PushRoute.resolve({'route': 'sticker'}), isNull);
     expect(PushRoute.resolve(const {}), isNull);
   });
+
+  test('졸업생 인증 결과 알림은 아무 데도 보내지 않는다 — 관문(AuthRedirect)이 화면을 옮긴다', () {
+    expect(PushRoute.resolve({'route': 'graduate_verification', 'state': 'approved'}), isNull);
+    expect(PushRoute.resolve({'route': 'graduate_verification', 'state': 'rejected', 'reason': 'unreadable'}), isNull);
+  });
 }

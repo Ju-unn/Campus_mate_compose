@@ -135,4 +135,47 @@ void main() {
 
     expect(result.when(onSuccess: (_) => null, onFailure: (f) => f), isA<NetworkFailure>());
   });
+
+  // 졸업생 인증 칸(graduate_enabled · verification_method · graduate)이 HTTP 응답에서 관문으로 이어지는지 — 판정표는 verification_gate_test.
+  group('졸업생 인증 칸이 든 응답', () {
+    Future<VerificationGate?> fetchWithBody(Map<String, Object?> body) async {
+      final client = MockClient((_) async => http.Response(
+            jsonEncode(body),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          ));
+      final result = await buildRepository(client).fetchGate();
+      return result.when(onSuccess: (value) => value, onFailure: (_) => null);
+    }
+
+    const base = <String, Object?>{
+      'status': 'verified',
+      'has_school_info': false,
+      'consent': 'current',
+      'school_email_verified': false,
+    };
+
+    test('플래그가 켜져 있고 방법을 안 골랐으면 needsVerificationMethod', () async {
+      final gate = await fetchWithBody({...base, 'graduate_enabled': true, 'verification_method': null, 'graduate': null});
+
+      expect(gate, VerificationGate.needsVerificationMethod);
+    });
+
+    test('같은 응답이라도 플래그가 꺼져 있으면 예전 그대로 needsSchoolEmail', () async {
+      final gate = await fetchWithBody({...base, 'graduate_enabled': false, 'verification_method': null, 'graduate': null});
+
+      expect(gate, VerificationGate.needsSchoolEmail);
+    });
+
+    test('심사 중이면 graduateReviewing', () async {
+      final gate = await fetchWithBody({
+        ...base,
+        'graduate_enabled': true,
+        'verification_method': 'graduate_certificate',
+        'graduate': {'state': 'pending', 'reject_reason': null, 'attempts_left': 2, 'submitted_at': '2026-10-19T01:00:00+00:00'},
+      });
+
+      expect(gate, VerificationGate.graduateReviewing);
+    });
+  });
 }
