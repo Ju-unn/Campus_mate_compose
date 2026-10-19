@@ -104,7 +104,7 @@ class _HeartTaskSubmitScreenState extends ConsumerState<HeartTaskSubmitScreen> {
   Widget build(BuildContext context) {
     ref.listen(heartTaskSubmitViewModelProvider, (previous, next) {
       if (next.submitted && previous?.submitted != true) {
-        // 18b 를 18c 로 바꾼다 — 18c 에서 뒤로 가면 18a 로 돌아간다.
+        // 18b 를 18c 로 바꾼다 — 18c 에서 뒤로 가면 18b 아래 화면으로 간다(18a, 반려 알림으로 왔으면 홈).
         context.pushReplacement(AppRoutes.heartTaskPending);
         return;
       }
