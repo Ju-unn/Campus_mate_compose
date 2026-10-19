@@ -23,10 +23,11 @@ OTHER = "11111111-0000-0000-0000-0000000000ff"
 PROFILE = "cccccccc-0000-0000-0000-00000000000a"
 STORAGE = "https://x.supabase.co/storage/v1"
 ADMIN_HEADERS = bearer(sub=ADMIN, aal="aal2")
+# photo_url 은 옛 칸(= photo_urls 의 첫 장) — 관리자 웹이 서버보다 먼저 · 늦게 나가도 읽히게 둘 다 싣는다.
 ITEM_KEYS = {"id", "task", "status", "reject_reason", "reward_hearts", "created_at", "reviewed_at",
-             "profile", "photo_url", "previous"}
+             "profile", "photo_url", "photo_urls", "previous"}
 # 목록 줄은 사진 · 지난 제출이 없는 요약이다(pen A3 목록 줄). 한 건 · 승인 · 반려만 ITEM_KEYS 다.
-SUMMARY_KEYS = ITEM_KEYS - {"photo_url", "previous"}
+SUMMARY_KEYS = ITEM_KEYS - {"photo_url", "photo_urls", "previous"}
 ROUTES = [
     ("GET", "/admin/heart-tasks", None),
     ("GET", f"/admin/heart-tasks/{S1}", None),
@@ -108,7 +109,8 @@ def test_list_is_one_read_with_a_summary_per_row_and_no_photos(client, world):
     world.submissions[S1] = submission(S1)
     world.submissions[S2] = submission(S2)
     world.previous[PROFILE] = [
-        {"id": OTHER, "status": "approved", "created_at": "2026-09-01T00:00:00+00:00", "storage_path": f"{PROFILE}/old.jpg"},
+        {"id": OTHER, "status": "approved", "created_at": "2026-09-01T00:00:00+00:00",
+         "storage_paths": [f"{PROFILE}/old-1.jpg", f"{PROFILE}/old-2.jpg"]},
     ]
 
     items = client.get("/admin/heart-tasks", headers=ADMIN_HEADERS).json()["items"]
@@ -133,31 +135,55 @@ def test_one_submission_has_a_five_minute_photo_url_and_no_raw_path(client, worl
     item = response.json()
     assert set(item) == ITEM_KEYS
     assert item["profile"] == {"id": PROFILE, "nickname": "하늘", "university": "테스트대학교"}
-    assert item["photo_url"] == _signed(f"{PROFILE}/{S1}.jpg")
-    (sign,) = world.calls("POST", f"{SIGN_PREFIX}{PROFILE}/{S1}.jpg")
+    assert item["photo_url"] == _signed(f"{PROFILE}/{S1}-1.jpg")
+    assert item["photo_urls"] == [_signed(f"{PROFILE}/{S1}-1.jpg")]
+    (sign,) = world.calls("POST", f"{SIGN_PREFIX}{PROFILE}/{S1}-1.jpg")
     assert json.loads(sign.content) == {"expiresIn": 300}
+    assert "storage_path" not in response.text
+
+
+def test_three_photos_come_back_in_order_with_the_first_as_the_legacy_photo_url(client, world):
+    paths = [f"{PROFILE}/{S1}-{n}.jpg" for n in (1, 2, 3)]
+    world.submissions[S1] = submission(S1, paths=paths)
+
+    item = client.get(f"/admin/heart-tasks/{S1}", headers=ADMIN_HEADERS).json()
+
+    assert item["photo_urls"] == [_signed(p) for p in paths]
+    assert item["photo_url"] == item["photo_urls"][0]
+    assert len([r for r in world.requests if r.url.path.startswith(SIGN_PREFIX)]) == 3  # 장마다 서명한다
+
+
+def test_one_unsignable_photo_among_three_is_null_and_the_rest_stay(client, world):
+    paths = [f"{PROFILE}/{S1}-{n}.jpg" for n in (1, 2, 3)]
+    world.submissions[S1] = submission(S1, paths=paths)
+    world.unsignable.add(paths[1])
+
+    response = client.get(f"/admin/heart-tasks/{S1}", headers=ADMIN_HEADERS)
+
+    assert response.status_code == 200
+    assert response.json()["photo_urls"] == [_signed(paths[0]), None, _signed(paths[2])]
 
 
 def test_missing_or_unsignable_photo_is_null(client, world):
     # 60일 정리로 경로가 빈 건, 경로는 있는데 Storage 가 서명을 거절한 건 — 500 이 아니라 "사진 없음".
-    world.submissions[S1] = submission(S1, path=None)
+    world.submissions[S1] = submission(S1, paths=[])
     world.submissions[S2] = submission(S2)
-    world.unsignable.add(f"{PROFILE}/{S2}.jpg")
+    world.unsignable.add(f"{PROFILE}/{S2}-1.jpg")
 
     pathless = client.get(f"/admin/heart-tasks/{S1}", headers=ADMIN_HEADERS)
     unsignable = client.get(f"/admin/heart-tasks/{S2}", headers=ADMIN_HEADERS)
 
-    assert (pathless.status_code, pathless.json()["photo_url"]) == (200, None)
-    assert (unsignable.status_code, unsignable.json()["photo_url"]) == (200, None)
+    assert (pathless.status_code, pathless.json()["photo_url"], pathless.json()["photo_urls"]) == (200, None, [])
+    assert (unsignable.status_code, unsignable.json()["photo_url"], unsignable.json()["photo_urls"]) == (200, None, [None])
     # 경로가 없는 건은 Storage 에 묻지도 않는다.
-    assert [r.url.path for r in world.requests if r.url.path.startswith(SIGN_PREFIX)] == [f"{SIGN_PREFIX}{PROFILE}/{S2}.jpg"]
+    assert [r.url.path for r in world.requests if r.url.path.startswith(SIGN_PREFIX)] == [f"{SIGN_PREFIX}{PROFILE}/{S2}-1.jpg"]
 
 
 @pytest.mark.parametrize("reply", [httpx.Response(200, json={}), httpx.Response(200, text="not json")],
                          ids=["no signedURL", "not json"])
 def test_a_sign_answer_without_a_url_is_a_missing_photo_not_a_500(client, world, reply):
     world.submissions[S1] = submission(S1)
-    world.sign_replies[f"{PROFILE}/{S1}.jpg"] = reply
+    world.sign_replies[f"{PROFILE}/{S1}-1.jpg"] = reply
 
     response = client.get(f"/admin/heart-tasks/{S1}", headers=ADMIN_HEADERS)
 
@@ -167,20 +193,24 @@ def test_a_sign_answer_without_a_url_is_a_missing_photo_not_a_500(client, world,
 def test_previous_submissions_are_the_same_persons_same_task_with_photos_latest_five(client, world):
     world.submissions[S1] = submission(S1)
     world.previous[PROFILE] = [
-        {"id": OTHER, "status": "approved", "created_at": "2026-09-01T00:00:00+00:00", "storage_path": f"{PROFILE}/old.jpg"},
+        {"id": OTHER, "status": "approved", "created_at": "2026-09-01T00:00:00+00:00",
+         "storage_paths": [f"{PROFILE}/old-1.jpg", f"{PROFILE}/old-2.jpg"]},
     ]
 
     item = client.get(f"/admin/heart-tasks/{S1}", headers=ADMIN_HEADERS).json()
 
     assert item["previous"] == [
-        {"id": OTHER, "status": "approved", "created_at": "2026-09-01T00:00:00+00:00", "photo_url": _signed(f"{PROFILE}/old.jpg")},
+        {"id": OTHER, "status": "approved", "created_at": "2026-09-01T00:00:00+00:00",
+         "photo_url": _signed(f"{PROFILE}/old-1.jpg"),
+         "photo_urls": [_signed(f"{PROFILE}/old-1.jpg"), _signed(f"{PROFILE}/old-2.jpg")]},
     ]
     (query,) = [r for r in world.calls("GET", "/rest/v1/heart_task_submissions") if "profile_id" in r.url.params]
     params = query.url.params
     assert params["profile_id"] == f"eq.{PROFILE}"
     assert params["task"] == "eq.everytime_post"
     assert params["id"] == f"neq.{S1}"  # 자기 자신은 빼고
-    assert params["storage_path"] == "not.is.null"  # 사진이 남은 것만
+    assert params["select"] == "id,status,created_at,storage_paths"
+    assert params["storage_paths"] == "not.eq.{}"  # 사진이 남은 것만
     assert (params["order"], params["limit"]) == ("created_at.desc", "5")
 
 
@@ -349,7 +379,7 @@ def test_the_notice_never_carries_photo_admin_ip_or_nickname(client, world):
 
     sent = json.dumps([world.notifications, world.pushes], ensure_ascii=False)
     assert world.notifications and world.pushes
-    for secret in (f"{PROFILE}/{S1}.jpg", ADMIN, "203.0.113.7", "하늘", "테스트대학교", "storage_path"):
+    for secret in (f"{PROFILE}/{S1}-1.jpg", ADMIN, "203.0.113.7", "하늘", "테스트대학교", "storage_path"):
         assert secret not in sent
 
 

@@ -47,12 +47,13 @@ def report(rid: str, *, target_type: str = "profile", target_id: str = TARGET, s
 
 
 def submission(sid: str, profile_id: str = "cccccccc-0000-0000-0000-00000000000a", *, task: str = "everytime_post",
-               path: str | None = "default", created_at: str = "2026-10-18T01:00:00+00:00") -> dict:
-    """heart_task_submissions 한 줄 — 서버가 고르는 select(프로필 · 학교 임베드)를 PostgREST 가 돌려주는 모양."""
+               paths: list[str] | str = "default", created_at: str = "2026-10-18T01:00:00+00:00") -> dict:
+    """heart_task_submissions 한 줄 — 서버가 고르는 select(프로필 · 학교 임베드)를 PostgREST 가 돌려주는 모양.
+    paths 기본은 사진 1장, 60일 정리로 비운 줄은 `[]`."""
     return {
         "id": sid, "task": task, "status": "submitted", "reject_reason": None, "reward_hearts": 40,
         "created_at": created_at, "reviewed_at": None,
-        "storage_path": f"{profile_id}/{sid}.jpg" if path == "default" else path,
+        "storage_paths": [f"{profile_id}/{sid}-1.jpg"] if paths == "default" else paths,
         "profiles": {"id": profile_id, "nickname": "하늘", "universities": {"name": "테스트대학교"}},
     }
 

@@ -42,17 +42,20 @@ def _storage(caller: AdminCaller) -> HeartProofStorage:
     return HeartProofStorage(caller.settings.storage_url, caller.settings.supabase_service_role_key, caller.client)
 
 
-async def _photo_url(storage: HeartProofStorage, row: dict) -> str | None:
-    """60일 정리로 경로가 비었거나 Storage 가 서명을 못 하면 None — 500 이 아니라 "사진 없음" 이다."""
-    if not row["storage_path"]:
-        return None
+async def _signed_url(storage: HeartProofStorage, submission_id: str, path: str) -> str | None:
+    """Storage 가 서명을 못 하면 그 한 장만 None — 500 이 아니라 "사진 없음" 이다."""
     try:
-        return await storage.create_signed_url(row["storage_path"], PHOTO_URL_TTL_SECONDS)
+        return await storage.create_signed_url(path, PHOTO_URL_TTL_SECONDS)
     # 200 인데 signedURL 이 없거나(KeyError) 본문이 JSON 이 아닌(ValueError) 답도 그 사진만 없는 것으로 본다.
     except (httpx.HTTPError, KeyError, ValueError):
         # 경로는 남기지 않는다(번호만).
-        logger.warning("인증샷 서명 URL 실패 submission=%s", row["id"])
+        logger.warning("인증샷 서명 URL 실패 submission=%s", submission_id)
         return None
+
+
+async def _photo_urls(storage: HeartProofStorage, row: dict) -> list[str | None]:
+    """한 제출의 사진 1~3장을 순서대로 서명한다. 60일 정리로 경로가 비었으면 `[]`, 서명에 실패한 장은 None(장수는 유지)."""
+    return list(await asyncio.gather(*(_signed_url(storage, row["id"], path) for path in row["storage_paths"])))
 
 
 def _summary(row: dict) -> dict:
@@ -66,15 +69,18 @@ def _summary(row: dict) -> dict:
 
 
 async def _item(repo: AdminRepository, storage: HeartProofStorage, row: dict) -> dict:
-    """한 건 · 승인 · 반려 응답. 요약 + 5분 서명 사진 + 같은 사람 · 같은 항목의 지난 제출(최대 5)."""
+    """한 건 · 승인 · 반려 응답. 요약 + 5분 서명 사진(1~3장) + 같은 사람 · 같은 항목의 지난 제출(최대 5).
+    `photo_urls` 가 새 칸이고 `photo_url`(= 첫 장)은 옛 칸이다 — 관리자 웹이 서버보다 먼저 · 늦게 나가도 읽히게 둘 다 싣는다."""
     previous = await repo.fetch_previous_heart_submissions(row["profiles"]["id"], row["task"], row["id"])
-    photo, *previous_photos = await asyncio.gather(*(_photo_url(storage, r) for r in (row, *previous)))
+    photos, *previous_photos = await asyncio.gather(*(_photo_urls(storage, r) for r in (row, *previous)))
     return {
         **_summary(row),
-        "photo_url": photo,
+        "photo_url": photos[0] if photos else None,
+        "photo_urls": photos,
         "previous": [
-            {"id": p["id"], "status": p["status"], "created_at": p["created_at"], "photo_url": url}
-            for p, url in zip(previous, previous_photos)
+            {"id": p["id"], "status": p["status"], "created_at": p["created_at"],
+             "photo_url": urls[0] if urls else None, "photo_urls": urls}
+            for p, urls in zip(previous, previous_photos)
         ],
     }
 
