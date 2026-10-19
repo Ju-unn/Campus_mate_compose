@@ -233,6 +233,14 @@ class AdminApi {
     });
   }
 
+  /// 환불이 잦은 계정, 환불 건수 많은 순(서버 기본 100개)
+  Future<List<ReturnedAccountRow>> billingReturnedAccounts() {
+    return _read(send('GET', '/admin/billing/frequent-returns'), (body) {
+      if (body case {'items': final List<Object?> items}) return [for (final row in items) ReturnedAccountRow.fromJson(row)];
+      throw const FormatException('환불이 잦은 계정 목록의 모양이 아니에요');
+    });
+  }
+
   // 홈(A2) · 미등록 학교 메일(A6) · 매칭(A9) · 작업 기록(A7) — 읽기만. 서버 계약은 D4 계획서 표 · D3 action_log.py 그대로.
 
   Future<HomeStats> homeStats() => _read(send('GET', '/admin/stats'), HomeStats.fromJson);

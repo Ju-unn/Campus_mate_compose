@@ -23,7 +23,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// A8 결제 조회(pen w674C · 1200 높이 시안, 내용이 길어 세로로 스크롤). 읽기 전용 — 여기서 하트를 주지 않는다.
 /// 내용 32 안쪽, 세로 20: 윗줄(KC7VW, 사이 24 — 이번 달 매출 카드 280 + 주문 · 거래 번호 검색 카드) → 최근 30일 매출 그래프 카드(feZAY) →
-/// (조회한 뒤에만) 주문 결과 카드(KF9lR) → "환불됐는데 하트를 다 못 거둔 목록" 제목 · 표(AxOrD) · 안내.
+/// (조회한 뒤에만) 주문 결과 카드(KF9lR) → "환불됐는데 하트를 다 못 거둔 목록" 제목 · 표(AxOrD) · 안내 → "환불이 잦은 계정" 제목 · 표(pen 없음).
 /// 주문 번호는 입력 칸에만 있다 — 조회 뒤에도 칸은 그대로지만(대장 결정 8) 주소 · 라우터 · provider 에는 남기지 않는다.
 class BillingScreen extends ConsumerStatefulWidget {
   const BillingScreen({super.key});
@@ -85,6 +85,7 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
       if (data != null) ...[
         if (orders != null) _OrderResult(orders: orders),
         ..._shortfall(data.shortfall),
+        ..._returned(data.returned),
       ] else if (orders != null)
         _OrderResult(orders: orders),
     ];
@@ -134,6 +135,40 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
         ),
         Text('이미 써서 다 거두지 못한 구매예요. 손으로 줄지 판단할 때 참고해요.', style: AdminTypography.xs.copyWith(height: AdminTypography.xsBox, color: AdminColors.muted)),
       ],
+    ];
+  }
+
+  /// 환불이 잦은 계정: 제목 → (표 | "환불한 계정이 없어요"). pen 시안이 없어 못 거둔 표와 같은 모양이다. 순서는 서버(환불 건수 많은 순).
+  List<Widget> _returned(List<ReturnedAccountRow> rows) {
+    return [
+      Semantics(
+        header: true,
+        child: Text('환불이 잦은 계정', style: AdminTypography.md.copyWith(fontWeight: FontWeight.w700, height: AdminTypography.mdBox, color: AdminColors.ink)),
+      ),
+      if (rows.isEmpty)
+        Text('환불한 계정이 없어요', style: AdminTypography.sm.copyWith(height: AdminTypography.smBox, color: AdminColors.muted))
+      else
+        AdminTable(
+          key: const ValueKey('returned-table'),
+          columns: const [170, 110, 150, 110, 90, 90, 130],
+          fillLast: true,
+          heads: const ['닉네임', '환불 건수', '환불 금액', '지급 하트', '회수', '못 거둠', '마지막 환불'],
+          rows: [
+            for (final row in rows)
+              AdminTableRow(
+                rowKey: ValueKey('returned-row-${row.profileId}'),
+                cells: [
+                  AdminCellText(row.nickname ?? missingValue),
+                  AdminCellText('${row.refundCount}'),
+                  AdminCellText(formatWon(row.refundedKrw)),
+                  AdminCellText('${row.grantedHearts}'),
+                  AdminCellText('${row.clawedBackHearts}'),
+                  AdminCellText('${row.shortfallHearts}'),
+                  AdminCellText(formatSubmittedAt(row.lastRefundedAt)),
+                ],
+              ),
+          ],
+        ),
     ];
   }
 }

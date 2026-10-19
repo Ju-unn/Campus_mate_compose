@@ -174,3 +174,52 @@ class ShortfallRow {
     throw const FormatException('못 거둔 하트 한 줄의 모양이 아니에요');
   }
 }
+
+/// 환불이 잦은 계정 한 줄(서버 `/admin/billing/frequent-returns`, DB 함수 admin_billing_returned_accounts — 시험 결제 · 지워진 계정 제외)
+class ReturnedAccountRow {
+  const ReturnedAccountRow({
+    required this.profileId,
+    required this.nickname,
+    required this.refundCount,
+    required this.refundedKrw,
+    required this.grantedHearts,
+    required this.clawedBackHearts,
+    required this.shortfallHearts,
+    required this.lastRefundedAt,
+  });
+
+  final String profileId;
+  final String? nickname;
+  final int refundCount;
+  final int refundedKrw;
+  final int grantedHearts;
+  final int clawedBackHearts;
+  final int shortfallHearts;
+  final DateTime lastRefundedAt;
+
+  static ReturnedAccountRow fromJson(Object? json) {
+    if (json case {
+      'profile_id': final String id,
+      'refund_count': final int count,
+      'refunded_krw': final int krw,
+      'granted_hearts': final int granted,
+      'clawed_back_hearts': final int clawed,
+      'shortfall_hearts': final int shortfall,
+    }) {
+      final nickname = json['nickname'];
+      if (nickname is String?) {
+        return ReturnedAccountRow(
+          profileId: id,
+          nickname: nickname,
+          refundCount: count,
+          refundedKrw: krw,
+          grantedHearts: granted,
+          clawedBackHearts: clawed,
+          shortfallHearts: shortfall,
+          lastRefundedAt: _time(json['last_refunded_at']),
+        );
+      }
+    }
+    throw const FormatException('환불이 잦은 계정 한 줄의 모양이 아니에요');
+  }
+}
