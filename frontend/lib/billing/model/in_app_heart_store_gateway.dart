@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:campus_mate/billing/model/heart_price_diag.dart'; // 임시 진단
 import 'package:campus_mate/billing/model/heart_store_gateway.dart';
 import 'package:campus_mate/billing/model/store_purchase.dart';
 import 'package:flutter/foundation.dart';
@@ -37,6 +38,7 @@ mixin _StoreCatalog implements HeartStoreGateway {
   @override
   Future<Map<String, StorePrice>> loadPrices(Set<String> productIds) async {
     final response = await _iap.queryProductDetails(productIds);
+    unawaited(recordHeartPriceDiag(_iap, productIds, response)); // 임시 진단
     for (final details in response.productDetails) {
       _details[details.id] = details;
     }
