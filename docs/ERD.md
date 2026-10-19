@@ -11,6 +11,7 @@
 > **2026-10-14 밤 갱신(FAQ 문구).** 저장소 `supabase/migrations/` 가 **72개**다(main `ed644ad5` 기준). 새 파일 `20261014120000_faq_avatar_regen_cost_20` 은 **스키마를 바꾸지 않는다** — `faq` 답변 두 곳("하트는 어디에 쓰나요?" · "아바타를 다시 만들 수 있나요?")의 아바타 다시 만들기 값 숫자만 10 → 20 으로 바꾸는 데이터 갱신이다(`replace` 라 두 번 돌려도 같다, 5회 실패 보상 10하트 구절은 그대로). 운영 마이그레이션도 **72개**이고 마지막은 `faq_avatar_regen_cost_20`(원격 버전 `20261014080438` — 파일 이름 타임스탬프와 다른 것은 `docs/SUPABASE.md` §4 관례대로 정상)이다(대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다). 반영 위치: §6 `grant_hearts` 줄. `purchases.store = app_store` 규칙은 위 10-14 줄 · §6 에 이미 있어 다시 적지 않았다.
 > **2026-10-15 갱신(커뮤니티 탭 · 문의 메일).** 저장소 `supabase/migrations/` 가 **74개**다(main `854d29b7` 기준). 73번째 `20261014130000_faq_support_email`(PR #533)은 스키마를 바꾸지 않는다 — `faq` 답변의 옛 문의 메일을 새 주소로 바꾸는 `update ... replace` 다. **운영 마이그레이션은 73개이고 마지막은 `faq_support_email`** 이다(대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다). **74번째 `20261015120000_poll_feed_tabs`(PR #540)는 저장소에만 있고 운영 미적용**이다 — 함수 `poll_feed` 를 지우고 `p_tab` 칸을 더해 다시 만든다(표 · 인덱스 · 데이터 변경 없음, §7). 반영 위치: §7 `poll_feed`.
 > **2026-10-17 갱신(무료 하트 조정 · 가입 확정 위치).** 저장소 `supabase/migrations/` 가 **76개**다(main `fccc5e2d` 기준). 새 두 파일은 **표 · 열을 바꾸지 않는다**: `20261016144525_poll_vote_reward_5_cap_15`(함수 `poll_vote_reward_due` · `cast_poll_vote` 안 숫자만 하루 첫 투표 10 → **5**, 주 상한 30 → **15** — `create or replace`, 이름 · 인자 · 반환형 · 권한 그대로) · `20261016144530_faq_free_heart_amounts`(`faq` 답 한 줄의 무료 하트 숫자 · "학교 단톡방" → "단톡방" `update … replace`, PR #570 · #573). **운영**: 10-15 줄의 `poll_feed_tabs` 는 2026-10-15 밤 운영에 적용돼 운영 74개가 됐고(`backend/DEPLOY.md` §5), 새 두 파일도 2026-10-16 운영에 적용돼 **운영 76개 = 저장소 76개**다(대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다). 스키마 변경 없이 바뀐 것: 서버가 `profiles.status` 를 `pending` → `active` 로 바꾸는 자리가 하나 늘었다(§3 `profiles` 2026-10-17, 서버 PR #574 — 2026-10-17 배포, 리비전 `00083-pwx`). 반영 위치: §3 `profiles` · §6 하트 · §7 `poll_vote_reward_due` · §8 열거형 `profile_status`.
+> **2026-10-19 갱신(관리자 웹 · 졸업생 인증 · 인증샷 여러 장 · 저녁 알림 — 10-17 줄 이후 17개를 한꺼번에 적는다).** 저장소 `supabase/migrations/` 가 **93개**이고 운영도 **93개**다(main `fc430713`, 대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다. 10-18 밤 11개로 89개, 10-19 네 파일로 93개. 원격 버전은 적용 시각이라 파일 이름과 다르다 — 10-19 의 네 개는 `20261019055736` · `055756` · `055818` · `055824`, `docs/SUPABASE.md` §4). 76번째 뒤 17개: **새 표 4개** — `unknown_email_domain_attempts`(`20261017120000`) · `admin_users`(`20261018002858`) · `admin_actions`(`20261018002902`) · **`graduate_verification_requests`**(`20261019200000`, 졸업생 인증) + 버킷 `graduate-cert-temp`. **칸 변경** — `profiles.verification_method` · `graduate_verified_at`(`20261019200000`), `heart_task_submissions.storage_path` → **`storage_paths text[]`**(`20261019100000`), `notification_settings.quiet_hours` 기본값 `false`(`20261019210000`). **함수·제약만** — `20261018002907`(`list_unverified_accounts` 에 관리자 제외) · `20261018011200`/`030000`/`035204`/`120000`/`140000`/`150000`(관리자 조치 · 통계 함수, 전부 읽기 또는 `admin_actions` 한 줄과 한 트랜잭션) · `20261018100000`(`profile_avatars_one_fallback` 유일 인덱스 — 기본 아바타 보상 하트가 두 번 나가는 경쟁 차단) · `20261018130100`(`notifications.kind` check 에 `heart_task_approved` · `heart_task_rejected`) · `20261019200100`(졸업생 승인 · 반려 함수 + `list_unverified_accounts` 교체) · `20261017130000`(FAQ 5문항 문구, 데이터만). 반영 위치: §1 조감도 · §2 접근 표 · §3 `profiles` · `graduate_verification_requests` · §4 `notification_settings` · §6 `heart_task_submissions` · §7 관리자 표 · §9 버킷 `graduate-cert-temp`. 결정 배경은 `docs/decisions/2026-10-19-graduate-verification-decision.md` 와 `ERD_DECISIONS.md` §11-31 ~ 33.
 
 ## 읽는 법
 
@@ -33,6 +34,8 @@ erDiagram
     profiles ||--o| school_email_claims : "학교 메일 1개 · 인증 전이면 없음"
     universities ||--o{ school_email_claims : "학교 · restrict"
     profiles ||--o{ student_verification_attempts : "학생증 제출"
+    profiles ||--o{ graduate_verification_requests : "졸업생 인증 신청"
+    universities |o--o{ graduate_verification_requests : "승인 때 정한 학교"
     profiles ||--o{ profile_photos : "실사진"
     profiles ||--o{ profile_avatars : "아바타"
     profiles ||--o{ survey_answers : "설문 원본"
@@ -64,7 +67,7 @@ erDiagram
     polls ||--o{ poll_votes : "투표"
 ```
 
-관계가 없는 독립 테이블: `signup_blocks`(탈퇴 후 재가입 제한), `faq`(자주 묻는 질문, 2026-09-29 적용).
+관계가 없는 독립 테이블: `signup_blocks`(탈퇴 후 재가입 제한), `faq`(자주 묻는 질문, 2026-09-29 적용), `unknown_email_domain_attempts`(화이트리스트에 없어 거절된 학교 메일 도메인과 횟수, 2026-10-17), `admin_users`(관리자 명단 — `auth.users` 를 가리키지만 `profiles` 와는 이어지지 않는다) · `admin_actions`(관리자 작업 기록 — FK 없음)(둘 다 2026-10-18, §7).
 
 ## 2. 접근 경로와 RLS
 
@@ -107,6 +110,10 @@ erDiagram
 | `polls` · `poll_votes` | 없음 | FastAPI 전용 — `author_id` 를 열면 익명이 깨지고(DESIGN §8.11), `poll_votes` 는 본인 행만 열면 집계가 안 되고 다 열면 누가 뭘 골랐는지 보인다 |
 | `faq` | `authenticated` 전체 | 2026-09-29 적용. 앱이 supabase-flutter 로 바로 읽는다(공개 참조 표 — ERD_DECISIONS 8 의 예외). `authenticated` = `select` 만, `anon` 없음, `service_role` = 네 권한(문구는 대시보드에서 고친다). 첫 문구 36행은 마이그레이션 안 insert(묶음별 7 · 5 · 6 · 4 · 6 · 8) |
 | `signup_blocks` · `promo_codes` · `promo_redemptions` | 없음 | 서버 전용 |
+| `graduate_verification_requests` | 없음 | FastAPI 전용(2026-10-19 운영 적용). RLS 켬 · 정책 0 — 본인 신청도 못 읽는다(상태는 `GET /me/verification-status` 의 `graduate` 칸으로 서버가 내려준다). `service_role` 만 네 권한 |
+| `admin_users` | 없음 | FastAPI 전용(2026-10-18 운영 적용). **`service_role` 은 `select` 만** — 서버 버그가 나도 스스로를 관리자로 넣거나 명단을 지우지 못한다(`20261018035204`). 등록은 사용자 승인 뒤 대장이 SQL 한 줄로 한다 |
+| `admin_actions` | 없음 | FastAPI 전용(2026-10-18 운영 적용). **`service_role` 도 `select` · `insert` 만** — 기록은 고치거나 지우지 못한다(위 "전 테이블" 규칙의 두 번째 예외). 보관 2년 |
+| `unknown_email_domain_attempts` | 없음 | FastAPI 전용(2026-10-17 운영 적용). RLS 켬 · 정책 0, `service_role` 만 네 권한 |
 | `school_email_claims` | 없음 | FastAPI 전용(2026-10-09 운영 적용). RLS 켬 · 정책 0 — 본인 행도 못 읽는다(`signup_blocks` 와 같다). `service_role` 만 네 권한. 인증 여부는 FastAPI 가 내려준다(§3) |
 | `realtime.messages`(Supabase 내장 — 우리 테이블이 아니다) | `authenticated` 본인 토픽의 broadcast 만 | **2026-10-14 운영 적용(`20261013152736`, PR #512) — 채팅 실시간 사용자 채널 입장 권한.** 정책 하나 `user_channel_read_own`: `for select to authenticated using (realtime.messages.extension = 'broadcast' and (select realtime.topic()) = 'user:' \|\| (select auth.uid())::text)` — 앱은 비공개(private) 채널 `user:<내 profile_id>` 에만 들어온다(남의 토픽 · presence · `anon` 은 입장 때 거부). **보내기(insert) 정책은 두지 않는다** — 쏘는 쪽은 FastAPI 의 `service_role` REST Broadcast 뿐이라(RLS 를 거치지 않는다) 앱이 남의 채널로 가짜 이벤트를 쏠 수 없다. 테이블 조회가 없어 입장이 가볍다. 테이블 · publication · grant · `security definer` 변경 없음. 정책은 입장 때 한 번 계산돼 연결 동안 캐시되므로 나간 · 차단한 사람에게 안 쏘는 것은 서버 규칙(`left_at is null` 인 사람에게만)이 맡는다. 방 채널 `messages:<match_id>`(`postgres_changes`, public 채널)는 이 정책과 무관하다. 이벤트 계약은 `backend/DEPLOY.md` §4-8 |
 
@@ -136,6 +143,8 @@ erDiagram
     profiles ||--o| school_email_claims : "학교 메일 인증 1회"
     universities ||--o{ school_email_claims : "on delete restrict"
     profiles ||--o{ student_verification_attempts : "학생증 제출 한 번에 한 행"
+    profiles ||--o{ graduate_verification_requests : "졸업생 인증 신청 · 사람당 최대 3회 · 대기 1건"
+    universities |o--o{ graduate_verification_requests : "승인 때 관리자가 정한 학교 · restrict"
     profiles ||--o{ user_consents : "항목 × 판마다 한 행"
     profiles ||--o{ profile_photos : "실사진 2~4장"
     profiles ||--o{ profile_avatars : "생성 이력"
@@ -208,7 +217,29 @@ erDiagram
         timestamptz withdrawn_at "조각6 적용 · 탈퇴 요청 시각 · 30일 뒤 계정 삭제 · status=withdrawn 과 짝(check)"
         timestamptz auto_hidden_at "조각6 적용 · 서로 다른 3명 신고로 자동 가림된 시각 · 카드 · 새 매칭 제외"
         text referral_code UK "추천 2026-09-28 적용 · 대문자 숫자 6자(0 O 1 I 제외) · DB 기본값으로 발급 · not null"
-        timestamptz school_email_verified_at "2026-10-09 적용 · 학교 메일 인증 시각 · null=인증 전(14일 뒤 정리 배치) · auth.users.email_confirmed_at 과 다름"
+        timestamptz school_email_verified_at "2026-10-09 적용 · 학교 메일 인증 시각 · null=인증 전(14일 뒤 정리 배치) · auth.users.email_confirmed_at 과 다름 · 2026-10-19 졸업생 승인도 이 칸을 채운다"
+        text verification_method "2026-10-19 적용 · school_email graduate_certificate(check) · null=아직 안 고름=학교 메일로 간주(옛 앱 호환) · PUT /me/verification-method 가 쓴다 · 인증 뒤 변경 금지"
+        timestamptz graduate_verified_at "2026-10-19 적용 · 졸업생 인증으로 통과한 시각 · 내부 칸(다른 사람에게 안 보임) · check: 있으면 school_email_verified_at 도 있어야 함"
+    }
+
+    graduate_verification_requests {
+        uuid id PK "2026-10-19 적용 · 졸업생 인증(졸업증명서)"
+        uuid profile_id FK "not null · on delete cascade · 프로필당 대기(pending) 1건만(부분 unique)"
+        text status "pending approved rejected cancelled(check) · 기본 pending"
+        text reason "rejected: unreadable not_certificate unverifiable school_unsupported / cancelled: switched expired verified_otherwise account_withdrawn · 그 밖엔 null(상태쌍 check)"
+        text photo_path "graduate-cert-temp 비공개 버킷 경로 · 대기 중 not null · 결정 즉시 서버가 파일 삭제 후 null(못 지우면 매시 배치)"
+        text ocr_state "not null · read nothing_found failed(check) · 글자 인식 결과는 관리자 입력 미리 채우기 전용(자동 승인 안 씀)"
+        text ocr_document_number "평문 · 대기 중에만 · 결정되면 DB check 가 거부"
+        text ocr_school_text "평문 · 대기 중에만 · OCR 원문이 아니라 학교 이름 목록에 맞은 이름만"
+        text previous_school_email "평문 · 선택 입력 · 대기 중에만(≤254자) · claims/blocks 에는 쓰지 않는다"
+        bytea document_hmac "문서확인번호 HMAC(graduate-document 접두사) · 승인 때 관리자가 확인한 번호의 해시 · 승인된 행끼리 유일"
+        bytea student_hmac "학번 HMAC(graduate-student 접두사 + 학교 id) · 승인 때 관리자가 입력했을 때만 · 승인된 행끼리 유일 · 탈퇴 재가입 제한에 사용"
+        smallint key_version "not null · 기본 1 · identity_hmac_key 버전"
+        uuid university_id FK "승인 때 관리자가 정한 학교 · on delete restrict"
+        timestamptz consented_at "not null · 기본 now() · 신청 화면 동의 줄(D11)"
+        uuid decided_by "관리자 auth id · FK 없음(admin_actions 와 같음)"
+        timestamptz decided_at "승인 반려 취소 시각"
+        timestamptz created_at "not null"
     }
 
     school_email_claims {
@@ -299,10 +330,17 @@ erDiagram
 - **실명 · 카카오톡 아이디 암호화(2026-10-11, M1 `20261011010000` 운영 적용 · PR #464 · #467)** — 전화번호와 같은 `pgp_sym_encrypt` · 같은 키(`PHONE_ENCRYPTION_KEY`, FastAPI Secret Manager 전용)로 `real_name_enc` · `kakao_id_enc`(`bytea`)에 둔다. 함수 4개 `set_real_name` · `set_kakao_id` · `decrypt_profile_private` · `backfill_profile_private_encryption`(임시) — 전부 security invoker, `service_role` 만 실행, 키는 RPC JSON 바디로만(세부 `docs/SUPABASE.md` §8). 지금은 **이중 쓰기 기간**이라 서버가 평문 · 암호문 둘 다 쓰고, 값을 내려줄 때는 복호화 값을 먼저 쓰고 비면 평문으로 폴백한다(온보딩 진행 판단만 평문 먼저, `docs/SUPABASE.md` §8). 옛 행은 백필로 채웠다(2026-10-12, 2행 · 불일치 0). **M2(평문 `real_name` · `kakao_id` 열과 백필 함수 삭제)는 아직** — 하네스 · 서버의 평문 사용을 뺀 뒤 사용자 승인으로 적용한다(`backend/DEPLOY.md` §4-4)
 - **M2 운영 적용(2026-10-12, `20261012010000` · 운영 기록 버전 `20261012070722` · 파일은 PR #476 merge 대기, ERD_DECISIONS §11-30)** — 위 줄의 "이중 쓰기 기간" · "M2 는 아직" 은 이날로 끝났다. 평문 열 `text real_name`(조각 1) · `text kakao_id`(조각 2)를 지워 위 그림에서도 뺐고, 그 설명(3b 입력 · 학생증 이름 대조 · 본인만 16e 조회 / 04-1b 필수 입력 · 신뢰 확인 통과 뒤 상대에게만 · 주인이 `withdrawn` 이면 주지 않음)은 암호문 열 줄로 옮겼다. 함수는 `set_real_name` · `set_kakao_id` · `decrypt_profile_private` 셋만 남았다. 서버(리비전 `00063`, PR #474)는 복호화로만 읽고 실패를 오류로 올린다(`docs/SUPABASE.md` §8). `authenticated` 의 `select (real_name)` 컬럼 grant 는 열과 함께 사라졌다. 되돌릴 수 없다 — 롤백 마이그레이션 · 사용자 백업 없음(`backend/DEPLOY.md` §4-4)
 - `student_verification` 은 boolean이 아니라 상태값(`none` `pending` `verified` `rejected`, 2026-09-14 확정)이다. 3b의 "조금 더 확인이 필요해요" 대기 상태를 담아야 하기 때문이다
-- `student_verification_attempts` 는 학생증 제출 한 번에 한 행이다(§12-4, 2026-09-14 사용자 결정). 재시도 횟수(설계 미결3)는 이 테이블의 행 수로 FastAPI 가 세고, 반려 사유(`reject_reason`)는 본인에게 FastAPI 응답으로 내려준다. `result` 는 제출 직후 `pending` 이고 `none` 일 수 없다(check). 클라이언트 권한은 없다(§2). **`verified` 확정 후 재제출은 FastAPI 가 막는다(409, 2026-09-20 결정)** — `rejected` 는 계속 재제출 가능. **검토 대기 상한 30일(2026-10-11 사용자 결정, PR #463)** — `submitted_at` 이 30일 지났는데 `result = pending` 인 행은 매시 `chat-gate` 배치가 `rejected` · `reject_reason` "검토 기한이 지나 사진을 삭제했어요. 학생증을 다시 올려 주세요" · `reviewed_at` 으로 닫고, 그 행이 그 사람의 최근 제출이면 `profiles.student_verification` 을 (`pending` 일 때만) `rejected` 로 바꾼다. 검토 결과 훅은 이 사유 문구로 "기한 만료" 알림을 고른다(`app/student_verification/retention.py` · `review_hook.py`). 스키마 변경은 없다
+- `student_verification_attempts` 는 학생증 제출 한 번에 한 행이다(§12-4, 2026-09-14 사용자 결정). 재시도 횟수(설계 미결3)는 이 테이블의 행 수로 FastAPI 가 세고, 반려 사유(`reject_reason`)는 본인에게 FastAPI 응답으로 내려준다. `result` 는 제출 직후 `pending` 이고 `none` 일 수 없다(check). 클라이언트 권한은 없다(§2). **`verified` 확정 후 재제출은 FastAPI 가 막는다(409, 2026-09-20 결정)** — `rejected` 는 계속 재제출 가능. **검토 대기 상한 30일(2026-10-11 사용자 결정, PR #463)** — `submitted_at` 이 30일 지났는데 `result = pending` 인 행은 매시 `chat-gate` 배치가 `rejected` · `reject_reason` "검토 기한이 지나 사진을 삭제했어요. 학생증을 다시 올려 주세요" · `reviewed_at` 으로 닫고, 그 행이 그 사람의 최근 제출이면 `profiles.student_verification` 을 (`pending` 일 때만) `rejected` 로 바꾼다. 검토 결과 훅은 이 사유 문구로 "기한 만료" 알림을 고른다(`app/student_verification/retention.py` · `review_hook.py`). 스키마 변경은 없다. **2026-10-17 사용자 결정으로 학생증 · 졸업증명서 사진 인증 단계를 없앴다(서버 PR #582 · 앱 PR #583 — 위 문장들은 기록으로 남긴다): 이 표 · `profiles.student_verification` · `profile_private.real_name_enc`(더는 받지 않음) · 버킷 `student-id-temp` 는 데이터만 남기고 흐름만 껐으며 정리는 출시 후다(출시후_할일 1-1). `GET /me/verification-status` 의 `status` 는 옛 앱 호환으로 늘 `verified` 를 내려준다.** 같은 해 10-19 에 **졸업생 길만** 새 표 `graduate_verification_requests` 로 되살렸다(아래, 옛 표를 재사용하지 않았다)
 - **`profiles.department` 컬럼은 만들지 않는다(2026-09-20 결정)** — 학과는 기존 `major` 컬럼을 재사용하고, FastAPI 응답에서만 `department` 로 별칭한다. 학번은 `student_number` 컬럼을 새로 추가했다(설계 §7.3, 마이그레이션 `20260919181319`)
 - **`profiles.bio_draft` · `bio_draft_generated_at`**: AI 자기소개 초안은 최초 1회만 생성한다. `bio_draft_generated_at` 이 이미 있으면 재호출 시 재생성하지 않고 저장된 `bio_draft` 값을 그대로 반환한다(설계 §13-71)
 - **`profiles.ideal_note`**: 빈 문자열이면 "미입력"으로 취급한다. 매칭 임베딩("원해" 문장, 설계 §6.3) 계산에서는 빈 문자열을 "없음"으로 처리한다
+- **`graduate_verification_requests`(2026-10-19 운영 적용, `20261019200000` · `20261019200100`, PR #615, 결정 배경 `docs/decisions/2026-10-19-graduate-verification-decision.md`)** — 학교 메일이 없는 졸업생이 졸업증명서 사진으로 인증받는 길의 신청 기록이다. 승인되면 **학교 메일 인증과 같은 두 칸**(`profiles.university_id` · `school_email_verified_at`)을 채워 학과 입력 · 온보딩 · 매칭이 코드 변경 없이 두 길을 같게 다룬다(`graduate_verified_at` · `verification_method` 는 내부 칸). **사진과 평문(`ocr_document_number` · `ocr_school_text` · `previous_school_email`)은 결정(승인 · 반려 · 취소 · 만료)을 한 순간 지운다** — 남는 것은 학교 · 결정 · 시각 · 해시뿐이고 이름 · 생년월일 · 학번 평문은 어디에도 저장하지 않는다. 이를 DB 가 지킨다:
+  - check `graduate_requests_state_pairs`(상태별로 있어야 할 것 · 없어야 할 것 — pending 은 `photo_path` 필수 · 결정 칸 비어 있음, approved 는 `university_id` · `document_hmac` · `decided_*` 필수, rejected 는 사유 4개 중 하나, cancelled 는 취소 이유 4개 중 하나 + `decided_by` 없음) · `graduate_requests_no_plaintext_after_decision`(**결정된 줄에 평문 세 칸이 있으면 거부**) · `graduate_requests_student_hmac_only_approved` · `ocr_state` 3값 · `previous_school_email` ≤ 254자
+  - 유일 인덱스: 프로필당 대기 1건 `graduate_requests_one_pending_key` · **승인된 줄끼리 같은 `document_hmac`**(같은 증명서를 두 계정에) · **같은 `student_hmac`**(같은 사람이 두 계정에)을 막는다. 반려 · 취소된 줄은 해시가 겹쳐도 된다. 보조 인덱스 3개(대기 오래된 순 · 프로필별 최근 순 · `university_id`).
+  - 해시는 `identity_hmac_key` 로 만들되 입력 앞에 이름공간 접두사(`graduate-document` · `graduate-student` + 학교 id)를 붙여 학교 메일 해시와 겹치지 않는다. 학번 해시는 탈퇴 때 `signup_blocks` 에 같은 자리로 넘어가 재가입 제한(2개월 · 정지 중 탈퇴는 무기한)에 쓰인다. 학번은 공간이 작아 키가 새면 역산될 수 있다(전화번호 해시와 같은 위험).
+  - 함수 `admin_review_graduate_request(p_admin, p_request, p_status, p_reason, p_university, p_document_hmac, p_student_hmac, p_key_version, p_ip) → jsonb`: 관리자 확인 → 신청 줄 잠금 → 프로필 잠금 → (승인) 학번 해시 재가입 제한 확인 → 신청 줄 갱신(평문 비움) → 프로필 두 칸 + 졸업생 칸 → `admin_actions` 한 줄(해시 · 번호 없음)을 **한 트랜잭션**에. 오류: 22023 규칙 위반 · 42501 관리자 아님 · CM404 없음 · CM409(`already_reviewed` · `already_verified` · `account_withdrawn` · `document_reused` · `student_reused` · `rejoin_blocked`). `list_unverified_accounts` 도 교체해 **대기 신청이 있거나 14일 안에 결정된 신청이 있는 프로필을 14일 정리 후보에서 뺀다**(관리자 제외는 그대로). 모두 `security invoker` · `service_role` 만 실행.
+  - 시도 횟수는 사람당 3회(서버 상수, 만료로 닫힌 것은 세지 않는다), 대기 상한 14일(서버 매시 배치가 `cancelled(expired)` 로 닫는다). 클라이언트는 이 표를 읽지 못한다(§2).
+- **`admin_users` · `admin_actions` · `unknown_email_domain_attempts`(2026-10-17 ~ 18 운영 적용)** — 관리자 웹용 두 표와 가입 거절 도메인 표의 설명은 §7.
 - `profile_photos` 장수 2~4장: 상한은 `position` 범위로, 하한은 FastAPI 온보딩 완료 검사로 막는다
 - `profile_photos` 는 `unique (profile_id, position) deferrable initially deferred` — 순서를 맞바꿀 때 중간 충돌을 피한다. `storage_path` 는 unique — 두 행이 같은 파일을 가리키면 한 행을 지울 때 남은 행의 사진도 사라진다
 - `profile_photos.is_avatar_source` 는 부분 유니크 인덱스 `(profile_id) where is_avatar_source` 로 1장만 허용
@@ -420,7 +458,7 @@ erDiagram
         boolean new_friend_review
         boolean marketing "기본 false"
         timestamptz marketing_consented_at "제안 · 수신 동의 시각"
-        boolean quiet_hours "22시~8시"
+        boolean quiet_hours "22시~8시 · 기본 false(2026-10-19 개정, 종전 true) · 새 가입자는 꺼진 채 시작 · 설정 행이 없던 기존 사용자는 마이그레이션이 true 행으로 채워 켜진 채 유지"
     }
 
     pending_pushes {
@@ -584,7 +622,7 @@ erDiagram
         uuid id PK "2026-09-28 적용 · 18b"
         uuid profile_id FK "cascade"
         heart_task task "everytime_post kakao_share"
-        text storage_path "heart-task-proofs 비공개 · 검수 중이면 필수 · 검수 60일 뒤 null"
+        text[] storage_paths "2026-10-19 개정(종전 text storage_path 한 장) · heart-task-proofs 비공개 · 인증샷 1~3장(순서=보여 줄 순서, check 1~3) · 검수 중이면 필수 · 검수 60일 뒤 빈 배열 {}"
         submission_status status "submitted approved rejected · 승인 반려는 끝 상태"
         integer reward_hearts "제출 때 약속한 하트 · > 0"
         heart_task_reject_reason reject_reason "반려일 때만 · 반려면 필수"
@@ -634,6 +672,7 @@ erDiagram
   - **2026-09-28 적용 기록**: 제약 이름 `friend_reviews_once`(두 번째는 서버 409) · `friend_reviews_not_self` · `friend_reviews_tags_count`(1~3) · `friend_reviews_comment_length`, 인덱스 `(reviewee_id, created_at desc)`, 두 FK 이름 `friend_reviews_reviewer_id_fkey` · `friend_reviews_reviewee_id_fkey`(서버 embed 가 쓴다). **2026-09-29 작성자 삭제**는 DB 변경 없이 서버가 하드 삭제한다 — 신고 기록은 `reports.target_snapshot` 에 남고 `target_id` 는 FK 가 없어 깨지지 않는다. 지우면 unique 가 풀려 다시 쓸 수 있다
 - **`referrals`(2026-09-28 적용)**: RLS 켬 · 정책 0 · `service_role` 만. 두 FK `on delete cascade`, check `referrals_not_self`, 인덱스 `referrals_referrer_id_index`. DB 함수 `redeem_referral(referee, code)` 가 코드 검사 → 행 넣기 → 양쪽 `grant_hearts(50, 'referral', ref_id = referee_id)` 를 한 트랜잭션에 한다. 같은 번호 두 갈래(추천인과 같은 번호 · 이 번호로 이미 보상받음)와 자기 코드는 같은 422 로 막는다 — `phone_hmac` 이 빈 옛 계정은 비교하지 않는다. 정지 · 탈퇴 추천인 코드는 404
 - **`heart_task_submissions`(2026-09-28 적용)**: 부분 unique `heart_task_submissions_one_reviewing (profile_id, task) where status = 'submitted'`(항목마다 검수 중 하나) · 인덱스 `(profile_id, created_at)`. 함수 `heart_task_monthly_limit`(1 · 3) · `heart_task_status`(18a 상태, 한국 시간 달력 월) · `submit_heart_task`(검수 중 `CM409` · 한도 `CM429`). 트리거 `heart_task_submissions_guard`(고정 칸 · 끝 상태 · `reviewed_at` 찍기 · 검수 뒤엔 `storage_path → null` 만) · `heart_task_submissions_grant`(검수 중 → 승인일 때만 `grant_hearts(reward_hearts, 'free_task', id)`). 운영자는 대시보드에서 `status` 를 바꾼다(`backend/DEPLOY.md` §4-5)
+  - **2026-10-19 개정(인증샷 여러 장 · 단톡방 이어서 제출, 마이그레이션 `20261019100000`, PR #613, 운영 적용) — 바로 위 문장 중 아래를 고친다.** ① `storage_path text` 는 **`storage_paths text[] not null default '{}'`** 로 바뀌었다(check `heart_task_submissions_paths_max` 0~3개 · `heart_task_submissions_proof_while_reviewing`: 검수 중이면 1~3개). 옛 줄은 `array[storage_path]` 로 채웠고 옛 칸과 옛 check 는 지웠다. ② 부분 unique `heart_task_submissions_one_reviewing` 을 **지웠다** — 단톡방은 검수 중이어도 월 한도 안이면 이어서 낼 수 있다. ③ `submit_heart_task(p_id, p_profile, p_task, p_paths text[], p_reward, p_now)` 로 인자가 바뀌어 옛 함수를 지우고 새로 만들었다: **사람 · 항목마다 `pg_advisory_xact_lock`** 아래에서 이번 달 `검수 중 + 승인` 이 한도에 찼는지 보고, 찼고 검수 중이 있으면 `CM409`(결과를 기다려 달라), 없으면 `CM429`(이번 달 끝), 경로가 0개 · 4개 이상이면 `22023`. ④ guard 트리거는 검수 중에는 `storage_paths` 를 고정하고 검수가 끝난 뒤에는 `'{}'` 로 비우기만 허용한다(60일 정리). `heart_task_status`(18a 상태) · 월 한도 함수 · 승인 트리거 · `admin_review_heart_task` 는 그대로다. 배포 순서 주의: 옛 서버는 `storage_path` · `p_path` 를 쓰므로 마이그레이션 직후 서버를 바로 배포해야 하고, 서버만 이전 리비전으로 되돌리면 깨진다(`backend/DEPLOY.md` §4-14).
 - **`grant_hearts` 가 음수(하트 쓰기)도 받는다**(2026-09-28 `20260928020000`, 시그니처 그대로) — 아바타 다시 만들기 10하트 차감 등(**2026-10-14 사용자 결정으로 20하트, 종전 10하트** — 금액은 서버 상수 `AVATAR_REGEN_HEARTS` 라 스키마 변경 없음. FAQ 답변 두 곳의 숫자만 `20261014120000_faq_avatar_regen_cost_20` 이 고쳤다)
 - 커뮤니티 투표 하트는 자동 적립(`heart_transactions.reason = poll_vote`), 주간 상한 30하트는 원장 집계로 검사 — **2026-10-16 사용자 확정으로 개정(`20261016144525`, PR #570): 하루 첫 투표 5하트 · 주간 상한 15하트**(원장 합 + 5 ≤ 15). 에브리타임 보상은 서버 상수 40(종전 50)이 제출 행의 `reward_hearts` 로 적힌다(스키마 변경 없음)
 - 추천 어뷰징 "동일 기기 차단"(설계 §2.7)을 판단할 기기 식별값의 저장처가 아직 없다 — 검토6
@@ -677,6 +716,12 @@ erDiagram
 - **`polls` · `poll_votes`(커뮤니티 탭, 2026-09-27 적용 — 조각 8 에서 앞당김, 검토3 개정)**: 두 표 모두 클라이언트 권한 0 · `service_role` 만. `polls` check 넷(질문 1~80자 · 라벨 각 1~6자 · 두 라벨 다름, 모두 앞뒤 공백 없음), 인덱스 `(created_at desc, id desc)`(피드 커서) · `(author_id, created_at)`(하루 10개 셈). `poll_votes` PK `(poll_id, voter_id)`(재투표 불가 → 409), 인덱스 `voter_id`, 두 FK cascade. DB 함수 넷 — `poll_feed`(작성자 id 를 내주지 않는다, 가려진 글 · active 아닌 작성자 글 제외, active 아닌 투표자 표 제외 — **2026-10-15 개정, 아래 "탭 칸"**) · `create_poll`(한국 시간 하루 10개 넘으면 `CM429`) · `poll_vote_reward_due`(하루 첫 투표 · 주 30 상한 판정 — **2026-10-16 개정 `20261016144525`: 주 15 상한 · 하트 5**) · `cast_poll_vote`(없는 글 `CM404`, 사람 단위 잠금으로 하트 10 중복 지급 방지). 차단 관계라도 글을 거르지 않는다(익명)
   - **`poll_feed` 탭 칸(2026-10-15, 마이그레이션 `20261015120000_poll_feed_tabs`, PR #540 — 저장소에만 있고 운영 미적용)**: 시그니처 **`poll_feed(p_viewer uuid, p_poll_id uuid default null, p_before timestamptz default null, p_before_id uuid default null, p_limit integer default 20, p_tab text default 'all')`**. 인자를 늘리면 `create or replace` 가 안 되고 새로 만들기만 하면 같은 이름 함수가 둘이 돼 PostgREST 가 못 고르므로(PGRST203) 옛 5인자 함수를 `drop` 하고 다시 만든다(한 트랜잭션). 반환 칸 · 가림 · 집계는 그대로(`author_id` 없음, `is_mine` 만). `security invoker` · `stable` · `search_path = ''`, 다시 만든 뒤 `public` · `anon` · `authenticated` 실행 권한을 다시 빼고 `service_role` 에만 준다. 탭: `all`(최신순 + `(created_at, id)` 커서 — 상세 · 투표 뒤 다시 읽기도 이것) · `popular`(최근 7일 글 중 active 표 1개 이상, 참여 수 → 최신 → id 순, 서버가 한 쪽 20개만 — 모자라면 그대로) · `mine`(내 글, 최신순 + 커서) · `voted`(내가 표를 둔 글, 글 올린 시각 순 + 커서) · 그 밖 값은 빈 결과(서버가 먼저 422). 옛 서버(`p_tab` 없이 부름)도 기본값 `all` 로 돌아 **이 마이그레이션을 서버 배포보다 먼저 적용한다**(`backend/DEPLOY.md` §5). 탭 조건은 `case` 한 문장이다 — 글이 수만 개가 되면 탭별 문장으로 나눠 `polls (author_id, created_at)` · `poll_votes (voter_id)` 인덱스를 타게 한다(파일 `ponytail` 주석). 시험은 `supabase/tests/community_polls_test.sql`
 - **`faq`(2026-09-29 적용 — 운영 기록 `20260929054505`, 검토3 개정)**: RLS 켬 · 정책 하나(`authenticated` 전체 읽기), grant `authenticated` = `select`, `anon` 없음, `service_role` = 네 권한. 공개 여부 칸은 없다(처음부터 전부 공개, 사용자 결정). 첫 문구 36행을 **마이그레이션 안에서 insert** 했다 — `seed.sql` 은 로컬 초기화에만 돈다. 이후 문구는 대시보드에서 고치고 이 마이그레이션은 되돌려 고치지 않는다. 인덱스 없음(36행 전체 읽기)
+- **관리자 웹 표(2026-10-18 운영 적용, 설계 바탕화면 `관리자_대시보드_설계_10-18.md`, PR #592 ~ #608) — 모두 RLS 켬 · 정책 0 · 클라이언트 접근 없음, 서버(`get_admin_caller`: 로그인 → 2단계 aal2 → 명단)만 쓴다.**
+  - `admin_users(user_id uuid PK → auth.users on delete cascade, created_at)`: 관리자 명단. **`service_role` 은 `select` 만**(`20261018035204`) — 서버 버그로 스스로를 넣거나 지우지 못한다. 등록은 사용자 승인 뒤 대장이 SQL 한 줄. 관리자 계정은 사용자 기능에서 존재하지 않는 것으로 본다(통계 · 정지 · 하트 조정 · 탈퇴 대행 모두 제외 또는 CM404).
+  - `admin_actions(id, admin_user_id(FK 없음), action(형식 check), target_type, target_id text, before/after jsonb, reason(≤500자), ip inet, created_at)`: 관리자 작업 기록. **`service_role` 도 `select` · `insert` 만** — 고치거나 지울 수 없다. 모든 관리자 쓰기는 같은 요청(같은 DB 함수 트랜잭션) 안에서 한 줄을 남기고 **기록이 실패하면 조치도 실패한다**(기록 없는 조치 금지, 종전 "표 없이 로그" 결정 §11-13 을 사용자가 10-18 에 바꿨다). 전화번호 · 카톡 원문 · 해시 · 문서번호는 `before`/`after` 에 넣지 않는다. 보관 2년. 인덱스 3개(최근 순 · 대상별 · 관리자별). **SQL 창에서 손대지 않는다.**
+  - `unknown_email_domain_attempts(domain PK, attempt_count, first_seen_at, last_seen_at)`(2026-10-17): 화이트리스트에 없어 거절된 학교 메일의 **도메인과 횟수만**(앞부분 · 사용자 id · IP 없음). 5000행이 넘으면 새 도메인은 받지 않는다. 나중에 `university_email_domains` 에 옮길 후보를 보려는 표다.
+  - 관리자 DB 함수(전부 `security invoker` · `service_role` 만 실행 · 조치 함수는 `admin_assert` 로 명단 재확인): `admin_review_heart_task`(인증샷 승인 · 반려) · 신고 조치 `admin_resolve_report` · `admin_suspend_profile` · `admin_unsuspend_profile` · `admin_unhide_profile` · `admin_set_content_status`(`20261018030000`, 같은 대상 함께 닫기 · 가림 해제는 운영자가 본 신고 id 목록 `p_seen` 에 든 것만 닫는다 — `20261018140000`) · 사용자 · 결제 `admin_adjust_hearts` · `admin_close_account`(탈퇴 대행) · 읽기 `admin_billing_daily` · `admin_billing_shortfall`(`20261018120000`) · 읽기 전용 통계 `admin_stats_overview` · `admin_stats_daily` · `admin_unknown_domains` · `admin_universities_status` · `admin_health` · `admin_matching_*`(`20261018150000`, 관리자 계정 제외).
+  - `profile_avatars_one_fallback`(`20261018100000`): 기본 아바타 행은 한 사람에 한 줄(부분 unique) — 5회 실패 보상 하트 10이 두 번 나가는 경쟁을 막는다. `notifications.kind` check 에 `heart_task_approved` · `heart_task_rejected` 가 더해졌다(`20261018130100`, 서버보다 먼저 적용해야 한다).
 - **DB 함수 `home_stats()`**(2026-09-26, `20260926150000`): 서비스 전체 집계 네 값(누적 카드 · active 가입자 · 말풍선이 오간 매칭 · active 학교 이름순)을 한 행으로. `service_role` 만 실행(09b 홈 `/home/summary`)
 
 ## 8. 열거형
@@ -724,6 +769,7 @@ enum 값은 만든 뒤 지울 수 없다(추가·이름 변경만 된다). 그�
 | `profile-photos` | 비공개 | 0 | 실사진 2~4장. 서명 URL은 본인과, 신뢰 확인을 통과한 상대에게만 준다. 사진 주인이 탈퇴(`withdrawn`)하면 남은 상대에게도 주지 않는다(§3). 이미 발급한 서명 URL 은 만료까지 열리므로 실사진 서명 URL 만료는 짧게 둔다(조각 5). **제한: 파일 10MB · `image/jpeg` `image/png`**(2026-09-14 사용자 결정, 조각 0 파일은 두고 조각 1 마이그레이션에서 추가 · 클라우드 적용됨(2026-09-20)) — 클라이언트가 업로드 전에 압축하고 JPEG 로 다시 인코딩한다. 파일 내용(매직 바이트) 검사는 FastAPI 가 한다 |
 | `avatars` | **공개**(2026-09-20 결정) | 2 | 만화 아바타. 항상 노출되는 이미지라 공개 버킷으로 바꾸자는 안은 설계 §7.4 예외라서 조각 2에서 결정 — 검토2 → **공개로 확정**(위 정정 ②) |
 | `heart-task-proofs` | 비공개 | 무료 하트(2026-09-28 적용) | 무료 하트 인증샷. **제한: 파일 10MB · `image/jpeg` `image/png`**. 경로 `{profile_id}/{submission_id}.jpg`(png 면 `.png`). 올리기 · 지우기 모두 FastAPI(`service_role`). 검수 끝나고 60일 뒤(하루 100장씩) · 탈퇴 정리 때 지운다 |
+| `graduate-cert-temp` | 비공개 | 2026-10-19 졸업생 인증 | 졸업증명서 사진. **제한: 파일 10MB · `image/jpeg` `image/png`**(버킷 제한은 신고된 타입만 막으므로 매직바이트는 FastAPI 가 올리기 전에 본다). 경로 `{profile_id}/{request_id}.jpg`(png 면 `.png`). 올리기 · 지우기 모두 FastAPI(`service_role`), 클라이언트 정책 없음. **결정(승인 · 반려 · 취소 · 만료) 즉시 서버가 지우고, 못 지우면 매시 배치(`/batch/chat-gate`)가 지운다.** 신청 중에도 14일을 넘기지 못한다. 탈퇴 · 14일 정리 때 폴더째 비운다. 옛 `student-id-temp` 와 섞지 않는다 |
 | `student-id-temp` | 비공개 | 1 | 학생증 사진. 자동 대조 실패 시 사람이 재검토해야 해서(설계 §7.3) **검증이 끝날 때까지만 임시 보관하고, 끝나면 즉시 삭제**한다. **구현(2026-09-20 정정, PR #43) — Postgres 트리거가 아니라 FastAPI 가 Storage API로 직접 지운다**: `profiles.student_verification` 을 `verified`/`rejected` 로 확정한 직후 FastAPI 가 그 사람의 최근 제출 파일을 Storage API `DELETE`로 지운다. `delete from storage.objects` 트리거(`student_verification_finalized`, 마이그레이션 `20260919181357`)는 `storage.objects` 메타 행만 지우고 실제 파일 객체는 고아로 남기기 때문에 폐기했다(클라우드에 적용된 적 없음, 파일도 삭제) — Supabase Storage 문서상 파일 삭제는 Storage API를 거쳐야 한다. 삭제 실패는 인증 결과(성공)에 영향을 주지 않고 로그와 디스코드 알림으로만 남으며, 고아 파일은 대시보드에서 손으로 지운다(SUPABASE.md §7). 보관 기간을 따로 두지 않는다. **2026-10-11 사용자 결정으로 개정(PR #463) — 종전 "대시보드 수동 확정 뒤에는 손으로 지운다 · 보관 기간을 따로 두지 않는다"**: 지우는 곳이 셋이다 — ① 자동 통과 직후 FastAPI(`router`) ② 사람이 대시보드에서 확정한 직후 검토 결과 훅(`review_hook`, 최근 제출의 `result` 가 `pending` 이 아닐 때만) ③ 매시 `chat-gate` 배치(`retention`) — 검토가 끝났는데 남은 사진을 지우고, **검토 대기 30일**을 넘긴 시도는 반려로 닫은 뒤 사진을 지운다(§3 `student_verification_attempts`). 그래서 시도 행이 있는 사진은 제출 뒤 30일(+ 배치 한 시간)을 넘겨 남지 않고, 손으로 지울 일은 없어졌다. 버킷 404(이미 없음)는 삭제 성공으로 친다. **알려진 빈틈(2026-10-12 문서 정리에서 확인)**: 배치는 버킷 경로로 시도 행을 찾아 판단하므로, 업로드는 됐는데 시도 행 기록 전에 요청이 실패한 사진(시도 행 없음)은 지우지 않는다 — 탈퇴 정리 때까지 남는다(`retention.py` "시도 행이 없으면 … ①이 30일에 맡는다" 는 행이 곧 생기는 경우만 덮는다). 검증이 끝나기 전에 탈퇴한 사람의 파일은 탈퇴 즉시(30일 보관 예외, §11-19), 가입 도중 이탈한 사람의 파일도 FastAPI 가 지운다(이탈 판단 시점은 조각 1에서 정한다). **제한: 파일 10MB · `image/jpeg` `image/png`**(2026-09-14 사용자 결정) — 클라이언트가 업로드 전에 압축하고 JPEG 로 다시 인코딩한다. 버킷 제한은 업로드 쪽이 신고한 content type 과 크기로만 막으므로(413 · 400), 파일 내용(매직 바이트)은 FastAPI 가 업로드 뒤 대조 전에 검사한다(조각 1 서버) |
 
 ## 10. 조각 0 마이그레이션 범위 → `docs/ERD_DECISIONS.md` §10
