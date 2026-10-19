@@ -40,6 +40,14 @@ mixin _StoreCatalog implements HeartStoreGateway {
     for (final details in response.productDetails) {
       _details[details.id] = details;
     }
+    // 결제 불가 배너의 원인을 가르는 단서 — 스토어가 모른다고 한 상품 · 스토어 오류 코드.
+    if (response.notFoundIDs.isNotEmpty || response.error != null) {
+      final error = response.error;
+      debugPrint(
+        '하트 상품 조회: 찾은 상품 ${response.productDetails.length}개 · 못 찾은 상품 ${response.notFoundIDs}'
+        '${error == null ? '' : ' · 스토어 오류 ${error.code}'}',
+      );
+    }
     return {for (final details in response.productDetails) details.id: _priceOf(details)};
   }
 
