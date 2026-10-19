@@ -71,6 +71,10 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
             android:resource="@drawable/ic_stat_campusmate" />
+        <!-- 작은 아이콘 뒤 원 색. 앱 대표 색(AppColors.primary). 앱이 직접 띄우는 알림은 local_system_notifications.dart 가 같은 색을 준다. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/notification_accent" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
