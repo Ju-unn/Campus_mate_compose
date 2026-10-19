@@ -87,7 +87,7 @@ class PhoneAnswerTest(Base):
 
 
 class ConsentTest(Base):
-    GOOD = [{'kind': 'terms', 'version': '2026-09-29'}, {'kind': 'privacy', 'version': '2026-09-29'}]
+    GOOD = [{'kind': 'terms', 'version': '2026-10-19'}, {'kind': 'privacy', 'version': '2026-10-19'}]
 
     def test_gate_08_two_rows_and_marketing_off(self):
         self.serve({('GET', '/rest/v1/user_consents'): Reply(200, self.GOOD),

@@ -5,6 +5,7 @@ import 'package:campus_mate/billing/model/billing_repository_provider.dart';
 import 'package:campus_mate/billing/model/heart_bundles.dart';
 import 'package:campus_mate/billing/model/heart_purchase_notice.dart';
 import 'package:campus_mate/billing/model/heart_store_gateway.dart';
+import 'package:campus_mate/billing/model/heart_unavailable.dart';
 import 'package:campus_mate/billing/model/payment_store.dart';
 import 'package:campus_mate/billing/model/store_purchase.dart';
 import 'package:campus_mate/billing/viewmodel/heart_purchase_ui_state.dart';
@@ -68,7 +69,7 @@ class HeartPurchaseViewModel extends Notifier<HeartPurchaseUiState> {
   }
 
   Future<void> _load() async {
-    if (!await _gateway.isAvailable()) return _markUnavailable();
+    if (!await _gateway.isAvailable()) return _markUnavailable(const HeartUnavailable(HeartUnavailableReason.storeUnusable));
     if (!ref.mounted) return;
     unawaited(_gateway.recover());
     final prices = await _loadPrices();
@@ -77,27 +78,42 @@ class HeartPurchaseViewModel extends Notifier<HeartPurchaseUiState> {
     final loaded = status.when(onSuccess: (value) => value, onFailure: (_) => null);
     // 계정 표시는 이 기기 스토어의 것 — 구글용 64자를 애플에 싣지 않는다(애플은 UUID 만 받는다).
     final accountToken = loaded?.accountTokenFor(_store);
-    if (prices.isEmpty || loaded == null || accountToken == null) return _markUnavailable();
+    if (prices.isEmpty) return _markUnavailable(_noProducts(prices));
+    if (loaded == null || accountToken == null) {
+      return _markUnavailable(const HeartUnavailable(HeartUnavailableReason.serverStatus));
+    }
     state = state.copyWith(
       availability: HeartStoreAvailability.available,
       prices: prices,
       bonus: loaded.bonus,
       accountToken: accountToken,
       banner: state.banner == HeartPurchaseNotice.unavailable ? null : state.banner,
+      unavailable: null,
     );
   }
 
   Future<Map<String, StorePrice>> _loadPrices() async {
     try {
       return await _gateway.loadPrices(heartProductIds);
-    } on Exception {
+    } on Exception catch (error) {
+      debugPrint('하트 상품 가격 조회 실패: ${error.runtimeType}');
       return const {};
     }
   }
 
-  void _markUnavailable() {
+  HeartUnavailable _noProducts(Map<String, StorePrice> prices) => HeartUnavailable(
+        HeartUnavailableReason.noProducts,
+        missingProducts: heartProductIds.difference(prices.keys.toSet()).length,
+      );
+
+  void _markUnavailable(HeartUnavailable cause) {
     if (!ref.mounted) return;
-    state = state.copyWith(availability: HeartStoreAvailability.unavailable, banner: HeartPurchaseNotice.unavailable);
+    debugPrint(cause.logLine);
+    state = state.copyWith(
+      availability: HeartStoreAvailability.unavailable,
+      banner: HeartPurchaseNotice.unavailable,
+      unavailable: cause,
+    );
   }
 
   void select(String productId) => state = state.copyWith(selectedProductId: productId);
