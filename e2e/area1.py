@@ -1,15 +1,20 @@
-"""영역 1 묶음 1 — API 가설 19(진행만, 폰 없음, 묶음 area1-b1)와 폰 가설 33(아래 PHONE, 묶음 area1-b1-phone).
+"""영역 1 묶음 1 — API 가설 20(진행만, 폰 없음, 묶음 area1-b1 — 20번째 E-AUTH-24 는 10-18 보안 점검에서 더함)와 폰 가설 33(아래 PHONE, 묶음 area1-b1-phone).
 기대값은 바탕화면 E2E_최종테스트_시나리오.md 영역 1 의 그 줄이다.
 
 가설 하나 = 함수 하나 `(run) -> (결과, 메모)`. 계정은 [Run.account] 로 그때그때 새로 만든다(별칭 번호는 다시 안 쓴다).
 
 소셜 로그인 전환(20261008 마이그레이션): 앱은 카카오 · 구글(· 애플)로만 가입한다. email 방식(학교 메일 OTP) 가입은 이제 로그인한 뒤
 학교 메일 인증(02)이 잠깐 만드는 임시 계정이라 프로필이 생기지 않는다 — E-AUTH-01 · 02 는 그것을 본다. 가입 직전 훅은 email 방식에
-학교 도메인 · 재가입 제한을 그대로 검사하므로 E-AUTH-03 · 04 · 06 은 그대로다. 시험 계정은 관리자가 만든 email 방식 계정에
+학교 도메인 · + 별칭만 검사하므로 E-AUTH-03 · 04 · 06 은 그대로다. 재가입 제한은 10-18 보안 점검부터 훅이 아니라 메일 주인 확인(OTP) 뒤
+POST /school-email/verify 에서만 본다(422 SCHOOL_EMAIL_REJOIN_BLOCKED). 시험 계정은 관리자가 만든 email 방식 계정에
 공장이 프로필을 직접 넣은 것이다(tools.Run.account).
+
+학교 메일 + 별칭 금지(10-18 보안 점검): 훅이 등록된 학교 도메인의 `이름+…@` 에 번호 메일을 보내지 않는다. 별칭으로 번호를 요청하던
+E-AUTH-01 · 02 · 14 · 16 은 막아 두고(ALIAS_OTP), 그 거절 자체는 E-AUTH-24 가 본다. 관리자 생성(계정 공장)은 훅을 타지 않아 그대로다.
 """
 
 import base64
+import functools
 import random
 import string
 import time
@@ -22,6 +27,10 @@ from e2e.tools import Blocked
 SEOUL = timezone(timedelta(hours=9))  # 서버 나이 계산(core/time.py)과 같은 날짜
 
 REJECTED = '등록되지 않은 학교 메일이에요'  # 서버 errors.SCHOOL_EMAIL_UNKNOWN_DOMAIN(훅 · verify 가 같은 문구)
+ALIAS_REJECTED = '학교 메일 원래 주소로 인증해 주세요'  # 서버 errors.SCHOOL_EMAIL_ALIAS(훅 · verify 가 같은 문구)
+# 시험 메일함은 하나라 별칭 없이는 새 학교 메일 주소를 만들 수 없다 — 별칭으로 번호를 요청하는 가설은 확인할 수 없다.
+ALIAS_OTP_BLOCKED = '학교 메일 + 별칭 금지(10-18 보안)로 이 방식은 확인 불가 — 시험 메일함 하나로는 별칭 없이 새 학교 메일을 만들 수 없음'
+ALIAS_OTP = False  # 별칭이 아닌 새 시험 학교 메일을 만들 길이 생기면 켠다 — 판정은 그대로 남겨 둔다
 DEPARTMENT_REQUIRED = '학과 정보를 먼저 입력해 주세요'  # 서버 errors.DEPARTMENT_REQUIRED — 학생증 관문은 없어졌다(학생증 제거 10-17)
 CONSENT_REQUIRED = '약관 동의를 먼저 해 주세요'
 INVALID_INPUT = '입력한 값을 다시 확인해 주세요'
@@ -144,12 +153,27 @@ def auth_02(run):
     return _signed_up_without_profile(run, '대문자 도메인 가입', n, email)
 
 
-def _rejected(run, domain):
+def _rejected(run, domain, expected=REJECTED):
     check = Check()
     _, email = run.alias(domain)
-    check.reply('가입 요청', _otp(run, email), 422, REJECTED)
+    check.reply('가입 요청', _otp(run, email), 422, expected)
     _no_user(run, email, check)
     return check.result()
+
+
+def auth_24(run):
+    """등록된 시험 메일 도메인의 + 별칭으로 번호를 요청하면 훅이 별칭 문구로 거절한다(10-18 보안) — 메일도 계정도 생기지 않는다."""
+    return _rejected(run, None, ALIAS_REJECTED)
+
+
+def _alias_otp(case):
+    """별칭으로 번호를 요청하는 가설. 막혀 있으면 번호 요청 · 계정 · 앱 모두 전에 blocked(area1_b2._same_mail 과 같은 틀)."""
+    @functools.wraps(case)
+    def guarded(run, *args):
+        if not ALIAS_OTP:
+            raise Blocked(ALIAS_OTP_BLOCKED)
+        return case(run, *args)
+    return guarded
 
 
 def auth_03(run):
@@ -366,10 +390,12 @@ def onb_69(run):
 
 
 CASES = {
-    'E-AUTH-01': auth_01, 'E-AUTH-02': auth_02, 'E-AUTH-03': auth_03, 'E-AUTH-04': auth_04, 'E-AUTH-06': auth_06,
+    'E-AUTH-01': _alias_otp(auth_01), 'E-AUTH-02': _alias_otp(auth_02), 'E-AUTH-03': auth_03, 'E-AUTH-04': auth_04,
+    'E-AUTH-06': auth_06,
     'E-AUTH-13': auth_13, 'E-GATE-06': gate_06, 'E-GATE-15': gate_15, 'E-GATE-16': gate_16, 'E-GATE-20': gate_20,
     'E-GATE-50': gate_50, 'E-GATE-51': gate_51, 'E-GATE-55': gate_55, 'E-ONB-08': onb_08, 'E-ONB-14': onb_14,
     'E-ONB-29': onb_29, 'E-ONB-32': onb_32, 'E-ONB-45': onb_45, 'E-ONB-69': onb_69,
+    'E-AUTH-24': auth_24,  # 학교 메일 + 별칭 금지(10-18 보안) — 시나리오 md 에 줄 추가 필요
 }
 BUNDLES = {'area1-b1': list(CASES)}
 
@@ -693,7 +719,7 @@ def p_onb_18(run, phone):
 
 
 PHONE = {
-    'E-AUTH-05': p_auth_05, 'E-AUTH-16': p_auth_16, 'E-AUTH-17': p_auth_17, 'E-AUTH-20': p_auth_20, 'E-AUTH-21': p_auth_21,
+    'E-AUTH-05': p_auth_05, 'E-AUTH-16': _alias_otp(p_auth_16), 'E-AUTH-17': p_auth_17, 'E-AUTH-20': p_auth_20, 'E-AUTH-21': p_auth_21,
     'E-GATE-01': _on_phone('new'), 'E-GATE-02': p_gate_02, 'E-GATE-03': p_gate_03, 'E-GATE-07': _on_phone('new'),
     'E-GATE-08': p_gate_08, 'E-GATE-09': p_gate_09, 'E-GATE-10': _on_phone('new'), 'E-GATE-11': p_gate_11,
     'E-GATE-13': p_gate_13, 'E-GATE-14': _on_phone('new'), 'E-GATE-52': p_gate_52,  # E-GATE-30~32(3b 실명 칸)는 10-17 에 뺐다

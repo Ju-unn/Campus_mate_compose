@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/auth/sign_out.dart';
 import 'package:campus_mate/core/push/push_registrar.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -165,6 +168,80 @@ void main() {
     });
   });
 
+  // 2026-10-18 보안 검사 낮음 6 — 연락처 이름표 · 사진 캐시 · 압축본을 폰에 남기지 않는다. 탈퇴도 이 함수로 로그아웃한다.
+  group('기기 정리', () {
+    test('앱 · 공급자 로그아웃 뒤 정리를 하나씩 모두 부른다', () async {
+      final order = <String>[];
+      final registrar = PushRegistrar(FakePushMessaging(token: 'tok-1'), FakeCardRepository());
+      final auth = MockGoTrueClient();
+      when(() => auth.signOut()).thenAnswer((_) async => order.add('signOut'));
+
+      await signOut(
+        registrar,
+        auth,
+        FakeDraftStore(),
+        social: _OrderedSocial(order),
+        deviceWipes: [() async => order.add('contacts'), () async => order.add('images')],
+      );
+
+      expect(order, ['signOut', 'providers', 'contacts', 'images']);
+    });
+
+    test('정리 하나가 던져도 나머지 정리는 하고, 로그아웃은 던지지 않는다', () async {
+      final wiped = <String>[];
+      final registrar = PushRegistrar(FakePushMessaging(token: 'tok-1'), FakeCardRepository());
+      final auth = MockGoTrueClient();
+      when(() => auth.signOut()).thenAnswer((_) async {});
+
+      await expectLater(
+        signOut(
+          registrar,
+          auth,
+          FakeDraftStore(),
+          deviceWipes: [() async => throw const FileSystemException('busy'), () async => wiped.add('cache')],
+        ),
+        completes,
+      );
+
+      verify(() => auth.signOut()).called(1);
+      expect(wiped, ['cache']);
+    });
+
+    // 같은 프로세스에서 다음 사람이 로그인해도 앞사람이 본 사진(디코딩된 그림)이 메모리에 남지 않는다.
+    test('메모리 그림 캐시 비우기는 대기 · 보관 · 화면에 떠 있는 그림을 모두 뺀다', () async {
+      final cache = TestWidgetsFlutterBinding.ensureInitialized().imageCache;
+      const key = 'partner-photo';
+      cache.putIfAbsent(key, _PendingCompleter.new);
+      expect(cache.containsKey(key), isTrue);
+      expect(cache.liveImageCount, 1);
+
+      await clearImageMemoryCache();
+
+      expect(cache.containsKey(key), isFalse);
+      expect(cache.liveImageCount, 0);
+    });
+
+    // 다 받아 화면이 쥐고 있는(리스너가 붙은) 그림은 clear() 로는 안 빠지고 clearLiveImages() 가 뺀다.
+    test('메모리 그림 캐시 비우기는 다 받아 화면이 쥐고 있는 그림도 뺀다', () async {
+      final cache = TestWidgetsFlutterBinding.ensureInitialized().imageCache;
+      final image = await createTestImage();
+      addTearDown(image.dispose);
+      final completer = OneFrameImageStreamCompleter(SynchronousFuture(ImageInfo(image: image)));
+      // 화면 쪽 리스너를 먼저 붙인다 — 캐시는 자기 대기 리스너를 바로 떼므로, 그때 남은 리스너가 없으면 live 에서 빠진다.
+      final onScreen = ImageStreamListener((_, _) {});
+      completer.addListener(onScreen);
+      addTearDown(() => completer.removeListener(onScreen));
+      const key = 'partner-avatar';
+      cache.putIfAbsent(key, () => completer);
+      expect(cache.liveImageCount, 1);
+
+      await clearImageMemoryCache();
+
+      expect(cache.containsKey(key), isFalse);
+      expect(cache.liveImageCount, 0);
+    });
+  });
+
   test('푸시 토큰 삭제가 끝나지 않으면 기다리다 조용히 넘어가 로그아웃한다', () async {
     // 앱 http 에는 타임아웃이 없다 — 반쯤 죽은 망에서 DELETE 가 매달리면 finally 에도 못 가 같은 식으로 갇힌다.
     final registrar = PushRegistrar(
@@ -184,6 +261,9 @@ void main() {
     verify(() => auth.signOut()).called(1);
   }, timeout: const Timeout(Duration(seconds: 2))); // 기본 5초가 아니라 넣어 준 시간을 쓰는지까지 본다.
 }
+
+/// 아직 다 받지 못한 그림 — 캐시에 대기 · 화면 그림으로 잡힌다.
+class _PendingCompleter extends ImageStreamCompleter {}
 
 class _HangingDeleteRepository extends FakeCardRepository {
   @override

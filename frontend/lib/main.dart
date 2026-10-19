@@ -238,7 +238,7 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
   }
 
   /// 푸시가 가리키는 화면의 목록을 다시 읽는다 — 앱이 켜진 채 받은 알림과 알림을 눌러 연 경우 둘 다.
-  void _refreshForRoute(Map<String, dynamic> data) => refreshForPush(ref.read, data);
+  void _refreshForRoute(Map<String, dynamic> data) => refreshForPush(ref.read, data, invalidate: ref.invalidate);
 
   /// 앱이 켜진 채 받은 푸시 — 해당 화면 목록과 홈 종 배지를 맞추고, 시스템 알림으로도 보여 준다
   /// (2026-10-13 사용자 요청으로 조각 4 의 "앱이 켜져 있으면 배너를 띄우지 않는다" 를 뒤집었다).

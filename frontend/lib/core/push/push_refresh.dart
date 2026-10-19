@@ -1,17 +1,24 @@
 import 'dart:async';
 
 import 'package:campus_mate/auth/model/verification_gate.dart';
+import 'package:campus_mate/billing/viewmodel/heart_tasks_view_model.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
 import 'package:campus_mate/matching/viewmodel/acceptances_view_model.dart';
 import 'package:campus_mate/matching/viewmodel/sent_requests_view_model.dart';
 import 'package:campus_mate/matching/viewmodel/today_cards_view_model.dart';
+import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:campus_mate/notifications/viewmodel/unread_count_provider.dart';
-import 'package:flutter_riverpod/misc.dart' show ProviderListenable;
+import 'package:flutter_riverpod/misc.dart' show ProviderListenable, ProviderOrFamily;
 
 /// 푸시 `data.route` 가 가리키는 화면의 목록을 다시 읽는다. 앱이 켜져 있을 때 받은 알림과,
 /// 알림을 눌러 화면을 옮기기 직전에 같이 쓴다 — 옮기기만 하면 백그라운드 동안 낡은 목록이 그대로 남는다.
-/// `ref.read` 와 `ProviderContainer.read` 를 둘 다 받는다.
-void refreshForPush(T Function<T>(ProviderListenable<T>) read, Map<String, dynamic> data) {
+/// `ref.read` 와 `ProviderContainer.read` 를 둘 다 받는다. [invalidate] 는 `ref.invalidate` · `ProviderContainer.invalidate`
+/// — 지금 안 열려 있는 화면의 provider 를 일부러 만들어 읽지 않고, 열려 있는 것만 다시 읽히게 할 때 쓴다.
+void refreshForPush(
+  T Function<T>(ProviderListenable<T>) read,
+  Map<String, dynamic> data, {
+  required void Function(ProviderOrFamily provider) invalidate,
+}) {
   switch (data['route']) {
     case 'daily_card':
       unawaited(read(todayCardsViewModelProvider.notifier).refresh());
@@ -25,6 +32,11 @@ void refreshForPush(T Function<T>(ProviderListenable<T>) read, Map<String, dynam
     // 방을 열어 두고 있으면 Realtime 이 이미 줄을 붙였다 — 여기서는 목록만 맞춘다.
     case 'chat':
       unawaited(read(conversationsViewModelProvider.notifier).refresh());
+    // 인증샷 결과(2026-10-18) — 18a 를 이미 보고 있으면 줄 상태(반려 사유 · 완료)와 하트 잔액이 바로 바뀐다.
+    // 18a 는 autoDispose 라 안 열려 있으면 이 한 줄은 아무 일도 하지 않고, 들어올 때 새로 읽는다.
+    case 'heart_tasks' || 'heart_task_retry':
+      invalidate(heartTasksViewModelProvider);
+      invalidate(myProfileProvider);
   }
 }
 

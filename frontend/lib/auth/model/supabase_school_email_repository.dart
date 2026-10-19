@@ -14,7 +14,8 @@ const _wrongCodeCodes = <String>{'otp_expired', 'invalid_credentials'};
 /// 서버(backend `app/core/errors.py` `CODE_*`)가 POST /school-email/verify 오류의 `code` 에 싣는 값.
 const _codeAlreadyVerified = 'SCHOOL_EMAIL_ALREADY_VERIFIED';
 const _codeNotConfirmed = 'SCHOOL_EMAIL_NOT_CONFIRMED';
-const _codesRejected = {'SCHOOL_EMAIL_DOMAIN_NOT_ALLOWED', 'SCHOOL_EMAIL_REJOIN_BLOCKED'};
+// ALIAS_NOT_ALLOWED: 학교 메일 `+` 별칭(422). 같은 메일로는 다시 해도 같은 답이라 임시 연결을 비운다.
+const _codesRejected = {'SCHOOL_EMAIL_DOMAIN_NOT_ALLOWED', 'SCHOOL_EMAIL_REJOIN_BLOCKED', 'SCHOOL_EMAIL_ALIAS_NOT_ALLOWED'};
 const _codeAuthUnavailable = 'AUTH_UNAVAILABLE';
 
 /// ponytail: code 가 없는 옛 서버 호환용 문구 비교 — 서버 배포 뒤 제거 가능. 글자까지 같아야 한다.

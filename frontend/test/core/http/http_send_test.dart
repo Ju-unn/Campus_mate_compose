@@ -34,6 +34,44 @@ void main() {
     final result = await sendHttpRequest(client, buildRequest());
 
     expect(result.when(onSuccess: (_) => null, onFailure: (f) => f), isA<RateLimitedFailure>());
+    expect(result.when(onSuccess: (_) => null, onFailure: (f) => f.toDisplayMessage()), '너무 많이 시도했어요. 잠시 후 다시 시도해 주세요');
+  });
+
+  // 사진 검사 하루 상한처럼 "내일 다시" 를 알려야 하는 429 는 서버 문구를 보인다 — 공용 문구("잠시 후")는 맞지 않다.
+  // 형은 그대로 RateLimitedFailure 라 하루 · 월 상한을 앱 문구로 바꿔 끼는 화면(신고 · 투표 · 인증샷 · 친구 코드)은 그대로다.
+  test('429 에 서버 문구(detail)가 있으면 그 문구를 보인다', () async {
+    final client = MockClient(
+      (request) async => http.Response(
+        jsonEncode({'detail': '오늘은 사진을 더 올릴 수 없어요, 내일 다시 시도해 주세요'}),
+        429,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      ),
+    );
+
+    final failure = (await sendHttpRequest(client, buildRequest())).when(onSuccess: (_) => null, onFailure: (f) => f);
+
+    expect(failure, isA<RateLimitedFailure>());
+    expect(failure!.toDisplayMessage(), '오늘은 사진을 더 올릴 수 없어요, 내일 다시 시도해 주세요');
+  });
+
+  test('429 몸통이 JSON 이 아니면(게이트웨이 HTML 등) 공용 문구다', () async {
+    final client = MockClient((request) async => http.Response('<html>Too Many Requests</html>', 429));
+
+    final failure = (await sendHttpRequest(client, buildRequest())).when(onSuccess: (_) => null, onFailure: (f) => f);
+
+    expect(failure, isA<RateLimitedFailure>());
+    expect(failure!.toDisplayMessage(), '너무 많이 시도했어요. 잠시 후 다시 시도해 주세요');
+  });
+
+  test('429 의 detail 이 문자열이 아니면(FastAPI 검증 오류 목록 모양) 공용 문구다', () async {
+    final client = MockClient(
+      (request) async => http.Response(jsonEncode({'detail': [{'loc': ['body'], 'msg': 'too many'}]}), 429),
+    );
+
+    final failure = (await sendHttpRequest(client, buildRequest())).when(onSuccess: (_) => null, onFailure: (f) => f);
+
+    expect(failure, isA<RateLimitedFailure>());
+    expect(failure!.toDisplayMessage(), '너무 많이 시도했어요. 잠시 후 다시 시도해 주세요');
   });
 
   test('4xx 에 detail 이 있으면 ServerRejectedFailure 에 서버 메시지를 담는다', () async {

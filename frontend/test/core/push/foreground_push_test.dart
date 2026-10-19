@@ -126,6 +126,22 @@ void main() {
     });
   });
 
+  // 인증샷 결과 알림(10-18)은 route 가 같고 항목(task)만 다르다 — 서로 덮으면 먼저 온 결과를 놓친다.
+  test('같은 route 라도 항목(task)이 다른 인증샷 결과는 따로 쌓는다', () async {
+    final foreground = foregroundOn(TargetPlatform.android);
+    for (final data in [
+      {'route': 'heart_tasks', 'task': 'everytime_post'},
+      {'route': 'heart_tasks', 'task': 'kakao_share'},
+      {'route': 'heart_tasks', 'task': 'kakao_share'},
+    ]) {
+      await foreground.present(_message(data), currentLocation: '/home');
+    }
+
+    final ids = notifications.shown.map((shown) => shown.id).toList();
+    expect(ids[0], isNot(ids[1]));
+    expect(ids[1], ids[2]);
+  });
+
   group('onTap', () {
     test('안드로이드는 시스템 알림 창구의 누름을 그대로 넘긴다', () async {
       final foreground = foregroundOn(TargetPlatform.android);

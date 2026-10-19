@@ -9,7 +9,7 @@ from app.core import errors
 from app.core.deps import Caller, get_verified_caller
 from app.heart_tasks.repository import HeartTaskRepository
 from app.heart_tasks.storage import HeartProofStorage
-from app.student_verification.image_validation import student_id_content_type
+from app.student_verification.image_validation import MAX_IMAGE_BYTES, student_id_content_type
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -51,11 +51,13 @@ def _repo(caller: Caller) -> HeartTaskRepository:
 
 
 async def _notify_review(webhook_url: str, client: httpx.AsyncClient,
-                         submission_id: UUID, profile_id: UUID, task: str) -> None:
+                         submission_id: UUID, profile_id: UUID, task: str, admin_base_url: str) -> None:
     """학생증 재검토와 같은 채널. **번호만** 싣는다 — 사진 · 경로 · 이름은 싣지 않는다(웹훅 기록에 영구히 남는다).
+    관리자 웹 주소가 있으면 그 건의 검수 링크(로그인 · 2단계 뒤에만 열린다)를, 없으면 Supabase 대시보드 안내를 붙인다.
     실패를 삼킨다 — 제출은 이미 끝났고, 운영자는 대시보드 목록으로도 본다."""
-    content = (f"무료 하트 인증 1건 (제출: {submission_id}, 계정: {profile_id}, 항목: {task}). "
-               "Supabase 대시보드 heart_task_submissions 에서 확인해 주세요.")
+    where = (f"대시보드: {admin_base_url.rstrip('/')}/heart-tasks/{submission_id}" if admin_base_url
+             else "Supabase 대시보드 heart_task_submissions 에서 확인해 주세요.")
+    content = f"무료 하트 인증 1건 (제출: {submission_id}, 계정: {profile_id}, 항목: {task}). {where}"
     try:
         response = await client.post(webhook_url, json={"content": content})
     except httpx.HTTPError:
@@ -81,7 +83,7 @@ async def submit_heart_task(
 ) -> dict:
     """18b 제출. 검수 중이면 409, 이번 달 한도면 429 — 둘 다 사진을 올리기 전에 먼저 본다(고아 파일을 줄이려고).
     최종 판정은 DB 함수가 다시 한다. 그 판정에서 막히면 방금 올린 파일을 지운다."""
-    data = await photo.read()
+    data = await photo.read(MAX_IMAGE_BYTES + 1)  # 한도를 넘었는지만 알면 된다 — 끝까지 읽지 않는다
     # 앱이 보낸 Content-Type 은 믿지 않는다 — 학생증과 같은 판정(10MB 초과 · jpeg/png 아님 → None).
     content_type = student_id_content_type(data)
     if content_type is None:
@@ -115,6 +117,7 @@ async def submit_heart_task(
                            caller.profile_id, submission_id)
         raise
 
-    await _notify_review(settings.discord_webhook_url, caller.client, submission_id, caller.profile_id, task)
+    await _notify_review(settings.discord_webhook_url, caller.client, submission_id, caller.profile_id, task,
+                         settings.admin_base_url)
     after = await repo.fetch_status(caller.profile_id)
     return {"task": _task(task, after[task])}

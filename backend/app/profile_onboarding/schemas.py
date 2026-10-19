@@ -71,12 +71,25 @@ class SurveyRequest(BaseModel):
         )
 
 
+# 이상형 MBTI 는 극 여덟 개 키만 받는다(앱 ideal_conditions_ui_state.dart mbtiPoles, 매칭 scoring._AXES). 다른 키는 매칭이
+# 읽지도 않고 jsonb 로 쌓이기만 한다(10-18 보안 점검).
+MbtiPole = Literal["E", "I", "N", "S", "T", "F", "J", "P"]
+MBTI_POLE_COUNT = 8
+
+
+def _at_most_eight_poles(value: object) -> object:
+    """키 수부터 본다 — 큰 dict 면 키마다 오류 한 줄씩 수천 줄짜리 422 가 나간다(pydantic 은 dict 에 fail_fast 가 없다)."""
+    if isinstance(value, dict) and len(value) > MBTI_POLE_COUNT:
+        raise ValueError(f"MBTI 는 {MBTI_POLE_COUNT}글자만 받아요")
+    return value
+
+
 class IdealConditionsRequest(BaseModel):
     preferred_age_min: int
     preferred_age_max: int
     preferred_height_min: int | None = None
     preferred_height_max: int | None = None
-    preferred_mbti_flags: dict[str, bool] = {}
+    preferred_mbti_flags: Annotated[dict[MbtiPole, bool], BeforeValidator(_at_most_eight_poles)] = {}
     # 선호 얼굴상·인상은 각 1~3개 필수다(2026-09-20 사용자 결정 "온보딩 입력은 전부 필수").
     preferred_animal_types: list[str] = Field(min_length=1, max_length=3)
     preferred_impression_types: list[str] = Field(min_length=1, max_length=3)

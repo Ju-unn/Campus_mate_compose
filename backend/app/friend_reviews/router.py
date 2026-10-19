@@ -19,6 +19,7 @@ from app.chat.repository import ChatRepository
 from app.chat.router import avatar_url
 from app.core import errors
 from app.core.deps import Caller, get_now, get_verified_caller
+from app.core.rate_window import SlidingWindow
 from app.friend_reviews.repository import FriendReviewRepository
 from app.safety.router import find_match
 from app.settings import Settings
@@ -80,38 +81,11 @@ class ReviewRequest(BaseModel):
         return self
 
 
-class _Window:
-    """사용자당 최근 span 안의 시각, limit 개까지(슬라이딩 창). hold 는 await 없이 자리를 먼저 잡고(꽉 찼으면 429)
-    일이 안 되면 release 로 돌려준다 — 동시에 여러 요청이 와도 한도를 넘지 못한다. 막힌(429) 시도는 세지 않아
-    두드려도 창이 밀리지 않는다. span 이 지난 사람은 hold 때마다 지워 메모리가 늘지 않는다.
-    ponytail: 프로세스 안 dict 라 한도가 인스턴스별이다 — Cloud Run 이 N 대로 늘면 N 배까지 느슨해지고 재시작하면
-    비워진다. 한도가 실제로 뚫리면 DB 카운터(시각 행 + 시간 인덱스)로 올린다."""
-
-    def __init__(self, limit: int, span: timedelta):
-        self.limit, self.span = limit, span
-        self.times: dict[str, list[datetime]] = {}
-
-    def hold(self, me: str, now: datetime) -> None:
-        cutoff = now - self.span
-        for key in [key for key, times in self.times.items() if not times or times[-1] <= cutoff]:
-            del self.times[key]
-        times = [t for t in self.times.get(me, []) if t > cutoff]
-        if len(times) >= self.limit:
-            self.times[me] = times
-            raise HTTPException(status_code=429, detail=FRIEND_CODE_TRY_LATER)
-        self.times[me] = [*times, now]
-
-    def release(self, me: str, now: datetime) -> None:
-        times = self.times.get(me)
-        if times and now in times:
-            times.remove(now)
-
-
-# 코드 확인 실패(시간당 10번). 확인 전에 잡고 맞으면 돌려준다 — 실패만 남는다.
-_CODE_FAILURES = _Window(CODE_FAILURE_LIMIT, CODE_FAILURE_WINDOW)
+# 코드 확인 실패(시간당 10번). 확인 전에 잡고 맞으면 돌려준다 — 실패만 남는다. 창의 한계(인스턴스별)는 core/rate_window.
+_CODE_FAILURES = SlidingWindow(CODE_FAILURE_LIMIT, CODE_FAILURE_WINDOW, FRIEND_CODE_TRY_LATER)
 # 코드 경로로 쓴 시각(24시간 5건). 저장 전에 잡고 저장이 안 되면 돌려준다. **지워도 남는다** — 쓰기 · 지우기를
 # 되풀이해 DB 수(count_written_since)를 0 으로 되돌리면 상한과 "새 지인 리뷰" 푸시가 무한히 되풀이된다(검토 필수1).
-_CODE_WRITES = _Window(CODE_REVIEW_DAILY_LIMIT, CODE_REVIEW_WINDOW)
+_CODE_WRITES = SlidingWindow(CODE_REVIEW_DAILY_LIMIT, CODE_REVIEW_WINDOW, FRIEND_CODE_TRY_LATER)
 
 
 class _Wiring:

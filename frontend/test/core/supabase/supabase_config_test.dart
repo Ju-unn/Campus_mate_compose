@@ -41,6 +41,13 @@ void main() {
 
     expect(config.isComplete(), isFalse);
   });
+
+  // 앱 로그인은 signInWithIdToken 뿐이라 주소로 세션을 받을 일이 없다. 켜 두면 밖에서 만든
+  // `kakao…://oauth?code=…` · `#access_token=…` 링크 하나로 남의 세션이 앱에 들어온다(2026-10-18 보안 검사 높음 1).
+  test('메인 연결은 딥링크 주소에서 세션을 받지 않는다', () {
+    expect(SupabaseConfig.mainAuthOptions.detectSessionInUri, isFalse);
+  });
+
   // 학교 메일 인증용 임시 연결. 메인(소셜) 연결과 같은 url · 키를 쓰되 따로 만든 저장 없는 GoTrueClient 다.
   group('openTemporaryAuth', () {
     const config = SupabaseConfig(url: 'https://project.test', anonKey: 'anon-key');

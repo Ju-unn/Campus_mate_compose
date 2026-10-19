@@ -22,6 +22,8 @@ CONSENT_INCOMPLETE = "필수 항목에 모두 동의해 주세요"
 # 학교 메일 확인(school_email, 소셜 로그인 전환). 최종 문구는 디자인에서 정한다 — 지금은 임시 문구.
 SCHOOL_EMAIL_UNKNOWN_DOMAIN = "등록되지 않은 학교 메일이에요"
 SCHOOL_EMAIL_BLOCKED = "재가입이 제한된 메일이에요"
+# 메일 앞부분의 + 별칭(hong+2@…) — 한 메일함으로 계정을 여럿 만드는 길이라 막는다(10-18 보안 점검). 훅 · verify 가 같은 문구다.
+SCHOOL_EMAIL_ALIAS = "학교 메일 원래 주소로 인증해 주세요"
 # {provider} 에는 SCHOOL_EMAIL_PROVIDER_LABELS 의 이름이 들어간다. 앱은 문구가 아니라 응답의 provider 로 가른다.
 SCHOOL_EMAIL_TAKEN = "이 메일은 {provider}로 가입돼 있어요"
 SCHOOL_EMAIL_PROVIDER_LABELS = {"kakao": "카카오", "google": "구글", "apple": "애플"}
@@ -45,6 +47,7 @@ CODE_SCHOOL_EMAIL_ALREADY_VERIFIED = "SCHOOL_EMAIL_ALREADY_VERIFIED"
 CODE_SCHOOL_EMAIL_SOCIAL_ONLY = "SCHOOL_EMAIL_SOCIAL_ONLY"
 CODE_SCHOOL_EMAIL_DOMAIN_NOT_ALLOWED = "SCHOOL_EMAIL_DOMAIN_NOT_ALLOWED"
 CODE_SCHOOL_EMAIL_REJOIN_BLOCKED = "SCHOOL_EMAIL_REJOIN_BLOCKED"
+CODE_SCHOOL_EMAIL_ALIAS_NOT_ALLOWED = "SCHOOL_EMAIL_ALIAS_NOT_ALLOWED"
 CODE_SCHOOL_EMAIL_TAKEN = "SCHOOL_EMAIL_TAKEN"
 CODE_PROFILE_NOT_FOUND = "PROFILE_NOT_FOUND"
 CODE_AUTH_UNAVAILABLE = "AUTH_UNAVAILABLE"
@@ -68,6 +71,8 @@ PROFILE_NOT_FOUND = "프로필을 찾을 수 없어요"
 PROFILE_INCOMPLETE = "프로필을 먼저 완성해 주세요"
 NICKNAME_TAKEN = "이미 있는 닉네임이에요"
 NICKNAME_CHANGE_TOO_SOON = "닉네임은 30일에 한 번 바꿀 수 있어요"
+# 온보딩을 마친 뒤 POST /profile-onboarding/basic-info 를 다시 부름(409) — 성별 · 출생연도 잠금 · 닉네임 30일 규칙 우회 차단.
+BASIC_INFO_LOCKED = "가입을 마친 뒤에는 내 프로필에서 고쳐 주세요"
 PHONE_NUMBER_INVALID = "올바른 휴대폰 번호를 입력해 주세요"
 CODE_PHONE_NUMBER_INVALID = "phone_number_invalid"
 # 읽을 수 없는 사진(학생증 제출·프로필 사진 업로드가 같은 문구를 쓴다).
@@ -77,6 +82,8 @@ PHOTO_NOT_SAFE = "부적절한 사진은 올릴 수 없어요"
 # 응답 {"detail": <문구>, "code": CODE_PHOTO_LOOKS_LIKE_DOCUMENT} — 앱은 code 로 가른다.
 PHOTO_LOOKS_LIKE_DOCUMENT = "학생증 · 신분증처럼 글자가 많은 사진은 올릴 수 없어요"
 CODE_PHOTO_LOOKS_LIKE_DOCUMENT = "photo_looks_like_document"
+# 사진 검사(Vision) 사람당 하루 상한(429, profile_onboarding/photos.py PHOTO_CHECKS). 앱은 429 에 detail 문자열이 있으면 그 문구를 보인다.
+PHOTO_CHECK_DAILY_LIMIT = "오늘은 사진을 더 올릴 수 없어요, 내일 다시 시도해 주세요"
 PHOTO_NOT_FOUND = "지울 사진이 없어요"
 PHOTOS_CHANGED = "사진이 바뀌었어요, 다시 열어 주세요"
 AVATAR_ALREADY_CREATED = "아바타는 한 번만 만들 수 있어요"

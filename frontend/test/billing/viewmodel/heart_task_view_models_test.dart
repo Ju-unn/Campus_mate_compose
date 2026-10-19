@@ -82,6 +82,23 @@ void main() {
     expect(repository.fetchCount, 2);
   });
 
+  // 압축본(인증샷 사본)을 폰에 남기지 않는다(2026-10-18 보안 검사). 다시 보낼 때는 고른 사진에서 다시 압축한다.
+  for (final (name, failure) in <(String, Failure?)>[
+    ('올리기에 성공하면', null),
+    ('올리기가 막혀도', const NetworkFailure()),
+  ]) {
+    test('$name 압축본을 지운다', () async {
+      if (failure != null) repository.submitResult = FailureResult(failure);
+      compressor.nextResult = File('compressed.jpg');
+      final viewModel = submitViewModel();
+
+      await viewModel.pickPhoto();
+      await viewModel.submit(HeartTaskKind.everytimePost);
+
+      expect(compressor.discardedPaths, ['compressed.jpg']);
+    });
+  }
+
   test('월 한도 429 는 공용 문구가 아니라 월 한도 문구다', () async {
     repository.submitResult = const FailureResult(RateLimitedFailure());
     final viewModel = submitViewModel();

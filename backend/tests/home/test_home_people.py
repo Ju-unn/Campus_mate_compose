@@ -2,9 +2,11 @@
 사용자 결정 10-17 — 아바타는 실사진이 아닌 AI 일러스트이고 카드에서도 공개된다).
 
 가짜 PostgREST 는 경로와 쿼리 키로만 가른다(URL 문자열 일부로 가르지 않는다). 사람 목록 조회는 PostgREST 처럼
-status · auto_hidden_at · id(neq) 필터와 last_active_at 내림차순 · limit 을 실제로 적용한다 — 서버가 필터를 빠뜨리면
+status · auto_hidden_at · gender · id(neq) 필터와 last_active_at 내림차순 · limit 을 실제로 적용한다 — 서버가 필터를 빠뜨리면
 걸러져야 할 사람이 그대로 내려온다. 응답에는 누구인지 알 단서가 없으니, 누가 뽑혔는지는 Storage 에서 받아 간 원본
-경로(`{profile_id}/a.png`)로 본다."""
+경로(`{profile_id}/a.png`)로 본다.
+
+내 성별의 반대 성별만 나온다(사용자 요청 2026-10-18) — 기본 세계는 내가 남자(`my_gender="male"`)이고 후보는 여자다."""
 import base64
 import io
 import logging
@@ -66,7 +68,7 @@ def _person(i: int, **overrides) -> dict:
     """프로필 한 줄. 번호가 작을수록 최근에 활동했다. 응답에 새면 안 되는 칸(닉네임 · 학교 · 성별)도 일부러 담는다."""
     profile_id = overrides.pop("id", _id(i))
     return {
-        "id": profile_id, "nickname": f"숨은닉{i}", "gender": "female" if i % 2 else "male",
+        "id": profile_id, "nickname": f"숨은닉{i}", "gender": "female",
         "universities": {"name": "숨은대학교"}, "status": "active", "auto_hidden_at": None,
         "matching_paused": False, "last_active_at": (NOW - timedelta(minutes=i)).isoformat(),
         "profile_avatars": [_avatar(profile_id)],
@@ -88,8 +90,9 @@ def _in(value: str) -> list[str]:
 
 class _World:
     def __init__(self, people, blocks=(), phones=None, contact_blocks=(), verification="verified",
-                 missing=(), broken=()):
+                 missing=(), broken=(), my_gender="male"):
         self.people = list(people)
+        self.my_gender = my_gender                  # 내 프로필의 성별(None 이면 비어 있다)
         self.blocks = list(blocks)                  # (blocker_id, blocked_id)
         self.phones = phones or {}                  # profile_id → phone_hmac (키 버전은 모두 1)
         self.contact_blocks = list(contact_blocks)  # (owner_id, contact_hmac)
@@ -114,6 +117,9 @@ class _World:
         if table == "profiles" and "student_verification" in params.get("select", ""):
             return httpx.Response(200, json=[{"student_verification": self.verification, "department": "컴공",
                                               "school_email_verified_at": "2026-10-01T00:00:00+00:00"}])
+        if table == "profiles" and params.get("select") == "gender":
+            # 내 성별 읽기 — 내 행만 묻는다.
+            return httpx.Response(200, json=[{"gender": self.my_gender}] if params.get("id") == f"eq.{ME}" else [])
         if table == "profiles":
             return httpx.Response(200, json=self._query_people(params))
         if table == "blocks":
@@ -136,6 +142,8 @@ class _World:
             rows = [r for r in rows if r["auto_hidden_at"] is None]
         if params.get("matching_paused") == "is.false":
             rows = [r for r in rows if r["matching_paused"] is False]
+        if params.get("gender", "").startswith("eq."):
+            rows = [r for r in rows if r["gender"] == params["gender"].removeprefix("eq.")]
         if params.get("id", "").startswith("neq."):
             rows = [r for r in rows if r["id"] != params["id"].removeprefix("neq.")]
         if params.get("order") == "last_active_at.desc":
@@ -352,6 +360,84 @@ def test_contact_blocked_people_either_way_are_left_out(wire, contact_blocks):
 
     assert len(people) == FILLERS
     assert f"{_id(99)}/a.png" not in world.downloads
+
+
+# 반대 성별만 ----------------------------------------------------------------------------------
+
+def _mixed(males: int, females: int) -> tuple[list[dict], list[dict]]:
+    """남자 · 여자를 번호를 겹치지 않게 만든다. 남자가 1.., 여자가 100.. 번이다."""
+    return ([_person(i, gender="male") for i in range(1, males + 1)],
+            [_person(i, gender="female") for i in range(100, 100 + females)])
+
+
+def test_a_man_sees_only_women(wire):
+    men, women = _mixed(8, 12)
+    world = _World([*men, *women], my_gender="male")
+
+    people = _people_of(wire(world))
+
+    assert len(people) == 12
+    assert sorted(world.downloads) == sorted(_path(p) for p in women)
+
+
+def test_a_woman_sees_only_men(wire):
+    men, women = _mixed(12, 8)
+    world = _World([*men, *women], my_gender="female")
+
+    people = _people_of(wire(world))
+
+    assert len(people) == 12
+    assert sorted(world.downloads) == sorted(_path(p) for p in men)
+
+
+@pytest.mark.parametrize("mine, shown", [("male", "female"), ("female", "male")])
+def test_only_the_opposite_gender_goes_into_the_database_request(wire, mine, shown):
+    world = _World(_people(12), my_gender=mine)
+
+    wire(world).get("/home/people", headers=AUTH)
+
+    [query] = world.people_queries
+    assert query["gender"] == f"eq.{shown}"
+
+
+def test_the_pool_is_filled_with_the_opposite_gender_by_the_database(wire):
+    """가장 최근에 활동한 60명이 모두 남자여도 여자 6명이 풀에 든다 — 파이썬이 나중에 거르면 풀이 줄어 빈 줄이 된다."""
+    men = [_person(i, gender="male") for i in range(1, 61)]
+    women = [_person(i, gender="female") for i in range(100, 106)]
+    world = _World([*men, *women], my_gender="male")
+
+    people = _people_of(wire(world))
+
+    assert len(people) == 6
+    assert sorted(world.downloads) == sorted(_path(p) for p in women)
+
+
+def test_a_candidate_without_a_gender_is_not_shown(wire):
+    fillers = _people(FILLERS)
+    world = _World([*fillers, _person(99, gender=None)])
+
+    people = _people_of(wire(world))
+
+    assert len(people) == FILLERS
+    assert _path(_person(99)) not in world.downloads
+
+
+def test_without_my_own_gender_the_list_is_empty_and_nobody_is_asked_for(wire):
+    """내 성별이 비어 있으면 누구를 보여 줄지 알 수 없다 — 안전한 쪽으로 빈 줄이고 후보도 읽지 않는다."""
+    world = _World(_people(12), my_gender=None)
+
+    assert _people_of(wire(world)) == []
+    assert world.people_queries == []
+    assert world.downloads == []
+
+
+def test_my_own_row_is_left_out_even_when_it_looks_like_the_opposite_gender(wire):
+    """내 성별이 비어 있지 않아도 나는 빠진다 — 성별 필터가 아니라 id 필터가 지킨다(같은 성별인 척하는 행도 마찬가지)."""
+    fillers = _people(FILLERS)
+    world = _World([*fillers, _person(99, id=ME, gender="female")], my_gender="male")
+
+    assert len(_people_of(wire(world))) == FILLERS
+    assert f"{ME}/a.png" not in world.downloads
 
 
 # 몇 명을 · 어디서 고르나 ----------------------------------------------------------------------

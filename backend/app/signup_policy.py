@@ -22,6 +22,12 @@ def hash_email(secret: str, email: str) -> bytes:
     return hmac.new(secret.encode(), email.strip().lower().encode(), hashlib.sha256).digest()
 
 
+def has_plus_alias(email: str) -> bool:
+    """메일 앞부분(마지막 '@' 앞)에 '+' 가 있는가 — 가입 훅과 POST /school-email/verify 가 같이 쓴다.
+    '@' 가 없으면 False(도메인 검사가 거절한다)."""
+    return "+" in email.rpartition("@")[0]
+
+
 def hash_phone(secret: str, e164: str) -> bytes:
     """지인 차단 대조용 HMAC(hash_email 과 같은 키 · 같은 방식). 입력은 `to_e164` 가 돌려준 값 그대로다 —
     온보딩 저장과 연락처 등록이 같은 모양을 넣어야 두 해시가 맞는다."""

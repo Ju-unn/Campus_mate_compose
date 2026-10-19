@@ -75,6 +75,8 @@ def _sender():
     ("match_made", "match_made"),
     ("new_friend_review", "friend_review"),
     ("verification_result", "verification_result"),
+    ("heart_task_approved", "heart_task_approved"),
+    ("heart_task_rejected", "heart_task_rejected"),
 ])
 async def test_a_push_kind_is_recorded_under_its_inbox_kind(push_kind, inbox_kind):
     repo, (sender, pushes) = _Repo(), _sender()
@@ -214,3 +216,22 @@ async def test_the_repository_writes_one_row_to_notifications():
     assert (request.method, request.url.path) == ("POST", "/rest/v1/notifications")
     assert json.loads(request.content) == {"profile_id": "p1", "kind": "chat_request", "title": "제목",
                                            "body": "본문", "data": {"route": "acceptances"}}
+
+
+async def test_heart_task_results_at_night_are_kept_and_sent_one_by_one_in_the_morning():
+    """인증샷 결과(10-18)는 학생증 결과처럼 조용한 시간엔 보관함이다 — 알림함은 즉시, 푸시는 아침에 한 건씩(묶지 않는다)."""
+    repo, (sender, pushes) = _Repo(), _sender()
+    first = {"route": "heart_tasks", "task": "everytime_post"}
+    second = {"route": "heart_tasks", "task": "kakao_share"}
+    await notify(repo, sender, "p1", "heart_task_approved", "에브리타임 홍보 인증이 승인됐어요", "하트 40개를 받았어요", first, now=NIGHT)
+    await notify(repo, sender, "p1", "heart_task_approved", "단톡방 공유 인증이 승인됐어요", "하트 25개를 받았어요", second, now=NIGHT)
+
+    assert len(repo.inbox) == 2 and pushes == [] and len(repo.pending) == 2
+
+    assert await send_pending(repo, sender, MORNING) == 2
+
+    assert [(m["notification"]["title"], m["notification"]["body"], m["data"]) for m in pushes] == [
+        ("에브리타임 홍보 인증이 승인됐어요", "하트 40개를 받았어요", first),
+        ("단톡방 공유 인증이 승인됐어요", "하트 25개를 받았어요", second),
+    ]
+    assert repo.pending_deleted == ["r0", "r1"] and len(repo.inbox) == 2

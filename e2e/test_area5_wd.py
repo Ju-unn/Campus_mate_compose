@@ -170,7 +170,8 @@ class WdFake(ReadFake):
         return Reply(200, {'id': who})
 
     def _otp(self, sent):
-        """앱의 인증코드 요청 — 없는 사람이면 before-user-created 훅이 재가입 제한을 본다(blocked_until > now 만)."""
+        """앱의 인증코드 요청 — 옛 훅(10-18 전)처럼 없는 사람이면 재가입 제한을 본다(blocked_until > now 만). 막혀 있는 E-WD-14 · 15 의
+        판정용으로 남긴 흉내다 — 이제 훅은 재가입 제한을 보지 않는다(POST /school-email/verify 가 422)."""
         email = sent['body']['email']
         if any(u['email'].lower() == email.lower() for u in self.users):
             return Reply(200, {})
@@ -583,7 +584,10 @@ class ServerFactsTest(unittest.TestCase):
 
     def test_the_hook_blocks_only_until_the_end_and_says_the_rejoin_text(self):
         self.assertIn('"blocked_until": "gt.now()"', backend('signup_policy.py'))
-        self.assertIn('return HookDecision.reject(errors.SCHOOL_EMAIL_BLOCKED)', backend('auth_hooks', 'router.py'))
+        # 10-18 보안 점검: 재가입 제한은 훅이 아니라 메일 주인 확인(OTP) 뒤 POST /school-email/verify 가 본다(이력 캐기 차단).
+        self.assertNotIn('SCHOOL_EMAIL_BLOCKED', backend('auth_hooks', 'router.py'))
+        self.assertIn('return _error(422, errors.SCHOOL_EMAIL_BLOCKED, errors.CODE_SCHOOL_EMAIL_REJOIN_BLOCKED)',
+                      backend('school_email', 'router.py'))
         self.assertIn(f'SCHOOL_EMAIL_BLOCKED = "{REJOIN}"', backend('core', 'errors.py'))
         # 02 의 번호 요청은 소셜 로그인 전환 뒤 학교 메일 저장소(임시 연결)가 한다 — 422 문구를 그대로 띄운다
         self.assertIn("'422' => SignUpRejectedFailure(error.message),", lib('auth', 'model', 'supabase_school_email_repository.dart'))
@@ -1042,6 +1046,7 @@ class RejoinBlockedTest(WdBase):
                 self.assertEqual(result, 'blocked', note)
                 self.assertIn('소셜 로그인 전환으로 의미 변경, 대체 가설 필요', note)
                 self.assertIn('시험 계정의 학교 메일 해시가 임의값이라 같은 메일 재가입 거절을 확인할 수 없음', note)
+                self.assertIn('푸는 날 기대를 바꿔야 함', note)
                 self.assertEqual((self.fake.users, self.batches, app.jobs), ([], [], []))
 
     def test_the_app_side_is_blocked_with_the_same_words_and_keeps_the_02_check_for_later(self):

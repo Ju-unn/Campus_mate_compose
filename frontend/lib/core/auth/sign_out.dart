@@ -1,9 +1,13 @@
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:campus_mate/auth/model/image_compressor_provider.dart';
 import 'package:campus_mate/auth/model/social_login_repository.dart';
 import 'package:campus_mate/auth/model/social_login_repository_provider.dart';
 import 'package:campus_mate/core/draft/draft_store.dart';
 import 'package:campus_mate/core/push/push_provider.dart';
 import 'package:campus_mate/core/push/push_registrar.dart';
+import 'package:campus_mate/safety/model/contact_name_store.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -29,11 +33,15 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// 앱 로그아웃 직후 [social] 로 카카오 · 구글 SDK 로그인도 끊는다(후속 지시문 13 B-1). 탈퇴에도 같이 적용된다.
 /// 임시 저장 지우기와 공급자 로그아웃은 서로 독립이다 — 임시 저장 지우기가 던져도 앱 로그아웃과 공급자
 /// 로그아웃은 하고(그 오류는 끝난 뒤 그대로 던진다, 위 "숨기지 않는다"), 공급자 쪽 실패는 삼킨다(오류 종류만 로그).
+///
+/// 마지막으로 [deviceWipes] 를 하나씩 부른다(2026-10-18 보안 검사) — 연락처 이름표 · 사진 캐시 · 압축본처럼 폰에 남은
+/// 앞사람 것을 지운다. 로그아웃이 끝난 뒤라 하나가 매달리거나 던져도 로그아웃은 이미 됐고, 실패는 삼킨다(오류 종류만 로그).
 Future<void> signOut(
   PushRegistrar registrar,
   GoTrueClient auth,
   DraftStore drafts, {
   SocialLoginRepository? social,
+  List<Future<void> Function()> deviceWipes = const [],
 }) async {
   try {
     await registrar.stop();
@@ -43,8 +51,28 @@ Future<void> signOut(
     } finally {
       await _signOutOnDevice(auth);
       await _signOutProviders(social);
+      await _wipeDevice(deviceWipes);
     }
   }
+}
+
+Future<void> _wipeDevice(List<Future<void> Function()> wipes) async {
+  for (final wipe in wipes) {
+    try {
+      await wipe();
+    } on Object catch (error) {
+      debugPrint('기기 정리 실패: ${error.runtimeType}');
+    }
+  }
+}
+
+/// 디코딩해 메모리에 든 그림(대기 · 보관 · 화면에 떠 있는 것)을 비운다 — 같은 프로세스에서 다음 사람이 로그인해도
+/// 앞사람이 본 상대 사진 · 아바타가 메모리에 남지 않는다. 화면에 떠 있던 그림은 다시 그릴 때 새로 받는다.
+/// 비우기는 동기라 await 할 것이 없다 — async 는 [signOut] 의 deviceWipes(Future 를 돌려주는 함수 목록)에 그대로 넣으려고다.
+Future<void> clearImageMemoryCache() async {
+  PaintingBinding.instance.imageCache
+    ..clear()
+    ..clearLiveImages();
 }
 
 Future<void> _signOutProviders(SocialLoginRepository? social) async {
@@ -69,5 +97,13 @@ final signOutProvider = Provider<Future<void> Function()>((ref) {
   final registrar = ref.read(pushRegistrarProvider);
   final drafts = ref.read(draftStoreProvider);
   final social = ref.read(socialLoginRepositoryProvider);
-  return () => signOut(registrar, Supabase.instance.client.auth, drafts, social: social);
+  final deviceWipes = <Future<void> Function()>[
+    ref.read(contactNameStoreProvider).clear,
+    ref.read(imageCompressorProvider).discardAll,
+    // 상대 사진 · 아바타 서명 URL 로 받은 그림의 디스크 캐시(채팅 · 받은 신청 · 리뷰 카드가 쓴다).
+    // 로그아웃할 때 꺼낸다 — 캐시 관리자를 이 provider 가 만들 때 미리 만들지 않는다.
+    () => CachedNetworkImageProvider.defaultCacheManager.emptyCache(),
+    clearImageMemoryCache,
+  ];
+  return () => signOut(registrar, Supabase.instance.client.auth, drafts, social: social, deviceWipes: deviceWipes);
 });

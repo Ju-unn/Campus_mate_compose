@@ -208,7 +208,11 @@ async def apply_fallback_avatar(
     때문이다. 협력자는 인자로 받는다(`AvatarGenerator` 와 같은 방식).
     """
     fallback_path = await storage.copy_fallback_avatar(profile_id)
-    await repo.insert_avatar_attempt(profile_id, "ready", fallback_path, is_fallback=True)
+    if not await repo.insert_fallback_avatar(profile_id, fallback_path):
+        # 두 길이 겹쳤다 — 먼저 넣은 쪽이 하트를 줬으니 다시 주지 않는다(10-18 보안 점검, 부분 유일 인덱스).
+        # shortcut: 방금 복사한 파일은 행 없이 남는다(같은 기본 그림이라 응답 주소로는 그대로 쓴다). 탈퇴 정리가 폴더째 지운다.
+        _logger.warning("기본 아바타 행이 이미 있다 — 보상 하트를 다시 주지 않는다 profile_id=%s", profile_id)
+        return fallback_path
     try:
         await grant_hearts(
             settings.postgrest_url, settings.supabase_service_role_key, client,

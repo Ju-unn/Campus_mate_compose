@@ -23,7 +23,7 @@ HOME_PEOPLE_SIZE = (224, 280)
 # 블러 없음(사용자 결정 2026-10-17 "실제 가입자도 블러 없이 보여준다") — 아바타는 실사진이 아니라 AI 일러스트이고 카드에서도
 # 공개된다. 반경 0 이면 줄이기만 한다(Pillow 가 섞지 않고 복사한다). 종전 8. 서버 배포만으로 바꿀 수 있게 이 한 곳에만 둔다.
 HOME_PEOPLE_BLUR_RADIUS = 0
-# 최근 활동 상위 몇 명 안에서(모든 학교 · 성별 섞어서) 몇 명을 무작위로 보이나.
+# 최근 활동 상위 몇 명 안에서(모든 학교 · 내 성별의 반대 성별만) 몇 명을 무작위로 보이나.
 HOME_PEOPLE_POOL = 60
 HOME_PEOPLE_COUNT = 12
 # 이보다 적으면 빈 목록이다 — 몇 사람만 되풀이되는 레일 대신 앱이 예시 칸(아바타 일러스트 · 마스코트)을 보이는 기준이다.
@@ -51,6 +51,10 @@ def get_rng() -> random.Random:
     return random.Random()
 
 
+# 내 성별 → 레일에 보일 성별. 이 두 값만 DB 필터에 들어간다.
+_OPPOSITE_GENDER = {"male": "female", "female": "male"}
+
+
 def _shown_avatar_path(profile: dict) -> str | None:
     """지금 쓰는 아바타(ready 중 최신, chat latest_avatar_path 와 같은 규칙)의 경로. 그게 기본 그림(is_fallback)이면
     None — 옛 아바타가 있어도 이제 안 쓰는 얼굴은 꺼내지 않는다."""
@@ -62,7 +66,7 @@ def _shown_avatar_path(profile: dict) -> str | None:
 @router.get("/home/people")
 async def get_home_people(caller: Caller = Depends(get_verified_caller),
                           rng: random.Random = Depends(get_rng)) -> dict:
-    """mosaic-rail 사람 칸. 실제 가입자 아바타를 서버가 받아 줄이기만 한 JPEG(base64, 블러 없음)만 싣는다 — id · 경로 ·
+    """mosaic-rail 사람 칸. 내 성별의 반대 성별인 실제 가입자 아바타를 서버가 받아 줄이기만 한 JPEG(base64, 블러 없음)만 싣는다 — id · 경로 ·
     공개 주소 · 닉네임 · 학교 · 성별은 싣지 않는다(공개 저장소 주소에 profile_id 가 있다). summary 와 따로 둔다: 캐시가 빈
     인스턴스가 원본을 받아 줄이는 동안 summary 가 늦어지지 않고, 여기가 실패해도 다른 블록은 그려진다."""
     settings, client, profile_id = caller
@@ -70,7 +74,11 @@ async def get_home_people(caller: Caller = Depends(get_verified_caller),
     key = settings.supabase_service_role_key
     home = HomeRepository(settings.postgrest_url, key, client)
     cards = CardRepository(settings.postgrest_url, key, client)
-    paths = {row["id"]: path for row in await home.fetch_recent_people(profile_id, HOME_PEOPLE_POOL)
+    # 내 성별의 반대 성별 사람만 보인다(사용자 요청 2026-10-18). 내 성별이 비어 있으면 누구를 보일지 알 수 없어 빈 줄이다.
+    shown = _OPPOSITE_GENDER.get(await home.fetch_my_gender(profile_id))
+    if shown is None:
+        return {"people": []}
+    paths = {row["id"]: path for row in await home.fetch_recent_people(profile_id, HOME_PEOPLE_POOL, shown)
              if (path := _shown_avatar_path(row))}
     # 카드와 같은 차단 규칙 — 일반 차단 양방향 + 지인 차단 양방향. 지인을 막아 둔 사람의 얼굴이 그 지인 홈에 뜨면 안 된다.
     # 둘 다 후보 id 로만 묻는다 — 내 차단 전부를 읽으면 1000줄에서 잘린다.

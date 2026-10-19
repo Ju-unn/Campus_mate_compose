@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:campus_mate/auth/model/image_compressor_provider.dart';
@@ -46,9 +47,10 @@ class HeartTaskSubmitViewModel extends Notifier<HeartTaskSubmitUiState> {
     if (photo == null || !state.canSubmit) return;
     state = HeartTaskSubmitUiState(photo: photo, isSubmitting: true);
 
+    final compressor = ref.read(imageCompressorProvider);
     final File compressed;
     try {
-      compressed = await ref.read(imageCompressorProvider).compressToJpeg(photo);
+      compressed = await compressor.compressToJpeg(photo);
     } on Exception {
       if (!ref.mounted) return;
       state = HeartTaskSubmitUiState(photo: photo, errorMessage: heartTaskPhotoUnreadableMessage);
@@ -56,6 +58,8 @@ class HeartTaskSubmitViewModel extends Notifier<HeartTaskSubmitUiState> {
     }
 
     final result = await ref.read(heartTaskRepositoryProvider).submit(kind, compressed);
+    // 압축본(인증샷 사본)은 폰에 남기지 않는다 — 다시 보낼 때는 고른 사진에서 다시 압축한다.
+    unawaited(compressor.discard(compressed));
     if (!ref.mounted) return;
     state = result.when(
       onSuccess: (_) {

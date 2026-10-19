@@ -29,6 +29,12 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
+            <!-- 앱은 주소로 화면을 열 일이 없다(푸시 이동은 앱 안 router.go). 켜 두면 이 화면으로 온 VIEW 인텐트의 주소가
+                 그대로 라우터 경로가 된다(2026-10-18 보안 검사). 카카오 로그인 복귀는 아래 AuthCodeHandlerActivity 가 따로 받는다. -->
+            <meta-data
+              android:name="flutter_deeplinking_enabled"
+              android:value="false"
+              />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>

@@ -300,8 +300,9 @@ class CleanupBatchTest(Base):
     def test_the_rejoin_text_is_the_servers_blocked_text(self):
         errors = (tools.ROOT / 'backend' / 'app' / 'core' / 'errors.py').read_text(encoding='utf-8')
         self.assertEqual(area1_b2.REJOIN_BLOCKED, re.search(r'^SCHOOL_EMAIL_BLOCKED = "([^"]+)"', errors, re.M).group(1))
-        self.assertIn('return HookDecision.reject(errors.SCHOOL_EMAIL_BLOCKED)',
-                      (tools.ROOT / 'backend' / 'app' / 'auth_hooks' / 'router.py').read_text(encoding='utf-8'))
+        # 10-18 보안 점검: 재가입 제한은 훅이 아니라 메일 주인 확인(OTP) 뒤 POST /school-email/verify 가 본다(이력 캐기 차단).
+        self.assertIn('return _error(422, errors.SCHOOL_EMAIL_BLOCKED, errors.CODE_SCHOOL_EMAIL_REJOIN_BLOCKED)',
+                      (tools.ROOT / 'backend' / 'app' / 'school_email' / 'router.py').read_text(encoding='utf-8'))
 
     def test_auth_12_expired_row_goes_and_forever_row_stays(self):
         fake = self.serve({('GET', '/rest/v1/signup_blocks'): Reply(200, [{'blocked_until': 'infinity'}])})
@@ -572,7 +573,8 @@ class BundleTest(unittest.TestCase):
 
 
 class SameMailRejoinBlockedTest(Base):
-    """공장 계정의 학교 메일 해시는 임의값이라 훅이 같은 메일을 대조할 수 없다 — 같은 메일 재가입을 보는 10 · 11 은 계정 · 탈퇴 · 정리 배치 전에 blocked."""
+    """공장 계정의 학교 메일 해시는 임의값이라 같은 메일을 대조할 수 없다(10-18 부터 대조는 훅이 아니라 verify) — 같은 메일 재가입을 보는
+    10 · 11 은 계정 · 탈퇴 · 정리 배치 전에 blocked."""
 
     def test_10_and_11_are_blocked_before_any_account_or_batch(self):
         fake = self.serve()
@@ -582,6 +584,7 @@ class SameMailRejoinBlockedTest(Base):
                     result, note = area1.attempt(self.run, case)
                     self.assertEqual(result, 'blocked', note)
                     self.assertIn('시험 계정의 학교 메일 해시가 임의값이라 같은 메일 재가입 거절을 확인할 수 없음', note)
+                    self.assertIn('푸는 날 기대를 바꿔야 함', note)
         batch.assert_not_called()
         self.assertEqual(fake.users, [])
 

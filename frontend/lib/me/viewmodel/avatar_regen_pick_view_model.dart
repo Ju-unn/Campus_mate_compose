@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:campus_mate/auth/model/face_detector_provider.dart';
@@ -166,6 +167,8 @@ class AvatarRegenPickViewModel extends Notifier<AvatarRegenPickUiState> {
       state = blocking == null
           ? state.copyWith(isSubmitting: false, completed: true)
           : state.copyWith(isSubmitting: false, errorMessage: blocking);
+      // 끝났으면 압축본(아바타 원본 사본)을 폰에 남기지 않는다. 막혔으면 다시 누를 때까지 화면이 그 사진을 보여 준다.
+      if (state.completed) unawaited(ref.read(imageCompressorProvider).discard(state.photo!));
     } catch (_) {
       state = state.copyWith(isSubmitting: false, errorMessage: const UnknownFailure().toDisplayMessage());
     } finally {

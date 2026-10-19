@@ -24,7 +24,7 @@ from app.profile_onboarding.avatars import (
 from app.profile_onboarding.encryption import set_encrypted_kakao_id, set_encrypted_phone_number
 from app.profile_onboarding.onboarding_progress import next_step
 from app.profile_onboarding.phone_number import to_signup_e164
-from app.profile_onboarding.photos import REJECTION_BODIES, PhotoVerdict, check_photo
+from app.profile_onboarding.photos import PHOTO_CHECKS, REJECTION_BODIES, PhotoVerdict, check_photo
 from app.profile_onboarding.repository import ProfileOnboardingRepository
 from app.profile_onboarding.schemas import (
     NICKNAME_PATTERN,
@@ -43,7 +43,7 @@ from app.profile_onboarding.schemas import (
 from app.profile_onboarding.storage import AvatarStorage, ProfilePhotoStorage
 from app.profile_onboarding.tags import IDEAL_TRAITS, INTEREST_TAGS, MY_TRAITS, validate_tag_selection
 from app.settings import Settings
-from app.student_verification.image_validation import student_id_content_type
+from app.student_verification.image_validation import MAX_IMAGE_BYTES, student_id_content_type
 
 router = APIRouter()
 _logger = logging.getLogger(__name__)
@@ -100,10 +100,11 @@ async def submit_basic_info(
             status_code=422, content={"detail": errors.PHONE_NUMBER_INVALID, "code": errors.CODE_PHONE_NUMBER_INVALID}
         )
 
-    # 닉네임 중복(23505)은 repository 의 공통 변환이 409 로 바꿔 준다.
-    await repo.update_basic_info(
+    # 닉네임 중복(23505)은 repository 의 공통 변환이 409 로 바꿔 준다. 가입을 마친 사람(pending 아님)도 409 — 15-6 으로 고친다.
+    if not await repo.update_basic_info(
         profile_id, body.nickname, body.birth_year, body.height_cm, body.gender, body.mbti
-    )
+    ):
+        raise HTTPException(status_code=409, detail=errors.BASIC_INFO_LOCKED)
 
     await repo.ensure_private_row(profile_id)
     await set_encrypted_phone_number(
@@ -138,14 +139,16 @@ async def upload_photo(
     is_avatar_source: bool = Form(default=False),
     caller: Caller = Depends(get_verified_caller),
     vision_client: vision.ImageAnnotatorAsyncClient = Depends(get_vision_client),
+    now: datetime = Depends(get_now),
 ) -> dict[str, bool] | JSONResponse:
     settings, client, profile_id = caller
 
-    data = await photo.read()
+    data = await photo.read(MAX_IMAGE_BYTES + 1)  # 한도를 넘었는지만 알면 된다 — 끝까지 읽지 않는다
     content_type = student_id_content_type(data)
     if content_type is None:
         raise HTTPException(status_code=400, detail=errors.PHOTO_UNREADABLE)
 
+    PHOTO_CHECKS.hold(str(profile_id), now)  # 하루 상한이면 429 — Vision 을 부르기 전
     verdict = await check_photo(vision_client, data, source="onboarding")
     if verdict is not PhotoVerdict.SAFE:
         return JSONResponse(status_code=422, content=REJECTION_BODIES[verdict])

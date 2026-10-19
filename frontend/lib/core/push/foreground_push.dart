@@ -92,8 +92,8 @@ class ForegroundPush {
   static bool _isOpenRoom(Map<String, dynamic> data, String currentLocation) =>
       currentLocation.startsWith('${AppRoutes.chatRoom}/') && PushRoute.resolve(data) == currentLocation;
 
-  /// 같은 방(match_id) · 같은 친구(profile_id) · 같은 종류(route)는 한 줄로 덮어쓰고, 나머지는 따로 쌓는다.
+  /// 같은 방(match_id) · 같은 친구(profile_id) · 같은 항목(task, 인증샷 결과) · 같은 종류(route)는 한 줄로 덮어쓰고, 나머지는 따로 쌓는다.
   /// ponytail: 문자열 해시라 서로 다른 열쇠가 우연히 같은 id 가 되면 앞 알림을 덮는다 — 그때 열쇠별 번호표로 바꾼다.
   static int _idFor(Map<String, dynamic> data) =>
-      [data['route'], data['match_id'], data['profile_id']].join('|').hashCode & _maxNotificationId;
+      [data['route'], data['match_id'], data['profile_id'], data['task']].join('|').hashCode & _maxNotificationId;
 }

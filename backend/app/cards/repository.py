@@ -14,6 +14,8 @@ logger = logging.getLogger(__name__)
 # PostgREST 의 db-max-rows 에 조용히 잘리지 않게 우리가 상한을 정해 놓고, 거기 닿으면 경고를 남긴다.
 # 잘린 줄 모르고 지나가면 이미 카드를 받은 사람이 목록에서 빠져 한 장을 더 받는다(리뷰 권고 2번).
 _ISSUED_OWNERS_LIMIT = 5000
+# 사람당 남기는 푸시 토큰 수(upsert_push_token). 휴대폰 · 태블릿 · 재설치 몇 번이면 충분하다.
+PUSH_TOKENS_KEPT = 5
 
 # 카드 앞면(요약)과 뒷면(10b 상세)이 쓰는 프로필 컬럼. 실명·연락처는 한 글자도 넣지 않는다.
 # status · auto_hidden_at 은 응답에 싣지 않는다 — "카드에서 사라져야 하는가"(조각 6)를 가르는 재료다.
@@ -366,6 +368,14 @@ class CardRepository(PostgrestRepository):
 
     # 푸시 · 알림 --------------------------------------------------------------
     async def upsert_push_token(self, token: str, profile_id: UUID | str, platform: str) -> None:
+        """등록 전에 내 다른 토큰은 최근 PUSH_TOKENS_KEPT - 1 개만 남기고 지운다 — 기기 · 재설치마다 쌓이면 알림 한 건이
+        그만큼 FCM 호출이 된다(10-18 보안 점검). 등록하는 토큰은 빼고 센다 — 다시 등록이면 제자리를 지킨다."""
+        older = await self._rows("push_tokens", {
+            "profile_id": f"eq.{profile_id}", "token": f"neq.{token}", "select": "token",
+            "order": "updated_at.desc", "offset": str(PUSH_TOKENS_KEPT - 1),
+        })
+        for row in older:  # 보통 0~1개. 상한 전에 쌓인 사람만 처음 한 번 여럿이다.
+            await self.delete_push_token(row["token"], profile_id)
         await self._rows_post("push_tokens", {
             "token": token, "profile_id": str(profile_id), "platform": platform, "updated_at": "now()",
         }, prefer="resolution=merge-duplicates")

@@ -35,6 +35,18 @@ def _failure_detail(response: httpx.Response, token: str) -> str:
         detail = response.text[:_RAW_MAX]
     return detail.replace(token, _mask(token))[:_DETAIL_MAX]
 
+
+def _rejects_the_token(response: httpx.Response) -> bool:
+    """400 중 FCM 이 토큰 칸(BadRequest fieldViolations 의 message.token)을 집어 거절한 것인가 — 그 토큰은 다시는 안 된다.
+    칸 정보가 없거나 다른 칸이면 우리 payload 탓이라 False(Firebase 문서: INVALID_ARGUMENT 는 payload 가 멀쩡할 때만 토큰 문제)."""
+    try:
+        details = response.json()["error"].get("details") or []
+        return any(violation.get("field") == "message.token"
+                   for detail in details if isinstance(detail, dict)
+                   for violation in detail.get("fieldViolations") or [] if isinstance(violation, dict))
+    except (ValueError, KeyError, TypeError, AttributeError):
+        return False
+
 _SCOPE = "https://www.googleapis.com/auth/firebase.messaging"
 # 조용한 시간(설계 화면 16d): 22시 ~ 다음날 8시.
 _QUIET_START_HOUR = 22
@@ -46,7 +58,9 @@ _QUIET_END_HOUR = 8
 _QUIET_HOURS_EXEMPT = {"card_arrived", "new_message"}
 # 조용한 시간에 걸리면 버리지 않고 pending_pushes 에 넣어 아침에 묶어 보낸다(결정 4, 2026-10-01 사용자).
 # 학생증 검토 결과(A7)도 예외가 아니라 보관함으로 간다 — 예외는 채팅 · 카드 도착뿐이다(사용자 규칙).
-_DEFERRED = {"acceptance_received", "match_made", "new_friend_review", "verification_result"}
+# 인증샷 결과(사용자 결정 10-18 "가")도 학생증 결과처럼 보관함이다 — 알림함 줄은 즉시, 푸시는 아침에 한 건씩(_BUNDLES 에 없다).
+_DEFERRED = {"acceptance_received", "match_made", "new_friend_review", "verification_result",
+             "heart_task_approved", "heart_task_rejected"}
 # 알림함(설계 §7·§8-4)에 남기는 푸시 kind -> notifications.kind. 여기 없는 kind(채팅 new_message ·
 # 게이트 trust_reminder)는 알림함에 쌓지 않는다.
 _INBOX_KINDS = {
@@ -55,6 +69,8 @@ _INBOX_KINDS = {
     "match_made": "match_made",
     "new_friend_review": "friend_review",
     "verification_result": "verification_result",
+    "heart_task_approved": "heart_task_approved",
+    "heart_task_rejected": "heart_task_rejected",
 }
 # 아침 묶음 문구. 사람 × (kind, 가는 화면 data.route)로 묶는다 — 같은 kind 라도 가는 화면이 달라서다.
 # 여기 없는 짝(친구 가입 → 리뷰 쓰기, 학생증 검토 결과)은 알림마다 내용 · 갈 곳이 달라 묶지 않고 한 건씩 보낸다.
@@ -105,8 +121,8 @@ class FcmSender:
                    kind: str = "", platform: str = "") -> str:
         """`"sent"` · `"dead"` · `"failed"` 중 하나. `"dead"` 일 때만 부른 쪽이 토큰을 지운다.
 
-        400 은 죽은 토큰이 아니라 우리가 보낸 payload 가 잘못됐다는 뜻이다 — 예전에는 404 와
-        한데 묶여서 멀쩡한 사람의 토큰을 조용히 지웠다.
+        400 은 대개 죽은 토큰이 아니라 우리가 보낸 payload 가 잘못됐다는 뜻이다 — 예전에는 404 와
+        한데 묶여서 멀쩡한 사람의 토큰을 조용히 지웠다. 토큰 칸을 집은 400 만 dead 다(_rejects_the_token).
 
         `platform` 은 로그에만 쓴다. `kind` 는 로그와, 한 장으로 합칠 알림인지([_COLLAPSED_KINDS])를 고르는 데 쓴다.
         로그에는 토큰 앞 6자와 길이, 종류, 기기 종류, FCM 오류 코드만 남고 토큰 원문 · 제목 · 본문 · 사용자 이름은 남기지 않는다."""
@@ -131,7 +147,7 @@ class FcmSender:
             json=payload,
             headers={"Authorization": f"Bearer {await self._access_token()}"},
         )
-        if response.status_code == 404:
+        if response.status_code == 404 or (response.status_code == 400 and _rejects_the_token(response)):
             return "dead"
         if not response.is_success:
             # 푸시 실패가 카드 지급을 되돌리게 두지 않는다 — 로그만 남기고 넘어간다.

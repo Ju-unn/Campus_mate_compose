@@ -8,6 +8,8 @@ from fastapi.responses import JSONResponse
 
 from app.account.batch_router import router as account_batch_router
 from app.account.router import router as account_router
+from app.admin.cors import install_admin_cors
+from app.admin.router import router as admin_router
 from app.auth_hooks.router import router as auth_hooks_router
 from app.billing.apple_router import router as billing_apple_router
 from app.billing.batch_router import router as billing_batch_router
@@ -32,6 +34,7 @@ from app.profile_onboarding.tasks_router import router as profile_onboarding_tas
 from app.referral.router import router as referral_router
 from app.safety.router import router as safety_router
 from app.school_email.router import router as school_email_router
+from app.settings import AdminWebSettings
 from app.student_verification.review_hook import router as verification_review_hook_router
 from app.student_verification.router import router as student_verification_router
 
@@ -89,6 +92,9 @@ app.include_router(heart_tasks_router)
 app.include_router(billing_router)
 app.include_router(billing_batch_router)
 app.include_router(billing_apple_router)
+app.include_router(admin_router)
+# 관리자 웹만 CORS 를 탄다. ADMIN_ALLOWED_ORIGINS 가 비면 미들웨어를 붙이지 않고, '*' 면 여기서 멈춰 서버가 뜨지 않는다.
+install_admin_cors(app, AdminWebSettings().admin_origins)
 
 
 @app.exception_handler(httpx.HTTPStatusError)
