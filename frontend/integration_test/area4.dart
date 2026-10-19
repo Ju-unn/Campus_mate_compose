@@ -75,7 +75,7 @@ const _switchTitles = {
 };
 const _switchDefaults = {
   'card_arrived': true, 'acceptance_received': true, 'match_made': true, 'new_message': true, 'trust_reminder': true,
-  'new_friend_review': true, 'marketing': false, 'quiet_hours': true,
+  'new_friend_review': true, 'marketing': false, 'quiet_hours': false,
 };
 const _cardException = '오늘의 카드 도착 알림은 방해 금지 시간에도 보내드려요. 카드가 도착하는 시각이 아침 7시예요.';
 

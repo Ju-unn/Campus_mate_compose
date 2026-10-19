@@ -202,9 +202,7 @@ def _no_row(s, who, kind):
 
 
 def _quiet_on(s):
-    status, body = _api(s.run, 'GET', '/cards/notification-settings', s.me['token'])
-    if status != 200 or (body or {}).get('quiet_hours') is not True:
-        raise Blocked(f'방해 금지(quiet_hours)가 켜져 있어야 밤 보관 · 예외를 볼 수 있다 — 지금 {status} {body}')
+    td.quiet_hours_on(s.run, s.me)  # 새 계정은 방해 금지가 꺼져 있다 — 먼저 켠다
 
 
 # ── 장면 ────────────────────────────────────────────────────────────────────────────────────────

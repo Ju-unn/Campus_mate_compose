@@ -158,7 +158,7 @@ HELPER_TABLES = {'profile_vectors', 'profile_private', 'profile_avatars', 'schoo
 BODY_CHECKED = {'daily_cards', 'universities', 'region_group_settings'}  # 쓰는 본문 열도 검사하는 표
 RESERVED = {'select', 'order', 'limit', 'offset', 'or', 'and', 'on_conflict'}
 SETTINGS = {'card_arrived': True, 'acceptance_received': True, 'match_made': True, 'new_message': True, 'trust_reminder': True,
-            'new_friend_review': True, 'marketing': False, 'quiet_hours': True}  # backend NOTIFICATION_DEFAULTS
+            'new_friend_review': True, 'marketing': False, 'quiet_hours': False}  # backend NOTIFICATION_DEFAULTS(방해 금지는 2026-10-19 부터 처음에 꺼짐 — 밤 시험이 먼저 켠다)
 ROW = {'region_group': 'e2e', 'issue_weekdays': [1], 'issue_time': '07:00:00', 'ladder_twice_per_week_min': 50,
        'ladder_three_per_week_min': 500, 'ladder_four_per_week_min': 1000, 'ladder_daily_min': 2000}
 
@@ -680,10 +680,11 @@ class Card17Test(DeviceBase):
         result = self.go('E-CARD-17', self.phone())
         self.assertEqual(result[0], 'pass', result)
         self.assertEqual(self.batches, ['daily-cards'])
-        self.assertEqual(self.world.by('PATCH', '/cards/notification-settings'), [])  # 기본값(켬)을 건드리지 않았다
+        self.assertEqual([s['body'] for s in self.world.by('PATCH', '/cards/notification-settings')], [{'quiet_hours': True}])  # 새 계정은 꺼져 있어 먼저 켠다
 
-    def test_quiet_hours_that_are_off_make_the_exception_meaningless_so_blocked(self):
+    def test_quiet_hours_the_server_cannot_turn_on_make_the_exception_meaningless_so_blocked(self):
         self.world.settings['id-1'] = {'quiet_hours': False}
+        self.world.handlers.insert(0, ('PATCH', re.compile(r'/cards/notification-settings'), Reply(200, {'ok': True})))  # 켜 달라는 저장을 무시한다
         result = self.go('E-CARD-17', self.phone())
         self.assertEqual(result[0], 'blocked')
         self.assertEqual(self.batches, [])
@@ -1271,9 +1272,11 @@ class Card44Test(DeviceBase):
         decisions = self.world.by('POST', '/cards/')
         self.assertEqual([s['auth'] for s in decisions], ['tok-1', 'tok-2'])  # A1 → A2
         flips = self.world.by('PATCH', '/cards/notification-settings')
-        self.assertEqual([(s['auth'], s['body']) for s in flips], [('tok-3', {'quiet_hours': False})])
-        self.assertLess(self.world.sent.index(decisions[0]), self.world.sent.index(flips[0]))
-        self.assertLess(self.world.sent.index(flips[0]), self.world.sent.index(decisions[1]))
+        # 새 계정은 방해 금지가 꺼져 있어 첫 수락 전에 켜고, 두 번째 수락 전에 끈다.
+        self.assertEqual([(s['auth'], s['body']) for s in flips], [('tok-3', {'quiet_hours': True}), ('tok-3', {'quiet_hours': False})])
+        self.assertLess(self.world.sent.index(flips[0]), self.world.sent.index(decisions[0]))
+        self.assertLess(self.world.sent.index(decisions[0]), self.world.sent.index(flips[1]))
+        self.assertLess(self.world.sent.index(flips[1]), self.world.sent.index(decisions[1]))
         self.assertEqual(len(self.world.tables['pending_pushes']), 1)
         self.assertEqual(len(self.world.shade), 1)  # 두 번째(방해 금지를 끈 뒤) 수락만 밤에 뜸
         saved = json.loads(self.state.read_text(encoding='utf-8'))

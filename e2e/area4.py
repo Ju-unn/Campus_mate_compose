@@ -14,7 +14,7 @@ from e2e import tools
 SEOUL = timezone(timedelta(hours=9))
 # 16d 스위치 8개와 저장한 적 없을 때의 값(backend/app/cards/repository.py NOTIFICATION_DEFAULTS).
 DEFAULTS = {'card_arrived': True, 'acceptance_received': True, 'match_made': True, 'new_message': True,
-            'trust_reminder': True, 'new_friend_review': True, 'marketing': False, 'quiet_hours': True}
+            'trust_reminder': True, 'new_friend_review': True, 'marketing': False, 'quiet_hours': False}
 EMPTY = '—'
 
 # 시나리오에 있지만 SET 1차 · 2차(area4_set2.py) 묶음에 안 넣은 것과 그 이유. EMULATOR 는 따로 센다.

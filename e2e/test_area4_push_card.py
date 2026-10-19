@@ -150,7 +150,7 @@ class DelegateTest(CardBase):
         result = self.go('E-PUSH-06', self.real_phone('E-PUSH-06'))
         self.assertEqual(result[0], 'pass', result)
         self.assertEqual([job['case'] for job in self.app.jobs], ['E-PUSH-06'])
-        self.assertEqual(self.world.by('PATCH', '/cards/notification-settings'), [])  # 방해 금지는 기본값(켬) 그대로 — 예외를 본다
+        self.assertEqual([s['body'] for s in self.world.by('PATCH', '/cards/notification-settings')], [{'quiet_hours': True}])  # 새 계정은 방해 금지가 꺼져 있어 먼저 켠다 — 예외를 본다
 
     def test_a_delegate_judges_exactly_like_the_original(self):
         self.scripts['daily-cards'] = lambda: (self.world.give_card('id-1'), self.world.post(CARD[0], '다른 본문'))
