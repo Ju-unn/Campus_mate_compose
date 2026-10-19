@@ -183,15 +183,16 @@ void main() {
       addTearDown(tester.view.reset);
       await pump(tester, photoCount: 2);
 
-      final subtitle = tester.getRect(find.text('얼굴이 잘 보이는 사진을 2~4장 골라주세요.'));
       final example = tester.getRect(find.byType(PhotoExample));
       final notice = tester.getRect(noticeBox());
       final grid = tester.getRect(find.byType(PhotoSlotGrid));
       final hints = tester.widgetList<HintLine>(find.byType(HintLine)).toList();
-      final first = tester.getRect(find.byType(HintLine).at(0));
-      final second = tester.getRect(find.byType(HintLine).at(1));
+      // 맨 앞 HintLine 은 공개 안내(아래 group) — 설명 줄 둘은 그 뒤 둘이다.
+      final visibility = tester.getRect(find.byType(HintLine).at(0));
+      final first = tester.getRect(find.byType(HintLine).at(1));
+      final second = tester.getRect(find.byType(HintLine).at(2));
 
-      expect(example.top, closeTo(subtitle.bottom + 32, 0.01));
+      expect(example.top, closeTo(visibility.bottom + 32, 0.01));
       expect(example.height, closeTo(188, 0.5));
       expect(notice.top, closeTo(example.bottom + 16, 0.01));
       // 안내 높이는 글 줄 수를 따른다(아래 시험이 한 줄 46 을 본다 — 시험 글꼴은 글자마다 1em 이라 360 폭에서는 두 줄로 접힌다).
@@ -199,7 +200,7 @@ void main() {
       expect(grid.top, closeTo(notice.bottom + 16, 0.01));
       expect(first.top, closeTo(grid.bottom + 16, 0.01));
       expect(second.top, closeTo(first.bottom + 6, 0.01));
-      expect([for (final hint in hints) hint.text], [_galleryGuide, _reorderGuide]);
+      expect([for (final hint in hints) hint.text], [photoVisibilityHint, _galleryGuide, _reorderGuide]);
       expect(find.text('이런 사진이 좋아요'), findsOneWidget);
       expect(find.text(_oldRulesTitle), findsNothing);
     });
@@ -245,6 +246,47 @@ void main() {
     }
   });
 
+  // pen F5DPI · EvcRf · SQgyO(사용자 승인): 부제 바로 아래 12 에 HintLine, 그 아래 32 에 좋은 사진 예시.
+  group('공개 안내 한 줄(pen 04-2 HintLine)', () {
+    Future<void> at360(WidgetTester tester, {double textScale = 1.0, int photoCount = 2}) async {
+      tester.view.physicalSize = const Size(360, 780);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await pump(tester, photoCount: photoCount, textScale: textScale);
+    }
+
+    Finder visibilityHint() => find.widgetWithText(HintLine, photoVisibilityHint);
+
+    testWidgets('문구는 정확히 "올린 실제 사진은 서로 수락하고 신뢰 확인을 마친 뒤에 상대방에게 보여요"', (tester) async {
+      await at360(tester);
+
+      expect(photoVisibilityHint, '올린 실제 사진은 서로 수락하고 신뢰 확인을 마친 뒤에 상대방에게 보여요');
+      expect(visibilityHint(), findsOneWidget);
+    });
+
+    testWidgets('부제 아래 12 · 좋은 사진 예시 위 32 에 서고, 화면 폭에서 두 줄로 접힌다', (tester) async {
+      await at360(tester);
+
+      final subtitle = tester.getRect(find.text('얼굴이 잘 보이는 사진을 2~4장 골라주세요.'));
+      final hint = tester.getRect(visibilityHint());
+      final example = tester.getRect(find.byType(PhotoExample));
+      expect(hint.top, closeTo(subtitle.bottom + 12, 0.01));
+      expect(example.top, closeTo(hint.bottom + 32, 0.01));
+      final text = find.descendant(of: visibilityHint(), matching: find.byType(Text));
+      expect(tester.getSize(text).height, greaterThan(tester.widget<Text>(text).style!.fontSize! * 1.5), reason: '두 줄');
+    });
+
+    for (final scale in [1.3, 2.0]) {
+      testWidgets('글자 배율 $scale 에서도 넘치지 않고 "다음" 이 화면 안에 있다', (tester) async {
+        await at360(tester, textScale: scale, photoCount: 4);
+
+        expect(tester.takeException(), isNull);
+        expect(visibilityHint(), findsOneWidget);
+        expectButtonOnScreen(tester);
+      });
+    }
+  });
+
   group('서버가 글자 많은 사진을 거절(422 `photo_looks_like_document`)', () {
     Future<ProviderContainer> rejected(WidgetTester tester, {String? code = 'photo_looks_like_document'}) async {
       tester.view.physicalSize = const Size(360, 1200);
@@ -280,7 +322,7 @@ void main() {
       expect(addTileFace(tester, 0).border, Border.all(color: AppColors.error, width: 2));
       expect(addTileFace(tester, 1).border, isNull);
       // 문구 아래로 설명 줄이 16 띄워 이어진다.
-      expect(tester.getTopLeft(find.byType(HintLine).first).dy, closeTo(tester.getRect(note).bottom + 16, 0.01));
+      expect(tester.getTopLeft(find.byType(HintLine).at(1)).dy, closeTo(tester.getRect(note).bottom + 16, 0.01));
     });
 
     testWidgets('사진을 빼면 문구 · 테두리가 사라진다', (tester) async {

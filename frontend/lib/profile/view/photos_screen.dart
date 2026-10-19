@@ -18,6 +18,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+/// 설명 바로 아래 안내 한 줄(pen `F5DPI` · `EvcRf` · `SQgyO` 의 HintLine) — 실사진이 언제 상대에게 보이는지.
+const photoVisibilityHint = '올린 실제 사진은 서로 수락하고 신뢰 확인을 마친 뒤에 상대방에게 보여요';
+
 /// 사진 업로드 화면(DESIGN.md 화면 04-2, datingApp.pen `F5DPI`).
 /// 최소 2장·최대 4장을 고르기만 하고, 올리기는 다음 화면 04-3 에서 아바타 원본을 정한 뒤 한 번에 한다
 /// (2026-09-23 사용자 결정 — 2026-09-20 C2 의 "한 화면으로 합치기"를 되돌림).
@@ -102,8 +105,11 @@ class _PhotosScreenState extends ConsumerState<PhotosScreen> {
                         '얼굴이 잘 보이는 사진을 2~4장 골라주세요.',
                         style: AppTypography.body.copyWith(color: AppColors.body, height: 1.6),
                       ),
+                      // pen `F5DPI` · `EvcRf` · `SQgyO`: 부제 → 12 → 공개 안내 한 줄(HintLine, 두 줄로 접힌다) → 32 → 예시.
+                      const SizedBox(height: AppSpacing.sm),
+                      const HintLine(photoVisibilityHint),
                       // pen 재배치(campus-pen 10-16): 좋은 사진 예시 → 16 → 안내 한 줄 → 16 → 사진 칸 → 16 → 설명 줄 둘 — 예시가 첫 화면에 온다.
-                      // 부제 ↔ 예시 32 는 종전 부제 ↔ 첫 덩어리 값 그대로(이번 값표에 없음).
+                      // 안내 ↔ 예시 32 는 종전 부제 ↔ 첫 덩어리 값 그대로(이번 값표에 없음).
                       const SizedBox(height: AppSpacing.xl),
                       const PhotoExample.goodPhoto(),
                       const SizedBox(height: AppSpacing.md),
