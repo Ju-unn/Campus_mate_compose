@@ -12,6 +12,9 @@ from app.chat.repository import ChatRepository
 from app.core.batch_auth import verify_oidc_token
 from app.core.deps import get_client, get_settings
 from app.core.time import SEOUL
+from app.graduate_verification.repository import GraduateRequestRepository
+from app.graduate_verification.retention import purge_graduate_photos
+from app.graduate_verification.storage import GraduateCertStorage
 from app.notifications.repository import NotificationRepository
 from app.notifications.retention import purge_expired
 from app.settings import Settings
@@ -113,4 +116,13 @@ async def run_chat_gate_batch(
         # purge 는 스스로 예외를 삼키지만 마지막 방어선이다 — 앞 작업(리마인드 · 마감)의 결과를 잃지 않는다.
         logger.warning("학생증 사진 정리 실패 %s", type(exc).__name__)
         photos = {"photos_deleted": 0, "pending_expired": 0}
-    return {**result, "deferred_sent": deferred_sent, "notifications_purged": purged, **photos}
+    # 졸업생 인증 사진 정리(결정 D12): 14일 지난 대기 신청 만료 · 이미 인증된 사람의 대기 닫기 · 결정된 줄에 남은 사진 삭제. 실패해도 위 결과는 그대로.
+    try:
+        graduate = await purge_graduate_photos(
+            GraduateRequestRepository(settings.postgrest_url, key, client),
+            GraduateCertStorage(settings.storage_url, key, client), now)
+    except Exception as exc:
+        logger.warning("졸업생 인증 사진 정리 실패 %s", type(exc).__name__)
+        graduate = {"photos_deleted": 0, "pending_expired": 0, "verified_cancelled": 0}
+    return {**result, "deferred_sent": deferred_sent, "notifications_purged": purged, **photos,
+            **{f"graduate_{name}": count for name, count in graduate.items()}}
