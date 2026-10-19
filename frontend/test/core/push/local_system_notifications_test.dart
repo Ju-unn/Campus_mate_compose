@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:campus_mate/core/push/local_system_notifications.dart';
+import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -79,6 +81,23 @@ void main() {
     expect(android['channelName'], 'CampusMate 알림');
     expect(android['importance'], Importance.high.value);
     expect(android['priority'], Priority.high.value);
+    // 작은 아이콘(흰 실루엣) 뒤 원 색 — 안 주면 폰이 파란 원을 고른다. 아이폰의 앱 아이콘 느낌에 맞춰 대표 색을 쓴다.
+    // 플러그인은 색을 ARGB 네 칸으로 나눠 보낸다.
+    expect(
+      [android['colorAlpha'], android['colorRed'], android['colorGreen'], android['colorBlue']],
+      [255, 0xFF, 0x38, 0x5C],
+    );
+  });
+
+  // 앱이 꺼져 있을 때는 시스템이 AndroidManifest 의 색을 쓴다 — 위 Dart 상수와 갈라지지 않게 묶어 둔다.
+  test('앱이 꺼져 있을 때 FCM 알림의 원 색(AndroidManifest · colors.xml)도 같은 대표 색이다', () {
+    final colors = File('android/app/src/main/res/values/colors.xml').readAsStringSync();
+    final manifest = File('android/app/src/main/AndroidManifest.xml').readAsStringSync();
+    final hex = AppColors.primary.toARGB32().toRadixString(16).substring(2).toUpperCase();
+
+    expect(colors, contains('<color name="notification_accent">#$hex</color>'));
+    expect(manifest, contains('com.google.firebase.messaging.default_notification_color'));
+    expect(manifest, contains('@color/notification_accent'));
   });
 
   // FCM 이 띄운 알림은 id 가 늘 0 이고 tag 로만 가려진다. 관문 갱신이 준비보다 먼저 와도 지워져야 한다(준비 없이 부른다).
