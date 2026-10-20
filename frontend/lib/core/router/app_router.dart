@@ -82,10 +82,13 @@ abstract final class AppRouter {
     bool Function() isSplashHeld = _splashNotHeld,
     AccountStatus Function() accountStatus = _active,
     Listenable? refreshListenable,
+    // 화면 추적(`ScreenViewObserver`) 같은 내비게이터 관찰자. 시험은 주지 않는다.
+    List<NavigatorObserver> observers = const [],
   }) {
     return GoRouter(
       initialLocation: AppRoutes.splash,
       refreshListenable: refreshListenable,
+      observers: observers,
       redirect: (context, state) {
         // 스플래시를 붙잡아 두는 동안에는 이동 판단을 미룬다 (임시 — [SplashHold] 주석 참고).
         if (isSplashHeld() && state.matchedLocation == AppRoutes.splash) {
@@ -219,8 +222,11 @@ abstract final class AppRouter {
           GoRoute(
             path: 'friend-reviews/write/:profileId',
             redirect: _uuidOr('profileId', AppRoutes.home),
-            pageBuilder: (context, state) =>
-                FriendReviewComposePage(key: state.pageKey, revieweeId: state.pathParameters['profileId']!),
+            pageBuilder: (context, state) => FriendReviewComposePage(
+              key: state.pageKey,
+              name: state.fullPath,
+              revieweeId: state.pathParameters['profileId']!,
+            ),
           ),
         ],
       ),
@@ -349,9 +355,13 @@ class _NeverChanges implements Listenable {
 /// 전환 모양 · 시간은 테마의 PageTransitionsTheme(Flutter 기본값)이 플랫폼별로 고른다.
 /// ponytail: builder 는 페이지 바깥 context 로 불린다(go_router 의 builder 는 페이지 안쪽) — 지금 builder 는 모두
 /// state 만 읽는다. context 로 ModalRoute 등을 읽어야 하면 `Builder` 로 감싼다.
+/// 페이지 이름은 경로 **패턴**(`/chat/:matchId`)이다 — 화면 추적(`ScreenViewObserver`)이 읽는다. 값이 채워진 경로는 쓰지 않는다.
 class _PlatformRoute extends GoRoute {
   _PlatformRoute({required super.path, required GoRouterWidgetBuilder builder, super.redirect})
-      : super(pageBuilder: (context, state) => MaterialPage<void>(key: state.pageKey, child: builder(context, state)));
+      : super(
+          pageBuilder: (context, state) =>
+              MaterialPage<void>(key: state.pageKey, name: state.fullPath, child: builder(context, state)),
+        );
 }
 
 /// 온보딩 · 관문 화면 — go 로만 들어와 맨 아래 한 장이라 안드로이드 시스템 뒤로가기가 곧바로 앱을 닫는다.
@@ -364,5 +374,8 @@ class _ExitGuardedRoute extends _PlatformRoute {
 /// 하단 내비 탭 5개 — 탭끼리는 미끄러지지 않고 바로 바뀐다(10-14 대장 지시). go_router 가 판별을 고쳐도 그대로다.
 class _TabRoute extends GoRoute {
   _TabRoute({required super.path, required GoRouterWidgetBuilder builder, super.routes})
-      : super(pageBuilder: (context, state) => NoTransitionPage<void>(key: state.pageKey, child: builder(context, state)));
+      : super(
+          pageBuilder: (context, state) =>
+              NoTransitionPage<void>(key: state.pageKey, name: state.fullPath, child: builder(context, state)),
+        );
 }
