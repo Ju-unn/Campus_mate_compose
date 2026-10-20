@@ -5,6 +5,8 @@ plugins {
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
     id("com.google.gms.google-services")
+    id("com.google.firebase.crashlytics")
+    id("com.google.firebase.firebase-perf")
 }
 
 // 카카오 네이티브 앱 키 — 카카오 로그인 복귀 스킴(kakao{키}://oauth)에 쓴다. 저장소에 값을 쓰지 않는다.
