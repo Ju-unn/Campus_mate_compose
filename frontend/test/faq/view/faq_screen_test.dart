@@ -238,7 +238,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  const mail = 's26404538@gmail.com';
+  const mail = 'appmailerl4538@gmail.com';
 
   testWidgets('걸린 게 없으면 21-1 빈 상태: 마스코트 120 → 24 → 제목 17/600 → 8 → 설명 세 줄, 메일만 14/600 #C4224B(pen IhXOF)', (tester) async {
     await pump(tester);
