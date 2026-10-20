@@ -94,6 +94,20 @@
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
+	<!-- 사용 통계(Firebase Analytics) · 오류 수집(Crashlytics) · 성능 측정은 약관 동의 전에는 꺼 둔다(2026-10-20).
+	     동의를 마친 로그인 사용자일 때만 앱이 켠다(lib/core/analytics/collection_consent.dart). 켠 값은 Firebase 가 기기에 기억한다.
+	     (FIREBASE_ANALYTICS_COLLECTION_DEACTIVATED 는 쓰지 않는다 — 그 값은 앱에서 다시 켤 수 없다.) -->
+	<key>FIREBASE_ANALYTICS_COLLECTION_ENABLED</key>
+	<false/>
+	<key>FirebaseCrashlyticsCollectionEnabled</key>
+	<false/>
+	<!-- 성능 측정(Firebase Performance)도 같다. 자동 수집만 쓴다. 이 키만 공식 이름이 소문자다
+	     (firebase_performance_collection_deactivated 는 앱에서 다시 켤 수 없어 쓰지 않는다). -->
+	<key>firebase_performance_collection_enabled</key>
+	<false/>
+	<!-- 광고 맞춤 신호는 켜 두지 않는다. 광고 식별자(IDFA)는 아예 쓰지 않는다 — Podfile 의 $FirebaseAnalyticsWithoutAdIdSupport. -->
+	<key>GOOGLE_ANALYTICS_DEFAULT_ALLOW_AD_PERSONALIZATION_SIGNALS</key>
+	<false/>
 	<!-- 서버 푸시(FCM → APNs)를 받는다. 알림 표시 자체는 aps 페이로드가 한다. -->
 	<key>UIBackgroundModes</key>
 	<array>
