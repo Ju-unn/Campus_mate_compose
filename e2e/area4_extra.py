@@ -31,7 +31,7 @@ from e2e.area5_photo import COST, _hearts_to, _two_ready
 from e2e.area5_read import _ready_avatars
 from e2e.tools import Blocked
 
-SUPPORT_MAIL = 's26404538@gmail.com'  # frontend/lib/common/support_email.dart supportEmail
+SUPPORT_MAIL = 'appmailerl4538@gmail.com'  # frontend/lib/common/support_email.dart supportEmail
 HOLD = 300  # E-SET-67: A 가 로그아웃한 뒤 B 가 그대로인지 보기 전에 기다리는 시간(초) — 시나리오 "5분 뒤"
 SEEN = 10  # 앱이 누른 뒤 맨 위 화면이 바뀌기를 기다리는 시간(초) — 처음 여는 앱은 5초를 넘기기도 한다
 # 계정 탈퇴(/account/withdraw)는 하트 출금이 아니다 — 'withdraw' 는 하트 이름이 붙은 경로만 센다.

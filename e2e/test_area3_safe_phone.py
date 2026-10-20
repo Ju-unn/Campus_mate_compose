@@ -31,7 +31,7 @@ POLL_GONE = '질문을 찾을 수 없어요'
 NETWORK = '네트워크 연결을 확인해 주세요'
 REASONS = ['욕설·비방·혐오', '성적 불쾌감', '광고·스팸', '사칭·허위', '기타']
 SUSPENDED_TITLE = '이용이 제한된 계정이에요'
-SUPPORT = 's26404538@gmail.com'
+SUPPORT = 'appmailerl4538@gmail.com'
 NOTICE = '연락처로 차단한 지인은 여기가 아니라 설정 > 연락처 차단에서 관리해요.'
 ON_LIST = dict(toast=REPORTED, on_list=True, room_listed=False)
 CHAT_NOT_FOUND = '대화를 찾을 수 없어요'
