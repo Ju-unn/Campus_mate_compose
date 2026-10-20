@@ -50,6 +50,13 @@ dependencies:
   # 푸시 알림(조각 4). firebase_core 는 firebase_messaging 이 요구해서 함께 들어간다.
   firebase_core: ^4.1.1
   firebase_messaging: ^16.0.2
+  # 사용 통계(Firebase Analytics, 2026-10-20 사용자 승인 "출시전으로 해 지금 넣어줘")와 오류 수집(Crashlytics, 같은 날 승인 "1번").
+  # 셋 다 약관 동의 뒤에만 켠다(lib/core/analytics/). 사용자 식별값은 보내지 않는다.
+  firebase_analytics: ^12.0.1
+  firebase_crashlytics: ^5.0.1
+  # 성능 측정(Firebase Performance Monitoring, 2026-10-20 승인 "성능측정도 넣어 지금"). 자동 수집(앱 시작 · 화면 렌더링)만 쓴다 —
+  # 사용자 지정 추적(HttpMetric · Trace)은 만들지 않는다(요청 주소에 계정 번호가 섞일 수 있다). 최신 0.12 는 firebase_core 5 를 요구해 0.11 대를 쓴다.
+  firebase_performance: ^0.11.6
   # 앱이 화면에 떠 있을 때 받은 푸시를 안드로이드 시스템 알림으로 띄운다(2026-10-13 승인). iOS 는 쓰지 않는다 —
   # iOS 는 FCM 의 포그라운드 표시 옵션이 띄운다(lib/core/push/foreground_push.dart).
   flutter_local_notifications: ^22.3.2
