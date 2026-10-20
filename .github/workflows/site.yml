@@ -68,7 +68,7 @@ jobs:
               if tag == 'img' and not a.get('alt'):
                   errors.append(f'대체 글자(alt) 없는 그림: {a.get("src")}')
           # 바닥글 링크 4개(개인정보처리방침 · 이용약관 · 계정 삭제 안내 · 문의 메일)가 자리에 있는지 본다.
-          for need in ('3ead998f0dee80d08709d6b75c79ddc0', '3e9d998f0dee8082be84e126630b02a7', '3f7d998f0dee80148368f486cff7606a', 'mailto:s26404538@gmail.com'):
+          for need in ('3ead998f0dee80d08709d6b75c79ddc0', '3e9d998f0dee8082be84e126630b02a7', '3f7d998f0dee80148368f486cff7606a', 'mailto:appmailerl4538@gmail.com'):
               if not any(need in r for r in refs):
                   errors.append(f'바닥글 링크가 없음: {need}')
           # 이 페이지가 가리키는 우리 파일이 실제로 있는지 본다(외부 주소 · 메일은 빼고).
