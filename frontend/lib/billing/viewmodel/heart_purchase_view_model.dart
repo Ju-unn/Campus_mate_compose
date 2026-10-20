@@ -11,6 +11,7 @@ import 'package:campus_mate/billing/model/store_purchase.dart';
 import 'package:campus_mate/billing/viewmodel/heart_purchase_ui_state.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -184,7 +185,7 @@ class HeartPurchaseViewModel extends Notifier<HeartPurchaseUiState> {
     }
     if (!ref.mounted) return;
     await result.when(
-      onSuccess: (outcome) => _onVerified(token, outcome),
+      onSuccess: (outcome) => _onVerified(token, purchase.productId, outcome),
       onFailure: (failure) async => _onRejected(token, failure),
     );
     // 처리가 끝난 뒤에 푼다 — 지급 뒤 자격을 다시 읽는(_reloadBonus) 사이에 같은 토큰이 복구로 또 와도 다시 보내지 않게.
@@ -197,7 +198,7 @@ class HeartPurchaseViewModel extends Notifier<HeartPurchaseUiState> {
         PaymentStore.appStore => _repository.verifyApple(purchase.productId, purchase.purchaseToken),
       };
 
-  Future<void> _onVerified(String token, PurchaseOutcome outcome) async {
+  Future<void> _onVerified(String token, String productId, PurchaseOutcome outcome) async {
     // 하트가 들어갔다(새로 · 이미) — 이제야 끝낸다. 대기(202)는 아직 결제됨이 아니라 끝내지 않는다.
     if (outcome is PurchaseGranted) unawaited(_gateway.finish(token));
     switch (outcome) {
@@ -207,6 +208,8 @@ class HeartPurchaseViewModel extends Notifier<HeartPurchaseUiState> {
         state = state.copyWith(phase: HeartPurchasePhase.idle, banner: null);
         ref.invalidate(myProfileProvider);
       case PurchaseGranted(:final hearts, :final bonusHearts):
+        // 사용 통계 `heart_purchase` — 서버가 하트를 새로 넣은 뒤에만, 상품 ID 만 싣는다. 이미 받은 결제(위 isNew: false)는 세지 않는다.
+        ref.read(analyticsServiceProvider).logHeartPurchase(productId);
         state = state.copyWith(
           phase: HeartPurchasePhase.idle,
           banner: null,

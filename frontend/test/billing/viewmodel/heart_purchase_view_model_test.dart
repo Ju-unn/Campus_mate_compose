@@ -10,12 +10,14 @@ import 'package:campus_mate/billing/viewmodel/heart_purchase_ui_state.dart';
 import 'package:campus_mate/billing/viewmodel/heart_purchase_view_model.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'package:campus_mate/me/model/me_repository_provider.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../core/analytics/fake_analytics_service.dart';
 import '../../me/model/fake_me_repository.dart';
 import '../model/fake_billing_repository.dart';
 import '../model/fake_heart_store_gateway.dart';
@@ -24,6 +26,7 @@ void main() {
   late FakeHeartStoreGateway gateway;
   late FakeBillingRepository repo;
   late FakeMeRepository me;
+  late FakeAnalyticsService analytics;
   late ProviderContainer container;
 
   ProviderContainer makeContainer({bool supported = true, PaymentStore store = PaymentStore.googlePlay}) {
@@ -33,6 +36,7 @@ void main() {
       heartPurchaseSupportedProvider.overrideWithValue(supported),
       paymentStoreProvider.overrideWithValue(store),
       meRepositoryProvider.overrideWithValue(me),
+      analyticsServiceProvider.overrideWithValue(analytics),
     ]);
     addTearDown(made.dispose);
     return made;
@@ -42,6 +46,7 @@ void main() {
     gateway = FakeHeartStoreGateway();
     repo = FakeBillingRepository();
     me = FakeMeRepository(const FailureResult(NetworkFailure()));
+    analytics = FakeAnalyticsService();
     container = makeContainer();
   });
 
@@ -292,6 +297,26 @@ void main() {
 
       expect((state().toast! as GrantedToast).message, '100하트가 들어왔어요');
       expect(repo.verified, [('heart_100', 'tok')]);
+    });
+
+    // 사용 통계 heart_purchase 이벤트 — 서버가 하트를 새로 지급한 뒤에만, 상품 ID 만 남긴다(금액 · 계정 표시 · 거래 번호는 안 싣는다).
+    test('하트가 새로 지급되면 상품 ID 만 분석에 남긴다', () async {
+      repo.outcome = const Success(PurchaseGranted(hearts: 100, bonusHearts: 0, isNew: true));
+
+      await emit([const StorePurchased('heart_100', 'tok')]);
+
+      expect(analytics.calls, ['heart_purchase:heart_100']);
+    });
+
+    test('이미 받은 결제 · 서버 대기 · 서버 거절은 구매 성공으로 남기지 않는다', () async {
+      repo.outcome = const Success(PurchaseGranted(hearts: 100, bonusHearts: 0, isNew: false));
+      await emit([const StorePurchased('heart_100', 'tok1')]);
+      repo.outcome = const Success(PurchasePendingAtStore());
+      await emit([const StorePurchased('heart_100', 'tok2')]);
+      repo.outcome = const FailureResult(ServerUnavailableFailure());
+      await emit([const StorePurchased('heart_100', 'tok3')]);
+
+      expect(analytics.calls, isEmpty);
     });
 
     test('이미 받은 결제(already_granted)는 안내 없이 잔액만 다시 읽는다', () async {
