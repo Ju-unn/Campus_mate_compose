@@ -10,7 +10,7 @@ flutter run \
   --dart-define=SUPABASE_ANON_KEY=<anon key>
 ```
 
-소셜 로그인(시작 화면)을 쓰려면 `--dart-define=KAKAO_NATIVE_APP_KEY=...` `--dart-define=GOOGLE_WEB_CLIENT_ID=...` 를 함께 넣고, 안드로이드 빌드에는 카카오 복귀 스킴용으로 같은 이름 `KAKAO_NATIVE_APP_KEY` 를 환경변수나 `android/local.properties` 에도 둔다(없으면 빌드는 되고 버튼만 실패 토스트).
+소셜 로그인(시작 화면)을 쓰려면 `--dart-define=KAKAO_NATIVE_APP_KEY=...` `--dart-define=GOOGLE_WEB_CLIENT_ID=...` 를 함께 넣고, 안드로이드 빌드에는 카카오 복귀 스킴용으로 같은 이름 `KAKAO_NATIVE_APP_KEY` 를 **환경변수나 `android/local.properties` 에도 둔다 — `--dart-define` 과 별개 값이다**(없으면 빌드는 되는데 매니페스트 스킴이 빈 값이 되어 카카오 로그인이 앱으로 돌아오지 못한다. 2026-10-20 vc13 ~ vc17 이 이 때문에 폐기됐다. 릴리스 AAB 는 아래 "AAB 빌드" 의 규칙을 따른다).
 
 **`flutter run`(디버그 서명)의 한계 — 소셜 로그인이 실패한다(2026-10-14 확인).** 카카오 · 구글 로그인과 Firebase 는 앱 서명 지문으로 앱을 알아보는데, 등록된 지문은 아래 두 키뿐이고 **디버그 서명은 어디에도 등록돼 있지 않다.** 그래서 `flutter run` · `--debug` 빌드는 화면 시험은 되지만 로그인 뒤 화면은 못 본다. 폰에서 로그인까지 시험하려면 둘 중 하나다:
 
@@ -34,7 +34,10 @@ flutter run \
 flutter build appbundle --release --build-number=<N> --dart-define-from-file=<dart-define 파일>
 ```
 
-- **versionCode(`--build-number`)는 업로드마다 +1** 한다 — 플레이는 이미 올린 번호를 다시 받지 않는다. `pubspec.yaml` 의 `version`(`1.0.0+1`)은 건드리지 않고 명령의 `--build-number` 로만 올린다. 2026-10-14 기준 **2 까지** 올렸다(다음은 3) — **2026-10-19 갱신: versionCode 13 은 플레이에서 이미 사용돼 14 로 다시 만드는 중이다**(Desktop `CampusMate_AAB\` 에 vc 별 파일이 있다). iOS TestFlight 는 빌드 21 이다. 번호는 `--build-number` 로만 올리고 `pubspec.yaml` 의 `version` 은 건드리지 않는다
+- **versionCode(`--build-number`)는 업로드마다 +1** 한다 — 플레이는 이미 올린 번호를 다시 받지 않는다. 번호는 `--build-number` 로만 올리고 `pubspec.yaml` 의 `version`(`1.0.0+1`)은 건드리지 않는다.
+- **번호 현황(2026-10-20)**: 현재 프로덕션 제출본은 **vc18**(제출 6, 검토 중)이고 다음은 **19** 다. **13 ~ 17 은 이미 쓴(폐기한) 번호**라 다시 쓸 수 없다 — vc13 은 플레이에서 이미 사용돼 있었고 vc14 ~ vc17 은 아래 카카오 키 사고로 폐기했다. 번호 목록은 Desktop `CampusMate_AAB\` 의 vc 별 파일 이름과 맞춘다. iOS TestFlight 번호는 워크플로 실행 번호이고 현재 **25**(심사 대기, 24 는 폐기)다(아래 "TestFlight 로 아이폰에 설치하기").
+- **빌드 전 필수 — 카카오 키 환경변수.** `android/app/build.gradle.kts` 는 카카오 복귀 스킴 키를 환경변수 `KAKAO_NATIVE_APP_KEY` → `android/local.properties` → 빈 문자열 순으로 읽어 `manifestPlaceholders["kakaoKey"]` 에 넣는다. `--dart-define-from-file` 로 앱 코드에 준 키와는 **별개 경로**라서 빌드 명령 앞에 같은 셸에서 `export KAKAO_NATIVE_APP_KEY=...` 를 해야 한다(값은 이 문서에 적지 않는다). 빼먹으면 빌드는 성공하지만 스킴이 빈 값이다.
+- **빌드 뒤 확인 — 매니페스트 스킴.** AAB 의 매니페스트를 덤프해(예: `bundletool dump manifest --bundle=build/app/outputs/bundle/release/app-release.aab`, bundletool 이 없으면 같은 키로 `flutter build apk --release` 한 APK 에 `aapt2 dump xmltree --file AndroidManifest.xml <apk>`) 카카오 복귀 activity 의 `android:scheme` 이 `kakao<키>` 로 채워졌는지 본다. 값이 맨 `kakao` 뿐이면 키가 빈 값으로 들어간 것이니 올리지 말고 환경변수를 넣어 다시 만든다. (명령 형식은 이 문서 담당이 실행해 보지 않았다 — 도구 버전에 따라 옵션이 다를 수 있다.)
 - `--dart-define-from-file` 의 파일(키 · 주소가 든 JSON)은 저장소 밖에 둔다. 값 · 파일 내용은 이 문서에 적지 않는다
 - 결과물 `build/app/outputs/bundle/release/app-release.aab` 를 플레이 콘솔 내부 테스트에 올린다(올리기는 사용자가 한다)
 
