@@ -5,15 +5,18 @@ import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../profile/model/fake_onboarding_repository.dart';
+import '../analytics/fake_analytics_service.dart';
 
 void main() {
   late FakeOnboardingRepository repository;
+  late FakeAnalyticsService analytics;
   late OnboardingStepListenable listenable;
   late int notifyCount;
 
   setUp(() {
     repository = FakeOnboardingRepository();
-    listenable = OnboardingStepListenable(repository);
+    analytics = FakeAnalyticsService();
+    listenable = OnboardingStepListenable(repository, analytics: analytics);
     notifyCount = 0;
     listenable.addListener(() => notifyCount++);
     addTearDown(listenable.dispose);
@@ -23,6 +26,38 @@ void main() {
   test('조회 전에는 아직 모르는 상태(null)로 본다', () {
     expect(listenable.value, isNull);
     expect(repository.fetchCount, 0);
+  });
+
+  // 사용 통계 onboarding_complete 이벤트 — 가입을 끝내는 순간(서버 단계가 complete 로 바뀐 때) 한 번만.
+  group('온보딩 완료 분석', () {
+    test('아직 가입 중이던 단계에서 complete 로 바뀌면 한 번 남긴다', () async {
+      repository.nextResult = const Success(OnboardingStep.bio);
+      await listenable.refresh();
+      repository.nextResult = const Success(OnboardingStep.complete);
+
+      await listenable.refresh();
+      await listenable.refresh();
+
+      expect(analytics.calls, ['onboarding_complete']);
+    });
+
+    test('앱을 켰더니 이미 complete 인 사람(첫 조회가 complete)은 남기지 않는다', () async {
+      repository.nextResult = const Success(OnboardingStep.complete);
+
+      await listenable.refresh();
+
+      expect(analytics.calls, isEmpty);
+    });
+
+    test('가입 중 단계끼리 바뀌는 것은 남기지 않는다', () async {
+      repository.nextResult = const Success(OnboardingStep.basicInfo);
+      await listenable.refresh();
+      repository.nextResult = const Success(OnboardingStep.kakaoId);
+
+      await listenable.refresh();
+
+      expect(analytics.calls, isEmpty);
+    });
   });
 
   test('조회에 성공하면 그 단계로 바꾸고 알린다', () async {

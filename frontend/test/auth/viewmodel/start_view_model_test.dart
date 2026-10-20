@@ -6,13 +6,16 @@ import 'package:campus_mate/auth/viewmodel/start_ui_state.dart';
 import 'package:campus_mate/auth/viewmodel/start_view_model.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../core/analytics/fake_analytics_service.dart';
 import '../model/fake_social_login_repository.dart';
 
 void main() {
   late FakeSocialLoginRepository repository;
+  late FakeAnalyticsService analytics;
   late ProviderContainer container;
 
   StartUiState state() => container.read(startViewModelProvider);
@@ -20,7 +23,11 @@ void main() {
 
   setUp(() {
     repository = FakeSocialLoginRepository();
-    container = ProviderContainer(overrides: [socialLoginRepositoryProvider.overrideWithValue(repository)]);
+    analytics = FakeAnalyticsService();
+    container = ProviderContainer(overrides: [
+      socialLoginRepositoryProvider.overrideWithValue(repository),
+      analyticsServiceProvider.overrideWithValue(analytics),
+    ]);
   });
 
   tearDown(() => container.dispose());
@@ -55,6 +62,27 @@ void main() {
 
     expect(state().inProgress, isNull);
     expect(state().toast, isNull);
+  });
+
+  // 사용 통계 login 이벤트 — 방법 이름(kakao · google · apple)만 싣는다.
+  test('성공하면 로그인 방법 이름을 분석에 남긴다', () async {
+    final signIn = viewModel().signIn(SocialProvider.google);
+    repository.completer.complete(const Success(null));
+    await signIn;
+
+    expect(analytics.calls, ['login:google']);
+  });
+
+  test('취소 · 실패한 로그인은 분석에 남기지 않는다', () async {
+    final cancelled = viewModel().signIn(SocialProvider.kakao);
+    repository.completer.complete(const FailureResult(LoginCancelledFailure()));
+    await cancelled;
+    repository.completer = Completer();
+    final failed = viewModel().signIn(SocialProvider.kakao);
+    repository.completer.complete(const FailureResult(SocialLoginFailure()));
+    await failed;
+
+    expect(analytics.calls, isEmpty);
   });
 
   test('취소면 취소 모양 토스트', () async {

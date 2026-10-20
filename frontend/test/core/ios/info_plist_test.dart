@@ -41,4 +41,18 @@ void main() {
 
     expect(plist, matches(RegExp(r'<key>FlutterDeepLinkingEnabled</key>\s*<false/>')));
   });
+
+  // 사용 통계 · 오류 수집 · 성능 측정은 약관 동의 전에는 꺼 둔다(2026-10-20). 키 이름이 틀리면 Firebase 는 조용히 무시하고
+  // 동의 전에도 수집한다 — 성능 측정 키는 다른 둘과 달리 **소문자**다(https://firebase.google.com/docs/perf-mon/disable-sdk?platform=ios).
+  test('수집 도구 세 개는 Info.plist 에서 꺼져 있고 성능 측정 키는 공식 소문자 이름이다', () {
+    final plist = File('ios/Runner/Info.plist').readAsStringSync();
+
+    for (final key in ['firebase_performance_collection_enabled', 'FIREBASE_ANALYTICS_COLLECTION_ENABLED', 'FirebaseCrashlyticsCollectionEnabled']) {
+      expect(plist, matches(RegExp('<key>$key</key>\\s*<false/>')), reason: key);
+    }
+    expect(plist, isNot(contains('<key>FIREBASE_PERFORMANCE_COLLECTION_ENABLED</key>')), reason: '없는 키 이름(대문자)');
+    // 끄기 전용 키는 앱에서 다시 켤 수 없다.
+    expect(plist, isNot(contains('<key>firebase_performance_collection_deactivated</key>')));
+    expect(plist, isNot(contains('<key>FIREBASE_ANALYTICS_COLLECTION_DEACTIVATED</key>')));
+  });
 }

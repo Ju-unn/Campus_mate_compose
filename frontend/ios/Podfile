@@ -27,6 +27,10 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 
 flutter_ios_podfile_setup
 
+# 사용 통계는 광고 식별자(IDFA)를 쓰지 않는다 — AdSupport 를 연결하지 않아 추적 허용 창(ATT)도 필요 없다(2026-10-20).
+# firebase_analytics 의 podspec 이 이 값을 읽어 FirebaseAnalytics/Core 만 받는다.
+$FirebaseAnalyticsWithoutAdIdSupport = true
+
 target 'Runner' do
   use_frameworks!
 

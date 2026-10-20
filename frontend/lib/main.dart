@@ -8,6 +8,15 @@ import 'package:campus_mate/billing/model/in_app_heart_store_gateway.dart';
 import 'package:campus_mate/billing/viewmodel/heart_purchase_view_model.dart';
 import 'package:campus_mate/chat/viewmodel/user_channel.dart';
 import 'package:campus_mate/common/widgets/keyboard_dismiss_on_tap.dart';
+import 'package:campus_mate/core/analytics/analytics_provider.dart';
+import 'package:campus_mate/core/analytics/analytics_service.dart';
+import 'package:campus_mate/core/analytics/crash_error_hooks.dart';
+import 'package:campus_mate/core/analytics/crash_reporter.dart';
+import 'package:campus_mate/core/analytics/performance_monitor.dart';
+import 'package:campus_mate/core/analytics/firebase_analytics_service.dart';
+import 'package:campus_mate/core/analytics/firebase_crash_reporter.dart';
+import 'package:campus_mate/core/analytics/firebase_performance_monitor.dart';
+import 'package:campus_mate/core/analytics/screen_view_observer.dart';
 import 'package:campus_mate/core/auth/account_status_listenable.dart';
 import 'package:campus_mate/core/auth/session_scope.dart';
 import 'package:campus_mate/core/auth/sign_out.dart';
@@ -35,6 +44,9 @@ import 'package:campus_mate/core/supabase/supabase_initializer.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
 import 'package:campus_mate/tour/view/app_tour_host.dart';
 import 'package:campus_mate/tour/viewmodel/app_tour_view_model.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:firebase_performance/firebase_performance.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -48,6 +60,15 @@ Future<void> main() async {
   // (firebase_options.dart 를 만들지 않는 이유 — flutterfire CLI 를 새로 들이지 않는다).
   // 실패해도(iOS 에 GoogleService-Info.plist 가 없을 때) 앱은 푸시 없이 계속 뜬다 — 아래 pushMessagingProvider 덮어쓰기.
   final firebaseReady = await initializeFirebase();
+  // 사용 통계 · 오류 수집 · 성능 측정은 Firebase 가 떠 있을 때만 진짜를 쓴다. 셋 다 약관 동의 전에는 꺼져 있고(AndroidManifest · Info.plist)
+  // 동의 뒤에 켠다 — 켜고 끄는 때는 아래 [_CampusMateAppState._syncCollection].
+  final AnalyticsService analytics =
+      firebaseReady ? FirebaseAnalyticsService(FirebaseAnalytics.instance) : const NoAnalyticsService();
+  final CrashReporter crashReporter =
+      firebaseReady ? FirebaseCrashReporter(FirebaseCrashlytics.instance) : const NoCrashReporter();
+  final PerformanceMonitor performance =
+      firebaseReady ? FirebasePerformanceMonitor(FirebasePerformance.instance) : const NoPerformanceMonitor();
+  if (firebaseReady) CrashErrorHooks.install(crashReporter);
   await SupabaseInitializer.run(SupabaseConfig.fromEnvironment());
   // 온보딩 뷰모델이 처음 상태를 만들 때 바로 읽을 수 있게 디스크를 한 번 읽어 둔다. 못 열어도 앱은 뜬다.
   // 계정 id 는 따로 들고 있지 않고 그때그때 Supabase 세션(로그인 상태)에서 읽는다 — 로그인 전이면 null 이라 쓰지 않는다.
@@ -58,6 +79,9 @@ Future<void> main() async {
     authChanges: Supabase.instance.client.auth.onAuthStateChange,
     overrides: [
       draftStoreProvider.overrideWithValue(drafts),
+      analyticsServiceProvider.overrideWithValue(analytics),
+      crashReporterProvider.overrideWithValue(crashReporter),
+      performanceMonitorProvider.overrideWithValue(performance),
       if (!firebaseReady) pushMessagingProvider.overrideWithValue(const NoPushMessaging()),
       // 안드로이드 시스템 알림 창구는 앱을 켤 때 한 번만 만든다 — 로그아웃해도 새로 만들지 않는다(push_provider.dart).
       systemNotificationsProvider.overrideWithValue(LocalSystemNotifications(FlutterLocalNotificationsPlugin())),
@@ -114,6 +138,7 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
     _verificationGate.addListener(_startHeartPurchasesWhenGateOpens);
     _verificationGate.addListener(_openPendingPushRoute);
     _verificationGate.addListener(_syncUserChannel);
+    _verificationGate.addListener(_syncCollection);
     _onboardingStep.addListener(_openPendingPushRoute);
     _accountStatus.addListener(_signOutWhenWithdrawn);
     _router = _createRouter();
@@ -148,6 +173,13 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
     channel.start(userId);
   }
 
+  /// 사용 통계 · 오류 수집 · 성능 측정은 **약관 동의(02-c)를 마친 로그인 사용자일 때만** 켠다. 로그아웃 · 탈퇴(세션 없음)면 끈다.
+  /// 규칙은 [CollectionConsent] 에 있고, 여기는 세션 · 관문이 바뀔 때마다 부르기만 한다.
+  /// 동의 직후는 관문 리스너가, 동의를 마친 채 앱을 켠 경우는 시작할 때 부르는 [_refreshVerificationGate] 가 맡는다.
+  void _syncCollection() => ref
+      .read(collectionConsentProvider)
+      .sync(isAuthenticated: _authSession.isAuthenticated, gate: _verificationGate.value);
+
   /// 탈퇴(직접 16c 든 다른 기기에서든)면 시작 화면용 알림을 남기고 로그아웃한다 — 로그아웃은 여기 한 곳뿐이다.
   void _signOutWhenWithdrawn() => signOutWhenWithdrawn(_accountStatus.value, ref.read(signOutProvider));
 
@@ -156,6 +188,7 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
   /// 다음 사용자가 물려받으면 안 되므로 캐시를 비운다.
   void _refreshVerificationGate() {
     _syncUserChannel();
+    _syncCollection();
     if (!_authSession.isAuthenticated) {
       _forgetSession();
       return;
@@ -289,6 +322,8 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
       isSplashHeld: _splashHold.isHolding,
       accountStatus: () => _accountStatus.value,
       refreshListenable: Listenable.merge([_authSession, _verificationGate, _onboardingStep, _accountStatus, _splashHold]),
+      // 화면 이름(경로 패턴)만 사용 통계로 간다 — 수집은 약관 동의 뒤에만 켜져 있다.
+      observers: [ScreenViewObserver(ref.read(analyticsServiceProvider))],
     );
   }
 
@@ -303,6 +338,7 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
     _verificationGate.removeListener(_startHeartPurchasesWhenGateOpens);
     _verificationGate.removeListener(_openPendingPushRoute);
     _verificationGate.removeListener(_syncUserChannel);
+    _verificationGate.removeListener(_syncCollection);
     _onboardingStep.removeListener(_openPendingPushRoute);
     _accountStatus.removeListener(_signOutWhenWithdrawn);
     _authSession.removeListener(_refreshVerificationGate);

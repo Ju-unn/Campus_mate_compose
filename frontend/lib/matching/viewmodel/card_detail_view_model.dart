@@ -1,3 +1,4 @@
+import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'package:campus_mate/matching/model/card_repository.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:campus_mate/matching/viewmodel/card_detail_ui_state.dart';
@@ -47,5 +48,9 @@ class CardDetailViewModel extends Notifier<CardDetailUiState> {
       onFailure: (failure) =>
           state.copyWith(isSubmitting: false, errorMessage: failure.toDisplayMessage()),
     );
+    // 사용 통계 `chat_request_sent` — 서버가 수락(= 대화 신청)을 받아 준 뒤에만. 거절은 신청이 아니다.
+    if (state.decided && decision == CardDecision.accept) {
+      ref.read(analyticsServiceProvider).logChatRequestSent();
+    }
   }
 }

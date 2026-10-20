@@ -34,6 +34,7 @@ import 'package:campus_mate/community/model/community_repository_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/university_logos.dart';
+import 'package:campus_mate/core/analytics/screen_view_observer.dart';
 import 'package:campus_mate/core/auth/account_status_listenable.dart';
 import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
 import 'package:campus_mate/core/back_exit/back_exit_view_model.dart';
@@ -105,6 +106,7 @@ import '../../profile/model/fake_bio_repository.dart';
 import '../../profile/model/fake_ideal_note_repository.dart';
 import '../../profile/model/fake_onboarding_repository.dart';
 import '../../profile/model/fake_survey_repository.dart';
+import '../analytics/fake_analytics_service.dart';
 import '../../safety/model/fake_safety_repository.dart';
 import '../supabase/fake_auth_session.dart';
 import '../../notifications/model/fake_notifications_repository.dart';
@@ -625,6 +627,41 @@ void main() {
 
       expect(find.byType(AccountSuspendedScreen), findsOneWidget);
     });
+  });
+
+  // 화면 추적(Firebase Analytics screen_view) — 화면 이름은 페이지 이름에 실린 경로 패턴이다.
+  testWidgets('화면 추적기는 경로 패턴 이름만 받는다 — 채팅방 id 가 이름에 섞이지 않는다', (tester) async {
+    final analytics = FakeAnalyticsService();
+    final router = AppRouter.create(
+      isAuthenticated: () => true,
+      verificationGate: _passedGate,
+      onboardingStep: _passedStep,
+      observers: [ScreenViewObserver(analytics)],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
+          chatRepositoryProvider.overrideWithValue(FakeChatRepository()..room = Success(roomFixture())),
+          messageStreamProvider.overrideWithValue(FakeMessageStream()),
+          homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
+          notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
+        ],
+        child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    router.go('${AppRoutes.chatRoom}/$_matchId');
+    await tester.pumpAndSettle();
+
+    expect(analytics.calls, contains('screen:${AppRoutes.home}'));
+    expect(analytics.calls, contains('screen:${AppRoutes.chatRoom}/:matchId'));
+    expect(analytics.calls.where((call) => call.contains(_matchId)), isEmpty);
+    // 채팅방이 dispose 에서 목록을 다시 읽는다 — provider 가 아직 살아 있을 때 채팅방을 떠난다.
+    router.go(AppRoutes.conversations);
+    await tester.pumpAndSettle();
   });
 
   // 나 탭 편집(계획서 A2) — 완료한 사람이 가면 돌려보내지지 않고 그 화면이 편집 모드로 뜬다.

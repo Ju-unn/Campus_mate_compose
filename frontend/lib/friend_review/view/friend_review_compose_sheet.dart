@@ -61,7 +61,7 @@ Future<bool?> _showSheet(BuildContext context, FriendReviewComposeSheet sheet) {
 /// 추천 가입 푸시 `/home/friend-reviews/write/:profileId` 가 쓰는 go_router 페이지(대장 Q1, 2026-09-29).
 /// 홈 경로 아래에 달려 홈이 밑에 깔리고 그 위에 [showFriendReviewComposeSheet] 와 같은 시트가 뜬다.
 class FriendReviewComposePage extends Page<bool> {
-  const FriendReviewComposePage({required this.revieweeId, super.key});
+  const FriendReviewComposePage({required this.revieweeId, super.key, super.name});
 
   final String revieweeId;
 

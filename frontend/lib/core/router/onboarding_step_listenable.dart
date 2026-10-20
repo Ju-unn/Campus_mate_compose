@@ -1,3 +1,4 @@
+import 'package:campus_mate/core/analytics/analytics_service.dart';
 import 'package:campus_mate/profile/model/onboarding_repository.dart';
 import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:flutter/foundation.dart';
@@ -17,9 +18,10 @@ const OnboardingStep _defaultStep = OnboardingStep.basicInfo;
 /// 라우터는 [value] 화면에 사람을 묶으니 앞 화면으로만 갈 수 있고, 서버 단계 너머로는 못 간다.
 /// 다시 보는 단계는 메모리에만 있다 — 앱을 다시 켜면 서버 단계에서 시작한다.
 class OnboardingStepListenable extends ChangeNotifier {
-  OnboardingStepListenable(this._repository);
+  OnboardingStepListenable(this._repository, {this._analytics = const NoAnalyticsService()});
 
   final OnboardingRepository _repository;
+  final AnalyticsService _analytics;
   OnboardingStep? _cached;
 
   /// 뒤로가기로 돌아가 다시 보고 있는 앞 단계. 늘 [_cached] 보다 앞이다. 다시 보는 중이 아니면 null.
@@ -80,10 +82,19 @@ class OnboardingStepListenable extends ChangeNotifier {
     if (step == _cached) {
       return;
     }
+    _logIfOnboardingFinished(step);
     _cached = step;
     // 서버 단계가 다시 보는 단계와 같거나 앞으로 바뀌면 다시 보기를 끝낸다 — 서버 단계 너머 화면에 머물지 않게.
     _visiting = _visibleBeforeServer(_visiting);
     notifyListeners();
+  }
+
+  /// 가입 중이던 단계(이미 한 번 조회해 안다)에서 complete 가 된 순간만 사용 통계에 남긴다.
+  /// 앱을 켰더니 이미 complete 인 기존 사용자(첫 조회, 이전 값 null)는 가입을 방금 끝낸 것이 아니라서 세지 않는다.
+  void _logIfOnboardingFinished(OnboardingStep? step) {
+    if (step == OnboardingStep.complete && _cached != null) {
+      _analytics.logOnboardingComplete();
+    }
   }
 
   /// 서버 단계보다 앞일 때만 다시 보는 단계로 남긴다.

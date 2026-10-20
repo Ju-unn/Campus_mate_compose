@@ -8,9 +8,63 @@
 	<false/>
 	<key>NSPrivacyTrackingDomains</key>
 	<array/>
-	<!-- 수집 항목(이메일 · 닉네임 · 사진 · 연락처 해시 등)은 App Store Connect 의 "앱 개인정보" 설문에서 답한다. 여기는 비워 둔다(확정 전). -->
+	<!-- 수집 항목(이메일 · 닉네임 · 사진 · 연락처 해시 등)은 App Store Connect 의 "앱 개인정보" 설문에서 답한다. 여기는 사용 통계 · 성능 측정 · 오류 수집(2026-10-20)만 적는다.
+	     셋 다 사용자와 연결하지 않고(Linked false) 추적에 쓰지 않는다(Tracking false). 약관 동의 뒤에만 수집한다. -->
 	<key>NSPrivacyCollectedDataTypes</key>
-	<array/>
+	<array>
+		<!-- 화면 이동 · 대화 신청 · 하트 구매 같은 이벤트(Firebase Analytics). -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeProductInteraction</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+			</array>
+		</dict>
+		<!-- 앱 인스턴스 ID · 공급업체 식별자(IDFV)(Firebase Analytics). 광고 식별자(IDFA)는 아니다. -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeDeviceID</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+			</array>
+		</dict>
+		<!-- 앱 시작 시간 · 화면 렌더링 같은 성능 지표(Firebase Performance, 자동 수집만). -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypePerformanceData</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+			</array>
+		</dict>
+		<!-- 앱이 죽은 기록(Firebase Crashlytics). -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeCrashData</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+	</array>
 	<key>NSPrivacyAccessedAPITypes</key>
 	<array>
 		<!-- shared_preferences: 이 앱 안의 설정만 읽고 쓴다. -->

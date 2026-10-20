@@ -1,5 +1,6 @@
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'package:campus_mate/matching/model/card_detail.dart';
 import 'package:campus_mate/matching/model/card_profile.dart';
 import 'package:campus_mate/matching/model/card_repository.dart';
@@ -9,6 +10,7 @@ import 'package:campus_mate/profile/model/profile_enums.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../core/analytics/fake_analytics_service.dart';
 import '../model/fake_card_repository.dart';
 
 final _detail = CardDetail(
@@ -26,12 +28,17 @@ final _detail = CardDetail(
 
 void main() {
   late FakeCardRepository repository;
+  late FakeAnalyticsService analytics;
   late ProviderContainer container;
 
   setUp(() {
     repository = FakeCardRepository()..card = Success(_detail);
+    analytics = FakeAnalyticsService();
     container = ProviderContainer(
-      overrides: [cardRepositoryProvider.overrideWithValue(repository)],
+      overrides: [
+        cardRepositoryProvider.overrideWithValue(repository),
+        analyticsServiceProvider.overrideWithValue(analytics),
+      ],
     );
   });
 
@@ -53,6 +60,35 @@ void main() {
 
     expect(repository.decisions.single.decision, CardDecision.accept);
     expect(container.read(cardDetailViewModelProvider('card-1')).decided, isTrue);
+  });
+
+  // 사용 통계 chat_request_sent 이벤트 — 서버가 수락(대화 신청)을 받아 준 뒤에만, 이름만 남긴다.
+  test('수락이 서버에 받아들여지면 대화 신청을 분석에 남긴다', () async {
+    final viewModel = container.read(cardDetailViewModelProvider('card-1').notifier);
+    await viewModel.load();
+
+    await viewModel.decide(CardDecision.accept);
+
+    expect(analytics.calls, ['chat_request_sent']);
+  });
+
+  test('거절은 대화 신청이 아니라 분석에 남기지 않는다', () async {
+    final viewModel = container.read(cardDetailViewModelProvider('card-1').notifier);
+    await viewModel.load();
+
+    await viewModel.decide(CardDecision.reject);
+
+    expect(analytics.calls, isEmpty);
+  });
+
+  test('서버가 수락을 막으면(409) 대화 신청을 분석에 남기지 않는다', () async {
+    repository.writeResult = const FailureResult(ServerRejectedFailure('이미 결정한 카드예요'));
+    final viewModel = container.read(cardDetailViewModelProvider('card-1').notifier);
+    await viewModel.load();
+
+    await viewModel.decide(CardDecision.accept);
+
+    expect(analytics.calls, isEmpty);
   });
 
   test('이미 결정한 카드(409)는 서버 문구를 그대로 보여준다', () async {
