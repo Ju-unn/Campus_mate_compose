@@ -730,7 +730,7 @@ select public.grant_hearts('<profile_id>', -<지급한 하트>, 'admin_adjust', 
 
 - **로그**: 구매 토큰 · 주문 번호는 남기지 않는다(`profile_id` · 상품 · 결과 · 상태 코드만). httpx INFO 가 주소(토큰 포함)를 찍지 않게 못박았다(`app/billing/play.py`)
 - **알려진 한계**: verify 요청 빈도 제한 없음(출시 전 백로그) · 구글 쪽 동작은 샌드박스 시험으로 확인 전 · 계정 표시 토큰은 sha256 방식 유지
-- **`/batch/billing-voided` 를 매시 부르는 Cloud Scheduler job 을 만들었는지는 이 문서 담당이 확인하지 못했다** — §5 2026-09-29 표 기준 job 은 무료 한도 3개가 찼다(대장 확인 필요). 만들 때는 §4-3 의 OIDC job 만들기 명령을 경로만 바꿔 쓴다
+- **`/batch/billing-voided` 를 부르는 Cloud Scheduler job 은 만들어져 돈다(2026-10-20 대장 전달 값: 매시 30분 — §4-15 "서버 스케줄"; 종전 "만들었는지 확인하지 못했다" 를 고친다).** 새로 만들 일이 생기면 §4-3 의 OIDC job 만들기 명령을 경로만 바꿔 쓴다
 
 ## 4-10. 인앱결제 — 아이폰(애플) 하트 구매 서버 (2026-10-14, 서버 PR #519 · 후속 PR #521, 앱 PR #520)
 
@@ -776,7 +776,7 @@ gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.serv
 | `POST /billing/apple/verify` | 학생증 통과 가입자. 본문 **`{product_id, transaction_id}`**(상품은 §4-9 의 5종, 거래 번호는 숫자 1 ~ 64자 — 그 밖은 애플에 묻기 전에 422). 앱이 준 값을 믿지 않고 서버가 App Store Server API `GET /inApps/v1/transactions/{거래 번호}` 를 **운영 주소 → (404 면) 샌드박스 주소** 순서로 묻는다(TestFlight · 심사 거래는 샌드박스 — **2026-10-15 개정: 운영 401 도 샌드박스로 넘어간다, 위 "키 · 설정" 의 PR #532 줄**). 받은 `signedTransactionInfo` 는 **코드에 내장한 Apple Root CA G3 까지 인증서 체인을 검증**한 뒤에만 믿는다. 확인 칸: `environment`(Production / Sandbox → `is_test`) · 거래 번호 · 번들 ID(`io.github.juunn.campusmate`) · 상품 · 소모품 · 직접 구매 · 수량 1. 지급은 `grant_store_purchase`(`store = app_store`), 200 응답 모양은 구글과 같다. **대기(202)는 없다**(애플 거래 조회에는 대기 상태가 없다). **애플은 소비(consume) 호출이 없다** — 서버가 지급하면 앱이 거래를 끝낸다(아래 표) |
 | `POST /billing/apple/notifications` | **로그인 없는 공개 주소**(애플이 부른다). 본문 `{signedPayload}`(App Store Server Notifications **V2**). **서명 체인 검증만이 믿는 근거다.** 서명이 틀림 · 다른 앱(번들) · 알림과 거래의 `environment` 가 다름 → **400**(아무것도 바꾸지 않는다). 본문이 없으면 422. **`REFUND` · `REVOKE`** → `refund_store_purchase('app_store', …)` 로 회수하고 200 `{result: refunded \| already_refunded \| unknown}`(이미 회수했거나 우리가 지급한 적 없는 거래도 200 — 멱등). **`TEST` 와 그 밖 알림**은 로그만 남기고 200 `{result: ignored}`(소비 정보 요청 `CONSUMPTION_REQUEST` 도 답하지 않는다). **`REFUND_REVERSED`(환불 번복)는 하트를 되돌리지 않는다** — WARNING 로그만, 운영자가 App Store Connect 에서 확인한다(사용자 결정 A-6 미결). DB 실패는 500 이라 애플이 다시 보낸다 |
 
-**App Store Connect 알림 주소** — 앱의 App Store Server Notifications 설정에 **운영(Production) 주소와 샌드박스(Sandbox) 주소를 둘 다** `https://<서비스 URL>/billing/apple/notifications` 로, 버전은 **Version 2** 로 넣는다. 서버는 주소 하나로 둘 다 받는다(샌드박스 거래는 `is_test = true` 행이다). 둘 중 하나를 비우면 그쪽 환불은 하트가 회수되지 않는다. 애플의 시험 알림(`TEST`)이 오면 로그 `애플 알림 type=TEST … — 할 일 없음` 과 200 이 남는다. 설정 화면의 정확한 위치는 애플 쪽 UI 라 이 문서 담당이 직접 보지 않았다.
+**App Store Connect 알림 주소** — 앱의 App Store Server Notifications 설정에 **운영(Production) 주소와 샌드박스(Sandbox) 주소를 둘 다** `https://<서비스 URL>/billing/apple/notifications` 로, 버전은 **Version 2** 로 넣는다. 서버는 주소 하나로 둘 다 받는다(샌드박스 거래는 `is_test = true` 행이다). 둘 중 하나를 비우면 그쪽 환불은 하트가 회수되지 않는다. 애플의 시험 알림(`TEST`)이 오면 로그 `애플 알림 type=TEST … — 할 일 없음` 과 200 이 남는다. **2026-10-20 대장 전달 값: 프로덕션 · 샌드박스 두 주소 모두 `/billing/apple/notifications` Version 2 로 등록됐다.** 설정 화면의 정확한 위치는 애플 쪽 UI 라 이 문서 담당이 직접 보지 않았다.
 
 ### 에러 code 와 앱 동작 (앱 PR #520 · #521)
 
@@ -871,7 +871,7 @@ gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.serv
 
 - `settings.py` 의 `store_rating` · `store_rating_count` — **글자(str)로 받고 기본값 `"0"`**. 사람이 Cloud Run 에 손으로 넣는 값이라, 숫자 타입이면 잘못 넣는 순간 `Settings()` 가 실패해 서버 전체가 뜨지 않는다. 그래서 글자로 받고 검사는 홈 요약이 한다
 - `GET /home/summary` 응답에 `store_rating`(0 또는 1 ~ 5 소수) · `store_rating_count`(0 이상 정수) 두 칸이 더해진다(`app/home/router.py` `_store_rating`). **검증: 숫자로 못 읽음 · 평가 수 음수 · 별점이 0 ~ 5 밖(NaN 포함) · 평가가 있는데 별점 1 미만이면 둘 다 0 으로 내린다** → 앱은 평가 수 0 이면 띠를 숨긴다(가짜 숫자를 보이지 않는다). 시험 `backend/tests/home/test_home_summary.py` · `backend/tests/test_settings.py`
-- **넣은 값(사용자 결정 10-16 "현재는 별점5에 1명으로 고정")**: `STORE_RATING=5.0` · `STORE_RATING_COUNT=1` — 2026-10-17 리비전 `00083-pwx` 에 넣었다. 스토어에 실제 별점이 생기면 같은 두 값을 고친다(코드 배포 없이 env 갱신만, 새 리비전이 생긴다)
+- **넣은 값(사용자 결정 10-16 "현재는 별점5에 1명으로 고정")**: `STORE_RATING=5.0` · `STORE_RATING_COUNT=1` — 2026-10-17 리비전 `00083-pwx` 에 넣었다. 스토어에 실제 별점이 생기면 같은 두 값을 고친다(코드 배포 없이 env 갱신만, 새 리비전이 생긴다). **2026-10-20 개정(대장 전달 값), 종전 `STORE_RATING_COUNT=1`: 운영은 `STORE_RATING_COUNT=0` 으로 내려 띠를 숨긴다**(리비전 `00091-rnc`, §4-15)
 
 ```bash
 # 2026-10-17 이렇게 더했다(00082-9lk → 00083-pwx). 값을 바꿀 때도 같은 명령이다 — 목록에 더하기만 한다. 값은 사용자 승인 뒤에.
@@ -929,7 +929,7 @@ gcloud run services update campus-mate-backend --project=<PROJECT_ID> --region=a
 - [ ] **기능 한 번씩**(결과를 받지 못했다 — 보호 계정 · E2E 자율 허락 범위에서): 받은 신청 프로필 보기 200 · 이미 답한 건 409 / `GET /home/summary` 의 `store_rating` · `store_rating_count` 가 넣은 값 / 18a 줄 "40 · 월 1회" · "5 · 주 최대 15" / 설문만 낸 계정의 next-step 이 `ideal_conditions` · 다 낸 pending 계정이 next-step 한 번에 `active`(E2E E-ONB-33 은 서버 배포 뒤 통과 — PR #578) / `GET /me/profile` 에 `ideal_note` · `survey_answers`
 - [x] 리비전 이름을 §5 에 적는다(이 문서 담당은 대장 전달 값으로 적는다) — `00083-pwx`
 
-## 4-14. 2026-10-19 배포 묶음 — 인증샷 여러 장 · 졸업생 인증(코드 기본 꺼짐, 운영은 10-19 켬) · 저녁 알림 기본값 · 관리자 웹 env (**2026-10-19 배포 완료**, 현재 리비전 `00089-fpm`)
+## 4-14. 2026-10-19 배포 묶음 — 인증샷 여러 장 · 졸업생 인증(코드 기본 꺼짐, 운영은 10-19 켬) · 저녁 알림 기본값 · 관리자 웹 env (**2026-10-19 배포 완료** — 이 묶음의 10-19 리비전은 `00089-fpm`, 10-20 이후 현재 리비전은 §4-15 `00091-rnc`)
 
 **상태: 2026-10-19 배포 완료(대장이 조회로 확인한 값).** 2026-10-19 서버 리비전 흐름은 `00086-7zf` → `00087-9qj`(DB 마이그레이션 4개 적용 직후 배포, 스위치 꺼짐) → `00088-gh5`(**졸업생 스위치 `GRADUATE_VERIFICATION_ENABLED=true` 켬** — 사용자 직접 승인 "졸업생 스위치 켜기 승인") → `00089-fpm`(#617 졸업증명서 원본대조번호 읽기 + #619 약관 동의 판 `2026-10-19`)다. 직전 `00086-7zf` 는 2026-10-18 밤(관리자 웹 서버 · 보안 보강 · 인증샷 결과 알림까지). **지금 운영은 `campus-mate-backend-00089-fpm`, env 27개(그중 시크릿 11), 졸업생 스위치 켜짐, 운영 마이그레이션 93개(원격 버전 `20261019055736` · `055756` · `055818` · `055824` = 인증샷 여러 장 · 졸업생 표 · 졸업생 함수 · 저녁 알림 기본값), `/health` 200, 무인증 401, ERROR 로그 0.** 새 시크릿 · 새 Scheduler job · 새 Cloud Tasks 큐는 없다(env 는 `00086` 의 관리자 웹 2개 + 스위치 1개가 늘었다, §2). **되돌림 하한: `00087` 이전으로 되돌리지 않는다**(`00086` 은 인증샷 제출이 깨진다).
 
@@ -1000,7 +1000,7 @@ gcloud run services update campus-mate-backend --project=<PROJECT_ID> --region=a
 1. **DB**(사용자 승인 뒤 `apply_migration`, 파일 번호 순서) → `20261019100000` 을 적용한 직후 **곧바로 서버**(인증샷 틈) → 관리자 웹(Vercel 자동) → **앱**(AAB · TestFlight). 앱은 서버 뒤에 나간다.
 2. 서버 배포는 §2 "현행 배포 방식"(env · 시크릿 이어받기). 04:00 KST 정리 시각 전후는 피한다.
 3. **롤백 하한**: 어떤 경우에도 `00063` 아래로 가지 않는다(§4-4). 이 묶음 이후에는 **`00087` 이전(`00086`)으로 되돌리지 않는다** — `storage_paths` 마이그레이션 때문에 인증샷 제출 · 관리자 사진 보기가 깨진다. 되돌림은 "고친 서버의 새 리비전"으로 한다. 스위치를 켠 운영에서는 `00087` 이전이 `PUT /me/verification-method` 404 로 새 앱의 방법 고르기도 막는다. 졸업생 기능만 끄려면 리비전을 되돌리지 말고 스위치 env 를 `false` 로 바꾸는 새 리비전을 만든다. 마이그레이션은 되돌리지 않는다.
-4. **앱 빌드(2026-10-19 현재)**: TestFlight 빌드 21(6개 PR: #591 #611 #612 #613 #614 #615), 빌드 22(#617 ~ #620 포함 main `db166fdc`, 진행 중). 안드로이드 versionCode **13 은 플레이에서 이미 사용된 번호라 14, 15(진행 중)** 다. 새 앱 빌드를 낸 뒤에는 위 하한을 지킨다. `ITSAppUsesNonExemptEncryption = false` 는 이미 설정돼 있다(앱 안 암호화는 로그인 nonce 해시뿐이고 나머지 통신은 OS 의 HTTPS 다).
+4. **앱 빌드(10-19 시점 기록 — 10-20 현재는 §4-15 "앱 빌드")**: TestFlight 빌드 21(6개 PR: #591 #611 #612 #613 #614 #615), 빌드 22(#617 ~ #620 포함 main `db166fdc`). 안드로이드 versionCode 13 은 플레이에서 이미 사용된 번호라 14, 15 로 만들었다(14 ~ 17 은 이후 폐기 — §4-15). 새 앱 빌드를 낸 뒤에는 위 하한을 지킨다. `ITSAppUsesNonExemptEncryption = false` 는 이미 설정돼 있다(앱 안 암호화는 로그인 nonce 해시뿐이고 나머지 통신은 OS 의 HTTPS 다).
 
 ### 배포 후 점검 목록 (2026-10-19 — 대장이 조회로 확인한 항목만 체크했다)
 
@@ -1012,7 +1012,41 @@ gcloud run services update campus-mate-backend --project=<PROJECT_ID> --region=a
 - [ ] 인증샷 제출 한 번(시험 계정) + 관리자 상세에서 사진 여러 장 보기, `NOTIFY pgrst, 'reload schema'` 가 필요했는지 (결과를 받지 못했다)
 - [x] ERROR 로그 0 (대장 확인). 사진 경로 · 번호 · 이메일이 로그에 없는지는 따로 확인한 결과를 받지 못했다
 
-## 5. 현재 배포 상태 (2026-09-26 기준)
+## 4-15. 2026-10-20 배포 묶음 — 약관 동의 판 2026-10-20 · 리뷰 띠 숨김 · 코호트 오픈 시각 · 환불 확인 배치 (**현재 리비전 `campus-mate-backend-00091-rnc`**)
+
+**상태: 2026-10-20 배포 완료(대장 전달 값 — 이 문서 담당이 클라우드를 조회하지 않았다).** 돌고 있는 리비전 **`campus-mate-backend-00091-rnc`**. `00089-fpm`(10-19) 뒤 `00090` 의 내용은 전달받지 못했다. 졸업생 스위치 `GRADUATE_VERIFICATION_ENABLED` 는 켜진 채이고 되돌림 하한은 그대로 **`00087` 이전 금지**(§4-14)다. env 개수는 전달받지 못했다(새 시크릿 · 새 Cloud Tasks 큐는 없는 것으로 전달받았다).
+
+| 항목 | 값 |
+| --- | --- |
+| 약관 동의 판 | `CONSENT_VERSION = "2026-10-20"`(`backend/app/consents/policy.py`, PR #626 — Firebase 수집 안내를 반영한 약관 · 방침 시행일 2026-10-20). 이미 가입한 계정은 모두 02-c-4 재동의를 한 번 거친다(10-19 판 #619 와 같은 방식). E2E 하네스 상수도 같은 값(서버 상수와 같은지 보는 시험이 있다). |
+| 홈 리뷰 띠 | 환경변수 **`STORE_RATING_COUNT=0`** — 평가 수가 0 이면 앱이 띠를 숨긴다(§4-13 검증 규칙). 스토어에 실제 별점이 생기기 전에 가짜 숫자(종전 5.0 · 1명, 10-17)를 보이지 않기 위해서다. 실제 별점이 생기면 `STORE_RATING` · `STORE_RATING_COUNT` 를 같이 고친다(§4-13 명령 그대로, 새 리비전이 생긴다). |
+| 코호트 오픈 시각 | 서버 코드 변경이 아니라 **DB 데이터**다: 서울 학교 64곳의 `universities.card_opens_at = 2026-11-02(월) 07:00 KST`(마이그레이션 `20261020110000`, `docs/ERD.md` §3). 홈이 이 값을 읽어 오픈 대기(카운트다운)를 보인다. 시험 학교(`region_group = 'e2e'`) 1곳만 열려 있다(심사 계정용). |
+| 최대 인스턴스 | **20** (Cloud Run `--max-instances`) |
+| 로그 보관 | **30일** |
+| 졸업생 인증 | 스위치 켜짐 유지 |
+
+**서버 스케줄(Cloud Scheduler) 4개** — 전부 OIDC(§4-3):
+
+| 일 | 경로 | 시각(Asia/Seoul) |
+| --- | --- | --- |
+| 카드 지급 | `/batch/daily-cards` | 매일 07:00 |
+| 정리(탈퇴 · 미인증 계정 · 60일 지난 하트 인증샷) | `/batch/cleanup` | 매일 04:00 |
+| 채팅 확인(신뢰 확인 게이트 · 알림 · 졸업생 정리) | `/batch/chat-gate` | 매시 정각 |
+| 환불 확인(구글 Voided Purchases) | `/batch/billing-voided` | 매시 30분 |
+
+**환불 정책 A (남은 하트만 회수)** — `refund_store_purchase` 는 `min(잔액, 구매분 + 보너스)` 만 거두고, 모자란 수는 `purchases.clawed_back_hearts` 와 `shortfall` 로 남긴다(`docs/ERD.md` §6). 관리자 웹 결제 화면에 **"환불이 잦은 계정"** 표가 더해졌다 — 서버 `GET /admin/billing/frequent-returns`(경로에 `refund` 를 쓰지 않는다, e2e 금지어), DB 함수 `admin_billing_returned_accounts`(`20261019220000`). 서버 코드는 PR #622 로 main 에 들어왔고 `00091-rnc`(PR #626 이후 리비전)에 포함된다(main 순서에서 본 추정 — 리비전별 목록은 전달받지 못했다). 정책 B(다른 보상 방식)는 출시 후로 미뤘다.
+
+**앱 빌드(2026-10-20 현재)**: 애플 **TestFlight 빌드 25** + 앱 내 구입 5개가 심사 대기 중이다(TestFlight 24 는 폐기). 구글 프로덕션 **AAB `vc18`(제출 6)** 이 검토 중이다. **vc13 ~ vc17 은 폐기**했다: vc13 은 플레이에서 이미 쓴 번호였고, **vc17 까지는 안드로이드 카카오 로그인 복귀 스킴 키가 빈 값**이었다(아래 사고 기록). 국가는 대한민국만, 출시는 수동(관리형)이다. 연령 등급은 앱스토어 한국 19+, 구글 18+(타겟층). 아이폰 전용(iPad 는 호환 모드), 안드로이드는 세로 고정이 없고 접이식 기기는 시험하지 않았다.
+
+**사고 기록 — vc13 ~ vc17 카카오 키 빈 값(2026-10-20)**: `android/app/build.gradle.kts` 는 카카오 복귀 스킴 키를 환경변수 `KAKAO_NATIVE_APP_KEY` → `android/local.properties` → 빈 문자열 순으로 읽어 `manifestPlaceholders["kakaoKey"]` 에 넣는다. 이 값은 `--dart-define` 과 **별개**라서, `--dart-define` 만 맞추고 환경변수를 빼먹으면 빌드는 되는데 매니페스트의 `kakao<키>` 스킴이 빈 값이 되어 카카오 로그인이 앱으로 돌아오지 못한다. **재발 방지 규칙**: 안드로이드 릴리스 빌드 전에 같은 셸에서 `export KAKAO_NATIVE_APP_KEY=...` 를 하고, 빌드 뒤 AAB 매니페스트에서 `kakao<키>` 스킴을 확인한다(`frontend/run.md` "AAB 빌드"). 결정 배경은 `docs/decisions/2026-10-20-launch-day-decisions.md`.
+
+**되돌림 주의(약관 판)**: `policy.py` 는 현재 판의 동의 행만 센다. `00091-rnc` 아래의 약관 판(`2026-10-19`)으로 되돌리면 2026-10-20 판만 동의한 신규 가입자는 02-c-4 를 다시 만난다(코드 근거, 시험하지 않았다).
+
+## 5. 현재 배포 상태 (2026-10-20 기준)
+
+**현재 (2026-10-20, 대장 전달 값).** 돌고 있는 리비전 **`campus-mate-backend-00091-rnc`**(10-20). 약관 동의 판 `2026-10-20`(PR #626) · 홈 리뷰 띠 숨김(`STORE_RATING_COUNT=0`) · 졸업생 스위치 켜짐 · 최대 인스턴스 20 · 로그 보관 30일. 운영 마이그레이션 **96개 = 저장소 96개**(마지막 `20261020110000_close_seoul_schools_until_cohort_open`). Cloud Scheduler 4개(카드 07:00 · 정리 04:00 · 채팅 확인 매시 · 환불 확인 매시 30분). 애플 서버 알림 URL 프로덕션 · 샌드박스 V2 등록. 앱 빌드: TestFlight 25(심사 대기) · 구글 AAB vc18(검토 중). 되돌림 하한은 `00063` 아래 금지 + `00087` 이전 금지(§4-14). 자세한 내용은 §4-15. 아래 날짜별 갱신 줄은 접어 두었다(내용 그대로, 최신 순).
+
+<details><summary>이전 갱신 이력 — 2026-09-26 ~ 2026-10-19 (2026-10-20 문서 정리로 접었다)</summary>
 
 **2026-10-19 갱신(대장이 조회로 확인한 값).** **2026-10-19 배포 완료** — 돌고 있는 리비전 **`campus-mate-backend-00089-fpm`**. 흐름: `00086-7zf`(10-18 밤) → `00087-9qj`(DB 4개 적용 직후 배포, 스위치 꺼짐) → `00088-gh5`(**졸업생 스위치 켬**, 사용자 승인) → `00089-fpm`(#617 + #619). 담은 서버 변경: PR #613(인증샷 여러 장 · 이어서 제출) · #614(저녁 알림 기본값) · #615(졸업생 인증, 코드 기본 꺼짐 · 운영은 켬) · #617(원본대조번호) · #619(약관 판 2026-10-19 — 전원 재동의) — §4-14. env **27개(그중 시크릿 11)**(`00086-7zf` 에서 `ADMIN_ALLOWED_ORIGINS` · `ADMIN_BASE_URL` 이 더해져 24 → 26, `00088` 에서 스위치 1개가 더해져 27). 새 시크릿 · job 없음. **운영 마이그레이션 93개 = 저장소 93개**(10-19 네 파일 추가 적용, 원격 버전은 적용 시각 `20261019055736` · `055756` · `055818` · `055824`). **되돌림**: `00063` 아래 금지는 그대로이고 이 묶음 이후에는 **`00087` 이전으로 되돌리지 않는다**(`storage_paths` 마이그레이션 — 인증샷 제출 · 관리자 사진 보기가 깨진다, §4-14). 직전 `00084` ~ `00086` 이 담은 PR(학생증 제거 서버 · 관리자 웹 서버 #592 ~ #608 · 인증샷 결과 알림 · 서버 보안 보강)은 대장 전달 값으로 정확한 리비전별 경계를 받지 못했다(`00083 → 00085` 가 10-17 ~ 18 학생증 제거 서버 묶음, `00086` 이 관리자 웹 서버 + 보안 보강 — 10-18 밤). `00086` 아래로 내리면 관리자 · 신고 함수 시그니처가 안 맞고(관리자만 영향), 학생증 제거 서버(`00084`/`00085`) 아래로 새 앱이 나간 뒤 내리면 가입이 막힌다. **앱 빌드**: TestFlight 빌드 21(PR #591 #611 #612 #613 #614 #615), 22(#617 ~ #620 포함 main `db166fdc`, 진행 중). 안드로이드 AAB vc13 은 플레이에서 이미 사용된 번호라 vc14, vc15(진행 중).
 
@@ -1080,3 +1114,5 @@ gcloud scheduler jobs update http campus-mate-chat-gate \
   --location=asia-northeast3 \
   --update-headers="X-Batch-Secret=<새 값>"
 ```
+
+</details>
