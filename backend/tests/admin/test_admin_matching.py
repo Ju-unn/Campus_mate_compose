@@ -10,7 +10,7 @@ U1 = "11111111-0000-0000-0000-000000000001"
 U2 = "11111111-0000-0000-0000-000000000002"
 M1 = "22222222-0000-0000-0000-000000000001"
 SCHOOL = "33333333-0000-0000-0000-000000000001"
-ROUTES = ["/admin/matching/summary", "/admin/matching/daily", "/admin/matching/pairs"]
+ROUTES = ["/admin/matching/summary", "/admin/matching/daily", "/admin/matching/pairs", "/admin/matching/requests"]
 SUMMARY = {"accepts_today": 18, "accepts_yesterday": 14, "accepts_total": 436, "accepters_total": 312,
            "matches_total": 67, "shared_total": 41}
 
@@ -203,6 +203,100 @@ def test_pairs_talks_only_to_rpc_and_never_records(client, world):
 
     assert [r for r in world.requests if r.url.path in ("/rest/v1/matches", "/rest/v1/profiles")] == []
     assert world.actions == []  # 목록 보기는 작업 기록에 남기지 않는다(설계 §8-4c)
+
+
+# 누가 누구에게 대화를 신청했나 ----------------------------------------------------
+
+def _request(n: int, **overrides) -> dict:
+    return {
+        "card_id": f"44444444-0000-0000-0000-{n:012d}", "requested_at": f"2026-10-18T{23 - n % 24:02d}:00:00+00:00",
+        "status": "waiting", "responded_at": None, "requester_id": U1, "requester_nickname": "신청자", "requester_university": "서울대학교",
+        "target_id": U2, "target_nickname": "받은이", "target_university": "연세대학교", **overrides,
+    }
+
+
+def _requests_body(world) -> dict:
+    assert len(world.rpcs) == 1 and world.rpcs[0][0] == "admin_matching_requests"
+    return world.rpcs[0][1]
+
+
+def test_requests_sends_typed_params_and_asks_for_one_extra_row(client, world):
+    client.get("/admin/matching/requests", headers=ADMIN_HEADERS)
+
+    assert _requests_body(world) == {"p_status": None, "p_before_at": None, "p_before_id": None, "p_limit": 51}
+
+
+def test_requests_status_and_cursor_become_separate_typed_params(client, world):
+    cursor = f"2026-10-18T01:00:00+00:00|{M1}"
+
+    client.get("/admin/matching/requests", headers=ADMIN_HEADERS, params={"status": "expired", "limit": 10, "before": cursor})
+
+    assert _requests_body(world) == {"p_status": "expired", "p_before_at": "2026-10-18T01:00:00+00:00", "p_before_id": M1, "p_limit": 11}
+
+
+@pytest.mark.parametrize("status", ["waiting", "accepted", "rejected", "expired"])
+def test_requests_accepts_the_four_statuses(client, world, status):
+    assert client.get("/admin/matching/requests", headers=ADMIN_HEADERS, params={"status": status}).status_code == 200
+    assert _requests_body(world)["p_status"] == status
+
+
+def test_requests_more_rows_give_a_cursor_and_the_last_page_gives_null(client, world):
+    rows = [_request(n) for n in range(1, 52)]  # 51줄 = 50 + 한 줄 더
+    world.rpc_results["admin_matching_requests"] = rows
+
+    body = client.get("/admin/matching/requests", headers=ADMIN_HEADERS).json()
+
+    assert len(body["items"]) == 50
+    assert body["next_before"] == f"{rows[49]['requested_at']}|{rows[49]['card_id']}"
+    world.rpc_results["admin_matching_requests"] = rows[:50]
+    assert client.get("/admin/matching/requests", headers=ADMIN_HEADERS).json()["next_before"] is None
+
+
+def test_requests_shape_and_leak_proof_columns(client, world):
+    # DB 줄에 카톡 아이디 · 사진 · 마지막 말 · 전화가 섞여 와도(함수가 바뀌는 사고) 응답에는 허용 목록 칸만 나간다.
+    world.rpc_results["admin_matching_requests"] = [_request(
+        1, status="accepted", responded_at="2026-10-18T02:00:00+00:00", kakao_id="secret_kakao", photo_path="u1/p.jpg",
+        last_message="비밀 대화", phone="01012345678")]
+
+    response = client.get("/admin/matching/requests", headers=ADMIN_HEADERS)
+
+    assert response.json() == {"items": [{
+        "id": "44444444-0000-0000-0000-000000000001", "requested_at": "2026-10-18T22:00:00+00:00", "status": "accepted",
+        "responded_at": "2026-10-18T02:00:00+00:00",
+        "requester": {"id": U1, "nickname": "신청자", "university": "서울대학교"},
+        "target": {"id": U2, "nickname": "받은이", "university": "연세대학교"},
+    }], "next_before": None}
+    for secret in ("secret_kakao", "p.jpg", "비밀 대화", "01012345678"):
+        assert secret not in response.text
+
+
+@pytest.mark.parametrize("params", [
+    {"status": "matched"}, {"status": "chatting"}, {"status": "waiting,or=(id.eq.1)"}, {"status": ""}, {"status": "WAITING"},
+    {"before": "garbage"}, {"before": "2026-10-18T00:00:00+00:00|"}, {"before": f"2026-10-18T00:00:00+00:00,or=(a)|{M1}"},
+    {"before": f"|{M1}"}, {"limit": 0}, {"limit": 101},
+])
+def test_bad_request_filters_never_reach_the_db(client, world, params):
+    response = client.get("/admin/matching/requests", headers=ADMIN_HEADERS, params=params)
+
+    assert response.status_code == 422
+    assert world.rpcs == []
+    for key in ("status", "before"):
+        if params.get(key):  # 입력 반사 없음(핸들러가 직접 검사해 INVALID_INPUT 만 돌려준다)
+            assert str(params[key]) not in response.text
+
+
+def test_requests_talks_only_to_rpc_and_never_records(client, world):
+    world.rpc_results["admin_matching_requests"] = [_request(1)]
+    client.get("/admin/matching/requests", headers=ADMIN_HEADERS, params={"status": "waiting"})
+
+    assert [r for r in world.requests if r.url.path in ("/rest/v1/card_decisions", "/rest/v1/daily_cards", "/rest/v1/profiles")] == []
+    assert world.actions == []  # 목록 보기는 작업 기록에 남기지 않는다(설계 §8-4c)
+
+
+def test_requests_db_failure_is_500_not_an_empty_list(client, world):
+    world.table_status["/rest/v1/rpc/admin_matching_requests"] = 500
+
+    assert client.get("/admin/matching/requests", headers=ADMIN_HEADERS).status_code == 500
 
 
 def test_a_db_rule_violation_is_422(client, world):

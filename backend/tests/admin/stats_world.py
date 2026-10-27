@@ -10,7 +10,8 @@ import httpx
 from admin_world import AdminWorld
 
 D4_RPCS = ("admin_stats_overview", "admin_stats_daily", "admin_unknown_domains", "admin_universities_status",
-           "admin_health", "admin_matching_summary", "admin_matching_daily", "admin_matching_pairs")
+           "admin_health", "admin_matching_summary", "admin_matching_daily", "admin_matching_pairs",
+           "admin_matching_requests")
 
 
 class StatsWorld(AdminWorld):
