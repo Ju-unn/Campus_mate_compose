@@ -20,3 +20,9 @@ class AdminMatchingRepository(AdminRepository):
         return await self._rpc("admin_matching_pairs", {
             "p_status": status, "p_university": university, "p_before_at": at, "p_before_id": last_id, "p_limit": limit,
         })
+
+    async def requests(self, status: str | None, before: tuple[str, str] | None, limit: int) -> list[dict]:
+        """누가 누구에게 대화를 신청했나(마이그레이션 20261027100000) — 최근 순. before = (requested_at, card_id) 커서, limit 은 pairs 와 같다.
+        함수가 돌려주는 칸에는 사진 · 카톡 아이디 · 대화가 없다."""
+        at, last_id = before if before else (None, None)
+        return await self._rpc("admin_matching_requests", {"p_status": status, "p_before_at": at, "p_before_id": last_id, "p_limit": limit})

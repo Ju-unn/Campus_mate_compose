@@ -287,6 +287,12 @@ class AdminApi {
     return _read(send('GET', '/admin/matching/pairs', query: query), (body) => CursorPage.fromJson(body, MatchPair.fromJson, '매칭 목록'));
   }
 
+  /// 누가 누구에게 대화를 신청했나 — 최근 순 · 쪽당 50(서버 기본). [status] `waiting` · `accepted` · `rejected` · `expired`, [before] 는 앞 쪽의 `next_before`.
+  Future<CursorPage<MatchRequest>> matchingRequests({String? status, String? before}) {
+    final query = {'status': ?status, 'before': ?before};
+    return _read(send('GET', '/admin/matching/requests', query: query), (body) => CursorPage.fromJson(body, MatchRequest.fromJson, '대화 신청 목록'));
+  }
+
   /// 작업 기록 최근 순 · 쪽당 50. [target] 은 대상 id 정확 일치(UUID 모양 검사는 화면이 먼저 한다).
   Future<CursorPage<ActionRow>> listActions({String? target, String? before}) {
     final query = {'target': ?target, 'before': ?before};

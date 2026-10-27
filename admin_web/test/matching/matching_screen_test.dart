@@ -34,8 +34,11 @@ void main() {
 
   Finder key(String name) => find.byKey(ValueKey(name));
   TextStyle styleOf(WidgetTester tester, Finder text) => tester.widget<Text>(text).style!;
-  Finder chip(String label) => find.widgetWithText(AdminChip, label);
+  // 같은 글자 칩이 신청 목록 필터에도 있다 — 위쪽(매칭 쌍) 필터가 문서 순서로 먼저다
+  Finder chip(String label) => find.widgetWithText(AdminChip, label).first;
+  Finder requestChip(String label) => find.widgetWithText(AdminChip, label).last;
   Finder inTable(Finder what) => find.descendant(of: key('match-table'), matching: what);
+  Finder inRequests(Finder what) => find.descendant(of: key('request-table'), matching: what);
 
   group('pen 배치(H5Pocy)', () {
     testWidgets('TopBar "매칭 현황"(메뉴 이름은 "매칭")', (tester) async {
@@ -129,8 +132,8 @@ void main() {
     testWidgets('안내 줄 y696: info 16 muted + "사진 · 카톡 아이디 · 대화는 보이지 않아요. 최근 순으로 보여요." 12 muted', (tester) async {
       await openMatching(tester);
 
-      expect(find.byIcon(LucideIcons.info), findsOneWidget);
-      final note = find.text('사진 · 카톡 아이디 · 대화는 보이지 않아요. 최근 순으로 보여요.');
+      expect(find.byIcon(LucideIcons.info), findsNWidgets(2)); // 매칭 쌍 목록 · 신청 목록 안내 줄
+      final note = find.text('사진 · 카톡 아이디 · 대화는 보이지 않아요. 최근 순으로 보여요.').first; // 신청 목록 구역에도 같은 안내가 있다
       expect((styleOf(tester, note).fontSize, styleOf(tester, note).color), (12, AdminColors.muted));
       expect(tester.getTopLeft(note).dy, closeTo(696, 1));
     });
@@ -320,7 +323,7 @@ void main() {
       final server = FakeStatsServer()..pageSize = 3;
       await openMatching(tester, server: server);
 
-      expect(find.byType(AdminChip), findsNWidgets(4));
+      expect(find.byType(AdminChip), findsNWidgets(4 + 5)); // 매칭 쌍 필터 4 + 신청 필터 5
       expect(find.byKey(const ValueKey('match-row-m3')), findsOneWidget);
       expect(find.byKey(const ValueKey('match-row-m4')), findsNothing);
       final more = find.widgetWithText(AdminButton, '더 보기');
@@ -420,6 +423,205 @@ void main() {
 
     testWidgets('읽기만 한다 — GET 이외를 보내지 않는다', (tester) async {
       final server = await openMatching(tester);
+
+      expect(server.requests.where((r) => r.method != 'GET'), isEmpty);
+    });
+  });
+
+  group('누가 누구에게 대화를 신청했나', () {
+    Future<FakeStatsServer> openRequests(WidgetTester tester, {FakeStatsServer? server}) async {
+      final fake = await openMatching(tester, server: server);
+      await tester.ensureVisible(find.text('누가 누구에게 대화를 신청했나'));
+      await tester.pump();
+      return fake;
+    }
+
+    testWidgets('맨 아래 구역: 제목 16/700 → 칩 "전체 · 응답 대기 · 수락 · 거절 · 만료"(전체 선택, 사이 12) → 안내 줄', (tester) async {
+      await openRequests(tester);
+
+      final title = find.text('누가 누구에게 대화를 신청했나');
+      expect((styleOf(tester, title).fontSize, styleOf(tester, title).fontWeight), (16, FontWeight.w700));
+      expect(tester.getTopLeft(title).dy, greaterThan(tester.getBottomLeft(key('match-table')).dy)); // 매칭 쌍 표보다 아래
+      expect(find.byKey(const ValueKey('school-select')), findsOneWidget); // 학교 필터는 위쪽 하나뿐
+      final chips = [for (final label in ['전체', '응답 대기', '수락', '거절', '만료']) tester.getRect(requestChip(label))];
+      expect(chips.map((c) => c.top).toSet(), hasLength(1)); // 한 줄
+      for (var i = 1; i < chips.length; i++) {
+        expect(chips[i].left, chips[i - 1].right + 12);
+      }
+      expect(tester.widget<AdminChip>(requestChip('전체')).selected, isTrue);
+      expect(tester.widget<AdminChip>(requestChip('만료')).selected, isFalse);
+      expect(find.text('사진 · 카톡 아이디 · 대화는 보이지 않아요. 최근 순으로 보여요.'), findsNWidgets(2));
+    });
+
+    testWidgets('표 열: 신청 시각 · 신청한 사람 · (화살표) · 받은 사람 · 상대 응답 · 응답 시각 — 사진 · 카톡 아이디 · 대화 열이 없다', (tester) async {
+      await openRequests(tester);
+
+      for (final head in ['신청 시각', '신청한 사람 (닉네임 · 학교)', '받은 사람 (닉네임 · 학교)', '상대 응답', '응답 시각']) {
+        expect(inRequests(find.text(head)), findsOneWidget, reason: head);
+      }
+      expect(inRequests(find.text('카톡 아이디')), findsNothing);
+      expect(find.byKey(const ValueKey('request-row-r1')), findsOneWidget);
+      expect(find.byKey(const ValueKey('request-row-r4')), findsOneWidget);
+    });
+
+    testWidgets('첫 줄: 신청 시각 "10/18 14:02"(한국 시각) · 신청한 사람 · 받은 사람 "닉네임 · 학교" · 배지 "응답 대기" · 응답 시각 "-"', (tester) async {
+      await openRequests(tester);
+
+      final row = key('request-row-r1');
+      expect(find.descendant(of: row, matching: find.text('10/18 14:02')), findsOneWidget);
+      expect(find.descendant(of: find.byKey(const ValueKey('request-r1-from')), matching: find.text('신청자r1 · 서울대학교')), findsOneWidget);
+      expect(find.descendant(of: find.byKey(const ValueKey('request-r1-to')), matching: find.text('받은이r1 · 연세대학교')), findsOneWidget);
+      expect(find.descendant(of: row, matching: find.widgetWithText(StatusBadge, '응답 대기')), findsOneWidget);
+      final noReply = find.descendant(of: row, matching: find.text('-'));
+      expect(styleOf(tester, noReply).color, AdminColors.muted);
+      expect(find.descendant(of: row, matching: find.byIcon(LucideIcons.arrowRight)), findsOneWidget);
+    });
+
+    testWidgets('상태 배지 4가지와 응답 시각 — 수락 "10/17 23:30" · 거절 "10/16 13:00", 응답 대기 · 만료는 "-"', (tester) async {
+      await openRequests(tester);
+
+      StatusTone tone(String label) => tester.widget<StatusBadge>(inRequests(find.widgetWithText(StatusBadge, label))).tone;
+      expect(tone('응답 대기'), StatusTone.warning);
+      expect(tone('수락'), StatusTone.success);
+      expect(tone('거절'), StatusTone.danger);
+      expect(tone('만료'), StatusTone.neutral);
+      expect(find.descendant(of: key('request-row-r2'), matching: find.text('10/17 23:30')), findsOneWidget);
+      expect(find.descendant(of: key('request-row-r3'), matching: find.text('10/16 13:00')), findsOneWidget);
+      expect(find.descendant(of: key('request-row-r4'), matching: find.text('-')), findsOneWidget);
+    });
+
+    testWidgets('닉네임을 누르면 그 사람의 사용자 상세로 — 탈퇴로 없는 사람은 링크 없이 "탈퇴한 사용자"', (tester) async {
+      final server = FakeStatsServer()
+        ..matchRequests = [
+          requestRow('r1', '2026-10-18T05:02:00+00:00', 'waiting'),
+          requestRow('r9', '2026-10-17T05:02:00+00:00', 'expired', target: {'id': null, 'nickname': null, 'university': null}),
+        ];
+      await openRequests(tester, server: server);
+
+      expect(find.byKey(const ValueKey('request-r9-to')), findsNothing);
+      expect(find.descendant(of: key('request-row-r9'), matching: find.text('탈퇴한 사용자')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('request-r1-to')));
+      await tester.pumpAndSettle();
+      expect(locationOf(tester), '/users/r1-to');
+    });
+
+    testWidgets('서버 글자는 일반 글자 — 사진 · 카톡 아이디 · 대화는 어디에도 없다', (tester) async {
+      final server = FakeStatsServer()
+        ..matchRequests = [requestRow('r1', '2026-10-18T05:02:00+00:00', 'waiting')..addAll({'kakao_id': 'secretkakao', 'last_message': '안녕하세요'})];
+      await openRequests(tester, server: server);
+
+      expect(find.textContaining('secretkakao'), findsNothing);
+      expect(find.textContaining('안녕하세요'), findsNothing);
+      expect(find.byType(Image), findsNothing);
+    });
+
+    testWidgets('칩을 누르면 처음부터 다시 받는다 — 수락 → status=accepted, 전체 → status 없음, 매칭 쌍 목록은 그대로', (tester) async {
+      final server = await openRequests(tester);
+      expect(server.to('/admin/matching/requests').single.url.queryParameters, isEmpty);
+
+      await tester.tap(requestChip('수락'));
+      await tester.pumpAndSettle();
+
+      expect(server.to('/admin/matching/requests').last.url.queryParameters, {'status': 'accepted'});
+      expect(tester.widget<AdminChip>(requestChip('수락')).selected, isTrue);
+      expect(find.byKey(const ValueKey('request-row-r1')), findsNothing);
+      expect(find.byKey(const ValueKey('request-row-r2')), findsOneWidget);
+      expect(server.to('/admin/matching/pairs'), hasLength(1)); // 위쪽 목록은 다시 받지 않는다
+
+      await tester.tap(requestChip('전체'));
+      await tester.pumpAndSettle();
+      expect(server.to('/admin/matching/requests').last.url.queryParameters, isEmpty);
+      expect(find.byKey(const ValueKey('request-row-r1')), findsOneWidget);
+    });
+
+    testWidgets('응답 대기 · 거절 · 만료 칩은 status=waiting · rejected · expired', (tester) async {
+      final server = await openRequests(tester);
+
+      for (final (label, status) in [('응답 대기', 'waiting'), ('거절', 'rejected'), ('만료', 'expired')]) {
+        await tester.tap(requestChip(label));
+        await tester.pumpAndSettle();
+        expect(server.to('/admin/matching/requests').last.url.queryParameters, {'status': status}, reason: label);
+      }
+    });
+
+    testWidgets('위쪽 매칭 쌍 칩은 신청 목록을 다시 받지 않는다', (tester) async {
+      final server = await openRequests(tester);
+
+      await tester.ensureVisible(chip('닫힘'));
+      await tester.tap(chip('닫힘'));
+      await tester.pumpAndSettle();
+
+      expect(server.to('/admin/matching/requests'), hasLength(1));
+      expect(server.to('/admin/matching/pairs').last.url.queryParameters, {'status': 'closed'});
+    });
+
+    testWidgets('쪽이 남았을 때만 [더 보기] — 누르면 before 로 다음 쪽을 이어 붙이고, 끝이면 사라진다', (tester) async {
+      final server = FakeStatsServer()..matchRequestPageSize = 3;
+      await openRequests(tester, server: server);
+
+      expect(find.byKey(const ValueKey('request-row-r3')), findsOneWidget);
+      expect(find.byKey(const ValueKey('request-row-r4')), findsNothing);
+      final more = find.widgetWithText(AdminButton, '더 보기');
+      expect(tester.widget<AdminButton>(more).variant, AdminButtonVariant.secondary);
+
+      await tester.ensureVisible(more);
+      await tester.tap(more);
+      await tester.pumpAndSettle();
+
+      expect(server.to('/admin/matching/requests').last.url.queryParameters, {'before': '2026-10-16T03:00:00+00:00|r3'});
+      expect(find.byKey(const ValueKey('request-row-r3')), findsOneWidget); // 앞 줄은 그대로
+      expect(find.byKey(const ValueKey('request-row-r4')), findsOneWidget);
+      expect(find.widgetWithText(AdminButton, '더 보기'), findsNothing);
+    });
+
+    testWidgets('더 받기에 실패하면 앞 줄은 그대로 두고 단추 위에 오류 줄', (tester) async {
+      final server = FakeStatsServer()..matchRequestPageSize = 3;
+      await openRequests(tester, server: server);
+      server.matchRequestsFailure = 500;
+
+      await tester.ensureVisible(find.widgetWithText(AdminButton, '더 보기'));
+      await tester.tap(find.widgetWithText(AdminButton, '더 보기'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('더 불러오지 못했어요. 다시 시도해 주세요.'), findsOneWidget);
+      expect(find.byKey(const ValueKey('request-row-r3')), findsOneWidget);
+    });
+
+    testWidgets('목록이 비면 "조건에 맞는 신청이 없어요" — 매칭 쌍 목록은 그대로', (tester) async {
+      await openRequests(tester, server: FakeStatsServer()..matchRequests = []);
+
+      expect(find.text('조건에 맞는 신청이 없어요'), findsOneWidget);
+      expect(key('request-table'), findsNothing);
+      expect(key('match-table'), findsOneWidget);
+    });
+
+    testWidgets('목록 받는 중 안내 → 끝나면 사라진다', (tester) async {
+      final hold = Completer<void>();
+      await openMatching(tester, server: FakeStatsServer()..holdMatchRequests = hold, settle: false);
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('신청 목록을 불러오고 있어요'), findsOneWidget);
+      hold.complete();
+      await tester.pumpAndSettle();
+      expect(find.text('신청 목록을 불러오고 있어요'), findsNothing);
+    });
+
+    testWidgets('목록을 못 받으면 오류 틀 + [다시 시도], 매칭 쌍 목록은 그대로', (tester) async {
+      final server = FakeStatsServer()..matchRequestsFailure = 500;
+      await openRequests(tester, server: server);
+
+      expect(find.text('신청 목록을 불러오지 못했어요'), findsOneWidget);
+      expect(find.byKey(const ValueKey('match-row-m1')), findsOneWidget);
+      server.matchRequestsFailure = null;
+      await tester.ensureVisible(find.widgetWithText(AdminButton, '다시 시도'));
+      await tester.tap(find.widgetWithText(AdminButton, '다시 시도'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('request-row-r1')), findsOneWidget);
+    });
+
+    testWidgets('읽기만 한다 — GET 이외를 보내지 않는다', (tester) async {
+      final server = await openRequests(tester);
 
       expect(server.requests.where((r) => r.method != 'GET'), isEmpty);
     });

@@ -27,7 +27,8 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// A9 매칭 현황(pen H5Pocy · 1440×1200, 내용이 길어 세로로 스크롤). 내용 32 안쪽, 세로 20: 숫자 카드 4장(사이 16, 폭 fill) →
-/// 추이 카드(수락 · 매칭 · 카톡 공유 선 3줄) → 표 제목 → 필터 줄(학교 Select + 상태 칩 4개) → 안내 줄 → 표 → (더 보기) → 안내.
+/// 추이 카드(수락 · 매칭 · 카톡 공유 선 3줄) → 표 제목 → 필터 줄(학교 Select + 상태 칩 4개) → 안내 줄 → 표 → (더 보기) → 안내
+/// → 맨 아래 "누가 누구에게 대화를 신청했나"(제목 → 상태 칩 5개 → 안내 줄 → 표 → (더 보기), 학교 필터 없음).
 /// 사진 · 카톡 아이디 · 대화는 서버도 주지 않고 표에도 열이 없다. 닉네임을 누르면 사용자 상세(A5).
 class MatchingScreen extends ConsumerWidget {
   const MatchingScreen({super.key});
@@ -39,6 +40,8 @@ class MatchingScreen extends ConsumerWidget {
     final list = ref.watch(matchingPairsProvider);
     final filter = ref.watch(matchingFilterProvider);
     final filters = ref.read(matchingFilterProvider.notifier);
+    final requests = ref.watch(matchingRequestsProvider);
+    final requestFilter = ref.watch(matchingRequestFilterProvider);
 
     final children = <Widget>[
       if (overview.hasError)
@@ -49,24 +52,19 @@ class MatchingScreen extends ConsumerWidget {
         _StatRow(summary: data.summary),
         _TrendCard(days: data.days),
       ],
-      Semantics(
-        header: true,
-        child: Text('누가 누구랑 매칭됐나', style: AdminTypography.md.copyWith(fontWeight: FontWeight.w700, height: AdminTypography.mdBox, color: AdminColors.ink)),
-      ),
+      _title('누가 누구랑 매칭됐나'),
       _FilterRow(
         universities: [for (final u in data?.universities ?? const []) (u.id, u.name)],
         filter: filter,
         onStatus: filters.setStatus,
         onUniversity: filters.setUniversity,
       ),
-      Row(
-        children: [
-          const Icon(LucideIcons.info, size: 16, color: AdminColors.muted),
-          const SizedBox(width: AdminSpacing.xs),
-          Text('사진 · 카톡 아이디 · 대화는 보이지 않아요. 최근 순으로 보여요.', style: AdminTypography.xs.copyWith(height: AdminTypography.xsBox, color: AdminColors.muted)),
-        ],
-      ),
+      _hiddenNote(),
       ..._list(context, ref, list),
+      _title('누가 누구에게 대화를 신청했나'),
+      _requestChips(requestFilter.status, ref.read(matchingRequestFilterProvider.notifier).setStatus),
+      _hiddenNote(),
+      ..._requestList(ref, requests),
     ];
     return Padding(
       padding: const EdgeInsets.all(AdminSpacing.xl),
@@ -79,6 +77,74 @@ class MatchingScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  static Widget _title(String text) {
+    return Semantics(
+      header: true,
+      child: Text(text, style: AdminTypography.md.copyWith(fontWeight: FontWeight.w700, height: AdminTypography.mdBox, color: AdminColors.ink)),
+    );
+  }
+
+  static Widget _hiddenNote() {
+    return Row(
+      children: [
+        const Icon(LucideIcons.info, size: 16, color: AdminColors.muted),
+        const SizedBox(width: AdminSpacing.xs),
+        Text('사진 · 카톡 아이디 · 대화는 보이지 않아요. 최근 순으로 보여요.', style: AdminTypography.xs.copyWith(height: AdminTypography.xsBox, color: AdminColors.muted)),
+      ],
+    );
+  }
+
+  /// 신청 목록의 상태 칩 줄: "전체" · "응답 대기" · "수락" · "거절" · "만료"(36), 사이 12. 학교 필터는 없다.
+  static Widget _requestChips(String? selected, ValueChanged<String?> onStatus) {
+    const chips = <(String?, String)>[(null, '전체'), ('waiting', '응답 대기'), ('accepted', '수락'), ('rejected', '거절'), ('expired', '만료')];
+    return Row(
+      children: [
+        for (final (i, (status, label)) in chips.indexed) ...[
+          if (i > 0) const SizedBox(width: AdminSpacing.sm),
+          AdminChip(label: label, selected: selected == status, onTap: () => onStatus(status)),
+        ],
+      ],
+    );
+  }
+
+  /// 신청 목록 자리: 받는 중 · 못 받음 · 빈 목록, 아니면 표 → (더 보기). 표 열은 매칭 쌍 표와 같은 폭이다.
+  List<Widget> _requestList(WidgetRef ref, PagedState<MatchRequest> list) {
+    final controller = ref.read(matchingRequestsProvider.notifier);
+    if (list.loading) return const [LoadingBlock('신청 목록을 불러오고 있어요')];
+    if (list.failed) return [ErrorBlock('신청 목록을 불러오지 못했어요', onRetry: controller.retry)];
+    if (list.items.isEmpty) return const [EmptyBlock('조건에 맞는 신청이 없어요')];
+    return [
+      AdminTable(
+        key: const ValueKey('request-table'),
+        columns: const [160, 250, 40, 250, 160, 170],
+        fillLast: true,
+        heads: const ['신청 시각', '신청한 사람 (닉네임 · 학교)', '', '받은 사람 (닉네임 · 학교)', '상대 응답', '응답 시각'],
+        rows: [
+          for (final request in list.items)
+            AdminTableRow(
+              rowKey: ValueKey('request-row-${request.id}'),
+              cells: [
+                AdminCellText(formatMonthDayTime(request.requestedAt)),
+                _PersonCell(person: request.requester, linkKey: ValueKey('request-${request.id}-from')),
+                const Icon(LucideIcons.arrowRight, size: 16, color: AdminColors.muted),
+                _PersonCell(person: request.target, linkKey: ValueKey('request-${request.id}-to')),
+                Builder(
+                  builder: (context) {
+                    final (label, tone) = requestStatusBadge(request.status);
+                    return FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: StatusBadge(label, tone: tone));
+                  },
+                ),
+                request.respondedAt == null
+                    ? Text('-', style: AdminTypography.sm.copyWith(color: AdminColors.muted))
+                    : AdminCellText(formatMonthDayTime(request.respondedAt!)),
+              ],
+            ),
+        ],
+      ),
+      if (list.hasMore) _MoreButton(loading: list.loadingMore, failed: list.moreFailed, onPressed: controller.loadMore),
+    ];
   }
 
   /// 목록 자리: 받는 중 · 못 받음 · 빈 목록, 아니면 표 → (더 보기) → 안내

@@ -58,6 +58,44 @@ void main() {
     expect(matchStatusBadge('x'), ('x', StatusTone.neutral));
   });
 
+  group('MatchRequest', () {
+    test('id · requested_at · status · responded_at · requester · target(id · nickname · university)', () {
+      final r = MatchRequest.fromJson(requestRow('r2', '2026-10-17T12:10:00+00:00', 'accepted', respondedAt: '2026-10-17T14:30:00+00:00'));
+      expect((r.id, r.status), ('r2', 'accepted'));
+      expect(r.requestedAt, DateTime.parse('2026-10-17T12:10:00+00:00'));
+      expect(r.respondedAt, DateTime.parse('2026-10-17T14:30:00+00:00'));
+      expect((r.requester.id, r.requester.nickname, r.requester.university), ('r2-from', '신청자r2', '서울대학교'));
+      expect((r.target.id, r.target.nickname, r.target.university), ('r2-to', '받은이r2', '연세대학교'));
+    });
+
+    test('응답 전(responded_at 없음)은 null', () {
+      expect(MatchRequest.fromJson(requestRow('r1', '2026-10-18T05:02:00+00:00', 'waiting')).respondedAt, isNull);
+    });
+
+    test('탈퇴로 프로필이 없는 사람은 id · 닉네임이 null — 그래도 읽힌다', () {
+      final r = MatchRequest.fromJson(requestRow('r9', '2026-10-18T05:02:00+00:00', 'expired', target: {'id': null, 'nickname': null, 'university': null}));
+      expect((r.target.withdrawn, r.requester.withdrawn), (true, false));
+    });
+
+    test('서버가 보내도 사진 · 카톡 아이디 · 대화 칸은 읽지 않는다(모델에 자리가 없다)', () {
+      final row = requestRow('r1', '2026-10-18T05:02:00+00:00', 'waiting')..addAll({'kakao_id': 'secret', 'photo_path': 'p', 'last_message': 'hi'});
+      expect(() => MatchRequest.fromJson(row), returnsNormally);
+    });
+
+    test('필수 칸이 빠지거나 시각이 읽히지 않으면 형식 오류', () {
+      expect(() => MatchRequest.fromJson({'id': 'r1'}), throwsFormatException);
+      expect(() => MatchRequest.fromJson(requestRow('r1', 'not-a-time', 'waiting')), throwsFormatException);
+    });
+  });
+
+  test('신청 상태 배지: 응답 대기 warning · 수락 success · 거절 danger · 만료 neutral · 모르는 값은 글자 그대로 neutral', () {
+    expect(requestStatusBadge('waiting'), ('응답 대기', StatusTone.warning));
+    expect(requestStatusBadge('accepted'), ('수락', StatusTone.success));
+    expect(requestStatusBadge('rejected'), ('거절', StatusTone.danger));
+    expect(requestStatusBadge('expired'), ('만료', StatusTone.neutral));
+    expect(requestStatusBadge('x'), ('x', StatusTone.neutral));
+  });
+
   test('"M/D HH:mm" — 한국 시각(UTC+9)', () {
     expect(formatMonthDayTime(DateTime.parse('2026-10-18T05:02:00+00:00')), '10/18 14:02');
     expect(formatMonthDayTime(DateTime.parse('2026-10-17T16:00:00+00:00')), '10/18 01:00');

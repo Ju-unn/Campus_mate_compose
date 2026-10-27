@@ -133,6 +133,63 @@ class MatchPair {
   };
 }
 
+/// 대화 신청 한 줄 — 카드를 받은 사람이 수락한 것. 사진 · 카톡 아이디 · 대화는 서버도 주지 않고 모델에도 자리가 없다.
+class MatchRequest {
+  const MatchRequest({
+    required this.id,
+    required this.requestedAt,
+    required this.status,
+    required this.respondedAt,
+    required this.requester,
+    required this.target,
+  });
+
+  /// 카드 id
+  final String id;
+  final DateTime requestedAt;
+
+  /// `waiting` · `accepted` · `rejected` · `expired` (받은 사람의 응답)
+  final String status;
+
+  /// 응답이 없거나 만료면 null
+  final DateTime? respondedAt;
+
+  /// 신청한 사람
+  final MatchPerson requester;
+
+  /// 신청을 받은 사람
+  final MatchPerson target;
+
+  static MatchRequest fromJson(Object? json) {
+    if (json case {'id': final String id, 'requested_at': final String at, 'status': final String status}) {
+      final requested = DateTime.tryParse(at);
+      final responded = json['responded_at'];
+      if (requested != null && responded is String?) {
+        return MatchRequest(
+          id: id,
+          requestedAt: requested,
+          status: status,
+          respondedAt: responded == null ? null : DateTime.tryParse(responded),
+          requester: MatchPerson.fromJson(json['requester']),
+          target: MatchPerson.fromJson(json['target']),
+        );
+      }
+    }
+    throw const FormatException('대화 신청 한 줄의 모양이 아니에요');
+  }
+}
+
+/// 신청 상태 → 배지(응답 대기 warning · 수락 success · 거절 danger · 만료 neutral)
+(String, StatusTone) requestStatusBadge(String status) {
+  return switch (status) {
+    'waiting' => ('응답 대기', StatusTone.warning),
+    'accepted' => ('수락', StatusTone.success),
+    'rejected' => ('거절', StatusTone.danger),
+    'expired' => ('만료', StatusTone.neutral),
+    _ => (status, StatusTone.neutral),
+  };
+}
+
 /// 한국 시간(UTC+9) "10/18 14:02"
 String formatMonthDayTime(DateTime at) {
   final kst = at.toUtc().add(const Duration(hours: 9));

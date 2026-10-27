@@ -1,6 +1,6 @@
-"""관리자 매칭 현황(설계 10-18 §8-4c, 화면 A9): 숫자 카드 · 30일 그래프 · 누가 누구랑 매칭됐나. 읽기만 한다.
+"""관리자 매칭 현황(설계 10-18 §8-4c, 화면 A9): 숫자 카드 · 30일 그래프 · 누가 누구랑 매칭됐나 · 누가 누구에게 대화를 신청했나. 읽기만 한다.
 
-누가 누구와 매칭됐는지는 민감한 정보다 — 닉네임 · 학교 이름 · 프로필 id · 시각 · 상태만 싣고 사진 · 카톡 아이디 · 대화 · 전화는 싣지 않는다
+누가 누구와 매칭됐는지 · 신청했는지는 민감한 정보다 — 닉네임 · 학교 이름 · 프로필 id · 시각 · 상태만 싣고 사진 · 카톡 아이디 · 대화 · 전화는 싣지 않는다
 (카톡 아이디는 사용자 상세의 "열람"(사유 필수 · 기록)으로만). 목록 보기 자체는 작업 기록에 남기지 않는다(설계 §8-4c).
 필터 값은 핸들러가 직접 검사해 틀리면 입력을 되돌리지 않는 422 로 돌리고, 맞으면 DB 함수의 타입 있는 인자로만 보낸다.
 """
@@ -17,13 +17,14 @@ router = APIRouter(prefix="/matching")
 DEFAULT_DAYS = 30
 DEFAULT_LIMIT = 50  # 설계 §12 의 기본 쪽 크기
 STATUSES = frozenset({"chatting", "shared", "closed"})
+REQUEST_STATUSES = frozenset({"waiting", "accepted", "rejected", "expired"})  # 대화 신청의 상대 응답
 
 
 def _repo(caller: AdminCaller) -> AdminMatchingRepository:
     return AdminMatchingRepository(caller.settings.postgrest_url, caller.settings.supabase_service_role_key, caller.client)
 
 
-def _person(row: dict, side: str) -> dict:
+def _person(row: dict, side: str) -> dict:  # side: "a" · "b" · "requester" · "target"
     return {"id": row[f"{side}_id"], "nickname": row[f"{side}_nickname"], "university": row[f"{side}_university"]}
 
 
@@ -31,6 +32,11 @@ def _pair(row: dict) -> dict:
     # 칸을 하나씩 적는다 — DB 함수가 바뀌어 다른 칸이 섞여 와도 응답으로 새지 않는다.
     return {"id": row["match_id"], "matched_at": row["matched_at"], "status": row["status"], "shared_at": row["shared_at"],
             "a": _person(row, "a"), "b": _person(row, "b")}
+
+
+def _request(row: dict) -> dict:
+    return {"id": row["card_id"], "requested_at": row["requested_at"], "status": row["status"], "responded_at": row["responded_at"],
+            "requester": _person(row, "requester"), "target": _person(row, "target")}
 
 
 @router.get("/summary")
@@ -73,4 +79,23 @@ async def list_pairs(
     return {
         "items": [_pair(row) for row in rows],
         "next_before": f"{rows[-1]['matched_at']}|{rows[-1]['match_id']}" if more else None,
+    }
+
+
+@router.get("/requests")
+async def list_requests(
+    status: str | None = None,
+    limit: int = Query(DEFAULT_LIMIT, ge=1, le=100),
+    before: str | None = None,
+    caller: AdminCaller = Depends(get_admin_caller),
+) -> dict:
+    if status is not None and status not in REQUEST_STATUSES:
+        raise cursor.bad()
+    page = None if before is None else cursor.parse(before)
+    rows = await _repo(caller).requests(status, page, limit + 1)
+    more = len(rows) > limit
+    rows = rows[:limit]
+    return {
+        "items": [_request(row) for row in rows],
+        "next_before": f"{rows[-1]['requested_at']}|{rows[-1]['card_id']}" if more else None,
     }

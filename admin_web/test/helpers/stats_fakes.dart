@@ -132,6 +132,33 @@ List<Map<String, Object?>> pairRows() => [
       a: {'id': 'm7-a', 'nickname': '닉네임M', 'university': '성균관대학교'}, b: {'id': 'm7-b', 'nickname': '닉네임N', 'university': '성균관대학교'}),
 ];
 
+/// 대화 신청 한 줄(D4 계약 GET /admin/matching/requests). 사람 id 는 '$id-from' · '$id-to'.
+Map<String, Object?> requestRow(
+  String id,
+  String requestedAt,
+  String status, {
+  String? respondedAt,
+  Map<String, Object?>? requester,
+  Map<String, Object?>? target,
+}) {
+  return {
+    'id': id,
+    'requested_at': requestedAt,
+    'status': status,
+    'responded_at': respondedAt,
+    'requester': requester ?? {'id': '$id-from', 'nickname': '신청자$id', 'university': '서울대학교'},
+    'target': target ?? {'id': '$id-to', 'nickname': '받은이$id', 'university': '연세대학교'},
+  };
+}
+
+/// 대기 · 수락 · 거절 · 만료 한 줄씩. 시각은 UTC 로 적어 화면(KST)과 9시간 어긋난다.
+List<Map<String, Object?>> requestRows() => [
+  requestRow('r1', '2026-10-18T05:02:00+00:00', 'waiting'),
+  requestRow('r2', '2026-10-17T12:10:00+00:00', 'accepted', respondedAt: '2026-10-17T14:30:00+00:00'),
+  requestRow('r3', '2026-10-16T03:00:00+00:00', 'rejected', respondedAt: '2026-10-16T04:00:00+00:00'),
+  requestRow('r4', '2026-10-10T00:00:00+00:00', 'expired'),
+];
+
 Map<String, Object?> domainRow(String domain, int attempts, String lastSeen) =>
     {'domain': domain, 'attempt_count': attempts, 'first_seen_at': '2026-10-01T00:00:00+00:00', 'last_seen_at': lastSeen};
 
@@ -191,18 +218,24 @@ class FakeStatsServer {
   Map<String, Object?> matchSummary = matchSummaryJson();
   List<Map<String, Object?>> matchDaily = matchDailyRows();
   List<Map<String, Object?>> pairs = pairRows();
+  List<Map<String, Object?>> matchRequests = requestRows();
   List<Map<String, Object?>> actions = actionRows();
 
   /// 쪽 크기(서버 기본은 50). 작게 줘서 "더 보기"를 시험한다.
   int pageSize = 50;
 
+  /// 신청 목록만의 쪽 크기(매칭 쌍 목록의 [pageSize] 와 따로 — 한 화면에 더 보기가 둘이 되지 않게)
+  int matchRequestPageSize = 50;
+
   int? statsFailure;
   int? healthFailure;
   int? matchingFailure;
   int? pairsFailure;
+  int? matchRequestsFailure;
   int? domainsFailure;
   int? actionsFailure;
   Completer<void>? holdPairs;
+  Completer<void>? holdMatchRequests;
   Completer<void>? holdActions;
   final List<http.Request> requests = <http.Request>[];
 
@@ -230,6 +263,15 @@ class FakeStatsServer {
         return (status == null || row['status'] == status) &&
             (university == null || [row['a'], row['b']].any((p) => (p! as Map)['university'] == names[university]));
       }),
+      '/admin/matching/requests' => await _page(
+        matchRequests,
+        matchRequestsFailure,
+        holdMatchRequests,
+        query,
+        (row) => '${row['requested_at']}|${row['id']}',
+        (row) => query['status'] == null || row['status'] == query['status'],
+        size: matchRequestPageSize,
+      ),
       '/admin/actions' => await _page(actions, actionsFailure, holdActions, query, (row) => '${row['created_at']}|${row['id']}', (row) {
         final target = query['target'];
         return target == null || row['target_id'] == target;
@@ -244,15 +286,16 @@ class FakeStatsServer {
     Completer<void>? hold,
     Map<String, String> query,
     String Function(Map<String, Object?>) cursorOf,
-    bool Function(Map<String, Object?>) keep,
-  ) async {
+    bool Function(Map<String, Object?>) keep, {
+    int? size,
+  }) async {
     await hold?.future;
     if (failure != null) return _failOr(failure, const {});
     final matching = rows.where(keep).toList();
     final before = query['before'];
     var from = 0;
     if (before != null) from = matching.indexWhere((row) => cursorOf(row) == before) + 1;
-    final slice = matching.skip(from).take(pageSize).toList();
+    final slice = matching.skip(from).take(size ?? pageSize).toList();
     final more = from + slice.length < matching.length;
     return _json(200, {'items': slice, 'next_before': more ? cursorOf(slice.last) : null});
   }
