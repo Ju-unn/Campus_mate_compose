@@ -94,3 +94,32 @@ class MatchingPairsController extends PagedController<MatchPair> {
   @override
   Future<CursorPage<MatchPair>> fetch(String? before) => _api.matchingPairs(status: _filter.status, university: _filter.university, before: before);
 }
+
+/// "누가 누구에게 대화를 신청했나"의 상태 칩(응답 대기 · 수락 · 거절 · 만료). 위쪽 [MatchingFilter] 의 학교 · 상태와는 따로다. null = 전체.
+final matchingRequestFilterProvider = NotifierProvider.autoDispose<MatchingRequestFilterController, MatchingFilter>(MatchingRequestFilterController.new);
+
+class MatchingRequestFilterController extends Notifier<MatchingFilter> {
+  @override
+  MatchingFilter build() => const MatchingFilter();
+
+  // 같은 칩을 다시 눌러도 새 값이라 목록을 새로 받는다(새 신청 확인).
+  void setStatus(String? status) => state = MatchingFilter(status: status);
+}
+
+/// A9 "누가 누구에게 대화를 신청했나" 목록 — 상태 칩이 바뀌면 처음부터 다시 받는다.
+final matchingRequestsProvider = NotifierProvider.autoDispose<MatchingRequestsController, PagedState<MatchRequest>>(MatchingRequestsController.new);
+
+class MatchingRequestsController extends PagedController<MatchRequest> {
+  late AdminApi _api;
+  late MatchingFilter _filter;
+
+  @override
+  PagedState<MatchRequest> build() {
+    _api = ref.watch(adminApiProvider);
+    _filter = ref.watch(matchingRequestFilterProvider);
+    return super.build();
+  }
+
+  @override
+  Future<CursorPage<MatchRequest>> fetch(String? before) => _api.matchingRequests(status: _filter.status, before: before);
+}
