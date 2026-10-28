@@ -8,6 +8,7 @@ import math
 from datetime import datetime, timezone
 
 from app.core.time import SEOUL
+from app.matching.facets import facet_fit
 
 _AXES = (("E", "I"), ("N", "S"), ("T", "F"), ("J", "P"))
 
@@ -58,9 +59,16 @@ def face_fit(me: dict, partner: dict) -> float:
     return math.sqrt(_face_fit(me, partner) * _face_fit(partner, me))
 
 
-# 10-28 E7(사용자 확정, 가상 100명 실험 · 논문 5편 검토). MBTI · 얼굴은 곱하기 계수가 아니라 가중합에 더한다.
+def facet_score(owner: dict, candidate: dict) -> float:
+    """글 정리 일치 0~1, 글 임베딩과 같은 양방향 평균(내 원함 ↔ 상대 나, 상대 원함 ↔ 나). 정리가 없으면 그 방향은 0.5."""
+    return (facet_fit(owner.get("want_facets"), candidate.get("self_facets"))
+            + facet_fit(candidate.get("want_facets"), owner.get("self_facets"))) / 2
+
+
+# 10-28 E7(사용자 확정, 가상 100명 실험 · 논문 5편 검토 — 바탕화면 매칭_유사도/재검증_10-28). MBTI · 얼굴은 곱하기 계수가
+# 아니라 가중합에 더한다. 글 50% 는 임베딩 45 + 글 정리 5 로 나눈다(같은 날 0번 — 임베딩이 못 가르는 부정을 정리가 가른다).
 # 합은 1.0 이라 다른 계수가 없으면 최종 점수도 0~1 이다.
-WEIGHTS = {"trait": 0.25, "tag": 0.10, "text": 0.50, "mbti": 0.075, "face": 0.075}
+WEIGHTS = {"trait": 0.25, "tag": 0.10, "text": 0.45, "facet": 0.05, "mbti": 0.075, "face": 0.075}
 SMOKING_PENALTY = 0.5
 RELIGION_PENALTY = 0.6  # 10-28: 0.8 → 0.6 (같은 종교면 연락처 교환이 크게 높다 — Levy 2019)
 
@@ -109,6 +117,7 @@ def final_score(owner: dict, candidate: dict) -> float:
         WEIGHTS["trait"] * float(candidate["trait_score"])
         + WEIGHTS["tag"] * float(candidate["tag_score"])
         + WEIGHTS["text"] * float(candidate["text_score"])
+        + WEIGHTS["facet"] * facet_score(owner, candidate)
         + WEIGHTS["mbti"] * mbti_fit(
             owner["preferred_mbti_flags"] or {}, candidate["mbti"],
             candidate["preferred_mbti_flags"] or {}, owner["mbti"],

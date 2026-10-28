@@ -1,9 +1,11 @@
+import asyncio
 import logging
 from uuid import UUID
 
 from openai import AsyncOpenAI
 
 from app.matching.embeddings import embed
+from app.matching.facets import extract_facets
 from app.matching.repository import MatchingRepository
 from app.matching.sentences import self_sentence, want_sentence
 from app.matching.survey_vector import survey_vector
@@ -29,10 +31,17 @@ async def refresh_vectors(
         # 빈 문장은 OpenAI 에 보내지 않고 payload 에서도 뺀다 — 기본정보 단계에서는 "원해" 재료가
         # 아직 없고, 빈 칸을 보내면 upsert 가 전에 저장한 벡터를 덮어쓴다.
         filled = {column: text for column, text in sentences.items() if text}
-        embeddings = await embed(openai_client, list(filled.values()))
+        # 글 정리는 사용자가 쓴 원문만 읽는다(템플릿의 학과 · 얼굴상은 다른 점수가 본다). 빈 글은 임베딩처럼 뺀다.
+        originals = {"self_facets": materials.get("bio"), "want_facets": materials.get("ideal_note")}
+        to_extract = {column: text.strip() for column, text in originals.items() if (text or "").strip()}
+        embeddings, *facets = await asyncio.gather(
+            embed(openai_client, list(filled.values())),
+            *(extract_facets(openai_client, text) for text in to_extract.values()),
+        )
 
         fields = {"self_survey": vector, "shyness_score": shyness}
         fields.update(zip(filled, embeddings))
+        fields.update(zip(to_extract, facets))
         await repo.save_vectors(profile_id, **fields)
     except Exception:  # noqa: BLE001 — 벡터 실패가 사용자 저장을 깨지 않게 한다
         _logger.exception("매칭 벡터 재생성 실패: profile_id=%s", profile_id)

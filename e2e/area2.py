@@ -69,11 +69,16 @@ def _unit(axis):
     return _vector([1 if i == axis else 0 for i in range(EMBEDDING_DIMENSIONS)])
 
 
+# 10-28 0번: 글 정리(점수 5%)는 모두 같은 값으로 심어 늘 다 맞음(1.0)이다 — 서버가 가입 때 만든 정리가 남으면 점수가 흔들린다.
+_FACETS = {'like_places': ['카페'], 'dislike_places': [], 'talk': None, 'values': []}
+
+
 def _vectors(run, account, survey=1, embedding=0):
     """설문 8축은 모두 [survey](±1 — 정반대면 거리 5.657 이 SQL 최대 거리 4.472 를 넘어 성향 0), 문장 임베딩은 [embedding] 축 단위벡터(서로 다른 축 = 코사인 0)."""
     _guard(run, account['id'])
     body = {'profile_id': account['id'], 'self_survey': _vector([survey] * 8),
-            'self_embedding': _unit(embedding), 'want_embedding': _unit(embedding)}
+            'self_embedding': _unit(embedding), 'want_embedding': _unit(embedding),
+            'self_facets': _FACETS, 'want_facets': _FACETS}
     status, got = tools.rest(run.cfg, run.key, 'POST', 'profile_vectors', body)
     if status == 409:  # 계정을 만들 때 서버가 이미 한 행을 넣었다
         status, got = tools.rest(run.cfg, run.key, 'PATCH', f"profile_vectors?profile_id=eq.{account['id']}",

@@ -248,8 +248,8 @@ class World(Store):
         tags = 1.0 if me.get('interest_tags') == c.get('interest_tags') else 0.0
         smoking = 0.5 if me.get('is_smoker') is False and c.get('is_smoker') is True else 1.0
         religion = 0.6 if me.get('religion') != c.get('religion') else 1.0
-        # 10-28 E7: 성향 0.25 · 태그 0.10 · 글 0.50 · MBTI · 얼굴 적합 0.15(여기선 둘 다 늘 1.0)
-        return round((0.25 + 0.10 * tags + 0.50 * text + 0.15) * smoking * religion, 4)
+        # 10-28 E7 + 0번: 성향 0.25 · 태그 0.10 · 글 0.45 + 글 정리 0.05 · MBTI · 얼굴 적합 0.15(여기선 셋 다 늘 1.0)
+        return round((0.25 + 0.10 * tags + 0.45 * text + 0.05 + 0.15) * smoking * religion, 4)
 
     def candidates(self, me_id):
         """match_candidates SQL(20260928050000) — 반대 성별 · 같은 지역 · 열린 학교 · active · 15일 · 벡터 · 일시중지 · 카드 · 가림."""

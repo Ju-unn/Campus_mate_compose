@@ -7,6 +7,10 @@ from app.matching.scoring import activity_coefficient, face_fit, final_score, mb
 # 설계 §6.4 판정 예시: 내 설정이 E ok, I ok, N ok, S no, T ok, F no, J ok, P ok
 MY_FLAGS = {"E": True, "I": True, "N": True, "S": False, "T": True, "F": False, "J": True, "P": True}
 ALL_OK = {}
+# 글 정리가 없으면(이 파일의 대부분) 정리 몫 0.05 의 절반만 받는다 — 다 맞아도 최종 0.975.
+NO_FACETS = 1 - 0.05 * 0.5
+CAFE_LOVER = {"like_places": ["카페"], "dislike_places": [], "talk": None, "values": []}
+CAFE_HATER = {"like_places": [], "dislike_places": ["카페"], "talk": None, "values": []}
 # 내 MBTI(ENFP)를 상대가 같은 비율로 깎는 설정 — 양방향이 같은 값이라야 §6.4 표의 계수가 그대로 나온다.
 PARTNER_THREE_OF_FOUR = {"T": True, "F": False}
 PARTNER_TWO_OF_FOUR = {"T": True, "F": False, "J": True, "P": False}
@@ -85,7 +89,7 @@ def test_activity_coefficient_steps():
 
 
 def test_final_score_multiplies_weighted_sum_by_every_coefficient():
-    """가중합(성향 0.25 · 태그 0.10 · 글 0.50 · MBTI 적합 0.075 · 얼굴 적합 0.075)에 남은 계수를 곱한다(10-28 E7)."""
+    """가중합(성향 0.25 · 태그 0.10 · 글 0.45 + 글 정리 0.05 · MBTI 적합 0.075 · 얼굴 적합 0.075)에 남은 계수를 곱한다(10-28 E7 + 0번)."""
     now = datetime.now(timezone.utc)
     owner = {
         "mbti": "ENFP", "preferred_mbti_flags": ALL_OK, "height_cm": 180,
@@ -100,8 +104,8 @@ def test_final_score_multiplies_weighted_sum_by_every_coefficient():
         "last_active_at": now.isoformat(),
     }
 
-    # 가중합 1.0 × 키 1.0 × 나이 1.0 × 흡연 0.5(비흡연자에게 흡연자) × 종교 0.6 × 활동성 1.0
-    assert round(final_score(owner, candidate), 4) == 0.30
+    # 가중합 0.975(정리 없음) × 키 1.0 × 나이 1.0 × 흡연 0.5(비흡연자에게 흡연자) × 종교 0.6 × 활동성 1.0
+    assert round(final_score(owner, candidate), 4) == round(NO_FACETS * 0.30, 4)
 
 
 def test_final_score_adds_the_face_fit_as_seven_and_a_half_percent():
@@ -125,8 +129,8 @@ def test_final_score_adds_the_face_fit_as_seven_and_a_half_percent():
     misses = {**base, "animal_type": "cat", "impression_type": "chic",
               "preferred_animal_types": ["fox"], "preferred_impression_types": ["kind"]}
 
-    assert round(final_score(owner, fits), 4) == 1.0
-    assert round(final_score(owner, misses), 4) == 0.925
+    assert round(final_score(owner, fits), 4) == NO_FACETS
+    assert round(final_score(owner, misses), 4) == round(NO_FACETS - 0.075, 4)
 
 
 def test_final_score_adds_the_mbti_fit_instead_of_multiplying():
@@ -144,12 +148,13 @@ def test_final_score_adds_the_mbti_fit_instead_of_multiplying():
         "preferred_age_max": None, "is_smoker": False, "religion": "none", "last_active_at": now.isoformat(),
     }
 
-    assert round(final_score(owner, candidate), 4) == round(1 - 0.075 * (1 - math.sqrt(0.75)), 4)
+    assert round(final_score(owner, candidate), 4) == round(NO_FACETS - 0.075 * (1 - math.sqrt(0.75)), 4)
 
 
 def test_each_part_carries_its_own_weight():
-    """E7 분배(성향 0.25 · 태그 0.10 · 글 0.50 · MBTI 0.075 · 얼굴 0.075)를 고정한다 — 한 칸만 1 이고 나머지가 0 이면 그 칸의
-    비중이 나온다. MBTI · 얼굴은 적합 0 을 만들 수 없어(모르면 1.0) 다 맞음으로 두고 그 몫(0.15)을 함께 더한다."""
+    """E7 + 0번 분배(성향 0.25 · 태그 0.10 · 글 0.45 · 글 정리 0.05 · MBTI 0.075 · 얼굴 0.075)를 고정한다 — 한 칸만 1 이고
+    나머지가 0 이면 그 칸의 비중이 나온다. MBTI · 얼굴은 적합 0 을 만들 수 없어(모르면 1.0) 다 맞음으로 두고 그 몫(0.15)을 함께 더한다.
+    글 정리는 두 사람 모두 카페를 싫어하는데 카페를 좋아하는 상대를 원하게 두어 양방향 0 을 만든다."""
     now = datetime.now(timezone.utc)
     owner = {
         "mbti": None, "preferred_mbti_flags": ALL_OK, "height_cm": 180,
@@ -163,10 +168,36 @@ def test_each_part_carries_its_own_weight():
         "preferred_age_max": None, "is_smoker": False, "religion": "none", "last_active_at": now.isoformat(),
     }
 
+    owner = {**owner, "self_facets": CAFE_HATER, "want_facets": CAFE_LOVER}
+    base = {**base, "self_facets": CAFE_HATER, "want_facets": CAFE_LOVER}
+
     assert round(final_score(owner, base), 4) == 0.15
     assert round(final_score(owner, {**base, "trait_score": 1.0}), 4) == 0.40
     assert round(final_score(owner, {**base, "tag_score": 1.0}), 4) == 0.25
-    assert round(final_score(owner, {**base, "text_score": 1.0}), 4) == 0.65
+    assert round(final_score(owner, {**base, "text_score": 1.0}), 4) == 0.60
+    assert round(final_score(owner, {**base, "self_facets": CAFE_LOVER, "want_facets": CAFE_HATER}), 4) == 0.20
+
+
+def test_final_score_adds_the_text_facets_as_five_percent_both_ways():
+    """글 정리 일치는 양방향 평균 × 0.05 — 내가 원하는 카페를 상대가 싫다고 적었으면 그 방향이 0 이다(임베딩은 못 가르는 부정)."""
+    now = datetime.now(timezone.utc)
+    owner = {
+        "mbti": None, "preferred_mbti_flags": ALL_OK, "height_cm": 180,
+        "preferred_height_min": None, "preferred_height_max": None, "birth_year": 2002,
+        "preferred_age_min": None, "preferred_age_max": None, "is_smoker": False, "religion": "none",
+        "self_facets": CAFE_HATER, "want_facets": CAFE_LOVER,
+    }
+    base = {
+        "trait_score": 1.0, "tag_score": 1.0, "text_score": 1.0, "mbti": None,
+        "preferred_mbti_flags": ALL_OK, "height_cm": 165, "preferred_height_min": None,
+        "preferred_height_max": None, "birth_year": 2003, "preferred_age_min": None,
+        "preferred_age_max": None, "is_smoker": False, "religion": "none", "last_active_at": now.isoformat(),
+    }
+
+    assert round(final_score(owner, {**base, "self_facets": CAFE_LOVER, "want_facets": CAFE_HATER}), 4) == 1.0
+    assert round(final_score(owner, {**base, "self_facets": CAFE_HATER, "want_facets": CAFE_HATER}), 4) == 0.975
+    assert round(final_score(owner, {**base, "self_facets": CAFE_HATER, "want_facets": CAFE_LOVER}), 4) == 0.95
+    assert round(final_score(owner, base), 4) == NO_FACETS
 
 
 def test_age_coefficient_uses_age_not_birth_year():
@@ -185,7 +216,7 @@ def test_age_coefficient_uses_age_not_birth_year():
         "last_active_at": datetime.now(timezone.utc).isoformat(),
     }
 
-    assert round(final_score(owner, candidate), 4) == round(math.sqrt(0.85), 4)
+    assert round(final_score(owner, candidate), 4) == round(NO_FACETS * math.sqrt(0.85), 4)
 
 
 def test_rank_sorts_by_final_score():
