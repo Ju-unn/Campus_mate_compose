@@ -105,7 +105,7 @@ def _old_offer(target_id: str, cycle: datetime = MONDAY_7AM, band_count: int = 5
 
 
 async def test_issues_one_card_from_the_band_not_always_the_top():
-    """1등을 그대로 주지 않는다 — 상위 80% 구간 안에서 고르고, 시드를 바꾸면 다른 사람이 나온다."""
+    """1등을 그대로 주지 않는다 — 20~90% 구간 안에서 고르고, 시드를 바꾸면 다른 사람이 나온다."""
     picked = set()
     for seed in range(30):
         repo = _FakeCardRepo([{"profile_id": "owner-1", "region_group": "seoul"}])
@@ -114,7 +114,7 @@ async def test_issues_one_card_from_the_band_not_always_the_top():
         assert result["issued"] == 1
         picked.add(repo.cards[0]["target_id"])
 
-    assert picked <= {f"c{i:04d}" for i in range(40)}  # 50명의 80% = 40명
+    assert picked <= {f"c{i:04d}" for i in range(10, 45)}  # 50명: 유료 구간 10명 아래부터 90%(45명)까지
     assert len(picked) > 5
 
 
@@ -135,7 +135,8 @@ async def test_unpickable_people_rank_but_are_never_issued():
         repo = _FakeCardRepo([{"profile_id": "owner-1", "region_group": "seoul"}])
         await issue_daily_cards(repo, _FakeMatchingRepo(_many(10, lambda i: i in (6, 7))), sender=None,
                                 now=MONDAY_7AM, rng=random.Random(seed))
-        # 10명의 80% = 8명 구간 중 뽑을 수 있는 사람은 c0006 · c0007 뿐이다. 유료 구간(5명)은 비어 있다.
+        # 10명이면 유료 구간 5명 아래 ~ 90%(9명) = c0005~c0008 에서 뽑을 수 있는 사람은 c0006 · c0007 뿐이다.
+        # 유료 구간(5명)은 비어 있다.
         assert repo.cards[0]["target_id"] in {"c0006", "c0007"}
         assert repo.offers == []
 
@@ -143,7 +144,8 @@ async def test_unpickable_people_rank_but_are_never_issued():
 async def test_the_paid_offer_target_is_never_the_free_card():
     for seed in range(30):
         repo = _FakeCardRepo([{"profile_id": "owner-1", "region_group": "seoul"}])
-        # 두 구간에 다 드는 사람은 c0000 · c0001 둘뿐 — 유료가 한 명을 가져가면 무료는 다른 한 명이다.
+        # 뽑을 수 있는 사람이 유료 구간 안 c0000 · c0001 둘뿐 — 20~90% 가 비었으니 무료는 상위 90% 전체로 넓혀
+        # 유료가 가져가지 않은 다른 한 명을 준다.
         await issue_daily_cards(repo, _FakeMatchingRepo(_many(10, lambda i: i < 2)), sender=None,
                                 now=MONDAY_7AM, rng=random.Random(seed))
         assert len(repo.offers) == 1
@@ -240,7 +242,7 @@ def _postgrest_with(candidates: list[dict], seen: list[httpx.Request]) -> Matchi
 
 async def test_all_fifteen_hundred_candidates_reach_the_band():
     """1,500명 중 1,000등 밖의 사람만 뽑을 수 있다 — 1,000명에서 잘리면 아무도 못 받는다.
-    80% 구간은 1,200명이라 1,000~1,199등이 뽑힌다."""
+    무료 구간은 300~1,349등이라 1,000~1,349등이 뽑힌다."""
     seen: list[httpx.Request] = []
     matching = _postgrest_with(_many(1500, lambda i: i >= 1000), seen)
     picked = set()
@@ -251,7 +253,7 @@ async def test_all_fifteen_hundred_candidates_reach_the_band():
         picked.add(int(repo.cards[0]["target_id"][1:]))
         assert repo.offers == []  # 상위 20%(300명)는 전부 이미 본 사람이다
 
-    assert all(1000 <= rank < 1200 for rank in picked)
+    assert all(1000 <= rank < 1350 for rank in picked)
 
 
 async def test_the_candidate_request_asks_for_no_row_limit():
@@ -266,16 +268,16 @@ async def test_the_candidate_request_asks_for_no_row_limit():
     assert "range" not in {key.lower() for key in rpc.headers}
 
 
-async def test_rank_twelve_hundred_is_drawn_when_it_is_the_only_one_inside_the_band():
-    """1,500명 중 1,200등까지가 80% 구간 — 1,200등(0부터 1,199)만 뽑을 수 있으면 그 사람이 나온다."""
+async def test_rank_1350_is_drawn_when_it_is_the_only_one_inside_the_band():
+    """1,500명 중 1,350등까지가 90% 구간 — 1,350등(0부터 1,349)만 뽑을 수 있으면 그 사람이 나온다."""
     seen: list[httpx.Request] = []
-    matching = _postgrest_with(_many(1500, lambda i: i in (1199, 1200)), seen)
+    matching = _postgrest_with(_many(1500, lambda i: i in (1349, 1350)), seen)
     repo = _FakeCardRepo([{"profile_id": "owner-1", "region_group": "seoul"}])
 
     await issue_daily_cards(repo, matching, sender=None, now=MONDAY_7AM, rng=random.Random(0))
 
-    # 1,201등(1200)은 구간 밖이라 절대 나오지 않는다.
-    assert repo.cards[0]["target_id"] == "c1199"
+    # 1,351등(1350)은 구간 밖이라 절대 나오지 않는다.
+    assert repo.cards[0]["target_id"] == "c1349"
 
 
 async def test_expiry_is_the_next_issue_day():

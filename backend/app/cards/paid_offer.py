@@ -74,7 +74,7 @@ def _strengths(owner: dict, target: dict, tags: list[str]) -> dict[str, float]:
             near=2,
         )
     ) >= _NO_PENALTY
-    # scoring.final_score 의 흡연(0.5) · 종교(0.8) 감점과 같은 조건이다.
+    # scoring.final_score 의 흡연(0.5) · 종교(0.6) 감점과 같은 조건이다.
     smoke_religion_ok = not (owner.get("is_smoker") is False and target.get("is_smoker") is True) \
         and owner.get("religion") == target.get("religion")
     return {

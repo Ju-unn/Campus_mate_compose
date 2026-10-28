@@ -13,8 +13,8 @@ def _client(*contents: str | None) -> AsyncMock:
     return openai_client
 
 
-async def _draft(openai_client, mbti=None, summary="밖이 좋아요", tags=("여행", "카페가기"), traits=("다정한",)):
-    return await generate_bio_draft(openai_client, mbti, summary, list(tags), list(traits))
+async def _draft(openai_client, summary="밖이 좋아요", tags=("여행", "카페가기"), traits=("다정한",)):
+    return await generate_bio_draft(openai_client, summary, list(tags), list(traits))
 
 
 def _messages(openai_client, call=0) -> list[dict]:
@@ -37,18 +37,26 @@ async def test_the_system_prompt_asks_for_korean_only_paragraphs_and_no_religion
     openai_client = _client("초안")
     await _draft(openai_client)
     system = _messages(openai_client)[0]["content"]
-    for rule in ("한국어로만", "MBTI 네 글자", "줄바꿈 한 번", "2~3문장", "존댓말", "이모지", "종교와 흡연"):
+    for rule in ("한국어로만", "줄바꿈 한 번", "2~3문장", "존댓말", "이모지", "종교와 흡연", "MBTI 이야기는 하지 마"):
         assert rule in system, rule
 
 
-async def test_mbti_leads_the_user_prompt_and_says_none_when_not_chosen():
-    chosen, unknown = _client("초안"), _client("초안")
-    await _draft(chosen, mbti="ENFP", summary="밖이 좋아요, 금방 친해져요")
-    await _draft(unknown, mbti=None, summary="")
-    assert _messages(chosen)[1]["content"] == (
-        "MBTI: ENFP\n성향: 밖이 좋아요, 금방 친해져요\n관심사: 여행, 카페가기\n나의 특징: 다정한"
-    )
-    assert _messages(unknown)[1]["content"].startswith("MBTI: 없음\n성향: 없음\n")
+async def test_the_system_prompt_keeps_survey_answers_out_of_the_text():
+    """성향 설문은 이미 성향 점수로 비교한다 — 글에 다시 옮기면 같은 정보를 두 번 센다(10-28 재검증)."""
+    openai_client = _client("초안")
+    await _draft(openai_client)
+    system = _messages(openai_client)[0]["content"]
+    assert "성향 설문 답을 문장으로 옮기지 마" in system
+    assert "관심사와 나의 특징" in system
+
+
+async def test_the_user_prompt_has_no_mbti_and_says_none_without_survey():
+    """MBTI 는 초안 재료에서 뺀다 — 매칭은 MBTI 계수로 따로 비교하고, 글에 들어가면 글 점수가 같은 정보를 다시 센다(10-28)."""
+    filled, empty = _client("초안"), _client("초안")
+    await _draft(filled, summary="밖이 좋아요, 금방 친해져요")
+    await _draft(empty, summary="")
+    assert _messages(filled)[1]["content"] == "성향: 밖이 좋아요, 금방 친해져요\n관심사: 여행, 카페가기\n나의 특징: 다정한"
+    assert _messages(empty)[1]["content"].startswith("성향: 없음\n")
 
 
 def test_survey_summary_leaves_out_religion_smoking_and_the_middle():
@@ -67,15 +75,16 @@ async def test_english_left_after_the_second_try_keeps_the_last_draft():
     assert openai_client.chat.completions.create.await_count == 2
 
 
-async def test_my_mbti_and_an_english_interest_tag_are_not_english_words():
-    openai_client = _client("ENFP라서 IT 이야기를 좋아해요.")
-    assert await _draft(openai_client, mbti="ENFP", tags=("IT", "여행")) == "ENFP라서 IT 이야기를 좋아해요."
+async def test_an_english_interest_tag_is_not_an_english_word():
+    openai_client = _client("IT 이야기를 좋아해요.")
+    assert await _draft(openai_client, tags=("IT", "여행")) == "IT 이야기를 좋아해요."
     assert openai_client.chat.completions.create.await_count == 1
 
 
-async def test_another_mbti_is_an_english_word():
-    openai_client = _client("INTJ랑 잘 맞아요.", "저와 잘 맞는 분을 찾아요.")
-    assert await _draft(openai_client, mbti="ENFP") == "저와 잘 맞는 분을 찾아요."
+async def test_an_mbti_in_the_draft_is_an_english_word():
+    """재료에 MBTI 가 없으니 글에 MBTI 가 나오면 다시 만든다."""
+    openai_client = _client("ENFP라서 잘 웃어요.", "저와 잘 맞는 분을 찾아요.")
+    assert await _draft(openai_client) == "저와 잘 맞는 분을 찾아요."
 
 
 async def test_blank_lines_between_paragraphs_become_one_line_break():

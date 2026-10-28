@@ -5,7 +5,7 @@ from datetime import datetime, time
 from app.cards.ladder import bottleneck_count, ladder_weekdays, last_issue_at, next_issue_at
 from app.cards.paid_offer import ensure_offer
 from app.cards.push import notify
-from app.matching.band import FREE_BAND_RATIO, pick_from_band, rank_all
+from app.matching.band import FREE_BAND_RATIO, PAID_BAND_RATIO, band_size, pick_from_band, rank_all
 
 logger = logging.getLogger(__name__)
 
@@ -18,8 +18,8 @@ async def issue_daily_cards(card_repo, matching_repo, sender, now: datetime,
                             rng: random.Random | None = None) -> dict:
     """하루 한 번 도는 지급 배치(설계 §2.1). Cloud Scheduler 가 07:00 Asia/Seoul 에 부른다.
 
-    대상자마다 ① 이번 주기의 유료 카드 제안을 먼저 확보하고 ② 그 사람을 빼고 무료 카드를 상위 80% 구간에서
-    무작위로 뽑는다(지시문 22). rng 는 시험이 시드를 고정하려고 받는다.
+    대상자마다 ① 이번 주기의 유료 카드 제안을 먼저 확보하고 ② 그 사람을 빼고 무료 카드를 20~90% 구간에서
+    무작위로 뽑는다(지시문 22, 10-28 사용자 결정). rng 는 시험이 시드를 고정하려고 받는다.
 
     ponytail: 사람당 호출이 많다. 이미 제안이 있는 사람(재사용 경로)은 읽기 약 7번(프로필 · 후보 2번 + 구매 여부 · 제안
     목록 2번 + 대상 자격 확인 3번), 새 제안을 만드는 사람은 읽기 약 5번(프로필 · 후보 · 구매 여부 · 제안 목록 ·
@@ -89,7 +89,11 @@ async def _issue_to_owner(card_repo, matching_repo, sender, now: datetime, rng: 
     # ① 유료 제안은 무료 카드가 나가든 말든 확보한다. ② 그 사람은 무료 카드에서 뺀다.
     offer = await ensure_offer(card_repo, owner_row, ranked, last_issue_at(now, weekdays, issue_time), rng, now)
     exclude = frozenset({str(offer["target_id"])}) if offer else frozenset()
-    picked = pick_from_band(ranked, FREE_BAND_RATIO, rng, exclude=exclude)
+    # 무료는 유료 구간(상위 20%) 아래부터 고른다. 그 구간에 뽑을 사람이 없을 때만(후보가 적은 학교 · 다 본 사람)
+    # 상위 90% 전체로 넓힌다 — 카드가 아예 없는 날을 만들지 않으려는 것이다.
+    picked = (pick_from_band(ranked, FREE_BAND_RATIO, rng, exclude=exclude,
+                             start=band_size(len(ranked), PAID_BAND_RATIO))
+              or pick_from_band(ranked, FREE_BAND_RATIO, rng, exclude=exclude))
     if picked is None:
         # 구간에 뽑을 사람이 없으면 이번 주기에는 카드가 없다 — 화면 11b `iQZoa` 가 이 상태를 설명한다.
         return False

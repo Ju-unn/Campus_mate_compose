@@ -13,7 +13,9 @@ _MATERIAL_COLUMNS = (
 )
 _OWNER_COLUMNS = (
     "id,status,gender,mbti,preferred_mbti_flags,height_cm,preferred_height_min,preferred_height_max,"
-    "birth_year,preferred_age_min,preferred_age_max,is_smoker,religion"
+    "birth_year,preferred_age_min,preferred_age_max,is_smoker,religion,"
+    "animal_type,impression_type,preferred_animal_types,preferred_impression_types,"
+    "profile_vectors(self_facets,want_facets)"
 )
 
 
@@ -51,7 +53,10 @@ class MatchingRepository(PostgrestRepository):
         if not rows:
             # 토큰은 살아 있는데 프로필이 지워졌을 때다 — 500 대신 404 로 말해준다.
             raise HTTPException(status_code=404, detail=errors.PROFILE_NOT_FOUND)
-        return rows[0]
+        # 글 정리는 벡터 행에 있다 — 1:1 embed 라 행이 없으면 null 로 온다. scoring 이 profiles 칸처럼 읽게 펼친다.
+        owner = rows[0]
+        facets = owner.pop("profile_vectors", None) or {}
+        return {**owner, "self_facets": facets.get("self_facets"), "want_facets": facets.get("want_facets")}
 
     async def has_vectors(self, profile_id: UUID | str) -> bool:
         """세 벡터가 다 있어야 match_candidates 가 점수를 낸다 — 없으면 RPC 를 부르지 않는다."""

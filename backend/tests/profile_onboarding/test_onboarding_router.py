@@ -627,8 +627,8 @@ def test_bio_draft_that_stays_empty_is_a_failure_and_is_not_saved():
     assert patches == []
 
 
-def test_bio_draft_feeds_mbti_and_survey_in_korean_without_religion_or_smoking():
-    """초안 재료는 MBTI · 설문 문장 한국어다 — 영어 코드값(religion=none)을 넘기지 않는다(2026-09-26 실기기 e).
+def test_bio_draft_feeds_survey_in_korean_without_mbti_religion_or_smoking():
+    """초안 재료는 설문 문장 한국어다(MBTI 는 10-28 부터 뺀다 — 매칭은 MBTI 계수로 비교한다) — 영어 코드값(religion=none)을 넘기지 않는다(2026-09-26 실기기 e).
     종교 · 흡연은 뺀다 — 민감정보이고 상세 화면 정보 칸에 이미 보인다(2026-10-15 대장 지시, GPT_소개글_프롬프트 §7-1 A)."""
     openai_client = AsyncMock()
     openai_client.chat.completions.create.return_value.choices = [SimpleNamespace(message=SimpleNamespace(content="초안"))]
@@ -658,8 +658,8 @@ def test_bio_draft_feeds_mbti_and_survey_in_korean_without_religion_or_smoking()
 
     assert response.status_code == 200
     prompt = openai_client.chat.completions.create.call_args.kwargs["messages"][1]["content"]
-    assert prompt.startswith("MBTI: ENFP\n성향: 밖이 좋아요, 낯을 많이 가려요\n")
-    for left_out in ("religion=", "종교", "무교", "흡연"):
+    assert prompt.startswith("성향: 밖이 좋아요, 낯을 많이 가려요\n")
+    for left_out in ("religion=", "종교", "무교", "흡연", "ENFP", "MBTI"):
         assert left_out not in prompt, left_out
 
 

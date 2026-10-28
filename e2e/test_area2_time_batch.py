@@ -247,8 +247,9 @@ class World(Store):
         text = 1.0 if mine.get(me['id'], {}).get('self_embedding') == mine.get(c['id'], {}).get('self_embedding') else 0.0
         tags = 1.0 if me.get('interest_tags') == c.get('interest_tags') else 0.0
         smoking = 0.5 if me.get('is_smoker') is False and c.get('is_smoker') is True else 1.0
-        religion = 0.8 if me.get('religion') != c.get('religion') else 1.0
-        return round((0.3 + 0.2 * tags + 0.5 * text) * smoking * religion, 4)
+        religion = 0.6 if me.get('religion') != c.get('religion') else 1.0
+        # 10-28 E7 + 0번: 성향 0.25 · 태그 0.10 · 글 0.45 + 글 정리 0.05 · MBTI · 얼굴 적합 0.15(여기선 셋 다 늘 1.0)
+        return round((0.25 + 0.10 * tags + 0.45 * text + 0.05 + 0.15) * smoking * religion, 4)
 
     def candidates(self, me_id):
         """match_candidates SQL(20260928050000) — 반대 성별 · 같은 지역 · 열린 학교 · active · 15일 · 벡터 · 일시중지 · 카드 · 가림."""
@@ -777,7 +778,7 @@ class Card72Test(Base):
         (card,) = self.cards_of(o)
         self.assertEqual(card['target_id'], c0)
         score = lambda x: self.world.score(self.world.profile(o), self.world.profile(x))  # noqa: E731
-        self.assertEqual([score('id-2'), score('id-3'), score('id-4')], [1.0, 0.5, 0.8])  # C0 · C4(흡연) · C5(종교)
+        self.assertEqual([score('id-2'), score('id-3'), score('id-4')], [1.0, 0.5, 0.6])  # C0 · C4(흡연) · C5(종교 0.6, 10-28 E7)
 
     def test_the_sentence_axis_is_random_so_other_runs_leftovers_cannot_tie_with_c0(self):
         self.passes('E-CARD-72')

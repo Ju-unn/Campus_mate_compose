@@ -9,8 +9,9 @@ import random
 
 from app.matching.scoring import rank
 
-# 출처: 설계 문서 「01_설계_카드선정_유료카드」(사용자 승인) — 무료 상위 80%, 유료 상위 20%, 구간은 최소 5명.
-FREE_BAND_RATIO = 0.8
+# 출처: 설계 문서 「01_설계_카드선정_유료카드」(사용자 승인) — 유료 상위 20%, 구간은 최소 5명.
+# 무료는 2026-10-28 사용자 결정으로 상위 80% → 20~90% (상위 20%는 유료 전용, 감점 큰 하위 10%는 뺀다).
+FREE_BAND_RATIO = 0.9
 PAID_BAND_RATIO = 0.2
 BAND_MINIMUM = 5
 
@@ -36,9 +37,11 @@ def pick_from_band(
     rng: random.Random,
     exclude: frozenset = frozenset(),
     minimum: int = BAND_MINIMUM,
+    start: int = 0,
 ) -> dict | None:
-    """전체 순위 앞쪽 band_size 명 중 pickable 이고 exclude 에 없는 사람에서 균등 무작위 1명. 없으면 None."""
-    band = ranked[: band_size(len(ranked), ratio, minimum)]
+    """전체 순위 start 등부터 band_size 등 앞까지 중 pickable 이고 exclude 에 없는 사람에서 균등 무작위 1명.
+    없으면 None."""
+    band = ranked[start: band_size(len(ranked), ratio, minimum)]
     # pickable 이 빠진 후보는 KeyError 로 드러낸다 — 기본값 True 로 읽으면 쉬는 사람이 조용히 다시 나온다.
     eligible = [c for c in band if c["pickable"] and c["candidate_id"] not in exclude]
     return rng.choice(eligible) if eligible else None

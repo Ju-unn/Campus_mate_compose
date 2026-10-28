@@ -69,11 +69,16 @@ def _unit(axis):
     return _vector([1 if i == axis else 0 for i in range(EMBEDDING_DIMENSIONS)])
 
 
+# 10-28 0번: 글 정리(점수 5%)는 모두 같은 값으로 심어 늘 다 맞음(1.0)이다 — 서버가 가입 때 만든 정리가 남으면 점수가 흔들린다.
+_FACETS = {'like_places': ['카페'], 'dislike_places': [], 'talk': None, 'values': []}
+
+
 def _vectors(run, account, survey=1, embedding=0):
-    """설문 8축은 모두 [survey](±1 — 정반대 거리 최대 5.657), 문장 임베딩은 [embedding] 축 단위벡터(서로 다른 축 = 코사인 0)."""
+    """설문 8축은 모두 [survey](±1 — 정반대면 거리 5.657 이 SQL 최대 거리 4.472 를 넘어 성향 0), 문장 임베딩은 [embedding] 축 단위벡터(서로 다른 축 = 코사인 0)."""
     _guard(run, account['id'])
     body = {'profile_id': account['id'], 'self_survey': _vector([survey] * 8),
-            'self_embedding': _unit(embedding), 'want_embedding': _unit(embedding)}
+            'self_embedding': _unit(embedding), 'want_embedding': _unit(embedding),
+            'self_facets': _FACETS, 'want_facets': _FACETS}
     status, got = tools.rest(run.cfg, run.key, 'POST', 'profile_vectors', body)
     if status == 409:  # 계정을 만들 때 서버가 이미 한 행을 넣었다
         status, got = tools.rest(run.cfg, run.key, 'PATCH', f"profile_vectors?profile_id=eq.{account['id']}",
@@ -359,11 +364,11 @@ def card_60(run):
 
 
 def card_61(run):
-    return _score(run, 'C1', 0.7)
+    return _score(run, 'C1', 0.75)  # 10-28 E7: 성향 0.25 만 빠진다
 
 
 def card_62(run):
-    return _score(run, 'C2', 0.8)
+    return _score(run, 'C2', 0.9)  # 태그 0.10 만 빠진다
 
 
 def card_63(run):
@@ -385,15 +390,15 @@ def card_65(run):
 
 
 def card_66(run):
-    return _score(run, 'C5', 0.8)
+    return _score(run, 'C5', 0.6)  # 종교 0.6
 
 
 def card_67(run):
-    return _score(run, 'C6', 0.4)
+    return _score(run, 'C6', 0.3)  # 흡연 0.5 × 종교 0.6
 
 
 def card_69(run):
-    return _score(run, 'C7', 0.6 + 0.4 * math.sqrt(0.75))
+    return _score(run, 'C7', 1 - 0.075 * (1 - math.sqrt(0.75)))  # MBTI 는 곱하기가 아니라 0.075 × 적합을 더한다
 
 
 def card_70(run):

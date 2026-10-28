@@ -2,21 +2,25 @@ import re
 
 from openai import AsyncOpenAI
 
-# 재료는 MBTI · 성향 설문 + 관심사 태그(04-5) + 나의 특징(04-6)뿐이다 — 이상형 답변은 자기소개 재료에서 제외한다
+# 재료는 성향 설문 + 관심사 태그(04-5) + 나의 특징(04-6)뿐이다 — 이상형 답변은 자기소개 재료에서 제외한다
 # (자기소개는 나에 대한 글이라서, 설계 §13-72). 종교 · 흡연도 뺀다 — 민감정보이고 상세 화면 정보 칸에 이미 보인다.
 # 프롬프트 원본: 바탕화면 출시준비/GPT_소개글_프롬프트.md §5 + 2026-10-15 대장 지시(§7 전부 A 채택, 2~3문장).
+# 2026-10-28: 성향 설문은 성향 점수(30%)가 이미 비교한다 — 글에 옮기면 글 점수(50%)가 같은 정보를 다시 센다(재검증 H9).
+#   설문은 말투 · 분위기 재료로만 넘기고, 글은 태그 목록이 못 담는 구체적인 모습을 쓰게 한다.
+# 2026-10-28: MBTI 도 뺀다 — 매칭은 MBTI 계수로 따로 비교한다. 글에 들어가면 글 점수가 같은 정보를 다시 센다.
 # 초안은 사람마다 한 번 만들어 저장하므로(router bio-draft) 여기를 고쳐도 이미 받은 초안은 그대로다.
 _SYSTEM_PROMPT = """너는 대학생 소개팅 앱에서 사용자의 자기소개 초안을 대신 써 주는 도우미야.
 아래 규칙을 반드시 지켜.
 
 [언어]
 - 한국어로만 써. 영어 단어, 영어 문장, 로마자를 쓰지 마.
-- 예외는 딱 두 가지: MBTI 네 글자(예: ENFP)와 관심사 이름에 원래 있는 영문(예: IT)은 그대로 써도 돼.
+- 예외는 딱 하나: 관심사 이름에 원래 있는 영문(예: IT)은 그대로 써도 돼.
 
 [내용]
 - 사용자가 직접 쓴 것처럼 1인칭("저는")으로, 자연스럽고 담백한 존댓말(~해요체)로 써.
-- MBTI가 주어지면 반드시 한 번 자연스럽게 넣어. (예: "ENFP라서 그런지 처음 보는 사람과도 금방 친해지는 편이에요.") MBTI가 "없음"이면 MBTI 이야기는 하지 마.
-- 성향, 관심사, 나의 특징 중에서 3~4가지만 골라 이야기처럼 엮어. 목록을 그대로 나열하지 마.
+- MBTI 이야기는 하지 마.
+- 관심사와 나의 특징 중에서 3~4가지를 골라, 그걸로 보내는 하루나 주말 모습처럼 이야기로 엮어. 목록을 그대로 나열하지 마.
+- 성향 설문 답을 문장으로 옮기지 마(낯가림, 연락 빈도, 관계 속도, 술자리, 계획성, 집이 편한지 같은 것). 성향은 말투와 분위기에만 담아.
 - 주어진 정보에 없는 사실(전공, 직업, 사는 곳, 키, 나이, 학교, 가족 등)을 지어내지 마.
 
 [형식]
@@ -63,15 +67,14 @@ def _has_stray_english(draft: str, allowed: set[str]) -> bool:
 
 
 async def generate_bio_draft(
-    openai_client: AsyncOpenAI, mbti: str | None, survey_summary: str, interest_tags: list[str], my_traits: list[str]
+    openai_client: AsyncOpenAI, survey_summary: str, interest_tags: list[str], my_traits: list[str]
 ) -> str:
-    """mbti 는 04-1 에서 네 칸을 다 골랐을 때만 값이 있다(DB check profiles_mbti_format) — 없으면 "없음"."""
     user_prompt = (
-        f"MBTI: {mbti or '없음'}\n성향: {survey_summary or '없음'}\n"
+        f"성향: {survey_summary or '없음'}\n"
         f"관심사: {', '.join(interest_tags)}\n나의 특징: {', '.join(my_traits)}"
     )
-    # 내 MBTI 와 관심사 이름에 원래 있는 영문(지금은 'IT' 하나)만 영어로 치지 않는다.
-    allowed = {word.upper() for word in _LATIN_WORD.findall(" ".join([mbti or "", *interest_tags]))}
+    # 관심사 이름에 원래 있는 영문(지금은 'IT' 하나)만 영어로 치지 않는다 — MBTI 가 나오면 다시 만든다.
+    allowed = {word.upper() for word in _LATIN_WORD.findall(" ".join(interest_tags))}
     draft = ""  # 두 번 다 비면 "" — 부른 쪽(router bio-draft)이 생성 실패로 다룬다
     for _ in range(_ATTEMPTS):
         response = await openai_client.chat.completions.create(

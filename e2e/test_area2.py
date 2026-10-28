@@ -146,7 +146,7 @@ class ScoringTest(Base):
         self.addCleanup(patcher.stop)
         return fake
 
-    TRUE = {'C0': 1.0, 'C1': 0.7, 'C2': 0.8, 'C3': 0.5, 'C4': 0.5, 'C5': 0.8, 'C6': 0.4, 'C7': 0.9464, 'C8': 0.9220, 'C9': 0.8367}
+    TRUE = {'C0': 1.0, 'C1': 0.75, 'C2': 0.9, 'C3': 0.5, 'C4': 0.5, 'C5': 0.6, 'C6': 0.3, 'C7': 0.98995, 'C8': 0.9220, 'C9': 0.8367}
 
     def test_every_score_case_passes_with_the_documented_numbers(self):
         self.world(self.TRUE.get)

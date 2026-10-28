@@ -31,7 +31,8 @@ _logger = logging.getLogger(__name__)
 PHOTO_URL_TTL_SECONDS = 3600
 
 # 매칭 문장 재료인 칸(matching/sentences.py). 이 칸이 바뀌어야 PATCH /me/profile 이 벡터를 다시 만든다.
-SENTENCE_FIELDS = frozenset({"bio", "mbti", "animal_type", "impression_type"})
+# MBTI 는 10-28 부터 문장에서 빠졌다(계수로만 비교) — 바꿔도 다시 만들 일이 없다.
+SENTENCE_FIELDS = frozenset({"bio", "animal_type", "impression_type"})
 
 
 def _latest_avatar_url(profile: dict, supabase_url: str) -> str | None:
@@ -247,8 +248,8 @@ async def update_my_profile(
 
     if fields:
         await repo.update_profile(profile_id, fields)
-    # 문장 재료(자기소개 · MBTI · 얼굴상 · 인상, matching/sentences.py)가 바뀌면 바로 다시 만든다(spec 482줄, 2026-09-19).
-    # 종교 · 흡연은 감점 계수로만 쓰여(scoring.py) 문장에 안 들어간다 — 다시 만들 일이 없다.
+    # 문장 재료(자기소개 · 얼굴상 · 인상, matching/sentences.py)가 바뀌면 바로 다시 만든다(spec 482줄, 2026-09-19).
+    # 종교 · 흡연 · MBTI 는 감점 계수로만 쓰여(scoring.py) 문장에 안 들어간다 — 다시 만들 일이 없다.
     if fields.keys() & SENTENCE_FIELDS:
         await refresh_vectors(
             MatchingRepository(settings.postgrest_url, settings.supabase_service_role_key, client),
