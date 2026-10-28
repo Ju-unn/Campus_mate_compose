@@ -41,7 +41,7 @@ INVALID = '입력한 값을 다시 확인해 주세요'
 SOON = '닉네임은 30일에 한 번 바꿀 수 있어요'
 TAKEN = '이미 있는 닉네임이에요'
 NICK = re.compile(r'^[가-힣a-zA-Z]{2,5}$')
-SENTENCE_FIELDS = {'bio', 'mbti', 'animal_type', 'impression_type'}  # me/router.py 와 같은 칸 — 시험이 서버 글자와 맞대 본다
+SENTENCE_FIELDS = {'bio', 'animal_type', 'impression_type'}  # me/router.py 와 같은 칸(10-28: MBTI 는 글에서 빠져 벡터를 다시 만들지 않는다) — 시험이 서버 글자와 맞대 본다
 ERROR_COLOR = 0xFFC13515  # frontend/lib/core/theme/app_colors.dart AppColors.error
 PLANTED = '[1,0,0,0'  # area2._unit(0) 의 앞머리 — 시험이 따로 적는다
 NEW_VECTOR = '[0.5,0.5]'
@@ -424,10 +424,10 @@ class ServerRulesTest(ActBase):
         self.assertEqual(self.fake._patch_me({'auth': 'tok-1', 'body': {'height_cm': 300}}), Reply(422, {'detail': INVALID}))
 
     def test_only_a_bio_save_remakes_the_vectors_on_patch_me_and_the_ideal_conditions_do(self):
-        # me/router.py `if fields.keys() & SENTENCE_FIELDS` — 문장 재료 칸(자기소개 · MBTI · 얼굴상 · 인상)이 아닌 저장(닉네임 · 키 · 종교 · 흡연)은 임베딩을 안 부른다.
+        # me/router.py `if fields.keys() & SENTENCE_FIELDS` — 문장 재료 칸(자기소개 · 얼굴상 · 인상)이 아닌 저장(닉네임 · 키 · 종교 · 흡연 · MBTI)은 임베딩을 안 부른다.
         # 이상형 조건 저장은 _refresh_vectors 를 부른다.
         router = (tools.ROOT / 'backend' / 'app' / 'me' / 'router.py').read_text(encoding='utf-8')
-        self.assertIn('SENTENCE_FIELDS = frozenset({"bio", "mbti", "animal_type", "impression_type"})', router)
+        self.assertIn('SENTENCE_FIELDS = frozenset({"bio", "animal_type", "impression_type"})', router)
         self.assertIn('if fields.keys() & SENTENCE_FIELDS:', router)
         self.assertEqual(len(re.findall(r'refresh_vectors', router.split('async def update_my_profile')[1])), 1)
         onboarding = (tools.ROOT / 'backend' / 'app' / 'profile_onboarding' / 'router.py').read_text(encoding='utf-8')
@@ -437,10 +437,10 @@ class ServerRulesTest(ActBase):
         self.assertNotIn('_refresh_vectors', tags)  # 태그 저장은 벡터를 안 부른다(ME-21 은 유료가 아니다)
         self.fake.profile('id-1')
         self.fake.rows('profile_vectors').append({'profile_id': 'id-1', 'updated_at': 'x', 'self_embedding': 'y'})
-        for body in ({'height_cm': 180}, {'religion': 'none'}, {'is_smoker': False}):  # 문장 재료가 아닌 칸
+        for body in ({'height_cm': 180}, {'religion': 'none'}, {'is_smoker': False}, {'mbti': 'INTJ'}):  # 문장 재료가 아닌 칸
             self.fake._patch_me({'auth': 'tok-1', 'body': body})
         self.assertEqual(self.fake.paid_calls, 0)
-        for calls, body in enumerate(({'bio': '글'}, {'mbti': 'INTJ'}, {'animal_type': 'dog'}, {'impression_type': 'kind'}), start=1):
+        for calls, body in enumerate(({'bio': '글'}, {'animal_type': 'dog'}, {'impression_type': 'kind'}), start=1):
             self.fake._patch_me({'auth': 'tok-1', 'body': body})
             self.assertEqual(self.fake.paid_calls, calls)
 
