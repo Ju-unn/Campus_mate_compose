@@ -1,6 +1,8 @@
 -- 얼굴상 · 인상 일치 계수(2026-10-28 사용자 결정): 후보마다 동물상 · 인상과 선호 목록 4칸을 더 돌려준다.
--- FastAPI scoring.face_coefficient 가 이 칸으로 양방향 일치를 계산해 곱한다(글 임베딩은 "하나만 맞음"을 못 가른다).
--- 반환 타입(jsonb)은 그대로라 create or replace 다. 본문은 20261010010000 그대로이고 바뀐 곳은 칸 4개뿐이다.
+-- FastAPI scoring.face_fit 이 이 칸으로 양방향 일치(0~1)를 계산해 가중합에 더한다(글 임베딩은 "하나만 맞음"을 못 가른다).
+-- 같은 날 E7 확정으로 성향 최대 거리 상수도 바꾼다: 5.657 → 4.472 = 2 × √(0.5² × 4 + 1² × 4)
+--   (backend/app/matching/survey_vector.py AXIS_WEIGHTS · MAX_SURVEY_DISTANCE 와 짝. 저장된 self_survey 는 새 가중치로 다시 만든다).
+-- 반환 타입(jsonb)은 그대로라 create or replace 다. 본문은 20261010010000 그대로이고 바뀐 곳은 칸 4개와 이 상수뿐이다.
 create or replace function public.match_candidates(p_owner uuid)
 returns jsonb
 language sql
@@ -20,7 +22,7 @@ as $$
   cand as (
     select
       c.id as candidate_id,
-      greatest(0, 1 - (me.self_survey operator(extensions.<->) cv.self_survey) / 5.657) as trait_score,
+      greatest(0, 1 - (me.self_survey operator(extensions.<->) cv.self_survey) / 4.472) as trait_score,
       (
         public.jaccard(me.interest_tags, c.interest_tags)
         + (public.jaccard(me.my_traits, c.ideal_traits) + public.jaccard(c.my_traits, me.ideal_traits)) / 2

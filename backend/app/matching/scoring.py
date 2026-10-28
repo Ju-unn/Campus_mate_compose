@@ -30,13 +30,18 @@ def mbti_prefers_a_side(flags: dict) -> bool:
     return any(flags.get(left, False) != flags.get(right, False) for left, right in _AXES)
 
 
+def mbti_fit(my_flags: dict, partner_mbti: str | None, partner_flags: dict, my_mbti: str | None) -> float:
+    """양방향 MBTI 적합 0~1(기하평균). 어느 쪽이든 MBTI 를 모르면 1.0 — 모른다는 이유로 불이익을 주지 않는다(설계 §6.4)."""
+    if not partner_mbti or not my_mbti:
+        return 1.00
+    return math.sqrt(_fit(my_flags, partner_mbti) * _fit(partner_flags, my_mbti))
+
+
 def mbti_coefficient(
     my_flags: dict, partner_mbti: str | None, partner_flags: dict, my_mbti: str | None
 ) -> float:
-    if not partner_mbti or not my_mbti:
-        return 1.00
-    both = math.sqrt(_fit(my_flags, partner_mbti) * _fit(partner_flags, my_mbti))
-    return 0.6 + 0.4 * both
+    """옛 곱하기 계수(0.6~1.0). 점수에는 더 쓰지 않고(10-28 E7 — mbti_fit 을 더한다) 유료 카드 이유 문구만 쓴다."""
+    return 0.6 + 0.4 * mbti_fit(my_flags, partner_mbti, partner_flags, my_mbti)
 
 
 def _face_fit(wants: dict, partner: dict) -> float:
@@ -48,10 +53,16 @@ def _face_fit(wants: dict, partner: dict) -> float:
     return fit
 
 
-def face_coefficient(me: dict, partner: dict) -> float:
-    """얼굴상 · 인상 선호 일치(10-28 사용자 결정 — 글 임베딩은 "하나만 맞음"을 못 가른다). MBTI 계수와 같은 양방향 기하평균,
-    폭은 0.85~1.00 으로 MBTI(0.6~1.0)보다 약하게 둔다 — 얼굴은 화면에서 AI 아바타로만 보이는 참고 정보다."""
-    return 0.85 + 0.15 * math.sqrt(_face_fit(me, partner) * _face_fit(partner, me))
+def face_fit(me: dict, partner: dict) -> float:
+    """얼굴상 · 인상 선호 일치 0~1, MBTI 와 같은 양방향 기하평균(10-28 — 글 임베딩은 "하나만 맞음"을 못 가른다)."""
+    return math.sqrt(_face_fit(me, partner) * _face_fit(partner, me))
+
+
+# 10-28 E7(사용자 확정, 가상 100명 실험 · 논문 5편 검토). MBTI · 얼굴은 곱하기 계수가 아니라 가중합에 더한다.
+# 합은 1.0 이라 다른 계수가 없으면 최종 점수도 0~1 이다.
+WEIGHTS = {"trait": 0.25, "tag": 0.10, "text": 0.50, "mbti": 0.075, "face": 0.075}
+SMOKING_PENALTY = 0.5
+RELIGION_PENALTY = 0.6  # 10-28: 0.8 → 0.6 (같은 종교면 연락처 교환이 크게 높다 — Levy 2019)
 
 
 def _one_way_range(value: int | None, low: int | None, high: int | None, near: int) -> float:
@@ -95,18 +106,19 @@ def profile_age(profile: dict) -> int | None:
 
 def final_score(owner: dict, candidate: dict) -> float:
     weighted = (
-        0.3 * float(candidate["trait_score"])
-        + 0.2 * float(candidate["tag_score"])
-        + 0.5 * float(candidate["text_score"])
-    )
-    smoking = 0.5 if owner["is_smoker"] is False and candidate["is_smoker"] is True else 1.0
-    religion = 0.8 if owner["religion"] != candidate["religion"] else 1.0
-    return (
-        weighted
-        * mbti_coefficient(
+        WEIGHTS["trait"] * float(candidate["trait_score"])
+        + WEIGHTS["tag"] * float(candidate["tag_score"])
+        + WEIGHTS["text"] * float(candidate["text_score"])
+        + WEIGHTS["mbti"] * mbti_fit(
             owner["preferred_mbti_flags"] or {}, candidate["mbti"],
             candidate["preferred_mbti_flags"] or {}, owner["mbti"],
         )
+        + WEIGHTS["face"] * face_fit(owner, candidate)
+    )
+    smoking = SMOKING_PENALTY if owner["is_smoker"] is False and candidate["is_smoker"] is True else 1.0
+    religion = RELIGION_PENALTY if owner["religion"] != candidate["religion"] else 1.0
+    return (
+        weighted
         * range_coefficient(
             owner["height_cm"], owner["preferred_height_min"], owner["preferred_height_max"],
             candidate["height_cm"], candidate["preferred_height_min"],
@@ -118,7 +130,6 @@ def final_score(owner: dict, candidate: dict) -> float:
             profile_age(candidate), candidate["preferred_age_min"], candidate["preferred_age_max"],
             near=2,
         )
-        * face_coefficient(owner, candidate)
         * smoking
         * religion
         * activity_coefficient(candidate["last_active_at"])

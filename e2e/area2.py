@@ -70,7 +70,7 @@ def _unit(axis):
 
 
 def _vectors(run, account, survey=1, embedding=0):
-    """설문 8축은 모두 [survey](±1 — 정반대 거리 최대 5.657), 문장 임베딩은 [embedding] 축 단위벡터(서로 다른 축 = 코사인 0)."""
+    """설문 8축은 모두 [survey](±1 — 정반대면 거리 5.657 이 SQL 최대 거리 4.472 를 넘어 성향 0), 문장 임베딩은 [embedding] 축 단위벡터(서로 다른 축 = 코사인 0)."""
     _guard(run, account['id'])
     body = {'profile_id': account['id'], 'self_survey': _vector([survey] * 8),
             'self_embedding': _unit(embedding), 'want_embedding': _unit(embedding)}
@@ -359,11 +359,11 @@ def card_60(run):
 
 
 def card_61(run):
-    return _score(run, 'C1', 0.7)
+    return _score(run, 'C1', 0.75)  # 10-28 E7: 성향 0.25 만 빠진다
 
 
 def card_62(run):
-    return _score(run, 'C2', 0.8)
+    return _score(run, 'C2', 0.9)  # 태그 0.10 만 빠진다
 
 
 def card_63(run):
@@ -385,15 +385,15 @@ def card_65(run):
 
 
 def card_66(run):
-    return _score(run, 'C5', 0.8)
+    return _score(run, 'C5', 0.6)  # 종교 0.6
 
 
 def card_67(run):
-    return _score(run, 'C6', 0.4)
+    return _score(run, 'C6', 0.3)  # 흡연 0.5 × 종교 0.6
 
 
 def card_69(run):
-    return _score(run, 'C7', 0.6 + 0.4 * math.sqrt(0.75))
+    return _score(run, 'C7', 1 - 0.075 * (1 - math.sqrt(0.75)))  # MBTI 는 곱하기가 아니라 0.075 × 적합을 더한다
 
 
 def card_70(run):

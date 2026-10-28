@@ -9,6 +9,7 @@ import random
 from datetime import datetime, timedelta, timezone
 
 from app.core.time import SEOUL
+from app.matching.survey_vector import MAX_SURVEY_DISTANCE
 from app.matching.band import FREE_BAND_RATIO, PAID_BAND_RATIO, band_size, pick_from_band, rank_all
 
 THIS_YEAR = datetime.now(SEOUL).year
@@ -28,7 +29,7 @@ def _jaccard(a: set, b: set) -> float:
 
 
 def _scores(me: dict, other: dict) -> dict:
-    """match_candidates 의 세 점수 식을 그대로 옮긴다(성향: 거리/5.657, 태그: 자카드 평균, 글: 양방향 코사인)."""
+    """match_candidates 의 세 점수 식을 그대로 옮긴다(성향: 거리/최대 거리, 태그: 자카드 평균, 글: 양방향 코사인)."""
     distance = math.dist(me["survey"], other["survey"])
     tag = (
         _jaccard(me["interests"], other["interests"])
@@ -36,7 +37,7 @@ def _scores(me: dict, other: dict) -> dict:
     ) / 2
     text = (_cosine(me["want"], other["self"]) + _cosine(other["want"], me["self"])) / 2
     return {
-        "trait_score": max(0.0, 1 - distance / 5.657),
+        "trait_score": max(0.0, 1 - distance / MAX_SURVEY_DISTANCE),
         "tag_score": tag,
         "text_score": max(0.0, text),
     }
