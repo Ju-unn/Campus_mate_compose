@@ -414,7 +414,7 @@ async def generate_bio_draft_endpoint(
 
     snapshot = await repo.fetch_onboarding_snapshot(profile_id)
     draft = await generate_bio_draft(
-        openai_client, snapshot["mbti"], survey_summary(snapshot["survey_answers"]),
+        openai_client, survey_summary(snapshot["survey_answers"]),
         snapshot["interest_tags"], snapshot["my_traits"],
     )
     if not draft:
