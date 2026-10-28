@@ -6,7 +6,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(23);
+select plan(24);
 
 -- 준비 --------------------------------------------------------------------
 -- 전용 지역그룹 둘 — 다른 시험 데이터와 섞이지 않게 한다. PICK = 작은 시험, BULK = 1,500명 시험.
@@ -61,6 +61,9 @@ select id, '[1,0,0,0,0,0,0,0]',
        ('[' || 1 || repeat(',0', 511) || ']')::extensions.vector,
        ('[' || 1 || repeat(',0', 511) || ']')::extensions.vector
 from public.profiles where id::text like '00000000-0000-0000-0000-0000000021%';
+update public.profile_vectors
+   set self_facets = '{"like_places": ["카페"], "dislike_places": [], "talk": null, "values": []}'
+ where profile_id = '00000000-0000-0000-0000-000000002102';
 
 -- 카드와 결정(가짜 id 는 …c0xx)
 insert into public.daily_cards (id, owner_id, target_id, source, issued_at, expires_at) values
@@ -108,15 +111,23 @@ select is(
   array[
     'animal_type', 'birth_year', 'candidate_id', 'height_cm', 'impression_type', 'is_smoker', 'last_active_at',
     'mbti', 'pickable', 'preferred_age_max', 'preferred_age_min', 'preferred_animal_types', 'preferred_height_max',
-    'preferred_height_min', 'preferred_impression_types', 'preferred_mbti_flags', 'religion', 'tag_score',
-    'text_score', 'trait_score'
+    'preferred_height_min', 'preferred_impression_types', 'preferred_mbti_flags', 'religion', 'self_facets',
+    'tag_score', 'text_score', 'trait_score', 'want_facets'
   ],
-  '옛 15칸 이름이 그대로고 pickable 한 칸, 얼굴상 계수용 4칸(10-28)이 늘었다(서버 scoring · repository 가 읽는 이름 보존)'
+  '옛 15칸 이름이 그대로고 pickable 한 칸, 얼굴상 계수용 4칸 · 글 정리 2칸(10-28)이 늘었다(서버 scoring · repository 가 읽는 이름 보존)'
+);
+
+select is(
+  (select e -> 'self_facets'
+     from jsonb_array_elements(public.match_candidates('00000000-0000-0000-0000-000000002101')) e
+    where (e ->> 'candidate_id')::uuid = '00000000-0000-0000-0000-000000002102'),
+  '{"like_places": ["카페"], "dislike_places": [], "talk": null, "values": []}'::jsonb,
+  '후보의 글 정리는 벡터 행에 저장한 jsonb 그대로 나온다(scoring.facet_score 가 칸 이름으로 읽는다)'
 );
 
 select is(
   jsonb_typeof(public.match_candidates('00000000-0000-0000-0000-000000002101') -> 0 -> 'preferred_animal_types'),
-  'array', '선호 동물상은 배열로 나온다(scoring.face_coefficient 가 in 으로 읽는다)'
+  'array', '선호 동물상은 배열로 나온다(scoring.face_fit 이 in 으로 읽는다)'
 );
 
 select is(

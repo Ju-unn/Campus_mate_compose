@@ -2,7 +2,8 @@
 -- FastAPI scoring.face_fit 이 이 칸으로 양방향 일치(0~1)를 계산해 가중합에 더한다(글 임베딩은 "하나만 맞음"을 못 가른다).
 -- 같은 날 E7 확정으로 성향 최대 거리 상수도 바꾼다: 5.657 → 4.472 = 2 × √(0.5² × 4 + 1² × 4)
 --   (backend/app/matching/survey_vector.py AXIS_WEIGHTS · MAX_SURVEY_DISTANCE 와 짝. 저장된 self_survey 는 새 가중치로 다시 만든다).
--- 반환 타입(jsonb)은 그대로라 create or replace 다. 본문은 20261010010000 그대로이고 바뀐 곳은 칸 4개와 이 상수뿐이다.
+-- 같은 날 0번(글 정리 5%)으로 후보의 글 정리 2칸(cv.self_facets · cv.want_facets — 20261028090000)도 돌려준다.
+-- 반환 타입(jsonb)은 그대로라 create or replace 다. 본문은 20261010010000 그대로이고 바뀐 곳은 칸 6개와 이 상수뿐이다.
 create or replace function public.match_candidates(p_owner uuid)
 returns jsonb
 language sql
@@ -46,6 +47,8 @@ as $$
       c.impression_type,
       c.preferred_animal_types,
       c.preferred_impression_types,
+      cv.self_facets,
+      cv.want_facets,
       -- 쉬는 중이면 후보에는 남되 고를 수 없다. 이 식이 예전 `not exists` 세 개를 그대로 뒤집은 것이다(설계 §6.7).
       --   ① 이미 카드로 받은 사람. 세 가지를 한 번에 본다:
       --      · 아직 결정하지 않았고 만료도 안 된 카드 → 중복 지급 방지(구매 카드는 expires_at is null 이라 결정 전까지 늘 여기 걸린다)
@@ -143,6 +146,8 @@ as $$
       'impression_type', impression_type,
       'preferred_animal_types', preferred_animal_types,
       'preferred_impression_types', preferred_impression_types,
+      'self_facets', self_facets,
+      'want_facets', want_facets,
       'pickable', not resting
     )),
     '[]'::jsonb
