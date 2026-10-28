@@ -6,7 +6,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(22);
+select plan(23);
 
 -- 준비 --------------------------------------------------------------------
 -- 전용 지역그룹 둘 — 다른 시험 데이터와 섞이지 않게 한다. PICK = 작은 시험, BULK = 1,500명 시험.
@@ -106,11 +106,17 @@ select is(
   (select array_agg(k order by k)
      from jsonb_object_keys((public.match_candidates('00000000-0000-0000-0000-000000002101')) -> 0) k),
   array[
-    'birth_year', 'candidate_id', 'height_cm', 'is_smoker', 'last_active_at', 'mbti', 'pickable',
-    'preferred_age_max', 'preferred_age_min', 'preferred_height_max', 'preferred_height_min',
-    'preferred_mbti_flags', 'religion', 'tag_score', 'text_score', 'trait_score'
+    'animal_type', 'birth_year', 'candidate_id', 'height_cm', 'impression_type', 'is_smoker', 'last_active_at',
+    'mbti', 'pickable', 'preferred_age_max', 'preferred_age_min', 'preferred_animal_types', 'preferred_height_max',
+    'preferred_height_min', 'preferred_impression_types', 'preferred_mbti_flags', 'religion', 'tag_score',
+    'text_score', 'trait_score'
   ],
-  '옛 15칸 이름이 그대로고 pickable 한 칸이 늘었다(서버 scoring · repository 가 읽는 이름 보존)'
+  '옛 15칸 이름이 그대로고 pickable 한 칸, 얼굴상 계수용 4칸(10-28)이 늘었다(서버 scoring · repository 가 읽는 이름 보존)'
+);
+
+select is(
+  jsonb_typeof(public.match_candidates('00000000-0000-0000-0000-000000002101') -> 0 -> 'preferred_animal_types'),
+  'array', '선호 동물상은 배열로 나온다(scoring.face_coefficient 가 in 으로 읽는다)'
 );
 
 select is(
