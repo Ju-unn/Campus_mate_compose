@@ -1,8 +1,10 @@
 """매칭 문장 2종을 서버 템플릿으로 조립한다(설계 §6.3·§6.7 — LLM 을 쓰지 않는다).
 
-앞부분(학과·계열·MBTI·얼굴상)만 템플릿이 만들고, 자기소개와 "이런 사람이 좋아요" 글은 사용자가 쓴
+앞부분(학과·계열·얼굴상)만 템플릿이 만들고, 자기소개와 "이런 사람이 좋아요" 글은 사용자가 쓴
 원문을 그대로 이어붙인다. 재료가 없는 자리는 문장째로 뺀다 — 빈칸이 들어간 문장을 임베딩하면
-"MBTI는 다" 같은 잡음이 벡터에 섞인다."""
+"얼굴은 이고" 같은 잡음이 벡터에 섞인다.
+MBTI 는 넣지 않는다 — scoring.mbti_coefficient 가 선호와 맞는지 따로 비교하고, 내 MBTI 를 글에 넣으면
+상대 "원해" 글에 짝이 없어 잡음만 된다(2026-10-28 사용자 결정)."""
 
 # DB enum 과 같이 고칠 것: me/schemas.py 가 이 사전(ANIMAL_LABELS · IMPRESSION_PHRASES)을 PATCH 허용값으로 쓴다.
 # 화면 라벨(frontend profile_enums.dart)과 같은 문구다.
@@ -15,6 +17,11 @@ ANIMAL_LABELS = {
 # (kind 는 "선한", tofu·두부상은 "부드러운" — 설계 §6.7 예시 문장이 쓰는 자리다).
 IMPRESSION_PHRASES = {
     "arab": "이국적인", "tofu": "부드러운", "kind": "선한", "chic": "시크한", "innocent": "청순한",
+}
+
+# 인상을 둘 이상 이을 때 앞쪽 말의 꼴("부드러운이나" 는 틀린 말 — 10-28 수정). 마지막 인상만 IMPRESSION_PHRASES 꼴로 쓴다.
+IMPRESSION_OR_FORMS = {
+    "arab": "이국적이거나", "tofu": "부드럽거나", "kind": "선하거나", "chic": "시크하거나", "innocent": "청순하거나",
 }
 
 MAJOR_FIELD_LABELS = {
@@ -45,9 +52,6 @@ def self_sentence(profile: dict) -> str:
     elif major:
         parts.append(f"나는 {major} 학생이다.")
 
-    if profile.get("mbti"):
-        parts.append(f"MBTI는 {profile['mbti']}다.")
-
     animal = ANIMAL_LABELS.get(profile.get("animal_type") or "")
     impression = IMPRESSION_PHRASES.get(profile.get("impression_type") or "")
     if animal and impression:
@@ -63,15 +67,13 @@ def want_sentence(profile: dict) -> str:
     parts: list[str] = []
 
     animals = [ANIMAL_LABELS[a] for a in profile.get("preferred_animal_types") or [] if a in ANIMAL_LABELS]
-    impressions = [
-        IMPRESSION_PHRASES[i] for i in profile.get("preferred_impression_types") or []
-        if i in IMPRESSION_PHRASES
-    ]
+    impressions = [i for i in profile.get("preferred_impression_types") or [] if i in IMPRESSION_PHRASES]
     wanted = []
     if animals:
         wanted.append(_join_or(animals))
     if impressions:
-        wanted.append(f"{_join_or(impressions)} 인상")
+        joined = " ".join([IMPRESSION_OR_FORMS[i] for i in impressions[:-1]] + [IMPRESSION_PHRASES[impressions[-1]]])
+        wanted.append(f"{joined} 인상")
     if wanted:
         parts.append(f"{', '.join(wanted)}이 좋다.")
 

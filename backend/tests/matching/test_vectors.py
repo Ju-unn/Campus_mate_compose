@@ -16,6 +16,20 @@ def _repo(handler) -> MatchingRepository:
     return MatchingRepository("https://x.supabase.co/rest/v1", "service-key", client)
 
 
+async def test_fetch_owner_reads_the_four_face_columns():
+    """face_coefficient 는 내 얼굴 · 선호 4칸을 읽는다 — select 에서 빠지면 내 쪽 선호가 늘 "맞음"으로 읽힌다."""
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json=[{"id": PROFILE_ID}])
+
+    await _repo(handler).fetch_owner(PROFILE_ID)
+
+    columns = set(seen[0].url.params["select"].split(","))
+    assert {"animal_type", "impression_type", "preferred_animal_types", "preferred_impression_types"} <= columns
+
+
 def _materials_handler(saved: list[dict], profile: dict | None = None):
     materials = {
         "major": "컴퓨터공학과", "major_field": None, "mbti": "ENFP",
@@ -82,7 +96,7 @@ async def test_refresh_vectors_skips_empty_sentence():
     await refresh_vectors(_repo(handler), openai_client, PROFILE_ID)
 
     assert openai_client.embeddings.create.call_args.kwargs["input"] == [
-        "나는 컴퓨터공학과 학생이다. MBTI는 ENFP다. 얼굴은 강아지상이고 선한 인상이다. 등산 좋아해요."
+        "나는 컴퓨터공학과 학생이다. 얼굴은 강아지상이고 선한 인상이다. 등산 좋아해요."
     ]
     assert len(saved[0]["self_embedding"]) == 512
     assert "want_embedding" not in saved[0]

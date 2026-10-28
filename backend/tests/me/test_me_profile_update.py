@@ -231,7 +231,7 @@ def test_mbti_null_clears_it_as_not_chosen():
     seen = []
     assert _patch({"mbti": None}, seen=seen).status_code == 200
     assert _profile_patches(seen) == [{"mbti": None}]
-    assert len(_vector_saves(seen)) == 1   # 문장에서 MBTI 가 빠지니 다시 만든다
+    assert _vector_saves(seen) == []   # MBTI 는 10-28 부터 문장에 없다 — 계수로만 비교하니 다시 만들 일이 없다
 
 
 @pytest.mark.parametrize("body", [
@@ -256,16 +256,17 @@ def test_animal_and_impression_come_as_a_pair(body):
     assert _profile_patches(seen) == []
 
 
-def test_religion_and_smoking_alone_do_not_rebuild_the_vectors():
-    # 종교 · 흡연은 감점 계수로만 쓰이고 문장에는 안 들어간다(matching/scoring.py).
+@pytest.mark.parametrize("body", [{"religion": "catholic", "is_smoker": True}, {"mbti": "INTJ"}])
+def test_coefficient_only_fields_do_not_rebuild_the_vectors(body):
+    # 종교 · 흡연 · MBTI 는 감점 계수로만 쓰이고 문장에는 안 들어간다(matching/scoring.py, MBTI 는 10-28 부터).
     seen = []
-    assert _patch({"religion": "catholic", "is_smoker": True}, seen=seen).status_code == 200
+    assert _patch(body, seen=seen).status_code == 200
     assert _vector_saves(seen) == []
     assert not [r for r in seen if r.method == "GET" and r.url.path.endswith("/survey_answers")]
 
 
 @pytest.mark.parametrize("body", [
-    {"mbti": "INTJ"}, {"animal_type": "fox", "impression_type": "chic"}, {"bio": "새 소개"},
+    {"animal_type": "fox", "impression_type": "chic"}, {"bio": "새 소개"},
 ])
 def test_sentence_fields_rebuild_the_vectors(body):
     seen = []
@@ -275,8 +276,8 @@ def test_sentence_fields_rebuild_the_vectors(body):
 
 def test_mixed_save_rebuilds_the_vectors_once():
     seen = []
-    assert _patch({"religion": "none", "mbti": "INTJ"}, seen=seen).status_code == 200
-    assert _profile_patches(seen) == [{"religion": "none", "mbti": "INTJ"}]
+    assert _patch({"religion": "none", "bio": "새 소개"}, seen=seen).status_code == 200
+    assert _profile_patches(seen) == [{"religion": "none", "bio": "새 소개"}]
     assert len(_vector_saves(seen)) == 1
 
 
