@@ -152,15 +152,19 @@ def test_penalty_drops_a_twin_below_untouched_twins():
 
 # ---------- 3. 구간 뽑기 ----------
 
-def test_free_band_never_reaches_the_opposite_bottom_twenty():
+def test_free_band_skips_the_paid_top_twenty_and_the_bottom_ten():
+    """무료는 20~90% — 쌍둥이(상위 10명)는 유료 전용이라 안 나오고, 반대 성향 20명(80~99등) 중 아래 10명은
+    안 나온다. 위쪽 반대 성향 10명(80~89등)은 나올 수 있다 — 2026-10-28 사용자가 90% 로 정하며 받아들인 값이다."""
     owner = _owner()
     ranked = rank_all(owner, _population(owner))
+    start = band_size(len(ranked), PAID_BAND_RATIO)
     bottom = {c["candidate_id"] for c in ranked[band_size(len(ranked), FREE_BAND_RATIO):]}
     rng = random.Random(11)
-    picks = [pick_from_band(ranked, FREE_BAND_RATIO, rng) for _ in range(500)]
+    picks = [pick_from_band(ranked, FREE_BAND_RATIO, rng, start=start) for _ in range(500)]
 
-    assert all(p["kind"] != "opposite" for p in picks)
+    assert all(p["kind"] != "twin" for p in picks)
     assert {p["candidate_id"] for p in picks}.isdisjoint(bottom)
+    assert {c["kind"] for c in ranked[-10:]} == {"opposite"}
 
 
 def test_paid_band_only_picks_the_top_twenty():

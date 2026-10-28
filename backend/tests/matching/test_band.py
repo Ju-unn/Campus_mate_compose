@@ -68,8 +68,8 @@ def test_band_size_never_drops_below_minimum():
 
 def test_band_size_follows_ratio_for_large_pools():
     assert band_size(100, PAID_BAND_RATIO) == 20
-    assert band_size(100, FREE_BAND_RATIO) == 80
-    assert band_size(7, FREE_BAND_RATIO) == 6  # ceil(5.6)
+    assert band_size(100, FREE_BAND_RATIO) == 90
+    assert band_size(7, FREE_BAND_RATIO) == 7  # ceil(6.3)
 
 
 def test_band_size_rounds_up():
@@ -90,7 +90,7 @@ def test_band_size_rejects_invalid_ratio(ratio):
 
 
 def test_band_ratio_constants():
-    assert (FREE_BAND_RATIO, PAID_BAND_RATIO, BAND_MINIMUM) == (0.8, 0.2, 5)
+    assert (FREE_BAND_RATIO, PAID_BAND_RATIO, BAND_MINIMUM) == (0.9, 0.2, 5)
 
 
 # ---------- rank_all ----------
@@ -130,6 +130,21 @@ def test_pick_always_stays_inside_the_band():
             rng = random.Random(seed)
             for _ in range(500):
                 assert index[pick_from_band(ranked, ratio, rng)["candidate_id"]] < size
+
+
+def test_pick_with_start_skips_the_ranks_above_it():
+    """무료 카드는 유료 구간(상위 20%) 아래부터 고른다 — 100명이면 20~89등."""
+    ranked = _ranked(100)
+    index = _index(ranked)
+    picked = {index[pick_from_band(ranked, FREE_BAND_RATIO, random.Random(seed), start=20)["candidate_id"]]
+              for seed in range(300)}
+    assert min(picked) >= 20 and max(picked) < 90
+    assert len(picked) > 30
+
+
+def test_pick_with_start_returns_none_when_the_window_has_nobody():
+    ranked = _ranked(100, unpickable=set(range(20, 90)))
+    assert pick_from_band(ranked, FREE_BAND_RATIO, random.Random(0), start=20) is None
 
 
 def test_pick_never_returns_unpickable():
