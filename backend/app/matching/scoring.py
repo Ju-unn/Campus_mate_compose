@@ -39,6 +39,21 @@ def mbti_coefficient(
     return 0.6 + 0.4 * both
 
 
+def _face_fit(wants: dict, partner: dict) -> float:
+    """상대 얼굴이 내가 고른 동물상 · 인상에 드는 비율(동물상 0.5 + 인상 0.5). 내가 안 골랐거나 상대 값이 없는 칸은 맞은 것으로 본다."""
+    fit = 0.0
+    for chosen, value in ((wants.get("preferred_animal_types"), partner.get("animal_type")),
+                          (wants.get("preferred_impression_types"), partner.get("impression_type"))):
+        fit += 0.5 if not chosen or value is None or value in chosen else 0.0
+    return fit
+
+
+def face_coefficient(me: dict, partner: dict) -> float:
+    """얼굴상 · 인상 선호 일치(10-28 사용자 결정 — 글 임베딩은 "하나만 맞음"을 못 가른다). MBTI 계수와 같은 양방향 기하평균,
+    폭은 0.85~1.00 으로 MBTI(0.6~1.0)보다 약하게 둔다 — 얼굴은 화면에서 AI 아바타로만 보이는 참고 정보다."""
+    return 0.85 + 0.15 * math.sqrt(_face_fit(me, partner) * _face_fit(partner, me))
+
+
 def _one_way_range(value: int | None, low: int | None, high: int | None, near: int) -> float:
     """범위 안 1.00 / near 이내로 벗어나면 0.85 / 그 밖은 0.70 / 범위 미지정은 1.00(설계 §6.5·§6.7)."""
     if value is None or (low is None and high is None):
@@ -103,6 +118,7 @@ def final_score(owner: dict, candidate: dict) -> float:
             profile_age(candidate), candidate["preferred_age_min"], candidate["preferred_age_max"],
             near=2,
         )
+        * face_coefficient(owner, candidate)
         * smoking
         * religion
         * activity_coefficient(candidate["last_active_at"])

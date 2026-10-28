@@ -13,7 +13,8 @@ _MATERIAL_COLUMNS = (
 )
 _OWNER_COLUMNS = (
     "id,status,gender,mbti,preferred_mbti_flags,height_cm,preferred_height_min,preferred_height_max,"
-    "birth_year,preferred_age_min,preferred_age_max,is_smoker,religion"
+    "birth_year,preferred_age_min,preferred_age_max,is_smoker,religion,"
+    "animal_type,impression_type,preferred_animal_types,preferred_impression_types"
 )
 
 

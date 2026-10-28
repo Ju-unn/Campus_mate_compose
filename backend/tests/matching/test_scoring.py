@@ -2,7 +2,7 @@ import math
 from datetime import datetime, timedelta, timezone
 
 from app.core.time import SEOUL
-from app.matching.scoring import activity_coefficient, final_score, mbti_coefficient, rank
+from app.matching.scoring import activity_coefficient, face_coefficient, final_score, mbti_coefficient, rank
 
 # 설계 §6.4 판정 예시: 내 설정이 E ok, I ok, N ok, S no, T ok, F no, J ok, P ok
 MY_FLAGS = {"E": True, "I": True, "N": True, "S": False, "T": True, "F": False, "J": True, "P": True}
@@ -39,6 +39,37 @@ def test_mbti_coefficient_is_one_when_partner_mbti_is_unknown():
     assert mbti_coefficient(MY_FLAGS, None, ALL_OK, "ENFP") == 1.00
 
 
+def _face(animal, impression, wants_animals=(), wants_impressions=()):
+    return {"animal_type": animal, "impression_type": impression,
+            "preferred_animal_types": list(wants_animals), "preferred_impression_types": list(wants_impressions)}
+
+
+def test_face_coefficient_is_one_when_both_sides_get_what_they_picked():
+    me = _face("bear", "arab", ["rabbit"], ["chic"])
+    partner = _face("rabbit", "chic", ["bear"], ["arab"])
+    assert face_coefficient(me, partner) == 1.0
+
+
+def test_face_coefficient_counts_animal_and_impression_as_half_each_per_direction():
+    """여02(곰 · 아랍, 원함 강아지 · 햄스터 · 늑대 / 두부 · 시크) ↔ 남30(토끼 · 시크, 원함 강아지 · 곰 / 선한):
+    여02 쪽은 인상만 맞아 0.5, 남30 쪽은 동물상만 맞아 0.5 → 0.85 + 0.15 × √(0.5 × 0.5) = 0.925."""
+    f02 = _face("bear", "arab", ["dog", "hamster", "wolf"], ["tofu", "chic"])
+    m30 = _face("rabbit", "chic", ["dog", "bear"], ["kind"])
+    assert round(face_coefficient(f02, m30), 4) == 0.925
+
+
+def test_face_coefficient_floor_when_nothing_matches_either_way():
+    me = _face("bear", "arab", ["dog"], ["tofu"])
+    partner = _face("cat", "chic", ["fox"], ["kind"])
+    assert face_coefficient(me, partner) == 0.85
+
+
+def test_face_coefficient_treats_an_empty_choice_as_anything_goes():
+    """고르지 않은 칸 · 상대 얼굴 정보가 없는 칸은 불이익을 주지 않는다(MBTI 모름과 같은 원칙)."""
+    assert face_coefficient(_face("bear", "arab"), _face("cat", "chic")) == 1.0
+    assert face_coefficient(_face("bear", None, ["cat"], ["chic"]), _face(None, None, ["bear"], ["tofu"])) == 1.0
+
+
 def test_activity_coefficient_steps():
     now = datetime.now(timezone.utc)
     assert activity_coefficient(now - timedelta(days=1)) == 1.0
@@ -64,6 +95,31 @@ def test_final_score_multiplies_weighted_sum_by_every_coefficient():
 
     # 가중합 1.0 × MBTI 1.0 × 키 1.0 × 나이 1.0 × 흡연 0.5(비흡연자에게 흡연자) × 종교 0.8 × 활동성 1.0
     assert round(final_score(owner, candidate), 4) == 0.40
+
+
+def test_final_score_multiplies_the_face_coefficient():
+    """얼굴상 · 인상이 양쪽 다 안 맞으면 다 맞을 때의 0.85 배다 — final_score 가 face_coefficient 를 곱하는지 지킨다."""
+    now = datetime.now(timezone.utc)
+    owner = {
+        "mbti": None, "preferred_mbti_flags": ALL_OK, "height_cm": 180,
+        "preferred_height_min": None, "preferred_height_max": None, "birth_year": 2002,
+        "preferred_age_min": None, "preferred_age_max": None, "is_smoker": False, "religion": "none",
+        "animal_type": "bear", "impression_type": "arab",
+        "preferred_animal_types": ["dog"], "preferred_impression_types": ["tofu"],
+    }
+    base = {
+        "trait_score": 1.0, "tag_score": 1.0, "text_score": 1.0, "mbti": None,
+        "preferred_mbti_flags": ALL_OK, "height_cm": 165, "preferred_height_min": None,
+        "preferred_height_max": None, "birth_year": 2003, "preferred_age_min": None,
+        "preferred_age_max": None, "is_smoker": False, "religion": "none", "last_active_at": now.isoformat(),
+    }
+    fits = {**base, "animal_type": "dog", "impression_type": "tofu",
+            "preferred_animal_types": ["bear"], "preferred_impression_types": ["arab"]}
+    misses = {**base, "animal_type": "cat", "impression_type": "chic",
+              "preferred_animal_types": ["fox"], "preferred_impression_types": ["kind"]}
+
+    assert final_score(owner, fits) == 1.0
+    assert round(final_score(owner, misses), 4) == 0.85
 
 
 def test_age_coefficient_uses_age_not_birth_year():
