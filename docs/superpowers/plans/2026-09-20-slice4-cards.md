@@ -5016,3 +5016,13 @@ Flutter 테스트는 Firebase 를 켜지 않는다 — A7 의 `PushMessaging` �
 3. **iOS**: FCM 앞 화면 표시 옵션(`setForegroundNotificationPresentationOptions(alert, badge, sound)`)을 켜 시스템이 배너를 띄운다 — 앱이 다시 띄우지 않는다(두 번 뜨지 않게). 그래서 **iOS 는 지금 열린 방 알림을 막지 못한다**(알려진 한계)
 4. **알림 아이콘 `ic_stat_campusmate`**(흰 실루엣, `drawable-*` 5개 밀도)를 매니페스트 `default_notification_icon` 으로 지정해 FCM 알림과 앱 알림이 같은 그림을 쓴다. 만든 방법은 `frontend/run.md` "알림 아이콘"
 5. **E2E 하네스 영향**: 앞 화면 "알림 0건" 을 기대하던 7건(area4_push_front E-PUSH-14 · 20 · 53 · 82, area3_chat_nt E-CHAT-30, area2_time_device p_card_03)은 후속으로 뒤집어야 한다. **실기기 확인 전**: 디자게링을 켜면 Android 12L+ 에서 죽는다는 플러그인 README 보고가 있어 실기기 확인이 필요하다(PR 본문)
+
+### 2026-10-29 가입 직후 첫 카드 · 무료 카드 하루 한 장(서버 PR #634 · #635, DB `20261029090000`)
+
+이 계획서의 "지급 배치"(하루 한 번, 오늘 받은 사람은 건너뜀)에 아래가 더해졌다. 사용자 결정(10-29), 규칙은 설계 문서 §2.1 개정 · §6.8, 서버 계약은 `backend/DEPLOY.md` §4-17. 달라진 곳:
+
+1. **첫 카드**: `GET /cards/today` 가 `issue_first_card`(`backend/app/cards/issuing.py`)를 먼저 부른다. 무료 카드를 한 번도 못 받은 사람에게 그 자리에서 한 장 — 배치와 같은 몫(`_issue_to_owner`), 만료 = 다음 지급 시각, 알림 없음, 자격은 `card_issue_owners()` 와 같다(14일 접속만 뺌). 실패해도 오늘 탭은 200.
+2. **하루 한 장은 서버 확인 + DB 유일 인덱스**: 배치는 사람마다 지급 직전에 오늘(자정 KST 뒤) 받았는지 다시 보고, `daily_cards_one_free_per_day`(owner_id + 서울 날짜, `source = 'daily'`)가 마지막으로 막는다. 23505 는 `DailyCardConflict` 로 읽어 조용히 건너뛴다(`failed` 아님). 키는 만료 시각이 아니라 서울 날짜 — 사다리 상향 때 정상 카드가 막히는 것을 피한다
+3. **학번 숫자 규칙**(같은 PR): `POST /school-info` 가 숫자 1~3자리가 아니면 422 문자열 detail(#635 에서 "숫자를 입력해 주세요" 한 문구). 카드와 무관하게 같은 PR 에 들어왔다
+4. **하네스**: `e2e/` 배치 알림 시나리오는 옛 카드 1장(`_old_card`)으로 첫 카드를 막고, 지급 시각을 후보마다 하루씩 벌린다(같은 날 두 장은 23505)
+5. **알려진 한계(사용자 결정 대기)**: 후보가 1명뿐이면 유료 제안이 그 1명을 가져가 무료 카드가 0장이다(첫 카드 · 배치 모두). 앱 화면 11 의 "오늘 카드는 확인했어요" 가 첫 방문자에게 어색하다 — 출시 후 앱 업데이트(`frontend/docs/DESIGN.md` §13-154)
