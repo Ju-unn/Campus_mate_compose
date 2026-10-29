@@ -239,3 +239,43 @@ def test_rank_sorts_by_final_score():
 
     assert [c["candidate_id"] for c in ranked] == ["high", "low"]
     assert ranked[0]["score"] > ranked[1]["score"]
+
+
+def _plain_pair():
+    now = datetime.now(timezone.utc)
+    owner = {
+        "mbti": None, "preferred_mbti_flags": ALL_OK, "height_cm": 180,
+        "preferred_height_min": None, "preferred_height_max": None, "birth_year": 2002,
+        "preferred_age_min": None, "preferred_age_max": None, "is_smoker": False, "religion": "none",
+    }
+    candidate = {
+        "trait_score": 1.0, "tag_score": 1.0, "text_score": 1.0, "mbti": None,
+        "preferred_mbti_flags": ALL_OK, "height_cm": 165, "preferred_height_min": None,
+        "preferred_height_max": None, "birth_year": 2003, "preferred_age_min": None,
+        "preferred_age_max": None, "is_smoker": False, "religion": "none", "last_active_at": now.isoformat(),
+    }
+    return owner, candidate
+
+
+def test_final_score_multiplies_a_text_taste_clash_by_zero_point_six():
+    """글 속 취향이 부딪히면(10-30 — 좋아함 ↔ 싫어함) 총점에 ×0.6. 흡연 · 종교 감점과 같은 곱하기 자리다."""
+    owner, candidate = _plain_pair()
+
+    assert round(final_score(owner, {**candidate, "taste_clash": True}), 4) == round(NO_FACETS * 0.6, 4)
+    assert round(final_score(owner, {**candidate, "taste_clash": False}), 4) == NO_FACETS
+
+
+def test_final_score_without_the_taste_clash_key_is_unchanged():
+    """칸이 아예 없는 후보(옛 가짜 · 부딪힘 계산을 못 한 경우)는 지금 점수 그대로다 — 가점도 감점도 없다."""
+    owner, candidate = _plain_pair()
+
+    assert "taste_clash" not in candidate
+    assert round(final_score(owner, candidate), 4) == NO_FACETS
+
+
+def test_final_score_taste_clash_stacks_with_the_other_penalties():
+    owner, candidate = _plain_pair()
+    smoker = {**candidate, "is_smoker": True, "taste_clash": True}
+
+    # 흡연 0.5 × 부딪힘 0.6
+    assert round(final_score(owner, smoker), 4) == round(NO_FACETS * 0.5 * 0.6, 4)
