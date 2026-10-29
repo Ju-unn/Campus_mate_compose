@@ -221,7 +221,8 @@ def test_school_info_turns_away_anything_but_one_to_three_digits(student_number)
     response = _post_school_info(student_number=student_number)
 
     assert response.status_code == 422
-    assert response.json()["detail"] == errors.STUDENT_NUMBER_INVALID
+    # 글자 · 4자리 이상 모두 한 문구(10-29 사용자 결정 — 학번은 보통 2자리, 3자리는 혹시 몰라 둔 상한)
+    assert response.json()["detail"] == errors.STUDENT_NUMBER_INVALID == "숫자를 입력해 주세요"
     assert _calls(sent, "PATCH", "/rest/v1/profiles") == []
 
 
