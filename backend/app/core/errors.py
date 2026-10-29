@@ -65,6 +65,7 @@ VERIFICATION_IN_REVIEW = "이미 검토 중이에요, 결과를 기다려 주세
 VERIFICATION_ALREADY_DONE = "이미 인증이 완료됐어요"
 REAL_NAME_REQUIRED = "실명을 입력해 주세요"
 REAL_NAME_INVALID = "이름은 한글이나 영문으로만 적어 주세요"
+STUDENT_NUMBER_INVALID = "학번은 숫자 3자리까지 입력해 주세요"
 
 # 프로필 · 사진 · 아바타
 PROFILE_NOT_FOUND = "프로필을 찾을 수 없어요"

@@ -155,6 +155,16 @@ def _seed_pair(run):
     return a, b, run.link(a['email'])
 
 
+def _old_card(run, owner, target):
+    """오래전에 받고 만료된 무료 카드 — 가입 뒤 첫 오늘 탭이 바로 주는 1장(서버 issue_first_card, 10-29)을 막아 배치가 주는
+    카드 · 알림을 볼 수 있게 한다. 만료가 15일 전이라 [target] 은 쉬지 않는다(match_candidates 무응답 만료 14일)."""
+    now, card_id = area2._now(), area2._new_id()
+    _insert(run, 'daily_cards', [{'id': card_id, 'owner_id': owner['id'], 'target_id': target['id'], 'source': 'daily',
+                                 'issued_at': (now - timedelta(days=22)).isoformat(),
+                                 'expires_at': (now - timedelta(days=15)).isoformat()}], owner['id'], target['id'])
+    return card_id
+
+
 # ── 망 끊기 5 ───────────────────────────────────────────────────────────────────────────────────────
 
 def _cut_case(*restore):
@@ -276,7 +286,9 @@ def p_card_02(run, phone, after=None):
     notify.ensure_delivery(phone.serial)  # 푸시 연결이 죽은 폰이면 "알림이 안 왔다" 를 앱 탓으로 읽게 된다 — 시작 때 한 번 점검
     check = Check()
     a, b, token = _seed_pair(run)
-    _person(run, 'female')  # 새 선정은 유료 제안이 후보 1명을 먼저 가져간다 — A 의 후보를 2명으로 해야 무료 카드가 나온다
+    c = _person(run, 'female')  # 새 선정은 유료 제안이 후보 1명을 먼저 가져간다 — A 의 후보를 2명으로 해야 무료 카드가 나온다
+    old = _old_card(run, a, c)  # 앱이 오늘 탭을 열자마자 첫 카드가 나가면 배치가 A 를 건너뛰어 알림이 안 온다
+    mine = f"daily_cards?owner_id=eq.{a['id']}&id=neq.{old}"
     region = _region_of(run, a)
 
     def shown_of(person_id):
@@ -295,12 +307,12 @@ def p_card_02(run, phone, after=None):
         before = notify.read_notifications(phone.serial)  # 앞에 남은 알림과 섞이지 않게 — 새로 생긴 것만 본다
         notify.background(phone.serial)  # 뒤에서 FCM 이 띄우는 알림을 누르는 길(시나리오 G4 — #503 뒤 앞이면 앱이 직접 띄운다)
         area2._batch('daily-cards')
-        got = _wait_for(lambda: _rows(run, f"daily_cards?owner_id=eq.{a['id']}&source=eq.daily&select=id"), 90)
+        got = _wait_for(lambda: _rows(run, f"{mine}&source=eq.daily&select=id"), 90)
         check.that(got, '배치 뒤 90초 안에 A 의 daily_cards 가 안 생김')
         if not got:
             return
         # 새 선정은 구간 안 무작위라 카드 상대가 B 라는 보장이 없다 — 실제로 지급된 카드의 상대를 앱 기대로 넘긴다(go 에 실려 앱의 step 이 받는다)
-        target = _rows(run, f"daily_cards?owner_id=eq.{a['id']}&source=eq.daily&select=target_id")
+        target = _rows(run, f"{mine}&source=eq.daily&select=target_id")
         if target and target[0].get('target_id'):
             actual.update(shown_of(target[0]['target_id']))
         new = notify.wait_new(phone.serial, before, seconds=30, match=lambda n: (n.title, n.text) == (CARD_TITLE, CARD_BODY))
@@ -322,8 +334,8 @@ def p_card_02(run, phone, after=None):
             _app(check, phone(midway=midway, token_hash=token, **shown))
     finally:
         notify.revoke_notifications(phone.serial)
-    cards = _rows(run, f"daily_cards?owner_id=eq.{a['id']}&select=id,source")
-    check.that(len(cards) == 1, f'A 카드가 {len(cards)}장(기대 1)')
+    cards = _rows(run, f"{mine}&select=id,source")
+    check.that(len(cards) == 1, f'A 카드가 {len(cards)}장(기대 1, 미리 넣은 옛 카드는 빼고 셈)')
     return check.result()
 
 

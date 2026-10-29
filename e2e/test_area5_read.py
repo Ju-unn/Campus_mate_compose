@@ -617,14 +617,14 @@ class CardPreviewTest(ReadBase):
                 self.fails('E-ME-06', self.good(), word)
 
     def test_06_the_kakao_id_is_unique_and_never_the_student_number_the_response_carries(self):
-        # 계정 공장은 학번과 카톡 아이디를 같은 `e2e{n}` 으로 넣고, 서버 응답은 학번을 싣는다 — 공장 값을 그대로 찾으면 거짓 FAIL 이다.
+        # 서버 응답은 학번을 싣는다 — 카톡 아이디가 학번과 겹치면 공장 값을 그대로 찾을 때 거짓 FAIL 이다.
         seen = []
         for _ in range(2):
             self.passes('E-ME-06', self.good())
             seen.append((self.fake.private('id-1')['kakao_id'], self.profile()['student_number']))
         for kakao, student in seen:
             self.assertRegex(kakao, r'^kk[0-9a-f]{8}$')
-            self.assertRegex(student, r'^e2e\d+$')  # 공장이 넣은 학번 — 응답에 실린다
+            self.assertRegex(student, r'^[0-9]{1,3}$')  # 공장이 넣은 학번(서버 규칙 숫자 1~3자리, 10-29) — 응답에 실린다
             self.assertNotIn(student, kakao)
             self.assertNotIn(kakao, student)
         self.assertNotEqual(seen[0][0], seen[1][0])  # 계정마다 다르다

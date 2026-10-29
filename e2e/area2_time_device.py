@@ -22,7 +22,8 @@ from datetime import date, datetime, timedelta
 from e2e import area1, area2, batch_gate, emu, notify, tools
 from e2e.area1 import SEOUL, Check, _api, _app, _one, _patch, _rows, _signed_in, _test_university
 from e2e.area2 import _ONCE, _candidates, _card, _guard, _insert, _new_id, _person, _set_status
-from e2e.area2_phone3 import CARD_BODY, CARD_TITLE, EVERY_DAY, LADDER_ZERO, _region_of, _slow, _wait_for, region_set
+from e2e.area2_phone3 import (CARD_BODY, CARD_TITLE, EVERY_DAY, LADDER_ZERO, _old_card, _region_of, _slow, _wait_for,
+                              region_set)
 from e2e.area3_phone5 import _batch, _single_shot
 from e2e.tools import Blocked
 
@@ -235,11 +236,12 @@ def _one_notice(check, serial, before, title=CARD_TITLE, text=CARD_BODY):
     check.that(len(new) == 1, f'새 알림 {len(new)}건(기대 1건): {[n.title for n in new]}')
 
 
-def _expire(run, owner):
-    """[owner] 의 카드를 만료시킨다 — 같은 날 두 번째 배치가 "오늘 이미 받은 사람" 으로 건너뛰지 않게 지급 시각도 이틀 전으로."""
+def _expire(run, owner, keep=None):
+    """[owner] 의 카드를 만료시킨다 — 같은 날 두 번째 배치가 "오늘 이미 받은 사람" 으로 건너뛰지 않게 지급 시각도 이틀 전으로.
+    [keep] 카드는 그대로 둔다 — 무료 카드는 하루 한 장(daily_cards_one_free_per_day)이라 두 장을 같은 날로 옮기면 23505 다."""
     _guard(run, owner['id'])
     now = area2._now()
-    _patch(run, f"daily_cards?owner_id=eq.{owner['id']}",
+    _patch(run, f"daily_cards?owner_id=eq.{owner['id']}" + (f"&id=neq.{keep}" if keep else ''),
            {'issued_at': (now - timedelta(days=2)).isoformat(), 'expires_at': (now - timedelta(hours=1)).isoformat()})
 
 
@@ -289,14 +291,15 @@ def p_card_01(run, phone):
     check = Check()
     a, b = _pair(run)
     control = _control(run, 'male')
-    _person(run, 'female')  # 새 선정은 유료 제안이 후보 1명을 먼저 가져가 무료 카드가 안 나온다 — A 의 후보를 2명으로(대조군은 3번째 계정 그대로)
+    c = _person(run, 'female')  # 새 선정은 유료 제안이 후보 1명을 먼저 가져가 무료 카드가 안 나온다 — A 의 후보를 2명으로(대조군은 3번째 계정 그대로)
+    _old_card(run, a, c)  # 앱이 오늘 탭을 열자마자 첫 카드가 나가면 배치가 A 를 건너뛰어 알림이 안 온다 — 옛 카드 1장으로 막는다
     with _permitted(phone.serial), _every_day(run, a):
         _app(check, phone(token_hash=run.link(a['email'])))
         before = _ready(run, phone, a)
         notify.background(phone.serial)  # 뒤에서 FCM 이 띄우는 길을 본다(앞이면 앱이 직접 띄운다 — E-CARD-03, #503)
-        if _issue(check, run, a, control=control):
+        if _issue(check, run, a, have=1, control=control):
             _one_notice(check, phone.serial, before)
-    check.that(len(_daily_rows(run, a)) == 1, f'A 카드가 {len(_daily_rows(run, a))}장(기대 1)')
+    check.that(len(_daily_rows(run, a)) == 2, f'A 카드가 {len(_daily_rows(run, a))}장(기대 2 = 옛 카드 1 + 배치 1)')
     return check.result('응답의 issued 개수는 스케줄러 호출이라 못 읽음 — A 의 daily_cards 행으로 확인')
 
 
@@ -361,6 +364,7 @@ def p_card_19(run, phone):
     check = Check()
     a, b = _pair(run)
     c = _person(run, 'female')
+    old = _old_card(run, a, c)  # 앱이 오늘 탭을 열자마자 첫 카드가 나가면 1회차 배치가 A 를 건너뛰어 "알림 0" 이 공허하게 통과한다
     control = _control(run, 'male')
     serial = phone.serial
     with _every_day(run, a):
@@ -372,12 +376,12 @@ def p_card_19(run, phone):
             require_revoked(serial)
             before = notify.read_notifications(serial)
             notify.background(serial)
-            if _issue(check, run, a, control=control):
+            if _issue(check, run, a, have=1, control=control):
                 seen = notify.expect_none(serial, before, seconds=NOTICE_WAIT)
                 check.that(not seen, f'권한을 뺏었는데 새 알림 {len(seen)}건: {[n.title for n in seen]}')
                 notify.grant_notifications(serial)
                 have, control_have = len(_daily_rows(run, a)), len(_daily_rows(run, control))
-                _expire(run, a)
+                _expire(run, a, keep=old)
                 _expire(run, control)  # 대조군도 만료시켜야 2회차 배치에서 새 카드를 받아 앵커가 된다
                 before = notify.read_notifications(serial)
                 if _issue(check, run, a, have, control, control_have):
@@ -444,9 +448,11 @@ def _rest_pool(run, owner):
     pool = _candidates(run, owner)
     if pool:
         now = area2._now()
+        # 지급 시각을 후보마다 하루씩 벌린다 — 무료 카드는 하루 한 장(daily_cards_one_free_per_day)이라 같은 날이면 23505 다
         _insert(run, 'daily_cards', [{'id': _new_id(), 'owner_id': owner['id'], 'target_id': t, 'source': 'daily',
-                                     'issued_at': (now - timedelta(days=2)).isoformat(),
-                                     'expires_at': (now - timedelta(hours=1)).isoformat()} for t in pool], owner['id'])
+                                     'issued_at': (now - timedelta(days=2 + i)).isoformat(),
+                                     'expires_at': (now - timedelta(hours=1)).isoformat()} for i, t in enumerate(pool)],
+                owner['id'])
     if _candidates(run, owner):
         raise Blocked('준비: 후보를 다 쉬게 했는데도 A 의 후보가 남음 — 후보 0 상태를 못 만들었다')
 

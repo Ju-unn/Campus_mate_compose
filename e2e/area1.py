@@ -264,7 +264,7 @@ def gate_20(run):
     if status >= 300:
         raise Blocked(f'옛 판 동의 넣기 {status} {body}')
     reply = _api(run, 'POST', '/school-info', account['token'],
-                 {'department': '컴퓨터공학과', 'student_number': f"e2e{account['n']}"})
+                 {'department': '컴퓨터공학과', 'student_number': '21'})
     if reply[0] >= 300:
         raise Blocked(f'학과 저장 {reply[0]} {reply[1]}')
     check.reply('다음 단계', _api(run, 'GET', '/profile-onboarding/next-step', account['token']), 403, CONSENT_REQUIRED)
@@ -298,7 +298,7 @@ def gate_51(run):
     check = Check()
     account = run.account('consented')
     check.reply('학과 저장', _api(run, 'POST', '/school-info', account['token'],
-                                {'department': '컴퓨터공학과', 'student_number': f"e2e{account['n']}"}), 200)
+                                {'department': '컴퓨터공학과', 'student_number': '21'}), 200)
     rows = _rows(run, f"profiles?id=eq.{account['id']}&select=major")
     check.that(rows and rows[0]['major'] == '컴퓨터공학과', f'major {rows}')
     return check.result()

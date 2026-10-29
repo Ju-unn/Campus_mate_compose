@@ -34,7 +34,9 @@ where p.id::text like '00000000-0000-0000-0000-d5000003%';
 --   c07 6→2 거절(신청 아님) / c08 2→6 결정 없음(신청 아님) / c09 2→5 c03 과 같은 시각에 수락 · 응답 없음(같은 시각 줄의 순서).
 insert into public.daily_cards (id, owner_id, target_id, source, issued_at, expires_at)
 select v.id::uuid, ('00000000-0000-0000-0000-d5000003' || lpad(v.o::text, 4, '0'))::uuid,
-       ('00000000-0000-0000-0000-d5000003' || lpad(v.t::text, 4, '0'))::uuid, 'daily'::public.card_source, now() - interval '8 days', now() + interval '3 days'
+       ('00000000-0000-0000-0000-d5000003' || lpad(v.t::text, 4, '0'))::uuid, 'daily'::public.card_source,
+       -- 상대 번호만큼 하루씩 앞당긴다 — 무료 카드는 한 사람에게 하루 한 장이다(daily_cards_one_free_per_day)
+       now() - interval '8 days' - v.t * interval '1 day', now() + interval '3 days'
   from (values
     ('00000000-0000-0000-0000-d50000030c01', 1, 2), ('00000000-0000-0000-0000-d50000030c02', 1, 3),
     ('00000000-0000-0000-0000-d50000030c03', 2, 4), ('00000000-0000-0000-0000-d50000030c04', 3, 5),

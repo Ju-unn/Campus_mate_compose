@@ -207,7 +207,8 @@ class Push02Test(CardBase):
     def test_the_card_notice_is_gone_from_the_list_after_the_tap_and_the_case_passes(self):
         result = self.go(self.CASE, self.phone_02())
         self.assertEqual(result[0], 'pass', result)
-        self.assertEqual(len(self.world.tables['daily_cards']), 1)
+        # 첫 카드(10-29)를 막으려고 미리 넣은 옛 카드(area2_phone3._old_card) 1 + 배치 1
+        self.assertEqual(len(self.world.tables['daily_cards']), 2)
 
     def test_the_list_is_read_after_the_tap_and_before_the_permission_is_taken_away(self):
         self.go(self.CASE, self.phone_02())

@@ -498,14 +498,15 @@ update public.match_participants set left_at = now()
 -- c5 5→6 유료 카드 오늘 00:50 수락. 수락 = 오늘 2 · 어제 2 · 누적 4, 수락한 사람 = 1 · 3 · 5 세 명.
 insert into public.daily_cards (id, owner_id, target_id, source, issued_at, expires_at)
 select v.id::uuid, ('00000000-0000-0000-0000-d4000003' || lpad(v.o::text, 4, '0'))::uuid,
-       ('00000000-0000-0000-0000-d4000003' || lpad(v.t::text, 4, '0'))::uuid, v.src::public.card_source, now(), v.exp
+       ('00000000-0000-0000-0000-d4000003' || lpad(v.t::text, 4, '0'))::uuid, v.src::public.card_source, v.issued, v.exp
   from (values
-    ('00000000-0000-0000-0000-d40000030c01', 1, 2, 'daily', now() + interval '3 days'),
-    ('00000000-0000-0000-0000-d40000030c02', 2, 1, 'daily', now() + interval '3 days'),
-    ('00000000-0000-0000-0000-d40000030c03', 3, 4, 'daily', now() + interval '3 days'),
-    ('00000000-0000-0000-0000-d40000030c04', 3, 5, 'daily', now() + interval '3 days'),
-    ('00000000-0000-0000-0000-d40000030c05', 5, 6, 'purchased', null::timestamptz)
-  ) as v(id, o, t, src, exp);
+    ('00000000-0000-0000-0000-d40000030c01', 1, 2, 'daily', now(), now() + interval '3 days'),
+    ('00000000-0000-0000-0000-d40000030c02', 2, 1, 'daily', now(), now() + interval '3 days'),
+    ('00000000-0000-0000-0000-d40000030c03', 3, 4, 'daily', now(), now() + interval '3 days'),
+    -- 같은 사람(3)의 둘째 무료 카드는 이틀 전에 받은 것 — 무료 카드는 하루 한 장(daily_cards_one_free_per_day). 수락 시각만 센다
+    ('00000000-0000-0000-0000-d40000030c04', 3, 5, 'daily', now() - interval '2 days', now() + interval '3 days'),
+    ('00000000-0000-0000-0000-d40000030c05', 5, 6, 'purchased', now(), null::timestamptz)
+  ) as v(id, o, t, src, issued, exp);
 insert into public.card_decisions (card_id, decision, decided_at)
 select v.id::uuid, v.d::public.card_decision, v.at
   from k, lateral (values
