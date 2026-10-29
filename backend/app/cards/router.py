@@ -1,3 +1,4 @@
+import logging
 import math
 import random
 from datetime import datetime, time, timedelta, timezone
@@ -7,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
 
+from app.cards.issuing import issue_first_card
 from app.cards.ladder import last_issue_at, upcoming_issue_at
 from app.cards.paid_offer import PAID_CARD_COST, ensure_offer, target_eligible
 from app.cards.paid_preview import preview_of
@@ -24,6 +26,7 @@ from app.profile_onboarding.storage import AvatarStorage
 from app.settings import Settings
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 # 받은 수락은 7일이 지나면 목록에서도, 응답에서도 사라진다(2026-09-21 사용자 확정).
 ACCEPTANCE_TTL_DAYS = 7
@@ -174,6 +177,16 @@ async def get_today_cards(wiring: _Wiring = Depends(_wire), rng: random.Random =
     now = wiring.now
 
     region = await _region_row(wiring.repo, wiring.profile_id)
+    matching_repo = MatchingRepository(
+        wiring.settings.postgrest_url, wiring.settings.supabase_service_role_key, wiring.client
+    )
+    if region is not None:
+        # 가입 뒤 첫 방문이면 지급일을 기다리지 않고 무료 카드 한 장(10-29) — 아래 읽기가 그 카드 · 제안을 그대로 보인다.
+        try:
+            await issue_first_card(wiring.repo, matching_repo, now, rng, wiring.profile_id, region)
+        except Exception:
+            # 첫 카드는 덤이다 — 실패해도 오늘 탭은 평소처럼 연다. 로그에는 profile_id 만 남긴다(배치와 같다).
+            logger.exception("첫 카드 지급 실패 owner=%s", wiring.profile_id)
     issue_time = time.fromisoformat(region["issue_time"]) if region else None
     # 유료 제안의 "이번 주기" = 가장 최근 지급 시각. 지역 설정이 없으면 주기를 몰라 제안도 없다(paid_card null).
     cycle = last_issue_at(now, region["issue_weekdays"], issue_time) if region else None
@@ -220,9 +233,6 @@ async def get_today_cards(wiring: _Wiring = Depends(_wire), rng: random.Random =
         # 이번 주기에 이미 샀으면 paid_card 는 null 이다(산 카드는 cards 목록에 있다).
         may_offer = cycle is not None and not await wiring.repo.has_purchased_since(wiring.profile_id, cycle)
         if not cards or may_offer:
-            matching_repo = MatchingRepository(
-                wiring.settings.postgrest_url, wiring.settings.supabase_service_role_key, wiring.client
-            )
             candidates = await matching_repo.fetch_candidates(wiring.profile_id)
             # 후보에는 이미 본 사람도 들어 있다 — 뽑을 수 있는(pickable) 사람이 없어야 화면 11b 다.
             pool_empty = not any(c["pickable"] for c in candidates)

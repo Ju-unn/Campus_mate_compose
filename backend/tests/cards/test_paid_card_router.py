@@ -101,8 +101,10 @@ def _in(value: str) -> list[str]:
 
 class _World:
     def __init__(self, offers=(), candidates=(), cards=(), profiles=None,
-                 purchase=None, purchase_status: int = 200, region_settings=None, avatars=None):
+                 purchase=None, purchase_status: int = 200, region_settings=None, avatars=None, vectors=False):
         self.region_settings = REGION_SETTINGS if region_settings is None else region_settings
+        # 내 벡터 세 개가 다 있는가 — 첫 카드(issue_first_card)만 본다. 기본은 없음이라 옛 시험은 첫 카드를 타지 않는다.
+        self.vectors = vectors
         self.offers = [dict(o) for o in offers]
         self.candidates = list(candidates)
         self.cards = list(cards)
@@ -153,6 +155,15 @@ class _World:
             return httpx.Response(200, json=self.region_settings)
         if table == "daily_cards" and request.method == "GET":
             return httpx.Response(200, json=self.cards)
+        if table == "daily_cards" and request.method == "POST":
+            card = {**json.loads(request.content), "id": f"card-new-{len(self.cards)}",
+                    "issued_at": NOW.isoformat(), "card_decisions": None}
+            self.cards.append(card)
+            return httpx.Response(201, json=[card])
+        if table == "profile_vectors":
+            if getattr(self, "vectors_fail", False):
+                return httpx.Response(500, json={"message": "boom"})
+            return httpx.Response(200, json=[{"profile_id": ME}] if self.vectors else [])
         if table == "rpc/match_candidates":
             return httpx.Response(200, json=self.candidates)
         if table == "paid_card_offers":
@@ -211,6 +222,44 @@ def wire():
 
 
 # GET /cards/today ----------------------------------------------------------------------------
+
+def test_a_new_member_gets_a_free_card_on_the_first_visit(wire):
+    """10-29: 지급일이 아니어도 가입 뒤 처음 오늘 탭을 열면 무료 카드 한 장 — 만료는 다음 지급 시각(월 낮 → 목 07:00)."""
+    world = _World(candidates=[_candidate(i) for i in range(20)], vectors=True)
+    client = wire(world)
+
+    body = client.get("/cards/today", headers=AUTH).json()
+
+    [card] = body["cards"]
+    assert card["source"] == "daily"
+    assert datetime.fromisoformat(card["expires_at"]) == datetime(2026, 9, 24, 7, 0, tzinfo=SEOUL)
+    assert body["paid_card"]["state"] == "offered"
+    # 무료 첫 카드는 유료 제안 대상과 다른 사람이다.
+    assert world.offers[0]["target_id"] != world.cards[0]["target_id"]
+    # 다시 열어도 한 장뿐이다 — 이제 "받은 적 있는 사람"이라 배치를 기다린다.
+    client.get("/cards/today", headers=AUTH)
+    assert world.count("POST", "daily_cards") == 1
+
+
+def test_a_failing_first_card_still_shows_the_today_tab(wire, caplog):
+    """첫 카드는 덤이다 — 그 단계가 실패해도(저장소 500) 오늘 탭은 평소처럼 200 으로 열린다. 로그에는 profile_id 만."""
+    world = _World(candidates=[_candidate(i) for i in range(20)], vectors=True)
+    world.vectors_fail = True
+
+    response = wire(world).get("/cards/today", headers=AUTH)
+
+    assert response.status_code == 200
+    assert response.json()["paid_card"]["state"] == "offered"
+    assert any("첫 카드" in r.getMessage() and ME in r.getMessage() for r in caplog.records)
+
+
+def test_someone_who_already_had_a_card_gets_no_extra_one(wire):
+    old = {**_card("card-old", "c09"), "card_decisions": {"card_id": "card-old"}}
+    world = _World(candidates=[_candidate(i) for i in range(20)], cards=[old], vectors=True)
+
+    wire(world).get("/cards/today", headers=AUTH)
+
+    assert world.count("POST", "daily_cards") == 0
 
 def test_a_live_offer_is_shown_without_recomputing_the_ranking(wire):
     world = _World(offers=[_offer()], candidates=[_candidate(i) for i in range(20)])

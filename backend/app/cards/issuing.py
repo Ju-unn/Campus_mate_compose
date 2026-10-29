@@ -5,6 +5,7 @@ from datetime import datetime, time
 from app.cards.ladder import bottleneck_count, ladder_weekdays, last_issue_at, next_issue_at
 from app.cards.paid_offer import ensure_offer
 from app.cards.push import notify
+from app.cards.repository import DailyCardConflict
 from app.matching.band import FREE_BAND_RATIO, PAID_BAND_RATIO, band_size, pick_from_band, rank_all
 
 logger = logging.getLogger(__name__)
@@ -45,9 +46,8 @@ async def issue_daily_cards(card_repo, matching_repo, sender, now: datetime,
             skipped.append(region)
 
     # 오늘 이미 받은 사람은 건너뛴다 — 배치를 두 번 돌려도 하루 한 장이다.
-    issued_today = await card_repo.fetch_owners_issued_since(
-        now.replace(hour=0, minute=0, second=0, microsecond=0)
-    )
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    issued_today = await card_repo.fetch_owners_issued_since(today_start)
 
     issued = 0
     no_candidate = 0
@@ -62,8 +62,13 @@ async def issue_daily_cards(card_repo, matching_repo, sender, now: datetime,
         if owner_id in issued_today:
             continue
         try:
+            # 위 목록은 배치 시작 때 읽은 것이라, 그 사이 앱이 첫 카드(issue_first_card)를 줬을 수 있다 — 오픈일 07:00 에 겹친다.
+            if await card_repo.has_had_daily_card(owner_id, since=today_start):
+                continue
             got_card = await _issue_to_owner(card_repo, matching_repo, sender, now, rng, owner_id, weekdays,
                                              settings_by_region[region])
+        except DailyCardConflict:
+            continue  # 바로 위 확인과 insert 사이에 첫 카드가 먼저 들어갔다 — DB 가 막았고 이미 받은 사람이다
         except Exception:
             # 한 사람의 실패(프로필이 지워져 404 · 후보 RPC 오류 등)가 뒷사람 지급을 막으면 안 된다. 사람 정보는
             # 로그에 남기지 않는다(profile_id 만).
@@ -76,6 +81,36 @@ async def issue_daily_cards(card_repo, matching_repo, sender, now: datetime,
             no_candidate += 1
 
     return {"issued": issued, "no_candidate": no_candidate, "skipped_regions": skipped, "failed": failed}
+
+
+async def issue_first_card(card_repo, matching_repo, now: datetime, rng: random.Random, owner_id: str,
+                           region_settings: dict) -> bool:
+    """가입 뒤 무료 카드를 한 번도 못 받은 사람이 오늘 탭을 열면 지급일을 기다리지 않고 한 장 준다(10-29 사용자 결정 —
+    목요일 가입자가 월요일까지 100시간 넘게 빈 화면을 보다 떠난다). 배치와 같은 몫(유료 제안 → 무료 구간)이고 만료는
+    다음 지급 시각이라, 그 뒤로는 배치 순서를 그대로 탄다. 자격은 card_issue_owners() 와 같다(14일 접속은 지금 열었으니 뺀다).
+    알림은 보내지 않는다 — 이미 화면을 보고 있다.
+
+    같은 사람이 동시에 두 번 열거나 배치와 겹쳐도 DB 유일 인덱스(daily_cards_one_free_per_day, 하루 한 장)가 둘째 장을 막는다 —
+    진 쪽은 DailyCardConflict 를 받고 "이미 받았다"(False)로 끝난다."""
+    if await card_repo.has_had_daily_card(owner_id):
+        return False
+    if not _open_for_cards(await card_repo.fetch_card_gate(owner_id), now):
+        return False
+    if not await matching_repo.has_vectors(owner_id):
+        return False
+    try:
+        return await _issue_to_owner(card_repo, matching_repo, None, now, rng, owner_id,
+                                     list(region_settings["issue_weekdays"]), region_settings)
+    except DailyCardConflict:
+        return False
+
+
+def _open_for_cards(profile: dict, now: datetime) -> bool:
+    """card_issue_owners() 의 프로필 조건: 가입 완료 · 매칭 쉼 아님 · 자동 가림 아님 · 학교 카드 오픈(코호트)."""
+    opens_at = (profile.get("universities") or {}).get("card_opens_at")
+    return (profile.get("status") == "active" and not profile.get("matching_paused")
+            and profile.get("auto_hidden_at") is None
+            and (opens_at is None or datetime.fromisoformat(opens_at) <= now))
 
 
 async def _issue_to_owner(card_repo, matching_repo, sender, now: datetime, rng: random.Random, owner_id: str,

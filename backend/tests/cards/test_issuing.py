@@ -3,9 +3,11 @@ import random
 from datetime import datetime
 
 import httpx
+import pytest
 from fastapi import HTTPException
 
-from app.cards.issuing import issue_daily_cards
+from app.cards.issuing import issue_daily_cards, issue_first_card
+from app.cards.repository import DailyCardConflict
 from app.core.time import SEOUL
 from app.matching.repository import MatchingRepository
 from paid_world import OfferStore
@@ -28,6 +30,12 @@ class _FakeCardRepo(OfferStore):
         }]
         self.cards: list[dict] = []
         self.saved_weekdays: list[tuple] = []
+        # 배치가 목록을 읽은 뒤 앱(첫 카드)이 카드를 준 사람 — fetch_owners_issued_since 에는 안 보인다.
+        self.issued_meanwhile: set[str] = set()
+
+    async def has_had_daily_card(self, owner_id, since=None):
+        self.meanwhile_since = since
+        return owner_id in self.issued_meanwhile
 
     async def fetch_region_settings(self):
         return self._settings
@@ -358,6 +366,21 @@ async def test_rerunning_the_same_day_does_not_issue_a_second_card():
     assert repo.issued_since == datetime(2026, 9, 21, 0, 0, tzinfo=SEOUL)
 
 
+async def test_the_batch_skips_someone_who_got_a_first_card_after_it_read_the_list():
+    """카드 오픈일 07:00 — 배치가 대상 목록을 읽은 뒤 그 사람이 앱을 열어 첫 카드(issue_first_card)를 받았으면
+    배치는 한 장 더 주지 않는다(알림도 없다). 자정 기준은 위 재실행 막기와 같다."""
+    repo = _FakeCardRepo([{"profile_id": "owner-1", "region_group": "seoul"},
+                          {"profile_id": "owner-2", "region_group": "seoul"}])
+    repo.issued_meanwhile = {"owner-1"}
+
+    result = await issue_daily_cards(repo, _FakeMatchingRepo(TWO), sender=None, now=MONDAY_7AM,
+                                     rng=random.Random(0))
+
+    assert [c["owner_id"] for c in repo.cards] == ["owner-2"]
+    assert result["issued"] == 1
+    assert repo.meanwhile_since == datetime(2026, 9, 21, 0, 0, tzinfo=SEOUL)
+
+
 async def test_one_failing_push_does_not_stop_the_batch():
     """카드는 이미 insert_card 로 들어간 뒤다. 알림 한 건이 터졌다고 뒷사람이 카드를 못 받으면 안 된다."""
     class _ExplodingSender:
@@ -431,3 +454,123 @@ async def test_a_deleted_profile_skips_only_that_owner():
 
     assert result == {"issued": 1, "no_candidate": 0, "skipped_regions": [], "failed": 1}
     assert [c["owner_id"] for c in repo.cards] == ["owner-2"]
+
+
+# --- 첫 카드: 가입 뒤 처음 오늘 탭을 열면 지급일을 기다리지 않는다(10-29 사용자 결정) ---------------
+
+THURSDAY_3PM = datetime(2026, 9, 24, 15, 0, tzinfo=SEOUL)
+NEXT_MONDAY_7AM = datetime(2026, 9, 28, 7, 0, tzinfo=SEOUL)
+WEEKLY = {"region_group": "seoul", "issue_weekdays": [1], "issue_time": "07:00:00"}
+
+
+class _FirstCardRepo(_FakeCardRepo):
+    def __init__(self, had_daily_card=False, **gate):
+        super().__init__(owners=[])
+        self._had_daily_card = had_daily_card
+        self.gate = {"status": "active", "matching_paused": False, "auto_hidden_at": None,
+                     "universities": {"card_opens_at": None}, **gate}
+
+    async def has_had_daily_card(self, owner_id, since=None):
+        return self._had_daily_card
+
+    async def fetch_card_gate(self, owner_id):
+        return self.gate
+
+
+class _VectorMatchingRepo(_FakeMatchingRepo):
+    def __init__(self, candidates, vectors=True):
+        super().__init__(candidates)
+        self._vectors = vectors
+        self.candidate_reads = 0
+
+    async def has_vectors(self, profile_id):
+        return self._vectors
+
+    async def fetch_candidates(self, profile_id):
+        self.candidate_reads += 1
+        return await super().fetch_candidates(profile_id)
+
+
+async def test_first_card_comes_right_away_and_lasts_until_the_next_issue_day():
+    """목요일에 가입해도 월요일까지 빈 화면이 아니다 — 배치와 같은 구간(유료 다음 ~ 90%)에서 한 장, 만료는 다음 지급 시각."""
+    repo = _FirstCardRepo()
+    ranked = _many(10)
+
+    got = await issue_first_card(repo, _VectorMatchingRepo(ranked), THURSDAY_3PM, random.Random(0), "owner-1", WEEKLY)
+
+    assert got is True
+    [card] = repo.cards
+    assert card["owner_id"] == "owner-1"
+    assert card["expires_at"] == NEXT_MONDAY_7AM
+    [offer] = repo.by_status("offered")
+    assert card["target_id"] != offer["target_id"]
+    # 10명이면 유료 구간이 위 5명 — 무료 첫 카드는 그 아래(6 ~ 9등)에서 나온다.
+    assert card["target_id"] in {c["candidate_id"] for c in ranked[5:9]}
+
+
+async def test_someone_who_already_had_a_daily_card_waits_for_the_batch():
+    repo = _FirstCardRepo(had_daily_card=True)
+    matching = _VectorMatchingRepo(_many(10))
+
+    assert await issue_first_card(repo, matching, THURSDAY_3PM, random.Random(0), "owner-1", WEEKLY) is False
+    assert repo.cards == []
+    assert matching.candidate_reads == 0
+
+
+@pytest.mark.parametrize("gate", [
+    {"status": "pending"},
+    {"matching_paused": True},
+    {"auto_hidden_at": "2026-09-20T00:00:00+00:00"},
+    # 코호트: 학교가 아직 안 열렸으면 배치와 같이 카드가 없다(card_issue_owners 와 같은 자격).
+    {"universities": {"card_opens_at": "2026-11-02T07:00:00+09:00"}},
+])
+async def test_no_first_card_for_someone_the_batch_would_skip(gate):
+    repo = _FirstCardRepo(**gate)
+
+    assert await issue_first_card(repo, _VectorMatchingRepo(_many(10)), THURSDAY_3PM, random.Random(0),
+                                  "owner-1", WEEKLY) is False
+    assert repo.cards == []
+
+
+async def test_an_opened_school_gives_the_first_card():
+    repo = _FirstCardRepo(universities={"card_opens_at": "2026-09-21T07:00:00+09:00"})
+
+    assert await issue_first_card(repo, _VectorMatchingRepo(_many(10)), THURSDAY_3PM, random.Random(0),
+                                  "owner-1", WEEKLY) is True
+
+
+class _ConflictOnInsert(_FirstCardRepo):
+    """같은 주기 무료 카드를 다른 요청 · 배치가 먼저 넣었다 — DB 유일 인덱스가 두 번째를 막는다."""
+    async def insert_card(self, owner_id, target_id, expires_at, source="daily"):
+        raise DailyCardConflict()
+
+
+async def test_a_first_card_that_lost_the_race_is_not_an_error():
+    repo = _ConflictOnInsert()
+
+    assert await issue_first_card(repo, _VectorMatchingRepo(_many(10)), THURSDAY_3PM, random.Random(0),
+                                  "owner-1", WEEKLY) is False
+
+
+async def test_the_batch_skips_a_conflict_quietly_and_goes_on(caplog):
+    """배치가 넣으려는 순간 첫 카드가 먼저 들어갔으면 건너뛴다 — 실패(failed)로 세지 않고 오류 로그도 없다."""
+    repo = _FakeCardRepo([{"profile_id": "owner-1", "region_group": "seoul"}])
+
+    async def conflict(*args, **kwargs):
+        raise DailyCardConflict()
+    repo.insert_card = conflict
+
+    with caplog.at_level(logging.ERROR, logger="app.cards.issuing"):
+        result = await issue_daily_cards(repo, _FakeMatchingRepo(TWO), sender=None, now=MONDAY_7AM,
+                                         rng=random.Random(0))
+
+    assert result == {"issued": 0, "no_candidate": 0, "skipped_regions": [], "failed": 0}
+    assert not [r for r in caplog.records if r.name == "app.cards.issuing"]
+
+
+async def test_no_first_card_before_the_vectors_are_ready():
+    repo = _FirstCardRepo()
+    matching = _VectorMatchingRepo(_many(10), vectors=False)
+
+    assert await issue_first_card(repo, matching, THURSDAY_3PM, random.Random(0), "owner-1", WEEKLY) is False
+    assert matching.candidate_reads == 0

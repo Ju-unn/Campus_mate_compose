@@ -51,6 +51,11 @@ class PaidOfferConflict(Exception):
     """같은 사람 · 같은 주기에 offered 제안이 이미 있다(부분 유일 인덱스, 동시 요청). 부른 쪽이 다시 읽는다."""
 
 
+class DailyCardConflict(Exception):
+    """같은 사람이 오늘(서울 날짜) 무료 카드를 이미 받았다(daily_cards_one_free_per_day — 첫 카드와 배치가 겹치거나
+    첫 카드 요청이 동시에 두 번). 부른 쪽은 "이미 받았다"로 읽고 넘어간다."""
+
+
 class CardRepository(PostgrestRepository):
     """카드·매칭·알림 테이블 접근을 한 곳에 모은다(MatchingRepository 와 같은 패턴).
     프로필·후보 조회는 조각 3 MatchingRepository 를 그대로 쓴다 — 여기서 다시 만들지 않는다."""
@@ -80,6 +85,21 @@ class CardRepository(PostgrestRepository):
     async def fetch_issue_owners(self) -> list[dict]:
         return await self._rows_post("rpc/card_issue_owners", {}, prefer="")
 
+    async def has_had_daily_card(self, owner_id: UUID | str, since: datetime | None = None) -> bool:
+        """무료 카드를 한 장이라도 받은 적이 있는가(만료 · 결정 상관없이). 없으면 첫 카드 대상이다(issuing.issue_first_card).
+        [since] 를 주면 그 시각 뒤에 받은 것만 센다 — 배치가 사람마다 한 번 더 보는 데 쓴다."""
+        params = {"owner_id": f"eq.{owner_id}", "source": "eq.daily", "select": "id", "limit": 1}
+        if since is not None:
+            params["issued_at"] = f"gte.{since.isoformat()}"
+        return bool(await self._rows("daily_cards", params))
+
+    async def fetch_card_gate(self, profile_id: UUID | str) -> dict:
+        """card_issue_owners() 가 보는 프로필 칸과 학교 카드 오픈 시각 — 첫 카드도 배치와 같은 자격으로 준다."""
+        rows = await self._rows("profiles", {
+            "id": f"eq.{profile_id}", "select": "status,matching_paused,auto_hidden_at,universities(card_opens_at)",
+        })
+        return rows[0] if rows else {}
+
     async def fetch_owners_issued_since(self, since: datetime) -> set[str]:
         """그 시각 이후로 무료 카드를 이미 받은 사람. `card_issue_owners()` 는 "결정 안 한 카드가
         있는 사람"만 빼므로 오늘 수락·거절을 끝낸 사람은 배치를 다시 돌리면 또 대상이 된다 —
@@ -108,11 +128,15 @@ class CardRepository(PostgrestRepository):
         self, owner_id: UUID | str, target_id: UUID | str,
         expires_at: datetime | None, source: str = "daily",
     ) -> dict:
-        rows = await self._rows_post("daily_cards", {
+        response = await self._post("daily_cards", json={
             "owner_id": str(owner_id), "target_id": str(target_id),
             "source": source, "expires_at": expires_at.isoformat() if expires_at else None,
-        })
-        return rows[0]
+        }, prefer="return=representation")
+        # 23505 만 본다 — PostgREST 는 FK 위반(23503, 상대가 그사이 지워짐)도 409 로 주는데 그건 "이미 받았다"가 아니다.
+        if error_code(response) == "23505":
+            raise DailyCardConflict()
+        raise_for_status(response)
+        return response.json()[0]
 
     async def fetch_live_cards(self, owner_id: UUID | str) -> list[dict]:
         """아직 결정하지 않았고 만료도 되지 않은 카드. 노출 순서는 설계 §2.4 대로

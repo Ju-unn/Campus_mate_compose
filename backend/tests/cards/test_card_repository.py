@@ -2,8 +2,10 @@ import re
 from datetime import datetime, timedelta, timezone
 
 import httpx
+import pytest
+from fastapi import HTTPException
 
-from app.cards.repository import CardRepository
+from app.cards.repository import CardRepository, DailyCardConflict
 from app.core.time import SEOUL
 
 URL = "https://x.supabase.co/rest/v1"
@@ -33,6 +35,64 @@ async def test_insert_card_sends_owner_target_and_expiry():
     assert seen[0]["target_id"] == "target-1"
     assert seen[0]["source"] == "daily"
     assert seen[0]["expires_at"] == expires.isoformat()
+
+
+async def test_insert_card_turns_the_one_per_cycle_unique_into_a_conflict():
+    """daily_cards_one_free_per_day(같은 사람 · 같은 서울 날짜) 위반 23505 는 DailyCardConflict 다 — 부른 쪽이 "이미 받았다"로 읽는다."""
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(409, json={"code": "23505", "message": "duplicate key"})
+
+    repo, _ = _repo(handler)
+
+    with pytest.raises(DailyCardConflict):
+        await repo.insert_card("owner-1", "target-1", datetime(2026, 9, 24, 7, 0, tzinfo=SEOUL))
+
+
+async def test_insert_card_keeps_a_foreign_key_409_as_an_error():
+    """PostgREST 는 FK 위반(23503 — 상대가 그사이 지워짐)도 409 로 준다. 그건 "이미 받았다"가 아니다 — 배치가 failed 로 센다."""
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(409, json={"code": "23503", "message": "foreign key"})
+
+    repo, _ = _repo(handler)
+
+    with pytest.raises(HTTPException):
+        await repo.insert_card("owner-1", "target-1", datetime(2026, 9, 24, 7, 0, tzinfo=SEOUL))
+
+
+async def test_has_had_daily_card_asks_for_one_free_card_of_any_age():
+    """첫 카드 판정 — 만료 · 결정 여부와 상관없이 무료(daily) 카드가 한 장이라도 있었는가. 산 카드는 세지 않는다."""
+    seen: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(dict(request.url.params))
+        return httpx.Response(200, json=[] if len(seen) == 1 else [{"id": "card-1"}])
+
+    repo, _ = _repo(handler)
+
+    assert await repo.has_had_daily_card("owner-1") is False
+    assert await repo.has_had_daily_card("owner-1") is True
+    assert seen[0] == {"owner_id": "eq.owner-1", "source": "eq.daily", "select": "id", "limit": "1"}
+
+    # 배치의 사람별 다시 보기는 그날 자정 뒤에 받은 카드만 센다.
+    await repo.has_had_daily_card("owner-1", since=NOW)
+    assert seen[2]["issued_at"] == f"gte.{NOW.isoformat()}"
+
+
+async def test_card_gate_reads_the_issue_owner_conditions_with_the_school_opening():
+    seen: list[httpx.Request] = []
+    gate = {"status": "active", "matching_paused": False, "auto_hidden_at": None,
+            "universities": {"card_opens_at": None}}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json=[gate])
+
+    repo, _ = _repo(handler)
+
+    assert await repo.fetch_card_gate("owner-1") == gate
+    assert seen[0].url.path.endswith("/profiles")
+    assert dict(seen[0].url.params) == {
+        "id": "eq.owner-1", "select": "status,matching_paused,auto_hidden_at,universities(card_opens_at)"}
 
 
 async def test_active_counts_are_grouped_by_region_and_gender():
