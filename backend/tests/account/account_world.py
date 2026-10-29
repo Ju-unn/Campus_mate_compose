@@ -60,6 +60,7 @@ class AccountWorld:
         self.reports: list[dict] = []          # {id, created_at, resolved_at}
         self.signup_blocks: list[dict] = []    # {email_hmac, blocked_until}
         self.contact_key_versions: list[int] = []
+        self.taste_unsplit: list[str] = []     # 취향 단어 칸이 null 인 profile_vectors 행(나누기 실패)
         self.fail: set[str] = set()            # "DELETE /storage/v1/object/avatars" 처럼 막을 요청
         self.withdraw_bodies: list[dict] = []
         # school_email_claims(학교 메일 인증 기록) — profile_id → {school_email_hmac(bytea 리터럴), key_version}.
@@ -314,6 +315,10 @@ class AccountWorld:
         other = int(params["key_version"].removeprefix("neq."))
         stale = sum(1 for version in self.contact_key_versions if version != other)
         return httpx.Response(200, json=[], headers={"Content-Range": f"*/{stale}"})
+
+    def _profile_vectors(self, method, params, body):
+        assert method == "GET"
+        return httpx.Response(200, json=[{"profile_id": p} for p in self.taste_unsplit])
 
     # 도우미 ------------------------------------------------------------------
     def calls(self, method: str, path: str) -> list[httpx.Request]:

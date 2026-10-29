@@ -4,6 +4,8 @@ from datetime import timedelta
 
 from account_world import BUCKETS, INFINITY, NOW, OLD, RECENT
 
+from app.matching import vectors
+
 # conftest 가 구글 서명 확인을 가짜로 통과시킨다.
 SCHEDULER_TOKEN = {"Authorization": "Bearer id-token"}
 
@@ -96,7 +98,42 @@ def test_running_again_finds_nothing_left(client, world):
         "deleted_accounts": 0, "skipped_accounts": 0, "deleted_reports": 0,
         "deleted_signup_blocks": 0, "stale_key_rows": 0,
         "deleted_heart_proofs": 0, "deleted_unverified": 0, "deleted_temp_email_accounts": 0,
+        "refilled_taste": 0,
     }
+
+
+# 글 속 취향 단어 빈 칸 다시 채우기(10-30) ------------------------------------------------------
+
+def test_cleanup_rebuilds_the_vectors_of_people_whose_taste_split_failed(client, world, monkeypatch):
+    """나누기가 실패해 4칸이 null 인 사람을 다시 만든다 — 다음 저장까지 부딪힘 검사에서 빠지지 않게."""
+    world.taste_unsplit = [OLD, RECENT]
+    rebuilt: list[str] = []
+
+    async def fake_refill_one(repo, openai_client, profile_id):
+        rebuilt.append(profile_id)
+
+    monkeypatch.setattr(vectors, "_refill_one", fake_refill_one)
+
+    result = _run(client)
+
+    assert result["refilled_taste"] == 2
+    assert rebuilt == [OLD, RECENT]
+    [query] = world.calls("GET", "/rest/v1/profile_vectors")
+    assert query.url.params["or"] == "(self_like_words.is.null,want_like_words.is.null)"
+    assert query.url.params["order"] == "updated_at.asc"
+    assert query.url.params["limit"] == str(vectors.REFILL_LIMIT)
+
+
+def test_a_taste_refill_failure_does_not_stop_the_rest_of_the_cleanup(client, world, caplog):
+    world.withdrawn(OLD, days_ago=31)
+    world.fail = {"GET /rest/v1/profile_vectors"}
+
+    with caplog.at_level(logging.WARNING):
+        result = _run(client)
+
+    assert result["refilled_taste"] == 0
+    assert result["deleted_accounts"] == 1
+    assert "취향 단어 다시 채우기 실패" in caplog.text
 
 
 # 학교 메일 확인 전 계정 14일 뒤 삭제(소셜 로그인 전환) -------------------------------------------
