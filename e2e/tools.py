@@ -714,7 +714,7 @@ class Run:
         if step == 'consented':
             reply = api(self.cfg, 'POST', '/me/consents', token, {'agreed': ['terms', 'privacy']})
         elif step == 'gate_done':
-            reply = api(self.cfg, 'POST', '/school-info', token, {'department': '컴퓨터공학과', 'student_number': f"e2e{account['n']}"})
+            reply = api(self.cfg, 'POST', '/school-info', token, {'department': '컴퓨터공학과', 'student_number': '21'})
         elif step == 'basic':
             reply = on('basic-info', {**basic_info(), **(basic or {})})
         elif step == 'kakao':

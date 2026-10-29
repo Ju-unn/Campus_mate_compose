@@ -83,7 +83,8 @@ class Fake(FakeServer):
             return fake_private.GONE
         match = [r for r in rows if all(str(r.get(k)) == v[3:] for k, v in sent['query'].items()
                                         if v.startswith('eq.') and k != 'select')
-                 and all(str(r.get(k)).lower() == v[6:].lower() for k, v in sent['query'].items() if v.startswith('ilike.'))]
+                 and all(str(r.get(k)).lower() == v[6:].lower() for k, v in sent['query'].items() if v.startswith('ilike.'))
+                 and all(str(r.get(k)) != v[4:] for k, v in sent['query'].items() if v.startswith('neq.'))]
         if method == 'POST':
             if mismatched_keys(sent['body']):
                 return mismatched_keys(sent['body'])

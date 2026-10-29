@@ -1881,7 +1881,9 @@ class SafetyNetTest(DeviceBase):
                     owners = {r['owner_id'] for r in rows if isinstance(r, dict) and 'owner_id' in r}
                     # 계정 공장이 넣는 프로필 행(POST profiles)은 본문의 id 가 주인이다
                     owners |= {r['id'] for r in rows if table == 'profiles' and isinstance(r, dict) and 'id' in r}
-                    owners |= {sent['query'][k][3:] for k in ('owner_id', 'id', 'profile_id') if k in sent['query']}
+                    # eq. 만 주인이다 — id=neq.<옛 카드>(_expire keep)는 "이 카드는 빼고"라 주인을 말하지 않는다
+                    owners |= {sent['query'][k][3:] for k in ('owner_id', 'id', 'profile_id')
+                               if sent['query'].get(k, '').startswith('eq.')}
                     self.assertTrue(owners and owners <= made, (case, sent))
 
 

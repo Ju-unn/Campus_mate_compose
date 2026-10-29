@@ -434,7 +434,7 @@ def safe_52(run):
     _suspend(run, a)
     before = _snapshot(run, a)
     _suspended_reply(check, '④ POST /school-info',
-                     _api(run, 'POST', '/school-info', a['token'], {'department': '경영학과', 'student_number': f"e2e{a['n']}x"}))
+                     _api(run, 'POST', '/school-info', a['token'], {'department': '경영학과', 'student_number': '22'}))
     check.that(not (changed := _changed(before, _snapshot(run, a))), f'④ 뒤 DB 가 바뀜: {changed}')
     for label, method, path, body in (('① GET /me/verification-status', 'GET', '/me/verification-status', None),
                                       ('② POST /me/consents', 'POST', '/me/consents', {'agreed': ['terms', 'privacy']}),
