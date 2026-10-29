@@ -184,10 +184,10 @@ def test_status_returns_401_without_authorization_header():
 # --- POST /school-info -------------------------------------------------------
 
 
-def _post_school_info(headers: dict = AUTH_HEADERS):
+def _post_school_info(headers: dict = AUTH_HEADERS, student_number: str = "21"):
     return TestClient(app).post(
         "/school-info",
-        json={"department": "컴퓨터공학과", "student_number": "2021123456"},
+        json={"department": "컴퓨터공학과", "student_number": student_number},
         headers=headers,
     )
 
@@ -201,8 +201,28 @@ def test_school_info_saves_whatever_the_student_id_state(student_id):
     assert response.status_code == 200
     assert response.json() == {"ok": True}
     patch = _calls(sent, "PATCH", "/rest/v1/profiles")[0]
-    assert json.loads(patch.content) == {"major": "컴퓨터공학과", "student_number": "2021123456"}
+    assert json.loads(patch.content) == {"major": "컴퓨터공학과", "student_number": "21"}
     assert dict(patch.url.params) == {"id": f"eq.{PROFILE_ID}"}
+
+
+@pytest.mark.parametrize("student_number", ["7", "21", "123"])
+def test_school_info_takes_one_to_three_digits(student_number):
+    sent = _wire(_gate_row("verified"))
+
+    assert _post_school_info(student_number=student_number).status_code == 200
+    assert json.loads(_calls(sent, "PATCH", "/rest/v1/profiles")[0].content)["student_number"] == student_number
+
+
+@pytest.mark.parametrize("student_number", ["2021", "2021123456", "21a", "이십일", "２１", " 21", "-1"])
+def test_school_info_turns_away_anything_but_one_to_three_digits(student_number):
+    """앱(vc18 · TF 25)은 글자 키패드에 20자까지 보낸다 — 서버가 막고, 앱은 문자열 detail 을 입력칸 아래에 그대로 띄운다."""
+    sent = _wire(_gate_row("verified"))
+
+    response = _post_school_info(student_number=student_number)
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == errors.STUDENT_NUMBER_INVALID
+    assert _calls(sent, "PATCH", "/rest/v1/profiles") == []
 
 
 def test_school_info_is_403_with_the_status_header_for_a_suspended_account():

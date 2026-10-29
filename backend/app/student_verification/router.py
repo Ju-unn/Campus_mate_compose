@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.consents.policy import consent_state
 from app.consents.repository import ConsentRepository
+from app.core import errors
 from app.core.deps import Caller, get_caller
 from app.graduate_verification.applicant_router import router as graduate_applicant_router
 from app.graduate_verification.repository import GraduateRequestRepository, attempts_used
@@ -76,6 +77,8 @@ async def save_school_info(body: SchoolInfoRequest, caller: Caller = Depends(get
     # 결정 9(B6, 10-01): 정지 계정은 학과 · 학번을 바꾸지 못한다. 인증 상태 조회 · 동의 · 탈퇴는 열어 둔다.
     reject_suspended(gate.get("status"))
     require_school_email(gate)
+    if not body.has_valid_student_number():
+        raise HTTPException(status_code=422, detail=errors.STUDENT_NUMBER_INVALID)
 
     await repo.save_school_info(profile_id, body.department, body.student_number)
     return {"ok": True}

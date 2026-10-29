@@ -1,3 +1,4 @@
+import re
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -34,3 +35,8 @@ class SchoolInfoRequest(BaseModel):
     # 2026-09-20 분석담당 리뷰)와 상한을 맞춘다 — department 30자, student_number 20자.
     department: str = Field(min_length=1, max_length=30)
     student_number: str = Field(min_length=1, max_length=20)
+
+    def has_valid_student_number(self) -> bool:
+        # 학번은 숫자 1~3자리(10-29 사용자 결정, 예: 21). [0-9] 로 쓴다 — \d 는 전각 숫자(２１)도 받는다.
+        # pattern 으로 걸면 422 detail 이 목록이라 앱이 "알 수 없는 오류"를 띄워 라우터에서 문자열로 거절한다.
+        return re.fullmatch(r"[0-9]{1,3}", self.student_number) is not None
