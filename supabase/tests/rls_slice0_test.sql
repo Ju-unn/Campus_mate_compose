@@ -262,6 +262,8 @@ select results_eq(
       ('survey_answers', 'service_role', 'INSERT'),
       ('survey_answers', 'service_role', 'SELECT'),
       ('survey_answers', 'service_role', 'UPDATE'),
+      ('taste_words', 'service_role', 'INSERT'),
+      ('taste_words', 'service_role', 'SELECT'),
       ('universities', 'anon', 'SELECT'),
       ('universities', 'authenticated', 'SELECT'),
       ('universities', 'service_role', 'DELETE'),
