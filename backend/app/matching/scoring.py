@@ -71,6 +71,9 @@ def facet_score(owner: dict, candidate: dict) -> float:
 WEIGHTS = {"trait": 0.25, "tag": 0.10, "text": 0.45, "facet": 0.05, "mbti": 0.075, "face": 0.075}
 SMOKING_PENALTY = 0.5
 RELIGION_PENALTY = 0.6  # 10-28: 0.8 → 0.6 (같은 종교면 연락처 교환이 크게 높다 — Levy 2019)
+# 10-30: 글 속 취향이 부딪히면(내 좋아함 ↔ 상대 싫어함 같은 6쌍, SQL taste_clash_candidates) 총점 ×0.6. 같은 취향 가점은 넣지 않는다
+# (가점은 키 · 나이 범위 밖 계정을 유료 구간으로 올렸다 — 10-29 시험). 근거: 바탕화면 매칭_유사도/운영_시뮬레이션_10-29.
+TASTE_CLASH_PENALTY = 0.6
 
 
 def _one_way_range(value: int | None, low: int | None, high: int | None, near: int) -> float:
@@ -126,6 +129,7 @@ def final_score(owner: dict, candidate: dict) -> float:
     )
     smoking = SMOKING_PENALTY if owner["is_smoker"] is False and candidate["is_smoker"] is True else 1.0
     religion = RELIGION_PENALTY if owner["religion"] != candidate["religion"] else 1.0
+    taste = TASTE_CLASH_PENALTY if candidate.get("taste_clash") else 1.0
     return (
         weighted
         * range_coefficient(
@@ -141,6 +145,7 @@ def final_score(owner: dict, candidate: dict) -> float:
         )
         * smoking
         * religion
+        * taste
         * activity_coefficient(candidate["last_active_at"])
     )
 
