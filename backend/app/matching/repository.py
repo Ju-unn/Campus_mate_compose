@@ -98,6 +98,19 @@ class MatchingRepository(PostgrestRepository):
             _logger.warning("글 속 취향 부딪힘 조회 실패: profile_id=%s %s", profile_id, type(exc).__name__)
             return set()
 
+    async def fetch_taste_unsplit(self, limit: int) -> list[str]:
+        """취향 단어 칸이 null 인 사람(나누기 · 사전 실패 — 빈 글은 [] 라 안 걸린다). 오래 안 고친 사람부터 —
+        다시 만들면 updated_at 이 오늘이 되어, 계속 실패하는 사람이 앞자리를 막지 않고 뒤로 간다."""
+        response = await self._get(
+            "profile_vectors",
+            params={
+                "select": "profile_id", "or": "(self_like_words.is.null,want_like_words.is.null)",
+                "order": "updated_at.asc", "limit": str(limit),
+            },
+        )
+        raise_for_status(response)
+        return [row["profile_id"] for row in response.json()]
+
     async def fetch_taste_word_ids(self, words: list[str]) -> dict[str, int]:
         """사전(taste_words)에서 단어의 번호를 읽는다. 없는 단어는 결과에 없다."""
         quoted = ",".join(_in_value(w) for w in words)

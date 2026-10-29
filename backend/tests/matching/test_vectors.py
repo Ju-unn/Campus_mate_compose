@@ -367,3 +367,74 @@ async def test_refresh_vectors_reads_the_split_through_the_real_prompt():
     assert saved[0]["self_like_words"] == [ids["등산"]] and saved[0]["self_dislike_words"] == [ids["술"]]
     assert saved[0]["want_like_words"] == [ids["등산"]]
     assert saved[0]["self_facets"]["like_places"] == ["야외"]
+
+
+# --- 새벽 정리의 취향 빈 칸 다시 채우기(10-30) ---------------------------------------------------
+
+OTHER = "22222222-2222-2222-2222-222222222222"
+
+
+def _unsplit(saved: list[dict], dictionary: FakeDictionary, ids: list[str], profile_status: int = 200):
+    """빈 칸 목록(GET profile_vectors)과 글 읽기 · 사전 · 저장을 함께 흉내 낸다."""
+    base = _with_dictionary(saved, dictionary)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/rest/v1/profile_vectors" and request.method == "GET":
+            return httpx.Response(200, json=[{"profile_id": i} for i in ids])
+        if request.url.path == "/rest/v1/profiles" and profile_status != 200:
+            return httpx.Response(profile_status, json={"message": "boom"})
+        return base(request)
+
+    return handler
+
+
+async def test_refill_taste_saves_only_the_four_taste_columns(monkeypatch):
+    """임베딩 · 글 정리는 다시 만들지 않는다 — 그날 OpenAI 가 흔들려도 멀쩡한 글 정리를 null 로 덮지 않게."""
+    saved: list[dict] = []
+
+    async def fake_split(client, text):
+        return {"like": ["등산"], "dislike": []} if text.startswith("등산") else {"like": [], "dislike": ["술"]}
+
+    monkeypatch.setattr(vectors, "split_taste", fake_split)
+    client = fake_embedder()
+
+    refilled = await vectors.refill_taste(
+        _repo(_unsplit(saved, FakeDictionary({"등산": 1, "술": 2}), [PROFILE_ID])), client)
+
+    assert refilled == 1
+    assert len(saved) == 1
+    assert set(saved[0]) == {"profile_id", "updated_at", *_TASTE_COLUMNS}
+    assert saved[0]["self_like_words"] == [1] and saved[0]["want_dislike_words"] == [2]
+    client.embeddings.create.assert_not_called()
+    client.chat.completions.create.assert_not_called()
+
+
+async def test_refill_taste_stops_when_the_time_budget_runs_out(monkeypatch):
+    """정리 요청이 시간 제한에 끊기지 않게 예산을 넘으면 멈춘다. 남은 사람은 다음 날 앞자리에 그대로 있다."""
+    saved: list[dict] = []
+    ticks = iter([0, 0, vectors.REFILL_BUDGET_SECONDS + 1])
+    monkeypatch.setattr(vectors, "_clock", lambda: next(ticks))
+
+    async def fake_split(client, text):
+        return {"like": [], "dislike": []}
+
+    monkeypatch.setattr(vectors, "split_taste", fake_split)
+
+    refilled = await vectors.refill_taste(
+        _repo(_unsplit(saved, FakeDictionary(), [PROFILE_ID, OTHER])), fake_embedder())
+
+    assert refilled == 1
+    assert [s["profile_id"] for s in saved] == [PROFILE_ID]
+
+
+async def test_refill_taste_moves_on_when_one_person_fails(caplog):
+    """한 사람이 실패해도(글 읽기 실패) 다음 사람으로 간다. 로그에는 profile_id 와 예외 종류만."""
+    saved: list[dict] = []
+
+    with caplog.at_level(logging.ERROR, logger="app.matching.vectors"):
+        refilled = await vectors.refill_taste(
+            _repo(_unsplit(saved, FakeDictionary(), [PROFILE_ID, OTHER], profile_status=500)), fake_embedder())
+
+    assert refilled == 2
+    assert saved == []
+    assert PROFILE_ID in caplog.text and OTHER in caplog.text

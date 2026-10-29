@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 
 import httpx
 from fastapi import APIRouter, Depends, Header
+from openai import AsyncOpenAI
 
 from app.account.repository import AccountRepository, SupabaseAdmin
 from app.core.batch_auth import verify_oidc_token
@@ -10,6 +11,9 @@ from app.core.deps import get_client, get_now, get_settings
 from app.heart_tasks.cleanup import purge_reviewed_proofs
 from app.heart_tasks.repository import HeartTaskRepository
 from app.heart_tasks.storage import HeartProofStorage
+from app.matching import vectors
+from app.matching.repository import MatchingRepository
+from app.profile_onboarding.router import get_openai
 from app.settings import Settings
 from app.signup_policy import IDENTITY_KEY_VERSION
 
@@ -65,6 +69,7 @@ async def run_cleanup(accounts: AccountRepository, admin: SupabaseAdmin, now: da
     ①-c 학교 메일 verify 가 못 지운 임시 이메일 계정 24시간 뒤(deleted_temp_email_accounts)
     ② 처리 끝나고 1년 지난 신고(열린 신고는 남는다) ③ 만료된 재가입 제한 ④ 옛 키 버전 지인 차단 세기(경고)
     ⑤ 검수 끝나고 60일 지난 하트 인증샷은 엔드포인트(run_cleanup_batch)가 이어서 지운다.
+    ⑥ 글 속 취향 단어 칸이 빈 사람 다시 만들기도 엔드포인트가 한다(matching.vectors.refill_taste).
     skipped_accounts 는 ① · ①-b · ①-c 에서 건너뛴 사람을 합친 수다(①-c 는 프로필 있음 · 확인 실패)."""
     withdrawn = await accounts.fetch_withdrawn_before(now - WITHDRAWN_RETENTION, CLEANUP_ACCOUNT_LIMIT)
     deleted, skipped = await _delete_accounts(admin, withdrawn, "탈퇴 계정")
@@ -149,6 +154,7 @@ async def run_cleanup_batch(
     settings: Settings = Depends(get_settings),
     client: httpx.AsyncClient = Depends(get_client),
     now: datetime = Depends(get_now),
+    openai_client: AsyncOpenAI = Depends(get_openai),
 ) -> dict:
     """Cloud Scheduler 전용. 카드 · 채팅 배치와 같은 문(스케줄러 ID 토큰)을 쓴다."""
     await verify_oidc_token(
@@ -166,4 +172,12 @@ async def run_cleanup_batch(
         HeartTaskRepository(settings.postgrest_url, key, client),
         HeartProofStorage(settings.storage_url, key, client), now,
     )
+    # ⑥ 글 속 취향 나누기가 실패해 단어 칸이 빈 사람을 다시 만든다(10-30) — 07:00 카드 배치보다 먼저 메운다.
+    try:
+        result["refilled_taste"] = await vectors.refill_taste(
+            MatchingRepository(settings.postgrest_url, key, client), openai_client)
+    except Exception as exc:
+        # 감점은 덤이라 이 단계가 실패해도 정리 결과는 그대로 돌려준다. 내일 다시 한다.
+        logger.warning("취향 단어 다시 채우기 실패 %s", type(exc).__name__)
+        result["refilled_taste"] = 0
     return result
