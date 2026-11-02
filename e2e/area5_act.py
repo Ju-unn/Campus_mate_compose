@@ -562,11 +562,11 @@ def p_me_35(run, phone):
     lines = {line.get('typed'): line for line in said.get('rows') or []}
     for typed in BAD_HEIGHTS:
         line = lines.get(typed, {})
-        check.that(line.get('error') is True, f"키 {typed!r}: '숫자 3자리를 확인해 주세요' {line.get('error', MISSING)}(기대 보임)")
+        check.that(line.get('error') is True, f"키 {typed!r}: '120~230 사이로 입력해 주세요' {line.get('error', MISSING)}(기대 보임)")
         check.that(line.get('save_enabled') is False, f"키 {typed!r}: 저장 버튼 {line.get('save_enabled', MISSING)}(기대 꺼짐)")
     for typed in GOOD_HEIGHTS:
         line = lines.get(typed, {})
-        check.that(line.get('error') is False, f"키 {typed!r}: '숫자 3자리를 확인해 주세요' {line.get('error', MISSING)}(기대 없음)")
+        check.that(line.get('error') is False, f"키 {typed!r}: '120~230 사이로 입력해 주세요' {line.get('error', MISSING)}(기대 없음)")
         check.that(line.get('save_enabled') is True, f"키 {typed!r}: 저장 버튼 {line.get('save_enabled', MISSING)}(기대 켜짐)")
         check.that(line.get('title', MISSING) == TITLES['15-5'], f"키 {typed!r}: 저장 뒤 화면 {line.get('title', MISSING)!r}(기대 15-5 {TITLES['15-5']!r})")
         check.that(line.get('reopened', MISSING) == typed, f"키 {typed!r}: 저장 뒤 15-6 을 다시 연 칸 {line.get('reopened', MISSING)!r}(기대 {typed!r})")
