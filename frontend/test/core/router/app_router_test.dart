@@ -34,6 +34,8 @@ import 'package:campus_mate/community/model/community_repository_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/university_logos.dart';
+import 'package:campus_mate/core/analytics/analytics_provider.dart';
+import 'package:campus_mate/core/analytics/analytics_values.dart';
 import 'package:campus_mate/core/analytics/screen_view_observer.dart';
 import 'package:campus_mate/core/auth/account_status_listenable.dart';
 import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
@@ -388,6 +390,7 @@ void main() {
       WidgetTester tester, {
       bool passedRoom = false,
       AccountStatus Function()? accountStatus,
+      FakeAnalyticsService? analytics,
     }) async {
       final router = AppRouter.create(
         isAuthenticated: () => true,
@@ -400,6 +403,7 @@ void main() {
       // 컨테이너는 위젯 트리를 걷어 낸 뒤에 닫는다.
       final container = ProviderContainer(
         overrides: [
+          if (analytics != null) analyticsServiceProvider.overrideWithValue(analytics),
           // 10b 가 열리면 카드를 읽는다 — 화면이 뜨는지만 보므로 실패로 둔다.
           cardRepositoryProvider.overrideWithValue(FakeCardRepository()..card = const FailureResult(NetworkFailure())),
           homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
@@ -480,6 +484,28 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(HeartStoreScreen), findsOneWidget);
+    });
+
+    // 사용 통계 heart_store_open — 들어온 곳은 길의 extra(HeartStoreEntry)로 온다. 모르면 other.
+    testWidgets('/hearts/store 는 extra 로 받은 들어온 곳을 남기고, 없으면 other 다', (tester) async {
+      final analytics = FakeAnalyticsService();
+      final router = await pumpRouter(tester, analytics: analytics);
+
+      unawaited(router.push(AppRoutes.heartStore, extra: HeartStoreEntry.avatarRegen));
+      await tester.pumpAndSettle();
+      router.pop();
+      await tester.pumpAndSettle();
+      unawaited(router.push(AppRoutes.heartStore));
+      await tester.pumpAndSettle();
+      router.pop();
+      await tester.pumpAndSettle();
+      unawaited(router.push(AppRoutes.heartStore, extra: '엉뚱한 값'));
+      await tester.pumpAndSettle();
+
+      expect(
+        analytics.calls.where((call) => call.startsWith('heart_store_open')),
+        ['heart_store_open:avatar_regen', 'heart_store_open:other', 'heart_store_open:other'],
+      );
     });
 
     testWidgets('/events 는 9b-1 이벤트(출시 예정)다', (tester) async {
@@ -662,6 +688,48 @@ void main() {
     // 채팅방이 dispose 에서 목록을 다시 읽는다 — provider 가 아직 살아 있을 때 채팅방을 떠난다.
     router.go(AppRoutes.conversations);
     await tester.pumpAndSettle();
+  });
+
+  // 하단 내비 탭 전환(`context.go`)도 페이지가 바뀌는 것이라 화면 추적기가 잡는다 — 그래서 `tab_select` 이벤트를 따로 두지 않는다.
+  // (탭 라우트도 `name: state.fullPath` 를 단다. 이 시험이 깨지면 `tab_select` 를 더해야 한다.)
+  testWidgets('탭끼리 옮겨 가도 화면 추적기가 새 탭을 잡는다', (tester) async {
+    final analytics = FakeAnalyticsService();
+    final router = AppRouter.create(
+      isAuthenticated: () => true,
+      verificationGate: _passedGate,
+      onboardingStep: _passedStep,
+      observers: [ScreenViewObserver(analytics)],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          cardRepositoryProvider.overrideWithValue(FakeCardRepository()),
+          chatRepositoryProvider.overrideWithValue(FakeChatRepository()),
+          communityRepositoryProvider.overrideWithValue(FakeCommunityRepository()),
+          homeRepositoryProvider.overrideWithValue(FakeHomeRepository(const FailureResult(NetworkFailure()))),
+          notificationsRepositoryProvider.overrideWithValue(FakeNotificationsRepository()),
+        ],
+        child: MaterialApp.router(routerConfig: router, theme: AppTheme.light()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    for (final tab in [AppRoutes.today, AppRoutes.community, AppRoutes.conversations, AppRoutes.home]) {
+      router.go(tab);
+      await tester.pumpAndSettle();
+    }
+
+    expect(
+      analytics.calls,
+      containsAllInOrder([
+        'screen:${AppRoutes.home}',
+        'screen:${AppRoutes.today}',
+        'screen:${AppRoutes.community}',
+        'screen:${AppRoutes.conversations}',
+        'screen:${AppRoutes.home}',
+      ]),
+    );
   });
 
   // 나 탭 편집(계획서 A2) — 완료한 사람이 가면 돌려보내지지 않고 그 화면이 편집 모드로 뜬다.

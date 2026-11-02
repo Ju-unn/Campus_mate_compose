@@ -8,6 +8,7 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/notice_card.dart';
+import 'package:campus_mate/core/analytics/analytics_values.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
@@ -77,6 +78,9 @@ class _OrderedAvatars extends FakeAvatarRepository {
   }
 }
 
+/// 마지막으로 하트 스토어 길이 받은 extra(들어온 곳).
+Object? storeExtra;
+
 void main() {
   late Directory tempDir;
   late File picked;
@@ -124,12 +128,19 @@ void main() {
     final keep = container.listen(avatarRegenPickViewModelProvider, (_, _) {});
     addTearDown(keep.close);
     container.read(avatarRegenPickViewModelProvider.notifier).pickFromGallery = pick ?? () async => picked;
+    storeExtra = null;
     final router = GoRouter(
       initialLocation: AppRoutes.myProfile,
       routes: [
         GoRoute(path: AppRoutes.myProfile, builder: (context, state) => const Scaffold(body: Text('화면 15'))),
         GoRoute(path: AppRoutes.myAvatarRegen, builder: (context, state) => const AvatarRegenPickScreen()),
-        GoRoute(path: AppRoutes.heartStore, builder: (context, state) => const Scaffold(body: Text('18 스토어 화면'))),
+        GoRoute(
+          path: AppRoutes.heartStore,
+          builder: (context, state) {
+            storeExtra = state.extra;
+            return const Scaffold(body: Text('18 스토어 화면'));
+          },
+        ),
       ],
     );
     addTearDown(router.dispose);
@@ -401,6 +412,7 @@ void main() {
       await press(tester, '하트 충전하기');
 
       expect(find.text('18 스토어 화면'), findsOneWidget);
+      expect(storeExtra, HeartStoreEntry.avatarRegen, reason: '사용 통계 heart_store_open 의 from');
       expect(me.photoSaves, isEmpty);
       expect(avatars.regenerateCount, 0);
     });

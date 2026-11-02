@@ -18,6 +18,8 @@ import 'package:campus_mate/billing/viewmodel/heart_tasks_view_model.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/core/analytics/analytics_provider.dart';
+import 'package:campus_mate/core/analytics/analytics_values.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -45,7 +47,10 @@ const String _heroAsset = 'assets/images/heart-value-scene.png';
 /// [heartPurchaseViewModelProvider] 하나가 들고 있고, 이 화면은 들어올 때마다 다시 읽게 한다(가격 · 자격 · 지난 결제 복구).
 /// 웹 · 데스크톱은 구매 섹션과 하단 바를 숨긴다(15e-9 `GKEM9`). 스토어 이름이 든 글자는 기기 스토어를 따른다(App Store 판은 pen 후속).
 class HeartStoreScreen extends ConsumerStatefulWidget {
-  const HeartStoreScreen({super.key});
+  const HeartStoreScreen({this.from = HeartStoreEntry.other, super.key});
+
+  /// 들어온 곳(사용 통계 `heart_store_open.from`). 길의 `extra` 로 받는다 — 모르면 [HeartStoreEntry.other].
+  final HeartStoreEntry from;
 
   @override
   ConsumerState<HeartStoreScreen> createState() => _HeartStoreScreenState();
@@ -60,6 +65,7 @@ class _HeartStoreScreenState extends ConsumerState<HeartStoreScreen> {
   @override
   void initState() {
     super.initState();
+    ref.read(analyticsServiceProvider).logHeartStoreOpen(widget.from);
     // 그리는 도중에 provider 를 바꾸지 않게 다음 차례로 미룬다. 상점에 들어왔으니 지난 배너 · 토스트는 지운다(배너 규칙).
     Future.microtask(() {
       if (mounted) unawaited(ref.read(heartPurchaseViewModelProvider.notifier).refresh(fromStore: true));

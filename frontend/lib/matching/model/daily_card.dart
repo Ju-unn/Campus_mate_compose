@@ -1,3 +1,4 @@
+import 'package:campus_mate/core/analytics/analytics_values.dart';
 import 'package:campus_mate/matching/model/card_profile.dart';
 import 'package:campus_mate/matching/model/paid_card.dart';
 
@@ -7,6 +8,9 @@ enum CardSource {
   purchased;
 
   static CardSource fromWire(String value) => value == 'purchased' ? purchased : daily;
+
+  /// 사용 통계에서 부르는 이름(`daily` 는 무료 카드라 `free`).
+  CardOrigin get origin => this == purchased ? CardOrigin.purchased : CardOrigin.free;
 }
 
 /// 받은 카드 한 장(화면 10 `W0CjO`).

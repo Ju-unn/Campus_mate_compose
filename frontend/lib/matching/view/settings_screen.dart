@@ -5,6 +5,7 @@ import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/consent/model/consent_links.dart';
 import 'package:campus_mate/consent/model/open_url.dart';
+import 'package:campus_mate/core/analytics/analytics_values.dart';
 import 'package:campus_mate/core/auth/confirm_sign_out.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -41,7 +42,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (_openingStore) return;
     _openingStore = true;
     try {
-      await context.push(AppRoutes.heartStore);
+      await context.push(AppRoutes.heartStore, extra: HeartStoreEntry.settings);
     } finally {
       _openingStore = false;
     }

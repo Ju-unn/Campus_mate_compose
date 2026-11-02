@@ -12,6 +12,7 @@ import 'package:campus_mate/billing/viewmodel/heart_purchase_ui_state.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/analytics/analytics_provider.dart';
+import 'package:campus_mate/core/analytics/analytics_values.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -117,7 +118,11 @@ class HeartPurchaseViewModel extends Notifier<HeartPurchaseUiState> {
     );
   }
 
-  void select(String productId) => state = state.copyWith(selectedProductId: productId);
+  /// 상품 카드를 골랐다. 사용 통계 `heart_product_select` 는 우리 상품 목록에 있는 ID 만 남긴다.
+  void select(String productId) {
+    state = state.copyWith(selectedProductId: productId);
+    if (heartProductIds.contains(productId)) ref.read(analyticsServiceProvider).logHeartProductSelect(productId);
+  }
 
   /// 고른 상품의 결제 창을 연다. 결제 중 · 확인 중에는 무시한다. 다시 구매를 시도하면 배너가 사라진다.
   Future<void> buy() async {
@@ -127,6 +132,7 @@ class HeartPurchaseViewModel extends Notifier<HeartPurchaseUiState> {
     state = state.copyWith(phase: HeartPurchasePhase.purchasing, banner: null, toast: null);
     final opened = await _gateway.buy(productId, accountToken);
     if (opened || !ref.mounted || state.phase != HeartPurchasePhase.purchasing) return;
+    _logResult(HeartPurchaseResult.fail, productId);
     _finishStoreStep(banner: HeartPurchaseNotice.failed);
     unawaited(_gateway.recover());
   }
@@ -153,15 +159,29 @@ class HeartPurchaseViewModel extends Notifier<HeartPurchaseUiState> {
   Future<void> _handle(StorePurchaseEvent event) async {
     switch (event) {
       case StorePurchased():
+        _logResult(HeartPurchaseResult.success, _productOf(event));
         await _verify(event);
       case StorePurchasePending():
         _finishStoreStep(banner: HeartPurchaseNotice.pending);
       case StorePurchaseCanceled():
+        _logResult(HeartPurchaseResult.cancel, _productOf(event));
         _finishStoreStep(toast: const NoticeToast(HeartPurchaseNotice.canceled));
       case StorePurchaseFailed():
+        _logResult(HeartPurchaseResult.fail, _productOf(event));
         _finishStoreStep(banner: HeartPurchaseNotice.failed);
         unawaited(_gateway.recover());
     }
+  }
+
+  /// 취소 · 실패는 플러그인이 상품 ID 를 비워 보낼 때가 있다 — 우리 상품이 아니면 사용자가 고른 상품으로 센다.
+  String _productOf(StorePurchaseEvent event) =>
+      heartProductIds.contains(event.productId) ? event.productId : state.selectedProductId;
+
+  /// 사용 통계 `heart_purchase_result`. 사용자가 방금 결제 창을 연 경우(`purchasing`)만 센다 — 앱 시작 때의 지난 결제 복구와
+  /// 이미 지난 결제의 되풀이는 이번 결제의 결과가 아니다. 서버 지급은 따로 `heart_purchase` 가 센다.
+  void _logResult(HeartPurchaseResult result, String productId) {
+    if (state.phase != HeartPurchasePhase.purchasing) return;
+    ref.read(analyticsServiceProvider).logHeartPurchaseResult(result, productId);
   }
 
   /// 결제 창 단계가 끝났다 — 확인 중인 다른 결제가 없으면 다시 살 수 있다.

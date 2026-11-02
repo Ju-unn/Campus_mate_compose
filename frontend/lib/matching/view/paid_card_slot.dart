@@ -1,4 +1,6 @@
 import 'package:campus_mate/community/view/poll_toast.dart';
+import 'package:campus_mate/core/analytics/analytics_provider.dart';
+import 'package:campus_mate/core/analytics/analytics_values.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/matching/model/paid_card.dart';
 import 'package:campus_mate/matching/view/paid_card_info_sheet.dart';
@@ -25,6 +27,28 @@ class PaidCardSlot extends ConsumerStatefulWidget {
 class _PaidCardSlotState extends ConsumerState<PaidCardSlot> {
   /// 잔액을 읽고 확인 시트를 띄우는 동안 true — 그 사이 다시 눌러도 시트가 겹쳐 뜨지 않게 버튼을 잠근다.
   bool _opening = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _logView();
+  }
+
+  /// 칸의 모양(offered ↔ empty)이 바뀔 때만 다시 센다 — 같은 모양으로 다시 읽힌 것은 새로 보인 것이 아니다.
+  @override
+  void didUpdateWidget(PaidCardSlot oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.paidCard.runtimeType != widget.paidCard.runtimeType) _logView();
+  }
+
+  /// 사용 통계 `paid_card_view` — 칸이 보였다. 제안 id · 하트 값은 싣지 않고 모양만 싣는다.
+  void _logView() {
+    final state = switch (widget.paidCard) {
+      PaidCardOffered() => PaidCardState.offered,
+      PaidCardEmpty() => PaidCardState.empty,
+    };
+    ref.read(analyticsServiceProvider).logPaidCardView(state);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -56,6 +80,8 @@ class _PaidCardSlotState extends ConsumerState<PaidCardSlot> {
         await _offerHeartStore(context, ref, cost: offered.cost, balance: balance);
         return;
       }
+      // 사용 통계 paid_card_sheet_open — 열기 확인 시트가 뜨는 때. 하트가 모자라 부족 시트로 가는 길(위)은 세지 않는다.
+      ref.read(analyticsServiceProvider).logPaidCardSheetOpen();
       final confirmed = await showPaidCardConfirmSheet(context, cost: offered.cost, heartBalance: balance);
       if (!confirmed || !mounted) {
         return;
@@ -96,7 +122,7 @@ Future<void> _offerHeartStore(BuildContext context, WidgetRef ref, {required int
   if (!toStore || !context.mounted) {
     return;
   }
-  await context.push<void>(AppRoutes.heartStore);
+  await context.push<void>(AppRoutes.heartStore, extra: HeartStoreEntry.paidCard);
   // 스토어에서 하트를 채웠을 수 있다 — 잔액을 무효로 해 다음에 읽을 때 새로 가져온다.
   if (context.mounted) {
     ref.invalidate(myProfileProvider);

@@ -5,6 +5,7 @@ import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/entrance.dart';
 import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
+import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -133,17 +134,21 @@ class _CardList extends ConsumerWidget {
         }
         final card = cards[index];
         // 처음 보는 카드만 투명 · 아래 16 에서 emphasis 로 올라온다(transform · opacity 만 — 움직이는 중에도 누를 수 있다).
+        final firstView = ref.read(_shownCardIdsProvider).add(card.cardId);
+        // 사용 통계 card_view — 같은 카드는 앱을 켜 둔 동안 한 번만. 카드 id 는 싣지 않고 출처(free · purchased)만 싣는다.
+        if (firstView) ref.read(analyticsServiceProvider).logCardView(card.source.origin);
         return Entrance(
           key: ValueKey(card.cardId),
           rise: 16,
           duration: AppMotion.emphasis,
           curve: AppMotion.emphasisCurve,
           delay: _cardStagger * index,
-          enabled: ref.read(_shownCardIdsProvider).add(card.cardId),
+          enabled: firstView,
           child: DailyCardSummary(
             card: card,
             // 10b 에서 결정하고 돌아오면 목록을 다시 읽는다 — 결정한 카드가 남아 있으면 안 된다.
             onTap: () async {
+              ref.read(analyticsServiceProvider).logCardDetailOpen(card.source.origin);
               await context.push<void>('${AppRoutes.cardDetail}/${card.cardId}');
               await ref.read(todayCardsViewModelProvider.notifier).markDecided();
             },

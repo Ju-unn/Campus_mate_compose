@@ -1,5 +1,6 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/notice_card.dart';
+import 'package:campus_mate/core/analytics/analytics_values.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -140,7 +141,7 @@ class _AvatarRegenPickScreenState extends ConsumerState<AvatarRegenPickScreen> {
       case AvatarRegenChoice.regenerate:
         await ref.read(avatarRegenPickViewModelProvider.notifier).submit();
       case AvatarRegenChoice.chargeHearts:
-        await context.push(AppRoutes.heartStore);
+        await context.push(AppRoutes.heartStore, extra: HeartStoreEntry.avatarRegen);
       case null:
         break;
     }

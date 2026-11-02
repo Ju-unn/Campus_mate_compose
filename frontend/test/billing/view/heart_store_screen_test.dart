@@ -22,6 +22,8 @@ import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/entrance.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/core/analytics/analytics_provider.dart';
+import 'package:campus_mate/core/analytics/analytics_values.dart';
 import 'package:campus_mate/consent/model/open_url.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -34,6 +36,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/analytics/fake_analytics_service.dart';
 import '../../me/model/fake_me_repository.dart';
 import '../model/fake_billing_repository.dart';
 import '../model/fake_heart_store_gateway.dart';
@@ -92,6 +95,7 @@ void main() {
   late FakeHeartTaskRepository tasks;
   late FakeHeartStoreGateway gateway;
   late FakeBillingRepository billing;
+  late FakeAnalyticsService analytics;
   late GoRouter router;
 
   /// null 이면 덮지 않는다 — 기기(시험 플랫폼)에 따라 진짜 provider 가 정한다.
@@ -103,6 +107,7 @@ void main() {
     tasks = FakeHeartTaskRepository();
     gateway = FakeHeartStoreGateway();
     billing = FakeBillingRepository();
+    analytics = FakeAnalyticsService();
     supported = true;
     opened = [];
     me = FakeMeRepository(Success(_profile(320)));
@@ -115,6 +120,7 @@ void main() {
     double textScale = 1,
     double height = 1900,
     bool settle = true,
+    HeartStoreEntry from = HeartStoreEntry.other,
   }) async {
     tester.view.physicalSize = Size(360, height);
     tester.view.devicePixelRatio = 1;
@@ -125,7 +131,7 @@ void main() {
       initialLocation: '/start',
       routes: [
         GoRoute(path: '/start', builder: (context, state) => const Text('설정')),
-        GoRoute(path: AppRoutes.heartStore, builder: (context, state) => const HeartStoreScreen()),
+        GoRoute(path: AppRoutes.heartStore, builder: (context, state) => HeartStoreScreen(from: from)),
         GoRoute(path: AppRoutes.faq, builder: (context, state) => const Text('21 자주 묻는 질문')),
         GoRoute(path: AppRoutes.community, builder: (context, state) => const Text('커뮤니티')),
         GoRoute(path: '${AppRoutes.heartTaskSubmit}/:task', builder: (context, state) => Text('제출 ${state.uri}')),
@@ -135,6 +141,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          analyticsServiceProvider.overrideWithValue(analytics),
           heartTaskRepositoryProvider.overrideWithValue(tasks),
           meRepositoryProvider.overrideWithValue(profile == null ? me : FakeMeRepository(profile)),
           heartStoreGatewayProvider.overrideWithValue(gateway),
@@ -1064,4 +1071,29 @@ void main() {
     expect(last, isA<TourScrollRoom>().having((room) => room.id, 'id', TourTargetId.heartStoreFree));
     expect(tester.getSize(find.byType(TourScrollRoom, skipOffstage: false)).height, 0);
   });
+
+  // 사용 통계 heart_store_open — 들어온 곳(from)만 한 번 남긴다. 어디서 들어오는지는 길의 extra 가 정한다(app_router_test).
+  group('분석: 들어온 곳(heart_store_open)', () {
+    testWidgets('들어올 때 들어온 곳을 한 번 남긴다', (tester) async {
+      await pump(tester, from: HeartStoreEntry.settings);
+
+      expect(analytics.calls.where((call) => call.startsWith('heart_store_open')), ['heart_store_open:settings']);
+    });
+
+    testWidgets('들어온 곳을 모르면 other', (tester) async {
+      await pump(tester);
+
+      expect(analytics.calls.where((call) => call.startsWith('heart_store_open')), ['heart_store_open:other']);
+    });
+
+    testWidgets('상품 카드를 누르면 고른 상품 ID 를 남긴다', (tester) async {
+      await pump(tester);
+
+      await tester.tap(cardOf(800));
+      await tester.pump();
+
+      expect(analytics.calls, contains('heart_product_select:heart_800'));
+    });
+  });
+
 }

@@ -5,6 +5,7 @@ import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/core/analytics/analytics_values.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/home/model/home_repository_provider.dart';
 import 'package:campus_mate/matching/model/card_profile.dart';
@@ -79,6 +80,9 @@ MyProfile _profile(int hearts) => MyProfile(
       avatarRegenCost: 10,
     );
 
+/// 마지막으로 하트 스토어 길이 받은 extra(들어온 곳).
+Object? storeExtra;
+
 void main() {
   setUpAll(_loadPretendard);
 
@@ -94,11 +98,18 @@ void main() {
     tester.view.physicalSize = const Size(360, 1400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
+    storeExtra = null;
     final router = GoRouter(
       initialLocation: '/today',
       routes: [
         GoRoute(path: '/today', builder: (context, state) => const TodayCardsScreen()),
-        GoRoute(path: AppRoutes.heartStore, builder: (context, state) => Scaffold(appBar: AppBar(), body: const Text('18 스토어'))),
+        GoRoute(
+          path: AppRoutes.heartStore,
+          builder: (context, state) {
+            storeExtra = state.extra;
+            return Scaffold(appBar: AppBar(), body: const Text('18 스토어'));
+          },
+        ),
       ],
     );
     addTearDown(router.dispose);
@@ -351,6 +362,7 @@ void main() {
       await tester.tap(find.text('하트 스토어로 가기'));
       await tester.pumpAndSettle();
       expect(find.text('18 스토어'), findsOneWidget);
+      expect(storeExtra, HeartStoreEntry.paidCard, reason: '사용 통계 heart_store_open 의 from');
 
       // 스토어에서 하트를 채웠다고 치고 뒤로 돌아온다.
       me.profile = Success(_profile(500));

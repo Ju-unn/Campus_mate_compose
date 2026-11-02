@@ -2,6 +2,7 @@ import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'package:campus_mate/matching/model/card_repository.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:campus_mate/matching/viewmodel/card_detail_ui_state.dart';
+import 'package:campus_mate/matching/viewmodel/today_cards_view_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final cardDetailViewModelProvider =
@@ -52,5 +53,18 @@ class CardDetailViewModel extends Notifier<CardDetailUiState> {
     if (state.decided && decision == CardDecision.accept) {
       ref.read(analyticsServiceProvider).logChatRequestSent();
     }
+    if (state.decided && decision == CardDecision.reject) {
+      _logPass();
+    }
+  }
+
+  /// 사용 통계 `card_pass`. 상세는 카드 id 만 알아서 출처는 오늘 탭이 읽어 둔 목록에서 찾는다 — 못 찾으면 지어내지 않고 남기지 않는다.
+  void _logPass() {
+    // 오늘 탭 뷰모델이 아직 없으면(상세만 단독으로 열린 경우) 만들지 않는다 — 만들면 목록 조회가 따라 나간다.
+    if (!ref.exists(todayCardsViewModelProvider)) return;
+    final cards = ref.read(todayCardsViewModelProvider).cards;
+    final card = cards.where((candidate) => candidate.cardId == cardId).firstOrNull;
+    if (card == null) return;
+    ref.read(analyticsServiceProvider).logCardPass(card.source.origin);
   }
 }

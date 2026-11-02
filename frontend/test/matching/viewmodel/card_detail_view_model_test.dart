@@ -5,7 +5,9 @@ import 'package:campus_mate/matching/model/card_detail.dart';
 import 'package:campus_mate/matching/model/card_profile.dart';
 import 'package:campus_mate/matching/model/card_repository.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
+import 'package:campus_mate/matching/model/daily_card.dart';
 import 'package:campus_mate/matching/viewmodel/card_detail_view_model.dart';
+import 'package:campus_mate/matching/viewmodel/today_cards_view_model.dart';
 import 'package:campus_mate/profile/model/profile_enums.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -79,6 +81,62 @@ void main() {
     await viewModel.decide(CardDecision.reject);
 
     expect(analytics.calls, isEmpty);
+  });
+
+  // 사용 통계 card_pass — 상세에서 "넘기기"(거절)를 서버가 받아 준 뒤에만, 카드 출처(free · purchased)만 남긴다.
+  // 상세는 카드 id 만 알아서 출처는 오늘 탭이 읽어 둔 목록에서 찾는다.
+  group('card_pass', () {
+    Future<CardDetailViewModel> detailOf(CardSource source) async {
+      repository.today = Success(
+        TodayCards(cards: [DailyCard(cardId: 'card-1', source: source, profile: _detail.profile)]),
+      );
+      await container.read(todayCardsViewModelProvider.notifier).refresh();
+      final viewModel = container.read(cardDetailViewModelProvider('card-1').notifier);
+      await viewModel.load();
+      return viewModel;
+    }
+
+    test('무료 카드를 넘기면 free', () async {
+      final viewModel = await detailOf(CardSource.daily);
+
+      await viewModel.decide(CardDecision.reject);
+
+      expect(analytics.calls, ['card_pass:free']);
+    });
+
+    test('산 카드를 넘기면 purchased', () async {
+      final viewModel = await detailOf(CardSource.purchased);
+
+      await viewModel.decide(CardDecision.reject);
+
+      expect(analytics.calls, ['card_pass:purchased']);
+    });
+
+    test('수락은 넘기기가 아니다', () async {
+      final viewModel = await detailOf(CardSource.daily);
+
+      await viewModel.decide(CardDecision.accept);
+
+      expect(analytics.calls, ['chat_request_sent']);
+    });
+
+    test('서버가 거절을 받아 주지 않으면(409) 남기지 않는다', () async {
+      final viewModel = await detailOf(CardSource.daily);
+      repository.writeResult = const FailureResult(ServerRejectedFailure('이미 결정한 카드예요'));
+
+      await viewModel.decide(CardDecision.reject);
+
+      expect(analytics.calls, isEmpty);
+    });
+
+    test('오늘 목록에서 출처를 못 찾으면 지어내지 않고 남기지 않는다', () async {
+      final viewModel = container.read(cardDetailViewModelProvider('card-1').notifier);
+      await viewModel.load();
+
+      await viewModel.decide(CardDecision.reject);
+
+      expect(analytics.calls, isEmpty);
+    });
   });
 
   test('서버가 수락을 막으면(409) 대화 신청을 분석에 남기지 않는다', () async {

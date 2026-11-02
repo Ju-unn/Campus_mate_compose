@@ -17,6 +17,7 @@ import 'package:campus_mate/chat/view/chat_room_screen.dart';
 import 'package:campus_mate/community/view/community_feed_screen.dart';
 import 'package:campus_mate/community/view/poll_composer_screen.dart';
 import 'package:campus_mate/community/view/poll_detail_screen.dart';
+import 'package:campus_mate/core/analytics/analytics_values.dart';
 import 'package:campus_mate/core/auth/account_status_listenable.dart';
 import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
 import 'package:campus_mate/core/offline/offline_screen.dart';
@@ -190,7 +191,16 @@ abstract final class AppRouter {
         redirect: _uuidOr('profileId', AppRoutes.home),
         builder: (context, state) => PartnerProfileScreen(profileId: state.pathParameters['profileId']!),
       ),
-      _PlatformRoute(path: AppRoutes.heartStore, builder: (context, state) => const HeartStoreScreen()),
+      // 들어온 곳은 push 하는 쪽이 `extra`(HeartStoreEntry)로 실어 보낸다. 없거나 모르는 값이면 other(사용 통계 heart_store_open).
+      _PlatformRoute(
+        path: AppRoutes.heartStore,
+        builder: (context, state) => HeartStoreScreen(
+          from: switch (state.extra) {
+            final HeartStoreEntry from => from,
+            _ => HeartStoreEntry.other,
+          },
+        ),
+      ),
       _PlatformRoute(path: AppRoutes.heartTasks, builder: (context, state) => const HeartTasksScreen()),
       _PlatformRoute(
         path: '${AppRoutes.heartTaskSubmit}/:task',
