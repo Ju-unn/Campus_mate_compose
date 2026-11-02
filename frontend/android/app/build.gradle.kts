@@ -11,7 +11,8 @@ plugins {
 
 // 카카오 네이티브 앱 키 — 카카오 로그인 복귀 스킴(kakao{키}://oauth)에 쓴다. 저장소에 값을 쓰지 않는다.
 // 환경변수 KAKAO_NATIVE_APP_KEY, 없으면 local.properties(gitignore 대상)의 같은 이름, 그것도 없으면 빈 문자열
-// (키 없이도 빌드는 된다 — 그때 앱의 카카오 버튼은 실패 토스트). 앱 코드는 같은 키를 --dart-define 으로 따로 받는다.
+// (디버그 빌드는 키 없이도 된다 — 그때 앱의 카카오 버튼은 실패 토스트). 앱 코드는 같은 키를 --dart-define 으로 따로 받는다.
+// 릴리스 빌드(assembleRelease · bundleRelease)는 키가 비면 아래에서 실패한다.
 val kakaoNativeAppKey: String = System.getenv("KAKAO_NATIVE_APP_KEY")
     ?: Properties().apply {
         val localProperties = rootProject.file("local.properties")
@@ -21,9 +22,20 @@ val kakaoNativeAppKey: String = System.getenv("KAKAO_NATIVE_APP_KEY")
     }.getProperty("KAKAO_NATIVE_APP_KEY")
     ?: ""
 
+// 릴리스 빌드에서 키가 비면 매니페스트 스킴이 `kakao` 뿐이라 카카오 로그인이 앱으로 돌아오지 못한다 —
+// 빌드는 조용히 성공해서 2026-10-20 vc13 ~ vc17 을 폐기했다. 그래서 만들기 전에 막는다.
+// shortcut: 시작 작업 이름(`flutter build` 가 부르는 assembleRelease · bundleRelease)만 본다. 다른 릴리스 작업 이름이 생기면 여기에 더한다.
+val isReleaseBuild: Boolean = gradle.startParameter.taskNames.any { it.endsWith("assembleRelease") || it.endsWith("bundleRelease") }
+if (isReleaseBuild && kakaoNativeAppKey.isBlank()) {
+    throw GradleException(
+        "KAKAO_NATIVE_APP_KEY 가 비었습니다 — 환경변수 또는 android/local.properties 에 넣고 다시 빌드하세요 " +
+            "(비운 채 릴리스를 만들면 카카오 복귀 스킴이 빈 값이 된다. frontend/run.md `AAB 빌드`).",
+    )
+}
+
 // 릴리스 서명 — 키스토어 정보는 android/key.properties(gitignore 대상)에서 읽는다. 저장소에 비밀번호·키 파일을 두지 않는다.
 // 환경변수 CAMPUSMATE_KEY_PROPERTIES 로 다른 위치의 파일을 가리킬 수 있다(CI·점검용).
-// 파일이 없거나 storeFile 이 비어 있으면 디버그 서명으로 폴백 — 로컬 개발·`flutter run --release` 가 깨지지 않는다.
+// 파일이 없거나 storeFile 이 비어 있으면 디버그 서명으로 폴백 — 로컬 개발·`flutter run --release` 가 깨지지 않는다(단 릴리스는 위 카카오 키가 있어야 한다 — 비면 실패).
 // 항목: storeFile, storePassword, keyAlias, keyPassword
 val keystoreProperties: Properties = Properties().apply {
     val keyPropertiesFile = System.getenv("CAMPUSMATE_KEY_PROPERTIES")?.let { File(it) }
