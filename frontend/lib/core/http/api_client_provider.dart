@@ -1,3 +1,4 @@
+import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'package:campus_mate/core/auth/account_status_listenable.dart';
 import 'package:campus_mate/core/env.dart';
 import 'package:campus_mate/core/http/api_client.dart';
@@ -14,5 +15,7 @@ final apiClientProvider = Provider<ApiClient>((ref) {
     http.Client(),
     Supabase.instance.client.auth,
     onFailure: ref.read(accountStatusListenableProvider).observe,
+    // 서버 5xx · 연결 실패 · 시간 초과만 — 종류 · 상태 코드 · 경로 패턴 외에는 오류 수집에 넘기지 않는다.
+    onHandledError: ref.read(handledErrorReporterProvider).report,
   );
 });

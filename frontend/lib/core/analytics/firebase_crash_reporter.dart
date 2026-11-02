@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:campus_mate/core/analytics/crash_reporter.dart';
+import 'package:campus_mate/core/analytics/handled_api_error.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 
@@ -22,6 +23,11 @@ class FirebaseCrashReporter implements CrashReporter {
 
   @override
   void recordFatalError(Object error, StackTrace stack) => _fire(() => _crashlytics.recordError(error, stack, fatal: true));
+
+  /// 스택은 부른 자리(요청을 보낸 비동기 호출 사슬)다 — Crashlytics 는 이슈를 스택으로 묶는다.
+  @override
+  void recordHandledError(HandledApiError error) =>
+      _fire(() => _crashlytics.recordError(error, StackTrace.current, fatal: false));
 
   void _fire(Future<void> Function() action) {
     unawaited(action().catchError((Object error) => debugPrint('오류 수집 실패: ${error.runtimeType}')));

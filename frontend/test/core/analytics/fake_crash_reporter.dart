@@ -1,4 +1,5 @@
 import 'package:campus_mate/core/analytics/crash_reporter.dart';
+import 'package:campus_mate/core/analytics/handled_api_error.dart';
 import 'package:flutter/foundation.dart';
 
 /// 시험이 Crashlytics 를 켜지 않고도 "무엇이 보고됐는지" 만 보는 가짜 구현.
@@ -25,4 +26,7 @@ class FakeCrashReporter implements CrashReporter {
 
   @override
   void recordFatalError(Object error, StackTrace stack) => calls.add('fatal:$error');
+
+  @override
+  void recordHandledError(HandledApiError error) => calls.add('handled:${error.kind}:${error.status}:${error.route}');
 }

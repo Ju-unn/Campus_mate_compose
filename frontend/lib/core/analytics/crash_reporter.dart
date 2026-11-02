@@ -1,4 +1,5 @@
 import 'package:campus_mate/core/analytics/collection_switch.dart';
+import 'package:campus_mate/core/analytics/handled_api_error.dart';
 import 'package:flutter/foundation.dart';
 
 /// 오류 수집(Firebase Crashlytics). 사용자 식별값(`setUserIdentifier`)과 사용자 정의 키(`setCustomKey`)는 쓰지 않는다 —
@@ -12,6 +13,10 @@ abstract interface class CrashReporter implements CollectionSwitch {
 
   /// `PlatformDispatcher.onError` 가 잡은, 어디서도 처리하지 않은 비동기 오류(치명).
   void recordFatalError(Object error, StackTrace stack);
+
+  /// 앱이 버틴 API 오류(서버 5xx · 연결 실패 · 시간 초과)를 **비치명**으로 남긴다. 앱은 죽지 않았지만 사용자가 겪은 오류다.
+  /// [HandledApiError] 는 종류 · 상태 코드 · 경로 패턴만 들고 있어 메시지 · 본문 · id 가 새지 않는다 — 다른 예외는 받지 않는다.
+  void recordHandledError(HandledApiError error);
 }
 
 /// 아무것도 보고하지 않는 구현 — 시험과 Firebase 를 켜지 못한 빌드의 기본값이다.
@@ -29,4 +34,7 @@ class NoCrashReporter implements CrashReporter {
 
   @override
   void recordFatalError(Object error, StackTrace stack) {}
+
+  @override
+  void recordHandledError(HandledApiError error) {}
 }

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/core/analytics/handled_api_error.dart';
 import 'package:campus_mate/core/http/http_send.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -263,6 +264,98 @@ void main() {
     final result = await sendHttpRequest(client, buildRequest());
 
     expect(result.when(onSuccess: (_) => null, onFailure: (f) => f), isA<NetworkFailure>());
+  });
+
+  // 앱이 버틴 서버·네트워크 오류만 오류 수집에 알린다 — 종류 · 상태 코드 · 경로 패턴 외에는 아무것도 넘기지 않는다.
+  group('앱이 버틴 오류를 알린다(오류 수집)', () {
+    final guarded = Uri.parse('https://api.test/chat/matches/11111111-1111-4111-8111-111111111111/messages?limit=1');
+    late List<HandledApiError> handled;
+
+    setUp(() => handled = []);
+
+    Future<void> send(MockClient client, {String method = 'GET', Uri? url}) =>
+        sendHttpRequest(client, http.Request(method, url ?? guarded), onHandledError: handled.add);
+
+    test('5xx 는 상태 코드와 경로 패턴으로 알린다(응답 본문 · 쿼리 문자열은 없다)', () async {
+      await send(MockClient((request) async => http.Response.bytes(utf8.encode('{"detail":"비밀번호 어쩌고 홍길동"}'), 500)));
+      await send(MockClient((request) async => http.Response('', 503)));
+
+      expect(handled.map((e) => e.toString()), [
+        'HandledApiError(kind: ServerError, status: 500, route: /chat/matches/:id/messages)',
+        'HandledApiError(kind: ServerError, status: 503, route: /chat/matches/:id/messages)',
+      ]);
+    });
+
+    test('연결 실패는 예외 타입 이름만 알린다(메시지는 없다)', () async {
+      await send(MockClient((request) async => throw http.ClientException('연결 실패: 10.0.0.7 홍길동')));
+
+      expect(handled.single.kind, 'ClientException');
+      expect(handled.single.status, isNull);
+      expect(handled.single.toString(), isNot(contains('10.0.0.7')));
+      expect(handled.single.toString(), isNot(contains('홍길동')));
+    });
+
+    testWidgets('조회 시간 초과는 TimeoutException 으로 알린다', (tester) async {
+      final client = MockClient((request) => Completer<http.Response>().future);
+      unawaited(send(client));
+
+      await tester.pump(readTimeout);
+
+      expect(handled.single.kind, 'TimeoutException');
+      expect(handled.single.route, '/chat/matches/:id/messages');
+    });
+
+    test('4xx(사용자 입력 오류 · 401 · 429)는 알리지 않는다', () async {
+      for (final status in [400, 401, 403, 404, 409, 422, 429]) {
+        await send(MockClient((request) async => http.Response.bytes(utf8.encode('{"detail":"안 돼요"}'), status)));
+      }
+
+      expect(handled, isEmpty);
+    });
+
+    test('4xx 인데 몸통이 JSON 이 아니라서 생긴 파싱 오류는 알리지 않는다', () async {
+      await send(MockClient((request) async => http.Response('<html>Bad Request</html>', 400)));
+
+      expect(handled, isEmpty);
+    });
+
+    test('성공은 알리지 않는다', () async {
+      await send(MockClient((request) async => http.Response('ok', 200)));
+
+      expect(handled, isEmpty);
+    });
+
+    test('알리는 쪽이 던져도 요청 결과는 그대로다', () async {
+      final result = await sendHttpRequest(
+        MockClient((request) async => http.Response('', 503)),
+        http.Request('GET', guarded),
+        onHandledError: (_) => throw StateError('보고기 고장'),
+      );
+
+      expect(result.when(onSuccess: (_) => null, onFailure: (f) => f), isA<ServerUnavailableFailure>());
+    });
+
+    test('알리는 쪽이 없어도(기본값) 그대로 돈다', () async {
+      final result = await sendHttpRequest(MockClient((request) async => http.Response('', 500)), buildRequest());
+
+      expect(result.when(onSuccess: (_) => null, onFailure: (f) => f), isA<UnknownFailure>());
+    });
+
+    test('토큰을 새로 받아 다시 보낸 요청의 5xx 도 알린다(sendAuthorizedRequest)', () async {
+      final auth = MockGoTrueClient();
+      final session = MockSession();
+      when(() => session.accessToken).thenReturn('token-abc');
+      when(() => auth.currentSession).thenReturn(session);
+
+      await sendAuthorizedRequest(
+        MockClient((request) async => http.Response('', 502)),
+        auth,
+        (accessToken) => http.Request('GET', guarded),
+        onHandledError: handled.add,
+      );
+
+      expect(handled.single.status, 502);
+    });
   });
 
   // 10-13 아이폰: 와이파이 ↔ LTE 를 오가던 중 나간 요청이 끝내 안 돌아와(실패도 아님) 기다리던 쪽이 영영 멈췄다.

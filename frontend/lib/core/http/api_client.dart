@@ -14,7 +14,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// 상태코드 분류와 세션 확인은 여전히 [sendAuthorizedRequest] 가 한다. 이 클래스는
 /// URL 을 붙이고, 헤더를 달고, 본문을 JSON 으로 싸고, 응답을 파싱할 뿐이다.
 class ApiClient {
-  const ApiClient(this._baseUrl, this._client, this._auth, {this._onFailure});
+  const ApiClient(this._baseUrl, this._client, this._auth, {this._onFailure, this._onHandledError});
 
   final String _baseUrl;
   final http.Client _client;
@@ -22,6 +22,9 @@ class ApiClient {
 
   /// 모든 실패를 한 곳에서 본다 — 정지·탈퇴(헤더)를 화면마다 따로 살피지 않게(조각 6 A4).
   final void Function(Failure)? _onFailure;
+
+  /// 앱이 버틴 서버 5xx · 연결 실패 · 시간 초과를 오류 수집에 알린다(2026-11-02). 4xx 는 오지 않는다.
+  final HandledErrorSink? _onHandledError;
 
   Uri uri(String path, [Map<String, String>? query]) {
     final url = Uri.parse('$_baseUrl$path');
@@ -85,7 +88,7 @@ class ApiClient {
   Future<Result<http.Response>> sendRequest(
     FutureOr<http.BaseRequest> Function(String accessToken) buildRequest,
   ) async {
-    final result = await sendAuthorizedRequest(_client, _auth, buildRequest);
+    final result = await sendAuthorizedRequest(_client, _auth, buildRequest, onHandledError: _onHandledError);
     result.when<void>(onSuccess: (_) {}, onFailure: (failure) => _onFailure?.call(failure));
     return result;
   }
