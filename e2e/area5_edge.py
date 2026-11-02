@@ -300,6 +300,7 @@ def _stamp(at):
 
 def _requests(since, until):
     """Cloud Run 요청 로그 [(받은 시각, 메서드, 경로)] — gcloud logging read. 못 읽으면 blocked(요청 수는 이것 말고 볼 곳이 없다)."""
+    tools.require_cloud('Cloud Run 요청 로그')  # 로컬 시험이면 운영 gcloud 를 부르지 않는다
     query = f'resource.type="cloud_run_revision" AND httpRequest.requestMethod:* AND timestamp>="{_stamp(since)}" AND timestamp<="{_stamp(until)}"'
     command = ['gcloud', 'logging', 'read', query, '--format=json', f'--limit={LOG_LIMIT}']
     try:  # 윈도는 gcloud 가 .cmd 라 shell 로 부른다(목록을 cmd 규칙으로 따옴표 친다)

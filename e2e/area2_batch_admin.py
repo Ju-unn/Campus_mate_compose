@@ -27,6 +27,7 @@ UNAUTHORIZED = 'unauthorized'  # errors.UNAUTHORIZED — batch_auth 가 401 에 
 
 def _describe(name):
     """job 하나의 설정(gcloud describe --format=json). 못 부르면 blocked — 이 판은 gcloud 없이는 아무것도 못 가린다."""
+    tools.require_cloud('스케줄러 설정 읽기')  # 로컬 시험이면 운영 gcloud 를 부르지 않는다
     # 문자열로 넘긴다 — shell=True 에 리스트를 주면 윈도만 되고 POSIX 에서는 첫 낱말만 실행된다(tools.batch 와 다른 점).
     command = f'gcloud scheduler jobs describe campus-mate-{name} --location={LOCATION} --format=json'
     try:
@@ -164,6 +165,7 @@ def _now():
 
 def _gcloud(args, what, hide=''):
     """읽기 전용 gcloud 한 번. 못 부르거나 권한이 없으면 blocked — 이 판은 로그를 못 읽으면 아무것도 못 가린다."""
+    tools.require_cloud(what)  # 로컬 시험이면 운영 gcloud 를 부르지 않는다
     command = subprocess.list2cmdline(['gcloud', *args])  # 문자열로 넘긴다(_describe 와 같은 이유)
     try:
         return subprocess.run(command, **tools.TEXT, check=True, shell=True).stdout

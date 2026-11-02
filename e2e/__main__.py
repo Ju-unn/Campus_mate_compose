@@ -6,6 +6,9 @@
   report                가설마다 마지막 결과로 보고서.md
   cleanup               `+e2e` 계정 · 파일 · 시험이 만든 재가입 제한 뒷정리(KEEP 제외, 실사용자가 보이면 멈춤)
   photos                E2E_결과/사진/ 에 사진 세트(묶음 3) 파일이 다 있는지 — 없는 이름을 알려 준다
+
+로컬 Docker 시험: `E2E_ENV=<로컬 env 파일> E2E_SERVICE_KEY=<로컬 service_role 키> python -m e2e run …`.
+SUPABASE_URL 이 운영(*.supabase.co)이 아니면 gcloud(스케줄러 · 로그 · FCM · 서비스 키)를 부르는 길이 모두 Blocked 이고, 결과는 E2E_결과/로컬_<날짜>/ 에 쌓인다.
 """
 
 import argparse
@@ -84,7 +87,7 @@ from e2e.tools import (DEVICE_PORT, DEVICES, ROOT, TEXT, Hub, Run, adb, cleanup,
 ENV_KEYS = ('SUPABASE_URL', 'SUPABASE_ANON_KEY', 'API_BASE_URL', 'E2E_MAIL_BASE')
 DESKTOP = next(p for p in (Path.home() / 'OneDrive' / 'Desktop', Path.home() / 'Desktop') if p.exists())
 SCENARIO = DESKTOP / 'CampusMate_문서' / 'E2E' / 'E2E_최종테스트_시나리오.md'
-RESULTS = DESKTOP / 'E2E_결과'
+RESULTS = tools.results_root(DESKTOP / 'E2E_결과')  # 로컬 시험(E2E_ENV 의 SUPABASE_URL 이 운영이 아님)이면 로컬_<날짜> 폴더
 BUNDLES = {**area1.BUNDLES, **area2.BUNDLES, **area3.BUNDLES, **area3_safe.BUNDLES, **area5_api.BUNDLES,
            **area2_time_api.BUNDLES,
            **area2_time_batch.BUNDLES,

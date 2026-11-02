@@ -37,6 +37,7 @@ BODY = 'E2E 직접 발송 시험'  # 알림 본문 — 제목에 무작위 꼬�
 
 def _gcloud(*args):
     """gcloud 한 줄의 출력(앞뒤 공백 뺌). 못 부르거나 실패하면 이유만 담은 [Blocked] — 출력 · 오류 본문은 담지 않는다(토큰 · 프로젝트 주소가 들 수 있다)."""
+    tools.require_cloud('FCM 직접 발송(gcloud 로그인)')  # 로컬 시험이면 운영 FCM 을 부르지 않는다
     exe = shutil.which('gcloud')
     if not exe:
         raise Blocked('gcloud 가 이 PC 에 없음')
