@@ -17,6 +17,8 @@ import 'package:campus_mate/core/analytics/firebase_analytics_service.dart';
 import 'package:campus_mate/core/analytics/firebase_crash_reporter.dart';
 import 'package:campus_mate/core/analytics/firebase_performance_monitor.dart';
 import 'package:campus_mate/core/analytics/screen_view_observer.dart';
+import 'package:campus_mate/core/app_update/update_gate.dart';
+import 'package:campus_mate/core/app_update/update_requirement_provider.dart';
 import 'package:campus_mate/core/auth/account_status_listenable.dart';
 import 'package:campus_mate/core/auth/session_scope.dart';
 import 'package:campus_mate/core/auth/sign_out.dart';
@@ -143,11 +145,18 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
     _accountStatus.addListener(_signOutWhenWithdrawn);
     _router = _createRouter();
     _lifecycle = AppLifecycleListener(
-      onResume: _refreshChatsOnResume,
+      onResume: _onResume,
       onHide: () => _setAppShown(false),
       onShow: () => _setAppShown(true),
     );
     _refreshVerificationGate();
+  }
+
+  /// 백그라운드에서 돌아오면 ① 업데이트가 필요한지 다시 묻고(오래 켜 둔 앱이 그 사이 정해진 최소 버전에 걸릴 수 있다 —
+  /// 로그인 여부와 상관없어 [refreshOnResume] 의 로그인·관문 가드 밖에서 부른다) ② 대화·수락 대기를 다시 읽는다.
+  void _onResume() {
+    ref.invalidate(updateRequirementProvider);
+    _refreshChatsOnResume();
   }
 
   /// 어느 탭에 있든 돌아오면 대화 목록·수락 대기를 다시 읽는다. 로그아웃·관문 미완료 가드는 함수 안에 있다.
@@ -358,7 +367,8 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
       routerConfig: _router,
       // 입력칸 밖 빈 곳을 누르면 키보드를 내린다 — 화면 · 시트 · 대화상자가 모두 이 밑에 뜬다(사용자 피드백 9).
       // 앱 투어 덮개도 라우터 바깥 여기에 둔다 — 화면을 옮겨 가며 단계를 이어도 덮개가 남는다(pen 섹션 24).
-      builder: (context, child) => KeyboardDismissOnTap(child: AppTourHost(router: _router, child: child!)),
+      // 업데이트가 필요한 앱(01-2)은 라우터 대신 안내 화면을 그린다 — 라우터 바로 밖이라 딥링크 · 푸시 진입도 막힌다.
+      builder: (context, child) => KeyboardDismissOnTap(child: AppTourHost(router: _router, child: UpdateGate(child: child!))),
     );
   }
 }
