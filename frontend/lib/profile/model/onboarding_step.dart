@@ -48,6 +48,23 @@ enum OnboardingStep {
 
   int get _serverIndex => _serverOrder.indexOf(this);
 
+  /// 서버가 쓰는 글자([fromWire]의 반대). 사용 통계 `onboarding_step_*` 의 `step` 값이기도 하다.
+  String get wire => switch (this) {
+        basicInfo => 'basic_info',
+        kakaoId => 'kakao_id',
+        photos => 'photos',
+        avatar => 'avatar',
+        appearanceType => 'appearance_type',
+        interests => 'interests',
+        myTraits => 'my_traits',
+        survey => 'survey',
+        idealConditions => 'ideal_conditions',
+        idealTraits => 'ideal_traits',
+        idealNote => 'ideal_note',
+        bio => 'bio',
+        complete => 'complete',
+      };
+
   static OnboardingStep fromWire(String value) => switch (value) {
         'basic_info' => basicInfo,
         'kakao_id' => kakaoId,

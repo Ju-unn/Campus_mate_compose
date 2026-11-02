@@ -1,8 +1,13 @@
 import 'dart:async';
 
 import 'package:campus_mate/core/analytics/analytics_service.dart';
+import 'package:campus_mate/core/analytics/analytics_values.dart';
+import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/foundation.dart';
+
+/// `onboarding_step_complete.seconds` 의 상한(1시간). 앱을 켜 둔 채 자리를 비운 시간이 평균을 끌어올리지 않게 자른다.
+const int _maxStepSeconds = 3600;
 
 /// 진짜 Firebase Analytics. `Firebase.initializeApp()` 이 끝난 뒤에만 만든다(main.dart).
 /// 이벤트는 쏘고 잊는다 — 통계가 실패해도 앱 흐름으로 오류를 올리지 않는다(오류 종류만 로그).
@@ -37,17 +42,68 @@ class FirebaseAnalyticsService implements AnalyticsService {
   Future<void> _sendLogin(String method) => _analytics.logEvent(name: 'login', parameters: {'method': method});
 
   @override
-  void logOnboardingComplete() => _fire(() => _analytics.logEvent(name: 'onboarding_complete'));
+  void logOnboardingComplete() => _event('onboarding_complete');
 
   @override
-  void logChatRequestSent() => _fire(() => _analytics.logEvent(name: 'chat_request_sent'));
+  void logOnboardingStepComplete(OnboardingStep step, int seconds) =>
+      _event('onboarding_step_complete', {'step': step.wire, 'seconds': seconds.clamp(0, _maxStepSeconds)});
 
   @override
-  void logHeartPurchase(String productId) =>
-      _fire(() => _analytics.logEvent(name: 'heart_purchase', parameters: {'product_id': productId}));
+  void logOnboardingStepBack(OnboardingStep step) => _event('onboarding_step_back', {'step': step.wire});
+
+  @override
+  void logOnboardingBlocked(OnboardingStep step, OnboardingBlockReason reason) =>
+      _event('onboarding_blocked', {'step': step.wire, 'reason': reason.wire});
+
+  @override
+  void logChatRequestSent() => _event('chat_request_sent');
+
+  @override
+  void logCardView(CardOrigin source) => _event('card_view', {'source': source.wire});
+
+  @override
+  void logCardDetailOpen(CardOrigin source) => _event('card_detail_open', {'source': source.wire});
+
+  @override
+  void logCardPass(CardOrigin source) => _event('card_pass', {'source': source.wire});
+
+  @override
+  void logPaidCardView(PaidCardState state) => _event('paid_card_view', {'state': state.wire});
+
+  @override
+  void logPaidCardSheetOpen() => _event('paid_card_sheet_open');
+
+  @override
+  void logHeartPurchase(String productId) => _event('heart_purchase', {'product_id': productId});
+
+  @override
+  void logHeartStoreOpen(HeartStoreEntry from) => _event('heart_store_open', {'from': from.wire});
+
+  @override
+  void logHeartProductSelect(String productId) => _event('heart_product_select', {'product_id': productId});
+
+  @override
+  void logHeartPurchaseResult(HeartPurchaseResult result, String productId) =>
+      _event('heart_purchase_result', {'result': result.wire, 'product_id': productId});
+
+  @override
+  void logPushOpen(PushOpenType type) => _event('push_open', {'type': type.wire});
+
+  @override
+  void logTourFinish(TourResult result, int step) => _event('tour_finish', {'result': result.wire, 'step': step});
+
+  @override
+  void logPollVote() => _event('poll_vote');
+
+  @override
+  void logPollCreate() => _event('poll_create');
 
   @override
   void logScreen(String name) => _fire(() => _analytics.logScreenView(screenName: name));
+
+  /// 이름과 정해진 매개변수 하나로 이벤트를 쏜다. 매개변수가 없으면 `null` 이다.
+  void _event(String name, [Map<String, Object>? parameters]) =>
+      _fire(() => _analytics.logEvent(name: name, parameters: parameters));
 
   void _fire(Future<void> Function() action) {
     unawaited(action().catchError((Object error) => debugPrint('사용 통계 실패: ${error.runtimeType}')));

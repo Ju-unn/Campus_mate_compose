@@ -1,4 +1,6 @@
 import 'package:campus_mate/core/analytics/analytics_service.dart';
+import 'package:campus_mate/core/analytics/analytics_values.dart';
+import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -14,6 +16,21 @@ void main() {
       service.logChatRequestSent();
       service.logHeartPurchase('heart_100');
       service.logScreen('/home');
+      service.logOnboardingStepComplete(OnboardingStep.photos, 10);
+      service.logOnboardingStepBack(OnboardingStep.photos);
+      service.logOnboardingBlocked(OnboardingStep.photos, OnboardingBlockReason.server);
+      service.logCardView(CardOrigin.free);
+      service.logCardDetailOpen(CardOrigin.purchased);
+      service.logCardPass(CardOrigin.free);
+      service.logPaidCardView(PaidCardState.offered);
+      service.logPaidCardSheetOpen();
+      service.logHeartStoreOpen(HeartStoreEntry.other);
+      service.logHeartProductSelect('heart_100');
+      service.logHeartPurchaseResult(HeartPurchaseResult.success, 'heart_100');
+      service.logPushOpen(PushOpenType.chat);
+      service.logTourFinish(TourResult.done, 6);
+      service.logPollVote();
+      service.logPollCreate();
     }, returnsNormally);
   });
 }
