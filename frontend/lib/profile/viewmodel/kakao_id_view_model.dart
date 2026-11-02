@@ -6,6 +6,7 @@ import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/profile/model/kakao_id_repository_provider.dart';
 import 'package:campus_mate/profile/viewmodel/kakao_id_ui_state.dart';
+import 'package:campus_mate/profile/viewmodel/onboarding_blocked.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final kakaoIdViewModelProvider = NotifierProvider<KakaoIdViewModel, KakaoIdUiState>(
@@ -50,6 +51,7 @@ class KakaoIdViewModel extends Notifier<KakaoIdUiState> {
     try {
       final repository = ref.read(kakaoIdRepositoryProvider);
       final result = await repository.submit(state.kakaoIdInput.trim());
+      reportIfOnboardingBlocked(ref, result);
       return _stateFromResult(result);
     } catch (_) {
       return _copyWith(isSubmitting: false, errorMessage: const UnknownFailure().toDisplayMessage());

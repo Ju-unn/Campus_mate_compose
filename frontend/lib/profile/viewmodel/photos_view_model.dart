@@ -4,11 +4,13 @@ import 'dart:io';
 import 'package:campus_mate/auth/model/face_detector_provider.dart';
 import 'package:campus_mate/auth/model/image_compressor_provider.dart';
 import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/core/analytics/analytics_values.dart';
 import 'package:campus_mate/core/draft/draft_screen.dart';
 import 'package:campus_mate/core/draft/draft_store.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/profile/model/photos_repository_provider.dart';
 import 'package:campus_mate/profile/viewmodel/avatar_generation_view_model.dart';
+import 'package:campus_mate/profile/viewmodel/onboarding_blocked.dart';
 import 'package:campus_mate/profile/viewmodel/photos_ui_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -105,6 +107,10 @@ class PhotosViewModel extends Notifier<PhotosUiState> {
         isCheckingPhotos: false,
         errorMessage: _rejectedMessage(accepted.length, rejected),
       );
+    }
+    if (accepted.isEmpty && rejected > 0) {
+      // 한 장도 담지 못했다 — 다음 단계로 갈 수 없는 막힘이다(사용 통계 onboarding_blocked).
+      ref.read(onboardingStepListenableProvider).blocked(OnboardingBlockReason.photoNoFace);
     }
   }
 
@@ -246,11 +252,18 @@ class PhotosViewModel extends Notifier<PhotosUiState> {
   /// 그 밖의 거절은 서버 문구 그대로다.
   /// 뺄 사진은 자리 번호가 아니라 사진(열쇠)으로 찾는다 — 올리는 동안 칸이 바뀌었으면 번호가 다른 사진을 가리킨다.
   PhotosUiState _failedState(Failure failure, SelectedPhoto rejected) {
+    ref.read(onboardingStepListenableProvider).blocked(_blockReason(failure));
     if (!isPhotoDocumentRejection(failure)) {
       return state.copyWith(isSubmitting: false, errorMessage: failure.toDisplayMessage());
     }
     final photos = [for (final photo in state.photos) if (photo.key != rejected.key) photo];
     return state.copyWith(isSubmitting: false, photos: photos, documentRejected: true);
+  }
+
+  /// 서버가 사진을 돌려보낸 것(서류 · 그 밖의 부적절 사진)과 그 밖의 실패(인터넷 · 서버 오류)를 가른다. 서버 문구는 싣지 않는다.
+  OnboardingBlockReason _blockReason(Failure failure) {
+    if (isPhotoDocumentRejection(failure)) return OnboardingBlockReason.photoDocument;
+    return failure is ServerRejectedFailure ? OnboardingBlockReason.photoRejected : onboardingBlockReasonOf(failure);
   }
 
   void _refreshOnboardingStepIfCompleted() {

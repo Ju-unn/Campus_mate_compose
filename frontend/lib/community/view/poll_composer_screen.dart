@@ -5,6 +5,7 @@ import 'package:campus_mate/community/model/poll.dart';
 import 'package:campus_mate/community/view/poll_feed_tabs.dart';
 import 'package:campus_mate/community/view/vote_option.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
+import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -86,6 +87,8 @@ class _PollComposerScreenState extends ConsumerState<PollComposerScreen> {
     if (!mounted) return;
     result.when(
       onSuccess: (_) {
+        // 사용 통계 `poll_create` — 서버가 질문을 받아 준 뒤에만. 질문 글 · 보기 글자는 싣지 않는다.
+        ref.read(analyticsServiceProvider).logPollCreate();
         // 어느 탭에서 왔든 전체 탭으로 옮겨 새로 받는다 — 방금 올린 글이 맨 위에 보인다(사용자 결정).
         ref.read(communityFeedViewModelProvider.notifier).showAllAfterPosting();
         context.pop();

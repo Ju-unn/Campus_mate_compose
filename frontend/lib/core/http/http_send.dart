@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/core/analytics/handled_api_error.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -16,14 +17,40 @@ const Duration readTimeout = Duration(seconds: 15);
 /// 모든 기능의 HTTP Repository(인증·온보딩·매칭)가 공유하는 요청-전송·상태코드 분류.
 /// 네트워크 예외(연결 실패 · 조회 시간 초과)와 비정상 응답 바디(파싱 실패)를 모두 [Failure] 로 감싸
 /// [Result] 를 벗어나 예외가 그대로 튀는 일이 없게 한다.
-Future<Result<http.Response>> sendHttpRequest(http.Client client, http.BaseRequest request) async {
+///
+/// [onHandledError] 는 앱이 버틴 오류(서버 5xx · 연결 실패 · 시간 초과)를 오류 수집에 알린다. 4xx(사용자 입력 오류 · 401 · 429)는
+/// 알리지 않는다. 넘기는 것은 종류 · 상태 코드 · 경로 패턴뿐이다([HandledApiError]).
+Future<Result<http.Response>> sendHttpRequest(
+  http.Client client,
+  http.BaseRequest request, {
+  HandledErrorSink? onHandledError,
+}) async {
   try {
     final pending = client.send(request).then(http.Response.fromStream);
     // TimeoutException 도 Exception 이라 아래에서 NetworkFailure 가 된다.
     final response = await (request.method == 'GET' ? pending.timeout(readTimeout) : pending);
+    if (response.statusCode >= 500) {
+      _tell(onHandledError, HandledApiError.fromStatus(response.statusCode, request.url));
+    }
     return _classify(response);
-  } on Exception catch (_) {
+  } on Exception catch (error) {
+    // _classify 안의 FormatException 은 4xx 인데 몸통이 JSON 이 아닌 것이다 — 앱이 버틴 서버·네트워크 오류가 아니다.
+    if (error is! FormatException) {
+      _tell(onHandledError, HandledApiError.fromException(error, request.url));
+    }
     return const FailureResult(NetworkFailure());
+  }
+}
+
+/// 앱이 버틴 API 오류를 받는 곳(오류 수집). 요청 흐름을 막지 않으므로 이 함수가 던져서는 안 된다.
+typedef HandledErrorSink = void Function(HandledApiError error);
+
+/// 알리는 쪽이 고장 나도 요청 결과를 바꾸지 않는다 — 여기서 던지면 위 `on Exception` 이 받아 정상 응답을 NetworkFailure 로 바꾼다.
+void _tell(HandledErrorSink? sink, HandledApiError error) {
+  try {
+    sink?.call(error);
+  } on Object catch (_) {
+    // 오류 보고가 실패해도 사용자 요청은 그대로 간다.
   }
 }
 
@@ -107,13 +134,14 @@ Failure? _schoolEmailTaken(int statusCode, String detail, Object? provider) {
 Future<Result<http.Response>> sendAuthorizedRequest(
   http.Client client,
   GoTrueClient auth,
-  FutureOr<http.BaseRequest> Function(String accessToken) buildRequest,
-) async {
+  FutureOr<http.BaseRequest> Function(String accessToken) buildRequest, {
+  HandledErrorSink? onHandledError,
+}) async {
   final session = auth.currentSession;
   if (session == null) {
     return const FailureResult(SessionExpiredFailure());
   }
-  final result = await sendHttpRequest(client, await buildRequest(session.accessToken));
+  final result = await sendHttpRequest(client, await buildRequest(session.accessToken), onHandledError: onHandledError);
   final rejected = result.when(onSuccess: (_) => false, onFailure: (f) => f is SessionRejectedFailure);
   if (!rejected) {
     return result;
@@ -131,5 +159,5 @@ Future<Result<http.Response>> sendAuthorizedRequest(
   if (refreshed == null) {
     return const FailureResult(SessionRejectedFailure());
   }
-  return sendHttpRequest(client, await buildRequest(refreshed));
+  return sendHttpRequest(client, await buildRequest(refreshed), onHandledError: onHandledError);
 }

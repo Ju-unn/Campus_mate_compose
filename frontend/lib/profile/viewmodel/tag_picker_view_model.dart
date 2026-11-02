@@ -4,6 +4,7 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/core/draft/draft_store.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/profile/model/tag_picker_repository_provider.dart';
+import 'package:campus_mate/profile/viewmodel/onboarding_blocked.dart';
 import 'package:campus_mate/profile/viewmodel/revisit_profile.dart';
 import 'package:campus_mate/profile/viewmodel/tag_picker_kind.dart';
 import 'package:campus_mate/profile/viewmodel/tag_picker_ui_state.dart';
@@ -67,6 +68,7 @@ class TagPickerViewModel extends Notifier<TagPickerUiState> {
     try {
       final repository = ref.read(tagPickerRepositoryProvider);
       final result = await repository.submit(_kind.endpoint, state.selected.toList());
+      reportIfOnboardingBlocked(ref, result);
       state = result.when(
         onSuccess: (_) => state.copyWith(isSubmitting: false, completed: true),
         onFailure: (failure) => state.copyWith(isSubmitting: false, errorMessage: failure.toDisplayMessage()),

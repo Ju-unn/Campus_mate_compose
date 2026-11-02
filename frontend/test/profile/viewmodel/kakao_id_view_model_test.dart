@@ -1,3 +1,4 @@
+import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'dart:io';
 
 import 'package:campus_mate/account/model/account_repository.dart';
@@ -17,20 +18,24 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../account/model/fake_account_repository.dart';
 import '../model/fake_kakao_id_repository.dart';
 import '../model/fake_onboarding_repository.dart';
+import '../../core/analytics/fake_analytics_service.dart';
 import '../../core/draft/fake_draft_store.dart';
 
 void main() {
   late FakeKakaoIdRepository repository;
   late FakeOnboardingRepository onboardingRepository;
+  late FakeAnalyticsService analytics;
   late ProviderContainer container;
 
   setUp(() {
     repository = FakeKakaoIdRepository();
     onboardingRepository = FakeOnboardingRepository();
+    analytics = FakeAnalyticsService();
     container = ProviderContainer(
       overrides: [
         kakaoIdRepositoryProvider.overrideWithValue(repository),
         onboardingRepositoryProvider.overrideWithValue(onboardingRepository),
+        analyticsServiceProvider.overrideWithValue(analytics),
       ],
     );
   });
@@ -185,4 +190,28 @@ void main() {
       expect(preferences.getKeys(), isEmpty);
     });
   });
+
+  group('가입 막힘 분석(onboarding_blocked)', () {
+    test('저장이 거절되면 지금 단계와 종류값을 남긴다', () async {
+      await standAt(container, onboardingRepository, OnboardingStep.kakaoId);
+      repository.nextResult = const FailureResult(ServerRejectedFailure('이미 쓰는 아이디예요'));
+      final vm = container.read(kakaoIdViewModelProvider.notifier);
+      vm.changeKakaoId('my_kakao_id');
+
+      await vm.submit();
+
+      expect(analytics.calls, ['onboarding_blocked:kakao_id:rejected']);
+    });
+
+    test('저장에 성공하면 막힘을 남기지 않는다', () async {
+      await standAt(container, onboardingRepository, OnboardingStep.kakaoId);
+      final vm = container.read(kakaoIdViewModelProvider.notifier);
+      vm.changeKakaoId('my_kakao_id');
+
+      await vm.submit();
+
+      expect(analytics.calls, isNot(contains(startsWith('onboarding_blocked'))));
+    });
+  });
+
 }

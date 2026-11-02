@@ -2,14 +2,17 @@ import 'dart:async';
 
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'package:campus_mate/profile/model/avatar_generation_outcome.dart';
 import 'package:campus_mate/profile/model/avatar_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
+import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:campus_mate/profile/viewmodel/avatar_generation_ui_state.dart';
 import 'package:campus_mate/profile/viewmodel/avatar_generation_view_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../core/analytics/fake_analytics_service.dart';
 import '../model/fake_avatar_repository.dart';
 import '../model/fake_onboarding_repository.dart';
 
@@ -18,17 +21,20 @@ const _url = 'https://x.supabase.co/storage/v1/object/public/avatars/aa/avatar.p
 void main() {
   late FakeAvatarRepository repository;
   late FakeOnboardingRepository onboardingRepository;
+  late FakeAnalyticsService analytics;
   late ProviderContainer container;
   late DateTime now;
 
   setUp(() {
     repository = FakeAvatarRepository();
     onboardingRepository = FakeOnboardingRepository();
+    analytics = FakeAnalyticsService();
     now = DateTime(2026, 9, 26, 12);
     container = ProviderContainer(
       overrides: [
         avatarRepositoryProvider.overrideWithValue(repository),
         onboardingRepositoryProvider.overrideWithValue(onboardingRepository),
+        analyticsServiceProvider.overrideWithValue(analytics),
         avatarGenerationNowProvider.overrideWithValue(() => now),
       ],
     );
@@ -304,4 +310,27 @@ void main() {
     expect(repository.statusCount, 1);
     expect(state().status, AvatarGenerationStatus.ready);
   });
+
+  // 사용 통계 onboarding_blocked — 04-3 을 붙잡아 두는 등록 실패만 남긴다(넘어가는 실패는 막힌 것이 아니다).
+  group('가입 막힘 분석(onboarding_blocked)', () {
+    test('04-3 에 붙잡히는 실패(큐 설정 안 된 서버)는 지금 단계와 종류값을 남긴다', () async {
+      await standAt(container, onboardingRepository, OnboardingStep.photos);
+      repository.nextResult = const FailureResult(ServerUnavailableFailure());
+
+      await viewModel().generate();
+
+      expect(analytics.calls, ['onboarding_blocked:photos:server']);
+    });
+
+    test('넘어가는 실패(응답을 못 받음 · 이미 만듦)는 남기지 않는다', () async {
+      await standAt(container, onboardingRepository, OnboardingStep.photos);
+      repository.nextResult = const FailureResult(NetworkFailure());
+      await viewModel().generate();
+      repository.nextResult = const FailureResult(ServerRejectedFailure('아바타는 한 번만 만들 수 있어요'));
+      await viewModel().generate();
+
+      expect(analytics.calls, isEmpty);
+    });
+  });
+
 }

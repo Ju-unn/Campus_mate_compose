@@ -1,3 +1,4 @@
+import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
@@ -16,20 +17,24 @@ import 'package:campus_mate/core/draft/draft_store.dart';
 import '../../me/model/fake_me_repository.dart';
 import '../model/fake_ideal_note_repository.dart';
 import '../model/fake_onboarding_repository.dart';
+import '../../core/analytics/fake_analytics_service.dart';
 import '../../core/draft/fake_draft_store.dart';
 
 void main() {
   late FakeIdealNoteRepository repository;
   late FakeOnboardingRepository onboardingRepository;
+  late FakeAnalyticsService analytics;
   late ProviderContainer container;
 
   setUp(() {
     repository = FakeIdealNoteRepository();
     onboardingRepository = FakeOnboardingRepository();
+    analytics = FakeAnalyticsService();
     container = ProviderContainer(
       overrides: [
         idealNoteRepositoryProvider.overrideWithValue(repository),
         onboardingRepositoryProvider.overrideWithValue(onboardingRepository),
+        analyticsServiceProvider.overrideWithValue(analytics),
       ],
     );
   });
@@ -244,4 +249,16 @@ void main() {
       expect(open().read(idealNoteViewModelProvider).note, isEmpty);
     });
   });
+
+  test('저장이 인터넷 문제로 막히면 가입 막힘으로 남긴다', () async {
+    await standAt(container, onboardingRepository, OnboardingStep.idealNote);
+    repository.nextResult = const FailureResult(NetworkFailure());
+    final vm = container.read(idealNoteViewModelProvider.notifier);
+    vm.changeNote('대화가 잘 통하는 사람이면 좋겠어요');
+
+    await vm.submit();
+
+    expect(analytics.calls, ['onboarding_blocked:ideal_note:network']);
+  });
+
 }

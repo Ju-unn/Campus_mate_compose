@@ -50,7 +50,7 @@ abstract final class AppColors {
   /// 잉크 표면 위 텍스트
   static const Color onInk = Color(0xFFFFFFFF);
 
-  /// 잉크 표면 위 보조 텍스트 — 화면 11 "내일 만날 사람들" 띠의 둘째 줄
+  /// 잉크 표면 위 보조 텍스트 — 화면 11 "다음에 만날 사람들" 띠의 둘째 줄이었다(둘째 줄은 2026-11-02 에 없앴다, 지금 쓰는 곳 없음)
   /// (2026-09-23 pen `i4VFS` 대조에서 신설. DESIGN.md §2 표에 줄 추가 필요)
   static const Color onInkMuted = Color(0xFFE6E6E6);
 

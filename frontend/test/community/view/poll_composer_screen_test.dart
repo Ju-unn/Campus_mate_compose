@@ -7,6 +7,7 @@ import 'package:campus_mate/community/model/community_repository.dart';
 import 'package:campus_mate/community/model/community_repository_provider.dart';
 import 'package:campus_mate/community/view/poll_composer_screen.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
+import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'package:campus_mate/community/view/poll_donut.dart';
 import 'package:campus_mate/community/view/poll_feed_tabs.dart';
 import 'package:campus_mate/community/view/vote_option.dart';
@@ -18,12 +19,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/analytics/fake_analytics_service.dart';
 import '../model/fake_community_repository.dart';
 
 void main() {
   late FakeCommunityRepository repository;
+  late FakeAnalyticsService analytics;
 
-  setUp(() => repository = FakeCommunityRepository());
+  setUp(() {
+    repository = FakeCommunityRepository();
+    analytics = FakeAnalyticsService();
+  });
 
   Future<void> pump(WidgetTester tester) async {
     final router = GoRouter(
@@ -36,7 +42,10 @@ void main() {
     addTearDown(router.dispose);
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [communityRepositoryProvider.overrideWithValue(repository)],
+        overrides: [
+          communityRepositoryProvider.overrideWithValue(repository),
+          analyticsServiceProvider.overrideWithValue(analytics),
+        ],
         child: MaterialApp.router(routerConfig: router),
       ),
     );
@@ -434,4 +443,32 @@ void main() {
     expect(button.top - guide.bottom, 20);
     expect(button.height, 52); // HE8FZ 2026-10-01 개편
   });
+
+  // 사용 통계 poll_create — 서버가 질문을 받아 준 뒤에만, 이름만 남긴다(질문 글 · 보기 글자는 싣지 않는다).
+  group('질문 작성 분석(poll_create)', () {
+    testWidgets('올리기가 받아들여지면 남기고, 질문 글은 어디에도 싣지 않는다', (tester) async {
+      await pump(tester);
+      await tester.enterText(find.byKey(PollComposerScreen.questionKey), '깻잎을 먼저 집으면 안 되나?');
+      await tester.pump();
+
+      await tester.tap(find.text('익명으로 올리기'));
+      await tester.pumpAndSettle();
+
+      expect(analytics.calls, ['poll_create']);
+      expect(analytics.calls.join(), isNot(contains('깻잎')));
+    });
+
+    testWidgets('서버가 막으면(하루 한도 등) 남기지 않는다', (tester) async {
+      repository.createResult = const FailureResult(RateLimitedFailure());
+      await pump(tester);
+      await tester.enterText(find.byKey(PollComposerScreen.questionKey), '깻잎을 먼저 집으면 안 되나?');
+      await tester.pump();
+
+      await tester.tap(find.text('익명으로 올리기'));
+      await tester.pumpAndSettle();
+
+      expect(analytics.calls, isEmpty);
+    });
+  });
+
 }

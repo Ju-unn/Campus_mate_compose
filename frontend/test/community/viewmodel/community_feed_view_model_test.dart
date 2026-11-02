@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/community/model/community_repository.dart';
+import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'package:campus_mate/community/model/community_repository_provider.dart';
 import 'package:campus_mate/community/model/poll.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
@@ -13,6 +14,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../me/model/fake_me_repository.dart';
+import '../../core/analytics/fake_analytics_service.dart';
 import '../model/fake_community_repository.dart';
 
 /// 이름 · 학교는 지어낸 값이다.
@@ -34,9 +36,15 @@ const _profile = MyProfile(
 
 void main() {
   late FakeCommunityRepository repository;
+  late FakeAnalyticsService analytics;
 
   Future<ProviderContainer> start() async {
-    final container = ProviderContainer(overrides: [communityRepositoryProvider.overrideWithValue(repository)]);
+    final container = ProviderContainer(
+      overrides: [
+        communityRepositoryProvider.overrideWithValue(repository),
+        analyticsServiceProvider.overrideWithValue(analytics),
+      ],
+    );
     addTearDown(container.dispose);
     container.read(communityFeedViewModelProvider);
     await container.read(communityFeedViewModelProvider.notifier).refresh();
@@ -45,7 +53,10 @@ void main() {
 
   CommunityFeedViewModel viewModel(ProviderContainer c) => c.read(communityFeedViewModelProvider.notifier);
 
-  setUp(() => repository = FakeCommunityRepository());
+  setUp(() {
+    repository = FakeCommunityRepository();
+    analytics = FakeAnalyticsService();
+  });
 
   test('열면 첫 쪽을 읽는다', () async {
     repository.page = Success(PollPage(polls: [pollFixture()], hasMore: true));
@@ -365,4 +376,44 @@ void main() {
 
     expect(container.read(communityFeedViewModelProvider).polls.map((p) => p.id), ['p2']);
   });
+
+  // 사용 통계 poll_vote — 서버가 투표를 받아 준 뒤에만, 이름만 남긴다(질문 id · 고른 보기 · 보상은 싣지 않는다).
+  group('투표 분석(poll_vote)', () {
+    test('투표가 받아들여지면 남긴다 — 보상이 없어도', () async {
+      repository
+        ..page = Success(PollPage(polls: [pollFixture()], hasMore: false))
+        ..voteResult = Success(VoteOutcome(poll: pollFixture(myChoice: PollChoice.b), rewarded: false));
+      final container = await start();
+
+      await viewModel(container).vote('p1', PollChoice.b);
+
+      expect(analytics.calls, ['poll_vote']);
+    });
+
+    test('서버가 막으면(이미 투표 · 글 없음 · 연결 실패) 남기지 않는다', () async {
+      repository
+        ..page = Success(PollPage(polls: [pollFixture()], hasMore: false))
+        ..voteResult = const FailureResult(ServerRejectedFailure('이미 투표했어요'))
+        ..poll = Success(pollFixture(myChoice: PollChoice.a));
+      final container = await start();
+
+      await viewModel(container).vote('p1', PollChoice.b);
+
+      expect(analytics.calls, isEmpty);
+    });
+
+    test('이미 보내는 중인 투표를 또 눌러도 한 번만 남긴다', () async {
+      repository
+        ..page = Success(PollPage(polls: [pollFixture()], hasMore: false))
+        ..voteResult = Success(VoteOutcome(poll: pollFixture(myChoice: PollChoice.a), rewarded: false));
+      final container = await start();
+
+      final first = viewModel(container).vote('p1', PollChoice.a);
+      await viewModel(container).vote('p1', PollChoice.b);
+      await first;
+
+      expect(analytics.calls, ['poll_vote']);
+    });
+  });
+
 }

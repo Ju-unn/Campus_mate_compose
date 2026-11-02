@@ -12,7 +12,7 @@ const _heartMoneyWords = ['환급', '선물', '송금', '현금', '출금'];
 const _heartBannedWords = ['한 명 더', '이상형 조건에 맞는', '상위 20%', '가장 잘 맞는 한 명'];
 
 /// 오늘 탭 결제 카드(잠금 카드, matching/view/paid_card_locked.dart)의 버튼 · 머리글 — 서버 paid_card 가 offered 가 아니면 둘 다 없어야 한다.
-const _paidCardWords = ['으로 열기', '명이 기다리고 있어요'];
+const _paidCardWords = ['으로 열기', '성향이 잘 맞는 사람이'];
 
 /// 하트 스토어로 가는 글 — E-HEART-51: 오늘 · 나 탭에는 없고, 설정에는 있어서 누르면 스토어가 열린다. 스토어 입구는 홈 · 나 탭 앱바 하트 칩의 "+"
 /// (나 탭은 2026-10-12 부터)와 설정의 보유 하트 블록이다 — 칩의 "하트 충전" 은 낭독 힌트(Semantics hint)라 글자 검사(_seeNone)에 안 걸린다.
@@ -59,12 +59,12 @@ Future<void> _noneOnHeartScreens(
   }
 }
 
-/// 오늘 탭의 결제 카드가 PC 가 읽은 서버 `paid_card` 와 맞다 — offered 면 "N으로 열기" · "N명이 기다리고 있어요" 가 보이고(목록 맨 끝이라
+/// 오늘 탭의 결제 카드가 PC 가 읽은 서버 `paid_card` 와 맞다 — offered 면 "N으로 열기" · "나와 성향이 잘 맞는 사람이 기다리고 있어요" 가 보이고(목록 맨 끝이라
 /// 아직 안 그려졌으면 내려 본다), null · empty 면 둘 다 없다(empty 는 "잘 맞는 새 사람이 들어오면 다시 열려요" 안내만, 설계 01 §3-3).
 Future<void> _paidCardAsServerSaid(WidgetTester tester, Object? paid) async {
-  if (paid case {'state': 'offered', 'cost': final int cost, 'band_count': final int band}) {
+  if (paid case {'state': 'offered', 'cost': final int cost}) {
     final list = find.descendant(of: find.byType(TodayCardsScreen), matching: find.byType(Scrollable));
-    for (final text in ['$cost으로 열기', '$band명이 기다리고 있어요']) {
+    for (final text in ['$cost으로 열기', '성향이 잘 맞는 사람이']) {
       final shown = find.textContaining(text, findRichText: true);
       if (await appears(tester, shown, const Duration(seconds: 5)) == null && list.evaluate().isNotEmpty) {
         await tester.scrollUntilVisible(shown, 300, scrollable: list.first);
@@ -151,7 +151,8 @@ final Map<String, Area1Case> _extraCases = {
   //   ② 오늘 · 나 탭에는 스토어로 가는 글(스토어 · 하트 충전)도 없다 — 스토어 입구는 홈 · 나 탭 앱바 하트 칩의 "+"(나 탭은 2026-10-12 부터)와
   //      설정 블록이다. 칩의 "하트 충전" 은 낭독 힌트(Semantics hint)라 이 글자 검사에 안 걸린다.
   //   ③ 설정에는 "하트 충전" 줄이 있고 누르면 하트 스토어(18)가 열린다.
-  //   ④ 오늘 탭의 결제 카드("N으로 열기" · "N명이 기다리고 있어요")는 PC 가 읽은 paid_card 가 offered 일 때만 보인다.
+  //   ④ 오늘 탭의 결제 카드("N으로 열기" · "나와 성향이 잘 맞는 사람이 기다리고 있어요")는 PC 가 읽은 paid_card 가 offered 일 때만 보인다.
+  //      머리글에서 인원수("N명이")는 앱 1.0.1 에서 뺐다 — 그래서 band_count 는 이 글자 검사에 쓰지 않는다.
   // paid_card 모양 · locked_card_available 일관성 · 서버 경로(구매 경로 하나 · 환급 · 선물 없음)는 PC 가 본다.
   'E-HEART-51': _session((tester, job) async {
     await _noneOnHeartScreens(tester, _heartBannedWords, today: true, tabsOnly: _heartStoreWords, onToday: () => _paidCardAsServerSaid(tester, job['paid_card']));

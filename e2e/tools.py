@@ -20,7 +20,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -112,8 +112,36 @@ class Hub:
         self._server.server_close()
 
 
-def env(path=ENV_FILE):
-    """`frontend/e2e.env`(gitignore) — 빌드의 --dart-define-from-file 과 같은 파일을 진행도 읽는다."""
+def env_file():
+    """환경 변수 `E2E_ENV` 가 있으면 그 파일(로컬 Docker 시험용), 없으면 `frontend/e2e.env`."""
+    return Path(os.environ['E2E_ENV']) if os.environ.get('E2E_ENV') else ENV_FILE
+
+
+def is_local(cfg=None):
+    """SUPABASE_URL 이 운영(`https://<ref>.supabase.co`)이 아니면 로컬 시험이다 — 운영 프로젝트(gcloud)로 가는 길을 모두 막는 기준.
+    호스트 이름 끝이 `.supabase.co` 일 때만 운영으로 본다(`...supabase.co.evil.com` · `evilsupabase.co` · `운영@127.0.0.1` 은 로컬).
+    [cfg] 가 없으면 env_file() 을 읽는다. 파일이 없을 때: E2E_ENV 를 직접 적었으면 로컬(오타를 운영으로 읽지 않는다), 아니면 늘 하던 대로 운영."""
+    if cfg is None:
+        if not env_file().exists():
+            return bool(os.environ.get('E2E_ENV'))
+        cfg = env()
+    return not (urllib.parse.urlsplit(cfg.get('SUPABASE_URL', '')).hostname or '').endswith('.supabase.co')
+
+
+def require_cloud(what):
+    """gcloud(운영 프로젝트)를 부르는 함수의 첫 줄 — 로컬 시험이면 부르기 전에 [Blocked]."""
+    if is_local():
+        raise Blocked(f'{what}: 로컬 시험(SUPABASE_URL 이 운영이 아님)이라 gcloud(운영 프로젝트)를 부르지 않는다')
+
+
+def results_root(base, today=None):
+    """결과 폴더. 로컬 시험은 `<base>/로컬_<날짜>` — 운영 signup_blocks 스냅샷 · 별칭 번호표와 섞이지 않는다."""
+    return Path(base) / f'로컬_{today or date.today()}' if is_local() else Path(base)
+
+
+def env(path=None):
+    """`frontend/e2e.env`(gitignore) — 빌드의 --dart-define-from-file 과 같은 파일을 진행도 읽는다. `E2E_ENV` 로 다른 파일을 가리킬 수 있다."""
+    path = path or env_file()
     if not Path(path).exists():
         raise SystemExit(f'{path} 가 없다 — SUPABASE_URL · SUPABASE_ANON_KEY · API_BASE_URL · E2E_MAIL_BASE · E2E_DEVICE_A 를 적는다.')
     pairs = {}
@@ -218,7 +246,11 @@ def screencap(serial):
 
 
 def service_key():
-    """서비스 키를 Secret Manager 에서 받아 돌려준다 — 메모리에만 둔다."""
+    """서비스 키를 돌려준다 — 메모리에만 둔다. 환경 변수 `E2E_SERVICE_KEY`(로컬 스택 키)가 있으면 그 값, 없으면 운영 Secret Manager.
+    로컬 시험에서 키가 없으면 운영 키를 받으러 가지 않고 멈춘다."""
+    if os.environ.get('E2E_SERVICE_KEY'):
+        return os.environ['E2E_SERVICE_KEY']
+    require_cloud('서비스 키(Secret Manager) — 로컬 시험은 E2E_SERVICE_KEY 로 로컬 키를 준다')
     return subprocess.run(
         ['gcloud', 'secrets', 'versions', 'access', 'latest', '--secret=supabase-service-role-key'],
         **TEXT, check=True, shell=True,  # 윈도는 gcloud 가 .cmd 라 shell 로 부른다
@@ -482,7 +514,9 @@ def batch(name):
     """Cloud Scheduler job `campus-mate-<name>` 을 지금 한 번 돌린다(정리 배치 = cleanup). 끝을 기다리지 않는다 —
     가설이 DB 를 다시 읽어 결과가 보일 때까지 기다린다.
     ponytail: gcloud 를 그대로 부른다(DEPLOY.md §정리 배치 "확인"). 스케줄러 SA ID 토큰으로 /batch/* 를 직접 부르는 길로
-    바꾸려면 이 함수만 바꾸면 된다(tokenCreator 부여 · 회수가 따라온다)."""
+    바꾸려면 이 함수만 바꾸면 된다(tokenCreator 부여 · 회수가 따라온다).
+    로컬 시험이면 부르지 않는다 — 로컬 서버의 /batch/* 는 구글이 서명한 ID 토큰(core/batch_auth.py)이 있어야 열려 로컬에서 직접 부를 길도 없다."""
+    require_cloud(f'배치 {name}')
     subprocess.run(['gcloud', 'scheduler', 'jobs', 'run', f'campus-mate-{name}', '--location=asia-northeast3'],
                    **TEXT, check=True, shell=True)  # 윈도는 gcloud 가 .cmd 라 shell 로 부른다
 

@@ -41,3 +41,15 @@ Future<void> revisit(
   }
   repository.fetchCount = 0;
 }
+
+/// 가입 중인 [step] 에 서 있는 것으로 만든다. 기본 가짜는 가입을 마친 상태(complete)라 사용 통계 "막힘"(`onboarding_blocked`)이
+/// 꺼져 있다 — 막힘을 보는 시험이 쓴다. 조회 횟수는 0 으로 되돌린다.
+Future<void> standAt(
+  ProviderContainer container,
+  FakeOnboardingRepository repository,
+  OnboardingStep step,
+) async {
+  repository.nextResult = Success(step);
+  await container.read(onboardingStepListenableProvider).refresh();
+  repository.fetchCount = 0;
+}

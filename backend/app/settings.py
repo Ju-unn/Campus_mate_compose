@@ -82,6 +82,9 @@ class Settings(BaseSettings):
     # 관리자 관문(admin/caller.py)이 받는 2단계 인증 나이(시간). 토큰 amr 의 totp 시각이 이보다 오래면 403 mfa_required —
     # 토큰을 새로 고쳐도 aal2 는 그대로 남아서, 2단계를 마친 시각으로 관리자 세션 수명을 끊는다.
     admin_mfa_max_age_hours: int = 12
+    # 강제 업데이트(`GET /app/version`, app_version/router.py): 이 버전 **미만** 인 앱은 업데이트 안내로 막힌다. 비면 아무도 막지 않는다.
+    # 글자로 받는다 — 형식(숫자.숫자.숫자)이 틀려도 Settings() 가 죽어 서버 전체가 멈추지 않게. 검사는 그 경로가 하고, 틀리면 안 막는다.
+    min_app_version: str = ""
 
     @property
     def postgrest_url(self) -> str:

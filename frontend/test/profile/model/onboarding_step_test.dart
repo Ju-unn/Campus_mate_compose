@@ -34,6 +34,36 @@ void main() {
     });
   });
 
+  // 사용 통계 `onboarding_step_*` 의 `step` 값 — 서버가 보내는 글자(fromWire)와 한 쌍이라 돌려 읽어도 같은 단계다.
+  group('wire', () {
+    test('서버 글자와 한 쌍이다', () {
+      for (final step in OnboardingStep.values) {
+        expect(OnboardingStep.fromWire(step.wire), step, reason: step.name);
+      }
+    });
+
+    test('글자 표', () {
+      expect(
+        {for (final step in OnboardingStep.values) step.name: step.wire},
+        {
+          'basicInfo': 'basic_info',
+          'kakaoId': 'kakao_id',
+          'photos': 'photos',
+          'avatar': 'avatar',
+          'appearanceType': 'appearance_type',
+          'interests': 'interests',
+          'myTraits': 'my_traits',
+          'survey': 'survey',
+          'idealConditions': 'ideal_conditions',
+          'idealTraits': 'ideal_traits',
+          'idealNote': 'ideal_note',
+          'bio': 'bio',
+          'complete': 'complete',
+        },
+      );
+    });
+  });
+
   group('stepAfter', () {
     test('서버 순서대로 한 칸씩 간다', () {
       expect(OnboardingStep.basicInfo.stepAfter(), OnboardingStep.kakaoId);

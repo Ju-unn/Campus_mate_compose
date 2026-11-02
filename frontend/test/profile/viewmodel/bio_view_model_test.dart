@@ -1,3 +1,5 @@
+import 'package:campus_mate/core/analytics/analytics_provider.dart';
+import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/profile/model/bio_repository_provider.dart';
@@ -10,20 +12,24 @@ import 'package:campus_mate/core/draft/draft_store.dart';
 
 import '../model/fake_bio_repository.dart';
 import '../model/fake_onboarding_repository.dart';
+import '../../core/analytics/fake_analytics_service.dart';
 import '../../core/draft/fake_draft_store.dart';
 
 void main() {
   late FakeBioRepository repository;
   late FakeOnboardingRepository onboardingRepository;
+  late FakeAnalyticsService analytics;
   late ProviderContainer container;
 
   setUp(() {
     repository = FakeBioRepository();
     onboardingRepository = FakeOnboardingRepository();
+    analytics = FakeAnalyticsService();
     container = ProviderContainer(
       overrides: [
         bioRepositoryProvider.overrideWithValue(repository),
         onboardingRepositoryProvider.overrideWithValue(onboardingRepository),
+        analyticsServiceProvider.overrideWithValue(analytics),
       ],
     );
   });
@@ -171,4 +177,16 @@ void main() {
       expect(open().read(bioViewModelProvider).bio, isEmpty);
     });
   });
+
+  test('저장이 서버 오류로 막히면 가입 막힘으로 남긴다', () async {
+    await standAt(container, onboardingRepository, OnboardingStep.bio);
+    repository.nextSubmitResult = const FailureResult(UnknownFailure());
+    final vm = container.read(bioViewModelProvider.notifier);
+    vm.changeBio('같이 밥 먹을 사람 찾아요');
+
+    await vm.submit();
+
+    expect(analytics.calls, ['onboarding_blocked:bio:server']);
+  });
+
 }

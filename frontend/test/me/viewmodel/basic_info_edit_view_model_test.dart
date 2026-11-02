@@ -208,7 +208,7 @@ void main() {
       expect(state().canSave, isFalse, reason: '2자리는 아직 키가 아니다');
 
       viewModel().changeHeight('999');
-      expect(state().heightError, '숫자 3자리를 확인해 주세요');
+      expect(state().heightError, '120~230 사이로 입력해 주세요');
       expect(state().canSave, isFalse);
 
       viewModel().changeHeight('180');

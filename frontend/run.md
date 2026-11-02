@@ -10,7 +10,7 @@ flutter run \
   --dart-define=SUPABASE_ANON_KEY=<anon key>
 ```
 
-소셜 로그인(시작 화면)을 쓰려면 `--dart-define=KAKAO_NATIVE_APP_KEY=...` `--dart-define=GOOGLE_WEB_CLIENT_ID=...` 를 함께 넣고, 안드로이드 빌드에는 카카오 복귀 스킴용으로 같은 이름 `KAKAO_NATIVE_APP_KEY` 를 **환경변수나 `android/local.properties` 에도 둔다 — `--dart-define` 과 별개 값이다**(없으면 빌드는 되는데 매니페스트 스킴이 빈 값이 되어 카카오 로그인이 앱으로 돌아오지 못한다. 2026-10-20 vc13 ~ vc17 이 이 때문에 폐기됐다. 릴리스 AAB 는 아래 "AAB 빌드" 의 규칙을 따른다).
+소셜 로그인(시작 화면)을 쓰려면 `--dart-define=KAKAO_NATIVE_APP_KEY=...` `--dart-define=GOOGLE_WEB_CLIENT_ID=...` 를 함께 넣고, 안드로이드 빌드에는 카카오 복귀 스킴용으로 같은 이름 `KAKAO_NATIVE_APP_KEY` 를 **환경변수나 `android/local.properties` 에도 둔다 — `--dart-define` 과 별개 값이다**(없으면 디버그 빌드는 되지만 매니페스트 스킴이 빈 값이 되어 카카오 로그인이 앱으로 돌아오지 못한다. 릴리스 빌드는 키가 비면 실패한다. 2026-10-20 vc13 ~ vc17 이 이 때문에 폐기됐다. 릴리스 AAB 는 아래 "AAB 빌드" 의 규칙을 따른다).
 
 **`flutter run`(디버그 서명)의 한계 — 소셜 로그인이 실패한다(2026-10-14 확인).** 카카오 · 구글 로그인과 Firebase 는 앱 서명 지문으로 앱을 알아보는데, 등록된 지문은 아래 두 키뿐이고 **디버그 서명은 어디에도 등록돼 있지 않다.** 그래서 `flutter run` · `--debug` 빌드는 화면 시험은 되지만 로그인 뒤 화면은 못 본다. 폰에서 로그인까지 시험하려면 둘 중 하나다:
 
@@ -31,13 +31,13 @@ flutter run \
 ### AAB 빌드 (구글 플레이 업로드)
 
 ```bash
-flutter build appbundle --release --build-number=<N> --dart-define-from-file=<dart-define 파일>
+flutter build appbundle --release --build-number=<N> --build-name=<버전> --dart-define-from-file=<dart-define 파일>
 ```
 
-- **versionCode(`--build-number`)는 업로드마다 +1** 한다 — 플레이는 이미 올린 번호를 다시 받지 않는다. 번호는 `--build-number` 로만 올리고 `pubspec.yaml` 의 `version`(`1.0.0+1`)은 건드리지 않는다.
+- **versionCode(`--build-number`)는 업로드마다 +1** 한다 — 플레이는 이미 올린 번호를 다시 받지 않는다. 번호는 `--build-number` 로만 올리고 `pubspec.yaml` 의 `version`(`1.0.0+1`)은 건드리지 않는다. 앱 버전 이름(`versionName`, 사용자에게 보이는 "1.0.1")도 pubspec 이 아니라 `--build-name=<버전>` 으로 정한다. **앱 1.0.1 = vc19** (`--build-number=19 --build-name=1.0.1`).
 - **번호 현황(2026-10-20)**: 현재 프로덕션 제출본은 **vc18**(제출 6, 검토 중)이고 다음은 **19** 다. **13 ~ 17 은 이미 쓴(폐기한) 번호**라 다시 쓸 수 없다 — vc13 은 플레이에서 이미 사용돼 있었고 vc14 ~ vc17 은 아래 카카오 키 사고로 폐기했다. 번호 목록은 Desktop `CampusMate_AAB\` 의 vc 별 파일 이름과 맞춘다. iOS TestFlight 번호는 워크플로 실행 번호이고 현재 **25**(심사 대기, 24 는 폐기)다(아래 "TestFlight 로 아이폰에 설치하기").
-- **빌드 전 필수 — 카카오 키 환경변수.** `android/app/build.gradle.kts` 는 카카오 복귀 스킴 키를 환경변수 `KAKAO_NATIVE_APP_KEY` → `android/local.properties` → 빈 문자열 순으로 읽어 `manifestPlaceholders["kakaoKey"]` 에 넣는다. `--dart-define-from-file` 로 앱 코드에 준 키와는 **별개 경로**라서 빌드 명령 앞에 같은 셸에서 `export KAKAO_NATIVE_APP_KEY=...` 를 해야 한다(값은 이 문서에 적지 않는다). 빼먹으면 빌드는 성공하지만 스킴이 빈 값이다.
-- **빌드 뒤 확인 — 매니페스트 스킴.** AAB 의 매니페스트를 덤프해(예: `bundletool dump manifest --bundle=build/app/outputs/bundle/release/app-release.aab`, bundletool 이 없으면 같은 키로 `flutter build apk --release` 한 APK 에 `aapt2 dump xmltree --file AndroidManifest.xml <apk>`) 카카오 복귀 activity 의 `android:scheme` 이 `kakao<키>` 로 채워졌는지 본다. 값이 맨 `kakao` 뿐이면 키가 빈 값으로 들어간 것이니 올리지 말고 환경변수를 넣어 다시 만든다. (명령 형식은 이 문서 담당이 실행해 보지 않았다 — 도구 버전에 따라 옵션이 다를 수 있다.)
+- **빌드 전 필수 — 카카오 키 환경변수.** `android/app/build.gradle.kts` 는 카카오 복귀 스킴 키를 환경변수 `KAKAO_NATIVE_APP_KEY` → `android/local.properties` → 빈 문자열 순으로 읽어 `manifestPlaceholders["kakaoKey"]` 에 넣는다. `--dart-define-from-file` 로 앱 코드에 준 키와는 **별개 경로**라서 빌드 명령 앞에 같은 셸에서 `export KAKAO_NATIVE_APP_KEY=...` 를 해야 한다(값은 이 문서에 적지 않는다). 빼먹으면 **릴리스 빌드(`assembleRelease` · `bundleRelease`)가 `KAKAO_NATIVE_APP_KEY 가 비었습니다` 로 실패한다**(2026-11-02 앱 1.0.1부터 — 그전에는 빌드가 성공하고 스킴만 빈 값이었다). 디버그 빌드(`flutter run` · `--debug`)는 키 없이도 된다.
+- **빌드 뒤 확인 — 매니페스트 스킴.** AAB 의 매니페스트를 덤프해(예: `bundletool dump manifest --bundle=build/app/outputs/bundle/release/app-release.aab`, bundletool 이 없으면 같은 키로 `flutter build apk --release` 한 APK 에 `aapt2 dump xmltree --file AndroidManifest.xml <apk>`) 카카오 복귀 activity 의 `android:scheme` 이 `kakao<키>` 로 채워졌는지 본다. 값이 맨 `kakao` 뿐이면 키가 빈 값으로 들어간 것이니 올리지 말고 환경변수를 넣어 다시 만든다. **같은 덤프에서 `android:versionName` 이 이번 버전(예: `1.0.1`)인지도 본다** — `--build-name` 을 빼면 pubspec 의 `1.0.0` 이 들어가고, 나중에 서버 `MIN_APP_VERSION` 을 올리면 그 빌드는 업데이트 안내 화면에 갇힌다(스토어에 더 새 빌드가 없어 빠져나올 길이 없다). (명령 형식은 이 문서 담당이 실행해 보지 않았다 — 도구 버전에 따라 옵션이 다를 수 있다.)
 - `--dart-define-from-file` 의 파일(키 · 주소가 든 JSON)은 저장소 밖에 둔다. 값 · 파일 내용은 이 문서에 적지 않는다
 - 결과물 `build/app/outputs/bundle/release/app-release.aab` 를 플레이 콘솔 내부 테스트에 올린다(올리기는 사용자가 한다)
 
@@ -138,7 +138,7 @@ iOS 15.5 이상(ML Kit 얼굴 감지 요구), iPhone 전용, 세로 고정이다
 
 ### 실행할 때마다
 
-1. GitHub > Actions > iOS TestFlight > Run workflow(main). 30~40분쯤 걸린다. 빌드 번호는 실행 번호이고, 앱 버전 이름은 `pubspec.yaml` 의 `version` 그대로다.
+1. GitHub > Actions > iOS TestFlight > Run workflow(main). 30~40분쯤 걸린다. 빌드 번호는 실행 번호이고, 앱 버전 이름은 실행 화면의 `build_name` 입력(기본 `1.0.1`, `숫자.숫자.숫자` 모양만 받는다)이다 — `pubspec.yaml` 의 `version`(`1.0.0+1`)은 그대로 둔다.
 2. 실패하면 빨간 단계의 `::error::` 줄을 본다(비밀은 이름만 찍힌다). 그 실행의 아티팩트 `ios-testflight-logs-<실행 번호>` 에 이 워크플로가 만든 로그 두 개(빌드 · 업로드)가 비밀과 실명을 지운 채 7일 남는다. xcodebuild 의 자세한 기록은 계정 정보가 섞여 올리지 않는다. 성공한 실행을 Re-run 하면 빌드 번호가 겹쳐 실패하니 늘 Run workflow 로 새로 돌린다.
 3. 성공하면 App Store Connect > 앱 > TestFlight 에서 빌드 처리가 끝날 때까지 10~30분 기다린다(끝나면 애플 메일이 온다).
 4. 처음 한 번: TestFlight > 내부 테스팅 > "+" 로 그룹을 만들고 테스터(App Store Connect 사용자인 본인 Apple ID)를 더한다. 이후 새 빌드는 그 그룹에 넣는다(그룹의 자동 배포를 켜 두면 생략).

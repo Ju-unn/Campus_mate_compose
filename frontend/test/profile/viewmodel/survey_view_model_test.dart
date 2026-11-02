@@ -1,3 +1,4 @@
+import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
@@ -17,21 +18,25 @@ import 'package:campus_mate/core/draft/draft_store.dart';
 
 import '../../me/model/fake_me_repository.dart';
 import '../model/fake_onboarding_repository.dart';
+import '../../core/analytics/fake_analytics_service.dart';
 import '../model/fake_survey_repository.dart';
 import '../../core/draft/fake_draft_store.dart';
 
 void main() {
   late FakeSurveyRepository repository;
   late FakeOnboardingRepository onboardingRepository;
+  late FakeAnalyticsService analytics;
   late ProviderContainer container;
 
   setUp(() {
     repository = FakeSurveyRepository();
     onboardingRepository = FakeOnboardingRepository();
+    analytics = FakeAnalyticsService();
     container = ProviderContainer(
       overrides: [
         surveyRepositoryProvider.overrideWithValue(repository),
         onboardingRepositoryProvider.overrideWithValue(onboardingRepository),
+        analyticsServiceProvider.overrideWithValue(analytics),
       ],
     );
   });
@@ -268,4 +273,20 @@ void main() {
       expect(open().read(surveyViewModelProvider).answers[1], 0);
     });
   });
+
+  test('저장이 한도(429)에 막히면 가입 막힘으로 남긴다', () async {
+    await standAt(container, onboardingRepository, OnboardingStep.survey);
+    repository.nextResult = const FailureResult(RateLimitedFailure());
+    final vm = container.read(surveyViewModelProvider.notifier);
+    for (var axis = 1; axis <= 9; axis++) {
+      vm.answer(axis, 0.5);
+    }
+    vm.changeReligion(Religion.protestant);
+    vm.changeIsSmoker(true);
+
+    await vm.submit();
+
+    expect(analytics.calls, ['onboarding_blocked:survey:rate_limited']);
+  });
+
 }

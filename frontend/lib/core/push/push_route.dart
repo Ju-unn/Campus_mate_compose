@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:campus_mate/billing/model/heart_task.dart';
+import 'package:campus_mate/core/analytics/analytics_values.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:go_router/go_router.dart';
 
@@ -27,6 +28,20 @@ abstract final class PushRoute {
       path == AppRoutes.conversations ||
       path.startsWith('${AppRoutes.chatRoom}/') ||
       path.startsWith('${AppRoutes.friendReviewWrite}/');
+
+  /// 사용 통계 `push_open.type` — 푸시 `data.route` 중 [resolve] 가 알아보는 값만 그대로, 그 밖에는 [PushOpenType.other].
+  /// data 의 나머지(방 id · 상대 id · 사유)는 보지 않는다.
+  static PushOpenType typeOf(Map<String, dynamic> data) => switch (data['route']) {
+        'daily_card' => PushOpenType.dailyCard,
+        'acceptances' => PushOpenType.acceptances,
+        'match' => PushOpenType.match,
+        'chat' => PushOpenType.chat,
+        'friend_reviews' => PushOpenType.friendReviews,
+        'friend_review_write' => PushOpenType.friendReviewWrite,
+        'heart_tasks' => PushOpenType.heartTasks,
+        'heart_task_retry' => PushOpenType.heartTaskRetry,
+        _ => PushOpenType.other,
+      };
 
   static String? resolve(Map<String, dynamic> data) => switch (data['route']) {
         'daily_card' => AppRoutes.today,

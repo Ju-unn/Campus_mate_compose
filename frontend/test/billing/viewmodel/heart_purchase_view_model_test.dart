@@ -305,7 +305,7 @@ void main() {
 
       await emit([const StorePurchased('heart_100', 'tok')]);
 
-      expect(analytics.calls, ['heart_purchase:heart_100']);
+      expect(analytics.calls, ['heart_purchase_result:success:heart_100', 'heart_purchase:heart_100']);
     });
 
     test('이미 받은 결제 · 서버 대기 · 서버 거절은 구매 성공으로 남기지 않는다', () async {
@@ -316,7 +316,7 @@ void main() {
       repo.outcome = const FailureResult(ServerUnavailableFailure());
       await emit([const StorePurchased('heart_100', 'tok3')]);
 
-      expect(analytics.calls, isEmpty);
+      expect(analytics.calls.where((call) => call.startsWith('heart_purchase:')), isEmpty);
     });
 
     test('이미 받은 결제(already_granted)는 안내 없이 잔액만 다시 읽는다', () async {
@@ -634,4 +634,84 @@ void main() {
 
     expect(repo.verified, [('heart_100', 'late')]);
   });
+
+  // 사용 통계 heart_product_select · heart_purchase_result — 상품 ID 와 정해진 결과 글자만 나간다(금액 · 거래 번호 · 계정 표시는 없다).
+  group('분석: 상품 고르기 · 결제 창 결과', () {
+    test('상품 카드를 고르면 상품 ID 만 남긴다', () async {
+      await openStore();
+
+      vm().select('heart_800');
+
+      expect(analytics.calls, ['heart_product_select:heart_800']);
+    });
+
+    test('상품 목록에 없는 글자는 남기지 않는다 — 모르는 값이 매개변수로 새지 않게', () async {
+      await openStore();
+
+      vm().select('아무 글자나');
+
+      expect(analytics.calls, isEmpty);
+    });
+
+    test('결제 창 취소는 cancel — 플러그인이 상품 ID 를 비워 보내도 고른 상품으로 남긴다', () async {
+      await openStore();
+      vm().select('heart_200');
+      analytics.calls.clear();
+      await vm().buy();
+
+      await emit([const StorePurchaseCanceled('')]);
+
+      expect(analytics.calls, ['heart_purchase_result:cancel:heart_200']);
+    });
+
+    test('결제 창 실패는 fail', () async {
+      await openStore();
+      await vm().buy();
+
+      await emit([const StorePurchaseFailed('')]);
+
+      expect(analytics.calls, ['heart_purchase_result:fail:heart_100']);
+    });
+
+    test('결제 창을 못 열어도 fail', () async {
+      await openStore();
+      gateway.opens = false;
+
+      await vm().buy();
+      await pumpEventQueue();
+
+      expect(analytics.calls, ['heart_purchase_result:fail:heart_100']);
+    });
+
+    test('결제됨은 success — 서버가 지급하기 전 스토어에서 결제가 끝난 때', () async {
+      await openStore();
+      await vm().buy();
+      repo.outcome = const FailureResult(ServerUnavailableFailure());
+
+      await emit([const StorePurchased('heart_100', 'tok')]);
+
+      expect(analytics.calls, ['heart_purchase_result:success:heart_100']);
+    });
+
+    test('느린 결제 확인(pending)은 성공도 실패도 아니라서 남기지 않는다', () async {
+      await openStore();
+      await vm().buy();
+
+      await emit([const StorePurchasePending('heart_100')]);
+
+      expect(analytics.calls, isEmpty);
+    });
+
+    test('사용자가 결제 창을 연 적 없는 결제(앱 시작 때의 복구)는 결과로 세지 않는다', () async {
+      await openStore();
+      gateway.unconsumed = const [StorePurchased('heart_400', 'old')];
+      repo.outcome = const Success(PurchaseGranted(hearts: 400, bonusHearts: 0, isNew: true));
+
+      await vm().refresh();
+      await pumpEventQueue();
+
+      expect(analytics.calls, ['heart_purchase:heart_400']);
+    });
+  });
+
 }

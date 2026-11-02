@@ -473,14 +473,14 @@ void main() {
       });
     }
 
-    testWidgets('키 범위 — 3자리를 다 친 뒤 범위 밖이면 키 칸 아래 "숫자 3자리를 확인해 주세요"', (tester) async {
+    testWidgets('키 범위 — 3자리를 다 친 뒤 범위 밖이면 키 칸 아래 "120~230 사이로 입력해 주세요"', (tester) async {
       usePenFrame(tester);
       await pump(tester);
 
       await tester.enterText(_heightField, '999');
       await tester.pump();
 
-      expectErrorHelper(tester, '숫자 3자리를 확인해 주세요', under: _heightField, above: find.byType(AppButton));
+      expectErrorHelper(tester, '120~230 사이로 입력해 주세요', under: _heightField, above: find.byType(AppButton));
       final outline = border(tester, _heightField);
       expect((outline.borderSide.color, outline.borderSide.width), (AppColors.error, 2));
       expect(saveButton(tester).onPressed, isNull);

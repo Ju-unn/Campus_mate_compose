@@ -7,6 +7,7 @@ import 'package:campus_mate/core/draft/draft_store.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/profile/model/profile_enums.dart';
 import 'package:campus_mate/profile/model/survey_repository_provider.dart';
+import 'package:campus_mate/profile/viewmodel/onboarding_blocked.dart';
 import 'package:campus_mate/profile/viewmodel/revisit_profile.dart';
 import 'package:campus_mate/profile/viewmodel/survey_ui_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -93,6 +94,7 @@ class SurveyViewModel extends Notifier<SurveyUiState> {
     try {
       final repository = ref.read(surveyRepositoryProvider);
       final result = await repository.submit(state.answers, state.religion!, state.isSmoker!);
+      reportIfOnboardingBlocked(ref, result);
       return _stateFromResult(result);
     } catch (_) {
       return SurveyUiState(

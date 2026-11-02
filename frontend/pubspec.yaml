@@ -74,6 +74,8 @@ dependencies:
   shared_preferences: ^2.5.6
   # 하트 구매(구글 플레이 인앱결제, 2026-10-13 사용자 승인). 안드로이드 구현(in_app_purchase_android)은 이 패키지가 끌고 온다.
   in_app_purchase: ^3.3.1
+  # 강제 업데이트(2026-11-02): 설치된 앱의 버전 이름을 읽어 서버의 최소 버전과 견준다(lib/core/app_update/). 사용자 승인(2026-11-02 선택지 원문 「package_info_plus 추가 (추천)」), 이 패키지 하나만.
+  package_info_plus: ^10.2.2
 
 dev_dependencies:
   flutter_test:

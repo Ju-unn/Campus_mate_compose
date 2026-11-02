@@ -22,6 +22,7 @@ import 'package:campus_mate/me/view/my_photos_screen.dart';
 import 'package:campus_mate/me/view/photo_zoom_viewer.dart';
 import 'package:campus_mate/me/viewmodel/my_photos_view_model.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
+import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
 import 'package:campus_mate/profile/view/photo_tiles.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -33,6 +34,7 @@ import 'package:mocktail/mocktail.dart';
 
 import '../../auth/model/fake_face_detector.dart';
 import '../../auth/model/fake_image_compressor.dart';
+import '../../profile/model/fake_onboarding_repository.dart';
 import '../model/fake_me_repository.dart';
 
 /// 사진 요청을 받기만 하고 답하지 않는 HttpClient — 서버 사진(NetworkImage)은 "아직 오는 중" 으로 남는다(15-5 테스트와 같다).
@@ -117,6 +119,9 @@ void main() {
         meRepositoryProvider.overrideWithValue(me),
         imageCompressorProvider.overrideWithValue(FakeImageCompressor()),
         faceDetectorProvider.overrideWithValue(faceDetector),
+        // 사진 뷰모델이 얼굴을 한 장도 못 찾으면 가입 막힘 여부를 보려고 온보딩 단계 캐시를 읽는다(가입이 끝난 뒤라 남기지 않는다) —
+        // 진짜 저장소를 만들지 않게 가짜를 둔다.
+        onboardingRepositoryProvider.overrideWithValue(FakeOnboardingRepository()),
       ],
     );
     addTearDown(container.dispose);

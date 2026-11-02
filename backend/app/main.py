@@ -10,6 +10,7 @@ from app.account.batch_router import router as account_batch_router
 from app.account.router import router as account_router
 from app.admin.cors import install_admin_cors
 from app.admin.router import router as admin_router
+from app.app_version.router import router as app_version_router
 from app.auth_hooks.router import router as auth_hooks_router
 from app.billing.apple_router import router as billing_apple_router
 from app.billing.batch_router import router as billing_batch_router
@@ -67,6 +68,7 @@ async def lifespan(app: FastAPI):
 # 문서 주소(/docs · /redoc · /openapi.json)는 열지 않는다 — 운영에서 경로 목록 · 요청 모양을 누구에게나 보여 준다
 # (2026-10-12 보안 점검 #10). 경로 이름이 필요하면 코드에서 app.openapi() 를 부른다.
 app = FastAPI(title="CampusMate Backend", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
+app.include_router(app_version_router)
 app.include_router(auth_hooks_router)
 app.include_router(consents_router)
 app.include_router(school_email_router)

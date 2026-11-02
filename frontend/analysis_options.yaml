@@ -28,8 +28,13 @@ linter:
   # `// ignore_for_file: name_of_lint` syntax on the line or in the file
   # producing the lint.
   rules:
-    # avoid_print: false  # Uncomment to disable the `avoid_print` rule
-    # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
+    # 2026-11-02: 지금 걸리는 곳이 0건인 규칙만 켰다(앞으로 새로 쓰는 코드의 기준). 걸리는 곳을 고쳐야 하는 규칙
+    # (unawaited_futures · prefer_const_constructors · prefer_final_locals 등)은 1.0.2 코드 정리 때 켠다.
+    always_declare_return_types: true
+    always_use_package_imports: true
+    cancel_subscriptions: true
+    avoid_void_async: true
+    prefer_final_in_for_each: true
 
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options

@@ -79,7 +79,7 @@ class IdealConditionsScreen extends ConsumerWidget {
                       onTap: viewModel.toggleImpressionType,
                     ),
                     const SizedBox(height: AppSpacing.xl),
-                    const _SectionTitle('선호하는 성향 (MBTI)', hint: '선택하지 않으면 상관없어요.'),
+                    const _SectionTitle('선호하는 성향 (MBTI)'),
                     MbtiPoleToggle(
                       poles: IdealConditionsUiState.mbtiPoles,
                       selected: {
@@ -88,6 +88,10 @@ class IdealConditionsScreen extends ConsumerWidget {
                       },
                       onTap: viewModel.toggleMbtiPole,
                     ),
+                    // pen 06-1 `QrUdQ` 안내 `MED5L` — 제목 옆이 아니라 칩 묶음 아래 8, 12/normal muted, 한 줄 자동 폭(앱 1.0.1).
+                    // 서버는 축마다 따로 봐서 두 극을 다 골라도 그 축은 상관없다.
+                    const SizedBox(height: AppSpacing.xs),
+                    Text('고르지 않거나 둘 다 고르면 상관없어요.', style: AppTypography.caption.copyWith(color: AppColors.muted)),
                     const SizedBox(height: AppSpacing.xl),
                     const _SectionTitle('선호하는 나이 범위'),
                     _RangeField(

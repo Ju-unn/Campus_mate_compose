@@ -92,8 +92,9 @@ class BasicInfoUiState {
 
   /// 키 칸은 평소엔 아무것도 안 보이고, **3자리를 다 친 뒤에도 범위 밖일 때만** 오류를 띄운다
   /// (pen 04-1 "도움말은 필요할 때만"). 치는 도중에 띄우면 한 자 칠 때마다 문구가 깜빡인다.
+  /// 문구는 범위를 그대로 알려 준다(2026-11-02 앱 1.0.1, 종전 "숫자 3자리를 확인해 주세요").
   String? get heightError =>
-      heightInput.length == 3 && heightCm == null ? '숫자 3자리를 확인해 주세요' : null;
+      heightInput.length == 3 && heightCm == null ? '120~230 사이로 입력해 주세요' : null;
 
   /// 가입용 번호 규칙([SignupPhoneNumber])에 걸리면 **11자리를 다 친 뒤에만** 오류를 띄운다(키 칸과 같은 방식).
   /// 서버도 같은 규칙으로 다시 본다 — 앱은 바로 알려 주고 "다음"을 끈다.

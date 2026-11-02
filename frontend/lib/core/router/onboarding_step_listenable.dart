@@ -1,4 +1,5 @@
 import 'package:campus_mate/core/analytics/analytics_service.dart';
+import 'package:campus_mate/core/analytics/analytics_values.dart';
 import 'package:campus_mate/profile/model/onboarding_repository.dart';
 import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:flutter/foundation.dart';
@@ -18,11 +19,16 @@ const OnboardingStep _defaultStep = OnboardingStep.basicInfo;
 /// 라우터는 [value] 화면에 사람을 묶으니 앞 화면으로만 갈 수 있고, 서버 단계 너머로는 못 간다.
 /// 다시 보는 단계는 메모리에만 있다 — 앱을 다시 켜면 서버 단계에서 시작한다.
 class OnboardingStepListenable extends ChangeNotifier {
-  OnboardingStepListenable(this._repository, {this._analytics = const NoAnalyticsService()});
+  OnboardingStepListenable(this._repository, {this._analytics = const NoAnalyticsService(), this._now = DateTime.now});
 
   final OnboardingRepository _repository;
   final AnalyticsService _analytics;
+  final DateTime Function() _now;
   OnboardingStep? _cached;
+
+  /// [_cached] 가 지금 단계가 된 때. 단계를 끝냈을 때 머문 초를 센다(사용 통계 `onboarding_step_complete`).
+  /// 앱을 껐다 켜면 다시 시작한다 — 켜 둔 채 자리를 비운 시간은 분석 쪽에서 3600초로 자른다.
+  late DateTime _stepSince;
 
   /// 뒤로가기로 돌아가 다시 보고 있는 앞 단계. 늘 [_cached] 보다 앞이다. 다시 보는 중이 아니면 null.
   OnboardingStep? _visiting;
@@ -38,12 +44,24 @@ class OnboardingStepListenable extends ChangeNotifier {
 
   /// 한 단계 앞 화면으로 돌아간다. 갈 곳이 없으면 아무것도 하지 않는다.
   void goBack() {
-    final back = value?.stepBack();
-    if (back == null) {
+    final current = value;
+    final back = current?.stepBack();
+    if (current == null || back == null) {
       return;
     }
+    _analytics.logOnboardingStepBack(current);
     _visiting = back;
     notifyListeners();
+  }
+
+  /// 이 단계에서 서버 오류 · 사진 거절 등으로 막혔다(사용 통계 `onboarding_blocked`). 가입이 끝난 뒤에는 남기지 않는다 —
+  /// 같은 화면 · 뷰모델을 나 탭 편집이 다시 쓰는데, 그 실패는 가입이 막힌 것이 아니다.
+  void blocked(OnboardingBlockReason reason) {
+    final step = value;
+    if (step == null || step == OnboardingStep.complete) {
+      return;
+    }
+    _analytics.logOnboardingBlocked(step, reason);
   }
 
   /// 화면이 저장에 성공했을 때 부른다. 다시 보는 중이면 바로 다음 화면으로 한 칸 가고(사용자 결정 ③),
@@ -82,17 +100,26 @@ class OnboardingStepListenable extends ChangeNotifier {
     if (step == _cached) {
       return;
     }
-    _logIfOnboardingFinished(step);
+    _logProgress(step);
     _cached = step;
+    if (step != null) {
+      _stepSince = _now();
+    }
     // 서버 단계가 다시 보는 단계와 같거나 앞으로 바뀌면 다시 보기를 끝낸다 — 서버 단계 너머 화면에 머물지 않게.
     _visiting = _visibleBeforeServer(_visiting);
     notifyListeners();
   }
 
-  /// 가입 중이던 단계(이미 한 번 조회해 안다)에서 complete 가 된 순간만 사용 통계에 남긴다.
-  /// 앱을 켰더니 이미 complete 인 기존 사용자(첫 조회, 이전 값 null)는 가입을 방금 끝낸 것이 아니라서 세지 않는다.
-  void _logIfOnboardingFinished(OnboardingStep? step) {
-    if (step == OnboardingStep.complete && _cached != null) {
+  /// 서버 단계가 **앞으로 나아간** 순간만 사용 통계에 남긴다 — 떠난 단계를 끝낸 것이고, complete 에 닿았으면 가입을 끝낸 것이다.
+  /// 앱을 켜고 처음 알게 된 단계(이전 값 null) · 초기화 · 뒷걸음은 방금 끝낸 것이 아니라서 세지 않는다
+  /// (앱을 켰더니 이미 complete 인 기존 사용자도 여기에 든다).
+  void _logProgress(OnboardingStep? next) {
+    final previous = _cached;
+    if (previous == null || next == null || !previous.isBefore(next)) {
+      return;
+    }
+    _analytics.logOnboardingStepComplete(previous, _now().difference(_stepSince).inSeconds);
+    if (next == OnboardingStep.complete) {
       _analytics.logOnboardingComplete();
     }
   }

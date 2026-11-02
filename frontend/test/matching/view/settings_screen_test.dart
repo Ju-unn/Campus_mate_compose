@@ -11,6 +11,7 @@ import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/consent/model/consent_links.dart';
 import 'package:campus_mate/consent/model/open_url.dart';
 import 'package:campus_mate/core/auth/sign_out.dart';
+import 'package:campus_mate/core/analytics/analytics_values.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -85,6 +86,9 @@ class _SlowMeRepository extends FakeMeRepository {
   }
 }
 
+/// 마지막으로 하트 스토어 길이 받은 extra(들어온 곳).
+Object? storeExtra;
+
 void main() {
   var signOutCalls = 0;
   late ProviderContainer settingsContainer;
@@ -146,6 +150,7 @@ void main() {
     addTearDown(container.dispose);
     settingsContainer = container;
     // 줄을 누르면 push 로 다음 화면이 열린다 — 라우터 안에서 띄운다.
+    storeExtra = null;
     final router = GoRouter(
       initialLocation: AppRoutes.settings,
       routes: [
@@ -155,7 +160,13 @@ void main() {
         GoRoute(path: AppRoutes.contactPicker, builder: (context, state) => const ContactPickerScreen()),
         GoRoute(path: AppRoutes.account, builder: (context, state) => const AccountScreen()),
         GoRoute(path: AppRoutes.heartTasks, builder: (context, state) => const Text('18a')),
-        GoRoute(path: AppRoutes.heartStore, builder: (context, state) => const Text('18 스토어')),
+        GoRoute(
+          path: AppRoutes.heartStore,
+          builder: (context, state) {
+            storeExtra = state.extra;
+            return const Text('18 스토어');
+          },
+        ),
         GoRoute(path: AppRoutes.faq, builder: (context, state) => const FaqScreen()),
       ],
     );
@@ -679,6 +690,21 @@ void main() {
         await tester.pumpAndSettle();
         expect(store(), findsOneWidget);
       }
+    });
+
+    // 사용 통계 heart_store_open 의 from — 두 입구 모두 settings 다.
+    testWidgets('블록으로 들어가도 "하트 충전" 줄로 들어가도 들어온 곳은 settings 다', (tester) async {
+      await pump(tester);
+      await tester.tap(find.text('충전'));
+      await tester.pumpAndSettle();
+      expect(storeExtra, HeartStoreEntry.settings);
+
+      storeExtra = null;
+      tester.state<NavigatorState>(find.byType(Navigator).first).pop();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('하트 충전'));
+      await tester.pumpAndSettle();
+      expect(storeExtra, HeartStoreEntry.settings);
     });
 
     testWidgets('"하트 충전" 줄을 눌러도 하트 스토어로 간다', (tester) async {

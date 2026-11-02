@@ -8,6 +8,7 @@ import 'package:campus_mate/profile/model/ideal_conditions_repository.dart';
 import 'package:campus_mate/profile/model/ideal_conditions_repository_provider.dart';
 import 'package:campus_mate/profile/model/profile_enums.dart';
 import 'package:campus_mate/profile/viewmodel/ideal_conditions_ui_state.dart';
+import 'package:campus_mate/profile/viewmodel/onboarding_blocked.dart';
 import 'package:campus_mate/profile/viewmodel/revisit_profile.dart';
 import 'package:flutter/foundation.dart' show protected;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -104,6 +105,7 @@ class IdealConditionsViewModel extends Notifier<IdealConditionsUiState> {
     try {
       final repository = ref.read(idealConditionsRepositoryProvider);
       final result = await repository.submit(_submission());
+      reportIfOnboardingBlocked(ref, result);
       state = result.when(
         onSuccess: (_) => state.copyWith(isSubmitting: false, completed: true),
         onFailure: (failure) => state.copyWith(isSubmitting: false, errorMessage: failure.toDisplayMessage()),

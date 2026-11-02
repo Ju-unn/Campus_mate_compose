@@ -1,6 +1,7 @@
 import 'package:campus_mate/core/analytics/analytics_service.dart';
 import 'package:campus_mate/core/analytics/collection_consent.dart';
 import 'package:campus_mate/core/analytics/crash_reporter.dart';
+import 'package:campus_mate/core/analytics/handled_error_reporter.dart';
 import 'package:campus_mate/core/analytics/performance_monitor.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -11,6 +12,11 @@ final analyticsServiceProvider = Provider<AnalyticsService>((ref) => const NoAna
 
 /// [analyticsServiceProvider] 와 같다 — 오류 수집. 기본값은 아무것도 보고하지 않는다.
 final crashReporterProvider = Provider<CrashReporter>((ref) => const NoCrashReporter());
+
+/// 앱이 버틴 API 오류를 오류 수집으로 보낸다(같은 오류는 1분에 한 번). `apiClientProvider` 가 쓴다.
+final handledErrorReporterProvider = Provider<HandledErrorReporter>(
+  (ref) => HandledErrorReporter(ref.read(crashReporterProvider)),
+);
 
 /// [analyticsServiceProvider] 와 같다 — 성능 측정(자동 수집만). 기본값은 아무것도 하지 않는다.
 final performanceMonitorProvider = Provider<PerformanceMonitor>((ref) => const NoPerformanceMonitor());

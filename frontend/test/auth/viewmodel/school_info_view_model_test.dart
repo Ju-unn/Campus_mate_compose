@@ -40,7 +40,7 @@ void main() {
   SchoolInfoViewModel buildSubmittableViewModel(ProviderContainer container) {
     final viewModel = container.read(schoolInfoViewModelProvider.notifier);
     viewModel.changeDepartment('컴퓨터공학과');
-    viewModel.changeStudentNumber('20240001');
+    viewModel.changeStudentNumber('21');
     return viewModel;
   }
 
@@ -68,10 +68,10 @@ void main() {
     final container = buildContainer();
     final viewModel = container.read(schoolInfoViewModelProvider.notifier);
 
-    viewModel.changeStudentNumber('20240001');
+    viewModel.changeStudentNumber('21');
 
-    expect(readState(container).studentNumber, StudentNumber.tryParse('20240001'));
-    expect(readState(container).studentNumberInput, '20240001');
+    expect(readState(container).studentNumber, StudentNumber.tryParse('21'));
+    expect(readState(container).studentNumberInput, '21');
   });
 
   test('학과·학번이 아직 없으면 submit() 이 아무 일도 하지 않는다', () async {
@@ -92,7 +92,7 @@ void main() {
     await viewModel.submit();
 
     expect(repository.submittedDepartments, [Department.tryParse('컴퓨터공학과')]);
-    expect(repository.submittedStudentNumbers, [StudentNumber.tryParse('20240001')]);
+    expect(repository.submittedStudentNumbers, [StudentNumber.tryParse('21')]);
     expect(readState(container).completed, isTrue);
     expect(readState(container).isSubmitting, isFalse);
   });

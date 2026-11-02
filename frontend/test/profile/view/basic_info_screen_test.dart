@@ -48,6 +48,23 @@ void main() {
     expect(typed(heightInputFormatters, '1750'), '175');
   });
 
+  test('키는 맨 앞 0 을 받지 않는다', () {
+    expect(typed(heightInputFormatters, '0'), '');
+    expect(typed(heightInputFormatters, '017'), '');
+    expect(typed(heightInputFormatters, '170'), '170');
+  });
+
+  test('키 가운데에 0 을 끼워 넣는 것은 막지 않는다', () {
+    // 맨 앞 0 만 막는다 — 17 사이에 0 을 넣어 107 이 되는 일은 그대로 칠 수 있어야 한다.
+    const before = TextEditingValue(text: '17', selection: TextSelection.collapsed(offset: 1));
+    const after = TextEditingValue(text: '107', selection: TextSelection.collapsed(offset: 2));
+    var value = after;
+    for (final formatter in heightInputFormatters) {
+      value = formatter.formatEditUpdate(before, value);
+    }
+    expect(value.text, '107');
+  });
+
   Future<void> pumpScreen(WidgetTester tester, {FakeBasicInfoRepository? repository}) async {
     await tester.pumpWidget(
       ProviderScope(

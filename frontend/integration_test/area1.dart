@@ -91,7 +91,7 @@ const _wrongCode = '코드가 맞지 않아요. 다시 확인해 주세요.';
 const _nicknameOk = '사용할 수 있는 닉네임이에요';
 const _nicknameBad = '한글 또는 영문 2~5자로 입력해 주세요';
 const _nicknameTaken = '이미 있는 닉네임이에요';
-const _heightBad = '숫자 3자리를 확인해 주세요';
+const _heightBad = '120~230 사이로 입력해 주세요';
 const _consentCta = '동의하고 계속하기';
 
 Finder screen(String name) => switch (name) {
@@ -420,16 +420,18 @@ final Map<String, Area1Case> area1Cases = {
     await arrive(tester, '3c');
     final department = input('예: 컴퓨터공학과');
     final number = input('예: 21');
-    for (final (dept, no, on) in [
-      ('', '21', false),
-      ('컴퓨터공학과', '', false),
-      ('가' * 31, '21', false),
-      ('컴퓨터공학과', '1' * 21, false),
-      ('가' * 30, '1' * 20, true),
+    // 학번 칸은 숫자만 받고 3자리에서 멈춘다(앱 1.0.1) — (학과, 친 학번, 칸에 남는 학번, 다음 켜짐)
+    for (final (dept, no, shown, on) in [
+      ('', '21', '21', false),
+      ('컴퓨터공학과', '', '', false),
+      ('가' * 31, '21', '21', false),
+      ('컴퓨터공학과', 'ab', '', false),
+      ('가' * 30, '1234', '123', true),
     ]) {
       await type(tester, department, dept);
       await type(tester, number, no);
-      must(enabled(tester, '다음') == on, '학과 ${dept.length}자 · 학번 ${no.length}자에 다음이 ${on ? '꺼짐' : '켜짐'}');
+      must(fieldText(tester, number) == shown, '학번 "$no" 을 쳤더니 칸에 "${fieldText(tester, number)}" (기대 "$shown")');
+      must(enabled(tester, '다음') == on, '학과 ${dept.length}자 · 학번 "$no"에 다음이 ${on ? '꺼짐' : '켜짐'}');
     }
     return null;
   }),

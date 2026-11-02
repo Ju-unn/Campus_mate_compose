@@ -9,6 +9,7 @@ import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/pressable.dart';
 import 'package:campus_mate/consent/model/open_url.dart';
+import 'package:campus_mate/core/analytics/analytics_values.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_elevation.dart';
@@ -105,7 +106,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
     if (_openingStore) return;
     _openingStore = true;
     try {
-      await context.push(AppRoutes.heartStore);
+      await context.push(AppRoutes.heartStore, extra: HeartStoreEntry.home);
     } finally {
       _openingStore = false;
     }

@@ -2,6 +2,7 @@ import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/billing/view/heart_balance_chip.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/core/analytics/analytics_values.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/home/model/cohort_wait.dart';
 import 'package:campus_mate/home/model/home_repository_provider.dart';
@@ -44,6 +45,9 @@ MyProfile _profile(int hearts) => MyProfile(
   avatarRegenCost: 10,
 );
 
+/// 마지막으로 하트 상점 길이 받은 extra(들어온 곳).
+Object? storeExtra;
+
 void main() {
   const summary = HomeSummary(
     deliveredCards: 10,
@@ -83,11 +87,18 @@ void main() {
       ],
     );
     addTearDown(container.dispose);
+    storeExtra = null;
     final router = GoRouter(
       initialLocation: AppRoutes.home,
       routes: [
         GoRoute(path: AppRoutes.home, builder: (context, state) => const HomeScreen()),
-        GoRoute(path: AppRoutes.heartStore, builder: (context, state) => const Text('하트 상점')),
+        GoRoute(
+          path: AppRoutes.heartStore,
+          builder: (context, state) {
+            storeExtra = state.extra;
+            return const Text('하트 상점');
+          },
+        ),
       ],
     );
     addTearDown(router.dispose);
@@ -204,6 +215,16 @@ void main() {
 
       expect(find.text('하트 상점'), findsOneWidget);
       expect(find.text('곧 열려요'), findsNothing);
+    });
+
+    // 사용 통계 heart_store_open 의 from — 길의 extra 로 실어 보낸다.
+    testWidgets('홈에서 들어가면 들어온 곳은 home 이다', (tester) async {
+      await pump(tester);
+
+      await tester.tap(chip);
+      await tester.pumpAndSettle();
+
+      expect(storeExtra, HeartStoreEntry.home);
     });
 
     testWidgets('"+" 를 프레임 없이 두 번 눌러도 상점은 한 겹만 쌓인다', (tester) async {

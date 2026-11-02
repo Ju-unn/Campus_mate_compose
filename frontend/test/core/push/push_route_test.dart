@@ -1,5 +1,6 @@
 import 'package:campus_mate/billing/model/heart_task.dart';
 import 'package:campus_mate/billing/view/heart_task_submit_screen.dart';
+import 'package:campus_mate/core/analytics/analytics_values.dart';
 import 'package:campus_mate/core/push/push_route.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -85,5 +86,47 @@ void main() {
   test('졸업생 인증 결과 알림은 아무 데도 보내지 않는다 — 관문(AuthRedirect)이 화면을 옮긴다', () {
     expect(PushRoute.resolve({'route': 'graduate_verification', 'state': 'approved'}), isNull);
     expect(PushRoute.resolve({'route': 'graduate_verification', 'state': 'rejected', 'reason': 'unreadable'}), isNull);
+  });
+
+  // 사용 통계 push_open.type — 알고 있는 route 값만 그대로, 그 밖에는 other. data 의 다른 값은 보지 않는다.
+  group('typeOf — 사용 통계 종류값', () {
+    test('알고 있는 route 는 그대로 종류값이다', () {
+      const known = {
+        'daily_card': PushOpenType.dailyCard,
+        'acceptances': PushOpenType.acceptances,
+        'match': PushOpenType.match,
+        'chat': PushOpenType.chat,
+        'friend_reviews': PushOpenType.friendReviews,
+        'friend_review_write': PushOpenType.friendReviewWrite,
+        'heart_tasks': PushOpenType.heartTasks,
+        'heart_task_retry': PushOpenType.heartTaskRetry,
+      };
+      for (final MapEntry(key: route, value: type) in known.entries) {
+        expect(PushRoute.typeOf({'route': route}), type, reason: route);
+      }
+    });
+
+    test('모르는 route · route 없음 · 문자열이 아닌 값은 other', () {
+      expect(PushRoute.typeOf({'route': 'verification'}), PushOpenType.other);
+      expect(PushRoute.typeOf({'route': '홍길동'}), PushOpenType.other);
+      expect(PushRoute.typeOf({'route': 7}), PushOpenType.other);
+      expect(PushRoute.typeOf(const {}), PushOpenType.other);
+    });
+
+    test('resolve 가 알아보는 route 는 모두 종류값이 있다 — 새 route 를 더하면 여기서 걸린다', () {
+      const resolvable = [
+        'daily_card',
+        'acceptances',
+        'match',
+        'chat',
+        'friend_reviews',
+        'friend_review_write',
+        'heart_tasks',
+        'heart_task_retry',
+      ];
+      for (final route in resolvable) {
+        expect(PushRoute.typeOf({'route': route}).wire, route);
+      }
+    });
   });
 }

@@ -1,4 +1,5 @@
 import 'package:campus_mate/core/analytics/crash_reporter.dart';
+import 'package:campus_mate/core/analytics/handled_api_error.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -11,6 +12,7 @@ void main() {
       reporter.disable();
       reporter.recordFlutterFatalError(FlutterErrorDetails(exception: 'x'));
       reporter.recordFatalError('x', StackTrace.current);
+      reporter.recordHandledError(HandledApiError.fromStatus(503, Uri.parse('https://api.test/cards/today')));
     }, returnsNormally);
   });
 }

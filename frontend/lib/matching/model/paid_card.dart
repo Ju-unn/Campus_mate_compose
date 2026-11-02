@@ -89,7 +89,7 @@ final class PaidCardOffered extends PaidCard {
 
   final String offerId;
 
-  /// "나와 성향이 잘 맞는 사람 N명이 기다리고 있어요" 의 N.
+  /// 서버가 주는 후보 수. 앱 1.0.1 부터 화면에는 쓰지 않는다(머리글에서 "N명이" 를 뺐다) — 옛 서버 응답과 맞추려고 읽기만 한다.
   final int bandCount;
   final List<ReasonTag> reasons;
 

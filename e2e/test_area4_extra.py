@@ -210,15 +210,16 @@ class DartContractTest(unittest.TestCase):
 
     def test_the_paid_card_check_wants_both_words_when_offered_and_neither_otherwise(self):
         helper = self.case_body('Future<void> _paidCardAsServerSaid', 'Future<void> _openHeartStoreFromSettings')
-        self.assertIn("case {'state': 'offered', 'cost': final int cost, 'band_count': final int band}", helper)
-        self.assertIn("for (final text in ['$cost으로 열기', '$band명이 기다리고 있어요'])", helper)
+        self.assertIn("case {'state': 'offered', 'cost': final int cost}", helper)
+        self.assertIn("for (final text in ['$cost으로 열기', '성향이 잘 맞는 사람이'])", helper)
         self.assertIn("_seeNone(_paidCardWords, ", helper)
         text = (tools.ROOT / 'frontend' / 'integration_test' / 'area4_extra.dart').read_text(encoding='utf-8')
-        self.assertIn("const _paidCardWords = ['으로 열기', '명이 기다리고 있어요'];", text)
+        self.assertIn("const _paidCardWords = ['으로 열기', '성향이 잘 맞는 사람이'];", text)
         # 그 글자는 앱의 결제 카드(paid_card_locked.dart)가 그리는 글자다.
         shown = (tools.ROOT / 'frontend' / 'lib' / 'matching' / 'view' / 'paid_card_locked.dart').read_text(encoding='utf-8')
         self.assertIn("label: '${card.cost}으로 열기'", shown)
-        self.assertIn("$bandCount명이 기다리고 있어요'", shown)
+        self.assertIn("'나와 성향이 잘 맞는 사람이\\n기다리고 있어요'", shown)
+        self.assertNotIn('bandCount', shown)  # 인원수 없이 그린다(앱 1.0.1)
 
     def test_the_walk_runs_the_today_check_while_the_today_tab_is_open(self):
         walk = self.case_body('Future<void> _noneOnHeartScreens', 'Future<void> _paidCardAsServerSaid')

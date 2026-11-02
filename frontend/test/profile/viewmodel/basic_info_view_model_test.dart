@@ -1,3 +1,4 @@
+import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -22,6 +23,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../me/model/fake_me_repository.dart';
 import '../model/fake_basic_info_repository.dart';
 import '../model/fake_onboarding_repository.dart';
+import '../../core/analytics/fake_analytics_service.dart';
 import '../../core/draft/fake_draft_store.dart';
 
 const _thisYear = 2026;
@@ -29,16 +31,19 @@ const _thisYear = 2026;
 void main() {
   late FakeBasicInfoRepository repository;
   late FakeOnboardingRepository onboardingRepository;
+  late FakeAnalyticsService analytics;
   late ProviderContainer container;
 
   setUp(() {
     repository = FakeBasicInfoRepository();
     onboardingRepository = FakeOnboardingRepository();
+    analytics = FakeAnalyticsService();
     container = ProviderContainer(
       overrides: [
         basicInfoNowProvider.overrideWithValue(() => DateTime(_thisYear, 6, 1)),
         basicInfoRepositoryProvider.overrideWithValue(repository),
         onboardingRepositoryProvider.overrideWithValue(onboardingRepository),
+        analyticsServiceProvider.overrideWithValue(analytics),
       ],
     );
   });
@@ -178,7 +183,7 @@ void main() {
     expect(container.read(basicInfoViewModelProvider).heightError, isNull);
 
     vm.changeHeight('999');
-    expect(container.read(basicInfoViewModelProvider).heightError, '숫자 3자리를 확인해 주세요');
+    expect(container.read(basicInfoViewModelProvider).heightError, '120~230 사이로 입력해 주세요');
 
     vm.changeHeight('175');
     expect(container.read(basicInfoViewModelProvider).heightError, isNull);
@@ -670,4 +675,21 @@ void main() {
       expect(drafts.saved, isEmpty);
     });
   });
+
+  testWidgets('저장이 거절되면(닉네임 중복 등) 가입 막힘으로 남긴다', (tester) async {
+    await standAt(container, onboardingRepository, OnboardingStep.basicInfo);
+    repository.nextSubmitResult = const FailureResult(ServerRejectedFailure('이미 있는 닉네임이에요', code: 'nickname_taken'));
+    final vm = container.read(basicInfoViewModelProvider.notifier);
+    vm.changeNickname('가나다');
+    await tester.pump(const Duration(milliseconds: 350));
+    vm.changeBirthYear('2002');
+    vm.changeHeight('175');
+    vm.changePhoneNumber('01001352468');
+    vm.changeGender('male');
+
+    await vm.submit();
+
+    expect(analytics.calls, ['onboarding_blocked:basic_info:rejected']);
+  });
+
 }

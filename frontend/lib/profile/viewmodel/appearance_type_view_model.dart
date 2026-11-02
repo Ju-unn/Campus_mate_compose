@@ -8,6 +8,7 @@ import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart
 import 'package:campus_mate/profile/model/appearance_type_repository_provider.dart';
 import 'package:campus_mate/profile/model/profile_enums.dart';
 import 'package:campus_mate/profile/viewmodel/appearance_type_ui_state.dart';
+import 'package:campus_mate/profile/viewmodel/onboarding_blocked.dart';
 import 'package:campus_mate/profile/viewmodel/revisit_profile.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -73,6 +74,7 @@ class AppearanceTypeViewModel extends Notifier<AppearanceTypeUiState> {
     try {
       final repository = ref.read(appearanceTypeRepositoryProvider);
       final result = await repository.submit(state.animalType!, state.impressionType!);
+      reportIfOnboardingBlocked(ref, result);
       return _stateFromResult(result);
     } catch (_) {
       return AppearanceTypeUiState(

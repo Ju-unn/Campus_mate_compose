@@ -5,6 +5,7 @@ import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart
 import 'package:campus_mate/profile/model/avatar_generation_outcome.dart';
 import 'package:campus_mate/profile/model/avatar_repository_provider.dart';
 import 'package:campus_mate/profile/viewmodel/avatar_generation_ui_state.dart';
+import 'package:campus_mate/profile/viewmodel/onboarding_blocked.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final avatarGenerationViewModelProvider =
@@ -168,6 +169,7 @@ class AvatarGenerationViewModel extends Notifier<AvatarGenerationUiState> {
       state = const AvatarGenerationUiState(status: AvatarGenerationStatus.generating);
       return null;
     }
+    reportOnboardingBlocked(ref, failure);
     final message = failure.toDisplayMessage();
     state = AvatarGenerationUiState(status: AvatarGenerationStatus.failed, errorMessage: message);
     return message;

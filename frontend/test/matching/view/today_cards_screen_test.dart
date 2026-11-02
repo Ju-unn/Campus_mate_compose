@@ -251,8 +251,8 @@ void main() {
     });
   });
 
-  testWidgets('오늘 몫이 끝나면 카운트다운과 "내일 만날 사람들" 띠를 보여준다', (tester) async {
-    // pen `i4VFS` — 띠는 눌러도 열리지 않는다는 말까지 같이 보여준다.
+  testWidgets('오늘 몫이 끝나고 다음 지급이 오늘 · 내일이면 카운트다운과 "다음에 만날 사람들" 띠를 보여준다', (tester) async {
+    // pen `i4VFS` — 띠는 한 줄이다. 눌러도 열리지 않는다는 둘째 줄은 없앴다(사용자 결정 11-02).
     final repository = FakeCardRepository()
       ..today = Success(TodayCards(cards: const [], nextIssueAt: DateTime.now().add(
         const Duration(hours: 3),
@@ -261,13 +261,49 @@ void main() {
     await pump(tester, repository);
 
     expect(find.text('오늘 카드는 확인했어요'), findsOneWidget);
-    expect(find.text('내일 만날 사람들'), findsOneWidget);
-    expect(find.text('탭해도 열리지 않아요'), findsOneWidget);
+    expect(find.text('다음에 만날 사람들'), findsOneWidget);
+    expect(find.text('탭해도 열리지 않아요'), findsNothing);
+    expect(find.text('내일 만날 사람들'), findsNothing);
     // 카운트다운은 홈 hero 와 같은 CountdownText(48/700 · tabularFigures) — 시 자리는 기기 시계라 02 · 03 둘 다 받는다.
     final countdown = find.byType(CountdownText);
     expect(countdown, findsOneWidget);
     expect(find.descendant(of: countdown, matching: find.textContaining(RegExp(r'^0[23]:\d\d:\d\d$'))), findsOneWidget);
     expect(tester.widget<CountdownText>(countdown).style.fontSize, 48);
+  });
+
+  group('띠 — pen `k2fF9y`(찾아볼게요 · 띠 없음)와 맞춰 "도착해요" 일 때만 보인다(사용자 결정 11-02)', () {
+    testWidgets('정확히 하루 뒤(내일)여도 띠가 보이고 부제는 "내일 … 도착해요"', (tester) async {
+      final repository = FakeCardRepository()
+        ..today = Success(TodayCards(cards: const [], nextIssueAt: DateTime.now().add(const Duration(hours: 24))));
+
+      await pump(tester, repository);
+
+      expect(find.textContaining('내일 '), findsOneWidget);
+      expect(find.textContaining('도착해요'), findsOneWidget);
+      expect(find.text('다음에 만날 사람들'), findsOneWidget);
+    });
+
+    testWidgets('다음 지급이 이틀 이상 남으면 띠를 숨기고 부제는 "찾아볼게요". 카운트다운은 그대로', (tester) async {
+      final repository = FakeCardRepository()
+        ..today = Success(TodayCards(cards: const [], nextIssueAt: DateTime.now().add(const Duration(days: 3))));
+
+      await pump(tester, repository);
+
+      expect(find.textContaining('찾아볼게요'), findsOneWidget);
+      expect(find.textContaining('만날 사람들'), findsNothing);
+      expect(find.byType(CountdownText), findsOneWidget);
+    });
+
+    testWidgets('다음 지급 시각을 모르면(null) 띠를 숨긴다. 부제는 "새로운 사람이 준비되면 알려드릴게요"', (tester) async {
+      final repository = FakeCardRepository()..today = const Success(TodayCards(cards: []));
+
+      await pump(tester, repository);
+
+      expect(find.text('오늘 카드는 확인했어요'), findsOneWidget);
+      expect(find.text('새로운 사람이 준비되면 알려드릴게요'), findsOneWidget);
+      expect(find.textContaining('만날 사람들'), findsNothing);
+      expect(find.byType(CountdownText), findsNothing);
+    });
   });
 
   testWidgets('대기 카운트다운이 0 이 되면 푸시를 기다리지 않고 다시 읽는다 — 20초 간격 3번까지', (tester) async {
@@ -322,6 +358,46 @@ void main() {
     });
   });
 
+  group('띠를 보일지 — 부제와 같은 서울 날짜 계산(isArrivingSoon)', () {
+    // 서울 시각을 UTC 로 만든다 — 기기 시간대에 기대지 않는다. 2026-10-05 가 월요일.
+    DateTime seoul(int day, int hour) => DateTime.utc(2026, 10, day, hour).subtract(const Duration(hours: 9));
+
+    test('오늘(지급일 07:00 전)과 내일은 보인다', () {
+      expect(isArrivingSoon(seoul(12, 7), seoul(12, 5)), isTrue);
+      expect(isArrivingSoon(seoul(12, 7), seoul(11, 12)), isTrue);
+    });
+
+    test('이틀 뒤부터는 숨긴다', () {
+      expect(isArrivingSoon(seoul(7, 7), seoul(5, 12)), isFalse);
+      expect(isArrivingSoon(seoul(12, 7), seoul(5, 12)), isFalse);
+    });
+
+    test('시각을 모르면(null) 숨긴다', () {
+      expect(isArrivingSoon(null, seoul(5, 12)), isFalse);
+    });
+
+    test('하루는 시간이 아니라 서울 날짜로 센다 — 1시간 뒤여도 날짜가 이틀 뒤면 숨기고, 25시간 뒤여도 내일이면 보인다', () {
+      expect(isArrivingSoon(seoul(7, 0), seoul(5, 23)), isFalse);
+      expect(isArrivingSoon(seoul(6, 0), seoul(5, 23)), isTrue);
+      expect(isArrivingSoon(seoul(6, 23), seoul(5, 22)), isTrue);
+    });
+
+    test('부제가 "도착해요" 인 날과 정확히 일치한다 — 두 곳의 기준이 갈라지지 않는다', () {
+      final now = seoul(5, 12);
+      for (var day = 3; day <= 25; day++) {
+        for (final hour in [0, 7, 23]) {
+          final issue = seoul(day, hour);
+          expect(
+            isArrivingSoon(issue, now),
+            waitingSubtitle(issue, now).endsWith('도착해요'),
+            reason: '$day 일 $hour 시: ${waitingSubtitle(issue, now)}',
+          );
+        }
+      }
+      expect(waitingSubtitle(null, now).endsWith('도착해요'), isFalse);
+    });
+  });
+
   group('앱 투어 4단계 표식', () {
     Finder target(TourTargetId id) => find.byWidgetPredicate((w) => w is TourTarget && w.id == id);
 
@@ -334,7 +410,7 @@ void main() {
       final arrival = target(TourTargetId.todayArrival);
       expect(find.descendant(of: arrival, matching: find.text('오늘 카드는 확인했어요')), findsOneWidget);
       expect(find.descendant(of: arrival, matching: find.byType(CountdownText)), findsOneWidget);
-      expect(find.descendant(of: arrival, matching: find.text('내일 만날 사람들')), findsNothing);
+      expect(find.descendant(of: arrival, matching: find.text('다음에 만날 사람들')), findsNothing);
     });
 
     testWidgets('앱바 제목 "오늘의 카드" 는 늘 대신 자리(상단 영역) 표식이 있다 — 카드 목록 상태에는 도착 시각 안내가 없다', (tester) async {

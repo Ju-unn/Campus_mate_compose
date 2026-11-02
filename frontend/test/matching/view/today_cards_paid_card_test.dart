@@ -5,6 +5,7 @@ import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/core/analytics/analytics_values.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/home/model/home_repository_provider.dart';
 import 'package:campus_mate/matching/model/card_profile.dart';
@@ -79,6 +80,9 @@ MyProfile _profile(int hearts) => MyProfile(
       avatarRegenCost: 10,
     );
 
+/// 마지막으로 하트 스토어 길이 받은 extra(들어온 곳).
+Object? storeExtra;
+
 void main() {
   setUpAll(_loadPretendard);
 
@@ -94,11 +98,18 @@ void main() {
     tester.view.physicalSize = const Size(360, 1400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
+    storeExtra = null;
     final router = GoRouter(
       initialLocation: '/today',
       routes: [
         GoRoute(path: '/today', builder: (context, state) => const TodayCardsScreen()),
-        GoRoute(path: AppRoutes.heartStore, builder: (context, state) => Scaffold(appBar: AppBar(), body: const Text('18 스토어'))),
+        GoRoute(
+          path: AppRoutes.heartStore,
+          builder: (context, state) {
+            storeExtra = state.extra;
+            return Scaffold(appBar: AppBar(), body: const Text('18 스토어'));
+          },
+        ),
       ],
     );
     addTearDown(router.dispose);
@@ -177,9 +188,25 @@ void main() {
 
       expect(find.text('오늘 카드는 확인했어요'), findsOneWidget);
       expect(find.byType(PaidCardLocked), findsOneWidget);
-      expect(rect(tester, find.byType(PaidCardLocked)).top, greaterThan(rect(tester, find.text('내일 만날 사람들')).bottom));
+      expect(rect(tester, find.byType(PaidCardLocked)).top, greaterThan(rect(tester, find.text('다음에 만날 사람들')).bottom));
       expect(rect(tester, find.byType(PaidCardLocked)).width, 328);
       expect(rect(tester, find.byType(PaidCardLocked)).left, 16);
+    });
+
+    testWidgets('띠가 숨는 날(이틀 이상 뒤)에도 결제 카드는 마스코트 아래 16 에 붙는다 — 띠 몫의 14 도 같이 빠진다', (tester) async {
+      cards.today = Success(
+        TodayCards(cards: const [], nextIssueAt: DateTime.now().add(const Duration(days: 3)), paidCard: _offer),
+      );
+
+      await pump(tester);
+
+      final mascot = find.byWidgetPredicate(
+        (widget) => widget is Image && widget.image is AssetImage && (widget.image as AssetImage).assetName == 'assets/images/mascot-male-waiting.png',
+      );
+      expect(find.textContaining('만날 사람들'), findsNothing);
+      expect(find.byType(PaidCardLocked), findsOneWidget);
+      expect(rect(tester, find.byType(PaidCardLocked)).top - rect(tester, mascot).bottom, 16);
+      expect(rect(tester, find.byType(PaidCardLocked)).width, 328);
     });
 
     testWidgets('후보 풀이 비면(11b) 서버가 offered 를 줘도 그리지 않는다', (tester) async {
@@ -335,6 +362,7 @@ void main() {
       await tester.tap(find.text('하트 스토어로 가기'));
       await tester.pumpAndSettle();
       expect(find.text('18 스토어'), findsOneWidget);
+      expect(storeExtra, HeartStoreEntry.paidCard, reason: '사용 통계 heart_store_open 의 from');
 
       // 스토어에서 하트를 채웠다고 치고 뒤로 돌아온다.
       me.profile = Success(_profile(500));
