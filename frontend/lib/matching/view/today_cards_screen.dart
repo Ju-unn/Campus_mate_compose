@@ -170,6 +170,8 @@ class _WaitingPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 부제와 띠가 같은 순간의 시계를 본다 — 자정 앞뒤로 둘이 갈라지지 않게 한 번만 읽는다.
+    final now = DateTime.now();
     return _CenteredPanel(
       horizontalPadding: AppSpacing.md,
       // 가운데로 모으면 시안보다 아래로 내려간다 — 앱바 아래 28 에서 시작하고 남는 공간은 아래에 둔다.
@@ -187,7 +189,7 @@ class _WaitingPanel extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                waitingSubtitle(nextIssueAt, DateTime.now()),
+                waitingSubtitle(nextIssueAt, now),
                 textAlign: TextAlign.center,
                 style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
               ),
@@ -203,8 +205,8 @@ class _WaitingPanel extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.lg),
         Image.asset('assets/images/mascot-male-waiting.png', width: 88),
-        const SizedBox(height: 14),
-        const _TomorrowBand(),
+        // 띠는 부제가 "도착해요" 일 때만 — "찾아볼게요" 나 시각 미정이면 pen `k2fF9y` 처럼 마스코트 아래를 비운다(사용자 결정 11-02).
+        if (isArrivingSoon(nextIssueAt, now)) ...const [SizedBox(height: 14), _NextBand()],
         if (paidCard != null) ...[
           const SizedBox(height: AppSpacing.md),
           SizedBox(width: double.infinity, child: PaidCardSlot(paidCard: paidCard!)),
@@ -215,15 +217,16 @@ class _WaitingPanel extends StatelessWidget {
   }
 }
 
-/// "내일 만날 사람들" 띠(pen `i4VFS`). 흐린 사진 위에 잉크 막을 덮어 **얼굴이 보이지 않는다** —
-/// 눌러도 아무 일도 없는 장식이라 탭 영역을 두지 않는다.
+/// "다음에 만날 사람들" 띠(pen `i4VFS` · `x5TYpC`). 흐린 사진 위에 잉크 막을 덮어 **얼굴이 보이지 않는다** —
+/// 눌러도 아무 일도 없는 장식이라 탭 영역을 두지 않는다. 글자는 한 줄이다("탭해도 열리지 않아요" 는 없앴다, 사용자 결정 11-02).
+/// 부제가 "도착해요" 인 날([isArrivingSoon])에만 그린다.
 ///
 /// 원본이 1122×1402 라 그대로 디코드하면 6MB 를 물고 있는다. 화면에 필요한 폭은 360 남짓이라
 /// [cacheWidth] 720(2배 밀도)으로 줄여 받는다. 불투명도는 [Opacity] 레이어 대신 `Image.asset` 이
 /// 직접 처리하고, 옆 카운트다운이 1초마다 다시 그릴 때 블러까지 다시 계산되지 않게
 /// [RepaintBoundary] 로 끊는다.
-class _TomorrowBand extends StatelessWidget {
-  const _TomorrowBand();
+class _NextBand extends StatelessWidget {
+  const _NextBand();
 
   @override
   Widget build(BuildContext context) {
@@ -247,17 +250,7 @@ class _TomorrowBand extends StatelessWidget {
                 ),
               ),
               ColoredBox(color: AppColors.surfaceInk.withValues(alpha: 0.55)),
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text('내일 만날 사람들', style: AppTypography.subtitle.copyWith(color: AppColors.onInk)),
-                  const SizedBox(height: AppSpacing.xxs),
-                  Text(
-                    '탭해도 열리지 않아요',
-                    style: AppTypography.caption.copyWith(color: AppColors.onInkMuted),
-                  ),
-                ],
-              ),
+              Center(child: Text('다음에 만날 사람들', style: AppTypography.subtitle.copyWith(color: AppColors.onInk))),
             ],
           ),
         ),
@@ -270,25 +263,43 @@ class _TomorrowBand extends StatelessWidget {
 /// "오늘 오전 7시" 는 학교 오픈 대기(home/view/cohort_wait_view.dart)와 같은 말이다.
 const String _arrivingSoonTail = '에 새로운 한 명이 도착해요';
 
+/// 서울 시계로 옮긴 값(한국은 서머타임이 없어 +9 고정).
+DateTime _seoulClock(DateTime value) => value.toUtc().add(const Duration(hours: 9));
+
+/// 서울 달력으로 [issue] 가 [now] 보다 며칠 뒤인지(같은 날이면 0). 둘 다 [_seoulClock] 을 거친 값이다.
+int _calendarDaysUntil(DateTime issue, DateTime now) =>
+    DateTime.utc(issue.year, issue.month, issue.day).difference(DateTime.utc(now.year, now.month, now.day)).inDays;
+
+/// 이 날수 이하로 남았으면 부제는 "오늘 · 내일 … 도착해요" 이고 "다음에 만날 사람들" 띠가 따라 보인다.
+const int _arrivingSoonMaxDays = 1;
+
+/// 다음 지급이 오늘 · 내일이라 부제가 "도착해요" 꼴인가. 띠를 보일지는 이 하나로 정한다 —
+/// [waitingSubtitle] 과 같은 날짜 계산이라 부제와 띠가 갈라지지 않는다. 시각을 모르면 false.
+@visibleForTesting
+bool isArrivingSoon(DateTime? nextIssueAt, DateTime now) {
+  if (nextIssueAt == null) {
+    return false;
+  }
+  return _calendarDaysUntil(_seoulClock(nextIssueAt), _seoulClock(now)) <= _arrivingSoonMaxDays;
+}
+
 /// 화면 11 의 부제. 내일이면 시안 `k1jPSY`, 그 뒤면 `exnx7` 문구다. 다음 주(월요일 시작)면 요일 앞에
 /// "다음 주" 를 붙인다 — 주 1회는 월요일에 "월요일" 이 오늘처럼 읽혔다(사용자 결정 10-04 (나)).
 /// 지급일의 지급 시각 전이면 서버가 오늘 시각을 준다(ladder.py upcoming_issue_at) — 그때는 "오늘" 이다.
-/// 날짜 · 요일 · 시각은 서울 기준이다(한국은 서머타임이 없어 +9 고정).
+/// 날짜 · 요일 · 시각은 서울 기준이다([_seoulClock]).
 @visibleForTesting
 String waitingSubtitle(DateTime? nextIssueAt, DateTime now) {
   if (nextIssueAt == null) {
     return '새로운 사람이 준비되면 알려드릴게요';
   }
-  final issue = nextIssueAt.toUtc().add(const Duration(hours: 9));
-  final seoulNow = now.toUtc().add(const Duration(hours: 9));
-  final days = DateTime.utc(issue.year, issue.month, issue.day)
-      .difference(DateTime.utc(seoulNow.year, seoulNow.month, seoulNow.day))
-      .inDays;
+  final issue = _seoulClock(nextIssueAt);
+  final seoulNow = _seoulClock(now);
+  final days = _calendarDaysUntil(issue, seoulNow);
   final time = hourLabel(issue);
   if (days == 0) {
     return '오늘 $time$_arrivingSoonTail';
   }
-  if (days <= 1) {
+  if (days <= _arrivingSoonMaxDays) {
     return '내일 $time$_arrivingSoonTail';
   }
   // 오늘이 weekday 면 이번 주 일요일까지 7 - weekday 일 남았다.

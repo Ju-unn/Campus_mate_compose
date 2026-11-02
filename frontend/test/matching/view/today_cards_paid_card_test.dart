@@ -177,9 +177,25 @@ void main() {
 
       expect(find.text('오늘 카드는 확인했어요'), findsOneWidget);
       expect(find.byType(PaidCardLocked), findsOneWidget);
-      expect(rect(tester, find.byType(PaidCardLocked)).top, greaterThan(rect(tester, find.text('내일 만날 사람들')).bottom));
+      expect(rect(tester, find.byType(PaidCardLocked)).top, greaterThan(rect(tester, find.text('다음에 만날 사람들')).bottom));
       expect(rect(tester, find.byType(PaidCardLocked)).width, 328);
       expect(rect(tester, find.byType(PaidCardLocked)).left, 16);
+    });
+
+    testWidgets('띠가 숨는 날(이틀 이상 뒤)에도 결제 카드는 마스코트 아래 16 에 붙는다 — 띠 몫의 14 도 같이 빠진다', (tester) async {
+      cards.today = Success(
+        TodayCards(cards: const [], nextIssueAt: DateTime.now().add(const Duration(days: 3)), paidCard: _offer),
+      );
+
+      await pump(tester);
+
+      final mascot = find.byWidgetPredicate(
+        (widget) => widget is Image && widget.image is AssetImage && (widget.image as AssetImage).assetName == 'assets/images/mascot-male-waiting.png',
+      );
+      expect(find.textContaining('만날 사람들'), findsNothing);
+      expect(find.byType(PaidCardLocked), findsOneWidget);
+      expect(rect(tester, find.byType(PaidCardLocked)).top - rect(tester, mascot).bottom, 16);
+      expect(rect(tester, find.byType(PaidCardLocked)).width, 328);
     });
 
     testWidgets('후보 풀이 비면(11b) 서버가 offered 를 줘도 그리지 않는다', (tester) async {
