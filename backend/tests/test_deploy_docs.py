@@ -42,3 +42,13 @@ def test_deploy_doc_names_the_apple_private_key_secret_and_says_to_register_it()
         assert name in paragraph
     # 셋 중 하나라도 비면 탈퇴 때 애플 토큰 철회만 건너뛴다 — 서버는 그대로 뜬다.
     assert "건너뛴다" in paragraph
+
+
+def test_deploy_doc_names_the_min_app_version_and_says_when_to_raise_it():
+    text = (BACKEND / "DEPLOY.md").read_text(encoding="utf-8")
+
+    # 설명 문단(굵은 키 이름으로 시작)만 고른다. 없으면 StopIteration 으로 실패.
+    paragraph = next(block for block in text.split("\n\n") if block.startswith("**`MIN_APP_VERSION`"))
+    # 고친 빌드가 두 스토어에서 공개되기 전에 올리면 사람들이 갈 곳 없이 막힌다.
+    assert "두 스토어" in paragraph
+    assert "공개" in paragraph
