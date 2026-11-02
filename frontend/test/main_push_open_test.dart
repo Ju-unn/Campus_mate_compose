@@ -20,6 +20,7 @@ import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
 import 'package:campus_mate/matching/view/conversations_screen.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'package:campus_mate/core/auth/sign_out.dart';
 import 'package:campus_mate/core/push/push_provider.dart';
 import 'package:campus_mate/home/model/home_repository_provider.dart';
@@ -37,6 +38,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'auth/model/fake_verification_gate_repository.dart';
 import 'billing/model/fake_heart_task_repository.dart';
 import 'chat/model/fake_chat_repository.dart';
+import 'core/analytics/fake_analytics_service.dart';
 import 'core/push/fake_push_messaging.dart';
 import 'core/push/fake_system_notifications.dart';
 import 'home/model/fake_home_repository.dart';
@@ -131,6 +133,8 @@ void main() {
   late ProviderContainer appContainer;
   // 앱이 떠 있을 때 받은 푸시를 안드로이드가 띄우는 시스템 알림 창구. 두 pump 도우미가 채운다.
   late FakeSystemNotifications appSystemNotifications;
+  // 사용 통계 push_open 을 보려는 가짜. pumpHome 이 채운다.
+  late FakeAnalyticsService appAnalytics;
 
   /// 관문이 아직 끝나지 않은 앱(학교 메일은 인증했고 학과 · 학번 3c 가 남았다).
   Future<void> pumpGatedApp(WidgetTester tester) async {
@@ -184,9 +188,11 @@ void main() {
     appNotifications = FakeNotificationsRepository(unreadCount: 3);
     appSystemNotifications = FakeSystemNotifications(launch: launch);
     appEvents = FakeUserEventStream();
+    appAnalytics = FakeAnalyticsService();
     final push = FakePushMessaging(token: 't', granted: false);
     final container = appContainer = ProviderContainer(
       overrides: [
+        analyticsServiceProvider.overrideWithValue(appAnalytics),
         verificationGateRepositoryProvider.overrideWithValue(FakeVerificationGateRepository()),
         onboardingRepositoryProvider.overrideWithValue(FakeOnboardingRepository()),
         pushMessagingProvider.overrideWithValue(push),
@@ -502,4 +508,44 @@ void main() {
       expect(appEvents.openCount, 0);
     });
   });
+
+  // 사용 통계 push_open — 푸시를 눌러 앱이 열리거나 이동할 때, 종류값(data.route)만 남긴다. 방 id · 상대 id 등 data 의 나머지는 싣지 않는다.
+  group('푸시 열기 분석(push_open)', () {
+    List<String> opens() => appAnalytics.calls.where((call) => call.startsWith('push_open')).toList();
+
+    testWidgets('백그라운드의 앱을 알림으로 열면 종류값을 남긴다', (tester) async {
+      final (_, push) = await pumpHome(tester);
+
+      push.emitOpened({'route': 'match', 'match_id': _roomId});
+      await tester.pumpAndSettle();
+
+      expect(opens(), ['push_open:match']);
+      expect(appAnalytics.calls.join(), isNot(contains(_roomId)));
+    });
+
+    testWidgets('꺼진 앱을 앱이 띄운 알림으로 켜도 남긴다', (tester) async {
+      await pumpHome(tester, launch: {'route': 'chat', 'match_id': _roomId});
+
+      expect(opens(), ['push_open:chat']);
+    });
+
+    testWidgets('모르는 종류(옛 학생증 결과 등)는 other 로 남긴다', (tester) async {
+      final (_, push) = await pumpHome(tester);
+
+      push.emitOpened({'route': 'verification', 'extra': '홍길동'});
+      await tester.pumpAndSettle();
+
+      expect(opens(), ['push_open:other']);
+    });
+
+    testWidgets('앱이 켜진 채 받기만 한 알림은 열기가 아니라서 남기지 않는다', (tester) async {
+      final (_, push) = await pumpHome(tester);
+
+      push.emitMessage({'route': 'daily_card'}, title: '새 카드', body: '도착했어요');
+      await tester.pumpAndSettle();
+
+      expect(opens(), isEmpty);
+    });
+  });
+
 }

@@ -288,6 +288,8 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
   /// 알림을 눌러 연 경우에도 목록을 다시 읽는다 — 백그라운드에 있던 앱은 [_refreshForRoute] 를 못 받았고,
   /// 대화 탭 같은 목록은 들어갈 때 다시 읽지 않아 옮기기만 하면 낡은 목록(빈 상태)이 그대로 보인다.
   void _openRoute(Map<String, dynamic> data) {
+    // 사용 통계 push_open — 알림을 눌러 앱이 열리거나 옮겨질 때 한 번, 종류값만 싣는다(꺼진 앱 · 백그라운드 · 앱이 직접 띄운 알림 모두 여기를 지난다).
+    ref.read(analyticsServiceProvider).logPushOpen(PushRoute.typeOf(data));
     _refreshForRoute(data);
     _pendingPushPath = PushRoute.resolve(data);
     _openPendingPushRoute();

@@ -1,18 +1,22 @@
+import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'package:campus_mate/tour/model/tour_seen_store.dart';
 import 'package:campus_mate/tour/viewmodel/app_tour_view_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../core/analytics/fake_analytics_service.dart';
 import '../model/fake_tour_seen_store.dart';
 
 void main() {
   late FakeTourSeenStore store;
+  late FakeAnalyticsService analytics;
 
   ProviderContainer containerFor({String? profileId = 'profile-a'}) {
     final container = ProviderContainer(
       overrides: [
         tourSeenStoreProvider.overrideWithValue(store),
         tourAccountIdProvider.overrideWithValue(() => profileId),
+        analyticsServiceProvider.overrideWithValue(analytics),
       ],
     );
     addTearDown(container.dispose);
@@ -21,6 +25,7 @@ void main() {
 
   setUp(() {
     store = FakeTourSeenStore();
+    analytics = FakeAnalyticsService();
     AppTourViewModel.autoStartEnabled = true;
   });
   tearDown(() => AppTourViewModel.autoStartEnabled = true);
@@ -109,7 +114,7 @@ void main() {
       expect(skipped.index, 2);
       expect(skipped.skipped, 1);
 
-      viewModel.end();
+      viewModel.finish();
       expect(container.read(appTourViewModelProvider).active, isFalse);
     });
 
@@ -120,7 +125,7 @@ void main() {
         ..replay()
         ..next()
         ..skipMissing()
-        ..end()
+        ..skip()
         ..replay();
 
       final state = container.read(appTourViewModelProvider);
@@ -131,4 +136,77 @@ void main() {
       expect(viewModel, isNotNull);
     });
   });
+
+  // 사용 통계 tour_finish — 결과(done · skip)와 단계 번호(단계 목록의 몇째, 1부터)만 나간다.
+  group('끝내기 분석(tour_finish)', () {
+    test('마지막에 "시작하기" 로 끝내면 done 과 그때 단계 번호', () {
+      final container = containerFor();
+      final viewModel = container.read(appTourViewModelProvider.notifier)
+        ..replay()
+        ..next()
+        ..next();
+
+      viewModel.finish();
+
+      expect(analytics.calls, ['tour_finish:done:3']);
+      expect(container.read(appTourViewModelProvider).active, isFalse);
+    });
+
+    test('건너뛰면 skip 과 그때 단계 번호', () {
+      final container = containerFor();
+      final viewModel = container.read(appTourViewModelProvider.notifier)
+        ..replay()
+        ..next();
+
+      viewModel.skip();
+
+      expect(analytics.calls, ['tour_finish:skip:2']);
+      expect(container.read(appTourViewModelProvider).active, isFalse);
+    });
+
+    test('대상을 못 찾아 건너뛴 단계가 있어도 번호는 단계 목록에서의 자리다(말풍선 "n / 총" 과 다를 수 있다)', () {
+      final container = containerFor();
+      final viewModel = container.read(appTourViewModelProvider.notifier)
+        ..replay()
+        ..skipMissing()
+        ..next();
+
+      viewModel.skip();
+
+      expect(analytics.calls, ['tour_finish:skip:3']);
+    });
+
+    test('이미 끝난 투어를 또 끝내도 한 번만 남긴다(투어가 사라진 뒤 프레임 콜백이 한 번 더 불러도)', () {
+      final container = containerFor();
+      final viewModel = container.read(appTourViewModelProvider.notifier)..replay();
+
+      viewModel.skip();
+      viewModel.skip();
+      viewModel.finish();
+
+      expect(analytics.calls, ['tour_finish:skip:1']);
+    });
+
+    test('시작하지 않은 투어를 끝내라고 해도 남기지 않는다', () {
+      final container = containerFor();
+
+      container.read(appTourViewModelProvider.notifier).skip();
+
+      expect(analytics.calls, isEmpty);
+    });
+
+    test('다시 보기로 다시 시작한 투어는 새로 센다', () {
+      final container = containerFor();
+      final viewModel = container.read(appTourViewModelProvider.notifier)
+        ..replay()
+        ..next()
+        ..skip()
+        ..replay();
+
+      viewModel.skip();
+
+      expect(analytics.calls, ['tour_finish:skip:2', 'tour_finish:skip:1']);
+    });
+  });
+
 }

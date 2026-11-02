@@ -349,12 +349,12 @@ class _AppTourHostState extends ConsumerState<AppTourHost>
 
   /// 마지막 "시작하기" — 끝내고 홈으로 돌아온다.
   void _finish() {
-    _viewModel.end();
+    _viewModel.finish();
     widget.router.go(AppRoutes.home);
   }
 
   /// 건너뛰기 · 시스템 뒤로가기 — 그 자리에서 끝낸다.
-  void _skip() => _viewModel.end();
+  void _skip() => _viewModel.skip();
 
   @override
   Future<bool> didPopRoute() async {

@@ -1,4 +1,5 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/tour/model/tour_seen_store.dart';
 import 'package:campus_mate/tour/view/app_tour_host.dart';
@@ -14,6 +15,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/analytics/fake_analytics_service.dart';
 import '../model/fake_tour_seen_store.dart';
 
 const _hero = ValueKey('hero');
@@ -164,6 +166,7 @@ void main() {
   late ProviderContainer container;
   late GoRouter router;
   late _Pages pages;
+  late FakeAnalyticsService analytics;
 
   Future<void> pump(
     WidgetTester tester, {
@@ -180,8 +183,10 @@ void main() {
     addTearDown(tester.view.reset);
     pages = _Pages(nudge: nudge, arrival: arrival, longHome: longHome, freeHeight: freeHeight, heartBar: heartBar);
     addTearDown(pages.scroll.dispose);
+    analytics = FakeAnalyticsService();
     container = ProviderContainer(
       overrides: [
+        analyticsServiceProvider.overrideWithValue(analytics),
         tourSeenStoreProvider.overrideWithValue(FakeTourSeenStore()),
         tourAccountIdProvider.overrideWithValue(() => 'profile-a'),
       ],
@@ -285,6 +290,8 @@ void main() {
     expect(find.byType(CoachOverlay), findsNothing);
     expect(container.read(appTourViewModelProvider).active, isFalse);
     expect(location(), AppRoutes.home);
+    // 사용 통계 tour_finish — 끝까지 봤다(done), 6단계 중 6번째.
+    expect(analytics.calls.where((call) => call.startsWith('tour_finish')), ['tour_finish:done:6']);
   });
 
   testWidgets('건너뛰기 → 그 자리에서 바로 끝나고 화면은 옮기지 않는다', (tester) async {
@@ -299,6 +306,8 @@ void main() {
     expect(find.byType(CoachOverlay), findsNothing);
     expect(container.read(appTourViewModelProvider).active, isFalse);
     expect(location(), AppRoutes.community);
+    // 사용 통계 tour_finish — 3단계에서 건너뛰었다.
+    expect(analytics.calls.where((call) => call.startsWith('tour_finish')), ['tour_finish:skip:3']);
   });
 
   testWidgets('시스템 뒤로가기 = 건너뛰기 — 6단계 상점에서 눌러도 상점은 닫히지 않고 투어만 끝난다, 끝난 뒤에는 평소대로 닫힌다', (tester) async {
@@ -314,6 +323,8 @@ void main() {
 
     expect(find.byType(CoachOverlay), findsNothing);
     expect(location(), AppRoutes.heartStore);
+    // 사용 통계 tour_finish — 시스템 뒤로가기는 건너뛰기다(6단계).
+    expect(analytics.calls.where((call) => call.startsWith('tour_finish')), ['tour_finish:skip:6']);
 
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();

@@ -1,3 +1,5 @@
+import 'package:campus_mate/core/analytics/analytics_provider.dart';
+import 'package:campus_mate/core/analytics/analytics_values.dart';
 import 'package:campus_mate/tour/model/tour_seen_store.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -71,5 +73,17 @@ class AppTourViewModel extends Notifier<AppTourUiState> {
   /// 이 단계의 대상을 끝내 못 찾았다 — 건너뛰고 단계 수에서 뺀다.
   void skipMissing() => state = state.copyWith(index: state.index + 1, skipped: state.skipped + 1);
 
-  void end() => state = state.copyWith(active: false);
+  /// 마지막 "시작하기" 로 끝낸다.
+  void finish() => _end(TourResult.done);
+
+  /// 건너뛰기 · 시스템 뒤로가기로 끝낸다.
+  void skip() => _end(TourResult.skip);
+
+  /// 켜져 있던 투어만 끝내고 사용 통계 `tour_finish` 를 남긴다. 단계 번호는 단계 목록의 몇째(1부터)다 —
+  /// 대상을 못 찾아 건너뛴 단계가 있어도 같은 단계가 같은 번호다(말풍선 "n / 총" 은 건너뛴 만큼 줄여 센다).
+  void _end(TourResult result) {
+    if (!state.active) return;
+    ref.read(analyticsServiceProvider).logTourFinish(result, state.index + 1);
+    state = state.copyWith(active: false);
+  }
 }

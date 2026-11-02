@@ -3,6 +3,7 @@ import 'package:campus_mate/community/model/community_repository.dart';
 import 'package:campus_mate/community/model/community_repository_provider.dart';
 import 'package:campus_mate/community/model/poll.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_ui_state.dart';
+import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -98,6 +99,8 @@ class CommunityFeedViewModel extends Notifier<CommunityFeedUiState> {
     final message = await result.when<Future<String?>>(
       onSuccess: (outcome) async {
         _replace(outcome.poll);
+        // 사용 통계 `poll_vote` — 서버가 투표를 받아 준 뒤에만. 질문 id · 고른 보기 · 보상 여부는 싣지 않는다.
+        ref.read(analyticsServiceProvider).logPollVote();
         if (!outcome.rewarded) return null;
         // 하트가 들어왔다 — 홈 칩 · 하트 스토어 · 설정이 읽는 잔액(내 프로필)을 다시 읽게 한다.
         ref.invalidate(myProfileProvider);
