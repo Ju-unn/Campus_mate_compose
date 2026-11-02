@@ -178,7 +178,7 @@ void main() {
     expect(container.read(basicInfoViewModelProvider).heightError, isNull);
 
     vm.changeHeight('999');
-    expect(container.read(basicInfoViewModelProvider).heightError, '숫자 3자리를 확인해 주세요');
+    expect(container.read(basicInfoViewModelProvider).heightError, '120~230 사이로 입력해 주세요');
 
     vm.changeHeight('175');
     expect(container.read(basicInfoViewModelProvider).heightError, isNull);

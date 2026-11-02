@@ -29,8 +29,12 @@ final birthYearInputFormatters = [
   FilteringTextInputFormatter.digitsOnly,
   LengthLimitingTextInputFormatter(4),
 ];
-final heightInputFormatters = [
+
+/// 키는 맨 앞 0 도 받지 않는다(2026-11-02 앱 1.0.1) — "017" 처럼 3자리가 되는데 범위 밖인 값을 만들지 않는다.
+/// 글자를 지우지 않고 통째로 보고 거절한다(이전 값 유지) — 가운데에 0 을 끼운 "107" 은 맨 앞이 아니라 그대로 받는다.
+final heightInputFormatters = <TextInputFormatter>[
   FilteringTextInputFormatter.digitsOnly,
+  TextInputFormatter.withFunction((oldValue, newValue) => newValue.text.startsWith('0') ? oldValue : newValue),
   LengthLimitingTextInputFormatter(3),
 ];
 

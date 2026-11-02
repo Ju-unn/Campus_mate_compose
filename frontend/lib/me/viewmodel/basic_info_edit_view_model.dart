@@ -321,7 +321,7 @@ class BasicInfoEditUiState {
 
   /// 04-1 과 같다 — 3자리를 다 친 뒤에도 범위 밖일 때만. 치는 도중에 띄우면 한 자 칠 때마다 깜빡인다.
   String? get heightError =>
-      heightRejection ?? (heightInput.length == 3 && heightCm == null ? '숫자 3자리를 확인해 주세요' : null);
+      heightRejection ?? (heightInput.length == 3 && heightCm == null ? '120~230 사이로 입력해 주세요' : null);
 
   /// 바뀌지 않은 칸은 보내지 않으니 검사하지 않는다. 중복 확인이 실패했거나 아직이어도 막지 않는다(04-1 과 같다).
   bool get _isNicknameReady =>
