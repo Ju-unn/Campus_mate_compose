@@ -46,3 +46,13 @@ def test_settings_requires_all_values(monkeypatch):
     monkeypatch.delenv("SUPABASE_URL", raising=False)
     with pytest.raises(Exception):
         Settings(_env_file=None)
+
+
+def test_min_app_version_is_empty_by_default_and_a_bad_value_does_not_stop_boot(monkeypatch):
+    """최소 앱 버전은 사람이 Cloud Run 에 손으로 넣는다. 비면 아무도 막지 않고, 형식이 틀려도 `Settings()` 는 죽지 않는다
+    (검사는 `GET /app/version` 이 한다 — 위 평점 값과 같은 이유)."""
+    monkeypatch.delenv("MIN_APP_VERSION", raising=False)
+    assert Settings().min_app_version == ""
+
+    monkeypatch.setenv("MIN_APP_VERSION", "one.zero.one")
+    assert Settings().min_app_version == "one.zero.one"
