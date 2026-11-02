@@ -5,8 +5,10 @@ import 'package:campus_mate/auth/model/face_detector_provider.dart';
 import 'package:campus_mate/auth/model/image_compressor_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'package:campus_mate/profile/model/avatar_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
+import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:campus_mate/profile/model/photos_repository_provider.dart';
 import 'package:campus_mate/profile/viewmodel/photos_ui_state.dart';
 import 'package:campus_mate/profile/viewmodel/photos_view_model.dart';
@@ -19,6 +21,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../auth/model/fake_face_detector.dart';
 import '../../auth/model/fake_image_compressor.dart';
+import '../../core/analytics/fake_analytics_service.dart';
 import '../model/fake_avatar_repository.dart';
 import '../model/fake_onboarding_repository.dart';
 import '../model/fake_photos_repository.dart';
@@ -30,6 +33,7 @@ void main() {
   late FakeFaceDetector faceDetector;
   late FakeOnboardingRepository onboardingRepository;
   late FakeAvatarRepository avatarRepository;
+  late FakeAnalyticsService analytics;
   late ProviderContainer container;
 
   setUp(() {
@@ -38,8 +42,10 @@ void main() {
     faceDetector = FakeFaceDetector();
     onboardingRepository = FakeOnboardingRepository();
     avatarRepository = FakeAvatarRepository();
+    analytics = FakeAnalyticsService();
     container = ProviderContainer(
       overrides: [
+        analyticsServiceProvider.overrideWithValue(analytics),
         photosRepositoryProvider.overrideWithValue(repository),
         imageCompressorProvider.overrideWithValue(imageCompressor),
         faceDetectorProvider.overrideWithValue(faceDetector),
@@ -576,4 +582,76 @@ void main() {
       expect(pathsOf(open()), hasLength(3));
     });
   });
+
+  // 사용 통계 onboarding_blocked — 사진 화면(04-2 · 04-3)에서 막힌 이유를 정해진 종류값으로만 남긴다.
+  group('가입 막힘 분석(onboarding_blocked)', () {
+    Future<PhotosViewModel> twoPhotos() async {
+      await standAt(container, onboardingRepository, OnboardingStep.photos);
+      final viewModel = buildViewModel([File('a.jpg'), File('b.jpg')]);
+      await viewModel.addPhoto();
+      await viewModel.addPhoto();
+      viewModel.setAvatarSource(0);
+      return viewModel;
+    }
+
+    test('글자 많은 사진(서류) 거절은 photo_document', () async {
+      final viewModel = await twoPhotos();
+      repository.nextResult = const FailureResult(ServerRejectedFailure('서버 임시 문구', code: photoLooksLikeDocumentCode));
+
+      await viewModel.submit();
+
+      expect(analytics.calls, ['onboarding_blocked:photos:photo_document']);
+    });
+
+    test('그 밖의 서버 사진 거절은 photo_rejected — 서버 문구는 싣지 않는다', () async {
+      final viewModel = await twoPhotos();
+      repository.nextResult = const FailureResult(ServerRejectedFailure('부적절한 사진이에요', code: 'photo_unsafe'));
+
+      await viewModel.submit();
+
+      expect(analytics.calls, ['onboarding_blocked:photos:photo_rejected']);
+    });
+
+    test('인터넷 문제로 올리지 못하면 network', () async {
+      final viewModel = await twoPhotos();
+      repository.nextResult = const FailureResult(NetworkFailure());
+
+      await viewModel.submit();
+
+      expect(analytics.calls, ['onboarding_blocked:photos:network']);
+    });
+
+    test('고른 사진에서 얼굴을 한 장도 못 찾으면 photo_no_face', () async {
+      await standAt(container, onboardingRepository, OnboardingStep.photos);
+      final viewModel = buildViewModel([File('a.jpg')]);
+      faceDetector.nextResult = false;
+
+      await viewModel.addPhoto();
+
+      expect(analytics.calls, ['onboarding_blocked:photos:photo_no_face']);
+    });
+
+    test('일부만 빠지고 한 장이라도 담았으면 막힌 것이 아니다', () async {
+      await standAt(container, onboardingRepository, OnboardingStep.photos);
+      final viewModel = container.read(photosViewModelProvider.notifier);
+      viewModel.pickFromGallery = (limit) async => [File('a.jpg'), File('b.jpg')];
+      faceDetector.queuedResults.addAll([true, false]);
+
+      await viewModel.addPhoto();
+
+      expect(analytics.calls, isEmpty);
+    });
+
+    test('가입이 끝난 뒤(15-7 사진 수정이 같은 뷰모델을 쓴다)의 실패는 가입 막힘이 아니다', () async {
+      final viewModel = buildViewModel([File('a.jpg')]);
+      await viewModel.addPhoto();
+      viewModel.setAvatarSource(0);
+      repository.nextResult = const FailureResult(NetworkFailure());
+
+      await viewModel.submit();
+
+      expect(analytics.calls, isEmpty);
+    });
+  });
+
 }

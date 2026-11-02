@@ -6,6 +6,7 @@ import 'package:campus_mate/core/draft/draft_store.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/profile/model/bio_repository_provider.dart';
 import 'package:campus_mate/profile/viewmodel/bio_ui_state.dart';
+import 'package:campus_mate/profile/viewmodel/onboarding_blocked.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final bioViewModelProvider = NotifierProvider<BioViewModel, BioUiState>(BioViewModel.new);
@@ -90,6 +91,7 @@ class BioViewModel extends Notifier<BioUiState> {
     state = state.copyWith(isSubmitting: true, errorMessage: null);
     try {
       final result = await ref.read(bioRepositoryProvider).submit(state.bio.trim());
+      reportIfOnboardingBlocked(ref, result);
       state = result.when(
         onSuccess: (_) => state.copyWith(isSubmitting: false, completed: true),
         onFailure: (failure) => state.copyWith(isSubmitting: false, errorMessage: failure.toDisplayMessage()),

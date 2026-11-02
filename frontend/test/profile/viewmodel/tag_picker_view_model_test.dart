@@ -1,3 +1,4 @@
+import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
@@ -17,6 +18,7 @@ import 'package:campus_mate/core/draft/draft_store.dart';
 
 import '../../me/model/fake_me_repository.dart';
 import '../model/fake_onboarding_repository.dart';
+import '../../core/analytics/fake_analytics_service.dart';
 import '../../core/draft/fake_draft_store.dart';
 
 class _FakeTagPickerRepository implements TagPickerRepository {
@@ -33,15 +35,18 @@ class _FakeTagPickerRepository implements TagPickerRepository {
 void main() {
   late _FakeTagPickerRepository repository;
   late FakeOnboardingRepository onboardingRepository;
+  late FakeAnalyticsService analytics;
   late ProviderContainer container;
 
   setUp(() {
     repository = _FakeTagPickerRepository();
     onboardingRepository = FakeOnboardingRepository();
+    analytics = FakeAnalyticsService();
     container = ProviderContainer(
       overrides: [
         tagPickerRepositoryProvider.overrideWithValue(repository),
         onboardingRepositoryProvider.overrideWithValue(onboardingRepository),
+        analyticsServiceProvider.overrideWithValue(analytics),
       ],
     );
   });
@@ -214,4 +219,18 @@ void main() {
       expect(open().read(tagPickerViewModelProvider(TagPickerKind.interests)).selected, {interestTags[0]});
     });
   });
+
+  test('저장이 서버 오류로 막히면 가입 막힘으로 남긴다', () async {
+    await standAt(container, onboardingRepository, OnboardingStep.interests);
+    repository.nextResult = const FailureResult(ServerUnavailableFailure());
+    final vm = container.read(tagPickerViewModelProvider(TagPickerKind.interests).notifier);
+    for (final tag in interestTags.take(3)) {
+      vm.toggle(tag);
+    }
+
+    await vm.submit();
+
+    expect(analytics.calls, ['onboarding_blocked:interests:server']);
+  });
+
 }

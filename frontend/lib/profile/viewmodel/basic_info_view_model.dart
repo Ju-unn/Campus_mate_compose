@@ -9,6 +9,7 @@ import 'package:campus_mate/profile/model/basic_info_repository.dart';
 import 'package:campus_mate/profile/model/basic_info_repository_provider.dart';
 import 'package:campus_mate/profile/model/mbti_poles.dart';
 import 'package:campus_mate/profile/viewmodel/basic_info_ui_state.dart';
+import 'package:campus_mate/profile/viewmodel/onboarding_blocked.dart';
 import 'package:campus_mate/profile/viewmodel/revisit_profile.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -143,6 +144,7 @@ class BasicInfoViewModel extends Notifier<BasicInfoUiState> {
         mbti: state.mbti,
       );
       final result = await repository.submit(submission);
+      reportIfOnboardingBlocked(ref, result);
       return _stateFromResult(result);
     } catch (_) {
       return _copyWith(isSubmitting: false, errorMessage: const UnknownFailure().toDisplayMessage());

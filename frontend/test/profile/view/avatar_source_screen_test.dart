@@ -8,6 +8,7 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/notice_card.dart';
+import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
 import 'package:campus_mate/profile/model/photos_repository_provider.dart';
 import 'package:campus_mate/profile/view/avatar_source_screen.dart';
 import 'package:campus_mate/profile/view/photo_example.dart';
@@ -18,6 +19,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../../auth/model/fake_face_detector.dart';
 import '../../auth/model/fake_image_compressor.dart';
+import '../model/fake_onboarding_repository.dart';
 import '../model/fake_photos_repository.dart';
 
 /// 1×1 투명 PNG. `Image.file` 이 실제로 읽을 수 있는 파일이어야 화면이 그려진다.
@@ -47,6 +49,8 @@ void main() {
         photosRepositoryProvider.overrideWithValue(photos ?? FakePhotosRepository()),
         imageCompressorProvider.overrideWithValue(FakeImageCompressor()),
         faceDetectorProvider.overrideWithValue(FakeFaceDetector()),
+        // 올리기가 막히면 가입 막힘을 사용 통계로 알리려고 온보딩 단계 캐시를 읽는다 — 진짜 저장소를 만들지 않게 가짜를 둔다.
+        onboardingRepositoryProvider.overrideWithValue(FakeOnboardingRepository()),
       ],
     );
     addTearDown(container.dispose);
@@ -150,6 +154,7 @@ void main() {
           photosRepositoryProvider.overrideWithValue(photos),
           imageCompressorProvider.overrideWithValue(FakeImageCompressor()),
           faceDetectorProvider.overrideWithValue(FakeFaceDetector()),
+          onboardingRepositoryProvider.overrideWithValue(FakeOnboardingRepository()),
         ],
       );
       addTearDown(container.dispose);

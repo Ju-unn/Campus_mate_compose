@@ -1,5 +1,6 @@
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/core/analytics/analytics_values.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable.dart';
 import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,11 +13,13 @@ void main() {
   late FakeAnalyticsService analytics;
   late OnboardingStepListenable listenable;
   late int notifyCount;
+  late DateTime clock;
 
   setUp(() {
     repository = FakeOnboardingRepository();
     analytics = FakeAnalyticsService();
-    listenable = OnboardingStepListenable(repository, analytics: analytics);
+    clock = DateTime(2026, 11, 2, 9);
+    listenable = OnboardingStepListenable(repository, analytics: analytics, now: () => clock);
     notifyCount = 0;
     listenable.addListener(() => notifyCount++);
     addTearDown(listenable.dispose);
@@ -38,7 +41,8 @@ void main() {
       await listenable.refresh();
       await listenable.refresh();
 
-      expect(analytics.calls, ['onboarding_complete']);
+      // 마지막 단계(bio)를 끝낸 것과 가입을 끝낸 것은 같은 순간이라 둘 다 남는다 — 가입 완료는 한 번뿐이다.
+      expect(analytics.calls, ['onboarding_step_complete:bio:0', 'onboarding_complete']);
     });
 
     test('앱을 켰더니 이미 complete 인 사람(첫 조회가 complete)은 남기지 않는다', () async {
@@ -49,12 +53,119 @@ void main() {
       expect(analytics.calls, isEmpty);
     });
 
-    test('가입 중 단계끼리 바뀌는 것은 남기지 않는다', () async {
+    test('가입 중 단계끼리 바뀌는 것은 가입 완료로 남기지 않는다', () async {
       repository.nextResult = const Success(OnboardingStep.basicInfo);
       await listenable.refresh();
       repository.nextResult = const Success(OnboardingStep.kakaoId);
 
       await listenable.refresh();
+
+      expect(analytics.calls, isNot(contains('onboarding_complete')));
+    });
+  });
+
+  // 사용 통계 onboarding_step_complete · onboarding_step_back · onboarding_blocked — 단계 이름(wire)과 머문 초만 나간다.
+  group('가입 단계 분석', () {
+    Future<void> serverAt(OnboardingStep step) async {
+      repository.nextResult = Success(step);
+      await listenable.refresh();
+    }
+
+    test('서버 단계가 앞으로 나아가면 떠난 단계와 머문 초를 남긴다', () async {
+      await serverAt(OnboardingStep.basicInfo);
+      clock = clock.add(const Duration(seconds: 42));
+
+      await serverAt(OnboardingStep.kakaoId);
+
+      expect(analytics.calls, ['onboarding_step_complete:basic_info:42']);
+    });
+
+    test('머문 초는 그 단계가 처음 보인 때부터 센다 — 같은 단계를 다시 물어도 시계는 그대로다', () async {
+      await serverAt(OnboardingStep.kakaoId);
+      clock = clock.add(const Duration(seconds: 30));
+      await serverAt(OnboardingStep.kakaoId);
+      clock = clock.add(const Duration(seconds: 12));
+
+      await serverAt(OnboardingStep.photos);
+
+      expect(analytics.calls, ['onboarding_step_complete:kakao_id:42']);
+    });
+
+    test('다음 단계의 시계는 새로 시작한다', () async {
+      await serverAt(OnboardingStep.basicInfo);
+      clock = clock.add(const Duration(seconds: 100));
+      await serverAt(OnboardingStep.kakaoId);
+      clock = clock.add(const Duration(seconds: 7));
+
+      await serverAt(OnboardingStep.photos);
+
+      expect(analytics.calls, ['onboarding_step_complete:basic_info:100', 'onboarding_step_complete:kakao_id:7']);
+    });
+
+    test('앱을 켜고 처음 알게 된 단계(첫 조회)는 끝낸 것이 아니라서 남기지 않는다', () async {
+      await serverAt(OnboardingStep.survey);
+
+      expect(analytics.calls, isEmpty);
+    });
+
+    test('서버 단계가 뒤로 물러나거나 초기화되는 것은 끝낸 것이 아니다', () async {
+      await serverAt(OnboardingStep.survey);
+      await serverAt(OnboardingStep.interests);
+      listenable.reset();
+
+      expect(analytics.calls, isEmpty);
+    });
+
+    test('앞 단계를 다시 보고 저장해도(서버 단계는 그대로) 끝낸 것으로 다시 세지 않는다', () async {
+      await serverAt(OnboardingStep.survey);
+      listenable.goBack();
+      analytics.calls.clear();
+
+      await listenable.stepSaved();
+
+      expect(analytics.calls, isEmpty);
+    });
+
+    test('뒤로가기는 떠난 단계를 남긴다', () async {
+      await serverAt(OnboardingStep.survey);
+
+      listenable.goBack();
+
+      expect(analytics.calls, ['onboarding_step_back:survey']);
+    });
+
+    test('갈 곳이 없는 뒤로가기(04-1)와 단계를 모를 때의 뒤로가기는 남기지 않는다', () async {
+      listenable.goBack();
+      await serverAt(OnboardingStep.basicInfo);
+
+      listenable.goBack();
+
+      expect(analytics.calls, isEmpty);
+    });
+
+    test('막힘은 지금 보이는 단계와 종류값을 남긴다', () async {
+      await serverAt(OnboardingStep.photos);
+
+      listenable.blocked(OnboardingBlockReason.photoDocument);
+
+      expect(analytics.calls, ['onboarding_blocked:photos:photo_document']);
+    });
+
+    test('다시 보는 중의 막힘은 다시 보는 단계 이름으로 남긴다', () async {
+      await serverAt(OnboardingStep.survey);
+      listenable.goBack();
+      analytics.calls.clear();
+
+      listenable.blocked(OnboardingBlockReason.network);
+
+      expect(analytics.calls, ['onboarding_blocked:my_traits:network']);
+    });
+
+    test('가입이 끝난 뒤(나 탭 편집 등 같은 화면 재사용)와 단계를 모를 때의 막힘은 가입 막힘이 아니라서 남기지 않는다', () async {
+      listenable.blocked(OnboardingBlockReason.server);
+      await serverAt(OnboardingStep.complete);
+
+      listenable.blocked(OnboardingBlockReason.server);
 
       expect(analytics.calls, isEmpty);
     });

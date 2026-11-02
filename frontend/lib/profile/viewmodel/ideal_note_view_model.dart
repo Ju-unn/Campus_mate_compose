@@ -6,6 +6,7 @@ import 'package:campus_mate/core/draft/draft_store.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/profile/model/ideal_note_repository_provider.dart';
 import 'package:campus_mate/profile/viewmodel/ideal_note_ui_state.dart';
+import 'package:campus_mate/profile/viewmodel/onboarding_blocked.dart';
 import 'package:campus_mate/profile/viewmodel/revisit_profile.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -58,6 +59,7 @@ class IdealNoteViewModel extends Notifier<IdealNoteUiState> {
     try {
       final repository = ref.read(idealNoteRepositoryProvider);
       final result = await repository.submit(note);
+      reportIfOnboardingBlocked(ref, result);
       state = result.when(
         onSuccess: (_) => state.copyWith(isSubmitting: false, completed: true),
         onFailure: (failure) => state.copyWith(isSubmitting: false, errorMessage: failure.toDisplayMessage()),
