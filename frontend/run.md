@@ -35,7 +35,7 @@ flutter build appbundle --release --build-number=<N> --build-name=<버전> --dar
 ```
 
 - **versionCode(`--build-number`)는 업로드마다 +1** 한다 — 플레이는 이미 올린 번호를 다시 받지 않는다. 번호는 `--build-number` 로만 올리고 `pubspec.yaml` 의 `version`(`1.0.0+1`)은 건드리지 않는다. 앱 버전 이름(`versionName`, 사용자에게 보이는 "1.0.1")도 pubspec 이 아니라 `--build-name=<버전>` 으로 정한다. **앱 1.0.1 = vc19** (`--build-number=19 --build-name=1.0.1`).
-- **번호 현황(2026-10-20)**: 현재 프로덕션 제출본은 **vc18**(제출 6, 검토 중)이고 다음은 **19** 다. **13 ~ 17 은 이미 쓴(폐기한) 번호**라 다시 쓸 수 없다 — vc13 은 플레이에서 이미 사용돼 있었고 vc14 ~ vc17 은 아래 카카오 키 사고로 폐기했다. 번호 목록은 Desktop `CampusMate_AAB\` 의 vc 별 파일 이름과 맞춘다. iOS TestFlight 번호는 워크플로 실행 번호이고 현재 **25**(심사 대기, 24 는 폐기)다(아래 "TestFlight 로 아이폰에 설치하기").
+- **번호 현황(2026-11-03 개정, 종전 2026-10-20 "현재 프로덕션 제출본은 vc18(제출 6, 검토 중)이고 다음은 19")**: 프로덕션에 올라간(2026-11-02 출시, 대장 전달 값) 빌드는 **vc18** 이고 다음은 **19**(앱 1.0.1)다. **13 ~ 17 은 이미 쓴(폐기한) 번호**라 다시 쓸 수 없다 — vc13 은 플레이에서 이미 사용돼 있었고 vc14 ~ vc17 은 아래 카카오 키 사고로 폐기했다. 번호 목록은 Desktop `CampusMate_AAB\` 의 vc 별 파일 이름과 맞춘다. iOS TestFlight 번호는 워크플로 실행 번호이고 출시된 1.0.0 의 빌드가 **25**(2026-11-03 개정, 종전 "심사 대기"; 24 는 폐기)다(아래 "TestFlight 로 아이폰에 설치하기").
 - **빌드 전 필수 — 카카오 키 환경변수.** `android/app/build.gradle.kts` 는 카카오 복귀 스킴 키를 환경변수 `KAKAO_NATIVE_APP_KEY` → `android/local.properties` → 빈 문자열 순으로 읽어 `manifestPlaceholders["kakaoKey"]` 에 넣는다. `--dart-define-from-file` 로 앱 코드에 준 키와는 **별개 경로**라서 빌드 명령 앞에 같은 셸에서 `export KAKAO_NATIVE_APP_KEY=...` 를 해야 한다(값은 이 문서에 적지 않는다). 빼먹으면 **릴리스 빌드(`assembleRelease` · `bundleRelease`)가 `KAKAO_NATIVE_APP_KEY 가 비었습니다` 로 실패한다**(2026-11-02 앱 1.0.1부터 — 그전에는 빌드가 성공하고 스킴만 빈 값이었다). 디버그 빌드(`flutter run` · `--debug`)는 키 없이도 된다.
 - **빌드 뒤 확인 — 매니페스트 스킴.** AAB 의 매니페스트를 덤프해(예: `bundletool dump manifest --bundle=build/app/outputs/bundle/release/app-release.aab`, bundletool 이 없으면 같은 키로 `flutter build apk --release` 한 APK 에 `aapt2 dump xmltree --file AndroidManifest.xml <apk>`) 카카오 복귀 activity 의 `android:scheme` 이 `kakao<키>` 로 채워졌는지 본다. 값이 맨 `kakao` 뿐이면 키가 빈 값으로 들어간 것이니 올리지 말고 환경변수를 넣어 다시 만든다. **같은 덤프에서 `android:versionName` 이 이번 버전(예: `1.0.1`)인지도 본다** — `--build-name` 을 빼면 pubspec 의 `1.0.0` 이 들어가고, 나중에 서버 `MIN_APP_VERSION` 을 올리면 그 빌드는 업데이트 안내 화면에 갇힌다(스토어에 더 새 빌드가 없어 빠져나올 길이 없다). (명령 형식은 이 문서 담당이 실행해 보지 않았다 — 도구 버전에 따라 옵션이 다를 수 있다.)
 - `--dart-define-from-file` 의 파일(키 · 주소가 든 JSON)은 저장소 밖에 둔다. 값 · 파일 내용은 이 문서에 적지 않는다
@@ -58,6 +58,8 @@ flutter test
 ```
 
 테스트는 키 없이 돌아간다. 네트워크에 붙는 코드는 테스트하지 않는다.
+
+**자동 E2E 하네스(`e2e/`)를 로컬 Docker 스택에 붙일 때(2026-11-02, 앱 1.0.1 PR #642).** `E2E_ENV=<로컬 env 파일> E2E_SERVICE_KEY=<로컬 service_role 키> python -m e2e run …` 로 돌린다(키 값은 이 문서에 적지 않는다). `SUPABASE_URL` 이 운영(`*.supabase.co`)이 아니면 gcloud(스케줄러 · 로그 · FCM · 서비스 키)를 부르는 길이 모두 막혀 `Blocked` 로 끝나고(`e2e/tools.py` `require_cloud`), 결과는 `E2E_결과/로컬_<날짜>/` 에 따로 쌓인다. 로컬 서버의 `/batch/*` 는 구글 ID 토큰이 있어야 열려 로컬에서 직접 부를 길이 없다. `E2E_ENV` 를 직접 적었는데 파일이 없으면 오타를 운영으로 읽지 않고 로컬로 본다.
 
 ## 주의
 
