@@ -77,7 +77,7 @@ class PaidCardLocked extends StatelessWidget {
               children: [
                 Center(child: _MosaicAvatar(preview: card.preview)),
                 const SizedBox(height: _gap),
-                _Headline(bandCount: card.bandCount),
+                const _Headline(),
                 if (reasons.isNotEmpty) ...[
                   const SizedBox(height: _gap),
                   _ReasonTags(reasons: reasons),
@@ -191,10 +191,9 @@ class _LockCircle extends StatelessWidget {
 }
 
 /// `H7ko9` 17/600/1.45 가운데. 두 줄이 pen 에서 52 칸이라 그보다 작아지지 않고, 글자를 키우면 따라 커진다.
+/// 인원수("N명이")는 쓰지 않는다(2026-11-02 앱 1.0.1) — 서버가 보내는 `band_count` 는 화면에 나오지 않는다.
 class _Headline extends StatelessWidget {
-  const _Headline({required this.bandCount});
-
-  final int bandCount;
+  const _Headline();
 
   @override
   Widget build(BuildContext context) {
@@ -202,7 +201,7 @@ class _Headline extends StatelessWidget {
       key: const ValueKey('paid-card-headline'),
       constraints: const BoxConstraints(minHeight: 52),
       child: Text(
-        '나와 성향이 잘 맞는 사람\n$bandCount명이 기다리고 있어요',
+        '나와 성향이 잘 맞는 사람이\n기다리고 있어요',
         textAlign: TextAlign.center,
         style: AppTypography.subtitle.copyWith(color: AppColors.ink),
       ),

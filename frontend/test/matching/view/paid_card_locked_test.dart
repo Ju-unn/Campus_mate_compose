@@ -182,10 +182,11 @@ void main() {
   });
 
   group('제목 `H7ko9`', () {
-    testWidgets('"나와 성향이 잘 맞는 사람\\nN명이 기다리고 있어요" 17/600/1.45 #222222 가운데, y122 · 폭 288', (tester) async {
+    // 2026-11-02 앱 1.0.1 — 인원수("N명이")를 뺐다. 서버가 band_count 를 계속 보내도 화면에는 쓰지 않는다.
+    testWidgets('"나와 성향이 잘 맞는 사람이\\n기다리고 있어요" 17/600/1.45 #222222 가운데, y122 · 폭 288', (tester) async {
       await pump(tester);
 
-      final headline = find.text('나와 성향이 잘 맞는 사람\n7명이 기다리고 있어요');
+      final headline = find.text('나와 성향이 잘 맞는 사람이\n기다리고 있어요');
       expect(headline, findsOneWidget);
       final text = tester.widget<Text>(headline);
       expect(text.style!.fontSize, 17);
@@ -200,10 +201,13 @@ void main() {
       expect(box.height, greaterThanOrEqualTo(52));
     });
 
-    testWidgets('1명이어도 그대로 "1명이" 라고 쓴다', (tester) async {
-      await pump(tester, offer: _offer(bandCount: 1));
+    testWidgets('후보 수(band_count)가 1이어도 7이어도 같은 글이고 "N명이" 가 없다', (tester) async {
+      for (final count in [1, 7]) {
+        await pump(tester, offer: _offer(bandCount: count));
 
-      expect(find.text('나와 성향이 잘 맞는 사람\n1명이 기다리고 있어요'), findsOneWidget);
+        expect(find.text('나와 성향이 잘 맞는 사람이\n기다리고 있어요'), findsOneWidget);
+        expect(find.textContaining('명이'), findsNothing);
+      }
     });
   });
 
