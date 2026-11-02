@@ -18,7 +18,7 @@ class MockSession extends Mock implements Session {}
 void main() {
   late MockGoTrueClient auth;
   final department = Department.tryParse('컴퓨터공학과')!;
-  final studentNumber = StudentNumber.tryParse('20240001')!;
+  final studentNumber = StudentNumber.tryParse('21')!;
 
   setUp(() {
     auth = MockGoTrueClient();
@@ -38,7 +38,7 @@ void main() {
       expect(request.headers['Authorization'], 'Bearer token-abc');
       expect(
         jsonDecode(request.body),
-        {'department': '컴퓨터공학과', 'student_number': '20240001'},
+        {'department': '컴퓨터공학과', 'student_number': '21'},
       );
       return http.Response('', 200);
     });

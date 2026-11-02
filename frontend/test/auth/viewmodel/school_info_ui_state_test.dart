@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   final department = Department.tryParse('컴퓨터공학과')!;
-  final studentNumber = StudentNumber.tryParse('20240001')!;
+  final studentNumber = StudentNumber.tryParse('21')!;
 
   test('기본 상태는 아직 아무 값도 없고 완료 전이다', () {
     const state = SchoolInfoUiState();

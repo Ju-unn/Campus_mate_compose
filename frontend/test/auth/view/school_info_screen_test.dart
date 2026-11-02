@@ -204,6 +204,48 @@ void main() {
       expect(find.text('예: 21'), findsOneWidget);
     });
 
+    // 학번 칸(2026-11-02 앱 1.0.1): 숫자 키패드 · 숫자만 · 3자리에서 멈춘다 — 서버 규칙 `[0-9]{1,3}` 과 같다.
+    group('학번 칸 입력 제한', () {
+      Finder numberField() => find.byType(TextField).at(1);
+      String shownNumber(WidgetTester tester) =>
+          tester.widget<EditableText>(find.descendant(of: numberField(), matching: find.byType(EditableText))).controller.text;
+
+      testWidgets('숫자 키패드를 띄운다', (tester) async {
+        await pumpScreen(tester);
+
+        expect(tester.widget<TextField>(numberField()).keyboardType, TextInputType.number);
+        expect(tester.widget<TextField>(find.byType(TextField).at(0)).keyboardType, isNot(TextInputType.number));
+      });
+
+      testWidgets('4자리를 넣어도 3자리에서 멈추고 다음이 켜진다', (tester) async {
+        await pumpScreen(tester);
+
+        await enterSchoolInfo(tester, '컴퓨터공학과', '1234');
+
+        expect(shownNumber(tester), '123');
+        expect(findCallToAction(tester).enabled, isTrue);
+      });
+
+      testWidgets('숫자가 아닌 글자는 들어가지 않아 다음이 꺼져 있다', (tester) async {
+        await pumpScreen(tester);
+
+        await enterSchoolInfo(tester, '컴퓨터공학과', 'ab２');
+
+        expect(shownNumber(tester), '');
+        expect(findCallToAction(tester).enabled, isFalse);
+      });
+
+      testWidgets('3자리를 제출하면 그대로 보낸다', (tester) async {
+        await pumpScreen(tester);
+        await enterSchoolInfo(tester, '컴퓨터공학과', '1234');
+
+        await tester.tap(find.text('다음'));
+        await tester.pumpAndSettle();
+
+        expect(repository.submittedStudentNumbers.single.toRequestValue(), '123');
+      });
+    });
+
     // 디자인 공통 PR 뒤 창별_할일(온보딩): 입력 상자 모서리 input 12 · 테두리 hairline, placeholder muted.
     testWidgets('학과 · 학번 입력 상자는 52 · 모서리 12 · 테두리 hairline, placeholder 는 muted 다', (tester) async {
       await pumpScreen(tester);

@@ -12,6 +12,7 @@ import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 학과·학번을 직접 입력받는 화면 (DESIGN.md 화면 3c, pen 03c 화면 `B9Hu7`).
@@ -145,6 +146,8 @@ class _SchoolInfoForm extends StatelessWidget {
         placeholder: '예: 21',
         initialValue: state.studentNumberInput,
         onChanged: viewModel.changeStudentNumber,
+        keyboardType: TextInputType.number,
+        inputFormatters: studentNumberInputFormatters,
       ),
       const SizedBox(height: AppSpacing.sm),
       const InfoNote(icon: AppIcons.eye, text: '학교·학과·학번은 카드와 프로필에 공개돼요.'),
@@ -155,6 +158,12 @@ class _SchoolInfoForm extends StatelessWidget {
     ];
   }
 }
+
+/// 학번은 숫자만 받고 3자리에서 끊는다(2026-11-02 앱 1.0.1) — 서버 규칙 `[0-9]{1,3}` 과 같다.
+final studentNumberInputFormatters = <TextInputFormatter>[
+  FilteringTextInputFormatter.digitsOnly,
+  LengthLimitingTextInputFormatter(3),
+];
 
 /// 읽기 전용 학교 확인 행 — [원 40 · 3D 졸업모 22 | 학교 로고 + 학교명 | "확인됨" 뱃지] (§9 3c, pen 03c 화면 `B9Hu7` 학교 줄
 /// 328×68 · 안쪽 14 · surface-soft · 모서리 14, 대장 전달 값). 종전의 "학교" 작은 글자 줄은 pen 에 없어 뺐다.
@@ -242,12 +251,16 @@ class _LabeledTextField extends StatelessWidget {
     required this.placeholder,
     required this.initialValue,
     required this.onChanged,
+    this.keyboardType,
+    this.inputFormatters,
   });
 
   final String label;
   final String placeholder;
   final String initialValue;
   final ValueChanged<String> onChanged;
+  final TextInputType? keyboardType;
+  final List<TextInputFormatter>? inputFormatters;
 
   @override
   Widget build(BuildContext context) {
@@ -279,6 +292,8 @@ class _LabeledTextField extends StatelessWidget {
     return TextFormField(
       initialValue: initialValue,
       onChanged: onChanged,
+      keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
       style: AppTypography.body.copyWith(color: AppColors.ink),
       decoration: InputDecoration(
         isDense: true,
