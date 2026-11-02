@@ -352,6 +352,17 @@ class WorkflowTest(unittest.TestCase):
         self.assertEqual(self.job["runs-on"], "macos-latest")
         self.assertLessEqual(self.job["timeout-minutes"], 90)
 
+    def test_build_name_is_an_input_defaulting_to_the_release_version(self):
+        # 앱 버전 이름(CFBundleShortVersionString)은 pubspec 의 version(1.0.0+1, 저장소 규칙)을 건드리지 않고 이 입력으로 정한다.
+        build_name = self.wf[True]["workflow_dispatch"]["inputs"]["build_name"]
+        self.assertEqual(build_name["default"], "1.0.1")
+        self.assertIs(build_name["required"], True)
+        self.assertEqual(self.job["env"]["BUILD_NAME"], "${{ inputs.build_name }}")
+
+    def test_build_name_shape_is_checked_before_the_build(self):
+        build = self.step("flutter build ipa")["run"]
+        self.assertLess(build.index('"$BUILD_NAME" =~'), build.index("flutter build ipa"))
+
     def test_pipefail_shell(self):
         self.assertEqual(self.job["defaults"]["run"]["shell"], "bash")
 
@@ -416,6 +427,7 @@ class WorkflowTest(unittest.TestCase):
         joined = "\n".join(self.runs)
         self.assertIn("flutter build ipa --release --no-codesign", joined)
         self.assertIn('--build-number="$BUILD_NUMBER"', joined)
+        self.assertIn('--build-name="$BUILD_NAME"', joined)
         for define in t.DART_DEFINES:
             self.assertIn(f'--dart-define={define}="${define}"', joined)
         self.assertIn("--entitlements", joined)
