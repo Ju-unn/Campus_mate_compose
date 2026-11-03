@@ -235,19 +235,31 @@ class RegistryTest(unittest.TestCase):
         self.assertEqual(area5_edge.NETWORK, NETWORK)
 
     def test_there_is_no_request_timeout_in_the_app_outside_the_allowed_places(self):
-        """E-EDGE-25 는 앱이 저장 요청(쓰기)을 시간 제한으로 끊지 않는다는 전제로 판정한다. `.timeout(` 은 허용된 세 곳에만 있다:
-        로그아웃 토큰 삭제 5초(push_registrar, 948009b4) · 조회 GET 만 15초(http_send readTimeout, #509) · 쓰기 가운데 읽음 PATCH 하나만 15초
-        (http_chat_repository markRead, 대장 결정 10-13). 그 밖의 쓰기(POST · PUT · DELETE, 읽음 말고의 PATCH)는 시간 제한이 없다 —
+        """E-EDGE-25 는 앱이 저장 요청(쓰기)을 시간 제한으로 끊지 않는다는 전제로 판정한다. `.timeout(` 은 허용된 네 파일 다섯 곳에만 있다:
+        로그아웃 서버 정리 5초 둘 — 토큰 찾기와 토큰 삭제 DELETE(push_registrar, 948009b4 · 0ec9159d, 저장이 아니라 stop() 한 길) · 조회 GET 만 15초(http_send readTimeout, #509) · 쓰기 가운데 읽음 PATCH 하나만 15초
+        (http_chat_repository markRead, 대장 결정 10-13) · 시작 때 최소 앱 버전을 묻는 GET 3초(app_version_repository, e98fb3d5 — 읽기라 쓰기 전제와 무관).
+        그 밖의 쓰기(POST · PUT · DELETE, 읽음 말고의 PATCH)는 시간 제한이 없다 —
         새 `.timeout(` 이 생기거나, GET 조건이 풀리거나, 끊는 쓰기가 읽음 PATCH 말고 다른 것이 되면 여기서 걸린다."""
         lib = tools.ROOT / 'frontend' / 'lib'
         counts = {p.relative_to(lib).as_posix(): p.read_text(encoding='utf-8').count('.timeout(') for p in lib.rglob('*.dart')}
-        allowed = {'core/push/push_registrar.dart': 1, 'core/http/http_send.dart': 1, 'chat/model/http_chat_repository.dart': 1}
+        allowed = {'core/push/push_registrar.dart': 2, 'core/http/http_send.dart': 1, 'chat/model/http_chat_repository.dart': 1,
+                   'core/app_update/app_version_repository.dart': 1}
         self.assertEqual({name: n for name, n in counts.items() if n}, allowed, 'E-EDGE-25 의 "허용된 곳 밖에는 요청 시간 제한 없음" 이 바뀌었다 — 기대값을 다시 본다')
         send = (lib / 'core' / 'http' / 'http_send.dart').read_text(encoding='utf-8')
         self.assertIn("await (request.method == 'GET' ? pending.timeout(readTimeout) : pending)", send)  # 공용 전송은 GET 만 끊는다
         chat = (lib / 'chat' / 'model' / 'http_chat_repository.dart').read_text(encoding='utf-8')
         self.assertRegex(chat, r"Future<Result<void>> markRead\(String matchId\) => _api\s*\.send\('PATCH', '/chat/matches/\$matchId/read', \(_\) \{\}\)\s*"
                                r"\.timeout\(readTimeout")  # 끊는 쓰기는 읽음 PATCH 하나
+        version = (lib / 'core' / 'app_update' / 'app_version_repository.dart').read_text(encoding='utf-8')
+        self.assertIn("await _client.get(Uri.parse('$_baseUrl/app/version')).timeout(_timeout)", version)  # 최소 버전 조회는 읽기(GET)다
+        push = (lib / 'core' / 'push' / 'push_registrar.dart').read_text(encoding='utf-8')
+        self.assertIn('return await _tokenToDelete().timeout(_deleteTimeout);', push)  # 하나: 지울 토큰 찾기(기기 토큰 읽기) — 서버에 쓰지 않는다
+        self.assertRegex(push, r'\.deletePushToken\(token\)\s*\.timeout\(within, onTimeout:')  # 둘: 서버에서 토큰 지우기 — 저장이 아니라 로그아웃 정리
+        removal = push.split('Future<bool> _removedFromServer() async {', 1)[1].split('\n  }\n', 1)[0]
+        self.assertEqual((removal.count('await _findToken()'), removal.count('await _deleted(token, within:')), (1, 1))
+        # 찾기 · 삭제는 각각 한 번만 불리고 그 자리가 _removedFromServer(stop → _stopSession) 하나다 — 다른 길로 번지면 걸린다.
+        self.assertEqual((push.count('await _findToken()'), push.count('await _deleted('), push.count('await _removedFromServer()')), (1, 1, 1))
+        self.assertIn('return _stopping = _stopSession().whenComplete', push)
 
     def test_the_app_registers_the_seven_and_the_keys_match(self):
         text = dart('area5_edge.dart')
@@ -631,6 +643,9 @@ class Edge25Test(EdgeBase):
         self.assertIn('로딩', note)
         self.assertIn('시간 제한', note)
         self.assertNotIn('.timeout( 0건', note)  # 로그아웃 토큰 삭제 timeout 1건이 있다 — 0건이라고 적지 않는다
+        self.assertNotIn('토큰 삭제 1건뿐', note)  # 시간 제한이 있는 곳은 이제 네 파일 다섯 곳이다(RegistryTest 의 허용 목록)
+        for place in ('로그아웃 토큰 찾기 · 삭제', '조회 GET', '읽음 PATCH', '최소 버전 GET'):
+            self.assertIn(place, note)
 
     def test_a_spinner_that_ended_is_still_recorded_not_failed(self):
         result, note = self.run25({'loading_at_end': False, 'error': NETWORK})

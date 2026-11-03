@@ -139,7 +139,7 @@ class ReadFake(PhoneFake):
                         'preferred_age_min': 20, 'preferred_age_max': 30, 'preferred_height_min': None, 'preferred_height_max': None,
                         'interest_tags': ['카페가기', '자전거', '패션'], 'my_traits': ['깨끗한 피부'], 'ideal_traits': ['연상'],
                         'religion': 'none', 'is_smoker': False, 'animal_type': 'dog', 'impression_type': 'kind',
-                        'preferred_mbti_flags': {}, 'preferred_animal_types': ['dog'], 'preferred_impression_types': ['kind']})
+                        'preferred_mbti_flags': {}, 'preferred_animal_types': ['dog'], 'preferred_impression_types': ['kind'], 'ideal_note': None})
         return row
 
     def private(self, pid):
@@ -213,7 +213,8 @@ class ReadFake(PhoneFake):
             'preferred_impression_types': row['preferred_impression_types'],
             'photos': [{'id': p['id'], 'url': url, 'is_avatar_source': p['is_avatar_source']} for p, url in zip(photos, urls)],
             'heart_balance': balance, 'avatar_regen_cost': 0 if len(self._ready(who)) <= 1 else 20,
-            'nickname_changeable_at': locked and locked.isoformat()})
+            'nickname_changeable_at': locked and locked.isoformat(), 'ideal_note': row['ideal_note'],
+            'survey_answers': {a['axis']: float(a['value']) for a in self.rows('survey_answers') if a['profile_id'] == who}})
 
     def _preview(self, sent):
         """GET /me/card-preview — cards/router.py profile_detail · _card_profile 의 칸 그대로(학번까지 싣는다)."""
@@ -623,11 +624,17 @@ class CardPreviewTest(ReadBase):
             self.passes('E-ME-06', self.good())
             seen.append((self.fake.private('id-1')['kakao_id'], self.profile()['student_number']))
         for kakao, student in seen:
-            self.assertRegex(kakao, r'^kk[0-9a-f]{8}$')
+            self.assertRegex(kakao, r'^kk[a-z]{8}$')  # 숫자가 없다 — 숫자뿐인 학번이 우연히 들어 있을 수 없다
             self.assertRegex(student, r'^[0-9]{1,3}$')  # 공장이 넣은 학번(서버 규칙 숫자 1~3자리, 10-29) — 응답에 실린다
             self.assertNotIn(student, kakao)
             self.assertNotIn(kakao, student)
         self.assertNotEqual(seen[0][0], seen[1][0])  # 계정마다 다르다
+
+    def test_06_the_kakao_id_never_has_a_digit_so_no_student_number_can_hide_in_it(self):
+        # 16진수 8자로 뽑던 때는 학번 "21" 같은 숫자가 우연히 들어 한 번 뽑을 때 약 2.7%(시험은 둘을 뽑아 약 5%) 거짓 FAIL 이 났다.
+        drawn = [area5_read._kakao_id() for _ in range(3000)]
+        self.assertEqual([k for k in drawn if not re.fullmatch(r'kk[a-z]{8}', k)], [])
+        self.assertGreater(len(set(drawn)), 2990)  # 계정마다 다르다 — 고유해야 "응답에 없다" 가 증거가 된다
 
     def test_06_is_blocked_when_the_private_values_could_not_be_replaced(self):
         self.swallow('POST', r'/rest/v1/rpc/set_(real_name|kakao_id)')
@@ -1139,6 +1146,13 @@ class FakeShapeTest(ReadBase):
         shown = self.fake._preview({'auth': 'tok-1'}).body
         self.assertEqual(sorted(shown), sorted(server_keys('cards/router.py', 'profile_detail')))
         self.assertEqual(sorted(shown['profile']), sorted(server_keys('cards/router.py', '_card_profile')))
+
+    def test_the_fake_me_profile_reads_the_note_and_the_survey_from_its_rows(self):
+        self.fake.profile('id-1').update(ideal_note='나이 · 키 모두 상관없어요')
+        self.fake.rows('survey_answers').extend([{'profile_id': 'id-1', 'axis': 1, 'value': 0.25}, {'profile_id': 'id-2', 'axis': 2, 'value': 0.5}])
+        mine = self.fake._me_profile({'auth': 'tok-1'}).body
+        self.assertEqual(mine['ideal_note'], '나이 · 키 모두 상관없어요')
+        self.assertEqual(mine['survey_answers'], {1: 0.25})  # 서버처럼 {축: 값} · 남의 줄은 안 싣는다
 
     def test_the_card_preview_carries_the_student_number_the_factory_saved(self):
         self.fake.profile('id-1').update(student_number='e2e1001')
