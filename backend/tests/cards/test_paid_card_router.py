@@ -241,6 +241,38 @@ def test_a_new_member_gets_a_free_card_on_the_first_visit(wire):
     assert world.count("POST", "daily_cards") == 1
 
 
+class _RestingWorld(_World):
+    """진짜 DB 처럼: 결정 전인 카드를 받은 사람은 후보 목록에 남되 pickable=false 다
+    (match_candidates 20261028100000 의 resting 첫째 조건 — supabase/tests/match_candidates_pickable_test.sql 2106)."""
+    def handle(self, request: httpx.Request) -> httpx.Response:
+        response = super().handle(request)
+        if request.url.path != "/rest/v1/rpc/match_candidates":
+            return response
+        carded = {card["target_id"] for card in self.cards}
+        return httpx.Response(200, json=[
+            {**c, "pickable": c["pickable"] and c["candidate_id"] not in carded} for c in self.candidates])
+
+
+def test_a_lone_candidate_is_the_free_card_and_is_not_offered_again_when_reopened(wire):
+    """사용자 결정 2026-11-03(미결45 ②): 후보가 한 명뿐인 첫 방문자는 유료 제안이 아니라 무료 카드를 받는다. 그 사람은 이제
+    pickable=false 라 오늘 탭을 다시 열어도 GET /cards/today 의 제안 만들기(may_offer)가 같은 사람으로 제안을 되살리지 않는다."""
+    world = _RestingWorld(candidates=[_candidate(0)], vectors=True)
+    client = wire(world)
+
+    opened = [client.get("/cards/today", headers=AUTH).json() for _ in range(2)]
+
+    for body in opened:
+        [card] = body["cards"]
+        assert card["source"] == "daily"
+        assert body["paid_card"] is None
+        assert body["locked_card_available"] is False
+        assert body["candidate_pool_empty"] is False
+    assert [card["target_id"] for card in world.cards] == ["c00"]
+    # 제안은 첫 지급 때 한 번 만들어져 접혔을 뿐이다 — 열 때마다 새 행이 쌓이지 않는다.
+    assert [offer["status"] for offer in world.offers] == ["replaced"]
+    assert world.count("POST", "paid_card_offers") == 1
+
+
 def test_a_failing_first_card_still_shows_the_today_tab(wire, caplog):
     """첫 카드는 덤이다 — 그 단계가 실패해도(저장소 500) 오늘 탭은 평소처럼 200 으로 열린다. 로그에는 profile_id 만."""
     world = _World(candidates=[_candidate(i) for i in range(20)], vectors=True)
