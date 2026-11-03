@@ -559,6 +559,13 @@ class SuspendedTest(SafeBase):
         hits = {(s['method'], s['path']) for s in self.fake.sent if s.get('gated')}  # 관문이 막은 요청 — 경로마다 하나
         self.assertEqual(len(hits), len(area3_safe.VERIFIED_ROUTES))
 
+    def test_51_also_calls_the_home_people_and_the_acceptance_detail(self):
+        # 서버의 get_verified_caller 를 지나는 뒤늦은 두 경로(홈 사람 칸 · 받은 신청 프로필 보기) — 목록 개수만이 아니라 실제로 불렀는지 본다.
+        self.passes('E-SAFE-51')
+        hits = {(s['method'], s['path']) for s in self.fake.sent if s.get('gated')}
+        self.assertIn(('GET', '/home/people'), hits)
+        self.assertTrue(any(method == 'GET' and re.fullmatch(r'/cards/acceptances/[0-9a-f-]{36}', path) for method, path in hits), hits)
+
     def test_51_fails_naming_the_route_that_lets_a_suspended_account_in(self):
         self.fake.rules['gate_open'] |= {'/blocks'}
         self.fails('E-SAFE-51', 'GET /blocks')
