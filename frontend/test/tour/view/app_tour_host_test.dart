@@ -1,6 +1,8 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
+import 'package:campus_mate/matching/viewmodel/today_cards_ui_state.dart';
+import 'package:campus_mate/matching/viewmodel/today_cards_view_model.dart';
 import 'package:campus_mate/tour/model/tour_seen_store.dart';
 import 'package:campus_mate/tour/view/app_tour_host.dart';
 import 'package:campus_mate/tour/view/app_tour_steps.dart';
@@ -50,6 +52,19 @@ class _CountingPosition extends ScrollPositionWithSingleContext {
     owner.jumps++;
     super.jumpTo(value);
   }
+}
+
+/// 서버 조회 없이 다음 지급 시각만 쥔 오늘 카드 모델 — 4단계 제목이 이 값으로 만들어지는지 본다.
+class _FakeToday extends TodayCardsViewModel {
+  _FakeToday(this._initial);
+
+  final DateTime? _initial;
+
+  @override
+  TodayCardsUiState build() => TodayCardsUiState(phase: TodayCardsPhase.waiting, nextIssueAt: _initial);
+
+  /// 말풍선이 뜬 뒤 늦게 도착한 서버 값.
+  void arrive(DateTime nextIssueAt) => state = TodayCardsUiState(phase: TodayCardsPhase.waiting, nextIssueAt: nextIssueAt);
 }
 
 /// 진짜 화면 대신 같은 대상 id 를 단 가벼운 화면들 — 호스트의 이동 · 찾기 · 그리기만 본다(진짜 화면에 단 자리는 각 화면 시험).
@@ -177,6 +192,7 @@ void main() {
     Size size = const Size(360, 740),
     double freeHeight = 200,
     double heartBar = 0,
+    DateTime? nextIssueAt,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
@@ -189,6 +205,7 @@ void main() {
         analyticsServiceProvider.overrideWithValue(analytics),
         tourSeenStoreProvider.overrideWithValue(FakeTourSeenStore()),
         tourAccountIdProvider.overrideWithValue(() => 'profile-a'),
+        todayCardsViewModelProvider.overrideWith(() => _FakeToday(nextIssueAt)),
       ],
     );
     addTearDown(container.dispose);
@@ -292,6 +309,61 @@ void main() {
     expect(location(), AppRoutes.home);
     // 사용 통계 tour_finish — 끝까지 봤다(done), 6단계 중 6번째.
     expect(analytics.calls.where((call) => call.startsWith('tour_finish')), ['tour_finish:done:6']);
+  });
+
+  group('4단계 제목 — 요일을 못 박지 않고 서버 다음 지급 시각(서울)으로 만든다(1.0.2 A1)', () {
+    // 서울 목요일(2026-11-12) 오전 7시를 UTC 로 — 기기 시간대에 기대지 않는다.
+    final thursday = DateTime.utc(2026, 11, 11, 22);
+
+    Future<void> toArrivalStep(WidgetTester tester) async {
+      await start(tester);
+      await next(tester);
+      await next(tester);
+      await next(tester);
+      expect(inBubble('4 / 6'), findsOneWidget);
+    }
+
+    testWidgets('서버 다음 지급 시각이 있으면 그 서울 요일 · 시각이 제목에 들어가고 설명은 고정 문구다', (tester) async {
+      await pump(tester, nextIssueAt: thursday);
+      await toArrivalStep(tester);
+
+      expect(inBubble('다음 카드는 목요일 오전 7시에 열려요'), findsOneWidget);
+      expect(inBubble('그때 새로운 한 명이 도착해요.'), findsOneWidget);
+      expect(find.textContaining('매주'), findsNothing);
+    });
+
+    testWidgets('시각을 모르면 "정해진 요일" 문구다', (tester) async {
+      await pump(tester);
+      await toArrivalStep(tester);
+
+      expect(inBubble('카드는 정해진 요일 오전 7시에 열려요'), findsOneWidget);
+      expect(find.textContaining('다음 카드는'), findsNothing);
+    });
+
+    testWidgets('말풍선이 뜬 뒤에 서버 값이 도착하면 제목이 그 요일로 바뀐다', (tester) async {
+      await pump(tester);
+      await toArrivalStep(tester);
+      expect(inBubble('카드는 정해진 요일 오전 7시에 열려요'), findsOneWidget);
+
+      (container.read(todayCardsViewModelProvider.notifier) as _FakeToday).arrive(thursday);
+      await tester.pumpAndSettle();
+
+      expect(inBubble('다음 카드는 목요일 오전 7시에 열려요'), findsOneWidget);
+      expect(inBubble('카드는 정해진 요일 오전 7시에 열려요'), findsNothing);
+    });
+
+    testWidgets('4단계에 닿기 전에는 오늘 카드 모델을 만들지 않는다 — 로그인 전 앱 시작에 서버 조회가 가지 않게', (tester) async {
+      await pump(tester, nextIssueAt: thursday);
+      await start(tester);
+      await next(tester);
+      await next(tester);
+      expect(inBubble('3 / 6'), findsOneWidget);
+
+      expect(container.exists(todayCardsViewModelProvider), isFalse);
+
+      await next(tester);
+      expect(container.exists(todayCardsViewModelProvider), isTrue);
+    });
   });
 
   testWidgets('건너뛰기 → 그 자리에서 바로 끝나고 화면은 옮기지 않는다', (tester) async {
