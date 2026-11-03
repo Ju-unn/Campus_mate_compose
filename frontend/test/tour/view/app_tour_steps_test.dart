@@ -17,10 +17,74 @@ void main() {
       (AppRoutes.home, '여기가 캠퍼스메이트의 시작이에요', '오늘의 카드와 소중한 인연을 만나봐요.'),
       (AppRoutes.home, '프로필부터 채워 보세요', '사진, 소개, 이상형을 채우면 더 잘 맞아요.'),
       (AppRoutes.community, '사람들과 이야기해요', '전체, 인기, 내 질문, 내 투표로 골라 볼 수 있어요.'),
-      (AppRoutes.today, '매주 월요일 오전 7시에 열려요', '월요일 아침 7시에 새로운 한 명이 도착해요.'),
+      // 4단계 제목 · 설명은 요일을 못 박지 않는다(1.0.2 A1) — 서버가 다음 지급 시각을 주면 제목에 그 요일이 들어간다(아래 그룹).
+      (AppRoutes.today, '카드는 정해진 요일 오전 7시에 열려요', '그때 새로운 한 명이 도착해요.'),
       (AppRoutes.today, '하트로 여는 카드는 더 정밀해요', '서로의 성향, 관심사, 이상형을 함께 비교해 골라 드려요.'),
       (AppRoutes.heartStore, '하트는 무료로도 모아요', '무료로 모으기에서 미션을 인증하면 받아요.'),
     ]);
+  });
+
+  group('4단계 제목 — 서버가 준 다음 지급 시각의 서울 요일 · 시각으로 만든다(1.0.2 A1, 사용자 확정 문구)', () {
+    final step = appTourSteps[3];
+
+    // 서울 시각을 UTC 로 만든다 — 기기 시간대에 기대지 않는다. 2026-11-09 가 월요일.
+    DateTime seoul(int day, int hour) => DateTime.utc(2026, 11, day, hour).subtract(const Duration(hours: 9));
+
+    test('다음 지급 시각이 있으면 그 요일 · 시각을 말한다', () {
+      expect(step.titleFor(seoul(9, 7)), '다음 카드는 월요일 오전 7시에 열려요');
+      expect(step.titleFor(seoul(12, 7)), '다음 카드는 목요일 오전 7시에 열려요');
+    });
+
+    test('서버 값은 UTC 로 오지만 요일 · 시각은 서울 기준이다 — 일요일 22시(UTC)는 월요일 오전 7시', () {
+      expect(step.titleFor(DateTime.utc(2026, 11, 8, 22)), '다음 카드는 월요일 오전 7시에 열려요');
+    });
+
+    test('7시가 아니면 그 시각을 그대로 쓴다', () {
+      expect(step.titleFor(seoul(9, 8)), '다음 카드는 월요일 오전 8시에 열려요');
+      expect(step.titleFor(seoul(13, 19)), '다음 카드는 금요일 오후 7시에 열려요');
+    });
+
+    test('시각을 모르면(null) 요일을 못 박지 않는 문구다 — 기본 제목 그대로', () {
+      expect(step.titleFor(null), '카드는 정해진 요일 오전 7시에 열려요');
+      expect(step.titleFor(null), step.title);
+    });
+
+    test('값으로 만드는 단계는 4단계 하나뿐이고 나머지는 늘 같은 제목이다', () {
+      expect([for (final s in appTourSteps) s.titleAt != null], [false, false, false, true, false, false]);
+      for (final other in appTourSteps.where((s) => s.titleAt == null)) {
+        expect(other.titleFor(seoul(9, 7)), other.title);
+      }
+    });
+
+    testWidgets('제목은 어느 요일 · 시각이어도 말풍선 글자 칸(280)에서 실제 글꼴 16/700 한 줄이다 — pen 제목 상자 280×22', (tester) async {
+      final titles = [
+        step.titleFor(null),
+        for (var day = 9; day <= 15; day++)
+          for (final hour in [7, 10, 12, 22]) step.titleFor(seoul(day, hour)),
+      ];
+      for (final title in titles) {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Center(
+              child: SizedBox(
+                width: 312,
+                child: CoachBubble(
+                  number: 4,
+                  total: appTourSteps.length,
+                  title: title,
+                  body: step.body,
+                  isLast: false,
+                  onNext: () {},
+                  onSkip: () {},
+                ),
+              ),
+            ),
+          ),
+        );
+
+        expect(tester.getSize(find.text(title)).height, 22, reason: title);
+      }
+    });
   });
 
   testWidgets('1단계 설명은 말풍선(폭 312, 글자 칸 280)에서 실제 글꼴 14/400 한 줄이다 — pen `O6FER/YoOxK`', (tester) async {

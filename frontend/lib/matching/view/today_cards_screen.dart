@@ -268,10 +268,7 @@ class _NextBand extends StatelessWidget {
 /// "오늘 오전 7시" 는 학교 오픈 대기(home/view/cohort_wait_view.dart)와 같은 말이다.
 const String _arrivingSoonTail = '에 새로운 한 명이 도착해요';
 
-/// 서울 시계로 옮긴 값(한국은 서머타임이 없어 +9 고정).
-DateTime _seoulClock(DateTime value) => value.toUtc().add(const Duration(hours: 9));
-
-/// 서울 달력으로 [issue] 가 [now] 보다 며칠 뒤인지(같은 날이면 0). 둘 다 [_seoulClock] 을 거친 값이다.
+/// 서울 달력으로 [issue] 가 [now] 보다 며칠 뒤인지(같은 날이면 0). 둘 다 [seoulClock] 을 거친 값이다.
 int _calendarDaysUntil(DateTime issue, DateTime now) =>
     DateTime.utc(issue.year, issue.month, issue.day).difference(DateTime.utc(now.year, now.month, now.day)).inDays;
 
@@ -285,20 +282,20 @@ bool isArrivingSoon(DateTime? nextIssueAt, DateTime now) {
   if (nextIssueAt == null) {
     return false;
   }
-  return _calendarDaysUntil(_seoulClock(nextIssueAt), _seoulClock(now)) <= _arrivingSoonMaxDays;
+  return _calendarDaysUntil(seoulClock(nextIssueAt), seoulClock(now)) <= _arrivingSoonMaxDays;
 }
 
 /// 화면 11 의 부제. 내일이면 시안 `k1jPSY`, 그 뒤면 `exnx7` 문구다. 다음 주(월요일 시작)면 요일 앞에
 /// "다음 주" 를 붙인다 — 주 1회는 월요일에 "월요일" 이 오늘처럼 읽혔다(사용자 결정 10-04 (나)).
 /// 지급일의 지급 시각 전이면 서버가 오늘 시각을 준다(ladder.py upcoming_issue_at) — 그때는 "오늘" 이다.
-/// 날짜 · 요일 · 시각은 서울 기준이다([_seoulClock]).
+/// 날짜 · 요일 · 시각은 서울 기준이다([seoulClock]).
 @visibleForTesting
 String waitingSubtitle(DateTime? nextIssueAt, DateTime now) {
   if (nextIssueAt == null) {
     return '새로운 사람이 준비되면 알려드릴게요';
   }
-  final issue = _seoulClock(nextIssueAt);
-  final seoulNow = _seoulClock(now);
+  final issue = seoulClock(nextIssueAt);
+  final seoulNow = seoulClock(now);
   final days = _calendarDaysUntil(issue, seoulNow);
   final time = hourLabel(issue);
   if (days == 0) {
