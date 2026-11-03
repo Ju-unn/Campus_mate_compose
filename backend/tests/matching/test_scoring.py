@@ -1,6 +1,8 @@
 import math
 from datetime import datetime, timedelta, timezone
 
+import pytest
+
 from app.core.time import SEOUL
 from app.matching.scoring import activity_coefficient, face_fit, final_score, mbti_coefficient, mbti_fit, rank
 
@@ -279,3 +281,39 @@ def test_final_score_taste_clash_stacks_with_the_other_penalties():
 
     # 흡연 0.5 × 부딪힘 0.6
     assert round(final_score(owner, smoker), 4) == round(NO_FACETS * 0.5 * 0.6, 4)
+
+
+# 흡연 "상관없어요"(06-1, 1.0.2 A6) — 감점은 카드를 받는 사람이 흡연자를 싫어하고 후보가 흡연자일 때만 ×0.5 다.
+# accepts_smoker: True = 상관없어요, False = 싫어요, None = 칸을 모른다(옛 앱 · 기존 회원) → 내 흡연 여부를 따른다.
+@pytest.mark.parametrize(("owner_smokes", "accepts", "factor"), [
+    pytest.param(False, None, 0.5, id="null-nonsmoker-owner-is-the-old-rule"),
+    pytest.param(True, None, 1.0, id="null-smoker-owner-no-penalty"),
+    pytest.param(None, None, 1.0, id="null-unknown-owner-no-penalty"),
+    pytest.param(False, True, 1.0, id="accepts-nonsmoker-owner-no-penalty"),
+    pytest.param(True, True, 1.0, id="accepts-smoker-owner-no-penalty"),
+    pytest.param(True, False, 0.5, id="dislikes-smoker-owner-penalty"),
+    pytest.param(False, False, 0.5, id="dislikes-nonsmoker-owner-penalty"),
+])
+def test_final_score_smoking_penalty_follows_the_owners_smoker_preference(owner_smokes, accepts, factor):
+    owner, candidate = _plain_pair()
+    owner = {**owner, "is_smoker": owner_smokes, "accepts_smoker": accepts}
+
+    assert round(final_score(owner, {**candidate, "is_smoker": True}), 4) == round(NO_FACETS * factor, 4)
+
+
+@pytest.mark.parametrize("candidate_smokes", [False, None])
+@pytest.mark.parametrize("accepts", [None, True, False])
+@pytest.mark.parametrize("owner_smokes", [False, True])
+def test_final_score_has_no_smoking_penalty_for_a_candidate_who_does_not_smoke(owner_smokes, accepts, candidate_smokes):
+    owner, candidate = _plain_pair()
+    owner = {**owner, "is_smoker": owner_smokes, "accepts_smoker": accepts}
+
+    assert round(final_score(owner, {**candidate, "is_smoker": candidate_smokes}), 4) == NO_FACETS
+
+
+def test_final_score_reads_an_owner_row_without_the_accepts_smoker_key_as_null():
+    """옛 가짜 · 칸이 아직 없는 행 — 키가 없어도 터지지 않고 옛 규칙(비흡연자에게 흡연자 ×0.5) 그대로다."""
+    owner, candidate = _plain_pair()
+
+    assert "accepts_smoker" not in owner
+    assert round(final_score(owner, {**candidate, "is_smoker": True}), 4) == round(NO_FACETS * 0.5, 4)

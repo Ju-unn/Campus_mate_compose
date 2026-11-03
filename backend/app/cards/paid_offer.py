@@ -9,7 +9,7 @@ from datetime import datetime
 from app.cards.repository import PaidOfferConflict
 from app.cards.visibility import hidden_from_cards
 from app.matching.band import PAID_BAND_RATIO, band_size, pick_from_band
-from app.matching.scoring import mbti_coefficient, mbti_prefers_a_side, profile_age, range_coefficient
+from app.matching.scoring import mbti_coefficient, mbti_prefers_a_side, profile_age, range_coefficient, smoking_clash
 
 # 유료 카드 한 장 값(하트). 실제 차감은 DB 함수가 한다 — 이 값은 화면에 보여 줄 가격이다(DB 와 같은 값이어야 한다).
 PAID_CARD_COST = 50
@@ -75,8 +75,7 @@ def _strengths(owner: dict, target: dict, tags: list[str]) -> dict[str, float]:
         )
     ) >= _NO_PENALTY
     # scoring.final_score 의 흡연(0.5) · 종교(0.6) 감점과 같은 조건이다.
-    smoke_religion_ok = not (owner.get("is_smoker") is False and target.get("is_smoker") is True) \
-        and owner.get("religion") == target.get("religion")
+    smoke_religion_ok = not smoking_clash(owner, target) and owner.get("religion") == target.get("religion")
     return {
         "tendency": float(target.get("trait_score") or 0),
         "tags": TAG_STRENGTH_MANY if len(tags) >= 2 else TAG_STRENGTH_ONE if tags else 0.0,

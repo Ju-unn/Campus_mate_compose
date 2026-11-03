@@ -35,6 +35,20 @@ async def test_fetch_owner_reads_the_four_face_columns():
     assert {"animal_type", "impression_type", "preferred_animal_types", "preferred_impression_types"} <= columns
 
 
+async def test_fetch_owner_reads_accepts_smoker():
+    """흡연 감점은 카드를 받는 사람의 06-1 "흡연하는 사람" 칸을 본다 — select 에서 빠지면 늘 null(옛 규칙)로 읽힌다."""
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json=[{"id": PROFILE_ID, "accepts_smoker": False}])
+
+    owner = await _repo(handler).fetch_owner(PROFILE_ID)
+
+    assert "accepts_smoker" in seen[0].url.params["select"].split(",")
+    assert owner["accepts_smoker"] is False
+
+
 async def test_fetch_owner_reads_my_text_facets_from_the_vector_row():
     """글 정리 칸은 profile_vectors 에 있다 — 한 번의 조회로 함께 읽어 profiles 칸처럼 펼친다(벡터 행이 없으면 None)."""
     seen: list[httpx.Request] = []

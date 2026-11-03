@@ -21,7 +21,7 @@ def owner_row(owner_id: str = "owner-1", **overrides) -> dict:
     return {"id": owner_id, "status": "active", "gender": "male", "mbti": None,
             "preferred_mbti_flags": {}, "height_cm": 180, "preferred_height_min": None,
             "preferred_height_max": None, "birth_year": 2002, "preferred_age_min": None,
-            "preferred_age_max": None, "is_smoker": False, "religion": "none", **overrides}
+            "preferred_age_max": None, "is_smoker": False, "accepts_smoker": None, "religion": "none", **overrides}
 
 
 class OfferStore:
