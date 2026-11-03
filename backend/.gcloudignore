@@ -1,0 +1,12 @@
+# gcloud run deploy --source 의 업로드(PC → 클라우드) 단계가 보는 제외 목록이다. 이미지 빌드(Dockerfile COPY) 단계는 따로 .dockerignore 를 본다 — Dockerfile · pyproject.toml · app/ 은 이미지에 필요하니 절대 넣지 않는다.
+.gcloudignore
+.git
+.gitignore
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+tests/
+.env
+.env.*
