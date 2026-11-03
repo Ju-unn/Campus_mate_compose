@@ -1,4 +1,5 @@
 import 'package:campus_mate/core/router/app_routes.dart';
+import 'package:campus_mate/matching/view/daily_card_summary.dart';
 import 'package:campus_mate/tour/view/tour_precision_points.dart';
 import 'package:flutter/widgets.dart';
 
@@ -40,6 +41,7 @@ class TourStep {
     this.scrollAnchor,
     this.detail,
     this.alignTop,
+    this.titleAt,
   });
 
   /// 이 단계의 화면 경로. 지금 화면이 아니면 옮긴다 — 탭은 `go`(하단 내비와 같은 방식), [push] 면 위에 올린다.
@@ -71,9 +73,29 @@ class TourStep {
   /// 더 못 밀면 그 목록의 `TourScrollRoom` 이 잠깐 빈자리를 낸다). 이때 구멍이 아래 말풍선 · 선 자리까지 먹으면 구멍 아래쪽을
   /// 잘라 말풍선이 보이는 영역(하단 바 위) 안에 다 들어오게 한다. null 이면 대상을 가운데로 민다(화면 밖일 때만).
   final double? alignTop;
+
+  /// 다음 카드 지급 시각을 알 때 [title] 대신 쓸 제목을 만든다. 없으면 제목은 늘 [title] 이다.
+  final String Function(DateTime nextIssueAt)? titleAt;
+
+  /// 말풍선에 쓸 제목. [titleAt] 이 있고 [nextIssueAt] 을 알면 그것으로 만들고, 아니면 [title] 이다.
+  String titleFor(DateTime? nextIssueAt) {
+    final at = nextIssueAt;
+    final build = titleAt;
+    if (at == null || build == null) {
+      return title;
+    }
+    return build(at);
+  }
 }
 
 Widget _precisionPoints(BuildContext context) => const TourPrecisionPoints();
+
+/// 4단계 제목 — 서버가 준 다음 지급 시각의 서울 요일 · 시각이다. 지급 주기는 학교 인원에 따라 주 1회 ~ 매일이라 요일을 못 박지 않는다.
+/// 오늘 탭 대기 화면 부제(`waitingSubtitle`)와 같은 [seoulClock] · [weekdayNames] · [hourLabel] 을 쓴다.
+String _arrivalTitle(DateTime nextIssueAt) {
+  final issue = seoulClock(nextIssueAt);
+  return '다음 카드는 ${weekdayNames[issue.weekday - 1]}요일 ${hourLabel(issue)}에 열려요';
+}
 
 /// 앱 투어 6단계 — 문구는 사용자 확정본 그대로다. 단계를 고치거나 더할 때는 이 목록만 고친다.
 const List<TourStep> appTourSteps = [
@@ -105,8 +127,10 @@ const List<TourStep> appTourSteps = [
     location: AppRoutes.today,
     targets: [TourTargetId.todayArrival, TourTargetId.todayHeader],
     holePadding: EdgeInsets.symmetric(vertical: 7, horizontal: 38),
-    title: '매주 월요일 오전 7시에 열려요',
-    body: '월요일 아침 7시에 새로운 한 명이 도착해요.',
+    // 제목은 서버 다음 지급 시각을 알 때 [_arrivalTitle] 이 만든다 — 아래 글은 시각을 아직 모르거나 못 받았을 때의 기본이다.
+    title: '카드는 정해진 요일 오전 7시에 열려요',
+    titleAt: _arrivalTitle,
+    body: '그때 새로운 한 명이 도착해요.',
   ),
   // 가입 직후엔 카드가 없어 진짜 정밀 분석 시트(`G30cC`)를 못 연다 — 오늘 탭 위 가운데 설명 카드에 시트의 항목 넷을 한 줄씩 보인다.
   TourStep(
