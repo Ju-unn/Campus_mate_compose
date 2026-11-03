@@ -20,7 +20,8 @@ async def issue_daily_cards(card_repo, matching_repo, sender, now: datetime,
     """하루 한 번 도는 지급 배치(설계 §2.1). Cloud Scheduler 가 07:00 Asia/Seoul 에 부른다.
 
     대상자마다 ① 이번 주기의 유료 카드 제안을 먼저 확보하고 ② 그 사람을 빼고 무료 카드를 20~90% 구간에서
-    무작위로 뽑는다(지시문 22, 10-28 사용자 결정). rng 는 시험이 시드를 고정하려고 받는다.
+    무작위로 뽑는다(지시문 22, 10-28 사용자 결정). 뽑을 사람이 그 1명뿐이면 제안을 접고 그 사람을 무료로 준다(11-03 사용자 결정).
+    rng 는 시험이 시드를 고정하려고 받는다.
 
     ponytail: 사람당 호출이 많다. 이미 제안이 있는 사람(재사용 경로)은 읽기 약 7번(프로필 · 후보 2번 + 구매 여부 · 제안
     목록 2번 + 대상 자격 확인 3번), 새 제안을 만드는 사람은 읽기 약 5번(프로필 · 후보 · 구매 여부 · 제안 목록 ·
@@ -113,22 +114,37 @@ def _open_for_cards(profile: dict, now: datetime) -> bool:
             and (opens_at is None or datetime.fromisoformat(opens_at) <= now))
 
 
+def _pick_free(ranked: list[dict], rng: random.Random, exclude: frozenset) -> dict | None:
+    """무료는 유료 구간(상위 20%) 아래부터 고른다. 그 구간에 뽑을 사람이 없을 때만(후보가 적은 학교 · 다 본 사람)
+    상위 90% 전체로 넓힌다 — 카드가 아예 없는 날을 만들지 않으려는 것이다."""
+    return (pick_from_band(ranked, FREE_BAND_RATIO, rng, exclude=exclude,
+                           start=band_size(len(ranked), PAID_BAND_RATIO))
+            or pick_from_band(ranked, FREE_BAND_RATIO, rng, exclude=exclude))
+
+
 async def _issue_to_owner(card_repo, matching_repo, sender, now: datetime, rng: random.Random, owner_id: str,
                           weekdays: list[int], region_settings: dict) -> bool:
-    """한 사람 몫: 유료 제안 확보 → 무료 카드 지급 → 알림. 카드를 줬으면 True, 뽑을 사람이 없었으면 False."""
+    """한 사람 몫: 유료 제안 확보 → 무료 카드 지급(무료가 0장이 되면 유료 제안을 접고 그 사람을 무료로) → 알림.
+    카드를 줬으면 True, 뽑을 사람이 없었으면 False."""
     owner_row = await matching_repo.fetch_owner(owner_id)
     # 후보는 이미 본 사람까지 전부다(pickable 칸) — 구간은 전체로 재고 뽑을 때만 pickable 을 본다.
     ranked = rank_all(owner_row, await matching_repo.fetch_candidates(owner_id))
     issue_time = _parse_time(region_settings["issue_time"])
 
-    # ① 유료 제안은 무료 카드가 나가든 말든 확보한다. ② 그 사람은 무료 카드에서 뺀다.
+    # ① 유료 제안을 확보한다. ② 그 사람은 무료 카드에서 뺀다.
     offer = await ensure_offer(card_repo, owner_row, ranked, last_issue_at(now, weekdays, issue_time), rng, now)
     exclude = frozenset({str(offer["target_id"])}) if offer else frozenset()
-    # 무료는 유료 구간(상위 20%) 아래부터 고른다. 그 구간에 뽑을 사람이 없을 때만(후보가 적은 학교 · 다 본 사람)
-    # 상위 90% 전체로 넓힌다 — 카드가 아예 없는 날을 만들지 않으려는 것이다.
-    picked = (pick_from_band(ranked, FREE_BAND_RATIO, rng, exclude=exclude,
-                             start=band_size(len(ranked), PAID_BAND_RATIO))
-              or pick_from_band(ranked, FREE_BAND_RATIO, rng, exclude=exclude))
+    picked = _pick_free(ranked, rng, exclude)
+    if picked is None and offer is not None:
+        # 사용자 결정 2026-11-03(미결45 ②): 유료 제안 때문에 무료 카드가 0장이면(뽑을 사람이 그 1명뿐) 제안을 접고 그 사람을
+        # 무료로 준다. replaced = ensure_offer(paid_offer.py:157-161)가 pickable 을 잃은 제안에 쓰는 것과 같은 값(expired 는 주기 만료용).
+        # 줄 사람이 있을 때만 접는다 — 접고도 카드가 없으면(제안 대상이 그새 무료 구간 밖으로 내려간 경우) 제안을 그대로 둔다.
+        picked = _pick_free(ranked, rng, frozenset())
+        if picked is not None:
+            # shortcut: 구매가 먼저 커밋되면 이 PATCH(status=eq.offered)가 조용히 무시돼 같은 상대를 유료 · 무료로 둘 다 받을 수 있다
+            # (07:00 배치 순간 · 후보 1명 · 구매 동시, 수백 ms) — 경합이 실제로 보이면 set_offer_status 가 바뀐 행 수를 돌려주게 해서
+            # 0 이면 무료를 주지 않는다.
+            await card_repo.set_offer_status(offer["id"], "replaced")
     if picked is None:
         # 구간에 뽑을 사람이 없으면 이번 주기에는 카드가 없다 — 화면 11b `iQZoa` 가 이 상태를 설명한다.
         return False

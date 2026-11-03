@@ -286,7 +286,7 @@ def p_card_02(run, phone, after=None):
     notify.ensure_delivery(phone.serial)  # 푸시 연결이 죽은 폰이면 "알림이 안 왔다" 를 앱 탓으로 읽게 된다 — 시작 때 한 번 점검
     check = Check()
     a, b, token = _seed_pair(run)
-    c = _person(run, 'female')  # 새 선정은 유료 제안이 후보 1명을 먼저 가져간다 — A 의 후보를 2명으로 해야 무료 카드가 나온다
+    c = _person(run, 'female')  # A 의 둘째 후보 — 후보가 1명이어도 무료 카드는 나가지만(11-03부터 유료 제안을 접는다) 유료 1 + 무료 1 이 따로 나오는 풀로 둔다
     old = _old_card(run, a, c)  # 앱이 오늘 탭을 열자마자 첫 카드가 나가면 배치가 A 를 건너뛰어 알림이 안 온다
     mine = f"daily_cards?owner_id=eq.{a['id']}&id=neq.{old}"
     region = _region_of(run, a)
