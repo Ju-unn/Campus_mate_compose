@@ -1,6 +1,6 @@
 """영역 4 PUSH 채팅 게이트 배치(chat-gate) 11개 — 40~48 · 79 · 80(묶음 area4-push-gate). 받는 사람 폰 한 대 + 상대·배치는 PC.
 기대값은 바탕화면 E2E_최종테스트_시나리오.md 영역 4 의 E-PUSH 줄(10-04 갱신본) — 그러나 **문구·시각은 코드가 기준**이다
-(backend/app/chat/gate.py · batch_router.py: 리마인드는 매칭 24시간 뒤 한 시간짜리 창, 22~8시면 다음 아침 8시로 밀림, 48시간이 지나면 알림 없이 닫힘).
+(backend/app/chat/gate.py · batch_router.py: 리마인드는 매칭 24시간 뒤 한 시간짜리 창, 실제로 보내지는 정각(올림)이 22~8시면 아침 8시로 밀림, 48시간이 지나면 알림 없이 닫힘).
 
 가설 하나 = 함수 하나 `(scene)`. 폰 계정(me, 알림 받는 쪽)과 상대(partner)를 만들고 둘의 매칭을 DB 로 만든 뒤, **배치를 부르기 직전에** 매칭의
 created_at 을 지금 기준으로 옮기고 `area2._batch('chat-gate')` 를 한 번 부른다. 배치 응답(reminded · closed · passed)은 gcloud 호출이라 PC 가 못 읽으니
@@ -12,9 +12,9 @@ created_at 을 지금 기준으로 옮기고 `area2._batch('chat-gate')` 를 한
 needs_reminder ponytail 주석) 같은 시 두 번째 호출은 batch_gate 가 막는다(예약 실행과 겹친다 — batch_gate.py 맨 위 설명).
 
 시각 규칙(가장 중요): chat-gate 는 정각 ±5분 금지 · 같은 시(時) 두 번 금지(`area2._batch` 가 관문)이고, 게다가 예약 실행이 매시 정각에 돈다.
-리마인드 창이 한 시간이라 항상 정각 하나를 품는다. 그래서 시작은 서울 **08:06~21:48 의 hh:06~hh:48 분**에만(관측 60+30초가 다음 정각 전에 끝나고, 창이 조용한
-시간에 안 걸리게 낮) — 밖이면 계정·앱 만들기 전에 blocked("HH:MM 에 다시"), 폰 준비 뒤 배치 직전에 한 번 더 본다.
-**45 만 09:06 부터**: created_at 이 now−25h1m 이라 08시대에 시작하면 created_at+24h 가 07시대 → reminder_at 이 08:00 으로 밀어 창이 [08:00, 09:00) 이 되고,
+리마인드 창이 한 시간이라 항상 정각 하나를 품는다. 그래서 시작은 서울 **08:06~20:48 의 hh:06~hh:48 분**에만(관측 60+30초가 다음 정각 전에 끝나고, 창이 조용한
+시간에 안 걸리게 낮 — 21시대에 시작하면 created_at+24h5m 이 21시대라 창이 22:00 정각을 품어, 서버가 그 리마인드를 다음 날 08:00 으로 밀어 폰에 안 온다) — 밖이면 계정·앱 만들기 전에 blocked("HH:MM 에 다시"), 폰 준비 뒤 배치 직전에 한 번 더 본다.
+**45 만 09:06 부터**: created_at 이 now−25h1m 이라 08시대에 시작하면 created_at+24h 가 07시대 → reminder_at 이 07시대 전체를 08:00 으로 밀어(스케줄러가 정각보다 몇 초 늦게 불러도 07시 배치에 안 걸리게) 창이 [08:00, 09:00) 이 되고,
 now 가 그 안이라 서버는 정상으로 리마인드를 보낸다(가설은 "안 온다" 라 서버가 멀쩡한데 FAIL). 09시 이후엔 창이 now−1분에 끝난다(시험이 격자로 backend gate.py 와 대조).
 가설마다 배치를 한 번 부르니 **가설 하나 = 시계의 시 하나**다(11개 = 11개 시). 같은 시의 두 번째 가설은 관문이 막아 blocked("13:06 에 다시") — 정상이다.
 
@@ -61,7 +61,7 @@ APP_WAIT = 90  # 눌린 앱이 방을 열고 말하기를 기다리는 초(area3
 CASE_LIMIT_HOUR = 4500  # 다음 정각 · 아침 8시까지 기다리는 가설(44 · 46)의 상한
 FIRST_START_HOUR = 8  # 시작해도 되는 첫 시(08:06)
 EXPIRED_FIRST_HOUR = 9  # 45 는 09:06 부터 — 08시대는 reminder_at 이 08:00 으로 밀어 창이 [08:00, 09:00) 이라 서버가 정상으로 보낸다
-LAST_START_HOUR = 21  # 시작해도 되는 마지막 시(21:48)
+LAST_START_HOUR = 20  # 시작해도 되는 마지막 시(20:48) — 21시대는 창이 22:00 정각을 품어 서버가 다음 날 08:00 으로 밀기에 폰 알림이 안 온다
 DUE = timedelta(hours=24, minutes=5)  # 리마인드 창이 지금−5분에 시작
 DUE_FOR_TWICE = timedelta(hours=24, minutes=2)  # 46 — 다음 정각 예약 실행이 창 안에 여유 있게 들어가게
 EXPIRED = timedelta(hours=25, minutes=1)  # 창이 1분 전에 끝남
@@ -114,7 +114,7 @@ def gate_window_refusal(now, last_hour=LAST_START_HOUR, ran=(), first_hour=FIRST
 
 
 def expired_refusal(now, ran=()):
-    """45 — 서울 09:06~21:48. 08시대에 시작하면 서버가 정상으로 리마인드를 보낸다(EXPIRED_FIRST_HOUR 설명)."""
+    """45 — 서울 09:06~20:48. 08시대에 시작하면 서버가 정상으로 리마인드를 보낸다(EXPIRED_FIRST_HOUR 설명)."""
     return gate_window_refusal(now, ran=ran, first_hour=EXPIRED_FIRST_HOUR)
 
 
@@ -124,8 +124,8 @@ def morning_refusal(now, ran=()):
 
 
 def twice_refusal(now, ran=()):
-    """46 — 시작은 20:48 까지. 다음 정각 예약 실행이 22시(조용한 시간)면 리마인드를 안 보내 "한계가 없다" 와 구별이 안 된다."""
-    return gate_window_refusal(now, last_hour=LAST_START_HOUR - 1, ran=ran)
+    """46 — 시작은 20:48 까지(LAST_START_HOUR). 다음 정각 예약 실행이 22시(조용한 시간)면 리마인드를 안 보내 "한계가 없다" 와 구별이 안 된다."""
+    return gate_window_refusal(now, ran=ran)
 
 
 # ── 장면 ────────────────────────────────────────────────────────────────────────────────────────────

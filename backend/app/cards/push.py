@@ -4,6 +4,7 @@ from datetime import datetime
 
 import google.auth
 import httpx
+from google.auth.exceptions import DefaultCredentialsError, GoogleAuthError, RefreshError
 from google.auth.transport.requests import Request as GoogleAuthRequest
 
 from app.core.logs import show_info
@@ -14,6 +15,10 @@ show_info(logger)
 
 _DETAIL_MAX = 300
 _RAW_MAX = 200
+# 푸시 서버에 닿지 못했거나(연결 · 시간 초과 · 끊김) 구글 인증 토큰을 못 받은 경우. notify 가 이것만 삼킨다 — 그 밖의 예외는 코드 버그라 숨기지 않는다.
+_SEND_ERRORS = (httpx.HTTPError, GoogleAuthError)
+# 그중 서비스 계정(ADC) 설정이 깨진 경우 — 일시 장애가 아니라 모든 푸시가 안 가는 사고라 ERROR 로 따로 남긴다.
+_AUTH_ERRORS = (DefaultCredentialsError, RefreshError)
 
 
 def _mask(token: str) -> str:
@@ -205,18 +210,33 @@ async def notify(repo, sender: FcmSender, profile_id, kind: str,
 
     sent = 0
     for token in await repo.fetch_push_tokens(profile_id):
-        result = await sender.send(token, title, body, data, kind=kind, platform=getattr(token, "platform", ""))
+        platform = getattr(token, "platform", "")
+        try:
+            result = await sender.send(token, title, body, data, kind=kind, platform=platform)
+        except _SEND_ERRORS as exc:
+            # 푸시는 덤이다 — 푸시 서버가 안 닿는다고 채팅 보내기 · 카드 결정 · 수락이 500 이 되면 안 된다(채팅은 다시 보내면 메시지가 두 줄이 된다).
+            # 재전송은 하지 않는다: 다음 알림이 곧 오고, 지금 다시 시도하면 응답만 느려진다. 예외 메시지는 URL 이 들어 있을 수 있어 종류만 남긴다.
+            if isinstance(exc, _AUTH_ERRORS):
+                # 인증 문제는 기기와 무관하다 — 토큰은 적지 않는다.
+                logger.error("FCM 인증 실패 kind=%s platform=%s | %s", kind or "?", platform or "?", type(exc).__name__)
+            else:
+                logger.warning("FCM 전송 예외 kind=%s platform=%s token=%s | %s", kind or "?", platform or "?",
+                               _mask(token), type(exc).__name__)
+            # 연결 · 인증 오류는 기기를 가리지 않는다 — 남은 기기도 같은 시간 초과를 기다리게 두지 않고 이번 푸시는 여기서 접는다.
+            # (FCM 이 오류로 답한 것 — failed · dead — 은 그 기기만의 일이라 위에서처럼 다음 기기로 간다.)
+            break
         if result == "sent":
             sent += 1
         elif result == "dead":
             # 이 토큰은 방금 profile_id 로 꺼내 온 것이라 주인이 확실하다.
             await repo.delete_push_token(token, profile_id)
+            logger.info("FCM 죽은 토큰 정리 kind=%s platform=%s token=%s", kind or "?", platform or "?", _mask(token))
     return sent
 
 
 async def send_pending(repo, sender: FcmSender, now: datetime) -> int:
     """매시 chat-gate 배치가 부른다. 조용하지 않은 시각이면 밤에 보류한 알림을 사람 × kind × 가는 화면으로 묶어
-    보내고 지운다 — 보통 08시에 비고, 08시 배치가 실패하면 다음 시각이 보낸다. 실제로 간 알림 수를 돌려준다."""
+    지우면서 가져가 보낸다 — 보통 08시에 비고, 08시 배치가 실패하면 다음 시각이 보낸다. 실제로 간 알림 수를 돌려준다."""
     if _is_quiet(now):
         return 0
     groups: dict[tuple, list[dict]] = {}
@@ -224,7 +244,11 @@ async def send_pending(repo, sender: FcmSender, now: datetime) -> int:
         groups.setdefault((row["profile_id"], row["kind"], row["data"].get("route")), []).append(row)
 
     sent = 0
-    for (profile_id, kind, route), rows in groups.items():
+    for (profile_id, kind, route), group in groups.items():
+        # 보내기 전에 지우면서 가져간다 — 동시에 도는 다른 배치(스케줄러 재시도 · 수동 실행)가 같은 줄을 읽었어도 한 줄은 한 쪽만 가져간다.
+        # 보내다 실패해도 그 줄은 사라진다(예전처럼): 남기면 매시 같은 실패를 되풀이하거나 점심에 "밤사이" 알림이 간다.
+        # 사람 묶음마다 따로 가져간다 — 한 번에 천 줄을 가져가면 URL 이 길고, 도중에 죽으면 안 보낸 사람 알림까지 사라진다.
+        rows = await repo.claim_pending_pushes([row["id"] for row in group])
         if len(rows) > 1 and (kind, route) in _BUNDLES:
             title, body = _BUNDLES[(kind, route)]
             # 묶음은 목록 화면으로 간다 — 어느 한 건의 card_id · match_id 를 달지 않는다.
@@ -239,6 +263,4 @@ async def send_pending(repo, sender: FcmSender, now: datetime) -> int:
             except Exception:
                 # 한 사람 알림 때문에 뒷사람 묶음까지 멈추는 쪽이 훨씬 나쁘다.
                 logger.exception("아침 묶음 알림 실패 profile=%s route=%s", profile_id, route)
-        # 실패해도 지운다 — 남기면 매시 같은 실패를 되풀이하거나 점심에 "밤사이" 알림이 간다.
-        await repo.delete_pending_pushes([row["id"] for row in rows])
     return sent

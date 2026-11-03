@@ -44,17 +44,24 @@ def is_passed(responses: list[str | None]) -> bool:
 
 
 def reminder_at(created_at: datetime) -> datetime:
-    """리마인드를 보낼 시각. 기본은 매칭 24시간 뒤인데, 그 시각이 조용한 시간(22~8시)에 걸리면
+    """리마인드를 보낼 시각. 기본은 매칭 24시간 뒤인데, 실제로 보내지는 정각이 조용한 시간(22~8시)에 걸리면
     그다음 아침 8시로 민다.
 
-    미루지 않으면 새벽에 잡힌 리마인드가 notify() 의 조용한 시간 검사에 걸려 조용히 버려지는데,
-    창(window)이 한 번뿐이라 영영 다시 오지 않는다. 채팅 푸시와 달리 게이트 리마인드는
-    조용한 시간을 지킨다(결정 5 의 예외는 채팅 푸시뿐)."""
+    배치는 매시 정각에만 돌고 창은 [시각, 시각 + 1시간) 이라, 실제로 보내지는 때는 기본 시각을 정각으로 올림한 시각이다
+    (정각이면 그대로). 21:30 이면 창에 걸리는 정각은 22:00 하나뿐이라 '시'(21)만 봐서는 놓친다.
+    반대로 07시대(07:00:01 ~ 07:59:59)는 올림이 08:00 이라 괜찮아 보이지만, 스케줄러는 정각보다 몇 초 늦게 부르니
+    07:00:02 배치가 창에 걸려 버려질 수 있다 — 기본 시각의 '시'가 8시 전이면 올림과 상관없이 08:00 으로 민다.
+    미루지 않으면 그 리마인드가 notify() 의 조용한 시간 검사에 걸려 조용히 버려지는데, 창이 한 번뿐이라 영영 다시 오지 않는다.
+    채팅 푸시와 달리 게이트 리마인드는 조용한 시간을 지킨다(결정 5 의 예외는 채팅 푸시뿐).
+
+    밀어도 기본 시각에서 최대 11시간(21:00:01 → 다음 아침 08:00)이라 마감(매칭 48시간 뒤 = 기본 시각 + 24시간)보다 늘 이르다."""
     base = (created_at + GATE_REMINDER_AFTER).astimezone(SEOUL)
-    if base.hour >= _QUIET_START_HOUR:
-        base = (base + timedelta(days=1)).replace(hour=_QUIET_END_HOUR, minute=0, second=0, microsecond=0)
-    elif base.hour < _QUIET_END_HOUR:
-        base = base.replace(hour=_QUIET_END_HOUR, minute=0, second=0, microsecond=0)
+    hour_start = base.replace(minute=0, second=0, microsecond=0)
+    fires_at = hour_start if base == hour_start else hour_start + timedelta(hours=1)
+    if fires_at.hour >= _QUIET_START_HOUR:
+        return (fires_at + timedelta(days=1)).replace(hour=_QUIET_END_HOUR)
+    if base.hour < _QUIET_END_HOUR or fires_at.hour < _QUIET_END_HOUR:
+        return fires_at.replace(hour=_QUIET_END_HOUR)
     return base
 
 

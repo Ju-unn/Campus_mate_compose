@@ -756,6 +756,25 @@ def test_a_failing_broadcast_still_sends_the_message_and_the_push():
     assert len(calls.pushes) == 1
 
 
+def test_a_push_server_connection_error_still_sends_the_message_once():
+    """푸시 서버에 닿지 못해도 보내기는 성공이다. 500 이 나가면 앱이 다시 보내 같은 메시지가 두 줄이 된다."""
+    calls = _Calls()
+    inner = _handler(calls, _match())
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "fcm.googleapis.com" in str(request.url):
+            raise httpx.ConnectError("network down")
+        return inner(request)
+
+    response = _wire(handler).post(
+        f"/chat/matches/{MATCH_ID}/messages", json={"body": "안녕하세요"}, headers=AUTH_HEADERS)
+
+    assert response.status_code == 201
+    assert response.json()["message"]["body"] == "안녕하세요"
+    assert len(calls.messages) == 1
+    assert calls.pushes == []
+
+
 def test_marking_read_tells_only_the_partner():
     calls = _Calls()
     response = _wire(_handler(calls, _match())).patch(
