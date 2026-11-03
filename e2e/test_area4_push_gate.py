@@ -45,12 +45,15 @@ WED = lambda h, m=0, s=0: seoul(7, h, m, s)  # noqa: E731
 
 
 def reminder_at(created):
-    """backend/app/chat/gate.py reminder_at 과 같다 — 24시간 뒤, 그 시각이 22~8시면 다음 아침 8시."""
+    """backend/app/chat/gate.py reminder_at 과 같다 — 24시간 뒤. 실제로 보내지는 정각(그 시각을 정각으로 올림)이 22시 이후면 다음 아침 8시,
+    그 시각의 '시'나 올림이 8시 전이면(스케줄러가 몇 초 늦게 부르는 07시대 포함) 그날 아침 8시."""
     base = (created + timedelta(hours=24)).astimezone(SEOUL)
-    if base.hour >= 22:
-        return (base + timedelta(days=1)).replace(hour=8, minute=0, second=0, microsecond=0)
-    if base.hour < 8:
-        return base.replace(hour=8, minute=0, second=0, microsecond=0)
+    hour_start = base.replace(minute=0, second=0, microsecond=0)
+    fires_at = hour_start if base == hour_start else hour_start + timedelta(hours=1)
+    if fires_at.hour >= 22:
+        return (fires_at + timedelta(days=1)).replace(hour=8)
+    if base.hour < 8 or fires_at.hour < 8:
+        return fires_at.replace(hour=8)
     return base
 
 
@@ -298,13 +301,18 @@ class GateBase(Base):
 # ── 시각 창(순수 함수) ──────────────────────────────────────────────────────────────────────────────
 
 class WindowTest(unittest.TestCase):
-    def test_a_start_is_open_from_minute_6_to_minute_48_of_every_hour_from_8_to_21(self):
-        for hour, minute in ((8, 6), (8, 48), (9, 6), (12, 30), (20, 48), (21, 6), (21, 48)):
+    def test_a_start_is_open_from_minute_6_to_minute_48_of_every_hour_from_8_to_20(self):
+        for hour, minute in ((8, 6), (8, 48), (9, 6), (12, 30), (20, 6), (20, 48)):
             self.assertIsNone(gate.gate_window_refusal(TUE(hour, minute)), (hour, minute))
             self.assertIsNone(gate.gate_window_refusal(TUE(hour, minute, 59)), (hour, minute))
 
+    def test_the_21_oclock_hour_is_shut_because_the_server_pushes_that_reminder_to_the_next_morning(self):
+        """21시대에 시작하면 created_at+24h5m 이 21시대 → 창이 22:00 정각을 품어 서버가 다음 날 08:00 으로 민다(폰 알림이 안 온다)."""
+        for minute in (6, 30, 48):
+            self.assertEqual(gate.gate_window_refusal(TUE(21, minute)), '지금은 실행 금지 시간 — 수요일 08:06 에 다시', minute)
+
     def test_the_minutes_just_outside_are_shut_in_every_hour(self):
-        for hour in (8, 12, 21):
+        for hour in (8, 12, 20):
             for minute in (0, 5, 49, 59):
                 self.assertIsNotNone(gate.gate_window_refusal(TUE(hour, minute)), (hour, minute))
         for hour, minute in ((7, 30), (7, 59), (22, 6), (23, 30), (0, 30)):
@@ -321,17 +329,17 @@ class WindowTest(unittest.TestCase):
             self.assertEqual(gate.gate_window_refusal(now), text, now)
 
     def test_the_case_that_waits_for_the_next_scheduled_run_must_start_by_20_48_so_that_run_is_before_22_quiet_hours(self):
-        self.assertIsNone(gate.gate_window_refusal(TUE(20, 48), last_hour=20))
-        self.assertEqual(gate.gate_window_refusal(TUE(21, 6), last_hour=20), '지금은 실행 금지 시간 — 수요일 08:06 에 다시')
+        self.assertIsNone(gate.twice_refusal(TUE(20, 48)))
+        self.assertEqual(gate.twice_refusal(TUE(21, 6)), '지금은 실행 금지 시간 — 수요일 08:06 에 다시')
 
     def test_the_expired_case_starts_from_0906_because_at_8_the_window_pushed_to_8_oclock_is_still_open(self):
         """45 는 created_at 이 now−25h1m — 08시대면 created_at+24h 가 07시대라 reminder_at 이 08:00 으로 밀어 창이 [08:00, 09:00) 이 되고 서버는 정상으로 리마인드를 보낸다."""
         for now in (TUE(8, 6), TUE(8, 20), TUE(8, 48, 59)):
             self.assertEqual(gate.expired_refusal(now), '지금은 실행 금지 시간 — 09:06 에 다시', now)
-        for now in (TUE(9, 6), TUE(9, 6, 59), TUE(15, 30), TUE(21, 48)):
+        for now in (TUE(9, 6), TUE(9, 6, 59), TUE(15, 30), TUE(20, 48)):
             self.assertIsNone(gate.expired_refusal(now), now)
         self.assertEqual(gate.expired_refusal(TUE(9, 5)), '지금은 실행 금지 시간 — 09:06 에 다시')
-        self.assertEqual(gate.expired_refusal(TUE(21, 49)), '지금은 실행 금지 시간 — 수요일 09:06 에 다시')
+        self.assertEqual(gate.expired_refusal(TUE(21, 6)), '지금은 실행 금지 시간 — 수요일 09:06 에 다시')
 
     def test_the_morning_window_is_0706_to_0748(self):
         for now in (TUE(7, 6), TUE(7, 48), TUE(7, 48, 59)):
