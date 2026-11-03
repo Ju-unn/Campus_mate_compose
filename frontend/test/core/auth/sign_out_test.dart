@@ -56,6 +56,24 @@ void main() {
     expect(repository.deletedTokens, ['tok-1']);
   });
 
+  test('등록한 토큰을 몰라도 서버에서 지우는 일은 세션이 살아 있을 때 한다', () async {
+    // L1: 알림 권한을 끈 기기 등은 등록한 토큰을 기억하지 못한다. 그래도 기기에서 읽어 지워야 하고,
+    // 그 DELETE 도 로그아웃(세션 삭제) 앞이어야 401 로 끝나지 않는다.
+    final order = <String>[];
+    final repository = FakeCardRepository(onDelete: () => order.add('delete'));
+    final registrar = PushRegistrar(FakePushMessaging(token: 'tok-1', granted: false), repository);
+    await registrar.start();
+    final auth = MockGoTrueClient();
+    when(() => auth.signOut()).thenAnswer((_) async {
+      order.add('signOut');
+    });
+
+    await signOut(registrar, auth, _OrderedDraftStore(order));
+
+    expect(order, ['delete', 'drafts', 'signOut']);
+    expect(repository.deletedTokens, ['tok-1']);
+  });
+
   test('로그아웃하면 온보딩 임시 저장 값(사진 파일 포함)을 전부 지운다', () async {
     final registrar = PushRegistrar(FakePushMessaging(token: 'tok-1'), FakeCardRepository());
     final auth = MockGoTrueClient();
@@ -247,7 +265,7 @@ void main() {
     final registrar = PushRegistrar(
       FakePushMessaging(token: 'tok-1'),
       _HangingDeleteRepository(),
-      deleteTimeout: Duration.zero,
+      deleteTimeout: const Duration(milliseconds: 50),
     );
     await registrar.start();
     final auth = MockGoTrueClient();
