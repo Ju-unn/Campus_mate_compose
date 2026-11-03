@@ -139,7 +139,7 @@ class ReadFake(PhoneFake):
                         'preferred_age_min': 20, 'preferred_age_max': 30, 'preferred_height_min': None, 'preferred_height_max': None,
                         'interest_tags': ['카페가기', '자전거', '패션'], 'my_traits': ['깨끗한 피부'], 'ideal_traits': ['연상'],
                         'religion': 'none', 'is_smoker': False, 'animal_type': 'dog', 'impression_type': 'kind',
-                        'preferred_mbti_flags': {}, 'preferred_animal_types': ['dog'], 'preferred_impression_types': ['kind']})
+                        'preferred_mbti_flags': {}, 'preferred_animal_types': ['dog'], 'preferred_impression_types': ['kind'], 'ideal_note': None})
         return row
 
     def private(self, pid):
@@ -213,7 +213,8 @@ class ReadFake(PhoneFake):
             'preferred_impression_types': row['preferred_impression_types'],
             'photos': [{'id': p['id'], 'url': url, 'is_avatar_source': p['is_avatar_source']} for p, url in zip(photos, urls)],
             'heart_balance': balance, 'avatar_regen_cost': 0 if len(self._ready(who)) <= 1 else 20,
-            'nickname_changeable_at': locked and locked.isoformat()})
+            'nickname_changeable_at': locked and locked.isoformat(), 'ideal_note': row['ideal_note'],
+            'survey_answers': {a['axis']: float(a['value']) for a in self.rows('survey_answers') if a['profile_id'] == who}})
 
     def _preview(self, sent):
         """GET /me/card-preview — cards/router.py profile_detail · _card_profile 의 칸 그대로(학번까지 싣는다)."""
@@ -1139,6 +1140,13 @@ class FakeShapeTest(ReadBase):
         shown = self.fake._preview({'auth': 'tok-1'}).body
         self.assertEqual(sorted(shown), sorted(server_keys('cards/router.py', 'profile_detail')))
         self.assertEqual(sorted(shown['profile']), sorted(server_keys('cards/router.py', '_card_profile')))
+
+    def test_the_fake_me_profile_reads_the_note_and_the_survey_from_its_rows(self):
+        self.fake.profile('id-1').update(ideal_note='나이 · 키 모두 상관없어요')
+        self.fake.rows('survey_answers').extend([{'profile_id': 'id-1', 'axis': 1, 'value': 0.25}, {'profile_id': 'id-2', 'axis': 2, 'value': 0.5}])
+        mine = self.fake._me_profile({'auth': 'tok-1'}).body
+        self.assertEqual(mine['ideal_note'], '나이 · 키 모두 상관없어요')
+        self.assertEqual(mine['survey_answers'], {1: 0.25})  # 서버처럼 {축: 값} · 남의 줄은 안 싣는다
 
     def test_the_card_preview_carries_the_student_number_the_factory_saved(self):
         self.fake.profile('id-1').update(student_number='e2e1001')
