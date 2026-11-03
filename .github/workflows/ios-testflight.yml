@@ -40,9 +40,9 @@ on:
   workflow_dispatch:
     inputs:
       build_name:
-        description: 앱 버전 이름(CFBundleShortVersionString, 예 1.0.1). pubspec.yaml 의 version 은 그대로 두고 이 값으로 정한다
+        description: 앱 버전 이름(CFBundleShortVersionString, 예 1.0.2). pubspec.yaml 의 version 은 그대로 두고 이 값으로 정한다
         required: true
-        default: "1.0.1"
+        default: "1.0.2"
         type: string
 
 permissions:
@@ -151,7 +151,7 @@ jobs:
         run: |
           set +x
           if [[ ! "$BUILD_NAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error::빌드 이름 모양이 틀렸다(예: 1.0.1) — Run workflow 의 build_name 을 확인한다"
+            echo "::error::빌드 이름 모양이 틀렸다(예: 1.0.2) — Run workflow 의 build_name 을 확인한다"
             exit 1
           fi
           xcodebuild -version

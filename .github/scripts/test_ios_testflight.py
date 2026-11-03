@@ -355,7 +355,7 @@ class WorkflowTest(unittest.TestCase):
     def test_build_name_is_an_input_defaulting_to_the_release_version(self):
         # 앱 버전 이름(CFBundleShortVersionString)은 pubspec 의 version(1.0.0+1, 저장소 규칙)을 건드리지 않고 이 입력으로 정한다.
         build_name = self.wf[True]["workflow_dispatch"]["inputs"]["build_name"]
-        self.assertEqual(build_name["default"], "1.0.1")
+        self.assertEqual(build_name["default"], "1.0.2")
         self.assertIs(build_name["required"], True)
         self.assertEqual(self.job["env"]["BUILD_NAME"], "${{ inputs.build_name }}")
 
