@@ -79,6 +79,12 @@ def code_of(text):
     return '\n'.join(re.sub(r'//.*$', '', line) for line in text.replace('\r\n', '\n').split('\n'))
 
 
+def says_refill(test, note):
+    """운영 정리 배치를 부르는 가설(BATCHED)의 PASS 메모에 "배치가 OpenAI 를 쓸 수 있다" 는 사실이 있는지 — 시험의 글자는 모듈에서 가져오지 않는다."""
+    for piece in ('refill_taste', '취향 빈 칸', '최대 20명', 'OpenAI'):
+        test.assertIn(piece, note)
+
+
 class WdFake(ReadFake):
     """ReadFake + 탈퇴 · 재가입 제한 · 정리 배치 · 저장소 · 로그인 끊기 · 일시중지. 시험이 아래 칸을 바꿔 규칙 하나를 어긴 서버를 만든다."""
 
@@ -509,8 +515,12 @@ class AppContractTest(unittest.TestCase):
     def test_the_screens_say_the_numbers_the_module_counts_on(self):
         self.assertIn('static const _defaultDuration = Duration(seconds: 2);', lib('core', 'router', 'splash_hold.dart'))  # LOGIN_MS 의 2초
         sign_up = lib('auth', 'view', 'sign_up_screen.dart')
-        self.assertIn('_notice = LoginNotice.take();', sign_up)  # 02 가 처음 그려질 때 한 번 꺼낸다
+        self.assertIn('_notice = LoginNotice.take()?.message;', sign_up)  # 02 가 처음 그려질 때 한 번 꺼낸다
         self.assertIn('Timer(const Duration(seconds: 3)', sign_up)  # 3초 뒤 사라진다
+        # 로그아웃하면 닿는 곳은 시작 화면이다(소셜 로그인 전환) — 앱이 알림을 읽는 화면(screen('start'))도 한 번만 꺼내 3초 뒤 지운다.
+        start = lib('auth', 'view', 'start_view.dart')
+        self.assertIn('final notice = LoginNotice.take();', start)
+        self.assertIn('static const _toastDuration = Duration(seconds: 3);', start)
         self.assertIn('if (state.event == AuthChangeEvent.signedOut) {', lib('core', 'auth', 'session_scope.dart'))  # 다시 들어가기
         self.assertIn('setState(() => _generation++);', lib('core', 'auth', 'session_scope.dart'))
         self.assertIn('color: AppColors.error', sign_up)  # 02 의 거절 문구 색 — 앱이 이 색으로 찾는다
@@ -612,12 +622,38 @@ class PaidFactsTest(unittest.TestCase):
              ('signup_policy.py',), ('heart_tasks', 'cleanup.py'), ('heart_tasks', 'storage.py'),
              ('student_verification', 'current_user.py'), ('cards', 'router.py'))
 
-    def test_the_server_paths_of_the_nine_never_reach_openai_vision_or_discord(self):
+    CLEANUP_ENDPOINT = ('account', 'batch_router.py')
+
+    def test_the_server_paths_of_the_nine_never_reach_vision_or_discord(self):
         for parts in self.PATHS:
             with self.subTest(parts):
                 text = backend(*parts).lower()
-                for word in ('openai', 'vision', 'discord'):
+                for word in ('vision', 'discord'):
                     self.assertNotIn(word, text)
+
+    def test_openai_is_reached_only_by_the_taste_refill_of_the_cleanup_endpoint(self):
+        # 정리 배치(POST /batch/cleanup)는 10-30 부터 끝에 취향 빈 칸 다시 채우기(refill_taste)를 한다 — 그 한 곳만 OpenAI 에 닿는다.
+        for parts in self.PATHS:
+            if parts != self.CLEANUP_ENDPOINT:
+                with self.subTest(parts):
+                    text = backend(*parts).lower()
+                    self.assertNotIn('openai', text)
+                    self.assertNotIn('refill_taste', text)
+        tree = ast.parse(backend(*self.CLEANUP_ENDPOINT))
+        functions = [n for n in tree.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
+        # run_cleanup(계정 · 신고 · 제한 지우기)와 지우는 도우미는 OpenAI 를 받지 않는다 — 그 길이 번지면 여기서 걸린다.
+        self.assertEqual([f.name for f in functions if 'openai' in ast.unparse(f).lower()], ['run_cleanup_batch'])
+        outside = sorted(ast.unparse(n) for n in tree.body if n not in functions and 'openai' in ast.unparse(n).lower())
+        self.assertEqual(outside, ['from app.profile_onboarding.router import get_openai', 'from openai import AsyncOpenAI'])
+        endpoint = next(f for f in functions if f.name == 'run_cleanup_batch')
+        self.assertEqual([ast.unparse(n.func) for n in ast.walk(endpoint) if isinstance(n, ast.Call)].count('vectors.refill_taste'), 1)
+
+    def test_the_taste_refill_is_at_most_twenty_people_and_only_those_with_text(self):
+        vectors = backend('matching', 'vectors.py')
+        self.assertIn('REFILL_LIMIT = 20', vectors)
+        self.assertIn('repo.fetch_taste_unsplit(REFILL_LIMIT)', vectors)
+        self.assertIn('return {side: text.strip() for side, text in sides.items() if (text or "").strip()}', vectors)  # 빈 글은 OpenAI 를 안 부른다
+        self.assertIn('"or": "(self_like_words.is.null,want_like_words.is.null)"', backend('matching', 'repository.py'))  # 취향 칸이 빈 사람만
 
     def test_the_module_and_the_app_side_never_call_the_three_discord_routes(self):
         # 설명(docstring · 주석)은 그 길을 이름으로 적는다 — 코드의 글자만 본다.
@@ -762,6 +798,11 @@ class WithdrawTest(WdBase):
 # ── E-WD-12 29일째 ───────────────────────────────────────────────────────────────────────────────────
 
 class KeptTest(WdBase):
+    def test_12_note_says_the_cleanup_batch_may_refill_taste_through_openai(self):
+        (result, note), _ = self.case('E-WD-12')
+        self.assertEqual(result, 'pass', note)
+        says_refill(self, note)
+
     def test_12_a_29_day_withdrawal_keeps_the_user_the_row_and_the_files_after_a_cleanup_that_ran(self):
         (result, note), _ = self.case('E-WD-12')
         self.assertEqual(result, 'pass', note)
@@ -944,6 +985,12 @@ class RejoinTest(WdBase):
         self.assertEqual(self.fake.users, [])
         self.assertEqual(self.sent('POST', '/profile-onboarding/photos'), [])  # 계정은 유료 온보딩 없는 basic
 
+    def test_14_and_15_notes_say_the_cleanup_batch_may_refill_taste_through_openai(self):
+        for name in ('E-WD-14', 'E-WD-15'):
+            with self.subTest(name):
+                note, _ = self.passes(name, self.asks())
+                says_refill(self, note)
+
     def test_14_fails_when_the_hook_lets_the_mail_in_and_the_new_user_is_removed(self):
         self.fake.hook_blocks = False
         note = self.fails('E-WD-14', self.asks(), REJOIN)
@@ -1101,6 +1148,10 @@ class SuspendedRaceTest(WdBase):
     def test_16_is_blocked_when_the_batch_did_not_run(self):
         self.fake.drops_expired_blocks = False
         self.blocked('E-WD-16', None, '확인용', app=self.stop_app(self.good()))
+
+    def test_16_note_says_the_cleanup_batch_may_refill_taste_through_openai(self):
+        note, _ = self.passes('E-WD-16', None, app=self.stop_app(self.good()))
+        says_refill(self, note)
 
     def test_16_writes_only_to_the_account_it_made(self):
         self.passes('E-WD-16', None, app=self.stop_app(self.good()))

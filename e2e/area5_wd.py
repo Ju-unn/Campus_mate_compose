@@ -52,9 +52,13 @@ gcloud 는 결과 칸(deleted_accounts 등)을 보여 주지 않아 DB 로 본�
            사라진다). active 면 홈 · 02 0번 · 알림 없음 · 새 제한 행 0. 다시 켠 앱이 답한 뒤 상태를 한 번 더 읽어 바뀌었으면(늦게 닿은 탈퇴) blocked.
            0.3초는 "누름 말을 PC 가 받은 때" 부터 잰다 — 앱이 누른 때와는 우편함 왕복(수십 ms)만큼 다르다. 실제 kill 까지 걸린 ms 를 메모에 남긴다.
 
-유료 호출(OpenAI · Vision) — 9개 모두 0. 탈퇴(account/router.py) · 정리 배치(account/batch_router.py · heart_tasks/cleanup.py) · 재가입 훅
-(auth_hooks/router.py · signup_policy.py) · 로그인 관문(student_verification/current_user.py) · 일시중지(cards/router.py) 어디에도 없다
-(test_area5_wd.PaidFactsTest 가 고정). 계정 공장의 홈 계정 온보딩(사진 Vision 2 · 임베딩)은 02 · 04 · 13 · 16 · 18 · EDGE-20 이 같고 이 문으로 막지 않는다.
+유료 호출(Vision) — 9개 모두 0. 탈퇴(account/router.py) · 정리 배치(account/batch_router.py · heart_tasks/cleanup.py) · 재가입 훅
+(auth_hooks/router.py · signup_policy.py) · 로그인 관문(student_verification/current_user.py) · 일시중지(cards/router.py) 어디에도 없다.
+유료 호출(OpenAI) — 한 곳만 있다. 운영 정리 배치(POST /batch/cleanup, account/batch_router.py)는 10-30 부터 계정 · 신고 · 제한 지우기(run_cleanup) 뒤에
+취향 빈 칸 다시 채우기(vectors.refill_taste)를 한다. 그래서 정리 배치를 부르는 넷(E-WD-12 · 14 · 15 · 16)은 OpenAI(gpt-4o-mini 나누기 + 단어 임베딩)에 닿을 수 있다 —
+취향 칸이 비고 글(bio · ideal_note)이 있는 사람 최대 20명(REFILL_LIMIT)이고, 운영 전체에서 고르므로 이 가설이 만든 계정과 상관없이 실사용자 글이 갈 수 있다
+(04:00 정기 배치와 같은 길 — 하네스가 막을 수 없다). 그 넷의 PASS 메모에 이 사실을 남긴다. 그 한 곳이 다른 데로 번지는지는
+test_area5_wd.PaidFactsTest 가 고정한다. 계정 공장의 홈 계정 온보딩(사진 Vision 2 · 임베딩)은 02 · 04 · 13 · 16 · 18 · EDGE-20 이 같고 이 문으로 막지 않는다.
 디스코드 — 9개 모두 0줄. 세 길(POST /reports · /heart-tasks/{task}/submissions · /student-verification)을 부르지 않는다.
 """
 
@@ -87,6 +91,8 @@ PAUSE_WAIT = 10  # 앱 토글은 서버 응답 전에 먼저 바뀐다 — 저�
 KILL_AFTER = 0.3  # 시나리오 EDGE-20 "0.3초 뒤"
 SETTLE = 5  # 죽인 뒤 서버가 받은 탈퇴를 마칠 시간 — 그 뒤 상태를 읽는다
 ROOM = 300  # 시간 상한의 준비 몫(계정 · 링크 · 앱 켜기 앞뒤 · gcloud) — area2_time_device 와 같은 값
+# 운영 정리 배치를 부르는 넷(E-WD-12 · 14 · 15 · 16)의 PASS 메모 끝 — 배치 끝의 취향 다시 채우기(batch_router.py → vectors.refill_taste)가 쓰는 유료 호출.
+REFILL_NOTE = '정리 배치 끝의 refill_taste 가 취향 빈 칸이 있고 글이 있는 운영 사람 최대 20명을 OpenAI 로 다시 채울 수 있음(04:00 정기 배치와 같은 길)'
 
 
 def _now():
@@ -306,7 +312,7 @@ def wd_12(run):
     for bucket in tools.BUCKETS:
         after = _files(run, bucket, account)
         check.that(after == before[bucket], f'{bucket}/{{id}}/ 파일 {len(before[bucket])}→{len(after)}개(기대 그대로)')
-    return check.result('deleted_accounts 는 스케줄러 호출이라 못 읽음 — 확인용 제한 행이 지워진 것으로 배치가 돈 것을 보고 auth 사용자 · 행 · 파일을 봤다')
+    return check.result('deleted_accounts 는 스케줄러 호출이라 못 읽음 — 확인용 제한 행이 지워진 것으로 배치가 돈 것을 보고 auth 사용자 · 행 · 파일을 봤다. ' + REFILL_NOTE)
 
 
 # ── E-WD-13 탈퇴 뒤 로그인 ───────────────────────────────────────────────────────────────────────────
@@ -335,7 +341,7 @@ def p_wd_14(run, phone):
     check.that(error == REJOIN_BLOCKED, f'02 의 거절 문구 {error!r}(기대 {REJOIN_BLOCKED!r})')
     check.that(said.get('code_screen') is False, f"03(코드 화면) {said.get('code_screen', MISSING)}(기대 안 감)")
     _no_user(run, account['email'], check)  # 생겼으면 문제로 적고 바로 지운다
-    return check.result()
+    return check.result(REFILL_NOTE)
 
 
 def p_wd_15(run, phone):
@@ -356,7 +362,7 @@ def p_wd_15(run, phone):
     _batch('cleanup')
     gone = _wait_for(lambda: _block_row(run, block['email_hmac']) is None, BATCH_WAIT)
     check.that(gone, f'② 정리 배치 뒤 {BATCH_WAIT}초가 지나도 끝난 재가입 제한 행이 남음(기대 0행)')
-    return check.result('deleted_signup_blocks 는 스케줄러 호출이라 못 읽음 — 그 행이 지워진 것으로 봤다. ① 에 실제 메일 1통이 나간다(읽지 않음)')
+    return check.result('deleted_signup_blocks 는 스케줄러 호출이라 못 읽음 — 그 행이 지워진 것으로 봤다. ① 에 실제 메일 1통이 나간다(읽지 않음). ' + REFILL_NOTE)
 
 
 # ── E-WD-16 · 18 최종 시트에서 멈춘 사이 ──────────────────────────────────────────────────────────────
@@ -383,7 +389,7 @@ def p_wd_16(run, phone):
     _cleanup_ran(run)
     left = _block_row(run, block['email_hmac'])
     check.that(left == {'blocked_until': 'infinity'}, f'정리 배치 뒤 무기한 제한 행 {left}(기대 infinity 그대로)')
-    return check.result()
+    return check.result(REFILL_NOTE)
 
 
 def p_wd_18(run, phone):
