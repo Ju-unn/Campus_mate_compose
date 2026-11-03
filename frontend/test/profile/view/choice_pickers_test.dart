@@ -80,4 +80,44 @@ void main() {
       expect(picked, [true, false]);
     });
   });
+
+  // 앱 1.0.2 — 06-1 "흡연하는 사람" 두 칸(pen `Mg9O3` = SmokeToggle `Y1TDq2` 의 줄만): 왼쪽 싫어요(false) · 오른쪽 상관없어요(true).
+  group('AcceptsSmokerPicker', () {
+    testWidgets('싫어요 · 상관없어요 두 칸, 높이 56 · 사이 12(312×56), 왼쪽이 싫어요', (tester) async {
+      await pumpIn(tester, AcceptsSmokerPicker(acceptsSmoker: true, onSelected: (_) {}));
+
+      expect(tester.getRect(find.byType(AcceptsSmokerPicker)).size, const Size(312, 56));
+      final no = tester.getRect(find.ancestor(of: find.text('싫어요'), matching: find.byType(Ink)).first);
+      final any = tester.getRect(find.ancestor(of: find.text('상관없어요'), matching: find.byType(Ink)).first);
+      expect(no.size, const Size(150, 56));
+      expect(any.left - no.right, 12);
+    });
+
+    testWidgets('상관없어요(true)면 오른쪽 칸만, 싫어요(false)면 왼쪽 칸만 켜진다', (tester) async {
+      await pumpIn(tester, AcceptsSmokerPicker(acceptsSmoker: true, onSelected: (_) {}));
+      expect(fillOf(tester, '상관없어요'), AppColors.primaryWash);
+      expect(fillOf(tester, '싫어요'), AppColors.surfaceSoft);
+
+      await pumpIn(tester, AcceptsSmokerPicker(acceptsSmoker: false, onSelected: (_) {}));
+      expect(fillOf(tester, '싫어요'), AppColors.primaryWash);
+      expect(fillOf(tester, '상관없어요'), AppColors.surfaceSoft);
+    });
+
+    testWidgets('안 고른 상태(null)면 두 칸 다 꺼져 있다', (tester) async {
+      await pumpIn(tester, AcceptsSmokerPicker(acceptsSmoker: null, onSelected: (_) {}));
+
+      expect(fillOf(tester, '싫어요'), AppColors.surfaceSoft);
+      expect(fillOf(tester, '상관없어요'), AppColors.surfaceSoft);
+    });
+
+    testWidgets('누르면 싫어요는 false, 상관없어요는 true 를 돌려준다', (tester) async {
+      final picked = <bool>[];
+      await pumpIn(tester, AcceptsSmokerPicker(acceptsSmoker: true, onSelected: picked.add));
+
+      await tester.tap(find.text('싫어요'));
+      await tester.tap(find.text('상관없어요'));
+
+      expect(picked, [false, true]);
+    });
+  });
 }
