@@ -6,6 +6,8 @@ import sys
 from datetime import datetime
 
 import httpx
+import pytest
+from google.auth.exceptions import DefaultCredentialsError, GoogleAuthError, RefreshError, TransportError
 
 from app.cards.push import FcmSender, PushToken, notify, send_pending
 from app.cards.repository import NOTIFICATION_DEFAULTS, CardRepository
@@ -567,6 +569,156 @@ async def test_notify_passes_kind_and_platform_from_the_token_row_to_the_log(cap
 
     assert sent == 1
     assert "kind=acceptance_received platform=ios" in _log_text(caplog)
+
+
+# ---- FCM 연결 오류가 사용자 동작을 막지 않는다(M1) ------------------------------------------------------------------
+NOON = datetime(2026, 9, 21, 12, 0, tzinfo=SEOUL)
+_ON = {"new_message": True, "quiet_hours": False}
+
+
+class _RefreshFailsCredentials:
+    """토큰이 만료돼 새로 받아야 하는데 구글 인증 서버 쪽이 실패하는 자격증명."""
+
+    valid = False
+    token = None
+
+    def __init__(self, error: GoogleAuthError):
+        self._error = error
+
+    def refresh(self, request):
+        raise self._error
+
+
+@pytest.mark.parametrize("error", [
+    httpx.ConnectError("network down"), httpx.ReadTimeout("slow"), httpx.RemoteProtocolError("hang up"),
+])
+async def test_a_connection_error_to_fcm_does_not_break_notify(error, caplog):
+    """푸시 서버에 닿지 못한 것이 채팅 보내기 · 카드 결정을 500 으로 만들면 안 된다. 재전송은 하지 않는다(채팅은 다시 보내면 메시지가 두 줄이 된다)."""
+    caplog.set_level(logging.INFO, logger="app.cards.push")
+    repo = _FakeRepo([PushToken(_LOG_TOKEN, "android")], _ON)
+    calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        raise error
+
+    sent = await notify(repo, _sender(handler), "p1", "new_message", "제목-비밀", "본문-비밀", {}, now=NOON)
+
+    assert sent == 0
+    assert calls == 1
+    assert repo.deleted == []  # 연결이 안 된 것이 토큰 탓은 아니다
+    text = _log_text(caplog)
+    assert f"kind=new_message platform=android token={_LOG_TOKEN_MASK}" in text
+    assert type(error).__name__ in text
+    # 제목 · 본문 · 토큰 원문은 물론 예외 메시지(URL 이 들어 있을 수 있다)도 남기지 않는다.
+    for secret in ("제목-비밀", "본문-비밀", _LOG_TOKEN, "SYNTHETIC-TAIL", str(error)):
+        assert secret not in text, secret
+    assert [record.levelno for record in caplog.records] == [logging.WARNING]
+
+
+@pytest.mark.parametrize("error", [RefreshError("invalid_grant"), TransportError("metadata server down")])
+async def test_a_google_token_refresh_error_does_not_break_notify(error):
+    repo = _FakeRepo(["tok"], _ON)
+    client = httpx.AsyncClient(transport=httpx.MockTransport(lambda request: httpx.Response(200, json={})))
+    sender = FcmSender("campus-mate", client, credentials=_RefreshFailsCredentials(error))
+
+    assert await notify(repo, sender, "p1", "new_message", "제", "본", {}, now=NOON) == 0
+
+
+async def test_a_connection_error_skips_the_rest_of_the_devices_of_that_push():
+    """푸시 서버가 먹통이면 기기마다 시간 초과를 기다리는 만큼 요청이 늘어난다(기기 최대 5대) — 이번 푸시는 거기서 접는다. 다음 알림은 새로 시도한다."""
+    repo = _FakeRepo(["tok-a", "tok-b", "tok-c"], _ON)
+    reached: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        reached.append(json.loads(request.content)["message"]["token"])
+        raise httpx.ConnectError("network down")
+
+    assert await notify(repo, _sender(handler), "p1", "new_message", "제", "본", {}, now=NOON) == 0
+    assert reached == ["tok-a"]
+    assert await notify(repo, _sender(handler), "p1", "new_message", "제", "본", {}, now=NOON) == 0
+    assert reached == ["tok-a", "tok-a"]  # 다음 알림은 첫 기기부터 다시 시도한다
+
+
+async def test_an_fcm_error_response_for_one_device_does_not_stop_the_next_ones():
+    """FCM 이 답은 한 오류(5xx → failed, 죽은 토큰 → dead)는 그 기기만의 일이다 — 다음 기기로 간다."""
+    repo = _FakeRepo(["tok-a", "tok-b", "tok-c"], _ON)
+    reached: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        token = json.loads(request.content)["message"]["token"]
+        reached.append(token)
+        return {"tok-a": httpx.Response(503, json={}), "tok-b": httpx.Response(404, json={})}.get(
+            token, httpx.Response(200, json={}))
+
+    assert await notify(repo, _sender(handler), "p1", "new_message", "제", "본", {}, now=NOON) == 1
+    assert reached == ["tok-a", "tok-b", "tok-c"]
+    assert repo.deleted == ["tok-b"]
+
+
+@pytest.mark.parametrize("error", [RefreshError("invalid_grant secret-detail"), DefaultCredentialsError("no ADC secret-detail")])
+async def test_a_google_auth_failure_is_logged_as_an_error_without_the_exception_message(error, caplog, monkeypatch):
+    """서비스 계정 설정이 깨진 것은 일시 장애가 아니다 — 모든 푸시가 안 가니 ERROR 로 눈에 띄게 한다(토큰이 아니라 인증 문제라 토큰은 안 적는다)."""
+    caplog.set_level(logging.INFO, logger="app.cards.push")
+    if isinstance(error, DefaultCredentialsError):
+        def no_default(*args, **kwargs):
+            raise error
+        monkeypatch.setattr("google.auth.default", no_default)
+        sender = FcmSender("campus-mate", httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(200))))
+    else:
+        sender = FcmSender("campus-mate", httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(200))),
+                           credentials=_RefreshFailsCredentials(error))
+    repo = _FakeRepo([PushToken(_LOG_TOKEN, "ios")], _ON)
+
+    assert await notify(repo, sender, "p1", "new_message", "제목-비밀", "본문-비밀", {}, now=NOON) == 0
+
+    assert [(record.levelno, record.getMessage()) for record in caplog.records] == [
+        (logging.ERROR, f"FCM 인증 실패 kind=new_message platform=ios | {type(error).__name__}"),
+    ]
+
+
+async def test_a_google_transport_error_stays_a_warning(caplog):
+    """메타데이터 서버에 잠깐 못 닿은 것(TransportError)은 일시 장애일 수 있어 WARNING 으로 둔다."""
+    caplog.set_level(logging.INFO, logger="app.cards.push")
+    repo = _FakeRepo([PushToken(_LOG_TOKEN, "ios")], _ON)
+    client = httpx.AsyncClient(transport=httpx.MockTransport(lambda request: httpx.Response(200, json={})))
+    sender = FcmSender("campus-mate", client, credentials=_RefreshFailsCredentials(TransportError("down")))
+
+    await notify(repo, sender, "p1", "new_message", "제", "본", {}, now=NOON)
+
+    assert [(record.levelno, record.getMessage()) for record in caplog.records] == [
+        (logging.WARNING, f"FCM 전송 예외 kind=new_message platform=ios token={_LOG_TOKEN_MASK} | TransportError"),
+    ]
+
+
+async def test_a_bug_in_the_sender_is_not_swallowed():
+    """연결 · 인증 오류만 삼킨다. 그 밖의 예외(코드 버그)는 그대로 올라와 눈에 띄어야 한다."""
+    repo = _FakeRepo(["tok"], _ON)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise ValueError("우리 코드 버그")
+
+    with pytest.raises(ValueError):
+        await notify(repo, _sender(handler), "p1", "new_message", "제", "본", {}, now=NOON)
+
+
+# ---- 죽은 토큰 정리 기록(L7) ---------------------------------------------------------------------------------------
+
+async def test_cleaning_a_dead_token_leaves_one_info_line_without_the_raw_token(caplog):
+    """토큰이 왜 사라졌는지 나중에 거꾸로 찾을 수 있게 — 종류 · 기기 · 앞 6자와 길이만."""
+    caplog.set_level(logging.INFO, logger="app.cards.push")
+    repo = _FakeRepo([PushToken(_LOG_TOKEN, "ios")], _ON)
+
+    sent = await notify(repo, _sender(lambda request: httpx.Response(404, json={})), "p1", "new_message",
+                        "제목-비밀", "본문-비밀", {}, now=NOON)
+
+    assert sent == 0
+    assert repo.deleted == [_LOG_TOKEN]
+    assert [(record.levelno, record.getMessage()) for record in caplog.records] == [
+        (logging.INFO, f"FCM 죽은 토큰 정리 kind=new_message platform=ios token={_LOG_TOKEN_MASK}"),
+    ]
+    assert "SYNTHETIC-TAIL" not in _log_text(caplog)
 
 
 def test_push_info_logs_reach_stderr_in_a_fresh_process():
