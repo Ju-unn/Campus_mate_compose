@@ -494,6 +494,17 @@ void main() {
         expect(profile.gender, isNull);
       }
     });
+
+    // 앱 1.0.2 — 06-1 "흡연하는 사람" 칸을 채우는 서버 값. 한 번도 안 골랐으면 null 이다.
+    test('accepts_smoker 를 bool 로 읽는다 — true · false 그대로', () async {
+      expect((await read({'accepts_smoker': true})).acceptsSmoker, isTrue);
+      expect((await read({'accepts_smoker': false})).acceptsSmoker, isFalse);
+    });
+
+    test('accepts_smoker 가 null 이거나 키가 아예 없어도(옛 서버) null 로 읽는다', () async {
+      expect((await read({'accepts_smoker': null})).acceptsSmoker, isNull);
+      expect((await read(const {})).acceptsSmoker, isNull);
+    });
   });
 
   group('updateProfile — 15-6 확대 칸(MBTI · 종교 · 흡연 · 얼굴상 · 인상)', () {
