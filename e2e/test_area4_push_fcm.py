@@ -215,8 +215,10 @@ class SendTest(unittest.TestCase):
 
     def test_the_server_payload_and_this_one_are_the_same_shape(self):
         source = (tools.ROOT / 'backend' / 'app' / 'cards' / 'push.py').read_text(encoding='utf-8')
-        for piece in ('"token": token', '"notification": {"title": title, "body": body}', '"android": {"priority": "high"}',
-                      'messages:send'):
+        # 서버는 android 를 변수로 만들어 싣는다(푸시 덮어쓰기 kind 는 notification.tag 를 더한다) — 우선순위 high 와 싣는 자리를 따로 본다.
+        # apns 블록은 iOS 기기용이라 안드로이드 폰 한 대로 직접 쏘는 이 가설은 싣지 않는다.
+        for piece in ('"token": token', '"notification": {"title": title, "body": body}', 'android: dict = {"priority": "high"}',
+                      '"android": android', 'messages:send'):
             self.assertIn(piece, source)
 
     def test_every_failure_is_blocked_with_a_status_number_and_no_secret(self):
