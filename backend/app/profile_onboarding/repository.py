@@ -276,7 +276,9 @@ class ProfileOnboardingRepository(PostgrestRepository):
         preferred_mbti_flags: dict[str, bool],
         preferred_animal_types: list[str],
         preferred_impression_types: list[str],
+        optional_fields: dict | None = None,
     ) -> None:
+        """optional_fields 는 앱이 보낸 칸만 담는다(IdealConditionsRequest.sent_optional_fields) — 안 보낸 칸은 PATCH 에 싣지 않는다."""
         await self._patch_profile(profile_id, {
             "preferred_age_min": preferred_age_min,
             "preferred_age_max": preferred_age_max,
@@ -285,6 +287,7 @@ class ProfileOnboardingRepository(PostgrestRepository):
             "preferred_mbti_flags": preferred_mbti_flags,
             "preferred_animal_types": preferred_animal_types,
             "preferred_impression_types": preferred_impression_types,
+            **(optional_fields or {}),
         })
 
     async def update_ideal_note(self, profile_id: UUID, note: str) -> None:
