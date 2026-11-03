@@ -28,6 +28,7 @@ _CARD_PROFILE_COLUMNS = (
 _CARD_DETAIL_COLUMNS = f"{_CARD_PROFILE_COLUMNS},height_cm,mbti,student_number,religion,is_smoker"
 # 성향은 9축이고 축 번호 순서로 내려보낸다(조각 3 survey_vector 와 같은 번호).
 SURVEY_AXES = range(1, 10)
+_PENDING_PUSH_COLUMNS = "id,profile_id,kind,title,body,data"
 _NOTIFICATION_COLUMNS = (
     "profile_id,card_arrived,acceptance_received,match_made,new_message,"
     "trust_reminder,new_friend_review,marketing,quiet_hours"
@@ -421,13 +422,21 @@ class CardRepository(PostgrestRepository):
 
     async def fetch_pending_pushes(self) -> list[dict]:
         # ponytail: PostgREST 한 번에 최대 1000행. 넘치면 나머지는 다음 시각 배치가 보낸다.
-        return await self._rows("pending_pushes", {
-            "select": "id,profile_id,kind,title,body,data", "order": "created_at",
-        })
+        return await self._rows("pending_pushes", {"select": _PENDING_PUSH_COLUMNS, "order": "created_at"})
 
-    async def delete_pending_pushes(self, ids: list[str]) -> None:
-        response = await self._delete("pending_pushes", params={"id": f"in.({','.join(ids)})"})
+    async def claim_pending_pushes(self, ids: list[str]) -> list[dict]:
+        """주어진 줄을 지우면서, 이 요청이 실제로 지운 줄만 돌려준다(DELETE ... RETURNING). 동시에 도는 다른 배치가 먼저
+        지운 줄은 빠진다 — 한 줄은 한 쪽만 가져가니 같은 알림이 두 번 가지 않는다. 돌려주는 순서는 ids 순서(= 온 순서)다:
+        PostgREST 는 지운 줄을 아무 순서로나 줄 수 있는데, 한 건씩 보내는 알림은 온 순서대로 가야 한다."""
+        # 지운 줄을 돌려받아야 해서 부모 _delete(Prefer 를 못 받는다)를 쓰지 않고 직접 부른다.
+        response = await self._client.delete(
+            f"{self._postgrest_url}/pending_pushes",
+            params={"id": f"in.({','.join(ids)})", "select": _PENDING_PUSH_COLUMNS},
+            headers=self._with_prefer("return=representation"),
+        )
         raise_for_status(response)
+        taken = {row["id"]: row for row in response.json()}
+        return [taken[pending_id] for pending_id in ids if pending_id in taken]
 
     async def insert_notification(self, profile_id: UUID | str, kind: str, title: str, body: str,
                                   data: dict[str, str]) -> None:

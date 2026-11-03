@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import pathlib
@@ -31,10 +32,17 @@ class _FakeRepo:
         self.pending.append({"profile_id": profile_id, "kind": kind, "title": title, "body": body, "data": data})
 
     async def fetch_pending_pushes(self):
-        return list(self.pending)
+        rows = list(self.pending)
+        # 읽는 도중 한 번 양보한다 — 동시에 도는 다른 배치도 같은 줄을 읽은 뒤에야 지우기에 들어가게(asyncio 의 겹침을 흉내).
+        await asyncio.sleep(0)
+        return rows
 
-    async def delete_pending_pushes(self, ids):
-        self.pending_deleted.extend(ids)
+    async def claim_pending_pushes(self, ids):
+        """DELETE ... RETURNING 처럼 지우면서 돌려준다. await 없이 한 번에 하니 원자적이고, 이미 누가 가져간 줄은 안 돌려준다."""
+        claimed = [row for row in self.pending if row["id"] in ids]
+        self.pending = [row for row in self.pending if row["id"] not in ids]
+        self.pending_deleted.extend(row["id"] for row in claimed)
+        return claimed
 
     async def fetch_profile_status(self, profile_id):
         return self._status
@@ -437,7 +445,82 @@ async def test_one_failing_bundle_does_not_stop_the_others():
     assert sorted(repo.pending_deleted) == ["r1", "r2"]
 
 
-async def test_the_repository_keeps_and_clears_rows_through_postgrest():
+async def test_two_morning_batches_at_once_send_each_kept_push_only_once():
+    """동시에 도는 두 번째 배치(스케줄러 재시도 · 수동 실행)가 같은 줄을 읽어도, 지우면서 가져간 쪽만 보낸다."""
+    repo = _FakeRepo(["tok"], {}, pending=[
+        _row("r1", "p1", "acceptance_received", "acceptances", card_id="c1"),
+        _row("r2", "p1", "acceptance_received", "acceptances", card_id="c2"),
+        _row("s1", "p2", "match_made", "match", match_id="m1"),
+        _row("s2", "p3", "new_friend_review", "friend_review_write", profile_id="a"),
+    ])
+    sender, pushes = _recording_sender()
+
+    first, second = await asyncio.gather(send_pending(repo, sender, MORNING), send_pending(repo, sender, MORNING))
+
+    # 줄은 4개지만 p1 의 두 줄은 한 묶음이라 알림은 3건 — 두 배치를 합쳐도 3건이어야 한다.
+    assert len(pushes) == 3
+    assert first + second == 3
+    assert sorted(repo.pending_deleted) == ["r1", "r2", "s1", "s2"]  # 줄마다 정확히 한 번 가져갔다
+
+
+class _RivalTakesOne(_FakeRepo):
+    """읽은 뒤 · 지우기 전에 다른 배치가 r3 를 먼저 가져간다."""
+
+    async def fetch_pending_pushes(self):
+        rows = await super().fetch_pending_pushes()
+        self.pending = [row for row in self.pending if row["id"] != "r3"]
+        return rows
+
+
+async def test_a_bundle_counts_only_the_rows_this_batch_actually_took():
+    repo = _RivalTakesOne(["tok"], {}, pending=[
+        _row("r1", "p1", "acceptance_received", "acceptances"),
+        _row("r2", "p1", "acceptance_received", "acceptances"),
+        _row("r3", "p1", "acceptance_received", "acceptances"),
+    ])
+    sender, pushes = _recording_sender()
+
+    assert await send_pending(repo, sender, MORNING) == 1
+
+    assert pushes[0]["notification"]["body"] == "밤사이 2명이 대화를 신청했어요"
+    assert repo.pending_deleted == ["r1", "r2"]
+
+
+async def test_a_single_row_left_after_a_rival_goes_out_as_it_was_not_as_a_bundle():
+    repo = _RivalTakesOne(["tok"], {}, pending=[
+        _row("r1", "p1", "acceptance_received", "acceptances", title="원래 제목", body="A 님이 신청했어요"),
+        _row("r3", "p1", "acceptance_received", "acceptances"),
+    ])
+    sender, pushes = _recording_sender()
+
+    assert await send_pending(repo, sender, MORNING) == 1
+
+    assert pushes[0]["notification"] == {"title": "원래 제목", "body": "A 님이 신청했어요"}
+
+
+async def test_claiming_pending_pushes_deletes_and_returns_the_rows_in_one_request():
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        # 지운 줄은 만든 순서와 상관없이 돌아올 수 있고, 그사이 다른 배치가 가져간 r3 는 빠져 있다.
+        return httpx.Response(200, json=[_row("r2", "p1", "match_made", "match"), _row("r1", "p1", "match_made", "match")])
+
+    repo = CardRepository("https://x.supabase.co/rest/v1", "service-key",
+                          httpx.AsyncClient(transport=httpx.MockTransport(handler)))
+
+    claimed = await repo.claim_pending_pushes(["r1", "r2", "r3"])
+
+    (delete,) = seen
+    assert (delete.method, delete.url.path) == ("DELETE", "/rest/v1/pending_pushes")
+    assert delete.url.params["id"] == "in.(r1,r2,r3)"
+    assert delete.url.params["select"] == "id,profile_id,kind,title,body,data"
+    assert delete.headers["Prefer"] == "return=representation"
+    # 부른 쪽이 준 순서(= 온 순서)로 돌려준다 — 한 건씩 보내는 알림이 온 순서대로 가야 해서다.
+    assert [row["id"] for row in claimed] == ["r1", "r2"]
+
+
+async def test_the_repository_keeps_and_reads_rows_through_postgrest():
     seen: list[httpx.Request] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -448,15 +531,13 @@ async def test_the_repository_keeps_and_clears_rows_through_postgrest():
                           httpx.AsyncClient(transport=httpx.MockTransport(handler)))
     await repo.insert_pending_push("p1", "match_made", "제목", "본문", {"route": "match"})
     await repo.fetch_pending_pushes()
-    await repo.delete_pending_pushes(["r1", "r2"])
 
-    insert, fetch, delete = seen
+    insert, fetch = seen
     assert (insert.method, insert.url.path) == ("POST", "/rest/v1/pending_pushes")
     assert json.loads(insert.content) == {"profile_id": "p1", "kind": "match_made", "title": "제목",
                                           "body": "본문", "data": {"route": "match"}}
     # 먼저 온 것부터 — 한 건씩 보내는 친구 가입 알림이 온 순서대로 간다.
     assert fetch.url.params["order"] == "created_at"
-    assert (delete.method, delete.url.params["id"]) == ("DELETE", "in.(r1,r2)")
 
 
 async def test_a_night_verification_result_is_kept_too():

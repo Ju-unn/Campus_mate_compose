@@ -244,7 +244,11 @@ async def send_pending(repo, sender: FcmSender, now: datetime) -> int:
         groups.setdefault((row["profile_id"], row["kind"], row["data"].get("route")), []).append(row)
 
     sent = 0
-    for (profile_id, kind, route), rows in groups.items():
+    for (profile_id, kind, route), group in groups.items():
+        # 보내기 전에 지우면서 가져간다 — 동시에 도는 다른 배치(스케줄러 재시도 · 수동 실행)가 같은 줄을 읽었어도 한 줄은 한 쪽만 가져간다.
+        # 보내다 실패해도 그 줄은 사라진다(예전처럼): 남기면 매시 같은 실패를 되풀이하거나 점심에 "밤사이" 알림이 간다.
+        # 사람 묶음마다 따로 가져간다 — 한 번에 천 줄을 가져가면 URL 이 길고, 도중에 죽으면 안 보낸 사람 알림까지 사라진다.
+        rows = await repo.claim_pending_pushes([row["id"] for row in group])
         if len(rows) > 1 and (kind, route) in _BUNDLES:
             title, body = _BUNDLES[(kind, route)]
             # 묶음은 목록 화면으로 간다 — 어느 한 건의 card_id · match_id 를 달지 않는다.
@@ -259,6 +263,4 @@ async def send_pending(repo, sender: FcmSender, now: datetime) -> int:
             except Exception:
                 # 한 사람 알림 때문에 뒷사람 묶음까지 멈추는 쪽이 훨씬 나쁘다.
                 logger.exception("아침 묶음 알림 실패 profile=%s route=%s", profile_id, route)
-        # 실패해도 지운다 — 남기면 매시 같은 실패를 되풀이하거나 점심에 "밤사이" 알림이 간다.
-        await repo.delete_pending_pushes([row["id"] for row in rows])
     return sent

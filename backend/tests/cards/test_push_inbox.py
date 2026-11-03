@@ -42,8 +42,11 @@ class _Repo:
     async def fetch_pending_pushes(self):
         return list(self.pending)
 
-    async def delete_pending_pushes(self, ids):
-        self.pending_deleted.extend(ids)
+    async def claim_pending_pushes(self, ids):
+        claimed = [row for row in self.pending if row["id"] in ids]
+        self.pending = [row for row in self.pending if row["id"] not in ids]
+        self.pending_deleted.extend(row["id"] for row in claimed)
+        return claimed
 
     async def fetch_profile_status(self, profile_id):
         return self._status
