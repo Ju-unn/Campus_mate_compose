@@ -41,6 +41,8 @@
 
 import json
 import re
+import secrets
+import string
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -271,12 +273,18 @@ def _keys(node):
             yield from _keys(item)
 
 
+def _kakao_id():
+    """E-ME-06 이 비공개 행에 넣는 카톡 아이디 — 소문자 8자뿐이라 숫자가 없다. 응답에 실리는 학번(숫자 1~3자리)이 우연히 안에 들어 있을 수 없고,
+    16진수로 뽑을 때처럼 거짓 FAIL 이 나지 않는다. 26^8 가지라 계정마다 다르다."""
+    return 'kk' + ''.join(secrets.choice(string.ascii_lowercase) for _ in range(8))
+
+
 def p_me_06(run, phone):
     check = Check()
     number = area2._phone()
     account, token = _home(run, phone_number=number)
     me = account['id']
-    kakao = f'kk{uuid.uuid4().hex[:8]}'  # 학번(`e2e{n}`)과 겹치지 않는 값 — 학번은 응답에 실린다
+    kakao = _kakao_id()  # 학번과 겹치지 않는 값 — 학번은 응답에 실린다
     run.seed_private(me, real_name=REAL_NAME, kakao_id=kakao)
     private = {**_one(run, f'profile_private?profile_id=eq.{me}&select=phone_number'), **run.read_private(me)}
     photos = _rows(run, f'profile_photos?profile_id=eq.{me}&select=id')

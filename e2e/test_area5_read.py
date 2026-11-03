@@ -624,11 +624,17 @@ class CardPreviewTest(ReadBase):
             self.passes('E-ME-06', self.good())
             seen.append((self.fake.private('id-1')['kakao_id'], self.profile()['student_number']))
         for kakao, student in seen:
-            self.assertRegex(kakao, r'^kk[0-9a-f]{8}$')
+            self.assertRegex(kakao, r'^kk[a-z]{8}$')  # 숫자가 없다 — 숫자뿐인 학번이 우연히 들어 있을 수 없다
             self.assertRegex(student, r'^[0-9]{1,3}$')  # 공장이 넣은 학번(서버 규칙 숫자 1~3자리, 10-29) — 응답에 실린다
             self.assertNotIn(student, kakao)
             self.assertNotIn(kakao, student)
         self.assertNotEqual(seen[0][0], seen[1][0])  # 계정마다 다르다
+
+    def test_06_the_kakao_id_never_has_a_digit_so_no_student_number_can_hide_in_it(self):
+        # 16진수 8자로 뽑던 때는 학번 "21" 같은 숫자가 우연히 들어 한 번 뽑을 때 약 2.7%(시험은 둘을 뽑아 약 5%) 거짓 FAIL 이 났다.
+        drawn = [area5_read._kakao_id() for _ in range(3000)]
+        self.assertEqual([k for k in drawn if not re.fullmatch(r'kk[a-z]{8}', k)], [])
+        self.assertGreater(len(set(drawn)), 2990)  # 계정마다 다르다 — 고유해야 "응답에 없다" 가 증거가 된다
 
     def test_06_is_blocked_when_the_private_values_could_not_be_replaced(self):
         self.swallow('POST', r'/rest/v1/rpc/set_(real_name|kakao_id)')
