@@ -291,7 +291,7 @@ def p_card_01(run, phone):
     check = Check()
     a, b = _pair(run)
     control = _control(run, 'male')
-    c = _person(run, 'female')  # 새 선정은 유료 제안이 후보 1명을 먼저 가져가 무료 카드가 안 나온다 — A 의 후보를 2명으로(대조군은 3번째 계정 그대로)
+    c = _person(run, 'female')  # A 의 둘째 후보 — 후보가 1명이어도 무료 카드는 나가지만(11-03부터 유료 제안을 접는다) 유료 1 + 무료 1 이 따로 나오는 풀로 둔다(대조군은 3번째 계정 그대로)
     _old_card(run, a, c)  # 앱이 오늘 탭을 열자마자 첫 카드가 나가면 배치가 A 를 건너뛰어 알림이 안 온다 — 옛 카드 1장으로 막는다
     with _permitted(phone.serial), _every_day(run, a):
         _app(check, phone(token_hash=run.link(a['email'])))
