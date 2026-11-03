@@ -423,6 +423,37 @@ class WorkflowTest(unittest.TestCase):
         for snippet, log in (("flutter build ipa", "flutter-build-ipa.log"), ("xcodebuild -exportArchive", "export-upload.log")):
             self.assertIn(f'| python3 -u "$TOOL" scrub "$PLIST" "$XCCONFIG" | tee "$RUNNER_TEMP/logs/{log}"', self.step(snippet)["run"])
 
+    # 내보내기 옵션의 uploadSymbols 는 dSYM 을 애플에만 올린다 — Crashlytics 에는 업로드 뒤의 별도 단계가 올린다.
+    def dsym_step(self) -> dict:
+        return self.step("upload-symbols")
+
+    def test_crashlytics_dsym_upload_comes_after_the_testflight_upload(self):
+        step = self.dsym_step()
+        self.assertLess(self.steps.index(self.step("xcodebuild -exportArchive")), self.steps.index(step))
+        self.assertNotIn("if", step)  # 기본(앞 단계가 모두 성공했을 때만)으로 돈다
+        self.assertIn("ios/Pods/FirebaseCrashlytics/upload-symbols", step["run"])
+        self.assertIn('-gsp "$PLIST" -p ios "$ARCHIVE/dSYMs"', step["run"])
+
+    def test_crashlytics_dsym_step_gets_no_secrets(self):
+        step = self.dsym_step()
+        self.assertNotIn("secrets.", str(step))
+        for name in t.REQUIRED:
+            self.assertNotIn(name, step.get("env", {}))
+            self.assertNotIn(name, step["run"])
+
+    def test_crashlytics_dsym_failure_does_not_fail_the_job(self):
+        # 앱은 이미 TestFlight 에 올라갔다 — 심볼 올리기가 틀어져도 잡을 빨갛게 만들지 않는다.
+        step = self.dsym_step()
+        self.assertIs(step.get("continue-on-error"), True)
+        self.assertIn("::warning::", step["run"])  # 도구나 dSYMs 폴더가 없으면 경고 한 줄
+        self.assertNotIn("::error::", step["run"])
+        self.assertNotRegex(step["run"], r"exit [1-9]")
+
+    def test_crashlytics_dsym_output_goes_through_the_scrubber(self):
+        self.assertIn(
+            '-p ios "$ARCHIVE/dSYMs" 2>&1 | python3 -u "$TOOL" scrub "$PLIST" "$XCCONFIG"', self.dsym_step()["run"]
+        )
+
     def test_signs_without_dev_certificate_and_uploads_with_api_key(self):
         joined = "\n".join(self.runs)
         self.assertIn("flutter build ipa --release --no-codesign", joined)
