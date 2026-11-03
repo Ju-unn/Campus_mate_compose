@@ -10,6 +10,7 @@ import 'package:campus_mate/profile/model/profile_enums.dart';
 import 'package:campus_mate/profile/viewmodel/ideal_conditions_ui_state.dart';
 import 'package:campus_mate/profile/viewmodel/onboarding_blocked.dart';
 import 'package:campus_mate/profile/viewmodel/revisit_profile.dart';
+import 'package:campus_mate/profile/viewmodel/survey_view_model.dart';
 import 'package:flutter/foundation.dart' show protected;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -34,8 +35,17 @@ class IdealConditionsViewModel extends Notifier<IdealConditionsUiState> {
   IdealConditionsUiState _initialState(DraftStore drafts) {
     final restored = drafts.read(DraftScreen.idealConditions, IdealConditionsUiState.fromDraft);
     final saved = revisitProfile(ref);
-    return restored ?? (saved == null ? const IdealConditionsUiState() : IdealConditionsUiState.fromProfile(saved));
+    return restored ?? (saved == null ? _freshState() : IdealConditionsUiState.fromProfile(saved));
   }
+
+  /// 처음 여는 상태. "흡연하는 사람" 칸만 바로 앞 설문(05-11)에서 고른 흡연 답을 따른다 — 안 한다 = 싫어요(false), 한다 = 상관없어요(true).
+  /// 설문 답이 이 앱 실행에 없으면(앱을 다시 켰다) 미리 고르지 않는다(null) — "상관없어요"로 열면 비흡연자가 안 고르고
+  /// "다음" 만 눌러도 감점이 꺼진다. 안 고르면 저장 때 키를 보내지 않아 서버가 내 흡연 여부를 따른다.
+  IdealConditionsUiState _freshState() => IdealConditionsUiState(acceptsSmoker: _surveyIsSmoker());
+
+  /// 설문 뷰모델이 이미 있을 때만 읽는다. 없는데 읽으면 여기서 처음 만들어져, 뒤로가기로 돌아온 설문이
+  /// 서버 답 대신 빈 값으로 열린다(설문 뷰모델은 처음 만들어질 때만 서버 답을 읽는다).
+  bool? _surveyIsSmoker() => ref.exists(surveyViewModelProvider) ? ref.read(surveyViewModelProvider).isSmoker : null;
 
   /// 값이 바뀔 때마다 남긴다(저장소가 디바운스한다). 처음 상태(복원한 값 그대로)는 다시 쓰지 않고,
   /// 끝낸 단계는 서버에 있으니 남기지 않는다.
@@ -60,6 +70,10 @@ class IdealConditionsViewModel extends Notifier<IdealConditionsUiState> {
 
   void changeHeightIgnored(bool value) {
     state = state.copyWith(heightIgnored: value);
+  }
+
+  void changeAcceptsSmoker(bool value) {
+    state = state.copyWith(acceptsSmoker: value);
   }
 
   void toggleMbtiPole(String pole) {
@@ -127,6 +141,7 @@ class IdealConditionsViewModel extends Notifier<IdealConditionsUiState> {
       preferredMbtiFlags: state.preferredMbtiFlags,
       preferredAnimalTypes: state.preferredAnimalTypes,
       preferredImpressionTypes: state.preferredImpressionTypes,
+      acceptsSmoker: state.acceptsSmoker,
     );
   }
 
