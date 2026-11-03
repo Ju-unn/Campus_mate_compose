@@ -68,13 +68,13 @@ class IdealConditionsScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const _SectionTitle('선호하는 얼굴상', hint: '1~3개'),
+                    const _SectionTitle('선호하는 얼굴상', hint: '1~3개', titleColor: AppColors.ink),
                     AnimalTypePicker(
                       selected: state.preferredAnimalTypes.toSet(),
                       onTap: viewModel.toggleAnimalType,
                     ),
                     const SizedBox(height: AppSpacing.xl),
-                    const _SectionTitle('선호하는 인상', hint: '1~3개'),
+                    const _SectionTitle('선호하는 인상', hint: '1~3개', titleColor: AppColors.ink),
                     ImpressionTypePicker(
                       selected: state.preferredImpressionTypes.toSet(),
                       onTap: viewModel.toggleImpressionType,
@@ -187,27 +187,26 @@ class IdealConditionsScreen extends ConsumerWidget {
   }
 }
 
+/// 섹션 머리줄 — pen `u3Dfkd` · `wOFH0` 등. 가로 한 줄, 양 끝 정렬(space_between), 세로 가운데. 왼쪽이 제목(14/600),
+/// 있으면 오른쪽 끝이 안내(12/normal muted). 머리줄과 고르기 칸 사이는 8 이다.
+/// 제목 색은 pen 이 섹션마다 다르다 — 얼굴상 · 인상 `AByJi` · `BaCk1` 은 #222222([AppColors.ink]),
+/// MBTI `IhhKP` · 나이 `B6MW6` · 키 `T8UoRL` · 흡연 `vCjus` 는 #3F3F3F([AppColors.body], 기본값).
 class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.title, {this.hint});
+  const _SectionTitle(this.title, {this.hint, this.titleColor = AppColors.body});
 
   final String title;
   final String? hint;
+  final Color titleColor;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.xs),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.baseline,
-        textBaseline: TextBaseline.alphabetic,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(title, style: AppTypography.labelSmall.copyWith(color: AppColors.body)),
-          if (hint != null) ...[
-            const SizedBox(width: AppSpacing.xs),
-            Expanded(
-              child: Text(hint!, style: AppTypography.caption.copyWith(color: AppColors.muted)),
-            ),
-          ],
+          Text(title, style: AppTypography.labelSmall.copyWith(color: titleColor)),
+          if (hint != null) Text(hint!, style: AppTypography.caption.copyWith(color: AppColors.muted)),
         ],
       ),
     );
