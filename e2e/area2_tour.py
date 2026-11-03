@@ -17,12 +17,12 @@ ENTRY = tools.ROOT / 'frontend' / 'integration_test' / 'e2e_test.dart'
 STEPS = tools.ROOT / 'frontend' / 'lib' / 'tour' / 'view' / 'app_tour_steps.dart'
 OFF = 'AppTourViewModel.autoStartEnabled = false;'
 MAIN = 'await app.main();'
-# 사용자 확정 문구(대장 지시문 6단계) — 앱 문구가 바뀌면 여기와 함께 바꾼다.
+# 사용자 확정 문구(대장 지시문 6단계) — 앱 문구가 바뀌면 여기와 함께 바꾼다. 4번째는 서버 다음 지급 시각을 모를 때의 기본 제목이다(시각을 알면 앱이 "다음 카드는 O요일 …" 로 만든다).
 TITLES = (
     '여기가 캠퍼스메이트의 시작이에요',
     '프로필부터 채워 보세요',
     '사람들과 이야기해요',
-    '매주 월요일 오전 7시에 열려요',
+    '카드는 정해진 요일 오전 7시에 열려요',
     '하트로 여는 카드는 더 정밀해요',
     '하트는 무료로도 모아요',
 )

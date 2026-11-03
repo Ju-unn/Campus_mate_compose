@@ -282,4 +282,19 @@ void main() {
       expect(find.text('목요일 오전 7시까지'), findsOneWidget);
     });
   }
+
+  group('seoulClock — 서버 UTC 시각을 서울 시계로(요일 · 시각 글자의 바탕)', () {
+    test('일요일 22시(UTC)는 월요일 오전 7시 — 요일 이름과 시각 글자가 서울 값으로 나온다', () {
+      final issue = seoulClock(DateTime.utc(2026, 11, 8, 22));
+
+      expect(weekdayNames[issue.weekday - 1], '월');
+      expect(hourLabel(issue), '오전 7시');
+    });
+
+    test('기기 시간대로 만든 같은 순간도 같은 서울 값이다', () {
+      final local = DateTime.utc(2026, 11, 8, 22).toLocal();
+
+      expect(seoulClock(local), seoulClock(DateTime.utc(2026, 11, 8, 22)));
+    });
+  });
 }

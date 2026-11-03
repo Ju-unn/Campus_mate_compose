@@ -68,6 +68,9 @@ String hourLabel(DateTime value) {
   return '${isMorning ? '오전' : '오후'} $hour시';
 }
 
+/// 서울 시계로 옮긴 값(한국은 서머타임이 없어 +9 고정). [weekdayNames] · [hourLabel] 에 넣을 값은 이걸 거친 것이어야 서울 요일 · 시각이 나온다.
+DateTime seoulClock(DateTime value) => value.toUtc().add(const Duration(hours: 9));
+
 /// pen `kaRGO`(화면 `Keynu` 의 `mj74J`). 왼쪽부터 "무료 카드 초기화" `ZMHUK`(만료 = 다음 지급 시각) ·
 /// "구매 카드" `ZvKiJ`(구매한 카드만) · "학생 인증" `aRL8x`. 구매 카드는 만료가 없어 시계 배지가 안 뜬다.
 ///
