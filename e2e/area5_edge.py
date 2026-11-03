@@ -464,7 +464,7 @@ def p_edge_25(run, phone):
     loading, error, title = said.get('loading_at_end', MISSING), said.get('error', MISSING), said.get('title', MISSING)
     height = _profile(run, account, 'height_cm').get('height_cm')
     return check.result(f'{WATCH}초 뒤 로딩 {loading} · 문구 {error!r} · 화면 {title!r} · 망을 되돌린 뒤 DB 키 {height} — '
-                        '저장 요청에는 앱의 시간 제한이 없다(frontend/lib 의 .timeout( 은 로그아웃 토큰 삭제 · 조회 GET · 읽음 PATCH · 최소 버전 GET 뿐), 결과 기록')
+                        '저장 요청에는 앱의 시간 제한이 없다(frontend/lib 의 .timeout( 은 로그아웃 토큰 찾기 · 삭제 · 조회 GET · 읽음 PATCH · 최소 버전 GET 뿐), 결과 기록')
 
 
 PHONE = {
