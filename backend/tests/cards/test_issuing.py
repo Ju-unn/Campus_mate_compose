@@ -97,7 +97,7 @@ def _candidate(candidate_id: str, trait_score: float, pickable: bool = True) -> 
             "pickable": pickable}
 
 
-# 유료 제안이 한 명을 미리 가져가므로(지시문 22 B), 무료 카드를 보려면 후보가 둘 이상이어야 한다.
+# TWO 는 유료 1 + 무료 1 이 따로 나오는 최소 풀이다(지시문 22 B — 유료 제안이 한 명을 미리 가져간다).
 TWO = [_candidate("high", 0.9), _candidate("next", 0.8)]
 
 
@@ -160,34 +160,91 @@ async def test_the_paid_offer_target_is_never_the_free_card():
         assert repo.cards[0]["target_id"] != repo.offers[0]["target_id"]
 
 
-async def test_a_paid_offer_is_made_even_without_a_free_card():
+@pytest.mark.parametrize("candidates", [
+    [_candidate("only", 0.9)],
+    _many(10, lambda i: i == 0),
+], ids=["one candidate", "ten candidates but one pickable"])
+async def test_a_lone_pickable_candidate_is_the_free_card_and_the_paid_offer_is_withdrawn(candidates):
+    """한계 해소(사용자 결정 2026-11-03, 미결45 ②): 뽑을 수 있는 사람이 한 명뿐이면 유료 제안을 접고 그 사람을 무료로 준다."""
+    only = candidates[0]["candidate_id"]
     repo = _FakeCardRepo([{"profile_id": "owner-1", "region_group": "seoul"}])
-    # 뽑을 사람이 c0000 한 명 — 유료 제안이 가져가면 무료로 줄 사람이 없다.
-    result = await issue_daily_cards(repo, _FakeMatchingRepo(_many(10, lambda i: i == 0)), sender=None,
+
+    result = await issue_daily_cards(repo, _FakeMatchingRepo(candidates), sender=None,
+                                     now=MONDAY_7AM, rng=random.Random(0))
+
+    assert result == {"issued": 1, "no_candidate": 0, "skipped_regions": [], "failed": 0}
+    assert [c["target_id"] for c in repo.cards] == [only]
+    assert [(o["target_id"], o["status"]) for o in repo.offers] == [(only, "replaced")]
+    assert repo.by_status("offered") == []
+
+
+async def test_two_pickable_candidates_still_give_one_paid_offer_and_one_free_card():
+    """후보가 둘이면 무료로 줄 사람이 따로 있다 — 예전과 똑같이 한 명은 유료 제안, 다른 한 명은 무료 카드."""
+    repo = _FakeCardRepo([{"profile_id": "owner-1", "region_group": "seoul"}])
+
+    result = await issue_daily_cards(repo, _FakeMatchingRepo(TWO), sender=None,
+                                     now=MONDAY_7AM, rng=random.Random(0))
+
+    assert result["issued"] == 1
+    [offer] = repo.by_status("offered")
+    [card] = repo.cards
+    assert {offer["target_id"], card["target_id"]} == {"high", "next"}
+    assert repo.by_status("replaced") == []
+
+
+async def test_an_offer_already_made_for_the_lone_candidate_is_withdrawn_by_the_batch():
+    """이 수정 전에 만들어진 제안(같은 주기 offered)도 접는다 — 새 제안을 만들지 않고 그 행을 replaced 로 바꾼다."""
+    repo = _FakeCardRepo([{"profile_id": "owner-1", "region_group": "seoul"}], offers=[_old_offer("only")])
+
+    await issue_daily_cards(repo, _FakeMatchingRepo([_candidate("only", 0.9)]), sender=None,
+                            now=MONDAY_7AM, rng=random.Random(0))
+
+    assert [c["target_id"] for c in repo.cards] == ["only"]
+    assert [(o["id"], o["status"]) for o in repo.offers] == [("offer-old", "replaced")]
+    assert repo.inserts == 0
+
+
+async def test_an_offer_stays_when_even_withdrawing_it_would_leave_no_free_card():
+    """살아 있는 제안의 대상이 그새 순위 하위 10%(무료 구간 밖)로 내려갔고 그 사람만 뽑을 수 있다 — 접어도 줄 카드가 없으니
+    제안을 그대로 둔다(제안만 접고 카드도 없는 상태를 만들지 않는다)."""
+    repo = _FakeCardRepo([{"profile_id": "owner-1", "region_group": "seoul"}], offers=[_old_offer("c0019")])
+
+    result = await issue_daily_cards(repo, _FakeMatchingRepo(_many(20, lambda i: i == 19)), sender=None,
                                      now=MONDAY_7AM, rng=random.Random(0))
 
     assert result == {"issued": 0, "no_candidate": 1, "skipped_regions": [], "failed": 0}
-    assert [(o["owner_id"], o["target_id"], o["status"]) for o in repo.offers] == [
-        ("owner-1", "c0000", "offered")]
-    assert repo.offers[0]["cycle_started_at"] == MONDAY_7AM.isoformat()
-    assert repo.offers[0]["band_count"] == 1
+    assert repo.cards == []
+    assert [(o["id"], o["status"]) for o in repo.offers] == [("offer-old", "offered")]
 
 
-async def test_running_the_batch_twice_the_same_day_keeps_one_card_and_one_offer_each():
+async def test_an_owner_who_bought_this_cycle_keeps_the_purchased_offer_untouched():
+    """이번 주기에 이미 유료로 산 사람은 제안 자리가 없다 — 이 규칙이 샀다는 기록을 건드리면 안 된다."""
+    bought = {**_old_offer("elsewhere"), "id": "offer-bought", "status": "purchased"}
+    repo = _FakeCardRepo([{"profile_id": "owner-1", "region_group": "seoul"}], offers=[bought])
+
+    await issue_daily_cards(repo, _FakeMatchingRepo([_candidate("only", 0.9)]), sender=None,
+                            now=MONDAY_7AM, rng=random.Random(0))
+
+    assert [c["target_id"] for c in repo.cards] == ["only"]
+    assert [(o["id"], o["status"]) for o in repo.offers] == [("offer-bought", "purchased")]
+
+
+async def test_running_the_batch_twice_the_same_day_keeps_one_card_each_and_one_live_offer():
     owners = [{"profile_id": "owner-1", "region_group": "seoul"},
               {"profile_id": "owner-2", "region_group": "seoul"}]
     repo = _FakeCardRepo(owners)
 
     class _PerOwner(_FakeMatchingRepo):
         async def fetch_candidates(self, profile_id):
-            # owner-2 는 뽑을 사람이 한 명뿐이라 무료 카드가 없다 — 다시 돌리면 다시 대상이 된다.
+            # owner-2 는 뽑을 사람이 한 명뿐이라 유료 제안을 접고 그 사람이 무료 카드가 된다.
             return _many(20) if profile_id == "owner-1" else _many(10, lambda i: i == 0)
 
     for seed in (1, 2):
         await issue_daily_cards(repo, _PerOwner([]), sender=None, now=MONDAY_7AM, rng=random.Random(seed))
 
-    assert [c["owner_id"] for c in repo.cards] == ["owner-1"]
-    assert sorted(o["owner_id"] for o in repo.offers) == ["owner-1", "owner-2"]
+    assert [c["owner_id"] for c in repo.cards] == ["owner-1", "owner-2"]
+    assert sorted((o["owner_id"], o["status"]) for o in repo.offers) == [
+        ("owner-1", "offered"), ("owner-2", "replaced")]
     assert repo.inserts == 2
 
 
@@ -506,6 +563,20 @@ async def test_first_card_comes_right_away_and_lasts_until_the_next_issue_day():
     assert card["target_id"] != offer["target_id"]
     # 10명이면 유료 구간이 위 5명 — 무료 첫 카드는 그 아래(6 ~ 9등)에서 나온다.
     assert card["target_id"] in {c["candidate_id"] for c in ranked[5:9]}
+
+
+async def test_a_first_card_goes_to_the_lone_candidate_and_the_paid_offer_is_withdrawn():
+    """배치와 같은 규칙(사용자 결정 2026-11-03, 미결45 ②) — 후보가 한 명뿐인 첫 방문자도 빈 화면이 아니라 무료 카드를 받는다."""
+    repo = _FirstCardRepo()
+
+    got = await issue_first_card(repo, _VectorMatchingRepo([_candidate("only", 0.9)]), THURSDAY_3PM,
+                                 random.Random(0), "owner-1", WEEKLY)
+
+    assert got is True
+    [card] = repo.cards
+    assert (card["target_id"], card["expires_at"]) == ("only", NEXT_MONDAY_7AM)
+    assert [(o["target_id"], o["status"]) for o in repo.offers] == [("only", "replaced")]
+    assert repo.by_status("offered") == []
 
 
 async def test_someone_who_already_had_a_daily_card_waits_for_the_batch():
