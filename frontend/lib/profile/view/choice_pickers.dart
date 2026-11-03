@@ -118,7 +118,9 @@ class ChoiceCell extends StatelessWidget {
               border: Border.all(color: isSelected ? AppColors.primary : Colors.transparent),
             ),
             child: Center(
-              child: Text(label, style: AppTypography.label.copyWith(color: AppColors.ink)),
+              // 칸 글자는 pen 이 전부 16/600 이다(SmokeToggle `Y1TDq2` 칸 글자 `i5Y2r` · `Y0WfHq`, 05-10 · 05-11 · 15-6 · 06-1 모두).
+              // 종전 label(18/700)은 pen 에 없는 크기였다.
+              child: Text(label, style: AppTypography.bodyStrong.copyWith(color: AppColors.ink)),
             ),
           ),
         ),
