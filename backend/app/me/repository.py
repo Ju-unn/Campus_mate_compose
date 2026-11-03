@@ -14,7 +14,7 @@ class MeRepository(PostgrestRepository):
             "id": f"eq.{profile_id}",
             "select": "nickname,nickname_changed_at,bio,birth_year,gender,height_cm,mbti,religion,is_smoker,animal_type,impression_type,major,universities(name),"
                       "preferred_age_min,preferred_age_max,"
-                      "preferred_height_min,preferred_height_max,"
+                      "preferred_height_min,preferred_height_max,accepts_smoker,"
                       "interest_tags,my_traits,ideal_traits,ideal_note,"
                       "preferred_mbti_flags,preferred_animal_types,preferred_impression_types,"
                       "entitlements(heart_balance),"
