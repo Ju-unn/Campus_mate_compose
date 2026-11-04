@@ -6,6 +6,7 @@ import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/app_lottie_view.dart';
 import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/core/router/app_router.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
@@ -13,6 +14,7 @@ import 'package:campus_mate/core/router/onboarding_step_listenable.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/core/theme/app_lottie.dart';
 import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
@@ -567,7 +569,9 @@ void main() {
           (widget) => widget is Image && widget.image is AssetImage && (widget.image as AssetImage).assetName == asset,
         );
 
-    testWidgets('05-12 — 제목 y64 x16 24/700 ink · 파란 목도리 마스코트 220 · 그 아래 12 에 스피너 28 muted · 버튼 없음', (tester) async {
+    // pen 05-12 `X0KAx` (대장 전달 2026-11-03): 제목 · 설명은 그대로, Loading Visual 자리에서 옛 마스코트 `gkWPR` · 큰 스피너 `rcQm9` 를 숨기고
+    // Lottie 344×330 을 가로 가운데, 화면 y268 에 둔다(아래 점 3개는 장면 안에 있다).
+    testWidgets('05-12 — 제목 y64 x16 24/700 ink · 옛 마스코트 · 스피너 없이 그림 그리는 토끼 장면 344×330 이 가운데에 있다', (tester) async {
       penSize(tester);
       repository.nextResult = const Success(AvatarPending());
       await pump(tester);
@@ -576,27 +580,62 @@ void main() {
       expect(tester.widget<Text>(title).style, AppTypography.headline.copyWith(color: AppColors.ink));
       expect(tester.getRect(title).top, 64);
       expect(tester.getRect(title).left, 16);
-
-      final male = mascot('assets/images/mascot-male-waiting.png');
-      expect(male, findsOneWidget);
-      expect(tester.widget<Image>(male).fit, BoxFit.contain);
-      final mascotRect = tester.getRect(male);
-      expect(mascotRect.size, const Size(220, 220));
-      expect(mascotRect.center.dx, 180);
       final subtitle = find.text(generatingSubtitle);
       expect(tester.widget<Text>(subtitle).style, subtitleStyle);
       expect(tester.getRect(subtitle).top, closeTo(tester.getRect(title).bottom + 8, 0.01));
       expect(tester.getRect(subtitle).width, lessThanOrEqualTo(328));
-      expect(mascotRect.top, closeTo(tester.getRect(subtitle).bottom + 32 + 45, 0.01));
 
-      final spinner = find.byType(CircularProgressIndicator);
-      expect(tester.getRect(spinner).size, const Size(28, 28));
-      expect(tester.getRect(spinner).top, mascotRect.bottom + 12);
-      expect(tester.getRect(spinner).center.dx, 180);
-      expect(tester.widget<CircularProgressIndicator>(spinner).color, AppColors.muted);
+      expect(mascot('assets/images/mascot-male-waiting.png'), findsNothing);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.byType(Image), findsNothing);
       expect(find.byType(AppButton), findsNothing);
-      // 한 화면 마스코트 한 마리.
-      expect(find.byType(Image), findsOneWidget);
+
+      final painting = find.byType(AppLottieView);
+      expect(tester.widget<AppLottieView>(painting).scene, AppLottie.avatarPainting);
+      final rect = tester.getRect(painting);
+      expect(rect.size, const Size(344, 330));
+      expect(rect.center.dx, 180);
+    });
+
+    testWidgets('05-12 — 장면이 화면 좌우 16 여백 밖(8~352)까지 잘리지 않고 그려진다', (tester) async {
+      penSize(tester);
+      repository.nextResult = const Success(AvatarPending());
+      await pump(tester);
+
+      final viewport = tester.getRect(find.byType(SingleChildScrollView));
+      final painting = tester.getRect(find.byType(AppLottieView));
+      expect(viewport.left, lessThanOrEqualTo(painting.left));
+      expect(viewport.right, greaterThanOrEqualTo(painting.right));
+    });
+
+    // 05-12 는 배경이 아니라 본문 안 그림이라 안전 영역 안이 기준이다 — 상태 표시줄 40 이 있으면 제목 y104(= 40 + 64).
+    testWidgets('05-12 — 상태 표시줄 40 · 홈 막대 20 이 있으면 제목은 y104, 장면은 그 아래에서 시작한다', (tester) async {
+      penSize(tester);
+      tester.view.padding = const FakeViewPadding(top: 40, bottom: 20);
+      repository.nextResult = const Success(AvatarPending());
+      await pump(tester);
+
+      final title = tester.getRect(find.text('아바타를 만들고 있어요'));
+      final painting = tester.getRect(find.byType(AppLottieView));
+      expect(title.top, 40 + 64);
+      expect(painting.top, greaterThan(title.bottom));
+      expect(painting.center.dx, 180);
+    });
+
+    // CLAUDE.md 규칙 3(dp 는 화면 비율에 대응): 344 장면은 pen 처럼 좌우 8 만 남기고 그리되(360 폭), 더 좁으면 비율 그대로 줄인다(최대는 pen 크기 344×330).
+    testWidgets('05-12 — 320 폭에서는 좌우 8 을 남긴 304 폭으로 비율 그대로 줄어(304×291.6) 화면 밖으로 잘리지 않는다', (tester) async {
+      tester.view.physicalSize = const Size(320, 700);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      repository.nextResult = const Success(AvatarPending());
+      await pump(tester);
+
+      final rect = tester.getRect(find.byType(AppLottieView));
+      expect(rect.width, closeTo(304, 0.01));
+      expect(rect.height, closeTo(330 * 304 / 344, 0.01));
+      expect(rect.center.dx, 160);
+      expect(rect.left, greaterThanOrEqualTo(0));
+      expect(rect.right, lessThanOrEqualTo(320));
     });
 
     testWidgets('05-12b — 제목 y64 · 부제 · 분홍 목도리 마스코트 · 힌트 13/400 muted · 다시 시도 328×52 바닥 28 위', (tester) async {
@@ -661,20 +700,35 @@ void main() {
     group('실제 글꼴(Pretendard)로 잰 pen 자리', () {
       setUpAll(loadPretendard);
 
-      for (final (status, subtitleText, asset) in [
-        (const AvatarPending() as AvatarGenerationOutcome, generatingSubtitle, 'assets/images/mascot-male-waiting.png'),
-        (const AvatarFailed() as AvatarGenerationOutcome, failedSubtitle, 'assets/images/mascot-female-sad.png'),
-      ]) {
-        testWidgets('부제 두 줄(51.2) · 마스코트 y233 — ${status.runtimeType}', (tester) async {
-          penSize(tester);
-          repository.nextResult = Success(status);
-          await pump(tester);
-          await tester.pump(AppMotion.standard + const Duration(milliseconds: 1));
+      testWidgets('부제 두 줄(51.2) · 그림 그리는 장면 y268 — AvatarPending', (tester) async {
+        penSize(tester);
+        repository.nextResult = const Success(AvatarPending());
+        await pump(tester);
+        await tester.pump(AppMotion.standard + const Duration(milliseconds: 1));
 
-          expect(tester.getRect(find.text(subtitleText)).height, closeTo(16 * 1.6 * 2, 1));
-          expect(tester.getRect(mascot(asset)).top, closeTo(233, 1));
-        });
-      }
+        expect(tester.getRect(find.text(generatingSubtitle)).height, closeTo(16 * 1.6 * 2, 1));
+        expect(tester.getRect(find.byType(AppLottieView)).top, closeTo(268, 1));
+      });
+
+      testWidgets('상태 표시줄 40 이 있으면 장면 위는 안전 영역 기준으로 y308(= 40 + 268)', (tester) async {
+        penSize(tester);
+        tester.view.padding = const FakeViewPadding(top: 40, bottom: 20);
+        repository.nextResult = const Success(AvatarPending());
+        await pump(tester);
+        await tester.pump(AppMotion.standard + const Duration(milliseconds: 1));
+
+        expect(tester.getRect(find.byType(AppLottieView)).top, closeTo(40 + 268, 1));
+      });
+
+      testWidgets('부제 두 줄(51.2) · 마스코트 y233 — AvatarFailed', (tester) async {
+        penSize(tester);
+        repository.nextResult = const Success(AvatarFailed());
+        await pump(tester);
+        await tester.pump(AppMotion.standard + const Duration(milliseconds: 1));
+
+        expect(tester.getRect(find.text(failedSubtitle)).height, closeTo(16 * 1.6 * 2, 1));
+        expect(tester.getRect(mascot('assets/images/mascot-female-sad.png')).top, closeTo(233, 1));
+      });
     });
 
     for (final status in [const AvatarPending(), const AvatarFailed()]) {
