@@ -19,11 +19,11 @@ import 'package:campus_mate/me/view/avatar_regen_pick_screen.dart';
 import 'package:campus_mate/me/view/edit_app_bar.dart';
 import 'package:campus_mate/me/viewmodel/avatar_regen_pick_view_model.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
-import 'package:campus_mate/profile/model/avatar_generation_outcome.dart';
-import 'package:campus_mate/profile/model/avatar_repository_provider.dart';
-import 'package:campus_mate/profile/view/avatar_source_tile.dart';
-import 'package:campus_mate/profile/view/photo_example.dart';
-import 'package:campus_mate/profile/view/photo_tiles.dart';
+import 'package:campus_mate/profile/avatar/model/data/avatar_generation_outcome.dart';
+import 'package:campus_mate/profile/avatar/model/repository/avatar_repository_provider.dart';
+import 'package:campus_mate/profile/avatar/view/avatar_source_tile.dart';
+import 'package:campus_mate/profile/avatar/view/photo_example.dart';
+import 'package:campus_mate/profile/avatar/view/photo_tiles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -31,7 +31,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../auth/media/model/repository/fake_face_detector.dart';
 import '../../auth/media/model/repository/fake_image_compressor.dart';
-import '../../profile/model/fake_avatar_repository.dart';
+import '../../profile/avatar/model/repository/fake_avatar_repository.dart';
 import '../model/repository/fake_me_repository.dart';
 
 /// 1×1 투명 PNG. `Image.file` 이 실제로 읽을 수 있는 파일이어야 화면이 그려진다.

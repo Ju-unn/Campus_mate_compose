@@ -8,14 +8,14 @@ import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/offline/offline_screen.dart';
 import 'package:campus_mate/core/router/verification_gate_listenable_provider.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
-import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
-import 'package:campus_mate/profile/model/onboarding_step.dart';
+import 'package:campus_mate/profile/onboarding/model/data/onboarding_step.dart';
+import 'package:campus_mate/profile/onboarding/model/repository/onboarding_repository_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../auth/gate/model/repository/fake_verification_gate_repository.dart';
-import '../../profile/model/fake_onboarding_repository.dart';
+import '../../profile/onboarding/model/repository/fake_onboarding_repository.dart';
 
 /// 온보딩 단계 조회를 문 앞에 세워 둘 수 있는 가짜 — 관문보다 먼저 묻는지 본다.
 class _GatedOnboardingRepository extends FakeOnboardingRepository {

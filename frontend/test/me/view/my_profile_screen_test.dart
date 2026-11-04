@@ -27,9 +27,9 @@ import 'package:campus_mate/me/view/profile_entry_row.dart';
 import 'package:campus_mate/me/view/profile_hero.dart';
 import 'package:campus_mate/me/view/profile_manage_screen.dart';
 import 'package:campus_mate/me/viewmodel/avatar_regen_pick_view_model.dart' show openMyProfileScreens;
-import 'package:campus_mate/profile/model/avatar_generation_outcome.dart';
-import 'package:campus_mate/profile/model/avatar_repository_provider.dart';
-import 'package:campus_mate/profile/viewmodel/avatar_generation_view_model.dart';
+import 'package:campus_mate/profile/avatar/model/data/avatar_generation_outcome.dart';
+import 'package:campus_mate/profile/avatar/model/repository/avatar_repository_provider.dart';
+import 'package:campus_mate/profile/avatar/viewmodel/avatar_generation_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -40,7 +40,7 @@ import 'package:mocktail/mocktail.dart';
 import '../../chat/model/repository/fake_chat_repository.dart';
 import '../../friend_review/model/repository/fake_friend_review_repository.dart';
 import '../../matching/model/repository/fake_card_repository.dart';
-import '../../profile/model/fake_avatar_repository.dart';
+import '../../profile/avatar/model/repository/fake_avatar_repository.dart';
 import '../model/repository/fake_me_repository.dart';
 
 /// 사진 요청을 받기만 하고 답하지 않는 HttpClient. 테스트의 기본 HttpClient 는 400 을 돌려줘

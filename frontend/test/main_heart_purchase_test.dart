@@ -17,7 +17,7 @@ import 'package:campus_mate/home/model/repository/home_repository_provider.dart'
 import 'package:campus_mate/main.dart';
 import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
 import 'package:campus_mate/notifications/model/repository/notifications_repository_provider.dart';
-import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
+import 'package:campus_mate/profile/onboarding/model/repository/onboarding_repository_provider.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -31,7 +31,7 @@ import 'core/push/fake_push_messaging.dart';
 import 'home/model/repository/fake_home_repository.dart';
 import 'matching/model/repository/fake_card_repository.dart';
 import 'notifications/model/repository/fake_notifications_repository.dart';
-import 'profile/model/fake_onboarding_repository.dart';
+import 'profile/onboarding/model/repository/fake_onboarding_repository.dart';
 
 /// 하트 결제 구독은 상점이 아니라 앱 루트가 연다 — 로그인 뒤 관문이 열리면 한 번(계획서 6-1 ①, 대장 지시 10-13 "앱 수명 동안 한 곳에서").
 void main() {

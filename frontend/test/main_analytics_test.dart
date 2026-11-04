@@ -13,7 +13,7 @@ import 'package:campus_mate/home/model/repository/home_repository_provider.dart'
 import 'package:campus_mate/main.dart';
 import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
 import 'package:campus_mate/notifications/model/repository/notifications_repository_provider.dart';
-import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
+import 'package:campus_mate/profile/onboarding/model/repository/onboarding_repository_provider.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -28,7 +28,7 @@ import 'core/push/fake_push_messaging.dart';
 import 'home/model/repository/fake_home_repository.dart';
 import 'matching/model/repository/fake_card_repository.dart';
 import 'notifications/model/repository/fake_notifications_repository.dart';
-import 'profile/model/fake_onboarding_repository.dart';
+import 'profile/onboarding/model/repository/fake_onboarding_repository.dart';
 
 /// 사용 통계 · 오류 수집을 켜고 끄는 배선(main.dart)을 지킨다 — **약관 동의 전에는 켜지 않는다.**
 /// 규칙 자체는 collection_consent_test.dart 가 보고, 여기서는 앱 루트가 세션 · 관문 변화마다 그 규칙을 부르는지만 본다.

@@ -1,4 +1,4 @@
-import 'package:campus_mate/profile/model/profile_enums.dart';
+import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
 
 /// 화면 15 내 프로필(pen `nkFJV`)과 편집 화면(15c · 태그 3종 · 06-1 편집)이 읽는 값 한 벌.
 /// 서버 `GET /me/profile` 응답과 같다(계획서 2026-09-27-me-edit.md 2-1).

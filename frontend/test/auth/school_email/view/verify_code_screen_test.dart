@@ -15,7 +15,7 @@ import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
-import 'package:campus_mate/profile/view/hint_line.dart';
+import 'package:campus_mate/profile/onboarding/view/hint_line.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

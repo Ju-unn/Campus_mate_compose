@@ -28,7 +28,7 @@ import 'package:campus_mate/me/view/my_photos_screen.dart';
 import 'package:campus_mate/me/view/profile_edit_screen.dart';
 import 'package:campus_mate/me/view/profile_entry_row.dart';
 import 'package:campus_mate/me/view/profile_manage_screen.dart';
-import 'package:campus_mate/profile/model/onboarding_step.dart';
+import 'package:campus_mate/profile/onboarding/model/data/onboarding_step.dart';
 import 'package:campus_mate/notifications/model/repository/notifications_repository_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';

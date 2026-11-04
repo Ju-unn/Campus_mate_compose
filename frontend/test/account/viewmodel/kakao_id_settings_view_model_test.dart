@@ -3,11 +3,11 @@ import 'package:campus_mate/account/viewmodel/kakao_id_settings_ui_state.dart';
 import 'package:campus_mate/account/viewmodel/kakao_id_settings_view_model.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
-import 'package:campus_mate/profile/model/kakao_id_repository_provider.dart';
+import 'package:campus_mate/profile/onboarding/model/repository/kakao_id_repository_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../profile/model/fake_kakao_id_repository.dart';
+import '../../profile/onboarding/model/repository/fake_kakao_id_repository.dart';
 import '../model/repository/fake_account_repository.dart';
 
 void main() {

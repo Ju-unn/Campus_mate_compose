@@ -6,16 +6,16 @@ import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:campus_mate/me/viewmodel/tag_edit_view_model.dart';
-import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
-import 'package:campus_mate/profile/model/tag_picker_repository_provider.dart';
-import 'package:campus_mate/profile/viewmodel/tag_picker_kind.dart';
-import 'package:campus_mate/profile/viewmodel/tag_picker_view_model.dart';
+import 'package:campus_mate/profile/onboarding/model/repository/onboarding_repository_provider.dart';
+import 'package:campus_mate/profile/traits/model/repository/tag_picker_repository_provider.dart';
+import 'package:campus_mate/profile/traits/viewmodel/tag_picker_kind.dart';
+import 'package:campus_mate/profile/traits/viewmodel/tag_picker_view_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:campus_mate/core/draft/draft_store.dart';
 
-import '../../profile/model/fake_onboarding_repository.dart';
-import '../../profile/model/fake_tag_picker_repository.dart';
+import '../../profile/onboarding/model/repository/fake_onboarding_repository.dart';
+import '../../profile/traits/model/repository/fake_tag_picker_repository.dart';
 import '../model/repository/fake_me_repository.dart';
 import '../../core/draft/fake_draft_store.dart';
 

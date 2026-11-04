@@ -1,6 +1,6 @@
 import 'package:campus_mate/core/analytics/analytics_service.dart';
 import 'package:campus_mate/core/analytics/analytics_values.dart';
-import 'package:campus_mate/profile/model/onboarding_step.dart';
+import 'package:campus_mate/profile/onboarding/model/data/onboarding_step.dart';
 
 /// 시험이 Firebase 를 켜지 않고도 "무엇이 기록됐는지" 만 보는 가짜 구현. 부른 순서대로 한 줄씩 남긴다.
 /// 한 줄은 `이벤트이름:매개변수값…` 꼴이다 — 실제 Firebase 이벤트 이름과 매개변수 값 순서(`docs/ANALYTICS_EVENTS.md`)와 같다.

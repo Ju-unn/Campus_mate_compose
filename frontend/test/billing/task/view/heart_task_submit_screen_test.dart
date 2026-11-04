@@ -15,7 +15,7 @@ import 'package:campus_mate/common/widgets/muted_text_button.dart';
 import 'package:campus_mate/consent/model/repository/open_url.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
-import 'package:campus_mate/profile/view/photo_tiles.dart';
+import 'package:campus_mate/profile/avatar/view/photo_tiles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

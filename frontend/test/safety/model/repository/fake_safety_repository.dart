@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/matching/model/data/card_detail.dart';
 import 'package:campus_mate/matching/model/data/card_profile.dart';
-import 'package:campus_mate/profile/model/profile_enums.dart';
+import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
 import 'package:campus_mate/safety/model/data/blocked_user.dart';
 import 'package:campus_mate/safety/model/data/partner_profile.dart';
 import 'package:campus_mate/safety/model/data/report_reason.dart';

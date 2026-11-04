@@ -16,7 +16,7 @@ import 'package:campus_mate/graduate/model/repository/graduate_verification_repo
 import 'package:campus_mate/graduate/view/graduate_application_screen.dart';
 import 'package:campus_mate/graduate/view/graduate_waiting_screen.dart';
 import 'package:campus_mate/graduate/view/verification_method_screen.dart';
-import 'package:campus_mate/profile/model/onboarding_step.dart';
+import 'package:campus_mate/profile/onboarding/model/data/onboarding_step.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';

@@ -1,8 +1,8 @@
 import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
-import 'package:campus_mate/profile/viewmodel/tag_picker_kind.dart';
-import 'package:campus_mate/profile/viewmodel/tag_picker_ui_state.dart';
-import 'package:campus_mate/profile/viewmodel/tag_picker_view_model.dart';
+import 'package:campus_mate/profile/traits/viewmodel/tag_picker_kind.dart';
+import 'package:campus_mate/profile/traits/viewmodel/tag_picker_ui_state.dart';
+import 'package:campus_mate/profile/traits/viewmodel/tag_picker_view_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final tagEditViewModelProvider =

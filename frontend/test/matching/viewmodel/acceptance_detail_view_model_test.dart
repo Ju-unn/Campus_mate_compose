@@ -5,7 +5,7 @@ import 'package:campus_mate/matching/model/data/card_profile.dart';
 import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
 import 'package:campus_mate/matching/viewmodel/acceptance_detail_ui_state.dart';
 import 'package:campus_mate/matching/viewmodel/acceptance_detail_view_model.dart';
-import 'package:campus_mate/profile/model/profile_enums.dart';
+import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 

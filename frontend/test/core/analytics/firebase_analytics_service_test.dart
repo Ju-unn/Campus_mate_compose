@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:campus_mate/core/analytics/analytics_values.dart';
 import 'package:campus_mate/core/analytics/firebase_analytics_service.dart';
-import 'package:campus_mate/profile/model/onboarding_step.dart';
+import 'package:campus_mate/profile/onboarding/model/data/onboarding_step.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';

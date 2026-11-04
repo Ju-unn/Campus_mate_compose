@@ -38,11 +38,11 @@ import 'package:campus_mate/me/view/profile_hero.dart';
 import 'package:campus_mate/me/view/profile_manage_screen.dart';
 import 'package:campus_mate/me/viewmodel/my_photos_view_model.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
-import 'package:campus_mate/profile/view/appearance_pickers.dart';
-import 'package:campus_mate/profile/view/ideal_conditions_screen.dart';
-import 'package:campus_mate/profile/view/photo_tiles.dart';
-import 'package:campus_mate/profile/view/tag_picker_screen.dart';
-import 'package:campus_mate/profile/viewmodel/avatar_generation_view_model.dart';
+import 'package:campus_mate/profile/appearance/view/appearance_pickers.dart';
+import 'package:campus_mate/profile/ideal/view/ideal_conditions_screen.dart';
+import 'package:campus_mate/profile/avatar/view/photo_tiles.dart';
+import 'package:campus_mate/profile/traits/view/tag_picker_screen.dart';
+import 'package:campus_mate/profile/avatar/viewmodel/avatar_generation_view_model.dart';
 import 'package:campus_mate/main.dart' as app;
 import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
@@ -71,7 +71,7 @@ part 'area5_wd.dart';
 
 /// 영역 5 폰 A 한 대 — 나 탭 · 탈퇴 · 경계. PC 쪽은 e2e/area5_*.py 의 같은 번호(계정 · DB 를 준비하고 앱이 말한 값을 판정한다).
 /// 앱은 화면을 열어 읽거나 누르고 본 것을 Map 으로 돌려준다. 화면 글자 · 위젯은 시나리오가 아니라 지금 화면 코드
-/// (frontend/lib/me · account · matching/view/settings_screen · profile/view)에서 옮겼다.
+/// (frontend/lib/me · account · matching/view/settings_screen · profile/*/view)에서 옮겼다.
 /// 탈퇴를 실제로 누르는 가설은 area5_wd.dart 의 넷(E-WD-04 · 16 · 18 · E-EDGE-20)뿐이다 — 이 파일 · area5_read · area5_act 는 "정말 영구 삭제" 를 누르지 않는다.
 final Map<String, Area1Case> area5Cases = {...area5CasesRead, ...area5CasesAct, ...area5CasesPhoto, ...area5CasesWd, ...area5CasesTime, ...area5CasesTwo, ...area5CasesEdge, ...area5CasesFake, ...area5CasesKill, ...area5CasesMore, ...area5CasesNew};
 

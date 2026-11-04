@@ -6,7 +6,7 @@ import 'package:campus_mate/matching/model/data/card_detail.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/model/data/photo_slot.dart';
 import 'package:campus_mate/me/model/repository/me_repository.dart';
-import 'package:campus_mate/profile/model/profile_enums.dart';
+import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
 import 'package:http/http.dart' as http;
 
 /// [MeRepository] 를 FastAPI `GET · PATCH /me/profile` · `GET /me/card-preview` · `PUT /me/photos` 로 구현한다.

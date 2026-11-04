@@ -3,15 +3,15 @@ import 'package:campus_mate/account/view/kakao_id_settings_screen.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/notice_card.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
-import 'package:campus_mate/profile/model/kakao_id_repository_provider.dart';
-import 'package:campus_mate/profile/view/kakao_id_screen.dart';
+import 'package:campus_mate/profile/onboarding/model/repository/kakao_id_repository_provider.dart';
+import 'package:campus_mate/profile/onboarding/view/kakao_id_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../profile/model/fake_kakao_id_repository.dart';
+import '../../profile/onboarding/model/repository/fake_kakao_id_repository.dart';
 import '../model/repository/fake_account_repository.dart';
 
 void main() {

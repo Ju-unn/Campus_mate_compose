@@ -5,7 +5,7 @@ import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
-import 'package:campus_mate/profile/view/photo_tiles.dart';
+import 'package:campus_mate/profile/avatar/view/photo_tiles.dart';
 import 'package:flutter/material.dart';
 
 /// 테스트가 사진 블록 · 칸 · 빼기 버튼을 찾는 표식.

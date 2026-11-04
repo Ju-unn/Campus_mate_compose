@@ -19,14 +19,14 @@ import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
-import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
+import 'package:campus_mate/profile/onboarding/model/repository/onboarding_repository_provider.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../auth/gate/model/repository/fake_verification_gate_repository.dart';
-import '../../profile/model/fake_onboarding_repository.dart';
+import '../../profile/onboarding/model/repository/fake_onboarding_repository.dart';
 import '../model/repository/fake_consent_repository.dart';
 
 const _title = '서비스 이용을 위해 동의해 주세요';

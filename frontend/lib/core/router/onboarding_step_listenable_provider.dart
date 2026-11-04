@@ -1,6 +1,6 @@
 import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable.dart';
-import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
+import 'package:campus_mate/profile/onboarding/model/repository/onboarding_repository_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 앱 전체가 같은 온보딩 단계 캐시를 보게 한다([verificationGateListenableProvider]와 같은 이유).

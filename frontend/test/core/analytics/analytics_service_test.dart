@@ -1,6 +1,6 @@
 import 'package:campus_mate/core/analytics/analytics_service.dart';
 import 'package:campus_mate/core/analytics/analytics_values.dart';
-import 'package:campus_mate/profile/model/onboarding_step.dart';
+import 'package:campus_mate/profile/onboarding/model/data/onboarding_step.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

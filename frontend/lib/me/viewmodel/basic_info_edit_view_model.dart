@@ -4,10 +4,10 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
-import 'package:campus_mate/profile/model/basic_info_repository_provider.dart';
-import 'package:campus_mate/profile/model/mbti_poles.dart';
-import 'package:campus_mate/profile/model/profile_enums.dart';
-import 'package:campus_mate/profile/viewmodel/basic_info_ui_state.dart';
+import 'package:campus_mate/profile/basic/model/data/mbti_poles.dart';
+import 'package:campus_mate/profile/basic/model/repository/basic_info_repository_provider.dart';
+import 'package:campus_mate/profile/basic/viewmodel/basic_info_ui_state.dart';
+import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final basicInfoEditViewModelProvider =
