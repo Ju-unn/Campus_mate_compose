@@ -3,12 +3,12 @@ import 'package:campus_mate/core/router/verification_gate_listenable_provider.da
 import 'package:campus_mate/graduate/model/repository/graduate_verification_repository_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// 뒤로가기가 서버 값을 비우는 중인지, 실패했는지. 오류 문구는 화면이 짧은 안내로 한 번 띄운다.
+/// 뒤로가기가 서버 값을 비우는 중인지, 실패했는지. 실패의 종류는 화면이 글자로 바꿔 짧은 안내로 한 번 띄운다.
 class MethodBackUiState {
-  const MethodBackUiState({this.isLeaving = false, this.errorMessage});
+  const MethodBackUiState({this.isLeaving = false, this.error});
 
   final bool isLeaving;
-  final String? errorMessage;
+  final Failure? error;
 }
 
 /// 앱을 닫아도 남는 상태이므로 화면 하나에 묶지 않는다(02 · 신청 폼이 같은 것을 쓴다).
@@ -30,15 +30,15 @@ class MethodBackViewModel extends Notifier<MethodBackUiState> {
     final result = await ref.read(graduateVerificationRepositoryProvider).chooseMethod(null);
     if (!ref.mounted) return;
     final failure = result.when(onSuccess: (_) => null, onFailure: (failure) => failure);
-    final message = failure == null ? await _refreshGateMessage() : failure.toDisplayMessage();
+    final error = failure ?? await _refreshGateFailure();
     if (!ref.mounted) return;
-    state = MethodBackUiState(errorMessage: message);
+    state = MethodBackUiState(error: error);
   }
 
   /// 서버 값은 비웠는데 관문을 다시 묻지 못하면 화면이 안 옮겨져 아무 일도 없는 것처럼 보인다 — 같은 실패 안내를 남긴다.
-  /// 묻기 실패는 원인을 주지 않아(`refresh` 는 true · false 뿐) 네트워크 문구로 한다.
-  Future<String?> _refreshGateMessage() async {
+  /// 묻기 실패는 원인을 주지 않아(`refresh` 는 true · false 뿐) 네트워크 실패로 본다.
+  Future<Failure?> _refreshGateFailure() async {
     final refreshed = await ref.read(verificationGateListenableProvider).refresh();
-    return refreshed ? null : const NetworkFailure().toDisplayMessage();
+    return refreshed ? null : const NetworkFailure();
   }
 }

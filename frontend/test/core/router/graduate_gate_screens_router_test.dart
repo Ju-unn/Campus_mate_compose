@@ -6,7 +6,6 @@ import 'package:campus_mate/auth/school_email/model/repository/school_email_repo
 import 'package:campus_mate/auth/school_email/view/sign_up_screen.dart';
 import 'package:campus_mate/auth/school_email/view/verify_code_screen.dart';
 import 'package:campus_mate/common/result.dart';
-import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
 import 'package:campus_mate/core/router/app_router.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
@@ -92,21 +91,21 @@ void main() {
   group('02 변형은 관문을 따라간다', () {
     testWidgets('02 에 머무는 동안 서버 플래그가 꺼져 관문이 needsSchoolEmail 로 바뀌면 뒤로 화살표가 사라진다', (tester) async {
       await pumpAt(tester, VerificationGate.needsSchoolEmailChosen);
-      expect(find.byTooltip(onboardingBackLabel), findsOneWidget);
+      expect(find.byTooltip('뒤로'), findsOneWidget);
 
       await serverMovesTo(tester, VerificationGate.needsSchoolEmail);
 
       expect(find.byType(SignUpScreen), findsOneWidget);
-      expect(find.byTooltip(onboardingBackLabel), findsNothing);
+      expect(find.byTooltip('뒤로'), findsNothing);
     });
 
     testWidgets('반대로 needsSchoolEmail → needsSchoolEmailChosen 이면 화살표가 생긴다', (tester) async {
       await pumpAt(tester, VerificationGate.needsSchoolEmail);
-      expect(find.byTooltip(onboardingBackLabel), findsNothing);
+      expect(find.byTooltip('뒤로'), findsNothing);
 
       await serverMovesTo(tester, VerificationGate.needsSchoolEmailChosen);
 
-      expect(find.byTooltip(onboardingBackLabel), findsOneWidget);
+      expect(find.byTooltip('뒤로'), findsOneWidget);
     });
   });
 
@@ -165,14 +164,14 @@ void main() {
       await tester.tap(find.text('다음'));
       await tester.pumpAndSettle();
       expect(find.byType(SignUpScreen), findsOneWidget);
-      expect(find.byTooltip(onboardingBackLabel), findsOneWidget);
+      expect(find.byTooltip('뒤로'), findsOneWidget);
       expect(repository.chosen.single?.wire, 'school_email');
       expect(router.canPop(), isFalse);
       expect(depth(), 1);
 
       // 화살표 → 서버 값 비우기 → 관문이 "아직 안 골랐다" 로 돌아온다.
       gateRepository.nextResult = const Success(VerificationGate.needsVerificationMethod);
-      await tester.tap(find.byTooltip(onboardingBackLabel));
+      await tester.tap(find.byTooltip('뒤로'));
       await tester.pumpAndSettle();
       expect(find.byType(VerificationMethodScreen), findsOneWidget);
       expect(repository.chosen.last, isNull);
@@ -189,7 +188,7 @@ void main() {
       expect(depth(), 1);
 
       gateRepository.nextResult = const Success(VerificationGate.needsVerificationMethod);
-      await tester.tap(find.byTooltip(onboardingBackLabel));
+      await tester.tap(find.byTooltip('뒤로'));
       await tester.pumpAndSettle();
       expect(find.byType(VerificationMethodScreen), findsOneWidget);
       expect(router.canPop(), isFalse);

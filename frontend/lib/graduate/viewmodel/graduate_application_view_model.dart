@@ -13,9 +13,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 
-/// 압축이 사진을 못 읽었을 때. 서버 `errors.PHOTO_UNREADABLE` 과 같은 문구.
-const String graduatePhotoUnreadableMessage = '사진을 다시 확인해 주세요';
-
 /// 서버가 "지금 관문이 달라졌다" 고 알려 주는 코드(다른 기기가 먼저 냈다 · 그새 인증이 끝났다).
 /// 문구만 보이면 폼에 갇히므로 관문을 다시 물어 화면을 맞춘다.
 const List<String> _gateChangedCodes = ['already_pending', 'already_verified'];
@@ -121,7 +118,7 @@ class GraduateApplicationViewModel extends Notifier<GraduateApplicationUiState> 
       compressed = await _compressor.compressToJpeg(picked);
     } on Exception {
       await deleteCopy(picked);
-      if (ref.mounted) state = state.copyWith(errorMessage: graduatePhotoUnreadableMessage);
+      if (ref.mounted) state = state.copyWith(error: const AppErrorFailure(AppError.photoUnreadable));
       return;
     }
     if (compressed.path != picked.path) await deleteCopy(picked);
@@ -183,7 +180,7 @@ class GraduateApplicationViewModel extends Notifier<GraduateApplicationUiState> 
       state = state.copyWith(isSubmitting: false, isExhausted: true);
       return;
     }
-    state = state.copyWith(isSubmitting: false, errorMessage: failure.toDisplayMessage());
+    state = state.copyWith(isSubmitting: false, error: failure);
     if (failure is ServerRejectedFailure && _gateChangedCodes.any(failure.hasCode)) {
       await ref.read(verificationGateListenableProvider).refresh();
     }

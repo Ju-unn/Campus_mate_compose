@@ -116,14 +116,14 @@ void main() {
     expect(gateRepository.fetchCount, 0);
   });
 
-  test('제출에 실패하면 errorMessage 가 채워지고 completed 는 그대로다', () async {
+  test('제출에 실패하면 error 가 채워지고 completed 는 그대로다', () async {
     repository.nextSubmitResult = const FailureResult(ServerRejectedFailure('이미 제출한 정보예요'));
     final container = buildContainer();
     final viewModel = buildSubmittableViewModel(container);
 
     await viewModel.submit();
 
-    expect(readState(container).errorMessage, '이미 제출한 정보예요');
+    expect((readState(container).error! as ServerRejectedFailure).serverMessage, '이미 제출한 정보예요');
     expect(readState(container).completed, isFalse);
     expect(readState(container).isSubmitting, isFalse);
   });
@@ -148,6 +148,6 @@ void main() {
 
     expect(readState(container).isSubmitting, isFalse);
     expect(readState(container).completed, isFalse);
-    expect(readState(container).errorMessage, isNotNull);
+    expect(readState(container).error, isA<UnknownFailure>());
   });
 }

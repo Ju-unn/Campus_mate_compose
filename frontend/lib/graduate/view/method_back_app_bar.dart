@@ -1,4 +1,4 @@
-import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -28,7 +28,7 @@ class MethodBackAppBar extends StatelessWidget implements PreferredSizeWidget {
         // leading 자리는 높이 56 을 꽉 채운다 — 가운데에 두어야 누름 칸이 pen 대로 48×48 이다.
         child: Center(
           child: IconButton(
-            tooltip: onboardingBackLabel,
+            tooltip: context.l10n.commonBack,
             constraints: const BoxConstraints.tightFor(width: 48, height: 48),
             onPressed: onBack,
             icon: const Icon(AppIcons.arrowLeft, size: 22, color: AppColors.ink),

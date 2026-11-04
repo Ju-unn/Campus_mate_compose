@@ -3,9 +3,7 @@ import 'dart:async';
 import 'package:campus_mate/auth/school_email/view/sign_up_screen.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
-import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
-import 'package:campus_mate/core/back_exit/back_exit_view_model.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -40,7 +38,7 @@ void main() {
       await pump(tester, hasMethodPicker: true);
 
       expect(tester.getSize(find.byType(AppBar)).height, 56);
-      final arrow = find.byTooltip(onboardingBackLabel);
+      final arrow = find.byTooltip('뒤로');
       expect(tester.getSize(arrow), const Size(48, 48));
       expect(tester.getTopLeft(arrow).dx, 12);
       expect(tester.widget<Icon>(find.byIcon(AppIcons.arrowLeft)).size, 22);
@@ -56,11 +54,11 @@ void main() {
     testWidgets('화살표: 서버 값을 비우는 호출 한 번(null), 종료 안내는 없다', (tester) async {
       await pump(tester, hasMethodPicker: true);
 
-      await tester.tap(find.byTooltip(onboardingBackLabel));
+      await tester.tap(find.byTooltip('뒤로'));
       await tester.pump();
 
       expect(harness.repository.chosen, [null]);
-      expect(find.text(backExitMessage), findsNothing);
+      expect(find.text('한 번 더 누르면 종료돼요'), findsNothing);
     });
 
     testWidgets('시스템 뒤로: 화살표와 같은 호출 한 번, 종료 안내 토스트 · 종료 없음', (tester) async {
@@ -70,7 +68,7 @@ void main() {
       await tester.pump();
 
       expect(harness.repository.chosen, [null]);
-      expect(find.text(backExitMessage), findsNothing);
+      expect(find.text('한 번 더 누르면 종료돼요'), findsNothing);
       expect(exitCalls, 0);
     });
 
@@ -78,9 +76,9 @@ void main() {
       harness.repository.holdChoose = Completer<void>();
       await pump(tester, hasMethodPicker: true);
 
-      await tester.tap(find.byTooltip(onboardingBackLabel));
+      await tester.tap(find.byTooltip('뒤로'));
       await tester.binding.handlePopRoute();
-      await tester.tap(find.byTooltip(onboardingBackLabel));
+      await tester.tap(find.byTooltip('뒤로'));
       await tester.pump();
 
       expect(harness.repository.chosen, hasLength(1));
@@ -92,7 +90,7 @@ void main() {
       harness.repository.chooseResult = const FailureResult(NetworkFailure());
       await pump(tester, hasMethodPicker: true);
 
-      await tester.tap(find.byTooltip(onboardingBackLabel));
+      await tester.tap(find.byTooltip('뒤로'));
       await tester.pump();
       await tester.pump();
 
@@ -121,7 +119,7 @@ void main() {
       await pump(tester, hasMethodPicker: false);
 
       expect(find.byType(AppBar), findsNothing);
-      expect(find.byTooltip(onboardingBackLabel), findsNothing);
+      expect(find.byTooltip('뒤로'), findsNothing);
       expect(tester.getTopLeft(find.byType(Image).first).dy, 0);
     });
 
@@ -130,7 +128,7 @@ void main() {
 
       await tester.binding.handlePopRoute();
       await tester.pump();
-      expect(find.text(backExitMessage), findsOneWidget);
+      expect(find.text('한 번 더 누르면 종료돼요'), findsOneWidget);
       expect(exitCalls, 0);
 
       await tester.binding.handlePopRoute();

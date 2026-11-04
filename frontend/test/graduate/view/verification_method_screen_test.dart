@@ -3,7 +3,6 @@ import 'dart:ui' show Tristate;
 
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
-import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/graduate/model/data/verification_method.dart';
@@ -54,7 +53,7 @@ void main() {
       await pump(tester);
 
       expect(find.byType(AppBar), findsNothing);
-      expect(find.byTooltip(onboardingBackLabel), findsNothing);
+      expect(find.byTooltip('뒤로'), findsNothing);
     });
   });
 

@@ -69,7 +69,7 @@ void main() {
 
     final state = container.read(verifyCodeViewModelProvider(email));
     expect(repository.calls, ['verifyCode']);
-    expect(state.errorMessage, '코드가 맞지 않아요. 다시 확인해 주세요.');
+    expect(state.error, isA<WrongCodeFailure>());
     expect(state.isCodeRejected, isTrue);
     expect(gateRepository.fetchCount, 0);
   });
@@ -90,9 +90,8 @@ void main() {
     final (container, _) = await takenBy('google', mine: 'kakao');
 
     final state = container.read(verifyCodeViewModelProvider(email));
-    expect(state.errorMessage, '이미 구글로 가입된 학교 메일이에요');
-    expect(state.errorHint, '구글로 로그인해 주세요');
-    expect(state.reloginLabel, '구글로 다시 로그인');
+    // 글자(첫 줄 · 둘째 줄 · 다시 로그인 단추)는 화면이 이 실패에서 만든다 — verify_code_screen_test 가 지킨다.
+    expect(state.error, isA<SchoolEmailTakenFailure>().having((failure) => failure.otherSocialProvider(), 'otherSocialProvider', 'google'));
     expect(state.isTakenBySocial, isTrue);
     expect(state.canChooseAnotherEmail, isTrue);
     expect(state.isCodeRejected, isFalse);
@@ -104,9 +103,7 @@ void main() {
     final (container, _) = await takenBy('kakao', mine: 'kakao');
 
     final state = container.read(verifyCodeViewModelProvider(email));
-    expect(state.errorMessage, '이미 가입된 학교 메일이에요');
-    expect(state.errorHint, '한 학교 메일로는 계정 하나만 만들 수 있어요');
-    expect(state.reloginLabel, isNull);
+    expect(state.error, isA<SchoolEmailTakenFailure>().having((failure) => failure.otherSocialProvider(), 'otherSocialProvider', isNull));
     expect(state.isTakenBySocial, isTrue);
     expect(state.canChooseAnotherEmail, isTrue);
   });
@@ -115,9 +112,7 @@ void main() {
     final (container, _) = await takenBy('email', mine: 'kakao');
 
     final state = container.read(verifyCodeViewModelProvider(email));
-    expect(state.errorMessage, SchoolEmailTakenFailure.takenByEmailAccountMessage);
-    expect(state.errorHint, isNull);
-    expect(state.reloginLabel, isNull);
+    expect(state.error, isA<SchoolEmailTakenFailure>().having((failure) => failure.isTakenByEmailAccount(), 'isTakenByEmailAccount', isTrue));
     expect(state.isTakenBySocial, isFalse);
     expect(state.canChooseAnotherEmail, isTrue);
   });
@@ -144,8 +139,8 @@ void main() {
       await viewModel.submit();
       expect(signedOut, isEmpty, reason: '409 만으로는 로그아웃하지 않는다');
 
-      await viewModel.relogin();
-      await viewModel.relogin(); // 연타 — 로그아웃은 한 번만
+      await viewModel.relogin('이 학교 메일은 카카오로 가입돼 있어요. 카카오로 로그인해 주세요');
+      await viewModel.relogin('이 학교 메일은 카카오로 가입돼 있어요. 카카오로 로그인해 주세요'); // 연타 — 로그아웃은 한 번만
 
       expect(signedOut, ['signOut']);
       final notice = LoginNotice.take();
@@ -168,7 +163,7 @@ void main() {
       viewModel.changeCode('123456');
       await viewModel.submit();
 
-      await viewModel.relogin();
+      await viewModel.relogin('아무 글');
 
       expect(signedOut, isEmpty);
       expect(LoginNotice.take(), isNull);
@@ -185,8 +180,7 @@ void main() {
     await viewModel.submit();
 
     final state = container.read(verifyCodeViewModelProvider(email));
-    expect(state.errorMessage, '학교 메일 인증을 마치지 못했어요. 잠시 뒤 다시 시도해 주세요');
-    expect(state.errorHint, isNull);
+    expect(state.error, isA<SchoolEmailIncompleteFailure>());
     expect(state.isSubmitting, isFalse);
   });
 
@@ -199,10 +193,13 @@ void main() {
 
     await viewModel.submit();
 
-    expect(container.read(verifyCodeViewModelProvider(email)).errorMessage, '재가입이 제한된 메일이에요');
+    expect(
+      (container.read(verifyCodeViewModelProvider(email)).error! as ServerRejectedFailure).serverMessage,
+      '재가입이 제한된 메일이에요',
+    );
   });
 
-  test('검증이 실패하면 errorMessage 가 채워진다', () async {
+  test('검증이 실패하면 error 가 채워진다', () async {
     final repository = FakeSchoolEmailRepository()..nextVerifyCodeResult = const FailureResult(UnknownFailure());
     final container = buildContainer(repository);
     final viewModel = container.read(verifyCodeViewModelProvider(email).notifier);
@@ -211,7 +208,7 @@ void main() {
     await viewModel.submit();
 
     final state = container.read(verifyCodeViewModelProvider(email));
-    expect(state.errorMessage, '알 수 없는 오류가 발생했습니다');
+    expect(state.error, isA<UnknownFailure>());
     expect(state.verified, isFalse);
   });
 
@@ -403,13 +400,13 @@ void main() {
       final viewModel = container.read(verifyCodeViewModelProvider(email).notifier);
       viewModel.changeCode('000000');
       await viewModel.submit();
-      expect(container.read(verifyCodeViewModelProvider(email)).errorMessage, isNotNull);
+      expect(container.read(verifyCodeViewModelProvider(email)).error, isNotNull);
       now = now.add(const Duration(minutes: 3));
 
       await viewModel.startOver();
 
       final state = container.read(verifyCodeViewModelProvider(email));
-      expect((state.codeInput, state.errorMessage, state.isCodeRejected), ('', null, false));
+      expect((state.codeInput, state.error, state.isCodeRejected), ('', null, false));
       expect(state.codeExpiresAt, now.add(codeLifetime));
       expect(state.resendAvailableAt, now.add(const Duration(seconds: 60)));
     });

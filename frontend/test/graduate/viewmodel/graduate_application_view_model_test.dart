@@ -119,7 +119,7 @@ void main() {
       await model.pickPhoto();
 
       expect(state().photo, isNull);
-      expect(state().errorMessage, graduatePhotoUnreadableMessage);
+      expect(state().error, isA<AppErrorFailure>().having((failure) => failure.error, 'error', AppError.photoUnreadable));
       expect(deleted, ['picked.jpg']);
     });
 
@@ -278,7 +278,7 @@ void main() {
       await model.submit();
 
       expect(gateRepository.fetchCount, 1);
-      expect(state().errorMessage, isNull);
+      expect(state().error, isNull);
       expect(state().isSubmitting, isFalse);
     });
 
@@ -296,7 +296,7 @@ void main() {
 
       await model.submit();
 
-      expect(state().errorMessage, '네트워크 연결을 확인해 주세요');
+      expect(state().error, isA<NetworkFailure>());
       expect(gateRepository.fetchCount, 0);
     });
 
@@ -345,7 +345,7 @@ void main() {
 
       await model.submit();
 
-      expect(state().errorMessage, '이미 심사 중이에요, 결과를 기다려 주세요');
+      expect((state().error! as ServerRejectedFailure).serverMessage, '이미 심사 중이에요, 결과를 기다려 주세요');
       expect(gateRepository.fetchCount, 1);
     });
 
@@ -357,7 +357,7 @@ void main() {
 
       await model.submit();
 
-      expect(state().errorMessage, '개인정보 수집에 동의해 주세요');
+      expect((state().error! as ServerRejectedFailure).serverMessage, '개인정보 수집에 동의해 주세요');
       expect(gateRepository.fetchCount, 0);
     });
   });
@@ -371,7 +371,7 @@ void main() {
 
       expect(state().isExhausted, isTrue);
       expect(state().canSubmit, isFalse);
-      expect(state().errorMessage, isNull, reason: '문의 안내가 대신 보인다');
+      expect(state().error, isNull, reason: '문의 안내가 대신 보인다');
     });
 
     test('반려 뒤 남은 횟수가 0 이면 처음부터 문의 안내 상태다', () async {

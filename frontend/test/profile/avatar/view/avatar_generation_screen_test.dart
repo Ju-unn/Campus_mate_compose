@@ -152,7 +152,7 @@ void main() {
         expect(find.byType(OnboardingAppBar), findsNothing);
         expect(find.byType(AppBar), findsNothing);
         expect(find.byType(LinearProgressIndicator), findsNothing);
-        expect(find.byTooltip(onboardingBackLabel), findsNothing);
+        expect(find.byTooltip('뒤로'), findsNothing);
       });
     }
   });

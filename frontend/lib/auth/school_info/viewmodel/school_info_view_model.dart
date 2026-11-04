@@ -40,7 +40,7 @@ class SchoolInfoViewModel extends Notifier<SchoolInfoUiState> {
     if (department == null || studentNumber == null) {
       return;
     }
-    state = _copyWith(isSubmitting: true, errorMessage: null);
+    state = _copyWith(isSubmitting: true, error: null);
     state = await _submittedState(department, studentNumber);
     _refreshGateIfCompleted();
   }
@@ -64,7 +64,7 @@ class SchoolInfoViewModel extends Notifier<SchoolInfoUiState> {
       final result = await repository.submit(department, studentNumber);
       return _stateFromResult(result);
     } catch (_) {
-      return _copyWith(isSubmitting: false, errorMessage: const UnknownFailure().toDisplayMessage());
+      return _copyWith(isSubmitting: false, error: const UnknownFailure());
     }
   }
 
@@ -72,12 +72,12 @@ class SchoolInfoViewModel extends Notifier<SchoolInfoUiState> {
   SchoolInfoUiState _stateFromResult(Result<void> result) {
     return result.when(
       onSuccess: (_) => _copyWith(isSubmitting: false, completed: true),
-      onFailure: (failure) => _copyWith(isSubmitting: false, errorMessage: failure.toDisplayMessage()),
+      onFailure: (failure) => _copyWith(isSubmitting: false, error: failure),
     );
   }
 
   /// 넘긴 필드만 바꾼 새 상태를 만든다.
-  /// `department`·`studentNumber`·`errorMessage` 는 [_keep] 기본값이라
+  /// `department`·`studentNumber`·`error` 는 [_keep] 기본값이라
   /// `null` 을 넘기면 실제로 값이 지워진다.
   SchoolInfoUiState _copyWith({
     String? departmentInput,
@@ -85,7 +85,7 @@ class SchoolInfoViewModel extends Notifier<SchoolInfoUiState> {
     String? studentNumberInput,
     Object? studentNumber = _keep,
     bool? isSubmitting,
-    Object? errorMessage = _keep,
+    Object? error = _keep,
     bool? completed,
   }) {
     return SchoolInfoUiState(
@@ -94,7 +94,7 @@ class SchoolInfoViewModel extends Notifier<SchoolInfoUiState> {
       studentNumberInput: studentNumberInput ?? state.studentNumberInput,
       studentNumber: identical(studentNumber, _keep) ? state.studentNumber : studentNumber as StudentNumber?,
       isSubmitting: isSubmitting ?? state.isSubmitting,
-      errorMessage: identical(errorMessage, _keep) ? state.errorMessage : errorMessage as String?,
+      error: identical(error, _keep) ? state.error : error as Failure?,
       completed: completed ?? state.completed,
     );
   }

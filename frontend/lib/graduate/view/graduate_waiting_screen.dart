@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:campus_mate/core/auth/logout_text_button.dart';
 import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/verification_gate_listenable_provider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -88,9 +89,9 @@ class _GraduateWaitingScreenState extends ConsumerState<GraduateWaitingScreen> w
                             excludeFromSemantics: true,
                           ),
                           const SizedBox(height: AppSpacing.md),
-                          Text('졸업생 확인 중이에요', textAlign: TextAlign.center, style: _titleStyle),
+                          Text(context.l10n.graduateWaitingTitle, textAlign: TextAlign.center, style: _titleStyle),
                           const SizedBox(height: AppSpacing.md),
-                          Text('결과는 알림으로 알려 드려요', textAlign: TextAlign.center, style: _bodyStyle),
+                          Text(context.l10n.graduateWaitingBody, textAlign: TextAlign.center, style: _bodyStyle),
                         ],
                       ),
                     ),
