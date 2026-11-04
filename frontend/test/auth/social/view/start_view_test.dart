@@ -505,6 +505,24 @@ void main() {
       expect(tester.getRect(entrance()), const Rect.fromLTWH(10, 44, 340, 180));
     });
 
+    // 지킴 시험: 입구가 소셜 버튼 위에 얹히면 버튼 탭을 가로챈다. 로고 사각형 · 버튼 높이가 바뀌어도 조용히 겹치지 않게,
+    // 낮은 화면 + 큰 글자에서 입구와 각 소셜 버튼 사각형이 닿지 않는지 지킨다(글자 3배는 320×480 에서 이미 0.4px 겹쳐 범위 밖).
+    for (final scale in [1.0, 2.0]) {
+      for (final size in [const Size(360, 780), const Size(320, 568), const Size(320, 480)]) {
+        testWidgets('$scale배 · ${size.width.toInt()}×${size.height.toInt()} 에서 입구는 소셜 로그인 버튼과 겹치지 않는다', (tester) async {
+          await _pump(tester, textScale: scale, size: size);
+
+          final entranceRect = tester.getRect(entrance());
+          final buttons = find.byType(SocialLoginButton);
+          expect(buttons, findsNWidgets(2));
+          for (final button in buttons.evaluate()) {
+            final buttonRect = tester.getRect(find.byElementPredicate((element) => element == button));
+            expect(entranceRect.overlaps(buttonRect), isFalse, reason: '입구 $entranceRect 가 소셜 버튼 $buttonRect 와 겹친다');
+          }
+        }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+      }
+    }
+
     testWidgets('로고 자리를 7번 누르면 심사원 로그인 시트가 열린다', (tester) async {
       await _pump(tester, size: const Size(360, 780));
 
