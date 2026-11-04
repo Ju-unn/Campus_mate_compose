@@ -1,4 +1,4 @@
-import 'package:campus_mate/billing/model/billing_repository.dart';
+import 'package:campus_mate/billing/model/billing_status.dart';
 import 'package:campus_mate/billing/model/heart_bundles.dart';
 import 'package:campus_mate/billing/model/heart_purchase_notice.dart';
 import 'package:campus_mate/billing/model/store_purchase.dart';

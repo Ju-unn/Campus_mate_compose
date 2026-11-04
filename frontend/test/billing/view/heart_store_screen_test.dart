@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:campus_mate/billing/model/billing_repository.dart';
 import 'package:campus_mate/billing/model/billing_repository_provider.dart';
 import 'package:campus_mate/billing/model/heart_store_gateway.dart';
 import 'package:campus_mate/billing/model/heart_task.dart';
@@ -35,6 +34,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:campus_mate/billing/model/billing_status.dart';
 
 import '../../core/analytics/fake_analytics_service.dart';
 import '../../me/model/repository/fake_me_repository.dart';

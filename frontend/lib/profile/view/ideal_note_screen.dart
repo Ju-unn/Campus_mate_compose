@@ -7,7 +7,7 @@ import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
-import 'package:campus_mate/profile/model/ideal_note_repository.dart';
+import 'package:campus_mate/profile/model/ideal_note_limits.dart';
 import 'package:campus_mate/profile/view/onboarding_back.dart';
 import 'package:campus_mate/profile/view/writing_example.dart';
 import 'package:campus_mate/profile/viewmodel/ideal_note_ui_state.dart';

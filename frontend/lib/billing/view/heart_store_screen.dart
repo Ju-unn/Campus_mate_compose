@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:campus_mate/billing/model/heart_bundles.dart';
 import 'package:campus_mate/billing/model/heart_purchase_notice.dart';
-import 'package:campus_mate/billing/model/payment_store.dart';
+import 'package:campus_mate/billing/model/payment_store_provider.dart';
 import 'package:campus_mate/billing/view/heart_bundle_card.dart';
 import 'package:campus_mate/billing/view/heart_payment_notice.dart';
 import 'package:campus_mate/billing/view/heart_purchase_banner.dart';

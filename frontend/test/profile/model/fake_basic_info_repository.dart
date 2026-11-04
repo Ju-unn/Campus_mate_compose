@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/profile/model/basic_info_repository.dart';
+import 'package:campus_mate/profile/model/basic_info_submission.dart';
 
 class FakeBasicInfoRepository implements BasicInfoRepository {
   Result<bool> nextAvailabilityResult = const Success(true);

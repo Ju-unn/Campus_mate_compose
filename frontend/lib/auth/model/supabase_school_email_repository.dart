@@ -1,3 +1,4 @@
+import 'package:campus_mate/auth/model/school_email_attempt.dart';
 import 'package:campus_mate/auth/model/school_email_repository.dart';
 import 'package:campus_mate/auth/model/temporary_auth_connection.dart';
 import 'package:campus_mate/auth/model/university_email.dart';

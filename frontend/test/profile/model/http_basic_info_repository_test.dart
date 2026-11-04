@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/core/http/api_client.dart';
-import 'package:campus_mate/profile/model/basic_info_repository.dart';
+import 'package:campus_mate/profile/model/basic_info_submission.dart';
 import 'package:campus_mate/profile/model/http_basic_info_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;

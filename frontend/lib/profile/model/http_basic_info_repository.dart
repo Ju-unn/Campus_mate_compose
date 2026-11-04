@@ -1,6 +1,7 @@
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/http/api_client.dart';
 import 'package:campus_mate/profile/model/basic_info_repository.dart';
+import 'package:campus_mate/profile/model/basic_info_submission.dart';
 
 /// [BasicInfoRepository]를 FastAPI 호출로 구현한다.
 class HttpBasicInfoRepository implements BasicInfoRepository {

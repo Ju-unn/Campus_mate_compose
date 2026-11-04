@@ -1,4 +1,5 @@
 import 'package:campus_mate/billing/model/payment_store.dart';
+import 'package:campus_mate/billing/model/payment_store_provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';

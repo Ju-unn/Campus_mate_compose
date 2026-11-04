@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:campus_mate/billing/model/billing_repository.dart';
+import 'package:campus_mate/billing/model/billing_status.dart';
 import 'package:campus_mate/billing/model/http_billing_repository.dart';
 import 'package:campus_mate/billing/model/payment_store.dart';
 import 'package:campus_mate/common/failure.dart';

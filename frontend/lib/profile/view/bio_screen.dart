@@ -9,7 +9,7 @@ import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
-import 'package:campus_mate/profile/model/bio_repository.dart';
+import 'package:campus_mate/profile/model/bio_limits.dart';
 import 'package:campus_mate/profile/view/onboarding_back.dart';
 import 'package:campus_mate/profile/view/writing_example.dart';
 import 'package:campus_mate/profile/viewmodel/bio_ui_state.dart';

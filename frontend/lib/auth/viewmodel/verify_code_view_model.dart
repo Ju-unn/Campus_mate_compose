@@ -1,5 +1,5 @@
 import 'package:campus_mate/account/model/data/login_notice.dart';
-import 'package:campus_mate/auth/model/school_email_repository.dart';
+import 'package:campus_mate/auth/model/school_email_attempt.dart';
 import 'package:campus_mate/auth/model/school_email_repository_provider.dart';
 import 'package:campus_mate/auth/model/university_email.dart';
 import 'package:campus_mate/auth/model/verification_code.dart';

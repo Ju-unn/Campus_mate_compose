@@ -1,6 +1,7 @@
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/http/api_client.dart';
 import 'package:campus_mate/profile/model/ideal_conditions_repository.dart';
+import 'package:campus_mate/profile/model/ideal_conditions_submission.dart';
 
 /// [IdealConditionsRepository]를 FastAPI 호출로 구현한다.
 class HttpIdealConditionsRepository implements IdealConditionsRepository {

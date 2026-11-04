@@ -1,4 +1,4 @@
-import 'package:campus_mate/billing/model/payment_store.dart';
+import 'package:campus_mate/billing/model/payment_store_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/consent/model/data/consent_links.dart';
 import 'package:campus_mate/consent/model/repository/open_url.dart';
