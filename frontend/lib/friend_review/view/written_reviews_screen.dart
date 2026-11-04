@@ -271,7 +271,7 @@ class WritableFriendRow extends StatelessWidget {
                 FriendReviewInitial(
                   nickname: nickname,
                   size: 40,
-                  // pen HP0vI 원 #FFF0F2 · YAaTW 17/600 ink.
+                  // pen HP0vI 원 #FFF0F2 · YAaTW 18/600 ink.
                   style: AppTypography.subtitle.copyWith(color: AppColors.ink, height: 1),
                 ),
                 const SizedBox(width: AppSpacing.sm),

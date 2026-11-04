@@ -76,7 +76,7 @@ DateTime seoulClock(DateTime value) => value.toUtc().add(const Duration(hours: 9
 ///
 /// `ZvKiJ` 값(마스터 Badge `XPRBv` 인스턴스, resolveVariables 로 읽음): 채움 #E00B41 = `primary-pressed`,
 /// 모서리 999 · 패딩 [6,10] · 간격 4 · 높이 30, 아이콘 lucide `shopping-bag` 18 흰색,
-/// 글자 "구매 카드" 11/600 흰색 — `AppTypography.badge` 와 같다(pen lineHeight 1.5 는 기존 배지 둘과 같은 드리프트).
+/// 글자 "구매 카드" 10/600 흰색 — `AppTypography.badge` 와 같다(pen lineHeight 1.5 는 기존 배지 둘과 같은 드리프트).
 class _BadgeRow extends StatelessWidget {
   const _BadgeRow({required this.source, required this.expiresAt});
 

@@ -104,7 +104,7 @@ class KakaoSettingExample extends StatelessWidget {
         children: [
           Text(
             '카카오톡 설정 화면 예시',
-            // 토큰 badge(11/600)에서 굵기만 pen 값으로 낮춘다.
+            // 토큰 badge(10/600)에서 굵기만 pen 값으로 낮춘다.
             style: AppTypography.badge.copyWith(color: AppColors.disabled, fontWeight: FontWeight.w500),
           ),
           // 캡션과 패널 사이는 카드 gap 과 같은 12 다(pen 실측).

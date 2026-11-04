@@ -7,7 +7,7 @@ import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 
 /// 약관 동의 줄(pen 마스터 ConsentRow `rmMvJ` 꺼짐 · `jFMyA` 켜짐). 체크 영역과 "보기 ›" 사이 8.
-/// 체크 영역: 위아래 12 · 간격 12 · [체크 24][뱃지][글]. 전체 동의는 같은 마스터에서 뱃지 · 보기를 끄고 17/600 이다.
+/// 체크 영역: 위아래 12 · 간격 12 · [체크 24][뱃지][글]. 전체 동의는 같은 마스터에서 뱃지 · 보기를 끄고 18/600 이다.
 class ConsentRow extends StatelessWidget {
   const ConsentRow({
     required this.label,
@@ -75,7 +75,7 @@ class ConsentRow extends StatelessWidget {
   }
 }
 
-/// 필수 · 선택 뱃지(pen Badge · Text `Aioxz`). 알약 · 여백 [2,6] · 11/700.
+/// 필수 · 선택 뱃지(pen Badge · Text `Aioxz`). 알약 · 여백 [2,6] · 10/700.
 class _Badge extends StatelessWidget {
   const _Badge({required this.isRequired});
 
@@ -95,7 +95,7 @@ class _Badge extends StatelessWidget {
         style: AppTypography.badge.copyWith(
           fontWeight: FontWeight.w700,
           color: isRequired ? AppColors.primaryText : AppColors.muted,
-          height: 16 / 11,
+          height: 16 / 10,
         ),
       ),
     );

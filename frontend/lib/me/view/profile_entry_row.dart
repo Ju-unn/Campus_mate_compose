@@ -96,7 +96,7 @@ class _Copy extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // pen 줄높이 1.5 인데 렌더 높이는 25(`ZMu82`) — 25/16 으로 맞춘다. subtitle 토큰(17/600)이 아니라 16/600 이 pen 값이다.
+        // pen 줄높이 1.5 인데 렌더 높이는 25(`ZMu82`) — 25/16 으로 맞춘다. subtitle 토큰(18/600)이 아니라 16/600 이 pen 값이다.
         Text(title, style: AppTypography.bodyStrong.copyWith(height: 25 / 16, color: AppColors.ink)),
         const SizedBox(height: 3),
         Text(note, style: AppTypography.bodySmall.copyWith(height: 1.5, color: AppColors.muted)),

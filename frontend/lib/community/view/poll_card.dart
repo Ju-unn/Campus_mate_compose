@@ -82,11 +82,11 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        // pen `LHkpo` · `MpYr6`: #F2F2F2 pill, [3,10], 11/600 #3F3F3F. 글자는 줄 높이 속성 없음, 렌더 16 → 칩 22.
+        // pen `LHkpo` · `MpYr6`: #F2F2F2 pill, [3,10], 10/600 #3F3F3F. 글자는 줄 높이 속성 없음, 렌더 16 → 칩 22.
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
           decoration: BoxDecoration(color: AppColors.surfaceStrong, borderRadius: BorderRadius.circular(AppRadius.pill)),
-          child: Text('익명', style: AppTypography.badge.copyWith(color: AppColors.body, height: 16 / 11)),
+          child: Text('익명', style: AppTypography.badge.copyWith(color: AppColors.body, height: 16 / 10)),
         ),
         const SizedBox(width: AppSpacing.xs),
         // pen `G85OOq` 은 11/500 — 11px 은 뱃지만이라 12 로 올린다(대장 예외).

@@ -303,8 +303,8 @@ class _Empty extends StatelessWidget {
                   Text(
                     '아직 차단한 상대가 없어요',
                     textAlign: TextAlign.center,
-                    // pen `ZBzIg` 17/600, 줄높이 속성 없음 · 렌더 25.
-                    style: AppTypography.subtitle.copyWith(color: AppColors.ink, height: 25 / 17),
+                    // pen `ZBzIg` 18/600, 줄높이 속성 없음 · 렌더 25.
+                    style: AppTypography.subtitle.copyWith(color: AppColors.ink, height: 25 / 18),
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(

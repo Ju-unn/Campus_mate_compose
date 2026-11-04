@@ -172,7 +172,7 @@ class _Empty extends StatelessWidget {
                   Text(
                     '아직 차단한 연락처가 없어요',
                     textAlign: TextAlign.center,
-                    // pen `ZBzIg` 17/600 ink.
+                    // pen `ZBzIg` 18/600 ink.
                     style: AppTypography.subtitle.copyWith(color: AppColors.ink),
                   ),
                   const SizedBox(height: AppSpacing.xs),

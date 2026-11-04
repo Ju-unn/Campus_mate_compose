@@ -121,7 +121,7 @@ class FriendReviewListFrame extends ConsumerWidget {
   }
 }
 
-/// 빈 상태(Empty `TVc8b` 모양 — 16f `KLSeQ` · 20e-1 `QlDBt`): 마스코트 120 → 24 → 제목 17/600 → 8 → 설명, 가운데.
+/// 빈 상태(Empty `TVc8b` 모양 — 16f `KLSeQ` · 20e-1 `QlDBt`): 마스코트 120 → 24 → 제목 18/600 → 8 → 설명, 가운데.
 /// 글자를 키워 칸을 넘치면 스크롤한다.
 class FriendReviewEmpty extends StatelessWidget {
   const FriendReviewEmpty({required this.mascot, required this.title, this.description, super.key});
@@ -146,8 +146,8 @@ class FriendReviewEmpty extends StatelessWidget {
             Text(
               title,
               textAlign: TextAlign.center,
-              // pen `ZBzIg` 17/600, 줄높이 속성 없음 · 렌더 25.
-              style: AppTypography.subtitle.copyWith(color: AppColors.ink, height: 25 / 17),
+              // pen `ZBzIg` 18/600, 줄높이 속성 없음 · 렌더 25.
+              style: AppTypography.subtitle.copyWith(color: AppColors.ink, height: 25 / 18),
             ),
             if (description != null) ...[
               const SizedBox(height: AppSpacing.xs),

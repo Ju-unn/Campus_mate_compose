@@ -438,7 +438,7 @@ class _HeroButton extends StatelessWidget {
   }
 }
 
-/// 결정 대기 장수 배지(pen `Q4nCLG` — hero 우상단 16 · 32×24 · #FF385C 알약, 숫자 11/600 흰색). 0 이면 hero 가 결정 대기 상태가 아니라 안 뜬다.
+/// 결정 대기 장수 배지(pen `Q4nCLG` — hero 우상단 16 · 32×24 · #FF385C 알약, 숫자 10/600 흰색). 0 이면 hero 가 결정 대기 상태가 아니라 안 뜬다.
 /// 같은 수를 hero 문구가 이미 말하므로 스크린리더에는 읽히지 않는다.
 class _PendingBadge extends StatelessWidget {
   const _PendingBadge(this.count);
