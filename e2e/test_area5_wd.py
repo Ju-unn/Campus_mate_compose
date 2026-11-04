@@ -584,7 +584,7 @@ class ServerFactsTest(unittest.TestCase):
         self.assertIn('if (response.statusCode == 401) {\n    return const FailureResult(SessionRejectedFailure());', send.replace('\r\n', '\n'))
         status = lib('core', 'auth', 'account_status_listenable.dart')
         self.assertIn('case SessionRejectedFailure() when _status != AccountStatus.withdrawn:', status)
-        notice = lib('account', 'model', 'login_notice.dart')
+        notice = lib('account', 'model', 'data', 'login_notice.dart')
         self.assertIn('AccountStatus.withdrawn => const WithdrawnFailure(),', notice)
         self.assertIn('AccountStatus.expired => const SessionRejectedFailure(),', notice)
         failure = lib('common', 'failure.dart')
@@ -612,7 +612,7 @@ class ServerFactsTest(unittest.TestCase):
 
     def test_the_pause_route_is_the_one_the_fake_answers(self):
         self.assertIn('@router.patch("/cards/matching-paused")', backend('cards', 'router.py'))
-        self.assertIn("_api.send('PATCH', '/cards/matching-paused'", lib('matching', 'model', 'http_card_repository.dart'))
+        self.assertIn("_api.send('PATCH', '/cards/matching-paused'", lib('matching', 'model', 'repository', 'http_card_repository.dart'))
 
 
 class PaidFactsTest(unittest.TestCase):

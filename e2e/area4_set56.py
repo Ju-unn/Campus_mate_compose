@@ -12,7 +12,7 @@ from e2e.area1 import Check, _app, _signed_in
 from e2e.area4 import stepper
 from e2e.tools import Blocked
 
-# 줄 → 그 줄이 여는 노션 페이지 id(frontend/lib/consent/model/consent_links.dart 의 _termsPage · _privacyPage — 시험이 맞춰 본다)
+# 줄 → 그 줄이 여는 노션 페이지 id(frontend/lib/consent/model/data/consent_links.dart 의 _termsPage · _privacyPage — 시험이 맞춰 본다)
 PAGES = {'이용약관': '3e9d998f0dee8082be84e126630b02a7', '개인정보처리방침': '3ead998f0dee80d08709d6b75c79ddc0'}
 FRONT_WAIT = 10  # 줄을 누른 뒤 맨 앞 앱이 바뀌기를 기다리는 시간(초)
 HUMAN = '사람 필요: 기기 브라우저가 노션 페이지를 로그인 없이 여는지 · 이용약관은 약관동의 맨 위(I. 서비스 이용약관) · 처리방침은 별도 처리방침 페이지 맨 위 · 3D 아이콘 모양은 눈으로'

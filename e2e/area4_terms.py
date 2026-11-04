@@ -1,5 +1,5 @@
 """영역 4 약관 두 가설(묶음 area4-terms) — E-HEART-50(이용약관 I 부에 하트 조항 문장) · E-SET-57(02-c "보기 ›" 가 약관 페이지를 로그인 없이 연다).
-앱이 여는 노션 공개 페이지(frontend/lib/consent/model/consent_links.dart)가 대상이다. 기대값은 바탕화면 E2E_최종테스트_시나리오.md 의 그 줄.
+앱이 여는 노션 공개 페이지(frontend/lib/consent/model/data/consent_links.dart)가 대상이다. 기대값은 바탕화면 E2E_최종테스트_시나리오.md 의 그 줄.
 10-14 노션 재구성: 약관동의 페이지 = "I. CampusMate 서비스 이용약관" + "II. CampusMate 유료 서비스 약관", 개인정보 처리방침은 별도 페이지, 앵커 없음.
 
 E-HEART-50  폰 없이 PC 만. 노션은 스크립트로 그리는 페이지라 HTML 에는 글이 없어, 공개 페이지가 쓰는 chunk 주소(loadCachedPageChunkV2 — 비공식)로
@@ -23,7 +23,7 @@ from e2e.area1 import Check, _app, _signed_in
 from e2e.area4_set56 import _front
 from e2e.tools import Blocked
 
-LINKS = tools.ROOT / 'frontend' / 'lib' / 'consent' / 'model' / 'consent_links.dart'
+LINKS = tools.ROOT / 'frontend' / 'lib' / 'consent' / 'model' / 'data' / 'consent_links.dart'
 SITE = 'https://golden-leech-197.notion.site'  # consent_links.dart 의 _site 와 같은 공개 주소(시험이 맞춰 본다) — chunk 주소는 이 도메인이 받는다
 # 서비스 이용약관 제10조(하트) 1항 — 노션 게시 원본(바탕화면 CampusMate_문서/출시준비/노션_게시용/서비스이용약관.md) 그대로, 굵은 글씨 표시만 뺐다
 SENTENCE = '하트는 서비스 안에서만 쓰는 가상 재화이며 현금이나 다른 재화로 바꿀 수 없고 이용자 사이에 양도·선물할 수 없습니다. 구매한 하트에는 유효기간이 없습니다.'
