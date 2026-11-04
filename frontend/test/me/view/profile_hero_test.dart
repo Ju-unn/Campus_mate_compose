@@ -187,7 +187,7 @@ void main() {
   });
 
   group('보기 칩 `h9sFd`', () {
-    testWidgets('eye 14 흰색 + "상대에게 이렇게 보여요" 13/600 흰색 lh1.5, #222222 불투명 알약, 위 16 · 왼쪽 16', (tester) async {
+    testWidgets('eye 14 흰색 + "상대에게 이렇게 보여요" 14/600 흰색 lh1.5, #222222 불투명 알약, 위 16 · 왼쪽 16', (tester) async {
       await pump(tester, onRegenerate: () {});
 
       final chip = _fill(AppColors.surfaceInk, of: find.text('상대에게 이렇게 보여요')).first;
@@ -201,7 +201,7 @@ void main() {
       expect(tester.getTopLeft(find.byIcon(AppIcons.eye)).dx - tester.getTopLeft(chip).dx, 10);
       // 아이콘 14 → 4 → 글자.
       expect(tester.getTopLeft(find.text('상대에게 이렇게 보여요')).dx - tester.getTopRight(find.byIcon(AppIcons.eye)).dx, 4);
-      expectStyle(tester, '상대에게 이렇게 보여요', 13, FontWeight.w600, AppColors.onInk, 1.5);
+      expectStyle(tester, '상대에게 이렇게 보여요', 14, FontWeight.w600, AppColors.onInk, 1.5);
     });
   });
 
@@ -325,7 +325,7 @@ void main() {
   });
 
   group('다시 만들기 알약 `R5Quru`', () {
-    testWidgets('높이 34 흰 알약, 좌우 10 · 하트 16(heart-flat-vector-v3) → 4 → 13/600 primary-text lh1.5', (tester) async {
+    testWidgets('높이 34 흰 알약, 좌우 10 · 하트 16(heart-flat-vector-v3) → 4 → 14/600 primary-text lh1.5', (tester) async {
       await pump(tester, onRegenerate: () {});
 
       final material = tester.widget<Material>(_pill);
@@ -336,7 +336,7 @@ void main() {
       expect(tester.getTopLeft(_heart).dx - tester.getTopLeft(_pill).dx, 10);
       expect(tester.getTopLeft(find.text(_pillLabel)).dx - tester.getTopRight(_heart).dx, 4);
       expect(tester.getTopRight(_pill).dx - tester.getTopRight(find.text(_pillLabel)).dx, 10);
-      expectStyle(tester, _pillLabel, 13, FontWeight.w600, AppColors.primaryText, 1.5);
+      expectStyle(tester, _pillLabel, 14, FontWeight.w600, AppColors.primaryText, 1.5);
     });
 
     testWidgets('글자 20 은 고정이다 — 무료 차례(비용 0)에도 "· 20"(D6)', (tester) async {
@@ -381,7 +381,7 @@ void main() {
       expect(tester.widget<Material>(_pill).color, AppColors.primaryDisabled);
       expect(_heart, findsNothing);
       expect(find.text(_pillLabel), findsOneWidget);
-      expectStyle(tester, _pillLabel, 13, FontWeight.w600, AppColors.disabled, 1.5);
+      expectStyle(tester, _pillLabel, 14, FontWeight.w600, AppColors.disabled, 1.5);
       final ink = find.ancestor(of: find.text(_pillLabel), matching: find.byType(InkWell));
       expect(tester.widget<InkWell>(ink).onTap, isNull);
       expect(tester.widget<GestureDetector>(_pillTapTarget).onTap, isNull);

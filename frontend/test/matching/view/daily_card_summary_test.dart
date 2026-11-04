@@ -121,7 +121,7 @@ void main() {
 
     final clock = find.text('목요일 오전 7시까지');
     expect(clock, findsOneWidget);
-    expect(tester.widget<Text>(clock).style!.fontSize, 11);
+    expect(tester.widget<Text>(clock).style!.fontSize, 10);
     final icons = tester.widgetList<Icon3d>(find.byType(Icon3d)).map((i) => (i.icon, i.size));
     expect(icons, [(AppIcon3d.clock, 18.0), (AppIcon3d.badgeCheck, 18.0)]);
     final clockPill = find.ancestor(of: clock, matching: find.byType(Container)).first;
@@ -146,7 +146,7 @@ void main() {
       final label = find.text('구매 카드');
       expect(label, findsOneWidget);
       final style = tester.widget<Text>(label).style!;
-      expect(style.fontSize, 11);
+      expect(style.fontSize, 10);
       expect(style.fontWeight, FontWeight.w600);
       expect(style.color, const Color(0xFFFFFFFF));
       final pill = find.ancestor(of: label, matching: find.byType(Container)).first;

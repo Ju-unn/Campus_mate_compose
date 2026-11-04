@@ -98,7 +98,7 @@ void main() {
       expect(find.descendant(of: sheet(), matching: find.byType(IconButton)), findsNothing);
     });
 
-    testWidgets('머리(pen eRud0 y32 · 52) — 이니셜 44 primaryWash "햄" 16/700 ink, 이름 17/600, 관계 12/400 muted', (tester) async {
+    testWidgets('머리(pen eRud0 y32 · 52) — 이니셜 44 primaryWash "햄" 16/700 ink, 이름 18/600, 관계 12/400 muted', (tester) async {
       await open(tester);
 
       final top = tester.getRect(sheet()).top;
@@ -112,7 +112,7 @@ void main() {
       expect(name.left - avatar.right, 10);
       expect(name.height, 26);
       final nameStyle = tester.widget<Text>(find.text('햄스터')).style!;
-      expect((nameStyle.fontSize, nameStyle.fontWeight, nameStyle.color), (17, FontWeight.w600, AppColors.ink));
+      expect((nameStyle.fontSize, nameStyle.fontWeight, nameStyle.color), (18, FontWeight.w600, AppColors.ink));
       final relation = find.descendant(of: sheet(), matching: find.text(friendReviewRelationLabel));
       expect(tester.getRect(relation).top - name.bottom, 2);
       final relationStyle = tester.widget<Text>(relation).style!;

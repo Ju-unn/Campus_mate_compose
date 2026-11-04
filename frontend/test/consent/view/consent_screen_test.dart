@@ -309,7 +309,7 @@ void main() {
       expect(tester.widget<Text>(find.text(_description)).style, AppTypography.body.copyWith(color: AppColors.body));
     });
 
-    testWidgets('전체 동의 — 뱃지 · 보기 없음 · 17/600 · 아래 구분선 #EBEBEB 1', (tester) async {
+    testWidgets('전체 동의 — 뱃지 · 보기 없음 · 18/600 · 아래 구분선 #EBEBEB 1', (tester) async {
       await pump(tester);
 
       final allAgree = row('전체 동의');
@@ -391,7 +391,7 @@ void main() {
       expect(check.color, AppColors.onPrimary);
     });
 
-    testWidgets('뱃지 Aioxz — 필수 #FFF0F2/#C4224B · 선택 #F2F2F2/#6A6A6A · 11/700 · 높이 20', (tester) async {
+    testWidgets('뱃지 Aioxz — 필수 #FFF0F2/#C4224B · 선택 #F2F2F2/#6A6A6A · 10/700 · 높이 20', (tester) async {
       await pump(tester);
       BoxDecoration pill(String text) =>
           tester.widget<Container>(find.ancestor(of: find.text(text).first, matching: find.byType(Container)).first)
@@ -403,7 +403,7 @@ void main() {
       expect(pill('선택').color, AppColors.surfaceStrong);
       expect(style('선택').color, AppColors.muted);
       expect(pill('필수').borderRadius, BorderRadius.circular(AppRadius.pill));
-      expect(style('필수').fontSize, 11);
+      expect(style('필수').fontSize, 10);
       expect(style('필수').fontWeight, FontWeight.w700);
       expect(
         tester.getRect(find.ancestor(of: find.text('필수').first, matching: find.byType(Container)).first).height,

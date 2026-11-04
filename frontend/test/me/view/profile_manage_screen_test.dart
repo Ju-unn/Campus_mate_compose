@@ -291,13 +291,13 @@ void main() {
   });
 
   group('섹션 헤더 `Ymhdq`', () {
-    testWidgets('제목 17/700 ink 렌더 25, 오른쪽 글자 14/400 muted 렌더 20 — space_between · 세로 가운데', (tester) async {
+    testWidgets('제목 18/700 ink 렌더 25, 오른쪽 글자 14/400 muted 렌더 20 — space_between · 세로 가운데', (tester) async {
       usePenFrame(tester, height: 1600);
       await pump(tester);
 
       for (final title in ['실제 사진', '기본 정보', '선호 조건', '자기소개']) {
         final style = tester.widget<Text>(find.text(title)).style!;
-        expect((style.fontSize, style.fontWeight, style.color), (17, FontWeight.w700, AppColors.ink), reason: title);
+        expect((style.fontSize, style.fontWeight, style.color), (18, FontWeight.w700, AppColors.ink), reason: title);
         expect(tester.getSize(find.text(title)).height, 25, reason: title);
       }
       for (final note in ['서로 수락하면 전달돼요', '수정 ›']) {
@@ -333,7 +333,7 @@ void main() {
       expect(slider.bordered, isTrue); // pen `oE1rh` — 15-5 사진 칸 안쪽 1px #DDDDDD
     });
 
-    testWidgets('첫 장 배지 `r6b8Vu` "수락 후 공개" + lock 12 — ink 알약, 11/600 렌더 18, 높이 28', (tester) async {
+    testWidgets('첫 장 배지 `r6b8Vu` "수락 후 공개" + lock 12 — ink 알약, 10/600 렌더 18, 높이 28', (tester) async {
       await pump(tester);
 
       final slider = find.byType(PhotoSlider);
@@ -341,7 +341,7 @@ void main() {
       final lock = tester.widget<Icon>(find.descendant(of: slider, matching: find.byIcon(AppIcons.lock)));
       expect((lock.size, lock.color), (12, AppColors.onInk));
       final style = tester.widget<Text>(find.text('수락 후 공개')).style!;
-      expect((style.fontSize, style.fontWeight, style.color), (11, FontWeight.w600, AppColors.onInk));
+      expect((style.fontSize, style.fontWeight, style.color), (10, FontWeight.w600, AppColors.onInk));
       expect(style.fontSize! * style.height!, closeTo(18, 0.01));
       final badge = find.ancestor(
         of: find.text('수락 후 공개'),

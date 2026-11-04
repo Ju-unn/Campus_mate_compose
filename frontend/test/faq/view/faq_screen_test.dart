@@ -240,7 +240,7 @@ void main() {
 
   const mail = 'appmailerl4538@gmail.com';
 
-  testWidgets('걸린 게 없으면 21-1 빈 상태: 마스코트 120 → 24 → 제목 17/600 → 8 → 설명 세 줄, 메일만 14/600 #C4224B(pen IhXOF)', (tester) async {
+  testWidgets('걸린 게 없으면 21-1 빈 상태: 마스코트 120 → 24 → 제목 18/600 → 8 → 설명 세 줄, 메일만 14/600 #C4224B(pen IhXOF)', (tester) async {
     await pump(tester);
     await searchNothing(tester);
 
@@ -248,7 +248,7 @@ void main() {
     expect(tester.getSize(mascot), const Size(120, 120));
     final title = find.text('찾는 질문이 없어요');
     expect(tester.getTopLeft(title).dy, tester.getBottomLeft(mascot).dy + 24);
-    expect(styleOf(tester, '찾는 질문이 없어요').fontSize, 17);
+    expect(styleOf(tester, '찾는 질문이 없어요').fontSize, 18);
     expect(styleOf(tester, '찾는 질문이 없어요').fontWeight, FontWeight.w600);
     expect(styleOf(tester, '찾는 질문이 없어요').color, AppColors.ink);
 

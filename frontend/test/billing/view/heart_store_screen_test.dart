@@ -380,7 +380,7 @@ void main() {
       expect(badgeOf(50), findsNothing);
     });
 
-    testWidgets('모양 — 71×18(글자 폭 + 좌우 8), 카드 오른쪽 16 · 위 −9, 흰 채움 · 1px primary 테두리 · pill · 11/700 primaryText', (
+    testWidgets('모양 — 66×18(글자 폭 + 좌우 8), 카드 오른쪽 16 · 위 −9, 흰 채움 · 1px primary 테두리 · pill · 10/700 primaryText', (
       tester,
     ) async {
       await pump(tester);
@@ -391,7 +391,8 @@ void main() {
       final rect = tester.getRect(badge);
       expect(rect.height, 18);
       expect(rect.width, closeTo(tester.getSize(label).width + 16, 0.5));
-      expect(rect.width, closeTo(71, 2));
+      // 글자가 11 → 10 으로 줄어 71 → 66 안팎이다(글자 폭 + 16 은 바로 위 줄이 이미 맞춘다). pen 의 새 폭은 확인 전.
+      expect(rect.width, closeTo(66, 2));
       expect((card.right - rect.right, rect.top - card.top), (16, -9));
       final container = tester.widget<Container>(badge);
       final fill = container.decoration! as BoxDecoration;
@@ -399,7 +400,7 @@ void main() {
       expect((fill.color, fill.borderRadius), (AppColors.canvas, BorderRadius.circular(9999)));
       expect(((border.border! as Border).top.color, (border.border! as Border).top.width), (AppColors.primary, 1.0));
       final style = tester.widget<Text>(label).style!;
-      expect((style.fontSize, style.fontWeight, style.color), (11, FontWeight.w700, AppColors.primaryText));
+      expect((style.fontSize, style.fontWeight, style.color), (10, FontWeight.w700, AppColors.primaryText));
     });
 
     testWidgets('100하트 카드는 "추천" 태그와 배지가 겹치지 않는다', (tester) async {

@@ -309,13 +309,13 @@ void main() {
       expect(find.text('지금 확인하기'), findsNothing);
       final hero = heroOf('결정 대기 카드가');
       expect((tester.widget<Container>(hero).decoration! as BoxDecoration).color, const Color(0xFFFFF0F2));
-      // 우상단 장수 배지 `Q4nCLG` — x280 y16 32×24 · #FF385C · 알약, 숫자 11/600 흰색.
+      // 우상단 장수 배지 `Q4nCLG` — x280 y16 32×24 · #FF385C · 알약, 숫자 10/600 흰색.
       final badge = find.ancestor(of: find.text('2'), matching: find.byType(Container)).first;
       expect(tester.getRect(badge).shift(-tester.getTopLeft(hero)), const Rect.fromLTWH(280, 16, 32, 24));
       final box = tester.widget<Container>(badge).decoration! as BoxDecoration;
       expect((box.color, box.borderRadius), (const Color(0xFFFF385C), BorderRadius.circular(9999)));
       final digit = tester.widget<Text>(find.text('2')).style!;
-      expect((digit.fontSize, digit.fontWeight, digit.color), (11, FontWeight.w600, const Color(0xFFFFFFFF)));
+      expect((digit.fontSize, digit.fontWeight, digit.color), (10, FontWeight.w600, const Color(0xFFFFFFFF)));
 
       await tester.tap(find.text('이어서 확인하기'));
       await tester.pumpAndSettle();

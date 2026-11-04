@@ -619,7 +619,7 @@ void main() {
       final icon = find.byKey(notificationEmptyIconKey);
       expect(tester.getSize(icon), const Size(120, 120));
       final title = tester.widget<Text>(find.text('아직 받은 알림이 없어요'));
-      expect(title.style!.fontSize, 17);
+      expect(title.style!.fontSize, 18);
       expect(title.style!.fontWeight, FontWeight.w600);
       expect(title.style!.color, AppColors.ink);
       final description = tester.widget<Text>(find.text('카드가 도착하거나 대화 신청이 오면\n여기에 모여요'));

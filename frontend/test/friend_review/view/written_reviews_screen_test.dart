@@ -145,7 +145,7 @@ void main() {
   });
 
   group('빈 상태(20e-1) · 읽는 중 · 실패', () {
-    testWidgets('쓴 리뷰가 없으면 Empty(pen QlDBt) — 마스코트 120 → 24 → 제목 17/600 → 8 → 설명 14 muted 1.55, 가운데, 버튼 없음', (tester) async {
+    testWidgets('쓴 리뷰가 없으면 Empty(pen QlDBt) — 마스코트 120 → 24 → 제목 18/600 → 8 → 설명 14 muted 1.55, 가운데, 버튼 없음', (tester) async {
       reviews.written = const Success([]);
       await pump(tester);
 
@@ -167,7 +167,7 @@ void main() {
       final regionTop = noticeBox(tester).bottom + 16;
       expect(mascotRect.top - regionTop, closeTo(780 - 24 - body.bottom, 0.5));
       final titleStyle = tester.widget<Text>(find.text(_emptyTitle)).style!;
-      expect((titleStyle.fontSize, titleStyle.fontWeight, titleStyle.color), (17, FontWeight.w600, AppColors.ink));
+      expect((titleStyle.fontSize, titleStyle.fontWeight, titleStyle.color), (18, FontWeight.w600, AppColors.ink));
       final bodyText = tester.widget<Text>(find.text(_emptyBody));
       expect((bodyText.style!.fontSize, bodyText.style!.color, bodyText.style!.height), (14, AppColors.muted, 1.55));
       expect((tester.widget<Text>(find.text(_emptyTitle)).textAlign, bodyText.textAlign), (TextAlign.center, TextAlign.center));
@@ -253,9 +253,9 @@ void main() {
       final initial = tester.getRect(find.descendant(of: row, matching: find.byType(FriendReviewInitial)));
       expect(initial.size, const Size(40, 40));
       expect((initial.left - rowRect.left, initial.center.dy), (12, rowRect.center.dy));
-      // HP0vI 원 #FFF0F2 · YAaTW 글자 17/600 #222222.
+      // HP0vI 원 #FFF0F2 · YAaTW 글자 18/600 #222222.
       final initialStyle = tester.widget<Text>(find.descendant(of: row, matching: find.text('하'))).style!;
-      expect((initialStyle.fontSize, initialStyle.fontWeight, initialStyle.color), (17, FontWeight.w600, AppColors.ink));
+      expect((initialStyle.fontSize, initialStyle.fontWeight, initialStyle.color), (18, FontWeight.w600, AppColors.ink));
       final name = find.descendant(of: row, matching: find.text('하늘'));
       expect(tester.getRect(name).left - initial.right, 12);
       final nameStyle = tester.widget<Text>(name).style!;
