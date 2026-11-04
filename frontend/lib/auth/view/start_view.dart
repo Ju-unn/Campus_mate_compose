@@ -1,31 +1,36 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:campus_mate/account/model/login_notice.dart';
 import 'package:campus_mate/auth/model/social_provider.dart';
 import 'package:campus_mate/auth/view/social_login_button.dart';
 import 'package:campus_mate/auth/viewmodel/start_ui_state.dart';
 import 'package:campus_mate/auth/viewmodel/start_view_model.dart';
+import 'package:campus_mate/common/widgets/app_lottie_view.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
 import 'package:campus_mate/core/supabase/auth_session_listenable_provider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/core/theme/app_lottie.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// 시작 화면 — 앱을 열 때마다 뜨는 스플래시(pen `jXJSY`)를 고친 것(대장 지시문 07). 스피너는 두지 않는다(DESIGN.md §13-3).
+/// 시작 화면 — 앱을 열 때마다 뜨는 스플래시(pen `jXJSY` → 크리스마스 장면 판 `EbdUI`)를 고친 것(대장 지시문 07).
+/// 스피너는 두지 않는다(DESIGN.md §13-3).
 ///
-/// 위는 지금 스플래시 그대로(마스코트 · "CampusMate" · 부제), 아래에 소셜 로그인 버튼과 안내 줄.
+/// 배경은 크리스마스 장면(Lottie 360×780, 화면 전체 cover — 장면 안에 로고 · 토끼가 있다)이고, 그 아래 문구 한 줄,
+/// 맨 아래에 소셜 로그인 버튼과 안내 줄. 사용자 결정(2026-11-03): 1.0.2 부터 날짜 조건 없이 늘 이 장면이다
+/// (장면을 바꿀 때는 [AppLottie.splashChristmas] 를 새 장면으로 교체한다).
 /// 버튼 영역은 **로그아웃이 확인된 뒤에만** 그린다 — 이미 로그인된 사람은 게이트 조회 동안 이 화면에 머무는데,
-/// 그때 버튼이 번쩍이지 않게 한다. 자리는 비워 두어 마스코트가 움직이지 않는다.
+/// 그때 버튼이 번쩍이지 않게 한다. 자리는 비워 두어 문구가 움직이지 않는다.
 class StartView extends ConsumerStatefulWidget {
   const StartView({super.key});
 
   /// 시험이 위치 · 상태를 재는 자리.
-  static const Key mascotKey = ValueKey('start-mascot');
   static const Key loginAreaKey = ValueKey('start-login-area');
   static const Key toastKey = ValueKey('start-toast');
 
@@ -79,47 +84,124 @@ class _StartViewState extends ConsumerState<StartView> {
     return BackExitScope(
       onHint: _viewModel().showBackExitHint,
       child: Scaffold(
-        body: SafeArea(
-          child: CustomScrollView(
-            slivers: [
-              // 보통 글자에선 버튼이 아래에 붙고, 글자를 키워 넘치면 같이 스크롤된다(DESIGN §11.2).
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: Padding(
-                  // 좌우 24, 소셜 버튼 영역 아래 28(후속 지시문 13 B-2).
-                  padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, _bottomPadding),
-                  child: Column(
-                    children: [
-                      Expanded(child: _Hero(toast: state.toast)),
-                      ListenableBuilder(
-                        listenable: session,
-                        builder: (context, _) => _LoginArea(state: state, isSignedOut: !session.isAuthenticated),
+        body: Stack(
+          children: [
+            // 장면은 안전 영역 밖, 화면 전체 기준이다(장면이 상태 표시줄 뒤까지 덮는다).
+            const Positioned.fill(child: _SplashScene()),
+            SafeArea(
+              child: CustomScrollView(
+                slivers: [
+                  // 보통 글자에선 버튼이 아래에 붙고, 글자를 키워 넘치면 같이 스크롤된다(DESIGN §11.2).
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Padding(
+                      // 좌우 24, 소셜 버튼 영역 아래 28(후속 지시문 13 B-2).
+                      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, _bottomPadding),
+                      child: Column(
+                        children: [
+                          Expanded(child: _Hero(toast: state.toast, safeTop: MediaQuery.paddingOf(context).top)),
+                          ListenableBuilder(
+                            listenable: session,
+                            builder: (context, _) => _LoginArea(state: state, isSignedOut: !session.isAuthenticated),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-/// 마스코트 · 앱 이름 · 부제(지금 스플래시 그대로)와 그 아래 큰 빈 공간. 토스트는 빈 공간 맨 아래(버튼 바로 위)에
-/// 겹쳐 띄워, 떴다 사라져도 마스코트가 움직이지 않는다.
+/// 배경 크리스마스 장면. 장면 안 로고를 낭독기가 앱 이름으로 읽게 한다(옛 글자 로고 "CampusMate" 를 대신한다).
+class _SplashScene extends StatelessWidget {
+  const _SplashScene();
+
+  @override
+  Widget build(BuildContext context) {
+    return const AppLottieView(scene: AppLottie.splashChristmas, fit: BoxFit.cover, semanticLabel: 'CampusMate');
+  }
+}
+
+/// 장면 크기(json 360×780)와 문구 자리(pen `eATMq`: 장면 안 y462).
+const double _sceneWidth = 360;
+const double _sceneHeight = 780;
+const double _taglineSceneTop = 462;
+
+/// 문구 한 줄(pen `eATMq` 16/400 #6A6A6A 가운데, 장면 안 y462 · 높이 26)을 [_Hero] 안에 놓는다.
+/// 장면이 cover 로 늘거나 줄어도 로고 바로 아래에 붙도록, 화면 y 가 아니라 **장면 안 y462** 를 화면 자리로 옮겨 놓는다
+/// (360×780 이면 화면 y462 그대로). 글자 크기는 장면을 따라 키우지 않는다.
+/// 좁고 낮은 화면에서 버튼 묶음과 겹치지 않도록, 버튼 묶음 바로 위([_taglineButtonGap])까지만 내려오고 더는 밀려 올라간다.
+class _Tagline extends StatelessWidget {
+  const _Tagline({required this.safeTop});
+
+  /// 안전 영역 위쪽 여백(상태 표시줄 등). **안전 영역 밖**에서 읽어 넘긴다 — 안쪽 [MediaQuery] 는 이 값을 이미 0 으로 만든다.
+  final double safeTop;
+
+  /// 문구 한 줄이 놓일 화면 y — 장면을 화면에 cover 로 깔았을 때 장면 안 y462 가 닿는 자리.
+  static double _sceneY(Size screen) {
+    final scale = math.max(screen.width / _sceneWidth, screen.height / _sceneHeight);
+    return (screen.height - _sceneHeight * scale) / 2 + _taglineSceneTop * scale;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // 장면은 화면 전체 기준이고 [_Hero] 는 안전 영역 위쪽 여백 아래에서 시작하므로, 그만큼 뺀 자리가 [_Hero] 안 y 다.
+    final top = _sceneY(MediaQuery.sizeOf(context)) - safeTop;
+    return CustomSingleChildLayout(
+      delegate: _TaglineLayout(top: top),
+      child: Text(
+        '인증된 사람과 소중한 인연',
+        textAlign: TextAlign.center,
+        style: AppTypography.body.copyWith(color: AppColors.muted),
+      ),
+    );
+  }
+}
+
+/// 문구와 버튼 묶음 사이에 최소한 남길 간격.
+const double _taglineButtonGap = AppSpacing.sm;
+
+/// [top] 에 놓되, 버튼 묶음(= [_Hero] 아래)에 [_taglineButtonGap] 이상 가까워지면 위로 밀고, 화면 위로는 나가지 않는다. 가로는 가운데.
+class _TaglineLayout extends SingleChildLayoutDelegate {
+  const _TaglineLayout({required this.top});
+
+  final double top;
+
+  @override
+  BoxConstraints getConstraintsForChild(BoxConstraints constraints) => constraints.loosen();
+
+  @override
+  Offset getPositionForChild(Size size, Size childSize) {
+    final lowest = size.height - childSize.height - _taglineButtonGap;
+    return Offset((size.width - childSize.width) / 2, math.max(0, math.min(top, lowest)));
+  }
+
+  @override
+  bool shouldRelayout(_TaglineLayout oldDelegate) => oldDelegate.top != top;
+}
+
+/// 문구가 놓이는 빈 공간(문구 아래 ~ 버튼 영역 위). 토스트는 이 빈 공간 맨 아래(버튼 바로 위)에 겹쳐 띄워,
+/// 떴다 사라져도 문구가 움직이지 않는다.
 class _Hero extends StatelessWidget {
-  const _Hero({required this.toast});
+  const _Hero({required this.toast, required this.safeTop});
 
   final StartToast? toast;
+
+  /// 안전 영역 위쪽 여백 — [_Tagline] 이 화면 좌표 y 를 맞추는 데 쓴다.
+  final double safeTop;
 
   @override
   Widget build(BuildContext context) {
     final current = toast;
     return Stack(
       children: [
-        const Center(child: _Brand()),
+        Positioned.fill(child: _Tagline(safeTop: safeTop)),
         if (current != null)
           Align(
             alignment: Alignment.bottomCenter,
@@ -128,29 +210,6 @@ class _Hero extends StatelessWidget {
               child: _Toast(toast: current),
             ),
           ),
-      ],
-    );
-  }
-}
-
-class _Brand extends StatelessWidget {
-  const _Brand();
-
-  @override
-  Widget build(BuildContext context) {
-    // 마스코트·부제는 2026-09-23 사용자 결정으로 pen 대로 넣었다.
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Image.asset('assets/images/mascot-female.png', key: StartView.mascotKey, width: 96, height: 96),
-        const SizedBox(height: AppSpacing.md),
-        Text('CampusMate', style: AppTypography.display.copyWith(color: AppColors.primary)),
-        const SizedBox(height: AppSpacing.md),
-        Text(
-          '인증된 대학생과의 소중한 인연', // 사용자 결정 10-16 "스플래시 1번"
-          textAlign: TextAlign.center,
-          style: AppTypography.body.copyWith(color: AppColors.muted),
-        ),
       ],
     );
   }

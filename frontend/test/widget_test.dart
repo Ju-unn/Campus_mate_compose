@@ -1,4 +1,5 @@
 import 'package:campus_mate/auth/view/start_view.dart';
+import 'package:campus_mate/common/widgets/app_lottie_view.dart';
 import 'package:campus_mate/common/widgets/keyboard_dismiss_on_tap.dart';
 import 'package:campus_mate/main.dart';
 import 'package:campus_mate/tour/view/app_tour_host.dart';
@@ -34,7 +35,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // SplashHold 가 붙잡아 두는 동안이다 (임시 장치 — 로고 작업 때 다시 본다).
-    expect(find.text('CampusMate'), findsOneWidget);
+    expect(find.byType(AppLottieView), findsOneWidget);
 
     await tester.pump(_splashHoldDuration);
     await tester.pumpAndSettle();

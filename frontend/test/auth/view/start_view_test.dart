@@ -5,10 +5,12 @@ import 'package:campus_mate/auth/view/social_login_button.dart';
 import 'package:campus_mate/auth/view/start_view.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/common/widgets/app_lottie_view.dart';
 import 'package:campus_mate/core/back_exit/back_exit_view_model.dart';
 import 'package:campus_mate/core/supabase/auth_session_listenable_provider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/core/theme/app_lottie.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
@@ -23,8 +25,8 @@ import '../model/fake_social_login_repository.dart';
 
 const _notice = '학교 메일 인증은 가입할 때 한 번만 해요';
 
-/// 스플래시 부제(사용자 결정 10-16 "스플래시 1번").
-const _subtitle = '인증된 대학생과의 소중한 인연';
+/// 스플래시 문구(pen 01 스플래시 `eATMq`, 대장 전달 2026-11-03 — 종전 "인증된 대학생과의 소중한 인연").
+const _subtitle = '인증된 사람과 소중한 인연';
 
 /// 휴대폰 크기(360×740)에 시작 화면을 띄운다.
 Future<(FakeAuthSession, FakeSocialLoginRepository)> _pump(
@@ -32,6 +34,7 @@ Future<(FakeAuthSession, FakeSocialLoginRepository)> _pump(
   bool signedIn = false,
   double textScale = 1,
   Size size = const Size(360, 740),
+  EdgeInsets padding = EdgeInsets.zero,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -52,7 +55,7 @@ Future<(FakeAuthSession, FakeSocialLoginRepository)> _pump(
       child: MaterialApp(
         theme: AppTheme.light(),
         home: MediaQuery(
-          data: MediaQueryData(size: size, textScaler: TextScaler.linear(textScale)),
+          data: MediaQueryData(size: size, padding: padding, textScaler: TextScaler.linear(textScale)),
           child: const StartView(),
         ),
       ),
@@ -71,16 +74,85 @@ InkWell _inkOf(WidgetTester tester, SocialProvider provider) =>
 void main() {
   tearDown(LoginNotice.take);
 
-  group('지금 스플래시 그대로인 위쪽', () {
-    testWidgets('마스코트 · 빨간 "CampusMate" · 부제를 보이고, 스피너는 없다', (tester) async {
+  // pen 01 스플래시 `EbdUI` (대장 전달 2026-11-03, 사용자 결정: 1.0.2 부터 날짜 조건 없이 늘 이 장면): 크리스마스 장면이 화면 전체 배경(360×780, cover).
+  // 글자 로고 "CampusMate"(`NNsOs`)와 혼자 선 마스코트(`OkZx9`)는 숨김(장면 안에 로고 · 토끼가 있다).
+  // 문구 `eATMq` 16/400 #6A6A6A 가운데 y462(높이 26). 소셜 버튼 묶음 `hbnCW` 은 기존 자리 그대로.
+  group('크리스마스 장면 배경 (pen EbdUI)', () {
+    testWidgets('장면(splashChristmas)이 화면 전체를 cover 로 덮고, 옛 글자 로고 · 마스코트 · 스피너는 없다', (tester) async {
+      await _pump(tester, signedIn: true, size: const Size(360, 780));
+
+      final scene = find.byType(AppLottieView);
+      expect(tester.widget<AppLottieView>(scene).scene, AppLottie.splashChristmas);
+      expect(tester.widget<AppLottieView>(scene).fit, BoxFit.cover);
+      expect(tester.getRect(scene), const Rect.fromLTWH(0, 0, 360, 780));
+      expect(find.text('CampusMate'), findsNothing);
+      expect(find.image(const AssetImage('assets/images/mascot-female.png')), findsNothing);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+    });
+
+    testWidgets('장면 안 로고를 낭독기가 "CampusMate" 로 읽는다(글자 로고를 대신한다)', (tester) async {
+      final handle = tester.ensureSemantics();
       await _pump(tester, signedIn: true);
 
-      expect(find.byKey(StartView.mascotKey), findsOneWidget);
-      expect(find.text(_subtitle), findsOneWidget);
-      expect(find.byType(CircularProgressIndicator), findsNothing);
-      final title = tester.widget<Text>(find.text('CampusMate'));
-      expect(title.style?.fontSize, AppTypography.display.fontSize);
-      expect(title.style?.color, AppColors.primary);
+      expect(find.bySemanticsLabel('CampusMate'), findsOneWidget);
+      handle.dispose();
+    });
+
+    testWidgets('문구는 16/400 #6A6A6A 가운데, 360×780 에서 위 y462 · 높이 26', (tester) async {
+      await _pump(tester, signedIn: true, size: const Size(360, 780));
+
+      final text = tester.widget<Text>(find.text(_subtitle));
+      expect(text.style, AppTypography.body.copyWith(color: AppColors.muted));
+      expect(text.textAlign, TextAlign.center);
+      final rect = tester.getRect(find.text(_subtitle));
+      expect(rect.top, closeTo(462, 0.5));
+      expect(rect.height, closeTo(26, 0.5));
+      expect(rect.center.dx, closeTo(180, 0.5));
+    });
+
+    // CLAUDE.md 규칙 3: 좁고 낮은 화면(320×568)에서 iOS 소셜 버튼 3개 묶음이 문구와 겹치지 않는다 — 문구가 버튼 묶음 위로 밀린다.
+    testWidgets('320×568 iOS(버튼 3개)에서도 문구가 버튼 묶음과 겹치지 않고 화면 안에 있다', (tester) async {
+      await _pump(tester, size: const Size(320, 568));
+
+      final tagline = tester.getRect(find.text(_subtitle));
+      final buttons = tester.getRect(find.byKey(StartView.loginAreaKey));
+      expect(tagline.bottom, lessThanOrEqualTo(buttons.top));
+      expect(tagline.top, greaterThanOrEqualTo(0));
+    }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
+    testWidgets('넉넉한 화면(360×780)에서는 밀리지 않고 pen 자리(y462) 그대로다', (tester) async {
+      await _pump(tester, size: const Size(360, 780));
+
+      expect(tester.getRect(find.text(_subtitle)).top, closeTo(462, 0.5));
+    }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
+    // 실기기: 상태 표시줄(위 40) · 홈 막대(아래 20). 장면은 안전 영역 밖(화면 전체)이 기준이라 문구도 화면 좌표 y462 에 있어야 하고,
+    // 소셜 버튼 묶음은 안전 영역 안이라 화면 좌표로 견준다.
+    const notchInsets = EdgeInsets.only(top: 40, bottom: 20);
+
+    testWidgets('상태 표시줄 40 · 홈 막대 20 이 있어도 문구는 화면 좌표 y462(장면 로고 바로 아래)에 선다', (tester) async {
+      await _pump(tester, signedIn: true, size: const Size(360, 780), padding: notchInsets);
+
+      expect(tester.getRect(find.byType(AppLottieView)), const Rect.fromLTWH(0, 0, 360, 780));
+      expect(tester.getRect(find.text(_subtitle)).top, closeTo(462, 0.5));
+    });
+
+    testWidgets('상태 표시줄 40 · 홈 막대 20 이 있는 320×568 iOS 에서도 문구가 버튼 묶음과 겹치지 않는다', (tester) async {
+      await _pump(tester, size: const Size(320, 568), padding: notchInsets);
+
+      final tagline = tester.getRect(find.text(_subtitle));
+      final buttons = tester.getRect(find.byKey(StartView.loginAreaKey));
+      expect(buttons.bottom, 568 - 20 - 28, reason: '버튼 묶음은 안전 영역 안(홈 막대 20 + 아래 28)');
+      expect(tagline.bottom, lessThanOrEqualTo(buttons.top));
+      expect(tagline.top, greaterThanOrEqualTo(0));
+    }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
+    testWidgets('문구는 장면을 따라 간다 — 장면이 cover 로 줄거나 늘면 같은 비율의 자리(360×740 → 442, 412×915 → 542)', (tester) async {
+      await _pump(tester, signedIn: true, size: const Size(360, 740));
+      expect(tester.getRect(find.text(_subtitle)).top, closeTo(462 - 20, 0.5));
+
+      await _pump(tester, signedIn: true, size: const Size(412, 915));
+      expect(tester.getRect(find.text(_subtitle)).top, closeTo(462 * 915 / 780, 0.5));
     });
   });
 
@@ -96,15 +168,15 @@ void main() {
       handle.dispose();
     });
 
-    testWidgets('버튼 자리는 비워 두어 로그아웃이 확인돼도 마스코트가 움직이지 않는다', (tester) async {
+    testWidgets('버튼 자리는 비워 두어 로그아웃이 확인돼도 문구가 움직이지 않는다', (tester) async {
       final (session, _) = await _pump(tester, signedIn: true);
-      final before = tester.getRect(find.byKey(StartView.mascotKey));
+      final before = tester.getRect(find.text(_subtitle));
 
       session.signOut();
       await tester.pump();
 
       expect(tester.widget<Visibility>(find.byKey(StartView.loginAreaKey)).visible, isTrue);
-      expect(tester.getRect(find.byKey(StartView.mascotKey)), before);
+      expect(tester.getRect(find.text(_subtitle)), before);
     });
 
     testWidgets('로그인되면(소셜 로그인 성공) 버튼 영역을 다시 거둔다', (tester) async {
