@@ -3,12 +3,15 @@ import 'dart:math' as math;
 
 import 'package:campus_mate/account/model/data/login_notice.dart';
 import 'package:campus_mate/auth/social/model/data/social_provider.dart';
+import 'package:campus_mate/auth/social/view/reviewer_login_entrance.dart';
+import 'package:campus_mate/auth/social/view/reviewer_login_sheet.dart';
 import 'package:campus_mate/auth/social/view/social_login_button.dart';
 import 'package:campus_mate/auth/social/viewmodel/start_ui_state.dart';
 import 'package:campus_mate/auth/social/viewmodel/start_view_model.dart';
 import 'package:campus_mate/common/widgets/app_lottie_view.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
+import 'package:campus_mate/core/supabase/auth_session_listenable.dart';
 import 'package:campus_mate/core/supabase/auth_session_listenable_provider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -25,6 +28,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// 배경은 크리스마스 장면(Lottie 360×780, 화면 전체 cover — 장면 안에 로고 · 토끼가 있다)이고, 그 아래 문구 한 줄,
 /// 맨 아래에 소셜 로그인 버튼과 안내 줄. 사용자 결정(2026-11-03): 1.0.2 부터 날짜 조건 없이 늘 이 장면이다
 /// (장면을 바꿀 때는 [AppLottie.splashChristmas] 를 새 장면으로 교체한다).
+/// 장면 속 로고 자리를 빠르게 7번 누르면 구글 플레이 심사원 전용 아이디 · 비밀번호 창이 열린다(보이지 않는 입구, 앱 1.0.2 —
+/// [ReviewerLoginEntrance]). **안드로이드 전용**이다(사용자 결정 2026-11-04, 아이폰 심사는 기존 방식 — 애플 2.3.1 숨은 기능 규칙).
+/// 로그인 영역과 같은 조건(로그아웃이 확인된 뒤)에서만 있다.
 /// 버튼 영역은 **로그아웃이 확인된 뒤에만** 그린다 — 이미 로그인된 사람은 게이트 조회 동안 이 화면에 머무는데,
 /// 그때 버튼이 번쩍이지 않게 한다. 자리는 비워 두어 문구가 움직이지 않는다.
 class StartView extends ConsumerStatefulWidget {
@@ -33,6 +39,9 @@ class StartView extends ConsumerStatefulWidget {
   /// 시험이 위치 · 상태를 재는 자리.
   static const Key loginAreaKey = ValueKey('start-login-area');
   static const Key toastKey = ValueKey('start-toast');
+
+  /// 로고 자리 위의 숨은 입구(심사원 로그인). 시험이 위치를 재는 자리.
+  static const Key reviewerEntranceKey = ValueKey('start-reviewer-entrance');
 
   @override
   ConsumerState<StartView> createState() => _StartViewState();
@@ -111,6 +120,8 @@ class _StartViewState extends ConsumerState<StartView> {
                 ],
               ),
             ),
+            // 입구는 안전 영역 스크롤 위에 얹는다 — 스크롤이 빈 곳의 탭을 먼저 받아 버린다. 투명해서 끄는 손길은 스크롤이 그대로 받는다.
+            _ReviewerEntranceLayer(session: session),
           ],
         ),
       ),
@@ -133,6 +144,51 @@ const double _sceneWidth = 360;
 const double _sceneHeight = 780;
 const double _taglineSceneTop = 462;
 
+/// 장면 안 로고 자리(pen `EbdUI` 의 `MiK02`: x10 · y44 · 340×180). 숨은 입구가 이 사각형만 탭을 받는다.
+const Rect _logoSceneRect = Rect.fromLTWH(10, 44, 340, 180);
+
+/// 장면(360×780)을 화면에 cover 로 깔았을 때 장면 안 사각형 [scene] 이 닿는 화면 사각형 —
+/// 확대 비율은 `max(W/360, H/780)`, 남는 쪽은 가운데 정렬로 잘린다. 화면 전체(안전 영역 밖) 기준이다.
+Rect _sceneRectOnScreen(Size screen, Rect scene) {
+  final scale = math.max(screen.width / _sceneWidth, screen.height / _sceneHeight);
+  final left = (screen.width - _sceneWidth * scale) / 2;
+  final top = (screen.height - _sceneHeight * scale) / 2;
+  return Rect.fromLTWH(left + scene.left * scale, top + scene.top * scale, scene.width * scale, scene.height * scale);
+}
+
+/// 로고 자리 위의 숨은 입구. 버튼 영역([_LoginArea])과 같이 로그아웃이 확인되기 전(세션 확인 중 · 로그인됨)에는 두지 않는다.
+/// **안드로이드 전용**(사용자 결정 2026-11-04, 아이폰 심사는 기존 방식 — iOS 빌드에는 숨은 입구가 없어야 한다).
+/// 웹(kIsWeb)에도 두지 않는다. 판정은 [_LoginArea] 가 애플 버튼을 iOS 에서만 보이는 방식과 같다(웹이 사파리에서 iOS 로 나오는 것까지 [kIsWeb] 로 먼저 거른다).
+class _ReviewerEntranceLayer extends StatelessWidget {
+  const _ReviewerEntranceLayer({required this.session});
+
+  final AuthSessionListenable session;
+
+  static bool _isAndroid() => !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_isAndroid()) {
+      return const SizedBox.shrink();
+    }
+    return ListenableBuilder(
+      listenable: session,
+      builder: (context, _) {
+        if (session.isAuthenticated) {
+          return const SizedBox.shrink();
+        }
+        return Positioned.fromRect(
+          rect: _sceneRectOnScreen(MediaQuery.sizeOf(context), _logoSceneRect),
+          child: ReviewerLoginEntrance(
+            key: StartView.reviewerEntranceKey,
+            onOpen: () => showReviewerLoginSheet(context),
+          ),
+        );
+      },
+    );
+  }
+}
+
 /// 문구 한 줄(pen `eATMq` 16/400 #6A6A6A 가운데, 장면 안 y462 · 높이 26)을 [_Hero] 안에 놓는다.
 /// 장면이 cover 로 늘거나 줄어도 로고 바로 아래에 붙도록, 화면 y 가 아니라 **장면 안 y462** 를 화면 자리로 옮겨 놓는다
 /// (360×780 이면 화면 y462 그대로). 글자 크기는 장면을 따라 키우지 않는다.
@@ -145,8 +201,7 @@ class _Tagline extends StatelessWidget {
 
   /// 문구 한 줄이 놓일 화면 y — 장면을 화면에 cover 로 깔았을 때 장면 안 y462 가 닿는 자리.
   static double _sceneY(Size screen) {
-    final scale = math.max(screen.width / _sceneWidth, screen.height / _sceneHeight);
-    return (screen.height - _sceneHeight * scale) / 2 + _taglineSceneTop * scale;
+    return _sceneRectOnScreen(screen, const Rect.fromLTWH(0, _taglineSceneTop, _sceneWidth, 0)).top;
   }
 
   @override

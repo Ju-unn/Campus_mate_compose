@@ -1,6 +1,7 @@
 import 'package:campus_mate/account/model/data/login_notice.dart';
 import 'package:campus_mate/auth/social/model/data/social_provider.dart';
 import 'package:campus_mate/auth/social/model/repository/social_login_repository_provider.dart';
+import 'package:campus_mate/auth/social/view/reviewer_login_entrance.dart';
 import 'package:campus_mate/auth/social/view/social_login_button.dart';
 import 'package:campus_mate/auth/social/view/start_view.dart';
 import 'package:campus_mate/common/failure.dart';
@@ -457,6 +458,219 @@ void main() {
         });
       }
     }
+  });
+
+  // 구글 플레이 심사 거절 대응(2026-11-04, 사용자 결정 「A로 해 로고 7번으로 하자」): 로고 자리를 빠르게 7번 누르면 심사원용 아이디 · 비밀번호 창이 열린다.
+  // 로고 자리는 장면 좌표 x10 · y44 · 340×180(pen `EbdUI` 의 `MiK02`)이고 장면이 화면에 cover 로 깔린 만큼 같이 늘고 줄어든다.
+  group('심사원 로그인 입구 (로고 7번)', () {
+    const sheetTitle = 'Reviewer sign-in';
+
+    Finder entrance() => find.byKey(StartView.reviewerEntranceKey);
+
+    Future<void> tapTimes(WidgetTester tester, Offset point, int count) async {
+      for (var i = 0; i < count; i++) {
+        await tester.tapAt(point);
+        await tester.pump();
+      }
+    }
+
+    Future<void> settleSheet(WidgetTester tester) async {
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+    }
+
+    // 크리스마스 장면 360×780 의 로고 자리. 다른 화면 크기는 장면이 cover 로 깔린 비율만큼 옮겨 늘린다.
+    // scale = max(W/360, H/780), 가운데 정렬 오프셋 ((W − 360·scale)/2, (H − 780·scale)/2).
+    const logoByScreen = <(Size, Rect)>[
+      (Size(360, 780), Rect.fromLTWH(10, 44, 340, 180)),
+      (Size(320, 568), Rect.fromLTWH(8.889, -23.556, 302.222, 160)),
+      (Size(412, 915), Rect.fromLTWH(6.577, 51.615, 398.846, 211.154)),
+    ];
+
+    for (final (size, expected) in logoByScreen) {
+      testWidgets('${size.width.toInt()}×${size.height.toInt()} 에서 입구는 장면 로고 자리에 정확히 놓인다', (tester) async {
+        await _pump(tester, size: size);
+
+        final rect = tester.getRect(entrance());
+        expect(rect.left, closeTo(expected.left, 0.01));
+        expect(rect.top, closeTo(expected.top, 0.01));
+        expect(rect.width, closeTo(expected.width, 0.01));
+        expect(rect.height, closeTo(expected.height, 0.01));
+      });
+    }
+
+    testWidgets('상태 표시줄 40 · 홈 막대 20 이 있어도 입구는 화면 좌표(장면과 같은 기준) 그대로다', (tester) async {
+      await _pump(tester, size: const Size(360, 780), padding: const EdgeInsets.only(top: 40, bottom: 20));
+
+      expect(tester.getRect(entrance()), const Rect.fromLTWH(10, 44, 340, 180));
+    });
+
+    testWidgets('로고 자리를 7번 누르면 심사원 로그인 시트가 열린다', (tester) async {
+      await _pump(tester, size: const Size(360, 780));
+
+      await tapTimes(tester, const Offset(180, 134), 7);
+      await settleSheet(tester);
+
+      expect(find.text(sheetTitle), findsOneWidget);
+    });
+
+    testWidgets('6번만 누르면 열리지 않는다', (tester) async {
+      await _pump(tester, size: const Size(360, 780));
+
+      await tapTimes(tester, const Offset(180, 134), 6);
+      await settleSheet(tester);
+
+      expect(find.text(sheetTitle), findsNothing);
+    });
+
+    testWidgets('로고 자리의 모서리 안쪽(왼쪽 위 +1, 오른쪽 아래 −1)도 센다', (tester) async {
+      await _pump(tester, size: const Size(360, 780));
+
+      await tapTimes(tester, const Offset(11, 45), 4);
+      await tapTimes(tester, const Offset(349, 223), 3);
+      await settleSheet(tester);
+
+      expect(find.text(sheetTitle), findsOneWidget);
+    });
+
+    // 로고 밖은 7번 눌러도 안 열린다 — 배경 다른 곳, 로고 바로 옆 · 위 · 아래, 문구 자리.
+    const outside = <String, Offset>{
+      '로고 바로 아래 배경': Offset(180, 230),
+      '로고 왼쪽 바깥': Offset(4, 130),
+      '로고 오른쪽 바깥': Offset(356, 130),
+      '로고 위 상태 표시줄 쪽': Offset(180, 20),
+      '장면 한가운데 배경': Offset(180, 330),
+      '문구 자리': Offset(180, 475),
+    };
+    for (final MapEntry(key: name, value: point) in outside.entries) {
+      testWidgets('로고 밖($name)을 7번 눌러도 열리지 않는다', (tester) async {
+        await _pump(tester, size: const Size(360, 780));
+
+        await tapTimes(tester, point, 7);
+        await settleSheet(tester);
+
+        expect(find.text(sheetTitle), findsNothing);
+      });
+    }
+
+    testWidgets('로고 밖을 섞어 눌러도 로고 안 탭만 센다 — 안 6번 + 밖 3번 + 안 1번이면 열린다', (tester) async {
+      await _pump(tester, size: const Size(360, 780));
+
+      await tapTimes(tester, const Offset(180, 134), 6);
+      await tapTimes(tester, const Offset(180, 330), 3);
+      await tapTimes(tester, const Offset(180, 134), 1);
+      await settleSheet(tester);
+
+      expect(find.text(sheetTitle), findsOneWidget);
+    });
+
+    testWidgets('로그인된 상태(로그인 영역이 숨은 상태)에서는 입구가 없고 7번 눌러도 열리지 않는다', (tester) async {
+      await _pump(tester, signedIn: true, size: const Size(360, 780));
+
+      expect(entrance(), findsNothing);
+      await tapTimes(tester, const Offset(180, 134), 7);
+      await settleSheet(tester);
+
+      expect(find.text(sheetTitle), findsNothing);
+    });
+
+    // 안드로이드 전용(사용자 결정 2026-11-04 「애플은 넣지말자」 — 아이폰 심사는 기존 방식, 애플 2.3.1 숨은 기능 규칙).
+    // 변종 시험이 debugDefaultTargetPlatformOverride 를 알아서 되돌린다. 웹(kIsWeb)도 막지만 시험은 kIsWeb 을 바꾸지 못한다.
+    testWidgets('안드로이드가 아니면(iOS 포함) 로그아웃 상태여도 입구가 없고 로고 자리를 7번 눌러도 열리지 않는다', (tester) async {
+      final (_, repository) = await _pump(tester, size: const Size(360, 780));
+
+      expect(entrance(), findsNothing);
+      await tapTimes(tester, const Offset(180, 134), 7);
+      await settleSheet(tester);
+
+      expect(find.text(sheetTitle), findsNothing);
+      expect(repository.passwordRequests, isEmpty);
+    }, variant: TargetPlatformVariant.all(excluding: {TargetPlatform.android}));
+
+    testWidgets('iOS: 입구가 없어 7번 탭은 아무 일도 하지 않고, 소셜 버튼 묶음은 그대로 있다', (tester) async {
+      await _pump(tester, size: const Size(360, 780));
+
+      await tapTimes(tester, const Offset(180, 134), 7);
+      await settleSheet(tester);
+
+      expect(find.text(sheetTitle), findsNothing);
+      expect(find.byType(ReviewerLoginEntrance), findsNothing);
+      expect(find.byType(SocialLoginButton).hitTestable(), findsNWidgets(3));
+    }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
+    testWidgets('안드로이드(기본 플랫폼)에서는 로그아웃 상태에서 입구가 있다', (tester) async {
+      await _pump(tester, size: const Size(360, 780));
+
+      expect(entrance(), findsOneWidget);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
+    testWidgets('로그아웃이 확인되면 입구가 생기고, 로그인되면 거둔다', (tester) async {
+      final (session, _) = await _pump(tester, signedIn: true);
+      expect(entrance(), findsNothing);
+
+      session.signOut();
+      await tester.pump();
+      expect(entrance(), findsOneWidget);
+
+      session.signIn();
+      await tester.pump();
+      expect(entrance(), findsNothing);
+    });
+
+    testWidgets('열린 뒤 닫고 다시 7번 누르면 또 열린다', (tester) async {
+      await _pump(tester, size: const Size(360, 780));
+      await tapTimes(tester, const Offset(180, 134), 7);
+      await settleSheet(tester);
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Close'));
+      await settleSheet(tester);
+      expect(find.text(sheetTitle), findsNothing);
+
+      await tapTimes(tester, const Offset(180, 134), 7);
+      await settleSheet(tester);
+
+      expect(find.text(sheetTitle), findsOneWidget);
+    });
+
+    testWidgets('입구는 낭독기에서 뺀다 — 로고 자리에는 탭 동작이 없다(장면 이름 "CampusMate" 만 읽힌다)', (tester) async {
+      final handle = tester.ensureSemantics();
+      await _pump(tester, size: const Size(360, 780));
+
+      final node = tester.getSemantics(entrance());
+
+      expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isFalse);
+      expect(find.bySemanticsLabel('CampusMate'), findsOneWidget);
+      handle.dispose();
+    });
+
+    testWidgets('입구는 소셜 로그인 흐름과 따로다 — 시트를 열어도 소셜 로그인은 시작되지 않는다', (tester) async {
+      final (_, repository) = await _pump(tester, size: const Size(360, 780));
+
+      await tapTimes(tester, const Offset(180, 134), 7);
+      await settleSheet(tester);
+
+      expect(repository.requested, isEmpty);
+      expect(repository.passwordRequests, isEmpty);
+    });
+
+    testWidgets('시트에서 로그인하면 시트가 닫히고, 세션이 생기면 시작 화면은 버튼 영역과 입구를 거둔다', (tester) async {
+      final (session, repository) = await _pump(tester, size: const Size(360, 780));
+      await tapTimes(tester, const Offset(180, 134), 7);
+      await settleSheet(tester);
+      await tester.enterText(find.byType(TextField).at(0), 'reviewer@example.test');
+      await tester.enterText(find.byType(TextField).at(1), 'fake-password-1');
+      await tester.pump();
+
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Sign in'));
+      await tester.pump();
+      repository.passwordCompleter.complete(const Success(null));
+      session.signIn();
+      await settleSheet(tester);
+
+      expect(repository.passwordRequests, [('reviewer@example.test', 'fake-password-1')]);
+      expect(find.text(sheetTitle), findsNothing);
+      expect(entrance(), findsNothing);
+      expect(find.byType(SocialLoginButton).hitTestable(), findsNothing);
+    });
   });
 
   // 시작 화면은 앱의 맨 아래 화면이다 — 안드로이드 뒤로가기가 앱을 바로 닫지 않는다. 안내는 자기 토스트 자리(버튼 바로 위)에 띄운다.
