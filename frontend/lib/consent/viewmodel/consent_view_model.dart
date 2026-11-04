@@ -46,7 +46,7 @@ class ConsentViewModel extends Notifier<ConsentUiState> {
     }
     final failure = result.when(onSuccess: (_) => null, onFailure: (failure) => failure);
     if (failure != null) {
-      state = state.copyWith(isSubmitting: false, errorMessage: failure.toDisplayMessage());
+      state = state.copyWith(isSubmitting: false, error: failure);
       return;
     }
     // 온보딩 단계를 먼저 다시 읽는다. 재동의 계정은 앱을 켤 때 next-step 이 403 이라 온보딩 캐시가

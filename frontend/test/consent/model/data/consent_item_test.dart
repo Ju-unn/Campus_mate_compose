@@ -17,14 +17,6 @@ void main() {
     );
   });
 
-  test('줄 글은 pen 02-c 그대로다', () {
-    expect([for (final item in ConsentItem.values) item.label], [
-      '이용약관',
-      '개인정보 수집·이용',
-      '마케팅 알림 받기',
-    ]);
-  });
-
   test('이용약관 보기는 약관동의 페이지, 개인정보 수집·이용 보기는 처리방침 페이지를 연다 — 마케팅은 보기가 없다', () {
     // 주소 글자는 consent_links.dart 한 곳에만 있다(규칙은 consent_links_test.dart). 종교 동의도 privacy 줄이 받는다(09-29).
     expect(ConsentItem.terms.link, termsLink);

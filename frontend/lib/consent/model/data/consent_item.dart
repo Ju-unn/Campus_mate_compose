@@ -5,15 +5,12 @@ import 'package:campus_mate/consent/model/data/consent_links.dart';
 /// 처리방침 공개로 대신해 줄이 없다(사용자 결정). 서버 enum 의 두 값은 남아 있지만 보내지 않는다.
 /// 10-16: 개인정보 줄 아래 설명(10-15 안 B)은 사용자 결정으로 뺐다 — 동의 항목 · 판 번호(CONSENT_VERSION)는 그대로다.
 enum ConsentItem {
-  terms('이용약관', wireName: 'terms'),
-  privacy('개인정보 수집·이용', wireName: 'privacy'),
+  terms(wireName: 'terms'),
+  privacy(wireName: 'privacy'),
   // 선택 항목은 서버 user_consents 가 아니라 notification_settings.marketing 이 맡는다(계획서 Q4).
-  marketing('마케팅 알림 받기');
+  marketing();
 
-  const ConsentItem(this.label, {this.wireName});
-
-  /// pen 02-c 줄 글.
-  final String label;
+  const ConsentItem({this.wireName});
 
   /// 서버 app/consents/policy.py REQUIRED_KINDS 와 같은 글자. 선택 항목은 null.
   final String? wireName;

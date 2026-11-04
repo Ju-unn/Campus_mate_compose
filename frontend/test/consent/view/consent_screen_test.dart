@@ -10,6 +10,7 @@ import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/consent/model/data/consent_item.dart';
 import 'package:campus_mate/consent/model/repository/consent_repository_provider.dart';
 import 'package:campus_mate/consent/model/repository/open_url.dart';
+import 'package:campus_mate/consent/view/consent_item_text.dart';
 import 'package:campus_mate/consent/view/consent_row.dart';
 import 'package:campus_mate/consent/view/consent_screen.dart';
 import 'package:campus_mate/core/auth/sign_out.dart';
@@ -19,6 +20,7 @@ import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/profile/onboarding/model/repository/onboarding_repository_provider.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
@@ -33,6 +35,7 @@ const _title = '서비스 이용을 위해 동의해 주세요';
 const _description = '필수 항목에 모두 동의하면 시작할 수 있어요.\n마케팅 알림은 선택이에요.';
 
 void main() {
+  final l10n = AppLocalizationsKo();
   late FakeConsentRepository consents;
   late List<Uri> opened;
   late Future<bool> Function(Uri) openUrl;
@@ -85,7 +88,7 @@ void main() {
   }
 
   Finder row(String label) => find.ancestor(of: find.text(label), matching: find.byType(ConsentRow));
-  Finder itemRow(ConsentItem item) => row(item.label);
+  Finder itemRow(ConsentItem item) => row(item.label(l10n));
   bool checkedIn(Finder row) =>
       (find.descendant(of: row, matching: find.byType(AppCheckbox)).evaluate().single.widget as AppCheckbox).checked;
   Finder viewIn(Finder row) => find.descendant(of: row, matching: find.text('보기'));
@@ -94,7 +97,7 @@ void main() {
 
   Future<void> checkRequired(WidgetTester tester) async {
     for (final item in ConsentItem.values.where((item) => item.isRequired)) {
-      await tester.tap(find.text(item.label));
+      await tester.tap(find.text(item.label(l10n)));
     }
     await tester.pump();
   }
@@ -107,7 +110,7 @@ void main() {
     expect(find.text(_description), findsOneWidget);
     expect(find.text('전체 동의'), findsOneWidget);
     for (final item in ConsentItem.values) {
-      expect(find.text(item.label), findsOneWidget, reason: item.name);
+      expect(find.text(item.label(l10n)), findsOneWidget, reason: item.name);
     }
     expect(find.text('필수'), findsNWidgets(2));
     expect(find.text('선택'), findsOneWidget);
@@ -141,12 +144,12 @@ void main() {
     await pump(tester);
     expect(agreeButton(tester).onPressed, isNull);
 
-    await tester.tap(find.text(ConsentItem.terms.label));
+    await tester.tap(find.text(ConsentItem.terms.label(l10n)));
     await tester.pump();
     expect(checkedIn(itemRow(ConsentItem.terms)), isTrue);
     expect(agreeButton(tester).onPressed, isNull);
 
-    await tester.tap(find.text(ConsentItem.terms.label));
+    await tester.tap(find.text(ConsentItem.terms.label(l10n)));
     await checkRequired(tester);
     expect(checkedIn(itemRow(ConsentItem.marketing)), isFalse);
     expect(checkedIn(row('전체 동의')), isFalse);
@@ -227,7 +230,7 @@ void main() {
   testWidgets('동의하고 계속하기는 켠 줄을 보낸다', (tester) async {
     await pump(tester);
     await checkRequired(tester);
-    await tester.tap(find.text(ConsentItem.marketing.label));
+    await tester.tap(find.text(ConsentItem.marketing.label(l10n)));
     await tester.pump();
 
     await tester.tap(find.text('동의하고 계속하기'));
@@ -276,7 +279,7 @@ void main() {
     expect(tester.getRect(find.widgetWithText(InkWell, '로그아웃')).bottom, 780 - 16);
     // 본문은 스크롤된다 — 맨 아래 줄까지 끌어올릴 수 있다.
     await tester.dragUntilVisible(
-      find.text(ConsentItem.marketing.label),
+      find.text(ConsentItem.marketing.label(l10n)),
       find.byType(SingleChildScrollView),
       const Offset(0, -80),
     );
@@ -332,7 +335,7 @@ void main() {
       expect(tester.getRect(terms).height, closeTo(50, 0.5));
       final checkbox = tester.getRect(find.descendant(of: terms, matching: find.byType(AppCheckbox)));
       final badge = tester.getRect(find.descendant(of: terms, matching: find.text('필수')));
-      final label = tester.getRect(find.text(ConsentItem.terms.label));
+      final label = tester.getRect(find.text(ConsentItem.terms.label(l10n)));
       expect(checkbox.left, 16);
       expect(checkbox.size, const Size(24, 24));
       // 뱃지는 알약(글자 좌우 6) — 글자 칸 기준으로 체크와 12 + 6.
@@ -340,7 +343,7 @@ void main() {
       expect(label.left, badge.right + 6 + 12);
       final view = tester.getRect(find.ancestor(of: viewIn(terms), matching: find.byType(InkWell)).first);
       final toggle =
-          tester.getRect(find.ancestor(of: find.text(ConsentItem.terms.label), matching: find.byType(InkWell)).first);
+          tester.getRect(find.ancestor(of: find.text(ConsentItem.terms.label(l10n)), matching: find.byType(InkWell)).first);
       expect(view.left, toggle.right + 8);
       expect(view.right, 360 - 16);
       expect(view.height, 48);
@@ -366,7 +369,7 @@ void main() {
       await pump(tester);
 
       for (final item in ConsentItem.values) {
-        expect(tester.widget<Text>(find.text(item.label)).style, AppTypography.body.copyWith(color: AppColors.ink),
+        expect(tester.widget<Text>(find.text(item.label(l10n))).style, AppTypography.body.copyWith(color: AppColors.ink),
             reason: item.name);
       }
     });

@@ -6,10 +6,13 @@ import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/consent/model/data/consent_item.dart';
 import 'package:campus_mate/consent/model/repository/open_url.dart';
+import 'package:campus_mate/consent/view/consent_item_text.dart';
 import 'package:campus_mate/consent/view/consent_row.dart';
 import 'package:campus_mate/consent/viewmodel/consent_ui_state.dart';
 import 'package:campus_mate/consent/viewmodel/consent_view_model.dart';
 import 'package:campus_mate/core/auth/logout_text_button.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/verification_gate_listenable_provider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -58,13 +61,13 @@ class _ConsentScreenState extends ConsumerState<ConsentScreen> {
     } finally {
       _opening = false;
     }
-    if (!opened && mounted) _showNotice(const UnknownFailure().toDisplayMessage());
+    if (!opened && mounted) _showNotice(context.errorText(const UnknownFailure()));
   }
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(consentViewModelProvider.select((state) => state.errorMessage), (_, message) {
-      if (message != null) _showNotice(message);
+    ref.listen(consentViewModelProvider.select((state) => state.error), (_, failure) {
+      if (failure != null) _showNotice(context.errorText(failure));
     });
     final state = ref.watch(consentViewModelProvider);
     final viewModel = ref.read(consentViewModelProvider.notifier);
@@ -82,7 +85,7 @@ class _ConsentScreenState extends ConsumerState<ConsentScreen> {
           elevation: 0,
           scrolledUnderElevation: 0,
           automaticallyImplyLeading: false,
-          title: Text('약관 동의', style: AppTypography.navTitle.copyWith(color: AppColors.ink)),
+          title: Text(context.l10n.consentScreenTitle, style: AppTypography.navTitle.copyWith(color: AppColors.ink)),
         ),
         body: SafeArea(
           child: Column(
@@ -111,7 +114,7 @@ class _ConsentScreenState extends ConsumerState<ConsentScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     AppButton(
-                      label: '동의하고 계속하기',
+                      label: context.l10n.consentScreenSubmit,
                       onPressed: state.canSubmit ? viewModel.submit : null,
                       isLoading: state.isSubmitting,
                     ),
@@ -142,21 +145,21 @@ class _Body extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          isRenewal ? '약관이 바뀌었어요' : '서비스 이용을 위해 동의해 주세요',
+          isRenewal ? context.l10n.consentScreenHeadlineRenewal : context.l10n.consentScreenHeadline,
           style: AppTypography.headline.copyWith(color: AppColors.ink),
         ),
         const SizedBox(height: AppSpacing.xs),
         Text(
-          isRenewal ? '바뀐 내용을 확인하고 다시 동의해 주세요.' : '필수 항목에 모두 동의하면 시작할 수 있어요.\n마케팅 알림은 선택이에요.',
+          isRenewal ? context.l10n.consentScreenBodyRenewal : context.l10n.consentScreenBody,
           style: AppTypography.body.copyWith(color: AppColors.body),
         ),
         const SizedBox(height: AppSpacing.lg),
-        ConsentRow(label: '전체 동의', checked: state.allChecked, onToggle: viewModel.toggleAll, isAllAgree: true),
+        ConsentRow(label: context.l10n.consentAgreeAll, checked: state.allChecked, onToggle: viewModel.toggleAll, isAllAgree: true),
         // pen 구분선 `CqBWB` #EBEBEB 1.
         const Divider(height: 1, thickness: 1, color: AppColors.hairlineSoft),
         for (final item in ConsentItem.values)
           ConsentRow(
-            label: item.label,
+            label: item.label(context.l10n),
             checked: state.checked.contains(item),
             onToggle: () => viewModel.toggle(item),
             isRequired: item.isRequired,

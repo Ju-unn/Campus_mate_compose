@@ -24,7 +24,6 @@ void main() {
     'chat',
     'common/widgets',
     'community',
-    'consent',
     'core',
     'friend_review',
     'graduate',
