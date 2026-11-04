@@ -44,6 +44,7 @@ import 'package:campus_mate/core/supabase/auth_session_listenable_provider.dart'
 import 'package:campus_mate/core/supabase/supabase_config.dart';
 import 'package:campus_mate/core/supabase/supabase_initializer.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/tour/view/app_tour_host.dart';
 import 'package:campus_mate/tour/viewmodel/app_tour_view_model.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
@@ -364,6 +365,10 @@ class _CampusMateAppState extends ConsumerState<CampusMateApp> {
       theme: AppTheme.light(),
       // 시스템 다크에 끌려가지 않게 고정한다 (DESIGN.md §2.7 — 다크 모드는 MVP 범위 밖)
       themeMode: ThemeMode.light,
+      // 화면 문구(lib/l10n/app_ko.arb, context.l10n)와 머티리얼 · 쿠퍼티노 기본 글자(뒤로 · 붙여넣기 등)를 한국어로 켠다.
+      // 지원 언어가 한국어 하나라 기기 언어가 영어여도 한국어로 떨어진다.
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       routerConfig: _router,
       // 입력칸 밖 빈 곳을 누르면 키보드를 내린다 — 화면 · 시트 · 대화상자가 모두 이 밑에 뜬다(사용자 피드백 9).
       // 앱 투어 덮개도 라우터 바깥 여기에 둔다 — 화면을 옮겨 가며 단계를 이어도 덮개가 남는다(pen 섹션 24).
