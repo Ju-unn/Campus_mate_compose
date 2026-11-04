@@ -16,6 +16,7 @@ from e2e import __main__ as cli
 from e2e import area1, area4_inbox, notify, tools
 from e2e.test_area1_phone import FakePhone
 from e2e.test_area2 import Base, Fake
+from e2e.test_area2_two_accept import label_backed
 from e2e.test_area4_push import ACCEPT, REVIEW
 from e2e.tools import Reply
 
@@ -316,7 +317,8 @@ class RegistryTest(unittest.TestCase):
             self.assertEqual(tools.arb_messages()[key], word)  # 화면이 읽는 키의 글자가 앱 시나리오가 찾는 글자와 같다
         self.assertIn("const _markAllRead = '모두 읽음';", inbox_dart)
         self.assertIn(f"const _receivedReviews = '{RECEIVED}';", inbox_dart)
-        self.assertIn(f"'{RECEIVED}'", read('frontend', 'lib', 'friend_review', 'view', 'received_reviews_screen.dart'))
+        received_screen = read('frontend', 'lib', 'friend_review', 'view', 'received_reviews_screen.dart')
+        self.assertTrue(label_backed(RECEIVED, [received_screen], tools.arb_messages()))  # 화면 문구는 문구 파일(ARB)에 있다(1.0.2 B8)
         self.assertEqual(area4_inbox.RECEIVED_REVIEWS, RECEIVED)
 
     def test_the_app_reads_the_badge_from_the_widget_not_from_text_and_waits_for_the_server_value(self):
