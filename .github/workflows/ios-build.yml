@@ -33,6 +33,10 @@ jobs:
   ios-build:
     runs-on: macos-latest
     timeout-minutes: 45
+    env:
+      # 광고 식별자(IDFA) 부품을 앱에 넣지 않는다(이유 · 결정 기록은 ios-testflight.yml 의 같은 변수 주석). 배포 빌드와 같은 부품(FirebaseAnalyticsCore)으로
+      # 컴파일해 두어야, Core 로 안 되는 변화가 merge 전에 여기서 드러난다.
+      FIREBASE_ANALYTICS_WITHOUT_ADID: "true"
     defaults:
       run:
         working-directory: frontend
@@ -77,3 +81,26 @@ jobs:
 
       - name: iOS 릴리스 빌드(서명 없음)
         run: flutter build ios --release --no-codesign
+
+      # 위 FIREBASE_ANALYTICS_WITHOUT_ADID 가 먹었는지 앱의 Frameworks 로 본다. 광고 식별자 부품이 보이면 노란 경고만 남기고 잡은 성공으로 둔다
+      # (ios-testflight.yml 의 같은 이름 단계와 같은 확인). 비밀이 없는 워크플로라 지우개는 쓰지 않는다.
+      - name: 광고 식별자 부품이 앱에 없는지 확인(있으면 경고만)
+        continue-on-error: true
+        run: |
+          set +x
+          FRAMEWORKS="build/ios/iphoneos/Runner.app/Frameworks"
+          if [[ ! -d "$FRAMEWORKS" ]]; then
+            echo "::warning::앱의 Frameworks 폴더를 찾지 못해 광고 식별자 부품이 빠졌는지 확인하지 못했다"
+          else
+            FOUND=""
+            for NAME in GoogleAppMeasurementIdentitySupport GoogleAdsOnDeviceConversion; do
+              if [[ -d "$FRAMEWORKS/$NAME.framework" ]]; then
+                FOUND="$FOUND $NAME"
+              fi
+            done
+            echo "== 앱 Frameworks =="
+            ls "$FRAMEWORKS"
+            if [[ -n "$FOUND" ]]; then
+              echo "::warning::광고 식별자 부품이 앱에 들어 있다:$FOUND — FIREBASE_ANALYTICS_WITHOUT_ADID 가 패키지 해석에 닿지 않았거나 다른 플러그인이 끌고 왔다. 위 Frameworks 목록을 확인한다"
+            fi
+          fi
