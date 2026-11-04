@@ -38,6 +38,12 @@ String appErrorKindText(AppLocalizations l10n, AppError error) => switch (error)
       AppError.tryLater => l10n.errorTryLater,
       AppError.photoUnreadable => l10n.errorPhotoUnreadable,
       AppError.graduateEmailInvalid => l10n.errorGraduateEmailInvalid,
+      AppError.accountLoad => l10n.errorAccountLoad,
+      AppError.contactNoMobile => l10n.errorContactNoMobile,
+      AppError.friendCodeNotFound => l10n.errorFriendCodeNotFound,
+      AppError.friendCodeTryLater => l10n.errorFriendCodeTryLater,
+      AppError.friendReviewAlreadyWritten => l10n.errorFriendReviewAlreadyWritten,
+      AppError.reportLimited => l10n.errorReportLimited,
     };
 
 String _takenText(AppLocalizations l10n, SchoolEmailTakenFailure failure) {

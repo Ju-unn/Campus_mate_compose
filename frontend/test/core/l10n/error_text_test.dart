@@ -44,6 +44,12 @@ void main() {
     (const AppErrorFailure(AppError.storeOpenFailed), '스토어를 열지 못했어요. 스토어에서 CampusMate 를 검색해 주세요.'),
     (const AppErrorFailure(AppError.photoUnreadable), '사진을 다시 확인해 주세요'),
     (const AppErrorFailure(AppError.graduateEmailInvalid), '이전 학교 메일 형식을 다시 확인해 주세요'),
+    (const AppErrorFailure(AppError.accountLoad), '잠시 뒤 다시 시도해 주세요'),
+    (const AppErrorFailure(AppError.contactNoMobile), '휴대전화 번호가 있는 연락처만 차단할 수 있어요'),
+    (const AppErrorFailure(AppError.friendCodeNotFound), '코드를 찾을 수 없어요. 다시 확인해 주세요.'),
+    (const AppErrorFailure(AppError.friendCodeTryLater), '잠시 후 다시 시도해 주세요.'),
+    (const AppErrorFailure(AppError.friendReviewAlreadyWritten), '이미 리뷰를 남겼어요'),
+    (const AppErrorFailure(AppError.reportLimited), '오늘은 더 신고할 수 없어요'),
   ];
 
   group('failureText', () {
