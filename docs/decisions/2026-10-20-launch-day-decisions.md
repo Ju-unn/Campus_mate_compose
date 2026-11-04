@@ -25,7 +25,7 @@
 ## 1. 1번(Firebase 3종)의 설계 한계
 
 - 수집은 **약관 동의(02-c) 뒤에 로그인한 사용자일 때만** 켠다. 안드로이드 `AndroidManifest.xml` · iOS `Info.plist` 에는 기본 꺼짐으로 넣었고(iOS 성능 키는 소문자 `firebase_performance_collection_enabled`), 앱이 동의 확인 뒤 켠다(`lib/core/analytics/collection_consent.dart`).
-- 광고 식별자는 쓰지 않는다: `AD_ID` · `ACCESS_ADSERVICES_AD_ID` 권한 제거, iOS `Podfile` 의 `$FirebaseAnalyticsWithoutAdIdSupport = true`.
+- 광고 식별자는 쓰지 않는다: `AD_ID` · `ACCESS_ADSERVICES_AD_ID` 권한 제거, iOS `Podfile` 의 `$FirebaseAnalyticsWithoutAdIdSupport = true`. **2026-11-04 밤 개정(검토 담당 지적, 대장 전달 값)**: Flutter 3.47 이 Firebase 를 SPM 으로 가져와 Podfile 의 `$FirebaseAnalyticsWithoutAdIdSupport` 줄이 듣지 않는다. 그 역할은 워크플로 잡 env `FIREBASE_ANALYTICS_WITHOUT_ADID=true`(`ios-testflight.yml` · `ios-build.yml`)가 맡도록 고치는 PR 이 진행 중이다(브랜치 `fix/ios-dsym-upload`). 맥에서 직접 `flutter build ios` / `flutter build ipa` 할 때도 이 환경변수를 줘야 한다. 실제로 TestFlight 26 · 27 에는 광고 식별자 부품 2개(`GoogleAppMeasurementIdentitySupport` · `GoogleAdsOnDeviceConversion`)가 들어 있었다 — 사용자 결정 2026-11-04 「1」로 빼기로 했고, 애플 1.0.2 는 27 대신 28 로 제출한다(28 에서 부품이 빠졌는지는 확인 예정, 이 문서 담당이 빌드 내용을 보지 못했다).
 - 보내는 이벤트는 `login` · `onboarding_complete` · `chat_request_sent` · `heart_purchase` · `screen_view`(경로 패턴 이름)뿐이다. 사용자 id · 속성은 설정하지 않는다.
 - 성능 측정은 자동 수집(앱 시작 시간 · 화면 렌더링)만 쓴다. 요청 주소에 계정 번호가 섞일 수 있어 사용자 지정 추적(`HttpMetric` · `Trace`)은 만들지 않았다.
 - **남은 일**: iOS dSYM 업로드(충돌 기록의 글자 복원)는 출시 후다. dSYM 이 없으면 아이폰 충돌 기록의 함수 이름이 읽기 어려울 수 있다.
