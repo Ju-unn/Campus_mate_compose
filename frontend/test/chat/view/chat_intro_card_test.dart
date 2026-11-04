@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../billing/view/pretendard.dart';
+import '../../billing/store/view/pretendard.dart';
 
 /// 매칭 직후 첫 입장 안내 카드(pen 마스터 `cinKv` 접힘 · `TfPlG` 펼침 · 항목 `B3PzPm`, 화면 `PI7Kg` · `U6x9nV`).
 /// 값은 대장이 준 pen 값표다(도우미는 pen 을 직접 열지 않는다). 좌표는 카드 왼쪽 위 기준.

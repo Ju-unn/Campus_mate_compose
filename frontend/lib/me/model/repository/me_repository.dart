@@ -2,7 +2,7 @@ import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/matching/model/data/card_detail.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/model/data/photo_slot.dart';
-import 'package:campus_mate/profile/model/profile_enums.dart';
+import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
 
 /// 화면 15 와 편집 화면이 쓰는 서버 호출. 화면은 이 인터페이스만 보고 구현을 모른다.
 abstract interface class MeRepository {

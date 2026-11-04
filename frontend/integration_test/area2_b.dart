@@ -1,9 +1,9 @@
 import 'dart:io';
 
-import 'package:campus_mate/billing/view/heart_task_row.dart';
-import 'package:campus_mate/billing/view/heart_task_submit_screen.dart';
-import 'package:campus_mate/billing/view/heart_tasks_screen.dart';
-import 'package:campus_mate/billing/viewmodel/heart_task_submit_view_model.dart';
+import 'package:campus_mate/billing/task/view/heart_task_row.dart';
+import 'package:campus_mate/billing/task/view/heart_task_submit_screen.dart';
+import 'package:campus_mate/billing/task/view/heart_tasks_screen.dart';
+import 'package:campus_mate/billing/task/viewmodel/heart_task_submit_view_model.dart';
 import 'package:campus_mate/common/widgets/trait_bar.dart';
 import 'package:campus_mate/community/view/community_feed_screen.dart';
 import 'package:campus_mate/community/view/feed_poll_card.dart';
@@ -47,7 +47,7 @@ const _total = 25; // PC 가 올려 두는 시험 글 수(피드에 원래 보�
 const _thumbs = '\u{1F44D}\u{1F3FB}';
 const _thumb = '\u{1F44D}';
 
-// 설정 → 18a — frontend/lib/matching/view/settings_screen.dart:69 · billing/view/heart_task_row.dart · heart_task_submit_screen.dart
+// 설정 → 18a — frontend/lib/matching/view/settings_screen.dart:69 · billing/task/view/heart_task_row.dart · heart_task_submit_screen.dart
 const _heartTasksRow = '무료로 하트 모으기'; // settings_screen.dart:69
 const _everytime = '에브리타임 홍보'; // heart_task_row.dart:88
 const _kakao = '단톡방 공유'; // :89
@@ -60,13 +60,13 @@ const _submit = '제출하기'; // heart_task_submit_screen.dart:131
 const _resubmit = '다시 제출하기'; // :131 — 반려 뒤 18b-2
 const _rejectLead = '반려 사유: '; // :163
 const _submitTitle = '인증샷 제출'; // :103
-// 반려 사유 문구 — frontend/lib/billing/model/heart_task.dart:27-29
+// 반려 사유 문구 — frontend/lib/billing/task/model/data/heart_task.dart:27-29
 const _rejectLabels = {
   'date_missing': '날짜가 안 보여요',
   'not_verified': '게시글·공유가 확인되지 않아요',
   'reused': '이미 쓴 캡처예요',
 };
-// 18c — billing/view/heart_task_pending_screen.dart:6 · 8
+// 18c — billing/task/view/heart_task_pending_screen.dart:6 · 8
 const _pendingTitle = '확인하고 있어요';
 const _pendingDuration = '보통 영업일 1~2일 걸려요';
 

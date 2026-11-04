@@ -1,4 +1,4 @@
-import 'package:campus_mate/auth/view/start_view.dart';
+import 'package:campus_mate/auth/social/view/start_view.dart';
 import 'package:campus_mate/common/widgets/app_lottie_view.dart';
 import 'package:campus_mate/common/widgets/keyboard_dismiss_on_tap.dart';
 import 'package:campus_mate/main.dart';

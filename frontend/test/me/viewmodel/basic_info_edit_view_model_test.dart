@@ -6,13 +6,13 @@ import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
 import 'package:campus_mate/me/viewmodel/basic_info_edit_view_model.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
-import 'package:campus_mate/profile/model/basic_info_repository_provider.dart';
-import 'package:campus_mate/profile/model/profile_enums.dart';
-import 'package:campus_mate/profile/viewmodel/basic_info_ui_state.dart';
+import 'package:campus_mate/profile/basic/model/repository/basic_info_repository_provider.dart';
+import 'package:campus_mate/profile/basic/viewmodel/basic_info_ui_state.dart';
+import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../profile/model/fake_basic_info_repository.dart';
+import '../../profile/basic/model/repository/fake_basic_info_repository.dart';
 import '../model/repository/fake_me_repository.dart';
 
 /// 서버 `errors.py` 의 문구 — 앱은 상태코드를 못 보고 문구만 받는다.

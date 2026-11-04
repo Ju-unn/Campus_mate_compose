@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../billing/view/pretendard.dart';
+import '../../billing/store/view/pretendard.dart';
 
 void main() {
   // 줄 수는 실제 글꼴로 잰다 — 시험 기본 글꼴(Ahem)은 글자마다 1em 네모라 한글 폭이 실제와 다르다.

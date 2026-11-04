@@ -1,7 +1,7 @@
 import 'package:campus_mate/core/analytics/analytics_service.dart';
 import 'package:campus_mate/core/analytics/analytics_values.dart';
-import 'package:campus_mate/profile/model/onboarding_repository.dart';
-import 'package:campus_mate/profile/model/onboarding_step.dart';
+import 'package:campus_mate/profile/onboarding/model/data/onboarding_step.dart';
+import 'package:campus_mate/profile/onboarding/model/repository/onboarding_repository.dart';
 import 'package:flutter/foundation.dart';
 
 /// 첫 조회가 실패했을 때 쓰는 비관적 기본값. 아직 아무것도 안 채운 것으로 본다.

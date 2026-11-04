@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:campus_mate/auth/model/image_compressor_provider.dart';
-import 'package:campus_mate/auth/model/verification_gate_repository_provider.dart';
+import 'package:campus_mate/auth/gate/model/repository/verification_gate_repository_provider.dart';
+import 'package:campus_mate/auth/media/model/repository/image_compressor_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/graduate/model/data/graduate_request_state.dart';
@@ -12,8 +12,8 @@ import 'package:campus_mate/graduate/viewmodel/graduate_application_view_model.d
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../auth/model/fake_image_compressor.dart';
-import '../../auth/model/fake_verification_gate_repository.dart';
+import '../../auth/gate/model/repository/fake_verification_gate_repository.dart';
+import '../../auth/media/model/repository/fake_image_compressor.dart';
 import '../model/repository/fake_graduate_verification_repository.dart';
 
 void main() {

@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/me/view/avatar_regen_pick_screen.dart';
 import 'package:campus_mate/me/viewmodel/avatar_regen_pick_view_model.dart';
-import 'package:campus_mate/profile/view/avatar_source_tile.dart';
+import 'package:campus_mate/profile/avatar/view/avatar_source_tile.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';

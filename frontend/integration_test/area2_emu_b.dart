@@ -1,7 +1,7 @@
-import 'package:campus_mate/billing/model/heart_task.dart';
-import 'package:campus_mate/billing/view/heart_task_row.dart';
-import 'package:campus_mate/billing/view/heart_tasks_screen.dart';
-import 'package:campus_mate/billing/viewmodel/heart_tasks_view_model.dart';
+import 'package:campus_mate/billing/task/model/data/heart_task.dart';
+import 'package:campus_mate/billing/task/view/heart_task_row.dart';
+import 'package:campus_mate/billing/task/view/heart_tasks_screen.dart';
+import 'package:campus_mate/billing/task/viewmodel/heart_tasks_view_model.dart';
 import 'package:campus_mate/community/view/community_feed_screen.dart';
 import 'package:campus_mate/community/view/feed_poll_card.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_ui_state.dart';
@@ -37,7 +37,7 @@ const _matchMade = '매칭됐어요!'; // match_made_screen.dart:32
 // 15d 피드 — frontend/lib/community/view/feed_poll_card.dart(개선안 A) · community_feed_view_model.dart
 const _rewardToast = '하트 5개를 받았어요'; // community_feed_view_model.dart pollRewardMessage(10-16 확정, 종전 10)
 
-// 18a — frontend/lib/billing/view/heart_task_row.dart
+// 18a — frontend/lib/billing/task/view/heart_task_row.dart
 const _heartTasksRow = '무료로 하트 모으기'; // settings_screen.dart
 const _voteTitle = '커뮤니티 투표'; // heart_task_row.dart _title
 const _join = '참여'; // heart_task_row.dart _trailing(open · 투표 줄)

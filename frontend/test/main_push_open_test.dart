@@ -1,14 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:campus_mate/auth/model/school_name_provider.dart';
-import 'package:campus_mate/auth/model/verification_gate.dart';
+import 'package:campus_mate/auth/school_info/model/repository/school_name_provider.dart';
+import 'package:campus_mate/auth/gate/model/data/verification_gate.dart';
 import 'package:campus_mate/common/university_logos.dart';
-import 'package:campus_mate/auth/view/school_info_screen.dart';
-import 'package:campus_mate/auth/model/verification_gate_repository.dart';
-import 'package:campus_mate/auth/model/verification_gate_repository_provider.dart';
-import 'package:campus_mate/billing/model/heart_task_repository_provider.dart';
-import 'package:campus_mate/billing/view/heart_tasks_screen.dart';
+import 'package:campus_mate/auth/school_info/view/school_info_screen.dart';
+import 'package:campus_mate/auth/gate/model/repository/verification_gate_repository.dart';
+import 'package:campus_mate/auth/gate/model/repository/verification_gate_repository_provider.dart';
+import 'package:campus_mate/billing/task/model/repository/heart_task_repository_provider.dart';
+import 'package:campus_mate/billing/task/view/heart_tasks_screen.dart';
 import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart';
 import 'package:campus_mate/chat/model/data/conversation.dart';
 import 'package:campus_mate/chat/model/data/message.dart';
@@ -26,7 +26,7 @@ import 'package:campus_mate/home/model/repository/home_repository_provider.dart'
 import 'package:campus_mate/home/view/home_screen.dart';
 import 'package:campus_mate/main.dart';
 import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
-import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
+import 'package:campus_mate/profile/onboarding/model/repository/onboarding_repository_provider.dart';
 import 'package:campus_mate/notifications/model/repository/notifications_repository_provider.dart';
 import 'package:flutter/material.dart' show AppLifecycleState;
 import 'package:flutter/services.dart';
@@ -35,15 +35,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:campus_mate/chat/model/data/user_event.dart';
 
-import 'auth/model/fake_verification_gate_repository.dart';
-import 'billing/model/fake_heart_task_repository.dart';
+import 'auth/gate/model/repository/fake_verification_gate_repository.dart';
+import 'billing/task/model/repository/fake_heart_task_repository.dart';
 import 'chat/model/repository/fake_chat_repository.dart';
 import 'core/analytics/fake_analytics_service.dart';
 import 'core/push/fake_push_messaging.dart';
 import 'core/push/fake_system_notifications.dart';
 import 'home/model/repository/fake_home_repository.dart';
 import 'matching/model/repository/fake_card_repository.dart';
-import 'profile/model/fake_onboarding_repository.dart';
+import 'profile/onboarding/model/repository/fake_onboarding_repository.dart';
 import 'notifications/model/repository/fake_notifications_repository.dart';
 
 /// 관문 조회가 [complete] 를 부를 때까지 끝나지 않는다 — 콜드 스타트에서 서버가 늦게 답하는 모양.

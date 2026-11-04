@@ -6,7 +6,7 @@ import 'package:campus_mate/matching/model/data/card_detail.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/model/data/photo_slot.dart';
 import 'package:campus_mate/me/model/repository/me_repository.dart';
-import 'package:campus_mate/profile/model/profile_enums.dart';
+import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
 
 /// 온보딩 앞 단계를 이미 저장한 사람의 서버 값(지어낸 값) — 뒤로가기로 돌아간 화면이 이 값으로 채워지는지 본다.
 const savedOnboardingProfile = MyProfile(

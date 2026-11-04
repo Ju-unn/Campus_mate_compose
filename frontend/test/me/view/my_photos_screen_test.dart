@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:campus_mate/auth/model/face_detector_provider.dart';
-import 'package:campus_mate/auth/model/image_compressor_provider.dart';
+import 'package:campus_mate/auth/media/model/repository/face_detector_provider.dart';
+import 'package:campus_mate/auth/media/model/repository/image_compressor_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
@@ -22,8 +22,8 @@ import 'package:campus_mate/me/view/my_photos_screen.dart';
 import 'package:campus_mate/me/view/photo_zoom_viewer.dart';
 import 'package:campus_mate/me/viewmodel/my_photos_view_model.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
-import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
-import 'package:campus_mate/profile/view/photo_tiles.dart';
+import 'package:campus_mate/profile/onboarding/model/repository/onboarding_repository_provider.dart';
+import 'package:campus_mate/profile/avatar/view/photo_tiles.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -32,9 +32,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mocktail/mocktail.dart';
 
-import '../../auth/model/fake_face_detector.dart';
-import '../../auth/model/fake_image_compressor.dart';
-import '../../profile/model/fake_onboarding_repository.dart';
+import '../../auth/media/model/repository/fake_face_detector.dart';
+import '../../auth/media/model/repository/fake_image_compressor.dart';
+import '../../profile/onboarding/model/repository/fake_onboarding_repository.dart';
 import '../model/repository/fake_me_repository.dart';
 
 /// 사진 요청을 받기만 하고 답하지 않는 HttpClient — 서버 사진(NetworkImage)은 "아직 오는 중" 으로 남는다(15-5 테스트와 같다).

@@ -1,0 +1,171 @@
+import 'dart:async';
+
+import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/core/draft/draft_screen.dart';
+import 'package:campus_mate/core/draft/draft_store.dart';
+import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
+import 'package:campus_mate/profile/ideal/model/data/ideal_conditions_submission.dart';
+import 'package:campus_mate/profile/ideal/model/repository/ideal_conditions_repository_provider.dart';
+import 'package:campus_mate/profile/ideal/viewmodel/ideal_conditions_ui_state.dart';
+import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
+import 'package:campus_mate/profile/onboarding/viewmodel/onboarding_blocked.dart';
+import 'package:campus_mate/profile/onboarding/viewmodel/revisit_profile.dart';
+import 'package:campus_mate/profile/traits/viewmodel/survey_view_model.dart';
+import 'package:flutter/foundation.dart' show protected;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+final idealConditionsViewModelProvider =
+    NotifierProvider<IdealConditionsViewModel, IdealConditionsUiState>(IdealConditionsViewModel.new);
+
+/// 이상형 조건 화면(DESIGN.md 화면 06-1)의 흐름을 맡는다.
+class IdealConditionsViewModel extends Notifier<IdealConditionsUiState> {
+  /// 온보딩일 때만 채워진다. 나 탭 편집 모드(`IdealConditionsEditViewModel`)는 [build] 를 덮어써 비어 있다 —
+  /// 편집은 열 때마다 서버 값으로 채우므로 임시 저장을 쓰지도 지우지도 않는다.
+  DraftStore? _drafts;
+
+  @override
+  IdealConditionsUiState build() {
+    final drafts = ref.read(draftStoreProvider);
+    _drafts = drafts;
+    listenSelf((previous, next) => _saveDraft(drafts, previous, next));
+    return _initialState(drafts);
+  }
+
+  /// 처음 상태를 정하는 단 한 곳이다. 폰에 남긴 값 > (뒤로가기로 돌아왔으면) 서버 값 > 기본값.
+  IdealConditionsUiState _initialState(DraftStore drafts) {
+    final restored = drafts.read(DraftScreen.idealConditions, IdealConditionsUiState.fromDraft);
+    final saved = revisitProfile(ref);
+    return restored ?? (saved == null ? _freshState() : IdealConditionsUiState.fromProfile(saved));
+  }
+
+  /// 처음 여는 상태. "흡연하는 사람" 칸만 바로 앞 설문(05-11)에서 고른 흡연 답을 따른다 — 안 한다 = 싫어요(false), 한다 = 상관없어요(true).
+  /// 설문 답이 이 앱 실행에 없으면(앱을 다시 켰다) 미리 고르지 않는다(null) — "상관없어요"로 열면 비흡연자가 안 고르고
+  /// "다음" 만 눌러도 감점이 꺼진다. 안 고르면 저장 때 키를 보내지 않아 서버가 내 흡연 여부를 따른다.
+  IdealConditionsUiState _freshState() => IdealConditionsUiState(acceptsSmoker: _surveyIsSmoker());
+
+  /// 설문 뷰모델이 이미 있을 때만 읽는다. 없는데 읽으면 여기서 처음 만들어져, 뒤로가기로 돌아온 설문이
+  /// 서버 답 대신 빈 값으로 열린다(설문 뷰모델은 처음 만들어질 때만 서버 답을 읽는다).
+  bool? _surveyIsSmoker() => ref.exists(surveyViewModelProvider) ? ref.read(surveyViewModelProvider).isSmoker : null;
+
+  /// 값이 바뀔 때마다 남긴다(저장소가 디바운스한다). 처음 상태(복원한 값 그대로)는 다시 쓰지 않고,
+  /// 끝낸 단계는 서버에 있으니 남기지 않는다.
+  void _saveDraft(DraftStore drafts, IdealConditionsUiState? previous, IdealConditionsUiState next) {
+    if (previous == null || next.completed) {
+      return;
+    }
+    drafts.write(DraftScreen.idealConditions, next.toDraft());
+  }
+
+  void changeAgeRange(int min, int max) {
+    state = state.copyWith(preferredAgeMin: min, preferredAgeMax: max);
+  }
+
+  void changeAgeIgnored(bool value) {
+    state = state.copyWith(ageIgnored: value);
+  }
+
+  void changeHeightRange(int min, int max) {
+    state = state.copyWith(preferredHeightMin: min, preferredHeightMax: max);
+  }
+
+  void changeHeightIgnored(bool value) {
+    state = state.copyWith(heightIgnored: value);
+  }
+
+  void changeAcceptsSmoker(bool value) {
+    state = state.copyWith(acceptsSmoker: value);
+  }
+
+  void toggleMbtiPole(String pole) {
+    final flags = {...state.preferredMbtiFlags};
+    if (flags[pole] ?? false) {
+      flags.remove(pole);
+    } else {
+      flags[pole] = true;
+    }
+    state = state.copyWith(preferredMbtiFlags: flags);
+  }
+
+  void toggleAnimalType(AnimalType value) {
+    state = state.copyWith(
+      preferredAnimalTypes: _toggledWithinCap(state.preferredAnimalTypes, value),
+    );
+  }
+
+  void toggleImpressionType(ImpressionType value) {
+    state = state.copyWith(
+      preferredImpressionTypes: _toggledWithinCap(state.preferredImpressionTypes, value),
+    );
+  }
+
+  /// 최대 3개까지만 담는다(Task A2 태그 선택과 같은 규칙, 상한만 다르다).
+  List<T> _toggledWithinCap<T>(List<T> selected, T value) {
+    final next = [...selected];
+    if (next.remove(value)) {
+      return next;
+    }
+    if (next.length < IdealConditionsUiState.maxAppearanceChoices) {
+      next.add(value);
+    }
+    return next;
+  }
+
+  Future<void> submit() async {
+    if (!state.canSubmit) {
+      return;
+    }
+    // 지난 저장의 completed 를 내린다 — 되돌아와 다시 저장하다 실패하면 다음 화면으로 넘어가면 안 된다.
+    state = state.copyWith(isSubmitting: true, errorMessage: null, completed: false);
+    try {
+      final repository = ref.read(idealConditionsRepositoryProvider);
+      final result = await repository.submit(_submission());
+      reportIfOnboardingBlocked(ref, result);
+      state = result.when(
+        onSuccess: (_) => state.copyWith(isSubmitting: false, completed: true),
+        onFailure: (failure) => state.copyWith(isSubmitting: false, errorMessage: failure.toDisplayMessage()),
+      );
+    } catch (_) {
+      state = state.copyWith(isSubmitting: false, errorMessage: const UnknownFailure().toDisplayMessage());
+      return;
+    }
+    _notifySavedIfCompleted();
+  }
+
+  /// "키는 상관없어요"는 null 로, "나이는 상관없어요"는 전 구간으로 보낸다(서버가 나이는 필수로 받는다).
+  IdealConditionsSubmission _submission() {
+    return IdealConditionsSubmission(
+      preferredAgeMin: state.ageIgnored ? IdealConditionsUiState.ageFloor : state.preferredAgeMin,
+      preferredAgeMax: state.ageIgnored ? IdealConditionsUiState.ageCeiling : state.preferredAgeMax,
+      preferredHeightMin: state.heightIgnored ? null : state.preferredHeightMin,
+      preferredHeightMax: state.heightIgnored ? null : state.preferredHeightMax,
+      preferredMbtiFlags: state.preferredMbtiFlags,
+      preferredAnimalTypes: state.preferredAnimalTypes,
+      preferredImpressionTypes: state.preferredImpressionTypes,
+      acceptsSmoker: state.acceptsSmoker,
+    );
+  }
+
+  void _notifySavedIfCompleted() {
+    if (!state.completed) {
+      return;
+    }
+    _discardDraft();
+    onSaved();
+  }
+
+  /// 단계를 끝냈으면 이 화면의 임시 저장 값을 지운다. 편집 모드는 [_drafts] 가 없어 아무것도 하지 않는다.
+  void _discardDraft() {
+    final drafts = _drafts;
+    if (drafts == null) {
+      return;
+    }
+    unawaited(drafts.clear(DraftScreen.idealConditions));
+  }
+
+  /// 저장이 끝나면 다음 온보딩 단계로 넘어가도록 캐시를 다시 조회한다(Task A1).
+  /// 나 탭 편집 모드(`IdealConditionsEditViewModel`)는 이것 대신 화면 15 값을 다시 읽게 한다 — 온보딩 단계는 조회하지 않는다.
+  @protected
+  void onSaved() {
+    unawaited(ref.read(onboardingStepListenableProvider).stepSaved());
+  }
+}

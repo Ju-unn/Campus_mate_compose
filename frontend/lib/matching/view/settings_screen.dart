@@ -1,5 +1,5 @@
 import 'package:campus_mate/account/view/withdraw_sheets.dart';
-import 'package:campus_mate/billing/model/heart_bundles.dart';
+import 'package:campus_mate/billing/store/model/data/heart_bundles.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';

@@ -2,10 +2,10 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/analytics/analytics_values.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable.dart';
-import 'package:campus_mate/profile/model/onboarding_step.dart';
+import 'package:campus_mate/profile/onboarding/model/data/onboarding_step.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../profile/model/fake_onboarding_repository.dart';
+import '../../profile/onboarding/model/repository/fake_onboarding_repository.dart';
 import '../analytics/fake_analytics_service.dart';
 
 void main() {

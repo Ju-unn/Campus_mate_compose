@@ -430,18 +430,18 @@ class AppContractTest(unittest.TestCase):
         self.assertIn(f"label: '{cta}'", lib('me', 'view', 'avatar_regen_pick_screen.dart'))
         self.assertIn('avatarRegenPickViewModelProvider.notifier).pickFromGallery', step)  # 다른 공급자의 훅이 아니다
         self.assertIn('AddPhotoTile(onTap: viewModel.pick)', lib('me', 'view', 'avatar_regen_pick_screen.dart'))  # 빈 칸의 + 아이콘을 누른다
-        self.assertIn('AppIcons.plus', lib('profile', 'view', 'photo_tiles.dart'))
+        self.assertIn('AppIcons.plus', lib('profile', 'avatar', 'view', 'photo_tiles.dart'))
         self.assertIn("import 'regen_pick.dart';", dart('area5.dart'))
         self.assertIn("import 'regen_pick.dart';", dart('area2_c.dart'))
 
     def test_the_screens_say_the_same_numbers(self):
         # 15-7 의 2~4장 · 저장 규칙 / 끌기 / 갤러리 안내 — 시험이 기대하는 숫자가 지금 코드의 숫자다.
-        self.assertIn('photos.length >= 2 && photos.length <= 4', lib('profile', 'viewmodel', 'photos_ui_state.dart'))
+        self.assertIn('photos.length >= 2 && photos.length <= 4', lib('profile', 'avatar', 'viewmodel', 'photos_ui_state.dart'))
         # 화면 쪽 상수는 PhotosUiState.maxPhotos 하나를 보고, 그 숫자가 4 다(임시 저장 커밋 bace611e 이후).
-        self.assertIn('const _maxPhotos = PhotosUiState.maxPhotos;', lib('profile', 'viewmodel', 'photos_view_model.dart'))
-        self.assertIn('static const int maxPhotos = 4;', lib('profile', 'viewmodel', 'photos_ui_state.dart'))
+        self.assertIn('const _maxPhotos = PhotosUiState.maxPhotos;', lib('profile', 'avatar', 'viewmodel', 'photos_view_model.dart'))
+        self.assertIn('static const int maxPhotos = 4;', lib('profile', 'avatar', 'viewmodel', 'photos_ui_state.dart'))
         self.assertIn('MIN_PHOTOS, MAX_PHOTOS = 2, 4', (ROOT / 'me' / 'photo_layout.py').read_text(encoding='utf-8'))
-        tiles = lib('profile', 'view', 'photo_tiles.dart')
+        tiles = lib('profile', 'avatar', 'view', 'photo_tiles.dart')
         self.assertIn('LongPressDraggable<String>', tiles)
         self.assertIn('class DraggablePhotoTile', tiles)
         self.assertIn('AppIcons.plus', tiles)

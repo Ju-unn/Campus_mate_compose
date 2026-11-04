@@ -15,7 +15,7 @@ import 'package:campus_mate/me/view/me_load_error.dart';
 import 'package:campus_mate/me/view/me_toast.dart';
 import 'package:campus_mate/me/view/profile_entry_row.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
-import 'package:campus_mate/profile/viewmodel/ideal_conditions_ui_state.dart';
+import 'package:campus_mate/profile/ideal/viewmodel/ideal_conditions_ui_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';

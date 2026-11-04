@@ -1,0 +1,193 @@
+import 'package:campus_mate/me/model/data/my_profile.dart';
+import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
+
+/// 이상형 조건 화면(DESIGN.md 화면 06-1)의 상태.
+///
+/// 나이·키는 `range-slider` 프리셋(§8.5)이라 기본값이 있고 비어 있을 수 없다. "상관없어요"는
+/// 값을 지우는 대신 따로 표시해 두고, 제출할 때 키는 null, 나이는 전 구간으로 바꿔 보낸다
+/// (서버 `preferred_age_min`·`preferred_age_max` 는 필수라 null 을 받지 못한다).
+class IdealConditionsUiState {
+  const IdealConditionsUiState({
+    this.preferredAgeMin = 22,
+    this.preferredAgeMax = 27,
+    this.ageIgnored = false,
+    this.preferredHeightMin = 165,
+    this.preferredHeightMax = 180,
+    this.heightIgnored = false,
+    this.preferredMbtiFlags = const {},
+    this.preferredAnimalTypes = const [],
+    this.preferredImpressionTypes = const [],
+    this.acceptsSmoker,
+    this.isSubmitting = false,
+    this.errorMessage,
+    this.completed = false,
+  });
+
+  /// 나이 프리셋 19세 ~ 35세 이상, 1세 단위(DESIGN.md §8.5).
+  static const int ageFloor = 19;
+  static const int ageCeiling = 35;
+
+  /// 키 프리셋 150cm 이하 ~ 190cm 이상, 5cm 단위(DESIGN.md §8.5).
+  static const int heightFloor = 150;
+  static const int heightCeiling = 190;
+  static const int heightStep = 5;
+
+  /// 얼굴상·인상 선호는 각각 1~3개 필수다(DESIGN.md §8.5, 2026-09-20 사용자 결정으로 선택 → 필수).
+  static const int maxAppearanceChoices = 3;
+
+  /// 선호 MBTI 토글 8극(DESIGN.md §8.5 `mbti-toggle`).
+  /// 04-1 과 같은 자리·같은 순서다(`MbtiPoleToggle.allPoles` — 위아래가 짝: E↔I · S↔N · F↔T · P↔J).
+  static const List<String> mbtiPoles = ['E', 'S', 'F', 'P', 'I', 'N', 'T', 'J'];
+
+  final int preferredAgeMin;
+  final int preferredAgeMax;
+  final bool ageIgnored;
+  final int preferredHeightMin;
+  final int preferredHeightMax;
+  final bool heightIgnored;
+  final Map<String, bool> preferredMbtiFlags;
+  final List<AnimalType> preferredAnimalTypes;
+  final List<ImpressionType> preferredImpressionTypes;
+
+  /// "흡연하는 사람" 칸(앱 1.0.2) — true = 상관없어요, false = 싫어요, null = 두 칸 다 안 고름.
+  /// 처음 값은 서버 값 > 내 흡연 여부(비흡연 = 싫어요, 흡연 = 상관없어요)이고, 흡연 여부도 모르면 미리 고르지 않는다(null) —
+  /// 설문 9축의 "모르면 미리 고르지 않는다" 와 같은 생각이다. 안 골라도 "다음" 은 눌리고, null 은 서버로 보내지 않는다.
+  final bool? acceptsSmoker;
+  final bool isSubmitting;
+  final String? errorMessage;
+  final bool completed;
+
+  bool get canSubmit {
+    return !isSubmitting &&
+        preferredAgeMin <= preferredAgeMax &&
+        preferredHeightMin <= preferredHeightMax &&
+        preferredAnimalTypes.isNotEmpty &&
+        preferredAnimalTypes.length <= maxAppearanceChoices &&
+        preferredImpressionTypes.isNotEmpty &&
+        preferredImpressionTypes.length <= maxAppearanceChoices;
+  }
+
+  /// 폰에 임시 저장할 값 — 고른 조건 전부. "상관없어요" 도 표시 그대로 남긴다.
+  Map<String, Object?> toDraft() => {
+        'preferredAgeMin': preferredAgeMin,
+        'preferredAgeMax': preferredAgeMax,
+        'ageIgnored': ageIgnored,
+        'preferredHeightMin': preferredHeightMin,
+        'preferredHeightMax': preferredHeightMax,
+        'heightIgnored': heightIgnored,
+        'preferredMbtiFlags': preferredMbtiFlags,
+        'preferredAnimalTypes': [for (final type in preferredAnimalTypes) type.name],
+        'preferredImpressionTypes': [for (final type in preferredImpressionTypes) type.name],
+        'acceptsSmoker': acceptsSmoker,
+      };
+
+  /// [toDraft] 로 남긴 값으로 처음 상태를 만든다. 프리셋 범위 · 개수를 벗어나거나 이름을 모르면 던진다 —
+  /// 저장소가 받아서 버린다(앱 업데이트로 범위가 바뀌어도 슬라이더가 깨지지 않게).
+  static IdealConditionsUiState fromDraft(Map<String, Object?> data) {
+    final restored = _rangesFromDraft(data).copyWith(
+      preferredMbtiFlags: _mbtiFlagsFromDraft(data['preferredMbtiFlags']),
+      preferredAnimalTypes: _namesFromDraft(data['preferredAnimalTypes'], AnimalType.values),
+      preferredImpressionTypes: _namesFromDraft(data['preferredImpressionTypes'], ImpressionType.values),
+      // 안 고른 상태(null)도 그대로 돌아온다. 1.0.1 이 남긴 임시 저장에는 이 키가 없다 — 버리지 않고 안 고른 상태로 이어 연다.
+      acceptsSmoker: data['acceptsSmoker'] as bool?,
+    );
+    if (!restored._isWithinPresets) {
+      throw const FormatException('이상형 조건이 프리셋 범위를 벗어남');
+    }
+    return restored;
+  }
+
+  /// 서버에 저장해 둔 값으로 처음 상태를 만든다(나 탭 편집 · 온보딩 뒤로가기 — 둘이 같은 규칙이어야 한다).
+  /// "상관없어요" 는 저장 규칙의 거꾸로다 — 나이는 전 구간(19~35), 키는 null 로 저장된다(화면 15 결정 3 과 같은 뜻).
+  /// 켜진 쪽 슬라이더는 06-1 기본값(22~27 · 165~180)으로 둔다 — 끄면 거기서 시작한다.
+  static IdealConditionsUiState fromProfile(MyProfile profile) {
+    const defaults = IdealConditionsUiState();
+    final (ageMin, ageMax) = (profile.preferredAgeMin, profile.preferredAgeMax);
+    final (heightMin, heightMax) = (profile.preferredHeightMin, profile.preferredHeightMax);
+    final ageIgnored = ageMin == null || ageMax == null || (ageMin == ageFloor && ageMax == ageCeiling);
+    final heightIgnored = heightMin == null || heightMax == null;
+    return IdealConditionsUiState(
+      preferredAgeMin: ageIgnored ? defaults.preferredAgeMin : ageMin,
+      preferredAgeMax: ageIgnored ? defaults.preferredAgeMax : ageMax,
+      ageIgnored: ageIgnored,
+      preferredHeightMin: heightMin ?? defaults.preferredHeightMin,
+      preferredHeightMax: heightMax ?? defaults.preferredHeightMax,
+      heightIgnored: heightIgnored,
+      preferredMbtiFlags: profile.preferredMbtiFlags,
+      preferredAnimalTypes: profile.preferredAnimalTypes,
+      preferredImpressionTypes: profile.preferredImpressionTypes,
+      // 서버 값 > 내 흡연 여부(안 한다 = 싫어요 false, 한다 = 상관없어요 true) > 둘 다 모르면 null(안 고름).
+      acceptsSmoker: profile.acceptsSmoker ?? profile.isSmoker,
+    );
+  }
+
+  /// 나이 · 키 범위와 "상관없어요" 표시만 읽는다. 나머지는 기본값이다.
+  static IdealConditionsUiState _rangesFromDraft(Map<String, Object?> data) => IdealConditionsUiState(
+        preferredAgeMin: data['preferredAgeMin'] as int,
+        preferredAgeMax: data['preferredAgeMax'] as int,
+        ageIgnored: data['ageIgnored'] as bool,
+        preferredHeightMin: data['preferredHeightMin'] as int,
+        preferredHeightMax: data['preferredHeightMax'] as int,
+        heightIgnored: data['heightIgnored'] as bool,
+      );
+
+  /// cast() 는 꺼낼 때에야 던진다 — 화면을 그리다 터지지 않게 여기서 하나씩 확인한다.
+  static Map<String, bool> _mbtiFlagsFromDraft(Object? raw) => {
+        for (final entry in (raw as Map<String, Object?>).entries) entry.key: entry.value as bool,
+      };
+
+  /// 이름 목록을 enum 으로 바꾼다. 모르는 이름이면 `byName` 이 던진다.
+  static List<T> _namesFromDraft<T extends Enum>(Object? raw, List<T> values) => [
+        for (final name in raw as List) values.byName(name as String),
+      ];
+
+  /// 슬라이더 프리셋 · 고를 수 있는 개수 · MBTI 극 안에 있는가.
+  bool get _isWithinPresets => _areRangesWithinPresets && _areChoicesWithinLimits;
+
+  bool get _areRangesWithinPresets {
+    return ageFloor <= preferredAgeMin &&
+        preferredAgeMin <= preferredAgeMax &&
+        preferredAgeMax <= ageCeiling &&
+        heightFloor <= preferredHeightMin &&
+        preferredHeightMin <= preferredHeightMax &&
+        preferredHeightMax <= heightCeiling;
+  }
+
+  bool get _areChoicesWithinLimits {
+    return preferredMbtiFlags.keys.every(mbtiPoles.contains) &&
+        preferredAnimalTypes.length <= maxAppearanceChoices &&
+        preferredImpressionTypes.length <= maxAppearanceChoices;
+  }
+
+  IdealConditionsUiState copyWith({
+    int? preferredAgeMin,
+    int? preferredAgeMax,
+    bool? ageIgnored,
+    int? preferredHeightMin,
+    int? preferredHeightMax,
+    bool? heightIgnored,
+    Map<String, bool>? preferredMbtiFlags,
+    List<AnimalType>? preferredAnimalTypes,
+    List<ImpressionType>? preferredImpressionTypes,
+    bool? acceptsSmoker,
+    bool? isSubmitting,
+    String? errorMessage,
+    bool? completed,
+  }) {
+    return IdealConditionsUiState(
+      preferredAgeMin: preferredAgeMin ?? this.preferredAgeMin,
+      preferredAgeMax: preferredAgeMax ?? this.preferredAgeMax,
+      ageIgnored: ageIgnored ?? this.ageIgnored,
+      preferredHeightMin: preferredHeightMin ?? this.preferredHeightMin,
+      preferredHeightMax: preferredHeightMax ?? this.preferredHeightMax,
+      heightIgnored: heightIgnored ?? this.heightIgnored,
+      preferredMbtiFlags: preferredMbtiFlags ?? this.preferredMbtiFlags,
+      preferredAnimalTypes: preferredAnimalTypes ?? this.preferredAnimalTypes,
+      preferredImpressionTypes: preferredImpressionTypes ?? this.preferredImpressionTypes,
+      acceptsSmoker: acceptsSmoker ?? this.acceptsSmoker,
+      isSubmitting: isSubmitting ?? this.isSubmitting,
+      errorMessage: errorMessage,
+      completed: completed ?? this.completed,
+    );
+  }
+}

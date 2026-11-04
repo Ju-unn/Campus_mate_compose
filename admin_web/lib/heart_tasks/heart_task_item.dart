@@ -20,7 +20,7 @@ enum HeartTaskKind {
   }
 }
 
-/// 반려 사유 3개(enum public.heart_task_reject_reason). 글자는 앱 frontend/lib/billing/model/heart_task.dart 와 같다.
+/// 반려 사유 3개(enum public.heart_task_reject_reason). 글자는 앱 frontend/lib/billing/task/model/data/heart_task.dart 와 같다.
 enum HeartTaskRejectReason {
   dateMissing('date_missing', '날짜가 안 보여요'),
   notVerified('not_verified', '게시글·공유가 확인되지 않아요'),

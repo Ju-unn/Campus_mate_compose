@@ -15,16 +15,16 @@ import 'package:campus_mate/me/view/basic_info_edit_screen.dart';
 import 'package:campus_mate/me/view/edit_app_bar.dart';
 import 'package:campus_mate/me/view/locked_fact_row.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
-import 'package:campus_mate/profile/model/basic_info_repository_provider.dart';
-import 'package:campus_mate/profile/model/profile_enums.dart';
-import 'package:campus_mate/profile/view/appearance_pickers.dart';
+import 'package:campus_mate/profile/appearance/view/appearance_pickers.dart';
+import 'package:campus_mate/profile/basic/model/repository/basic_info_repository_provider.dart';
+import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../profile/model/fake_basic_info_repository.dart';
+import '../../profile/basic/model/repository/fake_basic_info_repository.dart';
 import '../model/repository/fake_me_repository.dart';
 
 /// 잠금이 풀리는 때 — 한국 시각 10월 27일 0시(계획서 A7 예).

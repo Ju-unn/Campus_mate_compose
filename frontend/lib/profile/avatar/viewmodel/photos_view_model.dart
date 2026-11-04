@@ -1,0 +1,275 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:campus_mate/auth/media/model/repository/face_detector_provider.dart';
+import 'package:campus_mate/auth/media/model/repository/image_compressor_provider.dart';
+import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/core/analytics/analytics_values.dart';
+import 'package:campus_mate/core/draft/draft_screen.dart';
+import 'package:campus_mate/core/draft/draft_store.dart';
+import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
+import 'package:campus_mate/profile/avatar/model/repository/photos_repository_provider.dart';
+import 'package:campus_mate/profile/avatar/viewmodel/avatar_generation_view_model.dart';
+import 'package:campus_mate/profile/avatar/viewmodel/photos_ui_state.dart';
+import 'package:campus_mate/profile/onboarding/viewmodel/onboarding_blocked.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
+
+final photosViewModelProvider = NotifierProvider<PhotosViewModel, PhotosUiState>(
+  PhotosViewModel.new,
+);
+
+const _maxPhotos = PhotosUiState.maxPhotos;
+
+/// 서버가 글자 많은 사진(학생증 · 신분증 등)을 거절할 때의 code(422). 문구는 서버 임시 문구 대신 앱 고정 문구를 쓴다.
+const String photoLooksLikeDocumentCode = 'photo_looks_like_document';
+
+/// 04-2 · 15-7 이 같이 쓰는 판정 — 다른 거절(부적절 사진 등)은 서버 문구 그대로다.
+bool isPhotoDocumentRejection(Failure failure) =>
+    failure is ServerRejectedFailure && failure.hasCode(photoLooksLikeDocumentCode);
+
+/// 갤러리에서 남은 칸 수([limit])만큼 고른다 — 화면 안내대로 여러 장을 한 번에 고를 수 있다.
+/// image_picker 는 플랫폼 플러그인이라 단위 테스트에서 부를 수 없어
+/// [PhotosViewModel.pickFromGallery] 훅으로 갈아끼운다.
+Future<List<File>> _pickFromGallery(int limit) async {
+  final picked = await ImagePicker().pickMultiImage(limit: limit);
+  return [for (final image in picked) File(image.path)];
+}
+
+/// 사진 업로드(04-2)와 아바타 사진 고르기(04-3)의 흐름을 맡는다. 두 화면이 같은 상태를 이어 쓴다.
+class PhotosViewModel extends Notifier<PhotosUiState> {
+  Future<List<File>> Function(int limit) pickFromGallery = _pickFromGallery;
+
+  /// 온보딩일 때만 채워진다. 15-7 사진 수정(`MyPhotosViewModel`)은 [build] 를 덮어써 비어 있다 —
+  /// 편집은 열 때마다 서버 사진으로 채우므로 임시 저장을 쓰지도 지우지도(사진 파일 포함) 않는다.
+  DraftStore? _drafts;
+
+  @override
+  PhotosUiState build() {
+    final drafts = ref.read(draftStoreProvider);
+    _drafts = drafts;
+    listenSelf((previous, next) => _saveDraft(drafts, previous, next));
+    return _initialState(drafts);
+  }
+
+  /// 처음 상태를 정하는 단 한 곳이다. 지금은 폰에 남긴 사진(파일이 남은 것만) 또는 빈 칸 — 나중에 서버 값을 끼울 자리다.
+  PhotosUiState _initialState(DraftStore drafts) {
+    return drafts.read(DraftScreen.photos, PhotosUiState.fromDraft) ?? const PhotosUiState();
+  }
+
+  /// 칸이 바뀔 때마다 경로와 아바타 표시를 남긴다(저장소가 디바운스한다). 처음 상태(복원한 값 그대로)는 다시 쓰지 않고,
+  /// 끝낸 단계는 서버에 있으니 남기지 않는다.
+  void _saveDraft(DraftStore drafts, PhotosUiState? previous, PhotosUiState next) {
+    if (previous == null || next.completed) {
+      return;
+    }
+    drafts.write(DraftScreen.photos, next.toDraft(), files: next.draftFiles);
+  }
+
+  /// 갤러리에서 사진을 골라 압축해 담는다. 고르지 않고 닫으면 아무 일도 하지 않는다.
+  /// 이미 4장이면 말없이 무시하지 않고 왜 안 되는지 알려 준다(2026-09-20 리뷰 제안 d).
+  ///
+  /// 얼굴이 보이지 않는 사진은 칸에 넣지 않는다(2026-09-24 사용자 결정 — 04-2 도 3b 처럼 기기 안에서 먼저 본다).
+  /// 여러 장을 한 번에 골랐으면 얼굴이 있는 것만 들어가고, 빠진 장수를 문구로 알려 준다.
+  /// 살펴보는 동안 다시 누르면 남은 칸을 두 번 세어 4장을 넘겨 버리고, 그러면 "다음"이 영영 켜지지 않는다.
+  /// 먼저 시작한 쪽이 끝날 때까지 같은 작업을 돌려준다(push_registrar 와 같은 방식).
+  /// `state.isCheckingPhotos` 는 그 사이 removePhoto·swapPhotos 가 지워 버려 가드로 쓸 수 없다.
+  Future<void> addPhoto() => _adding ??= _addPhoto().whenComplete(() => _adding = null);
+
+  Future<void>? _adding;
+
+  Future<void> _addPhoto() async {
+    final room = _maxPhotos - state.photos.length;
+    if (room <= 0) {
+      state = state.copyWith(errorMessage: '사진은 최대 $_maxPhotos장까지 올릴 수 있어요');
+      return;
+    }
+    final picked = await _pickOrEmpty(room);
+    if (picked.isEmpty) {
+      return;
+    }
+    state = state.copyWith(isCheckingPhotos: true, errorMessage: null, documentRejected: false);
+    final accepted = <SelectedPhoto>[];
+    var rejected = 0;
+    try {
+      for (final file in picked.take(room)) {
+        final photo = await _checkedPhoto(file);
+        if (photo != null) {
+          accepted.add(photo);
+        } else {
+          rejected++;
+        }
+      }
+    } finally {
+      // 중간에 무엇이 터지든 기다리는 표시는 반드시 내린다 — 굳으면 칸이 빈 채로 남는다.
+      state = state.copyWith(
+        photos: [...state.photos, ...accepted],
+        isCheckingPhotos: false,
+        errorMessage: _rejectedMessage(accepted.length, rejected),
+      );
+    }
+    if (accepted.isEmpty && rejected > 0) {
+      // 한 장도 담지 못했다 — 다음 단계로 갈 수 없는 막힘이다(사용 통계 onboarding_blocked).
+      ref.read(onboardingStepListenableProvider).blocked(OnboardingBlockReason.photoNoFace);
+    }
+  }
+
+  /// 갤러리 자체가 실패하면(권한 거부 등 `PlatformException`) 고르지 않고 닫은 것과 같이 다룬다.
+  Future<List<File>> _pickOrEmpty(int limit) async {
+    try {
+      return await pickFromGallery(limit);
+    } on Exception {
+      return const [];
+    }
+  }
+
+  /// 압축한 사진을 돌려준다. 얼굴이 없거나 사진 자체를 처리하지 못하면 `null` — 둘 다 '빠진 장'으로 센다
+  /// (3b `_compressedPhotoWithFace` 와 같은 모양). 압축이 try 밖에 있으면 기다리는 표시가 굳는다.
+  Future<SelectedPhoto?> _checkedPhoto(File file) async {
+    try {
+      final compressed = await ref.read(imageCompressorProvider).compressToJpeg(file);
+      return await _hasFace(compressed) ? SelectedPhoto(compressed) : null;
+    } on Exception {
+      return null;
+    }
+  }
+
+  /// 얼굴을 못 찾은 것과 **검사 자체가 실패한 것**은 다르다 — ML Kit 이 예외를 던지면 통과시킨다.
+  /// 기기 안 검사는 1차 필터일 뿐이고 올릴 때 서버 SafeSearch 가 다시 본다(설계 §7.3).
+  /// 검출기가 고장 났다고 사진을 한 장도 못 고르게 막는 쪽이 더 나쁘다.
+  Future<bool> _hasFace(File photo) async {
+    try {
+      return await ref.read(faceDetectorProvider).hasFace(photo);
+    } on Exception {
+      return true;
+    }
+  }
+
+  /// 한 장도 못 들어갔으면 "다시 고르라"고, 일부만 빠졌으면 몇 장이 빠졌는지 알린다(2026-09-25 사용자 결정).
+  String? _rejectedMessage(int accepted, int rejected) {
+    if (rejected == 0) {
+      return null;
+    }
+    return accepted == 0 ? '얼굴이 보이는 사진을 골라 주세요' : '$rejected장은 얼굴이 보이지 않아 빠졌어요';
+  }
+
+  void removePhoto(int index) {
+    final photos = [...state.photos]..removeAt(index);
+    state = state.copyWith(photos: photos, errorMessage: null, documentRejected: false);
+  }
+
+  /// 길게 눌러 끌어다 놓으면 두 칸이 자리를 맞바꾼다(04-2, 2026-09-24 사용자 결정).
+  /// 대표는 **첫 칸**이라, 대표를 바꾸려면 그 사진을 첫 칸으로 끌면 된다 —
+  /// 종전에는 앞 사진을 전부 지워야 했다. 올릴 때 position 이 이 순서를 그대로 따라간다.
+  void swapPhotos(int from, int to) {
+    final count = state.photos.length;
+    if (from == to || from < 0 || to < 0 || from >= count || to >= count) {
+      return; // 빈 칸으로는 끌 수 없다 — 순서에 구멍이 나면 업로드 position 이 어긋난다.
+    }
+    final photos = [...state.photos];
+    photos[from] = state.photos[to];
+    photos[to] = state.photos[from];
+    state = state.copyWith(photos: photos, errorMessage: null);
+  }
+
+  /// 아바타 원본은 한 장만 고를 수 있다 — 나머지는 자동으로 꺼진다.
+  void setAvatarSource(int index) {
+    final photos = [
+      for (var i = 0; i < state.photos.length; i++) state.photos[i].copyWith(isAvatarSource: i == index),
+    ];
+    state = state.copyWith(photos: photos, errorMessage: null);
+  }
+
+  /// 04-2 → 04-3 으로 넘어갈 때 부른다. 아직 원본이 없으면(처음이거나 원본 사진을 뺐으면) 첫 장을 골라 둔다.
+  void prepareAvatarSource() {
+    if (state.photos.isEmpty || state.photos.any((p) => p.isAvatarSource)) {
+      return;
+    }
+    setAvatarSource(0);
+  }
+
+  /// 04-3 "다음" — 사진을 올리고 **아바타 작업을 등록한 뒤** 다음 질문으로 넘어간다.
+  /// 등록이 먼저, 이동이 나중이다: 순서가 뒤집히면 넘어간 뒤에 등록이 실패해도 보여 줄 자리가 없다.
+  Future<void> submit() async {
+    if (!state.canSubmit) {
+      return;
+    }
+    state = state.copyWith(isSubmitting: true, errorMessage: null, documentRejected: false);
+    // 여기서 바로 state 에 넣지 않는다 — 넣는 순간 isSubmitting 이 내려가 토스트가 꺼지고,
+    // 작업을 등록하는 동안 화면에 아무 표시도 없다. 한 번에 갱신해야 둘 다 덮인다.
+    var next = await _submittedState();
+    if (next.completed) {
+      next = await _withAvatarRequested(next);
+    }
+    state = next;
+    _discardDraftIfCompleted();
+    _refreshOnboardingStepIfCompleted();
+  }
+
+  /// 사진을 올리고 아바타 작업까지 등록했으면 저장 정보와 그 임시 파일을 지운다.
+  /// 등록이 막혀 04-3 에 머물면 다시 올려야 하므로 남긴다. 편집 모드는 [_drafts] 가 없어 아무것도 하지 않는다.
+  void _discardDraftIfCompleted() {
+    final drafts = _drafts;
+    if (drafts == null || !state.completed) {
+      return;
+    }
+    unawaited(drafts.clear(DraftScreen.photos));
+  }
+
+  /// 아바타 작업을 등록한다. 만드는 데 1분쯤 걸리지만 **기다리지 않는다** — 서버가 202 를 바로 준다
+  /// (2026-09-25 사용자 결정 "누르면 바로 넘어가기"). 그림은 성향 질문을 마친 뒤 결과 화면에서 본다.
+  ///
+  /// 등록이 막히면 `completed` 를 세우지 않아 04-3 에 머문다 — 이 화면은 photos 상태만 그리므로
+  /// 오류도 그 상태로 나가야 보이고, `completed` 가 없어야 다음 단계 조회가 조용히 돌아간다.
+  Future<PhotosUiState> _withAvatarRequested(PhotosUiState uploaded) async {
+    final blocking = await ref.read(avatarGenerationViewModelProvider.notifier).generate();
+    if (blocking == null) {
+      return uploaded;
+    }
+    return uploaded.copyWith(completed: false, errorMessage: blocking);
+  }
+
+  Future<PhotosUiState> _submittedState() async {
+    try {
+      final repository = ref.read(photosRepositoryProvider);
+      // 올리기 시작한 목록 그대로 올린다 — 올리는 동안 칸이 바뀌어도 순서 · 장수가 흔들리지 않는다.
+      final photos = state.photos;
+      for (final (position, photo) in photos.indexed) {
+        // 온보딩은 늘 이번에 고른 사진뿐이다 — 이미 올려 둔 사진([SelectedPhoto.saved])은 15-7 에만 있다.
+        final result = await repository.uploadPhoto(photo.file!, position, photo.isAvatarSource);
+        final failure = result.when(onSuccess: (_) => null, onFailure: (failure) => failure);
+        if (failure != null) {
+          return _failedState(failure, photo);
+        }
+      }
+      return state.copyWith(isSubmitting: false, completed: true);
+    } catch (_) {
+      return state.copyWith(isSubmitting: false, errorMessage: const UnknownFailure().toDisplayMessage());
+    }
+  }
+
+  /// 글자 많은 사진 거절이면 그 사진을 칸에서 빼고 표시만 켠다(문구는 화면의 앱 고정 문구) — 그대로 두면 다시 올려도 또 거절된다.
+  /// 그 밖의 거절은 서버 문구 그대로다.
+  /// 뺄 사진은 자리 번호가 아니라 사진(열쇠)으로 찾는다 — 올리는 동안 칸이 바뀌었으면 번호가 다른 사진을 가리킨다.
+  PhotosUiState _failedState(Failure failure, SelectedPhoto rejected) {
+    ref.read(onboardingStepListenableProvider).blocked(_blockReason(failure));
+    if (!isPhotoDocumentRejection(failure)) {
+      return state.copyWith(isSubmitting: false, errorMessage: failure.toDisplayMessage());
+    }
+    final photos = [for (final photo in state.photos) if (photo.key != rejected.key) photo];
+    return state.copyWith(isSubmitting: false, photos: photos, documentRejected: true);
+  }
+
+  /// 서버가 사진을 돌려보낸 것(서류 · 그 밖의 부적절 사진)과 그 밖의 실패(인터넷 · 서버 오류)를 가른다. 서버 문구는 싣지 않는다.
+  OnboardingBlockReason _blockReason(Failure failure) {
+    if (isPhotoDocumentRejection(failure)) return OnboardingBlockReason.photoDocument;
+    return failure is ServerRejectedFailure ? OnboardingBlockReason.photoRejected : onboardingBlockReasonOf(failure);
+  }
+
+  void _refreshOnboardingStepIfCompleted() {
+    if (!state.completed) {
+      return;
+    }
+    unawaited(ref.read(onboardingStepListenableProvider).stepSaved());
+  }
+}

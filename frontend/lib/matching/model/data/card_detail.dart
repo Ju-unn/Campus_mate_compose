@@ -1,5 +1,5 @@
 import 'package:campus_mate/matching/model/data/card_profile.dart';
-import 'package:campus_mate/profile/model/profile_enums.dart';
+import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
 
 /// 10b 상대 프로필 상세(`TORAs`). 카드 앞면보다 많은 것을 보여주지만
 /// 실사진·카카오톡 아이디는 여전히 없다 — 그건 신뢰 확인(조각 5) 뒤다.

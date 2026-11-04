@@ -1,6 +1,6 @@
 import 'package:campus_mate/core/analytics/analytics_values.dart';
 import 'package:campus_mate/core/analytics/collection_switch.dart';
-import 'package:campus_mate/profile/model/onboarding_step.dart';
+import 'package:campus_mate/profile/onboarding/model/data/onboarding_step.dart';
 
 /// 사용 통계(Firebase Analytics). **개인을 가리키는 값은 어디에도 싣지 않는다** —
 /// 사용자 id · 닉네임 · 메일 · 학교 같은 값은 이벤트 매개변수에도, 사용자 속성에도 넣지 않는다(2026-10-20).

@@ -1,4 +1,4 @@
-import 'package:campus_mate/auth/model/verification_gate_repository_provider.dart';
+import 'package:campus_mate/auth/gate/model/repository/verification_gate_repository_provider.dart';
 import 'package:campus_mate/core/router/verification_gate_listenable.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 

@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../billing/view/pretendard.dart';
+import '../../billing/store/view/pretendard.dart';
 
 const _storeUrl = 'https://play.google.com/store/apps/details?id=io.github.juunn.campusmate';
 const _title = '새 버전으로 업데이트해 주세요';

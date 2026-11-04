@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:campus_mate/auth/model/face_detector_provider.dart';
-import 'package:campus_mate/auth/model/image_compressor_provider.dart';
+import 'package:campus_mate/auth/media/model/repository/face_detector_provider.dart';
+import 'package:campus_mate/auth/media/model/repository/image_compressor_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
@@ -10,16 +10,16 @@ import 'package:campus_mate/me/model/data/photo_slot.dart';
 import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
 import 'package:campus_mate/me/viewmodel/avatar_regen_pick_view_model.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
-import 'package:campus_mate/profile/model/avatar_generation_outcome.dart';
-import 'package:campus_mate/profile/model/avatar_repository_provider.dart';
-import 'package:campus_mate/profile/viewmodel/avatar_generation_view_model.dart';
+import 'package:campus_mate/profile/avatar/model/data/avatar_generation_outcome.dart';
+import 'package:campus_mate/profile/avatar/model/repository/avatar_repository_provider.dart';
+import 'package:campus_mate/profile/avatar/viewmodel/avatar_generation_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../auth/model/fake_face_detector.dart';
-import '../../auth/model/fake_image_compressor.dart';
-import '../../profile/model/fake_avatar_repository.dart';
+import '../../auth/media/model/repository/fake_face_detector.dart';
+import '../../auth/media/model/repository/fake_image_compressor.dart';
+import '../../profile/avatar/model/repository/fake_avatar_repository.dart';
 import '../model/repository/fake_me_repository.dart';
 
 /// 이름 · 학교는 지어낸 값이다.

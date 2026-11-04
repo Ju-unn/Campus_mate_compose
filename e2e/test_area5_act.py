@@ -348,12 +348,12 @@ class AppContractTest(unittest.TestCase):
         self.assertIn('Duration(milliseconds: 300)', basic)
         self.assertIn('value >= 120 && value <= 230', basic)
         self.assertIn('bio.trim().isNotEmpty', lib('me', 'viewmodel', 'profile_edit_view_model.dart'))
-        kinds = lib('profile', 'viewmodel', 'tag_picker_kind.dart')
+        kinds = lib('profile', 'traits', 'viewmodel', 'tag_picker_kind.dart')
         self.assertIn('minCount = 3', kinds)
         self.assertIn('maxCount = 5', kinds)
-        self.assertIn('maxAppearanceChoices = 3', lib('profile', 'viewmodel', 'ideal_conditions_ui_state.dart'))
-        self.assertIn('RegExp(r\'^[가-힣a-zA-Z]{2,5}$\')', lib('profile', 'viewmodel', 'basic_info_ui_state.dart'))
-        self.assertIn('[가-힣a-zA-Zㄱ-ㅎㅏ-ㅣ]', lib('profile', 'view', 'basic_info_screen.dart'))  # 입력칸이 걸러 내는 글자
+        self.assertIn('maxAppearanceChoices = 3', lib('profile', 'ideal', 'viewmodel', 'ideal_conditions_ui_state.dart'))
+        self.assertIn('RegExp(r\'^[가-힣a-zA-Z]{2,5}$\')', lib('profile', 'basic', 'viewmodel', 'basic_info_ui_state.dart'))
+        self.assertIn('[가-힣a-zA-Zㄱ-ㅎㅏ-ㅣ]', lib('profile', 'basic', 'view', 'basic_info_screen.dart'))  # 입력칸이 걸러 내는 글자
 
 
 # ── 서버 규칙: 가짜가 진짜 서버를 따라가는지 ──────────────────────────────────────────────────────────

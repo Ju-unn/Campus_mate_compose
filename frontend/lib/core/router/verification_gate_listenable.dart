@@ -1,5 +1,5 @@
-import 'package:campus_mate/auth/model/verification_gate.dart';
-import 'package:campus_mate/auth/model/verification_gate_repository.dart';
+import 'package:campus_mate/auth/gate/model/data/verification_gate.dart';
+import 'package:campus_mate/auth/gate/model/repository/verification_gate_repository.dart';
 import 'package:flutter/foundation.dart';
 
 /// 조회 결과가 없을 때 쓰는 기본값 — "아직 모름".

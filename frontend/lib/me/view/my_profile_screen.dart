@@ -1,4 +1,4 @@
-import 'package:campus_mate/billing/view/heart_balance_chip.dart';
+import 'package:campus_mate/billing/store/view/heart_balance_chip.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
@@ -15,8 +15,8 @@ import 'package:campus_mate/me/view/profile_entry_row.dart';
 import 'package:campus_mate/me/view/profile_hero.dart';
 import 'package:campus_mate/me/viewmodel/avatar_regen_pick_view_model.dart' show openMyProfileScreens;
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
-import 'package:campus_mate/profile/viewmodel/avatar_generation_ui_state.dart';
-import 'package:campus_mate/profile/viewmodel/avatar_generation_view_model.dart';
+import 'package:campus_mate/profile/avatar/viewmodel/avatar_generation_ui_state.dart';
+import 'package:campus_mate/profile/avatar/viewmodel/avatar_generation_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';

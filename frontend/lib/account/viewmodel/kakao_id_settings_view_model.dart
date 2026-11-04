@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:campus_mate/account/model/repository/account_repository.dart';
 import 'package:campus_mate/account/viewmodel/kakao_id_settings_ui_state.dart';
-import 'package:campus_mate/profile/model/kakao_id_repository_provider.dart';
+import 'package:campus_mate/profile/onboarding/model/repository/kakao_id_repository_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 들어올 때마다 저장된 아이디를 새로 읽는다.

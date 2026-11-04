@@ -1,7 +1,7 @@
 import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
-import 'package:campus_mate/profile/viewmodel/ideal_conditions_ui_state.dart';
-import 'package:campus_mate/profile/viewmodel/ideal_conditions_view_model.dart';
+import 'package:campus_mate/profile/ideal/viewmodel/ideal_conditions_ui_state.dart';
+import 'package:campus_mate/profile/ideal/viewmodel/ideal_conditions_view_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final idealConditionsEditViewModelProvider =

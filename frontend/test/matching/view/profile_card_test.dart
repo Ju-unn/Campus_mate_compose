@@ -7,7 +7,7 @@ import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/matching/model/data/card_detail.dart';
 import 'package:campus_mate/matching/model/data/card_profile.dart';
 import 'package:campus_mate/matching/view/card_detail_screen.dart';
-import 'package:campus_mate/profile/model/profile_enums.dart';
+import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';

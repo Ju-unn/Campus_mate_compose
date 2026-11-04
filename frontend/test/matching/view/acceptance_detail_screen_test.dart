@@ -17,7 +17,7 @@ import 'package:campus_mate/matching/view/card_detail_screen.dart';
 import 'package:campus_mate/matching/view/conversations_screen.dart';
 import 'package:campus_mate/matching/view/profile_avatar_header.dart';
 import 'package:campus_mate/matching/viewmodel/acceptances_view_model.dart';
-import 'package:campus_mate/profile/model/profile_enums.dart';
+import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

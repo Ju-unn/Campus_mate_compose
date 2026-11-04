@@ -1,4 +1,4 @@
-import 'package:campus_mate/auth/model/verification_gate.dart';
+import 'package:campus_mate/auth/gate/model/data/verification_gate.dart';
 import 'package:campus_mate/core/analytics/collection_consent.dart';
 import 'package:flutter_test/flutter_test.dart';
 

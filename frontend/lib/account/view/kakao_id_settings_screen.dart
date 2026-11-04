@@ -6,7 +6,7 @@ import 'package:campus_mate/common/widgets/notice_card.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
-import 'package:campus_mate/profile/view/kakao_id_screen.dart';
+import 'package:campus_mate/profile/onboarding/view/kakao_id_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';

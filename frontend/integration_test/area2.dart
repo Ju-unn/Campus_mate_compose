@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import 'package:campus_mate/billing/view/heart_task_row.dart';
+import 'package:campus_mate/billing/task/view/heart_task_row.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/home/view/cohort_wait_view.dart';
@@ -64,7 +64,7 @@ const _notificationDefaults = {
   '방해 금지 시간 (22:00 ~ 08:00)': true,
 };
 
-// 18a — frontend/lib/billing/view/heart_tasks_screen.dart · heart_task_row.dart
+// 18a — frontend/lib/billing/task/view/heart_tasks_screen.dart · heart_task_row.dart
 // 옛 heart_task_actions.dart heartRewardNotice(18a · 하트 스토어 공용)는 10-16 사용자 지시로 지웠다.
 /// 지운 내부용 보상 기준 글(사용자 10-16 "eAKKO 이거지워 우리만 아는거야") — 18a 에 보이면 fail.
 const _removedRewardNotice = '초기 보상 기준';
@@ -76,7 +76,7 @@ const _taskRows = [
   ['커뮤니티 투표', '하루 1번', '5 · 주 최대 15', '참여'],
 ];
 
-// 18b — frontend/lib/billing/view/heart_task_submit_screen.dart
+// 18b — frontend/lib/billing/task/view/heart_task_submit_screen.dart
 const _submitTitle = '인증샷 제출'; // :103
 const _submitGuide = '스크린샷을 첨부하면 확인 후 하트를 드려요'; // :19
 // _criteria :24-29 — 항목마다 한 줄. 에브리타임 줄에 옛 날짜 안내("날짜가 보이게 찍어 주세요")가 합쳐졌다(10-12).

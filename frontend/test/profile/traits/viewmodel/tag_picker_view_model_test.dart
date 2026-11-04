@@ -1,0 +1,236 @@
+import 'package:campus_mate/core/analytics/analytics_provider.dart';
+import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
+import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
+import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
+import 'package:campus_mate/profile/onboarding/model/repository/onboarding_repository_provider.dart';
+import 'package:campus_mate/profile/onboarding/model/data/onboarding_step.dart';
+import 'package:campus_mate/profile/traits/model/repository/tag_picker_repository.dart';
+import 'package:campus_mate/profile/traits/model/repository/tag_picker_repository_provider.dart';
+import 'package:campus_mate/profile/traits/model/data/tags.dart';
+import 'package:campus_mate/profile/traits/viewmodel/tag_picker_kind.dart';
+import 'package:campus_mate/profile/traits/viewmodel/tag_picker_view_model.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:campus_mate/core/draft/draft_screen.dart';
+import 'package:campus_mate/core/draft/draft_store.dart';
+
+import '../../../me/model/repository/fake_me_repository.dart';
+import '../../onboarding/model/repository/fake_onboarding_repository.dart';
+import '../../../core/analytics/fake_analytics_service.dart';
+import '../../../core/draft/fake_draft_store.dart';
+
+class _FakeTagPickerRepository implements TagPickerRepository {
+  List<String>? submittedTags;
+  Result<void> nextResult = const Success(null);
+
+  @override
+  Future<Result<void>> submit(String endpoint, List<String> tags) async {
+    submittedTags = tags;
+    return nextResult;
+  }
+}
+
+void main() {
+  late _FakeTagPickerRepository repository;
+  late FakeOnboardingRepository onboardingRepository;
+  late FakeAnalyticsService analytics;
+  late ProviderContainer container;
+
+  setUp(() {
+    repository = _FakeTagPickerRepository();
+    onboardingRepository = FakeOnboardingRepository();
+    analytics = FakeAnalyticsService();
+    container = ProviderContainer(
+      overrides: [
+        tagPickerRepositoryProvider.overrideWithValue(repository),
+        onboardingRepositoryProvider.overrideWithValue(onboardingRepository),
+        analyticsServiceProvider.overrideWithValue(analytics),
+      ],
+    );
+  });
+
+  tearDown(() => container.dispose());
+
+  test('3개 미만 고르면 다음 버튼이 비활성', () {
+    final vm = container.read(tagPickerViewModelProvider(TagPickerKind.interests).notifier);
+    vm.toggle(interestTags[0]);
+    vm.toggle(interestTags[1]);
+    final state = container.read(tagPickerViewModelProvider(TagPickerKind.interests));
+    expect(state.canSubmit, isFalse);
+  });
+
+  test('5개 넘게 고르려 하면 무시한다', () {
+    final vm = container.read(tagPickerViewModelProvider(TagPickerKind.interests).notifier);
+    for (final tag in interestTags.take(6)) {
+      vm.toggle(tag);
+    }
+    final state = container.read(tagPickerViewModelProvider(TagPickerKind.interests));
+    expect(state.selected.length, 5);
+  });
+
+  test('다시 누르면 선택이 풀린다', () {
+    final vm = container.read(tagPickerViewModelProvider(TagPickerKind.interests).notifier);
+    vm.toggle(interestTags[0]);
+    vm.toggle(interestTags[0]);
+    final state = container.read(tagPickerViewModelProvider(TagPickerKind.interests));
+    expect(state.selected, isEmpty);
+  });
+
+  test('3~5개면 제출 가능하고 성공하면 completed 가 켜진다', () async {
+    final vm = container.read(tagPickerViewModelProvider(TagPickerKind.interests).notifier);
+    vm.toggle(interestTags[0]);
+    vm.toggle(interestTags[1]);
+    vm.toggle(interestTags[2]);
+    await vm.submit();
+    final state = container.read(tagPickerViewModelProvider(TagPickerKind.interests));
+    expect(state.completed, isTrue);
+    expect(repository.submittedTags, hasLength(3));
+  });
+
+  test('04-6 에서 돌아온 04-5 를 저장하면 04-6 으로 돌아가 다시 보기가 끝난다', () async {
+    await revisit(container, onboardingRepository, server: OnboardingStep.myTraits, visiting: OnboardingStep.interests);
+    final vm = container.read(tagPickerViewModelProvider(TagPickerKind.interests).notifier);
+    for (final tag in interestTags.take(3)) {
+      vm.toggle(tag);
+    }
+
+    await vm.submit();
+
+    final steps = container.read(onboardingStepListenableProvider);
+    expect(steps.value, OnboardingStep.myTraits);
+    expect(steps.isRevisiting, isFalse);
+  });
+
+  // 뷰모델은 앱이 켜진 동안 살아 있어 첫 저장의 completed 가 남는다 — 다시 저장이 실패하면 그대로 머물러야 한다.
+  test('같은 세션에서 다시 저장이 실패하면 다음 화면으로 넘어가지 않는다', () async {
+    final vm = container.read(tagPickerViewModelProvider(TagPickerKind.interests).notifier);
+    for (final tag in interestTags.take(3)) {
+      vm.toggle(tag);
+    }
+    await vm.submit();
+    await revisit(container, onboardingRepository, server: OnboardingStep.myTraits, visiting: OnboardingStep.interests);
+    repository.nextResult = const FailureResult(NetworkFailure());
+
+    await vm.submit();
+
+    expect(container.read(onboardingStepListenableProvider).value, OnboardingStep.interests);
+    expect(container.read(tagPickerViewModelProvider(TagPickerKind.interests)).errorMessage, isNotNull);
+    expect(onboardingRepository.fetchCount, 0);
+  });
+
+  group('되돌아온 태그 화면 채우기', () {
+    ProviderContainer open() {
+      final opened = ProviderContainer(
+        overrides: [
+          tagPickerRepositoryProvider.overrideWithValue(repository),
+          onboardingRepositoryProvider.overrideWithValue(onboardingRepository),
+          meRepositoryProvider.overrideWithValue(FakeMeRepository(const Success(savedOnboardingProfile))),
+        ],
+      );
+      addTearDown(opened.dispose);
+      return opened;
+    }
+
+    test('04-6 에서 돌아온 04-5 는 저장해 둔 관심사 칩이 켜져 있다', () async {
+      final revisiting = open();
+      await revisiting.read(myProfileProvider.future);
+      await revisit(revisiting, onboardingRepository, server: OnboardingStep.myTraits, visiting: OnboardingStep.interests);
+
+      final state = revisiting.read(tagPickerViewModelProvider(TagPickerKind.interests));
+
+      expect(state.selected, {'카페가기', '전시회관람', '등산'});
+      expect(state.canSubmit, isTrue);
+    });
+
+    // Review Focus 3: 같은 세션에서는 고르던 값이 그대로다.
+    test('같은 세션에서 되돌아온 04-5 는 메모리 값 그대로다', () async {
+      final revisiting = open();
+      revisiting.read(tagPickerViewModelProvider(TagPickerKind.interests).notifier).toggle('요리');
+      await revisiting.read(myProfileProvider.future);
+      await revisit(revisiting, onboardingRepository, server: OnboardingStep.myTraits, visiting: OnboardingStep.interests);
+
+      expect(revisiting.read(tagPickerViewModelProvider(TagPickerKind.interests)).selected, {'요리'});
+    });
+  });
+
+  test('kind 마다 다른 풀을 쓴다', () {
+    expect(TagPickerKind.interests.pool, interestTags);
+    expect(TagPickerKind.myTraits.pool, myTraits);
+    expect(TagPickerKind.idealTraits.pool, idealTraits);
+  });
+
+  test('최소·최대 개수는 한 곳에서 오고 라벨도 그 숫자를 쓴다', () {
+    expect((TagPickerKind.minCount, TagPickerKind.maxCount), (3, 5));
+    for (final kind in TagPickerKind.values) {
+      expect(kind.tagLabel, endsWith('(최소 3개 · 최대 5개)'));
+    }
+  });
+
+  group('임시 저장', () {
+    late FakeDraftStore drafts;
+
+    setUp(() => drafts = FakeDraftStore());
+
+    /// 앱을 다시 연 것처럼 새 컨테이너(새 뷰모델)를 만든다. 저장소는 같은 것을 쓴다.
+    ProviderContainer open() {
+      final opened = ProviderContainer(
+        overrides: [
+          tagPickerRepositoryProvider.overrideWithValue(repository),
+          onboardingRepositoryProvider.overrideWithValue(onboardingRepository),
+          draftStoreProvider.overrideWithValue(drafts),
+        ],
+      );
+      addTearDown(opened.dispose);
+      return opened;
+    }
+
+    test('세 화면(관심사 · 나의 특징 · 이상형 특징)이 각자 저장되고 새로 만들면 돌아온다', () {
+      final opened = open();
+      opened.read(tagPickerViewModelProvider(TagPickerKind.interests).notifier).toggle(interestTags[0]);
+      opened.read(tagPickerViewModelProvider(TagPickerKind.myTraits).notifier).toggle(myTraits[1]);
+      opened.read(tagPickerViewModelProvider(TagPickerKind.idealTraits).notifier).toggle(idealTraits[2]);
+
+      final reopened = open();
+      expect(reopened.read(tagPickerViewModelProvider(TagPickerKind.interests)).selected, {interestTags[0]});
+      expect(reopened.read(tagPickerViewModelProvider(TagPickerKind.myTraits)).selected, {myTraits[1]});
+      expect(reopened.read(tagPickerViewModelProvider(TagPickerKind.idealTraits)).selected, {idealTraits[2]});
+    });
+
+    test('"다음" 이 성공하면 그 화면 값만 지운다', () async {
+      final opened = open();
+      final interests = opened.read(tagPickerViewModelProvider(TagPickerKind.interests).notifier);
+      interestTags.take(3).forEach(interests.toggle);
+      opened.read(tagPickerViewModelProvider(TagPickerKind.myTraits).notifier).toggle(myTraits[0]);
+
+      await interests.submit();
+
+      expect(drafts.cleared, [DraftScreen.interests]);
+      final reopened = open();
+      expect(reopened.read(tagPickerViewModelProvider(TagPickerKind.interests)).selected, isEmpty);
+      expect(reopened.read(tagPickerViewModelProvider(TagPickerKind.myTraits)).selected, {myTraits[0]});
+    });
+
+    test('목록에 없는 태그(앱 업데이트로 빠진 태그)는 빼고 돌려준다', () {
+      drafts.saved['account-a/${DraftScreen.interests.key}'] =
+          '{"selected": ["${interestTags[0]}", "사라진 태그"]}';
+
+      expect(open().read(tagPickerViewModelProvider(TagPickerKind.interests)).selected, {interestTags[0]});
+    });
+  });
+
+  test('저장이 서버 오류로 막히면 가입 막힘으로 남긴다', () async {
+    await standAt(container, onboardingRepository, OnboardingStep.interests);
+    repository.nextResult = const FailureResult(ServerUnavailableFailure());
+    final vm = container.read(tagPickerViewModelProvider(TagPickerKind.interests).notifier);
+    for (final tag in interestTags.take(3)) {
+      vm.toggle(tag);
+    }
+
+    await vm.submit();
+
+    expect(analytics.calls, ['onboarding_blocked:interests:server']);
+  });
+
+}

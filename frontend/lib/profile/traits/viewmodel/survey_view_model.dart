@@ -1,0 +1,132 @@
+import 'dart:async';
+
+import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/core/draft/draft_screen.dart';
+import 'package:campus_mate/core/draft/draft_store.dart';
+import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
+import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
+import 'package:campus_mate/profile/onboarding/viewmodel/onboarding_blocked.dart';
+import 'package:campus_mate/profile/onboarding/viewmodel/revisit_profile.dart';
+import 'package:campus_mate/profile/traits/model/repository/survey_repository_provider.dart';
+import 'package:campus_mate/profile/traits/viewmodel/survey_ui_state.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+final surveyViewModelProvider = NotifierProvider<SurveyViewModel, SurveyUiState>(SurveyViewModel.new);
+
+/// 성향 설문 화면(DESIGN.md 화면 05-01~11)의 흐름을 맡는다.
+class SurveyViewModel extends Notifier<SurveyUiState> {
+  /// 9축은 **가운데(0)에서 시작한다** — pen `mkf89` 의 손잡이가 가운데에 있고 그 자리가 이미 고른 값이다
+  /// (2026-09-26 사용자 결정). 아무 쪽도 아닌 사람은 건드리지 않고 그냥 넘어가면 0 이 저장된다.
+  /// 종교·흡연은 대상이 아니다 — 그 둘은 고르기 전까지 "다음" 이 꺼져 있다.
+  @override
+  SurveyUiState build() {
+    final drafts = ref.read(draftStoreProvider);
+    listenSelf((previous, next) => _saveDraft(drafts, previous, next));
+    return _initialState(drafts);
+  }
+
+  /// 처음 상태를 정하는 단 한 곳이다. 폰에 남긴 값 > (뒤로가기로 돌아왔으면) 서버 값 > 빈 값(9축 가운데).
+  /// 돌아왔는데 서버 답을 못 읽었으면(옛 서버 · 인터넷 없음) 가운데를 미리 고르지 않는다 — 이미 저장한 실제 답을
+  /// "다음" 만 눌러 0 으로 덮어쓰지 않게, 사람이 9축을 다 직접 골라야 보낸다.
+  SurveyUiState _initialState(DraftStore drafts) {
+    final restored = drafts.read(DraftScreen.survey, SurveyUiState.fromDraft);
+    if (restored != null) {
+      return restored;
+    }
+    if (ref.read(onboardingStepListenableProvider).isRevisiting) {
+      final saved = revisitProfile(ref);
+      return saved == null ? const SurveyUiState() : SurveyUiState.fromProfile(saved);
+    }
+    return SurveyUiState(answers: {for (var axis = 1; axis <= SurveyUiState.axisCount; axis++) axis: 0});
+  }
+
+  /// 값이 바뀔 때마다 남긴다(저장소가 디바운스한다). 처음 상태(복원한 값 그대로)는 다시 쓰지 않고,
+  /// 끝낸 단계는 서버에 있으니 남기지 않는다.
+  void _saveDraft(DraftStore drafts, SurveyUiState? previous, SurveyUiState next) {
+    if (previous == null || next.completed) {
+      return;
+    }
+    drafts.write(DraftScreen.survey, next.toDraft());
+  }
+
+  /// 5단계(-1/-0.5/0/0.5/1) 슬라이더 값. 축은 1~9.
+  void answer(int axis, double value) {
+    state = SurveyUiState(
+      answers: {...state.answers, axis: value},
+      religion: state.religion,
+      isSmoker: state.isSmoker,
+    );
+  }
+
+  void changeReligion(Religion value) {
+    state = SurveyUiState(answers: state.answers, religion: value, isSmoker: state.isSmoker);
+  }
+
+  void changeIsSmoker(bool value) {
+    state = SurveyUiState(answers: state.answers, religion: state.religion, isSmoker: value);
+  }
+
+  Future<void> submit() async {
+    if (!state.canSubmit) {
+      return;
+    }
+    state = SurveyUiState(
+      answers: state.answers,
+      religion: state.religion,
+      isSmoker: state.isSmoker,
+      isSubmitting: true,
+    );
+    state = await _submittedState();
+    _discardDraftIfCompleted();
+    _refreshOnboardingStepIfCompleted();
+  }
+
+  /// 단계를 끝냈으면 이 화면의 임시 저장 값을 지운다 — 다음에 다시 열 일이 없다.
+  void _discardDraftIfCompleted() {
+    if (!state.completed) {
+      return;
+    }
+    unawaited(ref.read(draftStoreProvider).clear(DraftScreen.survey));
+  }
+
+  Future<SurveyUiState> _submittedState() async {
+    try {
+      final repository = ref.read(surveyRepositoryProvider);
+      final result = await repository.submit(state.answers, state.religion!, state.isSmoker!);
+      reportIfOnboardingBlocked(ref, result);
+      return _stateFromResult(result);
+    } catch (_) {
+      return SurveyUiState(
+        answers: state.answers,
+        religion: state.religion,
+        isSmoker: state.isSmoker,
+        errorMessage: const UnknownFailure().toDisplayMessage(),
+      );
+    }
+  }
+
+  SurveyUiState _stateFromResult(Result<void> result) {
+    return result.when(
+      onSuccess: (_) => SurveyUiState(
+        answers: state.answers,
+        religion: state.religion,
+        isSmoker: state.isSmoker,
+        completed: true,
+      ),
+      onFailure: (failure) => SurveyUiState(
+        answers: state.answers,
+        religion: state.religion,
+        isSmoker: state.isSmoker,
+        errorMessage: failure.toDisplayMessage(),
+      ),
+    );
+  }
+
+  void _refreshOnboardingStepIfCompleted() {
+    if (!state.completed) {
+      return;
+    }
+    unawaited(ref.read(onboardingStepListenableProvider).stepSaved());
+  }
+}

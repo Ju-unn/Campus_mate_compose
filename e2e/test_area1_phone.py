@@ -334,8 +334,8 @@ class StartScreenContractTest(unittest.TestCase):
     def test_start_and_school_email_are_split_and_login_is_gone(self):
         screens = self.screens()
         self.assertNotIn('login', screens)
-        self.assertIn(f"'{screens['start']}'", self.read('lib', 'auth', 'view', 'start_view.dart'))
-        self.assertIn(f"'{screens['schoolEmail']}'", self.read('lib', 'auth', 'view', 'sign_up_screen.dart'))
+        self.assertIn(f"'{screens['start']}'", self.read('lib', 'auth', 'social', 'view', 'start_view.dart'))
+        self.assertIn(f"'{screens['schoolEmail']}'", self.read('lib', 'auth', 'school_email', 'view', 'sign_up_screen.dart'))
 
     def test_no_app_side_hypothesis_still_waits_for_the_old_login_screen(self):
         for path in sorted((tools.ROOT / 'frontend' / 'integration_test').glob('*.dart')):
@@ -345,7 +345,7 @@ class StartScreenContractTest(unittest.TestCase):
 
     def test_the_social_buttons_the_app_side_looks_for_are_the_app_labels(self):
         area1_dart = self.read('integration_test', 'area1.dart')
-        labels = self.read('lib', 'auth', 'view', 'social_login_button.dart')
+        labels = self.read('lib', 'auth', 'social', 'view', 'social_login_button.dart')
         for name in ('kakao', 'google'):
             label = re.search(rf"static const String {name} = '([^']+)';", labels).group(1)
             self.assertIn(f"'{label}'", area1_dart)

@@ -6,17 +6,17 @@ import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/viewmodel/ideal_conditions_edit_view_model.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
-import 'package:campus_mate/profile/model/ideal_conditions_repository_provider.dart';
-import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
-import 'package:campus_mate/profile/model/profile_enums.dart';
-import 'package:campus_mate/profile/viewmodel/ideal_conditions_ui_state.dart';
-import 'package:campus_mate/profile/viewmodel/ideal_conditions_view_model.dart';
+import 'package:campus_mate/profile/ideal/model/repository/ideal_conditions_repository_provider.dart';
+import 'package:campus_mate/profile/onboarding/model/repository/onboarding_repository_provider.dart';
+import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
+import 'package:campus_mate/profile/ideal/viewmodel/ideal_conditions_ui_state.dart';
+import 'package:campus_mate/profile/ideal/viewmodel/ideal_conditions_view_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:campus_mate/core/draft/draft_store.dart';
 
-import '../../profile/model/fake_ideal_conditions_repository.dart';
-import '../../profile/model/fake_onboarding_repository.dart';
+import '../../profile/ideal/model/repository/fake_ideal_conditions_repository.dart';
+import '../../profile/onboarding/model/repository/fake_onboarding_repository.dart';
 import '../model/repository/fake_me_repository.dart';
 import '../../core/draft/fake_draft_store.dart';
 
