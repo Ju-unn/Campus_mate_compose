@@ -1,4 +1,5 @@
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -30,11 +31,11 @@ class HomeGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final stats = [
       if (summary.deliveredCards >= _minStatValue)
-        StatTile(icon: AppIcon3d.send, value: _thousands(summary.deliveredCards), label: '전달된 카드'),
+        StatTile(icon: AppIcon3d.send, value: _thousands(summary.deliveredCards), label: context.l10n.homeGridStatDelivered),
       if (summary.signups >= _minStatValue)
-        StatTile(icon: AppIcon3d.join, value: _thousands(summary.signups), label: '가입 수'),
+        StatTile(icon: AppIcon3d.join, value: _thousands(summary.signups), label: context.l10n.homeGridStatSignups),
       if (summary.conversationsStarted >= _minStatValue)
-        StatTile(icon: AppIcon3d.chat, value: _thousands(summary.conversationsStarted), label: '시작된 대화'),
+        StatTile(icon: AppIcon3d.chat, value: _thousands(summary.conversationsStarted), label: context.l10n.homeGridStatConversations),
     ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -43,14 +44,14 @@ class HomeGrid extends StatelessWidget {
         _row([
           _LinkTile(
             art: Image.asset('assets/images/brand-instagram-v1.webp', width: 28, height: 28, fit: BoxFit.contain),
-            label: '인스타그램',
-            semanticLabel: 'CampusMate 인스타그램 열기',
+            label: context.l10n.homeGridInstagram,
+            semanticLabel: context.l10n.homeGridInstagramSemantics,
             onTap: onInstagram,
           ),
           _LinkTile(
             art: const Icon3d(AppIcon3d.gift, size: 28),
-            label: '이벤트',
-            semanticLabel: '이벤트 보기',
+            label: context.l10n.homeEventTitle,
+            semanticLabel: context.l10n.homeGridEventSemantics,
             onTap: onEvent,
           ),
           const _ComingSoonTile(),
@@ -193,7 +194,7 @@ class _ComingSoonTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final corner = BorderRadius.circular(AppRadius.md);
     return Semantics(
-      label: '곧 열려요(준비 중)',
+      label: context.l10n.homeGridComingSoonSemantics,
       excludeSemantics: true,
       // 칠하는 순서는 채움 → 안쪽 그림자 → 테두리(pen 과 같다) — 그래서 테두리는 foregroundDecoration 이다.
       child: Container(
@@ -206,7 +207,7 @@ class _ComingSoonTile extends StatelessWidget {
             child: _PlateAndLabel(
               plate: const Icon(AppIcons.hourglass, size: 20, color: AppColors.muted),
               label: Text(
-                '곧 열려요',
+                context.l10n.homeGridComingSoon,
                 softWrap: false,
                 style: AppTypography.caption.copyWith(fontWeight: FontWeight.w600, color: AppColors.muted),
               ),

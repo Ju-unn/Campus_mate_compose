@@ -2,12 +2,15 @@ import 'dart:async';
 
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/home/model/data/cohort_wait.dart';
 import 'package:campus_mate/home/viewmodel/home_summary_provider.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/me/view/me_toast.dart';
 import 'package:campus_mate/referral/model/repository/invite_share.dart';
 import 'package:campus_mate/referral/model/repository/referral_repository_provider.dart';
@@ -27,11 +30,14 @@ String cohortDayLabel(DateTime now, DateTime opensAt) {
 }
 
 /// 큰 줄: 당일은 "오늘 오전 7시", 그 전은 "9월 23일"(결정 8). 시각은 7 을 박지 않고 여는 시각에서 읽는다.
-String cohortDateLabel(DateTime now, DateTime opensAt) {
-  if (cohortDayLabel(now, opensAt) != 'D-day') return '${opensAt.month}월 ${opensAt.day}일';
+String cohortDateLabel(AppLocalizations l10n, DateTime now, DateTime opensAt) {
+  if (cohortDayLabel(now, opensAt) != 'D-day') return l10n.homeCohortDate(month: opensAt.month, day: opensAt.day);
   final h = opensAt.hour;
-  final minute = opensAt.minute == 0 ? '' : ' ${opensAt.minute}분';
-  return '오늘 ${h < 12 ? '오전' : '오후'} ${h % 12 == 0 ? 12 : h % 12}시$minute';
+  final meridiem = h < 12 ? 'am' : 'pm';
+  final hour = h % 12 == 0 ? 12 : h % 12;
+  return opensAt.minute == 0
+      ? l10n.homeCohortTodayAt(meridiem: meridiem, hour: hour)
+      : l10n.homeCohortTodayAtMinute(meridiem: meridiem, hour: hour, minute: opensAt.minute);
 }
 
 /// 19 코호트 대기(pen `tUaGw`) 본문. 앱바 · 하단 내비는 부르는 화면 것을 그대로 쓴다(Q2 (가)).
@@ -76,11 +82,11 @@ class _CohortWaitViewState extends ConsumerState<CohortWaitView> {
       await result.when<Future<void>>(
         // 16i "카카오톡으로 보내기"와 같은 함수 — 카카오톡 공유 카드 먼저, 못 보내면 기기 공유 창.
         onSuccess: (code) => ref.read(shareInviteProvider)(code),
-        onFailure: (failure) async => _showToast(failure.toDisplayMessage()),
+        onFailure: (failure) async => _showToast(context.errorText(failure)),
       );
     } catch (_) {
       // 공유 창을 못 열었다(기기 쪽 오류). 조용히 끝내지 않는다.
-      if (mounted) _showToast(const UnknownFailure().toDisplayMessage());
+      if (mounted) _showToast(context.errorText(const UnknownFailure()));
     } finally {
       _inviting = false;
     }
@@ -148,13 +154,13 @@ class _CohortWaitViewState extends ConsumerState<CohortWaitView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _Hero(dayLabel: cohortDayLabel(now, opensAt), dateLabel: cohortDateLabel(now, opensAt)),
+                _Hero(dayLabel: cohortDayLabel(now, opensAt), dateLabel: cohortDateLabel(context.l10n, now, opensAt)),
                 const SizedBox(height: 20),
                 _RecruitPanel(count: widget.cohort.recruitCount),
                 const SizedBox(height: 20),
                 // `G5OV3t` 14/400 #3F3F3F lh1.5 — 문구는 PNG 08.
                 Text(
-                  '친구와 함께 시작하면 첫날부터 더 많은 캠퍼스 친구를 만날 수 있어요.',
+                  context.l10n.homeCohortInviteBody,
                   style: AppTypography.bodySmall.copyWith(color: AppColors.body, height: 1.5),
                 ),
                 const Spacer(),
@@ -206,7 +212,7 @@ class _Hero extends StatelessWidget {
           const SizedBox(height: 8),
           // `BBGsm` 14/600 #C4224B lh1.5. " · D-14" 는 Q1 (가) — 48 한 줄에 넣으면 폭이 모자란다.
           Text(
-            '첫 카드까지 · $dayLabel',
+            context.l10n.homeCohortHeroCaption(dayLabel: dayLabel),
             textAlign: TextAlign.center,
             style: AppTypography.labelSmall.copyWith(color: AppColors.primaryText, height: 1.5),
           ),
@@ -229,7 +235,7 @@ class _Hero extends StatelessWidget {
           const SizedBox(height: 8),
           // `ocR77` 14/400 #6A6A6A.
           Text(
-            '같은 날, 같은 설렘으로 시작해요',
+            context.l10n.homeCohortHeroNote,
             textAlign: TextAlign.center,
             style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
           ),
@@ -262,9 +268,9 @@ class _RecruitPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 왼쪽 열 `o6UY45` gap 4. `WEPFQ` 14/400 #6A6A6A lh1.5 · `ebHk4` 24/700 #222222 lh1.5.
-          Text('현재 모집 인원', style: AppTypography.bodySmall.copyWith(color: AppColors.muted, height: 1.5)),
+          Text(context.l10n.homeCohortRecruitLabel, style: AppTypography.bodySmall.copyWith(color: AppColors.muted, height: 1.5)),
           const SizedBox(height: 4),
-          Text('$count명', style: AppTypography.headline.copyWith(color: AppColors.ink, height: 1.5)),
+          Text(context.l10n.homeCohortRecruitCount(count: count), style: AppTypography.headline.copyWith(color: AppColors.ink, height: 1.5)),
         ],
       ),
     );
@@ -295,7 +301,7 @@ class _InviteButton extends StatelessWidget {
         overlayColor: const WidgetStatePropertyAll(Colors.transparent),
       ),
       child: Text(
-        '친구에게 초대 링크 보내기',
+        context.l10n.homeCohortInviteButton,
         textAlign: TextAlign.center,
         style: AppTypography.button.copyWith(color: AppColors.onPrimary),
       ),

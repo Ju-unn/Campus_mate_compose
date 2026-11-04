@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -125,7 +126,7 @@ class MosaicEmptyTile extends StatelessWidget {
         child: SizedBox(
           width: double.infinity,
           child: Text(
-            '아직 비어 있어요',
+            context.l10n.homeMosaicEmpty,
             textAlign: TextAlign.center,
             style: AppTypography.caption.copyWith(height: 16 / 12, color: AppColors.muted),
           ),

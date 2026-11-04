@@ -1,3 +1,4 @@
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -17,7 +18,7 @@ class NotifyIconButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: onTap != null,
-      label: count > 0 ? '알림 $count개' : '알림',
+      label: count > 0 ? context.l10n.homeNotifyUnreadLabel(count: count) : context.l10n.homeNotifyLabel,
       onTap: onTap,
       child: ExcludeSemantics(
         // 눌림 효과가 스크롤·앱바 바깥 Material 에 뜨지 않게 종 칸이 자기 Material 을 갖는다(COMMON §4-2).

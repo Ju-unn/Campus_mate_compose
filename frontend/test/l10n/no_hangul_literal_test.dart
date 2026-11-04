@@ -21,7 +21,6 @@ void main() {
     'chat',
     'community',
     'friend_review',
-    'home',
     'matching',
     'me',
     'profile/appearance',
