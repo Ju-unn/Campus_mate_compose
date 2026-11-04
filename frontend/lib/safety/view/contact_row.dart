@@ -65,7 +65,7 @@ class ContactRow extends StatelessWidget {
   }
 }
 
-/// 아바타(pen `s4Udw` → Avatar `eNFmA`): 36 원, 인스턴스가 채움을 surface-strong 로 덮었다. 이니셜 17/600 ink.
+/// 아바타(pen `s4Udw` → Avatar `eNFmA`): 36 원, 인스턴스가 채움을 surface-strong 로 덮었다. 이니셜 18/600 ink.
 class _Avatar extends StatelessWidget {
   const _Avatar({required this.initial});
 

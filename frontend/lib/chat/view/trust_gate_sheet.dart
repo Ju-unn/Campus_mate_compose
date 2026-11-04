@@ -208,10 +208,9 @@ class _Countdown extends StatelessWidget {
             deadlineAt: deadlineAt,
             builder: (context, remaining) => Text(
               countdownLabel(remaining),
-              // pen `p0XJA6` 는 18/700 — 토큰 subtitle(17)보다 한 단계 크다.
+              // pen `p0XJA6` 는 18/700 — subtitle(18/600)에서 굵기만 올린다.
               style: AppTypography.subtitle.copyWith(
                 color: AppColors.primaryText,
-                fontSize: 18,
                 fontWeight: FontWeight.w700,
               ),
             ),

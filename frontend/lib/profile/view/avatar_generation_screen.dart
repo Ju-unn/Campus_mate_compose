@@ -523,7 +523,7 @@ class _CompensationSheet extends StatelessWidget {
   }
 }
 
-/// 05-12b(pen `euW4T` · `c7QuSm`) — 분홍 목도리 마스코트 아래 힌트 한 줄 13/400 muted. 서버 문구가 있으면 같은 자리 · 같은 글꼴로
+/// 05-12b(pen `euW4T` · `c7QuSm`) — 분홍 목도리 마스코트 아래 힌트 한 줄 14/400 muted. 서버 문구가 있으면 같은 자리 · 같은 글꼴로
 /// 그 문구를 둔다. 부제 · 버튼 "다시 시도" 는 pen 원문 그대로다(대장 전달 10-15 — "시도해주세요" 붙여 쓰기도 원문).
 class _RetryPrompt extends StatelessWidget {
   const _RetryPrompt({required this.state, required this.onRetry});
@@ -548,7 +548,7 @@ class _RetryPrompt extends StatelessWidget {
       below: Text(
         state.errorMessage ?? _freeRetryHint,
         textAlign: TextAlign.center,
-        style: AppTypography.bodySmall.copyWith(fontSize: 13, color: AppColors.muted),
+        style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
       ),
       action: AppButton(label: '다시 시도', onPressed: onRetry),
     );

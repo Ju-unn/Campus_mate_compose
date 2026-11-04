@@ -213,7 +213,7 @@ class _DailyBadge extends StatelessWidget {
       // pen `klkPA` 글자 칸 16 — badge 토큰 줄높이(1.3)면 14.3 이라 알약이 18.3 으로 얇아진다.
       child: Text(
         '하루 1번',
-        style: AppTypography.badge.copyWith(fontWeight: FontWeight.w700, color: AppColors.muted, height: 16 / 11),
+        style: AppTypography.badge.copyWith(fontWeight: FontWeight.w700, color: AppColors.muted, height: 16 / 10),
       ),
     );
   }

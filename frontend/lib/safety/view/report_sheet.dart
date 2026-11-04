@@ -127,12 +127,11 @@ class _ReasonRow extends StatelessWidget {
                   Flexible(
                     child: Text(
                       label,
-                      // pen 15 / 500(선택 600), 줄높이 속성 없음 · 렌더 22. 15 는 타이포 토큰에 없다.
+                      // pen 16 / 500(선택 600), 줄높이 속성 없음 · 렌더 22.
                       style: AppTypography.body.copyWith(
                         color: AppColors.ink,
-                        fontSize: 15,
                         fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                        height: 22 / 15,
+                        height: 22 / 16,
                       ),
                     ),
                   ),

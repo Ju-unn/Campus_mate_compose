@@ -286,8 +286,8 @@ class _TargetHeader extends StatelessWidget {
               children: [
                 Text(
                   nickname,
-                  // pen DcyWQ 17/600 lh1.5, 렌더 26.
-                  style: AppTypography.subtitle.copyWith(color: AppColors.ink, height: 26 / 17),
+                  // pen DcyWQ 18/600 lh1.5, 렌더 26.
+                  style: AppTypography.subtitle.copyWith(color: AppColors.ink, height: 26 / 18),
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -304,7 +304,7 @@ class _TargetHeader extends StatelessWidget {
   }
 }
 
-/// 질문 줄(pen `a9uYrP` · `rFK7Q`): 17/600 ink lh1.5, 렌더 27.
+/// 질문 줄(pen `a9uYrP` · `rFK7Q`): 18/600 ink lh1.5, 렌더 27.
 class _Question extends StatelessWidget {
   const _Question(this.text);
 
@@ -312,7 +312,7 @@ class _Question extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(text, style: AppTypography.subtitle.copyWith(color: AppColors.ink, height: 27 / 17));
+    return Text(text, style: AppTypography.subtitle.copyWith(color: AppColors.ink, height: 27 / 18));
   }
 }
 

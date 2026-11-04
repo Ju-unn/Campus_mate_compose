@@ -45,7 +45,7 @@ class AccountSuspendedScreen extends ConsumerWidget {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.button)),
                   foregroundColor: AppColors.muted,
                 ),
-                child: Text('탈퇴하기', style: AppTypography.button.copyWith(color: AppColors.muted, fontSize: 14)),
+                child: Text('탈퇴하기', style: AppTypography.labelSmall.copyWith(color: AppColors.muted, fontWeight: FontWeight.w700)),
               ),
             ],
           ),
@@ -82,8 +82,8 @@ class _SuspendedMessage extends StatelessWidget {
         Text(
           '누적된 신고 내용을 검토한 결과, 이용이 제한되었어요. 부적절한 이용이 반복되면 계정이 삭제될 수 있어요.',
           textAlign: TextAlign.center,
-          // pen 15/normal/1.5 — 15 는 글자 토큰에 없는 크기라 body 에서 크기만 바꾼다.
-          style: AppTypography.body.copyWith(color: AppColors.muted, fontSize: 15, height: 1.5),
+          // pen 16/normal/1.5.
+          style: AppTypography.body.copyWith(color: AppColors.muted, height: 1.5),
         ),
         const SizedBox(height: _gap),
         const _SupportCard(),
@@ -136,7 +136,7 @@ class _SupportEmailRow extends StatelessWidget {
       children: [
         const Icon(AppIcons.mail, size: 20, color: AppColors.body),
         const SizedBox(width: AppSpacing.xs),
-        Text('문의 메일', style: AppTypography.body.copyWith(color: AppColors.ink, fontSize: 15, height: 22 / 15)),
+        Text('문의 메일', style: AppTypography.body.copyWith(color: AppColors.ink, height: 22 / 16)),
         const SizedBox(width: AppSpacing.xs),
         // 좁은 기기 · 큰 글자에서 주소가 넘치지 않게 남은 폭 안에서 줄을 바꾼다.
         Flexible(

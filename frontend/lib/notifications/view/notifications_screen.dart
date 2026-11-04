@@ -187,8 +187,8 @@ class _Empty extends StatelessWidget {
                 Text(
                   '아직 받은 알림이 없어요',
                   textAlign: TextAlign.center,
-                  // `ZBzIg` 17/600, 줄높이 속성 없음 · 렌더 25.
-                  style: AppTypography.subtitle.copyWith(color: AppColors.ink, height: 25 / 17),
+                  // `ZBzIg` 18/600, 줄높이 속성 없음 · 렌더 25.
+                  style: AppTypography.subtitle.copyWith(color: AppColors.ink, height: 25 / 18),
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(

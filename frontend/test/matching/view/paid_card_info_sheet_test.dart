@@ -97,7 +97,7 @@ void main() {
     expect(rel(tester, desc).left, 16);
   });
 
-  testWidgets('네 줄 — 순서 · 아이콘 36×36 · 제목 15/700/1.4 · 설명 14/400/1.45 #6A6A6A, 글 상자는 아이콘 오른쪽 12', (tester) async {
+  testWidgets('네 줄 — 순서 · 아이콘 36×36 · 제목 16/700/1.4 · 설명 14/400/1.45 #6A6A6A, 글 상자는 아이콘 오른쪽 12', (tester) async {
     await openSheet(tester);
 
     const rows = [
@@ -117,7 +117,7 @@ void main() {
       previousTop = iconRect.top;
 
       final titleStyle = tester.widget<Text>(find.text(title)).style!;
-      expect(titleStyle.fontSize, 15, reason: title);
+      expect(titleStyle.fontSize, 16, reason: title);
       expect(titleStyle.fontWeight, FontWeight.w700, reason: title);
       expect(titleStyle.height, 1.4, reason: title);
       expect(titleStyle.color, const Color(0xFF222222), reason: title);

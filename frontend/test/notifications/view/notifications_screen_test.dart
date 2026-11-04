@@ -206,7 +206,7 @@ void main() {
       expect(tester.getTopLeft(title).dx - tester.getTopLeft(row('1')).dx, 70);
     });
 
-    testWidgets('글 세 줄의 크기와 간격: 제목 15/700 상자 22 · 본문 14 상자 21 · 시간 12 상자 17, 사이 4(`u7UpP` · `mjafy` · `HiHiY`)', (tester) async {
+    testWidgets('글 세 줄의 크기와 간격: 제목 16/700 상자 22 · 본문 14 상자 21 · 시간 12 상자 17, 사이 4(`u7UpP` · `mjafy` · `HiHiY`)', (tester) async {
       await pump(tester);
 
       final title = find.descendant(of: row('1'), matching: find.text('오늘의 카드가 도착했어요'));
@@ -217,7 +217,7 @@ void main() {
       expect(tester.getSize(time).height, 17);
       expect(tester.getTopLeft(body).dy - tester.getBottomLeft(title).dy, 4);
       expect(tester.getTopLeft(time).dy - tester.getBottomLeft(body).dy, 4);
-      expect(styleOf(tester, title).fontSize, 15);
+      expect(styleOf(tester, title).fontSize, 16);
       expect(styleOf(tester, body).fontSize, 14);
       expect(styleOf(tester, time).fontSize, 12);
     });
@@ -350,7 +350,7 @@ void main() {
 
     // pen 화면 `I7TTvT` "09c 알림함 · 인증 결과": 승인 `T42lI` · 반려 `b2Ugz` 는 기존 안 읽음 마스터 `VAzRr` 인스턴스 —
     // 글자 셋과 3D 그림만 바꾸고 크기 · 색 · 간격은 그대로다(값표 2장). 시험 글꼴은 Pretendard 보다 넓어 줄 높이는 재지 않는다.
-    testWidgets('인증샷 승인 · 반려 줄은 안 읽음 마스터 그대로 — 제목 15/700 ink · 본문 14 muted · 시간 12 muted · 원 44 · 그림 28 · 점 8', (tester) async {
+    testWidgets('인증샷 승인 · 반려 줄은 안 읽음 마스터 그대로 — 제목 16/700 ink · 본문 14 muted · 시간 12 muted · 원 44 · 그림 28 · 점 8', (tester) async {
       await pump(
         tester,
         repository: FakeNotificationsRepository(pages: [
@@ -376,7 +376,7 @@ void main() {
         final t = find.descendant(of: row(id), matching: find.text(title));
         final b = find.descendant(of: row(id), matching: find.text(body));
         final m = find.descendant(of: row(id), matching: find.text(time));
-        expect((styleOf(tester, t).fontSize, styleOf(tester, t).fontWeight, styleOf(tester, t).color), (15.0, FontWeight.w700, AppColors.ink), reason: id);
+        expect((styleOf(tester, t).fontSize, styleOf(tester, t).fontWeight, styleOf(tester, t).color), (16.0, FontWeight.w700, AppColors.ink), reason: id);
         expect((styleOf(tester, b).fontSize, styleOf(tester, b).color), (14.0, AppColors.muted), reason: id);
         expect((styleOf(tester, m).fontSize, styleOf(tester, m).color), (12.0, AppColors.muted), reason: id);
         final circle = find.descendant(of: row(id), matching: find.byKey(notificationIconCircleKey));
@@ -619,7 +619,7 @@ void main() {
       final icon = find.byKey(notificationEmptyIconKey);
       expect(tester.getSize(icon), const Size(120, 120));
       final title = tester.widget<Text>(find.text('아직 받은 알림이 없어요'));
-      expect(title.style!.fontSize, 17);
+      expect(title.style!.fontSize, 18);
       expect(title.style!.fontWeight, FontWeight.w600);
       expect(title.style!.color, AppColors.ink);
       final description = tester.widget<Text>(find.text('카드가 도착하거나 대화 신청이 오면\n여기에 모여요'));

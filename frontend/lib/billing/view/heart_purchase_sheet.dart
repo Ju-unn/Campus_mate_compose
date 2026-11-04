@@ -137,8 +137,8 @@ class _ProductRow extends StatelessWidget {
 
   final HeartPurchaseUiState state;
 
-  /// pen `GItUi` 18/600 은 토큰에 없다(title 20/600 · subNavTitle 18/700) — title 을 18 로. 줄높이는 pen 렌더 26.
-  static final TextStyle _style = AppTypography.title.copyWith(fontSize: 18, height: 26 / 18, color: AppColors.ink);
+  /// pen `GItUi` 18/600 = subtitle 토큰. 줄높이는 pen 렌더 26.
+  static final TextStyle _style = AppTypography.subtitle.copyWith(height: 26 / 18, color: AppColors.ink);
 
   @override
   Widget build(BuildContext context) {

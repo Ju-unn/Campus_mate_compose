@@ -88,8 +88,9 @@ void main() {
     expect(value.top - label.bottom, 2);
     expect(value.height, 22);
     final labelStyle = tester.widget<Text>(find.text('카카오톡 아이디')).style!;
-    expect(labelStyle.fontSize, 11);
+    expect(labelStyle.fontSize, 10);
     expect(labelStyle.fontWeight, FontWeight.w400);
+    expect(labelStyle.letterSpacing, 0); // 옛 caption 처럼 자간 없음(badge 의 +0.02em 을 끈다)
     // 보이는 아이콘은 pen 자리(`FZqNL` 행 안 x 266, y 21) 그대로, 누르는 영역은 48 이다.
     final copy = rectOf(tester, find.byIcon(AppIcons.copy), card);
     expect(copy.left - row.left, 266);

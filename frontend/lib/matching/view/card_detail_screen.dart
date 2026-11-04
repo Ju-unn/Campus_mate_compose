@@ -353,7 +353,9 @@ class _Facts extends StatelessWidget {
                   children: [
                     Text(
                       fact.label,
-                      style: AppTypography.caption.copyWith(fontSize: 11, color: AppColors.muted),
+                      // 옛 caption 11 × 1.4 = 15.4px 줄 높이와 자간 없음을 그대로 둔다(badge 의 1.3 · +0.02em 을 끈다).
+                      style: AppTypography.badge
+                          .copyWith(fontWeight: FontWeight.w400, color: AppColors.muted, height: 15.4 / 10, letterSpacing: 0),
                     ),
                     const SizedBox(height: 2),
                     Text(

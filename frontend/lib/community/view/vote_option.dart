@@ -2,6 +2,7 @@ import 'package:campus_mate/community/view/poll_donut.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
+import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -98,8 +99,9 @@ class VoteOption extends StatelessWidget {
   /// 입력 칸의 글자 배율 상한 — 칸 폭 158(안쪽 126)에 6자 20px 가 한 줄로 들어가는 한계(실제 글꼴 Pretendard 로 잼).
   static const double _maxTextScale = 1.15;
 
+  /// pen 20 = navTitle 토큰의 크기 · 글꼴. 굵기만 칸(700) · 안내 글(500)에 맞춰 덮어쓴다.
   static TextStyle _whiteText(FontWeight weight) =>
-      TextStyle(fontSize: 20, fontWeight: weight, height: _lineHeight, color: AppColors.onPrimary);
+      AppTypography.navTitle.copyWith(fontWeight: weight, height: _lineHeight, color: AppColors.onPrimary);
 
   @override
   Widget build(BuildContext context) {

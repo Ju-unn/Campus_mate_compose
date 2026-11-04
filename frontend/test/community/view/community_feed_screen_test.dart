@@ -922,7 +922,7 @@ void main() {
       expect(find.descendant(of: cards.last, matching: find.byTooltip('더보기')), findsNothing);
     });
 
-    testWidgets('터치 48 · 머리줄 오른쪽 끝, 사이렌 22 → 2 → "신고하기" 9/600 #6E5861 (OaLnA · E6FpN · Wwsmw)', (tester) async {
+    testWidgets('터치 48 · 머리줄 오른쪽 끝, 사이렌 22 → 2 → "신고하기" 10/600 #6E5861 (OaLnA · E6FpN · Wwsmw)', (tester) async {
       repository.page = Success(PollPage(polls: [pollFixture()], hasMore: false));
       await pump(tester);
 
@@ -937,9 +937,10 @@ void main() {
       final label = find.descendant(of: find.byType(FeedPollCard), matching: find.text('신고하기'));
       expect(tester.getRect(label).top - icon.bottom, 2);
       final style = tester.widget<Text>(label).style!;
-      expect((style.fontSize, style.fontWeight, style.color), (9, FontWeight.w600, const Color(0xFF6E5861)));
-      // 아이콘 22 + 2 + 글자 9 = 33 이 48 가운데.
-      expect(icon.top - button.top, 7.5);
+      expect((style.fontSize, style.fontWeight, style.color), (10, FontWeight.w600, const Color(0xFF6E5861)));
+      expect(style.letterSpacing, 0); // badge 의 +0.02em 을 끈다
+      // 아이콘 22 + 2 + 글자 10 = 34 가 48 가운데.
+      expect(icon.top - button.top, 7.0);
       // 머리줄 48 → 질문은 카드 위 안쪽 16 + 48 + 12 아래.
       expect(tester.getRect(find.text('첫 데이트 더치페이')).top - card.top, 16 + 48 + 12);
     });

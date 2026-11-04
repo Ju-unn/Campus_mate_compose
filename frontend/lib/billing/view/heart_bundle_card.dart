@@ -103,7 +103,7 @@ class HeartBundleCard extends StatelessWidget {
   }
 }
 
-/// 할인율(`AEAAV`): "최대 할인"(`wWEMu` 11/600) 위에 "5%"(`wUXqw` 17/600) — 둘 다 primaryText, 오른쪽 정렬.
+/// 할인율(`AEAAV`): "최대 할인"(`wWEMu` 10/600) 위에 "5%"(`wUXqw` 18/600) — 둘 다 primaryText, 오른쪽 정렬.
 class _Discount extends StatelessWidget {
   const _Discount({required this.bundle});
 
@@ -156,7 +156,7 @@ class _PriceColumn extends StatelessWidget {
   }
 }
 
-/// "추천"(`Fs0PO` = CountBadge 변형: 높이 18 · 좌우 8 · primary 채움 · 글자 11/600 흰색).
+/// "추천"(`Fs0PO` = CountBadge 변형: 높이 18 · 좌우 8 · primary 채움 · 글자 10/600 흰색).
 class _RecommendTag extends StatelessWidget {
   const _RecommendTag();
 
@@ -172,8 +172,8 @@ class _RecommendTag extends StatelessWidget {
   }
 }
 
-/// "첫 구매 +50"(pen 마스터 `mflMT` BonusBadge 71×18): 흰 채움 · 1px primary 테두리 · pill · 좌우 8 · 글자 11/700 primaryText.
-/// 테두리는 덧그린다 — pen 획은 크기에 들지 않는다(71 = 글자 55 + 좌우 8). 시간 압박 문구는 넣지 않는다(DESIGN §8.10).
+/// "첫 구매 +50"(pen 마스터 `mflMT` BonusBadge 71×18 → 글자가 10 이 되어 66 안팎): 흰 채움 · 1px primary 테두리 · pill · 좌우 8 · 글자 10/700 primaryText.
+/// 테두리는 덧그린다 — pen 획은 크기에 들지 않는다(66 = 글자 50 + 좌우 8씩). 시간 압박 문구는 넣지 않는다(DESIGN §8.10).
 /// 글자 배율은 카드와 같은 1.3 까지만 — 높이 18 이 고정이라 그 이상이면 글자가 칸 밖으로 잘린다.
 class _BonusBadge extends StatelessWidget {
   const _BonusBadge({required this.hearts});

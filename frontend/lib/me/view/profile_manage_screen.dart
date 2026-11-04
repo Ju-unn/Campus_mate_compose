@@ -89,9 +89,9 @@ class _ManageContent extends StatelessWidget {
   }
 }
 
-/// 섹션 헤더 제목 17/700 ink — 줄높이 속성 없음 · 렌더 25(subtitle 토큰 17/600 에 굵기만 700).
+/// 섹션 헤더 제목 18/700 ink — 줄높이 속성 없음 · 렌더 25(subtitle 토큰 18/600 에 굵기만 700).
 final _headerTitleStyle =
-    AppTypography.subtitle.copyWith(fontWeight: FontWeight.w700, height: 25 / 17, color: AppColors.ink);
+    AppTypography.subtitle.copyWith(fontWeight: FontWeight.w700, height: 25 / 18, color: AppColors.ink);
 
 /// 섹션 헤더 오른쪽 글자 14/400 muted — 줄높이 속성 없음 · 렌더 20.
 final _headerNoteStyle = AppTypography.bodySmall.copyWith(height: 20 / 14, color: AppColors.muted);
@@ -152,7 +152,7 @@ class _RealPhotoSection extends StatelessWidget {
   }
 }
 
-/// "수락 후 공개" `r6b8Vu`(Badge · Small `b4m05R`) — ink 알약, 패딩 [5,8], lock 12, gap 4, 11/600 렌더 18(높이 28).
+/// "수락 후 공개" `r6b8Vu`(Badge · Small `b4m05R`) — ink 알약, 패딩 [5,8], lock 12, gap 4, 10/600 렌더 18(높이 28).
 class _LockBadge extends StatelessWidget {
   const _LockBadge();
 
@@ -169,7 +169,7 @@ class _LockBadge extends StatelessWidget {
             const Icon(AppIcons.lock, size: 12, color: AppColors.onInk),
             const SizedBox(width: AppSpacing.xxs),
             // 렌더 높이 18 — badge 토큰 1.30 대신 18/11.
-            Text('수락 후 공개', style: AppTypography.badge.copyWith(height: 18 / 11, color: AppColors.onInk)),
+            Text('수락 후 공개', style: AppTypography.badge.copyWith(height: 18 / 10, color: AppColors.onInk)),
           ],
         ),
       ),

@@ -88,7 +88,7 @@ class _PendingRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: AppSpacing.xs),
-          // pen SaMDZ Badge · Status — 바탕 #F2F2F2 · 글자 11/700 #6A6A6A. 아이콘은 lucide timer(값표에 크기 없음 — 12 로 둔다, 보고).
+          // pen SaMDZ Badge · Status — 바탕 #F2F2F2 · 글자 10/700 #6A6A6A. 아이콘은 lucide timer(값표에 크기 없음 — 12 로 둔다, 보고).
           const HeartTaskChip(
             leading: Icon(AppIcons.timer, size: 12, color: AppColors.muted),
             label: _badge,

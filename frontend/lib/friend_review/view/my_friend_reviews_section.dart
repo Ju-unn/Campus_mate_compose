@@ -29,8 +29,8 @@ class MyFriendReviewsSection extends ConsumerWidget {
       children: [
         Text(
           '지인 리뷰',
-          // pen mHDrn 17/700 #222222, 줄높이 속성 없음 · 렌더 25(subtitle 토큰은 600).
-          style: AppTypography.subtitle.copyWith(color: AppColors.ink, fontWeight: FontWeight.w700, height: 25 / 17),
+          // pen mHDrn 18/700 #222222, 줄높이 속성 없음 · 렌더 25(subtitle 토큰은 600).
+          style: AppTypography.subtitle.copyWith(color: AppColors.ink, fontWeight: FontWeight.w700, height: 25 / 18),
         ),
         const SizedBox(height: AppSpacing.sm),
         ProfileEntryRow(

@@ -183,13 +183,13 @@ void main() {
 
   group('제목 `H7ko9`', () {
     // 2026-11-02 앱 1.0.1 — 인원수("N명이")를 뺐다. 서버가 band_count 를 계속 보내도 화면에는 쓰지 않는다.
-    testWidgets('"나와 성향이 잘 맞는 사람이\\n기다리고 있어요" 17/600/1.45 #222222 가운데, y122 · 폭 288', (tester) async {
+    testWidgets('"나와 성향이 잘 맞는 사람이\\n기다리고 있어요" 18/600/1.45 #222222 가운데, y122 · 폭 288', (tester) async {
       await pump(tester);
 
       final headline = find.text('나와 성향이 잘 맞는 사람이\n기다리고 있어요');
       expect(headline, findsOneWidget);
       final text = tester.widget<Text>(headline);
-      expect(text.style!.fontSize, 17);
+      expect(text.style!.fontSize, 18);
       expect(text.style!.fontWeight, FontWeight.w600);
       expect(text.style!.height, 1.45);
       expect(text.style!.color, const Color(0xFF222222));

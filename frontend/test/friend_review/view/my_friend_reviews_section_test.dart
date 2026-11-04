@@ -75,13 +75,13 @@ void main() {
 
   String noteOf(WidgetTester tester, Finder row) => tester.widget<ProfileEntryRow>(row).note;
 
-  testWidgets('헤더 "지인 리뷰"(p7FSo/mHDrn) 17/700 ink 렌더 25 → 12 → 분홍 줄 84 → 12 → 흰 줄 84 → 12 → 흰 줄 84, 폭 328', (tester) async {
+  testWidgets('헤더 "지인 리뷰"(p7FSo/mHDrn) 18/700 ink 렌더 25 → 12 → 분홍 줄 84 → 12 → 흰 줄 84 → 12 → 흰 줄 84, 폭 328', (tester) async {
     await pump(tester);
 
     final header = find.text('지인 리뷰');
     final headerRect = tester.getRect(header);
     final style = tester.widget<Text>(header).style!;
-    expect((style.fontSize, style.fontWeight, style.color), (17, FontWeight.w700, AppColors.ink));
+    expect((style.fontSize, style.fontWeight, style.color), (18, FontWeight.w700, AppColors.ink));
     expect(headerRect.height, 25);
     final received = tester.getRect(_received);
     final written = tester.getRect(_written);

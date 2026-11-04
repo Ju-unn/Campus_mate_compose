@@ -342,7 +342,8 @@ class _ScoreSide extends StatelessWidget {
   final double progress;
 
   static final TextStyle _lead = AppTypography.display.copyWith(height: 1.2, letterSpacing: -0.02 * 32, color: AppColors.ink);
-  static final TextStyle _trail = _lead.copyWith(fontSize: 24, color: AppColors.body);
+  static final TextStyle _trail =
+      AppTypography.headline.copyWith(height: 1.2, letterSpacing: _lead.letterSpacing, color: AppColors.body);
 
   @override
   Widget build(BuildContext context) {

@@ -190,7 +190,7 @@ class _LockCircle extends StatelessWidget {
   }
 }
 
-/// `H7ko9` 17/600/1.45 가운데. 두 줄이 pen 에서 52 칸이라 그보다 작아지지 않고, 글자를 키우면 따라 커진다.
+/// `H7ko9` 18/600/1.45 가운데. 두 줄이 pen 에서 52 칸이라 그보다 작아지지 않고, 글자를 키우면 따라 커진다.
 /// 인원수("N명이")는 쓰지 않는다(2026-11-02 앱 1.0.1) — 서버가 보내는 `band_count` 는 화면에 나오지 않는다.
 class _Headline extends StatelessWidget {
   const _Headline();

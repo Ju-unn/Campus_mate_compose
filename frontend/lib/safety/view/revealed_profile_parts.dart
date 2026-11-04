@@ -143,8 +143,9 @@ class KakaoIdCard extends StatelessWidget {
                 children: [
                   Text(
                     '카카오톡 아이디',
-                    // pen 11 / 보통 굵기, 줄높이 속성 없음 · 렌더 16.
-                    style: AppTypography.caption.copyWith(fontSize: 11, color: AppColors.muted, height: 16 / 11),
+                    // pen 10 / 보통 굵기, 줄높이 속성 없음 · 렌더 16. 10 은 badge 토큰 하나뿐이라 굵기만 보통으로 내린다.
+                    style: AppTypography.badge
+                        .copyWith(fontWeight: FontWeight.w400, color: AppColors.muted, height: 16 / 10, letterSpacing: 0),
                   ),
                   const SizedBox(height: 2),
                   Text(

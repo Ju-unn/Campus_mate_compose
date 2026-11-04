@@ -109,19 +109,17 @@ class _Scrim extends StatelessWidget {
 /// Badge `XPRBv` 알약 — 패딩 [6,10](토큰 밖 리터럴) · 모서리 pill · 아이콘 → 4 → 글자(600, 줄높이 1.5).
 /// 두 인스턴스가 색 · 아이콘 크기 · 글자 크기만 덮어쓴다.
 class _PillBadge extends StatelessWidget {
-  /// 보기 칩 `h9sFd` — #222222 **불투명**(N15) · eye 14 · "상대에게 이렇게 보여요" 13 흰색.
+  /// 보기 칩 `h9sFd` — #222222 **불투명**(N15) · eye 14 · "상대에게 이렇게 보여요" 14 흰색.
   const _PillBadge.viewChip()
       : icon = AppIcons.eye,
         iconSize = 14,
         label = '상대에게 이렇게 보여요',
-        fontSize = 13,
         background = AppColors.surfaceInk,
         foreground = AppColors.onInk;
 
   final IconData icon;
   final double iconSize;
   final String label;
-  final double fontSize;
   final Color background;
   final Color foreground;
 
@@ -136,11 +134,10 @@ class _PillBadge extends StatelessWidget {
           children: [
             Icon(icon, size: iconSize, color: foreground),
             const SizedBox(width: AppSpacing.xxs),
-            // 13 · 12 는 타입 토큰 사이 값이라 labelSmall(14/600)에 크기만 덮어쓴다.
             Flexible(
               child: Text(
                 label,
-                style: AppTypography.labelSmall.copyWith(fontSize: fontSize, height: 1.5, color: foreground),
+                style: AppTypography.labelSmall.copyWith(height: 1.5, color: foreground),
               ),
             ),
           ],
@@ -150,7 +147,7 @@ class _PillBadge extends StatelessWidget {
   }
 }
 
-/// 학생 인증 배지 `EQjrL`(3D) — 흰 알약 · 그림자 · [6,10] · 3D badge-check 18 → 4 → "학생 인증" 11/600 ink.
+/// 학생 인증 배지 `EQjrL`(3D) — 흰 알약 · 그림자 · [6,10] · 3D badge-check 18 → 4 → "학생 인증" 10/600 ink.
 /// 늘 보인다 — `GET /me/profile` 은 인증된 사람만 닿는다.
 class _VerifiedBadge extends StatelessWidget {
   const _VerifiedBadge();
@@ -173,8 +170,8 @@ class _VerifiedBadge extends StatelessWidget {
           children: [
             const Icon3d(AppIcon3d.badgeCheck, size: 18),
             const SizedBox(width: AppSpacing.xxs),
-            // 11/600 — 줄높이는 pen 에 없어 보기 칩(Badge `XPRBv`)과 같은 1.5. 높이는 아이콘 18 이 정한다.
-            Text('학생 인증', style: AppTypography.labelSmall.copyWith(fontSize: 11, height: 1.5, color: AppColors.ink)),
+            // 10/600 — 줄높이는 pen 에 없어 보기 칩(Badge `XPRBv`)과 같은 1.5. 높이는 아이콘 18 이 정한다.
+            Text('학생 인증', style: AppTypography.badge.copyWith(height: 1.5, letterSpacing: 0, color: AppColors.ink)),
           ],
         ),
       ),
@@ -251,7 +248,7 @@ class _SchoolRow extends StatelessWidget {
   }
 }
 
-/// "다시 만들기 · 20" 알약 `R5Quru` — 높이 34 · 흰 알약 · 좌우 10 · 하트 16 → 4 → 13/600 primary-text.
+/// "다시 만들기 · 20" 알약 `R5Quru` — 높이 34 · 흰 알약 · 좌우 10 · 하트 16 → 4 → 14/600 primary-text.
 /// 글자의 20 은 서버 `avatarRegenCost` 가 아니라 고정이다(D6 — 무료 차례에도 같다. 실제 값은 15b 시트가 읽는다).
 /// 2026-10-14 사용자 피드백 6 으로 10 → 20(서버 `AVATAR_REGEN_HEARTS` 와 같이 바꾼다). pen `R5Quru` 글자는 아직 · 10 이다.
 ///
@@ -305,7 +302,6 @@ class _RegeneratePill extends StatelessWidget {
                             '다시 만들기 · 20',
                             textAlign: TextAlign.center,
                             style: AppTypography.labelSmall.copyWith(
-                              fontSize: 13,
                               height: 1.5,
                               color: enabled ? AppColors.primaryText : AppColors.disabled,
                             ),

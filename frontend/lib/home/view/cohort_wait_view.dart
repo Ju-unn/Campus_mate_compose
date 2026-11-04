@@ -211,13 +211,19 @@ class _Hero extends StatelessWidget {
             style: AppTypography.labelSmall.copyWith(color: AppColors.primaryText, height: 1.5),
           ),
           const SizedBox(height: 8),
-          // `IDJ3M` 48/700 #222222 lh1.5 자간 0 — countdown `sZZ14`(lh1.1 · 자간 −1.44 · tabular) 인스턴스가 아니다.
+          // `IDJ3M` 48/700 #222222 lh1.5 자간 0 — countdown `sZZ14`(lh1.1 · 자간 −1.44 · tabular) 인스턴스가 아니라
+          // 크기 · 글꼴만 countdown 토큰에서 받고 줄높이 · 자간 · tabular 는 끈다.
           // "오늘 오전 7시" · 긴 날짜 · 글자 확대에도 폭을 넘지 않게 줄여 보인다.
           FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
               dateLabel,
-              style: AppTypography.display.copyWith(fontSize: 48, height: 1.5, letterSpacing: 0, color: AppColors.ink),
+              style: AppTypography.countdown.copyWith(
+                height: 1.5,
+                letterSpacing: 0,
+                fontFeatures: const <FontFeature>[],
+                color: AppColors.ink,
+              ),
             ),
           ),
           const SizedBox(height: 8),

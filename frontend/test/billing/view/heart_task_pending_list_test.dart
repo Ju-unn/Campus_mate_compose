@@ -10,7 +10,7 @@ import 'pretendard.dart';
 
 /// 18a 검수 대기 블록(pen 18a 대기 1건 pVxvl · 한도 찬 상태 tYwTB — 기존 HeartTaskRow R99dx 줄 아래).
 /// 블록: 폭 fill · 세로 gap 8 · padding [8,0,12,40]. 제목 12/600 muted, 줄마다 썸네일 36×36(바탕 #EBEBEB, 모서리 8, 간격 4) ·
-/// 제출 시각 12 muted · 배지 "검수중"(SaMDZ Status, 바탕 #F2F2F2, 글자 11/700 muted).
+/// 제출 시각 12 muted · 배지 "검수중"(SaMDZ Status, 바탕 #F2F2F2, 글자 10/700 muted).
 void main() {
   // 시험 기본 글꼴(Ahem)은 글자 폭이 실제와 달라 한 줄이 접힌다 — 실제 글꼴로 pen 치수를 잰다.
   setUpAll(loadPretendard);
@@ -111,7 +111,7 @@ void main() {
     expect(tester.getSize(thumbs()), const Size(36, 36));
   });
 
-  testWidgets('줄 = 썸네일 → 8 → "오늘 HH:mm 제출" 12 muted, 배지 "검수중" 은 오른쪽 끝 · 바탕 #F2F2F2 · 11/700 muted', (tester) async {
+  testWidgets('줄 = 썸네일 → 8 → "오늘 HH:mm 제출" 12 muted, 배지 "검수중" 은 오른쪽 끝 · 바탕 #F2F2F2 · 10/700 muted', (tester) async {
     await pump(tester, [
       pending('a', at(14, 20), ['u1', 'u2', 'u3']),
     ]);
@@ -127,7 +127,7 @@ void main() {
     expect(tester.getRect(badge).right, 328);
     expect(tester.getSize(badge).height, 28);
     final label = tester.widget<Text>(find.text('검수중')).style!;
-    expect((label.fontSize, label.fontWeight, label.color), (11, FontWeight.w700, AppColors.muted));
+    expect((label.fontSize, label.fontWeight, label.color), (10, FontWeight.w700, AppColors.muted));
     expect(find.byIcon(AppIcons.timer), findsOneWidget);
   });
 

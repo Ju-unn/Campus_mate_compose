@@ -357,8 +357,8 @@ class _GlassTab extends StatelessWidget {
   final int badge;
   final VoidCallback onTap;
 
-  /// pen 라벨(`G2LX51` 등) 11/600 — lineHeight · letterSpacing 속성 없음, 렌더 높이 16. badge 토큰(1.3 · 0.02em)과 달라 맞춘다.
-  static final _labelStyle = AppTypography.badge.copyWith(height: 16 / 11, letterSpacing: 0);
+  /// pen 라벨(`G2LX51` 등) 10/600 — lineHeight · letterSpacing 속성 없음, 렌더 높이 16. badge 토큰(1.3 · 0.02em)과 달라 맞춘다.
+  static final _labelStyle = AppTypography.badge.copyWith(height: 16 / 10, letterSpacing: 0);
 
   @override
   Widget build(BuildContext context) {

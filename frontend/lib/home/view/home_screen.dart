@@ -330,8 +330,12 @@ class _HeroToday extends ConsumerWidget {
                   alignment: Alignment.centerLeft,
                   child: CountdownText(
                     target: nextIssueAt,
-                    style: AppTypography.countdown
-                        .copyWith(fontSize: 32, height: 44 / 32, letterSpacing: -0.96, color: AppColors.ink),
+                    // display(32/700 · 자간 -0.96)에 숫자 폭 고정(tabular)만 더한다 — 1초마다 바뀌어도 폭이 흔들리지 않게.
+                    style: AppTypography.display.copyWith(
+                      height: 44 / 32,
+                      fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
+                      color: AppColors.ink,
+                    ),
                     // 0 이 되면 푸시를 기다리지 않고 다시 읽는다 — 00:00:00 에 멈춰 있지 않게(재시도 상한은 뷰모델).
                     onDone: () => unawaited(ref.read(todayCardsViewModelProvider.notifier).refreshWhenDue()),
                   ),
@@ -434,7 +438,7 @@ class _HeroButton extends StatelessWidget {
   }
 }
 
-/// 결정 대기 장수 배지(pen `Q4nCLG` — hero 우상단 16 · 32×24 · #FF385C 알약, 숫자 11/600 흰색). 0 이면 hero 가 결정 대기 상태가 아니라 안 뜬다.
+/// 결정 대기 장수 배지(pen `Q4nCLG` — hero 우상단 16 · 32×24 · #FF385C 알약, 숫자 10/600 흰색). 0 이면 hero 가 결정 대기 상태가 아니라 안 뜬다.
 /// 같은 수를 hero 문구가 이미 말하므로 스크린리더에는 읽히지 않는다.
 class _PendingBadge extends StatelessWidget {
   const _PendingBadge(this.count);

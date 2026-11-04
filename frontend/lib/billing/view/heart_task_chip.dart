@@ -23,7 +23,7 @@ class HeartTaskChip extends StatelessWidget {
   /// "제출하기" Action 은 84(값표 pVxvl).
   final double minWidth;
 
-  /// 비우면 배지 글자(11/700, [foreground]). "제출하기" 는 14/600.
+  /// 비우면 배지 글자(10/700, [foreground]). "제출하기" 는 14/600.
   final TextStyle? labelStyle;
 
   @override

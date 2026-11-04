@@ -82,11 +82,11 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        // pen `LHkpo` · `MpYr6`: #F2F2F2 pill, [3,10], 11/600 #3F3F3F. 글자는 줄 높이 속성 없음, 렌더 16 → 칩 22.
+        // pen `LHkpo` · `MpYr6`: #F2F2F2 pill, [3,10], 10/600 #3F3F3F. 글자는 줄 높이 속성 없음, 렌더 16 → 칩 22.
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
           decoration: BoxDecoration(color: AppColors.surfaceStrong, borderRadius: BorderRadius.circular(AppRadius.pill)),
-          child: Text('익명', style: AppTypography.badge.copyWith(color: AppColors.body, height: 16 / 11)),
+          child: Text('익명', style: AppTypography.badge.copyWith(color: AppColors.body, height: 16 / 10)),
         ),
         const SizedBox(width: AppSpacing.xs),
         // pen `G85OOq` 은 11/500 — 11px 은 뱃지만이라 12 로 올린다(대장 예외).
@@ -128,13 +128,12 @@ class PollReportButton extends StatelessWidget {
             children: [
               const Icon3d(AppIcon3d.siren, size: 22),
               const SizedBox(height: 2),
-              // pen `Wwsmw` 9/600 #6E5861, 줄높이 속성 없음 · 렌더 9. 9px · 이 색은 이 버튼에만 있어 토큰으로 올리지 않는다.
+              // pen `Wwsmw` 10/600 #6E5861, 줄높이 속성 없음 · 렌더 10. 이 색은 이 버튼에만 있어 토큰으로 올리지 않는다.
               Text(
                 '신고하기',
-                style: AppTypography.caption.copyWith(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w600,
+                style: AppTypography.badge.copyWith(
                   height: 1,
+                  letterSpacing: 0,
                   color: const Color(0xFF6E5861),
                 ),
               ),

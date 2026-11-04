@@ -81,8 +81,8 @@ class _OfflineNotice extends StatelessWidget {
           Text(
             '인터넷 연결을 확인해 주세요',
             textAlign: TextAlign.center,
-            // Empty 제목 17/600, 줄높이 속성 없음 · 렌더 25(block_list_screen `_Empty` 와 같은 값).
-            style: AppTypography.subtitle.copyWith(color: AppColors.ink, height: 25 / 17),
+            // Empty 제목 18/600, 줄높이 속성 없음 · 렌더 25(block_list_screen `_Empty` 와 같은 값).
+            style: AppTypography.subtitle.copyWith(color: AppColors.ink, height: 25 / 18),
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(

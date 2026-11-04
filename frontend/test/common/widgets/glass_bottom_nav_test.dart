@@ -191,7 +191,7 @@ void main() {
       }
     });
 
-    testWidgets('고른 탭은 아이콘 #FF385C · 라벨 #C4224B, 나머지는 body #3F3F3F. 라벨 11/600(lineHeight · letterSpacing 속성 없음, 렌더 16)', (
+    testWidgets('고른 탭은 아이콘 #FF385C · 라벨 #C4224B, 나머지는 body #3F3F3F. 라벨 10/600(lineHeight · letterSpacing 속성 없음, 렌더 16)', (
       tester,
     ) async {
       await _pump(tester, start: AppTab.community);
@@ -203,7 +203,7 @@ void main() {
         expect(icon.color, selected ? const Color(0xFFFF385C) : const Color(0xFF3F3F3F), reason: _labels[i]);
         final style = tester.widget<Text>(_label(_labels[i])).style!;
         expect(style.color, selected ? const Color(0xFFC4224B) : const Color(0xFF3F3F3F), reason: _labels[i]);
-        expect((style.fontSize, style.fontWeight, style.letterSpacing), (11, FontWeight.w600, 0), reason: _labels[i]);
+        expect((style.fontSize, style.fontWeight, style.letterSpacing), (10, FontWeight.w600, 0), reason: _labels[i]);
       }
     });
 
