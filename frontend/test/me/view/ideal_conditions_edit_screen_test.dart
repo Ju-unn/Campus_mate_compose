@@ -12,6 +12,7 @@ import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:campus_mate/profile/model/ideal_conditions_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
 import 'package:campus_mate/profile/model/profile_enums.dart';
+import 'package:campus_mate/profile/view/choice_pickers.dart';
 import 'package:campus_mate/profile/view/ideal_conditions_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -23,7 +24,15 @@ import '../../profile/model/fake_ideal_conditions_repository.dart';
 import '../../profile/model/fake_onboarding_repository.dart';
 import '../model/fake_me_repository.dart';
 
-MyProfile _profile({int? ageMin = 25, int? ageMax = 30, int? heightMin = 160, int? heightMax = 175}) => MyProfile(
+MyProfile _profile({
+  int? ageMin = 25,
+  int? ageMax = 30,
+  int? heightMin = 160,
+  int? heightMax = 175,
+  bool? isSmoker,
+  bool? acceptsSmoker,
+}) =>
+    MyProfile(
       nickname: '여우',
       age: 23,
       university: '가나대학교',
@@ -36,6 +45,8 @@ MyProfile _profile({int? ageMin = 25, int? ageMax = 30, int? heightMin = 160, in
       preferredHeightMin: heightMin,
       preferredHeightMax: heightMax,
       bio: '안녕하세요',
+      isSmoker: isSmoker,
+      acceptsSmoker: acceptsSmoker,
       preferredMbtiFlags: const {'E': true},
       preferredAnimalTypes: const [AnimalType.dog],
       preferredImpressionTypes: const [ImpressionType.kind],
@@ -115,6 +126,62 @@ void main() {
     await pump(tester, profile: _profile(ageMin: 19, ageMax: 35, heightMin: null, heightMax: null));
 
     expect(ignoreChecks(tester), [true, true]);
+  });
+
+  // 앱 1.0.2 — 06-1 "흡연하는 사람" 칸은 나 탭 "이상형 조건 수정"에도 똑같이 나온다.
+  group('흡연하는 사람 칸', () {
+    Finder cell(String label) => find.ancestor(of: find.text(label), matching: find.byType(ChoiceCell));
+    (bool, bool) selected(WidgetTester tester) => (
+          tester.widget<ChoiceCell>(cell('싫어요')).isSelected,
+          tester.widget<ChoiceCell>(cell('상관없어요')).isSelected,
+        );
+
+    testWidgets('편집 화면에도 제목 · 두 칸 · 설명이 나온다', (tester) async {
+      await pump(tester);
+
+      expect(find.text('흡연하는 사람'), findsOneWidget);
+      expect(cell('싫어요'), findsOneWidget);
+      expect(cell('상관없어요'), findsOneWidget);
+      expect(find.text('싫어요를 고르면 흡연하지 않는 분을 먼저 보여 드려요.'), findsOneWidget);
+    });
+
+    testWidgets('서버 값(accepts_smoker)이 내 흡연 여부보다 먼저다', (tester) async {
+      await pump(tester, profile: _profile(isSmoker: false, acceptsSmoker: true));
+
+      expect(selected(tester), (false, true));
+    });
+
+    testWidgets('서버 값이 null 이면 비흡연은 싫어요로 열린다', (tester) async {
+      await pump(tester, profile: _profile(isSmoker: false));
+
+      expect(selected(tester), (true, false));
+    });
+
+    testWidgets('서버 값이 null 이고 흡연이면 상관없어요로 열린다', (tester) async {
+      await pump(tester, profile: _profile(isSmoker: true));
+
+      expect(selected(tester), (false, true));
+    });
+
+    testWidgets('둘 다 모르면 두 칸 다 안 고른 채 열린다', (tester) async {
+      await pump(tester);
+
+      expect(selected(tester), (false, false));
+    });
+
+    testWidgets('칸을 눌러 바꾸고 저장하면 그 값이 서버로 간다', (tester) async {
+      await pump(tester, profile: _profile(isSmoker: false, acceptsSmoker: false));
+      expect(selected(tester), (true, false));
+
+      await tester.ensureVisible(cell('상관없어요'));
+      await tester.tap(cell('상관없어요'));
+      await tester.pump();
+      expect(selected(tester), (false, true));
+      await tester.tap(find.byType(AppButton));
+      await tester.pumpAndSettle();
+
+      expect(conditions.submitted!.acceptsSmoker, isTrue);
+    });
   });
 
   testWidgets('저장하면 앞 화면으로 돌아가고 화면 15 가 다시 읽는다 — 온보딩 단계는 조회하지 않는다', (tester) async {

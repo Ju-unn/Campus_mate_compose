@@ -28,6 +28,7 @@ class MyProfile {
     this.nicknameChangeableAt,
     this.religion,
     this.isSmoker,
+    this.acceptsSmoker,
     this.animalType,
     this.impressionType,
     this.birthYear,
@@ -80,6 +81,10 @@ class MyProfile {
   /// 15-6 기본 정보 수정이 현재 값으로 채우는 칸. 온보딩이 안 끝났거나 옛 서버면 null.
   final Religion? religion;
   final bool? isSmoker;
+
+  /// 06-1 "흡연하는 사람" 칸(앱 1.0.2) — true = 상관없어요, false = 싫어요. 한 번도 안 골랐거나 옛 서버면 null 이고,
+  /// 그때 06-1 은 [isSmoker] 를 따라 연다(`IdealConditionsUiState.fromProfile`).
+  final bool? acceptsSmoker;
   final AnimalType? animalType;
   final ImpressionType? impressionType;
 

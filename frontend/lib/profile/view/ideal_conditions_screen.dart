@@ -8,6 +8,7 @@ import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/me/view/edit_app_bar.dart';
 import 'package:campus_mate/me/viewmodel/ideal_conditions_edit_view_model.dart';
 import 'package:campus_mate/profile/view/appearance_pickers.dart';
+import 'package:campus_mate/profile/view/choice_pickers.dart';
 import 'package:campus_mate/profile/view/onboarding_back.dart';
 import 'package:campus_mate/profile/viewmodel/ideal_conditions_ui_state.dart';
 import 'package:campus_mate/profile/viewmodel/ideal_conditions_view_model.dart';
@@ -16,7 +17,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 /// 이상형 조건 화면(DESIGN.md 화면 06-1, datingApp.pen `06-1 이상형 조건`).
-/// 순서는 얼굴상 → 인상 → 선호 MBTI → 선호 나이 → 선호 키(§9 7, 2026-09-13 확정).
+/// 순서는 얼굴상 → 인상 → 선호 MBTI → 선호 나이 → 선호 키(§9 7, 2026-09-13 확정) → 흡연하는 사람(앱 1.0.2, pen `dFTqN`).
 class IdealConditionsScreen extends ConsumerWidget {
   const IdealConditionsScreen({this.isEditing = false, super.key});
 
@@ -67,13 +68,13 @@ class IdealConditionsScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const _SectionTitle('선호하는 얼굴상', hint: '1~3개'),
+                    const _SectionTitle('선호하는 얼굴상', hint: '1~3개', titleColor: AppColors.ink),
                     AnimalTypePicker(
                       selected: state.preferredAnimalTypes.toSet(),
                       onTap: viewModel.toggleAnimalType,
                     ),
                     const SizedBox(height: AppSpacing.xl),
-                    const _SectionTitle('선호하는 인상', hint: '1~3개'),
+                    const _SectionTitle('선호하는 인상', hint: '1~3개', titleColor: AppColors.ink),
                     ImpressionTypePicker(
                       selected: state.preferredImpressionTypes.toSet(),
                       onTap: viewModel.toggleImpressionType,
@@ -130,6 +131,11 @@ class IdealConditionsScreen extends ConsumerWidget {
                           viewModel.changeHeightRange(values.start.round(), values.end.round()),
                       onIgnoredChanged: viewModel.changeHeightIgnored,
                     ),
+                    const SizedBox(height: AppSpacing.xl),
+                    _SmokingSection(
+                      acceptsSmoker: state.acceptsSmoker,
+                      onSelected: viewModel.changeAcceptsSmoker,
+                    ),
                   ],
                 ),
               ),
@@ -181,29 +187,53 @@ class IdealConditionsScreen extends ConsumerWidget {
   }
 }
 
+/// 섹션 머리줄 — pen `u3Dfkd` · `wOFH0` 등. 가로 한 줄, 양 끝 정렬(space_between), 세로 가운데. 왼쪽이 제목(14/600),
+/// 있으면 오른쪽 끝이 안내(12/normal muted). 머리줄과 고르기 칸 사이는 8 이다.
+/// 제목 색은 pen 이 섹션마다 다르다 — 얼굴상 · 인상 `AByJi` · `BaCk1` 은 #222222([AppColors.ink]),
+/// MBTI `IhhKP` · 나이 `B6MW6` · 키 `T8UoRL` · 흡연 `vCjus` 는 #3F3F3F([AppColors.body], 기본값).
 class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.title, {this.hint});
+  const _SectionTitle(this.title, {this.hint, this.titleColor = AppColors.body});
 
   final String title;
   final String? hint;
+  final Color titleColor;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.xs),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.baseline,
-        textBaseline: TextBaseline.alphabetic,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(title, style: AppTypography.labelSmall.copyWith(color: AppColors.body)),
-          if (hint != null) ...[
-            const SizedBox(width: AppSpacing.xs),
-            Expanded(
-              child: Text(hint!, style: AppTypography.caption.copyWith(color: AppColors.muted)),
-            ),
-          ],
+          Text(title, style: AppTypography.labelSmall.copyWith(color: titleColor)),
+          if (hint != null) Text(hint!, style: AppTypography.caption.copyWith(color: AppColors.muted)),
         ],
       ),
+    );
+  }
+}
+
+/// 흡연하는 사람 섹션(앱 1.0.2, pen Smoking Section `dFTqN`) — 제목 `vCjus` · 두 칸 `Mg9O3` · 설명 `wd83D`, 섹션 안 gap 8.
+/// 흡연자에게도 보인다(사용자 결정). 싫어요를 고르면 서버가 흡연하지 않는 분을 먼저 보여 준다.
+class _SmokingSection extends StatelessWidget {
+  const _SmokingSection({required this.acceptsSmoker, required this.onSelected});
+
+  final bool? acceptsSmoker;
+  final ValueChanged<bool> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _SectionTitle('흡연하는 사람'),
+        AcceptsSmokerPicker(acceptsSmoker: acceptsSmoker, onSelected: onSelected),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          '싫어요를 고르면 흡연하지 않는 분을 먼저 보여 드려요.',
+          style: AppTypography.caption.copyWith(color: AppColors.muted),
+        ),
+      ],
     );
   }
 }

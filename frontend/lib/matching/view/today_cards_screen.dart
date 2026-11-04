@@ -189,7 +189,7 @@ class _WaitingPanel extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                '오늘 카드는 확인했어요',
+                '다음 카드를 준비하고 있어요',
                 style: AppTypography.title.copyWith(color: AppColors.ink, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 6),

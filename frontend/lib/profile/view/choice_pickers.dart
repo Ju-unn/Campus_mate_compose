@@ -61,6 +61,34 @@ class SmokePicker extends StatelessWidget {
   }
 }
 
+/// 06-1 이상형 조건의 "흡연하는 사람" 두 칸(앱 1.0.2, pen `Mg9O3` = SmokeToggle `Y1TDq2` 의 줄만 쓴 것) —
+/// 싫어요 / 상관없어요 가로 2분할, 높이 56, 칸 사이 12. 왼쪽이 싫어요(false), 오른쪽이 상관없어요(true)다.
+/// [acceptsSmoker] null 은 아직 안 고른 것이다(두 칸 다 꺼짐) — 흡연 여부를 모르는 사람은 미리 고르지 않는다.
+class AcceptsSmokerPicker extends StatelessWidget {
+  const AcceptsSmokerPicker({required this.acceptsSmoker, required this.onSelected, super.key});
+
+  final bool? acceptsSmoker;
+  final ValueChanged<bool> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 56,
+      child: Row(
+        children: [
+          Expanded(
+            child: ChoiceCell(label: '싫어요', isSelected: acceptsSmoker == false, onTap: () => onSelected(false)),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: ChoiceCell(label: '상관없어요', isSelected: acceptsSmoker == true, onTap: () => onSelected(true)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// 종교·흡연 공통 "칸 선택"(DESIGN.md §8.5 religion-select·smoke-toggle).
 /// 비선택 채움은 표면 회색이다(pen `Rmfti`·`Y1TDq2` 2026-09-26 수정) —
 /// 종전 `primaryDisabled`(#E5E5E5)는 **비활성 채움** 토큰이라, 고를 수 있는 칸이 꺼진 버튼처럼 보였다.
@@ -90,7 +118,9 @@ class ChoiceCell extends StatelessWidget {
               border: Border.all(color: isSelected ? AppColors.primary : Colors.transparent),
             ),
             child: Center(
-              child: Text(label, style: AppTypography.label.copyWith(color: AppColors.ink)),
+              // 칸 글자는 pen 이 전부 16/600 이다(SmokeToggle `Y1TDq2` 칸 글자 `i5Y2r` · `Y0WfHq`, 05-10 · 05-11 · 15-6 · 06-1 모두).
+              // 종전 label(18/700)은 pen 에 없는 크기였다.
+              child: Text(label, style: AppTypography.bodyStrong.copyWith(color: AppColors.ink)),
             ),
           ),
         ),

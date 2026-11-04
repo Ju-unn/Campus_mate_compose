@@ -49,6 +49,7 @@ class HttpMeRepository implements MeRepository {
           nicknameChangeableAt: changeableAt == null ? null : DateTime.parse(changeableAt).toLocal(),
           religion: _enumOrNull(Religion.values, json['religion']),
           isSmoker: json['is_smoker'] as bool?,
+          acceptsSmoker: json['accepts_smoker'] as bool?,
           animalType: _enumOrNull(AnimalType.values, json['animal_type']),
           impressionType: _enumOrNull(ImpressionType.values, json['impression_type']),
           birthYear: json['birth_year'] as int?,

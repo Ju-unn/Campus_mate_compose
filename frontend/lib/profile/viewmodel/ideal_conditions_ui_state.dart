@@ -17,6 +17,7 @@ class IdealConditionsUiState {
     this.preferredMbtiFlags = const {},
     this.preferredAnimalTypes = const [],
     this.preferredImpressionTypes = const [],
+    this.acceptsSmoker,
     this.isSubmitting = false,
     this.errorMessage,
     this.completed = false,
@@ -47,6 +48,11 @@ class IdealConditionsUiState {
   final Map<String, bool> preferredMbtiFlags;
   final List<AnimalType> preferredAnimalTypes;
   final List<ImpressionType> preferredImpressionTypes;
+
+  /// "흡연하는 사람" 칸(앱 1.0.2) — true = 상관없어요, false = 싫어요, null = 두 칸 다 안 고름.
+  /// 처음 값은 서버 값 > 내 흡연 여부(비흡연 = 싫어요, 흡연 = 상관없어요)이고, 흡연 여부도 모르면 미리 고르지 않는다(null) —
+  /// 설문 9축의 "모르면 미리 고르지 않는다" 와 같은 생각이다. 안 골라도 "다음" 은 눌리고, null 은 서버로 보내지 않는다.
+  final bool? acceptsSmoker;
   final bool isSubmitting;
   final String? errorMessage;
   final bool completed;
@@ -72,6 +78,7 @@ class IdealConditionsUiState {
         'preferredMbtiFlags': preferredMbtiFlags,
         'preferredAnimalTypes': [for (final type in preferredAnimalTypes) type.name],
         'preferredImpressionTypes': [for (final type in preferredImpressionTypes) type.name],
+        'acceptsSmoker': acceptsSmoker,
       };
 
   /// [toDraft] 로 남긴 값으로 처음 상태를 만든다. 프리셋 범위 · 개수를 벗어나거나 이름을 모르면 던진다 —
@@ -81,6 +88,8 @@ class IdealConditionsUiState {
       preferredMbtiFlags: _mbtiFlagsFromDraft(data['preferredMbtiFlags']),
       preferredAnimalTypes: _namesFromDraft(data['preferredAnimalTypes'], AnimalType.values),
       preferredImpressionTypes: _namesFromDraft(data['preferredImpressionTypes'], ImpressionType.values),
+      // 안 고른 상태(null)도 그대로 돌아온다. 1.0.1 이 남긴 임시 저장에는 이 키가 없다 — 버리지 않고 안 고른 상태로 이어 연다.
+      acceptsSmoker: data['acceptsSmoker'] as bool?,
     );
     if (!restored._isWithinPresets) {
       throw const FormatException('이상형 조건이 프리셋 범위를 벗어남');
@@ -107,6 +116,8 @@ class IdealConditionsUiState {
       preferredMbtiFlags: profile.preferredMbtiFlags,
       preferredAnimalTypes: profile.preferredAnimalTypes,
       preferredImpressionTypes: profile.preferredImpressionTypes,
+      // 서버 값 > 내 흡연 여부(안 한다 = 싫어요 false, 한다 = 상관없어요 true) > 둘 다 모르면 null(안 고름).
+      acceptsSmoker: profile.acceptsSmoker ?? profile.isSmoker,
     );
   }
 
@@ -158,6 +169,7 @@ class IdealConditionsUiState {
     Map<String, bool>? preferredMbtiFlags,
     List<AnimalType>? preferredAnimalTypes,
     List<ImpressionType>? preferredImpressionTypes,
+    bool? acceptsSmoker,
     bool? isSubmitting,
     String? errorMessage,
     bool? completed,
@@ -172,6 +184,7 @@ class IdealConditionsUiState {
       preferredMbtiFlags: preferredMbtiFlags ?? this.preferredMbtiFlags,
       preferredAnimalTypes: preferredAnimalTypes ?? this.preferredAnimalTypes,
       preferredImpressionTypes: preferredImpressionTypes ?? this.preferredImpressionTypes,
+      acceptsSmoker: acceptsSmoker ?? this.acceptsSmoker,
       isSubmitting: isSubmitting ?? this.isSubmitting,
       errorMessage: errorMessage,
       completed: completed ?? this.completed,

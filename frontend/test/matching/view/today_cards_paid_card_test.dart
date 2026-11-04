@@ -186,7 +186,7 @@ void main() {
 
       await pump(tester);
 
-      expect(find.text('오늘 카드는 확인했어요'), findsOneWidget);
+      expect(find.text('다음 카드를 준비하고 있어요'), findsOneWidget);
       expect(find.byType(PaidCardLocked), findsOneWidget);
       expect(rect(tester, find.byType(PaidCardLocked)).top, greaterThan(rect(tester, find.text('다음에 만날 사람들')).bottom));
       expect(rect(tester, find.byType(PaidCardLocked)).width, 328);

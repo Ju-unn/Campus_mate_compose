@@ -22,6 +22,8 @@ class HttpIdealConditionsRepository implements IdealConditionsRepository {
           'preferred_animal_types': submission.preferredAnimalTypes.map((e) => e.name).toList(),
           'preferred_impression_types':
               submission.preferredImpressionTypes.map((e) => e.name).toList(),
+          // null 을 보내면 서버가 저장값을 null 로 되돌린다 — 안 골랐으면 키를 아예 싣지 않는다.
+          'accepts_smoker': ?submission.acceptsSmoker,
         },
       );
 }

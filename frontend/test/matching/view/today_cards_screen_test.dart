@@ -260,7 +260,7 @@ void main() {
 
     await pump(tester, repository);
 
-    expect(find.text('오늘 카드는 확인했어요'), findsOneWidget);
+    expect(find.text('다음 카드를 준비하고 있어요'), findsOneWidget);
     expect(find.text('다음에 만날 사람들'), findsOneWidget);
     expect(find.text('탭해도 열리지 않아요'), findsNothing);
     expect(find.text('내일 만날 사람들'), findsNothing);
@@ -299,7 +299,7 @@ void main() {
 
       await pump(tester, repository);
 
-      expect(find.text('오늘 카드는 확인했어요'), findsOneWidget);
+      expect(find.text('다음 카드를 준비하고 있어요'), findsOneWidget);
       expect(find.text('새로운 사람이 준비되면 알려드릴게요'), findsOneWidget);
       expect(find.textContaining('만날 사람들'), findsNothing);
       expect(find.byType(CountdownText), findsNothing);
@@ -313,7 +313,7 @@ void main() {
     await pump(tester, repository);
     await tester.pump();
 
-    expect(find.text('오늘 카드는 확인했어요'), findsOneWidget);
+    expect(find.text('다음 카드를 준비하고 있어요'), findsOneWidget);
     expect(repository.fetchTodayCount, 2);
     await tester.pump(const Duration(minutes: 1));
     expect(repository.fetchTodayCount, 5);
@@ -401,14 +401,14 @@ void main() {
   group('앱 투어 4단계 표식', () {
     Finder target(TourTargetId id) => find.byWidgetPredicate((w) => w is TourTarget && w.id == id);
 
-    testWidgets('카드 대기 화면이면 "오늘 카드는 확인했어요" · 도착 시각 부제 · 카운트다운 한 덩어리를 가리킨다', (tester) async {
+    testWidgets('카드 대기 화면이면 "다음 카드를 준비하고 있어요" · 도착 시각 부제 · 카운트다운 한 덩어리를 가리킨다', (tester) async {
       final repository = FakeCardRepository()
         ..today = Success(TodayCards(cards: const [], nextIssueAt: DateTime.now().add(const Duration(hours: 3))));
 
       await pump(tester, repository);
 
       final arrival = target(TourTargetId.todayArrival);
-      expect(find.descendant(of: arrival, matching: find.text('오늘 카드는 확인했어요')), findsOneWidget);
+      expect(find.descendant(of: arrival, matching: find.text('다음 카드를 준비하고 있어요')), findsOneWidget);
       expect(find.descendant(of: arrival, matching: find.byType(CountdownText)), findsOneWidget);
       expect(find.descendant(of: arrival, matching: find.text('다음에 만날 사람들')), findsNothing);
     });

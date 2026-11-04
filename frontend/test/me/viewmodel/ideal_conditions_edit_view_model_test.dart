@@ -25,6 +25,8 @@ MyProfile _profile({
   int? ageMax = 30,
   int? heightMin = 160,
   int? heightMax = 175,
+  bool? isSmoker,
+  bool? acceptsSmoker,
 }) =>
     MyProfile(
       nickname: '여우',
@@ -39,6 +41,8 @@ MyProfile _profile({
       preferredHeightMin: heightMin,
       preferredHeightMax: heightMax,
       bio: '안녕하세요',
+      isSmoker: isSmoker,
+      acceptsSmoker: acceptsSmoker,
       preferredMbtiFlags: const {'E': true, 'N': true},
       preferredAnimalTypes: const [AnimalType.dog, AnimalType.fox],
       preferredImpressionTypes: const [ImpressionType.kind],
@@ -110,6 +114,63 @@ void main() {
     expect(sent.preferredMbtiFlags, {'E': true, 'N': true});
     expect(sent.preferredAnimalTypes, [AnimalType.dog, AnimalType.fox]);
     expect(sent.preferredImpressionTypes, [ImpressionType.kind]);
+  });
+
+  // 앱 1.0.2 — "흡연하는 사람" 칸의 처음 값: 서버 값 > 내 흡연 여부(비흡연 = 싫어요) > 모르면 상관없어요.
+  group('흡연하는 사람 칸의 처음 값', () {
+    test('서버 값(accepts_smoker)이 있으면 내 흡연 여부와 달라도 서버 값 그대로다', () async {
+      await open(_profile(isSmoker: true, acceptsSmoker: false));
+      expect(subscription.read().acceptsSmoker, isFalse);
+      subscription.close();
+
+      await open(_profile(isSmoker: false, acceptsSmoker: true));
+      expect(subscription.read().acceptsSmoker, isTrue);
+    });
+
+    test('서버 값이 null 이면 비흡연은 싫어요(false), 흡연은 상관없어요(true) 로 연다', () async {
+      await open(_profile(isSmoker: false));
+      expect(subscription.read().acceptsSmoker, isFalse);
+      subscription.close();
+
+      await open(_profile(isSmoker: true));
+      expect(subscription.read().acceptsSmoker, isTrue);
+    });
+
+    test('서버 값도 내 흡연 여부도 모르면 두 칸 다 안 고른 상태(null)로 연다', () async {
+      await open(_profile());
+      expect(subscription.read().acceptsSmoker, isNull);
+    });
+
+    test('프로필을 아직 못 읽었을 때의 빈 상태도 안 고른 상태(null)', () {
+      expect(const IdealConditionsUiState().acceptsSmoker, isNull);
+    });
+  });
+
+  test('두 칸을 누르면 값이 바뀌고, 저장 본문에 바뀐 값이 실린다', () async {
+    await open(_profile(isSmoker: false));
+    expect(subscription.read().acceptsSmoker, isFalse);
+
+    viewModel().changeAcceptsSmoker(true);
+    expect(subscription.read().acceptsSmoker, isTrue);
+    await viewModel().submit();
+    expect(conditions.submitted!.acceptsSmoker, isTrue);
+  });
+
+  test('손대지 않고 저장해도 처음 값이 본문에 실린다 — 서버 값이 null 이던 사람도 이때 처음 저장된다', () async {
+    await open(_profile(isSmoker: false));
+
+    await viewModel().submit();
+
+    expect(conditions.submitted!.acceptsSmoker, isFalse);
+  });
+
+  test('서버 값도 내 흡연 여부도 모르면 안 누르고 저장해도 값이 null 로 간다 — 사용자가 고르지 않은 값을 만들어 보내지 않는다', () async {
+    await open(_profile());
+
+    await viewModel().submit();
+
+    expect(conditions.submitted!.acceptsSmoker, isNull);
+    expect(subscription.read().completed, isTrue);
   });
 
   test('저장하면 화면 15 값을 다시 읽게 한다 — 온보딩 단계는 조회하지 않는다', () async {
