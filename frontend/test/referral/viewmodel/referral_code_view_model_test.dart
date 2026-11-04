@@ -1,11 +1,11 @@
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
-import 'package:campus_mate/referral/model/referral_repository_provider.dart';
+import 'package:campus_mate/referral/model/repository/referral_repository_provider.dart';
 import 'package:campus_mate/referral/viewmodel/referral_code_view_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../model/fake_referral_repository.dart';
+import '../model/repository/fake_referral_repository.dart';
 
 void main() {
   ProviderContainer container(FakeReferralRepository repository) {

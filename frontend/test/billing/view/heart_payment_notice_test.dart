@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:campus_mate/billing/view/heart_payment_notice.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
-import 'package:campus_mate/consent/model/consent_links.dart';
-import 'package:campus_mate/consent/model/open_url.dart';
+import 'package:campus_mate/consent/model/data/consent_links.dart';
+import 'package:campus_mate/consent/model/repository/open_url.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

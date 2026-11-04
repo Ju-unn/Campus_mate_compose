@@ -6,7 +6,7 @@ import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
-import 'package:campus_mate/graduate/model/verification_method.dart';
+import 'package:campus_mate/graduate/model/data/verification_method.dart';
 import 'package:campus_mate/graduate/view/gate_toast.dart';
 import 'package:campus_mate/graduate/viewmodel/verification_method_view_model.dart';
 import 'package:flutter/material.dart';

@@ -1,4 +1,4 @@
-import 'package:campus_mate/faq/model/faq_item.dart';
+import 'package:campus_mate/faq/model/data/faq_item.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 21 한 절 — 묶음과 그 아래 문항들.

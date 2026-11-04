@@ -1,8 +1,8 @@
 import 'package:campus_mate/common/result.dart';
-import 'package:campus_mate/friend_review/model/friend_review.dart';
-import 'package:campus_mate/friend_review/model/friend_review_errors.dart';
-import 'package:campus_mate/friend_review/model/friend_review_repository_provider.dart';
-import 'package:campus_mate/friend_review/model/friend_review_tags.dart';
+import 'package:campus_mate/friend_review/model/data/friend_review.dart';
+import 'package:campus_mate/friend_review/model/data/friend_review_errors.dart';
+import 'package:campus_mate/friend_review/model/data/friend_review_tags.dart';
+import 'package:campus_mate/friend_review/model/repository/friend_review_repository_provider.dart';
 import 'package:campus_mate/friend_review/viewmodel/friend_review_compose_ui_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 

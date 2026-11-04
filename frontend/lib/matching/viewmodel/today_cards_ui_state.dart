@@ -1,5 +1,5 @@
-import 'package:campus_mate/matching/model/daily_card.dart';
-import 'package:campus_mate/matching/model/paid_card.dart';
+import 'package:campus_mate/matching/model/data/daily_card.dart';
+import 'package:campus_mate/matching/model/data/paid_card.dart';
 
 /// 오늘 탭이 그릴 수 있는 다섯 모양. 화면은 이 값 하나로 갈린다.
 enum TodayCardsPhase {

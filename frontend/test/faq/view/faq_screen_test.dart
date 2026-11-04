@@ -4,20 +4,20 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
-import 'package:campus_mate/consent/model/open_url.dart';
+import 'package:campus_mate/consent/model/repository/open_url.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
-import 'package:campus_mate/faq/model/faq_cache.dart';
-import 'package:campus_mate/faq/model/faq_repository.dart';
+import 'package:campus_mate/faq/model/repository/faq_cache.dart';
+import 'package:campus_mate/faq/model/repository/faq_repository.dart';
 import 'package:campus_mate/faq/view/faq_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../model/fake_faq.dart';
+import '../model/repository/fake_faq.dart';
 
 void main() {
   late List<Uri> opened;

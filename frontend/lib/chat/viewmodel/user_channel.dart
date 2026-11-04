@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:campus_mate/chat/model/chat_repository_provider.dart';
-import 'package:campus_mate/chat/model/user_event.dart';
+import 'package:campus_mate/chat/model/data/user_event.dart';
+import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart';
 import 'package:campus_mate/chat/viewmodel/chat_room_view_model.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
 import 'package:campus_mate/matching/viewmodel/acceptances_view_model.dart';

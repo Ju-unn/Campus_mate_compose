@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:campus_mate/chat/model/chat_repository_provider.dart';
-import 'package:campus_mate/chat/model/http_chat_repository.dart';
-import 'package:campus_mate/chat/model/message.dart';
+import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart';
+import 'package:campus_mate/chat/model/repository/http_chat_repository.dart';
+import 'package:campus_mate/chat/model/data/message.dart';
 import 'package:campus_mate/chat/view/chat_list_row.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
 import 'package:campus_mate/chat/viewmodel/user_channel.dart';
@@ -18,10 +18,10 @@ import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_motion.dart';
-import 'package:campus_mate/matching/model/acceptance.dart';
-import 'package:campus_mate/matching/model/card_profile.dart';
-import 'package:campus_mate/matching/model/card_repository_provider.dart';
-import 'package:campus_mate/matching/model/sent_request.dart';
+import 'package:campus_mate/matching/model/data/acceptance.dart';
+import 'package:campus_mate/matching/model/data/card_profile.dart';
+import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
+import 'package:campus_mate/matching/model/data/sent_request.dart';
 import 'package:campus_mate/matching/view/acceptance_row.dart';
 import 'package:campus_mate/matching/view/conversations_screen.dart';
 import 'package:campus_mate/matching/view/sent_request_row.dart';
@@ -36,8 +36,8 @@ import 'package:http/testing.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show GoTrueClient, Session;
 
-import '../../chat/model/fake_chat_repository.dart';
-import '../model/fake_card_repository.dart';
+import '../../chat/model/repository/fake_chat_repository.dart';
+import '../model/repository/fake_card_repository.dart';
 
 SentRequest _sent(String cardId, {SentRequestStatus status = SentRequestStatus.waiting, String? matchId}) => SentRequest(
       cardId: cardId,

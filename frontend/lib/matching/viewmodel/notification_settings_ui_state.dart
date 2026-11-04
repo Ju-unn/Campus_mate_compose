@@ -1,4 +1,4 @@
-import 'package:campus_mate/matching/model/notification_preferences.dart';
+import 'package:campus_mate/matching/model/data/notification_preferences.dart';
 
 /// 알림 설정(16d)과 매칭 일시중지(16 `TLrmq`)의 상태.
 /// [errorMessage] 는 [copyWith] 에서 덮어쓰기다 — 다음 동작이 시작되면 지워져야 한다.

@@ -1,7 +1,7 @@
 import 'package:campus_mate/core/push/foreground_push.dart';
 import 'package:campus_mate/core/push/push_messaging.dart';
 import 'package:campus_mate/core/push/push_registrar.dart';
-import 'package:campus_mate/matching/model/card_repository_provider.dart';
+import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

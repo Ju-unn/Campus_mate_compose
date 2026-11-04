@@ -1,8 +1,8 @@
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
-import 'package:campus_mate/safety/model/contact_block_repository.dart';
-import 'package:campus_mate/safety/model/contact_name_store.dart';
-import 'package:campus_mate/safety/model/device_contacts.dart';
+import 'package:campus_mate/safety/model/repository/contact_block_repository.dart';
+import 'package:campus_mate/safety/model/repository/contact_name_store.dart';
+import 'package:campus_mate/safety/model/repository/device_contacts.dart';
 import 'package:campus_mate/safety/view/contact_permission_sheets.dart';
 import 'package:campus_mate/safety/view/contact_picker_screen.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
@@ -12,7 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-import '../model/fake_contact_blocks.dart';
+import '../model/repository/fake_contact_blocks.dart';
 
 /// 16b "추가" · 06-4 버튼 → 8a(pen `KgX8O`) → OS 권한 → 8d(`bWKuJ`) / 거부 → 8a-2(`M9ovbi`).
 void main() {

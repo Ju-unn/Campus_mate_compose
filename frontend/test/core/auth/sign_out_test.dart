@@ -11,7 +11,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../auth/model/fake_social_login_repository.dart';
-import '../../matching/model/fake_card_repository.dart';
+import '../../matching/model/repository/fake_card_repository.dart';
 import '../draft/fake_draft_store.dart';
 import '../push/fake_push_messaging.dart';
 

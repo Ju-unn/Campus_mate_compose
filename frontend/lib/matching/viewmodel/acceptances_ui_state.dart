@@ -1,4 +1,4 @@
-import 'package:campus_mate/matching/model/acceptance.dart';
+import 'package:campus_mate/matching/model/data/acceptance.dart';
 
 /// 받은 수락함(화면 13 상단 섹션)의 상태.
 /// [matchedNickname] 과 [errorMessage] 는 [copyWith] 에서 덮어쓰기다 — null 로도 지워져야 한다.

@@ -3,7 +3,7 @@ import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/matching/viewmodel/today_cards_ui_state.dart';
 import 'package:campus_mate/matching/viewmodel/today_cards_view_model.dart';
-import 'package:campus_mate/tour/model/tour_seen_store.dart';
+import 'package:campus_mate/tour/model/repository/tour_seen_store.dart';
 import 'package:campus_mate/tour/view/app_tour_host.dart';
 import 'package:campus_mate/tour/view/app_tour_steps.dart';
 import 'package:campus_mate/tour/view/coach_bubble.dart';
@@ -18,7 +18,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/analytics/fake_analytics_service.dart';
-import '../model/fake_tour_seen_store.dart';
+import '../model/repository/fake_tour_seen_store.dart';
 
 const _hero = ValueKey('hero');
 const _nudge = ValueKey('nudge');

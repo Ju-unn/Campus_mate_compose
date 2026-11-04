@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:campus_mate/notifications/model/notifications_repository_provider.dart';
+import 'package:campus_mate/notifications/model/repository/notifications_repository_provider.dart';
 import 'package:campus_mate/notifications/viewmodel/notifications_ui_state.dart';
 import 'package:campus_mate/notifications/viewmodel/unread_count_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

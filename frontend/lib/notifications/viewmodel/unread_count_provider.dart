@@ -1,4 +1,4 @@
-import 'package:campus_mate/notifications/model/notifications_repository_provider.dart';
+import 'package:campus_mate/notifications/model/repository/notifications_repository_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 홈 종 배지의 "안 읽은 알림 수". 홈이 들어올 때 · 앱이 돌아올 때 · 알림함에서 돌아올 때 [refresh] 로 서버 값을 읽고,

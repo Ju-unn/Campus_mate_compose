@@ -11,8 +11,8 @@ import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
-import 'package:campus_mate/friend_review/model/friend_review_repository_provider.dart';
-import 'package:campus_mate/friend_review/model/friend_review_tags.dart';
+import 'package:campus_mate/friend_review/model/repository/friend_review_repository_provider.dart';
+import 'package:campus_mate/friend_review/model/data/friend_review_tags.dart';
 import 'package:campus_mate/friend_review/view/friend_review_card.dart';
 import 'package:campus_mate/friend_review/view/friend_review_compose_sheet.dart';
 import 'package:campus_mate/friend_review/view/written_reviews_screen.dart';
@@ -22,7 +22,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-import '../model/fake_friend_review_repository.dart';
+import '../model/repository/fake_friend_review_repository.dart';
 
 const _notice = '내가 남긴 리뷰는 언제든 지울 수 있어요.\n수정은 할 수 없어요.'; // pen DPIaV
 const _emptyTitle = '아직 쓴 리뷰가 없어요'; // pen QlDBt/ZBzIg

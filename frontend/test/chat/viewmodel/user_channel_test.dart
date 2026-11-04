@@ -1,20 +1,20 @@
 import 'dart:async';
 
-import 'package:campus_mate/chat/model/chat_repository_provider.dart';
-import 'package:campus_mate/chat/model/chat_room.dart';
-import 'package:campus_mate/chat/model/message.dart';
-import 'package:campus_mate/chat/model/message_page.dart';
-import 'package:campus_mate/chat/model/user_event.dart';
+import 'package:campus_mate/chat/model/data/chat_room.dart';
+import 'package:campus_mate/chat/model/data/message.dart';
+import 'package:campus_mate/chat/model/data/message_page.dart';
+import 'package:campus_mate/chat/model/data/user_event.dart';
+import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart';
 import 'package:campus_mate/chat/viewmodel/chat_room_view_model.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
 import 'package:campus_mate/chat/viewmodel/user_channel.dart';
 import 'package:campus_mate/common/result.dart';
-import 'package:campus_mate/matching/model/card_repository_provider.dart';
+import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../matching/model/fake_card_repository.dart';
-import '../model/fake_chat_repository.dart';
+import '../../matching/model/repository/fake_card_repository.dart';
+import '../model/repository/fake_chat_repository.dart';
 
 /// 앱이 앞에 있는 동안 내 우편함 채널 `user:<내 id>` 하나를 듣는다(설계안 A 4단계).
 void main() {

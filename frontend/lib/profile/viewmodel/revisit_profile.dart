@@ -1,5 +1,5 @@
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
-import 'package:campus_mate/me/model/my_profile.dart';
+import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 

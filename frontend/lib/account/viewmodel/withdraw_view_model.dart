@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:campus_mate/account/model/account_repository.dart';
-import 'package:campus_mate/account/model/apple_withdrawal_code.dart';
+import 'package:campus_mate/account/model/repository/account_repository.dart';
+import 'package:campus_mate/account/model/repository/apple_withdrawal_code.dart';
 import 'package:campus_mate/account/viewmodel/withdraw_ui_state.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/core/auth/account_status_listenable.dart';

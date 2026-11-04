@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:campus_mate/account/model/login_notice.dart';
+import 'package:campus_mate/account/model/data/login_notice.dart';
 import 'package:campus_mate/auth/model/kakao_login_gateway.dart';
 import 'package:campus_mate/auth/model/verification_gate.dart';
 import 'package:campus_mate/billing/model/heart_store_gateway.dart';

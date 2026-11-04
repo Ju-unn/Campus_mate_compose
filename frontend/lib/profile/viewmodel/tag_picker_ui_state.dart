@@ -1,4 +1,4 @@
-import 'package:campus_mate/me/model/my_profile.dart';
+import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/profile/viewmodel/tag_picker_kind.dart';
 
 /// 종류마다 서버가 준 내 태그. 15c 칩 · 태그 편집 · 온보딩 뒤로가기 채우기가 같이 쓴다.

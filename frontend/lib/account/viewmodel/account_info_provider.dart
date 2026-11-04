@@ -1,5 +1,5 @@
-import 'package:campus_mate/account/model/account_info.dart';
-import 'package:campus_mate/account/model/account_repository.dart';
+import 'package:campus_mate/account/model/data/account_info.dart';
+import 'package:campus_mate/account/model/repository/account_repository.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 

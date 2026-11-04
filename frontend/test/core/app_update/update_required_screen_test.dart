@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:campus_mate/common/widgets/app_toast.dart';
-import 'package:campus_mate/consent/model/open_url.dart';
+import 'package:campus_mate/consent/model/repository/open_url.dart';
 import 'package:campus_mate/core/app_update/update_required_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

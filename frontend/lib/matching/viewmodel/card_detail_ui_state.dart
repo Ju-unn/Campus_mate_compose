@@ -1,5 +1,5 @@
-import 'package:campus_mate/matching/model/card_decision.dart';
-import 'package:campus_mate/matching/model/card_detail.dart';
+import 'package:campus_mate/matching/model/data/card_decision.dart';
+import 'package:campus_mate/matching/model/data/card_detail.dart';
 
 /// 10b 상세 화면(`TORAs`)의 상태. 조각 2 의 `*_ui_state.dart` 들과 같은 모양이다 —
 /// [errorMessage] 는 [copyWith] 에서 덮어쓰기라 null 로도 지워진다.

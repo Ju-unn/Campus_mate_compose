@@ -1,5 +1,5 @@
-import 'package:campus_mate/chat/model/chat_repository_provider.dart';
-import 'package:campus_mate/chat/model/chat_room.dart';
+import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart';
+import 'package:campus_mate/chat/model/data/chat_room.dart';
 import 'package:campus_mate/chat/view/chat_room_screen.dart';
 import 'package:campus_mate/chat/view/trust_banner.dart';
 import 'package:campus_mate/chat/view/trust_gate_sheet.dart';
@@ -13,7 +13,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../model/fake_chat_repository.dart';
+import '../model/repository/fake_chat_repository.dart';
 
 void main() {
   late FakeChatRepository repository;

@@ -4,7 +4,7 @@ import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
-import 'package:campus_mate/safety/model/blocked_user.dart';
+import 'package:campus_mate/safety/model/data/blocked_user.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:campus_mate/safety/viewmodel/block_list_ui_state.dart';
 import 'package:campus_mate/safety/viewmodel/block_list_view_model.dart';

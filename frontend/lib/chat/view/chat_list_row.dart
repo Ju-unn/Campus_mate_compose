@@ -1,5 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:campus_mate/chat/model/conversation.dart';
+import 'package:campus_mate/chat/model/data/conversation.dart';
 import 'package:campus_mate/chat/view/chat_time.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';

@@ -7,9 +7,9 @@ import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_checkbox.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
-import 'package:campus_mate/consent/model/consent_item.dart';
-import 'package:campus_mate/consent/model/consent_repository_provider.dart';
-import 'package:campus_mate/consent/model/open_url.dart';
+import 'package:campus_mate/consent/model/data/consent_item.dart';
+import 'package:campus_mate/consent/model/repository/consent_repository_provider.dart';
+import 'package:campus_mate/consent/model/repository/open_url.dart';
 import 'package:campus_mate/consent/view/consent_row.dart';
 import 'package:campus_mate/consent/view/consent_screen.dart';
 import 'package:campus_mate/core/auth/sign_out.dart';
@@ -27,7 +27,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../../auth/model/fake_verification_gate_repository.dart';
 import '../../profile/model/fake_onboarding_repository.dart';
-import '../model/fake_consent_repository.dart';
+import '../model/repository/fake_consent_repository.dart';
 
 const _title = '서비스 이용을 위해 동의해 주세요';
 const _description = '필수 항목에 모두 동의하면 시작할 수 있어요.\n마케팅 알림은 선택이에요.';

@@ -1,4 +1,4 @@
-import 'package:campus_mate/account/model/login_notice.dart';
+import 'package:campus_mate/account/model/data/login_notice.dart';
 import 'package:campus_mate/auth/model/school_email_repository_provider.dart';
 import 'package:campus_mate/auth/model/university_email.dart';
 import 'package:campus_mate/auth/model/verification_gate_repository_provider.dart';

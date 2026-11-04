@@ -9,8 +9,8 @@ import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
-import 'package:campus_mate/me/model/me_repository_provider.dart';
-import 'package:campus_mate/me/model/my_profile.dart';
+import 'package:campus_mate/me/model/data/my_profile.dart';
+import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
 import 'package:campus_mate/me/view/basic_info_edit_screen.dart';
 import 'package:campus_mate/me/view/edit_app_bar.dart';
 import 'package:campus_mate/me/view/locked_fact_row.dart';
@@ -25,7 +25,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../profile/model/fake_basic_info_repository.dart';
-import '../model/fake_me_repository.dart';
+import '../model/repository/fake_me_repository.dart';
 
 /// 잠금이 풀리는 때 — 한국 시각 10월 27일 0시(계획서 A7 예).
 /// 한국 시간대 PC 에서는 `toLocal()` 로 바꿔도 이 테스트가 통과한다 — 잡는 곳은 UTC 로 도는 CI 다(검토 사소 3).

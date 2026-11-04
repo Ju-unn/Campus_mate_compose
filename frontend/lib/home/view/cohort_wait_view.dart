@@ -6,11 +6,11 @@ import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
-import 'package:campus_mate/home/model/cohort_wait.dart';
+import 'package:campus_mate/home/model/data/cohort_wait.dart';
 import 'package:campus_mate/home/viewmodel/home_summary_provider.dart';
 import 'package:campus_mate/me/view/me_toast.dart';
-import 'package:campus_mate/referral/model/invite_share.dart';
-import 'package:campus_mate/referral/model/referral_repository_provider.dart';
+import 'package:campus_mate/referral/model/repository/invite_share.dart';
+import 'package:campus_mate/referral/model/repository/referral_repository_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 

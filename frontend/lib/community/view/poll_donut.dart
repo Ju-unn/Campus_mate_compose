@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import 'package:campus_mate/community/model/poll.dart';
+import 'package:campus_mate/community/model/data/poll.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';

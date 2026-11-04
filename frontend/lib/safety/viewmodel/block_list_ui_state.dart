@@ -1,4 +1,4 @@
-import 'package:campus_mate/safety/model/blocked_user.dart';
+import 'package:campus_mate/safety/model/data/blocked_user.dart';
 
 /// 16f 차단 목록의 상태.
 class BlockListUiState {

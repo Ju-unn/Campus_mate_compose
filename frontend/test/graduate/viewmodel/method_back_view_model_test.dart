@@ -3,13 +3,13 @@ import 'dart:async';
 import 'package:campus_mate/auth/model/verification_gate_repository_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
-import 'package:campus_mate/graduate/model/graduate_verification_repository_provider.dart';
+import 'package:campus_mate/graduate/model/repository/graduate_verification_repository_provider.dart';
 import 'package:campus_mate/graduate/viewmodel/method_back_view_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../auth/model/fake_verification_gate_repository.dart';
-import '../model/fake_graduate_verification_repository.dart';
+import '../model/repository/fake_graduate_verification_repository.dart';
 
 void main() {
   late FakeGraduateVerificationRepository repository;

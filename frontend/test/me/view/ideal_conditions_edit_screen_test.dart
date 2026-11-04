@@ -5,8 +5,8 @@ import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
-import 'package:campus_mate/me/model/me_repository_provider.dart';
-import 'package:campus_mate/me/model/my_profile.dart';
+import 'package:campus_mate/me/model/data/my_profile.dart';
+import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
 import 'package:campus_mate/me/view/edit_app_bar.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:campus_mate/profile/model/ideal_conditions_repository_provider.dart';
@@ -22,7 +22,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../profile/model/fake_ideal_conditions_repository.dart';
 import '../../profile/model/fake_onboarding_repository.dart';
-import '../model/fake_me_repository.dart';
+import '../model/repository/fake_me_repository.dart';
 
 MyProfile _profile({
   int? ageMin = 25,

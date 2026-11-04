@@ -6,7 +6,7 @@ import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
-import 'package:campus_mate/matching/model/card_decision.dart';
+import 'package:campus_mate/matching/model/data/card_decision.dart';
 import 'package:campus_mate/matching/view/card_detail_screen.dart';
 import 'package:campus_mate/matching/view/profile_avatar_header.dart';
 import 'package:campus_mate/matching/viewmodel/acceptance_detail_view_model.dart';

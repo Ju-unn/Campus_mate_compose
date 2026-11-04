@@ -1,4 +1,4 @@
-import 'package:campus_mate/matching/model/sent_request.dart';
+import 'package:campus_mate/matching/model/data/sent_request.dart';
 
 /// 보낸 신청(화면 13 가운데 섹션)의 상태. 받은 신청 · 대화 중 섹션과는 서로를 모른다.
 /// [errorMessage] 는 [copyWith] 에서 덮어쓰기다 — null 로도 지워져야 한다.

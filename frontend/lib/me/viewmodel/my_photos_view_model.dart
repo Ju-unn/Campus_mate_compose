@@ -1,6 +1,6 @@
-import 'package:campus_mate/me/model/me_repository_provider.dart';
-import 'package:campus_mate/me/model/my_profile.dart';
-import 'package:campus_mate/me/model/photo_slot.dart';
+import 'package:campus_mate/me/model/data/my_profile.dart';
+import 'package:campus_mate/me/model/data/photo_slot.dart';
+import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:campus_mate/profile/viewmodel/photos_ui_state.dart';
 import 'package:campus_mate/profile/viewmodel/photos_view_model.dart';

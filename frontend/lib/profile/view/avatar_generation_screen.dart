@@ -11,7 +11,7 @@ import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
-import 'package:campus_mate/me/model/my_profile.dart';
+import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:campus_mate/profile/viewmodel/avatar_generation_ui_state.dart';
 import 'package:campus_mate/profile/viewmodel/avatar_generation_view_model.dart';

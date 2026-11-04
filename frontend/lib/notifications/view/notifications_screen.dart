@@ -7,7 +7,7 @@ import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
-import 'package:campus_mate/notifications/model/app_notification.dart';
+import 'package:campus_mate/notifications/model/data/app_notification.dart';
 import 'package:campus_mate/notifications/view/notification_row.dart';
 import 'package:campus_mate/notifications/viewmodel/notifications_ui_state.dart';
 import 'package:campus_mate/notifications/viewmodel/notifications_view_model.dart';

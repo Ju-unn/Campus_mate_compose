@@ -1,5 +1,5 @@
-import 'package:campus_mate/chat/model/chat_room.dart';
-import 'package:campus_mate/chat/model/message.dart';
+import 'package:campus_mate/chat/model/data/chat_room.dart';
+import 'package:campus_mate/chat/model/data/message.dart';
 
 /// 신뢰 확인 게이트가 방 위에 무엇을 띄우는가(결정 10·11).
 enum TrustGateStage {

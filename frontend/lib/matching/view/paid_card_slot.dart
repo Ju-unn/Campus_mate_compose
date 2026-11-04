@@ -2,7 +2,7 @@ import 'package:campus_mate/community/view/poll_toast.dart';
 import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'package:campus_mate/core/analytics/analytics_values.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
-import 'package:campus_mate/matching/model/paid_card.dart';
+import 'package:campus_mate/matching/model/data/paid_card.dart';
 import 'package:campus_mate/matching/view/paid_card_info_sheet.dart';
 import 'package:campus_mate/matching/view/paid_card_locked.dart';
 import 'package:campus_mate/matching/view/paid_card_purchase_sheets.dart';

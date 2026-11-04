@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:campus_mate/home/model/home_people.dart';
-import 'package:campus_mate/home/model/home_repository_provider.dart';
+import 'package:campus_mate/home/model/data/home_people.dart';
+import 'package:campus_mate/home/model/repository/home_repository_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 못 받았거나 빈 목록(인원 부족)일 때 다시 받기까지 붙잡아 두는 시간 — 같은 세션의 재요청 간격 하한(요청 폭주 방지).

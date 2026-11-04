@@ -1,29 +1,29 @@
-import 'package:campus_mate/chat/model/chat_repository_provider.dart';
+import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
-import 'package:campus_mate/home/model/home_repository_provider.dart';
-import 'package:campus_mate/matching/model/card_profile.dart';
-import 'package:campus_mate/matching/model/card_repository_provider.dart';
-import 'package:campus_mate/matching/model/daily_card.dart';
-import 'package:campus_mate/matching/model/paid_card.dart';
+import 'package:campus_mate/home/model/repository/home_repository_provider.dart';
+import 'package:campus_mate/matching/model/data/card_profile.dart';
+import 'package:campus_mate/matching/model/data/daily_card.dart';
+import 'package:campus_mate/matching/model/data/paid_card.dart';
+import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
 import 'package:campus_mate/matching/view/today_cards_screen.dart';
 import 'package:campus_mate/matching/viewmodel/today_cards_view_model.dart';
-import 'package:campus_mate/me/model/me_repository_provider.dart';
-import 'package:campus_mate/me/model/my_profile.dart';
-import 'package:campus_mate/notifications/model/notifications_repository_provider.dart';
+import 'package:campus_mate/me/model/data/my_profile.dart';
+import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
+import 'package:campus_mate/notifications/model/repository/notifications_repository_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../chat/model/fake_chat_repository.dart';
+import '../../chat/model/repository/fake_chat_repository.dart';
 import '../../core/analytics/fake_analytics_service.dart';
-import '../../home/model/fake_home_repository.dart';
-import '../../me/model/fake_me_repository.dart';
-import '../../notifications/model/fake_notifications_repository.dart';
-import '../model/fake_card_repository.dart';
+import '../../home/model/repository/fake_home_repository.dart';
+import '../../me/model/repository/fake_me_repository.dart';
+import '../../notifications/model/repository/fake_notifications_repository.dart';
+import '../model/repository/fake_card_repository.dart';
 
 /// 사용 통계 card_view · card_detail_open · paid_card_view · paid_card_sheet_open — 오늘 탭에서 남는 이벤트.
 /// 카드 id · 상대 id · 닉네임은 어느 이벤트에도 실리지 않는다(출처 free · purchased 와 칸 상태만).

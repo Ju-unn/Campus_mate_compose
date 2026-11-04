@@ -1,10 +1,10 @@
-import 'package:campus_mate/chat/model/message.dart';
+import 'package:campus_mate/chat/model/data/message.dart';
 import 'package:campus_mate/chat/view/message_bubble.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../model/fake_chat_repository.dart';
+import '../model/repository/fake_chat_repository.dart';
 
 void main() {
   const body = '제가 자리 먼저 알아볼게요 :)';

@@ -1,4 +1,4 @@
-import 'package:campus_mate/community/model/poll.dart';
+import 'package:campus_mate/community/model/data/poll.dart';
 import 'package:campus_mate/community/view/poll_card.dart';
 import 'package:campus_mate/community/view/poll_sheets.dart';
 import 'package:campus_mate/community/view/poll_time.dart';

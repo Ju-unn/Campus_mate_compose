@@ -1,4 +1,4 @@
-import 'package:campus_mate/safety/model/partner_profile.dart';
+import 'package:campus_mate/safety/model/data/partner_profile.dart';
 
 /// 14c 상대 프로필의 상태. 읽기 한 번으로 끝나는 화면이라 결과마다 새로 만들고 copyWith 는 두지 않는다.
 class PartnerProfileUiState {

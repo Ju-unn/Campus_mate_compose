@@ -8,7 +8,7 @@ import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
-import 'package:campus_mate/matching/model/daily_card.dart';
+import 'package:campus_mate/matching/model/data/daily_card.dart';
 import 'package:flutter/material.dart';
 
 /// 요약 카드(DESIGN.md §8.1 `daily-card-summary`, pen `v26S7z`).

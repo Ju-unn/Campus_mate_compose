@@ -1,6 +1,6 @@
-import 'package:campus_mate/chat/model/chat_repository_provider.dart';
-import 'package:campus_mate/chat/model/message.dart';
-import 'package:campus_mate/chat/model/message_page.dart';
+import 'package:campus_mate/chat/model/data/message.dart';
+import 'package:campus_mate/chat/model/data/message_page.dart';
+import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart';
 import 'package:campus_mate/chat/view/bubble_report_menu.dart';
 import 'package:campus_mate/chat/view/chat_room_screen.dart';
 import 'package:campus_mate/chat/view/message_bubble.dart';
@@ -9,7 +9,7 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
-import 'package:campus_mate/safety/model/safety_repository_provider.dart';
+import 'package:campus_mate/safety/model/repository/safety_repository_provider.dart';
 import 'package:campus_mate/safety/view/report_sheet.dart';
 import 'package:campus_mate/safety/viewmodel/report_ui_state.dart';
 import 'package:flutter/material.dart';
@@ -17,8 +17,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../safety/model/fake_safety_repository.dart';
-import '../model/fake_chat_repository.dart';
+import '../../safety/model/repository/fake_safety_repository.dart';
+import '../model/repository/fake_chat_repository.dart';
 
 /// 조각 6 채팅방 진입점(계획서 A1·A2, pen `Lgdxu` · `I8fOcN` · `albnG`).
 void main() {

@@ -1,4 +1,4 @@
-import 'package:campus_mate/friend_review/model/friend_review.dart';
+import 'package:campus_mate/friend_review/model/data/friend_review.dart';
 import 'package:campus_mate/referral/viewmodel/referral_code_ui_state.dart';
 
 /// 20f 화면이 그리는 상태 하나(pen 프레임 이름 그대로). [failed] 는 pen 에 없다(네트워크 등 — 대장 확인 대기).

@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:campus_mate/account/model/account_info.dart';
-import 'package:campus_mate/account/model/account_repository.dart';
+import 'package:campus_mate/account/model/data/account_info.dart';
+import 'package:campus_mate/account/model/repository/account_repository.dart';
 import 'package:campus_mate/account/view/account_screen.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
@@ -20,7 +20,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mocktail/mocktail.dart';
 
-import '../model/fake_account_repository.dart';
+import '../model/repository/fake_account_repository.dart';
 
 /// 로고 요청을 받기만 하고 답하지 않는 HttpClient — 로고는 "아직 오는 중"이라 자리만 잡는다(히어로 테스트와 같은 방식).
 class _PendingHttpClient extends Mock implements HttpClient {}

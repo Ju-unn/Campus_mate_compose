@@ -1,5 +1,5 @@
 import 'package:campus_mate/common/widgets/icon_3d.dart';
-import 'package:campus_mate/community/model/poll.dart';
+import 'package:campus_mate/community/model/data/poll.dart';
 import 'package:campus_mate/community/view/feed_poll_card.dart';
 import 'package:campus_mate/community/view/poll_donut.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -9,7 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../model/fake_community_repository.dart';
+import '../model/repository/fake_community_repository.dart';
 
 /// pen `IFUWA` PollCard · Feed(Z54et > Row L `qxNOz` > 76) · 17A `FBT9K` · 17A-2 `O8hjge`.
 /// 글자 상자 높이는 pen 속성이 없는 곳은 렌더 값(익명 19 · 시간 16 · 참여자 16)으로 잰다.

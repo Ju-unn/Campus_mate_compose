@@ -1,4 +1,4 @@
-import 'package:campus_mate/consent/model/consent_item.dart';
+import 'package:campus_mate/consent/model/data/consent_item.dart';
 
 /// 약관 동의(02-c)의 상태.
 class ConsentUiState {

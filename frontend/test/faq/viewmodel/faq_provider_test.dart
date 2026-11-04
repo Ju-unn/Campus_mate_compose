@@ -1,12 +1,12 @@
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
-import 'package:campus_mate/faq/model/faq_cache.dart';
-import 'package:campus_mate/faq/model/faq_repository.dart';
+import 'package:campus_mate/faq/model/repository/faq_cache.dart';
+import 'package:campus_mate/faq/model/repository/faq_repository.dart';
 import 'package:campus_mate/faq/viewmodel/faq_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../model/fake_faq.dart';
+import '../model/repository/fake_faq.dart';
 
 void main() {
   ProviderContainer containerWith(FakeFaqRepository repository, FakeFaqCache cache) {

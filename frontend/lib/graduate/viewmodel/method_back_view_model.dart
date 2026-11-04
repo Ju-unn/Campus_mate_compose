@@ -1,6 +1,6 @@
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/core/router/verification_gate_listenable_provider.dart';
-import 'package:campus_mate/graduate/model/graduate_verification_repository_provider.dart';
+import 'package:campus_mate/graduate/model/repository/graduate_verification_repository_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 뒤로가기가 서버 값을 비우는 중인지, 실패했는지. 오류 문구는 화면이 짧은 안내로 한 번 띄운다.

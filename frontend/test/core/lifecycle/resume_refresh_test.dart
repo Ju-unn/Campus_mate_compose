@@ -5,25 +5,25 @@ import 'package:campus_mate/billing/model/billing_repository_provider.dart';
 import 'package:campus_mate/billing/model/heart_store_gateway.dart';
 import 'package:campus_mate/billing/model/store_purchase.dart';
 import 'package:campus_mate/billing/viewmodel/heart_purchase_view_model.dart';
-import 'package:campus_mate/chat/model/chat_repository_provider.dart';
+import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/lifecycle/resume_refresh.dart';
 import 'package:campus_mate/core/push/push_refresh.dart';
-import 'package:campus_mate/matching/model/card_repository_provider.dart';
+import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
 import 'package:campus_mate/matching/viewmodel/acceptances_view_model.dart';
 import 'package:campus_mate/matching/viewmodel/sent_requests_view_model.dart';
-import 'package:campus_mate/notifications/model/notifications_repository_provider.dart';
+import 'package:campus_mate/notifications/model/repository/notifications_repository_provider.dart';
 import 'package:campus_mate/notifications/viewmodel/unread_count_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../billing/model/fake_billing_repository.dart';
 import '../../billing/model/fake_heart_store_gateway.dart';
-import '../../chat/model/fake_chat_repository.dart';
-import '../../matching/model/fake_card_repository.dart';
-import '../../notifications/model/fake_notifications_repository.dart';
+import '../../chat/model/repository/fake_chat_repository.dart';
+import '../../matching/model/repository/fake_card_repository.dart';
+import '../../notifications/model/repository/fake_notifications_repository.dart';
 
 void main() {
   late FakeChatRepository chat;

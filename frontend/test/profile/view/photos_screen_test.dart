@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:campus_mate/account/model/account_repository.dart';
+import 'package:campus_mate/account/model/repository/account_repository.dart';
 import 'package:campus_mate/auth/model/face_detector_provider.dart';
 import 'package:campus_mate/auth/model/image_compressor_provider.dart';
 import 'package:campus_mate/common/failure.dart';
@@ -18,7 +18,7 @@ import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
-import 'package:campus_mate/me/model/me_repository_provider.dart';
+import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:campus_mate/profile/model/photos_repository_provider.dart';
@@ -35,10 +35,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../auth/model/fake_face_detector.dart';
-import '../../account/model/fake_account_repository.dart';
+import '../../account/model/repository/fake_account_repository.dart';
 import '../../auth/model/fake_image_compressor.dart';
 import '../../core/draft/fake_draft_store.dart';
-import '../../me/model/fake_me_repository.dart';
+import '../../me/model/repository/fake_me_repository.dart';
 import '../model/fake_onboarding_repository.dart';
 import '../model/fake_photos_repository.dart';
 

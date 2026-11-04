@@ -6,7 +6,7 @@ import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
-import 'package:campus_mate/friend_review/model/friend_review_repository_provider.dart';
+import 'package:campus_mate/friend_review/model/repository/friend_review_repository_provider.dart';
 import 'package:campus_mate/friend_review/view/my_friend_reviews_section.dart';
 import 'package:campus_mate/friend_review/view/written_reviews_screen.dart';
 import 'package:campus_mate/me/view/profile_entry_row.dart';
@@ -16,7 +16,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-import '../model/fake_friend_review_repository.dart';
+import '../model/repository/fake_friend_review_repository.dart';
 
 final _received = find.widgetWithText(ProfileEntryRow, '친구들이 본 나');
 final _written = find.widgetWithText(ProfileEntryRow, '내가 쓴 리뷰');

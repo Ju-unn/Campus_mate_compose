@@ -1,8 +1,8 @@
 import 'package:campus_mate/common/university_logos.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/school_label.dart';
-import 'package:campus_mate/matching/model/acceptance.dart';
-import 'package:campus_mate/matching/model/card_profile.dart';
+import 'package:campus_mate/matching/model/data/acceptance.dart';
+import 'package:campus_mate/matching/model/data/card_profile.dart';
 import 'package:campus_mate/matching/view/acceptance_row.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';

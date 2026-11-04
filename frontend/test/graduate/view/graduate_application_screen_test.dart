@@ -8,7 +8,7 @@ import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/core/back_exit/back_exit_view_model.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
-import 'package:campus_mate/graduate/model/graduate_request_state.dart';
+import 'package:campus_mate/graduate/model/data/graduate_request_state.dart';
 import 'package:campus_mate/graduate/view/graduate_application_screen.dart';
 import 'package:campus_mate/graduate/viewmodel/graduate_application_view_model.dart';
 import 'package:flutter/material.dart';

@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:campus_mate/account/model/login_notice.dart';
+import 'package:campus_mate/account/model/data/login_notice.dart';
 import 'package:campus_mate/auth/viewmodel/sign_up_ui_state.dart';
 import 'package:campus_mate/auth/viewmodel/sign_up_view_model.dart';
 import 'package:campus_mate/auth/viewmodel/verify_code_view_model.dart';

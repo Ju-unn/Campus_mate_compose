@@ -4,7 +4,7 @@ import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/friend_review/view/partner_reviews_section.dart';
 import 'package:campus_mate/friend_review/viewmodel/friend_review_list_view_model.dart';
-import 'package:campus_mate/matching/model/card_detail.dart';
+import 'package:campus_mate/matching/model/data/card_detail.dart';
 import 'package:campus_mate/matching/view/card_detail_screen.dart';
 import 'package:campus_mate/matching/view/profile_avatar_header.dart';
 import 'package:campus_mate/me/view/edit_app_bar.dart';

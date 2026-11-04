@@ -5,10 +5,10 @@ import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
-import 'package:campus_mate/safety/model/contact_block_repository.dart';
-import 'package:campus_mate/safety/model/contact_name_store.dart';
-import 'package:campus_mate/safety/model/device_contact.dart';
-import 'package:campus_mate/safety/model/device_contacts.dart';
+import 'package:campus_mate/safety/model/data/device_contact.dart';
+import 'package:campus_mate/safety/model/repository/contact_block_repository.dart';
+import 'package:campus_mate/safety/model/repository/contact_name_store.dart';
+import 'package:campus_mate/safety/model/repository/device_contacts.dart';
 import 'package:campus_mate/safety/view/contact_picker_screen.dart';
 import 'package:campus_mate/safety/view/contact_row.dart';
 import 'package:campus_mate/safety/view/limited_contacts_notice.dart';
@@ -18,7 +18,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-import '../model/fake_contact_blocks.dart';
+import '../model/repository/fake_contact_blocks.dart';
 
 /// 8d 차단할 연락처 선택(pen `bWKuJ` — 검색 `ARlR7`, 목록 `rpkaB`, 하단 `bzBZZ`, 버튼 `k4MqlT`).
 void main() {

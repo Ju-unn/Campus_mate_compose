@@ -4,10 +4,10 @@ import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
-import 'package:campus_mate/safety/model/contact_block_repository.dart';
-import 'package:campus_mate/safety/model/contact_label.dart';
-import 'package:campus_mate/safety/model/contact_name_store.dart';
-import 'package:campus_mate/safety/model/device_contacts.dart';
+import 'package:campus_mate/safety/model/data/contact_label.dart';
+import 'package:campus_mate/safety/model/repository/contact_block_repository.dart';
+import 'package:campus_mate/safety/model/repository/contact_name_store.dart';
+import 'package:campus_mate/safety/model/repository/device_contacts.dart';
 import 'package:campus_mate/safety/view/contact_block_list_screen.dart';
 import 'package:campus_mate/safety/view/contact_picker_screen.dart';
 import 'package:campus_mate/safety/view/contact_row.dart';
@@ -18,7 +18,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-import '../model/fake_contact_blocks.dart';
+import '../model/repository/fake_contact_blocks.dart';
 
 /// 16b 연락처 차단 관리(pen `fkjEh` — 추가 `z9dxy`, 줄 `GC2LV` · `J2OCDM`, 해제 시트 `AA8T7`, 빈 상태 `Gp5my`).
 void main() {

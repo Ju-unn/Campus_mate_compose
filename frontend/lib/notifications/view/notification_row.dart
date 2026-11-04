@@ -3,7 +3,7 @@ import 'package:campus_mate/community/view/poll_time.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
-import 'package:campus_mate/notifications/model/app_notification.dart';
+import 'package:campus_mate/notifications/model/data/app_notification.dart';
 import 'package:flutter/material.dart';
 
 /// 테스트가 pen 크기를 재는 데 쓰는 자리 표시.

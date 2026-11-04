@@ -1,4 +1,4 @@
-import 'package:campus_mate/safety/model/report_reason.dart';
+import 'package:campus_mate/safety/model/data/report_reason.dart';
 
 /// 성공 뒤 안내(계획서 A1). 신고하면 차단도 같이 된다는 것(결정 4)을 숨기지 않고 알린다.
 const String reportedMessage = '신고했어요. 이 사용자는 차단되어 서로에게 보이지 않아요.';

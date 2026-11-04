@@ -1,5 +1,5 @@
 import 'package:campus_mate/common/failure.dart';
-import 'package:campus_mate/referral/model/referral_repository_provider.dart';
+import 'package:campus_mate/referral/model/repository/referral_repository_provider.dart';
 import 'package:campus_mate/referral/viewmodel/referral_code_ui_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 

@@ -12,7 +12,7 @@ import 'package:campus_mate/core/router/app_router.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/router/verification_gate_listenable_provider.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
-import 'package:campus_mate/graduate/model/graduate_verification_repository_provider.dart';
+import 'package:campus_mate/graduate/model/repository/graduate_verification_repository_provider.dart';
 import 'package:campus_mate/graduate/view/graduate_application_screen.dart';
 import 'package:campus_mate/graduate/view/graduate_waiting_screen.dart';
 import 'package:campus_mate/graduate/view/verification_method_screen.dart';
@@ -25,7 +25,7 @@ import 'package:go_router/go_router.dart';
 import '../../auth/model/fake_image_compressor.dart';
 import '../../auth/model/fake_school_email_repository.dart';
 import '../../auth/model/fake_verification_gate_repository.dart';
-import '../../graduate/model/fake_graduate_verification_repository.dart';
+import '../../graduate/model/repository/fake_graduate_verification_repository.dart';
 
 /// 졸업생 관문 화면 4종(방법 고르기 · 신청 폼 · 대기 · 02) + 03 의 라우터 연결과 뒤로가기 규칙(계획서 Task 6 표
 /// `app_router: gate_screens_*` [뒤로가기]). 화면이 스스로 [BackExitScope] 를 한 겹 두르고, 모두 go 로만 들어와 스택 깊이 1 이다.

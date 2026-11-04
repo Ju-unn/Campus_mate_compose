@@ -1,4 +1,4 @@
-import 'package:campus_mate/home/model/home_people.dart';
+import 'package:campus_mate/home/model/data/home_people.dart';
 import 'package:campus_mate/home/view/auto_marquee.dart';
 import 'package:campus_mate/home/view/mosaic_tile.dart';
 import 'package:flutter/material.dart';

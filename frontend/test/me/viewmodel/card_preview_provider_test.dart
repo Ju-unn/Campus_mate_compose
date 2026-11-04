@@ -1,14 +1,14 @@
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
-import 'package:campus_mate/matching/model/card_detail.dart';
-import 'package:campus_mate/matching/model/card_profile.dart';
-import 'package:campus_mate/me/model/me_repository_provider.dart';
+import 'package:campus_mate/matching/model/data/card_detail.dart';
+import 'package:campus_mate/matching/model/data/card_profile.dart';
+import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
 import 'package:campus_mate/me/viewmodel/card_preview_provider.dart';
 import 'package:campus_mate/profile/model/profile_enums.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../model/fake_me_repository.dart';
+import '../model/repository/fake_me_repository.dart';
 
 void main() {
   const detail = CardDetail(

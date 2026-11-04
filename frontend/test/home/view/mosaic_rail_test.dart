@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
-import 'package:campus_mate/home/model/home_people.dart';
+import 'package:campus_mate/home/model/data/home_people.dart';
 import 'package:campus_mate/home/view/mosaic_rail.dart';
 import 'package:campus_mate/home/view/mosaic_tile.dart';
 import 'package:flutter/material.dart';

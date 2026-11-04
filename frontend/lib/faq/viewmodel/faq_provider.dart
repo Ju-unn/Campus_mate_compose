@@ -1,6 +1,6 @@
-import 'package:campus_mate/faq/model/faq_cache.dart';
-import 'package:campus_mate/faq/model/faq_item.dart';
-import 'package:campus_mate/faq/model/faq_repository.dart';
+import 'package:campus_mate/faq/model/data/faq_item.dart';
+import 'package:campus_mate/faq/model/repository/faq_cache.dart';
+import 'package:campus_mate/faq/model/repository/faq_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 21 과 설정 "자주 묻는 질문" 줄이 함께 본다. 받으면 캐시에 쓰고, 못 받으면 마지막 캐시, 그것도 없으면 빈 목록 —

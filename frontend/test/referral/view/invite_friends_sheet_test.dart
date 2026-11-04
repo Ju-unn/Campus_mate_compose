@@ -6,8 +6,8 @@ import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
-import 'package:campus_mate/referral/model/invite_share.dart';
-import 'package:campus_mate/referral/model/referral_repository_provider.dart';
+import 'package:campus_mate/referral/model/repository/invite_share.dart';
+import 'package:campus_mate/referral/model/repository/referral_repository_provider.dart';
 import 'package:campus_mate/referral/view/invite_friends_sheet.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
@@ -15,7 +15,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../model/fake_referral_repository.dart';
+import '../model/repository/fake_referral_repository.dart';
 
 void main() {
   late FakeReferralRepository repository;

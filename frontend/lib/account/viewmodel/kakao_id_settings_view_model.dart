@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:campus_mate/account/model/account_repository.dart';
+import 'package:campus_mate/account/model/repository/account_repository.dart';
 import 'package:campus_mate/account/viewmodel/kakao_id_settings_ui_state.dart';
 import 'package:campus_mate/profile/model/kakao_id_repository_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

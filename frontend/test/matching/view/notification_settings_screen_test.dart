@@ -6,15 +6,15 @@ import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/push/push_provider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
-import 'package:campus_mate/matching/model/card_repository_provider.dart';
-import 'package:campus_mate/matching/model/notification_preferences.dart';
+import 'package:campus_mate/matching/model/data/notification_preferences.dart';
+import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
 import 'package:campus_mate/matching/view/notification_settings_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../core/push/fake_push_messaging.dart';
-import '../model/fake_card_repository.dart';
+import '../model/repository/fake_card_repository.dart';
 
 void main() {
   late FakePushMessaging messaging;

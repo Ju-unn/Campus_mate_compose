@@ -1,9 +1,9 @@
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
-import 'package:campus_mate/safety/model/report_target.dart';
-import 'package:campus_mate/safety/model/safety_errors.dart';
-import 'package:campus_mate/safety/model/safety_repository_provider.dart';
+import 'package:campus_mate/safety/model/data/report_target.dart';
+import 'package:campus_mate/safety/model/data/safety_errors.dart';
+import 'package:campus_mate/safety/model/repository/safety_repository_provider.dart';
 import 'package:campus_mate/safety/view/report_sheet.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:campus_mate/safety/viewmodel/report_ui_state.dart';
@@ -12,7 +12,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../model/fake_safety_repository.dart';
+import '../model/repository/fake_safety_repository.dart';
 
 void main() {
   late FakeSafetyRepository repository;

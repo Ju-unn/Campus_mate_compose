@@ -1,4 +1,4 @@
-import 'package:campus_mate/account/model/account_info.dart';
+import 'package:campus_mate/account/model/data/account_info.dart';
 import 'package:campus_mate/account/viewmodel/account_info_provider.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';

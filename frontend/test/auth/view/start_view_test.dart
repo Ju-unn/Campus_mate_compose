@@ -1,4 +1,4 @@
-import 'package:campus_mate/account/model/login_notice.dart';
+import 'package:campus_mate/account/model/data/login_notice.dart';
 import 'package:campus_mate/auth/model/social_login_repository_provider.dart';
 import 'package:campus_mate/auth/model/social_provider.dart';
 import 'package:campus_mate/auth/view/social_login_button.dart';

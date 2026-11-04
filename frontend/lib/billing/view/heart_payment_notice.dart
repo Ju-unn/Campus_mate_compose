@@ -1,7 +1,7 @@
 import 'package:campus_mate/billing/model/payment_store.dart';
 import 'package:campus_mate/common/failure.dart';
-import 'package:campus_mate/consent/model/consent_links.dart';
-import 'package:campus_mate/consent/model/open_url.dart';
+import 'package:campus_mate/consent/model/data/consent_links.dart';
+import 'package:campus_mate/consent/model/repository/open_url.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';

@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:campus_mate/account/model/account_repository.dart';
+import 'package:campus_mate/account/model/repository/account_repository.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';

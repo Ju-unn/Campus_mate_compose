@@ -1,12 +1,12 @@
 import 'dart:async';
 
-import 'package:campus_mate/chat/model/chat_errors.dart';
-import 'package:campus_mate/chat/model/chat_repository.dart';
-import 'package:campus_mate/chat/model/chat_repository_provider.dart';
-import 'package:campus_mate/chat/model/chat_room.dart';
-import 'package:campus_mate/chat/model/message.dart';
-import 'package:campus_mate/chat/model/message_page.dart';
-import 'package:campus_mate/chat/model/user_event.dart';
+import 'package:campus_mate/chat/model/data/chat_errors.dart';
+import 'package:campus_mate/chat/model/data/chat_room.dart';
+import 'package:campus_mate/chat/model/data/message.dart';
+import 'package:campus_mate/chat/model/data/message_page.dart';
+import 'package:campus_mate/chat/model/data/user_event.dart';
+import 'package:campus_mate/chat/model/repository/chat_repository.dart';
+import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart';
 import 'package:campus_mate/chat/viewmodel/chat_room_ui_state.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
 import 'package:campus_mate/chat/viewmodel/user_channel.dart';

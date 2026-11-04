@@ -1,13 +1,13 @@
 import 'dart:async';
 
-import 'package:campus_mate/account/model/account_repository.dart';
+import 'package:campus_mate/account/model/repository/account_repository.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
 import 'package:campus_mate/core/back_exit/back_exit_view_model.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
-import 'package:campus_mate/me/model/me_repository_provider.dart';
+import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
 import 'package:campus_mate/profile/model/kakao_id_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_step.dart';
@@ -18,8 +18,8 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../account/model/fake_account_repository.dart';
-import '../../me/model/fake_me_repository.dart';
+import '../../account/model/repository/fake_account_repository.dart';
+import '../../me/model/repository/fake_me_repository.dart';
 import '../model/fake_kakao_id_repository.dart';
 import '../model/fake_onboarding_repository.dart';
 

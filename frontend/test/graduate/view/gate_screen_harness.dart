@@ -1,14 +1,14 @@
 import 'package:campus_mate/auth/model/image_compressor_provider.dart';
 import 'package:campus_mate/auth/model/verification_gate_repository_provider.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
-import 'package:campus_mate/graduate/model/graduate_verification_repository_provider.dart';
+import 'package:campus_mate/graduate/model/repository/graduate_verification_repository_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../auth/model/fake_image_compressor.dart';
 import '../../auth/model/fake_verification_gate_repository.dart';
-import '../model/fake_graduate_verification_repository.dart';
+import '../model/repository/fake_graduate_verification_repository.dart';
 
 /// 졸업생 관문 화면 시험이 같이 쓰는 준비물. 화면은 pen 크기(360×780)로 띄우고 가짜 저장소 셋을 건다.
 class GateHarness {

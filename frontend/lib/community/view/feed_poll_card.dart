@@ -1,5 +1,5 @@
 import 'package:campus_mate/common/widgets/icon_3d.dart';
-import 'package:campus_mate/community/model/poll.dart';
+import 'package:campus_mate/community/model/data/poll.dart';
 import 'package:campus_mate/community/view/poll_card.dart';
 import 'package:campus_mate/community/view/poll_donut.dart';
 import 'package:campus_mate/community/view/poll_time.dart';

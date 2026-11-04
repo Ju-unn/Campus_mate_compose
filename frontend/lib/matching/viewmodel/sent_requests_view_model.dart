@@ -1,4 +1,4 @@
-import 'package:campus_mate/matching/model/card_repository_provider.dart';
+import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
 import 'package:campus_mate/matching/viewmodel/sent_requests_ui_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 

@@ -1,9 +1,9 @@
-import 'package:campus_mate/chat/model/chat_room.dart';
-import 'package:campus_mate/chat/model/message.dart';
+import 'package:campus_mate/chat/model/data/chat_room.dart';
+import 'package:campus_mate/chat/model/data/message.dart';
 import 'package:campus_mate/chat/viewmodel/chat_room_ui_state.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../model/fake_chat_repository.dart';
+import '../model/repository/fake_chat_repository.dart';
 
 void main() {
   final now = DateTime(2026, 9, 22, 12);

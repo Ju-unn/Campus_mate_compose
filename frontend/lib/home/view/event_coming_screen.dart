@@ -1,12 +1,12 @@
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
-import 'package:campus_mate/consent/model/open_url.dart';
+import 'package:campus_mate/consent/model/repository/open_url.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
-import 'package:campus_mate/home/model/instagram_link.dart';
+import 'package:campus_mate/home/model/data/instagram_link.dart';
 import 'package:campus_mate/me/view/edit_app_bar.dart';
 import 'package:campus_mate/me/view/me_toast.dart';
 import 'package:flutter/material.dart';

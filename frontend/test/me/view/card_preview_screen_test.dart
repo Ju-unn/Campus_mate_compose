@@ -4,25 +4,25 @@ import 'dart:typed_data';
 
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
-import 'package:campus_mate/account/model/account_info.dart';
-import 'package:campus_mate/account/model/account_repository.dart';
+import 'package:campus_mate/account/model/data/account_info.dart';
+import 'package:campus_mate/account/model/repository/account_repository.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/photo_slider.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
-import 'package:campus_mate/friend_review/model/friend_review.dart';
-import 'package:campus_mate/friend_review/model/friend_review_repository_provider.dart';
+import 'package:campus_mate/friend_review/model/data/friend_review.dart';
+import 'package:campus_mate/friend_review/model/repository/friend_review_repository_provider.dart';
 import 'package:campus_mate/friend_review/view/friend_review_card.dart';
 import 'package:campus_mate/friend_review/view/partner_reviews_section.dart';
 import 'package:campus_mate/friend_review/viewmodel/friend_review_list_view_model.dart';
-import 'package:campus_mate/matching/model/card_detail.dart';
-import 'package:campus_mate/matching/model/card_profile.dart';
+import 'package:campus_mate/matching/model/data/card_detail.dart';
+import 'package:campus_mate/matching/model/data/card_profile.dart';
 import 'package:campus_mate/matching/view/card_detail_screen.dart';
 import 'package:campus_mate/matching/view/profile_avatar_header.dart';
-import 'package:campus_mate/me/model/me_repository_provider.dart';
+import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
 import 'package:campus_mate/me/view/card_preview_screen.dart';
-import 'package:campus_mate/me/model/my_profile.dart';
+import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/view/edit_app_bar.dart';
 import 'package:campus_mate/me/view/me_load_error.dart';
 import 'package:campus_mate/me/view/me_tab_bar.dart';
@@ -34,9 +34,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../account/model/fake_account_repository.dart';
-import '../../friend_review/model/fake_friend_review_repository.dart';
-import '../model/fake_me_repository.dart';
+import '../../account/model/repository/fake_account_repository.dart';
+import '../../friend_review/model/repository/fake_friend_review_repository.dart';
+import '../model/repository/fake_me_repository.dart';
 
 const _notice = '대화 상대가 보는 내 프로필이에요. 실제 사진과 카카오톡 아이디는 둘 다 수락한 뒤에 공개돼요.';
 
