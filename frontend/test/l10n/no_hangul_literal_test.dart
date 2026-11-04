@@ -37,7 +37,6 @@ void main() {
     'profile/ideal',
     'profile/onboarding',
     'profile/traits',
-    'referral',
     'safety',
     'tour',
   };

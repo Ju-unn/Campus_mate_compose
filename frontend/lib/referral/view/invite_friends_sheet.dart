@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -32,9 +34,6 @@ class InviteFriendsSheet extends ConsumerStatefulWidget {
 }
 
 class _InviteFriendsSheetState extends ConsumerState<InviteFriendsSheet> {
-  // 50 은 redeem_referral 이 양쪽에 주는 하트(20260928010000_create_referrals.sql)와 같아야 한다.
-  static const String _description = '친구가 가입할 때 이 코드를 넣으면 둘 다 하트 50개를 받아요.';
-
   /// 공유 창이 떠 있는 동안 다시 눌러도 두 번 열지 않는다.
   bool _sharing = false;
 
@@ -59,7 +58,7 @@ class _InviteFriendsSheetState extends ConsumerState<InviteFriendsSheet> {
 
   Future<void> _copy(String code) async {
     await Clipboard.setData(ClipboardData(text: code));
-    if (mounted) _showToast('코드를 복사했어요', icon: AppIcons.check);
+    if (mounted) _showToast(context.l10n.referralInviteCopied, icon: AppIcons.check);
   }
 
   /// "카카오톡으로 보내기" 를 누른 뒤 카카오톡이 열리거나 기기 공유 창으로 넘어갈 때까지 그 단추에 스피너(pen `sMuCd`)를 돌린다.
@@ -84,7 +83,7 @@ class _InviteFriendsSheetState extends ConsumerState<InviteFriendsSheet> {
       await send();
     } catch (_) {
       // 공유 창을 못 열었다(기기 쪽 오류). 조용히 끝내지 않는다.
-      if (mounted) _showToast(const UnknownFailure().toDisplayMessage());
+      if (mounted) _showToast(context.errorText(const UnknownFailure()));
     } finally {
       _sharing = false;
     }
@@ -133,17 +132,18 @@ class _InviteFriendsSheetState extends ConsumerState<InviteFriendsSheet> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           // pen `xd8je` 20/700, 줄높이 속성 없음 · 렌더 29.
-                          Text('친구 초대', style: AppTypography.navTitle.copyWith(color: AppColors.ink, height: 29 / 20)),
+                          Text(context.l10n.referralInviteTitle, style: AppTypography.navTitle.copyWith(color: AppColors.ink, height: 29 / 20)),
                           const SizedBox(height: AppSpacing.md),
                           // pen `LEq3I` 14/400/1.55 #6A6A6A.
-                          Text(_description, style: AppTypography.bodySmall.copyWith(color: AppColors.muted)),
+                          // 50 은 redeem_referral 이 양쪽에 주는 하트(20260928010000_create_referrals.sql)와 같아야 한다.
+                          Text(context.l10n.referralInviteDescription, style: AppTypography.bodySmall.copyWith(color: AppColors.muted)),
                           const SizedBox(height: AppSpacing.md),
                           ...myCode.when(
                             loading: () => const [Center(child: CircularProgressIndicator())],
-                            error: (_, _) => _loadError(const UnknownFailure().toDisplayMessage(), retry),
+                            error: (_, _) => _loadError(context.errorText(const UnknownFailure()), retry),
                             data: (result) => result.when(
                               onSuccess: (code) => [_CodeBox(code: code, onCopy: () => _copy(code))],
-                              onFailure: (failure) => _loadError(failure.toDisplayMessage(), retry),
+                              onFailure: (failure) => _loadError(context.errorText(failure), retry),
                             ),
                           ),
                           // 버튼 묶음 `KMbP4` 간격 8 — pen 변형 `wNqk2` 는 원본과 글자만 다르다. 닫기 단추가 없어
@@ -151,13 +151,13 @@ class _InviteFriendsSheetState extends ConsumerState<InviteFriendsSheet> {
                           if (code != null) ...[
                             const SizedBox(height: AppSpacing.md),
                             AppButton(
-                              label: '카카오톡으로 보내기',
+                              label: context.l10n.referralInviteSendKakao,
                               isLoading: _sendingToKakao,
                               onPressed: () => _shareToKakao(code),
                             ),
                             const SizedBox(height: AppSpacing.xs),
                             AppButton(
-                              label: '다른 앱으로 보내기',
+                              label: context.l10n.referralInviteSendOther,
                               variant: AppButtonVariant.text,
                               onPressed: () => _shareToOtherApps(code),
                             ),
@@ -178,7 +178,7 @@ class _InviteFriendsSheetState extends ConsumerState<InviteFriendsSheet> {
   /// pen 에 없는 상태(계획서 편차) — 16e `_LoadError` 와 같은 회색 문구 + 다시 시도.
   List<Widget> _loadError(String message, VoidCallback onRetry) => [
         Text(message, textAlign: TextAlign.center, style: AppTypography.body.copyWith(color: AppColors.body)),
-        AppButton(label: '다시 시도', variant: AppButtonVariant.text, onPressed: onRetry),
+        AppButton(label: context.l10n.commonRetry, variant: AppButtonVariant.text, onPressed: onRetry),
       ];
 }
 
@@ -241,7 +241,7 @@ class _CopyButton extends StatelessWidget {
                   const Icon(AppIcons.copy, size: 16, color: AppColors.ink),
                   const SizedBox(width: 6),
                   // pen `ifX9K` 14/600, 줄높이 속성 없음 · 렌더 20.
-                  Text('복사', style: AppTypography.labelSmall.copyWith(color: AppColors.ink, height: 20 / 14)),
+                  Text(context.l10n.referralInviteCopy, style: AppTypography.labelSmall.copyWith(color: AppColors.ink, height: 20 / 14)),
                 ],
               ),
             ),

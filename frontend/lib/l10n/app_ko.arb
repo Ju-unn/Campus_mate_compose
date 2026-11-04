@@ -9,6 +9,7 @@
   "authSocialReviewerTitle": "Reviewer sign-in",
   "@authSocialReviewerTitle": {"description": "구글 플레이 심사원 전용 아이디·비밀번호 창(시작 화면 로고 7번 탭) — 심사원이 읽도록 모든 언어에서 영어 그대로 둔다"},
   "commonRetry": "다시 시도",
+  "commonSkip": "건너뛰기",
   "consentAgreeAll": "전체 동의",
   "consentItemMarketing": "마케팅 알림 받기",
   "consentItemPrivacy": "개인정보 수집·이용",
@@ -71,5 +72,19 @@
   "@notificationsRowLabelRead": {"placeholders": {"title": {"type": "String"}, "body": {"type": "String"}, "time": {"type": "String"}}},
   "notificationsRowLabelUnread": "안 읽은 알림, {title}, {body}, {time}",
   "@notificationsRowLabelUnread": {"placeholders": {"title": {"type": "String"}, "body": {"type": "String"}, "time": {"type": "String"}}},
-  "notificationsScreenTitle": "알림"
+  "notificationsScreenTitle": "알림",
+  "referralCodeBadge": "마지막 단계",
+  "referralCodeConfirm": "코드 확인하기",
+  "referralCodeDescription": "코드를 입력하면 친구가 남긴 따뜻한 한마디를 프로필에 담을 수 있어요.",
+  "referralCodeFieldHint": "예: K7M2QX",
+  "referralCodeFieldLabel": "추천 코드",
+  "referralCodeHeadline": "친구에게 받은 코드가 있나요?",
+  "referralInviteCopied": "코드를 복사했어요",
+  "referralInviteCopy": "복사",
+  "referralInviteDescription": "친구가 가입할 때 이 코드를 넣으면 둘 다 하트 50개를 받아요.",
+  "referralInviteSendKakao": "카카오톡으로 보내기",
+  "referralInviteSendOther": "다른 앱으로 보내기",
+  "referralInviteTitle": "친구 초대",
+  "referralShareText": "CampusMate 에서 같이 해요! 가입할 때 추천 코드 {code} 를 넣어 줘.",
+  "@referralShareText": {"placeholders": {"code": {"type": "String"}}}
 }

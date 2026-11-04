@@ -7,6 +7,12 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../model/repository/fake_referral_repository.dart';
 
+/// 저장소가 `Result` 밖으로 예외를 새게 하는 가짜.
+class _ThrowingReferralRepository extends FakeReferralRepository {
+  @override
+  Future<Result<String>> redeem(String code) async => throw StateError('끊어짐');
+}
+
 void main() {
   ProviderContainer container(FakeReferralRepository repository) {
     final container = ProviderContainer(
@@ -50,8 +56,22 @@ void main() {
     await vm.submit();
 
     final state = c.read(referralCodeViewModelProvider);
-    expect(state.errorMessage, '추천 코드는 한 번만 입력할 수 있어요');
+    expect(
+      state.error,
+      isA<ServerRejectedFailure>().having((failure) => failure.serverMessage, 'serverMessage', '추천 코드는 한 번만 입력할 수 있어요'),
+    );
     expect(state.referrerId, isNull);
+    expect(state.isSubmitting, isFalse);
+  });
+
+  test('저장소가 예외를 던져도 UnknownFailure 로 받아 버튼이 굳지 않는다', () async {
+    final c = container(_ThrowingReferralRepository());
+    final vm = c.read(referralCodeViewModelProvider.notifier)..changeCode('K7QMX2');
+
+    await vm.submit();
+
+    final state = c.read(referralCodeViewModelProvider);
+    expect(state.error, isA<UnknownFailure>());
     expect(state.isSubmitting, isFalse);
   });
 
@@ -63,7 +83,7 @@ void main() {
 
     vm.changeCode('K7QMX');
 
-    expect(c.read(referralCodeViewModelProvider).errorMessage, isNull);
+    expect(c.read(referralCodeViewModelProvider).error, isNull);
   });
 
   test('두 번 연달아 눌러도 한 번만 보낸다', () async {

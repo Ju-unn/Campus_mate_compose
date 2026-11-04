@@ -46,6 +46,10 @@ class PureTest(unittest.TestCase):
 
     def test_invite_text_is_the_share_text_of_lib_referral_invite_share(self):
         self.assertEqual(eh.invite_text(CODE), 'CampusMate 에서 같이 해요! 가입할 때 추천 코드 K7QMX2 를 넣어 줘.')
+        # 앱이 보내는 글은 문구 파일(ARB)의 referralShareText 에서 온다 — 하네스가 기대하는 글과 글자까지 같아야 한다.
+        self.assertEqual(tools.arb_messages()['referralShareText'].replace('{code}', CODE), eh.invite_text(CODE))
+        share = (tools.ROOT / 'frontend' / 'lib' / 'referral' / 'model' / 'data' / 'invite_share_text.dart').read_text(encoding='utf-8')
+        self.assertIn('referralShareText(code: code)', share)
 
     def test_chooser_count_is_the_number_of_distinct_chooser_records_not_the_number_of_lines(self):
         self.assertEqual(eh.chooser_count(dump()), 0)

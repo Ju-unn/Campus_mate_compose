@@ -46,7 +46,7 @@ def date_label(opens):
 
 
 def invite_text(code):
-    """공유 글 — frontend/lib/referral/model/data/invite_share_text.dart inviteShareText. 하트 숫자 · 스토어 링크 없음."""
+    """공유 글 — frontend/lib/referral/model/data/invite_share_text.dart inviteShareText(글자는 문구 파일 ARB 의 referralShareText). 하트 숫자 · 스토어 링크 없음."""
     return f'CampusMate 에서 같이 해요! 가입할 때 추천 코드 {code} 를 넣어 줘.'
 
 
