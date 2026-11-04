@@ -568,7 +568,7 @@ def test_pressing_buy_twice_gives_the_same_answer(wire):
 
 
 def test_purchase_error_wording_is_pinned_because_the_app_compares_it():
-    """앱(frontend/lib/matching/model/paid_card.dart)이 옛 방식으로 문구를 글자 그대로 비교한다 — 바꾸면 앱이 일반 실패로 떨어진다."""
+    """앱(frontend/lib/matching/model/data/paid_card.dart)이 옛 방식으로 문구를 글자 그대로 비교한다 — 바꾸면 앱이 일반 실패로 떨어진다."""
     assert errors.HEARTS_NOT_ENOUGH == "하트가 모자라요"
     assert errors.PAID_OFFER_GONE == "지금은 열 수 없는 카드예요"
 

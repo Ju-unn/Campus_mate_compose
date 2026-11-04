@@ -90,7 +90,7 @@ PHOTOS_CHANGED = "사진이 바뀌었어요, 다시 열어 주세요"
 AVATAR_ALREADY_CREATED = "아바타는 한 번만 만들 수 있어요"
 AVATAR_SOURCE_REQUIRED = "아바타 원본 사진을 먼저 골라 주세요"
 AVATAR_NOT_CREATED = "아바타를 먼저 만들어 주세요"
-# 앱(frontend/lib/matching/model/paid_card.dart)이 구매 402 를 이 문구 글자 그대로도 비교한다 — 바꾸면 앱이 일반 실패로 떨어진다. 기계용 code 는 CODE_HEARTS_NOT_ENOUGH.
+# 앱(frontend/lib/matching/model/data/paid_card.dart)이 구매 402 를 이 문구 글자 그대로도 비교한다 — 바꾸면 앱이 일반 실패로 떨어진다. 기계용 code 는 CODE_HEARTS_NOT_ENOUGH.
 HEARTS_NOT_ENOUGH = "하트가 모자라요"
 # 큐 설정이 비었거나(503) 작업 등록이 실패했을 때(502). 둘 다 사용자가 할 일은 같다 — 잠시 뒤 다시.
 AVATAR_QUEUE_UNAVAILABLE = "지금은 아바타를 만들 수 없어요, 잠시 뒤 다시 시도해 주세요"
