@@ -91,7 +91,7 @@ void main() {
     await signIn;
 
     expect(state().inProgress, isNull);
-    expect(state().toast?.message, '로그인이 취소됐어요');
+    expect(state().toast?.failure, isA<LoginCancelledFailure>());
     expect(state().toast?.isCancellation, isTrue);
   });
 
@@ -100,7 +100,7 @@ void main() {
     repository.completer.complete(const FailureResult(SocialLoginFailure()));
     await signIn;
 
-    expect(state().toast?.message, '로그인하지 못했어요. 잠시 뒤 다시 시도해 주세요');
+    expect(state().toast?.failure, isA<SocialLoginFailure>());
     expect(state().toast?.isCancellation, isFalse);
   });
 
@@ -130,8 +130,18 @@ void main() {
     viewModel().showNotice('탈퇴한 계정이에요');
 
     expect(state().toast?.message, '탈퇴한 계정이에요');
+    expect(state().toast?.failure, isNull);
     expect(state().toast?.isCancellation, isFalse);
     expect(state().toast?.isInfo, isFalse);
+  });
+
+  test('뒤로가기로 앱이 닫히려 하면 "한 번 더" 안내를 취소 토스트 모양으로 띄운다 — 글자는 화면이 문구 파일에서 읽는다', () {
+    viewModel().showBackExitHint();
+
+    expect(state().toast?.isBackExitHint, isTrue);
+    expect(state().toast?.isCancellation, isTrue);
+    expect(state().toast?.message, isNull);
+    expect(state().toast?.failure, isNull);
   });
 
   // 03 학교 메일 충돌 "카카오로 다시 로그인" 뒤의 안내는 오류가 아니다 — info 아이콘(10-17 학생증 제거 B안).

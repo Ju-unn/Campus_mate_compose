@@ -10,10 +10,6 @@ void main() {
     viewModel = BackExitViewModel(now: () => now);
   });
 
-  test('안내 문구는 "한 번 더 누르면 종료돼요" 다', () {
-    expect(backExitMessage, '한 번 더 누르면 종료돼요');
-  });
-
   test('처음 뒤로가기는 안내만 하고 종료하지 않는다', () {
     expect(viewModel.onBackPressed(), BackExitAction.showHint);
   });

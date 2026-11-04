@@ -23,6 +23,8 @@
   "authSocialReviewerSignIn": "Sign in",
   "authSocialReviewerTitle": "Reviewer sign-in",
   "@authSocialReviewerTitle": {"description": "구글 플레이 심사원 전용 아이디·비밀번호 창(시작 화면 로고 7번 탭) — 심사원이 읽도록 모든 언어에서 영어 그대로 둔다"},
+  "authSocialSchoolEmailNote": "학교 메일 인증은 가입할 때 한 번만 해요",
+  "authSocialTagline": "인증된 사람과 소중한 인연",
   "authVerifyAnotherEmail": "다른 학교 메일 입력",
   "authVerifyCodeLabel": "인증 코드 6자리",
   "authVerifyExpired": "코드가 만료됐어요. 메일을 다시 받아 주세요",

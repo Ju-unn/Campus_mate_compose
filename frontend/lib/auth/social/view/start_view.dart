@@ -11,6 +11,8 @@ import 'package:campus_mate/auth/social/viewmodel/start_view_model.dart';
 import 'package:campus_mate/common/widgets/app_lottie_view.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/supabase/auth_session_listenable.dart';
 import 'package:campus_mate/core/supabase/auth_session_listenable_provider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -211,7 +213,7 @@ class _Tagline extends StatelessWidget {
     return CustomSingleChildLayout(
       delegate: _TaglineLayout(top: top),
       child: Text(
-        '인증된 사람과 소중한 인연',
+        context.l10n.authSocialTagline,
         textAlign: TextAlign.center,
         style: AppTypography.body.copyWith(color: AppColors.muted),
       ),
@@ -278,10 +280,16 @@ class _Toast extends StatelessWidget {
 
   final StartToast toast;
 
+  String _text(BuildContext context) {
+    final failure = toast.failure;
+    if (failure != null) return context.errorText(failure);
+    return toast.isBackExitHint ? context.l10n.coreBackExitHint : toast.message!;
+  }
+
   @override
   Widget build(BuildContext context) {
     final icon = toast.isCancellation || toast.isInfo ? AppIcons.info : AppIcons.alertTriangle;
-    final pill = AppToast(label: toast.message, leading: Icon(icon, size: 16, color: AppColors.onInk));
+    final pill = AppToast(label: _text(context), leading: Icon(icon, size: 16, color: AppColors.onInk));
     if (toast.isCancellation) {
       return Center(key: StartView.toastKey, widthFactor: 1, heightFactor: 1, child: pill);
     }
@@ -329,7 +337,7 @@ class _LoginArea extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.only(top: _noticeTopPadding),
             child: Text(
-              '학교 메일 인증은 가입할 때 한 번만 해요',
+              context.l10n.authSocialSchoolEmailNote,
               textAlign: TextAlign.center,
               // 14px(대장 지시문 15, 디자인 파일 값), 줄 높이 20 = 20/14배. 기존 14px 스타일 bodySmall 을 쓴다.
               style: AppTypography.bodySmall.copyWith(color: AppColors.muted, height: _noticeLineHeight / 14),
