@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 NOTICE_TIMEOUT_SECONDS = 5.0
 
 TASK_TITLE = {"everytime_post": "에브리타임 홍보", "kakao_share": "단톡방 공유"}
-# 앱 frontend/lib/billing/model/heart_task.dart HeartTaskRejectReason.label 과 글자까지 같다(enum public.heart_task_reject_reason).
+# 앱 frontend/lib/billing/task/model/data/heart_task.dart HeartTaskRejectReason.label 과 글자까지 같다(enum public.heart_task_reject_reason).
 REASON_TEXT = {
     "date_missing": "날짜가 안 보여요",
     "not_verified": "게시글·공유가 확인되지 않아요",

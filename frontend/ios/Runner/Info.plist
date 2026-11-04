@@ -105,7 +105,7 @@
 	     (firebase_performance_collection_deactivated 는 앱에서 다시 켤 수 없어 쓰지 않는다). -->
 	<key>firebase_performance_collection_enabled</key>
 	<false/>
-	<!-- 광고 맞춤 신호는 켜 두지 않는다. 광고 식별자(IDFA)는 아예 쓰지 않는다 — Podfile 의 $FirebaseAnalyticsWithoutAdIdSupport. -->
+	<!-- 광고 맞춤 신호는 켜 두지 않는다. 광고 식별자(IDFA)는 아예 쓰지 않는다 — Podfile 의 $FirebaseAnalyticsWithoutAdIdSupport 가 맡았는데, Flutter 3.47 이 Firebase 를 SPM 으로 가져오면서 그 Podfile 줄이 듣지 않는다. 지금은 CI 워크플로 잡 env FIREBASE_ANALYTICS_WITHOUT_ADID=true (ios-testflight.yml · ios-build.yml, PR #665 merge db1283e9)가 맡는다. 맥에서 직접 flutter build ios / ipa 할 때도 이 환경변수를 준다. -->
 	<key>GOOGLE_ANALYTICS_DEFAULT_ALLOW_AD_PERSONALIZATION_SIGNALS</key>
 	<false/>
 	<!-- 서버 푸시(FCM → APNs)를 받는다. 알림 표시 자체는 aps 페이로드가 한다. -->

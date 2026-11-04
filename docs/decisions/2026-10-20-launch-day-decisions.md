@@ -25,7 +25,7 @@
 ## 1. 1번(Firebase 3종)의 설계 한계
 
 - 수집은 **약관 동의(02-c) 뒤에 로그인한 사용자일 때만** 켠다. 안드로이드 `AndroidManifest.xml` · iOS `Info.plist` 에는 기본 꺼짐으로 넣었고(iOS 성능 키는 소문자 `firebase_performance_collection_enabled`), 앱이 동의 확인 뒤 켠다(`lib/core/analytics/collection_consent.dart`).
-- 광고 식별자는 쓰지 않는다: `AD_ID` · `ACCESS_ADSERVICES_AD_ID` 권한 제거, iOS `Podfile` 의 `$FirebaseAnalyticsWithoutAdIdSupport = true`.
+- 광고 식별자는 쓰지 않는다: `AD_ID` · `ACCESS_ADSERVICES_AD_ID` 권한 제거, iOS `Podfile` 의 `$FirebaseAnalyticsWithoutAdIdSupport = true`. **2026-11-04 밤 개정(검토 담당 지적, 대장 전달 값)**: Flutter 3.47 이 Firebase 를 SPM 으로 가져와 Podfile 의 `$FirebaseAnalyticsWithoutAdIdSupport` 줄이 듣지 않는다. 그 역할은 워크플로 잡 env `FIREBASE_ANALYTICS_WITHOUT_ADID=true`(`ios-testflight.yml` · `ios-build.yml`)가 맡도록 고쳤다(PR #665 `fix/ios-dsym-upload`, 2026-11-04 21:06 merge `db1283e9`; PR 의 ios-build 에서 Core 로 컴파일되고 앱 Frameworks 에 두 부품이 없었다 — 대장 전달 값). 맥에서 직접 `flutter build ios` / `flutter build ipa` 할 때도 이 환경변수를 줘야 한다. 실제로 TestFlight 26 · 27 에는 광고 식별자 부품 2개(`GoogleAppMeasurementIdentitySupport` · `GoogleAdsOnDeviceConversion`)가 들어 있었다 — 사용자 결정 2026-11-04 「1」로 빼기로 했고, 애플 1.0.2 는 27 대신 28 로 제출한다(TestFlight 28 = run 41826406768, main `db1283e9` 은 2026-11-04 21:20 success — 확인 단계의 앱 Frameworks 목록에 두 부품이 없었고 경고 0건, 대장이 gh 로 직접 확인. TestFlight 25(애플이 승인한 1.0.0)는 26 과 Flutter 3.47.3 · Podfile · Firebase 잠금이 같아 같은 부품이 들어 있을 수 있다 — 확인 못 함, 1.0 을 어떻게 할지는 사용자 결정 대기).
 - 보내는 이벤트는 `login` · `onboarding_complete` · `chat_request_sent` · `heart_purchase` · `screen_view`(경로 패턴 이름)뿐이다. 사용자 id · 속성은 설정하지 않는다.
 - 성능 측정은 자동 수집(앱 시작 시간 · 화면 렌더링)만 쓴다. 요청 주소에 계정 번호가 섞일 수 있어 사용자 지정 추적(`HttpMetric` · `Trace`)은 만들지 않았다.
 - **남은 일**: iOS dSYM 업로드(충돌 기록의 글자 복원)는 출시 후다. dSYM 이 없으면 아이폰 충돌 기록의 함수 이름이 읽기 어려울 수 있다.
@@ -41,7 +41,7 @@
 
 `site/privacy/index.html` 은 **노션 개인정보 처리방침(시행 2026-10-20)을 옮긴 사본**이다. 원본은 노션이고 홈페이지는 구글 OAuth 브랜딩 인증용 주소다.
 
-1. **노션 방침을 고치면 같은 PR 흐름에서 `site/privacy/index.html` 도 같이 고친다**(시행일 · 공고일자 포함). 한쪽만 고치면 앱 안 동의 화면(`lib/consent/model/consent_links.dart` 의 노션 링크)과 홈페이지 내용이 달라진다.
+1. **노션 방침을 고치면 같은 PR 흐름에서 `site/privacy/index.html` 도 같이 고친다**(시행일 · 공고일자 포함). 한쪽만 고치면 앱 안 동의 화면(`lib/consent/model/data/consent_links.dart` 의 노션 링크)과 홈페이지 내용이 달라진다.
 2. 방침 판이 바뀌면 `CONSENT_VERSION`(`backend/app/consents/policy.py`)을 올릴지 함께 정한다(재동의 여부).
 3. `.github/workflows/site.yml` 은 푸터의 `/privacy/` 링크와 `site/privacy/index.html` 이 있는지만 본다. **내용이 노션과 같은지는 검사하지 않는다** — 사람이 지키는 규칙이다.
 4. 이용약관 · 계정 삭제 안내는 아직 노션 링크 그대로다(홈페이지에 사본을 두지 않았다).

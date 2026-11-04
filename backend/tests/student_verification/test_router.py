@@ -126,7 +126,7 @@ def test_status_verified_without_school_info():
 @pytest.mark.parametrize("student_id", ["none", "pending", "verified", "rejected"])
 def test_old_app_contract_five_fields_and_the_status_is_always_verified(student_id):
     """옛 앱(빌드 15 · TF 16 · vc8)은 이 응답의 다섯 칸을 읽고 status != verified 면 학생증 화면(3b)으로 보낸다
-    (frontend/lib/auth/model/http_verification_gate_repository.dart). DB 값과 상관없이 늘 verified · 사유 없음이다."""
+    (frontend/lib/auth/gate/model/repository/http_verification_gate_repository.dart). DB 값과 상관없이 늘 verified · 사유 없음이다."""
     sent = _wire(_gate_row(student_id), reject_reason="사진이 흐려요")
 
     response = _fetch_status()

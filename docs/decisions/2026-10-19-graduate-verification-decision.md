@@ -228,5 +228,5 @@ CampusMate 의 가입 규칙은 "학교 메일로 6자리 코드를 받아 인�
 | 구현 계획 · 편차 기록 | `docs/superpowers/plans/2026-10-19-graduate-verification.md` · `2026-10-19-heart-task-multiphoto.md` |
 | DB | `supabase/migrations/20261019200000_graduate_verification_tables.sql` · `20261019200100_graduate_verification_functions.sql`(졸업생) · `20261019100000_heart_task_multi_photos.sql`(인증샷) · `20261019210000_notification_quiet_hours_default_off.sql`(저녁 알림), 표 설명은 `docs/ERD.md` |
 | 서버 | `backend/app/graduate_verification/*` · `backend/app/admin/graduate_*.py`, 배포 · 스위치 · 되돌림은 `backend/DEPLOY.md` §4-14 |
-| 앱 | `frontend/lib/graduate/*` · `frontend/lib/auth/model/verification_gate.dart`, 화면 규칙은 `frontend/docs/DESIGN.md` §9 (02-0 · 02-g 계열) |
+| 앱 | `frontend/lib/graduate/*` · `frontend/lib/auth/gate/model/data/verification_gate.dart`, 화면 규칙은 `frontend/docs/DESIGN.md` §9 (02-0 · 02-g 계열) |
 | 관리자 웹 | `admin_web/lib/graduate/*` (A10 졸업생 검수) |

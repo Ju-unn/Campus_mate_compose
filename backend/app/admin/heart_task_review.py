@@ -30,7 +30,7 @@ Task = Literal["everytime_post", "kakao_share"]
 
 
 class RejectBody(BaseModel):
-    # 앱 frontend/lib/billing/model/heart_task.dart 의 세 사유와 같다(enum public.heart_task_reject_reason).
+    # 앱 frontend/lib/billing/task/model/data/heart_task.dart 의 세 사유와 같다(enum public.heart_task_reject_reason).
     reason: Literal["date_missing", "not_verified", "reused"]
 
 

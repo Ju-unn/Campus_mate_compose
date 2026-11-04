@@ -1,6 +1,6 @@
 from app.consents.policy import CONSENT_VERSION, REQUIRED_KINDS, consent_state
 
-# 앱 frontend/lib/consent/model/consent_item.dart 의 wireName 과 같은 글자여야 한다(언어가 달라 양쪽에 적는다).
+# 앱 frontend/lib/consent/model/data/consent_item.dart 의 wireName 과 같은 글자여야 한다(언어가 달라 양쪽에 적는다).
 # 09-29 사용자 결정으로 필수는 둘이다 — 종교는 개인정보 수집·이용 안에, OpenAI 국외 이전은 처리방침 공개로 대신한다.
 ALL = ["terms", "privacy"]
 
