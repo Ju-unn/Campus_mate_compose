@@ -14,9 +14,26 @@ class FakeSocialLoginRepository implements SocialLoginRepository {
   final List<SocialProvider> requested = [];
   int signOutProvidersCalls = 0;
 
+  /// 심사원 로그인: [signInWithPassword] 가 받은 (이메일, 비밀번호). 시험 값은 모두 가짜다.
+  final List<(String, String)> passwordRequests = [];
+
+  /// 심사원 로그인에서 돌려줄 결과. null 이면 [passwordCompleter] 를 끝낼 때까지 기다린다.
+  Result<void>? nextPasswordResult;
+  Completer<Result<void>> passwordCompleter = Completer<Result<void>>();
+
   @override
   Future<void> signOutProviders() async {
     signOutProvidersCalls++;
+  }
+
+  @override
+  Future<Result<void>> signInWithPassword(String email, String password) {
+    passwordRequests.add((email, password));
+    final result = nextPasswordResult;
+    if (result != null) {
+      return Future.delayed(Duration.zero, () => result);
+    }
+    return passwordCompleter.future;
   }
 
   @override

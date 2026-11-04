@@ -8,6 +8,7 @@ import 'package:campus_mate/auth/social/model/repository/supabase_social_login_r
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart'
@@ -205,5 +206,89 @@ void main() {
     await repository.signOutProviders();
 
     expect((kakao.signOutCalls, google.signOutCalls), (1, 1));
+  });
+
+  // 구글 플레이 심사원 전용 아이디 · 비밀번호 로그인(시작 화면 로고 7번 탭). 시험 값은 모두 가짜다.
+  group('signInWithPassword(심사원 로그인)', () {
+    const email = 'reviewer@example.test';
+    const password = 'fake-password-1';
+
+    void stubPasswordSignIn() {
+      when(() => auth.signInWithPassword(
+            email: any(named: 'email'),
+            password: any(named: 'password'),
+          )).thenAnswer((_) async => AuthResponse());
+    }
+
+    void stubPasswordFailure(Object error) {
+      when(() => auth.signInWithPassword(
+            email: any(named: 'email'),
+            password: any(named: 'password'),
+          )).thenThrow(error);
+    }
+
+    test('이메일 · 비밀번호를 그대로 Supabase signInWithPassword 에 넘긴다', () async {
+      stubPasswordSignIn();
+
+      final result = await repository.signInWithPassword(email, password);
+
+      expect(_failureOf(result), isNull);
+      verify(() => auth.signInWithPassword(email: email, password: password)).called(1);
+    });
+
+    test('소셜 게이트웨이와 signInWithIdToken 은 건드리지 않고, 가입(signUp)은 어떤 경우에도 부르지 않는다', () async {
+      stubPasswordSignIn();
+
+      await repository.signInWithPassword(email, password);
+      stubPasswordFailure(const AuthException('Invalid login credentials', statusCode: '400', code: 'invalid_credentials'));
+      await repository.signInWithPassword(email, password);
+
+      expect((kakao.calls, google.calls), (0, 0));
+      verifyNever(() => auth.signInWithIdToken(
+            provider: any(named: 'provider'),
+            idToken: any(named: 'idToken'),
+            nonce: any(named: 'nonce'),
+          ));
+      verifyNever(() => auth.signUp(email: any(named: 'email'), password: any(named: 'password')));
+    });
+
+    test('잘못된 아이디 · 비밀번호(400 invalid_credentials)는 기존 로그인 실패(SocialLoginFailure)다', () async {
+      stubPasswordFailure(const AuthException('Invalid login credentials', statusCode: '400', code: 'invalid_credentials'));
+
+      final result = await repository.signInWithPassword(email, password);
+
+      expect(_failureOf(result), isA<SocialLoginFailure>());
+    });
+
+    test('한도에 걸리면(429) RateLimitedFailure 다 — 서버 문구 없이 공용 문구를 보인다', () async {
+      stubPasswordFailure(const AuthException('Request rate limit reached', statusCode: '429', code: 'over_request_rate_limit'));
+
+      final failure = _failureOf(await repository.signInWithPassword(email, password));
+
+      expect(failure, isA<RateLimitedFailure>());
+      expect((failure! as RateLimitedFailure).serverMessage, isNull);
+    });
+
+    test('네트워크 오류 같은 그 밖의 예외도 SocialLoginFailure 다', () async {
+      stubPasswordFailure(Exception('socket'));
+
+      final result = await repository.signInWithPassword(email, password);
+
+      expect(_failureOf(result), isA<SocialLoginFailure>());
+    });
+
+    test('실패 로그에는 오류 종류만 남고 이메일 · 비밀번호는 없다', () async {
+      final logs = <String>[];
+      final original = debugPrint;
+      debugPrint = (message, {wrapWidth}) => logs.add(message ?? '');
+      addTearDown(() => debugPrint = original);
+      stubPasswordFailure(AuthException('bad $email $password', statusCode: '400'));
+
+      await repository.signInWithPassword(email, password);
+
+      expect(logs, isNotEmpty);
+      expect(logs.join(), isNot(contains(password)));
+      expect(logs.join(), isNot(contains(email)));
+    });
   });
 }

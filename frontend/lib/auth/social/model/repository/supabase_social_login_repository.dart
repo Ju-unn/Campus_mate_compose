@@ -5,6 +5,9 @@ import 'package:campus_mate/common/result.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+/// GoTrue 가 요청 한도에 걸렸을 때 주는 상태 코드.
+const _tooManyRequests = '429';
+
 /// 공급자 게이트웨이에서 받은 ID 토큰을 Supabase `signInWithIdToken` 으로 세션과 바꾼다.
 ///
 /// 세션이 생기면 `AuthSessionListenable` → 게이트 → 라우터가 다음 화면으로 보낸다 — 여기서 화면을 밀지 않는다.
@@ -28,6 +31,20 @@ class SupabaseSocialLoginRepository implements SocialLoginRepository {
       onFailure: (failure) => FailureResult(failure),
     );
   }
+
+  @override
+  Future<Result<void>> signInWithPassword(String email, String password) async {
+    try {
+      await _auth.signInWithPassword(email: email, password: password);
+      return const Success(null);
+    } on Object catch (error) {
+      // 이메일 · 비밀번호는 남기지 않는다 — 오류 종류 이름만.
+      debugPrint('Supabase 비밀번호 로그인 실패: ${error.runtimeType}');
+      return FailureResult(_isRateLimited(error) ? const RateLimitedFailure() : const SocialLoginFailure());
+    }
+  }
+
+  bool _isRateLimited(Object error) => error is AuthException && error.statusCode == _tooManyRequests;
 
   @override
   Future<void> signOutProviders() async {
