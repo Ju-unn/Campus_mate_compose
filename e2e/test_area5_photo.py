@@ -402,7 +402,7 @@ class AppContractTest(unittest.TestCase):
         self.assertNotRegex(code, r'\btap\(tester, find\.byType')
 
     def test_the_literals_the_app_looks_for_are_in_the_real_screens(self):
-        screens = '\n'.join(path.read_text(encoding='utf-8') for path in (tools.ROOT / 'frontend' / 'lib').rglob('*.dart'))
+        screens = tools.lib_screens_text()
         for literal in ('저장', '사진 수정', '실제 사진 교체', '다시 만들기 · 20', '하트 충전하기', '구매하기', '하트가 모자라요', '지금 보유한 하트는',
                         '사진은 최대 $_maxPhotos장까지 올릴 수 있어요', '얼굴이 보이는 사진을 골라 주세요', '$rejected장은 얼굴이 보이지 않아 빠졌어요',
                         '아바타로 변환 중이에요', '아바타를 다시 만들까요?', '프로필 편집'):

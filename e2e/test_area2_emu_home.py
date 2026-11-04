@@ -500,7 +500,7 @@ class RegistryTest(unittest.TestCase):
         for text in ('첫 카드까지', '현재 모집 인원', '친구에게 초대 링크 보내기', '네트워크 연결을 확인해 주세요'):
             self.assertIn(text, dart)
             self.assertIn(text, (tools.ROOT / 'frontend' / 'lib').joinpath('home/view/cohort_wait_view.dart').read_text(encoding='utf-8')
-                          + (tools.ROOT / 'frontend' / 'lib' / 'common' / 'failure.dart').read_text(encoding='utf-8'))
+                          + tools.arb_literals())
 
     def test_the_new_files_use_crlf_like_their_neighbours(self):
         for path in ('e2e/area2_emu_home.py', 'e2e/test_area2_emu_home.py', 'frontend/integration_test/area2_emu_home.dart'):

@@ -1,19 +1,16 @@
 /// FAQ 묶음(ERD `faq_category`). 화면 21 의 탭이 이 순서다(DESIGN §8.13 · pen `Sg89A`).
 enum FaqCategory {
-  cardMatching('card_matching', '카드·매칭'),
-  heartPayment('heart_payment', '하트·결제'),
-  photoProfile('photo_profile', '사진·프로필'),
-  friendReview('friend_review', '지인 리뷰'),
-  safety('safety', '안전·신고'),
-  account('account', '계정');
+  cardMatching('card_matching'),
+  heartPayment('heart_payment'),
+  photoProfile('photo_profile'),
+  friendReview('friend_review'),
+  safety('safety'),
+  account('account');
 
-  const FaqCategory(this.wire, this.label);
+  const FaqCategory(this.wire);
 
-  /// 표에 적힌 값.
+  /// 표에 적힌 값. 탭 · 묶음 제목 글자는 view 의 `FaqCategoryText.label` 이 정한다(문구 파일 ARB).
   final String wire;
-
-  /// 탭 · 묶음 제목.
-  final String label;
 }
 
 /// `faq` 한 줄.

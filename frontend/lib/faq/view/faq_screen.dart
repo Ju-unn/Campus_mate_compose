@@ -5,6 +5,8 @@ import 'package:campus_mate/common/support_email.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/consent/model/repository/open_url.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_motion.dart';
@@ -12,6 +14,7 @@ import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/faq/model/data/faq_item.dart';
+import 'package:campus_mate/faq/view/faq_category_text.dart';
 import 'package:campus_mate/faq/viewmodel/faq_provider.dart';
 import 'package:campus_mate/faq/viewmodel/faq_view_model.dart';
 import 'package:flutter/material.dart';
@@ -28,7 +31,7 @@ class FaqScreen extends ConsumerWidget {
     final vm = ref.read(faqViewModelProvider.notifier);
     return Scaffold(
       appBar: AppBar(
-        title: Text('자주 묻는 질문', style: AppTypography.navTitle.copyWith(color: AppColors.ink)),
+        title: Text(context.l10n.faqScreenTitle, style: AppTypography.navTitle.copyWith(color: AppColors.ink)),
         centerTitle: false,
         // pen `OX1DW`: 뒤로 48(`xCEi8`, 왼쪽 8) + 간격 4 → 제목 x60.
         leadingWidth: 56,
@@ -108,7 +111,7 @@ class _SearchFieldState extends State<_SearchField> {
         textInputAction: TextInputAction.search,
         textAlignVertical: TextAlignVertical.center,
         decoration: InputDecoration(
-          hintText: '궁금한 내용을 검색해 보세요',
+          hintText: context.l10n.faqSearchHint,
           hintStyle: AppTypography.bodySmall.copyWith(color: AppColors.muted),
           // 글자를 키우면 360 폭에서 한 줄에 다 안 들어가 말줄임이 된다 — 두 줄까지 두고 칸은 최소 높이라 따라 커진다.
           hintMaxLines: 2,
@@ -132,7 +135,7 @@ class _SearchFieldState extends State<_SearchField> {
                   padding: const EdgeInsets.only(right: 2),
                   child: IconButton(
                     onPressed: _clear,
-                    tooltip: '검색어 지우기',
+                    tooltip: context.l10n.faqSearchClear,
                     icon: const Icon(AppIcons.x, size: 20, color: AppColors.muted),
                   ),
                 ),
@@ -187,7 +190,7 @@ class _Tabs extends StatelessWidget {
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(minHeight: 18),
                       child: Text(
-                        category.label,
+                        category.label(context.l10n),
                         style: AppTypography.labelSmall.copyWith(
                           fontWeight: category == selected ? FontWeight.w700 : FontWeight.w500,
                           color: category == selected ? AppColors.primaryText : AppColors.muted,
@@ -229,7 +232,7 @@ class _FaqList extends StatelessWidget {
         for (final (index, section) in sections.indexed) ...[
           if (index > 0) const SizedBox(height: AppSpacing.xl),
           if (showHeaders) ...[
-            Text(section.category.label, style: AppTypography.title.copyWith(color: AppColors.ink)),
+            Text(section.category.label(context.l10n), style: AppTypography.title.copyWith(color: AppColors.ink)),
             const SizedBox(height: AppSpacing.xs),
           ],
           for (final item in section.items)
@@ -269,7 +272,7 @@ class _NoResultsState extends ConsumerState<_NoResults> {
     }
     if (opened || !mounted) return;
     _noticeTimer?.cancel();
-    setState(() => _notice = const UnknownFailure().toDisplayMessage());
+    setState(() => _notice = context.errorText(const UnknownFailure()));
     _noticeTimer = Timer(const Duration(seconds: 3), () {
       if (mounted) setState(() => _notice = null);
     });
@@ -297,14 +300,14 @@ class _NoResultsState extends ConsumerState<_NoResults> {
                         // pen 간격 8 + 빈 사각형 8(`Wz22b`) + 간격 8.
                         const SizedBox(height: AppSpacing.lg),
                         Text(
-                          '찾는 질문이 없어요',
+                          context.l10n.faqNoResultsTitle,
                           textAlign: TextAlign.center,
                           // pen `ZBzIg` 18/600, 줄높이 속성 없음 · 렌더 25.
                           style: AppTypography.subtitle.copyWith(color: AppColors.ink, height: 25 / 18),
                         ),
                         const SizedBox(height: AppSpacing.xs),
                         // pen `ksubx` 줄마다 14/400 lh1.55 muted(마스터 설명 `DFs55` 값).
-                        Text('다른 말로 검색하거나', textAlign: TextAlign.center, style: description),
+                        Text(context.l10n.faqNoResultsLine1, textAlign: TextAlign.center, style: description),
                         // pen `CvTKu` 가로 · 간격 4. 글자를 키워 폭이 모자라면 "으로" 가 다음 줄로 간다.
                         Wrap(
                           alignment: WrapAlignment.center,
@@ -323,10 +326,10 @@ class _NoResultsState extends ConsumerState<_NoResults> {
                               ),
                               child: const Text(supportEmail, textAlign: TextAlign.center),
                             ),
-                            Text('으로', style: description),
+                            Text(context.l10n.faqNoResultsLine2, style: description),
                           ],
                         ),
-                        Text('물어봐 주세요', textAlign: TextAlign.center, style: description),
+                        Text(context.l10n.faqNoResultsLine3, textAlign: TextAlign.center, style: description),
                       ],
                     ),
                   ),

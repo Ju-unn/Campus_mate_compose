@@ -134,6 +134,28 @@ def require_cloud(what):
         raise Blocked(f'{what}: 로컬 시험(SUPABASE_URL 이 운영이 아님)이라 gcloud(운영 프로젝트)를 부르지 않는다')
 
 
+def arb_messages():
+    """문구 파일(frontend/lib/l10n/app_ko.arb)의 문구 키 → 글자. `@키` 메타데이터와 `@@locale` 은 뺀다."""
+    arb = json.loads((ROOT / 'frontend' / 'lib' / 'l10n' / 'app_ko.arb').read_text(encoding='utf-8'))
+    return {key: value for key, value in arb.items() if not key.startswith('@')}
+
+
+def arb_literals():
+    """문구 파일(frontend/lib/l10n/app_ko.arb)의 문구마다 Dart 홑따옴표 문자열 모양(`'글자'`)으로 다시 감싼 글자를 줄마다 하나씩.
+    화면 문구를 ARB 로 옮긴 뒤에도 "화면 코드에 `'글자'` 가 있다" 는 소스 읽기 시험이 그대로 맞게 한다(줄바꿈 · 따옴표 · 역슬래시는 Dart 소스 모양으로 이스케이프).
+    `{이름}` 자리표시자가 든 문구는 Dart 보간(`$이름`)과 달라 이 모양으로 못 찾는다 — 그런 단언은 시험이 직접 ARB 를 읽는다."""
+    escaped = (value.replace('\\', '\\\\').replace("'", "\\'").replace('\n', '\\n') for value in arb_messages().values())
+    return '\n'.join(f"'{text}'" for text in escaped)
+
+
+def lib_screens_text():
+    """`frontend/lib` 의 모든 dart 소스 + [arb_literals]. 소스 읽기 시험이 "화면 어딘가에 이 글자가 있다" 를 볼 때 쓴다.
+    생성 파일(lib/l10n/app_localizations*.dart)은 ARB 와 같은 글자라 빼서, 생성 여부와 상관없이 같은 결과가 나온다."""
+    lib = ROOT / 'frontend' / 'lib'
+    sources = [path.read_text(encoding='utf-8') for path in sorted(lib.rglob('*.dart')) if 'l10n' not in path.relative_to(lib).parts[:1]]
+    return '\n'.join([*sources, arb_literals()])
+
+
 def results_root(base, today=None):
     """결과 폴더. 로컬 시험은 `<base>/로컬_<날짜>` — 운영 signup_blocks 스냅샷 · 별칭 번호표와 섞이지 않는다."""
     return Path(base) / f'로컬_{today or date.today()}' if is_local() else Path(base)

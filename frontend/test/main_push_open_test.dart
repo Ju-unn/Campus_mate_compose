@@ -376,8 +376,9 @@ void main() {
   // 2026-10-19 사용자: 인증샷 승인 알림을 눌러 들어가면 뒤로가기가 없었다 — 알림 → 화면 → 뒤로가기 → 홈.
   Future<void> expectBackGoesHome(WidgetTester tester) async {
     expect(find.byType(HeartTasksScreen), findsOneWidget);
-    expect(find.byTooltip('Back'), findsOneWidget);
-    await tester.tap(find.byTooltip('Back'));
+    // 실제 앱(CampusMateApp)은 한국어 머티리얼 위임자를 켜서 뒤로가기 툴팁이 "뒤로" 다(1.0.2 B8). 위임자 없는 위젯 시험은 그대로 "Back".
+    expect(find.byTooltip('뒤로'), findsOneWidget);
+    await tester.tap(find.byTooltip('뒤로'));
     await tester.pumpAndSettle();
     expect(find.byType(HeartTasksScreen), findsNothing);
     expect(find.byType(HomeScreen), findsOneWidget);

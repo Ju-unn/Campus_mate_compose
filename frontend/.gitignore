@@ -72,3 +72,6 @@ assets/images/avatar-m.*
 assets/images/avatar-w.*
 assets/images/rail-m.*
 assets/images/rail-w.*
+
+# 문구(ARB) 생성 파일 — flutter pub get · flutter run · flutter build 가 lib/l10n/app_ko.arb 에서 만든다(l10n.yaml). 커밋하지 않는다.
+/lib/l10n/app_localizations*.dart

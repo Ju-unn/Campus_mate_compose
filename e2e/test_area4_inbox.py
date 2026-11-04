@@ -311,8 +311,9 @@ class RegistryTest(unittest.TestCase):
     def test_the_words_the_cases_expect_are_the_ones_the_app_and_server_really_use(self):
         inbox_dart = read('frontend', 'integration_test', 'area4_inbox.dart')
         screen = read('frontend', 'lib', 'notifications', 'view', 'notifications_screen.dart')
-        for word in ('모두 읽음', "Text('알림'"):
-            self.assertIn(word, screen)
+        for key, word in (('notificationsMarkAllRead', '모두 읽음'), ('notificationsScreenTitle', '알림')):
+            self.assertIn(f'l10n.{key}', screen)
+            self.assertEqual(tools.arb_messages()[key], word)  # 화면이 읽는 키의 글자가 앱 시나리오가 찾는 글자와 같다
         self.assertIn("const _markAllRead = '모두 읽음';", inbox_dart)
         self.assertIn(f"const _receivedReviews = '{RECEIVED}';", inbox_dart)
         self.assertIn(f"'{RECEIVED}'", read('frontend', 'lib', 'friend_review', 'view', 'received_reviews_screen.dart'))

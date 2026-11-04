@@ -503,7 +503,7 @@ class AppContractTest(unittest.TestCase):
         self.assertNotIn("'영구 삭제'", code)  # 1차 시트 버튼은 area5.dart 의 _openFinalSheet 가 누른다
 
     def test_the_literals_the_app_looks_for_are_in_the_real_screens(self):
-        screens = '\n'.join(path.read_text(encoding='utf-8') for path in (tools.ROOT / 'frontend' / 'lib').rglob('*.dart'))
+        screens = tools.lib_screens_text()
         for literal in ('정말 영구 삭제', '일시중지', '매칭 활성화', '인증 메일 받기', 'hong@snu.ac.kr', '정말 삭제할까요?', '대학 이메일로 시작해요',
                         '탈퇴한 계정이에요', '세션이 만료됐어요, 다시 로그인해 주세요'):
             with self.subTest(literal):
@@ -587,9 +587,11 @@ class ServerFactsTest(unittest.TestCase):
         notice = lib('account', 'model', 'data', 'login_notice.dart')
         self.assertIn('AccountStatus.withdrawn => const WithdrawnFailure(),', notice)
         self.assertIn('AccountStatus.expired => const SessionRejectedFailure(),', notice)
-        failure = lib('common', 'failure.dart')
-        self.assertIn(f"return '{EXPIRED}';", failure)
-        self.assertIn(f"String toDisplayMessage() => '{WITHDRAWN}';", failure)
+        messages = tools.arb_messages()  # 문구는 ARB 한 곳 — failure.dart 는 종류만 든다
+        self.assertEqual((messages['errorSessionExpired'], messages['errorWithdrawn']), (EXPIRED, WITHDRAWN))
+        error_text = lib('core', 'l10n', 'error_text.dart')
+        self.assertIn('SessionExpiredFailure() => l10n.errorSessionExpired,', error_text)
+        self.assertIn('WithdrawnFailure() => l10n.errorWithdrawn,', error_text)
         self.assertIn('if (failure is WithdrawnFailure) {', lib('account', 'viewmodel', 'withdraw_view_model.dart'))
 
     def test_the_hook_blocks_only_until_the_end_and_says_the_rejoin_text(self):

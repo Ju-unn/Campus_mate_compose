@@ -345,6 +345,15 @@ void main() {
     expect(find.text('신고하면 어떻게 되나요?'), findsOneWidget);
   });
 
+  testWidgets('✕ 단추의 낭독 · 툴팁 글자는 "검색어 지우기" 다', (tester) async {
+    await pump(tester);
+
+    await tester.enterText(find.byType(TextField), '없는말');
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('검색어 지우기'), findsOneWidget);
+  });
+
   testWidgets('검색 중에 뒤로 가기를 누르면 검색어를 지우지 않고 화면을 나간다(대장 09-29)', (tester) async {
     await tester.pumpWidget(
       ProviderScope(

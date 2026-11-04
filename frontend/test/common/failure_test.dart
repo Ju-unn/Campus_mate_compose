@@ -114,6 +114,42 @@ void main() {
     });
   });
 
+  // 글자로 바꾸는 곳(core/l10n/error_text.dart)이 꺼내 읽는 값 — 문구는 거기서, 값은 여기서.
+  group('error_text 가 읽는 값', () {
+    test('서버가 준 문구를 들고 있는 실패는 그 문구를 꺼낼 수 있다', () {
+      expect(const RateLimitedFailure('내일 다시').serverMessage, '내일 다시');
+      expect(const RateLimitedFailure().serverMessage, isNull);
+      expect(const SignUpRejectedFailure('가입 거부').serverMessage, '가입 거부');
+      expect(const ServerRejectedFailure('거부', code: 'X').serverMessage, '거부');
+      expect(const SchoolEmailRejectedFailure('학교 거부').serverMessage, '학교 거부');
+      expect(const SchoolEmailTakenFailure('중복', 'line').serverMessage, '중복');
+    });
+
+    test('다른 소셜이 쥔 메일이면 그 소셜의 서버 값을, 내 소셜 · 이메일 계정 · 모르는 수단이면 null 을 돌려준다', () {
+      expect(const SchoolEmailTakenFailure('서버', 'kakao', myProvider: 'google').otherSocialProvider(), 'kakao');
+      expect(const SchoolEmailTakenFailure('서버', 'kakao').otherSocialProvider(), 'kakao');
+      expect(const SchoolEmailTakenFailure('서버', 'kakao', myProvider: 'kakao').otherSocialProvider(), isNull);
+      expect(const SchoolEmailTakenFailure('서버', 'email').otherSocialProvider(), isNull);
+      expect(const SchoolEmailTakenFailure('서버', 'line').otherSocialProvider(), isNull);
+    });
+
+    test('이메일 방식 계정이 쥔 메일인지 안다', () {
+      expect(const SchoolEmailTakenFailure('서버', 'email').isTakenByEmailAccount(), isTrue);
+      expect(const SchoolEmailTakenFailure('서버', 'kakao').isTakenByEmailAccount(), isFalse);
+    });
+
+    test('이메일 계정 안내 문구는 공개 상수 자리에서도 같은 글자다(옛 호출처용 껍데기)', () {
+      expect(SchoolEmailTakenFailure.takenByEmailAccountMessage, '이 학교 메일로 이미 가입된 계정이 있어요. 문의해 주세요');
+    });
+
+    test('앱이 정하는 에러는 종류를 들고 다니고 글자는 error_text 가 정한다', () {
+      const failure = AppErrorFailure(AppError.notificationsLoad);
+
+      expect(failure.error, AppError.notificationsLoad);
+      expect(failure.toDisplayMessage(), '알림을 불러오지 못했어요');
+    });
+  });
+
   // 시작 화면 소셜 로그인 토스트 문구(대장 지시문 07).
   test('소셜 로그인을 사용자가 취소하면 취소 안내를 보여준다', () {
     const failure = LoginCancelledFailure();
