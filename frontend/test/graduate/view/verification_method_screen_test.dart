@@ -11,7 +11,7 @@ import 'package:campus_mate/graduate/view/verification_method_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../billing/view/pretendard.dart';
+import '../../billing/store/view/pretendard.dart';
 import 'gate_screen_harness.dart';
 
 /// pen 02-0 인증 방법 고르기 `M1L5Yg`(값표 §1). 카드 `vegg1` · `m4Gcfg`(마스터 `sPWwm` Card · Outline).

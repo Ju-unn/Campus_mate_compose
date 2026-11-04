@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../billing/view/pretendard.dart';
+import '../../billing/store/view/pretendard.dart';
 
 /// 채팅방 헤더 아래 배너. 값은 pen 부품 `TrustPreAcceptBanner` `IhqF4`(360×125, 대장이 pen 담당에게 받아 준 값표).
 /// 좌표는 배너 왼쪽 위 기준.

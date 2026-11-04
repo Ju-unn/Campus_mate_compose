@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../billing/view/pretendard.dart';
+import '../../billing/store/view/pretendard.dart';
 import 'gate_screen_harness.dart';
 
 /// pen 02-g-2 졸업생 확인 중 `IENk4`(값표 §4, 18c `xA8en` 복사). 앱바 · 뒤로가기 · 단추 없음.

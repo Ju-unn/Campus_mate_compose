@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:campus_mate/billing/model/heart_task.dart';
+import 'package:campus_mate/billing/task/model/data/heart_task.dart';
 import 'package:campus_mate/core/analytics/analytics_values.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:go_router/go_router.dart';

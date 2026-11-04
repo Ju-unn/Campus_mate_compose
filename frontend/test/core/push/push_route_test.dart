@@ -1,5 +1,5 @@
-import 'package:campus_mate/billing/model/heart_task.dart';
-import 'package:campus_mate/billing/view/heart_task_submit_screen.dart';
+import 'package:campus_mate/billing/task/model/data/heart_task.dart';
+import 'package:campus_mate/billing/task/view/heart_task_submit_screen.dart';
 import 'package:campus_mate/core/analytics/analytics_values.dart';
 import 'package:campus_mate/core/push/push_route.dart';
 import 'package:campus_mate/core/router/app_routes.dart';

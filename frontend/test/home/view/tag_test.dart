@@ -20,7 +20,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mocktail/mocktail.dart';
 
-import '../../billing/view/pretendard.dart';
+import '../../billing/store/view/pretendard.dart';
 import '../../chat/model/repository/fake_chat_repository.dart';
 import '../../matching/model/repository/fake_card_repository.dart';
 import '../../me/model/repository/fake_me_repository.dart';

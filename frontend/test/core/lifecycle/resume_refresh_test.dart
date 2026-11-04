@@ -1,10 +1,10 @@
 import 'dart:async';
 
 import 'package:campus_mate/auth/model/verification_gate.dart';
-import 'package:campus_mate/billing/model/billing_repository_provider.dart';
-import 'package:campus_mate/billing/model/heart_store_gateway.dart';
-import 'package:campus_mate/billing/model/store_purchase.dart';
-import 'package:campus_mate/billing/viewmodel/heart_purchase_view_model.dart';
+import 'package:campus_mate/billing/store/model/data/store_purchase.dart';
+import 'package:campus_mate/billing/store/model/repository/billing_repository_provider.dart';
+import 'package:campus_mate/billing/store/model/repository/heart_store_gateway.dart';
+import 'package:campus_mate/billing/store/viewmodel/heart_purchase_view_model.dart';
 import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
 import 'package:campus_mate/common/failure.dart';
@@ -19,8 +19,8 @@ import 'package:campus_mate/notifications/viewmodel/unread_count_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../billing/model/fake_billing_repository.dart';
-import '../../billing/model/fake_heart_store_gateway.dart';
+import '../../billing/store/model/repository/fake_billing_repository.dart';
+import '../../billing/store/model/repository/fake_heart_store_gateway.dart';
 import '../../chat/model/repository/fake_chat_repository.dart';
 import '../../matching/model/repository/fake_card_repository.dart';
 import '../../notifications/model/repository/fake_notifications_repository.dart';

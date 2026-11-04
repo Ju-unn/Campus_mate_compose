@@ -15,7 +15,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../billing/view/pretendard.dart';
+import '../../billing/store/view/pretendard.dart';
 import '../model/fake_acquisition_repository.dart';
 
 /// 20 · 20d · 06-4 세 경로만 둔 라우터. 20 과 06-4 자리는 글자 하나다.

@@ -1,4 +1,4 @@
-import 'package:campus_mate/billing/view/heart_balance_chip.dart';
+import 'package:campus_mate/billing/store/view/heart_balance_chip.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';

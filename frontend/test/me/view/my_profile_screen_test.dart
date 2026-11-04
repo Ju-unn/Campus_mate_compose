@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart';
-import 'package:campus_mate/billing/view/heart_balance_chip.dart';
+import 'package:campus_mate/billing/store/view/heart_balance_chip.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/university_logos.dart';

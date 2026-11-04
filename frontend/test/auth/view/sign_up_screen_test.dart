@@ -16,7 +16,7 @@ import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
-import '../../billing/view/pretendard.dart';
+import '../../billing/store/view/pretendard.dart';
 import '../model/fake_school_email_repository.dart';
 import '../model/fake_verification_gate_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

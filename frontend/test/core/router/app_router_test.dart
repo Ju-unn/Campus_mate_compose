@@ -28,7 +28,7 @@ import 'package:campus_mate/auth/model/verification_gate.dart';
 import 'package:campus_mate/auth/view/sign_up_screen.dart';
 import 'package:campus_mate/auth/view/start_view.dart';
 import 'package:campus_mate/auth/view/verify_code_screen.dart';
-import 'package:campus_mate/billing/view/heart_store_screen.dart';
+import 'package:campus_mate/billing/store/view/heart_store_screen.dart';
 import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart';
 import 'package:campus_mate/chat/view/chat_room_screen.dart';
 import 'package:campus_mate/community/model/repository/community_repository_provider.dart';

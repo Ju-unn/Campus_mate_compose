@@ -11,7 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../billing/view/pretendard.dart';
+import '../../billing/store/view/pretendard.dart';
 import '../../graduate/view/gate_screen_harness.dart';
 
 /// pen 02 학교 메일 입력 — 인증 방법 선택 뒤 `dM4P7`(값표 §2). 원본 `emHNY` 와 다른 점은 앱바 뒤로 화살표 하나다.

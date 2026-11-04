@@ -15,7 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../billing/view/pretendard.dart';
+import '../../billing/store/view/pretendard.dart';
 import 'gate_screen_harness.dart';
 
 /// pen 02-g 졸업생 인증 `JPJAd` · 02-g-3 반려 다시 제출 `u38Oyy`(값표 §3 · §5).

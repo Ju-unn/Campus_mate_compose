@@ -1,4 +1,4 @@
-import 'package:campus_mate/billing/view/heart_task_row.dart';
+import 'package:campus_mate/billing/task/view/heart_task_row.dart';
 import 'package:campus_mate/community/view/community_feed_screen.dart';
 import 'package:campus_mate/home/view/home_screen.dart';
 import 'package:campus_mate/home/viewmodel/home_summary_provider.dart';
@@ -38,7 +38,7 @@ const _generating = '아바타로 변환 중이에요'; // me/view/my_profile_sc
 const _lowTitle = '하트가 모자라요';
 const _lowBody = '하트 20개가 필요해요. 지금 보유한 하트는 19개예요.'; // PC 가 하나 모자란 19 를 넣는다(area2_phone3 p_heart_44)
 const _lowCta = '하트 충전하기';
-const _storeTitle = '하트'; // billing/view/heart_store_screen.dart 앱바 제목 (18)
+const _storeTitle = '하트'; // billing/store/view/heart_store_screen.dart 앱바 제목 (18)
 const _storeSection = '구매하기'; // 18 하트 스토어의 섹션 제목
 const _regenTitle = '아바타를 다시 만들까요?';
 const _freeBody = '첫 번째 다시 만들기는 무료예요. 새 아바타는 바로 프로필에 반영돼요.';

@@ -19,7 +19,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../billing/view/pretendard.dart';
+import '../../billing/store/view/pretendard.dart';
 import '../../core/supabase/fake_auth_session.dart';
 import '../model/fake_social_login_repository.dart';
 

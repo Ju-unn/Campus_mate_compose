@@ -36,7 +36,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../billing/view/pretendard.dart';
+import '../../billing/store/view/pretendard.dart';
 import '../../chat/model/repository/fake_chat_repository.dart';
 import '../../home/model/repository/fake_home_repository.dart';
 import '../../matching/model/repository/fake_card_repository.dart';
