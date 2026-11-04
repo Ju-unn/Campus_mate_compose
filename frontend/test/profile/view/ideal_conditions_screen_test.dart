@@ -125,13 +125,10 @@ void main() {
       expect(find.text('1~3개'), findsNWidgets(2));
     });
 
-    testWidgets('제목 색은 얼굴상 · 인상이 #222222, MBTI · 나이 · 키 · 흡연이 #3F3F3F 이고 모두 14/600/1.2 다', (tester) async {
+    testWidgets('제목 색은 여섯 개 모두 #3F3F3F 이고 모두 14/600/1.2 다(사용자 11-04 「1」 — pen `AByJi` · `BaCk1` 도 #3F3F3F 로 맞춤)', (tester) async {
       await pumpNarrow(tester);
 
-      for (final title in ['선호하는 얼굴상', '선호하는 인상']) {
-        expect(styleOf(tester, title).color, AppColors.ink, reason: title);
-      }
-      for (final title in ['선호하는 성향 (MBTI)', '선호하는 나이 범위', '선호하는 키 범위', '흡연하는 사람']) {
+      for (final title in ['선호하는 얼굴상', '선호하는 인상', '선호하는 성향 (MBTI)', '선호하는 나이 범위', '선호하는 키 범위', '흡연하는 사람']) {
         expect(styleOf(tester, title).color, AppColors.body, reason: title);
       }
       for (final title in ['선호하는 얼굴상', '선호하는 인상', '선호하는 성향 (MBTI)', '선호하는 나이 범위', '선호하는 키 범위', '흡연하는 사람']) {
