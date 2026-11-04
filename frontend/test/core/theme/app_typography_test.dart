@@ -41,9 +41,26 @@ void main() {
     expect(AppTypography.subNavTitle.fontFamily, 'Pretendard');
   });
 
-  test('badge 는 가장 작은 11/600 이다', () {
-    expect(AppTypography.badge.fontSize, 11);
+  // 글자 크기 기준 48 · 32 · 24 · 20 · 18 · 16 · 14 · 12 · 10, 모두 짝수(2026-11-03 사용자 결정 「1」, pen `Type · badge` `bWiy9`).
+  test('badge 는 가장 작은 10/600 이다 — 줄높이 1.3 · 자간 0.02em 은 그대로', () {
+    expect(AppTypography.badge.fontSize, 10);
     expect(AppTypography.badge.fontWeight, FontWeight.w600);
+    expect(AppTypography.badge.height, 1.30);
+    expect(AppTypography.badge.letterSpacing, 0.02 * 10);
+  });
+
+  test('subtitle 은 리스트 행 제목용 18/600 이다 — 줄높이 1.45 · 자간 -0.01em 은 그대로 (pen `Type · subtitle` `qC5p8`)', () {
+    expect(AppTypography.subtitle.fontSize, 18);
+    expect(AppTypography.subtitle.fontWeight, FontWeight.w600);
+    expect(AppTypography.subtitle.height, 1.45);
+    expect(AppTypography.subtitle.letterSpacing, -0.01 * 18);
+  });
+
+  test('모든 토큰의 글자 크기는 기준 48 · 32 · 24 · 20 · 18 · 16 · 14 · 12 · 10 안에 있다', () {
+    final scale = <double>{48, 32, 24, 20, 18, 16, 14, 12, 10};
+    for (final style in AppTypography.values) {
+      expect(scale, contains(style.fontSize));
+    }
   });
 
   test('countdown 은 자릿수가 흔들리지 않게 tabular figures 를 쓴다 (§3.1)', () {

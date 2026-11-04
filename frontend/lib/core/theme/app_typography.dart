@@ -65,10 +65,10 @@ abstract final class AppTypography {
   static const TextStyle subtitle = TextStyle(
     fontFamily: _family,
     fontFamilyFallback: _fallback,
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: FontWeight.w600,
     height: 1.45,
-    letterSpacing: -0.01 * 17,
+    letterSpacing: -0.01 * 18,
   );
 
   /// 자기소개 본문, 채팅 메시지, 설명 문단
@@ -153,10 +153,10 @@ abstract final class AppTypography {
   static const TextStyle badge = TextStyle(
     fontFamily: _family,
     fontFamilyFallback: _fallback,
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: FontWeight.w600,
     height: 1.30,
-    letterSpacing: 0.02 * 11,
+    letterSpacing: 0.02 * 10,
   );
 
   /// 전체 목록 — 폰트 일괄 검증 등에 쓴다
