@@ -118,5 +118,21 @@
   "referralInviteSendOther": "다른 앱으로 보내기",
   "referralInviteTitle": "친구 초대",
   "referralShareText": "CampusMate 에서 같이 해요! 가입할 때 추천 코드 {code} 를 넣어 줘.",
-  "@referralShareText": {"placeholders": {"code": {"type": "String"}}}
+  "@referralShareText": {"placeholders": {"code": {"type": "String"}}},
+  "tourArrivalBody": "그때 새로운 한 명이 도착해요.",
+  "tourArrivalTitle": "카드는 정해진 요일 오전 7시에 열려요",
+  "tourArrivalTitleAt": "다음 카드는 {weekday}요일 {hour}에 열려요",
+  "@tourArrivalTitleAt": {"placeholders": {"weekday": {"type": "String"}, "hour": {"type": "String"}}},
+  "tourCoachNext": "다음",
+  "tourCoachStart": "시작하기",
+  "tourCommunityBody": "전체, 인기, 내 질문, 내 투표로 골라 볼 수 있어요.",
+  "tourCommunityTitle": "사람들과 이야기해요",
+  "tourHeartFreeBody": "무료로 모으기에서 미션을 인증하면 받아요.",
+  "tourHeartFreeTitle": "하트는 무료로도 모아요",
+  "tourPrecisionBody": "서로의 성향, 관심사, 이상형을 함께 비교해 골라 드려요.",
+  "tourPrecisionTitle": "하트로 여는 카드는 더 정밀해요",
+  "tourProfileBody": "사진, 소개, 이상형을 채우면 더 잘 맞아요.",
+  "tourProfileTitle": "프로필부터 채워 보세요",
+  "tourStartBody": "오늘의 카드와 소중한 인연을 만나봐요.",
+  "tourStartTitle": "여기가 캠퍼스메이트의 시작이에요"
 }

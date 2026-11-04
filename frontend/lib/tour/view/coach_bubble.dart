@@ -1,4 +1,5 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -63,7 +64,7 @@ class CoachBubble extends StatelessWidget {
             // 줄높이는 pen 글자 상자(대장 전달 값 10-17)에 맞춘다 — 단계 16 · 제목 22 · 설명 lineHeight 1.5(21). 토큰 줄높이(1.4 · 1.6 · 1.55)는 그대로 두고 여기서만 바꾼다.
             children: [
               Semantics(
-                label: '$total단계 중 $number단계',
+                label: context.l10n.commonStepOfTotal(total: total, current: number),
                 excludeSemantics: true,
                 child: Text(
                   '$number / $total',
@@ -103,7 +104,7 @@ class CoachBubble extends StatelessWidget {
         Flexible(
           child: SizedBox(
             width: MediaQuery.textScalerOf(context).scale(_nextWidth),
-            child: AppButton(label: isLast ? '시작하기' : '다음', height: _footerHeight, onPressed: onNext),
+            child: AppButton(label: isLast ? context.l10n.tourCoachStart : context.l10n.tourCoachNext, height: _footerHeight, onPressed: onNext),
           ),
         ),
       ],
@@ -136,7 +137,7 @@ class _SkipButton extends StatelessWidget {
                 widthFactor: 1,
                 heightFactor: 1,
                 child: Text(
-                  '건너뛰기',
+                  context.l10n.commonSkip,
                   style: AppTypography.labelSmall.copyWith(color: AppColors.muted, height: 20 / 14),
                 ),
               ),

@@ -4,7 +4,8 @@ E2E 빌드는 투어 자동 시작을 끈다 — 하네스는 가설마다 새 �
 그래서 투어 자체는 기기에서 돌리지 않고 코드에서 확인한다(화면 동작 · 단계 이동 · 건너뛰기는 frontend/test/tour/ 위젯 시험).
 
 E-HOME-34  E2E 진입점(frontend/integration_test/e2e_test.dart)이 app.main() 전에 `AppTourViewModel.autoStartEnabled = false` 를 둔다.
-E-HOME-35  투어 단계(frontend/lib/tour/view/app_tour_steps.dart)가 6개이고 제목이 사용자 확정 문구 · 순서 그대로다.
+E-HOME-35  투어 단계(frontend/lib/tour/view/app_tour_steps.dart)가 6개이고 제목이 사용자 확정 문구 · 순서 그대로다 — 단계는 `copy: TourCopy.…` 로
+           문구 묶음을 가리키고, 제목 글자는 문구 파일(frontend/lib/l10n/app_ko.arb)의 `tour…Title` 키가 정한다.
 """
 
 import re
@@ -43,8 +44,12 @@ def tour_off_problems(text):
     return []
 
 
-def steps_problems(text):
-    titles = tuple(re.findall(r"title: '([^']+)'", text))
+def steps_problems(text, messages=None):
+    # text = app_tour_steps.dart 소스, messages = ARB 키 → 글자(비우면 진짜 ARB). 단계 순서(`copy: TourCopy.x`)대로 제목 키(`TourCopy.x => l10n.…Title`)를 거쳐 글자를 읽는다.
+    messages = tools.arb_messages() if messages is None else messages
+    order = re.findall(r'copy: TourCopy\.(\w+)', text)
+    key_of = dict(re.findall(r'TourCopy\.(\w+) => l10n\.(\w+Title),', text))
+    titles = tuple(messages.get(key_of.get(name, ''), None) for name in order)
     return [] if titles == TITLES else [f'투어 제목 {titles} 가 확정 문구 {TITLES} 와 다르다']
 
 

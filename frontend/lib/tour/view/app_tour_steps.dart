@@ -1,4 +1,5 @@
 import 'package:campus_mate/core/router/app_routes.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/matching/view/daily_card_summary.dart';
 import 'package:campus_mate/tour/view/tour_precision_points.dart';
 import 'package:flutter/widgets.dart';
@@ -27,12 +28,40 @@ enum TourTargetId {
   heartStoreFree,
 }
 
+/// 투어 단계 하나의 문구 묶음(제목 · 설명). 단계 설정([TourStep])은 글자를 직접 들지 않고 이 식별자만 들며, 글자는 문구 파일(ARB)에서 읽는다.
+/// 문구는 사용자 확정본 그대로다.
+enum TourCopy {
+  start,
+  profile,
+  community,
+  arrival,
+  precision,
+  heartFree;
+
+  String title(AppLocalizations l10n) => switch (this) {
+        TourCopy.start => l10n.tourStartTitle,
+        TourCopy.profile => l10n.tourProfileTitle,
+        TourCopy.community => l10n.tourCommunityTitle,
+        TourCopy.arrival => l10n.tourArrivalTitle,
+        TourCopy.precision => l10n.tourPrecisionTitle,
+        TourCopy.heartFree => l10n.tourHeartFreeTitle,
+      };
+
+  String body(AppLocalizations l10n) => switch (this) {
+        TourCopy.start => l10n.tourStartBody,
+        TourCopy.profile => l10n.tourProfileBody,
+        TourCopy.community => l10n.tourCommunityBody,
+        TourCopy.arrival => l10n.tourArrivalBody,
+        TourCopy.precision => l10n.tourPrecisionBody,
+        TourCopy.heartFree => l10n.tourHeartFreeBody,
+      };
+}
+
 /// 투어 한 단계(pen 섹션 24 `vfrto` 앱 투어 v2). 설정 값 묶음이라 UiState 처럼 값을 그대로 연다.
 class TourStep {
   const TourStep({
     required this.location,
-    required this.title,
-    required this.body,
+    required this.copy,
     this.targets = const [],
     this.holeRadius = 16,
     this.holePadding = EdgeInsets.zero,
@@ -46,8 +75,9 @@ class TourStep {
 
   /// 이 단계의 화면 경로. 지금 화면이 아니면 옮긴다 — 탭은 `go`(하단 내비와 같은 방식), [push] 면 위에 올린다.
   final String location;
-  final String title;
-  final String body;
+
+  /// 제목 · 설명 글자의 식별자(글자는 [TourCopy.title] · [TourCopy.body]).
+  final TourCopy copy;
 
   /// 가리킬 요소 후보. 앞의 것이 먼저이고, 앞의 것이 안 보이면 뒤의 것을 쓴다. 비어 있으면 구멍 없이 가운데 설명 카드다.
   final List<TourTargetId> targets;
@@ -74,17 +104,17 @@ class TourStep {
   /// 잘라 말풍선이 보이는 영역(하단 바 위) 안에 다 들어오게 한다. null 이면 대상을 가운데로 민다(화면 밖일 때만).
   final double? alignTop;
 
-  /// 다음 카드 지급 시각을 알 때 [title] 대신 쓸 제목을 만든다. 없으면 제목은 늘 [title] 이다.
-  final String Function(DateTime nextIssueAt)? titleAt;
+  /// 다음 카드 지급 시각을 알 때 [TourCopy.title] 대신 쓸 제목을 만든다. 없으면 제목은 늘 [TourCopy.title] 이다.
+  final String Function(AppLocalizations l10n, DateTime nextIssueAt)? titleAt;
 
-  /// 말풍선에 쓸 제목. [titleAt] 이 있고 [nextIssueAt] 을 알면 그것으로 만들고, 아니면 [title] 이다.
-  String titleFor(DateTime? nextIssueAt) {
+  /// 말풍선에 쓸 제목. [titleAt] 이 있고 [nextIssueAt] 을 알면 그것으로 만들고, 아니면 [TourCopy.title] 이다.
+  String titleFor(AppLocalizations l10n, DateTime? nextIssueAt) {
     final at = nextIssueAt;
     final build = titleAt;
     if (at == null || build == null) {
-      return title;
+      return copy.title(l10n);
     }
-    return build(at);
+    return build(l10n, at);
   }
 }
 
@@ -92,9 +122,9 @@ Widget _precisionPoints(BuildContext context) => const TourPrecisionPoints();
 
 /// 4단계 제목 — 서버가 준 다음 지급 시각의 서울 요일 · 시각이다. 지급 주기는 학교 인원에 따라 주 1회 ~ 매일이라 요일을 못 박지 않는다.
 /// 오늘 탭 대기 화면 부제(`waitingSubtitle`)와 같은 [seoulClock] · [weekdayNames] · [hourLabel] 을 쓴다.
-String _arrivalTitle(DateTime nextIssueAt) {
+String _arrivalTitle(AppLocalizations l10n, DateTime nextIssueAt) {
   final issue = seoulClock(nextIssueAt);
-  return '다음 카드는 ${weekdayNames[issue.weekday - 1]}요일 ${hourLabel(issue)}에 열려요';
+  return l10n.tourArrivalTitleAt(weekday: weekdayNames[issue.weekday - 1], hour: hourLabel(issue));
 }
 
 /// 앱 투어 6단계 — 문구는 사용자 확정본 그대로다. 단계를 고치거나 더할 때는 이 목록만 고친다.
@@ -104,8 +134,7 @@ const List<TourStep> appTourSteps = [
     targets: [TourTargetId.homeHero],
     holeRadius: 34,
     holePadding: EdgeInsets.all(2),
-    title: '여기가 캠퍼스메이트의 시작이에요',
-    body: '오늘의 카드와 소중한 인연을 만나봐요.',
+    copy: TourCopy.start,
   ),
   TourStep(
     location: AppRoutes.home,
@@ -113,30 +142,26 @@ const List<TourStep> appTourSteps = [
     holeRadius: 26,
     holePadding: EdgeInsets.all(2),
     scrollAnchor: TourTargetId.homeHero,
-    title: '프로필부터 채워 보세요',
-    body: '사진, 소개, 이상형을 채우면 더 잘 맞아요.',
+    copy: TourCopy.profile,
   ),
   TourStep(
     location: AppRoutes.community,
     targets: [TourTargetId.communityTabs],
     holePadding: EdgeInsets.fromLTRB(8, 4, 8, 6),
-    title: '사람들과 이야기해요',
-    body: '전체, 인기, 내 질문, 내 투표로 골라 볼 수 있어요.',
+    copy: TourCopy.community,
   ),
   TourStep(
     location: AppRoutes.today,
     targets: [TourTargetId.todayArrival, TourTargetId.todayHeader],
     holePadding: EdgeInsets.symmetric(vertical: 7, horizontal: 38),
-    // 제목은 서버 다음 지급 시각을 알 때 [_arrivalTitle] 이 만든다 — 아래 글은 시각을 아직 모르거나 못 받았을 때의 기본이다.
-    title: '카드는 정해진 요일 오전 7시에 열려요',
+    // 제목은 서버 다음 지급 시각을 알 때 [_arrivalTitle] 이 만든다 — [TourCopy.arrival] 의 글은 시각을 아직 모르거나 못 받았을 때의 기본이다.
+    copy: TourCopy.arrival,
     titleAt: _arrivalTitle,
-    body: '그때 새로운 한 명이 도착해요.',
   ),
   // 가입 직후엔 카드가 없어 진짜 정밀 분석 시트(`G30cC`)를 못 연다 — 오늘 탭 위 가운데 설명 카드에 시트의 항목 넷을 한 줄씩 보인다.
   TourStep(
     location: AppRoutes.today,
-    title: '하트로 여는 카드는 더 정밀해요',
-    body: '서로의 성향, 관심사, 이상형을 함께 비교해 골라 드려요.',
+    copy: TourCopy.precision,
     detail: _precisionPoints,
     lineLength: 32,
   ),
@@ -148,7 +173,6 @@ const List<TourStep> appTourSteps = [
     scrollAnchor: TourTargetId.heartStoreTop,
     // pen(campus-pen 10-16, 360×780): 무료로 모으기를 앱바 아래 12 로 올린 모습 — 구멍 x12 · y68 · 336×306, 말풍선 x24 · y426.
     alignTop: 12,
-    title: '하트는 무료로도 모아요',
-    body: '무료로 모으기에서 미션을 인증하면 받아요.',
+    copy: TourCopy.heartFree,
   ),
 ];

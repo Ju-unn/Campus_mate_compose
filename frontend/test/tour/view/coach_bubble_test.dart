@@ -1,6 +1,7 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/tour/view/app_tour_steps.dart';
 import 'package:campus_mate/tour/view/coach_bubble.dart';
 import 'package:flutter/material.dart';
@@ -10,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../billing/store/view/pretendard.dart';
 
 void main() {
+  final l10n = AppLocalizationsKo();
   setUpAll(loadPretendard);
   late int nexts;
   late int skips;
@@ -146,12 +148,13 @@ void main() {
 
   testWidgets('단계마다 설명은 말풍선 폭(312)에서 두 줄 이내다', (tester) async {
     for (final step in appTourSteps) {
-      await pump(tester, body: step.body);
+      final body = step.copy.body(l10n);
+      await pump(tester, body: body);
 
-      final paragraph = tester.renderObject<RenderParagraph>(find.text(step.body));
+      final paragraph = tester.renderObject<RenderParagraph>(find.text(body));
       final painter = TextPainter(text: paragraph.text, textDirection: TextDirection.ltr)
         ..layout(maxWidth: paragraph.constraints.maxWidth);
-      expect(painter.computeLineMetrics().length, lessThanOrEqualTo(2), reason: step.body);
+      expect(painter.computeLineMetrics().length, lessThanOrEqualTo(2), reason: body);
       painter.dispose();
     }
   });
@@ -169,8 +172,8 @@ void main() {
               child: CoachBubble(
                 number: 6,
                 total: 6,
-                title: last.title,
-                body: last.body,
+                title: last.copy.title(l10n),
+                body: last.copy.body(l10n),
                 isLast: true,
                 onNext: () {},
                 onSkip: () {},
@@ -182,8 +185,8 @@ void main() {
     );
 
     expect(tester.getSize(find.text('6 / 6')).height, 16);
-    expect(tester.getSize(find.text(last.title)), const Size(280, 22));
-    expect(tester.getSize(find.text(last.body)), const Size(280, 21));
+    expect(tester.getSize(find.text(last.copy.title(l10n))), const Size(280, 22));
+    expect(tester.getSize(find.text(last.copy.body(l10n))), const Size(280, 21));
     expect(tester.getSize(find.byType(CoachBubble)), const Size(312, 159));
   });
 
