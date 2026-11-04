@@ -3,6 +3,8 @@ import 'package:campus_mate/account/viewmodel/kakao_id_settings_view_model.dart'
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/labeled_field.dart';
 import 'package:campus_mate/common/widgets/notice_card.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
@@ -43,9 +45,11 @@ class _KakaoIdSettingsScreenState extends ConsumerState<KakaoIdSettingsScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(kakaoIdSettingsViewModelProvider);
     final viewModel = ref.read(kakaoIdSettingsViewModelProvider.notifier);
+    final l10n = context.l10n;
+    final error = state.error;
     ref.listen(kakaoIdSettingsViewModelProvider, _onStateChanged);
     return Scaffold(
-      appBar: AppBar(title: Text('카카오톡 아이디', style: AppTypography.navTitle)),
+      appBar: AppBar(title: Text(l10n.commonKakaoId, style: AppTypography.navTitle)),
       body: SafeArea(
         top: false,
         child: Padding(
@@ -61,31 +65,30 @@ class _KakaoIdSettingsScreenState extends ConsumerState<KakaoIdSettingsScreen> {
                     children: [
                       const SizedBox(height: AppSpacing.xl),
                       // pen `pEaoR` 16/normal/#3F3F3F/1.6.
-                      Text('신뢰 확인을 마친 상대에게만 공개돼요.', style: AppTypography.body.copyWith(color: AppColors.body)),
+                      Text(l10n.accountKakaoIdSubtitle, style: AppTypography.body.copyWith(color: AppColors.body)),
                       const SizedBox(height: AppSpacing.xl),
                       // pen `HGpMk` — helper 없음(04-1b 의 "설정 > 계정에서…"는 여기서 할 말이 아니다).
                       LabeledField(
-                        label: '카카오톡 아이디',
+                        label: l10n.commonKakaoId,
                         controller: _controller,
                         onChanged: viewModel.change,
-                        errorText: state.errorMessage,
+                        errorText: error == null ? null : context.errorText(error),
                       ),
                       const SizedBox(height: AppSpacing.md),
                       // pen `VBABp` = 04-1b `W2tFQt` 와 글자 · 스타일 1:1 — 같은 위젯을 그대로 쓴다(복사 금지).
-                      const NoticeCard(
+                      NoticeCard(
                         isEmphasis: true,
-                        title: '꼭 확인해 주세요',
-                        body: '카카오톡에서 \'ID 검색 허용\'을 켜주셔야 상대가 내 아이디를 검색할 수 있어요. '
-                            '꺼져 있으면 신뢰 확인을 마쳐도 연락이 닿지 않아요.',
-                        footer: '카카오톡 > 설정 > 프로필 관리 > 카카오톡 ID 에서 켤 수 있어요',
-                        child: KakaoSettingExample(),
+                        title: l10n.accountKakaoIdNoticeTitle,
+                        body: l10n.accountKakaoIdNoticeBody,
+                        footer: l10n.accountKakaoIdNoticeFooter,
+                        child: const KakaoSettingExample(),
                       ),
                     ],
                   ),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
-              AppButton(label: '저장', onPressed: state.canSubmit ? viewModel.save : null),
+              AppButton(label: l10n.commonSave, onPressed: state.canSubmit ? viewModel.save : null),
             ],
           ),
         ),

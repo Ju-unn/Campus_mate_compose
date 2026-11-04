@@ -61,7 +61,7 @@ class WithdrawViewModel extends Notifier<WithdrawUiState> {
       return;
     }
     if (ref.mounted) {
-      state = WithdrawUiState(errorMessage: failure.toDisplayMessage());
+      state = WithdrawUiState(error: failure);
     }
   }
 }

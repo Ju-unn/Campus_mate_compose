@@ -50,7 +50,7 @@ void main() {
     await viewModel().withdraw();
 
     expect(status(), AccountStatus.withdrawn);
-    expect(container.read(withdrawViewModelProvider).errorMessage, isNull);
+    expect(container.read(withdrawViewModelProvider).error, isNull);
   });
 
   test('애플 사용자는 애플 창이 준 코드를 탈퇴 요청에 싣는다', () async {
@@ -111,7 +111,7 @@ void main() {
 
     await viewModel().withdraw();
 
-    expect(container.read(withdrawViewModelProvider).errorMessage, isNull);
+    expect(container.read(withdrawViewModelProvider).error, isNull);
     expect(status(), AccountStatus.withdrawn);
   });
 
@@ -121,7 +121,7 @@ void main() {
     await viewModel().withdraw();
 
     final state = container.read(withdrawViewModelProvider);
-    expect(state.errorMessage, '네트워크 연결을 확인해 주세요');
+    expect(state.error, isA<NetworkFailure>());
     expect(state.isSubmitting, isFalse);
     expect(status(), AccountStatus.active);
   });
