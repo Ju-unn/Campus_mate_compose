@@ -121,6 +121,17 @@ void main() {
     handle.dispose();
   });
 
+  testWidgets('아직 안 골랐으면 낭독기는 "고르지 않음" 이라 읽고, 올리기 · 내리기는 가운데에서 한 칸 옮긴다 — 글자는 문구 파일 commonTraitSliderUnset', (tester) async {
+    final handle = tester.ensureSemantics();
+    await pump(tester, null);
+
+    expect(
+      tester.getSemantics(find.bySemanticsLabel(_sliderLabel)),
+      isSemantics(isSlider: true, value: '고르지 않음', increasedValue: '5단계 중 4단계', decreasedValue: '5단계 중 2단계'),
+    );
+    handle.dispose();
+  });
+
   testWidgets('끝 칸에서는 더 갈 쪽 동작이 없다', (tester) async {
     final handle = tester.ensureSemantics();
     await pump(tester, 1);

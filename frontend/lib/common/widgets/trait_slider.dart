@@ -1,6 +1,8 @@
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 
 /// 성향 설문 슬라이더(datingApp.pen `TraitSlider`).
@@ -28,6 +30,7 @@ class TraitSlider extends StatelessWidget {
   Widget build(BuildContext context) {
     // 낭독기에는 점 다섯 개 · 양 끝 글자를 따로 내놓지 않고 슬라이더 하나로 읽힌다(양 끝 글자는 이름에 들어 있다).
     return _semantics(
+      context.l10n,
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -46,7 +49,7 @@ class TraitSlider extends StatelessWidget {
   }
 
   /// 고르지 않은 상태(null)에서 올리기 · 내리기는 가운데에서 한 칸 옮긴 자리다.
-  Widget _semantics(Widget child) {
+  Widget _semantics(AppLocalizations l10n, Widget child) {
     final index = value == null ? null : steps.indexOf(value!);
     final from = index ?? steps.length ~/ 2;
     final up = from + 1 < steps.length ? from + 1 : null;
@@ -54,10 +57,10 @@ class TraitSlider extends StatelessWidget {
     return Semantics(
       slider: true,
       excludeSemantics: true,
-      label: '$leftLabel부터 $rightLabel까지',
-      value: index == null ? '고르지 않음' : _stepLabel(index),
-      increasedValue: up == null ? null : _stepLabel(up),
-      decreasedValue: down == null ? null : _stepLabel(down),
+      label: l10n.commonTraitSliderLabel(left: leftLabel, right: rightLabel),
+      value: index == null ? l10n.commonTraitSliderUnset : _stepLabel(l10n, index),
+      increasedValue: up == null ? null : _stepLabel(l10n, up),
+      decreasedValue: down == null ? null : _stepLabel(l10n, down),
       onIncrease: up == null ? null : () => onChanged(steps[up]),
       onDecrease: down == null ? null : () => onChanged(steps[down]),
       child: child,
@@ -65,7 +68,7 @@ class TraitSlider extends StatelessWidget {
   }
 
   /// 숫자 값(-1 ~ 1)은 화면에 안 보이는 값이라 낭독기에도 몇째 칸인지만 읽는다.
-  String _stepLabel(int index) => '${steps.length}단계 중 ${index + 1}단계';
+  String _stepLabel(AppLocalizations l10n, int index) => l10n.commonStepOfTotal(total: steps.length, current: index + 1);
 
   Widget _track() {
     return LayoutBuilder(

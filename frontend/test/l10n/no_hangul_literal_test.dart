@@ -22,7 +22,6 @@ void main() {
     'billing/store',
     'billing/task',
     'chat',
-    'common/widgets',
     'community',
     'friend_review',
     'graduate',

@@ -4,7 +4,9 @@ import 'dart:ui' show ImageFilter;
 
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart' show AppTab;
+import 'package:campus_mate/common/widgets/app_tab_text.dart';
 import 'package:campus_mate/core/haptics/haptics_gateway.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -71,12 +73,12 @@ class GlassBottomNav extends ConsumerStatefulWidget {
 }
 
 /// 탭 목록·아이콘·라벨·경로는 [AppBottomNav] 와 같다(DESIGN §8.8).
-const _items = <(AppTab, IconData, String, String)>[
-  (AppTab.main, AppIcons.house, '메인', AppRoutes.home),
-  (AppTab.today, AppIcons.heart, '오늘', AppRoutes.today),
-  (AppTab.community, AppIcons.users, '커뮤니티', AppRoutes.community),
-  (AppTab.chat, AppIcons.messageCircle, '대화', AppRoutes.conversations),
-  (AppTab.me, AppIcons.userRound, '나', AppRoutes.myProfile),
+const _items = <(AppTab, IconData, String)>[
+  (AppTab.main, AppIcons.house, AppRoutes.home),
+  (AppTab.today, AppIcons.heart, AppRoutes.today),
+  (AppTab.community, AppIcons.users, AppRoutes.community),
+  (AppTab.chat, AppIcons.messageCircle, AppRoutes.conversations),
+  (AppTab.me, AppIcons.userRound, AppRoutes.myProfile),
 ];
 
 /// 끄는 동안 강조 탭을 바꾸려면 지금 강조된 칸 경계를 이만큼 넘어야 한다 — 경계에서 손이 떨려도 강조가 깜빡이지 않게.
@@ -140,7 +142,7 @@ class _GlassBottomNavState extends ConsumerState<GlassBottomNav> with SingleTick
       unawaited(ref.read(hapticsGatewayProvider).selectionClick());
       ref.read(_bubbleHandoffProvider).hand(from: _shown, to: tab);
     }
-    context.go(_items[tab.index].$4);
+    context.go(_items[tab.index].$3);
   }
 
   void _dragStart(DragStartDetails details, double cellWidth) {
@@ -225,11 +227,11 @@ class _GlassBottomNavState extends ConsumerState<GlassBottomNav> with SingleTick
                           padding: const EdgeInsets.all(AppSpacing.xxs),
                           child: Row(
                             children: [
-                              for (final (tab, icon, label, _) in _items)
+                              for (final (tab, icon, _) in _items)
                                 Expanded(
                                   child: _GlassTab(
                                     icon: icon,
-                                    label: label,
+                                    label: tab.label(context.l10n),
                                     isSelected: tab == widget.current,
                                     isHighlighted: tab == _highlight,
                                     badge: tab == AppTab.chat ? badge : 0,
@@ -420,7 +422,7 @@ class _CountBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: '안 읽음 $count개',
+      label: context.l10n.commonBottomNavUnreadCount(count: count),
       child: ExcludeSemantics(
         child: Container(
           constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
