@@ -1,5 +1,8 @@
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/push/push_refresh.dart';
 import 'package:campus_mate/core/push/push_route.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
@@ -55,7 +58,7 @@ class NotificationsScreen extends ConsumerWidget {
             ),
           ),
         ),
-        title: Text('알림', style: AppTypography.subNavTitle.copyWith(color: AppColors.ink)),
+        title: Text(context.l10n.notificationsScreenTitle, style: AppTypography.subNavTitle.copyWith(color: AppColors.ink)),
         actions: [
           // "모두 읽음" 은 목록 모습에서만(빈 상태 · 실패 · 로딩에는 없다). 안 읽은 게 없으면 누를 일이 없어 숨긴다 — pen 에 없는 상태.
           if (state.phase == NotificationsPhase.list && hasUnread)
@@ -68,7 +71,7 @@ class NotificationsScreen extends ConsumerWidget {
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               // pen `CkuaM` 14 / 600 / primary-text.
-              child: Text('모두 읽음', style: AppTypography.labelSmall.copyWith(color: AppColors.primaryText)),
+              child: Text(context.l10n.notificationsMarkAllRead, style: AppTypography.labelSmall.copyWith(color: AppColors.primaryText)),
             ),
           const SizedBox(width: AppSpacing.sm),
         ],
@@ -185,14 +188,14 @@ class _Empty extends StatelessWidget {
                 const Icon3d(AppIcon3d.bell, size: 120, key: notificationEmptyIconKey),
                 const SizedBox(height: AppSpacing.lg),
                 Text(
-                  '아직 받은 알림이 없어요',
+                  context.l10n.notificationsEmptyTitle,
                   textAlign: TextAlign.center,
                   // `ZBzIg` 18/600, 줄높이 속성 없음 · 렌더 25.
                   style: AppTypography.subtitle.copyWith(color: AppColors.ink, height: 25 / 18),
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
-                  '카드가 도착하거나 대화 신청이 오면\n여기에 모여요',
+                  context.l10n.notificationsEmptyBody,
                   textAlign: TextAlign.center,
                   // `DFs55` 14 / 보통 / muted / 1.5.
                   style: AppTypography.bodySmall.copyWith(color: AppColors.muted, height: 1.5),
@@ -233,14 +236,14 @@ class _Failed extends StatelessWidget {
                       const Icon3d(AppIcon3d.infoBlue, size: 120, key: notificationErrorIconKey),
                       const SizedBox(height: AppSpacing.lg),
                       Text(
-                        '알림을 불러오지 못했어요',
+                        context.appErrorText(AppError.notificationsLoad),
                         textAlign: TextAlign.center,
                         // 이 화면 제목은 20/700(`ZBzIg`), 렌더 29.
                         style: AppTypography.title.copyWith(fontWeight: FontWeight.w700, color: AppColors.ink, height: 29 / 20),
                       ),
                       const SizedBox(height: AppSpacing.xs),
                       Text(
-                        '잠시 후 다시 시도해 주세요',
+                        context.appErrorText(AppError.tryLater),
                         textAlign: TextAlign.center,
                         // `DFs55` 14 / 보통 — 줄높이 속성 없음 · 렌더 23.
                         style: AppTypography.bodySmall.copyWith(color: AppColors.muted, height: 23 / 14),
@@ -252,7 +255,7 @@ class _Failed extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
-          AppButton(label: '다시 시도', onPressed: onRetry),
+          AppButton(label: context.l10n.commonRetry, onPressed: onRetry),
         ],
       ),
     );
@@ -266,7 +269,7 @@ class _Skeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: '알림을 불러오는 중',
+      label: context.l10n.notificationsLoadingLabel,
       child: ExcludeSemantics(
         child: ListView(
           physics: const NeverScrollableScrollPhysics(),

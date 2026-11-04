@@ -1,5 +1,6 @@
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/community/view/poll_time.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
@@ -64,7 +65,9 @@ class NotificationRow extends StatelessWidget {
       button: true,
       onTap: onTap,
       excludeSemantics: true,
-      label: '${item.read ? '' : '안 읽은 알림, '}${item.title}, ${item.body}, $time',
+      label: item.read
+          ? context.l10n.notificationsRowLabelRead(title: item.title, body: item.body, time: time)
+          : context.l10n.notificationsRowLabelUnread(title: item.title, body: item.body, time: time),
       child: Material(
         key: notificationRowKey(item.id),
         type: MaterialType.transparency,

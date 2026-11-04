@@ -27,5 +27,14 @@
   "errorTryLater": "잠시 후 다시 시도해 주세요",
   "errorUnknown": "알 수 없는 오류가 발생했습니다",
   "errorWithdrawn": "탈퇴한 계정이에요",
-  "errorWrongCode": "코드가 맞지 않아요. 다시 확인해 주세요."
+  "errorWrongCode": "코드가 맞지 않아요. 다시 확인해 주세요.",
+  "notificationsEmptyBody": "카드가 도착하거나 대화 신청이 오면\n여기에 모여요",
+  "notificationsEmptyTitle": "아직 받은 알림이 없어요",
+  "notificationsLoadingLabel": "알림을 불러오는 중",
+  "notificationsMarkAllRead": "모두 읽음",
+  "notificationsRowLabelRead": "{title}, {body}, {time}",
+  "@notificationsRowLabelRead": {"placeholders": {"title": {"type": "String"}, "body": {"type": "String"}, "time": {"type": "String"}}},
+  "notificationsRowLabelUnread": "안 읽은 알림, {title}, {body}, {time}",
+  "@notificationsRowLabelUnread": {"placeholders": {"title": {"type": "String"}, "body": {"type": "String"}, "time": {"type": "String"}}},
+  "notificationsScreenTitle": "알림"
 }
