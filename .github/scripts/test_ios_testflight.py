@@ -14,6 +14,7 @@ import plistlib
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -431,6 +432,8 @@ class WorkflowTest(unittest.TestCase):
         step = self.dsym_step()
         self.assertLess(self.steps.index(self.step("xcodebuild -exportArchive")), self.steps.index(step))
         self.assertNotIn("if", step)  # 기본(앞 단계가 모두 성공했을 때만)으로 돈다
+        # 도구는 SPM 체크아웃(Flutter 가 build/ios/SourcePackages 에 받는다)이나 CocoaPods 에 있다 — Pods 한 곳만 보면 SPM 프로젝트에서 못 찾는다.
+        self.assertIn("build/ios/SourcePackages/checkouts/firebase-ios-sdk/Crashlytics/upload-symbols", step["run"])
         self.assertIn("ios/Pods/FirebaseCrashlytics/upload-symbols", step["run"])
         self.assertIn('-gsp "$PLIST" -p ios "$ARCHIVE/dSYMs"', step["run"])
 
@@ -450,9 +453,213 @@ class WorkflowTest(unittest.TestCase):
         self.assertNotRegex(step["run"], r"exit [1-9]")
 
     def test_crashlytics_dsym_output_goes_through_the_scrubber(self):
-        self.assertIn(
-            '-p ios "$ARCHIVE/dSYMs" 2>&1 | python3 -u "$TOOL" scrub "$PLIST" "$XCCONFIG"', self.dsym_step()["run"]
-        )
+        run = self.dsym_step()["run"]
+        self.assertIn('-p ios "$ARCHIVE/dSYMs" 2>&1 | python3 -u "$TOOL" scrub "$PLIST" "$XCCONFIG"', run)
+        # 못 찾았을 때 찍는 점검 줄(ls · find)도 같은 지우개를 거친다 — 폴더 이름에 값이 섞여 있을 수 있다.
+        self.assertIn('} 2>&1 | python3 -u "$TOOL" scrub "$PLIST" "$XCCONFIG" || true', run)
+
+    ARCHIVE_DIR = "build/ios/archive/Runner.xcarchive"
+
+    # 단계의 run 을 임시 폴더에서 진짜 bash 로 돌린다(GitHub 와 같은 -e -o pipefail). 문자열 검사로는 "어디서 무엇을 찾나"를 못 잡는다.
+    # populate(work) 가 가짜 파일을 만든다. 돌려주는 값: (끝난 프로세스, {파일 이름: 내용} — calls.txt · summary.md 중 생긴 것).
+    def run_step(self, step: dict, populate) -> tuple[subprocess.CompletedProcess, dict[str, str]]:
+        with tempfile.TemporaryDirectory() as tmp:
+            work = Path(tmp)
+            (work / "bin").mkdir()
+            # 윈도우 개발 PC 의 python3 는 스토어 안내용 가짜라, 지우개를 돌릴 진짜 파이썬으로 잇는다.
+            (work / "bin" / "python3").write_text(
+                f'#!/bin/sh\nexec "{Path(sys.executable).as_posix()}" "$@"\n', encoding="utf-8", newline="\n"
+            )
+            populate(work)
+            env = {
+                **os.environ,
+                "PATH": f"{(work / 'bin').as_posix()}{os.pathsep}{os.environ['PATH']}",
+                "HOME": work.as_posix(),
+                "TOOL": t.__file__,
+                "PLIST": "ios/Runner/GoogleService-Info.plist",
+                "XCCONFIG": "ios/Flutter/Secrets.xcconfig",
+                "ARCHIVE": self.ARCHIVE_DIR,
+                "GITHUB_STEP_SUMMARY": (work / "summary.md").as_posix(),
+            }
+            done = subprocess.run(
+                ["bash", "--noprofile", "--norc", "-e", "-o", "pipefail", "-c", step["run"]],
+                cwd=work,
+                env=env,
+                encoding="utf-8",
+                errors="replace",
+                capture_output=True,
+            )
+            files = {n: (work / n).read_text(encoding="utf-8") for n in ("calls.txt", "summary.md") if (work / n).exists()}
+            return done, files
+
+    def run_dsym_step(self, uploader_at: str | None = None, dsyms: bool = True, uploader_exit: int = 0):
+        def populate(work: Path) -> None:
+            (work / self.ARCHIVE_DIR / "Products").mkdir(parents=True)
+            if dsyms:
+                (work / self.ARCHIVE_DIR / "dSYMs").mkdir()
+            if uploader_at:
+                uploader = work / uploader_at
+                uploader.parent.mkdir(parents=True)
+                uploader.write_text(
+                    f'#!/bin/sh\necho "$@" >> "{(work / "calls.txt").as_posix()}"\nexit {uploader_exit}\n',
+                    encoding="utf-8",
+                    newline="\n",
+                )
+                uploader.chmod(0o755)
+
+        done, files = self.run_step(self.dsym_step(), populate)
+        return done, files.get("calls.txt", "")
+
+    SPM_UPLOADER = "build/ios/SourcePackages/checkouts/firebase-ios-sdk/Crashlytics/upload-symbols"
+    POD_UPLOADER = "ios/Pods/FirebaseCrashlytics/upload-symbols"
+
+    def test_crashlytics_dsym_step_uploads_with_the_tool_from_either_place(self):
+        for place in (self.SPM_UPLOADER, self.POD_UPLOADER):
+            done, calls = self.run_dsym_step(uploader_at=place)
+            self.assertEqual(done.returncode, 0, done.stderr)
+            self.assertEqual(
+                calls.strip(), "-gsp ios/Runner/GoogleService-Info.plist -p ios build/ios/archive/Runner.xcarchive/dSYMs", place
+            )
+            self.assertNotIn("::warning::", done.stdout, place)
+
+    def test_crashlytics_dsym_warning_says_which_half_is_missing(self):
+        no_tool, calls = self.run_dsym_step(uploader_at=None)
+        self.assertEqual(no_tool.returncode, 0, no_tool.stderr)
+        self.assertEqual(calls, "")
+        self.assertRegex(no_tool.stdout, r"::warning::[^\n]*upload-symbols[^\n]*찾지 못")
+        self.assertNotIn("dSYMs 폴더가 없", no_tool.stdout)
+        # 다음 실행에서 어디를 뒤졌는지 로그로 남는다 — 줄마다 무엇을 보는지 머리글이 붙는다.
+        for header in (
+            "ios/Pods/FirebaseCrashlytics",
+            "SPM 체크아웃 목록",
+            "firebase-ios-sdk/Crashlytics",
+            "보관본",
+            "보관본 dSYMs",
+            "DerivedData 의 upload-symbols",
+        ):
+            self.assertIn(f"== {header} ==", no_tool.stdout)
+
+        no_dsyms, calls = self.run_dsym_step(uploader_at=self.SPM_UPLOADER, dsyms=False)
+        self.assertEqual(no_dsyms.returncode, 0, no_dsyms.stderr)
+        self.assertEqual(calls, "")
+        self.assertRegex(no_dsyms.stdout, r"::warning::[^\n]*dSYMs 폴더가 없")
+        self.assertNotRegex(no_dsyms.stdout, r"::warning::[^\n]*upload-symbols[^\n]*찾지 못")
+        self.assertIn("Products", no_dsyms.stdout)  # dSYMs 가 없으면 보관본 안에 무엇이 있는지가 단서다
+
+    def test_crashlytics_dsym_upload_failure_is_only_a_warning(self):
+        done, calls = self.run_dsym_step(uploader_at=self.SPM_UPLOADER, uploader_exit=1)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertTrue(calls)
+        self.assertRegex(done.stdout, r"::warning::[^\n]*실패")
+
+    # 광고 식별자(IDFA) 부품은 앱에 넣지 않기로 했다(docs/decisions/2026-10-20-launch-day-decisions.md). Podfile 의 $FirebaseAnalyticsWithoutAdIdSupport
+    # 는 CocoaPods 전용이라 SPM 으로 오는 firebase_analytics 에는 듣지 않는다 — SPM 쪽은 이 환경변수(존재만 본다)가 켠다.
+    AD_ID_SWITCH = "FIREBASE_ANALYTICS_WITHOUT_ADID"
+    AD_ID_PARTS = ("GoogleAppMeasurementIdentitySupport", "GoogleAdsOnDeviceConversion")
+
+    def test_ad_id_switch_reaches_every_step_that_resolves_swift_packages(self):
+        # 패키지 해석(manifest 평가)은 번들 ID 확인(xcodebuild -showBuildSettings)과 flutter build ipa 두 곳에서 일어난다.
+        for snippet in ("xcodebuild -showBuildSettings", "flutter build ipa"):
+            step = self.step(snippet)
+            effective = {**self.job.get("env", {}), **step.get("env", {})}
+            self.assertEqual(effective.get(self.AD_ID_SWITCH), "true", snippet)
+
+    def ad_id_step(self) -> dict:
+        return self.step(self.AD_ID_PARTS[1])
+
+    def run_ad_id_check(self, frameworks: tuple[str, ...] | None):
+        """frameworks 가 None 이면 앱의 Frameworks 폴더 자체가 없는 보관본."""
+
+        def populate(work: Path) -> None:
+            if frameworks is not None:
+                folder = work / self.ARCHIVE_DIR / "Products/Applications/Runner.app/Frameworks"
+                folder.mkdir(parents=True)
+                for name in frameworks:
+                    (folder / f"{name}.framework").mkdir()
+
+        return self.run_step(self.ad_id_step(), populate)
+
+    def test_ad_id_check_runs_on_the_archive_before_the_upload(self):
+        step = self.ad_id_step()
+        self.assertLess(self.steps.index(self.step("flutter build ipa")), self.steps.index(step))
+        self.assertLess(self.steps.index(step), self.steps.index(self.step("xcodebuild -exportArchive")))
+        self.assertNotIn("if", step)
+        self.assertNotIn("secrets.", str(step))
+        self.assertIn('ls "$FRAMEWORKS" 2>&1 | python3 -u "$TOOL" scrub "$PLIST" "$XCCONFIG"', step["run"])
+
+    def test_ad_id_parts_in_the_app_only_raise_a_warning(self):
+        step = self.ad_id_step()
+        self.assertIs(step.get("continue-on-error"), True)
+        self.assertNotIn("::error::", step["run"])
+        self.assertNotRegex(step["run"], r"exit [1-9]")
+        both, _ = self.run_ad_id_check(self.AD_ID_PARTS + ("Flutter",))
+        self.assertEqual(both.returncode, 0, both.stderr)
+        for name in self.AD_ID_PARTS:
+            self.assertRegex(both.stdout, rf"::warning::[^\n]*{name}")
+        self.assertIn("Flutter.framework", both.stdout)  # 목록도 로그에 남는다
+        for name in self.AD_ID_PARTS:  # 하나만 있어도 그 이름이 경고에 나온다
+            one, _ = self.run_ad_id_check((name, "Flutter"))
+            self.assertEqual(one.returncode, 0, one.stderr)
+            self.assertRegex(one.stdout, rf"::warning::[^\n]*{name}")
+
+    def test_app_without_ad_id_parts_passes_quietly_and_lists_frameworks(self):
+        done, files = self.run_ad_id_check(("Flutter", "FirebaseAnalytics", "GoogleAppMeasurement"))
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertNotIn("::warning::", done.stdout)
+        self.assertIn("FirebaseAnalytics.framework", done.stdout)  # 맥에서 눈으로 확인할 목록
+        self.assertIn("광고 식별자 부품 없음", files["summary.md"])
+
+    def test_missing_frameworks_folder_is_not_reported_as_clean(self):
+        done, files = self.run_ad_id_check(None)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertRegex(done.stdout, r"::warning::[^\n]*Frameworks 폴더")
+        self.assertNotIn("광고 식별자 부품 없음", files.get("summary.md", ""))
+
+    # PR 컴파일 점검(ios-build.yml)도 배포 빌드와 같은 부품(Core)으로 컴파일해야, Core 로 안 되는 변화가 merge 전에 드러난다.
+    BUILD_WORKFLOW = ROOT / ".github" / "workflows" / "ios-build.yml"
+    BUILD_FRAMEWORKS = "build/ios/iphoneos/Runner.app/Frameworks"
+
+    def compile_check_job(self) -> dict:
+        import yaml
+
+        return yaml.safe_load(self.BUILD_WORKFLOW.read_text(encoding="utf-8"))["jobs"]["ios-build"]
+
+    def test_both_ios_workflows_switch_off_the_ad_id_parts(self):
+        self.assertEqual(self.job["env"][self.AD_ID_SWITCH], "true")
+        self.assertEqual(self.compile_check_job()["env"][self.AD_ID_SWITCH], "true")
+
+    def test_compile_check_warns_about_ad_id_parts_after_building(self):
+        steps = self.compile_check_job()["steps"]
+        build = next(i for i, s in enumerate(steps) if "flutter build ios" in s.get("run", ""))
+        check = next(i for i, s in enumerate(steps) if self.AD_ID_PARTS[1] in s.get("run", ""))
+        self.assertLess(build, check)
+        step = steps[check]
+        self.assertIs(step.get("continue-on-error"), True)
+        self.assertNotIn("::error::", step["run"])
+        self.assertNotRegex(step["run"], r"exit [1-9]")
+        for name in self.AD_ID_PARTS:
+            self.assertIn(name, step["run"])
+
+        def populate(names: tuple[str, ...]):
+            def make(work: Path) -> None:
+                folder = work / self.BUILD_FRAMEWORKS
+                folder.mkdir(parents=True)
+                for name in names:
+                    (folder / f"{name}.framework").mkdir()
+
+            return make
+
+        dirty, _ = self.run_step(step, populate(self.AD_ID_PARTS + ("Flutter",)))
+        self.assertEqual(dirty.returncode, 0, dirty.stderr)
+        for name in self.AD_ID_PARTS:
+            self.assertRegex(dirty.stdout, rf"::warning::[^\n]*{name}")
+        clean, _ = self.run_step(step, populate(("Flutter", "FirebaseAnalytics")))
+        self.assertEqual(clean.returncode, 0, clean.stderr)
+        self.assertNotIn("::warning::", clean.stdout)
+        self.assertIn("FirebaseAnalytics.framework", clean.stdout)
+        missing, _ = self.run_step(step, lambda work: None)
+        self.assertEqual(missing.returncode, 0, missing.stderr)
+        self.assertRegex(missing.stdout, r"::warning::[^\n]*Frameworks 폴더")
 
     def test_signs_without_dev_certificate_and_uploads_with_api_key(self):
         joined = "\n".join(self.runs)
