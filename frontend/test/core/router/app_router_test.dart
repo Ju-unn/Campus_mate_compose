@@ -1249,6 +1249,9 @@ void main() {
       });
 
       testWidgets('06-2b(초안 만드는 중) 앱바 뒤로 → 06-2a 는 저장해 둔 이상형 글이 채워져 있다', (tester) async {
+        // 진행 중 줄의 스피너(Lottie)는 끝없이 돌아 pumpAndSettle 이 끝나지 않는다 — 기기 "동작 줄이기" 로 멈춘 장면에 둔다.
+        tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
+        addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
         await pumpOnboarding(tester, OnboardingStep.bio, holdDraft: Completer<void>());
         expect(find.text('설문을 읽고 있어요'), findsOneWidget);
         expect(find.byType(BackExitScope), findsOneWidget, reason: '두 겹이면 같은 뒤로가기에 둘 다 불린다');
