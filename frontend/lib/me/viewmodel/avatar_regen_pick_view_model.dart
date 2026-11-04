@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:campus_mate/auth/model/face_detector_provider.dart';
-import 'package:campus_mate/auth/model/image_compressor_provider.dart';
+import 'package:campus_mate/auth/media/model/repository/face_detector_provider.dart';
+import 'package:campus_mate/auth/media/model/repository/image_compressor_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/model/data/photo_slot.dart';

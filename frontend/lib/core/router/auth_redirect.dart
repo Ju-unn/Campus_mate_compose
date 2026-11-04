@@ -1,4 +1,4 @@
-import 'package:campus_mate/auth/model/verification_gate.dart';
+import 'package:campus_mate/auth/gate/model/data/verification_gate.dart';
 import 'package:campus_mate/core/auth/account_status_listenable.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/profile/model/onboarding_step.dart';

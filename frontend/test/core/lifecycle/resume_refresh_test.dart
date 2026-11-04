@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:campus_mate/auth/model/verification_gate.dart';
+import 'package:campus_mate/auth/gate/model/data/verification_gate.dart';
 import 'package:campus_mate/billing/store/model/data/store_purchase.dart';
 import 'package:campus_mate/billing/store/model/repository/billing_repository_provider.dart';
 import 'package:campus_mate/billing/store/model/repository/heart_store_gateway.dart';

@@ -1,10 +1,10 @@
-import 'package:campus_mate/auth/model/image_compressor_provider.dart';
-import 'package:campus_mate/auth/model/school_email_repository_provider.dart';
-import 'package:campus_mate/auth/model/university_email.dart';
-import 'package:campus_mate/auth/model/verification_gate.dart';
-import 'package:campus_mate/auth/model/verification_gate_repository_provider.dart';
-import 'package:campus_mate/auth/view/sign_up_screen.dart';
-import 'package:campus_mate/auth/view/verify_code_screen.dart';
+import 'package:campus_mate/auth/gate/model/data/verification_gate.dart';
+import 'package:campus_mate/auth/gate/model/repository/verification_gate_repository_provider.dart';
+import 'package:campus_mate/auth/media/model/repository/image_compressor_provider.dart';
+import 'package:campus_mate/auth/school_email/model/data/university_email.dart';
+import 'package:campus_mate/auth/school_email/model/repository/school_email_repository_provider.dart';
+import 'package:campus_mate/auth/school_email/view/sign_up_screen.dart';
+import 'package:campus_mate/auth/school_email/view/verify_code_screen.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
@@ -22,9 +22,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../auth/model/fake_image_compressor.dart';
-import '../../auth/model/fake_school_email_repository.dart';
-import '../../auth/model/fake_verification_gate_repository.dart';
+import '../../auth/gate/model/repository/fake_verification_gate_repository.dart';
+import '../../auth/media/model/repository/fake_image_compressor.dart';
+import '../../auth/school_email/model/repository/fake_school_email_repository.dart';
 import '../../graduate/model/repository/fake_graduate_verification_repository.dart';
 
 /// 졸업생 관문 화면 4종(방법 고르기 · 신청 폼 · 대기 · 02) + 03 의 라우터 연결과 뒤로가기 규칙(계획서 Task 6 표

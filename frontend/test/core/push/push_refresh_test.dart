@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:campus_mate/auth/model/verification_gate.dart';
-import 'package:campus_mate/auth/model/verification_gate_repository_provider.dart';
+import 'package:campus_mate/auth/gate/model/data/verification_gate.dart';
+import 'package:campus_mate/auth/gate/model/repository/verification_gate_repository_provider.dart';
 import 'package:campus_mate/billing/task/model/repository/heart_task_repository_provider.dart';
 import 'package:campus_mate/billing/task/viewmodel/heart_tasks_view_model.dart';
 import 'package:campus_mate/common/result.dart';
@@ -21,7 +21,7 @@ import 'package:campus_mate/notifications/viewmodel/unread_count_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../auth/model/fake_verification_gate_repository.dart';
+import '../../auth/gate/model/repository/fake_verification_gate_repository.dart';
 import '../../billing/task/model/repository/fake_heart_task_repository.dart';
 import '../../notifications/model/repository/fake_notifications_repository.dart';
 

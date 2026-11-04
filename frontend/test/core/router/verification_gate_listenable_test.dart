@@ -1,10 +1,10 @@
-import 'package:campus_mate/auth/model/verification_gate.dart';
+import 'package:campus_mate/auth/gate/model/data/verification_gate.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/router/verification_gate_listenable.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../auth/model/fake_verification_gate_repository.dart';
+import '../../auth/gate/model/repository/fake_verification_gate_repository.dart';
 
 void main() {
   late FakeVerificationGateRepository repository;

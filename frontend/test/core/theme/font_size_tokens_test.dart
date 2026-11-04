@@ -8,7 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   // 파일 경로(`lib/` 기준) → 예외 이유. 이유 없이 더하지 않는다.
   const exceptions = <String, String>{
-    'auth/view/social_login_button.dart': '카카오 · 구글 공식 버튼 글자 — 카카오 가이드 "레이블은 버튼 높이의 1/3 이하"(46/3 ≈ 15.3 이하라 15), 구글은 Roboto Medium 14/20 이고 둘 다 앱 글꼴(Pretendard)이 아니다',
+    'auth/social/view/social_login_button.dart': '카카오 · 구글 공식 버튼 글자 — 카카오 가이드 "레이블은 버튼 높이의 1/3 이하"(46/3 ≈ 15.3 이하라 15), 구글은 Roboto Medium 14/20 이고 둘 다 앱 글꼴(Pretendard)이 아니다',
   };
 
   // 경로는 `frontend/` 에서 돌릴 때 기준이다(`flutter test` 기본 작업 폴더).

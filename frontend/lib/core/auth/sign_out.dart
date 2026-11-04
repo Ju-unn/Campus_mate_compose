@@ -1,7 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:campus_mate/auth/model/image_compressor_provider.dart';
-import 'package:campus_mate/auth/model/social_login_repository.dart';
-import 'package:campus_mate/auth/model/social_login_repository_provider.dart';
+import 'package:campus_mate/auth/media/model/repository/image_compressor_provider.dart';
+import 'package:campus_mate/auth/social/model/repository/social_login_repository.dart';
+import 'package:campus_mate/auth/social/model/repository/social_login_repository_provider.dart';
 import 'package:campus_mate/core/draft/draft_store.dart';
 import 'package:campus_mate/core/push/push_provider.dart';
 import 'package:campus_mate/core/push/push_registrar.dart';

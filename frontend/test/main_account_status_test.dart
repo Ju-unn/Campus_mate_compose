@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:campus_mate/account/model/data/login_notice.dart';
 import 'package:campus_mate/account/view/account_suspended_screen.dart';
-import 'package:campus_mate/auth/model/verification_gate_repository_provider.dart';
+import 'package:campus_mate/auth/gate/model/repository/verification_gate_repository_provider.dart';
 import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
@@ -24,7 +24,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'auth/model/fake_verification_gate_repository.dart';
+import 'auth/gate/model/repository/fake_verification_gate_repository.dart';
 import 'chat/model/repository/fake_chat_repository.dart';
 import 'core/draft/fake_draft_store.dart';
 import 'core/push/fake_push_messaging.dart';

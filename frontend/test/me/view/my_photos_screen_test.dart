@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:campus_mate/auth/model/face_detector_provider.dart';
-import 'package:campus_mate/auth/model/image_compressor_provider.dart';
+import 'package:campus_mate/auth/media/model/repository/face_detector_provider.dart';
+import 'package:campus_mate/auth/media/model/repository/image_compressor_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
@@ -32,8 +32,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mocktail/mocktail.dart';
 
-import '../../auth/model/fake_face_detector.dart';
-import '../../auth/model/fake_image_compressor.dart';
+import '../../auth/media/model/repository/fake_face_detector.dart';
+import '../../auth/media/model/repository/fake_image_compressor.dart';
 import '../../profile/model/fake_onboarding_repository.dart';
 import '../model/repository/fake_me_repository.dart';
 

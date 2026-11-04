@@ -1,5 +1,5 @@
 import 'package:campus_mate/account/model/repository/apple_withdrawal_code.dart';
-import 'package:campus_mate/auth/model/apple_login_gateway.dart';
+import 'package:campus_mate/auth/social/model/repository/apple_login_gateway.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';

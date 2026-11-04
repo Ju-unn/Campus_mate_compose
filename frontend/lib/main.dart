@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:campus_mate/account/model/data/login_notice.dart';
-import 'package:campus_mate/auth/model/kakao_login_gateway.dart';
-import 'package:campus_mate/auth/model/verification_gate.dart';
+import 'package:campus_mate/auth/social/model/repository/kakao_login_gateway.dart';
+import 'package:campus_mate/auth/gate/model/data/verification_gate.dart';
 import 'package:campus_mate/billing/store/model/repository/heart_store_gateway.dart';
 import 'package:campus_mate/billing/store/model/repository/in_app_heart_store_gateway.dart';
 import 'package:campus_mate/billing/store/viewmodel/heart_purchase_view_model.dart';

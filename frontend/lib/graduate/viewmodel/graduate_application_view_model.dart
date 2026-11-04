@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:campus_mate/auth/model/image_compressor.dart';
-import 'package:campus_mate/auth/model/image_compressor_provider.dart';
+import 'package:campus_mate/auth/media/model/repository/image_compressor.dart';
+import 'package:campus_mate/auth/media/model/repository/image_compressor_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/core/router/verification_gate_listenable_provider.dart';
 import 'package:campus_mate/graduate/model/data/graduate_request_state.dart';

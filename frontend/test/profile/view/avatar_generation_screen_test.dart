@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:ui' show ImageFilter, TileMode;
 
-import 'package:campus_mate/auth/model/verification_gate.dart';
+import 'package:campus_mate/auth/gate/model/data/verification_gate.dart';
 import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';

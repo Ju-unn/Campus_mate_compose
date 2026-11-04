@@ -1,4 +1,4 @@
-import 'package:campus_mate/auth/model/verification_gate.dart';
+import 'package:campus_mate/auth/gate/model/data/verification_gate.dart';
 import 'package:campus_mate/core/analytics/collection_switch.dart';
 
 /// 사용 통계 · 오류 수집 · 성능 측정을 **켜도 되는 때**를 정한다 — 약관 동의(02-c)를 마친 로그인 사용자뿐이다.

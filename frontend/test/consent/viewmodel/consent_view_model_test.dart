@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:campus_mate/auth/model/verification_gate_repository_provider.dart';
+import 'package:campus_mate/auth/gate/model/repository/verification_gate_repository_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/consent/model/data/consent_item.dart';
@@ -12,7 +12,7 @@ import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../auth/model/fake_verification_gate_repository.dart';
+import '../../auth/gate/model/repository/fake_verification_gate_repository.dart';
 import '../../profile/model/fake_onboarding_repository.dart';
 import '../model/repository/fake_consent_repository.dart';
 

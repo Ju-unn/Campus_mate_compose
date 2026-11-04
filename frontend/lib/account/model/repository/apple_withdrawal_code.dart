@@ -1,4 +1,4 @@
-import 'package:campus_mate/auth/model/apple_login_gateway.dart';
+import 'package:campus_mate/auth/social/model/repository/apple_login_gateway.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';

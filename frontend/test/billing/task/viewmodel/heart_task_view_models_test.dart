@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:campus_mate/auth/model/image_compressor_provider.dart';
+import 'package:campus_mate/auth/media/model/repository/image_compressor_provider.dart';
 import 'package:campus_mate/billing/task/model/data/heart_task.dart';
 import 'package:campus_mate/billing/task/model/repository/heart_task_repository_provider.dart';
 import 'package:campus_mate/billing/task/viewmodel/heart_task_submit_view_model.dart';
@@ -11,7 +11,7 @@ import 'package:campus_mate/common/result.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../../auth/model/fake_image_compressor.dart';
+import '../../../auth/media/model/repository/fake_image_compressor.dart';
 import '../model/repository/fake_heart_task_repository.dart';
 
 void main() {

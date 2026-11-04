@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'dart:math';
 
-import 'package:campus_mate/auth/view/start_view.dart';
+import 'package:campus_mate/auth/social/view/start_view.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/app_checkbox.dart';

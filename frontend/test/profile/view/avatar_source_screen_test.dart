@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:campus_mate/auth/model/face_detector_provider.dart';
-import 'package:campus_mate/auth/model/image_compressor_provider.dart';
+import 'package:campus_mate/auth/media/model/repository/face_detector_provider.dart';
+import 'package:campus_mate/auth/media/model/repository/image_compressor_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
@@ -17,8 +17,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../auth/model/fake_face_detector.dart';
-import '../../auth/model/fake_image_compressor.dart';
+import '../../auth/media/model/repository/fake_face_detector.dart';
+import '../../auth/media/model/repository/fake_image_compressor.dart';
 import '../model/fake_onboarding_repository.dart';
 import '../model/fake_photos_repository.dart';
 
