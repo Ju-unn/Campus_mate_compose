@@ -53,7 +53,7 @@ void main() {
 
     expect(loaded.isLoading, isFalse);
     expect(loaded.rows, isEmpty);
-    expect(loaded.errorMessage, '네트워크 연결을 확인해 주세요');
+    expect(loaded.error, isA<NetworkFailure>());
   });
 
   test('load again reads the server once more', () async {
@@ -84,7 +84,7 @@ void main() {
 
     expect(repository.removed, ['b1']);
     expect(state().rows.map((row) => row.blockId), ['b2']);
-    expect(state().errorMessage, isNull);
+    expect(state().error, isNull);
   });
 
   test('remove failure keeps row and local name, shows message', () async {
@@ -95,6 +95,6 @@ void main() {
 
     expect(nameStore.labels.keys, ['b1']);
     expect(state().rows.map((row) => row.blockId), ['b1', 'b2']);
-    expect(state().errorMessage, '잠시 뒤 다시 시도해 주세요');
+    expect(state().error, isA<ServerUnavailableFailure>());
   });
 }

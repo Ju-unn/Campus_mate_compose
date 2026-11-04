@@ -1,4 +1,7 @@
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -33,7 +36,7 @@ class PartnerProfileScreen extends ConsumerWidget {
     final state = ref.watch(provider);
     ref.listen(provider, (previous, next) {
       if (next.isGone && previous?.isGone != true) {
-        _leaveGone(context, next.errorMessage);
+        _leaveGone(context, next.error);
       }
     });
     final profile = state.profile;
@@ -48,7 +51,10 @@ class PartnerProfileScreen extends ConsumerWidget {
         ),
         title: profile == null
             ? null
-            : Text('${profile.detail.profile.nickname} 님 프로필', style: AppTypography.navTitle),
+            : Text(
+                context.l10n.safetyPartnerProfileTitle(nickname: profile.detail.profile.nickname),
+                style: AppTypography.navTitle,
+              ),
       ),
       body: SafeArea(child: _body(context, ref, state)),
     );
@@ -64,15 +70,15 @@ class PartnerProfileScreen extends ConsumerWidget {
       return const Center(child: CircularProgressIndicator());
     }
     return _LoadError(
-      message: state.errorMessage ?? '',
+      failure: state.error,
       onRetry: () => ref.invalidate(partnerProfileViewModelProvider(profileId)),
     );
   }
 
   /// 보여 줄 상대가 없다(404). 서버 문구를 짧게 띄우고 빠져나간다.
-  static void _leaveGone(BuildContext context, String? message) {
-    if (message != null) {
-      showSafetyToast(ScaffoldMessenger.of(context), message, icon: AppIcons.circleAlert);
+  static void _leaveGone(BuildContext context, Failure? failure) {
+    if (failure != null) {
+      showSafetyToast(ScaffoldMessenger.of(context), context.errorText(failure), icon: AppIcons.circleAlert);
     }
     _exit(context);
   }
@@ -147,7 +153,7 @@ class _TrustBadge extends StatelessWidget {
         // pen 간격 5 는 간격 토큰(xxs 4 · xs 8) 사이 값이다.
         const SizedBox(width: 5),
         Text(
-          '신뢰 확인 완료',
+          context.l10n.safetyPartnerTrusted,
           // 줄높이 속성 없음 · pen 렌더 20.
           style: AppTypography.labelSmall.copyWith(color: AppColors.primaryText, height: 20 / 14),
         ),
@@ -197,9 +203,10 @@ class _Footer extends StatelessWidget {
 
 /// 읽기 실패(404 말고). pen 에 없는 상태 — 10b 와 같은 회색 문구에 "다시 시도" 를 붙인다.
 class _LoadError extends StatelessWidget {
-  const _LoadError({required this.message, required this.onRetry});
+  const _LoadError({required this.failure, required this.onRetry});
 
-  final String message;
+  /// 읽기 실패 종류. 글자는 화면이 만든다(없으면 빈 글자).
+  final Failure? failure;
   final VoidCallback onRetry;
 
   @override
@@ -211,12 +218,12 @@ class _LoadError extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              message,
+              failure == null ? '' : context.errorText(failure!),
               textAlign: TextAlign.center,
               style: AppTypography.body.copyWith(color: AppColors.muted),
             ),
             const SizedBox(height: AppSpacing.sm),
-            AppButton(label: '다시 시도', variant: AppButtonVariant.text, onPressed: onRetry),
+            AppButton(label: context.l10n.commonRetry, variant: AppButtonVariant.text, onPressed: onRetry),
           ],
         ),
       ),

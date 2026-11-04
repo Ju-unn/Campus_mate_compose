@@ -44,7 +44,7 @@ class FriendReviewComposeViewModel extends Notifier<FriendReviewComposeUiState> 
       onSuccess: (target) => state.copyWith(isLoading: false, nickname: target.nickname),
       onFailure: (failure) => isAlreadyWritten(failure)
           ? state.copyWith(isLoading: false, alreadyWritten: true)
-          : state.copyWith(isLoading: false, loadError: failure.toDisplayMessage()),
+          : state.copyWith(isLoading: false, loadError: failure),
     );
   }
 
@@ -70,7 +70,7 @@ class FriendReviewComposeViewModel extends Notifier<FriendReviewComposeUiState> 
     state = result.when(
       onSuccess: (_) => state.copyWith(isSubmitting: false, submitted: true),
       // 409("이미 리뷰를 남겼어요") · 404 · 429 도 그 밖의 실패도 같은 방식으로 보여준다 — 계획서에 재시도 · 수정 화면이 없다.
-      onFailure: (failure) => state.copyWith(isSubmitting: false, submitError: friendReviewFailureMessage(failure)),
+      onFailure: (failure) => state.copyWith(isSubmitting: false, submitError: friendReviewFailure(failure)),
     );
   }
 

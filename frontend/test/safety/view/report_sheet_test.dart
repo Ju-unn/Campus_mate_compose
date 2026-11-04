@@ -2,7 +2,6 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/safety/model/data/report_target.dart';
-import 'package:campus_mate/safety/model/data/safety_errors.dart';
 import 'package:campus_mate/safety/model/repository/safety_repository_provider.dart';
 import 'package:campus_mate/safety/view/report_sheet.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
@@ -158,7 +157,7 @@ void main() {
     expect(find.text('무엇을 신고할까요?'), findsNothing);
     expect(closed, isTrue);
     expect(result!.outcome, ReportOutcome.reported);
-    expect(result!.message, reportedMessage);
+    expect(result!.failure, isNull);
   });
 
   testWidgets('하루 상한이면 닫고 상한 문구를 돌려준다', (tester) async {
@@ -171,7 +170,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(result!.outcome, ReportOutcome.limited);
-    expect(result!.message, reportLimitedMessage);
+    expect(
+      result!.failure,
+      isA<AppErrorFailure>().having((failure) => failure.error, 'error', AppError.reportLimited),
+    );
   });
 
   testWidgets('취소하면 아무것도 보내지 않고 null 로 닫힌다', (tester) async {

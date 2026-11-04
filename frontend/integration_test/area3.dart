@@ -13,6 +13,7 @@ import 'package:campus_mate/chat/viewmodel/chat_room_view_model.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/community/view/feed_poll_card.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/friend_review/view/friend_review_card.dart';
@@ -22,6 +23,7 @@ import 'package:campus_mate/friend_review/view/received_reviews_screen.dart';
 import 'package:campus_mate/friend_review/view/written_reviews_screen.dart';
 import 'package:campus_mate/friend_review/viewmodel/friend_review_compose_view_model.dart';
 import 'package:campus_mate/friend_review/viewmodel/friend_review_list_view_model.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/matching/view/conversations_screen.dart';
 import 'package:campus_mate/matching/viewmodel/notification_settings_view_model.dart';
 import 'package:campus_mate/me/view/me_load_error.dart';
@@ -29,6 +31,7 @@ import 'package:campus_mate/me/view/my_profile_screen.dart';
 import 'package:campus_mate/safety/model/data/report_reason.dart';
 import 'package:campus_mate/safety/view/block_list_screen.dart';
 import 'package:campus_mate/safety/view/partner_profile_screen.dart';
+import 'package:campus_mate/safety/view/report_reason_text.dart';
 import 'package:campus_mate/safety/view/report_sheet.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
@@ -262,7 +265,7 @@ Future<Map<String, Object?>> _reviewList(WidgetTester tester, Map<String, dynami
       });
   return {
     'cards': cards.toList(),
-    'relations': inPage(find.text(friendReviewRelationLabel)).evaluate().length,
+    'relations': inPage(find.text(AppLocalizationsKo().friendReviewRelation)).evaluate().length,
     'notice': inPage(find.text(received ? _receivedNotice : _writtenNotice)).evaluate().isNotEmpty,
     'empty': inPage(find.text(emptyTitle)).evaluate().isNotEmpty,
     'trash': inPage(find.byTooltip(_trash)).evaluate().length,

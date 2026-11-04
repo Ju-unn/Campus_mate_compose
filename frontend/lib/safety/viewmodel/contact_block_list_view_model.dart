@@ -26,7 +26,7 @@ class ContactBlockListViewModel extends Notifier<ContactBlockListUiState> {
         for (final block in blocks)
           ContactBlockRow(blockId: block.id, label: labels[block.id], createdAt: block.createdAt),
       ]),
-      onFailure: (failure) => state.copyWith(isLoading: false, errorMessage: failure.toDisplayMessage()),
+      onFailure: (failure) => state.copyWith(isLoading: false, error: failure),
     );
   }
 
@@ -39,7 +39,7 @@ class ContactBlockListViewModel extends Notifier<ContactBlockListUiState> {
     if (!ref.mounted) return;
     state = failure == null
         ? state.copyWith(rows: [for (final row in state.rows) if (row.blockId != blockId) row])
-        : state.copyWith(errorMessage: failure.toDisplayMessage());
+        : state.copyWith(error: failure);
   }
 
   /// 이름 파일 쓰기가 실패해도 해제는 이미 서버에서 끝났다 — 줄은 빼야 한다. 남은 이름표는 서버가 그 id 를

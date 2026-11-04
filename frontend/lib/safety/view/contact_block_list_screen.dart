@@ -1,4 +1,7 @@
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -29,7 +32,7 @@ class ContactBlockListScreen extends StatelessWidget {
         leading: Navigator.of(context).canPop()
             ? const Padding(padding: EdgeInsets.only(left: 8), child: BackButton(color: AppColors.ink))
             : null,
-        title: Text('연락처 차단', style: AppTypography.navTitle),
+        title: Text(context.l10n.safetyContactBlockTitle, style: AppTypography.navTitle),
       ),
       body: const SafeArea(child: ContactBlockListBody()),
     );
@@ -67,21 +70,21 @@ class ContactBlockListBody extends ConsumerWidget {
   Widget _body(BuildContext context, WidgetRef ref, ContactBlockListUiState state) {
     if (state.isLoading) return const Center(child: CircularProgressIndicator());
     // 읽기 실패는 줄이 하나도 없을 때뿐이다 — 줄이 있는데 문구가 있으면 해제 실패다.
-    if (state.rows.isEmpty && state.errorMessage != null) {
+    if (state.rows.isEmpty && state.error != null) {
       return _LoadError(
-        message: state.errorMessage!,
+        failure: state.error!,
         onRetry: () => ref.read(contactBlockListViewModelProvider.notifier).load(),
       );
     }
     if (state.rows.isEmpty) return const _Empty();
     final rows = state.rows;
-    final error = state.errorMessage;
+    final error = state.error;
     // 줄이 수백 개일 수 있다 — 화면 근처 줄만 만든다. 해제 실패 문구는 마지막 줄 다음 한 칸이다.
     return ListView.builder(
       // pen `ZwbzQ` 여백 [0,24].
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       itemCount: rows.length + (error == null ? 0 : 1),
-      itemBuilder: (context, index) => index < rows.length ? _row(context, ref, rows[index]) : _RemoveError(message: error!),
+      itemBuilder: (context, index) => index < rows.length ? _row(context, ref, rows[index]) : _RemoveError(failure: error!),
     );
   }
 
@@ -89,8 +92,8 @@ class ContactBlockListBody extends ConsumerWidget {
   Widget _row(BuildContext context, WidgetRef ref, ContactBlockRow row) {
     final label = row.label;
     return ContactRow(
-      name: label?.name ?? '이전에 차단한 연락처',
-      number: label?.maskedNumber ?? '이 기기에서 이름을 찾을 수 없어요',
+      name: label?.name ?? context.l10n.safetyContactBlockUnknownName,
+      number: label?.maskedNumber ?? context.l10n.safetyContactBlockUnknownNumber,
       showInitial: label != null,
       onRemove: () => _confirmRemove(context, ref, row.blockId),
     );
@@ -107,9 +110,9 @@ class ContactBlockListBody extends ConsumerWidget {
     final confirmed = await showSafetyConfirmSheet(
       context,
       // pen `rISKU` · `TxO3n` · `JFtKq` 문구 그대로.
-      title: '차단을 해제할까요?',
-      description: '이 연락처가 다시 카드에 나타날 수 있어요.',
-      confirmLabel: '해제',
+      title: context.l10n.safetyUnblockConfirmTitle,
+      description: context.l10n.safetyContactBlockUnblockDescription,
+      confirmLabel: context.l10n.safetyUnblock,
     );
     if (confirmed) await viewModel.remove(blockId);
   }
@@ -140,7 +143,7 @@ class _AddButton extends StatelessWidget {
             children: [
               const Icon(AppIcons.plus, size: 20, color: AppColors.onPrimary),
               const SizedBox(width: AppSpacing.xs),
-              Flexible(child: Text('추가', style: AppTypography.label.copyWith(color: AppColors.onPrimary))),
+              Flexible(child: Text(context.l10n.safetyContactBlockAdd, style: AppTypography.label.copyWith(color: AppColors.onPrimary))),
             ],
           ),
         ),
@@ -170,14 +173,14 @@ class _Empty extends StatelessWidget {
                   // pen 간격 8 + 빈 사각형 8(`Wz22b`).
                   const SizedBox(height: AppSpacing.md),
                   Text(
-                    '아직 차단한 연락처가 없어요',
+                    context.l10n.safetyContactBlockEmptyTitle,
                     textAlign: TextAlign.center,
                     // pen `ZBzIg` 18/600 ink.
                     style: AppTypography.subtitle.copyWith(color: AppColors.ink),
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    '추가한 연락처 속 지인과는 서로의 카드에 나타나지 않아요.',
+                    context.l10n.safetyContactBlockEmptyDescription,
                     textAlign: TextAlign.center,
                     // pen `DFs55` 14 / 보통 / muted / 1.55.
                     style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
@@ -194,16 +197,16 @@ class _Empty extends StatelessWidget {
 
 /// 해제 실패는 pen 에 없다 — 16f 와 같은 빨간 한 줄, 마지막 줄 아래 12.
 class _RemoveError extends StatelessWidget {
-  const _RemoveError({required this.message});
+  const _RemoveError({required this.failure});
 
-  final String message;
+  final Failure failure;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(top: AppSpacing.sm),
       child: Text(
-        message,
+        context.errorText(failure),
         textAlign: TextAlign.center,
         style: AppTypography.bodySmall.copyWith(color: AppColors.error),
       ),
@@ -213,9 +216,9 @@ class _RemoveError extends StatelessWidget {
 
 /// 읽기 실패. pen 에 없는 상태 — 16f 와 같은 회색 문구에 "다시 시도" 를 붙인다.
 class _LoadError extends StatelessWidget {
-  const _LoadError({required this.message, required this.onRetry});
+  const _LoadError({required this.failure, required this.onRetry});
 
-  final String message;
+  final Failure failure;
   final VoidCallback onRetry;
 
   @override
@@ -226,9 +229,9 @@ class _LoadError extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(message, textAlign: TextAlign.center, style: AppTypography.body.copyWith(color: AppColors.muted)),
+            Text(context.errorText(failure), textAlign: TextAlign.center, style: AppTypography.body.copyWith(color: AppColors.muted)),
             const SizedBox(height: AppSpacing.sm),
-            AppButton(label: '다시 시도', variant: AppButtonVariant.text, onPressed: onRetry),
+            AppButton(label: context.l10n.commonRetry, variant: AppButtonVariant.text, onPressed: onRetry),
           ],
         ),
       ),

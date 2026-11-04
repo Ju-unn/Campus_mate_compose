@@ -69,7 +69,7 @@ void main() {
 
     expect(loaded.isLimited, isFalse);
     expect(loaded.visible, hasLength(2));
-    expect(loaded.errorMessage, isNull);
+    expect(loaded.error, isNull);
   });
 
   test('loading again after settings picks up the new state and list, keeps the selection that still exists', () async {
@@ -134,7 +134,7 @@ void main() {
 
     expect(loaded.isLoading, isFalse);
     expect(loaded.contacts, isEmpty);
-    expect(loaded.errorMessage, '알 수 없는 오류가 발생했습니다');
+    expect(loaded.error, isA<UnknownFailure>());
   });
 
   test('toggle selects and unselects', () async {
@@ -199,7 +199,10 @@ void main() {
     await viewModel().submit();
 
     expect(state().completed, isFalse);
-    expect(state().errorMessage, '휴대전화 번호가 있는 연락처만 차단할 수 있어요');
+    expect(
+      state().error,
+      isA<AppErrorFailure>().having((failure) => failure.error, 'error', AppError.contactNoMobile),
+    );
     expect(nameStore.labels, isEmpty);
     expect(state().selectedIds, {'c-office'});
   });
@@ -212,7 +215,7 @@ void main() {
     await viewModel().submit();
 
     expect(state().completed, isFalse);
-    expect(state().errorMessage, '네트워크 연결을 확인해 주세요');
+    expect(state().error, isA<NetworkFailure>());
     expect(state().selectedIds, {momContact.id});
     expect(nameStore.labels, isEmpty);
     expect(state().canSubmit, isTrue);

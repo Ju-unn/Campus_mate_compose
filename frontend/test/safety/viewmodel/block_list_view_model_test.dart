@@ -50,7 +50,7 @@ void main() {
 
     expect(loaded.isLoading, isFalse);
     expect(loaded.blocks, isEmpty);
-    expect(loaded.errorMessage, '네트워크 연결을 확인해 주세요');
+    expect(loaded.error, isA<NetworkFailure>());
   });
 
   test('해제에 성공하면 그 줄만 빼고 목록을 다시 부르지 않는다', () async {
@@ -70,7 +70,7 @@ void main() {
     await viewModel().unblock('p2');
 
     expect(state().blocks.map((user) => user.profileId), ['p2', 'p3']);
-    expect(state().errorMessage, '잠시 뒤 다시 시도해 주세요');
+    expect(state().error, isA<ServerUnavailableFailure>());
     expect(state().unblockingProfileId, isNull);
   });
 

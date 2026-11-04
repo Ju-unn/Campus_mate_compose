@@ -19,7 +19,6 @@ void main() {
     'billing/task',
     'chat',
     'community',
-    'friend_review',
     'matching',
     'me',
     'profile/appearance',
@@ -29,7 +28,6 @@ void main() {
     'profile/ideal',
     'profile/onboarding',
     'profile/traits',
-    'safety',
   };
 
   // 경로는 `frontend/` 에서 돌릴 때 기준이다(`flutter test` 기본 작업 폴더). 생성 폴더 `lib/l10n/` 은 검사하지 않는다.

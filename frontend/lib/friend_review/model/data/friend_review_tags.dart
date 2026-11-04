@@ -1,5 +1,6 @@
 /// 20b 가 보여 줄 태그 12종. DESIGN §13-25 순서 그대로 — 서버 `TAGS`(backend
 /// `app/friend_reviews/router.py`)와 같은 목록이다. **외모 태그는 없다**(계획서 결정).
+// l10n-ignore-start(wire): 고른 글자가 그대로 서버로 간다 — 서버 TAGS 와 글자까지 같아야 한다
 const List<String> friendReviewTags = [
   '약속을 잘 지켜요',
   '대화가 편해요',
@@ -14,6 +15,7 @@ const List<String> friendReviewTags = [
   '차분해요',
   '리액션이 좋아요',
 ];
+// l10n-ignore-end
 
 /// 한 리뷰에 고를 수 있는 태그 수(서버와 같음, 0개 · 4개는 422).
 const int friendReviewMaxTags = 3;

@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -47,11 +49,13 @@ Future<void> reportThenLeave(BuildContext context, WidgetRef ref, ReportTarget t
   // 목록으로 가도 토스트가 남게, 그리고 화면이 닫힌 뒤에는 ref 를 못 쓰니 미리 잡는다.
   final messenger = ScaffoldMessenger.of(context);
   final conversations = ref.read(conversationsViewModelProvider.notifier);
+  final l10n = context.l10n;
   final result = await showReportSheet(context, target);
   if (result == null || !context.mounted) {
     return;
   }
-  showSafetyToast(messenger, result.message);
+  final failure = result.failure;
+  showSafetyToast(messenger, failure == null ? l10n.safetyReported : failureText(l10n, failure));
   if (result.outcome == ReportOutcome.reported || result.outcome == ReportOutcome.alreadyReported) {
     _goToConversations(context, conversations);
   }
@@ -67,6 +71,7 @@ Future<String?> blockThenLeave(
 }) async {
   final repository = ref.read(safetyRepositoryProvider);
   final conversations = ref.read(conversationsViewModelProvider.notifier);
+  final l10n = context.l10n; // 차단 요청이 끝난 뒤 화면이 없어져도 글자를 만들 수 있게 미리 잡는다.
   if (!await showBlockConfirmSheet(context, nickname) || !context.mounted) {
     return null;
   }
@@ -79,7 +84,7 @@ Future<String?> blockThenLeave(
       _goToConversations(context, conversations);
       return null;
     },
-    onFailure: (failure) => failure.toDisplayMessage(),
+    onFailure: (failure) => failureText(l10n, failure),
   );
 }
 

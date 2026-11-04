@@ -1,6 +1,9 @@
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/school_label.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -17,18 +20,9 @@ import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// 화면 문구 — pen FEysN · kaGTH · N701NC · nGtDb(값표 20e §2~§5).
-const _title = '내가 쓴 리뷰'; // pen V7KzU
-const _notice = '내가 남긴 리뷰는 언제든 지울 수 있어요.\n수정은 할 수 없어요.'; // pen DPIaV
-const _emptyTitle = '아직 쓴 리뷰가 없어요'; // pen QlDBt/ZBzIg
-const _emptyDescription = '친구에게\n리뷰를 남기면 여기에 모여요'; // pen QlDBt/DFs55
-const _sheetTitle = '리뷰를 지울까요?'; // pen UClUE/xd8je
-const _deletedMessage = '리뷰를 지웠어요'; // pen W7HENj/LGEZH
-const _waitingTitle = '리뷰를 기다리는 친구'; // pen bDZnr/qa34E
-const _waitingDescription = '추천 코드로 이어진 친구예요. 지웠거나 놓친 리뷰도 다시 쓸 수 있어요.'; // pen bDZnr/AJ2hf
-
-/// pen UClUE/O7tR3q — 닉네임은 받은 사람.
-String _sheetBody(String nickname) => '지우면 $nickname님 프로필에서 바로 사라지고\n되돌릴 수 없어요.';
+// 화면 문구는 문구 파일(ARB)에 있다 — pen FEysN · kaGTH · N701NC · nGtDb(값표 20e §2~§5):
+// 제목 V7KzU · 안내 DPIaV · 빈 상태 QlDBt/ZBzIg · QlDBt/DFs55 · 시트 UClUE/xd8je · 시트 본문 UClUE/O7tR3q(닉네임은 받은 사람) ·
+// 지웠어요 토스트 W7HENj/LGEZH · 기다리는 친구 bDZnr/qa34E · bDZnr/AJ2hf.
 
 const ({FriendReviewListSource source, String? profileId}) _written =
     (source: FriendReviewListSource.written, profileId: null);
@@ -47,8 +41,8 @@ class WrittenReviewsScreen extends ConsumerWidget {
         .value
         ?.when(onSuccess: (friends) => friends.isEmpty ? null : friends, onFailure: (_) => null);
     return FriendReviewListFrame(
-      title: _title,
-      notice: _notice,
+      title: context.l10n.friendReviewWrittenTitle,
+      notice: context.l10n.friendReviewWrittenNotice,
       source: FriendReviewListSource.written,
       header: friends == null
           ? null
@@ -56,10 +50,10 @@ class WrittenReviewsScreen extends ConsumerWidget {
       cardBuilder: (context, review) =>
           FriendReviewCard(review: review, onDelete: () => _confirmDelete(context, ref, review)),
       // 20e-1 `QlDBt`(Empty `TVc8b`) — 마스코트 `J2kzx`(마스터 그대로) = 파란 목도리, 버튼은 꺼짐.
-      empty: const FriendReviewEmpty(
+      empty: FriendReviewEmpty(
         mascot: 'assets/images/mascot-male.png',
-        title: _emptyTitle,
-        description: _emptyDescription,
+        title: context.l10n.friendReviewWrittenEmptyTitle,
+        description: context.l10n.friendReviewWrittenEmptyDescription,
       ),
     );
   }
@@ -68,15 +62,16 @@ class WrittenReviewsScreen extends ConsumerWidget {
   /// (서버에서는 이미 지워졌을 수 있다 — 15d-2 투표 삭제와 같은 흐름).
   static Future<void> _confirmDelete(BuildContext context, WidgetRef ref, FriendReview review) async {
     final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n; // 지우는 동안 화면이 없어져도 결과 토스트는 띄운다 — 글자는 미리 잡는다.
     final viewModel = ref.read(friendReviewListViewModelProvider(_written).notifier);
-    Future<String?>? deleting;
+    Future<Failure?>? deleting;
     await showSafetySheet<void>(
       context,
       (_) => _DeleteConfirmSheet(nickname: review.nickname, onDelete: () => deleting = viewModel.delete(review.id)),
     );
     if (deleting == null) return; // "지우기" 를 누르지 않고 닫았다.
     final error = await deleting;
-    _showToast(messenger, error ?? _deletedMessage, failed: error != null);
+    _showToast(messenger, error == null ? l10n.friendReviewWrittenDeleted : failureText(l10n, error), failed: error != null);
     // 카드가 빠졌으면(지움 · 그새 없어진 404) 그 친구는 다시 쓸 수 있어 기다리는 친구로 돌아온다.
     if (!context.mounted) return;
     if (ref.read(friendReviewListViewModelProvider(_written)).reviews.every((r) => r.id != review.id)) {
@@ -123,7 +118,7 @@ class _DeleteConfirmSheet extends StatefulWidget {
   const _DeleteConfirmSheet({required this.nickname, required this.onDelete});
 
   final String nickname;
-  final Future<String?> Function() onDelete;
+  final Future<Failure?> Function() onDelete;
 
   @override
   State<_DeleteConfirmSheet> createState() => _DeleteConfirmSheetState();
@@ -169,17 +164,20 @@ class _DeleteConfirmSheetState extends State<_DeleteConfirmSheet> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     // pen xd8je 20/700, 줄높이 속성 없음 · 렌더 29.
-                    Text(_sheetTitle, style: AppTypography.navTitle.copyWith(color: AppColors.ink, height: 29 / 20)),
+                    Text(
+                      context.l10n.friendReviewWrittenDeleteTitle,
+                      style: AppTypography.navTitle.copyWith(color: AppColors.ink, height: 29 / 20),
+                    ),
                     const SizedBox(height: AppSpacing.md),
                     Text(
-                      _sheetBody(widget.nickname),
+                      context.l10n.friendReviewWrittenDeleteBody(nickname: widget.nickname),
                       // pen O7tR3q 14 / 보통 / muted / 1.55.
                       style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
                     ),
                     const SizedBox(height: AppSpacing.md),
                     // pen ECxPJ(HE8FZ) #E5E5E5 · 18/700 #C13515 = AppButton danger.
                     AppButton(
-                      label: '지우기',
+                      label: context.l10n.friendReviewWrittenDeleteConfirm,
                       variant: AppButtonVariant.danger,
                       isLoading: _deleting,
                       onPressed: _delete,
@@ -187,7 +185,7 @@ class _DeleteConfirmSheetState extends State<_DeleteConfirmSheet> {
                     const SizedBox(height: AppSpacing.xs),
                     // pen HKdWX · wICaR 48, 14/600 #C4224B = AppButton text.
                     AppButton(
-                      label: '취소',
+                      label: context.l10n.commonCancel,
                       variant: AppButtonVariant.text,
                       onPressed: () => Navigator.of(context).pop(),
                     ),
@@ -216,16 +214,19 @@ class _WaitingFriends extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(_waitingTitle, style: heading),
+        Text(context.l10n.friendReviewWrittenWaitingTitle, style: heading),
         const SizedBox(height: AppSpacing.xs),
         // pen AJ2hf 14 / muted / 1.5.
-        Text(_waitingDescription, style: AppTypography.bodySmall.copyWith(height: 1.5, color: AppColors.muted)),
+        Text(
+          context.l10n.friendReviewWrittenWaitingDescription,
+          style: AppTypography.bodySmall.copyWith(height: 1.5, color: AppColors.muted),
+        ),
         for (final friend in friends) ...[
           const SizedBox(height: AppSpacing.xs),
           WritableFriendRow(nickname: friend.nickname, university: friend.university, onWrite: () => onWrite(friend)),
         ],
         const SizedBox(height: AppSpacing.md),
-        Text(_title, style: heading),
+        Text(context.l10n.friendReviewWrittenTitle, style: heading),
       ],
     );
   }
@@ -324,7 +325,10 @@ class _WriteButton extends StatelessWidget {
               child: Center(
                 widthFactor: 1,
                 heightFactor: 1,
-                child: Text('쓰기', style: AppTypography.labelSmall.copyWith(color: AppColors.onPrimary)),
+                child: Text(
+                  context.l10n.friendReviewWrittenWriteButton,
+                  style: AppTypography.labelSmall.copyWith(color: AppColors.onPrimary),
+                ),
               ),
             ),
           ),

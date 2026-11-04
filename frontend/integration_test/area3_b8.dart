@@ -86,7 +86,7 @@ Future<Map<String, Object?>> _aboutCards(WidgetTester tester, Map<String, dynami
   return {
     'cards': find.descendant(of: section, matching: find.byType(FriendReviewCard)).evaluate().length,
     'loaded': !state.isLoading,
-    'error': state.errorMessage,
+    'error': state.error == null ? null : failureText(AppLocalizationsKo(), state.error!),
   };
 }
 

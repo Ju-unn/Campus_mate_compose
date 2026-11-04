@@ -1,3 +1,4 @@
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -11,8 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // 화면 문구 — pen t3hFo(14c) · FXNL4(14d), 값표 B §4 · §5.
-const _sectionTitle = '지인 리뷰'; // pen Bw7Rz
-const _sheetNotice = '리뷰는 친구 코드를 받은 지인만 남길 수 있어요. 부적절한 내용은 신고해주세요.'; // pen prY8p
+// 문구는 문구 파일(ARB)에 있다: 섹션 제목 Bw7Rz · 시트 안내 prY8p.
 
 /// 14c 에 보이는 카드 수(pen 2장). 더 있으면 "N개 모두 보기" → 14d. 2개 이하면 다 보여 링크가 없다(편차).
 const int _visibleCount = 2;
@@ -77,7 +77,7 @@ class PartnerReviewsSection extends ConsumerWidget {
         if (hasMore)
           Semantics(
             button: true,
-            label: '${reviews.length}개 모두 보기',
+            label: context.l10n.friendReviewSeeAll(count: reviews.length),
             // 눌림 효과가 스크롤과 같이 움직이게 이 칸 안에 Material 을 둔다(COMMON §4-2).
             child: Material(
               type: MaterialType.transparency,
@@ -114,7 +114,7 @@ class _SectionHeader extends StatelessWidget {
       children: [
         Expanded(
           child: Text(
-            _sectionTitle,
+            context.l10n.friendReviewSectionTitle,
             // pen Bw7Rz 14/600 #6A6A6A, 줄높이 속성 없음 · 렌더 20.
             style: AppTypography.labelSmall.copyWith(color: AppColors.muted, height: 20 / 14),
           ),
@@ -126,7 +126,7 @@ class _SectionHeader extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  '$count개 모두 보기',
+                  context.l10n.friendReviewSeeAll(count: count),
                   // pen e1E2HG 12/600 #C4224B, 줄높이 속성 없음 · 렌더 17.
                   style: AppTypography.caption.copyWith(
                     color: AppColors.primaryText,
@@ -240,13 +240,13 @@ class _SheetContent extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                '친구들이 본 $nickname',
+                context.l10n.friendReviewPartnerSheetTitle(nickname: nickname),
                 // pen TGS1Z 20/700 #222222, 줄높이 속성 없음 · 렌더 29.
                 style: AppTypography.navTitle.copyWith(color: AppColors.ink, height: 29 / 20),
               ),
             ),
             Text(
-              '리뷰 ${reviews.length}개',
+              context.l10n.friendReviewPartnerSheetCount(count: reviews.length),
               // pen eUxPl 14/400 #6A6A6A, 줄높이 속성 없음 · 렌더 20.
               style: AppTypography.bodySmall.copyWith(color: AppColors.muted, height: 20 / 14),
             ),
@@ -257,7 +257,7 @@ class _SheetContent extends StatelessWidget {
           FriendReviewCard(review: review),
         ],
         const SizedBox(height: AppSpacing.sm),
-        const FriendReviewNotice(text: _sheetNotice),
+        FriendReviewNotice(text: context.l10n.friendReviewPartnerNotice),
       ],
     );
   }

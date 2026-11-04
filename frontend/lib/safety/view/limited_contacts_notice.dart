@@ -1,4 +1,5 @@
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -44,7 +45,7 @@ class LimitedContactsNotice extends StatelessWidget {
             const _TitleRow(),
             const SizedBox(height: 6),
             Text(
-              '목록에 보이지 않는 지인이 있다면 기기 설정에서 전체로 바꿔 주세요.',
+              context.l10n.safetyLimitedContactsBody,
               style: AppTypography.caption.copyWith(color: AppColors.muted, height: 1.5),
             ),
             const SizedBox(height: _descriptionToButton),
@@ -71,7 +72,7 @@ class _TitleRow extends StatelessWidget {
           child: Semantics(
             header: true,
             child: Text(
-              '일부 연락처만 허용돼 있어요',
+              context.l10n.safetyLimitedContactsTitle,
               style: AppTypography.labelSmall.copyWith(color: AppColors.ink, height: 1.4),
             ),
           ),
@@ -103,7 +104,7 @@ class _SettingsButton extends StatelessWidget {
         side: const BorderSide(color: AppColors.hairline),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.button)),
       ),
-      child: Text('기기 설정 열기', style: label),
+      child: Text(context.l10n.safetyOpenDeviceSettings, style: label),
     );
   }
 }

@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -58,7 +60,7 @@ class _ContactPickerScreenState extends ConsumerState<ContactPickerScreen> {
         leadingWidth: 56,
         titleSpacing: 4,
         leading: const Padding(padding: EdgeInsets.only(left: 8), child: BackButton(color: AppColors.ink)),
-        title: Text('차단할 연락처 선택', style: AppTypography.navTitle),
+        title: Text(context.l10n.safetyContactPickerTitle, style: AppTypography.navTitle),
       ),
       body: Column(
         children: [
@@ -114,7 +116,7 @@ class _SearchField extends StatelessWidget {
         style: AppTypography.bodySmall.copyWith(color: AppColors.ink),
         textInputAction: TextInputAction.search,
         decoration: InputDecoration(
-          hintText: '이름 검색',
+          hintText: context.l10n.safetyContactPickerSearchHint,
           hintStyle: hintStyle,
           filled: true,
           fillColor: AppColors.surfaceSoft,
@@ -160,10 +162,10 @@ class _BottomBar extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (state.errorMessage != null) ...[
+              if (state.error != null) ...[
                 // 실패 · 휴대전화 없음은 pen 에 없는 상태 — 16f 해제 실패와 같은 빨간 한 줄로 알린다.
                 Text(
-                  state.errorMessage!,
+                  context.errorText(state.error!),
                   textAlign: TextAlign.center,
                   style: AppTypography.bodySmall.copyWith(color: AppColors.error),
                 ),
@@ -171,12 +173,12 @@ class _BottomBar extends StatelessWidget {
               ],
               // pen mqa0S 옛 문구("암호화해 대조에만")는 사실과 달라 코드 사실 문장으로 바꿨다(2026-10-14, pen 후속).
               Text(
-                '$contactServerNotice $contactDeviceNotice',
+                context.l10n.contactServerAndDevice,
                 style: AppTypography.caption.copyWith(color: AppColors.muted, height: 1.5),
               ),
               const SizedBox(height: AppSpacing.xs),
               AppButton(
-                label: '선택 완료 (${state.selectedCount}명)',
+                label: context.l10n.safetyContactPickerSubmit(count: state.selectedCount),
                 onPressed: state.canSubmit ? onSubmit : null,
               ),
             ],

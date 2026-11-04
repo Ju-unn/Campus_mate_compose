@@ -95,7 +95,7 @@ void main() {
       await viewModel().submit(target);
 
       expect(state().outcome, ReportOutcome.reported);
-      expect(state().closingMessage, reportedMessage);
+      expect(state().closingFailure, isNull);
       expect(state().isSubmitting, isFalse);
       final sent = repository.reports.single;
       expect(sent.target, {'target_type': 'message', 'target_id': 'msg-7'});
@@ -110,8 +110,8 @@ void main() {
       await viewModel().submit(target);
 
       expect(state().outcome, ReportOutcome.alreadyReported);
-      expect(state().closingMessage, '이미 신고를 완료했어요');
-      expect(state().errorMessage, isNull);
+      expect(state().closingFailure, isA<ServerRejectedFailure>());
+      expect(state().error, isNull);
     });
 
     test('429 하루 상한이면 오늘은 더 못 한다고 알리고 끝낸다', () async {
@@ -121,7 +121,10 @@ void main() {
       await viewModel().submit(target);
 
       expect(state().outcome, ReportOutcome.limited);
-      expect(state().closingMessage, '오늘은 더 신고할 수 없어요');
+      expect(
+        state().closingFailure,
+        isA<AppErrorFailure>().having((failure) => failure.error, 'error', AppError.reportLimited),
+      );
     });
 
     test('404 대상이 사라졌으면 서버 문구 그대로 알리고 끝낸다', () async {
@@ -131,7 +134,7 @@ void main() {
       await viewModel().submit(target);
 
       expect(state().outcome, ReportOutcome.targetGone);
-      expect(state().closingMessage, '메시지를 찾을 수 없어요');
+      expect(state().closingFailure, isA<ServerRejectedFailure>());
     });
 
     test('그 밖의 실패는 끝내지 않고 문구만 띄워 다시 보낼 수 있게 둔다', () async {
@@ -141,7 +144,7 @@ void main() {
       await viewModel().submit(target);
 
       expect(state().outcome, isNull);
-      expect(state().errorMessage, '네트워크 연결을 확인해 주세요');
+      expect(state().error, isA<NetworkFailure>());
       expect(state().isSubmitting, isFalse);
       expect(state().canSubmit, isTrue);
     });
@@ -162,7 +165,7 @@ void main() {
       expect(retried.reason, first.reason);
       expect(retried.note, first.note);
       expect(state().outcome, ReportOutcome.reported);
-      expect(state().errorMessage, isNull);
+      expect(state().error, isNull);
     });
   });
 }

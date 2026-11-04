@@ -1,4 +1,7 @@
 import 'package:campus_mate/chat/view/chat_input_bar.dart';
+import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -14,14 +17,8 @@ import 'package:campus_mate/safety/view/safety_actions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// 화면 문구 — pen NHcsP(값표 B §1).
-const _tagQuestion = '어떤 장점이 있나요?'; // pen a9uYrP
-const _commentQuestion = '한마디를 남겨주세요'; // pen rFK7Q
-const _commentHint = '이 사람을 잘 보여주는 따뜻한 이야기를 적어주세요.'; // pen YgXMi
-const _submitLabel = '리뷰 남기기'; // pen sXqh8
-// pen 에 없는 문구(대장 09-29). 409 는 서버 FRIEND_REVIEW_ALREADY_WRITTEN 과 같은 말 — 열 때는 VM 이 문구 없이 알려 준다.
-const _submittedMessage = '리뷰를 남겼어요';
-const _alreadyWrittenMessage = '이미 리뷰를 남겼어요';
+// 화면 문구는 문구 파일(ARB)에 있다 — pen NHcsP(값표 B §1): 장점 질문 a9uYrP · 한마디 질문 rFK7Q · 힌트 YgXMi · 버튼 sXqh8.
+// "리뷰를 남겼어요" · "이미 리뷰를 남겼어요" 는 pen 에 없는 문구(대장 09-29). 409 는 서버 FRIEND_REVIEW_ALREADY_WRITTEN 과 같은 말 — 열 때는 VM 이 문구 없이 알려 준다.
 
 // 토큰에 없는 pen 값.
 const double _sheetHeight = 664; // pen NHcsP 고정 높이
@@ -177,6 +174,7 @@ class _FriendReviewComposeSheetState extends ConsumerState<FriendReviewComposeSh
   /// 열 때 409 · 실패와 남김 성공은 밑 화면에 토스트를 띄우고 닫는다. 보내기 실패는 시트 안에 띄우고 남는다.
   void _onChanged(FriendReviewComposeUiState? previous, FriendReviewComposeUiState next) {
     final outside = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
     // 뒤로 · 바깥 탭으로 이미 닫히는 중이면(애니메이션 동안 State 는 살아 있다) 또 닫지 않는다 — 밑 화면이 닫힌다.
     // 푸시로 연 홈 위 시트면 밑이 마지막 페이지라 go_router 가 깨진다(검토 필수 1, poll_sheets 와 같은 방어).
     void close([bool? result]) {
@@ -186,24 +184,24 @@ class _FriendReviewComposeSheetState extends ConsumerState<FriendReviewComposeSh
     }
 
     if (next.submitted && previous?.submitted != true) {
-      showSafetyToast(outside, _submittedMessage);
+      showSafetyToast(outside, l10n.friendReviewComposeSubmitted);
       close(true);
       return;
     }
     if (next.alreadyWritten && previous?.alreadyWritten != true) {
-      showSafetyToast(outside, _alreadyWrittenMessage, icon: AppIcons.circleAlert);
+      showSafetyToast(outside, context.appErrorText(AppError.friendReviewAlreadyWritten), icon: AppIcons.circleAlert);
       close();
       return;
     }
     final loadError = next.loadError;
     if (loadError != null && previous?.loadError == null) {
-      showSafetyToast(outside, loadError, icon: AppIcons.circleAlert);
+      showSafetyToast(outside, context.errorText(loadError), icon: AppIcons.circleAlert);
       close();
       return;
     }
     final submitError = next.submitError;
     if (submitError != null && previous?.submitError == null) {
-      showSafetyToast(_sheetMessenger.currentState!, submitError, icon: AppIcons.circleAlert);
+      showSafetyToast(_sheetMessenger.currentState!, context.errorText(submitError), icon: AppIcons.circleAlert);
     }
   }
 }
@@ -247,12 +245,12 @@ class _Form extends StatelessWidget {
         // pen eRud0 에는 학교 칸이 없다 — 친구 코드로 와도 닉네임 · 관계만 그린다.
         _TargetHeader(nickname: nickname),
         const SizedBox(height: AppSpacing.md),
-        const _Question(_tagQuestion),
+        _Question(context.l10n.friendReviewComposeTagQuestion),
         // 칩의 누르는 영역이 보이는 칩보다 위아래로 4 씩 크다 — 보이는 간격 16 을 맞추려고 4 를 뺀다.
         const SizedBox(height: AppSpacing.md - _chipTapInset),
         _TagGrid(selected: state.selected, onToggle: onToggle),
         const SizedBox(height: AppSpacing.md - _chipTapInset),
-        const _Question(_commentQuestion),
+        _Question(context.l10n.friendReviewComposeCommentQuestion),
         const SizedBox(height: AppSpacing.md),
         _CommentBox(controller: comment, length: state.comment.runes.length, onChanged: onCommentChanged),
       ],
@@ -291,7 +289,7 @@ class _TargetHeader extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  friendReviewRelationLabel,
+                  context.l10n.friendReviewRelation,
                   // pen gN8D6 12/400 #6A6A6A lh1.5, 렌더 19.
                   style: AppTypography.caption.copyWith(color: AppColors.muted, height: 19 / 12),
                 ),
@@ -424,7 +422,7 @@ class _CommentBox extends StatelessWidget {
             ],
             style: AppTypography.bodySmall.copyWith(color: AppColors.ink, height: 1.5),
             decoration: InputDecoration.collapsed(
-              hintText: _commentHint,
+              hintText: context.l10n.friendReviewComposeCommentHint,
               // pen YgXMi 14/400 #6A6A6A lh1.5.
               hintStyle: AppTypography.bodySmall.copyWith(color: AppColors.muted, height: 1.5),
             ),
@@ -457,7 +455,7 @@ class _SubmitButton extends StatelessWidget {
     return Semantics(
       button: true,
       enabled: onPressed != null,
-      label: isSubmitting ? _submitLabel : null,
+      label: isSubmitting ? context.l10n.friendReviewComposeSubmit : null,
       // 눌림 효과가 시트와 같이 움직이게 버튼 안에 Material 을 둔다(COMMON §4-2).
       child: Material(
         key: friendReviewSubmitKey,
@@ -480,7 +478,7 @@ class _SubmitButton extends StatelessWidget {
                   : Padding(
                       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
                       child: Text(
-                        _submitLabel,
+                        context.l10n.friendReviewComposeSubmit,
                         textAlign: TextAlign.center,
                         // pen sXqh8 18/700 lh1.5, 렌더 28.
                         style: AppTypography.label.copyWith(

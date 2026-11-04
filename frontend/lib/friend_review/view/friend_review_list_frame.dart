@@ -1,4 +1,7 @@
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -103,9 +106,9 @@ class FriendReviewListFrame extends ConsumerWidget {
 
   Widget _placeholder(WidgetRef ref, FriendReviewListUiState state) {
     if (state.isLoading) return const Center(child: CircularProgressIndicator());
-    final error = state.errorMessage;
+    final error = state.error;
     if (error != null) {
-      return _LoadError(message: error, onRetry: () => ref.invalidate(friendReviewListViewModelProvider(_args)));
+      return _LoadError(failure: error, onRetry: () => ref.invalidate(friendReviewListViewModelProvider(_args)));
     }
     return empty;
   }
@@ -190,9 +193,9 @@ class _RefreshOnEnterState extends ConsumerState<_RefreshOnEnter> {
 
 /// 읽기 실패. pen 에 없는 상태 — 16f · 14c 와 같은 회색 문구에 "다시 시도" 를 붙인다.
 class _LoadError extends StatelessWidget {
-  const _LoadError({required this.message, required this.onRetry});
+  const _LoadError({required this.failure, required this.onRetry});
 
-  final String message;
+  final Failure failure;
   final VoidCallback onRetry;
 
   @override
@@ -204,12 +207,12 @@ class _LoadError extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              message,
+              context.errorText(failure),
               textAlign: TextAlign.center,
               style: AppTypography.body.copyWith(color: AppColors.muted),
             ),
             const SizedBox(height: AppSpacing.sm),
-            AppButton(label: '다시 시도', variant: AppButtonVariant.text, onPressed: onRetry),
+            AppButton(label: context.l10n.commonRetry, variant: AppButtonVariant.text, onPressed: onRetry),
           ],
         ),
       ),

@@ -94,13 +94,14 @@ void main() {
     expect((state().phase, state().canCheck), (FriendCodePhase.input, true));
   });
 
-  test('그 밖의 실패(네트워크 등)는 문구를 담고 다시 확인할 수 있다', () async {
+  test('그 밖의 실패(네트워크 등)는 실패 종류를 담고 다시 확인할 수 있다', () async {
     repository.lookupResult = const FailureResult(NetworkFailure());
     viewModel().changeCode('K7M2QX');
 
     await viewModel().check();
 
-    expect((state().phase, state().failureMessage, state().canCheck), (FriendCodePhase.failed, '네트워크 연결을 확인해 주세요', true));
+    expect((state().phase, state().canCheck), (FriendCodePhase.failed, true));
+    expect(state().failure, isA<NetworkFailure>());
   });
 
   test('확인 뒤 코드를 고치면 입력 전으로 — 친구 · 오류가 지워진다', () async {

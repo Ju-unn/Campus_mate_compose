@@ -1,3 +1,4 @@
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -24,11 +25,11 @@ Future<bool> openContactPicker(BuildContext context, WidgetRef ref, {String rout
 Future<bool> _askPermission(BuildContext context, DeviceContactSource source) async {
   final allow = await _showPermissionSheet(
     context,
-    title: '연락처 접근을 허용해 주세요',
+    title: context.l10n.safetyContactPermissionTitle,
     // pen YPJbz 옛 문구("암호화해 대조에만")는 사실과 달라 코드 사실 문장으로 바꿨다(2026-10-14, pen 후속).
-    description: '내 연락처에 있는 지인이 카드에 뜨지 않게 하려면 연락처를 읽어야 해요. $contactServerNotice $contactNotSentNotice',
-    primaryLabel: '허용하고 계속',
-    neutralLabel: '나중에 할게요',
+    description: '${context.l10n.safetyContactPermissionDescription} ${context.l10n.contactServerAndNotSent}',
+    primaryLabel: context.l10n.safetyContactPermissionAllow,
+    neutralLabel: context.l10n.safetyContactPermissionLater,
   );
   if (allow == null) return false;
   // "다시 묻지 않음"이면 OS 창 없이 곧바로 거부가 온다 — 그때도 8a-2 가 떠야 한다.
@@ -41,10 +42,10 @@ Future<bool> _askPermission(BuildContext context, DeviceContactSource source) as
 Future<void> _showDenied(BuildContext context, DeviceContactSource source) async {
   final openSettings = await _showPermissionSheet(
     context,
-    title: '연락처 권한이 꺼져 있어요',
-    description: '기기 설정 > CampusMate > 연락처를 켜면 지인 차단을 쓸 수 있어요.',
-    primaryLabel: '기기 설정 열기',
-    neutralLabel: '닫기',
+    title: context.l10n.safetyContactDeniedTitle,
+    description: context.l10n.safetyContactDeniedDescription,
+    primaryLabel: context.l10n.safetyOpenDeviceSettings,
+    neutralLabel: context.l10n.safetyContactDeniedClose,
   );
   if (openSettings ?? false) await source.openSettings();
 }

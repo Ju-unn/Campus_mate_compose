@@ -1,3 +1,4 @@
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -28,7 +29,7 @@ class MyFriendReviewsSection extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          '지인 리뷰',
+          context.l10n.friendReviewSectionTitle,
           // pen mHDrn 18/700 #222222, 줄높이 속성 없음 · 렌더 25(subtitle 토큰은 600).
           style: AppTypography.subtitle.copyWith(color: AppColors.ink, fontWeight: FontWeight.w700, height: 25 / 18),
         ),
@@ -36,23 +37,23 @@ class MyFriendReviewsSection extends ConsumerWidget {
         ProfileEntryRow(
           emphasis: true,
           icon: AppIcon3d.heartHandshake,
-          title: '친구들이 본 나',
-          note: _count('받은 리뷰', received),
+          title: context.l10n.friendReviewReceivedEntry,
+          note: _count((count) => context.l10n.friendReviewReceivedCount(count: count), received),
           onTap: () => context.push(AppRoutes.friendReviews),
         ),
         const SizedBox(height: AppSpacing.sm),
         ProfileEntryRow(
           icon: AppIcon3d.chat,
-          title: '내가 쓴 리뷰',
-          note: _count('쓴 리뷰', written),
+          title: context.l10n.friendReviewWrittenTitle,
+          note: _count((count) => context.l10n.friendReviewWrittenCount(count: count), written),
           onTap: () => context.push(AppRoutes.friendReviewsWritten),
         ),
         const SizedBox(height: AppSpacing.sm),
         // pen H9STF(fN0xc) — 3D 연필 HJLp3, 개수 없는 고정 노트.
         ProfileEntryRow(
           icon: AppIcon3d.pencil,
-          title: '리뷰 쓰기',
-          note: '친구 코드로 리뷰를 남겨요',
+          title: context.l10n.friendReviewWrite,
+          note: context.l10n.friendReviewWriteNote,
           onTap: () => context.push(AppRoutes.friendReviewCode),
         ),
       ],
@@ -60,6 +61,6 @@ class MyFriendReviewsSection extends ConsumerWidget {
   }
 
   /// 읽는 중 · 실패는 pen 에 없다 — 노트를 비워 제목만 보인다(대장 결정 가, 줄 높이 84 그대로).
-  static String _count(String label, FriendReviewListUiState state) =>
-      state.isLoading || state.errorMessage != null ? '' : '$label ${state.reviews.length}개';
+  static String _count(String Function(int count) label, FriendReviewListUiState state) =>
+      state.isLoading || state.error != null ? '' : label(state.reviews.length);
 }

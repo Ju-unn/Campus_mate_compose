@@ -12,7 +12,7 @@ final contactPickerViewModelProvider =
     NotifierProvider.autoDispose<ContactPickerViewModel, ContactPickerUiState>(ContactPickerViewModel.new);
 
 /// 고른 번호가 전부 휴대전화가 아니라 서버가 하나도 저장하지 않은 경우. pen 에 없는 상태다.
-const String noMobileNumberMessage = '휴대전화 번호가 있는 연락처만 차단할 수 있어요';
+const Failure _noMobileNumber = AppErrorFailure(AppError.contactNoMobile);
 
 /// 번호 하나와 그 번호로 저장될 이름표. 서버 응답 id 와 같은 자리끼리 짝짓는다.
 typedef _PickedNumber = ({String number, ContactLabel label});
@@ -35,7 +35,7 @@ class ContactPickerViewModel extends Notifier<ContactPickerUiState> {
     final isLimited = await _readIsLimited();
     if (!ref.mounted || _generation != mine) return;
     state = contacts == null
-        ? state.copyWith(isLoading: false, isLimited: isLimited, errorMessage: const UnknownFailure().toDisplayMessage())
+        ? state.copyWith(isLoading: false, isLimited: isLimited, error: const UnknownFailure())
         : state.copyWith(
             isLoading: false,
             isLimited: isLimited,
@@ -82,11 +82,11 @@ class ContactPickerViewModel extends Notifier<ContactPickerUiState> {
     if (!ref.mounted) return;
     await result.when<Future<void>>(
       onSuccess: (ids) => _saveLabels(nameStore, _labelsById(ids, picked)),
-      onFailure: (failure) async => _fail(failure.toDisplayMessage()),
+      onFailure: (failure) async => _fail(failure),
     );
   }
 
-  void _fail(String message) => state = state.copyWith(isSubmitting: false, errorMessage: message);
+  void _fail(Failure failure) => state = state.copyWith(isSubmitting: false, error: failure);
 
   List<_PickedNumber> _pickedNumbers() => [
         for (final contact in state.contacts)
@@ -103,7 +103,7 @@ class ContactPickerViewModel extends Notifier<ContactPickerUiState> {
   /// 이름표 저장은 서버 성공 뒤에만 한다. 파일 쓰기가 실패해도 차단은 이미 서버에 있다 —
   /// 16b 에서 "이전에 차단한 연락처"로 보일 뿐이라 완료로 친다(버튼이 도는 채로 멈추지 않게).
   Future<void> _saveLabels(ContactNameStore nameStore, Map<String, ContactLabel> labels) async {
-    if (labels.isEmpty) return _fail(noMobileNumberMessage);
+    if (labels.isEmpty) return _fail(_noMobileNumber);
     try {
       await nameStore.saveAll(labels);
     } on Exception {

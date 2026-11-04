@@ -62,6 +62,6 @@ class FriendCodeViewModel extends Notifier<FriendCodeUiState> {
   static FriendCodeUiState _failed(String code, Failure failure) {
     if (isFriendCodeTryLater(failure)) return FriendCodeUiState(code: code, phase: FriendCodePhase.tryLater);
     if (isFriendCodeNotFound(failure)) return FriendCodeUiState(code: code, phase: FriendCodePhase.notFound);
-    return FriendCodeUiState(code: code, phase: FriendCodePhase.failed, failureMessage: failure.toDisplayMessage());
+    return FriendCodeUiState(code: code, phase: FriendCodePhase.failed, failure: failure);
   }
 }

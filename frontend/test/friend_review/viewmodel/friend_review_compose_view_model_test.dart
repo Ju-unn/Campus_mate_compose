@@ -81,7 +81,7 @@ void main() {
       await opened();
 
       expect(state().alreadyWritten, isFalse);
-      expect(state().loadError, '네트워크 연결을 확인해 주세요');
+      expect(state().loadError, isA<NetworkFailure>());
     });
   });
 
@@ -190,7 +190,7 @@ void main() {
       await viewModel().submit();
 
       expect(state().submitted, isFalse);
-      expect(state().submitError, '이미 리뷰를 남겼어요');
+      expect(state().submitError, isA<ServerRejectedFailure>());
       expect(state().isSubmitting, isFalse);
     });
   });
@@ -229,14 +229,15 @@ void main() {
       expect(codeState().submitted, isTrue);
     });
 
-    test('submit 429 는 서버 문구 "잠시 후 다시 시도해 주세요." 로 보여 준다(앱 기본 한도 문구가 아니라)', () async {
+    test('submit 429 는 "잠시 후 다시 시도해 주세요." 종류로 바꿔 보여 준다(앱 기본 한도 문구가 아니라)', () async {
       await openedByCode();
       repository.createResult = const FailureResult(RateLimitedFailure());
       codeViewModel().toggleTag('성실해요');
 
       await codeViewModel().submit();
 
-      expect((codeState().submitted, codeState().submitError), (false, '잠시 후 다시 시도해 주세요.'));
+      expect(codeState().submitted, isFalse);
+      expect(codeState().submitError, isA<AppErrorFailure>().having((f) => f.error, 'error', AppError.friendCodeTryLater));
     });
 
     for (final detail in ['이미 리뷰를 남겼어요', '코드를 찾을 수 없어요']) {
@@ -247,7 +248,8 @@ void main() {
 
         await codeViewModel().submit();
 
-        expect((codeState().submitted, codeState().submitError), (false, detail));
+        expect(codeState().submitted, isFalse);
+        expect(codeState().submitError, isA<ServerRejectedFailure>().having((f) => f.serverMessage, 'serverMessage', detail));
       });
     }
   });

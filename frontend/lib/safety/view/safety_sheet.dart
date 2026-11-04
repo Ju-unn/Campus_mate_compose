@@ -1,3 +1,4 @@
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -189,7 +190,7 @@ class SafetyConfirmSheet extends StatelessWidget {
           onPressed: () => Navigator.of(context).pop(true),
         ),
         const SizedBox(height: AppSpacing.md),
-        SafetySheetButton.neutral(label: '취소', onPressed: () => Navigator.of(context).pop(false)),
+        SafetySheetButton.neutral(label: context.l10n.commonCancel, onPressed: () => Navigator.of(context).pop(false)),
       ],
     );
   }

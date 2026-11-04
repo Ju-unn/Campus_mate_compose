@@ -1,7 +1,5 @@
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/safety/model/data/report_reason.dart';
-
-/// 성공 뒤 안내(계획서 A1). 신고하면 차단도 같이 된다는 것(결정 4)을 숨기지 않고 알린다.
-const String reportedMessage = '신고했어요. 이 사용자는 차단되어 서로에게 보이지 않아요.';
 
 /// 시트를 **닫아야 하는** 결과들. 여기에 없는 실패는 시트를 열어 둔 채 다시 보내게 한다.
 enum ReportOutcome {
@@ -24,9 +22,9 @@ class ReportUiState {
     this.selectedReason,
     this.note = '',
     this.isSubmitting = false,
-    this.errorMessage,
+    this.error,
     this.outcome,
-    this.closingMessage,
+    this.closingFailure,
   });
 
   final ReportReason? selectedReason;
@@ -35,12 +33,15 @@ class ReportUiState {
   final String note;
   final bool isSubmitting;
 
-  /// 시트를 열어 둔 채 띄우는 실패 문구("다시 시도").
-  final String? errorMessage;
+  /// 시트를 열어 둔 채 띄우는 실패("다시 시도"). 글자는 화면이 만든다.
+  final Failure? error;
 
-  /// null 이 아니면 시트를 닫고 [closingMessage] 를 띄운다.
+  /// null 이 아니면 시트를 닫고 알린다 — 신고됨이면 차단 안내(`safetyReported`), 아니면 [closingFailure] 의 글자.
+  /// 신고하면 차단도 같이 된다는 것(결정 4)을 숨기지 않고 알린다(계획서 A1).
   final ReportOutcome? outcome;
-  final String? closingMessage;
+
+  /// 끝난 결과가 실패 쪽(이미 신고 · 하루 상한 · 대상 없음)일 때 그 실패. 신고됨이면 null.
+  final Failure? closingFailure;
 
   /// 사유를 골랐고, 보내는 중이 아니고, 아직 끝나지 않았고, 기타라면 메모가 있을 때.
   bool get canSubmit =>
@@ -49,22 +50,22 @@ class ReportUiState {
       outcome == null &&
       (selectedReason != ReportReason.other || note.trim().isNotEmpty);
 
-  /// [errorMessage] 는 넘기지 않으면 지워진다 — 다음 동작을 하면 지난 실패 문구가 사라져야 한다.
+  /// [error] 는 넘기지 않으면 지워진다 — 다음 동작을 하면 지난 실패 문구가 사라져야 한다.
   ReportUiState copyWith({
     ReportReason? selectedReason,
     String? note,
     bool? isSubmitting,
-    String? errorMessage,
+    Failure? error,
     ReportOutcome? outcome,
-    String? closingMessage,
+    Failure? closingFailure,
   }) {
     return ReportUiState(
       selectedReason: selectedReason ?? this.selectedReason,
       note: note ?? this.note,
       isSubmitting: isSubmitting ?? this.isSubmitting,
-      errorMessage: errorMessage,
+      error: error,
       outcome: outcome ?? this.outcome,
-      closingMessage: closingMessage ?? this.closingMessage,
+      closingFailure: closingFailure ?? this.closingFailure,
     );
   }
 }

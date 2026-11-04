@@ -27,16 +27,14 @@ void main() {
     expect(isProfileGone(const NetworkFailure()), isFalse);
   });
 
-  test('신고 실패 문구: 상한은 신고 말로 바꾸고 나머지는 서버 문구 그대로', () {
-    expect(reportFailureMessage(const RateLimitedFailure()), '오늘은 더 신고할 수 없어요');
+  test('신고 실패: 상한은 신고 말 종류로 바꾸고 나머지는 그 실패 그대로', () {
     expect(
-      reportFailureMessage(const ServerRejectedFailure('이미 신고를 완료했어요')),
-      '이미 신고를 완료했어요',
+      reportFailure(const RateLimitedFailure()),
+      isA<AppErrorFailure>().having((failure) => failure.error, 'error', AppError.reportLimited),
     );
-    expect(
-      reportFailureMessage(const ServerRejectedFailure('메시지를 찾을 수 없어요')),
-      '메시지를 찾을 수 없어요',
-    );
-    expect(reportFailureMessage(const NetworkFailure()), '네트워크 연결을 확인해 주세요');
+    const rejected = ServerRejectedFailure('이미 신고를 완료했어요');
+    const network = NetworkFailure();
+    expect(reportFailure(rejected), same(rejected));
+    expect(reportFailure(network), same(network));
   });
 }
