@@ -6,7 +6,7 @@ import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
 import 'package:campus_mate/core/back_exit/back_exit_view_model.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
-import 'package:campus_mate/me/model/me_repository_provider.dart';
+import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:campus_mate/profile/view/tag_picker_screen.dart';
@@ -15,7 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../me/model/fake_me_repository.dart';
+import '../../me/model/repository/fake_me_repository.dart';
 import '../model/fake_onboarding_repository.dart';
 
 void main() {

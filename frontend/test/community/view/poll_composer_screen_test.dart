@@ -3,8 +3,7 @@ import 'dart:async';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
-import 'package:campus_mate/community/model/community_repository.dart';
-import 'package:campus_mate/community/model/community_repository_provider.dart';
+import 'package:campus_mate/community/model/repository/community_repository_provider.dart';
 import 'package:campus_mate/community/view/poll_composer_screen.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
 import 'package:campus_mate/core/analytics/analytics_provider.dart';
@@ -18,9 +17,10 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:campus_mate/community/model/data/poll_feed.dart';
 
 import '../../core/analytics/fake_analytics_service.dart';
-import '../model/fake_community_repository.dart';
+import '../model/repository/fake_community_repository.dart';
 
 void main() {
   late FakeCommunityRepository repository;

@@ -3,7 +3,7 @@ import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
-import 'package:campus_mate/home/model/home_summary.dart';
+import 'package:campus_mate/home/model/data/home_summary.dart';
 import 'package:campus_mate/home/view/home_grid.dart';
 import 'package:campus_mate/home/view/stat_tile.dart';
 import 'package:flutter/material.dart';

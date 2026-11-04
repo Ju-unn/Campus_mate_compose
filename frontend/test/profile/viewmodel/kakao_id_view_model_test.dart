@@ -1,7 +1,7 @@
 import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'dart:io';
 
-import 'package:campus_mate/account/model/account_repository.dart';
+import 'package:campus_mate/account/model/repository/account_repository.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
@@ -15,7 +15,7 @@ import 'package:campus_mate/core/draft/draft_store.dart';
 import 'package:campus_mate/core/draft/shared_preferences_draft_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../account/model/fake_account_repository.dart';
+import '../../account/model/repository/fake_account_repository.dart';
 import '../model/fake_kakao_id_repository.dart';
 import '../model/fake_onboarding_repository.dart';
 import '../../core/analytics/fake_analytics_service.dart';

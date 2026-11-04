@@ -1,7 +1,7 @@
 import 'package:campus_mate/friend_review/view/friend_review_card.dart';
 import 'package:campus_mate/friend_review/view/friend_review_list_frame.dart';
 import 'package:campus_mate/friend_review/viewmodel/friend_review_list_view_model.dart';
-import 'package:campus_mate/safety/model/safety_repository.dart';
+import 'package:campus_mate/safety/model/data/report_target.dart';
 import 'package:campus_mate/safety/view/report_sheet.dart';
 import 'package:campus_mate/safety/view/safety_actions.dart';
 import 'package:campus_mate/safety/viewmodel/report_ui_state.dart';

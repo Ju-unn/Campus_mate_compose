@@ -1,4 +1,4 @@
-import 'package:campus_mate/chat/model/conversation.dart';
+import 'package:campus_mate/chat/model/data/conversation.dart';
 
 /// 대화 중 목록(화면 13 아래 섹션)의 상태. 수락 대기 섹션과는 서로를 모른다.
 class ConversationsUiState {

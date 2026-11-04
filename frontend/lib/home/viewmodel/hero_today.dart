@@ -1,4 +1,4 @@
-import 'package:campus_mate/matching/model/daily_card.dart';
+import 'package:campus_mate/matching/model/data/daily_card.dart';
 import 'package:campus_mate/matching/viewmodel/today_cards_ui_state.dart';
 import 'package:campus_mate/matching/viewmodel/today_cards_view_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

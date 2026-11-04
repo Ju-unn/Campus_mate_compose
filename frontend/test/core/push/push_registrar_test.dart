@@ -5,7 +5,7 @@ import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/push/push_registrar.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../matching/model/fake_card_repository.dart';
+import '../../matching/model/repository/fake_card_repository.dart';
 import 'fake_push_messaging.dart';
 
 void main() {

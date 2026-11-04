@@ -5,7 +5,7 @@ import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
-import 'package:campus_mate/home/model/home_summary.dart';
+import 'package:campus_mate/home/model/data/home_summary.dart';
 import 'package:campus_mate/home/view/stat_tile.dart';
 import 'package:flutter/material.dart';
 

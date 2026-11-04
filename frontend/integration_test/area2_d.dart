@@ -1,5 +1,5 @@
 import 'package:campus_mate/core/auth/session_scope.dart';
-import 'package:campus_mate/home/model/home_summary.dart';
+import 'package:campus_mate/home/model/data/home_summary.dart';
 import 'package:campus_mate/home/view/cohort_wait_view.dart' show homeNowProvider;
 import 'package:campus_mate/home/view/home_screen.dart';
 import 'package:campus_mate/home/viewmodel/home_summary_provider.dart';

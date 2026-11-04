@@ -2,15 +2,16 @@ import 'dart:async';
 
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
-import 'package:campus_mate/safety/model/contact_block_repository.dart';
-import 'package:campus_mate/safety/model/contact_name_store.dart';
-import 'package:campus_mate/safety/model/device_contacts.dart';
+import 'package:campus_mate/safety/model/data/device_contact.dart';
+import 'package:campus_mate/safety/model/repository/contact_block_repository.dart';
+import 'package:campus_mate/safety/model/repository/contact_name_store.dart';
+import 'package:campus_mate/safety/model/repository/device_contacts.dart';
 import 'package:campus_mate/safety/viewmodel/contact_picker_ui_state.dart';
 import 'package:campus_mate/safety/viewmodel/contact_picker_view_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../model/fake_contact_blocks.dart';
+import '../model/repository/fake_contact_blocks.dart';
 
 void main() {
   late FakeDeviceContactSource source;

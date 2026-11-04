@@ -1,11 +1,11 @@
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/analytics/analytics_provider.dart';
-import 'package:campus_mate/matching/model/card_detail.dart';
-import 'package:campus_mate/matching/model/card_profile.dart';
-import 'package:campus_mate/matching/model/card_repository.dart';
-import 'package:campus_mate/matching/model/card_repository_provider.dart';
-import 'package:campus_mate/matching/model/daily_card.dart';
+import 'package:campus_mate/matching/model/data/card_decision.dart';
+import 'package:campus_mate/matching/model/data/card_detail.dart';
+import 'package:campus_mate/matching/model/data/card_profile.dart';
+import 'package:campus_mate/matching/model/data/daily_card.dart';
+import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
 import 'package:campus_mate/matching/viewmodel/card_detail_view_model.dart';
 import 'package:campus_mate/matching/viewmodel/today_cards_view_model.dart';
 import 'package:campus_mate/profile/model/profile_enums.dart';
@@ -13,7 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../core/analytics/fake_analytics_service.dart';
-import '../model/fake_card_repository.dart';
+import '../model/repository/fake_card_repository.dart';
 
 final _detail = CardDetail(
   cardId: 'card-1',

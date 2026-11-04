@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:campus_mate/chat/model/chat_repository.dart';
-import 'package:campus_mate/chat/model/chat_repository_provider.dart';
-import 'package:campus_mate/chat/model/chat_room.dart';
-import 'package:campus_mate/chat/model/http_chat_repository.dart';
-import 'package:campus_mate/chat/model/message.dart';
-import 'package:campus_mate/chat/model/user_event_stream.dart';
+import 'package:campus_mate/chat/model/data/chat_room.dart';
+import 'package:campus_mate/chat/model/data/message.dart';
+import 'package:campus_mate/chat/model/data/message_page.dart';
+import 'package:campus_mate/chat/model/data/user_event.dart';
+import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart';
+import 'package:campus_mate/chat/model/repository/http_chat_repository.dart';
 import 'package:campus_mate/chat/viewmodel/chat_room_ui_state.dart';
 import 'package:campus_mate/chat/viewmodel/chat_room_view_model.dart';
 import 'package:campus_mate/chat/viewmodel/user_channel.dart';
@@ -21,7 +21,7 @@ import 'package:http/testing.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show GoTrueClient, Session;
 
-import '../model/fake_chat_repository.dart';
+import '../model/repository/fake_chat_repository.dart';
 
 void main() {
   late FakeChatRepository repository;

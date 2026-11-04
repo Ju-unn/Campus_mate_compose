@@ -8,7 +8,7 @@ import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/friend_review/view/my_friend_reviews_section.dart';
-import 'package:campus_mate/me/model/my_profile.dart';
+import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/view/me_load_error.dart';
 import 'package:campus_mate/me/view/me_toast.dart';
 import 'package:campus_mate/me/view/profile_entry_row.dart';

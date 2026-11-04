@@ -1,6 +1,6 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
-import 'package:campus_mate/consent/model/open_url.dart';
+import 'package:campus_mate/consent/model/repository/open_url.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';

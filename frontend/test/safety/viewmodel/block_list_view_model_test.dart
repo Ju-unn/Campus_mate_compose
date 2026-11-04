@@ -2,13 +2,13 @@ import 'dart:async';
 
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
-import 'package:campus_mate/safety/model/safety_repository_provider.dart';
+import 'package:campus_mate/safety/model/repository/safety_repository_provider.dart';
 import 'package:campus_mate/safety/viewmodel/block_list_ui_state.dart';
 import 'package:campus_mate/safety/viewmodel/block_list_view_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../model/fake_safety_repository.dart';
+import '../model/repository/fake_safety_repository.dart';
 
 void main() {
   late FakeSafetyRepository repository;

@@ -1,4 +1,4 @@
-import 'package:campus_mate/chat/model/chat_repository.dart';
+import 'package:campus_mate/chat/model/data/message_page.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';

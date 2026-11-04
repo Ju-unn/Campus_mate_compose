@@ -1,7 +1,7 @@
 import 'package:campus_mate/common/failure.dart';
-import 'package:campus_mate/community/model/community_repository.dart';
-import 'package:campus_mate/community/model/community_repository_provider.dart';
-import 'package:campus_mate/community/model/poll.dart';
+import 'package:campus_mate/community/model/data/poll.dart';
+import 'package:campus_mate/community/model/data/poll_feed.dart';
+import 'package:campus_mate/community/model/repository/community_repository_provider.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_ui_state.dart';
 import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';

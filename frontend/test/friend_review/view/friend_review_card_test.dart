@@ -7,7 +7,7 @@ import 'package:campus_mate/common/university_logos.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
-import 'package:campus_mate/friend_review/model/friend_review.dart';
+import 'package:campus_mate/friend_review/model/data/friend_review.dart';
 import 'package:campus_mate/friend_review/view/friend_review_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -15,7 +15,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import '../model/fake_friend_review_repository.dart';
+import '../model/repository/fake_friend_review_repository.dart';
 
 /// pen `S0MR2b` 마스터 본문(`kgCWd`) — 296 폭에서 두 줄.
 const _comment = '처음엔 조용해 보여도 친해지면 누구보다 세심하게 챙겨주는 친구예요.';

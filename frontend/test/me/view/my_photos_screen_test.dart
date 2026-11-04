@@ -14,9 +14,9 @@ import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
-import 'package:campus_mate/me/model/me_repository_provider.dart';
-import 'package:campus_mate/me/model/my_profile.dart';
-import 'package:campus_mate/me/model/photo_slot.dart';
+import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
+import 'package:campus_mate/me/model/data/my_profile.dart';
+import 'package:campus_mate/me/model/data/photo_slot.dart';
 import 'package:campus_mate/me/view/edit_app_bar.dart';
 import 'package:campus_mate/me/view/my_photos_screen.dart';
 import 'package:campus_mate/me/view/photo_zoom_viewer.dart';
@@ -35,7 +35,7 @@ import 'package:mocktail/mocktail.dart';
 import '../../auth/model/fake_face_detector.dart';
 import '../../auth/model/fake_image_compressor.dart';
 import '../../profile/model/fake_onboarding_repository.dart';
-import '../model/fake_me_repository.dart';
+import '../model/repository/fake_me_repository.dart';
 
 /// 사진 요청을 받기만 하고 답하지 않는 HttpClient — 서버 사진(NetworkImage)은 "아직 오는 중" 으로 남는다(15-5 테스트와 같다).
 class _PendingHttpClient extends Mock implements HttpClient {}

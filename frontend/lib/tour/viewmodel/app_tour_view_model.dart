@@ -1,6 +1,6 @@
 import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'package:campus_mate/core/analytics/analytics_values.dart';
-import 'package:campus_mate/tour/model/tour_seen_store.dart';
+import 'package:campus_mate/tour/model/repository/tour_seen_store.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 

@@ -3,13 +3,13 @@ import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
 import 'package:campus_mate/profile/view/onboarding_contact_block_screen.dart';
-import 'package:campus_mate/safety/model/device_contacts.dart';
+import 'package:campus_mate/safety/model/repository/device_contacts.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../safety/model/fake_contact_blocks.dart';
+import '../../safety/model/repository/fake_contact_blocks.dart';
 
 /// 06-4 · 8d · 홈 세 경로만 둔 라우터. 8d 자리는 "차단 끝"(pop true) · "뒤로"(pop) 버튼 둘이다.
 Widget _app(FakeDeviceContactSource source) {

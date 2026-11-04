@@ -1,7 +1,7 @@
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
-import 'package:campus_mate/community/model/community_repository_provider.dart';
-import 'package:campus_mate/community/model/poll.dart';
+import 'package:campus_mate/community/model/data/poll.dart';
+import 'package:campus_mate/community/model/repository/community_repository_provider.dart';
 import 'package:campus_mate/community/view/poll_feed_tabs.dart';
 import 'package:campus_mate/community/view/vote_option.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';

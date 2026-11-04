@@ -1,35 +1,35 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:campus_mate/chat/model/chat_repository_provider.dart';
+import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/core/analytics/analytics_values.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
-import 'package:campus_mate/home/model/home_repository_provider.dart';
-import 'package:campus_mate/matching/model/card_profile.dart';
-import 'package:campus_mate/matching/model/card_repository_provider.dart';
-import 'package:campus_mate/matching/model/daily_card.dart';
-import 'package:campus_mate/matching/model/paid_card.dart';
+import 'package:campus_mate/home/model/repository/home_repository_provider.dart';
+import 'package:campus_mate/matching/model/data/card_profile.dart';
+import 'package:campus_mate/matching/model/data/daily_card.dart';
+import 'package:campus_mate/matching/model/data/paid_card.dart';
+import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
 import 'package:campus_mate/matching/view/paid_card_locked.dart';
 import 'package:campus_mate/matching/view/today_cards_screen.dart';
 import 'package:campus_mate/matching/viewmodel/today_cards_view_model.dart';
-import 'package:campus_mate/me/model/me_repository_provider.dart';
-import 'package:campus_mate/me/model/my_profile.dart';
+import 'package:campus_mate/me/model/data/my_profile.dart';
+import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
-import 'package:campus_mate/notifications/model/notifications_repository_provider.dart';
+import 'package:campus_mate/notifications/model/repository/notifications_repository_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../chat/model/fake_chat_repository.dart';
-import '../../home/model/fake_home_repository.dart';
-import '../../me/model/fake_me_repository.dart';
-import '../model/fake_card_repository.dart';
-import '../../notifications/model/fake_notifications_repository.dart';
+import '../../chat/model/repository/fake_chat_repository.dart';
+import '../../home/model/repository/fake_home_repository.dart';
+import '../../me/model/repository/fake_me_repository.dart';
+import '../model/repository/fake_card_repository.dart';
+import '../../notifications/model/repository/fake_notifications_repository.dart';
 
 /// 오늘 탭 안의 결제 카드(pen `W0CjO` 의 `b2jvOY`, `SoMVZ` 의 `IJGRA`) 자리 · 흐름 · 이름 바꾸기 (지시문 23 B~E).
 Future<void> _loadPretendard() async {

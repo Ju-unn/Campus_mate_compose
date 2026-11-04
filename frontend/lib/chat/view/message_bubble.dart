@@ -1,4 +1,4 @@
-import 'package:campus_mate/chat/model/message.dart';
+import 'package:campus_mate/chat/model/data/message.dart';
 import 'package:campus_mate/chat/view/chat_time.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';

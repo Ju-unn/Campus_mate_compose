@@ -33,7 +33,7 @@ import 'package:campus_mate/graduate/view/graduate_waiting_screen.dart';
 import 'package:campus_mate/graduate/view/verification_method_screen.dart';
 import 'package:campus_mate/home/view/event_coming_screen.dart';
 import 'package:campus_mate/home/view/home_screen.dart';
-import 'package:campus_mate/matching/model/acceptance.dart';
+import 'package:campus_mate/matching/model/data/acceptance.dart';
 import 'package:campus_mate/matching/view/acceptance_detail_screen.dart';
 import 'package:campus_mate/matching/view/card_detail_screen.dart';
 import 'package:campus_mate/matching/view/conversations_screen.dart';

@@ -14,16 +14,16 @@ import 'package:campus_mate/matching/viewmodel/sent_requests_ui_state.dart';
 import 'package:campus_mate/matching/viewmodel/sent_requests_view_model.dart';
 import 'package:campus_mate/matching/viewmodel/today_cards_ui_state.dart';
 import 'package:campus_mate/matching/viewmodel/today_cards_view_model.dart';
-import 'package:campus_mate/me/model/my_profile.dart';
+import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
-import 'package:campus_mate/notifications/model/notifications_repository_provider.dart';
+import 'package:campus_mate/notifications/model/repository/notifications_repository_provider.dart';
 import 'package:campus_mate/notifications/viewmodel/unread_count_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../auth/model/fake_verification_gate_repository.dart';
 import '../../billing/model/fake_heart_task_repository.dart';
-import '../../notifications/model/fake_notifications_repository.dart';
+import '../../notifications/model/repository/fake_notifications_repository.dart';
 
 /// 어느 목록이 다시 읽혔는지만 적는 장부. 저장소를 거치지 않으니 build() 의 첫 조회가 섞이지 않는다.
 final List<String> _refreshed = [];

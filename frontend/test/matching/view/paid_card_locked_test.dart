@@ -6,7 +6,7 @@ import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_elevation.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
-import 'package:campus_mate/matching/model/paid_card.dart';
+import 'package:campus_mate/matching/model/data/paid_card.dart';
 import 'package:campus_mate/matching/view/paid_card_locked.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';

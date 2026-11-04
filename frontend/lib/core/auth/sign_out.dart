@@ -5,7 +5,7 @@ import 'package:campus_mate/auth/model/social_login_repository_provider.dart';
 import 'package:campus_mate/core/draft/draft_store.dart';
 import 'package:campus_mate/core/push/push_provider.dart';
 import 'package:campus_mate/core/push/push_registrar.dart';
-import 'package:campus_mate/safety/model/contact_name_store.dart';
+import 'package:campus_mate/safety/model/repository/contact_name_store.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

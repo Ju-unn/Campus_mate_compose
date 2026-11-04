@@ -1,16 +1,16 @@
 import 'dart:async';
 
 import 'package:campus_mate/auth/model/verification_gate.dart';
-import 'package:campus_mate/chat/model/chat_repository_provider.dart';
+import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/router/app_router.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
-import 'package:campus_mate/home/model/home_repository_provider.dart';
+import 'package:campus_mate/home/model/repository/home_repository_provider.dart';
 import 'package:campus_mate/home/view/home_screen.dart';
-import 'package:campus_mate/matching/model/card_repository_provider.dart';
-import 'package:campus_mate/me/model/me_repository_provider.dart';
+import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
+import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
 import 'package:campus_mate/profile/model/avatar_generation_outcome.dart';
 import 'package:campus_mate/profile/model/avatar_repository_provider.dart';
 import 'package:campus_mate/profile/model/bio_repository_provider.dart';
@@ -21,21 +21,21 @@ import 'package:campus_mate/profile/model/onboarding_step.dart';
 import 'package:campus_mate/common/widgets/labeled_field.dart';
 import 'package:campus_mate/profile/view/bio_screen.dart';
 import 'package:campus_mate/profile/view/writing_example.dart';
-import 'package:campus_mate/referral/model/referral_repository_provider.dart';
+import 'package:campus_mate/referral/model/repository/referral_repository_provider.dart';
 import 'package:campus_mate/referral/view/referral_code_screen.dart';
-import 'package:campus_mate/notifications/model/notifications_repository_provider.dart';
+import 'package:campus_mate/notifications/model/repository/notifications_repository_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../chat/model/fake_chat_repository.dart';
-import '../../home/model/fake_home_repository.dart';
-import '../../matching/model/fake_card_repository.dart';
-import '../../referral/model/fake_referral_repository.dart';
-import '../../me/model/fake_me_repository.dart';
+import '../../chat/model/repository/fake_chat_repository.dart';
+import '../../home/model/repository/fake_home_repository.dart';
+import '../../matching/model/repository/fake_card_repository.dart';
+import '../../referral/model/repository/fake_referral_repository.dart';
+import '../../me/model/repository/fake_me_repository.dart';
 import '../model/fake_avatar_repository.dart';
 import '../model/fake_bio_repository.dart';
-import '../../notifications/model/fake_notifications_repository.dart';
+import '../../notifications/model/repository/fake_notifications_repository.dart';
 
 /// 서버 next-step 을 흉내 낸다. [hold] 가 있으면 그것이 끝날 때까지 답을 미룬다(느린 네트워크).
 class _StepRepository implements OnboardingRepository {

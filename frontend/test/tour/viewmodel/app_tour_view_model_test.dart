@@ -1,11 +1,11 @@
 import 'package:campus_mate/core/analytics/analytics_provider.dart';
-import 'package:campus_mate/tour/model/tour_seen_store.dart';
+import 'package:campus_mate/tour/model/repository/tour_seen_store.dart';
 import 'package:campus_mate/tour/viewmodel/app_tour_view_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../core/analytics/fake_analytics_service.dart';
-import '../model/fake_tour_seen_store.dart';
+import '../model/repository/fake_tour_seen_store.dart';
 
 void main() {
   late FakeTourSeenStore store;

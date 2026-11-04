@@ -12,7 +12,7 @@ from e2e.area1 import Check, _app, _on_phone, _one, _rows, _signed_in
 from e2e.area4 import _cut, _offline, _restore, stepper
 from e2e.tools import Blocked
 
-# 21 의 탭 순서(frontend/lib/faq/model/faq_item.dart FaqCategory) — 표의 값과 화면 글자.
+# 21 의 탭 순서(frontend/lib/faq/model/data/faq_item.dart FaqCategory) — 표의 값과 화면 글자.
 TABS = (('card_matching', '카드·매칭'), ('heart_payment', '하트·결제'), ('photo_profile', '사진·프로필'),
         ('friend_review', '지인 리뷰'), ('safety', '안전·신고'), ('account', '계정'))
 MAIL = 'appmailerl4538@gmail.com'

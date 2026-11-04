@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:campus_mate/account/model/account_repository.dart';
-import 'package:campus_mate/account/model/apple_withdrawal_code.dart';
+import 'package:campus_mate/account/model/repository/account_repository.dart';
+import 'package:campus_mate/account/model/repository/apple_withdrawal_code.dart';
 import 'package:campus_mate/account/viewmodel/withdraw_view_model.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
@@ -12,8 +12,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../core/draft/fake_draft_store.dart';
-import '../model/fake_account_repository.dart';
-import '../model/fake_apple_withdrawal_code.dart';
+import '../model/repository/fake_account_repository.dart';
+import '../model/repository/fake_apple_withdrawal_code.dart';
 
 /// 전부 지우기가 던진다 — 디스크 오류 같은 경우. 문구에 값이 들어 있다고 치고 로그에 새지 않는지 본다.
 class _BrokenDraftStore extends FakeDraftStore {

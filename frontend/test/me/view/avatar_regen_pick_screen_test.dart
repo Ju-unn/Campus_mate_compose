@@ -12,9 +12,9 @@ import 'package:campus_mate/core/analytics/analytics_values.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
-import 'package:campus_mate/me/model/me_repository_provider.dart';
-import 'package:campus_mate/me/model/my_profile.dart';
-import 'package:campus_mate/me/model/photo_slot.dart';
+import 'package:campus_mate/me/model/data/my_profile.dart';
+import 'package:campus_mate/me/model/data/photo_slot.dart';
+import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
 import 'package:campus_mate/me/view/avatar_regen_pick_screen.dart';
 import 'package:campus_mate/me/view/edit_app_bar.dart';
 import 'package:campus_mate/me/viewmodel/avatar_regen_pick_view_model.dart';
@@ -32,7 +32,7 @@ import 'package:go_router/go_router.dart';
 import '../../auth/model/fake_face_detector.dart';
 import '../../auth/model/fake_image_compressor.dart';
 import '../../profile/model/fake_avatar_repository.dart';
-import '../model/fake_me_repository.dart';
+import '../model/repository/fake_me_repository.dart';
 
 /// 1×1 투명 PNG. `Image.file` 이 실제로 읽을 수 있는 파일이어야 화면이 그려진다.
 const _onePixelPng =

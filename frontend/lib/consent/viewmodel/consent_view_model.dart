@@ -1,7 +1,7 @@
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
-import 'package:campus_mate/consent/model/consent_item.dart';
-import 'package:campus_mate/consent/model/consent_repository_provider.dart';
+import 'package:campus_mate/consent/model/data/consent_item.dart';
+import 'package:campus_mate/consent/model/repository/consent_repository_provider.dart';
 import 'package:campus_mate/consent/viewmodel/consent_ui_state.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/core/router/verification_gate_listenable_provider.dart';

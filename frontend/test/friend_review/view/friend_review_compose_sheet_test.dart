@@ -4,8 +4,8 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
-import 'package:campus_mate/friend_review/model/friend_review_repository_provider.dart';
-import 'package:campus_mate/friend_review/model/friend_review_tags.dart';
+import 'package:campus_mate/friend_review/model/data/friend_review_tags.dart';
+import 'package:campus_mate/friend_review/model/repository/friend_review_repository_provider.dart';
 import 'package:campus_mate/friend_review/view/friend_review_card.dart';
 import 'package:campus_mate/friend_review/view/friend_review_compose_sheet.dart';
 import 'package:flutter/material.dart';
@@ -13,7 +13,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../model/fake_friend_review_repository.dart';
+import '../model/repository/fake_friend_review_repository.dart';
 
 const _placeholder = '이 사람을 잘 보여주는 따뜻한 이야기를 적어주세요.';
 

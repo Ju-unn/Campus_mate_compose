@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
-import 'package:campus_mate/safety/model/safety_repository_provider.dart';
+import 'package:campus_mate/safety/model/repository/safety_repository_provider.dart';
 import 'package:campus_mate/safety/view/block_list_screen.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
@@ -11,7 +11,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../model/fake_safety_repository.dart';
+import '../model/repository/fake_safety_repository.dart';
 
 /// 16f 차단 목록(pen `Oby6v` — 카드 `JULLG`, 줄 `gNyir`, 해제 시트 `FzXZ4`, 빈 상태 `KLSeQ`).
 void main() {

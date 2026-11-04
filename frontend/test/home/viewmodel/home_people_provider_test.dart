@@ -1,13 +1,13 @@
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
-import 'package:campus_mate/home/model/home_people.dart';
-import 'package:campus_mate/home/model/home_repository_provider.dart';
+import 'package:campus_mate/home/model/data/home_people.dart';
+import 'package:campus_mate/home/model/repository/home_repository_provider.dart';
 import 'package:campus_mate/home/viewmodel/home_people_provider.dart';
 import 'package:campus_mate/home/viewmodel/home_summary_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../model/fake_home_repository.dart';
+import '../model/repository/fake_home_repository.dart';
 
 /// 레일 사람 칸은 요약과 따로 읽는다. 사람이 있게 받으면 앱이 켜져 있는 동안 그대로 두고,
 /// 못 받았거나 빈 목록(인원 부족)이면 5분이 지난 뒤 홈에 다시 들어올 때 다시 받는다.

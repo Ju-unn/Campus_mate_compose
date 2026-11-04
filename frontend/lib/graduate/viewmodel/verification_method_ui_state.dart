@@ -1,4 +1,4 @@
-import 'package:campus_mate/graduate/model/verification_method.dart';
+import 'package:campus_mate/graduate/model/data/verification_method.dart';
 
 /// 인증 방법 고르기의 상태. 카드를 누르는 것은 앱 안 선택([selected])일 뿐 서버에 쓰지 않는다.
 class VerificationMethodUiState {

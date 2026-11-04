@@ -8,7 +8,7 @@ import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
-import 'package:campus_mate/matching/model/paid_card.dart';
+import 'package:campus_mate/matching/model/data/paid_card.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';
 

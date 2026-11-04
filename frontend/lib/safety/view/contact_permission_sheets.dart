@@ -2,7 +2,7 @@ import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
-import 'package:campus_mate/safety/model/device_contacts.dart';
+import 'package:campus_mate/safety/model/repository/device_contacts.dart';
 import 'package:campus_mate/safety/view/contact_privacy_copy.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';

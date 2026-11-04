@@ -1,14 +1,14 @@
 import 'dart:async';
 
-import 'package:campus_mate/notifications/model/app_notification.dart';
-import 'package:campus_mate/notifications/model/notifications_repository_provider.dart';
+import 'package:campus_mate/notifications/model/data/app_notification.dart';
+import 'package:campus_mate/notifications/model/repository/notifications_repository_provider.dart';
 import 'package:campus_mate/notifications/viewmodel/notifications_ui_state.dart';
 import 'package:campus_mate/notifications/viewmodel/notifications_view_model.dart';
 import 'package:campus_mate/notifications/viewmodel/unread_count_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../model/fake_notifications_repository.dart';
+import '../model/repository/fake_notifications_repository.dart';
 
 void main() {
   late FakeNotificationsRepository repo;

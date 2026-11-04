@@ -1,4 +1,4 @@
-import 'package:campus_mate/me/model/my_profile.dart';
+import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:campus_mate/profile/viewmodel/tag_picker_kind.dart';
 import 'package:campus_mate/profile/viewmodel/tag_picker_ui_state.dart';

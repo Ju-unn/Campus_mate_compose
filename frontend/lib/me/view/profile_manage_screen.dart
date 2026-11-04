@@ -9,7 +9,7 @@ import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
-import 'package:campus_mate/me/model/my_profile.dart';
+import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/view/edit_app_bar.dart';
 import 'package:campus_mate/me/view/me_load_error.dart';
 import 'package:campus_mate/me/view/me_toast.dart';

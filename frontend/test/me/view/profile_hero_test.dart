@@ -9,7 +9,7 @@ import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
-import 'package:campus_mate/me/model/my_profile.dart';
+import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/view/profile_hero.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';

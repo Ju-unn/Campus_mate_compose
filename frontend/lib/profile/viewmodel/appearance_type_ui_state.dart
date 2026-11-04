@@ -1,4 +1,4 @@
-import 'package:campus_mate/me/model/my_profile.dart';
+import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/profile/model/profile_enums.dart';
 
 /// 외모 타입 화면(DESIGN.md 화면 04-4)의 상태.

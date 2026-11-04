@@ -12,7 +12,7 @@ import 'package:campus_mate/billing/viewmodel/heart_tasks_view_model.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/muted_text_button.dart';
-import 'package:campus_mate/consent/model/open_url.dart';
+import 'package:campus_mate/consent/model/repository/open_url.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/profile/view/photo_tiles.dart';

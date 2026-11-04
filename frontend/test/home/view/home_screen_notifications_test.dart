@@ -1,26 +1,26 @@
-import 'package:campus_mate/chat/model/chat_repository_provider.dart';
+import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
-import 'package:campus_mate/home/model/home_repository_provider.dart';
-import 'package:campus_mate/home/model/home_summary.dart';
+import 'package:campus_mate/home/model/data/home_summary.dart';
+import 'package:campus_mate/home/model/repository/home_repository_provider.dart';
 import 'package:campus_mate/home/view/home_screen.dart';
 import 'package:campus_mate/home/view/notify_icon_button.dart';
-import 'package:campus_mate/matching/model/card_repository_provider.dart';
-import 'package:campus_mate/me/model/me_repository_provider.dart';
-import 'package:campus_mate/notifications/model/app_notification.dart';
-import 'package:campus_mate/notifications/model/notifications_repository_provider.dart';
+import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
+import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
+import 'package:campus_mate/notifications/model/data/app_notification.dart';
+import 'package:campus_mate/notifications/model/repository/notifications_repository_provider.dart';
 import 'package:campus_mate/notifications/view/notifications_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../chat/model/fake_chat_repository.dart';
-import '../../matching/model/fake_card_repository.dart';
-import '../../me/model/fake_me_repository.dart';
-import '../../notifications/model/fake_notifications_repository.dart';
-import '../model/fake_home_repository.dart';
+import '../../chat/model/repository/fake_chat_repository.dart';
+import '../../matching/model/repository/fake_card_repository.dart';
+import '../../me/model/repository/fake_me_repository.dart';
+import '../../notifications/model/repository/fake_notifications_repository.dart';
+import '../model/repository/fake_home_repository.dart';
 
 /// 홈 앱바 종(pen `qxUeD` = `IconButton · Notify` `stzJJ`, 배지 `WegDg`)의 안 읽은 수 배지와 알림함 연결.
 /// 배지는 2026-09-26 에 알림함이 없어 숨겼다가(count: 0 고정) 알림함이 생겨 다시 켠다.

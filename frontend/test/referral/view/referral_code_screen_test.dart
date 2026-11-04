@@ -4,18 +4,18 @@ import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
-import 'package:campus_mate/friend_review/model/friend_review_repository_provider.dart';
-import 'package:campus_mate/friend_review/model/friend_review_tags.dart';
+import 'package:campus_mate/friend_review/model/data/friend_review_tags.dart';
+import 'package:campus_mate/friend_review/model/repository/friend_review_repository_provider.dart';
 import 'package:campus_mate/friend_review/view/friend_review_compose_sheet.dart';
-import 'package:campus_mate/referral/model/referral_repository_provider.dart';
+import 'package:campus_mate/referral/model/repository/referral_repository_provider.dart';
 import 'package:campus_mate/referral/view/referral_code_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../friend_review/model/fake_friend_review_repository.dart';
-import '../model/fake_referral_repository.dart';
+import '../../friend_review/model/repository/fake_friend_review_repository.dart';
+import '../model/repository/fake_referral_repository.dart';
 
 const _referrerId = '22222222-2222-2222-2222-222222222222';
 

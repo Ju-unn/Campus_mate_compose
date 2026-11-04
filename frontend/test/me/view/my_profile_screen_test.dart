@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:campus_mate/chat/model/chat_repository_provider.dart';
+import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart';
 import 'package:campus_mate/billing/view/heart_balance_chip.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
@@ -15,11 +15,11 @@ import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_theme.dart';
-import 'package:campus_mate/friend_review/model/friend_review_repository_provider.dart';
+import 'package:campus_mate/friend_review/model/repository/friend_review_repository_provider.dart';
 import 'package:campus_mate/friend_review/view/my_friend_reviews_section.dart';
-import 'package:campus_mate/matching/model/card_repository_provider.dart';
-import 'package:campus_mate/me/model/me_repository_provider.dart';
-import 'package:campus_mate/me/model/my_profile.dart';
+import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
+import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
+import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/view/card_preview_screen.dart';
 import 'package:campus_mate/me/view/me_toast.dart';
 import 'package:campus_mate/me/view/my_profile_screen.dart';
@@ -37,11 +37,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mocktail/mocktail.dart';
 
-import '../../chat/model/fake_chat_repository.dart';
-import '../../friend_review/model/fake_friend_review_repository.dart';
-import '../../matching/model/fake_card_repository.dart';
+import '../../chat/model/repository/fake_chat_repository.dart';
+import '../../friend_review/model/repository/fake_friend_review_repository.dart';
+import '../../matching/model/repository/fake_card_repository.dart';
 import '../../profile/model/fake_avatar_repository.dart';
-import '../model/fake_me_repository.dart';
+import '../model/repository/fake_me_repository.dart';
 
 /// 사진 요청을 받기만 하고 답하지 않는 HttpClient. 테스트의 기본 HttpClient 는 400 을 돌려줘
 /// NetworkImage 가 오류를 내므로, 그림은 "아직 오는 중" 으로 둔다(크기·자리는 그림과 상관없다).

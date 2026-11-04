@@ -2,7 +2,7 @@ import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
-import 'package:campus_mate/graduate/model/graduate_request_state.dart';
+import 'package:campus_mate/graduate/model/data/graduate_request_state.dart';
 import 'package:flutter/material.dart';
 
 /// 테스트가 반려 알림을 찾는 표식.

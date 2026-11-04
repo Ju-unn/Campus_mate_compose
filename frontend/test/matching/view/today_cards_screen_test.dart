@@ -1,4 +1,4 @@
-import 'package:campus_mate/chat/model/chat_repository_provider.dart';
+import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
@@ -6,13 +6,13 @@ import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/entrance.dart';
 import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
 import 'package:campus_mate/core/theme/app_motion.dart';
-import 'package:campus_mate/home/model/cohort_wait.dart';
-import 'package:campus_mate/home/model/home_repository_provider.dart';
-import 'package:campus_mate/home/model/home_summary.dart';
+import 'package:campus_mate/home/model/data/cohort_wait.dart';
+import 'package:campus_mate/home/model/data/home_summary.dart';
+import 'package:campus_mate/home/model/repository/home_repository_provider.dart';
 import 'package:campus_mate/home/view/cohort_wait_view.dart';
-import 'package:campus_mate/matching/model/card_profile.dart';
-import 'package:campus_mate/matching/model/card_repository_provider.dart';
-import 'package:campus_mate/matching/model/daily_card.dart';
+import 'package:campus_mate/matching/model/data/card_profile.dart';
+import 'package:campus_mate/matching/model/data/daily_card.dart';
+import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
 import 'package:campus_mate/matching/view/countdown_text.dart';
 import 'package:campus_mate/matching/view/daily_card_summary.dart';
 import 'package:campus_mate/matching/view/today_cards_screen.dart';
@@ -22,9 +22,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../chat/model/fake_chat_repository.dart';
-import '../../home/model/fake_home_repository.dart';
-import '../model/fake_card_repository.dart';
+import '../../chat/model/repository/fake_chat_repository.dart';
+import '../../home/model/repository/fake_home_repository.dart';
+import '../model/repository/fake_card_repository.dart';
 
 void main() {
   Future<void> pump(WidgetTester tester, FakeCardRepository repository,

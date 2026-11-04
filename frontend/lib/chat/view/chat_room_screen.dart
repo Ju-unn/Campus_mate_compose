@@ -1,11 +1,11 @@
 import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:campus_mate/chat/model/chat_repository.dart';
-import 'package:campus_mate/chat/model/chat_repository_provider.dart';
-import 'package:campus_mate/chat/model/chat_room.dart';
-import 'package:campus_mate/chat/model/conversation.dart';
-import 'package:campus_mate/chat/model/message.dart';
+import 'package:campus_mate/chat/model/data/chat_room.dart';
+import 'package:campus_mate/chat/model/data/conversation.dart';
+import 'package:campus_mate/chat/model/data/message.dart';
+import 'package:campus_mate/chat/model/repository/chat_repository.dart';
+import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart';
 import 'package:campus_mate/chat/view/bubble_report_menu.dart';
 import 'package:campus_mate/chat/view/chat_dialogs.dart';
 import 'package:campus_mate/chat/view/chat_input_bar.dart';
@@ -28,7 +28,7 @@ import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
-import 'package:campus_mate/safety/model/safety_repository.dart';
+import 'package:campus_mate/safety/model/data/report_target.dart';
 import 'package:campus_mate/safety/view/safety_actions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

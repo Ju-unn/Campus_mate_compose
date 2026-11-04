@@ -1,5 +1,5 @@
-import 'package:campus_mate/graduate/model/graduate_request_state.dart';
-import 'package:campus_mate/graduate/model/verification_method.dart';
+import 'package:campus_mate/graduate/model/data/graduate_request_state.dart';
+import 'package:campus_mate/graduate/model/data/verification_method.dart';
 
 /// go_router 가 다음 화면을 정할 때만 쓰는 굵은 단위 상태.
 /// 학생증(3b) 관문은 2026-10-17 에 없앴다 — 학교 메일 다음이 바로 학과(3c)다.

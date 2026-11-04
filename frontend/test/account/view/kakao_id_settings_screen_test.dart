@@ -1,4 +1,4 @@
-import 'package:campus_mate/account/model/account_repository.dart';
+import 'package:campus_mate/account/model/repository/account_repository.dart';
 import 'package:campus_mate/account/view/kakao_id_settings_screen.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/notice_card.dart';
@@ -12,7 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../profile/model/fake_kakao_id_repository.dart';
-import '../model/fake_account_repository.dart';
+import '../model/repository/fake_account_repository.dart';
 
 void main() {
   late FakeAccountRepository account;

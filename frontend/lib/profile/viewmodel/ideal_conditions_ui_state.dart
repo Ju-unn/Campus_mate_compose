@@ -1,4 +1,4 @@
-import 'package:campus_mate/me/model/my_profile.dart';
+import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/profile/model/profile_enums.dart';
 
 /// 이상형 조건 화면(DESIGN.md 화면 06-1)의 상태.

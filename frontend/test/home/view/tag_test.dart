@@ -1,18 +1,18 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:campus_mate/chat/model/chat_repository_provider.dart';
+import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/university_logos.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
-import 'package:campus_mate/home/model/home_repository_provider.dart';
-import 'package:campus_mate/home/model/home_summary.dart';
+import 'package:campus_mate/home/model/data/home_summary.dart';
+import 'package:campus_mate/home/model/repository/home_repository_provider.dart';
 import 'package:campus_mate/home/view/home_screen.dart';
 import 'package:campus_mate/home/view/tag.dart';
-import 'package:campus_mate/matching/model/card_repository_provider.dart';
-import 'package:campus_mate/me/model/me_repository_provider.dart';
-import 'package:campus_mate/me/model/my_profile.dart';
-import 'package:campus_mate/notifications/model/notifications_repository_provider.dart';
+import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
+import 'package:campus_mate/me/model/data/my_profile.dart';
+import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
+import 'package:campus_mate/notifications/model/repository/notifications_repository_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,11 +21,11 @@ import 'package:go_router/go_router.dart';
 import 'package:mocktail/mocktail.dart';
 
 import '../../billing/view/pretendard.dart';
-import '../../chat/model/fake_chat_repository.dart';
-import '../../matching/model/fake_card_repository.dart';
-import '../../me/model/fake_me_repository.dart';
-import '../../notifications/model/fake_notifications_repository.dart';
-import '../model/fake_home_repository.dart';
+import '../../chat/model/repository/fake_chat_repository.dart';
+import '../../matching/model/repository/fake_card_repository.dart';
+import '../../me/model/repository/fake_me_repository.dart';
+import '../../notifications/model/repository/fake_notifications_repository.dart';
+import '../model/repository/fake_home_repository.dart';
 
 /// 로고 요청을 받기만 하고 답하지 않는 HttpClient — 로고는 "아직 오는 중"이라 자리만 잡는다.
 class _PendingHttpClient extends Mock implements HttpClient {}

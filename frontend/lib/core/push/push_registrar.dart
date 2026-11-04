@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/push/push_messaging.dart';
-import 'package:campus_mate/matching/model/card_repository.dart';
+import 'package:campus_mate/matching/model/repository/card_repository.dart';
 import 'package:flutter/foundation.dart';
 
 /// 토큰 등록·해제와 갱신 구독. 로그인한 뒤 [start], 로그아웃할 때 [stop].

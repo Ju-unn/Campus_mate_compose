@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import 'package:campus_mate/graduate/model/graduate_request_state.dart';
-import 'package:campus_mate/graduate/model/previous_school_email.dart';
+import 'package:campus_mate/graduate/model/data/graduate_request_state.dart';
+import 'package:campus_mate/graduate/model/data/previous_school_email.dart';
 
 /// 졸업생 신청 폼의 상태. 동작 하나가 끝날 때마다 새로 만든다 — [errorMessage] 는 그 한 번에만 붙는다.
 class GraduateApplicationUiState {

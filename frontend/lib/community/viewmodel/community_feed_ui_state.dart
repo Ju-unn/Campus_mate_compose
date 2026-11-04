@@ -1,5 +1,5 @@
-import 'package:campus_mate/community/model/community_repository.dart';
-import 'package:campus_mate/community/model/poll.dart';
+import 'package:campus_mate/community/model/data/poll.dart';
+import 'package:campus_mate/community/model/data/poll_feed.dart';
 
 /// 15d 피드 상태. 17c 상세 · 17b 쓰기도 이 목록을 본다.
 /// [polls] 는 **지금 탭** 목록이다 — 탭별로 쌓아 두지 않고 탭을 바꿀 때마다 새로 받는다.

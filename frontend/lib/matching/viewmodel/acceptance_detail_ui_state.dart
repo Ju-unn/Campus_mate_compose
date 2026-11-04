@@ -1,4 +1,4 @@
-import 'package:campus_mate/matching/model/card_detail.dart';
+import 'package:campus_mate/matching/model/data/card_detail.dart';
 
 /// 받은 신청 · 프로필 보기(pen `o4QqYR`)의 읽기 상태. 읽기 한 번으로 끝나 결과마다 새로 만들고 copyWith 는 두지 않는다
 /// (14c `PartnerProfileUiState` 와 같은 모양). 결정 중 · 결정 실패는 받은 신청 목록 상태(`AcceptancesUiState`)에 있다.

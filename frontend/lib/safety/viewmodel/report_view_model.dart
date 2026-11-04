@@ -1,8 +1,8 @@
 import 'package:campus_mate/common/failure.dart';
-import 'package:campus_mate/safety/model/report_reason.dart';
-import 'package:campus_mate/safety/model/safety_errors.dart';
-import 'package:campus_mate/safety/model/safety_repository.dart';
-import 'package:campus_mate/safety/model/safety_repository_provider.dart';
+import 'package:campus_mate/safety/model/data/report_reason.dart';
+import 'package:campus_mate/safety/model/data/report_target.dart';
+import 'package:campus_mate/safety/model/data/safety_errors.dart';
+import 'package:campus_mate/safety/model/repository/safety_repository_provider.dart';
 import 'package:campus_mate/safety/viewmodel/report_ui_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 

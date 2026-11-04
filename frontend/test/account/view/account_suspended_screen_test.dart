@@ -1,5 +1,5 @@
-import 'package:campus_mate/account/model/account_repository.dart';
-import 'package:campus_mate/account/model/apple_withdrawal_code.dart';
+import 'package:campus_mate/account/model/repository/account_repository.dart';
+import 'package:campus_mate/account/model/repository/apple_withdrawal_code.dart';
 import 'package:campus_mate/account/view/account_suspended_screen.dart';
 import 'package:campus_mate/account/view/withdraw_sheets.dart';
 import 'package:campus_mate/common/support_email.dart';
@@ -13,8 +13,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../model/fake_account_repository.dart';
-import '../model/fake_apple_withdrawal_code.dart';
+import '../model/repository/fake_account_repository.dart';
+import '../model/repository/fake_apple_withdrawal_code.dart';
 
 void main() {
   late int signOutCalls;

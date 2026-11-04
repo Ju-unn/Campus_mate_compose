@@ -2,15 +2,15 @@ import 'dart:async';
 
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
-import 'package:campus_mate/matching/model/card_profile.dart';
-import 'package:campus_mate/matching/model/card_repository_provider.dart';
-import 'package:campus_mate/matching/model/sent_request.dart';
+import 'package:campus_mate/matching/model/data/card_profile.dart';
+import 'package:campus_mate/matching/model/data/sent_request.dart';
+import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
 import 'package:campus_mate/matching/viewmodel/sent_requests_ui_state.dart';
 import 'package:campus_mate/matching/viewmodel/sent_requests_view_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../model/fake_card_repository.dart';
+import '../model/repository/fake_card_repository.dart';
 
 const _waiting = SentRequest(
   cardId: 'card-1',

@@ -1,29 +1,29 @@
-import 'package:campus_mate/chat/model/chat_repository_provider.dart';
+import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart';
 import 'package:campus_mate/billing/view/heart_balance_chip.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/analytics/analytics_values.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
-import 'package:campus_mate/home/model/cohort_wait.dart';
-import 'package:campus_mate/home/model/home_repository_provider.dart';
-import 'package:campus_mate/home/model/home_summary.dart';
+import 'package:campus_mate/home/model/data/cohort_wait.dart';
+import 'package:campus_mate/home/model/repository/home_repository_provider.dart';
+import 'package:campus_mate/home/model/data/home_summary.dart';
 import 'package:campus_mate/home/view/home_screen.dart';
 import 'package:campus_mate/home/view/notify_icon_button.dart';
-import 'package:campus_mate/matching/model/card_repository_provider.dart';
-import 'package:campus_mate/me/model/me_repository_provider.dart';
-import 'package:campus_mate/me/model/my_profile.dart';
-import 'package:campus_mate/notifications/model/notifications_repository_provider.dart';
+import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
+import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
+import 'package:campus_mate/me/model/data/my_profile.dart';
+import 'package:campus_mate/notifications/model/repository/notifications_repository_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../chat/model/fake_chat_repository.dart';
-import '../../matching/model/fake_card_repository.dart';
-import '../../me/model/fake_me_repository.dart';
-import '../model/fake_home_repository.dart';
-import '../../notifications/model/fake_notifications_repository.dart';
+import '../../chat/model/repository/fake_chat_repository.dart';
+import '../../matching/model/repository/fake_card_repository.dart';
+import '../../me/model/repository/fake_me_repository.dart';
+import '../model/repository/fake_home_repository.dart';
+import '../../notifications/model/repository/fake_notifications_repository.dart';
 
 /// 홈 앱바의 하트 잔액 칩 — pen `Trailing`(홈 6곳: `k13Z5C` · `rCKcm` · `l1120` · `fATGt` · `U9fmK` · `BZ9WY`) = 칩(`sysyz` 인스턴스, "+" 켬, 높이 44) · gap 4 · 종.
 /// 앱바는 어느 상태에서나 같은 한 줄이다 — 요약 읽는 중 · 보통 · 숫자 0 빈 판 · 완성도 100 · 코호트 대기에서 자리가 같은지 본다(pen 은 6곳이 같은 값).

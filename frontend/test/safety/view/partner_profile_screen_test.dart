@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:campus_mate/chat/model/chat_repository_provider.dart';
+import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
@@ -10,11 +10,11 @@ import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
-import 'package:campus_mate/friend_review/model/friend_review_repository_provider.dart';
+import 'package:campus_mate/friend_review/model/repository/friend_review_repository_provider.dart';
 import 'package:campus_mate/friend_review/view/friend_review_card.dart';
 import 'package:campus_mate/matching/view/card_detail_screen.dart';
 import 'package:campus_mate/matching/view/profile_avatar_header.dart';
-import 'package:campus_mate/safety/model/safety_repository_provider.dart';
+import 'package:campus_mate/safety/model/repository/safety_repository_provider.dart';
 import 'package:campus_mate/safety/view/partner_profile_screen.dart';
 import 'package:campus_mate/safety/view/report_sheet.dart';
 import 'package:campus_mate/safety/viewmodel/report_ui_state.dart';
@@ -24,9 +24,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../chat/model/fake_chat_repository.dart';
-import '../../friend_review/model/fake_friend_review_repository.dart';
-import '../model/fake_safety_repository.dart';
+import '../../chat/model/repository/fake_chat_repository.dart';
+import '../../friend_review/model/repository/fake_friend_review_repository.dart';
+import '../model/repository/fake_safety_repository.dart';
 
 // 1×1 투명 PNG(photo_slider_test 와 같은 바이트). 테스트는 네트워크 대신 이 그림을 쓴다.
 const _png = <int>[

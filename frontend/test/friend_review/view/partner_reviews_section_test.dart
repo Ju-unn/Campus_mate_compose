@@ -3,8 +3,8 @@ import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
-import 'package:campus_mate/friend_review/model/friend_review.dart';
-import 'package:campus_mate/friend_review/model/friend_review_repository_provider.dart';
+import 'package:campus_mate/friend_review/model/data/friend_review.dart';
+import 'package:campus_mate/friend_review/model/repository/friend_review_repository_provider.dart';
 import 'package:campus_mate/friend_review/view/friend_review_card.dart';
 import 'package:campus_mate/friend_review/view/partner_reviews_section.dart';
 import 'package:flutter/material.dart';
@@ -12,7 +12,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../model/fake_friend_review_repository.dart';
+import '../model/repository/fake_friend_review_repository.dart';
 
 const _sheetNotice = '리뷰는 친구 코드를 받은 지인만 남길 수 있어요. 부적절한 내용은 신고해주세요.'; // pen prY8p
 

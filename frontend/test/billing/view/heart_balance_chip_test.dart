@@ -5,13 +5,13 @@ import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
-import 'package:campus_mate/me/model/me_repository_provider.dart';
-import 'package:campus_mate/me/model/my_profile.dart';
+import 'package:campus_mate/me/model/data/my_profile.dart';
+import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../me/model/fake_me_repository.dart';
+import '../../me/model/repository/fake_me_repository.dart';
 
 /// 이름·학교는 지어낸 값이다.
 MyProfile _profile(int hearts) => MyProfile(

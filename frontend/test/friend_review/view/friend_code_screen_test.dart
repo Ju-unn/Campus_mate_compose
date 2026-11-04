@@ -7,20 +7,20 @@ import 'package:campus_mate/common/widgets/school_label.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
-import 'package:campus_mate/friend_review/model/friend_review_repository_provider.dart';
+import 'package:campus_mate/friend_review/model/repository/friend_review_repository_provider.dart';
 import 'package:campus_mate/friend_review/view/friend_code_screen.dart';
 import 'package:campus_mate/friend_review/view/friend_review_card.dart';
 import 'package:campus_mate/friend_review/view/friend_review_compose_sheet.dart';
 import 'package:campus_mate/friend_review/view/my_friend_reviews_section.dart';
 import 'package:campus_mate/friend_review/view/written_reviews_screen.dart';
-import 'package:campus_mate/referral/model/invite_share.dart';
+import 'package:campus_mate/referral/model/data/invite_share_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-import '../model/fake_friend_review_repository.dart';
+import '../model/repository/fake_friend_review_repository.dart';
 
 // pen 문구(20f eShpy · a6jyqI · Q3xfwm · uovMC · Mi3ux).
 const _title = '친구 코드로 리뷰 쓰기'; // KXDke

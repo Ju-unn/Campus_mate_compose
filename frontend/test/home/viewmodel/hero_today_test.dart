@@ -1,6 +1,6 @@
 import 'package:campus_mate/home/viewmodel/hero_today.dart';
-import 'package:campus_mate/matching/model/card_profile.dart';
-import 'package:campus_mate/matching/model/daily_card.dart';
+import 'package:campus_mate/matching/model/data/card_profile.dart';
+import 'package:campus_mate/matching/model/data/daily_card.dart';
 import 'package:campus_mate/matching/viewmodel/today_cards_ui_state.dart';
 import 'package:flutter_test/flutter_test.dart';
 

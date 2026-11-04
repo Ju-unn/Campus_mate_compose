@@ -6,7 +6,7 @@ import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
-import 'package:campus_mate/matching/model/acceptance.dart';
+import 'package:campus_mate/matching/model/data/acceptance.dart';
 import 'package:flutter/material.dart';
 
 /// 수락 대기 행(DESIGN.md §8.6 `acceptance-row`, pen `XCN1f` → 2026-10-16 `wwfFX`).

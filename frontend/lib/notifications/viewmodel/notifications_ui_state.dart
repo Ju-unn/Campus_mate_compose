@@ -1,4 +1,4 @@
-import 'package:campus_mate/notifications/model/app_notification.dart';
+import 'package:campus_mate/notifications/model/data/app_notification.dart';
 
 /// 알림함 화면의 네 모습(pen 09c: 목록 `WiGM2` · 빈 상태 `fANzR` · 불러오기 실패 `vGd3l` · 로딩 `QUfcS`).
 enum NotificationsPhase { loading, list, empty, failed }

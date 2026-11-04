@@ -5,7 +5,7 @@ import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
-import 'package:campus_mate/me/model/my_profile.dart';
+import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:flutter/material.dart';
 
 /// 화면 15 히어로(pen 마스터 `l8p6X` "ProfileHero", 328×360) — 아바타 그림 위에 보기 칩 · 인증 배지(위)와 이름 묶음(아래).

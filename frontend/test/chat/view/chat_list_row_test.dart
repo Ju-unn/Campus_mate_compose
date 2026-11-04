@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../model/fake_chat_repository.dart';
+import '../model/repository/fake_chat_repository.dart';
 
 void main() {
   Future<void> pumpBadge(WidgetTester tester, {required double scale, int count = 3}) async {

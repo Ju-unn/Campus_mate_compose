@@ -1,9 +1,9 @@
-import 'package:campus_mate/faq/model/faq_item.dart';
+import 'package:campus_mate/faq/model/data/faq_item.dart';
 import 'package:campus_mate/faq/viewmodel/faq_view_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../model/fake_faq.dart';
+import '../model/repository/fake_faq.dart';
 
 void main() {
   group('faqSections', () {

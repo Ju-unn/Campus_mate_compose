@@ -6,7 +6,7 @@ import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
-import 'package:campus_mate/graduate/model/verification_method.dart';
+import 'package:campus_mate/graduate/model/data/verification_method.dart';
 import 'package:campus_mate/graduate/view/verification_method_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

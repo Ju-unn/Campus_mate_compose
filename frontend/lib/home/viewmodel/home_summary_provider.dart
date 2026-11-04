@@ -1,5 +1,5 @@
-import 'package:campus_mate/home/model/home_repository_provider.dart';
-import 'package:campus_mate/home/model/home_summary.dart';
+import 'package:campus_mate/home/model/data/home_summary.dart';
+import 'package:campus_mate/home/model/repository/home_repository_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 09b 메인이 읽는 요약. 못 받으면 null 이고 화면은 요약 섹션만 비운다.

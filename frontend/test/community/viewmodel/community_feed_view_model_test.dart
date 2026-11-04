@@ -2,20 +2,20 @@ import 'dart:async';
 
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
-import 'package:campus_mate/community/model/community_repository.dart';
 import 'package:campus_mate/core/analytics/analytics_provider.dart';
-import 'package:campus_mate/community/model/community_repository_provider.dart';
-import 'package:campus_mate/community/model/poll.dart';
+import 'package:campus_mate/community/model/repository/community_repository_provider.dart';
+import 'package:campus_mate/community/model/data/poll.dart';
 import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
-import 'package:campus_mate/me/model/me_repository_provider.dart';
-import 'package:campus_mate/me/model/my_profile.dart';
+import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
+import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:campus_mate/community/model/data/poll_feed.dart';
 
-import '../../me/model/fake_me_repository.dart';
+import '../../me/model/repository/fake_me_repository.dart';
 import '../../core/analytics/fake_analytics_service.dart';
-import '../model/fake_community_repository.dart';
+import '../model/repository/fake_community_repository.dart';
 
 /// 이름 · 학교는 지어낸 값이다.
 const _profile = MyProfile(

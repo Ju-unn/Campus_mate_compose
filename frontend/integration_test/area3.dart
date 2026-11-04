@@ -26,7 +26,7 @@ import 'package:campus_mate/matching/view/conversations_screen.dart';
 import 'package:campus_mate/matching/viewmodel/notification_settings_view_model.dart';
 import 'package:campus_mate/me/view/me_load_error.dart';
 import 'package:campus_mate/me/view/my_profile_screen.dart';
-import 'package:campus_mate/safety/model/report_reason.dart';
+import 'package:campus_mate/safety/model/data/report_reason.dart';
 import 'package:campus_mate/safety/view/block_list_screen.dart';
 import 'package:campus_mate/safety/view/partner_profile_screen.dart';
 import 'package:campus_mate/safety/view/report_sheet.dart';

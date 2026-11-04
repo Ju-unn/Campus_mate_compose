@@ -1,5 +1,5 @@
 import 'package:campus_mate/common/phone_number_formatter.dart';
-import 'package:campus_mate/me/model/my_profile.dart';
+import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/profile/model/mbti_poles.dart';
 import 'package:campus_mate/profile/model/signup_phone_number.dart';
 

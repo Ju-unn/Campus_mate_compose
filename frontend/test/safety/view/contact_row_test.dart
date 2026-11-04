@@ -5,7 +5,7 @@ import 'package:campus_mate/safety/view/contact_row.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../model/fake_contact_blocks.dart';
+import '../model/repository/fake_contact_blocks.dart';
 
 /// ContactRow 마스터(pen `s3a2m`): 312×60, 간격 12, 아래 선 hairline-soft, 아바타 36(`s4Udw`), 이름 16/600 · 번호 14/400.
 void main() {

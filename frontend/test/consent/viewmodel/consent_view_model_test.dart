@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:campus_mate/auth/model/verification_gate_repository_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
-import 'package:campus_mate/consent/model/consent_item.dart';
-import 'package:campus_mate/consent/model/consent_repository_provider.dart';
+import 'package:campus_mate/consent/model/data/consent_item.dart';
+import 'package:campus_mate/consent/model/repository/consent_repository_provider.dart';
 import 'package:campus_mate/consent/viewmodel/consent_ui_state.dart';
 import 'package:campus_mate/consent/viewmodel/consent_view_model.dart';
 import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
@@ -14,7 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../../auth/model/fake_verification_gate_repository.dart';
 import '../../profile/model/fake_onboarding_repository.dart';
-import '../model/fake_consent_repository.dart';
+import '../model/repository/fake_consent_repository.dart';
 
 /// 온보딩 단계 조회를 문 앞에 세워 둘 수 있는 가짜 — 게이트보다 먼저 끝나는지 본다.
 class _GatedOnboardingRepository extends FakeOnboardingRepository {

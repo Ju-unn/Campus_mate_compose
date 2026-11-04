@@ -1,8 +1,8 @@
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
-import 'package:campus_mate/community/model/community_repository.dart';
-import 'package:campus_mate/community/model/poll.dart';
+import 'package:campus_mate/community/model/data/poll.dart';
+import 'package:campus_mate/community/model/data/poll_feed.dart';
 import 'package:campus_mate/community/view/feed_poll_card.dart';
 import 'package:campus_mate/community/view/poll_feed_tabs.dart';
 import 'package:campus_mate/community/view/poll_sheets.dart';

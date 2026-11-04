@@ -4,7 +4,7 @@ import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
-import 'package:campus_mate/matching/model/sent_request.dart';
+import 'package:campus_mate/matching/model/data/sent_request.dart';
 import 'package:campus_mate/matching/view/acceptance_row.dart';
 import 'package:flutter/material.dart';
 

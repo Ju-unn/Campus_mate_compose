@@ -1,11 +1,11 @@
 import 'dart:async';
 
-import 'package:campus_mate/chat/model/chat_repository_provider.dart';
+import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
-import 'package:campus_mate/matching/model/card_repository_provider.dart';
+import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
-import 'package:campus_mate/notifications/model/app_notification.dart';
-import 'package:campus_mate/notifications/model/notifications_repository_provider.dart';
+import 'package:campus_mate/notifications/model/data/app_notification.dart';
+import 'package:campus_mate/notifications/model/repository/notifications_repository_provider.dart';
 import 'package:campus_mate/notifications/view/notification_row.dart';
 import 'package:campus_mate/notifications/view/notifications_screen.dart';
 import 'package:campus_mate/notifications/viewmodel/unread_count_provider.dart';
@@ -14,9 +14,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../chat/model/fake_chat_repository.dart';
-import '../../matching/model/fake_card_repository.dart';
-import '../model/fake_notifications_repository.dart';
+import '../../chat/model/repository/fake_chat_repository.dart';
+import '../../matching/model/repository/fake_card_repository.dart';
+import '../model/repository/fake_notifications_repository.dart';
 
 /// 09c 알림함(pen `WiGM2` 목록 · `fANzR` 빈 상태 · `vGd3l` 불러오기 실패 · `QUfcS` 로딩) 값 대조.
 /// 화면 360×780, 글자 배율 1.0 기준 값은 pen 노드 id 를 주석에 단다.

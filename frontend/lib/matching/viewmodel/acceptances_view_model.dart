@@ -1,5 +1,5 @@
-import 'package:campus_mate/matching/model/card_repository.dart';
-import 'package:campus_mate/matching/model/card_repository_provider.dart';
+import 'package:campus_mate/matching/model/data/card_decision.dart';
+import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
 import 'package:campus_mate/matching/viewmodel/acceptances_ui_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 

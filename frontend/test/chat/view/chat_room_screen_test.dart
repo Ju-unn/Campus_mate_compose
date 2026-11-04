@@ -1,9 +1,9 @@
 import 'dart:async';
 
-import 'package:campus_mate/chat/model/chat_repository.dart';
-import 'package:campus_mate/chat/model/chat_repository_provider.dart';
-import 'package:campus_mate/chat/model/chat_room.dart';
-import 'package:campus_mate/chat/model/message.dart';
+import 'package:campus_mate/chat/model/data/chat_room.dart';
+import 'package:campus_mate/chat/model/data/message.dart';
+import 'package:campus_mate/chat/model/data/message_page.dart';
+import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart';
 import 'package:campus_mate/chat/view/chat_input_bar.dart';
 import 'package:campus_mate/chat/view/chat_intro_card.dart';
 import 'package:campus_mate/chat/view/chat_room_screen.dart';
@@ -22,7 +22,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../model/fake_chat_repository.dart';
+import '../model/repository/fake_chat_repository.dart';
 
 void main() {
   late FakeChatRepository repository;

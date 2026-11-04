@@ -1,4 +1,4 @@
-import 'package:campus_mate/safety/model/contact_name_store.dart';
+import 'package:campus_mate/safety/model/data/contact_label.dart';
 
 /// 16b 한 줄. [label] 이 null 이면 이 기기에 이름이 없다(앱을 다시 깔았거나 파일이 깨졌다).
 class ContactBlockRow {

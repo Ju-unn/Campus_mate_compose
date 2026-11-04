@@ -1,4 +1,4 @@
-import 'package:campus_mate/chat/model/message.dart';
+import 'package:campus_mate/chat/model/data/message.dart';
 import 'package:campus_mate/chat/view/message_bubble.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';

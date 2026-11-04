@@ -1,17 +1,17 @@
 import 'dart:async';
 
-import 'package:campus_mate/chat/model/chat_repository_provider.dart';
+import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/university_logos.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
-import 'package:campus_mate/matching/model/acceptance.dart';
-import 'package:campus_mate/matching/model/card_detail.dart';
-import 'package:campus_mate/matching/model/card_profile.dart';
-import 'package:campus_mate/matching/model/card_repository.dart';
-import 'package:campus_mate/matching/model/card_repository_provider.dart';
+import 'package:campus_mate/matching/model/data/acceptance.dart';
+import 'package:campus_mate/matching/model/data/card_decision.dart';
+import 'package:campus_mate/matching/model/data/card_detail.dart';
+import 'package:campus_mate/matching/model/data/card_profile.dart';
+import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
 import 'package:campus_mate/matching/view/acceptance_detail_screen.dart';
 import 'package:campus_mate/matching/view/card_detail_screen.dart';
 import 'package:campus_mate/matching/view/conversations_screen.dart';
@@ -24,8 +24,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../chat/model/fake_chat_repository.dart';
-import '../model/fake_card_repository.dart';
+import '../../chat/model/repository/fake_chat_repository.dart';
+import '../model/repository/fake_card_repository.dart';
 
 const _profile = CardProfile(
   profileId: 'p1',

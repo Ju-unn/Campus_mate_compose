@@ -2,17 +2,17 @@ import 'dart:convert';
 
 import 'package:campus_mate/auth/model/verification_gate.dart';
 import 'package:campus_mate/auth/model/verification_gate_repository_provider.dart';
-import 'package:campus_mate/chat/model/chat_repository_provider.dart';
+import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'package:campus_mate/core/auth/sign_out.dart';
 import 'package:campus_mate/core/push/push_provider.dart';
 import 'package:campus_mate/core/router/verification_gate_listenable_provider.dart';
-import 'package:campus_mate/home/model/home_repository_provider.dart';
+import 'package:campus_mate/home/model/repository/home_repository_provider.dart';
 import 'package:campus_mate/main.dart';
-import 'package:campus_mate/matching/model/card_repository_provider.dart';
-import 'package:campus_mate/notifications/model/notifications_repository_provider.dart';
+import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
+import 'package:campus_mate/notifications/model/repository/notifications_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,14 +20,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'auth/model/fake_verification_gate_repository.dart';
-import 'chat/model/fake_chat_repository.dart';
+import 'chat/model/repository/fake_chat_repository.dart';
 import 'core/analytics/fake_analytics_service.dart';
 import 'core/analytics/fake_crash_reporter.dart';
 import 'core/analytics/fake_performance_monitor.dart';
 import 'core/push/fake_push_messaging.dart';
-import 'home/model/fake_home_repository.dart';
-import 'matching/model/fake_card_repository.dart';
-import 'notifications/model/fake_notifications_repository.dart';
+import 'home/model/repository/fake_home_repository.dart';
+import 'matching/model/repository/fake_card_repository.dart';
+import 'notifications/model/repository/fake_notifications_repository.dart';
 import 'profile/model/fake_onboarding_repository.dart';
 
 /// 사용 통계 · 오류 수집을 켜고 끄는 배선(main.dart)을 지킨다 — **약관 동의 전에는 켜지 않는다.**

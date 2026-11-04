@@ -107,7 +107,7 @@
 | --- | --- | --- |
 | **View** | `<기능>/view/` | 화면과 위젯. 표시와 이벤트 전달만 담당 |
 | **ViewModel** | `<기능>/viewmodel/` | 흐름 제어. UiState 생성, View 이벤트 처리 |
-| **Model** | `<기능>/model/` | 비즈니스 로직, 엔티티, Repository |
+| **Model** | `<기능>/model/{repository,data}/` | 비즈니스 로직, 엔티티, Repository (`repository/` 는 서버 · SDK 를 부르는 코드, `data/` 는 데이터 모양과 순수 규칙) |
 
 - **의존성 방향은 항상 안쪽(Model)을 향한다.** Model 은 View 를 모른다.
 - **ViewModel 은 Flutter 위젯 타입을 참조하지 않는다** (`BuildContext`, `Widget` import 금지). Riverpod `Notifier` 는 순수 Dart 클래스로 쓴다.
@@ -117,17 +117,17 @@
 
 ```
 lib/
-├── auth/                  조각 1 — 학생인증
-│   ├── model/             UniversityEmail, VerificationCode, SchoolEmailRepository, SocialLoginRepository
-│   ├── view/              SignUpScreen, VerifyCodeScreen
-│   └── viewmodel/         SignUpViewModel, SignUpUiState
-├── profile/               조각 2
-├── matching/              조각 3·4 — 벡터, 일일 카드, 수락
-├── chat/                  조각 5
-├── safety/                조각 6 — 신고·차단
-├── billing/               조각 7 — 결제
-├── common/                값 객체, 확장, 에러 타입, Result
-└── core/
+├── <기능>/                    아래 14개 기능이 이 모양이다
+│   ├── model/
+│   │   ├── repository/        서버 · SDK · 기기 저장을 부르는 코드
+│   │   └── data/              데이터 모양과 순수 규칙
+│   ├── view/                  화면과 위젯
+│   └── viewmodel/             UiState · ViewModel
+├── auth/                      조각 1 — 학생인증 (2단계에서 세부 기능 5개로 나눈다, 그때까지 model/ 한 층)
+├── profile/                   조각 2 (2단계에서 세부 기능 7개로 나눈다, 그때까지 model/ 한 층)
+├── billing/                   조각 7 — 결제 (2단계에서 세부 기능 2개로 나눈다, 그때까지 model/ 한 층)
+├── common/                    값 타입(Failure · Result), 공용 위젯 — 기능 폴더가 아니다
+└── core/                      기능 폴더가 아니다
     ├── draft/             온보딩 입력 임시 저장(DraftStore · DraftScreen)
     ├── supabase/          클라이언트 초기화, 테이블 상수
     ├── router/            go_router 라우팅
@@ -135,6 +135,21 @@ lib/
     ├── analytics/          사용 통계(Firebase Analytics) · 오류 수집(Crashlytics) · 성능 측정(Performance) — 약관 동의 뒤에만 켠다
     └── theme/             디자인 토큰 (DESIGN.md §12 매핑)
 ```
+
+`<기능>` 14개(2026-11-04 앱 1.0.2 패키지 구조 정리 1단계로 `model/` 을 둘로 나눴다): tour · faq · account · community · notifications · referral · me · consent · friend_review · graduate · home · chat · safety · matching. **auth · profile · billing 은 2단계에서 세부 기능으로 나눈다(2026-11-04 사용자 승인 — profile 7 · auth 5 · billing 2). 그때까지는 `model/` 한 층.**
+
+| 폴더 | 넣는 것 | 넣지 않는 것 |
+| --- | --- | --- |
+| `model/repository/` | abstract Repository · Gateway · Store · Client(약속), `Http…` · `Supabase…` · SDK 구현, Riverpod provider 파일(`…_provider.dart`), 기기 저장 | 엔티티 · enum · 상수 · 순수 함수 |
+| `model/data/` | 엔티티, enum, 값 객체, 상수(링크 · 문구 · 한도), `…Submission` · `…Request` 같은 요청 값, sealed 결과 타입, 서버 · SDK 를 안 부르는 순수 규칙 함수 | 서버 · SDK 호출, provider |
+| `view/` | 화면 · 위젯 | 상태 만들기, 서버 호출 |
+| `viewmodel/` | UiState · ViewModel (`BuildContext` · `Widget` 금지) | 위젯 |
+
+- **한 파일에 data 와 repository 를 섞지 않는다.** 섞이면 data 를 `model/data/` 의 새 파일로 뺀다.
+- **의존은 안쪽으로만**: `view → viewmodel → model/repository → model/data`. `data/` 는 `repository/` 를 import 하지 않는다.
+- 새 파일을 만들 때 "서버 · SDK 를 부르는가?" 한 가지만 묻는다 — 예 → `repository/`, 아니오 → `data/`. provider 파일은 예.
+- 가짜(Fake)는 `test/` 의 같은 자리 `…/model/repository/fake_*.dart`. 시험 경로는 lib 경로를 그대로 미러링한다(`test/<기능>/model/{repository,data}/…`).
+- `core/` · `common/` 은 이 규칙 밖이다.
 
 새 화면을 추가할 때 이 3단 구조를 그대로 따른다. 벗어난 코드가 있으면 리팩터링해서 맞춘다.
 
@@ -259,7 +274,8 @@ if (status == statusPending) { ... }   // 대기 상태일 때만 처리
 마지막 항목을 별도로 두는 이유: **RLS 는 틀려도 앱이 정상 동작한다.** 테스트가 없으면 유출을 출시 후에야 알게 된다.
 
 - 이름 규칙: `SignUpViewModel` → `sign_up_view_model_test.dart`
-- 경로는 프로덕션 코드를 그대로 미러링한다 (`test/auth/viewmodel/`)
+- 경로는 프로덕션 코드를 그대로 미러링한다 (`test/auth/viewmodel/`, `test/chat/model/repository/`)
+- 쪼갠 data 조각의 시험은 당분간 원본 시험 파일 자리에 둔다(예: `contact_name_store_test` 가 `data/contact_label.dart` 도 본다)
 - private 클래스·함수는 직접 테스트하지 않고 public 진입점을 통해 커버한다
 - 목(mock)은 `mocktail` 을 쓰되, Repository 는 **Fake 구현을 우선**한다
 
@@ -344,7 +360,7 @@ supabase test db                 # RLS 정책 SQL 테스트
 **아키텍처**
 
 - [ ] View ↔ ViewModel ↔ Model 구조를 지켰는가?
-- [ ] 기능별 패키지 아래 `model` / `view` / `viewmodel` 로 분리했는가?
+- [ ] 기능별 패키지 아래 `model` / `view` / `viewmodel` 로 분리했는가? `model` 안은 `repository` / `data` 로 나눴는가? (auth · profile · billing 은 2단계에서 세부 기능으로 나눈다(2026-11-04 사용자 승인 — profile 7 · auth 5 · billing 2). 그때까지는 `model/` 한 층)
 - [ ] ViewModel 이 `BuildContext` / `Widget` 을 참조하지 않는가?
 - [ ] UseCase 는 정말 필요할 때만 도입했는가?
 

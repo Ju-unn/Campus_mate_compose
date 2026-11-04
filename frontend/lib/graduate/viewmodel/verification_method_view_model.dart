@@ -1,7 +1,7 @@
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/core/router/verification_gate_listenable_provider.dart';
-import 'package:campus_mate/graduate/model/graduate_verification_repository_provider.dart';
-import 'package:campus_mate/graduate/model/verification_method.dart';
+import 'package:campus_mate/graduate/model/data/verification_method.dart';
+import 'package:campus_mate/graduate/model/repository/graduate_verification_repository_provider.dart';
 import 'package:campus_mate/graduate/viewmodel/verification_method_ui_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 

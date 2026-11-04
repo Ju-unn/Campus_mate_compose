@@ -225,7 +225,7 @@ class RegistryTest(unittest.TestCase):
     def test_the_paths_and_titles_are_the_real_ones(self):
         self.assertEqual(area5_edge.PATHS, PATHS)
         self.assertEqual(dict(area5_edge.SCREENS), ARRIVAL)
-        me = (tools.ROOT / 'frontend' / 'lib' / 'me' / 'model' / 'http_me_repository.dart').read_text(encoding='utf-8')
+        me = (tools.ROOT / 'frontend' / 'lib' / 'me' / 'model' / 'repository' / 'http_me_repository.dart').read_text(encoding='utf-8')
         self.assertIn("'/me/profile'", me)
         self.assertIn("http.MultipartRequest('PUT', _api.uri('/me/photos'))", me)
         tags = (tools.ROOT / 'frontend' / 'lib' / 'profile' / 'model' / 'http_tag_picker_repository.dart').read_text(encoding='utf-8')
@@ -242,12 +242,12 @@ class RegistryTest(unittest.TestCase):
         새 `.timeout(` 이 생기거나, GET 조건이 풀리거나, 끊는 쓰기가 읽음 PATCH 말고 다른 것이 되면 여기서 걸린다."""
         lib = tools.ROOT / 'frontend' / 'lib'
         counts = {p.relative_to(lib).as_posix(): p.read_text(encoding='utf-8').count('.timeout(') for p in lib.rglob('*.dart')}
-        allowed = {'core/push/push_registrar.dart': 2, 'core/http/http_send.dart': 1, 'chat/model/http_chat_repository.dart': 1,
+        allowed = {'core/push/push_registrar.dart': 2, 'core/http/http_send.dart': 1, 'chat/model/repository/http_chat_repository.dart': 1,
                    'core/app_update/app_version_repository.dart': 1}
         self.assertEqual({name: n for name, n in counts.items() if n}, allowed, 'E-EDGE-25 의 "허용된 곳 밖에는 요청 시간 제한 없음" 이 바뀌었다 — 기대값을 다시 본다')
         send = (lib / 'core' / 'http' / 'http_send.dart').read_text(encoding='utf-8')
         self.assertIn("await (request.method == 'GET' ? pending.timeout(readTimeout) : pending)", send)  # 공용 전송은 GET 만 끊는다
-        chat = (lib / 'chat' / 'model' / 'http_chat_repository.dart').read_text(encoding='utf-8')
+        chat = (lib / 'chat' / 'model' / 'repository' / 'http_chat_repository.dart').read_text(encoding='utf-8')
         self.assertRegex(chat, r"Future<Result<void>> markRead\(String matchId\) => _api\s*\.send\('PATCH', '/chat/matches/\$matchId/read', \(_\) \{\}\)\s*"
                                r"\.timeout\(readTimeout")  # 끊는 쓰기는 읽음 PATCH 하나
         version = (lib / 'core' / 'app_update' / 'app_version_repository.dart').read_text(encoding='utf-8')

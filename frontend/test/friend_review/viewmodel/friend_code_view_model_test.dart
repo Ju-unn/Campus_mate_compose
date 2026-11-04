@@ -2,13 +2,13 @@ import 'dart:async';
 
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
-import 'package:campus_mate/friend_review/model/friend_review_repository_provider.dart';
+import 'package:campus_mate/friend_review/model/repository/friend_review_repository_provider.dart';
 import 'package:campus_mate/friend_review/viewmodel/friend_code_ui_state.dart';
 import 'package:campus_mate/friend_review/viewmodel/friend_code_view_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../model/fake_friend_review_repository.dart';
+import '../model/repository/fake_friend_review_repository.dart';
 
 /// 20f 친구 코드로 리뷰 쓰기(pen eShpy · a6jyqI · Q3xfwm · uovMC · Mi3ux)의 흐름.
 void main() {

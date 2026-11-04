@@ -1,14 +1,13 @@
 import 'dart:async';
 
-import 'package:campus_mate/chat/model/chat_repository_provider.dart';
+import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
-import 'package:campus_mate/community/model/community_repository.dart';
-import 'package:campus_mate/community/model/community_repository_provider.dart';
-import 'package:campus_mate/community/model/poll.dart';
+import 'package:campus_mate/community/model/repository/community_repository_provider.dart';
+import 'package:campus_mate/community/model/data/poll.dart';
 import 'package:campus_mate/community/view/community_feed_screen.dart';
 import 'package:campus_mate/community/view/feed_poll_card.dart';
 import 'package:campus_mate/community/view/poll_donut.dart';
@@ -19,20 +18,21 @@ import 'package:campus_mate/community/viewmodel/community_feed_view_model.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
-import 'package:campus_mate/matching/model/card_repository_provider.dart';
-import 'package:campus_mate/safety/model/report_reason.dart';
-import 'package:campus_mate/safety/model/safety_repository_provider.dart';
+import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
+import 'package:campus_mate/safety/model/data/report_reason.dart';
+import 'package:campus_mate/safety/model/repository/safety_repository_provider.dart';
 import 'package:campus_mate/safety/view/report_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:campus_mate/community/model/data/poll_feed.dart';
 
-import '../../chat/model/fake_chat_repository.dart';
-import '../../matching/model/fake_card_repository.dart';
-import '../../safety/model/fake_safety_repository.dart';
-import '../model/fake_community_repository.dart';
+import '../../chat/model/repository/fake_chat_repository.dart';
+import '../../matching/model/repository/fake_card_repository.dart';
+import '../../safety/model/repository/fake_safety_repository.dart';
+import '../model/repository/fake_community_repository.dart';
 
 void main() {
   late FakeCommunityRepository repository;

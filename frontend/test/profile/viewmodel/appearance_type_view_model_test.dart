@@ -2,7 +2,7 @@ import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
-import 'package:campus_mate/me/model/me_repository_provider.dart';
+import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:campus_mate/profile/model/appearance_type_repository_provider.dart';
 import 'package:campus_mate/profile/model/onboarding_repository_provider.dart';
@@ -14,7 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:campus_mate/core/draft/draft_screen.dart';
 import 'package:campus_mate/core/draft/draft_store.dart';
 
-import '../../me/model/fake_me_repository.dart';
+import '../../me/model/repository/fake_me_repository.dart';
 import '../model/fake_appearance_type_repository.dart';
 import '../model/fake_onboarding_repository.dart';
 import '../../core/analytics/fake_analytics_service.dart';
