@@ -228,7 +228,7 @@ class RegistryTest(unittest.TestCase):
         me = (tools.ROOT / 'frontend' / 'lib' / 'me' / 'model' / 'repository' / 'http_me_repository.dart').read_text(encoding='utf-8')
         self.assertIn("'/me/profile'", me)
         self.assertIn("http.MultipartRequest('PUT', _api.uri('/me/photos'))", me)
-        tags = (tools.ROOT / 'frontend' / 'lib' / 'profile' / 'model' / 'http_tag_picker_repository.dart').read_text(encoding='utf-8')
+        tags = (tools.ROOT / 'frontend' / 'lib' / 'profile' / 'traits' / 'model' / 'repository' / 'http_tag_picker_repository.dart').read_text(encoding='utf-8')
         self.assertIn("'/profile-onboarding/$endpoint'", tags)
         failure = (tools.ROOT / 'frontend' / 'lib' / 'common' / 'failure.dart').read_text(encoding='utf-8')
         self.assertIn(f"return '{NETWORK}';", failure)

@@ -514,11 +514,11 @@ class AppContractTest(unittest.TestCase):
 
     def test_the_screens_say_the_numbers_the_module_counts_on(self):
         self.assertIn('static const _defaultDuration = Duration(seconds: 2);', lib('core', 'router', 'splash_hold.dart'))  # LOGIN_MS 의 2초
-        sign_up = lib('auth', 'view', 'sign_up_screen.dart')
+        sign_up = lib('auth', 'school_email', 'view', 'sign_up_screen.dart')
         self.assertIn('_notice = LoginNotice.take()?.message;', sign_up)  # 02 가 처음 그려질 때 한 번 꺼낸다
         self.assertIn('Timer(const Duration(seconds: 3)', sign_up)  # 3초 뒤 사라진다
         # 로그아웃하면 닿는 곳은 시작 화면이다(소셜 로그인 전환) — 앱이 알림을 읽는 화면(screen('start'))도 한 번만 꺼내 3초 뒤 지운다.
-        start = lib('auth', 'view', 'start_view.dart')
+        start = lib('auth', 'social', 'view', 'start_view.dart')
         self.assertIn('final notice = LoginNotice.take();', start)
         self.assertIn('static const _toastDuration = Duration(seconds: 3);', start)
         self.assertIn('if (state.event == AuthChangeEvent.signedOut) {', lib('core', 'auth', 'session_scope.dart'))  # 다시 들어가기
@@ -600,7 +600,7 @@ class ServerFactsTest(unittest.TestCase):
                       backend('school_email', 'router.py'))
         self.assertIn(f'SCHOOL_EMAIL_BLOCKED = "{REJOIN}"', backend('core', 'errors.py'))
         # 02 의 번호 요청은 소셜 로그인 전환 뒤 학교 메일 저장소(임시 연결)가 한다 — 422 문구를 그대로 띄운다
-        self.assertIn("'422' => SignUpRejectedFailure(error.message),", lib('auth', 'model', 'supabase_school_email_repository.dart'))
+        self.assertIn("'422' => SignUpRejectedFailure(error.message),", lib('auth', 'school_email', 'model', 'repository', 'supabase_school_email_repository.dart'))
         self.assertEqual(area5_wd.REJOIN_BLOCKED, REJOIN)
 
     def test_signup_blocks_has_no_id_column_and_the_fake_says_so(self):

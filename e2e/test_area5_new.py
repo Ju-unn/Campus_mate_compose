@@ -176,7 +176,7 @@ class RegistryTest(unittest.TestCase):
         self.assertEqual(area5_new.SCALES, (1.3, 2.0))
         self.assertEqual(area5_new.SCREENS, SCREENS)
         lib = tools.ROOT / 'frontend' / 'lib'
-        self.assertIn('class AnimalTypePicker', (lib / 'profile' / 'view' / 'appearance_pickers.dart').read_text(encoding='utf-8'))
+        self.assertIn('class AnimalTypePicker', (lib / 'profile' / 'appearance' / 'view' / 'appearance_pickers.dart').read_text(encoding='utf-8'))
         self.assertIn('class MbtiPoleToggle', (lib / 'common' / 'widgets' / 'mbti_pole_toggle.dart').read_text(encoding='utf-8'))
 
 
@@ -465,8 +465,8 @@ class Edge12Test(NewBase):
         self.assertEqual(self.font, '1.0')
 
     def test_pass_the_known_ones_are_marked_not_failed(self):
-        known = {1.3: [('06-1', 'profile/view/appearance_pickers.dart:120')],
-                 2.0: [('06-1', 'profile/view/appearance_pickers.dart:120'), ('06-1', 'common/widgets/mbti_pole_toggle.dart:43')]}
+        known = {1.3: [('06-1', 'profile/appearance/view/appearance_pickers.dart:120')],
+                 2.0: [('06-1', 'profile/appearance/view/appearance_pickers.dart:120'), ('06-1', 'common/widgets/mbti_pole_toggle.dart:43')]}
         result, note, _ = self.run12(known)
         self.assertEqual(result, 'pass', note)
         self.assertIn('알려진', note)
