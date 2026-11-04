@@ -107,7 +107,7 @@
 | --- | --- | --- |
 | **View** | `<기능>/view/` | 화면과 위젯. 표시와 이벤트 전달만 담당 |
 | **ViewModel** | `<기능>/viewmodel/` | 흐름 제어. UiState 생성, View 이벤트 처리 |
-| **Model** | `<기능>/model/{repository,data}/` | 비즈니스 로직, 엔티티, Repository (`repository/` 는 서버 · SDK 를 부르는 코드, `data/` 는 데이터 모양과 순수 규칙) |
+| **Model** | `<기능>/model/{repository,data}/` (auth · profile · billing 은 `<기능>/<세부 기능>/model/{repository,data}/`) | 비즈니스 로직, 엔티티, Repository (`repository/` 는 서버 · SDK 를 부르는 코드, `data/` 는 데이터 모양과 순수 규칙) |
 
 - **의존성 방향은 항상 안쪽(Model)을 향한다.** Model 은 View 를 모른다.
 - **ViewModel 은 Flutter 위젯 타입을 참조하지 않는다** (`BuildContext`, `Widget` import 금지). Riverpod `Notifier` 는 순수 Dart 클래스로 쓴다.
@@ -123,9 +123,10 @@ lib/
 │   │   └── data/              데이터 모양과 순수 규칙
 │   ├── view/                  화면과 위젯
 │   └── viewmodel/             UiState · ViewModel
-├── auth/                      조각 1 — 학생인증 (2단계에서 세부 기능 5개로 나눈다, 그때까지 model/ 한 층)
-├── profile/                   조각 2 (2단계에서 세부 기능 7개로 나눈다, 그때까지 model/ 한 층)
-├── billing/                   조각 7 — 결제 (2단계에서 세부 기능 2개로 나눈다, 그때까지 model/ 한 층)
+├── auth/<세부 기능>/          조각 1 — 학생인증: social · school_email · school_info · gate · media
+├── profile/<세부 기능>/       조각 2 — 프로필 입력: onboarding · basic · appearance · traits · ideal · bio · avatar
+├── billing/<세부 기능>/       조각 7 — 결제: store · task
+│                              (위 세 줄의 `<세부 기능>/` 안은 `<기능>/` 과 같은 모양이다: model/{repository,data} · view · viewmodel)
 ├── common/                    값 타입(Failure · Result), 공용 위젯 — 기능 폴더가 아니다
 └── core/                      기능 폴더가 아니다
     ├── draft/             온보딩 입력 임시 저장(DraftStore · DraftScreen)
@@ -136,7 +137,7 @@ lib/
     └── theme/             디자인 토큰 (DESIGN.md §12 매핑)
 ```
 
-`<기능>` 14개(2026-11-04 앱 1.0.2 패키지 구조 정리 1단계로 `model/` 을 둘로 나눴다): tour · faq · account · community · notifications · referral · me · consent · friend_review · graduate · home · chat · safety · matching. **auth · profile · billing 은 2단계에서 세부 기능으로 나눈다(2026-11-04 사용자 승인 — profile 7 · auth 5 · billing 2). 그때까지는 `model/` 한 층.**
+`<기능>` 14개(2026-11-04 앱 1.0.2 패키지 구조 정리 1단계로 `model/` 을 둘로 나눴다): tour · faq · account · community · notifications · referral · me · consent · friend_review · graduate · home · chat · safety · matching. **큰 기능 3개 — auth · profile · billing — 는 2단계로 `<기능>/<세부 기능>/` 한 층을 더 나눴다(2026-11-04 사용자 승인 — profile 7 · auth 5 · billing 2).**
 
 | 폴더 | 넣는 것 | 넣지 않는 것 |
 | --- | --- | --- |
@@ -148,8 +149,15 @@ lib/
 - **한 파일에 data 와 repository 를 섞지 않는다.** 섞이면 data 를 `model/data/` 의 새 파일로 뺀다.
 - **의존은 안쪽으로만**: `view → viewmodel → model/repository → model/data`. `data/` 는 `repository/` 를 import 하지 않는다.
 - 새 파일을 만들 때 "서버 · SDK 를 부르는가?" 한 가지만 묻는다 — 예 → `repository/`, 아니오 → `data/`. provider 파일은 예.
-- 가짜(Fake)는 `test/` 의 같은 자리 `…/model/repository/fake_*.dart`. 시험 경로는 lib 경로를 그대로 미러링한다(`test/<기능>/model/{repository,data}/…`).
+- 가짜(Fake)는 `test/` 의 같은 자리 `…/model/repository/fake_*.dart`. 시험 경로는 lib 경로를 그대로 미러링한다(`test/<기능>[/<세부 기능>]/model/{repository,data}/…`).
 - `core/` · `common/` 은 이 규칙 밖이다.
+
+**세부 기능 규칙** (auth · profile · billing)
+
+- 세부 기능마다 `<기능>/` 과 같은 모양(`model/{repository,data}` · `view` · `viewmodel`)이다. 화면이 없는 세부 기능(`auth/gate` · `auth/media`)은 `model/` 만 둔다.
+- 파일이 많고(나누기 전 auth 42 · profile 90 · billing 39개) 화면 묶음이 뚜렷한 기능만 세부 기능으로 나눈다. 서버 호출 하나(Repository 한 개)가 여러 묶음에 걸쳐 있으면 나누지 않는다(matching · chat 은 나누지 않았다).
+- **세부 기능끼리 import 는 한 방향만**(순환 금지). 지금 방향: `profile/{basic,appearance,traits,ideal,bio,avatar}` → `profile/onboarding`, `profile/ideal` → `profile/{appearance,traits}`, `billing/store` → `billing/task`, `billing/task` → `profile/avatar`, `auth/school_email` → `profile/onboarding`, `profile/avatar` · `billing/task` → `auth/media`. 새 import 가 이 방향을 거스르면(순환이 생기면) 둘이 같이 쓰는 조각을 더 안쪽 세부 기능으로 옮긴다.
+- 여러 세부 기능이 같이 쓰는 값 · 위젯은 가장 안쪽에 둔다 — `profile/onboarding`(단계 흐름 · `profile_enums` · `hint_line` · `writing_example`), `auth/media`(얼굴 검사 · 사진 압축).
 
 새 화면을 추가할 때 이 3단 구조를 그대로 따른다. 벗어난 코드가 있으면 리팩터링해서 맞춘다.
 
@@ -253,7 +261,7 @@ if (status == statusPending) { ... }   // 대기 상태일 때만 처리
 - **`{colors.primary}` 는 채움 전용.** 흰 배경 위 텍스트에는 `{colors.primary-text}` (#C4224B) 를 쓴다
 - **사용자는 전 화면에서 닉네임으로만 표시한다. 실명(`real_name`)은 서버 응답에 담지 않는다** (2026-09-10 개정, DESIGN.md §8.7 · 설계 문서 §7.3, ERD.md §11-2 — "설계 문서 §7 예외 2"는 설계 문서에 없는 참조였다). 실명은 `3b`에서 입력받아 `profile_private.real_name`(민감 컬럼)에만 저장하고, 학생증 대조와 본인 조회(16e) 전용이다. 예전 `김○○` 마스킹 방식은 폐기
 - **`MediaQuery.disableAnimations` 를 존중한다.** 켜져 있으면 모든 모션 시간을 0으로 만들고 최종 상태를 즉시 그린다
-- **글자 크기는 `AppTypography` 토큰으로만 정한다**(2026-11-04, 앱 PR #657). 기준은 48 · 32 · 24 · 20 · 18 · 16 · 14 · 12 · 10(모두 짝수)이고, 화면에 `fontSize: 숫자` 를 쓰지 않는다 — 토큰을 쓰고 굵기 · 줄 높이만 `copyWith` 로 바꾼다. `test/core/theme/font_size_tokens_test.dart` 가 `lib/core/theme` 밖의 `fontSize:` 를 잡는다(예외는 `auth/view/social_login_button.dart` 카카오 · 구글 공식 버튼 한 파일). DESIGN.md §3.2
+- **글자 크기는 `AppTypography` 토큰으로만 정한다**(2026-11-04, 앱 PR #657). 기준은 48 · 32 · 24 · 20 · 18 · 16 · 14 · 12 · 10(모두 짝수)이고, 화면에 `fontSize: 숫자` 를 쓰지 않는다 — 토큰을 쓰고 굵기 · 줄 높이만 `copyWith` 로 바꾼다. `test/core/theme/font_size_tokens_test.dart` 가 `lib/core/theme` 밖의 `fontSize:` 를 잡는다(예외는 `auth/social/view/social_login_button.dart` 카카오 · 구글 공식 버튼 한 파일). DESIGN.md §3.2
 - **움직이는 그림(Lottie)은 `AppLottieView` 로만 부른다**(2026-11-04, 앱 PR #656). `package:lottie` 를 직접 쓰지 않고, 장면은 `AppLottie` 표(`core/theme/app_lottie.dart`)에 한 줄 더한다. 에셋은 `assets/lottie/<이름>.json` + 그림 `assets/lottie/images/<이름>/`(pubspec 에 그림 폴더도 적는다), 크기 예산 json 100KB · 장면 400KB, 색은 그림 속 색 그대로, "동작 줄이기" 면 장면마다 정한 프레임에 멈춘다. 어기면 `test/core/theme/app_lottie_test.dart` · `test/common/widgets/app_lottie_view_test.dart` 가 알린다. DESIGN.md §7
 - 문자열은 하드코딩하지 않는다
 
@@ -274,7 +282,7 @@ if (status == statusPending) { ... }   // 대기 상태일 때만 처리
 마지막 항목을 별도로 두는 이유: **RLS 는 틀려도 앱이 정상 동작한다.** 테스트가 없으면 유출을 출시 후에야 알게 된다.
 
 - 이름 규칙: `SignUpViewModel` → `sign_up_view_model_test.dart`
-- 경로는 프로덕션 코드를 그대로 미러링한다 (`test/auth/viewmodel/`, `test/chat/model/repository/`)
+- 경로는 프로덕션 코드를 그대로 미러링한다 (`test/auth/school_email/viewmodel/`, `test/chat/model/repository/`)
 - 쪼갠 data 조각의 시험은 당분간 원본 시험 파일 자리에 둔다(예: `contact_name_store_test` 가 `data/contact_label.dart` 도 본다)
 - private 클래스·함수는 직접 테스트하지 않고 public 진입점을 통해 커버한다
 - 목(mock)은 `mocktail` 을 쓰되, Repository 는 **Fake 구현을 우선**한다
@@ -360,7 +368,7 @@ supabase test db                 # RLS 정책 SQL 테스트
 **아키텍처**
 
 - [ ] View ↔ ViewModel ↔ Model 구조를 지켰는가?
-- [ ] 기능별 패키지 아래 `model` / `view` / `viewmodel` 로 분리했는가? `model` 안은 `repository` / `data` 로 나눴는가? (auth · profile · billing 은 2단계에서 세부 기능으로 나눈다(2026-11-04 사용자 승인 — profile 7 · auth 5 · billing 2). 그때까지는 `model/` 한 층)
+- [ ] 기능별 패키지 아래 `model` / `view` / `viewmodel` 로 분리했는가? `model` 안은 `repository` / `data` 로 나눴는가? auth · profile · billing 은 세부 기능 폴더(`<기능>/<세부 기능>/…`)마다 같은 모양이고, 세부 기능끼리 import 가 한 방향(순환 없음)인가?
 - [ ] ViewModel 이 `BuildContext` / `Widget` 을 참조하지 않는가?
 - [ ] UseCase 는 정말 필요할 때만 도입했는가?
 
