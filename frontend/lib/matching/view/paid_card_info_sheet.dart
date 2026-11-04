@@ -127,11 +127,10 @@ class _ReasonRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // pen 15/700/1.4 #222222 — 15 는 타이포 토큰에 없다(14 와 16 사이).
+              // pen 16/700/1.4 #222222 — bodyStrong(16/600)에서 굵기만 올린다.
               Text(
                 title,
-                style: AppTypography.bodySmall.copyWith(
-                  fontSize: 15,
+                style: AppTypography.bodyStrong.copyWith(
                   fontWeight: FontWeight.w700,
                   height: 1.4,
                   color: AppColors.ink,

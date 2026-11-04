@@ -211,7 +211,7 @@ void main() {
     Finder writeOf(String nickname) =>
         find.ancestor(of: find.descendant(of: rowOf(nickname), matching: find.text('쓰기')), matching: find.byType(Material)).first;
 
-    testWidgets('친구가 있으면 안내 → 16 → 섹션(J3d8g8: 제목 16/700 → 8 → 설명 13 muted 1.5 → 8 → 줄 사이 8) → 16 → 소제목 Q3eosx 16/700 → 16 → 카드', (tester) async {
+    testWidgets('친구가 있으면 안내 → 16 → 섹션(J3d8g8: 제목 16/700 → 8 → 설명 14 muted 1.5 → 8 → 줄 사이 8) → 16 → 소제목 Q3eosx 16/700 → 16 → 카드', (tester) async {
       reviews.writable = Success([haneul, saebyeok]);
       await pump(tester);
 
@@ -234,11 +234,11 @@ void main() {
         expect((style.fontSize, style.fontWeight, style.color), (16, FontWeight.w700, AppColors.ink));
       }
       final bodyStyle = tester.widget<Text>(find.text(_sectionBody)).style!;
-      expect((bodyStyle.fontSize, bodyStyle.color, bodyStyle.height), (13, AppColors.muted, 1.5));
+      expect((bodyStyle.fontSize, bodyStyle.color, bodyStyle.height), (14, AppColors.muted, 1.5));
       expect(reviews.writableCount, 1);
     });
 
-    testWidgets('줄(LJhYM) 64 · 흰 바탕 r12 · 테두리 #EBEBEB 1 — 좌우 12, 이니셜 40 → 12 → 닉네임 15/600 · 2 · 학교, 오른쪽 "쓰기" 36 · 좌우 14 · r10 · rausch · 14/600 흰 글자', (tester) async {
+    testWidgets('줄(LJhYM) 64 · 흰 바탕 r12 · 테두리 #EBEBEB 1 — 좌우 12, 이니셜 40 → 12 → 닉네임 16/600 · 2 · 학교, 오른쪽 "쓰기" 36 · 좌우 14 · r10 · rausch · 14/600 흰 글자', (tester) async {
       reviews.writable = Success([haneul]);
       await pump(tester);
 
@@ -259,7 +259,7 @@ void main() {
       final name = find.descendant(of: row, matching: find.text('하늘'));
       expect(tester.getRect(name).left - initial.right, 12);
       final nameStyle = tester.widget<Text>(name).style!;
-      expect((nameStyle.fontSize, nameStyle.fontWeight, nameStyle.color), (15, FontWeight.w600, AppColors.ink));
+      expect((nameStyle.fontSize, nameStyle.fontWeight, nameStyle.color), (16, FontWeight.w600, AppColors.ink));
       // YQMGC = 학교 줄 위젯(로고 16 · 간격 4 는 위젯이 글자 14 에서 정한다).
       expect(tester.widget<SchoolLabel>(find.descendant(of: row, matching: find.byType(SchoolLabel))).university, '한빛대학교');
       final school = find.descendant(of: row, matching: find.text('한빛대학교'));

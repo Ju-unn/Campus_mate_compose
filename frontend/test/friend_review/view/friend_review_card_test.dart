@@ -357,8 +357,8 @@ void main() {
     expect(find.byIcon(AppIcons.flag), findsNothing);
   });
 
-  // pen S0MR2b/qRvp8 Report Review 48×48 세로 gap 2 가운데: aXNKI 사이렌 22(jsi9g) + o1niSD "신고하기" 9/600 #6E5861 lh1.
-  testWidgets('onReport 가 있으면 깃발이 아니라 사이렌 22 + "신고하기" 9/600 #6E5861, 누름칸 48×48, 누르면 한 번 불린다', (tester) async {
+  // pen S0MR2b/qRvp8 Report Review 48×48 세로 gap 2 가운데: aXNKI 사이렌 22(jsi9g) + o1niSD "신고하기" 10/600 #6E5861 lh1.
+  testWidgets('onReport 가 있으면 깃발이 아니라 사이렌 22 + "신고하기" 10/600 #6E5861, 누름칸 48×48, 누르면 한 번 불린다', (tester) async {
     var reported = 0;
     await pump(tester, pen(), onReport: () => reported += 1);
 
@@ -366,7 +366,8 @@ void main() {
     expect(siren(), findsOneWidget);
     expect(tester.getSize(siren()), const Size(22, 22));
     final label = tester.widget<Text>(find.text('신고하기'));
-    expect((label.style!.fontSize, label.style!.fontWeight, label.style!.color), (9, FontWeight.w600, const Color(0xFF6E5861)));
+    expect((label.style!.fontSize, label.style!.fontWeight, label.style!.color), (10, FontWeight.w600, const Color(0xFF6E5861)));
+    expect(label.style!.letterSpacing, 0); // badge 의 +0.02em 을 끈다
     // 렌더 34×9, 사이렌 아래 간격 2, 같은 가운데 줄.
     final labelBox = tester.getRect(find.text('신고하기'));
     final sirenBox = tester.getRect(siren());

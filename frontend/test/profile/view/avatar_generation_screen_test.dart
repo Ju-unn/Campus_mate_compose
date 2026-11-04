@@ -599,7 +599,7 @@ void main() {
       expect(find.byType(Image), findsOneWidget);
     });
 
-    testWidgets('05-12b — 제목 y64 · 부제 · 분홍 목도리 마스코트 · 힌트 13/400 muted · 다시 시도 328×52 바닥 28 위', (tester) async {
+    testWidgets('05-12b — 제목 y64 · 부제 · 분홍 목도리 마스코트 · 힌트 14/400 muted · 다시 시도 328×52 바닥 28 위', (tester) async {
       penSize(tester);
       repository.nextResult = const Success(AvatarFailed());
       await pump(tester);
@@ -619,7 +619,7 @@ void main() {
       expect(mascotRect.top, closeTo(tester.getRect(subtitle).bottom + 32 + 45, 0.01));
 
       final hint = find.text(freeHint);
-      expect(tester.widget<Text>(hint).style, AppTypography.bodySmall.copyWith(fontSize: 13, color: AppColors.muted));
+      expect(tester.widget<Text>(hint).style, AppTypography.bodySmall.copyWith(color: AppColors.muted));
       expect(tester.getRect(hint).top, mascotRect.bottom + 12);
       expect(tester.getRect(hint).center.dx, 180);
       expect(find.byType(CircularProgressIndicator), findsNothing);
@@ -652,7 +652,7 @@ void main() {
 
       final message = find.text('원본 사진을 다시 골라 주세요');
       expect(message, findsOneWidget);
-      expect(tester.widget<Text>(message).style, AppTypography.bodySmall.copyWith(fontSize: 13, color: AppColors.muted));
+      expect(tester.widget<Text>(message).style, AppTypography.bodySmall.copyWith(color: AppColors.muted));
       expect(find.text(freeHint), findsNothing);
     });
 

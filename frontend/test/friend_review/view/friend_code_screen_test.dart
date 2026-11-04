@@ -285,7 +285,7 @@ void main() {
   });
 
   group('20f-3 확인 성공(pen Q3xfwm)', () {
-    testWidgets('칸 아래 20 에 친구 줄(gN7m3) 312×64 — 아바타 · "쓰기" 없음, 닉네임 15/600 렌더 22 · 2 · 학교 14 body', (tester) async {
+    testWidgets('칸 아래 20 에 친구 줄(gN7m3) 312×64 — 아바타 · "쓰기" 없음, 닉네임 16/600 렌더 22 · 2 · 학교 14 body', (tester) async {
       reviews.lookupResult = Success(friendCodeMatchFixture(nickname: '봄바람', university: '테스트대학교'));
       await pump(tester);
 
@@ -301,7 +301,7 @@ void main() {
       expect(tester.getRect(name).left - rowRect.left, 12);
       expect(tester.getRect(name).height, 22);
       final nameStyle = tester.widget<Text>(name).style!;
-      expect((nameStyle.fontSize, nameStyle.fontWeight, nameStyle.color), (15, FontWeight.w600, AppColors.ink));
+      expect((nameStyle.fontSize, nameStyle.fontWeight, nameStyle.color), (16, FontWeight.w600, AppColors.ink));
       expect(tester.widget<SchoolLabel>(find.descendant(of: row, matching: find.byType(SchoolLabel))).university, '테스트대학교');
       final school = find.descendant(of: row, matching: find.text('테스트대학교'));
       expect(tester.getRect(school).top - tester.getRect(name).bottom, 2);

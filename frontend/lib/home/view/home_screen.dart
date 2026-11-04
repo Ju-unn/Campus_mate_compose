@@ -330,8 +330,12 @@ class _HeroToday extends ConsumerWidget {
                   alignment: Alignment.centerLeft,
                   child: CountdownText(
                     target: nextIssueAt,
-                    style: AppTypography.countdown
-                        .copyWith(fontSize: 32, height: 44 / 32, letterSpacing: -0.96, color: AppColors.ink),
+                    // display(32/700 · 자간 -0.96)에 숫자 폭 고정(tabular)만 더한다 — 1초마다 바뀌어도 폭이 흔들리지 않게.
+                    style: AppTypography.display.copyWith(
+                      height: 44 / 32,
+                      fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
+                      color: AppColors.ink,
+                    ),
                     // 0 이 되면 푸시를 기다리지 않고 다시 읽는다 — 00:00:00 에 멈춰 있지 않게(재시도 상한은 뷰모델).
                     onDone: () => unawaited(ref.read(todayCardsViewModelProvider.notifier).refreshWhenDue()),
                   ),

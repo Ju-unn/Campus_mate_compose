@@ -45,10 +45,9 @@ class NotificationRow extends StatelessWidget {
   final bool showDivider;
 
   // pen 글자 상자: 제목 `u7UpP` 22 · 본문 `mjafy` 21 · 시간 `HiHiY` 17(lineHeight 1.4 · 1.45 · 속성 없음, 렌더 결과).
-  // 15px 는 토큰 글자 크기(14 · 16) 사이 값이라 bodySmall 에서 크기만 바꾼다.
-  TextStyle get _titleStyle => AppTypography.bodySmall.copyWith(
-        fontSize: 15,
-        height: 22 / 15,
+  // 제목은 16(body 토큰)이고 읽음 여부로 굵기만 바꾼다.
+  TextStyle get _titleStyle => AppTypography.body.copyWith(
+        height: 22 / 16,
         fontWeight: item.read ? FontWeight.w400 : FontWeight.w700,
         color: item.read ? AppColors.muted : AppColors.ink,
       );

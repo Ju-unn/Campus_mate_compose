@@ -224,7 +224,7 @@ void main() {
       expect(tester.getTopLeft(badge()).dx, greaterThan(tester.getTopRight(chip).dx));
     });
 
-    testWidgets('흰 알약 · 그림자 #34223A24 y2 blur8 · 패딩 [6,10] · 3D badge-check 18 → 4 → "학생 인증" 11/600 ink', (tester) async {
+    testWidgets('흰 알약 · 그림자 #34223A24 y2 blur8 · 패딩 [6,10] · 3D badge-check 18 → 4 → "학생 인증" 10/600 ink', (tester) async {
       await pump(tester, onRegenerate: () {});
 
       final decoration = tester.widget<DecoratedBox>(badge()).decoration as BoxDecoration;
@@ -240,7 +240,8 @@ void main() {
       expect(tester.getTopLeft(find.text('학생 인증')).dx - tester.getTopRight(icon3d).dx, 4);
       expect(tester.getTopRight(badge()).dx - tester.getTopRight(find.text('학생 인증')).dx, 10);
       final style = tester.widget<Text>(find.text('학생 인증')).style!;
-      expect((style.fontSize, style.fontWeight, style.color), (11, FontWeight.w600, AppColors.ink));
+      expect((style.fontSize, style.fontWeight, style.color), (10, FontWeight.w600, AppColors.ink));
+      expect(style.letterSpacing, 0); // 옛 labelSmall 처럼 자간 없음(badge 의 +0.02em 을 끈다)
     });
   });
 

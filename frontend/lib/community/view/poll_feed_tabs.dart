@@ -103,7 +103,8 @@ class PollRingTab extends StatelessWidget {
 
   /// pen 간격 6(토큰 밖).
   static const double _gap = 6;
-  static const double _fontSize = 12;
+  /// 글자 크기는 caption 토큰이 정한다(12) — 줄 높이 계산에만 다시 쓴다.
+  static final double _fontSize = AppTypography.caption.fontSize!;
 
   /// 글자 줄 높이 16 — pen 탭 86 − 고리 64 − 간격 6 에서 나온 값(pen 은 글자 12 만 적었다).
   static const double _lineHeight = 16;
@@ -115,7 +116,6 @@ class PollRingTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = AppTypography.caption.copyWith(
-      fontSize: _fontSize,
       height: _lineHeight / _fontSize,
       fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
       color: selected ? AppColors.primaryText : AppColors.body,

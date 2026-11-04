@@ -128,13 +128,12 @@ class PollReportButton extends StatelessWidget {
             children: [
               const Icon3d(AppIcon3d.siren, size: 22),
               const SizedBox(height: 2),
-              // pen `Wwsmw` 9/600 #6E5861, 줄높이 속성 없음 · 렌더 9. 9px · 이 색은 이 버튼에만 있어 토큰으로 올리지 않는다.
+              // pen `Wwsmw` 10/600 #6E5861, 줄높이 속성 없음 · 렌더 10. 이 색은 이 버튼에만 있어 토큰으로 올리지 않는다.
               Text(
                 '신고하기',
-                style: AppTypography.caption.copyWith(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w600,
+                style: AppTypography.badge.copyWith(
                   height: 1,
+                  letterSpacing: 0,
                   color: const Color(0xFF6E5861),
                 ),
               ),

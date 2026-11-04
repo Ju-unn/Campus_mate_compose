@@ -149,6 +149,7 @@ void main() {
       expect(label.top - kakao.top, 12);
       expect(label.left - kakao.left, 14);
       expect(label.height, 16);
+      expect(tester.widget<Text>(find.text('카카오톡 아이디')).style!.letterSpacing, 0); // badge 의 +0.02em 을 끈다
       final value = tester.getRect(find.text('fox_rain'));
       expect(value.top - label.bottom, 2);
       expect(value.height, 22);

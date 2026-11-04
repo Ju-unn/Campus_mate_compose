@@ -4,6 +4,7 @@ import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/trait_bar.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
+import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/matching/model/card_detail.dart';
 import 'package:campus_mate/matching/model/sent_request.dart';
@@ -157,6 +158,15 @@ void main() {
     expect(mbti.dx - height.dx, studentNumber.dx - mbti.dx);
     expect(religion.dx, height.dx);
     expect(religion.dy, greaterThan(height.dy));
+  });
+
+  testWidgets('사실 칸 라벨은 10/400 muted · 줄 높이 15.4 · 자간 0 이다 (옛 caption 11 × 1.4 모양 그대로)', (tester) async {
+    setScreen(tester, 1.0);
+    await pump(tester);
+
+    final style = tester.widget<Text>(find.text('키')).style!;
+    expect((style.fontSize, style.fontWeight, style.color, style.letterSpacing), (10, FontWeight.w400, AppColors.muted, 0));
+    expect(tester.getSize(find.text('키')).height, closeTo(15.4, 0.5));
   });
 
   testWidgets('글자 배율 2.0 에서 화면 어느 글자도 고정 상자에 잘리지 않는다', (tester) async {

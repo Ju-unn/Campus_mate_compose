@@ -140,7 +140,7 @@ class _AddButton extends StatelessWidget {
             children: [
               const Icon(AppIcons.plus, size: 20, color: AppColors.onPrimary),
               const SizedBox(width: AppSpacing.xs),
-              Flexible(child: Text('추가', style: AppTypography.button.copyWith(fontSize: 18, color: AppColors.onPrimary))),
+              Flexible(child: Text('추가', style: AppTypography.label.copyWith(color: AppColors.onPrimary))),
             ],
           ),
         ),

@@ -218,8 +218,8 @@ class _WaitingFriends extends StatelessWidget {
       children: [
         Text(_waitingTitle, style: heading),
         const SizedBox(height: AppSpacing.xs),
-        // pen AJ2hf 13 / muted / 1.5.
-        Text(_waitingDescription, style: AppTypography.bodySmall.copyWith(fontSize: 13, height: 1.5, color: AppColors.muted)),
+        // pen AJ2hf 14 / muted / 1.5.
+        Text(_waitingDescription, style: AppTypography.bodySmall.copyWith(height: 1.5, color: AppColors.muted)),
         for (final friend in friends) ...[
           const SizedBox(height: AppSpacing.xs),
           WritableFriendRow(nickname: friend.nickname, university: friend.university, onWrite: () => onWrite(friend)),
@@ -232,7 +232,7 @@ class _WaitingFriends extends StatelessWidget {
 }
 
 /// 친구 한 줄(pen 마스터 `gN7m3` WritableFriendRow — 20e `LJhYM` · 20f `vqob4`): 64 · 흰 바탕 r12 · 테두리 hairlineSoft 1 ·
-/// 좌우 12 · 간격 12 — 이니셜 40(`ubsh0`) → 닉네임 15/600 · 2 · 학교 → "쓰기"(`MZDFe`). 테두리는 pen 처럼 여백을 먹지 않게
+/// 좌우 12 · 간격 12 — 이니셜 40(`ubsh0`) → 닉네임 16/600 · 2 · 학교 → "쓰기"(`MZDFe`). 테두리는 pen 처럼 여백을 먹지 않게
 /// DecoratedBox 로 그린다. 20f 확인 결과 줄은 이니셜 · "쓰기" 를 끈다(pen override ubsh0 · MZDFe enabled false).
 class WritableFriendRow extends StatelessWidget {
   const WritableFriendRow({
@@ -281,8 +281,8 @@ class WritableFriendRow extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // pen OThJi 15/600 ink, 줄높이 속성 없음 · 렌더 22.
-                    Text(nickname, style: AppTypography.bodyStrong.copyWith(fontSize: 15, color: AppColors.ink, height: 22 / 15)),
+                    // pen OThJi 16/600 ink, 줄높이 속성 없음 · 렌더 22.
+                    Text(nickname, style: AppTypography.bodyStrong.copyWith(color: AppColors.ink, height: 22 / 16)),
                     if (university != null) ...[
                       const SizedBox(height: 2),
                       // pen YQMGC: 로고 16(HcLjG) · 간격 4 · ZD9sX 14 / body / 1.5.
