@@ -76,6 +76,15 @@ RELIGION_PENALTY = 0.6  # 10-28: 0.8 → 0.6 (같은 종교면 연락처 교환�
 TASTE_CLASH_PENALTY = 0.6
 
 
+def smoking_clash(owner: dict, candidate: dict) -> bool:
+    """카드를 받는 사람이 흡연자를 싫어하고 후보가 흡연자인가 — 점수(×SMOKING_PENALTY)와 유료 카드 이유 문구가 같이 쓴다.
+    싫어함 = 06-1 "흡연하는 사람" 칸이 거짓(싫어요). 칸이 비었으면(null · 옛 앱 1.0.0 · 1.0.1은 이 값을 안 보낸다) 내 흡연 여부를
+    따라 비흡연자만 싫어한다 — 칸이 생기기 전 규칙 그대로다. 후보 쪽은 칸을 보지 않는다(받는 사람의 취향만 본다)."""
+    accepts = owner.get("accepts_smoker")
+    dislikes_smokers = accepts is False or (accepts is None and owner.get("is_smoker") is False)
+    return dislikes_smokers and candidate.get("is_smoker") is True
+
+
 def _one_way_range(value: int | None, low: int | None, high: int | None, near: int) -> float:
     """범위 안 1.00 / near 이내로 벗어나면 0.85 / 그 밖은 0.70 / 범위 미지정은 1.00(설계 §6.5·§6.7)."""
     if value is None or (low is None and high is None):
@@ -127,7 +136,7 @@ def final_score(owner: dict, candidate: dict) -> float:
         )
         + WEIGHTS["face"] * face_fit(owner, candidate)
     )
-    smoking = SMOKING_PENALTY if owner["is_smoker"] is False and candidate["is_smoker"] is True else 1.0
+    smoking = SMOKING_PENALTY if smoking_clash(owner, candidate) else 1.0
     religion = RELIGION_PENALTY if owner["religion"] != candidate["religion"] else 1.0
     taste = TASTE_CLASH_PENALTY if candidate.get("taste_clash") else 1.0
     return (

@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Annotated, Literal
 
-from pydantic import AfterValidator, BaseModel, BeforeValidator, Field, field_validator, model_validator
+from pydantic import AfterValidator, BaseModel, BeforeValidator, Field, StrictBool, field_validator, model_validator
 
 from app.core.time import SEOUL
 
@@ -93,6 +93,12 @@ class IdealConditionsRequest(BaseModel):
     # 선호 얼굴상·인상은 각 1~3개 필수다(2026-09-20 사용자 결정 "온보딩 입력은 전부 필수").
     preferred_animal_types: list[str] = Field(min_length=1, max_length=3)
     preferred_impression_types: list[str] = Field(min_length=1, max_length=3)
+    # "흡연하는 사람" 칸(1.0.2 A6): true = 상관없어요, false = 싫어요, null = 내 흡연 여부를 따른다. JSON bool 만 받는다("yes" · 1 불가).
+    accepts_smoker: StrictBool | None = None
+
+    def sent_optional_fields(self) -> dict:
+        """옛 앱(1.0.0 · 1.0.1)은 accepts_smoker 를 안 보낸다 — 키가 없으면 DB 값을 건드리지 않고, 보낸 null 은 null 로 되돌린다."""
+        return self.model_dump(include=self.model_fields_set & {"accepts_smoker"})
 
 
 IDEAL_NOTE_MIN_LENGTH = 10

@@ -122,6 +122,25 @@ def test_smoke_religion_needs_no_penalty_on_both():
     assert build_reasons(owner_row(religion="christian"), _target(religion="none")) == []
 
 
+@pytest.mark.parametrize(("owner_smokes", "accepts", "target_smokes", "matches"), [
+    pytest.param(False, None, True, False, id="null-nonsmoker-owner-old-rule"),
+    pytest.param(True, None, True, True, id="null-smoker-owner"),
+    pytest.param(False, True, True, True, id="accepts-smokers"),
+    pytest.param(True, False, True, False, id="dislikes-smokers-even-as-a-smoker"),
+    pytest.param(False, False, True, False, id="dislikes-smokers"),
+    pytest.param(False, None, False, True, id="null-nonsmoker-target"),
+    pytest.param(True, False, False, True, id="dislikes-smokers-nonsmoker-target"),
+    pytest.param(False, False, None, True, id="dislikes-smokers-unknown-target"),
+])
+def test_smoke_reason_uses_the_same_smoker_rule_as_the_score(owner_smokes, accepts, target_smokes, matches):
+    """점수의 흡연 감점(scoring.final_score)과 같은 조건이다 — 감점이 없을 때만 "흡연·종교 조건이 맞아요"."""
+    owner = owner_row(is_smoker=owner_smokes, accepts_smoker=accepts)
+
+    kinds = [r["kind"] for r in build_reasons(owner, _target(is_smoker=target_smokes))]
+
+    assert ("smoke_religion" in kinds) is matches
+
+
 def test_mbti_reason_needs_the_owner_to_have_chosen_a_preference():
     """선호 MBTI 가 `{}` 이면 "전부 상관없음" 이라 맞는 이유가 아니다. 한 글자라도 골랐을 때만 센다."""
     target = _target(mbti="ENFJ", religion="none")

@@ -21,7 +21,7 @@ FULL_PROFILE = {
     "nickname": "하늘",
     "bio": "주말엔 산책해요",
     "birth_year": 2003, "gender": "female", "height_cm": 178, "mbti": "ENFP",
-    "religion": "none", "is_smoker": False, "animal_type": "fox", "impression_type": "chic", "major": "컴퓨터공학과",
+    "religion": "none", "is_smoker": False, "accepts_smoker": None, "animal_type": "fox", "impression_type": "chic", "major": "컴퓨터공학과",
     "universities": {"name": "서울대학교"},
     "preferred_age_min": 21, "preferred_age_max": 27,
     "preferred_height_min": 160, "preferred_height_max": None,
@@ -111,7 +111,7 @@ def test_profile_returns_my_fields():
         "nickname": "하늘",
         "age": 24, "birth_year": 2003, "gender": "female", "university": "서울대학교", "major": "컴퓨터공학과",
         "height_cm": 178, "mbti": "ENFP",
-        "religion": "none", "is_smoker": False, "animal_type": "fox", "impression_type": "chic",
+        "religion": "none", "is_smoker": False, "accepts_smoker": None, "animal_type": "fox", "impression_type": "chic",
         "avatar_url": f"{SUPABASE_URL}/storage/v1/object/public/avatars/{PROFILE_ID}/new.png",
         "photo_urls": [_signed("a.jpg"), _signed("b.jpg"), _signed("c.jpg")],
         "preferred_age_min": 21, "preferred_age_max": 27,
@@ -164,6 +164,22 @@ def test_profile_asks_the_db_for_the_four_edit_fields():
     assert {"religion", "is_smoker", "animal_type", "impression_type"} <= set(select.split(","))
 
 
+@pytest.mark.parametrize("value", [True, False, None], ids=["accepts", "dislikes", "follows-my-own"])
+def test_profile_returns_accepts_smoker_as_stored(value):
+    """06-1 을 다시 열 때 채우는 값 — null(내 흡연 여부를 따른다)도 null 그대로 내보낸다."""
+    body = _get({**FULL_PROFILE, "accepts_smoker": value}).json()
+
+    assert "accepts_smoker" in body and body["accepts_smoker"] is value
+
+
+def test_profile_asks_the_db_for_accepts_smoker():
+    seen: list[httpx.Request] = []
+    _get(FULL_PROFILE, seen)
+
+    select = next(r.url.params["select"] for r in seen if r.url.path.endswith("/profiles") and "nickname" in r.url.params.get("select", ""))
+    assert "accepts_smoker" in select.split(",")
+
+
 def test_profile_asks_the_db_for_birth_year_and_gender():
     # 잠금 행(출생연도·성별)용 — 가짜 PostgREST 는 select 를 안 보니 요청 문자열을 직접 본다.
     seen: list[httpx.Request] = []
@@ -212,7 +228,7 @@ def test_empty_profile_gives_nulls_and_no_photos():
     profile = {
         "nickname": "하늘", "bio": None,
         "birth_year": None, "gender": None, "height_cm": None, "mbti": None, "major": None,
-        "religion": None, "is_smoker": None, "animal_type": None, "impression_type": None,
+        "religion": None, "is_smoker": None, "accepts_smoker": None, "animal_type": None, "impression_type": None,
         "universities": {"name": "서울대학교"},
         "preferred_age_min": None, "preferred_age_max": None,
         "preferred_height_min": None, "preferred_height_max": None,
@@ -233,7 +249,7 @@ def test_empty_profile_gives_nulls_and_no_photos():
     assert body["photos"] == []
     assert (body["ideal_note"], body["survey_answers"]) == (None, {})
     assert (body["heart_balance"], body["avatar_regen_cost"], body["nickname_changeable_at"]) == (0, 0, None)
-    for key in ("bio", "age", "birth_year", "gender", "height_cm", "mbti", "religion", "is_smoker", "animal_type", "impression_type", "major",
+    for key in ("bio", "age", "birth_year", "gender", "height_cm", "mbti", "religion", "is_smoker", "accepts_smoker", "animal_type", "impression_type", "major",
                 "preferred_age_min", "preferred_age_max", "preferred_height_min", "preferred_height_max"):
         assert body[key] is None
     # 사진이 없으면 서명 요청도 없다.

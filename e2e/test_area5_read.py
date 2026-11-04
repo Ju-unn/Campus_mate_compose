@@ -138,7 +138,7 @@ class ReadFake(PhoneFake):
                         'nickname': None, 'nickname_changed_at': None, 'withdrawn_at': None, 'bio': '소개', 'student_number': None,
                         'preferred_age_min': 20, 'preferred_age_max': 30, 'preferred_height_min': None, 'preferred_height_max': None,
                         'interest_tags': ['카페가기', '자전거', '패션'], 'my_traits': ['깨끗한 피부'], 'ideal_traits': ['연상'],
-                        'religion': 'none', 'is_smoker': False, 'animal_type': 'dog', 'impression_type': 'kind',
+                        'religion': 'none', 'is_smoker': False, 'accepts_smoker': None, 'animal_type': 'dog', 'impression_type': 'kind',
                         'preferred_mbti_flags': {}, 'preferred_animal_types': ['dog'], 'preferred_impression_types': ['kind'], 'ideal_note': None})
         return row
 
@@ -208,6 +208,7 @@ class ReadFake(PhoneFake):
             'religion': row['religion'], 'is_smoker': row['is_smoker'], 'animal_type': row['animal_type'], 'impression_type': row['impression_type'],
             'preferred_age_min': row['preferred_age_min'], 'preferred_age_max': row['preferred_age_max'],
             'preferred_height_min': row['preferred_height_min'], 'preferred_height_max': row['preferred_height_max'],
+            'accepts_smoker': row['accepts_smoker'],
             'bio': row['bio'], 'interest_tags': row['interest_tags'], 'my_traits': row['my_traits'], 'ideal_traits': row['ideal_traits'],
             'preferred_mbti_flags': row['preferred_mbti_flags'], 'preferred_animal_types': row['preferred_animal_types'],
             'preferred_impression_types': row['preferred_impression_types'],

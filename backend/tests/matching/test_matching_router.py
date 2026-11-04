@@ -44,7 +44,7 @@ def test_candidates_are_sorted_by_score_and_cut_to_limit():
         "id": PROFILE_ID, "status": "active", "gender": "male", "mbti": None, "preferred_mbti_flags": {},
         "height_cm": 180, "preferred_height_min": None, "preferred_height_max": None,
         "birth_year": 2002, "preferred_age_min": None, "preferred_age_max": None,
-        "is_smoker": True, "religion": "none",
+        "is_smoker": True, "accepts_smoker": None, "religion": "none",
     }
     candidate = {
         "mbti": None, "preferred_mbti_flags": {}, "height_cm": 165,
@@ -75,6 +75,41 @@ def test_candidates_are_sorted_by_score_and_cut_to_limit():
     assert body["candidates"][0]["score"] > 0
 
 
+@pytest.mark.parametrize(("accepts", "order"), [
+    pytest.param(False, ["clean", "smoker"], id="smoker-owner-dislikes-smokers"),
+    pytest.param(True, ["smoker", "clean"], id="smoker-owner-accepts-smokers"),
+    pytest.param(None, ["smoker", "clean"], id="smoker-owner-follows-own-habit"),
+])
+def test_candidates_ranking_reads_the_owners_accepts_smoker(accepts, order):
+    """흡연자인 내가 06-1 에서 흡연자를 "싫어요" 로 고르면 흡연 후보가 ×0.5 로 내려간다(1.0.2 A6) — 칸이 서버 순위까지 닿는지."""
+    now = datetime.now(timezone.utc).isoformat()
+    owner = _owner(is_smoker=True, accepts_smoker=accepts)
+    candidate = {
+        "mbti": None, "preferred_mbti_flags": {}, "height_cm": 165,
+        "preferred_height_min": None, "preferred_height_max": None, "birth_year": 2003,
+        "preferred_age_min": None, "preferred_age_max": None, "religion": "none",
+        "last_active_at": now, "tag_score": 0, "text_score": 0, "pickable": True,
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if "/rpc/match_candidates" in url:
+            return httpx.Response(200, json=[
+                {**candidate, "candidate_id": "smoker", "trait_score": 0.9, "is_smoker": True},
+                {**candidate, "candidate_id": "clean", "trait_score": 0.6, "is_smoker": False},
+            ])
+        if "/profiles" in url:
+            return httpx.Response(200, json=[owner])
+        if "/profile_vectors" in url:
+            return httpx.Response(200, json=[{"profile_id": PROFILE_ID}])
+        return httpx.Response(200, json=[])
+
+    response = _wire(handler).get("/matching/candidates", headers=AUTH_HEADERS)
+
+    assert response.status_code == 200
+    assert [c["profile_id"] for c in response.json()["candidates"]] == order
+
+
 def test_candidates_requires_verified_student():
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json=[])
@@ -98,7 +133,7 @@ def _owner(**overrides) -> dict:
         "id": PROFILE_ID, "status": "active", "gender": "male", "mbti": None,
         "preferred_mbti_flags": {}, "height_cm": 180, "preferred_height_min": None,
         "preferred_height_max": None, "birth_year": 2002, "preferred_age_min": None,
-        "preferred_age_max": None, "is_smoker": True, "religion": "none", **overrides,
+        "preferred_age_max": None, "is_smoker": True, "accepts_smoker": None, "religion": "none", **overrides,
     }
 
 

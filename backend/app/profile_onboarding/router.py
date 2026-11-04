@@ -380,6 +380,7 @@ async def submit_ideal_conditions(
         profile_id, body.preferred_age_min, body.preferred_age_max,
         body.preferred_height_min, body.preferred_height_max,
         body.preferred_mbti_flags, body.preferred_animal_types, body.preferred_impression_types,
+        body.sent_optional_fields(),
     )
     await _refresh_vectors(settings, client, openai_client, profile_id)
     return {"ok": True}

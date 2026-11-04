@@ -825,7 +825,7 @@ def test_free_text_with_forty_one_lines_is_422_and_writes_nothing(path, field):
     assert patched == []
 
 
-def _post_ideal_conditions(flags: dict) -> tuple[httpx.Response, list[dict]]:
+def _post_ideal_conditions(flags: dict, **extra) -> tuple[httpx.Response, list[dict]]:
     patched: list[dict] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -835,9 +835,34 @@ def _post_ideal_conditions(flags: dict) -> tuple[httpx.Response, list[dict]]:
 
     response = _wire(handler).post("/profile-onboarding/ideal-conditions", headers=AUTH_HEADERS, json={
         "preferred_age_min": 20, "preferred_age_max": 26, "preferred_mbti_flags": flags,
-        "preferred_animal_types": ["dog"], "preferred_impression_types": ["kind"],
+        "preferred_animal_types": ["dog"], "preferred_impression_types": ["kind"], **extra,
     })
     return response, patched
+
+
+def test_ideal_conditions_without_accepts_smoker_leave_the_column_alone():
+    """옛 앱(1.0.0 · 1.0.1)은 이 키를 안 보낸다 — PATCH 본문에 칸 자체가 없어야 DB 값이 그대로다."""
+    response, patched = _post_ideal_conditions({})
+
+    assert response.status_code == 200
+    assert "accepts_smoker" not in patched[0]
+
+
+@pytest.mark.parametrize("value", [True, False, None], ids=["accepts", "dislikes", "back-to-null"])
+def test_ideal_conditions_save_accepts_smoker_as_sent(value):
+    """null 을 보내면 null 로 되돌린다(= 내 흡연 여부를 따른다) — 보낸 null 과 안 보낸 것은 다르다."""
+    response, patched = _post_ideal_conditions({}, accepts_smoker=value)
+
+    assert response.status_code == 200
+    assert "accepts_smoker" in patched[0] and patched[0]["accepts_smoker"] is value
+
+
+@pytest.mark.parametrize("value", ["yes", "true", "false", 1, 0, [], {}], ids=repr)
+def test_ideal_conditions_reject_accepts_smoker_that_is_not_a_json_bool(value):
+    response, patched = _post_ideal_conditions({}, accepts_smoker=value)
+
+    assert response.status_code == 422
+    assert patched == []
 
 
 @pytest.mark.parametrize("flags", [

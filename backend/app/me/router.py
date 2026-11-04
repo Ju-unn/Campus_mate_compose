@@ -85,6 +85,8 @@ async def get_my_profile(
         "preferred_age_max": profile["preferred_age_max"],
         "preferred_height_min": profile["preferred_height_min"],
         "preferred_height_max": profile["preferred_height_max"],
+        # 06-1 "흡연하는 사람": true 상관없어요 · false 싫어요 · null 내 흡연 여부를 따른다. 옛 앱은 모르는 키를 무시한다.
+        "accepts_smoker": profile["accepts_smoker"],
         "bio": profile["bio"],
         # 15c 칩 · 태그 편집 · 06-1 편집을 서버 값으로 채운다.
         "interest_tags": profile["interest_tags"],

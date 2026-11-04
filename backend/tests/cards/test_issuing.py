@@ -82,7 +82,7 @@ class _FakeMatchingRepo:
         return {"id": profile_id, "status": "active", "gender": "male", "mbti": None,
                 "preferred_mbti_flags": {}, "height_cm": 180, "preferred_height_min": None,
                 "preferred_height_max": None, "birth_year": 2002, "preferred_age_min": None,
-                "preferred_age_max": None, "is_smoker": False, "religion": "none"}
+                "preferred_age_max": None, "is_smoker": False, "accepts_smoker": None, "religion": "none"}
 
     async def fetch_candidates(self, profile_id):
         return list(self._candidates)
