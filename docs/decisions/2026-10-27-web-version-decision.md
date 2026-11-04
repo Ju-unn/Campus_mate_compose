@@ -28,8 +28,8 @@
 ## 3. 저장소에서 확인한 사실 **[문서 담당 확인]**
 
 **3-1. 웹으로 가져갈 때 걸릴 코드**
-- `frontend/lib` 에서 `dart:io` 를 import 하는 파일은 **22개**다. 대장이 전달한 숫자와 같다. 묶으면 — 사진 고르기 · 압축(`auth/model/image_compressor.dart`, `me/model/photo_slot.dart`, `me/viewmodel/avatar_regen_pick_view_model.dart`, `profile/*photos*`), 얼굴 검사(`auth/model/face_detector.dart`), 인증샷(`billing/*heart_task*`), 졸업생 인증(`graduate/*`), 임시 저장(`core/draft/*`), FAQ 캐시(`faq/model/faq_cache.dart`), 연락처 이름 저장(`safety/model/contact_name_store.dart`).
-- `kIsWeb` 분기는 이미 `lib` 안에 있다(import 줄을 포함해 12줄). 예: 애플 로그인 단추는 `!kIsWeb && iOS` 일 때만 보이고(`auth/view/start_view.dart`), 앱 내 결제 창구는 웹이면 `null` 을 돌려준다(`billing/model/in_app_heart_store_gateway.dart`). 즉 일부는 웹을 염두에 두고 만들어져 있다.
+- `frontend/lib` 에서 `dart:io` 를 import 하는 파일은 **22개**다. 대장이 전달한 숫자와 같다. 묶으면 — 사진 고르기 · 압축(`auth/media/model/repository/image_compressor.dart`, `me/model/data/photo_slot.dart`, `me/viewmodel/avatar_regen_pick_view_model.dart`, `profile/*photos*`), 얼굴 검사(`auth/media/model/repository/face_detector.dart`), 인증샷(`billing/*heart_task*`), 졸업생 인증(`graduate/*`), 임시 저장(`core/draft/*`), FAQ 캐시(`faq/model/repository/faq_cache.dart`), 연락처 이름 저장(`safety/model/repository/contact_name_store.dart`).
+- `kIsWeb` 분기는 이미 `lib` 안에 있다(import 줄을 포함해 12줄). 예: 애플 로그인 단추는 `!kIsWeb && iOS` 일 때만 보이고(`auth/social/view/start_view.dart`), 앱 내 결제 창구는 웹이면 `null` 을 돌려준다(`billing/store/model/repository/in_app_heart_store_gateway.dart`). 즉 일부는 웹을 염두에 두고 만들어져 있다.
 - 네이티브에 기대는 패키지(`frontend/pubspec.yaml`): `google_mlkit_face_detection`(얼굴 검사) · `flutter_contacts`(연락처) · `in_app_purchase`(하트 결제) · `firebase_messaging`(푸시) · `firebase_crashlytics` · `firebase_performance` · `firebase_analytics` · `google_sign_in` · `kakao_flutter_sdk_user` · `kakao_flutter_sdk_share` · `sign_in_with_apple`. 이 중 어디가 웹에서 막히는지는 **실행 점검 전이라 추정**이다(대장 전달 추정과 같다: 카카오 · 구글 · 애플 로그인의 웹 방식, ML Kit 얼굴 검사, 연락처, 결제, 푸시 · Crashlytics).
 - `frontend/web/` 폴더(`index.html` · `manifest.json` · 아이콘)는 이미 있으나 `manifest.json` 의 이름 · 설명이 Flutter 기본값("A new Flutter project.")이라 웹을 내보내기 전에 고쳐야 한다.
 

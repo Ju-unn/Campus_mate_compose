@@ -41,7 +41,7 @@
 
 `site/privacy/index.html` 은 **노션 개인정보 처리방침(시행 2026-10-20)을 옮긴 사본**이다. 원본은 노션이고 홈페이지는 구글 OAuth 브랜딩 인증용 주소다.
 
-1. **노션 방침을 고치면 같은 PR 흐름에서 `site/privacy/index.html` 도 같이 고친다**(시행일 · 공고일자 포함). 한쪽만 고치면 앱 안 동의 화면(`lib/consent/model/consent_links.dart` 의 노션 링크)과 홈페이지 내용이 달라진다.
+1. **노션 방침을 고치면 같은 PR 흐름에서 `site/privacy/index.html` 도 같이 고친다**(시행일 · 공고일자 포함). 한쪽만 고치면 앱 안 동의 화면(`lib/consent/model/data/consent_links.dart` 의 노션 링크)과 홈페이지 내용이 달라진다.
 2. 방침 판이 바뀌면 `CONSENT_VERSION`(`backend/app/consents/policy.py`)을 올릴지 함께 정한다(재동의 여부).
 3. `.github/workflows/site.yml` 은 푸터의 `/privacy/` 링크와 `site/privacy/index.html` 이 있는지만 본다. **내용이 노션과 같은지는 검사하지 않는다** — 사람이 지키는 규칙이다.
 4. 이용약관 · 계정 삭제 안내는 아직 노션 링크 그대로다(홈페이지에 사본을 두지 않았다).
