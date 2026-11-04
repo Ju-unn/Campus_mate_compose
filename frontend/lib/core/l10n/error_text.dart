@@ -36,6 +36,8 @@ String appErrorKindText(AppLocalizations l10n, AppError error) => switch (error)
       AppError.notificationsLoad => l10n.errorNotificationsLoad,
       AppError.storeOpenFailed => l10n.errorStoreOpenFailed,
       AppError.tryLater => l10n.errorTryLater,
+      AppError.photoUnreadable => l10n.errorPhotoUnreadable,
+      AppError.graduateEmailInvalid => l10n.errorGraduateEmailInvalid,
     };
 
 String _takenText(AppLocalizations l10n, SchoolEmailTakenFailure failure) {
