@@ -34,6 +34,11 @@ name: iOS TestFlight
 #     물으면 "OS 기본 HTTPS 외 암호화 없음(면제)" 쪽으로 답한다.
 #   - "The bundle version must be higher": 빌드 번호(= 이 워크플로의 실행 번호)가 이미 올라가 있다. 성공한 실행을 Re-run 하지 말고
 #     Run workflow 로 새로 실행한다.
+#   - 노란 경고 "Crashlytics 도구(upload-symbols)를 찾지 못해"(잡은 성공): 도구는 Flutter 가 SPM 으로 받은 build/ios/SourcePackages/checkouts/
+#     firebase-ios-sdk/Crashlytics 에 있다(ios/Pods 에는 SPM 을 안 지원하는 플러그인만 있다). 경고 아래 점검 줄(ls · find)로 실제 위치를 보고
+#     "Crashlytics 에 dSYM 올리기" 단계의 후보 경로를 고친다.
+#   - 내보내기 로그의 "Upload Symbols Failed ... did not include a dSYM for FirebaseAnalytics.framework"(GoogleAppMeasurement 등 구글이 dSYM 없이 주는
+#     미리 만든 프레임워크 몇 개): 늘 뜨는 경고다. 우리 앱(Runner)의 dSYM 과 무관하고 업로드도 성공한다.
 #   실패하면 이 워크플로가 만든 로그 두 개(flutter-build-ipa.log, export-upload.log)만 비밀과 실명을 지워 아티팩트
 #   ios-testflight-logs-<실행 번호> 로 7일 남긴다. xcodebuild 의 자세한 기록(xcdistributionlogs)과 IPA 는 올리지 않는다.
 on:
@@ -232,9 +237,41 @@ jobs:
         continue-on-error: true
         run: |
           set +x
-          UPLOADER="ios/Pods/FirebaseCrashlytics/upload-symbols"
-          if [[ ! -x "$UPLOADER" || ! -d "$ARCHIVE/dSYMs" ]]; then
-            echo "::warning::Crashlytics 도구(upload-symbols) 또는 보관본의 dSYMs 폴더가 없어 dSYM 을 올리지 못했다 — iOS 크래시가 줄 번호로 안 풀린다"
+          # 도구는 Flutter 가 SPM 으로 받은 firebase-ios-sdk 안에 있다(xcodebuild -clonedSourcePackagesDirPath = build/ios/SourcePackages).
+          # ios/Pods 는 SPM 을 지원하지 않는 플러그인(google_mlkit_*)만 담아 FirebaseCrashlytics 가 없다. 그 플러그인이 바뀔 때를 위해 Pods 도 본다.
+          UPLOADER=""
+          for CANDIDATE in \
+            "build/ios/SourcePackages/checkouts/firebase-ios-sdk/Crashlytics/upload-symbols" \
+            "ios/Pods/FirebaseCrashlytics/upload-symbols"; do
+            if [[ -x "$CANDIDATE" ]]; then
+              UPLOADER="$CANDIDATE"
+              break
+            fi
+          done
+          # 못 찾았을 때 다음 실행에서 원인을 알 수 있게 후보 위치의 실제 모습을 로그에 남긴다.
+          look_around() {
+            {
+              set +e
+              echo "== ios/Pods/FirebaseCrashlytics =="
+              ls -d ios/Pods/FirebaseCrashlytics
+              echo "== SPM 체크아웃 목록 =="
+              ls build/ios/SourcePackages/checkouts
+              echo "== firebase-ios-sdk/Crashlytics =="
+              ls -l build/ios/SourcePackages/checkouts/firebase-ios-sdk/Crashlytics
+              echo "== 보관본 =="
+              ls "$ARCHIVE"
+              echo "== 보관본 dSYMs =="
+              ls "$ARCHIVE/dSYMs"
+              echo "== DerivedData 의 upload-symbols =="
+              find "$HOME/Library/Developer/Xcode/DerivedData" -maxdepth 8 -name upload-symbols
+            } 2>&1 | python3 -u "$TOOL" scrub "$PLIST" "$XCCONFIG" || true
+          }
+          if [[ -z "$UPLOADER" ]]; then
+            echo "::warning::Crashlytics 도구(upload-symbols)를 찾지 못해 dSYM 을 올리지 못했다 — iOS 크래시가 줄 번호로 안 풀린다. 아래 점검 줄에서 실제 위치를 확인한다"
+            look_around
+          elif [[ ! -d "$ARCHIVE/dSYMs" ]]; then
+            echo "::warning::보관본에 dSYMs 폴더가 없어 dSYM 을 올리지 못했다 — iOS 크래시가 줄 번호로 안 풀린다. 아래 점검 줄에서 실제 위치를 확인한다"
+            look_around
           elif ! "$UPLOADER" -gsp "$PLIST" -p ios "$ARCHIVE/dSYMs" 2>&1 | python3 -u "$TOOL" scrub "$PLIST" "$XCCONFIG"; then
             echo "::warning::Crashlytics 에 dSYM 올리기가 실패했다(앱은 이미 올라갔다) — 이 빌드의 iOS 크래시는 줄 번호로 안 풀릴 수 있다. 위 로그를 확인한다"
           else
