@@ -1,16 +1,17 @@
 import 'dart:io';
 
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/graduate/model/data/graduate_request_state.dart';
 import 'package:campus_mate/graduate/model/data/previous_school_email.dart';
 
-/// 졸업생 신청 폼의 상태. 동작 하나가 끝날 때마다 새로 만든다 — [errorMessage] 는 그 한 번에만 붙는다.
+/// 졸업생 신청 폼의 상태. 동작 하나가 끝날 때마다 새로 만든다 — [error] 는 그 한 번에만 붙는다.
 class GraduateApplicationUiState {
   const GraduateApplicationUiState({
     this.photo,
     this.previousEmailInput = '',
     this.agreed = false,
     this.isSubmitting = false,
-    this.errorMessage,
+    this.error,
     this.rejection,
     this.isExhausted = false,
   });
@@ -24,8 +25,8 @@ class GraduateApplicationUiState {
   final bool agreed;
   final bool isSubmitting;
 
-  /// 화면이 토스트로 한 번 띄운다.
-  final String? errorMessage;
+  /// 실패의 종류. 화면이 `context.errorText` 로 글자를 만들어 토스트로 한 번 띄운다.
+  final Failure? error;
 
   /// 반려된 뒤 다시 신청하는 폼이면 서버가 알려 준 사유 · 남은 횟수. 처음 신청이면 null.
   final GraduateRejected? rejection;
@@ -44,7 +45,7 @@ class GraduateApplicationUiState {
     String? previousEmailInput,
     bool? agreed,
     bool? isSubmitting,
-    String? errorMessage,
+    Failure? error,
     GraduateRejected? rejection,
     bool? isExhausted,
   }) {
@@ -53,7 +54,7 @@ class GraduateApplicationUiState {
       previousEmailInput: previousEmailInput ?? this.previousEmailInput,
       agreed: agreed ?? this.agreed,
       isSubmitting: isSubmitting ?? this.isSubmitting,
-      errorMessage: errorMessage,
+      error: error,
       rejection: rejection ?? this.rejection,
       isExhausted: isExhausted ?? this.isExhausted,
     );

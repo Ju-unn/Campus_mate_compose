@@ -1,6 +1,8 @@
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/consent/model/repository/open_url.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -37,11 +39,11 @@ class _EventComingScreenState extends ConsumerState<EventComingScreen> with MeTo
     } finally {
       _opening = false;
     }
-    if (!opened) {
+    if (!opened && mounted) {
       showTimedToast(
         AppToast(
           leading: const Icon(AppIcons.alertTriangle, size: 16, color: AppColors.onInk),
-          label: const UnknownFailure().toDisplayMessage(),
+          label: context.errorText(const UnknownFailure()),
         ),
       );
     }
@@ -51,7 +53,7 @@ class _EventComingScreenState extends ConsumerState<EventComingScreen> with MeTo
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.canvas,
-      appBar: const EditAppBar(title: '이벤트'),
+      appBar: EditAppBar(title: context.l10n.homeEventTitle),
       body: SafeArea(
         top: false,
         child: MeToastLayer(
@@ -98,13 +100,13 @@ class _Body extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.xs),
         Text(
-          '이벤트가 곧 열려요',
+          context.l10n.homeEventComingTitle,
           textAlign: TextAlign.center,
           style: AppTypography.title.copyWith(fontWeight: FontWeight.w700, color: AppColors.ink),
         ),
         const SizedBox(height: AppSpacing.xs),
         Text(
-          '새로운 이벤트가 준비되는 대로 여기서 알려 드릴게요. 인스타그램에서도 소식을 만나 보세요.',
+          context.l10n.homeEventComingBody,
           textAlign: TextAlign.center,
           style: AppTypography.bodySmall.copyWith(color: AppColors.body),
         ),
@@ -147,7 +149,7 @@ class _InstagramButton extends StatelessWidget {
             excludeFromSemantics: true,
           ),
           const SizedBox(width: AppSpacing.xs),
-          Flexible(child: Text('인스타그램 보러 가기', style: AppTypography.button.copyWith(color: AppColors.ink))),
+          Flexible(child: Text(context.l10n.homeEventInstagramButton, style: AppTypography.button.copyWith(color: AppColors.ink))),
         ],
       ),
     );

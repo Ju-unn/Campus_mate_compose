@@ -1,6 +1,8 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/core/auth/logout_text_button.dart';
 import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -36,8 +38,8 @@ class VerificationMethodScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    ref.listen(verificationMethodViewModelProvider.select((state) => state.errorMessage), (_, message) {
-      if (message != null) showGateToast(context, message);
+    ref.listen(verificationMethodViewModelProvider.select((state) => state.error), (_, failure) {
+      if (failure != null) showGateToast(context, context.errorText(failure));
     });
     final state = ref.watch(verificationMethodViewModelProvider);
     final viewModel = ref.read(verificationMethodViewModelProvider.notifier);
@@ -57,23 +59,23 @@ class VerificationMethodScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       const SizedBox(height: _appBarSlot),
-                      Text('인증 방법을 골라 주세요', style: AppTypography.headline.copyWith(color: AppColors.ink)),
+                      Text(context.l10n.graduateMethodTitle, style: AppTypography.headline.copyWith(color: AppColors.ink)),
                       const SizedBox(height: AppSpacing.xs),
                       Text(
-                        '가입하려면 학교 인증이 필요해요.',
+                        context.l10n.graduateMethodBody,
                         style: AppTypography.body.copyWith(color: AppColors.body, height: _bodyLine / 16),
                       ),
                       const SizedBox(height: AppSpacing.lg),
                       _MethodCard(
-                        title: '학교 메일로 인증',
-                        body: '재학생 · 학교 메일이 있는 분. 메일로 받은 코드로 바로 확인해요.',
+                        title: context.l10n.graduateMethodSchoolEmailTitle,
+                        body: context.l10n.graduateMethodSchoolEmailBody,
                         isSelected: state.selected == VerificationMethod.schoolEmail,
                         onTap: () => viewModel.select(VerificationMethod.schoolEmail),
                       ),
                       const SizedBox(height: AppSpacing.sm),
                       _MethodCard(
-                        title: '졸업증명서로 인증',
-                        body: '졸업해서 학교 메일이 없는 분. 졸업증명서로 확인해요. 확인에 시간이 걸릴 수 있어요.',
+                        title: context.l10n.graduateMethodCertificateTitle,
+                        body: context.l10n.graduateMethodCertificateBody,
                         isSelected: state.selected == VerificationMethod.graduateCertificate,
                         onTap: () => viewModel.select(VerificationMethod.graduateCertificate),
                       ),
@@ -81,7 +83,7 @@ class VerificationMethodScreen extends ConsumerWidget {
                       // pen [다음] `itG98` 은 02 의 프레임 복사(높이 52 · 모서리 8 · 18/700)라 마스터가 아니다 —
                       // 02 와 같이 공용 AppButton(52 · 모서리 14 · 16/700)을 쓴다(02 · 03 과 한 길이라 어긋나지 않게).
                       AppButton(
-                        label: '다음',
+                        label: context.l10n.commonNext,
                         onPressed: state.canGoNext ? viewModel.next : null,
                         isLoading: state.isSubmitting,
                       ),

@@ -4,8 +4,6 @@ import 'dart:io';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/support_email.dart';
-import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
-import 'package:campus_mate/core/back_exit/back_exit_view_model.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/graduate/model/data/graduate_request_state.dart';
@@ -80,7 +78,7 @@ void main() {
       await pump(tester);
 
       expect(tester.getSize(find.byType(AppBar)).height, 56);
-      final arrow = find.byTooltip(onboardingBackLabel);
+      final arrow = find.byTooltip('뒤로');
       expect(tester.getSize(arrow), const Size(48, 48));
       expect(tester.getTopLeft(arrow).dx, 12);
       expect(find.byIcon(AppIcons.arrowLeft), findsOneWidget);
@@ -307,7 +305,7 @@ void main() {
       await pickPhoto(tester);
       await tester.pump();
 
-      expect(find.text(graduatePhotoUnreadableMessage), findsOneWidget);
+      expect(find.text('사진을 다시 확인해 주세요'), findsOneWidget);
       expect(find.text('0/1장'), findsOneWidget);
       await tester.pumpAndSettle(const Duration(seconds: 5));
     });
@@ -406,7 +404,7 @@ void main() {
       expect(find.text(supportEmail), findsOneWidget);
       expect(slot(), findsNothing);
       expect(find.byType(ElevatedButton), findsNothing);
-      expect(find.byTooltip(onboardingBackLabel), findsOneWidget, reason: '다른 방법으로 돌아갈 길은 남긴다');
+      expect(find.byTooltip('뒤로'), findsOneWidget, reason: '다른 방법으로 돌아갈 길은 남긴다');
     });
 
     testWidgets('보내다 429 를 받으면 폼이 문의 안내로 바뀐다', (tester) async {
@@ -440,7 +438,7 @@ void main() {
     testWidgets('화살표: 서버 값을 비우는 호출 한 번(null)', (tester) async {
       await pump(tester);
 
-      await tester.tap(find.byTooltip(onboardingBackLabel));
+      await tester.tap(find.byTooltip('뒤로'));
       await tester.pump();
 
       expect(harness.repository.chosen, [null]);
@@ -454,7 +452,7 @@ void main() {
       await tester.pump();
 
       expect(harness.repository.chosen, [null]);
-      expect(find.text(backExitMessage), findsNothing);
+      expect(find.text('한 번 더 누르면 종료돼요'), findsNothing);
       expect(exitCalls, 0);
     });
 
@@ -462,7 +460,7 @@ void main() {
       rejected(GraduateRejectReason.unreadable);
       await pump(tester);
 
-      await tester.tap(find.byTooltip(onboardingBackLabel));
+      await tester.tap(find.byTooltip('뒤로'));
       await tester.pump();
 
       expect(harness.repository.chosen, [null]);
@@ -477,8 +475,8 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      expect(find.byTooltip(onboardingBackLabel), findsOneWidget);
-      await tester.tap(find.byTooltip(onboardingBackLabel));
+      expect(find.byTooltip('뒤로'), findsOneWidget);
+      await tester.tap(find.byTooltip('뒤로'));
       await tester.binding.handlePopRoute();
       await tester.pump();
 
@@ -491,7 +489,7 @@ void main() {
       harness.repository.chooseResult = const FailureResult(NetworkFailure());
       await pump(tester);
 
-      await tester.tap(find.byTooltip(onboardingBackLabel));
+      await tester.tap(find.byTooltip('뒤로'));
       await tester.pump();
       await tester.pump();
 

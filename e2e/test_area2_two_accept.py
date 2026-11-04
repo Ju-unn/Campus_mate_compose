@@ -28,6 +28,42 @@ A, B = 'id-1', 'id-2'
 UNIQUE = {'retry': False}  # 두 번 가면 안 되는 요청 — tools.call 이 한 번만 보낸다
 
 
+def dart_code_only(source):
+    """Dart 소스에서 주석과 문자열 리터럴 안쪽을 빈칸으로 바꾼 코드(줄 수는 그대로). 키 이름이 코드에 실제로 쓰였는지 볼 때 쓴다.
+    문자열 안의 `${…}` 보간 코드도 같이 빈칸이 된다 — 그 안에서만 키를 읽는 화면은 여기서 걸리고, 그때는 시험이 아니라 화면을 고친다."""
+    blank = lambda text: re.sub(r'[^\n]', ' ', text)
+    out, i, n = [], 0, len(source)
+    while i < n:
+        two = source[i:i + 2]
+        if two == '//':
+            end = source.find('\n', i)
+            end = n if end < 0 else end
+            out.append(' ' * (end - i))
+            i = end
+        elif two == '/*':
+            end = source.find('*/', i + 2)
+            end = n if end < 0 else end + 2
+            out.append(blank(source[i:end]))
+            i = end
+        elif source[i] in '\'"':
+            raw = i > 0 and source[i - 1] == 'r'
+            quote = source[i:i + 3] if source[i:i + 3] in ("'''", '"""') else source[i]
+            j = i + len(quote)
+            while j < n and not source.startswith(quote, j):
+                if source[j] == '\\' and not raw:
+                    j += 1
+                elif len(quote) == 1 and source[j] == '\n':
+                    break  # 닫히지 않은 한 줄 문자열(소스가 깨졌다) — 줄 끝에서 멈춘다
+                j += 1
+            j = min(n, j + len(quote))
+            out.append(blank(source[i:j]))
+            i = j
+        else:
+            out.append(source[i])
+            i += 1
+    return ''.join(out)
+
+
 def label_backed(label, sources, messages):
     """[label](Dart 소스 모양 그대로의 글자)이 인용한 파일들의 소스 [sources] 에 문자열로 있거나, 문구 파일(ARB)로 옮겨 갔다면
     그 글자의 키(들)를 그 파일이 읽는가. [messages] = ARB 키 → 글자(`tools.arb_messages()`).
@@ -35,7 +71,8 @@ def label_backed(label, sources, messages):
     if any(f"'{label}'" in source for source in sources):
         return True
     keys = [key for key, text in messages.items() if text.replace('\\', '\\\\').replace("'", "\\'").replace('\n', '\\n') == label]
-    return any(re.search(rf'\b{key}\b', source) for key in keys for source in sources)
+    codes = [dart_code_only(source) for source in sources]  # 주석 · 다른 문자열 속 키 이름은 읽는 것이 아니다
+    return any(re.search(rf'\b{key}\b', code) for key in keys for code in codes)
 
 
 def unbacked_labels(dart_name):
@@ -673,6 +710,22 @@ class LabelBackedTest(unittest.TestCase):
 
     def test_a_label_in_neither_the_file_nor_the_arb_is_unbacked(self):
         self.assertFalse(label_backed('수락', ["Text('거절')", 'context.l10n.commonCardActionReject'], self.MESSAGES))
+
+    def test_a_key_name_in_a_comment_or_another_string_is_not_reading_it(self):
+        self.assertFalse(label_backed('거절', ['// commonCardActionReject 를 읽는다\nfoo();'], self.MESSAGES))
+        self.assertFalse(label_backed('거절', ['/* commonCardActionReject */ foo();'], self.MESSAGES))
+        self.assertFalse(label_backed('거절', ["Text('commonCardActionReject')"], self.MESSAGES))
+        self.assertFalse(label_backed('거절', ['Text("""commonCardActionReject\n""")'], self.MESSAGES))
+        self.assertTrue(label_backed('거절', ['// 메모\nText(context.l10n.commonCardActionReject) // 끝'], self.MESSAGES))
+
+    def test_dart_code_only_keeps_the_line_count_and_the_code(self):
+        source = "a('x//y'); // 주석\n/* 둘\n줄 */ b(r'\\n'); c(\"d'e\");\n"
+        stripped = dart_code_only(source)
+        self.assertEqual(stripped.count('\n'), source.count('\n'))
+        for call in ('a(', 'b(', 'c('):
+            self.assertIn(call, stripped)
+        self.assertNotIn('주석', stripped)
+        self.assertNotIn('x//y', stripped)
 
     def test_labels_are_compared_in_the_dart_source_spelling(self):
         # 시나리오 상수는 소스 그대로(`\n`, `\'`)이고 ARB 값은 진짜 줄바꿈 · 따옴표다.

@@ -1,5 +1,6 @@
 import 'package:campus_mate/auth/school_info/model/data/department.dart';
 import 'package:campus_mate/auth/school_info/model/data/student_number.dart';
+import 'package:campus_mate/common/failure.dart';
 
 /// 학과·학번 입력 화면(DESIGN.md 화면 3c)의 상태.
 class SchoolInfoUiState {
@@ -9,7 +10,7 @@ class SchoolInfoUiState {
     this.studentNumberInput = '',
     this.studentNumber,
     this.isSubmitting = false,
-    this.errorMessage,
+    this.error,
     this.completed = false,
   });
 
@@ -28,8 +29,8 @@ class SchoolInfoUiState {
   /// 제출이 서버 응답을 기다리는 중인지.
   final bool isSubmitting;
 
-  /// 조회·제출이 실패했을 때 보여줄 문구.
-  final String? errorMessage;
+  /// 조회·제출이 실패한 종류. 화면이 `context.errorText` 로 글자를 만들어 보인다.
+  final Failure? error;
 
   /// 제출이 성공했는지 — ViewModel 이 이 값을 보고 인증 게이트를 다시 조회하고,
   /// 화면 전환은 라우터가 게이트 변화로 처리한다(Task A10).

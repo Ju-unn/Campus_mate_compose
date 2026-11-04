@@ -1,8 +1,11 @@
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/support_email.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/labeled_field.dart';
 import 'package:campus_mate/consent/view/consent_row.dart';
 import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -25,13 +28,6 @@ export 'package:campus_mate/graduate/view/graduate_reject_alert.dart' show gradu
 /// 테스트가 이메일 입력칸의 잠금(보내는 중)을 찾는 표식.
 const Key graduateEmailLockKey = ValueKey('graduate-email-lock');
 
-/// 이전 학교 메일 형식 오류(서버 `PREVIOUS_EMAIL_INVALID` 와 같은 문구). 값표에 없는 상태라 앱이 정했다.
-const String _previousEmailInvalidMessage = '이전 학교 메일 형식을 다시 확인해 주세요';
-
-/// 개인정보 동의 줄(계획서 D11 (나)). **값표(02-g)에 없는 줄**이다 — 뷰모델이 동의를 요구해(`canSubmit`) 앱이 문구를 정했다.
-/// pen 에 같은 마스터(`ConsentRow`)로 추가돼야 한다(보고).
-const String _consentLabel = '졸업증명서 사진을 확인에 쓰는 것에 동의해요';
-
 /// pen 설명 `zXal3` 16/normal 줄높이 1.5(24).
 final TextStyle _descriptionStyle = AppTypography.body.copyWith(color: AppColors.body, height: 1.5);
 
@@ -52,11 +48,11 @@ class GraduateApplicationScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    ref.listen(graduateApplicationViewModelProvider.select((state) => state.errorMessage), (_, message) {
-      if (message != null) showGateToast(context, message);
+    ref.listen(graduateApplicationViewModelProvider.select((state) => state.error), (_, failure) {
+      if (failure != null) showGateToast(context, context.errorText(failure));
     });
-    ref.listen(methodBackViewModelProvider.select((state) => state.errorMessage), (_, message) {
-      if (message != null) showGateToast(context, message);
+    ref.listen(methodBackViewModelProvider.select((state) => state.error), (_, failure) {
+      if (failure != null) showGateToast(context, context.errorText(failure));
     });
     final state = ref.watch(graduateApplicationViewModelProvider);
     final goBack = methodBack(ref, isBusy: state.isSubmitting);
@@ -94,18 +90,20 @@ class _FormBody extends ConsumerWidget {
           GraduateRejectAlert(reason: rejection.reason, attemptsLeft: rejection.attemptsLeft),
           const SizedBox(height: AppSpacing.md),
         ],
-        Text('졸업증명서로 인증해요', style: AppTypography.headline.copyWith(color: AppColors.ink)),
+        Text(context.l10n.graduateApplicationTitle, style: AppTypography.headline.copyWith(color: AppColors.ink)),
         const SizedBox(height: AppSpacing.md),
-        Text('졸업증명서 사진 한 장을 올려 주세요. 문서확인번호와 학교 이름이 보이게 찍어 주세요.', style: _descriptionStyle),
+        Text(context.l10n.graduateApplicationDescription, style: _descriptionStyle),
         const SizedBox(height: AppSpacing.md),
         _PhotoBlock(state: state, viewModel: viewModel),
         const SizedBox(height: AppSpacing.md),
         _EmailBlock(state: state, viewModel: viewModel),
         const SizedBox(height: AppSpacing.md),
-        const HintLine('사진은 확인이 끝나면 바로 지워져요'),
+        HintLine(context.l10n.graduateApplicationPhotoHint),
         const SizedBox(height: AppSpacing.md),
+        // 개인정보 동의 줄(계획서 D11 (나)). **값표(02-g)에 없는 줄**이다 — 뷰모델이 동의를 요구해(`canSubmit`) 앱이 문구를 정했다.
+        // pen 에 같은 마스터(`ConsentRow`)로 추가돼야 한다(보고).
         ConsentRow(
-          label: _consentLabel,
+          label: context.l10n.graduateApplicationConsent,
           checked: state.agreed,
           isRequired: true,
           onToggle: () {
@@ -114,7 +112,7 @@ class _FormBody extends ConsumerWidget {
         ),
         const SizedBox(height: AppSpacing.md),
         AppButton(
-          label: rejection == null ? '제출하기' : '다시 제출하기',
+          label: rejection == null ? context.l10n.graduateApplicationSubmit : context.l10n.graduateApplicationResubmit,
           onPressed: state.canSubmit ? viewModel.submit : null,
           isLoading: state.isSubmitting,
         ),
@@ -137,10 +135,10 @@ class _PhotoBlock extends StatelessWidget {
       children: [
         Row(
           children: [
-            Text('졸업증명서 사진', style: _labelStyle),
+            Text(context.l10n.graduateApplicationPhotoLabel, style: _labelStyle),
             const SizedBox(width: AppSpacing.xs),
             Text(
-              '${state.photo == null ? 0 : 1}/1장',
+              context.l10n.graduateApplicationPhotoCount(count: state.photo == null ? 0 : 1),
               style: AppTypography.caption.copyWith(color: AppColors.muted),
             ),
           ],
@@ -174,14 +172,15 @@ class _EmailBlock extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           LabeledField(
-            label: '이전 학교 이메일 (선택)',
-            placeholder: '예: hong@snu.ac.kr',
+            label: context.l10n.graduateApplicationEmailLabel,
+            placeholder: context.l10n.graduateApplicationEmailPlaceholder,
             keyboardType: TextInputType.emailAddress,
             onChanged: viewModel.changePreviousEmail,
-            errorText: state.isPreviousEmailInvalid ? _previousEmailInvalidMessage : null,
+            // 서버 `PREVIOUS_EMAIL_INVALID` 와 같은 문구. 값표에 없는 상태라 앱이 정했다.
+            errorText: state.isPreviousEmailInvalid ? context.appErrorText(AppError.graduateEmailInvalid) : null,
           ),
           const SizedBox(height: 6),
-          Text('졸업 전에 쓰던 학교 메일이에요. 몰라도 괜찮아요.', style: _hintStyle),
+          Text(context.l10n.graduateApplicationEmailHint, style: _hintStyle),
         ],
       ),
     );
@@ -198,9 +197,9 @@ class _ExhaustedBody extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('신청 횟수를 모두 썼어요', style: AppTypography.headline.copyWith(color: AppColors.ink)),
+        Text(context.l10n.graduateApplicationExhaustedTitle, style: AppTypography.headline.copyWith(color: AppColors.ink)),
         const SizedBox(height: AppSpacing.md),
-        Text('졸업증명서로는 더 신청할 수 없어요. 아래 메일로 문의해 주세요.', style: _descriptionStyle),
+        Text(context.l10n.graduateApplicationExhaustedBody, style: _descriptionStyle),
         const SizedBox(height: AppSpacing.md),
         const _SupportMailCard(),
       ],
@@ -221,7 +220,7 @@ class _SupportMailCard extends StatelessWidget {
         children: [
           const Icon(AppIcons.mail, size: 20, color: AppColors.body),
           const SizedBox(width: AppSpacing.xs),
-          Text('문의 메일', style: AppTypography.bodyStrong.copyWith(color: AppColors.ink, height: 22 / 16)),
+          Text(context.l10n.graduateApplicationSupportMail, style: AppTypography.bodyStrong.copyWith(color: AppColors.ink, height: 22 / 16)),
           const SizedBox(width: AppSpacing.xs),
           // 좁은 기기 · 큰 글자에서 주소가 넘치지 않게 남은 폭 안에서 줄을 바꾼다.
           Flexible(

@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:campus_mate/account/model/repository/account_repository.dart';
 import 'package:campus_mate/common/widgets/app_lottie_view.dart';
 import 'package:campus_mate/common/widgets/labeled_field.dart';
-import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/common/widgets/select_chip.dart';
 import 'package:campus_mate/profile/onboarding/model/data/profile_enums.dart';
 import 'package:campus_mate/profile/appearance/view/appearance_pickers.dart';
@@ -40,7 +39,6 @@ import 'package:campus_mate/core/analytics/analytics_values.dart';
 import 'package:campus_mate/core/analytics/screen_view_observer.dart';
 import 'package:campus_mate/core/auth/account_status_listenable.dart';
 import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
-import 'package:campus_mate/core/back_exit/back_exit_view_model.dart';
 import 'package:campus_mate/core/router/app_router.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable.dart';
@@ -957,7 +955,7 @@ void main() {
         await tester.binding.handlePopRoute();
         await tester.pump();
 
-        expect(find.text(backExitMessage), findsOneWidget);
+        expect(find.text('한 번 더 누르면 종료돼요'), findsOneWidget);
         expect(exitCalls, 0);
 
         await tester.binding.handlePopRoute();
@@ -977,7 +975,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(HomeScreen), findsOneWidget);
-      expect(find.text(backExitMessage), findsNothing);
+      expect(find.text('한 번 더 누르면 종료돼요'), findsNothing);
       expect(exitCalls, 0);
     });
 
@@ -992,7 +990,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(FaqScreen), findsOneWidget);
-      expect(find.text(backExitMessage), findsNothing);
+      expect(find.text('한 번 더 누르면 종료돼요'), findsNothing);
       expect(exitCalls, 0);
     });
 
@@ -1003,7 +1001,7 @@ void main() {
       await tester.binding.handlePopRoute();
       await tester.pump();
 
-      expect(find.text(backExitMessage), findsOneWidget);
+      expect(find.text('한 번 더 누르면 종료돼요'), findsOneWidget);
       expect(exitCalls, 0);
 
       await tester.binding.handlePopRoute();
@@ -1022,7 +1020,7 @@ void main() {
     ]) {
       testWidgets('온보딩(${step.name})에서도 첫 뒤로가기는 안내만, 한 번 더 누르면 앱을 닫는다', (tester) async {
         await pumpMember(tester, step: step);
-        expect(find.byTooltip(onboardingBackLabel), findsNothing, reason: '뒤로 갈 앞 화면이 없다');
+        expect(find.byTooltip('뒤로'), findsNothing, reason: '뒤로 갈 앞 화면이 없다');
 
         await expectHintThenExit(tester);
       });
@@ -1082,7 +1080,7 @@ void main() {
         return router;
       }
 
-      Finder backArrow() => find.byTooltip(onboardingBackLabel);
+      Finder backArrow() => find.byTooltip('뒤로');
 
       testWidgets('04-1b 의 시스템 뒤로는 04-1 로 가고 종료 안내는 뜨지 않는다', (tester) async {
         await pumpOnboarding(tester, OnboardingStep.kakaoId);
@@ -1093,7 +1091,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byType(BasicInfoScreen), findsOneWidget);
-        expect(find.text(backExitMessage), findsNothing);
+        expect(find.text('한 번 더 누르면 종료돼요'), findsNothing);
         expect(exitCalls, 0);
       });
 
@@ -1105,7 +1103,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byType(KakaoIdScreen), findsOneWidget);
-        expect(find.text(backExitMessage), findsNothing);
+        expect(find.text('한 번 더 누르면 종료돼요'), findsNothing);
       });
 
       testWidgets('04-1b 앱바 뒤로 → 04-1 이 서버 값으로 채워지고, 전화번호를 넣어 다시 저장하면 04-1b 로 돌아온다', (tester) async {
@@ -1160,7 +1158,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byType(AppearanceTypeScreen), findsOneWidget);
-        expect(find.text(backExitMessage), findsNothing);
+        expect(find.text('한 번 더 누르면 종료돼요'), findsNothing);
         expect(backArrow(), findsNothing);
         expect(steps.isRevisiting, isTrue);
         expect(tester.widget<AnimalTypePicker>(find.byType(AnimalTypePicker)).selected, {AnimalType.fox});
@@ -1168,7 +1166,7 @@ void main() {
 
         await tester.binding.handlePopRoute();
         await tester.pump();
-        expect(find.text(backExitMessage), findsOneWidget);
+        expect(find.text('한 번 더 누르면 종료돼요'), findsOneWidget);
         expect(find.byType(AppearanceTypeScreen), findsOneWidget);
       });
 
@@ -1180,7 +1178,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byType(IdealConditionsScreen), findsOneWidget);
-        expect(find.text(backExitMessage), findsNothing);
+        expect(find.text('한 번 더 누르면 종료돼요'), findsNothing);
         expect(find.text('24세 ~ 30세'), findsOneWidget);
       });
 
@@ -1195,7 +1193,7 @@ void main() {
 
         expect(find.byType(SurveyScreen), findsOneWidget);
         expect(find.text('담배를 피우시나요?'), findsOneWidget);
-        expect(find.text(backExitMessage), findsNothing);
+        expect(find.text('한 번 더 누르면 종료돼요'), findsNothing);
         expect(exitCalls, 0);
 
         await tester.tap(find.text('다음'));
@@ -1216,7 +1214,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(tester.widget<TagPickerScreen>(find.byType(TagPickerScreen)).kind, TagPickerKind.myTraits);
-        expect(find.text(backExitMessage), findsNothing);
+        expect(find.text('한 번 더 누르면 종료돼요'), findsNothing);
         expect(exitCalls, 0);
         final picked = tester.widgetList<SelectChip>(find.byType(SelectChip)).where((chip) => chip.isSelected);
         expect([for (final chip in picked) chip.label], unorderedEquals(savedOnboardingProfile.myTraits));
@@ -1254,7 +1252,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(tester.widget<TagPickerScreen>(find.byType(TagPickerScreen)).kind, TagPickerKind.idealTraits);
-        expect(find.text(backExitMessage), findsNothing);
+        expect(find.text('한 번 더 누르면 종료돼요'), findsNothing);
         expect(exitCalls, 0);
         final picked = tester.widgetList<SelectChip>(find.byType(SelectChip)).where((chip) => chip.isSelected);
         expect([for (final chip in picked) chip.label], unorderedEquals(savedOnboardingProfile.idealTraits));
@@ -1288,7 +1286,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byType(IdealNoteScreen), findsOneWidget);
-        expect(find.text(backExitMessage), findsNothing);
+        expect(find.text('한 번 더 누르면 종료돼요'), findsNothing);
         expect(fieldText(tester), savedOnboardingProfile.idealNote);
 
         await tester.tap(find.text('다음'));
@@ -1364,7 +1362,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(ReferralCodeScreen), findsOneWidget);
       // 06-3 저장 순간 가입이 끝난다 — 20 → 06-3 뒤로는 없다(사용자 결정 ⑥).
-      expect(find.byTooltip(onboardingBackLabel), findsNothing);
+      expect(find.byTooltip('뒤로'), findsNothing);
 
       await expectHintThenExit(tester);
     });
@@ -1385,7 +1383,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('밖에 나가서 활동하는 걸\n좋아하시나요?'), findsOneWidget);
-      expect(find.text(backExitMessage), findsNothing);
+      expect(find.text('한 번 더 누르면 종료돼요'), findsNothing);
       expect(exitCalls, 0);
     });
 
@@ -1398,7 +1396,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(ReferralCodeScreen), findsOneWidget);
-      expect(find.text(backExitMessage), findsNothing);
+      expect(find.text('한 번 더 누르면 종료돼요'), findsNothing);
       expect(exitCalls, 0);
     });
 
@@ -1411,7 +1409,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(AcquisitionScreen), findsOneWidget);
-      expect(find.text(backExitMessage), findsNothing);
+      expect(find.text('한 번 더 누르면 종료돼요'), findsNothing);
       expect(exitCalls, 0);
     });
 
@@ -1432,7 +1430,7 @@ void main() {
       expect(schoolEmail.calls, ['discard']);
       expect(find.byType(SignUpScreen), findsOneWidget);
       expect(find.byType(VerifyCodeScreen), findsNothing);
-      expect(find.text(backExitMessage), findsNothing);
+      expect(find.text('한 번 더 누르면 종료돼요'), findsNothing);
       expect(exitCalls, 0);
     });
 

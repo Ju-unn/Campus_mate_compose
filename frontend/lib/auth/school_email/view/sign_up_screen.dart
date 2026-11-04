@@ -8,6 +8,8 @@ import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/core/auth/logout_text_button.dart';
 import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -70,8 +72,8 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     final state = ref.watch(signUpViewModelProvider);
     final viewModel = ref.read(signUpViewModelProvider.notifier);
     ref.listen(signUpViewModelProvider, _onStateChanged);
-    ref.listen(methodBackViewModelProvider.select((state) => state.errorMessage), (_, message) {
-      if (message != null) showGateToast(context, message);
+    ref.listen(methodBackViewModelProvider.select((state) => state.error), (_, failure) {
+      if (failure != null) showGateToast(context, context.errorText(failure));
     });
     final goBack = widget.hasMethodPicker ? methodBack(ref, isBusy: false) : null;
 
@@ -96,22 +98,22 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                         fit: BoxFit.contain,
                       ),
                     ),
-                    Text('대학 이메일로 시작해요', style: AppTypography.headline.copyWith(color: AppColors.ink)),
+                    Text(context.l10n.authSignUpTitle, style: AppTypography.headline.copyWith(color: AppColors.ink)),
                     const SizedBox(height: AppSpacing.xs),
-                    Text('학교 이메일 주소만 가입할 수 있어요.', style: AppTypography.body.copyWith(color: AppColors.body)),
+                    Text(context.l10n.authSignUpSubtitle, style: AppTypography.body.copyWith(color: AppColors.body)),
                     Text(
-                      '인증이 끝나면 이메일은 어디에도 공개되지 않아요.',
+                      context.l10n.authSignUpPrivacy,
                       style: AppTypography.body.copyWith(color: AppColors.body),
                     ),
                     const SizedBox(height: AppSpacing.xl),
-                    Text('대학 이메일', style: AppTypography.labelSmall.copyWith(color: AppColors.body)),
+                    Text(context.l10n.authSignUpEmailLabel, style: AppTypography.labelSmall.copyWith(color: AppColors.body)),
                     const SizedBox(height: AppSpacing.xs),
                     _EmailField(controller: _emailController, onChanged: viewModel.changeEmail),
                     const SizedBox(height: AppSpacing.xs),
                     const _DomainHint(),
-                    if (state.errorMessage != null) ...[
+                    if (state.error != null) ...[
                       const SizedBox(height: AppSpacing.sm),
-                      Text(state.errorMessage!, style: AppTypography.caption.copyWith(color: AppColors.error)),
+                      Text(context.errorText(state.error!), style: AppTypography.caption.copyWith(color: AppColors.error)),
                     ],
                     const Spacer(),
                     if (_notice != null) ...[
@@ -124,7 +126,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                       const SizedBox(height: AppSpacing.sm), // CTA 바로 위 12(pen KJnpw)
                     ],
                     // 동의는 로그인 뒤 02-c 에서 항목별로 받는다 — 여기 있던 묵시 동의 줄은 지웠다(사용자 결정 2026-09-29).
-                    AppButton(label: '인증 메일 받기', onPressed: state.canSubmit ? viewModel.submit : null),
+                    AppButton(label: context.l10n.authSignUpSubmit, onPressed: state.canSubmit ? viewModel.submit : null),
                     const SizedBox(height: AppSpacing.xxs), // 02-c 와 같은 간격
                     const LogoutTextButton(),
                   ],
@@ -213,7 +215,7 @@ class _DomainHint extends StatelessWidget {
           // 학교는 앱 업데이트 없이 DB 에 늘어나서 학교 수를 쓰지 않는다(대장 결정 10-17, 종전 pen 문구 "외 17곳").
           // "외 여러 학교" 는 360 폭에서 두 줄이 돼 pen 처럼 한 줄인 "외 여러 곳" 으로 둔다.
           child: Text(
-            '@snu.ac.kr · @yonsei.ac.kr · @korea.ac.kr 외 여러 곳',
+            context.l10n.authSignUpDomainHint,
             style: AppTypography.caption.copyWith(color: AppColors.muted),
           ),
         ),

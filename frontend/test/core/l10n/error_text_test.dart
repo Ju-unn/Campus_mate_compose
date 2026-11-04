@@ -42,6 +42,8 @@ void main() {
     (const AppErrorFailure(AppError.notificationsLoad), '알림을 불러오지 못했어요'),
     (const AppErrorFailure(AppError.tryLater), '잠시 후 다시 시도해 주세요'),
     (const AppErrorFailure(AppError.storeOpenFailed), '스토어를 열지 못했어요. 스토어에서 CampusMate 를 검색해 주세요.'),
+    (const AppErrorFailure(AppError.photoUnreadable), '사진을 다시 확인해 주세요'),
+    (const AppErrorFailure(AppError.graduateEmailInvalid), '이전 학교 메일 형식을 다시 확인해 주세요'),
   ];
 
   group('failureText', () {

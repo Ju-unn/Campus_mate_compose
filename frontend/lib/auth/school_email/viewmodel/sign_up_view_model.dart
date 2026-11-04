@@ -30,7 +30,7 @@ class SignUpViewModel extends Notifier<SignUpUiState> {
       onFailure: (failure) => SignUpUiState(
         emailInput: state.emailInput,
         email: email,
-        errorMessage: failure.toDisplayMessage(),
+        error: failure,
       ),
     );
   }

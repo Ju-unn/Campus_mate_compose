@@ -7,7 +7,6 @@ import 'package:campus_mate/auth/social/view/start_view.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_lottie_view.dart';
-import 'package:campus_mate/core/back_exit/back_exit_view_model.dart';
 import 'package:campus_mate/core/supabase/auth_session_listenable_provider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -712,7 +711,7 @@ void main() {
       await tester.binding.handlePopRoute();
       await tester.pump();
 
-      expect(find.text(backExitMessage), findsOneWidget);
+      expect(find.text('한 번 더 누르면 종료돼요'), findsOneWidget);
       expect(find.byKey(StartView.toastKey), findsOneWidget);
       expect(find.descendant(of: find.byKey(StartView.toastKey), matching: find.byIcon(AppIcons.info)), findsOneWidget);
       expect(find.byType(SnackBar), findsNothing);
@@ -731,7 +730,7 @@ void main() {
       await tester.binding.handlePopRoute();
       await tester.pump();
 
-      expect(find.text(backExitMessage), findsNothing);
+      expect(find.text('한 번 더 누르면 종료돼요'), findsNothing);
     }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
   });
 

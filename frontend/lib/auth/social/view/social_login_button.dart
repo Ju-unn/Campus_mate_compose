@@ -4,6 +4,7 @@ import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:flutter/material.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart' show SignInWithAppleButton;
 
+// l10n-ignore-start(wire): 카카오 · Google · Apple 브랜드 가이드가 정한 글자라 문구 파일로 옮기지 않는다
 /// 소셜 로그인 버튼 문구. 각 사 브랜드 규칙이 정한 글자라 바꾸지 않는다(대장 지시문 07).
 abstract final class SocialLoginLabels {
   static const String kakao = '카카오 로그인';
@@ -19,6 +20,7 @@ abstract final class SocialLoginLabels {
   static const String googleSemantics = 'Google 계정으로 로그인';
   static const String appleSemantics = 'Apple로 로그인';
 }
+// l10n-ignore-end
 
 /// 시작 화면의 소셜 로그인 버튼 한 개(카카오 · 구글 · 애플, 애플은 iOS 에서만 화면에 놓인다).
 ///

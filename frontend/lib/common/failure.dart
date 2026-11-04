@@ -189,7 +189,7 @@ final class SocialLoginFailure extends Failure {
 
 /// 앱이 정하는 에러 종류. 서버·SDK 가 준 [Failure] 가 아니라 화면이 직접 알리는 실패(예: 알림함 불러오기 실패)를 뜻하고,
 /// 글자는 `core/l10n/error_text.dart` 의 `appErrorKindText` 가 정한다. 기능이 자기 종류를 이 목록에 더한다.
-enum AppError { notificationsLoad, storeOpenFailed, tryLater }
+enum AppError { notificationsLoad, storeOpenFailed, tryLater, photoUnreadable, graduateEmailInvalid }
 
 /// [AppError] 하나를 [Failure] 로 싣는 실패 — 뷰모델이 문자열 없이 `Failure?` 하나로 에러를 상태에 담게 한다.
 final class AppErrorFailure extends Failure {

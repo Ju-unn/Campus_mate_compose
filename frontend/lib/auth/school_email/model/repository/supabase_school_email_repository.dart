@@ -20,6 +20,7 @@ const _codesRejected = {'SCHOOL_EMAIL_DOMAIN_NOT_ALLOWED', 'SCHOOL_EMAIL_REJOIN_
 const _codeAuthUnavailable = 'AUTH_UNAVAILABLE';
 
 /// ponytail: code 가 없는 옛 서버 호환용 문구 비교 — 서버 배포 뒤 제거 가능. 글자까지 같아야 한다.
+// l10n-ignore-start(server-text): 서버 errors.py 문구와 글자까지 같아야 하는 비교 상수(code 없는 옛 서버 호환) — ARB 로 옮기면 분기가 조용히 죽는다
 const _alreadyVerified = '이미 학교 메일 인증이 끝났어요'; // SCHOOL_EMAIL_ALREADY_VERIFIED
 const _notConfirmed = '학교 메일 인증이 끝나지 않았어요'; // SCHOOL_EMAIL_NOT_CONFIRMED
 
@@ -33,6 +34,7 @@ const _rejectedMessages = {
   '재가입이 제한된 메일이에요', // 서버 SCHOOL_EMAIL_BLOCKED
   '재가입이 제한된 이메일이에요', // 훅 HOOK_BLOCKED
 };
+// l10n-ignore-end
 
 /// [SchoolEmailRepository]를 임시 Supabase 연결 + FastAPI 로 구현한다.
 class SupabaseSchoolEmailRepository implements SchoolEmailRepository {
@@ -160,14 +162,14 @@ class SupabaseSchoolEmailRepository implements SchoolEmailRepository {
       return const SchoolEmailNotConfirmedFailure();
     }
     if (_codesRejected.any(failure.hasCode)) {
-      return SchoolEmailRejectedFailure(failure.toDisplayMessage());
+      return SchoolEmailRejectedFailure(failure.serverMessage);
     }
     return failure.hasCode(_codeAuthUnavailable) ? const SchoolEmailIncompleteFailure() : failure;
   }
 
   /// ponytail: code 없는 옛 서버 호환 — 서버 배포 뒤 제거 가능.
   Failure? _byMessage(ServerRejectedFailure failure) {
-    final message = failure.toDisplayMessage();
+    final message = failure.serverMessage;
     if (message == _alreadyVerified) {
       return null;
     }

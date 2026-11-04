@@ -2,10 +2,13 @@ import 'package:campus_mate/auth/school_email/model/data/university_email.dart';
 import 'package:campus_mate/auth/school_email/viewmodel/verify_code_ui_state.dart';
 import 'package:campus_mate/auth/school_email/viewmodel/verify_code_view_model.dart';
 import 'package:campus_mate/chat/view/chat_time.dart';
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/muted_text_button.dart';
 import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -17,9 +20,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
-/// 입력칸(오류가 있으면 오류 문구) 바로 아래 안내 한 줄(pen HintLine `MOmaZ`, 사용자 10-16 "스팸함도 확인 해달라고").
-const String verifyCodeSpamHint = '메일이 보이지 않으면 스팸함도 확인해 주세요.';
 
 /// 인증코드 입력 화면 (DESIGN.md 화면 03, pen `VuiDi` / 오류 `Vn6w4`).
 ///
@@ -75,10 +75,10 @@ class _VerifyCodeScreenState extends ConsumerState<VerifyCodeScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: AppSpacing.lg),
-                      Text('인증 코드를 입력해요', style: AppTypography.headline.copyWith(color: AppColors.ink)),
+                      Text(context.l10n.authVerifyTitle, style: AppTypography.headline.copyWith(color: AppColors.ink)),
                       const SizedBox(height: AppSpacing.xs),
                       Text(
-                        '${email.toRequestValue()} 로 6자리 숫자를 보냈어요',
+                        context.l10n.authVerifySentTo(email: email.toRequestValue()),
                         style: AppTypography.body.copyWith(color: AppColors.body),
                       ),
                       if (state.isTakenBySocial)
@@ -106,7 +106,7 @@ class _VerifyCodeScreenState extends ConsumerState<VerifyCodeScreen> {
         isRejected: state.isCodeRejected,
         onChanged: viewModel.changeCode,
       ),
-      if (state.errorMessage != null) ...[
+      if (state.error != null) ...[
         const SizedBox(height: AppSpacing.xs),
         Row(
           children: [
@@ -114,23 +114,24 @@ class _VerifyCodeScreenState extends ConsumerState<VerifyCodeScreen> {
             const SizedBox(width: AppSpacing.xxs),
             Expanded(
               child: Text(
-                state.errorMessage!,
+                context.errorText(state.error!),
                 style: AppTypography.caption.copyWith(color: AppColors.error),
               ),
             ),
           ],
         ),
-        // 둘째 줄(errorHint)은 소셜 계정이 쥔 메일에만 있다 — 그때는 아래 [_takenBySocial] 배치다.
+        // 둘째 줄 안내는 소셜 계정이 쥔 메일에만 있다 — 그때는 아래 [_takenBySocial] 배치다.
         // 이 메일로는 끝낼 수 없다(409 · 422 · 미확인) — 02 로 돌아가 다른 학교 메일을 넣는다(입력값은 비운다).
         if (state.canChooseAnotherEmail)
           Align(
             alignment: Alignment.centerLeft,
-            child: MutedTextButton(label: '다른 학교 메일 입력', onPressed: _backToEmail),
+            child: MutedTextButton(label: context.l10n.authVerifyAnotherEmail, onPressed: _backToEmail),
           ),
       ],
       // 입력칸(오류가 있으면 오류 문구) → 8 → 스팸함 안내 → 16 → 만료 줄(pen VuiDi · Vn6w4).
       const SizedBox(height: AppSpacing.xs),
-      const HintLine(verifyCodeSpamHint),
+      // 입력칸(오류가 있으면 오류 문구) 바로 아래 안내 한 줄(pen HintLine `MOmaZ`, 사용자 10-16 "스팸함도 확인 해달라고").
+      HintLine(context.l10n.authVerifySpamHint),
       const SizedBox(height: AppSpacing.md),
       if (expiresAt != null) _ExpiryTimer(expiresAt: expiresAt),
       const SizedBox(height: 2),
@@ -139,14 +140,14 @@ class _VerifyCodeScreenState extends ConsumerState<VerifyCodeScreen> {
       // 기한이 지나는 순간 버튼이 꺼져야 해서 타이머와 같은 박자로 다시 그린다.
       if (expiresAt == null)
         AppButton(
-          label: '확인',
+          label: context.l10n.commonConfirm,
           onPressed: state.canSubmit(DateTime.now()) ? viewModel.submit : null,
         )
       else
         CountdownBuilder(
           deadlineAt: expiresAt,
           builder: (context, remaining) => AppButton(
-            label: '확인',
+            label: context.l10n.commonConfirm,
             onPressed: state.canSubmit(DateTime.now()) ? viewModel.submit : null,
           ),
         ),
@@ -157,8 +158,10 @@ class _VerifyCodeScreenState extends ConsumerState<VerifyCodeScreen> {
   /// 코드 칸 · 만료 줄 · 다시 받기 · 스팸함 안내 · 확인 없이 안내 두 줄과 단추만 둔다.
   /// 다른 소셜이면 주 단추 "카카오로 다시 로그인"(누를 때만 로그아웃) 아래 8 에 "다른 학교 메일 입력", 같은 소셜이면 뒤의 것만.
   List<Widget> _takenBySocial(VerifyCodeUiState state, VerifyCodeViewModel viewModel) {
-    final relogin = state.reloginLabel;
-    final hint = state.errorHint;
+    final error = state.error;
+    final taken = error is SchoolEmailTakenFailure ? error : null;
+    final otherSocial = taken?.otherSocialProvider();
+    final hint = taken == null ? null : takenHintText(context.l10n, taken);
     return [
       // 부제 → 첫 줄 간격은 pen 값을 받지 못했다 — 평소 03 의 코드 칸 자리(부제 아래 32)를 그대로 쓴다.
       const SizedBox(height: AppSpacing.xl),
@@ -167,7 +170,10 @@ class _VerifyCodeScreenState extends ConsumerState<VerifyCodeScreen> {
           const Icon(AppIcons.circleAlert, size: 14, color: AppColors.error),
           const SizedBox(width: AppSpacing.xxs),
           Expanded(
-            child: Text(state.errorMessage ?? '', style: AppTypography.labelSmall.copyWith(color: AppColors.error)),
+            child: Text(
+              error == null ? '' : context.errorText(error),
+              style: AppTypography.labelSmall.copyWith(color: AppColors.error),
+            ),
           ),
         ],
       ),
@@ -181,11 +187,14 @@ class _VerifyCodeScreenState extends ConsumerState<VerifyCodeScreen> {
           ),
         ),
       const Spacer(),
-      if (relogin != null) ...[
-        AppButton(label: relogin, onPressed: viewModel.relogin),
+      if (taken != null && otherSocial != null) ...[
+        AppButton(
+          label: context.l10n.authSchoolEmailRelogin(provider: otherSocial),
+          onPressed: () => viewModel.relogin(takenReloginNoticeText(context.l10n, taken)!),
+        ),
         const SizedBox(height: AppSpacing.xs),
       ],
-      MutedTextButton(label: '다른 학교 메일 입력', onPressed: _backToEmail),
+      MutedTextButton(label: context.l10n.authVerifyAnotherEmail, onPressed: _backToEmail),
     ];
   }
 }
@@ -213,7 +222,7 @@ class _BackAppBar extends StatelessWidget implements PreferredSizeWidget {
         // leading 자리는 높이 56 을 꽉 채운다 — 가운데에 두어야 누름 칸이 pen 대로 48×48 이다.
         child: Center(
           child: IconButton(
-            tooltip: '뒤로',
+            tooltip: context.l10n.commonBack,
             constraints: const BoxConstraints.tightFor(width: 48, height: 48),
             onPressed: onBack,
             icon: const Icon(AppIcons.arrowLeft, size: 22, color: AppColors.ink),
@@ -236,13 +245,13 @@ class _ResendButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final at = availableAt;
     if (at == null) {
-      return _button(label: '메일 다시 받기', onPressed: onResend);
+      return _button(label: context.l10n.authVerifyResend, onPressed: onResend);
     }
     return CountdownBuilder(
       deadlineAt: at,
       builder: (context, remaining) => remaining == Duration.zero
-          ? _button(label: '메일 다시 받기', onPressed: onResend)
-          : _button(label: '메일 다시 받기 (${remaining.inSeconds + 1}초)', onPressed: null),
+          ? _button(label: context.l10n.authVerifyResend, onPressed: onResend)
+          : _button(label: context.l10n.authVerifyResendWait(seconds: remaining.inSeconds + 1), onPressed: null),
     );
   }
 
@@ -334,8 +343,8 @@ class _CodeBoxesState extends State<_CodeBoxes> {
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 showCursor: false,
                 // 라벨은 화면에 보이지 않고(불투명 0) 토크백만 읽는다.
-                decoration: const InputDecoration(
-                  labelText: '인증 코드 6자리',
+                decoration: InputDecoration(
+                  labelText: context.l10n.authVerifyCodeLabel,
                   border: InputBorder.none,
                   counterText: '',
                 ),
@@ -397,7 +406,9 @@ class _ExpiryTimer extends StatelessWidget {
             // 글자를 키우면 줄을 바꾼다(고정 Row 면 오른쪽으로 넘친다).
             Flexible(
               child: Text(
-                remaining == Duration.zero ? '코드가 만료됐어요. 메일을 다시 받아 주세요' : '$minutes:$seconds 뒤에 만료돼요',
+                remaining == Duration.zero
+                    ? context.l10n.authVerifyExpired
+                    : context.l10n.authVerifyExpiresIn(time: '$minutes:$seconds'),
                 style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
               ),
             ),

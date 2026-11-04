@@ -4,13 +4,7 @@ import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
-import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:flutter/material.dart';
-
-/// 뒤로 화살표의 읽기 라벨(문구 파일 `commonBack`). 화면은 `context.l10n.commonBack` 으로 읽는다. 이 값은 아직 안 옮긴
-/// 졸업생 화면(`MethodBackAppBar`)과, 위임자 없는 시험 `MaterialApp` 에서 같은 글자를 바로 쓰는 시험이 남긴 임시 껍데기다 —
-/// graduate 가 옮겨 오면 지운다.
-final String onboardingBackLabel = AppLocalizationsKo().commonBack;
 
 /// 온보딩 공용 앱바(datingApp.pen `AppBar · Onboarding` LTFQg · `AppBar · Survey` GCEmW).
 /// 높이 56, 왼쪽 48×48 뒤로가기, 가운데는 진행 표시뿐이다 — 글자 제목은 두지 않는다.

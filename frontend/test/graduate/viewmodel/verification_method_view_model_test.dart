@@ -63,7 +63,7 @@ void main() {
 
     expect(repository.chosen, [VerificationMethod.graduateCertificate]);
     expect(gateRepository.fetchCount, 1);
-    expect(state().errorMessage, isNull);
+    expect(state().error, isNull);
   });
 
   test('고른 카드가 없으면 [다음] 은 아무 일도 하지 않는다', () async {
@@ -81,7 +81,7 @@ void main() {
 
     await model.next();
 
-    expect(state().errorMessage, '네트워크 연결을 확인해 주세요');
+    expect(state().error, isA<NetworkFailure>());
     expect(state().selected, VerificationMethod.schoolEmail);
     expect(state().isSubmitting, isFalse);
     expect(gateRepository.fetchCount, 0);
@@ -94,7 +94,7 @@ void main() {
 
     model.select(VerificationMethod.graduateCertificate);
 
-    expect(state().errorMessage, isNull);
+    expect(state().error, isNull);
   });
 
   test('보내는 중에 [다음] 을 연타해도 한 번만 나간다', () async {

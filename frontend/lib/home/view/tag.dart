@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:campus_mate/common/university_logos.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -58,7 +59,7 @@ class Tag extends ConsumerWidget {
       // `alignment` 을 쓰면 Wrap 안에서 폭을 다 먹는다 — 글자 폭만큼만 차지하게 한다.
       child: Center(widthFactor: 1, child: content),
     );
-    return mine ? Semantics(label: '내 학교', child: tag) : tag;
+    return mine ? Semantics(label: context.l10n.homeTagMine, child: tag) : tag;
   }
 
   /// 로고는 글자 첫 줄 가운데 — 글자를 키워도 14 그대로다. 이름이 두 줄로 접혀도 첫 줄 옆에 남는다(`SchoolLabel` 과 같은 규칙).

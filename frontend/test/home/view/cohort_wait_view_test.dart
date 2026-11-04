@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:campus_mate/chat/model/repository/chat_repository_provider.dart';
 import 'package:campus_mate/common/failure.dart';
+import 'package:campus_mate/l10n/app_localizations_ko.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
@@ -48,12 +49,13 @@ class _SlowReferralRepository extends FakeReferralRepository {
 void main() {
   // 기기 시간대 기준. 여는 날은 월요일 07:00(계획서 결정 2).
   final opensAt = DateTime(2099, 9, 21, 7);
+  final l10n = AppLocalizationsKo();
 
   group('글 — 달력 날짜로 센다(결정 8 · Q1 (가))', () {
     test('14일 전이면 "D-14" 와 날짜', () {
       final now = DateTime(2099, 9, 7, 12);
       expect(cohortDayLabel(now, opensAt), 'D-14');
-      expect(cohortDateLabel(now, opensAt), '9월 21일');
+      expect(cohortDateLabel(l10n, now, opensAt), '9월 21일');
     });
 
     test('전날 23:59 는 "D-1" — 시각 차이(7시간)가 아니라 날짜 차이다', () {
@@ -63,7 +65,7 @@ void main() {
     test('당일 06:59 는 "D-day" 와 "오늘 오전 7시"', () {
       final now = DateTime(2099, 9, 21, 6, 59);
       expect(cohortDayLabel(now, opensAt), 'D-day');
-      expect(cohortDateLabel(now, opensAt), '오늘 오전 7시');
+      expect(cohortDateLabel(l10n, now, opensAt), '오늘 오전 7시');
     });
 
     test('여는 시각이 지나도 "D-day" — 음수로 가지 않는다', () {
@@ -72,8 +74,8 @@ void main() {
 
     test('시각은 7 을 박지 않고 여는 시각에서 읽는다', () {
       final now = DateTime(2099, 9, 21, 6);
-      expect(cohortDateLabel(now, DateTime(2099, 9, 21, 13, 30)), '오늘 오후 1시 30분');
-      expect(cohortDateLabel(now, DateTime(2099, 9, 21, 12)), '오늘 오후 12시');
+      expect(cohortDateLabel(l10n, now, DateTime(2099, 9, 21, 13, 30)), '오늘 오후 1시 30분');
+      expect(cohortDateLabel(l10n, now, DateTime(2099, 9, 21, 12)), '오늘 오후 12시');
     });
   });
 

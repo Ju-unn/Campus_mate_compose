@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
-import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/common/widgets/trait_slider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
@@ -96,13 +95,13 @@ void main() {
       await pumpRevisit(tester, const Success(savedOnboardingProfile));
 
       for (var i = 0; i < 10; i++) {
-        await tester.tap(find.byTooltip(onboardingBackLabel));
+        await tester.tap(find.byTooltip('뒤로'));
         await tester.pumpAndSettle();
       }
 
       expect(find.text(_headlines[0]), findsOneWidget);
       expect(tester.widget<TraitSlider>(find.byType(TraitSlider)).value, -1);
-      expect(find.byTooltip(onboardingBackLabel), findsOneWidget, reason: '첫 문항은 04-6 으로 간다(계획서 조각 3)');
+      expect(find.byTooltip('뒤로'), findsOneWidget, reason: '첫 문항은 04-6 으로 간다(계획서 조각 3)');
     });
 
     testWidgets('서버 답을 못 읽었으면 첫 문항에서 열고, 슬라이더를 고르기 전에는 "다음" 이 꺼져 있다', (tester) async {
@@ -125,7 +124,7 @@ void main() {
       await tester.tap(find.text('다음'));
       await tester.pump();
 
-      await tester.tap(find.byTooltip(onboardingBackLabel));
+      await tester.tap(find.byTooltip('뒤로'));
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
 

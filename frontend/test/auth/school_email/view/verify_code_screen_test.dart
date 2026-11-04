@@ -8,7 +8,6 @@ import 'package:campus_mate/auth/school_email/model/data/verification_code.dart'
 import 'package:campus_mate/auth/school_email/view/verify_code_screen.dart';
 import 'package:campus_mate/auth/school_email/viewmodel/verify_code_view_model.dart';
 import 'package:campus_mate/core/auth/sign_out.dart';
-import 'package:campus_mate/core/back_exit/back_exit_view_model.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -210,7 +209,7 @@ void main() {
 
       expect(repository.calls, ['discard']);
       expect(find.text('02 학교 메일 입력'), findsOneWidget);
-      expect(find.text(backExitMessage), findsNothing);
+      expect(find.text('한 번 더 누르면 종료돼요'), findsNothing);
     }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
     testWidgets('연타해도 정리 · 이동은 한 번이다', (tester) async {
@@ -238,7 +237,7 @@ void main() {
       await tester.pump();
       expect(repository.calls, ['verifyCode']);
       expect(find.byType(VerifyCodeScreen), findsOneWidget);
-      expect(find.text(backExitMessage), findsNothing);
+      expect(find.text('한 번 더 누르면 종료돼요'), findsNothing);
       repository.answer.complete(const FailureResult(WrongCodeFailure()));
       await tester.pump(const Duration(milliseconds: 1));
     });
@@ -443,8 +442,7 @@ void main() {
       await pumpScreen(tester);
 
       final hint = find.byType(HintLine);
-      expect(tester.widget<HintLine>(hint).text, verifyCodeSpamHint);
-      expect(verifyCodeSpamHint, '메일이 보이지 않으면 스팸함도 확인해 주세요.');
+      expect(tester.widget<HintLine>(hint).text, '메일이 보이지 않으면 스팸함도 확인해 주세요.');
       expect(tester.getRect(hint).top, tester.getRect(find.byType(TextField)).bottom + 8);
       expect(expiryRow(tester).top, tester.getRect(hint).bottom + 16);
       expect(tester.getRect(hint).left, 24);
@@ -479,7 +477,7 @@ void main() {
           await pumpScreen(tester);
 
           expect(tester.takeException(), isNull);
-          final paragraph = tester.renderObject<RenderParagraph>(find.text(verifyCodeSpamHint));
+          final paragraph = tester.renderObject<RenderParagraph>(find.text('메일이 보이지 않으면 스팸함도 확인해 주세요.'));
           expect(paragraph.getMaxIntrinsicHeight(paragraph.size.width), lessThanOrEqualTo(paragraph.size.height + 0.5));
           // 확인 버튼은 글자를 키워도 화면 안에서 눌린다(넘치면 같이 스크롤된다).
           await tester.ensureVisible(find.widgetWithText(ElevatedButton, '확인'));

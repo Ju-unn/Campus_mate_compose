@@ -69,10 +69,13 @@ void main() {
 
       await viewModel.submit();
 
-      expect(container.read(signUpViewModelProvider).errorMessage, '등록되지 않은 학교 메일이에요');
+      expect(
+        (container.read(signUpViewModelProvider).error! as SignUpRejectedFailure).serverMessage,
+        '등록되지 않은 학교 메일이에요',
+      );
     });
 
-    test('제출이 실패하면 errorMessage 가 채워진다', () async {
+    test('제출이 실패하면 error 가 채워진다', () async {
       final repository = FakeSchoolEmailRepository()..nextRequestCodeResult = const FailureResult(RateLimitedFailure());
       final container = ProviderContainer(
         overrides: [schoolEmailRepositoryProvider.overrideWithValue(repository)],
@@ -84,7 +87,7 @@ void main() {
       await viewModel.submit();
 
       final state = container.read(signUpViewModelProvider);
-      expect(state.errorMessage, '너무 많이 시도했어요. 잠시 후 다시 시도해 주세요');
+      expect(state.error, isA<RateLimitedFailure>());
       expect(state.otpSentTo, isNull);
     });
 

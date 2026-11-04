@@ -1,4 +1,3 @@
-import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/core/router/verification_gate_listenable_provider.dart';
 import 'package:campus_mate/graduate/model/data/verification_method.dart';
 import 'package:campus_mate/graduate/model/repository/graduate_verification_repository_provider.dart';
@@ -35,8 +34,6 @@ class VerificationMethodViewModel extends Notifier<VerificationMethodUiState> {
       await ref.read(verificationGateListenableProvider).refresh();
     }
     if (!ref.mounted) return;
-    state = VerificationMethodUiState(selected: selected, errorMessage: _messageOf(failure));
+    state = VerificationMethodUiState(selected: selected, error: failure);
   }
-
-  String? _messageOf(Failure? failure) => failure?.toDisplayMessage();
 }

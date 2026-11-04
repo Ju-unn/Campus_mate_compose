@@ -6,6 +6,8 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/school_label.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -28,7 +30,7 @@ class SchoolInfoScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      appBar: _appBar(),
+      appBar: _appBar(context),
       body: SafeArea(
         top: false,
         child: Padding(
@@ -40,14 +42,14 @@ class SchoolInfoScreen extends ConsumerWidget {
   }
 
   /// §8.8 — 높이 56, 캔버스와 같은 색, 스크롤해도 그림자·색이 변하지 않는다.
-  PreferredSizeWidget _appBar() {
+  PreferredSizeWidget _appBar(BuildContext context) {
     return AppBar(
       toolbarHeight: 56,
       backgroundColor: AppColors.canvas,
       elevation: 0,
       scrolledUnderElevation: 0,
       automaticallyImplyLeading: false,
-      title: Text('학교 정보', style: AppTypography.navTitle.copyWith(color: AppColors.ink)),
+      title: Text(context.l10n.authSchoolInfoTitle, style: AppTypography.navTitle.copyWith(color: AppColors.ink)),
     );
   }
 
@@ -83,10 +85,10 @@ class _SchoolNameError extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            const UnknownFailure().toDisplayMessage(),
+            context.errorText(const UnknownFailure()),
             style: AppTypography.body.copyWith(color: AppColors.body),
           ),
-          AppButton(label: '다시 시도', variant: AppButtonVariant.text, onPressed: onRetry),
+          AppButton(label: context.l10n.commonRetry, variant: AppButtonVariant.text, onPressed: onRetry),
         ],
       ),
     );
@@ -107,53 +109,53 @@ class _SchoolInfoForm extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(child: SingleChildScrollView(child: _content())),
+        Expanded(child: SingleChildScrollView(child: _content(context))),
         const SizedBox(height: AppSpacing.md),
-        AppButton(label: '다음', onPressed: state.canSubmit ? viewModel.submit : null),
+        AppButton(label: context.l10n.commonNext, onPressed: state.canSubmit ? viewModel.submit : null),
       ],
     );
   }
 
-  Widget _content() {
+  Widget _content(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('학과와 학번을 알려주세요', style: AppTypography.headline.copyWith(color: AppColors.ink)),
+        Text(context.l10n.authSchoolInfoHeadline, style: AppTypography.headline.copyWith(color: AppColors.ink)),
         const SizedBox(height: AppSpacing.xs),
         Text(
-          '학교는 인증으로 확인했어요. 학과와 학번은 직접 알려주셔야 해요.',
+          context.l10n.authSchoolInfoSubtitle,
           style: AppTypography.body.copyWith(color: AppColors.body),
         ),
         const SizedBox(height: AppSpacing.xl),
-        ..._fields(),
+        ..._fields(context),
       ],
     );
   }
 
-  List<Widget> _fields() {
+  List<Widget> _fields(BuildContext context) {
     return [
       _SchoolConfirmedRow(schoolName: schoolName),
       const SizedBox(height: AppSpacing.lg),
       _LabeledTextField(
-        label: '학과 · 필수',
-        placeholder: '예: 컴퓨터공학과',
+        label: context.l10n.authSchoolInfoDepartmentLabel,
+        placeholder: context.l10n.authSchoolInfoDepartmentPlaceholder,
         initialValue: state.departmentInput,
         onChanged: viewModel.changeDepartment,
       ),
       const SizedBox(height: AppSpacing.md),
       _LabeledTextField(
-        label: '학번 · 필수',
-        placeholder: '예: 21',
+        label: context.l10n.authSchoolInfoStudentNumberLabel,
+        placeholder: context.l10n.authSchoolInfoStudentNumberPlaceholder,
         initialValue: state.studentNumberInput,
         onChanged: viewModel.changeStudentNumber,
         keyboardType: TextInputType.number,
         inputFormatters: studentNumberInputFormatters,
       ),
       const SizedBox(height: AppSpacing.sm),
-      const InfoNote(icon: AppIcons.eye, text: '학교·학과·학번은 카드와 프로필에 공개돼요.'),
-      if (state.errorMessage != null) ...[
+      InfoNote(icon: AppIcons.eye, text: context.l10n.authSchoolInfoPublicNote),
+      if (state.error != null) ...[
         const SizedBox(height: AppSpacing.sm),
-        Text(state.errorMessage!, style: AppTypography.caption.copyWith(color: AppColors.error)),
+        Text(context.errorText(state.error!), style: AppTypography.caption.copyWith(color: AppColors.error)),
       ],
     ];
   }
@@ -225,17 +227,17 @@ class _VerifiedBadge extends StatelessWidget {
         color: AppColors.primaryWash,
         borderRadius: BorderRadius.circular(AppRadius.pill),
       ),
-      child: _label(),
+      child: _label(context),
     );
   }
 
-  Widget _label() {
+  Widget _label(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         const Icon(AppIcons.badgeCheck, size: 14, color: AppColors.primaryText),
         const SizedBox(width: AppSpacing.xxs),
-        Text('확인됨', style: AppTypography.caption.copyWith(fontWeight: FontWeight.w600, color: AppColors.primaryText)),
+        Text(context.l10n.authSchoolInfoConfirmed, style: AppTypography.caption.copyWith(fontWeight: FontWeight.w600, color: AppColors.primaryText)),
       ],
     );
   }

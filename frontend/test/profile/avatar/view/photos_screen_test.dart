@@ -10,9 +10,7 @@ import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
-import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
-import 'package:campus_mate/core/back_exit/back_exit_view_model.dart';
 import 'package:campus_mate/core/draft/draft_store.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -143,7 +141,7 @@ void main() {
       final drafts = FakeDraftStore();
       final container = await pump(tester, photoCount: 2, drafts: drafts);
 
-      await tester.tap(find.byTooltip(onboardingBackLabel));
+      await tester.tap(find.byTooltip('뒤로'));
       await tester.pumpAndSettle();
 
       final steps = container.read(onboardingStepListenableProvider);
@@ -163,7 +161,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(container.read(onboardingStepListenableProvider).value, OnboardingStep.kakaoId);
-      expect(find.text(backExitMessage), findsNothing);
+      expect(find.text('한 번 더 누르면 종료돼요'), findsNothing);
     });
   });
 

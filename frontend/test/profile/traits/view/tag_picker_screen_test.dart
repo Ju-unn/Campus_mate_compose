@@ -1,9 +1,7 @@
 import 'package:campus_mate/common/result.dart';
-import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/common/widgets/select_chip.dart';
 import 'package:campus_mate/common/widgets/select_count_bar.dart';
 import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
-import 'package:campus_mate/core/back_exit/back_exit_view_model.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
@@ -56,7 +54,7 @@ void main() {
       testWidgets('${kind.name}: 앱바 뒤로는 ${back.name} 로 간다', (tester) async {
         final container = await pump(tester, kind: kind, server: server);
 
-        await tester.tap(find.byTooltip(onboardingBackLabel));
+        await tester.tap(find.byTooltip('뒤로'));
         await tester.pumpAndSettle();
 
         expect(container.read(onboardingStepListenableProvider).value, back);
@@ -70,7 +68,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(container.read(onboardingStepListenableProvider).value, back);
-        expect(find.text(backExitMessage), findsNothing);
+        expect(find.text('한 번 더 누르면 종료돼요'), findsNothing);
       });
     }
 
@@ -78,7 +76,7 @@ void main() {
     testWidgets('나 탭 편집 모드에는 온보딩 뒤로가 붙지 않는다', (tester) async {
       final container = await pump(tester, server: OnboardingStep.complete, isEditing: true);
 
-      expect(find.byTooltip(onboardingBackLabel), findsNothing);
+      expect(find.byTooltip('뒤로'), findsNothing);
       expect(find.byType(BackExitScope), findsNothing);
       expect(container.read(onboardingStepListenableProvider).value, OnboardingStep.complete);
     });

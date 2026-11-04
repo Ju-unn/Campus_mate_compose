@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -51,7 +52,7 @@ class GraduatePhotoSlot extends StatelessWidget {
       height: _slotSize,
       child: Stack(
         children: [
-          Positioned.fill(child: _tile(picked)),
+          Positioned.fill(child: _tile(context, picked)),
           if (picked != null)
             Positioned(
               left: _slotSize - _removeTouch,
@@ -63,11 +64,11 @@ class GraduatePhotoSlot extends StatelessWidget {
     );
   }
 
-  Widget _tile(File? picked) {
+  Widget _tile(BuildContext context, File? picked) {
     final radius = BorderRadius.circular(AppRadius.md);
     return Semantics(
       button: true,
-      label: picked == null ? '졸업증명서 사진 추가' : '졸업증명서 사진 바꾸기',
+      label: picked == null ? context.l10n.graduatePhotoSlotAdd : context.l10n.graduatePhotoSlotChange,
       excludeSemantics: true,
       onTap: isLocked ? null : onPick,
       child: Material(
@@ -104,7 +105,7 @@ class _RemoveButton extends StatelessWidget {
     return Semantics(
       container: true,
       button: true,
-      label: '사진 빼기',
+      label: context.l10n.graduatePhotoSlotRemove,
       excludeSemantics: true,
       onTap: onPressed,
       child: GestureDetector(

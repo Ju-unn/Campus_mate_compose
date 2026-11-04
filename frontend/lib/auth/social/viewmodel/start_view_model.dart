@@ -3,7 +3,6 @@ import 'package:campus_mate/auth/social/model/repository/social_login_repository
 import 'package:campus_mate/auth/social/viewmodel/start_ui_state.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/analytics/analytics_provider.dart';
-import 'package:campus_mate/core/back_exit/back_exit_view_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final startViewModelProvider = NotifierProvider<StartViewModel, StartUiState>(StartViewModel.new);
@@ -43,7 +42,7 @@ class StartViewModel extends Notifier<StartUiState> {
   void showBackExitHint() {
     state = StartUiState(
       inProgress: state.inProgress,
-      toast: StartToast(message: backExitMessage, isCancellation: true),
+      toast: const StartToast(isBackExitHint: true, isCancellation: true),
     );
   }
 

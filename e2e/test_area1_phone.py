@@ -8,6 +8,7 @@ from unittest import mock
 
 from e2e import area1, tools
 from e2e.test_area1 import Base
+from e2e.test_area2_two_accept import label_backed
 from e2e.tools import Reply
 
 APP_PASS = {'result': 'pass'}
@@ -334,8 +335,12 @@ class StartScreenContractTest(unittest.TestCase):
     def test_start_and_school_email_are_split_and_login_is_gone(self):
         screens = self.screens()
         self.assertNotIn('login', screens)
-        self.assertIn(f"'{screens['start']}'", self.read('lib', 'auth', 'social', 'view', 'start_view.dart'))
-        self.assertIn(f"'{screens['schoolEmail']}'", self.read('lib', 'auth', 'school_email', 'view', 'sign_up_screen.dart'))
+        # 화면 문구는 문구 파일(ARB)에 있다 — 그 글자의 키를 화면 파일이 읽어야 한다(1.0.2 B8).
+        messages = tools.arb_messages()
+        start = [self.read('lib', 'auth', 'social', 'view', 'start_view.dart')]
+        sign_up = [self.read('lib', 'auth', 'school_email', 'view', 'sign_up_screen.dart')]
+        self.assertTrue(label_backed(screens['start'], start, messages))
+        self.assertTrue(label_backed(screens['schoolEmail'], sign_up, messages))
 
     def test_no_app_side_hypothesis_still_waits_for_the_old_login_screen(self):
         for path in sorted((tools.ROOT / 'frontend' / 'integration_test').glob('*.dart')):

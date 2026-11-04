@@ -1,5 +1,3 @@
-import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
-import 'package:campus_mate/core/back_exit/back_exit_view_model.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/graduate/view/graduate_waiting_screen.dart';
 import 'package:flutter/material.dart';
@@ -29,7 +27,7 @@ void main() {
       expect(find.text('보통 영업일 1~2일 걸려요'), findsNothing, reason: '18c 원본의 이 줄은 지웠다');
       expect(find.byType(AppBar), findsNothing);
       expect(find.byType(ElevatedButton), findsNothing);
-      expect(find.byTooltip(onboardingBackLabel), findsNothing);
+      expect(find.byTooltip('뒤로'), findsNothing);
     });
 
     testWidgets('제목 18/700 ink(렌더 26) · 설명 14/500 muted(렌더 20), 내용 폭 280 · 간격 16', (tester) async {
@@ -86,7 +84,7 @@ void main() {
 
       await tester.binding.handlePopRoute();
       await tester.pump();
-      expect(find.text(backExitMessage), findsOneWidget);
+      expect(find.text('한 번 더 누르면 종료돼요'), findsOneWidget);
       expect(exitCalls, 0);
 
       await tester.binding.handlePopRoute();

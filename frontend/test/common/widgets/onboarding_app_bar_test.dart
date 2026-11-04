@@ -35,7 +35,7 @@ void main() {
     await pump(tester);
 
     expect(backButton(), findsNothing);
-    expect(find.byTooltip(onboardingBackLabel), findsNothing);
+    expect(find.byTooltip('뒤로'), findsNothing);
   });
 
   testWidgets('onBack 을 주면 화살표가 보이고 누르면 그 함수를 부른다', (tester) async {
@@ -52,7 +52,6 @@ void main() {
     final semantics = tester.ensureSemantics();
     await pump(tester, onBack: () {});
 
-    expect(onboardingBackLabel, '뒤로');
     expect(find.byTooltip('뒤로'), findsOneWidget);
     expect(tester.getSemantics(backButton()), matchesSemantics(
       tooltip: '뒤로',

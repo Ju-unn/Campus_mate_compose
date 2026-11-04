@@ -33,7 +33,7 @@ void main() {
 
     expect(repository.chosen, [null]);
     expect(gateRepository.fetchCount, 1);
-    expect(container.read(methodBackViewModelProvider).errorMessage, isNull);
+    expect(container.read(methodBackViewModelProvider).error, isNull);
     expect(container.read(methodBackViewModelProvider).isLeaving, isFalse);
   });
 
@@ -44,7 +44,7 @@ void main() {
 
     expect(repository.chosen, [null]);
     expect(gateRepository.fetchCount, 0);
-    expect(container.read(methodBackViewModelProvider).errorMessage, '네트워크 연결을 확인해 주세요');
+    expect(container.read(methodBackViewModelProvider).error, isA<NetworkFailure>());
     expect(container.read(methodBackViewModelProvider).isLeaving, isFalse);
   });
 
@@ -55,7 +55,7 @@ void main() {
 
     await viewModel().goBack();
 
-    expect(container.read(methodBackViewModelProvider).errorMessage, isNull);
+    expect(container.read(methodBackViewModelProvider).error, isNull);
     expect(gateRepository.fetchCount, 1);
   });
 
@@ -66,7 +66,7 @@ void main() {
 
     expect(repository.chosen, [null]);
     expect(gateRepository.fetchCount, 1);
-    expect(container.read(methodBackViewModelProvider).errorMessage, '네트워크 연결을 확인해 주세요');
+    expect(container.read(methodBackViewModelProvider).error, isA<NetworkFailure>());
     expect(container.read(methodBackViewModelProvider).isLeaving, isFalse);
   });
 

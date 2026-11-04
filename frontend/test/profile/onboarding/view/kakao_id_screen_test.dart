@@ -2,9 +2,7 @@ import 'dart:async';
 
 import 'package:campus_mate/account/model/repository/account_repository.dart';
 import 'package:campus_mate/common/result.dart';
-import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
-import 'package:campus_mate/core/back_exit/back_exit_view_model.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
@@ -86,7 +84,7 @@ void main() {
     testWidgets('앱바 뒤로를 누르면 내 프로필을 읽은 뒤 04-1 로 간다', (tester) async {
       final container = await pump(tester);
 
-      await tester.tap(find.byTooltip(onboardingBackLabel));
+      await tester.tap(find.byTooltip('뒤로'));
       await tester.pumpAndSettle();
 
       expect(step(container), OnboardingStep.basicInfo);
@@ -103,12 +101,12 @@ void main() {
       await tester.pump();
       expect(container.read(kakaoIdViewModelProvider).isSubmitting, isTrue, reason: '저장이 시작돼야 이 시험이 뜻이 있다');
 
-      await tester.tap(find.byTooltip(onboardingBackLabel));
+      await tester.tap(find.byTooltip('뒤로'));
       await tester.pump();
       await tester.binding.handlePopRoute();
       await tester.pump();
 
-      expect(find.byTooltip(onboardingBackLabel), findsOneWidget);
+      expect(find.byTooltip('뒤로'), findsOneWidget);
       expect(step(container), OnboardingStep.kakaoId);
       expect(me.calls, 0);
       kakao.hold!.complete();
@@ -123,7 +121,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(step(container), OnboardingStep.basicInfo);
-      expect(find.text(backExitMessage), findsNothing);
+      expect(find.text('한 번 더 누르면 종료돼요'), findsNothing);
     });
   });
 }

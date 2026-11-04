@@ -16,16 +16,11 @@ void main() {
   // 폴더로 나뉘어 세부 기능마다 적었다 — 한글이 이미 없는 auth/gate · auth/media 는 처음부터 엄격하게 검사된다.
   const pending = <String>{
     'account',
-    'auth/school_email',
-    'auth/school_info',
-    'auth/social',
     'billing/store',
     'billing/task',
     'chat',
     'community',
     'friend_review',
-    'graduate',
-    'home',
     'matching',
     'me',
     'profile/appearance',

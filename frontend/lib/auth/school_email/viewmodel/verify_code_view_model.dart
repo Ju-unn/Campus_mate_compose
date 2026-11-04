@@ -38,8 +38,8 @@ class VerifyCodeViewModel extends Notifier<VerifyCodeUiState> {
   /// 메모리에만 있다(앱을 끄면 02 부터).
   String? _temporaryToken;
 
-  /// 다른 소셜이 쥔 메일(409)일 때 "다시 로그인" 뒤 시작 화면 토스트에 남길 문구. 그 밖에는 null.
-  String? _reloginNotice;
+  /// "다시 로그인" 을 이미 눌렀다 — 연타해도 로그아웃은 한 번이다.
+  bool _relogging = false;
 
   /// 테스트에서 시각을 고정하기 위한 훅. 기본은 실제 현재 시각.
   DateTime now() => ref.read(verifyCodeNowProvider)();
@@ -49,6 +49,7 @@ class VerifyCodeViewModel extends Notifier<VerifyCodeUiState> {
   // 쿨다운도 그 시각부터 센다. 안 걸어 두면 화면을 열자마자 "메일 다시 받기"가 켜져 있어
   // 방금 온 코드를 버리고 한 통을 더 보내게 된다(2026-09-23 실기기 테스트에서 확인).
   VerifyCodeUiState build() {
+    _relogging = false;
     final sentAt = now();
     return VerifyCodeUiState(
       resendAvailableAt: sentAt.add(_resendCooldown),
@@ -120,7 +121,6 @@ class VerifyCodeViewModel extends Notifier<VerifyCodeUiState> {
   /// 이 화면 상태(적던 코드 · 오류 · 만료 시각)도 처음으로 돌린다 — 02 에서 같은 메일로 다시 오면 옛 상태가 남아 있었다.
   Future<void> startOver() async {
     _temporaryToken = null;
-    _reloginNotice = null;
     ref.invalidate(signUpViewModelProvider);
     await ref.read(schoolEmailRepositoryProvider).discard();
     ref.invalidateSelf();
@@ -130,29 +130,26 @@ class VerifyCodeViewModel extends Notifier<VerifyCodeUiState> {
   static bool _needsAnotherEmail(Failure failure) =>
       endsSchoolEmailAttempt(failure) || failure is SchoolEmailNotConfirmedFailure;
 
-  /// "카카오로 다시 로그인" — 시작 화면에 안내를 남기고 로그아웃한다(설계 5-3 B안). 자동 로그아웃이 아니라 누를 때만이다 —
-  /// 남의 메일을 잘못 넣은 사람이 갑자기 쫓겨나지 않게. 로그아웃하면 SessionScope 가 화면을 시작 화면으로 바꾼다.
-  Future<void> relogin() async {
-    final notice = _reloginNotice;
-    if (notice == null) {
+  /// "카카오로 다시 로그인" — 시작 화면에 [notice](화면이 문구 파일로 만든 안내)를 남기고 로그아웃한다(설계 5-3 B안).
+  /// 자동 로그아웃이 아니라 누를 때만이다 — 남의 메일을 잘못 넣은 사람이 갑자기 쫓겨나지 않게.
+  /// 다른 소셜이 쥔 메일(409)이 아니면 아무 일도 하지 않는다. 로그아웃하면 SessionScope 가 화면을 시작 화면으로 바꾼다.
+  Future<void> relogin(String notice) async {
+    final failure = state.error;
+    if (_relogging || failure is! SchoolEmailTakenFailure || failure.otherSocialProvider() == null) {
       return;
     }
-    _reloginNotice = null; // 연타해도 로그아웃은 한 번
+    _relogging = true;
     LoginNotice.post(notice, isInfo: true);
     await ref.read(signOutProvider)();
   }
 
   /// 오류는 입력칸 아래 문구로만 보인다(팝업 없음). 소셜 계정이 쥔 메일이면 둘째 줄과 단추를 단다.
   VerifyCodeUiState _failed(Failure failure) {
-    final taken = failure is SchoolEmailTakenFailure ? failure : null;
-    _reloginNotice = taken?.reloginNotice();
     return VerifyCodeUiState(
       codeInput: state.codeInput,
-      errorMessage: failure.toDisplayMessage(),
-      errorHint: taken?.toHintMessage(),
+      error: failure,
       canChooseAnotherEmail: _needsAnotherEmail(failure),
-      isTakenBySocial: taken?.isTakenBySocial() ?? false,
-      reloginLabel: taken?.reloginLabel(),
+      isTakenBySocial: failure is SchoolEmailTakenFailure && failure.isTakenBySocial(),
       resendAvailableAt: state.resendAvailableAt,
       codeExpiresAt: state.codeExpiresAt,
       isCodeRejected: failure is WrongCodeFailure,

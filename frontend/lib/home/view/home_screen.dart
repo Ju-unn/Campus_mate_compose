@@ -10,6 +10,8 @@ import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/pressable.dart';
 import 'package:campus_mate/consent/model/repository/open_url.dart';
 import 'package:campus_mate/core/analytics/analytics_values.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_elevation.dart';
@@ -143,11 +145,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with MeToastHost<HomeSc
     } finally {
       _opening = false;
     }
-    if (!opened) {
+    if (!opened && mounted) {
       showTimedToast(
         AppToast(
           leading: const Icon(AppIcons.alertTriangle, size: 16, color: AppColors.onInk),
-          label: const UnknownFailure().toDisplayMessage(),
+          label: context.errorText(const UnknownFailure()),
         ),
       );
     }
@@ -281,7 +283,7 @@ class _HeroToday extends ConsumerWidget {
         // 반짝임 없이 정적이다(DESIGN §7, pen context "애니메이션 없음").
         HeroLoading() => Semantics(
             key: const ValueKey('loading'),
-            label: '오늘의 카드를 불러오는 중',
+            label: context.l10n.homeHeroLoading,
             child: const _HeroFrame(
               color: AppColors.surfaceSoft,
               children: [
@@ -297,9 +299,9 @@ class _HeroToday extends ConsumerWidget {
             key: const ValueKey('arrived'),
             color: AppColors.primaryWash,
             children: [
-              ..._HeroFrame.lines('오늘의 카드가', '도착했어요'),
+              ..._HeroFrame.lines(context.l10n.homeHeroArrivedLine1, context.l10n.homeHeroArrivedLine2),
               const SizedBox(height: AppSpacing.sm),
-              const _HeroButton('지금 확인하기'),
+              _HeroButton(context.l10n.homeHeroArrivedButton),
             ],
           ),
         HeroPending(:final count) => _HeroFrame(
@@ -307,9 +309,9 @@ class _HeroToday extends ConsumerWidget {
             color: AppColors.primaryWash,
             badge: _PendingBadge(count),
             children: [
-              ..._HeroFrame.lines('결정 대기 카드가', '$count장 남아 있어요'),
+              ..._HeroFrame.lines(context.l10n.homeHeroPendingLine1, context.l10n.homeHeroPendingLine2(count: count)),
               const SizedBox(height: AppSpacing.sm),
-              const _HeroButton('이어서 확인하기'),
+              _HeroButton(context.l10n.homeHeroPendingButton),
             ],
           ),
         HeroDone(:final nextIssueAt) => _HeroFrame(
@@ -319,11 +321,11 @@ class _HeroToday extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: AppSpacing.md),
             centered: true,
             children: [
-              ..._HeroFrame.lines('오늘 카드는', '모두 확인했어요'),
+              ..._HeroFrame.lines(context.l10n.homeHeroDoneLine1, context.l10n.homeHeroDoneLine2),
               if (nextIssueAt != null) ...[
                 const SizedBox(height: AppSpacing.xs),
                 // `GC85E` 14/400 lh 1.5 muted · `FMjgB` 32/700 자간 -0.96 — 렌더 44(lineHeight 속성 없음).
-                Text('다음 카드까지', style: AppTypography.bodySmall.copyWith(height: 1.5, color: AppColors.muted)),
+                Text(context.l10n.homeHeroNextCard, style: AppTypography.bodySmall.copyWith(height: 1.5, color: AppColors.muted)),
                 // 글자를 키워 숫자가 칸보다 넓어지면 자르지 않고 줄인다(한 덩어리라 줄을 바꿀 곳이 없다).
                 FittedBox(
                   fit: BoxFit.scaleDown,
@@ -504,7 +506,7 @@ class _CampusStrip extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // 섹션 제목 18/700 ink(대장 10-15 — 종전 14/700 muted). 줄높이는 레일 제목과 같다.
-        Text('참여 중인 대학', style: _sectionTitleStyle),
+        Text(context.l10n.homeSectionColleges, style: _sectionTitleStyle),
         const SizedBox(height: AppSpacing.xs),
         if (tags.length < _flowFrom) Wrap(spacing: _chipGap, runSpacing: _chipGap, children: tags),
         if (tags.length >= _flowFrom)
@@ -536,7 +538,7 @@ class _RailHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(examples ? '곧 더 많은 사람들이 모여요' : '지금 함께 있는 사람들', style: _sectionTitleStyle);
+    return Text(examples ? context.l10n.homeRailTitleExamples : context.l10n.homeRailTitle, style: _sectionTitleStyle);
   }
 }
 
@@ -578,7 +580,7 @@ class _ReviewStrip extends StatelessWidget {
                   ],
                   const SizedBox(width: 6),
                   Text(
-                    '($count명 평가)',
+                    context.l10n.homeReviewCount(count: count),
                     style: AppTypography.caption.copyWith(fontWeight: FontWeight.w500, color: AppColors.muted),
                   ),
                 ],
@@ -593,7 +595,7 @@ class _ReviewStrip extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
                 child: Center(
-                  child: Text('리뷰 남기기', style: AppTypography.button.copyWith(color: AppColors.primaryText)),
+                  child: Text(context.l10n.homeReviewButton, style: AppTypography.button.copyWith(color: AppColors.primaryText)),
                 ),
               ),
             ),
@@ -635,9 +637,9 @@ class _ProfileNudge extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // 문구는 사용자 결정 2026-09-26 — pen `tV9Oa` · `KjqWO`.
-                    Text('프로필을 조금 더 채우면', style: lineStyle),
+                    Text(context.l10n.homeProfileNudgeLine1, style: lineStyle),
                     const SizedBox(height: 5),
-                    Text('나를 더 잘 보여 줄 수 있어요', style: lineStyle),
+                    Text(context.l10n.homeProfileNudgeLine2, style: lineStyle),
                     const SizedBox(height: 5),
                     Container(
                       width: 150,
@@ -666,7 +668,7 @@ class _ProfileNudge extends StatelessWidget {
                     const SizedBox(height: 5),
                     // pen `a8UzQ` 12(2026-10-14, 종전 11) · 렌더 16.
                     Text(
-                      '프로필 완성도 $percent%',
+                      context.l10n.homeProfileNudgeCompletion(percent: percent),
                       style: AppTypography.caption.copyWith(height: 16 / 12, color: AppColors.muted),
                     ),
                   ],
