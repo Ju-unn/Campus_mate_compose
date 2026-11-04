@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/core/back_exit/back_exit_view_model.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -71,10 +72,10 @@ void _showHint(BuildContext context) {
         padding: EdgeInsets.zero,
         margin: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
         duration: backExitWindow,
-        content: const Center(
+        content: Center(
           child: AppToast(
-            leading: Icon(AppIcons.info, size: 16, color: AppColors.onInk),
-            label: backExitMessage,
+            leading: const Icon(AppIcons.info, size: 16, color: AppColors.onInk),
+            label: context.l10n.coreBackExitHint,
           ),
         ),
       ),

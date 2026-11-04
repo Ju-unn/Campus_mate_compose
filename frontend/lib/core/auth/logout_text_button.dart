@@ -1,5 +1,6 @@
 import 'package:campus_mate/common/widgets/muted_text_button.dart';
 import 'package:campus_mate/core/auth/confirm_sign_out.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -10,6 +11,6 @@ class LogoutTextButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return MutedTextButton(label: '로그아웃', onPressed: () => confirmSignOut(context, ref));
+    return MutedTextButton(label: context.l10n.commonLogout, onPressed: () => confirmSignOut(context, ref));
   }
 }

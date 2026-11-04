@@ -20,6 +20,7 @@ import 'package:campus_mate/community/view/poll_detail_screen.dart';
 import 'package:campus_mate/core/analytics/analytics_values.dart';
 import 'package:campus_mate/core/auth/account_status_listenable.dart';
 import 'package:campus_mate/core/back_exit/back_exit_scope.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/offline/offline_screen.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/router/auth_redirect.dart';
@@ -262,7 +263,7 @@ abstract final class AppRouter {
         path: AppRoutes.matchMade,
         builder: (context, state) {
           final args = state.extra as MatchMadeArgs?;
-          return MatchMadeScreen(nickname: args?.nickname ?? '상대', matchId: args?.matchId);
+          return MatchMadeScreen(nickname: args?.nickname ?? context.l10n.coreMatchMadeDefaultNickname, matchId: args?.matchId);
         },
       ),
       _PlatformRoute(
