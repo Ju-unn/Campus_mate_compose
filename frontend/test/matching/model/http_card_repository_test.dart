@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:campus_mate/core/http/api_client.dart';
 import 'package:campus_mate/common/failure.dart';
-import 'package:campus_mate/matching/model/card_repository.dart';
 import 'package:campus_mate/matching/model/daily_card.dart';
 import 'package:campus_mate/matching/model/http_card_repository.dart';
 import 'package:campus_mate/matching/model/paid_card.dart';
@@ -13,6 +12,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:campus_mate/matching/model/card_decision.dart';
 
 class MockGoTrueClient extends Mock implements GoTrueClient {}
 

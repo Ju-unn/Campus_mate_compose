@@ -4,7 +4,7 @@ import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/core/http/api_client.dart';
 import 'package:campus_mate/safety/model/http_safety_repository.dart';
 import 'package:campus_mate/safety/model/report_reason.dart';
-import 'package:campus_mate/safety/model/safety_repository.dart';
+import 'package:campus_mate/safety/model/report_target.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';

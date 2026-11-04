@@ -10,6 +10,7 @@ import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:campus_mate/referral/model/invite_share.dart';
+import 'package:campus_mate/referral/model/invite_share_text.dart';
 import 'package:campus_mate/referral/viewmodel/my_referral_code_provider.dart';
 import 'package:campus_mate/safety/view/safety_sheet.dart';
 import 'package:flutter/material.dart';

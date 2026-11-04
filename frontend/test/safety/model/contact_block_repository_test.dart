@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/http/api_client.dart';
+import 'package:campus_mate/safety/model/contact_block.dart';
 import 'package:campus_mate/safety/model/contact_block_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;

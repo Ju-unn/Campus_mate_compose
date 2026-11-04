@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/community/model/community_repository.dart';
 import 'package:campus_mate/community/model/poll.dart';
+import 'package:campus_mate/community/model/poll_feed.dart';
 
 Poll pollFixture({
   String id = 'p1',

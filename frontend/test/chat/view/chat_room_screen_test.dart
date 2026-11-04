@@ -1,9 +1,9 @@
 import 'dart:async';
 
-import 'package:campus_mate/chat/model/chat_repository.dart';
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/chat/model/chat_room.dart';
 import 'package:campus_mate/chat/model/message.dart';
+import 'package:campus_mate/chat/model/message_page.dart';
 import 'package:campus_mate/chat/view/chat_input_bar.dart';
 import 'package:campus_mate/chat/view/chat_intro_card.dart';
 import 'package:campus_mate/chat/view/chat_room_screen.dart';

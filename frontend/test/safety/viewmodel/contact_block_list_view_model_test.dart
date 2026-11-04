@@ -1,6 +1,7 @@
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/safety/model/contact_block_repository.dart';
+import 'package:campus_mate/safety/model/contact_label.dart';
 import 'package:campus_mate/safety/model/contact_name_store.dart';
 import 'package:campus_mate/safety/viewmodel/contact_block_list_ui_state.dart';
 import 'package:campus_mate/safety/viewmodel/contact_block_list_view_model.dart';

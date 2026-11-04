@@ -4,8 +4,10 @@ import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/matching/model/card_detail.dart';
 import 'package:campus_mate/matching/model/card_profile.dart';
 import 'package:campus_mate/profile/model/profile_enums.dart';
+import 'package:campus_mate/safety/model/blocked_user.dart';
 import 'package:campus_mate/safety/model/partner_profile.dart';
 import 'package:campus_mate/safety/model/report_reason.dart';
+import 'package:campus_mate/safety/model/report_target.dart';
 import 'package:campus_mate/safety/model/safety_repository.dart';
 
 /// ViewModel · 화면 테스트용 가짜 저장소. 돌려줄 값을 필드로 바꿔 끼운다.

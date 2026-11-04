@@ -5,6 +5,7 @@ import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/safety/model/contact_block_repository.dart';
+import 'package:campus_mate/safety/model/contact_label.dart';
 import 'package:campus_mate/safety/model/contact_name_store.dart';
 import 'package:campus_mate/safety/model/device_contacts.dart';
 import 'package:campus_mate/safety/view/contact_block_list_screen.dart';

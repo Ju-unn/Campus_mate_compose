@@ -2,8 +2,11 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:campus_mate/common/result.dart';
+import 'package:campus_mate/safety/model/contact_block.dart';
 import 'package:campus_mate/safety/model/contact_block_repository.dart';
+import 'package:campus_mate/safety/model/contact_label.dart';
 import 'package:campus_mate/safety/model/contact_name_store.dart';
+import 'package:campus_mate/safety/model/device_contact.dart';
 import 'package:campus_mate/safety/model/device_contacts.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';

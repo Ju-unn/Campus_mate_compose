@@ -7,7 +7,7 @@ import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
-import 'package:campus_mate/safety/model/safety_repository.dart';
+import 'package:campus_mate/safety/model/report_target.dart';
 import 'package:campus_mate/safety/view/report_sheet.dart';
 import 'package:campus_mate/safety/view/safety_actions.dart';
 import 'package:campus_mate/safety/viewmodel/report_ui_state.dart';

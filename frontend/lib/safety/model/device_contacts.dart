@@ -1,14 +1,6 @@
+import 'package:campus_mate/safety/model/device_contact.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-/// 기기 연락처 한 사람. 번호는 기기에 적힌 원문 그대로다 — 정규화는 서버 한 곳에서만 한다(Ruling 32).
-class DeviceContact {
-  const DeviceContact({required this.id, required this.name, required this.numbers});
-
-  final String id;
-  final String name;
-  final List<String> numbers;
-}
 
 /// 기기 연락처와 권한. 패키지를 부르는 곳은 [FlutterContactsSource] 하나뿐이다.
 abstract interface class DeviceContactSource {

@@ -1,7 +1,9 @@
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/http/api_client.dart';
+import 'package:campus_mate/safety/model/blocked_user.dart';
 import 'package:campus_mate/safety/model/partner_profile.dart';
 import 'package:campus_mate/safety/model/report_reason.dart';
+import 'package:campus_mate/safety/model/report_target.dart';
 import 'package:campus_mate/safety/model/safety_repository.dart';
 
 /// [SafetyRepository] 를 FastAPI 호출로 구현한다. 상태코드 분류는 `sendAuthorizedRequest` 몫이라

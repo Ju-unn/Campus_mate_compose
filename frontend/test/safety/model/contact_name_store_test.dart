@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:campus_mate/safety/model/contact_label.dart';
 import 'package:campus_mate/safety/model/contact_name_store.dart';
 import 'package:flutter_test/flutter_test.dart';
 

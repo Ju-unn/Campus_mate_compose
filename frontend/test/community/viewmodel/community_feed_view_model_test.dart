@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
-import 'package:campus_mate/community/model/community_repository.dart';
 import 'package:campus_mate/core/analytics/analytics_provider.dart';
 import 'package:campus_mate/community/model/community_repository_provider.dart';
 import 'package:campus_mate/community/model/poll.dart';
@@ -12,6 +11,7 @@ import 'package:campus_mate/me/model/my_profile.dart';
 import 'package:campus_mate/me/viewmodel/my_profile_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:campus_mate/community/model/poll_feed.dart';
 
 import '../../me/model/fake_me_repository.dart';
 import '../../core/analytics/fake_analytics_service.dart';

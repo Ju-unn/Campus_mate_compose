@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:campus_mate/chat/model/chat_errors.dart';
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/chat/model/conversation.dart';
-import 'package:campus_mate/chat/model/user_event_stream.dart';
+import 'package:campus_mate/chat/model/user_event.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_ui_state.dart';
 import 'package:campus_mate/matching/viewmodel/acceptances_view_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

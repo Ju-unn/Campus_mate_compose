@@ -12,7 +12,6 @@ import 'package:campus_mate/billing/view/heart_tasks_screen.dart';
 import 'package:campus_mate/chat/model/chat_repository_provider.dart';
 import 'package:campus_mate/chat/model/conversation.dart';
 import 'package:campus_mate/chat/model/message.dart';
-import 'package:campus_mate/chat/model/user_event_stream.dart';
 import 'package:campus_mate/chat/view/chat_room_screen.dart';
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
 import 'package:campus_mate/chat/viewmodel/user_channel.dart';
@@ -34,6 +33,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:campus_mate/chat/model/user_event.dart';
 
 import 'auth/model/fake_verification_gate_repository.dart';
 import 'billing/model/fake_heart_task_repository.dart';

@@ -1,6 +1,7 @@
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/community/model/community_repository.dart';
 import 'package:campus_mate/community/model/poll.dart';
+import 'package:campus_mate/community/model/poll_feed.dart';
 import 'package:campus_mate/core/http/api_client.dart';
 
 /// [CommunityRepository] 를 FastAPI 호출로 구현한다. 상태코드 분류와 세션 확인은

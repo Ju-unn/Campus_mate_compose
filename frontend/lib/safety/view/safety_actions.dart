@@ -5,7 +5,7 @@ import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
-import 'package:campus_mate/safety/model/safety_repository.dart';
+import 'package:campus_mate/safety/model/report_target.dart';
 import 'package:campus_mate/safety/model/safety_repository_provider.dart';
 import 'package:campus_mate/safety/view/block_confirm_sheet.dart';
 import 'package:campus_mate/safety/view/report_sheet.dart';

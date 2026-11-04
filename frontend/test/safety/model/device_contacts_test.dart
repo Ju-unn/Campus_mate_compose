@@ -1,3 +1,4 @@
+import 'package:campus_mate/safety/model/device_contact.dart';
 import 'package:campus_mate/safety/model/device_contacts.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';

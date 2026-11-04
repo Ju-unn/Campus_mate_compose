@@ -1,4 +1,4 @@
-import 'package:campus_mate/safety/model/device_contacts.dart';
+import 'package:campus_mate/safety/model/device_contact.dart';
 
 /// 8d 차단할 연락처 선택의 상태.
 class ContactPickerUiState {

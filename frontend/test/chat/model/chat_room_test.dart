@@ -1,5 +1,5 @@
-import 'package:campus_mate/chat/model/chat_repository.dart';
 import 'package:campus_mate/chat/model/chat_room.dart';
+import 'package:campus_mate/chat/model/message_page.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// 방 머리말 응답(서버 `GET /chat/matches/{id}`)의 최소 모양.

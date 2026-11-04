@@ -1,5 +1,5 @@
 import 'package:campus_mate/core/analytics/analytics_provider.dart';
-import 'package:campus_mate/matching/model/card_repository.dart';
+import 'package:campus_mate/matching/model/card_decision.dart';
 import 'package:campus_mate/matching/model/card_repository_provider.dart';
 import 'package:campus_mate/matching/viewmodel/card_detail_ui_state.dart';
 import 'package:campus_mate/matching/viewmodel/today_cards_view_model.dart';

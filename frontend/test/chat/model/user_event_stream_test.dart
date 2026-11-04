@@ -1,4 +1,5 @@
 import 'package:campus_mate/chat/model/message.dart';
+import 'package:campus_mate/chat/model/user_event.dart';
 import 'package:campus_mate/chat/model/user_event_stream.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';

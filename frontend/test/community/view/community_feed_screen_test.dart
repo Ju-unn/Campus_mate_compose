@@ -6,7 +6,6 @@ import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/glass_bottom_nav.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
-import 'package:campus_mate/community/model/community_repository.dart';
 import 'package:campus_mate/community/model/community_repository_provider.dart';
 import 'package:campus_mate/community/model/poll.dart';
 import 'package:campus_mate/community/view/community_feed_screen.dart';
@@ -28,6 +27,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:campus_mate/community/model/poll_feed.dart';
 
 import '../../chat/model/fake_chat_repository.dart';
 import '../../matching/model/fake_card_repository.dart';

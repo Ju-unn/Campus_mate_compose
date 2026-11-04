@@ -1,6 +1,6 @@
 import 'package:campus_mate/friend_review/model/friend_review.dart';
 import 'package:campus_mate/friend_review/model/friend_review_tags.dart';
-import 'package:campus_mate/safety/model/safety_repository.dart';
+import 'package:campus_mate/safety/model/report_target.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

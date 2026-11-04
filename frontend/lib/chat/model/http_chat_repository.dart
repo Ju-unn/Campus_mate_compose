@@ -2,6 +2,7 @@ import 'package:campus_mate/chat/model/chat_repository.dart';
 import 'package:campus_mate/chat/model/chat_room.dart';
 import 'package:campus_mate/chat/model/conversation.dart';
 import 'package:campus_mate/chat/model/message.dart';
+import 'package:campus_mate/chat/model/message_page.dart';
 import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/result.dart';
 import 'package:campus_mate/core/http/api_client.dart';
