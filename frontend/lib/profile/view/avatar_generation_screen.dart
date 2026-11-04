@@ -1,9 +1,12 @@
+import 'dart:math' as math;
 import 'dart:ui' show ImageFilter, TileMode;
 
 import 'package:campus_mate/common/widgets/app_button.dart';
+import 'package:campus_mate/common/widgets/app_lottie_view.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
+import 'package:campus_mate/core/theme/app_lottie.dart';
 import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -121,52 +124,90 @@ class _AvatarGenerationScreenState extends ConsumerState<AvatarGenerationScreen>
 /// 05-12 · 05-12b 의 위 여백(pen `OgHRY` · `euW4T` 제목 y64) · 리빌 바깥 위 64(`F84Alv`). 맞는 간격 토큰이 없다(xxl 48).
 const double _topGap = 64;
 
-/// 05-12(pen `OgHRY`) — 파란 목도리 마스코트 아래 도는 표시 28(lucide loader-circle 자리, muted).
+/// 05-12(pen `OgHRY` → 움직이는 그림 판 `X0KAx`) — 그림 그리는 토끼 장면 344×330(아래 점 3개가 장면 안에 있다).
+/// 옛 파란 목도리 마스코트 `gkWPR` 와 큰 스피너 `rcQm9` 는 이 장면이 대신한다. 제목 · 설명 아래 y268.
 class _GeneratingIndicator extends StatelessWidget {
   const _GeneratingIndicator();
+
+  /// 부제 두 줄 기준 장면 위가 y268 이 되는 상태 틀 위 간격(64 + 32.4 + 8 + 51.2 + 32 + 80 = 267.6 — 대장 전달 y268 에서 계산한 자리).
+  static const double _paintingTop = 80;
 
   @override
   Widget build(BuildContext context) {
     return const _StatusView(
       title: '아바타를 만들고 있어요',
       subtitle: '선택한 사진으로 아바타를 만드는 중이에요. 잠시만 기다려 주세요.',
-      mascotAsset: 'assets/images/mascot-male-waiting.png',
-      below: SizedBox.square(
-        dimension: 28,
-        child: CircularProgressIndicator(strokeWidth: 2.5, color: AppColors.muted),
-      ),
+      visualTop: _paintingTop,
+      visual: _PaintingScene(),
+    );
+  }
+}
+
+/// 장면은 344 폭이라 좌우 16 여백(328)보다 넓다 — 여백 밖으로 8 씩 나와 화면 가로 가운데에 그린다(pen).
+/// 위쪽 [SingleChildScrollView] 가 화면 폭 전체라 잘리지 않는다. 화면이 344+16 보다 좁으면 좌우 8 을 남기고
+/// 비율 그대로 줄인다(CLAUDE.md 규칙 3 — 최대는 pen 크기 344×330).
+class _PaintingScene extends StatelessWidget {
+  const _PaintingScene();
+
+  static const double _width = 344;
+  static const double _height = 330;
+
+  /// 장면이 좌우 여백(16) 밖으로 나오는 만큼(= (344 - 328) / 2, pen 화면 좌우에 남는 8).
+  static const double _overflowPerSide = 8;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = math.min(_width, constraints.maxWidth + 2 * _overflowPerSide);
+        final height = _height * width / _width;
+        return SizedBox(
+          height: height,
+          child: OverflowBox(
+            minWidth: width,
+            maxWidth: width,
+            child: AppLottieView(scene: AppLottie.avatarPainting, width: width, height: height),
+          ),
+        );
+      },
     );
   }
 }
 
 /// 05-12 · 05-12b 공통 얼개(대장 전달 pen 값 10-15 · 10-17). 바깥 [0,16,28,16] · 위 64 → 제목 24/700 → 8 → 부제 16/400 body lh1.6
-/// → 32 → 상태 틀(위 45 · 안 간격 12: 마스코트 220 → [below]) → 바닥 [action](05-12b 만). 부제가 328 폭에서 두 줄이면 마스코트가
+/// → 32 → 상태 틀(위 [visualTop] · 안 간격 12: [visual] → [below]) → 바닥 [action](05-12b 만). 부제가 328 폭에서 두 줄이면 05-12b 마스코트가
 /// y233 이다(64 + 32.4 + 8 + 51.2 + 32 + 45 ≈ 233 — 대장 값에서 계산한 자리) — 글자를 키우거나 좁은 폰이면 그만큼 내려간다.
 /// 글이 길어져도 버튼은 바닥에 남고 위쪽만 스크롤한다. 한 화면 마스코트 한 마리.
+/// 좌우 16 여백은 스크롤 안쪽 여백이라, 여백보다 넓은 [visual](05-12 장면 344)도 잘리지 않는다.
 class _StatusView extends StatelessWidget {
   const _StatusView({
     required this.title,
     required this.subtitle,
-    required this.mascotAsset,
-    required this.below,
+    required this.visual,
+    required this.visualTop,
+    this.below,
     this.action,
   });
 
   final String title;
   final String subtitle;
-  final String mascotAsset;
-  final Widget below;
+  final Widget visual;
+
+  /// 상태 틀 위에서 [visual] 까지(05-12b 마스코트 45, 05-12 장면 80).
+  final double visualTop;
+  final Widget? below;
   final Widget? action;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, 28),
+      padding: const EdgeInsets.only(bottom: 28),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
             child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -179,12 +220,14 @@ class _StatusView extends StatelessWidget {
                   ConstrainedBox(
                     constraints: const BoxConstraints(minHeight: 340),
                     child: Padding(
-                      padding: const EdgeInsets.only(top: 45),
+                      padding: EdgeInsets.only(top: visualTop),
                       child: Column(
                         children: [
-                          Image.asset(mascotAsset, width: 220, height: 220, fit: BoxFit.contain, excludeFromSemantics: true),
-                          const SizedBox(height: AppSpacing.sm),
-                          below,
+                          visual,
+                          if (below case final below?) ...[
+                            const SizedBox(height: AppSpacing.sm),
+                            below,
+                          ],
                         ],
                       ),
                     ),
@@ -193,7 +236,8 @@ class _StatusView extends StatelessWidget {
               ),
             ),
           ),
-          ?action,
+          if (action case final action?)
+            Padding(padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md), child: action),
         ],
       ),
     );
@@ -491,12 +535,16 @@ class _RetryPrompt extends StatelessWidget {
   /// 종전 pen 원문 "3번까지" 는 서버와 달라 사용자 결정(10-15 "추천")으로 고쳤다(pen 도 함께 정정).
   static const String _freeRetryHint = '5번까지는 무료로 다시 시도할 수 있어요';
 
+  /// 상태 틀 위에서 마스코트까지(pen 05-12b `euW4T`).
+  static const double _mascotTop = 45;
+
   @override
   Widget build(BuildContext context) {
     return _StatusView(
       title: '아바타 생성에 실패했어요',
       subtitle: '사진이 흐릿하거나 서버가 혼잡했을 수 있어요. 다른 사진으로 다시 시도해주세요.',
-      mascotAsset: 'assets/images/mascot-female-sad.png',
+      visualTop: _mascotTop,
+      visual: Image.asset('assets/images/mascot-female-sad.png', width: 220, height: 220, fit: BoxFit.contain, excludeFromSemantics: true),
       below: Text(
         state.errorMessage ?? _freeRetryHint,
         textAlign: TextAlign.center,

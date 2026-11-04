@@ -76,6 +76,8 @@ dependencies:
   in_app_purchase: ^3.3.1
   # 강제 업데이트(2026-11-02): 설치된 앱의 버전 이름을 읽어 서버의 최소 버전과 견준다(lib/core/app_update/). 사용자 승인(2026-11-02 선택지 원문 「package_info_plus 추가 (추천)」), 이 패키지 하나만.
   package_info_plus: ^10.2.2
+  # 움직이는 그림(Lottie, 2026-11-03 사용자 승인 「필요한 스킬 설치 및 lottie 라이브러리 ? 설치 승인할게」). 앱은 lib/common/widgets/app_lottie_view.dart 하나로만 쓴다.
+  lottie: ^3.8.2
 
 dev_dependencies:
   flutter_test:
@@ -106,6 +108,12 @@ flutter:
   assets:
     - assets/images/
     - assets/icons/
+    # 움직이는 그림(Lottie). 폴더 항목은 하위 폴더를 담지 않아 그림 폴더(장면마다 images/<이름>/)를 따로 적는다.
+    # 새 장면을 더하면 여기에도 적는다 — test/core/theme/app_lottie_test.dart 가 빠뜨리면 알려 준다.
+    - assets/lottie/
+    - assets/lottie/images/splash_christmas/
+    - assets/lottie/images/avatar_painting/
+    - assets/lottie/images/match_celebration/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

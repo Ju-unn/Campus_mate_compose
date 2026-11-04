@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:campus_mate/account/model/account_repository.dart';
+import 'package:campus_mate/common/widgets/app_lottie_view.dart';
 import 'package:campus_mate/common/widgets/labeled_field.dart';
 import 'package:campus_mate/common/widgets/onboarding_app_bar.dart';
 import 'package:campus_mate/common/widgets/select_chip.dart';
@@ -187,7 +188,7 @@ void main() {
     await tester.pumpWidget(_guestScope(MaterialApp.router(routerConfig: router, theme: AppTheme.light())));
     await tester.pumpAndSettle();
 
-    expect(find.text('CampusMate'), findsOneWidget);
+    expect(find.byType(AppLottieView), findsOneWidget);
 
     // 시간이 다 되면(SplashHold 가 알림) 원래 이동 규칙으로 돌아간다 — 로그아웃 상태는 시작 화면에 그대로 머문다
     // (예전에는 02 학교 메일 입력 화면으로 갔다, 대장 지시문 07).
@@ -1248,6 +1249,9 @@ void main() {
       });
 
       testWidgets('06-2b(초안 만드는 중) 앱바 뒤로 → 06-2a 는 저장해 둔 이상형 글이 채워져 있다', (tester) async {
+        // 진행 중 줄의 스피너(Lottie)는 끝없이 돌아 pumpAndSettle 이 끝나지 않는다 — 기기 "동작 줄이기" 로 멈춘 장면에 둔다.
+        tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
+        addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
         await pumpOnboarding(tester, OnboardingStep.bio, holdDraft: Completer<void>());
         expect(find.text('설문을 읽고 있어요'), findsOneWidget);
         expect(find.byType(BackExitScope), findsOneWidget, reason: '두 겹이면 같은 뒤로가기에 둘 다 불린다');
