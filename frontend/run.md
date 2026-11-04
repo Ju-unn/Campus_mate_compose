@@ -61,6 +61,8 @@ flutter test
 
 **자동 E2E 하네스(`e2e/`)를 로컬 Docker 스택에 붙일 때(2026-11-02, 앱 1.0.1 PR #642).** `E2E_ENV=<로컬 env 파일> E2E_SERVICE_KEY=<로컬 service_role 키> python -m e2e run …` 로 돌린다(키 값은 이 문서에 적지 않는다). `SUPABASE_URL` 이 운영(`*.supabase.co`)이 아니면 gcloud(스케줄러 · 로그 · FCM · 서비스 키)를 부르는 길이 모두 막혀 `Blocked` 로 끝나고(`e2e/tools.py` `require_cloud`), 결과는 `E2E_결과/로컬_<날짜>/` 에 따로 쌓인다. 로컬 서버의 `/batch/*` 는 구글 ID 토큰이 있어야 열려 로컬에서 직접 부를 길이 없다. `E2E_ENV` 를 직접 적었는데 파일이 없으면 오타를 운영으로 읽지 않고 로컬로 본다.
 
+**하네스 점수 기준 모델의 흡연 규칙 (2026-11-04, 흡연 "상관없어요" 칸 서버 PR #653).** `e2e/test_area2_time_batch.py` 의 가짜 세계 점수 기준(`score`, 249줄 근처)은 **옛 흡연 규칙 그대로**다 — 받는 사람이 비흡연자(`is_smoker` 거짓)이고 후보가 흡연자면 × 0.5. 서버(`backend/app/matching/scoring.py` `smoking_clash`)는 이제 `accepts_smoker` 칸도 보지만 e2e 계정은 이 칸이 null 이라 같은 결과가 나온다. 이 칸을 쓰는 시나리오를 만들 때 이 모델을 `smoking_clash` 에 맞춘다. 이번에는 e2e 실행형(에뮬레이터) 시나리오를 돌리지 않았고 단위 시험만 돌렸다(`backend/DEPLOY.md` §4-23).
+
 ## 주의
 
 `--dart-define` 값을 이 파일에 적지 않는다. 실제 키는 각자 로컬에 보관한다.
