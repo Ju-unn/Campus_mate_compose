@@ -1,0 +1,9 @@
+# 화면 문구(ARB) → AppLocalizations 생성 설정(앱 1.0.2 B8). 문구는 lib/l10n/app_ko.arb 한 파일(한국어만)에 둔다.
+# 생성 파일(lib/l10n/app_localizations*.dart)은 커밋하지 않는다 — flutter pub get · flutter run · flutter build 가 만든다.
+# ARB 를 고친 뒤 flutter test · flutter analyze 만 돌리면 낡은 생성물을 쓰므로 flutter pub get 을 먼저 한다(frontend/CLAUDE.md §10).
+arb-dir: lib/l10n
+template-arb-file: app_ko.arb
+output-localization-file: app_localizations.dart
+output-class: AppLocalizations
+# 자리표시자가 둘 이상인 문구를 읽기 쉽게 이름으로 넘긴다: l10n.notificationsRowLabelRead(title: …, body: …, time: …)
+use-named-parameters: true

@@ -78,6 +78,11 @@ dependencies:
   package_info_plus: ^10.2.2
   # 움직이는 그림(Lottie, 2026-11-03 사용자 승인 「필요한 스킬 설치 및 lottie 라이브러리 ? 설치 승인할게」). 앱은 lib/common/widgets/app_lottie_view.dart 하나로만 쓴다.
   lottie: ^3.8.2
+  # 화면 문구 한 곳 관리(ARB, 앱 1.0.2 B8, 2026-11-04 사용자 승인 「1 승인」). 문구 파일은 lib/l10n/app_ko.arb 하나(한국어만)이고
+  # context.l10n 으로 읽는다. flutter_localizations 는 SDK 안 패키지, intl 은 이미 lock 에 있던 0.20.3 을 직접 의존성으로 올린 것.
+  flutter_localizations:
+    sdk: flutter
+  intl: ^0.20.3
 
 dev_dependencies:
   flutter_test:
@@ -99,6 +104,9 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
+
+  # 문구 ARB(lib/l10n/app_ko.arb) → AppLocalizations 생성. flutter pub get · flutter run 이 만든다(l10n.yaml). Flutter 3.47 부터 필수.
+  generate: true
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
