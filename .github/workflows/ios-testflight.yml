@@ -39,6 +39,9 @@ name: iOS TestFlight
 #     "Crashlytics 에 dSYM 올리기" 단계의 후보 경로를 고친다.
 #   - 내보내기 로그의 "Upload Symbols Failed ... did not include a dSYM for FirebaseAnalytics.framework"(GoogleAppMeasurement 등 구글이 dSYM 없이 주는
 #     미리 만든 프레임워크 몇 개): 늘 뜨는 경고다. 우리 앱(Runner)의 dSYM 과 무관하고 업로드도 성공한다.
+#   - 노란 경고 "광고 식별자 부품이 앱에 들어 있다"(잡은 성공): 광고 식별자(IDFA)를 안 쓰기로 했는데 GoogleAppMeasurementIdentitySupport · GoogleAdsOnDeviceConversion 이
+#     보관본에 있다. 잡 env 의 FIREBASE_ANALYTICS_WITHOUT_ADID 가 SPM 패키지 해석에 닿는지(firebase_analytics Package.swift) 보고, 위 Frameworks 목록에서
+#     어느 플러그인이 끌고 왔는지 따진다.
 #   실패하면 이 워크플로가 만든 로그 두 개(flutter-build-ipa.log, export-upload.log)만 비밀과 실명을 지워 아티팩트
 #   ios-testflight-logs-<실행 번호> 로 7일 남긴다. xcodebuild 의 자세한 기록(xcdistributionlogs)과 IPA 는 올리지 않는다.
 on:
@@ -75,6 +78,11 @@ jobs:
       PLIST: ios/Runner/GoogleService-Info.plist
       XCCONFIG: ios/Flutter/Secrets.xcconfig
       ARCHIVE: build/ios/archive/Runner.xcarchive
+      # 광고 식별자(IDFA) 부품을 앱에 넣지 않는다(결정: docs/decisions/2026-10-20-launch-day-decisions.md). firebase_analytics 의 Package.swift 는
+      # 이 변수가 있기만 하면(값은 안 본다) 광고 식별자 없는 FirebaseAnalyticsCore 를 쓴다. ios/Podfile 의 $FirebaseAnalyticsWithoutAdIdSupport 는
+      # CocoaPods 경로 전용이라 SPM 으로 오는 이 플러그인에는 듣지 않는다(Podfile 줄은 그대로 둔다). 비밀이 아니다.
+      # 패키지 해석은 번들 ID 확인(xcodebuild -showBuildSettings)과 flutter build ipa 두 곳에서 일어나 잡 전체에 둔다.
+      FIREBASE_ANALYTICS_WITHOUT_ADID: "true"
     defaults:
       run:
         working-directory: frontend
@@ -172,6 +180,31 @@ jobs:
           LINE="번들 ID $(read_key CFBundleIdentifier) · 버전 $(read_key CFBundleShortVersionString) · 빌드 번호 $(read_key CFBundleVersion)"
           echo "$LINE"
           echo "- $LINE" >> "$GITHUB_STEP_SUMMARY"
+
+      # 위 FIREBASE_ANALYTICS_WITHOUT_ADID 가 실제로 먹었는지 보관본의 Frameworks 로 확인한다. 광고 식별자 부품이 보이면 앱은 이미 만들어졌으니
+      # 잡을 빨갛게 만들지 않고 노란 경고만 남긴다. 목록은 맥에서 눈으로 볼 수 있게 로그에도 남긴다(비밀은 쓰지 않는다).
+      - name: 광고 식별자 부품이 앱에 없는지 확인(있으면 경고만)
+        continue-on-error: true
+        run: |
+          set +x
+          FRAMEWORKS="$ARCHIVE/Products/Applications/Runner.app/Frameworks"
+          if [[ ! -d "$FRAMEWORKS" ]]; then
+            echo "::warning::앱의 Frameworks 폴더를 찾지 못해 광고 식별자 부품이 빠졌는지 확인하지 못했다"
+          else
+            FOUND=""
+            for NAME in GoogleAppMeasurementIdentitySupport GoogleAdsOnDeviceConversion; do
+              if [[ -d "$FRAMEWORKS/$NAME.framework" ]]; then
+                FOUND="$FOUND $NAME"
+              fi
+            done
+            echo "== 앱 Frameworks =="
+            ls "$FRAMEWORKS" 2>&1 | python3 -u "$TOOL" scrub "$PLIST" "$XCCONFIG"
+            if [[ -n "$FOUND" ]]; then
+              echo "::warning::광고 식별자 부품이 앱에 들어 있다:$FOUND — FIREBASE_ANALYTICS_WITHOUT_ADID 가 패키지 해석에 닿지 않았거나 다른 플러그인이 끌고 왔다. 위 Frameworks 목록을 확인한다"
+            else
+              echo "- 광고 식별자 부품 없음(GoogleAppMeasurementIdentitySupport · GoogleAdsOnDeviceConversion 가 앱에 없다)" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          fi
 
       - name: 푸시 권한을 실어 임시(ad-hoc) 서명
         run: |
