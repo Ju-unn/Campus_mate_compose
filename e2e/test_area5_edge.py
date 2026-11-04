@@ -230,8 +230,7 @@ class RegistryTest(unittest.TestCase):
         self.assertIn("http.MultipartRequest('PUT', _api.uri('/me/photos'))", me)
         tags = (tools.ROOT / 'frontend' / 'lib' / 'profile' / 'traits' / 'model' / 'repository' / 'http_tag_picker_repository.dart').read_text(encoding='utf-8')
         self.assertIn("'/profile-onboarding/$endpoint'", tags)
-        failure = (tools.ROOT / 'frontend' / 'lib' / 'common' / 'failure.dart').read_text(encoding='utf-8')
-        self.assertIn(f"return '{NETWORK}';", failure)
+        self.assertEqual(tools.arb_messages()['errorNetwork'], NETWORK)  # 문구는 ARB 한 곳 — failure.dart 는 종류만 든다
         self.assertEqual(area5_edge.NETWORK, NETWORK)
 
     def test_there_is_no_request_timeout_in_the_app_outside_the_allowed_places(self):

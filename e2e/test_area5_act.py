@@ -319,7 +319,7 @@ class AppContractTest(unittest.TestCase):
 
     def test_the_literals_the_app_looks_for_are_in_the_real_screens(self):
         # 앱 쪽이 찾는 글자(앱바 제목 · 안내 · 라벨 · 오류)가 지금 lib 에 그대로 있다 — 시나리오가 아니라 코드에서 옮긴 글자다.
-        screens = '\n'.join(path.read_text(encoding='utf-8') for path in (tools.ROOT / 'frontend' / 'lib').rglob('*.dart'))
+        screens = tools.lib_screens_text()
         for literal in ('저장', '프로필 편집', '자기소개·태그 수정', '이상형 조건 수정', '기본 정보 수정', '저장했어요', '사용할 수 있는 닉네임이에요',
                         '한글 또는 영문 2~5자로 입력해 주세요', '이미 있는 닉네임이에요', '120~230 사이로 입력해 주세요', '키는 상관없어요',
                         '나이는 상관없어요', '강아지상', '고양이상', '여우상', '곰상', '토끼상', '아랍상', '두부상', '선한상', '시크상', '청순상',

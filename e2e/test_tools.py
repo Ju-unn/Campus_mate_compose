@@ -220,5 +220,52 @@ class ParserTest(unittest.TestCase):
         self.assertEqual(build_parser().parse_args(['report']).bundle, 'area1-1')
 
 
+class LibScreensTextTest(unittest.TestCase):
+    """화면 문구가 ARB(frontend/lib/l10n/app_ko.arb) 로 옮겨 가도, 화면 코드에서 `'글자'` 를 찾는 소스 읽기 시험이 그대로 맞게 하는 도우미."""
+
+    def write_lib(self, folder, arb):
+        lib = Path(folder) / 'frontend' / 'lib'
+        (lib / 'faq' / 'view').mkdir(parents=True)
+        (lib / 'l10n').mkdir()
+        (lib / 'faq' / 'view' / 'faq_screen.dart').write_text("Text('옛 글자');", encoding='utf-8')
+        (lib / 'l10n' / 'app_localizations_ko.dart').write_text("String get generated => '생성 파일';", encoding='utf-8')
+        (lib / 'l10n' / 'app_ko.arb').write_text(json.dumps(arb, ensure_ascii=False), encoding='utf-8')
+
+    def text_of(self, arb):
+        with tempfile.TemporaryDirectory() as folder, mock.patch.object(tools, 'ROOT', Path(folder)):
+            self.write_lib(folder, arb)
+            return tools.lib_screens_text()
+
+    def test_it_has_the_dart_sources_and_every_arb_message_as_a_single_quoted_dart_string(self):
+        text = self.text_of({'@@locale': 'ko', 'faqScreenTitle': '자주 묻는 질문', 'emptyBody': '가\n나', 'quote': "it's", 'slash': 'a\\b'})
+
+        self.assertIn("Text('옛 글자')", text)
+        self.assertIn("'자주 묻는 질문'", text)
+        self.assertIn("'가\\n나'", text)  # Dart 소스에서는 줄바꿈이 \n 이스케이프다
+        self.assertIn("'it\\'s'", text)
+        self.assertIn("'a\\\\b'", text)
+
+    def test_metadata_and_the_generated_dart_files_are_left_out(self):
+        text = self.text_of({'@@locale': 'ko', 'faqScreenTitle': '제목', '@faqScreenTitle': {'placeholders': {}}})
+
+        self.assertNotIn('@@locale', text)
+        self.assertNotIn('placeholders', text)
+        self.assertNotIn('생성 파일', text)
+
+    def test_arb_messages_is_the_key_to_text_table_of_the_real_arb(self):
+        messages = tools.arb_messages()
+
+        self.assertEqual(messages['commonRetry'], '다시 시도')
+        self.assertEqual(messages['errorNetwork'], '네트워크 연결을 확인해 주세요')
+        self.assertFalse([key for key in messages if key.startswith('@')])
+
+    def test_the_real_repository_has_the_sources_and_the_moved_messages(self):
+        text = tools.lib_screens_text()
+
+        self.assertIn('class NotificationsScreen', text)
+        self.assertIn("'알림을 불러오지 못했어요'", text)
+        self.assertIn("'카드가 도착하거나 대화 신청이 오면\\n여기에 모여요'", text)
+
+
 if __name__ == '__main__':
     unittest.main()

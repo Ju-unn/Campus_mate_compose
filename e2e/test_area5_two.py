@@ -216,7 +216,7 @@ class RegistryTest(unittest.TestCase):
             self.assertNotIn('wait: _twoBatchWait', text.split(f"'{case}'", 1)[1].split("'E-WD-", 1)[0], case)
 
     def test_the_literals_the_app_looks_for_are_in_the_real_screens(self):
-        screens = '\n'.join(p.read_text(encoding='utf-8') for p in (tools.ROOT / 'frontend' / 'lib').rglob('*.dart'))
+        screens = tools.lib_screens_text()
         for literal in ('상대가 채팅방을 나가 더 이상 메시지를 보낼 수 없어요.', '채팅방 나가기', '내가 쓴 리뷰', '아직 쓴 리뷰가 없어요'):
             with self.subTest(literal):
                 self.assertIn(f"'{literal}'", screens)
