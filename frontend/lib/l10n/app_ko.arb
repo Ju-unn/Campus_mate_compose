@@ -29,6 +29,7 @@
   "errorServerUnavailable": "잠시 뒤 다시 시도해 주세요",
   "errorSessionExpired": "세션이 만료됐어요, 다시 로그인해 주세요",
   "errorSocialLogin": "로그인하지 못했어요. 잠시 뒤 다시 시도해 주세요",
+  "errorStoreOpenFailed": "스토어를 열지 못했어요. 스토어에서 CampusMate 를 검색해 주세요.",
   "errorSuspended": "이용이 제한된 계정이에요",
   "errorTryLater": "잠시 후 다시 시도해 주세요",
   "errorUnknown": "알 수 없는 오류가 발생했습니다",
