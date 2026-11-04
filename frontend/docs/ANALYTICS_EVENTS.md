@@ -45,6 +45,7 @@
 - `seconds` 는 앱을 껐다 켜면 그 단계의 시계가 다시 시작한다. 자리를 비운 시간은 3600 에서 잘린다.
 - `card_view` 는 앱을 다시 켜면 같은 날 카드가 한 번 더 센다. 사람 수가 필요하면 사용자 수 지표로 본다.
 - 한 이벤트가 둘 이상의 의미를 가질 때는 매개변수 값을 늘리지 말고 이벤트를 나눈다(값 목록은 `analytics_values_test.dart` 가 못박는다).
+- **심사원 로그인은 `login` 을 남기지 않는다**(앱 1.0.2, 안드로이드 전용 숨은 입구 — 시작 화면 로고 7번 탭, `auth/social/viewmodel/reviewer_login_view_model.dart`; `reviewer_login_view_model_test.dart` 가 못박는다). 구글 Play 심사원의 비밀번호 로그인이 `method` 별 로그인 수단 비율에 섞이지 않게 하려는 것이다. 위 표의 `login` 은 소셜 로그인(`kakao` · `google` · `apple`)만 센다.
 
 ## 2. 앱이 버틴 오류 (Crashlytics, 비치명)
 
