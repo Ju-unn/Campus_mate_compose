@@ -1,4 +1,5 @@
 import 'package:campus_mate/common/widgets/app_bottom_nav.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 
@@ -14,7 +15,7 @@ class ComingSoonScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: const Center(child: Text('곧 만나요', style: AppTypography.headline)),
+      body: Center(child: Text(context.l10n.coreComingSoon, style: AppTypography.headline)),
       bottomNavigationBar: AppBottomNav(current: tab),
     );
   }

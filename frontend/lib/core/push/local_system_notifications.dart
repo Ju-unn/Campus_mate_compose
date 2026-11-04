@@ -23,8 +23,10 @@ class LocalSystemNotifications implements SystemNotifications {
   static final NotificationDetails _details = NotificationDetails(
     android: AndroidNotificationDetails(
       'campus_mate_default',
+      // l10n-ignore-start(wire): 안드로이드 네이티브 MainActivity.kt 가 만드는 같은 채널의 이름 · 설명과 글자까지 같아야 한다(문구 파일을 못 읽는 쪽이 원본)
       'CampusMate 알림',
       channelDescription: '카드 도착 · 수락 · 매칭 · 채팅 알림',
+      // l10n-ignore-end
       // 화면 위에 잠깐 내려오는 헤드업 알림이 되게 한다(안드로이드 7 이하는 priority, 8+ 는 채널 중요도).
       importance: Importance.high,
       priority: Priority.high,

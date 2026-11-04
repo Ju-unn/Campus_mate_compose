@@ -126,13 +126,13 @@ void main() {
     expect(gate.fetchCount, 1);
   });
 
-  test('저장이 실패하면 문구를 남기고 다시 누를 수 있다 — 게이트는 읽지 않는다', () async {
+  test('저장이 실패하면 실패 종류를 남기고 다시 누를 수 있다 — 게이트는 읽지 않는다', () async {
     consents.nextResult = const FailureResult(NetworkFailure());
     vm().toggleAll();
 
     await vm().submit();
 
-    expect(state().errorMessage, const NetworkFailure().toDisplayMessage());
+    expect(state().error, isA<NetworkFailure>());
     expect(state().isSubmitting, isFalse);
     expect(state().canSubmit, isTrue);
     expect(gate.fetchCount, 0);

@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -84,7 +85,7 @@ class _PhotoSliderState extends State<PhotoSlider> {
                   child: Semantics(
                     container: true,
                     image: true,
-                    label: '실제 사진 ${index + 1}, 전체 ${photos.length}장',
+                    label: context.l10n.commonPhotoSliderLabel(number: index + 1, total: photos.length),
                     // 그림을 decoration 으로 깐다 — Image 위젯은 그림 비율로 제 높이를 주장한다.
                     child: Container(
                       clipBehavior: Clip.antiAlias,

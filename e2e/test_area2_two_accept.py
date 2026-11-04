@@ -28,16 +28,28 @@ A, B = 'id-1', 'id-2'
 UNIQUE = {'retry': False}  # 두 번 가면 안 되는 요청 — tools.call 이 한 번만 보낸다
 
 
+def label_backed(label, sources, messages):
+    """[label](Dart 소스 모양 그대로의 글자)이 인용한 파일들의 소스 [sources] 에 문자열로 있거나, 문구 파일(ARB)로 옮겨 갔다면
+    그 글자의 키(들)를 그 파일이 읽는가. [messages] = ARB 키 → 글자(`tools.arb_messages()`).
+    ARB 에 같은 글자의 키가 있다는 것만으로는 통과시키지 않는다 — 그 키를 인용한 파일이 읽어야 한다(글자가 다른 파일로 옮겨 가면 깨지는 성질을 지킨다)."""
+    if any(f"'{label}'" in source for source in sources):
+        return True
+    keys = [key for key, text in messages.items() if text.replace('\\', '\\\\').replace("'", "\\'").replace('\n', '\\n') == label]
+    return any(re.search(rf'\b{key}\b', source) for key in keys for source in sources)
+
+
 def unbacked_labels(dart_name):
     """integration_test/[dart_name] 의 `const _x = '글자'; // 경로.dart …` 줄 중, 주석에 적은 lib 파일에 그 글자가 문자열로 없는 것 → [(상수, 글자, 경로)].
-    줄 번호가 아니라 글자 자체로 본다 — 화면이 바뀌어 글자가 다른 파일로 옮겨 가면(PR #568: 받은 신청 줄의 거절 · 수락하기가 새 화면으로) 여기서 먼저 깨진다."""
+    줄 번호가 아니라 글자 자체로 본다 — 화면이 바뀌어 글자가 다른 파일로 옮겨 가면(PR #568: 받은 신청 줄의 거절 · 수락하기가 새 화면으로) 여기서 먼저 깨진다.
+    글자를 문구 파일(ARB)로 옮긴 화면은 그 글자의 키를 읽으면 통과한다(1.0.2 B8)."""
     lib = tools.ROOT / 'frontend' / 'lib'
+    messages = tools.arb_messages()
     source = (tools.ROOT / 'frontend' / 'integration_test' / dart_name).read_text(encoding='utf-8')
     missing = []
     for const, label, comment in re.findall(r"^const (_\w+) = '([^']+)'; //(.*)$", source, re.M):
         for cited in re.findall(r'[\w/]+\.dart', comment):
             files = [p for p in lib.rglob(Path(cited).name) if p.as_posix().endswith('/' + cited)]
-            if not any(f"'{label}'" in p.read_text(encoding='utf-8') for p in files):
+            if not label_backed(label, [p.read_text(encoding='utf-8') for p in files], messages):
                 missing.append((const, label, cited))
     return missing
 
@@ -641,6 +653,31 @@ class RealTwoTest(unittest.TestCase):
         self.assertLess(time.monotonic() - started, 20)
         self.assertEqual(result, 'fail', memo)
         self.assertIn('matches', memo)
+
+
+class LabelBackedTest(unittest.TestCase):
+    """`label_backed` — 앱 시나리오가 찾는 글자가 인용한 lib 파일에 문자열로 있거나, 문구 파일(ARB)로 옮겨 갔으면 그 키를 읽는지."""
+
+    MESSAGES = {'commonCardActionReject': '거절', 'otherReject': '거절', 'consentScreenBody': "필수 항목에 모두 동의하면\n'마케팅' 은 선택이에요."}
+
+    def test_a_string_in_the_cited_file_is_enough(self):
+        self.assertTrue(label_backed('거절', ["Text('거절')"], self.MESSAGES))
+
+    def test_a_label_moved_to_the_arb_is_backed_when_the_cited_file_reads_its_key(self):
+        self.assertTrue(label_backed('거절', ['label: context.l10n.commonCardActionReject,'], self.MESSAGES))
+
+    def test_the_arb_having_the_same_text_is_not_enough_if_the_cited_file_reads_no_such_key(self):
+        # 글자가 다른 화면으로 옮겨 가면(다른 키를 읽으면) 여기서 먼저 깨져야 한다.
+        self.assertFalse(label_backed('거절', ['label: context.l10n.somethingElse,'], self.MESSAGES))
+        self.assertFalse(label_backed('거절', ['label: context.l10n.commonCardActionRejectAll,'], self.MESSAGES))
+
+    def test_a_label_in_neither_the_file_nor_the_arb_is_unbacked(self):
+        self.assertFalse(label_backed('수락', ["Text('거절')", 'context.l10n.commonCardActionReject'], self.MESSAGES))
+
+    def test_labels_are_compared_in_the_dart_source_spelling(self):
+        # 시나리오 상수는 소스 그대로(`\n`, `\'`)이고 ARB 값은 진짜 줄바꿈 · 따옴표다.
+        spelled = "필수 항목에 모두 동의하면\\n\\'마케팅\\' 은 선택이에요."
+        self.assertTrue(label_backed(spelled, ['Text(context.l10n.consentScreenBody)'], self.MESSAGES))
 
 
 if __name__ == '__main__':

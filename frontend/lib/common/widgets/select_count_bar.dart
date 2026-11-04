@@ -1,3 +1,4 @@
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -58,12 +59,12 @@ class SelectCountBar extends StatelessWidget {
           ],
         ),
         Text(
-          '$selected/$max개 선택',
+          context.l10n.commonSelectCountLabel(selected: selected, max: max),
           style: AppTypography.labelSmall.copyWith(color: _color, height: _lineHeight / 14),
         ),
         if (selected < min)
           Text(
-            '· 최소 $min개',
+            context.l10n.commonSelectCountMinHint(min: min),
             style: AppTypography.bodySmall.copyWith(color: AppColors.error, height: _lineHeight / 14),
           ),
       ],

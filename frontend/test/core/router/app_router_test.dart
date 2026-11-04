@@ -57,6 +57,7 @@ import 'package:campus_mate/home/view/home_screen.dart';
 import 'package:campus_mate/matching/model/repository/card_repository_provider.dart';
 import 'package:campus_mate/matching/view/acceptance_detail_screen.dart';
 import 'package:campus_mate/matching/view/conversations_screen.dart';
+import 'package:campus_mate/matching/view/match_made_screen.dart';
 import 'package:campus_mate/me/model/repository/me_repository_provider.dart';
 import 'package:campus_mate/me/model/data/my_profile.dart';
 import 'package:campus_mate/me/view/avatar_regen_pick_screen.dart';
@@ -458,6 +459,17 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(KakaoIdSettingsScreen), findsOneWidget);
+    });
+
+    testWidgets('/match-made 는 상대 이름을 못 받으면 "상대" 로 부른다 — 글자는 문구 파일 coreMatchMadeDefaultNickname', (tester) async {
+      final router = await pumpRouter(tester);
+
+      router.go(AppRoutes.matchMade);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(find.byType(MatchMadeScreen), findsOneWidget);
+      expect(find.textContaining('상대 님과 매칭됐어요.'), findsOneWidget);
     });
 
     testWidgets('/settings/faq 는 21 자주 묻는 질문이다', (tester) async {

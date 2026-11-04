@@ -41,6 +41,7 @@ void main() {
     (const SocialLoginFailure(), '로그인하지 못했어요. 잠시 뒤 다시 시도해 주세요'),
     (const AppErrorFailure(AppError.notificationsLoad), '알림을 불러오지 못했어요'),
     (const AppErrorFailure(AppError.tryLater), '잠시 후 다시 시도해 주세요'),
+    (const AppErrorFailure(AppError.storeOpenFailed), '스토어를 열지 못했어요. 스토어에서 CampusMate 를 검색해 주세요.'),
   ];
 
   group('failureText', () {

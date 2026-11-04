@@ -1,4 +1,6 @@
 import 'package:campus_mate/chat/viewmodel/conversations_view_model.dart';
+import 'package:campus_mate/common/widgets/app_tab_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -18,12 +20,12 @@ class AppBottomNav extends ConsumerWidget {
 
   final AppTab current;
 
-  static const _items = <(AppTab, IconData, String, String)>[
-    (AppTab.main, AppIcons.house, '메인', AppRoutes.home),
-    (AppTab.today, AppIcons.heart, '오늘', AppRoutes.today),
-    (AppTab.community, AppIcons.users, '커뮤니티', AppRoutes.community),
-    (AppTab.chat, AppIcons.messageCircle, '대화', AppRoutes.conversations),
-    (AppTab.me, AppIcons.userRound, '나', AppRoutes.myProfile),
+  static const _items = <(AppTab, IconData, String)>[
+    (AppTab.main, AppIcons.house, AppRoutes.home),
+    (AppTab.today, AppIcons.heart, AppRoutes.today),
+    (AppTab.community, AppIcons.users, AppRoutes.community),
+    (AppTab.chat, AppIcons.messageCircle, AppRoutes.conversations),
+    (AppTab.me, AppIcons.userRound, AppRoutes.myProfile),
   ];
 
   @override
@@ -44,11 +46,11 @@ class AppBottomNav extends ConsumerWidget {
             height: 64,
             child: Row(
               children: [
-                for (final (tab, icon, label, route) in _items)
+                for (final (tab, icon, route) in _items)
                   Expanded(
                     child: _NavItem(
                       icon: icon,
-                      label: label,
+                      label: tab.label(context.l10n),
                       isSelected: tab == current,
                       badge: tab == AppTab.chat ? badge : 0,
                       onTap: () => context.go(route),
@@ -126,7 +128,7 @@ class _CountBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     // 숫자만 읽으면 무슨 수인지 알 수 없다 — 뜻을 말로 주고 그림은 읽지 않는다.
     return Semantics(
-      label: '안 읽음 $count개',
+      label: context.l10n.commonBottomNavUnreadCount(count: count),
       child: ExcludeSemantics(
         child: Container(
           constraints: const BoxConstraints(minWidth: 16, minHeight: 16),

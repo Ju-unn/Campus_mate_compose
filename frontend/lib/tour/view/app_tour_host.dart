@@ -3,9 +3,11 @@ import 'dart:math' as math;
 import 'dart:ui' show lerpDouble;
 
 import 'package:campus_mate/common/widgets/entrance.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_motion.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
+import 'package:campus_mate/l10n/app_localizations.dart';
 import 'package:campus_mate/matching/viewmodel/today_cards_view_model.dart';
 import 'package:campus_mate/tour/view/app_tour_steps.dart';
 import 'package:campus_mate/tour/view/coach_bubble.dart';
@@ -470,11 +472,11 @@ class _AppTourHostState extends ConsumerState<AppTourHost>
 
   /// 말풍선 제목. 서버 값으로 만드는 단계([TourStep.titleAt])만 오늘 카드 모델을 본다 — 나머지 단계는 모델을 만들지 않아
   /// 로그인 전 앱 시작에 서버 조회가 가지 않는다. 값이 말풍선이 뜬 뒤에 오면 제목이 그때 바뀐다.
-  String _titleOf(WidgetRef ref, TourStep step) {
+  String _titleOf(WidgetRef ref, AppLocalizations l10n, TourStep step) {
     if (step.titleAt == null) {
-      return step.title;
+      return step.copy.title(l10n);
     }
-    return step.titleFor(ref.watch(todayCardsViewModelProvider.select((today) => today.nextIssueAt)));
+    return step.titleFor(l10n, ref.watch(todayCardsViewModelProvider.select((today) => today.nextIssueAt)));
   }
 
   /// 말풍선은 구멍 아래(안 들어가면 위)에 선 길이만큼 떨어져 놓인다(가로는 가운데). 대상이 없으면 화면 가운데.
@@ -488,12 +490,12 @@ class _AppTourHostState extends ConsumerState<AppTourHost>
       key: key,
       rise: 8,
       child: Consumer(
-        builder: (_, ref, _) => CoachBubble(
+        builder: (bubbleContext, ref, _) => CoachBubble(
           key: _bubbleKey,
           number: tour.index - tour.skipped + 1,
           total: appTourSteps.length - tour.skipped,
-          title: _titleOf(ref, step),
-          body: step.body,
+          title: _titleOf(ref, bubbleContext.l10n, step),
+          body: step.copy.body(bubbleContext.l10n),
           isLast: tour.index == appTourSteps.length - 1,
           detail: step.detail?.call(context),
           onNext: _next,

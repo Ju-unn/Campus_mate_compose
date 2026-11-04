@@ -27,10 +27,10 @@ class ReferralCodeViewModel extends Notifier<ReferralCodeUiState> {
       state = result.when(
         onSuccess: (referrerId) => state.copyWith(isSubmitting: false, referrerId: referrerId),
         // 404 · 409 · 422 는 서버 문구(errors.py)를 그대로 보여 준다 — 거절 이유를 앱이 지어내지 않는다.
-        onFailure: (failure) => state.copyWith(isSubmitting: false, errorMessage: failure.toDisplayMessage()),
+        onFailure: (failure) => state.copyWith(isSubmitting: false, error: failure),
       );
     } catch (_) {
-      state = state.copyWith(isSubmitting: false, errorMessage: const UnknownFailure().toDisplayMessage());
+      state = state.copyWith(isSubmitting: false, error: const UnknownFailure());
     }
   }
 }

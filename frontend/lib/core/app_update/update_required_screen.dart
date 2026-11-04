@@ -1,6 +1,9 @@
+import 'package:campus_mate/common/failure.dart';
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/app_toast.dart';
 import 'package:campus_mate/consent/model/repository/open_url.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_spacing.dart';
@@ -11,9 +14,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// pen 프레임 `zSzOG` 의 요소 사이 간격 20. 간격 토큰(md 16 · lg 24) 사이 값이다(인터넷 없음 화면과 같다).
 const double _gap = 20;
-
-/// 스토어를 못 열었을 때 안내(사용자 승인 문구).
-const String updateStoreOpenFailedMessage = '스토어를 열지 못했어요. 스토어에서 CampusMate 를 검색해 주세요.';
 
 /// 01-2 업데이트 필요(pen `zSzOG`, 01-1 인터넷 없음 `NWGuf` 와 같은 틀). 서버가 정한 최소 버전보다 낮은 앱을 막는다.
 /// 뒤로가기 · 닫기가 없고, "업데이트하러 가기" 가 스토어 상세를 기기 앱으로 연다. 못 열면 짧은 토스트.
@@ -63,11 +63,12 @@ class _UpdateRequiredScreenState extends ConsumerState<UpdateRequiredScreen>
     } finally {
       _opening = false;
     }
-    if (!opened) {
+    if (!opened && mounted) {
+      // 스토어를 못 열었을 때 안내 문구는 사용자 승인 문구다(문구 파일 `errorStoreOpenFailed`).
       showTimedToast(
-        const AppToast(
-          leading: Icon(AppIcons.alertTriangle, size: 16, color: AppColors.onInk),
-          label: updateStoreOpenFailedMessage,
+        AppToast(
+          leading: const Icon(AppIcons.alertTriangle, size: 16, color: AppColors.onInk),
+          label: context.appErrorText(AppError.storeOpenFailed),
         ),
       );
     }
@@ -98,7 +99,7 @@ class _UpdateRequiredScreenState extends ConsumerState<UpdateRequiredScreen>
                     ),
                   ),
                 ),
-                AppButton(label: '업데이트하러 가기', onPressed: _openStore),
+                AppButton(label: context.l10n.coreUpdateButton, onPressed: _openStore),
               ],
             ),
           ),
@@ -131,14 +132,14 @@ class _UpdateNotice extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.lg),
           Text(
-            '새 버전으로 업데이트해 주세요',
+            context.l10n.coreUpdateTitle,
             textAlign: TextAlign.center,
             // 제목 `ZBzIg` 20/700 #222222. 줄높이 속성 없음 — 토큰 1.5 (pen 렌더 값 확인 대상).
             style: AppTypography.navTitle.copyWith(color: AppColors.ink),
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
-            '더 안전하고 편하게 쓸 수 있도록 앱이 바뀌었어요.\n업데이트한 뒤 다시 열어 주세요.',
+            context.l10n.coreUpdateBody,
             textAlign: TextAlign.center,
             // 설명 `DFs55` 14 / 보통 / #6A6A6A / 1.55 (bodySmall 토큰과 같다).
             style: AppTypography.bodySmall.copyWith(color: AppColors.muted),

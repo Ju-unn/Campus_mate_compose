@@ -1,4 +1,5 @@
 import 'package:campus_mate/common/widgets/app_checkbox.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -91,7 +92,7 @@ class _Badge extends StatelessWidget {
       ),
       // pen `klkPA` 글자 칸 16 — badge 토큰 줄높이(1.3)면 알약이 20 보다 얇아진다(heart_task_row 와 같은 값).
       child: Text(
-        isRequired ? '필수' : '선택',
+        isRequired ? context.l10n.consentRowBadgeRequired : context.l10n.consentRowBadgeOptional,
         style: AppTypography.badge.copyWith(
           fontWeight: FontWeight.w700,
           color: isRequired ? AppColors.primaryText : AppColors.muted,
@@ -114,7 +115,7 @@ class _ViewButton extends StatelessWidget {
     return Semantics(
       button: true,
       // "보기"만 읽으면 어느 약관인지 모른다 — 줄 글을 붙여 읽는다.
-      label: '${label.replaceAll('\n', ' ')} 보기',
+      label: context.l10n.consentRowViewLabel(label: label.replaceAll('\n', ' ')),
       excludeSemantics: true,
       child: InkWell(
         onTap: onPressed,
@@ -125,7 +126,7 @@ class _ViewButton extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('보기', style: AppTypography.bodySmall.copyWith(color: AppColors.muted)),
+                Text(context.l10n.consentRowView, style: AppTypography.bodySmall.copyWith(color: AppColors.muted)),
                 const SizedBox(width: 2),
                 const Icon(AppIcons.chevronRight, size: 20, color: AppColors.muted),
               ],

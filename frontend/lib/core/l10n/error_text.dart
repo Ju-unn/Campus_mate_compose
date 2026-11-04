@@ -34,6 +34,7 @@ String failureText(AppLocalizations l10n, Failure failure) => switch (failure) {
 /// 앱이 정하는 에러 종류([AppError])의 글자. 화면이 [Failure] 객체 없이 직접 알리는 자리(실패 패널 등)가 쓴다.
 String appErrorKindText(AppLocalizations l10n, AppError error) => switch (error) {
       AppError.notificationsLoad => l10n.errorNotificationsLoad,
+      AppError.storeOpenFailed => l10n.errorStoreOpenFailed,
       AppError.tryLater => l10n.errorTryLater,
     };
 

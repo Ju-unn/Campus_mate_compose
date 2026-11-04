@@ -1,3 +1,4 @@
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
 import 'package:campus_mate/core/theme/app_radius.dart';
@@ -29,7 +30,7 @@ class CardActionBar extends StatelessWidget {
             width: 104,
             child: _ActionButton(
               icon: AppIcons.x,
-              label: '거절',
+              label: context.l10n.commonCardActionReject,
               background: AppColors.surfaceStrong,
               foreground: AppColors.ink,
               // 꺼졌을 때도 분홍(`primaryDisabled`)이 아니라 회색이다 — 거절은 분홍 계열이 아니다.
@@ -43,7 +44,7 @@ class CardActionBar extends StatelessWidget {
           Expanded(
             child: _ActionButton(
               icon: AppIcons.heart,
-              label: '대화 신청하기',
+              label: context.l10n.commonCardActionRequestChat,
               background: AppColors.primary,
               foreground: AppColors.onPrimary,
               disabledBackground: AppColors.primaryDisabled,

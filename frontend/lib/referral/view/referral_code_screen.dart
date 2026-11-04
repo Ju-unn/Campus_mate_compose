@@ -1,5 +1,7 @@
 import 'package:campus_mate/common/widgets/icon_3d.dart';
 import 'package:campus_mate/common/widgets/labeled_field.dart';
+import 'package:campus_mate/core/l10n/error_text.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/app_routes.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
 import 'package:campus_mate/core/theme/app_icons.dart';
@@ -14,15 +16,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-// 화면 문구 — pen U0dkgR(2026-09-28 값표). 오류 문구는 서버 errors.py 문구를 그대로 보여 준다.
-const _badgeLabel = '마지막 단계'; // pen zNhbv
-const _headline = '친구에게 받은 코드가 있나요?'; // pen De0I8
-const _description = '코드를 입력하면 친구가 남긴 따뜻한 한마디를 프로필에 담을 수 있어요.'; // pen Bl97e
-const _fieldLabel = '추천 코드'; // pen hrqDX
+// 화면 문구는 문구 파일(ARB)에 있다 — pen U0dkgR(2026-09-28 값표): 배지 zNhbv · 헤드라인 De0I8 · 설명 Bl97e · 칸 이름 hrqDX · 확인 w4Fzb · 건너뛰기 XtL3I.
+// 오류 문구는 서버 errors.py 문구를 그대로 보여 준다(`context.errorText`).
 // pen e8YTTe 옛 글 "예: CAMPUS-2409" 는 코드 형식(6자)과 달랐다 — 대장이 pen 을 "예: K7M2QX" 로 고친다(2026-09-29).
-const _fieldHint = '예: K7M2QX';
-const _confirmLabel = '코드 확인하기'; // pen w4Fzb
-const _skipLabel = '건너뛰기'; // pen XtL3I
 
 // 토큰에 없는 pen 값.
 const _bodyTop = 52.0; // pen IzMEA padding top
@@ -93,17 +89,20 @@ class _Content extends StatelessWidget {
           child: Image.asset('assets/images/mascot-female.png', width: _mascotSize, height: _mascotSize),
         ),
         const SizedBox(height: _sectionGap),
-        Text(_headline, style: AppTypography.headline.copyWith(color: AppColors.ink, height: _textHeight)),
+        Text(context.l10n.referralCodeHeadline, style: AppTypography.headline.copyWith(color: AppColors.ink, height: _textHeight)),
         const SizedBox(height: _sectionGap),
-        Text(_description, style: AppTypography.body.copyWith(color: AppColors.body, height: _textHeight)),
+        Text(context.l10n.referralCodeDescription, style: AppTypography.body.copyWith(color: AppColors.body, height: _textHeight)),
         const SizedBox(height: _sectionGap),
         // pen b27UyR · Wgm4Y. 오류 줄은 04-1 닉네임과 같은 LabeledField 오류 모양이다(대장 결정).
         LabeledField(
-          label: _fieldLabel,
-          placeholder: _fieldHint,
+          label: context.l10n.referralCodeFieldLabel,
+          placeholder: context.l10n.referralCodeFieldHint,
           initialValue: state.code,
           onChanged: onChanged,
-          errorText: state.errorMessage,
+          errorText: switch (state.error) {
+            final error? => context.errorText(error),
+            null => null,
+          },
           inputFormatters: [
             _UpperCaseNoSpaceFormatter(),
             LengthLimitingTextInputFormatter(referralCodeLength),
@@ -132,7 +131,7 @@ class _StepBadge extends StatelessWidget {
           const Icon3d(AppIcon3d.sparkles, size: 18), // pen yjiCa
           const SizedBox(width: _badgeGap),
           Text(
-            _badgeLabel,
+            context.l10n.referralCodeBadge,
             style: AppTypography.caption.copyWith(color: AppColors.primaryText, fontWeight: FontWeight.w600),
           ),
         ],
@@ -164,7 +163,7 @@ class _ConfirmButton extends StatelessWidget {
         disabledForegroundColor: AppColors.disabled,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
       ),
-      child: Text(_confirmLabel, style: AppTypography.label.copyWith(height: _textHeight)),
+      child: Text(context.l10n.referralCodeConfirm, style: AppTypography.label.copyWith(height: _textHeight)),
     );
   }
 }
@@ -199,7 +198,7 @@ class _SkipButton extends StatelessWidget {
           // 높이는 최소값 — 글자를 키우면 따라 늘어난다(ui 인수인계 메모 minHeight 방식).
           constraints: const BoxConstraints(minHeight: _skipHeight),
           child: Center(
-            child: Text(_skipLabel, style: AppTypography.labelSmall.copyWith(color: AppColors.primaryText)),
+            child: Text(context.l10n.commonSkip, style: AppTypography.labelSmall.copyWith(color: AppColors.primaryText)),
           ),
         ),
       ),

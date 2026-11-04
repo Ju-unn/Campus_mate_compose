@@ -37,5 +37,11 @@ void main() {
         expect(find.byIcon(AppIcons.settings), findsNothing);
       });
     }
+
+    testWidgets('준비 중 화면은 가운데에 "곧 만나요" 를 보인다 — 글자는 문구 파일 coreComingSoon', (tester) async {
+      await pumpTab(tester, AppTab.community);
+
+      expect(find.text('곧 만나요'), findsOneWidget);
+    });
   });
 }

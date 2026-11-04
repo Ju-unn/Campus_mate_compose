@@ -1,5 +1,6 @@
 import 'package:campus_mate/common/widgets/app_button.dart';
 import 'package:campus_mate/common/widgets/icon_3d.dart';
+import 'package:campus_mate/core/l10n/l10n_context.dart';
 import 'package:campus_mate/core/router/onboarding_step_listenable_provider.dart';
 import 'package:campus_mate/core/router/verification_gate_listenable_provider.dart';
 import 'package:campus_mate/core/theme/app_colors.dart';
@@ -55,7 +56,7 @@ class _OfflineScreenState extends ConsumerState<OfflineScreen> {
                 ),
               ),
               const SizedBox(height: _gap),
-              AppButton(label: '다시 시도', isLoading: _isRetrying, onPressed: _retry),
+              AppButton(label: context.l10n.commonRetry, isLoading: _isRetrying, onPressed: _retry),
             ],
           ),
         ),
@@ -79,14 +80,14 @@ class _OfflineNotice extends StatelessWidget {
           const Icon3d(AppIcon3d.infoBlue, size: 120),
           const SizedBox(height: AppSpacing.lg),
           Text(
-            '인터넷 연결을 확인해 주세요',
+            context.l10n.coreOfflineTitle,
             textAlign: TextAlign.center,
             // Empty 제목 18/600, 줄높이 속성 없음 · 렌더 25(block_list_screen `_Empty` 와 같은 값).
             style: AppTypography.subtitle.copyWith(color: AppColors.ink, height: 25 / 18),
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
-            '연결되면 하던 곳으로 돌아갈게요',
+            context.l10n.coreOfflineBody,
             textAlign: TextAlign.center,
             style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
           ),

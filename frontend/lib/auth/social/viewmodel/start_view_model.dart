@@ -43,7 +43,7 @@ class StartViewModel extends Notifier<StartUiState> {
   void showBackExitHint() {
     state = StartUiState(
       inProgress: state.inProgress,
-      toast: const StartToast(message: backExitMessage, isCancellation: true),
+      toast: StartToast(message: backExitMessage, isCancellation: true),
     );
   }
 

@@ -32,11 +32,36 @@ class TourSteps(unittest.TestCase):
     def test_repo_steps_match_confirmed_titles(self):
         self.assertEqual(area1.CASES['E-HOME-35'](None), ('pass', ''))
 
-    def test_reordered_titles_fail(self):
-        titles = list(area2_tour.TITLES)
-        titles[0], titles[1] = titles[1], titles[0]
-        text = '\n'.join(f"    title: '{t}'," for t in titles)
-        self.assertTrue(area2_tour.steps_problems(text))
+    # 소스 모양 그대로의 작은 조각(단계 6개 + 제목 키 표) — 글자는 ARB 가 정하므로 키 → 글자 표를 따로 준다.
+    STEPS = """  TourStep(location: AppRoutes.home, copy: TourCopy.start),
+  TourStep(location: AppRoutes.home, copy: TourCopy.profile),
+  TourStep(location: AppRoutes.community, copy: TourCopy.community),
+  TourStep(location: AppRoutes.today, copy: TourCopy.arrival, titleAt: _arrivalTitle),
+  TourStep(location: AppRoutes.today, copy: TourCopy.precision),
+  TourStep(location: AppRoutes.heartStore, copy: TourCopy.heartFree),
+  TourCopy.start => l10n.tourStartTitle,
+  TourCopy.profile => l10n.tourProfileTitle,
+  TourCopy.community => l10n.tourCommunityTitle,
+  TourCopy.arrival => l10n.tourArrivalTitle,
+  TourCopy.precision => l10n.tourPrecisionTitle,
+  TourCopy.heartFree => l10n.tourHeartFreeTitle,
+"""
+    KEYS = ['tourStartTitle', 'tourProfileTitle', 'tourCommunityTitle', 'tourArrivalTitle', 'tourPrecisionTitle', 'tourHeartFreeTitle']
+    MESSAGES = dict(zip(KEYS, area2_tour.TITLES))
+
+    def test_titles_are_read_through_the_arb_keys_in_step_order(self):
+        self.assertEqual(area2_tour.steps_problems(self.STEPS, self.MESSAGES), [])
+
+    def test_reordered_steps_fail(self):
+        lines = self.STEPS.splitlines()
+        lines[0], lines[1] = lines[1], lines[0]
+        self.assertTrue(area2_tour.steps_problems('\n'.join(lines), self.MESSAGES))
+
+    def test_a_changed_title_text_fails(self):
+        self.assertTrue(area2_tour.steps_problems(self.STEPS, {**self.MESSAGES, 'tourStartTitle': '다른 제목'}))
+
+    def test_a_step_without_a_title_key_fails(self):
+        self.assertTrue(area2_tour.steps_problems(self.STEPS.replace('TourCopy.heartFree => l10n.tourHeartFreeTitle,', ''), self.MESSAGES))
 
     def test_bundle(self):
         self.assertEqual(area1.BUNDLES['area2-tour'], ['E-HOME-34', 'E-HOME-35'])
