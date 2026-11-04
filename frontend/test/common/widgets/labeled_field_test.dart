@@ -147,4 +147,38 @@ void main() {
       });
     }
   }
+
+  // 구글 플레이 심사원 로그인 창(비밀번호 칸)이 쓴다. 기본값은 false 라 기존 화면은 그대로다.
+  group('obscureText', () {
+    Future<void> pumpObscured(WidgetTester tester, {bool? obscureText}) {
+      return tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: obscureText == null
+                ? const LabeledField(label: 'Password')
+                : LabeledField(label: 'Password', obscureText: obscureText),
+          ),
+        ),
+      );
+    }
+
+    testWidgets('켜면 입력 글자를 가린다', (tester) async {
+      await pumpObscured(tester, obscureText: true);
+
+      expect(tester.widget<TextField>(find.byType(TextField)).obscureText, isTrue);
+    });
+
+    testWidgets('안 쓰면 가리지 않는다(기존 화면의 기본값)', (tester) async {
+      await pumpObscured(tester);
+
+      expect(tester.widget<TextField>(find.byType(TextField)).obscureText, isFalse);
+    });
+
+    testWidgets('가리는 칸은 자동 고침 · 글자 추천을 끈다 — 비밀번호가 키보드 사전에 남지 않게', (tester) async {
+      await pumpObscured(tester, obscureText: true);
+
+      final field = tester.widget<TextField>(find.byType(TextField));
+      expect((field.autocorrect, field.enableSuggestions), (false, false));
+    });
+  });
 }

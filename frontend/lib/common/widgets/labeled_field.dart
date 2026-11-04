@@ -23,6 +23,7 @@ class LabeledField extends StatelessWidget {
     this.keyboardType,
     this.inputFormatters,
     this.maxLines = 1,
+    this.obscureText = false,
     super.key,
   });
 
@@ -47,6 +48,10 @@ class LabeledField extends StatelessWidget {
   final List<TextInputFormatter>? inputFormatters;
   final int maxLines;
 
+  /// 입력 글자를 ●로 가린다(구글 플레이 심사원 로그인 창의 비밀번호 칸). 켜면 자동 고침 · 글자 추천도 끈다.
+  /// 한 줄 전용이다(`maxLines` 는 1 이어야 한다).
+  final bool obscureText;
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -61,6 +66,9 @@ class LabeledField extends StatelessWidget {
           keyboardType: keyboardType,
           inputFormatters: inputFormatters,
           maxLines: maxLines,
+          obscureText: obscureText,
+          autocorrect: !obscureText,
+          enableSuggestions: !obscureText,
           style: AppTypography.body.copyWith(color: AppColors.ink),
           decoration: InputDecoration(
             hintText: placeholder,

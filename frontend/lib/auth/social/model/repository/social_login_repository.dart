@@ -10,6 +10,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 abstract interface class SocialLoginRepository {
   Future<Result<void>> signIn(SocialProvider provider);
 
+  /// 구글 플레이 심사원 전용 아이디 · 비밀번호 로그인(시작 화면 로고를 빠르게 7번 누르면 열리는 숨은 창, 앱 1.0.2).
+  /// 운영에서 미리 비밀번호를 붙여 둔 기존 심사용 계정으로만 들어간다 — 가입(`signUp`)은 부르지 않는다.
+  /// 실패는 [RateLimitedFailure](429)와 [SocialLoginFailure](그 밖의 모든 실패, 잘못된 자격 포함)다.
+  /// 성공 뒤 이동은 [signIn] 과 같이 세션 리스너 → 게이트 → 라우터가 맡는다.
+  Future<Result<void>> signInWithPassword(String email, String password);
+
   /// 앱 로그아웃 직후 카카오 · 구글 SDK 쪽 로그인도 끊는다(`core/auth/sign_out.dart`, 애플은 지울 것이 없다). 실패는 삼킨다.
   Future<void> signOutProviders();
 }
