@@ -60,17 +60,17 @@ void main() {
       final handled = <HandledApiError>[];
       final api = ApiClient(
         'https://api.test',
-        MockClient((request) async => request.url.path == '/b' ? throw http.ClientException('끊김') : http.Response('', 500)),
+        MockClient((request) async => request.url.path == '/home' ? throw http.ClientException('끊김') : http.Response('', 500)),
         auth,
         onHandledError: handled.add,
       );
 
-      await api.send('GET', '/cards/3f2a9c1e-7b4d-4e8a-9c21-5d6e7f8a9b0c/accept', (_) {});
-      await api.sendRequest((token) => http.Request('GET', api.uri('/b')));
+      await api.send('GET', '/cards/3f2a9c1e-7b4d-4e8a-9c21-5d6e7f8a9b0c/decision', (_) {});
+      await api.sendRequest((token) => http.Request('GET', api.uri('/home')));
 
       expect(handled.map((e) => e.toString()), [
-        'HandledApiError(kind: ServerError, status: 500, route: /cards/:id/accept)',
-        'HandledApiError(kind: ClientException, status: -, route: /b)',
+        'HandledApiError(kind: ServerError, status: 500, route: /cards/:id/decision)',
+        'HandledApiError(kind: ClientException, status: -, route: /home)',
       ]);
     });
 

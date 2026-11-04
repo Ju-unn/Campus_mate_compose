@@ -7,12 +7,12 @@ void main() {
 
   test('값이 채워진 id(UUID)는 :id 로 바뀌고 쿼리 문자열은 떨어진다', () {
     expect(
-      patternOf('https://api.test/cards/3f2a9c1e-7b4d-4e8a-9c21-5d6e7f8a9b0c/accept?x=1'),
-      '/cards/:id/accept',
+      patternOf('https://api.test/cards/3f2a9c1e-7b4d-4e8a-9c21-5d6e7f8a9b0c/decision?x=1'),
+      '/cards/:id/decision',
     );
   });
 
-  test('고정된 낱말(소문자 · 하이픈 · 밑줄)만 남긴다', () {
+  test('앱이 부르는 고정 길 낱말(목록에 든 것)은 남긴다', () {
     expect(patternOf('https://api.test/profile-onboarding/next-step'), '/profile-onboarding/next-step');
     expect(patternOf('https://api.test/cards/today'), '/cards/today');
   });
@@ -30,18 +30,28 @@ void main() {
     expect(patternOf('https://api.test/referral/ABCD'), '/referral/:id');
   });
 
-  test('낱말처럼 보여도 길이가 너무 길면 :id 다(정해진 길 이름은 짧다)', () {
-    expect(patternOf('https://api.test/x/${'a' * 41}'), '/x/:id');
+  test('소문자 값(닉네임 · 영문 코드 · 토큰 조각)은 낱말 모양이어도 :id 다', () {
+    expect(patternOf('https://api.test/profiles/minji'), '/profiles/:id');
+    expect(patternOf('https://api.test/friend-reviews/targets/abcdef'), '/friend-reviews/targets/:id');
+    expect(patternOf('https://api.test/cards/push-tokens/abcdeftoken'), '/cards/push-tokens/:id');
+  });
+
+  test('목록에 없는 낱말은 소문자 · 하이픈 모양이어도 :id 다', () {
+    expect(patternOf('https://api.test/profiles/nickname/minji'), '/profiles/:id/:id');
+    expect(patternOf('https://api.test/invites/abcdef'), '/:id/:id');
   });
 
   test('쿼리 문자열은 어떤 값이 있어도 결과에 없다', () {
-    final pattern = patternOf('https://api.test/profile-onboarding/nickname-available?nickname=%EC%97%AC%EC%9A%B0');
-    expect(pattern, '/profile-onboarding/nickname-available');
+    final pattern = patternOf('https://api.test/profile-onboarding/nickname-availability?nickname=%EC%97%AC%EC%9A%B0');
+    expect(pattern, '/profile-onboarding/nickname-availability');
     expect(pattern, isNot(contains('?')));
   });
 
   test('조각이 6개를 넘으면 앞 6개만 본다', () {
-    expect(patternOf('https://api.test/a/b/c/d/e/f/g/h'), '/a/b/c/d/e/f');
+    expect(
+      patternOf('https://api.test/me/profile/me/profile/me/profile/me/profile'),
+      '/me/profile/me/profile/me/profile',
+    );
   });
 
   test('경로가 없으면 /', () {
